@@ -1,5 +1,11 @@
 2009-09-16  Dave Korn  <dave.korn.cygwin@gmail.com>
 
+	* config/i386/cygming.h (TARGET_USE_JCR_SECTION): Enable.
+	* config/i386/cygwin.h (LIBGCJ_SONAME): Define.
+	* config/i386/mingw32.h (LIBGCJ_SONAME): Likewise.
+
+2009-09-16  Dave Korn  <dave.korn.cygwin@gmail.com>
+
 	PR middle-end/41357
 	* varasm.c (default_encode_section_info): Copy TLS model into
 	sym_ref flags regardless of backend support for TLS, for all
