@@ -1,3 +1,7 @@
+2009-09-11  Jakub Jelinek  <jakub@redhat.com>
+
+	* combine.c (propagate_for_debug_subst): Call wrap_constant on top.
+
 2009-09-11  Alexandre Oliva  <aoliva@redhat.com>
 
 	PR debug/41276
