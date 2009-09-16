@@ -1,3 +1,8 @@
+2008-09-15  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* gcc.target/spu/ea/errors1.c: Add tests for incorrect qualifiers
+	for unnamed parameters and structure fields.
+
 2008-08-19  Ulrich Weigand  <uweigand@de.ibm.com>
 
 	* gcc.target/spu/ea/ea.exp: Update copyright years.  Fix whitespace.

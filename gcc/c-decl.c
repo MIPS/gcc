@@ -5566,7 +5566,7 @@ grokdeclarator (const struct c_declarator *declarator,
   /* Now TYPE has the actual type, apart from any qualifiers in
      TYPE_QUALS.  */
 
-  /* Warn about address space used for things other that static memory or
+  /* Warn about address space used for things other than static memory or
      pointers.  */
   address_space = DECODE_QUAL_ADDR_SPACE (type_quals);
   if (address_space)
@@ -5600,11 +5600,23 @@ grokdeclarator (const struct c_declarator *declarator,
 	    }
 	}
       else if (decl_context == PARM && TREE_CODE (type) != ARRAY_TYPE)
-	error ("%qs specified for parameter %qE",
-	       c_addr_space_name (address_space), name);
+	{
+	  if (name)
+	    error ("%qs specified for parameter %qE",
+		   c_addr_space_name (address_space), name);
+	  else
+	    error ("%qs specified for unnamed parameter",
+		   c_addr_space_name (address_space));
+	}
       else if (decl_context == FIELD)
-	error ("%qs specified for structure field %qE",
-	       c_addr_space_name (address_space), name);
+	{
+	  if (name)
+	    error ("%qs specified for structure field %qE",
+		   c_addr_space_name (address_space), name);
+	  else
+	    error ("%qs specified for structure field",
+		   c_addr_space_name (address_space));
+	}
     }
 
   /* Check the type and width of a bit-field.  */

@@ -37,10 +37,13 @@ void func2 (__ea int x)	    /* { dg-error "'__ea' specified for parameter 'x'" }
 struct st {
   __ea int x;		    /* { dg-error "'__ea' specified for structure field 'x'" } */
   int *__ea q;		    /* { dg-error "'__ea' specified for structure field 'q'" } */
+  int __ea b : 7;	    /* { dg-error "'__ea' specified for structure field 'b'" } */
+  int __ea : 1;		    /* { dg-error "'__ea' specified for structure field" } */
 } s;
 
 struct A { int a; };
 
+int func3 (int *__ea);	    /* { dg-error "'__ea' specified for unnamed parameter" } */
 int func3 (int *__ea x)	    /* { dg-error "'__ea' specified for parameter 'x'" } */
 {
   struct A i = (__ea struct A) { 1 };	/* { dg-error "compound literal qualified by address-space qualifier" } */
