@@ -1,5 +1,10 @@
 2009-09-16  Dave Korn  <dave.korn.cygwin@gmail.com>
 
+	g++spec.c (SKIPOPT): Delete definition.
+	(lang_specific_driver): Don't use SKIPOPT or delete -static-libstdc++.
+
+2009-09-16  Dave Korn  <dave.korn.cygwin@gmail.com>
+
 	* ChangeLog.cygwin-improvements: New file for tracking branch
 	changes.
 

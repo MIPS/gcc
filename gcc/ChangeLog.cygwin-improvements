@@ -1,5 +1,10 @@
 2009-09-16  Dave Korn  <dave.korn.cygwin@gmail.com>
 
+	* gcc.c (LINK_COMMAND_SPEC): Accept and ignore -static-libstdc++ in
+	the same way as is done for -static.
+
+2009-09-16  Dave Korn  <dave.korn.cygwin@gmail.com>
+
 	* configure.ac (USE_CYGWIN_LIBSTDCXX_WRAPPERS): Define to reflect
 	status of AC_CHECK_FUNC for Cygwin DLL libstdc++ support wrappers.
 	* configure: Regenerate.

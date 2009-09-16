@@ -30,8 +30,6 @@ along with GCC; see the file COPYING3.  If not see
 #define MATHLIB		(1<<2)
 /* This bit is set if they did `-lc'.  */
 #define WITHLIBC	(1<<3)
-/* Skip this option.  */
-#define SKIPOPT		(1<<4)
 
 #ifndef MATH_LIBRARY
 #define MATH_LIBRARY "-lm"
@@ -211,10 +209,7 @@ lang_specific_driver (int *in_argc, const char *const **in_argv,
 	  else if (strcmp (argv[i], "-static-libgcc") == 0)
 	    shared_libgcc = 0;
 	  else if (strcmp (argv[i], "-static-libstdc++") == 0)
-	    {
 	      library = library >= 0 ? 2 : library;
-	      args[i] |= SKIPOPT;
-	    }
 	  else if (DEFAULT_WORD_SWITCH_TAKES_ARG (&argv[i][1]))
 	    i++;
 	  else
@@ -323,9 +318,6 @@ lang_specific_driver (int *in_argc, const char *const **in_argv,
 	  arglist[j++] = argv[i];
 	  arglist[j] = "-xnone";
 	}
-
-      if ((args[i] & SKIPOPT) != 0)
-	--j;
 
       i++;
       j++;
