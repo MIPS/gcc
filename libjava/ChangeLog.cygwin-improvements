@@ -1,0 +1,11 @@
+2009-09-16  Dave Korn  <dave.korn.cygwin@gmail.com>
+
+	* ChangeLog.cygwin-improvements: New file for tracking branch
+	changes.
+
+Local Variables:
+mode: change-log
+left-margin: 8
+fill-column: 76
+version-control: never
+End:
