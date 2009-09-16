@@ -1766,7 +1766,8 @@ avoid_placement_new_aliasing (tree t, tree placement)
 				NULL_TREE,
 				tree_cons (NULL_TREE,
 					   build_string (6, "memory"),
-					   NULL_TREE));
+					   NULL_TREE),
+				NULL_TREE);
 
       ASM_VOLATILE_P (type_change) = 1;
     }

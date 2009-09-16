@@ -561,10 +561,11 @@ struct gimple_statement_asm GTY(())
   const char *string;
 
   /* [ WORD 12 ]
-       Number of inputs, outputs and clobbers.  */
+       Number of inputs, outputs, clobbers, labels.  */
   unsigned char ni;
   unsigned char no;
-  unsigned short nc;
+  unsigned char nc;
+  unsigned char nl;
 
   /* [ WORD 13 ]
      Operand vector.  NOTE!  This must always be the last field
@@ -802,9 +803,8 @@ gimple gimple_build_label (tree label);
 gimple gimple_build_goto (tree dest);
 gimple gimple_build_nop (void);
 gimple gimple_build_bind (tree, gimple_seq, tree);
-gimple gimple_build_asm (const char *, unsigned, unsigned, unsigned, ...);
 gimple gimple_build_asm_vec (const char *, VEC(tree,gc) *, VEC(tree,gc) *,
-                             VEC(tree,gc) *);
+                             VEC(tree,gc) *, VEC(tree,gc) *);
 gimple gimple_build_catch (tree, gimple_seq);
 gimple gimple_build_eh_filter (tree, gimple_seq);
 gimple gimple_build_try (gimple_seq, gimple_seq, enum gimple_try_flags);
@@ -2618,6 +2618,14 @@ gimple_asm_nclobbers (const_gimple gs)
   return gs->gimple_asm.nc;
 }
 
+/* Return the number of label operands for GIMPLE_ASM GS.  */
+
+static inline unsigned
+gimple_asm_nlabels (const_gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_ASM);
+  return gs->gimple_asm.nl;
+}
 
 /* Return input operand INDEX of GIMPLE_ASM GS.  */
 
@@ -2707,6 +2715,26 @@ gimple_asm_set_clobber_op (gimple gs, unsigned index, tree clobber_op)
   gimple_set_op (gs, index + gs->gimple_asm.ni + gs->gimple_asm.no, clobber_op);
 }
 
+/* Return label operand INDEX of GIMPLE_ASM GS.  */
+
+static inline tree
+gimple_asm_label_op (const_gimple gs, unsigned index)
+{
+  GIMPLE_CHECK (gs, GIMPLE_ASM);
+  gcc_assert (index <= gs->gimple_asm.nl);
+  return gimple_op (gs, index + gs->gimple_asm.ni + gs->gimple_asm.nc);
+}
+
+/* Set LABEL_OP to be label operand INDEX in GIMPLE_ASM GS.  */
+
+static inline void
+gimple_asm_set_label_op (gimple gs, unsigned index, tree label_op)
+{
+  GIMPLE_CHECK (gs, GIMPLE_ASM);
+  gcc_assert (index <= gs->gimple_asm.nl);
+  gcc_assert (TREE_CODE (label_op) == TREE_LIST);
+  gimple_set_op (gs, index + gs->gimple_asm.ni + gs->gimple_asm.nc, label_op);
+}
 
 /* Return the string representing the assembly instruction in
    GIMPLE_ASM GS.  */

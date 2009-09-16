@@ -580,7 +580,7 @@ extern void process_init_element (struct c_expr, bool);
 extern tree build_compound_literal (tree, tree);
 extern tree c_start_case (tree);
 extern void c_finish_case (tree);
-extern tree build_asm_expr (tree, tree, tree, tree, bool);
+extern tree build_asm_expr (tree, tree, tree, tree, tree, bool);
 extern tree build_asm_stmt (tree, tree);
 extern int c_types_compatible_p (tree, tree);
 extern tree c_begin_compound_stmt (bool);

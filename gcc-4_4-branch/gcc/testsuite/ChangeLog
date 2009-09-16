@@ -1,3 +1,9 @@
+2009-09-14  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/asmgoto-1.c, gcc.dg/asmgoto-2.c,
+	gcc.dg/asmgoto-3.c, gcc.c-torture/compile/asmgoto-1.c,
+	gcc.dg/tree-ssa/asmgoto-1.c: New files.
+
 2009-09-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	PR target/41331

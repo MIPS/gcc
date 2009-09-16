@@ -1,3 +1,13 @@
+2009-09-14  Richard Henderson  <rth@redhat.com>
+            Jakub Jelinek  <jakub@redhat.com>
+
+	* cp-tree.h (finish_asm_stmt): Update decl.
+	* parser.c (cp_parser_asm_definition): Parse asm goto.
+	(cp_parser_asm_label_list): New.
+	* pt.c (tsubst_copy_asm_operands): Don't recurse on labels.
+	(tsubst_expr): Handle asm labels.
+	* semantics.c (finish_asm_stmt): Add and use labels parameter.
+
 2009-09-09  Jack Howarth  <howarth@bromo.med.uc.edu>
 
 	PR bootstrap/41180

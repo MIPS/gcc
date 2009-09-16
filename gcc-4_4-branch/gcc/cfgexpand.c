@@ -162,7 +162,7 @@ gimple_to_tree (gimple stmt)
     case GIMPLE_ASM:
       {
 	size_t i, n;
-	tree out, in, cl;
+	tree out, in, cl, lab;
 	const char *s;
 
 	out = NULL_TREE;
@@ -201,9 +201,21 @@ gimple_to_tree (gimple stmt)
 	      }
 	  }
 
+	lab = NULL_TREE;
+	n = gimple_asm_nlabels (stmt);
+	if (n > 0)
+	  {
+	    t = lab = gimple_asm_label_op (stmt, 0);
+	    for (i = 1; i < n; i++)
+	      {
+		TREE_CHAIN (t) = gimple_asm_label_op (stmt, i);
+		t = gimple_asm_label_op (stmt, i);
+	      }
+	  }
+
 	s = gimple_asm_string (stmt);
-	t = build4 (ASM_EXPR, void_type_node, build_string (strlen (s), s),
-	            out, in, cl);
+	t = build5 (ASM_EXPR, void_type_node, build_string (strlen (s), s),
+	            out, in, cl, lab);
         ASM_VOLATILE_P (t) = gimple_asm_volatile_p (stmt);
         ASM_INPUT_P (t) = gimple_asm_input_p (stmt);
       }

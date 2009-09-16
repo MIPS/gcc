@@ -108,8 +108,8 @@ static int n_occurrences (int, const char *);
 static bool tree_conflicts_with_clobbers_p (tree, HARD_REG_SET *);
 static void expand_nl_goto_receiver (void);
 static bool check_operand_nalternatives (tree, tree);
-static bool check_unique_operand_names (tree, tree);
-static char *resolve_operand_name_1 (char *, tree, tree);
+static bool check_unique_operand_names (tree, tree, tree);
+static char *resolve_operand_name_1 (char *, tree, tree, tree);
 static void expand_null_return_1 (void);
 static void expand_value_return (rtx);
 static int estimate_case_costs (case_node_ptr);
@@ -631,12 +631,13 @@ tree_conflicts_with_clobbers_p (tree t, HARD_REG_SET *clobbered_regs)
 
 static void
 expand_asm_operands (tree string, tree outputs, tree inputs,
-		     tree clobbers, int vol, location_t locus)
+		     tree clobbers, tree labels, int vol, location_t locus)
 {
-  rtvec argvec, constraintvec;
+  rtvec argvec, constraintvec, labelvec;
   rtx body;
   int ninputs = list_length (inputs);
   int noutputs = list_length (outputs);
+  int nlabels = list_length (labels);
   int ninout;
   int nclobbers;
   HARD_REG_SET clobbered_regs;
@@ -659,7 +660,7 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
   if (! check_operand_nalternatives (outputs, inputs))
     return;
 
-  string = resolve_asm_operand_names (string, outputs, inputs);
+  string = resolve_asm_operand_names (string, outputs, inputs, labels);
 
   /* Collect constraints.  */
   i = 0;
@@ -843,12 +844,13 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
 
   argvec = rtvec_alloc (ninputs);
   constraintvec = rtvec_alloc (ninputs);
+  labelvec = rtvec_alloc (nlabels);
 
   body = gen_rtx_ASM_OPERANDS ((noutputs == 0 ? VOIDmode
 				: GET_MODE (output_rtx[0])),
 			       ggc_strdup (TREE_STRING_POINTER (string)),
 			       empty_string, 0, argvec, constraintvec,
-			       locus);
+			       labelvec, locus);
 
   MEM_VOLATILE_P (body) = vol;
 
@@ -957,6 +959,11 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
 	= gen_rtx_ASM_INPUT (inout_mode[i], ggc_strdup (buffer));
     }
 
+  /* Copy labels to the vector.  */
+  for (i = 0, tail = labels; i < nlabels; ++i, tail = TREE_CHAIN (tail))
+    ASM_OPERANDS_LABEL (body, i)
+      = gen_rtx_LABEL_REF (Pmode, label_rtx (TREE_VALUE (tail)));
+
   generating_concat_p = old_generating_concat_p;
 
   /* Now, for each output, construct an rtx
@@ -964,18 +971,21 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
 			       ARGVEC CONSTRAINTS OPNAMES))
      If there is more than one, put them inside a PARALLEL.  */
 
-  if (noutputs == 1 && nclobbers == 0)
+  if (nlabels > 0 && nclobbers == 0)
     {
-      ASM_OPERANDS_OUTPUT_CONSTRAINT (body) = ggc_strdup (constraints[0]);
-      emit_insn (gen_rtx_SET (VOIDmode, output_rtx[0], body));
+      gcc_assert (noutputs == 0);
+      emit_jump_insn (body);
     }
-
   else if (noutputs == 0 && nclobbers == 0)
     {
       /* No output operands: put in a raw ASM_OPERANDS rtx.  */
       emit_insn (body);
     }
-
+  else if (noutputs == 1 && nclobbers == 0)
+    {
+      ASM_OPERANDS_OUTPUT_CONSTRAINT (body) = ggc_strdup (constraints[0]);
+      emit_insn (gen_rtx_SET (VOIDmode, output_rtx[0], body));
+    }
   else
     {
       rtx obody = body;
@@ -996,7 +1006,7 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
 			   (GET_MODE (output_rtx[i]),
 			    ggc_strdup (TREE_STRING_POINTER (string)),
 			    ggc_strdup (constraints[i]),
-			    i, argvec, constraintvec, locus));
+			    i, argvec, constraintvec, labelvec, locus));
 
 	  MEM_VOLATILE_P (SET_SRC (XVECEXP (body, 0, i))) = vol;
 	}
@@ -1060,7 +1070,10 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
 	    = gen_rtx_CLOBBER (VOIDmode, clobbered_reg);
 	}
 
-      emit_insn (body);
+      if (nlabels > 0)
+	emit_jump_insn (body);
+      else
+	emit_insn (body);
     }
 
   /* For any outputs that needed reloading into registers, spill them
@@ -1098,8 +1111,8 @@ expand_asm_expr (tree exp)
   /* Generate the ASM_OPERANDS insn; store into the TREE_VALUEs of
      OUTPUTS some trees for where the values were actually stored.  */
   expand_asm_operands (ASM_STRING (exp), outputs, ASM_INPUTS (exp),
-		       ASM_CLOBBERS (exp), ASM_VOLATILE_P (exp),
-		       input_location);
+		       ASM_CLOBBERS (exp), ASM_LABELS (exp),
+		       ASM_VOLATILE_P (exp), input_location);
 
   /* Copy all the intermediate outputs into the specified outputs.  */
   for (i = 0, tail = outputs; tail; tail = TREE_CHAIN (tail), i++)
@@ -1164,7 +1177,7 @@ check_operand_nalternatives (tree outputs, tree inputs)
    so all we need are pointer comparisons.  */
 
 static bool
-check_unique_operand_names (tree outputs, tree inputs)
+check_unique_operand_names (tree outputs, tree inputs, tree labels)
 {
   tree i, j;
 
@@ -1193,6 +1206,20 @@ check_unique_operand_names (tree outputs, tree inputs)
 	  goto failure;
     }
 
+  for (i = labels; i ; i = TREE_CHAIN (i))
+    {
+      tree i_name = TREE_PURPOSE (i);
+      if (! i_name)
+	continue;
+
+      for (j = TREE_CHAIN (i); j ; j = TREE_CHAIN (j))
+	if (simple_cst_equal (i_name, TREE_PURPOSE (j)))
+	  goto failure;
+      for (j = inputs; j ; j = TREE_CHAIN (j))
+	if (simple_cst_equal (i_name, TREE_PURPOSE (TREE_PURPOSE (j))))
+	  goto failure;
+    }
+
   return true;
 
  failure:
@@ -1206,14 +1233,14 @@ check_unique_operand_names (tree outputs, tree inputs)
    STRING and in the constraints to those numbers.  */
 
 tree
-resolve_asm_operand_names (tree string, tree outputs, tree inputs)
+resolve_asm_operand_names (tree string, tree outputs, tree inputs, tree labels)
 {
   char *buffer;
   char *p;
   const char *c;
   tree t;
 
-  check_unique_operand_names (outputs, inputs);
+  check_unique_operand_names (outputs, inputs, labels);
 
   /* Substitute [<name>] in input constraint strings.  There should be no
      named operands in output constraints.  */
@@ -1224,7 +1251,7 @@ resolve_asm_operand_names (tree string, tree outputs, tree inputs)
 	{
 	  p = buffer = xstrdup (c);
 	  while ((p = strchr (p, '[')) != NULL)
-	    p = resolve_operand_name_1 (p, outputs, inputs);
+	    p = resolve_operand_name_1 (p, outputs, inputs, NULL);
 	  TREE_VALUE (TREE_PURPOSE (t))
 	    = build_string (strlen (buffer), buffer);
 	  free (buffer);
@@ -1267,7 +1294,7 @@ resolve_asm_operand_names (tree string, tree outputs, tree inputs)
 	      continue;
 	    }
 
-	  p = resolve_operand_name_1 (p, outputs, inputs);
+	  p = resolve_operand_name_1 (p, outputs, inputs, labels);
 	}
 
       string = build_string (strlen (buffer), buffer);
@@ -1283,53 +1310,50 @@ resolve_asm_operand_names (tree string, tree outputs, tree inputs)
    balance of the string after substitution.  */
 
 static char *
-resolve_operand_name_1 (char *p, tree outputs, tree inputs)
+resolve_operand_name_1 (char *p, tree outputs, tree inputs, tree labels)
 {
   char *q;
   int op;
   tree t;
-  size_t len;
 
   /* Collect the operand name.  */
-  q = strchr (p, ']');
+  q = strchr (++p, ']');
   if (!q)
     {
       error ("missing close brace for named operand");
       return strchr (p, '\0');
     }
-  len = q - p - 1;
+  *q = '\0';
 
   /* Resolve the name to a number.  */
   for (op = 0, t = outputs; t ; t = TREE_CHAIN (t), op++)
     {
       tree name = TREE_PURPOSE (TREE_PURPOSE (t));
-      if (name)
-	{
-	  const char *c = TREE_STRING_POINTER (name);
-	  if (strncmp (c, p + 1, len) == 0 && c[len] == '\0')
-	    goto found;
-	}
+      if (name && strcmp (TREE_STRING_POINTER (name), p) == 0)
+	goto found;
     }
   for (t = inputs; t ; t = TREE_CHAIN (t), op++)
     {
       tree name = TREE_PURPOSE (TREE_PURPOSE (t));
-      if (name)
-	{
-	  const char *c = TREE_STRING_POINTER (name);
-	  if (strncmp (c, p + 1, len) == 0 && c[len] == '\0')
-	    goto found;
-	}
+      if (name && strcmp (TREE_STRING_POINTER (name), p) == 0)
+	goto found;
+    }
+  for (t = labels; t ; t = TREE_CHAIN (t), op++)
+    {
+      tree name = TREE_PURPOSE (t);
+      if (name && strcmp (TREE_STRING_POINTER (name), p) == 0)
+	goto found;
     }
 
   *q = '\0';
-  error ("undefined named operand %qs", p + 1);
+  error ("undefined named operand %qs", p);
   op = 0;
- found:
 
+ found:
   /* Replace the name with the number.  Unfortunately, not all libraries
      get the return value of sprintf correct, so search for the end of the
      generated string by hand.  */
-  sprintf (p, "%d", op);
+  sprintf (--p, "%d", op);
   p = strchr (p, '\0');
 
   /* Verify the no extra buffer space assumption.  */
