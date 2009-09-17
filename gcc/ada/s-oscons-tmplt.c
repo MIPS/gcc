@@ -83,13 +83,22 @@ pragma Style_Checks ("M32766");
 #define _XOPEN_SOURCE 500
 #endif
 
+#if defined (__CYGWIN__)
+/* To use the Winsock interface instead of the POSIX/BSD sockets interface,
+   Cygwin requires this macro to be defined before including any of the
+   system header files.  It would be cleaner to pass this in the xxxCFLAGS
+   defined in gcc/ada/gcc-interface/Makefile.in, but none of those settings
+   are taken into account when building xoscons as a subtarget of libada.  */
+#define __USE_W32_SOCKETS
+#endif
+
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
 #include <fcntl.h>
 
 #if ! (defined (__vxworks) || defined (__VMS) || defined (__MINGW32__) || \
-       defined (__nucleus__))
+       defined (__nucleus__)) || defined (__CYGWIN__)
 # define HAVE_TERMIOS
 #endif
 
@@ -325,7 +334,7 @@ CND(ENOENT, "File not found")
 #endif
 CND(ENOMEM, "Out of memory")
 
-#ifdef __MINGW32__
+#if defined (__MINGW32__) || defined (__CYGWIN__)
 /*
 
    --  The following constants are defined from <winsock2.h> (WSA*)
@@ -1182,7 +1191,7 @@ CND(SIZEOF_fd_set, "fd_set");
    --  Fields of struct hostent
 */
 
-#ifdef __MINGW32__
+#if defined (__MINGW32__) || defined (__CYGWIN__)
 # define h_addrtype_t "short"
 # define h_length_t   "short"
 #else
@@ -1259,7 +1268,7 @@ CND(ERROR, "VxWorks generic error")
 
 #endif
 
-#if defined (__MINGW32__) || defined (DUMMY)
+#if defined (__MINGW32__) || defined (__CYGWIN__) || defined (DUMMY)
 /*
 
    ------------------------------

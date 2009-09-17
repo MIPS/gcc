@@ -69,11 +69,12 @@
 #define SHUT_WR		1
 #define SHUT_RDWR	2
 
-#elif defined (WINNT)
+#elif defined (WINNT) || defined (__CYGWIN__)
+
 #define FD_SETSIZE 1024
 #include <windows.h>
 
-#ifdef __MINGW32__
+#if defined (__MINGW32__) || defined (__CYGWIN__)
 #include <winsock2.h>
 #include <ws2tcpip.h>
 
@@ -185,7 +186,7 @@
  * to run on RTEMS (not IN_RTS), we must distinguish between IN_RTS
  * and using this file to compile gen-soccon.
  */
-#if !(defined (VMS) || defined (__MINGW32__) || \
+#if !(defined (VMS) || defined (__MINGW32__) || defined (__CYGWIN__) || \
       (defined(__rtems__) && defined(IN_RTS)))
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -212,7 +213,7 @@
  * VxWorks and VMS).
  */
 
-#if defined (_AIX) || defined (__FreeBSD__) || defined (__hpux__) || defined (__osf__) || defined (_WIN32) || defined (__APPLE__)
+#if defined (_AIX) || defined (__FreeBSD__) || defined (__hpux__) || defined (__osf__) || defined (_WIN32) || defined (__APPLE__) || defined (__CYGWIN__)
 # define HAVE_THREAD_SAFE_GETxxxBYyyy 1
 #elif defined (sgi) || defined (linux) || defined (__GLIBC__) || (defined (sun) && defined (__SVR4) && !defined (__vxworks)) || defined(__rtems__)
 # define HAVE_GETxxxBYyyy_R 1

@@ -251,6 +251,33 @@ __gnat_initialize (void *eh ATTRIBUTE_UNUSED)
 }
 
 /******************************************/
+/* __gnat_initialize (Cygwin version) */
+/******************************************/
+
+#elif defined (__CYGWIN__)
+
+void
+__gnat_initialize (void *eh ATTRIBUTE_UNUSED)
+{
+  /* Initialize floating-point coprocessor. This call is needed because
+     the MS libraries default to 64-bit precision instead of 80-bit
+     precision, and we require the full precision for proper operation,
+     given that we have set Max_Digits etc with this in mind */
+  __gnat_init_float ();
+
+  /* Note that we do not activate this for the compiler itself to avoid a
+     bootstrap path problem.  Older version of gnatbind will generate a call
+     to __gnat_initialize() without argument. Therefore we cannot use eh in
+     this case.  It will be possible to remove the following #ifdef at some
+     point.  */
+#ifdef IN_RTS
+  /* Install the Structured Exception handler.  */
+  if (eh)
+    __gnat_install_SEH_handler (eh);
+#endif
+}
+
+/******************************************/
 /* __gnat_initialize (init_float version) */
 /******************************************/
 

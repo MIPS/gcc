@@ -1,3 +1,36 @@
+2009-09-17  Dave Korn  <dave.korn.cygwin@gmail.com>
+
+	* sysdep.c (__gnat_is_windows_xp): Move out from MinGW #ifdef
+	block inside WINNT block to where it can be shared with Cygwin,
+	and do so.
+	(_msize): Implement for Cygwin.
+	(getc_immediate_common): Don't test old deprecated __CYGWIN32__
+	predefined macro any more, test __CYGWIN__.
+	* s-oscons-tmplt.c (__USE_W32_SOCKETS): Define if __CYGWIN__.
+	(HAVE_TERMIOS): Likewise.
+	(__MINGW32__): Also test __CYGWIN__ when testing this to define
+	OS constants.
+	* mlib-tgt-specific-cygwin.adb: Fork from -mingw version.
+	(DLL_Prefix): Change to match platform convention.	
+	* system-cygwin.ads: Fork from -mingw version.
+	(ZCX_By_Default): Set true.
+	* initialize.c (__gnat_initialize): Add Cygwin version.
+	* gsocket.h (WINNT, __MINGW32__): Also test __CYGWIN__ when
+	testing these to define system constants.
+	(HAVE_THREAD_SAFE_GETxxxBYyyy): Define on Cygwin also.
+
+	* gcc-interface/Makefile.in (LIBGNAT_SHARED_LIB_PREFIX): New variable.
+	(ADA_RTL_SO_OBJ_DIR): Likewise.
+	(LIBGNAT_TARGET_PAIRS): Check target triple for just 'cygwin', not
+	deprecated 'cygwin32', when setting overrides for windows platform.
+	Define appropriate values for LIBGNAT_SHARED_LIB_PREFIX and
+	ADA_RTL_SO_OBJ_DIR.  Select new -cygwin variants of -mingw overrides
+	where present.  Set EH_MECHANISM, W32_IMPORT_LIB and GNATLIBCFLAGS
+	for Cygwin.
+	(install-gnatlib): Use LIBGNAT_SHARED_LIB_PREFIX and
+	ADA_RTL_SO_OBJ_DIR.
+	(gnatlib-shared-win32): Likewise, and also W32_IMPORT_LIB.
+
 2009-09-16  Dave Korn  <dave.korn.cygwin@gmail.com>
 
 	* ChangeLog.cygwin-improvements: New file for tracking branch

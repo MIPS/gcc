@@ -67,6 +67,49 @@ extern struct tm *localtime_r(const time_t *, struct tm *);
 
 #include "adaint.h"
 
+#if defined (__MINGW32__) || defined (__CYGWIN__)
+
+#include <windows.h>
+
+#if defined (__CYGWIN__) || !defined (RTX)
+
+int __gnat_is_windows_xp (void);
+
+int
+__gnat_is_windows_xp (void)
+{
+  static int is_win_xp = 0, is_win_xp_checked = 0;
+
+  if (!is_win_xp_checked)
+    {
+      OSVERSIONINFO version;
+
+      is_win_xp_checked = 1;
+
+      memset (&version, 0, sizeof (version));
+      version.dwOSVersionInfoSize = sizeof (version);
+
+      is_win_xp = GetVersionEx (&version)
+        && version.dwPlatformId == VER_PLATFORM_WIN32_NT
+        && (version.dwMajorVersion > 5
+            || (version.dwMajorVersion == 5 && version.dwMinorVersion >= 1));
+    }
+  return is_win_xp;
+}
+
+#endif /* defined (__CYGWIN__) || !defined (RTX) */
+
+#if defined (__CYGWIN__)
+
+size_t _msize(void *memblock)
+{
+  return (size_t) malloc_usable_size (memblock);
+}
+
+#endif /* defined (__CYGWIN__) */
+
+#endif /* defined (__MINGW32__) || defined (__CYGWIN__) */
+
 /*
    mode_read_text
    open text file for reading
@@ -184,7 +227,6 @@ __gnat_set_text_mode (int handle)
 }
 
 #ifdef __MINGW32__
-#include <windows.h>
 
 /* Return the name of the tty.   Under windows there is no name for
    the tty, so this function, if connected to a tty, returns the generic name
@@ -233,15 +275,13 @@ winflush_nt (void)
   /* Does nothing as there is no problem under NT.  */
 }
 
-#else
+#else /* !RTX */
 
 static void winflush_init (void);
 
 static void winflush_95 (void);
 
 static void winflush_nt (void);
-
-int __gnat_is_windows_xp (void);
 
 /* winflusfunction is set first to the winflushinit function which will check
    the OS version 95/98 or NT/2000 */
@@ -277,31 +317,9 @@ winflush_nt (void)
   /* Does nothing as there is no problem under NT.  */
 }
 
-int
-__gnat_is_windows_xp (void)
-{
-  static int is_win_xp=0, is_win_xp_checked=0;
+#endif /* RTX */
 
-  if (!is_win_xp_checked)
-    {
-      OSVERSIONINFO version;
-
-      is_win_xp_checked = 1;
-
-      memset (&version, 0, sizeof (version));
-      version.dwOSVersionInfoSize = sizeof (version);
-
-      is_win_xp = GetVersionEx (&version)
-        && version.dwPlatformId == VER_PLATFORM_WIN32_NT
-        && (version.dwMajorVersion > 5
-            || (version.dwMajorVersion == 5 && version.dwMinorVersion >= 1));
-    }
-  return is_win_xp;
-}
-
-#endif
-
-#endif
+#endif /* __MINGW32__ */
 
 #else
 
@@ -403,7 +421,7 @@ getc_immediate_common (FILE *stream,
 {
 #if defined (linux) || defined (sun) || defined (sgi) || defined (__EMX__) \
     || (defined (__osf__) && ! defined (__alpha_vxworks)) \
-    || defined (__CYGWIN32__) || defined (__MACHTEN__) || defined (__hpux__) \
+    || defined (__CYGWIN__) || defined (__MACHTEN__) || defined (__hpux__) \
     || defined (_AIX) || (defined (__svr4__) && defined (i386)) \
     || defined (__Lynx__) || defined (__FreeBSD__) || defined (__OpenBSD__) \
     || defined (__GLIBC__) || defined (__APPLE__)

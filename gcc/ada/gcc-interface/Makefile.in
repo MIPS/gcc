@@ -187,6 +187,11 @@ TOOLSCASE =
 MULTISUBDIR =
 RTSDIR = rts$(subst /,_,$(MULTISUBDIR))
 
+# Set shared lib prefix (lib on all systems but cygwin, which uses cyg)
+LIBGNAT_SHARED_LIB_PREFIX = lib
+# And on Windows systems, we don't install the DLL in the standard place.
+ADA_RTL_SO_OBJ_DIR = $(ADA_RTL_OBJ_DIR)
+
 # End of variables for you to override.
 
 all: all.indirect
@@ -1562,7 +1567,18 @@ ifeq ($(strip $(filter-out avr none powerpc% eabispe leon% erc32% unknown elf,$(
   indepsw.adb<indepsw-gnu.adb
 endif
 
-ifeq ($(strip $(filter-out cygwin32% mingw32% pe,$(osys))),)
+ifeq ($(strip $(filter-out cygwin% mingw32% pe,$(osys))),)
+
+  # Set target pair suffix for mingw or cygwin
+  W32_TARG=mingw
+  ifneq ($(strip $(filter cygwin%,$(osys))),)
+    W32_TARG=cygwin
+    LIBGNAT_SHARED_LIB_PREFIX=cyg
+    EH_MECHANISM=-gcc
+    W32_IMPORT_LIB=-Wl,--out-implib,libTARG$(soext)$(arext)
+    GNATLIBCFLAGS+=-D__USE_W32_SOCKETS
+  endif
+
   LIBGNAT_TARGET_PAIRS = \
   a-dirval.adb<a-dirval-mingw.adb \
   a-excpol.adb<a-excpol-abort.adb \
@@ -1602,6 +1618,9 @@ ifeq ($(strip $(filter-out cygwin32% mingw32% pe,$(osys))),)
     endif
 
   else
+    # For Windows systems, we want DLLs installed to $bindir.
+    ADA_RTL_SO_OBJ_DIR = $(bindir)
+
     LIBGNAT_TARGET_PAIRS += \
     a-exetim.adb<a-exetim-mingw.adb \
     a-exetim.ads<a-exetim-mingw.ads \
@@ -1618,7 +1637,7 @@ ifeq ($(strip $(filter-out cygwin32% mingw32% pe,$(osys))),)
         system.ads<system-mingw-x86_64.ads
     else
       LIBGNAT_TARGET_PAIRS += \
-        system.ads<system-mingw.ads
+        system.ads<system-$(W32_TARG).ads
     endif
 
     EXTRA_GNATRTL_NONTASKING_OBJS = \
@@ -1633,7 +1652,7 @@ ifeq ($(strip $(filter-out cygwin32% mingw32% pe,$(osys))),)
   endif
 
   TOOLS_TARGET_PAIRS= \
-  mlib-tgt-specific.adb<mlib-tgt-specific-mingw.adb \
+  mlib-tgt-specific.adb<mlib-tgt-specific-$(W32_TARG).adb \
   indepsw.adb<indepsw-mingw.adb
 
   GMEM_LIB = gmemlib
@@ -2287,6 +2306,9 @@ install-gnatlib: ../stamp-gnatlib-$(RTSDIR)
 	$(RMDIR) $(DESTDIR)$(ADA_INCLUDE_DIR)
 	-$(MKDIR) $(DESTDIR)$(ADA_RTL_OBJ_DIR)
 	-$(MKDIR) $(DESTDIR)$(ADA_INCLUDE_DIR)
+#	This is an alias either for ADA_RTL_OBJ_DIR, or for bindir on
+#	Windows platforms; either way we don't want to delete it!
+	-$(MKDIR) $(DESTDIR)$(ADA_RTL_SO_OBJ_DIR)
 	for file in $(RTSDIR)/*.ali; do \
 	    $(INSTALL_DATA_DATE) $$file $(DESTDIR)$(ADA_RTL_OBJ_DIR); \
 	done
@@ -2305,17 +2327,17 @@ install-gnatlib: ../stamp-gnatlib-$(RTSDIR)
 #     Also install the .dSYM directories if they exist (these directories
 #     contain the debug information for the shared libraries on darwin)
 	for file in gnat gnarl; do \
-	   if [ -f $(RTSDIR)/lib$${file}$(hyphen)$(LIBRARY_VERSION)$(soext) ]; then \
-	      $(INSTALL) $(RTSDIR)/lib$${file}$(hyphen)$(LIBRARY_VERSION)$(soext) \
-			 $(DESTDIR)$(ADA_RTL_OBJ_DIR); \
+	   if [ -f $(RTSDIR)/$(LIBGNAT_SHARED_LIB_PREFIX)$${file}$(hyphen)$(LIBRARY_VERSION)$(soext) ]; then \
+	      $(INSTALL) $(RTSDIR)/$(LIBGNAT_SHARED_LIB_PREFIX)$${file}$(hyphen)$(LIBRARY_VERSION)$(soext) \
+			 $(DESTDIR)$(ADA_RTL_SO_OBJ_DIR); \
 	   fi; \
-	   if [ -f $(RTSDIR)/lib$${file}$(soext) ]; then \
-	      $(LN_S) lib$${file}$(hyphen)$(LIBRARY_VERSION)$(soext) \
-	      $(DESTDIR)$(ADA_RTL_OBJ_DIR)/lib$${file}$(soext); \
+	   if [ -f $(RTSDIR)/$(LIBGNAT_SHARED_LIB_PREFIX)$${file}$(soext) ]; then \
+	      $(LN_S) $(LIBGNAT_SHARED_LIB_PREFIX)$${file}$(hyphen)$(LIBRARY_VERSION)$(soext) \
+	      $(DESTDIR)$(ADA_RTL_SO_OBJ_DIR)/$(LIBGNAT_SHARED_LIB_PREFIX)$${file}$(soext); \
 	   fi; \
-	   if [ -d $(RTSDIR)/lib$${file}$(hyphen)$(LIBRARY_VERSION)$(soext).dSYM ]; then \
-	      $(CP) -r $(RTSDIR)/lib$${file}$(hyphen)$(LIBRARY_VERSION)$(soext).dSYM \
-	        $(DESTDIR)$(ADA_RTL_OBJ_DIR); \
+	   if [ -d $(RTSDIR)/$(LIBGNAT_SHARED_LIB_PREFIX)$${file}$(hyphen)$(LIBRARY_VERSION)$(soext).dSYM ]; then \
+	      $(CP) -r $(RTSDIR)/$(LIBGNAT_SHARED_LIB_PREFIX)$${file}$(hyphen)$(LIBRARY_VERSION)$(soext).dSYM \
+	        $(DESTDIR)$(ADA_RTL_SO_OBJ_DIR); \
 	   fi; \
 	done
 # This copy must be done preserving the date on the original file.
@@ -2488,16 +2510,18 @@ gnatlib-shared-win32:
 	     MULTISUBDIR="$(MULTISUBDIR)" \
 	     THREAD_KIND="$(THREAD_KIND)" \
              gnatlib
-	$(RM) $(RTSDIR)/libgna*$(soext)
+	$(RM) $(RTSDIR)/$(LIBGNAT_SHARED_LIB_PREFIX)gna*$(soext)
 	cd $(RTSDIR); ../../xgcc -B../../ -shared $(TARGET_LIBGCC2_CFLAGS) \
-		-o libgnat$(hyphen)$(LIBRARY_VERSION)$(soext) \
+		-o $(LIBGNAT_SHARED_LIB_PREFIX)gnat$(hyphen)$(LIBRARY_VERSION)$(soext) \
 		$(GNATRTL_NONTASKING_OBJS) $(LIBGNAT_OBJS) \
-		$(SO_OPTS)libgnat$(hyphen)$(LIBRARY_VERSION)$(soext) $(MISCLIB)
+		$(SO_OPTS)$(LIBGNAT_SHARED_LIB_PREFIX)gnat$(hyphen)$(LIBRARY_VERSION)$(soext) \
+		$(MISCLIB) $(subst TARG,gnat,$(W32_IMPORT_LIB))
 	cd $(RTSDIR); ../../xgcc -B../../ -shared $(TARGET_LIBGCC2_CFLAGS) \
-		-o libgnarl$(hyphen)$(LIBRARY_VERSION)$(soext) \
+		-o $(LIBGNAT_SHARED_LIB_PREFIX)gnarl$(hyphen)$(LIBRARY_VERSION)$(soext) \
 		$(GNATRTL_TASKING_OBJS) \
-		$(SO_OPTS)libgnarl$(hyphen)$(LIBRARY_VERSION)$(soext) \
-		$(THREADSLIB) -Wl,libgnat$(hyphen)$(LIBRARY_VERSION)$(soext)
+		$(SO_OPTS)$(LIBGNAT_SHARED_LIB_PREFIX)gnarl$(hyphen)$(LIBRARY_VERSION)$(soext) \
+		$(THREADSLIB) $(subst TARG,gnarl,$(W32_IMPORT_LIB)) \
+		-Wl,$(LIBGNAT_SHARED_LIB_PREFIX)gnat$(hyphen)$(LIBRARY_VERSION)$(soext)
 
 gnatlib-shared-darwin:
 	$(MAKE) $(FLAGS_TO_PASS) \
