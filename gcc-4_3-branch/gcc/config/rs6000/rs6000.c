@@ -924,6 +924,10 @@ static tree rs6000_builtin_mask_for_load (void);
 static tree rs6000_builtin_mul_widen_even (tree);
 static tree rs6000_builtin_mul_widen_odd (tree);
 static tree rs6000_builtin_conversion (enum tree_code, tree);
+static bool rs6000_builtin_support_vector_misalignment (enum
+                                                        machine_mode,
+                                                        const_tree,
+                                                        int, bool);
 
 static void def_builtin (int, const char *, tree, int);
 static bool rs6000_vector_alignment_reachable (const_tree, bool);
@@ -1278,6 +1282,10 @@ static const char alt_reg_names[][8] =
 
 #undef TARGET_VECTOR_ALIGNMENT_REACHABLE
 #define TARGET_VECTOR_ALIGNMENT_REACHABLE rs6000_vector_alignment_reachable
+
+#undef TARGET_SUPPORT_VECTOR_MISALIGNMENT
+#define TARGET_SUPPORT_VECTOR_MISALIGNMENT            \
+   rs6000_builtin_support_vector_misalignment
 
 #undef TARGET_INIT_BUILTINS
 #define TARGET_INIT_BUILTINS rs6000_init_builtins
@@ -2862,6 +2870,37 @@ rs6000_vector_alignment_reachable (const_tree type ATTRIBUTE_UNUSED, bool is_pac
       return true;
     }
 }
+
+/* Return true if the vector misalignment factor is supported by the
+   target.  */
+bool
+rs6000_builtin_support_vector_misalignment (enum machine_mode mode,
+                                            const_tree type,
+                                            int misalignment,
+                                            bool is_packed)
+{
+  if (TARGET_VSX)
+    {
+      /* Return if movmisalign pattern is not supported for this mode.  */
+      if (optab_handler (movmisalign_optab, mode)->insn_code ==
+          CODE_FOR_nothing)
+        return false;
+
+      if (misalignment == -1)
+      {
+        /* misalignment factor is unknown at compile time but we know
+           it's word aligned.  */
+        if (rs6000_vector_alignment_reachable (type, is_packed))
+          return true;
+        return false;
+      }
+      /* VSX supports word-aligned vector.  */
+      if (misalignment % 4 == 0)
+      return true;
+    }
+  return false;
+}
+
 
 /* Handle generic options of the form -mfoo=yes/no.
    NAME is the option name.

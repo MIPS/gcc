@@ -438,6 +438,11 @@ struct gcc_target
     /* Return true if vector alignment is reachable (by peeling N
        iterations) for the given type.  */
     bool (* vector_alignment_reachable) (const_tree, bool);
+    /* Return true if the target supports misaligned store/load of a
+       specific factor denoted in the third parameter.  The last parameter
+       is true if the access is defined in a packed struct.  */
+    bool (* builtin_support_vector_misalignment) (enum machine_mode,
+                                                  const_tree, int, bool);
   } vectorize;
 
   /* The initial value of target_flags.  */
