@@ -2826,7 +2826,8 @@ init_intent_out_dt (gfc_symbol * proc_sym, tree body)
   gfc_init_block (&fnblock);
   for (f = proc_sym->formal; f; f = f->next)
     if (f->sym && f->sym->attr.intent == INTENT_OUT
-	  && f->sym->ts.type == BT_DERIVED)
+	&& !f->sym->attr.pointer
+	&& f->sym->ts.type == BT_DERIVED)
       {
 	if (f->sym->ts.derived->attr.alloc_comp)
 	  {
@@ -3253,7 +3254,13 @@ gfc_trans_use_stmts (gfc_namespace * ns)
 	      st = gfc_find_symtree (ns->sym_root,
 				     rent->local_name[0]
 				     ? rent->local_name : rent->use_name);
-	      gcc_assert (st && st->n.sym->attr.use_assoc);
+	      gcc_assert (st);
+
+	      /* Fixing-up doubly contained symbols, sometimes results in
+		 ambiguity, which is caught here.  */
+	      if (!st->n.sym->attr.use_assoc)
+		continue;
+
 	      if (st->n.sym->backend_decl
 		  && DECL_P (st->n.sym->backend_decl)
 		  && st->n.sym->module
@@ -3573,6 +3580,7 @@ generate_local_decl (gfc_symbol * sym)
 	 automatic lengths.  */
       if (sym->attr.dummy && !sym->attr.referenced
 	    && sym->ts.type == BT_DERIVED
+	    && !sym->attr.pointer
 	    && sym->ts.derived->attr.alloc_comp
 	    && sym->attr.intent == INTENT_OUT)
 	{
