@@ -4918,19 +4918,9 @@ grokdeclarator (const struct c_declarator *declarator,
 	pedwarn (loc, OPT_pedantic, "duplicate %<volatile%>");
     }
 
-  if (as1 > 0 && as2 > 0 && as1 != as2)
-    {
-      if (!as1)
-	error ("conflicting named address spaces (generic vs %s)",
-	       c_addr_space_name (as1));
-      else if (!as2)
-	error ("conflicting named address spaces (%s vs generic),",
-	       c_addr_space_name (as2));
-      else
-	error ("conflicting named address spaces (%s vs %s)",
-	       c_addr_space_name (as1),
-	       c_addr_space_name (as2));
-    }
+  if (as1 && as2 && as1 != as2)
+    error_at (loc, "conflicting named address spaces (%s vs %s)",
+	      c_addr_space_name (as1), c_addr_space_name (as2));
 
   if (!flag_gen_aux_info && (TYPE_QUALS (element_type)))
     type = TYPE_MAIN_VARIANT (type);

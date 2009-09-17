@@ -1,3 +1,7 @@
+2009-09-17  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* c-decl.c (grokdeclarator): Remove dead code.
+
 2009-09-15  Ulrich Weigand  <uweigand@de.ibm.com>
 
 	* c-decl.c (grokdeclarator): Fix typo.  Correct error message for

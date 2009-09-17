@@ -18,6 +18,8 @@
 
 /* { dg-do compile } */
 
+typedef __ea int eaint;
+
 void func ()
 {
   register __ea int local1; /* { dg-error "'__ea' combined with 'register' qualifier for 'local1'" } */
@@ -29,13 +31,20 @@ void func ()
   register __ea int a1[2];  /* { dg-error "'__ea' combined with 'register' qualifier for 'a1'" } */
   auto __ea char a2[1];     /* { dg-error "'__ea' combined with 'auto' qualifier for 'a2'" } */
   __ea char a3[5];          /* { dg-error "'__ea' specified for auto variable 'a3'" } */
+  register eaint td1;       /* { dg-error "'__ea' combined with 'register' qualifier for 'td1'" } */
+  auto eaint td2;           /* { dg-error "'__ea' combined with 'auto' qualifier for 'td2'" } */
+  eaint td3;	            /* { dg-error "'__ea' specified for auto variable 'td3'" } */
 }
 
 void func2 (__ea int x)	    /* { dg-error "'__ea' specified for parameter 'x'" } */
 { }
 
+void func2td (eaint x)	    /* { dg-error "'__ea' specified for parameter 'x'" } */
+{ }
+
 struct st {
   __ea int x;		    /* { dg-error "'__ea' specified for structure field 'x'" } */
+  eaint td;		    /* { dg-error "'__ea' specified for structure field 'td'" } */
   int *__ea q;		    /* { dg-error "'__ea' specified for structure field 'q'" } */
   int __ea b : 7;	    /* { dg-error "'__ea' specified for structure field 'b'" } */
   int __ea : 1;		    /* { dg-error "'__ea' specified for structure field" } */
@@ -50,5 +59,9 @@ int func3 (int *__ea x)	    /* { dg-error "'__ea' specified for parameter 'x'" }
   return i.a;
 }
 
-extern __ea int ea_var;		/* { dg-message "note: previous.*decl" "previous.*decl" } */
-int ea_var;			/* { dg-error "conflicting named address spaces" "conflicting named address spaces" } */
+extern __ea int ea_var;		/* { dg-message "note: previous declaration of 'ea_var' was here" } */
+int ea_var;			/* { dg-error "conflicting named address spaces \\(generic vs __ea\\) for 'ea_var'" } */
+
+extern eaint ea_var_td;		/* { dg-message "note: previous declaration of 'ea_var_td' was here" } */
+int ea_var_td;			/* { dg-error "conflicting named address spaces \\(generic vs __ea\\) for 'ea_var_td'" } */
+
