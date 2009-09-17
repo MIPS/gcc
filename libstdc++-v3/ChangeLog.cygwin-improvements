@@ -1,6 +1,8 @@
 libstdc++-v3/ChangeLog.cygwin-improvements:
 
 2009-09-16  Dave Korn  <dave.korn.cygwin@gmail.com>
+            Danny Smith  <dansmister@gmail.com>
+            Aaron W. LaFramboise  <aaronavay62@aaronwl.com>
 
 	* src/Makefile.am (libstdc___la_LDFLAGS): Add -no-undefined and
 	-bindir switches.
