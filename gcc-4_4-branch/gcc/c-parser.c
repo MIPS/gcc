@@ -1792,6 +1792,12 @@ c_parser_struct_or_union_specifier (c_parser *parser)
 	 so we'll be minimizing the number of node traversals required
 	 by chainon.  */
       tree contents = NULL_TREE;
+
+      /* Update type location to the one of the definition, instead of e.g.
+	 a forward declaration.  */
+      if (TYPE_STUB_DECL (type))
+	DECL_SOURCE_LOCATION (TYPE_STUB_DECL (type)) = input_location;
+
       c_parser_consume_token (parser);
       /* Handle the Objective-C @defs construct,
 	 e.g. foo(sizeof(struct{ @defs(ClassName) }));.  */

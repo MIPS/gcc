@@ -1,3 +1,8 @@
+2009-09-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-parser.c (c_parser_struct_or_union_specifier): Adjust
+	DECL_SOURCE_LOCATION of TYPE_STUB_DECL.
+
 2009-09-16  Jakub Jelinek  <jakub@redhat.com>
 
 	* integrate.c (set_block_abstract_flags): Call
