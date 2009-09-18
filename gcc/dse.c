@@ -1175,7 +1175,8 @@ canon_address (rtx mem,
 	  address = XEXP (address, 0);
 	}
 
-      if (MEM_ADDR_SPACE (mem) == 0 && const_or_frame_p (address))
+      if (ADDR_SPACE_GENERIC_P (MEM_ADDR_SPACE (mem))
+	  && const_or_frame_p (address))
 	{
 	  group_info_t group = get_group_info (address);
 

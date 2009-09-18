@@ -10422,7 +10422,7 @@ modified_type_die (tree type, int is_const_type, int is_volatile_type,
       add_AT_unsigned (mod_type_die, DW_AT_byte_size,
 		       simple_type_size_in_bits (type) / BITS_PER_UNIT);
       item_type = TREE_TYPE (type);
-      if (TYPE_ADDR_SPACE (item_type))
+      if (!ADDR_SPACE_GENERIC_P (TYPE_ADDR_SPACE (item_type)))
 	add_AT_unsigned (mod_type_die, DW_AT_address_class,
 			 TYPE_ADDR_SPACE (item_type));
     }
@@ -10432,7 +10432,7 @@ modified_type_die (tree type, int is_const_type, int is_volatile_type,
       add_AT_unsigned (mod_type_die, DW_AT_byte_size,
 		       simple_type_size_in_bits (type) / BITS_PER_UNIT);
       item_type = TREE_TYPE (type);
-      if (TYPE_ADDR_SPACE (item_type))
+      if (!ADDR_SPACE_GENERIC_P (TYPE_ADDR_SPACE (item_type)))
 	add_AT_unsigned (mod_type_die, DW_AT_address_class,
 			 TYPE_ADDR_SPACE (item_type));
     }

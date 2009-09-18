@@ -657,7 +657,8 @@ extern rtx memory_address_addr_space (enum machine_mode, rtx, addr_space_t);
 
 /* Like memory_address_addr_space, except assume the memory address points to
    the generic named address space.  */
-#define memory_address(MODE,RTX) memory_address_addr_space (MODE, RTX, 0)
+#define memory_address(MODE,RTX) \
+	memory_address_addr_space ((MODE), (RTX), ADDR_SPACE_GENERIC)
 
 /* Return a memory reference like MEMREF, but with its mode changed
    to MODE and its address changed to ADDR.

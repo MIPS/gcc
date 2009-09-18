@@ -655,7 +655,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	else if (quals & TYPE_QUAL_RESTRICT)
 	  pp_string (buffer, "restrict ");
 
-	if (TYPE_ADDR_SPACE (node))
+	if (!ADDR_SPACE_GENERIC_P (TYPE_ADDR_SPACE (node)))
 	  {
 	    pp_string (buffer, "<address-space-");
 	    pp_decimal_int (buffer, TYPE_ADDR_SPACE (node));
@@ -760,7 +760,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	  if (quals & TYPE_QUAL_RESTRICT)
 	    pp_string (buffer, " restrict");
 
-	  if (TYPE_ADDR_SPACE (node))
+	  if (!ADDR_SPACE_GENERIC_P (TYPE_ADDR_SPACE (node)))
 	    {
 	      pp_string (buffer, " <address-space-");
 	      pp_decimal_int (buffer, TYPE_ADDR_SPACE (node));

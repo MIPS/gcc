@@ -2140,7 +2140,7 @@ strict_memory_address_addr_space_p (enum machine_mode mode ATTRIBUTE_UNUSED,
 				    rtx addr, addr_space_t as)
 {
 #ifdef GO_IF_LEGITIMATE_ADDRESS
-  gcc_assert (as == 0);
+  gcc_assert (ADDR_SPACE_GENERIC_P (as));
   GO_IF_LEGITIMATE_ADDRESS (mode, addr, win);
   return 0;
 
@@ -4879,7 +4879,8 @@ find_reloads_address (enum machine_mode mode, rtx *memrefloc, rtx ad,
 		      rtx *loc, int opnum, enum reload_type type,
 		      int ind_levels, rtx insn)
 {
-  addr_space_t as = memrefloc? MEM_ADDR_SPACE (*memrefloc) : 0;
+  addr_space_t as = memrefloc? MEM_ADDR_SPACE (*memrefloc)
+			     : ADDR_SPACE_GENERIC;
   int regno;
   int removed_and = 0;
   int op_index;
@@ -4999,7 +5000,7 @@ find_reloads_address (enum machine_mode mode, rtx *memrefloc, rtx ad,
 #ifdef LEGITIMIZE_RELOAD_ADDRESS
   do
     {
-      if (memrefloc && as == 0)
+      if (memrefloc && ADDR_SPACE_GENERIC_P (as))
 	{
 	  LEGITIMIZE_RELOAD_ADDRESS (ad, GET_MODE (*memrefloc), opnum, type,
 				     ind_levels, win);

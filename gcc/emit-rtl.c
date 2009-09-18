@@ -2236,7 +2236,7 @@ get_spill_slot_decl (bool force_build_p)
   rd = gen_rtx_MEM (BLKmode, frame_pointer_rtx);
   MEM_NOTRAP_P (rd) = 1;
   MEM_ATTRS (rd) = get_mem_attrs (new_alias_set (), d, const0_rtx,
-				  NULL_RTX, 0, 0, BLKmode);
+				  NULL_RTX, 0, ADDR_SPACE_GENERIC, BLKmode);
   SET_DECL_RTL (d, rd);
 
   return d;
@@ -2269,7 +2269,7 @@ set_mem_attrs_for_spill (rtx mem)
 
   MEM_ATTRS (mem) = get_mem_attrs (alias, expr, offset,
 				   MEM_SIZE (mem), MEM_ALIGN (mem),
-				   0, GET_MODE (mem));
+				   ADDR_SPACE_GENERIC, GET_MODE (mem));
   MEM_NOTRAP_P (mem) = 1;
 }
 

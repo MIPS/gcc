@@ -4458,12 +4458,12 @@ build_c_cast (location_t loc, tree type, tree expr)
 
 	  if (!addr_space_superset (as_to, as_from, &as_common))
 	    {
-	      if (!as_from)
+	      if (ADDR_SPACE_GENERIC_P (as_from))
 		warning_at (loc, 0, "cast to %s address space pointer "
 			    "from disjoint generic address space pointer",
 			    c_addr_space_name (as_to));
 
-	      else if (!as_to)
+	      else if (ADDR_SPACE_GENERIC_P (as_to))
 		warning_at (loc, 0, "cast to generic address space pointer "
 			    "from disjoint %s address space pointer",
 			    c_addr_space_name (as_from));
@@ -9381,7 +9381,7 @@ build_binary_op (location_t location, enum tree_code code,
 	  tree tt1 = TREE_TYPE (type1);
 	  addr_space_t as0 = TYPE_ADDR_SPACE (tt0);
 	  addr_space_t as1 = TYPE_ADDR_SPACE (tt1);
-	  addr_space_t as_common = 0;
+	  addr_space_t as_common = ADDR_SPACE_GENERIC;
 
 	  /* Anything compares with void *.  void * compares with anything.
 	     Otherwise, the targets must be compatible

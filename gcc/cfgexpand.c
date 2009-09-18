@@ -2418,7 +2418,7 @@ expand_debug_expr (tree exp)
       if (POINTER_TYPE_P (TREE_TYPE (exp)))
 	as = TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (exp)));
       else
-	as = 0;
+	as = ADDR_SPACE_GENERIC;
 
       address_mode = targetm.addr_space.address_mode (as);
 

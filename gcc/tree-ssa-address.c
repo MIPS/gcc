@@ -473,7 +473,8 @@ most_expensive_mult_to_index (struct mem_address *parts, aff_tree *addr,
 
       coef = double_int_to_shwi (addr->elts[i].coef);
       if (coef == 1
-	  || !multiplier_allowed_in_address_p (coef, Pmode, 0))
+	  || !multiplier_allowed_in_address_p (coef, Pmode,
+					       ADDR_SPACE_GENERIC))
 	continue;
 
       acost = multiply_by_cost (coef, Pmode, speed);

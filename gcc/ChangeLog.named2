@@ -6,6 +6,8 @@
 
 	* doc/extend.texi (Named Address Spaces): New section.
 	* coretypes.h (addr_space_t): New type.
+	(ADDR_SPACE_GENERIC): New define.
+	(ADDR_SPACE_GENERIC_P): New macro.
 
 	* doc/tm.texi (Named Address Spaces): New section.
 	(TARGET_ADDR_SPACE_LEGITIMATE_ADDRESS_P): Document.
@@ -177,6 +179,8 @@
 	* gimple-pretty-print.c (dump_unary_rhs): Likewise.
 	* tree-cfg.c (verify_gimple_assign_unary): Likewise.
 	* tree-inline.c (estimate_operator_cost): Likewise.
+	* tree-ssa.c (useless_type_conversion_p): Conversions between pointers
+	to different address spaces are not useless.
 
 
 [PATCH 2/5] Named address spaces: support multiple pointer modes
@@ -391,7 +395,7 @@
 	* config/spu/cache.S: New file.
 
 	* config/spu/spu.h (ASM_OUTPUT_SYMBOL_REF): Define.
-	(ADDR_SPACE_GENERIC, ADDR_SPACE_EA): Define.
+	(ADDR_SPACE_EA): Define.
 	(TARGET_ADDR_SPACE_KEYWORDS): Define.
 	* config/spu/spu.c (EAmode): New macro.
 	(TARGET_ADDR_SPACE_POINTER_MODE): Define.

@@ -1,3 +1,58 @@
+2009-09-18  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* coretypes.h (ADDR_SPACE_GENERIC): Define.
+	(ADDR_SPACE_GENERIC_P): Define.
+	* config/spu/spu.h (ADDR_SPACE_GENERIC): Do not define.
+
+	Update to use ADDR_SPACE_GENERIC and ADDR_SPACE_GENERIC_P instead of
+	assuming the generic address space is represented by value 0:
+	* targhook.c (default_addr_space_pointer_mode): Update.
+	(default_addr_space_address_mode): Update.
+	(default_addr_space_valid_pointer_mode): Update.
+	(default_addr_space_legitimate_address_p): Update.
+	(default_addr_space_legitimize_address): Update.
+	* tree-pretty-print.c (dump_generic_node): Update.
+	* tree.c (build_pointer_type): Update.
+	(build_reference_type): Update.
+	* tree.h (TYPE_ADDR_SPACE): Update.
+	* reload.c (strict_memory_address_addr_space_p): Update.
+	(find_reloads_address): Update.
+	* dwarf2out.c (modified_type_die): Update.
+	* expr.c (emit_block_move_hints): Update.
+	(clear_storage_hints): Update.
+	(expand_assignment): Update.
+	(expand_expr_addr_expr): Update.
+	* expr.h (memory_address): Update.
+	* recog.c (memory_address_addr_space_p): Update.
+	* recog.h (memory_address_p): Update.
+	(strict_memory_address_p): Update.
+	(offsettable_address_p): Update.
+	* tree-ssa-address.c (most_expensive_mult_to_index): Update.
+	* dse.c (canon_address): Update.
+	* c-decl.c (diagnose_mismatched_decls): Update.
+	(grokdeclarator): Update.
+	(build_null_declspecs): Update.
+	(declspecs_add_addrspace): Update.
+	* c-pretty-print.c (pp_c_type_qualifier_list): Update.
+	* print-rtl.c (print_rtx): Update.
+	* c-typeck.c (build_c_cast): Update.
+	(build_binary_op): Update.
+	* emit-rtl.c (get_spill_slot_decl): Update.
+	(set_mem_attrs_for_spill): Update.
+	* cfgexpand.c (expand_debug_expr): Update.
+	* loop-invariant.c (create_new_invariant): Update.
+	* print-tree.c (print_node_brief): Update.
+	(print_node): Update.
+	* varasm.c (get_variable_section): Update.
+	* rtl.h (MEM_ADDR_SPACE): Update.
+	(convert_memory_address): Update.
+	* c-parser.c (c_parser_postfix_expression_after_paren_type): Update.
+
+	* tree-ssa.c (useless_type_conversion_p): Add back check to avoid
+	losing casts between pointers to different address spaces.
+
+	* target.h (struct gcc_target): Fix comment typo.
+
 2009-09-17  Ulrich Weigand  <uweigand@de.ibm.com>
 
 	* c-decl.c (grokdeclarator): Remove dead code.

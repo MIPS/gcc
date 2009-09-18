@@ -1223,7 +1223,8 @@ emit_block_move_hints (rtx x, rtx y, rtx size, enum block_op_methods method,
 				       expected_align, expected_size))
     ;
   else if (may_use_call
-	   && MEM_ADDR_SPACE (x) == 0 && MEM_ADDR_SPACE (y) == 0)
+	   && ADDR_SPACE_GENERIC_P (MEM_ADDR_SPACE (x))
+	   && ADDR_SPACE_GENERIC_P (MEM_ADDR_SPACE (y)))
     retval = emit_block_move_via_libcall (x, y, size,
 					  method == BLOCK_OP_TAILCALL);
   else
@@ -2663,7 +2664,7 @@ clear_storage_hints (rtx object, rtx size, enum block_op_methods method,
   else if (set_storage_via_setmem (object, size, const0_rtx, align,
 				   expected_align, expected_size))
     ;
-  else if (MEM_ADDR_SPACE (object) == 0)
+  else if (ADDR_SPACE_GENERIC_P (MEM_ADDR_SPACE (object)))
     return set_storage_via_libcall (object, size, const0_rtx,
 				    method == BLOCK_OP_TAILCALL);
   else
@@ -4322,7 +4323,7 @@ expand_assignment (tree to, tree from, bool nontemporal)
 
    else if (TREE_CODE (to) == MISALIGNED_INDIRECT_REF)
      {
-       addr_space_t as = 0;
+       addr_space_t as = ADDR_SPACE_GENERIC;
        enum machine_mode mode, op_mode1;
        enum insn_code icode;
        rtx reg, addr, mem, insn;
@@ -4432,7 +4433,8 @@ expand_assignment (tree to, tree from, bool nontemporal)
      the place the value is being stored, use a safe function when copying
      a value through a pointer into a structure value return block.  */
   if (TREE_CODE (to) == RESULT_DECL && TREE_CODE (from) == INDIRECT_REF
-      && TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (TREE_OPERAND (from, 0)))) == 0
+      && ADDR_SPACE_GENERIC_P
+	  (TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (TREE_OPERAND (from, 0)))))
       && cfun->returns_struct
       && !cfun->returns_pcc_struct)
     {
@@ -6981,7 +6983,7 @@ static rtx
 expand_expr_addr_expr (tree exp, rtx target, enum machine_mode tmode,
 		       enum expand_modifier modifier)
 {
-  addr_space_t as = 0;
+  addr_space_t as = ADDR_SPACE_GENERIC;
   enum machine_mode address_mode = Pmode;
   enum machine_mode pointer_mode = ptr_mode;
   enum machine_mode rmode;
@@ -8689,7 +8691,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
     case INDIRECT_REF:
       {
 	tree exp1 = treeop0;
-	addr_space_t as = 0;
+	addr_space_t as = ADDR_SPACE_GENERIC;
 	enum machine_mode address_mode = Pmode;
 
 	if (modifier != EXPAND_WRITE)

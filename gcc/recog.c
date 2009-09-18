@@ -1272,7 +1272,7 @@ memory_address_addr_space_p (enum machine_mode mode ATTRIBUTE_UNUSED,
 			     rtx addr, addr_space_t as)
 {
 #ifdef GO_IF_LEGITIMATE_ADDRESS
-  gcc_assert (as == 0);
+  gcc_assert (ADDR_SPACE_GENERIC_P (as));
   GO_IF_LEGITIMATE_ADDRESS (mode, addr, win);
   return 0;
 

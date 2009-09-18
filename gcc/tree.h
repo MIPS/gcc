@@ -2164,7 +2164,7 @@ extern enum machine_mode vector_type_mode (const_tree);
    the term.  */
 #define TYPE_RESTRICT(NODE) (TYPE_CHECK (NODE)->type.restrict_flag)
 
-/* If nonzero, this type is in the extended address space.  */
+/* The address space the type is in.  */
 #define TYPE_ADDR_SPACE(NODE) (TYPE_CHECK (NODE)->type.address_space)
 
 /* There is a TYPE_QUAL value for each type qualifier.  They can be

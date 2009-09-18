@@ -1755,11 +1755,11 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 	      addr_space_t old_addr = DECODE_QUAL_ADDR_SPACE (old_quals);
 	      if (new_addr != old_addr)
 		{
-		  if (!new_addr)
+		  if (ADDR_SPACE_GENERIC_P (new_addr))
 		    error ("conflicting named address spaces (generic vs %s) "
 			   "for %q+D",
 			   c_addr_space_name (old_addr), newdecl);
-		  else if (!old_addr)
+		  else if (ADDR_SPACE_GENERIC_P (old_addr))
 		    error ("conflicting named address spaces (%s vs generic) "
 			   "for %q+D",
 			   c_addr_space_name (new_addr), newdecl);
@@ -4906,7 +4906,7 @@ grokdeclarator (const struct c_declarator *declarator,
   volatilep = declspecs->volatile_p + TYPE_VOLATILE (element_type);
   as1 = declspecs->address_space;
   as2 = TYPE_ADDR_SPACE (element_type);
-  address_space = (as1 ? as1 : as2);
+  address_space = ADDR_SPACE_GENERIC_P (as1)? as2 : as1;
 
   if (pedantic && !flag_isoc99)
     {
@@ -4918,7 +4918,7 @@ grokdeclarator (const struct c_declarator *declarator,
 	pedwarn (loc, OPT_pedantic, "duplicate %<volatile%>");
     }
 
-  if (as1 && as2 && as1 != as2)
+  if (!ADDR_SPACE_GENERIC_P (as1) && !ADDR_SPACE_GENERIC_P (as2) && as1 != as2)
     error_at (loc, "conflicting named address spaces (%s vs %s)",
 	      c_addr_space_name (as1), c_addr_space_name (as2));
 
@@ -5345,7 +5345,7 @@ grokdeclarator (const struct c_declarator *declarator,
 	       below.  */
 	      {
 		addr_space_t as = DECODE_QUAL_ADDR_SPACE (type_quals);
-		if (as && as != TYPE_ADDR_SPACE (type))
+		if (!ADDR_SPACE_GENERIC_P (as) && as != TYPE_ADDR_SPACE (type))
 		  type = build_qualified_type (type,
 					       ENCODE_QUAL_ADDR_SPACE (as));
 
@@ -5559,7 +5559,7 @@ grokdeclarator (const struct c_declarator *declarator,
   /* Warn about address space used for things other than static memory or
      pointers.  */
   address_space = DECODE_QUAL_ADDR_SPACE (type_quals);
-  if (address_space)
+  if (!ADDR_SPACE_GENERIC_P (address_space))
     {
       if (decl_context == NORMAL)
 	{
@@ -8386,7 +8386,7 @@ build_null_declspecs (void)
   ret->volatile_p = false;
   ret->restrict_p = false;
   ret->saturating_p = false;
-  ret->address_space = 0;
+  ret->address_space = ADDR_SPACE_GENERIC;
   return ret;
 }
 
@@ -8399,7 +8399,8 @@ declspecs_add_addrspace (struct c_declspecs *specs, addr_space_t as)
   specs->non_sc_seen_p = true;
   specs->declspecs_seen_p = true;
 
-  if (specs->address_space > 0 && specs->address_space != as)
+  if (!ADDR_SPACE_GENERIC_P (specs->address_space)
+      && specs->address_space != as)
     error ("incompatible address space qualifiers %qs and %qs",
 	   c_addr_space_name (as),
 	   c_addr_space_name (specs->address_space));

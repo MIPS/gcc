@@ -785,7 +785,7 @@ default_valid_pointer_mode (enum machine_mode mode)
 enum machine_mode
 default_addr_space_pointer_mode (addr_space_t addrspace ATTRIBUTE_UNUSED)
 {
-  gcc_assert (addrspace == 0);
+  gcc_assert (ADDR_SPACE_GENERIC_P (addrspace));
   return ptr_mode;
 }
 
@@ -795,7 +795,7 @@ default_addr_space_pointer_mode (addr_space_t addrspace ATTRIBUTE_UNUSED)
 enum machine_mode
 default_addr_space_address_mode (addr_space_t addrspace ATTRIBUTE_UNUSED)
 {
-  gcc_assert (addrspace == 0);
+  gcc_assert (ADDR_SPACE_GENERIC_P (addrspace));
   return Pmode;
 }
 
@@ -804,7 +804,7 @@ default_addr_space_address_mode (addr_space_t addrspace ATTRIBUTE_UNUSED)
 bool
 default_addr_space_valid_pointer_mode (enum machine_mode mode, addr_space_t as)
 {
-  if (as)
+  if (!ADDR_SPACE_GENERIC_P (as));
     return (mode == targetm.addr_space.pointer_mode (as)
 	    || mode == targetm.addr_space.address_mode (as));
 
@@ -817,7 +817,7 @@ bool
 default_addr_space_legitimate_address_p (enum machine_mode mode, rtx mem,
 					 bool strict, addr_space_t as)
 {
-  if (as)
+  if (!ADDR_SPACE_GENERIC_P (as))
     gcc_unreachable ();
 
   return targetm.legitimate_address_p (mode, mem, strict);
@@ -829,7 +829,7 @@ rtx
 default_addr_space_legitimize_address (rtx x, rtx oldx,
 				       enum machine_mode mode, addr_space_t as)
 {
-  if (as)
+  if (!ADDR_SPACE_GENERIC_P (as))
     return x;
 
   return targetm.legitimize_address (x, oldx, mode);

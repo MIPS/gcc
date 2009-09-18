@@ -250,7 +250,7 @@ pp_c_type_qualifier_list (c_pretty_printer *pp, tree t)
   if (qualifiers & TYPE_QUAL_RESTRICT)
     pp_c_cv_qualifier (pp, flag_isoc99 ? "restrict" : "__restrict__");
 
-  if (TYPE_ADDR_SPACE (t))
+  if (!ADDR_SPACE_GENERIC_P (TYPE_ADDR_SPACE (t)))
     {
       const char *as = c_addr_space_name (TYPE_ADDR_SPACE (t));
       pp_c_identifier (pp, as);

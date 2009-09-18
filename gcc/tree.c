@@ -6660,7 +6660,8 @@ build_pointer_type_for_mode (tree to_type, enum machine_mode mode,
 tree
 build_pointer_type (tree to_type)
 {
-  addr_space_t as = to_type == error_mark_node? 0 : TYPE_ADDR_SPACE (to_type);
+  addr_space_t as = to_type == error_mark_node? ADDR_SPACE_GENERIC
+					      : TYPE_ADDR_SPACE (to_type);
   enum machine_mode pointer_mode = targetm.addr_space.pointer_mode (as);
   return build_pointer_type_for_mode (to_type, pointer_mode, false);
 }
@@ -6726,7 +6727,8 @@ build_reference_type_for_mode (tree to_type, enum machine_mode mode,
 tree
 build_reference_type (tree to_type)
 {
-  addr_space_t as = to_type == error_mark_node? 0 : TYPE_ADDR_SPACE (to_type);
+  addr_space_t as = to_type == error_mark_node? ADDR_SPACE_GENERIC
+					      : TYPE_ADDR_SPACE (to_type);
   enum machine_mode pointer_mode = targetm.addr_space.pointer_mode (as);
   return build_reference_type_for_mode (to_type, pointer_mode, false);
 }

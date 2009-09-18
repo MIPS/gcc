@@ -685,8 +685,9 @@ create_new_invariant (struct def *def, rtx insn, bitmap depends_on,
   if (def)
     {
       inv->cost = rtx_cost (set, SET, speed);
-      inv->cheap_address = address_cost (SET_SRC (set), word_mode, 0,
-					 speed) < COSTS_N_INSNS (1);
+      inv->cheap_address
+	= address_cost (SET_SRC (set), word_mode, ADDR_SPACE_GENERIC, speed)
+	  < COSTS_N_INSNS (1);
     }
   else
     {

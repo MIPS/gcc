@@ -1168,7 +1168,7 @@ align_variable (tree decl, bool dont_output_data)
 static section *
 get_variable_section (tree decl, bool prefer_noswitch_p)
 {
-  addr_space_t as = 0;
+  addr_space_t as = ADDR_SPACE_GENERIC;
   int reloc;
 
   if (TREE_TYPE (decl) != error_mark_node)
@@ -1177,7 +1177,8 @@ get_variable_section (tree decl, bool prefer_noswitch_p)
   /* If the decl has been given an explicit section name, or it resides
      in a non-generic address space, then it isn't common, and shouldn't
      be handled as such.  */
-  if (DECL_COMMON (decl) && DECL_SECTION_NAME (decl) == NULL && as == 0)
+  if (DECL_COMMON (decl) && DECL_SECTION_NAME (decl) == NULL
+      && ADDR_SPACE_GENERIC_P (as))
     {
       if (DECL_THREAD_LOCAL_P (decl))
 	return tls_comm_section;
@@ -1201,7 +1202,7 @@ get_variable_section (tree decl, bool prefer_noswitch_p)
   if (IN_NAMED_SECTION (decl))
     return get_named_section (decl, NULL, reloc);
 
-  if (as == 0
+  if (ADDR_SPACE_GENERIC_P (as)
       && !DECL_THREAD_LOCAL_P (decl)
       && !(prefer_noswitch_p && targetm.have_switchable_bss_sections)
       && bss_initializer_p (decl))

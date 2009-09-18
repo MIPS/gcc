@@ -1264,9 +1264,9 @@ do {						\
    RTX that is always a CONST_INT.  */
 #define MEM_OFFSET(RTX) (MEM_ATTRS (RTX) == 0 ? 0 : MEM_ATTRS (RTX)->offset)
 
-/* For a MEM rtx, the address space.  If 0, the MEM belongs to the
-   generic address space.  */
-#define MEM_ADDR_SPACE(RTX) (MEM_ATTRS (RTX) == 0 ? 0 : MEM_ATTRS (RTX)->addrspace)
+/* For a MEM rtx, the address space.  */
+#define MEM_ADDR_SPACE(RTX) (MEM_ATTRS (RTX) == 0 ? ADDR_SPACE_GENERIC \
+						  : MEM_ATTRS (RTX)->addrspace)
 
 /* For a MEM rtx, the size in bytes of the MEM, if known, as an RTX that
    is always a CONST_INT.  */
@@ -1609,7 +1609,7 @@ extern rtx make_safe_from (rtx, rtx);
 extern rtx convert_memory_address_addr_space (enum machine_mode, rtx,
 					      addr_space_t);
 #define convert_memory_address(to_mode,x) \
-	convert_memory_address_addr_space ((to_mode), (x), 0)
+	convert_memory_address_addr_space ((to_mode), (x), ADDR_SPACE_GENERIC)
 extern rtx get_insns (void);
 extern const char *get_insn_name (int);
 extern rtx get_last_insn (void);
