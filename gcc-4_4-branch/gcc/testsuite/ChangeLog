@@ -1,3 +1,54 @@
+2009-09-19  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/41328
+	* gfortran.dg/cr_lf.f90: New test.
+
+2009-09-18  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/initlist-deduce.C: New.
+
+2009-09-18  Jack Howarth  <howarth@bromo.med.uc.edu>
+
+	PR testsuite/41288
+	* gcc.target/x86_64/abi/asm-support-darwin.s (snapshot_ret): Preserve
+	stack alignment.
+
+2009-09-18  Janis Johnson  <janis187@us.ibm.com>
+
+	PR c/41049
+	* dfp/pr41049.c: New test.
+
+2009-09-16  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gfortran.dg/default_format_denormal_2.f90: Add ieee options.
+	* gfortran.dg/default_format_denormal_1.f90: Ditto.  Remove
+	alpha*-*-* target from XFAIL list.
+
+2009-09-16  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/alignment9.adb: New test.
+
+2009-09-16  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2009-09-09  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/41101
+	* gcc.c-torture/compile/pr41101.c: New testcase.
+
+2009-09-11  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	Backported from mainline:
+	2009-05-08  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/39876
+	* gfortran.dg/intrinsic_3.f90: New.
+
+
+2009-09-10  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.dg/pr41241.c: Removed.
+
 2009-09-10  H.J. Lu  <hongjiu.lu@intel.com>
 
 	Backport from mainline:
