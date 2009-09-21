@@ -1195,6 +1195,7 @@ OBJS-common = \
 	intl.o \
 	ira.o \
 	ira-build.o \
+	ira-reload.o \
 	ira-costs.o \
 	ira-conflicts.o \
 	ira-color.o \
@@ -3103,6 +3104,12 @@ ira-lives.o: ira-lives.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    insn-config.h $(RECOG_H) $(BASIC_BLOCK_H) $(TOPLEV_H) $(TM_P_H) $(PARAMS_H) \
    $(DF_H) sparseset.h $(IRA_INT_H)
 ira.o: ira.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
+   $(TARGET_H) $(TM_H) $(RTL_H) $(RECOG_H) \
+   $(REGS_H) hard-reg-set.h $(FLAGS_H) $(OBSTACK_H) \
+   $(EXPR_H) $(BASIC_BLOCK_H) $(TOPLEV_H) $(TM_P_H) \
+   $(DF_H) $(IRA_INT_H)  $(PARAMS_H) $(TIMEVAR_H) $(INTEGRATE_H) \
+   $(TREE_PASS_H) output.h
+ira-reload.o: ira-reload.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(TARGET_H) $(TM_H) $(RTL_H) $(RECOG_H) \
    $(REGS_H) hard-reg-set.h $(FLAGS_H) $(OBSTACK_H) \
    $(EXPR_H) $(BASIC_BLOCK_H) $(TOPLEV_H) $(TM_P_H) \

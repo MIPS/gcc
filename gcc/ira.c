@@ -3279,6 +3279,9 @@ ira (FILE *f)
   timevar_pop (TV_IRA);
 
   timevar_push (TV_RELOAD);
+
+  ira_reload ();
+
   df_set_flags (DF_NO_INSN_RESCAN);
   build_insn_chain ();
 
