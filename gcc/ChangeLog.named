@@ -1,5 +1,23 @@
 2009-09-21  Ulrich Weigand  <uweigand@de.ibm.com>
 
+	* target-def.h (TARGET_DEFAULT_ADDRESS_POINTER_MODES_P): New macro.
+
+	* alias.c: (find_base_value): Use TARGET_DEFAULT_ADDRESS_POINTER_MODES_P
+	to guard pointer size optimizations.
+	(find_base_term): Likewise.
+	* rtlanal.c: (nonzero_bits1): Likewise.
+	(num_sign_bit_copies1): Likewise.
+	* simplify-rtx.c: (simplify_unary_operation_1): Likewise.
+
+	* alias.c: Include "target-def.h" instead of "targhooks.h".
+	* rtlanal.c: Likewise.
+	* simplify-rtx.c: Likewise.
+	* Makefile.in (alias.o): Update dependencies.
+	(rtlanal.o): Likewise.
+	(simplify-rtx.o): Likewise.
+
+2009-09-21  Ulrich Weigand  <uweigand@de.ibm.com>
+
 	* tree.h (struct tree_type): Remove address_space field.
 	(struct tree_base): Add address_space bitfield.  Reduce size of "spare".
 	(TYPE_ADDR_SPACE): Update.

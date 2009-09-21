@@ -505,6 +505,14 @@
     TARGET_ADDR_SPACE_CONVERT,			\
   }
 
+/* Some places still assume that all pointer or address modes are the
+   standard Pmode and ptr_mode.  These optimizations become invalid if
+   the target actually supports multiple different modes.  For now,
+   we disable such optimizations on such targets, using this macro.  */
+#define TARGET_DEFAULT_POINTER_ADDRESS_MODES_P \
+  (targetm.addr_space.address_mode == default_addr_space_address_mode \
+   && targetm.addr_space.pointer_mode == default_addr_space_pointer_mode)
+
 #ifndef TARGET_SCALAR_MODE_SUPPORTED_P
 #define TARGET_SCALAR_MODE_SUPPORTED_P default_scalar_mode_supported_p
 #endif

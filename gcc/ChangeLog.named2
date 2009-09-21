@@ -200,6 +200,7 @@
 	(TARGET_ADDR_SPACE_ADDRESS_MODE): Likewise.
 	(TARGET_ADDR_SPACE_VALID_POINTER_MODE): Likewise.
 	(TARGET_ADDR_SPACE_HOOKS): Add them.
+	(TARGET_DEFAULT_ADDRESS_POINTER_MODES_P): New macro.
 	* targhooks.c (default_addr_space_pointer_mode): New function.
 	(default_addr_space_address_mode): Likewise.
 	(default_addr_space_valid_pointer_mode): Likewise.
@@ -309,20 +310,20 @@
 	(expand_expr_addr_expr_1): Likewise.  Also, add ADDRSPACE argument.
 	(expand_expr_addr_expr): Likewise.  Also, update call.
 
-	* alias.c: Include "targhooks.h".
+	* alias.c: Include "target-def.h".
 	(find_base_value): Guard pointer size optimizations.
 	(find_base_term): Likewise.
-	* rtlanal.c: Include "targhooks.h"
+	* rtlanal.c: Include "target-def.h"
 	(nonzero_bits1): Guard pointer size optimizations.
 	(num_sign_bit_copies1): Likewise.
-	* simplify-rtx.c: Include "targhooks.h".
+	* simplify-rtx.c: Include "target-def.h".
 	(simplify_unary_operation_1): Guard pointer size optimizations.
 
 	* Makefile.in (tree-ssa-address.o): Add $(TARGET_H) dependency.
 	(emit-rtl.o): Likewise.
 	(auto-inc-dec.o): Likewise.
 	(sched-deps.o): Likewise.
-	(alias.o): Add targhooks.h dependency.
+	(alias.o): Add $(TARGET_DEF_H) dependency.
 	(rtlanal.o): Likewise.
 	(simplify-rtx.o): Likewise.
 
