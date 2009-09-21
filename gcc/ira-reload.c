@@ -325,7 +325,6 @@ emit_localizing_stores (rtx dest, const_rtx set, void *data ATTRIBUTE_UNUSED)
     {
       /* We must copy the memory location to avoid incorrect RTL sharing.  */
       rtx mem = copy_rtx (reg_equiv_memory_loc[regno]);
-      rtx nonconst_set = CONST_CAST_RTX (set);
 
       /* Note that we have stored this register so that we don't try to
          store it again.  */
@@ -716,7 +715,7 @@ localize_pseudos (basic_block bb, bitmap pseudos_to_localize)
 	    continue;
 
 	  nregno = REGNO (reg_map[i]);
-	  setup_reg_classes (nregno, reg_preferred_class (i), reg_alternate_class (i));
+	  setup_reg_classes (nregno, reg_preferred_class (i), reg_alternate_class (i), ira_class_translate (reg_preferred_class (i)));
 	  reg_equiv_invariant[nregno] = reg_equiv_invariant[i];
 	  reg_equiv_constant[nregno] = reg_equiv_constant[i];
 	  reg_equiv_mem[nregno] = reg_equiv_mem[i];
