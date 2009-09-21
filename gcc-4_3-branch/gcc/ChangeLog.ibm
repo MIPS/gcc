@@ -1,3 +1,37 @@
+2009-09-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* target-def.h (TARGET_VECTORIZE): Remove extra spacing at the end
+	of the line.
+
+	* config/rs6000/rs6000.c (rs6000_legitimate_address_p): Drop
+	support for VSX memory reference instructions with update.
+	* config/rs6000/vsx.md (vsx_mov<mode>): Ditto.
+	(vsx_movti): Ditto.
+	(VSX_U): Delete, no longer need with load/store with update
+	removed.
+	(VSbit): Ditto.
+	(VStype_load_update): Ditto.
+	(VStype_store_update): Ditto.
+	(vsx_load<VSX_U:mode>_update_<P:mptrsize>): Ditto.
+	(vsx_store<VSX_U:mode>_update_<P:mptrsize>): Ditto.
+
+2009-09-17  Revital Eres  <eres@il.ibm.com>
+
+	* doc/tm.texi (TARGET_SUPPORT_VECTOR_MISALIGNMENT): Document.
+	* targhooks.c (default_builtin_support_vector_misalignment):
+	New builtin function.
+	* targhooks.h (default_builtin_support_vector_misalignment):
+	Declare.
+	* target.h (builtin_support_vector_misalignment):
+	New field in struct gcc_target.
+	* tree-vectorizer.c (vect_supportable_dr_alignment): Call
+	new builtin function.
+	* target-def.h (TARGET_SUPPORT_VECTOR_MISALIGNMENT):
+	Define.
+	* config/rs6000/rs6000.c
+	(rs6000_builtin_support_vector_misalignment): New function.
+	(TARGET_SUPPORT_VECTOR_MISALIGNMENT): Define.
+
 2009-09-17  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 151807.
