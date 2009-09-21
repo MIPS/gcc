@@ -715,7 +715,7 @@ localize_pseudos (basic_block bb, bitmap pseudos_to_localize)
 	    continue;
 
 	  nregno = REGNO (reg_map[i]);
-	  setup_reg_classes (nregno, reg_preferred_class (i), reg_alternate_class (i), ira_class_translate (reg_preferred_class (i)));
+	  setup_reg_classes (nregno, reg_preferred_class (i), reg_alternate_class (i), ira_class_translate [reg_preferred_class (i)]);
 	  reg_equiv_invariant[nregno] = reg_equiv_invariant[i];
 	  reg_equiv_constant[nregno] = reg_equiv_constant[i];
 	  reg_equiv_mem[nregno] = reg_equiv_mem[i];
