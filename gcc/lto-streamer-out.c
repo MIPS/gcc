@@ -44,25 +44,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "lto-symtab.h"
 #include "lto-streamer.h"
 
-/* Returns nonzero if P1 and P2 are equal.  */
-
-static int
-eq_label_slot_node (const void *p1, const void *p2)
-{
-  const struct lto_decl_slot *ds1 = (const struct lto_decl_slot *) p1;
-  const struct lto_decl_slot *ds2 = (const struct lto_decl_slot *) p2;
-  return ds1->t == ds2->t;
-}
-
-/* Returns a hash code for P.  */
-
-static hashval_t
-hash_label_slot_node (const void *p)
-{
-  const struct lto_decl_slot *ds = (const struct lto_decl_slot *) p;
-  return htab_hash_pointer (ds->t);
-}
-
 
 struct string_slot
 {
@@ -139,20 +120,14 @@ create_output_block (enum lto_section_type section_type)
   ob->string_stream = XCNEW (struct lto_output_stream);
   ob->writer_cache = lto_streamer_cache_create ();
 
-  ob->named_label_stream = XCNEW (struct lto_output_stream);
   if (section_type == LTO_section_function_body)
     ob->cfg_stream = XCNEW (struct lto_output_stream);
 
   clear_line_info (ob);
 
-  ob->label_hash_table = htab_create (37, hash_label_slot_node,
-				      eq_label_slot_node, free);
-
   ob->string_hash_table = htab_create (37, hash_string_slot_node,
 				       eq_string_slot_node, string_slot_free);
 
-  /* The unnamed labels must all be negative.  */
-  ob->next_unnamed_label_index = -1;
   return ob;
 }
 
@@ -164,16 +139,12 @@ destroy_output_block (struct output_block *ob)
 {
   enum lto_section_type section_type = ob->section_type;
 
-  htab_delete (ob->label_hash_table);
   htab_delete (ob->string_hash_table);
 
   free (ob->main_stream);
   free (ob->string_stream);
-  free (ob->named_label_stream);
   if (section_type == LTO_section_function_body)
     free (ob->cfg_stream);
-
-  VEC_free (tree, heap, ob->named_labels);
 
   lto_streamer_cache_delete (ob->writer_cache);
 
@@ -326,31 +297,6 @@ output_sleb128 (struct output_block *ob, HOST_WIDE_INT work)
 }
 
 
-/* Output bitmap B to OB.  */
-
-static void
-output_bitmap (struct output_block *ob, bitmap b)
-{
-  bitmap_iterator bi;
-  unsigned i;
-
-  if (b == NULL)
-    {
-      output_zero (ob);
-      return;
-    }
-
-  /* Indicate how many set bits B has.  */
-  output_uleb128 (ob, bitmap_count_bits (b));
-
-  /* FIXME lto.  For now, emit a sequence of all the bit positions
-     that are set in B.  This could be compacted by packing multiple
-     bits in one word.  */
-  EXECUTE_IF_SET_IN_BITMAP (b, 0, i, bi)
-    output_uleb128 (ob, i);
-}
-
-
 /* Output the start of a record with TAG to output block OB.  */
 
 static void
@@ -369,64 +315,6 @@ output_type_ref (struct output_block *ob, tree node)
 {
   output_record_start (ob, LTO_type_ref);
   lto_output_type_ref_index (ob->decl_state, ob->main_stream, node);
-}
-
-
-/* Look up LABEL in the label table and write the uleb128 index for it.  */
-
-static void
-output_label_ref (struct output_block *ob, tree label)
-{
-  void **slot;
-  struct lto_decl_slot d_slot;
-  d_slot.t = label;
-
-  /* If LABEL is DECL_NONLOCAL or FORCED_LABEL, it may be referenced
-     from other functions, so it needs to be streamed out in the
-     global context.  */
-  if (emit_label_in_global_context_p (label))
-    {
-      struct lto_out_decl_state *state;
-      struct lto_output_stream *obs;
-      struct lto_tree_ref_encoder *encoder;
-      unsigned index;
-
-      obs = ob->main_stream;
-      state = ob->decl_state;
-      encoder = &state->streams[LTO_DECL_STREAM_LABEL_DECL];
-      lto_output_decl_index (obs, encoder, label, &index);
-      return;
-    }
-
-  slot = htab_find_slot (ob->label_hash_table, &d_slot, INSERT);
-  if (*slot == NULL)
-    {
-      struct lto_decl_slot *new_slot;
-      bool named;
-      int index;
-
-      new_slot = XCNEW (struct lto_decl_slot);
-
-      /* Named labels are given positive integers and unnamed labels are 
-	 given negative indexes.  */
-      named = (DECL_NAME (label) != NULL_TREE);
-      index = named
-	      ? ob->next_named_label_index++
-	      : ob->next_unnamed_label_index--;
-
-      new_slot->t = label;
-      new_slot->slot_num = index;
-      *slot = new_slot;
-      output_sleb128 (ob, index);
-      if (named)
-	VEC_safe_push (tree, heap, ob->named_labels, label);
-    }
-  else
-    {
-      struct lto_decl_slot *old_slot = (struct lto_decl_slot *)*slot;
-      gcc_assert (old_slot->t == label);
-      output_sleb128 (ob, old_slot->slot_num);
-    }
 }
 
 
@@ -527,6 +415,7 @@ pack_ts_decl_common_value_fields (struct bitpack_d *bp, tree expr)
 	 always assume an initial value of -1 so that the
 	 label_to_block_map is recreated by gimple_set_bb.  */
       bp_pack_value (bp, DECL_ERROR_ISSUED (expr), 1);
+      bp_pack_value (bp, EH_LANDING_PAD_NR (expr), HOST_BITS_PER_INT);
     }
 
   if (TREE_CODE (expr) == FIELD_DECL)
@@ -761,7 +650,6 @@ static void
 lto_output_tree_ref (struct output_block *ob, tree expr)
 {
   enum tree_code code;
-  enum LTO_tags tag;
 
   if (expr == NULL_TREE)
     {
@@ -829,11 +717,8 @@ lto_output_tree_ref (struct output_block *ob, tree expr)
       break;
 
     case LABEL_DECL:
-      tag = emit_label_in_global_context_p (expr)
-	    ? LTO_global_label_decl
-	    : LTO_local_label_decl;
-      output_record_start (ob, tag);
-      output_label_ref (ob, expr);
+      output_record_start (ob, LTO_label_decl_ref);
+      lto_output_var_decl_index (ob->decl_state, ob->main_stream, expr);
       break;
 
     case RESULT_DECL:
@@ -1476,13 +1361,31 @@ lto_output_tree (struct output_block *ob, tree expr, bool ref_p)
 }
 
 
+/* Output to OB a list of try/catch handlers starting with FIRST.  */
+
+static void
+output_eh_try_list (struct output_block *ob, eh_catch first)
+{
+  eh_catch n;
+
+  for (n = first; n; n = n->next_catch)
+    {
+      output_record_start (ob, LTO_eh_catch);
+      lto_output_tree_ref (ob, n->type_list);
+      lto_output_tree_ref (ob, n->filter_list);
+      lto_output_tree_ref (ob, n->label);
+    }
+
+  output_zero (ob);
+}
+
+
 /* Output EH region R in function FN to OB.  CURR_RN is the slot index
    that is being emitted in FN->EH->REGION_ARRAY.  This is used to
    detect EH region sharing.  */
 
 static void
-output_eh_region (struct output_block *ob, struct function *fn,
-		  eh_region r, int curr_rn)
+output_eh_region (struct output_block *ob, eh_region r)
 {
   enum LTO_tags tag;
 
@@ -1492,100 +1395,82 @@ output_eh_region (struct output_block *ob, struct function *fn,
       return;
     }
 
-  /* If R has a different region number than CURR_RN it means that
-     CURR_RN is an alias for the original region R.  In this case,
-     instead of wasting space emitting all of R again, only emit the
-     integer R->REGION_NUMBER so that we can share the EH array slots
-     on the reading side.  */
-  if (r->region_number != curr_rn)
-    {
-      /* Make sure the EH regions are indeed shared.  */
-      gcc_assert (VEC_index (eh_region, fn->eh->region_array, r->region_number)
-		  == VEC_index (eh_region, fn->eh->region_array, curr_rn));
-
-      output_record_start (ob, LTO_eh_table_shared_region);
-      return;
-    }
-
   if (r->type == ERT_CLEANUP)
-    tag = LTO_eh_table_cleanup0;
+    tag = LTO_ert_cleanup;
   else if (r->type == ERT_TRY)
-    tag = LTO_eh_table_try0;
-  else if (r->type == ERT_CATCH)
-    tag = LTO_eh_table_catch0;
+    tag = LTO_ert_try;
   else if (r->type == ERT_ALLOWED_EXCEPTIONS)
-    tag = LTO_eh_table_allowed0;
+    tag = LTO_ert_allowed_exceptions;
   else if (r->type == ERT_MUST_NOT_THROW)
-    tag = LTO_eh_table_must_not_throw0;
-  else if (r->type == ERT_THROW)
-    tag = LTO_eh_table_throw0;
+    tag = LTO_ert_must_not_throw;
   else
     gcc_unreachable ();
 
-  /* If the region may contain a throw, use the '1' variant for TAG.  */
-  if (r->may_contain_throw)
-    tag = (enum LTO_tags)((int) tag + 1);
-
   output_record_start (ob, tag);
-  output_sleb128 (ob, r->region_number);
-  output_bitmap (ob, r->aka);
+  output_sleb128 (ob, r->index);
+
   if (r->outer)
-    output_uleb128 (ob, r->outer->region_number);
+    output_sleb128 (ob, r->outer->index);
   else
     output_zero (ob);
 
   if (r->inner)
-    output_uleb128 (ob, r->inner->region_number);
+    output_sleb128 (ob, r->inner->index);
   else
     output_zero (ob);
 
   if (r->next_peer)
-    output_uleb128 (ob, r->next_peer->region_number);
+    output_sleb128 (ob, r->next_peer->index);
   else
     output_zero (ob);
 
-  lto_output_tree_ref (ob, r->tree_label);
-
   if (r->type == ERT_TRY)
     {
-      eh_region eh_catch = r->u.eh_try.eh_catch;
-      eh_region last_catch = r->u.eh_try.last_catch;
-      if (eh_catch)
-	output_uleb128 (ob, eh_catch->region_number);
-      else
-	output_zero (ob);
-      if (last_catch)
-	output_uleb128 (ob, last_catch->region_number);
-      else
-	output_zero (ob);
-    }
-  else if (r->type == ERT_CATCH)
-    {
-      eh_region next_catch = r->u.eh_catch.next_catch;
-      eh_region prev_catch = r->u.eh_catch.prev_catch;
-
-      if (next_catch)
-	output_uleb128 (ob, next_catch->region_number);
-      else
-	output_zero (ob);
-
-      if (prev_catch)
-	output_uleb128 (ob, prev_catch->region_number);
-      else
-	output_zero (ob);
-
-      lto_output_tree_ref (ob, r->u.eh_catch.type_list);
-      lto_output_tree_ref (ob, r->u.eh_catch.filter_list);
+      output_eh_try_list (ob, r->u.eh_try.first_catch);
     }
   else if (r->type == ERT_ALLOWED_EXCEPTIONS)
     {
       lto_output_tree_ref (ob, r->u.allowed.type_list);
+      lto_output_tree_ref (ob, r->u.allowed.label);
       output_uleb128 (ob, r->u.allowed.filter);
     }
-  else if (r->type == ERT_THROW)
+  else if (r->type == ERT_MUST_NOT_THROW)
     {
-      output_type_ref (ob, r->u.eh_throw.type);
+      lto_output_tree_ref (ob, r->u.must_not_throw.failure_decl);
+      lto_output_location (ob, r->u.must_not_throw.failure_loc);
     }
+
+  if (r->landing_pads)
+    output_sleb128 (ob, r->landing_pads->index);
+  else
+    output_zero (ob);
+}
+
+
+/* Output landing pad LP to OB.  */
+
+static void
+output_eh_lp (struct output_block *ob, eh_landing_pad lp)
+{
+  if (lp == NULL)
+    {
+      output_zero (ob);
+      return;
+    }
+
+  output_record_start (ob, LTO_eh_landing_pad);
+  output_sleb128 (ob, lp->index);
+  if (lp->next_lp)
+    output_sleb128 (ob, lp->next_lp->index);
+  else
+    output_zero (ob);
+
+  if (lp->region)
+    output_sleb128 (ob, lp->region->index);
+  else
+    output_zero (ob);
+
+  lto_output_tree_ref (ob, lp->post_landing_pad);
 }
 
 
@@ -1594,54 +1479,55 @@ output_eh_region (struct output_block *ob, struct function *fn,
 static void
 output_eh_regions (struct output_block *ob, struct function *fn)
 {
-  eh_region curr;
-
-  if (fn->eh
-      /* Always output LTO_eh_table if exceptions are enabled.  Otherwise
-         we miss to emit unwind informations for a translation unit
-	 that just throws.  */
-      && (flag_exceptions
-	  || fn->eh->region_array))
+  if (fn->eh && fn->eh->region_tree)
     {
       unsigned i;
+      eh_region eh;
+      eh_landing_pad lp;
+      tree ttype;
 
       output_record_start (ob, LTO_eh_table);
-      output_sleb128 (ob, fn->eh->last_region_number);
 
-      /* If the EH regions were optimized, there may not be a region
-	 tree.  FIXME, if there is no region tree we should not be
-	 removing all statements from the EH tables.  This is a bug in
-	 the generic EH code.  */
-      if (fn->eh->region_tree)
-	output_sleb128 (ob, fn->eh->region_tree->region_number);
-      else
-	output_sleb128 (ob, -1);
+      /* Emit the index of the root of the EH region tree.  */
+      output_sleb128 (ob, fn->eh->region_tree->index);
 
+      /* Emit all the EH regions in the region array.  */
       output_sleb128 (ob, VEC_length (eh_region, fn->eh->region_array));
-      for (i = 0; VEC_iterate (eh_region, fn->eh->region_array, i, curr); i++)
-	output_eh_region (ob, fn, curr, i);
+      for (i = 0; VEC_iterate (eh_region, fn->eh->region_array, i, eh); i++)
+	output_eh_region (ob, eh);
+
+      /* Emit all landing pads.  */
+      output_sleb128 (ob, VEC_length (eh_landing_pad, fn->eh->lp_array));
+      for (i = 0; VEC_iterate (eh_landing_pad, fn->eh->lp_array, i, lp); i++)
+	output_eh_lp (ob, lp);
+
+      /* Emit all the runtime type data.  */
+      output_sleb128 (ob, VEC_length (tree, fn->eh->ttype_data));
+      for (i = 0; VEC_iterate (tree, fn->eh->ttype_data, i, ttype); i++)
+	lto_output_tree_ref (ob, ttype);
+
+      /* Emit the table of action chains.  */
+      if (targetm.arm_eabi_unwinder)
+	{
+	  tree t;
+	  output_sleb128 (ob, VEC_length (tree, fn->eh->ehspec_data.arm_eabi));
+	  for (i = 0;
+	       VEC_iterate (tree, fn->eh->ehspec_data.arm_eabi, i, t);
+	       i++)
+	    lto_output_tree_ref (ob, t);
+	}
+      else
+	{
+	  uchar c;
+	  output_sleb128 (ob, VEC_length (uchar, fn->eh->ehspec_data.other));
+	  for (i = 0; VEC_iterate (uchar, fn->eh->ehspec_data.other, i, c); i++)
+	    lto_output_1_stream (ob->main_stream, c);
+	}
     }
 
   /* The 0 either terminates the record or indicates that there are no
      eh_records at all.  */
   output_zero (ob);
-}
-
-
-/* Output the names in the named labels to the named_label stream.  */
-
-static void
-output_named_labels (struct output_block *ob)
-{
-  unsigned int index = 0;
-  clear_line_info (ob);
-
-  while (index < VEC_length (tree, ob->named_labels))
-    {
-      tree decl = VEC_index (tree, ob->named_labels, index++);
-      tree name = DECL_NAME (decl);
-      output_identifier (ob, ob->named_label_stream, name);
-   }
 }
 
 
@@ -1776,7 +1662,15 @@ output_gimple_stmt (struct output_block *ob, gimple stmt)
   switch (gimple_code (stmt))
     {
     case GIMPLE_RESX:
-      lto_output_uleb128_stream (ob->main_stream, gimple_resx_region (stmt));
+      output_sleb128 (ob, gimple_resx_region (stmt));
+      break;
+
+    case GIMPLE_EH_MUST_NOT_THROW:
+      lto_output_tree_ref (ob, gimple_eh_must_not_throw_fndecl (stmt));
+      break;
+
+    case GIMPLE_EH_DISPATCH:
+      output_sleb128 (ob, gimple_eh_dispatch_region (stmt));
       break;
 
     case GIMPLE_ASM:
@@ -1840,11 +1734,11 @@ output_bb (struct output_block *ob, basic_block bb, struct function *fn)
 	  output_gimple_stmt (ob, stmt);
 	
 	  /* Emit the EH region holding STMT.  */
-	  region = lookup_stmt_eh_region_fn (fn, stmt);
-	  if (region >= 0)
+	  region = lookup_stmt_eh_lp_fn (fn, stmt);
+	  if (region != 0)
 	    {
 	      output_record_start (ob, LTO_eh_region);
-	      output_uleb128 (ob, region);
+	      output_sleb128 (ob, region);
 	    }
 	  else
 	    output_zero (ob);
@@ -1897,11 +1791,8 @@ produce_asm (struct output_block *ob, tree fn)
   header.lto_header.minor_version = LTO_minor_version;
   header.lto_header.section_type = section_type;
   
-  header.num_named_labels = ob->next_named_label_index;
-  header.num_unnamed_labels = -ob->next_unnamed_label_index;
   header.compressed_size = 0;
   
-  header.named_label_size = ob->named_label_stream->total_size;
   if (section_type == LTO_section_function_body)
     header.cfg_size = ob->cfg_stream->total_size;
   header.main_size = ob->main_stream->total_size;
@@ -1914,7 +1805,6 @@ produce_asm (struct output_block *ob, tree fn)
 
   /* Put all of the gimple and the string table out the asm file as a
      block of text.  */
-  lto_write_stream (ob->named_label_stream);
   if (section_type == LTO_section_function_body)
     lto_write_stream (ob->cfg_stream);
   lto_write_stream (ob->main_stream);
@@ -2007,7 +1897,6 @@ output_function (struct cgraph_node *node)
   output_zero (ob);
 
   output_cfg (ob, fn);
-  output_named_labels (ob);
 
   /* Create a section to hold the pickled output of this function.   */
   produce_asm (ob, function);
@@ -2092,7 +1981,6 @@ output_unreferenced_globals (cgraph_node_set set)
     }
 
   output_zero (ob);
-  output_named_labels (ob);
 
   produce_asm (ob, NULL);
   destroy_output_block (ob);

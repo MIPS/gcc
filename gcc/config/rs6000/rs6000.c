@@ -919,6 +919,10 @@ static tree rs6000_builtin_mul_widen_even (tree);
 static tree rs6000_builtin_mul_widen_odd (tree);
 static tree rs6000_builtin_conversion (unsigned int, tree);
 static tree rs6000_builtin_vec_perm (tree, tree *);
+static bool rs6000_builtin_support_vector_misalignment (enum
+							machine_mode,
+							const_tree,
+							int, bool);
 
 static void def_builtin (int, const char *, tree, int);
 static bool rs6000_vector_alignment_reachable (const_tree, bool);
@@ -1300,7 +1304,9 @@ static const struct attribute_spec rs6000_attribute_table[] =
 #define TARGET_VECTORIZE_BUILTIN_CONVERSION rs6000_builtin_conversion
 #undef TARGET_VECTORIZE_BUILTIN_VEC_PERM
 #define TARGET_VECTORIZE_BUILTIN_VEC_PERM rs6000_builtin_vec_perm
-
+#undef TARGET_SUPPORT_VECTOR_MISALIGNMENT
+#define TARGET_SUPPORT_VECTOR_MISALIGNMENT		\
+  rs6000_builtin_support_vector_misalignment
 #undef TARGET_VECTOR_ALIGNMENT_REACHABLE
 #define TARGET_VECTOR_ALIGNMENT_REACHABLE rs6000_vector_alignment_reachable
 
@@ -2893,6 +2899,36 @@ rs6000_vector_alignment_reachable (const_tree type ATTRIBUTE_UNUSED, bool is_pac
       /* Assuming that all other types are naturally aligned. CHECKME!  */
       return true;
     }
+}
+
+/* Return true if the vector misalignment factor is supported by the
+   target.  */ 
+bool
+rs6000_builtin_support_vector_misalignment (enum machine_mode mode,
+					    const_tree type,
+					    int misalignment,
+					    bool is_packed)
+{
+  if (TARGET_VSX)
+    {
+      /* Return if movmisalign pattern is not supported for this mode.  */
+      if (optab_handler (movmisalign_optab, mode)->insn_code ==
+          CODE_FOR_nothing)
+        return false;
+
+      if (misalignment == -1)
+	{
+	  /* misalignment factor is unknown at compile time but we know
+	     it's word aligned.  */
+	  if (rs6000_vector_alignment_reachable (type, is_packed))
+	    return true;
+	  return false;
+	}
+      /* VSX supports word-aligned vector.  */
+      if (misalignment % 4 == 0)
+	return true;
+    }
+  return false;
 }
 
 /* Implement targetm.vectorize.builtin_vec_perm.  */
@@ -6488,10 +6524,7 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
 	      rtx other = XEXP (XEXP (operands[1], 0), 1);
 
 	      sym = force_reg (mode, sym);
-	      if (mode == SImode)
-		emit_insn (gen_addsi3 (operands[0], sym, other));
-	      else
-		emit_insn (gen_adddi3 (operands[0], sym, other));
+	      emit_insn (gen_add3_insn (operands[0], sym, other));
 	      return;
 	    }
 
@@ -16473,9 +16506,7 @@ rs6000_split_multireg_move (rtx dst, rtx src)
 	      delta_rtx = (GET_CODE (XEXP (src, 0)) == PRE_INC
 			   ? GEN_INT (GET_MODE_SIZE (GET_MODE (src)))
 			   : GEN_INT (-GET_MODE_SIZE (GET_MODE (src))));
-	      emit_insn (TARGET_32BIT
-			 ? gen_addsi3 (breg, breg, delta_rtx)
-			 : gen_adddi3 (breg, breg, delta_rtx));
+	      emit_insn (gen_add3_insn (breg, breg, delta_rtx));
 	      src = replace_equiv_address (src, breg);
 	    }
 	  else if (! rs6000_offsettable_memref_p (src))
@@ -16525,9 +16556,7 @@ rs6000_split_multireg_move (rtx dst, rtx src)
 		  used_update = true;
 		}
 	      else
-		emit_insn (TARGET_32BIT
-			   ? gen_addsi3 (breg, breg, delta_rtx)
-			   : gen_adddi3 (breg, breg, delta_rtx));
+		emit_insn (gen_add3_insn (breg, breg, delta_rtx));
 	      dst = replace_equiv_address (dst, breg);
 	    }
 	  else
@@ -17728,14 +17757,7 @@ rs6000_emit_allocate_stack (HOST_WIDE_INT size, int copy_r12, int copy_r11)
 	  && REGNO (stack_limit_rtx) > 1
 	  && REGNO (stack_limit_rtx) <= 31)
 	{
-	  emit_insn (TARGET_32BIT
-		     ? gen_addsi3 (tmp_reg,
-				   stack_limit_rtx,
-				   GEN_INT (size))
-		     : gen_adddi3 (tmp_reg,
-				   stack_limit_rtx,
-				   GEN_INT (size)));
-
+	  emit_insn (gen_add3_insn (tmp_reg, stack_limit_rtx, GEN_INT (size)));
 	  emit_insn (gen_cond_trap (LTU, stack_reg, tmp_reg,
 				    const0_rtx));
 	}
@@ -18648,9 +18670,7 @@ rs6000_emit_prologue (void)
           rtx ptr_reg = (sp_reg_rtx == frame_reg_rtx
                          ? sp_reg_rtx : r11);
 
-          emit_insn (TARGET_32BIT
-                     ? gen_addsi3 (r11, ptr_reg, offset)
-                     : gen_adddi3 (r11, ptr_reg, offset));
+	  emit_insn (gen_add3_insn (r11, ptr_reg, offset));
         }
 
       par = rs6000_make_savres_rtx (info, frame_reg_rtx,
@@ -20090,12 +20110,7 @@ rs6000_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
 
   /* Apply the constant offset, if required.  */
   if (delta)
-    {
-      rtx delta_rtx = GEN_INT (delta);
-      emit_insn (TARGET_32BIT
-		 ? gen_addsi3 (this_rtx, this_rtx, delta_rtx)
-		 : gen_adddi3 (this_rtx, this_rtx, delta_rtx));
-    }
+    emit_insn (gen_add3_insn (this_rtx, this_rtx, GEN_INT (delta)));
 
   /* Apply the offset from the vtable, if required.  */
   if (vcall_offset)
@@ -20106,9 +20121,7 @@ rs6000_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
       emit_move_insn (tmp, gen_rtx_MEM (Pmode, this_rtx));
       if (((unsigned HOST_WIDE_INT) vcall_offset) + 0x8000 >= 0x10000)
 	{
-	  emit_insn (TARGET_32BIT
-		     ? gen_addsi3 (tmp, tmp, vcall_offset_rtx)
-		     : gen_adddi3 (tmp, tmp, vcall_offset_rtx));
+	  emit_insn (gen_add3_insn (tmp, tmp, vcall_offset_rtx));
 	  emit_move_insn (tmp, gen_rtx_MEM (Pmode, tmp));
 	}
       else
@@ -20117,9 +20130,7 @@ rs6000_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
 
 	  emit_move_insn (tmp, gen_rtx_MEM (Pmode, loc));
 	}
-      emit_insn (TARGET_32BIT
-		 ? gen_addsi3 (this_rtx, this_rtx, tmp)
-		 : gen_adddi3 (this_rtx, this_rtx, tmp));
+      emit_insn (gen_add3_insn (this_rtx, this_rtx, tmp));
     }
 
   /* Generate a tail call to the target function.  */
@@ -25002,6 +25013,10 @@ rs6000_function_value (const_tree valtype, const_tree func ATTRIBUTE_UNUSED)
 	   && TARGET_ALTIVEC && TARGET_ALTIVEC_ABI
 	   && ALTIVEC_VECTOR_MODE (mode))
     regno = ALTIVEC_ARG_RETURN;
+  else if (TREE_CODE (valtype) == VECTOR_TYPE
+	   && TARGET_VSX && TARGET_ALTIVEC_ABI
+	   && VSX_VECTOR_MODE (mode))
+    regno = ALTIVEC_ARG_RETURN;
   else if (TARGET_E500_DOUBLE && TARGET_HARD_FLOAT
 	   && (mode == DFmode || mode == DCmode
 	       || mode == TFmode || mode == TCmode))
@@ -25042,6 +25057,9 @@ rs6000_libcall_value (enum machine_mode mode)
     regno = FP_ARG_RETURN;
   else if (ALTIVEC_VECTOR_MODE (mode)
 	   && TARGET_ALTIVEC && TARGET_ALTIVEC_ABI)
+    regno = ALTIVEC_ARG_RETURN;
+  else if (VSX_VECTOR_MODE (mode)
+	   && TARGET_VSX && TARGET_ALTIVEC_ABI)
     regno = ALTIVEC_ARG_RETURN;
   else if (COMPLEX_MODE_P (mode) && targetm.calls.split_complex_arg)
     return rs6000_complex_function_value (mode);

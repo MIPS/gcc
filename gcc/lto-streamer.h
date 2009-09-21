@@ -202,22 +202,17 @@ enum LTO_tags
   /* EH table.  */
   LTO_eh_table,
 
-  /* There are 2 variants for each EH region type.  Variant 0 is for
-     may_contain_throw == false, variant 1 is for may_contain_throw ==
-     true.  */
-  LTO_eh_table_cleanup0,
-  LTO_eh_table_cleanup1,
-  LTO_eh_table_try0,
-  LTO_eh_table_try1,
-  LTO_eh_table_catch0,
-  LTO_eh_table_catch1,
-  LTO_eh_table_allowed0,
-  LTO_eh_table_allowed1,
-  LTO_eh_table_must_not_throw0,
-  LTO_eh_table_must_not_throw1,
-  LTO_eh_table_throw0,
-  LTO_eh_table_throw1,
-  LTO_eh_table_shared_region,
+  /* EH region types.  These mirror enum eh_region_type.  */
+  LTO_ert_cleanup,
+  LTO_ert_try,
+  LTO_ert_allowed_exceptions,
+  LTO_ert_must_not_throw,
+
+  /* EH landing pad.  */
+  LTO_eh_landing_pad,
+
+  /* EH try/catch node.  */
+  LTO_eh_catch,
 
   /* Special for global streamer. Reference to previously-streamed node.  */
   LTO_tree_pickle_reference,
@@ -234,8 +229,7 @@ enum LTO_tags
      in the range checks done in lto_input_tree.  */
   LTO_field_decl_ref,			/* Do not change.  */
   LTO_function_decl_ref,
-  LTO_local_label_decl,
-  LTO_global_label_decl,
+  LTO_label_decl_ref,
   LTO_namespace_decl_ref,
   LTO_result_decl_ref,
   LTO_ssa_name_ref,
@@ -636,21 +630,11 @@ struct output_block
   /* The stream that the main tree codes are written to.  */
   struct lto_output_stream *main_stream;
 
-  /* The stream that contains the names for the named_labels.  */
-  struct lto_output_stream *named_label_stream;
-
   /* The stream that contains the string table.  */
   struct lto_output_stream *string_stream;
 
   /* The stream that contains the cfg.  */
   struct lto_output_stream *cfg_stream;
-
-  /* The hash table that contains the set of labels we have seen so
-     far and the indexes assigned to them.  */
-  htab_t label_hash_table;
-  int next_named_label_index;
-  int next_unnamed_label_index;
-  VEC(tree,heap) *named_labels;
 
   /* The hash table that contains the set of strings we have seen so
      far and the indexes assigned to them.  */

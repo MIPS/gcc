@@ -75,42 +75,22 @@ lto_tag_name (enum LTO_tags tag)
       return "LTO_function";
     case LTO_eh_table:
       return "LTO_eh_table";
-    case LTO_eh_table_cleanup0:
-      return "LTO_eh_table_cleanup0";
-    case LTO_eh_table_cleanup1:
-      return "LTO_eh_table_cleanup1";
-    case LTO_eh_table_try0:
-      return "LTO_eh_table_try0";
-    case LTO_eh_table_try1:
-      return "LTO_eh_table_try1";
-    case LTO_eh_table_catch0:
-      return "LTO_eh_table_catch0";
-    case LTO_eh_table_catch1:
-      return "LTO_eh_table_catch1";
-    case LTO_eh_table_allowed0:
-      return "LTO_eh_table_allowed0";
-    case LTO_eh_table_allowed1:
-      return "LTO_eh_table_allowed1";
-    case LTO_eh_table_must_not_throw0:
-      return "LTO_eh_table_must_not_throw0";
-    case LTO_eh_table_must_not_throw1:
-      return "LTO_eh_table_must_not_throw1";
-    case LTO_eh_table_throw0:
-      return "LTO_eh_table_throw0";
-    case LTO_eh_table_throw1:
-      return "LTO_eh_table_throw1";
-    case LTO_eh_table_shared_region:
-      return "LTO_eh_table_shared_region";
+    case LTO_ert_cleanup:
+      return "LTO_ert_cleanup";
+    case LTO_ert_try:
+      return "LTO_ert_try";
+    case LTO_ert_allowed_exceptions:
+      return "LTO_ert_allowed_exceptions";
+    case LTO_ert_must_not_throw:
+      return "LTO_ert_must_not_throw";
     case LTO_tree_pickle_reference:
       return "LTO_tree_pickle_reference";
     case LTO_field_decl_ref:
       return "LTO_field_decl_ref";
     case LTO_function_decl_ref:
       return "LTO_function_decl_ref";
-    case LTO_local_label_decl:
-      return "LTO_local_label_decl";
-    case LTO_global_label_decl:
-      return "LTO_global_label_decl";
+    case LTO_label_decl_ref:
+      return "LTO_label_decl_ref";
     case LTO_namespace_decl_ref:
       return "LTO_namespace_decl_ref";
     case LTO_result_decl_ref:

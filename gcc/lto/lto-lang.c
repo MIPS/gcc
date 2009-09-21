@@ -536,6 +536,8 @@ lto_init_attributes (void)
 #undef DEF_ATTR_TREE_LIST
 }
 
+/* Create builtin types and functions.  VA_LIST_REF_TYPE_NODE and
+   VA_LIST_ARG_TYPE_NODE are used in builtin-types.def.  */
 
 static void
 lto_define_builtins (tree va_list_ref_type_node ATTRIBUTE_UNUSED,
@@ -604,10 +606,6 @@ lto_define_builtins (tree va_list_ref_type_node ATTRIBUTE_UNUSED,
 		     NONANSI_P, built_in_attributes[(int) ATTRS], IMPLICIT);
 #include "builtins.def"
 #undef DEF_BUILTIN
-
-  targetm.init_builtins ();
-
-  build_common_builtin_nodes ();
 }
 
 static GTY(()) tree registered_builtin_types;
@@ -1153,7 +1151,7 @@ lto_init (void)
     }
 
   targetm.init_builtins ();
-  build_common_builtin_nodes ();
+  build_common_builtin_nodes (targetm.arm_eabi_unwinder);
 
   /* Initialize LTO-specific data structures.  */
   lto_global_var_decls = VEC_alloc (tree, gc, 256);

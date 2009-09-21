@@ -1,3 +1,12 @@
+2009-09-21  Diego Novillo  <dnovillo@google.com>
+
+	* lto-lang.c (lto_define_builtins): Remove superfluous
+	calls to targetm.init_builtins and build_common_builtin_nodes.
+	(lto_init): Add targetm.arm_eabi_unwinder as parameter to
+	build_common_builtin_nodes.
+	* lto.c (lto_materialize_function): Do nothing if NODE is a
+	clone.
+
 2009-09-03  Diego Novillo  <dnovillo@google.com>
 
 	* lto-elf.c (validate_file): Replace call to

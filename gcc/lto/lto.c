@@ -70,12 +70,21 @@ lto_materialize_constructors_and_inits (struct lto_file_decl_data * file_data)
 static void
 lto_materialize_function (struct cgraph_node *node)
 {
-  tree decl = node->decl;
-  struct lto_file_decl_data *file_data = node->local.lto_file_data;
-  const char *data;
+  tree decl;
+  struct lto_file_decl_data *file_data;
+  const char *data, *name;
   size_t len;
   tree step;
-  const char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)); 
+
+  /* Ignore clone nodes.  Read the body only from the original one.
+     We may find clone nodes during LTRANS after WPA has made inlining
+     decisions.  */
+  if (node->clone_of)
+    return;
+
+  decl = node->decl;
+  file_data = node->local.lto_file_data;
+  name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)); 
 
   /* We may have renamed the declaration, e.g., a static function.  */
   name = lto_get_decl_name_mapping (file_data, name);
@@ -91,6 +100,7 @@ lto_materialize_function (struct cgraph_node *node)
       /* This function has a definition.  */
       TREE_STATIC (decl) = 1;
 
+      gcc_assert (DECL_STRUCT_FUNCTION (decl) == NULL);
       allocate_struct_function (decl, false);
 
       /* Load the function body only if not operating in WPA mode.  In

@@ -122,35 +122,6 @@ input_string_cst (struct data_in *data_in, struct lto_input_block *ib)
 }
 
 
-/* Read a bitmap from input block IB. If GC_P is true, allocate the
-   bitmap in GC memory.  Otherwise,  allocate it on OBSTACK.  If
-   OBSTACK is NULL, it is allocated in the default bitmap obstack.  */
-
-static bitmap
-input_bitmap (struct lto_input_block *ib, bitmap_obstack *obstack, bool gc_p)
-{
-  unsigned long num_bits, i;
-  bitmap b;
-
-  num_bits = lto_input_uleb128 (ib);
-  if (num_bits == 0)
-    return NULL;
-
-  if (gc_p)
-    b = BITMAP_GGC_ALLOC ();
-  else
-    b = BITMAP_ALLOC (obstack);
-
-  for (i = 0; i < num_bits; i++)
-    {
-      unsigned long bit = lto_input_uleb128 (ib);
-      bitmap_set_bit (b, bit);
-    }
-
-  return b;
-}
-
-
 /* Read an IDENTIFIER from the string table in DATA_IN using input
    block IB.  */
 
@@ -196,50 +167,6 @@ input_record_start (struct lto_input_block *ib)
   enum LTO_tags tag = (enum LTO_tags) lto_input_uleb128 (ib);
   return tag;
 } 
-
-
-/* Get the label referenced by IX in DATA_IN.  */
-
-static tree 
-get_label_decl (struct data_in *data_in, HOST_WIDE_INT ix)
-{
-  int nlabels;
-  tree label;
-
-  /* A negative IX indicates that the label is an unnamed label.
-     These are stored at the back of DATA_IN->LABELS.  */
-  ix = (ix >= 0) ? ix : (int) data_in->num_named_labels - ix;
-  nlabels = (int) data_in->num_named_labels + data_in->num_unnamed_labels;
-  gcc_assert (ix >= 0 && ix < nlabels);
-
-  label = data_in->labels[ix];
-  gcc_assert (!emit_label_in_global_context_p (label));
-
-  return label;
-}
-
-
-/* Read the type referenced by the next token in IB and store it in
-   the type table in DATA_IN.  */
-
-static tree
-input_type_ref (struct data_in *data_in, struct lto_input_block *ib)
-{
-  int index;
-  tree result;
-  enum LTO_tags tag;
-
-  tag = input_record_start (ib);
-  if (tag == LTO_type_ref)
-    {
-      index = lto_input_uleb128 (ib);
-      result = lto_file_decl_data_get_type (data_in->file_data, index);
-    }
-  else
-    gcc_unreachable ();
-
-  return result;
-}
 
 
 /* Lookup STRING in file_name_hash_table.  If found, return the existing
@@ -288,43 +215,32 @@ clear_line_info (struct data_in *data_in)
 }
 
 
-/* Load NAMED_COUNT named labels and constuct UNNAMED_COUNT unnamed
-   labels from DATA segment SIZE bytes long using DATA_IN.  IB is the
-   input block to read from.  */
+/* Read a location from input block IB.  */
 
-static void 
-input_labels (struct lto_input_block *ib, struct data_in *data_in, 
-	      unsigned int named_count, unsigned int unnamed_count)
+static location_t
+lto_input_location (struct lto_input_block *ib, struct data_in *data_in)
 {
-  unsigned int i;
-  tree label;
+  expanded_location xloc;
+  location_t loc;
 
-  clear_line_info (data_in);
+  xloc.file = input_string (data_in, ib);
+  if (xloc.file == NULL)
+    return UNKNOWN_LOCATION;
 
-  /* The named and unnamed labels share the same array.  In the lto
-     code, the unnamed labels have a negative index.  Their position
-     in the array can be found by subtracting that index from the
-     number of named labels.  */
-  data_in->labels = (tree *) xcalloc (named_count + unnamed_count,
-				      sizeof (tree));
-  data_in->num_named_labels = named_count;
-  data_in->num_unnamed_labels = unnamed_count;
+  xloc.line = lto_input_sleb128 (ib);
+  xloc.column = lto_input_sleb128 (ib);
 
-  for (i = 0; i < named_count; i++)
-    {
-      tree name = input_identifier (data_in, ib);
-      label = build_decl (UNKNOWN_LOCATION, LABEL_DECL, name, void_type_node);
-      DECL_CONTEXT (label) = current_function_decl;
-      data_in->labels[i] = label;
-    }
+  if (data_in->current_file)
+    linemap_add (line_table, LC_LEAVE, false, NULL, 0);
 
-  for (i = 0; i < unnamed_count; i++)
-    {
-      label = build_decl (UNKNOWN_LOCATION, LABEL_DECL, NULL_TREE,
-			  void_type_node);
-      DECL_CONTEXT (label) = current_function_decl;
-      data_in->labels[i + named_count] = label;
-    }
+  data_in->current_file = canon_file_name (xloc.file);
+  data_in->current_line = xloc.line;
+  data_in->current_col = xloc.column;
+
+  linemap_add (line_table, LC_ENTER, false, data_in->current_file, xloc.line);
+  LINEMAP_POSITION_FOR_COLUMN (loc, line_table, xloc.column);
+
+  return loc;
 }
 
 
@@ -340,7 +256,6 @@ lto_input_tree_ref (struct lto_input_block *ib, struct data_in *data_in,
 		    struct function *fn, enum LTO_tags tag)
 {
   unsigned HOST_WIDE_INT ix_u;
-  HOST_WIDE_INT ix_s;
   tree result = NULL_TREE;
 
   gcc_assert (tag >= LTO_field_decl_ref && tag <= LTO_global_decl_ref);
@@ -381,20 +296,11 @@ lto_input_tree_ref (struct lto_input_block *ib, struct data_in *data_in,
     case LTO_result_decl_ref:
     case LTO_const_decl_ref:
     case LTO_imported_decl_ref:
+    case LTO_label_decl_ref:
       ix_u = lto_input_uleb128 (ib);
       result = lto_file_decl_data_get_var_decl (data_in->file_data, ix_u);
       if (tag == LTO_global_decl_ref)
 	varpool_mark_needed_node (varpool_node (result));
-      break;
-
-    case LTO_global_label_decl:
-      ix_u = lto_input_uleb128 (ib);
-      result = lto_file_decl_data_get_label_decl (data_in->file_data, ix_u);
-      break;
-
-    case LTO_local_label_decl:
-      ix_s = lto_input_sleb128 (ib);
-      result = get_label_decl (data_in, ix_s);
       break;
 
     default:
@@ -407,107 +313,147 @@ lto_input_tree_ref (struct lto_input_block *ib, struct data_in *data_in,
 }
 
 
-/* Read and return EH region REGION_NUMBER from DATA_IN using input
-   block IB.  */
+/* Read and return a double-linked list of catch handlers from input
+   block IB, using descriptors in DATA_IN.  */
+
+static struct eh_catch_d *
+lto_input_eh_catch_list (struct lto_input_block *ib, struct data_in *data_in,
+			 eh_catch *last_p)
+{
+  eh_catch first;
+  enum LTO_tags tag;
+
+  *last_p = first = NULL;
+  tag = input_record_start (ib);
+  while (tag)
+    {
+      tree list;
+      eh_catch n;
+
+      gcc_assert (tag == LTO_eh_catch);
+
+      /* Read the catch node.  */
+      n = GGC_CNEW (struct eh_catch_d);
+      n->type_list = lto_input_tree (ib, data_in);
+      n->filter_list = lto_input_tree (ib, data_in);
+      n->label = lto_input_tree (ib, data_in);
+
+      /* Register all the types in N->FILTER_LIST.  */
+      for (list = n->filter_list; list; list = TREE_CHAIN (list))
+	add_type_for_runtime (TREE_VALUE (list));
+
+      /* Chain N to the end of the list.  */
+      if (*last_p)
+	(*last_p)->next_catch = n;
+      n->prev_catch = *last_p;
+      *last_p = n;
+
+      /* Set the head of the list the first time through the loop.  */
+      if (first == NULL)
+	first = n;
+
+      tag = input_record_start (ib);
+    }
+
+  return first;
+}
+
+
+/* Read and return EH region IX from input block IB, using descriptors
+   in DATA_IN.  */
 
 static eh_region
-input_eh_region (struct lto_input_block *ib, struct data_in *data_in,
-		 int region_number)
+input_eh_region (struct lto_input_block *ib, struct data_in *data_in, int ix)
 {
   enum LTO_tags tag;
   eh_region r;
-  tree list;
 
   /* Read the region header.  */
   tag = input_record_start (ib);
-  if (tag == 0)
-    return NULL;
-
-  /* If TAG indicates that this is a shared region, then return a NULL
-     region.  The caller is responsible for sharing EH regions in the
-     EH table using the AKA bitmaps.  */
-  if (tag == LTO_eh_table_shared_region)
+  if (tag == LTO_null)
     return NULL;
 
   r = GGC_CNEW (struct eh_region_d);
-  r->region_number = lto_input_sleb128 (ib);
-  r->aka = input_bitmap (ib, NULL, true);
+  r->index = lto_input_sleb128 (ib);
 
-  gcc_assert (r->region_number == region_number);
+  gcc_assert (r->index == ix);
 
   /* Read all the region pointers as region numbers.  We'll fix up
      the pointers once the whole array has been read.  */
-  r->outer = (eh_region) (intptr_t) lto_input_uleb128 (ib);
-  r->inner = (eh_region) (intptr_t) lto_input_uleb128 (ib);
-  r->next_peer = (eh_region) (intptr_t) lto_input_uleb128 (ib);
-  r->tree_label = lto_input_tree (ib, data_in);
-
-  if (tag == LTO_eh_table_cleanup1
-      || tag == LTO_eh_table_try1
-      || tag == LTO_eh_table_catch1
-      || tag == LTO_eh_table_allowed1
-      || tag == LTO_eh_table_must_not_throw1
-      || tag == LTO_eh_table_throw1)
-    r->may_contain_throw = 1;
+  r->outer = (eh_region) (intptr_t) lto_input_sleb128 (ib);
+  r->inner = (eh_region) (intptr_t) lto_input_sleb128 (ib);
+  r->next_peer = (eh_region) (intptr_t) lto_input_sleb128 (ib);
 
   switch (tag)
     {
-      case LTO_eh_table_cleanup0:
-      case LTO_eh_table_cleanup1:
+      case LTO_ert_cleanup:
 	r->type = ERT_CLEANUP;
 	break;
 
-      case LTO_eh_table_try0:
-      case LTO_eh_table_try1:
-	r->type = ERT_TRY;
-	r->u.eh_try.eh_catch = (eh_region) (intptr_t) lto_input_uleb128 (ib);
-	r->u.eh_try.last_catch = (eh_region) (intptr_t) lto_input_uleb128 (ib);
-	break;
-
-      case LTO_eh_table_catch0:
-      case LTO_eh_table_catch1:
-	r->type = ERT_CATCH;
-	r->u.eh_catch.next_catch 
-	  = (eh_region) (intptr_t) lto_input_uleb128 (ib);
-	r->u.eh_catch.prev_catch 
-	  = (eh_region) (intptr_t) lto_input_uleb128 (ib);
-	list = lto_input_tree (ib, data_in);
-	r->u.eh_catch.type_list = list;
-	for (; list; list = TREE_CHAIN (list))
-	  add_type_for_runtime (TREE_VALUE (list));
-	r->u.eh_catch.filter_list = lto_input_tree (ib, data_in);
-	break;
-
-      case LTO_eh_table_allowed0:
-      case LTO_eh_table_allowed1:
+      case LTO_ert_try:
 	{
-	  tree list;
+	  struct eh_catch_d *last_catch;
+	  r->type = ERT_TRY;
+	  r->u.eh_try.first_catch = lto_input_eh_catch_list (ib, data_in,
+							     &last_catch);
+	  r->u.eh_try.last_catch = last_catch;
+	  break;
+	}
+
+      case LTO_ert_allowed_exceptions:
+	{
+	  tree l;
 
 	  r->type = ERT_ALLOWED_EXCEPTIONS;
-	  list = lto_input_tree (ib, data_in);
-	  r->u.allowed.type_list = list;
-	  for (; list ; list = TREE_CHAIN (list))
-	    add_type_for_runtime (TREE_VALUE (list));
+	  r->u.allowed.type_list = lto_input_tree (ib, data_in);
+	  r->u.allowed.label = lto_input_tree (ib, data_in);
 	  r->u.allowed.filter = lto_input_uleb128 (ib);
+
+	  for (l = r->u.allowed.type_list; l ; l = TREE_CHAIN (l))
+	    add_type_for_runtime (TREE_VALUE (l));
 	}
 	break;
 
-      case LTO_eh_table_must_not_throw0:
-      case LTO_eh_table_must_not_throw1:
+      case LTO_ert_must_not_throw:
 	r->type = ERT_MUST_NOT_THROW;
-	break;
-
-      case LTO_eh_table_throw0:
-      case LTO_eh_table_throw1:
-	r->type = ERT_THROW;
-	r->u.eh_throw.type = input_type_ref (data_in, ib);
+	r->u.must_not_throw.failure_decl = lto_input_tree (ib, data_in);
+	r->u.must_not_throw.failure_loc = lto_input_location (ib, data_in);
 	break;
 
       default:
 	gcc_unreachable ();
     }
 
+  r->landing_pads = (eh_landing_pad) (intptr_t) lto_input_sleb128 (ib);
+
   return r;
+}
+
+
+/* Read and return EH landing pad IX from input block IB, using descriptors
+   in DATA_IN.  */
+
+static eh_landing_pad
+input_eh_lp (struct lto_input_block *ib, struct data_in *data_in, int ix)
+{
+  enum LTO_tags tag;
+  eh_landing_pad lp;
+
+  /* Read the landing pad header.  */
+  tag = input_record_start (ib);
+  if (tag == LTO_null)
+    return NULL;
+
+  gcc_assert (tag == LTO_eh_landing_pad);
+
+  lp = GGC_CNEW (struct eh_landing_pad_d);
+  lp->index = lto_input_sleb128 (ib);
+  gcc_assert (lp->index == ix);
+  lp->next_lp = (eh_landing_pad) (intptr_t) lto_input_sleb128 (ib);
+  lp->region = (eh_region) (intptr_t) lto_input_sleb128 (ib);
+  lp->post_landing_pad = lto_input_tree (ib, data_in);
+
+  return lp;
 }
 
 
@@ -520,59 +466,51 @@ static void
 fixup_eh_region_pointers (struct function *fn, HOST_WIDE_INT root_region)
 {
   unsigned i;
-  VEC(eh_region,gc) *array = fn->eh->region_array;
+  VEC(eh_region,gc) *eh_array = fn->eh->region_array;
+  VEC(eh_landing_pad,gc) *lp_array = fn->eh->lp_array;
   eh_region r;
+  eh_landing_pad lp;
 
-#define fixup_region(r) (r) = VEC_index (eh_region, array, \
-					 (HOST_WIDE_INT) (intptr_t) (r))
+  gcc_assert (eh_array && lp_array);
 
-  gcc_assert (array);
+  gcc_assert (root_region >= 0);
+  fn->eh->region_tree = VEC_index (eh_region, eh_array, root_region);
 
-  /* A root region with value -1 means that there is not a region tree
-     for this function.  However, we may still have an EH table with
-     statements in it.  FIXME, this is a bug in the generic EH code.  */
-  if (root_region >= 0)
-    fn->eh->region_tree = VEC_index (eh_region, array, root_region);
+#define FIXUP_EH_REGION(r) (r) = VEC_index (eh_region, eh_array, \
+					    (HOST_WIDE_INT) (intptr_t) (r))
+#define FIXUP_EH_LP(p) (p) = VEC_index (eh_landing_pad, lp_array, \
+					(HOST_WIDE_INT) (intptr_t) (p))
 
-  for (i = 0; VEC_iterate (eh_region, array, i, r); i++)
+  /* Convert all the index numbers stored in pointer fields into
+     pointers to the corresponding slots in the EH region array.  */
+  for (i = 0; VEC_iterate (eh_region, eh_array, i, r); i++)
     {
+      /* The array may contain NULL regions.  */
       if (r == NULL)
 	continue;
 
-      /* If R is a shared EH region, then its region number will be
-	 that of its original EH region.  Skip these, since they only
-	 need to be fixed up when processing the original region.  */
-      if (i != (unsigned) r->region_number)
-	continue;
-
-      fixup_region (r->outer);
-      fixup_region (r->inner);
-      fixup_region (r->next_peer);
-
-      if (r->type == ERT_TRY)
-	{
-	  fixup_region (r->u.eh_try.eh_catch);
-	  fixup_region (r->u.eh_try.last_catch);
-	}
-      else if (r->type == ERT_CATCH)
-	{
-	  fixup_region (r->u.eh_catch.next_catch);
-	  fixup_region (r->u.eh_catch.prev_catch);
-	}
-
-      /* If R has an AKA set, all the table slot for the regions
-	 mentioned in AKA must point to R.  */
-      if (r->aka)
-	{
-	  bitmap_iterator bi;
-	  unsigned i;
-
-	  EXECUTE_IF_SET_IN_BITMAP (r->aka, 0, i, bi)
-	    VEC_replace (eh_region, array, i, r);
-	}
+      gcc_assert (i == (unsigned) r->index);
+      FIXUP_EH_REGION (r->outer);
+      FIXUP_EH_REGION (r->inner);
+      FIXUP_EH_REGION (r->next_peer);
+      FIXUP_EH_LP (r->landing_pads);
     }
 
-#undef fixup_region
+  /* Convert all the index numbers stored in pointer fields into
+     pointers to the corresponding slots in the EH landing pad array.  */
+  for (i = 0; VEC_iterate (eh_landing_pad, lp_array, i, lp); i++)
+    {
+      /* The array may contain NULL landing pads.  */
+      if (lp == NULL)
+	continue;
+
+      gcc_assert (i == (unsigned) lp->index);
+      FIXUP_EH_LP (lp->next_lp);
+      FIXUP_EH_REGION (lp->region);
+    }
+
+#undef FIXUP_EH_REGION
+#undef FIXUP_EH_LP
 }
 
 
@@ -596,8 +534,6 @@ lto_init_eh (void)
   if (dwarf2out_do_frame ())
     dwarf2out_frame_init ();
 #endif
-
-  default_init_unwind_resume_libfunc ();
 }
 
 
@@ -608,49 +544,100 @@ static void
 input_eh_regions (struct lto_input_block *ib, struct data_in *data_in,
 		  struct function *fn)
 {
-  HOST_WIDE_INT i, last_region, root_region, len;
+  HOST_WIDE_INT i, root_region, len;
   enum LTO_tags tag;
+  static bool eh_initialized_p = false;
   
   tag = input_record_start (ib);
-  if (tag == LTO_eh_table)
+  if (tag == LTO_null)
+    return;
+
+  gcc_assert (tag == LTO_eh_table);
+
+  /* If the file contains EH regions, then it was compiled with
+     -fexceptions.  In that case, initialize the backend EH
+     machinery.  */
+  if (!eh_initialized_p)
     {
-      static bool eh_initialized_p = false;
+      lto_init_eh ();
+      eh_initialized_p = true;
+    }
 
-      /* If the file contains EH regions, then it was compiled with
-	 -fexceptions.  In that case, initialize the backend EH
-	 machinery.  */
-      if (!eh_initialized_p)
+  gcc_assert (fn->eh);
+
+  root_region = lto_input_sleb128 (ib);
+  gcc_assert (root_region == (int) root_region);
+
+  /* Read the EH region array.  */
+  len = lto_input_sleb128 (ib);
+  gcc_assert (len == (int) len);
+  if (len > 0)
+    {
+      VEC_safe_grow (eh_region, gc, fn->eh->region_array, len);
+      for (i = 0; i < len; i++)
 	{
-	  lto_init_eh ();
-	  eh_initialized_p = true;
+	  eh_region r = input_eh_region (ib, data_in, i);
+	  VEC_replace (eh_region, fn->eh->region_array, i, r);
 	}
+    }
 
-      gcc_assert (fn->eh);
-
-      last_region = lto_input_sleb128 (ib);
-      fn->eh->last_region_number = last_region;
-
-      root_region = lto_input_sleb128 (ib);
-
-      /* Fill in the EH region array.  */
-      len = lto_input_sleb128 (ib);
-      if (len > 0)
+  /* Read the landing pads.  */
+  len = lto_input_sleb128 (ib);
+  gcc_assert (len == (int) len);
+  if (len > 0)
+    {
+      VEC_safe_grow (eh_landing_pad, gc, fn->eh->lp_array, len);
+      for (i = 0; i < len; i++)
 	{
-	  VEC_safe_grow (eh_region, gc, fn->eh->region_array, len);
+	  eh_landing_pad lp = input_eh_lp (ib, data_in, i);
+	  VEC_replace (eh_landing_pad, fn->eh->lp_array, i, lp);
+	}
+    }
+
+  /* Read the runtime type data.  */
+  len = lto_input_sleb128 (ib);
+  gcc_assert (len == (int) len);
+  if (len > 0)
+    {
+      VEC_safe_grow (tree, gc, fn->eh->ttype_data, len);
+      for (i = 0; i < len; i++)
+	{
+	  tree ttype = lto_input_tree (ib, data_in);
+	  VEC_replace (tree, fn->eh->ttype_data, i, ttype);
+	}
+    }
+
+  /* Read the table of action chains.  */
+  len = lto_input_sleb128 (ib);
+  gcc_assert (len == (int) len);
+  if (len > 0)
+    {
+      if (targetm.arm_eabi_unwinder)
+	{
+	  VEC_safe_grow (tree, gc, fn->eh->ehspec_data.arm_eabi, len);
 	  for (i = 0; i < len; i++)
 	    {
-	      eh_region r = input_eh_region (ib, data_in, i);
-	      VEC_replace (eh_region, fn->eh->region_array, i, r);
+	      tree t = lto_input_tree (ib, data_in);
+	      VEC_replace (tree, fn->eh->ehspec_data.arm_eabi, i, t);
 	    }
-
-	  /* Reconstruct the EH region tree by fixing up the
-	     peer/children pointers.  */
-	  fixup_eh_region_pointers (fn, root_region);
 	}
-
-      tag = input_record_start (ib);
-      gcc_assert (tag == LTO_null);
+      else
+	{
+	  VEC_safe_grow (uchar, gc, fn->eh->ehspec_data.other, len);
+	  for (i = 0; i < len; i++)
+	    {
+	      uchar c = lto_input_1_unsigned (ib);
+	      VEC_replace (uchar, fn->eh->ehspec_data.other, i, c);
+	    }
+	}
     }
+
+  /* Reconstruct the EH region tree by fixing up the peer/children
+     pointers.  */
+  fixup_eh_region_pointers (fn, root_region);
+
+  tag = input_record_start (ib);
+  gcc_assert (tag == LTO_null);
 }
 
 
@@ -746,35 +733,6 @@ input_cfg (struct lto_input_block *ib, struct function *fn)
       p_bb = bb;
       index = lto_input_sleb128 (ib);
     }
-}
-
-
-/* Read a location from input block IB.  */
-
-static location_t
-lto_input_location (struct lto_input_block *ib, struct data_in *data_in)
-{
-  expanded_location xloc;
-  location_t loc;
-
-  xloc.file = input_string (data_in, ib);
-  if (xloc.file == NULL)
-    return UNKNOWN_LOCATION;
-
-  xloc.line = lto_input_sleb128 (ib);
-  xloc.column = lto_input_sleb128 (ib);
-
-  if (data_in->current_file)
-    linemap_add (line_table, LC_LEAVE, false, NULL, 0);
-
-  data_in->current_file = canon_file_name (xloc.file);
-  data_in->current_line = xloc.line;
-  data_in->current_col = xloc.column;
-
-  linemap_add (line_table, LC_ENTER, false, data_in->current_file, xloc.line);
-  LINEMAP_POSITION_FOR_COLUMN (loc, line_table, xloc.column);
-
-  return loc;
 }
 
 
@@ -893,7 +851,15 @@ input_gimple_stmt (struct lto_input_block *ib, struct data_in *data_in,
   switch (code)
     {
     case GIMPLE_RESX:
-      gimple_resx_set_region (stmt, lto_input_uleb128 (ib));
+      gimple_resx_set_region (stmt, lto_input_sleb128 (ib));
+      break;
+
+    case GIMPLE_EH_MUST_NOT_THROW:
+      gimple_eh_must_not_throw_set_fndecl (stmt, lto_input_tree (ib, data_in));
+      break;
+
+    case GIMPLE_EH_DISPATCH:
+      gimple_eh_dispatch_set_region (stmt, lto_input_sleb128 (ib));
       break;
 
     case GIMPLE_ASM:
@@ -1010,11 +976,10 @@ input_bb (struct lto_input_block *ib, enum LTO_tags tag,
 
       if (tag == LTO_eh_region)
 	{
-	  HOST_WIDE_INT region = lto_input_uleb128 (ib);
-	  gcc_assert (region <= num_eh_regions ());
-	  if (MAY_HAVE_DEBUG_STMTS
-	      || !is_gimple_debug (stmt))
-	    add_stmt_to_eh_region (stmt, region);
+	  HOST_WIDE_INT region = lto_input_sleb128 (ib);
+	  gcc_assert (region == (int) region);
+	  if (MAY_HAVE_DEBUG_STMTS || !is_gimple_debug (stmt))
+	    add_stmt_to_eh_lp (stmt, region);
 	}
 
       tag = input_record_start (ib);
@@ -1216,24 +1181,16 @@ lto_read_body (struct lto_file_decl_data *file_data, tree fn_decl,
 {
   const struct lto_function_header *header;
   struct data_in *data_in;
-  int32_t named_label_offset; 
   int32_t cfg_offset;
   int32_t main_offset;
   int32_t string_offset;
-  struct lto_input_block ib_named_labels;
   struct lto_input_block ib_cfg;
   struct lto_input_block ib_main;
 
   header = (const struct lto_function_header *) data;
-  named_label_offset = sizeof (struct lto_function_header); 
-  cfg_offset = named_label_offset + header->named_label_size;
+  cfg_offset = sizeof (struct lto_function_header); 
   main_offset = cfg_offset + header->cfg_size;
   string_offset = main_offset + header->main_size;
-
-  LTO_INIT_INPUT_BLOCK (ib_named_labels,
-		        data + named_label_offset,
-			0,
-			header->named_label_size);
 
   LTO_INIT_INPUT_BLOCK (ib_cfg,
 		        data + cfg_offset,
@@ -1265,9 +1222,6 @@ lto_read_body (struct lto_file_decl_data *file_data, tree fn_decl,
       gcc_assert (decl_state);
       file_data->current_decl_state = decl_state;
 
-      input_labels (&ib_named_labels, data_in, header->num_named_labels,
-		    header->num_unnamed_labels);
-
       input_cfg (&ib_cfg, fn);
 
       /* Set up the struct function.  */
@@ -1291,9 +1245,6 @@ lto_read_body (struct lto_file_decl_data *file_data, tree fn_decl,
     }
   else 
     {
-      input_labels (&ib_named_labels, data_in, 
-		    header->num_named_labels, header->num_unnamed_labels);
-
       input_alias_pairs (&ib_main, data_in);
     }
 
@@ -1484,6 +1435,7 @@ unpack_ts_decl_common_value_fields (struct bitpack_d *bp, tree expr)
   if (TREE_CODE (expr) == LABEL_DECL)
     {
       DECL_ERROR_ISSUED (expr) = (unsigned) bp_unpack_value (bp, 1);
+      EH_LANDING_PAD_NR (expr) = (int) bp_unpack_value (bp, HOST_BITS_PER_INT);
 
       /* Always assume an initial value of -1 for LABEL_DECL_UID to
 	 force gimple_set_bb to recreate label_to_block_map.  */

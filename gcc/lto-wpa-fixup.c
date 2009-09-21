@@ -109,8 +109,8 @@ lto_fixup_nothrow_decls (void)
 	    caller_function = DECL_STRUCT_FUNCTION (edge->caller->decl);
 	    call_stmt = edge->call_stmt;
 	    gcc_assert (call_stmt);
-	    if (lookup_stmt_eh_region_fn (caller_function, call_stmt) >= 0)
-	      remove_stmt_from_eh_region_fn (caller_function, call_stmt);
+	    if (lookup_stmt_eh_lp_fn (caller_function, call_stmt) != 0)
+	      remove_stmt_from_eh_lp_fn (caller_function, call_stmt);
 	  } 
       }
 }

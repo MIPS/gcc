@@ -1,3 +1,71 @@
+2009-09-21  Diego Novillo  <dnovillo@google.com>
+
+	Mainline merge @151721.
+
+	* configure.ac (ACX_PKGVERSION): Update revision merge string.
+	* configure: Regenerate.
+
+2009-09-21  Diego Novillo  <dnovillo@google.com>
+
+	* gimple.h (gimple_eh_must_not_throw_set_fndecl): New.
+	* gimple.c (gimple_build_eh_must_not_throw): Call it.
+	* lto-streamer-in.c (input_bitmap): Remove.
+	(get_label_decl): Remove.
+	(input_type_ref): Remove.
+	(input_labels): Remove.
+	(lto_input_tree_ref): Handle LTO_label_decl_ref like any
+	other decl ref.
+	(lto_input_eh_catch_list): New.
+	(input_eh_region): Rewrite to handle new EH data structures.
+	(input_eh_lp): New.
+	(fixup_eh_region_pointers): Rewrite to handle new EH data structures.
+	(FIXUP_EH_REGION): Rename from fixup_eh_region.
+	(FIXUP_EH_LP): Define.
+	(input_eh_regions): Rewrite to handle new EH data structures.
+	(lto_input_location): Move earlier in the file.
+	(input_gimple_stmt): Handle GIMPLE_EH_MUST_NOT_THROW and
+	GIMPLE_EH_DISPATCH.
+	(input_bb): Do not expect REGION to be a valid index into the
+	EH region array.
+	(unpack_ts_decl_common_value_fields): Decode EH_LANDING_PAD_NR.
+	* lto-streamer-out.c (eq_label_slot_node): Remove.
+	(hash_label_slot_node): Remove.
+	(output_bitmap): Remove.
+	(output_label_ref): Remove.
+	(pack_ts_decl_common_value_fields): Encode EH_LANDING_PAD_NR.
+	(lto_output_tree_ref): Handle LABEL_DECL like any other decl.
+	(output_eh_try_list): New.
+	(output_eh_region): Rewrite to handle new EH data structures.
+	(output_eh_lp): New.
+	(output_eh_regions): Rewrite to handle new EH data structures.
+	(output_named_labels): Remove.
+	(output_gimple_stmt): Handle GIMPLE_EH_MUST_NOT_THROW and
+	GIMPLE_EH_DISPATCH.
+	(output_bb): Call lookup_stmt_eh_lp_fn instead of
+	lookup_stmt_eh_region_fn.  Do not expect its return value to
+	be positive.
+	* lto-streamer.h (enum LTO_tags): Remove values
+	LTO_eh_table_cleanup0, LTO_eh_table_cleanup1,
+	LTO_eh_table_try0, LTO_eh_table_try1, LTO_eh_table_catch0,
+	LTO_eh_table_catch1, LTO_eh_table_allowed0,
+	LTO_eh_table_allowed1, LTO_eh_table_must_not_throw0,
+	LTO_eh_table_must_not_throw1, LTO_eh_table_throw0,
+	LTO_eh_table_throw1 and LTO_eh_table_shared_region.
+	Add values LTO_ert_cleanup, LTO_ert_try,
+	LTO_ert_allowed_exceptions, LTO_ert_must_not_throw,
+	LTO_eh_landing_pad, and LTO_eh_catch.
+	Remove value LTO_local_label_decl and LTO_global_label_decl.
+	Add value LTO_label_decl_ref.
+	Update all users.
+	(struct output_block): Remove fields named_label_stream,
+	label_hash_table, next_named_label_index,
+	next_unnamed_label_index and named_labels.
+	Update all users.
+	* lto-wpa-fixup.c (lto_fixup_nothrow_decls): Call
+	lookup_stmt_eh_lp_fn instead of lookup_stmt_eh_region_fn.
+	Call remove_stmt_from_eh_lp_fn instead of
+	remove_stmt_from_eh_region_fn .
+
 2009-09-15  Richard Guenther  <rguenther@suse.de>
 
 	* tree.c (make_node_stat): Remove setting of DECL_FUNCTION_PERSONALITY.
