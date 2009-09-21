@@ -1,3 +1,9 @@
+2009-09-21  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* tree.h (struct tree_type): Remove address_space field.
+	(struct tree_base): Add address_space bitfield.  Reduce size of "spare".
+	(TYPE_ADDR_SPACE): Update.
+
 2009-09-18  Ulrich Weigand  <uweigand@de.ibm.com>
 
 	* coretypes.h (ADDR_SPACE_GENERIC): Define.

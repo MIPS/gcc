@@ -392,7 +392,12 @@ struct GTY(()) tree_base {
   unsigned packed_flag : 1;
   unsigned user_align : 1;
 
-  unsigned spare : 21;
+  unsigned spare : 13;
+
+  /* This field is only used with type nodes; the only reason it is present
+     in tree_base instead of tree_type is to save space.  The size of the
+     field must be large enough to hold addr_space_t values.  */
+  unsigned address_space : 8;
 
   union tree_ann_d *ann;
 };
@@ -2165,7 +2170,7 @@ extern enum machine_mode vector_type_mode (const_tree);
 #define TYPE_RESTRICT(NODE) (TYPE_CHECK (NODE)->type.restrict_flag)
 
 /* The address space the type is in.  */
-#define TYPE_ADDR_SPACE(NODE) (TYPE_CHECK (NODE)->type.address_space)
+#define TYPE_ADDR_SPACE(NODE) (TYPE_CHECK (NODE)->base.address_space)
 
 /* There is a TYPE_QUAL value for each type qualifier.  They can be
    combined by bitwise-or to form the complete set of qualifiers for a
@@ -2293,7 +2298,6 @@ struct GTY(()) tree_type {
   unsigned lang_flag_5 : 1;
   unsigned lang_flag_6 : 1;
 
-  addr_space_t address_space;
   unsigned int align;
   alias_set_type alias_set;
   tree pointer_to;

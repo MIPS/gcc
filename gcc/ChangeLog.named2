@@ -57,7 +57,8 @@
 	* cfgexpand.c (expand_debug_expr): Likewise.
 	* tree-ssa-loop-ivopts.c (produce_memory_decl_rtl): Likewise.
 
-	* tree.h (struct tree_type): Add address_space member.
+	* tree.h (struct tree_base): Add address_space bitfield.  Reduce
+	size of "spare" bitfield.
 	(TYPE_ADDR_SPACE): New macro.
 	(ENCODE_QUAL_ADDR_SPACE): Likewise.
 	(DECODE_QUAL_ADDR_SPACE): Likewise.
