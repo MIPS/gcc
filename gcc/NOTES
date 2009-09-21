@@ -1,0 +1,47 @@
+	* Need to use process_bb_node_lives rather than our own conflict
+	building routines.   Our current approach is slow (not using DF) and
+	naive/inaccurate.  Our current approach also doesn't get hard register
+	 conflicts which are copied from the original pseudo (which is
+	horribly conservative and the cause of most of our regressions).
+
+	* In general, we need to be using DF rather than note_{stores,uses}.
+
+	* Need to rewrite the local allocator/spiller.
+
+	* How to tune when we're choosing between replacing an operand with a
+	 MEM or emitting distinct load/store insns.
+
+	* Should we be working with EBBs and reverse EBBs?
+
+	* Is it really necessary to remove the conflicts when we localize a 
+	pseudo?  We might get away with just ignoring it.  However, we're 
+	probably still going to need the conflict removal bits so we can 
+	"spill" by clearing key conflicts and calling back into IRA.
+
+	* ira-costs.c has a twiddle to slightly prefer aligned groups of hard 
+	regs.  This should generally help, but needs serious benchmarking.
+
+	* Put all the reg_XXX bits into a structure and expand the structure 
+	rather than expanding each array individually.  Also helps as we can 
+	dump everything we know about a reg with a single gdb statement rather 
+	than a dozen of them.
+
+	* Break ira_reassign_pseudos into two parts, once which just assigns 
+	the given pseudo array the other which does that plus reassignment of 
+	conflicting pseudos.  The former is all we care about for ira-reload.c.
+
+	* SUBREG handling is probably not correct and certainly not efficient 
+	yet.  We want to be able to track which subregs are live and emit code 
+	appropriately.  We also want to narrow operands when opportunities 
+	present themselves.  Also would like to identify these at kill the 
+	first statement and avoid unncessary conflicts
+
+		(set (reg) (whatever))
+		(set (subreg (reg 0)) (something))
+		(set (subreg (reg 4)) (something else))
+
+	* Need to find an efficient way to determine range transparency.
+
+	* Need to find a way to update ranges for newly created pseudos so
+	that slots can be shared more effectively.
+		
