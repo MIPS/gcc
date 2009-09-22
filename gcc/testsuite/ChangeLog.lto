@@ -1,3 +1,8 @@
+2009-09-22  Richard Guenther  <rguenther@suse.de>
+
+	PR testsuite/41380
+	* lib/lto.exp (lto-execute): Remove executables.
+  
 2009-09-15  Richard Guenther  <rguenther@suse.de>
 
 	PR lto/41230

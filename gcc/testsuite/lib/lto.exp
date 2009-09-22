@@ -446,6 +446,11 @@ proc lto-execute { src1 sid } {
 		}
 	    }
 	}
+
+	if { ![string compare "run" $compile_type] \
+	     || ![string compare "link" $compile_type] } {
+	    file_on_host delete $execname
+	}
     }
 }
 
