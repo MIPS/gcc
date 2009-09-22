@@ -348,7 +348,7 @@ Objective-C and Objective-C++ Dialects}.
 -fno-ira-share-spill-slots -fira-verbose=@var{n} @gol
 -fivopts -fkeep-inline-functions -fkeep-static-consts @gol
 -floop-block -floop-interchange -floop-strip-mine -fgraphite-identity @gol
--floop-parallelize-all -fltrans -fltrans-driver -fltrans-output-list @gol
+-floop-parallelize-all -fltrans -fltrans-output-list @gol
 -fmerge-all-constants -fmerge-constants -fmodulo-sched @gol
 -fmodulo-sched-allow-regmoves -fmove-loop-invariants -fmudflap @gol
 -fmudflapir -fmudflapth -fno-branch-count-reg -fno-default-inline @gol
@@ -7102,8 +7102,8 @@ mode, which reads in summary information from all inputs and performs
 a whole-program analysis based on summary information only.  It generates
 object files for subsequent runs of the link-time optimizer where
 individual object files are optimized using both summary information from
-the WPA mode and the actual function bodies.  It then initiates LTRANS by
-executing the LTRANS driver (See @option{-fltrans-driver}.).
+the WPA mode and the actual function bodies.  It then drives the LTRANS
+phase.
 
 Disabled by default.  This option is only supported by the LTO frontend.
 
@@ -7114,18 +7114,6 @@ mode, which reads in output from a previous run of the LTO in WPA mode.
 In the LTRANS mode, LTO optimizes an object and produces the final assembly.
 
 Disabled by default.  This option is only supported by the LTO frontend.
-
-@item -fltrans-driver=@var{driver}
-@opindex fltrans-driver
-This option specifies an executable to drive the LTO local transformation
-(LTRANS) mode.  When the LTO front end runs in WPA mode (See @option{-fwpa}.),
-it writes new object files and then executes the LTRANS driver.  The driver is
-passed a list of object file names, and the CC and CFLAGS environment
-variables are initialized with the compiler driver and flags used to
-initiate WPA.  For each input file suffixed with .o, the driver must generate a
-corresponding output file ending in .ltrans.o.
-
-Default value points to the ltrans_driver script installed alongside lto1.
 
 @item -fltrans-output-list=@var{file}
 @opindex fltrans-output-list

@@ -1,3 +1,8 @@
+2009-09-22  Richard Guenther  <rguenther@suse.de>
+
+	PR lto/39276
+	* doc/invoke.texi (-fltrans-driver): Remove.
+
 2009-09-21  Diego Novillo  <dnovillo@google.com>
 
 	Mainline merge @151721.

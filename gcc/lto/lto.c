@@ -853,7 +853,7 @@ get_filename_for_set (cgraph_node_set set)
     {
       /* Since SET does not need to be processed by LTRANS, use
 	 the original file name and mark it with a '*' prefix so that
-	 lto_execute_ltrans knows not to send it to ltrans_driver.  */
+	 lto_execute_ltrans knows not to not process it.  */
       cgraph_node_set_iterator si = csi_start (set);
       struct cgraph_node *first = csi_node (si);
       fname = prefix_name_with_star (first->local.lto_file_data->file_name);
@@ -955,31 +955,62 @@ lto_wpa_write_files (void)
 
 /* Perform local transformations (LTRANS) on the files in the NULL-terminated
    FILES array.  These should have been written previously by
-   lto_wpa_write_files ().  Transformations are performed via the
-   ltrans_driver executable, which is passed a list of filenames via the
-   command line.  The CC and CFLAGS environment variables are set to
-   appropriate values before it is executed.  */
+   lto_wpa_write_files ().  Transformations are performed via executing
+   COLLECT_GCC for reach file.  */
 
 static void
 lto_execute_ltrans (char *const *files)
 {
   struct pex_obj *pex;
-  const char *env_val;
-  const char *extra_cflags = " -fno-wpa -fltrans -xlto";
+  const char *collect_gcc_options, *collect_gcc;
   struct obstack env_obstack;
   const char **argv;
   const char **argv_ptr;
   const char *errmsg;
-  size_t i;
+  size_t i, j;
   int err;
   int status;
   FILE *ltrans_output_list_stream = NULL;
 
   timevar_push (TV_WHOPR_WPA_LTRANS_EXEC);
 
+  /* Get the driver and options.  */
+  collect_gcc = getenv ("COLLECT_GCC");
+  if (!collect_gcc)
+    fatal_error ("environment variable COLLECT_GCC must be set");
+
+  /* Set the CFLAGS environment variable.  */
+  collect_gcc_options = getenv ("COLLECT_GCC_OPTIONS");
+  if (!collect_gcc_options)
+    fatal_error ("environment variable COLLECT_GCC_OPTIONS must be set");
+
+  /* Count arguments.  */
+  i = 0;
+  for (j = 0; collect_gcc_options[j] != '\0'; ++j)
+    if (collect_gcc_options[j] == '\'')
+      ++i;
+  if (i % 2 != 0)
+    fatal_error ("malformed COLLECT_GCC_OPTIONS");
+
   /* Initalize the arguments for the LTRANS driver.  */
-  for (i = 0; files[i]; ++i);
-  argv = XNEWVEC (const char *, i + 2);
+  argv = XNEWVEC (const char *, 8 + i/2);
+  argv_ptr = argv;
+  *argv_ptr++ = collect_gcc;
+  *argv_ptr++ = "-xlto";
+  for (j = 0; collect_gcc_options[j] != '\0'; ++j)
+    if (collect_gcc_options[j] == '\'')
+      {
+	++j;
+	i = j;
+	while (collect_gcc_options[j] != '\'')
+	  ++j;
+	obstack_init (&env_obstack);
+	obstack_grow (&env_obstack, &collect_gcc_options[i], j - i);
+	obstack_1grow (&env_obstack, 0);
+	*argv_ptr++ = XOBFINISH (&env_obstack, char *);
+      }
+  *argv_ptr++ = "-fno-wpa";
+  *argv_ptr++ = "-fltrans";
 
   /* Open the LTRANS output list.  */
   if (ltrans_output_list)
@@ -989,8 +1020,6 @@ lto_execute_ltrans (char *const *files)
 	error ("opening LTRANS output list %s: %m", ltrans_output_list);
     }
 
-  argv_ptr = argv;
-  *argv_ptr++ = ltrans_driver;
   for (i = 0; files[i]; ++i)
     {
       size_t len;
@@ -1011,82 +1040,68 @@ lto_execute_ltrans (char *const *files)
 	}
       else
 	{
+	  char *output_name;
+
 	  /* Otherwise, add FILES[I] to ltrans-driver's command line
 	     and add the resulting file to LTRANS output list.  */
-	  *argv_ptr++ = files[i];
 
 	  /* Replace the .o suffix with a .ltrans.o suffix and write
 	     the resulting name to the LTRANS output list.  */
+	  obstack_init (&env_obstack);
+	  obstack_grow (&env_obstack, files[i], strlen (files[i]) - 2);
+	  obstack_grow (&env_obstack, ".ltrans.o", sizeof (".ltrans.o"));
+	  output_name = XOBFINISH (&env_obstack, char *);
 	  if (ltrans_output_list_stream)
 	    {
-	      len = strlen (files[i]) - 2;
+	      len = strlen (output_name);
 
-	      if (fwrite (files[i], 1, len, ltrans_output_list_stream) < len
-		  || fwrite (".ltrans.o\n", 1, 10, ltrans_output_list_stream)
-		     < 10)
+	      if (fwrite (output_name, 1, len, ltrans_output_list_stream) < len
+		  || fwrite ("\n", 1, 1, ltrans_output_list_stream) < 1)
 		error ("writing to LTRANS output list %s: %m",
 		       ltrans_output_list);
 	    }
+
+	  argv_ptr[0] = "-o";
+	  argv_ptr[1] = output_name;
+	  argv_ptr[2] = files[i];
+	  argv_ptr[3] = NULL;
+
+	  /* Execute the driver.  */
+	  pex = pex_init (0, "lto1", NULL);
+	  if (pex == NULL)
+	    fatal_error ("pex_init failed: %s", xstrerror (errno));
+
+	  errmsg = pex_run (pex, PEX_LAST | PEX_SEARCH, argv[0],
+			    CONST_CAST (char **, argv), NULL, NULL, &err);
+	  if (errmsg)
+	    fatal_error ("%s: %s", errmsg, xstrerror (err));
+
+	  if (!pex_get_status (pex, 1, &status))
+	    fatal_error ("can't get program status: %s", xstrerror (errno));
+
+	  if (status)
+	    {
+	      if (WIFSIGNALED (status))
+		{
+		  int sig = WTERMSIG (status);
+		  fatal_error ("%s terminated with signal %d [%s]%s",
+			       argv[0], sig, strsignal (sig),
+			       WCOREDUMP (status) ? ", core dumped" : "");
+		}
+	      else
+		fatal_error ("%s terminated with status %d", argv[0], status);
+	    }
+
+	  pex_free (pex);
 	}
     }
-
-  *argv_ptr++ = NULL;
 
   /* Close the LTRANS output list.  */
   if (ltrans_output_list_stream && fclose (ltrans_output_list_stream))
     error ("closing LTRANS output list %s: %m", ltrans_output_list);
 
-  /* If there are any files to compile, execute the LTRANS driver.  */
-  if (argv[1] != NULL)
-    {
-      /* Set the CC environment variable.  */
-      env_val = getenv ("COLLECT_GCC");
-      if (!env_val)
-	fatal_error ("environment variable COLLECT_GCC must be set");
-
-      obstack_init (&env_obstack);
-      obstack_grow (&env_obstack, "CC=", sizeof ("CC=") - 1);
-      obstack_grow (&env_obstack, env_val, strlen (env_val) + 1);
-      putenv (XOBFINISH (&env_obstack, char *));
-
-      /* Set the CFLAGS environment variable.  */
-      env_val = getenv ("COLLECT_GCC_OPTIONS");
-      if (!env_val)
-	fatal_error ("environment variable COLLECT_GCC_OPTIONS must be set");
-
-      obstack_init (&env_obstack);
-      obstack_grow (&env_obstack, "CFLAGS=", sizeof ("CFLAGS=") - 1);
-      obstack_grow (&env_obstack, env_val, strlen (env_val));
-      obstack_grow (&env_obstack, extra_cflags, strlen (extra_cflags) + 1);
-      putenv (XOBFINISH (&env_obstack, char *));
-
-      pex = pex_init (0, "lto1", NULL);
-      if (pex == NULL)
-	fatal_error ("pex_init failed: %s", xstrerror (errno));
-
-      errmsg = pex_run (pex, PEX_LAST | PEX_SEARCH, argv[0],
-			CONST_CAST (char **, argv), NULL, NULL, &err);
-      if (errmsg)
-	fatal_error ("%s: %s", errmsg, xstrerror (err));
-
-      if (!pex_get_status (pex, 1, &status))
-	fatal_error ("can't get program status: %s", xstrerror (errno));
-
-      if (status)
-	{
-	  if (WIFSIGNALED (status))
-	    {
-	      int sig = WTERMSIG (status);
-	      fatal_error ("%s terminated with signal %d [%s]%s",
-			   argv[0], sig, strsignal (sig),
-			   WCOREDUMP (status) ? ", core dumped" : "");
-	    }
-	  else
-	    fatal_error ("%s terminated with status %d", argv[0], status);
-	}
-
-      pex_free (pex);
-    }
+  obstack_free (&env_obstack, NULL);
+  free (argv);
 
   timevar_pop (TV_WHOPR_WPA_LTRANS_EXEC);
 }

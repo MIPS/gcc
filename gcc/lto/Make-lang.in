@@ -30,14 +30,12 @@ LINKER_PLUGIN_API_H = $(srcdir)/../include/plugin-api.h
 LTO_TREE_H = lto/lto-tree.h $(LINKER_PLUGIN_API_H)
 
 
-LTRANS_DRIVER_EXE := ltrans-driver$(exeext)
-
 # Rules
 
 # These hooks are used by the main GCC Makefile.  Consult that
 # Makefile for documentation.
-lto.all.cross: $(LTO_EXE) $(LTRANS_DRIVER_EXE)
-lto.start.encap: $(LTO_EXE) $(LTRANS_DRIVER_EXE)
+lto.all.cross: $(LTO_EXE)
+lto.start.encap: $(LTO_EXE)
 lto.rest.encap:
 lto.tags:
 lto.install-common:
@@ -54,7 +52,7 @@ lto.srcinfo:
 lto.install-plugin:
 
 lto.mostlyclean:
-	rm -f $(LTO_OBJS) $(LTO_EXE) $(LTRANS_DRIVER_EXE)
+	rm -f $(LTO_OBJS) $(LTO_EXE)
 
 lto.clean:
 lto.distclean:
@@ -74,9 +72,6 @@ lto-warn = $(STRICT_WARN)
 $(LTO_EXE): $(LTO_OBJS) $(BACKEND) $(LIBDEPS)
 	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ \
 		$(LTO_OBJS) $(BACKEND) $(BACKENDLIBS) $(LIBS) -lelf
-
-$(LTRANS_DRIVER_EXE): $(srcdir)/lto/ltrans-driver
-	cp $(srcdir)/lto/ltrans-driver $(LTRANS_DRIVER_EXE)
 
 # Dependencies
 lto/lto-lang.o: lto/lto-lang.c $(CONFIG_H) coretypes.h debug.h \

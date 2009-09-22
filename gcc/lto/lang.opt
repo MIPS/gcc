@@ -28,10 +28,6 @@ fltrans
 LTO Report Var(flag_ltrans) Optimization
 Run the link-time optimizer in local transformation (LTRANS) mode.
 
-fltrans-driver=
-LTO Joined Var(ltrans_driver)
-Specify an executable for performing local transformations on WPA output.
-
 fltrans-output-list=
 LTO Joined Var(ltrans_output_list)
 Specify a file to which a list of files output by LTRANS is written.

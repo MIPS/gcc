@@ -617,48 +617,13 @@ static GTY(()) tree registered_builtin_fndecls;
 
 /* Language hooks.  */
 
-#define DEFAULT_LTRANS_DRIVER "ltrans-driver"
-#define DEFAULT_LTRANS_DRIVER_LEN (strlen (DEFAULT_LTRANS_DRIVER) + 1)
-
 static unsigned int
 lto_init_options (unsigned int argc ATTRIBUTE_UNUSED,
-		  const char **argv)
+		  const char **argv ATTRIBUTE_UNUSED)
 {
-  const char *p;
-  char *q;
-
-  /* The following code initializes ltrans_driver to its default value.
-     We don't necessarily know where we're installed, but lto1 and ltans-driver
-     should be in the same directory.  If argv[0] contains the full path to
-     lto1, use it.  Otherwise, we assume ltrans-driver is reachable via the
-     PATH environment variable.  */
-
-  p = argv[0] + strlen (argv[0]);
-  while (p != argv[0] && !IS_DIR_SEPARATOR (p[-1]))
-    --p;
-
-  if (p != argv[0])
-    {
-      size_t pathlen = p - argv[0];
-
-      /* The string at argv[0] is a full path name.  Use it to locate the
-         LTRANS driver in the same directory.  */
-      q = XNEWVEC (char, pathlen + DEFAULT_LTRANS_DRIVER_LEN);
-      ltrans_driver = q;
-      strncpy (q, argv[0], p - argv[0]);
-      q += pathlen;
-    }
-  else
-    {
-      q = XNEWVEC (char, DEFAULT_LTRANS_DRIVER_LEN);
-      ltrans_driver = q;
-    }
-  strncpy (q, DEFAULT_LTRANS_DRIVER, DEFAULT_LTRANS_DRIVER_LEN);
-
   /* Always operate in unit-at-time mode so that we can defer
      decisions about what to output.  */
   flag_unit_at_a_time = 1;
-
 
   return CL_LTO;
 }
