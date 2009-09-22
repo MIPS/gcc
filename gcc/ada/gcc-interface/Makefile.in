@@ -1577,6 +1577,8 @@ ifeq ($(strip $(filter-out cygwin% mingw32% pe,$(osys))),)
     EH_MECHANISM=-gcc
     W32_IMPORT_LIB=-Wl,--out-implib,libTARG$(soext)$(arext)
     GNATLIBCFLAGS+=-D__USE_W32_SOCKETS
+    # For Windows systems, we want DLLs installed to $bindir.
+    ADA_RTL_SO_OBJ_DIR = $(bindir)
   endif
 
   LIBGNAT_TARGET_PAIRS = \
@@ -1618,8 +1620,6 @@ ifeq ($(strip $(filter-out cygwin% mingw32% pe,$(osys))),)
     endif
 
   else
-    # For Windows systems, we want DLLs installed to $bindir.
-    ADA_RTL_SO_OBJ_DIR = $(bindir)
 
     LIBGNAT_TARGET_PAIRS += \
     a-exetim.adb<a-exetim-mingw.adb \

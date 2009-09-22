@@ -1,3 +1,8 @@
+2009-09-23  Dave Korn  <dave.korn.cygwin@gmail.com>
+
+	* gcc-interface/Makefile.in (ADA_RTL_SO_OBJ_DIR) Only set to bindir 
+	for Cygwin, and not for MinGW.
+
 2009-09-17  Dave Korn  <dave.korn.cygwin@gmail.com>
 
 	* sysdep.c (__gnat_is_windows_xp): Move out from MinGW #ifdef
