@@ -1,5 +1,10 @@
 2009-09-22  Richard Guenther  <rguenther@suse.de>
 
+	PR lto/41379
+	* toplev.c (finalize): In WPA mode remove the asm file.
+
+2009-09-22  Richard Guenther  <rguenther@suse.de>
+
 	PR lto/39276
 	* doc/invoke.texi (-fltrans-driver): Remove.
 

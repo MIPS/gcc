@@ -2357,6 +2357,8 @@ finalize (void)
 	fatal_error ("error writing to %s: %m", asm_file_name);
       if (fclose (asm_out_file) != 0)
 	fatal_error ("error closing %s: %m", asm_file_name);
+      if (flag_wpa)
+	unlink_if_ordinary (asm_file_name);
     }
 
   statistics_fini ();
