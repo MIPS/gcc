@@ -1,3 +1,18 @@
+2009-09-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/41405
+	* doc/invoke.texi: Document -gstrict-dwarf and -gno-strict-dwarf.
+
+2009-09-23  Jakub Jelinek  <jakub@redhat.com>
+	    Jan Hubicka  <jh@suse.cz>
+
+	* dwarf2out.c (loc_list_plus_const): Only define if
+	DWARF2_DEBUGGING_INFO.
+	(address_of_int_loc_descriptor): Likewise.
+
+	PR debug/41411
+	* dwarf2out.c (mem_loc_descriptor): Handle HIGH.
+
 2009-09-23  Alan Modra  <amodra@bigpond.net.au>
 
 	PR target/40473
@@ -18,12 +33,99 @@
 	* reload1.c (reload): Call wrap_constant when substituting
 	reg for equiv inside of DEBUG_INSNs.
 
+	PR bootstrap/41405
+	* dwarf2out.c (base_type_die, record_type_tag, gen_subprogram_die,
+	add_call_src_coords_attributes, add_high_low_attributes,
+	gen_compile_unit_die, gen_type_die_with_usage force_decl_die,
+	gen_decl_die, dwarf2out_imported_module_or_decl_1, dwarf2out_finish,
+	dwarf2out_imported_module_or_decl): Avoid using DWARF3 additions
+	when -gdwarf-2 -gstrict-dwarf.
+	(loc_list_from_tree): Likewise.  Avoid using DWARF4 additions when
+	-gdwarf-[23] -gstrict-dwarf.
+	(address_of_int_loc_descriptor, loc_descriptor,
+	loc_list_for_address_of_addr_expr_of_indirect_ref): Avoid using
+	DWARF4 additions when -gdwarf-[23] -gstrict-dwarf.
+	* common.opt (gno-strict-dwarf, gstrict-dwarf): New options.
+
+2009-09-22  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (address_of_int_loc_descriptor): Avoid signed/unsigned
+	comparison warning on rs6000.
+
+2009-09-22  Dave Korn  <dave.korn.cygwin@gmail.com>
+
+	PR bootstrap/41404
+	* dwarf2out.c (mem_loc_descriptor): Punt on CONST_STRING until
+	we can handle it correctly.
+
+2009-09-21  Jan Hubicka  <jh@suse.cz>
+
+	* dwarf2out.c (decl_loc_table_eq): Allow decl_loc_table to be NULL.
+	(dwarf2out_abstract_function): NULLify decl_loc_table at begginig and
+	restore at the end.
+
+2009-09-20  Jan Hubicka  <jh@suse.cz>
+
+	* dwarf2out.c (add_const_value_attribute): Return true if successful.
+	(add_location_or_const_value_attribute): Rewrite using loc_list_from_tree.
+	(tree_add_const_value_attribute): Return true if successful.
+	(tree_add_const_value_attribute_for_decl): Likewise.
+
+	* dwarf2out.c (address_of_int_loc_descriptor): Break out from ...
+	(loc_descriptor): ... here;
+	(loc_list_for_address_of_addr_expr_of_indirect_ref): New function.
+	(cst_pool_loc_descr): Break out from ...; do not reffer constant
+	pool items that was not marked for output.
+	(loc_list_from_tree): ... here; handle special cases of ADDR_EXPR;
+	(loc_list_for_address_of_addr_expr_of_indirect_ref): New function.
+	(loc_list_for_address_of_addr_expr_of_indirect_ref): New function.
+	handle ALIGN_INDIRECT_REF, MISALIGNED_INDIRECT_REF, REALPART_EXPR,
+	IMAGPART_EXPR; handle address of INTEGER_CST; improve handling of
+	CONSTRUCTOR; handle REAL_CST, STRING_CST, COMPLEX_CST; use
+	DW_OP_stack_value to get address of items that are not available
+	as addresses.
+	(dw_loc_list): Handle single element lists correctly.
+
 2009-09-19  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/rs6000/rs6000.md (*save_gpregs_<mode>, *save_fpregs_<mode>,
 	*restore_gpregs_<mode>, *return_and_restore_gpregs_<mode>,
 	*return_and_restore_fpregs_<mode>,
 	*return_and_restore_fpregs_aix_<mode>): Remove 'z' operand modifier.
+
+	PR bootstrap/41397
+	* dwarf2out.c (mem_loc_descriptor) <case SUBREG>: Recurse
+	instead of assuming it has always a REG inside of it.
+
+2009-09-17  Jan Hubicka  <jh@suse.cz>
+
+	* dwarf2out.c: Include tree-pass.h and gimple.h.
+	(loc_list_plus_const): New function.
+	(loc_descriptor_from_tree_1): Rename to ...
+	(loc_descriptor_from_tree): ... remove original.
+	(loc_list_from_tree): New function.
+	(add_AT_location_description): Accept location list.
+	(tls_mem_loc_descriptor): Update call of loc_descriptor_from_tree.
+	(concatn_mem_loc_descriptor): Remove.
+	(mem_loc_descriptor): Handle CONCAT/CONCATN and VAR_LOCATION by
+	returning NULL.
+	(secname_for_decl): Move up.
+	(hidden_reference_p): New function; break out from ...
+	(loc_by_refernece): ... here; move up.
+	(dw_loc_list): New function.
+	(single_element_loc_list): New function.
+	(single_element_loc_list_p): New function.
+	(add_loc_descr_to_each): New function.
+	(add_loc_list): New function.
+	(loc_descr_from_tree): Make wraper of loc_list_from_tree.
+	(loc_list_from_tree): Reroganized from loc_descr_from_tree;
+	add diagnostics why expansion failed.
+	(add_location_or_const_value_attribute): Support location lists.
+	(add_bound_info): Likewise.
+	(descr_info_loc): Update call of loc_descriptor_from_tree.
+	(gen_variable_die): Work on location lists.
+	* final.c (pass_final): Add dump file.
+	* Makefile.in (dwarf2out.o): Add new dependencies.
 
 2009-09-15  Nathan Froyd  <froydnj@codesourcery.com>
 	    Jakub Jelinek  <jakub@redhat.com>

@@ -310,7 +310,8 @@ Objective-C and Objective-C++ Dialects}.
 -ftest-coverage  -ftime-report -fvar-tracking @gol
 -fvar-tracking-assigments  -fvar-tracking-assignments-toggle @gol
 -g  -g@var{level}  -gtoggle  -gcoff -gdwarf-@var{version} @gol
--ggdb  -gstabs  -gstabs+  -gvms  -gxcoff  -gxcoff+ @gol
+-ggdb  -gstabs  -gstabs+  -gstrict-dwarf  -gno-strict-dwarf @gol
+-gvms  -gxcoff  -gxcoff+ @gol
 -fno-merge-debug-strings -fno-dwarf2-cfi-asm @gol
 -fdebug-prefix-map=@var{old}=@var{new} @gol
 -femit-struct-debug-baseonly -femit-struct-debug-reduced @gol
@@ -4294,6 +4295,17 @@ of @var{version} may be either 2 or 3; the default version is 2.
 
 Note that with DWARF version 2 some ports require, and will always
 use, some non-conflicting DWARF 3 extensions in the unwind tables.
+
+@item -gstrict-dwarf
+@opindex gstrict-dwarf
+Disallow using extensions of later DWARF standard version than selected
+with @option{-gdwarf-@var{version}}.  On most targets using non-conflicting
+DWARF extensions from later standard versions is allowed.
+
+@item -gno-strict-dwarf
+@opindex gno-strict-dwarf
+Allow using extensions of later DWARF standard version than selected with
+@option{-gdwarf-@var{version}}.
 
 @item -gvms
 @opindex gvms
