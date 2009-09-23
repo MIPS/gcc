@@ -362,7 +362,7 @@ movement_possibility (gimple stmt)
   if (gimple_get_lhs (stmt) == NULL_TREE)
     return MOVE_IMPOSSIBLE;
 
-  if (!ZERO_SSA_OPERANDS (stmt, SSA_OP_VIRTUAL_DEFS))
+  if (gimple_vdef (stmt))
     return MOVE_IMPOSSIBLE;
 
   if (stmt_ends_bb_p (stmt)
@@ -681,7 +681,7 @@ determine_max_movement (gimple stmt, bool must_preserve_exec)
     if (!add_dependency (val, lim_data, loop, true))
       return false;
 
-  if (!ZERO_SSA_OPERANDS (stmt, SSA_OP_VIRTUAL_USES))
+  if (gimple_vuse (stmt))
     {
       mem_ref_p ref = mem_ref_in_stmt (stmt);
 
@@ -694,7 +694,7 @@ determine_max_movement (gimple stmt, bool must_preserve_exec)
 	}
       else
 	{
-	  FOR_EACH_SSA_TREE_OPERAND (val, stmt, iter, SSA_OP_VIRTUAL_USES)
+	  if ((val = gimple_vuse (stmt)) != NULL_TREE)
 	    {
 	      if (!add_dependency (val, lim_data, loop, false))
 		return false;
@@ -879,6 +879,7 @@ rewrite_bittest (gimple_stmt_iterator *bsi)
       gimple_cond_set_rhs (use_stmt, build_int_cst_type (TREE_TYPE (name), 0));
 
       gsi_insert_before (bsi, stmt1, GSI_SAME_STMT);
+      propagate_defs_into_debug_stmts (gsi_stmt (*bsi), NULL, NULL);
       gsi_replace (bsi, stmt2, true);
 
       return stmt1;
@@ -999,7 +1000,7 @@ determine_invariantness (void)
 
   memset (&walk_data, 0, sizeof (struct dom_walk_data));
   walk_data.dom_direction = CDI_DOMINATORS;
-  walk_data.before_dom_children_before_stmts = determine_invariantness_stmt;
+  walk_data.before_dom_children = determine_invariantness_stmt;
 
   init_walk_dominator_tree (&walk_data);
   walk_dominator_tree (&walk_data, ENTRY_BLOCK_PTR);
@@ -1059,6 +1060,7 @@ move_computations_stmt (struct dom_walk_data *dw_data ATTRIBUTE_UNUSED,
 
       mark_virtual_ops_for_renaming (stmt);
       gsi_insert_on_edge (loop_preheader_edge (level), stmt);
+      propagate_defs_into_debug_stmts (gsi_stmt (bsi), NULL, NULL);
       gsi_remove (&bsi, false);
     }
 }
@@ -1073,14 +1075,14 @@ move_computations (void)
 
   memset (&walk_data, 0, sizeof (struct dom_walk_data));
   walk_data.dom_direction = CDI_DOMINATORS;
-  walk_data.before_dom_children_before_stmts = move_computations_stmt;
+  walk_data.before_dom_children = move_computations_stmt;
 
   init_walk_dominator_tree (&walk_data);
   walk_dominator_tree (&walk_data, ENTRY_BLOCK_PTR);
   fini_walk_dominator_tree (&walk_data);
 
   gsi_commit_edge_inserts ();
-  if (need_ssa_update_p ())
+  if (need_ssa_update_p (cfun))
     rewrite_into_loop_closed_ssa (NULL, TODO_update_ssa);
 }
 
@@ -1309,13 +1311,12 @@ gather_mem_refs_stmt (struct loop *loop, gimple stmt)
   hashval_t hash;
   PTR *slot;
   mem_ref_p ref;
-  ssa_op_iter oi;
   tree vname;
   bool is_stored;
   bitmap clvops;
   unsigned id;
 
-  if (ZERO_SSA_OPERANDS (stmt, SSA_OP_ALL_VIRTUALS))
+  if (!gimple_vuse (stmt))
     return;
 
   mem = simple_mem_ref_in_stmt (stmt, &is_stored);
@@ -1347,14 +1348,14 @@ gather_mem_refs_stmt (struct loop *loop, gimple stmt)
   if (is_stored)
     mark_ref_stored (ref, loop);
 
-  FOR_EACH_SSA_TREE_OPERAND (vname, stmt, oi, SSA_OP_VIRTUAL_USES)
+  if ((vname = gimple_vuse (stmt)) != NULL_TREE)
     bitmap_set_bit (ref->vops, DECL_UID (SSA_NAME_VAR (vname)));
   record_mem_ref_loc (ref, loop, stmt, mem);
   return;
 
 fail:
   clvops = VEC_index (bitmap, memory_accesses.clobbered_vops, loop->num);
-  FOR_EACH_SSA_TREE_OPERAND (vname, stmt, oi, SSA_OP_VIRTUAL_USES)
+  if ((vname = gimple_vuse (stmt)) != NULL_TREE)
     bitmap_set_bit (clvops, DECL_UID (SSA_NAME_VAR (vname)));
 }
 
@@ -1793,6 +1794,10 @@ gen_lsm_tmp_name (tree ref)
 
     case RESULT_DECL:
       lsm_tmp_name_add ("R");
+      break;
+
+    case INTEGER_CST:
+      /* Nothing.  */
       break;
 
     default:

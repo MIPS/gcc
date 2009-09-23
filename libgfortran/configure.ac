@@ -1,7 +1,7 @@
 # Process this file with autoconf to produce a configure script, like so:
 # aclocal && autoconf && autoheader && automake
 
-AC_PREREQ(2.59)
+AC_PREREQ(2.64)
 AC_INIT([GNU Fortran Runtime Library], 0.3,,[libgfortran])
 AC_CONFIG_HEADER(config.h)
 GCC_TOPLEV_SUBDIRS
@@ -119,7 +119,7 @@ AC_SUBST(toolexeclibdir)
 m4_rename([_AC_ARG_VAR_PRECIOUS],[real_PRECIOUS])
 m4_define([_AC_ARG_VAR_PRECIOUS],[])
 AC_PROG_CC
-m4_rename([real_PRECIOUS],[_AC_ARG_VAR_PRECIOUS])
+m4_rename_force([real_PRECIOUS],[_AC_ARG_VAR_PRECIOUS])
 
 # Add -Wall -fno-repack-arrays -fno-underscoring if we are using GCC.
 if test "x$GCC" = "xyes"; then
@@ -148,6 +148,27 @@ AC_TRY_LINK([int foo;],[],[gfortran_use_symver=yes],[gfortran_use_symver=no])
 LDFLAGS="$save_LDFLAGS"
 AC_MSG_RESULT($gfortran_use_symver)
 AM_CONDITIONAL(LIBGFOR_USE_SYMVER, [test "x$gfortran_use_symver" = xyes])
+
+# Figure out whether the compiler supports "-ffunction-sections -fdata-sections",
+# similarly to how libstdc++ does it
+ac_test_CFLAGS="${CFLAGS+set}"
+ac_save_CFLAGS="$CFLAGS"
+
+# Check for -ffunction-sections -fdata-sections
+AC_MSG_CHECKING([for gcc that supports -ffunction-sections -fdata-sections])
+CFLAGS='-Werror -ffunction-sections -fdata-sections'
+AC_TRY_COMPILE(, [int foo;], [ac_fdsections=yes], [ac_fdsections=no])
+if test "$ac_test_CFLAGS" = set; then
+  CFLAGS="$ac_save_CFLAGS"
+else
+  # this is the suspicious part
+  CFLAGS=""
+fi
+if test x"$ac_fdsections" = x"yes"; then
+  SECTION_FLAGS='-ffunction-sections -fdata-sections'
+fi
+AC_MSG_RESULT($ac_fdsections)
+AC_SUBST(SECTION_FLAGS)
 
 # Find other programs we need.
 AC_CHECK_TOOL(AS, as)
@@ -205,6 +226,7 @@ AC_CHECK_FUNCS(chdir strerror getlogin gethostname kill link symlink perror)
 AC_CHECK_FUNCS(sleep time ttyname signal alarm ctime clock access fork execl)
 AC_CHECK_FUNCS(wait setmode execvp pipe dup2 close fdopen strcasestr getrlimit)
 AC_CHECK_FUNCS(gettimeofday stat fstat lstat getpwuid vsnprintf dup getcwd)
+AC_CHECK_FUNCS(localtime_r gmtime_r)
 
 # Check for glibc backtrace functions
 AC_CHECK_FUNCS(backtrace backtrace_symbols)
@@ -425,6 +447,10 @@ AC_CHECK_FUNC([fp_enable],[have_fp_enable=yes AC_DEFINE([HAVE_FP_ENABLE],[1],[fp
 AC_MSG_NOTICE([FPU dependent file will be ${fpu_host}.h])
 FPU_HOST_HEADER=config/${fpu_host}.h
 AC_SUBST(FPU_HOST_HEADER)
+
+# Some targets require additional compiler options for IEEE compatibility.
+IEEE_FLAGS="${ieee_flags}"
+AC_SUBST(IEEE_FLAGS)
 
 # Check out attribute support.
 LIBGFOR_CHECK_ATTRIBUTE_VISIBILITY

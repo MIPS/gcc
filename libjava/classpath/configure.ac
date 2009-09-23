@@ -73,7 +73,7 @@ AC_SUBST(CLASSPATH_MODULE)
 CLASSPATH_CONVENIENCE="-no-undefined"
 AC_SUBST(CLASSPATH_CONVENIENCE)
 
-AC_PREREQ(2.59)
+AC_PREREQ(2.64)
 AM_INIT_AUTOMAKE([1.9.0 gnu std-options tar-ustar -Wno-portability])
 AC_CONFIG_HEADERS([include/config.h])
 AC_PREFIX_DEFAULT(/usr/local/classpath)
@@ -771,7 +771,10 @@ if test "x${COMPILE_JNI}" = xyes; then
 
   dnl Check for plugin support headers and libraries.
   if test "x${COMPILE_PLUGIN}" = xyes; then
-    PKG_CHECK_MODULES(MOZILLA, mozilla-plugin, [MOZILLA_FOUND=yes], [MOZILLA_FOUND=no])
+    PKG_CHECK_MODULES(MOZILLA, mozilla-plugin libxul-unstable, [MOZILLA_FOUND=yes], [MOZILLA_FOUND=no])
+    if test "x${MOZILLA_FOUND}" = xno; then
+      PKG_CHECK_MODULES(MOZILLA, mozilla-plugin, [MOZILLA_FOUND=yes], [MOZILLA_FOUND=no])
+    fi
     if test "x${MOZILLA_FOUND}" = xno; then
       PKG_CHECK_MODULES(MOZILLA, firefox-plugin firefox-xpcom, [MOZILLA_FOUND=yes], [MOZILLA_FOUND=no])
     fi

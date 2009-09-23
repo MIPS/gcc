@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler.
    MIPS SDE version, for use with the SDE C library rather than newlib.
-   Copyright (C) 2007, 2008
+   Copyright (C) 2007, 2008, 2009
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -86,14 +86,14 @@ extern void mips_sync_icache (void *beg, unsigned long len);
 #undef MIPS_ICACHE_SYNC
 #define MIPS_ICACHE_SYNC(ADDR, SIZE)					\
   emit_library_call (gen_rtx_SYMBOL_REF (Pmode, mips_cache_flush_func),	\
-		     0, VOIDmode, 2, ADDR, Pmode,			\
+		     LCT_NORMAL, VOIDmode, 2, ADDR, Pmode,		\
 		     SIZE, TYPE_MODE (sizetype))
 
 /* This version of _mcount does not pop 2 words from the stack.  */
 #undef FUNCTION_PROFILER
 #define FUNCTION_PROFILER(FILE, LABELNO)				\
   {									\
-    fprintf (FILE, "\t.set\tnoat\n");					\
+    mips_push_asm_switch (&mips_noat);					\
     /* _mcount treats $2 as the static chain register.  */		\
     if (cfun->static_chain_decl != NULL)				\
       fprintf (FILE, "\tmove\t%s,%s\n", reg_names[2],			\
@@ -103,7 +103,7 @@ extern void mips_sync_icache (void *beg, unsigned long len);
 	     reg_names[GP_REG_FIRST + (TARGET_MIPS16 ? 3 : 1)],		\
 	     reg_names[GP_REG_FIRST + 31]);				\
     fprintf (FILE, "\tjal\t_mcount\n");					\
-    fprintf (FILE, "\t.set\tat\n");					\
+    mips_pop_asm_switch (&mips_noat);					\
     /* _mcount treats $2 as the static chain register.  */		\
     if (cfun->static_chain_decl != NULL)				\
       fprintf (FILE, "\tmove\t%s,%s\n", reg_names[STATIC_CHAIN_REGNUM],	\

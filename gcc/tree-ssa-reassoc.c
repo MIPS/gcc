@@ -192,7 +192,7 @@ static inline long
 find_operand_rank (tree e)
 {
   void **slot = pointer_map_contains (operand_rank, e);
-  return slot ? (long) *slot : -1;
+  return slot ? (long) (intptr_t) *slot : -1;
 }
 
 /* Insert {E,RANK} into the operand rank hashtable.  */
@@ -204,7 +204,7 @@ insert_operand_rank (tree e, long rank)
   gcc_assert (rank > 0);
   slot = pointer_map_insert (operand_rank, e);
   gcc_assert (!*slot);
-  *slot = (void *) rank;
+  *slot = (void *) (intptr_t) rank;
 }
 
 /* Given an expression E, return the rank of the expression.  */
@@ -242,7 +242,7 @@ get_rank (tree e)
 	return 0;
 
       if (!is_gimple_assign (stmt)
-	  || !ZERO_SSA_OPERANDS (stmt, SSA_OP_VIRTUAL_DEFS))
+	  || gimple_vdef (stmt))
 	return bb_rank[gimple_bb (stmt)->index];
 
       /* If we already have a rank for this expression, use that.  */
@@ -1405,6 +1405,7 @@ rewrite_expr_tree (gimple stmt, unsigned int opindex,
 	    {
 	      stmt2 = SSA_NAME_DEF_STMT (gimple_assign_rhs1 (stmt1));
 	      gsirhs1 = gsi_for_stmt (stmt2);
+	      propagate_defs_into_debug_stmts (stmt2, gimple_bb (stmt), &gsinow);
 	      gsi_move_before (&gsirhs1, &gsinow);
 	      gsi_prev (&gsinow);
 	      stmt1 = stmt2;
@@ -1451,6 +1452,7 @@ linearize_expr (gimple stmt)
 
   gsinow = gsi_for_stmt (stmt);
   gsirhs = gsi_for_stmt (binrhs);
+  propagate_defs_into_debug_stmts (binrhs, gimple_bb (stmt), &gsinow);
   gsi_move_before (&gsirhs, &gsinow);
 
   gimple_assign_set_rhs2 (stmt, gimple_assign_rhs1 (binrhs));
@@ -2070,7 +2072,7 @@ struct gimple_opt_pass pass_reassoc =
   NULL,					/* next */
   0,					/* static_pass_number */
   TV_TREE_REASSOC,			/* tv_id */
-  PROP_cfg | PROP_ssa | PROP_alias,	/* properties_required */
+  PROP_cfg | PROP_ssa,			/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */

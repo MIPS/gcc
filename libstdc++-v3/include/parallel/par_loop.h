@@ -1,11 +1,11 @@
 // -*- C++ -*-
 
-// Copyright (C) 2007, 2008 Free Software Foundation, Inc.
+// Copyright (C) 2007, 2008, 2009 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the terms
 // of the GNU General Public License as published by the Free Software
-// Foundation; either version 2, or (at your option) any later
+// Foundation; either version 3, or (at your option) any later
 // version.
 
 // This library is distributed in the hope that it will be useful, but
@@ -13,20 +13,14 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 // General Public License for more details.
 
-// You should have received a copy of the GNU General Public License
-// along with this library; see the file COPYING.  If not, write to
-// the Free Software Foundation, 59 Temple Place - Suite 330, Boston,
-// MA 02111-1307, USA.
+// Under Section 7 of GPL version 3, you are granted additional
+// permissions described in the GCC Runtime Library Exception, version
+// 3.1, as published by the Free Software Foundation.
 
-// As a special exception, you may use this file as part of a free
-// software library without restriction.  Specifically, if other files
-// instantiate templates or use macros or inline functions from this
-// file, or you compile this file and link it with other files to
-// produce an executable, this file does not by itself cause the
-// resulting executable to be covered by the GNU General Public
-// License.  This exception does not however invalidate any other
-// reasons why the executable file might be covered by the GNU General
-// Public License.
+// You should have received a copy of the GNU General Public License and
+// a copy of the GCC Runtime Library Exception along with this program;
+// see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+// <http://www.gnu.org/licenses/>.
 
 /** @file parallel/par_loop.h
  *  @brief Parallelization of embarrassingly parallel execution by
@@ -51,89 +45,88 @@ namespace __gnu_parallel
   * iterators, using hand-crafted parallelization by equal splitting
   * the work.
   *
-  *  @param begin Begin iterator of element sequence.
-  *  @param end End iterator of element sequence.
-  *  @param o User-supplied functor (comparator, predicate, adding
+  *  @param __begin Begin iterator of element __sequence.
+  *  @param __end End iterator of element __sequence.
+  *  @param __o User-supplied functor (comparator, predicate, adding
   *  functor, ...)
-  *  @param f Functor to "process" an element with op (depends on
+  *  @param __f Functor to "process" an element with __op (depends on
   *  desired functionality, e. g. for std::for_each(), ...).
-  *  @param r Functor to "add" a single result to the already
-  *  processed elements (depends on functionality).
-  *  @param base Base value for reduction.
-  *  @param output Pointer to position where final result is written to
-  *  @param bound Maximum number of elements processed (e. g. for
+  *  @param __r Functor to "add" a single __result to the already
+  *  processed __elements (depends on functionality).
+  *  @param __base Base value for reduction.
+  *  @param __output Pointer to position where final result is written to
+  *  @param __bound Maximum number of elements processed (e. g. for
   *  std::count_n()).
   *  @return User-supplied functor (that may contain a part of the result).
   */
-template<typename RandomAccessIterator,
-	 typename Op,
-	 typename Fu,
-	 typename Red,
-	 typename Result>
-  Op
-  for_each_template_random_access_ed(RandomAccessIterator begin,
-				     RandomAccessIterator end,
-				     Op o, Fu& f, Red r, Result base,
-				     Result& output,
-				     typename std::iterator_traits
-				     <RandomAccessIterator>::
-				     difference_type bound)
+template<typename _RAIter,
+         typename _Op,
+         typename _Fu,
+         typename _Red,
+         typename _Result>
+  _Op
+  for_each_template_random_access_ed(
+    _RAIter __begin, _RAIter __end, _Op __o, _Fu& __f, _Red __r,
+    _Result __base, _Result& __output,
+    typename std::iterator_traits<_RAIter>::difference_type __bound)
   {
-    typedef std::iterator_traits<RandomAccessIterator> traits_type;
-    typedef typename traits_type::difference_type difference_type;
-    const difference_type length = end - begin;
-    Result *thread_results;
-    bool* constructed;
+    typedef std::iterator_traits<_RAIter> _TraitsType;
+    typedef typename _TraitsType::difference_type _DifferenceType;
+    const _DifferenceType __length = __end - __begin;
+    _Result *__thread_results;
+    bool* __constructed;
 
-    thread_index_t num_threads =
-      __gnu_parallel::min<difference_type>(get_max_threads(), length);
+    _ThreadIndex __num_threads =
+      __gnu_parallel::min<_DifferenceType>(__get_max_threads(), __length);
 
-#   pragma omp parallel num_threads(num_threads)
+#   pragma omp parallel num_threads(__num_threads)
       {
 #       pragma omp single
           {
-            num_threads = omp_get_num_threads();
-            thread_results = static_cast<Result*>(
-                                ::operator new(num_threads * sizeof(Result)));
-            constructed = new bool[num_threads];
+            __num_threads = omp_get_num_threads();
+            __thread_results =
+              static_cast<_Result*>(
+                            ::operator new(__num_threads * sizeof(_Result)));
+            __constructed = new bool[__num_threads];
           }
 
-        thread_index_t iam = omp_get_thread_num();
+        _ThreadIndex __iam = omp_get_thread_num();
 
         // Neutral element.
-        Result* reduct = static_cast<Result*>(::operator new(sizeof(Result)));
+        _Result* __reduct =
+                   static_cast<_Result*>(::operator new(sizeof(_Result)));
 
-        difference_type
-            start = equally_split_point(length, num_threads, iam),
-            stop = equally_split_point(length, num_threads, iam + 1);
+        _DifferenceType
+            __start = equally_split_point(__length, __num_threads, __iam),
+            __stop = equally_split_point(__length, __num_threads, __iam + 1);
 
-        if (start < stop)
+        if (__start < __stop)
           {
-            new(reduct) Result(f(o, begin + start));
-            ++start;
-            constructed[iam] = true;
+            new(__reduct) _Result(__f(__o, __begin + __start));
+            ++__start;
+            __constructed[__iam] = true;
           }
         else
-          constructed[iam] = false;
+          __constructed[__iam] = false;
 
-        for (; start < stop; ++start)
-          *reduct = r(*reduct, f(o, begin + start));
+        for (; __start < __stop; ++__start)
+          *__reduct = __r(*__reduct, __f(__o, __begin + __start));
 
-        thread_results[iam] = *reduct;
+        __thread_results[__iam] = *__reduct;
       } //parallel
 
-    for (thread_index_t i = 0; i < num_threads; ++i)
-        if (constructed[i])
-            output = r(output, thread_results[i]);
+    for (_ThreadIndex __i = 0; __i < __num_threads; ++__i)
+        if (__constructed[__i])
+            __output = __r(__output, __thread_results[__i]);
 
     // Points to last element processed (needed as return value for
     // some algorithms like transform).
-    f.finish_iterator = begin + length;
+    __f._M_finish_iterator = __begin + __length;
 
-    delete[] thread_results;
-    delete[] constructed;
+    delete[] __thread_results;
+    delete[] __constructed;
 
-    return o;
+    return __o;
   }
 
 } // end namespace

@@ -101,13 +101,11 @@ char call_really_used_regs[] = CALL_REALLY_USED_REGISTERS;
 #endif
 
 
-/* Indexed by hard register number, contains 1 for registers that are
-   fixed use or call used registers that cannot hold quantities across
-   calls even if we are willing to save and restore them.  call fixed
-   registers are a subset of call used registers.  */
-char call_fixed_regs[FIRST_PSEUDO_REGISTER];
+/* Contains registers that are fixed use -- i.e. in fixed_reg_set -- or
+   a function value return register or TARGET_STRUCT_VALUE_RTX or
+   STATIC_CHAIN_REGNUM.  These are the registers that cannot hold quantities
+   across calls even if we are willing to save and restore them.  */
 
-/* The same info as a HARD_REG_SET.  */
 HARD_REG_SET call_fixed_reg_set;
 
 /* Indexed by hard register number, contains 1 for registers
@@ -277,7 +275,8 @@ init_move_cost (enum machine_mode m)
 	    cost = 65535;
 	  else
 	    {
-	      cost = REGISTER_MOVE_COST (m, i, j);
+	      cost = REGISTER_MOVE_COST (m, (enum reg_class) i,
+					 (enum reg_class) j);
 	      gcc_assert (cost < 65535);
 	    }
 	  all_match &= (last_move_cost[i][j] == cost);
@@ -327,12 +326,12 @@ init_move_cost (enum machine_mode m)
 	      gcc_assert (cost <= 65535);
 	      move_cost[m][i][j] = cost;
 
-	      if (reg_class_subset_p (i, j))
+	      if (reg_class_subset_p ((enum reg_class) i, (enum reg_class) j))
 		may_move_in_cost[m][i][j] = 0;
 	      else
 		may_move_in_cost[m][i][j] = cost;
 
-	      if (reg_class_subset_p (j, i))
+	      if (reg_class_subset_p ((enum reg_class) j, (enum reg_class) i))
 		may_move_out_cost[m][i][j] = 0;
 	      else
 		may_move_out_cost[m][i][j] = cost;
@@ -514,8 +513,6 @@ init_reg_sets_1 (void)
   else
     CLEAR_REG_SET (regs_invalidated_by_call_regset);
 
-  memcpy (call_fixed_regs, fixed_regs, sizeof call_fixed_regs);
-
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     {
       /* call_used_regs must include fixed_regs.  */
@@ -530,8 +527,6 @@ init_reg_sets_1 (void)
 
       if (call_used_regs[i])
 	SET_HARD_REG_BIT (call_used_reg_set, i);
-      if (call_fixed_regs[i])
-	SET_HARD_REG_BIT (call_fixed_reg_set, i);
 
       /* There are a couple of fixed registers that we know are safe to
 	 exclude from being clobbered by calls:
@@ -570,12 +565,14 @@ init_reg_sets_1 (void)
         }
     }
 
+  COPY_HARD_REG_SET(call_fixed_reg_set, fixed_reg_set);
+
   /* Preserve global registers if called more than once.  */
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     {
       if (global_regs[i])
 	{
-	  fixed_regs[i] = call_used_regs[i] = call_fixed_regs[i] = 1;
+	  fixed_regs[i] = call_used_regs[i] = 1;
 	  SET_HARD_REG_BIT (fixed_reg_set, i);
 	  SET_HARD_REG_BIT (call_used_reg_set, i);
 	  SET_HARD_REG_BIT (call_fixed_reg_set, i);
@@ -589,11 +586,13 @@ init_reg_sets_1 (void)
       HARD_REG_SET ok_regs;
       CLEAR_HARD_REG_SET (ok_regs);
       for (j = 0; j < FIRST_PSEUDO_REGISTER; j++)
-	if (!fixed_regs [j] && HARD_REGNO_MODE_OK (j, m))
+	if (!fixed_regs [j] && HARD_REGNO_MODE_OK (j, (enum machine_mode) m))
 	  SET_HARD_REG_BIT (ok_regs, j);
-      
+
       for (i = 0; i < N_REG_CLASSES; i++)
-	if ((unsigned) CLASS_MAX_NREGS (i, m) <= reg_class_size[i]
+	if (((unsigned) CLASS_MAX_NREGS ((enum reg_class) i,
+					 (enum machine_mode) m)
+	     <= reg_class_size[i])
 	    && hard_reg_set_intersect_p (ok_regs, reg_class_contents[i]))
 	  {
 	     contains_reg_of_mode [i][m] = 1;
@@ -676,9 +675,9 @@ void
 init_fake_stack_mems (void)
 {
   int i;
-  
+
   for (i = 0; i < MAX_MACHINE_MODE; i++)
-    top_of_stack[i] = gen_rtx_MEM (i, stack_pointer_rtx);
+    top_of_stack[i] = gen_rtx_MEM ((enum machine_mode) i, stack_pointer_rtx);
 }
 
 
@@ -867,7 +866,7 @@ globalize_reg (int i)
   if (fixed_regs[i])
     return;
 
-  fixed_regs[i] = call_used_regs[i] = call_fixed_regs[i] = 1;
+  fixed_regs[i] = call_used_regs[i] = 1;
 #ifdef CALL_REALLY_USED_REGISTERS
   call_really_used_regs[i] = 1;
 #endif
@@ -875,6 +874,8 @@ globalize_reg (int i)
   SET_HARD_REG_BIT (fixed_reg_set, i);
   SET_HARD_REG_BIT (call_used_reg_set, i);
   SET_HARD_REG_BIT (call_fixed_reg_set, i);
+
+  reinit_regs ();
 }
 
 
@@ -893,6 +894,10 @@ struct reg_pref
      but since it is recommended that there be a class corresponding to the
      union of most major pair of classes, that generality is not required.  */
   char altclass;
+
+  /* coverclass is a register class that IRA uses for allocating
+     the pseudo.  */
+  char coverclass;
 };
 
 /* Record preferences of each pseudo.  This is available after RA is
@@ -920,65 +925,56 @@ reg_alternate_class (int regno)
   return (enum reg_class) reg_pref[regno].altclass;
 }
 
-/* Initialize some global data for this pass.  */
-static unsigned int 
-reginfo_init (void)
+/* Return the reg_class which is used by IRA for its allocation.  */
+enum reg_class
+reg_cover_class (int regno)
 {
-  if (df)
-    df_compute_regs_ever_live (true);
+  if (reg_pref == 0)
+    return NO_REGS;
 
-  /* This prevents dump_flow_info from losing if called
-     before reginfo is run.  */
-  reg_pref = NULL;
-
-  /* No more global register variables may be declared.  */
-  no_global_reg_vars = 1;
-  return 1;
+  return (enum reg_class) reg_pref[regno].coverclass;
 }
-
-struct rtl_opt_pass pass_reginfo_init =
-{
- {
-  RTL_PASS,
-  "reginfo",                            /* name */
-  NULL,                                 /* gate */
-  reginfo_init,                         /* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  0,                                    /* tv_id */
-  0,                                    /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  0                                     /* todo_flags_finish */
- }
-};
 
 
 
+/* Current size of reg_info.  */
+static int reg_info_size;
+
 /* Allocate space for reg info.  */
-void
+static void
 allocate_reg_info (void)
 {
-  int size = max_reg_num ();
-
+  reg_info_size = max_reg_num ();
   gcc_assert (! reg_pref && ! reg_renumber);
-  reg_renumber = XNEWVEC (short, size);
-  reg_pref = XCNEWVEC (struct reg_pref, size);
-  memset (reg_renumber, -1, size * sizeof (short));
+  reg_renumber = XNEWVEC (short, reg_info_size);
+  reg_pref = XCNEWVEC (struct reg_pref, reg_info_size);
+  memset (reg_renumber, -1, reg_info_size * sizeof (short));
 }
 
 
-/* Resize reg info. The new elements will be uninitialized.  */
-void
+/* Resize reg info. The new elements will be uninitialized.  Return
+   TRUE if new elements (for new pseudos) were added.  */
+bool
 resize_reg_info (void)
 {
-  int size = max_reg_num ();
+  int old;
 
+  if (reg_pref == NULL)
+    {
+      allocate_reg_info ();
+      return true;
+    }
+  if (reg_info_size == max_reg_num ())
+    return false;
+  old = reg_info_size;
+  reg_info_size = max_reg_num ();
   gcc_assert (reg_pref && reg_renumber);
-  reg_renumber = XRESIZEVEC (short, reg_renumber, size);
-  reg_pref = XRESIZEVEC (struct reg_pref, reg_pref, size);
+  reg_renumber = XRESIZEVEC (short, reg_renumber, reg_info_size);
+  reg_pref = XRESIZEVEC (struct reg_pref, reg_pref, reg_info_size);
+  memset (reg_pref + old, -1,
+	  (reg_info_size - old) * sizeof (struct reg_pref));
+  memset (reg_renumber + old, -1, (reg_info_size - old) * sizeof (short));
+  return true;
 }
 
 
@@ -999,19 +995,54 @@ free_reg_info (void)
     }
 }
 
+/* Initialize some global data for this pass.  */
+static unsigned int 
+reginfo_init (void)
+{
+  if (df)
+    df_compute_regs_ever_live (true);
+
+  /* This prevents dump_flow_info from losing if called
+     before reginfo is run.  */
+  reg_pref = NULL;
+  /* No more global register variables may be declared.  */
+  no_global_reg_vars = 1;
+  return 1;
+}
+
+struct rtl_opt_pass pass_reginfo_init =
+{
+ {
+  RTL_PASS,
+  "reginfo",                            /* name */
+  NULL,                                 /* gate */
+  reginfo_init,                         /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_NONE,                                    /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  0                                     /* todo_flags_finish */
+ }
+};
 
 
 
-/* Set up preferred and alternate classes for REGNO as PREFCLASS and
-   ALTCLASS.  */
+/* Set up preferred, alternate, and cover classes for REGNO as
+   PREFCLASS, ALTCLASS, and COVERCLASS.  */
 void
 setup_reg_classes (int regno,
-		   enum reg_class prefclass, enum reg_class altclass)
+		   enum reg_class prefclass, enum reg_class altclass,
+		   enum reg_class coverclass)
 {
   if (reg_pref == NULL)
     return;
   reg_pref[regno].prefclass = prefclass;
   reg_pref[regno].altclass = altclass;
+  reg_pref[regno].coverclass = coverclass;
 }
 
 
@@ -1121,7 +1152,7 @@ reg_scan_mark_refs (rtx x, rtx insn)
 	       && REG_POINTER (SET_SRC (x)))
 	      || ((GET_CODE (SET_SRC (x)) == PLUS
 		   || GET_CODE (SET_SRC (x)) == LO_SUM)
-		  && GET_CODE (XEXP (SET_SRC (x), 1)) == CONST_INT
+		  && CONST_INT_P (XEXP (SET_SRC (x), 1))
 		  && REG_P (XEXP (SET_SRC (x), 0))
 		  && REG_POINTER (XEXP (SET_SRC (x), 0)))
 	      || GET_CODE (SET_SRC (x)) == CONST
@@ -1309,34 +1340,6 @@ init_subregs_of_mode (void)
   return 0;
 }
 
-/* Set bits in *USED which correspond to registers which can't change
-   their mode from FROM to any mode in which REGNO was
-   encountered.  */
-void
-cannot_change_mode_set_regs (HARD_REG_SET *used, enum machine_mode from,
-			     unsigned int regno)
-{
-  struct subregs_of_mode_node dummy, *node;
-  enum machine_mode to;
-  unsigned char mask;
-  unsigned int i;
-
-  gcc_assert (subregs_of_mode);
-  dummy.block = regno & -8;
-  node = (struct subregs_of_mode_node *)
-    htab_find_with_hash (subregs_of_mode, &dummy, dummy.block);
-  if (node == NULL)
-    return;
-
-  mask = 1 << (regno & 7);
-  for (to = VOIDmode; to < NUM_MACHINE_MODES; to++)
-    if (node->modes[to] & mask)
-      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-	if (!TEST_HARD_REG_BIT (*used, i)
-	    && REG_CANNOT_CHANGE_MODE_P (i, from, to))
-	  SET_HARD_REG_BIT (*used, i);
-}
-
 /* Return 1 if REGNO has had an invalid mode change in CLASS from FROM
    mode.  */
 bool
@@ -1345,7 +1348,7 @@ invalid_mode_change_p (unsigned int regno,
 		       enum machine_mode from)
 {
   struct subregs_of_mode_node dummy, *node;
-  enum machine_mode to;
+  unsigned int to;
   unsigned char mask;
 
   gcc_assert (subregs_of_mode);
@@ -1358,7 +1361,7 @@ invalid_mode_change_p (unsigned int regno,
   mask = 1 << (regno & 7);
   for (to = VOIDmode; to < NUM_MACHINE_MODES; to++)
     if (node->modes[to] & mask)
-      if (CANNOT_CHANGE_MODE_CLASS (from, to, rclass))
+      if (CANNOT_CHANGE_MODE_CLASS (from, (enum machine_mode) to, rclass))
 	return true;
 
   return false;
@@ -1405,7 +1408,7 @@ struct rtl_opt_pass pass_subregs_of_mode_init =
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
-  0,                                    /* tv_id */
+  TV_NONE,                              /* tv_id */
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
@@ -1424,7 +1427,7 @@ struct rtl_opt_pass pass_subregs_of_mode_finish =
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
-  0,                                    /* tv_id */
+  TV_NONE,                              /* tv_id */
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */

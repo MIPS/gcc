@@ -93,7 +93,7 @@ static inline rtx force_mode (enum machine_mode, rtx);
 static void pa_reorg (void);
 static void pa_combine_instructions (void);
 static int pa_can_combine_p (rtx, rtx, rtx, int, rtx, rtx, rtx);
-static int forward_branch_p (rtx);
+static bool forward_branch_p (rtx);
 static void compute_zdepwi_operands (unsigned HOST_WIDE_INT, unsigned *);
 static int compute_movmem_length (rtx);
 static int compute_clrmem_length (rtx);
@@ -131,6 +131,7 @@ static bool pa_scalar_mode_supported_p (enum machine_mode);
 static bool pa_commutative_p (const_rtx x, int outer_code);
 static void copy_fp_args (rtx) ATTRIBUTE_UNUSED;
 static int length_fp_args (rtx) ATTRIBUTE_UNUSED;
+static rtx hppa_legitimize_address (rtx, rtx, enum machine_mode);
 static inline void pa_file_start_level (void) ATTRIBUTE_UNUSED;
 static inline void pa_file_start_space (int) ATTRIBUTE_UNUSED;
 static inline void pa_file_start_file (int) ATTRIBUTE_UNUSED;
@@ -158,16 +159,14 @@ static enum reg_class pa_secondary_reload (bool, rtx, enum reg_class,
 					   enum machine_mode,
 					   secondary_reload_info *);
 static void pa_extra_live_on_entry (bitmap);
+static enum machine_mode pa_promote_function_mode (const_tree,
+						   enum machine_mode, int *,
+						   const_tree, int);
 
 /* The following extra sections are only used for SOM.  */
 static GTY(()) section *som_readonly_data_section;
 static GTY(()) section *som_one_only_readonly_data_section;
 static GTY(()) section *som_one_only_data_section;
-
-/* Save the operands last given to a compare for use when we
-   generate a scc or bcc insn.  */
-rtx hppa_compare_op0, hppa_compare_op1;
-enum cmp_type hppa_branch_type;
 
 /* Which cpu we are scheduling for.  */
 enum processor_type pa_cpu = TARGET_SCHED_DEFAULT;
@@ -196,7 +195,7 @@ static unsigned int last_address;
 
 /* Variables to handle plabels that we discover are necessary at assembly
    output time.  They are output after the current function.  */
-struct deferred_plabel GTY(())
+struct GTY(()) deferred_plabel
 {
   rtx internal_label;
   rtx symbol;
@@ -227,6 +226,9 @@ static size_t n_deferred_plabels = 0;
 #define TARGET_ASM_FUNCTION_PROLOGUE pa_output_function_prologue
 #undef TARGET_ASM_FUNCTION_EPILOGUE
 #define TARGET_ASM_FUNCTION_EPILOGUE pa_output_function_epilogue
+
+#undef TARGET_LEGITIMIZE_ADDRESS
+#define TARGET_LEGITIMIZE_ADDRESS hppa_legitimize_address
 
 #undef TARGET_SCHED_ADJUST_COST
 #define TARGET_SCHED_ADJUST_COST pa_adjust_cost
@@ -286,8 +288,8 @@ static size_t n_deferred_plabels = 0;
 #define TARGET_INIT_LIBFUNCS pa_hpux_init_libfuncs
 #endif
 
-#undef TARGET_PROMOTE_FUNCTION_RETURN
-#define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_const_tree_true
+#undef TARGET_PROMOTE_FUNCTION_MODE
+#define TARGET_PROMOTE_FUNCTION_MODE pa_promote_function_mode
 #undef TARGET_PROMOTE_PROTOTYPES
 #define TARGET_PROMOTE_PROTOTYPES hook_bool_const_tree_true
 
@@ -684,7 +686,7 @@ legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
       insn = emit_insn (gen_rtx_SET (VOIDmode, reg, orig));
 
       /* Put a REG_EQUAL note on this insn, so that it can be optimized.  */
-      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_EQUAL, orig, REG_NOTES (insn));
+      add_reg_note (insn, REG_EQUAL, orig);
 
       /* During and after reload, we need to generate a REG_LABEL_OPERAND note
 	 and update LABEL_NUSES because this is not done automatically.  */
@@ -871,9 +873,6 @@ legitimize_tls_address (rtx addr)
 
    OLDX is the address as it was before break_out_memory_refs was called.
    In some cases it is useful to look at this to decide what needs to be done.
-
-   MODE and WIN are passed so that this macro can use
-   GO_IF_LEGITIMATE_ADDRESS.
 
    It is always safe for this macro to do nothing.  It exists to recognize
    opportunities to optimize the output.
@@ -1620,7 +1619,7 @@ emit_move_sequence (rtx *operands, enum machine_mode mode, rtx scratch_reg)
       /* D might not fit in 14 bits either; for such cases load D into
 	 scratch reg.  */
       if (GET_CODE (operand1) == MEM
-	  && !memory_address_p (Pmode, XEXP (operand1, 0)))
+	  && !memory_address_p (GET_MODE (operand0), XEXP (operand1, 0)))
 	{
 	  /* We are reloading the address into the scratch register, so we
 	     want to make sure the scratch register is a full register.  */
@@ -2217,9 +2216,9 @@ compute_zdepwi_operands (unsigned HOST_WIDE_INT imm, unsigned *op)
   else
     {
       /* Find the width of the bitstring in IMM.  */
-      for (len = 5; len < 32; len++)
+      for (len = 5; len < 32 - lsb; len++)
 	{
-	  if ((imm & (1 << len)) == 0)
+	  if ((imm & ((unsigned HOST_WIDE_INT) 1 << len)) == 0)
 	    break;
 	}
 
@@ -2238,10 +2237,12 @@ compute_zdepwi_operands (unsigned HOST_WIDE_INT imm, unsigned *op)
 void
 compute_zdepdi_operands (unsigned HOST_WIDE_INT imm, unsigned *op)
 {
-  HOST_WIDE_INT lsb, len;
+  int lsb, len, maxlen;
+
+  maxlen = MIN (HOST_BITS_PER_WIDE_INT, 64);
 
   /* Find the least significant set bit in IMM.  */
-  for (lsb = 0; lsb < HOST_BITS_PER_WIDE_INT; lsb++)
+  for (lsb = 0; lsb < maxlen; lsb++)
     {
       if ((imm & 1) != 0)
         break;
@@ -2250,16 +2251,19 @@ compute_zdepdi_operands (unsigned HOST_WIDE_INT imm, unsigned *op)
 
   /* Choose variants based on *sign* of the 5-bit field.  */
   if ((imm & 0x10) == 0)
-    len = ((lsb <= HOST_BITS_PER_WIDE_INT - 4)
-	   ? 4 : HOST_BITS_PER_WIDE_INT - lsb);
+    len = (lsb <= maxlen - 4) ? 4 : maxlen - lsb;
   else
     {
       /* Find the width of the bitstring in IMM.  */
-      for (len = 5; len < HOST_BITS_PER_WIDE_INT; len++)
+      for (len = 5; len < maxlen - lsb; len++)
 	{
 	  if ((imm & ((unsigned HOST_WIDE_INT) 1 << len)) == 0)
 	    break;
 	}
+
+      /* Extend length if host is narrow and IMM is negative.  */
+      if (HOST_BITS_PER_WIDE_INT == 32 && len == maxlen - lsb)
+	len += 32;
 
       /* Sign extend IMM as a 5-bit value.  */
       imm = (imm & 0xf) - 0x10;
@@ -3395,11 +3399,9 @@ store_reg (int reg, HOST_WIDE_INT disp, int base)
       insn = emit_move_insn (tmpreg, gen_rtx_PLUS (Pmode, tmpreg, basereg));
       if (DO_FRAME_NOTES)
 	{
-	  REG_NOTES (insn)
-	    = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
-		gen_rtx_SET (VOIDmode, tmpreg,
-			     gen_rtx_PLUS (Pmode, basereg, delta)),
-                REG_NOTES (insn));
+	  add_reg_note (insn, REG_FRAME_RELATED_EXPR,
+			gen_rtx_SET (VOIDmode, tmpreg,
+				     gen_rtx_PLUS (Pmode, basereg, delta)));
 	  RTX_FRAME_RELATED_P (insn) = 1;
 	}
       dest = gen_rtx_MEM (word_mode, tmpreg);
@@ -3415,16 +3417,13 @@ store_reg (int reg, HOST_WIDE_INT disp, int base)
       dest = gen_rtx_MEM (word_mode, gen_rtx_LO_SUM (Pmode, tmpreg, delta));
       insn = emit_move_insn (dest, src);
       if (DO_FRAME_NOTES)
-	{
-	  REG_NOTES (insn)
-	    = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
-		gen_rtx_SET (VOIDmode,
-			     gen_rtx_MEM (word_mode,
-					  gen_rtx_PLUS (word_mode, basereg,
-							delta)),
-                             src),
-                REG_NOTES (insn));
-	}
+	add_reg_note (insn, REG_FRAME_RELATED_EXPR,
+		      gen_rtx_SET (VOIDmode,
+				   gen_rtx_MEM (word_mode,
+						gen_rtx_PLUS (word_mode,
+							      basereg,
+							      delta)),
+				   src));
     }
 
   if (DO_FRAME_NOTES)
@@ -3484,11 +3483,9 @@ set_reg_plus_d (int reg, int base, HOST_WIDE_INT disp, int note)
       insn = emit_move_insn (gen_rtx_REG (Pmode, reg),
 			     gen_rtx_PLUS (Pmode, tmpreg, basereg));
       if (DO_FRAME_NOTES)
-	REG_NOTES (insn)
-	  = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
-	      gen_rtx_SET (VOIDmode, tmpreg,
-			   gen_rtx_PLUS (Pmode, basereg, delta)),
-	      REG_NOTES (insn));
+	add_reg_note (insn, REG_FRAME_RELATED_EXPR,
+		      gen_rtx_SET (VOIDmode, tmpreg,
+				   gen_rtx_PLUS (Pmode, basereg, delta)));
     }
   else
     {
@@ -3912,10 +3909,8 @@ hppa_expand_prologue (void)
 		    {
 		      rtx mem = gen_rtx_MEM (DFmode,
 					     plus_constant (base, offset));
-		      REG_NOTES (insn)
-			= gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
-					     gen_rtx_SET (VOIDmode, mem, reg),
-					     REG_NOTES (insn));
+		      add_reg_note (insn, REG_FRAME_RELATED_EXPR,
+				    gen_rtx_SET (VOIDmode, mem, reg));
 		    }
 		  else
 		    {
@@ -3932,10 +3927,8 @@ hppa_expand_prologue (void)
 		      RTX_FRAME_RELATED_P (setl) = 1;
 		      RTX_FRAME_RELATED_P (setr) = 1;
 		      vec = gen_rtvec (2, setl, setr);
-		      REG_NOTES (insn)
-			= gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
-					     gen_rtx_SEQUENCE (VOIDmode, vec),
-					     REG_NOTES (insn));
+		      add_reg_note (insn, REG_FRAME_RELATED_EXPR,
+				    gen_rtx_SEQUENCE (VOIDmode, vec));
 		    }
 		}
 	      offset += GET_MODE_SIZE (DFmode);
@@ -4353,8 +4346,7 @@ hppa_profile_hook (int label_no)
 
   /* Indicate the _mcount call cannot throw, nor will it execute a
      non-local goto.  */
-  REG_NOTES (call_insn)
-    = gen_rtx_EXPR_LIST (REG_EH_REGION, constm1_rtx, REG_NOTES (call_insn));
+  add_reg_note (call_insn, REG_EH_REGION, constm1_rtx);
 }
 
 /* Fetch the return address for the frame COUNT steps up from
@@ -4391,6 +4383,19 @@ return_addr_rtx (int count, rtx frameaddr)
   rtx saved_rp;
   rtx ins;
 
+  /* Instruction stream at the normal return address for the export stub:
+
+	0x4bc23fd1 | stub+8:   ldw -18(sr0,sp),rp
+	0x004010a1 | stub+12:  ldsid (sr0,rp),r1
+	0x00011820 | stub+16:  mtsp r1,sr0
+	0xe0400002 | stub+20:  be,n 0(sr0,rp)
+
+     0xe0400002 must be specified as -532676606 so that it won't be
+     rejected as an invalid immediate operand on 64-bit hosts.  */
+
+  HOST_WIDE_INT insns[4] = {0x4bc23fd1, 0x004010a1, 0x00011820, -532676606};
+  int i;
+
   if (count != 0)
     return NULL_RTX;
 
@@ -4398,6 +4403,9 @@ return_addr_rtx (int count, rtx frameaddr)
 
   if (TARGET_64BIT || TARGET_NO_SPACE_REGS)
     return rp;
+
+  /* If there is no export stub then just use the value saved from
+     the return pointer register.  */
 
   saved_rp = gen_reg_rtx (Pmode);
   emit_move_insn (saved_rp, rp);
@@ -4410,37 +4418,15 @@ return_addr_rtx (int count, rtx frameaddr)
   label = gen_label_rtx ();
 
   /* Check the instruction stream at the normal return address for the
-     export stub:
+     export stub.  If it is an export stub, than our return address is
+     really in -24[frameaddr].  */
 
-	0x4bc23fd1 | stub+8:   ldw -18(sr0,sp),rp
-	0x004010a1 | stub+12:  ldsid (sr0,rp),r1
-	0x00011820 | stub+16:  mtsp r1,sr0
-	0xe0400002 | stub+20:  be,n 0(sr0,rp)
-
-     If it is an export stub, than our return address is really in
-     -24[frameaddr].  */
-
-  emit_cmp_insn (gen_rtx_MEM (SImode, ins), GEN_INT (0x4bc23fd1), NE,
-		 NULL_RTX, SImode, 1);
-  emit_jump_insn (gen_bne (label));
-
-  emit_cmp_insn (gen_rtx_MEM (SImode, plus_constant (ins, 4)),
-		 GEN_INT (0x004010a1), NE, NULL_RTX, SImode, 1);
-  emit_jump_insn (gen_bne (label));
-
-  emit_cmp_insn (gen_rtx_MEM (SImode, plus_constant (ins, 8)),
-		 GEN_INT (0x00011820), NE, NULL_RTX, SImode, 1);
-  emit_jump_insn (gen_bne (label));
-
-  /* 0xe0400002 must be specified as -532676606 so that it won't be
-     rejected as an invalid immediate operand on 64-bit hosts.  */
-  emit_cmp_insn (gen_rtx_MEM (SImode, plus_constant (ins, 12)),
-		 GEN_INT (-532676606), NE, NULL_RTX, SImode, 1);
-
-  /* If there is no export stub then just use the value saved from
-     the return pointer register.  */
-
-  emit_jump_insn (gen_bne (label));
+  for (i = 0; i < 3; i++)
+    {
+      rtx op0 = gen_rtx_MEM (SImode, plus_constant (ins, i * 4)); 
+      rtx op1 = GEN_INT (insns[i]);
+      emit_cmp_and_jump_insns (op0, op1, NE, NULL, SImode, 0, label);
+    }
 
   /* Here we know that our return address points to an export
      stub.  We don't want to return the address of the export stub,
@@ -4454,28 +4440,30 @@ return_addr_rtx (int count, rtx frameaddr)
 							      -24))));
 
   emit_label (label);
+
   return saved_rp;
 }
 
 void
-emit_bcond_fp (enum rtx_code code, rtx operand0)
+emit_bcond_fp (rtx operands[])
 {
+  enum rtx_code code = GET_CODE (operands[0]);
+  rtx operand0 = operands[1];
+  rtx operand1 = operands[2];
+  rtx label = operands[3];
+
+  emit_insn (gen_rtx_SET (VOIDmode, gen_rtx_REG (CCFPmode, 0),
+		          gen_rtx_fmt_ee (code, CCFPmode, operand0, operand1)));
+
   emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx,
 			       gen_rtx_IF_THEN_ELSE (VOIDmode,
-						     gen_rtx_fmt_ee (code,
+						     gen_rtx_fmt_ee (NE,
 							      VOIDmode,
 							      gen_rtx_REG (CCFPmode, 0),
 							      const0_rtx),
-						     gen_rtx_LABEL_REF (VOIDmode, operand0),
+						     gen_rtx_LABEL_REF (VOIDmode, label),
 						     pc_rtx)));
 
-}
-
-rtx
-gen_cmp_fp (enum rtx_code code, rtx operand0, rtx operand1)
-{
-  return gen_rtx_SET (VOIDmode, gen_rtx_REG (CCFPmode, 0),
-		      gen_rtx_fmt_ee (code, CCFPmode, operand0, operand1));
 }
 
 /* Adjust the cost of a scheduling dependency.  Return the new cost of
@@ -4771,6 +4759,7 @@ pa_adjust_insn_length (rtx insn, int length)
       /* Adjust a short backwards conditional with an unfilled delay slot.  */
       if (GET_CODE (pat) == SET
 	  && length == 4
+	  && JUMP_LABEL (insn) != NULL_RTX
 	  && ! forward_branch_p (insn))
 	return 4;
       else if (GET_CODE (pat) == PARALLEL
@@ -5804,9 +5793,10 @@ pa_secondary_reload (bool in_p, rtx x, enum reg_class rclass,
         break;
       case CONST:
 	op = XEXP (x, 0);
-	is_symbolic = (((GET_CODE (XEXP (op, 0)) == SYMBOL_REF
-			 && !SYMBOL_REF_TLS_MODEL (XEXP (op, 0)))
-			|| GET_CODE (XEXP (op, 0)) == LABEL_REF)
+	is_symbolic = (GET_CODE (op) == PLUS
+		       && ((GET_CODE (XEXP (op, 0)) == SYMBOL_REF
+			    && !SYMBOL_REF_TLS_MODEL (XEXP (op, 0)))
+			   || GET_CODE (XEXP (op, 0)) == LABEL_REF)
 		       && GET_CODE (XEXP (op, 1)) == CONST_INT);
         break;
       default:
@@ -6106,6 +6096,38 @@ pa_scalar_mode_supported_p (enum machine_mode mode)
     }
 }
 
+/* Return TRUE if INSN, a jump insn, has an unfilled delay slot and
+   it branches to the next real instruction.  Otherwise, return FALSE.  */
+
+static bool
+branch_to_delay_slot_p (rtx insn)
+{
+  if (dbr_sequence_length ())
+    return FALSE;
+
+  return next_real_insn (JUMP_LABEL (insn)) == next_real_insn (insn);
+}
+
+/* Return TRUE if INSN, a jump insn, needs a nop in its delay slot.
+
+   This occurs when INSN has an unfilled delay slot and is followed
+   by an ASM_INPUT.  Disaster can occur if the ASM_INPUT is empty and
+   the jump branches into the delay slot.  So, we add a nop in the delay
+   slot just to be safe.  This messes up our instruction count, but we
+   don't know how big the ASM_INPUT insn is anyway.  */
+
+static bool
+branch_needs_nop_p (rtx insn)
+{
+  rtx next_insn;
+
+  if (dbr_sequence_length ())
+    return FALSE;
+
+  next_insn = next_real_insn (insn);
+  return GET_CODE (PATTERN (next_insn)) == ASM_INPUT;
+}
+
 /* This routine handles all the normal conditional branch sequences we
    might need to generate.  It handles compare immediate vs compare
    register, nullification of delay slots, varying length branches,
@@ -6131,7 +6153,7 @@ output_cbranch (rtx *operands, int negated, rtx insn)
      slot and the same branch target as this branch.  We could check
      for this but jump optimization should eliminate nop jumps.  It
      is always safe to emit a nop.  */
-  if (next_real_insn (JUMP_LABEL (insn)) == next_real_insn (insn))
+  if (branch_to_delay_slot_p (insn))
     return "nop";
 
   /* The doubleword form of the cmpib instruction doesn't have the LEU
@@ -6180,7 +6202,12 @@ output_cbranch (rtx *operands, int negated, rtx insn)
 	if (useskip)
 	  strcat (buf, " %2,%r1,%%r0");
 	else if (nullify)
-	  strcat (buf, ",n %2,%r1,%0");
+	  {
+	    if (branch_needs_nop_p (insn))
+	      strcat (buf, ",n %2,%r1,%0%#");
+	    else
+	      strcat (buf, ",n %2,%r1,%0");
+	  }
 	else
 	  strcat (buf, " %2,%r1,%0");
 	break;
@@ -6453,7 +6480,7 @@ output_bb (rtx *operands ATTRIBUTE_UNUSED, int negated, rtx insn, int which)
      is only used when optimizing; jump optimization should eliminate the
      jump.  But be prepared just in case.  */
 
-  if (next_real_insn (JUMP_LABEL (insn)) == next_real_insn (insn))
+  if (branch_to_delay_slot_p (insn))
     return "nop";
 
   /* If this is a long branch with its delay slot unfilled, set `nullify'
@@ -6499,11 +6526,21 @@ output_bb (rtx *operands ATTRIBUTE_UNUSED, int negated, rtx insn, int which)
 	if (useskip)
 	  strcat (buf, " %0,%1,1,%%r0");
 	else if (nullify && negated)
-	  strcat (buf, ",n %0,%1,%3");
+	  {
+	    if (branch_needs_nop_p (insn))
+	      strcat (buf, ",n %0,%1,%3%#");
+	    else
+	      strcat (buf, ",n %0,%1,%3");
+	  }
 	else if (nullify && ! negated)
-	  strcat (buf, ",n %0,%1,%2");
+	  {
+	    if (branch_needs_nop_p (insn))
+	      strcat (buf, ",n %0,%1,%2%#");
+	    else
+	      strcat (buf, ",n %0,%1,%2");
+	  }
 	else if (! nullify && negated)
-	  strcat (buf, "%0,%1,%3");
+	  strcat (buf, " %0,%1,%3");
 	else if (! nullify && ! negated)
 	  strcat (buf, " %0,%1,%2");
 	break;
@@ -6634,7 +6671,7 @@ output_bvb (rtx *operands ATTRIBUTE_UNUSED, int negated, rtx insn, int which)
      is only used when optimizing; jump optimization should eliminate the
      jump.  But be prepared just in case.  */
 
-  if (next_real_insn (JUMP_LABEL (insn)) == next_real_insn (insn))
+  if (branch_to_delay_slot_p (insn))
     return "nop";
 
   /* If this is a long branch with its delay slot unfilled, set `nullify'
@@ -6680,11 +6717,21 @@ output_bvb (rtx *operands ATTRIBUTE_UNUSED, int negated, rtx insn, int which)
 	if (useskip)
 	  strcat (buf, "{ %0,1,%%r0| %0,%%sar,1,%%r0}");
 	else if (nullify && negated)
-	  strcat (buf, "{,n %0,%3|,n %0,%%sar,%3}");
+	  {
+	    if (branch_needs_nop_p (insn))
+	      strcat (buf, "{,n %0,%3%#|,n %0,%%sar,%3%#}");
+	    else
+	      strcat (buf, "{,n %0,%3|,n %0,%%sar,%3}");
+	  }
 	else if (nullify && ! negated)
-	  strcat (buf, "{,n %0,%2|,n %0,%%sar,%2}");
+	  {
+	    if (branch_needs_nop_p (insn))
+	      strcat (buf, "{,n %0,%2%#|,n %0,%%sar,%2%#}");
+	    else
+	      strcat (buf, "{,n %0,%2|,n %0,%%sar,%2}");
+	  }
 	else if (! nullify && negated)
-	  strcat (buf, "{%0,%3|%0,%%sar,%3}");
+	  strcat (buf, "{ %0,%3| %0,%%sar,%3}");
 	else if (! nullify && ! negated)
 	  strcat (buf, "{ %0,%2| %0,%%sar,%2}");
 	break;
@@ -6806,7 +6853,7 @@ output_dbra (rtx *operands, rtx insn, int which_alternative)
   /* A conditional branch to the following instruction (e.g. the delay slot) is
      asking for a disaster.  Be prepared!  */
 
-  if (next_real_insn (JUMP_LABEL (insn)) == next_real_insn (insn))
+  if (branch_to_delay_slot_p (insn))
     {
       if (which_alternative == 0)
 	return "ldo %1(%0),%0";
@@ -6843,7 +6890,12 @@ output_dbra (rtx *operands, rtx insn, int which_alternative)
 	{
 	case 4:
 	  if (nullify)
-	    return "addib,%C2,n %1,%0,%3";
+	    {
+	      if (branch_needs_nop_p (insn))
+		return "addib,%C2,n %1,%0,%3%#";
+	      else
+		return "addib,%C2,n %1,%0,%3";
+	    }
 	  else
 	    return "addib,%C2 %1,%0,%3";
       
@@ -6951,7 +7003,7 @@ output_movb (rtx *operands, rtx insn, int which_alternative,
   /* A conditional branch to the following instruction (e.g. the delay slot) is
      asking for a disaster.  Be prepared!  */
 
-  if (next_real_insn (JUMP_LABEL (insn)) == next_real_insn (insn))
+  if (branch_to_delay_slot_p (insn))
     {
       if (which_alternative == 0)
 	return "copy %1,%0";
@@ -6989,7 +7041,12 @@ output_movb (rtx *operands, rtx insn, int which_alternative,
 	{
 	case 4:
 	  if (nullify)
-	    return "movb,%C2,n %1,%0,%3";
+	    {
+	      if (branch_needs_nop_p (insn))
+		return "movb,%C2,n %1,%0,%3%#";
+	      else
+		return "movb,%C2,n %1,%0,%3";
+	    }
 	  else
 	    return "movb,%C2 %1,%0,%3";
 
@@ -7721,12 +7778,15 @@ output_call (rtx insn, rtx call_dest, int sibcall)
   if (!delay_slot_filled && INSN_ADDRESSES_SET_P ())
     {
       /* See if the return address can be adjusted.  Use the containing
-         sequence insn's address.  */
+         sequence insn's address.  This would break the regular call/return@
+         relationship assumed by the table based eh unwinder, so only do that
+         if the call is not possibly throwing.  */
       rtx seq_insn = NEXT_INSN (PREV_INSN (XVECEXP (final_sequence, 0, 0)));
       int distance = (INSN_ADDRESSES (INSN_UID (JUMP_LABEL (NEXT_INSN (insn))))
 		      - INSN_ADDRESSES (INSN_UID (seq_insn)) - 8);
 
-      if (VAL_14_BITS_P (distance))
+      if (VAL_14_BITS_P (distance)
+	  && !(can_throw_internal (insn) || can_throw_external (insn)))
 	{
 	  xoperands[1] = gen_label_rtx ();
 	  output_asm_insn ("ldo %0-%1(%%r2),%%r2", xoperands);
@@ -8528,22 +8588,28 @@ non_hard_reg_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
   return ! (GET_CODE (op) == REG && REGNO (op) < FIRST_PSEUDO_REGISTER);
 }
 
-/* Return 1 if INSN branches forward.  Should be using insn_addresses
-   to avoid walking through all the insns...  */
-static int
+/* Return TRUE if INSN branches forward.  */
+
+static bool
 forward_branch_p (rtx insn)
 {
-  rtx label = JUMP_LABEL (insn);
+  rtx lab = JUMP_LABEL (insn);
+
+  /* The INSN must have a jump label.  */
+  gcc_assert (lab != NULL_RTX);
+
+  if (INSN_ADDRESSES_SET_P ())
+    return INSN_ADDRESSES (INSN_UID (lab)) > INSN_ADDRESSES (INSN_UID (insn));  
 
   while (insn)
     {
-      if (insn == label)
-	break;
+      if (insn == lab)
+	return true;
       else
 	insn = NEXT_INSN (insn);
     }
 
-  return (insn == label);
+  return false;
 }
 
 /* Return 1 if OP is an equality comparison, else return 0.  */
@@ -9125,11 +9191,25 @@ insn_refs_are_delayed (rtx insn)
 	   && get_attr_type (insn) == TYPE_MILLI));
 }
 
+/* Promote the return value, but not the arguments.  */
+
+static enum machine_mode
+pa_promote_function_mode (const_tree type ATTRIBUTE_UNUSED,
+                          enum machine_mode mode,
+                          int *punsignedp ATTRIBUTE_UNUSED,
+                          const_tree fntype ATTRIBUTE_UNUSED,
+                          int for_return)
+{
+  if (for_return == 0)
+    return mode;
+  return promote_mode (type, mode, punsignedp);
+}
+
 /* On the HP-PA the value is found in register(s) 28(-29), unless
    the mode is SF or DF. Then the value is returned in fr4 (32).
 
-   This must perform the same promotions as PROMOTE_MODE, else
-   TARGET_PROMOTE_FUNCTION_RETURN will not work correctly.
+   This must perform the same promotions as PROMOTE_MODE, else promoting
+   return values in TARGET_PROMOTE_FUNCTION_MODE will not work correctly.
 
    Small structures must be returned in a PARALLEL on PA64 in order
    to match the HP Compiler ABI.  */
@@ -9614,7 +9694,7 @@ pa_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
    at the end of the file if and only if SYMBOL_REF_REFERENCED_P is true.
    This avoids putting out names that are never really used.  */
 
-typedef struct extern_symbol GTY(())
+typedef struct GTY(()) extern_symbol
 {
   tree decl;
   const char *name;

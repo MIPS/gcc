@@ -9,7 +9,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -17,17 +17,14 @@ WARRANTY; without even the implied warranty of MERCHANTABILITY or
 FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
-You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+Under Section 7 of GPL version 3, you are granted additional
+permissions described in the GCC Runtime Library Exception, version
+3.1, as published by the Free Software Foundation.
 
-/* As a special exception, if you link this library with other files,
-   some of which are compiled with GCC, to produce an executable,
-   this library does not by itself cause the resulting executable
-   to be covered by the GNU General Public License.
-   This exception does not however invalidate any other reasons why
-   the executable file might be covered by the GNU General Public License.  */
+You should have received a copy of the GNU General Public License and
+a copy of the GCC Runtime Library Exception along with this program;
+see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+<http://www.gnu.org/licenses/>.  */
 
 #ifndef GCC_GTHR_WIN32_H
 #define GCC_GTHR_WIN32_H
@@ -73,6 +70,10 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include <errno.h>
 #ifdef __MINGW32__
 #include <_mingw.h>
+#endif
+
+#ifndef __UNUSED_PARAM
+#define __UNUSED_PARAM(x) x
 #endif
 
 #ifdef _LIBOBJC
@@ -124,7 +125,7 @@ __gthread_objc_thread_detach (void (*func)(void *arg), void *arg)
 				     arg, 0, &thread_id)))
     thread_id = 0;
 
-  return (objc_thread_t) thread_id;
+  return (objc_thread_t) (INT_PTR) thread_id;
 }
 
 /* Set the current thread's priority.  */
@@ -205,7 +206,7 @@ __gthread_objc_thread_exit (void)
 objc_thread_t
 __gthread_objc_thread_id (void)
 {
-  return (objc_thread_t) GetCurrentThreadId ();
+  return (objc_thread_t) (INT_PTR) GetCurrentThreadId ();
 }
 
 /* Sets the thread's local storage pointer.  */
@@ -294,7 +295,7 @@ __gthread_objc_mutex_unlock (objc_mutex_t mutex)
 
 /* Allocate a condition.  */
 int
-__gthread_objc_condition_allocate (objc_condition_t condition)
+__gthread_objc_condition_allocate (objc_condition_t __UNUSED_PARAM(condition))
 {
   /* Unimplemented.  */
   return -1;
@@ -302,7 +303,7 @@ __gthread_objc_condition_allocate (objc_condition_t condition)
 
 /* Deallocate a condition.  */
 int
-__gthread_objc_condition_deallocate (objc_condition_t condition)
+__gthread_objc_condition_deallocate (objc_condition_t __UNUSED_PARAM(condition))
 {
   /* Unimplemented.  */
   return -1;
@@ -310,7 +311,8 @@ __gthread_objc_condition_deallocate (objc_condition_t condition)
 
 /* Wait on the condition */
 int
-__gthread_objc_condition_wait (objc_condition_t condition, objc_mutex_t mutex)
+__gthread_objc_condition_wait (objc_condition_t __UNUSED_PARAM(condition),
+			       objc_mutex_t __UNUSED_PARAM(mutex))
 {
   /* Unimplemented.  */
   return -1;
@@ -318,7 +320,7 @@ __gthread_objc_condition_wait (objc_condition_t condition, objc_mutex_t mutex)
 
 /* Wake up all threads waiting on this condition.  */
 int
-__gthread_objc_condition_broadcast (objc_condition_t condition)
+__gthread_objc_condition_broadcast (objc_condition_t __UNUSED_PARAM(condition))
 {
   /* Unimplemented.  */
   return -1;
@@ -326,7 +328,7 @@ __gthread_objc_condition_broadcast (objc_condition_t condition)
 
 /* Wake up one thread waiting on this condition.  */
 int
-__gthread_objc_condition_signal (objc_condition_t condition)
+__gthread_objc_condition_signal (objc_condition_t __UNUSED_PARAM(condition))
 {
   /* Unimplemented.  */
   return -1;
@@ -364,15 +366,14 @@ typedef struct {
   __gthread_recursive_mutex_init_function
 #define __GTHREAD_RECURSIVE_MUTEX_INIT_DEFAULT {-1, 0, 0, 0}
 
-#if __MINGW32_MAJOR_VERSION >= 1 || \
-  (__MINGW32_MAJOR_VERSION == 0 && __MINGW32_MINOR_VERSION > 2)
+#if defined (_WIN32) && !defined(__CYGWIN__)
 #define MINGW32_SUPPORTS_MT_EH 1
 /* Mingw runtime >= v0.3 provides a magic variable that is set to nonzero
    if -mthreads option was specified, or 0 otherwise. This is to get around
    the lack of weak symbols in PE-COFF.  */
 extern int _CRT_MT;
 extern int __mingwthr_key_dtor (unsigned long, void (*) (void *));
-#endif /* __MINGW32__ version */
+#endif /* _WIN32 && !__CYGWIN__ */
 
 /* The Windows95 kernel does not export InterlockedCompareExchange.
    This provides a substitute.   When building apps that reference

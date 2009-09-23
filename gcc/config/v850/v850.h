@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler. NEC V850 series
    Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005,
-   2007, 2008  Free Software Foundation, Inc.
+   2007, 2008, 2009  Free Software Foundation, Inc.
    Contributed by Jeff Law (law@cygnus.com).
 
    This file is part of GCC.
@@ -506,12 +506,6 @@ enum reg_class
 /* Register in which static-chain is passed to a function.  */
 #define STATIC_CHAIN_REGNUM 20
 
-/* Value should be nonzero if functions must have frame pointers.
-   Zero means the frame pointer need not be set up (and parms
-   may be accessed via the stack pointer) in functions that seem suitable.
-   This is computed in `reload', in reload1.c.  */
-#define FRAME_POINTER_REQUIRED 0
-
 /* If defined, this macro specifies a table of register pairs used to
    eliminate unneeded registers that point into the stack frame.  If
    it is not defined, the only elimination attempted by the compiler
@@ -543,16 +537,6 @@ enum reg_class
  { FRAME_POINTER_REGNUM, HARD_FRAME_POINTER_REGNUM },			\
  { ARG_POINTER_REGNUM,	 STACK_POINTER_REGNUM },			\
  { ARG_POINTER_REGNUM,   HARD_FRAME_POINTER_REGNUM }}			\
-
-/* A C expression that returns nonzero if the compiler is allowed to
-   try to replace register number FROM-REG with register number
-   TO-REG.  This macro need only be defined if `ELIMINABLE_REGS' is
-   defined, and will usually be the constant 1, since most of the
-   cases preventing register elimination are things that the compiler
-   already knows about.  */
-
-#define CAN_ELIMINATE(FROM, TO) \
- ((TO) == STACK_POINTER_REGNUM ? ! frame_pointer_needed : 1)
 
 /* This macro is similar to `INITIAL_FRAME_POINTER_OFFSET'.  It
    specifies the initial difference between the specified pair of
@@ -829,11 +813,6 @@ do {									\
 } while (0)
 
 
-/* Go to LABEL if ADDR (a legitimate address expression)
-   has an effect that depends on the machine mode it is used for.  */
-
-#define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR,LABEL)  {}
-
 /* Nonzero if the constant value X is a legitimate general operand.
    It is given that X satisfies CONSTANT_P or is a CONST_DOUBLE.  */
 

@@ -6,7 +6,7 @@
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
 // terms of the GNU General Public License as published by the
-// Free Software Foundation; either version 2, or (at your option)
+// Free Software Foundation; either version 3, or (at your option)
 // any later version.
 
 // This library is distributed in the hope that it will be useful,
@@ -14,19 +14,14 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-// You should have received a copy of the GNU General Public License along
-// with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
-// USA.
+// Under Section 7 of GPL version 3, you are granted additional
+// permissions described in the GCC Runtime Library Exception, version
+// 3.1, as published by the Free Software Foundation.
 
-// As a special exception, you may use this file as part of a free software
-// library without restriction.  Specifically, if other files instantiate
-// templates or use macros or inline functions from this file, or you compile
-// this file and link it with other files to produce an executable, this
-// file does not by itself cause the resulting executable to be covered by
-// the GNU General Public License.  This exception does not however
-// invalidate any other reasons why the executable file might be covered by
-// the GNU General Public License.
+// You should have received a copy of the GNU General Public License and
+// a copy of the GCC Runtime Library Exception along with this program;
+// see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+// <http://www.gnu.org/licenses/>.
 
 /*
  *
@@ -139,6 +134,56 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	return __c;
       else
 	return __b;
+    }
+
+  /// Swaps the median value of *__a, *__b and *__c to *__a
+  template<typename _Iterator>
+    void
+    __move_median_first(_Iterator __a, _Iterator __b, _Iterator __c)
+    {
+      // concept requirements
+      __glibcxx_function_requires(_LessThanComparableConcept<
+	    typename iterator_traits<_Iterator>::value_type>)
+
+      if (*__a < *__b)
+	{
+	  if (*__b < *__c)
+	    std::iter_swap(__a, __b);
+	  else if (*__a < *__c)
+	    std::iter_swap(__a, __c);
+	}
+      else if (*__a < *__c)
+	return;
+      else if (*__b < *__c)
+	std::iter_swap(__a, __c);
+      else
+	std::iter_swap(__a, __b);
+    }
+
+  /// Swaps the median value of *__a, *__b and *__c under __comp to *__a
+  template<typename _Iterator, typename _Compare>
+    void
+    __move_median_first(_Iterator __a, _Iterator __b, _Iterator __c,
+			_Compare __comp)
+    {
+      // concept requirements
+      __glibcxx_function_requires(_BinaryFunctionConcept<_Compare, bool,
+	    typename iterator_traits<_Iterator>::value_type,
+	    typename iterator_traits<_Iterator>::value_type>)
+
+      if (__comp(*__a, *__b))
+	{
+	  if (__comp(*__b, *__c))
+	    std::iter_swap(__a, __b);
+	  else if (__comp(*__a, *__c))
+	    std::iter_swap(__a, __c);
+	}
+      else if (__comp(*__a, *__c))
+	return;
+      else if (__comp(*__b, *__c))
+	std::iter_swap(__a, __c);
+      else
+	std::iter_swap(__a, __b);
     }
 
   // for_each
@@ -2063,36 +2108,40 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     }
 
   /// This is a helper function for the sort routine.
-  template<typename _RandomAccessIterator, typename _Tp>
+  template<typename _RandomAccessIterator>
     void
-    __unguarded_linear_insert(_RandomAccessIterator __last, _Tp __val)
+    __unguarded_linear_insert(_RandomAccessIterator __last)
     {
+      typename iterator_traits<_RandomAccessIterator>::value_type
+	__val = _GLIBCXX_MOVE(*__last);
       _RandomAccessIterator __next = __last;
       --__next;
       while (__val < *__next)
 	{
-	  *__last = *__next;
+	  *__last = _GLIBCXX_MOVE(*__next);
 	  __last = __next;
 	  --__next;
 	}
-      *__last = __val;
+      *__last = _GLIBCXX_MOVE(__val);
     }
 
   /// This is a helper function for the sort routine.
-  template<typename _RandomAccessIterator, typename _Tp, typename _Compare>
+  template<typename _RandomAccessIterator, typename _Compare>
     void
-    __unguarded_linear_insert(_RandomAccessIterator __last, _Tp __val,
+    __unguarded_linear_insert(_RandomAccessIterator __last,
 			      _Compare __comp)
     {
+      typename iterator_traits<_RandomAccessIterator>::value_type
+	__val = _GLIBCXX_MOVE(*__last);
       _RandomAccessIterator __next = __last;
       --__next;
       while (__comp(__val, *__next))
 	{
-	  *__last = *__next;
+	  *__last = _GLIBCXX_MOVE(*__next);
 	  __last = __next;
 	  --__next;
 	}
-      *__last = __val;
+      *__last = _GLIBCXX_MOVE(__val);
     }
 
   /// This is a helper function for the sort routine.
@@ -2106,15 +2155,15 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 
       for (_RandomAccessIterator __i = __first + 1; __i != __last; ++__i)
 	{
-	  typename iterator_traits<_RandomAccessIterator>::value_type
-	    __val = *__i;
-	  if (__val < *__first)
+	  if (*__i < *__first)
 	    {
-	      std::copy_backward(__first, __i, __i + 1);
-	      *__first = __val;
+	      typename iterator_traits<_RandomAccessIterator>::value_type
+		__val = _GLIBCXX_MOVE(*__i);
+	      _GLIBCXX_MOVE_BACKWARD3(__first, __i, __i + 1);
+	      *__first = _GLIBCXX_MOVE(__val);
 	    }
 	  else
-	    std::__unguarded_linear_insert(__i, __val);
+	    std::__unguarded_linear_insert(__i);
 	}
     }
 
@@ -2128,15 +2177,15 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 
       for (_RandomAccessIterator __i = __first + 1; __i != __last; ++__i)
 	{
-	  typename iterator_traits<_RandomAccessIterator>::value_type
-	    __val = *__i;
-	  if (__comp(__val, *__first))
+	  if (__comp(*__i, *__first))
 	    {
-	      std::copy_backward(__first, __i, __i + 1);
-	      *__first = __val;
+	      typename iterator_traits<_RandomAccessIterator>::value_type
+		__val = _GLIBCXX_MOVE(*__i);
+	      _GLIBCXX_MOVE_BACKWARD3(__first, __i, __i + 1);
+	      *__first = _GLIBCXX_MOVE(__val);
 	    }
 	  else
-	    std::__unguarded_linear_insert(__i, __val, __comp);
+	    std::__unguarded_linear_insert(__i, __comp);
 	}
     }
 
@@ -2150,7 +2199,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	_ValueType;
 
       for (_RandomAccessIterator __i = __first; __i != __last; ++__i)
-	std::__unguarded_linear_insert(__i, _ValueType(*__i));
+	std::__unguarded_linear_insert(__i);
     }
 
   /// This is a helper function for the sort routine.
@@ -2163,7 +2212,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	_ValueType;
 
       for (_RandomAccessIterator __i = __first; __i != __last; ++__i)
-	std::__unguarded_linear_insert(__i, _ValueType(*__i), __comp);
+	std::__unguarded_linear_insert(__i, __comp);
     }
 
   /**
@@ -2207,7 +2256,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   template<typename _RandomAccessIterator, typename _Tp>
     _RandomAccessIterator
     __unguarded_partition(_RandomAccessIterator __first,
-			  _RandomAccessIterator __last, _Tp __pivot)
+			  _RandomAccessIterator __last, const _Tp& __pivot)
     {
       while (true)
 	{
@@ -2228,7 +2277,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     _RandomAccessIterator
     __unguarded_partition(_RandomAccessIterator __first,
 			  _RandomAccessIterator __last,
-			  _Tp __pivot, _Compare __comp)
+			  const _Tp& __pivot, _Compare __comp)
     {
       while (true)
 	{
@@ -2244,6 +2293,29 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	}
     }
 
+  /// This is a helper function...
+  template<typename _RandomAccessIterator>
+    inline _RandomAccessIterator
+    __unguarded_partition_pivot(_RandomAccessIterator __first,
+				_RandomAccessIterator __last)
+    {
+      _RandomAccessIterator __mid = __first + (__last - __first) / 2;
+      std::__move_median_first(__first, __mid, (__last - 1));
+      return std::__unguarded_partition(__first + 1, __last, *__first);
+    }
+
+
+  /// This is a helper function...
+  template<typename _RandomAccessIterator, typename _Compare>
+    inline _RandomAccessIterator
+    __unguarded_partition_pivot(_RandomAccessIterator __first,
+				_RandomAccessIterator __last, _Compare __comp)
+    {
+      _RandomAccessIterator __mid = __first + (__last - __first) / 2;
+      std::__move_median_first(__first, __mid, (__last - 1), __comp);
+      return std::__unguarded_partition(__first + 1, __last, *__first, __comp);
+    }
+
   /// This is a helper function for the sort routine.
   template<typename _RandomAccessIterator, typename _Size>
     void
@@ -2251,9 +2323,6 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 		     _RandomAccessIterator __last,
 		     _Size __depth_limit)
     {
-      typedef typename iterator_traits<_RandomAccessIterator>::value_type
-	_ValueType;
-
       while (__last - __first > int(_S_threshold))
 	{
 	  if (__depth_limit == 0)
@@ -2263,14 +2332,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	    }
 	  --__depth_limit;
 	  _RandomAccessIterator __cut =
-	    std::__unguarded_partition(__first, __last,
-				       _ValueType(std::__median(*__first,
-								*(__first
-								  + (__last
-								     - __first)
-								  / 2),
-								*(__last
-								  - 1))));
+	    std::__unguarded_partition_pivot(__first, __last);
 	  std::__introsort_loop(__cut, __last, __depth_limit);
 	  __last = __cut;
 	}
@@ -2283,9 +2345,6 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 		     _RandomAccessIterator __last,
 		     _Size __depth_limit, _Compare __comp)
     {
-      typedef typename iterator_traits<_RandomAccessIterator>::value_type
-	_ValueType;
-
       while (__last - __first > int(_S_threshold))
 	{
 	  if (__depth_limit == 0)
@@ -2295,15 +2354,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	    }
 	  --__depth_limit;
 	  _RandomAccessIterator __cut =
-	    std::__unguarded_partition(__first, __last,
-				       _ValueType(std::__median(*__first,
-								*(__first
-								  + (__last
-								     - __first)
-								  / 2),
-								*(__last - 1),
-								__comp)),
-				       __comp);
+	    std::__unguarded_partition_pivot(__first, __last, __comp);
 	  std::__introsort_loop(__cut, __last, __depth_limit, __comp);
 	  __last = __cut;
 	}
@@ -2354,14 +2405,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	    }
 	  --__depth_limit;
 	  _RandomAccessIterator __cut =
-	    std::__unguarded_partition(__first, __last,
-				       _ValueType(std::__median(*__first,
-								*(__first
-								  + (__last
-								     - __first)
-								  / 2),
-								*(__last
-								  - 1))));
+	    std::__unguarded_partition_pivot(__first, __last);
 	  if (__cut <= __nth)
 	    __first = __cut;
 	  else
@@ -2390,15 +2434,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	    }
 	  --__depth_limit;
 	  _RandomAccessIterator __cut =
-	    std::__unguarded_partition(__first, __last,
-				       _ValueType(std::__median(*__first,
-								*(__first
-								  + (__last
-								     - __first)
-								  / 2),
-								*(__last - 1),
-								__comp)),
-				       __comp);
+	    std::__unguarded_partition_pivot(__first, __last, __comp);
 	  if (__cut <= __nth)
 	    __first = __cut;
 	  else
