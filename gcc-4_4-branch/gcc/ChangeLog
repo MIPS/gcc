@@ -4,6 +4,11 @@
 	* config/rs6000/rs6000.c (rs6000_output_function_prologue): Don't
 	call final to emit non-scheduled prologue, instead insert at entry.
 
+2009-09-22  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/rs6000/rs6000.c (bdesc_2arg): Fix CODE_FOR_vector_gt* codes
+	for __builtin_altivec_vcmpgt{sb,uh,sh,uw}.
+
 2009-09-17  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-parser.c (c_parser_struct_or_union_specifier): Adjust
