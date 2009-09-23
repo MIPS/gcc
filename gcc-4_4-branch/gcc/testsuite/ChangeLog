@@ -1,3 +1,9 @@
+2009-09-15  Nathan Froyd  <froydnj@codesourcery.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/41175
+	* gcc.target/powerpc/pr41175.c: New test.
+
 2009-09-16  Uros Bizjak  <ubizjak@gmail.com>
 
 	* gfortran.dg/default_format_denormal_2.f90: Add ieee options.
