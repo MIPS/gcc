@@ -1,3 +1,17 @@
+2009-09-23  Dodji Seketeli  <dodji@redhat.com>
+
+	PR debug/41065
+	* decl.c (cp_finish_decl): Record the types used by the global
+	variable declaration we've just parsed.
+
+2009-09-18  Jason Merrill  <jason@redhat.com>
+
+	* pt.c (get_pattern_parm): New.
+	(listify): Split out from...
+	(listify_autos): ...here.
+	(unify): Deduce std::initializer_list for T.
+	* call.c (build_over_call): Warn about it.
+
 2009-09-14  Richard Henderson  <rth@redhat.com>
             Jakub Jelinek  <jakub@redhat.com>
 

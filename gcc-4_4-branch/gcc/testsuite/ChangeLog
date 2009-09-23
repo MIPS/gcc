@@ -1,3 +1,37 @@
+2009-09-23  Dodji Seketeli  <dodji@redhat.com>
+
+	PR debug/41065
+	* gcc.dg/debug/dwarf2/global-used-types.c: New test.
+
+2009-09-23  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR c/39779
+	* gcc.c-torture/compile/pr39779.c: New test.
+
+2009-09-21  Kai Tietz  <kai.tietz@onevision.com>
+
+	* gcc.dg/torture/calleesave-sse.c: New.
+
+2009-09-19  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/41328
+	* gfortran.dg/cr_lf.f90: New test.
+
+2009-09-18  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/initlist-deduce.C: New.
+
+2009-09-18  Jack Howarth  <howarth@bromo.med.uc.edu>
+
+	PR testsuite/41288
+	* gcc.target/x86_64/abi/asm-support-darwin.s (snapshot_ret): Preserve
+	stack alignment.
+
+2009-09-18  Janis Johnson  <janis187@us.ibm.com>
+
+	PR c/41049
+	* dfp/pr41049.c: New test.
+
 2009-09-22  Alexandre Oliva  <aoliva@redhat.com>
 
 	PR debug/41295

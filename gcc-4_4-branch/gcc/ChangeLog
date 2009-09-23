@@ -1,3 +1,69 @@
+2009-09-23  Dodji Seketeli  <dodji@redhat.com>
+
+	PR debug/41065
+	* function.h (types_used_by_vars_hash): Declare new hash table.
+	(types_used_by_vars_eq, types_used_by_var_decl_insert): Declare
+	equality and hash function for the hash table.
+	(types_used_by_cur_var_decl): Declare a new global chained list.
+	(types_used_by_var_decl_insert): Declare new function.
+	* function.c (types_used_by_vars_hash): Define the hashtable ...
+	(types_used_by_vars_eq, types_used_by_vars_do_hash): ... as well as
+	its equality and hash functions.
+	(hash_types_used_by_vars_entry): New hash helper.
+	(types_used_by_cur_var_decl): Define the global chained list.
+	(used_types_insert): Update the list of types used by the global
+	variable being parsed.
+	(types_used_by_var_decl_insert): Define new function.
+	* c-common.h (record_types_used_by_current_var_decl): Declare ...
+	* c-common.c (record_types_used_by_current_var_decl): ... new
+	function.
+	* c-decl.c (finish_decl): Record the types used by the global
+	variable declaration we've just parsed.
+	* dwarf2out.c (premark_used_types): Insert a new line between
+	comment and function.
+	(premark_used_types_helper): Fix comment.
+	(premark_types_used_by_global_vars_helper,
+	premark_types_used_by_global_vars): New functions.
+	(prune_unused_types): Do not prune types used by global variables.
+
+2009-09-23 Uros Bizjak <ubizjak@gmail.com>
+
+	PR c/39779
+	* c-typeck.c (build_binary_op) <short_shift>: Check that integer
+	constant is more than zero.
+
+2009-09-21  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* config/mips/mips.c (mips_override_options): Force
+	flag_dwarf2_cfi_asm to zero.
+
+2009-09-21  Kai Tietz  <kai.tietz@onevision.com>
+
+	* config/i386/i386.c (ix86_expand_epilogue): Adjust offset for
+	xmm register restore.
+
+2009-09-20  Kai Tietz  <kai.tietz@onevision.com>
+	    Pascal Obry  <obry@adacore.com>
+
+	Backport from mainline
+	* unwind-dw2-fde.c (classify_object_over_fdes):
+	Cast the constant 1 to _Unwind_Ptr.
+	(add_fdes): Likewise.
+	(linear_search_fdes): Likewise.
+
+2009-09-18  Jason Merrill  <jason@redhat.com>
+
+	* c.opt: Add -fno-deduce-init-list.
+
+2009-09-18  Janis Johnson  <janis187@us.ibm.com>
+
+	PR c/41049
+	* real.c decimal_from_integer, decimal_integer_string): New.
+	(real_from_integer): Use them as special case for decimal float.
+	* config/dfp-bit.c (_si_to_sd, _usi_to_sd): Use default rounding.
+	(_di_to_sd, _di_to_dd, _di_to_td, _udi_to_sd, _udi_to_dd, _udi_to_td):
+	Do not append zero after the decimal point in string to convert.
+
 2009-09-23  Jakub Jelinek  <jakub@redhat.com>
 
 	PR bootstrap/41405
