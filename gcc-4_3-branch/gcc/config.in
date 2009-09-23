@@ -1,6 +1,6 @@
 /* config.in.  Generated from configure.ac by autoheader.  */
 
-/* Define as the number of bits in a byte, if `limits.h' doesn't. */
+/* Define as the number of bits in a byte, if \`limits.h' doesn't. */
 #ifndef USED_FOR_TARGET
 #undef CHAR_BIT
 #endif
@@ -93,6 +93,12 @@
 #endif
 
 
+/* Define if gcc should always pass --build-id to linker. */
+#ifndef USED_FOR_TARGET
+#undef ENABLE_LD_BUILDID
+#endif
+
+
 /* Define to 1 if translation of program messages to the user's native
    language is requested. */
 #ifndef USED_FOR_TARGET
@@ -161,6 +167,13 @@
 #endif
 
 
+/* Define to the type of elements in the array set by `getgroups'. Usually
+   this is either `int' or `gid_t'. */
+#ifndef USED_FOR_TARGET
+#undef GETGROUPS_T
+#endif
+
+
 /* Define if the zone collector is in use */
 #ifndef USED_FOR_TARGET
 #undef GGC_ZONE
@@ -170,6 +183,12 @@
 /* mcontext_t fields start with __ */
 #ifndef USED_FOR_TARGET
 #undef HAS_MCONTEXT_T_UNDERSCORES
+#endif
+
+
+/* Define to 1 if you have the `alphasort' function. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_ALPHASORT
 #endif
 
 
@@ -319,13 +338,13 @@
 #endif
 
 
-/* Define if your assembler supports popcntb instruction. */
+/* Define if your assembler supports popcntb field. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_AS_POPCNTB
 #endif
 
 
-/* Define if your assembler supports popcntd instruction. */
+/* Define if your assembler supports POPCNTD instructions. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_AS_POPCNTD
 #endif
@@ -369,21 +388,11 @@
 #endif
 
 
-/* Define if your assembler supports arg info for __tls_get_addr. */
-#ifndef USED_FOR_TARGET
-#undef HAVE_AS_TLS_MARKERS
-#endif
-
-
 /* Define if your assembler supports VSX instructions. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_AS_VSX
 #endif
 
-/* Define if your assembler supports VSX instructions. */
-#ifndef USED_FOR_TARGET
-#undef HAVE_AS_VSX
-#endif
 
 /* Define to 1 if you have the `atoll' function. */
 #ifndef USED_FOR_TARGET
@@ -828,18 +837,6 @@
 #endif
 
 
-/* Define 0/1 if your assembler supports CFI directives. */
-#ifndef USED_FOR_TARGET
-#undef HAVE_GAS_CFI_DIRECTIVE
-#endif
-
-
-/* Define 0/1 if your assembler supports .cfi_personality. */
-#ifndef USED_FOR_TARGET
-#undef HAVE_GAS_CFI_PERSONALITY_DIRECTIVE
-#endif
-
-
 /* Define if your assembler uses the new HImode fild and fist notation. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_GAS_FILDS_FISTS
@@ -848,12 +845,6 @@
 
 /* Define if your assembler and linker support .hidden. */
 #undef HAVE_GAS_HIDDEN
-
-/* Define if your assembler supports .lcomm with an alignment field. */
-#ifndef USED_FOR_TARGET
-#undef HAVE_GAS_LCOMM_WITH_ALIGNMENT
-#endif
-
 
 /* Define if your assembler supports .literal16. */
 #ifndef USED_FOR_TARGET
@@ -919,11 +910,8 @@
 #endif
 
 
-/* Define if _Unwind_GetIPInfo is available. */
-#ifndef USED_FOR_TARGET
+/* Define to 1 if system unwind library has _Unwind_GetIPInfo. */
 #undef HAVE_GETIPINFO
-#endif
-
 
 /* Define to 1 if you have the `getrlimit' function. */
 #ifndef USED_FOR_TARGET
@@ -1012,6 +1000,12 @@
 /* Define if your linker supports --as-needed and --no-as-needed options. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_LD_AS_NEEDED
+#endif
+
+
+/* Define if your linker supports --build-id. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_LD_BUILDID
 #endif
 
 
@@ -1149,6 +1143,12 @@
 /* Define to 1 if you have the `putc_unlocked' function. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_PUTC_UNLOCKED
+#endif
+
+
+/* Define to 1 if you have the `scandir' function. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_SCANDIR
 #endif
 
 
@@ -1507,50 +1507,15 @@
 #endif
 
 
-/* Define to 1 if on MINIX. */
+/* Always define this when using the GNU C Library */
 #ifndef USED_FOR_TARGET
-#undef _MINIX
+#undef _GNU_SOURCE
 #endif
 
 
-/* Define to 2 if the system does not provide POSIX.1 features except with
-   this defined. */
+/* Define to `int' if <sys/types.h> doesn't define. */
 #ifndef USED_FOR_TARGET
-#undef _POSIX_1_SOURCE
-#endif
-
-
-/* Define to 1 if you need to in order for `stat' and other things to work. */
-#ifndef USED_FOR_TARGET
-#undef _POSIX_SOURCE
-#endif
-
-
-/* Enable extensions on AIX 3, Interix.  */
-#ifndef _ALL_SOURCE
-# undef _ALL_SOURCE
-#endif
-/* Enable GNU extensions on systems that have them.  */
-#ifndef _GNU_SOURCE
-# undef _GNU_SOURCE
-#endif
-/* Enable threading extensions on Solaris.  */
-#ifndef _POSIX_PTHREAD_SEMANTICS
-# undef _POSIX_PTHREAD_SEMANTICS
-#endif
-/* Enable extensions on HP NonStop.  */
-#ifndef _TANDEM_SOURCE
-# undef _TANDEM_SOURCE
-#endif
-/* Enable general extensions on Solaris.  */
-#ifndef __EXTENSIONS__
-# undef __EXTENSIONS__
-#endif
-
-
-/* Define to `char *' if <sys/types.h> does not define. */
-#ifndef USED_FOR_TARGET
-#undef caddr_t
+#undef gid_t
 #endif
 
 
@@ -1566,7 +1531,7 @@
 #endif
 
 
-/* Define to `long' if <sys/resource.h> doesn't define. */
+/* Define to \`long' if <sys/resource.h> doesn't define. */
 #ifndef USED_FOR_TARGET
 #undef rlim_t
 #endif
@@ -1575,6 +1540,12 @@
 /* Define to `int' if <sys/types.h> does not define. */
 #ifndef USED_FOR_TARGET
 #undef ssize_t
+#endif
+
+
+/* Define to `int' if <sys/types.h> doesn't define. */
+#ifndef USED_FOR_TARGET
+#undef uid_t
 #endif
 
 

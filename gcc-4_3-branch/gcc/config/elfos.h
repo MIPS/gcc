@@ -513,5 +513,3 @@ along with GCC; see the file COPYING3.  If not see
 #define ASM_OUTPUT_EXTERNAL(FILE, DECL, NAME) \
   default_elf_asm_output_external (FILE, DECL, NAME)
 #endif
-
-#define USE_BUILD_ID

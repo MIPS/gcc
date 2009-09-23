@@ -1,3 +1,23 @@
+2009-09-23  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Revert patches/patch-043-build-id.diff
+
+	Backport from mainline:
+
+	2009-04-30  Paul Pluzhnikov  <ppluzhnikov@google.com>
+		    Roland McGrath <roland@redhat.com>
+
+	* configure.ac (HAVE_LD_BUILDID): New check for ld --build-id
+	support.
+	(ENABLE_LD_BUILDID): New configuration option.
+	* gcc.c [HAVE_LD_BUILDID and ENABLE_LD_BUILDID]
+	(LINK_BUILDID_SPEC): New macro.
+	(init_spec): If defined, prepend it between LINK_EH_SPEC and
+	link_spec.
+	* doc/install.texi: Document --enable-linker-build-id option.
+	* configure: Rebuild.
+	* config.in: Rebuild.
+
 2009-09-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* target-def.h (TARGET_VECTORIZE): Remove extra spacing at the end
