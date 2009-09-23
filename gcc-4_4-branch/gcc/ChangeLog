@@ -4,10 +4,19 @@
 	* config/rs6000/rs6000.c (rs6000_output_function_prologue): Don't
 	call final to emit non-scheduled prologue, instead insert at entry.
 
+2009-09-22  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/41295
+	* reload1.c (reload): Reset debug insns with pseudos without
+	equivalences.
+
 2009-09-22  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/rs6000/rs6000.c (bdesc_2arg): Fix CODE_FOR_vector_gt* codes
 	for __builtin_altivec_vcmpgt{sb,uh,sh,uw}.
+
+	* reload1.c (reload): Call wrap_constant when substituting
+	reg for equiv inside of DEBUG_INSNs.
 
 2009-09-19  Jakub Jelinek  <jakub@redhat.com>
 
