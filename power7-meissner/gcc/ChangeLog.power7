@@ -1,5 +1,9 @@
 2009-09-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to 152138.
+
+2009-09-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	* config/rs6000/predicates.md (indexed_or_indirect_operand):
 	Delete VSX load/store with update support.
 	* config/rs6000/rs6000.c (rs6000_legitimate_address_p): Ditto.
