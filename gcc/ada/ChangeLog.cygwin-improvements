@@ -1,5 +1,16 @@
 2009-09-24  Dave Korn  <dave.korn.cygwin@gmail.com>
 
+	* s-oscons-tmplt.c (__USE_W32_SOCKETS): Don't define.
+	(WSASYSNOTREADY, WSAVERNOTSUPPORTED, WSANOTINITIALISED, WSAEDISCON):
+	Don't pull in winsock definitions or refer to header file on Cygwin.
+	* gsocket.h: Don't pull in winsock definitions for Cygwin.
+	* gcc-interface/Makefile.in (LIBGNAT_TARGET_PAIRS): On Cygwin, omit
+	MinGW-specific overrides for sockets, memory, global locks, dir
+	valiation and signalling fds, use linux serial comms, and don't link
+	against winsock library.
+
+2009-09-24  Dave Korn  <dave.korn.cygwin@gmail.com>
+
 	* gcc-interface/Makefile.in (LIBGNAT_TARGET_PAIRS): Simplify test for
 	a-except% in target pairs list; don't (implicitly) compare whitespace.
 

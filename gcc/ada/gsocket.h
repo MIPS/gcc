@@ -69,12 +69,12 @@
 #define SHUT_WR		1
 #define SHUT_RDWR	2
 
-#elif defined (WINNT) || defined (__CYGWIN__)
+#elif defined (WINNT)
 
 #define FD_SETSIZE 1024
 #include <windows.h>
 
-#if defined (__MINGW32__) || defined (__CYGWIN__)
+#if defined (__MINGW32__)
 #include <winsock2.h>
 #include <ws2tcpip.h>
 
@@ -186,7 +186,7 @@
  * to run on RTEMS (not IN_RTS), we must distinguish between IN_RTS
  * and using this file to compile gen-soccon.
  */
-#if !(defined (VMS) || defined (__MINGW32__) || defined (__CYGWIN__) || \
+#if !(defined (VMS) || defined (__MINGW32__) || \
       (defined(__rtems__) && defined(IN_RTS)))
 #include <sys/socket.h>
 #include <netinet/in.h>

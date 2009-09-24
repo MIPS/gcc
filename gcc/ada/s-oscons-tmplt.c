@@ -83,15 +83,6 @@ pragma Style_Checks ("M32766");
 #define _XOPEN_SOURCE 500
 #endif
 
-#if defined (__CYGWIN__)
-/* To use the Winsock interface instead of the POSIX/BSD sockets interface,
-   Cygwin requires this macro to be defined before including any of the
-   system header files.  It would be cleaner to pass this in the xxxCFLAGS
-   defined in gcc/ada/gcc-interface/Makefile.in, but none of those settings
-   are taken into account when building xoscons as a subtarget of libada.  */
-#define __USE_W32_SOCKETS
-#endif
-
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
@@ -334,7 +325,7 @@ CND(ENOENT, "File not found")
 #endif
 CND(ENOMEM, "Out of memory")
 
-#if defined (__MINGW32__) || defined (__CYGWIN__)
+#if defined (__MINGW32__)
 /*
 
    --  The following constants are defined from <winsock2.h> (WSA*)
@@ -1268,7 +1259,7 @@ CND(ERROR, "VxWorks generic error")
 
 #endif
 
-#if defined (__MINGW32__) || defined (__CYGWIN__) || defined (DUMMY)
+#if defined (__MINGW32__) || defined (DUMMY)
 /*
 
    ------------------------------
