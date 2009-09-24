@@ -1578,6 +1578,9 @@ ifeq ($(strip $(filter-out cygwin% mingw32% pe,$(osys))),)
   s-gloloc.adb<s-gloloc-mingw.adb \
   a-dirval.adb<a-dirval-mingw.adb \
   s-memory.adb<s-memory-mingw.adb \
+  s-taspri.ads<s-taspri-mingw.ads \
+  s-tasinf.adb<s-tasinf-mingw.adb \
+  s-tasinf.ads<s-tasinf-mingw.ads \
   g-stsifd.adb<g-stsifd-sockets.adb
 
   ifneq ($(strip $(filter cygwin%,$(osys))),)
@@ -1589,7 +1592,10 @@ ifeq ($(strip $(filter-out cygwin% mingw32% pe,$(osys))),)
     ADA_RTL_SO_OBJ_DIR = $(bindir)
     # Cygwin uses POSIX interfaces where possible, so doesn't
     # need the previously-set overrides for native w32 APIs.
-    LIBGNAT_TARGET_PAIRS =
+    LIBGNAT_TARGET_PAIRS = \
+    s-linux.ads<s-linux-cygwin.ads \
+    s-taspri.ads<s-taspri-posix-noaltstack.ads \
+    s-tpopsp.adb<s-tpopsp-posix-foreign.adb
   endif
 
   LIBGNAT_TARGET_PAIRS += \
@@ -1597,9 +1603,6 @@ ifeq ($(strip $(filter-out cygwin% mingw32% pe,$(osys))),)
   a-numaux.adb<a-numaux-x86.adb \
   a-numaux.ads<a-numaux-x86.ads \
   s-inmaop.adb<s-inmaop-dummy.adb \
-  s-taspri.ads<s-taspri-mingw.ads \
-  s-tasinf.adb<s-tasinf-mingw.adb \
-  s-tasinf.ads<s-tasinf-mingw.ads \
   g-bytswa.adb<g-bytswa-x86.adb
 
   ifeq ($(strip $(filter-out rtx_w32 rtx_rtss,$(THREAD_KIND))),)
@@ -1625,16 +1628,6 @@ ifeq ($(strip $(filter-out cygwin% mingw32% pe,$(osys))),)
 
   else
 
-    LIBGNAT_TARGET_PAIRS += \
-    a-exetim.adb<a-exetim-mingw.adb \
-    a-exetim.ads<a-exetim-mingw.ads \
-    a-intnam.ads<a-intnam-mingw.ads \
-    s-interr.adb<s-interr-sigaction.adb \
-    s-intman.adb<s-intman-mingw.adb \
-    s-osinte.ads<s-osinte-mingw.ads \
-    s-osprim.adb<s-osprim-mingw.adb \
-    s-taprop.adb<s-taprop-mingw.adb
-
     ifeq ($(strip $(filter-out x86_64%,$(arch))),)
       LIBGNAT_TARGET_PAIRS += \
         system.ads<system-mingw-x86_64.ads
@@ -1645,18 +1638,34 @@ ifeq ($(strip $(filter-out cygwin% mingw32% pe,$(osys))),)
 
     EXTRA_GNATRTL_NONTASKING_OBJS = \
 	s-win32.o s-winext.o g-regist.o g-sse.o g-ssvety.o
-    EXTRA_GNATRTL_TASKING_OBJS = a-exetim.o
 
     ifneq ($(strip $(filter cygwin%,$(osys))),)
       # Cygwin uses POSIX sockets and /dev/ttySx serial ports.
       LIBGNAT_TARGET_PAIRS += \
-      g-sercom.adb<g-sercom-linux.adb
+      a-intnam.ads<a-intnam-linux.ads \
+      s-intman.adb<s-intman-posix.adb \
+      g-sercom.adb<g-sercom-linux.adb \
+      s-taprop.adb<s-taprop-posix.adb \
+      s-osinte.adb<s-osinte-cygwin.adb \
+      s-osinte.ads<s-osinte-cygwin.ads \
+      s-osprim.adb<s-osprim-posix.adb
+      # And is based on Linux support.
+      EXTRA_GNATRTL_TASKING_OBJS=s-linux.o
     else
       # MinGw needs linking against winsock.
       MISCLIB = -lws2_32
-      # And uses windows COM ports.
+      # And uses windows interrupts, COM ports and supports Execution_Time.
       LIBGNAT_TARGET_PAIRS += \
-      g-sercom.adb<g-sercom-mingw.adb
+      a-intnam.ads<a-intnam-mingw.ads \
+      s-interr.adb<s-interr-sigaction.adb \
+      s-intman.adb<s-intman-mingw.adb \
+      a-exetim.adb<a-exetim-mingw.adb \
+      a-exetim.ads<a-exetim-mingw.ads \
+      g-sercom.adb<g-sercom-mingw.adb \
+      s-taprop.adb<s-taprop-mingw.adb \
+      s-osinte.ads<s-osinte-mingw.ads \
+      s-osprim.adb<s-osprim-mingw.adb
+      EXTRA_GNATRTL_TASKING_OBJS = a-exetim.o
     endif
 
     # ??? This will be replaced by gnatlib-shared-dual-win32 when GNAT

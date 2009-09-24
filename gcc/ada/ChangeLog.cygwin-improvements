@@ -1,5 +1,19 @@
 2009-09-24  Dave Korn  <dave.korn.cygwin@gmail.com>
 
+	* init.c (__gnat_error_handler): Implement for Cygwin.
+	(__gnat_install_handler): Likewise.
+
+	* s-osinte-cygwin.adb: New file.
+	* s-osinte-cygwin.ads: Likewise.
+	* s-linux-cygwin.ads: Likewise.
+
+	* gcc-interface/Makefile.in (LIBGNAT_TARGET_PAIRS): Remove final
+	few MinGW files from Cygwin implementation and replace with POSIX
+	or Linux variants, or the above.
+	(EXTRA_GNATRTL_TASKING_OBJS): Don't build a-exetim.o on Cygwin.
+
+2009-09-24  Dave Korn  <dave.korn.cygwin@gmail.com>
+
 	* s-oscons-tmplt.c (__USE_W32_SOCKETS): Don't define.
 	(WSASYSNOTREADY, WSAVERNOTSUPPORTED, WSANOTINITIALISED, WSAEDISCON):
 	Don't pull in winsock definitions or refer to header file on Cygwin.

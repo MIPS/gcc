@@ -2229,6 +2229,115 @@ __gnat_install_handler (void)
   __gnat_handler_installed = 1;
 }
 
+/*********************/
+/* Cygwin Section */
+/*********************/
+
+#elif defined (__CYGWIN__)
+
+#include <signal.h>
+
+static void
+__gnat_error_handler (int sig,
+                      siginfo_t *siginfo ATTRIBUTE_UNUSED,
+                      void *ucontext ATTRIBUTE_UNUSED)
+{
+  struct Exception_Data *exception;
+  const char *msg;
+  static int recurse = 0;
+
+  switch (sig)
+    {
+    case SIGSEGV:
+      /* If the problem was permissions, this is a constraint error.
+       Likewise if the failing address isn't maximally aligned or if
+       we've recursed.
+
+       ??? Using a static variable here isn't task-safe, but it's
+       much too hard to do anything else and we're just determining
+       which exception to raise.  */
+      if (recurse)
+      {
+        exception = &constraint_error;
+        msg = "SIGSEGV";
+      }
+      else
+      {
+        /* Here we would like a discrimination test to see whether the
+           page before the faulting address is accessible. Unfortunately
+           Linux seems to have no way of giving us the faulting address.
+
+           In versions of a-init.c before 1.95, we had a test of the page
+           before the stack pointer using:
+
+            recurse++;
+             ((volatile char *)
+              ((long) info->esp_at_signal & - getpagesize ()))[getpagesize ()];
+
+           but that's wrong, since it tests the stack pointer location, and
+           the current stack probe code does not move the stack pointer
+           until all probes succeed.
+
+           For now we simply do not attempt any discrimination at all. Note
+           that this is quite acceptable, since a "real" SIGSEGV can only
+           occur as the result of an erroneous program.  */
+
+        msg = "stack overflow (or erroneous memory access)";
+        exception = &storage_error;
+      }
+      break;
+
+    case SIGBUS:
+      exception = &constraint_error;
+      msg = "SIGBUS";
+      break;
+
+    case SIGFPE:
+      exception = &constraint_error;
+      msg = "SIGFPE";
+      break;
+
+    default:
+      exception = &program_error;
+      msg = "unhandled signal";
+    }
+  recurse = 0;
+
+  Raise_From_Signal_Handler (exception, msg);
+}
+
+
+void
+__gnat_install_handler (void)
+{
+  struct sigaction act;
+
+  /* Set up signal handler to map synchronous signals to appropriate
+     exceptions.  Make sure that the handler isn't interrupted by another
+     signal that might cause a scheduling event!  Also setup an alternate
+     stack region for the handler execution so that stack overflows can be
+     handled properly, avoiding a SEGV generation from stack usage by the
+     handler itself.  */
+
+  act.sa_sigaction = __gnat_error_handler;
+  act.sa_flags = SA_NODEFER | SA_RESTART | SA_SIGINFO;
+  sigemptyset (&act.sa_mask);
+
+  /* Do not install handlers if interrupt state is "System".  */
+  if (__gnat_get_interrupt_state (SIGABRT) != 's')
+    sigaction (SIGABRT, &act, NULL);
+  if (__gnat_get_interrupt_state (SIGFPE) != 's')
+    sigaction (SIGFPE,  &act, NULL);
+  if (__gnat_get_interrupt_state (SIGILL) != 's')
+    sigaction (SIGILL,  &act, NULL);
+  if (__gnat_get_interrupt_state (SIGBUS) != 's')
+    sigaction (SIGBUS,  &act, NULL);
+  if (__gnat_get_interrupt_state (SIGSEGV) != 's')
+    sigaction (SIGSEGV, &act, NULL);
+
+  __gnat_handler_installed = 1;
+}
+
 #else
 
 /* For all other versions of GNAT, the handler does nothing.  */
