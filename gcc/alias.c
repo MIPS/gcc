@@ -49,7 +49,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-alias.h"
 #include "pointer-set.h"
 #include "tree-flow.h"
-#include "target-def.h"
 
 /* The aliasing API provided here solves related but different problems:
 
@@ -1053,7 +1052,7 @@ find_base_value (rtx src)
       /* As we do not know which address space the pointer is refering to, we can
 	 handle this only if the target does not support different pointer or
 	 address modes depending on the address space.  */
-      if (!TARGET_DEFAULT_POINTER_ADDRESS_MODES_P)
+      if (!target_default_pointer_address_modes_p ())
 	break;
       if (GET_MODE_SIZE (GET_MODE (src)) < GET_MODE_SIZE (Pmode))
 	break;
@@ -1072,7 +1071,7 @@ find_base_value (rtx src)
       /* As we do not know which address space the pointer is refering to, we can
 	 handle this only if the target does not support different pointer or
 	 address modes depending on the address space.  */
-      if (!TARGET_DEFAULT_POINTER_ADDRESS_MODES_P)
+      if (!target_default_pointer_address_modes_p ())
 	break;
 
       {
@@ -1470,7 +1469,7 @@ find_base_term (rtx x)
       /* As we do not know which address space the pointer is refering to, we can
 	 handle this only if the target does not support different pointer or
 	 address modes depending on the address space.  */
-      if (!TARGET_DEFAULT_POINTER_ADDRESS_MODES_P)
+      if (!target_default_pointer_address_modes_p ())
 	return 0;
       if (GET_MODE_SIZE (GET_MODE (x)) < GET_MODE_SIZE (Pmode))
 	return 0;
@@ -1489,7 +1488,7 @@ find_base_term (rtx x)
       /* As we do not know which address space the pointer is refering to, we can
 	 handle this only if the target does not support different pointer or
 	 address modes depending on the address space.  */
-      if (!TARGET_DEFAULT_POINTER_ADDRESS_MODES_P)
+      if (!target_default_pointer_address_modes_p ())
 	return 0;
 
       {

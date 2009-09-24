@@ -39,7 +39,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "output.h"
 #include "ggc.h"
 #include "target.h"
-#include "target-def.h"
 
 /* Simplification and canonicalization of RTL.  */
 
@@ -967,7 +966,7 @@ simplify_unary_operation_1 (enum rtx_code code, enum machine_mode mode, rtx op)
       /* As we do not know which address space the pointer is refering to,
 	 we can do this only if the target does not support different pointer
 	 or address modes depending on the address space.  */
-      if (TARGET_DEFAULT_ADDRESS_POINTER_MODES_P
+      if (target_default_address_pointer_modes_p ()
 	  && ! POINTERS_EXTEND_UNSIGNED
 	  && mode == Pmode && GET_MODE (op) == ptr_mode
 	  && (CONSTANT_P (op)
@@ -993,7 +992,7 @@ simplify_unary_operation_1 (enum rtx_code code, enum machine_mode mode, rtx op)
       /* As we do not know which address space the pointer is refering to,
 	 we can do this only if the target does not support different pointer
 	 or address modes depending on the address space.  */
-      if (TARGET_DEFAULT_ADDRESS_POINTER_MODES_P
+      if (target_default_address_pointer_modes_p ()
 	  && POINTERS_EXTEND_UNSIGNED > 0
 	  && mode == Pmode && GET_MODE (op) == ptr_mode
 	  && (CONSTANT_P (op)

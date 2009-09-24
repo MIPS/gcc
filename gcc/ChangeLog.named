@@ -1,5 +1,25 @@
 2009-09-24  Ulrich Weigand  <uweigand@de.ibm.com>
 
+	* target-def.h (TARGET_DEFAULT_ADDRESS_POINTER_MODES_P): Remove.
+	* targhooks.c (target_default_address_pointer_modes_p): New function.
+	* target.h (target_default_address_pointer_modes_p): Add prototype.
+
+	* alias.c (find_base_value): Use target_default_address_pointer_modes_p
+	instead of TARGET_DEFAULT_ADDRESS_POINTER_MODES_P.
+	(find_base_term): Likewise.
+	* rtlanal.c (nonzero_bits1): Likewise.
+	(num_sign_bit_copies1): Likewise.
+	* simplify-rtx.c: (simplify_unary_operation_1): Likewise.
+
+	* alias.c: Do not include "targhooks.h".
+	* rtlanal.c: Likewise.
+	* simplify-rtx.c: Likewise.
+	* Makefile.in (alias.o): Update dependencies.
+	(rtlanal.o): Likewise.
+	(simplify-rtx.o): Likewise.
+
+2009-09-24  Ulrich Weigand  <uweigand@de.ibm.com>
+
 	* targhooks.c (default_addr_space_address_mode): Fix typo.
 
 2009-09-21  Ulrich Weigand  <uweigand@de.ibm.com>

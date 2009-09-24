@@ -811,6 +811,22 @@ default_addr_space_valid_pointer_mode (enum machine_mode mode, addr_space_t as)
   return targetm.valid_pointer_mode (mode);
 }
 
+/* Some places still assume that all pointer or address modes are the
+   standard Pmode and ptr_mode.  These optimizations become invalid if
+   the target actually supports multiple different modes.  For now,
+   we disable such optimizations on such targets, using this function.  */
+
+bool
+target_default_pointer_address_modes_p (void)
+{
+  if (targetm.addr_space.address_mode != default_addr_space_address_mode)
+    return false;
+  if (targetm.addr_space.pointer_mode != default_addr_space_pointer_mode)
+    return false;
+
+  return true;
+}
+
 /* Named address space version of legitimate_address_p.  */
 
 bool

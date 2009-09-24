@@ -68,6 +68,12 @@ typedef int (* print_switch_fn_type) (print_switch_type, const char *);
 /* An example implementation for ELF targets.  Defined in varasm.c  */
 extern int elf_record_gcc_switches (print_switch_type type, const char *);
 
+/* Some places still assume that all pointer or address modes are the
+   standard Pmode and ptr_mode.  These optimizations become invalid if
+   the target actually supports multiple different modes.  For now,
+   we disable such optimizations on such targets, using this function.  */
+extern bool target_default_pointer_address_modes_p (void);
+
 struct stdarg_info;
 struct spec_info_def;
 
