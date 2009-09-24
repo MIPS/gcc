@@ -1,3 +1,7 @@
+2009-09-24  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* targhooks.c (default_addr_space_address_mode): Fix typo.
+
 2009-09-21  Ulrich Weigand  <uweigand@de.ibm.com>
 
 	* target-def.h (TARGET_DEFAULT_ADDRESS_POINTER_MODES_P): New macro.

@@ -804,7 +804,7 @@ default_addr_space_address_mode (addr_space_t addrspace ATTRIBUTE_UNUSED)
 bool
 default_addr_space_valid_pointer_mode (enum machine_mode mode, addr_space_t as)
 {
-  if (!ADDR_SPACE_GENERIC_P (as));
+  if (!ADDR_SPACE_GENERIC_P (as))
     return (mode == targetm.addr_space.pointer_mode (as)
 	    || mode == targetm.addr_space.address_mode (as));
 
