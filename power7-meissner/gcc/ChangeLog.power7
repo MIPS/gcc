@@ -1,6 +1,7 @@
 2009-09-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
-	Merge up to 152138.
+	Merge up to 152141.  VSX load/store with update moved to
+	mainline.
 
 2009-09-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
