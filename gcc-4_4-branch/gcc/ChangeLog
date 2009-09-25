@@ -1,5 +1,20 @@
 2009-09-25  Jakub Jelinek  <jakub@redhat.com>
 
+	* tree-vect-transform.c (vectorizable_call): Call
+	mark_symbols_for_renaming after vect_finish_stmt_generation.
+
+2009-09-25  Alan Modra  <amodra@bigpond.net.au>
+
+	* config/rs6000/rs6000.md (load_toc_v4_PIC_3c): Correct POWER
+	form of instruction.
+
+2009-09-24  Kai Tietz  <kai.tietz@onevision.com>
+
+	* libgcc2.c (L_trampoline): Prototype for getpagesize
+	and mprotect in WINNT case.
+
+2009-09-25  Jakub Jelinek  <jakub@redhat.com>
+
 	* dwarf2out.c (tls_mem_loc_descriptor): Pass 1 instead of 2
 	to loc_descriptor_from_tree.
 	(add_location_or_const_value_attribute): Pass 0 instead of 2
