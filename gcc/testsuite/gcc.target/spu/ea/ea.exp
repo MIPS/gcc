@@ -37,7 +37,7 @@ proc check_effective_target_ealib { } {
 }
 
 # If a testcase doesn't have special options, use these.
-# We do not use the gobal DEFAULT_CFLAGS as all test cases
+# We do not use the global DEFAULT_CFLAGS as all test cases
 # in this directory use the __ea address space qualifier
 # extension and thus will not compile with -ansi.
 set DEFAULT_EA_CFLAGS "-std=gnu99 -pedantic-errors -O2"
