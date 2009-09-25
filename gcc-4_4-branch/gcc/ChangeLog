@@ -1,3 +1,20 @@
+2009-09-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (tls_mem_loc_descriptor): Pass 1 instead of 2
+	to loc_descriptor_from_tree.
+	(add_location_or_const_value_attribute): Pass 0 instead of 2
+	for decl_by_reference_p decls.
+
+2009-09-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/41457
+	* dwarf2out.c (add_const_value_attribute): For HIGH and CONST_FIXED,
+	return false instead of gcc_unreachable ().  For CONST return the
+	value returned by recursive call instead of always returning true.
+	(tree_add_const_value_attribute): Return the value returned by
+	add_const_value_attribute instead of always returning true if rtl
+	is non-NULL.
+
 2009-09-25  Ben Elliston  <bje@au.ibm.com>
 
 	* doc/invoke.texi (RS/6000 and PowerPC Options): Add missing comma
