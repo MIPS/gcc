@@ -1,3 +1,11 @@
+2009-09-25  Cary Coutant  <ccoutant@google.com>
+
+	Merged revisions 151950:152181 from trunk.
+
+2009-09-23  Cary Coutant  <ccoutant@google.com>
+
+	Merged revisions 144680:151949 from trunk.
+
 2009-08-18  Cary Coutant  <ccoutant@google.com>
 
 	* dwarf2out.c (copy_ancestor_tree): Move use of slot pointer

@@ -4668,6 +4668,7 @@ loc_descr_plus_const (dw_loc_descr_ref *list_head, HOST_WIDE_INT offset)
     }
 }
 
+#ifdef DWARF2_DEBUGGING_INFO
 /* Add a constant OFFSET to a location list.  */
 
 static void
@@ -4677,6 +4678,7 @@ loc_list_plus_const (dw_loc_list_ref list_head, HOST_WIDE_INT offset)
   for (d = list_head; d != NULL; d = d->dw_loc_next)
     loc_descr_plus_const (&d->expr, offset);
 }
+#endif
 
 /* Return the size of a location descriptor.  */
 
@@ -6002,7 +6004,8 @@ static dw_die_ref base_type_die (tree);
 static int is_base_type (tree);
 static dw_die_ref subrange_type_die (tree, tree, tree, dw_die_ref);
 static dw_die_ref modified_type_die (tree, int, int, dw_die_ref);
-static dw_die_ref generic_parameter_die (tree, tree, dw_die_ref, int);
+static dw_die_ref generic_parameter_die (tree, tree, bool, dw_die_ref);
+static dw_die_ref template_parameter_pack_die (tree, tree, dw_die_ref);
 static int type_is_enum (const_tree);
 static unsigned int dbx_reg_number (const_rtx);
 static void add_loc_descr_op_piece (dw_loc_descr_ref *, int);
@@ -6070,7 +6073,8 @@ static void gen_descr_array_type_die (tree, struct array_descr_info *, dw_die_re
 static void gen_entry_point_die (tree, dw_die_ref);
 #endif
 static dw_die_ref gen_enumeration_type_die (tree, dw_die_ref);
-static dw_die_ref gen_formal_parameter_die (tree, tree, dw_die_ref);
+static dw_die_ref gen_formal_parameter_die (tree, tree, bool, dw_die_ref);
+static dw_die_ref gen_formal_parameter_pack_die  (tree, tree, dw_die_ref, tree*);
 static void gen_unspecified_parameters_die (tree, dw_die_ref);
 static void gen_formal_types_die (tree, dw_die_ref);
 static void gen_subprogram_die (tree, dw_die_ref);
@@ -6102,7 +6106,6 @@ static dw_die_ref declare_in_namespace (tree, dw_die_ref);
 static struct dwarf_file_data * lookup_filename (const char *);
 static void retry_incomplete_types (void);
 static void gen_type_die_for_member (tree, tree, dw_die_ref);
-static tree make_ith_pack_parameter_name (tree, int);
 static void gen_generic_params_dies (tree);
 static void splice_child_die (dw_die_ref, dw_die_ref);
 static int file_info_cmp (const void *, const void *);
@@ -6409,6 +6412,10 @@ dwarf_tag_name (unsigned int tag)
       return "DW_TAG_shared_type";
     case DW_TAG_type_unit:
       return "DW_TAG_type_unit";
+    case DW_TAG_template_parameter_pack:
+      return "DW_TAG_template_parameter_pack";
+    case DW_TAG_formal_parameter_pack:
+      return "DW_TAG_formal_parameter_pack";
     case DW_TAG_MIPS_loop:
       return "DW_TAG_MIPS_loop";
     case DW_TAG_format_label:
@@ -11678,13 +11685,20 @@ base_type_die (tree type)
 
     case REAL_TYPE:
       if (DECIMAL_FLOAT_MODE_P (TYPE_MODE (type)))
-	encoding = DW_ATE_decimal_float;
+	{
+	  if (dwarf_version >= 3 || !dwarf_strict)
+	    encoding = DW_ATE_decimal_float;
+	  else
+	    encoding = DW_ATE_lo_user;
+	}
       else
 	encoding = DW_ATE_float;
       break;
 
     case FIXED_POINT_TYPE:
-      if (TYPE_UNSIGNED (type))
+      if (!(dwarf_version >= 3 || !dwarf_strict))
+	encoding = DW_ATE_lo_user;
+      else if (TYPE_UNSIGNED (type))
 	encoding = DW_ATE_unsigned_fixed;
       else
 	encoding = DW_ATE_signed_fixed;
@@ -11951,27 +11965,6 @@ modified_type_die (tree type, int is_const_type, int is_volatile_type,
   return mod_type_die;
 }
 
-/* Generate a new name for the parameter pack name NAME (an
-   IDENTIFIER_NODE) that incorporates its */
-
-static tree
-make_ith_pack_parameter_name (tree name, int i)
-{
-  /* Munge the name to include the parameter index.  */
-#define NUMBUF_LEN 128
-  char numbuf[NUMBUF_LEN];
-  char* newname;
-  int newname_len;
-
-  snprintf (numbuf, NUMBUF_LEN, "%i", i);
-  newname_len = IDENTIFIER_LENGTH (name)
-	        + strlen (numbuf) + 2;
-  newname = (char*) alloca (newname_len);
-  snprintf (newname, newname_len,
-	    "%s#%i", IDENTIFIER_POINTER (name), i);
-  return get_identifier (newname);
-}
-
 /* Generate DIEs for the generic parameters of T.
    T must be either a generic type or a generic function.
    See http://gcc.gnu.org/wiki/TemplateParmsDwarf for more.  */
@@ -12003,30 +11996,27 @@ gen_generic_params_dies (tree t)
   args = lang_hooks.get_innermost_generic_args (t);
   for (i = 0; i < parms_num; i++)
     {
-      tree parm, arg;
+      tree parm, arg, arg_pack_elems;
 
       parm = TREE_VEC_ELT (parms, i);
       arg = TREE_VEC_ELT (args, i);
+      arg_pack_elems = lang_hooks.types.get_argument_pack_elems (arg);
+      gcc_assert (parm && TREE_VALUE (parm) && arg);
+
       if (parm && TREE_VALUE (parm) && arg)
 	{
-	  tree pack_elems =
-	    lang_hooks.types.get_argument_pack_elems (arg);
-	  if (pack_elems)
-	    {
-	      /* So ARG is an argument pack and the elements of that pack
-	         are stored in PACK_ELEMS.  */
-	      int i, len;
-
-	      len = TREE_VEC_LENGTH (pack_elems);
-	      for (i = 0; i < len; i++)
-		generic_parameter_die (TREE_VALUE (parm),
-				       TREE_VEC_ELT (pack_elems, i),
-				       die, i);
-	    }
-	  else /* Arg is not an argument pack.  */
-	    generic_parameter_die (TREE_VALUE (parm),
-				   arg, die,
-				   -1/* Not a param pack.  */);
+	  /* If PARM represents a template parameter pack,
+	     emit a DW_TAG_template_parameter_pack DIE, followed
+	     by DW_TAG_template_*_parameter DIEs for the argument
+	     pack elements of ARG. Note that ARG would then be
+	     an argument pack.  */
+	  if (arg_pack_elems)
+	    template_parameter_pack_die (TREE_VALUE (parm),
+					 arg_pack_elems,
+					 die);
+	  else
+	    generic_parameter_die (TREE_VALUE (parm), arg,
+				   true /* Emit DW_AT_name */, die);
 	}
     }
 }
@@ -12035,15 +12025,15 @@ gen_generic_params_dies (tree t)
    the representation of a generic type parameter.
    For instance, in the C++ front end, PARM would be a template parameter.
    ARG is the argument to PARM.
+   EMIT_NAME_P if tree, the DIE will have DW_AT_name attribute set to the
+   name of the PARM.
    PARENT_DIE is the parent DIE which the new created DIE should be added to,
-   as a child node.
-   PACK_ELEM_INDEX is >= 0 if PARM is a generic parameter pack, and if ARG
-   is one of the unpacked elements of the parameter PACK. In that case,
-   PACK_ELEM_INDEX is the index of ARG in the parameter pack.  */
+   as a child node.  */
 
 static dw_die_ref
-generic_parameter_die (tree parm, tree arg, dw_die_ref parent_die,
-		       int pack_elem_index)
+generic_parameter_die (tree parm, tree arg,
+		       bool emit_name_p,
+		       dw_die_ref parent_die)
 {
   dw_die_ref tmpl_die = NULL;
   const char *name = NULL;
@@ -12076,20 +12066,17 @@ generic_parameter_die (tree parm, tree arg, dw_die_ref parent_die,
     {
       tree tmpl_type;
 
-      if (pack_elem_index >= 0)
+      /* If PARM is a generic parameter pack, it means we are
+         emitting debug info for a template argument pack element.
+	 In other terms, ARG is a template argument pack element.
+	 In that case, we don't emit any DW_AT_name attribute for
+	 the die.  */
+      if (emit_name_p)
 	{
-	  /* PARM is an element of a parameter pack.
-	     Generate a name for it.  */
-	  tree identifier = make_ith_pack_parameter_name (DECL_NAME (parm),
-							  pack_elem_index);
-	  if (identifier)
-	    name = IDENTIFIER_POINTER (identifier);
+	  name = IDENTIFIER_POINTER (DECL_NAME (parm));
+	  gcc_assert (name);
+	  add_AT_string (tmpl_die, DW_AT_name, name);
 	}
-      else
-	name = IDENTIFIER_POINTER (DECL_NAME (parm));
-
-      gcc_assert (name);
-      add_AT_string (tmpl_die, DW_AT_name, name);
 
       if (!lang_hooks.decls.generic_generic_parameter_decl_p (parm))
 	{
@@ -12132,6 +12119,33 @@ generic_parameter_die (tree parm, tree arg, dw_die_ref parent_die,
     }
 
   return tmpl_die;
+}
+
+/* Generate and return a  DW_TAG_template_parameter_pack DIE representing.
+   PARM_PACK must be a template parameter pack. The returned DIE
+   will be child DIE of PARENT_DIE.  */
+
+static dw_die_ref
+template_parameter_pack_die (tree parm_pack,
+			     tree parm_pack_args,
+			     dw_die_ref parent_die)
+{
+  dw_die_ref die;
+  int j;
+
+  gcc_assert (parent_die
+	      && parm_pack
+	      && DECL_NAME (parm_pack));
+
+  die = new_die (DW_TAG_template_parameter_pack, parent_die, parm_pack);
+  add_AT_string (die, DW_AT_name, IDENTIFIER_POINTER (DECL_NAME (parm_pack)));
+
+  for (j = 0; j < TREE_VEC_LENGTH (parm_pack_args); j++)
+    generic_parameter_die (parm_pack,
+			   TREE_VEC_ELT (parm_pack_args, j),
+			   false /* Don't emit DW_AT_name */,
+			   die);
+  return die;
 }
 
 /* Given a pointer to an arbitrary ..._TYPE tree node, return true if it is
@@ -12330,7 +12344,9 @@ int_loc_descriptor (HOST_WIDE_INT i)
 
   return new_loc_descr (op, i, 0);
 }
+#endif
 
+#ifdef DWARF2_DEBUGGING_INFO
 /* Return loc description representing "address" of integer value.
    This can appear only as toplevel expression.  */
 
@@ -12339,6 +12355,9 @@ address_of_int_loc_descriptor (int size, HOST_WIDE_INT i)
 {
   int litsize;
   dw_loc_descr_ref loc_result = NULL;
+
+  if (!(dwarf_version >= 4 || !dwarf_strict))
+    return NULL;
 
   if (i >= 0)
     {
@@ -12368,17 +12387,14 @@ address_of_int_loc_descriptor (int size, HOST_WIDE_INT i)
     }
   /* Determine if DW_OP_stack_value or DW_OP_implicit_value
      is more compact.  For DW_OP_stack_value we need:
-     litsize + 1 (DW_OP_stack_value) + 1 (DW_OP_bit_size)
-     + 1 (mode size)
+     litsize + 1 (DW_OP_stack_value)
      and for DW_OP_implicit_value:
-     1 (DW_OP_implicit_value) + 1 (length) + mode_size.  */
-  if (DWARF2_ADDR_SIZE >= size
-      && litsize + 1 + 1 + 1 < 1 + 1 + size)
+     1 (DW_OP_implicit_value) + 1 (length) + size.  */
+  if ((int) DWARF2_ADDR_SIZE >= size && litsize + 1 <= 1 + 1 + size)
     {
       loc_result = int_loc_descriptor (i);
       add_loc_descr (&loc_result,
 		     new_loc_descr (DW_OP_stack_value, 0, 0));
-      add_loc_descr_op_piece (&loc_result, size);
       return loc_result;
     }
 
@@ -12388,9 +12404,6 @@ address_of_int_loc_descriptor (int size, HOST_WIDE_INT i)
   loc_result->dw_loc_oprnd2.v.val_int = i;
   return loc_result;
 }
-#endif
-
-#ifdef DWARF2_DEBUGGING_INFO
 
 /* Return a location descriptor that designates a base+offset location.  */
 
@@ -12494,7 +12507,7 @@ tls_mem_loc_descriptor (rtx mem)
       || !DECL_THREAD_LOCAL_P (base))
     return NULL;
 
-  loc_result = loc_descriptor_from_tree (MEM_EXPR (mem), 2);
+  loc_result = loc_descriptor_from_tree (MEM_EXPR (mem), 1);
   if (loc_result == NULL)
     return NULL;
 
@@ -12698,7 +12711,6 @@ mem_loc_descriptor (rtx rtl, enum machine_mode mode,
 	  break;
 	}
 
-    symref:
       mem_loc_result = new_loc_descr (DW_OP_addr, 0, 0);
       mem_loc_result->dw_loc_oprnd1.val_class = dw_val_class_addr;
       mem_loc_result->dw_loc_oprnd1.v.val_addr = rtl;
@@ -13107,14 +13119,15 @@ mem_loc_descriptor (rtx rtl, enum machine_mode mode,
     case PARITY:
     case ASM_OPERANDS:
     case UNSPEC:
+    case HIGH:
       /* If delegitimize_address couldn't do anything with the UNSPEC, we
 	 can't express it in the debug info.  This can happen e.g. with some
 	 TLS UNSPECs.  */
       break;
 
     case CONST_STRING:
-      rtl = get_debug_string_label (XSTR (rtl, 0));
-      goto symref;
+      /* These can't easily be tracked, see PR41404.  */
+      break;
 
     default:
 #ifdef ENABLE_CHECKING
@@ -13289,7 +13302,7 @@ loc_descriptor (rtx rtl, enum machine_mode mode,
       break;
 
     case CONST_DOUBLE:
-      if (mode != VOIDmode)
+      if (mode != VOIDmode && (dwarf_version >= 4 || !dwarf_strict))
 	{
 	  /* Note that a CONST_DOUBLE rtx could represent either an integer
 	     or a floating-point constant.  A CONST_DOUBLE is used whenever
@@ -13320,7 +13333,7 @@ loc_descriptor (rtx rtl, enum machine_mode mode,
       break;
 
     case CONST_VECTOR:
-      if (mode != VOIDmode)
+      if (mode != VOIDmode && (dwarf_version >= 4 || !dwarf_strict))
 	{
 	  unsigned int elt_size = GET_MODE_UNIT_SIZE (GET_MODE (rtl));
 	  unsigned int length = CONST_VECTOR_NUNITS (rtl);
@@ -13408,7 +13421,8 @@ loc_descriptor (rtx rtl, enum machine_mode mode,
 	  && SYMBOL_REF_TLS_MODEL (rtl) != TLS_MODEL_NONE)
 	break;
     case LABEL_REF:
-      if (mode != VOIDmode && GET_MODE_SIZE (mode) == DWARF2_ADDR_SIZE)
+      if (mode != VOIDmode && GET_MODE_SIZE (mode) == DWARF2_ADDR_SIZE
+	  && (dwarf_version >= 4 || !dwarf_strict))
 	{
 	  loc_result = new_loc_descr (DW_OP_implicit_value,
 				      DWARF2_ADDR_SIZE, 0);
@@ -13420,16 +13434,14 @@ loc_descriptor (rtx rtl, enum machine_mode mode,
 
     default:
       if (GET_MODE_CLASS (mode) == MODE_INT && GET_MODE (rtl) == mode
-	  && GET_MODE_SIZE (GET_MODE (rtl)) <= DWARF2_ADDR_SIZE)
+	  && GET_MODE_SIZE (GET_MODE (rtl)) <= DWARF2_ADDR_SIZE
+	  && (dwarf_version >= 4 || !dwarf_strict))
 	{
 	  /* Value expression.  */
 	  loc_result = mem_loc_descriptor (rtl, VOIDmode, initialized);
 	  if (loc_result)
-	    {
-	      add_loc_descr (&loc_result,
-			     new_loc_descr (DW_OP_stack_value, 0, 0));
-	      add_loc_descr_op_piece (&loc_result, GET_MODE_SIZE (mode));
-	    }
+	    add_loc_descr (&loc_result,
+			   new_loc_descr (DW_OP_stack_value, 0, 0));
 	}
       break;
     }
@@ -13792,7 +13804,8 @@ loc_list_for_address_of_addr_expr_of_indirect_ref (tree loc, bool toplev)
   if (!offset && !bitpos)
     list_ret = loc_list_from_tree (TREE_OPERAND (obj, 0), toplev ? 2 : 1);
   else if (toplev
-	   && int_size_in_bytes (TREE_TYPE (loc)) <= DWARF2_ADDR_SIZE)
+	   && int_size_in_bytes (TREE_TYPE (loc)) <= DWARF2_ADDR_SIZE
+	   && (dwarf_version >= 4 || !dwarf_strict))
     {
       list_ret = loc_list_from_tree (TREE_OPERAND (obj, 0), 0);
       if (!list_ret)
@@ -13818,11 +13831,6 @@ loc_list_for_address_of_addr_expr_of_indirect_ref (tree loc, bool toplev)
 	loc_list_plus_const (list_ret, bytepos);
       add_loc_descr_to_each (list_ret,
 			     new_loc_descr (DW_OP_stack_value, 0, 0));
-      add_loc_descr_to_each (list_ret,
-			     new_loc_descr (DW_OP_piece,
-					    int_size_in_bytes (TREE_TYPE
-							       (loc)),
-					    0));
     }
   return list_ret;
 }
@@ -13928,7 +13936,8 @@ loc_list_from_tree (tree loc, int want_address)
 	    }
 	  else
 	    {
-	      if (!targetm.emutls.debug_form_tls_address)
+	      if (!targetm.emutls.debug_form_tls_address
+		  || !(dwarf_version >= 3 || !dwarf_strict))
 		return 0;
 	      loc = emutls_decl (loc);
 	      first_op = DW_OP_addr;
@@ -14331,7 +14340,8 @@ loc_list_from_tree (tree loc, int want_address)
   if (!ret && !list_ret)
     return 0;
 
-  if (want_address == 2 && !have_address)
+  if (want_address == 2 && !have_address
+      && (dwarf_version >= 4 || !dwarf_strict))
     {
       if (int_size_in_bytes (TREE_TYPE (loc)) > DWARF2_ADDR_SIZE)
 	{
@@ -14341,11 +14351,6 @@ loc_list_from_tree (tree loc, int want_address)
 	}
       add_loc_descr_to_each (list_ret,
 			     new_loc_descr (DW_OP_stack_value, 0, 0));
-      add_loc_descr_to_each (list_ret,
-			     new_loc_descr (DW_OP_piece,
-					    int_size_in_bytes (TREE_TYPE
-							       (loc)),
-					    0));
       have_address = 1;
     }
   /* Show if we can't fill the request for an address.  */
@@ -14886,10 +14891,7 @@ add_const_value_attribute (dw_die_ref die, rtx rtl)
 
     case CONST:
       if (CONSTANT_P (XEXP (rtl, 0)))
-	{
-	  add_const_value_attribute (die, XEXP (rtl, 0));
-	  return true;
-	}
+	return add_const_value_attribute (die, XEXP (rtl, 0));
       /* FALLTHROUGH */
     case SYMBOL_REF:
       if (GET_CODE (rtl) == SYMBOL_REF
@@ -14912,6 +14914,10 @@ add_const_value_attribute (dw_die_ref die, rtx rtl)
 	 *value* which the artificial local variable always has during its
 	 lifetime.  We currently have no way to represent such quasi-constant
 	 values in Dwarf, so for now we just punt and generate nothing.  */
+      return false;
+
+    case HIGH:
+    case CONST_FIXED:
       return false;
 
     default:
@@ -15352,7 +15358,7 @@ add_location_or_const_value_attribute (dw_die_ref die, tree decl,
 	  && add_const_value_attribute (die, rtl))
 	 return true;
     }
-  list = loc_list_from_tree (decl, 2);
+  list = loc_list_from_tree (decl, decl_by_reference_p (decl) ? 0 : 2);
   if (list)
     {
       add_AT_location_description (die, attr, list);
@@ -15539,10 +15545,7 @@ tree_add_const_value_attribute (dw_die_ref die, tree t)
 
   rtl = rtl_for_decl_init (init, type);
   if (rtl)
-    {
-      add_const_value_attribute (die, rtl);
-      return true;
-    }
+    return add_const_value_attribute (die, rtl);
   /* If the host and target are sane, try harder.  */
   else if (CHAR_BIT == 8 && BITS_PER_UNIT == 8
 	   && initializer_constant_valid_p (init, type))
@@ -16721,7 +16724,9 @@ record_type_tag (tree type)
       return DW_TAG_class_type;
 
     case RECORD_IS_INTERFACE:
-      return DW_TAG_interface_type;
+      if (dwarf_version >= 3 || !dwarf_strict)
+	return DW_TAG_interface_type;
+      return DW_TAG_structure_type;
 
     default:
       gcc_unreachable ();
@@ -16810,10 +16815,13 @@ gen_enumeration_type_die (tree type, dw_die_ref context_die)
    DIE to represent a formal parameter object (or some inlining thereof).  If
    it's the latter, then this function is only being called to output a
    DW_TAG_formal_parameter DIE to stand as a placeholder for some formal
-   argument type of some subprogram type.  */
+   argument type of some subprogram type.
+   If EMIT_NAME_P is true, name and source coordinate attributes
+   are emitted.  */
 
 static dw_die_ref
-gen_formal_parameter_die (tree node, tree origin, dw_die_ref context_die)
+gen_formal_parameter_die (tree node, tree origin, bool emit_name_p,
+			  dw_die_ref context_die)
 {
   tree node_or_origin = node ? node : origin;
   dw_die_ref parm_die
@@ -16829,7 +16837,8 @@ gen_formal_parameter_die (tree node, tree origin, dw_die_ref context_die)
       else
 	{
 	  tree type = TREE_TYPE (node);
-	  add_name_and_src_coords_attributes (parm_die, node);
+	  if (emit_name_p)
+	    add_name_and_src_coords_attributes (parm_die, node);
 	  if (decl_by_reference_p (node))
 	    add_type_attribute (parm_die, TREE_TYPE (type), 0, 0,
 				context_die);
@@ -16860,6 +16869,49 @@ gen_formal_parameter_die (tree node, tree origin, dw_die_ref context_die)
     }
 
   return parm_die;
+}
+
+/* Generate and return a DW_TAG_formal_parameter_pack. Also generate
+   children DW_TAG_formal_parameter DIEs representing the arguments of the
+   parameter pack.
+
+   PARM_PACK must be a function parameter pack.
+   PACK_ARG is the first argument of the parameter pack. Its TREE_CHAIN
+   must point to the subsequent arguments of the function PACK_ARG belongs to.
+   SUBR_DIE is the DIE of the function PACK_ARG belongs to.
+   If NEXT_ARG is non NULL, *NEXT_ARG is set to the function argument
+   following the last one for which a DIE was generated.  */
+
+static dw_die_ref
+gen_formal_parameter_pack_die  (tree parm_pack,
+				tree pack_arg,
+				dw_die_ref subr_die,
+				tree *next_arg)
+{
+  tree arg;
+  dw_die_ref parm_pack_die;
+
+  gcc_assert (parm_pack
+	      && lang_hooks.function_parameter_pack_p (parm_pack)
+	      && DECL_NAME (parm_pack)
+	      && subr_die);
+
+  parm_pack_die = new_die (DW_TAG_formal_parameter_pack, subr_die, parm_pack);
+  add_AT_string (parm_pack_die, DW_AT_name,
+		 IDENTIFIER_POINTER (DECL_NAME (parm_pack)));
+
+  for (arg = pack_arg; arg; arg = TREE_CHAIN (arg))
+    {
+      if (! lang_hooks.decls.function_parm_expanded_from_pack_p (arg,
+								 parm_pack))
+	break;
+      gen_formal_parameter_die (arg, NULL,
+				false /* Don't emit name attribute.  */,
+				parm_pack_die);
+    }
+  if (next_arg)
+    *next_arg = arg;
+  return parm_pack_die;
 }
 
 /* Generate a special type of DIE used as a stand-in for a trailing ellipsis
@@ -16905,7 +16957,9 @@ gen_formal_types_die (tree function_or_method_type, dw_die_ref context_die)
 	break;
 
       /* Output a (nameless) DIE to represent the formal parameter itself.  */
-      parm_die = gen_formal_parameter_die (formal_type, NULL, context_die);
+      parm_die = gen_formal_parameter_die (formal_type, NULL,
+					   true /* Emit name attribute.  */,
+					   context_die);
       if ((TREE_CODE (function_or_method_type) == METHOD_TYPE
 	   && link == first_parm_type)
 	  || (arg && DECL_ARTIFICIAL (arg)))
@@ -17023,10 +17077,11 @@ dwarf2out_abstract_function (tree decl)
 }
 
 /* Helper function of premark_used_types() which gets called through
-   htab_traverse_resize().
+   htab_traverse.
 
    Marks the DIE of a given type in *SLOT as perennial, so it never gets
    marked as unused by prune_unused_types.  */
+
 static int
 premark_used_types_helper (void **slot, void *data ATTRIBUTE_UNUSED)
 {
@@ -17040,12 +17095,57 @@ premark_used_types_helper (void **slot, void *data ATTRIBUTE_UNUSED)
   return 1;
 }
 
+/* Helper function of premark_types_used_by_global_vars which gets called
+   through htab_traverse.
+
+   Marks the DIE of a given type in *SLOT as perennial, so it never gets
+   marked as unused by prune_unused_types. The DIE of the type is marked
+   only if the global variable using the type will actually be emitted.  */
+
+static int
+premark_types_used_by_global_vars_helper (void **slot,
+					  void *data ATTRIBUTE_UNUSED)
+{
+  struct types_used_by_vars_entry *entry;
+  dw_die_ref die;
+
+  entry = (struct types_used_by_vars_entry *) *slot;
+  gcc_assert (entry->type != NULL
+	      && entry->var_decl != NULL);
+  die = lookup_type_die (entry->type);
+  if (die)
+    {
+      /* Ask cgraph if the global variable really is to be emitted.
+         If yes, then we'll keep the DIE of ENTRY->TYPE.  */
+      struct varpool_node *node = varpool_node (entry->var_decl);
+      if (node->needed)
+	{
+	  die->die_perennial_p = 1;
+	  /* Keep the parent DIEs as well.  */
+	  while ((die = die->die_parent) && die->die_perennial_p == 0)
+	    die->die_perennial_p = 1;
+	}
+    }
+  return 1;
+}
+
 /* Mark all members of used_types_hash as perennial.  */
+
 static void
 premark_used_types (void)
 {
   if (cfun && cfun->used_types_hash)
     htab_traverse (cfun->used_types_hash, premark_used_types_helper, NULL);
+}
+
+/* Mark all members of types_used_by_vars_entry as perennial.  */
+
+static void
+premark_types_used_by_global_vars (void)
+{
+  if (types_used_by_vars_hash)
+    htab_traverse (types_used_by_vars_hash,
+		   premark_types_used_by_global_vars_helper, NULL);
 }
 
 /* Generate a DIE to represent a declared function (either file-scope or
@@ -17180,7 +17280,8 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 
 	  /* If this is an explicit function declaration then generate
 	     a DW_AT_explicit attribute.  */
-          if (lang_hooks.decls.function_decl_explicit_p (decl))
+	  if (lang_hooks.decls.function_decl_explicit_p (decl)
+	      && (dwarf_version >= 3 || !dwarf_strict))
 	    add_AT_flag (subr_die, DW_AT_explicit, 1);
 
 	  /* The first time we see a member function, it is in the context of
@@ -17316,21 +17417,46 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
   else
     {
       /* Generate DIEs to represent all known formal parameters.  */
-      tree arg_decls = DECL_ARGUMENTS (decl);
-      tree parm;
+      tree parm = DECL_ARGUMENTS (decl);
+      tree generic_decl = lang_hooks.decls.get_generic_function_decl (decl);
+      tree generic_decl_parm = generic_decl
+				? DECL_ARGUMENTS (generic_decl)
+				: NULL;
 
-      /* When generating DIEs, generate the unspecified_parameters DIE
-	 instead if we come across the arg "__builtin_va_alist" */
-      for (parm = arg_decls; parm; parm = TREE_CHAIN (parm))
-	if (TREE_CODE (parm) == PARM_DECL)
-	  {
-	    if (DECL_NAME (parm)
-		&& !strcmp (IDENTIFIER_POINTER (DECL_NAME (parm)),
-			    "__builtin_va_alist"))
-	      gen_unspecified_parameters_die (parm, subr_die);
-	    else
+      /* Now we want to walk the list of parameters of the function and
+	 emit their relevant DIEs.
+
+	 We consider the case of DECL being an instance of a generic function
+	 as well as it being a normal function.
+
+	 If DECL is an instance of a generic function we walk the
+	 parameters of the generic function declaration _and_ the parameters of
+	 DECL itself. This is useful because we want to emit specific DIEs for
+	 function parameter packs and those are declared as part of the
+	 generic function declaration. In that particular case,
+	 the parameter pack yields a DW_TAG_formal_parameter_pack DIE.
+	 That DIE has children DIEs representing the set of arguments
+	 of the pack. Note that the set of pack arguments can be empty.
+	 In that case, the DW_TAG_formal_parameter_pack DIE will not have any
+	 children DIE.
+	
+	 Otherwise, we just consider the parameters of DECL.  */
+      while (generic_decl_parm || parm)
+	{
+	  if (generic_decl_parm
+	      && lang_hooks.function_parameter_pack_p (generic_decl_parm))
+	    gen_formal_parameter_pack_die (generic_decl_parm,
+					   parm, subr_die,
+					   &parm);
+	  else if (parm)
+	    {
 	      gen_decl_die (parm, NULL, subr_die);
-	  }
+	      parm = TREE_CHAIN (parm);
+	    }
+
+	  if (generic_decl_parm)
+	    generic_decl_parm = TREE_CHAIN (generic_decl_parm);
+	}
 
       /* Decide whether we need an unspecified_parameters DIE at the end.
 	 There are 2 more cases to do this for: 1) the ansi ... declaration -
@@ -17728,8 +17854,11 @@ add_call_src_coords_attributes (tree stmt, dw_die_ref die)
 {
   expanded_location s = expand_location (BLOCK_SOURCE_LOCATION (stmt));
 
-  add_AT_file (die, DW_AT_call_file, lookup_filename (s.file));
-  add_AT_unsigned (die, DW_AT_call_line, s.line);
+  if (dwarf_version >= 3 || !dwarf_strict)
+    {
+      add_AT_file (die, DW_AT_call_file, lookup_filename (s.file));
+      add_AT_unsigned (die, DW_AT_call_line, s.line);
+    }
 }
 
 
@@ -17741,7 +17870,8 @@ add_high_low_attributes (tree stmt, dw_die_ref die)
 {
   char label[MAX_ARTIFICIAL_LABEL_BYTES];
 
-  if (BLOCK_FRAGMENT_CHAIN (stmt))
+  if (BLOCK_FRAGMENT_CHAIN (stmt)
+      && (dwarf_version >= 3 || !dwarf_strict))
     {
       tree chain;
 
@@ -17943,24 +18073,26 @@ gen_compile_unit_die (const char *filename)
 
   add_AT_string (die, DW_AT_producer, producer);
 
+  language = DW_LANG_C89;
   if (strcmp (language_string, "GNU C++") == 0)
     language = DW_LANG_C_plus_plus;
-  else if (strcmp (language_string, "GNU Ada") == 0)
-    language = DW_LANG_Ada95;
   else if (strcmp (language_string, "GNU F77") == 0)
     language = DW_LANG_Fortran77;
-  else if (strcmp (language_string, "GNU Fortran") == 0)
-    language = DW_LANG_Fortran95;
   else if (strcmp (language_string, "GNU Pascal") == 0)
     language = DW_LANG_Pascal83;
-  else if (strcmp (language_string, "GNU Java") == 0)
-    language = DW_LANG_Java;
-  else if (strcmp (language_string, "GNU Objective-C") == 0)
-    language = DW_LANG_ObjC;
-  else if (strcmp (language_string, "GNU Objective-C++") == 0)
-    language = DW_LANG_ObjC_plus_plus;
-  else
-    language = DW_LANG_C89;
+  else if (dwarf_version >= 3 || !dwarf_strict)
+    {
+      if (strcmp (language_string, "GNU Ada") == 0)
+	language = DW_LANG_Ada95;
+      else if (strcmp (language_string, "GNU Fortran") == 0)
+	language = DW_LANG_Fortran95;
+      else if (strcmp (language_string, "GNU Java") == 0)
+	language = DW_LANG_Java;
+      else if (strcmp (language_string, "GNU Objective-C") == 0)
+	language = DW_LANG_ObjC;
+      else if (strcmp (language_string, "GNU Objective-C++") == 0)
+	language = DW_LANG_ObjC_plus_plus;
+    }
 
   add_AT_unsigned (die, DW_AT_language, language);
   return die;
@@ -18240,7 +18372,8 @@ gen_type_die_with_usage (tree type, dw_die_ref context_die,
   /* If this is an array type with hidden descriptor, handle it first.  */
   if (!TREE_ASM_WRITTEN (type)
       && lang_hooks.types.get_array_descr_info
-      && lang_hooks.types.get_array_descr_info (type, &info))
+      && lang_hooks.types.get_array_descr_info (type, &info)
+      && (dwarf_version >= 3 || !dwarf_strict))
     {
       gen_descr_array_type_die (type, &info, context_die);
       TREE_ASM_WRITTEN (type) = 1;
@@ -18624,7 +18757,11 @@ force_decl_die (tree decl)
 	  break;
 
 	case NAMESPACE_DECL:
-	  dwarf2out_decl (decl);
+	  if (dwarf_version >= 3 || !dwarf_strict)
+	    dwarf2out_decl (decl);
+	  else
+	    /* DWARF2 has neither DW_TAG_module, nor DW_TAG_namespace.  */
+	    decl_die = comp_unit_die;
 	  break;
 
 	default:
@@ -18907,7 +19044,9 @@ gen_decl_die (tree decl, tree origin, dw_die_ref context_die)
       if (!origin)
         origin = decl_ultimate_origin (decl);
       if (origin != NULL_TREE && TREE_CODE (origin) == PARM_DECL)
-	gen_formal_parameter_die (decl, origin, context_die);
+	gen_formal_parameter_die (decl, origin,
+				  true /* Emit name attribute.  */,
+				  context_die);
       else
 	gen_variable_die (decl, origin, context_die);
       break;
@@ -18929,12 +19068,15 @@ gen_decl_die (tree decl, tree origin, dw_die_ref context_die)
 	gen_type_die (TREE_TYPE (TREE_TYPE (decl_or_origin)), context_die);
       else
 	gen_type_die (TREE_TYPE (decl_or_origin), context_die);
-      gen_formal_parameter_die (decl, origin, context_die);
+      gen_formal_parameter_die (decl, origin,
+				true /* Emit name attribute.  */,
+				context_die);
       break;
 
     case NAMESPACE_DECL:
     case IMPORTED_DECL:
-      gen_namespace_die (decl, context_die);
+      if (dwarf_version >= 3 || !dwarf_strict)
+	gen_namespace_die (decl, context_die);
       break;
 
     default:
@@ -19032,9 +19174,14 @@ dwarf2out_imported_module_or_decl_1 (tree decl,
     }
 
   if (TREE_CODE (decl) == NAMESPACE_DECL)
-    imported_die = new_die (DW_TAG_imported_module,
-			    lexical_block_die,
-			    lexical_block);
+    {
+      if (dwarf_version >= 3 || !dwarf_strict)
+	imported_die = new_die (DW_TAG_imported_module,
+				lexical_block_die,
+				lexical_block);
+      else
+	return;
+    }
   else
     imported_die = new_die (DW_TAG_imported_declaration,
 			    lexical_block_die,
@@ -19075,6 +19222,10 @@ dwarf2out_imported_module_or_decl (tree decl, tree name, tree context,
       && TYPE_P (context)
       && !should_emit_struct_debug (context, DINFO_USAGE_DIR_USE))
     return;
+
+  if (!(dwarf_version >= 3 || !dwarf_strict))
+    return;
+
   scope_die = get_context_die (context);
 
   if (child)
@@ -20110,6 +20261,9 @@ prune_unused_types (void)
     verify_marks_clear (ctnode->root_die);
 #endif /* ENABLE_ASSERT_CHECKING */
 
+  /* Mark types that are used in global variables.  */
+  premark_types_used_by_global_vars ();
+
   /* Set the mark on nodes that are actually used.  */
   prune_unused_types_walk (comp_unit_die);
   for (node = limbo_die_list; node; node = node->next)
@@ -20372,7 +20526,8 @@ dwarf2out_finish (const char *filename)
 
   /* We can only use the low/high_pc attributes if all of the code was
      in .text.  */
-  if (!have_multiple_function_sections)
+  if (!have_multiple_function_sections
+      || !(dwarf_version >= 3 || !dwarf_strict))
     {
       add_AT_lbl_id (comp_unit_die, DW_AT_low_pc, text_section_label);
       add_AT_lbl_id (comp_unit_die, DW_AT_high_pc, text_end_label);
