@@ -221,6 +221,26 @@ GOMP_stream_head (void *s, size_t id)
   return ((gomp_stream) s)->buffer + ((gomp_stream) s)->read_index[id];
 }
 
+/* Return a pointer to the next windowfull of elements in stream S or
+   NULL if only the last window is left and is not full.  FIXME: use a
+   futex for the eos ?  */
+
+void *
+GOMP_stream_head_window (void *vs, size_t id)
+{
+  gomp_stream s = (gomp_stream) vs;
+
+  /*  If we're in the last and only partially filled window of the
+      stream.  */
+  if ((((gomp_stream) s)->eos_p
+       && (((gomp_stream) s)->read_index[id]
+	   == ((gomp_stream) s)->write_index))
+      || s->read_buffer_index[id] == s->write_buffer_index)
+    return NULL;
+
+  return (void *) s->buffer + s->read_buffer_index[id];
+}
+
 /* Returns a pointer to the next available location in stream S that
    can hold an element.  Don't commit the element: for that, a call to
    gomp_stream_push is needed.  */
@@ -229,6 +249,15 @@ void *
 GOMP_stream_tail (void *s)
 {
   return ((gomp_stream) s)->buffer + ((gomp_stream) s)->write_index;
+}
+
+/*  Return a pointer on the next empty window to write to.  */
+
+void *
+GOMP_stream_tail_window (void *s)
+{
+  gomp_stream stream = (gomp_stream) s;
+  return (void *) stream->buffer + stream->write_buffer_index;
 }
 
 /* Returns true when there are no more elements to be read from the
@@ -299,7 +328,19 @@ GOMP_stream_push (void *s, void *elt)
 }
 
 void
+GOMP_stream_push_window (void *s)
+{
+  slide_write_window ((gomp_stream) s);
+}
+
+void
 GOMP_stream_pop (void *s, size_t id)
 {
   gomp_stream_pop ((gomp_stream) s, id);
+}
+
+void
+GOMP_stream_pop_window (void *s, size_t id)
+{
+  slide_read_window ((gomp_stream) s, id);
 }

@@ -1,3 +1,15 @@
+2009-09-25  Antoniu Pop  <antoniu.pop@gmail.com>
+
+Adding stream window operations to libGOMP.
+
+	* stream.c (GOMP_stream_head_window, GOMP_stream_tail_window,
+	GOMP_stream_pop_window, GOMP_stream_push_window): New.
+
+	* libgomp_g.h (GOMP_stream_head_window, GOMP_stream_tail_window,
+	GOMP_stream_pop_window, GOMP_stream_push_window): Declared.
+	* libgomp.map (GOMP_stream_head_window, GOMP_stream_tail_window,
+	GOMP_stream_pop_window, GOMP_stream_push_window): Declared.
+
 2009-09-22  Antoniu Pop  <antoniu.pop@gmail.com>
 
 Adding multi-reader support in libGOMP streams.
