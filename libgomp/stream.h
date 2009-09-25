@@ -59,12 +59,21 @@ typedef struct gomp_stream
   /* Size in bytes of sub-buffers for unsynchronized reads and writes.  */
   size_t size_local_buffer;
 
+  /* Number of buffers/windows in the stream.  */
+  size_t num_windows;
+
+  /* Number of consumers of this stream.  */
+  size_t num_consumers;
+
+  /* Counter for assigning IDs to the consumers.  */
+  size_t next_consumer;
+
   /* End of stream: true when producer has finished inserting elements.  */
   bool eos_p;
 
-  /* Read ready: true after the reader has acquired the first read
-     window.  */
-  bool read_ready_p;
+  /* Mutex used to ensure atomicity of access to all shared data (from
+     the group above).  */
+  gomp_mutex_t lock;
 
   /* Producer private group.  The following fields are only touched by
      the producer (read and written).  They should be on a separate
@@ -79,7 +88,7 @@ typedef struct gomp_stream
      private group.  */
 
   /* Offset in bytes of the first used element in the stream.  */
-  size_t read_index __attribute__((aligned (64)));
+  size_t *read_index;
 
   /* Shared/Modified groups.  As a stream implicitely synchronizes
      tasks/threads, it is natural that some fields will be
@@ -95,18 +104,18 @@ typedef struct gomp_stream
   /* Offset in bytes of the sliding reading window.  Read window is of
      size LOCAL_BUFFER_SIZE bytes.  Read/Written by consumer, Read by
      producer.  */
-  size_t read_buffer_index __attribute__((aligned (64)));
+  size_t *read_buffer_index;
 
   /* Semaphore for write_buffer_index.  The producer posts it to
      signal the consumer that additional data is available in the
      stream.  Initial value is 0 as no data is in the stream.  */
-  gomp_sem_t write_buffer_index_sem;
+  gomp_sem_t *write_buffer_index_sem;
 
   /* Semaphore for read_buffer_index.  The consumer posts it to signal
      the producer that additional free space is available in the
      stream.  Initial value is the maximum of sliding windows as the
      whole steram data buffer is empty.  */
-  gomp_sem_t read_buffer_index_sem;
+  gomp_sem_t *read_buffer_index_sem;
 
 } *gomp_stream;
 

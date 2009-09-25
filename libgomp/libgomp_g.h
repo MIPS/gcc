@@ -180,21 +180,15 @@ extern void *GOMP_single_copy_start (void);
 extern void GOMP_single_copy_end (void *);
 
 /* stream.c */
-extern void *GOMP_stream_create (size_t, size_t, size_t);
+extern void *GOMP_stream_create (size_t, size_t, size_t, size_t);
+extern size_t GOMP_stream_register_reader (void *);
 extern void GOMP_stream_push (void *, void *);
 extern void GOMP_stream_commit (void *);
 extern void *GOMP_stream_tail (void *);
-extern void *GOMP_stream_head (void *);
-extern void GOMP_stream_pop (void *);
-extern bool GOMP_stream_eos_p (void *);
+extern void *GOMP_stream_head (void *, size_t);
+extern void GOMP_stream_pop (void *, size_t);
+extern bool GOMP_stream_eos_p (void *, size_t);
 extern void GOMP_stream_set_eos (void *);
 extern void GOMP_stream_destroy (void *);
-extern void GOMP_stream_align_push (void *, void *, size_t);
-extern void GOMP_stream_align_pop (void *, size_t);
-extern void *GOMP_sem_create (void);
-extern void GOMP_sem_init (void *, size_t);
-extern void GOMP_sem_destroy (void *);
-extern void GOMP_sem_post (void *);
-extern void GOMP_sem_wait (void *);
 
 #endif /* LIBGOMP_G_H */

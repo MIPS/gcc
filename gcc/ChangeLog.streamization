@@ -1,3 +1,35 @@
+2009-09-22  Antoniu Pop  <antoniu.pop@gmail.com>
+
+Adding multi-reader support in libGOMP streams.
+	
+	* omp-low.c (var_stream): Added the CONSUMER_ID to hold the
+	thread/task-local variable used to identify each reader.
+	(lookup_stream, scan_sharing_clauses, lower_rec_input_clauses,
+	lower_send_clauses, expand_omp_taskreg, stream_create_calls):
+	Updated to generate code for multi-reader streams. Pass the
+	consumer ID to all runtime consumer calls.
+
+	* tree-flow.h (omp_region): Added field STREAMIZATION_CLEANUP_BB.
+	
+	* builtin-types.def (BT_FN_SIZE_PTR, BT_FN_BOOL_PTR_SIZE,
+	BT_FN_PTR_SIZE_SIZE_SIZE_SIZE): New.
+	(BT_FN_BOOL_PTR, BT_FN_VOID_PTR_PTR_SIZE,
+	BT_FN_PTR_SIZE_SIZE_SIZE): Removed.
+
+	* fortran/types.def (BT_FN_SIZE_PTR, BT_FN_BOOL_PTR_SIZE,
+	BT_FN_PTR_SIZE_SIZE_SIZE_SIZE): New.
+	(BT_FN_BOOL_PTR, BT_FN_VOID_PTR_PTR_SIZE,
+	BT_FN_PTR_SIZE_SIZE_SIZE): Removed.
+
+	* omp-builtins.def (BUILT_IN_GOMP_STREAM_CREATE,
+	BUILT_IN_GOMP_STREAM_HEAD, BUILT_IN_GOMP_STREAM_POP,
+	BUILT_IN_GOMP_STREAM_EOS_P): Updated prototype.
+	(BUILT_IN_GOMP_STREAM_REGISTER_READER): New.
+	(BUILT_IN_GOMP_STREAM_ALIGN_PUSH, BUILT_IN_GOMP_STREAM_ALIGN_POP,
+	BUILT_IN_GOMP_SEM_CREATE, BUILT_IN_GOMP_SEM_INIT,
+	BUILT_IN_GOMP_SEM_DESTROY, BUILT_IN_GOMP_SEM_POST,
+	BUILT_IN_GOMP_SEM_WAIT): Removed.
+	
 2009-09-15  Antoniu Pop  <antoniu.pop@gmail.com>
 
 	* omp-low.c (var_stream, lower_send_clauses): New field is_pushed,

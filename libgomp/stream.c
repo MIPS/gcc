@@ -35,12 +35,15 @@
 #include <stdio.h>
 
 #include "sem.h"
+#include "mutex.h"
 #include "libgomp.h"
+
 
 void
 debug_stream (void *is)
 {
   gomp_stream s = (gomp_stream) is;
+  int i;
 
   printf ("Stream debug info:\n");
   printf ("  capacity           - %zu\n", s->capacity);
@@ -48,14 +51,31 @@ debug_stream (void *is)
   printf ("  size_local_buffer  - %zu\n", s->size_local_buffer);
   printf ("  eos_p              - %d\n", s->eos_p);
 
-  printf ("  write_index        - %zu\n", s->write_index);
-  printf ("  read_index         - %zu\n", s->read_index);
-  printf ("  write_buffer_index - %zu\n", s->write_buffer_index);
-  printf ("  read_buffer_index  - %zu\n", s->read_buffer_index);
+  printf ("  num_consumers      - %zu\n", s->num_consumers);
+  printf ("  num_windows        - %zu\n", s->num_windows);
 
-  printf ("  write_sem          - %d\n", (int)s->write_buffer_index_sem);
-  printf ("  read_sem           - %d\n\n", (int)s->read_buffer_index_sem);  
+  printf ("  write_index        - %zu\n", s->write_index);
+  printf ("  write_buffer_index - %zu\n", s->write_buffer_index);
+
+  printf ("  read_indexes       - ");
+  for (i = 0; i < s->num_consumers; ++i)
+    printf ("%zu\t", s->read_index[i]);
+  printf ("\n");
+  printf ("  read_buffer_index  - ");
+  for (i = 0; i < s->num_consumers; ++i)
+    printf ("%zu\t", s->read_buffer_index[i]);
+  printf ("\n");
+
+  printf ("  write_sem          - ");
+  for (i = 0; i < s->num_consumers; ++i)
+    printf ("%d\t", (int)s->write_buffer_index_sem[i]);
+  printf ("\n");
+  printf ("  read_sem           - ");  
+  for (i = 0; i < s->num_consumers; ++i)
+    printf ("%d\t", (int)s->read_buffer_index_sem[i]);
+  printf ("\n\n");
 }
+
 
 static inline size_t
 next_window (gomp_stream s, size_t index)
@@ -64,77 +84,98 @@ next_window (gomp_stream s, size_t index)
   return ((next >= s->capacity) ? 0 : next);
 }
 
-/* Returns a new stream of COUNT * WINDOW_SIZE elements.  Each element
-   is of size SIZE bytes.  Returns NULL when the allocation fails or
-   when COUNT is less than 2.  */
+/* Returns a new stream of NUM_WINDOWS * WINDOW_SIZE elements.  Each
+   element is of size SIZE_ELT bytes.  Returns NULL when the
+   allocation fails or when COUNT is less than 2.  */
 
 void *
-GOMP_stream_create (size_t size, size_t count, size_t window_size)
+GOMP_stream_create (size_t size_elt, size_t num_windows, size_t window_size,
+		    size_t num_consumers)
 {
   gomp_stream s;
+  int i;
 
   /* There should be enough place for two sliding windows.  */
-  if (count < 2)
+  if (num_windows < 2)
     return NULL;
 
   s = (gomp_stream) gomp_malloc (sizeof (struct gomp_stream));
 
-  s->capacity = count * window_size;
-  s->size_elt = size;
+  s->size_elt = size_elt;
+  s->num_windows = num_windows;
   s->size_local_buffer = window_size;
-  s->eos_p = false;
-  s->read_ready_p = false;
+  s->num_consumers = num_consumers;
+
+  s->capacity = num_windows * window_size;
 
   s->write_index = 0;
-  s->read_index = 0;
   s->write_buffer_index = 0;
-  s->read_buffer_index = 0;
 
-  gomp_sem_init (&s->write_buffer_index_sem, 0);
-  gomp_sem_init (&s->read_buffer_index_sem, count - 1);
+  s->read_index = (size_t *)
+    gomp_malloc (num_consumers * sizeof (size_t));
+  s->read_buffer_index = (size_t *)
+    gomp_malloc (num_consumers * sizeof (size_t));
+  s->read_buffer_index_sem = (gomp_sem_t *)
+    gomp_malloc (num_consumers * sizeof (gomp_sem_t));
+  s->write_buffer_index_sem = (gomp_sem_t *)
+    gomp_malloc (num_consumers * sizeof (gomp_sem_t));
   s->buffer = (char *) gomp_malloc (s->capacity);
+
+  for (i = 0; i < num_consumers; ++i)
+    {
+      s->read_index[i] = 0;
+      s->read_buffer_index[i] = 0;
+      gomp_sem_init (&s->read_buffer_index_sem[i], num_windows - 1);
+      gomp_sem_init (&s->write_buffer_index_sem[i], 0);
+    }
+  gomp_mutex_init (&s->lock);
+
+  s->next_consumer = 0;
+  s->eos_p = false;
 
   return s;
 }
 
-static inline void 
-slide_read_window (gomp_stream s)
-{
-  size_t next = next_window (s, s->read_buffer_index);
+size_t
+GOMP_stream_register_reader (void *vs)
+{  
+  gomp_stream s = (gomp_stream) vs;
+  size_t consumer_id;
 
-  gomp_sem_wait (&s->write_buffer_index_sem);
-  s->read_buffer_index = next;
-  s->read_index = next;
-  gomp_sem_post (&s->read_buffer_index_sem);
+  /* Get a new ID for this consumer.  */
+  gomp_mutex_lock (&s->lock);
+  consumer_id = (s->next_consumer)++;
+  gomp_mutex_unlock (&s->lock);
+
+  /* Wait for the writer to leave this first window.  */
+  gomp_sem_wait (&s->write_buffer_index_sem[consumer_id]);
+
+  return consumer_id;
+}
+
+static inline void 
+slide_read_window (gomp_stream s, size_t id)
+{
+  size_t next = next_window (s, s->read_buffer_index[id]);
+
+  gomp_sem_wait (&s->write_buffer_index_sem[id]);
+  s->read_buffer_index[id] = next;
+  s->read_index[id] = next;
+  gomp_sem_post (&s->read_buffer_index_sem[id]);
 }
 
 static inline void
 slide_write_window (gomp_stream s)
 {
   size_t next = next_window (s, s->write_buffer_index);
-
-  gomp_sem_wait (&s->read_buffer_index_sem);
+  int i;
+  
+  for (i = 0; i < s->num_consumers; ++i)
+    gomp_sem_wait (&s->read_buffer_index_sem[i]);
   s->write_buffer_index = next;
   s->write_index = next;
-  gomp_sem_post (&s->write_buffer_index_sem);
-}
-
-/* Returns the number of read elements in the read sliding window of
-   stream S.  */
-
-static inline size_t
-read_bytes_in_read_window (gomp_stream s)
-{
-  return s->read_index - s->read_buffer_index;
-}
-
-/* Returns the number of written elements in the write sliding window
-   of stream S.  */
-
-static inline size_t
-written_bytes_in_write_window (gomp_stream s)
-{
-  return s->write_index - s->write_buffer_index;
+  for (i = 0; i < s->num_consumers; ++i)
+    gomp_sem_post (&s->write_buffer_index_sem[i]);
 }
 
 /* Commit the current element to stream S.  */
@@ -142,7 +183,8 @@ written_bytes_in_write_window (gomp_stream s)
 static inline void
 gomp_stream_commit (gomp_stream s)
 {
-  if (written_bytes_in_write_window (s) + 2 * s->size_elt > s->size_local_buffer)
+  int written_bytes_in_write_window = s->write_index - s->write_buffer_index;
+  if (written_bytes_in_write_window + 2 * s->size_elt > s->size_local_buffer)
     slide_write_window (s);
   else
     s->write_index += s->size_elt;
@@ -155,27 +197,28 @@ static inline void
 gomp_stream_push (gomp_stream s, char *elt)
 {
   memcpy (s->buffer + s->write_index, elt, s->size_elt);
-  gomp_stream_commit(s);
+  gomp_stream_commit (s);
 }
 
 /* Release from stream S the next element.  */
 
 static inline void
-gomp_stream_pop (gomp_stream s)
+gomp_stream_pop (gomp_stream s, size_t id)
 {
-  if (read_bytes_in_read_window (s) + 2 * s->size_elt > s->size_local_buffer)
-    slide_read_window (s);
+  int read_bytes_in_read_window = s->read_index[id] - s->read_buffer_index[id];
+  if (read_bytes_in_read_window + 2 * s->size_elt > s->size_local_buffer)
+    slide_read_window (s, id);
   else
-    s->read_index += s->size_elt;
+    s->read_index[id] += s->size_elt;
 }
 
 /* Returns the first element of the stream S.  Don't remove the
    element: for that, a call to gomp_stream_pop is needed.  */
 
 void *
-GOMP_stream_head (void *s)
+GOMP_stream_head (void *s, size_t id)
 {
-  return ((gomp_stream) s)->buffer + ((gomp_stream) s)->read_index;
+  return ((gomp_stream) s)->buffer + ((gomp_stream) s)->read_index[id];
 }
 
 /* Returns a pointer to the next available location in stream S that
@@ -195,71 +238,53 @@ GOMP_stream_tail (void *s)
    possible.  */
 
 bool
-GOMP_stream_eos_p (void *s)
+GOMP_stream_eos_p (void *s, size_t id)
 {
-  /* First time: wait for the writer to leave this first window.  */
-  if (! ((gomp_stream) s)->read_ready_p)
-    {
-      ((gomp_stream) s)->read_ready_p = true;
-      gomp_sem_wait (&((gomp_stream) s)->write_buffer_index_sem);
-    }
-
   return (((gomp_stream) s)->eos_p 
-	  && (((gomp_stream) s)->read_index == ((gomp_stream) s)->write_index));
+	  && (((gomp_stream) s)->read_index[id] 
+	      == ((gomp_stream) s)->write_index));
 }
 
 /* Producer can set End Of Stream to stream S.  The producer has to
    slide the write window if it wrote something.  */
 
 void
-GOMP_stream_set_eos (void *s)
+GOMP_stream_set_eos (void *vs)
 {
+  gomp_stream s = (gomp_stream) vs;
+  int i;
+
   /* Allow the reader to access this same window to finish reading.
-     Witerr can no longer touch this window.  */
-  ((gomp_stream) s)->eos_p = true;
-  gomp_sem_post (&((gomp_stream) s)->write_buffer_index_sem);
+     The writer can no longer touch this window.  */
+  s->eos_p = true;
+  for (i = 0; i < s->num_consumers; ++i)
+    gomp_sem_post (&s->write_buffer_index_sem[i]);
 }
 
 /* Free stream S.  */
 
 void
-GOMP_stream_destroy (void *s)
+GOMP_stream_destroy (void *vs)
 {
-  /* No need to synchronize here: the consumer that detects when eos
-     is set, and based on that it decides to destroy the stream.  */
+  gomp_stream s = (gomp_stream) vs;
+  int i;
+  
+  /* FIXME: must ensure only one task destroys this.  */
 
-  gomp_sem_destroy (&((gomp_stream) s)->write_buffer_index_sem);
-  gomp_sem_destroy (&((gomp_stream) s)->read_buffer_index_sem);
-  free (((gomp_stream) s)->buffer);
-  free ((gomp_stream) s);
-}
-
-/* Align the producer and consumer accesses by pushing in the stream
-   COUNT successive elements starting at address START.  */
-
-void
-GOMP_stream_align_push (void *s, void *start, size_t count)
-{
-  size_t i;
-
-  for (i = 0; i < count; ++i)
+  gomp_mutex_destroy (&s->lock);
+  for (i = 0; i < s->num_consumers; ++i)
     {
-      gomp_stream_push ((gomp_stream) s, (char *) start);
-      start += ((gomp_stream) s)->size_elt;
+      gomp_sem_destroy (&(s->write_buffer_index_sem[i]));
+      gomp_sem_destroy (&(s->read_buffer_index_sem[i]));
     }
+  free (s->read_index);
+  free (s->read_buffer_index);
+  free (s->read_buffer_index_sem);
+  free (s->write_buffer_index_sem);
+  free (s->buffer);
+  free (s);
 }
 
-/* Align the producer and consumer accesses by removing from the
-   stream COUNT elements.  */
-
-void
-GOMP_stream_align_pop (void *s, size_t count)
-{
-  size_t i;
-
-  for (i = 0; i < count; ++i)
-    gomp_stream_pop ((gomp_stream) s);
-}
 
 void
 GOMP_stream_commit (void *s)
@@ -274,40 +299,7 @@ GOMP_stream_push (void *s, void *elt)
 }
 
 void
-GOMP_stream_pop (void *s)
+GOMP_stream_pop (void *s, size_t id)
 {
-  gomp_stream_pop ((gomp_stream) s);
-}
-
-/* Wrappers for semaphore interface.  */
-
-void *
-GOMP_sem_create (void)
-{
-  return gomp_malloc (sizeof (gomp_sem_t));
-}
-
-void
-GOMP_sem_init (void *sem, size_t val)
-{
-  gomp_sem_init ((gomp_sem_t *) sem, val);
-}
-
-void
-GOMP_sem_destroy (void *sem)
-{
-  gomp_sem_destroy ((gomp_sem_t *) sem);
-  free (sem);
-}
-
-void
-GOMP_sem_post (void *sem)
-{
-  gomp_sem_post ((gomp_sem_t *) sem);
-}
-
-void
-GOMP_sem_wait (void *sem)
-{
-  gomp_sem_wait ((gomp_sem_t *) sem);
+  gomp_stream_pop ((gomp_stream) s, id);
 }

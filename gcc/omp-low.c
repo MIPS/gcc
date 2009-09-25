@@ -165,6 +165,11 @@ typedef struct var_stream
   /* Set if the push operation has already been inserted (used when
      multiple readers are allowed).  */
   bool is_pushed;
+
+  /* The id of the current consumer.  As it's thread-local, there is
+     no need to have a diferent one for each consumer (only one id per
+     thread-stream is issued).  */
+  tree consumer_id;
 } *var_stream;
 
 /* Map all streamized variables to their respective streams.  */
@@ -206,9 +211,12 @@ lookup_stream (tree var)
     {
       (*slot) = GGC_CNEW (struct var_stream);
       (*slot)->var = var;
-      (*slot)->stream = create_tmp_var_raw (ptr_type_node, "omp_stream");
+      (*slot)->stream = create_tmp_var_raw (ptr_type_node, "gomp_stream");
       (*slot)->produced = 0;
       (*slot)->consumed = 0;
+      (*slot)->is_pushed = false;
+      (*slot)->consumer_id = create_tmp_var_raw (long_unsigned_type_node,
+						 "gomp_stream_consumer_id");
     }
 
   return (*slot);
@@ -1579,7 +1587,10 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	    /* Lookup the corresponing stream or create a new one.  */
 	    vs = lookup_stream (decl);
 	    if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_INPUT)
-	      vs->consumed++;
+	      {
+		vs->consumed++;
+		install_var_local (vs->consumer_id, ctx);
+	      }
 	    else 
 	      vs->produced++;
 
@@ -2669,7 +2680,7 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 		    tree tmp_ptr, tmp_val;
 
 		    fn = built_in_decls[BUILT_IN_GOMP_STREAM_HEAD];
-		    stmt = gimple_build_call (fn, 1, vs->stream);
+		    stmt = gimple_build_call (fn, 2, vs->stream, vs->consumer_id);
 
 		    tmp_ptr = create_tmp_var
 		      (build_pointer_type (TREE_TYPE (var)), "omp_var_tmp");
@@ -2694,7 +2705,7 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 		    set_stmt_loc (stmt, SL_POP);
 
 		    fn = built_in_decls[BUILT_IN_GOMP_STREAM_POP];
-		    stmt = gimple_build_call (fn, 1, vs->stream);
+		    stmt = gimple_build_call (fn, 2, vs->stream, vs->consumer_id);
 		    gimple_seq_add_stmt (ilist, stmt);
 		    set_stmt_loc (stmt, SL_POP);
 		  }
@@ -3104,7 +3115,7 @@ lower_send_clauses (tree clauses, gimple_seq *ilist, gimple_seq *olist,
 
 		/* Generate stream head/pop calls.  */
 		fn = built_in_decls[BUILT_IN_GOMP_STREAM_HEAD];
-		stmt = gimple_build_call (fn, 1, vs->stream);
+		stmt = gimple_build_call (fn, 2, vs->stream, vs->consumer_id);
 
 		tmp_ptr = create_tmp_var
 		  (build_pointer_type (TREE_TYPE (var)), "omp_var_tmp");
@@ -3128,7 +3139,7 @@ lower_send_clauses (tree clauses, gimple_seq *ilist, gimple_seq *olist,
 		set_stmt_loc (stmt, SL_POP);
 
 		fn = built_in_decls[BUILT_IN_GOMP_STREAM_POP];
-		stmt = gimple_build_call (fn, 1, vs->stream);
+		stmt = gimple_build_call (fn, 2, vs->stream, vs->consumer_id);
 		gimple_seq_add_stmt (olist, stmt);
 		set_stmt_loc (stmt, SL_POP);
 	      }
@@ -3947,12 +3958,29 @@ expand_omp_taskreg (struct omp_region *region)
 	    else
 	      gsi_next (&src);
 
+	  /* Get a consumer ID for the consumed streams.  */
+	  clauses = gimple_omp_task_clauses (entry_stmt);
+	  for (; clauses; clauses = OMP_CLAUSE_CHAIN (clauses))
+	    {
+	      if (OMP_CLAUSE_CODE (clauses) == OMP_CLAUSE_INPUT)
+		{
+		  var_stream vs = lookup_stream (OMP_CLAUSE_DECL (clauses));
+		  tree omp_eos_p, fn, false_value;
+		  
+		  fn = built_in_decls[BUILT_IN_GOMP_STREAM_REGISTER_READER];
+		  stmt = gimple_build_call (fn, 1, vs->stream);
+		  gimple_call_set_lhs (stmt, vs->consumer_id);
+		  gsi = gsi_last_bb (init_bb);
+		  gsi_insert_after (&gsi, stmt, GSI_NEW_STMT);
+		}
+	    }
 	  /* We can now build the "while (!end_of_stream ())" loop
 	     structure around the body of the task.  For each INPUT
 	     variable, we have to check if the stream has been
 	     finished, as well as destroying the stream on exit from
 	     the task.  For OUTPUT variables, we only need to set the
 	     EOS flag on exit.  */
+	  clauses = gimple_omp_task_clauses (entry_stmt);
 	  for (; clauses; clauses = OMP_CLAUSE_CHAIN (clauses))
 	    {
 	      if (OMP_CLAUSE_CODE (clauses) == OMP_CLAUSE_INPUT)
@@ -3969,7 +3997,7 @@ expand_omp_taskreg (struct omp_region *region)
 		  make_edge (eos_bb, final_bb, EDGE_FALSE_VALUE);
 
 		  fn = built_in_decls[BUILT_IN_GOMP_STREAM_EOS_P];
-		  stmt = gimple_build_call (fn, 1, vs->stream);
+		  stmt = gimple_build_call (fn, 2, vs->stream, vs->consumer_id);
 		  omp_eos_p = create_tmp_var (boolean_type_node, "omp_eos_p");
 		  gimple_call_set_lhs (stmt, omp_eos_p);
 		  gsi = gsi_last_bb (eos_bb);
@@ -3982,10 +4010,10 @@ expand_omp_taskreg (struct omp_region *region)
 		  gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
 
 		  /* Build call to GOMP_stream_destroy in the FINAL_BB.  */
-		  fn = built_in_decls[BUILT_IN_GOMP_STREAM_DESTROY];
+		  /*fn = built_in_decls[BUILT_IN_GOMP_STREAM_DESTROY];
 		  stmt = gimple_build_call (fn, 1, vs->stream);
 		  gsi = gsi_last_bb (final_bb);
-		  gsi_insert_after (&gsi, stmt, GSI_NEW_STMT);
+		  gsi_insert_after (&gsi, stmt, GSI_NEW_STMT);*/
 
 		  set_immediate_dominator (CDI_DOMINATORS, eos_bb, init_bb);
 		  set_immediate_dominator (CDI_DOMINATORS,
@@ -5416,6 +5444,7 @@ stream_create_calls (void **slot, void *data)
   /* ---FIXME_stream--- make sure to remove those "magic numbers".  */
   tree num_winows = build_int_cst (unsigned_type_node, 128);
   tree window_size = build_int_cst (unsigned_type_node, 1024);
+  tree num_consumers = build_int_cst (unsigned_type_node, vs->consumed);
 
   gimple_stmt_iterator gsi;
   gimple stmt;
@@ -5430,7 +5459,8 @@ stream_create_calls (void **slot, void *data)
 
   /* Generate stream creation/initialization call.  */
   fn = built_in_decls[BUILT_IN_GOMP_STREAM_CREATE];
-  stmt = gimple_build_call (fn, 3, type_size, num_winows, window_size);
+  stmt = gimple_build_call (fn, 4, type_size, num_winows, window_size,
+			    num_consumers);
   gimple_call_set_lhs (stmt, vs->stream);
   gsi = gsi_start_bb (region->streamization_init_bb);
   gsi_insert_before (&gsi, stmt, GSI_CONTINUE_LINKING);
@@ -5447,12 +5477,21 @@ stream_create_calls (void **slot, void *data)
 
 	  e = split_block_after_labels (region->exit);
 	  region->streamization_exit_bb = split_edge (e);
-	  region->exit = single_succ (region->streamization_exit_bb);
+	  region->streamization_cleanup_bb = 
+	    split_edge (single_succ_edge (region->streamization_exit_bb));
 
+	  region->exit = single_succ (region->streamization_cleanup_bb);
 	  skip_single_sec_edge = find_edge (single_succ (region->entry),
 					    e->src);
 	  gcc_assert (redirect_edge_and_branch (skip_single_sec_edge,
 						region->exit));
+
+	  /* Add a synchronization point before the exit code  */
+	  gsi = gsi_last_bb (region->streamization_cleanup_bb);
+	  fn = built_in_decls[BUILT_IN_GOMP_TASKWAIT];
+	  stmt = gimple_build_call (fn, 0);
+	  gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);  
+
 	}
       else 
 	{
@@ -5475,12 +5514,11 @@ stream_create_calls (void **slot, void *data)
       stmt = gimple_build_call (fn, 1, vs->stream);
       gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
     }
-  else if (!vs->consumed)
-    {
-      fn = built_in_decls[BUILT_IN_GOMP_STREAM_DESTROY];
-      stmt = gimple_build_call (fn, 1, vs->stream);
-      gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
-    }
+
+  gsi = gsi_last_bb (region->streamization_cleanup_bb);
+  fn = built_in_decls[BUILT_IN_GOMP_STREAM_DESTROY];
+  stmt = gimple_build_call (fn, 1, vs->stream);
+  gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
 
   return 1;
 }

@@ -448,6 +448,8 @@ struct omp_region
   basic_block streamization_init_bb;
   /* Block used to issue streamization finalization calls.  */
   basic_block streamization_exit_bb;
+  /* Block used to issue streamization destruction calls.  */
+  basic_block streamization_cleanup_bb;
 
   /* If this is a combined parallel+workshare region, this is a list
      of additional arguments needed by the combined parallel+workshare

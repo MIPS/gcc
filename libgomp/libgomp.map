@@ -168,6 +168,7 @@ GOMP_2.0 {
 	GOMP_loop_ull_static_next;
 	GOMP_loop_ull_static_start;
 	GOMP_stream_create;
+	GOMP_stream_register_reader;
 	GOMP_stream_push;
 	GOMP_stream_commit;
 	GOMP_stream_tail;
@@ -176,11 +177,4 @@ GOMP_2.0 {
  	GOMP_stream_eos_p;
  	GOMP_stream_set_eos;
  	GOMP_stream_destroy;
- 	GOMP_stream_align_push;
- 	GOMP_stream_align_pop;
-	GOMP_sem_create;
-	GOMP_sem_init;
-	GOMP_sem_destroy;
-	GOMP_sem_post;
-	GOMP_sem_wait;
 } GOMP_1.0;

@@ -1,3 +1,33 @@
+2009-09-22  Antoniu Pop  <antoniu.pop@gmail.com>
+
+Adding multi-reader support in libGOMP streams.
+	
+	* libgomp_g.h (GOMP_stream_create, GOMP_stream_head,
+	GOMP_stream_pop, GOMP_stream_eos_p): Adapted prototype.
+	(GOMP_stream_register_reader): New.
+	(GOMP_stream_align_push, GOMP_stream_align_pop, GOMP_sem_*):
+	Removed.
+
+	* libgomp.map (GOMP_stream_register_reader): Added.
+	(GOMP_stream_align_push, GOMP_stream_align_pop, GOMP_sem_*):
+	Removed.
+
+	* stream.h (read_index, read_buffer_index, read_buffer_index_sem,
+	write_buffer_index_sem): Chnaged from scalars to arrays to fit
+	multiple readers.
+	(lock, num_windows, num_consumers, next_consumer): New.
+	(read_ready_p): Removed.
+	
+	* stream.c (debug_stream, GOMP_stream_create, slide_read_window,
+	slide_write_window, gomp_stream_commit, gomp_stream_pop,
+	GOMP_stream_head, GOMP_stream_eos_p, GOMP_stream_set_eos,
+	GOMP_stream_destroy, GOMP_stream_pop): Adapted to multi-reading
+	capability (mostly accessing the separate semaphores).
+	(GOMP_stream_register_reader): New.
+	(GOMP_stream_align_push, GOMP_stream_align_pop, GOMP_sem_*,
+	read_bytes_in_read_window, written_bytes_in_write_window):
+	Removed.
+	
 2009-07-06  Antoniu Pop  <antoniu.pop@gmail.com>
 
 	* Merge from mainline (r144639:149276).
