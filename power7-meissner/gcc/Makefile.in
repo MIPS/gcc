@@ -839,7 +839,11 @@ RTL_BASE_H = rtl.h rtl.def $(MACHMODE_H) reg-notes.def insn-notes.def \
 FIXED_VALUE_H = fixed-value.h $(MACHMODE_H) double-int.h
 RTL_H = $(RTL_BASE_H) genrtl.h
 PARAMS_H = params.h params.def
-BUILTINS_DEF = builtins.def sync-builtins.def omp-builtins.def
+TM_BUILTIN_HEADERS_DEF = @builtin_headers_list@
+TM_BUILTIN_TYPES_DEF = @builtin_types_list@
+TM_BUILTIN_ATTRS_DEF = @builtin_attrs_list@
+BUILTINS_DEF = builtins.def sync-builtins.def omp-builtins.def tm-builtin-headers.def \
+	$(TM_BUILTIN_HEADERS_DEF)
 TREE_H = tree.h all-tree.def tree.def c-common.def $(lang_tree_files) \
           $(MACHMODE_H) tree-check.h $(BUILTINS_DEF) \
           $(INPUT_H) statistics.h vec.h treestruct.def $(HASHTAB_H) \
@@ -1995,7 +1999,8 @@ c-common.o : c-common.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
 	$(TARGET_H) $(C_TREE_H) tree-iterator.h langhooks.h tree-mudflap.h \
 	intl.h opts.h $(REAL_H) $(CPPLIB_H) $(TREE_INLINE_H) $(HASHTAB_H) \
 	$(BUILTINS_DEF) $(CGRAPH_H) $(BASIC_BLOCK_H) $(TARGET_DEF_H) \
-	$(GIMPLE_H) libfuncs.h
+	$(GIMPLE_H) libfuncs.h tm-builtin-types.def tm-builtin-attrs.def \
+	$(TM_BUILTIN_TYPES_DEF) $(TM_BUILTIN_ATTRS_DEF)
 
 c-pretty-print.o : c-pretty-print.c $(C_PRETTY_PRINT_H) \
 	$(C_TREE_H) $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(REAL_H) \
@@ -3704,6 +3709,25 @@ GCOV_DUMP_OBJS = gcov-dump.o version.o errors.o
 gcov-dump$(exeext): $(GCOV_DUMP_OBJS) $(LIBDEPS)
 	$(LINKER) $(ALL_LINKERFLAGS) $(LDFLAGS) $(GCOV_DUMP_OBJS) \
 		$(LIBS) -o $@
+
+
+# Built the tm specific builtin headers.
+tm-builtin-headers.def: $(TM_BUILTIN_HEADERS_DEF)
+	rm -rf tm-builtins-headers.def; \
+	echo "/* target machine builtin functions */" > tm-builtin-headers.def; \
+	for x in $(TM_BUILTIN_HEADERS_DEF); do echo "#include \"$${x}\"" >> tm-builtin-headers.def; done
+
+tm-builtin-types.def: $(TM_BUILTIN_TYPES_DEF)
+	rm -rf tm-builtin-types.def; \
+	echo "/* target machine builtin types */" > tm-builtin-types.def; \
+	for x in $(TM_BUILTIN_TYPES_DEF); do echo "#include \"$${x}\"" >> tm-builtin-types.def; done
+
+tm-builtin-attrs.def: $(TM_BUILTIN_ATTRS_DEF)
+	rm -rf tm-builtin-attrs.def; \
+	echo "/* target machine builtin attributes */" > tm-builtin-attrs.def; \
+	for x in $(TM_BUILTIN_ATTRS_DEF); do echo "#include \"$${x}\"" >> tm-builtin-attrs.def; done
+
+
 #
 # Build the include directories.  The stamp files are stmp-* rather than
 # s-* so that mostlyclean does not force the include directory to
@@ -4062,7 +4086,7 @@ mostlyclean: lang.mostlyclean
 # Delete debugging dump files.
 	-rm -f *.[0-9][0-9].* */*.[0-9][0-9].*
 # Delete some files made during installation.
-	-rm -f specs $(SPECS)
+	-rm -f specs $(SPECS) tm-builtin*.def
 	-rm -f collect collect2 mips-tfile mips-tdump
 # Delete unwanted output files from TeX.
 	-rm -f *.toc *.log *.vr *.fn *.cp *.tp *.ky *.pg

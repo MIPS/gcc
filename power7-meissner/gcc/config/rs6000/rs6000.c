@@ -1780,11 +1780,15 @@ rs6000_debug_reg_global (void)
 	   "align_branch_targets            = %s\n"
 	   "sched_restricted_insns_priority = %d\n"
 	   "sched_costly_dep                = %s\n"
-	   "sched_insert_nops               = %s\n\n",
+	   "sched_insert_nops               = %s\n"
+	   "# of rs6000 builtins            = %d\n"
+	   "# of standard builtins          = %d\n\n",
 	   rs6000_always_hint ? "true" : "false",
 	   rs6000_align_branch_targets ? "true" : "false",
 	   (int)rs6000_sched_restricted_insns_priority,
-	   costly_str, nop_str);
+	   costly_str, nop_str,
+	   (int)RS6000_BUILTIN_COUNT,
+	   (int)END_BUILTINS);
 }
 
 /* Initialize the various global tables that are based on register size.  */
@@ -11117,15 +11121,6 @@ rs6000_init_builtins (void)
       def_builtin (MASK_POPCNTB, "__builtin_recipdiv", ftype,
 		   RS6000_BUILTIN_RECIP);
 
-    }
-  if (TARGET_POPCNTD)
-    {
-      enum machine_mode mode = (TARGET_64BIT) ? DImode : SImode;
-      tree ftype = builtin_function_type (mode, mode, mode, VOIDmode,
-					  POWER7_BUILTIN_BPERMD,
-					  "__builtin_bpermd");
-      def_builtin (MASK_POPCNTD, "__builtin_bpermd", ftype,
-		   POWER7_BUILTIN_BPERMD);
     }
   if (TARGET_POWERPC)
     {

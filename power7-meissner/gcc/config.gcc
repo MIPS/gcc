@@ -101,6 +101,15 @@
 #  extra_headers	List of used header files from the directory
 #			config/${cpu_type}.
 #
+#  builtin_headers	List of the header files in config/${cpu_type} that
+#			define new builtin functions.
+#
+#  builtin_types	List of the header files in config/${cpu_type} that
+#			define new types for builtin functions.
+#
+#  builtin_attrs	List of the header files in config/${cpu_type} that
+#			define new attributes for builtin functions.
+#
 #  use_gcc_tgmath	If set, add tgmath.h to the list of used header
 #			files.
 #
@@ -248,6 +257,9 @@ esac
 tm_p_file=
 cpu_type=`echo ${target} | sed 's/-.*$//'`
 cpu_is_64bit=
+builtin_headers=
+builtin_types=
+builtin_attrs=
 case ${target} in
 m32c*-*-*)
         cpu_type=m32c
@@ -326,6 +338,8 @@ powerpc*-*-*)
 	cpu_type=rs6000
 	extra_headers="ppc-asm.h altivec.h spe.h ppu_intrinsics.h paired.h spu2vmx.h vec_types.h si2vmx.h"
 	need_64bit_hwint=yes
+	builtin_headers="builtins-altivec.def builtins-vsx.def builtins-vec.def builtins-spe.def builtins-paired.def builtins-misc.def"
+	builtin_types="builtins-types.def"
 	case x$with_cpu in
 	    xpowerpc64|xdefault64|x6[23]0|x970|xG5|xpower[34567]|xpower6x|xrs64a|xcell)
 		cpu_is_64bit=yes
@@ -334,6 +348,8 @@ powerpc*-*-*)
 	;;
 rs6000*-*-*)
 	need_64bit_hwint=yes
+	builtin_headers="builtins-altivec.def builtins-vsx.def builtins-vec.def builtins-spe.def builtins-paired.def builtins-misc.def"
+	builtin_types="builtins-types.def"
 	;;
 score*-*-*)
 	cpu_type=score

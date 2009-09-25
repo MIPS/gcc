@@ -3364,9 +3364,6 @@ enum rs6000_builtins
   VECTOR_BUILTIN_FIX_V4SF_V4SI,
   VECTOR_BUILTIN_FIXUNS_V4SF_V4SI,
 
-  /* Power7 builtins, that aren't VSX instructions.  */
-  POWER7_BUILTIN_BPERMD,
-
   RS6000_BUILTIN_COUNT
 };
 

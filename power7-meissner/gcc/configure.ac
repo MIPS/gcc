@@ -1791,6 +1791,22 @@ if test x"$use_gcc_tgmath" = xyes
 then extra_headers_list="${extra_headers_list} \$(srcdir)/ginclude/tgmath.h"
 fi
 
+# expand builtin_headers, builtin_types, builtin_attrs
+builtin_headers_list=
+for file in ${builtin_headers} ; do
+  builtin_headers_list="${builtin_headers_list} config/${cpu_type}/${file}"
+done
+
+builtin_attrs_list=
+for file in ${builtin_attrs} ; do
+  builtin_attrs_list="${builtin_attrs_list} config/${cpu_type}/${file}"
+done
+
+builtin_types_list=
+for file in ${builtin_types} ; do
+  builtin_types_list="${builtin_types_list} config/${cpu_type}/${file}"
+done
+
 # Define collect2 in Makefile.
 case $host_can_use_collect2 in
   no) collect2= ;;
@@ -4130,6 +4146,9 @@ AC_SUBST(TM_MULTILIB_CONFIG)
 AC_SUBST(TM_MULTILIB_EXCEPTIONS_CONFIG)
 AC_SUBST(extra_gcc_objs)
 AC_SUBST(extra_headers_list)
+AC_SUBST(builtin_headers_list)
+AC_SUBST(builtin_types_list)
+AC_SUBST(builtin_attrs_list)
 AC_SUBST(extra_objs)
 AC_SUBST(extra_parts)
 AC_SUBST(extra_passes)

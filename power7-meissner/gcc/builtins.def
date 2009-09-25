@@ -142,6 +142,14 @@ along with GCC; see the file COPYING3.  If not see
                false, true, true, ATTRS, false, \
 	       (flag_openmp || flag_tree_parallelize_loops))
 
+/* A target machine specific builtin is provided by the
+   compiler, but does not correspond to a function in the standard
+   library.  */
+#undef DEF_MD_BUILTIN
+#define DEF_MD_BUILTIN(ENUM, NAME, TYPE, ATTRS, COND)	\
+  DEF_BUILTIN (ENUM, NAME, BUILT_IN_MD, TYPE, BT_LAST,	\
+	       false, false, false, ATTRS, false, COND)
+
 /* Define an attribute list for math functions that are normally
    "impure" because some of them may write into global memory for
    `errno'.  If !flag_errno_math they are instead "const".  */
@@ -770,3 +778,6 @@ DEF_BUILTIN_STUB (BUILT_IN_EH_COPY_VALUES, "__builtin_eh_copy_values")
 
 /* OpenMP builtins.  */
 #include "omp-builtins.def"
+
+/* Target machine builtins.  */
+#include "tm-builtin-headers.def"

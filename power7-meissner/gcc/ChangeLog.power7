@@ -1,3 +1,53 @@
+2009-09-25  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* configure.ac: Add support for the target machine to add header
+	files that define builtins, builtin types, and builtin attributes.
+	* configure: Regenerate.
+
+	* builtin-attrs.def (tm-builtin-attrs.def): Include to pick up
+	target machine builtin attributes.
+
+	* builtin-types.def (tm-builtin-types.def): Include to pick up
+	target machine builtin types.
+
+	* builtins.def (DEF_MD_BUILTIN): New macro to define target
+	machine builtins.
+	(tm-builtin-headers.def): Include to pick up target machine
+	builtin functions.
+
+	* config.gcc (powerpc*-*-*, rs6000*-*-*): Add the powerpc/rs6000
+	builtin files.
+
+	* Makefile.in (TM_BUILTIN_HEADERS_DEF): New list of files that
+	define TM builtin functions.
+	(TM_BUILTIN_TYPES_DEF): New list of files that define TM builtin
+	types.
+	(TM_BUILTIN_ATTRS_DEF): New list of files that define TM builtin
+	attributes.
+	(BUILTINS_DEF): Add dependencies for target machine builtins.
+	(c-common.o): Add dependencies for target machine builtin types
+	and attributes.
+	(tm-builtin-*): Build the include files of the target machine
+	builtin functions, types, and attributes.
+	(mostlyclean): Delete the tm-builtin files.
+
+	* config/rs6000/builtins-vec.def: Stub file for now.
+	* config/rs6000/builtins-types.def: Ditto.
+	* config/rs6000/builtins-paired.def: Ditto.
+	* config/rs6000/builtins-vsx.def: Ditto.
+	* config/rs6000/builtins-spe.def: Ditto.
+
+	* config/rs6000/rs6000.c (rs6000_debug_reg_global): Print the
+	number of normal and powerpc builtins.
+	(rs6000_init_builtins): Move __builtin_bpermd creation to
+	builtins-misc.def.
+
+	* config/rs6000/rs6000.h (enum rs6000_builtins): Move
+	POWER7_BUILTIN_BPERMD to builtins-misc.def.
+
+	* config/rs6000/builtins-misc.def: New file.  Define the bpermpd
+	builtin.
+
 2009-09-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 152141.  VSX load/store with update moved to
