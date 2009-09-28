@@ -795,7 +795,7 @@ esac],
 [onestep=""])
 AC_SUBST(onestep)
 
-ACX_PKGVERSION([lto merged with rev 152039])
+ACX_PKGVERSION([lto merged with rev 152236])
 ACX_BUGURL([http://gcc.gnu.org/bugs.html])
 
 # Sanity check enable_languages in case someone does not run the toplevel
@@ -4033,6 +4033,8 @@ changequote([,])dnl
         case ",$enable_languages," in
         	*,lto,*)
 		    AC_DEFINE(ENABLE_LTO, 1, [Define to enable LTO support.])
+		    enable_lto=yes
+		    AC_SUBST(enable_lto)
 		    ;;
 		*) ;;
 	esac
@@ -4240,7 +4242,7 @@ if test x"$enable_plugin" = x"yes"; then
   fi
 
   # Check -ldl
-  LDFLAGS="$LDFLAGS -ldl"
+  LIBS="$LIBS -ldl"
   AC_MSG_CHECKING([for -ldl])
   AC_TRY_LINK(
     [#include <dlfcn.h>],

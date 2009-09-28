@@ -433,15 +433,14 @@ complain_wrong_lang (const char *text, const struct cl_option *option,
 {
   char *ok_langs, *bad_lang;
 
-  /* FIXME lto.  The LTO front end is special and by default it
-     inherits all the options from the first front end that was used.
-     Not all the original front end options make sense in LTO.
+  /* The LTO front end inherits all the options from the first front
+     end that was used.  However, not all the original front end
+     options make sense in LTO.
      
      A real solution would be to filter this in collect2, but collect2
      does not have access to all the option attributes to know what to
-     filter.
-
-     For now, silently accept inherited flags and do nothing about it.  */
+     filter.  So, in lto1 we silently accept inherited flags and do
+     nothing about it.  */
   if (lang_mask & CL_LTO)
     return;
 
@@ -1051,11 +1050,6 @@ decode_options (unsigned int argc, const char **argv)
 	flag_shlib = 1;
     }
 
-  /* Set flag_no_inline before the post_options () hook.  The C front
-     ends use it to determine tree inlining defaults.  FIXME: such
-     code should be lang-independent when all front ends use tree
-     inlining, in which case it, and this condition, should be moved
-     to the top of process_options() instead.  */
   if (optimize == 0)
     {
       /* Inlining does not work if not optimizing,
@@ -1781,7 +1775,7 @@ common_handle_option (size_t scode, const char *arg, int value,
     case OPT_ffast_math:
       set_fast_math_flags (value);
       break;
- 
+
     case OPT_funsafe_math_optimizations:
       set_unsafe_math_optimizations_flags (value);
       break;

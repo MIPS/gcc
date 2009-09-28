@@ -172,6 +172,13 @@ struct lang_hooks_for_decls
      of a generic type, e.g a template template parameter for the C++ FE.  */
   bool (*generic_generic_parameter_decl_p) (const_tree);
 
+  /* Determine if a function parameter got expanded from a
+     function parameter pack.  */
+  bool (*function_parm_expanded_from_pack_p) (tree, tree);
+
+  /* Returns the generic declaration of a generic function instantiations.  */
+  tree (*get_generic_function_decl) (const_tree);
+
   /* Returns true when we should warn for an unused global DECL.
      We will already have checked that it has static binding.  */
   bool (*warn_unused_global) (const_tree);
@@ -222,6 +229,12 @@ struct lang_hooks_for_decls
 
   /* Do language specific checking on an implicitly determined clause.  */
   void (*omp_finish_clause) (tree clause);
+
+  /* If set, returns true if DECL may need an assembler name to be
+     computed for it.  This is only used to test language-specific
+     information.  It should should not be called directly.  Instead
+     call need_assembler_name_p.  */
+  bool (*may_need_assembler_name_p) (tree decl);
 };
 
 /* Language hooks related to LTO serialization.  */
@@ -398,13 +411,16 @@ struct lang_hooks
 
   struct lang_hooks_for_lto lto;
 
-  /* Retuns the generic parameters of an instantiation of
+  /* Returns the generic parameters of an instantiation of
      a generic type or decl, e.g. C++ template instantiation.  */
   tree (*get_innermost_generic_parms) (const_tree);
 
   /* Returns the TREE_VEC of arguments of an instantiation
      of a generic type of decl, e.g. C++ template instantiation.  */
   tree (*get_innermost_generic_args) (const_tree);
+
+  /* Determine if a tree is a function parameter pack.  */
+  bool (*function_parameter_pack_p) (const_tree);
 
   /* Perform language-specific gimplification on the argument.  Returns an
      enum gimplify_status, though we can't see that type here.  */

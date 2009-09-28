@@ -500,7 +500,6 @@ proc v3-build_support { } {
     global v3-threads
     global v3-symver
     global v3-sharedlib
-    global cxxflags
 
     # Figure out whether or not the library supports certain features.
     set v3-wchar_t 0
@@ -600,11 +599,6 @@ proc v3-build_support { } {
 		error "could not compile $f"
 	    }
 	}
-    }
-
-    # If the compiler supports LTO, use it.
-    if [check_effective_target_lto] {
-      append cxxflags " -fwhopr"
     }
 }
 

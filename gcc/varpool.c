@@ -35,7 +35,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "output.h"
 #include "gimple.h"
 #include "tree-flow.h"
-#include "flags.h"
 
 /*  This file contains basic routines manipulating variable pool.
 
@@ -230,9 +229,6 @@ decide_is_variable_needed (struct varpool_node *node, tree decl)
 {
   /* If the user told us it is used, then it must be so.  */
   if (node->externally_visible || node->force_output)
-    return true;
-
-  if (in_lto_p)
     return true;
 
   /* ??? If the assembler name is set by hand, it is possible to assemble

@@ -3097,9 +3097,8 @@ proc check_effective_target_correct_iso_cpp_string_wchar_protos { } {
 # (LTO) support.
 
 proc check_effective_target_lto { } {
-    return [check_no_compiler_messages lto executable {
-	int main (void) { return 0; }
-    } "-O0 -flto"]
+    global ENABLE_LTO
+    return [info exists ENABLE_LTO]
 }
 
 # Return 1 if the MPC library is integrated with GCC, 0 otherwise.

@@ -1,3 +1,16 @@
+2009-09-28  Diego Novillo  <dnovillo@google.com>
+
+	Revert:
+
+	2008-10-30  Simon Baldwin  <simonb@google.com>
+
+		* make-temp-file.c (make_temp_file_common): Split out
+		from original make_temp_file() function.
+
+		* (make_temp_file): Call make_temp_file_common() with tmp dir.
+		* (make_cwd_temp_file): New.  Call make_temp_file_common()
+		with "./".
+
 2009-02-05  Rafael Avila de Espindola  <espindola@google.com>
 
 	* configure.ac: Build shared by default.

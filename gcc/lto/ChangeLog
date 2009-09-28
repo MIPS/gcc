@@ -1,3 +1,18 @@
+2009-09-28  Diego Novillo  <dnovillo@google.com>
+
+	* lto-lang.c: Tidy.  Remove stale FIXME lto markers.
+	* lto.c (strip_extension): New.
+	(get_filename_for_set): Call it.  Do not call make_cwd_temp_file.
+	(lto_execute_ltrans): Tidy.
+	Do not pass -fwpa nor -fltrans-* to LTRANS.
+	* opts.c: Tidy formatting and remove stale FIXME lto markers.
+	* tree.c (need_assembler_name_p): Call
+	lang_hooks.decls.may_need_assembler_name_p if set.
+	* varasm.c (default_binds_local_p_1): Remove check for
+	flag_ltrans.
+	* varpool.c (decide_is_variable_needed): Do not test for
+	in_lto_p.
+
 2009-09-22  Richard Guenther  <rguenther@suse.de>
 
 	PR lto/39276

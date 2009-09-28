@@ -48,25 +48,10 @@ static tree handle_type_generic_attribute (tree *, tree, tree, int, bool *);
 static tree handle_format_attribute (tree *, tree, tree, int, bool *);
 static tree handle_format_arg_attribute (tree *, tree, tree, int, bool *);
 
-/* Table of machine-independent attributes supported in GIMPLE.
-   
-   FIXME lto, this started as a copy of c_common_attribute_table, as
-   initially LTO only really supports C-like languages.  Only
-   attributes that are used in builtins are included (See
-   builtin-attrs.def).  Every other attribute is already streamed with
-   their corresponding DECLs.  Perhaps one solution is to stream out
-   builtin tables as well, though this seems wasteful.
-
-   When other languages are incorporated this needs to be adapted for
-   the new languages.  */
+/* Table of machine-independent attributes supported in GIMPLE.  */
 const struct attribute_spec lto_attribute_table[] =
 {
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
-  /* FIXME: logically, noreturn attributes should be listed as
-     "false, true, true" and apply to function types.  But implementing this
-     would require all the places in the compiler that use TREE_THIS_VOLATILE
-     on a decl to identify non-returning functions to be located and fixed
-     to check the function type instead.  */
   { "noreturn",               0, 0, true,  false, false,
 			      handle_noreturn_attribute },
   /* The same comments as for noreturn attributes apply to const ones.  */
@@ -163,8 +148,6 @@ typedef enum lto_builtin_type builtin_type;
 
 static GTY(()) tree builtin_types[(int) BT_LAST + 1];
 
-/* FIXME: eventually these should be stuck into an array or merged with
-   c_global_trees.  */
 static GTY(()) tree string_type_node;
 static GTY(()) tree const_string_type_node;
 static GTY(()) tree wint_type_node;
@@ -172,8 +155,7 @@ static GTY(()) tree intmax_type_node;
 static GTY(()) tree uintmax_type_node;
 static GTY(()) tree signed_size_type_node;
 
-/* FIXME lto.  Dummy flags that we need to include builtins.def.
-   These need to go away somehow.  */
+/* Flags needed to process builtins.def.  */
 int flag_no_builtin;
 int flag_no_nonansi_builtin;
 int flag_isoc94;
@@ -191,7 +173,6 @@ handle_noreturn_attribute (tree *node, tree ARG_UNUSED (name),
 {
   tree type = TREE_TYPE (*node);
 
-  /* See FIXME comment in c_common_attribute_table.  */
   if (TREE_CODE (*node) == FUNCTION_DECL)
     TREE_THIS_VOLATILE (*node) = 1;
   else if (TREE_CODE (type) == POINTER_TYPE
@@ -684,9 +665,7 @@ lto_post_options (const char **pfilename ATTRIBUTE_UNUSED)
       flag_generate_lto = 0;
 
       /* During LTRANS, we are not looking at the whole program, only
-	 a subset of the whole callgraph.  FIXME lto, this may not be
-	 true if the partitioning assigned all the nodes in the call
-	 graph to the same file.  */
+	 a subset of the whole callgraph.  */
       flag_whole_program = 0;
     }
 

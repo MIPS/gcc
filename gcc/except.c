@@ -2879,11 +2879,11 @@ output_ttype (tree type, int tt_format, int tt_format_size)
     {
       struct varpool_node *node;
 
-      /* FIXME lto.  During LTO compiles, pass_ipa_free_lang_data
-	 changes all types to runtime types so TYPE should already be
-	 a runtime type reference.  When pass_ipa_free_lang data is
-	 made a default pass, we can then remove the call to
-	 lookup_type_for_runtime below.  */
+      /* FIXME lto.  pass_ipa_free_lang_data changes all types to
+	 runtime types so TYPE should already be a runtime type
+	 reference.  When pass_ipa_free_lang data is made a default
+	 pass, we can then remove the call to lookup_type_for_runtime
+	 below.  */
       if (TYPE_P (type))
 	type = lookup_type_for_runtime (type);
 

@@ -1870,7 +1870,7 @@ try_create_reduction_list (loop_p loop, htab_t reduction_list)
 bool
 parallelize_loops (void)
 {
-  HOST_WIDE_INT n_threads = (HOST_WIDE_INT) flag_tree_parallelize_loops;
+  unsigned n_threads = flag_tree_parallelize_loops;
   bool changed = false;
   struct loop *loop;
   struct tree_niter_desc niter_desc;

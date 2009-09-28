@@ -240,7 +240,7 @@ run_gcc (unsigned argc, char *argv[])
       size_t list_option_len = strlen (list_option);
       char *tmp;
 
-      ltrans_output_file = make_temp_file(".ltrans.out");
+      ltrans_output_file = make_temp_file (".ltrans.out");
       list_option_full = (char *) xmalloc (sizeof (char) *
 		         (strlen (ltrans_output_file) + list_option_len + 1));
       tmp = list_option_full;

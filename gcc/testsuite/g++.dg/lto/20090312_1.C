@@ -1,6 +1,6 @@
 #include "20090312.h"
 
-/* FIXME lto.  This file should be compiled with the C front end.  This
+/* This file should be compiled with the C front end.  This
    should be testing what happens when LTO merges enum types and function
    prototypes compiled by the C and C++ FEs.  Since both FEs generate
    slightly different representations for these, LTO was emitting an

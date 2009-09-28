@@ -1,5 +1,3 @@
-/* FIXME lto: This test is only relevant if the plugin is used. */
-
 void
 _cairo_clip_path_reference () {
   int a;

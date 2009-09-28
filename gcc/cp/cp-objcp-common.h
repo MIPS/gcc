@@ -141,5 +141,7 @@ extern bool cp_function_decl_explicit_p (tree decl);
 #define LANG_HOOKS_OMP_FINISH_CLAUSE cxx_omp_finish_clause
 #undef LANG_HOOKS_OMP_PRIVATIZE_BY_REFERENCE
 #define LANG_HOOKS_OMP_PRIVATIZE_BY_REFERENCE cxx_omp_privatize_by_reference
+#undef LANG_HOOKS_MAY_NEED_ASSEMBLER_NAME_P
+#define LANG_HOOKS_MAY_NEED_ASSEMBLER_NAME_P cxx_may_need_assembler_name_p
 
 #endif /* GCC_CP_OBJCP_COMMON */

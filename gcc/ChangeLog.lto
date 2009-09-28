@@ -1,3 +1,38 @@
+2009-09-28  Diego Novillo  <dnovillo@google.com>
+
+	* Makefile.in (enable_lto): New.
+	(site.exp): If @enable_lto@ is set to 'yes' define
+	ENABLE_LTO.
+	* cgraph.h (build_cgraph_edges): Remove.
+	* cgraphbuild.c (build_cgraph_edges): Declare static.
+	* collect2.c: Tidy comments and formatting everywhere.
+	Remove #if 0 code.
+	* configure.ac: If enable_languages includes lto, set enable_lto
+	to 'yes'.
+	* dwarf2out.c (add_pure_or_virtual_attribute): Do not test
+	DECL_CONTEXT.
+	* except.c (output_ttype): Tidy comment.
+	* gimple-low.c (gimple_try_catch_may_fallthru): Remove test
+	for gsi_end_p.
+	* ipa-inline.c (pass_inline_parameters): Remove TODO_dump_func.
+	* langhooks-def.h (LANG_HOOKS_MAY_NEED_ASSEMBLER_NAME_P): Define.
+	(LANG_HOOKS_DECLS): Add LANG_HOOKS_MAY_NEED_ASSEMBLER_NAME_P.
+	* langhooks.h (struct lang_hooks_for_decls): Add field
+	may_need_assembler_name_p.
+	* lto-cgraph.c (input_node): Remove FIXME lto marker.
+	* lto-streamer-in.c (unpack_ts_function_decl_value_fields):
+	Call DECL_STATIC_CHAIN instead of DECL_NO_STATIC_CHAIN.
+	* lto-streamer-out.c (pack_ts_function_decl_value_fields):
+	Likewise.
+	* lto-wrapper.c (run_gcc): Tidy.
+
+2009-09-28  Diego Novillo  <dnovillo@google.com>
+
+	Mainline merge @152236.
+
+	* configure.ac (ACX_PKGVERSION): Update revision merge string.
+	* configure: Regenerate.
+
 2009-09-22  Diego Novillo  <dnovillo@google.com>
 
 	Mainline merge @152039.

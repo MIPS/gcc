@@ -2598,14 +2598,10 @@ struct GTY(()) tree_decl_minimal {
 #define DECL_LANG_FLAG_6(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.lang_flag_6)
 #define DECL_LANG_FLAG_7(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.lang_flag_7)
 
-/* Nonzero for a scope (e.g., the value of either DECL_CONTEXT or
-   TYPE_CONTEXT) which is the file scope.  */
-#define FILE_SCOPE_P(SCOPE) \
-  (!(SCOPE) || TREE_CODE (SCOPE) == TRANSLATION_UNIT_DECL)
-
 /* Nonzero for a decl which is at file scope.  */
-#define DECL_FILE_SCOPE_P(EXP) \
-  FILE_SCOPE_P (DECL_CONTEXT (EXP))					
+#define DECL_FILE_SCOPE_P(EXP) 					\
+  (! DECL_CONTEXT (EXP)						\
+   || TREE_CODE (DECL_CONTEXT (EXP)) == TRANSLATION_UNIT_DECL)
 
 /* Nonzero for a decl that is decorated using attribute used.
    This indicates compiler tools that this decl needs to be preserved.  */
@@ -3145,9 +3141,8 @@ struct GTY(())
 #define DECL_NO_LIMIT_STACK(NODE) \
   (FUNCTION_DECL_CHECK (NODE)->function_decl.no_limit_stack)
 
-/* In a FUNCTION_DECL with a nonzero DECL_CONTEXT, indicates that a
-   static chain is not needed.  */
-#define DECL_NO_STATIC_CHAIN(NODE) \
+/* In a FUNCTION_DECL indicates that a static chain is needed.  */
+#define DECL_STATIC_CHAIN(NODE) \
   (FUNCTION_DECL_CHECK (NODE)->function_decl.regdecl_flag)
 
 /* Nonzero for a decl that cgraph has decided should be inlined into

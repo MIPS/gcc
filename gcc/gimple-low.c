@@ -521,15 +521,6 @@ gimple_try_catch_may_fallthru (gimple stmt)
     return true;
 
   i = gsi_start (gimple_try_cleanup (stmt));
-
-  /* If we have a syntax error, the cleanup sequence can be empty.
-     Return FALSE instead of crashing the compiler.  */
-  if (gsi_end_p (i))
-    {
-      gcc_assert (errorcount);
-      return false;
-    }
-
   switch (gimple_code (gsi_stmt (i)))
     {
     case GIMPLE_CATCH:

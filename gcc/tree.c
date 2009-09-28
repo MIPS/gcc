@@ -4291,6 +4291,10 @@ need_assembler_name_p (tree decl)
       && !TREE_PUBLIC (decl))
     return false;
 
+  /* Finally, ask the front end.  */
+  if (lang_hooks.decls.may_need_assembler_name_p)
+    return lang_hooks.decls.may_need_assembler_name_p (decl);
+
   return true;
 }
 
@@ -4905,7 +4909,7 @@ free_lang_data (void)
   diagnostic_finalizer (global_dc) = default_diagnostic_finalizer;
   diagnostic_format_decoder (global_dc) = default_tree_printer;
 
-  /* FIXME lto: We remove sufficient language data that the debug
+  /* FIXME. We remove sufficient language data that the debug
      info writer gets completely confused.  Disable debug information
      for now.  */
   debug_info_level = DINFO_LEVEL_NONE;

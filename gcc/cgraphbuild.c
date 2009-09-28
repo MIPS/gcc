@@ -125,7 +125,7 @@ compute_call_stmt_bb_frequency (tree decl, basic_block bb)
 /* Create cgraph edges for function calls.
    Also look for functions and variables having addresses taken.  */
 
-unsigned int
+static unsigned int
 build_cgraph_edges (void)
 {
   basic_block bb;
@@ -276,7 +276,7 @@ struct gimple_opt_pass pass_rebuild_cgraph_edges =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func,			/* todo_flags_finish */
+  0,					/* todo_flags_finish */
  }
 };
 

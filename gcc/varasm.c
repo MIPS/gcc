@@ -101,6 +101,9 @@ static alias_set_type const_alias_set;
 
 static const char *strip_reg_name (const char *);
 static int contains_pointers_p (tree);
+#ifdef ASM_OUTPUT_EXTERNAL
+static bool incorporeal_function_p (tree);
+#endif
 static void decode_addr_const (tree, struct addr_const *);
 static hashval_t const_desc_hash (const void *);
 static int const_desc_eq (const void *, const void *);
@@ -4209,8 +4212,7 @@ initializer_constant_valid_p (tree value, tree endtype)
 	    /* Taking the address of a nested function involves a trampoline,
 	       unless we don't need or want one.  */
 	    if (TREE_CODE (op0) == FUNCTION_DECL
-		&& decl_function_context (op0)
-		&& !DECL_NO_STATIC_CHAIN (op0)
+		&& DECL_STATIC_CHAIN (op0)
 		&& !TREE_NO_TRAMPOLINE (value))
 	      return NULL_TREE;
 	    /* "&{...}" requires a temporary to hold the constructed
@@ -6527,15 +6529,7 @@ default_binds_local_p_1 (const_tree exp, int shlib)
     local_p = true;
   /* Default visibility weak data can be overridden by a strong symbol
      in another module and so are not local.  */
-  /* FIXME lto.  Symbols are marked weak by WPA to avoid multiple
-     definition errors during linking.  This means that LTRANS cannot
-     optimize references like folding DECL_INITIAL of non-static
-     strings (e.g., gcc.c-torture/execute/builtins/sprintf-chk.c).
-     To fix this, the non-weak version of the symbol should be emitted
-     by WPA in the same file that references it (however, multiple
-     references from different LTRANS files will have to use the
-     weak references).  */
-  else if (DECL_WEAK (exp) && !flag_ltrans)
+  else if (DECL_WEAK (exp))
     local_p = false;
   /* If PIC, then assume that any global name can be overridden by
      symbols resolved from other modules, unless we are compiling with

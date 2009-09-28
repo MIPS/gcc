@@ -1,3 +1,11 @@
+2009-09-28  Diego Novillo  <dnovillo@google.com>
+
+	* cp-objcp-common.h (LANG_HOOKS_MAY_NEED_ASSEMBLER_NAME_P): Define.
+	* cp-tree.h (cxx_may_need_assembler_name_p): Declare.
+	* mangle.c (decl_is_template_id): Remove FIXME lto marker.
+	(write_template_arg): Likewise.
+	* tree.c (cxx_may_need_assembler_name_p): New.
+
 2009-09-07  Diego Novillo  <dnovillo@google.com>
 
 	* mangle.c (decl_is_template_id): Protect calls to

@@ -631,64 +631,39 @@ default_internal_arg_pointer (void)
 rtx
 default_static_chain (const_tree fndecl, bool incoming_p)
 {
-  if (DECL_NO_STATIC_CHAIN (fndecl))
+  if (!DECL_STATIC_CHAIN (fndecl))
     return NULL;
 
   if (incoming_p)
     {
-#ifdef STATIC_CHAIN_INCOMING
-      return STATIC_CHAIN_INCOMING;
-#endif
 #ifdef STATIC_CHAIN_INCOMING_REGNUM
       return gen_rtx_REG (Pmode, STATIC_CHAIN_INCOMING_REGNUM);
 #endif
     }
 
-#ifdef STATIC_CHAIN
-  return STATIC_CHAIN;
-#endif
 #ifdef STATIC_CHAIN_REGNUM
   return gen_rtx_REG (Pmode, STATIC_CHAIN_REGNUM);
 #endif
 
-  gcc_unreachable ();
-}
+  {
+    static bool issued_error;
+    if (!issued_error)
+      {
+	issued_error = true;
+	sorry ("nested functions not supported on this target");
+      }
 
-#ifdef TRAMPOLINE_TEMPLATE
-void
-default_asm_trampoline_template (FILE *f)
-{
-  TRAMPOLINE_TEMPLATE (f);
+    /* It really doesn't matter what we return here, so long at it
+       doesn't cause the rest of the compiler to crash.  */
+    return gen_rtx_MEM (Pmode, stack_pointer_rtx);
+  }
 }
-#endif
 
 void
 default_trampoline_init (rtx ARG_UNUSED (m_tramp), tree ARG_UNUSED (t_func),
 			 rtx ARG_UNUSED (r_chain))
 {
-#ifdef INITIALIZE_TRAMPOLINE
-  rtx r_tramp, r_func;
-
-  if (targetm.asm_out.trampoline_template)
-    emit_block_move (m_tramp, assemble_trampoline_template (),
-		     GEN_INT (TRAMPOLINE_SIZE), BLOCK_OP_NORMAL);
-
-  r_func = XEXP (DECL_RTL (t_func), 0);
-  r_tramp = XEXP (m_tramp, 0);
-
-  INITIALIZE_TRAMPOLINE (r_tramp, r_func, r_chain);
-#else
   sorry ("nested function trampolines not supported on this target");
-#endif
-}
-
-rtx
-default_trampoline_adjust_address (rtx addr)
-{
-#ifdef TRAMPOLINE_ADJUST_ADDRESS
-  TRAMPOLINE_ADJUST_ADDRESS (addr);
-#endif
-  return addr;
 }
 
 enum reg_class

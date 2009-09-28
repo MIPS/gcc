@@ -216,7 +216,6 @@ extern char *choose_temp_base (void) ATTRIBUTE_MALLOC;
 /* Return a temporary file name or NULL if unable to create one.  */
 
 extern char *make_temp_file (const char *) ATTRIBUTE_MALLOC;
-extern char *make_cwd_temp_file (const char *) ATTRIBUTE_MALLOC;
 
 /* Remove a link to a file unless it is special. */
 

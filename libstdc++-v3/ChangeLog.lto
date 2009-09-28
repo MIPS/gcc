@@ -1,3 +1,8 @@
+2009-09-28  Diego Novillo  <dnovillo@google.com>
+
+	* testsuite/lib/libstdc++.exp (v3-build_support): Do not test
+	for LTO support.
+
 2009-05-20  Diego Novillo  <dnovillo@google.com>
 
 	* testsuite/lib/libstdc++.exp: Perform -flto test after

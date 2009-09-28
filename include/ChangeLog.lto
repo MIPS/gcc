@@ -1,3 +1,7 @@
+2009-09-28  Diego Novillo  <dnovillo@google.com>
+
+	* libiberty.h (make_cwd_temp_file): Remove.
+
 2009-06-18  Diego Novillo  <dnovillo@google.com>
 
 	* lto-symtab.h: Add multiple inclusion guards.

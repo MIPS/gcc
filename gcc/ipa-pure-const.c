@@ -666,6 +666,8 @@ register_hooks (void)
   function_insertion_hook_holder =
       cgraph_add_function_insertion_hook (&add_new_function, NULL);
 }
+
+
 /* Analyze each function in the cgraph to see if it is locally PURE or
    CONST.  */
 

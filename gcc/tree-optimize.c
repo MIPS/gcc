@@ -386,7 +386,6 @@ tree_rest_of_compilation (tree fndecl)
 
   bitmap_obstack_initialize (&reg_obstack); /* FIXME, only at RTL generation*/
 
-
   execute_all_ipa_transforms ();
 
   /* Perform all tree transforms and optimizations.  */

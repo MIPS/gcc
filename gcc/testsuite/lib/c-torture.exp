@@ -53,12 +53,8 @@ if [info exists ADDITIONAL_TORTURE_OPTIONS] {
 set LTO_TORTURE_OPTIONS ""
 if [check_effective_target_lto] {
     set LTO_TORTURE_OPTIONS [list \
-	{ -O0 -flto } \
 	{ -O2 -flto } \
-	{ -O3 -flto } \
-	{ -O0 -fwhopr } \
-	{ -O2 -fwhopr } \
-	{ -O3 -fwhopr }
+	{ -O2 -fwhopr }
     ]
 }
 

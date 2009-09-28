@@ -1,8 +1,23 @@
+2009-09-28  Diego Novillo  <dnovillo@google.com>
+
+	* gcc.c-torture/execute/builtins/builtins.exp: Do not use
+	LTO_TORTURE_OPTIONS.
+	* gcc.misc-tests/dectest.exp: Likewise.
+	* gcc.target/x86_64/abi/abi-x86_64.exp: Likewise.
+	* gcc.target/x86_64/abi/avx/abi-avx.exp: Likewise.
+	* lib/fortran-torture.exp: Likewise.
+	* lib/gfortran-dg.exp: Likewise.
+	* lib/c-torture.exp: Only use '-O2 -flto' and '-O2 -fwhopr' in
+	LTO_TORTURE_OPTIONS.
+	* lib/gcc-dg.exp: Likewise.
+	* lib/target-supports.exp (check_effective_target_lto): Test
+	if ENABLE_LTO is set instead of doing a compile test.
+
 2009-09-22  Richard Guenther  <rguenther@suse.de>
 
 	PR testsuite/41380
 	* lib/lto.exp (lto-execute): Remove executables.
-  
+
 2009-09-15  Richard Guenther  <rguenther@suse.de>
 
 	PR lto/41230

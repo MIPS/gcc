@@ -495,7 +495,7 @@ pack_ts_function_decl_value_fields (struct bitpack_d *bp, tree expr)
   bp_pack_value (bp, DECL_IS_MALLOC (expr), 1);
   bp_pack_value (bp, DECL_IS_OPERATOR_NEW (expr), 1);
   bp_pack_value (bp, DECL_DECLARED_INLINE_P (expr), 1);
-  bp_pack_value (bp, DECL_NO_STATIC_CHAIN (expr), 1);
+  bp_pack_value (bp, DECL_STATIC_CHAIN (expr), 1);
   bp_pack_value (bp, DECL_NO_INLINE_WARNING_P (expr), 1);
   bp_pack_value (bp, DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT (expr), 1);
   bp_pack_value (bp, DECL_NO_LIMIT_STACK (expr), 1);

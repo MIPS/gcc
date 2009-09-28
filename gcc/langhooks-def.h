@@ -62,7 +62,7 @@ extern bool lhd_decl_ok_for_sibcall (const_tree);
 extern size_t lhd_tree_size (enum tree_code);
 extern HOST_WIDE_INT lhd_to_target_charset (HOST_WIDE_INT);
 extern tree lhd_expr_to_decl (tree, bool *, bool *);
-extern tree lhd_builtin_function (tree decl);
+extern tree lhd_builtin_function (tree);
 
 /* Declarations of default tree inlining hooks.  */
 extern void lhd_initialize_diagnostics (struct diagnostic_context *);
@@ -157,8 +157,12 @@ extern tree lhd_make_node (enum tree_code);
 #define LANG_HOOKS_GENERIC_TYPE_P	hook_bool_const_tree_false
 #define LANG_HOOKS_GET_INNERMOST_GENERIC_PARMS hook_tree_const_tree_null
 #define LANG_HOOKS_GET_INNERMOST_GENERIC_ARGS hook_tree_const_tree_null
+#define LANG_HOOKS_FUNCTION_PARAMETER_PACK_P hook_bool_const_tree_false
 #define LANG_HOOKS_GET_ARGUMENT_PACK_ELEMS hook_tree_const_tree_null
 #define LANG_HOOKS_GENERIC_GENERIC_PARAMETER_DECL_P hook_bool_const_tree_false
+#define LANG_HOOKS_FUNCTION_PARM_EXPANDED_FROM_PACK_P \
+					hook_bool_tree_tree_false
+#define LANG_HOOKS_GET_GENERIC_FUNCTION_DECL hook_tree_const_tree_null
 #define LANG_HOOKS_TYPE_PROMOTES_TO lhd_type_promotes_to
 #define LANG_HOOKS_REGISTER_BUILTIN_TYPE lhd_register_builtin_type
 #define LANG_HOOKS_TYPE_MAX_SIZE	lhd_return_null_const_tree
@@ -207,6 +211,7 @@ extern tree lhd_make_node (enum tree_code);
 #define LANG_HOOKS_OMP_CLAUSE_ASSIGN_OP lhd_omp_assignment
 #define LANG_HOOKS_OMP_CLAUSE_DTOR hook_tree_tree_tree_null
 #define LANG_HOOKS_OMP_FINISH_CLAUSE hook_void_tree
+#define LANG_HOOKS_MAY_NEED_ASSEMBLER_NAME_P NULL
 
 #define LANG_HOOKS_DECLS { \
   LANG_HOOKS_GLOBAL_BINDINGS_P, \
@@ -214,6 +219,8 @@ extern tree lhd_make_node (enum tree_code);
   LANG_HOOKS_GETDECLS, \
   LANG_HOOKS_FUNCTION_DECL_EXPLICIT_P, \
   LANG_HOOKS_GENERIC_GENERIC_PARAMETER_DECL_P, \
+  LANG_HOOKS_FUNCTION_PARM_EXPANDED_FROM_PACK_P, \
+  LANG_HOOKS_GET_GENERIC_FUNCTION_DECL, \
   LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL, \
   LANG_HOOKS_WRITE_GLOBALS, \
   LANG_HOOKS_DECL_OK_FOR_SIBCALL, \
@@ -226,7 +233,8 @@ extern tree lhd_make_node (enum tree_code);
   LANG_HOOKS_OMP_CLAUSE_COPY_CTOR, \
   LANG_HOOKS_OMP_CLAUSE_ASSIGN_OP, \
   LANG_HOOKS_OMP_CLAUSE_DTOR, \
-  LANG_HOOKS_OMP_FINISH_CLAUSE \
+  LANG_HOOKS_OMP_FINISH_CLAUSE, \
+  LANG_HOOKS_MAY_NEED_ASSEMBLER_NAME_P \
 }
 
 /* LTO hooks.  */
@@ -284,6 +292,7 @@ extern void lhd_end_section (void);
   LANG_HOOKS_LTO, \
   LANG_HOOKS_GET_INNERMOST_GENERIC_PARMS, \
   LANG_HOOKS_GET_INNERMOST_GENERIC_ARGS, \
+  LANG_HOOKS_FUNCTION_PARAMETER_PACK_P, \
   LANG_HOOKS_GIMPLIFY_EXPR, \
   LANG_HOOKS_FOLD_OBJ_TYPE_REF, \
   LANG_HOOKS_BUILTIN_FUNCTION, \

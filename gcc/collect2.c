@@ -185,12 +185,13 @@ static int aixrtl_flag;			/* true if -brtl */
 #endif
 
 enum lto_mode_d {
-  LTO_MODE_NONE,			/* Not doing LTO. */
-  LTO_MODE_LTO,				/* Normal LTO. */
-  LTO_MODE_WHOPR			/* WHOPR. */
+  LTO_MODE_NONE,			/* Not doing LTO.  */
+  LTO_MODE_LTO,				/* Normal LTO.  */
+  LTO_MODE_WHOPR			/* WHOPR.  */
 };
 
-static enum lto_mode_d lto_mode = LTO_MODE_NONE; /* current LTO mode. */
+/* Current LTO mode.  */
+static enum lto_mode_d lto_mode = LTO_MODE_NONE;
 
 int debug;				/* true if -debug */
 
@@ -297,7 +298,6 @@ static char *find_a_file (struct path_prefix *, const char *);
 static void add_prefix (struct path_prefix *, const char *);
 static void prefix_from_env (const char *, struct path_prefix *);
 static void prefix_from_string (const char *, struct path_prefix *);
-static void add_lto_object (struct lto_object_list *list, const char *name);
 static void do_wait (const char *, struct pex_obj *);
 static void fork_execute (const char *, char **);
 static void maybe_unlink (const char *);
@@ -312,17 +312,11 @@ static void dump_list (FILE *, const char *, struct id *);
 #if 0
 static void dump_prefix_list (FILE *, const char *, struct prefix_list *);
 #endif
-#if 0
-static void dump_argv(FILE *, const char *, char **);
-#endif
 static void write_list_with_asm (FILE *, const char *, struct id *);
 static void write_c_file (FILE *, const char *);
 static void write_c_file_stat (FILE *, const char *);
 #ifndef LD_INIT_SWITCH
 static void write_c_file_glob (FILE *, const char *);
-#endif
-#ifdef OBJECT_FORMAT_NONE
-static bool is_elf (const char *);
 #endif
 #ifdef SCAN_LIBRARIES
 static void scan_libraries (const char *);
@@ -339,7 +333,8 @@ static char *resolve_lib_name (const char *);
 #endif
 static char *extract_string (const char **);
 
-/* Enumeration giving which pass this is for scanning the program file.  */
+/* Enumerations describing which pass this is for scanning the
+   program file ...  */
 
 typedef enum {
   PASS_FIRST,				/* without constructors */
@@ -865,19 +860,18 @@ prefix_from_string (const char *p, struct path_prefix *pprefix)
 static void
 add_lto_object (struct lto_object_list *list, const char *name)
 {
-  struct lto_object * cell
-    = (struct lto_object *) xmalloc(sizeof(struct lto_object));
-
-  cell->name = name;
-  cell->next = NULL;
+  struct lto_object *n = XNEW (struct lto_object);
+  n->name = name;
+  n->next = NULL;
 
   if (list->last)
-    list->last->next = cell;
+    list->last->next = n;
   else
-    list->first = cell;
+    list->first = n;
 
-  list->last = cell;
+  list->last = n;
 }
+
 
 /* Perform a link-time recompilation and relink if any of the object
    files contain LTO info.  The linker command line LTO_LD_ARGV
@@ -1216,8 +1210,8 @@ main (int argc, char **argv)
 
   /* Parse command line early for instances of -debug.  This allows
      the debug flag to be set before functions like find_a_file()
-     are called. We also look for the -flto or -fwhopr flag, though it is not
-     necessary to do so at this early stage. */
+     are called.  We also look for the -flto or -fwhopr flag to know
+     what LTO mode we are in.  */
   {
     int i;
     bool use_plugin = false;
@@ -1235,6 +1229,22 @@ main (int argc, char **argv)
 	    use_plugin = true;
 	    lto_mode = LTO_MODE_NONE;
 	  }
+#ifdef COLLECT_EXPORT_LIST
+	/* since -brtl, -bexport, -b64 are not position dependent
+	   also check for them here */
+	if ((argv[i][0] == '-') && (argv[i][1] == 'b'))
+  	  {
+	    arg = argv[i];
+	    /* We want to disable automatic exports on AIX when user
+	       explicitly puts an export list in command line */
+	    if (arg[2] == 'E' || strncmp (&arg[2], "export", 6) == 0)
+	      export_flag = 1;
+	    else if (arg[2] == '6' && arg[3] == '4')
+	      aix64_flag = 1;
+	    else if (arg[2] == 'r' && arg[3] == 't' && arg[4] == 'l')
+	      aixrtl_flag = 1;
+	  }
+#endif
       }
     vflag = debug;
   }
@@ -1456,19 +1466,6 @@ main (int argc, char **argv)
 	{
 	  switch (arg[1])
 	    {
-#ifdef COLLECT_EXPORT_LIST
-	    /* We want to disable automatic exports on AIX when user
-	       explicitly puts an export list in command line */
-	    case 'b':
-	      if (arg[2] == 'E' || strncmp (&arg[2], "export", 6) == 0)
-		export_flag = 1;
-	      else if (arg[2] == '6' && arg[3] == '4')
-		aix64_flag = 1;
-	      else if (arg[2] == 'r' && arg[3] == 't' && arg[4] == 'l')
-		aixrtl_flag = 1;
-	      break;
-#endif
-
 	    case 'd':
 	      if (!strcmp (arg, "-debug"))
 		{
@@ -1598,10 +1595,8 @@ main (int argc, char **argv)
 	    }
 	}
       else if ((p = strrchr (arg, '.')) != (char *) 0
-	       && (strcmp (p, ".o") == 0
-		   || strcmp (p, ".a") == 0
-		   || strcmp (p, ".so") == 0
-		   || strcmp (p, ".lo") == 0
+	       && (strcmp (p, ".o") == 0 || strcmp (p, ".a") == 0
+		   || strcmp (p, ".so") == 0 || strcmp (p, ".lo") == 0
 		   || strcmp (p, ".obj") == 0))
 	{
 	  if (first_file)
@@ -2267,21 +2262,6 @@ dump_prefix_list (FILE *stream, const char *prefix, struct prefix_list *list)
 }
 #endif
 
-#if 0
-/* Dump argument vector ARGV to STREAM, prepending PREFIX.  */
-
-static void
-dump_argv(FILE *stream, const char *prefix, char **argv)
-{
-  char **p = argv;
-
-  fprintf(stream, "%s", prefix);
-  for (p = argv; *p != NULL; p++)
-    fprintf(stderr, " %s", *p);
-  fprintf(stderr, "\n");
-}
-#endif
-
 static void
 write_list_with_asm (FILE *stream, const char *prefix, struct id *list)
 {
@@ -2514,7 +2494,7 @@ write_aix_file (FILE *stream, struct id *list)
 #ifdef OBJECT_FORMAT_NONE
 
 /* Check to make sure the file is an ELF file.  LTO objects must
-   be in the ELF format for now.  */
+   be in ELF format.  */
 
 static bool
 is_elf (const char *prog_name)
@@ -2526,10 +2506,10 @@ is_elf (const char *prog_name)
   f = fopen (prog_name, "r");
   if (f == NULL)
     return false;
-  if (fread (buf, sizeof(buf), 1, f) != 1)
+  if (fread (buf, sizeof (buf), 1, f) != 1)
     buf[0] = 0;
   fclose (f);
-  return memcmp (buf, magic, sizeof(magic)) == 0;
+  return memcmp (buf, magic, sizeof (magic)) == 0;
 }
 
 /* Generic version to scan the name list of the loaded program for
@@ -2640,8 +2620,8 @@ scan_prog_file (const char *prog_name, scanpass which_pass,
              the LTO objects list if found.  */
           for (p = buf; (ch = *p) != '\0' && ch != '\n'; p++)
             if (ch == ' '
-		&& (strncmp (p+1, "gnu_lto_v1", 10) == 0)
-		&& ISSPACE(p[11]))
+		&& (strncmp (p +1 , "gnu_lto_v1", 10) == 0)
+		&& ISSPACE( p[11]))
               {
                 add_lto_object (&lto_objects, prog_name);
 
@@ -2651,75 +2631,75 @@ scan_prog_file (const char *prog_name, scanpass which_pass,
 
                 break;
               }
+
+	  continue;
         }
-      else
-        {
-	  /* If it contains a constructor or destructor name, add the name
-	     to the appropriate list unless this is a kind of symbol we're
-	     not supposed to even consider.  */
 
-	  for (p = buf; (ch = *p) != '\0' && ch != '\n' && ch != '_'; p++)
-	    if (ch == ' ' && p[1] == 'U' && p[2] == ' ')
-	      break;
+      /* If it contains a constructor or destructor name, add the name
+	 to the appropriate list unless this is a kind of symbol we're
+	 not supposed to even consider.  */
 
-	  if (ch != '_')
-	    continue;
+      for (p = buf; (ch = *p) != '\0' && ch != '\n' && ch != '_'; p++)
+	if (ch == ' ' && p[1] == 'U' && p[2] == ' ')
+	  break;
 
-	  name = p;
-	  /* Find the end of the symbol name.
-	     Do not include `|', because Encore nm can tack that on the end.  */
-	  for (end = p; (ch2 = *end) != '\0' && !ISSPACE (ch2) && ch2 != '|';
-	       end++)
-	    continue;
+      if (ch != '_')
+	continue;
+
+      name = p;
+      /* Find the end of the symbol name.
+	 Do not include `|', because Encore nm can tack that on the end.  */
+      for (end = p; (ch2 = *end) != '\0' && !ISSPACE (ch2) && ch2 != '|';
+	   end++)
+	continue;
 
 
-	  *end = '\0';
-	  switch (is_ctor_dtor (name))
-	    {
-	    case SYM_CTOR:
-	      if (! (filter & SCAN_CTOR))
-		break;
-	      if (which_pass != PASS_LIB)
-		add_to_list (&constructors, name);
-	      break;
+      *end = '\0';
+      switch (is_ctor_dtor (name))
+	{
+	case SYM_CTOR:
+	  if (! (filter & SCAN_CTOR))
+	    break;
+	  if (which_pass != PASS_LIB)
+	    add_to_list (&constructors, name);
+	  break;
 
-	    case SYM_DTOR:
-	      if (! (filter & SCAN_DTOR))
-		break;
-	      if (which_pass != PASS_LIB)
-		add_to_list (&destructors, name);
-	      break;
+	case SYM_DTOR:
+	  if (! (filter & SCAN_DTOR))
+	    break;
+	  if (which_pass != PASS_LIB)
+	    add_to_list (&destructors, name);
+	  break;
 
-	    case SYM_INIT:
-	      if (! (filter & SCAN_INIT))
-		break;
-	      if (which_pass != PASS_LIB)
-		fatal ("init function found in object %s", prog_name);
+	case SYM_INIT:
+	  if (! (filter & SCAN_INIT))
+	    break;
+	  if (which_pass != PASS_LIB)
+	    fatal ("init function found in object %s", prog_name);
 #ifndef LD_INIT_SWITCH
-	      add_to_list (&constructors, name);
+	  add_to_list (&constructors, name);
 #endif
-	      break;
+	  break;
 
-	    case SYM_FINI:
-	      if (! (filter & SCAN_FINI))
-		break;
-	      if (which_pass != PASS_LIB)
-		fatal ("fini function found in object %s", prog_name);
+	case SYM_FINI:
+	  if (! (filter & SCAN_FINI))
+	    break;
+	  if (which_pass != PASS_LIB)
+	    fatal ("fini function found in object %s", prog_name);
 #ifndef LD_FINI_SWITCH
-	      add_to_list (&destructors, name);
+	  add_to_list (&destructors, name);
 #endif
-	      break;
+	  break;
 
-	    case SYM_DWEH:
-	      if (! (filter & SCAN_DWEH))
-		break;
-	      if (which_pass != PASS_LIB)
-		add_to_list (&frame_tables, name);
-	      break;
+	case SYM_DWEH:
+	  if (! (filter & SCAN_DWEH))
+	    break;
+	  if (which_pass != PASS_LIB)
+	    add_to_list (&frame_tables, name);
+	  break;
 
-	    default:		/* not a constructor or destructor */
-	      continue;
-	    }
+	default:		/* not a constructor or destructor */
+	  continue;
 	}
     }
 
@@ -2818,9 +2798,6 @@ scan_libraries (const char *prog_name)
       int ch2;
       char *name, *end, *p = buf;
 
-      if (debug)
-	fprintf (stderr, "\t%s\n", buf);
-
       /* Extract names of libraries and add to list.  */
       PARSE_LDD_OUTPUT (p);
       if (p == 0)
@@ -2841,6 +2818,9 @@ scan_libraries (const char *prog_name)
 	add_to_list (&libraries, name);
       else
 	fatal ("unable to open dynamic dependency '%s'", buf);
+
+      if (debug)
+	fprintf (stderr, "\t%s\n", buf);
     }
   if (debug)
     fprintf (stderr, "\n");

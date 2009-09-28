@@ -17,19 +17,6 @@
 load_lib gcc-dg.exp
 load_lib torture-options.exp
 
-set LTO_TORTURE_OPTIONS ""
-if [check_effective_target_lto] {
-    set LTO_TORTURE_OPTIONS [list \
-	{ -O0 -flto } \
-	{ -O2 -flto } \
-	{ -O3 -flto } \
-	{ -O0 -fwhopr } \
-	{ -O2 -fwhopr } \
-	{ -O3 -fwhopr }
-    ]
-}
-
-
 # Define gfortran callbacks for dg.exp.
 
 proc gfortran-dg-test { prog do_what extra_tool_flags } {
@@ -96,10 +83,10 @@ proc gfortran-dg-prune { system text } {
 # as c-torture does.
 proc gfortran-dg-runtest { testcases default-extra-flags } {
     global runtests
-    global DG_TORTURE_OPTIONS torture_with_loops LTO_TORTURE_OPTIONS
+    global DG_TORTURE_OPTIONS torture_with_loops
 
     torture-init
-    set-torture-options $DG_TORTURE_OPTIONS [list {}] $LTO_TORTURE_OPTIONS
+    set-torture-options $DG_TORTURE_OPTIONS
 
     foreach test $testcases {
 	# If we're only testing specific files and this isn't one of

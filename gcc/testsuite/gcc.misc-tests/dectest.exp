@@ -518,7 +518,7 @@ if [catch {set testdir $env(DECTEST)}] {
 }
 
 torture-init
-set-torture-options $DEC_TORTURE_OPTIONS {{}} $LTO_TORTURE_OPTIONS
+set-torture-options $DEC_TORTURE_OPTIONS
 
 note "Using tests in $testdir"
 dfp-run-tests [lsort [glob -nocomplain $testdir/*.decTest]]

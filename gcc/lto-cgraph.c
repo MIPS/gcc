@@ -486,10 +486,7 @@ input_node (struct lto_file_decl_data *file_data,
   /* Make sure that we have not read this node before.  Nodes that
      have already been read will have their tag stored in the 'aux'
      field.  Since built-in functions can be referenced in multiple
-     functions, they are expected to be read more than once.
-     FIXME lto, this is wasteful and may lead to suboptimal code if
-     the different cgraph nodes for the same built-in have different
-     flags.  */
+     functions, they are expected to be read more than once.  */
   gcc_assert (!node->aux || DECL_IS_BUILTIN (node->decl));
 
   input_overwrite_node (file_data, node, tag, bp, stack_size, self_time,
@@ -510,6 +507,7 @@ input_node (struct lto_file_decl_data *file_data,
 
   return node;
 }
+
 
 /* Read an edge from IB.  NODES points to a vector of previously read
    nodes for decoding caller and callee of the edge to be read.  */

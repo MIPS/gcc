@@ -344,16 +344,7 @@ not installed in your default library search path.
 
 Necessary to build libgcj, the GCJ runtime.
 
-@item libelf version 0.8.10
-
-Necessary to build link-time optimization (LTO) support.  It can be
-downloaded from @uref{http://www.mr511.de/software/libelf-0.8.10.tar.gz},
-though it is commonly available in several systems.
-
-The @option{--with-libelf} configure option should be used if libelf is
-not installed in your default library search patch.
-
-@item MPC Library version 0.6.0 (or later)
+@item MPC Library version 0.7.0 (or later)
 
 Optional when building GCC@.  Having this library will enable
 additional optimizations on complex numbers.  It can be downloaded
@@ -364,6 +355,15 @@ also @option{--with-mpc-lib} and @option{--with-mpc-include}.
 Alternatively, if an MPC source distribution is found in a
 subdirectory of your GCC sources named @file{mpc}, it will be built
 together with GCC@.
+
+@item libelf version 0.8.12 (or later)
+
+Necessary to build link-time optimization (LTO) support.  It can be
+downloaded from @uref{http://www.mr511.de/software/libelf-0.8.12.tar.gz},
+though it is commonly available in several systems.
+
+The @option{--with-libelf} configure option should be used if libelf is
+not installed in your default library search patch.
 
 @end table
 
@@ -2785,15 +2785,6 @@ The @uref{http://gcc.gnu.org/wiki/GFortranBinaries,,GFortran Wiki} has
 links to GNU Fortran binaries for several platforms.
 @end itemize
 
-In addition to those specific offerings, you can get a binary
-distribution CD-ROM from the
-@uref{http://www.gnu.org/order/order.html,,Free Software Foundation}.
-It contains binaries for a number of platforms, and
-includes not only GCC, but other stuff as well.  The current CD does
-not contain the latest version of GCC, but it should allow
-bootstrapping the compiler.  An updated version of that disk is in the
-works.
-
 @html
 <hr />
 <p>
@@ -3194,12 +3185,12 @@ Support for FreeBSD 1 was discontinued in GCC 3.2.  Support for
 FreeBSD 2 (and any mutant a.out variants of FreeBSD 3) was
 discontinued in GCC 4.0.
 
-In GCC 4.5, we enabled the use of dl_iterate_phdr inside boehm-gc on
+In GCC 4.5, we enabled the use of @code{dl_iterate_phdr} inside boehm-gc on
 FreeBSD 7 or later.  In order to better match the configuration of the
 FreeBSD system compiler: We also enabled the check to see if libc
 provides SSP support (which it does on FreeBSD 7), the use of
-dl_iterate_phdr inside libgcc_s.so.1 (on FreeBSD 7 or later) and the
-use of __cxa_atexit by default (on FreeBSD 6 or later).
+@code{dl_iterate_phdr} inside @file{libgcc_s.so.1} (on FreeBSD 7 or later)
+and the use of @code{__cxa_atexit} by default (on FreeBSD 6 or later).
 
 We support FreeBSD using the ELF file format with DWARF 2 debugging
 for all CPU architectures.  You may use @option{-gstabs} instead of
@@ -3216,7 +3207,7 @@ and check with good results on FreeBSD 3.0, 3.4, 4.0, 4.2, 4.3, 4.4,
 
 The version of binutils installed in @file{/usr/bin} probably works
 with this release of GCC@.  Bootstrapping against the latest GNU
-binutils and/or the version found in /usr/ports/devel/binutils has
+binutils and/or the version found in @file{/usr/ports/devel/binutils} has
 been known to enable additional features and improve overall testsuite
 results.  However, it is currently known that boehm-gc (which itself
 is required for java) may not configure properly on FreeBSD prior to

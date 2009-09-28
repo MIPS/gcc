@@ -811,6 +811,20 @@ prefix_name_with_star (const char *fname)
   return star_fname;
 }
 
+
+/* Return a copy of FNAME without the .o extension.  */
+
+static char *
+strip_extension (const char *fname)
+{
+  char *s = XNEWVEC (char, strlen (fname) - 2 + 1);
+  gcc_assert (strstr (fname, ".o"));
+  snprintf (s, strlen (fname) - 2 + 1, "%s", fname);
+
+  return s;
+}
+
+
 /* Return a file name associated with cgraph node set SET.  This may
    be a new temporary file name if SET needs to be processed by
    LTRANS, or the original file name if all the nodes in SET belong to
@@ -820,7 +834,7 @@ static char *
 get_filename_for_set (cgraph_node_set set)
 {
   char *fname = NULL;
-  static const size_t max_suffix_len = 100;
+  static const size_t max_fname_len = 100;
 
   if (cgraph_node_set_needs_ltrans_p (set))
     {
@@ -829,31 +843,54 @@ get_filename_for_set (cgraph_node_set set)
 	 temporary file name.  */
       cgraph_node_set_iterator si;
       struct pointer_set_t *pset = pointer_set_create ();
-      char *suffix = NULL;
       for (si = csi_start (set); !csi_end_p (si); csi_next (&si))
 	{
 	  struct cgraph_node *n = csi_node (si);
-	  const char *f = lbasename (n->local.lto_file_data->file_name);
-	  if (!pointer_set_insert (pset, n->local.lto_file_data))
-	    suffix = reconcat (suffix, "-", f, suffix, NULL);
-	  if (strlen (suffix) > max_suffix_len)
-	    break;
-	}
-      pointer_set_destroy (pset);
-      suffix = reconcat (suffix, suffix, ".lto.o", NULL);
-      fname = make_cwd_temp_file (suffix);
-      
-      /* If suffix proved to be too long, try something smaller.  */
-      if (fname == NULL)
-	fname = make_cwd_temp_file (".lto.o");
+	  const char *node_fname;
+	  char *f;
 
+	  /* Don't use the same file name more than once.  */
+	  if (pointer_set_insert (pset, n->local.lto_file_data))
+	    continue;
+
+	  /* The first file name found in SET determines the output
+	     directory.  For the remaining files, we use their
+	     base names.  */
+	  node_fname = n->local.lto_file_data->file_name;
+	  if (fname == NULL)
+	    {
+	      fname = strip_extension (node_fname);
+	      continue;
+	    }
+
+	  f = strip_extension (lbasename (node_fname));
+
+	  /* If the new name causes an excessively long file name,
+	     make the last component "___" to indicate overflow.  */
+	  if (strlen (fname) + strlen (f) > max_fname_len - 3)
+	    {
+	      fname = reconcat (fname, fname, "___", NULL);
+	      break;
+	    }
+	  else
+	    {
+	      fname = reconcat (fname, fname, "_", f, NULL);
+	      free (f);
+	    }
+	}
+
+      pointer_set_destroy (pset);
+
+      /* Add the extension .wpa.o to indicate that this file has been
+	 produced by WPA.  */
+      fname = reconcat (fname, fname, ".wpa.o", NULL);
       gcc_assert (fname);
     }
   else
     {
       /* Since SET does not need to be processed by LTRANS, use
 	 the original file name and mark it with a '*' prefix so that
-	 lto_execute_ltrans knows not to not process it.  */
+	 lto_execute_ltrans knows not to process it.  */
       cgraph_node_set_iterator si = csi_start (set);
       struct cgraph_node *first = csi_node (si);
       fname = prefix_name_with_star (first->local.lto_file_data->file_name);
@@ -989,17 +1026,20 @@ lto_execute_ltrans (char *const *files)
   for (j = 0; collect_gcc_options[j] != '\0'; ++j)
     if (collect_gcc_options[j] == '\'')
       ++i;
+
   if (i % 2 != 0)
     fatal_error ("malformed COLLECT_GCC_OPTIONS");
 
   /* Initalize the arguments for the LTRANS driver.  */
-  argv = XNEWVEC (const char *, 8 + i/2);
+  argv = XNEWVEC (const char *, 8 + i / 2);
   argv_ptr = argv;
   *argv_ptr++ = collect_gcc;
   *argv_ptr++ = "-xlto";
   for (j = 0; collect_gcc_options[j] != '\0'; ++j)
     if (collect_gcc_options[j] == '\'')
       {
+	char *option;
+
 	++j;
 	i = j;
 	while (collect_gcc_options[j] != '\'')
@@ -1007,9 +1047,13 @@ lto_execute_ltrans (char *const *files)
 	obstack_init (&env_obstack);
 	obstack_grow (&env_obstack, &collect_gcc_options[i], j - i);
 	obstack_1grow (&env_obstack, 0);
-	*argv_ptr++ = XOBFINISH (&env_obstack, char *);
+	option = XOBFINISH (&env_obstack, char *);
+
+	/* LTRANS does not need -fwpa nor -fltrans-*.  */
+	if (strncmp (option, "-fwpa", 5) != 0
+	    && strncmp (option, "-fltrans-", 9) != 0)
+	  *argv_ptr++ = option;
       }
-  *argv_ptr++ = "-fno-wpa";
   *argv_ptr++ = "-fltrans";
 
   /* Open the LTRANS output list.  */
@@ -1027,8 +1071,8 @@ lto_execute_ltrans (char *const *files)
       /* If the file is prefixed with a '*', it means that we do not
 	 need to re-compile it with LTRANS because it has not been
 	 modified by WPA.  Skip it from the command line to
-	 ltrans-driver, but add it to ltrans_output_list_stream so it
-	 is linked after we are done.  */
+	 lto_execute_ltrans, but add it to ltrans_output_list_stream
+	 so it is linked after we are done.  */
       if (files[i][0] == '*')
 	{
 	  size_t len = strlen (files[i]) - 1;
@@ -1042,7 +1086,7 @@ lto_execute_ltrans (char *const *files)
 	{
 	  char *output_name;
 
-	  /* Otherwise, add FILES[I] to ltrans-driver's command line
+	  /* Otherwise, add FILES[I] to lto_execute_ltrans command line
 	     and add the resulting file to LTRANS output list.  */
 
 	  /* Replace the .o suffix with a .ltrans.o suffix and write
@@ -1611,10 +1655,10 @@ lto_maybe_unlink (const char *file)
   if (!getenv ("WPA_SAVE_LTRANS"))
     {
       if (unlink_if_ordinary (file))
-        error ("deleting LTRANS file %s: %m", file);
+        error ("deleting LTRANS input file %s: %m", file);
     }
   else
-    fprintf (stderr, "[Leaving LTRANS %s]\n", file);
+    fprintf (stderr, "[Leaving LTRANS input file %s]\n", file);
 }
 
 /* Read the options saved from each file in the command line.  Called
@@ -1623,7 +1667,7 @@ lto_maybe_unlink (const char *file)
    This assumes that decode_options has already run, so the
    num_in_fnames and in_fnames are properly set.
 
-   FIXME lto, this assumes that all the files had been compiled with
+   Note that this assumes that all the files had been compiled with
    the same options, which is not a good assumption.  In general,
    options ought to be read from all the files in the set and merged.
    However, it is still unclear what the merge rules should be.  */
@@ -1816,20 +1860,7 @@ materialize_cgraph (void)
   timevar_id_t lto_timer;
 
   /* Now that we have input the cgraph, we need to clear all of the aux
-     nodes and read the functions if we are not running in WPA mode.  
-
-     FIXME lto.  When not operating in WPA mode, this loop will:
-
-     1) Load all of the functions at once.  
-     2) Close and reopen the files over and over again. 
-
-     It would obviously be better for the cgraph code to look to load
-     a batch of functions and sort those functions by the file they
-     come from and then load all of the functions from a give .o file
-     at one time.  This of course will require that the open and close
-     code be pulled out of lto_materialize_function, but that is a
-     small part of what will be a complex set of management
-     issues.  */
+     nodes and read the functions if we are not running in WPA mode.  */
   timevar_push (TV_IPA_LTO_GIMPLE_IO);
 
   for (node = cgraph_nodes; node; node = node->next)
@@ -1917,9 +1948,7 @@ do_whole_program_analysis (void)
 
   output_files = lto_wpa_write_files ();
 
-  /* Show the LTO report before launching LTRANS.  FIXME lto, this
-     should be done in lto_main, but if LTRANS fails we miss the
-     chance to print the report for WPA.  */
+  /* Show the LTO report before launching LTRANS.  */
   if (flag_lto_report)
     print_lto_report ();
 
@@ -1955,8 +1984,7 @@ do_whole_program_analysis (void)
    - LTRANS (-fltrans).  Similar to -flto but it prevents the IPA
      summary files from running again.  Since WPA computed summary
      information and decided what transformations to apply, LTRANS
-     simply applies them.  FIXME lto, it may be possible to remove
-     this flag and just use -flto for LTRANS.  */
+     simply applies them.  */
 
 void
 lto_main (int debug_p ATTRIBUTE_UNUSED)
