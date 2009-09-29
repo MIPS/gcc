@@ -1,5 +1,10 @@
 2009-09-29  Richard Guenther  <rguenther@suse.de>
 
+	* g++.dg/20090107-1.C: Require LTO.
+	* g++.dg/20090121-1.C: Likewise.
+
+2009-09-29  Richard Guenther  <rguenther@suse.de>
+
 	* gcc.dg/visibility-7.c: Revert changes.
 
 2009-09-29  Richard Guenther  <rguenther@suse.de>
