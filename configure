@@ -673,6 +673,7 @@ CFLAGS_FOR_TARGET
 DEBUG_PREFIX_CFLAGS_FOR_TARGET
 SYSROOT_CFLAGS_FOR_TARGET
 stage1_languages
+extra_host_libiberty_configure_flags
 libelfinc
 libelflibs
 EGREP
@@ -6590,12 +6591,15 @@ if test -d ${srcdir}/gcc; then
   new_enable_languages=,c,
 
   # If LTO is enabled, add the LTO front end.
+  extra_host_libiberty_configure_flags=
   if test "$enable_lto" = "yes" ; then
     new_enable_languages="${new_enable_languages}lto,"
     if test "${ENABLE_GOLD}" = "yes" ; then
       configdirs="$configdirs lto-plugin"
+      extra_host_libiberty_configure_flags=--enable-shared
     fi
   fi
+
 
   missing_languages=`echo ",$enable_languages," | sed -e s/,all,/,/ -e s/,c,/,/ `
   potential_languages=,c,

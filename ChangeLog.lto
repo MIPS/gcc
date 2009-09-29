@@ -1,3 +1,13 @@
+2009-09-29  Ian Lance Taylor  <iant@google.com>
+	    Diego Novillo  <dnovillo@google.com>
+
+	* configure.ac (extra_host_libiberty_configure_flags):
+	Set to --enable-shared.
+	* Makefile.def: For libiberty, set extra_configure_flags
+	to @extra_host_libiberty_configure_flags@.
+	* configure: Regenerate.
+	* Makefile.in: Regenerate.
+
 2009-09-14  Diego Novillo  <dnovillo@google.com>
 
 	* configure.ac: Add link test to check for some of the

@@ -1809,12 +1809,15 @@ if test -d ${srcdir}/gcc; then
   new_enable_languages=,c,
 
   # If LTO is enabled, add the LTO front end.
+  extra_host_libiberty_configure_flags=
   if test "$enable_lto" = "yes" ; then
     new_enable_languages="${new_enable_languages}lto,"
     if test "${ENABLE_GOLD}" = "yes" ; then
       configdirs="$configdirs lto-plugin"
+      extra_host_libiberty_configure_flags=--enable-shared
     fi
   fi
+  AC_SUBST(extra_host_libiberty_configure_flags)
 
   missing_languages=`echo ",$enable_languages," | sed -e s/,all,/,/ -e s/,c,/,/ `
   potential_languages=,c,
