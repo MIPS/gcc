@@ -1,3 +1,73 @@
+2009-09-29  Richard Guenther  <rguenther@suse.de>
+
+	* alias.c (ao_ref_from_mem): Properly deal with off decl accesses
+	resulting from stack temporaries on STRICT_ALIGNMENT targets.
+
+2009-09-29  Nick Clifton  <nickc@redhat.com>
+
+	* function.c (current_function_name): If there is no current
+	function just return "<none>".
+
+2009-09-28  Sriraman Tallam  <tmsriram@google.com>
+
+	* tree-pass.h (register_pass_info): New structure.	
+	(pass_positioning_ops): Move enum from gcc-plugin.h.
+	(register_pass): New function.
+	* gcc-plugin.h (plugin_pass): Delete structure.
+	(pass_positioning_ops): Delete enum.
+	* plugin.c (regsiter_pass): Delete function.
+	(position_pass): Delete function.
+	(added_pass_nodes): Delete variable.
+	(prev_added_pass_nodes): Delete variable.
+	(pass_list_node): Delete structure.
+	* passes.c (make_pass_instance): New function.
+	(next_pass_1): Change to call make_pass_instance.
+	(pass_list_node): Move structure from gcc-plugin.h.
+	(added_pass_nodes): Move variable from plugin.c.
+	(prev_added_pass_nodes): Move variable from plugin.c.
+	(position_pass): New function.
+	(register_pass): New function.
+
+2009-09-28  Easwaran Raman  <eraman@google.com>
+
+	* ifcvt.c (noce_try_abs): Recognize pattern and call
+	expand_one_cmpl_abs_nojump.
+	* optabs.c (expand_one_cmpl_abs_nojump): New function.
+	* optabs.h (expand_one_cmpl_abs_nojump): Declare.
+
+2009-09-28  Ian Lance Taylor  <iant@google.com>
+
+	PR middle-end/40500
+	* c-opts.c (c_common_handle_option): Don't set
+	warn_jump_misses_init for -Wall.
+	* doc/invoke.texi (Warning Options): Update documentation.
+
+2009-09-28  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* Makefile.in ($(out_object_file)): Depend on
+	gt-$(basename $(notdir $(out_file))).h.
+
+2009-09-28  Richard Henderson  <rth@redhat.com>
+
+	* except.h (struct eh_region_d): Add use_cxa_end_cleanup.
+	* except.c (gen_eh_region): Set it.
+	(duplicate_eh_regions_1): Copy it.
+	* tree-eh.c (lower_resx): Use it to determine which function
+	to call to resume.
+
+	* langhooks.h (struct lang_hooks): Add eh_use_cxa_end_cleanup.
+	* langhooks-def.h (LANG_HOOKS_EH_USE_CXA_END_CLEANUP): New.
+	* builtins.def (BUILT_IN_CXA_END_CLEANUP): New.
+	* tree.c (build_common_builtin_nodes): Remove parameter.  Build
+	BUILT_IN_CXA_END_CLEANUP if necessary.
+
+	* c-common.c (c_define_builtins): Update call to
+	build_common_builtin_nodes.
+
+2009-09-28  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* spu.c (get_branch_target): Return NULL for ASM_OPERANDS patterns.
+
 2009-09-28  Michael Matz  <matz@suse.de>
 
 	* builtins.c (interclass_mathfn_icode): New helper.
