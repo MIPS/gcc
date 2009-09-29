@@ -300,13 +300,13 @@ lto_symtab_compatible (tree old_decl, tree new_decl)
 	      if (tree_int_cst_compare (TYPE_SIZE (old_type),
 					TYPE_SIZE (new_type)) < 0)
 		{
-		  TREE_TYPE (old_type) = new_type;
+		  TREE_TYPE (old_decl) = new_type;
 		  DECL_SIZE (old_decl) = DECL_SIZE (new_decl);
 		  DECL_SIZE_UNIT (old_decl) = DECL_SIZE_UNIT (new_decl);
 		}
 	      else
 		{
-		  TREE_TYPE (new_type) = old_type;
+		  TREE_TYPE (new_decl) = old_type;
 		  DECL_SIZE (new_decl) = DECL_SIZE (old_decl);
 		  DECL_SIZE_UNIT (new_decl) = DECL_SIZE_UNIT (old_decl);
 		}

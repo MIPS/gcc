@@ -1,3 +1,14 @@
+2009-09-29  Richard Guenther  <rguenther@suse.de>
+
+	PR lto/41467
+	* lto-symtab.c (lto_symtab_compatible): Fix typos.
+
+	PR lto/40392
+	* langhooks.c (lhd_begin_section): Do not align the section.
+
+	* config/rs6000/rs6000.c (rs6000_output_function_epilogue):
+	Handle LTO.
+
 2009-09-28  Diego Novillo  <dnovillo@google.com>
 
 	* Makefile.in (enable_lto): New.

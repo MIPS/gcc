@@ -236,7 +236,7 @@ init_shdr##BITS (Elf_Scn *scn, size_t sh_name, size_t sh_type)	      \
 								      \
   shdr->sh_name = sh_name;					      \
   shdr->sh_type = sh_type;					      \
-  shdr->sh_addralign = POINTER_SIZE;				      \
+  shdr->sh_addralign = POINTER_SIZE / BITS_PER_UNIT;		      \
   shdr->sh_flags = 0;						      \
   shdr->sh_entsize = 0;						      \
 }
@@ -244,6 +244,7 @@ init_shdr##BITS (Elf_Scn *scn, size_t sh_name, size_t sh_type)	      \
 DEFINE_INIT_SHDR (32)
 DEFINE_INIT_SHDR (64)
 
+static bool first_data_block;
 
 /* Begin a new ELF section named NAME with type TYPE in the current output
    file.  TYPE is an SHT_* macro from the libelf headers.  */
@@ -286,6 +287,8 @@ lto_elf_begin_section_with_type (const char *name, size_t type)
     default:
       gcc_unreachable ();
     }
+
+  first_data_block = true;
 }
 
 
@@ -318,7 +321,13 @@ lto_elf_append_data (const void *data, size_t len, void *block)
   if (!elf_data)
     fatal_error ("elf_newdata() failed: %s.", elf_errmsg(-1));
 
-  elf_data->d_align = 1;
+  if (first_data_block)
+    {
+      elf_data->d_align = POINTER_SIZE / BITS_PER_UNIT;
+      first_data_block = false;
+    }
+  else
+    elf_data->d_align = 1;
   elf_data->d_buf = CONST_CAST (void *, data);
   elf_data->d_off = 0LL;
   elf_data->d_size = len;

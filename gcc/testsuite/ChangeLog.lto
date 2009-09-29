@@ -1,3 +1,7 @@
+2009-09-29  Richard Guenther  <rguenther@suse.de>
+
+	* lib/torture-options.exp: Do not append an empty option.
+
 2009-09-28  Diego Novillo  <dnovillo@google.com>
 
 	* gcc.c-torture/execute/builtins/builtins.exp: Do not use

@@ -1,3 +1,12 @@
+2009-09-29  Richard Guenther  <rguenther@suse.de>
+
+	PR lto/40754
+	* lto-elf.c (init_shdr##BITS): Properly specify alignment
+	in bytes.
+	(first_data_block): New static variable.
+	(lto_elf_append_data): Align the first data block in each
+	section.
+
 2009-09-28  Diego Novillo  <dnovillo@google.com>
 
 	* lto-lang.c: Tidy.  Remove stale FIXME lto markers.

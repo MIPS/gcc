@@ -61,12 +61,6 @@ proc set-torture-options { args } {
 	set other_list [list {}]
     }
 
-    if { [llength $args] > 2 } {
-	set append_list [lindex $args 2]
-    } else {
-	set append_list [list {}]
-    }
-
     set torture_with_loops ""
     set torture_without_loops ""
     foreach torture_opts $torture_list {
@@ -80,8 +74,11 @@ proc set-torture-options { args } {
 	}
     }
 
-    append torture_with_loops " $append_list"
-    append torture_without_loops " $append_list"
+    if { [llength $args] > 2 } {
+	set append_list [lindex $args 2]
+	append torture_with_loops " $append_list"
+	append torture_without_loops " $append_list"
+    }
 }
 
 # Finish up after using a set of torture options.
