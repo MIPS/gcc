@@ -1095,7 +1095,7 @@ lto_init (void)
     }
 
   targetm.init_builtins ();
-  build_common_builtin_nodes (targetm.arm_eabi_unwinder);
+  build_common_builtin_nodes (void);
 
   /* Initialize LTO-specific data structures.  */
   lto_global_var_decls = VEC_alloc (tree, gc, 256);
