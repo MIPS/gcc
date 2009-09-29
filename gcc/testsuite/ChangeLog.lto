@@ -1,5 +1,9 @@
 2009-09-29  Richard Guenther  <rguenther@suse.de>
 
+	* gcc.dg/visibility-7.c: Revert changes.
+
+2009-09-29  Richard Guenther  <rguenther@suse.de>
+
 	* lib/torture-options.exp: Do not append an empty option.
 
 2009-09-28  Diego Novillo  <dnovillo@google.com>

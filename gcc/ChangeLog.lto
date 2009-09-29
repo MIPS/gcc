@@ -1,5 +1,11 @@
 2009-09-29  Richard Guenther  <rguenther@suse.de>
 
+	PR middle-end/41502
+	* cgraphunit.c (ipa_passes): Do not remove bodies of extern
+	inline functions if not generating lto output.
+
+2009-09-29  Richard Guenther  <rguenther@suse.de>
+
 	PR lto/41467
 	* lto-symtab.c (lto_symtab_compatible): Fix typos.
 
