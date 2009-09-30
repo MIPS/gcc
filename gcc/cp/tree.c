@@ -3113,19 +3113,20 @@ cp_free_lang_data (tree t)
 bool
 cxx_may_need_assembler_name_p (tree decl)
 {
-  if ((TREE_CODE (decl) == FUNCTION_DECL || TREE_CODE (decl) == VAR_DECL)
-      && DECL_LANG_SPECIFIC (decl)
-      && DECL_TEMPLATE_INFO (decl))
-    {
-      /* Templates do not need assembler names, only its instances.  */
-      if (DECL_USE_TEMPLATE (decl) == 0)
-	return false;
+  /* We should never see anything other than variables and functions here.  */
+  gcc_assert (TREE_CODE (decl) == FUNCTION_DECL
+	      || TREE_CODE (decl) == VAR_DECL);
 
-      /* Member friend templates do not need assembler names.  */
-      if (TREE_CODE (DECL_TI_TEMPLATE (decl)) == IDENTIFIER_NODE
-	  || TREE_CODE (DECL_TI_TEMPLATE (decl)) == OVERLOAD)
-	return false;
-    }
+  /* Functions that depend on template parameters do not need
+     an assembler name.  */
+  if (TREE_CODE (decl) == FUNCTION_DECL && uses_template_parms (decl))
+    return false;
+
+  /* Templates do not need assembler names.  */
+  if (DECL_LANG_SPECIFIC (decl)
+      && (DECL_TEMPLATE_INSTANTIATION (decl)
+	  || DECL_TEMPLATE_SPECIALIZATION (decl)))
+    return false;
 
   return true;
 }

@@ -1,3 +1,11 @@
+2009-09-30  Diego Novillo  <dnovillo@google.com>
+
+	* cp/tree.c (cp_free_lang_data): Assert that DECL is a
+	FUNCTION_DECL or a VAR_DECL.
+	Call uses_template_params and check for
+	DECL_TEMPLATE_INSTANTIATION or
+	DECL_TEMPLATE_SPECIALIZATION.
+
 2009-09-28  Diego Novillo  <dnovillo@google.com>
 
 	* cp-objcp-common.h (LANG_HOOKS_MAY_NEED_ASSEMBLER_NAME_P): Define.

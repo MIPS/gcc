@@ -1,3 +1,16 @@
+2009-09-30  Diego Novillo  <dnovillo@google.com>
+
+	* tree.c (need_assembler_name_p): Cleanup.  Make sure
+	that functions with cgraph nodes always get an assembler
+	name.
+	* Makefile.in (langhooks.o): Add dependency on output.h
+	(varpool.o): Remove dependency on FLAGS_H.
+	(ipa-reference.o): Add dependency on LTO_STREAMER_H.
+	Remove duplicate entry.
+	(ipa-pure-const.o): Remove dependency on LTO_SECTION_IN_H
+	and LTO_SECTION_OUT_H.
+	Add dependency on LTO_STREAMER_H.
+
 2009-09-29  Diego Novillo  <dnovillo@google.com>
 
 	Mainline merge @152279.

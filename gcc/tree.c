@@ -4276,22 +4276,24 @@ need_assembler_name_p (tree decl)
       && !DECL_EXTERNAL (decl))
     return false;
 
-  /* Do not set assembler name on builtins.  Allow RTL expansion to
-     decide whether to expand inline or via a regular call.  */
-  if (TREE_CODE (decl) == FUNCTION_DECL
-      && DECL_BUILT_IN (decl)
-      && DECL_BUILT_IN_CLASS (decl) != BUILT_IN_FRONTEND)
-    return false;
+  if (TREE_CODE (decl) == FUNCTION_DECL)
+    {
+      /* Do not set assembler name on builtins.  Allow RTL expansion to
+	 decide whether to expand inline or via a regular call.  */
+      if (DECL_BUILT_IN (decl)
+	  && DECL_BUILT_IN_CLASS (decl) != BUILT_IN_FRONTEND)
+	return false;
 
-  /* For FUNCTION_DECLs, only used functions and functions
-     represented in the callgraph need an assembler name.  */
-  if (TREE_CODE (decl) == FUNCTION_DECL
-      && cgraph_node_for_decl (decl) == NULL
-      && !TREE_USED (decl)
-      && !TREE_PUBLIC (decl))
-    return false;
+      /* Functions represented in the callgraph need an assembler name.  */
+      if (cgraph_node_for_decl (decl) != NULL)
+	return true;
 
-  /* Finally, ask the front end.  */
+      /* Unused and not public functions don't need an assembler name.  */
+      if (!TREE_USED (decl) && !TREE_PUBLIC (decl))
+	return false;
+    }
+
+  /* Finally, if we still can't tell, ask the front end.  */
   if (lang_hooks.decls.may_need_assembler_name_p)
     return lang_hooks.decls.may_need_assembler_name_p (decl);
 

@@ -1,3 +1,8 @@
+2009-09-30  Diego Novillo  <dnovillo@google.com>
+
+	* gcc.dg/lto/README: Fix names of dg-* commands.
+	* g++.dg/lto/README: Likewise.
+
 2009-09-29  Richard Guenther  <rguenther@suse.de>
 
 	* g++.dg/20090107-1.C: Require LTO.
