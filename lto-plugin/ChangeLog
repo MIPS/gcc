@@ -1,3 +1,9 @@
+2009-09-30  Rafael Avila de Espindola  <espindola@google.com>
+
+	* Makefile.am: Remove all reference to ltosymtab.
+	* Makefile.in: Regenerate.
+	* lto-symtab.c: Remove.
+
 2009-05-21  Diego Novillo  <dnovillo@google.com>
 
 	* configure.ac: Remove call to AC_CHECK_GELF.

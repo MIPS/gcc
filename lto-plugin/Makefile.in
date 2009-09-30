@@ -16,7 +16,6 @@
 
 # Makefile.am is used by automake 1.9.6 to generate Makefile.in.
 
-
 srcdir = @srcdir@
 top_srcdir = @top_srcdir@
 VPATH = @srcdir@
@@ -39,13 +38,12 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-bin_PROGRAMS = ltosymtab$(EXEEXT)
-DIST_COMMON = $(am__configure_deps) $(srcdir)/../compile \
-	$(srcdir)/../config.guess $(srcdir)/../config.sub \
-	$(srcdir)/../depcomp $(srcdir)/../install-sh \
-	$(srcdir)/../ltmain.sh $(srcdir)/../missing \
-	$(srcdir)/../mkinstalldirs $(srcdir)/Makefile.am \
-	$(srcdir)/Makefile.in $(top_srcdir)/configure ChangeLog
+DIST_COMMON = $(am__configure_deps) $(srcdir)/../config.guess \
+	$(srcdir)/../config.sub $(srcdir)/../depcomp \
+	$(srcdir)/../install-sh $(srcdir)/../ltmain.sh \
+	$(srcdir)/../missing $(srcdir)/../mkinstalldirs \
+	$(srcdir)/Makefile.am $(srcdir)/Makefile.in \
+	$(top_srcdir)/configure ChangeLog
 subdir = .
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/acinclude.m4 \
@@ -65,19 +63,13 @@ am__vpath_adj = case $$p in \
     *) f=$$p;; \
   esac;
 am__strip_dir = `echo $$p | sed -e 's|^.*/||'`;
-am__installdirs = "$(DESTDIR)$(libexecsubdir)" "$(DESTDIR)$(bindir)"
+am__installdirs = "$(DESTDIR)$(libexecsubdir)"
 libexecsubLTLIBRARIES_INSTALL = $(INSTALL)
 LTLIBRARIES = $(libexecsub_LTLIBRARIES)
 am__DEPENDENCIES_1 =
 liblto_plugin_la_DEPENDENCIES = $(am__DEPENDENCIES_1)
 am_liblto_plugin_la_OBJECTS = lto-plugin.lo common.lo
 liblto_plugin_la_OBJECTS = $(am_liblto_plugin_la_OBJECTS)
-binPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
-PROGRAMS = $(bin_PROGRAMS)
-am_ltosymtab_OBJECTS = ltosymtab-lto-symtab.$(OBJEXT) \
-	ltosymtab-common.$(OBJEXT)
-ltosymtab_OBJECTS = $(am_ltosymtab_OBJECTS)
-ltosymtab_DEPENDENCIES = $(am__DEPENDENCIES_1)
 DEFAULT_INCLUDES = -I. -I$(srcdir)
 depcomp = $(SHELL) $(top_srcdir)/../depcomp
 am__depfiles_maybe = depfiles
@@ -89,8 +81,8 @@ LTCOMPILE = $(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) \
 CCLD = $(CC)
 LINK = $(LIBTOOL) --tag=CC --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
 	$(AM_LDFLAGS) $(LDFLAGS) -o $@
-SOURCES = $(liblto_plugin_la_SOURCES) $(ltosymtab_SOURCES)
-DIST_SOURCES = $(liblto_plugin_la_SOURCES) $(ltosymtab_SOURCES)
+SOURCES = $(liblto_plugin_la_SOURCES)
+DIST_SOURCES = $(liblto_plugin_la_SOURCES)
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -222,10 +214,6 @@ AM_CPPFLAGS = -I$(top_srcdir)/../include -D_LARGEFILE_SOURCE \
 	-D_FILE_OFFSET_BITS=64 $(LIBELFINC)
 
 AM_CFLAGS = -Wall -Werror
-ltosymtab_SOURCES = lto-symtab.c $(top_srcdir)/../gcc/lto/common.c
-ltosymtab_LDADD = $(LIBELFLIBS) -ldl
-#hack to use common.c in both targets
-ltosymtab_CFLAGS = $(AM_CFLAGS)
 libexecsub_LTLIBRARIES = liblto_plugin.la
 liblto_plugin_la_SOURCES = lto-plugin.c $(top_srcdir)/../gcc/lto/common.c
 liblto_plugin_la_LIBADD = $(LIBELFLIBS) -L../libiberty/pic -liberty
@@ -295,37 +283,6 @@ clean-libexecsubLTLIBRARIES:
 	done
 liblto_plugin.la: $(liblto_plugin_la_OBJECTS) $(liblto_plugin_la_DEPENDENCIES) 
 	$(LINK) -rpath $(libexecsubdir) $(liblto_plugin_la_LDFLAGS) $(liblto_plugin_la_OBJECTS) $(liblto_plugin_la_LIBADD) $(LIBS)
-install-binPROGRAMS: $(bin_PROGRAMS)
-	@$(NORMAL_INSTALL)
-	test -z "$(bindir)" || $(mkdir_p) "$(DESTDIR)$(bindir)"
-	@list='$(bin_PROGRAMS)'; for p in $$list; do \
-	  p1=`echo $$p|sed 's/$(EXEEXT)$$//'`; \
-	  if test -f $$p \
-	     || test -f $$p1 \
-	  ; then \
-	    f=`echo "$$p1" | sed 's,^.*/,,;$(transform);s/$$/$(EXEEXT)/'`; \
-	   echo " $(INSTALL_PROGRAM_ENV) $(LIBTOOL) --mode=install $(binPROGRAMS_INSTALL) '$$p' '$(DESTDIR)$(bindir)/$$f'"; \
-	   $(INSTALL_PROGRAM_ENV) $(LIBTOOL) --mode=install $(binPROGRAMS_INSTALL) "$$p" "$(DESTDIR)$(bindir)/$$f" || exit 1; \
-	  else :; fi; \
-	done
-
-uninstall-binPROGRAMS:
-	@$(NORMAL_UNINSTALL)
-	@list='$(bin_PROGRAMS)'; for p in $$list; do \
-	  f=`echo "$$p" | sed 's,^.*/,,;s/$(EXEEXT)$$//;$(transform);s/$$/$(EXEEXT)/'`; \
-	  echo " rm -f '$(DESTDIR)$(bindir)/$$f'"; \
-	  rm -f "$(DESTDIR)$(bindir)/$$f"; \
-	done
-
-clean-binPROGRAMS:
-	@list='$(bin_PROGRAMS)'; for p in $$list; do \
-	  f=`echo $$p|sed 's/$(EXEEXT)$$//'`; \
-	  echo " rm -f $$p $$f"; \
-	  rm -f $$p $$f ; \
-	done
-ltosymtab$(EXEEXT): $(ltosymtab_OBJECTS) $(ltosymtab_DEPENDENCIES) 
-	@rm -f ltosymtab$(EXEEXT)
-	$(LINK) $(ltosymtab_LDFLAGS) $(ltosymtab_OBJECTS) $(ltosymtab_LDADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -335,8 +292,6 @@ distclean-compile:
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/common.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lto-plugin.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ltosymtab-common.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ltosymtab-lto-symtab.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	if $(COMPILE) -MT $@ -MD -MP -MF "$(DEPDIR)/$*.Tpo" -c -o $@ $<; \
@@ -365,34 +320,6 @@ common.lo: $(top_srcdir)/../gcc/lto/common.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$(top_srcdir)/../gcc/lto/common.c' object='common.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o common.lo `test -f '$(top_srcdir)/../gcc/lto/common.c' || echo '$(srcdir)/'`$(top_srcdir)/../gcc/lto/common.c
-
-ltosymtab-lto-symtab.o: lto-symtab.c
-@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ltosymtab_CFLAGS) $(CFLAGS) -MT ltosymtab-lto-symtab.o -MD -MP -MF "$(DEPDIR)/ltosymtab-lto-symtab.Tpo" -c -o ltosymtab-lto-symtab.o `test -f 'lto-symtab.c' || echo '$(srcdir)/'`lto-symtab.c; \
-@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/ltosymtab-lto-symtab.Tpo" "$(DEPDIR)/ltosymtab-lto-symtab.Po"; else rm -f "$(DEPDIR)/ltosymtab-lto-symtab.Tpo"; exit 1; fi
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='lto-symtab.c' object='ltosymtab-lto-symtab.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ltosymtab_CFLAGS) $(CFLAGS) -c -o ltosymtab-lto-symtab.o `test -f 'lto-symtab.c' || echo '$(srcdir)/'`lto-symtab.c
-
-ltosymtab-lto-symtab.obj: lto-symtab.c
-@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ltosymtab_CFLAGS) $(CFLAGS) -MT ltosymtab-lto-symtab.obj -MD -MP -MF "$(DEPDIR)/ltosymtab-lto-symtab.Tpo" -c -o ltosymtab-lto-symtab.obj `if test -f 'lto-symtab.c'; then $(CYGPATH_W) 'lto-symtab.c'; else $(CYGPATH_W) '$(srcdir)/lto-symtab.c'; fi`; \
-@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/ltosymtab-lto-symtab.Tpo" "$(DEPDIR)/ltosymtab-lto-symtab.Po"; else rm -f "$(DEPDIR)/ltosymtab-lto-symtab.Tpo"; exit 1; fi
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='lto-symtab.c' object='ltosymtab-lto-symtab.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ltosymtab_CFLAGS) $(CFLAGS) -c -o ltosymtab-lto-symtab.obj `if test -f 'lto-symtab.c'; then $(CYGPATH_W) 'lto-symtab.c'; else $(CYGPATH_W) '$(srcdir)/lto-symtab.c'; fi`
-
-ltosymtab-common.o: $(top_srcdir)/../gcc/lto/common.c
-@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ltosymtab_CFLAGS) $(CFLAGS) -MT ltosymtab-common.o -MD -MP -MF "$(DEPDIR)/ltosymtab-common.Tpo" -c -o ltosymtab-common.o `test -f '$(top_srcdir)/../gcc/lto/common.c' || echo '$(srcdir)/'`$(top_srcdir)/../gcc/lto/common.c; \
-@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/ltosymtab-common.Tpo" "$(DEPDIR)/ltosymtab-common.Po"; else rm -f "$(DEPDIR)/ltosymtab-common.Tpo"; exit 1; fi
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$(top_srcdir)/../gcc/lto/common.c' object='ltosymtab-common.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ltosymtab_CFLAGS) $(CFLAGS) -c -o ltosymtab-common.o `test -f '$(top_srcdir)/../gcc/lto/common.c' || echo '$(srcdir)/'`$(top_srcdir)/../gcc/lto/common.c
-
-ltosymtab-common.obj: $(top_srcdir)/../gcc/lto/common.c
-@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ltosymtab_CFLAGS) $(CFLAGS) -MT ltosymtab-common.obj -MD -MP -MF "$(DEPDIR)/ltosymtab-common.Tpo" -c -o ltosymtab-common.obj `if test -f '$(top_srcdir)/../gcc/lto/common.c'; then $(CYGPATH_W) '$(top_srcdir)/../gcc/lto/common.c'; else $(CYGPATH_W) '$(srcdir)/$(top_srcdir)/../gcc/lto/common.c'; fi`; \
-@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/ltosymtab-common.Tpo" "$(DEPDIR)/ltosymtab-common.Po"; else rm -f "$(DEPDIR)/ltosymtab-common.Tpo"; exit 1; fi
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$(top_srcdir)/../gcc/lto/common.c' object='ltosymtab-common.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ltosymtab_CFLAGS) $(CFLAGS) -c -o ltosymtab-common.obj `if test -f '$(top_srcdir)/../gcc/lto/common.c'; then $(CYGPATH_W) '$(top_srcdir)/../gcc/lto/common.c'; else $(CYGPATH_W) '$(srcdir)/$(top_srcdir)/../gcc/lto/common.c'; fi`
 
 mostlyclean-libtool:
 	-rm -f *.lo
@@ -581,9 +508,9 @@ distcleancheck: distclean
 	       exit 1; } >&2
 check-am: all-am
 check: check-am
-all-am: Makefile $(LTLIBRARIES) $(PROGRAMS)
+all-am: Makefile $(LTLIBRARIES)
 installdirs:
-	for dir in "$(DESTDIR)$(libexecsubdir)" "$(DESTDIR)$(bindir)"; do \
+	for dir in "$(DESTDIR)$(libexecsubdir)"; do \
 	  test -z "$$dir" || $(mkdir_p) "$$dir"; \
 	done
 install: install-am
@@ -612,8 +539,8 @@ maintainer-clean-generic:
 	@echo "it deletes files that may require special tools to rebuild."
 clean: clean-am
 
-clean-am: clean-binPROGRAMS clean-generic clean-libexecsubLTLIBRARIES \
-	clean-libtool mostlyclean-am
+clean-am: clean-generic clean-libexecsubLTLIBRARIES clean-libtool \
+	mostlyclean-am
 
 distclean: distclean-am
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
@@ -634,7 +561,7 @@ info-am:
 
 install-data-am:
 
-install-exec-am: install-binPROGRAMS install-libexecsubLTLIBRARIES
+install-exec-am: install-libexecsubLTLIBRARIES
 
 install-info: install-info-am
 
@@ -662,23 +589,21 @@ ps: ps-am
 
 ps-am:
 
-uninstall-am: uninstall-binPROGRAMS uninstall-info-am \
-	uninstall-libexecsubLTLIBRARIES
+uninstall-am: uninstall-info-am uninstall-libexecsubLTLIBRARIES
 
 .PHONY: CTAGS GTAGS all all-am am--refresh check check-am clean \
-	clean-binPROGRAMS clean-generic clean-libexecsubLTLIBRARIES \
-	clean-libtool ctags dist dist-all dist-bzip2 dist-gzip \
-	dist-shar dist-tarZ dist-zip distcheck distclean \
-	distclean-compile distclean-generic distclean-libtool \
-	distclean-tags distcleancheck distdir distuninstallcheck dvi \
-	dvi-am html html-am info info-am install install-am \
-	install-binPROGRAMS install-data install-data-am install-exec \
-	install-exec-am install-info install-info-am \
-	install-libexecsubLTLIBRARIES install-man install-strip \
-	installcheck installcheck-am installdirs maintainer-clean \
-	maintainer-clean-generic mostlyclean mostlyclean-compile \
-	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
-	tags uninstall uninstall-am uninstall-binPROGRAMS \
+	clean-generic clean-libexecsubLTLIBRARIES clean-libtool ctags \
+	dist dist-all dist-bzip2 dist-gzip dist-shar dist-tarZ \
+	dist-zip distcheck distclean distclean-compile \
+	distclean-generic distclean-libtool distclean-tags \
+	distcleancheck distdir distuninstallcheck dvi dvi-am html \
+	html-am info info-am install install-am install-data \
+	install-data-am install-exec install-exec-am install-info \
+	install-info-am install-libexecsubLTLIBRARIES install-man \
+	install-strip installcheck installcheck-am installdirs \
+	maintainer-clean maintainer-clean-generic mostlyclean \
+	mostlyclean-compile mostlyclean-generic mostlyclean-libtool \
+	pdf pdf-am ps ps-am tags uninstall uninstall-am \
 	uninstall-info-am uninstall-libexecsubLTLIBRARIES
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
