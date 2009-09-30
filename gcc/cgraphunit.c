@@ -1362,14 +1362,6 @@ ipa_passes (void)
   if (cgraph_state < CGRAPH_STATE_IPA_SSA)
     cgraph_state = CGRAPH_STATE_IPA_SSA;
 
-  /* FIXME lto.  Remove the bodies of extern inline functions that we never
-     inlined.  Otherwise, during WPA extern inline functions generate duplicate
-     cgraph nodes for the same function which conflict with each other
-     and with the cgraph node for the offline version.
-     But this is really too early - see PR41502.  */
-  if (flag_generate_lto)
-    cgraph_remove_unreachable_nodes (false, dump_file);
-
   if (!in_lto_p)
     {
       /* Generate coverage variables and constructors.  */

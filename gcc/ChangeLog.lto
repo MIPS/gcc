@@ -1,3 +1,11 @@
+2009-09-30  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/41502
+	* lto-cgraph.c (lto_output_node): Mark node as not analyzed
+	if it is a boundary node.
+	(input_edge): Remove assertion on extern inlines.
+	* cgraphunit.c (ipa_passes): Do not free extern inline bodies.
+
 2009-09-30  Diego Novillo  <dnovillo@google.com>
 
 	* tree.c (need_assembler_name_p): Cleanup.  Make sure

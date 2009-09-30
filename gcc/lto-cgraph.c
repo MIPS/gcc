@@ -179,7 +179,7 @@ lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
 {
   unsigned int tag;
   struct bitpack_d *bp;
-  unsigned local, externally_visible, inlinable;
+  unsigned local, externally_visible, inlinable, analyzed;
   bool boundary_p, wrote_decl_p;
   intptr_t ref;
 
@@ -213,6 +213,7 @@ lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
   local = node->local.local;
   externally_visible = node->local.externally_visible;
   inlinable = node->local.inlinable;
+  analyzed = node->analyzed;
 
   /* In WPA mode, we only output part of the call-graph.  Also, we
      fake cgraph node attributes.  There are two cases that we care.
@@ -229,6 +230,7 @@ lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
       local = 0;
       externally_visible = 1;
       inlinable = 0;
+      analyzed = 0;
     }
   else if (lto_forced_extern_inline_p (node->decl))
     {
@@ -259,7 +261,7 @@ lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
   bp_pack_value (bp, node->abstract_and_needed, 1);
   bp_pack_value (bp, node->reachable, 1);
   bp_pack_value (bp, node->lowered, 1);
-  bp_pack_value (bp, node->analyzed, 1);
+  bp_pack_value (bp, analyzed, 1);
   bp_pack_value (bp, node->process, 1);
   bp_pack_value (bp, node->alias, 1);
   bp_pack_value (bp, node->finalized_by_frontend, 1);
@@ -555,16 +557,6 @@ input_edge (struct lto_input_block *ib, VEC(cgraph_node_ptr, heap) *nodes)
 
   /* Make sure the caller is the prevailing decl.  */
   prevailing_caller = lto_symtab_prevailing_decl (caller->decl);
-
-  /* FIXME lto: remove this once extern inline is handled in LGEN. */
-  if (caller_resolution != LDPR_PREVAILING_DEF
-      && caller_resolution != LDPR_PREVAILING_DEF_IRONLY
-      && caller_resolution != LDPR_PREEMPTED_REG
-      && caller_resolution != LDPR_PREEMPTED_IR)
-    {
-      /* If we have a extern inline, make sure it is the prevailing.  */
-      gcc_assert (prevailing_caller == caller->decl);
-    }
 
   if (prevailing_callee != callee->decl)
     {
