@@ -1,5 +1,9 @@
 2009-09-30  Rafael Avila de Espindola  <espindola@google.com>
 
+	* lto-plugin.c (onload): Return a ld_plugin_status. Don't require register_cleanup to be set.
+
+2009-09-30  Rafael Avila de Espindola  <espindola@google.com>
+
 	* Makefile.am: Remove all reference to ltosymtab.
 	* Makefile.in: Regenerate.
 	* lto-symtab.c: Remove.

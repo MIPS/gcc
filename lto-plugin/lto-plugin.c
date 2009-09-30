@@ -610,7 +610,7 @@ process_option (const char *option)
 
 /* Called by gold after loading the plugin. TV is the transfer vector. */
 
-void
+enum ld_plugin_status
 onload (struct ld_plugin_tv *tv)
 {
   struct ld_plugin_tv *p;
@@ -652,14 +652,16 @@ onload (struct ld_plugin_tv *tv)
       p++;
     }
 
-  assert (register_cleanup);
   assert (register_claim_file);
   assert (add_symbols);
   status = register_claim_file (claim_file_handler);
   assert (status == LDPS_OK);
 
-  status = register_cleanup (cleanup_handler);
-  assert (status == LDPS_OK);
+  if (register_cleanup)
+    {
+      status = register_cleanup (cleanup_handler);
+      assert (status == LDPS_OK);
+    }
 
   if (register_all_symbols_read)
     {
@@ -671,4 +673,5 @@ onload (struct ld_plugin_tv *tv)
   temp_obj_dir_name = strdup ("tmp_objectsXXXXXX");
   t = mkdtemp (temp_obj_dir_name);
   assert (t == temp_obj_dir_name);
+  return LDPS_OK;
 }
