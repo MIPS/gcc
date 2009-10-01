@@ -1,3 +1,19 @@
+2009-09-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/41438
+	* gcc.dg/debug/dwarf2/const-1.c: Add dg-require-visibility, make x
+	hidden.
+	* g++.dg/debug/dwarf2/const-1.C: Likewise.
+
+2009-09-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/guality/guality.exp (gdb-test): New proc for use in dg-final.
+	* gcc.dg/guality/pr41353-1.c: New test.
+
+	PR testsuite/41444
+	* gcc.dg/guality/guality.h (GUALITY_GDB_REDIRECT): Fix a typo
+	in macro name definition for non-unix/win32/msdos.
+
 2009-08-25  Jan Hubicka  <jh@suse.cz>
 
 	* gcc.target/i386/sse5-shift1-vector.c
