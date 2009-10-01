@@ -3037,8 +3037,10 @@ static hashval_t
 type_pair_hash (const void *p)
 {
   const struct type_pair_d *pair = (const struct type_pair_d *) p;
-  hashval_t val = iterative_hash_hashval_t (htab_hash_pointer (pair->t1), 0);
-  return iterative_hash_hashval_t (htab_hash_pointer (pair->t2), val);
+  hashval_t val1 = iterative_hash_hashval_t (htab_hash_pointer (pair->t1), 0);
+  hashval_t val2 = iterative_hash_hashval_t (htab_hash_pointer (pair->t2), 0);
+  return (iterative_hash_hashval_t (val2, val1)
+	  ^ iterative_hash_hashval_t (val1, val2));
 }
 
 /* Compare two type pairs pointed-to by P1 and P2.  */
@@ -3048,9 +3050,9 @@ type_pair_eq (const void *p1, const void *p2)
 {
   const struct type_pair_d *pair1 = (const struct type_pair_d *) p1;
   const struct type_pair_d *pair2 = (const struct type_pair_d *) p2;
-  return (pair1->t1 == pair2->t1 && pair1->t2 == pair2->t2);
+  return ((pair1->t1 == pair2->t1 && pair1->t2 == pair2->t2)
+	  || (pair1->t1 == pair2->t2 && pair1->t2 == pair2->t1));
 }
-
 
 /* Lookup the pair of types T1 and T2 in *VISITED_P.  Insert a new
    entry if none existed.  */
@@ -3063,18 +3065,17 @@ lookup_type_pair (tree t1, tree t2, htab_t *visited_p)
   void **slot;
 
   if (*visited_p == NULL)
-    *visited_p = htab_create (13, type_pair_hash, type_pair_eq, free);
+    *visited_p = htab_create (251, type_pair_hash, type_pair_eq, free);
 
   pair.t1 = t1;
   pair.t2 = t2;
-  pair.same_p = -2;
   slot = htab_find_slot (*visited_p, &pair, INSERT);
 
   if (*slot)
     p = *((type_pair_t *) slot);
   else
     {
-      p = XCNEW (struct type_pair_d);
+      p = XNEW (struct type_pair_d);
       p->t1 = t1;
       p->t2 = t2;
       p->same_p = -2;
@@ -3108,12 +3109,8 @@ gimple_force_type_merge (tree t1, tree t2)
     }
 
   /* Adjust cached comparison results for T1 and T2 to make sure
-     they now compare compatible.  Update both directions to
-     preserve the symmetry of gimple_compare_types.  */
+     they now compare compatible.  */
   p = lookup_type_pair (t1, t2, &gtc_visited);
-  p->same_p = 1;
-
-  p = lookup_type_pair (t2, t1, &gtc_visited);
   p->same_p = 1;
 }
 
@@ -3552,16 +3549,7 @@ visit (tree t, struct sccs *state, hashval_t v,
   /* If there is a hash value recorded for this type then it can't
      possibly be part of our parent SCC.  Simply mix in its hash.  */
   if ((slot = pointer_map_contains (type_hash_cache, t)))
-    {
-#ifdef ENABLE_CHECKING
-      void **slot2;
-      /* If we have visited the type during the DFS walk then it
-	 should not be on the SCC stack anymore.  */
-      if ((slot2 = pointer_map_contains (sccstate, t)) != NULL)
-	gcc_assert (!((struct sccs *)*slot2)->on_sccstack);
-#endif
-      return iterative_hash_hashval_t ((hashval_t) (size_t) *slot, v);
-    }
+    return iterative_hash_hashval_t ((hashval_t) (size_t) *slot, v);
 
   if ((slot = pointer_map_contains (sccstate, t)) != NULL)
     cstate = (struct sccs *)*slot;
@@ -3579,24 +3567,11 @@ visit (tree t, struct sccs *state, hashval_t v,
 	 ignore the type for hashing purposes and return the unaltered
 	 hash value.  */
       if (!cstate->on_sccstack)
-	{
-#ifdef ENABLE_CHECKING
-	  /* If we are not on the stack we should have a hash value
-	     recorded.  */
-	  gcc_assert (pointer_map_contains (type_hash_cache, t));
-#endif
-	  return tem;
-	}
+	return tem;
     }
   if (cstate->dfsnum < state->dfsnum
       && cstate->on_sccstack)
     state->low = MIN (cstate->dfsnum, state->low);
-
-#ifdef ENABLE_CHECKING
-  /* As we are part of an SCC that is still in processing we should
-     not have a hash value recorded.  */
-  gcc_assert (!pointer_map_contains (type_hash_cache, t));
-#endif
 
   /* We are part of our parents SCC, skip this type during hashing
      and return the unaltered hash value.  */
@@ -3616,6 +3591,21 @@ iterative_hash_type_name (tree type, hashval_t v)
   if (!name)
     return v;
   gcc_assert (TREE_CODE (name) == IDENTIFIER_NODE);
+  /* Do not hash names of anonymous unions.  At least the C++ FE insists
+     to have a non-NULL TYPE_NAME for them.  See cp/cp-tree.h for all
+     the glory.  */
+#ifndef NO_DOT_IN_LABEL
+  if (IDENTIFIER_POINTER (name)[0] == '.')
+    return v;
+#else
+#ifndef NO_DOLLAR_IN_LABEL
+  if (IDENTIFIER_POINTER (name)[0] == '$')
+    return v;
+#else
+  if (!strncmp (IDENTIFIER_POINTER (name), "__anon_", sizeof ("__anon_") - 1))
+    return v;
+#endif
+#endif
   return iterative_hash_object (IDENTIFIER_HASH_VALUE (name), v);
 }
 
@@ -3827,13 +3817,7 @@ gimple_register_type (tree t)
   gcc_assert (TYPE_P (t));
 
   if (gimple_types == NULL)
-    gimple_types = htab_create (100000, gimple_type_hash, gimple_type_eq, 0);
-
-  if (getenv ("MERGE_TYPE_DEBUG"))
-    {
-      fprintf (stderr, "\nRegistering type: %p - ", (void *) t);
-      print_generic_stmt (stderr, t, 0);
-    }
+    gimple_types = htab_create (16381, gimple_type_hash, gimple_type_eq, 0);
 
   slot = htab_find_slot (gimple_types, t, INSERT);
   if (*slot
@@ -3843,13 +3827,6 @@ gimple_register_type (tree t)
 
       /* Do not merge types with different addressability.  */
       gcc_assert (TREE_ADDRESSABLE (t) == TREE_ADDRESSABLE (new_type));
-
-      if (getenv ("MERGE_TYPE_DEBUG"))
-	{
-	  fprintf (stderr, "Merged with existing compatible type: %p - ",
-		   *slot);
-	  print_generic_stmt (stderr, new_type, 0);
-	}
 
       /* If t is not its main variant then make t unreachable from its
 	 main variant list.  Otherwise we'd queue up a lot of duplicates

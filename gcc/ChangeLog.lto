@@ -1,3 +1,15 @@
+2009-10-01  Richard Guenther  <rguenther@suse.de>
+
+	* gimple.c (type_pair_hash): Make symmetric.
+	(type_pair_eq): Likewise.
+	(lookup_type_pair): Increase initial hashtable size.
+	(gimple_force_type_merge): Rely on type-pair symmetry.
+	(visit): Remove excessive checking code.
+	(iterative_hash_type_name): Do not hash TYPE_NAME of
+	anonymous unions.
+	(gimple_register_type): Remove getenv calls, shrink initial
+	hashtable size.
+
 2009-10-01  Rafael Avila de Espindola  <espindola@google.com>
 
 	* lto-opts.c (lto_write_options): Update call to lto_begin_section.
