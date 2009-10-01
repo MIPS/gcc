@@ -1,3 +1,9 @@
+2009-10-01  Diego Novillo  <dnovillo@google.com>
+
+	* gcc.dg/lto/lto.exp: Fix copyright years.
+	* g++.dg/lto/lto.exp: Likewise.
+	* lib/lto.exp: Likewise.
+
 2009-09-30  Diego Novillo  <dnovillo@google.com>
 
 	* gcc.dg/lto/README: Fix names of dg-* commands.

@@ -340,15 +340,17 @@ void
 lto_read_file_options (struct lto_file_decl_data *file_data)
 {
   size_t len;
-  const char *const data = lto_get_section_data (file_data, 
-						 LTO_section_opts, NULL, &len);
-  const struct lto_simple_header *const header
-    = (const struct lto_simple_header *) data;
-  const int32_t opts_offset = sizeof (*header);
+  const char *data;
+  const struct lto_simple_header *header;
+  int32_t opts_offset;
   struct lto_input_block ib;
 
-  gcc_assert (header->lto_header.major_version == LTO_major_version);
-  gcc_assert (header->lto_header.minor_version == LTO_minor_version);
+  data = lto_get_section_data (file_data, LTO_section_opts, NULL, &len);
+  header = (const struct lto_simple_header *) data;
+  opts_offset = sizeof (*header);
+
+  lto_check_version (header->lto_header.major_version,
+		     header->lto_header.minor_version);
 
   LTO_INIT_INPUT_BLOCK (ib, data + opts_offset, 0, header->main_size);
   input_options (&ib);

@@ -1,3 +1,67 @@
+2009-10-01  Diego Novillo  <dnovillo@google.com>
+
+	* tree.c (fld_worklist_push): Rename from PUSH.
+	Convert to static inline function.
+	Ignore language-specific nodes.
+	Update all users.
+	(find_decls_types_r): Do not traverse the subtrees of
+	language-specific nodes.
+	Do not traverse DECL_INITIAL for TYPE_DECLs.
+	* tree.h (is_lang_specific): New.
+	* langhooks.h (struct lang_hooks_for_decls): Remove
+	may_need_assembler_name_p.  Update all users.
+
+2009-10-01  Diego Novillo  <dnovillo@google.com>
+
+	* lto-compress.c: Include diagnostic.h, errors.h.
+	Replace some calls to gcc_assert with internal_error.
+	* lto-cgraph.c: Tidy formatting.
+	Replace some calls to gcc_unreachable with
+	internal_error and an explanation.
+	* lto-streamer-out.c: Likewise.
+	* lto-wrapper.c: Fix copyright dates.
+	Include coretypes.h, tm.h and intl.h.
+	(fatal): Surround CMSGID with _().
+	(fatal_perror): Likewise.
+	(collect_wait): Make two calls to fatal().
+	(main): Call gcc_init_libintl.
+	* gcc/lto-streamer-in.c (lto_tag_check_set): New.
+	(lto_tag_check_range): New.
+	(lto_tag_check): New.
+	(input_string_internal): Call internal_error instead of gcc_assert.
+	(input_string): Likewise.
+	(lto_input_tree_ref): Call lto_tag_check_range.
+	(lto_input_eh_catch_list): Likewise.
+	(input_eh_lp): Likewise.
+	(input_eh_regions): Likewise.
+	(input_bb): Likewise.
+	(input_function): Likewise.
+	(input_gimple_stmt): Call internal_error instead of
+	gcc_unreachable.
+	(lto_read_body): Call lto_check_version.
+	(lto_materialize_tree): Call lto_tag_check.
+	(lto_input_tree_pointers): Call sorry instead of
+	gcc_unreachable.
+	(lto_get_pickled_tree): Call internal_error instead of
+	gcc_assert.
+	* lto-section-in.c (lto_input_1_unsigned): Call
+	internal_error instead of gcc_assert.
+	(lto_record_renamed_decl): Call XNEW instead of xmalloc.
+	* Makefile.in (lto-wrapper): Add intl.o and $(LIBS) to
+	the link command.
+	(lto-wrapper.o): Add dependency on intl.h.
+	(lto-compress.o): Add dependency on errors.h
+	(lto-streamer-out.o): Likewise.
+	(lto-streamer.o): Add dependency on TOPLEV_H.
+	(lto_get_section_name): Call internal_error instead of
+	gcc_unreachable.
+	* lto-opts.c (lto_read_file_options): Tidy formatting.
+	Call lto_check_version.
+	* lto-streamer.c: Include toplev.h
+	(lto_check_version): New.
+	* lto-streamer.h (lto_check_version): Declare.
+	(lto_is_streamable): Call is_lang_specific.
+
 2009-10-01  Rafael Avila de Espindola  <espindola@google.com>
 
 	* gcc.c (LINK_COMMAND_SPEC): Use the -pass-through option to pass

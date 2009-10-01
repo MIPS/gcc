@@ -1,3 +1,24 @@
+2009-10-01  Diego Novillo  <dnovillo@google.com>
+
+	* lto.c (lto_read_decls): Add comment.
+	Call internal_error instead of gcc_assert.
+	(lto_resolution_read): Likewise.
+	(lto_add_all_inlinees): Tidy.
+	* Make-lang.in: Fix copyright boilerplate.
+	(lto.pdf): New.
+	(lto.install-pdf): New.
+	* lto-tree.h: Fix copyright boilerplate.
+	* lang-specs.h: Likewise.
+	Remove ".lto" entry from compilers fragment.
+	* lto-elf.c: Move inclusion of gelf.h after config.h.
+	Tidy formatting everywhere.
+	* lto.h: Fix copyright boilerplate.
+	Tidy formatting everywhere.
+	* common.c: Likewise.
+	* config-lang.in: Likewise.
+	* common.h: Likewise.
+	* lto-lang.c: Likewise.
+
 2009-10-01  Richard Guenther  <rguenther@suse.de>
 
 	* lto.c (lto_read_section_data): Use plain lseek/read.

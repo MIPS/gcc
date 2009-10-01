@@ -1,6 +1,5 @@
 /* Wrapper to call lto.  Used by collect2 and the linker plugin.
-   Copyright (C) 2009
-   Free Software Foundation, Inc.
+   Copyright (C) 2009 Free Software Foundation, Inc.
 
    Factored out of collect2 by Rafael Espindola <espindola@google.com>
 
@@ -40,6 +39,9 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
+#include "intl.h"
 #include "libiberty.h"
 
 int debug;				/* true if -debug */
@@ -50,7 +52,8 @@ enum lto_mode_d {
   LTO_MODE_WHOPR			/* WHOPR. */
 };
 
-static enum lto_mode_d lto_mode = LTO_MODE_NONE; /* current LTO mode. */
+/* Current LTO mode.  */
+static enum lto_mode_d lto_mode = LTO_MODE_NONE;
 
 /* Just die. CMSGID is the error message. */
 
@@ -61,29 +64,31 @@ fatal (const char * cmsgid, ...)
 
   va_start (ap, cmsgid);
   fprintf (stderr, "lto-wrapper: ");
-  vfprintf (stderr, cmsgid, ap);
+  vfprintf (stderr, _(cmsgid), ap);
   fprintf (stderr, "\n");
   va_end (ap);
 
   exit (FATAL_EXIT_CODE);
 }
 
-/* Die when sys call fails. CMSGID is the error message. */
+
+/* Die when sys call fails. CMSGID is the error message.  */
 
 static void __attribute__ ((format (printf, 1, 2)))
-fatal_perror (const char * cmsgid, ...)
+fatal_perror (const char *cmsgid, ...)
 {
   int e = errno;
   va_list ap;
 
   va_start (ap, cmsgid);
   fprintf (stderr, "lto-wrapper: ");
-  vfprintf (stderr, cmsgid, ap);
+  vfprintf (stderr, _(cmsgid), ap);
   fprintf (stderr, ": %s\n", xstrerror (e));
   va_end (ap);
 
   exit (FATAL_EXIT_CODE);
 }
+
 
 /* Execute a program, and wait for the reply. ARGV are the arguments. The
    last one must be NULL. */
@@ -129,6 +134,7 @@ collect_execute (char **argv)
   return pex;
 }
 
+
 /* Wait for a process to finish, and exit if a nonzero status is found.
    PROG is the program name. PEX is the process we should wait for. */
 
@@ -146,16 +152,21 @@ collect_wait (const char *prog, struct pex_obj *pex)
       if (WIFSIGNALED (status))
 	{
 	  int sig = WTERMSIG (status);
-	  fatal ("%s terminated with signal %d [%s]%s",
-		 prog, sig, strsignal(sig),
-		 WCOREDUMP(status) ? ", core dumped" : "");
+	  if (WCOREDUMP (status))
+	    fatal ("%s terminated with signal %d [%s], core dumped",
+		   prog, sig, strsignal (sig));
+	  else
+	    fatal ("%s terminated with signal %d [%s]",
+		   prog, sig, strsignal (sig));
 	}
 
       if (WIFEXITED (status))
 	fatal ("%s returned %d exit status", prog, WEXITSTATUS (status));
     }
+
   return 0;
 }
+
 
 /* Unlink a temporary LTRANS file unless requested otherwise.  */
 
@@ -171,7 +182,8 @@ maybe_unlink_file (const char *file)
     fprintf (stderr, "[Leaving LTRANS %s]\n", file);
 }
 
-/* Execute program ARGV[0] with arguments ARGV. Wait for it to finish. */
+
+/* Execute program ARGV[0] with arguments ARGV. Wait for it to finish.  */
 
 static void
 fork_execute (char **argv)
@@ -204,6 +216,7 @@ fork_execute (char **argv)
   free (args_name);
   free (at_args);
 }
+
 
 /* Execute gcc. ARGC is the number of arguments. ARGV contains the arguments. */
 
@@ -251,7 +264,6 @@ run_gcc (unsigned argc, char *argv[])
       strcpy (tmp, ltrans_output_file);
 
       *argv_ptr++ = "-fwpa";
-
     }
   else
     fatal ("invalid LTO mode");
@@ -264,7 +276,6 @@ run_gcc (unsigned argc, char *argv[])
      `gcc' driver, so the usual option processing takes place.
      Except for `-flto' and `-fwhopr', we should only filter options that
      are meaningful to `ld', lest an option go silently unclaimed.  */
-
   for (i = 1; i < argc; i++)
     {
       const char *s = argv[i];
@@ -316,6 +327,7 @@ run_gcc (unsigned argc, char *argv[])
     fatal ("invalid LTO mode");
 }
 
+
 /* Parse the command line. Copy any unused argument to GCC_ARGV. ARGC is the
    number of arguments. ARGV contains the arguments. */
 
@@ -339,6 +351,7 @@ process_args (int argc, char *argv[], char *gcc_argv[])
 	  j++;
 	}
     }
+
   return j;
 }
 
@@ -350,6 +363,8 @@ main (int argc, char *argv[])
 {
   char **gcc_argv;
   int gcc_argc;
+
+  gcc_init_libintl ();
 
   /* We may be called with all the arguments stored in some file and
      passed with @file.  Expand them into argv before processing.  */

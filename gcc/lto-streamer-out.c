@@ -1192,11 +1192,8 @@ lto_output_tree_header (struct output_block *ob, tree expr, int ix)
   /* We should not see any non-GIMPLE tree nodes here.  */
   code = TREE_CODE (expr);
   if (!lto_is_streamable (expr))
-    {
-      error ("Tree code %qs is not supported in gimple streams",
-	     tree_code_name[code]);
-      gcc_unreachable ();
-    }
+    internal_error ("tree code %qs is not supported in gimple streams",
+		    tree_code_name[code]);
 
   /* The header of a tree node consists of its tag, the size of
      the node, and any other information needed to instantiate

@@ -202,7 +202,7 @@ lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
       break;
       
     default:
-      gcc_unreachable();
+      gcc_unreachable ();
     }
  
   if (boundary_p)
@@ -489,7 +489,9 @@ input_node (struct lto_file_decl_data *file_data,
      have already been read will have their tag stored in the 'aux'
      field.  Since built-in functions can be referenced in multiple
      functions, they are expected to be read more than once.  */
-  gcc_assert (!node->aux || DECL_IS_BUILTIN (node->decl));
+  if (node->aux && !DECL_IS_BUILTIN (node->decl))
+    internal_error ("bytecode stream: found multiple instances of cgraph "
+		    "node %d", node->uid);
 
   input_overwrite_node (file_data, node, tag, bp, stack_size, self_time,
   			time_inlining_benefit, self_size,
@@ -530,12 +532,12 @@ input_edge (struct lto_input_block *ib, VEC(cgraph_node_ptr, heap) *nodes)
   enum ld_plugin_symbol_resolution caller_resolution;
 
   caller = VEC_index (cgraph_node_ptr, nodes, lto_input_sleb128 (ib));
-  gcc_assert (caller);
-  gcc_assert (caller->decl);
+  if (caller == NULL || caller->decl == NULL_TREE)
+    internal_error ("bytecode stream: no caller found while reading edge");
 
   callee = VEC_index (cgraph_node_ptr, nodes, lto_input_sleb128 (ib));
-  gcc_assert (callee);
-  gcc_assert (callee->decl);
+  if (callee == NULL || callee->decl == NULL_TREE)
+    internal_error ("bytecode stream: no callee found while reading edge");
 
   caller_resolution = lto_symtab_get_resolution (caller->decl);
 
@@ -608,8 +610,8 @@ input_cgraph_1 (struct lto_file_decl_data *file_data,
       else 
 	{
 	  node = input_node (file_data, ib, tag);
-	  gcc_assert (node);
-	  gcc_assert (node->decl);
+	  if (node == NULL || node->decl == NULL_TREE)
+	    internal_error ("bytecode stream: found empty cgraph node");
 	  VEC_safe_push (cgraph_node_ptr, heap, nodes, node);
 	  lto_cgraph_encoder_encode (file_data->cgraph_node_encoder, node);
 	}

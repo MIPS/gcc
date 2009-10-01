@@ -3104,33 +3104,6 @@ cp_free_lang_data (tree t)
     }
 }
 
-
-/* Return true if DECL may need an assembler name to be set.  Note
-   that this should only check language-specific attributes and return true if
-   it is not completely sure.  It is used as a last resort in
-   tree.c:need_assembler_name_p.  */
-
-bool
-cxx_may_need_assembler_name_p (tree decl)
-{
-  /* We should never see anything other than variables and functions here.  */
-  gcc_assert (TREE_CODE (decl) == FUNCTION_DECL
-	      || TREE_CODE (decl) == VAR_DECL);
-
-  /* Functions that depend on template parameters do not need
-     an assembler name.  */
-  if (TREE_CODE (decl) == FUNCTION_DECL && uses_template_parms (decl))
-    return false;
-
-  /* Templates do not need assembler names.  */
-  if (DECL_LANG_SPECIFIC (decl)
-      && (DECL_TEMPLATE_INSTANTIATION (decl)
-	  || DECL_TEMPLATE_SPECIALIZATION (decl)))
-    return false;
-
-  return true;
-}
-
 
 #if defined ENABLE_TREE_CHECKING && (GCC_VERSION >= 2007)
 /* Complain that some language-specific thing hanging off a tree

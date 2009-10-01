@@ -1,3 +1,9 @@
+2009-10-01  Diego Novillo  <dnovillo@google.com>
+
+	* tree.c (cxx_may_need_assembler_name_p): Remove.
+	* cp-objcp-common.h (LANG_HOOKS_MAY_NEED_ASSEMBLER_NAME_P): Remove.
+	* cp-tree.h (cxx_may_need_assembler_name_p): Remove.
+
 2009-09-30  Diego Novillo  <dnovillo@google.com>
 
 	* cp/tree.c (cp_free_lang_data): Assert that DECL is a

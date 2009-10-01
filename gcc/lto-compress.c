@@ -28,6 +28,8 @@ along with GCC; see the file COPYING3.  If not see
 #include <zlib.h>
 #include "coretypes.h"
 #include "tree.h"
+#include "diagnostic.h"
+#include "errors.h"
 #include "langhooks.h"
 #include "lto-streamer.h"
 #include "lto-compress.h"
@@ -184,14 +186,16 @@ lto_end_compression (struct lto_compression_stream *stream)
   out_stream.opaque = Z_NULL;
 
   status = deflateInit (&out_stream, lto_normalized_zlib_level ());
-  gcc_assert (status == Z_OK);
+  if (status != Z_OK)
+    internal_error ("compressed stream: %s", zError (status));
 
   do
     {
       size_t in_bytes, out_bytes;
 
       status = deflate (&out_stream, Z_FINISH);
-      gcc_assert (status == Z_OK || status == Z_STREAM_END);
+      if (status != Z_OK && status != Z_STREAM_END)
+	internal_error ("compressed stream: %s", zError (status));
 
       in_bytes = remaining - out_stream.avail_in;
       out_bytes = outbuf_length - out_stream.avail_out;
@@ -211,7 +215,8 @@ lto_end_compression (struct lto_compression_stream *stream)
   while (status != Z_STREAM_END);
 
   status = deflateEnd (&out_stream);
-  gcc_assert (status == Z_OK);
+  if (status != Z_OK)
+    internal_error ("compressed stream: %s", zError (status));
 
   lto_destroy_compression_stream (stream);
   free (outbuf);
@@ -271,14 +276,16 @@ lto_end_uncompression (struct lto_compression_stream *stream)
       in_stream.opaque = Z_NULL;
 
       status = inflateInit (&in_stream);
-      gcc_assert (status == Z_OK);
+      if (status != Z_OK)
+	internal_error ("compressed stream: %s", zError (status));
 
       do
 	{
 	  size_t in_bytes;
 
 	  status = inflate (&in_stream, Z_SYNC_FLUSH);
-	  gcc_assert (status == Z_OK || status == Z_STREAM_END);
+	  if (status != Z_OK && status != Z_STREAM_END)
+	    internal_error ("compressed stream: %s", zError (status));
 
 	  in_bytes = remaining - in_stream.avail_in;
 	  out_bytes = outbuf_length - in_stream.avail_out;
@@ -298,7 +305,8 @@ lto_end_uncompression (struct lto_compression_stream *stream)
       while (!(status == Z_STREAM_END && out_bytes == 0));
 
       status = inflateEnd (&in_stream);
-      gcc_assert (status == Z_OK);
+      if (status != Z_OK)
+	internal_error ("compressed stream: %s", zError (status));
     }
 
   lto_destroy_compression_stream (stream);

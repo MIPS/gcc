@@ -229,12 +229,6 @@ struct lang_hooks_for_decls
 
   /* Do language specific checking on an implicitly determined clause.  */
   void (*omp_finish_clause) (tree clause);
-
-  /* If set, returns true if DECL may need an assembler name to be
-     computed for it.  This is only used to test language-specific
-     information.  It should should not be called directly.  Instead
-     call need_assembler_name_p.  */
-  bool (*may_need_assembler_name_p) (tree decl);
 };
 
 /* Language hooks related to LTO serialization.  */

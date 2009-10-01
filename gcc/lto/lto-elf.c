@@ -18,11 +18,11 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
-#include <gelf.h>
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
 #include "toplev.h"
+#include <gelf.h>
 #include "lto.h"
 #include "tm.h"
 #include "libiberty.h"
@@ -42,10 +42,13 @@ struct lto_elf_file
 {
   /* The base information.  */
   lto_file base;
+
   /* The system file descriptor for the file.  */
   int fd;
+
   /* The libelf descriptor for the file.  */
   Elf *elf;
+
   /* Section number of string table used for section names.  */
   size_t sec_strtab;
 
@@ -53,8 +56,10 @@ struct lto_elf_file
 
   /* The currently active section.  */
   Elf_Scn *scn;
+
   /* The output stream for section header names.  */
   struct lto_output_stream *shstrtab_stream;
+
   /* Linked list of data which must be freed *after* the file has been
      closed.  This is an annoying limitation of libelf.  */
   struct lto_char_ptr_base *data;
@@ -74,6 +79,7 @@ static struct {
 
 /* Return the section header for SECTION.  The return value is never
    NULL.  Call lto_elf_free_shdr to release the memory allocated.  */
+
 static Elf64_Shdr *
 lto_elf_get_shdr (Elf_Scn *section)
 {
@@ -84,11 +90,12 @@ lto_elf_get_shdr (Elf_Scn *section)
     case 32:
       {
 	Elf32_Shdr *shdr32;
+
 	/* Read the 32-bit section header.  */
 	shdr32 = elf32_getshdr (section);
 	if (!shdr32)
-	  fatal_error ("could not read section header: %s",
-		       elf_errmsg (0));
+	  fatal_error ("could not read section header: %s", elf_errmsg (0));
+
 	/* Transform it into a 64-bit section header.  */
 	shdr = XNEW (Elf64_Shdr);
 	shdr->sh_name = shdr32->sh_name;
@@ -104,14 +111,15 @@ lto_elf_get_shdr (Elf_Scn *section)
 	break;
       }
       break;
+
     case 64:
       shdr = elf64_getshdr (section);
       if (!shdr)
-	fatal_error ("could not read section header: %s",
-		     elf_errmsg (0));
+	fatal_error ("could not read section header: %s", elf_errmsg (0));
       break;
+
     default:
-      gcc_unreachable();
+      gcc_unreachable ();
     }
 
   return shdr;
@@ -151,13 +159,7 @@ eq_name (const void *p1, const void *p2)
 
 
 /* Build a hash table whose key is the section names and whose data is
-   the start and size of each section in the .o file.  
-
-   FIXME!  This code will most likely require an upgrade when it comes
-   time to try to read archive files.  This means that when we start
-   randomly reading functions out of archives, we will need to load
-   the member of the archive manually rather than just opening the
-   archive as a file and lseeking to the start of the function.  */
+   the start and size of each section in the .o file.  */
 
 htab_t
 lto_elf_build_section_table (lto_file *lto_file) 
@@ -166,8 +168,7 @@ lto_elf_build_section_table (lto_file *lto_file)
   htab_t section_hash_table;
   Elf_Scn *section;
 
-  section_hash_table
-    = htab_create (37, hash_name, eq_name, free);
+  section_hash_table = htab_create (37, hash_name, eq_name, free);
 
   for (section = elf_getscn (elf_file->elf, 0);
        section;
@@ -195,7 +196,7 @@ lto_elf_build_section_table (lto_file *lto_file)
 	  continue;
 	}
 
-      new_name = (char *) xmalloc (strlen (name) + 1);
+      new_name = XNEWVEC (char, strlen (name) + 1);
       strcpy (new_name, name);
       s_slot.name = new_name;
       slot = htab_find_slot (section_hash_table, &s_slot, INSERT);
@@ -214,8 +215,10 @@ lto_elf_build_section_table (lto_file *lto_file)
 	  error ("two or more sections for %s:", new_name);
 	  return NULL;
 	}
+
       lto_elf_free_shdr (shdr);
     }
+
   return section_hash_table;
 }
 
@@ -230,9 +233,9 @@ init_shdr##BITS (Elf_Scn *scn, size_t sh_name, size_t sh_type)	      \
 {								      \
   Elf##BITS##_Shdr *shdr;					      \
 								      \
-  shdr = elf##BITS##_getshdr(scn);				      \
+  shdr = elf##BITS##_getshdr (scn);				      \
   if (!shdr)							      \
-    fatal_error ("elf"#BITS"_getshdr() failed: %s.", elf_errmsg(-1)); \
+    fatal_error ("elf"#BITS"_getshdr() failed: %s.", elf_errmsg (-1));\
 								      \
   shdr->sh_name = sh_name;					      \
   shdr->sh_type = sh_type;					      \
@@ -265,7 +268,7 @@ lto_elf_begin_section_with_type (const char *name, size_t type)
   /* Create a new section.  */
   scn = elf_newscn (file->elf);
   if (!scn)
-    fatal_error ("elf_newscn() failed: %s.", elf_errmsg(-1));
+    fatal_error ("could not create a new ELF section: %s.", elf_errmsg (-1));
   file->scn = scn;
 
   /* Add a string table entry and record the offset.  */
@@ -317,9 +320,9 @@ lto_elf_append_data (const void *data, size_t len, void *block)
   gcc_assert (file);
   gcc_assert (file->scn);
 
-  elf_data = elf_newdata(file->scn);
+  elf_data = elf_newdata (file->scn);
   if (!elf_data)
-    fatal_error ("elf_newdata() failed: %s.", elf_errmsg(-1));
+    fatal_error ("could not append data to ELF section: %s", elf_errmsg (-1));
 
   if (first_data_block)
     {
@@ -481,9 +484,9 @@ init_ehdr##BITS (lto_elf_file *elf_file)			      \
 								      \
   gcc_assert (cached_file_attrs.bits);				      \
 								      \
-  ehdr = elf##BITS##_newehdr(elf_file->elf);			      \
+  ehdr = elf##BITS##_newehdr (elf_file->elf);			      \
   if (!ehdr)							      \
-    fatal_error ("elf"#BITS"_newehdr() failed: %s.", elf_errmsg(-1)); \
+    fatal_error ("elf"#BITS"_newehdr() failed: %s.", elf_errmsg (-1));\
 								      \
   memcpy (ehdr->e_ident, cached_file_attrs.elf_ident,		      \
 	  sizeof cached_file_attrs.elf_ident);			      \
@@ -598,7 +601,7 @@ lto_elf_file_close (lto_file *file)
       lto_elf_begin_section_with_type (".shstrtab", SHT_STRTAB);
       ehdr_p = gelf_getehdr (elf_file->elf, &ehdr_buf);
       if (ehdr_p == NULL)
-	fatal_error ("gelf_getehdr() failed: %s.", elf_errmsg(-1));
+	fatal_error ("gelf_getehdr() failed: %s.", elf_errmsg (-1));
       strtab = elf_ndxscn (elf_file->scn);
       if (strtab < SHN_LORESERVE)
 	ehdr_p->e_shstrndx = strtab;
@@ -607,25 +610,25 @@ lto_elf_file_close (lto_file *file)
 	  GElf_Shdr *shdr_p, shdr_buf;
 	  Elf_Scn *scn_p = elf_getscn (elf_file->elf, 0);
 	  if (scn_p == NULL)
-	    fatal_error ("elf_getscn() failed: %s.", elf_errmsg(-1));
+	    fatal_error ("elf_getscn() failed: %s.", elf_errmsg (-1));
 	  shdr_p = gelf_getshdr (scn_p, &shdr_buf);
 	  if (shdr_p == NULL)
-	    fatal_error ("gelf_getshdr() failed: %s.", elf_errmsg(-1));
+	    fatal_error ("gelf_getshdr() failed: %s.", elf_errmsg (-1));
 	  shdr_p->sh_link = strtab;
 	  if (gelf_update_shdr (scn_p, shdr_p) == 0)
-	    fatal_error ("gelf_update_shdr() failed: %s.", elf_errmsg(-1));
+	    fatal_error ("gelf_update_shdr() failed: %s.", elf_errmsg (-1));
 	  ehdr_p->e_shstrndx = SHN_XINDEX;
 	}
       if (gelf_update_ehdr (elf_file->elf, ehdr_p) == 0)
-	fatal_error ("gelf_update_ehdr() failed: %s.", elf_errmsg(-1));
+	fatal_error ("gelf_update_ehdr() failed: %s.", elf_errmsg (-1));
       lto_write_stream (elf_file->shstrtab_stream);
       lto_elf_end_section ();
 
       lto_set_current_out_file (old_file);
       free (elf_file->shstrtab_stream);
 
-      if (elf_update(elf_file->elf, ELF_C_WRITE) < 0)
-	fatal_error ("elf_update() failed: %s.", elf_errmsg(-1));
+      if (elf_update (elf_file->elf, ELF_C_WRITE) < 0)
+	fatal_error ("elf_update() failed: %s.", elf_errmsg (-1));
     }
 
   if (elf_file->elf)

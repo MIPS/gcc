@@ -62,7 +62,10 @@ const char *lto_section_name[LTO_N_SECTION_TYPES] =
 unsigned char 
 lto_input_1_unsigned (struct lto_input_block *ib)
 {
-  gcc_assert (ib->p < ib->len);
+  if (ib->p >= ib->len)
+    internal_error ("bytecode stream: trying to read %d bytes "
+		    "after the end of the input buffer", ib->p - ib->len);
+
   return (ib->data[ib->p++]);
 }
 
@@ -388,10 +391,7 @@ lto_record_renamed_decl (struct lto_file_decl_data *decl_data,
   slot = htab_find_slot (decl_data->renaming_hash_table, &r_slot, INSERT);
   if (*slot == NULL)
     {
-      struct lto_renaming_slot *new_slot
-	= ((struct lto_renaming_slot *)
-	   xmalloc (sizeof (struct lto_renaming_slot)));
-      
+      struct lto_renaming_slot *new_slot = XNEW (struct lto_renaming_slot);
       new_slot->old_name = xstrdup (old_name);
       new_slot->new_name = xstrdup (new_name);
       *slot = new_slot;

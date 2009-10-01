@@ -579,11 +579,11 @@ lto_define_builtins (tree va_list_ref_type_node ATTRIBUTE_UNUSED,
 
   lto_init_attributes ();
 
-#define DEF_BUILTIN(ENUM, NAME, CLASS, TYPE, LIBTYPE, BOTH_P, FALLBACK_P,	\
-		    NONANSI_P, ATTRS, IMPLICIT, COND)				\
-    if (NAME && COND)								\
-      def_builtin_1 (ENUM, NAME, CLASS, builtin_types[(int) TYPE],		\
-		     builtin_types[(int) LIBTYPE], BOTH_P, FALLBACK_P,		\
+#define DEF_BUILTIN(ENUM, NAME, CLASS, TYPE, LIBTYPE, BOTH_P, FALLBACK_P,\
+		    NONANSI_P, ATTRS, IMPLICIT, COND)			\
+    if (NAME && COND)							\
+      def_builtin_1 (ENUM, NAME, CLASS, builtin_types[(int) TYPE],	\
+		     builtin_types[(int) LIBTYPE], BOTH_P, FALLBACK_P,	\
 		     NONANSI_P, built_in_attributes[(int) ATTRS], IMPLICIT);
 #include "builtins.def"
 #undef DEF_BUILTIN
@@ -1061,7 +1061,7 @@ lto_init (void)
       size_type_node = long_unsigned_type_node;
     }
   else
-    gcc_unreachable();
+    gcc_unreachable ();
 
   /* The global tree for the main identifier is filled in by
      language-specific front-end initialization that is not run in the

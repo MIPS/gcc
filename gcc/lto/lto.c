@@ -180,6 +180,11 @@ lto_read_in_decl_state (struct data_in *data_in, const uint32_t *data,
   return data;
 }
 
+
+/* Read all the symbols from buffer DATA, using descriptors in DECL_DATA.
+   RESOLUTIONS is the set of symbols picked by the linker (read from the
+   resolution file when the linker plugin is being used).  */
+
 static void
 lto_read_decls (struct lto_file_decl_data *decl_data, const void *data,
 		VEC(ld_plugin_symbol_resolution_t,heap) *resolutions)
@@ -232,7 +237,9 @@ lto_read_decls (struct lto_file_decl_data *decl_data, const void *data,
       gcc_assert (*slot == NULL);
       *slot = state;
     }
-  gcc_assert (data_ptr == data_end);
+
+  if (data_ptr != data_end)
+    internal_error ("bytecode stream: garbage at the end of symbols section");
   
   /* Set the current decl state to be the global state. */
   decl_data->current_decl_state = decl_data->global_decl_state;
@@ -269,7 +276,10 @@ lto_resolution_read (FILE *resolution, const char *file_name)
 
   fread (obj_name, sizeof (char), name_len, resolution);
   obj_name[name_len] = '\0';
-  gcc_assert (strcmp(obj_name, file_name) == 0);
+  if (strcmp (obj_name, file_name) != 0)
+    internal_error ("unexpected file name %s in linker resolution file. "
+		    "Expected %s", obj_name, file_name);
+
   free (obj_name);
 
   fscanf (resolution, "%u", &num_symbols);
@@ -295,7 +305,9 @@ lto_resolution_read (FILE *resolution, const char *file_name)
 	      break;
 	    }
 	}
-      gcc_assert (j < lto_resolution_str_len);
+      if (j >= lto_resolution_str_len)
+	internal_error ("tried to read past the end of the linker resolution "
+			"file");
 
       VEC_safe_grow_cleared (ld_plugin_symbol_resolution_t, heap, ret,
 			     index + 1);
@@ -562,7 +574,7 @@ lto_add_all_inlinees (cgraph_node_set set)
   struct cgraph_node *node;
   bitmap original_nodes = lto_bitmap_alloc ();
   bitmap original_decls = lto_bitmap_alloc ();
-  bitmap inlined_decls = lto_bitmap_alloc();
+  bitmap inlined_decls = lto_bitmap_alloc ();
   bool changed;
 
   /* We are going to iterate SET while adding to it, mark all original

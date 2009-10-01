@@ -4293,10 +4293,6 @@ need_assembler_name_p (tree decl)
 	return false;
     }
 
-  /* Finally, if we still can't tell, ask the front end.  */
-  if (lang_hooks.decls.may_need_assembler_name_p)
-    return lang_hooks.decls.may_need_assembler_name_p (decl);
-
   return true;
 }
 
@@ -4526,15 +4522,21 @@ add_tree_to_fld_list (tree t, struct free_lang_data_d *fld)
     gcc_unreachable ();
 }
 
-#define PUSH(t) \
-    if (t && !pointer_set_contains (fld->pset, t)) \
-      VEC_safe_push (tree, heap, fld->worklist, (t))
+/* Push tree node T into FLD->WORKLIST.  */
+
+static inline void
+fld_worklist_push (tree t, struct free_lang_data_d *fld)
+{
+  if (t && !is_lang_specific (t) && !pointer_set_contains (fld->pset, t))
+    VEC_safe_push (tree, heap, fld->worklist, (t));
+}
+
 
 /* Operand callback helper for free_lang_data_in_node.  *TP is the
    subtree operand being considered.  */
 
 static tree
-find_decls_types_r (tree *tp, int *ws ATTRIBUTE_UNUSED, void *data)
+find_decls_types_r (tree *tp, int *ws, void *data)
 {
   tree t = *tp;
   struct free_lang_data_d *fld = (struct free_lang_data_d *) data;
@@ -4542,45 +4544,58 @@ find_decls_types_r (tree *tp, int *ws ATTRIBUTE_UNUSED, void *data)
   if (TREE_CODE (t) == TREE_LIST)
     return NULL_TREE;
 
+  /* Language specific nodes will be removed, so there is no need
+     to gather anything under them.  */
+  if (is_lang_specific (t))
+    {
+      *ws = 0;
+      return NULL_TREE;
+    }
+
   if (DECL_P (t))
     {
       /* Note that walk_tree does not traverse every possible field in
 	 decls, so we have to do our own traversals here.  */
       add_tree_to_fld_list (t, fld);
 
-      PUSH (DECL_NAME (t));
-      PUSH (DECL_CONTEXT (t));
-      PUSH (DECL_SIZE (t));
-      PUSH (DECL_SIZE_UNIT (t));
-      PUSH (DECL_INITIAL(t));
-      PUSH (DECL_ATTRIBUTES (t));
-      PUSH (DECL_ABSTRACT_ORIGIN (t));
+      fld_worklist_push (DECL_NAME (t), fld);
+      fld_worklist_push (DECL_CONTEXT (t), fld);
+      fld_worklist_push (DECL_SIZE (t), fld);
+      fld_worklist_push (DECL_SIZE_UNIT (t), fld);
+
+      /* We are going to remove everything under DECL_INITIAL for
+	 TYPE_DECLs.  No point walking them.  */
+      if (TREE_CODE (t) != TYPE_DECL)
+	fld_worklist_push (DECL_INITIAL (t), fld);
+
+      fld_worklist_push (DECL_ATTRIBUTES (t), fld);
+      fld_worklist_push (DECL_ABSTRACT_ORIGIN (t), fld);
 
       if (TREE_CODE (t) == FUNCTION_DECL)
 	{
-	  PUSH (DECL_ARGUMENTS (t));
-	  PUSH (DECL_RESULT (t));
+	  fld_worklist_push (DECL_ARGUMENTS (t), fld);
+	  fld_worklist_push (DECL_RESULT (t), fld);
 	}
       else if (TREE_CODE (t) == TYPE_DECL)
 	{
-	  PUSH (DECL_ARGUMENT_FLD (t));
-	  PUSH (DECL_VINDEX (t));
+	  fld_worklist_push (DECL_ARGUMENT_FLD (t), fld);
+	  fld_worklist_push (DECL_VINDEX (t), fld);
 	}
       else if (TREE_CODE (t) == FIELD_DECL)
 	{
-	  PUSH (DECL_FIELD_OFFSET (t));
-	  PUSH (DECL_BIT_FIELD_TYPE (t));
-	  PUSH (DECL_QUALIFIER (t));
-	  PUSH (DECL_FIELD_BIT_OFFSET (t));
-	  PUSH (DECL_FCONTEXT (t));
+	  fld_worklist_push (DECL_FIELD_OFFSET (t), fld);
+	  fld_worklist_push (DECL_BIT_FIELD_TYPE (t), fld);
+	  fld_worklist_push (DECL_QUALIFIER (t), fld);
+	  fld_worklist_push (DECL_FIELD_BIT_OFFSET (t), fld);
+	  fld_worklist_push (DECL_FCONTEXT (t), fld);
 	}
       else if (TREE_CODE (t) == VAR_DECL)
 	{
-	  PUSH (DECL_SECTION_NAME (t));
-	  PUSH (DECL_COMDAT_GROUP (t));
+	  fld_worklist_push (DECL_SECTION_NAME (t), fld);
+	  fld_worklist_push (DECL_COMDAT_GROUP (t), fld);
 	}
 
-      PUSH (TREE_CHAIN (t));
+      fld_worklist_push (TREE_CHAIN (t), fld);
       *ws = 0;
     }
   else if (TYPE_P (t))
@@ -4589,40 +4604,38 @@ find_decls_types_r (tree *tp, int *ws ATTRIBUTE_UNUSED, void *data)
 	 types, so we have to do our own traversals here.  */
       add_tree_to_fld_list (t, fld);
 
-      PUSH (TYPE_CACHED_VALUES (t));
-      PUSH (TYPE_SIZE (t));
-      PUSH (TYPE_SIZE_UNIT (t));
-      PUSH (TYPE_ATTRIBUTES (t));
-      PUSH (TYPE_POINTER_TO (t));
-      PUSH (TYPE_REFERENCE_TO (t));
-      PUSH (TYPE_NAME (t));
-      PUSH (TYPE_MINVAL (t));
-      PUSH (TYPE_MAXVAL (t));
-      PUSH (TYPE_MAIN_VARIANT (t));
-      PUSH (TYPE_NEXT_VARIANT (t));
-      PUSH (TYPE_CONTEXT (t));
-      PUSH (TYPE_CANONICAL (t));
+      fld_worklist_push (TYPE_CACHED_VALUES (t), fld);
+      fld_worklist_push (TYPE_SIZE (t), fld);
+      fld_worklist_push (TYPE_SIZE_UNIT (t), fld);
+      fld_worklist_push (TYPE_ATTRIBUTES (t), fld);
+      fld_worklist_push (TYPE_POINTER_TO (t), fld);
+      fld_worklist_push (TYPE_REFERENCE_TO (t), fld);
+      fld_worklist_push (TYPE_NAME (t), fld);
+      fld_worklist_push (TYPE_MINVAL (t), fld);
+      fld_worklist_push (TYPE_MAXVAL (t), fld);
+      fld_worklist_push (TYPE_MAIN_VARIANT (t), fld);
+      fld_worklist_push (TYPE_NEXT_VARIANT (t), fld);
+      fld_worklist_push (TYPE_CONTEXT (t), fld);
+      fld_worklist_push (TYPE_CANONICAL (t), fld);
 
-      if (RECORD_OR_UNION_TYPE_P (t)
-	  && TYPE_BINFO (t))
+      if (RECORD_OR_UNION_TYPE_P (t) && TYPE_BINFO (t))
 	{
 	  unsigned i;
 	  tree tem;
 	  for (i = 0; VEC_iterate (tree, BINFO_BASE_BINFOS (TYPE_BINFO (t)),
 				   i, tem); ++i)
-	    PUSH (TREE_TYPE (tem));
+	    fld_worklist_push (TREE_TYPE (tem), fld);
 	}
 
-      PUSH (TREE_CHAIN (t));
+      fld_worklist_push (TREE_CHAIN (t), fld);
       *ws = 0;
     }
 
-  PUSH (TREE_TYPE (t));
+  fld_worklist_push (TREE_TYPE (t), fld);
 
   return NULL_TREE;
 }
 
-#undef PUSH
 
 /* Find decls and types in T.  */
 

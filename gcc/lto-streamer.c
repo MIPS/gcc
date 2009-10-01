@@ -24,6 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "toplev.h"
 #include "flags.h"
 #include "tree.h"
 #include "gimple.h"
@@ -169,7 +170,7 @@ lto_get_section_name (int section_type, const char *name)
       return concat (LTO_SECTION_NAME_PREFIX, ".opts", NULL);
 
     default:
-      gcc_unreachable ();
+      internal_error ("bytecode stream: unexpected LTO section %s", name);
     }
 }
 
@@ -844,3 +845,16 @@ lto_orig_address_remove (tree t)
   t->base.ann = NULL;
 }
 #endif
+
+
+/* Check that the version MAJOR.MINOR is the correct version number.  */
+
+void
+lto_check_version (int major, int minor)
+{
+  if (major != LTO_major_version || minor != LTO_minor_version)
+    fatal_error ("bytecode stream generated with LTO version %d.%d instead "
+	         "of the expected %d.%d",
+		 major, minor,
+		 LTO_major_version, LTO_minor_version);
+}

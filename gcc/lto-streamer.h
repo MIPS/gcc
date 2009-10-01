@@ -802,6 +802,7 @@ extern void lto_orig_address_map (tree, intptr_t);
 extern intptr_t lto_orig_address_get (tree);
 extern void lto_orig_address_remove (tree);
 #endif
+extern void lto_check_version (int, int);
 
 
 /* In lto-streamer-in.c */
@@ -1027,7 +1028,7 @@ lto_is_streamable (tree expr)
 
   /* Notice that we reject SSA_NAMEs as well.  We only emit the SSA
      name version in lto_output_tree_ref (see output_ssa_names).  */
-  return code < NUM_TREE_CODES
+  return !is_lang_specific (expr)
 	 && code != SSA_NAME
 	 && code != CALL_EXPR
 	 && code != LANG_TYPE
@@ -1050,5 +1051,4 @@ DEFINE_DECL_STREAM_FUNCS (TYPE_DECL, type_decl)
 DEFINE_DECL_STREAM_FUNCS (NAMESPACE_DECL, namespace_decl)
 DEFINE_DECL_STREAM_FUNCS (LABEL_DECL, label_decl)
 
-  
 #endif /* GCC_LTO_STREAMER_H  */

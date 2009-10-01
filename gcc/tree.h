@@ -5407,4 +5407,11 @@ more_const_call_expr_args_p (const const_call_expr_arg_iterator *iter)
   for ((arg) = first_const_call_expr_arg ((call), &(iter)); (arg);	\
        (arg) = next_const_call_expr_arg (&(iter)))
 
+/* Return true if tree node T is a language-specific node.  */
+static inline bool
+is_lang_specific (tree t)
+{
+  return TREE_CODE (t) >= NUM_TREE_CODES;
+}
+
 #endif  /* GCC_TREE_H  */
