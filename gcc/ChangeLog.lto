@@ -1,3 +1,8 @@
+2009-10-01  Rafael Avila de Espindola  <espindola@google.com>
+
+	* gcc.c (LINK_COMMAND_SPEC): Use the -pass-through option to pass
+	libgcc to the linker.
+
 2009-10-01  Richard Guenther  <rguenther@suse.de>
 
 	* gimple.c (type_pair_hash): Make symmetric.

@@ -1,6 +1,14 @@
+2009-10-01  Rafael Avila de Espindola  <espindola@google.com>
+
+	* lto-plugin.c (pass_through_items): New.
+	(num_pass_through_items): New.
+	(all_symbols_read_handler): Update to use the -pass-through option.
+	(process_option): Replace -libgcc with -pass-through.
+	
 2009-09-30  Rafael Avila de Espindola  <espindola@google.com>
 
-	* lto-plugin.c (onload): Return a ld_plugin_status. Don't require register_cleanup to be set.
+	* lto-plugin.c (onload): Return a ld_plugin_status. Don't require
+	register_cleanup to be set.
 
 2009-09-30  Rafael Avila de Espindola  <espindola@google.com>
 

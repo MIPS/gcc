@@ -91,7 +91,8 @@ static unsigned int num_output_files = 0;
 static char **lto_wrapper_argv;
 static int lto_wrapper_num_args;
 
-static char *libgcc_filename = NULL;
+static char **pass_through_items = NULL;
+static unsigned int num_pass_through_items;
 
 static bool debug;
 static bool nop;
@@ -461,11 +462,18 @@ all_symbols_read_handler (void)
 
   free (lto_argv);
 
-  if (libgcc_filename)
-    add_input_file (libgcc_filename);
-
-  free (libgcc_filename);
-  libgcc_filename = NULL;
+  if (pass_through_items)
+    {
+      unsigned int i;
+      for (i = 0; i < num_pass_through_items; i++)
+        {
+          add_input_file (pass_through_items[i]);
+          free (pass_through_items[i]);
+          pass_through_items[i] = NULL;
+        }
+      free (pass_through_items);
+      pass_through_items = NULL;
+    }
 
   return LDPS_OK;
 }
@@ -596,8 +604,12 @@ process_option (const char *option)
     debug = 1;
   else if (strcmp (option, "-nop") == 0)
     nop = 1;
-  else if (!strncmp (option, "-libgcc", strlen("-libgcc")))
-    libgcc_filename = strdup (option + strlen ("-libgcc="));
+  else if (!strncmp (option, "-pass-through=", strlen("-pass-through=")))
+    {
+      num_pass_through_items++;
+      pass_through_items = realloc (pass_through_items, num_pass_through_items * sizeof (char *));
+      pass_through_items[num_pass_through_items - 1] = strdup (option + strlen ("-pass-through="));
+    }
   else
     {
       int size;
