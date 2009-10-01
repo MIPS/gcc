@@ -44,7 +44,7 @@
 #include <tmmintrin.h>
 #endif
 
-#ifdef __SSE4a__
+#ifdef __SSE4A__
 #include <ammintrin.h>
 #endif
 
@@ -52,8 +52,8 @@
 #include <smmintrin.h>
 #endif
 
-#ifdef __SSE5__
-#include <bmmintrin.h>
+#ifdef __FMA4__
+#include <fma4intrin.h>
 #endif
 
 #if defined (__AES__) || defined (__PCLMUL__)

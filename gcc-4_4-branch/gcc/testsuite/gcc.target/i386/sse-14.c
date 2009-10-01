@@ -4,18 +4,14 @@
 #include <mm_malloc.h>
 
 /* Test that the intrinsics compile without optimization.  All of them are
-   defined as inline functions in {,x,e,p,t,s,w,g,a,b}mmintrin.h and
-   mm3dnow.h that reference the proper builtin functions.  Defining away
-   "extern" and "__inline" results in all of them being compiled as proper
-   functions.  */
+   defined as inline functions in {,x,e,p,t,s,w,a}mmintrin.h  and mm3dnow.h
+   that reference the proper builtin functions.  Defining away "extern" and
+   "__inline" results in all of them being compiled as proper functions.  */
 
 #define extern
 #define __inline
 
-#include <wmmintrin.h>
-#include <immintrin.h>
-#include <ammintrin.h>
-#include <mm3dnow.h>
+#include <x86intrin.h>
 
 #define _CONCAT(x,y) x ## y
 
@@ -35,9 +31,9 @@
   type _CONCAT(_,func) (op1_type A, op2_type B, int const I, int const L) \
   { return func (A, B, imm1, imm2); }
 
-#define test_3(func, type, op1_type, op2_type, op3_type, imm)	\
+#define test_3(func, type, op1_type, op2_type, op3_type, imm)		\
   type _CONCAT(_,func) (op1_type A, op2_type B,				\
-			op3_type C, int const I)		\
+			op3_type C, int const I)			\
   { return func (A, B, C, imm); }
 
 #define test_4(func, type, op1_type, op2_type, op3_type, op4_type, imm)	\
@@ -159,4 +155,3 @@ test_2 (_m_pinsrw, __m64, __m64, int, 1)
 test_1 (_mm_shuffle_pi16, __m64, __m64, 1)
 test_1 (_m_pshufw, __m64, __m64, 1)
 test_1 (_mm_prefetch, void, void *, _MM_HINT_NTA)
-

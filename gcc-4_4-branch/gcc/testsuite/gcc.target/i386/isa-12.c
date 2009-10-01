@@ -1,5 +1,5 @@
 /* { dg-do run } */
-/* { dg-options "-march=amdfam10 -mno-sse4" } */
+/* { dg-options "-march=x86-64 -mfma4 -mno-sse3" } */
 
 extern void abort (void);
 
@@ -12,7 +12,7 @@ main ()
 #if !defined __SSE2__
   abort ();
 #endif
-#if !defined __SSE3__
+#if defined __SSE3__
   abort ();
 #endif
 #if defined __SSSE3__
@@ -24,10 +24,7 @@ main ()
 #if defined __SSE4_2__
   abort ();
 #endif
-#if !defined __SSE4A__
-  abort ();
-#endif
-#if defined __AVX__
+#if defined __SSE4A__
   abort ();
 #endif
 #if defined __FMA4__
