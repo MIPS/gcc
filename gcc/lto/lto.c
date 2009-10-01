@@ -357,8 +357,6 @@ lto_read_section_data (struct lto_file_decl_data *file_data,
   intptr_t computed_len;
   intptr_t computed_offset;
   intptr_t diff;
-#else
-  FILE *file;
 #endif
 
   if (file_data->fd == -1)
@@ -394,10 +392,8 @@ lto_read_section_data (struct lto_file_decl_data *file_data,
       close (file_data->fd);
       return NULL;
     }
-  file = fdopen (file_data->fd, "r");
-  if (file == NULL
-      || fseek (file, offset, SEEK_SET) != 0
-      || fread (result, 1, len, file) != len)
+  if (lseek (file_data->fd, offset, SEEK_SET) != offset
+      || read (file_data->fd, result, len) != (ssize_t) len)
     {
       free (result);
       close (file_data->fd);

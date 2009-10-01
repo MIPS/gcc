@@ -1,5 +1,9 @@
 2009-10-01  Richard Guenther  <rguenther@suse.de>
 
+	* lto.c (lto_read_section_data): Use plain lseek/read.
+
+2009-10-01  Richard Guenther  <rguenther@suse.de>
+
 	* lto.c (LTO_MMAP_IO): Define if we can mmap files and
 	use sysconf to query the system page size.
 	(lto_file_read): Implement fallback using stdio.
