@@ -1,3 +1,10 @@
+2009-10-01  Richard Guenther  <rguenther@suse.de>
+
+	* lto.c (LTO_MMAP_IO): Define if we can mmap files and
+	use sysconf to query the system page size.
+	(lto_file_read): Implement fallback using stdio.
+	(free_section_data): Likewise.
+
 2009-09-29  Diego Novillo  <dnovillo@google.com>
 
 	* lto-lang.c (lto_init): Really fix call to

@@ -335,9 +335,14 @@ lto_file_read (lto_file *file, FILE *resolution_file)
   return file_data;
 }
 
+#if HAVE_MMAP_FILE && HAVE_SYSCONF && defined _SC_PAGE_SIZE
+#define LTO_MMAP_IO 1
+#endif
 
+#if LTO_MMAP_IO
 /* Page size of machine is used for mmap and munmap calls.  */
 static size_t page_mask;
+#endif
 
 /* Get the section data of length LEN from FILENAME starting at
    OFFSET.  The data segment must be freed by the caller when the
@@ -348,21 +353,26 @@ lto_read_section_data (struct lto_file_decl_data *file_data,
 		       intptr_t offset, size_t len)
 {
   char *result;
+#if LTO_MMAP_IO
   intptr_t computed_len;
   intptr_t computed_offset;
   intptr_t diff;
-
-  if (!page_mask)
-    {
-      size_t page_size = sysconf (_SC_PAGE_SIZE);
-      page_mask = ~(page_size - 1);
-    }
+#else
+  FILE *file;
+#endif
 
   if (file_data->fd == -1)
     file_data->fd = open (file_data->file_name, O_RDONLY);
 
   if (file_data->fd == -1)
     return NULL;
+
+#if LTO_MMAP_IO
+  if (!page_mask)
+    {
+      size_t page_size = sysconf (_SC_PAGE_SIZE);
+      page_mask = ~(page_size - 1);
+    }
 
   computed_offset = offset & page_mask;
   diff = offset - computed_offset;
@@ -377,6 +387,25 @@ lto_read_section_data (struct lto_file_decl_data *file_data,
     }
 
   return result + diff;
+#else
+  result = (char *) xmalloc (len);
+  if (result == NULL)
+    {
+      close (file_data->fd);
+      return NULL;
+    }
+  file = fdopen (file_data->fd, "r");
+  if (file == NULL
+      || fseek (file, offset, SEEK_SET) != 0
+      || fread (result, 1, len, file) != len)
+    {
+      free (result);
+      close (file_data->fd);
+      return NULL;
+    }
+
+  return result;
+#endif
 }    
 
 
@@ -417,20 +446,26 @@ static void
 free_section_data (struct lto_file_decl_data *file_data,
 		   enum lto_section_type section_type ATTRIBUTE_UNUSED,
 		   const char *name ATTRIBUTE_UNUSED,
-		   const char *offset, size_t len)
+		   const char *offset, size_t len ATTRIBUTE_UNUSED)
 {
+#if LTO_MMAP_IO
   intptr_t computed_len;
   intptr_t computed_offset;
   intptr_t diff;
+#endif
 
   if (file_data->fd == -1)
     return;
 
+#if LTO_MMAP_IO
   computed_offset = ((intptr_t) offset) & page_mask;
   diff = (intptr_t) offset - computed_offset;
   computed_len = len + diff;
 
   munmap ((caddr_t) computed_offset, computed_len);
+#else
+  free (CONST_CAST(char *, offset));
+#endif
 }
 
 /* Vector of all cgraph node sets. */
