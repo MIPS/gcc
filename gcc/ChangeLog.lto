@@ -1,3 +1,11 @@
+2009-10-01  Rafael Avila de Espindola  <espindola@google.com>
+
+	* lto-opts.c (lto_write_options): Update call to lto_begin_section.
+	* lto-section-out.c (lto_begin_section): Add a compress argument.
+	Update all callers.
+	(produce_symtab): Don't compress.
+	* lto-section-out.h (lto_begin_section): Add a compress argument.
+
 2009-09-30  Richard Guenther  <rguenther@suse.de>
 
 	PR middle-end/41502

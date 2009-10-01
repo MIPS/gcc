@@ -165,10 +165,11 @@ lto_append_data (const char *chars, unsigned int num_chars, void *opaque)
 
 static struct lto_compression_stream *compression_stream = NULL;
 
-/* Begin a new output section named NAME.  */
+/* Begin a new output section named NAME. If COMPRESS is true, zlib compress
+   the section. */
 
 void
-lto_begin_section (const char *name)
+lto_begin_section (const char *name, bool compress)
 {
   lang_hooks.lto.begin_section (name);
 
@@ -176,7 +177,7 @@ lto_begin_section (const char *name)
      data is anything other than assembler output.  The effect here is that
      we get compression of IL only in non-ltrans object files.  */
   gcc_assert (compression_stream == NULL);
-  if (!flag_wpa)
+  if (compress)
     compression_stream = lto_start_compression (lto_append_data, NULL);
 }
 
@@ -529,7 +530,7 @@ lto_destroy_simple_output_block (struct lto_simple_output_block *ob)
   struct lto_output_stream *header_stream;
 
   section_name = lto_get_section_name (ob->section_type, NULL);
-  lto_begin_section (section_name);
+  lto_begin_section (section_name, !flag_wpa);
   free (section_name);
 
   /* Write the header which says how to decode the pieces of the

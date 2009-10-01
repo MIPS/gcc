@@ -1780,7 +1780,7 @@ produce_asm (struct output_block *ob, tree fn)
   else
     section_name = lto_get_section_name (section_type, NULL);
 
-  lto_begin_section (section_name);
+  lto_begin_section (section_name, !flag_wpa);
   free (section_name);
 
   /* The entire header is stream computed here.  */
@@ -2004,7 +2004,7 @@ copy_function (struct cgraph_node *node)
   struct lto_in_decl_state *in_state;
   struct lto_out_decl_state *out_state = lto_get_out_decl_state ();
 
-  lto_begin_section (section_name);
+  lto_begin_section (section_name, !flag_wpa);
   free (section_name);
 
   /* We may have renamed the declaration, e.g., a static function.  */
@@ -2402,7 +2402,7 @@ produce_symtab (struct lto_streamer_cache_d *cache)
   char *section_name = lto_get_section_name (LTO_section_symtab, NULL);
   bitmap seen;
 
-  lto_begin_section (section_name);
+  lto_begin_section (section_name, false);
   free (section_name);
 
   seen = lto_bitmap_alloc ();
@@ -2444,7 +2444,7 @@ produce_asm_for_decls (cgraph_node_set set)
   memset (&header, 0, sizeof (struct lto_decl_header)); 
 
   section_name = lto_get_section_name (LTO_section_decls, NULL);
-  lto_begin_section (section_name);
+  lto_begin_section (section_name, !flag_wpa);
   free (section_name);
 
   /* Make string 0 be a NULL string.  */

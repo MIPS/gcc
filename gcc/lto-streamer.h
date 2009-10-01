@@ -733,7 +733,7 @@ extern hashval_t lto_hash_decl_slot_node (const void *);
 extern int lto_eq_decl_slot_node (const void *, const void *);
 extern hashval_t lto_hash_type_slot_node (const void *);
 extern int lto_eq_type_slot_node (const void *, const void *);
-extern void lto_begin_section (const char *);
+extern void lto_begin_section (const char *, bool);
 extern void lto_end_section (void);
 extern void lto_write_stream (struct lto_output_stream *);
 extern void lto_output_1_stream (struct lto_output_stream *, char);

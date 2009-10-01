@@ -289,7 +289,7 @@ lto_write_options (void)
   struct lto_simple_header header;
   struct lto_output_stream *header_stream;
 
-  lto_begin_section (section_name);
+  lto_begin_section (section_name, !flag_wpa);
   free (section_name);
 
   memset (&stream, 0, sizeof (stream));
