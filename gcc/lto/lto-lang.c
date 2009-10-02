@@ -34,7 +34,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-inline.h"
 #include "gimple.h"
 #include "toplev.h"
-#include "lto/common.h"
 
 static tree handle_noreturn_attribute (tree *, tree, tree, int, bool *);
 static tree handle_const_attribute (tree *, tree, tree, int, bool *);

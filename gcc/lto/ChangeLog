@@ -1,5 +1,10 @@
 2009-10-02  Rafael Avila de Espindola  <espindola@google.com>
 
+	* Make-lang.in (lto/lto-lang.o): Don't depend on lto/common.h.
+	(lto-lang.c): Don't include lto/common.h.
+
+2009-10-02  Rafael Avila de Espindola  <espindola@google.com>
+
 	* Make-lang.in (LTO_OBJS): Remove lto/common.o.
 	(lto/common.o): Remove.
 	* common.c: Remove.

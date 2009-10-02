@@ -78,7 +78,7 @@ $(LTO_EXE): $(LTO_OBJS) $(BACKEND) $(LIBDEPS)
 lto/lto-lang.o: lto/lto-lang.c $(CONFIG_H) coretypes.h debug.h \
 	flags.h $(GGC_H) langhooks.h $(LANGHOOKS_DEF_H) $(SYSTEM_H) \
 	$(TARGET_H) $(LTO_H) $(GIMPLE_H) gtype-lto.h gt-lto-lto-lang.h \
-	lto/common.h $(EXPR_H)
+	$(EXPR_H)
 lto/lto.o: lto/lto.c $(CONFIG_H) $(SYSTEM_H) coretypes.h opts.h \
 	toplev.h $(TREE_H) $(DIAGNOSTIC_H) $(TM_H) $(LIBIBERTY_H) \
 	$(CGRAPH_H) $(GGC_H) tree-ssa-operands.h $(TREE_PASS_H) \
