@@ -1,3 +1,39 @@
+2009-10-02  Diego Novillo  <dnovillo@google.com>
+
+	* Makefile.am (AM_CPPFLAGS): Remove -D_LARGEFILE_SOURCE
+	and -D_FILE_OFFSET_BITS=64.
+	* configure.ac: Add AC_SYS_LARGEFILE.
+	* configure: Regenerate.
+	* Makefile.in: Regenerate.
+	* lto-plugin.c: Fix copyright boilerplate.
+
+2009-10-02  Diego Novillo  <dnovillo@google.com>
+
+	* Makefile.am (ACLOCAL_AMFLAGS): Define.
+	* aclocal.m4: Regenerate with aclocal-2.64
+	* acinclude.m4: Remove.
+	* Makefile.in: Regenerate with automake-1.11
+	* configure.ac (AC_PREREQ): Update to 2.64.
+	* configure: Regenerate.
+
+2009-10-02  Diego Novillo  <dnovillo@google.com>
+
+	* Makefile.am (AM_CPPFLAGS): Remove -D_LARGEFILE_SOURCE
+	and -D_FILE_OFFSET_BITS=64.
+	* configure.ac: Add AC_SYS_LARGEFILE.
+	* configure: Regenerate.
+	* Makefile.in: Regenerate.
+	* lto-plugin.c: Fix copyright boilerplate.
+
+2009-10-02  Diego Novillo  <dnovillo@google.com>
+
+	* Makefile.am (ACLOCAL_AMFLAGS): Define.
+	* aclocal.m4: Regenerate with aclocal-2.64
+	* acinclude.m4: Remove.
+	* Makefile.in: Regenerate with automake-1.11
+	* configure.ac (AC_PREREQ): Update to 2.64.
+	* configure: Regenerate.
+
 2009-10-02  Rafael Avila de Espindola  <espindola@google.com>
 
 	* Makefile.am (liblto_plugin_la_SOURCES): Remove

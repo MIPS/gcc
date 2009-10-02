@@ -93,6 +93,9 @@ The Objective-C and Objective-C++ runtime library.
 @item libstdc++-v3
 The C++ runtime library.
 
+@item lto-plugin
+Plugin used by @command{gold} if link-time optimizations are enabled.
+
 @item maintainer-scripts
 Scripts used by the @code{gccadmin} account on @code{gcc.gnu.org}.
 
@@ -138,11 +141,12 @@ The @file{gcc} directory contains the following subdirectories:
 @item @var{language}
 Subdirectories for various languages.  Directories containing a file
 @file{config-lang.in} are language subdirectories.  The contents of
-the subdirectories @file{cp} (for C++), @file{objc} (for Objective-C)
-and @file{objcp} (for Objective-C++) are documented in this manual
-(@pxref{Passes, , Passes and Files of the Compiler}); those for other
-languages are not.  @xref{Front End, , Anatomy of a Language Front End},
-for details of the files in these directories.
+the subdirectories @file{cp} (for C++), @file{lto} (for LTO),
+@file{objc} (for Objective-C) and @file{objcp} (for Objective-C++) are
+documented in this manual (@pxref{Passes, , Passes and Files of the
+Compiler}); those for other languages are not.  @xref{Front End, ,
+Anatomy of a Language Front End}, for details of the files in these
+directories.
 
 @item config
 Configuration files for supported architectures and operating

@@ -5411,7 +5411,7 @@ more_const_call_expr_args_p (const const_call_expr_arg_iterator *iter)
 static inline bool
 is_lang_specific (tree t)
 {
-  return TREE_CODE (t) >= NUM_TREE_CODES;
+  return TREE_CODE (t) == LANG_TYPE || TREE_CODE (t) >= NUM_TREE_CODES;
 }
 
 #endif  /* GCC_TREE_H  */

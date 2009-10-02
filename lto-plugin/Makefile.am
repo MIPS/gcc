@@ -1,4 +1,6 @@
-# Makefile.am is used by automake 1.9.6 to generate Makefile.in.
+# Makefile.am is used by automake 1.11 to generate Makefile.in.
+
+ACLOCAL_AMFLAGS = -I .. -I ../config
 
 gcc_version := $(shell cat $(top_srcdir)/../gcc/BASE-VER)
 target_noncanonical := @target_noncanonical@
@@ -8,9 +10,7 @@ libexecsubdir := $(libexecdir)/gcc/$(target_noncanonical)/$(gcc_version)
 LIBELFLIBS = @LIBELFLIBS@
 LIBELFINC = @LIBELFINC@
 
-AM_CPPFLAGS = -I$(top_srcdir)/../include -D_LARGEFILE_SOURCE \
-	-D_FILE_OFFSET_BITS=64 $(LIBELFINC)
-
+AM_CPPFLAGS = -I$(top_srcdir)/../include $(LIBELFINC)
 AM_CFLAGS = -Wall -Werror
 
 libexecsub_LTLIBRARIES = liblto_plugin.la

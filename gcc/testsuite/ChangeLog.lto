@@ -1,3 +1,14 @@
+2009-10-02  Richard Guenther  <rguenther@suse.de>
+
+	* g++.dg/lto/20091002-1_0.C: New testcase.
+	* g++.dg/lto/20091002-2_0.C: Likewise..
+	* g++.dg/lto/20091002-3_0.C: Likewise..
+
+2009-10-02  Diego Novillo  <dnovillo@google.com>
+
+	* gcc.c-torture/execute/builtins/builtins.exp: Re-enable
+	LTO testing.
+
 2009-10-01  Diego Novillo  <dnovillo@google.com>
 
 	* gcc.dg/lto/lto.exp: Fix copyright years.

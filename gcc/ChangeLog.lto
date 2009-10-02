@@ -1,3 +1,18 @@
+2009-10-02  Diego Novillo  <dnovillo@google.com>
+
+	* sourcebuild.texi: Document lto-plugin.
+	* invoke.texi: Add documentation for -use-linker-plugin
+	and complete documentation for -flto.
+	* install.texi: Document --enable-gold.
+
+2009-10-02  Richard Guenther  <rguenther@suse.de>
+
+	PR lto/41547
+	PR lto/41548
+	* tree.h (is_lang_specific): Include LANG_TYPE.
+	* tree.c (find_decls_types_r): Manually add interesting parts
+	of TYPE_FIELDS.  Walk BINFO_VIRTUALS.  Do not walk TYPE_METHODS.
+
 2009-10-01  Diego Novillo  <dnovillo@google.com>
 
 	* tree.c (fld_worklist_push): Rename from PUSH.

@@ -4595,7 +4595,8 @@ find_decls_types_r (tree *tp, int *ws, void *data)
 	  fld_worklist_push (DECL_COMDAT_GROUP (t), fld);
 	}
 
-      fld_worklist_push (TREE_CHAIN (t), fld);
+      if (TREE_CODE (t) != FIELD_DECL)
+	fld_worklist_push (TREE_CHAIN (t), fld);
       *ws = 0;
     }
   else if (TYPE_P (t))
@@ -4604,7 +4605,8 @@ find_decls_types_r (tree *tp, int *ws, void *data)
 	 types, so we have to do our own traversals here.  */
       add_tree_to_fld_list (t, fld);
 
-      fld_worklist_push (TYPE_CACHED_VALUES (t), fld);
+      if (!RECORD_OR_UNION_TYPE_P (t))
+	fld_worklist_push (TYPE_CACHED_VALUES (t), fld);
       fld_worklist_push (TYPE_SIZE (t), fld);
       fld_worklist_push (TYPE_SIZE_UNIT (t), fld);
       fld_worklist_push (TYPE_ATTRIBUTES (t), fld);
@@ -4612,7 +4614,8 @@ find_decls_types_r (tree *tp, int *ws, void *data)
       fld_worklist_push (TYPE_REFERENCE_TO (t), fld);
       fld_worklist_push (TYPE_NAME (t), fld);
       fld_worklist_push (TYPE_MINVAL (t), fld);
-      fld_worklist_push (TYPE_MAXVAL (t), fld);
+      if (!RECORD_OR_UNION_TYPE_P (t))
+	fld_worklist_push (TYPE_MAXVAL (t), fld);
       fld_worklist_push (TYPE_MAIN_VARIANT (t), fld);
       fld_worklist_push (TYPE_NEXT_VARIANT (t), fld);
       fld_worklist_push (TYPE_CONTEXT (t), fld);
@@ -4625,6 +4628,25 @@ find_decls_types_r (tree *tp, int *ws, void *data)
 	  for (i = 0; VEC_iterate (tree, BINFO_BASE_BINFOS (TYPE_BINFO (t)),
 				   i, tem); ++i)
 	    fld_worklist_push (TREE_TYPE (tem), fld);
+	  tem = BINFO_VIRTUALS (TYPE_BINFO (t));
+	  while (tem)
+	    {
+	      fld_worklist_push (TREE_VALUE (tem), fld);
+	      tem = TREE_CHAIN (tem);
+	    }
+	}
+      if (RECORD_OR_UNION_TYPE_P (t))
+	{
+	  tree tem;
+	  /* Push all TYPE_FIELDS - there can be interleaving interesting
+	     and non-interesting things.  */
+	  tem = TYPE_FIELDS (t);
+	  while (tem)
+	    {
+	      if (TREE_CODE (tem) == FIELD_DECL)
+		fld_worklist_push (tem, fld);
+	      tem = TREE_CHAIN (tem);
+	    }
 	}
 
       fld_worklist_push (TREE_CHAIN (t), fld);

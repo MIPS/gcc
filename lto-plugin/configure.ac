@@ -1,4 +1,4 @@
-AC_PREREQ(2.59)
+AC_PREREQ(2.64)
 AC_INIT([LTO plugin for ld], 0.1,,[lto-plugin])
 GCC_TOPLEV_SUBDIRS
 AM_INIT_AUTOMAKE([foreign])
@@ -9,3 +9,4 @@ AM_PROG_LIBTOOL
 AC_SUBST(target_noncanonical)
 AC_CONFIG_FILES(Makefile)
 AC_OUTPUT
+AC_SYS_LARGEFILE
