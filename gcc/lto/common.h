@@ -18,10 +18,17 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
-extern const char *lto_kind_str[5] __attribute__ ((visibility ("hidden")));
 
-extern const char *
-lto_visibility_str[4] __attribute__ ((visibility ("hidden")));
 
-extern const char *
-lto_resolution_str[9] __attribute__ ((visibility ("hidden")));
+static const char *lto_resolution_str[9] =
+{
+  "UNKNOWN",
+  "UNDEF",
+  "PREVAILING_DEF",
+  "PREVAILING_DEF_IRONLY",
+  "PREEMPTED_REG",
+  "PREEMPTED_IR",
+  "RESOLVED_IR",
+  "RESOLVED_EXEC",
+  "RESOLVED_DYN"
+};

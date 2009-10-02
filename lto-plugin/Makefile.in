@@ -68,7 +68,7 @@ libexecsubLTLIBRARIES_INSTALL = $(INSTALL)
 LTLIBRARIES = $(libexecsub_LTLIBRARIES)
 am__DEPENDENCIES_1 =
 liblto_plugin_la_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am_liblto_plugin_la_OBJECTS = lto-plugin.lo common.lo
+am_liblto_plugin_la_OBJECTS = lto-plugin.lo
 liblto_plugin_la_OBJECTS = $(am_liblto_plugin_la_OBJECTS)
 DEFAULT_INCLUDES = -I. -I$(srcdir)
 depcomp = $(SHELL) $(top_srcdir)/../depcomp
@@ -215,7 +215,7 @@ AM_CPPFLAGS = -I$(top_srcdir)/../include -D_LARGEFILE_SOURCE \
 
 AM_CFLAGS = -Wall -Werror
 libexecsub_LTLIBRARIES = liblto_plugin.la
-liblto_plugin_la_SOURCES = lto-plugin.c $(top_srcdir)/../gcc/lto/common.c
+liblto_plugin_la_SOURCES = lto-plugin.c
 liblto_plugin_la_LIBADD = $(LIBELFLIBS) -L../libiberty/pic -liberty
 all: all-am
 
@@ -290,7 +290,6 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/common.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lto-plugin.Plo@am__quote@
 
 .c.o:
@@ -313,13 +312,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LTCOMPILE) -c -o $@ $<
-
-common.lo: $(top_srcdir)/../gcc/lto/common.c
-@am__fastdepCC_TRUE@	if $(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT common.lo -MD -MP -MF "$(DEPDIR)/common.Tpo" -c -o common.lo `test -f '$(top_srcdir)/../gcc/lto/common.c' || echo '$(srcdir)/'`$(top_srcdir)/../gcc/lto/common.c; \
-@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/common.Tpo" "$(DEPDIR)/common.Plo"; else rm -f "$(DEPDIR)/common.Tpo"; exit 1; fi
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$(top_srcdir)/../gcc/lto/common.c' object='common.lo' libtool=yes @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o common.lo `test -f '$(top_srcdir)/../gcc/lto/common.c' || echo '$(srcdir)/'`$(top_srcdir)/../gcc/lto/common.c
 
 mostlyclean-libtool:
 	-rm -f *.lo
