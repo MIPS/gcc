@@ -1,3 +1,24 @@
+2009-10-02  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Backport from mainline:
+
+	2009-08-23  Alan Modra  <amodra@bigpond.net.au>
+	PR target/41081
+	* config/rs6000/rs6000.md (rotlsi3_64, ashlsi3_64, lshrsi3_64,
+	ashrsi3_64): New.
+
+
+	Backport from 4.3 branch:
+
+	2009-09-25  Alan Modra  <amodra@bigpond.net.au>
+	* config/rs6000/rs6000.md (load_toc_v4_PIC_3c): Correct POWER
+	form of instruction.
+
+	2009-09-23  Alan Modra  <amodra@bigpond.net.au>
+	PR target/40473
+	* config/rs6000/rs6000.c (rs6000_output_function_prologue): Don't
+	call final to emit non-scheduled prologue, instead insert at entry.
+
 2009-09-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/predicates.md (indexed_or_indirect_operand):
