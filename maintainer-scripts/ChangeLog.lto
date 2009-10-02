@@ -1,0 +1,8 @@
+2009-10-01  Diego Novillo  <dnovillo@google.com>
+
+	* maintainer-scripts/gcc_release (JAVA_DIRS): Remove zlib.
+
+
+Local Variables:
+change-log-default-name: "ChangeLog.lto"
+End:
