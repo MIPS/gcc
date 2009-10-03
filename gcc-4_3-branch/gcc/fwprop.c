@@ -105,6 +105,113 @@ along with GCC; see the file COPYING3.  If not see
 
 static int num_changes;
 
+typedef struct df_ref * df_ref_t;
+
+DEF_VEC_P(df_ref_t);
+DEF_VEC_ALLOC_P(df_ref_t,heap);
+VEC(df_ref_t,heap) *use_def_ref;
+
+
+/* Return the only def in USE's use-def chain, or NULL if there is
+   more than one def in the chain.  */
+
+static inline df_ref_t
+get_def_for_use (df_ref_t use)
+{
+  return VEC_index (df_ref_t, use_def_ref, DF_REF_ID (use));
+}
+
+
+/* Return the only bit between FIRST and LAST that is set in B,
+   or -1 if there are zero or more than one such bits.  */
+
+static inline int
+bitmap_only_bit_between (const_bitmap b, unsigned first, unsigned last)
+{
+  bitmap_iterator bi;
+  unsigned bit, bit2;
+
+  if (last < first)
+    return -1;
+
+  bmp_iter_set_init (&bi, b, first, &bit);
+  if (bmp_iter_set (&bi, &bit) && bit <= last)
+    {
+      bit2 = bit;
+      bmp_iter_next (&bi, &bit2);
+      if (!bmp_iter_set (&bi, &bit2) || bit2 > last)
+        return bit;
+    }
+  return -1;
+}
+
+
+/* Fill the use_def_ref vector with values for the uses in USE_REC,
+   taking reaching definitions info from LOCAL_RD.  TOP_FLAG says
+   which artificials uses should be used, when USE_REC is an
+   artificial use vector.  */
+
+static void
+process_uses (bitmap local_rd, df_ref_t *use_rec, int top_flag)
+{
+  df_ref_t use;
+  while ((use = *use_rec++) != NULL)
+    if (top_flag == (DF_REF_FLAGS (use) & DF_REF_AT_TOP))
+      {
+	unsigned int uregno = DF_REF_REGNO (use);
+	unsigned int first = DF_DEFS_BEGIN (uregno);
+	unsigned int last = first + DF_DEFS_COUNT (uregno) - 1;
+	int defno = bitmap_only_bit_between (local_rd, first, last);
+	df_ref_t def = (defno == -1) ? NULL : DF_DEFS_GET (defno);
+
+	VEC_replace (df_ref_t, use_def_ref, DF_REF_ID (use), def);
+      }
+}
+
+
+/* Do dataflow analysis and use reaching definitions to build
+   a vector holding the reaching definitions of uses that have a
+   single RD.  */
+
+static void
+build_single_def_use_links (void)
+{
+  basic_block bb;
+  bitmap local_rd = BITMAP_ALLOC (NULL);
+
+  /* We use reaching definitions to compute our restricted use-def chains.  */
+  df_set_flags (DF_EQ_NOTES);
+  df_rd_add_problem ();
+  df_analyze ();
+  df_maybe_reorganize_use_refs (DF_REF_ORDER_BY_INSN_WITH_NOTES);
+
+  use_def_ref = VEC_alloc (df_ref_t, heap, DF_USES_TABLE_SIZE ());
+  VEC_safe_grow (df_ref_t, heap, use_def_ref, DF_USES_TABLE_SIZE ());
+
+  FOR_EACH_BB (bb)
+    {
+      int bb_index = bb->index;
+      struct df_rd_bb_info *bb_info = df_rd_get_bb_info (bb_index);
+      rtx insn;
+
+      bitmap_copy (local_rd, bb_info->in);
+      process_uses (local_rd, df_get_artificial_uses (bb_index), DF_REF_AT_TOP);
+
+      df_rd_simulate_artificial_defs_at_top (bb, local_rd);
+      FOR_BB_INSNS (bb, insn)
+        if (INSN_P (insn))
+          {
+            unsigned int uid = INSN_UID (insn);
+            process_uses (local_rd, DF_INSN_UID_USES (uid), 0);
+            process_uses (local_rd, DF_INSN_UID_EQ_USES (uid), 0);
+            df_rd_simulate_one_insn (bb, insn, local_rd);
+	  }
+
+      process_uses (local_rd, df_get_artificial_uses (bb_index), 0);
+    }
+
+  BITMAP_FREE (local_rd);
+}
 
 /* Do not try to replace constant addresses or addresses of local and
    argument slots.  These MEM expressions are made only once and inserted
@@ -695,7 +802,8 @@ update_df (rtx insn, rtx *loc, struct df_ref **use_rec, enum df_ref_type type,
 			       type, DF_REF_FLAGS (orig_use) | new_flags);
 
       /* Set up the use-def chain.  */
-      df_chain_copy (new_use, DF_REF_CHAIN (orig_use));
+      gcc_assert (DF_REF_ID (new_use) == (int) VEC_length (df_ref_t, use_def_ref));
+      VEC_safe_push (df_ref_t, heap, use_def_ref, get_def_for_use (orig_use));
       changed = true;
     }
   if (changed)
@@ -716,8 +824,14 @@ try_fwprop_subst (struct df_ref *use, rtx *loc, rtx new, rtx def_insn, bool set_
   enum df_ref_type type = DF_REF_TYPE (use);
   int flags = DF_REF_FLAGS (use);
   rtx set = single_set (insn);
-  int old_cost = rtx_cost (SET_SRC (set), SET);
+  int old_cost = 0;
   bool ok;
+
+  /* forward_propagate_subreg may be operating on an instruction with
+     multiple sets.  If so, assume the cost of the new instruction is
+     not greater than the old one.  */
+  if (set)
+    old_cost = rtx_cost (SET_SRC (set), SET);
 
   if (dump_file)
     {
@@ -738,6 +852,7 @@ try_fwprop_subst (struct df_ref *use, rtx *loc, rtx new, rtx def_insn, bool set_
     }
 
   else if (DF_REF_TYPE (use) == DF_REF_REG_USE
+	   && set
 	   && rtx_cost (SET_SRC (set), SET) > old_cost)
     {
       if (dump_file)
@@ -796,8 +911,57 @@ try_fwprop_subst (struct df_ref *use, rtx *loc, rtx new, rtx def_insn, bool set_
   return ok;
 }
 
+/* For the given single_set INSN, containing SRC known to be a
+   ZERO_EXTEND or SIGN_EXTEND of a register, return true if INSN
+   is redundant due to the register being set by a LOAD_EXTEND_OP
+   load from memory.  */
 
-/* If USE is a paradoxical subreg, see if it can be replaced by a pseudo.  */
+static bool
+free_load_extend (rtx src, rtx insn)
+{
+  rtx reg;
+  df_ref_t *use_vec;
+  df_ref_t use, def;
+
+  reg = XEXP (src, 0);
+#ifdef LOAD_EXTEND_OP
+  if (LOAD_EXTEND_OP (GET_MODE (reg)) != GET_CODE (src))
+#endif
+    return false;
+
+  use = NULL;
+  for (use_vec = DF_INSN_USES (insn); *use_vec; use_vec++)
+    {
+      use = *use_vec;
+
+      if (!DF_REF_IS_ARTIFICIAL (use)
+	  && DF_REF_TYPE (use) == DF_REF_REG_USE
+	  && DF_REF_REG (use) == reg)
+	break;
+    }
+  if (!use)
+    return false;
+
+  def = get_def_for_use (use);
+  if (!def)
+    return false;
+
+  if (DF_REF_IS_ARTIFICIAL (def))
+    return false;
+
+  if (NONJUMP_INSN_P (DF_REF_INSN (def)))
+    {
+      rtx patt = PATTERN (DF_REF_INSN (def));
+
+      if (GET_CODE (patt) == SET
+	  && GET_CODE (SET_SRC (patt)) == MEM
+	  && rtx_equal_p (SET_DEST (patt), reg))
+	return true;
+    }
+  return false;
+}
+
+/* If USE is a subreg, see if it can be replaced by a pseudo.  */
 
 static bool
 forward_propagate_subreg (struct df_ref *use, rtx def_insn, rtx def_set)
@@ -805,30 +969,51 @@ forward_propagate_subreg (struct df_ref *use, rtx def_insn, rtx def_set)
   rtx use_reg = DF_REF_REG (use);
   rtx use_insn, src;
 
-  /* Only consider paradoxical subregs... */
+  /* Only consider subregs... */
   enum machine_mode use_mode = GET_MODE (use_reg);
   if (GET_CODE (use_reg) != SUBREG
-      || !REG_P (SET_DEST (def_set))
-      || GET_MODE_SIZE (use_mode)
-	 <= GET_MODE_SIZE (GET_MODE (SUBREG_REG (use_reg))))
+      || !REG_P (SET_DEST (def_set)))
     return false;
 
-  /* If this is a paradoxical SUBREG, we have no idea what value the
-     extra bits would have.  However, if the operand is equivalent to
-     a SUBREG whose operand is the same as our mode, and all the modes
-     are within a word, we can just use the inner operand because
-     these SUBREGs just say how to treat the register.  */
-  use_insn = DF_REF_INSN (use);
-  src = SET_SRC (def_set);
-  if (GET_CODE (src) == SUBREG
-      && REG_P (SUBREG_REG (src))
-      && GET_MODE (SUBREG_REG (src)) == use_mode
-      && subreg_lowpart_p (src)
-      && all_uses_available_at (def_insn, use_insn))
-    return try_fwprop_subst (use, DF_REF_LOC (use), SUBREG_REG (src),
-			     def_insn, false);
-  else
-    return false;
+  /* If this is a paradoxical SUBREG...  */
+  if (GET_MODE_SIZE (use_mode)
+      > GET_MODE_SIZE (GET_MODE (SUBREG_REG (use_reg))))
+    {
+      /* If this is a paradoxical SUBREG, we have no idea what value the
+	 extra bits would have.  However, if the operand is equivalent to
+	 a SUBREG whose operand is the same as our mode, and all the modes
+	 are within a word, we can just use the inner operand because
+	 these SUBREGs just say how to treat the register.  */
+      use_insn = DF_REF_INSN (use);
+      src = SET_SRC (def_set);
+      if (GET_CODE (src) == SUBREG
+	  && REG_P (SUBREG_REG (src))
+	  && GET_MODE (SUBREG_REG (src)) == use_mode
+	  && subreg_lowpart_p (src)
+	  && all_uses_available_at (def_insn, use_insn))
+	return try_fwprop_subst (use, DF_REF_LOC (use), SUBREG_REG (src),
+				 def_insn, false);
+    }
+
+  /* If this is a SUBREG of a ZERO_EXTEND or SIGN_EXTEND, and the SUBREG
+     is the low part of the reg being extended then just use the inner
+     operand.  Don't do this if the ZERO_EXTEND or SIGN_EXTEND insn will
+     be removed due to it matching a LOAD_EXTEND_OP load from memory.  */
+  else if (subreg_lowpart_p (use_reg))
+    {
+      use_insn = DF_REF_INSN (use);
+      src = SET_SRC (def_set);
+      if ((GET_CODE (src) == ZERO_EXTEND
+	   || GET_CODE (src) == SIGN_EXTEND)
+	  && REG_P (XEXP (src, 0))
+	  && GET_MODE (XEXP (src, 0)) == use_mode
+	  && !free_load_extend (src, def_insn)
+	  && all_uses_available_at (def_insn, use_insn))
+	return try_fwprop_subst (use, DF_REF_LOC (use), XEXP (src, 0),
+				 def_insn, false);
+    }
+
+  return false;
 }
 
 /* Try to replace USE with SRC (defined in DEF_INSN) and simplify the
@@ -932,7 +1117,6 @@ forward_propagate_and_simplify (struct df_ref *use, rtx def_insn, rtx def_set)
 static void
 forward_propagate_into (struct df_ref *use)
 {
-  struct df_link *defs;
   struct df_ref *def;
   rtx def_insn, def_set, use_insn;
   rtx parent;
@@ -943,11 +1127,9 @@ forward_propagate_into (struct df_ref *use)
     return;
 
   /* Only consider uses that have a single definition.  */
-  defs = DF_REF_CHAIN (use);
-  if (!defs || defs->next)
+  def = get_def_for_use (use);
+  if (!def)
     return;
-
-  def = defs->ref;
   if (DF_REF_FLAGS (def) & DF_REF_READ_WRITE)
     return;
   if (DF_REF_IS_ARTIFICIAL (def))
@@ -993,12 +1175,7 @@ fwprop_init (void)
      insns (sadly) if we are not working in cfglayout mode.  */
   loop_optimizer_init (0);
 
-  /* Now set up the dataflow problem (we only want use-def chains) and
-     put the dataflow solver to work.  */
-  df_set_flags (DF_EQ_NOTES);
-  df_chain_add_problem (DF_UD_CHAIN);
-  df_analyze ();
-  df_maybe_reorganize_use_refs (DF_REF_ORDER_BY_INSN_WITH_NOTES);
+  build_single_def_use_links ();
   df_set_flags (DF_DEFER_INSN_RESCAN);
 }
 
@@ -1007,6 +1184,7 @@ fwprop_done (void)
 {
   loop_optimizer_finalize ();
 
+  VEC_free (df_ref_t, heap, use_def_ref);
   free_dominance_info (CDI_DOMINATORS);
   cleanup_cfg (0);
   delete_trivially_dead_insns (get_insns (), max_reg_num ());
@@ -1079,8 +1257,6 @@ fwprop_addr (void)
 
   /* Go through all the uses.  update_df will create new ones at the
      end, and we'll go through them as well.  */
-  df_set_flags (DF_DEFER_INSN_RESCAN);
-
   for (i = 0; i < DF_USES_TABLE_SIZE (); i++)
     {
       struct df_ref *use = DF_USES_GET (i);
