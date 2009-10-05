@@ -435,7 +435,6 @@ gnat_init_gcc_eh (void)
   using_eh_for_cleanups ();
 
   lang_eh_type_covers = gnat_eh_type_covers;
-  default_init_unwind_resume_libfunc ();
 
   /* Turn on -fexceptions and -fnon-call-exceptions. The first one triggers
      the generation of the necessary exception runtime tables. The second one
@@ -520,6 +519,11 @@ gnat_print_type (FILE *file, tree node, int indent)
 
     case ARRAY_TYPE:
       print_node (file,"actual bounds", TYPE_ACTUAL_BOUNDS (node), indent + 4);
+      break;
+
+    case VECTOR_TYPE:
+      print_node (file,"representative array",
+		  TYPE_REPRESENTATIVE_ARRAY (node), indent + 4);
       break;
 
     case RECORD_TYPE:

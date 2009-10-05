@@ -114,7 +114,7 @@ enum rid
   RID_IS_UNION,
 
   /* C++0x */
-  RID_STATIC_ASSERT, RID_DECLTYPE,
+  RID_STATIC_ASSERT, RID_CONSTEXPR, RID_DECLTYPE,
 
   /* Objective-C */
   RID_AT_ENCODE,   RID_AT_END,
@@ -868,8 +868,6 @@ extern tree c_build_qualified_type (tree, int);
    frontends.  */
 extern void c_common_nodes_and_builtins (void);
 
-extern void set_builtin_user_assembler_name (tree decl, const char *asmspec);
-
 extern void disable_builtin_function (const char *);
 
 extern void set_compound_literal_name (tree decl);
@@ -1159,6 +1157,7 @@ extern enum omp_clause_default_kind c_omp_predetermined_sharing (tree);
 /* Not in c-omp.c; provided by the front end.  */
 extern bool c_omp_sharing_predetermined (tree);
 extern tree c_omp_remap_decl (tree, bool);
+extern void record_types_used_by_current_var_decl (tree);
 
 /* In order for the format checking to accept the C frontend
    diagnostic framework extensions, you must include this file before

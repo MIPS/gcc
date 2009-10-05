@@ -2301,6 +2301,17 @@ AC_DEFINE_UNQUOTED(HAVE_GAS_CFI_PERSONALITY_DIRECTIVE,
     then echo 1; else echo 0; fi`],
   [Define 0/1 if your assembler supports .cfi_personality.])
 
+gcc_GAS_CHECK_FEATURE([cfi sections directive],
+  gcc_cv_as_cfi_sections_directive, ,,
+[	.text
+	.cfi_sections .debug_frame, .eh_frame
+	.cfi_startproc
+	.cfi_endproc])
+AC_DEFINE_UNQUOTED(HAVE_GAS_CFI_SECTIONS_DIRECTIVE,
+  [`if test $gcc_cv_as_cfi_sections_directive = yes;
+    then echo 1; else echo 0; fi`],
+  [Define 0/1 if your assembler supports .cfi_sections.])
+
 # GAS versions up to and including 2.11.0 may mis-optimize
 # .eh_frame data.
 gcc_GAS_CHECK_FEATURE(eh_frame optimization, gcc_cv_as_eh_frame,
@@ -3279,6 +3290,87 @@ x:
 	.dtprelword x+0x8000],,
       [AC_DEFINE(HAVE_AS_DTPRELWORD, 1,
 	  [Define if your assembler supports .dtprelword.])])
+
+    AC_MSG_CHECKING(assembler and linker for explicit JALR relocation)
+    gcc_cv_as_ld_jalr_reloc=no
+    if test $gcc_cv_as_mips_explicit_relocs = yes; then
+      if test $in_tree_ld = yes ; then
+        if test "$gcc_cv_gld_major_version" -eq 2 -a "$gcc_cv_gld_minor_version" -ge 20 -o "$gcc_cv_gld_major_version" -gt 2 \
+           && test $in_tree_ld_is_elf = yes; then
+          gcc_cv_as_ld_jalr_reloc=yes
+        fi
+      elif test x$gcc_cv_as != x -a x$gcc_cv_ld != x -a x$gcc_cv_objdump != x; then
+        echo '	.ent x' > conftest.s
+        echo 'x:	ld $2,%got_disp(y)($3)' >> conftest.s
+        echo '	ld $25,%call16(y)($28)' >> conftest.s
+        echo '	.reloc	1f,R_MIPS_JALR,y' >> conftest.s
+        echo '1:	jalr $25' >> conftest.s
+        echo '	.reloc	1f,R_MIPS_JALR,x' >> conftest.s
+        echo '1:	jalr $25' >> conftest.s
+        echo '	.end x' >> conftest.s
+        if $gcc_cv_as -o conftest.o conftest.s >/dev/null 2>&AS_MESSAGE_LOG_FD \
+           && $gcc_cv_ld -shared -o conftest.so conftest.o >/dev/null 2>&AS_MESSAGE_LOG_FD; then
+	  if $gcc_cv_objdump -d conftest.so | grep -q jalr \
+	     && $gcc_cv_objdump -d conftest.so | grep -q "bal.*<x>"; then
+            gcc_cv_as_ld_jalr_reloc=yes
+	  fi
+        fi
+        rm -f conftest.*
+      fi
+    fi
+    if test $gcc_cv_as_ld_jalr_reloc = yes; then
+      if test x$target_cpu_default = x; then
+        target_cpu_default=MASK_RELAX_PIC_CALLS
+      else
+        target_cpu_default="($target_cpu_default)|MASK_RELAX_PIC_CALLS"
+      fi
+    fi
+    AC_MSG_RESULT($gcc_cv_as_ld_jalr_reloc)
+
+    AC_CACHE_CHECK([linker for .eh_frame personality relaxation],
+      [gcc_cv_ld_mips_personality_relaxation],
+      [gcc_cv_ld_mips_personality_relaxation=no
+       if test $in_tree_ld = yes ; then
+	 if test "$gcc_cv_gld_major_version" -eq 2 \
+		 -a "$gcc_cv_gld_minor_version" -ge 21 \
+		 -o "$gcc_cv_gld_major_version" -gt 2; then
+	   gcc_cv_ld_mips_personality_relaxation=yes
+	 fi
+       elif test x$gcc_cv_as != x \
+       	    	 -a x$gcc_cv_ld != x \
+		 -a x$gcc_cv_readelf != x ; then
+	 cat > conftest.s <<EOF
+	.cfi_startproc
+	.cfi_personality 0x80,indirect_ptr
+	.ent test
+test:
+	nop
+	.end test
+	.cfi_endproc
+
+	.section .data,"aw",@progbits
+indirect_ptr:
+	.dc.a personality
+EOF
+	 if $gcc_cv_as -KPIC -o conftest.o conftest.s > /dev/null 2>&1 \
+	    && $gcc_cv_ld -o conftest conftest.o -shared > /dev/null 2>&1; then
+	   if $gcc_cv_readelf -d conftest 2>&1 \
+	      | grep TEXTREL > /dev/null 2>&1; then
+	     :
+	   elif $gcc_cv_readelf --relocs conftest 2>&1 \
+	        | grep 'R_MIPS_REL32 *$' > /dev/null 2>&1; then
+	     :
+	   else
+	     gcc_cv_ld_mips_personality_relaxation=yes
+	   fi
+	 fi
+       fi
+       rm -f conftest.s conftest.o conftest])
+    if test x$gcc_cv_ld_mips_personality_relaxation = xyes; then
+	    AC_DEFINE(HAVE_LD_PERSONALITY_RELAXATION, 1,
+      [Define if your linker can relax absolute .eh_frame personality
+pointers into PC-relative form.])
+    fi
     ;;
 esac
 
@@ -3949,6 +4041,14 @@ changequote([,])dnl
 	all_compilers="$all_compilers $compilers"
 	all_outputs="$all_outputs $outputs"
 	all_gtfiles="$all_gtfiles [[$subdir]] $gtfiles"
+        case ",$enable_languages," in
+        	*,lto,*)
+		    AC_DEFINE(ENABLE_LTO, 1, [Define to enable LTO support.])
+		    enable_lto=yes
+		    AC_SUBST(enable_lto)
+		    ;;
+		*) ;;
+	esac
 done
 
 # Pick up gtfiles for c
@@ -4121,6 +4221,12 @@ if test "x${CLOOGLIBS}" != "x" ; then
    AC_DEFINE(HAVE_cloog, 1, [Define if cloog is in use.])
 fi
 
+AC_ARG_VAR(LIBELFLIBS,[How to link libelf])
+AC_ARG_VAR(LIBELFINC,[How to find libelf include files])
+if test "x${LIBELFLIBS}" != "x" ; then 
+   AC_DEFINE(HAVE_libelf, 1, [Define if libelf is in use.])
+fi
+
 # Check for plugin support
 AC_ARG_ENABLE(plugin,
 [  --enable-plugin         enable plugin support],
@@ -4147,7 +4253,7 @@ if test x"$enable_plugin" = x"yes"; then
   fi
 
   # Check -ldl
-  LDFLAGS="$LDFLAGS -ldl"
+  LIBS="$LIBS -ldl"
   AC_MSG_CHECKING([for -ldl])
   AC_TRY_LINK(
     [#include <dlfcn.h>],

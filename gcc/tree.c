@@ -4029,7 +4029,7 @@ iterative_hash_host_wide_int (HOST_WIDE_INT val, hashval_t val2)
 
    Record such modified types already made so we don't make duplicates.  */
 
-static tree
+tree
 build_type_attribute_qual_variant (tree ttype, tree attribute, int quals)
 {
   if (! attribute_list_equal (TYPE_ATTRIBUTES (ttype), attribute))
@@ -4125,6 +4125,31 @@ build_type_attribute_variant (tree ttype, tree attribute)
 					    TYPE_QUALS (ttype));
 }
 
+
+/* Reset all the fields in a binfo node BINFO.  We only keep
+   BINFO_VIRTUALS, which is used by gimple_fold_obj_type_ref.  */
+
+static void
+free_lang_data_in_binfo (tree binfo)
+{
+  unsigned i;
+  tree t;
+
+  gcc_assert (TREE_CODE (binfo) == TREE_BINFO);
+
+  BINFO_OFFSET (binfo) = NULL_TREE;
+  BINFO_VTABLE (binfo) = NULL_TREE;
+  BINFO_VPTR_FIELD (binfo) = NULL_TREE;
+  BINFO_BASE_ACCESSES (binfo) = NULL;
+  BINFO_INHERITANCE_CHAIN (binfo) = NULL_TREE;
+  BINFO_SUBVTT_INDEX (binfo) = NULL_TREE;
+  BINFO_VPTR_FIELD (binfo) = NULL_TREE;
+
+  for (i = 0; VEC_iterate (tree, BINFO_BASE_BINFOS (binfo), i, t); i++)
+    free_lang_data_in_binfo (t);
+}
+
+
 /* Reset all language specific information still present in TYPE.  */
 
 static void
@@ -4174,9 +4199,7 @@ free_lang_data_in_type (tree type)
 	      
   /* Remove members that are not actually FIELD_DECLs from the field
      list of an aggregate.  These occur in C++.  */
-  if (TREE_CODE (type) == RECORD_TYPE
-      || TREE_CODE (type) == UNION_TYPE
-      || TREE_CODE (type) == QUAL_UNION_TYPE)
+  if (RECORD_OR_UNION_TYPE_P (type))
     {
       tree prev, member;
 
@@ -4210,30 +4233,7 @@ free_lang_data_in_type (tree type)
 
       TYPE_METHODS (type) = NULL_TREE;
       if (TYPE_BINFO (type))
-	{
-	  tree binfo = TYPE_BINFO (type);
-
-	  if (BINFO_VIRTUALS (binfo))
-	    {
-	      /* If the virtual function table for BINFO contains
-		 entries, these may be useful for folding OBJ_TYPE_REF
-		 expressions (see gimple_fold_obj_type_ref).  In that
-		 case, we only clear the unused fields in the BINFO
-		 structure.  */
-	      BINFO_OFFSET (binfo) = NULL_TREE;
-	      BINFO_VTABLE (binfo) = NULL_TREE;
-	      BINFO_VPTR_FIELD (binfo) = NULL_TREE;
-	      BINFO_BASE_ACCESSES (binfo) = NULL;
-	      BINFO_INHERITANCE_CHAIN (binfo) = NULL_TREE;
-	      BINFO_SUBVTT_INDEX (binfo) = NULL_TREE;
-	      BINFO_VPTR_FIELD (binfo) = NULL_TREE;
-	    }
-	  else
-	    {
-	      /* Otherwise, get rid of the whole binfo data.  */
-	      TYPE_BINFO (type) = NULL_TREE;
-	    }
-	}
+	free_lang_data_in_binfo (TYPE_BINFO (type));
     }
   else
     {
@@ -4271,19 +4271,22 @@ need_assembler_name_p (tree decl)
       && !DECL_EXTERNAL (decl))
     return false;
 
-  /* Do not set assembler name on builtins.  Allow RTL expansion to
-     decide whether to expand inline or via a regular call.  */
-  if (TREE_CODE (decl) == FUNCTION_DECL
-      && DECL_BUILT_IN (decl)
-      && DECL_BUILT_IN_CLASS (decl) != BUILT_IN_FRONTEND)
-    return false;
+  if (TREE_CODE (decl) == FUNCTION_DECL)
+    {
+      /* Do not set assembler name on builtins.  Allow RTL expansion to
+	 decide whether to expand inline or via a regular call.  */
+      if (DECL_BUILT_IN (decl)
+	  && DECL_BUILT_IN_CLASS (decl) != BUILT_IN_FRONTEND)
+	return false;
 
-  /* For FUNCTION_DECLs, only used functions and functions
-     represented in the callgraph need an assembler name.  */
-  if (TREE_CODE (decl) == FUNCTION_DECL
-      && cgraph_node_for_decl (decl) == NULL
-      && !TREE_USED (decl))
-    return false;
+      /* Functions represented in the callgraph need an assembler name.  */
+      if (cgraph_node_for_decl (decl) != NULL)
+	return true;
+
+      /* Unused and not public functions don't need an assembler name.  */
+      if (!TREE_USED (decl) && !TREE_PUBLIC (decl))
+	return false;
+    }
 
   return true;
 }
@@ -4334,9 +4337,6 @@ free_lang_data_in_decl (tree decl)
   /* Identifiers need not have a type.  */
   if (DECL_NAME (decl))
     TREE_TYPE (DECL_NAME (decl)) = NULL_TREE;
-
-  if (TREE_CODE (decl) == CONST_DECL)
-    DECL_CONTEXT (decl) = NULL_TREE;
 
   /* Ignore any intervening types, because we are going to clear their
      TYPE_CONTEXT fields.  */
@@ -4517,15 +4517,21 @@ add_tree_to_fld_list (tree t, struct free_lang_data_d *fld)
     gcc_unreachable ();
 }
 
-#define PUSH(t) \
-    if (t && !pointer_set_contains (fld->pset, t)) \
-      VEC_safe_push (tree, heap, fld->worklist, (t))
+/* Push tree node T into FLD->WORKLIST.  */
+
+static inline void
+fld_worklist_push (tree t, struct free_lang_data_d *fld)
+{
+  if (t && !is_lang_specific (t) && !pointer_set_contains (fld->pset, t))
+    VEC_safe_push (tree, heap, fld->worklist, (t));
+}
+
 
 /* Operand callback helper for free_lang_data_in_node.  *TP is the
    subtree operand being considered.  */
 
 static tree
-find_decls_types_r (tree *tp, int *ws ATTRIBUTE_UNUSED, void *data)
+find_decls_types_r (tree *tp, int *ws, void *data)
 {
   tree t = *tp;
   struct free_lang_data_d *fld = (struct free_lang_data_d *) data;
@@ -4533,45 +4539,59 @@ find_decls_types_r (tree *tp, int *ws ATTRIBUTE_UNUSED, void *data)
   if (TREE_CODE (t) == TREE_LIST)
     return NULL_TREE;
 
+  /* Language specific nodes will be removed, so there is no need
+     to gather anything under them.  */
+  if (is_lang_specific (t))
+    {
+      *ws = 0;
+      return NULL_TREE;
+    }
+
   if (DECL_P (t))
     {
       /* Note that walk_tree does not traverse every possible field in
 	 decls, so we have to do our own traversals here.  */
       add_tree_to_fld_list (t, fld);
 
-      PUSH (DECL_NAME (t));
-      PUSH (DECL_CONTEXT (t));
-      PUSH (DECL_SIZE (t));
-      PUSH (DECL_SIZE_UNIT (t));
-      PUSH (DECL_INITIAL(t));
-      PUSH (DECL_ATTRIBUTES (t));
-      PUSH (DECL_ABSTRACT_ORIGIN (t));
+      fld_worklist_push (DECL_NAME (t), fld);
+      fld_worklist_push (DECL_CONTEXT (t), fld);
+      fld_worklist_push (DECL_SIZE (t), fld);
+      fld_worklist_push (DECL_SIZE_UNIT (t), fld);
+
+      /* We are going to remove everything under DECL_INITIAL for
+	 TYPE_DECLs.  No point walking them.  */
+      if (TREE_CODE (t) != TYPE_DECL)
+	fld_worklist_push (DECL_INITIAL (t), fld);
+
+      fld_worklist_push (DECL_ATTRIBUTES (t), fld);
+      fld_worklist_push (DECL_ABSTRACT_ORIGIN (t), fld);
 
       if (TREE_CODE (t) == FUNCTION_DECL)
 	{
-	  PUSH (DECL_ARGUMENTS (t));
-	  PUSH (DECL_RESULT (t));
+	  fld_worklist_push (DECL_ARGUMENTS (t), fld);
+	  fld_worklist_push (DECL_RESULT (t), fld);
 	}
       else if (TREE_CODE (t) == TYPE_DECL)
 	{
-	  PUSH (DECL_ARGUMENT_FLD (t));
-	  PUSH (DECL_VINDEX (t));
+	  fld_worklist_push (DECL_ARGUMENT_FLD (t), fld);
+	  fld_worklist_push (DECL_VINDEX (t), fld);
 	}
       else if (TREE_CODE (t) == FIELD_DECL)
 	{
-	  PUSH (DECL_FIELD_OFFSET (t));
-	  PUSH (DECL_BIT_FIELD_TYPE (t));
-	  PUSH (DECL_QUALIFIER (t));
-	  PUSH (DECL_FIELD_BIT_OFFSET (t));
-	  PUSH (DECL_FCONTEXT (t));
+	  fld_worklist_push (DECL_FIELD_OFFSET (t), fld);
+	  fld_worklist_push (DECL_BIT_FIELD_TYPE (t), fld);
+	  fld_worklist_push (DECL_QUALIFIER (t), fld);
+	  fld_worklist_push (DECL_FIELD_BIT_OFFSET (t), fld);
+	  fld_worklist_push (DECL_FCONTEXT (t), fld);
 	}
       else if (TREE_CODE (t) == VAR_DECL)
 	{
-	  PUSH (DECL_SECTION_NAME (t));
-	  PUSH (DECL_COMDAT_GROUP (t));
+	  fld_worklist_push (DECL_SECTION_NAME (t), fld);
+	  fld_worklist_push (DECL_COMDAT_GROUP (t), fld);
 	}
 
-      PUSH (TREE_CHAIN (t));
+      if (TREE_CODE (t) != FIELD_DECL)
+	fld_worklist_push (TREE_CHAIN (t), fld);
       *ws = 0;
     }
   else if (TYPE_P (t))
@@ -4580,40 +4600,59 @@ find_decls_types_r (tree *tp, int *ws ATTRIBUTE_UNUSED, void *data)
 	 types, so we have to do our own traversals here.  */
       add_tree_to_fld_list (t, fld);
 
-      PUSH (TYPE_CACHED_VALUES (t));
-      PUSH (TYPE_SIZE (t));
-      PUSH (TYPE_SIZE_UNIT (t));
-      PUSH (TYPE_ATTRIBUTES (t));
-      PUSH (TYPE_POINTER_TO (t));
-      PUSH (TYPE_REFERENCE_TO (t));
-      PUSH (TYPE_NAME (t));
-      PUSH (TYPE_MINVAL (t));
-      PUSH (TYPE_MAXVAL (t));
-      PUSH (TYPE_MAIN_VARIANT (t));
-      PUSH (TYPE_NEXT_VARIANT (t));
-      PUSH (TYPE_CONTEXT (t));
-      PUSH (TYPE_CANONICAL (t));
+      if (!RECORD_OR_UNION_TYPE_P (t))
+	fld_worklist_push (TYPE_CACHED_VALUES (t), fld);
+      fld_worklist_push (TYPE_SIZE (t), fld);
+      fld_worklist_push (TYPE_SIZE_UNIT (t), fld);
+      fld_worklist_push (TYPE_ATTRIBUTES (t), fld);
+      fld_worklist_push (TYPE_POINTER_TO (t), fld);
+      fld_worklist_push (TYPE_REFERENCE_TO (t), fld);
+      fld_worklist_push (TYPE_NAME (t), fld);
+      fld_worklist_push (TYPE_MINVAL (t), fld);
+      if (!RECORD_OR_UNION_TYPE_P (t))
+	fld_worklist_push (TYPE_MAXVAL (t), fld);
+      fld_worklist_push (TYPE_MAIN_VARIANT (t), fld);
+      fld_worklist_push (TYPE_NEXT_VARIANT (t), fld);
+      fld_worklist_push (TYPE_CONTEXT (t), fld);
+      fld_worklist_push (TYPE_CANONICAL (t), fld);
 
-      if (RECORD_OR_UNION_TYPE_P (t)
-	  && TYPE_BINFO (t))
+      if (RECORD_OR_UNION_TYPE_P (t) && TYPE_BINFO (t))
 	{
 	  unsigned i;
 	  tree tem;
 	  for (i = 0; VEC_iterate (tree, BINFO_BASE_BINFOS (TYPE_BINFO (t)),
 				   i, tem); ++i)
-	    PUSH (TREE_TYPE (tem));
+	    fld_worklist_push (TREE_TYPE (tem), fld);
+	  tem = BINFO_VIRTUALS (TYPE_BINFO (t));
+	  while (tem)
+	    {
+	      fld_worklist_push (TREE_VALUE (tem), fld);
+	      tem = TREE_CHAIN (tem);
+	    }
+	}
+      if (RECORD_OR_UNION_TYPE_P (t))
+	{
+	  tree tem;
+	  /* Push all TYPE_FIELDS - there can be interleaving interesting
+	     and non-interesting things.  */
+	  tem = TYPE_FIELDS (t);
+	  while (tem)
+	    {
+	      if (TREE_CODE (tem) == FIELD_DECL)
+		fld_worklist_push (tem, fld);
+	      tem = TREE_CHAIN (tem);
+	    }
 	}
 
-      PUSH (TREE_CHAIN (t));
+      fld_worklist_push (TREE_CHAIN (t), fld);
       *ws = 0;
     }
 
-  PUSH (TREE_TYPE (t));
+  fld_worklist_push (TREE_TYPE (t), fld);
 
   return NULL_TREE;
 }
 
-#undef PUSH
 
 /* Find decls and types in T.  */
 
@@ -4662,23 +4701,36 @@ get_eh_types_for_runtime (tree list)
 static void
 find_decls_types_in_eh_region (eh_region r, struct free_lang_data_d *fld)
 {
-  if (r == NULL)
-    return;
+  switch (r->type)
+    {
+    case ERT_CLEANUP:
+      break;
 
-  /* The types referenced in R must first be changed to the EH types
-     used at runtime.  This removes references to FE types in the
-     region.  */
-  if (r->type == ERT_CATCH)
-    {
-      tree list = r->u.eh_catch.type_list;
-      r->u.eh_catch.type_list = get_eh_types_for_runtime (list);
-      find_decls_types (r->u.eh_catch.type_list, fld);
-    }
-  else if (r->type == ERT_ALLOWED_EXCEPTIONS)
-    {
-      tree list = r->u.allowed.type_list;
-      r->u.allowed.type_list = get_eh_types_for_runtime (list);
-      find_decls_types (r->u.allowed.type_list, fld);
+    case ERT_TRY:
+      {
+	eh_catch c;
+
+	/* The types referenced in each catch must first be changed to the
+	   EH types used at runtime.  This removes references to FE types
+	   in the region.  */
+	for (c = r->u.eh_try.first_catch; c ; c = c->next_catch)
+	  {
+	    c->type_list = get_eh_types_for_runtime (c->type_list);
+	    walk_tree (&c->type_list, find_decls_types_r, fld, fld->pset);
+	  }
+      }
+      break;
+
+    case ERT_ALLOWED_EXCEPTIONS:
+      r->u.allowed.type_list
+	= get_eh_types_for_runtime (r->u.allowed.type_list);
+      walk_tree (&r->u.allowed.type_list, find_decls_types_r, fld, fld->pset);
+      break;
+
+    case ERT_MUST_NOT_THROW:
+      walk_tree (&r->u.must_not_throw.failure_decl,
+		 find_decls_types_r, fld, fld->pset);
+      break;
     }
 }
 
@@ -4710,14 +4762,11 @@ find_decls_types_in_node (struct cgraph_node *n, struct free_lang_data_d *fld)
     find_decls_types (TREE_VALUE (t), fld);
 
   /* Traverse EH regions in FN.  */
-  if (fn->eh->region_array)
-    {
-      unsigned i;
-      eh_region r;
-
-      for (i = 0; VEC_iterate (eh_region, fn->eh->region_array, i, r); i++)
-	find_decls_types_in_eh_region (r, fld);
-    }
+  {
+    eh_region r;
+    FOR_ALL_EH_REGION_FN (r, fn)
+      find_decls_types_in_eh_region (r, fld);
+  }
 
   /* Traverse every statement in FN.  */
   FOR_EACH_BB_FN (bb, fn)
@@ -4892,6 +4941,13 @@ free_lang_data (void)
   diagnostic_finalizer (global_dc) = default_diagnostic_finalizer;
   diagnostic_format_decoder (global_dc) = default_tree_printer;
 
+  /* FIXME. We remove sufficient language data that the debug
+     info writer gets completely confused.  Disable debug information
+     for now.  */
+  debug_info_level = DINFO_LEVEL_NONE;
+  write_symbols = NO_DEBUG;
+  debug_hooks = &do_nothing_debug_hooks;
+
   return 0;
 }
 
@@ -4902,7 +4958,9 @@ static bool
 gate_free_lang_data (void)
 {
   /* FIXME.  Remove after save_debug_info is working.  */
-  return !flag_gtoggle && debug_info_level <= DINFO_LEVEL_TERSE;
+  return (flag_generate_lto
+	  || (!in_lto_p
+	      && !flag_gtoggle && debug_info_level <= DINFO_LEVEL_TERSE));
 }
 
 
@@ -8888,7 +8946,7 @@ local_define_builtin (const char *name, tree type, enum built_in_function code,
 void
 build_common_builtin_nodes (void)
 {
-  tree tmp, ftype;
+  tree tmp, tmp2, ftype;
 
   if (built_in_decls[BUILT_IN_MEMCPY] == NULL
       || built_in_decls[BUILT_IN_MEMMOVE] == NULL)
@@ -8992,6 +9050,47 @@ build_common_builtin_nodes (void)
 			BUILT_IN_PROFILE_FUNC_ENTER, "profile_func_enter", 0);
   local_define_builtin ("__builtin_profile_func_exit", ftype,
 			BUILT_IN_PROFILE_FUNC_EXIT, "profile_func_exit", 0);
+
+  /* If there's a possibility that we might use the ARM EABI, build the
+    alternate __cxa_end_cleanup node used to resume from C++ and Java.  */
+  if (targetm.arm_eabi_unwinder)
+    {
+      ftype = build_function_type (void_type_node, void_list_node);
+      local_define_builtin ("__builtin_cxa_end_cleanup", ftype,
+			    BUILT_IN_CXA_END_CLEANUP,
+			    "__cxa_end_cleanup", ECF_NORETURN);
+    }
+
+  tmp = tree_cons (NULL_TREE, ptr_type_node, void_list_node);
+  ftype = build_function_type (void_type_node, tmp);
+  local_define_builtin ("__builtin_unwind_resume", ftype,
+			BUILT_IN_UNWIND_RESUME,
+			(USING_SJLJ_EXCEPTIONS
+			 ? "_Unwind_SjLj_Resume" : "_Unwind_Resume"),
+			ECF_NORETURN);
+
+  /* The exception object and filter values from the runtime.  The argument
+     must be zero before exception lowering, i.e. from the front end.  After
+     exception lowering, it will be the region number for the exception
+     landing pad.  These functions are PURE instead of CONST to prevent
+     them from being hoisted past the exception edge that will initialize
+     its value in the landing pad.  */
+  tmp = tree_cons (NULL_TREE, integer_type_node, void_list_node);
+  ftype = build_function_type (ptr_type_node, tmp);
+  local_define_builtin ("__builtin_eh_pointer", ftype, BUILT_IN_EH_POINTER,
+			"__builtin_eh_pointer", ECF_PURE | ECF_NOTHROW);
+
+  tmp2 = lang_hooks.types.type_for_mode (targetm.eh_return_filter_mode (), 0);
+  ftype = build_function_type (tmp2, tmp);
+  local_define_builtin ("__builtin_eh_filter", ftype, BUILT_IN_EH_FILTER,
+			"__builtin_eh_filter", ECF_PURE | ECF_NOTHROW);
+
+  tmp = tree_cons (NULL_TREE, integer_type_node, void_list_node);
+  tmp = tree_cons (NULL_TREE, integer_type_node, tmp);
+  ftype = build_function_type (void_type_node, tmp);
+  local_define_builtin ("__builtin_eh_copy_values", ftype,
+			BUILT_IN_EH_COPY_VALUES,
+			"__builtin_eh_copy_values", ECF_NOTHROW);
 
   /* Complex multiplication and division.  These are handled as builtins
      rather than optabs because emit_library_call_value doesn't support
@@ -9153,16 +9252,6 @@ build_opaque_vector_type (tree innertype, int nunits)
   return t;
 }
 
-
-/* Build RESX_EXPR with given REGION_NUMBER.  */
-tree
-build_resx (int region_number)
-{
-  tree t;
-  t = build1 (RESX_EXPR, void_type_node,
-	      build_int_cst (NULL_TREE, region_number));
-  return t;
-}
 
 /* Given an initializer INIT, return TRUE if INIT is zero or some
    aggregate of zeros.  Otherwise return FALSE.  */
@@ -10084,9 +10173,7 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
 	    return result;
 
 	  /* If this is a record type, also walk the fields.  */
-	  if (TREE_CODE (*type_p) == RECORD_TYPE
-	      || TREE_CODE (*type_p) == UNION_TYPE
-	      || TREE_CODE (*type_p) == QUAL_UNION_TYPE)
+	  if (RECORD_OR_UNION_TYPE_P (*type_p))
 	    {
 	      tree field;
 

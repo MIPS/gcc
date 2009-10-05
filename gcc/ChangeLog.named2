@@ -1,6 +1,6 @@
 [PATCH 1/5] Named address spaces: core middle-end support
 
-2009-09-14  Ben Elliston  <bje@au.ibm.com>
+2009-10-05  Ben Elliston  <bje@au.ibm.com>
 	    Michael Meissner  <meissner@linux.vnet.ibm.com>
 	    Ulrich Weigand  <uweigand@de.ibm.com>
 
@@ -186,7 +186,7 @@
 
 [PATCH 2/5] Named address spaces: support multiple pointer modes
 
-2009-09-14  Ben Elliston  <bje@au.ibm.com>
+2009-10-05  Ben Elliston  <bje@au.ibm.com>
 	    Michael Meissner  <meissner@linux.vnet.ibm.com>
 	    Ulrich Weigand  <uweigand@de.ibm.com>
 
@@ -200,8 +200,8 @@
 	(TARGET_ADDR_SPACE_ADDRESS_MODE): Likewise.
 	(TARGET_ADDR_SPACE_VALID_POINTER_MODE): Likewise.
 	(TARGET_ADDR_SPACE_HOOKS): Add them.
-	* targhooks.c (target_default_address_pointer_modes_p): New function.
-	* target.h (target_default_address_pointer_modes_p): Add prototype.
+	* targhooks.c (target_default_pointer_address_modes_p): New function.
+	* target.h (target_default_pointer_address_modes_p): Add prototype.
 	* targhooks.c (default_addr_space_pointer_mode): New function.
 	(default_addr_space_address_mode): Likewise.
 	(default_addr_space_valid_pointer_mode): Likewise.
@@ -233,6 +233,7 @@
 	* expr.c (store_expr): Likewise.
 	(expand_expr_addr_expr): Likewise.
 	* tree-vect-data-refs.c (vect_create_data_ref_ptr): Likewise.
+	* cfgexpand.c (expand_debug_expr): Likewise.
 	
 	* auto-inc-dec.c: Include "target.h".
 	(try_merge): Use appropriate address mode instead of Pmode.
@@ -325,7 +326,7 @@
 
 [PATCH 3/5] Named address spaces: C front-end support
 
-2009-09-14  Ben Elliston  <bje@au.ibm.com>
+2009-10-05  Ben Elliston  <bje@au.ibm.com>
 	    Michael Meissner  <meissner@linux.vnet.ibm.com>
 	    Ulrich Weigand  <uweigand@de.ibm.com>
 
@@ -381,7 +382,7 @@
 
 [PATCH 4/5] Named address spaces: SPU back-end support
 
-2009-09-14  Ben Elliston  <bje@au.ibm.com>
+2009-10-05  Ben Elliston  <bje@au.ibm.com>
 	    Michael Meissner  <meissner@linux.vnet.ibm.com>
 	    Ulrich Weigand  <uweigand@de.ibm.com>
 
@@ -449,7 +450,7 @@
 
 [PATCH 5/5] Named address spaces: testsuite
 
-2009-09-14  Ben Elliston  <bje@au.ibm.com>
+2009-10-05  Ben Elliston  <bje@au.ibm.com>
 	    Michael Meissner  <meissner@linux.vnet.ibm.com>
 	    Ulrich Weigand  <uweigand@de.ibm.com>
 

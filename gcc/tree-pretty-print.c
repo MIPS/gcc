@@ -1702,14 +1702,6 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	pp_string (buffer, " [non-local]");
       break;
 
-    case EXC_PTR_EXPR:
-      pp_string (buffer, "<<<exception object>>>");
-      break;
-
-    case FILTER_EXPR:
-      pp_string (buffer, "<<<filter object>>>");
-      break;
-
     case LOOP_EXPR:
       pp_string (buffer, "while (1)");
       if (!(flags & TDF_SLIM))
@@ -1808,11 +1800,6 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	}
       pp_string (buffer, "goto ");
       dump_generic_node (buffer, op0, spc, flags, false);
-      break;
-
-    case RESX_EXPR:
-      pp_string (buffer, "resx ");
-      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
       break;
 
     case ASM_EXPR:

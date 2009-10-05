@@ -1155,7 +1155,6 @@ gfc_maybe_initialize_eh (void)
     return;
 
   gfc_eh_initialized_p = true;
-  default_init_unwind_resume_libfunc ();
   using_eh_for_cleanups ();
 }
 

@@ -4094,6 +4094,13 @@ finish_decl (tree decl, location_t init_loc, tree init,
   if (asmspec_tree)
     asmspec = TREE_STRING_POINTER (asmspec_tree);
 
+  if (TREE_CODE (decl) == VAR_DECL
+      && TREE_STATIC (decl)
+      && global_bindings_p ())
+    /* So decl is a global variable. Record the types it uses
+       so that we can decide later to emit debug info for them.  */
+    record_types_used_by_current_var_decl (decl);
+
   /* If `start_decl' didn't like having an initialization, ignore it now.  */
   if (init != 0 && DECL_INITIAL (decl) == 0)
     init = 0;
@@ -6959,6 +6966,11 @@ finish_struct (location_t loc, tree t, tree fieldlist, tree attributes,
 	}
     }
   C_TYPE_INCOMPLETE_VARS (TYPE_MAIN_VARIANT (t)) = 0;
+
+  /* Update type location to the one of the definition, instead of e.g.
+     a forward declaration.  */
+  if (TYPE_STUB_DECL (t))
+    DECL_SOURCE_LOCATION (TYPE_STUB_DECL (t)) = loc;
 
   /* Finish debugging output for this type.  */
   rest_of_type_compilation (t, toplevel);

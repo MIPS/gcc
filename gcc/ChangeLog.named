@@ -1,10 +1,18 @@
+2009-10-05  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	Merge up to mainline revision 152437.
+
+	* alias.c (find_base_value): Fix typo.
+	* cfgexpand.c (expand_debug_expr): Use appropriate pointer mode
+	instead of ptr_mode.
+
 2009-09-24  Ulrich Weigand  <uweigand@de.ibm.com>
 
 	* target-def.h (TARGET_DEFAULT_ADDRESS_POINTER_MODES_P): Remove.
-	* targhooks.c (target_default_address_pointer_modes_p): New function.
-	* target.h (target_default_address_pointer_modes_p): Add prototype.
+	* targhooks.c (target_default_pointer_address_modes_p): New function.
+	* target.h (target_default_pointer_address_modes_p): Add prototype.
 
-	* alias.c (find_base_value): Use target_default_address_pointer_modes_p
+	* alias.c (find_base_value): Use target_default_pointer_address_modes_p
 	instead of TARGET_DEFAULT_ADDRESS_POINTER_MODES_P.
 	(find_base_term): Likewise.
 	* rtlanal.c (nonzero_bits1): Likewise.
