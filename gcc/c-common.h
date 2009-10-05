@@ -114,7 +114,7 @@ enum rid
   RID_IS_UNION,
 
   /* C++0x */
-  RID_STATIC_ASSERT, RID_DECLTYPE,
+  RID_STATIC_ASSERT, RID_CONSTEXPR, RID_DECLTYPE,
 
   /* Objective-C */
   RID_AT_ENCODE,   RID_AT_END,
@@ -838,8 +838,6 @@ extern tree c_build_qualified_type (tree, int);
 /* Build tree nodes and builtin functions common to both C and C++ language
    frontends.  */
 extern void c_common_nodes_and_builtins (void);
-
-extern void set_builtin_user_assembler_name (tree decl, const char *asmspec);
 
 extern void disable_builtin_function (const char *);
 

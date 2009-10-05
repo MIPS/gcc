@@ -20052,8 +20052,10 @@ rs6000_output_function_epilogue (FILE *file,
 	 use language_string.
 	 C is 0.  Fortran is 1.  Pascal is 2.  Ada is 3.  C++ is 9.
 	 Java is 13.  Objective-C is 14.  Objective-C++ isn't assigned
-	 a number, so for now use 9.  */
-      if (! strcmp (language_string, "GNU C"))
+	 a number, so for now use 9.  LTO isn't assigned a number either,
+	 so for now use 0.  */
+      if (! strcmp (language_string, "GNU C")
+	  || ! strcmp (language_string, "GNU GIMPLE"))
 	i = 0;
       else if (! strcmp (language_string, "GNU F77")
 	       || ! strcmp (language_string, "GNU Fortran"))
@@ -21760,8 +21762,9 @@ is_nonpipeline_insn (rtx insn)
 static int
 rs6000_issue_rate (void)
 {
-  /* Use issue rate of 1 for first scheduling pass to decrease degradation.  */
-  if (!reload_completed)
+  /* Unless scheduling for register pressure, use issue rate of 1 for
+     first scheduling pass to decrease degradation.  */
+  if (!reload_completed && !flag_sched_pressure)
     return 1;
 
   switch (rs6000_cpu_attr) {
