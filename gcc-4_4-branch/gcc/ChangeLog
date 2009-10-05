@@ -1,3 +1,16 @@
+2009-10-05  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	Backport from mainline.
+        * config/arm/arm.c (arm_override_options): Really initialize
+        flag_dwarf2_cfi_asm to 0.
+
+2009-10-02  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	Backport from mainline.	
+	2009-10-01  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+	* config/arm/arm.c (arm_override_options): Turn off
+	flag_dwarf2_cfi_asm for AAPCS variants.
+
 2009-10-05  Jakub Jelinek  <jakub@redhat.com>
 
 	* dwarf2out.c (modified_type_die): Don't add DW_AT_name to
