@@ -4,7 +4,7 @@
 	instead of InverseMask.  Remove RejectNegative.
 	(-mno-address-space-conversion): Remove.
 	(-mno-atomic-updates): Remove.
-	* config/spu/spu.h (TARGET_DEFALT): Add MASK_ADDRESS_SPACE_CONVERSION.
+	* config/spu/spu.h (TARGET_DEFAULT): Add MASK_ADDRESS_SPACE_CONVERSION.
 	* config/spu/spu.c (spu_addr_space_subset_p): Test for
 	!MASK_ADDRESS_SPACE_CONVERSION instead of
 	TARGET_NO_ADDRESS_SPACE_CONVERSION.
