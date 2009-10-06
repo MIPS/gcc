@@ -6813,7 +6813,7 @@ spu_addr_space_subset_p (addr_space_t subset, addr_space_t superset)
 
   /* If we have -mno-address-space-conversion, treat __ea and generic as not
      being subsets but instead as disjoint address spaces.  */
-  else if (TARGET_NO_ADDRESS_SPACE_CONVERSION)
+  else if (!TARGET_ADDRESS_SPACE_CONVERSION)
     return false;
 
   else

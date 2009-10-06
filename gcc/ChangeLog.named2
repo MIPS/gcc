@@ -438,14 +438,15 @@
 	$(T)cache128k.o): Likewise.
 	($(T)libgcc_%.a): Likewise.
 
+	* config/spu/spu.h (TARGET_DEFAULT): Add MASK_ADDRESS_SPACE_CONVERSION.
 	* config/spu/spu.opt (-mea32/-mea64): Add switches.
-	(-maddress-space-conversion/-mno-address-space-conversion): Likewise.
+	(-maddress-space-conversion): Likewise.
 	(-mcache-size=): Likewise.
-	(-matomic-updates/-mno-atomic-updates): Likewise.
+	(-matomic-updates): Likewise.
 	* doc/invoke.texi (-mea32/-mea64): Document.
-	(-maddress-space-conversion/-mno-address-space-conversion): Likewise.
+	(-maddress-space-conversion): Likewise.
 	(-mcache-size=): Likewise.
-	(-matomic-updates/-mno-atomic-updates): Likewise.
+	(-matomic-updates): Likewise.
 
 
 [PATCH 5/5] Named address spaces: testsuite

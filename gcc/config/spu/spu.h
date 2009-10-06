@@ -51,7 +51,7 @@ extern GTY(()) int spu_tune;
 /* Default target_flags if no switches specified.  */
 #ifndef TARGET_DEFAULT
 #define TARGET_DEFAULT (MASK_ERROR_RELOC | MASK_SAFE_DMA | MASK_BRANCH_HINTS \
-			| MASK_SAFE_HINTS)
+			| MASK_SAFE_HINTS | MASK_ADDRESS_SPACE_CONVERSION)
 #endif
 
 

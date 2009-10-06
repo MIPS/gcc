@@ -1,3 +1,14 @@
+2009-10-06  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config/spu/spu.opt (-maddress-space-conversion): Use Mask
+	instead of InverseMask.  Remove RejectNegative.
+	(-mno-address-space-conversion): Remove.
+	(-mno-atomic-updates): Remove.
+	* config/spu/spu.h (TARGET_DEFALT): Add MASK_ADDRESS_SPACE_CONVERSION.
+	* config/spu/spu.c (spu_addr_space_subset_p): Test for
+	!MASK_ADDRESS_SPACE_CONVERSION instead of
+	TARGET_NO_ADDRESS_SPACE_CONVERSION.
+
 2009-10-05  Ulrich Weigand  <uweigand@de.ibm.com>
 
 	Merge up to mainline revision 152437.
