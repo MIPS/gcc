@@ -13938,6 +13938,10 @@ tree_add_const_value_attribute (dw_die_ref var_die, tree decl)
   else
     return false;
 
+  /* Don't add DW_AT_const_value if abstract origin already has one.  */
+  if (get_AT (var_die, DW_AT_const_value))
+    return false;
+
   rtl = rtl_for_decl_init (init, type);
   if (rtl)
     return add_const_value_attribute (var_die, rtl);
