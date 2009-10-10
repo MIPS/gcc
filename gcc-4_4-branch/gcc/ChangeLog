@@ -1,6 +1,26 @@
+2009-10-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR preprocessor/41445
+	* c-ppoutput.c (do_line_change): New function.
+	(cb_line_change): Use it.
+	(scan_translation_unit): Call do_line_change if
+	avoid_paste or PREV_WHITE and token location is on a different line
+	than print.src_line.
+
 2009-10-09  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
 
 	* config/s390/s390.md ("prefetch"): Remove stcmh for prefetching.
+
+2009-10-08  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/41353
+	* regmove.c (regmove_backward_pass): Replace src with dst in the
+	debug insn, and check for dst before rather than after.
+
+2009-10-08  Janis Johnson <janis187@us.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_delegitimize_address): Remove.
+	(TARGET_DELEGITIMIZE_ADDRESS): Likewise.
 
 2009-10-07  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
 
