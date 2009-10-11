@@ -1,0 +1,369 @@
+#ifndef _MULTIPREC_RATIONAL
+#define _MULTIPREC_RATIONAL
+
+#include <gmp.h>
+#include <iosfwd>
+#include <ratio>
+
+namespace std
+{
+namespace multiprec
+{
+
+  class integer;
+
+  struct rational_base
+  {
+
+  public:
+    rational_base()
+    { mpq_init(_M_rational); }
+
+    ~rational_base()
+    { mpq_clear(_M_rational); }
+
+    mpq_t&
+    _M_get()
+    { return _M_rational; }
+
+    const mpq_t&
+    _M_get() const
+    { return _M_rational; }
+
+    mpq_t _M_rational;
+  };
+
+
+  class rational : public rational_base
+  {
+
+  public:
+    rational() : rational_base()
+    { }
+
+    rational(const rational& __q)
+    : rational_base()
+    { mpq_set(this->_M_get(), __q._M_get()); }
+
+    rational(rational&& __q)
+    : rational_base()
+    { this->swap(__q); }
+
+    rational(int __l, unsigned int __m = 1U)
+    : rational_base()
+    { mpq_set_si(this->_M_get(),
+                 static_cast<long>(__l),
+                 static_cast<unsigned long>(__m)); }
+
+    rational(unsigned int __ul, unsigned int __um = 1U)
+    : rational_base()
+    { mpq_set_ui(this->_M_get(),
+                 static_cast<unsigned long>(__ul),
+                 static_cast<unsigned long>(__um)); }
+
+    rational(long __l, unsigned long __m = 1UL)
+    : rational_base()
+    { mpq_set_si(this->_M_get(), __l, __m); }
+
+    rational(unsigned long __ul, unsigned long __um = 1UL)
+    : rational_base()
+    { mpq_set_ui(this->_M_get(), __ul, __um); }
+
+    template<intmax_t _Num, intmax_t _Den = 1>
+      rational(std::ratio<_Num,_Den>)
+      : rational_base()
+      { mpq_set_si(this->_M_get(),
+                   static_cast<long>(std::ratio<_Num,_Den>::num),
+                   static_cast<unsigned long>(std::ratio<_Num,_Den>::den)); }
+
+    rational(float __f)
+    : rational_base()
+    { mpq_set_d(this->_M_get(), static_cast<double>(__f)); }
+
+    rational(double __d)
+    : rational_base()
+    { mpq_set_d(this->_M_get(), __d); }
+
+    rational(const integer& __i);
+
+    rational(const integer& __i, const integer& __j);
+
+    ~rational() { }
+
+    void
+    swap(rational& __q)
+    { mpq_swap(this->_M_get(), __q._M_get()); }
+
+    rational&
+    operator=(const rational& __q)
+    { mpq_set(this->_M_get(), __q._M_get()); }
+
+    rational&
+    operator=(rational&& __q)
+    {
+      mpq_swap(this->_M_get(), __q._M_get());
+      return *this;
+    }
+
+    integer
+    numerator();
+
+    integer
+    denominator();
+
+#ifdef _MP_NUMERIC_CAST
+    operator float() const
+    { return static_cast<float>(mpq_get_d(this->_M_get())); }
+
+    operator double() const
+    { return mpq_get_d(this->_M_get()); }
+#endif // _MP_NUMERIC_CAST
+
+    rational
+    operator-()
+    {
+      rational result;
+      mpq_neg(result._M_get(), this->_M_get());
+      return result;
+    }
+
+    rational
+    operator+()
+    { return *this; }
+
+    rational&
+    operator++()
+    {
+      mpz_add_ui(mpq_numref(this->_M_get()),
+                 mpq_numref(this->_M_get()),
+                 1U);
+      return *this;
+    }
+
+    rational&
+    operator--()
+    {
+      mpz_sub_ui(mpq_numref(this->_M_get()),
+                 mpq_numref(this->_M_get()),
+                 1U);
+      return *this;
+    }
+
+    rational
+    operator++(int)
+    {
+      rational __result(*this);
+      mpz_add_ui(mpq_numref(__result._M_get()),
+                 mpq_numref(this->_M_get()),
+                 1U);
+      return __result;
+    }
+
+    rational
+    operator--(int)
+    {
+      rational __result(*this);
+      mpz_sub_ui(mpq_numref(__result._M_get()),
+                 mpq_numref(this->_M_get()),
+                 1U);
+      return __result;
+    }
+
+    rational
+    operator<<(unsigned long __i) const
+    {
+      rational __result;
+      mpq_mul_2exp(__result._M_get(), this->_M_get(), __i);
+      return __result;
+    }
+
+    rational
+    operator>>(unsigned long __i) const
+    {
+      rational __result;
+      mpq_div_2exp(__result._M_get(), this->_M_get(), __i);
+      return __result;
+    }
+
+    rational&
+    operator+=(const rational& __q)
+    {
+      mpq_add(this->_M_get(), this->_M_get(), __q._M_get());
+      return *this;
+    }
+
+    rational&
+    operator-=(const rational& __q)
+    {
+      mpq_sub(this->_M_get(), this->_M_get(), __q._M_get());
+      return *this;
+    }
+
+    rational&
+    operator*=(const rational& __q)
+    {
+      mpq_mul(this->_M_get(), this->_M_get(), __q._M_get());
+      return *this;
+    }
+
+    rational&
+    operator/=(const rational& __q)
+    {
+      mpq_div(this->_M_get(), this->_M_get(), __q._M_get());
+      return *this;
+    }
+
+    rational&
+    operator<<=(const unsigned long __i)
+    {
+      mpq_mul_2exp(this->_M_get(), this->_M_get(), __i);
+      return *this;
+    }
+
+    rational&
+    operator>>=(const unsigned long __i)
+    {
+      mpq_div_2exp(this->_M_get(), this->_M_get(), __i);
+      return *this;
+    }
+
+    rational&
+    negate()
+    {
+      mpq_neg(this->_M_get(), this->_M_get());
+      return *this;
+    }
+
+    rational&
+    invert()
+    {
+      mpq_inv(this->_M_get(), this->_M_get());
+      return *this;
+    }
+
+    bool
+    _M_equal(const rational& __q) const
+    { return (mpq_cmp(this->_M_get(), __q._M_get()) == 0); }
+
+    bool
+    _M_less(const rational& __q) const
+    { return (mpq_cmp(this->_M_get(), __q._M_get()) < 0); }
+
+    template<typename CharT, typename Traits>
+      std::basic_ostream<CharT,Traits>&
+      operator<<(std::basic_ostream<CharT,Traits>& out) const;
+
+    template<typename CharT, typename Traits>
+      std::basic_istream<CharT,Traits>&
+      operator>>(std::basic_istream<CharT,Traits>& in);
+
+  private:
+  };
+
+  ///  Equality operator
+  bool
+  operator==(const rational& __q, const rational& __r)
+  { return __q._M_equal(__r); }
+
+  ///  Less operator
+  bool
+  operator<(const rational& __q, const rational& __r)
+  { return __q._M_less(__r); }
+
+  /// Based on operator==
+  bool
+  operator!=(const rational& __q, const rational& __r)
+  { return !__q._M_equal(__r); }
+
+  /// Based on operator<
+  bool
+  operator>(const rational& __q, const rational& __r)
+  { return __r._M_less(__q); }
+
+  /// Based on operator<
+  bool
+  operator>=(const rational& __q, const rational& __r)
+  { return !__q._M_less(__r); }
+
+  /// Based on operator<
+  bool
+  operator<=(const rational& __q, const rational& __r)
+  { return !__r._M_less(__q); }
+
+  template<typename CharT, typename Traits>
+    std::basic_ostream<CharT,Traits>&
+    operator<<(std::basic_ostream<CharT,Traits>& __out, const rational& __q)
+    {
+      __q.operator<<(__out);
+      return __out;
+    }
+
+  template<typename CharT, typename Traits>
+    std::basic_istream<CharT,Traits>&
+    operator>>(std::basic_istream<CharT,Traits>& __in, rational& __q)
+    {
+      __q.operator>>(__in);
+      return __in;
+    }
+
+  rational
+  operator+(const rational& __p, const rational& __q)
+  {
+    rational __result = __p;
+    __result += __q;
+    return __result;
+  }
+
+  rational
+  operator-(const rational& __p, const rational& __q)
+  {
+    rational __result = __p;
+    __result -= __q;
+    return __result;
+  }
+
+  rational
+  operator*(const rational& __p, const rational& __q)
+  {
+    rational __result = __p;
+    __result *= __q;
+    return __result;
+  }
+
+  rational
+  operator/(const rational& __p, const rational& __q)
+  {
+    rational __result = __p;
+    __result /= __q;
+    return __result;
+  }
+
+} // namespace multiprec
+} // namespace std
+
+namespace std
+{
+namespace multiprec
+{
+
+  rational
+  abs(const rational& __q)
+  {
+    rational result;
+    mpq_abs(result._M_get(), __q._M_get());
+    return result;
+  }
+
+} // namespace multiprec
+} // namespace std
+
+namespace std
+{
+
+  using multiprec::abs;
+
+} // namespace std
+
+#include "rational.h"
+
+#endif // _MULTIPREC_RATIONAL

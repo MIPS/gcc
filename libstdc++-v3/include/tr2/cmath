@@ -1,0 +1,171 @@
+namespace std
+{
+namespace tr2
+{
+
+
+  ///  @brief  Beta distribution function.
+  double beta_distribution(double a, double b, float x);
+
+  ///  @brief  Incomplete beta integral.
+  double beta_inc(double a, double b, double x);
+
+  ///  @brief  Inverse of incomplete beta integral.
+  double beta_inc_inv(double a, double b, double y);
+
+  ///  @brief  Binomial distribution function.
+  double binomial(unsigned int k, unsigned int n, double p);
+
+  ///  @brief  Binomial distribution function complemented.
+  double binomial_comp(unsigned int k, unsigned int n, double p);
+
+  ///  @brief  Binomial distribution function inverse.
+  double binomial_distribution_inv(unsigned int k, unsigned int n, double y);
+
+  ///  @brief  Negative binomial distribution .
+  double binomial_neg_distribution(unsigned int k, unsigned int n, double p);
+
+  ///  @brief  Negative binomial distribution complement.
+  double binomial_neg_distribution_comp(unsigned int k, unsigned int n, double p);
+
+  ///  @brief  Inverse of negative binomial distribution.
+  double binomial_neg_distribution_inv(unsigned int k, unsigned int n, double p);
+
+  ///  @brief  Evaluate Chebeshev polynomial.
+  double chebyshev_poly(double x, double* coefficient, unsigned int n);
+
+  ///  @brief  Chi-squared distribution function.
+  double chi_sqr_distribution(double df, double x);
+
+  ///  @brief  Chi-squared distribution function complemented.
+  double chi_sqr_distribution_comp(double df, double x);
+
+  ///  @brief  Inverse of Chi-squared distribution function complemented.
+  double chi_sqr_distribution_comp_inv(double df, double p);
+
+  ///  @brief  psi or digamma function.
+  double digamma(double x);
+
+  ///  @brief  Fisher F distribution.
+  double fisher_distribution(unsigned int ia, unsigned int ib, double c);
+
+  ///  @brief  Fisher F distribution complemented.
+  double fisher_distribution_comp(unsigned int ia, unsigned int ib, double c);
+
+  ///  @brief  Inverse of complemented Fisher F distribution.
+  double fisher_distribution_comp_inv(double dfn, double dfd, double y);
+
+  ///  @brief  Gamma probability distribution function.
+  double gamma_distribution(double a, double b, double x);
+
+  ///  @brief  Gamma probability distribution function complemented.
+  double gamma_distribution_comp(double a, double b, double x);
+
+  ///  @brief  Incomplete gamma function.
+  double gamma_inc(double a, double x);
+
+  ///  @brief  Incomplete gamma function complemented.
+  double gamma_inc_comp(double a, double x);
+
+  ///  @brief  Inverse of incomplete gamma integral.
+  double gamma_inc_inv(double a, double y0);
+
+  ///  @brief  Inverse of complemented incomplete gamma integral
+  double gamma_inc_comp_inv(double a, double y0);
+
+  ///  @brief  gamma function(or tgamma as in C99 math.h?)
+  double gamma(double x);
+
+  ///  @brief  log gamma function name as C99.
+  double lgamma(double x);
+
+  ///  @brief  Normal distribution function.
+  double normal_distribution(double a);
+
+  ///  @brief  Inverse of normal distribution function.
+  double normal_distribution_inv(double a);
+
+  ///  @brief  Poisson distribution.
+  double poisson_distribution(unsigned int k, double m);
+
+  ///  @brief  Complemented Poisson distribution.
+  double poisson_distribution_comp(unsigned int k, double m);
+
+  ///  @brief  Inverse Poisson distribution.
+  double poisson_distribution_inv(unsigned int k, double y);
+
+  ///  @brief  Student's t.
+  double students_t(double df, double t);
+
+  ///  @brief  Inverse of Student's t.
+  double students_t_inv(double df, double p);
+
+  ///  @brief  Student's t.
+  double students_t(unsigned int df, double t);
+
+  ///  @brief  Inverse of Student's t.
+  double students_t_inv(unsigned int df, double p);
+
+
+  ///  @brief  Probability of quantile z.
+  double normal_probability(double z);
+
+  ///  @brief  Quantile of probability p.
+  double normal_quantile(double p);
+
+  ///  @brief  Probability of quantile.
+  double students_t_probability(double t, double df, double ncp);
+
+  ///  @brief  Quantile of probability p.
+  double students_t_quantile(double p, double df, double ncp);
+
+  ///  @brief  Probability of quantile.
+  double chi_sqr_probability(double x, double df, double ncp);
+
+  ///  @brief  Quantile of probability p.
+  double chi_sqr_quantile(double p, double df, double ncp);
+
+  ///  @brief  Probability of x, a, b.
+  double beta_probability(double x, double a, double b);
+
+  ///  @brief  Quantile of
+  double beta_quantile(double p, double a, double b);
+
+  ///  @brief  Probability of quantile.
+  double fisher_probability(double f, double dfn, double dfd, double ncp);
+
+  ///  @brief  Quantile of probability p.
+  double fisher_quantile(double p, double dfn, double dfd, double ncp);
+
+  ///  @brief  Probability of x.
+  double binomial_probability(double x, double n, double pr);
+
+  ///  @brief  1st k for probability >= p
+  unsigned int binomial_first(double p, unsigned int n, double r);
+
+  ///  @brief  Probability of quantile.
+  double neg_binomial_probability(double x, double n, double pr);
+
+  ///  @brief  Probability of quantile.
+  double poisson_probability(double x, double lambda);
+
+  ///  @brief  Quantile of probability p.
+  double poisson_quantile(double p, double lambda);
+
+  ///  @brief  Probability of x.
+  double gamma_probability(double x, double shape, double scale);
+
+  ///  @brief  Quantile of probability p.
+  double gamma_quantile(double p, double shape, double scale);
+
+  ///  @brief  Exact Smirnov statistic.
+  double smirnov_inv(int n, double p);
+
+  ///  @brief  Kolmogorov statistic.
+  double kolmogorov(double);
+
+  ///  @brief  Kolmogorov statistic inverse.
+  double kolmogorov_inv(double p);
+
+}
+}

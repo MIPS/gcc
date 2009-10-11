@@ -1,0 +1,14 @@
+
+The <integer>, <rational>, and <real> represent a multiprecisiopn math package.
+
+This is largely based on n1718.pdf
+  A Proposal to add the Infinite Precision Integer and Rational to the C++ Standard Library
+  M.J. Kronenburg
+  e-mail: M.Kronenburg@inter.nl.net
+
+In implementation I shamelessly use gmp and mpfr.
+
+I insist that std::complex<real> DTRT even if we have to bring in mpc to do it.
+
+I would hope that the special math functions could work with real or rational maybe.
+

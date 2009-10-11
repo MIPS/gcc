@@ -1,0 +1,1079 @@
+#ifndef _MULTIPREC_REAL
+#define _MULTIPREC_REAL
+
+#include <mpfr.h>
+#include <iosfwd>
+#include <limits>
+#include <bits/allocator.h>
+#include <iostream> // for temporary error messages.
+
+namespace std
+{
+namespace multiprec
+{
+
+  class integer;
+  class rational;
+
+  struct real_base
+  {
+
+  public:
+    real_base(size_t __prec = 2 * std::numeric_limits<long double>::digits)
+    {
+      _M_round = GMP_RNDN;
+      mpfr_init2(_M_real, __prec);
+    }
+
+    ~real_base()
+    {
+      //if (_M_real->_mpfr_d) // This is some hack to prevent crashes.
+        mpfr_clear(_M_real);
+    }
+
+    size_t
+    get_precision() const
+    { return static_cast<size_t>(mpfr_get_prec(_M_real)); }
+
+    void
+    set_precision(size_t __prec)
+    { mpfr_set_prec(_M_real, static_cast<mpfr_prec_t>(__prec)); }
+
+    mpfr_t&
+    _M_get()
+    { return _M_real; }
+
+    const mpfr_t&
+    _M_get() const
+    { return _M_real; }
+
+    mp_rnd_t&
+    _M_get_round()
+    { return _M_round; }
+
+    const mp_rnd_t&
+    _M_get_round() const
+    { return _M_round; }
+
+    mp_rnd_t _M_round;
+    mpfr_t _M_real;
+  };
+
+
+  class real : public real_base
+  {
+
+  public:
+    real() : real_base()
+    { }
+
+    real(const real& __r)
+    : real_base(__r.get_precision())
+    { mpfr_set(this->_M_get(), __r._M_get(), __r._M_get_round()); }
+
+    real(real&& __r)
+    : real_base(__r.get_precision())
+    { this->swap(__r); }
+
+    real(float __f)
+    : real_base(std::numeric_limits<float>::digits)
+    { mpfr_set_d(this->_M_get(), static_cast<double>(__f),
+                 this->_M_get_round()); }
+
+    real(double __d)
+    : real_base(std::numeric_limits<double>::digits)
+    { mpfr_set_d(this->_M_get(), __d, this->_M_get_round()); }
+
+    real(long double __ld)
+    : real_base(std::numeric_limits<double>::digits)
+    { mpfr_set_ld(this->_M_get(), __ld, this->_M_get_round()); }
+
+    real(int __l)
+    : real_base(std::numeric_limits<int>::digits)
+    { mpfr_set_si(this->_M_get(), static_cast<long>(__l),
+                  this->_M_get_round()); }
+
+    real(unsigned int ul)
+    : real_base(std::numeric_limits<unsigned int>::digits)
+    { mpfr_set_ui(this->_M_get(), static_cast<unsigned long>(ul),
+                  this->_M_get_round()); }
+
+    real(long __l)
+    : real_base(std::numeric_limits<long>::digits)
+    { mpfr_set_si(this->_M_get(), __l, this->_M_get_round()); }
+
+    real(unsigned long __ul)
+    : real_base(std::numeric_limits<unsigned long>::digits)
+    { mpfr_set_ui(this->_M_get(), __ul, this->_M_get_round()); }
+
+    //real(long long __ll)
+    //: real_base(std::numeric_limits<long long>::digits)
+    //{ mpfr_set_si(this->_M_get(), __ll, this->_M_get_round()); }
+
+    //real(unsigned long long __ull)
+    //: real_base(std::numeric_limits<unsigned long long>::digits)
+    //{ mpfr_set_ui(this->_M_get(), __ull, this->_M_get_round()); }
+
+    //real(std::intmax_t __m)
+    //: real_base(std::numeric_limits<intmax_t>::digits)
+    //{ mpfr_set_sj(this->_M_get(), __m, this->_M_get_round()); }
+
+    //real(std::uintmax_t __um)
+    //: real_base(std::numeric_limits<uintmax_t>::digits)
+    //{ mpfr_set_uj(this->_M_get(), __um, this->_M_get_round()); }
+
+    real(const integer& __i);
+
+    real(const rational& __q);
+
+    ~real() { }
+
+    void
+    swap(real& __r)
+    { mpfr_swap(this->_M_get(), __r._M_get()); }
+
+    real&
+    operator=(const real& __r)
+    {
+      if (&__r != this)
+        mpfr_set(this->_M_get(), __r._M_get(), __r._M_get_round());
+      return *this;
+    }
+
+    real&
+    operator=(real&& __r)
+    {
+      mpfr_swap(this->_M_get(), __r._M_get());
+      return *this;
+    }
+
+
+#ifdef _MP_NUMERIC_CAST
+    operator int() const
+    {
+      return static_cast<long>(mpfr_get_si(this->_M_get(),
+                                           this->_M_get_round()));
+    }
+
+    operator unsigned int() const
+    {
+      return static_cast<unsigned long>(mpfr_get_ui(this->_M_get(),
+                                                    this->_M_get_round()));
+    }
+
+    operator long() const
+    { return mpfr_get_si(this->_M_get(), this->_M_get_round()); }
+
+    operator unsigned long() const
+    { return mpfr_get_ui(this->_M_get(), this->_M_get_round()); }
+
+    operator float() const
+    {
+      return static_cast<float>(mpfr_get_d(this->_M_get(),
+                                           this->_M_get_round()));
+    }
+
+    operator double() const
+    { return mpfr_get_d(this->_M_get(), this->_M_get_round()); }
+
+    operator long double() const
+    { return mpfr_get_ld(this->_M_get(), this->_M_get_round()); }
+
+    operator integer() const;
+
+    //operator rational() const;
+#endif // _MP_NUMERIC_CAST
+
+    real
+    operator-()
+    {
+      real result;
+      mpfr_set4(result._M_get(), this->_M_get(),
+                this->_M_get_round(), -MPFR_SIGN(this->_M_get()));
+      return result;
+    }
+
+    real
+    operator+()
+    { return *this; }
+
+    real&
+    operator++()
+    {
+      mpfr_add_ui(this->_M_get(), this->_M_get(), 1U, this->_M_get_round());
+      return *this;
+    }
+
+    real&
+    operator--()
+    {
+      mpfr_sub_ui(this->_M_get(), this->_M_get(), 1U, this->_M_get_round());
+      return *this;
+    }
+
+    real
+    operator++(int)
+    {
+      real __result(*this);
+      mpfr_add_ui(__result._M_get(), this->_M_get(), 1U, this->_M_get_round());
+      return __result;
+    }
+
+    real
+    operator--(int)
+    {
+      real __result(*this);
+      mpfr_sub_ui(__result._M_get(), this->_M_get(), 1U, this->_M_get_round());
+      return __result;
+    }
+
+    real
+    operator<<(unsigned long __i) const
+    {
+      real __result;
+      mpfr_mul_2exp(__result._M_get(), this->_M_get(), __i,
+                    this->_M_get_round());
+      return __result;
+    }
+
+    real
+    operator>>(unsigned long __i) const
+    {
+      real __result;
+      mpfr_div_2exp(__result._M_get(), this->_M_get(), __i,
+                    this->_M_get_round());
+      return __result;
+    }
+
+    real&
+    operator+=(const real& __s)
+    {
+      mpfr_add(this->_M_get(), this->_M_get(), __s._M_get(),
+               this->_M_get_round());
+      return *this;
+    }
+
+    real&
+    operator-=(const real& __s)
+    {
+      mpfr_sub(this->_M_get(), this->_M_get(), __s._M_get(),
+               this->_M_get_round());
+      return *this;
+    }
+
+    real&
+    operator*=(const real& __s)
+    {
+      mpfr_mul(this->_M_get(), this->_M_get(), __s._M_get(),
+               this->_M_get_round());
+      return *this;
+    }
+
+    real&
+    operator/=(const real& __s)
+    {
+      mpfr_div(this->_M_get(), this->_M_get(), __s._M_get(),
+               this->_M_get_round());
+      return *this;
+    }
+
+    real&
+    operator<<=(const unsigned long __i)
+    {
+      mpfr_mul_2exp(this->_M_get(), this->_M_get(), __i,
+                    this->_M_get_round());
+      return *this;
+    }
+
+    real&
+    operator>>=(const unsigned long __i)
+    {
+      mpfr_div_2exp(this->_M_get(), this->_M_get(), __i,
+                    this->_M_get_round());
+      return *this;
+    }
+
+    bool
+    _M_equal(const real& __s) const
+    { return mpfr_equal_p(this->_M_get(), __s._M_get()); }
+
+    bool
+    _M_less(const real& __s) const
+    { return mpfr_less_p(this->_M_get(), __s._M_get()); }
+
+    template<typename CharT, typename Traits>
+      std::basic_ostream<CharT,Traits>&
+      operator<<(std::basic_ostream<CharT,Traits>& __out) const;
+
+    template<typename CharT, typename Traits>
+      std::basic_istream<CharT,Traits>&
+      operator>>(std::basic_istream<CharT,Traits>& __in);
+
+    static long get_min_exponent()
+    { return static_cast<long>(mpfr_get_emin()); }
+
+    static long get_max_exponent()
+    { return static_cast<long>(mpfr_get_emax()); }
+
+  private:
+  };
+
+  ///  Equality operator
+  bool
+  operator==(const real& __r, const real& __s)
+  { return __r._M_equal(__s); }
+
+  ///  Less operator
+  bool
+  operator<(const real& __r, const real& __s)
+  { return __r._M_less(__s); }
+
+  /// Based on operator==
+  bool
+  operator!=(const real& __r, const real& __s)
+  { return !__r._M_equal(__s); }
+
+  /// Based on operator<
+  bool
+  operator>(const real& __r, const real& __s)
+  { return __s._M_less(__r); }
+
+  /// Based on operator<
+  bool
+  operator>=(const real& __r, const real& __s)
+  { return !__r._M_less(__s); }
+
+  /// Based on operator<
+  bool
+  operator<=(const real& __r, const real& __s)
+  { return !__s._M_less(__r); }
+
+  template<typename CharT, typename Traits>
+    std::basic_ostream<CharT,Traits>&
+    operator<<(std::basic_ostream<CharT,Traits>& __out, const real& __r)
+    {
+      __r.operator<<(__out);
+      return __out;
+    }
+
+  template<typename CharT, typename Traits>
+    std::basic_istream<CharT,Traits>&
+    operator>>(std::basic_istream<CharT,Traits>& __in, real& __r)
+    {
+      __r.operator>>(__in);
+      return __in;
+    }
+
+  real
+  operator+(const real& __r, const real& __s)
+  {
+    real __result = __r;
+    __result += __s;
+    return __result;
+  }
+
+  real
+  operator-(const real& __r, const real& __s)
+  {
+    real __result = __r;
+    __result -= __s;
+    return __result;
+  }
+
+  real
+  operator*(const real& __r, const real& __s)
+  {
+    real __result = __r;
+    __result *= __s;
+    return __result;
+  }
+
+  real
+  operator/(const real& __r, const real& __s)
+  {
+    real __result = __r;
+    __result /= __s;
+    return __result;
+  }
+
+} // namespace multiprec
+} // namespace std
+
+namespace std
+{
+namespace multiprec
+{
+  real
+  rint(const real&);
+
+  real
+  logb(const real&);
+
+  ///  @brief abs
+  real
+  abs(const real& __r)
+  {
+    real __result;
+    mpfr_abs(__result._M_get(), __r._M_get(), __r._M_get_round());
+    return __result;
+  }
+
+  ///  @brief acos
+  real
+  acos(const real& __r)
+  {
+    real __result;
+    mpfr_acos(__result._M_get(), __r._M_get(), __r._M_get_round());
+    return __result;
+  }
+
+  ///  @brief acosh
+  real
+  acosh(const real& __r)
+  {
+    real __result;
+    mpfr_acosh(__result._M_get(), __r._M_get(), __r._M_get_round());
+    return __result;
+  }
+
+  ///  @brief asin
+  real
+  asin(const real& __r)
+  {
+    real __result;
+    mpfr_asin(__result._M_get(), __r._M_get(), __r._M_get_round());
+    return __result;
+  }
+
+  ///  @brief asinh
+  real
+  asinh(const real& __r)
+  {
+    real __result;
+    mpfr_asinh(__result._M_get(), __r._M_get(), __r._M_get_round());
+    return __result;
+  }
+
+  ///  @brief atan
+  real
+  atan(const real& __r)
+  {
+    real __result;
+    mpfr_atan(__result._M_get(), __r._M_get(), __r._M_get_round());
+    return __result;
+  }
+
+  ///  @brief atan2
+  real
+  atan2(const real& __r, const real& __s)
+  {
+    real __result;
+    mpfr_atan2(__result._M_get(), __r._M_get(), __s._M_get(), __r._M_get_round());
+    return __result;
+  }
+
+  ///  @brief atanh
+  real
+  atanh(const real& __r)
+  {
+    real __result;
+    mpfr_atanh(__result._M_get(), __r._M_get(), __r._M_get_round());
+    return __result;
+  }
+
+  ///  @brief cbrt
+  real
+  cbrt(const real& __r)
+  {
+    real __result;
+    mpfr_cbrt(__result._M_get(), __r._M_get(), __r._M_get_round());
+    return __result;
+  }
+
+  ///  @brief ceil
+  real
+  ceil(const real& __r)
+  {
+    real __result;
+    mpfr_ceil(__result._M_get(), __r._M_get());
+    return __result;
+  }
+
+  ///  @brief copysign
+  real
+  copysign(const real& __r, const real& __s)
+  {
+    real __result;
+    mpfr_copysign(__result._M_get(), __r._M_get(), __s._M_get(),
+                  __r._M_get_round());
+    return __result;
+  }
+
+  ///  @brief cos
+  real
+  cos(const real& __r)
+  {
+    real __result;
+    mpfr_cos(__result._M_get(), __r._M_get(), __r._M_get_round());
+    return __result;
+  }
+
+  ///  @brief cosh
+  real
+  cosh(const real& __r)
+  {
+    real __result;
+    mpfr_cosh(__result._M_get(), __r._M_get(), __r._M_get_round());
+    return __result;
+  }
+
+  ///  @brief erf
+  real
+  erf(const real& __r)
+  {
+    real __result;
+    mpfr_erf(__result._M_get(), __r._M_get(), __r._M_get_round());
+    return __result;
+  }
+
+  ///  @brief erfc
+  real
+  erfc(const real& __r)
+  {
+    real __result;
+    mpfr_erfc(__result._M_get(), __r._M_get(), __r._M_get_round());
+    return __result;
+  }
+
+  ///  @brief exp
+  real
+  exp(const real& __r)
+  {
+    real __result;
+    mpfr_exp(__result._M_get(), __r._M_get(), __r._M_get_round());
+    return __result;
+  }
+
+  ///  @brief exp2
+  real
+  exp2(const real& __r)
+  {
+    real __result;
+    mpfr_exp2(__result._M_get(), __r._M_get(), __r._M_get_round());
+    return __result;
+  }
+
+  ///  @brief expm1
+  real
+  expm1(const real& __r)
+  {
+    real __result;
+    mpfr_expm1(__result._M_get(), __r._M_get(), __r._M_get_round());
+    return __result;
+  }
+
+  ///  @brief fabs
+  real
+  fabs(const real& __r)
+  {
+    real __result;
+    mpfr_abs(__result._M_get(), __r._M_get(), __r._M_get_round());
+    return __result;
+  }
+
+  ///  @brief fdim
+  real
+  fdim(const real& __r, const real& __s)
+  {
+    real __result;
+    mpfr_dim(__result._M_get(), __r._M_get(), __s._M_get(),
+             __r._M_get_round());
+    return __result;
+  }
+
+  ///  @brief floor
+  real
+  floor(const real& __r)
+  {
+    real __result;
+    mpfr_floor(__result._M_get(), __r._M_get());
+    return __result;
+  }
+
+  ///  @brief fma
+  real
+  fma(const real& __r, const real& __s, const real& __t)
+  {
+    real __result;
+    mpfr_fma(__result._M_get(), __r._M_get(), __s._M_get(),
+             __t._M_get(), __r._M_get_round());
+    return __result;
+  }
+
+  ///  @brief fmax
+  real
+  fmax(const real& __r, const real& __s)
+  {
+    real __result;
+    mpfr_max(__result._M_get(), __r._M_get(), __s._M_get(),
+             __r._M_get_round());
+    return __result;
+  }
+
+  ///  @brief fmin
+  real
+  fmin(const real& __r, const real& __s)
+  {
+    real __result;
+    mpfr_min(__result._M_get(), __r._M_get(), __s._M_get(),
+             __r._M_get_round());
+    return __result;
+  }
+
+  ///  @brief fmod
+  real
+  fmod(const real& __r, const real& __s)
+  {
+    real __result;
+    mpfr_fmod(__result._M_get(), __r._M_get(), __s._M_get(),
+              __r._M_get_round());
+    return __result;
+  }
+
+  ///  @brief frexp
+  real
+  frexp(real& __r, int *__exp)
+  {
+    *__exp = static_cast<int>(mpfr_get_exp(__r._M_get()));
+    real __result(__r);
+    mpfr_set_exp(__result._M_get(), 0L);
+    return __result;
+  }
+
+  ///  @brief hypot
+  real
+  hypot(const real& __r, const real& __s)
+  {
+    real __result;
+    mpfr_hypot(__result._M_get(), __r._M_get(), __s._M_get(),
+               __r._M_get_round());
+    return __result;
+  }
+
+  ///  @brief ilogb
+  int
+  ilogb(const real& __r)
+  {
+    return static_cast<int>(mpfr_get_exp(logb(__r)._M_get()));
+  }
+
+  ///  @brief ldexp
+  real
+  ldexp(const real& __r, int __exp)
+  {
+    real __result;
+    mpfr_mul_2si(__result._M_get(), __r._M_get(), __exp,
+                 __r._M_get_round());
+    return __result;
+  }
+
+  ///  @brief lgamma
+  real
+  lgamma(const real& __r)
+  {
+    real __result;
+    mpfr_lngamma(__result._M_get(), __r._M_get(), __r._M_get_round());
+    return __result;
+  }
+
+  ///  @brief llrint
+  long long
+  llrint(const real& __r)
+  {
+    return static_cast<long long>(mpfr_get_si( rint(__r)._M_get(),
+                                               __r._M_get_round() ));
+  }
+
+  ///  @brief ll_M_round
+
+  ///  @brief log
+  real
+  log(const real& __r)
+  {
+    real __result;
+    mpfr_log(__result._M_get(), __r._M_get(), __r._M_get_round());
+    return __result;
+  }
+
+  ///  @brief log10
+  real
+  log10(const real& __r)
+  {
+    real __result;
+    mpfr_log10(__result._M_get(), __r._M_get(), __r._M_get_round());
+    return __result;
+  }
+
+  ///  @brief log1p
+  real
+  log1p(const real& __r)
+  {
+    real __result;
+    mpfr_log1p(__result._M_get(), __r._M_get(), __r._M_get_round());
+    return __result;
+  }
+
+  ///  @brief log2
+  real
+  log2(const real& __r)
+  {
+    real __result;
+    mpfr_log2(__result._M_get(), __r._M_get(), __r._M_get_round());
+    return __result;
+  }
+
+  ///  @brief logb
+  real
+  logb(const real& __r)
+  {
+    ///  @todo  What if the radix isn't 2?
+    real __result;
+    mpfr_log2(__result._M_get(), __r._M_get(), __r._M_get_round());
+    return __result;
+  }
+
+  ///  @brief lrint
+  long
+  lrint(const real& __r)
+  {
+    return mpfr_get_si( rint(__r)._M_get(), __r._M_get_round() );
+  }
+
+  ///  @brief l_M_round
+
+  ///  @brief modf
+  ///  The built in type overloads have pointer second args.
+  ///  Maybe we should too.
+  real
+  modf(const real& __r, real* __ipart)
+  {
+    real __result;
+    mpfr_modf(__ipart->_M_get(), __result._M_get(), __r._M_get(),
+              __r._M_get_round());
+    return __result;
+  }
+
+  ///  @brief nan
+  real
+  nan(const char* __str)
+  {
+    real __result;
+    mpfr_set_str(__result._M_get(), __str, 10, __result._M_get_round());
+    mpfr_set_nan(__result._M_get());
+    return __result;
+  }
+
+  ///  @brief nearbyint
+  real
+  nearbyint(const real& __r)
+  { return rint(__r); }
+
+  ///  @brief nextafter
+  real
+  nextafter(const real& __r, const real& __s)
+  {
+    real __result(__r);
+    mpfr_nexttoward(__result._M_get(), __s._M_get());
+    return __result;
+  }
+
+  ///  @brief nexttoward
+  real
+  nexttoward(const real& __r, long double __s)
+  { return nextafter(__r, real(__s)); }
+
+  ///  @brief pow
+  real
+  pow(const real& __r, const real& __s)
+  {
+    real __result;
+    mpfr_pow(__result._M_get(), __r._M_get(), __s._M_get(),
+             __r._M_get_round());
+    return __result;
+  }
+
+  ///  @brief remainder
+  real
+  remainder(const real& __r, const real& __s)
+  {
+    real __result;
+    mpfr_remainder(__result._M_get(), __r._M_get(), __s._M_get(),
+                   __r._M_get_round());
+    return __result;
+  }
+
+  ///  @brief remquo
+  real
+  remquo(const real& __r, const real& __s, int* __quo)
+  {
+    real __result;
+    long __lquo;
+    mpfr_remquo(__result._M_get(), &__lquo, __r._M_get(), __s._M_get(),
+                __r._M_get_round());
+    *__quo = static_cast<int>(__lquo);
+    return __result;
+  }
+
+  ///  @brief rint
+  real
+  rint(const real& __r)
+  {
+    real __result;
+    mpfr_rint(__result._M_get(), __r._M_get(), __r._M_get_round());
+    return __result;
+  }
+
+  ///  @brief round
+  real
+  round(const real& __r)
+  {
+    real __result;
+    mpfr_round(__result._M_get(), __r._M_get());
+    return __result;
+  }
+
+  ///  @brief scalbln
+  real
+  scalbln(const real& __r, long __n)
+  {
+    ///  @todo What if the machine radix isn't 2?
+    return ldexp(__r, __n);
+  }
+
+  ///  @brief scalbn
+  real
+  scalbn(const real& __r, int __n)
+  {
+    ///  @todo What if the machine radix isn't 2?
+    return ldexp(__r, __n);
+  }
+
+  ///  @brief sin
+  real
+  sin(const real& __r)
+  {
+    real __result;
+    mpfr_sin(__result._M_get(), __r._M_get(), __r._M_get_round());
+    return __result;
+  }
+
+  ///  @brief sinh
+  real
+  sinh(const real& __r)
+  {
+    real __result;
+    mpfr_sinh(__result._M_get(), __r._M_get(), __r._M_get_round());
+    return __result;
+  }
+
+  ///  @brief sqrt
+  real
+  sqrt(const real& __r)
+  {
+    real __result;
+    mpfr_sqrt(__result._M_get(), __r._M_get(), __r._M_get_round());
+    return __result;
+  }
+
+  ///  @brief tan
+  real
+  tan(const real& __r)
+  {
+    real __result;
+    mpfr_tan(__result._M_get(), __r._M_get(), __r._M_get_round());
+    return __result;
+  }
+
+  ///  @brief tanh
+  real
+  tanh(const real& __r)
+  {
+    real __result;
+    mpfr_tanh(__result._M_get(), __r._M_get(), __r._M_get_round());
+    return __result;
+  }
+
+  ///  @brief tgamma
+  real
+  tgamma(const real& __r)
+  {
+    real __result;
+    mpfr_gamma(__result._M_get(), __r._M_get(), __r._M_get_round());
+    return __result;
+  }
+
+  ///  @brief trunc
+  real
+  trunc(const real& __r)
+  {
+    real __result;
+    mpfr_trunc(__result._M_get(), __r._M_get());
+    return __result;
+  }
+
+  ///  @brief isnan
+  bool
+  isnan(const real& __r)
+  { return mpfr_nan_p(__r._M_get()); }
+
+} // namespace multiprec
+} // namespace std
+
+
+namespace std
+{
+
+  using multiprec::abs;
+  using multiprec::acos;
+  using multiprec::acosh;
+  using multiprec::asin;
+  using multiprec::asinh;
+  using multiprec::atan;
+  using multiprec::atan2;
+  using multiprec::atanh;
+  using multiprec::cbrt;
+  using multiprec::ceil;
+  using multiprec::copysign;
+  using multiprec::cos;
+  using multiprec::cosh;
+  using multiprec::erf;
+  using multiprec::erfc;
+  using multiprec::exp;
+  using multiprec::exp2;
+  using multiprec::expm1;
+  using multiprec::fabs;
+  using multiprec::fdim;
+  using multiprec::floor;
+  using multiprec::fma;
+  using multiprec::fmax;
+  using multiprec::fmin;
+  using multiprec::fmod;
+  using multiprec::frexp;
+  using multiprec::hypot;
+  using multiprec::ilogb;
+  using multiprec::ldexp;
+  using multiprec::lgamma;
+  using multiprec::llrint;
+  ///  @brief ll_M_round
+  using multiprec::log;
+  using multiprec::log10;
+  using multiprec::log1p;
+  using multiprec::log2;
+  using multiprec::logb;
+  using multiprec::lrint;
+  //using multiprec::l_M_round;
+  using multiprec::modf;
+
+  //  Conflicts with std::nan();
+  //using multiprec::nan;
+  ///  Made to deconflict with nan.
+  multiprec::real
+  nanr(const char* str)
+  { return multiprec::nan(str); }
+
+  using multiprec::nearbyint;
+  using multiprec::nextafter;
+  using multiprec::nexttoward;
+  using multiprec::pow;
+  using multiprec::remainder;
+  using multiprec::remquo;
+  using multiprec::rint;
+  using multiprec::round;
+  using multiprec::scalbln;
+  using multiprec::scalbn;
+  using multiprec::sin;
+  using multiprec::sinh;
+  using multiprec::sqrt;
+  using multiprec::tan;
+  using multiprec::tanh;
+  using multiprec::tgamma;
+  using multiprec::trunc;
+  using multiprec::isnan;
+
+} // namespace std
+
+
+/*
+//  This would go in <limits>.
+namespace std
+{
+
+  /// numeric_limits<multiprec::real> specialization.
+  template<>
+    struct numeric_limits<multiprec::real>
+    {
+      static const bool is_specialized = true;
+
+      static multiprec::real min() throw()
+      { return __LDBL_MIN__; }
+      static multiprec::real max() throw()
+      { return __LDBL_MAX__; }
+
+      static const int digits = __LDBL_MANT_DIG__;
+      static const int digits10 = __LDBL_DIG__;
+      static const bool is_signed = true;
+      static const bool is_integer = false;
+      static const bool is_exact = false;???
+      static const int radix = __FLT_RADIX__;
+      static multiprec::real epsilon() throw()
+      { return __LDBL_EPSILON__; }
+      static multiprec::real round_error() throw()
+      { return 0.5L; }
+
+      static const int min_exponent = __LDBL_MIN_EXP__;
+      static const int min_exponent10 = __LDBL_MIN_10_EXP__;
+      static const int max_exponent = __LDBL_MAX_EXP__;
+      static const int max_exponent10 = __LDBL_MAX_10_EXP__;
+
+      static const bool has_infinity = __LDBL_HAS_INFINITY__;
+      static const bool has_quiet_NaN = __LDBL_HAS_QUIET_NAN__;
+      static const bool has_signaling_NaN = has_quiet_NaN;
+      static const float_denorm_style has_denorm
+	= bool(__LDBL_HAS_DENORM__) ? denorm_present : denorm_absent;
+      static const bool has_denorm_loss
+	= __glibcxx_long_double_has_denorm_loss;
+
+      static multiprec::real infinity() throw()
+      { return __builtin_huge_vall (); }
+      static multiprec::real quiet_NaN() throw()
+      { return __builtin_nanl (""); }
+      static multiprec::real signaling_NaN() throw()
+      { return __builtin_nansl (""); }
+      static multiprec::real denorm_min() throw()
+      { return __LDBL_DENORM_MIN__; }
+
+      static const bool is_iec559
+	= has_infinity && has_quiet_NaN && has_denorm == denorm_present;
+      static const bool is_bounded = true;
+      static const bool is_modulo = false;
+
+      static const bool traps = __glibcxx_long_double_traps;
+      static const bool tinyness_before = __glibcxx_long_double_tinyness_before;
+      static const float_round_style round_style = round_to_nearest;
+    };
+
+} // namespace std
+*/
+
+//  Can't get equivalent types to overload:
+//  real:19: error: 'real::real(uintmax_t)' cannot be overloaded
+//  real:17: error: with 'real::real(long unsigned int)'
+//  real:20: error: 'real::real(intmax_t)' cannot be overloaded
+//  real:18: error: with 'real::real(long int)'
+
+//  What about long long types?
+//  Do we need to get to get mpfr to deal with these?
+
+#include "real.h"
+
+#endif // _MULTIPREC_REAL

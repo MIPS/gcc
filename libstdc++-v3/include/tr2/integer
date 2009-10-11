@@ -1,0 +1,588 @@
+#ifndef _MULTIPREC_INTEGER
+#define _MULTIPREC_INTEGER
+
+#include <iosfwd>
+#include <bitset>
+
+#include <gmp.h>
+
+namespace std
+{
+namespace multiprec
+{
+
+  class rational;
+
+  struct integer_base
+  {
+
+  public:
+    integer_base(size_t __prec = 2 * std::numeric_limits<long long>::digits)
+    { mpz_init2(_M_integer, __prec); }
+
+    integer_base(const mpz_t& __in)
+    { mpz_set(this->_M_get(), __in); }
+
+    ~integer_base()
+    { mpz_clear(_M_integer); }
+
+    size_t
+    get_precision() const
+    { return static_cast<size_t>(mpz_sizeinbase(this->_M_get(), 2)); }
+
+    mpz_t&
+    _M_get()
+    { return _M_integer; }
+
+    const mpz_t&
+    _M_get() const
+    { return _M_integer; }
+
+    mpz_t _M_integer;
+  };
+
+
+  class integer : public integer_base
+  {
+
+  public:
+    integer()
+    : integer_base()
+    { }
+
+    integer(const integer& __i)
+    : integer_base(__i.get_precision())
+    { mpz_set(this->_M_get(), __i._M_get()); }
+
+    integer(integer&& __i)
+    : integer_base(__i.get_precision())
+    { this->swap(__i); }
+
+    integer(short __s)
+    : integer_base(std::numeric_limits<short>::digits)
+    { mpz_set_si(this->_M_get(), static_cast<long>(__s)); }
+
+    integer(unsigned short __us)
+    : integer_base(std::numeric_limits<unsigned short>::digits)
+    { mpz_set_ui(this->_M_get(), static_cast<unsigned long>(__us)); }
+
+    integer(int __i)
+    : integer_base(std::numeric_limits<int>::digits)
+    { mpz_set_si(this->_M_get(), static_cast<long>(__i)); }
+
+    integer(unsigned int __ui)
+    : integer_base(std::numeric_limits<unsigned int>::digits)
+    { mpz_set_ui(this->_M_get(), static_cast<unsigned long>(__ui)); }
+
+    integer(long __l)
+    : integer_base(std::numeric_limits<long>::digits)
+    { mpz_set_si(this->_M_get(), __l); }
+
+    integer(unsigned long __ul)
+    : integer_base(std::numeric_limits<unsigned long>::digits)
+    { mpz_set_ui(this->_M_get(), __ul); }
+
+    integer(float __f)
+    : integer_base()
+    { mpz_set_d(this->_M_get(), static_cast<double>(__f)); }
+
+    integer(double __d)
+    : integer_base()
+    { mpz_set_d(this->_M_get(), __d); }
+
+    integer(const rational& __q);
+
+    template<std::size_t _N>
+      integer(std::bitset<_N> __bs)
+      {
+	//  Just use strings.
+	std::string __bits = __bs.to_string();
+	mpz_set_str(this->_M_get(), __bits.c_str(), 2);
+      }
+
+    ~integer() { }
+
+    void
+    swap(integer& i)
+    { mpz_swap(this->_M_get(), i._M_get()); }
+
+    integer&
+    operator=(const integer& i)
+    { mpz_set(this->_M_get(), i._M_get()); }
+
+    integer&
+    operator=(integer&& i)
+    {
+      mpz_swap(this->_M_get(), i._M_get());
+      return *this;
+    }
+
+#ifdef _MP_NUMERIC_CAST
+    operator int() const
+    { return static_cast<long>(mpz_get_si(this->_M_get())); }
+
+    operator unsigned int() const
+    { return static_cast<unsigned long>(mpz_get_ui(this->_M_get())); }
+
+    operator long() const
+    { return mpz_get_si(this->_M_get()); }
+
+    operator unsigned long() const
+    { return mpz_get_ui(this->_M_get()); }
+
+    operator float() const
+    { return static_cast<float>(mpz_get_d(this->_M_get())); }
+
+    operator double() const
+    { return mpz_get_d(this->_M_get()); }
+#endif // _MP_NUMERIC_CAST
+
+    integer
+    operator-()
+    {
+      integer result;
+      mpz_neg(result._M_get(), this->_M_get());
+      return result;
+    }
+
+    integer
+    operator+()
+    { return *this; }
+
+    integer&
+    operator++()
+    {
+      mpz_add_ui(this->_M_get(), this->_M_get(), 1);
+      return *this;
+    }
+
+    integer&
+    operator--()
+    {
+      mpz_sub_ui(this->_M_get(), this->_M_get(), 1);
+      return *this;
+    }
+
+    integer
+    operator++(int)
+    {
+      integer result(*this);
+      mpz_add_ui(this->_M_get(), this->_M_get(), 1);
+      return result;
+    }
+
+    integer
+    operator--(int)
+    {
+      integer result(*this);
+      mpz_sub_ui(this->_M_get(), this->_M_get(), 1);
+      return result;
+    }
+
+    integer
+    operator<<(unsigned long __i) const
+    {
+      integer result;
+      mpz_mul_2exp(result._M_get(), this->_M_get(), __i);
+      return result;
+    }
+
+    integer
+    operator>>(unsigned long __i) const
+    {
+      integer result;
+      mpz_div_2exp(result._M_get(), this->_M_get(), __i);
+      return result;
+    }
+
+    integer&
+    operator+=(const integer& __j)
+    {
+      mpz_add(this->_M_get(), this->_M_get(), __j._M_get());
+      return *this;
+    }
+
+    integer&
+    operator-=(const integer& __j)
+    {
+      mpz_sub(this->_M_get(), this->_M_get(), __j._M_get());
+      return *this;
+    }
+
+    integer&
+    operator*=(const integer& __j)
+    {
+      mpz_mul(this->_M_get(), this->_M_get(), __j._M_get());
+      return *this;
+    }
+
+    integer&
+    operator/=(const integer& __j)
+    {
+      mpz_div(this->_M_get(), this->_M_get(), __j._M_get());
+      return *this;
+    }
+
+    integer&
+    operator&=(const integer& __j)
+    {
+      mpz_and(this->_M_get(), this->_M_get(), __j._M_get());
+      return *this;
+    }
+
+    integer&
+    operator|=(const integer& __j)
+    {
+      mpz_ior(this->_M_get(), this->_M_get(), __j._M_get());
+      return *this;
+    }
+
+    integer&
+    operator%=(const integer& __j)
+    {
+      mpz_mod(this->_M_get(), this->_M_get(), __j._M_get());
+      return *this;
+    }
+
+    integer&
+    operator^=(const integer& __j)
+    {
+      mpz_xor(this->_M_get(), this->_M_get(), __j._M_get());
+      return *this;
+    }
+
+    integer&
+    operator<<=(const unsigned int __i)
+    {
+      mpz_mul_2exp(this->_M_get(), this->_M_get(), __i);
+      return *this;
+    }
+
+    integer&
+    operator>>=(const unsigned int __i)
+    {
+      mpz_div_2exp(this->_M_get(), this->_M_get(), __i);
+      return *this;
+    }
+
+    bool
+    _M_equal(const integer& __j) const
+    { return (mpz_cmp(this->_M_get(), __j._M_get()) == 0); }
+
+    bool
+    _M_less(const integer& __j) const
+    { return (mpz_cmp(this->_M_get(), __j._M_get()) < 0); }
+
+    template<typename CharT, typename Traits>
+      std::basic_ostream<CharT,Traits>&
+      operator<<(std::basic_ostream<CharT,Traits>& __out) const;
+
+    template<typename CharT, typename Traits>
+      std::basic_istream<CharT,Traits>&
+      operator>>(std::basic_istream<CharT,Traits>& __in);
+
+  private:
+  };
+
+  ///  Equality operator
+  bool
+  operator==(const integer& __i, const integer& __j)
+  { return __i._M_equal(__j); }
+
+  ///  Less operator
+  bool
+  operator<(const integer& __i, const integer& __j)
+  { return __i._M_less(__j); }
+
+  /// Based on operator==
+  bool
+  operator!=(const integer& __i, const integer& __j)
+  { return !__i._M_equal(__j); }
+
+  /// Based on operator<
+  bool
+  operator>(const integer& __i, const integer& __j)
+  { return __j._M_less(__i); }
+
+  /// Based on operator<
+  bool
+  operator>=(const integer& __i, const integer& __j)
+  { return !__i._M_less(__j); }
+
+  /// Based on operator<
+  bool
+  operator<=(const integer& __i, const integer& __j)
+  { return !__j._M_less(__i); }
+
+  integer
+  operator+(const integer& __i, const integer& __j)
+  {
+    integer __result = __i;
+    __result += __j;
+    return __result;
+  }
+
+  integer
+  operator-(const integer& __i, const integer& __j)
+  {
+    integer __result = __i;
+    __result -= __j;
+    return __result;
+  }
+
+  integer
+  operator*(const integer& __i, const integer& __j)
+  {
+    integer __result = __i;
+    __result *= __j;
+    return __result;
+  }
+
+  integer
+  operator/(const integer& __i, const integer& __j)
+  {
+    integer __result = __i;
+    __result /= __j;
+    return __result;
+  }
+
+  integer
+  operator&(const integer& __i, const integer& __j)
+  {
+    integer __result = __i;
+    __result &= __j;
+    return __result;
+  }
+
+  integer
+  operator|(const integer& __i, const integer& __j)
+  {
+    integer __result = __i;
+    __result |= __j;
+    return __result;
+  }
+
+  integer
+  operator%(const integer& __i, const integer& __j)
+  {
+    integer __result = __i;
+    __result %= __j;
+    return __result;
+  }
+
+  integer
+  operator^(const integer& __i, const integer& __j)
+  {
+    integer __result = __i;
+    __result ^= __j;
+    return __result;
+  }
+
+  template<typename CharT, typename Traits>
+    std::basic_ostream<CharT,Traits>&
+    operator<<(std::basic_ostream<CharT,Traits>& __out, const integer& __i)
+    {
+      __i.operator<<(__out);
+      return __out;
+    }
+
+  template<typename CharT, typename Traits>
+    std::basic_istream<CharT,Traits>&
+    operator>>(std::basic_istream<CharT,Traits>& __in, integer& __i)
+    {
+      __i.operator>>(__in);
+      return __in;
+    }
+
+} // namespace multiprec
+} // namespace std
+
+namespace std
+{
+namespace multiprec
+{
+
+  ///  @brief abs
+  integer
+  abs(const integer& __i)
+  {
+    integer __result;
+    mpz_abs(__result._M_get(), __i._M_get());
+    return __result;
+  }
+
+  ///  @brief divmod
+  void
+  divmod(const integer& __i, const integer& __j,
+         integer& __k, integer& __l)
+  {
+    mpz_divmod(__k._M_get(), __l._M_get(), __i._M_get(), __j._M_get());
+  }
+
+  ///  @brief div
+  div_t
+  div(const integer& __i, const integer& __j)
+  {
+    integer __q, __r;
+    divmod(__i, __j, __q, __r);
+    div_t __result;
+    __result.quot = static_cast<int>(mpz_get_si(__q._M_get()));
+    __result.rem = static_cast<int>(mpz_get_si(__r._M_get()));
+    return __result;
+  }
+
+  ///  @brief even
+  bool
+  even(const integer& __i)
+  {
+    return mpz_even_p(__i._M_get());
+  }
+
+  ///  @brief fac
+  integer
+  fac(const integer& __i)
+  {
+    integer __result;
+    mpz_fac_ui(__result._M_get(), mpz_get_ui(__i._M_get()));
+    return __result;
+  }
+
+  ///  @brief gcd
+  integer
+  gcd(const integer& __i, const integer& __j)
+  {
+    integer __result;
+    mpz_gcd(__result._M_get(), __i._M_get(), __j._M_get());
+    return __result;
+  }
+
+  ///  @brief lcm
+  integer
+  lcm(const integer& __i, const integer& __j)
+  {
+    integer __result;
+    mpz_lcm(__result._M_get(), __i._M_get(), __j._M_get());
+    return __result;
+  }
+
+  ///  @brief ldiv
+  ldiv_t
+  ldiv(const integer& __i, const integer& __j)
+  {
+    integer __q, __r;
+    divmod(__i, __j, __q, __r);
+    ldiv_t __result;
+    __result.quot = mpz_get_si(__q._M_get());
+    __result.rem = mpz_get_si(__r._M_get());
+    return __result;
+  }
+
+  ///  @brief lldiv
+  lldiv_t
+  lldiv(const integer& __i, const integer& __j)
+  {
+    integer __q, __r;
+    divmod(__i, __j, __q, __r);
+    lldiv_t __result;
+    __result.quot = static_cast<long long>(mpz_get_si(__q._M_get()));
+    __result.rem = static_cast<long long>(mpz_get_si(__r._M_get()));
+    return __result;
+  }
+
+  ///  @brief odd
+  bool
+  odd(const integer& __i)
+  {
+    return mpz_odd_p(__i._M_get());
+  }
+
+  ///  @brief pow
+  integer
+  pow(const integer& __i, const integer& __j)
+  {
+    integer __result;
+    mpz_pow_ui(__result._M_get(), __i._M_get(), mpz_get_ui(__j._M_get()));
+    return __result;
+  }
+
+  ///  @brief powmod
+  integer
+  powmod(const integer& __i, const integer& __j, const integer& __k)
+  {
+    integer __result;
+    mpz_powm(__result._M_get(), __i._M_get(), __j._M_get(), __k._M_get());
+    return __result;
+  }
+
+  ///  @brief sqr
+  integer
+  sqr(const integer& __i)
+  {
+    integer __result;
+    mpz_mul(__result._M_get(), __i._M_get(), __i._M_get());
+    return __result;
+  }
+
+  ///  @brief sqrt
+  integer
+  sqrt(const integer& __i)
+  {
+    integer __result;
+    mpz_sqrt(__result._M_get(), __i._M_get());
+    return __result;
+  }
+
+  bool
+  get_bit(const integer& __i, const integer& __j)
+  {
+    mpz_tstbit(__i._M_get(), mpz_get_ui(__j._M_get()));
+  }
+
+  void
+  set_bit(integer& __i, const integer& __j)
+  {
+    mpz_setbit(__i._M_get(), mpz_get_ui(__j._M_get()));
+  }
+
+  void
+  clear_bit(integer& __i, const integer& __j)
+  {
+    mpz_clrbit(__i._M_get(), mpz_get_ui(__j._M_get()));
+  }
+
+  void
+  clear(integer& __i)
+  {
+    mpz_clear(__i._M_get());
+  }
+
+} // namespace multiprec
+} // namespace std
+
+namespace std
+{
+
+  using multiprec::abs;
+  using multiprec::div;
+  using multiprec::divmod;
+  using multiprec::even;
+  using multiprec::fac;
+  using multiprec::gcd;
+  using multiprec::lcm;
+  using multiprec::ldiv;
+  using multiprec::lldiv;
+  using multiprec::odd;
+  using multiprec::pow;
+  using multiprec::powmod;
+  using multiprec::sqr;
+  using multiprec::sqrt;
+  using multiprec::get_bit;
+  using multiprec::set_bit;
+  using multiprec::clear_bit;
+  using multiprec::clear;
+
+} // namespace std
+
+#include "integer.h"
+
+#endif // _MULTIPREC_INTEGER

@@ -1,0 +1,21 @@
+
+This dynamic bitset was inspired by whisperings that vector<bool>
+could be deprecated and something like this could be a substitute.
+Plus it's cool in its own right.
+
+I looked at boost::dynamic_bitset for ideas as well as the existing bitset.
+
+I then started with our bitset and
+
+1. Changed the static array to std::vector.
+   I am shamelessly handing all the dynamism and allocator grief to vector.
+   If using a vector for bit operations was good enough before it should be good now.
+   TODO: Prevent irony by casting bool to unsigned char in the template type arg ;-)
+
+2. Added the boostish methods for growing and resizing the bitset.
+
+3. Added C++0x things like rvalue and initializer_list.
+
+4. I collapsed a lot of constructors to one by use of default template args.
+   I hope that's OK with everyone.
+

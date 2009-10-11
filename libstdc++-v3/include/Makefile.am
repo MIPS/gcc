@@ -618,6 +618,10 @@ tr1_impl_headers = \
 	${tr1_impl_srcdir}/unordered_set \
 	${tr1_impl_srcdir}/utility
 
+tr2_srcdir = ${glibcxx_srcdir}/include/tr2
+tr2_builddir = ./tr2
+tr2_headers = 
+
 decimal_srcdir = ${glibcxx_srcdir}/include/decimal
 decimal_builddir = ./decimal
 decimal_headers = \
@@ -901,7 +905,7 @@ endif
 allstamped = \
 	stamp-std stamp-bits stamp-c_base stamp-c_base_extra \
 	stamp-c_compatibility  stamp-backward stamp-ext stamp-pb \
-	stamp-tr1 stamp-tr1-impl stamp-decimal stamp-debug \
+	stamp-tr1 stamp-tr1-impl stamp-tr2 stamp-decimal stamp-debug \
 	stamp-parallel stamp-profile stamp-profile-impl stamp-host 
 
 # List of all files that are created by explicit building, editing, or
@@ -1015,6 +1019,11 @@ stamp-tr1-impl: ${tr1_impl_headers}
 	@-mkdir -p ${tr1_impl_builddir}
 	@-cd ${tr1_impl_builddir} && $(LN_S) $? . 2>/dev/null
 	@$(STAMP) stamp-tr1-impl
+
+stamp-tr2: ${tr2_headers}
+	@-mkdir -p ${tr2_builddir}
+	@-cd ${tr2_builddir} && $(LN_S) $? . 2>/dev/null
+	@$(STAMP) stamp-tr2
 
 stamp-decimal: ${decimal_headers}
 	@-mkdir -p ${decimal_builddir}
@@ -1249,6 +1258,9 @@ install-headers:
 	$(mkinstalldirs) $(DESTDIR)${gxx_include_dir}/${tr1_impl_builddir}
 	for file in ${tr1_impl_headers}; do \
 	  $(INSTALL_DATA) $${file} $(DESTDIR)${gxx_include_dir}/${tr1_impl_builddir}; done
+	$(mkinstalldirs) $(DESTDIR)${gxx_include_dir}/${tr2_builddir}
+	for file in ${tr2_headers}; do \
+	  $(INSTALL_DATA) $${file} $(DESTDIR)${gxx_include_dir}/${tr2_builddir}; done
 	$(mkinstalldirs) $(DESTDIR)${gxx_include_dir}/${decimal_builddir}
 	for file in ${decimal_headers}; do \
 	  $(INSTALL_DATA) $${file} $(DESTDIR)${gxx_include_dir}/${decimal_builddir}; done
@@ -1296,10 +1308,11 @@ clean-local:
 # directory. (This is more of an example of how this kind of rule can
 # be made.)
 .PRECIOUS: $(std_headers) $(c_base_headers) $(tr1_headers) $(tr1_impl_headers)
-	   $(decimal_headers) $(ext_headers)
+	   $(tr2_headers) $(decimal_headers) $(ext_headers)
 $(std_headers): ; @:
 $(c_base_headers): ; @:
 $(tr1_headers): ; @:
 $(tr1_impl_headers): ; @:
+$(tr2_headers): ; @:
 $(decimal_headers): ; @:
 $(ext_headers): ; @:
