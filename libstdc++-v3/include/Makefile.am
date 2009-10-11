@@ -620,7 +620,21 @@ tr1_impl_headers = \
 
 tr2_srcdir = ${glibcxx_srcdir}/include/tr2
 tr2_builddir = ./tr2
-tr2_headers = 
+tr2_headers = \
+	${tr2_srcdir}/bool_set \
+	${tr2_srcdir}/bool_set.cc \
+	${tr2_srcdir}/bool_set.tcc \
+	${tr2_srcdir}/cmath \
+	${tr2_srcdir}/dynamic_bitset \
+	${tr2_srcdir}/fp_comp.cpp \
+	${tr2_srcdir}/integer \
+	${tr2_srcdir}/integer.h \
+	${tr2_srcdir}/rational \
+	${tr2_srcdir}/rational.h \
+	${tr2_srcdir}/real \
+	${tr2_srcdir}/real.h \
+	${tr2_srcdir}/rope \
+	${tr2_srcdir}/rope.tcc
 
 decimal_srcdir = ${glibcxx_srcdir}/include/decimal
 decimal_builddir = ./decimal
