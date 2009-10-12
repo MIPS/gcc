@@ -1,5 +1,9 @@
 2009-10-12  Dave Korn  <dave.korn.cygwin@gmail.com>
 
+	* config/i386/cygwin.h (LINK_SPEC): Add "-tsaware".
+
+2009-10-12  Dave Korn  <dave.korn.cygwin@gmail.com>
+
 	* config/i386/winnt.c (wrapper_strcmp): New function.
 	(i386_find_on_wrapper_list): Likewise.
 	(i386_pe_file_end): Use the above to determine if we are emitting an

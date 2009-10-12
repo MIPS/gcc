@@ -119,6 +119,7 @@ along with GCC; see the file COPYING3.  If not see
 #define LINK_SPEC "\
   %{mwindows:--subsystem windows} \
   %{mconsole:--subsystem console} \
+  -tsaware \
   " CXX_WRAP_SPEC " \
   %{shared: %{mdll: %eshared and mdll are not compatible}} \
   %{shared: --shared} %{mdll:--dll} \
