@@ -1,3 +1,34 @@
+2009-10-09  Richard Guenther  <rguenther@suse.de>
+
+	PR lto/41635
+	PR lto/41636
+	* lto.c (read_cgraph_and_symbols): Do not assert we can open
+	a file.
+	* lto-elf.c (init_shdr##BITS): Fix i18n problems.
+	(init_ehdr##BITS): Likewise.
+
+2009-10-08  Joseph Myers  <joseph@codesourcery.com>
+
+	* lto-elf.c (init_shdr##BITS, lto_elf_begin_section_with_type,
+	init_ehdr##BITS, lto_elf_file_close): Remove trailing "." from
+	diagnostics.
+	* lto-lang.c (lto_post_options): Remove trailing "." from
+	diagnostics.
+
+2009-10-08  Richard Guenther  <rguenther@suse.de>
+
+	* lto.c (read_cgraph_and_symbols): Free the gimple type merging
+	hash tables.
+
+2009-10-07  Joseph Myers  <joseph@codesourcery.com>
+
+	* lto.c: Only include <sys/mman.h> if HAVE_MMAP_FILE.
+
+2009-10-07  Jan Hubicka  <jh@suse.cz>
+
+	* lto.c (read_cgraph_and_symbols): Mark functions neccesary only at
+	ltrans stage; explain why this is needed and should not.
+
 2009-10-05  Richard Guenther  <rguenther@suse.de>
 
 	PR lto/41552

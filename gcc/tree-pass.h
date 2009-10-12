@@ -333,7 +333,6 @@ extern void tree_lowering_passes (tree decl);
 
 extern struct gimple_opt_pass pass_mudflap_1;
 extern struct gimple_opt_pass pass_mudflap_2;
-extern struct gimple_opt_pass pass_remove_useless_stmts;
 extern struct gimple_opt_pass pass_lower_cf;
 extern struct gimple_opt_pass pass_refactor_eh;
 extern struct gimple_opt_pass pass_lower_eh;
@@ -437,6 +436,7 @@ extern struct simple_ipa_opt_pass pass_ipa_early_inline;
 
 extern struct simple_ipa_opt_pass pass_early_local_passes;
 
+extern struct ipa_opt_pass_d pass_ipa_whole_program_visibility;
 extern struct ipa_opt_pass_d pass_ipa_lto_gimple_out;
 extern struct simple_ipa_opt_pass pass_ipa_increase_alignment;
 extern struct simple_ipa_opt_pass pass_ipa_matrix_reorg;

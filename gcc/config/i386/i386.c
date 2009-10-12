@@ -3394,7 +3394,7 @@ override_options (bool main_args_p)
       ix86_gen_pop1 = gen_popdi1;
       ix86_gen_add3 = gen_adddi3;
       ix86_gen_sub3 = gen_subdi3;
-      ix86_gen_sub3_carry = gen_subdi3_carry_rex64;
+      ix86_gen_sub3_carry = gen_subdi3_carry;
       ix86_gen_one_cmpl2 = gen_one_cmpldi2;
       ix86_gen_monitor = gen_sse3_monitor64;
       ix86_gen_andsp = gen_anddi3;
@@ -12637,7 +12637,7 @@ ix86_expand_clear (rtx dest)
   tmp = gen_rtx_SET (VOIDmode, dest, const0_rtx);
 
   /* This predicate should match that for movsi_xor and movdi_xor_rex64.  */
-  if (reload_completed && (!TARGET_USE_MOV0 || optimize_insn_for_speed_p ()))
+  if (!TARGET_USE_MOV0 || optimize_insn_for_speed_p ())
     {
       rtx clob = gen_rtx_CLOBBER (VOIDmode, gen_rtx_REG (CCmode, FLAGS_REG));
       tmp = gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, tmp, clob));
@@ -15247,9 +15247,10 @@ ix86_expand_int_movcc (rtx operands[])
 		tmp = gen_reg_rtx (mode);
 
 	      if (mode == DImode)
-		emit_insn (gen_x86_movdicc_0_m1_rex64 (tmp, compare_op));
+		emit_insn (gen_x86_movdicc_0_m1 (tmp, compare_op));
 	      else
-		emit_insn (gen_x86_movsicc_0_m1 (gen_lowpart (SImode, tmp), compare_op));
+		emit_insn (gen_x86_movsicc_0_m1 (gen_lowpart (SImode, tmp),
+						 compare_op));
 	    }
 	  else
 	    {
@@ -16171,6 +16172,7 @@ int
 ix86_expand_int_addcc (rtx operands[])
 {
   enum rtx_code code = GET_CODE (operands[1]);
+  rtx (*insn)(rtx, rtx, rtx, rtx);
   rtx compare_op;
   rtx val = const0_rtx;
   bool fpcmp = false;
@@ -16211,16 +16213,16 @@ ix86_expand_int_addcc (rtx operands[])
       switch (GET_MODE (operands[0]))
 	{
 	  case QImode:
-            emit_insn (gen_subqi3_carry (operands[0], operands[2], val, compare_op));
+	    insn = gen_subqi3_carry;
 	    break;
 	  case HImode:
-            emit_insn (gen_subhi3_carry (operands[0], operands[2], val, compare_op));
+	    insn = gen_subhi3_carry;
 	    break;
 	  case SImode:
-            emit_insn (gen_subsi3_carry (operands[0], operands[2], val, compare_op));
+	    insn = gen_subsi3_carry;
 	    break;
 	  case DImode:
-            emit_insn (gen_subdi3_carry_rex64 (operands[0], operands[2], val, compare_op));
+	    insn = gen_subdi3_carry;
 	    break;
 	  default:
 	    gcc_unreachable ();
@@ -16231,21 +16233,23 @@ ix86_expand_int_addcc (rtx operands[])
       switch (GET_MODE (operands[0]))
 	{
 	  case QImode:
-            emit_insn (gen_addqi3_carry (operands[0], operands[2], val, compare_op));
+	    insn = gen_addqi3_carry;
 	    break;
 	  case HImode:
-            emit_insn (gen_addhi3_carry (operands[0], operands[2], val, compare_op));
+	    insn = gen_addhi3_carry;
 	    break;
 	  case SImode:
-            emit_insn (gen_addsi3_carry (operands[0], operands[2], val, compare_op));
+	    insn = gen_addsi3_carry;
 	    break;
 	  case DImode:
-            emit_insn (gen_adddi3_carry_rex64 (operands[0], operands[2], val, compare_op));
+	    insn = gen_adddi3_carry;
 	    break;
 	  default:
 	    gcc_unreachable ();
 	}
     }
+  emit_insn (insn (operands[0], operands[2], val, compare_op));
+
   return 1; /* DONE */
 }
 
@@ -23440,6 +23444,17 @@ ix86_init_builtins (void)
     ix86_init_builtins_va_builtins_abi ();
 }
 
+/* Return the ix86 builtin for CODE.  */
+
+static tree
+ix86_builtin_decl (unsigned code, bool initialize_p ATTRIBUTE_UNUSED)
+{
+  if (code >= IX86_BUILTIN_MAX)
+    return error_mark_node;
+
+  return ix86_builtins[code];
+}
+
 /* Errors in the source file can cause expand_expr to return const0_rtx
    where we expect a vector.  To avoid crashing, use one of the vector
    clear instructions.  */
@@ -29663,6 +29678,8 @@ ix86_enum_va_list (int idx, const char **pname, tree *ptree)
 
 #undef TARGET_INIT_BUILTINS
 #define TARGET_INIT_BUILTINS ix86_init_builtins
+#undef TARGET_BUILTIN_DECL
+#define TARGET_BUILTIN_DECL ix86_builtin_decl
 #undef TARGET_EXPAND_BUILTIN
 #define TARGET_EXPAND_BUILTIN ix86_expand_builtin
 

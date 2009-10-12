@@ -853,6 +853,8 @@ prefix_from_string (const char *p, struct path_prefix *pprefix)
   free (nstore);
 }
 
+#ifdef OBJECT_FORMAT_NONE
+
 /* Add an entry for the object file NAME to object file list LIST.
    New entries are added at the end of the list. The original pointer
    value of NAME is preserved, i.e., no string copy is performed.  */
@@ -871,6 +873,7 @@ add_lto_object (struct lto_object_list *list, const char *name)
 
   list->last = n;
 }
+#endif /* OBJECT_FORMAT_NONE */
 
 
 /* Perform a link-time recompilation and relink if any of the object
@@ -1271,8 +1274,8 @@ main (int argc, char **argv)
   obstack_free (&temporary_obstack, temporary_firstobj);
 
   /* -fno-profile-arcs -fno-test-coverage -fno-branch-probabilities
-     -fno-exceptions -w */
-  num_c_args += 5;
+     -fno-exceptions -w -fno-whole-program */
+  num_c_args += 6;
 
   c_argv = XCNEWVEC (char *, num_c_args);
   c_ptr = CONST_CAST2 (const char **, char **, c_argv);
@@ -1440,6 +1443,7 @@ main (int argc, char **argv)
   *c_ptr++ = "-fno-branch-probabilities";
   *c_ptr++ = "-fno-exceptions";
   *c_ptr++ = "-w";
+  *c_ptr++ = "-fno-whole-program";
 
   /* !!! When GCC calls collect2,
      it does not know whether it is calling collect2 or ld.

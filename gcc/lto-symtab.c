@@ -66,7 +66,7 @@ lto_symtab_entry_hash (const void *p)
 {
   const struct lto_symtab_entry_def *base =
     (const struct lto_symtab_entry_def *) p;
-  return htab_hash_pointer (base->id);
+  return htab_hash_string (IDENTIFIER_POINTER (base->id));
 }
 
 /* Return non-zero if P1 and P2 points to lto_symtab_entry_def structs
@@ -323,8 +323,10 @@ lto_symtab_register_decl (tree decl,
 	      && (TREE_CODE (decl) == VAR_DECL
 		  || TREE_CODE (decl) == FUNCTION_DECL)
 	      && DECL_ASSEMBLER_NAME_SET_P (decl));
-  if (TREE_CODE (decl) == VAR_DECL)
-    gcc_assert (!(DECL_EXTERNAL (decl) && DECL_INITIAL (decl)));
+  if (TREE_CODE (decl) == VAR_DECL
+      && DECL_INITIAL (decl))
+    gcc_assert (!DECL_EXTERNAL (decl)
+		|| (TREE_STATIC (decl) && TREE_READONLY (decl)));
   if (TREE_CODE (decl) == FUNCTION_DECL)
     gcc_assert (!DECL_ABSTRACT (decl));
 
@@ -388,7 +390,10 @@ lto_cgraph_replace_node (struct cgraph_node *old_node,
   if (old_node->reachable)
     cgraph_mark_reachable_node (new_node);
   if (old_node->address_taken)
-    cgraph_mark_address_taken_node (new_node);
+    {
+      gcc_assert (!new_node->global.inlined_to);
+      cgraph_mark_address_taken_node (new_node);
+    }
 
   /* Redirect all incoming edges.  */
   for (e = old_node->callers; e; e = next)

@@ -46,7 +46,9 @@ along with GCC; see the file COPYING3.  If not see
 /* This needs to be included after config.h.  Otherwise, _GNU_SOURCE will not
    be defined in time to set __USE_GNU in the system headers, and strsignal
    will not be declared.  */
+#if HAVE_MMAP_FILE
 #include <sys/mman.h>
+#endif
 
 DEF_VEC_P(bitmap);
 DEF_VEC_ALLOC_P(bitmap,heap);
@@ -1777,7 +1779,10 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
       unsigned num_objects;
 
       resolution = fopen (resolution_file_name, "r");
-      gcc_assert (resolution != NULL);
+      if (resolution == NULL)
+	fatal_error ("could not open symbol resolution file: %s",
+		     xstrerror (errno));
+
       t = fscanf (resolution, "%u", &num_objects);
       gcc_assert (t == 1);
 
@@ -1824,16 +1829,26 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
   /* Merge global decls.  */
   lto_symtab_merge_decls ();
 
-  /* Mark cgraph nodes needed in the merged cgraph.
-     ???  Is this really necessary?  */
-  for (node = cgraph_nodes; node; node = node->next)
-    if (cgraph_decide_is_function_needed (node, node->decl))
-      cgraph_mark_needed_node (node);
+  /* Mark cgraph nodes needed in the merged cgraph
+     This normally happens in whole-program pass, but for
+     ltrans the pass was already run at WPA phase.
+     
+     FIXME:  This is not valid way to do so; nodes can be needed
+     for non-obvious reasons.  We should stream the flags from WPA
+     phase. */
+  if (flag_ltrans)
+    for (node = cgraph_nodes; node; node = node->next)
+      if (!node->global.inlined_to
+	  && cgraph_decide_is_function_needed (node, node->decl))
+        cgraph_mark_needed_node (node);
 
   timevar_push (TV_IPA_LTO_DECL_IO);
 
   /* Fixup all decls and types.  */
   lto_fixup_decls (all_file_decl_data);
+
+  /* Free the type hash tables.  */
+  free_gimple_type_tables ();
 
   /* FIXME lto. This loop needs to be changed to use the pass manager to
      call the ipa passes directly.  */

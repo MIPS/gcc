@@ -3591,21 +3591,6 @@ iterative_hash_type_name (tree type, hashval_t v)
   if (!name)
     return v;
   gcc_assert (TREE_CODE (name) == IDENTIFIER_NODE);
-  /* Do not hash names of anonymous unions.  At least the C++ FE insists
-     to have a non-NULL TYPE_NAME for them.  See cp/cp-tree.h for all
-     the glory.  */
-#ifndef NO_DOT_IN_LABEL
-  if (IDENTIFIER_POINTER (name)[0] == '.')
-    return v;
-#else
-#ifndef NO_DOLLAR_IN_LABEL
-  if (IDENTIFIER_POINTER (name)[0] == '$')
-    return v;
-#else
-  if (!strncmp (IDENTIFIER_POINTER (name), "__anon_", sizeof ("__anon_") - 1))
-    return v;
-#endif
-#endif
   return iterative_hash_object (IDENTIFIER_HASH_VALUE (name), v);
 }
 
@@ -3767,6 +3752,7 @@ iterative_hash_gimple_type (tree type, hashval_t val,
 static hashval_t
 gimple_type_hash (const void *p)
 {
+  const_tree t = (const_tree) p;
   VEC(tree, heap) *sccstack = NULL;
   struct pointer_map_t *sccstate;
   struct obstack sccstate_obstack;
@@ -3783,7 +3769,7 @@ gimple_type_hash (const void *p)
   next_dfs_num = 1;
   sccstate = pointer_map_create ();
   gcc_obstack_init (&sccstate_obstack);
-  val = iterative_hash_gimple_type (CONST_CAST2 (tree, const void *, p), 0,
+  val = iterative_hash_gimple_type (CONST_CAST_TREE (t), 0,
 				    &sccstack, sccstate, &sccstate_obstack);
   VEC_free (tree, heap, sccstack);
   pointer_map_destroy (sccstate);
@@ -3898,8 +3884,8 @@ print_gimple_types_stats (void)
   else
     fprintf (stderr, "GIMPLE type table is empty\n");
   if (gtc_visited)
-    fprintf (stderr, "GIMPLE type comparison table: size %ld, %ld elements, "
-	     "%ld searches, %ld collisions (ratio: %f)\n",
+    fprintf (stderr, "GIMPLE type comparison table: size %ld, %ld "
+	     "elements, %ld searches, %ld collisions (ratio: %f)\n",
 	     (long) htab_size (gtc_visited),
 	     (long) htab_elements (gtc_visited),
 	     (long) gtc_visited->searches,
@@ -3907,6 +3893,32 @@ print_gimple_types_stats (void)
 	     htab_collisions (gtc_visited));
   else
     fprintf (stderr, "GIMPLE type comparison table is empty\n");
+}
+
+/* Free the gimple type hashtables used for LTO type merging.  */
+
+void
+free_gimple_type_tables (void)
+{
+  /* Last chance to print stats for the tables.  */
+  if (flag_lto_report)
+    print_gimple_types_stats ();
+
+  if (gimple_types)
+    {
+      htab_delete (gimple_types);
+      gimple_types = NULL;
+    }
+  if (type_hash_cache)
+    {
+      pointer_map_destroy (type_hash_cache);
+      type_hash_cache = NULL;
+    }
+  if (gtc_visited)
+    {
+      htab_delete (gtc_visited);
+      gtc_visited = NULL;
+    }
 }
 
 

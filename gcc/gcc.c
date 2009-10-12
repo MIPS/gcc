@@ -775,6 +775,7 @@ proper position among the other output files.  */
     -plugin-opt=%(lto_wrapper) \
     -plugin-opt=%(lto_gcc) \
     %{static|static-libgcc:-plugin-opt=-pass-through=%(lto_libgcc)}	\
+    %{static:-plugin-opt=-pass-through=-lc}	\
     %{O*:-plugin-opt=-O%*} \
     %{w:-plugin-opt=-w} \
     %{f*:-plugin-opt=-f%*} \
@@ -4187,7 +4188,10 @@ process_command (int argc, const char **argv)
 		argv[i] = convert_filename (argv[i], ! have_c, 0);
 #endif
 	      /* Save the output name in case -save-temps=obj was used.  */
-	      save_temps_prefix = xstrdup ((p[1] == 0) ? argv[i + 1] : argv[i] + 1);
+	      if ((p[1] == 0) && argv[i + 1])
+		save_temps_prefix = xstrdup(argv[i + 1]);
+	      else
+		save_temps_prefix = xstrdup(argv[i] + 1);
 	      goto normal_switch;
 
 	    default:
@@ -4631,11 +4635,6 @@ set_collect_gcc_options (void)
 
       /* Ignore elided switches.  */
       if ((switches[i].live_cond & SWITCH_IGNORE) != 0)
-	continue;
-
-      /* Don't use -fwhole-program when compiling the init and fini routines,
-	 since we'd wrongly assume that the routines aren't needed.  */
-      if (strcmp (switches[i].part1, "fwhole-program") == 0)
 	continue;
 
       obstack_grow (&collect_obstack, "'-", 2);
@@ -7530,12 +7529,12 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 						 "liblto_plugin.so", X_OK,
 						 false);
 	  if (!linker_plugin_file_spec)
-	    fatal ("-use-linker-plugin, but liblto_plugin.so not found.");
+	    fatal ("-use-linker-plugin, but liblto_plugin.so not found");
 
 	  lto_libgcc_spec = find_a_file (&startfile_prefixes, "libgcc.a",
 					 R_OK, true);
 	  if (!lto_libgcc_spec)
-	    fatal ("could not find libgcc.a.");
+	    fatal ("could not find libgcc.a");
 	}
       lto_gcc_spec = argv[0];
 

@@ -683,7 +683,6 @@ init_optimization_passes (void)
   p = &all_lowering_passes;
   NEXT_PASS (pass_warn_unused_result);
   NEXT_PASS (pass_diagnose_omp_blocks);
-  NEXT_PASS (pass_remove_useless_stmts);
   NEXT_PASS (pass_mudflap_1);
   NEXT_PASS (pass_lower_omp);
   NEXT_PASS (pass_lower_cf);
@@ -759,6 +758,7 @@ init_optimization_passes (void)
   *p = NULL;
 
   p = &all_regular_ipa_passes;
+  NEXT_PASS (pass_ipa_whole_program_visibility);
   NEXT_PASS (pass_ipa_cp);
   NEXT_PASS (pass_ipa_inline);
   NEXT_PASS (pass_ipa_reference);
@@ -1099,7 +1099,7 @@ do_per_function_toporder (void (*callback) (void *data), void *data)
 	  /* Allow possibly removed nodes to be garbage collected.  */
 	  order[i] = NULL;
 	  node->process = 0;
-	  if (node->analyzed && (node->needed || node->reachable))
+	  if (node->analyzed)
 	    {
 	      push_cfun (DECL_STRUCT_FUNCTION (node->decl));
 	      current_function_decl = node->decl;
@@ -1783,7 +1783,7 @@ function_called_by_processed_nodes_p (void)
     {
       if (e->caller->decl == current_function_decl)
         continue;
-      if (!e->caller->analyzed || (!e->caller->needed && !e->caller->reachable))
+      if (!e->caller->analyzed)
         continue;
       if (TREE_ASM_WRITTEN (e->caller->decl))
         continue;
