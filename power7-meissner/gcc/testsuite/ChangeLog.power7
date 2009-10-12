@@ -1,0 +1,6 @@
+2009-10-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/altivec-4.c (b): Use VMX result to eliminate
+	warnings.
+	* g++.dg/ext/altivec-2.C (main): Ditto.
+

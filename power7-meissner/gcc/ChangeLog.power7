@@ -1,3 +1,34 @@
+2009-10-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/predicates.md: Update copyright to 2009.
+	* config/rs6000/altivec.md: Ditto.
+	
+	* config/rs6000/rs6000-c.c (rs6000_cpu_cpp_builtins): Restore
+	defining __APPLE_ALTIVEC__ if the vector keyword can be used.
+
+	* config/rs6000/t-rs6000 (TM_H): Add rs6000-builtin.def.
+
+	* config/rs6000/rs6000-builtin.def: New file, abstract creating
+	the builtin enums and the flags to set on the declaration to one
+	file, using macros.
+
+	* config/rs6000/rs6000.c (builtin_classify): New array that maps
+	builtin to the flags to set in the declaration.
+	(def_builtin): Set the appropriate builtin flags in the
+	declaration.
+
+	* config/rs6000/rs6000.h (enum rs6000_btc): New enumeration giving
+	the different types of builtins that are supported.
+	(enum rs6000_builtins): Move enum identifiers to the file
+	rs6000-builtin.def.
+
+2009-10-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* REVISION: New file to mark branch.
+	* DEV-PHASE: Set to meissner local branch.
+
+	Branch re-opened, mainline id 152572.
+
 2009-09-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* REVISION: New file to mark branch.
