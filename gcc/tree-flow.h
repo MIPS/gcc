@@ -540,6 +540,7 @@ extern basic_block move_sese_region_to_fn (struct function *, basic_block,
 				           basic_block, tree);
 void remove_edge_and_dominated_blocks (edge);
 void mark_virtual_ops_in_bb (basic_block);
+bool tree_node_can_be_shared (tree);
 
 /* In tree-cfgcleanup.c  */
 extern bitmap cfgcleanup_altered_bbs;
@@ -679,10 +680,6 @@ tree get_symbol_constant_value (tree);
 tree fold_const_aggregate_ref (tree);
 bool may_propagate_address_into_dereference (tree, tree);
 
-
-/* In tree-vrp.c  */
-tree vrp_evaluate_conditional (enum tree_code, tree, tree, gimple);
-bool simplify_stmt_using_ranges (gimple_stmt_iterator *);
 
 /* In tree-ssa-dom.c  */
 extern void dump_dominator_optimization_stats (FILE *);

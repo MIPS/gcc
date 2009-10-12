@@ -2024,8 +2024,6 @@ extern GTY(()) rtx global_rtl[GR_MAX];
 #define arg_pointer_rtx		(global_rtl[GR_ARG_POINTER])
 
 extern GTY(()) rtx pic_offset_table_rtx;
-extern GTY(()) rtx static_chain_rtx;
-extern GTY(()) rtx static_chain_incoming_rtx;
 extern GTY(()) rtx return_address_pointer_rtx;
 
 /* Include the RTL generation functions.  */
@@ -2426,6 +2424,7 @@ extern void simplify_using_condition (rtx, rtx *, struct bitmap_head_def *);
 
 /* In final.c  */
 extern unsigned int compute_alignments (void);
+extern int asm_str_count (const char *templ);
 
 struct rtl_hooks
 {

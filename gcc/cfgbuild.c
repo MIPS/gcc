@@ -477,6 +477,14 @@ find_bb_boundaries (basic_block bb)
 	  if (code == CODE_LABEL && LABEL_ALT_ENTRY_P (insn))
 	    make_edge (ENTRY_BLOCK_PTR, bb, 0);
 	}
+      else if (code == BARRIER)
+	{
+	  /* __builtin_unreachable () may cause a barrier to be emitted in
+	     the middle of a BB.  We need to split it in the same manner as
+	     if the barrier were preceded by a control_flow_insn_p insn.  */
+	  if (!flow_transfer_insn)
+	    flow_transfer_insn = prev_nonnote_insn_bb (insn);
+	}
 
       if (control_flow_insn_p (insn))
 	flow_transfer_insn = insn;
