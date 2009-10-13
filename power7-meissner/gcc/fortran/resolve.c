@@ -5840,11 +5840,10 @@ gfc_expr_to_initialize (gfc_expr *e)
 static gfc_try
 resolve_allocate_expr (gfc_expr *e, gfc_code *code)
 {
-  int i, pointer, allocatable, dimension, check_intent_in;
+  int i, pointer, allocatable, dimension, check_intent_in, is_abstract;
   symbol_attribute attr;
   gfc_ref *ref, *ref2;
   gfc_array_ref *ar;
-  gfc_code *init_st;
   gfc_symbol *sym;
   gfc_alloc *a;
   gfc_component *c;
@@ -5862,6 +5861,9 @@ resolve_allocate_expr (gfc_expr *e, gfc_code *code)
   if (e->symtree)
     sym = e->symtree->n.sym;
 
+  /* Check whether ultimate component is abstract and CLASS.  */
+  is_abstract = 0;
+
   if (e->expr_type != EXPR_VARIABLE)
     {
       allocatable = 0;
@@ -5876,6 +5878,7 @@ resolve_allocate_expr (gfc_expr *e, gfc_code *code)
 	  allocatable = sym->ts.u.derived->components->attr.allocatable;
 	  pointer = sym->ts.u.derived->components->attr.pointer;
 	  dimension = sym->ts.u.derived->components->attr.dimension;
+	  is_abstract = sym->ts.u.derived->components->attr.abstract;
 	}
       else
 	{
@@ -5903,12 +5906,14 @@ resolve_allocate_expr (gfc_expr *e, gfc_code *code)
 		    allocatable = c->ts.u.derived->components->attr.allocatable;
 		    pointer = c->ts.u.derived->components->attr.pointer;
 		    dimension = c->ts.u.derived->components->attr.dimension;
+		    is_abstract = c->ts.u.derived->components->attr.abstract;
 		  }
 		else
 		  {
 		    allocatable = c->attr.allocatable;
 		    pointer = c->attr.pointer;
 		    dimension = c->attr.dimension;
+		    is_abstract = c->attr.abstract;
 		  }
 		break;
 
@@ -5927,46 +5932,19 @@ resolve_allocate_expr (gfc_expr *e, gfc_code *code)
       return FAILURE;
     }
 
+  if (is_abstract && !code->expr3 && code->ext.alloc.ts.type == BT_UNKNOWN)
+    {
+      gcc_assert (e->ts.type == BT_CLASS);
+      gfc_error ("Allocating %s of ABSTRACT base type at %L requires a "
+		 "type-spec or SOURCE=", sym->name, &e->where);
+      return FAILURE;
+    }
+
   if (check_intent_in && sym->attr.intent == INTENT_IN)
     {
       gfc_error ("Cannot allocate INTENT(IN) variable '%s' at %L",
 		 sym->name, &e->where);
       return FAILURE;
-    }
-
-  if (e->ts.type == BT_CLASS)
-    {
-      /* Initialize VINDEX for CLASS objects.  */
-      init_st = gfc_get_code ();
-      init_st->loc = code->loc;
-      init_st->expr1 = gfc_expr_to_initialize (e);
-      init_st->op = EXEC_ASSIGN;
-      gfc_add_component_ref (init_st->expr1, "$vindex");
-      if (code->expr3 && code->expr3->ts.type == BT_CLASS)
-	{
-	  /* vindex must be determined at run time.  */
-	  init_st->expr2 = gfc_copy_expr (code->expr3);
-	  gfc_add_component_ref (init_st->expr2, "$vindex");
-	}
-      else
-	{
-	  /* vindex is fixed at compile time.  */
-	  int vindex;
-	  if (code->expr3)
-	    vindex = code->expr3->ts.u.derived->vindex;
-	  else if (code->ext.alloc.ts.type == BT_DERIVED)
-	    vindex = code->ext.alloc.ts.u.derived->vindex;
-	  else if (e->ts.type == BT_CLASS)
-	    vindex = e->ts.u.derived->components->ts.u.derived->vindex;
-	  else
-	    vindex = e->ts.u.derived->vindex;
-	  init_st->expr2 = gfc_int_expr (vindex);
-	}
-      init_st->expr2->where = init_st->expr1->where = init_st->loc;
-      init_st->next = code->next;
-      code->next = init_st;
-      /* Only allocate the DATA component.  */
-      gfc_add_component_ref (e, "$data");
     }
 
   if (pointer || dimension == 0)
@@ -7553,44 +7531,6 @@ resolve_ordinary_assign (gfc_code *code, gfc_namespace *ns)
 }
 
 
-/* Check an assignment to a CLASS object (pointer or ordinary assignment).  */
-
-static void
-resolve_class_assign (gfc_code *code)
-{
-  gfc_code *assign_code = gfc_get_code ();
-
-  if (code->expr2->ts.type != BT_CLASS)
-    {
-      /* Insert an additional assignment which sets the vindex.  */
-      assign_code->next = code->next;
-      code->next = assign_code;
-      assign_code->op = EXEC_ASSIGN;
-      assign_code->expr1 = gfc_copy_expr (code->expr1);
-      gfc_add_component_ref (assign_code->expr1, "$vindex");
-      if (code->expr2->ts.type == BT_DERIVED)
-	/* vindex is constant, determined at compile time.  */
-	assign_code->expr2 = gfc_int_expr (code->expr2->ts.u.derived->vindex);
-      else if (code->expr2->ts.type == BT_CLASS)
-	{
-	  /* vindex must be determined at run time.  */
-	  assign_code->expr2 = gfc_copy_expr (code->expr2);
-	  gfc_add_component_ref (assign_code->expr2, "$vindex");
-	}
-      else if (code->expr2->expr_type == EXPR_NULL)
-	assign_code->expr2 = gfc_int_expr (0);
-      else
-	gcc_unreachable ();
-    }
-
-  /* Modify the actual pointer assignment.  */
-  if (code->expr2->ts.type == BT_CLASS)
-    code->op = EXEC_ASSIGN;
-  else
-    gfc_add_component_ref (code->expr1, "$data");
-}
-
-
 /* Given a block of code, recursively resolve everything pointed to by this
    code block.  */
 
@@ -7720,10 +7660,6 @@ resolve_code (gfc_code *code, gfc_namespace *ns)
 	      else
 		goto call;
 	    }
-
-	  if (code->expr1->ts.type == BT_CLASS)
-	    resolve_class_assign (code);
-
 	  break;
 
 	case EXEC_LABEL_ASSIGN:
@@ -7745,10 +7681,6 @@ resolve_code (gfc_code *code, gfc_namespace *ns)
 	    break;
 
 	  gfc_check_pointer_assign (code->expr1, code->expr2);
-
-	  if (code->expr1->ts.type == BT_CLASS)
-	    resolve_class_assign (code);
-
 	  break;
 
 	case EXEC_ARITHMETIC_IF:
