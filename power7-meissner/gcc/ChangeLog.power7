@@ -3,9 +3,6 @@
 	* config/rs6000/predicates.md: Update copyright to 2009.
 	* config/rs6000/altivec.md: Ditto.
 	
-	* config/rs6000/rs6000-c.c (rs6000_cpu_cpp_builtins): Restore
-	defining __APPLE_ALTIVEC__ if the vector keyword can be used.
-
 	* config/rs6000/t-rs6000 (TM_H): Add rs6000-builtin.def.
 
 	* config/rs6000/rs6000-builtin.def: New file, abstract creating

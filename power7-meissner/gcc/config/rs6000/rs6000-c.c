@@ -292,10 +292,6 @@ rs6000_cpu_cpp_builtins (cpp_reader *pfile)
       builtin_define ("__ALTIVEC__");
       builtin_define ("__VEC__=10206");
 
-      /* Define this when supporting context-sensitive keywords.  */
-      if (!flag_iso)
-	builtin_define ("__APPLE_ALTIVEC__");
-
       /* Define the AltiVec syntactic elements.  */
       builtin_define ("__vector=__attribute__((altivec(vector__)))");
       builtin_define ("__pixel=__attribute__((altivec(pixel__))) unsigned short");
