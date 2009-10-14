@@ -2716,9 +2716,26 @@ pop_stmt_changes (gimple *stmt_p)
   mark_difference_for_renaming (stores, buf->stores);
 
   /* Mark all the naked GIMPLE register operands for renaming.  */
-  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_DEF|SSA_OP_USE)
-    if (DECL_P (op))
-      mark_sym_for_renaming (op);
+  if (gimple_debug_bind_p (stmt))
+    {
+      FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_DEF|SSA_OP_USE)
+	if (!DECL_P (op))
+	  continue;
+	else if (!referenced_var_p (op))
+	  {
+	    gimple_debug_bind_reset_value (stmt);
+	    update_stmt (stmt);
+	    break;
+	  }
+	else
+	  mark_sym_for_renaming (op);
+    }
+  else
+    {
+      FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_DEF|SSA_OP_USE)
+	if (DECL_P (op))
+	  mark_sym_for_renaming (op);
+    }
 
   /* FIXME, need to add more finalizers here.  Cleanup EH info,
      recompute invariants for address expressions, add

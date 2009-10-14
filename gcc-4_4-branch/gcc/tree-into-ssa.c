@@ -2887,6 +2887,37 @@ mark_sym_for_renaming (tree sym)
     }
 }
 
+/* Unregister symbol SYM to be renamed by update_ssa.  SYM must be a
+   gimple register.  */
+
+void
+clear_mark_for_renaming (tree sym)
+{
+  if (need_to_initialize_update_ssa_p)
+    return;
+
+  gcc_assert (is_gimple_reg (sym));
+
+  bitmap_clear_bit (syms_to_rename, DECL_UID (sym));
+
+  if (bitmap_empty_p (syms_to_rename))
+    BITMAP_FREE (syms_to_rename);
+}
+
+/* Return true if a symbol is marked for renaming.  This is an
+   exported interface for symbol_marked_for_renaming.  */
+
+bool
+sym_marked_for_renaming (tree sym)
+{
+  if (need_to_initialize_update_ssa_p)
+    return false;
+
+  if (!syms_to_rename)
+    return false;
+
+  return symbol_marked_for_renaming (sym);
+}
 
 /* Register all the symbols in SET to be renamed by update_ssa.  */
 

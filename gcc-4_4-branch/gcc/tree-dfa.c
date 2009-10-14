@@ -639,6 +639,23 @@ set_default_def (tree var, tree def)
    SSA_NAME_IS_DEFAULT_DEF (def) = true;
 }
 
+/* Return TRUE if VAR is in the set of referenced variables.  */
+
+bool
+referenced_var_p (tree var)
+{
+  struct tree_decl_minimal in;
+
+  gcc_assert (DECL_P (var));
+
+  if (!gimple_referenced_vars (cfun))
+    return false;
+
+  in.uid = DECL_UID (var);
+  return htab_find_with_hash (gimple_referenced_vars (cfun), &in, in.uid)
+    != NULL;
+}
+
 /* Add VAR to the list of referenced variables if it isn't already there.  */
 
 bool
@@ -685,6 +702,15 @@ remove_referenced_var (tree var)
   struct tree_decl_minimal in;
   void **loc;
   unsigned int uid = DECL_UID (var);
+
+  /* Symbols that decayed from addressable to gimple registers, but
+     that are referenced only in debug stmts, may be marked for
+     renaming, but renaming them would fail once they're no longer
+     referenced.  Let them rest in peace.  */
+  if (TREE_CODE (var) != SSA_NAME
+      && is_gimple_reg (var)
+      && sym_marked_for_renaming (var))
+    clear_mark_for_renaming (var);
 
   clear_call_clobbered (var);
   bitmap_clear_bit (gimple_call_used_vars (cfun), uid);

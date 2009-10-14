@@ -1,3 +1,19 @@
+2009-10-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-ssa-operands.c (pop_stmt_changes): In DEBUG stmts, if
+	an SSA operand is DECL_P and referenced, mark it for renaming.
+
+2009-09-30  Alexandre Oliva  <aoliva@redhat.com>
+
+	* tree-dfa.c (referenced_var_p): New.
+	(remove_referenced_var): Clear renaming mark.
+	* tree-flow.h (referenced_var_p): Declare.
+	(sym_marked_for_renaming, clear_mark_for_renaming): Declare.
+	* tree-into-ssa.c (clear_mark_for_renaming): New.
+	(sym_marked_for_renaming): New.
+	* tree-ssa-operands.c (pop_stmt_changes): Reset debug stmts
+	that reference otherwise-unreferenced variables.
+
 2009-10-14  Hans-Peter Nilsson  <hp@axis.com>
 
 	PR target/38948
