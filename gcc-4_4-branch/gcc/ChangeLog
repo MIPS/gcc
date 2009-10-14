@@ -1,3 +1,11 @@
+2009-10-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-parloops.c (separate_decls_in_region_debug_bind): Drop debug
+	stmts setting DEBUG_EXPR_DECLs.
+
+	* cfgexpand.c (expand_debug_expr): Ignore zero-length bitfields.
+	Don't crash if mode1 is VOIDmode.
+
 2009-10-08  Jakub Jelinek  <jakub@redhat.com>
 
 	* tree-ssa-operands.c (pop_stmt_changes): In DEBUG stmts, if
