@@ -232,6 +232,8 @@ copy_rtx (rtx orig)
   switch (code)
     {
     case REG:
+    case DEBUG_EXPR:
+    case VALUE:
     case CONST_INT:
     case CONST_DOUBLE:
     case CONST_FIXED:
@@ -379,6 +381,7 @@ rtx_equal_p_cb (const_rtx x, const_rtx y, rtx_equal_p_callback_function cb)
     case SYMBOL_REF:
       return XSTR (x, 0) == XSTR (y, 0);
 
+    case DEBUG_EXPR:
     case VALUE:
     case SCRATCH:
     case CONST_DOUBLE:

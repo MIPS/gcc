@@ -585,10 +585,8 @@ typedef struct
        !end_referenced_vars_p (&(ITER)); \
        (VAR) = next_referenced_var (&(ITER))) 
 
-void propagate_defs_into_debug_stmts (gimple, basic_block,
-				      const gimple_stmt_iterator *);
-void propagate_var_def_into_debug_stmts (tree, basic_block,
-					 const gimple_stmt_iterator *);
+void insert_debug_temps_for_defs (gimple_stmt_iterator *);
+void insert_debug_temp_for_var_def (gimple_stmt_iterator *, tree);
 void release_defs_bitset (bitmap toremove);
 
 typedef struct

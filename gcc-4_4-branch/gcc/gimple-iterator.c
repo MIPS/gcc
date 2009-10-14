@@ -358,7 +358,8 @@ gsi_split_seq_before (gimple_stmt_iterator *i)
 
 /* Replace the statement pointed-to by GSI to STMT.  If UPDATE_EH_INFO
    is true, the exception handling information of the original
-   statement is moved to the new statement.  */
+   statement is moved to the new statement.  Assignments must only be
+   replaced with assignments to the same LHS.  */
 
 void
 gsi_replace (gimple_stmt_iterator *gsi, gimple stmt, bool update_eh_info)
@@ -368,6 +369,10 @@ gsi_replace (gimple_stmt_iterator *gsi, gimple stmt, bool update_eh_info)
 
   if (stmt == orig_stmt)
     return;
+
+  if (gimple_has_lhs (orig_stmt)
+      && gimple_get_lhs (orig_stmt) != gimple_get_lhs (stmt))
+    insert_debug_temps_for_defs (gsi);
 
   gimple_set_location (stmt, gimple_location (orig_stmt));
   gimple_set_bb (stmt, gsi_bb (*gsi));
@@ -477,6 +482,8 @@ gsi_remove (gimple_stmt_iterator *i, bool remove_permanently)
 {
   gimple_seq_node cur, next, prev;
   gimple stmt = gsi_stmt (*i);
+
+  insert_debug_temps_for_defs (i);
 
   /* Free all the data flow information for STMT.  */
   gimple_set_bb (stmt, NULL);

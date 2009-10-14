@@ -772,6 +772,11 @@ rewrite_trees (var_map map, gimple *values)
 	  copy_use_p = NULL_USE_OPERAND_P;
 	  FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_USE)
 	    {
+	      if (TREE_CODE (USE_FROM_PTR (use_p)) != SSA_NAME)
+		{
+		  gcc_assert (is_gimple_debug (stmt));
+		  continue;
+		}
 	      if (replace_use_variable (map, use_p, values))
 		changed = true;
 	      copy_use_p = use_p;

@@ -145,6 +145,9 @@ static const char * const tree_node_kind_names[] = {
 static GTY(()) int next_decl_uid;
 /* Unique id for next type created.  */
 static GTY(()) int next_type_uid = 1;
+/* Unique id for next debug decl created.  Use negative numbers,
+   to catch erroneous uses.  */
+static GTY(()) int next_debug_decl_uid;
 
 /* Since we cannot rehash a type after it is in the table, we have to
    keep the hash code.  */
@@ -303,6 +306,7 @@ init_ttree (void)
   tree_contains_struct[TRANSLATION_UNIT_DECL][TS_DECL_COMMON] = 1;
   tree_contains_struct[LABEL_DECL][TS_DECL_COMMON] = 1;
   tree_contains_struct[FIELD_DECL][TS_DECL_COMMON] = 1;
+  tree_contains_struct[DEBUG_EXPR_DECL][TS_DECL_COMMON] = 1;
 
 
   tree_contains_struct[CONST_DECL][TS_DECL_WRTL] = 1;
@@ -311,6 +315,7 @@ init_ttree (void)
   tree_contains_struct[RESULT_DECL][TS_DECL_WRTL] = 1;
   tree_contains_struct[FUNCTION_DECL][TS_DECL_WRTL] = 1;
   tree_contains_struct[LABEL_DECL][TS_DECL_WRTL] = 1; 
+  tree_contains_struct[DEBUG_EXPR_DECL][TS_DECL_WRTL] = 1;
 
   tree_contains_struct[CONST_DECL][TS_DECL_MINIMAL] = 1;
   tree_contains_struct[VAR_DECL][TS_DECL_MINIMAL] = 1;
@@ -321,6 +326,7 @@ init_ttree (void)
   tree_contains_struct[TRANSLATION_UNIT_DECL][TS_DECL_MINIMAL] = 1;
   tree_contains_struct[LABEL_DECL][TS_DECL_MINIMAL] = 1;
   tree_contains_struct[FIELD_DECL][TS_DECL_MINIMAL] = 1;
+  tree_contains_struct[DEBUG_EXPR_DECL][TS_DECL_MINIMAL] = 1;
   tree_contains_struct[NAME_MEMORY_TAG][TS_DECL_MINIMAL] = 1;
   tree_contains_struct[SYMBOL_MEMORY_TAG][TS_DECL_MINIMAL] = 1;
   tree_contains_struct[MEMORY_PARTITION_TAG][TS_DECL_MINIMAL] = 1;
@@ -466,6 +472,8 @@ tree_code_size (enum tree_code code)
 	    return sizeof (struct tree_type_decl);
 	  case FUNCTION_DECL:
 	    return sizeof (struct tree_function_decl);
+	  case DEBUG_EXPR_DECL:
+	    return sizeof (struct tree_decl_with_rtl);
 	  case NAME_MEMORY_TAG:
 	  case SYMBOL_MEMORY_TAG:
 	    return sizeof (struct tree_memory_tag);
@@ -678,7 +686,10 @@ make_node_stat (enum tree_code code MEM_STAT_DECL)
 	  DECL_POINTER_ALIAS_SET (t) = -1;
 	}
       DECL_SOURCE_LOCATION (t) = input_location;
-      DECL_UID (t) = next_decl_uid++;
+      if (TREE_CODE (t) == DEBUG_EXPR_DECL)
+	DECL_UID (t) = --next_debug_decl_uid;
+      else
+	DECL_UID (t) = next_decl_uid++;
 
       break;
 
@@ -752,7 +763,10 @@ copy_node_stat (tree node MEM_STAT_DECL)
 
   if (TREE_CODE_CLASS (code) == tcc_declaration)
     {
-      DECL_UID (t) = next_decl_uid++;
+      if (code == DEBUG_EXPR_DECL)
+	DECL_UID (t) = --next_debug_decl_uid;
+      else
+	DECL_UID (t) = next_decl_uid++;
       if ((TREE_CODE (node) == PARM_DECL || TREE_CODE (node) == VAR_DECL)
 	  && DECL_HAS_VALUE_EXPR_P (node))
 	{
@@ -2403,6 +2417,8 @@ tree_node_structure (const_tree t)
 	    return TS_LABEL_DECL;
 	  case RESULT_DECL:
 	    return TS_RESULT_DECL;
+	  case DEBUG_EXPR_DECL:
+	    return TS_DECL_WRTL;
 	  case CONST_DECL:
 	    return TS_CONST_DECL;
 	  case TYPE_DECL:

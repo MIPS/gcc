@@ -515,6 +515,10 @@ dequeue_and_dump (dump_info_p di)
     case NAME_MEMORY_TAG:
       break;
 
+    case DEBUG_EXPR_DECL:
+      dump_int (di, "-uid", DEBUG_TEMP_UID (t));
+      /* Fall through.  */
+
     case VAR_DECL:
     case PARM_DECL:
     case FIELD_DECL:
