@@ -1,3 +1,80 @@
+2009-10-15  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2009-10-07  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR middle-end/22072
+	* ira-lives.c (check_and_make_def_conflict): Process all operands.
+
+2009-10-15  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2009-10-11  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/41665
+	* config/i386/i386.md (addsi_1_zext): Get the proper second
+	operand for lea.
+
+2009-10-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* BASE-VER: Set to 4.4.3.
+	* DEV-PHASE: Set to prerelease.
+
+2009-10-15  Release Manager
+
+	* GCC 4.4.2 released.
+
+2009-10-14  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR target/38948
+	* config/cris/cris.h (SECONDARY_RELOAD_CLASS): Handle reload
+	requests between special registers.
+
+2009-10-13  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/s390.c (s390_encode_section_info): Handle BLKmode
+	properly.
+
+2009-10-12  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR target/26515
+	* config/cris/cris.md (andu): Check that operand 1 is one of the
+	general registers.  Fix typo in head comment.
+
+2009-10-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/41680
+	* config/i386/i386.md (split after *testqi_ext_3_rex64): Only narrow
+	paradoxical subregs to prevent partial register stalls if the inner
+	mode is integer mode.
+
+	PR rtl-optimization/41646
+	* calls.c (expand_call): For BLKmode types returned in registers
+	avoid likely spilled hard regs in copy_blkmode_from_reg generated
+	insns.
+
+2009-10-09  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/s390.md ("prefetch"): Remove stcmh for prefetching.
+
+2009-10-07  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/tpf.h (TARGET_DEFAULT): Remove MASK_HARD_FLOAT and
+	add MASK_HARD_DFP.
+
+2009-10-05  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	Backport from mainline.
+	* config/arm/arm.c (arm_override_options): Really initialize
+	flag_dwarf2_cfi_asm to 0.
+
+2009-10-02  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	Backport from mainline.	
+	2009-10-01  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+	* config/arm/arm.c (arm_override_options): Turn off
+	flag_dwarf2_cfi_asm for AAPCS variants.
+
 2009-09-30  Uros Bizjak  <ubizjak@gmail.com>
 
 	PR target/22093
@@ -58,7 +135,7 @@
 	premark_types_used_by_global_vars): New functions.
 	(prune_unused_types): Do not prune types used by global variables.
 
-2009-09-23 Uros Bizjak <ubizjak@gmail.com>
+2009-09-23  Uros Bizjak  <ubizjak@gmail.com>
 
 	PR c/39779
 	* c-typeck.c (build_binary_op) <short_shift>: Check that integer
