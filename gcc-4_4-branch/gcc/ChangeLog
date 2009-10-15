@@ -1,3 +1,15 @@
+2009-10-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/rs6000/option-defaults.h (OPTION_DEFAULT_SPECS): Don't
+	add --with-tune{,-32,-64} configured default for -mtune if explicit
+	-mcpu is used.
+
+2009-10-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* stor-layout.c (place_field): Don't emit -Wpadded warnings for
+	fields in builtin structs.
+	(finalize_record_size): Likewise.
+
 2009-04-28  Joseph Myers  <joseph@codesourcery.com>
 
 	* config.gcc (powerpc*-*-* | rs6000-*-*): Add
