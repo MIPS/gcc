@@ -1,3 +1,7 @@
+2009-10-15  Release Manager
+
+	* GCC 4.4.2 released.
+
 2009-09-22  Frank Ch. Eigler  <fche@redhat.com>
 
 	PR libmudflap/41433
