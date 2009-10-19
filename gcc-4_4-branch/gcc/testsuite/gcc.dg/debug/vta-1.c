@@ -8,7 +8,6 @@
    an unreference variable.  */
 
 /* { dg-do compile } */
-/* { dg-options "-O2 -g" } */
 
 static inline int
 foo (void *x, unsigned y)

@@ -1,5 +1,4 @@
 /* { dg-do compile } */
-/* { dg-options "-O2 -g" } */
 
 static int
 bar (void *a, unsigned int b, int n)
