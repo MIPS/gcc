@@ -3750,7 +3750,10 @@ gfc_match_equivalence (void)
       if (gfc_match_eos () == MATCH_YES)
 	break;
       if (gfc_match_char (',') != MATCH_YES)
-	goto syntax;
+	{
+	  gfc_error ("Expecting a comma in EQUIVALENCE at %C");
+	  goto cleanup;
+	}
     }
 
   return MATCH_YES;
@@ -4080,6 +4083,7 @@ gfc_match_select_type (void)
 	return MATCH_ERROR;
       expr1->symtree->n.sym->ts = expr2->ts;
       expr1->symtree->n.sym->attr.referenced = 1;
+      expr1->symtree->n.sym->attr.class_ok = 1;
     }
   else
     {

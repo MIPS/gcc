@@ -762,7 +762,7 @@ extern void rtl_check_failed_flag (const char *, const_rtx, const char *,
 #define INSN_LOCATOR(INSN) XINT (INSN, 4)
 /* LOCATION of an RTX if relevant.  */
 #define RTL_LOCATION(X) (INSN_P (X) ? \
-			 locator_location (INSN_LOCATOR (x)) \
+			 locator_location (INSN_LOCATOR (X)) \
 			 : UNKNOWN_LOCATION)
 /* LOCATION of current INSN.  */
 #define CURR_INSN_LOCATION (locator_location (curr_insn_locator ()))
@@ -1930,6 +1930,8 @@ extern void init_move_cost (enum machine_mode);
 extern bool resize_reg_info (void);
 /* Free up register info memory.  */
 extern void free_reg_info (void);
+extern void init_subregs_of_mode (void);
+extern void finish_subregs_of_mode (void);
 
 /* recog.c */
 extern rtx extract_asm_operands (rtx);

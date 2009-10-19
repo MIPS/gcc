@@ -5401,6 +5401,7 @@ static int output_indirect_string (void **, void *);
 
 static void dwarf2out_init (const char *);
 static void dwarf2out_finish (const char *);
+static void dwarf2out_assembly_start (void);
 static void dwarf2out_define (unsigned int, const char *);
 static void dwarf2out_undef (unsigned int, const char *);
 static void dwarf2out_start_source_file (unsigned, const char *);
@@ -5427,6 +5428,7 @@ const struct gcc_debug_hooks dwarf2_debug_hooks =
 {
   dwarf2out_init,
   dwarf2out_finish,
+  dwarf2out_assembly_start,
   dwarf2out_define,
   dwarf2out_undef,
   dwarf2out_start_source_file,
@@ -6478,6 +6480,10 @@ dwarf_tag_name (unsigned int tag)
       return "DW_TAG_shared_type";
     case DW_TAG_type_unit:
       return "DW_TAG_type_unit";
+    case DW_TAG_rvalue_reference_type:
+      return "DW_TAG_rvalue_reference_type";
+    case DW_TAG_template_alias:
+      return "DW_TAG_template_alias";
     case DW_TAG_GNU_template_parameter_pack:
       return "DW_TAG_GNU_template_parameter_pack";
     case DW_TAG_GNU_formal_parameter_pack:
@@ -6662,6 +6668,16 @@ dwarf_attr_name (unsigned int attr)
 
     case DW_AT_signature:
       return "DW_AT_signature";
+    case DW_AT_main_subprogram:
+      return "DW_AT_main_subprogram";
+    case DW_AT_data_bit_offset:
+      return "DW_AT_data_bit_offset";
+    case DW_AT_const_expr:
+      return "DW_AT_const_expr";
+    case DW_AT_enum_class:
+      return "DW_AT_enum_class";
+    case DW_AT_linkage_name:
+      return "DW_AT_linkage_name";
 
     case DW_AT_MIPS_fde:
       return "DW_AT_MIPS_fde";
@@ -6700,6 +6716,22 @@ dwarf_attr_name (unsigned int attr)
       return "DW_AT_body_end";
     case DW_AT_GNU_vector:
       return "DW_AT_GNU_vector";
+    case DW_AT_GNU_guarded_by:
+      return "DW_AT_GNU_guarded_by";
+    case DW_AT_GNU_pt_guarded_by:
+      return "DW_AT_GNU_pt_guarded_by";
+    case DW_AT_GNU_guarded:
+      return "DW_AT_GNU_guarded";
+    case DW_AT_GNU_pt_guarded:
+      return "DW_AT_GNU_pt_guarded";
+    case DW_AT_GNU_locks_excluded:
+      return "DW_AT_GNU_locks_excluded";
+    case DW_AT_GNU_exclusive_locks_required:
+      return "DW_AT_GNU_exclusive_locks_required";
+    case DW_AT_GNU_shared_locks_required:
+      return "DW_AT_GNU_shared_locks_required";
+    case DW_AT_GNU_odr_signature:
+      return "DW_AT_GNU_odr_signature";
     case DW_AT_GNU_template_name:
       return "DW_AT_GNU_template_name";
 
@@ -6760,6 +6792,14 @@ dwarf_form_name (unsigned int form)
       return "DW_FORM_ref_udata";
     case DW_FORM_indirect:
       return "DW_FORM_indirect";
+    case DW_FORM_sec_offset:
+      return "DW_FORM_sec_offset";
+    case DW_FORM_exprloc:
+      return "DW_FORM_exprloc";
+    case DW_FORM_flag_present:
+      return "DW_FORM_flag_present";
+    case DW_FORM_ref_sig8:
+      return "DW_FORM_ref_sig8";
     default:
       return "DW_FORM_<unknown>";
     }
@@ -10352,7 +10392,7 @@ output_signature (const char *sig, const char *name)
   int i;
 
   for (i = 0; i < DWARF_TYPE_SIGNATURE_SIZE; i++)
-    dw2_asm_output_data (1, sig[i], "%s", name);
+    dw2_asm_output_data (1, sig[i], i == 0 ? "%s" : NULL, name);
 }
 
 /* Output the DIE and its attributes.  Called recursively to generate
@@ -10573,7 +10613,7 @@ output_die (dw_die_ref die)
 
 	    for (i = 0; i < 8; i++)
 	      dw2_asm_output_data (1, a->dw_attr_val.v.val_data8[i],
-	                           "%s", name);
+				   i == 0 ? "%s" : NULL, name);
 	    break;
 	  }
 
@@ -12856,10 +12896,7 @@ mem_loc_descriptor (rtx rtl, enum machine_mode mode,
     case POST_INC:
     case POST_DEC:
     case POST_MODIFY:
-      /* POST_INC and POST_DEC can be handled just like a SUBREG.  So we
-	 just fall into the SUBREG code.  */
-
-      /* ... fall through ...  */
+      return mem_loc_descriptor (XEXP (rtl, 0), mode, initialized);
 
     case SUBREG:
       /* The case of a subreg may arise when we have a local (register)
@@ -12867,8 +12904,12 @@ mem_loc_descriptor (rtx rtl, enum machine_mode mode,
 	 up an entire register.  For now, just assume that it is
 	 legitimate to make the Dwarf info refer to the whole register which
 	 contains the given subreg.  */
-      rtl = XEXP (rtl, 0);
+      if (!subreg_lowpart_p (rtl))
+	break;
+      rtl = SUBREG_REG (rtl);
       if (GET_MODE_SIZE (GET_MODE (rtl)) > DWARF2_ADDR_SIZE)
+	break;
+      if (GET_MODE_CLASS (GET_MODE (rtl)) != MODE_INT)
 	break;
       mem_loc_result = mem_loc_descriptor (rtl, mode, initialized);
       break;
@@ -13354,12 +13395,19 @@ mem_loc_descriptor (rtx rtl, enum machine_mode mode,
 	  if (BITS_BIG_ENDIAN)
 	    shift = GET_MODE_BITSIZE (GET_MODE (XEXP (rtl, 0)))
 		    - shift - size;
-	  add_loc_descr (&mem_loc_result,
-			 int_loc_descriptor (DWARF2_ADDR_SIZE - shift - size));
-	  add_loc_descr (&mem_loc_result, new_loc_descr (DW_OP_shl, 0, 0));
-	  add_loc_descr (&mem_loc_result,
-			 int_loc_descriptor (DWARF2_ADDR_SIZE - size));
-	  add_loc_descr (&mem_loc_result, new_loc_descr (op, 0, 0));
+	  if (shift + size != (int) DWARF2_ADDR_SIZE)
+	    {
+	      add_loc_descr (&mem_loc_result,
+			     int_loc_descriptor (DWARF2_ADDR_SIZE
+						 - shift - size));
+	      add_loc_descr (&mem_loc_result, new_loc_descr (DW_OP_shl, 0, 0));
+	    }
+	  if (size != (int) DWARF2_ADDR_SIZE)
+	    {
+	      add_loc_descr (&mem_loc_result,
+			     int_loc_descriptor (DWARF2_ADDR_SIZE - size));
+	      add_loc_descr (&mem_loc_result, new_loc_descr (op, 0, 0));
+	    }
 	}
       break;
 
@@ -13381,6 +13429,7 @@ mem_loc_descriptor (rtx rtl, enum machine_mode mode,
     case ORDERED:
     case UNEQ:
     case UNGE:
+    case UNGT:
     case UNLE:
     case UNLT:
     case LTGT:
@@ -20012,8 +20061,7 @@ dwarf2out_var_location (rtx loc_note)
       ASM_OUTPUT_DEBUG_LABEL (asm_out_file, "LVL", loclabel_num);
       loclabel_num++;
       last_label = ggc_strdup (loclabel);
-      if (!NOTE_DURING_CALL_P (loc_note))
-	last_postcall_label = NULL;
+      last_postcall_label = NULL;
     }
   newloc->var_loc_note = loc_note;
   newloc->next = NULL;
@@ -20346,6 +20394,14 @@ dwarf2out_init (const char *filename ATTRIBUTE_UNUSED)
       ASM_OUTPUT_LABEL (asm_out_file, cold_text_section_label);
     }
 
+}
+
+/* Called before cgraph_optimize starts outputtting functions, variables
+   and toplevel asms into assembly.  */
+
+static void
+dwarf2out_assembly_start (void)
+{
   if (HAVE_GAS_CFI_SECTIONS_DIRECTIVE && dwarf2out_do_cfi_asm ())
     {
 #ifndef TARGET_UNWIND_INFO
@@ -21228,6 +21284,7 @@ const struct gcc_debug_hooks dwarf2_debug_hooks =
 {
   0,		/* init */
   0,		/* finish */
+  0,		/* assembly_start */
   0,		/* define */
   0,		/* undef */
   0,		/* start_source_file */

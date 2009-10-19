@@ -2524,6 +2524,9 @@ expand_debug_expr (tree exp)
 					&mode1, &unsignedp, &volatilep, false);
 	rtx orig_op0;
 
+	if (bitsize == 0)
+	  return NULL;
+
 	orig_op0 = op0 = expand_debug_expr (tem);
 
 	if (!op0)
@@ -2561,6 +2564,9 @@ expand_debug_expr (tree exp)
 
 	if (MEM_P (op0))
 	  {
+	    if (mode1 == VOIDmode)
+	      /* Bitfield.  */
+	      mode1 = smallest_mode_for_size (bitsize, MODE_INT);
 	    if (bitpos >= BITS_PER_UNIT)
 	      {
 		op0 = adjust_address_nv (op0, mode1, bitpos / BITS_PER_UNIT);
@@ -2568,7 +2574,8 @@ expand_debug_expr (tree exp)
 	      }
 	    else if (bitpos < 0)
 	      {
-		int units = (-bitpos + BITS_PER_UNIT - 1) / BITS_PER_UNIT;
+		HOST_WIDE_INT units
+		  = (-bitpos + BITS_PER_UNIT - 1) / BITS_PER_UNIT;
 		op0 = adjust_address_nv (op0, mode1, units);
 		bitpos += units * BITS_PER_UNIT;
 	      }
@@ -2585,6 +2592,9 @@ expand_debug_expr (tree exp)
 
 	if (bitpos == 0 && mode == GET_MODE (op0))
 	  return op0;
+
+        if (bitpos < 0)
+          return NULL;
 
 	if ((bitpos % BITS_PER_UNIT) == 0
 	    && bitsize == GET_MODE_BITSIZE (mode1))
@@ -2861,6 +2871,46 @@ expand_debug_expr (tree exp)
       if (GET_MODE (op1) == VOIDmode)
 	op1 = gen_rtx_CONST (GET_MODE_INNER (mode), op1);
       return gen_rtx_CONCAT (mode, op0, op1);
+
+    case CONJ_EXPR:
+      if (GET_CODE (op0) == CONCAT)
+	return gen_rtx_CONCAT (mode, XEXP (op0, 0),
+			       gen_rtx_NEG (GET_MODE_INNER (mode),
+					    XEXP (op0, 1)));
+      else
+	{
+	  enum machine_mode imode = GET_MODE_INNER (mode);
+	  rtx re, im;
+
+	  if (MEM_P (op0))
+	    {
+	      re = adjust_address_nv (op0, imode, 0);
+	      im = adjust_address_nv (op0, imode, GET_MODE_SIZE (imode));
+	    }
+	  else
+	    {
+	      enum machine_mode ifmode = int_mode_for_mode (mode);
+	      enum machine_mode ihmode = int_mode_for_mode (imode);
+	      rtx halfsize;
+	      if (ifmode == BLKmode || ihmode == BLKmode)
+		return NULL;
+	      halfsize = GEN_INT (GET_MODE_BITSIZE (ihmode));
+	      re = op0;
+	      if (mode != ifmode)
+		re = gen_rtx_SUBREG (ifmode, re, 0);
+	      re = gen_rtx_ZERO_EXTRACT (ihmode, re, halfsize, const0_rtx);
+	      if (imode != ihmode)
+		re = gen_rtx_SUBREG (imode, re, 0);
+	      im = copy_rtx (op0);
+	      if (mode != ifmode)
+		im = gen_rtx_SUBREG (ifmode, im, 0);
+	      im = gen_rtx_ZERO_EXTRACT (ihmode, im, halfsize, halfsize);
+	      if (imode != ihmode)
+		im = gen_rtx_SUBREG (imode, im, 0);
+	    }
+	  im = gen_rtx_NEG (imode, im);
+	  return gen_rtx_CONCAT (mode, re, im);
+	}
 
     case ADDR_EXPR:
       op0 = expand_debug_expr (TREE_OPERAND (exp, 0));
