@@ -7489,7 +7489,7 @@ c_parse_error (const char *gmsgid, enum cpp_ttype token, tree value)
       message = NULL;
     }
   else if (token == CPP_STRING || token == CPP_WSTRING || token == CPP_STRING16
-	   || token == CPP_STRING32)
+	   || token == CPP_STRING32 || token == CPP_UTF8STRING)
     message = catenate_messages (gmsgid, " before string constant");
   else if (token == CPP_NUMBER)
     message = catenate_messages (gmsgid, " before numeric constant");
