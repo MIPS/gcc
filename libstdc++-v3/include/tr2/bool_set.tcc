@@ -1,3 +1,75 @@
+// TR2 bool_set -*- C++ -*-
+
+// Copyright (C) 2009 Free Software Foundation, Inc.
+//
+// This file is part of the GNU ISO C++ Library.  This library is free
+// software; you can redistribute it and/or modify it under the
+// terms of the GNU General Public License as published by the
+// Free Software Foundation; either version 3, or (at your option)
+// any later version.
+
+// This library is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// Under Section 7 of GPL version 3, you are granted additional
+// permissions described in the GCC Runtime Library Exception, version
+// 3.1, as published by the Free Software Foundation.
+
+// You should have received a copy of the GNU General Public License and
+// a copy of the GCC Runtime Library Exception along with this program;
+// see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+// <http://www.gnu.org/licenses/>.
+
+/** @file tr2/bool_set.tcc
+ *  This is a TR2 C++ Library header. 
+ */
+
+#ifndef _GLIBCXX_TR2_BOOL_SET_TCC
+#define _GLIBCXX_TR2_BOOL_SET_TCC 1
+
+#pragma GCC system_header
+
+namespace std
+{
+namespace tr2
+{
+
+  bool_set::_Bool_set_val
+  bool_set::_S_not[4] = 
+  { _S_true_, _S_false, _S_indet, _S_empty };
+
+  bool_set::_Bool_set_val
+  bool_set::_S_xor[4][4] = 
+  { { _S_false, _S_true_, _S_indet, _S_empty },
+    { _S_true_, _S_false, _S_indet, _S_empty },
+    { _S_indet, _S_indet, _S_indet, _S_empty },
+    { _S_empty, _S_empty, _S_empty, _S_empty } };
+
+  bool_set::_Bool_set_val
+  bool_set::_S_or[4][4] = 
+  { { _S_false, _S_true_, _S_indet, _S_empty },
+    { _S_true_, _S_true_, _S_true_, _S_empty },
+    { _S_indet, _S_true_, _S_indet, _S_empty },
+    { _S_empty, _S_empty, _S_empty, _S_empty } };
+
+  bool_set::_Bool_set_val
+  bool_set::_S_and[4][4] = 
+  { { _S_false, _S_false, _S_false, _S_empty },
+    { _S_false, _S_true_, _S_indet, _S_empty },
+    { _S_false, _S_indet, _S_indet, _S_empty },
+    { _S_empty, _S_empty, _S_empty, _S_empty } };
+
+  bool_set::_Bool_set_val
+  bool_set::_S_eq[4][4] = 
+  { { _S_true_, _S_false, _S_indet, _S_empty },
+    { _S_false, _S_true_, _S_indet, _S_empty },
+    { _S_indet, _S_indet, _S_indet, _S_empty },
+    { _S_empty, _S_empty, _S_empty, _S_empty } };
+
+}
+}
 
 //  I object to these things.
 //  The stuff in locale facets are for basic types.
@@ -25,12 +97,12 @@
        *  @param  err  Error flags to set.
        *  @param  v  Value to format and insert.
        *  @return  Iterator after reading.
-      */
       iter_type
       get(iter_type __in, iter_type __end, ios_base& __io,
 	  ios_base::iostate& __err, bool& __v) const
       { return this->do_get(__in, __end, __io, __err, __v); }
-
+       */
+/*
   template<typename _CharT, typename _InIter>
     _InIter
     num_get<_CharT, _InIter>::
@@ -57,7 +129,6 @@
         }
       else
         {
-/*
 	  // Parse bool values as alphanumeric.
 	  typedef __numpunct_cache<_CharT>  __cache_type;
 	  __use_cache<__cache_type> __uc;
@@ -123,10 +194,10 @@
 	      if (__testeof)
 		__err |= ios_base::eofbit;
 	    }
-*/
 	}
       return __beg;
     }
+*/
   
       /**
        *  @brief  Numeric formatting.
@@ -142,11 +213,12 @@
        *  @param  fill  Char_type to use for filling.
        *  @param  v  Value to format and insert.
        *  @return  Iterator after writing.
-      */
       iter_type
       put(iter_type __s, ios_base& __f, char_type __fill, bool __v) const
       { return this->do_put(__s, __f, __fill, __v); }
+       */
 
+/*
   template<typename _CharT, typename _OutIter>
     _OutIter
     num_put<_CharT, _OutIter>::
@@ -160,7 +232,6 @@
         }
       else
         {
-/*
 	  typedef __numpunct_cache<_CharT> __cache_type;
 	  __use_cache<__cache_type> __uc;
 	  const locale& __loc = __io._M_getloc();
@@ -196,7 +267,10 @@
 	    }
 	  __io.width(0);
 	  __s = std::__write(__s, __name, __len);
-*/
 	}
       return __s;
     }
+*/
+
+#endif // _GLIBCXX_TR2_BOOL_SET_TCC
+

@@ -312,4 +312,6 @@ namespace tr2
 }
 }
 
+#include <tr2/bool_set.tcc>
+
 #endif // _GLIBCXX_TR2_BOOL_SET

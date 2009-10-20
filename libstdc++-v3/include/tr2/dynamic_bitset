@@ -47,6 +47,24 @@ namespace std
 namespace tr2
 {
 
+namespace __detail
+{
+
+template<typename T>
+class _Bool2UChar
+{
+  typedef T type;
+};
+
+template<>
+class _Bool2UChar<bool>
+{
+public:
+  typedef unsigned char type;
+};
+
+}
+
   /**
    *  Base class, general case.
    *
@@ -61,7 +79,8 @@ namespace tr2
 #endif
     struct _Base_dynamic_bitset
     {
-      __glibcxx_class_requires(_WordT, _UnsignedIntegerConcept)
+      static_assert(std::is_unsigned<_WordT>::value, "template argument "
+                    "_WordT not an unsigned integral type");
 
       typedef _WordT block_type;
       typedef _Alloc allocator_type;
@@ -575,7 +594,8 @@ namespace tr2
     class dynamic_bitset
     : private _Base_dynamic_bitset<_WordT, _Alloc>
     {
-      __glibcxx_class_requires(_WordT, _UnsignedIntegerConcept)
+      static_assert(std::is_unsigned<_WordT>::value, "template argument "
+                    "_WordT not an unsigned integral type");
 
     public:
 

@@ -1,3 +1,19 @@
+2009-10-19  Ed Smith-Rowland  <3dw4rd@verizon.net>
+
+	* include/Makefile.in: Removed fp_comp.cpp and bool_set.cc.
+	* include/tr2/bool_set.cc: Removed.
+	* include/tr2/dynamic_bitset: Added new static assertion tests for unsigned integral.
+	* include/tr2/fp_comp.cpp: Moved from here ...
+	* include/tr2/fp_comp.h: ... to here.
+	* include/tr2/bool_set: Include outline header.
+	* include/tr2/bool_set.tcc: Added static data member definitions.
+	* include/Makefile.am: Regenerated
+	* testsuite/tr2: New.
+	* testsuite/tr2/containers: New.
+	* testsuite/tr2/containers/dynamic_bitset: New.
+	* testsuite/tr2/numerical_facilities: New.
+	* testsuite/tr2/headers: New.
+
 2009-10-10  Gerald Pfeifer  <gerald@pfeifer.com>
 
 	* doc/xml/manual/messages.xml: Update GNU gettext reference.
