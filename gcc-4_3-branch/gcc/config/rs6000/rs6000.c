@@ -130,8 +130,8 @@ typedef struct machine_function GTY(())
      64-bits wide and is allocated early enough so that the offset
      does not overflow the 16-bit load/store offset field.  */
   rtx sdmode_stack_slot;
-  /* Whether an indirect jump or table jump was generated.  */
-  bool indirect_jump_p;
+  /* True if any VSX or ALTIVEC vector type was used.  */
+  bool vsx_or_altivec_used_p;
 } machine_function;
 
 /* Target cpu type */
@@ -922,7 +922,7 @@ static void rs6000_elf_encode_section_info (tree, rtx, int)
      ATTRIBUTE_UNUSED;
 #endif
 static bool rs6000_use_blocks_for_constant_p (enum machine_mode, const_rtx);
-static void rs6000_alloc_sdmode_stack_slot (void);
+static void rs6000_expand_to_rtl_hook (void);
 static void rs6000_instantiate_decls (void);
 #if TARGET_XCOFF
 static void rs6000_xcoff_asm_output_anchor (rtx);
@@ -1482,7 +1482,7 @@ static const char alt_reg_names[][8] =
 #define TARGET_BUILTIN_RECIPROCAL rs6000_builtin_reciprocal
 
 #undef TARGET_EXPAND_TO_RTL_HOOK
-#define TARGET_EXPAND_TO_RTL_HOOK rs6000_alloc_sdmode_stack_slot
+#define TARGET_EXPAND_TO_RTL_HOOK rs6000_expand_to_rtl_hook
 
 #undef TARGET_INSTANTIATE_DECLS
 #define TARGET_INSTANTIATE_DECLS rs6000_instantiate_decls
@@ -13023,17 +13023,59 @@ rs6000_check_sdmode (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 
   switch (TREE_CODE (*tp))
     {
+      /* the ada compiler occasionally generates SSA_NAME's with no type.  */
+    case SSA_NAME:
+      if (! TREE_TYPE (*tp))
+	return NULL_TREE;
+      /* fall through */
+
     case VAR_DECL:
     case PARM_DECL:
     case FIELD_DECL:
     case RESULT_DECL:
-    case SSA_NAME:
     case REAL_CST:
     case INDIRECT_REF:
     case ALIGN_INDIRECT_REF:
     case MISALIGNED_INDIRECT_REF:
     case VIEW_CONVERT_EXPR:
       if (TYPE_MODE (TREE_TYPE (*tp)) == SDmode)
+	return *tp;
+      break;
+    default:
+      break;
+    }
+
+  return NULL_TREE;
+}
+
+static tree
+rs6000_check_vector_mode (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
+{
+  /* Don't walk into types.  */
+  if (*tp == NULL_TREE || *tp == error_mark_node || TYPE_P (*tp))
+    {
+      *walk_subtrees = 0;
+      return NULL_TREE;
+    }
+
+  switch (TREE_CODE (*tp))
+    {
+      /* the ada compiler occasionally generates SSA_NAME's with no type.  */
+    case SSA_NAME:
+      if (! TREE_TYPE (*tp))
+	return NULL_TREE;
+      /* fall through */
+
+    case VAR_DECL:
+    case PARM_DECL:
+    case FIELD_DECL:
+    case RESULT_DECL:
+    case REAL_CST:
+    case INDIRECT_REF:
+    case ALIGN_INDIRECT_REF:
+    case MISALIGNED_INDIRECT_REF:
+    case VIEW_CONVERT_EXPR:
+      if (VECTOR_MODE_P (TYPE_MODE (TREE_TYPE (*tp))))
 	return *tp;
       break;
     default:
@@ -13463,11 +13505,17 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
   return;
 }
 
-/* Allocate a 64-bit stack slot to be used for copying SDmode
-   values through if this function has any SDmode references.  */
+/* Scan the trees looking for certain types.
+
+   Allocate a 64-bit stack slot to be used for copying SDmode values through if
+   this function has any SDmode references.
+
+   If VSX, note whether any vector operation was done so we can set VRSAVE to
+   non-zero, even if we just use the floating point registers to tell the
+   kernel to save the vector registers.  */
 
 static void
-rs6000_alloc_sdmode_stack_slot (void)
+rs6000_expand_to_rtl_hook (void)
 {
   tree t;
   basic_block bb;
@@ -13475,6 +13523,24 @@ rs6000_alloc_sdmode_stack_slot (void)
 
   gcc_assert (cfun->machine->sdmode_stack_slot == NULL_RTX);
 
+  /* Check for vectors.  */
+  if (TARGET_VSX)
+    {
+      FOR_EACH_BB (bb)
+	for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+	  {
+	    if (walk_tree_without_duplicates (bsi_stmt_ptr (bsi),
+					      rs6000_check_vector_mode, NULL))
+	      {
+		cfun->machine->vsx_or_altivec_used_p = true;
+		goto found_vector;
+	      }
+	  }
+    found_vector:
+      ;
+    }
+
+  /* Check for SDmode.  */
   FOR_EACH_BB (bb)
     for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
       {
@@ -16648,6 +16714,15 @@ compute_vrsave_mask (void)
   for (i = FIRST_ALTIVEC_REGNO; i <= LAST_ALTIVEC_REGNO; ++i)
     if (df_regs_ever_live_p (i))
       mask |= ALTIVEC_REG_BIT (i);
+
+  /* If VSX is used, we might have used a traditional floating point register
+     in a vector mode without using any altivec registers.  However the VRSAVE
+     register does not have room to indicate the floating point registers.
+     Modern kernels only look to see if the value is non-zero to determine if
+     they need to save the vector registers, so we just set an arbitrary
+     value if any vector type was used.  */
+  if (mask == 0 && TARGET_VSX && cfun->machine->vsx_or_altivec_used_p)
+    mask = 0xFFF;
 
   if (mask == 0)
     return mask;
@@ -25119,26 +25194,6 @@ rs6000_final_prescan_insn (rtx insn, rtx *operand ATTRIBUTE_UNUSED,
 		 "emitting conditional microcode insn %s\t[%s] #%d",
 		 temp, insn_data[INSN_CODE (insn)].name, INSN_UID (insn));
     }
-}
-
-/* Return true if the function has an indirect jump or a table jump.  The compiler
-   prefers the ctr register for such jumps, which interferes with using the decrement
-   ctr register and branch.  */
-
-bool
-rs6000_has_indirect_jump_p (void)
-{
-  gcc_assert (cfun && cfun->machine);
-  return cfun->machine->indirect_jump_p;
-}
-
-/* Remember when we've generated an indirect jump.  */
-
-void
-rs6000_set_indirect_jump (void)
-{
-  gcc_assert (cfun && cfun->machine);
-  cfun->machine->indirect_jump_p = true;
 }
 
 #include "gt-rs6000.h"

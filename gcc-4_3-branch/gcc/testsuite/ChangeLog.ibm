@@ -1,3 +1,10 @@
+<<<<<<< .mine
+2009-10-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/41787
+	* gcc.target/powerpc/vsx-vrsave.c: New file.
+
+=======
 2009-10-22  Janis Johnson  <janis187@us.ibm.com>
 
 	Backport from 4.3 branch:
@@ -6,6 +13,7 @@
 	PR c/41049
 	* gcc.dg/dfp/pr41049.c: New test.
 
+>>>>>>> .r153481
 2009-10-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* gcc.target/powerpc/altivec-4.c (b): Make sure altivec builtin
