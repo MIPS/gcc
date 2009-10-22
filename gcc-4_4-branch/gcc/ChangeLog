@@ -1,3 +1,26 @@
+2009-10-21  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline:
+	2009-06-13  Joerg Sonnenberger  <joerg@britannica.bec.de>
+
+	* doc/invoke.texi: Add missing option -Wp,OPTION in list,
+	fix index entry for -Xpreprocessor.
+
+2009-10-20  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+        Backport from mainline:
+	2009-10-15  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/41702
+	* pa.md (casesi): Use sign extended index in call to
+	gen_casesi64p.
+	(casesi64p): Update pattern to reflect above.
+
+2009-10-20  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/arm/arm.c (output_move_neon): Use DImode in call to
+	adjust_address.
+
 2009-10-19  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-common.c (c_parse_error): Handle CPP_UTF8STRING.
