@@ -1,3 +1,47 @@
+2009-10-23  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/41758
+	* match.c (conformable_arrays): Move to resolve.c.
+	(gfc_match_allocate): Don't resolve SOURCE expr yet, and move some
+	checks to resolve_allocate_expr.
+	* resolve.c (conformable_arrays): Moved here from match.c.
+	(resolve_allocate_expr): Moved some checks here from gfc_match_allocate.
+	(resolve_code): Resolve SOURCE tag for ALLOCATE expressions.
+
+2009-10-22  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/41781
+	* resolve.c (resolve_codes): Don't clear 'cs_base' for BLOCK constructs,
+	to make sure labels are treated correctly.
+	* symbol.c (gfc_get_st_label): Create labels in the right namespace.
+	For BLOCK constructs go into the parent namespace.
+
+2009-10-21  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/41706
+	PR fortran/41766
+	* match.c (select_type_set_tmp): Set flavor for temporary.
+	* resolve.c (resolve_class_typebound_call): Correctly resolve actual
+	arguments.
+
+2009-10-20  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/41706
+	* resolve.c (resolve_arg_exprs): New function.
+	(resolve_class_compcall): Call the above.
+	(resolve_class_typebound_call): The same.
+
+2009-10-19  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/41586
+	* parse.c (parse_derived): Correctly set 'alloc_comp' and 'pointer_comp'
+	for CLASS variables.
+	* trans-array.c (structure_alloc_comps): Handle deallocation and
+	nullification of allocatable scalar components.
+	* trans-decl.c (gfc_get_symbol_decl): Remember allocatable scalars for
+	automatic deallocation.
+	(gfc_trans_deferred_vars): Automatically deallocate allocatable scalars.
+
 2009-10-19  Tobias Burnus  <burnus@net-b.de>
 	    Steven G. Kargl  <kargl@gcc.gnu.org>
 

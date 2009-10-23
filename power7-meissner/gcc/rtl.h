@@ -1568,6 +1568,7 @@ extern rtx rtx_alloc_stat (RTX_CODE MEM_STAT_DECL);
 #define rtx_alloc(c) rtx_alloc_stat (c MEM_STAT_INFO)
 
 extern rtvec rtvec_alloc (int);
+extern rtvec shallow_copy_rtvec (rtvec);
 extern bool shared_const_p (const_rtx);
 extern rtx copy_rtx (rtx);
 extern void dump_rtx_statistics (void);
@@ -1768,6 +1769,8 @@ extern rtx simplify_subreg (enum machine_mode, rtx, enum machine_mode,
 			    unsigned int);
 extern rtx simplify_gen_subreg (enum machine_mode, rtx, enum machine_mode,
 				unsigned int);
+extern rtx simplify_replace_fn_rtx (rtx, const_rtx,
+				    rtx (*fn) (rtx, void *), void *);
 extern rtx simplify_replace_rtx (rtx, const_rtx, rtx);
 extern rtx simplify_rtx (const_rtx);
 extern rtx avoid_constant_pool_reference (rtx);
@@ -2409,8 +2412,6 @@ extern void invert_br_probabilities (rtx);
 extern bool expensive_function_p (int);
 /* In cfgexpand.c */
 extern void add_reg_br_prob_note (rtx last, int probability);
-extern rtx wrap_constant (enum machine_mode, rtx);
-extern rtx unwrap_constant (rtx);
 
 /* In var-tracking.c */
 extern unsigned int variable_tracking_main (void);

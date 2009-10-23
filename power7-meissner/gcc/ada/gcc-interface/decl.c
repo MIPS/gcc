@@ -4436,7 +4436,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	 us when we make the new TYPE_DECL below.  */
       if (gnu_size || align > 0)
 	gnu_type = maybe_pad_type (gnu_type, gnu_size, align, gnat_entity,
-				   false, true, definition, false);
+				   false, !gnu_decl, definition, false);
 
       if (TYPE_IS_PADDING_P (gnu_type))
 	{
@@ -4555,7 +4555,10 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 				     !Comes_From_Source (gnat_entity),
 				     debug_info_p, gnat_entity);
       else
-	TREE_TYPE (gnu_decl) = gnu_type;
+	{
+	  TREE_TYPE (gnu_decl) = gnu_type;
+	  TYPE_STUB_DECL (gnu_type) = gnu_decl;
+	}
     }
 
   if (is_type && !TYPE_IS_DUMMY_P (TREE_TYPE (gnu_decl)))
@@ -7371,12 +7374,16 @@ build_subst_list (Entity_Id gnat_subtype, Entity_Id gnat_type, bool definition)
        gnat_value = Next_Elmt (gnat_value))
     /* Ignore access discriminants.  */
     if (!Is_Access_Type (Etype (Node (gnat_value))))
-      gnu_list = tree_cons (gnat_to_gnu_field_decl (gnat_discrim),
-			    elaborate_expression
-			    (Node (gnat_value), gnat_subtype,
-			     get_entity_name (gnat_discrim), definition,
-			     true, false),
-			    gnu_list);
+      {
+	tree gnu_field = gnat_to_gnu_field_decl (gnat_discrim);
+	gnu_list = tree_cons (gnu_field,
+			      convert (TREE_TYPE (gnu_field),
+				       elaborate_expression
+				       (Node (gnat_value), gnat_subtype,
+					get_entity_name (gnat_discrim),
+					definition, true, false)),
+			      gnu_list);
+      }
 
   return gnu_list;
 }

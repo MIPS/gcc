@@ -1,3 +1,139 @@
+2009-10-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/41787
+	* gcc.target/powerpc/vsx-vrsave.c: New file.
+
+2009-10-23  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/41673
+	* gcc.dg/Wstrict-aliasing-bogus-vla-1.c: New test.
+
+2009-10-23  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/41778
+	* gcc.dg/tree-ssa/ssa-pre-26.c: New testcase.
+
+2009-10-22  Richard Guenther  <rguenther@suse.de>
+
+	PR lto/41791
+	* g++.dg/lto/20091022-2_0.C: New testcase.
+
+2009-10-22  Richard Guenther  <rguenther@suse.de>
+
+	PR lto/41730
+	* g++.dg/lto/20091022-1_0.C: New testcase.
+
+2009-10-22  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.c-torture/compile/pr40556.c: New testcase.
+
+2009-10-22  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/41781
+	* gfortran.dg/goto_8.f90: New test case.
+
+2009-10-21  Sebastian Pop  <sebastian.pop@amd.com>
+
+	PR tree-optimization/41497
+	* gcc.dg/tree-ssa/pr41497.c: New.
+
+2009-10-21  Steve Ellcey  <sje@cup.hp.com>
+
+	* g++.dg/tree-ssa/copyprop.C: Use include to define free().
+
+2009-10-21  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/tls/pie-1.c: New test.
+
+2009-10-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/abi/mangle33.C: New test.
+
+2009-10-21  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/discr22.adb: New test.
+
+2009-10-21  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/loop_optimization7.ad[sb]: New test.
+	* gnat.dg/loop_optimization7_pkg.ads: New helper.
+
+2009-10-21  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/41706
+	PR fortran/41766
+	* gfortran.dg/class_9.f03: Extended test case.
+	* gfortran.dg/select_type_7.f03: New test case.
+
+2009-10-20  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.dg/lto/20091020-3_0.c: New testcase.
+
+2009-10-20  Richard Guenther  <rguenther@suse.de>
+
+	PR lto/41761
+	* gcc.dg/lto/20091020-1_0.c: New testcase.
+	* gcc.dg/lto/20091020-1_1.c: Likewise.
+	* gcc.dg/lto/20091020-2_0.c: Likewise.
+	* gcc.dg/lto/20091020-2_1.c: Likewise.
+
+2009-10-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/41340
+	* gcc.dg/pr41340.c: New test.
+
+2009-10-20  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/discr21.ad[sb]: New test.
+	* gnat.dg/discr21_pkg.ads: New helper.
+
+2009-10-20  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/41706
+	* gfortran.dg/class_9 : New test.
+
+2009-10-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/raw-string-1.c: New test.
+	* gcc.dg/raw-string-2.c: New test.
+	* gcc.dg/raw-string-3.c: New test.
+	* gcc.dg/raw-string-4.c: New test.
+	* gcc.dg/raw-string-5.c: New test.
+	* gcc.dg/raw-string-6.c: New test.
+	* gcc.dg/raw-string-7.c: New test.
+	* gcc.dg/utf8-1.c: New test.
+	* gcc.dg/utf8-2.c: New test.
+	* gcc.dg/utf-badconcat2.c: New test.
+	* gcc.dg/utf-dflt2.c: New test.
+	* gcc.dg/cpp/include6.c: New test.
+	* g++.dg/ext/raw-string-1.C: New test.
+	* g++.dg/ext/raw-string-2.C: New test.
+	* g++.dg/ext/raw-string-3.C: New test.
+	* g++.dg/ext/raw-string-4.C: New test.
+	* g++.dg/ext/raw-string-5.C: New test.
+	* g++.dg/ext/raw-string-6.C: New test.
+	* g++.dg/ext/raw-string-7.C: New test.
+	* g++.dg/ext/utf8-1.C: New test.
+	* g++.dg/ext/utf8-2.C: New test.
+	* g++.dg/ext/utf-badconcat2.C: New test.
+	* g++.dg/ext/utf-dflt2.C: New test.
+
+	* gcc.dg/cleanup-13.c: New test.
+
+2009-10-19  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/41586
+	* gfortran.dg/auto_dealloc_1.f90: New test case.
+
+2009-10-19  Jakub Jelinek  <jakub@redhat.com>
+
+	Port from redhat/gcc-4_4-branch:
+	2009-10-08  Jakub Jelinek  <jakub@redhat.com>
+	* gcc.dg/debug/vta-2.c: New test.
+
+	2009-09-30  Alexandre Oliva  <aoliva@redhat.com>
+	* gcc.dg/debug/vta-1.c: New.
+
 2009-10-19  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* gnat.dg/noreturn2.ad[sb]: New test.
@@ -160,7 +296,7 @@
 
 2009-10-14  Daniel Gutson  <dgutson@codesourcery.com>
 
-        * gcc.target/arm/neon/vfp-shift-a2t2.c: New test case.
+	* gcc.target/arm/neon/vfp-shift-a2t2.c: New test case.
 
 2009-10-14  Jakub Jelinek  <jakub@redhat.com>
 
