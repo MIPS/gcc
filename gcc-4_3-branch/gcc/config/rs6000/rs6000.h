@@ -2561,6 +2561,10 @@ enum rs6000_btc
   RS6000_BTC_FP_PURE		/* builtin is 'pure' if rounding math.  */
 };
 
+/* Convenience macros to document the instruction type.  */
+#define RS6000_BTC_MEM	RS6000_BTC_MISC	/* load/store touches memory */
+#define RS6000_BTC_SAT	RS6000_BTC_MISC	/* VMX saturate sets VSCR register */
+
 #undef RS6000_BUILTIN
 #undef RS6000_BUILTIN_EQUATE
 #define RS6000_BUILTIN(NAME, TYPE) NAME,

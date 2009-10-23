@@ -844,6 +844,7 @@ struct processor_costs ppca2_cost = {
 
 
 /* Table that classifies rs6000 builtin functions (pure, const, etc.).  */
+#ifdef ENABLE_BUILTIN_ATTRIBUTES
 #undef RS6000_BUILTIN
 #undef RS6000_BUILTIN_EQUATE
 #define RS6000_BUILTIN(NAME, TYPE) TYPE,
@@ -856,6 +857,7 @@ static const enum rs6000_btc builtin_classify[(int)MAX_RS6000_BUILTINS] =
 
 #undef RS6000_BUILTIN
 #undef RS6000_BUILTIN_EQUATE
+#endif
 
 
 static bool rs6000_function_ok_for_sibcall (tree, tree);
@@ -8417,54 +8419,61 @@ def_builtin (int mask, const char *name, tree type, int code)
 {
   if ((mask & target_flags) || TARGET_PAIRED_FLOAT)
     {
-      tree t;
       if (rs6000_builtin_decls[code])
 	fatal_error ("internal error: builtin function to %s already processed.",
 		     name);
 
-      rs6000_builtin_decls[code] = t =
+      rs6000_builtin_decls[code] =
         add_builtin_function (name, type, code, BUILT_IN_MD,
 			      NULL, NULL_TREE);
 
-      gcc_assert (code >= 0 && code < (int)MAX_RS6000_BUILTINS);
-      switch (builtin_classify[code])
-	{
-	default:
-	  gcc_unreachable ();
+      /* Disable setting the builtin attributes for now, until we can figure out
+	 an appropriate way to fix gcc.dg/vmx/sn7153.c which fails when the
+	 attributes are set.  */
+#ifdef ENABLE_BUILTIN_ATTRIBUTES
+      {
+	tree t = rs6000_builtin_decls[code];
+	gcc_assert (code >= 0 && code < (int)MAX_RS6000_BUILTINS);
+	switch (builtin_classify[code])
+	  {
+	  default:
+	    gcc_unreachable ();
 
-	  /* assume builtin can do anything.  */
-	case RS6000_BTC_MISC:
-	  break;
+	    /* assume builtin can do anything.  */
+	  case RS6000_BTC_MISC:
+	    break;
 
-	  /* const function, function only depends on the inputs.  */
-	case RS6000_BTC_CONST:
-	  TREE_READONLY (t) = 1;
-	  TREE_NOTHROW (t) = 1;
-	  break;
-
-	  /* pure function, function can read global memory.  */
-	case RS6000_BTC_PURE:
-	  DECL_IS_PURE (t) = 1;
-	  TREE_NOTHROW (t) = 1;
-	  break;
-
-	  /* Function is a math function.  If rounding mode is on, then treat
-	     the function as not reading global memory, but it can have
-	     arbitrary side effects.  If it is off, then assume the function is
-	     a const function.  This mimics the ATTR_MATHFN_FPROUNDING
-	     attribute in builtin-attribute.def that is used for the math
-	     functions. */
-	case RS6000_BTC_FP_PURE:
-	  TREE_NOTHROW (t) = 1;
-	  if (flag_rounding_math)
-	    {
-	      DECL_IS_PURE (t) = 1;
-	      DECL_IS_NOVOPS (t) = 1;
-	    }
-	  else
+	    /* const function, function only depends on the inputs.  */
+	  case RS6000_BTC_CONST:
 	    TREE_READONLY (t) = 1;
-	  break;
-	}
+	    TREE_NOTHROW (t) = 1;
+	    break;
+
+	    /* pure function, function can read global memory.  */
+	  case RS6000_BTC_PURE:
+	    DECL_IS_PURE (t) = 1;
+	    TREE_NOTHROW (t) = 1;
+	    break;
+
+	    /* Function is a math function.  If rounding mode is on, then treat
+	       the function as not reading global memory, but it can have
+	       arbitrary side effects.  If it is off, then assume the function is
+	       a const function.  This mimics the ATTR_MATHFN_FPROUNDING
+	       attribute in builtin-attribute.def that is used for the math
+	       functions. */
+	  case RS6000_BTC_FP_PURE:
+	    TREE_NOTHROW (t) = 1;
+	    if (flag_rounding_math)
+	      {
+		DECL_IS_PURE (t) = 1;
+		DECL_IS_NOVOPS (t) = 1;
+	      }
+	    else
+	      TREE_READONLY (t) = 1;
+	    break;
+	  }
+      }
+#endif
     }
 }
 

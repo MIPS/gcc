@@ -103,16 +103,16 @@ altivec_categorize_keyword (const cpp_token *tok)
     {
       cpp_hashnode *ident = tok->val.node;
 
-      if (ident == C_CPP_HASHNODE (vector_keyword))
+      if (ident == C_CPP_HASHNODE (vector_keyword)
+	  || ident == C_CPP_HASHNODE (__vector_keyword))
 	return C_CPP_HASHNODE (__vector_keyword);
 
-      if (ident == C_CPP_HASHNODE (pixel_keyword))
+      if (ident == C_CPP_HASHNODE (pixel_keyword)
+	  || ident ==  C_CPP_HASHNODE (__pixel_keyword))
 	return C_CPP_HASHNODE (__pixel_keyword);
 
-      if (ident == C_CPP_HASHNODE (bool_keyword))
-	return C_CPP_HASHNODE (__bool_keyword);
-
-      if (ident == C_CPP_HASHNODE (_Bool_keyword))
+      if (ident == C_CPP_HASHNODE (bool_keyword)
+	  || ident == C_CPP_HASHNODE (__bool_keyword))
 	return C_CPP_HASHNODE (__bool_keyword);
 
       return ident;
@@ -145,9 +145,6 @@ init_vector_keywords (void)
 
   bool_keyword = get_identifier ("bool");
   C_CPP_HASHNODE (bool_keyword)->flags |= NODE_CONDITIONAL;
-
-  _Bool_keyword = get_identifier ("_Bool");
-  C_CPP_HASHNODE (_Bool_keyword)->flags |= NODE_CONDITIONAL;
 }
 
 /* Called to decide whether a conditional macro should be expanded.
@@ -162,18 +159,12 @@ rs6000_macro_to_expand (cpp_reader *pfile, const cpp_token *tok)
 
   ident = altivec_categorize_keyword (tok);
 
-  if (ident != expand_this)
-    expand_this = NULL;
-
   if (ident == C_CPP_HASHNODE (__vector_keyword))
     {
-      int idx = 0;
-      do
-	tok = cpp_peek_token (pfile, idx++);
-      while (tok->type == CPP_PADDING);
+      tok = cpp_peek_token (pfile, 0);
       ident = altivec_categorize_keyword (tok);
 
-      if (ident == C_CPP_HASHNODE (__pixel_keyword))
+      if (ident ==  C_CPP_HASHNODE (__pixel_keyword))
 	{
 	  expand_this = C_CPP_HASHNODE (__vector_keyword);
 	  expand_bool_pixel = __pixel_keyword;
@@ -188,26 +179,10 @@ rs6000_macro_to_expand (cpp_reader *pfile, const cpp_token *tok)
 	  enum rid rid_code = (enum rid)(ident->rid_code);
 	  if (ident->type == NT_MACRO)
 	    {
-	      do
-		(void) cpp_get_token (pfile);
-	      while (--idx > 0);
-	      do
-		tok = cpp_peek_token (pfile, idx++);
-	      while (tok->type == CPP_PADDING);
+	      (void)cpp_get_token (pfile);
+	      tok = cpp_peek_token (pfile, 0);
 	      ident = altivec_categorize_keyword (tok);
-	      if (ident == C_CPP_HASHNODE (__pixel_keyword))
-		{
-		  expand_this = C_CPP_HASHNODE (__vector_keyword);
-		  expand_bool_pixel = __pixel_keyword;
-		  rid_code = RID_MAX;
-		}
-	      else if (ident == C_CPP_HASHNODE (__bool_keyword))
-		{
-		  expand_this = C_CPP_HASHNODE (__vector_keyword);
-		  expand_bool_pixel = __bool_keyword;
-		  rid_code = RID_MAX;
-		}
-	      else if (ident)
+	      if (ident)
 		rid_code = (enum rid)(ident->rid_code);
 	    }
 
@@ -220,23 +195,19 @@ rs6000_macro_to_expand (cpp_reader *pfile, const cpp_token *tok)
 	      expand_this = C_CPP_HASHNODE (__vector_keyword);
 	      /* If the next keyword is bool or pixel, it
 		 will need to be expanded as well.  */
-	      do
-		tok = cpp_peek_token (pfile, idx++);
-	      while (tok->type == CPP_PADDING);
+	      tok = cpp_peek_token (pfile, 1);
 	      ident = altivec_categorize_keyword (tok);
 
-	      if (ident == C_CPP_HASHNODE (__pixel_keyword))
+	      if (ident ==  C_CPP_HASHNODE (__pixel_keyword))
 		expand_bool_pixel = __pixel_keyword;
 	      else if (ident == C_CPP_HASHNODE (__bool_keyword))
 		expand_bool_pixel = __bool_keyword;
 	      else
 		{
 		  /* Try two tokens down, too.  */
-		  do
-		    tok = cpp_peek_token (pfile, idx++);
-		  while (tok->type == CPP_PADDING);
+		  tok = cpp_peek_token (pfile, 2);
 		  ident = altivec_categorize_keyword (tok);
-		  if (ident == C_CPP_HASHNODE (__pixel_keyword))
+		  if (ident ==  C_CPP_HASHNODE (__pixel_keyword))
 		    expand_bool_pixel = __pixel_keyword;
 		  else if (ident == C_CPP_HASHNODE (__bool_keyword))
 		    expand_bool_pixel = __bool_keyword;
@@ -305,7 +276,6 @@ rs6000_cpu_cpp_builtins (cpp_reader *pfile)
 	  builtin_define ("vector=vector");
 	  builtin_define ("pixel=pixel");
 	  builtin_define ("bool=bool");
-	  builtin_define ("_Bool=_Bool");
 	  init_vector_keywords ();
 
 	  /* Enable context-sensitive macros.  */
@@ -3354,6 +3324,7 @@ altivec_resolve_overloaded_builtin (tree fndecl, tree arglist)
       DECL_INITIAL (decl) = arg1;
       stmt = build1 (DECL_EXPR, arg1_type, decl);
       TREE_ADDRESSABLE (decl) = 1;
+      SET_EXPR_LOCATION (stmt, input_location);
       stmt = build1 (COMPOUND_LITERAL_EXPR, arg1_type, stmt);
 
       innerptrtype = build_pointer_type (arg1_inner_type);
@@ -3432,6 +3403,7 @@ altivec_resolve_overloaded_builtin (tree fndecl, tree arglist)
       DECL_INITIAL (decl) = arg1;
       stmt = build1 (DECL_EXPR, arg1_type, decl);
       TREE_ADDRESSABLE (decl) = 1;
+      SET_EXPR_LOCATION (stmt, input_location);
       stmt = build1 (COMPOUND_LITERAL_EXPR, arg1_type, stmt);
 
       innerptrtype = build_pointer_type (arg1_inner_type);
@@ -3530,3 +3502,4 @@ altivec_resolve_overloaded_builtin (tree fndecl, tree arglist)
   error ("invalid parameter combination for AltiVec intrinsic");
   return error_mark_node;
 }
+

@@ -1,3 +1,25 @@
+2009-10-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-c.c (altivec_categorize_keyword): Undo
+	2009-10-15 change.
+	(rs6000_macro_to_expand): Ditto.
+	(rs6000_cpu_cpp_builtins): Ditto.
+	(altivec_resolve_overloaded_builtin): Set the location.
+
+	* config/rs6000/rs6000-builtin.def (Memory reference builtins):
+	Use RS600_BTC_MEM instead of RS6000_BTC_MISC.
+	(Saturation builtins): Use RS6000_BTC_SAT instead of
+	RS6000_BTC_MISC.
+
+	* config/rs6000/rs6000.c (def_builtin): Disable setting builtin
+	function attributes for now to get gcc.dg/vmx/sn7153.c to pass.
+	(builtin_classify): Disable this for now.
+
+	* config/rs6000/rs6000.h (RS6000_BTC_MEM): New convenience macro
+	for documenting which builtins are memory builtins.
+	(RS6000_BTC_SAT): New convenience macro for documentation which
+	builtins are saturation builtins.
+
 2009-10-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Backport from mainline:
