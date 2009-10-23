@@ -1519,6 +1519,7 @@ get_proc_ptr_comp (gfc_expr *e)
   e2 = gfc_copy_expr (e);
   e2->expr_type = EXPR_VARIABLE;
   gfc_conv_expr (&comp_se, e2);
+  gfc_free_expr (e2);
   return build_fold_addr_expr_loc (input_location, comp_se.expr);
 }
 
@@ -1526,7 +1527,7 @@ get_proc_ptr_comp (gfc_expr *e)
 /* Select a class typebound procedure at runtime.  */
 static void
 select_class_proc (gfc_se *se, gfc_class_esym_list *elist,
-		   tree declared, locus *where)
+		   tree declared, gfc_expr *expr)
 {
   tree end_label;
   tree label;
@@ -1534,16 +1535,16 @@ select_class_proc (gfc_se *se, gfc_class_esym_list *elist,
   tree vindex;
   stmtblock_t body;
   gfc_class_esym_list *next_elist, *tmp_elist;
+  gfc_se tmpse;
 
-  /* Calculate the switch expression: class_object.vindex.  */
-  gcc_assert (elist->class_object->ts.type == BT_CLASS);
-  tmp = elist->class_object->ts.u.derived->components->next->backend_decl;
-  vindex = fold_build3 (COMPONENT_REF, TREE_TYPE (tmp),
-			elist->class_object->backend_decl,
-			tmp, NULL_TREE);
-  vindex = gfc_evaluate_now (vindex, &se->pre);
+  /* Convert the vindex expression.  */
+  gfc_init_se (&tmpse, NULL);
+  gfc_conv_expr (&tmpse, elist->vindex);
+  gfc_add_block_to_block (&se->pre, &tmpse.pre);
+  vindex = gfc_evaluate_now (tmpse.expr, &se->pre);
+  gfc_add_block_to_block (&se->post, &tmpse.post);
 
-  /* Fix the function type to be that of the declared type.  */
+  /* Fix the function type to be that of the declared type method.  */
   declared = gfc_create_var (TREE_TYPE (declared), "method");
 
   end_label = gfc_build_label_decl (NULL_TREE);
@@ -1602,6 +1603,8 @@ select_class_proc (gfc_se *se, gfc_class_esym_list *elist,
 	 segfaults because it occurs too early and too often.  */
     free_elist:
       next_elist = elist->next;
+      if (elist->vindex)
+	gfc_free_expr (elist->vindex);
       gfc_free (elist);
       elist = NULL;
     }
@@ -1611,7 +1614,7 @@ select_class_proc (gfc_se *se, gfc_class_esym_list *elist,
   tmp = fold_build3 (CASE_LABEL_EXPR, void_type_node,
 		     NULL_TREE, NULL_TREE, label);
   gfc_add_expr_to_block (&body, tmp);
-  tmp = gfc_trans_runtime_error (true, where,
+  tmp = gfc_trans_runtime_error (true, &expr->where,
 		"internal error: bad vindex in dynamic dispatch");
   gfc_add_expr_to_block (&body, tmp);
 
@@ -1648,7 +1651,7 @@ conv_function_val (gfc_se * se, gfc_symbol * sym, gfc_expr * expr)
 	}
 
       select_class_proc (se, expr->value.function.class_esym,
-			 tmp, &expr->where);
+			 tmp, expr);
       return;
     }
 
@@ -2775,6 +2778,7 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 	{
 	  tree data;
 	  tree vindex;
+	  tree size;
 
 	  /* The derived type needs to be converted to a temporary
 	     CLASS object.  */
@@ -2788,12 +2792,19 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 			      var, tmp, NULL_TREE);
 	  tmp = fsym->ts.u.derived->components->next->backend_decl;
 	  vindex = fold_build3 (COMPONENT_REF, TREE_TYPE (tmp),
+				var, tmp, NULL_TREE);
+	  tmp = fsym->ts.u.derived->components->next->next->backend_decl;
+	  size = fold_build3 (COMPONENT_REF, TREE_TYPE (tmp),
 			      var, tmp, NULL_TREE);
 
 	  /* Set the vindex.  */
-	  tmp = build_int_cst (TREE_TYPE (vindex),
-			       e->ts.u.derived->vindex);
+	  tmp = build_int_cst (TREE_TYPE (vindex), e->ts.u.derived->vindex);
 	  gfc_add_modify (&parmse.pre, vindex, tmp);
+
+	  /* Set the size.  */
+	  tmp = TYPE_SIZE_UNIT (gfc_typenode_for_spec (&e->ts));
+	  gfc_add_modify (&parmse.pre, size,
+			  fold_convert (TREE_TYPE (size), tmp));
 
 	  /* Now set the data field.  */
 	  argss = gfc_walk_expr (e);
@@ -4649,12 +4660,11 @@ gfc_trans_scalar_assign (gfc_se * lse, gfc_se * rse, gfc_typespec ts,
 	  gfc_add_expr_to_block (&block, tmp);
 	}
     }
-  else if (ts.type == BT_DERIVED)
+  else if (ts.type == BT_DERIVED || ts.type == BT_CLASS)
     {
       gfc_add_block_to_block (&block, &lse->pre);
       gfc_add_block_to_block (&block, &rse->pre);
-      tmp = gfc_evaluate_now (rse->expr, &block);
-      tmp = fold_build1 (VIEW_CONVERT_EXPR, TREE_TYPE (lse->expr), tmp);
+      tmp = fold_build1 (VIEW_CONVERT_EXPR, TREE_TYPE (lse->expr), rse->expr);
       gfc_add_modify (&block, lse->expr, tmp);
     }
   else
@@ -5260,4 +5270,76 @@ tree
 gfc_trans_assign (gfc_code * code)
 {
   return gfc_trans_assignment (code->expr1, code->expr2, false);
+}
+
+
+/* Translate an assignment to a CLASS object
+   (pointer or ordinary assignment).  */
+
+tree
+gfc_trans_class_assign (gfc_code *code)
+{
+  stmtblock_t block;
+  tree tmp;
+
+  gfc_start_block (&block);
+
+  if (code->expr2->ts.type != BT_CLASS)
+    {
+      /* Insert an additional assignment which sets the '$vindex' field.  */
+      gfc_expr *lhs,*rhs;
+      lhs = gfc_copy_expr (code->expr1);
+      gfc_add_component_ref (lhs, "$vindex");
+      if (code->expr2->ts.type == BT_DERIVED)
+	/* vindex is constant, determined at compile time.  */
+	rhs = gfc_int_expr (code->expr2->ts.u.derived->vindex);
+      else if (code->expr2->expr_type == EXPR_NULL)
+	rhs = gfc_int_expr (0);
+      else
+	gcc_unreachable ();
+      tmp = gfc_trans_assignment (lhs, rhs, false);
+      gfc_add_expr_to_block (&block, tmp);
+
+      /* Insert another assignment which sets the '$size' field.  */
+      lhs = gfc_copy_expr (code->expr1);
+      gfc_add_component_ref (lhs, "$size");
+      if (code->expr2->ts.type == BT_DERIVED)
+	{
+	  /* Size is fixed at compile time.  */
+	  gfc_se lse;
+	  gfc_init_se (&lse, NULL);
+	  gfc_conv_expr (&lse, lhs);
+	  tmp = TYPE_SIZE_UNIT (gfc_typenode_for_spec (&code->expr2->ts));
+	  gfc_add_modify (&block, lse.expr,
+			  fold_convert (TREE_TYPE (lse.expr), tmp));
+	}
+      else if (code->expr2->expr_type == EXPR_NULL)
+	{
+	  rhs = gfc_int_expr (0);
+	  tmp = gfc_trans_assignment (lhs, rhs, false);
+	  gfc_add_expr_to_block (&block, tmp);
+	}
+      else
+	gcc_unreachable ();
+
+      gfc_free_expr (lhs);
+      gfc_free_expr (rhs);
+    }
+
+  /* Do the actual CLASS assignment.  */
+  if (code->expr2->ts.type == BT_CLASS)
+    code->op = EXEC_ASSIGN;
+  else
+    gfc_add_component_ref (code->expr1, "$data");
+
+  if (code->op == EXEC_ASSIGN)
+    tmp = gfc_trans_assign (code);
+  else if (code->op == EXEC_POINTER_ASSIGN)
+    tmp = gfc_trans_pointer_assign (code);
+  else
+    gcc_unreachable();
+
+  gfc_add_expr_to_block (&block, tmp);
+
+  return gfc_finish_block (&block);
 }

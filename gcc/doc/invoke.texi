@@ -321,7 +321,7 @@ Objective-C and Objective-C++ Dialects}.
 -femit-struct-debug-baseonly -femit-struct-debug-reduced @gol
 -femit-struct-debug-detailed@r{[}=@var{spec-list}@r{]} @gol
 -p  -pg  -print-file-name=@var{library}  -print-libgcc-file-name @gol
--print-multi-directory  -print-multi-lib @gol
+-print-multi-directory  -print-multi-lib  -print-multi-os-directory @gol
 -print-prog-name=@var{program}  -print-search-dirs  -Q @gol
 -print-sysroot -print-sysroot-headers-suffix @gol
 -save-temps -save-temps=cwd -save-temps=obj -time@r{[}=@var{file}@r{]}}
@@ -346,7 +346,8 @@ Objective-C and Objective-C++ Dialects}.
 -finline-small-functions -fipa-cp -fipa-cp-clone -fipa-matrix-reorg -fipa-pta @gol
 -fipa-pure-const -fipa-reference -fipa-struct-reorg @gol
 -fipa-type-escape -fira-algorithm=@var{algorithm} @gol
--fira-region=@var{region} -fira-coalesce -fno-ira-share-save-slots @gol
+-fira-region=@var{region} -fira-coalesce @gol
+-fira-loop-pressure -fno-ira-share-save-slots @gol
 -fno-ira-share-spill-slots -fira-verbose=@var{n} @gol
 -fivopts -fkeep-inline-functions -fkeep-static-consts @gol
 -floop-block -floop-interchange -floop-strip-mine -fgraphite-identity @gol
@@ -5530,6 +5531,16 @@ that enable them.  The directory name is separated from the switches by
 @samp{-}, without spaces between multiple switches.  This is supposed to
 ease shell-processing.
 
+@item -print-multi-os-directory
+@opindex print-multi-os-directory
+Print the path to OS libraries for the selected
+multilib, relative to some @file{lib} subdirectory.  If OS libraries are
+present in the @file{lib} subdirectory and no multilibs are used, this is
+usually just @file{.}, if OS libraries are present in @file{lib@var{suffix}}
+sibling directories this prints e.g.@: @file{../lib64}, @file{../lib} or
+@file{../lib32}, or if OS libraries are present in @file{lib/@var{subdir}}
+subdirectories it prints e.g.@: @file{amd64}, @file{sparcv9} or @file{ev6}.
+
 @item -print-prog-name=@var{program}
 @opindex print-prog-name
 Like @option{-print-file-name}, but searches for a program such as @samp{cpp}.
@@ -5626,6 +5637,9 @@ each of them.
 
 Not all optimizations are controlled directly by a flag.  Only
 optimizations that have a flag are listed in this section.
+
+Most of the optimizations are not enabled if a @option{-O} level is not set on
+the command line, even if individual optimization flags are specified.
 
 Depending on the target and how GCC was configured, a slightly different
 set of optimizations may be enabled at each @option{-O} level than
@@ -6215,6 +6229,15 @@ give the best results in most cases and for most architectures.
 @opindex fira-coalesce
 Do optimistic register coalescing.  This option might be profitable for
 architectures with big regular register files.
+
+@item -fira-loop-pressure
+@opindex fira-loop-pressure
+Use IRA to evaluate register pressure in loops for decision to move
+loop invariants.  Usage of this option usually results in generation
+of faster and smaller code on machines with big register files (>= 32
+registers) but it can slow compiler down.
+
+This option is enabled at level @option{-O3} for some targets.
 
 @item -fno-ira-share-save-slots
 @opindex fno-ira-share-save-slots
@@ -8386,6 +8409,14 @@ parameter, the conflict table is not built and faster, simpler, and
 lower quality register allocation algorithm will be used.  The
 algorithm do not use pseudo-register conflicts.  The default value of
 the parameter is 2000.
+
+@item ira-loop-reserved-regs
+IRA can be used to evaluate more accurate register pressure in loops
+for decision to move loop invariants (see @option{-O3}).  The number
+of available registers reserved for some other purposes is described
+by this parameter.  The default value of the parameter is 2 which is
+minimal number of registers needed for execution of typical
+instruction.  This value is the best found from numerous experiments.
 
 @item loop-invariant-max-bbs-in-loop
 Loop invariant motion can be very expensive, both in compile time and

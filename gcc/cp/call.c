@@ -1631,7 +1631,8 @@ add_function_candidate (struct z_candidate **candidates,
 	      parmtype = build_pointer_type (parmtype);
 	    }
 
-	  if (ctype && i == 0 && DECL_COPY_CONSTRUCTOR_P (fn))
+	  if (ctype && i == 0 && DECL_COPY_CONSTRUCTOR_P (fn)
+	      && (len-skip == 1))
 	    {
 	      /* Hack: Direct-initialize copy parm (i.e. suppress
 		 LOOKUP_ONLYCONVERTING) to make explicit conversion ops
@@ -2718,6 +2719,8 @@ print_z_candidate (const char *msgstr, struct z_candidate *candidate)
     inform (input_location, "%s %T <conversion>", msgstr, candidate->fn);
   else if (candidate->viable == -1)
     inform (input_location, "%s %+#D <near match>", msgstr, candidate->fn);
+  else if (DECL_DELETED_FN (candidate->fn))
+    inform (input_location, "%s %+#D <deleted>", msgstr, candidate->fn);
   else
     inform (input_location, "%s %+#D", msgstr, candidate->fn);
 }
@@ -2728,6 +2731,23 @@ print_z_candidates (struct z_candidate *candidates)
   const char *str;
   struct z_candidate *cand1;
   struct z_candidate **cand2;
+
+  if (!candidates)
+    return;
+
+  /* Remove deleted candidates.  */
+  cand1 = candidates;
+  for (cand2 = &cand1; *cand2; )
+    {
+      if (TREE_CODE ((*cand2)->fn) == FUNCTION_DECL
+	  && DECL_DELETED_FN ((*cand2)->fn))
+	*cand2 = (*cand2)->next;
+      else
+	cand2 = &(*cand2)->next;
+    }
+  /* ...if there are any non-deleted ones.  */
+  if (cand1)
+    candidates = cand1;
 
   /* There may be duplicates in the set of candidates.  We put off
      checking this condition as long as possible, since we have no way
@@ -2750,9 +2770,6 @@ print_z_candidates (struct z_candidate *candidates)
 	    cand2 = &(*cand2)->next;
 	}
     }
-
-  if (!candidates)
-    return;
 
   str = _("candidates are:");
   print_z_candidate (str, candidates);
@@ -7603,7 +7620,7 @@ initialize_reference (tree type, tree expr, tree decl, tree *cleanup)
 	  && !TYPE_REF_IS_RVALUE (type)
 	  && !real_lvalue_p (expr))
 	error ("invalid initialization of non-const reference of "
-	       "type %qT from a temporary of type %qT",
+	       "type %qT from an rvalue of type %qT",
 	       type, TREE_TYPE (expr));
       else
 	error ("invalid initialization of reference of type "

@@ -299,9 +299,16 @@ ipcp_lattice_from_jfunc (struct ipa_node_params *info, struct ipcp_lattice *lat,
       cst = caller_lat->constant;
 
       if (jfunc->value.pass_through.operation != NOP_EXPR)
-	cst = fold_binary (jfunc->value.pass_through.operation,
-			   TREE_TYPE (cst), cst,
-			   jfunc->value.pass_through.operand);
+	{
+	  tree restype;
+	  if (TREE_CODE_CLASS (jfunc->value.pass_through.operation)
+	      == tcc_comparison)
+	    restype = boolean_type_node;
+	  else
+	    restype = TREE_TYPE (cst);
+	  cst = fold_binary (jfunc->value.pass_through.operation,
+			     restype, cst, jfunc->value.pass_through.operand);
+	}
       if (!cst || !is_gimple_ip_invariant (cst))
 	lat->type = IPA_BOTTOM;
       lat->constant = cst;
@@ -607,7 +614,9 @@ ipcp_init_stage (void)
       /* building jump functions  */
       for (cs = node->callees; cs; cs = cs->next_callee)
 	{
-	  if (!cs->callee->analyzed)
+	  /* We do not need to bother analyzing calls to unknown
+	     functions unless they may become known during lto/whopr.  */
+	  if (!cs->callee->analyzed && !flag_lto && !flag_whopr)
 	    continue;
 	  ipa_count_arguments (cs);
 	  if (ipa_get_cs_argument_count (IPA_EDGE_REF (cs))
@@ -689,7 +698,9 @@ ipcp_propagate_stage (void)
 	  struct ipa_node_params *callee_info = IPA_NODE_REF (cs->callee);
 	  struct ipa_edge_args *args = IPA_EDGE_REF (cs);
 
-	  if (ipa_is_called_with_var_arguments (callee_info))
+	  if (ipa_is_called_with_var_arguments (callee_info)
+	      || !cs->callee->analyzed
+	      || ipa_is_called_with_var_arguments (callee_info))
 	    continue;
 
 	  count = ipa_get_cs_argument_count (args);
@@ -720,6 +731,10 @@ ipcp_iterate_stage (void)
 
   if (dump_file)
     fprintf (dump_file, "\nIPA iterate stage:\n\n");
+
+  if (in_lto_p)
+    ipa_update_after_lto_read ();
+
   for (node = cgraph_nodes; node; node = node->next)
     {
       ipcp_initialize_node_lattices (node);
@@ -1269,17 +1284,25 @@ ipcp_generate_summary (void)
   ipcp_init_stage ();
 }
 
+/* Write ipcp summary for nodes in SET.  */
+static void
+ipcp_write_summary (cgraph_node_set set)
+{
+  ipa_prop_write_jump_functions (set);
+}
+
+/* Read ipcp summary.  */
+static void
+ipcp_read_summary (void)
+{
+  ipa_prop_read_jump_functions ();
+}
+
 /* Gate for IPCP optimization.  */
 static bool
 cgraph_gate_cp (void)
 {
-  /* FIXME lto.  IPA-CP does not tolerate running when the inlining decisions
-     have not been applied.  This happens when WPA modifies the callgraph.
-     Since those decisions are not applied until after all the IPA passes
-     have been run in LTRANS, this means that IPA passes may see partially
-     modified callgraphs.  The solution to this is to apply WPA decisions
-     early during LTRANS.  */
-  return flag_ipa_cp && !flag_ltrans;
+  return flag_ipa_cp;
 }
 
 struct ipa_opt_pass_d pass_ipa_cp =
@@ -1301,8 +1324,8 @@ struct ipa_opt_pass_d pass_ipa_cp =
   TODO_remove_functions /* todo_flags_finish */
  },
  ipcp_generate_summary,			/* generate_summary */
- NULL,					/* write_summary */
- NULL,					/* read_summary */
+ ipcp_write_summary,			/* write_summary */
+ ipcp_read_summary,			/* read_summary */
  NULL,					/* function_read_summary */
  0,					/* TODOs */
  NULL,					/* function_transform */

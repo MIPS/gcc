@@ -1117,6 +1117,8 @@ adjust_field_rtx_def (type_p t, options_p ARG_UNUSED (opt))
 		t = scalar_tp, subname = "rt_int";
 	      else if (i == VALUE && aindex == 0)
 		t = scalar_tp, subname = "rt_int";
+	      else if (i == DEBUG_EXPR && aindex == 0)
+		t = tree_tp, subname = "rt_tree";
 	      else if (i == REG && aindex == 1)
 		t = scalar_tp, subname = "rt_int";
 	      else if (i == REG && aindex == 2)
@@ -1569,7 +1571,7 @@ open_base_files (void)
       "optabs.h", "libfuncs.h", "debug.h", "ggc.h", "cgraph.h",
       "tree-flow.h", "reload.h", "cpp-id-data.h", "tree-chrec.h",
       "cfglayout.h", "except.h", "output.h", "gimple.h", "cfgloop.h",
-      "target.h", NULL
+      "target.h", "ipa-prop.h", NULL
     };
     const char *const *ifp;
     outf_p gtype_desc_c;

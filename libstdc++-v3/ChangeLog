@@ -1,3 +1,162 @@
+009-10-20  Paolo Carlini  <paolo.carlini@oracle.com>
+
+        PR libstdc++/41773
+        Revert:
+        2009-10-20  Paolo Carlini  <paolo.carlini@oracle.com>
+
+        * include/bits/basic_string.h (_S_construct(const _CharT*, size_type,
+        const _Alloc&)): New, declare.
+        (_S_construct(_CharT*, _CharT*, const _Alloc&),
+        _S_construct(const _CharT*, const _CharT*, const _Alloc&),
+        _S_construct(iterator, iterator, const _Alloc&),
+        _S_construct(const_iterator, const_iterator, const _Alloc&)): New,
+        forward to the latter.
+        * include/bits/basic_string.tcc (_S_construct(const _CharT*,
+        size_type, const _Alloc&)): Define.
+        (basic_string(const basic_string&, size_type, size_type),
+        basic_string(const basic_string&, size_type, size_type,
+        const _Alloc&), basic_string(const _CharT*, size_type,
+        const _Alloc&), basic_string(const _CharT*, const _Alloc&),
+        basic_string(initializer_list<>, const _Alloc&)): Call the latter.
+        * config/abi/pre/gnu.ver: Remove recently added exports.
+        * src/string-inst.cc: Remove instantiations.
+
+2009-10-20  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/41763
+	* include/bits/valarray_array.h (__valarray_default_construct,
+	__valarray_fill_construct, __valarray_copy_construct, __valarray_sum
+	__valarray_destroy_elements, __valarray_product): Do not qualify with
+	__restrict__ pointers accessing data also accessed by other pointers.
+
+2009-10-20  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/bits/basic_string.h (_S_construct(const _CharT*, size_type,
+	const _Alloc&)): New, declare.
+	(_S_construct(_CharT*, _CharT*, const _Alloc&),
+	_S_construct(const _CharT*, const _CharT*, const _Alloc&),
+	_S_construct(iterator, iterator, const _Alloc&),
+	_S_construct(const_iterator, const_iterator, const _Alloc&)): New,
+	forward to the latter.
+	* include/bits/basic_string.tcc (_S_construct(const _CharT*,
+	size_type, const _Alloc&)): Define.
+	(basic_string(const basic_string&, size_type, size_type),
+	basic_string(const basic_string&, size_type, size_type,
+	const _Alloc&), basic_string(const _CharT*, size_type,
+	const _Alloc&), basic_string(const _CharT*, const _Alloc&),
+	basic_string(initializer_list<>, const _Alloc&)): Call the latter.
+	* config/abi/pre/gnu.ver: Remove recently added exports.
+	* src/string-inst.cc: Remove instantiations.
+
+2009-10-15  Phil Muldoon <pmuldoon@redhat.com>
+
+	* python/libstdcxx/v6/printers.py (StdTuplePrinter): New printer.
+	(build_libstdcxx_dictionary): Add StdTuplePrinter registration.
+
+2009-10-16  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/c_compatibility/stdatomic.h: Include cstdatomic if
+	__cplusplus.
+
+2009-10-15  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/40654
+	PR libstdc++/40826
+	* src/atomic.cc (atomic_flag_test_and_set_explicit): Add
+	static_cast from base to derived.
+	(atomic_flag_clear_explicit): Same.
+	* include/bits/atomic_2.h (__atomic2::atomic_flag): Public derivation.
+	Remove value type constructor.
+	* include/bits/atomic_0.h (__atomic0::atomic_flag): Same.
+	* include/std/future (_Future_state): Use ATOMIC_FLAG_INIT to
+	initialized the atomic_flag member.
+
+2009-10-14  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* doc/xml/authors.xml: Update.
+	* doc/xml/manual/intro.xml: Move test section...
+	* doc/xml/manual/appendix_porting.xml: ...here.
+	* doc/xml/manual/diagnostics.xml: Edit.
+	* doc/xml/manual/using.xml: Break out exception section.
+	* doc/xml/manual/using_exceptions.xml: New.
+	* doc/html: Regenerate.
+
+2009-10-14  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* config/abi/pre/gnu.ver: Export the _S_construct<> helpers.
+
+2009-10-14  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/bits/basic_string.h (operator+=(initializer_list<>),
+	append(initializer_list<>)): Forward to the append overload taking
+	a const CharT* pointer and a size, thus avoiding instantiating
+	unnecessarily in the built library the overload taking a pair of
+	iterators.
+	(operator=(initializer_list<>), assign(initializer_list<>)): Likewise
+	for assign.
+	(insert(iterator, initializer_list<>): Likewise for insert.
+
+2009-10-14  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/bits/c++config: Do not disable extern templates for string
+	in plain parallel-mode and in profile-mode; add comment explaining
+	_GLIBCXX_EXTERN_TEMPLATE == -1.
+	* testsuite/ext/profile/mutex_extensions.cc: Adjust dg-error line.
+
+2009-10-14  Jason Merrill  <jason@redhat.com>
+
+	* testsuite/20_util/unique_ptr/assign/assign_neg.cc: Adjust expected.
+
+2009-10-13  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/parallel/for_each_selectors.h: Minor uglification and
+	stylistic fixes.
+
+2009-10-13  Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+	* include/precompiled/stdc++.h: Include <initializer_list>
+	for completeness.
+
+2009-10-12  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/bits/random.h (class linear_congruential_engine,
+	class mersenne_twister_engine, class subtract_with_carry_engine,
+	class discard_block_engine, class independent_bits_engine,
+	class shuffle_order_engine, class uniform_int_distribution,
+	class binomial_distribution, class geometric_distribution,
+	class negative_binomial_distribution, class poisson_distribution,
+	class discrete_distribution): Do not use simulated concept checks,
+	tidy startic_asserts on argument types and ranges.
+	(class uniform_real_distribution, class normal_distribution,
+	class lognormal_distribution, class gamma_distribution,
+	class chi_squared_distribution, class cauchy_distribution,
+	class fisher_f_distribution, class student_t_distribution,
+	class exponential_distribution, class weibull_distribution,
+	class extreme_value_distribution, class piecewise_linear_distribution,
+	class piecewise_constant_distribution): Add static_assert on
+	template argument type.
+	* include/std/random: Do not include <bits/concept_check.h>.
+	* testsuite/26_numerics/random/discard_block_engine/cons/base_move.cc:
+	Fix.
+	* testsuite/26_numerics/random/discard_block_engine/cons/seed1.cc:
+	Likewise.
+	* testsuite/26_numerics/random/discard_block_engine/cons/seed2.cc:
+	Likewise.
+	* testsuite/26_numerics/random/discard_block_engine/cons/base_copy.cc:
+	Likewise.
+	* testsuite/26_numerics/random/discard_block_engine/cons/default.cc:
+	Likewise.
+	* testsuite/26_numerics/random/discard_block_engine/cons/seed_seq.cc:
+	Likewise.
+	* testsuite/26_numerics/random/discard_block_engine/requirements/
+	typedefs.cc: Likewise.
+	* testsuite/26_numerics/random/discard_block_engine/operators/
+	equal.cc: Likewise.
+	* testsuite/26_numerics/random/discard_block_engine/operators/
+	serialize.cc: Likewise.
+	* testsuite/26_numerics/random/linear_congruential_engine/
+	requirements/non_uint_neg.cc: Tweak.
+
 2009-10-10  Gerald Pfeifer  <gerald@pfeifer.com>
 
 	* doc/xml/manual/messages.xml: Update GNU gettext reference.

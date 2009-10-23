@@ -4183,6 +4183,15 @@ c_common_get_alias_set (tree t)
   tree u;
   PTR *slot;
 
+  /* For VLAs, use the alias set of the element type rather than the
+     default of alias set 0 for types compared structurally.  */
+  if (TYPE_P (t) && TYPE_STRUCTURAL_EQUALITY_P (t))
+    {
+      if (TREE_CODE (t) == ARRAY_TYPE)
+	return get_alias_set (TREE_TYPE (t));
+      return -1;
+    }
+
   /* Permit type-punning when accessing a union, provided the access
      is directly through the union.  For example, this code does not
      permit taking the address of a union member and then storing
@@ -8181,7 +8190,8 @@ c_parse_error (const char *gmsgid, enum cpp_ttype token_type,
   else if (token_type == CPP_STRING 
 	   || token_type == CPP_WSTRING 
 	   || token_type == CPP_STRING16
-	   || token_type == CPP_STRING32)
+	   || token_type == CPP_STRING32
+	   || token_type == CPP_UTF8STRING)
     message = catenate_messages (gmsgid, " before string constant");
   else if (token_type == CPP_NUMBER)
     message = catenate_messages (gmsgid, " before numeric constant");
