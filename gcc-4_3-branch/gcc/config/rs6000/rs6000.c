@@ -8438,7 +8438,7 @@ def_builtin (int mask, const char *name, tree type, int code)
 
 	  /* const function, function only depends on the inputs.  */
 	case RS6000_BTC_CONST:
-	  TREE_CONSTANT (t) = 1;
+	  TREE_READONLY (t) = 1;
 	  TREE_NOTHROW (t) = 1;
 	  break;
 
@@ -8462,7 +8462,7 @@ def_builtin (int mask, const char *name, tree type, int code)
 	      DECL_IS_NOVOPS (t) = 1;
 	    }
 	  else
-	    TREE_CONSTANT (t) = 1;
+	    TREE_READONLY (t) = 1;
 	  break;
 	}
     }

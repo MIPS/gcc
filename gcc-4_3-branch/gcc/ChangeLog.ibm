@@ -1,5 +1,13 @@
 2009-10-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Backport from mainline:
+	2009-10-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/rs6000/rs6000.c (def_builtin): Set TREE_READONLY instead
+	of TREE_CONSTANT.
+
+2009-10-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	PR target/41787
 	* config/rs6000/rs6000.c (struct machine_function): Add
 	vsx_or_altivec_used_p to record if vector types are used.
