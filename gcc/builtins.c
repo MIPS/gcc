@@ -7194,7 +7194,7 @@ fold_builtin_cabs (location_t loc, tree arg, tree type, tree fndecl)
 {
   tree res;
 
-  if (TREE_CODE (TREE_TYPE (arg)) != COMPLEX_TYPE
+  if (!validate_arg (arg, COMPLEX_TYPE)
       || TREE_CODE (TREE_TYPE (TREE_TYPE (arg))) != REAL_TYPE)
     return NULL_TREE;
 
@@ -7583,7 +7583,7 @@ fold_builtin_cexp (location_t loc, tree arg0, tree type)
 #endif
 
   if (!validate_arg (arg0, COMPLEX_TYPE)
-      && TREE_CODE (TREE_TYPE (TREE_TYPE (arg0))) == REAL_TYPE)
+      || TREE_CODE (TREE_TYPE (TREE_TYPE (arg0))) != REAL_TYPE)
     return NULL_TREE;
 
 #ifdef HAVE_mpc
@@ -9238,9 +9238,9 @@ fold_builtin_isascii (location_t loc, tree arg)
   else
     {
       /* Transform isascii(c) -> ((c & ~0x7f) == 0).  */
-      arg = build2 (BIT_AND_EXPR, integer_type_node, arg,
-		    build_int_cst (NULL_TREE,
-				   ~ (unsigned HOST_WIDE_INT) 0x7f));
+      arg = fold_build2 (BIT_AND_EXPR, integer_type_node, arg,
+			 build_int_cst (NULL_TREE,
+					~ (unsigned HOST_WIDE_INT) 0x7f));
       return fold_build2_loc (loc, EQ_EXPR, integer_type_node,
 			  arg, integer_zero_node);
     }
@@ -9278,8 +9278,8 @@ fold_builtin_isdigit (location_t loc, tree arg)
 	return NULL_TREE;
 
       arg = fold_convert_loc (loc, unsigned_type_node, arg);
-      arg = build2 (MINUS_EXPR, unsigned_type_node, arg,
-		    build_int_cst (unsigned_type_node, target_digit0));
+      arg = fold_build2 (MINUS_EXPR, unsigned_type_node, arg,
+			 build_int_cst (unsigned_type_node, target_digit0));
       return fold_build2_loc (loc, LE_EXPR, integer_type_node, arg,
 			  build_int_cst (unsigned_type_node, 9));
     }
@@ -10017,7 +10017,8 @@ fold_builtin_1 (location_t loc, tree fndecl, tree arg0, bool ignore)
     break;
 
     CASE_FLT_FN (BUILT_IN_CIMAG):
-      if (validate_arg (arg0, COMPLEX_TYPE))
+      if (validate_arg (arg0, COMPLEX_TYPE)
+	  && TREE_CODE (TREE_TYPE (TREE_TYPE (arg0))) == REAL_TYPE)
 	return non_lvalue_loc (loc, fold_build1_loc (loc, IMAGPART_EXPR, type, arg0));
     break;
 
@@ -10063,7 +10064,45 @@ fold_builtin_1 (location_t loc, tree fndecl, tree arg0, bool ignore)
 	  && TREE_CODE (TREE_TYPE (TREE_TYPE (arg0))) == REAL_TYPE) 
 	return do_mpc_arg1 (arg0, type, mpc_sqrt);
     break;
-#endif
+    
+#ifdef HAVE_mpc_arc
+    CASE_FLT_FN (BUILT_IN_CASIN):
+      if (validate_arg (arg0, COMPLEX_TYPE)
+	  && TREE_CODE (TREE_TYPE (TREE_TYPE (arg0))) == REAL_TYPE) 
+	return do_mpc_arg1 (arg0, type, mpc_asin);
+    break;
+    
+    CASE_FLT_FN (BUILT_IN_CACOS):
+      if (validate_arg (arg0, COMPLEX_TYPE)
+	  && TREE_CODE (TREE_TYPE (TREE_TYPE (arg0))) == REAL_TYPE) 
+	return do_mpc_arg1 (arg0, type, mpc_acos);
+    break;
+    
+    CASE_FLT_FN (BUILT_IN_CATAN):
+      if (validate_arg (arg0, COMPLEX_TYPE)
+	  && TREE_CODE (TREE_TYPE (TREE_TYPE (arg0))) == REAL_TYPE) 
+	return do_mpc_arg1 (arg0, type, mpc_atan);
+    break;
+    
+    CASE_FLT_FN (BUILT_IN_CASINH):
+      if (validate_arg (arg0, COMPLEX_TYPE)
+	  && TREE_CODE (TREE_TYPE (TREE_TYPE (arg0))) == REAL_TYPE) 
+	return do_mpc_arg1 (arg0, type, mpc_asinh);
+    break;
+    
+    CASE_FLT_FN (BUILT_IN_CACOSH):
+      if (validate_arg (arg0, COMPLEX_TYPE)
+	  && TREE_CODE (TREE_TYPE (TREE_TYPE (arg0))) == REAL_TYPE) 
+	return do_mpc_arg1 (arg0, type, mpc_acosh);
+    break;
+    
+    CASE_FLT_FN (BUILT_IN_CATANH):
+      if (validate_arg (arg0, COMPLEX_TYPE)
+	  && TREE_CODE (TREE_TYPE (TREE_TYPE (arg0))) == REAL_TYPE) 
+	return do_mpc_arg1 (arg0, type, mpc_atanh);
+    break;
+#endif /* HAVE_mpc_arc */
+#endif /* HAVE_mpc */
     
     CASE_FLT_FN (BUILT_IN_CABS):
       return fold_builtin_cabs (loc, arg0, type, fndecl);

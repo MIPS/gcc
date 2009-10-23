@@ -502,6 +502,10 @@ femit-class-debug-always
 Common Report Var(flag_emit_class_debug_always) Init(0)
 Do not suppress C++ class debug information.
 
+fenable-icf-debug
+Common Report Var(flag_enable_icf_debug)
+Generate debug information to support Identical Code Folding (ICF)
+
 fexceptions
 Common Report Var(flag_exceptions) Optimization
 Enable exception handling
@@ -712,6 +716,11 @@ Common Joined RejectNegative
 fira-coalesce
 Common Report Var(flag_ira_coalesce) Init(0)
 Do optimistic coalescing.
+
+fira-loop-pressure
+Common Report Var(flag_ira_loop_pressure)
+Use IRA based register pressure calculation
+in RTL loop optimizations.
 
 fira-share-save-slots
 Common Report Var(flag_ira_share_save_slots) Init(1)

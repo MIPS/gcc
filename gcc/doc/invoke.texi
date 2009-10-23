@@ -307,6 +307,7 @@ Objective-C and Objective-C++ Dialects}.
 -fcompare-debug@r{[}=@var{opts}@r{]}  -fcompare-debug-second @gol
 -feliminate-dwarf2-dups -feliminate-unused-debug-types @gol
 -feliminate-unused-debug-symbols -femit-class-debug-always @gol
+-fenable-icf-debug @gol
 -fmem-report -fpre-ipa-mem-report -fpost-ipa-mem-report -fprofile-arcs @gol
 -frandom-seed=@var{string} -fsched-verbose=@var{n} @gol
 -fsel-sched-verbose -fsel-sched-dump-cfg -fsel-sched-pipelining-verbose @gol
@@ -320,7 +321,7 @@ Objective-C and Objective-C++ Dialects}.
 -femit-struct-debug-baseonly -femit-struct-debug-reduced @gol
 -femit-struct-debug-detailed@r{[}=@var{spec-list}@r{]} @gol
 -p  -pg  -print-file-name=@var{library}  -print-libgcc-file-name @gol
--print-multi-directory  -print-multi-lib @gol
+-print-multi-directory  -print-multi-lib  -print-multi-os-directory @gol
 -print-prog-name=@var{program}  -print-search-dirs  -Q @gol
 -print-sysroot -print-sysroot-headers-suffix @gol
 -save-temps -save-temps=cwd -save-temps=obj -time@r{[}=@var{file}@r{]}}
@@ -345,7 +346,8 @@ Objective-C and Objective-C++ Dialects}.
 -finline-small-functions -fipa-cp -fipa-cp-clone -fipa-matrix-reorg -fipa-pta @gol
 -fipa-pure-const -fipa-reference -fipa-struct-reorg @gol
 -fipa-type-escape -fira-algorithm=@var{algorithm} @gol
--fira-region=@var{region} -fira-coalesce -fno-ira-share-save-slots @gol
+-fira-region=@var{region} -fira-coalesce @gol
+-fira-loop-pressure -fno-ira-share-save-slots @gol
 -fno-ira-share-spill-slots -fira-verbose=@var{n} @gol
 -fivopts -fkeep-inline-functions -fkeep-static-consts @gol
 -floop-block -floop-interchange -floop-strip-mine -fgraphite-identity @gol
@@ -471,7 +473,7 @@ Objective-C and Objective-C++ Dialects}.
 -mfix-cortex-m3-ldrd}
 
 @emph{AVR Options}
-@gccoptlist{-mmcu=@var{mcu}  -msize  -mno-interrupts @gol
+@gccoptlist{-mmcu=@var{mcu}  -mno-interrupts @gol
 -mcall-prologues  -mtiny-stack  -mint8}
 
 @emph{Blackfin Options}
@@ -4319,7 +4321,7 @@ minimum maximum, so we do not diagnose overlength strings in C++@.
 This option is implied by @option{-pedantic}, and can be disabled with
 @option{-Wno-overlength-strings}.
 
-@item -Wunsuffixed-float-constants
+@item -Wunsuffixed-float-constants @r{(C and Objective-C only)}
 @opindex Wunsuffixed-float-constants
 
 GCC will issue a warning for any floating constant that does not have
@@ -4612,6 +4614,11 @@ You may need to experiment to determine the best settings for your application.
 The default is @samp{-femit-struct-debug-detailed=all}.
 
 This option works only with DWARF 2.
+
+@item -fenable-icf-debug
+@opindex fenable-icf-debug
+Generate additional debug information to support identical code folding (ICF).
+This option only works with DWARF version 2 or higher.
 
 @item -fno-merge-debug-strings
 @opindex fmerge-debug-strings
@@ -5528,6 +5535,16 @@ that enable them.  The directory name is separated from the switches by
 @samp{-}, without spaces between multiple switches.  This is supposed to
 ease shell-processing.
 
+@item -print-multi-os-directory
+@opindex print-multi-os-directory
+Print the path to OS libraries for the selected
+multilib, relative to some @file{lib} subdirectory.  If OS libraries are
+present in the @file{lib} subdirectory and no multilibs are used, this is
+usually just @file{.}, if OS libraries are present in @file{lib@var{suffix}}
+sibling directories this prints e.g.@: @file{../lib64}, @file{../lib} or
+@file{../lib32}, or if OS libraries are present in @file{lib/@var{subdir}}
+subdirectories it prints e.g.@: @file{amd64}, @file{sparcv9} or @file{ev6}.
+
 @item -print-prog-name=@var{program}
 @opindex print-prog-name
 Like @option{-print-file-name}, but searches for a program such as @samp{cpp}.
@@ -5624,6 +5641,9 @@ each of them.
 
 Not all optimizations are controlled directly by a flag.  Only
 optimizations that have a flag are listed in this section.
+
+Most of the optimizations are not enabled if a @option{-O} level is not set on
+the command line, even if individual optimization flags are specified.
 
 Depending on the target and how GCC was configured, a slightly different
 set of optimizations may be enabled at each @option{-O} level than
@@ -6213,6 +6233,15 @@ give the best results in most cases and for most architectures.
 @opindex fira-coalesce
 Do optimistic register coalescing.  This option might be profitable for
 architectures with big regular register files.
+
+@item -fira-loop-pressure
+@opindex fira-loop-pressure
+Use IRA to evaluate register pressure in loops for decision to move
+loop invariants.  Usage of this option usually results in generation
+of faster and smaller code on machines with big register files (>= 32
+registers) but it can slow compiler down.
+
+This option is enabled at level @option{-O3} for some targets.
 
 @item -fno-ira-share-save-slots
 @opindex fno-ira-share-save-slots
@@ -7109,9 +7138,10 @@ and those merged by attribute @code{externally_visible} become static functions
 and in effect are optimized more aggressively by interprocedural optimizers.
 While this option is equivalent to proper use of the @code{static} keyword for
 programs consisting of a single file, in combination with option
-@option{--combine} this flag can be used to compile many smaller scale C
-programs since the functions and variables become local for the whole combined
-compilation unit, not for the single source file itself.
+@option{-combine}, @option{-flto} or @option{-fwhopr} this flag can be used to
+compile many smaller scale programs since the functions and variables become
+local for the whole combined compilation unit, not for the single source file
+itself.
 
 This option implies @option{-fwhole-file} for Fortran programs.
 
@@ -7248,6 +7278,13 @@ If you are not using @command{gold} and/or do not specify
 @option{-use-linker-plugin} then the objects inside @file{libfoo.a}
 will be extracted and linked as usual, but they will not participate
 in the LTO optimization process.
+
+Link time optimizations do not require the presence of the whole
+program to operate.  If the program does not require any symbols to
+be exported, it is possible to combine @option{-flto} and
+@option{-fwhopr} with @option{-fwhole-program} to allow the
+interprocedural optimizers to use more aggressive assumptions which
+may lead to improved optimization opportunities.
 
 Regarding portability: the current implementation of LTO makes no
 attempt at generating bytecode that can be ported between different
@@ -8376,6 +8413,14 @@ parameter, the conflict table is not built and faster, simpler, and
 lower quality register allocation algorithm will be used.  The
 algorithm do not use pseudo-register conflicts.  The default value of
 the parameter is 2000.
+
+@item ira-loop-reserved-regs
+IRA can be used to evaluate more accurate register pressure in loops
+for decision to move loop invariants (see @option{-O3}).  The number
+of available registers reserved for some other purposes is described
+by this parameter.  The default value of the parameter is 2 which is
+minimal number of registers needed for execution of typical
+instruction.  This value is the best found from numerous experiments.
 
 @item loop-invariant-max-bbs-in-loop
 Loop invariant motion can be very expensive, both in compile time and
@@ -9926,10 +9971,6 @@ memory space (MCU types: atmega8, atmega83, atmega85).
 Instruction set avr5 is for the enhanced AVR core with up to 128K program
 memory space (MCU types: atmega16, atmega161, atmega163, atmega32, atmega323,
 atmega64, atmega128, at43usb355, at94k).
-
-@item -msize
-@opindex msize
-Output instruction sizes to the asm file.
 
 @item -mno-interrupts
 @opindex mno-interrupts
@@ -14600,11 +14641,11 @@ Set architecture type, register usage, choice of mnemonics, and
 instruction scheduling parameters for machine type @var{cpu_type}.
 Supported values for @var{cpu_type} are @samp{401}, @samp{403},
 @samp{405}, @samp{405fp}, @samp{440}, @samp{440fp}, @samp{464}, @samp{464fp},
-@samp{505}, @samp{601}, @samp{602}, @samp{603}, @samp{603e}, @samp{604},
-@samp{604e}, @samp{620}, @samp{630}, @samp{740}, @samp{7400},
-@samp{7450}, @samp{750}, @samp{801}, @samp{821}, @samp{823},
-@samp{860}, @samp{970}, @samp{8540}, @samp{e300c2}, @samp{e300c3},
-@samp{e500mc}, @samp{ec603e}, @samp{G3}, @samp{G4}, @samp{G5},
+@samp{476}, @samp{476fp}, @samp{505}, @samp{601}, @samp{602}, @samp{603},
+@samp{603e}, @samp{604}, @samp{604e}, @samp{620}, @samp{630}, @samp{740},
+@samp{7400}, @samp{7450}, @samp{750}, @samp{801}, @samp{821}, @samp{823},
+@samp{860}, @samp{970}, @samp{8540}, @samp{a2}, @samp{e300c2},
+@samp{e300c3}, @samp{e500mc}, @samp{ec603e}, @samp{G3}, @samp{G4}, @samp{G5},
 @samp{power}, @samp{power2}, @samp{power3}, @samp{power4},
 @samp{power5}, @samp{power5+}, @samp{power6}, @samp{power6x}, @samp{power7},
 @samp{common}, @samp{powerpc}, @samp{powerpc64}, @samp{rios},
@@ -14948,7 +14989,7 @@ hardware floating is used.
 @opindex mmulhw
 @opindex mno-mulhw
 Generate code that uses (does not use) the half-word multiply and
-multiply-accumulate instructions on the IBM 405, 440 and 464 processors.
+multiply-accumulate instructions on the IBM 405, 440, 464 and 476 processors.
 These instructions are generated by default when targetting those
 processors.
 
@@ -14957,7 +14998,7 @@ processors.
 @opindex mdlmzb
 @opindex mno-dlmzb
 Generate code that uses (does not use) the string-search @samp{dlmzb}
-instruction on the IBM 405, 440 and 464 processors.  This instruction is
+instruction on the IBM 405, 440, 464 and 476 processors.  This instruction is
 generated by default when targetting those processors.
 
 @item -mno-bit-align

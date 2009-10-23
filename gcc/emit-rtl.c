@@ -2420,6 +2420,8 @@ verify_rtx_sharing (rtx orig, rtx insn)
   switch (code)
     {
     case REG:
+    case DEBUG_EXPR:
+    case VALUE:
     case CONST_INT:
     case CONST_DOUBLE:
     case CONST_FIXED:
@@ -2620,6 +2622,8 @@ repeat:
   switch (code)
     {
     case REG:
+    case DEBUG_EXPR:
+    case VALUE:
     case CONST_INT:
     case CONST_DOUBLE:
     case CONST_FIXED:
@@ -2739,6 +2743,8 @@ repeat:
   switch (code)
     {
     case REG:
+    case DEBUG_EXPR:
+    case VALUE:
     case CONST_INT:
     case CONST_DOUBLE:
     case CONST_FIXED:
@@ -2810,6 +2816,8 @@ set_used_flags (rtx x)
   switch (code)
     {
     case REG:
+    case DEBUG_EXPR:
+    case VALUE:
     case CONST_INT:
     case CONST_DOUBLE:
     case CONST_FIXED:

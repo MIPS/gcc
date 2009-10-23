@@ -459,7 +459,7 @@ struct cgraph_node *cgraph_function_versioning (struct cgraph_node *,
 						bitmap);
 void tree_function_versioning (tree, tree, VEC (ipa_replace_map_p,gc)*, bool, bitmap);
 struct cgraph_node *save_inline_function_body (struct cgraph_node *);
-void record_references_in_initializer (tree);
+void record_references_in_initializer (tree, bool);
 bool cgraph_process_new_functions (void);
 
 bool cgraph_decide_is_function_needed (struct cgraph_node *, tree);
@@ -657,6 +657,26 @@ struct GTY(()) constant_descriptor_tree {
      use of the hash table during hash table expansion.  */
   hashval_t hash;
 };
+
+/* Return true when function NODE is only called directly.
+   i.e. it is not externally visible, address was not taken and
+   it is not used in any other non-standard way.  */
+
+static inline bool
+cgraph_only_called_directly_p (struct cgraph_node *node)
+{
+  return !node->needed && !node->local.externally_visible;
+}
+
+/* Return true when function NODE can be removed from callgraph
+   if all direct calls are eliminated.  */
+
+static inline bool
+cgraph_can_remove_if_no_direct_calls_p (struct cgraph_node *node)
+{
+  return (!node->needed
+  	  && (DECL_COMDAT (node->decl) || !node->local.externally_visible));
+}
 
 /* Constant pool accessor function.  */
 htab_t constant_pool_htab (void);

@@ -227,6 +227,8 @@ lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
      local static nodes to prevent clashes with other local statics.  */
   if (boundary_p)
     {
+      /* Inline clones can not be part of boundary.  */
+      gcc_assert (!node->global.inlined_to);
       local = 0;
       externally_visible = 1;
       inlinable = 0;
@@ -318,6 +320,7 @@ output_cgraph (cgraph_node_set set)
   int i, n_nodes;
   bitmap written_decls;
   lto_cgraph_encoder_t encoder;
+  struct cgraph_asm_node *can;
 
   ob = lto_create_simple_output_block (LTO_section_cgraph);
 
@@ -369,8 +372,28 @@ output_cgraph (cgraph_node_set set)
   for (csi = csi_start (set); !csi_end_p (csi); csi_next (&csi))
     {
       node = csi_node (csi);
-      for (edge = node->callees; edge; edge = edge->next_callee)
-	lto_output_edge (ob, edge, encoder);
+      if (node->callees)
+        {
+	  /* Output edges in backward direction, so the reconstructed callgraph
+	     match and it is easy to associate call sites in the IPA pass summaries.  */
+	  edge = node->callees;
+	  while (edge->next_callee)
+	    edge = edge->next_callee;
+	  for (; edge; edge = edge->prev_callee)
+	    lto_output_edge (ob, edge, encoder);
+	}
+    }
+
+  lto_output_uleb128_stream (ob->main_stream, 0);
+
+  /* Emit toplevel asms.  */
+  for (can = cgraph_asm_nodes; can; can = can->next)
+    {
+      int len = TREE_STRING_LENGTH (can->asm_str);
+      lto_output_uleb128_stream (ob->main_stream, len);
+      for (i = 0; i < len; ++i)
+	lto_output_1_stream (ob->main_stream,
+			     TREE_STRING_POINTER (can->asm_str)[i]);
     }
 
   lto_output_uleb128_stream (ob->main_stream, 0);
@@ -527,8 +550,6 @@ input_edge (struct lto_input_block *ib, VEC(cgraph_node_ptr, heap) *nodes)
   unsigned int nest;
   cgraph_inline_failed_t inline_failed;
   struct bitpack_d *bp;
-  tree prevailing_callee;
-  tree prevailing_caller;
   enum ld_plugin_symbol_resolution caller_resolution;
 
   caller = VEC_index (cgraph_node_ptr, nodes, lto_input_sleb128 (ib));
@@ -539,8 +560,6 @@ input_edge (struct lto_input_block *ib, VEC(cgraph_node_ptr, heap) *nodes)
   if (callee == NULL || callee->decl == NULL_TREE)
     internal_error ("bytecode stream: no callee found while reading edge");
 
-  caller_resolution = lto_symtab_get_resolution (caller->decl);
-
   count = (gcov_type) lto_input_sleb128 (ib);
 
   bp = lto_input_bitpack (ib);
@@ -550,36 +569,12 @@ input_edge (struct lto_input_block *ib, VEC(cgraph_node_ptr, heap) *nodes)
   freq = (int) bp_unpack_value (bp, HOST_BITS_PER_INT);
   nest = (unsigned) bp_unpack_value (bp, 30);
 
-  /* If the caller was preempted, don't create the edge.  */
+  /* If the caller was preempted, don't create the edge.
+     ???  Should we ever have edges from a preempted caller?  */
+  caller_resolution = lto_symtab_get_resolution (caller->decl);
   if (caller_resolution == LDPR_PREEMPTED_REG
       || caller_resolution == LDPR_PREEMPTED_IR)
     return;
-
-  prevailing_callee = lto_symtab_prevailing_decl (callee->decl);
-
-  /* Make sure the caller is the prevailing decl.  */
-  prevailing_caller = lto_symtab_prevailing_decl (caller->decl);
-
-  if (prevailing_callee != callee->decl)
-    {
-      struct lto_file_decl_data *file_data;
-
-      /* We cannot replace a clone!  */
-      gcc_assert (callee == cgraph_node (callee->decl));
-
-      callee = cgraph_node (prevailing_callee);
-      gcc_assert (callee);
-
-      /* If LGEN (cc1 or cc1plus) had nothing to do with the node, it
-	 might not have created it. In this case, we just created a
-	 new node in the above call to cgraph_node. Mark the file it
-	 came from. */
-      file_data = lto_symtab_get_file_data (prevailing_callee);
-      if (callee->local.lto_file_data)
-	gcc_assert (callee->local.lto_file_data == file_data);
-      else
-	callee->local.lto_file_data = file_data;
-    }
 
   edge = cgraph_create_edge (caller, callee, NULL, count, freq, nest);
   edge->lto_stmt_uid = stmt_id;
@@ -601,6 +596,7 @@ input_cgraph_1 (struct lto_file_decl_data *file_data,
   VEC(cgraph_node_ptr, heap) *nodes = NULL;
   struct cgraph_node *node;
   unsigned i;
+  unsigned HOST_WIDE_INT len;
 
   tag = (enum LTO_cgraph_tags) lto_input_uleb128 (ib);
   while (tag)
@@ -619,6 +615,19 @@ input_cgraph_1 (struct lto_file_decl_data *file_data,
       tag = (enum LTO_cgraph_tags) lto_input_uleb128 (ib);
     }
 
+  /* Input toplevel asms.  */
+  len = lto_input_uleb128 (ib);
+  while (len)
+    {
+      char *str = (char *)xmalloc (len + 1);
+      for (i = 0; i < len; ++i)
+	str[i] = lto_input_1_unsigned (ib);
+      cgraph_add_asm_node (build_string (len, str));
+      free (str);
+
+      len = lto_input_uleb128 (ib);
+    }
+
   for (i = 0; VEC_iterate (cgraph_node_ptr, nodes, i, node); i++)
     {
       const int ref = (int) (intptr_t) node->global.inlined_to;
@@ -629,21 +638,6 @@ input_cgraph_1 (struct lto_file_decl_data *file_data,
       else
 	node->global.inlined_to = NULL;
     }
-
-  for (i = 0; VEC_iterate (cgraph_node_ptr, nodes, i, node); i++)
-    {
-      tree prevailing = lto_symtab_prevailing_decl (node->decl);
-
-      if (prevailing != node->decl)
-	{
-	  cgraph_remove_node (node);
-	  VEC_replace (cgraph_node_ptr, nodes, i, NULL);
-	}
-    }
-
-  for (i = 0; VEC_iterate (cgraph_node_ptr, nodes, i, node); i++)
-    if (node && cgraph_decide_is_function_needed (node, node->decl))
-      cgraph_mark_needed_node (node);
 
   VEC_free (cgraph_node_ptr, heap, nodes);
 }

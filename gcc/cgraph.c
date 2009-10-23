@@ -822,9 +822,9 @@ cgraph_create_edge (struct cgraph_node *caller, struct cgraph_node *callee,
   if (call_stmt)
     {
 #ifdef ENABLE_CHECKING
-  /* This is rather pricely check possibly trigerring construction of call stmt
-     hashtable.  */
-  gcc_assert (!cgraph_edge (caller, call_stmt));
+      /* This is rather pricely check possibly trigerring construction of
+	 call stmt hashtable.  */
+      gcc_assert (!cgraph_edge (caller, call_stmt));
 #endif
 
       gcc_assert (is_gimple_call (call_stmt));
@@ -847,7 +847,8 @@ cgraph_create_edge (struct cgraph_node *caller, struct cgraph_node *callee,
   edge->callee = callee;
   edge->call_stmt = call_stmt;
   push_cfun (DECL_STRUCT_FUNCTION (caller->decl));
-  edge->can_throw_external = stmt_can_throw_external (call_stmt);
+  edge->can_throw_external
+    = call_stmt ? stmt_can_throw_external (call_stmt) : false;
   pop_cfun ();
   edge->prev_caller = NULL;
   edge->next_caller = callee->callers;
@@ -1359,6 +1360,7 @@ void
 cgraph_mark_needed_node (struct cgraph_node *node)
 {
   node->needed = 1;
+  gcc_assert (!node->global.inlined_to);
   cgraph_mark_reachable_node (node);
 }
 
@@ -1682,6 +1684,7 @@ cgraph_clone_node (struct cgraph_node *n, gcov_type count, int freq,
     }
   new_node->analyzed = n->analyzed;
   new_node->local = n->local;
+  new_node->local.externally_visible = false;
   new_node->global = n->global;
   new_node->rtl = n->rtl;
   new_node->count = count;
@@ -1981,7 +1984,8 @@ cgraph_add_new_function (tree fndecl, bool lowered)
 bool
 cgraph_node_can_be_local_p (struct cgraph_node *node)
 {
-  return !node->needed;
+  return (!node->needed
+  	  && (DECL_COMDAT (node->decl) || !node->local.externally_visible));
 }
 
 /* Bring NODE local.  */

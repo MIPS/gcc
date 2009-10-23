@@ -1,3 +1,7 @@
+2009-10-23  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	Merge up to mainline revision 153493.
+
 2009-10-06  Ulrich Weigand  <uweigand@de.ibm.com>
 
 	* config/spu/spu.opt (-maddress-space-conversion): Use Mask

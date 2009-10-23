@@ -46,7 +46,9 @@ along with GCC; see the file COPYING3.  If not see
 /* This needs to be included after config.h.  Otherwise, _GNU_SOURCE will not
    be defined in time to set __USE_GNU in the system headers, and strsignal
    will not be declared.  */
+#if HAVE_MMAP_FILE
 #include <sys/mman.h>
+#endif
 
 DEF_VEC_P(bitmap);
 DEF_VEC_ALLOC_P(bitmap,heap);
@@ -243,10 +245,6 @@ lto_read_decls (struct lto_file_decl_data *decl_data, const void *data,
   
   /* Set the current decl state to be the global state. */
   decl_data->current_decl_state = decl_data->global_decl_state;
-
-  /* After each CU is read register and possibly merge global
-     symbols and their types.  */
-  lto_register_deferred_decls_in_symtab (data_in);
 
   lto_data_in_delete (data_in);
 }
@@ -1195,7 +1193,6 @@ lto_execute_ltrans (char *const *files)
 
 
 typedef struct {
-  struct pointer_set_t *free_list;
   struct pointer_set_t *seen;
 } lto_fixup_data_t;
 
@@ -1530,8 +1527,6 @@ lto_fixup_tree (tree *tp, int *walk_subtrees, void *data)
 		lto_mark_nothrow_fndecl (prevailing);
 	    }
 
-	  pointer_set_insert (fixup_data->free_list, t);
-
 	   /* Also replace t with prevailing defintion.  We don't want to
 	      insert the other defintion in the seen set as we want to
 	      replace all instances of it.  */
@@ -1640,20 +1635,6 @@ lto_fixup_state_aux (void **slot, void *aux)
   return 1;
 }
 
-/* A callback to pointer_set_traverse. Frees the tree pointed by p. Removes
-   from it from the UID -> DECL mapping. */
-
-static bool
-free_decl (const void *p, void *data ATTRIBUTE_UNUSED)
-{
-  const_tree ct = (const_tree) p;
-  tree t = CONST_CAST_TREE (ct);
-
-  lto_symtab_clear_resolution (t);
-
-  return true;
-}
-
 /* Fix the decls from all FILES. Replaces each decl with the corresponding
    prevailing one.  */
 
@@ -1662,11 +1643,9 @@ lto_fixup_decls (struct lto_file_decl_data **files)
 {
   unsigned int i;
   tree decl;
-  struct pointer_set_t *free_list = pointer_set_create ();
   struct pointer_set_t *seen = pointer_set_create ();
   lto_fixup_data_t data;
 
-  data.free_list = free_list;
   data.seen = seen;
   for (i = 0; files[i]; i++)
     {
@@ -1685,8 +1664,6 @@ lto_fixup_decls (struct lto_file_decl_data **files)
 	VEC_replace (tree, lto_global_var_decls, i, decl);
     }
 
-  pointer_set_traverse (free_list, free_decl, NULL);
-  pointer_set_destroy (free_list);
   pointer_set_destroy (seen);
 }
 
@@ -1763,6 +1740,7 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
   unsigned int i, last_file_ix;
   struct lto_file_decl_data **all_file_decl_data;
   FILE *resolution;
+  struct cgraph_node *node;
 
   lto_stats.num_input_files = nfiles;
 
@@ -1780,7 +1758,10 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
       unsigned num_objects;
 
       resolution = fopen (resolution_file_name, "r");
-      gcc_assert (resolution != NULL);
+      if (resolution == NULL)
+	fatal_error ("could not open symbol resolution file: %s",
+		     xstrerror (errno));
+
       t = fscanf (resolution, "%u", &num_objects);
       gcc_assert (t == 1);
 
@@ -1821,60 +1802,33 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
   /* Read the callgraph.  */
   input_cgraph ();
 
+  /* Merge global decls.  */
+  lto_symtab_merge_decls ();
+
+  /* Fixup all decls and types and free the type hash tables.  */
+  lto_fixup_decls (all_file_decl_data);
+  free_gimple_type_tables ();
+
+  /* Read the IPA summary data.  */
   ipa_read_summaries ();
 
+  /* Finally merge the cgraph according to the decl merging decisions.  */
+  lto_symtab_merge_cgraph_nodes ();
+
+  /* Mark cgraph nodes needed in the merged cgraph
+     This normally happens in whole-program pass, but for
+     ltrans the pass was already run at WPA phase.
+     
+     FIXME:  This is not valid way to do so; nodes can be needed
+     for non-obvious reasons.  We should stream the flags from WPA
+     phase. */
+  if (flag_ltrans)
+    for (node = cgraph_nodes; node; node = node->next)
+      if (!node->global.inlined_to
+	  && cgraph_decide_is_function_needed (node, node->decl))
+        cgraph_mark_needed_node (node);
+
   timevar_push (TV_IPA_LTO_DECL_IO);
-
-  lto_fixup_decls (all_file_decl_data);
-
-  /* See if we have multiple decls for a symbol and choose the largest
-     one to generate the common.  */
-  for (i = 0; i < VEC_length (tree, lto_global_var_decls); ++i)
-    {
-      tree decl = VEC_index (tree, lto_global_var_decls, i);
-      tree prev_decl = NULL_TREE;
-      tree size;
-
-      if (TREE_CODE (decl) != VAR_DECL
-	  || !DECL_LANG_SPECIFIC (decl))
-	continue;
-
-      /* Find the preceeding decl of the largest one.  */
-      size = DECL_SIZE (decl);
-      do
-	{
-	  tree next = (tree) DECL_LANG_SPECIFIC (decl);
-	  if (tree_int_cst_lt (size, DECL_SIZE (next)))
-	    {
-	      size = DECL_SIZE (next);
-	      prev_decl = decl;
-	    }
-	  decl = next;
-	}
-      while (DECL_LANG_SPECIFIC (decl));
-
-      /* If necessary move the largest decl to the front of the
-	 chain.  */
-      if (prev_decl != NULL_TREE)
-	{
-	  decl = (tree) DECL_LANG_SPECIFIC (prev_decl);
-	  DECL_LANG_SPECIFIC (prev_decl) = DECL_LANG_SPECIFIC (decl);
-	  DECL_LANG_SPECIFIC (decl)
-	    = (struct lang_decl *) VEC_index (tree, lto_global_var_decls, i);
-	  VEC_replace (tree, lto_global_var_decls, i, decl);
-	}
-
-      /* Mark everything apart from the first var as written out and
-         unlink the chain.  */
-      decl = VEC_index (tree, lto_global_var_decls, i);
-      while (DECL_LANG_SPECIFIC (decl))
-	{
-	  tree next = (tree) DECL_LANG_SPECIFIC (decl);
-	  DECL_LANG_SPECIFIC (decl) = NULL;
-	  decl = next;
-	  TREE_ASM_WRITTEN (decl) = true;
-	}
-    }
 
   /* FIXME lto. This loop needs to be changed to use the pass manager to
      call the ipa passes directly.  */

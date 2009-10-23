@@ -47,6 +47,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "output.h"
 #include "ipa-utils.h"
 #include "lto-streamer.h"
+#include "tree-pass.h"
 
 /* Data structure used to hash file names in the source_location field.  */
 struct string_slot
@@ -274,26 +275,31 @@ static location_t
 lto_input_location (struct lto_input_block *ib, struct data_in *data_in)
 {
   expanded_location xloc;
-  location_t loc;
 
   xloc.file = input_string (data_in, ib);
   if (xloc.file == NULL)
     return UNKNOWN_LOCATION;
 
+  xloc.file = canon_file_name (xloc.file);
   xloc.line = lto_input_sleb128 (ib);
   xloc.column = lto_input_sleb128 (ib);
+  xloc.sysp = lto_input_sleb128 (ib);
 
-  if (data_in->current_file)
-    linemap_add (line_table, LC_LEAVE, false, NULL, 0);
+  if (data_in->current_file != xloc.file)
+    {
+      if (data_in->current_file)
+	linemap_add (line_table, LC_LEAVE, false, NULL, 0);
 
-  data_in->current_file = canon_file_name (xloc.file);
+      linemap_add (line_table, LC_ENTER, xloc.sysp, xloc.file, xloc.line);
+    }
+  else if (data_in->current_line != xloc.line)
+    linemap_line_start (line_table, xloc.line, xloc.column);
+
+  data_in->current_file = xloc.file;
   data_in->current_line = xloc.line;
   data_in->current_col = xloc.column;
 
-  linemap_add (line_table, LC_ENTER, false, data_in->current_file, xloc.line);
-  LINEMAP_POSITION_FOR_COLUMN (loc, line_table, xloc.column);
-
-  return loc;
+  return linemap_position_for_column (line_table, xloc.column);
 }
 
 
@@ -868,6 +874,128 @@ input_ssa_names (struct lto_input_block *ib, struct data_in *data_in,
 }
 
 
+/* Fixup the reference tree OP for replaced VAR_DECLs with mismatched
+   types.  */
+
+static void
+maybe_fixup_handled_component (tree op)
+{
+  tree decl_type;
+  tree wanted_type;
+
+  while (handled_component_p (TREE_OPERAND (op, 0)))
+    op = TREE_OPERAND (op, 0);
+  if (TREE_CODE (TREE_OPERAND (op, 0)) != VAR_DECL)
+    return;
+
+  decl_type = TREE_TYPE (TREE_OPERAND (op, 0));
+
+  switch (TREE_CODE (op))
+    {
+    case COMPONENT_REF:
+      /* The DECL_CONTEXT of the field-decl is the record type we look for.  */
+      wanted_type = DECL_CONTEXT (TREE_OPERAND (op, 1));
+      break;
+
+    case ARRAY_REF:
+      if (TREE_CODE (decl_type) == ARRAY_TYPE
+	  && (TREE_TYPE (decl_type) == TREE_TYPE (op)
+	      || useless_type_conversion_p (TREE_TYPE (op),
+					    TREE_TYPE (decl_type))))
+	return;
+      /* An unknown size array type should be ok.  But we do not
+         lower the lower bound in all cases - ugh.  */
+      wanted_type = build_array_type (TREE_TYPE (op), NULL_TREE);
+      break;
+
+    case ARRAY_RANGE_REF:
+      if (TREE_CODE (decl_type) == ARRAY_TYPE
+	  && (TREE_TYPE (decl_type) == TREE_TYPE (TREE_TYPE (op))
+	      || useless_type_conversion_p (TREE_TYPE (TREE_TYPE (op)),
+					    TREE_TYPE (decl_type))))
+	return;
+      /* An unknown size array type should be ok.  But we do not
+         lower the lower bound in all cases - ugh.  */
+      wanted_type = build_array_type (TREE_TYPE (TREE_TYPE (op)), NULL_TREE);
+      break;
+
+    case BIT_FIELD_REF:
+    case VIEW_CONVERT_EXPR:
+      /* Very nice - nothing to do.  */
+      return;
+
+    case REALPART_EXPR:
+    case IMAGPART_EXPR:
+      if (TREE_CODE (decl_type) == COMPLEX_TYPE
+	  && (TREE_TYPE (decl_type) == TREE_TYPE (op)
+	      || useless_type_conversion_p (TREE_TYPE (op),
+					    TREE_TYPE (decl_type))))
+	return;
+      wanted_type = build_complex_type (TREE_TYPE (op));
+      break;
+
+    default:
+      gcc_unreachable ();
+    }
+
+  if (!useless_type_conversion_p (wanted_type, decl_type))
+    TREE_OPERAND (op, 0) = build1 (VIEW_CONVERT_EXPR, wanted_type,
+				   TREE_OPERAND (op, 0));
+}
+
+/* Fixup reference tree operands for substituted prevailing decls
+   with mismatched types in STMT.  */
+
+static void
+maybe_fixup_decls (gimple stmt)
+{
+  /* We have to fixup replaced decls here in case there were
+     inter-TU type mismatches.  Catch the most common cases
+     for now - this way we'll get testcases for the rest as
+     the type verifier will complain.  */
+  if (gimple_assign_single_p (stmt))
+    {
+      tree lhs = gimple_assign_lhs (stmt);
+      tree rhs = gimple_assign_rhs1 (stmt);
+
+      /* First catch loads and aggregate copies by adjusting the rhs.  */
+      if (TREE_CODE (rhs) == VAR_DECL)
+	{
+	  if (!useless_type_conversion_p (TREE_TYPE (lhs), TREE_TYPE (rhs)))
+	    gimple_assign_set_rhs1 (stmt, build1 (VIEW_CONVERT_EXPR,
+						  TREE_TYPE (lhs), rhs));
+	}
+      else if (handled_component_p (rhs))
+	maybe_fixup_handled_component (rhs);
+      /* Then catch scalar stores.  */
+      else if (TREE_CODE (lhs) == VAR_DECL)
+	{
+	  if (!useless_type_conversion_p (TREE_TYPE (lhs), TREE_TYPE (rhs)))
+	    gimple_assign_set_lhs (stmt, build1 (VIEW_CONVERT_EXPR,
+						 TREE_TYPE (rhs), lhs));
+	}
+      else if (handled_component_p (lhs))
+	maybe_fixup_handled_component (lhs);
+    }
+  else if (is_gimple_call (stmt))
+    {
+      tree lhs = gimple_call_lhs (stmt);
+
+      if (lhs && TREE_CODE (lhs) == VAR_DECL)
+	{
+	  if (!useless_type_conversion_p (TREE_TYPE (lhs),
+					  gimple_call_return_type (stmt)))
+	    gimple_call_set_lhs (stmt, build1 (VIEW_CONVERT_EXPR,
+					       gimple_call_return_type (stmt),
+					       lhs));
+	}
+      else if (lhs && handled_component_p (lhs))
+	maybe_fixup_handled_component (lhs);
+
+      /* Arguments, especially for varargs functions will be funny...  */
+    }
+}
+
 /* Read a statement with tag TAG in function FN from block IB using
    descriptors in DATA_IN.  */
 
@@ -939,9 +1067,40 @@ input_gimple_stmt (struct lto_input_block *ib, struct data_in *data_in,
 	{
 	  tree op = lto_input_tree (ib, data_in);
 	  gimple_set_op (stmt, i, op);
+
+	  /* Fixup FIELD_DECLs.  */
+	  while (op && handled_component_p (op))
+	    {
+	      if (TREE_CODE (op) == COMPONENT_REF)
+		{
+		  tree field, type, tem;
+		  field = TREE_OPERAND (op, 1);
+		  type = DECL_CONTEXT (field);
+		  for (tem = TYPE_FIELDS (type); tem; tem = TREE_CHAIN (tem))
+		    {
+		      if (tem == field
+			  || (TREE_TYPE (tem) == TREE_TYPE (field)
+			      && (DECL_FIELD_OFFSET (tem)
+				  == DECL_FIELD_OFFSET (field))
+			      && (DECL_FIELD_BIT_OFFSET (tem)
+				  == DECL_FIELD_BIT_OFFSET (field))
+			      && (DECL_OFFSET_ALIGN (tem)
+				  == DECL_OFFSET_ALIGN (field))))
+			break;
+		    }
+		  /* In case of type mismatches across units we can fail
+		     to unify some types and thus not find a proper
+		     field-decl here.  Just do nothing in this case.  */
+		  if (tem != NULL_TREE)
+		    TREE_OPERAND (op, 1) = tem;
+		}
+
+	      op = TREE_OPERAND (op, 0);
+	    }
 	}
       break;
 
+    case GIMPLE_NOP:
     case GIMPLE_PREDICT:
       break;
 
@@ -972,6 +1131,10 @@ input_gimple_stmt (struct lto_input_block *ib, struct data_in *data_in,
 	    SSA_NAME_DEF_STMT (op) = stmt;
 	}
     }
+
+  /* Fixup reference tree operands for substituted prevailing decls
+     with mismatched types.  */
+  maybe_fixup_decls (stmt);
 
   /* Mark the statement modified so its operand vectors can be filled in.  */
   gimple_set_modified (stmt, true);
@@ -1013,15 +1176,15 @@ input_bb (struct lto_input_block *ib, enum LTO_tags tag,
     {
       gimple stmt = input_gimple_stmt (ib, data_in, fn, tag);
 
-      /* Drop debug stmts on-the-fly if we do not have VTA enabled.
+      /* Change debug stmts to nops on-the-fly if we do not have VTA enabled.
 	 This allows us to build for example static libs with debugging
 	 enabled and do the final link without.  */
-      if (MAY_HAVE_DEBUG_STMTS
-	  || !is_gimple_debug (stmt))
-	{
-	  find_referenced_vars_in (stmt);
-	  gsi_insert_after (&bsi, stmt, GSI_NEW_STMT);
-	}
+      if (!MAY_HAVE_DEBUG_STMTS
+	  && is_gimple_debug (stmt))
+	stmt = gimple_build_nop ();
+
+      find_referenced_vars_in (stmt);
+      gsi_insert_after (&bsi, stmt, GSI_NEW_STMT);
 
       /* After the statement, expect a 0 delimiter or the EH region
 	 that the previous statement belongs to.  */
@@ -1032,8 +1195,7 @@ input_bb (struct lto_input_block *ib, enum LTO_tags tag,
 	{
 	  HOST_WIDE_INT region = lto_input_sleb128 (ib);
 	  gcc_assert (region == (int) region);
-	  if (MAY_HAVE_DEBUG_STMTS || !is_gimple_debug (stmt))
-	    add_stmt_to_eh_lp (stmt, region);
+	  add_stmt_to_eh_lp (stmt, region);
 	}
 
       tag = input_record_start (ib);
@@ -1181,6 +1343,8 @@ input_function (tree fn_decl, struct data_in *data_in,
   fixup_call_stmt_edges (cgraph_node (fn_decl), stmts);
 
   update_ssa (TODO_update_ssa_only_virtuals); 
+  free_dominance_info (CDI_DOMINATORS);
+  free_dominance_info (CDI_POST_DOMINATORS);
   free (stmts);
 }
 
@@ -1295,6 +1459,15 @@ lto_read_body (struct lto_file_decl_data *file_data, tree fn_decl,
       /* Restore decl state */
       file_data->current_decl_state = file_data->global_decl_state;
 
+      /* FIXME: ipa_transforms_to_apply holds list of passes that have optimization
+         summaries computed and needs to apply changes.  At the moment WHOPR only
+         supports inlining, so we can push it here by hand.  In future we need to stream
+         this field into ltrans compilation.  This will also need to move the field
+	 from struct function into cgraph node where it belongs.  */
+      if (flag_ltrans && !cgraph_node (fn_decl)->global.inlined_to)
+	 VEC_safe_push (ipa_opt_pass, heap,
+			cfun->ipa_transforms_to_apply,
+			(ipa_opt_pass)&pass_ipa_inline);
       pop_cfun ();
     }
   else 
@@ -1347,44 +1520,8 @@ get_resolution (struct data_in *data_in, unsigned index)
       return ret;
     }
   else
-    {
-      /* Fake symbol resolution if no resolution file was provided.  */
-      tree t = lto_streamer_cache_get (data_in->reader_cache, index);
-
-      gcc_assert (TREE_PUBLIC (t));
-
-      /* There should be no DECL_ABSTRACT in the middle end.  */
-      gcc_assert (!DECL_ABSTRACT (t));
-
-      /* If T is a weak definition, we select the first one we see to
-	 be the prevailing definition.  */
-      if (DECL_WEAK (t))
-	{
-	  tree prevailing_decl;
-	  if (DECL_EXTERNAL (t))
-	    return LDPR_RESOLVED_IR;
-
-	  /* If this is the first time we see T, it won't have a
-	     prevailing definition yet.  */
-	  prevailing_decl = lto_symtab_prevailing_decl (t);
-	  if (prevailing_decl == t
-	      || prevailing_decl == NULL_TREE
-	      || DECL_EXTERNAL (prevailing_decl))
-	    return LDPR_PREVAILING_DEF;
-	  else
-	    return LDPR_PREEMPTED_IR;
-	}
-      else
-	{
-	  /* For non-weak definitions, extern declarations are assumed
-	     to be resolved elsewhere (LDPR_RESOLVED_IR), otherwise T
-	     is a prevailing definition.  */
-	  if (DECL_EXTERNAL (t))
-	    return LDPR_RESOLVED_IR;
-	  else
-	    return LDPR_PREVAILING_DEF;
-	}
-    }
+    /* Delay resolution finding until decl merging.  */
+    return LDPR_UNKNOWN;
 }
 
 
@@ -2243,55 +2380,13 @@ lto_input_tree_pointers (struct lto_input_block *ib, struct data_in *data_in,
     }
 }
 
-static VEC(tree, heap) *deferred_global_decls;
-
-/* Register the queued global decls with the symtab.  DATA_IN contains
-   tables and descriptors for the file being read.*/
-
-void
-lto_register_deferred_decls_in_symtab (struct data_in *data_in)
-{
-  unsigned i;
-  tree decl;
-
-  for (i = 0; VEC_iterate (tree, deferred_global_decls, i, decl); ++i)
-    {
-      enum ld_plugin_symbol_resolution resolution;
-      int ix;
-
-      if (!lto_streamer_cache_lookup (data_in->reader_cache, decl, &ix))
-	gcc_unreachable ();
-
-      /* Register and adjust the decls type.  */
-      TREE_TYPE (decl) = gimple_register_type (TREE_TYPE (decl));
-
-      if (TREE_CODE (decl) == VAR_DECL)
-	{
-	  gcc_assert (TREE_PUBLIC (decl));
-	  resolution = get_resolution (data_in, ix);
-	  lto_symtab_merge_var (decl, resolution);
-	}
-      else if (TREE_CODE (decl) == FUNCTION_DECL)
-	{
-	  gcc_assert (TREE_PUBLIC (decl) && !DECL_ABSTRACT (decl));
-	  resolution = get_resolution (data_in, ix);
-	  lto_symtab_merge_fn (decl, resolution, data_in->file_data);
-	}
-      else
-	gcc_unreachable ();
-    }
-
-  VEC_free (tree, heap, deferred_global_decls);
-  deferred_global_decls = NULL;
-}
-
 
 /* Register DECL with the global symbol table and change its
    name if necessary to avoid name clashes for static globals across
    different files.  */
 
 static void
-lto_register_var_decl_in_symtab (tree decl)
+lto_register_var_decl_in_symtab (struct data_in *data_in, tree decl)
 {
   /* Register symbols with file or global scope to mark what input
      file has their definition.  */
@@ -2319,7 +2414,13 @@ lto_register_var_decl_in_symtab (tree decl)
   /* If this variable has already been declared, queue the
      declaration for merging.  */
   if (TREE_PUBLIC (decl))
-    VEC_safe_push (tree, heap, deferred_global_decls, decl);
+    {
+      int ix;
+      if (!lto_streamer_cache_lookup (data_in->reader_cache, decl, &ix))
+	gcc_unreachable ();
+      lto_symtab_register_decl (decl, get_resolution (data_in, ix),
+				data_in->file_data);
+    }
 }
 
 
@@ -2380,7 +2481,13 @@ lto_register_function_decl_in_symtab (struct data_in *data_in, tree decl)
   /* If this variable has already been declared, queue the
      declaration for merging.  */
   if (TREE_PUBLIC (decl) && !DECL_ABSTRACT (decl))
-    VEC_safe_push (tree, heap, deferred_global_decls, decl);
+    {
+      int ix;
+      if (!lto_streamer_cache_lookup (data_in->reader_cache, decl, &ix))
+	gcc_unreachable ();
+      lto_symtab_register_decl (decl, get_resolution (data_in, ix),
+				data_in->file_data);
+    }
 }
 
 
@@ -2442,13 +2549,22 @@ lto_get_builtin_tree (struct lto_input_block *ib, struct data_in *data_in)
   gcc_assert (fclass == BUILT_IN_NORMAL || fclass == BUILT_IN_MD);
 
   fcode = (enum built_in_function) lto_input_uleb128 (ib);
-  gcc_assert (fcode < END_BUILTINS);
 
   ix = lto_input_sleb128 (ib);
   gcc_assert (ix == (int) ix);
 
-  result = built_in_decls[fcode];
-  gcc_assert (result);
+  if (fclass == BUILT_IN_NORMAL)
+    {
+      gcc_assert (fcode < END_BUILTINS);
+      result = built_in_decls[fcode];
+      gcc_assert (result);
+    }
+  else if (fclass == BUILT_IN_MD)
+    {
+      result = targetm.builtin_decl (fcode, true);
+      if (!result || result == error_mark_node)
+	fatal_error ("target specific builtin not available");
+    }
 
   asmname = input_string (data_in, ib);
   if (asmname)
@@ -2481,7 +2597,7 @@ lto_read_tree (struct lto_input_block *ib, struct data_in *data_in,
     gcc_assert (!lto_stream_as_builtin_p (result));
 
   if (TREE_CODE (result) == VAR_DECL)
-    lto_register_var_decl_in_symtab (result);
+    lto_register_var_decl_in_symtab (data_in, result);
   else if (TREE_CODE (result) == FUNCTION_DECL && !DECL_BUILT_IN (result))
     lto_register_function_decl_in_symtab (data_in, result);
 

@@ -600,24 +600,31 @@ position_pass (struct register_pass_info *new_pass_info,
 void
 register_pass (struct register_pass_info *pass_info)
 {
+  /* The checks below could fail in buggy plugins.  Existing GCC
+     passes should never fail these checks, so we mention plugin in
+     the messages.  */
   if (!pass_info->pass)
-    {
-      gcc_unreachable ();
-    } 
+      fatal_error ("plugin cannot register a missing pass");
+
+  if (!pass_info->pass->name)
+      fatal_error ("plugin cannot register an unnamed pass");
 
   if (!pass_info->reference_pass_name)
-    {
-      gcc_unreachable ();
-    }
+      fatal_error
+	("plugin cannot register pass %qs without reference pass name",
+	 pass_info->pass->name);
 
-  /* Try to insert the new pass to the pass lists. We need to check all
-     three lists as the reference pass could be in one (or all) of them.  */
+  /* Try to insert the new pass to the pass lists.  We need to check
+     all three lists as the reference pass could be in one (or all) of
+     them.  */
   if (!position_pass (pass_info, &all_lowering_passes)
       && !position_pass (pass_info, &all_small_ipa_passes)
       && !position_pass (pass_info, &all_regular_ipa_passes)
       && !position_pass (pass_info, &all_lto_gen_passes)
       && !position_pass (pass_info, &all_passes))
-    gcc_unreachable ();
+    fatal_error
+      ("pass %qs not found but is referenced by new pass %qs",
+       pass_info->reference_pass_name, pass_info->pass->name);
   else
     {
       /* OK, we have successfully inserted the new pass. We need to register
@@ -683,7 +690,6 @@ init_optimization_passes (void)
   p = &all_lowering_passes;
   NEXT_PASS (pass_warn_unused_result);
   NEXT_PASS (pass_diagnose_omp_blocks);
-  NEXT_PASS (pass_remove_useless_stmts);
   NEXT_PASS (pass_mudflap_1);
   NEXT_PASS (pass_lower_omp);
   NEXT_PASS (pass_lower_cf);
@@ -759,6 +765,7 @@ init_optimization_passes (void)
   *p = NULL;
 
   p = &all_regular_ipa_passes;
+  NEXT_PASS (pass_ipa_whole_program_visibility);
   NEXT_PASS (pass_ipa_cp);
   NEXT_PASS (pass_ipa_inline);
   NEXT_PASS (pass_ipa_reference);
@@ -936,6 +943,7 @@ init_optimization_passes (void)
       NEXT_PASS (pass_rtl_store_motion);
       NEXT_PASS (pass_cse_after_global_opts);
       NEXT_PASS (pass_rtl_ifcvt);
+      NEXT_PASS (pass_reginfo_init);
       /* Perform loop optimizations.  It might be better to do them a bit
 	 sooner, but we want the profile feedback to work more
 	 efficiently.  */
@@ -955,7 +963,6 @@ init_optimization_passes (void)
       NEXT_PASS (pass_cse2);
       NEXT_PASS (pass_rtl_dse1);
       NEXT_PASS (pass_rtl_fwprop_addr);
-      NEXT_PASS (pass_reginfo_init);
       NEXT_PASS (pass_inc_dec);
       NEXT_PASS (pass_initialize_regs);
       NEXT_PASS (pass_ud_rtl_dce);
@@ -971,10 +978,8 @@ init_optimization_passes (void)
       NEXT_PASS (pass_mode_switching);
       NEXT_PASS (pass_match_asm_constraints);
       NEXT_PASS (pass_sms);
-      NEXT_PASS (pass_subregs_of_mode_init);
       NEXT_PASS (pass_sched);
       NEXT_PASS (pass_ira);
-      NEXT_PASS (pass_subregs_of_mode_finish);
       NEXT_PASS (pass_postreload);
 	{
 	  struct opt_pass **p = &pass_postreload.pass.sub;
@@ -1099,7 +1104,7 @@ do_per_function_toporder (void (*callback) (void *data), void *data)
 	  /* Allow possibly removed nodes to be garbage collected.  */
 	  order[i] = NULL;
 	  node->process = 0;
-	  if (node->analyzed && (node->needed || node->reachable))
+	  if (node->analyzed)
 	    {
 	      push_cfun (DECL_STRUCT_FUNCTION (node->decl));
 	      current_function_decl = node->decl;
@@ -1613,7 +1618,8 @@ ipa_write_summaries_1 (cgraph_node_set set)
   struct lto_out_decl_state *state = lto_new_out_decl_state ();
   lto_push_out_decl_state (state);
 
-  ipa_write_summaries_2 (all_regular_ipa_passes, set, state);
+  if (!flag_wpa)
+    ipa_write_summaries_2 (all_regular_ipa_passes, set, state);
   ipa_write_summaries_2 (all_lto_gen_passes, set, state);
 
   gcc_assert (lto_get_out_decl_state () == state);
@@ -1707,7 +1713,8 @@ ipa_read_summaries_1 (struct opt_pass *pass)
 void
 ipa_read_summaries (void)
 {
-  ipa_read_summaries_1 (all_regular_ipa_passes);
+  if (!flag_ltrans)
+    ipa_read_summaries_1 (all_regular_ipa_passes);
   ipa_read_summaries_1 (all_lto_gen_passes);
 }
 
@@ -1783,7 +1790,7 @@ function_called_by_processed_nodes_p (void)
     {
       if (e->caller->decl == current_function_decl)
         continue;
-      if (!e->caller->analyzed || (!e->caller->needed && !e->caller->reachable))
+      if (!e->caller->analyzed)
         continue;
       if (TREE_ASM_WRITTEN (e->caller->decl))
         continue;

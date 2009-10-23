@@ -4041,17 +4041,9 @@ build_conditional_expr (location_t colon_loc, tree ifexp, bool ifexp_bcp,
 				     "conditional expression"));
 		    }
 		  if (!op1_maybe_const || TREE_CODE (op1) != INTEGER_CST)
-		    {
-		      op1 = build2 (C_MAYBE_CONST_EXPR, TREE_TYPE (op1),
-				    NULL, op1);
-		      C_MAYBE_CONST_EXPR_NON_CONST (op1) = !op1_maybe_const;
-		    }
+		    op1 = c_wrap_maybe_const (op1, !op1_maybe_const);
 		  if (!op2_maybe_const || TREE_CODE (op2) != INTEGER_CST)
-		    {
-		      op2 = build2 (C_MAYBE_CONST_EXPR, TREE_TYPE (op2),
-				    NULL, op2);
-		      C_MAYBE_CONST_EXPR_NON_CONST (op2) = !op2_maybe_const;
-		    }
+		    op2 = c_wrap_maybe_const (op2, !op2_maybe_const);
 		}
 	    }
 	}
@@ -8852,8 +8844,7 @@ c_finish_stmt_expr (location_t loc, tree body)
     {
       /* Even if this looks constant, do not allow it in a constant
 	 expression.  */
-      last = build2 (C_MAYBE_CONST_EXPR, TREE_TYPE (last), NULL_TREE, last);
-      C_MAYBE_CONST_EXPR_NON_CONST (last) = 1;
+      last = c_wrap_maybe_const (last, true);
       /* Do not warn if the return value of a statement expression is
 	 unused.  */
       TREE_NO_WARNING (last) = 1;
@@ -9754,17 +9745,9 @@ build_binary_op (location_t location, enum tree_code code,
 	      if (!in_late_binary_op)
 		{
 		  if (!op0_maybe_const || TREE_CODE (op0) != INTEGER_CST)
-		    {
-		      op0 = build2 (C_MAYBE_CONST_EXPR, TREE_TYPE (op0),
-				    NULL, op0);
-		      C_MAYBE_CONST_EXPR_NON_CONST (op0) = !op0_maybe_const;
-		    }
+		    op0 = c_wrap_maybe_const (op0, !op0_maybe_const);
 		  if (!op1_maybe_const || TREE_CODE (op1) != INTEGER_CST)
-		    {
-		      op1 = build2 (C_MAYBE_CONST_EXPR, TREE_TYPE (op1),
-				    NULL, op1);
-		      C_MAYBE_CONST_EXPR_NON_CONST (op1) = !op1_maybe_const;
-		    }
+		    op1 = c_wrap_maybe_const (op1, !op1_maybe_const);
 		}
 	    }
 	}

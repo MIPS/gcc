@@ -223,7 +223,7 @@ cgraph_clone_inlined_nodes (struct cgraph_edge *e, bool duplicate,
       /* We may eliminate the need for out-of-line copy to be output.
 	 In that case just go ahead and re-use it.  */
       if (!e->callee->callers->next_caller
-	  && !e->callee->needed
+	  && cgraph_can_remove_if_no_direct_calls_p (e->callee)
 	  && !cgraph_new_nodes)
 	{
 	  gcc_assert (!e->callee->global.inlined_to);
@@ -233,6 +233,7 @@ cgraph_clone_inlined_nodes (struct cgraph_edge *e, bool duplicate,
 	      nfunctions_inlined++;
 	    }
 	  duplicate = false;
+	  e->callee->local.externally_visible = false;
 	}
       else
 	{
@@ -286,7 +287,7 @@ cgraph_mark_inline_edge (struct cgraph_edge *e, bool update_original,
   e->callee->global.inlined = true;
 
   if (e->callee->callers->next_caller
-      || e->callee->needed)
+      || !cgraph_can_remove_if_no_direct_calls_p (e->callee))
     duplicate = true;
   cgraph_clone_inlined_nodes (e, true, update_original);
 
@@ -309,7 +310,7 @@ cgraph_mark_inline_edge (struct cgraph_edge *e, bool update_original,
     overall_size -= orig_size;
   ncalls_inlined++;
 
-  if (flag_indirect_inlining)
+  if (flag_indirect_inlining && !flag_wpa)
     return ipa_propagate_indirect_call_infos (curr, new_edges);
   else
     return false;
@@ -368,7 +369,8 @@ cgraph_estimate_growth (struct cgraph_node *node)
      we decide to not inline for different reasons, but it is not big deal
      as in that case we will keep the body around, but we will also avoid
      some inlining.  */
-  if (!node->needed && !DECL_EXTERNAL (node->decl) && !self_recursive)
+  if (cgraph_only_called_directly_p (node)
+      && !DECL_EXTERNAL (node->decl) && !self_recursive)
     growth -= node->global.size;
 
   node->global.estimated_growth = growth;
@@ -874,7 +876,7 @@ cgraph_decide_inlining_of_small_functions (void)
   int min_size, max_size;
   VEC (cgraph_edge_p, heap) *new_indirect_edges = NULL;
 
-  if (flag_indirect_inlining)
+  if (flag_indirect_inlining && !flag_wpa)
     new_indirect_edges = VEC_alloc (cgraph_edge_p, heap, 8);
 
   if (dump_file)
@@ -1021,10 +1023,10 @@ cgraph_decide_inlining_of_small_functions (void)
 	  if (where->global.inlined_to)
 	    where = where->global.inlined_to;
 	  if (!cgraph_decide_recursive_inlining (where,
-						 flag_indirect_inlining
+						 flag_indirect_inlining && !flag_wpa
 						 ? &new_indirect_edges : NULL))
 	    continue;
-	  if (flag_indirect_inlining)
+	  if (flag_indirect_inlining && !flag_wpa)
 	    add_new_edges_to_heap (heap, new_indirect_edges);
           update_callee_keys (heap, where, updated_nodes);
 	}
@@ -1043,7 +1045,7 @@ cgraph_decide_inlining_of_small_functions (void)
 	    }
 	  callee = edge->callee;
 	  cgraph_mark_inline_edge (edge, true, &new_indirect_edges);
-	  if (flag_indirect_inlining)
+	  if (flag_indirect_inlining && !flag_wpa)
 	    add_new_edges_to_heap (heap, new_indirect_edges);
 
 	  update_callee_keys (heap, callee, updated_nodes);
@@ -1111,13 +1113,9 @@ cgraph_decide_inlining (void)
   bool redo_always_inline = true;
   int initial_size = 0;
 
-  /* FIXME lto.  We need to rethink how to coordinate different passes. */
-  if (flag_ltrans)
-    return 0;
-
-  /* FIXME lto.  We need to re-think about how the passes get invoked. */
-  if (!flag_wpa)
-    cgraph_remove_function_insertion_hook (function_insertion_hook_holder);
+  cgraph_remove_function_insertion_hook (function_insertion_hook_holder);
+  if (in_lto_p && flag_indirect_inlining && !flag_wpa)
+    ipa_update_after_lto_read ();
 
   max_count = 0;
   max_benefit = 0;
@@ -1226,7 +1224,7 @@ cgraph_decide_inlining (void)
 
 	  if (node->callers
 	      && !node->callers->next_caller
-	      && !node->needed
+	      && cgraph_only_called_directly_p (node)
 	      && node->local.inlinable
 	      && node->callers->inline_failed
 	      && node->callers->caller != node
@@ -1270,7 +1268,7 @@ cgraph_decide_inlining (void)
     }
 
   /* Free ipa-prop structures if they are no longer needed.  */
-  if (flag_indirect_inlining)
+  if (flag_indirect_inlining && !flag_wpa)
     free_all_ipa_structures_after_iinln ();
 
   if (dump_file)
@@ -1591,10 +1589,10 @@ cgraph_early_inlining (void)
 
   if (sorrycount || errorcount)
     return 0;
-  while (cgraph_decide_inlining_incrementally (node,
-  					       iterations
-					       ? INLINE_SIZE_NORECURSIVE : INLINE_SIZE, 0)
-	 && iterations < PARAM_VALUE (PARAM_EARLY_INLINER_MAX_ITERATIONS))
+  while (iterations < PARAM_VALUE (PARAM_EARLY_INLINER_MAX_ITERATIONS)
+         && cgraph_decide_inlining_incrementally (node,
+  					          iterations
+					          ? INLINE_SIZE_NORECURSIVE : INLINE_SIZE, 0))
     {
       timevar_push (TV_INTEGRATION);
       todo |= optimize_inline_calls (current_function_decl);
@@ -1926,10 +1924,6 @@ inline_generate_summary (void)
 {
   struct cgraph_node *node;
 
-  /* FIXME lto.  We should not run any IPA-summary pass in LTRANS mode.  */
-  if (flag_ltrans)
-    return;
-
   function_insertion_hook_holder =
       cgraph_add_function_insertion_hook (&add_new_function, NULL);
 
@@ -1974,6 +1968,34 @@ inline_transform (struct cgraph_node *node)
   return todo | execute_fixup_cfg ();
 }
 
+/* Read inline summary.  Jump functions are shared among ipa-cp
+   and inliner, so when ipa-cp is active, we don't need to write them
+   twice.  */
+
+static void 
+inline_read_summary (void)
+{
+  if (flag_indirect_inlining && !flag_wpa)
+    {
+      ipa_register_cgraph_hooks ();
+      if (!flag_ipa_cp)
+        ipa_prop_read_jump_functions ();
+    }
+  function_insertion_hook_holder =
+      cgraph_add_function_insertion_hook (&add_new_function, NULL);
+}
+
+/* Write inline summary for node in SET.
+   Jump functions are shared among ipa-cp and inliner, so when ipa-cp is
+   active, we don't need to write them twice.  */
+
+static void 
+inline_write_summary (cgraph_node_set set)
+{
+  if (flag_indirect_inlining && !flag_ipa_cp)
+    ipa_prop_write_jump_functions (set);
+}
+
 struct ipa_opt_pass_d pass_ipa_inline =
 {
  {
@@ -1993,8 +2015,8 @@ struct ipa_opt_pass_d pass_ipa_inline =
   | TODO_remove_functions		/* todo_flags_finish */
  },
  inline_generate_summary,		/* generate_summary */
- NULL,					/* write_summary */
- NULL,					/* read_summary */
+ inline_write_summary,			/* write_summary */
+ inline_read_summary,			/* read_summary */
  NULL,					/* function_read_summary */
  0,					/* TODOs */
  inline_transform,			/* function_transform */

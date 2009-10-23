@@ -568,6 +568,12 @@ struct gcc_target
   /* Set up target-specific built-in functions.  */
   void (* init_builtins) (void);
 
+  /* Initialize (if INITIALIZE_P is true) and return the target-specific
+     built-in function decl for CODE.
+     Return NULL if that is not possible.  Return error_mark_node if CODE
+     is outside of the range of valid target builtin function codes.  */
+  tree (* builtin_decl) (unsigned code, bool initialize_p);
+
   /* Expand a target-specific builtin.  */
   rtx (* expand_builtin) (tree exp, rtx target, rtx subtarget,
 			  enum machine_mode mode, int ignore);
@@ -938,7 +944,7 @@ struct gcc_target
 
     /* Return the rtx for the result of a libcall of mode MODE,
        calling the function FN_NAME.  */
-    rtx (*libcall_value) (enum machine_mode, rtx);
+    rtx (*libcall_value) (enum machine_mode, const_rtx);
 
     /* Return an rtx for the argument pointer incoming to the
        current function.  */
