@@ -1,3 +1,152 @@
+2009-10-26  Nick Clifton  <nickc@redhat.com>
+
+	* config.gcc: Add support for RX target.
+	* config/rx: New directory.
+	* config/rx/constraints.md: New file.
+	* config/rx/predicates.md: New file.
+	* config/rx/rx.c: New file.
+	* config/rx/rx.h: New file.
+	* config/rx/rx.md: New file.
+	* config/rx/rx.opt: New file.
+	* config/rx/rx-protos.h: New file.
+	* config/rx/t-rx: New file.
+	* doc/extend.texi: Document RX function attributes.
+	* doc/invoke.texi: Document RX specific command line options.
+	* doc/contrib.texi: Document RX contribution.
+	* doc/md.texi: Document RX constraints.
+	* doc/install.texi: Document RX support.
+
+2009-10-26  Michael Matz  <matz@suse.de>
+
+	PR tree-optimization/41783
+	* tree-ssa-alias.c (get_continuation_for_phi): Export, add a special
+	case for simple diamonds.
+	* tree-ssa-alias.h (get_continuation_for_phi): Declare.
+	* tree-ssa-pre.c (translate_vuse_through_block): Add same_valid
+	argument, use alias oracle to skip some vdefs.
+	(phi_translate_1): Change call to above, don't allocate new
+	value ids if they can stay the same.
+	(compute_avail): Allow vuse walking when looking up references.
+
+2009-10-26  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/41826
+	* tree-ssa-structalias.c (get_constraint_for_ptr_offset): Avoid
+	access to re-allocated vector fields.
+
+2009-10-26  Richard Guenther  <rguenther@suse.de>
+
+	* graphite-sese-to-poly.c (check_poly_representation): Fix
+	compile without checking.
+
+2009-10-26  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/41714
+	* gimple.h (tree_annotate_all_with_location): Remove prototype.
+	* gimplify.c (tree_should_carry_location_p,
+	tree_annotate_one_with_location,tree_annotate_all_with_location):
+	Remove obsolete functions.
+
+2009-10-25  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/41813
+	* config/sh/sh.md (stuff_delay_slot): Don't set T_REG in pattern.
+
+2009-10-25  Richard Guenther  <rguenther@suse.de>
+
+	* lto-streamer-in.c (unpack_ts_decl_common_value_fields):
+	Stream DECL_RESTRICTED_P.
+	* lto-streamer-out.c (pack_ts_decl_common_value_fields): Likewise.
+
+2009-10-25  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* config/mips/mips.c (mips_restore_gp_from_cprestore_slot): Emit
+	a note when expanding to nothing.
+
+2009-10-25  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/41814
+	* tree.c (find_decls_types_r): Deal with Java overloading
+	BINFO_VIRTUALS for its own purpose.
+
+2009-10-24  Adam Nemet  <anemet@caviumnetworks.com>
+
+	* config/mips/predicates.md (hilo_operand): New predicate.
+	* config/mips/mips.md (<u>mulsidi3_64bit): Change it to a
+	define_insn.  Correct !ISA_HAS_EXT_INS length from 24 to 28.  Move
+	splitter part from here ...:
+	(<u>mulsidi3_64bit splitter for !ISA_HAS_EXT_INS): ... to here.  Swap
+	op0 and op4 to match the DINS case.
+	(<u>mulsidi3_64bit splitter for ISA_HAS_EXT_INS): New splitter.
+
+2009-10-24  Andy Hutchinson  <hutchinsonandy@gcc.gnu.org>
+
+	PR middle-end/19154
+	* avr.md (QIDI): Add new mode iterator.
+	(sbrx_branch<mode>): Create new zero extract bit, test and jump
+	patterns for all QI thru DI modes combinations.
+	(sbrx_and_branch<mode>): Create new and based bit test and jump
+	patterns for QI thru SI modes.
+	avr.c (avr_out_sbxx_branch): Use only bit number.
+
+2009-10-24  Jan Hubicka  <jh@suse.cz>
+
+	* ipa-reference.c (check_call): Noreturn notrhow calls do not write
+	to memory.
+	(analyze_function): When analyzing noreturn nothrow call, do not compute
+	written stats; free bitmaps of vars early if possible.
+	(generate_summary): Only update bitmaps if computed.
+	(propagate): Only dump bitmaps if computed.
+	(ipa_reference_read_summary): Fix pasto.
+
+2009-10-24  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-ssa-alias.c (nonaliasing_component_refs_p): Rename into...
+	(aliasing_component_refs_p): ...this.  Return true if there is no
+	common base and the base access types have the same alias set.
+	(indirect_ref_may_alias_decl_p): Adjust for above renaming.
+	(indirect_refs_may_alias_p): Likewise.
+
+2009-10-23  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/40033
+	* c-typeck.c (c_finish_stmt_expr): Do not wrap error_mark_node in
+	a C_MAYBE_CONST_EXPR.
+
+2009-10-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/41787
+	* config/rs6000/rs6000.c (struct machine_function): Add
+	vsx_or_altivec_used_p to record if vector types are used.
+	(rs6000_expand_to_rtl_hook): Rename from
+	rs6000_alloc_sdmode_stack_slot.  If VSX, check to see if there are
+	any vector operations, so if there are, we can set VRSAVE to
+	non-zero when only floating point vector registers are used.
+	(TARGET_EXPAND_TO_RTL_HOOK): Use rs6000_expand_to_rtl_hook.
+	(rs6000_check_vector_mode): Inner function to check if vector
+	types are used in the code.
+	(compute_vrsave_mask): If VSX, make sure VRSAVE is non-zero if
+	vector instructions are used.
+
+	* config/rs6000/rs6000.h (HARD_REGNO_CALL_PART_CLOBBERED):
+	Indicate that VSX registers which overlap floating point
+	registers, can't be used across a call, since the ABI only states
+	the scalar part of the register will be saved and restored.
+
+2009-10-23  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/41673
+	* alias.c (get_alias_set): Call langhook before returning 0 for
+	types with structural equality.
+	* c-common.c (c_common_get_alias_set): Use alias set of element
+	type for arrays with structural comparison.
+
+2009-10-23  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/41805
+	* cfgexpand.c (expand_call_stmt): Use gimple_has_side_effects and
+	gimple_call_nothrow_p.
+
 2009-10-23  Richard Guenther  <rguenther@suse.de>
 
 	PR tree-optimization/41778

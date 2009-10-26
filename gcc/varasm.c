@@ -4323,7 +4323,8 @@ initializer_constant_valid_p (tree value, tree endtype)
     case POINTER_PLUS_EXPR:
     case PLUS_EXPR:
       if (! INTEGRAL_TYPE_P (endtype)
-	  || TYPE_PRECISION (endtype) >= TYPE_PRECISION (TREE_TYPE (value)))
+	  || TYPE_PRECISION (endtype)
+	     >= int_or_pointer_precision (TREE_TYPE (value)))
 	{
 	  tree valid0 = initializer_constant_valid_p (TREE_OPERAND (value, 0),
 						      endtype);
@@ -4345,7 +4346,8 @@ initializer_constant_valid_p (tree value, tree endtype)
 
     case MINUS_EXPR:
       if (! INTEGRAL_TYPE_P (endtype)
-	  || TYPE_PRECISION (endtype) >= TYPE_PRECISION (TREE_TYPE (value)))
+	  || TYPE_PRECISION (endtype)
+	     >= int_or_pointer_precision (TREE_TYPE (value)))
 	{
 	  tree valid0 = initializer_constant_valid_p (TREE_OPERAND (value, 0),
 						      endtype);

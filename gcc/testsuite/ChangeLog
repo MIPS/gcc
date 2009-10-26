@@ -1,3 +1,132 @@
+2009-10-26  Nick Clifton  <nickc@redhat.com>
+
+	* lib/target-supports.exp (check_profiling_available):
+	Profiling is not, currently, available for the RX port.
+	(check_effective_target_hard_float): Add support for RX
+	target.
+	* gcc.target/rx: New directory.
+	* gcc.target/rx/builtins.c: New test file.
+	* gcc.target/rx/interrupts.c: New test file.
+	* gcc.target/rx/rx-abi-function-tests.c: New test file.
+	* gcc.target/rx/zero-width-bitfield.c: New test file.
+	* gcc.target/rx/i272091.c: New test file.
+	* gcc.target/rx/packed-struct.c: New test file.
+	* gcc.target/rx/rx.exp: New file: Drives RX tests.
+	
+2009-10-26  Andrew Pinski  <pinskia@gcc.gnu.org>
+
+	* gcc.dg/lto/20091014-1_0.c: Replace -shared with -r -nostlib.
+	* gcc.dg/lto/20091016-1_0.c: Likewise.
+	* gcc.dg/lto/20090206-1_0.c: Likewise.
+	* gcc.dg/lto/20081120-1_0.c: Likewise.
+	* gcc.dg/lto/20081120-2_0.c: Likewise.
+	* gcc.dg/lto/20090116_0.c: Likewise.
+	* gcc.dg/lto/20081126_0.c: Likewise.
+	* gcc.dg/lto/20091013-1_0.c: Likewise.
+	* gcc.dg/lto/20081212-1_0.c: Likewise.
+	* gcc.dg/lto/20091015-1_0.c: Likewise.
+	* gcc.dg/lto/20090126-1_0.c: Likewise.
+	* gcc.dg/lto/20090126-2_0.c: Likewise.
+	* gcc.dg/lto/20091020-1_0.c: Likewise.
+	* gcc.dg/lto/20091020-2_0.c: Likewise.
+	* gcc.dg/lto/20081204-1_0.c: Likewise.
+	* gcc.dg/lto/20081204-2_0.c: Likewise.
+	* gcc.dg/lto/20081224_0.c: Likewise.
+	* gcc.dg/lto/20090219_0.c: Likewise.
+
+2009-10-26  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/41020
+	* g++.dg/lookup/extern-c-redecl2.C: New test.
+	* g++.dg/lookup/extern-c-redecl3.C: Likewise.
+	* g++.dg/lookup/extern-c-redecl4.C: Likewise.
+	* g++.dg/lookup/extern-c-redecl5.C: Likewise.
+
+2009-10-26  Michael Matz  <matz@suse.de>
+
+	PR tree-optimization/41783
+	* gcc.dg/pr41783.c: New test.
+	* gcc.dg/tree-ssa/ssa-pre-23.c: Adjust.
+	* gcc.dg/tree-ssa/ssa-pre-24.c: Don't xfail anymore.
+	* gcc.dg/tree-ssa/ssa-pre-27.c: New test.
+
+2009-10-26  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/41714
+	* gfortran.dg/class_allocate_4.f03: New test.
+
+2009-10-24  Adam Nemet  <anemet@caviumnetworks.com>
+
+	* gcc.target/mips/mult-1.c: New test.
+
+2009-10-24  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/41784
+	* gfortran.dg/extends_8.f03: New test.
+
+2009-10-24  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/specs/pack4.ads: New test.
+
+2009-10-24  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/null_pointer_deref1.adb: New test.
+	* gnat.dg/null_pointer_deref2.adb: Likewise.
+
+2009-10-24  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/41772
+	* gfortran.dg/transfer_intrinsic_3.f90.
+
+2009-10-24  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/opt4.adb: New test.
+
+2009-10-23  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/40033
+	* gcc.dg/noncompile/pr40033-1.c: New test.
+
+2009-10-23  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/40808
+	* g++.dg/abi/mangle34.C: New test
+
+2009-10-23  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/lambda/lambda-nested2.C: New.
+
+	Core issue 899
+	* g++.dg/cpp0x/explicit4.C: New.
+
+2009-10-23  Joseph Myers  <joseph@codesourcery.com>
+
+	* g++.dg/abi/rtti3.C, g++.dg/abi/thunk4.C: Skip for *-*-mingw* and
+	*-*-cygwin.
+	* g++.dg/cpp0x/lambda/lambda-mangle.C: Disable weak symbols tests
+	for *-*-mingw* and *-*-cygwin.
+	* g++.dg/opt/vt1.C: Skip for *-*-mingw* and *-*_cygwin.
+	* g++.dg/template/spec35.C: Disable weak symbol test for
+	*-*-mingw* and *-*-cygwin.
+
+	PR testsuite/31342
+	* gcc.target/i386/pic-1.c: Skip for *-*-mingw* and *-*-cygwin.
+
+2009-10-23  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/41800
+	* gfortran.dg/class_10.f03: New test.
+
+2009-10-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/41787
+	* gcc.target/powerpc/vsx-vrsave.c: New file.
+
+2009-10-23  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/41673
+	* gcc.dg/Wstrict-aliasing-bogus-vla-1.c: New test.
+
 2009-10-23  Richard Guenther  <rguenther@suse.de>
 
 	PR tree-optimization/41778
@@ -194,6 +323,11 @@
 
 	PR c++/38798
 	* g++.dg/cpp0x/trailing5.C: New.
+
+	* g++.dg/cpp0x/auto6.C: Rename to trailing1.C.
+	* g++.dg/cpp0x/auto8.C: Rename to trailing2.C.
+	* g++.dg/cpp0x/auto12.C: Rename to trailing3.C.
+	* g++.dg/cpp0x/auto13.C: Rename to trailing4.C.
 
 2009-10-16  Janus Weil  <janus@gcc.gnu.org>
 

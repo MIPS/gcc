@@ -808,7 +808,7 @@ promote_mode (const_tree type ATTRIBUTE_UNUSED, enum machine_mode mode,
     case POINTER_TYPE:
       *punsignedp = POINTERS_EXTEND_UNSIGNED;
       return targetm.addr_space.address_mode
-	       (TREE_ADDR_SPACE (TREE_TYPE (type)));
+	       (TYPE_ADDR_SPACE (TREE_TYPE (type)));
       break;
 #endif
 

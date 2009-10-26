@@ -1,3 +1,30 @@
+2009-10-26  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/41020
+	* decl.c (decls_match): Use DECL_IS_BUILTIN instead of
+	DECL_BUILT_IN.
+
+2009-10-23  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/40808
+	* mangle.c (write_template_args): Allow mangling of empty template
+	argument list. Updated function comments.
+
+2009-10-23  Jason Merrill  <jason@redhat.com>
+
+	* semantics.c (lambda_expr_this_capture): Use thisify_lambda_field.
+
+	* semantics.c (outer_lambda_capture_p): New fn.
+	(thisify_lambda_field): Factor out...
+	(add_default_capture): ...from here.
+	(finish_id_expression): Use them.
+
+	Core issue 899
+	* call.c (add_function_candidate): Only permit explicit conversion
+	ops if copy ctor was called with a single argument.
+
+	* call.c (initialize_reference): Tweak error message.
+
 2009-10-21  Jakub Jelinek  <jakub@redhat.com>
 
 	* mangle.c (finish_mangling_get_identifier): Use

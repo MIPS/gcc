@@ -1,3 +1,11 @@
+2009-10-26  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	Merge up to mainline revision 153557.
+
+	* explow.c (promote_mode): Fix typo.
+	* varasm.c (initializer_constant_valid_p): Use int_or_pointer_precision
+	instead of TYPE_PRECISION.
+
 2009-10-23  Ulrich Weigand  <uweigand@de.ibm.com>
 
 	Merge up to mainline revision 153493.
