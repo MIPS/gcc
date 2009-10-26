@@ -1,5 +1,11 @@
 2009-10-26  Ulrich Weigand  <uweigand@de.ibm.com>
 
+	Merge up to mainline revision 153570.
+
+	The branch was merged to mainline.  Branch is closed.
+
+2009-10-26  Ulrich Weigand  <uweigand@de.ibm.com>
+
 	Merge up to mainline revision 153557.
 
 	* explow.c (promote_mode): Fix typo.

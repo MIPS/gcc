@@ -1,3 +1,22 @@
+2009-10-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/41345
+	* gcc.dg/pr41345.c: New test.
+
+	PR debug/41828
+	* g++.dg/debug/dwarf2/anonname1.C: New test.
+
+2009-10-26  Jason Merrill  <jason@redhat.com>
+
+	PR c++/38796
+	* g++.dg/cpp0x/defaulted15.C: New.
+	* g++.dg/cpp0x/defaulted16.C: New.
+
+2009-10-26  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/41785
+	* gcc/testsuite/g++.dg/cpp0x/variadic96.C: New test.
+
 2009-10-26  Nick Clifton  <nickc@redhat.com>
 
 	* lib/target-supports.exp (check_profiling_available):
