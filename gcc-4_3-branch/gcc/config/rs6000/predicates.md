@@ -1131,7 +1131,7 @@
   unsigned int dest_regno, src_regno;
   int i;
 
-  if (count <= 1
+  if (count == 0
       || GET_CODE (XVECEXP (op, 0, 0)) != SET
       || GET_CODE (SET_DEST (XVECEXP (op, 0, 0))) != REG
       || GET_CODE (SET_SRC (XVECEXP (op, 0, 0))) != UNSPEC_VOLATILE
@@ -1144,6 +1144,9 @@
   if (dest_regno != VRSAVE_REGNO || src_regno != VRSAVE_REGNO)
     return 0;
 
+  /* Under VSX it is possible for there to be no clobbers if the function uses
+     vector registers that overlap with the floating point registers, but no
+     registers that overlap the altivec registers.  */
   for (i = 1; i < count; i++)
     {
       rtx elt = XVECEXP (op, 0, i);

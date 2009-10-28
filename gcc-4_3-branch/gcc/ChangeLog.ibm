@@ -1,3 +1,17 @@
+2009-10-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/predicates.md (vrsave_operation): Allow for there
+	to be no CLOBBERs on a vrsave instruction.
+
+	* config/rs6000/rs6000.c (direct_return): Functions that use VSX
+	vectors in registers that overlap with fprs but no registers that
+	overlap with the Altivec registers sets VRSAVE to non-zero even
+	though the vrsave mask is 0.
+	(rs6000_stack_info): Ditto.
+	(rs6000_emit_prologue): Ditto.
+	(rs6000_emit_epilogue): Ditto.
+	(compute_vrsave_mask): Undo 2009-10-22 change here.
+
 2009-10-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000-c.c (altivec_categorize_keyword): Undo

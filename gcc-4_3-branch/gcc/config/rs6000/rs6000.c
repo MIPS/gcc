@@ -3631,6 +3631,7 @@ direct_return (void)
 	  && ! info->lr_save_p
 	  && ! info->cr_save_p
 	  && info->vrsave_mask == 0
+	  && ! cfun->machine->vsx_or_altivec_used_p
 	  && ! info->push_p)
 	return 1;
     }
@@ -16724,15 +16725,6 @@ compute_vrsave_mask (void)
     if (df_regs_ever_live_p (i))
       mask |= ALTIVEC_REG_BIT (i);
 
-  /* If VSX is used, we might have used a traditional floating point register
-     in a vector mode without using any altivec registers.  However the VRSAVE
-     register does not have room to indicate the floating point registers.
-     Modern kernels only look to see if the value is non-zero to determine if
-     they need to save the vector registers, so we just set an arbitrary
-     value if any vector type was used.  */
-  if (mask == 0 && TARGET_VSX && cfun->machine->vsx_or_altivec_used_p)
-    mask = 0xFFF;
-
   if (mask == 0)
     return mask;
 
@@ -17054,7 +17046,8 @@ rs6000_stack_info (void)
   else
     info_ptr->vrsave_mask = 0;
 
-  if (TARGET_ALTIVEC_VRSAVE && info_ptr->vrsave_mask)
+  if (TARGET_ALTIVEC_VRSAVE &&
+      (info_ptr->vrsave_mask || cfun->machine->vsx_or_altivec_used_p))
     info_ptr->vrsave_size  = 4;
   else
     info_ptr->vrsave_size  = 0;
@@ -17208,7 +17201,8 @@ rs6000_stack_info (void)
   if (! TARGET_ALTIVEC_ABI || info_ptr->altivec_size == 0)
     info_ptr->altivec_save_offset = 0;
 
-  if (! TARGET_ALTIVEC_ABI || info_ptr->vrsave_mask == 0)
+  if (! TARGET_ALTIVEC_ABI
+      || (info_ptr->vrsave_mask == 0 && !cfun->machine->vsx_or_altivec_used_p))
     info_ptr->vrsave_save_offset = 0;
 
   if (! TARGET_SPE_ABI
@@ -18860,6 +18854,7 @@ rs6000_emit_prologue (void)
 				  (frame_reg_rtx != sp_reg_rtx
 				   && ((info->altivec_size != 0)
 				       || (info->vrsave_mask != 0)
+				       || cfun->machine->vsx_or_altivec_used_p
 				       )),
 				  FALSE);
       if (frame_reg_rtx != sp_reg_rtx)
@@ -18915,10 +18910,17 @@ rs6000_emit_prologue (void)
      epilogue.  */
 
   if (TARGET_ALTIVEC && TARGET_ALTIVEC_VRSAVE
-      && info->vrsave_mask != 0)
+      && (info->vrsave_mask != 0 || cfun->machine->vsx_or_altivec_used_p))
     {
       rtx reg, mem, vrsave;
       int offset;
+      unsigned int mask = info->vrsave_mask;
+
+      /* If we only used VSX vector registers that overlap with floating point
+	 registers, just set VRSAVE to non-zero to tell the kernel that we need
+	 to save the vector registers.  */
+      if (!mask && cfun->machine->vsx_or_altivec_used_p)
+	mask = 0x1;
 
       /* Get VRSAVE onto a GPR.  Note that ABI_V4 might be using r12
          as frame_reg_rtx and r11 as the static chain pointer for
@@ -18941,7 +18943,7 @@ rs6000_emit_prologue (void)
         }
 
       /* Include the registers in the mask.  */
-      emit_insn (gen_iorsi3 (reg, reg, GEN_INT ((int) info->vrsave_mask)));
+      emit_insn (gen_iorsi3 (reg, reg, GEN_INT ((int) mask)));
 
       insn = emit_insn (generate_set_vrsave (reg, info, 0));
     }
@@ -19316,7 +19318,7 @@ rs6000_emit_epilogue (int sibcall)
   /* Restore VRSAVE if we must do so before adjusting the stack.  */
   if (TARGET_ALTIVEC
       && TARGET_ALTIVEC_VRSAVE
-      && info->vrsave_mask != 0
+      && (info->vrsave_mask != 0 || cfun->machine->vsx_or_altivec_used_p)
       && (ALWAYS_RESTORE_ALTIVEC_BEFORE_POP
 	  || (DEFAULT_ABI != ABI_V4
 	      && info->vrsave_save_offset < (TARGET_32BIT ? -220 : -288))))
@@ -19429,7 +19431,7 @@ rs6000_emit_epilogue (int sibcall)
   if (!ALWAYS_RESTORE_ALTIVEC_BEFORE_POP
       && TARGET_ALTIVEC
       && TARGET_ALTIVEC_VRSAVE
-      && info->vrsave_mask != 0
+      && (info->vrsave_mask != 0 || cfun->machine->vsx_or_altivec_used_p)
       && (DEFAULT_ABI == ABI_V4
 	  || info->vrsave_save_offset >= (TARGET_32BIT ? -220 : -288)))
     {
