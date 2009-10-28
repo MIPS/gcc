@@ -15,4 +15,4 @@ struct
       enum { a, b, c } x;
     } s;
   };
-} x;
+} x;	// { dg-warning "uses anonymous type" }
