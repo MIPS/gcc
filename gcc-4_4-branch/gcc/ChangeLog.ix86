@@ -1,3 +1,22 @@
+2009-10-30  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2009-10-30  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/40838
+	* cfgexpand.c (expand_stack_alignment): Call update_stack_boundary
+	first.  Move assert on stack_alignment_estimated just before
+	setting stack_realign_needed.
+	(gimple_expand_cfg): Initialize stack_alignment_estimated to 0.
+	Don't call update_stack_boundary.
+
+	* config/i386/i386.c (ix86_minimum_incoming_stack_boundary): New.
+	(verride_options): Don't check ix86_force_align_arg_pointer here.
+	(ix86_function_ok_for_sibcall): Use it.
+	(ix86_update_stack_boundary): Likewise.
+
+	* config/i386/i386.h (STACK_REALIGN_DEFAULT): Update comments.
+
 2009-05-21  H.J. Lu  <hongjiu.lu@intel.com>
 
 	Backport from mainline:
