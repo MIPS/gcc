@@ -5347,6 +5347,33 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
 	  && !TREE_ADDRESSABLE (type))
 	conv = conv->u.next;
 
+      /* Warn about initializer_list deduction that isn't currently in the
+	 working draft.  */
+      if (cxx_dialect > cxx98
+	  && flag_deduce_init_list
+	  && cand->template_decl
+	  && is_std_init_list (non_reference (type)))
+	{
+	  tree tmpl = TI_TEMPLATE (cand->template_decl);
+	  tree realparm = DECL_ARGUMENTS (cand->fn);
+	  tree patparm;
+	  int k;
+
+	  for (k = j; k; --k)
+	    realparm = TREE_CHAIN (realparm);
+	  patparm = get_pattern_parm (realparm, tmpl);
+
+	  if (!is_std_init_list (non_reference (TREE_TYPE (patparm))))
+	    {
+	      pedwarn (input_location, 0, "deducing %qT as %qT",
+		       non_reference (TREE_TYPE (patparm)),
+		       non_reference (type));
+	      pedwarn (input_location, 0, "  in call to %q+D", cand->fn);
+	      pedwarn (input_location, 0,
+		       "  (you can disable this with -fno-deduce-init-list)");
+	    }
+	}
+
       val = convert_like_with_context
 	(conv, TREE_VALUE (arg), fn, i - is_method, complain);
 
@@ -6300,8 +6327,9 @@ compare_ics (conversion *ics1, conversion *ics2)
       /* We couldn't make up our minds; try to figure it out below.  */
     }
 
-  if (ics1->ellipsis_p)
-    /* Both conversions are ellipsis conversions.  */
+  if (ics1->ellipsis_p || ics1->kind == ck_list)
+    /* Both conversions are ellipsis conversions or both are building a
+       std::initializer_list.  */
     return 0;
 
   /* User-defined  conversion sequence U1 is a better conversion sequence

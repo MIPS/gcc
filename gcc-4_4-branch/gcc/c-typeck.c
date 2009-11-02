@@ -2527,6 +2527,7 @@ convert_arguments (int nargs, tree *argarray,
 {
   tree typetail, valtail;
   int parmnum;
+  bool error_args = false;
   const bool type_generic = fundecl
     && lookup_attribute ("type generic", TYPE_ATTRIBUTES(TREE_TYPE (fundecl)));
   tree selector;
@@ -2737,6 +2738,9 @@ convert_arguments (int nargs, tree *argarray,
 	/* Convert `short' and `char' to full-size `int'.  */
 	argarray[parmnum] = default_conversion (val);
 
+      if (argarray[parmnum] == error_mark_node)
+	error_args = true;
+
       if (typetail)
 	typetail = TREE_CHAIN (typetail);
     }
@@ -2749,7 +2753,7 @@ convert_arguments (int nargs, tree *argarray,
       return -1;
     }
 
-  return parmnum;
+  return error_args ? -1 : parmnum;
 }
 
 /* This is the entry point used by the parser to build unary operators
@@ -8490,6 +8494,7 @@ build_binary_op (location_t location, enum tree_code code,
 	    unsigned_arg = TYPE_UNSIGNED (TREE_TYPE (op0));
 
 	  if (TYPE_PRECISION (TREE_TYPE (arg0)) < TYPE_PRECISION (result_type)
+	      && tree_int_cst_sgn (op1) > 0
 	      /* We can shorten only if the shift count is less than the
 		 number of bits in the smaller type size.  */
 	      && compare_tree_int (op1, TYPE_PRECISION (TREE_TYPE (arg0))) < 0

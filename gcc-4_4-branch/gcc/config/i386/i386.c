@@ -8631,7 +8631,7 @@ ix86_expand_epilogue (int style)
 				     hard_frame_pointer_rtx,
 				     GEN_INT (offset), style);
           ix86_emit_restore_sse_regs_using_mov (stack_pointer_rtx,
-					        frame.to_allocate, style == 2);
+					        0, style == 2);
 	  pro_epilogue_adjust_stack (stack_pointer_rtx, stack_pointer_rtx,
 				     GEN_INT (frame.nsseregs * 16 +
 				       frame.padding0), style);
@@ -10379,7 +10379,7 @@ i386_output_dwarf_dtprel (FILE *file, int size, rtx x)
 static bool
 ix86_pic_register_p (rtx x)
 {
-  if (GET_CODE (x) == VALUE)
+  if (GET_CODE (x) == VALUE && CSELIB_VAL_PTR (x))
     return (pic_offset_table_rtx
 	    && rtx_equal_for_cselib_p (x, pic_offset_table_rtx));
   else

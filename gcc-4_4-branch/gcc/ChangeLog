@@ -1,3 +1,296 @@
+2009-10-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/41762
+	* config/i386/i386.c (ix86_pic_register_p): Don't call
+	rtx_equal_for_cselib_p for VALUEs discarded as useless.
+
+2009-10-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/41842
+	* c-typeck.c (convert_arguments): Return -1 if any of the arguments is
+	error_mark_node.
+
+2009-10-27  Kai Tietz  <kai.tietz@onevision.com>
+
+	Backport from mainline:
+	2009-10-20  Pascal Obry  <obry@adacore.com>
+            Eric Botcazou  <ebotcazou@adacore.com>
+
+        * config/i386/cygming.h (DWARF_FRAME_REGNUM): Add enclosing parens.
+
+2009-10-23  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	Backport from mainline:
+	2009-08-19  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* pa.md (reload_inhi, reload_outhi, reload_inqi, reload_outqi): New
+	patterns.
+	* pa.c (emit_move_sequence): Check if address of operand1 is valid
+	for mode mode of operand0 when doing secondary reload for SAR.
+
+2009-10-21  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline:
+	2009-06-13  Joerg Sonnenberger  <joerg@britannica.bec.de>
+
+	* doc/invoke.texi: Add missing option -Wp,OPTION in list,
+	fix index entry for -Xpreprocessor.
+
+2009-10-20  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+        Backport from mainline:
+	2009-10-15  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/41702
+	* pa.md (casesi): Use sign extended index in call to
+	gen_casesi64p.
+	(casesi64p): Update pattern to reflect above.
+
+2009-10-20  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/arm/arm.c (output_move_neon): Use DImode in call to
+	adjust_address.
+
+2009-10-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* unwind-dw2.c (execute_stack_op): Fix operand order for
+	DW_OP_le, DW_OP_ge, DW_OP_lt and DW_OP_gt.
+
+2009-10-19  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/s390.c (s390_z10_optimize_cmp): Don't touch FP compares.
+
+2009-10-19  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/s390.c (s390_z10_optimize_cmp): Skip notes and debug
+	insns when investigating previous or next insns.
+
+2009-10-19  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline:
+	2009-10-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/40521
+	* debug.h (struct gcc_debug_hooks): Add assembly_start hook.
+	* cgraphunit.c (cgraph_optimize): Call it.
+	* dwarf2out.c (dwarf2out_init): Move .cfi_sections printing into...
+	(dwarf2out_assembly_start): ... here.  New hook.
+	(dwarf2out_debug_hooks): Add dwarf2out_assembly_start.
+	* debug.c (do_nothing_debug_hooks): Do nothing for assembly_start
+	hook.
+	* dbxout.c (dbx_debug_hooks, xcoff_debug_hooks): Likewise.
+	* sdbout.c (sdb_debug_hooks): Likewise.
+	* vmsdbgout.c (vmsdbg_debug_hooks): Add vmsdbgout_assembly_start.
+	(vmsdbgout_assembly_start): New hook.
+
+	2009-10-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/40521
+	* dwarf2out.c (dwarf2out_init): Test whether
+	HAVE_GAS_CFI_SECTIONS_DIRECTIVE is non-zero instead of checking
+	it is defined.
+
+	2009-10-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/40521
+	* configure.ac (HAVE_GAS_CFI_SECTIONS_DIRECTIVE): New test.
+	* configure: Regenerated.
+	* config.in: Regenerated.
+	* dwarf2out.c (dwarf2out_do_cfi_asm): Return false if
+	!HAVE_GAS_CFI_SECTIONS_DIRECTIVE and not emitting .eh_frame.
+	(dwarf2out_init): If HAVE_GAS_CFI_SECTIONS_DIRECTIVE and
+	not emitting .eh_frame, emit .cfi_sections .debug_frame
+	directive.
+
+2009-10-15  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	Backport from mainline
+	2009-09-17  Michael Haubenwallner  <michael.haubenwallner@salomon.at>
+
+	PR target/40913
+	* config/pa/t-hpux-shlib: Set soname in libgcc_s.sl.
+
+	Backport from mainline
+	2009-05-05  Ben Elliston  <bje@au.ibm.com>
+
+	* config/pa/linux-atomic.c: Eliminate conditional include of
+	errno.h on non-LP64 systems to simplify build requirements.
+
+2009-10-15  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2009-10-07  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR middle-end/22072
+	* ira-lives.c (check_and_make_def_conflict): Process all operands.
+
+2009-10-15  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2009-10-11  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/41665
+	* config/i386/i386.md (addsi_1_zext): Get the proper second
+	operand for lea.
+
+2009-10-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* BASE-VER: Set to 4.4.3.
+	* DEV-PHASE: Set to prerelease.
+
+2009-10-15  Release Manager
+
+	* GCC 4.4.2 released.
+
+2009-10-14  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR target/38948
+	* config/cris/cris.h (SECONDARY_RELOAD_CLASS): Handle reload
+	requests between special registers.
+
+2009-10-13  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/s390.c (s390_encode_section_info): Handle BLKmode
+	properly.
+
+2009-10-12  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR target/26515
+	* config/cris/cris.md (andu): Check that operand 1 is one of the
+	general registers.  Fix typo in head comment.
+
+2009-10-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/41680
+	* config/i386/i386.md (split after *testqi_ext_3_rex64): Only narrow
+	paradoxical subregs to prevent partial register stalls if the inner
+	mode is integer mode.
+
+	PR rtl-optimization/41646
+	* calls.c (expand_call): For BLKmode types returned in registers
+	avoid likely spilled hard regs in copy_blkmode_from_reg generated
+	insns.
+
+2009-10-09  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/s390.md ("prefetch"): Remove stcmh for prefetching.
+
+2009-10-07  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/tpf.h (TARGET_DEFAULT): Remove MASK_HARD_FLOAT and
+	add MASK_HARD_DFP.
+
+2009-10-05  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	Backport from mainline.
+	* config/arm/arm.c (arm_override_options): Really initialize
+	flag_dwarf2_cfi_asm to 0.
+
+2009-10-02  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	Backport from mainline.	
+	2009-10-01  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+	* config/arm/arm.c (arm_override_options): Turn off
+	flag_dwarf2_cfi_asm for AAPCS variants.
+
+2009-09-30  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/22093
+	* config/alpha/alpha.md (unaligned_storehi_be): Force operand
+	of plus RTX into register.
+
+2009-09-30  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/fixdfdi.h: Add Runtime Library Exception wording to
+	the License text.
+
+2009-09-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-vect-transform.c (vectorizable_call): Call
+	mark_symbols_for_renaming after vect_finish_stmt_generation.
+
+2009-09-25  Alan Modra  <amodra@bigpond.net.au>
+
+	* config/rs6000/rs6000.md (load_toc_v4_PIC_3c): Correct POWER
+	form of instruction.
+
+2009-09-24  Kai Tietz  <kai.tietz@onevision.com>
+
+	* libgcc2.c (L_trampoline): Prototype for getpagesize
+	and mprotect in WINNT case.
+
+2009-09-24  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/40473
+	* config/rs6000/rs6000.c (rs6000_output_function_prologue): Don't
+	call final to emit non-scheduled prologue, instead insert at entry.
+
+2009-09-23  Dodji Seketeli  <dodji@redhat.com>
+
+	PR debug/41065
+	* function.h (types_used_by_vars_hash): Declare new hash table.
+	(types_used_by_vars_eq, types_used_by_var_decl_insert): Declare
+	equality and hash function for the hash table.
+	(types_used_by_cur_var_decl): Declare a new global chained list.
+	(types_used_by_var_decl_insert): Declare new function.
+	* function.c (types_used_by_vars_hash): Define the hashtable ...
+	(types_used_by_vars_eq, types_used_by_vars_do_hash): ... as well as
+	its equality and hash functions.
+	(hash_types_used_by_vars_entry): New hash helper.
+	(types_used_by_cur_var_decl): Define the global chained list.
+	(used_types_insert): Update the list of types used by the global
+	variable being parsed.
+	(types_used_by_var_decl_insert): Define new function.
+	* c-common.h (record_types_used_by_current_var_decl): Declare ...
+	* c-common.c (record_types_used_by_current_var_decl): ... new
+	function.
+	* c-decl.c (finish_decl): Record the types used by the global
+	variable declaration we've just parsed.
+	* dwarf2out.c (premark_used_types): Insert a new line between
+	comment and function.
+	(premark_used_types_helper): Fix comment.
+	(premark_types_used_by_global_vars_helper,
+	premark_types_used_by_global_vars): New functions.
+	(prune_unused_types): Do not prune types used by global variables.
+
+2009-09-23  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR c/39779
+	* c-typeck.c (build_binary_op) <short_shift>: Check that integer
+	constant is more than zero.
+
+2009-09-21  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* config/mips/mips.c (mips_override_options): Force
+	flag_dwarf2_cfi_asm to zero.
+
+2009-09-21  Kai Tietz  <kai.tietz@onevision.com>
+
+	* config/i386/i386.c (ix86_expand_epilogue): Adjust offset for
+	xmm register restore.
+
+2009-09-20  Kai Tietz  <kai.tietz@onevision.com>
+	    Pascal Obry  <obry@adacore.com>
+
+	Backport from mainline
+	* unwind-dw2-fde.c (classify_object_over_fdes):
+	Cast the constant 1 to _Unwind_Ptr.
+	(add_fdes): Likewise.
+	(linear_search_fdes): Likewise.
+
+2009-09-18  Jason Merrill  <jason@redhat.com>
+
+	* c.opt: Add -fno-deduce-init-list.
+
+2009-09-18  Janis Johnson  <janis187@us.ibm.com>
+
+	PR c/41049
+	* real.c decimal_from_integer, decimal_integer_string): New.
+	(real_from_integer): Use them as special case for decimal float.
+	* config/dfp-bit.c (_si_to_sd, _usi_to_sd): Use default rounding.
+	(_di_to_sd, _di_to_dd, _di_to_td, _udi_to_sd, _udi_to_dd, _udi_to_td):
+	Do not append zero after the decimal point in string to convert.
+
 2009-09-16  Richard Guenther  <rguenther@suse.de>
 
 	Backport from mainline

@@ -145,7 +145,18 @@ dwarf2out_do_cfi_asm (void)
 #endif
   if (!flag_dwarf2_cfi_asm || !dwarf2out_do_frame ())
     return false;
-  if (saved_do_cfi_asm || !eh_personality_libfunc)
+  if (saved_do_cfi_asm)
+    return true;
+  if (!HAVE_GAS_CFI_SECTIONS_DIRECTIVE)
+    {
+#ifdef TARGET_UNWIND_INFO
+      return false;
+#else
+      if (USING_SJLJ_EXCEPTIONS || (!flag_unwind_tables && !flag_exceptions))
+	return false;
+#endif
+    }
+  if (!eh_personality_libfunc)
     return true;
   if (!HAVE_GAS_CFI_PERSONALITY_DIRECTIVE)
     return false;
@@ -4583,6 +4594,7 @@ static int output_indirect_string (void **, void *);
 
 static void dwarf2out_init (const char *);
 static void dwarf2out_finish (const char *);
+static void dwarf2out_assembly_start (void);
 static void dwarf2out_define (unsigned int, const char *);
 static void dwarf2out_undef (unsigned int, const char *);
 static void dwarf2out_start_source_file (unsigned, const char *);
@@ -4605,6 +4617,7 @@ const struct gcc_debug_hooks dwarf2_debug_hooks =
 {
   dwarf2out_init,
   dwarf2out_finish,
+  dwarf2out_assembly_start,
   dwarf2out_define,
   dwarf2out_undef,
   dwarf2out_start_source_file,
@@ -13505,10 +13518,11 @@ dwarf2out_abstract_function (tree decl)
 }
 
 /* Helper function of premark_used_types() which gets called through
-   htab_traverse_resize().
+   htab_traverse.
 
    Marks the DIE of a given type in *SLOT as perennial, so it never gets
    marked as unused by prune_unused_types.  */
+
 static int
 premark_used_types_helper (void **slot, void *data ATTRIBUTE_UNUSED)
 {
@@ -13522,12 +13536,57 @@ premark_used_types_helper (void **slot, void *data ATTRIBUTE_UNUSED)
   return 1;
 }
 
+/* Helper function of premark_types_used_by_global_vars which gets called
+   through htab_traverse.
+
+   Marks the DIE of a given type in *SLOT as perennial, so it never gets
+   marked as unused by prune_unused_types. The DIE of the type is marked
+   only if the global variable using the type will actually be emitted.  */
+
+static int
+premark_types_used_by_global_vars_helper (void **slot,
+					  void *data ATTRIBUTE_UNUSED)
+{
+  struct types_used_by_vars_entry *entry;
+  dw_die_ref die;
+
+  entry = (struct types_used_by_vars_entry *) *slot;
+  gcc_assert (entry->type != NULL
+	      && entry->var_decl != NULL);
+  die = lookup_type_die (entry->type);
+  if (die)
+    {
+      /* Ask cgraph if the global variable really is to be emitted.
+         If yes, then we'll keep the DIE of ENTRY->TYPE.  */
+      struct varpool_node *node = varpool_node (entry->var_decl);
+      if (node->needed)
+	{
+	  die->die_perennial_p = 1;
+	  /* Keep the parent DIEs as well.  */
+	  while ((die = die->die_parent) && die->die_perennial_p == 0)
+	    die->die_perennial_p = 1;
+	}
+    }
+  return 1;
+}
+
 /* Mark all members of used_types_hash as perennial.  */
+
 static void
 premark_used_types (void)
 {
   if (cfun && cfun->used_types_hash)
     htab_traverse (cfun->used_types_hash, premark_used_types_helper, NULL);
+}
+
+/* Mark all members of types_used_by_vars_entry as perennial.  */
+
+static void
+premark_types_used_by_global_vars (void)
+{
+  if (types_used_by_vars_hash)
+    htab_traverse (types_used_by_vars_hash,
+		   premark_types_used_by_global_vars_helper, NULL);
 }
 
 /* Generate a DIE to represent a declared function (either file-scope or
@@ -16141,6 +16200,22 @@ dwarf2out_init (const char *filename ATTRIBUTE_UNUSED)
       switch_to_section (cold_text_section);
       ASM_OUTPUT_LABEL (asm_out_file, cold_text_section_label);
     }
+
+}
+
+/* Called before cgraph_optimize starts outputtting functions, variables
+   and toplevel asms into assembly.  */
+
+static void
+dwarf2out_assembly_start (void)
+{
+  if (HAVE_GAS_CFI_SECTIONS_DIRECTIVE && dwarf2out_do_cfi_asm ())
+    {
+#ifndef TARGET_UNWIND_INFO
+      if (USING_SJLJ_EXCEPTIONS || (!flag_unwind_tables && !flag_exceptions))
+#endif
+	fprintf (asm_out_file, "\t.cfi_sections\t.debug_frame\n");
+    }
 }
 
 /* A helper function for dwarf2out_finish called through
@@ -16445,6 +16520,9 @@ prune_unused_types (void)
   for (node = limbo_die_list; node; node = node->next)
     verify_marks_clear (node->die);
 #endif /* ENABLE_ASSERT_CHECKING */
+
+  /* Mark types that are used in global variables.  */
+  premark_types_used_by_global_vars ();
 
   /* Set the mark on nodes that are actually used.  */
   prune_unused_types_walk (comp_unit_die);

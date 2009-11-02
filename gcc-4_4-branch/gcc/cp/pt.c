@@ -175,6 +175,8 @@ static tree tsubst_expr	(tree, tree, tsubst_flags_t, tree, bool);
 static tree tsubst_copy	(tree, tree, tsubst_flags_t, tree);
 static tree tsubst_pack_expansion (tree, tree, tsubst_flags_t, tree);
 static tree tsubst_decl (tree, tree, tsubst_flags_t);
+static tree listify (tree);
+static tree listify_autos (tree, tree);
 
 /* Make the current scope suitable for access checking when we are
    processing T.  T can be FUNCTION_DECL for instantiated function
@@ -1291,8 +1293,12 @@ register_specialization (tree spec, tree tmpl, tree args, bool is_friend)
 		to the primary function; now copy the inline bits to
 		the various clones.  */
 	      FOR_EACH_CLONE (clone, fn)
-		DECL_DECLARED_INLINE_P (clone)
-		  = DECL_DECLARED_INLINE_P (fn);
+		{
+		  DECL_DECLARED_INLINE_P (clone)
+		    = DECL_DECLARED_INLINE_P (fn);
+		  DECL_SOURCE_LOCATION (clone)
+		    = DECL_SOURCE_LOCATION (fn);
+		}
 	      check_specialization_namespace (fn);
 
 	      return fn;
@@ -3664,7 +3670,8 @@ check_default_tmpl_args (tree decl, tree parms, int is_primary,
   else if (is_friend_decl)
     msg = "default template arguments may not be used in function template friend declarations";
   else if (TREE_CODE (decl) == FUNCTION_DECL && (cxx_dialect == cxx98))
-    msg = "default template arguments may not be used in function templates";
+    msg = ("default template arguments may not be used in function templates "
+	   "without -std=c++0x or -std=gnu++0x");
   else if (is_partial)
     msg = "default template arguments may not be used in partial specializations";
   else
@@ -4315,6 +4322,22 @@ convert_nontype_argument_function (tree type, tree expr)
   return fn;
 }
 
+/* Subroutine of convert_nontype_argument.
+   Check if EXPR of type TYPE is a valid pointer-to-member constant.
+   Emit an error otherwise.  */
+
+static bool
+check_valid_ptrmem_cst_expr (tree type, tree expr)
+{
+  STRIP_NOPS (expr);
+  if (expr && (null_ptr_cst_p (expr) || TREE_CODE (expr) == PTRMEM_CST))
+    return true;
+  error ("%qE is not a valid template argument for type %qT",
+	 expr, type);
+  error ("it must be a pointer-to-member of the form `&X::Y'");
+  return false;
+}
+
 /* Attempt to convert the non-type template parameter EXPR to the
    indicated TYPE.  If the conversion is successful, return the
    converted value.  If the conversion is unsuccessful, return
@@ -4614,6 +4637,11 @@ convert_nontype_argument (tree type, tree expr)
       if (expr == error_mark_node)
 	return error_mark_node;
 
+      /* [temp.arg.nontype] bullet 1 says the pointer to member
+         expression must be a pointer-to-member constant.  */
+      if (!check_valid_ptrmem_cst_expr (type, expr))
+	return error_mark_node;
+
       /* There is no way to disable standard conversions in
 	 resolve_address_of_overloaded_function (called by
 	 instantiate_type). It is possible that the call succeeded by
@@ -4640,6 +4668,11 @@ convert_nontype_argument (tree type, tree expr)
      qualification conversions (_conv.qual_) are applied.  */
   else if (TYPE_PTRMEM_P (type))
     {
+      /* [temp.arg.nontype] bullet 1 says the pointer to member
+         expression must be a pointer-to-member constant.  */
+      if (!check_valid_ptrmem_cst_expr (type, expr))
+	return error_mark_node;
+
       expr = perform_qualification_conversions (type, expr);
       if (expr == error_mark_node)
 	return expr;
@@ -7569,6 +7602,10 @@ tsubst_pack_expansion (tree t, tree args, tsubst_flags_t complain,
             }
           else if (len != my_len)
             {
+	      if (incomplete)
+		/* We got explicit args for some packs but not others;
+		   do nothing now and try again after deduction.  */
+		return t;
               if (TREE_CODE (t) == TYPE_PACK_EXPANSION)
                 error ("mismatched argument pack lengths while expanding "
                        "%<%T%>",
@@ -7713,6 +7750,53 @@ tsubst_pack_expansion (tree t, tree args, tsubst_flags_t complain,
     }
   
   return result;
+}
+
+/* Given PARM_DECL PARM, find the corresponding PARM_DECL in the template
+   TMPL.  We do this using DECL_PARM_INDEX, which should work even with
+   parameter packs; all parms generated from a function parameter pack will
+   have the same DECL_PARM_INDEX.  */
+
+tree
+get_pattern_parm (tree parm, tree tmpl)
+{
+  tree pattern = DECL_TEMPLATE_RESULT (tmpl);
+  tree patparm;
+
+  if (DECL_ARTIFICIAL (parm))
+    {
+      for (patparm = DECL_ARGUMENTS (pattern);
+	   patparm; patparm = TREE_CHAIN (patparm))
+	if (DECL_ARTIFICIAL (patparm)
+	    && DECL_NAME (parm) == DECL_NAME (patparm))
+	  break;
+    }
+  else
+    {
+      for (patparm = FUNCTION_FIRST_USER_PARM (pattern);
+	   patparm; patparm = TREE_CHAIN (patparm))
+	{
+	  if (DECL_NAME (patparm) == DECL_NAME (parm))
+	    break;
+	  if (FUNCTION_PARAMETER_PACK_P (patparm)
+	      /* OK, this is a hack. We know that if PARAM_DECL is expanded
+		 from PACK, its name (built with make_ith_pack_parameter_name)
+		 is the string "<foo>#N" where <foo> is the name of PACK
+		 and N is a number.
+		 So we just check that naming pattern.  */
+	      && (IDENTIFIER_LENGTH (DECL_NAME (patparm))
+		  < IDENTIFIER_LENGTH (DECL_NAME (parm)))
+	      && ! strncmp (IDENTIFIER_POINTER (DECL_NAME (parm)),
+			    IDENTIFIER_POINTER (DECL_NAME (patparm)),
+			    IDENTIFIER_LENGTH (DECL_NAME (patparm)))
+	      && (IDENTIFIER_POINTER (DECL_NAME (parm))
+		  [IDENTIFIER_LENGTH (DECL_NAME (patparm))]
+		  == '#'))
+	    break;
+	}
+    }
+
+  return patparm;
 }
 
 /* Substitute ARGS into the vector or list of template arguments T.  */
@@ -12600,9 +12684,11 @@ type_unification_real (tree tparms,
 	     to explicitly check cxx_dialect here.  */
           if (TREE_PURPOSE (TREE_VEC_ELT (tparms, i)))
             {
-              tree arg = tsubst_template_arg
-				(TREE_PURPOSE (TREE_VEC_ELT (tparms, i)),
-				 targs, tf_none, NULL_TREE);
+	      tree parm = TREE_VALUE (TREE_VEC_ELT (tparms, i));
+	      tree arg = TREE_PURPOSE (TREE_VEC_ELT (tparms, i));
+              arg = tsubst_template_arg (arg, targs, tf_none, NULL_TREE);
+	      arg = convert_template_argument (parm, arg, targs, tf_none,
+					       i, NULL_TREE);
               if (arg == error_mark_node)
                 return 1;
               else
@@ -13320,6 +13406,12 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
     {
       tree elt, elttype;
       unsigned i;
+      tree orig_parm = parm;
+
+      /* Replace T with std::initializer_list<T> for deduction.  */
+      if (TREE_CODE (parm) == TEMPLATE_TYPE_PARM
+	  && flag_deduce_init_list)
+	parm = listify (parm);
 
       if (!is_std_init_list (parm))
 	/* We can only deduce from an initializer list argument if the
@@ -13344,6 +13436,16 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
 
 	  if (unify (tparms, targs, elttype, elt, elt_strict))
 	    return 1;
+	}
+
+      /* If the std::initializer_list<T> deduction worked, replace the
+	 deduced A with std::initializer_list<A>.  */
+      if (orig_parm != parm)
+	{
+	  idx = TEMPLATE_TYPE_IDX (orig_parm);
+	  targ = TREE_VEC_ELT (INNERMOST_TEMPLATE_ARGS (targs), idx);
+	  targ = listify (targ);
+	  TREE_VEC_ELT (INNERMOST_TEMPLATE_ARGS (targs), idx) = targ;
 	}
       return 0;
     }
@@ -16989,26 +17091,33 @@ make_auto (void)
   return au;
 }
 
+/* Given type ARG, return std::initializer_list<ARG>.  */
+
+static tree
+listify (tree arg)
+{
+  tree std_init_list = namespace_binding
+    (get_identifier ("initializer_list"), std_node);
+  tree argvec;
+  if (!std_init_list || !DECL_CLASS_TEMPLATE_P (std_init_list))
+    {    
+      error ("deducing from brace-enclosed initializer list requires "
+	     "#include <initializer_list>");
+      return error_mark_node;
+    }
+  argvec = make_tree_vec (1);
+  TREE_VEC_ELT (argvec, 0) = arg;
+  return lookup_template_class (std_init_list, argvec, NULL_TREE,
+				NULL_TREE, 0, tf_warning_or_error);
+}
+
 /* Replace auto in TYPE with std::initializer_list<auto>.  */
 
 static tree
 listify_autos (tree type, tree auto_node)
 {
-  tree std_init_list = namespace_binding
-    (get_identifier ("initializer_list"), std_node);
-  tree argvec;
-  tree init_auto;
-  if (!std_init_list || !DECL_CLASS_TEMPLATE_P (std_init_list))
-    {    
-      error ("deducing auto from brace-enclosed initializer list requires "
-	     "#include <initializer_list>");
-      return error_mark_node;
-    }
-  argvec = make_tree_vec (1);
-  TREE_VEC_ELT (argvec, 0) = auto_node;
-  init_auto = lookup_template_class (std_init_list, argvec, NULL_TREE,
-				     NULL_TREE, 0, tf_warning_or_error);
-
+  tree init_auto = listify (auto_node);
+  tree argvec = make_tree_vec (1);
   TREE_VEC_ELT (argvec, 0) = init_auto;
   if (processing_template_decl)
     argvec = add_to_template_args (current_template_args (), argvec);

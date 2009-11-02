@@ -1,3 +1,45 @@
+2009-11-02  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/41772
+	* trans-intrinsic.c (gfc_conv_intrinsic_transfer): Stop'extent'
+	from going negative.
+
+2009-11-01  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/41850
+	* trans-expr.c (gfc_conv_procedure_call): Deallocate intent-out
+	variables only when present.
+
+2009-10-30  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/41777
+	* trans-expr.c (gfc_conv_procedure_call,gfc_conv_expr_reference):
+	Use for generic EXPR_FUNCTION the attributes of the specific
+	function.
+
+2009-10-19  Tobias Burnus  <burnus@net-b.de>
+	    Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/41755
+	* symbol.c (gfc_undo_symbols): Add NULL check.
+	* match.c (gfc_match_equivalence): Add check for
+	missing comma.
+
+2009-10-15  Release Manager
+
+	* GCC 4.4.2 released.
+
+2009-10-05  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/41479
+	(init_intent_out_dt): Call gfc_init_default_dt
+	for all derived types with initializers.
+
+2009-10-01  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/41515
+	* decl.c (do_parm): Call add_init_expr_to_sym.
+
 2009-09-11  Steven G. Kargl  <kargl@gcc.gnu.org>
 
 	Backported from mainline:
@@ -16,9 +58,9 @@
 
 2008-08-25  Paul Thomas  <pault@gcc.gnu.org>
 
-        PR fortran/41062
-        * trans-decl.c (gfc_trans_use_stmts):  Keep going through use
-        list if symbol is not use associated.
+	PR fortran/41062
+	* trans-decl.c (gfc_trans_use_stmts):  Keep going through use
+	list if symbol is not use associated.
 
 2009-08-16  Paul Thomas  <pault@gcc.gnu.org>
 

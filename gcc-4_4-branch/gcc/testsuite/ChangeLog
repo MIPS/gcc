@@ -1,3 +1,339 @@
+2009-11-02  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/37093
+	* g++.dg/other/ptrmem10.C: New test.
+	* g++.dg/other/ptrmem11.C: Likewise.
+
+2009-11-02  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/41772
+	* gfortran.dg/transfer_intrinsic_3.f90.
+
+2009-11-01  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/41850
+	* gfortran.dg/intent_out_6.f90: New testcase.
+
+2009-10-31  Jason Merrill  <jason@redhat.com>
+
+	PR c++/41754
+	* g++.dg/cpp0x/initlist25.C: New.
+
+2009-10-31  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.dg/pr41345.c: Removed.
+
+2009-10-30  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2009-10-30  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/41863
+	* g++.dg/template/sizeof12.C: New test.
+
+	2009-10-29  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/41775
+	* g++.dg/torture/pr41775.C: New testcase.
+
+	2009-10-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/41801
+	* g++.dg/ext/sync-3.C: New test.
+
+	2009-10-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/41020
+	* g++.dg/lookup/extern-c-redecl5.C: Fix up regexp.
+
+	2009-10-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/41345
+	* gcc.dg/pr41345.c: New test.
+
+	2009-10-26  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/41785
+	* g++.dg/cpp0x/variadic96.C: New test.
+
+	2009-10-26  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/41020
+	* g++.dg/lookup/extern-c-redecl2.C: New test.
+	* g++.dg/lookup/extern-c-redecl3.C: Likewise.
+	* g++.dg/lookup/extern-c-redecl4.C: Likewise.
+	* g++.dg/lookup/extern-c-redecl5.C: Likewise.
+
+	2009-10-23  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/40033
+	* gcc.dg/noncompile/pr40033-1.c: New test.
+
+	2009-10-23  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/41673
+	* gcc.dg/Wstrict-aliasing-bogus-vla-1.c: New test.
+
+	2009-10-21  Sebastian Pop  <sebastian.pop@amd.com>
+
+	PR tree-optimization/41497
+	* gcc.dg/tree-ssa/pr41497.c: New.
+
+2009-10-30  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/41777
+	gfortran.dg/associated_target_3.f90: New testcase.
+
+2009-10-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/41762
+	* gcc.dg/pr41762.c: New test.
+
+2009-10-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/41842
+	* gcc.dg/pr41842.c: New test.
+
+2009-10-23  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/40808
+	* g++.dg/abi/mangle33.C: New test
+
+2009-10-23  Mikael Pettersson  <mikpe@it.uu.se>
+
+	* gcc.c-torture/compile/pr11832.c: Delete.
+	* gcc.c-torture/compile/pr33009.c: Likewise.
+
+2009-10-21  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2009-10-16  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/41728
+	* gcc.c-torture/compile/pr41728.c: New testcase.
+
+	2009-10-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/41717
+	* gcc.dg/debug/pr41717.c: New test.
+
+2009-10-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/abi/mangle33.C: New test.
+
+2009-10-20  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.target/arm/neon-thumb2-move.c: New test.
+
+2009-10-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/cleanup-13.c: New test.
+
+2009-10-19  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/41755
+	* gfortran.dg/equiv_8.f90: New test.
+
+2009-10-15  Jason Merrill  <jason@redhat.com>
+
+	PR c++/38798
+	* g++.dg/cpp0x/trailing5.C: New.
+
+2009-10-14  Larry Evans  <cppljevans@suddenlink.net>
+
+	* g++.dg/cpp0x/vt-40092.C: New.
+
+2009-10-12  Jason Merrill  <jason@redhat.com>
+
+	PR c++/37875
+	* g++.dg/cpp0x/decltype18.C: New.
+
+	PR c++/37766
+	* g++.dg/cpp0x/fntmpdefarg1.C: New.
+
+2009-10-11  Jason Merrill  <jason@redhat.com>
+
+	PR c++/37204
+	* g++.dg/cpp0x/rv-reinterpret.C: New.
+
+2009-10-16  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* g++.dg/debug/dwarf2/template-params-7.C: Removed.
+	* gfortran.dg/fmt_error_9.f: Likewise.
+
+2009-10-15  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2009-10-13  Martin Jambor  <mjambor@suse.cz>
+
+	* gcc.c-torture/compile/pr41661.c: New test.
+
+	2009-10-12  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/41683
+	* gfortran.dg/fmt_error_9.f: Add check for repeat count after P.
+
+	2009-10-12  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/41570
+	* g++.dg/debug/dwarf2/template-params-7.C: New test.
+
+	2009-10-11  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/41555
+	* gcc.dg/torture/pr41555.c: New testcase.
+
+	2009-10-09  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/41634
+	* gcc.c-torture/compile/pr41634.c: New testcase.
+
+	2009-10-08  Michael Matz  <matz@suse.de>
+
+	PR middle-end/41573
+	* gcc.dg/pr41573.c: New test.
+
+	2009-10-07  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/41182
+	* gcc.c-torture/compile/pr41182-1.c: New.
+
+2009-10-15  Release Manager
+
+	* GCC 4.4.2 released.
+
+2009-10-14  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR target/38948
+	* gcc.dg/torture/pr38948.c: New test.
+
+2009-10-12  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR target/26515
+	* gcc.dg/torture/pr26515.c: New test.
+
+2009-10-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/41680
+	* g++.dg/torture/pr41680.C: New test.
+
+	PR rtl-optimization/41646
+	* gcc.c-torture/compile/pr41646.c: New test.
+
+2009-10-07  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/variadic95.C: New.
+
+	* g++.dg/template/scope3.C: New.
+
+	* g++.dg/cpp0x/defaulted13.C: New.
+
+2009-10-05  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/41479
+	* gfortran.dg/intent_out_5.f90: New test.
+
+2009-10-01  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/41515
+	* gfortran.dg/parameter_array_init_5.f90: New test.
+
+2009-09-30  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gfortran.dg/proc_ptr_comp_21.f90: Removed.
+
+2009-09-30  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/22093
+	* gcc.target/alpha/pr22093.c: New test.
+
+2009-09-28  Olivier Hainque  <hainque@adacore.com>
+
+	* gnat.dg (tagged_alloc_free.adb): New testcase.
+
+2009-09-28  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2009-09-26  Andreas Schwab  <schwab@linux-m68k.org>
+
+	PR c/41476
+	* gcc.dg/cond-constqual-1.c: New test.
+
+	2009-09-26  Michael Matz  <matz@suse.de>
+
+	PR lto/40758
+	PR middle-end/41470
+	* gcc.dg/pr41470.c: New test.
+
+	2009-09-23  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/41248
+	* gcc.dg/pr41248.c: New.
+
+	2009-09-22  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/41295
+	* gcc.dg/pr41295.c: New.
+
+	2009-09-20  Andrew Pinski  <pinskia@gcc.gnu.org>
+
+	PR middle-end/40642
+	* g++.dg/torture/pr40642.C: New testcase.
+
+	2009-09-17  Michael Matz  <matz@suse.de>
+
+	PR middle-end/41347
+	* gfortran.dg/pr41347.f90: New test.
+
+	2009-09-16  Michael Matz  <matz@suse.de>
+
+	PR fortran/41212
+	* gfortran.dg/pr41212.f90: New test.
+
+	2009-09-11  Michael Matz  <matz@suse.de>
+
+	PR middle-end/41275
+	* g++.dg/tree-ssa/pr41275.C: New test.
+
+	2009-09-11  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/41242
+	* gfortran.dg/proc_ptr_comp_21.f90: New.
+
+2009-09-23  Dodji Seketeli  <dodji@redhat.com>
+
+	PR debug/41065
+	* gcc.dg/debug/dwarf2/global-used-types.c: New test.
+
+2009-09-23  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR c/39779
+	* gcc.c-torture/compile/pr39779.c: New test.
+
+2009-09-21  Kai Tietz  <kai.tietz@onevision.com>
+
+	* gcc.dg/torture/calleesave-sse.c: New.
+
+2009-09-19  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/41328
+	* gfortran.dg/cr_lf.f90: New test.
+
+2009-09-18  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/initlist-deduce.C: New.
+
+2009-09-18  Jack Howarth  <howarth@bromo.med.uc.edu>
+
+	PR testsuite/41288
+	* gcc.target/x86_64/abi/asm-support-darwin.s (snapshot_ret): Preserve
+	stack alignment.
+
+2009-09-18  Janis Johnson  <janis187@us.ibm.com>
+
+	PR c/41049
+	* dfp/pr41049.c: New test.
+
 2009-09-16  Uros Bizjak  <ubizjak@gmail.com>
 
 	* gfortran.dg/default_format_denormal_2.f90: Add ieee options.
@@ -23,7 +359,6 @@
 
 	PR fortran/39876
 	* gfortran.dg/intrinsic_3.f90: New.
-
 
 2009-09-10  H.J. Lu  <hongjiu.lu@intel.com>
 
