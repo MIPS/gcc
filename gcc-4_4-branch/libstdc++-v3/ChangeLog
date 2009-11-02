@@ -12,6 +12,14 @@
         (multiseq_partition, multiseq_selection):  Avoid intermediate 
         values exceeding the integer type range for very large inputs.
 
+2009-10-20  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/41763
+	* include/bits/valarray_array.h (__valarray_default_construct,
+	__valarray_fill_construct, __valarray_copy_construct, __valarray_sum
+	__valarray_destroy_elements, __valarray_product): Do not qualify with
+	__restrict__ pointers accessing data also accessed by other pointers.
+
 2009-10-16  Benjamin Kosnik  <bkoz@redhat.com>
 
         * include/c_compatibility/stdatomic.h: Include cstdatomic if

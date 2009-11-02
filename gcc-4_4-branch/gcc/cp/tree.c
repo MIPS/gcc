@@ -914,6 +914,16 @@ cp_build_qualified_type_real (tree type,
   return result;
 }
 
+/* Return TYPE with const and volatile removed.  */
+
+tree
+cv_unqualified (tree type)
+{
+  int quals = TYPE_QUALS (type);
+  quals &= ~(TYPE_QUAL_CONST|TYPE_QUAL_VOLATILE);
+  return cp_build_qualified_type (type, quals);
+}
+
 /* Returns the canonical version of TYPE.  In other words, if TYPE is
    a typedef, returns the underlying type.  The cv-qualification of
    the type returned matches the type input; they will always be
