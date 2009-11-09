@@ -39,12 +39,6 @@
 	* config/i386/fma4intrin.h (__v8sf, __v4df, __m256, __m256d): Remove
 	typedefs.
 
-	PR middle-end/41935
-	* c-common.c (fold_offsetof_1) <case ARRAY_REF>: Don't crash for VLAs
-	or non-constant index, allow index one past the last element and
-	allow exceeding array bound in arrays that might be used as flexible
-	array members.
-
 2009-11-04  Harsha Jagasia  <harsha.jagasia@amd.com>
 	    Dwarakanath Rajagopal  <dwarak.rajagopal@amd.com>
 
@@ -433,110 +427,6 @@
 
 2009-11-04  Uros Bizjak  <ubizjak@gmail.com>
 
-<<<<<<< .working
-=======
-	PR rtl-optimization/41917
-	* rtlanal.c (num_sign_bit_copies1) <case UMOD>: If sign bit of second
-	operand isn't known to be 0, return 1.
-
-2009-11-03  Richard Sandiford  <rdsandiford@googlemail.com>
-
-	* config/mips/mips.md: Fix typos.
-
-2009-11-03  Richard Sandiford  <rdsandiford@googlemail.com>
-
-	* doc/invoke.texi: Fix typo.
-
-2009-11-03  Paul Brook  <paul@codesourcery.com>
-
-	* config/arm/neon.ml (vectype): Add T_floatSF.
-	(string_of_vectype): Ditto.
-	* config/arm/neon-gen.ml (signed_ctype): Add T_floatSF.
-	(deftypes): Use float for float32_t.
-	* config/arm/arm_neon.h: Regenerate.
-
-2009-11-03  Nick Clifton  <nickc@redhat.com>
-	    Kevin Buettner  <kevinb@redhat.com>
-
-	* config/rx/predicates.md (rx_store_multiple_vector): Reverse
-	order of expected registers.
-	(rx_load_multiple_vector): Likewise.
-	(rx_rtsd_vector): Likewise.
-	* config/rx/rx.c (rx_cpu_type): New variable.
-	(rx_print_operand): Fix bug printing 64-bit constant values.
-	(rx_emit_stack_pushm): Reverse order of pushed registers.
-	(gen_rx_store_vector): Likewise.
-	(is_fast_interrupt_func): Only accept "fast_interrupt" as the
-	attribute name.
-	(is_exception_func): Rename to is_interrupt_func and only accept
-	"interrupt" as the attribute name.
-	(rx_get_stack_layout): Use new function name.
-	(rx_func_attr_inlinable): Likewise.
-	(rx_attribute_table): Remove "exception".
-	(rx_expand_prologue): If necessary push the accumulator register
-	in the prologue of interrupt functions.
-	(rx_expand_epilogue): If necessary pop the accumulator.
-	(rx_builtins): Add RX_BUILTIN_MVTIPL.
-	(rx_expand_builtin_stz): Remove.
-	(rx_expand_builtin_mvtipl): New function.
-	(rx_init_builtins): Handle RX_BUILTIN_MVTIPL.
-	(rx_expand_builtin): Likewise.
-	(rx_enable_fpu): New variable.
-	(rx_handle_option): Handle -fpu, -nofpu, -mcpu and -patch.
-	* config/rx/rx.h (TARGET_CPU_CPP_BUILTINS): Assert machine based
-	on rx_cpu_type.  Define __RX_FPU_INSNS__ if FPU insns are allowed.
-	(enum rx_cpu_types): Define.
-	(ASM_SPEC): Pass -m32bit-doubles on to assembler.
-	(INCOMING_FRAME_SP_OFFSET): Define.
-	(ARG_POINTER_CFA_OFFSET): Define.
-	(FRAME_POINTER_CFA_OFFSET): Define.
-	(OVERRIDE_OPTIONS): Enable fast math if RX FPU insns are enabled.
-	(ALLOW_RX_FPU_INSNS): Define.
-	* config/rx/rx.md: Test ALLOW_RX_FPU_INSNS instead of
-	fast_math_flags_set_p.
-	(UNSPEC_BUILTIN_MVTIPL): Define.
-	(revl): Rename to bswapsi2.
-	(bswaphi2): New pattern.
-	(mvtachi): Mark as volatile because it uses a register unknown to GCC.
-	(mvtaclo): Likewise.
-	(racw): Likewise.
-	(mvtc): Remove clobber of cc0.
-	(mvtcp): Delete.
-	(opecp): Delete.
-	* config/rx/rx.opt (mieee): Remove.
-	(fpu): Add.
-	(nofpu): Add.
-	(mcpu=): Add.
-	(patch=): Add.
-	(msave-acc-in-interrupts): Add.
-	* config/rx/t-rx (MULTILIB_OPTIONS): Change default to 64bit doubles.
-	(MULTILIB_DIRS): Likewise.
-	(MULTILIB_MATCHES): Treat -fpu as an alias for -m32bit-doubles.
-	* doc/extend.texi: Remove description of "exception" function
-	attribute.
-	* doc/invoke.texi: Document -fpu, -nofpu, -mcpu=, -patch= and
-	-msave-acc-in-interrupts options.
-
-2009-11-03  Richard Guenther  <rguenther@suse.de>
-
-	* c-common.c (fold_offsetof_1): Use HOST_WIDE_INT_PRINT_DEC.
-
-2009-11-03  Dodji Seketeli  <dodji@redhat.com>
-
-	PR c++/38699
-	* c-common.c (fold_offsetof_1): Issue errors when the member
-	designator of the offsetof expression is not legitimate.
-
-2009-11-03  Uros Bizjak  <ubizjak@gmail.com>
-
-	* config/i386/i386.md (*call_value_1_rex64_ms_sysv): Use register
-	names instead of numerical constants.
-	(sse_prologue_save): Ditto.
-	(*sse_prologue_save_insn): Ditto.
-
-2009-11-03  Uros Bizjak  <ubizjak@gmail.com>
-
->>>>>>> .merge-right.r153993
 	PR target/41900
 	* config/i386/i386.h (ix86_arch_indices) <X86_ARCH_CALL_ESP>: New.
 	(TARGET_CALL_ESP): New define.
