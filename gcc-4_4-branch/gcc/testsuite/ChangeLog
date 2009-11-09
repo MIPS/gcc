@@ -1,3 +1,106 @@
+2009-11-08  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2009-11-06  Michael Matz  <matz@suse.de>
+
+	PR middle-end/41963
+	* gcc.target/i386/pr41963.c: New test.
+
+2009-11-06  Jason Merrill  <jason@redhat.com>
+
+	PR c++/9381
+	* g++.dg/abi/regparm1.C: New.
+
+2009-11-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/41643
+	* gcc.dg/pr41643.c: New test.
+
+2009-11-06  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/41909
+	* gfortran.dg/recursive_check_15.f90: New test.
+
+2009-11-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/41967
+	* g++.dg/gomp/pr41967.C: New test.
+
+2009-11-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-c++-common/builtin-offset.c: Renamed to ...
+	* c-c++-common/builtin-offsetof.c: ... this.  Don't expect a warning
+	on offsetof (struct B, p[10]).
+
+2009-11-04  Jason Merrill  <jason@redhat.com>
+
+	PR c++/36912
+	* g++.dg/init/static-init2.C: New.
+
+2009-11-04  Jason Merrill  <jason@redhat.com>
+
+	PR c++/35067
+	* g++.dg/abi/thunk5.C: New.
+
+2009-11-04  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/pr41900.c: New test.
+
+2009-11-03  Jason Merrill  <jason@redhat.com>
+
+	PR c++/36959
+	* g++.dg/opt/inline16.C: New.
+
+2009-11-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/41917
+	* gcc.c-torture/execute/pr41917.c: New test.
+
+2009-10-28  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/inline-ns3.C: New.
+
+	PR c++/39786
+	* g++.dg/lookup/using22.C: New.
+
+	PR c++/41876
+	* g++.dg/parse/eh-decl.C: New.
+
+2009-11-03  Dodji Seketeli  <dodji@redhat.com>
+
+	* g++.dg/dg.exp: Port c-c++-common support from 4.5.
+	* gcc.dg/dfp/dfp.exp: Likewise.
+	* gcc.dg/dg.exp: Likewise.
+	* gcc/testsuite/lib/target-supports.exp: Likewise.
+
+2009-11-03  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/41856
+	* g++.dg/lookup/extern-c-redecl3.C: Make the test x86 only.
+	* g++.dg/lookup/extern-c-redecl4.C: Likewise.
+
+2009-11-03  Dodji Seketeli  <dodji@redhat.com>
+
+	* c-c++-common/dfp/builtin-offsetof.c: Moved this ...
+	* c-c++-common/builtin-offsetof.c: ... here.
+
+2009-11-03  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/38699
+	* c-c++-common/dfp/builtin-offsetof.c: New test.
+	* g++.dg/other/offsetof6.C: Likewise.
+
+2009-11-02  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/37093
+	* g++.dg/other/ptrmem10.C: New test.
+	* g++.dg/other/ptrmem11.C: Likewise.
+
+2009-11-02  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/41772
+	* gfortran.dg/transfer_intrinsic_3.f90.
+
 2009-11-02  Jakub Jelinek  <jakub@redhat.com>
 
 	PR debug/41893
