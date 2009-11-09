@@ -44,6 +44,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "plugin-version.h"
 #endif
 
+#include "highlev-plugin-internal.h"
+
 /* Event names as strings.  Keep in sync with enum plugin_event.  */
 const char *plugin_event_name[] =
 {
@@ -485,6 +487,9 @@ init_one_plugin (void **slot, void * ARG_UNUSED (info))
 void
 initialize_plugins (void)
 {
+  /* Loads ICI plugin */
+  load_ici_plugin ();
+
   /* If no plugin was specified in the command-line, simply return.  */
   if (!plugin_name_args_tab)
     return;

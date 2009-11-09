@@ -65,6 +65,10 @@ typedef struct param_info
 
 extern param_info *compiler_params;
 
+/* The number of entries in the table.  */
+/* Changed for FICI0: access to list of compiler parameters */
+extern size_t num_compiler_params;
+
 /* Add the N PARAMS to the current list of compiler parameters.  */
 
 extern void add_params (const param_info params[], size_t n);

@@ -50,6 +50,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfgloop.h"
 #include "except.h"
 
+#include "highlev-plugin-internal.h"
 
 /* Gate: execute, or not, all of the non-trivial optimizations.  */
 
@@ -360,6 +361,8 @@ tree_rest_of_compilation (tree fndecl)
 {
   location_t saved_loc;
   struct cgraph_node *node;
+  static int ici_all_passes = 0;	/* must be forced into memory for
+					   address-of to be meaningful */
 
   timevar_push (TV_EXPAND);
 
@@ -389,8 +392,21 @@ tree_rest_of_compilation (tree fndecl)
   execute_all_ipa_transforms ();
 
   /* Perform all tree transforms and optimizations.  */
-  execute_pass_list (all_passes);
+
+  /* ICI Event: Substitution of pass manager.
+   * ICI Parameter <all_passes> : set to identify when inside this
+   * region. It is useful when implementing <pass_execution> event 
+   * but still identify the passes from all_passes.  */
+  ici_all_passes = 1;
+  register_event_parameter ("all_passes", &ici_all_passes);
+
+  /* try calling the event - if not successful, fall back on the default
+     pass ordering */
+  if (call_plugin_event ("all_passes_manager") != PLUGEVT_SUCCESS)
+    execute_pass_list (all_passes);
   
+  unregister_event_parameter ("all_passes");
+
   bitmap_obstack_release (&reg_obstack);
 
   /* Release the default bitmap obstack.  */
