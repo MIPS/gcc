@@ -1938,46 +1938,6 @@ round_udiv_adjust (enum machine_mode mode, rtx mod, rtx op1)
      const1_rtx, const0_rtx);
 }
 
-/* Wrap modeless constants in CONST:MODE.  */
-rtx
-wrap_constant (enum machine_mode mode, rtx x)
-{
-  if (GET_MODE (x) != VOIDmode)
-    return x;
-
-  if (GET_CODE (x) == CONST_INT
-      || GET_CODE (x) == CONST_FIXED
-      || GET_CODE (x) == CONST_DOUBLE
-      || GET_CODE (x) == LABEL_REF)
-    {
-      gcc_assert (mode != VOIDmode);
-
-      x = gen_rtx_CONST (mode, x);
-    }
-
-  return x;
-}
-
-/* Remove CONST wrapper added by wrap_constant().  */
-rtx
-unwrap_constant (rtx x)
-{
-  rtx ret = x;
-
-  if (GET_CODE (x) != CONST)
-    return x;
-
-  x = XEXP (x, 0);
-
-  if (GET_CODE (x) == CONST_INT
-      || GET_CODE (x) == CONST_FIXED
-      || GET_CODE (x) == CONST_DOUBLE
-      || GET_CODE (x) == LABEL_REF)
-    ret = x;
-
-  return ret;
-}
-
 /* Convert X to MODE, that must be Pmode or ptr_mode, without emitting
    any rtl.  */
 
@@ -2100,9 +2060,7 @@ expand_debug_expr (tree exp)
     case COMPLEX_CST:
       gcc_assert (COMPLEX_MODE_P (mode));
       op0 = expand_debug_expr (TREE_REALPART (exp));
-      op0 = wrap_constant (GET_MODE_INNER (mode), op0);
       op1 = expand_debug_expr (TREE_IMAGPART (exp));
-      op1 = wrap_constant (GET_MODE_INNER (mode), op1);
       return gen_rtx_CONCAT (mode, op0, op1);
 
     case DEBUG_EXPR_DECL:
