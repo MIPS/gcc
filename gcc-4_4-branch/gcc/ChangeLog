@@ -1,3 +1,45 @@
+2009-11-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/42029
+	* gimplify.c (gimplify_omp_atomic): Set DECL_GIMPLE_REG_P on
+	tmp_load if needed.
+
+2009-11-11  Kai Tietz  <kai.tietz@onevision.com>
+
+	Backported from trunk
+	* config/i386/cygming.h (HANDLE_PRAGMA_PUSH_POP_MACRO):
+	Removed.
+	* c-pragma.c (def_pragma_macro_value): Likewise.
+	(def_pragma_macro): Likewise.
+	(pushed_macro_table): Likewise.
+	(HANDLE_PRAGMA_PUSH_POP_MACRO): Remove guarded
+	code.
+	* doc/tm.texi (HANDLE_PRAGMA_PUSH_POP_MACRO):
+	Removed.
+
+2009-11-10  Chao-ying Fu  <fu@mips.com>
+
+	Backport from mainline
+	2009-10-29  Chao-ying Fu  <fu@mips.com>
+
+	* config/mips/mips.c (mips_emit_unary, mips_force_unary): New
+	functions.
+	(mips_expand_synci_loop):  Use the length rtx to control the
+	synci loop from the begin rtx that points to the first byte of
+	the cache line.
+
+2009-11-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/40946
+	Backport from mainline
+	2009-09-09  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/41317
+	* tree-ssa-ccp.c (maybe_fold_offset_to_component_ref): Remove
+	code dealing with plain pointer bases.
+	(maybe_fold_offset_to_reference): Likewise.
+	(maybe_fold_stmt_addition): Adjust.
+
 2009-11-09  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/i386/i386.c (print_operand) <case 'D'>: Fix formatting.
@@ -975,14 +1017,6 @@
 
 	* config/s390/tpf.h (TARGET_DEFAULT): Remove MASK_HARD_FLOAT and
 	add MASK_HARD_DFP.
-
-2009-09-09  Richard Guenther  <rguenther@suse.de>
-
-	PR middle-end/41317
-	* tree-ssa-ccp.c (maybe_fold_offset_to_component_ref): Remove
-	code dealing with plain pointer bases.
-	(maybe_fold_offset_to_reference): Likewise.
-	(maybe_fold_stmt_addition): Adjust.
 
 2009-10-07  Jakub Jelinek  <jakub@redhat.com>
 

@@ -1,3 +1,25 @@
+2009-11-13  Jason Merrill  <jason@redhat.com>
+
+	PR c++/21008, DR 515
+	* semantics.c (finish_non_static_data_member): Don't check
+	derivation in a template.
+
+2009-11-12  Jason Merrill  <jason@redhat.com>
+
+	PR c++/37037
+	* decl.c (grokdeclarator): Don't generate a void PARM_DECL.
+
+2009-11-09  Jason Merrill  <jason@redhat.com>
+
+	PR c++/41972
+	* parser.c (cp_parser_template_argument): Accept SCOPE_REF around
+	VAR_DECL.
+
+2009-11-09  Jason Merrill  <jason@redhat.com>
+
+	PR c++/41994
+	* pt.c (tsubst_baselink): tsubst the name.
+
 2009-11-06  Jason Merrill  <jason@redhat.com>
 
 	PR c++/9381

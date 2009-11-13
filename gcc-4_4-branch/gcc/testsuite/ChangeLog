@@ -1,3 +1,54 @@
+2009-11-13  Jason Merrill  <jason@redhat.com>
+
+	PR c++/21008, DR 515
+	* g++.dg/template/inherit4.C: New.
+	* g++.dg/lookup/scoped8.C: Adjust.
+
+2009-11-12  Jason Merrill  <jason@redhat.com>
+
+	PR c++/37037
+	* g++.dg/template/typedef21.C: New.
+
+2009-11-11  Kai Tietz  <kai.tietz@onevision.com>
+
+	Backported from trunk
+	* g++.dg/torture/pushpop_macro.C: New testcase.
+	* gcc.c-torture/execute/pushpop_macro.c: New testcase.
+	* gcc.dg/cpp/pragma-pop_macro-1.c: Allow test for all
+	targets.
+
+2009-11-10  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/vect/vect-multitypes-5.c: XFAIL on SPARC 32-bit.
+	* gcc.dg/vect/vect-multitypes-6.c: Likewise.
+	* gcc.dg/vect/vect-multitypes-12.c: Likewise.
+	* gcc.dg/vect/slp-multitypes-3.c: Likewise.
+
+2009-11-09  Jason Merrill  <jason@redhat.com>
+
+	PR c++/41972
+	* g++.dg/template/ref4.C: New.
+
+2009-11-09  Jason Merrill  <jason@redhat.com>
+
+	PR c++/41994
+	* g++.dg/template/conv10.C: New.
+
+2009-11-07  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/abi/regparm1.C: Fix execute test.
+
+2009-11-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/40946
+	* gcc.dg/pr40946.c: New test.
+
+	Backport from mainline
+	2009-09-09  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/41317
+	* gcc.c-torture/execute/pr41317.c: New testcase.
+
 2009-11-08  Jakub Jelinek  <jakub@redhat.com>
 
 	PR target/41985
@@ -49,7 +100,7 @@
 	* g++.dg/other/i386-3.C: Ditto.
 	* g++.dg/other/i386-5.C: Ditto.
 	* g++.dg/other/i386-6.C: Ditto.
-	
+
 2009-11-08  Uros Bizjak  <ubizjak@gmail.com>
 
 	Backport from mainline:
