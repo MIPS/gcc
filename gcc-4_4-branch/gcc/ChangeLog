@@ -1,3 +1,9 @@
+2009-11-12 Uros Bizjak <ubizjak@gmail.com>
+
+	PR middle-end/41930
+	* simplify-rtx.c (simplify_replace_fn_rtx) <case 'e'>: Skip
+	processing if XEXP (x, i) is NULL.
+
 2009-11-13  Jakub Jelinek  <jakub@redhat.com>
 
 	PR middle-end/42029
@@ -12,10 +18,8 @@
 	* c-pragma.c (def_pragma_macro_value): Likewise.
 	(def_pragma_macro): Likewise.
 	(pushed_macro_table): Likewise.
-	(HANDLE_PRAGMA_PUSH_POP_MACRO): Remove guarded
-	code.
-	* doc/tm.texi (HANDLE_PRAGMA_PUSH_POP_MACRO):
-	Removed.
+	(HANDLE_PRAGMA_PUSH_POP_MACRO): Remove guarded code.
+	* doc/tm.texi (HANDLE_PRAGMA_PUSH_POP_MACRO): Removed.
 
 2009-11-10  Chao-ying Fu  <fu@mips.com>
 
@@ -99,11 +103,11 @@
 	* config/i386/cpuid.h (bit_LWP): Define LWP bit.
 	* config/i386/x86intrin.h: Add LWP check and lwpintrin.h.
 	* config/i386/i386-c.c (ix86_target_macros_internal): Check
-	ISA_FLAG for LWP. 
+	ISA_FLAG for LWP.
 	* config/i386/i386.h (TARGET_LWP): New macro for LWP.
 	* config/i386/i386.opt (-mlwp): New switch for LWP support.
 	* config/i386/i386.c (OPTION_MASK_ISA_LWP_SET): New.
-	(OPTION_MASK_ISA_LWP_UNSET): New.	
+	(OPTION_MASK_ISA_LWP_UNSET): New.
 	(ix86_handle_option): Handle -mlwp.
 	(isa_opts): Handle -mlwp.
 	(enum pta_flags): Add PTA_LWP.
@@ -124,7 +128,7 @@
 	(builtin_description): Ditto.
 	(ix86_init_mmx_sse_builtins): Ditto.
 	(ix86_expand_special_args_builtin): Ditto.
-	* config/i386/i386.md (UNSPEC_LLWP_INTRINSIC): Add new UNSPEC for 
+	* config/i386/i386.md (UNSPEC_LLWP_INTRINSIC): Add new UNSPEC for
 	LWP support.
 	(UNSPEC_SLWP_INTRINSIC): Ditto.
 	(UNSPECV_LWPVAL_INTRINSIC): Ditto.
@@ -141,10 +145,10 @@
 	(lwp_lwpinshi3): Ditto.
 	(lwp_lwpinssi3): Ditto.
 	(lwp_lwpinsdi3): Ditto.
-	
+
 2009-11-04  Harsha Jagasia  <harsha.jagasia@amd.com>
 	    Dwarakanath Rajagopal  <dwarak.rajagopal@amd.com>
-	
+
 	* config.gcc (i[34567]86-*-*): Include xopintrin.h.
 	(x86_64-*-*): Ditto.
 	* config/i386/xopintrin.h: New file, provide common x86 compiler
@@ -152,7 +156,7 @@
 	* config/i386/cpuid.h (bit_XOP): Define XOP bit.
 	* config/i386/x86intrin.h: Add XOP check and xopintrin.h.
 	* config/i386/i386-c.c(ix86_target_macros_internal): Check
-	ISA_FLAG for XOP. 
+	ISA_FLAG for XOP.
 	* config/i386/i386.h(TARGET_XOP): New macro for XOP.
 	* config/i386/i386.opt (-mxop): New switch for XOP support.
 	* config/i386/i386.md (UNSPEC_XOP_UNSIGNED_CMP)
@@ -162,7 +166,7 @@
 	(PPERM_*): New constants for vpperm instruction.
 	(xop_pcmov_<mode>): Add XOP conditional mov instructions.
 	* config/i386/i386.c (OPTION_MASK_ISA_XOP_SET): New.
-	(OPTION_MASK_ISA_XOP_UNSET): New.	
+	(OPTION_MASK_ISA_XOP_UNSET): New.
 	(OPTION_MASK_ISA_XOP_UNSET): Change definition to depend on XOP.
 	(ix86_handle_option): Handle -mxop.
 	(isa_opts): Handle -mxop.
@@ -341,7 +345,7 @@
 	(xop_pmadcsswd): Ditto.
 	(xop_pmadcswd): Ditto.
 	(xop_pcmov_<mode>): Ditto.
-	(xop_pcmov_<mode>)256: Ditto.
+	(xop_pcmov_<mode>256): Ditto.
 	(xop_phaddbw): Ditto.
 	(xop_phaddbd): Ditto.
 	(xop_phaddbq): Ditto.
@@ -376,7 +380,7 @@
 	(ashrv2di3): Ditto.
 	(xop_frcz<mode>2): Ditto.
 	(xop_vmfrcz<mode>2): Ditto.
-	(xop_frcz<mode>2256): Ditto.	
+	(xop_frcz<mode>2256): Ditto.
 	(xop_maskcmp<mode>3): Ditto.
 	(xop_maskcmp_uns<mode>3): Ditto.
 	(xop_maskcmp_uns2<mode>3): Ditto.
@@ -384,7 +388,7 @@
 
 	* doc/invoke.texi (-mxop): Add documentation.
 	* doc/extend.texi (x86 intrinsics): Add XOP intrinsics.
-	
+
 2009-10-28  Jakub Jelinek  <jakub@redhat.com>
 
 	* var-tracking.c (emit_note_insn_var_location): Don't call the second
