@@ -91,19 +91,22 @@ hash_param_callback (void *gcc_data, void *user_data)
   int type;
   void *value;
 
-  /* Possible extension:
-     Might interpret gcc_data differently for specific values of ev->event,
-     e.g. we could get a struct loop and put all the struct members in
-     named parameters.  */
-  va_copy (va, * (va_list *) gcc_data);
-
-  while ((name = va_arg (va, const char *)) != NULL)
+  if (gcc_data != NULL)
     {
-      type = va_arg (va, int);
-      value = va_arg (va, void *);
-      register_event_parameter (name, value, type);
+      /* Possible extension:
+	 Might interpret gcc_data differently for specific values of
+	 ev->event, e.g. we could get a struct loop and put all the
+	 struct members in named parameters.  */
+      va_copy (va, * (va_list *) gcc_data);
+
+      while ((name = va_arg (va, const char *)) != NULL)
+	{
+	  type = va_arg (va, int);
+	  value = va_arg (va, void *);
+	  register_event_parameter (name, value, type);
+	}
+      va_end (va);
     }
-  va_end (va);
   ev->run ();
   va_copy (va, * (va_list *) gcc_data);
   while ((name = va_arg (va, const char *)) != NULL)
