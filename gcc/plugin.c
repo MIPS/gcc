@@ -72,7 +72,6 @@ static const char *plugin_event_name_init[] =
   "pass_execution",
   "early_gimple_passes_start",
   "early_gimple_passes_end",
-  "function_spec_string",
   "PLUGIN_EVENT_LAST",
 };
 

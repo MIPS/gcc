@@ -135,10 +135,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-dump.h"
 #include "output.h"
 #include "coverage.h"
-
-#include "opts.h"
 #include "plugin.h"
-
 
 static void cgraph_expand_all_functions (void);
 static void cgraph_mark_functions_to_output (void);
@@ -1354,167 +1351,6 @@ cgraph_preserve_function_body_p (tree decl)
   return false;
 }
 
-
-/* Load function specific optimizations with parameters.  */
-
-/* separate string into arguments.  */
-static void
-ici_separate_arguments (const char *string, unsigned int *argc, char ***argv)
-{
-  const char *p;
-  char c;
-  char **args;
-  unsigned int len; 
-  int i;
-
-  /* Count number of args  */
-  p = string;
-  c = *p;
-  *argc = 1; 
-  while (c)
-    {    
-      if ((c == ' ' || c == '\t') && len) 
-        {    
-          len = 0; 
-          ++*argc;
-        }    
-      else 
-        len = 1; 
-      c = *++p;
-    }    
-  if (len)
-    ++*argc;
-
-  args = (char **) xmalloc (sizeof(char *) * (*argc));
-  *argv = args;
-  args[0] = (char*)xmalloc(sizeof(char)); /* argv[0] unavailable  */
-  args[0][0]='\0';
-  i = 1; 
-  p = string;
-  c = *p;
-  len = 0; 
-  while (c)
-    {
-      if (c == ' ' || c == '\t')
-        {
-        if (len)
-          {           
-           *(args + i) = (char *) xmalloc (sizeof(char) * (len + 1));
-            strncpy (*(args + i), (p - len), len);
-	     args[i][len] = '\0';
-            ++i;
-            len = 0;
-          }
-        }
-      else
-        ++len;
-      c = *++p;
-    }
-  if (len)
-     {
-      *(args + i) = (char *) xmalloc (sizeof(char) * (len + 1));
-      strncpy (*(args + i), (p - len), len);
-	args[i][len] = '\0';
-     }
-}
-
-/* free arguments string.  */
-static void 
-ici_free_arguments (unsigned int argc, char **argv)
-{
-  unsigned int i;
-  for (i = 0; i < argc; ++i) 
-    {    
-      free (argv[i]); 
-    }    
-  free (argv);
- 
-}
-
-
-/* load function specific option strings and save to function structures.  */
-static void 
-ici_load_function_specific_optimizations (void)
-{
-  static char *ici_function_spec_string;
-  struct cgraph_node *node;
-  struct function *old_cfun = cfun; /* Backup cfun.  */
-  for (node = cgraph_nodes; node; node = node->next)
-    {
-      struct function *fun;
-      tree fun_decl;
-
-      fun = DECL_STRUCT_FUNCTION (node->decl);
-      if (!fun)
-        continue;
-      set_cfun (fun);
-
-      ici_function_spec_string = NULL;
-      invoke_plugin_va_callbacks (PLUGIN_FUNCTION_SPEC_LOADER,
-				  "function_spec_string", EP_VOID,
-				  (void *) &ici_function_spec_string, NULL);
-      if (!ici_function_spec_string)
-        continue;
-
-      fun_decl = fun->decl;
-      if (TREE_CODE (fun_decl) == FUNCTION_DECL)
-        {
-          unsigned int argc;
-          char **argv;
-          struct cl_optimization old_global_opts;
-          tree old_function_opts;
-	   int saved_flag_strict_aliasing;
-	   int saved_flag_pcc_struct_return, 
-	        saved_flag_omit_frame_pointer,
-		 saved_flag_asynchronous_unwind_tables;
-
-          /* Save old global and function-specific optimizations.  */
-          cl_optimization_save (&old_global_opts);
-
-          /* Store function-specific optimizations to global.  */
-          old_function_opts
-            =  DECL_FUNCTION_SPECIFIC_OPTIMIZATION (fun_decl);
-          if (old_function_opts)
-            cl_optimization_restore (TREE_OPTIMIZATION (old_function_opts));
-
-          /* Parse options string.  */
-          ici_separate_arguments (ici_function_spec_string, &argc, &argv);
-
-          /* Save flags which should not be changed.  */
-
-          /* Change global optimizations with loaded 
-             function specific string  */
-           saved_flag_strict_aliasing = flag_strict_aliasing;
-	    saved_flag_omit_frame_pointer = flag_omit_frame_pointer;
-	    saved_flag_pcc_struct_return = flag_pcc_struct_return;
-	    saved_flag_asynchronous_unwind_tables = flag_asynchronous_unwind_tables;
-           decode_options (argc, (const char **) argv);
-		   
-	    flag_strict_aliasing = saved_flag_strict_aliasing;
-           flag_omit_frame_pointer = saved_flag_omit_frame_pointer;
-   	    flag_asynchronous_unwind_tables = saved_flag_asynchronous_unwind_tables;
-     	    flag_pcc_struct_return = saved_flag_pcc_struct_return;
-			
-           ici_free_arguments (argc, argv);
-	    argv = NULL;
-
-          /* Restore saved flags.  */
-
-          /* Store global optimizations to function.  */
-          DECL_FUNCTION_SPECIFIC_OPTIMIZATION (fun_decl)
-            = build_optimization_node ();
-
-          /* Restore old global optmizations.  */
-          cl_optimization_restore (&old_global_opts);
-        }
-
-      free (ici_function_spec_string);
-    }
-  /* Restore cfun  */
-  set_cfun (old_cfun);
-}
-
-
 static void
 ipa_passes (void)
 {
@@ -1594,9 +1430,6 @@ cgraph_optimize (void)
     fprintf (stderr, "Performing interprocedural optimizations\n");
   cgraph_state = CGRAPH_STATE_IPA;
 
-  /* ICI: load and set function specific optimization with plugin.  */
-  ici_load_function_specific_optimizations ();
-     
   /* Don't run the IPA passes if there was any error or sorry messages.  */
   if (errorcount == 0 && sorrycount == 0)
     ipa_passes ();

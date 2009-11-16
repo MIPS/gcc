@@ -60,7 +60,6 @@ enum plugin_event
   PLUGIN_PASS_EXECUTION,
   PLUGIN_EARLY_GIMPLE_PASSES_START,
   PLUGIN_EARLY_GIMPLE_PASSES_END,
-  PLUGIN_FUNCTION_SPEC_LOADER,
 
   PLUGIN_EVENT_LAST             /* Dummy event used for indexing callback
                                    array.  */
