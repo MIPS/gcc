@@ -85,6 +85,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "df.h"
 #include "predict.h"
 #include "lto-streamer.h"
+#include "plugin.h"
 
 #if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
 #include "dwarf2out.h"
@@ -103,7 +104,6 @@ along with GCC; see the file COPYING3.  If not see
 				   declarations for e.g. AIX 4.x.  */
 #endif
 
-#include "highlev-plugin-internal.h"
 #include "pass-manager.h"
 
 /* This is used for debugging.  It allows the current pass to printed
@@ -1522,9 +1522,7 @@ execute_one_pass (struct opt_pass *pass)
      User controls the value of the gate through the parameter "gate_status". */
   gate_status = (pass->gate == NULL) ? true : pass->gate();
 
-  register_event_parameter("gate_status", &gate_status);
-  call_plugin_event("avoid_gate");
-  unregister_event_parameter("gate_status");
+  invoke_plugin_va_callbacks (PLUGIN_AVOID_GATE, "gate_status", &gate_status);
 
   if (!gate_status) {
     current_pass = NULL;
@@ -1534,7 +1532,7 @@ execute_one_pass (struct opt_pass *pass)
   /* Pass execution event trigger: useful to identify passes being
      executed. Pass name is accessible as a feature (it is a constant object
      in GCC.) */
-  call_plugin_event("pass_execution");
+  invoke_plugin_va_callbacks (PLUGIN_PASS_EXECUTION);
 
   if (!quiet_flag && !cfun)
     fprintf (stderr, " <%s>", pass->name ? pass->name : "");

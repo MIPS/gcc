@@ -34,12 +34,6 @@ extern void unregister_plugin_event (const char *name);
 extern int call_plugin_event (const char *event_name);
 extern const char **list_plugin_events (void);
 
-/* return codes for call_plugin_event */
-#define PLUGEVT_SUCCESS         0
-#define PLUGEVT_NO_EVENTS       1
-#define PLUGEVT_NO_SUCH_EVENT   2
-#define PLUGEVT_NO_CALLBACK     3
-
 /* manipulation of event parameter (callback arg) tables */
 extern const char **list_event_parameters (void);
 extern void *get_event_parameter (const char *name);

@@ -49,8 +49,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "graph.h"
 #include "cfgloop.h"
 #include "except.h"
-
-#include "highlev-plugin-internal.h"
+#include "plugin.h"
 
 /* Gate: execute, or not, all of the non-trivial optimizations.  */
 
@@ -398,14 +397,12 @@ tree_rest_of_compilation (tree fndecl)
    * region. It is useful when implementing <pass_execution> event 
    * but still identify the passes from all_passes.  */
   ici_all_passes = 1;
-  register_event_parameter ("all_passes", &ici_all_passes);
-
   /* try calling the event - if not successful, fall back on the default
      pass ordering */
-  if (call_plugin_event ("all_passes_manager") != PLUGEVT_SUCCESS)
+  if (invoke_plugin_va_callbacks
+       (PLUGIN_ALL_PASSES_MANAGER, "all_passes", &ici_all_passes)
+      != PLUGEVT_SUCCESS)
     execute_pass_list (all_passes);
-  
-  unregister_event_parameter ("all_passes");
 
   bitmap_obstack_release (&reg_obstack);
 

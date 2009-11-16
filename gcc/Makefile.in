@@ -2499,8 +2499,9 @@ tree-ssa-reassoc.o : tree-ssa-reassoc.c $(TREE_FLOW_H) $(CONFIG_H) \
    langhooks.h alloc-pool.h pointer-set.h $(CFGLOOP_H)
 tree-optimize.o : tree-optimize.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_P_H) hard-reg-set.h $(EXPR_H) $(GGC_H) output.h \
-   $(DIAGNOSTIC_H) $(BASIC_BLOCK_H) $(FLAGS_H) $(TIMEVAR_H) $(TM_H) coretypes.h \
-   $(TREE_DUMP_H) $(TOPLEV_H) $(FUNCTION_H) langhooks.h $(FLAGS_H) $(CGRAPH_H) \
+   $(DIAGNOSTIC_H) $(BASIC_BLOCK_H) $(FLAGS_H) $(TIMEVAR_H) $(TM_H) \
+   coretypes.h $(TREE_DUMP_H) $(TOPLEV_H) $(FUNCTION_H) langhooks.h \
+   $(FLAGS_H) $(CGRAPH_H) $(PLUGIN_H) \
    $(TREE_INLINE_H) tree-mudflap.h $(GGC_H) graph.h $(CGRAPH_H) \
    $(TREE_PASS_H) $(CFGLOOP_H) $(EXCEPT_H)
 
@@ -2717,7 +2718,7 @@ pass-manager.o : pass-manager.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    feature-internal.h pass-manager.h
 
 events.o : events.c  $(CONFIG_H) $(SYSTEM_H) coretypes.h $(HASHTAB_H) \
-   $(TOPLEV_H) errors.h highlev-plugin-internal.h
+   $(TOPLEV_H) errors.h $(GCC_PLUGIN_H) highlev-plugin-internal.h
 
 feature.o : feature.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(HASHTAB_H) \
    $(TOPLEV_H) feature-internal.h
@@ -2740,7 +2741,7 @@ passes.o : passes.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    hosthooks.h $(CGRAPH_H) $(COVERAGE_H) $(TREE_PASS_H) $(TREE_DUMP_H) \
    $(GGC_H) $(INTEGRATE_H) $(CPPLIB_H) opts.h $(TREE_FLOW_H) $(TREE_INLINE_H) \
    gt-passes.h $(DF_H) $(PREDICT_H) $(LTO_HEADER_H) $(LTO_SECTION_OUT_H) \
-   highlev-plugin-internal.h pass-manager.h
+   $(PLUGIN_H) pass-manager.h
 
 plugin.o : plugin.c $(PLUGIN_H) $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(TOPLEV_H) $(TREE_H) $(TREE_PASS_H) intl.h $(PLUGIN_VERSION_H) $(GGC_H)
@@ -3116,7 +3117,7 @@ loop-unswitch.o : loop-unswitch.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TM_H) \
 loop-unroll.o: loop-unroll.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TM_H) \
    $(BASIC_BLOCK_H) hard-reg-set.h $(CFGLOOP_H) $(CFGLAYOUT_H) $(PARAMS_H) \
    output.h $(EXPR_H) coretypes.h $(TM_H) $(HASHTAB_H) $(RECOG_H) \
-   $(OBSTACK_H)
+   $(OBSTACK_H) $(PLUGIN_H)
 dominance.o : dominance.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    hard-reg-set.h $(BASIC_BLOCK_H) et-forest.h $(OBSTACK_H) $(TOPLEV_H) \
    $(TIMEVAR_H) graphds.h vecprim.h pointer-set.h

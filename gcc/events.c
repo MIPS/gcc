@@ -27,12 +27,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "hashtab.h"
 #include "toplev.h"
+#include "gcc-plugin.h"
 
 #include "highlev-plugin-internal.h"
 
 /* Event structure.  */
-struct plugin_event {
-  const char *name;		/* Name for the event */
+struct hl_plugin_event {
+  int event;			/* Number of the event */
   event_callback_t run;		/* Callback function */
 };
 
@@ -44,7 +45,6 @@ struct event_parameter {
 };
 
 
-static htab_t events_hash = NULL; 
 static htab_t parameters_hash = NULL; 
 
 
@@ -79,105 +79,67 @@ parameter_htab_del (void *p)
 }
 
 
+static void
+hash_param_callback (void *gcc_data, void *user_data)
+{
+  struct hl_plugin_event *ev = (struct hl_plugin_event *) user_data;
+  va_list va;
+  const char *name;
+  void *value;
+
+  /* Possible extension:
+     Might interpret gcc_data differently for specific values of ev->event,
+     e.g. we could get a struct loop and put all the struct members in
+     named parameters.  */
+  va_copy (va, * (va_list *) gcc_data);
+
+  while ((name = va_arg (va, const char *)) != NULL)
+    {
+      value = va_arg (va, void *);
+      register_event_parameter (name, value);
+    }
+  va_end (va);
+  ev->run ();
+  va_copy (va, * (va_list *) gcc_data);
+  while ((name = va_arg (va, const char *)) != NULL)
+    {
+      unregister_event_parameter (name);
+      va_arg (va, void *);
+    }
+}
+
 /* Register a new event into hash table.  */
 void 
 register_plugin_event (const char *event_name, event_callback_t func)
 {
-  void **slot;
-  struct plugin_event *ev = XCNEW (struct plugin_event);
+  struct hl_plugin_event *ev = XCNEW (struct hl_plugin_event);
 
-  ev->name = event_name;
-  ev->run = func;
-
-  if (ev->name == NULL)
+  if (event_name == NULL)
     internal_error ("Event cannot be registered with NULL name string\n");
 
-  if (events_hash == NULL)
-    events_hash = htab_create_alloc (150, string_htab_hash, 
-				     string_htab_eq, NULL, xcalloc, free);
-
-  if (events_hash != NULL)
-    {
-      slot = htab_find_slot (events_hash, ev, INSERT);
-      *slot = (void *) ev;
-    }
+  ev->event = get_named_event_id (event_name, INSERT);
+  ev->run = func;
+  register_callback ("unknown", ev->event, hash_param_callback, ev);
 }
 
 
-/* Used in GCC code to throw an event.
- * If event is currently defined, its callback (if any) is executed.
- * Return values:
- *   PLUGEVT_SUCCESS (== 0) if at least one event callback was executed,
- *   PLUGEVT_NO_EVENTS if no events whatsoever have been defined so far,
- *   PLUGEVT_NO_SUCH_EVENT if the event was not found,
- *   PLUGEVT_NO_CALLBACK if the callback list was empty. */
-int
-call_plugin_event (const char *event_name)
-{
-  struct plugin_event tmp_event;
-  struct plugin_event *ev;
-
-  tmp_event.name = event_name;
-
-  /* no event hash means no events defined */
-  if (events_hash == NULL) return PLUGEVT_NO_EVENTS;
-
-  ev = (struct plugin_event *) htab_find (events_hash, &tmp_event);
-
-  /* report the event-not-found condition */
-  if (!ev) return PLUGEVT_NO_SUCH_EVENT;
-
-  /* report the absence of callbacks */
-  if (ev->run == NULL) return PLUGEVT_NO_CALLBACK;
-
-  /* If all is OK, run the callback */
-  ev->run ();
-  return PLUGEVT_SUCCESS;
-}
-
-
-/* Get list of names of all registered events.
- * Traverse the hash table collecting the names of entries.
- */
-static int
-add_event_name (void **slot, void *data)
-{
-  const char ***crnt_name_ptr = (const char ***) data;
-  struct plugin_event *event = *(struct plugin_event **) slot;
-
-  /* store the name of the current event at the corresponding
-     location */
-  **crnt_name_ptr = event->name;
-
-  /* advance the current location */
-  (*crnt_name_ptr)++;
-
-  /* return "OK" */
-  return 1;
-}
-
-/* return the array of all event names, terminated by NULL */
+/* Return the array of all event names, terminated by NULL.  */
 const char **
 list_plugin_events (void)
 {
-  size_t num_events = htab_elements (events_hash);
+  int i;
 
   /* allocate space for all names + the terminating NULL */
-  const char **all_events = (const char **)
-    xmalloc (sizeof (const char *) * (num_events + 1));
-
-  const char ***data = &all_events; /* data ptr for mapped function */
-  const char **first_event = all_events; /* keep track of actual start */
-
-  /* mark end-of-array */
-  all_events[num_events] = NULL;
+  const char **all_events = XNEWVEC (const char *, (event_last + 1));
 
   /* collect all event names */
-  htab_traverse_noresize (events_hash, add_event_name, data);
+  for (i = 0; i < event_last; i++)
+    all_events[i] = plugin_event_name[i];
 
-  /* use the stored start-of-array - all_events has changed during
-     htab_traverse_noresize */
-  return first_event;  
+  /* mark end-of-array */
+  all_events[i] = NULL;
+
+  return all_events;
 }
 
 

@@ -33,7 +33,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "hashtab.h"
 #include "recog.h"    
-#include "highlev-plugin-internal.h"
+#include "plugin.h"
 
 /* This pass performs loop unrolling and peeling.  We only perform these
    optimizations on innermost loops (with single exception) because
@@ -173,25 +173,20 @@ unroll_and_peel_loops (int flags)
       check = true;
       {
         /* Code for loop-unrolling ICI decision enabling.  */
-        register_event_parameter ("loop->num", &(loop->num));
-        register_event_parameter ("loop->ninsns", &(loop->ninsns));
-        register_event_parameter ("loop->av_ninsns", &(loop->av_ninsns));
-        
-        register_event_parameter ("loop->lpt_decision.times", &(loop->lpt_decision.times));
-        register_event_parameter ("loop->lpt_decision.decision", &(loop->lpt_decision.decision));
-        register_event_parameter ("loop->lpt_decision.unroll_runtime", 
-              loop->lpt_decision.decision == LPT_UNROLL_RUNTIME ? (void *) 1 : (void *) 0);
-        register_event_parameter ("loop->lpt_decision.unroll_constant", 
-              loop->lpt_decision.decision == LPT_UNROLL_CONSTANT ? (void *) 1 : (void *) 0);
-
-        call_plugin_event("unroll_feature_change");
-
-        unregister_event_parameter ("loop->num");
-        unregister_event_parameter ("loop->ninsns");
-
-        unregister_event_parameter ("loop->av_ninsns");
-        unregister_event_parameter ("loop->lpt_decision.times");
-        unregister_event_parameter ("loop->lpt_decision.decision");
+	invoke_plugin_va_callbacks
+	  (PLUGIN_UNROLL_FEATURE_CHANGE,
+	   "loop->num", &(loop->num),
+	   "loop->ninsns", &(loop->ninsns),
+	   "loop->av_ninsns", &(loop->av_ninsns),
+	   "loop->lpt_decision.times", &(loop->lpt_decision.times),
+	   "loop->lpt_decision.decision", &(loop->lpt_decision.decision),
+	   "loop->lpt_decision.unroll_runtime",
+	   (loop->lpt_decision.decision == LPT_UNROLL_RUNTIME
+	    ? (void *) 1 : (void *) 0),
+	   "loop->lpt_decision.unroll_constant", 
+	   (loop->lpt_decision.decision == LPT_UNROLL_CONSTANT
+	    ? (void *) 1 : (void *) 0),
+	   NULL);
       }
 
       /* And perform the appropriate transformations.  */

@@ -44,11 +44,26 @@ enum plugin_event
   PLUGIN_ATTRIBUTES,            /* Called during attribute registration.  */
   PLUGIN_START_UNIT,            /* Called before processing a translation unit.  */
   PLUGIN_PRAGMAS,	        /* Called during pragma registration.  */
+
+  /* The following events might be subject to change or deletion without
+     prior notice.  Plugins should only use them by name.  */
+  PLUGIN_FIRST_EXPERIMENTAL,
+  PLUGIN_UNROLL_FEATURE_CHANGE = PLUGIN_FIRST_EXPERIMENTAL,
+  PLUGIN_ALL_PASSES_MANAGER,
+  PLUGIN_AVOID_GATE,
+  PLUGIN_PASS_EXECUTION,
+
   PLUGIN_EVENT_LAST             /* Dummy event used for indexing callback
                                    array.  */
 };
 
-extern const char *plugin_event_name[];
+extern const char **plugin_event_name;
+
+/* Return codes for invoke_plugin_{,va_}callbacks.  */
+#define PLUGEVT_SUCCESS         0
+#define PLUGEVT_NO_EVENTS       1
+#define PLUGEVT_NO_SUCH_EVENT   2
+#define PLUGEVT_NO_CALLBACK     3
 
 struct plugin_argument
 {
@@ -127,13 +142,19 @@ typedef void (*plugin_callback_func) (void *gcc_data, void *user_data);
    USER_DATA   - plugin-provided data.
 */
 
+/* Number of event ids / names registered so far.  */
+
+extern int event_last;
+
+int get_named_event_id (const char *name, enum insert_option insert);
+
 /* This is also called without a callback routine for the
    PLUGIN_PASS_MANAGER_SETUP, PLUGIN_INFO, PLUGIN_REGISTER_GGC_ROOTS and
    PLUGIN_REGISTER_GGC_CACHES pseudo-events, with a specific user_data.
   */
 
 extern void register_callback (const char *plugin_name,
-                               enum plugin_event event,
+                               int event,
                                plugin_callback_func callback,
                                void *user_data);
 
