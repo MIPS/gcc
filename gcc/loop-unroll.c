@@ -171,7 +171,6 @@ unroll_and_peel_loops (int flags)
   FOR_EACH_LOOP (li, loop, LI_FROM_INNERMOST)
     {
       check = true;
-
       /* And perform the appropriate transformations.  */
       switch (loop->lpt_decision.decision)
 	{
@@ -270,8 +269,6 @@ decide_unrolling_and_peeling (int flags)
   struct loop *loop;
   loop_iterator li;
 
-  /* ICI: parameter holders  */
-
   /* Scan the loops, inner ones first.  */
   FOR_EACH_LOOP (li, loop, LI_FROM_INNERMOST)
     {
@@ -279,7 +276,6 @@ decide_unrolling_and_peeling (int flags)
 
       if (dump_file)
 	fprintf (dump_file, "\n;; *** Considering loop %d ***\n", loop->num);
-
 
       /* Do not peel cold areas.  */
       if (optimize_loop_for_size_p (loop))
