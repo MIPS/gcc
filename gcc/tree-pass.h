@@ -551,7 +551,6 @@ extern struct gimple_opt_pass pass_release_ssa_names;
 extern struct gimple_opt_pass pass_early_inline;
 extern struct gimple_opt_pass pass_inline_parameters;
 extern struct gimple_opt_pass pass_all_early_optimizations;
-extern struct gimple_opt_pass pass_clone_functions;
 extern struct gimple_opt_pass pass_instrument_functions;
 extern struct gimple_opt_pass pass_update_address_taken;
 extern struct gimple_opt_pass pass_convert_switch;
