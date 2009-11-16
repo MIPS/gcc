@@ -325,8 +325,7 @@ decide_unrolling_and_peeling (int flags)
 	     NULL);
 
           if (dump_file)
-	    fprintf (dump_file, 
-                     ";; Not considering loop, is not innermost\n");
+	    fprintf (dump_file, ";; Not considering loop, is not innermost\n");
           continue;
 	}
 
