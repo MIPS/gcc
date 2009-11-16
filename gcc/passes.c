@@ -734,7 +734,6 @@ init_optimization_passes (void)
   /* Interprocedural optimization passes.  */
   p = &all_small_ipa_passes;
   NEXT_PASS (pass_ipa_function_and_variable_visibility);
-  NEXT_PASS (pass_clone_functions);
   NEXT_PASS (pass_ipa_early_inline);
     {
       struct opt_pass **p = &pass_ipa_early_inline.pass.sub;

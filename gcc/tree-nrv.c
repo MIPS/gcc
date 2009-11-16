@@ -136,6 +136,7 @@ tree_nrv (void)
 	{
 	  gimple stmt = gsi_stmt (gsi);
 	  tree ret_val;
+
 	  if (gimple_code (stmt) == GIMPLE_RETURN)
 	    {
 	      /* In a function with an aggregate return value, the
