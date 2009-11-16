@@ -52,6 +52,7 @@ extern const char **list_plugin_events (void);
 /* manipulation of event parameter (callback arg) tables */
 extern const char **list_event_parameters (void);
 extern void *get_event_parameter (const char *name);
+extern event_parameter_type get_event_parameter_type (const char *name)
 
 /* pass management */
 extern const char **list_passes (void);

@@ -88,6 +88,7 @@ hash_param_callback (void *gcc_data, void *user_data)
   struct hl_plugin_event *ev = (struct hl_plugin_event *) user_data;
   va_list va;
   const char *name;
+  int type;
   void *value;
 
   /* Possible extension:
@@ -98,8 +99,9 @@ hash_param_callback (void *gcc_data, void *user_data)
 
   while ((name = va_arg (va, const char *)) != NULL)
     {
+      type = va_arg (va, int);
       value = va_arg (va, void *);
-      register_event_parameter (name, value);
+      register_event_parameter (name, value, type);
     }
   va_end (va);
   ev->run ();
