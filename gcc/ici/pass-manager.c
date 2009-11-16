@@ -236,4 +236,3 @@ delete_ici_pass_list (void *list)
   free ((struct opt_pass **) list);
   list = NULL;
 }
-

@@ -26,6 +26,7 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "config.h"
 #include "system.h"
+#include "highlev-plugin-common.h"
 
 /* Event names.  Keep in sync with plugin_event_name[].  */
 enum plugin_event
@@ -59,6 +60,7 @@ enum plugin_event
   PLUGIN_PASS_EXECUTION,
   PLUGIN_EARLY_GIMPLE_PASSES_START,
   PLUGIN_EARLY_GIMPLE_PASSES_END,
+  PLUGIN_FUNCTION_SPEC_LOADER,
 
   PLUGIN_EVENT_LAST             /* Dummy event used for indexing callback
                                    array.  */
@@ -66,34 +68,11 @@ enum plugin_event
 
 extern const char **plugin_event_name;
 
-/* Return codes for invoke_plugin_{,va_}callbacks.  */
-#define PLUGEVT_SUCCESS         0
-#define PLUGEVT_NO_EVENTS       1
-#define PLUGEVT_NO_SUCH_EVENT   2
-#define PLUGEVT_NO_CALLBACK     3
-
 struct plugin_argument
 {
   char *key;    /* key of the argument.  */
   char *value;  /* value is optional and can be NULL.  */
 };
-
-/* Parameter codes for invoke_plugin_va_callbacks.  These are used in the
-   interface for high-level plugins, and therefore existing tags should
-   not change their value.  */
-typedef enum
-{
-  EP_SILENT, /* Used to pass infomation between ICI and plugin,
-		parameter of this type will not be recorded.
-		The data type is int.  */
-  EP_VOID,
-  EP_CHAR,
-  EP_UNSIGNED_CHAR,
-  EP_INT,
-  EP_UNSIGNED,
-  EP_LONG,
-  EP_UNSIGNED_LONG
-} event_parameter_type;
 
 /* Additional information about the plugin. Used by --help and --version. */
 
@@ -182,6 +161,6 @@ extern void register_callback (const char *plugin_name,
                                plugin_callback_func callback,
                                void *user_data);
 
-extern void unregister_callback (const char *plugin_name, int event);
+extern int unregister_callback (const char *plugin_name, int event);
 
 #endif /* GCC_PLUGIN_H */

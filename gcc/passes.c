@@ -1111,9 +1111,8 @@ static GTY ((length ("nnodes"))) struct cgraph_node **order;
    function CALLBACK for every function in the call graph.  Otherwise,
    call CALLBACK on the current function.  */ 
 
-/* ICI: ipa pass manager needs to walt through cgraph with this function.
-   static void  */
-
+/* ICI: the ipa pass manager needs to walk through the cgraph with this
+   function.  */
 void
 do_per_function_toporder (void (*callback) (void *data), void *data)
 {
@@ -1137,14 +1136,9 @@ do_per_function_toporder (void (*callback) (void *data), void *data)
 	  node->process = 0;
 	  if (node->analyzed)
 	    {
-              int *bypass
-                  = (int *) get_event_parameter ("bypass_gimple_in_ipa");
 	      push_cfun (DECL_STRUCT_FUNCTION (node->decl));
 	      current_function_decl = node->decl;
 	      callback (data);
-              /* Reset bypass_gimple_in_ipa to stop recording GIMPLE passes*/
-              if (bypass)
-                *bypass = 1;
 	      free_dominance_info (CDI_DOMINATORS);
 	      free_dominance_info (CDI_POST_DOMINATORS);
 	      current_function_decl = NULL;
@@ -1344,8 +1338,9 @@ verify_curr_properties (void *data)
 #endif
 
 /* Initialize pass dump file.  */
+/* This is non-static so that the ICI pass manager can use it.  */
 
-static bool
+bool
 pass_init_dump_file (struct opt_pass *pass)
 {
   /* If a dump file name is present, open it if enabled.  */
@@ -1374,8 +1369,9 @@ pass_init_dump_file (struct opt_pass *pass)
 }
 
 /* Flush PASS dump file.  */
+/* This is non-static so that the ICI pass manager can use it.  */
 
-static void
+void
 pass_fini_dump_file (struct opt_pass *pass)
 {
   /* Flush and close dump file.  */
@@ -1533,7 +1529,7 @@ execute_one_pass (struct opt_pass *pass)
 
   /* Override gate with plugin.  */
   invoke_plugin_va_callbacks (PLUGIN_AVOID_GATE,
-			      "gate_status", EP_INT, &gate_status);
+			      "gate_status", EP_INT, &gate_status, NULL);
 
   if (!gate_status) {
     current_pass = NULL;
@@ -1544,7 +1540,7 @@ execute_one_pass (struct opt_pass *pass)
      executed. Pass name is accessible as a feature (it is a constant object
      in GCC.) */
   invoke_plugin_va_callbacks (PLUGIN_PASS_EXECUTION,
-			      "_pass_type", EP_INT, &(pass->type));
+			      "_pass_type", EP_INT, &(pass->type), NULL);
 
   if (!quiet_flag && !cfun)
     fprintf (stderr, " <%s>", pass->name ? pass->name : "");
@@ -1802,27 +1798,6 @@ execute_ipa_pass_list (struct opt_pass *pass)
       pass = pass->next;
     }
   while (pass);
-}
-
-/* ICI: Execute one IPA summary pass  */
-bool
-execute_one_ipa_summary_pass (struct opt_pass *pass)
-{
-  gcc_assert (!current_function_decl);
-  gcc_assert (!cfun);
-  gcc_assert (pass->type == SIMPLE_IPA_PASS || pass->type == IPA_PASS);
-  if (!quiet_flag && !cfun)
-    fprintf (stderr, " <summary generate>");
-
-  /* Generate summary as execute_ipa_summary_passes,
-     but only for current pass.  */
-  if (pass->type == IPA_PASS
-      && (!pass->gate || pass->gate ()))
-    {
-      pass_init_dump_file (pass);
-      ((struct ipa_opt_pass *)pass)->generate_summary ();
-      pass_fini_dump_file (pass);
-    }
 }
 
 extern void debug_properties (unsigned int);

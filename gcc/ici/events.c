@@ -125,6 +125,7 @@ register_plugin_event (const char *event_name, event_callback_t func)
   ev->event = get_named_event_id (event_name, INSERT);
   ev->run = func;
   register_callback ("ICI", ev->event, hash_param_callback, ev);
+  ici_refresh_internal_callbacks (ev->event);
 }
 
 

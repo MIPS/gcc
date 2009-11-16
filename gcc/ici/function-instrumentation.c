@@ -105,7 +105,8 @@ add_timer_begin (struct cgraph_node *cg_func, char *funname, int cloned)
   tree decl = cg_func->decl;
   tree ftype = build_function_type (void_type_node, void_list_node);
   tree func_decl = build_fn_decl (funname, ftype);
-  tree call_expr = build_function_call_expr (func_decl, NULL_TREE);
+  tree call_expr
+    = build_function_call_expr (UNKNOWN_LOCATION, func_decl, NULL_TREE);
   location = DECL_SOURCE_LOCATION(decl);
   DECL_SOURCE_LOCATION(func_decl) = location;
   
@@ -152,7 +153,8 @@ add_timer_end (struct cgraph_node *cg_func, char *funname)
     {
       gsi = gsi_last_bb (e->src);
 
-      call_expr = build_function_call_expr (func_decl, NULL_TREE);
+      call_expr
+	= build_function_call_expr (UNKNOWN_LOCATION, func_decl, NULL_TREE);
       gimplify_stmt(&call_expr, &gp_seq);
 
       if (gimple_code(gsi_stmt (gsi)) == GIMPLE_RETURN)
@@ -181,9 +183,8 @@ exec_instrument_functions (void)
   saved_cfun = cfun;
   idi.numofinstrfun = 0;
 
-  register_event_parameter("instr_info", &idi, EP_VOID);
-  call_plugin_event("load_instr_config");
-  unregister_event_parameter("instr_info");
+  invoke_named_callbacks ("load_instr_config",
+			  "instr_info", EP_VOID, &idi, EP_VOID, NULL);
 
   if (idi.numofinstrfun == 0)
     {

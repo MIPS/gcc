@@ -56,9 +56,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "sese.h"
 #include "predict.h"
 
-/* ICI internal interface.  */
-#include "highlev-plugin-internal.h"
-
 #ifdef HAVE_cloog
 
 #include "cloog/cloog.h"

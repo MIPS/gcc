@@ -287,7 +287,7 @@ decide_unrolling_and_peeling (int flags)
           static bool ici_optimize_loop_for_size_p;
           ici_optimize_loop_for_size_p = 1;
 	  invoke_plugin_va_callbacks
-	    (PLUGIN_UNROLL_PARAMETER_HANDLER
+	    (PLUGIN_UNROLL_PARAMETER_HANDLER,
 	     "_loop.id", EP_INT, &(loop->num),
 	     "loop.optimize_loop_for_size_p", EP_UNSIGNED_CHAR,
              &ici_optimize_loop_for_size_p, NULL);
@@ -306,7 +306,7 @@ decide_unrolling_and_peeling (int flags)
           static bool ici_can_duplicate_loop_p;
           ici_can_duplicate_loop_p = 0;
 	  invoke_plugin_va_callbacks
-	    (PLUGIN_UNROLL_PARAMETER_HANDLER
+	    (PLUGIN_UNROLL_PARAMETER_HANDLER,
 	     "_loop.id", EP_INT, &(loop->num),
 	     "_loop.can_duplicate_loop_p", EP_UNSIGNED_CHAR,
              &ici_can_duplicate_loop_p, NULL);
@@ -323,7 +323,7 @@ decide_unrolling_and_peeling (int flags)
           static bool ici_is_inner_most;
           ici_is_inner_most = 0;
 	  invoke_plugin_va_callbacks
-	    (PLUGIN_UNROLL_PARAMETER_HANDLER
+	    (PLUGIN_UNROLL_PARAMETER_HANDLER,
 	     "_loop.id", EP_INT, &(loop->num),
 	     "_loop.is_inner_most", EP_UNSIGNED_CHAR, &ici_is_inner_most,
 	     NULL);
@@ -349,7 +349,7 @@ decide_unrolling_and_peeling (int flags)
         decide_peel_simple (loop, flags);
 
       invoke_plugin_va_callbacks
-	(PLUGIN_UNROLL_PARAMETER_HANDLER
+	(PLUGIN_UNROLL_PARAMETER_HANDLER,
 	 "_loop.id", EP_INT, &(loop->num),
 	 /* ICI: Number of loop insns.  */
 	 "_loop.ninsns", EP_UNSIGNED, &(loop->ninsns), 

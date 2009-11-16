@@ -1,4 +1,4 @@
-/* Plugin-side interface for high-level plugins in GCC.
+/* Compiler-side interface for high-level plugins in GCC.
    Copyright (C) 2009 Free Software Foundation, Inc.
    
    Contributed by Inria.
@@ -22,48 +22,35 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
-#ifndef HIGHLEV_PLUGIN_H
-#define HIGHLEV_PLUGIN_H
+#ifndef HIGHLEV_PLUGIN_INTERNAL
+#define HIGHLEV_PLUGIN_INTERNAL
+
+#include "highlev-plugin-common.h"
 
 /* Callback type for high-level argument-less event callbacks */
 typedef void (*event_callback_t) (void);
 
-/* Datatype of event parameter structure.  */
-typedef enum
-{
-  EP_SILENT, /* Used to pass infomation between ICI and plugin,
-		parameter of this type will not be recorded.
-		The data type is int.  */
-  EP_VOID,
-  EP_CHAR,
-  EP_UNSIGNED_CHAR,
-  EP_INT,
-  EP_UNSIGNED,
-  EP_LONG,
-  EP_UNSIGNED_LONG
-} event_parameter_type;
-
-/* manipulation of event tables and callback lists */
+/* Manipulation of events and event handlers */
 extern void register_plugin_event (const char *name, event_callback_t func);
 extern void unregister_plugin_event (const char *name);
-extern int call_plugin_event (const char *event_name);
 extern const char **list_plugin_events (void);
+extern int invoke_named_callbacks (const char *event_name, ...);
 
-/* manipulation of event parameter (callback arg) tables */
+/* Manipulation of event parameters (callback arguments) */
+extern void register_event_parameter (const char *name, void *param,
+				      event_parameter_type type);
+extern void unregister_event_parameter (const char *name);
 extern const char **list_event_parameters (void);
 extern void *get_event_parameter (const char *name);
-extern event_parameter_type get_event_parameter_type (const char *name)
+extern event_parameter_type get_event_parameter_type (const char *name);
 
-/* pass management */
-extern const char **list_passes (void);
-extern void run_pass (const char *pass_name);
-extern void run_ipa_pass (const char *pass_name);
-extern void *initialize_ici_pass_list (int);
-extern void insert_ici_pass_list (void *, int, const char *);
-extern void run_ici_pass_list (void *);
-extern void run_ici_pass_list_ipa_summary (void *);
-extern void run_ici_pass_list_per_function (void *);
-extern void delete_ici_pass_list (void *);
+/* ICI-specific, environment-based plugin loading */
+extern void load_ici_plugin (void);
+
+/* ICI implementation internal functions.  */
+extern void ici_refresh_internal_callbacks (int);
+struct opt_pass;
+extern void execute_one_ipa_summary_pass (struct opt_pass *pass);
 
 /* Info needed by adaptation.  */
 typedef struct {
@@ -86,4 +73,4 @@ typedef struct {
   char *cloned;
 } instrinfo ;
 
-#endif /* HIGHLEV_PLUGIN_H */
+#endif /* HIGHLEV_PLUGIN_INTERNAL_H*/

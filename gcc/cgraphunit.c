@@ -137,7 +137,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coverage.h"
 
 #include "opts.h"
-#include "highlev-plugin-internal.h"
+#include "plugin.h"
 
 
 static void cgraph_expand_all_functions (void);
@@ -1450,10 +1450,9 @@ ici_load_function_specific_optimizations (void)
       set_cfun (fun);
 
       ici_function_spec_string = NULL;
-      register_event_parameter ("function_spec_string",
-                                (void *) &ici_function_spec_string, EP_VOID);
-      call_plugin_event ("function_spec_loader");
-      unregister_event_parameter ("function_spec_string");
+      invoke_plugin_va_callbacks (PLUGIN_FUNCTION_SPEC_LOADER,
+				  "function_spec_string", EP_VOID,
+				  (void *) &ici_function_spec_string, NULL);
       if (!ici_function_spec_string)
         continue;
 
@@ -1529,7 +1528,8 @@ ipa_passes (void)
   invoke_plugin_callbacks (PLUGIN_ALL_IPA_PASSES_START, NULL);
   if ((invoke_plugin_va_callbacks
 	(PLUGIN_ALL_IPA_PASSES_EXECUTION,
-	 "substitute_status", EP_SILENT, &ici_ipa_passes_substitute_status)
+	 "substitute_status", EP_SILENT, &ici_ipa_passes_substitute_status,
+	 NULL)
        != PLUGEVT_SUCCESS)
       || ici_ipa_passes_substitute_status == 0)
     {
