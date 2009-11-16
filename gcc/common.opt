@@ -607,6 +607,14 @@ fici
 Common Report Var(flag_ici) 
 Enables Interactive Compilation Interface
 
+fapi-clone-functions
+Common Report Var(flag_api_clone_functions)
+Enable API function cloning
+
+fapi-instrument-functions
+Common Report Var(flag_api_instrument_functions)
+Enable API function/code instrumentation
+
 ; Nonzero means ignore `#ident' directives.  0 means handle them.
 ; Generate position-independent code for executables if possible
 ; On SVR4 targets, it also controls whether or not to emit a

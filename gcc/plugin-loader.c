@@ -47,10 +47,8 @@ typedef union {
   plugin_callback_func callback_ptr;
 } dl_symbol_t ; 
 
-
 /* pointers to initialization/cleanup functions */
 start_stop_func ici_plugin_start = NULL;
-
 
 /* report any errors encountered during a dl* operation */
 static inline bool check_for_dlerror (void)

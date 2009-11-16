@@ -360,8 +360,7 @@ tree_rest_of_compilation (tree fndecl)
 {
   location_t saved_loc;
   struct cgraph_node *node;
-  static int ici_all_passes = 0;	/* must be forced into memory for
-					   address-of to be meaningful */
+  static int ici_passes_substitute_status = 0;
 
   timevar_push (TV_EXPAND);
 
@@ -392,17 +391,20 @@ tree_rest_of_compilation (tree fndecl)
 
   /* Perform all tree transforms and optimizations.  */
 
-  /* ICI Event: Substitution of pass manager.
-   * ICI Parameter <all_passes> : set to identify when inside this
-   * region. It is useful when implementing <pass_execution> event 
-   * but still identify the passes from all_passes.  */
-  ici_all_passes = 1;
-  /* try calling the event - if not successful, fall back on the default
-     pass ordering */
+  /* Signal the start of passes.  */
+  invoke_plugin_callbacks (PLUGIN_ALL_PASSES_START, NULL);
+
+  /* ICI Event: Substitution of pass manager.  */
+  /* Try calling the event - if not successful, or if the plugin did not
+     manipulate passes, fall back on the default pass ordering.  */
   if (invoke_plugin_va_callbacks
-       (PLUGIN_ALL_PASSES_MANAGER, "all_passes", &ici_all_passes)
-      != PLUGEVT_SUCCESS)
+       (PLUGIN_ALL_PASSES_EXECUTION,
+        "substitute_status", EP_SILENT, &ici_passes_substitute_status)
+      != PLUGEVT_SUCCESS || ici_passes_substitute_status == 0)
     execute_pass_list (all_passes);
+
+  /* Signal the end of passes.  */
+  invoke_plugin_callbacks (PLUGIN_ALL_PASSES_END, NULL);
 
   bitmap_obstack_release (&reg_obstack);
 

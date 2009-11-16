@@ -1771,6 +1771,8 @@ init_alignments (void)
 static void
 process_options (void)
 {
+   /* ??? will this function be called more than once */
+   static bool first_time_p = true;
   /* Just in case lang_hooks.post_options ends up calling a debug_hook.
      This can happen with incorrect pre-processed input. */
   debug_hooks = &do_nothing_debug_hooks;
@@ -2137,6 +2139,18 @@ process_options (void)
 	       "for correctness");
       flag_omit_frame_pointer = 0;
     }
+
+    /* ??? some flags may have changed, so save the optimization_default_node again.
+         We may need to remove the corresponding code in decode_options() */
+    if (first_time_p)
+    	{
+    	   
+    	    optimization_default_node = build_optimization_node ();
+           optimization_current_node = optimization_default_node;
+           
+	    first_time_p = false;
+    	}
+    
 }
 
 /* This function can be called multiple times to reinitialize the compiler
@@ -2176,7 +2190,7 @@ backend_init_target (void)
 
   /* We may need to recompute regno_save_code[] and regno_restore_code[]
      after a mode change as well.  */
-  if (flag_caller_saves)
+  /*if (flag_caller_saves)*/
     init_caller_save ();
   expand_dummy_function_end ();
 }

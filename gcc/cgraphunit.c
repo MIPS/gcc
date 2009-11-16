@@ -136,6 +136,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "output.h"
 #include "coverage.h"
 
+#include "opts.h"
+#include "highlev-plugin-internal.h"
+
+
 static void cgraph_expand_all_functions (void);
 static void cgraph_mark_functions_to_output (void);
 static void cgraph_expand_function (struct cgraph_node *);
@@ -1350,41 +1354,215 @@ cgraph_preserve_function_body_p (tree decl)
   return false;
 }
 
+
+/* Load function specific optimizations with parameters.  */
+
+/* separate string into arguments.  */
+static void
+ici_separate_arguments (const char *string, unsigned int *argc, char ***argv)
+{
+  const char *p;
+  char c;
+  char **args;
+  unsigned int len; 
+  int i;
+
+  /* Count number of args  */
+  p = string;
+  c = *p;
+  *argc = 1; 
+  while (c)
+    {    
+      if ((c == ' ' || c == '\t') && len) 
+        {    
+          len = 0; 
+          ++*argc;
+        }    
+      else 
+        len = 1; 
+      c = *++p;
+    }    
+  if (len)
+    ++*argc;
+
+  args = (char **) xmalloc (sizeof(char *) * (*argc));
+  *argv = args;
+  args[0] = (char*)xmalloc(sizeof(char)); /* argv[0] unavailable  */
+  args[0][0]='\0';
+  i = 1; 
+  p = string;
+  c = *p;
+  len = 0; 
+  while (c)
+    {
+      if (c == ' ' || c == '\t')
+        {
+        if (len)
+          {           
+           *(args + i) = (char *) xmalloc (sizeof(char) * (len + 1));
+            strncpy (*(args + i), (p - len), len);
+	     args[i][len] = '\0';
+            ++i;
+            len = 0;
+          }
+        }
+      else
+        ++len;
+      c = *++p;
+    }
+  if (len)
+     {
+      *(args + i) = (char *) xmalloc (sizeof(char) * (len + 1));
+      strncpy (*(args + i), (p - len), len);
+	args[i][len] = '\0';
+     }
+}
+
+/* free arguments string.  */
+static void 
+ici_free_arguments (unsigned int argc, char **argv)
+{
+  unsigned int i;
+  for (i = 0; i < argc; ++i) 
+    {    
+      free (argv[i]); 
+    }    
+  free (argv);
+ 
+}
+
+
+/* load function specific option strings and save to function structures.  */
+static void 
+ici_load_function_specific_optimizations (void)
+{
+  static char *ici_function_spec_string;
+  struct cgraph_node *node;
+  struct function *old_cfun = cfun; /* Backup cfun.  */
+  for (node = cgraph_nodes; node; node = node->next)
+    {
+      struct function *fun;
+      tree fun_decl;
+
+      fun = DECL_STRUCT_FUNCTION (node->decl);
+      if (!fun)
+        continue;
+      set_cfun (fun);
+
+      ici_function_spec_string = NULL;
+      register_event_parameter ("function_spec_string",
+                                (void *) &ici_function_spec_string, EP_VOID);
+      call_plugin_event ("function_spec_loader");
+      unregister_event_parameter ("function_spec_string");
+      if (!ici_function_spec_string)
+        continue;
+
+      fun_decl = fun->decl;
+      if (TREE_CODE (fun_decl) == FUNCTION_DECL)
+        {
+          unsigned int argc;
+          char **argv;
+          struct cl_optimization old_global_opts;
+          tree old_function_opts;
+	   int saved_flag_strict_aliasing;
+	   int saved_flag_pcc_struct_return, 
+	        saved_flag_omit_frame_pointer,
+		 saved_flag_asynchronous_unwind_tables;
+
+          /* Save old global and function-specific optimizations.  */
+          cl_optimization_save (&old_global_opts);
+
+          /* Store function-specific optimizations to global.  */
+          old_function_opts
+            =  DECL_FUNCTION_SPECIFIC_OPTIMIZATION (fun_decl);
+          if (old_function_opts)
+            cl_optimization_restore (TREE_OPTIMIZATION (old_function_opts));
+
+          /* Parse options string.  */
+          ici_separate_arguments (ici_function_spec_string, &argc, &argv);
+
+          /* Save flags which should not be changed.  */
+
+          /* Change global optimizations with loaded 
+             function specific string  */
+           saved_flag_strict_aliasing = flag_strict_aliasing;
+	    saved_flag_omit_frame_pointer = flag_omit_frame_pointer;
+	    saved_flag_pcc_struct_return = flag_pcc_struct_return;
+	    saved_flag_asynchronous_unwind_tables = flag_asynchronous_unwind_tables;
+           decode_options (argc, (const char **) argv);
+		   
+	    flag_strict_aliasing = saved_flag_strict_aliasing;
+           flag_omit_frame_pointer = saved_flag_omit_frame_pointer;
+   	    flag_asynchronous_unwind_tables = saved_flag_asynchronous_unwind_tables;
+     	    flag_pcc_struct_return = saved_flag_pcc_struct_return;
+			
+           ici_free_arguments (argc, argv);
+	    argv = NULL;
+
+          /* Restore saved flags.  */
+
+          /* Store global optimizations to function.  */
+          DECL_FUNCTION_SPECIFIC_OPTIMIZATION (fun_decl)
+            = build_optimization_node ();
+
+          /* Restore old global optmizations.  */
+          cl_optimization_restore (&old_global_opts);
+        }
+
+      free (ici_function_spec_string);
+    }
+  /* Restore cfun  */
+  set_cfun (old_cfun);
+}
+
+
 static void
 ipa_passes (void)
 {
+  static int ici_ipa_passes_substitute_status;
+
   set_cfun (NULL);
   current_function_decl = NULL;
   gimple_register_cfg_hooks ();
   bitmap_obstack_initialize (NULL);
 
-  if (!in_lto_p)
-    execute_ipa_pass_list (all_small_ipa_passes);
-
-  /* If pass_all_early_optimizations was not scheduled, the state of
-     the cgraph will not be properly updated.  Update it now.  */
-  if (cgraph_state < CGRAPH_STATE_IPA_SSA)
-    cgraph_state = CGRAPH_STATE_IPA_SSA;
-
-  if (!in_lto_p)
+  invoke_plugin_callbacks (PLUGIN_ALL_IPA_PASSES_START, NULL);
+  if ((invoke_plugin_va_callbacks
+	(PLUGIN_ALL_IPA_PASSES_EXECUTION,
+	 "substitute_status", EP_SILENT, &ici_ipa_passes_substitute_status)
+       != PLUGEVT_SUCCESS)
+      || ici_ipa_passes_substitute_status == 0)
     {
-      /* Generate coverage variables and constructors.  */
-      coverage_finish ();
+      if (!in_lto_p)
+	execute_ipa_pass_list (all_small_ipa_passes);
 
-      /* Process new functions added.  */
-      set_cfun (NULL);
-      current_function_decl = NULL;
-      cgraph_process_new_functions ();
+      /* If pass_all_early_optimizations was not scheduled, the state of
+	 the cgraph will not be properly updated.  Update it now.  */
+      if (cgraph_state < CGRAPH_STATE_IPA_SSA)
+	cgraph_state = CGRAPH_STATE_IPA_SSA;
 
-      execute_ipa_summary_passes ((struct ipa_opt_pass_d *) all_regular_ipa_passes);
+      if (!in_lto_p)
+	{
+	  /* Generate coverage variables and constructors.  */
+	  coverage_finish ();
+
+	  /* Process new functions added.  */
+	  set_cfun (NULL);
+	  current_function_decl = NULL;
+	  cgraph_process_new_functions ();
+
+	  execute_ipa_summary_passes
+	    ((struct ipa_opt_pass_d *) all_regular_ipa_passes);
+	}
+      execute_ipa_summary_passes ((struct ipa_opt_pass_d *) all_lto_gen_passes);
+
+      if (!in_lto_p)
+	ipa_write_summaries ();
+
+      if (!flag_ltrans)
+	execute_ipa_pass_list (all_regular_ipa_passes);
     }
-  execute_ipa_summary_passes ((struct ipa_opt_pass_d *) all_lto_gen_passes);
-
-  if (!in_lto_p)
-    ipa_write_summaries ();
-
-  if (!flag_ltrans)
-    execute_ipa_pass_list (all_regular_ipa_passes);
+  invoke_plugin_callbacks (PLUGIN_ALL_IPA_PASSES_END, NULL);
 
   bitmap_obstack_release (NULL);
 }
@@ -1416,6 +1594,9 @@ cgraph_optimize (void)
     fprintf (stderr, "Performing interprocedural optimizations\n");
   cgraph_state = CGRAPH_STATE_IPA;
 
+  /* ICI: load and set function specific optimization with plugin.  */
+  ici_load_function_specific_optimizations ();
+     
   /* Don't run the IPA passes if there was any error or sorry messages.  */
   if (errorcount == 0 && sorrycount == 0)
     ipa_passes ();
@@ -1652,6 +1833,106 @@ cgraph_copy_node_for_versioning (struct cgraph_node *old_version,
    return new_version;
  }
 
+
+static struct cgraph_node *
+generic_cloning_cgraph_copy_node_for_versioning (struct cgraph_node *old_version,
+				 tree new_decl,
+				 VEC(cgraph_edge_p,heap) *redirect_callers)
+ {
+   struct cgraph_node *new_version;
+   struct cgraph_edge *e, *new_e;
+   struct cgraph_edge *next_callee;
+   unsigned i;
+
+   gcc_assert (old_version);
+
+   new_version = cgraph_node (new_decl);
+
+   gcc_assert(true == old_version->analyzed);
+   
+   new_version->analyzed = true;
+   new_version->local = old_version->local;
+   new_version->global = old_version->global;
+   new_version->rtl = new_version->rtl;
+
+   /* probably wrong*/
+   new_version->rtl = old_version->rtl;
+
+   gcc_assert(true == old_version->reachable);
+   
+   new_version->reachable = true;
+   new_version->count = old_version->count;
+
+   /*XXX: do not know what to do with the following pointers */
+   new_version->origin = old_version->origin;
+   gcc_assert(NULL == old_version->nested);
+   gcc_assert(NULL == old_version->next_nested);
+   /*gcc_assert(NULL == old_version->next_needed);*/
+   gcc_assert(NULL == old_version->next_clone);
+   gcc_assert(NULL == old_version->prev_clone);
+   /* gcc_assert(NULL == old_version->master_clone);*/
+   /* gcc_assert(NULL == old_version->call_site_has);*/
+   /* gcc_assert(NULL == old_version->aux);*/
+   gcc_assert(old_version->master_clone == old_version);
+   new_version->master_clone = new_version;
+   new_version->count = old_version->count;
+   /* filed: uid, order should be different */
+   /* try to set the same pid */
+  /* new_version->pid = old_version->pid;*/
+   new_version->needed = old_version->needed;
+   new_version->abstract_and_needed = old_version->abstract_and_needed;
+   new_version->reachable = old_version->reachable;
+   new_version->lowered = old_version->lowered;
+   new_version->analyzed = old_version->analyzed;
+   new_version->output = old_version->output;
+   new_version->alias = old_version->alias;
+   gcc_assert(NULL_TREE== old_version->inline_decl);
+   
+
+   /* Clone the old node callees.  Recursive calls are
+      also cloned.  */
+   for (e = old_version->callees;e; e=e->next_callee)
+     {
+       /*new_e = cgraph_clone_edge (e, new_version, e->call_stmt, 0, e->frequency,
+				  e->loop_nest, true);*/
+	new_e = cgraph_clone_edge (e, new_version, e->call_stmt, 0, e->frequency,
+				  e->loop_nest, false);
+       new_e->count = e->count;
+     }
+   /* Fix recursive calls.
+      If OLD_VERSION has a recursive call after the
+      previous edge cloning, the new version will have an edge
+      pointing to the old version, which is wrong;
+      Redirect it to point to the new version. */
+
+   /* Do not fix recursive calls, recursive call all go through the
+       original function */
+   /*
+   for (e = new_version->callees ; e; e = next_callee)
+     {
+       next_callee = e->next_callee;
+       if (e->callee == old_version)
+	 cgraph_redirect_edge_callee (e, new_version);
+
+       if (!next_callee)
+	 break;
+     }
+     */
+     
+     /* do not redirect callers*/
+    gcc_assert(NULL == redirect_callers);
+   for (i = 0; VEC_iterate (cgraph_edge_p, redirect_callers, i, e); i++)
+     {
+       /* Redirect calls to the old version node to point to its new
+	  version.  */
+       cgraph_redirect_edge_callee (e, new_version);
+     }
+
+   return new_version;
+ }
+
+
+
  /* Perform function versioning.
     Function versioning includes copying of the tree and
     a callgraph update (creating a new cgraph node and updating
@@ -1666,6 +1947,58 @@ cgraph_copy_node_for_versioning (struct cgraph_node *old_version,
     It returns the new version's cgraph node. 
     ARGS_TO_SKIP lists arguments to be omitted from functions
     */
+
+struct cgraph_node *
+generic_cloning_cgraph_function_versioning (struct cgraph_node *old_version_node,
+			            VEC(cgraph_edge_p,heap) *redirect_callers,
+			    	    varray_type tree_map,
+			    	    bitmap args_to_skip)
+{
+  tree old_decl = old_version_node->decl;
+  struct cgraph_node *new_version_node = NULL;
+  tree new_decl;
+
+
+  /* Make a new FUNCTION_DECL tree node for the
+     new version. */
+  if (!args_to_skip)
+    new_decl = copy_node (old_decl);
+  else
+    new_decl = build_function_decl_skip_args (old_decl, args_to_skip);
+
+  /* Create the new version's call-graph node.
+     and update the edges of the new node. */
+  new_version_node =
+    generic_cloning_cgraph_copy_node_for_versioning (old_version_node, new_decl,
+				     redirect_callers);
+
+  /* Copy the OLD_VERSION_NODE function tree to the new version.  */
+  generic_cloning_tree_function_versioning (old_decl, new_decl, tree_map, false, args_to_skip);
+
+  /* Update the new version's properties.
+     Make The new version visible only within this translation unit.  Make sure
+     that is not weak also.
+     ??? We cannot use COMDAT linkage because there is no
+     ABI support for this.  */
+/*
+  DECL_EXTERNAL (new_version_node->decl) = 0;
+  DECL_ONE_ONLY (new_version_node->decl) = 0;
+  TREE_PUBLIC (new_version_node->decl) = 0;
+  DECL_COMDAT (new_version_node->decl) = 0;
+  DECL_WEAK (new_version_node->decl) = 0;
+  DECL_VIRTUAL_P (new_version_node->decl) = 0;
+  new_version_node->local.externally_visible = 0;
+  new_version_node->local.local = 1;
+  new_version_node->lowered = true;
+*/
+  /* Update the call_expr on the edges to call the new version node. */
+/*
+  update_call_expr (new_version_node);
+  
+  cgraph_call_function_insertion_hooks (new_version_node);
+*/
+  return new_version_node;
+}
 
 struct cgraph_node *
 cgraph_function_versioning (struct cgraph_node *old_version_node,

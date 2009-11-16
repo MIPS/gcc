@@ -33,6 +33,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "highlev-plugin-internal.h"
 #include "feature-internal.h"
 #include "pass-manager.h"
+#include "tree.h"
 
 static htab_t passes_hash = NULL; 
 
@@ -93,7 +94,13 @@ const char **list_passes (void)
 
 /* Insert a pass mapped by is pass_name in hash table.
  * Allocate hash table when used for the first time.  */
-void register_pass_name (struct opt_pass *pass)
+
+/* XXX: Passes registered in this way always pointes to the
+   first insitance of the pass, with static_pass_number equals -1
+   and (pass->todo_flags_start & TODO_mark_first_instance) = true
+   if passes_htab_hash generate hash with pass->name .  */
+
+void register_pass_by_name (struct opt_pass *pass)
 {
   void **slot;
 
@@ -115,9 +122,9 @@ void register_pass_name (struct opt_pass *pass)
   *slot = pass;
 }
 
-
-/* Executes a pass, from any plugin, by its pass_name. */
-void run_pass (char *pass_name)
+/* Executes a pass, from any plugin, by its pass_name.
+   IPA pass execute in this way does not generate summary.  */
+void run_pass (const char *pass_name)
 {
   struct opt_pass tmp_pass;
   struct opt_pass *pass;
@@ -128,3 +135,105 @@ void run_pass (char *pass_name)
 
   execute_one_pass (pass);
 }
+
+/* Executes an IPA pass with its summary generated before execution.
+   Take care while run IPA passes this way because GCC IPA summaries are
+   supposed to be generated for a whole list of IPA passes at one time.  */
+void run_ipa_pass (const char *pass_name)
+{
+  struct opt_pass tmp_pass;
+  struct opt_pass *pass;
+
+  tmp_pass.name = pass_name;
+  pass = (struct opt_pass *) htab_find (passes_hash, &tmp_pass);
+
+  execute_one_ipa_summary_pass (pass);
+  execute_one_pass (pass);
+}
+
+/* Initialize a list of pointers to pass with fixed size.  */
+void *
+initialize_ici_pass_list (int num)
+{
+  int i;
+  struct opt_pass **list;
+  list = (struct opt_pass **) xmalloc (sizeof (struct opt_pass *) * (num + 1));
+  for (i = 0; i <= num; ++i)
+    *(list + i) = NULL;
+  return ((void *) list);
+}
+
+/* Add pass by name to a list of pointers to pass at position indexed
+   as cursor.  */
+void
+insert_ici_pass_list (void *list, int cursor, const char *pass_name)
+{
+  struct opt_pass tmp_pass;
+  struct opt_pass *pass;
+
+  tmp_pass.name = pass_name;
+   
+  pass = (struct opt_pass *) htab_find (passes_hash, &tmp_pass);
+
+  if (*(((struct opt_pass **)list) + cursor) != NULL)
+    error ("Could not add pass to ICI pass list.");
+    
+  *(((struct opt_pass **)list) + cursor) = pass;
+}
+
+/* Execute IPA summary passes.  */
+void
+run_ici_pass_list_ipa_summary (void *list)
+{
+  struct opt_pass **pass;
+
+  if (list == NULL)
+    return;
+
+  pass = (struct opt_pass **) list;
+  do
+    {
+      execute_one_ipa_summary_pass (*pass);
+      ++pass;
+    }
+  while (*pass);
+}
+
+/* Execute passes in the list one by one on current function.  */
+void
+run_ici_pass_list (void *list)
+{
+  struct opt_pass **pass;
+
+  if (list == NULL)
+    return;
+
+  pass = (struct opt_pass **) list;
+  do
+     {
+      execute_one_pass (*pass);
+      ++pass;
+    }
+  while (*pass);
+}
+
+/* Executes passes in the list on cgraph functions, one function a time
+   in top order.  */
+void
+run_ici_pass_list_per_function (void *list)
+{
+  do_per_function_toporder ((void (*)(void *)) run_ici_pass_list,
+                            list);
+ }
+ 
+/* Delete the the list of pointers to pass.  */
+void
+delete_ici_pass_list (void *list)
+{
+  if (list == NULL)
+    return;
+    
+  free ((struct opt_pass **) list);
+  list = NULL;
+}
+

@@ -55,11 +55,11 @@ extern void *set_subfeature (const char *feature_name,
 
 /* Extract the size of features and feature sets */
 extern int get_feature_size (const char *feature_name);
-extern int get_num_features (int type);
-extern int get_num_subfeatures (const char *feat_name, int type);
+extern int get_num_features (int type); /* not implemented  */
+extern int get_num_subfeatures (const char *feat_name, int type); /* not implemented  */
 
 /* List of all known features, or all known elements of a feature set */
 extern const char **list_features (void);
-extern const char **list_subfeatures (const char *feat_name, int type);
+extern const char **list_subfeatures (const char *feat_name, int type); /* not implemented  */
 
 #endif /* FEATURE_INTERNAL_H */

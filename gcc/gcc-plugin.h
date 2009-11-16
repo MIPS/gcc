@@ -48,10 +48,14 @@ enum plugin_event
   /* The following events might be subject to change or deletion without
      prior notice.  Plugins should only use them by name.  */
   PLUGIN_FIRST_EXPERIMENTAL,
-  PLUGIN_UNROLL_FEATURE_CHANGE = PLUGIN_FIRST_EXPERIMENTAL,
-  PLUGIN_ALL_PASSES_MANAGER,
+  PLUGIN_UNROLL_PARAMETER_HANDLER = PLUGIN_FIRST_EXPERIMENTAL,
+  PLUGIN_ALL_PASSES_START,
+  PLUGIN_ALL_PASSES_EXECUTION,
+  PLUGIN_ALL_PASSES_END,
   PLUGIN_AVOID_GATE,
   PLUGIN_PASS_EXECUTION,
+  PLUGIN_EARLY_GIMPLE_PASSES_START,
+  PLUGIN_EARLY_GIMPLE_PASSES_END,
 
   PLUGIN_EVENT_LAST             /* Dummy event used for indexing callback
                                    array.  */
@@ -157,5 +161,7 @@ extern void register_callback (const char *plugin_name,
                                int event,
                                plugin_callback_func callback,
                                void *user_data);
+
+extern void unregister_callback (const char *plugin_name, int event);
 
 #endif /* GCC_PLUGIN_H */

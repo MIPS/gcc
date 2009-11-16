@@ -28,6 +28,21 @@ along with GCC; see the file COPYING3.  If not see
 /* Callback type for high-level argument-less event callbacks */
 typedef void (*event_callback_t) (void);
 
+/* Datatype of event parameter structure.  */
+typedef enum
+{
+  EP_SILENT, /* Used to pass infomation between ICI and plugin,
+		parameter of this type will not be recorded.
+		The data type is int.  */
+  EP_VOID,
+  EP_CHAR,
+  EP_UNSIGNED_CHAR,
+  EP_INT,
+  EP_UNSIGNED,
+  EP_LONG,
+  EP_UNSIGNED_LONG
+} event_parameter_type;
+
 /* manipulation of event tables and callback lists */
 extern void register_plugin_event (const char *name, event_callback_t func);
 extern void unregister_plugin_event (const char *name);
@@ -39,7 +54,35 @@ extern const char **list_event_parameters (void);
 extern void *get_event_parameter (const char *name);
 
 /* pass management */
-extern void run_pass (char *pass_name);
 extern const char **list_passes (void);
+extern void run_pass (const char *pass_name);
+extern void run_ipa_pass (const char *pass_name);
+extern void *initialize_ici_pass_list (int);
+extern void insert_ici_pass_list (void *, int, const char *);
+extern void run_ici_pass_list (void *);
+extern void run_ici_pass_list_ipa_summary (void *);
+extern void run_ici_pass_list_per_function (void *);
+extern void delete_ici_pass_list (void *);
+
+/* Info needed by adaptation.  */
+typedef struct {
+  int numofclonefun;
+  char **clone_function_list;
+  char **function_filename_list;
+  int *clones;
+  char **clone_extension;
+  char **adaptation_function;
+  char **clone_option;
+  char *external_libraries;
+} cloneinfo ;
+
+typedef struct {
+  int numofinstrfun;
+  char **instrument_function_list;
+  char **function_filename_list;
+  char **timer1;
+  char **timer2;
+  char *cloned;
+} instrinfo ;
 
 #endif /* HIGHLEV_PLUGIN_H */

@@ -31,8 +31,16 @@ along with GCC; see the file COPYING3.  If not see
 typedef struct opt_pass opt_pass;
 
 extern const char **list_passes (void);
-extern void register_pass_name (struct opt_pass *pass);
-extern int unregister_pass_name (char *pass_name);
-extern void run_pass (char *pass_name);
+extern void register_pass_by_name (struct opt_pass *pass);
+extern int unregister_pass_by_name (const char *pass_name); /* not implemented  */
+extern void run_pass (const char *pass_name);
+extern void run_ipa_pass (const char *pass_name);
+
+extern void *initialize_ici_pass_list (int);
+extern void insert_ici_pass_list (void *, int, const char *);
+extern void run_ici_pass_list (void *);
+extern void run_ici_pass_list_ipa_summary (void *);
+extern void run_ici_pass_list_per_function (void *);
+extern void delete_ici_pass_list (void *);
 
 #endif /* PASS_MANAGER_H */

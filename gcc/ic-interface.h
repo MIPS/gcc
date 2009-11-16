@@ -30,4 +30,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "feature.h"
 #include "pass-manager.h"
 
+/* XXX: Yuanjie: moved cloneinfo and instrinfo to highlev-plugin.h  */
+
 #endif /* IC_INTERFACE_H */

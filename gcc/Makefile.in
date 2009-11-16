@@ -1181,6 +1181,8 @@ OBJS-common = \
 	expr.o \
 	feature.o \
 	feature-list.o \
+	generic-cloning.o \
+	function-instrumentation.o \
 	final.o \
 	fixed-value.o \
 	fold-const.o \
@@ -2726,6 +2728,13 @@ feature.o : feature.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(HASHTAB_H) \
 feature-list.o : feature-list.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TREE_H) $(INPUT_H) $(BASIC_BLOCK_H) $(TREE_INLINE_H) $(TREE_FLOW_H) \
    tree-pass.h version.h opts.h params.h function.h feature-internal.h
+
+generic-cloning.o : generic-cloning.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
+   tree-pass.h $(FLAGS_H) $(CGRAPH_H) $(TREE_H) $(TARGET_H) ipa-prop.h opts.h
+
+function-instrumentation.o : function-instrumentation.c $(CONFIG_H) \
+   $(SYSTEM_H) coretypes.h tree-pass.h \
+   $(FLAGS_H) $(CGRAPH_H) $(TREE_H) $(TARGET_H) ipa-prop.h opts.h
 
 plugin-loader.o : plugin-loader.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(HASHTAB_H) $(GCC_PLUGIN_H) \

@@ -1906,8 +1906,21 @@ analyze_function (struct cgraph_node *node)
   current_function_decl = node->decl;
 
   compute_inline_parameters (node);
-  if (flag_indirect_inlining)
-    inline_indirect_intraprocedural_analysis (node);
+/* if (flag_indirect_inlining) 
+     inline_indirect_intraprocedural_analysis (node); */
+/* we shoule not execute inline_indirect_intraprocedural_analysis() 
+   if current_function_decl has function_specific_optimization, and 
+   optimize is 0 or 1. Right?  */
+  if(DECL_FUNCTION_SPECIFIC_OPTIMIZATION(current_function_decl) 
+     != NULL_TREE)
+    {
+      if(DECL_FUNCTION_SPECIFIC_OPTIMIZATION(current_function_decl)
+	 ->optimization.opts.optimize > 1)
+	inline_indirect_intraprocedural_analysis (node);
+    }
+  else
+    if(flag_indirect_inlining)
+      inline_indirect_intraprocedural_analysis (node);
 
   current_function_decl = NULL;
   pop_cfun ();
@@ -2003,7 +2016,7 @@ struct ipa_opt_pass_d pass_ipa_inline =
  {
   IPA_PASS,
   "inline",				/* name */
-  NULL,					/* gate */
+  NULL,			/* gate */
   cgraph_decide_inlining,		/* execute */
   NULL,					/* sub */
   NULL,					/* next */

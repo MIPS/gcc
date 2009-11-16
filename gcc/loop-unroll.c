@@ -171,23 +171,6 @@ unroll_and_peel_loops (int flags)
   FOR_EACH_LOOP (li, loop, LI_FROM_INNERMOST)
     {
       check = true;
-      {
-        /* Code for loop-unrolling ICI decision enabling.  */
-	invoke_plugin_va_callbacks
-	  (PLUGIN_UNROLL_FEATURE_CHANGE,
-	   "loop->num", &(loop->num),
-	   "loop->ninsns", &(loop->ninsns),
-	   "loop->av_ninsns", &(loop->av_ninsns),
-	   "loop->lpt_decision.times", &(loop->lpt_decision.times),
-	   "loop->lpt_decision.decision", &(loop->lpt_decision.decision),
-	   "loop->lpt_decision.unroll_runtime",
-	   (loop->lpt_decision.decision == LPT_UNROLL_RUNTIME
-	    ? (void *) 1 : (void *) 0),
-	   "loop->lpt_decision.unroll_constant", 
-	   (loop->lpt_decision.decision == LPT_UNROLL_CONSTANT
-	    ? (void *) 1 : (void *) 0),
-	   NULL);
-      }
 
       /* And perform the appropriate transformations.  */
       switch (loop->lpt_decision.decision)
@@ -287,6 +270,8 @@ decide_unrolling_and_peeling (int flags)
   struct loop *loop;
   loop_iterator li;
 
+  /* ICI: parameter holders  */
+
   /* Scan the loops, inner ones first.  */
   FOR_EACH_LOOP (li, loop, LI_FROM_INNERMOST)
     {
@@ -295,44 +280,87 @@ decide_unrolling_and_peeling (int flags)
       if (dump_file)
 	fprintf (dump_file, "\n;; *** Considering loop %d ***\n", loop->num);
 
+
       /* Do not peel cold areas.  */
       if (optimize_loop_for_size_p (loop))
-	{
-	  if (dump_file)
-	    fprintf (dump_file, ";; Not considering loop, cold area\n");
-	  continue;
-	}
+        {
+          static bool ici_optimize_loop_for_size_p;
+          ici_optimize_loop_for_size_p = 1;
+	  invoke_plugin_va_callbacks
+	    (PLUGIN_UNROLL_PARAMETER_HANDLER
+	     "_loop.id", EP_INT, &(loop->num),
+	     "loop.optimize_loop_for_size_p", EP_UNSIGNED_CHAR,
+             &ici_optimize_loop_for_size_p, NULL);
+      
+          if (ici_optimize_loop_for_size_p)
+            {
+              if (dump_file)
+                fprintf (dump_file, ";; Not considering loop, cold area\n");
+              continue;
+            }
+        }
 
       /* Can the loop be manipulated?  */
       if (!can_duplicate_loop_p (loop))
 	{
+          static bool ici_can_duplicate_loop_p;
+          ici_can_duplicate_loop_p = 0;
+	  invoke_plugin_va_callbacks
+	    (PLUGIN_UNROLL_PARAMETER_HANDLER
+	     "_loop.id", EP_INT, &(loop->num),
+	     "_loop.can_duplicate_loop_p", EP_UNSIGNED_CHAR,
+             &ici_can_duplicate_loop_p, NULL);
+
 	  if (dump_file)
 	    fprintf (dump_file,
 		     ";; Not considering loop, cannot duplicate\n");
-	  continue;
+          continue;
 	}
 
       /* Skip non-innermost loops.  */
       if (loop->inner)
 	{
-	  if (dump_file)
-	    fprintf (dump_file, ";; Not considering loop, is not innermost\n");
-	  continue;
+          static bool ici_is_inner_most;
+          ici_is_inner_most = 0;
+	  invoke_plugin_va_callbacks
+	    (PLUGIN_UNROLL_PARAMETER_HANDLER
+	     "_loop.id", EP_INT, &(loop->num),
+	     "_loop.is_inner_most", EP_UNSIGNED_CHAR, &ici_is_inner_most,
+	     NULL);
+
+          if (dump_file)
+	    fprintf (dump_file, 
+                     ";; Not considering loop, is not innermost\n");
+          continue;
 	}
 
       loop->ninsns = num_loop_insns (loop);
       loop->av_ninsns = average_num_loop_insns (loop);
 
       /* Try transformations one by one in decreasing order of
-	 priority.  */
+         priority.  */
 
       decide_unroll_constant_iterations (loop, flags);
       if (loop->lpt_decision.decision == LPT_NONE)
-	decide_unroll_runtime_iterations (loop, flags);
+        decide_unroll_runtime_iterations (loop, flags);
       if (loop->lpt_decision.decision == LPT_NONE)
-	decide_unroll_stupid (loop, flags);
+        decide_unroll_stupid (loop, flags);
       if (loop->lpt_decision.decision == LPT_NONE)
-	decide_peel_simple (loop, flags);
+        decide_peel_simple (loop, flags);
+
+      invoke_plugin_va_callbacks
+	(PLUGIN_UNROLL_PARAMETER_HANDLER
+	 "_loop.id", EP_INT, &(loop->num),
+	 /* ICI: Number of loop insns.  */
+	 "_loop.ninsns", EP_UNSIGNED, &(loop->ninsns), 
+	 /* ICI: Average number of executed insns per iteration.  */
+	 "_loop.av_ninsns", EP_UNSIGNED, &(loop->av_ninsns),
+	 /* ICI: Number of blocks contained within the loop.  */
+	 "_loop.num_nodes", EP_UNSIGNED, &(loop->num_nodes),
+	 /* ICI: Loop unrolling/peeling decision.  */
+	 "loop.lpt_decision.times", EP_UNSIGNED, &(loop->lpt_decision.times), 
+	 "loop.lpt_decision.decision", EP_INT, /* Enum treated as int.  */
+	 &(loop->lpt_decision.decision), NULL);
     }
 }
 

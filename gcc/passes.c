@@ -496,7 +496,7 @@ make_pass_instance (struct opt_pass *pass, bool track_duplicates)
       pass->static_pass_number = -1;
 
       /* Inserts pass in ICI pass list.  */
-      register_pass_name (pass);
+      register_pass_by_name (pass);
     } 
   return pass; 
 }
@@ -734,6 +734,7 @@ init_optimization_passes (void)
   /* Interprocedural optimization passes.  */
   p = &all_small_ipa_passes;
   NEXT_PASS (pass_ipa_function_and_variable_visibility);
+  NEXT_PASS (pass_clone_functions);
   NEXT_PASS (pass_ipa_early_inline);
     {
       struct opt_pass **p = &pass_ipa_early_inline.pass.sub;
@@ -742,6 +743,7 @@ init_optimization_passes (void)
       NEXT_PASS (pass_rebuild_cgraph_edges);
     }
   NEXT_PASS (pass_ipa_free_lang_data);
+  NEXT_PASS (pass_instrument_functions);
   NEXT_PASS (pass_early_local_passes);
     {
       struct opt_pass **p = &pass_early_local_passes.pass.sub;
@@ -1110,7 +1112,10 @@ static GTY ((length ("nnodes"))) struct cgraph_node **order;
    function CALLBACK for every function in the call graph.  Otherwise,
    call CALLBACK on the current function.  */ 
 
-static void
+/* ICI: ipa pass manager needs to walt through cgraph with this function.
+   static void  */
+
+void
 do_per_function_toporder (void (*callback) (void *data), void *data)
 {
   int i;
@@ -1133,9 +1138,14 @@ do_per_function_toporder (void (*callback) (void *data), void *data)
 	  node->process = 0;
 	  if (node->analyzed)
 	    {
+              int *bypass
+                  = (int *) get_event_parameter ("bypass_gimple_in_ipa");
 	      push_cfun (DECL_STRUCT_FUNCTION (node->decl));
 	      current_function_decl = node->decl;
 	      callback (data);
+              /* Reset bypass_gimple_in_ipa to stop recording GIMPLE passes*/
+              if (bypass)
+                *bypass = 1;
 	      free_dominance_info (CDI_DOMINATORS);
 	      free_dominance_info (CDI_POST_DOMINATORS);
 	      current_function_decl = NULL;
@@ -1522,7 +1532,9 @@ execute_one_pass (struct opt_pass *pass)
      User controls the value of the gate through the parameter "gate_status". */
   gate_status = (pass->gate == NULL) ? true : pass->gate();
 
-  invoke_plugin_va_callbacks (PLUGIN_AVOID_GATE, "gate_status", &gate_status);
+  /* Override gate with plugin.  */
+  invoke_plugin_va_callbacks (PLUGIN_AVOID_GATE,
+			      "gate_status", EP_INT, &gate_status);
 
   if (!gate_status) {
     current_pass = NULL;
@@ -1532,7 +1544,8 @@ execute_one_pass (struct opt_pass *pass)
   /* Pass execution event trigger: useful to identify passes being
      executed. Pass name is accessible as a feature (it is a constant object
      in GCC.) */
-  invoke_plugin_va_callbacks (PLUGIN_PASS_EXECUTION);
+  invoke_plugin_va_callbacks (PLUGIN_PASS_EXECUTION,
+			      "_pass_type", EP_INT, &(pass->type));
 
   if (!quiet_flag && !cfun)
     fprintf (stderr, " <%s>", pass->name ? pass->name : "");
@@ -1773,8 +1786,12 @@ execute_ipa_pass_list (struct opt_pass *pass)
       if (execute_one_pass (pass) && pass->sub)
 	{
 	  if (pass->sub->type == GIMPLE_PASS)
-	    do_per_function_toporder ((void (*)(void *))execute_pass_list,
-				      pass->sub);
+	    {
+	      invoke_plugin_callbacks (PLUGIN_EARLY_GIMPLE_PASSES_START, NULL);
+	      do_per_function_toporder ((void (*)(void *))execute_pass_list,
+					pass->sub);
+	      invoke_plugin_callbacks (PLUGIN_EARLY_GIMPLE_PASSES_END, NULL);
+	    }
 	  else if (pass->sub->type == SIMPLE_IPA_PASS
 		   || pass->sub->type == IPA_PASS)
 	    execute_ipa_pass_list (pass->sub);
@@ -1786,6 +1803,27 @@ execute_ipa_pass_list (struct opt_pass *pass)
       pass = pass->next;
     }
   while (pass);
+}
+
+/* ICI: Execute one IPA summary pass  */
+bool
+execute_one_ipa_summary_pass (struct opt_pass *pass)
+{
+  gcc_assert (!current_function_decl);
+  gcc_assert (!cfun);
+  gcc_assert (pass->type == SIMPLE_IPA_PASS || pass->type == IPA_PASS);
+  if (!quiet_flag && !cfun)
+    fprintf (stderr, " <summary generate>");
+
+  /* Generate summary as execute_ipa_summary_passes,
+     but only for current pass.  */
+  if (pass->type == IPA_PASS
+      && (!pass->gate || pass->gate ()))
+    {
+      pass_init_dump_file (pass);
+      ((struct ipa_opt_pass *)pass)->generate_summary ();
+      pass_fini_dump_file (pass);
+    }
 }
 
 extern void debug_properties (unsigned int);

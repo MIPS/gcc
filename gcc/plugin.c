@@ -63,11 +63,15 @@ static const char *plugin_event_name_init[] =
   "PLUGIN_ATTRIBUTES",
   "PLUGIN_START_UNIT",
   "PLUGIN_PRAGMAS",
-  "PLUGIN_EVENT_LAST",
-  "unroll_feature_change",
-  "all_passes_manager",
+  "unroll_parameter_handler",
+  "all_passes_start",
+  "all_passes_execution",
+  "all_passes_end",
   "avoid_gate",
   "pass_execution",
+  "early_gimple_passes_start",
+  "early_gimple_passes_end",
+  "PLUGIN_EVENT_LAST",
 };
 
 const char **plugin_event_name = plugin_event_name_init;
@@ -404,8 +408,11 @@ register_callback (const char *plugin_name,
       case PLUGIN_EVENT_LAST:
       default:
 	if (event < PLUGIN_FIRST_EXPERIMENTAL || event >= event_last)
-	  error ("Unknown callback event registered by plugin %s",
-		 plugin_name);
+	  {
+	    error ("Unknown callback event registered by plugin %s",
+		   plugin_name);
+	    return;
+	  }
       /* Fall through.  */
       case PLUGIN_FINISH_TYPE:
       case PLUGIN_START_UNIT:
@@ -436,6 +443,22 @@ register_callback (const char *plugin_name,
     }
 }
 
+int
+unregister_callback (const char *plugin_name, int event)
+{
+  struct callback_info *callback, **cbp;
+
+  if (event >= event_last)
+    return PLUGEVT_NO_SUCH_EVENT;
+
+  for (cbp = &plugin_callbacks[event]; callback = *cbp; cbp = &callback->next)
+    if (strcmp (callback->plugin_name, plugin_name) == 0)
+      {
+	*cbp = callback->next;
+	return PLUGEVT_SUCCESS;
+      }
+  return PLUGEVT_NO_CALLBACK;
+}
 
 /* Called from inside GCC.  Invoke all plug-in callbacks registered with
    the specified event.

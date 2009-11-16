@@ -33,6 +33,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "df.h"
 #include "ggc.h"
+/* ICI internal interface  */
+#include "highlev-plugin-internal.h"
 
 
 /* Initialize loop structures.  This is used by the tree and RTL loop
@@ -322,11 +324,28 @@ gate_rtl_unroll_and_peel_loops (void)
 static unsigned int
 rtl_unroll_and_peel_loops (void)
 {
+  static int ici_flag_peel_loops;
+  static int ici_flag_unroll_loops;
+  static int ici_flag_unroll_all_loops;
+
   if (number_of_loops () > 1)
     {
       int flags = 0;
       if (dump_file)
 	df_dump (dump_file);
+
+      register_event_parameter ("loop.flag_peel_loops", 
+                                &ici_flag_peel_loops, EP_INT);
+      register_event_parameter ("loop.flag_unroll_loops", 
+                                &ici_flag_unroll_loops, EP_INT);
+      register_event_parameter ("loop.flag_unroll_all_loops", 
+                                &ici_flag_unroll_all_loops, EP_INT);
+
+      call_plugin_event ("unroll_parameter_handler");
+
+      unregister_event_parameter ("loop.flag_peel_loops");
+      unregister_event_parameter ("loop.flag_unroll_loops");
+      unregister_event_parameter ("loop.flag_unroll_all_loops");
 
       if (flag_peel_loops)
 	flags |= UAP_PEEL;

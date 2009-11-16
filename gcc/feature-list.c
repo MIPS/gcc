@@ -53,6 +53,7 @@ extern int passes_by_id_size;
    current function is defined, and return NULL otherwise.  */
 static const void *function_name (void)
 {
+  /* DEBUG */ if (!cfun) printf("DEBUG: function_name: cfun is empty\n");
   if (cfun)
     return (const void *) current_function_name();
   else
@@ -446,6 +447,22 @@ get_cfun_def_filename (void)
   return (const void *) LOCATION_FILE (cfun->function_start_locus);
 }
 
+static const void *
+is_cfun_artificial (void)
+{
+    if (!cfun)
+      return NULL;
+    
+    return (const void *) ((long int) DECL_ARTIFICIAL (cfun->decl));
+}
+
+static const void *
+get_main_input_filename (void)
+{
+  /* GSoC: this is the path to main input file.  */                                                                                                         
+  return (const void *) main_input_filename;
+}
+                                                                                                                                                          
 const struct feature feature_function_start = {
   "function_start_line",          /* name */
   NULL,                           /* data */
@@ -453,6 +470,24 @@ const struct feature feature_function_start = {
   &get_cfun_def_start_line,       /* callback */
   NULL,				  /* no get subfeature callback */
   NULL				  /* no set subfeature callback */
+};
+
+const struct feature feature_function_is_artificial = {
+  "function_is_artificial",       /* name */
+  NULL,                           /* data */
+  0,                              /* no data */
+  &is_cfun_artificial,            /* callback */
+  NULL,  /* no get subfeature callback */
+  NULL  /* no set subfeature callback */
+};
+
+const struct feature feature_main_input_filename = {
+  "main_input_filename",          /* name */
+  NULL,                           /* data */
+  0,                             /* no data */
+  &get_main_input_filename,       /* callback */
+  NULL,                                  /* no get subfeature callback */
+  NULL                           /* no set subfeature callback */
 };
 
 const struct feature feature_function_end = {
@@ -491,7 +526,6 @@ const struct feature feature_function_decl_file = {
   NULL				  /* no set subfeature callback */
 };
 
-
 /* FICI0: initialize all known features */
 void init_features (void)
 {
@@ -511,5 +545,7 @@ void init_features (void)
   register_feature (&feature_function_file);
   register_feature (&feature_function_decl_line);
   register_feature (&feature_function_decl_file);
+  register_feature (&feature_function_is_artificial);
+  register_feature (&feature_main_input_filename);
 }
 

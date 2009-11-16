@@ -32,16 +32,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "highlev-plugin-internal.h"
 
 /* Event structure.  */
-struct hl_plugin_event {
+struct hl_plugin_event
+{
   int event;			/* Number of the event */
   event_callback_t run;		/* Callback function */
 };
 
 
 /* Parameter structure.  */
-struct event_parameter {
+struct event_parameter
+{
   const char *name;		/* Name for the parameter */
   void *value;			/* Pointer to data */
+  event_parameter_type type;	/* Type enumeration of value */
 };
 
 
@@ -119,7 +122,20 @@ register_plugin_event (const char *event_name, event_callback_t func)
 
   ev->event = get_named_event_id (event_name, INSERT);
   ev->run = func;
-  register_callback ("unknown", ev->event, hash_param_callback, ev);
+  register_callback ("ICI", ev->event, hash_param_callback, ev);
+}
+
+
+/* Unregister an event.  */
+void 
+unregister_plugin_event (const char *event_name)
+{
+  int event = get_named_event_id (event_name, NO_INSERT);
+
+  if (event < 0)
+    return;
+
+  unregister_callback ("ICI", event);
 }
 
 
@@ -147,13 +163,15 @@ list_plugin_events (void)
  * Insert parameter into hash table. Allocates hash table
  * if needed.  */
 void 
-register_event_parameter (const char *name, void* value)
+register_event_parameter (const char *name, void* value, 
+                          event_parameter_type type)
 {
   void **slot;
   struct event_parameter *param = XCNEW (struct event_parameter);
 
   param->name = name;
   param->value = value;
+  param->type = type;
 
   if (param->name == NULL || !strcmp ("", param->name))
     internal_error ("Parameter cannot be registered with NULL name string\n");
@@ -187,7 +205,7 @@ unregister_event_parameter (const char *name)
 
 
 /* Get parameter pointer to data.
- * Used by plugin to get pointer to data of the parameter <name>.  */
+   Used by plugin to get pointer to data of the parameter <name>.  */
 void *
 get_event_parameter (const char *name)
 {
@@ -208,6 +226,27 @@ get_event_parameter (const char *name)
   return NULL;
 }
 
+/* Get parameter type.
+   Used by plugin to get type of data pointer of the parameter <name>.  */
+event_parameter_type
+get_event_parameter_type (const char *name)
+{
+  struct event_parameter tmp_param, *param;
+  tmp_param.name = name;
+
+  if (parameters_hash == NULL)
+    internal_error ("Parameter hash not initialized.\n");
+  
+  if (parameters_hash != NULL)
+    {
+      param = (struct event_parameter *)
+	htab_find (parameters_hash, &tmp_param);
+      
+      if (param != NULL && param->value != NULL)
+	return param->type;
+    }
+  return EP_VOID;
+}
 
 /* Get list of names of all registered ICI parameters.
  * Traverse the hash table collecting the names of entries.
