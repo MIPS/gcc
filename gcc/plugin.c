@@ -77,8 +77,8 @@ static const char *plugin_event_name_init[] =
 
 const char **plugin_event_name = plugin_event_name_init;
 
-/* A hash table to map event names the the position of the names in the
-   plugin_event_name.  */
+/* A hash table to map event names to the position of the names in the
+   plugin_event_name table.  */
 static htab_t event_tab;
 
 /* Keep track of the limit of allocated events and space ready for
