@@ -52,6 +52,9 @@ enum plugin_event
   PLUGIN_ALL_PASSES_START,
   PLUGIN_ALL_PASSES_EXECUTION,
   PLUGIN_ALL_PASSES_END,
+  PLUGIN_ALL_IPA_PASSES_START,
+  PLUGIN_ALL_IPA_PASSES_EXECUTION,
+  PLUGIN_ALL_IPA_PASSES_END,
   PLUGIN_AVOID_GATE,
   PLUGIN_PASS_EXECUTION,
   PLUGIN_EARLY_GIMPLE_PASSES_START,
@@ -74,6 +77,23 @@ struct plugin_argument
   char *key;    /* key of the argument.  */
   char *value;  /* value is optional and can be NULL.  */
 };
+
+/* Parameter codes for invoke_plugin_va_callbacks.  These are used in the
+   interface for high-level plugins, and therefore existing tags should
+   not change their value.  */
+typedef enum
+{
+  EP_SILENT, /* Used to pass infomation between ICI and plugin,
+		parameter of this type will not be recorded.
+		The data type is int.  */
+  EP_VOID,
+  EP_CHAR,
+  EP_UNSIGNED_CHAR,
+  EP_INT,
+  EP_UNSIGNED,
+  EP_LONG,
+  EP_UNSIGNED_LONG
+} event_parameter_type;
 
 /* Additional information about the plugin. Used by --help and --version. */
 
