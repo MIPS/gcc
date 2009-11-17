@@ -73,4 +73,6 @@ typedef struct {
   char *cloned;
 } instrinfo ;
 
+extern struct gimple_opt_pass pass_instrument_functions;
+
 #endif /* HIGHLEV_PLUGIN_INTERNAL_H*/

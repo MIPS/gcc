@@ -28,7 +28,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "function.h"
 #include "tree-pass.h"
 #include "opts.h"
-#include "gcc-plugin.h"
+#include "plugin.h" /* Need internal version for invoke_plugin_callbacks.  */
 #include "highlev-plugin-internal.h"
 
 void plugin_is_GPL_compatible (void);
@@ -120,7 +120,14 @@ int
 plugin_init (struct plugin_name_args *plugin_info ATTRIBUTE_UNUSED,
 	     struct plugin_gcc_version *version ATTRIBUTE_UNUSED)
 {
+  static struct register_pass_info instrument_functions_info
+    = { &pass_instrument_functions.pass, "early_local_cleanups",
+	1, PASS_POS_INSERT_BEFORE
+      };
+
   ici_refresh_internal_callbacks (-1);
+  register_callback ("ICI_INTERNAL", PLUGIN_PASS_MANAGER_SETUP,
+		     NULL, &instrument_functions_info);
   load_ici_plugin ();
   return 0; /* Success.  */
 }
@@ -310,9 +317,7 @@ invoke_named_callbacks (const char *name, ...)
 {
   va_list va;
   int retval;
-  int event = name;
-
-  event = get_named_event_id (name, NO_INSERT);
+  int event = get_named_event_id (name, NO_INSERT);
   va_start (va, name);
   retval = invoke_plugin_callbacks (event, &va);
   va_end (va);
