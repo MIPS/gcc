@@ -3569,8 +3569,10 @@ process_command (int argc, const char **argv)
   n_infiles = 0;
   added_libraries = 0;
 
+#if 0
   /* Add ICI_LIBS options */
-  //  add_plugin_libs(&argc, (const char *const **) &argv);
+  add_plugin_libs(&argc, (const char *const **) &argv);
+#endif
 
   /* Figure compiler version from version string.  */
 
