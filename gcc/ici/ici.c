@@ -318,6 +318,9 @@ invoke_named_callbacks (const char *name, ...)
   va_list va;
   int retval;
   int event = get_named_event_id (name, NO_INSERT);
+
+  if (event < 0)
+    return PLUGEVT_NO_SUCH_EVENT;
   va_start (va, name);
   retval = invoke_plugin_callbacks (event, &va);
   va_end (va);
