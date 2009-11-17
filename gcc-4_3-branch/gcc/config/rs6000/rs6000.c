@@ -130,8 +130,6 @@ typedef struct machine_function GTY(())
      64-bits wide and is allocated early enough so that the offset
      does not overflow the 16-bit load/store offset field.  */
   rtx sdmode_stack_slot;
-  /* True if any VSX or ALTIVEC vector type was used.  */
-  bool vsx_or_altivec_used_p;
 } machine_function;
 
 /* Target cpu type */
@@ -3631,7 +3629,6 @@ direct_return (void)
 	  && ! info->lr_save_p
 	  && ! info->cr_save_p
 	  && info->vrsave_mask == 0
-	  && ! cfun->machine->vsx_or_altivec_used_p
 	  && ! info->push_p)
 	return 1;
     }
@@ -13533,23 +13530,6 @@ rs6000_expand_to_rtl_hook (void)
 
   gcc_assert (cfun->machine->sdmode_stack_slot == NULL_RTX);
 
-  /* Check for vectors.  */
-  if (TARGET_VSX)
-    {
-      FOR_EACH_BB (bb)
-	for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-	  {
-	    if (walk_tree_without_duplicates (bsi_stmt_ptr (bsi),
-					      rs6000_check_vector_mode, NULL))
-	      {
-		cfun->machine->vsx_or_altivec_used_p = true;
-		goto found_vector;
-	      }
-	  }
-    found_vector:
-      ;
-    }
-
   /* Check for SDmode.  */
   FOR_EACH_BB (bb)
     for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
@@ -17046,8 +17026,7 @@ rs6000_stack_info (void)
   else
     info_ptr->vrsave_mask = 0;
 
-  if (TARGET_ALTIVEC_VRSAVE &&
-      (info_ptr->vrsave_mask || cfun->machine->vsx_or_altivec_used_p))
+  if (TARGET_ALTIVEC_VRSAVE && info_ptr->vrsave_mask)
     info_ptr->vrsave_size  = 4;
   else
     info_ptr->vrsave_size  = 0;
@@ -17201,8 +17180,7 @@ rs6000_stack_info (void)
   if (! TARGET_ALTIVEC_ABI || info_ptr->altivec_size == 0)
     info_ptr->altivec_save_offset = 0;
 
-  if (! TARGET_ALTIVEC_ABI
-      || (info_ptr->vrsave_mask == 0 && !cfun->machine->vsx_or_altivec_used_p))
+  if (! TARGET_ALTIVEC_ABI || info_ptr->vrsave_mask == 0)
     info_ptr->vrsave_save_offset = 0;
 
   if (! TARGET_SPE_ABI
@@ -18854,7 +18832,6 @@ rs6000_emit_prologue (void)
 				  (frame_reg_rtx != sp_reg_rtx
 				   && ((info->altivec_size != 0)
 				       || (info->vrsave_mask != 0)
-				       || cfun->machine->vsx_or_altivec_used_p
 				       )),
 				  FALSE);
       if (frame_reg_rtx != sp_reg_rtx)
@@ -18909,18 +18886,11 @@ rs6000_emit_prologue (void)
      used in this function, and do the corresponding magic in the
      epilogue.  */
 
-  if (TARGET_ALTIVEC && TARGET_ALTIVEC_VRSAVE
-      && (info->vrsave_mask != 0 || cfun->machine->vsx_or_altivec_used_p))
+  if (TARGET_ALTIVEC && TARGET_ALTIVEC_VRSAVE && info->vrsave_mask != 0)
     {
       rtx reg, mem, vrsave;
       int offset;
       unsigned int mask = info->vrsave_mask;
-
-      /* If we only used VSX vector registers that overlap with floating point
-	 registers, just set VRSAVE to non-zero to tell the kernel that we need
-	 to save the vector registers.  */
-      if (!mask && cfun->machine->vsx_or_altivec_used_p)
-	mask = 0x1;
 
       /* Get VRSAVE onto a GPR.  Note that ABI_V4 might be using r12
          as frame_reg_rtx and r11 as the static chain pointer for
@@ -19318,7 +19288,7 @@ rs6000_emit_epilogue (int sibcall)
   /* Restore VRSAVE if we must do so before adjusting the stack.  */
   if (TARGET_ALTIVEC
       && TARGET_ALTIVEC_VRSAVE
-      && (info->vrsave_mask != 0 || cfun->machine->vsx_or_altivec_used_p)
+      && info->vrsave_mask != 0
       && (ALWAYS_RESTORE_ALTIVEC_BEFORE_POP
 	  || (DEFAULT_ABI != ABI_V4
 	      && info->vrsave_save_offset < (TARGET_32BIT ? -220 : -288))))
@@ -19431,7 +19401,7 @@ rs6000_emit_epilogue (int sibcall)
   if (!ALWAYS_RESTORE_ALTIVEC_BEFORE_POP
       && TARGET_ALTIVEC
       && TARGET_ALTIVEC_VRSAVE
-      && (info->vrsave_mask != 0 || cfun->machine->vsx_or_altivec_used_p)
+      && info->vrsave_mask != 0
       && (DEFAULT_ABI == ABI_V4
 	  || info->vrsave_save_offset >= (TARGET_32BIT ? -220 : -288)))
     {
