@@ -117,8 +117,21 @@ ici_refresh_internal_callbacks (int event)
     }
 }
 
+int flag_api_instrument_functions;
+
+static void
+parse_ici_arguments (int argc, struct plugin_argument *argv)
+{
+  for (; argc--; argv++)
+    {
+      if (strcmp (argv->key, "instrument-functions") == 0)
+	flag_api_instrument_functions
+	  = (argv->value == NULL || strcmp (argv->value, "0"));
+    }
+}
+
 int
-plugin_init (struct plugin_name_args *plugin_info ATTRIBUTE_UNUSED,
+plugin_init (struct plugin_name_args *plugin_info,
 	     struct plugin_gcc_version *version ATTRIBUTE_UNUSED)
 {
   static struct register_pass_info instrument_functions_info
@@ -131,6 +144,7 @@ plugin_init (struct plugin_name_args *plugin_info ATTRIBUTE_UNUSED,
 		     NULL, &instrument_functions_info);
   register_callback ("ICI_INTERNAL", PLUGIN_NEW_PASS,
 		     (plugin_callback_func) &register_pass_by_name , NULL);
+  parse_ici_arguments (plugin_info->argc, plugin_info->argv);
   load_ici_plugin ();
   return 0; /* Success.  */
 }

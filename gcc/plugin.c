@@ -616,7 +616,11 @@ void
 initialize_plugins (void)
 {
   /* Test ICI initialization code.  */
-  plugin_init (NULL, NULL);
+    {
+      struct plugin_name_args args[] = { "instrument-functions", NULL};
+
+      plugin_init (&args, NULL);
+    }
 
   /* If no plugin was specified in the command-line, simply return.  */
   if (!plugin_name_args_tab)

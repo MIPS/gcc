@@ -236,7 +236,7 @@ exec_instrument_functions (void)
 }
 
 static bool
-gate_instrument_functions(void)
+gate_instrument_functions (void)
 {
   return flag_api_instrument_functions;
 }
