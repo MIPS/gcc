@@ -30,6 +30,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "opts.h"
 #include "plugin.h" /* Need internal version for invoke_plugin_callbacks.  */
 #include "highlev-plugin-internal.h"
+#include "pass-manager.h"
 
 void plugin_is_GPL_compatible (void);
 static void ici_load_function_specific_optimizations (void);
@@ -128,6 +129,8 @@ plugin_init (struct plugin_name_args *plugin_info ATTRIBUTE_UNUSED,
   ici_refresh_internal_callbacks (-1);
   register_callback ("ICI_INTERNAL", PLUGIN_PASS_MANAGER_SETUP,
 		     NULL, &instrument_functions_info);
+  register_callback ("ICI_INTERNAL", PLUGIN_NEW_PASS,
+		     (plugin_callback_func) &register_pass_by_name , NULL);
   load_ici_plugin ();
   return 0; /* Success.  */
 }

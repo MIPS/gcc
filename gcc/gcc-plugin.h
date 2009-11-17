@@ -60,6 +60,7 @@ enum plugin_event
   PLUGIN_PASS_EXECUTION,
   PLUGIN_EARLY_GIMPLE_PASSES_START,
   PLUGIN_EARLY_GIMPLE_PASSES_END,
+  PLUGIN_NEW_PASS,	        /* Called when a pass is first instantiated.  */
 
   PLUGIN_EVENT_LAST             /* Dummy event used for indexing callback
                                    array.  */

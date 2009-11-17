@@ -104,8 +104,6 @@ along with GCC; see the file COPYING3.  If not see
 				   declarations for e.g. AIX 4.x.  */
 #endif
 
-#include "pass-manager.h"
-
 /* This is used for debugging.  It allows the current pass to printed
    from anywhere in compilation.  */
 struct opt_pass *current_pass;
@@ -495,8 +493,7 @@ make_pass_instance (struct opt_pass *pass, bool track_duplicates)
       pass->todo_flags_start |= TODO_mark_first_instance;
       pass->static_pass_number = -1;
 
-      /* Inserts pass in ICI pass list.  */
-      register_pass_by_name (pass);
+      invoke_plugin_callbacks (PLUGIN_NEW_PASS, pass);
     } 
   return pass; 
 }
