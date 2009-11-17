@@ -617,7 +617,11 @@ initialize_plugins (void)
 {
   /* Test ICI initialization code.  */
     {
-      struct plugin_name_args args[] = { "instrument-functions", NULL};
+      static char arg_name[] = "instrument-functions";
+      static struct plugin_argument args0
+	= { arg_name, NULL };
+      static struct plugin_name_args args
+	= { NULL , NULL, 1, &args0, NULL, NULL };
 
       plugin_init (&args, NULL);
     }

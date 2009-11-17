@@ -103,7 +103,8 @@ hash_param_callback (void *gcc_data, void *user_data)
 	{
 	  type = va_arg (va, int);
 	  value = va_arg (va, void *);
-	  register_event_parameter (name, value, type);
+	  register_event_parameter (name, value,
+				    (event_parameter_type) type);
 	}
       va_end (va);
     }

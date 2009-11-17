@@ -282,7 +282,7 @@ ici_load_function_specific_optimizations (void)
 	    saved_flag_omit_frame_pointer = flag_omit_frame_pointer;
 	    saved_flag_pcc_struct_return = flag_pcc_struct_return;
 	    saved_flag_asynchronous_unwind_tables = flag_asynchronous_unwind_tables;
-           decode_options (argc, (const char **) argv);
+           decode_options (argc, CONST_CAST2 (const char **, char **, argv));
 		   
 	    flag_strict_aliasing = saved_flag_strict_aliasing;
            flag_omit_frame_pointer = saved_flag_omit_frame_pointer;

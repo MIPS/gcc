@@ -184,7 +184,7 @@ exec_instrument_functions (void)
   idi.numofinstrfun = 0;
 
   invoke_named_callbacks ("load_instr_config",
-			  "instr_info", EP_VOID, &idi, EP_VOID, NULL);
+			  "instr_info", EP_VOID, &idi, NULL);
 
   if (idi.numofinstrfun == 0)
     {
@@ -250,7 +250,7 @@ struct gimple_opt_pass pass_instrument_functions = {
   NULL,				/* sub */
   NULL,				/* next */
   0,				/* static_pass_number */
-  0,				/* tv_id */
+  TV_NONE,			/* tv_id */
   0,				/* properties_required */
   0,				/* properties_provided */
   0,				/* properties_destroyed */

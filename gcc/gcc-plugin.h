@@ -47,7 +47,7 @@ enum plugin_event
   PLUGIN_PRAGMAS,	        /* Called during pragma registration.  */
 
   /* The following events might be subject to change or deletion without
-     prior notice.  Plugins should only use them by name.  */
+     prior notice.  High-level plugins should only use them by name.  */
   PLUGIN_FIRST_EXPERIMENTAL,
   PLUGIN_UNROLL_PARAMETER_HANDLER = PLUGIN_FIRST_EXPERIMENTAL,
   PLUGIN_ALL_PASSES_START,
