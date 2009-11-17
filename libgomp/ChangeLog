@@ -1,3 +1,19 @@
+2009-08-19  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/41102
+	omp_lib.h.in: Fix -std=f95 errors.
+
+2009-08-14  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2008-12-26  Uros Bizjak  <ubizjak@gmail.com>
+
+	* testsuite/libgomp.c/atomic-6.c: Add -mieee for alpha*-*-* targets.
+
+2009-08-04  Release Manager
+
+	* GCC 4.3.4 released.
+
 2009-01-24  Release Manager
 
 	* GCC 4.3.3 released.

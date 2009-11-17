@@ -2807,7 +2807,8 @@ finish_case_label (tree low_value, tree high_value)
   if (!check_switch_goto (switch_stack->level))
     return error_mark_node;
 
-  r = c_add_case_label (switch_stack->cases, cond, TREE_TYPE (cond),
+  r = c_add_case_label (switch_stack->cases, cond,
+			SWITCH_STMT_TYPE (switch_stack->switch_stmt),
 			low_value, high_value);
 
   /* After labels, make any new cleanups in the function go into their
@@ -8634,7 +8635,9 @@ grokdeclarator (const cp_declarator *declarator,
       tree decls = NULL_TREE;
       tree args;
 
-      for (args = TYPE_ARG_TYPES (type); args; args = TREE_CHAIN (args))
+      for (args = TYPE_ARG_TYPES (type);
+	   args && args != void_list_node;
+	   args = TREE_CHAIN (args))
 	{
 	  tree decl = cp_build_parm_decl (NULL_TREE, TREE_VALUE (args));
 

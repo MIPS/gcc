@@ -943,8 +943,6 @@ finish_switch_cond (tree cond, tree switch_stmt)
   tree orig_type = NULL;
   if (!processing_template_decl)
     {
-      tree index;
-
       /* Convert the condition to an integer or enumeration type.  */
       cond = build_expr_type_conversion (WANT_INT | WANT_ENUM, cond, true);
       if (cond == NULL_TREE)
@@ -960,18 +958,6 @@ finish_switch_cond (tree cond, tree switch_stmt)
 	     Integral promotions are performed.  */
 	  cond = perform_integral_promotions (cond);
 	  cond = maybe_cleanup_point_expr (cond);
-	}
-
-      if (cond != error_mark_node)
-	{
-	  index = get_unwidened (cond, NULL_TREE);
-	  /* We can't strip a conversion from a signed type to an unsigned,
-	     because if we did, int_fits_type_p would do the wrong thing
-	     when checking case values for being in range,
-	     and it's too hard to do the right thing.  */
-	  if (TYPE_UNSIGNED (TREE_TYPE (cond))
-	      == TYPE_UNSIGNED (TREE_TYPE (index)))
-	    cond = index;
 	}
     }
   if (check_for_bare_parameter_packs (cond))
@@ -1463,6 +1449,14 @@ finish_non_static_data_member (tree decl, tree object, tree qualifying_scope)
 
       return build_min (COMPONENT_REF, type, object, decl, NULL_TREE);
     }
+  /* If PROCESSING_TEMPLATE_DECL is nonzero here, then
+     QUALIFYING_SCOPE is also non-null.  Wrap this in a SCOPE_REF
+     for now.  */
+  else if (processing_template_decl)
+    return build_qualified_name (TREE_TYPE (decl),
+				 qualifying_scope,
+				 DECL_NAME (decl),
+				 /*template_p=*/false);
   else
     {
       tree access_type = TREE_TYPE (object);
@@ -1481,15 +1475,6 @@ finish_non_static_data_member (tree decl, tree object, tree qualifying_scope)
 	      return error_mark_node;
 	    }
 	}
-
-      /* If PROCESSING_TEMPLATE_DECL is nonzero here, then
-	 QUALIFYING_SCOPE is also non-null.  Wrap this in a SCOPE_REF
-	 for now.  */
-      if (processing_template_decl)
-	return build_qualified_name (TREE_TYPE (decl),
-				     qualifying_scope,
-				     DECL_NAME (decl),
-				     /*template_p=*/false);
 
       perform_or_defer_access_check (TYPE_BINFO (access_type), decl,
 				     decl);

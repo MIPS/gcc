@@ -11322,16 +11322,19 @@ add_subscript_info (dw_die_ref type_die, tree type)
      const enum type.  E.g. const enum machine_mode insn_operand_mode[2][10].
      We work around this by disabling this feature.  See also
      gen_array_type_die.  */
+
 #ifndef MIPS_DEBUGGING_INFO
-  for (dimension_number = 0;
+  for (dimension_number = 0; 
        TREE_CODE (type) == ARRAY_TYPE;
        type = TREE_TYPE (type), dimension_number++)
 #endif
     {
       tree domain = TYPE_DOMAIN (type);
 
+#ifndef MIPS_DEBUGGING_INFO
       if (TYPE_STRING_FLAG (type) && is_fortran () && dimension_number > 0)
 	break;
+#endif
 
       /* Arrays come in three flavors: Unspecified bounds, fixed bounds,
 	 and (in GNU C only) variable bounds.  Handle all three forms
@@ -13529,6 +13532,12 @@ gen_type_die_with_usage (tree type, dw_die_ref context_die,
 
       /* Prevent broken recursion; we can't hand off to the same type.  */
       gcc_assert (DECL_ORIGINAL_TYPE (TYPE_NAME (type)) != type);
+
+      /* Use the DIE of the containing namespace as the parent DIE of
+         the type description DIE we want to generate.  */
+      if (DECL_CONTEXT (TYPE_NAME (type))
+	  && TREE_CODE (DECL_CONTEXT (TYPE_NAME (type))) == NAMESPACE_DECL)
+	context_die = lookup_decl_die (DECL_CONTEXT (TYPE_NAME (type)));
 
       TREE_ASM_WRITTEN (type) = 1;
       gen_decl_die (TYPE_NAME (type), context_die);
