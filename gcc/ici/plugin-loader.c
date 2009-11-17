@@ -100,16 +100,13 @@ load_ici_plugin_file (char *dynlib_file)
 }
 
 
-/* load a plugin speficied by envariable ICI_PLUGIN if either -fici was
-   given on the command line or envariable ICI_USE is set to '1'. */
+/* load a plugin speficied by envariable ICI_PLUGIN if 
+   envariable ICI_USE is set to '1'. */
 void load_ici_plugin (void)
 {
   char *ici_use = getenv ("ICI_USE");
 
   if ((ici_use != NULL) && (ici_use[0] == '1'))
-    flag_ici = true;
-
-  if (flag_ici)
     {
       char *dynlib_file = getenv ("ICI_PLUGIN");
       if (dynlib_file != NULL)

@@ -590,8 +590,8 @@ extern void register_pass (struct register_pass_info *);
    directly in jump threading, and avoid peeling them next time.  */
 extern bool first_pass_instance;
 
-/* ICI: We have to run IPA pass one by one, so summary is generated before                                                                                  
-   each executeion.  */                                                                                                                                     
+/* ICI: We have to run IPA pass one by one, so summary is generated before
+   each execution.  */                                                                                                                                     
 extern bool execute_one_ipa_pass (struct opt_pass *);                                                                                                       
 /* ICI: ipa pass manager needs to walk through cgraph with this function.  */
 extern void do_per_function_toporder (void (*) (void *), void *);

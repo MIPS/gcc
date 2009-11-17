@@ -3479,70 +3479,7 @@ add_linker_option (const char *option, int len)
 
   linker_options [n_linker_options - 1] = save_string (option, len);
 }
-
-static void
-add_plugin_libs(int *argcp, const char *const **argvp)
-{
-  int argc = *argcp;
-  const char *const *argv = *argvp;
-  int spaces = 0, i = 0, nonspace_occurred = 0, arglen = 0;
-  int new_size = argc;
-  const char **new_argv;
-  const char *plugin_libs;
-  const char *sp, *sp_begin, *sp_end;
-  int length = 0; 
-  GET_ENVIRONMENT(plugin_libs, "ICI_LIBS");
-  if (plugin_libs != NULL)
-    {
-      length = strlen(plugin_libs);
-      /* Trim ici_libs string */
-      for (sp = plugin_libs; *sp == ' '; sp++);
-        sp_begin = sp;
-      for (sp =  plugin_libs + length - 1; (*sp == ' ') && (sp > sp_begin); sp--);
-        sp_end = sp + 1;
-      length = sp_end - sp_begin;
-      /* split ici_libs and save args in argvp*/
-      if (length > 0)
-        {
-          for (sp = sp_begin; sp < sp_end; sp++)
-            {
-              if ((*sp == ' ') && nonspace_occurred)
-                {
-                  spaces ++;
-                  nonspace_occurred = 0;
-                }
-              if (*sp != ' ')
-                nonspace_occurred = 1;
-            }
-          new_size = new_size + spaces + 1;
-          /* Additional trailing slot is for NULL argument.  */
-          new_argv = XNEWVEC (const char *, new_size + 1);
-          i = 0;
-          do
-            {
-              new_argv[i] = argv[i];
-              i++;
-            }
-          while (i < argc);
-          sp = sp_begin;
-          while (sp < sp_end) 
-            {
-              arglen = 0;
-              for (; (*sp == ' ') && (sp < sp_end); sp++);
-              for(; (*(sp + arglen) != ' ') && ((sp + arglen) < sp_end); arglen++);
-	      new_argv[i] = save_string(sp, arglen);
-              sp += arglen;
-              i++;
-            }
-	
-          /* The last one should be the NULL */
-          new_argv[i] = NULL;
-          *argcp = new_size;
-          *argvp = new_argv;
-        }
-    }
-}
-
+
 /* Create the vector `switches' and its contents.
    Store its length in `n_switches'.  */
 
@@ -3568,11 +3505,6 @@ process_command (int argc, const char **argv)
   n_switches = 0;
   n_infiles = 0;
   added_libraries = 0;
-
-#if 0
-  /* Add ICI_LIBS options */
-  add_plugin_libs(&argc, (const char *const **) &argv);
-#endif
 
   /* Figure compiler version from version string.  */
 
@@ -6850,10 +6782,6 @@ main (int argc, char **argv)
   const char *p;
   struct user_specs *uptr;
   char **old_argv = argv;
-
-  /* Add ICI_LIBS options */
-  add_plugin_libs(&argc, (const char *const **) &argv);
-  old_argv = argv;
 
   /* Initialize here, not in definition.  The IRIX 6 O32 cc sometimes chokes
      on ?: in file-scope variable initializations.  */
