@@ -2723,18 +2723,18 @@ ici.o : ici/ici.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
 
 pass-manager.o : ici/pass-manager.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(TOPLEV_H) $(HASHTAB_H) tree-pass.h ici/highlev-plugin-internal.h \
-   feature-internal.h ici/pass-manager.h
+   ici/feature-internal.h ici/pass-manager.h
 
 events.o : ici/events.c  $(CONFIG_H) $(SYSTEM_H) coretypes.h $(HASHTAB_H) \
    $(TOPLEV_H) errors.h $(GCC_PLUGIN_H) ici/highlev-plugin-internal.h
 
 feature.o : ici/feature.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(HASHTAB_H) \
-   $(TOPLEV_H) feature-internal.h
+   $(TOPLEV_H) ici/feature-internal.h
 
 feature-list.o : ici/feature-list.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(TM_H) $(TREE_H) $(INPUT_H) $(BASIC_BLOCK_H) $(TREE_INLINE_H) \
    $(TREE_FLOW_H) tree-pass.h version.h opts.h params.h function.h \
-   feature-internal.h
+   ici/feature-internal.h
 
 function-instrumentation.o : ici/function-instrumentation.c $(CONFIG_H) \
    $(SYSTEM_H) coretypes.h tree-pass.h \
@@ -2742,7 +2742,7 @@ function-instrumentation.o : ici/function-instrumentation.c $(CONFIG_H) \
 
 plugin-loader.o : ici/plugin-loader.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(HASHTAB_H) $(GCC_PLUGIN_H) $(TOPLEV_H) $(GCC_H) options.h \
-   ici/highlev-plugin-internal.h feature-internal.h
+   ici/highlev-plugin-internal.h ici/feature-internal.h
 
 passes.o : passes.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    $(RTL_H) $(FUNCTION_H) $(FLAGS_H) xcoffout.h $(INPUT_H) $(INSN_ATTR_H) output.h \
