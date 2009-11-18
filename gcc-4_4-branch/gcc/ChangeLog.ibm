@@ -7,6 +7,23 @@
 	(rs6000_check_vector_mode): Ditto.
 	(compute_vrsave_mask): Ditto.
 
+	Backport from mainline
+	2009-04-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR driver/39293
+	* gcc.c (save_temps_flag): Add support for -save-temps=obj.
+	(cpp_options): Ditto.
+	(default_compilers): Ditto.
+	(display_help): Ditto.
+	(process_command): Ditto.
+	(do_spec_1): Ditto.
+	(set_input): Use lbasename instead of duplicate code.
+	(save_temps_prefix): New static for -save-temps=obj.
+	(save_temps_length): Ditto.
+
+	* doc/invoke.texi (-save-temps=obj): Document new variant to
+	-save-temps switch.
+
 2009-11-17  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* DEV-PHASE: Set to IBM Advanced-Toolchain, prerelease.
