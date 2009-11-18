@@ -1025,7 +1025,8 @@ INCLUDES = -I. -I$(@D) -I$(srcdir) -I$(srcdir)/$(@D) \
 .c.o:
 	$(COMPILER) -c $(ALL_COMPILERFLAGS) $(ALL_CPPFLAGS) $< $(OUTPUT_OPTION)
 %.o : ici/%.c
-	$(COMPILER) -c $(ALL_COMPILERFLAGS) $(ALL_CPPFLAGS) $< $(OUTPUT_OPTION)
+	$(COMPILER) -c $(ALL_COMPILERFLAGS) $(ALL_CPPFLAGS) -fPIC $< \
+	$(OUTPUT_OPTION)
 
 #
 # Support for additional languages (other than C).
@@ -1176,14 +1177,10 @@ OBJS-common = \
 	ebitmap.o \
 	emit-rtl.o \
 	et-forest.o \
-	events.o \
 	except.o \
 	explow.o \
 	expmed.o \
 	expr.o \
-	feature.o \
-	feature-list.o \
-	function-instrumentation.o \
 	final.o \
 	fixed-value.o \
 	fold-const.o \
@@ -1256,10 +1253,7 @@ OBJS-common = \
 	opts-common.o \
 	opts.o \
 	params.o \
-	pass-manager.o \
 	passes.o \
-	ici.o \
-	plugin-loader.o \
 	plugin.o \
 	pointer-set.o \
 	postreload-gcse.o \
@@ -4302,7 +4296,7 @@ PLUGIN_HEADERS = $(TREE_H) $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
   $(C_PRAGMA_H)  $(CPPLIB_H)  $(FUNCTION_H)
 
 # Install the headers needed to build a plugin.
-install-plugin: installdirs lang.install-plugin
+install-plugin: installdirs lang.install-plugin build-plugin
 # We keep the directory structure for files in config and .def files. All
 # other files are flattened to a single directory.
 	$(mkinstalldirs) $(DESTDIR)$(plugin_includedir)
@@ -4326,6 +4320,20 @@ install-plugin: installdirs lang.install-plugin
 	  $(mkinstalldirs) $(DESTDIR)$$dir; \
 	  $(INSTALL_DATA) $$path $(DESTDIR)$$dest; \
 	done
+
+.PHONY: build-plugin build-ici build-adapt
+
+build-plugin: build-ici build-adapt
+
+build-ici: ici.so
+
+ICI_OBJS = feature.o feature-list.o function-instrumentation.o ici.o \
+  pass-manager.o plugin-loader.o events.o
+
+ici.so: $(ICI_OBJS)
+	$(LINKER) $(ALL_LINKERFLAGS) $(LDFLAGS) -shared $^ -o $@
+
+build-adapt:
 
 # Install the compiler executables built during cross compilation.
 install-common: native lang.install-common installdirs

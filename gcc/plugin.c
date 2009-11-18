@@ -615,17 +615,6 @@ init_one_plugin (void **slot, void * ARG_UNUSED (info))
 void
 initialize_plugins (void)
 {
-  /* Test ICI initialization code.  */
-    {
-      static char arg_name[] = "instrument-functions";
-      static struct plugin_argument args0
-	= { arg_name, NULL };
-      static struct plugin_name_args args
-	= { NULL , NULL, 1, &args0, NULL, NULL };
-
-      plugin_init (&args, NULL);
-    }
-
   /* If no plugin was specified in the command-line, simply return.  */
   if (!plugin_name_args_tab)
     return;
