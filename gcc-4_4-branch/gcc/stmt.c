@@ -1092,10 +1092,11 @@ expand_asm_expr (tree exp)
   int noutputs, i;
   tree outputs, tail;
   tree *o;
+  location_t locus = EXPR_LOCATION (exp);
 
   if (ASM_INPUT_P (exp))
     {
-      expand_asm_loc (ASM_STRING (exp), ASM_VOLATILE_P (exp), input_location);
+      expand_asm_loc (ASM_STRING (exp), ASM_VOLATILE_P (exp), locus);
       return;
     }
 
@@ -1112,7 +1113,7 @@ expand_asm_expr (tree exp)
      OUTPUTS some trees for where the values were actually stored.  */
   expand_asm_operands (ASM_STRING (exp), outputs, ASM_INPUTS (exp),
 		       ASM_CLOBBERS (exp), ASM_LABELS (exp),
-		       ASM_VOLATILE_P (exp), input_location);
+		       ASM_VOLATILE_P (exp), locus);
 
   /* Copy all the intermediate outputs into the specified outputs.  */
   for (i = 0, tail = outputs; tail; tail = TREE_CHAIN (tail), i++)
