@@ -1354,7 +1354,7 @@ cgraph_preserve_function_body_p (tree decl)
 static void
 ipa_passes (void)
 {
-  int substitute_status = 0;
+  int executed_p = 0;
 
   set_cfun (NULL);
   current_function_decl = NULL;
@@ -1363,8 +1363,8 @@ ipa_passes (void)
 
   invoke_plugin_callbacks (PLUGIN_ALL_IPA_PASSES_START, NULL);
 
-  invoke_plugin_callbacks (PLUGIN_ALL_IPA_PASSES_EXECUTION, &substitute_status);
-  if (substitute_status == 0)
+  invoke_plugin_callbacks (PLUGIN_ALL_IPA_PASSES_EXECUTION, &executed_p);
+  if (!executed_p)
     {
       if (!in_lto_p)
 	execute_ipa_pass_list (all_small_ipa_passes);

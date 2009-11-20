@@ -1906,16 +1906,7 @@ analyze_function (struct cgraph_node *node)
   current_function_decl = node->decl;
 
   compute_inline_parameters (node);
-  /* We should not execute inline_indirect_intraprocedural_analysis() 
-     if NODE->decl has function_specific_optimization, and 
-     optimize is 0 or 1.  Right?  */
-  if (DECL_FUNCTION_SPECIFIC_OPTIMIZATION (node->decl) != NULL_TREE)
-    {
-      if (DECL_FUNCTION_SPECIFIC_OPTIMIZATION (node->decl)
-	  ->optimization.opts.optimize > 1)
-	inline_indirect_intraprocedural_analysis (node);
-    }
-  else if (flag_indirect_inlining)
+  if (flag_indirect_inlining)
     inline_indirect_intraprocedural_analysis (node);
 
   current_function_decl = NULL;

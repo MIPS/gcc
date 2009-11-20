@@ -1102,13 +1102,6 @@ decode_options (unsigned int argc, const char **argv)
       flag_ira_algorithm = IRA_ALGORITHM_PRIORITY;
     }
 
-  /* Save the current optimization options if this is the first call.  */
-  if (first_time_p)
-    {
-      optimization_default_node = build_optimization_node ();
-      optimization_current_node = optimization_default_node;
-      first_time_p = false;
-    }
   if (flag_conserve_stack)
     {
       if (!PARAM_SET_P (PARAM_LARGE_STACK_FRAME))
@@ -1139,6 +1132,7 @@ decode_options (unsigned int argc, const char **argv)
      check option consistency.  */
   if (flag_lto && flag_whopr)
     error ("-flto and -fwhopr are mutually exclusive");
+  first_time_p = false;
 }
 
 #define LEFT_COLUMN	27
