@@ -7133,16 +7133,9 @@ build_ptrmem_type (tree class_type, tree member_type)
 {
   if (TREE_CODE (member_type) == METHOD_TYPE)
     {
-      tree arg_types;
-
-      arg_types = TYPE_ARG_TYPES (member_type);
-      class_type = (cp_build_qualified_type
-		    (class_type,
-		     cp_type_quals (TREE_TYPE (TREE_VALUE (arg_types)))));
-      member_type
-	= build_method_type_directly (class_type,
-				      TREE_TYPE (member_type),
-				      TREE_CHAIN (arg_types));
+      tree arg_types = TYPE_ARG_TYPES (member_type);
+      cp_cv_quals quals = cp_type_quals (TREE_TYPE (TREE_VALUE (arg_types)));
+      member_type = build_memfn_type (member_type, class_type, quals);
       return build_ptrmemfunc_type (build_pointer_type (member_type));
     }
   else
@@ -8898,7 +8891,9 @@ grokdeclarator (const cp_declarator *declarator,
       tree decls = NULL_TREE;
       tree args;
 
-      for (args = TYPE_ARG_TYPES (type); args; args = TREE_CHAIN (args))
+      for (args = TYPE_ARG_TYPES (type);
+	   args && args != void_list_node;
+	   args = TREE_CHAIN (args))
 	{
 	  tree decl = cp_build_parm_decl (NULL_TREE, TREE_VALUE (args));
 

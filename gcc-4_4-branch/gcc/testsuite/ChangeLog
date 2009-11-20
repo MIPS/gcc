@@ -1,3 +1,229 @@
+2009-11-20  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2009-11-18  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/41926
+	* gcc.dg/vect/vect-debug-pr41926.c: New.
+
+	2009-11-16  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/42055
+	* g++.dg/template/crash92.C: New.
+
+	2009-11-08  Richard Guenther  <rguenther@suse.de>
+
+	PR rtl-optimization/41928
+	* gfortran.dg/pr41928.f90: New testcase.
+
+	2009-11-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/41935
+	* gcc.dg/pr41935.c: New test.
+	* c-c++-common/pr41935.c: New test.
+	* gcc.c-torture/execute/pr41935.c: New test.
+
+	2009-11-04  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/41919
+	* gcc.c-torture/execute/pr41919.c: New testcase.
+
+	2009-11-03  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/41907
+	* gfortran.dg/missing_optional_dummy_6.f90: New test.
+
+	2009-11-02  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/41750
+	* gcc.c-torture/execute/pr41750.c: New test.
+
+	2009-11-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/41841
+	* gcc.dg/pr41841.c: New test.
+
+2009-11-19  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/42090
+	* gfortran.dg/direct_io_11.f90: New test.
+
+2009-11-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/42061
+	* g++.dg/cpp0x/initlist27.C: New test.
+
+	PR c++/42059
+	* g++.dg/cpp0x/initlist26.C: New test.
+
+2009-11-13  Jason Merrill  <jason@redhat.com>
+
+	PR c++/21008, DR 515
+	* g++.dg/template/inherit4.C: New.
+	* g++.dg/lookup/scoped8.C: Adjust.
+
+2009-11-12  Jason Merrill  <jason@redhat.com>
+
+	PR c++/37037
+	* g++.dg/template/typedef21.C: New.
+
+2009-11-11  Kai Tietz  <kai.tietz@onevision.com>
+
+	Backported from trunk
+	* g++.dg/torture/pushpop_macro.C: New testcase.
+	* gcc.c-torture/execute/pushpop_macro.c: New testcase.
+	* gcc.dg/cpp/pragma-pop_macro-1.c: Allow test for all
+	targets.
+
+2009-11-10  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/vect/vect-multitypes-5.c: XFAIL on SPARC 32-bit.
+	* gcc.dg/vect/vect-multitypes-6.c: Likewise.
+	* gcc.dg/vect/vect-multitypes-12.c: Likewise.
+	* gcc.dg/vect/slp-multitypes-3.c: Likewise.
+
+2009-11-09  Jason Merrill  <jason@redhat.com>
+
+	PR c++/41972
+	* g++.dg/template/ref4.C: New.
+
+2009-11-09  Jason Merrill  <jason@redhat.com>
+
+	PR c++/41994
+	* g++.dg/template/conv10.C: New.
+
+2009-11-07  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/abi/regparm1.C: Fix execute test.
+
+2009-11-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/40946
+	* gcc.dg/pr40946.c: New test.
+
+	Backport from mainline
+	2009-09-09  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/41317
+	* gcc.c-torture/execute/pr41317.c: New testcase.
+
+2009-11-08  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2009-11-06  Michael Matz  <matz@suse.de>
+
+	PR middle-end/41963
+	* gcc.target/i386/pr41963.c: New test.
+
+2009-11-06  Jason Merrill  <jason@redhat.com>
+
+	PR c++/9381
+	* g++.dg/abi/regparm1.C: New.
+
+2009-11-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/41643
+	* gcc.dg/pr41643.c: New test.
+
+2009-11-06  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/41909
+	* gfortran.dg/recursive_check_15.f90: New test.
+
+2009-11-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/41967
+	* g++.dg/gomp/pr41967.C: New test.
+
+2009-11-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-c++-common/builtin-offset.c: Renamed to ...
+	* c-c++-common/builtin-offsetof.c: ... this.  Don't expect a warning
+	on offsetof (struct B, p[10]).
+
+2009-11-04  Jason Merrill  <jason@redhat.com>
+
+	PR c++/36912
+	* g++.dg/init/static-init2.C: New.
+
+2009-11-04  Jason Merrill  <jason@redhat.com>
+
+	PR c++/35067
+	* g++.dg/abi/thunk5.C: New.
+
+2009-11-04  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/pr41900.c: New test.
+
+2009-11-03  Jason Merrill  <jason@redhat.com>
+
+	PR c++/36959
+	* g++.dg/opt/inline16.C: New.
+
+2009-11-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/41917
+	* gcc.c-torture/execute/pr41917.c: New test.
+
+2009-10-28  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/inline-ns3.C: New.
+
+	PR c++/39786
+	* g++.dg/lookup/using22.C: New.
+
+	PR c++/41876
+	* g++.dg/parse/eh-decl.C: New.
+
+2009-11-03  Dodji Seketeli  <dodji@redhat.com>
+
+	* g++.dg/dg.exp: Port c-c++-common support from 4.5.
+	* gcc.dg/dfp/dfp.exp: Likewise.
+	* gcc.dg/dg.exp: Likewise.
+	* lib/target-supports.exp: Likewise.
+
+2009-11-03  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/41856
+	* g++.dg/lookup/extern-c-redecl3.C: Make the test x86 only.
+	* g++.dg/lookup/extern-c-redecl4.C: Likewise.
+
+2009-11-03  Dodji Seketeli  <dodji@redhat.com>
+
+	* c-c++-common/dfp/builtin-offsetof.c: Moved this ...
+	* c-c++-common/builtin-offsetof.c: ... here.
+
+2009-11-03  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/38699
+	* c-c++-common/dfp/builtin-offsetof.c: New test.
+	* g++.dg/other/offsetof6.C: Likewise.
+
+2009-11-02  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/37093
+	* g++.dg/other/ptrmem10.C: New test.
+	* g++.dg/other/ptrmem11.C: Likewise.
+
+2009-11-02  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/41772
+	* gfortran.dg/transfer_intrinsic_3.f90.
+
+2009-11-01  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/41850
+	* gfortran.dg/intent_out_6.f90: New testcase.
+
+2009-10-31  Jason Merrill  <jason@redhat.com>
+
+	PR c++/41754
+	* g++.dg/cpp0x/initlist25.C: New.
+
+2009-10-31  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.dg/pr41345.c: Removed.
+
 2009-10-30  H.J. Lu  <hongjiu.lu@intel.com>
 
 	Backport from mainline:
@@ -624,9 +850,9 @@
 2009-08-16  Dodji Seketeli  <dodji@redhat.com>
 
 	PR debug/37801
-	* gcc/testsuite/gcc.dg/debug/20020224-1.c: Adjust the comment.
+	* gcc.dg/debug/20020224-1.c: Adjust the comment.
 	Make sure to trigger inlining optimizations.
-	* gcc/testsuite/gcc.dg/debug/dwarf2/inline2.c: New test.
+	* gcc.dg/debug/dwarf2/inline2.c: New test.
 
 2009-08-12  Richard Guenther  <rguenther@suse.de>
 
@@ -944,7 +1170,7 @@
 
 2009-07-14  Jack Howarth  <howarth@bromo.med.uc.edu>
 
-	* testsuite/gcc.c-torture/compile/20000804-1.c: skip for ilp32 on
+	* gcc.c-torture/compile/20000804-1.c: skip for ilp32 on
 	both i?86-*-darwin* and x86_64-*-darwin*.
 
 2009-07-12  Jason Merrill  <jason@redhat.com>
@@ -2326,7 +2552,7 @@
 2009-03-13  Jack Howarth  <howarth@bromo.med.uc.edu>
 
 	PR target/39137
-	* testsuite/gcc.target/i386/stackalign/longlong-2.c: Skip on darwin.
+	* gcc.target/i386/stackalign/longlong-2.c: Skip on darwin.
 
 2009-03-13  H.J. Lu  <hongjiu.lu@intel.com>
 
@@ -2521,8 +2747,8 @@
 2009-03-02  Sebastian Pop  <sebastian.pop@amd.com>
 
 	PR middle-end/39335
-	* testsuite/gcc.dg/graphite/pr39335_1.c: New.
-	* testsuite/gcc.dg/graphite/pr39335.c: New.
+	* gcc.dg/graphite/pr39335_1.c: New.
+	* gcc.dg/graphite/pr39335.c: New.
 
 2009-03-02  H.J. Lu  <hongjiu.lu@intel.com>
 
@@ -3902,7 +4128,7 @@
 	    Jan Sjodin  <jan.sjodin@amd.com>
 
 	PR tree-optimization/38559
-	* testsuite/gcc.dg/graphite/pr38559.c: New.
+	* gcc.dg/graphite/pr38559.c: New.
 
 2009-01-08  Ira Rosen  <irar@il.ibm.com>
 
@@ -3964,15 +4190,15 @@
 
 	PR tree-optimization/38492
 	PR tree-optimization/38498
-	* testsuite/gcc.dg/graphite/pr38500.c: Fixed warning as committed
+	* gcc.dg/graphite/pr38500.c: Fixed warning as committed
 	in trunk.
-	* testsuite/gcc.dg/graphite/block-0.c: Update test.
-	* testsuite/gcc.dg/graphite/block-1.c: Same.
-	* testsuite/gcc.dg/graphite/block-2.c: Remove xfail and test
+	* gcc.dg/graphite/block-0.c: Update test.
+	* gcc.dg/graphite/block-1.c: Same.
+	* gcc.dg/graphite/block-2.c: Remove xfail and test
 	for blocking.
-	* testsuite/gcc.dg/graphite/block-4.c: Remove test for strip mine.
-	* testsuite/gcc.dg/graphite/block-3.c: New.
-	* testsuite/gcc.dg/graphite/pr38498.c: New.
+	* gcc.dg/graphite/block-4.c: Remove test for strip mine.
+	* gcc.dg/graphite/block-3.c: New.
+	* gcc.dg/graphite/pr38498.c: New.
 
 2009-01-07  H.J. Lu  <hongjiu.lu@intel.com>
 

@@ -1,3 +1,159 @@
+2009-11-18  Matthias Klose  <doko@ubuntu.com>
+
+	* config.gcc: Update ARM --with-fpu option list.
+
+2009-11-17  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/spu/spu.c (get_pic_reg): Use LAST_ARG_REGNUM as PIC
+	registers in leaf functions if possible.
+
+2009-11-14  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/predicates.md (call_register_no_elim_operand):
+	New predicate.  Reject stack register as valid call operand
+	for 32bit targets.
+	(call_insn_operand): Use call_register_no_elim_operand.
+
+2009-11-13  Richard Henderson  <rth@redhat.com>
+
+	* function.c (stack_protect_prologue): Don't bypass expand_expr
+	for stack_protect_guard and guard_decl.
+	(stack_protect_epilogue): Likewise.
+
+2009-11-13  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/41900
+	(*call_pop_1, *call_1, *call_value_pop_1, *call_value_1): Use "lsm"
+	as operand 1 constraint.
+	* config/i386/predicates.md (call_insn_operand): Depend on
+	index_register_operand to avoid %esp register.
+
+2009-11-13  Uros Bizjak  <ubizjak@gmail.com>
+
+	Revert:
+	2009-11-04  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/41900
+	* config/i386/i386.h (ix86_arch_indices) <X86_ARCH_CALL_ESP>: New.
+	(TARGET_CALL_ESP): New define.
+	* config/i386/i386.c (initial_ix86_tune_features): Initialize
+	X86_ARCH_CALL_ESP.
+	* config/i386/i386.md (*call_pop_1_esp, *call_1_esp,
+	*call_value_pop_1_esp, *call_value_1_esp): Rename from *call_pop_1,
+	*call_1, *call_value_pop_1 and *call_value_1.  Depend on
+	TARGET_CALL_ESP.
+	(*call_pop_1, *call_1, *call_value_pop_1, *call_value_1):
+	New patterns, use "lsm" as operand 1 constraint.
+	* config/i386/predicates.md (call_insn_operand): Depend on
+	index_register_operand for !TARGET_CALL_ESP to avoid %esp register.
+
+2009-11-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/42029
+	* gimplify.c (gimplify_omp_atomic): Set DECL_GIMPLE_REG_P on
+	tmp_load if needed.
+
+2009-11-11  Kai Tietz  <kai.tietz@onevision.com>
+
+	Backported from trunk
+	* config/i386/cygming.h (HANDLE_PRAGMA_PUSH_POP_MACRO): Removed.
+	* c-pragma.c (def_pragma_macro_value): Likewise.
+	(def_pragma_macro): Likewise.
+	(pushed_macro_table): Likewise.
+	(HANDLE_PRAGMA_PUSH_POP_MACRO): Remove guarded code.
+	* doc/tm.texi (HANDLE_PRAGMA_PUSH_POP_MACRO): Removed.
+
+2009-11-10  Chao-ying Fu  <fu@mips.com>
+
+	Backport from mainline
+	2009-10-29  Chao-ying Fu  <fu@mips.com>
+
+	* config/mips/mips.c (mips_emit_unary, mips_force_unary): New
+	functions.
+	(mips_expand_synci_loop):  Use the length rtx to control the
+	synci loop from the begin rtx that points to the first byte of
+	the cache line.
+
+2009-11-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/40946
+	Backport from mainline
+	2009-09-09  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/41317
+	* tree-ssa-ccp.c (maybe_fold_offset_to_component_ref): Remove
+	code dealing with plain pointer bases.
+	(maybe_fold_offset_to_reference): Likewise.
+	(maybe_fold_stmt_addition): Adjust.
+
+2009-11-08  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2009-11-06  Michael Matz  <matz@suse.de>
+
+	PR middle-end/41963
+	* tree-ssa-math-opts.c (execute_cse_reciprocals): Check all uses
+	of a potential reciprocal to really be reciprocals.
+
+2009-11-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/41643
+	Backport from mainline
+	2009-04-03  Richard Guenther  <rguenther@suse.de>
+
+	* tree-tailcall.c (tree_optimize_tail_calls_1): Also split the
+	edge from the entry block if we have degenerate PHI nodes in
+	the first basic block.
+
+2009-11-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-common.c (fold_offsetof_1): Revert the recently added
+	-Warray-bounds checking of offsetof arguments.
+
+2009-11-04  Jason Merrill  <jason@redhat.com>
+
+	PR c++/36912
+	* varasm.c (initializer_constant_valid_p): A PLUS_EXPR
+	or MINUS_EXPR of REAL_TYPE is not a valid constant initializer.
+	(output_constant): Avoid crash after error.
+
+2009-11-04  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/41900
+	* config/i386/i386.h (ix86_arch_indices) <X86_ARCH_CALL_ESP>: New.
+	(TARGET_CALL_ESP): New define.
+	* config/i386/i386.c (initial_ix86_tune_features): Initialize
+	X86_ARCH_CALL_ESP.
+	* config/i386/i386.md (*call_pop_1_esp, *call_1_esp,
+	*call_value_pop_1_esp, *call_value_1_esp): Rename from *call_pop_1,
+	*call_1, *call_value_pop_1 and *call_value_1.  Depend on
+	TARGET_CALL_ESP.
+	(*call_pop_1, *call_1, *call_value_pop_1, *call_value_1):
+	New patterns, use "lsm" as operand 1 constraint.
+	* config/i386/predicates.md (call_insn_operand): Depend on
+	index_register_operand for !TARGET_CALL_ESP to avoid %esp register.
+
+2009-11-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-common.c (fold_offsetof_1): Use %wd instead of
+	HOST_WIDE_INT_PRINT_DEC.
+
+2009-11-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/41917
+	* rtlanal.c (num_sign_bit_copies1) <case UMOD>: If sign bit of second
+	operand isn't known to be 0, return 1.
+
+2009-11-03  Dodji Seketeli  <dodji@redhat.com>
+
+	* c-common.c (fold_offsetof_1): Use HOST_WIDE_INT_PRINT_DEC.
+
+2009-11-03  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/38699
+	* c-common.c (fold_offsetof_1): Issue errors when the member
+	designator of the offsetof expression is not legitimate.
+
 2009-10-28  Jakub Jelinek  <jakub@redhat.com>
 
 	PR target/41762
@@ -14,9 +170,9 @@
 
 	Backport from mainline:
 	2009-10-20  Pascal Obry  <obry@adacore.com>
-            Eric Botcazou  <ebotcazou@adacore.com>
+		    Eric Botcazou  <ebotcazou@adacore.com>
 
-        * config/i386/cygming.h (DWARF_FRAME_REGNUM): Add enclosing parens.
+	* config/i386/cygming.h (DWARF_FRAME_REGNUM): Add enclosing parens.
 
 2009-10-23  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
 
@@ -38,12 +194,11 @@
 
 2009-10-20  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
 
-        Backport from mainline:
+	Backport from mainline:
 	2009-10-15  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
 
 	PR target/41702
-	* pa.md (casesi): Use sign extended index in call to
-	gen_casesi64p.
+	* pa.md (casesi): Use sign extended index in call to gen_casesi64p.
 	(casesi64p): Update pattern to reflect above.
 
 2009-10-20  Joseph Myers  <joseph@codesourcery.com>

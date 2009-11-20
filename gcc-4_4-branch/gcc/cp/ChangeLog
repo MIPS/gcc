@@ -1,3 +1,86 @@
+2009-11-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/42061
+	* call.c (reference_binding): Return NULL for initializer list with
+	error operand inside of it.
+
+	PR c++/42059
+	* typeck.c (cp_build_modify_expr): For initializer list call
+	check_array_initializer to make sure lhs isn't a VLA.
+
+2009-11-13  Jason Merrill  <jason@redhat.com>
+
+	PR c++/21008, DR 515
+	* semantics.c (finish_non_static_data_member): Don't check
+	derivation in a template.
+
+2009-11-12  Jason Merrill  <jason@redhat.com>
+
+	PR c++/37037
+	* decl.c (grokdeclarator): Don't generate a void PARM_DECL.
+
+2009-11-09  Jason Merrill  <jason@redhat.com>
+
+	PR c++/41972
+	* parser.c (cp_parser_template_argument): Accept SCOPE_REF around
+	VAR_DECL.
+
+2009-11-09  Jason Merrill  <jason@redhat.com>
+
+	PR c++/41994
+	* pt.c (tsubst_baselink): tsubst the name.
+
+2009-11-06  Jason Merrill  <jason@redhat.com>
+
+	PR c++/9381
+	* decl2.c (build_memfn_type): Preserve attributes.
+	* tree.c (canonical_type_variant): Likewise.
+	* call.c (standard_conversion): Use build_memfn_type.
+	* pt.c (tsubst): Likewise.
+	* decl.c (build_ptrmem_type): Likewise
+
+2009-11-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/41967
+	* parser.c (cp_parser_omp_for_loop): After diagnosing not perfectly
+	nested loop and parsing statements, don't cp_parser_require }, instead
+	exit the loop if next token is CPP_EOF.
+
+2009-11-04  Jason Merrill  <jason@redhat.com>
+
+	PR c++/35067
+	* method.c (use_thunk): Check DECL_WEAK as well as
+	DECL_ONE_ONLY.
+
+2009-11-03  Jason Merrill  <jason@redhat.com>
+
+	PR c++/36959
+	* decl2.c (cxx_callgraph_analyze_expr): Don't reference a function
+	just because a static variable in it is needed unless -frepo.
+
+2009-11-03  Jason Merrill  <jason@redhat.com>
+
+	PR c++/41876
+	* parser.c (cp_parser_exception_declaration): Pass true to
+	is_condition parm of cp_parser_type_specifier_seq.
+	(cp_parser_omp_for_loop): Likewise.
+
+	PR c++/39786, Core issue 812, 861
+	* name-lookup.c (qualified_lookup_using_namespace): Overhaul.
+
+2009-11-02  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/37093
+	* pt.c (check_valid_ptrmem_cst_expr): New function.
+	(convert_nontype_argument): Use it to output an error for
+	illegal pointer to member expressions used as template arguments.
+
+2009-10-31  Jason Merrill  <jason@redhat.com>
+
+	PR c++/41754
+	* call.c (compare_ics): Avoid bad union use when
+	comparing two ck_lists.
+
 2009-10-23  Dodji Seketeli  <dodji@redhat.com>
 
 	PR c++/40808

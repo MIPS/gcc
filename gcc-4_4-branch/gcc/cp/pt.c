@@ -4322,6 +4322,22 @@ convert_nontype_argument_function (tree type, tree expr)
   return fn;
 }
 
+/* Subroutine of convert_nontype_argument.
+   Check if EXPR of type TYPE is a valid pointer-to-member constant.
+   Emit an error otherwise.  */
+
+static bool
+check_valid_ptrmem_cst_expr (tree type, tree expr)
+{
+  STRIP_NOPS (expr);
+  if (expr && (null_ptr_cst_p (expr) || TREE_CODE (expr) == PTRMEM_CST))
+    return true;
+  error ("%qE is not a valid template argument for type %qT",
+	 expr, type);
+  error ("it must be a pointer-to-member of the form `&X::Y'");
+  return false;
+}
+
 /* Attempt to convert the non-type template parameter EXPR to the
    indicated TYPE.  If the conversion is successful, return the
    converted value.  If the conversion is unsuccessful, return
@@ -4621,6 +4637,11 @@ convert_nontype_argument (tree type, tree expr)
       if (expr == error_mark_node)
 	return error_mark_node;
 
+      /* [temp.arg.nontype] bullet 1 says the pointer to member
+         expression must be a pointer-to-member constant.  */
+      if (!check_valid_ptrmem_cst_expr (type, expr))
+	return error_mark_node;
+
       /* There is no way to disable standard conversions in
 	 resolve_address_of_overloaded_function (called by
 	 instantiate_type). It is possible that the call succeeded by
@@ -4647,6 +4668,11 @@ convert_nontype_argument (tree type, tree expr)
      qualification conversions (_conv.qual_) are applied.  */
   else if (TYPE_PTRMEM_P (type))
     {
+      /* [temp.arg.nontype] bullet 1 says the pointer to member
+         expression must be a pointer-to-member constant.  */
+      if (!check_valid_ptrmem_cst_expr (type, expr))
+	return error_mark_node;
+
       expr = perform_qualification_conversions (type, expr);
       if (expr == error_mark_node)
 	return expr;
@@ -9576,13 +9602,8 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	  {
 	    /* The type of the implicit object parameter gets its
 	       cv-qualifiers from the FUNCTION_TYPE. */
-	    tree method_type;
-	    tree this_type = cp_build_qualified_type (TYPE_MAIN_VARIANT (r),
-						      cp_type_quals (type));
 	    tree memptr;
-	    method_type = build_method_type_directly (this_type,
-						      TREE_TYPE (type),
-						      TYPE_ARG_TYPES (type));
+	    tree method_type = build_memfn_type (type, r, cp_type_quals (type));
 	    memptr = build_ptrmemfunc_type (build_pointer_type (method_type));
 	    return cp_build_qualified_type_real (memptr, cp_type_quals (t),
 						 complain);
@@ -9867,7 +9888,7 @@ tsubst_baselink (tree baselink, tree object_type,
     qualifying_scope = tsubst (qualifying_scope, args,
 			       complain, in_decl);
     fns = BASELINK_FUNCTIONS (baselink);
-    optype = BASELINK_OPTYPE (baselink);
+    optype = tsubst (BASELINK_OPTYPE (baselink), args, complain, in_decl);
     if (TREE_CODE (fns) == TEMPLATE_ID_EXPR)
       {
 	template_id_p = true;
@@ -9878,6 +9899,8 @@ tsubst_baselink (tree baselink, tree object_type,
 						complain, in_decl);
       }
     name = DECL_NAME (get_first_fn (fns));
+    if (IDENTIFIER_TYPENAME_P (name))
+      name = mangle_conv_op_name_for_type (optype);
     baselink = lookup_fnfields (qualifying_scope, name, /*protect=*/1);
 
     /* If lookup found a single function, mark it as used at this
@@ -9896,8 +9919,7 @@ tsubst_baselink (tree baselink, tree object_type,
 		    BASELINK_FUNCTIONS (baselink),
 		    template_args);
     /* Update the conversion operator type.  */
-    BASELINK_OPTYPE (baselink) 
-      = tsubst (optype, args, complain, in_decl);
+    BASELINK_OPTYPE (baselink) = optype;
 
     if (!object_type)
       object_type = current_class_type;
