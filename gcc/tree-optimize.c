@@ -360,7 +360,7 @@ tree_rest_of_compilation (tree fndecl)
 {
   location_t saved_loc;
   struct cgraph_node *node;
-  static int ici_passes_substitute_status = 0;
+  int substitute_status;
 
   timevar_push (TV_EXPAND);
 
@@ -397,10 +397,9 @@ tree_rest_of_compilation (tree fndecl)
   /* ICI Event: Substitution of pass manager.  */
   /* Try calling the event - if not successful, or if the plugin did not
      manipulate passes, fall back on the default pass ordering.  */
-  if (invoke_plugin_va_callbacks
-       (PLUGIN_ALL_PASSES_EXECUTION,
-        "substitute_status", EP_SILENT, &ici_passes_substitute_status, NULL)
-      != PLUGEVT_SUCCESS || ici_passes_substitute_status == 0)
+  substitute_status = 0;
+  invoke_plugin_callbacks (PLUGIN_ALL_PASSES_EXECUTION, &substitute_status);
+  if (substitute_status == 0)
     execute_pass_list (all_passes);
 
   /* Signal the end of passes.  */

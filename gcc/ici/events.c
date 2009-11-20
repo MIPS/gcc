@@ -28,14 +28,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "hashtab.h"
 #include "toplev.h"
 #include "gcc-plugin.h"
+#include "tree-pass.h"
 
 #include "highlev-plugin-internal.h"
 
 /* Event structure.  */
 struct hl_plugin_event
 {
-  int event;			/* Number of the event */
   event_callback_t run;		/* Callback function */
+  const char *param_name;
 };
 
 
@@ -117,19 +118,57 @@ hash_param_callback (void *gcc_data, void *user_data)
     }
 }
 
+static void
+status_callback (void *gcc_data, void *user_data)
+{
+  struct hl_plugin_event *ev = (struct hl_plugin_event *) user_data;
+
+  register_event_parameter (ev->param_name, gcc_data, EP_INT);
+  ev->run ();
+  unregister_event_parameter (ev->param_name);
+}
+
+static void
+pass_execution_callback (void *gcc_data, void *user_data)
+{
+  struct hl_plugin_event *ev = (struct hl_plugin_event *) user_data;
+  struct opt_pass *pass = (struct opt_pass *) gcc_data;
+
+  register_event_parameter ("_pass_type", &(pass->type), EP_INT);
+  ev->run ();
+  unregister_event_parameter ("_pass_type");
+}
+
 /* Register a new event into hash table.  */
 void 
 register_plugin_event (const char *event_name, event_callback_t func)
 {
+  int event;
   struct hl_plugin_event *ev = XCNEW (struct hl_plugin_event);
 
   if (event_name == NULL)
     internal_error ("Event cannot be registered with NULL name string\n");
 
-  ev->event = get_named_event_id (event_name, INSERT);
+  event = get_named_event_id (event_name, INSERT);
   ev->run = func;
-  register_callback ("ICI", ev->event, hash_param_callback, ev);
-  ici_refresh_internal_callbacks (ev->event);
+  switch (event)
+    {
+    case PLUGIN_ALL_IPA_PASSES_EXECUTION:
+    case PLUGIN_ALL_PASSES_EXECUTION:
+      ev->param_name = "substitute_status";
+      register_callback ("ICI", event, status_callback, ev);
+      break;
+    case PLUGIN_AVOID_GATE:
+      ev->param_name = "gate_status";
+      register_callback ("ICI", event, status_callback, ev);
+      break;
+    case PLUGIN_PASS_EXECUTION:
+      register_callback ("ICI", event, pass_execution_callback, ev);
+      break;
+    default:
+      register_callback ("ICI", event, hash_param_callback, ev);
+    }
+  ici_refresh_internal_callbacks (event);
 }
 
 

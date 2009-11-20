@@ -2720,7 +2720,8 @@ pass-manager.o : ici/pass-manager.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    ici/feature-internal.h ici/pass-manager.h
 
 events.o : ici/events.c  $(CONFIG_H) $(SYSTEM_H) coretypes.h $(HASHTAB_H) \
-   $(TOPLEV_H) errors.h $(GCC_PLUGIN_H) ici/highlev-plugin-internal.h
+   $(TOPLEV_H) errors.h $(GCC_PLUGIN_H) ici/highlev-plugin-internal.h \
+   $(TREE_PASS_H)
 
 feature.o : ici/feature.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(HASHTAB_H) \
    $(TOPLEV_H) ici/feature-internal.h

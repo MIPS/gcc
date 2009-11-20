@@ -105,20 +105,9 @@ along with GCC; see the file COPYING3.  If not see
 #endif
 
 /* This is used for debugging.  It allows the current pass to printed
-   from anywhere in compilation.  */
+   from anywhere in compilation.
+   The variable current_pass is also used for statistics and plugins.  */
 struct opt_pass *current_pass;
-
-
-/* Return current pass name if known, and NULL otherwise */
-const char *
-get_current_pass_name (void)
-{
-  if (current_pass)
-    return current_pass->name;	/* can be NULL if name is not set */
-  else
-    return NULL;
-}
-
 
 /* Call from anywhere to find out what pass this is.  Useful for
    printing out debugging information deep inside an service
@@ -1507,8 +1496,7 @@ execute_one_pass (struct opt_pass *pass)
   bool initializing_dump;
   unsigned int todo_after = 0;
 
-  /* ICI: FGG: Important to make gate_status static to pass reference to ICI */
-  static bool gate_status;
+  bool gate_status;
 
   /* IPA passes are executed on whole program, so cfun should be NULL.
      Other passes need function context set.  */
@@ -1524,8 +1512,7 @@ execute_one_pass (struct opt_pass *pass)
   gate_status = (pass->gate == NULL) ? true : pass->gate();
 
   /* Override gate with plugin.  */
-  invoke_plugin_va_callbacks (PLUGIN_AVOID_GATE,
-			      "gate_status", EP_INT, &gate_status, NULL);
+  invoke_plugin_callbacks (PLUGIN_AVOID_GATE, &gate_status);
 
   if (!gate_status) {
     current_pass = NULL;
@@ -1533,10 +1520,8 @@ execute_one_pass (struct opt_pass *pass)
   }
 
   /* Pass execution event trigger: useful to identify passes being
-     executed. Pass name is accessible as a feature (it is a constant object
-     in GCC.) */
-  invoke_plugin_va_callbacks (PLUGIN_PASS_EXECUTION,
-			      "_pass_type", EP_INT, &(pass->type), NULL);
+     executed.  */
+  invoke_plugin_callbacks (PLUGIN_PASS_EXECUTION, pass);
 
   if (!quiet_flag && !cfun)
     fprintf (stderr, " <%s>", pass->name ? pass->name : "");

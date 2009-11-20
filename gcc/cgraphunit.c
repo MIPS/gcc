@@ -1354,7 +1354,7 @@ cgraph_preserve_function_body_p (tree decl)
 static void
 ipa_passes (void)
 {
-  static int ici_ipa_passes_substitute_status;
+  int substitute_status = 0;
 
   set_cfun (NULL);
   current_function_decl = NULL;
@@ -1362,12 +1362,9 @@ ipa_passes (void)
   bitmap_obstack_initialize (NULL);
 
   invoke_plugin_callbacks (PLUGIN_ALL_IPA_PASSES_START, NULL);
-  if ((invoke_plugin_va_callbacks
-	(PLUGIN_ALL_IPA_PASSES_EXECUTION,
-	 "substitute_status", EP_SILENT, &ici_ipa_passes_substitute_status,
-	 NULL)
-       != PLUGEVT_SUCCESS)
-      || ici_ipa_passes_substitute_status == 0)
+
+  invoke_plugin_callbacks (PLUGIN_ALL_IPA_PASSES_EXECUTION, &substitute_status);
+  if (substitute_status == 0)
     {
       if (!in_lto_p)
 	execute_ipa_pass_list (all_small_ipa_passes);

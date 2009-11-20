@@ -44,36 +44,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "plugin-version.h"
 #endif
 
+#define GCC_PLUGIN_STRINGIFY0(X) #X
+#define GCC_PLUGIN_STRINGIFY1(X) GCC_PLUGIN_STRINGIFY0 (X)
+
 /* Event names as strings.  Keep in sync with enum plugin_event.  */
 static const char *plugin_event_name_init[] =
 {
-  "PLUGIN_PASS_MANAGER_SETUP",
-  "PLUGIN_FINISH_TYPE",
-  "PLUGIN_FINISH_UNIT",
-  "PLUGIN_CXX_CP_PRE_GENERICIZE",
-  "PLUGIN_FINISH",
-  "PLUGIN_INFO",
-  "PLUGIN_GGC_START",
-  "PLUGIN_GGC_MARKING",
-  "PLUGIN_GGC_END",
-  "PLUGIN_REGISTER_GGC_ROOTS",
-  "PLUGIN_REGISTER_GGC_CACHES",
-  "PLUGIN_ATTRIBUTES",
-  "PLUGIN_START_UNIT",
-  "PLUGIN_PRAGMAS",
-  "PLUGIN_UNROLL_PARAMETER_HANDLER",
-  "PLUGIN_ALL_PASSES_START",
-  "PLUGIN_ALL_PASSES_EXECUTION",
-  "PLUGIN_ALL_PASSES_END",
-  "PLUGIN_ALL_IPA_PASSES_START",
-  "PLUGIN_ALL_IPA_PASSES_EXECUTION",
-  "PLUGIN_ALL_IPA_PASSES_END",
-  "PLUGIN_AVOID_GATE",
-  "PLUGIN_PASS_EXECUTION",
-  "PLUGIN_EARLY_GIMPLE_PASSES_START",
-  "PLUGIN_EARLY_GIMPLE_PASSES_END",
-  "PLUGIN_NEW_PASS",
-  "PLUGIN_EVENT_LAST",
+# define DEFEVENT(NAME) GCC_PLUGIN_STRINGIFY1 (NAME),
+# include "plugin.def"
+# undef DEFEVENT
 };
 
 const char **plugin_event_name = plugin_event_name_init;
@@ -84,8 +63,8 @@ static htab_t event_tab;
 
 /* Keep track of the limit of allocated events and space ready for
    allocating events.  */
-int event_last = PLUGIN_EVENT_LAST;
-static int event_horizon = PLUGIN_EVENT_LAST;
+int event_last = PLUGIN_EVENT_FIRST_DYNAMIC;
+static int event_horizon = PLUGIN_EVENT_FIRST_DYNAMIC;
 
 /* Hash table for the plugin_name_args objects created during command-line
    parsing.  */
@@ -101,7 +80,7 @@ struct callback_info
 };
 
 /* An array of lists of 'callback_info' objects indexed by the event id.  */
-static struct callback_info *plugin_callbacks_init[PLUGIN_EVENT_LAST];
+static struct callback_info *plugin_callbacks_init[PLUGIN_EVENT_FIRST_DYNAMIC];
 static struct callback_info **plugin_callbacks = plugin_callbacks_init;
 
 
@@ -333,7 +312,7 @@ get_named_event_id (const char *name, enum insert_option insert)
       int i;
 
       event_tab = htab_create (150, htab_hash_string, htab_event_eq, NULL);
-      for (i = 0; i < PLUGIN_EVENT_LAST; i++)
+      for (i = 0; i < PLUGIN_EVENT_FIRST_DYNAMIC; i++)
 	{
 	  slot = htab_find_slot (event_tab, plugin_event_name[i], INSERT);
 	  gcc_assert (*slot == HTAB_EMPTY_ENTRY);
@@ -407,9 +386,9 @@ register_callback (const char *plugin_name,
 	gcc_assert (!callback);
         ggc_register_cache_tab ((const struct ggc_cache_tab*) user_data);
 	break;
-      case PLUGIN_EVENT_LAST:
+      case PLUGIN_EVENT_FIRST_DYNAMIC:
       default:
-	if (event < PLUGIN_FIRST_EXPERIMENTAL || event >= event_last)
+	if (event < PLUGIN_EVENT_FIRST_DYNAMIC || event >= event_last)
 	  {
 	    error ("Unknown callback event registered by plugin %s",
 		   plugin_name);
@@ -426,6 +405,18 @@ register_callback (const char *plugin_name,
       case PLUGIN_ATTRIBUTES:
       case PLUGIN_PRAGMAS:
       case PLUGIN_FINISH:
+      case PLUGIN_UNROLL_PARAMETER_HANDLER:
+      case PLUGIN_ALL_PASSES_START:
+      case PLUGIN_ALL_PASSES_EXECUTION:
+      case PLUGIN_ALL_PASSES_END:
+      case PLUGIN_ALL_IPA_PASSES_START:
+      case PLUGIN_ALL_IPA_PASSES_EXECUTION:
+      case PLUGIN_ALL_IPA_PASSES_END:
+      case PLUGIN_AVOID_GATE:
+      case PLUGIN_PASS_EXECUTION:
+      case PLUGIN_EARLY_GIMPLE_PASSES_START:
+      case PLUGIN_EARLY_GIMPLE_PASSES_END:
+      case PLUGIN_NEW_PASS:
         {
           struct callback_info *new_callback;
           if (!callback)
@@ -477,9 +468,9 @@ invoke_plugin_callbacks (int event, void *gcc_data)
 
   switch (event)
     {
-      case PLUGIN_EVENT_LAST:
+      case PLUGIN_EVENT_FIRST_DYNAMIC:
       default:
-	gcc_assert (event >= PLUGIN_FIRST_EXPERIMENTAL);
+	gcc_assert (event >= PLUGIN_EVENT_FIRST_DYNAMIC);
 	gcc_assert (event < event_last);
       /* Fall through.  */
       case PLUGIN_FINISH_TYPE:
@@ -492,6 +483,18 @@ invoke_plugin_callbacks (int event, void *gcc_data)
       case PLUGIN_GGC_START:
       case PLUGIN_GGC_MARKING:
       case PLUGIN_GGC_END:
+      case PLUGIN_UNROLL_PARAMETER_HANDLER:
+      case PLUGIN_ALL_PASSES_START:
+      case PLUGIN_ALL_PASSES_EXECUTION:
+      case PLUGIN_ALL_PASSES_END:
+      case PLUGIN_ALL_IPA_PASSES_START:
+      case PLUGIN_ALL_IPA_PASSES_EXECUTION:
+      case PLUGIN_ALL_IPA_PASSES_END:
+      case PLUGIN_AVOID_GATE:
+      case PLUGIN_PASS_EXECUTION:
+      case PLUGIN_EARLY_GIMPLE_PASSES_START:
+      case PLUGIN_EARLY_GIMPLE_PASSES_END:
+      case PLUGIN_NEW_PASS:
         {
           /* Iterate over every callback registered with this event and
              call it.  */

@@ -28,42 +28,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "highlev-plugin-common.h"
 
-/* Event names.  Keep in sync with plugin_event_name[].  */
+/* Event names.  */
 enum plugin_event
 {
-  PLUGIN_PASS_MANAGER_SETUP,    /* To hook into pass manager.  */
-  PLUGIN_FINISH_TYPE,           /* After finishing parsing a type.  */
-  PLUGIN_FINISH_UNIT,           /* Useful for summary processing.  */
-  PLUGIN_CXX_CP_PRE_GENERICIZE, /* Allows to see low level AST in C++ FE.  */
-  PLUGIN_FINISH,                /* Called before GCC exits.  */
-  PLUGIN_INFO,                  /* Information about the plugin. */
-  PLUGIN_GGC_START,		/* Called at start of GCC Garbage Collection. */
-  PLUGIN_GGC_MARKING,		/* Extend the GGC marking. */
-  PLUGIN_GGC_END,		/* Called at end of GGC. */
-  PLUGIN_REGISTER_GGC_ROOTS,	/* Register an extra GGC root table. */
-  PLUGIN_REGISTER_GGC_CACHES,	/* Register an extra GGC cache table. */
-  PLUGIN_ATTRIBUTES,            /* Called during attribute registration.  */
-  PLUGIN_START_UNIT,            /* Called before processing a translation unit.  */
-  PLUGIN_PRAGMAS,	        /* Called during pragma registration.  */
-
-  /* The following events might be subject to change or deletion without
-     prior notice.  High-level plugins should only use them by name.  */
-  PLUGIN_FIRST_EXPERIMENTAL,
-  PLUGIN_UNROLL_PARAMETER_HANDLER = PLUGIN_FIRST_EXPERIMENTAL,
-  PLUGIN_ALL_PASSES_START,
-  PLUGIN_ALL_PASSES_EXECUTION,
-  PLUGIN_ALL_PASSES_END,
-  PLUGIN_ALL_IPA_PASSES_START,
-  PLUGIN_ALL_IPA_PASSES_EXECUTION,
-  PLUGIN_ALL_IPA_PASSES_END,
-  PLUGIN_AVOID_GATE,
-  PLUGIN_PASS_EXECUTION,
-  PLUGIN_EARLY_GIMPLE_PASSES_START,
-  PLUGIN_EARLY_GIMPLE_PASSES_END,
-  PLUGIN_NEW_PASS,	        /* Called when a pass is first instantiated.  */
-
-  PLUGIN_EVENT_LAST             /* Dummy event used for indexing callback
-                                   array.  */
+# define DEFEVENT(NAME) NAME,
+# include "plugin.def"
+# undef DEFEVENT
+  PLUGIN_EVENT_FIRST_DYNAMIC
 };
 
 extern const char **plugin_event_name;

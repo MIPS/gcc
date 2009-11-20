@@ -343,3 +343,13 @@ invoke_named_callbacks (const char *name, ...)
   va_end (va);
   return retval;
 }
+
+/* Return current pass name if known, and NULL otherwise */
+const char *
+get_current_pass_name (void)
+{
+  if (current_pass)
+    return current_pass->name;	/* can be NULL if name is not set */
+  else
+    return NULL;
+}
