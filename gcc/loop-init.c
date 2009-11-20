@@ -340,11 +340,11 @@ rtl_unroll_and_peel_loops (void)
 	 "loop.flag_unroll_all_loops", EP_INT, &tmp_unroll_all_loops,
 	 NULL);
 
-      if (tmp_flag_peel_loops)
+      if (tmp_peel_loops)
 	flags |= UAP_PEEL;
-      if (tmp_flag_unroll_loops)
+      if (tmp_unroll_loops)
 	flags |= UAP_UNROLL;
-      if (tmp_flag_unroll_all_loops)
+      if (tmp_unroll_all_loops)
 	flags |= UAP_UNROLL_ALL;
 
       unroll_and_peel_loops (flags);
