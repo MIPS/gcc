@@ -323,9 +323,9 @@ gate_rtl_unroll_and_peel_loops (void)
 static unsigned int
 rtl_unroll_and_peel_loops (void)
 {
-  static int ici_flag_peel_loops;
-  static int ici_flag_unroll_loops;
-  static int ici_flag_unroll_all_loops;
+  int tmp_peel_loops = flag_peel_loops;
+  int tmp_unroll_loops = flag_unroll_loops;
+  int tmp_unroll_all_loops = flag_unroll_all_loops;
 
   if (number_of_loops () > 1)
     {
@@ -335,16 +335,16 @@ rtl_unroll_and_peel_loops (void)
 
       invoke_plugin_va_callbacks
 	(PLUGIN_UNROLL_PARAMETER_HANDLER,
-	 "loop.flag_peel_loops", EP_INT, &ici_flag_peel_loops,
-	 "loop.flag_unroll_loops", EP_INT &ici_flag_unroll_loops,
-	 "loop.flag_unroll_all_loops", EP_INT, &ici_flag_unroll_all_loops,
+	 "loop.flag_peel_loops", EP_INT, &tmp_peel_loops,
+	 "loop.flag_unroll_loops", EP_INT &tmp_unroll_loops,
+	 "loop.flag_unroll_all_loops", EP_INT, &tmp_unroll_all_loops,
 	 NULL);
 
-      if (flag_peel_loops)
+      if (tmp_flag_peel_loops)
 	flags |= UAP_PEEL;
-      if (flag_unroll_loops)
+      if (tmp_flag_unroll_loops)
 	flags |= UAP_UNROLL;
-      if (flag_unroll_all_loops)
+      if (tmp_flag_unroll_all_loops)
 	flags |= UAP_UNROLL_ALL;
 
       unroll_and_peel_loops (flags);

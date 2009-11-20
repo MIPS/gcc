@@ -82,7 +82,7 @@ DEFEVENT (PLUGIN_ALL_IPA_PASSES_EXECUTION)
 DEFEVENT (PLUGIN_ALL_IPA_PASSES_END)
 
 /* Allows to override pass gate decision for current_pass.  */
-DEFEVENT (PLUGIN_AVOID_GATE)
+DEFEVENT (PLUGIN_OVERRIDE_GATE)
 
 /* Called before executing a pass.  */
 DEFEVENT (PLUGIN_PASS_EXECUTION)

@@ -1096,8 +1096,7 @@ static GTY ((length ("nnodes"))) struct cgraph_node **order;
    function CALLBACK for every function in the call graph.  Otherwise,
    call CALLBACK on the current function.  */ 
 
-/* ICI: the ipa pass manager needs to walk through the cgraph with this
-   function.  */
+/* This function is global so that plugins like ICI can use it.  */
 void
 do_per_function_toporder (void (*callback) (void *data), void *data)
 {
@@ -1512,7 +1511,7 @@ execute_one_pass (struct opt_pass *pass)
   gate_status = (pass->gate == NULL) ? true : pass->gate();
 
   /* Override gate with plugin.  */
-  invoke_plugin_callbacks (PLUGIN_AVOID_GATE, &gate_status);
+  invoke_plugin_callbacks (PLUGIN_OVERRIDE_GATE, &gate_status);
 
   if (!gate_status) {
     current_pass = NULL;

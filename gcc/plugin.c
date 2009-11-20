@@ -412,7 +412,7 @@ register_callback (const char *plugin_name,
       case PLUGIN_ALL_IPA_PASSES_START:
       case PLUGIN_ALL_IPA_PASSES_EXECUTION:
       case PLUGIN_ALL_IPA_PASSES_END:
-      case PLUGIN_AVOID_GATE:
+      case PLUGIN_OVERRIDE_GATE:
       case PLUGIN_PASS_EXECUTION:
       case PLUGIN_EARLY_GIMPLE_PASSES_START:
       case PLUGIN_EARLY_GIMPLE_PASSES_END:
@@ -490,7 +490,7 @@ invoke_plugin_callbacks (int event, void *gcc_data)
       case PLUGIN_ALL_IPA_PASSES_START:
       case PLUGIN_ALL_IPA_PASSES_EXECUTION:
       case PLUGIN_ALL_IPA_PASSES_END:
-      case PLUGIN_AVOID_GATE:
+      case PLUGIN_OVERRIDE_GATE:
       case PLUGIN_PASS_EXECUTION:
       case PLUGIN_EARLY_GIMPLE_PASSES_START:
       case PLUGIN_EARLY_GIMPLE_PASSES_END:
