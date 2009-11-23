@@ -10633,9 +10633,7 @@
 	 (match_operand:V2DI 3 "memory_operand" "m,m")))]
   "TARGET_XOP && ix86_fma4_valid_op_p (operands, insn, 4, false, -1, true)"
   "#"
-  "&& (reload_completed
-       || (!reg_mentioned_p (operands[0], operands[1])
-	   && !reg_mentioned_p (operands[0], operands[2])))"
+  "&& reload_completed"
   [(set (match_dup 0)
 	(match_dup 3))
    (set (match_dup 0)
@@ -10672,9 +10670,7 @@
 			 (const_int 3)])))))]
   "TARGET_XOP"
   "#"
-  "&& (reload_completed
-       || (!reg_mentioned_p (operands[0], operands[1])
-	   && !reg_mentioned_p (operands[0], operands[2])))"
+  "&& reload_completed"
   [(set (match_dup 0)
 	(match_dup 3))
    (set (match_dup 0)
@@ -10736,9 +10732,7 @@
 	 (match_operand:V2DI 3 "memory_operand" "m,m")))]
   "TARGET_XOP && ix86_fma4_valid_op_p (operands, insn, 4, false, -1, true)"
   "#"
-  "&& (reload_completed
-       || (!reg_mentioned_p (operands[0], operands[1])
-	   && !reg_mentioned_p (operands[0], operands[2])))"
+  "&& reload_completed"
   [(set (match_dup 0)
 	(match_dup 3))
    (set (match_dup 0)
@@ -10775,9 +10769,7 @@
 			 (const_int 2)])))))]
   "TARGET_XOP"
   "#"
-  "&& (reload_completed
-       || (!reg_mentioned_p (operands[0], operands[1])
-	   && !reg_mentioned_p (operands[0], operands[2])))"
+  "&& reload_completed"
   [(set (match_dup 0)
 	(match_dup 3))
    (set (match_dup 0)

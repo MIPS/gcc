@@ -1,3 +1,9 @@
+2009-11-20  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* config/i386/sse.md (*xop_pmacsdql_mem): Don't call reg_mentioned_p.
+	(xop_mulv2div2di3_low): Same.
+	(*xop_pmacsdqh_mem): Same.
+
 2009-11-18  Jakub Jelinek  <jakub@redhat.com>
 
 	* dwarf2out.c (loc_list_from_tree): Don't call rtl_for_decl_location
