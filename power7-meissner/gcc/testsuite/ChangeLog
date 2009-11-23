@@ -1,3 +1,83 @@
+2009-11-23  Janis Johnson  <janis187@us.ibm.com>
+
+	* lib/lto.exp (lto_option_list): Rename from option_list.
+	* lib/compat.exp (compat_option_list): Rename from option_list.
+
+2009-11-23  Andy Hutchinson  <hutchinsonandy@gcc.gnu.org>
+
+	* gcc-dg/raw-string-1.c: Require-effective-target wchar.
+	* gcc-dg/raw-string-2.c: Ditto.
+	* gcc-dg/utf-array-short-wchar.c: Ditto.
+	* gcc-dg/utf-array.c: Ditto.
+	* gcc-dg/utf8-2.c: Ditto. 
+
+2009-11-23  Andy Hutchinson  <hutchinsonandy@gcc.gnu.org>
+
+	* gcc.dg/torture/pr37868.c: Use smaller bitfield for 16bit int
+	targets.
+
+2009-11-23  Andy Hutchinson  <hutchinsonandy@gcc.gnu.org>
+
+	* gcc.dg/tree-ssa/pr33920.c: Remove warning check for 16 bit target.
+
+2009-11-23  Andy Hutchinson  <hutchinsonandy@gcc.gnu.org>
+
+	* gcc-dg/Wtype-limits.c: Remove XFAIL for avr target.
+
+2009-11-23  Andy Hutchinson  <hutchinsonandy@gcc.gnu.org>
+
+	PR testsuite/36470
+	* gcc.dg/utf-cvt.c: Skip int test for 16bit int targets.
+	Enable short test for avr target.
+	* gcc.dg/utf32-1.c: Enable test for avr and m32 targets.
+	* gcc.dg/utf32-2.c: Ditto.
+	* gcc.dg/utf32-3.c: Ditto.
+	* gcc.dg/utf32-4.c: Enable test for non-32bit targets.
+
+2009-11-23  Andy Hutchinson  <hutchinsonandy@gcc.gnu.org>
+
+	* gcc.dg/tree-ssa/asmgoto-1.c: Suppress warnings.
+
+2009-11-23  Andy Hutchinson  <hutchinsonandy@gcc.gnu.org>
+
+	* gcc.c-torture/execute/ipa-sra-2.x: New. Skip for 16bit targets.
+
+
+2009-11-23  Andy Hutchinson  <hutchinsonandy@gcc.gnu.org>
+
+	* gcc.dg/sms-6.c: Use long for 16 bit int targets.
+	* gcc.dg/sms-7.c: Ditto.
+
+2009-11-23  Andy Hutchinson  <hutchinsonandy@gcc.gnu.org>
+
+	* gcc.dg/pr36998.c: Frame pointer required for avr target.
+	* gcc.dg/debug/pr41264-1.c: Use long if int size 16bit or smaller.
+	* gcc.dg/pr39226.c: Use smaller bitfield if int size is 16bit.
+	* gcc.dg/pr41340.c: Test requires long pointer target.
+	* gcc.dg/profile-generate-3.c: Test requires profiling support.
+
+2009-11-23  Andy Hutchinson  <hutchinsonandy@gcc.gnu.org>
+
+	* gcc.dg/graphite/block-1.c: Require 32-bit or larger array support.
+	* gcc.dg/graphite/block-3.c: Ditto.
+	* gcc.dg/graphite/block-4.c: Ditto.
+	* gcc.dg/graphite/block-5.c: Ditto.
+	* gcc.dg/graphite/block-6.c: Ditto.
+	* gcc.dg/graphite/interchange-0.c: Ditto.
+	* gcc.dg/graphite/interchange-1.c: Ditto.
+	* gcc.dg/graphite/interchange-2.c: Ditto.
+	* gcc.dg/graphite/interchange-3.c: Ditto.
+	* gcc.dg/graphite/interchange-4.c: Ditto.
+	* gcc.dg/graphite/interchange-5.c: Ditto.
+	* gcc.dg/graphite/interchange-6.c: Ditto.
+	* gcc.dg/graphite/run-id-1.c: Ditto.
+	* gcc.dg/graphite/scop-16.c: Ditto.
+	* gcc.dg/graphite/scop-17.c: Ditto.
+	* gcc.dg/graphite/scop-18.c: Ditto.
+	* gcc.dg/graphite/scop-matmult.c: Ditto.
+	* gcc.dg/graphite/pr40157.c: Require 32bit or larger int.
+	* gcc.dg/graphite/id-15.c: Ditto.
+
 2009-11-23  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* gnat.dg/specs/weak1.ads: New test.
