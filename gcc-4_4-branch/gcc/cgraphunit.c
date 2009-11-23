@@ -1049,6 +1049,18 @@ cgraph_expand_function (struct cgraph_node *node)
   /* Make sure that BE didn't give up on compiling.  */
   gcc_assert (TREE_ASM_WRITTEN (decl));
   current_function_decl = NULL;
+  if (node->same_body)
+    {
+      struct cgraph_node *alias;
+      bool saved_alias = node->alias;
+      for (alias = node->same_body; alias; alias = alias->next)
+	{
+	  assemble_alias (alias->decl, DECL_ASSEMBLER_NAME (decl));
+	  if (lang_hooks.callgraph.emit_associated_thunks)
+	    lang_hooks.callgraph.emit_associated_thunks (alias->decl);
+	}
+      node->alias = saved_alias;
+    }
   gcc_assert (!cgraph_preserve_function_body_p (decl));
   cgraph_release_function_body (node);
   /* Eliminate all call edges.  This is important so the GIMPLE_CALL no longer

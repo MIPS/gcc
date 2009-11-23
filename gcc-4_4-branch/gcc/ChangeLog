@@ -1,3 +1,22 @@
+2009-11-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (loc_list_from_tree): Don't call rtl_for_decl_location
+	unnecessarily.
+	(rtl_for_decl_location): Try harder to get a rtl for TREE_STATIC vars.
+
+	PR c++/3187
+	* cgraph.h (struct cgraph_node): Add same_body and same_body_alias
+	fields.
+	(cgraph_same_body_alias, cgraph_remove_same_body_alias): New
+	prototypes.
+	* cgraphunit.c (cgraph_expand_function): Handle same_body aliases.
+	* cgraph.c (cgraph_allocate_node): New function.
+	(cgraph_create_node): Use it.
+	(cgraph_node, cgraph_node_for_asm, cgraph_remove_node): Handle
+	same_body aliases.
+	(cgraph_same_body_alias, cgraph_remove_same_body_alias): New
+	functions.
+
 2009-11-21  Alexandre Oliva  <aoliva@redhat.com>
 
 	* tree-ssa.c (find_released_ssa_name): Handle NULL wi.

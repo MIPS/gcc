@@ -146,6 +146,9 @@ struct cgraph_node GTY((chain_next ("%h.next"), chain_prev ("%h.previous")))
   /* Pointer to a single unique cgraph node for this function.  If the
      function is to be output, this is the copy that will survive.  */
   struct cgraph_node *master_clone;
+  /* For normal nodes pointer to the list of alias nodes, in alias
+     nodes pointer to the normal node.  */
+  struct cgraph_node *same_body;
   /* For functions with many calls sites it holds map from call expression
      to the edge to speed up cgraph_edge function.  */
   htab_t GTY((param_is (struct cgraph_edge))) call_site_hash;
@@ -185,6 +188,9 @@ struct cgraph_node GTY((chain_next ("%h.next"), chain_prev ("%h.previous")))
   unsigned output : 1;
   /* Set for aliases once they got through assemble_alias.  */
   unsigned alias : 1;
+  /* Set for alias nodes, same_body points to the node they are alias of
+     and they are linked through the next/previous pointers.  */
+  unsigned same_body_alias : 1;
 
   /* In non-unit-at-a-time mode the function body of inline candidates is saved
      into clone before compiling so the function in original form can be
@@ -311,8 +317,11 @@ void cgraph_node_remove_callees (struct cgraph_node *node);
 struct cgraph_edge *cgraph_create_edge (struct cgraph_node *,
 					struct cgraph_node *,
 					gimple, gcov_type, int, int);
+struct cgraph_node * cgraph_get_node (tree);
 struct cgraph_node *cgraph_node (tree);
 struct cgraph_node *cgraph_node_for_asm (tree asmname);
+bool cgraph_same_body_alias (tree, tree);
+void cgraph_remove_same_body_alias (struct cgraph_node *);
 struct cgraph_edge *cgraph_edge (struct cgraph_node *, gimple);
 void cgraph_set_call_stmt (struct cgraph_edge *, gimple);
 void cgraph_update_edges_for_call_stmt (gimple, gimple);
