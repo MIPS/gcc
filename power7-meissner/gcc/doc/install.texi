@@ -2888,6 +2888,10 @@ information are.
 @item
 @uref{#iq2000-x-elf,,iq2000-*-elf}
 @item
+@uref{#lm32-x-elf,,lm32-*-elf}
+@item
+@uref{#lm32-x-uclinux,,lm32-*-uclinux}
+@item
 @uref{#m32c-x-elf,,m32c-*-elf}
 @item
 @uref{#m32r-x-elf,,m32r-*-elf}
@@ -3666,6 +3670,20 @@ applications.  There are no standard Unix configurations.
 @html
 <hr />
 @end html
+@heading @anchor{lm32-x-elf}lm32-*-elf
+Lattice Mico32 processor.
+This configuration is intended for embedded systems.
+
+@html
+<hr />
+@end html
+@heading @anchor{lm32-x-uclinux}lm32-*-uclinux
+Lattice Mico32 processor.
+This configuration is intended for embedded systems running uClinux.
+
+@html
+<hr />
+@end html
 @heading @anchor{m32c-x-elf}m32c-*-elf
 Renesas M32C processor.
 This configuration is intended for embedded systems.
@@ -4000,6 +4018,14 @@ the PSIM simulator.
 @end html
 @heading @anchor{powerpcle-x-eabi}powerpcle-*-eabi
 Embedded PowerPC system in little endian mode.
+
+@html
+<hr />
+@end html
+@heading @anchor{rx-x-elf}rx-*-elf
+The Renesas RX processor.  See
+@uref{http://eu.renesas.com/fmwk.jsp?cnt=rx600_series_landing.jsp&fp=/products/mpumcu/rx_family/rx600_series}
+for more information about this processor.
 
 @html
 <hr />

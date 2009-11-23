@@ -279,7 +279,7 @@ find_released_ssa_name (tree *tp, int *walk_subtrees, void *data_)
 {
   struct walk_stmt_info *wi = (struct walk_stmt_info *) data_;
 
-  if (wi->is_lhs)
+  if (wi && wi->is_lhs)
     return NULL_TREE;
 
   if (TREE_CODE (*tp) == SSA_NAME)
@@ -346,7 +346,13 @@ insert_debug_temp_for_var_def (gimple_stmt_iterator *gsi, tree var)
   /* If we didn't get an insertion point, and the stmt has already
      been removed, we won't be able to insert the debug bind stmt, so
      we'll have to drop debug information.  */
-  if (is_gimple_assign (def_stmt))
+  if (gimple_code (def_stmt) == GIMPLE_PHI)
+    {
+      value = degenerate_phi_result (def_stmt);
+      if (value && walk_tree (&value, find_released_ssa_name, NULL, NULL))
+	value = NULL;
+    }
+  else if (is_gimple_assign (def_stmt))
     {
       bool no_value = false;
 
@@ -383,8 +389,7 @@ insert_debug_temp_for_var_def (gimple_stmt_iterator *gsi, tree var)
 	     dead SSA NAMEs.  SSA verification shall catch any
 	     errors.  */
 	  if ((!gsi && !gimple_bb (def_stmt))
-	      || !walk_gimple_op (def_stmt, find_released_ssa_name,
-				  &wi))
+	      || walk_gimple_op (def_stmt, find_released_ssa_name, &wi))
 	    no_value = true;
 	}
 
@@ -409,6 +414,7 @@ insert_debug_temp_for_var_def (gimple_stmt_iterator *gsi, tree var)
 	 at the expense of duplication of expressions.  */
 
       if (CONSTANT_CLASS_P (value)
+	  || gimple_code (def_stmt) == GIMPLE_PHI
 	  || (usecount == 1
 	      && (!gimple_assign_single_p (def_stmt)
 		  || is_gimple_min_invariant (value)))
@@ -479,7 +485,7 @@ insert_debug_temps_for_defs (gimple_stmt_iterator *gsi)
 
   stmt = gsi_stmt (*gsi);
 
-  FOR_EACH_SSA_DEF_OPERAND (def_p, stmt, op_iter, SSA_OP_DEF)
+  FOR_EACH_PHI_OR_STMT_DEF (def_p, stmt, op_iter, SSA_OP_DEF)
     {
       tree var = DEF_FROM_PTR (def_p);
 
@@ -1192,15 +1198,15 @@ useless_type_conversion_p (tree outer_type, tree inner_type)
   if (POINTER_TYPE_P (inner_type)
       && POINTER_TYPE_P (outer_type))
     {
+      /* Do not lose casts between pointers to different address spaces.  */
+      if (TYPE_ADDR_SPACE (TREE_TYPE (outer_type))
+	  != TYPE_ADDR_SPACE (TREE_TYPE (inner_type)))
+	return false;
+
       /* If the outer type is (void *) or a pointer to an incomplete
 	 record type or a pointer to an unprototyped function,
 	 then the conversion is not necessary.  */
       if (VOID_TYPE_P (TREE_TYPE (outer_type))
-	  || (AGGREGATE_TYPE_P (TREE_TYPE (outer_type))
-	      && TREE_CODE (TREE_TYPE (outer_type)) != ARRAY_TYPE
-	      && (TREE_CODE (TREE_TYPE (outer_type))
-		  == TREE_CODE (TREE_TYPE (inner_type)))
-	      && !COMPLETE_TYPE_P (TREE_TYPE (outer_type)))
 	  || ((TREE_CODE (TREE_TYPE (outer_type)) == FUNCTION_TYPE
 	       || TREE_CODE (TREE_TYPE (outer_type)) == METHOD_TYPE)
 	      && (TREE_CODE (TREE_TYPE (outer_type))
@@ -1856,7 +1862,7 @@ struct gimple_opt_pass pass_early_warn_uninitialized =
 {
  {
   GIMPLE_PASS,
-  NULL,					/* name */
+  "*early_warn_uninitialized",		/* name */
   gate_warn_uninitialized,		/* gate */
   execute_early_warn_uninitialized,	/* execute */
   NULL,					/* sub */
@@ -1875,7 +1881,7 @@ struct gimple_opt_pass pass_late_warn_uninitialized =
 {
  {
   GIMPLE_PASS,
-  NULL,					/* name */
+  "*late_warn_uninitialized",		/* name */
   gate_warn_uninitialized,		/* gate */
   execute_late_warn_uninitialized,	/* execute */
   NULL,					/* sub */

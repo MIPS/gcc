@@ -1684,8 +1684,7 @@ integer_pow2p (const_tree expr)
   if (TREE_CODE (expr) != INTEGER_CST)
     return 0;
 
-  prec = (POINTER_TYPE_P (TREE_TYPE (expr))
-	  ? POINTER_SIZE : TYPE_PRECISION (TREE_TYPE (expr)));
+  prec = int_or_pointer_precision (TREE_TYPE (expr));
   high = TREE_INT_CST_HIGH (expr);
   low = TREE_INT_CST_LOW (expr);
 
@@ -1749,9 +1748,7 @@ tree_log2 (const_tree expr)
   if (TREE_CODE (expr) == COMPLEX_CST)
     return tree_log2 (TREE_REALPART (expr));
 
-  prec = (POINTER_TYPE_P (TREE_TYPE (expr))
-	  ? POINTER_SIZE : TYPE_PRECISION (TREE_TYPE (expr)));
-
+  prec = int_or_pointer_precision (TREE_TYPE (expr));
   high = TREE_INT_CST_HIGH (expr);
   low = TREE_INT_CST_LOW (expr);
 
@@ -1787,9 +1784,7 @@ tree_floor_log2 (const_tree expr)
   if (TREE_CODE (expr) == COMPLEX_CST)
     return tree_log2 (TREE_REALPART (expr));
 
-  prec = (POINTER_TYPE_P (TREE_TYPE (expr))
-	  ? POINTER_SIZE : TYPE_PRECISION (TREE_TYPE (expr)));
-
+  prec = int_or_pointer_precision (TREE_TYPE (expr));
   high = TREE_INT_CST_HIGH (expr);
   low = TREE_INT_CST_LOW (expr);
 
@@ -4176,11 +4171,6 @@ free_lang_data_in_type (tree type)
 {
   gcc_assert (TYPE_P (type));
 
-  /* Fill in the alias-set.  We need to at least track zeroness here
-     for correctness.  */
-  if (lang_hooks.get_alias_set (type) == 0)
-    TYPE_ALIAS_SET (type) = 0;
-
   /* Give the FE a chance to remove its own data first.  */
   lang_hooks.free_lang_data (type);
 
@@ -4299,7 +4289,7 @@ need_assembler_name_p (tree decl)
 	return false;
 
       /* Functions represented in the callgraph need an assembler name.  */
-      if (cgraph_node_for_decl (decl) != NULL)
+      if (cgraph_get_node (decl) != NULL)
 	return true;
 
       /* Unused and not public functions don't need an assembler name.  */
@@ -4648,11 +4638,15 @@ find_decls_types_r (tree *tp, int *ws, void *data)
 				   i, tem); ++i)
 	    fld_worklist_push (TREE_TYPE (tem), fld);
 	  tem = BINFO_VIRTUALS (TYPE_BINFO (t));
-	  while (tem)
-	    {
-	      fld_worklist_push (TREE_VALUE (tem), fld);
-	      tem = TREE_CHAIN (tem);
-	    }
+	  if (tem
+	      /* The Java FE overloads BINFO_VIRTUALS for its own purpose.  */
+	      && TREE_CODE (tem) == TREE_LIST)
+	    do
+	      {
+		fld_worklist_push (TREE_VALUE (tem), fld);
+		tem = TREE_CHAIN (tem);
+	      }
+	    while (tem);
 	}
       if (RECORD_OR_UNION_TYPE_P (t))
 	{
@@ -4925,6 +4919,23 @@ free_lang_data_in_cgraph (void)
 static unsigned
 free_lang_data (void)
 {
+  unsigned i;
+
+  /* If we are the LTO frontend we have freed lang-specific data already.  */
+  if (in_lto_p)
+    return 0;
+
+  /* Allocate and assign alias sets to the standard integer types
+     while the slots are still in the way the frontends generated them.  */
+  for (i = 0; i < itk_none; ++i)
+    if (integer_types[i])
+      TYPE_ALIAS_SET (integer_types[i]) = get_alias_set (integer_types[i]);
+
+  /* FIXME.  Remove after save_debug_info is working.  */
+  if (!(flag_generate_lto
+	|| (!flag_gtoggle && debug_info_level <= DINFO_LEVEL_TERSE)))
+    return 0;
+
   /* Traverse the IL resetting language specific information for
      operands, expressions, etc.  */
   free_lang_data_in_cgraph ();
@@ -4952,9 +4963,9 @@ free_lang_data (void)
   else
     signed_char_type_node = char_type_node;
 
-  /* Reset some langhooks.  */
+  /* Reset some langhooks.  Do not reset types_compatible_p, it may
+     still be used indirectly via the get_alias_set langhook.  */
   lang_hooks.callgraph.analyze_expr = NULL;
-  lang_hooks.types_compatible_p = NULL;
   lang_hooks.dwarf_name = lhd_dwarf_name;
   lang_hooks.decl_printable_name = gimple_decl_printable_name;
   lang_hooks.set_decl_assembler_name = lhd_set_decl_assembler_name;
@@ -4976,24 +4987,12 @@ free_lang_data (void)
 }
 
 
-/* Gate function for free_lang_data.  */
-
-static bool
-gate_free_lang_data (void)
-{
-  /* FIXME.  Remove after save_debug_info is working.  */
-  return (flag_generate_lto
-	  || (!in_lto_p
-	      && !flag_gtoggle && debug_info_level <= DINFO_LEVEL_TERSE));
-}
-
-
 struct simple_ipa_opt_pass pass_ipa_free_lang_data = 
 {
  {
   SIMPLE_IPA_PASS,
-  NULL,					/* name */
-  gate_free_lang_data,			/* gate */
+  "*free_lang_data",			/* name */
+  NULL,					/* gate */
   free_lang_data,			/* execute */
   NULL,					/* sub */
   NULL,					/* next */
@@ -5420,6 +5419,7 @@ set_type_quals (tree type, int type_quals)
   TYPE_READONLY (type) = (type_quals & TYPE_QUAL_CONST) != 0;
   TYPE_VOLATILE (type) = (type_quals & TYPE_QUAL_VOLATILE) != 0;
   TYPE_RESTRICT (type) = (type_quals & TYPE_QUAL_RESTRICT) != 0;
+  TYPE_ADDR_SPACE (type) = DECODE_QUAL_ADDR_SPACE (type_quals);
 }
 
 /* Returns true iff CAND is equivalent to BASE with TYPE_QUALS.  */
@@ -6741,7 +6741,10 @@ build_pointer_type_for_mode (tree to_type, enum machine_mode mode,
 tree
 build_pointer_type (tree to_type)
 {
-  return build_pointer_type_for_mode (to_type, ptr_mode, false);
+  addr_space_t as = to_type == error_mark_node? ADDR_SPACE_GENERIC
+					      : TYPE_ADDR_SPACE (to_type);
+  enum machine_mode pointer_mode = targetm.addr_space.pointer_mode (as);
+  return build_pointer_type_for_mode (to_type, pointer_mode, false);
 }
 
 /* Same as build_pointer_type_for_mode, but for REFERENCE_TYPE.  */
@@ -6805,7 +6808,10 @@ build_reference_type_for_mode (tree to_type, enum machine_mode mode,
 tree
 build_reference_type (tree to_type)
 {
-  return build_reference_type_for_mode (to_type, ptr_mode, false);
+  addr_space_t as = to_type == error_mark_node? ADDR_SPACE_GENERIC
+					      : TYPE_ADDR_SPACE (to_type);
+  enum machine_mode pointer_mode = targetm.addr_space.pointer_mode (as);
+  return build_reference_type_for_mode (to_type, pointer_mode, false);
 }
 
 /* Build a type that is compatible with t but has no cv quals anywhere
@@ -6999,6 +7005,7 @@ build_array_type (tree elt_type, tree index_type)
   t = make_node (ARRAY_TYPE);
   TREE_TYPE (t) = elt_type;
   TYPE_DOMAIN (t) = index_type;
+  TYPE_ADDR_SPACE (t) = TYPE_ADDR_SPACE (elt_type);
   layout_type (t);
 
   /* If the element type is incomplete at this point we get marked for
@@ -9005,7 +9012,8 @@ build_common_builtin_nodes (void)
       tmp = tree_cons (NULL_TREE, size_type_node, void_list_node);
       ftype = build_function_type (ptr_type_node, tmp);
       local_define_builtin ("__builtin_alloca", ftype, BUILT_IN_ALLOCA,
-			    "alloca", ECF_NOTHROW | ECF_MALLOC);
+			    "alloca",
+			    ECF_MALLOC | (flag_stack_check ? 0 : ECF_NOTHROW));
     }
 
   tmp = tree_cons (NULL_TREE, ptr_type_node, void_list_node);
@@ -9209,7 +9217,8 @@ reconstruct_complex_type (tree type, tree bottom)
   else
     return bottom;
 
-  return build_qualified_type (outer, TYPE_QUALS (type));
+  return build_type_attribute_qual_variant (outer, TYPE_ATTRIBUTES (type),
+					    TYPE_QUALS (type));
 }
 
 /* Returns a vector tree node given a mode (integer, vector, or BLKmode) and
@@ -9669,7 +9678,19 @@ signed_or_unsigned_type_for (int unsignedp, tree type)
 {
   tree t = type;
   if (POINTER_TYPE_P (type))
-    t = size_type_node;
+    {
+      /* If the pointer points to the normal address space, use the
+	 size_type_node.  Otherwise use an appropriate size for the pointer
+	 based on the named address space it points to.  */
+      if (!TYPE_ADDR_SPACE (TREE_TYPE (t)))
+	t = size_type_node;
+
+      else
+	{
+	  int prec = int_or_pointer_precision (t);
+	  return lang_hooks.types.type_for_size (prec, unsignedp);
+	}
+    }
 
   if (!INTEGRAL_TYPE_P (t) || TYPE_UNSIGNED (t) == unsignedp)
     return t;
@@ -10541,6 +10562,41 @@ build_target_option_node (void)
     }
 
   return t;
+}
+
+/* Return the size in bits of an integer or pointer type.  TYPE_PRECISION
+   contains the bits, but in the past it was not set in some cases and there
+   was special purpose code that checked for POINTER_TYPE_P or OFFSET_TYPE, so
+   check that it is consitant when assertion checking is used.  */
+
+unsigned int
+int_or_pointer_precision (const_tree type)
+{
+#if ENABLE_ASSERT_CHECKING
+  unsigned int prec;
+
+  if (POINTER_TYPE_P (type))
+    {
+      addr_space_t as = TYPE_ADDR_SPACE (TREE_TYPE (type));
+      prec = GET_MODE_BITSIZE (targetm.addr_space.pointer_mode (as));
+      gcc_assert (prec == TYPE_PRECISION (type));
+    }
+  else if (TREE_CODE (type) == OFFSET_TYPE)
+    {
+      prec = POINTER_SIZE;
+      gcc_assert (prec == TYPE_PRECISION (type));
+    }
+  else
+    {
+      prec = TYPE_PRECISION (type);
+      gcc_assert (prec != 0);
+    }
+
+  return prec;
+
+#else
+  return TYPE_PRECISION (type);
+#endif
 }
 
 /* Determine the "ultimate origin" of a block.  The block may be an inlined

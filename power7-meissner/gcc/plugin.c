@@ -58,9 +58,14 @@ const char *plugin_event_name[] =
   "PLUGIN_GGC_END",
   "PLUGIN_REGISTER_GGC_ROOTS",
   "PLUGIN_REGISTER_GGC_CACHES",
-  "PLUGIN_START_UNIT", 
+  "PLUGIN_ATTRIBUTES",
+  "PLUGIN_START_UNIT",
+  "PLUGIN_PRAGMAS",
   "PLUGIN_EVENT_LAST"
 };
+
+/* A printf format large enough for the largest event above.  */
+#define FMT_FOR_PLUGIN_EVENT "%-26s"
 
 /* Hash table for the plugin_name_args objects created during command-line
    parsing.  */
@@ -325,6 +330,7 @@ register_callback (const char *plugin_name,
       case PLUGIN_GGC_MARKING:
       case PLUGIN_GGC_END:
       case PLUGIN_ATTRIBUTES:
+      case PLUGIN_PRAGMAS:
       case PLUGIN_FINISH:
         {
           struct callback_info *new_callback;
@@ -344,7 +350,7 @@ register_callback (const char *plugin_name,
         break;
       case PLUGIN_EVENT_LAST:
       default:
-        error ("Unkown callback event registered by plugin %s",
+        error ("Unknown callback event registered by plugin %s",
                plugin_name);
     }
 }
@@ -368,6 +374,7 @@ invoke_plugin_callbacks (enum plugin_event event, void *gcc_data)
       case PLUGIN_FINISH_UNIT:
       case PLUGIN_CXX_CP_PRE_GENERICIZE:
       case PLUGIN_ATTRIBUTES:
+      case PLUGIN_PRAGMAS:
       case PLUGIN_FINISH:
       case PLUGIN_GGC_START:
       case PLUGIN_GGC_MARKING:
@@ -633,18 +640,18 @@ dump_active_plugins (FILE *file)
   if (!plugins_active_p ())
     return;
 
-  fprintf (stderr, "Event\t\t\tPlugins\n");
+  fprintf (file, FMT_FOR_PLUGIN_EVENT " | %s\n", _("Event"), _("Plugins"));
   for (event = PLUGIN_PASS_MANAGER_SETUP; event < PLUGIN_EVENT_LAST; event++)
     if (plugin_callbacks[event])
       {
 	struct callback_info *ci;
 
-	fprintf (file, "%s\t", plugin_event_name[event]);
+	fprintf (file, FMT_FOR_PLUGIN_EVENT " |", plugin_event_name[event]);
 
 	for (ci = plugin_callbacks[event]; ci; ci = ci->next)
-	  fprintf (file, "%s ", ci->plugin_name);
+	  fprintf (file, " %s", ci->plugin_name);
 
-	fprintf (file, "\n");
+	putc('\n', file);
       }
 }
 

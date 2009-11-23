@@ -489,12 +489,15 @@ simplify_replace_fn_rtx (rtx x, const_rtx old_rtx,
 	break;
 
       case 'e':
-	op = simplify_replace_fn_rtx (XEXP (x, i), old_rtx, fn, data);
-	if (op != XEXP (x, i))
+	if (XEXP (x, i))
 	  {
-	    if (x == newx)
-	      newx = shallow_copy_rtx (x);
-	    XEXP (newx, i) = op;
+	    op = simplify_replace_fn_rtx (XEXP (x, i), old_rtx, fn, data);
+	    if (op != XEXP (x, i))
+	      {
+		if (x == newx)
+		  newx = shallow_copy_rtx (x);
+		XEXP (newx, i) = op;
+	      }
 	  }
 	break;
       }
@@ -1012,7 +1015,11 @@ simplify_unary_operation_1 (enum rtx_code code, enum machine_mode mode, rtx op)
 	return rtl_hooks.gen_lowpart_no_emit (mode, op);
 
 #if defined(POINTERS_EXTEND_UNSIGNED) && !defined(HAVE_ptr_extend)
-      if (! POINTERS_EXTEND_UNSIGNED
+      /* As we do not know which address space the pointer is refering to,
+	 we can do this only if the target does not support different pointer
+	 or address modes depending on the address space.  */
+      if (target_default_pointer_address_modes_p ()
+	  && ! POINTERS_EXTEND_UNSIGNED
 	  && mode == Pmode && GET_MODE (op) == ptr_mode
 	  && (CONSTANT_P (op)
 	      || (GET_CODE (op) == SUBREG
@@ -1034,7 +1041,11 @@ simplify_unary_operation_1 (enum rtx_code code, enum machine_mode mode, rtx op)
 	return rtl_hooks.gen_lowpart_no_emit (mode, op);
 
 #if defined(POINTERS_EXTEND_UNSIGNED) && !defined(HAVE_ptr_extend)
-      if (POINTERS_EXTEND_UNSIGNED > 0
+      /* As we do not know which address space the pointer is refering to,
+	 we can do this only if the target does not support different pointer
+	 or address modes depending on the address space.  */
+      if (target_default_pointer_address_modes_p ()
+	  && POINTERS_EXTEND_UNSIGNED > 0
 	  && mode == Pmode && GET_MODE (op) == ptr_mode
 	  && (CONSTANT_P (op)
 	      || (GET_CODE (op) == SUBREG
@@ -2938,6 +2949,9 @@ simplify_binary_operation_1 (enum rtx_code code, enum machine_mode mode,
 				    tmp_op, gen_rtx_PARALLEL (VOIDmode, vec));
 	      return tmp;
 	    }
+	  if (GET_CODE (trueop0) == VEC_DUPLICATE
+	      && GET_MODE (XEXP (trueop0, 0)) == mode)
+	    return XEXP (trueop0, 0);
 	}
       else
 	{

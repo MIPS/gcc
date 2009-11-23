@@ -715,7 +715,7 @@ create_new_invariant (struct def *def, rtx insn, bitmap depends_on,
 	 invariants).
 	 See http://gcc.gnu.org/ml/gcc-patches/2009-10/msg01210.html .  */
       inv->cheap_address = address_cost (SET_SRC (set), word_mode,
-					 speed) < 3;
+					 ADDR_SPACE_GENERIC, speed) < 3;
     }
   else
     {
@@ -1564,6 +1564,8 @@ static void
 free_loop_data (struct loop *loop)
 {
   struct loop_data *data = LOOP_DATA (loop);
+  if (!data)
+    return;
 
   bitmap_clear (&LOOP_DATA (loop)->regs_ref);
   bitmap_clear (&LOOP_DATA (loop)->regs_live);

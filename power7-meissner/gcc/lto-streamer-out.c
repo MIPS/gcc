@@ -433,6 +433,7 @@ pack_ts_decl_common_value_fields (struct bitpack_d *bp, tree expr)
       if (TREE_CODE (expr) == VAR_DECL
 	  || TREE_CODE (expr) == PARM_DECL)
 	bp_pack_value (bp, DECL_HAS_VALUE_EXPR_P (expr), 1);
+      bp_pack_value (bp, DECL_RESTRICTED_P (expr), 1);
     }
 }
 
@@ -1869,6 +1870,9 @@ output_function (struct cgraph_node *node)
   /* Output all the local variables in the function.  */
   lto_output_tree_ref (ob, fn->local_decls);
 
+  /* Output the head of the arguments list.  */
+  lto_output_tree_ref (ob, DECL_ARGUMENTS (function));
+
   /* Output all the SSA names used in the function.  */
   output_ssa_names (ob, fn);
 
@@ -1878,9 +1882,6 @@ output_function (struct cgraph_node *node)
   /* Output DECL_INITIAL for the function, which contains the tree of
      lexical scopes.  */
   lto_output_tree (ob, DECL_INITIAL (function), true);
-
-  /* Output the head of the arguments list.  */
-  lto_output_tree_ref (ob, DECL_ARGUMENTS (function));
 
   /* We will renumber the statements.  The code that does this uses
      the same ordering that we use for serializing them so we can use
@@ -2114,6 +2115,7 @@ struct ipa_opt_pass_d pass_ipa_lto_gimple_out =
  lto_output,           			/* write_summary */
  NULL,		         		/* read_summary */
  NULL,					/* function_read_summary */
+ NULL,					/* stmt_fixup */
  0,					/* TODOs */
  NULL,			                /* function_transform */
  NULL					/* variable_transform */
@@ -2544,6 +2546,7 @@ struct ipa_opt_pass_d pass_ipa_lto_finish_out =
  produce_asm_for_decls,			/* write_summary */
  NULL,		         		/* read_summary */
  NULL,					/* function_read_summary */
+ NULL,					/* stmt_fixup */
  0,					/* TODOs */
  NULL,			                /* function_transform */
  NULL					/* variable_transform */

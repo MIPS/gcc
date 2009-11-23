@@ -201,7 +201,7 @@ struct gimple_opt_pass pass_cleanup_cfg_post_optimizing =
 {
  {
   GIMPLE_PASS,
-  "optimized",			/* name */
+  "optimized",				/* name */
   NULL,					/* gate */
   execute_cleanup_cfg_post_optimizing,	/* execute */
   NULL,					/* sub */
@@ -245,36 +245,51 @@ execute_fixup_cfg (void)
   basic_block bb;
   gimple_stmt_iterator gsi;
   int todo = gimple_in_ssa_p (cfun) ? TODO_verify_ssa : 0;
+  gcov_type count_scale;
+  edge e;
+  edge_iterator ei;
 
-  if (cfun->eh)
-    FOR_EACH_BB (bb)
-      {
-	for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
-	  {
-	    gimple stmt = gsi_stmt (gsi);
-	    tree decl = is_gimple_call (stmt)
-	                ? gimple_call_fndecl (stmt)
-			: NULL;
+  if (ENTRY_BLOCK_PTR->count)
+    count_scale = (cgraph_node (current_function_decl)->count * REG_BR_PROB_BASE
+    		   + ENTRY_BLOCK_PTR->count / 2) / ENTRY_BLOCK_PTR->count;
+  else
+    count_scale = REG_BR_PROB_BASE;
 
-	    if (decl
-		&& gimple_call_flags (stmt) & (ECF_CONST
-					       | ECF_PURE 
-					       | ECF_LOOPING_CONST_OR_PURE))
-	      {
-		if (gimple_in_ssa_p (cfun))
-		  {
-		    todo |= TODO_update_ssa | TODO_cleanup_cfg;
-		    mark_symbols_for_renaming (stmt);
-	            update_stmt (stmt);
-		  }
-	      }
+  FOR_EACH_BB (bb)
+    {
+      bb->count = (bb->count * count_scale
+		   + REG_BR_PROB_BASE / 2) / REG_BR_PROB_BASE;
+      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+	{
+	  gimple stmt = gsi_stmt (gsi);
+	  tree decl = is_gimple_call (stmt)
+		      ? gimple_call_fndecl (stmt)
+		      : NULL;
 
-	    maybe_clean_eh_stmt (stmt);
-	  }
+	  if (decl
+	      && gimple_call_flags (stmt) & (ECF_CONST
+					     | ECF_PURE 
+					     | ECF_LOOPING_CONST_OR_PURE))
+	    {
+	      if (gimple_in_ssa_p (cfun))
+		{
+		  todo |= TODO_update_ssa | TODO_cleanup_cfg;
+		  mark_symbols_for_renaming (stmt);
+		  update_stmt (stmt);
+		}
+	    }
 
-	if (gimple_purge_dead_eh_edges (bb))
-          todo |= TODO_cleanup_cfg;
-      }
+	  maybe_clean_eh_stmt (stmt);
+	}
+
+      if (gimple_purge_dead_eh_edges (bb))
+	todo |= TODO_cleanup_cfg;
+      FOR_EACH_EDGE (e, ei, bb->succs)
+        e->count = (e->count * count_scale
+		    + REG_BR_PROB_BASE / 2) / REG_BR_PROB_BASE;
+    }
+  if (count_scale != REG_BR_PROB_BASE)
+    compute_function_frequency ();
 
   /* Dump a textual representation of the flowgraph.  */
   if (dump_file)
@@ -287,9 +302,9 @@ struct gimple_opt_pass pass_fixup_cfg =
 {
  {
   GIMPLE_PASS,
-  NULL,					/* name */
+  "*free_cfg_annotations",		/* name */
   NULL,					/* gate */
-  execute_fixup_cfg,		/* execute */
+  execute_fixup_cfg,			/* execute */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
@@ -317,7 +332,7 @@ struct gimple_opt_pass pass_init_datastructures =
 {
  {
   GIMPLE_PASS,
-  NULL,					/* name */
+  "*init_datastructures",		/* name */
   NULL,					/* gate */
   execute_init_datastructures,		/* execute */
   NULL,					/* sub */

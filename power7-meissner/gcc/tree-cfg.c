@@ -2889,12 +2889,24 @@ verify_types_in_gimple_reference (tree expr, bool require_lvalue)
 	  return true;
 	}
 
-      /* For VIEW_CONVERT_EXPRs which are allowed here, too, there
-	 is nothing to verify.  Gross mismatches at most invoke
-	 undefined behavior.  */
-      if (TREE_CODE (expr) == VIEW_CONVERT_EXPR
-	  && !handled_component_p (op))
-	return false;
+      if (TREE_CODE (expr) == VIEW_CONVERT_EXPR)
+	{
+	  /* For VIEW_CONVERT_EXPRs which are allowed here too, we only check
+	     that their operand is not an SSA name or an invariant when
+	     requiring an lvalue (this usually means there is a SRA or IPA-SRA
+	     bug).  Otherwise there is nothing to verify, gross mismatches at
+	     most invoke undefined behavior.  */
+	  if (require_lvalue
+	      && (TREE_CODE (op) == SSA_NAME
+		  || is_gimple_min_invariant (op)))
+	    {
+	      error ("Conversion of an SSA_NAME on the left hand side.");
+	      debug_generic_stmt (expr);
+	      return true;
+	    }
+	  else if (!handled_component_p (op))
+	    return false;
+	}
 
       expr = op;
     }
@@ -2951,7 +2963,8 @@ verify_gimple_call (gimple stmt)
     }
 
   if (gimple_call_lhs (stmt)
-      && !is_gimple_lvalue (gimple_call_lhs (stmt)))
+      && (!is_gimple_lvalue (gimple_call_lhs (stmt))
+	  || verify_types_in_gimple_reference (gimple_call_lhs (stmt), true)))
     {
       error ("invalid LHS in gimple call");
       return true;
@@ -3099,6 +3112,21 @@ verify_gimple_assign_unary (gimple stmt)
 	if (INTEGRAL_TYPE_P (lhs_type) != INTEGRAL_TYPE_P (rhs1_type))
 	  {
 	    error ("invalid types in nop conversion");
+	    debug_generic_expr (lhs_type);
+	    debug_generic_expr (rhs1_type);
+	    return true;
+	  }
+
+	return false;
+      }
+
+    case ADDR_SPACE_CONVERT_EXPR:
+      {
+	if (!POINTER_TYPE_P (rhs1_type) || !POINTER_TYPE_P (lhs_type)
+	    || (TYPE_ADDR_SPACE (TREE_TYPE (rhs1_type))
+		== TYPE_ADDR_SPACE (TREE_TYPE (lhs_type))))
+	  {
+	    error ("invalid types in address space conversion");
 	    debug_generic_expr (lhs_type);
 	    debug_generic_expr (rhs1_type);
 	    return true;
@@ -4651,14 +4679,23 @@ gimple_redirect_edge_and_branch (edge e, basic_block dest)
     case GIMPLE_ASM:
       {
 	int i, n = gimple_asm_nlabels (stmt);
-	tree label = gimple_block_label (dest);
+	tree label = NULL;
 
 	for (i = 0; i < n; ++i)
 	  {
 	    tree cons = gimple_asm_label_op (stmt, i);
 	    if (label_to_block (TREE_VALUE (cons)) == e->dest)
-	      TREE_VALUE (cons) = label;
+	      {
+		if (!label)
+		  label = gimple_block_label (dest);
+		TREE_VALUE (cons) = label;
+	      }
 	  }
+
+	/* If we didn't find any label matching the former edge in the
+	   asm labels, we must be redirecting the fallthrough
+	   edge.  */
+	gcc_assert (label || (e->flags & EDGE_FALLTHRU));
       }
       break;
 
@@ -7176,7 +7213,7 @@ struct gimple_opt_pass pass_warn_function_return =
 {
  {
   GIMPLE_PASS,
-  NULL,					/* name */
+  "*warn_function_return",		/* name */
   NULL,					/* gate */
   execute_warn_function_return,		/* execute */
   NULL,					/* sub */
@@ -7210,7 +7247,7 @@ struct gimple_opt_pass pass_warn_function_noreturn =
 {
  {
   GIMPLE_PASS,
-  NULL,					/* name */
+  "*warn_function_noreturn",		/* name */
   NULL,					/* gate */
   execute_warn_function_noreturn,	/* execute */
   NULL,					/* sub */

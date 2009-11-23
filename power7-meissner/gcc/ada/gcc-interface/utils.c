@@ -59,10 +59,6 @@
 #include "ada-tree.h"
 #include "gigi.h"
 
-#ifndef MAX_FIXED_MODE_SIZE
-#define MAX_FIXED_MODE_SIZE GET_MODE_BITSIZE (DImode)
-#endif
-
 #ifndef MAX_BITS_PER_WORD
 #define MAX_BITS_PER_WORD  BITS_PER_WORD
 #endif
@@ -1408,10 +1404,12 @@ create_var_decl_1 (tree var_name, tree asm_name, tree type, tree var_init,
 	   != null_pointer_node)
     DECL_IGNORED_P (var_decl) = 1;
 
-  if (asm_name && VAR_OR_FUNCTION_DECL_P (var_decl))
-    SET_DECL_ASSEMBLER_NAME (var_decl, asm_name);
-
-  process_attributes (var_decl, attr_list);
+  if (TREE_CODE (var_decl) == VAR_DECL)
+    {
+      if (asm_name)
+	SET_DECL_ASSEMBLER_NAME (var_decl, asm_name);
+      process_attributes (var_decl, attr_list);
+    }
 
   /* Add this decl to the current binding level.  */
   gnat_pushdecl (var_decl, gnat_node);
@@ -1457,13 +1455,13 @@ aggregate_type_contains_array_p (tree type)
     }
 }
 
-/* Return a FIELD_DECL node.  FIELD_NAME the field name, FIELD_TYPE is its
-   type, and RECORD_TYPE is the type of the parent.  PACKED is nonzero if
-   this field is in a record type with a "pragma pack".  If SIZE is nonzero
-   it is the specified size for this field.  If POS is nonzero, it is the bit
-   position.  If ADDRESSABLE is nonzero, it means we are allowed to take
-   the address of this field for aliasing purposes. If it is negative, we
-   should not make a bitfield, which is used by make_aligning_type.   */
+/* Return a FIELD_DECL node.  FIELD_NAME is the field's name, FIELD_TYPE is
+   its type and RECORD_TYPE is the type of the enclosing record.  PACKED is
+   1 if the enclosing record is packed, -1 if it has Component_Alignment of
+   Storage_Unit.  If SIZE is nonzero, it is the specified size of the field.
+   If POS is nonzero, it is the bit position.  If ADDRESSABLE is nonzero, it
+   means we are allowed to take the address of the field; if it is negative,
+   we should not make a bitfield, which is used by make_aligning_type.  */
 
 tree
 create_field_decl (tree field_name, tree field_type, tree record_type,
@@ -1497,12 +1495,8 @@ create_field_decl (tree field_name, tree field_type, tree record_type,
   else if (packed == 1)
     {
       size = rm_size (field_type);
-
-      /* For a constant size larger than MAX_FIXED_MODE_SIZE, round up to
-         byte.  */
-      if (TREE_CODE (size) == INTEGER_CST
-          && compare_tree_int (size, MAX_FIXED_MODE_SIZE) > 0)
-        size = round_up (size, BITS_PER_UNIT);
+      if (TYPE_MODE (field_type) == BLKmode)
+	size = round_up (size, BITS_PER_UNIT);
     }
 
   /* If we may, according to ADDRESSABLE, make a bitfield if a size is
@@ -2185,16 +2179,28 @@ gnat_type_for_mode (enum machine_mode mode, int unsignedp)
 {
   if (mode == BLKmode)
     return NULL_TREE;
-  else if (mode == VOIDmode)
+
+  if (mode == VOIDmode)
     return void_type_node;
-  else if (COMPLEX_MODE_P (mode))
+
+  if (COMPLEX_MODE_P (mode))
     return NULL_TREE;
-  else if (SCALAR_FLOAT_MODE_P (mode))
+
+  if (SCALAR_FLOAT_MODE_P (mode))
     return float_type_for_precision (GET_MODE_PRECISION (mode), mode);
-  else if (SCALAR_INT_MODE_P (mode))
+
+  if (SCALAR_INT_MODE_P (mode))
     return gnat_type_for_size (GET_MODE_BITSIZE (mode), unsignedp);
-  else
-    return NULL_TREE;
+
+  if (VECTOR_MODE_P (mode))
+    {
+      enum machine_mode inner_mode = GET_MODE_INNER (mode);
+      tree inner_type = gnat_type_for_mode (inner_mode, unsignedp);
+      if (inner_type)
+	return build_vector_type_for_mode (inner_type, mode);
+    }
+
+  return NULL_TREE;
 }
 
 /* Return the unsigned version of a TYPE_NODE, a scalar type.  */

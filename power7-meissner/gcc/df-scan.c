@@ -829,7 +829,8 @@ df_ref_create (rtx reg, rtx *loc, rtx insn,
   /* By adding the ref directly, df_insn_rescan my not find any
      differences even though the block will have changed.  So we need
      to mark the block dirty ourselves.  */  
-  df_set_bb_dirty (bb);
+  if (!DEBUG_INSN_P (DF_REF_INSN (ref)))
+    df_set_bb_dirty (bb);
 
   return ref;
 }
@@ -1027,7 +1028,8 @@ df_ref_remove (df_ref ref)
   /* By deleting the ref directly, df_insn_rescan my not find any
      differences even though the block will have changed.  So we need
      to mark the block dirty ourselves.  */  
-  df_set_bb_dirty (DF_REF_BB (ref));
+  if (!DEBUG_INSN_P (DF_REF_INSN (ref)))
+    df_set_bb_dirty (DF_REF_BB (ref));
   df_reg_chain_unlink (ref);
 }
 
@@ -3248,10 +3250,23 @@ df_uses_record (enum df_ref_class cl, struct df_collection_rec *collection_rec,
 		    width = INTVAL (XEXP (dst, 1));
 		    offset = INTVAL (XEXP (dst, 2));
 		    mode = GET_MODE (dst);
-		    df_uses_record (DF_REF_EXTRACT, collection_rec, &XEXP (dst, 0), 
-				DF_REF_REG_USE, bb, insn_info, 
-				DF_REF_READ_WRITE | DF_REF_ZERO_EXTRACT, 
-				width, offset, mode);
+		    if (GET_CODE (XEXP (dst,0)) == MEM)
+		      {
+			/* Handle the case of zero_extract(mem(...)) in the set dest.
+			   This special case is allowed only if the mem is a single byte and 
+			   is useful to set a bitfield in memory.  */
+			df_uses_record (DF_REF_EXTRACT, collection_rec, &XEXP (XEXP (dst,0), 0),
+					DF_REF_REG_MEM_STORE, bb, insn_info,
+					DF_REF_ZERO_EXTRACT,
+					width, offset, mode);
+		      }
+		    else
+		      {
+			df_uses_record (DF_REF_EXTRACT, collection_rec, &XEXP (dst, 0), 
+					DF_REF_REG_USE, bb, insn_info, 
+					DF_REF_READ_WRITE | DF_REF_ZERO_EXTRACT, 
+					width, offset, mode);
+		      }
 		  }
 		else 
 		  {
