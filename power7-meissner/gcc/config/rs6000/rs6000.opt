@@ -129,7 +129,7 @@ Target Undocumented Report Var(TARGET_VSX_SCALAR_MEMORY)
 
 mvsx-align-128
 Target Undocumented Report Var(TARGET_VSX_ALIGN_128)
-; If -mvsx, set alignment to 128 bits instead of 32/64
+; If -mvsx, set alignment to 128 bits instead of 64 (off by default)
 
 mallow-movmisalign
 Target Undocumented Var(TARGET_ALLOW_MOVMISALIGN) Init(-1)
@@ -137,7 +137,15 @@ Target Undocumented Var(TARGET_ALLOW_MOVMISALIGN) Init(-1)
 
 mallow-df-permute
 Target Undocumented Var(TARGET_ALLOW_DF_PERMUTE)
-; Allow/disallow permutation of DF/DI vectors
+; Allow/disallow permutation of DF/DI vectors in VSX (off by default)
+
+mvsx-vector-float-memory
+Target Undocumented Report Var(TARGET_VSX_VECTOR_FLOAT_MEMORY)
+; If -mvsx, use VSX memory reference instructions for vector float (off by default)
+
+mvsx-vector-integer-memory
+Target Undocumented Report Var(TARGET_VSX_VECTOR_INTEGER_MEMORY)
+; If -mvsx, use VSX memory reference instructions for vector char/short/int (off by default)
 
 msched-groups
 Target Undocumented Report Var(TARGET_SCHED_GROUPS) Init(-1)

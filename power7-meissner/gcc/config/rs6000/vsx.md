@@ -1120,7 +1120,7 @@
 	 [(match_operand:<VS_scalar> 1 "vsx_register_operand" "ws,wa")
 	  (match_operand:<VS_scalar> 2 "vsx_register_operand" "ws,wa")]
 	 UNSPEC_VSX_CONCAT))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)"
+  "TARGET_VSX"
   "xxpermdi %x0,%x1,%x2,0"
   [(set_attr "type" "vecperm")])
 
@@ -1133,7 +1133,7 @@
 	 [(match_operand:SF 1 "vsx_register_operand" "f,f")
 	  (match_operand:SF 2 "vsx_register_operand" "f,f")]
 	 UNSPEC_VSX_CONCAT))]
-  "VECTOR_MEM_VSX_P (V2DFmode)"
+  "TARGET_VSX"
   "xxpermdi %x0,%x1,%x2,0"
   [(set_attr "type" "vecperm")])
 
@@ -1144,7 +1144,7 @@
 		       (match_operand:<VS_scalar> 2 "vsx_register_operand" "ws,wa")
 		       (match_operand:QI 3 "u5bit_cint_operand" "i,i")]
 		      UNSPEC_VSX_SET))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)"
+  "TARGET_VSX"
 {
   if (INTVAL (operands[3]) == 0)
     return \"xxpermdi %x0,%x1,%x2,1\";
@@ -1161,7 +1161,7 @@
 	(vec_select:<VS_scalar> (match_operand:VSX_D 1 "vsx_register_operand" "wd,wd,wa")
 		       (parallel
 			[(match_operand:QI 2 "u5bit_cint_operand" "i,i,i")])))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)"
+  "TARGET_VSX"
 {
   gcc_assert (UINTVAL (operands[2]) <= 1);
   operands[3] = GEN_INT (INTVAL (operands[2]) << 1);
@@ -1188,7 +1188,7 @@
 		       (match_operand:VSX_L 2 "vsx_register_operand" "wd,wa")
 		       (match_operand:QI 3 "u5bit_cint_operand" "i,i")]
 		      UNSPEC_VSX_XXPERMDI))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)"
+  "TARGET_VSX"
   "xxpermdi %x0,%x1,%x2,%3"
   [(set_attr "type" "vecperm")])
 
@@ -1204,7 +1204,7 @@
 	  (match_operand:VSX_D 3 "vsx_register_operand" "wd")
 	  (parallel
 	   [(match_operand:QI 4 "u5bit_cint_operand" "i")]))))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)"
+  "TARGET_VSX"
 {
   gcc_assert ((UINTVAL (operands[2]) <= 1) && (UINTVAL (operands[4]) <= 1));
   operands[5] = GEN_INT (((INTVAL (operands[2]) & 1) << 1)
@@ -1215,18 +1215,25 @@
 
 ;; V2DF/V2DI splat
 (define_insn "vsx_splat_<mode>"
-  [(set (match_operand:VSX_D 0 "vsx_register_operand" "=wd,wd,wd,?wa,?wa,?wa")
+  [(set (match_operand:VSX_D 0 "vsx_register_operand" "=wd,wd,wd,?wa,?wa")
 	(vec_duplicate:VSX_D
-	 (match_operand:<VS_scalar> 1 "input_operand" "ws,f,Z,wa,wa,Z")))]
+	 (match_operand:<VS_scalar> 1 "vsx_splat_operand" "ws,f,Z,wa,Z")))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
   "@
    xxpermdi %x0,%x1,%x1,0
    xxpermdi %x0,%x1,%x1,0
    lxvdsx %x0,%y1
    xxpermdi %x0,%x1,%x1,0
-   xxpermdi %x0,%x1,%x1,0
    lxvdsx %x0,%y1"
-  [(set_attr "type" "vecperm,vecperm,vecload,vecperm,vecperm,vecload")])
+  [(set_attr "type" "vecperm,vecperm,vecload,vecperm,vecload")])
+
+(define_insn "vsx_splat2_<mode>"
+  [(set (match_operand:VSX_D 0 "vsx_register_operand" "=wd,wd,?wa,?wa")
+	(vec_duplicate:VSX_D
+	 (match_operand:<VS_scalar> 1 "input_operand" "ws,f,wa,wa")))]
+  "TARGET_VSX && !VECTOR_MEM_VSX_P (<MODE>mode)"
+  "xxpermdi %x0,%x1,%x1,0"
+  [(set_attr "type" "vecperm")])
 
 ;; V4SF/V4SI splat
 (define_insn "vsx_xxspltw_<mode>"
@@ -1236,7 +1243,7 @@
 	  (match_operand:VSX_W 1 "vsx_register_operand" "wf,wa")
 	  (parallel
 	   [(match_operand:QI 2 "u5bit_cint_operand" "i,i")]))))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)"
+  "TARGET_VSX"
   "xxspltw %x0,%x1,%2"
   [(set_attr "type" "vecperm")])
 
@@ -1257,7 +1264,7 @@
 		     (const_int 3)
 		     (const_int 1)]))
 	 (const_int 5)))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)"
+  "TARGET_VSX"
   "xxmrghw %x0,%x1,%x2"
   [(set_attr "type" "vecperm")])
 
@@ -1277,7 +1284,7 @@
 		     (const_int 1)
 		     (const_int 3)]))
 	 (const_int 5)))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)"
+  "TARGET_VSX"
   "xxmrglw %x0,%x1,%x2"
   [(set_attr "type" "vecperm")])
 
@@ -1288,6 +1295,6 @@
 		       (match_operand:VSX_L 2 "vsx_register_operand" "wa")
 		       (match_operand:QI 3 "u5bit_cint_operand" "i")]
 		      UNSPEC_VSX_SLDWI))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)"
+  "TARGET_VSX"
   "xxsldwi %x0,%x1,%x2,%3"
   [(set_attr "type" "vecperm")])

@@ -312,9 +312,6 @@ enum rs6000_vector rs6000_vector_mem[NUM_MACHINE_MODES];
    switches.  */
 enum reg_class rs6000_constraints[RS6000_CONSTRAINT_MAX];
 
-/* Describe the alignment of a vector.  */
-int rs6000_vector_align[NUM_MACHINE_MODES];
-
 /* Map selected modes to types for builtins.  */
 static GTY(()) tree builtin_mode_to_type[MAX_MACHINE_MODE][2];
 
@@ -1835,11 +1832,14 @@ rs6000_debug_reg_global (void)
 	   "align_branch_targets            = %s\n"
 	   "sched_restricted_insns_priority = %d\n"
 	   "sched_costly_dep                = %s\n"
-	   "sched_insert_nops               = %s\n\n",
+	   "sched_insert_nops               = %s\n"
+	   "STRICT_ALIGNMENT                = %s\n"
+	   "\n",
 	   rs6000_always_hint ? "true" : "false",
 	   rs6000_align_branch_targets ? "true" : "false",
 	   (int)rs6000_sched_restricted_insns_priority,
-	   costly_str, nop_str);
+	   costly_str, nop_str,
+	   STRICT_ALIGNMENT ? "true" : "false");
 }
 
 /* Initialize the various global tables that are based on register size.  */
@@ -1847,8 +1847,6 @@ static void
 rs6000_init_hard_regno_mode_ok (void)
 {
   int r, m, c;
-  int align64;
-  int align32;
 
   /* Precalculate REGNO_REG_CLASS.  */
   rs6000_regno_regclass[0] = GENERAL_REGS;
@@ -1891,53 +1889,34 @@ rs6000_init_hard_regno_mode_ok (void)
   for (c = 0; c < (int)(int)RS6000_CONSTRAINT_MAX; c++)
     rs6000_constraints[c] = NO_REGS;
 
-  /* The VSX hardware allows native alignment for vectors, but control whether the compiler
-     believes it can use native alignment or still uses 128-bit alignment.  */
-  if (TARGET_VSX && !TARGET_VSX_ALIGN_128)
-    {
-      align64 = 64;
-      align32 = 32;
-    }
-  else
-    {
-      align64 = 128;
-      align32 = 128;
-    }
-
   /* V2DF mode, VSX only.  */
   if (TARGET_VSX)
     {
       rs6000_vector_unit[V2DFmode] = VECTOR_VSX;
       rs6000_vector_mem[V2DFmode] = VECTOR_VSX;
-      rs6000_vector_align[V2DFmode] = align64;
     }
 
   /* V4SF mode, either VSX or Altivec.  */
   if (TARGET_VSX)
     {
       rs6000_vector_unit[V4SFmode] = VECTOR_VSX;
-      rs6000_vector_mem[V4SFmode] = VECTOR_VSX;
-      rs6000_vector_align[V4SFmode] = align32;
+      rs6000_vector_mem[V4SFmode]
+	= (TARGET_VSX_VECTOR_FLOAT_MEMORY) ? VECTOR_VSX : VECTOR_ALTIVEC;
     }
   else if (TARGET_ALTIVEC)
     {
       rs6000_vector_unit[V4SFmode] = VECTOR_ALTIVEC;
       rs6000_vector_mem[V4SFmode] = VECTOR_ALTIVEC;
-      rs6000_vector_align[V4SFmode] = align32;
     }
 
-  /* V16QImode, V8HImode, V4SImode are Altivec only, but possibly do VSX loads
-     and stores. */
+  /* V16QImode, V8HImode, V4SImode are Altivec only.  */
   if (TARGET_ALTIVEC)
     {
       rs6000_vector_unit[V4SImode] = VECTOR_ALTIVEC;
       rs6000_vector_unit[V8HImode] = VECTOR_ALTIVEC;
       rs6000_vector_unit[V16QImode] = VECTOR_ALTIVEC;
-      rs6000_vector_align[V4SImode] = align32;
-      rs6000_vector_align[V8HImode] = align32;
-      rs6000_vector_align[V16QImode] = align32;
 
-      if (TARGET_VSX)
+      if (TARGET_VSX && TARGET_VSX_VECTOR_INTEGER_MEMORY)
 	{
 	  rs6000_vector_mem[V4SImode] = VECTOR_VSX;
 	  rs6000_vector_mem[V8HImode] = VECTOR_VSX;
@@ -1957,16 +1936,14 @@ rs6000_init_hard_regno_mode_ok (void)
     {
       rs6000_vector_mem[V2DImode] = VECTOR_VSX;
       rs6000_vector_unit[V2DImode] = VECTOR_NONE;
-      rs6000_vector_align[V2DImode] = align64;
     }
 
-  /* DFmode, see if we want to use the VSX unit.  */
+  /* DFmode, see if we want to use VSX loads/stores.  */
   if (TARGET_VSX && TARGET_VSX_SCALAR_DOUBLE)
     {
       rs6000_vector_unit[DFmode] = VECTOR_VSX;
-      rs6000_vector_mem[DFmode]
-	= (TARGET_VSX_SCALAR_MEMORY ? VECTOR_VSX : VECTOR_NONE);
-      rs6000_vector_align[DFmode] = align64;
+      if (TARGET_VSX_SCALAR_MEMORY)
+	rs6000_vector_mem[DFmode] = VECTOR_VSX;
     }
 
   /* TODO add SPE and paired floating point vector support.  */
@@ -1987,10 +1964,11 @@ rs6000_init_hard_regno_mode_ok (void)
 	 V4SF, wd = register class to use for V2DF, and ws = register classs to
 	 use for DF scalars.  */
       rs6000_constraints[RS6000_CONSTRAINT_wa] = VSX_REGS;
-      rs6000_constraints[RS6000_CONSTRAINT_wf] = VSX_REGS;
       rs6000_constraints[RS6000_CONSTRAINT_wd] = VSX_REGS;
-      if (TARGET_VSX_SCALAR_DOUBLE)
-	rs6000_constraints[RS6000_CONSTRAINT_ws] = VSX_REGS;
+      rs6000_constraints[RS6000_CONSTRAINT_wf]
+	= (TARGET_VSX_VECTOR_FLOAT_MEMORY) ? VSX_REGS : ALTIVEC_REGS;
+      rs6000_constraints[RS6000_CONSTRAINT_ws]
+	= (TARGET_VSX_SCALAR_DOUBLE) ? VSX_REGS : FLOAT_REGS;
     }
 
   if (TARGET_ALTIVEC)
@@ -2843,7 +2821,7 @@ rs6000_override_options (const char *default_cpu)
 static tree
 rs6000_builtin_mask_for_load (void)
 {
-  if (TARGET_ALTIVEC || TARGET_VSX)
+  if (TARGET_ALTIVEC)
     return altivec_builtin_mask_for_load;
   else
     return 0;
@@ -2993,11 +2971,11 @@ rs6000_vector_alignment_reachable (const_tree type ATTRIBUTE_UNUSED, bool is_pac
    target.  */ 
 bool
 rs6000_builtin_support_vector_misalignment (enum machine_mode mode,
-					    const_tree type,
+					    const_tree type ATTRIBUTE_UNUSED,
 					    int misalignment,
-					    bool is_packed)
+					    bool is_packed ATTRIBUTE_UNUSED)
 {
-  if (TARGET_VSX)
+  if (VECTOR_MEM_VSX_P (mode))
     {
       /* Return if movmisalign pattern is not supported for this mode.  */
       if (optab_handler (movmisalign_optab, mode)->insn_code ==
@@ -3006,14 +2984,18 @@ rs6000_builtin_support_vector_misalignment (enum machine_mode mode,
 
       if (misalignment == -1)
 	{
-	  /* misalignment factor is unknown at compile time but we know
-	     it's word aligned.  */
-	  if (rs6000_vector_alignment_reachable (type, is_packed))
+	  /* misalignment factor is unknown at compile time but allow in the
+	     case of V2DF and V2DI, since we assume that those are at least
+	     double word aligned.  */
+	  if (mode == V2DFmode || mode == V2DImode)
 	    return true;
 	  return false;
 	}
-      /* VSX supports word-aligned vector.  */
-      if (misalignment % 4 == 0)
+ 
+     /* VSX supports word-aligned vector loads and stores, but the microcode
+	 slows things down unless the vector is at least double word aligned,
+	 so only allow double word in this case.  */
+      else if (misalignment % 8 == 0)
 	return true;
     }
   return false;
@@ -16845,8 +16827,9 @@ compute_vrsave_mask (void)
      in a vector mode without using any altivec registers.  However the VRSAVE
      register does not have room to indicate the floating point registers.
      Modern kernels only look to see if the value is non-zero to determine if
-     they need to save the vector registers, so we just set an arbitrary
-     value if any vector type was used.  */
+     they need to save the vector registers, so we just set an arbitrary value.
+     It would be useful if we could determine whether a floating point register
+     was live using a vector mode and not just a scalar value.  */
   if (mask == 0 && TARGET_VSX && cfun->machine->vsx_or_altivec_used_p)
     mask = 0xFFF;
 

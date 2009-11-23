@@ -1,5 +1,46 @@
 2009-10-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/vector.md (vec_realign_load_<mode>): Only do
+	realignment for vectors using Altivec instructions, not VSX.
+
+	* config/rs6000/rs6000.opt (-mvsx-vector-float-memory): New debug
+	switch to use VSX loads and stores for V4SF if -mvsx, off by
+	default.
+	(-mvsx-vector-integer-memory): New debug switch to use VSX loads
+	and stores for V16QI, V8HI, V4SI if -mvsx, off by default.
+
+	* config/rs6000/rs6000.c (rs6000_vector_align): Delete, no longer
+	used.
+	(rs6000_debug_reg_global): Print if STRICT_ALIGNMENT is set.
+	(rs6000_init_hard_regno_mode_ok): Don't set vector alignment.  Add
+	support for specifying whether to use VSX or Altivec loads and
+	stores for V4SF, V16QI, V8HI, and V4SI modes.
+	(rs6000_builtin_mask_for_load): Delete TARGET_VSX test, since VSX
+	includes Altivec.
+	(rs6000_builtin_support_vector_misalignment): Simplify to allow
+	realignment only for double word types or for 8 byte alignment
+	under VSX.
+
+	* config/rs6000/rs6000.h (rs6000_vector_align): Delete, no longer
+	used.
+	(SLOW_UNALIGNED_ACCESS): Separate Altivec and VSX vector cases.
+
+	* config/rs6000/vsx.md (vsx_concat_<mode>): Change condition to
+	just TARGET_VSX to allow for using Altivec loads/stores but still
+	using VSX instructions.
+	(vsx_concat_v2sf): Ditto.
+	(vsx_set_<mode>): Ditto.
+	(vsx_extract_<mode>): Ditto.
+	(vsx_xxspltw_<mode>): Ditto.
+	(vsx_xxmrghw_<mode>): Ditto.
+	(vsx_xxmrglw_<mode>): Ditto.
+	(vsx_xxsldwi_<mode>): Ditto.
+	(vsx_xxpermdi_<mode>): Delete duplicate case.
+	(vsx_xxpermdi2_<mode>): Clone of vsx_xxpermdi_<mode> that does not
+	do lxvdsx if altivec memory instructions are used for the type.
+
+2009-10-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	Merge up to mainline 153500.
 
 2009-10-19  Michael Meissner  <meissner@linux.vnet.ibm.com>

@@ -751,6 +751,24 @@
 	    || INTVAL (XEXP (XEXP (inner, 0), 1)) % 4 == 0));
 })
 
+;; Return 1 if the operand is a general register or a memory address suitable
+;; for the VSX lxvdsx instruction to use in splatting one 64-bit value into
+;; a VSX register either with xxpermdi or lxvdsx.
+(define_predicate "vsx_splat_operand"
+  (match_code "reg,subreg,mem")
+{
+  rtx inner = op;
+  int strict_p = reload_in_progress || reload_completed;
+
+  if (reload_completed && GET_CODE (inner) == SUBREG)
+    inner = SUBREG_REG (inner);
+
+  return vsx_register_operand (inner, mode)
+    || (memory_operand (inner, mode)
+	&& (legitimate_indirect_address_p (XEXP (inner, 0), strict_p)
+	    || legitimate_indexed_address_p (XEXP (inner, 0), strict_p)));
+})
+
 ;; Return 1 if the operand, used inside a MEM, is a SYMBOL_REF.
 (define_predicate "symbol_ref_operand"
   (and (match_code "symbol_ref")

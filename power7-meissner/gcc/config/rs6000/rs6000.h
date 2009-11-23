@@ -497,16 +497,6 @@ extern enum rs6000_vector rs6000_vector_mem[];
   (rs6000_vector_mem[(MODE)] == VECTOR_ALTIVEC 	\
    || rs6000_vector_mem[(MODE)] == VECTOR_VSX)
 
-/* Return the alignment of a given vector type, which is set based on the
-   vector unit use.  VSX for instance can load 32 or 64 bit aligned words
-   without problems, while Altivec requires 128-bit aligned vectors.  */
-extern int rs6000_vector_align[];
-
-#define VECTOR_ALIGN(MODE)						\
-  ((rs6000_vector_align[(MODE)] != 0)					\
-   ? rs6000_vector_align[(MODE)]					\
-   : (int)GET_MODE_BITSIZE ((MODE)))
-
 /* Alignment options for fields in structures for sub-targets following
    AIX-like ABI.
    ALIGN_POWER word-aligns FP doubles (default AIX ABI).
@@ -776,15 +766,19 @@ extern unsigned rs6000_pointer_size;
    many times greater than aligned accesses, for example if they are
    emulated in a trap handler.  */
 /* Altivec vector memory instructions simply ignore the low bits; SPE vector
-   memory instructions trap on unaligned accesses; VSX memory instructions are
-   aligned to 4 or 8 bytes.  */
+   memory instructions trap on unaligned accesses; VSX memory instructions will
+   not trap on 4 byte alignment, but the performance suffers, so limit the test
+   to 8 byte alignment.  */
 #define SLOW_UNALIGNED_ACCESS(MODE, ALIGN)				\
   (STRICT_ALIGNMENT							\
    || (((MODE) == SFmode || (MODE) == DFmode || (MODE) == TFmode	\
 	|| (MODE) == SDmode || (MODE) == DDmode || (MODE) == TDmode	\
 	|| (MODE) == DImode)						\
        && (ALIGN) < 32)							\
-   || (VECTOR_MODE_P ((MODE)) && (((int)(ALIGN)) < VECTOR_ALIGN (MODE))))
+   || (VECTOR_MEM_ALTIVEC_P ((MODE)) && ((int)(ALIGN) < 128))		\
+   || (VECTOR_MEM_VSX_P ((MODE)) && (((int)(ALIGN)) < 64))		\
+   || (VECTOR_MODE_P (MODE)						\
+       && (((int)(ALIGN)) < (int)GET_MODE_BITSIZE ((MODE)))))
 
 
 /* Standard register usage.  */
