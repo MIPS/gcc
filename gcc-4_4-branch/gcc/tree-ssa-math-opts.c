@@ -546,6 +546,8 @@ execute_cse_reciprocals (void)
 		  FOR_EACH_IMM_USE_FAST (use_p, ui, arg1)
 		    {
 		      gimple stmt2 = USE_STMT (use_p);
+		      if (is_gimple_debug (stmt2))
+			continue;
 		      if (!is_gimple_assign (stmt2)
 			  || gimple_assign_rhs_code (stmt2) != RDIV_EXPR
 			  || gimple_assign_rhs1 (stmt2) == arg1
@@ -558,6 +560,7 @@ execute_cse_reciprocals (void)
 		  if (fail)
 		    continue;
 
+		  gimple_replace_lhs (stmt1, arg1);
 		  gimple_call_set_fndecl (stmt1, fndecl);
 		  update_stmt (stmt1);
 
