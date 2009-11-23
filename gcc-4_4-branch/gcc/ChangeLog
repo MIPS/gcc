@@ -1,3 +1,52 @@
+2009-11-18  Matthias Klose  <doko@ubuntu.com>
+
+	* config.gcc: Update ARM --with-fpu option list.
+
+2009-11-17  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/spu/spu.c (get_pic_reg): Use LAST_ARG_REGNUM as PIC
+	registers in leaf functions if possible.
+
+2009-11-14  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/predicates.md (call_register_no_elim_operand):
+	New predicate.  Reject stack register as valid call operand
+	for 32bit targets.
+	(call_insn_operand): Use call_register_no_elim_operand.
+
+2009-11-13  Richard Henderson  <rth@redhat.com>
+
+	* function.c (stack_protect_prologue): Don't bypass expand_expr
+	for stack_protect_guard and guard_decl.
+	(stack_protect_epilogue): Likewise.
+
+2009-11-13  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/41900
+	(*call_pop_1, *call_1, *call_value_pop_1, *call_value_1): Use "lsm"
+	as operand 1 constraint.
+	* config/i386/predicates.md (call_insn_operand): Depend on
+	index_register_operand to avoid %esp register.
+
+2009-11-13  Uros Bizjak  <ubizjak@gmail.com>
+
+	Revert:
+	2009-11-04  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/41900
+	* config/i386/i386.h (ix86_arch_indices) <X86_ARCH_CALL_ESP>: New.
+	(TARGET_CALL_ESP): New define.
+	* config/i386/i386.c (initial_ix86_tune_features): Initialize
+	X86_ARCH_CALL_ESP.
+	* config/i386/i386.md (*call_pop_1_esp, *call_1_esp,
+	*call_value_pop_1_esp, *call_value_1_esp): Rename from *call_pop_1,
+	*call_1, *call_value_pop_1 and *call_value_1.  Depend on
+	TARGET_CALL_ESP.
+	(*call_pop_1, *call_1, *call_value_pop_1, *call_value_1):
+	New patterns, use "lsm" as operand 1 constraint.
+	* config/i386/predicates.md (call_insn_operand): Depend on
+	index_register_operand for !TARGET_CALL_ESP to avoid %esp register.
+
 2009-11-20  Sebastian Pop  <sebastian.pop@amd.com>
 
 	* config/i386/sse.md (*xop_pmacsdql_mem): Don't call reg_mentioned_p.
@@ -104,8 +153,7 @@
 2009-11-11  Kai Tietz  <kai.tietz@onevision.com>
 
 	Backported from trunk
-	* config/i386/cygming.h (HANDLE_PRAGMA_PUSH_POP_MACRO):
-	Removed.
+	* config/i386/cygming.h (HANDLE_PRAGMA_PUSH_POP_MACRO): Removed.
 	* c-pragma.c (def_pragma_macro_value): Likewise.
 	(def_pragma_macro): Likewise.
 	(pushed_macro_table): Likewise.
@@ -642,7 +690,7 @@
 	2009-10-20  Pascal Obry  <obry@adacore.com>
 		    Eric Botcazou  <ebotcazou@adacore.com>
 
-        * config/i386/cygming.h (DWARF_FRAME_REGNUM): Add enclosing parens.
+	* config/i386/cygming.h (DWARF_FRAME_REGNUM): Add enclosing parens.
 
 2009-10-26  Jakub Jelinek  <jakub@redhat.com>
 

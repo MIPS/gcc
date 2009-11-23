@@ -2677,7 +2677,7 @@ case "${target}" in
 
 		case "$with_fpu" in
 		"" \
-		| fpa | fpe2 | fpe3 | maverick | vfp | vfp3 | neon )
+		| fpa | fpe2 | fpe3 | maverick | vfp | vfp3 | vfpv3 | vfpv3-d16 | neon )
 			# OK
 			;;
 		*)
