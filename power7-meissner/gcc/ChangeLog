@@ -1,3 +1,112 @@
+2009-11-24  Michael Matz  <matz@suse.de>
+
+	* expr.c (set_storage_via_libcall): Fix build_call_expr call.
+
+2009-11-24  David Binderman  <dcb314@hotmail.com>
+
+	* expr.c (store_field): Remove set but not used local variable
+	width_mask.
+	(expand_expr_real_2): Remove treeop2.
+	* gcse.c (update_ld_motion_stores): Remove new_rtx.
+	* haifa-sched.c (max_issue): Remove points.
+	(sched_create_recovery_edges): Remove e.
+	* ira-costs.c (setup_allocno_cover_class_and_costs): Remove mode.
+
+2009-11-24  Nick Clifton  <nickc@redhat.com>
+
+	* config/v850/v850.c (function_arg): Fix handling of zero-length
+	function arguments.
+
+2009-11-24  Michael Matz  <matz@suse.de>
+
+	* tree.h (union tree_ann_d): Don't declare.
+	(tree_base): Remove ann field.
+	(struct var_ann_d): Declare forward.
+	(tree_result_decl, tree_parm_decl, tree_var_decl): Add ann field.
+	(DECL_VAR_ANN_PTR): New macro.
+	* tree-dfa.c (create_var_ann): Rewrite in terms of above macro,
+	accept only VAR, PARM or RESULT decls.
+	(create_tree_common_ann): Remove.
+	(remove_referenced_var): Use DECL_VAR_ANN_PTR.
+	* tree-eh.c (lookup_expr_eh_lp): Remove.
+	* tree-flow-inline.h (var_ann, get_var_ann): Rewrite in terms of
+	DECL_VAR_ANN_PTR.
+	(ann_type, tree_common_ann, get_tree_common_ann): Remove.
+	* tree-flow.h (enum tree_ann_type): Remove.
+	(struct tree_ann_common_d): Remove.
+	(struct var_ann_d): Remove common field.
+	(union tree_ann_d): Remove.
+	(tree_ann_t, tree_ann_common_t): Remove typedefs.
+	(tree_common_ann, get_tree_common_ann, ann_type,
+	create_tree_common_ann, lookup_expr_eh_lp): Don't declare.
+	* tree-ssa.c (delete_tree_ssa): Use DECL_VAR_ANN_PTR.
+	* tree.c (copy_node_stat): Use DECL_VAR_ANN_PTR.
+	* builtins.c (expand_builtin_memcpy): Use
+	currently_expanding_gimple_stmt instead of tree annotation.
+	(expand_builtin_memset_args): Ditto.
+	* cfgexpand.c (currently_expanding_gimple_stmt): Add global variable.
+	(expand_call_stmt): Don't set tree annotation.
+	(expand_gimple_basic_block): Set currently_expanding_gimple_stmt.
+	* expr.c (expand_expr_real): Don't call lookup_expr_eh_lp.
+	* gimple.h (currently_expanding_gimple_stmt): Declare.
+
+2009-11-24  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* dwarf2out.c (add_location_or_const_value_attribute): Remove
+	useless NOTE_VAR_LOCATION_STATUS call.
+	* cfgrtl.c (commit_one_edge_insertion): Remove useless loop, tidy.
+
+2009-11-24  Rafael Avila de Espindola  <espindola@google.com>
+
+	* lto-wrapper.c (lto_wrapper_exit): Don't try to delete files if
+	being called recursively.
+
+2009-11-24  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* Makefile.in (PLUGIN_HEADERS): Added files: cppdefault.h flags.h
+	$(MD5_H) params.def params.h prefix.h tree-inline.h.
+
+2009-11-24  Paul Brook  <paul@codesourcery.com>
+
+	* gcc/config/arm/arm.c (arm_compute_save_reg0_reg12_mask): Fix comment
+	typo.
+
+2009-11-24  Julian Brown  <julian@codesourcery.com>
+	    Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm.c (TARGET_DWARF_REGISTER_SPAN): Define.
+	(arm_dwarf_register_span): New function.
+	(arm_dbx_register_number): Add VFPv3 dwarf numbering.
+
+2009-11-24  David Binderman  <dcb314@hotmail.com>
+
+	* cfgrtl.c (commit_one_edge_insertion): Remove set but not used
+	local variable bb_note.
+	* dominance.c (get_dominated_by): Likewise local var n.
+	(output_file_names): Likewise local var idx.
+	(add_location_or_const_value_attribute): Likewise local var status.
+	* dwarf2out.c (gen_variable_die): Likewise local var field.
+	* emit-rtl.c (no_line_numbers): Remove.
+	(init_emit_once): Remove line_numbers parameter.
+	* rtl.h (init_emit_once): Adjust prototype.
+	* toplev.c (backend_init): Adjust init_emit_once call.
+
+2009-11-24  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/42142
+	* tree-ssa-dce.c (mark_aliased_reaching_defs_necessary_1):
+	Handle iv-dependent (non-)kills properly.
+	(mark_aliased_reaching_defs_necessary): Pass the basic-block
+	of the reference statement to mark_aliased_reaching_defs_necessary_1.
+
+2009-11-24  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/42154
+	* tree-sra.c (struct access): Added comments.
+	(sra_modify_expr): Build references to the old aggregate with
+	build_ref_for_offset instead of reusing access->expr.
+	(load_assign_lhs_subreplacements): Likewise.
+
 2009-11-24  Uros Bizjak  <ubizjak@gmail.com>
 
 	* config/i386/i386.md (add<mode>3_carry): Change insn pattern

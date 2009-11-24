@@ -2712,8 +2712,7 @@ set_storage_via_libcall (rtx object, rtx size, rtx val, bool tailcall)
   val_tree = make_tree (integer_type_node, val);
 
   fn = clear_storage_libcall_fn (true);
-  call_expr = build_call_expr (fn, 3,
-			       object_tree, integer_zero_node, size_tree);
+  call_expr = build_call_expr (fn, 3, object_tree, val_tree, size_tree);
   CALL_EXPR_TAILCALL (call_expr) = tailcall;
 
   retval = expand_normal (call_expr);
@@ -5762,8 +5761,6 @@ store_field (rtx target, HOST_WIDE_INT bitsize, HOST_WIDE_INT bitpos,
 	     enum machine_mode mode, tree exp, tree type,
 	     alias_set_type alias_set, bool nontemporal)
 {
-  HOST_WIDE_INT width_mask = 0;
-
   if (TREE_CODE (exp) == ERROR_MARK)
     return const0_rtx;
 
@@ -5771,8 +5768,6 @@ store_field (rtx target, HOST_WIDE_INT bitsize, HOST_WIDE_INT bitpos,
      side-effects.  */
   if (bitsize == 0)
     return expand_expr (exp, const0_rtx, VOIDmode, EXPAND_NORMAL);
-  else if (bitsize >= 0 && bitsize < HOST_BITS_PER_WIDE_INT)
-    width_mask = ((HOST_WIDE_INT) 1 << bitsize) - 1;
 
   /* If we are storing into an unaligned field of an aligned union that is
      in a register, we may have the mode of TARGET being an integer mode but
@@ -7157,8 +7152,7 @@ rtx
 expand_expr_real (tree exp, rtx target, enum machine_mode tmode,
 		  enum expand_modifier modifier, rtx *alt_rtl)
 {
-  int lp_nr = 0;
-  rtx ret, last = NULL;
+  rtx ret;
 
   /* Handle ERROR_MARK before anybody tries to access its type.  */
   if (TREE_CODE (exp) == ERROR_MARK
@@ -7166,13 +7160,6 @@ expand_expr_real (tree exp, rtx target, enum machine_mode tmode,
     {
       ret = CONST0_RTX (tmode);
       return ret ? ret : const0_rtx;
-    }
-
-  if (flag_non_call_exceptions)
-    {
-      lp_nr = lookup_expr_eh_lp (exp);
-      if (lp_nr)
-	last = get_last_insn ();
     }
 
   /* If this is an expression of some kind and it has an associated line
@@ -7201,25 +7188,6 @@ expand_expr_real (tree exp, rtx target, enum machine_mode tmode,
       ret = expand_expr_real_1 (exp, target, tmode, modifier, alt_rtl);
     }
 
-  /* If using non-call exceptions, mark all insns that may trap.
-     expand_call() will mark CALL_INSNs before we get to this code,
-     but it doesn't handle libcalls, and these may trap.  */
-  if (lp_nr)
-    {
-      rtx insn;
-      for (insn = next_real_insn (last); insn;
-	   insn = next_real_insn (insn))
-	{
-	  if (! find_reg_note (insn, REG_EH_REGION, NULL_RTX)
-	      /* If we want exceptions for non-call insns, any
-		 may_trap_p instruction may throw.  */
-	      && GET_CODE (PATTERN (insn)) != CLOBBER
-	      && GET_CODE (PATTERN (insn)) != USE
-	      && insn_could_throw_p (insn))
-	    make_reg_eh_region_note (insn, 0, lp_nr);
-	}
-    }
-
   return ret;
 }
 
@@ -7240,7 +7208,7 @@ expand_expr_real_2 (sepops ops, rtx target, enum machine_mode tmode,
   gimple subexp0_def, subexp1_def;
   tree top0, top1;
   location_t loc = ops->location;
-  tree treeop0, treeop1, treeop2;
+  tree treeop0, treeop1;
 #define REDUCE_BIT_FIELD(expr)	(reduce_bit_field			  \
 				 ? reduce_to_bit_field_precision ((expr), \
 								  target, \
@@ -7253,7 +7221,6 @@ expand_expr_real_2 (sepops ops, rtx target, enum machine_mode tmode,
 
   treeop0 = ops->op0;
   treeop1 = ops->op1;
-  treeop2 = ops->op2;
 
   /* We should be called only on simple (binary or unary) expressions,
      exactly those that are valid in gimple expressions that aren't
