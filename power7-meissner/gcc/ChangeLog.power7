@@ -1,5 +1,65 @@
 2009-11-24  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/vector.md (vec_realign_load_<mode>): Add support
+	for new debug switches.
+	(movmisalign<mode>): Ditto.
+
+	* config/rs6000/predicates.md (indexed_or_indirect_operand): Add
+	support for VECTOR_MEM_AND_M16_P.
+	(altivec_index_or_indirect_operand): Ditto.
+
+	* config/rs6000/rs6000-protos.h (rs6000_movmisalign_p): Add
+	declaration.
+	(rs6000_vector_realign_p): Ditto.
+	(rs6000_slow_unaligned_access_p): Ditto.
+	
+	* config/rs6000/rs6000.opt (-mallow-movmisalign): Drop debug
+	switch.
+	(-mvsx-vector-float-memory): Ditto.
+	(-mvsx-vector-integer-memory): Ditto.
+	(-maltivec-memory=): New debug switch to control which types use
+	VSX and which types use Altivec memory instructions.
+	(-mmovmisalign=): New debug switch to control which types support
+	movmisalign.
+	(-mvector-realign=): New debug switch to control which types can
+	do vector realignment.
+	(-mvsx-and-immediate): New debug switch to allow AND -16 on VSX
+	memory addresses.
+	(-mvsx-align-128): Delete.
+	(-mvsx-align-<n>): Replace -mvsx-align-128, allow user to specify
+	alignment.
+	
+	* config/rs6000/rs6000.c (rs6000_altivec_memory_str): New static
+	for new debug switches.
+	(rs6000_movmisalign_str): Ditto.
+	(rs6000_vector_realign_str): Ditto.
+	(rs6000_movmisalign_p): New global for -mmovmisalign= support.
+	(rs6000_vector_realign_p): New global for -mvector-realign=
+	support.
+	(rs6000_parse_vector_types): New function for debug switches that
+	take a sequence of vector types.
+	(rs6000_altivec_memory_callback): Callback for -maltivec-memory=.
+	(rs6000_movmisalign_callback): Callback for -mmovmisalign=.
+	(rs6000_vector_realign_callback): Callback for -mvector-realign=.
+	(rs6000_debug_reg_global): Print more information for vector
+	types.
+	(rs6000_init_hard_regno_mode_ok): Add support for
+	-malitvec-memory=, -mmovmisalign=, and -mvector-realign=.
+	(rs6000_handle_option): Ditto.
+	(rs6000_legitimize_reload_address): Use VECTOR_MEM_AND_M16_P to
+	determine if we can do AND -16.
+	(rs6000_secondary_reload): Ditto.
+	(rs6000_secondary_reload_inner): Ditto.
+	(print_operand): Ditto.
+	(rs6000_slow_unaligned_access_p): New function to implement
+	SLOW_UNALIGNED_ACCESS.  Add debug support.
+	(rs6000_builtin_support_vector_misalignment): Add support for
+	-mmovmisalign=.
+	
+	* config/rs6000/rs6000.h (VECTOR_MEM_AND_M16_P): New macro to
+	return true if a type can have AND -16 as part of its address.
+	(SLOW_UNALIGNED_ACCESS): Move code to a function.
+
 	Merge up to mainline subversion id, 154509.
 
 2009-11-23  Michael Meissner  <meissner@linux.vnet.ibm.com>

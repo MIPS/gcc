@@ -815,7 +815,8 @@
    (match_operand:VEC_K 1 "vlogical_operand" "")
    (match_operand:VEC_K 2 "vlogical_operand" "")
    (match_operand:V16QI 3 "vlogical_operand" "")]
-  "VECTOR_MEM_ALTIVEC_P (<MODE>mode)"
+  "VECTOR_MEM_ALTIVEC_OR_VSX_P (<MODE>mode)
+   && rs6000_vector_realign_p[(int)<MODE>mode]"
 {
   emit_insn (gen_altivec_vperm_<mode> (operands[0], operands[1], operands[2],
 				       operands[3]));
@@ -828,7 +829,7 @@
 (define_expand "movmisalign<mode>"
  [(set (match_operand:VEC_N 0 "vfloat_operand" "")
        (match_operand:VEC_N 1 "vfloat_operand" ""))]
- "VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_ALLOW_MOVMISALIGN"
+ "VECTOR_MEM_VSX_P (<MODE>mode) && rs6000_movmisalign_p[(int)<MODE>mode]"
  "")
 
 

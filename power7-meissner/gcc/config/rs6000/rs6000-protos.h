@@ -178,6 +178,7 @@ extern bool rs6000_tls_referenced_p (rtx);
 extern void rs6000_conditional_register_usage (void);
 
 extern void rs6000_aix_asm_output_dwarf_table_ref (char *);
+extern bool rs6000_slow_unaligned_access_p (enum machine_mode, unsigned int);
 
 /* Declare functions in rs6000-c.c */
 
@@ -197,4 +198,6 @@ void rs6000_final_prescan_insn (rtx, rtx *operand, int num_operands);
 extern bool rs6000_hard_regno_mode_ok_p[][FIRST_PSEUDO_REGISTER];
 extern unsigned char rs6000_class_max_nregs[][LIM_REG_CLASSES];
 extern unsigned char rs6000_hard_regno_nregs[][FIRST_PSEUDO_REGISTER];
+extern bool rs6000_movmisalign_p[];
+extern bool rs6000_vector_realign_p[];
 #endif  /* rs6000-protos.h */

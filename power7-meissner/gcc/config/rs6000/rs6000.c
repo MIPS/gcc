@@ -160,6 +160,15 @@ enum rs6000_dependence_cost rs6000_sched_costly_dep;
 const char *rs6000_sched_insert_nops_str;
 enum rs6000_nop_insertion rs6000_sched_insert_nops;
 
+/* Support for -maltivec-memory option.  */
+static const char *rs6000_altivec_memory_str;
+
+/* Support for -mmovmisalign option.  */
+static const char *rs6000_movmisalign_str;
+
+/* Support for -mvector-realign option.  */
+static const char *rs6000_vector_realign_str;
+
 /* Support targetm.vectorize.builtin_mask_for_load.  */
 static GTY(()) tree altivec_builtin_mask_for_load;
 
@@ -235,6 +244,12 @@ unsigned rs6000_pointer_size;
 
 /* Value is TRUE if register/mode pair is acceptable.  */
 bool rs6000_hard_regno_mode_ok_p[NUM_MACHINE_MODES][FIRST_PSEUDO_REGISTER];
+
+/* Value is TRUE if movmisalign is allowed for the vector type.  */
+bool rs6000_movmisalign_p[NUM_MACHINE_MODES];
+
+/* Value is TRUE if vector_realign is allowed for the vector type.  */
+bool rs6000_vector_realign_p[NUM_MACHINE_MODES];
 
 /* Maximum number of registers needed for a given register class and mode.  */
 unsigned char rs6000_class_max_nregs[NUM_MACHINE_MODES][LIM_REG_CLASSES];
@@ -1527,6 +1542,112 @@ static const struct attribute_spec rs6000_attribute_table[] =
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
+/* Parse a string of types and call a callback function for each type.  */
+
+static void
+rs6000_parse_vector_types (const char *types,
+			   void (*callback) (enum machine_mode, bool),
+			   const char *swname)
+{
+  char *str = ASTRDUP (types);
+  char *type;
+  bool set_or_reset_p;
+
+  while ((type = strtok (str, ",")) != NULL)
+    {
+      if (*type == '!')
+	{
+	  set_or_reset_p = false;
+	  type++;
+	}
+      else
+	set_or_reset_p = true;
+
+      str = NULL;
+      if (!strcasecmp (type, "v2df"))
+	callback (V2DFmode, set_or_reset_p);
+
+      else if (!strcasecmp (type, "v2di"))
+	callback (V2DImode, set_or_reset_p);
+
+      else if (!strcasecmp (type, "v4sf"))
+	callback (V4SFmode, set_or_reset_p);
+
+      else if (!strcasecmp (type, "v4si"))
+	callback (V4SImode, set_or_reset_p);
+
+      else if (!strcasecmp (type, "v8hi") || !strcmp (type, "16"))
+	callback (V8HImode, set_or_reset_p);
+
+      else if (!strcasecmp (type, "v16qi") || !strcmp (type, "8"))
+	callback (V16QImode, set_or_reset_p);
+
+      else if (!strcasecmp (type, "int"))
+	{
+	  callback (V16QImode, set_or_reset_p);
+	  callback (V8HImode, set_or_reset_p);
+	  callback (V4SImode, set_or_reset_p);
+	  callback (V2DImode, set_or_reset_p);
+	}
+
+      else if (!strcasecmp (type, "fp"))
+	{
+	  callback (V2DFmode, set_or_reset_p);
+	  callback (V4SFmode, set_or_reset_p);
+	}
+
+      else if (!strcmp (type, "64"))
+	{
+	  callback (V2DFmode, set_or_reset_p);
+	  callback (V2DImode, set_or_reset_p);
+	}
+
+      else if (!strcmp (type, "32"))
+	{
+	  callback (V4SFmode, set_or_reset_p);
+	  callback (V4SImode, set_or_reset_p);
+	}
+
+      else if (!strcmp (type, "all"))
+	{
+	  callback (V16QImode, set_or_reset_p);
+	  callback (V8HImode, set_or_reset_p);
+	  callback (V4SImode, set_or_reset_p);
+	  callback (V2DImode, set_or_reset_p);
+	  callback (V4SFmode, set_or_reset_p);
+	  callback (V2DFmode, set_or_reset_p);
+	}
+
+      else
+	error ("Unknown %s=%s option", swname, type);
+    }
+}
+
+/* Callback to set the memory type to Altivec instead of VSX.  */
+
+static void
+rs6000_altivec_memory_callback (enum machine_mode mode, bool altivec_p)
+{
+  rs6000_vector_mem[(int)mode] = (altivec_p) ? VECTOR_ALTIVEC : VECTOR_VSX;
+}
+
+/* Callback to set that movmisalign for a type is allowed.  */
+
+static void
+rs6000_movmisalign_callback (enum machine_mode mode, bool movmisalign_p)
+{
+  rs6000_movmisalign_p[(int)mode] = movmisalign_p;
+}
+
+/* Callback to set vector alignment for a type is allowed.  */
+
+static void
+rs6000_vector_realign_callback (enum machine_mode mode, bool realign_p)
+{
+  rs6000_vector_realign_p[(int)mode] = realign_p;
+}
+
+
 /* Return number of consecutive hard regs needed starting at reg REGNO
    to hold something of mode MODE.
    This is ordinarily the length in words of a value of mode MODE
@@ -1768,10 +1889,17 @@ rs6000_debug_reg_global (void)
     if (rs6000_vector_unit[m] || rs6000_vector_mem[m])
       {
 	nl = "\n";
-	fprintf (stderr, "Vector mode: %-5s arithmetic: %-8s move: %-8s\n",
+	fprintf (stderr,
+		 "Vector mode: %-5s arithmetic=%-8s move=%-8s realign=%-5s "
+		 "movmisalign=%-5s slow32=%-5s slow64=%-5s slow128=%-5s\n",
 		 GET_MODE_NAME (m),
 		 rs6000_debug_vector_unit[ rs6000_vector_unit[m] ],
-		 rs6000_debug_vector_unit[ rs6000_vector_mem[m] ]);
+		 rs6000_debug_vector_unit[ rs6000_vector_mem[m] ],
+		 rs6000_vector_realign_p[m] ? "true" : "false",
+		 rs6000_movmisalign_p[m] ? "true" : "false",
+		 SLOW_UNALIGNED_ACCESS (m, 32)  ? "true" : "false",
+		 SLOW_UNALIGNED_ACCESS (m, 64)  ? "true" : "false",
+		 SLOW_UNALIGNED_ACCESS (m, 128) ? "true" : "false");
       }
 
   if (nl)
@@ -1882,6 +2010,8 @@ rs6000_init_hard_regno_mode_ok (void)
       rs6000_vector_unit[m] = rs6000_vector_mem[m] = VECTOR_NONE;
       rs6000_vector_reload[m][0] = CODE_FOR_nothing;
       rs6000_vector_reload[m][1] = CODE_FOR_nothing;
+      rs6000_movmisalign_p[m] = false;
+      rs6000_vector_realign_p[m] = false;
     }
 
   for (c = 0; c < (int)(int)RS6000_CONSTRAINT_MAX; c++)
@@ -1898,8 +2028,7 @@ rs6000_init_hard_regno_mode_ok (void)
   if (TARGET_VSX)
     {
       rs6000_vector_unit[V4SFmode] = VECTOR_VSX;
-      rs6000_vector_mem[V4SFmode]
-	= (TARGET_VSX_VECTOR_FLOAT_MEMORY) ? VECTOR_VSX : VECTOR_ALTIVEC;
+      rs6000_vector_mem[V4SFmode] = VECTOR_VSX;
     }
   else if (TARGET_ALTIVEC)
     {
@@ -1914,7 +2043,7 @@ rs6000_init_hard_regno_mode_ok (void)
       rs6000_vector_unit[V8HImode] = VECTOR_ALTIVEC;
       rs6000_vector_unit[V16QImode] = VECTOR_ALTIVEC;
 
-      if (TARGET_VSX && TARGET_VSX_VECTOR_INTEGER_MEMORY)
+      if (TARGET_VSX)
 	{
 	  rs6000_vector_mem[V4SImode] = VECTOR_VSX;
 	  rs6000_vector_mem[V8HImode] = VECTOR_VSX;
@@ -1944,6 +2073,60 @@ rs6000_init_hard_regno_mode_ok (void)
 	rs6000_vector_mem[DFmode] = VECTOR_VSX;
     }
 
+  /* Defaults for movmisalign.  */
+  if (TARGET_VSX)
+    {
+      if (!rs6000_movmisalign_str)
+	{
+	  rs6000_movmisalign_p[V2DFmode] = true;
+	  rs6000_movmisalign_p[V2DImode] = true;
+	  rs6000_movmisalign_p[V4SFmode] = true;
+	  rs6000_movmisalign_p[V4SImode] = true;
+	}
+      else
+	rs6000_parse_vector_types (rs6000_movmisalign_str,
+				   rs6000_movmisalign_callback,
+				   "-mmovmisalign");
+
+    }
+  else if (rs6000_movmisalign_str)
+    error ("-mmovmisalign= must be used with -mvsx.");
+
+  /* Defaults for vector_realign.  */
+  if (TARGET_ALTIVEC)
+    {
+      if (!rs6000_vector_realign_str)
+	{
+	  if (TARGET_VSX)
+	    {
+	      rs6000_vector_realign_p[V2DFmode] = true;
+	      rs6000_vector_realign_p[V2DImode] = true;
+	    }
+	  rs6000_vector_realign_p[V4SFmode] = true;
+	  rs6000_vector_realign_p[V4SImode] = true;
+	  rs6000_vector_realign_p[V8HImode] = true;
+	  rs6000_vector_realign_p[V16QImode] = true;
+	}
+      else
+	rs6000_parse_vector_types (rs6000_vector_realign_str,
+				   rs6000_vector_realign_callback,
+				   "-mvector-realign");
+    }
+  else if (rs6000_vector_realign_str)
+    error ("-mvector-realign= must be used with -maltivec or -mvsx.");
+
+  /* If -mvsx, adjust the memory types to optionally use Altivec instead of
+     VSX.  */
+  if (rs6000_altivec_memory_str)
+    {
+      if (TARGET_VSX)
+	rs6000_parse_vector_types (rs6000_altivec_memory_str,
+				   rs6000_altivec_memory_callback,
+				   "-maltivec-memory");
+      else
+	error ("-maltivec-memory must be used with -mvsx");
+    }
+
   /* TODO add SPE and paired floating point vector support.  */
 
   /* Register class constaints for the constraints that depend on compile
@@ -1962,9 +2145,10 @@ rs6000_init_hard_regno_mode_ok (void)
 	 V4SF, wd = register class to use for V2DF, and ws = register classs to
 	 use for DF scalars.  */
       rs6000_constraints[RS6000_CONSTRAINT_wa] = VSX_REGS;
-      rs6000_constraints[RS6000_CONSTRAINT_wd] = VSX_REGS;
+      rs6000_constraints[RS6000_CONSTRAINT_wd]
+	= (rs6000_vector_mem[V2DFmode] == VECTOR_VSX) ? VSX_REGS : ALTIVEC_REGS;
       rs6000_constraints[RS6000_CONSTRAINT_wf]
-	= (TARGET_VSX_VECTOR_FLOAT_MEMORY) ? VSX_REGS : ALTIVEC_REGS;
+	= (rs6000_vector_mem[V4SFmode] == VECTOR_VSX) ? VSX_REGS : ALTIVEC_REGS;
       rs6000_constraints[RS6000_CONSTRAINT_ws]
 	= (TARGET_VSX_SCALAR_DOUBLE) ? VSX_REGS : FLOAT_REGS;
     }
@@ -2046,6 +2230,45 @@ rs6000_init_hard_regno_mode_ok (void)
 
   if (TARGET_DEBUG_REG)
     rs6000_debug_reg_global ();
+}
+
+/* Return true if unaligned accesses have a cost many times greater than
+   aligned accesses, for example if they are emulated in a trap handler.  */
+/* Altivec vector memory instructions simply ignore the low bits; SPE vector
+   memory instructions trap on unaligned accesses; VSX memory instructions will
+   not trap on 4 byte alignment, but the performance suffers, so limit the test
+   to 8 byte alignment.  */
+
+bool
+rs6000_slow_unaligned_access_p (enum machine_mode mode, unsigned int align)
+{
+  bool ret;
+
+  if (STRICT_ALIGNMENT)
+    ret = true;
+
+  else if ((mode == SFmode || mode == DFmode || mode == TFmode
+	    || mode == SDmode || mode == DDmode || mode == TDmode
+	    || mode == DImode) && align < 32)
+    ret = true;
+
+  else if (VECTOR_MEM_ALTIVEC_P (mode))
+    ret = (align < 128);
+
+  else if (VECTOR_MEM_VSX_P (mode))
+    ret = (align < (unsigned int)rs6000_vsx_alignment);
+
+  else if (VECTOR_MODE_P (mode))
+    ret = (align < (unsigned int)GET_MODE_BITSIZE (mode));
+
+  else
+    ret = false;
+
+  if (TARGET_DEBUG_ADDR)
+    fprintf (stderr, "slow_unaligned_access (%s, %d) = %s\n",
+	     GET_MODE_NAME (mode), align, ret ? "true" : "false");
+
+  return ret;
 }
 
 #if TARGET_MACHO
@@ -2980,6 +3203,10 @@ rs6000_builtin_support_vector_misalignment (enum machine_mode mode,
           CODE_FOR_nothing)
         return false;
 
+      /* Also return if we disabled movmisalign support for this type.  */
+      if (!rs6000_movmisalign_p[(int)mode])
+	return false;
+
       if (misalignment == -1)
 	{
 	  /* misalignment factor is unknown at compile time but allow in the
@@ -3607,6 +3834,18 @@ rs6000_handle_option (size_t code, const char *arg, int value)
         target_flags_explicit |= MASK_SOFT_FLOAT;
         rs6000_single_float = rs6000_double_float = 0;
       }
+      break;
+
+    case OPT_maltivec_memory_:
+      rs6000_altivec_memory_str = arg;
+      break;
+
+    case OPT_mmovmisalign_:
+      rs6000_movmisalign_str = arg;
+      break;
+
+    case OPT_mvector_realign_:
+      rs6000_vector_realign_str = arg;
       break;
     }
   return true;
@@ -5608,7 +5847,7 @@ rs6000_legitimize_reload_address (rtx x, enum machine_mode mode,
      force reload to create the address with an AND in a separate
      register, because we can't guarantee an altivec register will
      be used.  */
-  if (VECTOR_MEM_ALTIVEC_P (mode)
+  if (VECTOR_MEM_AND_M16_P (mode)
       && GET_CODE (x) == AND
       && GET_CODE (XEXP (x, 0)) == PLUS
       && GET_CODE (XEXP (XEXP (x, 0), 0)) == REG
@@ -5685,7 +5924,7 @@ rs6000_legitimate_address_p (enum machine_mode mode, rtx x, bool reg_ok_strict)
   bool reg_offset_p = reg_offset_addressing_ok_p (mode);
 
   /* If this is an unaligned stvx/ldvx type address, discard the outer AND.  */
-  if (VECTOR_MEM_ALTIVEC_P (mode)
+  if (VECTOR_MEM_AND_M16_P (mode)
       && GET_CODE (x) == AND
       && GET_CODE (XEXP (x, 1)) == CONST_INT
       && INTVAL (XEXP (x, 1)) == -16)
@@ -13250,7 +13489,7 @@ rs6000_secondary_reload (bool in_p,
 	  else if (rclass == VSX_REGS || rclass == ALTIVEC_REGS
 		   || rclass == FLOAT_REGS || rclass == NO_REGS)
 	    {
-	      if (!VECTOR_MEM_ALTIVEC_P (mode)
+	      if (rclass != ALTIVEC_REGS
 		  && GET_CODE (addr) == AND
 		  && GET_CODE (XEXP (addr, 1)) == CONST_INT
 		  && INTVAL (XEXP (addr, 1)) == -16
@@ -13452,8 +13691,7 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
       if (GET_CODE (addr) == AND
 	  && (rclass != ALTIVEC_REGS || GET_MODE_SIZE (mode) != 16
 	      || GET_CODE (XEXP (addr, 1)) != CONST_INT
-	      || INTVAL (XEXP (addr, 1)) != -16
-	      || !VECTOR_MEM_ALTIVEC_P (mode)))
+	      || INTVAL (XEXP (addr, 1)) != -16))
 	{
 	  and_op2 = XEXP (addr, 1);
 	  addr = XEXP (addr, 0);
@@ -13479,7 +13717,7 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
 	  || (GET_CODE (addr) == AND			/* Altivec memory */
 	      && GET_CODE (XEXP (addr, 1)) == CONST_INT
 	      && INTVAL (XEXP (addr, 1)) == -16
-	      && VECTOR_MEM_ALTIVEC_P (mode))
+	      && VECTOR_MEM_AND_M16_P (mode))
 	  || (rclass == FLOAT_REGS			/* legacy float mem */
 	      && GET_MODE_SIZE (mode) == 8
 	      && and_op2 == NULL_RTX
@@ -14832,7 +15070,7 @@ print_operand (FILE *file, rtx x, int code)
 
 	    /* Fall through.  Must be [reg+reg].  */
 	  }
-	if (VECTOR_MEM_ALTIVEC_P (GET_MODE (x))
+	if (VECTOR_MEM_AND_M16_P (GET_MODE (x))
 	    && GET_CODE (tmp) == AND
 	    && GET_CODE (XEXP (tmp, 1)) == CONST_INT
 	    && INTVAL (XEXP (tmp, 1)) == -16)

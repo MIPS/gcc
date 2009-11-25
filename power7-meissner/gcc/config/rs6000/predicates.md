@@ -442,7 +442,7 @@
   (match_code "mem")
 {
   op = XEXP (op, 0);
-  if (VECTOR_MEM_ALTIVEC_P (mode)
+  if (VECTOR_MEM_AND_M16_P (mode)
       && GET_CODE (op) == AND
       && GET_CODE (XEXP (op, 1)) == CONST_INT
       && INTVAL (XEXP (op, 1)) == -16)
@@ -459,7 +459,7 @@
   (match_code "mem")
 {
   op = XEXP (op, 0);
-  if (VECTOR_MEM_ALTIVEC_OR_VSX_P (mode)
+  if (VECTOR_MEM_AND_M16_P (mode)
       && GET_CODE (op) == AND
       && GET_CODE (XEXP (op, 1)) == CONST_INT
       && INTVAL (XEXP (op, 1)) == -16)

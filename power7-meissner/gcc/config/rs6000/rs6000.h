@@ -493,6 +493,11 @@ extern enum rs6000_vector rs6000_vector_mem[];
 #define VECTOR_MEM_ALTIVEC_P(MODE)			\
   (rs6000_vector_mem[(MODE)] == VECTOR_ALTIVEC)
 
+#define VECTOR_MEM_AND_M16_P(MODE)			\
+  (VECTOR_MEM_ALTIVEC_P (MODE)				\
+   || (TARGET_VSX_AND_IMMEDIATE && VECTOR_MEM_VSX_P (MODE)))
+
+
 #define VECTOR_MEM_ALTIVEC_OR_VSX_P(MODE)		\
   (rs6000_vector_mem[(MODE)] == VECTOR_ALTIVEC 	\
    || rs6000_vector_mem[(MODE)] == VECTOR_VSX)
@@ -770,15 +775,7 @@ extern unsigned rs6000_pointer_size;
    not trap on 4 byte alignment, but the performance suffers, so limit the test
    to 8 byte alignment.  */
 #define SLOW_UNALIGNED_ACCESS(MODE, ALIGN)				\
-  (STRICT_ALIGNMENT							\
-   || (((MODE) == SFmode || (MODE) == DFmode || (MODE) == TFmode	\
-	|| (MODE) == SDmode || (MODE) == DDmode || (MODE) == TDmode	\
-	|| (MODE) == DImode)						\
-       && (ALIGN) < 32)							\
-   || (VECTOR_MEM_ALTIVEC_P ((MODE)) && ((int)(ALIGN) < 128))		\
-   || (VECTOR_MEM_VSX_P ((MODE)) && (((int)(ALIGN)) < 64))		\
-   || (VECTOR_MODE_P (MODE)						\
-       && (((int)(ALIGN)) < (int)GET_MODE_BITSIZE ((MODE)))))
+  rs6000_slow_unaligned_access_p (MODE, ALIGN)
 
 
 /* Standard register usage.  */
