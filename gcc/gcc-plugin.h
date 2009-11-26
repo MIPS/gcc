@@ -27,6 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "highlev-plugin-common.h"
+#include "hashtab.h"
 
 /* Event names.  */
 enum plugin_event

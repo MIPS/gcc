@@ -934,7 +934,8 @@ TREE_VECTORIZER_H = tree-vectorizer.h $(TREE_DATA_REF_H)
 IPA_PROP_H = ipa-prop.h $(TREE_H) vec.h $(CGRAPH_H)
 GSTAB_H = gstab.h stab.def
 BITMAP_H = bitmap.h $(HASHTAB_H) statistics.h
-GCC_PLUGIN_H = gcc-plugin.h highlev-plugin-common.h $(CONFIG_H) $(SYSTEM_H)
+GCC_PLUGIN_H = gcc-plugin.h highlev-plugin-common.h $(CONFIG_H) $(SYSTEM_H) \
+		$(HASHTAB_H)
 PLUGIN_H = plugin.h $(GCC_PLUGIN_H)
 PLUGIN_VERSION_H = plugin-version.h configargs.h
 
