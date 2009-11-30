@@ -160,14 +160,17 @@ enum rs6000_dependence_cost rs6000_sched_costly_dep;
 const char *rs6000_sched_insert_nops_str;
 enum rs6000_nop_insertion rs6000_sched_insert_nops;
 
-/* Support for -maltivec-memory option.  */
+/* Support for -m{altivec,vsx}-memory option.  */
 static const char *rs6000_altivec_memory_str;
+static const char *rs6000_vsx_memory_str;
 
-/* Support for -mmovmisalign option.  */
+/* Support for -m{,no-}movmisalign option.  */
 static const char *rs6000_movmisalign_str;
+static const char *rs6000_no_movmisalign_str;
 
-/* Support for -mvector-realign option.  */
+/* Support for -m{,no-}vector-realign option.  */
 static const char *rs6000_vector_realign_str;
+static const char *rs6000_no_vector_realign_str;
 
 /* Support targetm.vectorize.builtin_mask_for_load.  */
 static GTY(()) tree altivec_builtin_mask_for_load;
@@ -1545,7 +1548,7 @@ struct gcc_target targetm = TARGET_INITIALIZER;
 /* Parse a string of types and call a callback function for each type.  */
 
 static void
-rs6000_parse_vector_types (const char *types,
+rs6000_parse_vector_types (const char *types, bool default_set_or_reset_p,
 			   void (*callback) (enum machine_mode, bool),
 			   const char *swname)
 {
@@ -1557,11 +1560,11 @@ rs6000_parse_vector_types (const char *types,
     {
       if (*type == '!')
 	{
-	  set_or_reset_p = false;
+	  set_or_reset_p = !!default_set_or_reset_p;
 	  type++;
 	}
       else
-	set_or_reset_p = true;
+	set_or_reset_p = default_set_or_reset_p;
 
       str = NULL;
       if (!strcasecmp (type, "v2df"))
@@ -2084,13 +2087,23 @@ rs6000_init_hard_regno_mode_ok (void)
 	  rs6000_movmisalign_p[V4SImode] = true;
 	}
       else
-	rs6000_parse_vector_types (rs6000_movmisalign_str,
+	rs6000_parse_vector_types (rs6000_movmisalign_str, true,
 				   rs6000_movmisalign_callback,
 				   "-mmovmisalign");
 
+      if (rs6000_no_movmisalign_str)
+	rs6000_parse_vector_types (rs6000_no_movmisalign_str, false,
+				   rs6000_movmisalign_callback,
+				   "-mno-movmisalign");
     }
-  else if (rs6000_movmisalign_str)
-    error ("-mmovmisalign= must be used with -mvsx.");
+  else
+    {
+      if (rs6000_movmisalign_str)
+	error ("-mmovmisalign= must be used with -mvsx.");
+
+      if (rs6000_no_movmisalign_str)
+	error ("-mno-movmisalign= must be used with -mvsx.");
+    }
 
   /* Defaults for vector_realign.  */
   if (TARGET_ALTIVEC)
@@ -2108,23 +2121,56 @@ rs6000_init_hard_regno_mode_ok (void)
 	  rs6000_vector_realign_p[V16QImode] = true;
 	}
       else
-	rs6000_parse_vector_types (rs6000_vector_realign_str,
+	rs6000_parse_vector_types (rs6000_vector_realign_str, true,
 				   rs6000_vector_realign_callback,
 				   "-mvector-realign");
+
+      if (rs6000_no_vector_realign_str)
+	rs6000_parse_vector_types (rs6000_no_vector_realign_str, false,
+				   rs6000_vector_realign_callback,
+				   "-mno-vector-realign");
     }
-  else if (rs6000_vector_realign_str)
-    error ("-mvector-realign= must be used with -maltivec or -mvsx.");
+  else
+    {
+      if (rs6000_vector_realign_str)
+	error ("-mvector-realign= must be used with -maltivec or -mvsx.");
+
+      if (rs6000_no_vector_realign_str)
+	error ("-mno-vector-realign= must be used with -maltivec or -mvsx.");
+    }
 
   /* If -mvsx, adjust the memory types to optionally use Altivec instead of
      VSX.  */
-  if (rs6000_altivec_memory_str)
+  if (TARGET_VSX)
     {
-      if (TARGET_VSX)
-	rs6000_parse_vector_types (rs6000_altivec_memory_str,
+      if (rs6000_altivec_memory_str)
+	rs6000_parse_vector_types (rs6000_altivec_memory_str, true,
 				   rs6000_altivec_memory_callback,
 				   "-maltivec-memory");
-      else
-	error ("-maltivec-memory must be used with -mvsx");
+
+      if (rs6000_vsx_memory_str)
+	{
+	  /* If we have -mvsx-memory= but no -maltivec-memory=, assume memory
+	     references to be altivec by default.  */
+	  if (!rs6000_altivec_memory_str)
+	    {
+	      for (m = 0; m < NUM_MACHINE_MODES; ++m)
+		if (VECTOR_MODE_P (m) && rs6000_vector_mem[m] == VECTOR_VSX)
+		  rs6000_vector_mem[m] = VECTOR_ALTIVEC;
+	    }
+
+	  rs6000_parse_vector_types (rs6000_vsx_memory_str, false,
+				     rs6000_altivec_memory_callback,
+				     "-mvsx-memory");
+	}
+    }
+  else
+    {
+      if (rs6000_altivec_memory_str)
+	error ("-maltivec-memory= must be used with -mvsx");
+
+      if (rs6000_vsx_memory_str)
+	error ("-mvsx-memory= must be used with -mvsx");
     }
 
   /* TODO add SPE and paired floating point vector support.  */
@@ -3236,6 +3282,9 @@ rs6000_builtin_vec_perm (tree type, tree *mask_element_type)
 
   *mask_element_type = unsigned_char_type_node;
 
+  if (! rs6000_vector_realign_p[(int)TYPE_MODE (type)])
+    return NULL_TREE;
+
   switch (TYPE_MODE (type))
     {
     case V16QImode:
@@ -3261,16 +3310,10 @@ rs6000_builtin_vec_perm (tree type, tree *mask_element_type)
       break;
 
     case V2DFmode:
-      if (!TARGET_ALLOW_DF_PERMUTE)
-	return NULL_TREE;
-
       d = rs6000_builtin_decls[ALTIVEC_BUILTIN_VPERM_2DF];
       break;
 
     case V2DImode:
-      if (!TARGET_ALLOW_DF_PERMUTE)
-	return NULL_TREE;
-
       d = (uns_p
 	   ? rs6000_builtin_decls[ALTIVEC_BUILTIN_VPERM_2DI_UNS]
 	   : rs6000_builtin_decls[ALTIVEC_BUILTIN_VPERM_2DI]);
@@ -3840,12 +3883,24 @@ rs6000_handle_option (size_t code, const char *arg, int value)
       rs6000_altivec_memory_str = arg;
       break;
 
+    case OPT_mvsx_memory_:
+      rs6000_vsx_memory_str = arg;
+      break;
+
     case OPT_mmovmisalign_:
       rs6000_movmisalign_str = arg;
       break;
 
+    case OPT_mno_movmisalign_:
+      rs6000_no_movmisalign_str = arg;
+      break;
+
     case OPT_mvector_realign_:
       rs6000_vector_realign_str = arg;
+      break;
+
+    case OPT_mno_vector_realign_:
+      rs6000_no_vector_realign_str = arg;
       break;
     }
   return true;

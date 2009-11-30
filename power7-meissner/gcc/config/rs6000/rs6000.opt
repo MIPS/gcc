@@ -131,21 +131,29 @@ mvsx-align-
 Target Undocumented Report RejectNegative Joined UInteger Var(rs6000_vsx_alignment) Init(128)
 ; If -mvsx, set alignment to <n> bits instead of 128
 
-mallow-df-permute
-Target Undocumented Var(TARGET_ALLOW_DF_PERMUTE)
-; Allow/disallow permutation of DF/DI vectors in VSX (off by default)
-
 maltivec-memory=
 Target Undocumented RejectNegative Joined 
 ; Determine which vector types use Altivec memory instructions instead of VSX.
+
+mvsx-memory=
+Target Undocumented RejectNegative Joined 
+; Determine which vector types use VSX memory instructions.
 
 mmovmisalign=
 Target Undocumented RejectNegative Joined 
 ; Determine which vector types can use movmisalign under vsx.
 
+mno-movmisalign=
+Target Undocumented RejectNegative Joined 
+; Determine which vector types will not use movmisalign under vsx.
+
 mvector-realign=
 Target Undocumented RejectNegative Joined 
 ; Determine which vector types can use vector realign under vsx/altivec.
+
+mno-vector-realign=
+Target Undocumented RejectNegative Joined 
+; Determine which vector types will not use vector realign under vsx/altivec.
 
 mvsx-and-immedate
 Target Undocumented Var(TARGET_VSX_AND_IMMEDIATE)
