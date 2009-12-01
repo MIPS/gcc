@@ -1,3 +1,196 @@
+2009-12-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/42234
+	* tree-cfgcleanup.c (cleanup_omp_return): Don't ICE if control_bb
+	contains no statements.
+
+2009-12-01  Grigori Fursin  <grigori.fursin@inria.fr>
+	    Joern Rennecke  <amylaar@spamcop.net>
+
+	* cgraphunit.c (plugin.h): Include.
+	(ipa_passes): Invoke PLUGIN_ALL_IPA_PASSES_START /
+	PLUGIN_ALL_IPA_PASSES_END at start / end of processing.
+	* gcc-plugin.h (highlev-plugin-common.h, hashtab.h): Include.
+	(enum plugin_event): Define by including plugin.def.
+	Last enumerator is now called PLUGIN_EVENT_FIRST_DYNAMIC.
+	(plugin_event_name): Change type to const char **.
+	(get_event_last, get_named_event_id, unregister_callback): Declare.
+	(register_callback): Change type of event argument to int.
+	(highlev-plugin-common.h): New file.
+	* Makefile.in (GCC_PLUGIN_H): Add highlev-plugin-common.h and
+	$(HASHTAB_H)
+	(tree-optimize.o passes.o): Depend on $(PLUGIN_H).
+	(PLUGIN_HEADERS): Add opts.h, $(PARAMS_H) and plugin.def.
+	(s-header-vars): New rule.
+	(install-plugin): Depend on s-header-vars.  Install b-header-vars.
+	* params.c (get_num_compiler_params): New function.
+	* params.h (get_num_compiler_params): Declare.
+	* passes.c (plugin.h): Include.
+	(make_pass_instance): Invoke PLUGIN_NEW_PASS.
+	(do_per_function_toporder, pass_init_dump_file): No longer static.
+	(pass_fini_dump_file): Likewise.
+	(execute_one_pass): Likewise.  Invoke PLUGIN_OVERRIDE_GATE and
+	PLUGIN_PASS_EXECUTION.
+	(execute_ipa_pass_list): Invoke PLUGIN_EARLY_GIMPLE_PASSES_START and
+	PLUGIN_EARLY_GIMPLE_PASSES_END.
+	* plugin.c (plugin_event_name_init): New array, defined by
+	including plugin.def.
+	(FMT_FOR_PLUGIN_EVENT): Update.
+	(plugin_event_name): Change type to const char ** and initialize
+	to plugin_event_name_init.
+	(event_tab, event_last, event_horizon): New variable.
+	(get_event_last): New function.
+	(plugin_callbacks_init): New array.
+	(plugin_callbacks: Change type to struct callback_info **.
+	Initialize to plugin_callbacks_init.
+	(htab_event_eq, get_named_event_id, unregister_callback): New function.
+	(invoke_plugin_va_callbacks): Likewise.
+	(register_callback): Change type of event argument to int.
+	Handle new events.  Allow dynamic events.
+	(invoke_plugin_callbacks): Likewise.  Return success status.
+	(plugins_active_p): Allow dynamic callbacks.
+	* plugin.def: New file.
+	* plugin.h (invoke_plugin_callbacks): Update prototype.
+	(invoke_plugin_va_callbacks): Declare.
+	* tree-optimize.c (plugin.h): Include.
+	(tree_rest_of_compilation): Invoke PLUGIN_ALL_PASSES_START and
+	PLUGIN_ALL_PASSES_END.
+	* tree-pass.h (execute_one_pass, pass_init_dump_file): Declare.
+	(pass_fini_dump_file, do_per_function_toporder): Likewise.
+	* doc/plugin.texi: Document new event types.
+
+2009-12-01  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/42237
+	* tree-sra.c (sra_ipa_modify_assign): Split gimple_reg_type assignments
+	in between references into two.
+
+2009-12-01  Richard Guenther  <rguenther@suse.de>
+
+	* tree-inline.c (copy_tree_body_r): Do not set TREE_BLOCK
+	to the block of the call when remapping a type.
+
+2009-12-01  Martin Jambor  <mjambor@suse.cz>
+
+        * cgraph.h (struct cgraph_edge): Reorder fields.  Make loop_nest
+	unsigned short int.
+	* ipa-prop.h (struct ipa_param_call_note): Likewise.
+	* ipa-prop.c (ipa_note_param_call): Initialize note->loop_nest.
+
+2009-12-01  Richard Guenther  <rguenther@suse.de>
+
+	* final.c (rest_of_clean_state): If -fcompare-debug is
+	given dump final insns without UIDs.
+	* tree-ssa-live.c (remove_unused_scope_block_p): Remove
+	after_inlining checks.
+
+2009-11-30  Chao-ying Fu  <fu@mips.com>
+
+	* config/mips/mips-dsp.md (mips_lhx_<mode>): Use sign_extend.
+
+2009-11-30  Dave Korn  <dave.korn.cygwin@gmail.com>
+
+	* configure.ac (USE_CYGWIN_LIBSTDCXX_WRAPPERS): Define to reflect
+	status of AC_CHECK_FUNC for Cygwin DLL libstdc++ support wrappers.
+	* configure: Regenerate.
+	* config.in: Regenerate.
+
+	* config/i386/cygwin.h (CXX_WRAP_SPEC_LIST): Define list of --wrap
+	options for Cygwin DLL libstdc++ support wrappers.
+	(CXX_WRAP_SPEC_OPT): Define spec to use wrappers or not by default
+	according to defined value of USE_CYGWIN_LIBSTDCXX_WRAPPERS.
+	(CXX_WRAP_SPEC): Define entire wrapper spec in or out according to
+	whether USE_CYGWIN_LIBSTDCXX_WRAPPERS is even defined or not.
+	(LINK_SPEC): Include CXX_WRAP_SPEC.
+	* gcc/config/i386/winnt.c (wrapper_strcmp): New qsort helper function.
+	(i386_find_on_wrapper_list): Check if a function is found on the list
+	of libstdc++ wrapper options.
+	(i386_pe_file_end): If we are importing a wrapped function, also emit
+	an external declaration for the real version.
+	* config/i386/cygming.opt (muse-libstdc-wrappers): New option for
+	Cygwin targets. Update copyright year.
+
+2009-11-30  Steve Ellcey  <sje@cup.hp.com>
+	    Jakub Jelinek <jakub@redhat.com>
+
+	* function.c (instantiate_virtual_regs_in_insn): Copy to new reg
+	before forcing mode.
+
+2009-11-30  Anatoly Sokolov  <aesok@post.ru>
+
+	* config/sh/sh.c (sh_promote_prototypes): Make static.
+	(sh_function_value, sh_libcall_value, sh_function_value_regno_p): New
+	functions.
+	(TARGET_FUNCTION_VALUE, TARGET_LIBCALL_VALUE): Declare.
+	* config/sh/sh.h: (FUNCTION_VALUE_REGNO_P): Redefine, use
+	sh_function_value_regno_p.
+	(FUNCTION_VALUE, LIBCALL_VALUE): Remove.
+	* config/sh/sh-protos.h (sh_function_value_regno_p): Declare.
+	(sh_promote_prototypes) : Remove.
+
+2009-11-30  Julian Brown  <julian@codesourcery.com>
+
+	* config/arm/arm.h (PREFERRED_RELOAD_CLASS): Don't restrict Thumb-2
+	reloads to LO_REGS.
+
+2009-11-30  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/i386.c (ix86_vec_interleave_v2df_operator_ok): New.
+	(bdesc_special_args): Update insn codes.
+	(avx_vpermilp_parallel): Correct range check.
+	(ix86_rtx_costs): Handle vector permutation rtx codes.
+	(struct expand_vec_perm_d): Move earlier.
+	(get_mode_wider_vector): New.
+	(expand_vec_perm_broadcast_1): New.
+	(ix86_expand_vector_init_duplicate): Use it.  Tidy AVX modes.
+	(expand_vec_perm_broadcast): New.
+	(ix86_expand_vec_perm_builtin_1): Use it.
+	* config/i386/i386-protos.h: Update.
+	* config/i386/predicates.md (avx_vbroadcast_operand): New.
+	* config/i386/sse.md (AVX256MODE24P): New.
+	(ssescalarmodesuffix2s): New.
+	(avxhalfvecmode, avxscalarmode): Fill out to all modes.
+	(avxmodesuffixf2c): Add V8SI, V4DI.
+	(vec_dupv4sf): New expander.
+	(*vec_dupv4sf_avx): Add vbroadcastss alternative.
+	(*vec_set<mode>_0_avx, **vec_set<mode>_0_sse4_1): Macro-ize for
+	V4SF and V4SI.  Move C alternatives to front.  Add insertps and
+	pinsrd alternatives.
+	(*vec_set<mode>_0_sse2): Split out from ...
+	(vec_set<mode>_0): Macro-ize for V4SF and V4SI.
+	(vec_interleave_highv2df, vec_interleave_lowv2df): Require register
+	destination; use ix86_vec_interleave_v2df_operator_ok, instead of
+	ix86_fixup_binary_operands.
+	(*avx_interleave_highv2df, avx_interleave_lowv2df): Add movddup.
+	(*sse3_interleave_highv2df, sse3_interleave_lowv2df): New.
+	(*avx_movddup, *sse3_movddup): Remove.  New splitter from
+	vec_select form to vec_duplicate form.
+	(*sse2_interleave_highv2df, sse2_interleave_lowv2df): Use
+	ix86_vec_interleave_v2df_operator_ok.
+	(avx_movddup256, avx_unpcklpd256): Change to expanders, merge into ... 
+	(*avx_unpcklpd256): ... here.
+	(*vec_dupv4si_avx): New.
+	(*vec_dupv2di_avx): Add movddup alternative.
+	(*vec_dupv2di_sse3): New.
+	(vec_dup<AVX256MODE24P>): Replace avx_vbroadcasts<AVXMODEF4P> and
+	avx_vbroadcastss256; represent with vec_duplicate instead of 
+	nested vec_concat operations.
+	(avx_vbroadcastf128_<mode>): Rename from
+	avx_vbroadcastf128_p<avxmodesuffixf2c>256.
+	(*avx_vperm_broadcast_v4sf): New.
+	(*avx_vperm_broadcast_<AVX256MODEF2P>): New.
+
+2009-11-30  Martin Jambor  <mjambor@suse.cz>
+
+	PR middle-end/42196
+	* tree-sra.c (struct access): New field grp_different_types.
+	(dump_access): Dump grp_different_types.
+	(compare_access_positions): Prefer scalars and vectors over other
+	scalar types.
+	(sort_and_splice_var_accesses): Set grp_different_types if appropriate.
+	(sra_modify_expr): Use the original also when dealing with a complex
+	 or vector group accessed as multiple types.
+
 2009-11-30  Richard Henderson  <rth@redhat.com>
 
 	* config/i386/i386.c (avx_vperm2f128_parallel): New.
