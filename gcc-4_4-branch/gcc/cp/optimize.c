@@ -243,7 +243,15 @@ maybe_clone_body (tree fn)
 	  && idx == 1
 	  && !flag_use_repository
 	  && DECL_INTERFACE_KNOWN (fns[0])
-	  && !DECL_ONE_ONLY (fns[0])
+	  && (SUPPORTS_ONE_ONLY || !DECL_WEAK (fns[0]))
+	  && (!DECL_ONE_ONLY (fns[0])
+	      || (HAVE_COMDAT_GROUP
+		  && DECL_WEAK (fns[0])
+		  /* Don't optimize synthetized virtual dtors, because then
+		     the deleting and other dtors are emitted when needed
+		     and so it is not certain we would emit both
+		     deleting and complete/base dtors in the comdat group.  */
+		  && (fns[2] == NULL || !DECL_ARTIFICIAL (fn))))
 	  && cgraph_same_body_alias (clone, fns[0]))
 	alias = true;
 

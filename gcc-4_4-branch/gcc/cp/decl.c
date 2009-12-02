@@ -53,6 +53,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "timevar.h"
 #include "tree-flow.h"
 #include "pointer-set.h"
+#include "cgraph.h"
 
 static tree grokparms (tree parmlist, tree *);
 static const char *redeclaration_error_message (tree, tree);
@@ -12778,6 +12779,42 @@ cp_missing_noreturn_ok_p (tree decl)
   return DECL_MAIN_P (decl);
 }
 
+/* Return name of comdat group for complete and base ctor (or dtor)
+   that have the same body.  If dtor is virtual, deleting dtor goes
+   into this comdat group as well.  */
+
+static tree
+cdtor_comdat_group (tree complete, tree base)
+{
+  tree complete_name = DECL_ASSEMBLER_NAME (complete);
+  tree base_name = DECL_ASSEMBLER_NAME (base);
+  char *grp_name;
+  const char *p, *q;
+  bool diff_seen = false;
+  size_t idx;
+  gcc_assert (IDENTIFIER_LENGTH (complete_name)
+	      == IDENTIFIER_LENGTH (base_name));
+  grp_name = XALLOCAVEC (char, IDENTIFIER_LENGTH (complete_name) + 1);
+  p = IDENTIFIER_POINTER (complete_name);
+  q = IDENTIFIER_POINTER (base_name);
+  for (idx = 0; idx < IDENTIFIER_LENGTH (complete_name); idx++)
+    if (p[idx] == q[idx])
+      grp_name[idx] = p[idx];
+    else
+      {
+	gcc_assert (!diff_seen
+		    && idx > 0
+		    && (p[idx - 1] == 'C' || p[idx - 1] == 'D')
+		    && p[idx] == '1'
+		    && q[idx] == '2');
+	grp_name[idx] = '5';
+	diff_seen = true;
+      }
+  grp_name[idx] = '\0';
+  gcc_assert (diff_seen);
+  return get_identifier (grp_name);
+}
+
 /* Return the COMDAT group into which DECL should be placed.  */
 
 const char *
@@ -12806,6 +12843,35 @@ cxx_comdat_group (tree decl)
 	    decl = target;
 	  else
 	    break;
+	}
+      if (DECL_CLONED_FUNCTION_P (decl)
+	  && (DECL_CONSTRUCTOR_P (decl) || DECL_DESTRUCTOR_P (decl)))
+	{
+	  tree fn = DECL_CLONED_FUNCTION (decl), clone;
+	  tree fns[2] = { NULL_TREE, NULL_TREE };
+
+	  /* Look for the complete destructor which may be used to build the
+	     delete destructor.  */
+	  FOR_EACH_CLONE (clone, fn)
+	    if (DECL_NAME (clone) == complete_dtor_identifier
+		|| DECL_NAME (clone) == complete_ctor_identifier)
+	      fns[1] = clone;
+	    else if (DECL_NAME (clone) == base_dtor_identifier
+		     || DECL_NAME (clone) == base_ctor_identifier)
+	      fns[0] = clone;
+	    else if (DECL_NAME (clone) == deleting_dtor_identifier)
+	      ;
+	    else
+	      gcc_unreachable ();
+
+	  if (fns[0] && fns[1])
+	    {
+	      struct cgraph_node *node = cgraph_get_node (fns[0]);
+
+	      if (node && node->same_body)
+		return IDENTIFIER_POINTER (cdtor_comdat_group (fns[1],
+							       fns[0]));
+	    }
 	}
       name = DECL_ASSEMBLER_NAME (decl);
     }

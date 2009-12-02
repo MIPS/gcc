@@ -1,3 +1,14 @@
+2009-12-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/3187
+	* optimize.c (maybe_clone_body): Also optimize DECL_COMDAT base/complete
+	cdtors and in that case put also the deleting dtor in the same comdat
+	group as base and complete dtor if dtor is virtual.
+	* decl.c: Include cgraph.h.
+	(cdtor_comdat_group): New function.
+	(cxx_comdat_group): Use it for same_body alias optimized cdtors.
+	* Make-lang.in (cp/decl.o): Depend on $(CGRAPH_H).
+
 2009-11-18  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/3187
