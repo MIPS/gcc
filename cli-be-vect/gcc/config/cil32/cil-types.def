@@ -1,0 +1,110 @@
+/*
+
+   Copyright (C) 2006-2009 Free Software Foundation, Inc.
+
+This file is part of GCC.
+
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
+
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
+
+You should have received a copy of the GNU General Public License
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.
+
+Authors:
+   Andrea Ornstein
+   Erven Rohou
+   Gabriele Svelto
+
+Contact information at STMicroelectronics:
+Andrea C. Ornstein      <andrea.ornstein@st.com>
+Contact information at INRIA:
+Erven Rohou             <erven.rohou@inria.fr>
+*/
+
+/* The format of this file is
+   CIL_TYPEDEF(CIL_symbol,printable name)
+
+   Where symbol is the enumeration name without the ``CIL_''.
+   The printable name is used in the emit-cil pass.
+*/
+
+
+CIL_TYPEDEF(CIL_NO_TYPE,"no type??")
+
+/* Void type */
+CIL_TYPEDEF(CIL_VOID,"void")
+
+/* Valuetype Argiterator */
+CIL_TYPEDEF(CIL_ARGITER,"valuetype [mscorlib]System.ArgIterator")
+
+CIL_TYPEDEF(CIL_INT8,"int8")             /* Signed 8-bit integer */
+CIL_TYPEDEF(CIL_INT16,"int16")           /* Signed 16-bit integer */
+CIL_TYPEDEF(CIL_INT32,"int32")           /* Signed 32-bit integer */
+CIL_TYPEDEF(CIL_INT64,"int64")           /* Signed 64-bit integer */
+CIL_TYPEDEF(CIL_NATIVE_INT,"native_int") /* Signed native integer */
+
+CIL_TYPEDEF(CIL_UNSIGNED_INT8,"unsigned int8")     /* Unsigned 8-bit integer */
+CIL_TYPEDEF(CIL_UNSIGNED_INT16,"unsigned int16")   /* Unsigned 16-bit integer */
+CIL_TYPEDEF(CIL_UNSIGNED_INT32,"unsigned int32")   /* Unsigned 32-bit integer */
+CIL_TYPEDEF(CIL_UNSIGNED_INT64,"unsigned int64")   /* Unsigned 64-bit integer */
+CIL_TYPEDEF(CIL_NATIVE_UNSIGNED_INT,"native_uint") /* Unsigned native integer */
+
+CIL_TYPEDEF(CIL_FLOAT,"float")     /* On-stack floating-point type*/
+CIL_TYPEDEF(CIL_FLOAT32,"float32") /* Single precision floating-point */
+CIL_TYPEDEF(CIL_FLOAT64,"float64") /* Double precision floating-point */
+
+CIL_TYPEDEF(CIL_POINTER,"pointer") /* Generic pointer */
+
+CIL_TYPEDEF(CIL_VALUE_TYPE,"value_type") /* Generic value type */
+
+/* 4-byte vector types */
+CIL_TYPEDEF(CIL_V2HI,"V2HI")    /* Vector of 2 16-bit integers */
+CIL_TYPEDEF(CIL_V4QI,"V4QI")    /* Vector of 4 8-bit integers */
+
+/* 8-byte vector types */
+CIL_TYPEDEF(CIL_V2SI,"V2SI")    /* Vector of 2 32-bit integers */
+CIL_TYPEDEF(CIL_V4HI,"V4HI")    /* Vector of 4 16-bit integers */
+CIL_TYPEDEF(CIL_V8QI,"V8QI")    /* Vector of 8 8-bit integers */
+CIL_TYPEDEF(CIL_V2SF,"V2SF")    /* Vector of 2 32-bit single precision floats */
+
+/* 16-byte vector types */
+CIL_TYPEDEF(CIL_V2DI,"V2DI")    /* Vector of 2 64-bit integers */
+CIL_TYPEDEF(CIL_V4SI,"V4SI")    /* Vector of 4 32-bit integers */
+CIL_TYPEDEF(CIL_V8HI,"V8HI")    /* Vector of 8 16-bit integers */
+CIL_TYPEDEF(CIL_V16QI,"V16QI")  /* Vector of 16 8-bit integers */
+CIL_TYPEDEF(CIL_V2DF,"V2DF")    /* Vector of 2 64-bit double precision floats */
+CIL_TYPEDEF(CIL_V4SF,"V4SF")    /* Vector of 4 32-bit single precision floats */
+
+/* Integer Complex Types*/
+/* Complex of Signed 8-bit integer */
+CIL_TYPEDEF(CIL_CMPLXI8,"valuetype [gcc4net]gcc4net.complex_char")
+/* Complex of Signed 16-bit integer */
+CIL_TYPEDEF(CIL_CMPLXI16,"valuetype [gcc4net]gcc4net.complex_short")
+/* Complex of Signed 32-bit integer */
+CIL_TYPEDEF(CIL_CMPLXI32,"valuetype [gcc4net]gcc4net.complex_int")
+/* Complex of Signed 64-bit integer */
+CIL_TYPEDEF(CIL_CMPLXI64,"valuetype [gcc4net]gcc4net.complex_long")
+
+/* Complex of Unsigned 8-bit integer */
+CIL_TYPEDEF(CIL_CMPLXU8,"valuetype [gcc4net]gcc4net.complex_uchar")
+/* Complex of Unsigned 16-bit integer */
+CIL_TYPEDEF(CIL_CMPLXU16,"valuetype [gcc4net]gcc4net.complex_ushort")
+/* Complex of Unsigned 32-bit integer */
+CIL_TYPEDEF(CIL_CMPLXU32,"valuetype [gcc4net]gcc4net.complex_uint")
+/* Complex of Unsigned 64-bit integer */
+CIL_TYPEDEF(CIL_CMPLXU64,"valuetype [gcc4net]gcc4net.complex_ulong")
+
+/* floating-point Complex Types*/
+/* Complex of Single precision floating-point */
+CIL_TYPEDEF(CIL_CMPLXF32,"valuetype [gcc4net]gcc4net.complex_float")
+/* Complex of Double precision floating-point */
+CIL_TYPEDEF(CIL_CMPLXF64,"valuetype [gcc4net]gcc4net.complex_double")

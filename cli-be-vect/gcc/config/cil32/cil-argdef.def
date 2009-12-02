@@ -1,0 +1,42 @@
+/* 
+
+   Copyright (C) 2006-2009 Free Software Foundation, Inc.
+
+This file is part of GCC.
+
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
+
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
+
+You should have received a copy of the GNU General Public License
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.
+
+Authors:
+   Andrea Ornstein
+   Erven Rohou
+   Gabriele Svelto
+
+Contact information at STMicroelectronics:
+Andrea C. Ornstein      <andrea.ornstein@st.com>
+Contact information at INRIA:
+Erven Rohou             <erven.rohou@inria.fr>
+*/
+
+CIL_ARGTYPE(CIL_VAR)    /* Variable declaration */
+CIL_ARGTYPE(CIL_TYPE)   /* Type declaration */
+CIL_ARGTYPE(CIL_FIELD)  /* Field declaration */
+CIL_ARGTYPE(CIL_LABEL)  /* Label declaration */
+CIL_ARGTYPE(CIL_LABELS) /* Switch case labels */
+CIL_ARGTYPE(CIL_FUNC)   /* Function declaration */
+CIL_ARGTYPE(CIL_FCALL)  /* Function call description */
+CIL_ARGTYPE(CIL_CST)    /* Integer or real constant */
+CIL_ARGTYPE(CIL_STRING) /* A string (held in a tree, not a char *) */
+CIL_ARGTYPE(CIL_NONE)   /* No argument */
