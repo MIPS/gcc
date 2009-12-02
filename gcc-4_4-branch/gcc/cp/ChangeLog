@@ -4,6 +4,8 @@
 	* optimize.c (maybe_clone_body): Also optimize DECL_COMDAT base/complete
 	cdtors and in that case put also the deleting dtor in the same comdat
 	group as base and complete dtor if dtor is virtual.
+	* decl2.c (cp_write_global_declarations): Properly mark even
+	needed same_body aliases (with !gimple_body) as DECL_EXTERNAL.
 	* decl.c: Include cgraph.h.
 	(cdtor_comdat_group): New function.
 	(cxx_comdat_group): Use it for same_body alias optimized cdtors.

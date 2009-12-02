@@ -3509,6 +3509,8 @@ cp_write_global_declarations (void)
 	 are required, emit them.  */
       for (i = 0; VEC_iterate (tree, deferred_fns, i, decl); ++i)
 	{
+	  struct cgraph_node *node;
+
 	  /* Does it need synthesizing?  */
 	  if (DECL_DEFAULTED_FN (decl) && ! DECL_INITIAL (decl)
 	      && (! DECL_REALLY_EXTERN (decl) || possibly_inlined_p (decl)))
@@ -3529,7 +3531,11 @@ cp_write_global_declarations (void)
 	    }
 
 	  if (!gimple_body (decl))
-	    continue;
+	    {
+	      node = cgraph_get_node (decl);
+	      if (!node || !node->same_body)
+		continue;
+	    }
 
 	  /* We lie to the back end, pretending that some functions
 	     are not defined when they really are.  This keeps these
@@ -3551,8 +3557,9 @@ cp_write_global_declarations (void)
 	      && DECL_INITIAL (decl)
 	      && decl_needed_p (decl))
 	    {
-	      struct cgraph_node *node = cgraph_get_node (decl), *alias;
+	      struct cgraph_node *alias;
 
+	      node = cgraph_get_node (decl);
 	      DECL_EXTERNAL (decl) = 0;
 	      /* If we mark !DECL_EXTERNAL one of the same body aliases,
 		 we need to mark all of them that way.  */
@@ -3571,8 +3578,9 @@ cp_write_global_declarations (void)
 	  if (!DECL_EXTERNAL (decl)
 	      && decl_needed_p (decl)
 	      && !TREE_ASM_WRITTEN (decl)
-	      && !cgraph_node (decl)->local.finalized)
+	      && !(node = cgraph_node (decl))->local.finalized)
 	    {
+	      gcc_assert (decl == node->decl);
 	      /* We will output the function; no longer consider it in this
 		 loop.  */
 	      DECL_DEFER_OUTPUT (decl) = 0;
