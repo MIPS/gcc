@@ -1,3 +1,61 @@
+2009-12-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/42234
+	* tree-cfgcleanup.c (cleanup_omp_return): Don't ICE if control_bb
+	contains no statements.
+
+2009-11-27  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/s390.c (last_scheduled_insn): New variable.
+	(s390_fpload_toreg, s390_z10_prevent_earlyload_conflicts): New
+	functions.
+	(s390_sched_reorder, s390_sched_variable_issue): New functions.
+	(TARGET_SCHED_VARIABLE_ISSUE, TARGET_SCHED_REORDER): Target hooks
+	defined.
+
+2009-11-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* opts.c (decode_options): If optimize is bigger than 255,
+	set it to 255.
+
+2009-11-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/42165
+	* config/i386/i386.c (print_operand): For 32-byte memory use
+	YMMWORD in -masm=intel mode.  Use TBYTE instead of XWORD.
+	* config/i386/i386.md (crc32modesuffix): Expand to nothing
+	in -masm=intel mode.
+	(sse4_2_crc32di): Print just crc32 instead of crc32q in
+	-masm=intel mode.
+	* config/i386/mmx.md (*mmx_pinsrw): Print correct size of
+	memory operand in -masm=intel mode.
+	* config/i386/sse.md (*avx_pinsr<ssevecsize>, *sse4_1_pinsrb,
+	*sse2_pinsrw): Likewise.
+	(sse_cvtss2siq, sse_cvtss2siq_2, sse_cvttss2siq): Don't print
+	q suffix in -masm=intel mode.
+
+2009-11-24  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* pa.c (output_call): Only use sr4 for long interspace calls if
+	call binds local and generating non PIC code.
+	(attr_length_call): Adjust length calculation for above.
+
+2009-11-24  Wolfgang Gellerich  <gellerich@de.ibm.com>
+
+	* config/s390/s390.md: Added agen condition to operand
+	forwarding bypasses. 
+	Added bypass for early address generation use of int results.
+	Updated comments.
+
+2009-11-23  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/42113
+	* config/alpha/alpha.md (*cmp_sadd_si): Change mode
+	of scratch register to SImode.
+	(*cmp_sadd_sidi): Ditto.
+	(*cmp_ssub_si): Ditto.
+	(*cmp_ssub_sidi): Ditto.
+
 2009-11-25  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/rs6000/sysv4.opt (mregnames): Change Var to rs6000_regnames.
