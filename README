@@ -21,7 +21,7 @@ check out components:
 svn co svn://gcc.gnu.org/svn/gcc/branches/st/binutils <...>/gcc-src/binutils
 svn co svn://gcc.gnu.org/svn/gcc/branches/st/cli-be <...>/gcc-src/gcc
 
-set environment variables (examples with bash sintax):
+set environment variables (examples with bash syntax):
 - if mono c# compiler is not in the path or is different than mcs set MCS
   export MCS=mcs1
 - add DotGnu binary dir to the PATH
@@ -66,10 +66,10 @@ mkdir <...>/image
 
 check out components:
 svn co svn://gcc.gnu.org/svn/gcc/branches/st/mono-based-binutils <...>/gcc-src/binutils
-svn co svn://anonsvn.mono-project.com/source/trunk/mcs/class/Mono.Cecil@106839 <...>/gcc-src/binutils/tools/Mono.Cecil
+svn co svn://anonsvn.mono-project.com/source/trunk/mcs/class/Mono.Cecil@147644 <...>/gcc-src/binutils/tools/Mono.Cecil
 svn co svn://gcc.gnu.org/svn/gcc/branches/st/cli-be <...>/gcc-src/gcc
 
-set environment variables (examples with bash sintax):
+set environment variables (examples with bash syntax):
 - if mono c# compiler is not in the path or is different than mcs set MCS
   export MCS=mcs1
 - to specify wich is the runtime (mscorlib.dll, ...) to link to, define CLISTDDIR 
