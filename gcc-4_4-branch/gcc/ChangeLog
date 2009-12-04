@@ -1,3 +1,21 @@
+2009-12-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/42049
+	* builtins.c (expand_builtin_strcpy_args): Handle COMPOUND_EXPRs
+	potentially returned from folding strcpy.
+
+2009-12-02  Chao-ying Fu  <fu@mips.com>
+
+	Backport from mainline
+	2009-11-30  Chao-ying Fu  <fu@mips.com>
+
+	* config/mips/mips-dsp.md (mips_lhx_<mode>): Use sign_extend.
+
+2009-12-02  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm/thumb2.md (thumb_andsi_not_shiftsi_si): Final condition should
+	be TARGET_THUMB2.
+
 2009-12-02  Sebastian Pop  <sebastian.pop@amd.com>
 	    Richard Henderson  <rth@redhat.com>
 
