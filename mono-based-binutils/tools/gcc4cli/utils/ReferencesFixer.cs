@@ -186,7 +186,7 @@ namespace gcc4cli.util {
 
         public void VisitFieldDefinition (FieldDefinition field)
         {
-            field.DeclaringType = m_reffixer.GetTypeReference (field.DeclaringType);
+            field.DeclaringType = (TypeDefinition)m_reffixer.GetTypeReference (field.DeclaringType);
             field.FieldType = m_reffixer.GetTypeReference (field.FieldType);
         }
 
@@ -197,7 +197,7 @@ namespace gcc4cli.util {
 
         public void VisitPropertyDefinition (PropertyDefinition property)
         {
-            property.DeclaringType = m_reffixer.GetTypeReference (property.DeclaringType);
+            property.DeclaringType = (TypeDefinition)m_reffixer.GetTypeReference (property.DeclaringType);
             property.PropertyType = m_reffixer.GetTypeReference (property.PropertyType);
             VisitCollection (property.Parameters);
             property.GetMethod = (MethodDefinition) m_reffixer.GetMethodReference (property.GetMethod);
