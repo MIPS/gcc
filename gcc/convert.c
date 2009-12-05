@@ -53,15 +53,35 @@ convert_to_pointer (tree type, tree expr)
     {
     case POINTER_TYPE:
     case REFERENCE_TYPE:
-      return fold_build1 (NOP_EXPR, type, expr);
+      {
+	/* If the pointers point to different address spaces, conversion needs
+	   to be done via a ADDR_SPACE_CONVERT_EXPR instead of a NOP_EXPR.  */
+	addr_space_t to_as = TYPE_ADDR_SPACE (TREE_TYPE (type));
+	addr_space_t from_as = TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (expr)));
+
+	if (to_as == from_as)
+	  return fold_build1 (NOP_EXPR, type, expr);
+	else
+	  return fold_build1 (ADDR_SPACE_CONVERT_EXPR, type, expr);
+      }
 
     case INTEGER_TYPE:
     case ENUMERAL_TYPE:
     case BOOLEAN_TYPE:
-      if (TYPE_PRECISION (TREE_TYPE (expr)) != POINTER_SIZE)
-	expr = fold_build1 (NOP_EXPR,
-                            lang_hooks.types.type_for_size (POINTER_SIZE, 0),
-			    expr);
+      {
+	/* If the input precision differs from the target pointer type
+	   precision, first convert the input expression to an integer type of
+	   the target precision.  Some targets, e.g. VMS, need several pointer
+	   sizes to coexist so the latter isn't necessarily POINTER_SIZE.  */
+	unsigned int pprec = TYPE_PRECISION (type);
+	unsigned int eprec = TYPE_PRECISION (TREE_TYPE (expr));
+
+	if (eprec != pprec)
+	  expr = fold_build1 (NOP_EXPR,
+			      lang_hooks.types.type_for_size (pprec, 0),
+			      expr);
+      }
+
       return fold_build1 (CONVERT_EXPR, type, expr);
 
 
@@ -488,10 +508,13 @@ convert_to_integer (tree type, tree expr)
       if (integer_zerop (expr))
 	return build_int_cst (type, 0);
 
-      /* Convert to an unsigned integer of the correct width first,
-	 and from there widen/truncate to the required type.  */
+      /* Convert to an unsigned integer of the correct width first, and from
+	 there widen/truncate to the required type.  Some targets support the
+	 coexistence of multiple valid pointer sizes, so fetch the one we need
+	 from the type.  */
       expr = fold_build1 (CONVERT_EXPR,
-			  lang_hooks.types.type_for_size (POINTER_SIZE, 0),
+			  lang_hooks.types.type_for_size
+			    (TYPE_PRECISION (intype), 0),
 			  expr);
       return fold_convert (type, expr);
 

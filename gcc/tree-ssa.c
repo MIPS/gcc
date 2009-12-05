@@ -1075,6 +1075,11 @@ useless_type_conversion_p_1 (tree outer_type, tree inner_type)
   if (POINTER_TYPE_P (inner_type)
       && POINTER_TYPE_P (outer_type))
     {
+      /* Do not lose casts between pointers to different address spaces.  */
+      if (TYPE_ADDR_SPACE (TREE_TYPE (outer_type))
+	  != TYPE_ADDR_SPACE (TREE_TYPE (inner_type)))
+	return false;
+
       /* Do not lose casts to restrict qualified pointers.  */
       if ((TYPE_RESTRICT (outer_type)
 	   != TYPE_RESTRICT (inner_type))
@@ -1235,7 +1240,14 @@ useless_type_conversion_p (tree outer_type, tree inner_type)
   if (POINTER_TYPE_P (inner_type)
       && POINTER_TYPE_P (outer_type)
       && TREE_CODE (TREE_TYPE (outer_type)) == VOID_TYPE)
-    return true;
+    {
+      /* Do not lose casts between pointers to different address spaces.  */
+      if (TYPE_ADDR_SPACE (TREE_TYPE (outer_type))
+	  != TYPE_ADDR_SPACE (TREE_TYPE (inner_type)))
+	return false;
+
+      return true;
+    }
 
   return useless_type_conversion_p_1 (outer_type, inner_type);
 }

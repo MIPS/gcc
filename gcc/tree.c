@@ -1478,8 +1478,7 @@ integer_pow2p (const_tree expr)
   if (TREE_CODE (expr) != INTEGER_CST)
     return 0;
 
-  prec = (POINTER_TYPE_P (TREE_TYPE (expr))
-	  ? POINTER_SIZE : TYPE_PRECISION (TREE_TYPE (expr)));
+  prec = TYPE_PRECISION (TREE_TYPE (expr));
   high = TREE_INT_CST_HIGH (expr);
   low = TREE_INT_CST_LOW (expr);
 
@@ -1543,9 +1542,7 @@ tree_log2 (const_tree expr)
   if (TREE_CODE (expr) == COMPLEX_CST)
     return tree_log2 (TREE_REALPART (expr));
 
-  prec = (POINTER_TYPE_P (TREE_TYPE (expr))
-	  ? POINTER_SIZE : TYPE_PRECISION (TREE_TYPE (expr)));
-
+  prec = TYPE_PRECISION (TREE_TYPE (expr));
   high = TREE_INT_CST_HIGH (expr);
   low = TREE_INT_CST_LOW (expr);
 
@@ -1581,9 +1578,7 @@ tree_floor_log2 (const_tree expr)
   if (TREE_CODE (expr) == COMPLEX_CST)
     return tree_log2 (TREE_REALPART (expr));
 
-  prec = (POINTER_TYPE_P (TREE_TYPE (expr))
-	  ? POINTER_SIZE : TYPE_PRECISION (TREE_TYPE (expr)));
-
+  prec = TYPE_PRECISION (TREE_TYPE (expr));
   high = TREE_INT_CST_HIGH (expr);
   low = TREE_INT_CST_LOW (expr);
 
@@ -4194,6 +4189,7 @@ set_type_quals (tree type, int type_quals)
   TYPE_READONLY (type) = (type_quals & TYPE_QUAL_CONST) != 0;
   TYPE_VOLATILE (type) = (type_quals & TYPE_QUAL_VOLATILE) != 0;
   TYPE_RESTRICT (type) = (type_quals & TYPE_QUAL_RESTRICT) != 0;
+  TYPE_ADDR_SPACE (type) = DECODE_QUAL_ADDR_SPACE (type_quals);
 }
 
 /* Returns true iff CAND is equivalent to BASE with TYPE_QUALS.  */
@@ -5555,7 +5551,10 @@ build_pointer_type_for_mode (tree to_type, enum machine_mode mode,
 tree
 build_pointer_type (tree to_type)
 {
-  return build_pointer_type_for_mode (to_type, ptr_mode, false);
+  addr_space_t as = to_type == error_mark_node? ADDR_SPACE_GENERIC
+					      : TYPE_ADDR_SPACE (to_type);
+  enum machine_mode pointer_mode = targetm.addr_space.pointer_mode (as);
+  return build_pointer_type_for_mode (to_type, pointer_mode, false);
 }
 
 /* Same as build_pointer_type_for_mode, but for REFERENCE_TYPE.  */
@@ -5619,7 +5618,10 @@ build_reference_type_for_mode (tree to_type, enum machine_mode mode,
 tree
 build_reference_type (tree to_type)
 {
-  return build_reference_type_for_mode (to_type, ptr_mode, false);
+  addr_space_t as = to_type == error_mark_node? ADDR_SPACE_GENERIC
+					      : TYPE_ADDR_SPACE (to_type);
+  enum machine_mode pointer_mode = targetm.addr_space.pointer_mode (as);
+  return build_reference_type_for_mode (to_type, pointer_mode, false);
 }
 
 /* Build a type that is compatible with t but has no cv quals anywhere
@@ -5762,6 +5764,7 @@ build_array_type (tree elt_type, tree index_type)
   t = make_node (ARRAY_TYPE);
   TREE_TYPE (t) = elt_type;
   TYPE_DOMAIN (t) = index_type;
+  TYPE_ADDR_SPACE (t) = TYPE_ADDR_SPACE (elt_type);
   
   if (index_type == 0)
     {
@@ -8325,7 +8328,15 @@ signed_or_unsigned_type_for (int unsignedp, tree type)
 {
   tree t = type;
   if (POINTER_TYPE_P (type))
-    t = size_type_node;
+    {
+      /* If the pointer points to the normal address space, use the
+	 size_type_node.  Otherwise use an appropriate size for the pointer
+	 based on the named address space it points to.  */
+      if (!TYPE_ADDR_SPACE (TREE_TYPE (t)))
+	t = size_type_node;
+      else
+	return lang_hooks.types.type_for_size (TYPE_PRECISION (t), unsignedp);
+    }
 
   if (!INTEGRAL_TYPE_P (t) || TYPE_UNSIGNED (t) == unsignedp)
     return t;
