@@ -1,3 +1,49 @@
+2008-12-07  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	Backport from mainline:
+
+gcc/
+	2009-05-19  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* c-typeck.c (build_binary_op): Allow % on integal vectors.
+	* doc/extend.texi (Vector Extension): Document that % is allowed too.
+
+gcc/cp/
+	2009-05-19  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* typeck.c (build_binary_op): Allow % on integal vectors.
+
+gcc/testsuite/
+	2009-05-19  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* gcc.dg/vector-4.c: New testcase.
+	* gcc.dg/simd-1b.c: % is now allowed for integer vectors.
+	* g++.dg/ext/vector16.C: New testcase.
+
+2008-12-07  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	Backport from mainline:
+
+gcc/
+	2009-04-22  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR C/31499
+	* c-typeck.c (process_init_element): Treat VECTOR_TYPE like ARRAY_TYPE
+	and RECORD_TYPE/UNION_TYPE.  When outputing the actual element and the
+	value is a VECTOR_CST, the element type is the element type of the
+	vector.
+
+gcc/testsuite/
+	2009-04-22  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR C/31499
+	* gcc.dg/vector-init-1.c: New testcase.
+	* gcc.dg/vector-init-2.c: New testcase.
+
+2008-12-07  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	Update to gcc-4_4-branch revision 155038.
+
 2008-12-04  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
 
 	Backport from mainline:
