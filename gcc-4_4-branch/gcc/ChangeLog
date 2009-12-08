@@ -1,3 +1,9 @@
+2009-12-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/42244
+	* ddg.c (add_inter_loop_mem_dep): Use ANTI_DEP if from or to
+	is a DEBUG_INSN.
+
 2009-12-07  Richard Henderson  <rth@redhat.com>
 
 	PR debug/42299
