@@ -1008,4 +1008,13 @@ default_have_conditional_execution (void)
 #endif
 }
 
+/* Allow the backend to override the default alignment of variables that do not
+   have an alignment attribute.  This can be used for big arrays to make sure
+   they are properly aligned and improve vectorization.  */
+
+void
+default_override_default_alignment (tree ARG_UNUSED (decl))
+{
+}
+
 #include "gt-targhooks.h"

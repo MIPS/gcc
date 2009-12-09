@@ -1367,6 +1367,15 @@ retain the field's mode.
 Normally, this is not needed.
 @end defmac
 
+@deftypefn {Target Hook} unsigned int TARGET_OVERRIDE_DEFAULT_ALIGNMENT (@var{decl}, @var{align})
+This target hook should return the desired alignment for a declaration
+@var{decl} in bits.  The default alignment is @var{align}.
+
+The default is to use @var{align}.  This hook is not called if the
+user specified an explicit alignment with
+@code{__attribute__ ((aligned (@var{n})))}.
+@end deftypefn
+
 @defmac ROUND_TYPE_ALIGN (@var{type}, @var{computed}, @var{specified})
 Define this macro as an expression for the alignment of a type (given
 by @var{type} as a tree node) if the alignment computed in the usual

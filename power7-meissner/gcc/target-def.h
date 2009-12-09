@@ -560,6 +560,7 @@
 #define TARGET_MS_BITFIELD_LAYOUT_P hook_bool_const_tree_false
 #define TARGET_ALIGN_ANON_BITFIELD hook_bool_void_false
 #define TARGET_NARROW_VOLATILE_BITFIELD hook_bool_void_false
+#define TARGET_OVERRIDE_DEFAULT_ALIGNMENT default_override_default_alignment
 #define TARGET_RTX_COSTS hook_bool_rtx_int_int_intp_bool_false
 #define TARGET_MANGLE_TYPE hook_constcharptr_const_tree_null
 #define TARGET_ALLOCATE_INITIAL_VALUE NULL
@@ -929,6 +930,7 @@
   TARGET_FIXED_POINT_SUPPORTED_P,		\
   TARGET_ALIGN_ANON_BITFIELD,			\
   TARGET_NARROW_VOLATILE_BITFIELD,		\
+  TARGET_OVERRIDE_DEFAULT_ALIGNMENT,		\
   TARGET_INIT_BUILTINS,				\
   TARGET_BUILTIN_DECL,				\
   TARGET_EXPAND_BUILTIN,			\

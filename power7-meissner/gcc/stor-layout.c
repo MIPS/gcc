@@ -555,7 +555,15 @@ layout_decl (tree decl, unsigned int known_align)
 
   if (code != FIELD_DECL)
     /* For non-fields, update the alignment from the type.  */
-    do_type_align (type, decl);
+    {
+      do_type_align (type, decl);
+
+      /* Allow the backend to override the alignment of variables, for example
+	 to align large arrays to a higher boundary to better improve auto
+	 vectorization.  */
+      if (code == VAR_DECL && ! DECL_USER_ALIGN (decl))
+	targetm.override_default_alignment (decl);
+    }
   else
     /* For fields, it's a bit more complicated...  */
     {

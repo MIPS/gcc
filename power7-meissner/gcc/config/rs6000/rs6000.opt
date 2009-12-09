@@ -127,6 +127,10 @@ mvsx-scalar-memory
 Target Undocumented Report Var(TARGET_VSX_SCALAR_MEMORY)
 ; If -mvsx, use VSX scalar memory reference instructions for scalar double (off by default)
 
+mallow-movmisalign
+Target Undocumented Var(TARGET_ALLOW_MOVMISALIGN) Init(-1)
+; Allow/disallow the movmisalign in DF/DI vectors
+
 mvsx-align-
 Target Undocumented Report RejectNegative Joined UInteger Var(rs6000_vsx_alignment) Init(128)
 ; If -mvsx, set alignment to <n> bits instead of 128
@@ -357,4 +361,6 @@ mxilinx-fpu
 Target Var(rs6000_xilinx_fpu)
 Specify Xilinx FPU.
 
-
+malign-arrays
+Target Var(TARGET_ALIGN_ARRAYS)
+Align arrays that do not have an explicit alignment to 128-bits.

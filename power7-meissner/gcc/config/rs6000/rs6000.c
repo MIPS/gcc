@@ -1165,6 +1165,7 @@ const int INSN_NOT_AVAILABLE = -1;
 static enum machine_mode rs6000_eh_return_filter_mode (void);
 static bool rs6000_can_eliminate (const int, const int);
 static void rs6000_trampoline_init (rtx, tree, rtx);
+static void rs6000_override_default_alignment (tree);
 
 /* Hash table stuff for keeping track of TOC entries.  */
 
@@ -1542,6 +1543,9 @@ static const struct attribute_spec rs6000_attribute_table[] =
 
 #undef TARGET_FUNCTION_VALUE
 #define TARGET_FUNCTION_VALUE rs6000_function_value
+
+#undef TARGET_OVERRIDE_DEFAULT_ALIGNMENT
+#define TARGET_OVERRIDE_DEFAULT_ALIGNMENT rs6000_override_default_alignment
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -2081,20 +2085,34 @@ rs6000_init_hard_regno_mode_ok (void)
     {
       if (!rs6000_movmisalign_str)
 	{
-	  rs6000_movmisalign_p[V2DFmode] = true;
-	  rs6000_movmisalign_p[V2DImode] = true;
-	  rs6000_movmisalign_p[V4SFmode] = true;
-	  rs6000_movmisalign_p[V4SImode] = true;
+	  if (TARGET_ALLOW_MOVMISALIGN)
+	    {
+	      rs6000_movmisalign_p[V2DFmode] = true;
+	      rs6000_movmisalign_p[V2DImode] = true;
+	      rs6000_movmisalign_p[V4SFmode] = true;
+	      rs6000_movmisalign_p[V4SImode] = true;
+	    }
 	}
       else
-	rs6000_parse_vector_types (rs6000_movmisalign_str, true,
-				   rs6000_movmisalign_callback,
-				   "-mmovmisalign");
+	{
+	  if (TARGET_ALLOW_MOVMISALIGN != -1)
+	    error ("-mmovmisalign= and -mallow-movmisalign are incompatible.");
+
+	  rs6000_parse_vector_types (rs6000_movmisalign_str, true,
+				     rs6000_movmisalign_callback,
+				     "-mmovmisalign");
+	}
 
       if (rs6000_no_movmisalign_str)
-	rs6000_parse_vector_types (rs6000_no_movmisalign_str, false,
-				   rs6000_movmisalign_callback,
-				   "-mno-movmisalign");
+	{
+	  if (TARGET_ALLOW_MOVMISALIGN != -1)
+	    error ("-mno-movmisalign= and -mallow-movmisalign are "
+		   "incompatible.");
+
+	  rs6000_parse_vector_types (rs6000_no_movmisalign_str, false,
+				     rs6000_movmisalign_callback,
+				     "-mno-movmisalign");
+	}
     }
   else
     {
@@ -25863,6 +25881,31 @@ rs6000_final_prescan_insn (rtx insn, rtx *operand ATTRIBUTE_UNUSED,
 		    "emitting conditional microcode insn %s\t[%s] #%d",
 		    temp, insn_data[INSN_CODE (insn)].name, INSN_UID (insn));
     }
+}
+
+/* Allow the backend to override the default alignment of variables that do not
+   have an alignment attribute.  This can be used for big arrays to make sure
+   they are properly aligned and improve vectorization.  */
+
+static void
+rs6000_override_default_alignment (tree decl)
+{
+  unsigned int align = DECL_ALIGN (decl);
+
+  if (TARGET_ALIGN_ARRAYS && align < 128
+      && (TARGET_ALTIVEC || TARGET_VSX)
+      && TREE_TYPE (decl)
+      && TREE_TYPE (decl) != error_mark_node
+      && TREE_CODE (TREE_TYPE (decl)) == ARRAY_TYPE)
+    DECL_ALIGN (decl) = 128;
+
+  if (TARGET_DEBUG_ADDR)
+    fprintf (stderr, "override_default_alignment (%s, %u) => %u\n",
+	     (DECL_NAME (decl)
+	      ? IDENTIFIER_POINTER (DECL_NAME (decl))
+	      : "<no-name>"), align, (unsigned) DECL_ALIGN (decl));
+
+  return;
 }
 
 #include "gt-rs6000.h"

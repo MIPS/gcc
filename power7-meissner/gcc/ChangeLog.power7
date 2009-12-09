@@ -1,3 +1,24 @@
+2009-12-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* target.h (struct gcc_target): Add target hook for overriding the
+	default alignment.
+
+	* targhooks.c (default_override_alignment): Add support for target
+	hook to override default alignment.
+	* targhooks.h (default_override_alignment): Ditto.
+	* target-def.h (TARGET_OVERRIDE_ALIGNMENT): Ditto.
+
+	* config/rs6000/rs6000.opt (-mallow-movmisalign): Add debug switch
+	back in so vector tests which use it will pass.
+	(-malign-arrays): New debug switch to align arrays with a bigger
+	alignment.
+
+	* config/rs6000/rs6000.c (rs6000_override_alignment): New target
+	hook to support -malign-arrays.
+	(TARGET_OVERRIDE_ALIGNMENT): Ditto.
+	(rs6000_init_hard_regno_mode_ok): Add -mallow-movmisalign support
+	back in.
+
 2009-12-01  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to mainline, subversion id 154880.
