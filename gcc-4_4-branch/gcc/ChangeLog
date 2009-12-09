@@ -1,3 +1,79 @@
+2009-12-07  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* config/i386/driver-i386.c (host_detect_local_cpu): Add -mlwp to the
+	options when bit_LWP is set.
+
+2009-12-07  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* config/i386/cpuid.h (bit_ABM): New.
+	* config/i386/driver-i386.c (host_detect_local_cpu): Add -mabm to the
+	options when bit_ABM is set.
+
+2009-12-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/i386.c (bdesc_special_args): Move __builtin_clzs from
+	this array ...
+	(bdesc_args): ... here.
+	* config.gcc (i[34567]86-*-*): Include abmintrin.h.
+	(x86_64-*-*): Likewise.
+
+2009-12-07  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* config.gcc (i[34567]86-*-*, x86_64-*-*): Add popcntintrin.h.
+	* config/i386/abmintrin.h (_mm_popcnt_u32, _mm_popcnt_u64): Moved...
+	* config/i386/i386-c.c (__POPCNT__): Defined.
+	* config/i386/popcntintrin.h: ...here.  New file.
+	* config/i386/smmintrin.h (_mm_popcnt_u32, _mm_popcnt_u64): Moved...
+	Include popcntintrin.h.
+	* config/i386/x86intrin.h: Include popcntintrin.h when __POPCNT__
+	is defined.
+
+2009-12-07  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* config/i386/i386-protos.h (ix86_expand_fma4_multiple_memory):
+	Removed.
+	* config/i386/i386.c (ix86_expand_fma4_multiple_memory): Removed.
+	* config/i386/sse.md: Remove all XOP splitters.
+	Allow the second and fourth operands of XOP multiply-add insns
+	to be nonimmediate.
+
+2009-12-07  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* config/i386/sse.md: Remove all FMA4 splitters.
+	Allow the second operand of FMA4 insns to be a nonimmediate.
+	Fix comments punctuation.
+
+2009-12-05  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* config/i386/i386.c (TARGET_DEFAULT_TARGET_FLAGS): Add
+	MASK_FUSED_MADD.
+	* config/i386/i386.h (CC1_CPU_SPEC_1): Remove
+	"'-mfused-madd' was removed".
+	* config/i386/i386.opt (mfused-madd): New.
+	* config/i386/sse.md: Add TARGET_FUSED_MADD to FMA4 insns.
+	* doc/invoke.texi (-mfused-madd, -mno-fused-madd): Document.
+
+2009-12-01  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* config/i386/abmintrin.h (__lzcnt16): New.
+	(__lzcnt): New.
+	(__lzcnt64): New.
+	* config/i386/i386-builtin-types.def (UINT16_FTYPE_UINT16): New.
+	* config/i386/i386.c (IX86_BUILTIN_CLZS): New.
+	(bdesc_special_args): Add __builtin_clzs.
+	(ix86_expand_args_builtin): Handle UINT16_FTYPE_UINT16.
+
+2009-12-01  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* config/i386/abmintrin.h (_mm_popcnt_u32): New.
+	(_mm_popcnt_u64): New.
+
+2009-12-01  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* config/i386/abmintrin.h: New.
+	* config/i386/i386-c.c (ix86_target_macros_internal): Defined __ABM__.
+	* config/i386/x86intrin.h: Include abmintrin.h when __ABM__ is defined.
+
 2009-12-07  Jakub Jelinek  <jakub@redhat.com>
 
 	PR debug/42244

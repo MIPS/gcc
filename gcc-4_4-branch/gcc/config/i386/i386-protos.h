@@ -219,8 +219,6 @@ extern void ix86_expand_vector_set (bool, rtx, rtx, int);
 extern void ix86_expand_vector_extract (bool, rtx, rtx, int);
 extern void ix86_expand_reduc_v4sf (rtx (*)(rtx, rtx, rtx), rtx, rtx);
 
-extern bool ix86_expand_fma4_multiple_memory (rtx [], enum machine_mode);
-
 /* In i386-c.c  */
 extern void ix86_target_macros (void);
 extern void ix86_register_pragmas (void);

@@ -1,4 +1,4 @@
-/* Copyright (C) 2008, 2009 Free Software Foundation, Inc.
+/* Copyright (C) 2009 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -22,65 +22,34 @@
    <http://www.gnu.org/licenses/>.  */
 
 #ifndef _X86INTRIN_H_INCLUDED
-#define _X86INTRIN_H_INCLUDED
-
-#ifdef __MMX__
-#include <mmintrin.h>
+# error "Never use <abmintrin.h> directly; include <x86intrin.h> instead."
 #endif
 
-#ifdef __SSE__
-#include <xmmintrin.h>
+#ifndef __ABM__
+# error "ABM instruction set not enabled"
+#endif /* __ABM__ */
+
+#ifndef _ABMINTRIN_H_INCLUDED
+#define _ABMINTRIN_H_INCLUDED
+
+extern __inline unsigned short __attribute__((__gnu_inline__, __always_inline__, __artificial__))
+__lzcnt16 (unsigned short __X)
+{
+  return __builtin_clzs (__X);
+}
+
+extern __inline unsigned int __attribute__((__gnu_inline__, __always_inline__, __artificial__))
+__lzcnt (unsigned int __X)
+{
+  return __builtin_clz (__X);
+}
+
+#ifdef __x86_64__
+extern __inline unsigned long __attribute__((__gnu_inline__, __always_inline__, __artificial__))
+__lzcnt64 (unsigned long __X)
+{
+  return __builtin_clzl (__X);
+}
 #endif
 
-#ifdef __SSE2__
-#include <emmintrin.h>
-#endif
-
-#ifdef __SSE3__
-#include <pmmintrin.h>
-#endif
-
-#ifdef __SSSE3__
-#include <tmmintrin.h>
-#endif
-
-#ifdef __SSE4A__
-#include <ammintrin.h>
-#endif
-
-#if defined (__SSE4_2__) || defined (__SSE4_1__)
-#include <smmintrin.h>
-#endif
-
-#if defined (__AES__) || defined (__PCLMUL__)
-#include <wmmintrin.h>
-#endif
-
-/* For including AVX instructions */
-#include <immintrin.h>
-
-#ifdef __3dNOW__
-#include <mm3dnow.h>
-#endif
-
-#ifdef __FMA4__
-#include <fma4intrin.h>
-#endif
-
-#ifdef __XOP__
-#include <xopintrin.h>
-#endif
-
-#ifdef __LWP__
-#include <lwpintrin.h>
-#endif
-
-#ifdef __ABM__
-#include <abmintrin.h>
-#endif
-
-#ifdef __POPCNT__
-#include <popcntintrin.h>
-#endif
-
-#endif /* _X86INTRIN_H_INCLUDED */
+#endif /* _ABMINTRIN_H_INCLUDED */

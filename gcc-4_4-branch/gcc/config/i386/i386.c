@@ -21172,6 +21172,8 @@ enum ix86_builtins
   IX86_BUILTIN_LWPINS32,
   IX86_BUILTIN_LWPINS64,
 
+  IX86_BUILTIN_CLZS,
+
   IX86_BUILTIN_MAX
 };
 
@@ -21548,7 +21550,8 @@ enum ix86_builtin_type
   V1DI2DI_FTYPE_V1DI_V1DI_INT,
   V2DF_FTYPE_V2DF_V2DF_INT,
   V2DI_FTYPE_V2DI_UINT_UINT,
-  V2DI_FTYPE_V2DI_V2DI_UINT_UINT
+  V2DI_FTYPE_V2DI_V2DI_UINT_UINT,
+  UINT16_FTYPE_UINT16
 };
 
 /* Special builtins with variable number of arguments.  */
@@ -22244,6 +22247,8 @@ static const struct builtin_description bdesc_args[] =
 
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_movmskpd256, "__builtin_ia32_movmskpd256", IX86_BUILTIN_MOVMSKPD256, UNKNOWN, (int) INT_FTYPE_V4DF  },
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_movmskps256, "__builtin_ia32_movmskps256", IX86_BUILTIN_MOVMSKPS256, UNKNOWN, (int) INT_FTYPE_V8SF },
+
+  { OPTION_MASK_ISA_ABM, CODE_FOR_clzhi2_abm,   "__builtin_clzs",   IX86_BUILTIN_CLZS,    UNKNOWN,     (int) UINT16_FTYPE_UINT16 },
 };
 
 /* FMA4 and XOP.  */
@@ -23306,6 +23311,11 @@ ix86_init_mmx_sse_builtins (void)
 				unsigned_type_node,
 				NULL_TREE);
 
+  tree ushort_ftype_ushort
+    = build_function_type_list (short_unsigned_type_node,
+				short_unsigned_type_node,
+				NULL_TREE);
+
   tree ftype;
 
   /* Add all special builtins with variable number of operands.  */
@@ -23876,6 +23886,9 @@ ix86_init_mmx_sse_builtins (void)
 	  break;
 	case V1DI2DI_FTYPE_V1DI_V1DI_INT:
 	  type = v1di_ftype_v1di_v1di_int;
+	  break;
+        case UINT16_FTYPE_UINT16:
+	  type = ushort_ftype_ushort;
 	  break;
 	default:
 	  gcc_unreachable ();
@@ -24860,6 +24873,7 @@ ix86_expand_args_builtin (const struct builtin_description *d,
       return ix86_expand_sse_ptest (d, exp, target);
     case FLOAT128_FTYPE_FLOAT128:
     case FLOAT_FTYPE_FLOAT:
+    case UINT16_FTYPE_UINT16:
     case INT64_FTYPE_V4SF:
     case INT64_FTYPE_V2DF:
     case INT_FTYPE_V16QI:
@@ -30064,36 +30078,6 @@ ix86_expand_round (rtx operand0, rtx operand1)
 }
 
 
-/* Fixup an FMA4 or XOP instruction that has 2 memory input references
-   into a form the hardware will allow by using the destination
-   register to load one of the memory operations.  Presently this is
-   used by the multiply/add routines to allow 2 memory references.  */
-
-bool
-ix86_expand_fma4_multiple_memory (rtx operands[],
-				  enum machine_mode mode)
-{
-  rtx scratch = operands[0];
-
-  gcc_assert (register_operand (operands[0], mode));
-  gcc_assert (register_operand (operands[1], mode));
-  gcc_assert (MEM_P (operands[2]) && MEM_P (operands[3]));
-
-  if (reg_mentioned_p (scratch, operands[1]))
-    {
-      if (!can_create_pseudo_p ())
-	return false;
-      scratch = gen_reg_rtx (mode);
-    }
-
-  emit_move_insn (scratch, operands[3]);
-  if (rtx_equal_p (operands[2], operands[3]))
-    operands[2] = operands[3] = scratch;
-  else
-    operands[3] = scratch;
-  return true;
-}
-
 /* Table of valid machine attributes.  */
 static const struct attribute_spec ix86_attribute_table[] =
 {
@@ -30385,7 +30369,8 @@ ix86_enum_va_list (int idx, const char **pname, tree *ptree)
 #define TARGET_DEFAULT_TARGET_FLAGS	\
   (TARGET_DEFAULT			\
    | TARGET_SUBTARGET_DEFAULT		\
-   | TARGET_TLS_DIRECT_SEG_REFS_DEFAULT)
+   | TARGET_TLS_DIRECT_SEG_REFS_DEFAULT \
+   | MASK_FUSED_MADD)
 
 #undef TARGET_HANDLE_OPTION
 #define TARGET_HANDLE_OPTION ix86_handle_option
