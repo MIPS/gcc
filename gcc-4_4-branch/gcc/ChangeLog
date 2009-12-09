@@ -1,3 +1,10 @@
+2009-12-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* configure.ac: Compute ld_ver, ld_vers, ld_date, ld_vers_major,
+	ld_vers_minor and ld_vers_path always, not just when gcc_cv_ld_hidden
+	isn't cached.
+	* configure: Regenerated.
+
 2009-12-07  Uros Bizjak  <ubizjak@gmail.com>
 
 	* config/i386/i386.md (*iorqi_ext_2): Fix insn mnemonic typo.
