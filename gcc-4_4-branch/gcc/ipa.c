@@ -1,5 +1,5 @@
 /* Basic IPA optimizations and utilities.
-   Copyright (C) 2003, 2004, 2005, 2007, 2008 Free Software Foundation,
+   Copyright (C) 2003, 2004, 2005, 2007, 2008, 2009 Free Software Foundation,
    Inc.
 
 This file is part of GCC.
@@ -142,6 +142,22 @@ cgraph_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 	    e->callee->aux = first;
 	    first = e->callee;
 	  }
+
+      /* If any function in a comdat group is reachable, force
+	 all other functions in the same comdat group to be
+	 also reachable.  */
+      if (node->same_comdat_group
+	  && !node->global.inlined_to)
+	{
+	  for (next = node->same_comdat_group;
+	       next != node;
+	       next = next->same_comdat_group)
+	    if (!next->aux)
+	      {
+		next->aux = first;
+		first = next;
+	      }
+	}
     }
 
   /* Remove unreachable nodes.  Extern inline functions need special care;

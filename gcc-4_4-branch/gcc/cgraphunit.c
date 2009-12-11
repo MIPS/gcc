@@ -896,6 +896,14 @@ cgraph_analyze_functions (void)
 	if (!edge->callee->reachable)
 	  cgraph_mark_reachable_node (edge->callee);
 
+      if (node->same_comdat_group)
+	{
+	  for (next = node->same_comdat_group;
+	       next != node;
+	       next = next->same_comdat_group)
+	    cgraph_mark_reachable_node (next);
+	}
+
       /* If decl is a clone of an abstract function, mark that abstract
 	 function so that we don't release its body. The DECL_INITIAL() of that
          abstract function declaration will be later needed to output debug info.  */
@@ -984,13 +992,21 @@ static void
 cgraph_mark_functions_to_output (void)
 {
   struct cgraph_node *node;
+#ifdef ENABLE_CHECKING
+  bool check_same_comdat_groups = false;
+
+  for (node = cgraph_nodes; node; node = node->next)
+    gcc_assert (!node->output);
+#endif
 
   for (node = cgraph_nodes; node; node = node->next)
     {
       tree decl = node->decl;
       struct cgraph_edge *e;
 
-      gcc_assert (!node->output);
+      gcc_assert (!node->output || node->same_comdat_group);
+      if (node->output)
+	continue;
 
       for (e = node->callers; e; e = e->next_caller)
 	if (e->inline_failed)
@@ -1005,7 +1021,23 @@ cgraph_mark_functions_to_output (void)
 	      || (e && node->reachable))
 	  && !TREE_ASM_WRITTEN (decl)
 	  && !DECL_EXTERNAL (decl))
-	node->output = 1;
+	{
+	  node->output = 1;
+	  if (node->same_comdat_group)
+	    {
+	      struct cgraph_node *next;
+	      for (next = node->same_comdat_group;
+		   next != node;
+		   next = next->same_comdat_group)
+		next->output = 1;
+	    }
+	}
+      else if (node->same_comdat_group)
+	{
+#ifdef ENABLE_CHECKING
+	  check_same_comdat_groups = true;
+#endif
+	}
       else
 	{
 	  /* We should've reclaimed all functions that are not needed.  */
@@ -1025,6 +1057,21 @@ cgraph_mark_functions_to_output (void)
 	}
 
     }
+#ifdef ENABLE_CHECKING
+  if (check_same_comdat_groups)
+    for (node = cgraph_nodes; node; node = node->next)
+      if (node->same_comdat_group && !node->output)
+	{
+	  tree decl = node->decl;
+	  if (!node->global.inlined_to
+	      && gimple_has_body_p (decl)
+	      && !DECL_EXTERNAL (decl))
+	    {
+	      dump_cgraph_node (stderr, node);
+	      internal_error ("failed to reclaim unneeded function");
+	    }
+	}
+#endif
 }
 
 /* Expand function specified by NODE.  */

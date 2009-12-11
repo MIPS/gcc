@@ -487,7 +487,11 @@ ipcp_initialize_node_lattices (struct cgraph_node *node)
   if (ipa_is_called_with_var_arguments (info))
     type = IPA_BOTTOM;
   else if (!node->needed)
-    type = IPA_TOP;
+    {
+      type = IPA_TOP;
+      if (node->same_comdat_group && !node->callers)
+	type = IPA_BOTTOM;
+    }
   /* When cloning is allowed, we can assume that externally visible functions
      are not called.  We will compensate this by cloning later.  */
   else if (ipcp_cloning_candidate_p (node))
@@ -1046,7 +1050,8 @@ ipcp_estimate_growth (struct cgraph_node *node)
   struct cgraph_edge *cs;
   int redirectable_node_callers = 0;
   int removable_args = 0;
-  bool need_original = node->needed;
+  bool need_original = node->needed
+		       || (node->same_comdat_group && !node->callers);
   struct ipa_node_params *info;
   int i, count;
   int growth;
@@ -1235,7 +1240,7 @@ ipcp_insert_stage (void)
       for (cs = node->callers; cs != NULL; cs = cs->next_caller)
 	if (cs->caller == node || ipcp_need_redirect_p (cs))
 	  break;
-      if (!cs && !node->needed)
+      if (!cs && !node->needed && !(node->same_comdat_group && !node->callers))
 	bitmap_set_bit (dead_nodes, node->uid);
 
       info = IPA_NODE_REF (node);

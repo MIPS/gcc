@@ -1,3 +1,22 @@
+2009-12-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/42317
+	* cgraph.h (struct cgraph_node): Add same_comdat_group field.
+	* cgraph.c (cgraph_remove_node): Unchain node from same_comdat_group
+	circular list.
+	* ipa.c (cgraph_remove_unreachable_nodes): For any reachable node
+	mark all its same_comdat_group nodes as also reachable.
+	* ipa-cp.c (ipcp_initialize_node_lattices, ipcp_estimate_growth,
+	ipcp_insert_stage): Handle same_comdat_group nodes that are only
+	reachable through a different reachable node in the same comdat
+	group.
+	* cgraphunit.c (cgraph_analyze_functions): Mark all other
+	same_comdat_group nodes as reachable.
+	(cgraph_mark_functions_to_output): For each node->process process
+	also other same_comdat_group nodes.
+	* ipa-inline.c (cgraph_clone_inlined_nodes): Don't reuse nodes
+	with same_comdat_group non-NULL.
+
 2009-12-09  Jakub Jelinek  <jakub@redhat.com>
 
 	* configure.ac: Compute ld_ver, ld_vers, ld_date, ld_vers_major,
