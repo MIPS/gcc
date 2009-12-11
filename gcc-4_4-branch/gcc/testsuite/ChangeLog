@@ -1,3 +1,27 @@
+2009-12-11  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	PR target/41196
+	2009-10-14  Daniel Gutson  <dgutson@codesourcery.com>
+	* testsuite/gcc.target/arm/neon/vfp-shift-a2t2.c: New test case.
+
+2009-12-11  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	2009-10-08  Doug Kwan  <dougkwan@google.com>
+
+	PR rtl-optimization/41574
+	* gcc.dg/pr41574.c: New test.
+
+2009-11-13  Jason Merrill  <jason@redhat.com>
+
+	PR c++/27425
+	PR c++/34274
+	* g++.dg/template/arg7.C: New.
+
+2009-12-10  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/42268
+	* gfortran.dg/intrinsic_pack_5.f90: New test.
+
 2009-12-10  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/42317
