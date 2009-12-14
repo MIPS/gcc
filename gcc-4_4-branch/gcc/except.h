@@ -49,9 +49,6 @@ extern bool can_throw_internal (const_rtx);
 extern bool can_throw_external_1 (int, bool);
 extern bool can_throw_external (const_rtx);
 
-/* Set TREE_NOTHROW and cfun->all_throwers_are_sibcalls.  */
-extern unsigned int set_nothrow_function_flags (void);
-
 /* After initial rtl generation, call back to finish generating
    exception support code.  */
 extern void finish_eh_generation (void);

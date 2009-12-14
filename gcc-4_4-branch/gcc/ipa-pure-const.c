@@ -860,8 +860,8 @@ propagate (void)
 	      switch (pure_const_state)
 		{
 		case IPA_CONST:
-		  TREE_READONLY (w->decl) = 1;
-		  DECL_LOOPING_CONST_OR_PURE_P (w->decl) = looping;
+		  cgraph_set_readonly_flag (w, true);
+		  cgraph_set_looping_const_or_pure_flag (w, looping);
 		  if (dump_file)
 		    fprintf (dump_file, "Function found to be %sconst: %s\n",  
 			     looping ? "looping " : "",
@@ -869,8 +869,8 @@ propagate (void)
 		  break;
 		  
 		case IPA_PURE:
-		  DECL_PURE_P (w->decl) = 1;
-		  DECL_LOOPING_CONST_OR_PURE_P (w->decl) = looping;
+		  cgraph_set_pure_flag (w, true);
+		  cgraph_set_looping_const_or_pure_flag (w, looping);
 		  if (dump_file)
 		    fprintf (dump_file, "Function found to be %spure: %s\n",  
 			     looping ? "looping " : "",
