@@ -1,4 +1,8 @@
 2009-12-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/opt/ctor1.C: New test.
+
+2009-12-14  Jakub Jelinek  <jakub@redhat.com>
 	    Sebastian Pop  <sebastian.pop@amd.com>
 
 	* gcc.target/i386/sse-12.c: Add -mpopcnt and -mlwp.
