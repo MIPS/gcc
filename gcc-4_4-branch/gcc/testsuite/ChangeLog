@@ -1,3 +1,10 @@
+2009-12-14  Uros Bizjak  <ubizjak@gmail.com>
+
+	* g++.dg/other/i386-2.C: Add -mpopcnt -mabm -mlwp to dg-options.
+	* g++.dg/other/i386-3.C: Ditto.
+	* g++.dg/other/i386-5.C: Remove duplicated test.
+	* g++.dg/other/i386-6.C: Ditto.
+
 2009-12-14  Jakub Jelinek  <jakub@redhat.com>
 
 	* g++.dg/opt/ctor1.C: New test.
