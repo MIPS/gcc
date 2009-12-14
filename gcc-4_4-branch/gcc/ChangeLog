@@ -1,3 +1,34 @@
+2009-12-14  Jakub Jelinek  <jakub@redhat.com>
+	    Sebastian Pop  <sebastian.pop@amd.com>
+
+	* config/i386/i386-builtin-types.def (PVOID): Declared.
+	(VOID_FTYPE_PVOID): Declared.
+	(PVOID_FTYPE_VOID): Declared.
+	(UCHAR_FTYPE_USHORT_UINT_USHORT): Removed.
+	(VOID_FTYPE_USHORT_UINT_USHORT): Removed.
+	* config/i386/i386.c (IX86_BUILTIN_LLWPCB16, IX86_BUILTIN_LLWPCB32,
+	IX86_BUILTIN_LLWPCB64, IX86_BUILTIN_SLWPCB16, IX86_BUILTIN_SLWPCB32,
+	IX86_BUILTIN_SLWPCB64, IX86_BUILTIN_LWPVAL16, IX86_BUILTIN_LWPINS16):
+	Removed.
+	(IX86_BUILTIN_LLWPCB, IX86_BUILTIN_SLWPCB): New.
+	(bdesc_special_args): Adjust declaration of __builtin_ia32_llwpcb,
+	__builtin_ia32_slwpcb, __builtin_ia32_lwpval32,
+	__builtin_ia32_lwpval64, __builtin_ia32_lwpins32, and
+	__builtin_ia32_lwpins64.
+	(ix86_expand_special_args_builtin): Handle VOID_FTYPE_PVOID.
+	Do not handle VOID_FTYPE_USHORT_UINT_USHORT and
+	UCHAR_FTYPE_USHORT_UINT_USHORT.  Warn when the third operand is
+	not an immediate.  Also handle builtin functions with 3 arguments.
+	(ix86_expand_builtin): Handle IX86_BUILTIN_LLWPCB and
+	IX86_BUILTIN_SLWPCB.
+	* config/i386/i386.md (UNSPEC_LLWP_INTRINSIC, UNSPEC_SLWP_INTRINSIC):
+	Renamed UNSPECV_LLWP_INTRINSIC and UNSPECV_SLWP_INTRINSIC.
+	(memory attribute): Handle lwp.
+	(lwp*): Rewrite all the insn patterns for LWP.
+	* config/i386/lwpintrin.h (__llwpcb16, __llwpcb32, __llwpcb64,
+	__slwpcb16, __slwpcb32, __slwpcb64, __lwpval16, __lwpins16): Removed.
+	(__llwpcb, __slwpcb): New.
+
 2009-12-11  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
 
 	PR target/42263
