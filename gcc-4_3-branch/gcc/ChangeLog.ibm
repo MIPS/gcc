@@ -1,3 +1,7 @@
+2009-12-15  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* Revert OpenSUSE patch-012-gcc4-ppc64-m32-m64-multilib-only.patch.
+
 2009-12-03  Peter Bergner  <bergner@vnet.ibm.com>
 
 	* gcc/configure.ac: Move test for dci instruction to correct location.
