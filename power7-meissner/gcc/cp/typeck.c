@@ -1073,6 +1073,47 @@ comp_array_types (const_tree t1, const_tree t2, bool allow_redeclaration)
   return true;
 }
 
+/* Subroutine of structural_comptypes.
+   Compare the template parameters of the
+   typedef decl of T1 and T2. 
+   Return TRUE if the template parameters of the typedef decls of T1 and T2 are
+   different, FALSE otherwise.  */
+
+static bool
+incompatible_dependent_typedefs_p (tree t1, tree t2)
+{
+  tree decl1, tinfo1,
+       decl2, tinfo2;
+
+  if (!typedef_variant_p (t1)
+      || !typedef_variant_p (t2)
+      || !dependent_type_p (t1)
+      || !dependent_type_p (t2))
+    return false;
+
+  decl1 = TYPE_NAME (t1);
+  decl2 = TYPE_NAME (t2);
+  if (decl1 == decl2)
+    return false ;
+
+  tinfo1 = get_template_info (decl1);
+  if (!tinfo1)
+    tinfo1 = get_template_info (DECL_CONTEXT (decl1));
+
+  tinfo2 = get_template_info (decl2);
+  if (!tinfo2)
+    tinfo2 = get_template_info (DECL_CONTEXT (decl2));
+
+  gcc_assert (tinfo1 != NULL_TREE
+	      && tinfo2 != NULL_TREE);
+
+  if (tinfo1 == tinfo2)
+    return false;
+
+  return !comp_template_parms (DECL_TEMPLATE_PARMS (TI_TEMPLATE (tinfo1)),
+			       DECL_TEMPLATE_PARMS (TI_TEMPLATE (tinfo2)));
+}
+
 /* Subroutine in comptypes.  */
 
 static bool
@@ -1119,6 +1160,9 @@ structural_comptypes (tree t1, tree t2, int strict)
   if (TREE_CODE (t1) != ARRAY_TYPE
       && TYPE_MAIN_VARIANT (t1) == TYPE_MAIN_VARIANT (t2))
     return true;
+
+  if (incompatible_dependent_typedefs_p (t1, t2))
+    return false;
 
   /* Compare the types.  Break out if they could be the same.  */
   switch (TREE_CODE (t1))
@@ -3021,7 +3065,6 @@ cp_build_function_call_vec (tree function, VEC(tree,gc) **params,
 			    tsubst_flags_t complain)
 {
   tree fntype, fndecl;
-  tree name = NULL_TREE;
   int is_method;
   tree original = function;
   int nargs;
@@ -3044,8 +3087,6 @@ cp_build_function_call_vec (tree function, VEC(tree,gc) **params,
 
   if (TREE_CODE (function) == FUNCTION_DECL)
     {
-      name = DECL_NAME (function);
-
       mark_used (function);
       fndecl = function;
 
@@ -4465,8 +4506,8 @@ cp_build_unary_op (enum tree_code code, tree xarg, int noconvert,
 	arg = build_expr_type_conversion (flags, arg, true);
 	if (!arg)
 	  errstring = (code == NEGATE_EXPR
-		       ? "wrong type argument to unary minus"
-		       : "wrong type argument to unary plus");
+		       ? _("wrong type argument to unary minus")
+		       : _("wrong type argument to unary plus"));
 	else
 	  {
 	    if (!noconvert && CP_INTEGRAL_TYPE_P (TREE_TYPE (arg)))
@@ -4489,14 +4530,14 @@ cp_build_unary_op (enum tree_code code, tree xarg, int noconvert,
       else if (!(arg = build_expr_type_conversion (WANT_INT | WANT_ENUM
 						   | WANT_VECTOR,
 						   arg, true)))
-	errstring = "wrong type argument to bit-complement";
+	errstring = _("wrong type argument to bit-complement");
       else if (!noconvert && CP_INTEGRAL_TYPE_P (TREE_TYPE (arg)))
 	arg = perform_integral_promotions (arg);
       break;
 
     case ABS_EXPR:
       if (!(arg = build_expr_type_conversion (WANT_ARITH | WANT_ENUM, arg, true)))
-	errstring = "wrong type argument to abs";
+	errstring = _("wrong type argument to abs");
       else if (!noconvert)
 	arg = default_conversion (arg);
       break;
@@ -4504,7 +4545,7 @@ cp_build_unary_op (enum tree_code code, tree xarg, int noconvert,
     case CONJ_EXPR:
       /* Conjugating a real value is a no-op, but allow it anyway.  */
       if (!(arg = build_expr_type_conversion (WANT_ARITH | WANT_ENUM, arg, true)))
-	errstring = "wrong type argument to conjugation";
+	errstring = _("wrong type argument to conjugation");
       else if (!noconvert)
 	arg = default_conversion (arg);
       break;
@@ -4515,7 +4556,7 @@ cp_build_unary_op (enum tree_code code, tree xarg, int noconvert,
       val = invert_truthvalue_loc (input_location, arg);
       if (arg != error_mark_node)
 	return val;
-      errstring = "in argument to unary !";
+      errstring = _("in argument to unary !");
       break;
 
     case NOP_EXPR:
@@ -4576,13 +4617,13 @@ cp_build_unary_op (enum tree_code code, tree xarg, int noconvert,
 					      arg, true)))
 	{
 	  if (code == PREINCREMENT_EXPR)
-	    errstring ="no pre-increment operator for type";
+	    errstring = _("no pre-increment operator for type");
 	  else if (code == POSTINCREMENT_EXPR)
-	    errstring ="no post-increment operator for type";
+	    errstring = _("no post-increment operator for type");
 	  else if (code == PREDECREMENT_EXPR)
-	    errstring ="no pre-decrement operator for type";
+	    errstring = _("no pre-decrement operator for type");
 	  else
-	    errstring ="no post-decrement operator for type";
+	    errstring = _("no post-decrement operator for type");
 	  break;
 	}
       else if (arg == error_mark_node)
@@ -4596,7 +4637,7 @@ cp_build_unary_op (enum tree_code code, tree xarg, int noconvert,
           if (complain & tf_error)
             readonly_error (arg, ((code == PREINCREMENT_EXPR
                                    || code == POSTINCREMENT_EXPR)
-                                  ? "increment" : "decrement"));
+                                  ? REK_INCREMENT : REK_DECREMENT));
           else
             return error_mark_node;
         }
@@ -6330,7 +6371,7 @@ cp_build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs,
 	      && C_TYPE_FIELDS_READONLY (lhstype))))
     {
       if (complain & tf_error)
-	readonly_error (lhs, "assignment");
+	readonly_error (lhs, REK_ASSIGNMENT);
       else
 	return error_mark_node;
     }
@@ -7430,6 +7471,44 @@ comp_ptr_ttypes (tree to, tree from)
   return comp_ptr_ttypes_real (to, from, 1);
 }
 
+/* Returns true iff FNTYPE is a non-class type that involves
+   error_mark_node.  We can get FUNCTION_TYPE with buried error_mark_node
+   if a parameter type is ill-formed.  */
+
+bool
+error_type_p (const_tree type)
+{
+  tree t;
+
+  switch (TREE_CODE (type))
+    {
+    case ERROR_MARK:
+      return true;
+
+    case POINTER_TYPE:
+    case REFERENCE_TYPE:
+    case OFFSET_TYPE:
+      return error_type_p (TREE_TYPE (type));
+
+    case FUNCTION_TYPE:
+    case METHOD_TYPE:
+      if (error_type_p (TREE_TYPE (type)))
+	return true;
+      for (t = TYPE_ARG_TYPES (type); t; t = TREE_CHAIN (t))
+	if (error_type_p (TREE_VALUE (t)))
+	  return true;
+      return false;
+
+    case RECORD_TYPE:
+      if (TYPE_PTRMEMFUNC_P (type))
+	return error_type_p (TYPE_PTRMEMFUNC_FN_TYPE (type));
+      return false;
+
+    default:
+      return false;
+    }
+}
+
 /* Returns 1 if to and from are (possibly multi-level) pointers to the same
    type or inheritance-related types, regardless of cv-quals.  */
 
@@ -7439,9 +7518,10 @@ ptr_reasonably_similar (const_tree to, const_tree from)
   for (; ; to = TREE_TYPE (to), from = TREE_TYPE (from))
     {
       /* Any target type is similar enough to void.  */
-      if (TREE_CODE (to) == VOID_TYPE
-	  || TREE_CODE (from) == VOID_TYPE)
-	return 1;
+      if (TREE_CODE (to) == VOID_TYPE)
+	return !error_type_p (from);
+      if (TREE_CODE (from) == VOID_TYPE)
+	return !error_type_p (to);
 
       if (TREE_CODE (to) != TREE_CODE (from))
 	return 0;
@@ -7461,7 +7541,7 @@ ptr_reasonably_similar (const_tree to, const_tree from)
 	return 1;
 
       if (TREE_CODE (to) == FUNCTION_TYPE)
-	return 1;
+	return !error_type_p (to) && !error_type_p (from);
 
       if (TREE_CODE (to) != POINTER_TYPE)
 	return comptypes

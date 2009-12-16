@@ -3573,12 +3573,6 @@ the ``guard pages'' at the end of a stack area.  The default value
 of 12 (4096-byte interval) is suitable for most systems.
 @end defmac
 
-@defmac STACK_CHECK_PROBE_LOAD
-An integer which is nonzero if GCC should perform the stack probe
-as a load instruction and zero if GCC should use a store instruction.
-The default is zero, which is the most efficient choice on most systems.
-@end defmac
-
 @defmac STACK_CHECK_MOVING_SP
 An integer which is nonzero if GCC should move the stack pointer page by page
 when doing probes.  This can be necessary on systems where the stack pointer
@@ -3589,9 +3583,11 @@ default value of this macro is zero.
 @end defmac
 
 @defmac STACK_CHECK_PROTECT
-The number of bytes of stack needed to recover from a stack overflow,
-for languages where such a recovery is supported.  The default value of
-75 words should be adequate for most machines.
+The number of bytes of stack needed to recover from a stack overflow, for
+languages where such a recovery is supported.  The default value of 75 words
+with the @code{setjmp}/@code{longjmp}-based exception handling mechanism and
+8192 bytes with other exception handling mechanisms should be adequate for
+most machines.
 @end defmac
 
 The following macros are relevant only if neither STACK_CHECK_BUILTIN
@@ -9946,7 +9942,7 @@ contained within the @var{superset} named address space.  Pointers to
 a named address space that is a subset of another named address space
 will be converted automatically without a cast if used together in
 arithmetic operations.  Pointers to a superset address space can be
-converted to pointers to a subset address space via explict casts.
+converted to pointers to a subset address space via explicit casts.
 @end deftypefn
 
 @deftypefn {Target Hook} {rtx} TARGET_ADDR_SPACE_CONVERT (rtx @var{op}, tree @var{from_type}, tree @var{to_type})
@@ -11051,7 +11047,7 @@ On some architectures it can take multiple instructions to synthesize
 a constant.  If there is another constant already in a register that
 is close enough in value then it is preferable that the new constant
 is computed from this register using immediate addition or
-substraction.  We accomplish this through CSE.  Besides the value of
+subtraction.  We accomplish this through CSE.  Besides the value of
 the constant we also add a lower and an upper constant anchor to the
 available expressions.  These are then queried when encountering new
 constants.  The anchors are computed by rounding the constant up and
