@@ -1,3 +1,18 @@
+2009-12-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.opt (-mfused-negate-madd): New hack to
+	disable negate multiply/add ops for calculix.
+
+	* config/rs6000/vsx.md (vsx_fnmadd<mode>4*): Add support for
+	-mfused-negate-madd.
+	(vsx_fnmsub<mode>4*): Ditto.
+
+	* config/rs6000/rs6000.md (fnmaddsf4*): Add support for
+	-mfused-negate-madd.
+	(fnmsubsf4*): Ditto.
+	(fnmadddf4*): Ditto.
+	(fnmsubdf4*): Ditto.
+
 2009-12-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* target.h (struct gcc_target): Add target hook for overriding the
