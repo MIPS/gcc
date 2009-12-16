@@ -1,3 +1,8 @@
+2009-12-16  Peter Bergner  <bergner@vnet.ibm.com>
+
+	PR 58703 [LTC bugzilla]
+	* Revert OpenSUSE patch-041-fpreserve-function-arguments43.patch.
+
 2009-12-15  Peter Bergner  <bergner@vnet.ibm.com>
 
 	* Revert OpenSUSE patch-012-gcc4-ppc64-m32-m64-multilib-only.patch.
