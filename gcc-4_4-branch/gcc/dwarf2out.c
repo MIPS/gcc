@@ -18655,7 +18655,8 @@ static bool
 resolve_addr_in_expr (dw_loc_descr_ref loc)
 {
   for (; loc; loc = loc->dw_loc_next)
-    if ((loc->dw_loc_opc == DW_OP_addr
+    if (((loc->dw_loc_opc == DW_OP_addr
+	  || loc->dw_loc_opc == INTERNAL_DW_OP_tls_addr)
 	 && resolve_one_addr (&loc->dw_loc_oprnd1.v.val_addr, NULL))
 	|| (loc->dw_loc_opc == DW_OP_implicit_value
 	    && loc->dw_loc_oprnd2.val_class == dw_val_class_addr
