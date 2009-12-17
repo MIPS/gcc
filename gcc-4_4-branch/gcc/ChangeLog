@@ -1,3 +1,25 @@
+2009-12-17  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/41679
+	* var-tracking.c (count_uses): Count MO_VAL_USE of original
+	MO_VAL_SET value for COND_EXEC.
+	(add_stores): Handle conditional stores.
+
+	PR debug/41679
+	* var-tracking.c (use_type): Remove indirection from loc.
+	(count_uses): Dereference incoming loc early.
+	(add_uses): Dereference incoming loc early.
+
+	PR debug/41679
+	* var-tracking.c (add_stores): Avoid value mode mismatch for
+	promoted declarations.
+
+2009-12-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/42386
+	* ipa.c (function_and_variable_visibility): Clear same_comdat_group
+	links of DECL_EXTERNAL nodes.
+
 2009-12-16  Jakub Jelinek  <jakub@redhat.com>
 
 	* tree-chrec.c (chrec_convert_1): Only fold (T2)(t +- x) to

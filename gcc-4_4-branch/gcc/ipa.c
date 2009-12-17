@@ -236,6 +236,23 @@ function_and_variable_visibility (void)
 
   for (node = cgraph_nodes; node; node = node->next)
     {
+      /* For external decls stop tracking same_comdat_group, it doesn't matter
+	 what comdat group they are in when they won't be emitted in this TU,
+	 and simplifies later passes.  */
+      if (node->same_comdat_group && DECL_EXTERNAL (node->decl))
+	{
+	  struct cgraph_node *n = node, *next;
+	  do
+	    {
+	      /* If at least one of same comdat group functions is external,
+		 all of them have to be, otherwise it is a front-end bug.  */
+	      gcc_assert (DECL_EXTERNAL (n->decl));
+	      next = n->same_comdat_group;
+	      n->same_comdat_group = NULL;
+	      n = next;
+	    }
+	  while (n != node);
+	}
       if (node->reachable
 	  && (DECL_COMDAT (node->decl)
 	      || (!flag_whole_program

@@ -1,3 +1,13 @@
+2009-12-17  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/41679
+	* gcc.target/arm/pr41679.c: New.
+
+2009-12-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/42386
+	* g++.dg/opt/dtor3.C: New test.
+
 2009-12-15  Jason Merrill  <jason@redhat.com>
 
 	PR c++/42387
