@@ -1,3 +1,116 @@
+2009-12-22  Brian Hackett  <bhackett1024@gmail.com>
+
+	* g++.dg/plugin/attribute_plugin.c: Rename pre-genericize event.
+	* g++.dg/plugin/dumb_plugin.c: Same.
+
+2009-12-21  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/abi/mangle14.C: Add expected mangling.
+
+2009-12-21  Andy Hutchinson  <hutchinsonandy@gcc.gnu.org>
+
+	* gcc.dg/pr36901.h: AVR must support address zero.
+
+2009-12-21  Andy Hutchinson  <hutchinsonandy@gcc.gnu.org>
+
+	PR testsuite/36903
+	* gcc.dg/tree-ssa/gen-vect-11.c : Disable for avr target. It will
+	not vectorize.
+	* gcc.dg/tree-ssa/gen-vect-11a.c: Ditto.
+	* gcc.dg/tree-ssa/gen-vect-2.c: Ditto.
+	* gcc.dg/tree-ssa/gen-vect-25.c: Ditto.
+	* gcc.dg/tree-ssa/gen-vect-26.c: Ditto.
+	* gcc.dg/tree-ssa/gen-vect-28.c: Ditto.
+	* gcc.dg/tree-ssa/gen-vect-32.c: Ditto.
+	* gcc.dg/tree-ssa/pr23455.c: Test for 4 eliminations on avr target.
+	* gcc.dg/tree-ssa/ssa-fre-26.c: XFAIL test for avr.
+	* gcc.dg/tree-ssa/vrp47.c: Skip test for avr target due to low
+	branch cost.
+
+2009-12-21  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR libfortran/PR42422
+	* gfortran.dg/list_read_10.f90:  New test.
+
+2009-12-19  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/42225
+	* g++.dg/template/typedef26.C: New test.
+
+2009-12-19  Richard Guenther  <rguenther@suse.de>
+
+	PR lto/42401
+	* g++.dg/lto/20091219_0.C: New testcase.
+
+2009-12-19  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/42108
+	* gfortran.dg/pr42108.f90: New testcase.
+
+2009-12-18  Jason Merrill  <jason@redhat.com>
+
+	PR c++/28300
+	* g++.dg/template/spec37.C: New.
+
+	PR c++/42415
+	* g++.dg/tc1/dr147.C: Add test.
+	* g++.old-deja/g++.jason/temporary5.C: Adjust.
+
+2009-12-18  Shujing Zhao  <pearly.zhao@oracle.com>
+
+	* g++.old-deja/g++.brendan/misc6.C: Make expected dg-error strings
+	explicit.
+
+2009-12-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/debug/dwarf2/const-1.c: Don't expect DW_AT_const_value,
+	but instead DW_AT_location with DW_OP_addr+DW_OP_stack_value.  Add
+	-gno-strict-dwarf -fno-merge-debug-strings to dg-options.
+	* g++.dg/debug/dwarf2/const1.C: Likewise.
+	* g++.dg/debug/dwarf2/template-params-3.C: Likewise.
+	* g++.dg/debug/dwarf2/template-func-params-3.C: Likewise.
+
+2009-12-17  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/41679
+	* gcc.target/arm/pr41679.c: New.
+
+2009-12-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/42386
+	* g++.dg/opt/dtor3.C: New test.
+
+2009-12-17  Arnaud Charlet  <charlet@adacore.com>
+
+	* ada/acats/run_all.sh: Strip comments from norun.lst
+
+2009-12-17  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/32280
+	* gcc.target/i386/pr32280-1.c: New test.
+
+2009-12-17  Uros Bizjak  <ubizjak@gmail.com>
+
+	* objc/execute/forward-1.x: XFAIL for -fgnu-runtime on
+	x86_64-*-darwin*, powerpc*-*-darwin* and alpha*-*-linux* targets.
+
+2009-12-17  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/42144
+	* gfortran.dg/dynamic_dispatch_6.f03: New test.
+
+2009-12-17  Shujing Zhao  <pearly.zhao@oracle.com>
+
+	* g++.old-deja/g++.mike/net31.C: Make expected dg-error strings
+	explicit.
+	* g++.old-deja/g++.bugs/900213_02.C: Likewise.
+	* g++.old-deja/g++.bugs/900215_02.C: Likewise.
+
+2009-12-16  Richard Guenther  <rguenther@suse.de>
+
+	PR lto/42392
+	* gcc.dg/lto/20091216-1_0.c: New testcase.
+
 2009-12-15  Jason Merrill  <jason@redhat.com>
 
 	PR c++/42387
@@ -31,9 +144,9 @@
 2009-12-15  Tobias Burnus  <burnus@net-b.de>
 
 	PR fortran/41235
-	* auto_char_len_1.f90: New test.
-	* auto_char_len_2.f90: New test.
-	* auto_char_len_4.f90: Correct test.
+	* gfortran.dg/auto_char_len_1.f90: New test.
+	* gfortran.dg/auto_char_len_2.f90: New test.
+	* gfortran.dg/auto_char_len_4.f90: Correct test.
 
 2009-12-14  Jason Merrill  <jason@redhat.com>
 

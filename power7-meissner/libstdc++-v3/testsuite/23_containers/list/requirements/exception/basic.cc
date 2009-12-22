@@ -1,7 +1,9 @@
 // { dg-options "-std=gnu++0x" }
-// { dg-do compile }
+// { dg-require-cstdint "" }
 
-// Copyright (C) 2008, 2009 Free Software Foundation, Inc.
+// 2009-11-30  Benjamin Kosnik  <benjamin@redhat.com>
+
+// Copyright (C) 2009 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -18,28 +20,21 @@
 // with this library; see the file COPYING3.  If not see
 // <http://www.gnu.org/licenses/>.
 
-#include <cstdatomic>
+#include <list>
+#include <exception/safety.h>
 
-namespace gnu
+void
+value()
 {
-#ifndef ATOMIC_INTEGRAL_LOCK_FREE
-# error "ATOMIC_INTEGRAL_LOCK_FREE must be a macro"
-#else
-# if ATOMIC_INTEGRAL_LOCK_FREE != 0 \
-    && ATOMIC_INTEGRAL_LOCK_FREE != 1 && ATOMIC_INTEGRAL_LOCK_FREE != 2
-# error "ATOMIC_INTEGRAL_LOCK_FREE must be 0, 1, or 2"
-# endif
-#endif
+  typedef __gnu_cxx::throw_value_limit value_type;
+  typedef __gnu_cxx::throw_allocator_limit<value_type> allocator_type;
+  typedef std::list<value_type, allocator_type> test_type;
+  __gnu_test::basic_safety<test_type> test;
+}
 
-#ifndef ATOMIC_ADDRESS_LOCK_FREE
-# error "ATOMIC_ADDRESS_LOCK_FREE must be a macro"
-# if ATOMIC_INTEGRAL_LOCK_FREE != 0 \
-    && ATOMIC_INTEGRAL_LOCK_FREE != 1 && ATOMIC_INTEGRAL_LOCK_FREE != 2
-# error "ATOMIC_INTEGRAL_LOCK_FREE must be 0, 1, or 2"
-# endif
-#endif
-
-#ifndef ATOMIC_FLAG_INIT
-    #error "ATOMIC_FLAG_INIT_must_be_a_macro"
-#endif
+// Container requirement testing, exceptional behavior
+int main()
+{
+  value();
+  return 0;
 }

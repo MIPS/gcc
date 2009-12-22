@@ -195,12 +195,6 @@ mfused-madd
 Target Report Var(TARGET_FUSED_MADD) Init(1)
 Generate fused multiply/add instructions
 
-mfused-negate-madd
-Target Report Var(TARGET_FUSED_NEGATE_MADD) Init(0)
-Generate fused multiply/add instructions involving negate of the result when
-floating point optimizations that ignore the IEEE signedness of zero are
-disabled.
-
 mtls-markers
 Target Report Var(tls_markers) Init(1)
 Mark __tls_get_addr calls with argument info
