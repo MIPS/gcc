@@ -1,3 +1,19 @@
+2009-12-21  Jason Merrill  <jason@redhat.com>
+
+	* mangle.c (write_member_name): Move abi-version=1 code back to...
+	(write_expression): ...here.
+
+2009-12-16  Jason Merrill  <jason@redhat.com>
+
+	PR c++/42387
+	* decl.c (compute_array_index_type): Mark a VLA as dependent.
+
+2009-12-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/41183
+	* cp-tree.h (current_class_ptr): Give NULL even when cfun
+	has NULL cfun->language.
+
 2009-11-13  Jason Merrill  <jason@redhat.com>
 
 	PR c++/27425
