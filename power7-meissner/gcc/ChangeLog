@@ -1,3 +1,84 @@
+2009-12-28  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR middle-end/41344
+	* omp-low.c (diagnose_sb_2): Handle GIMPLE_COND.
+
+2009-12-24  Andy Hutchinson  <hutchinsonandy@gcc.gnu.org>
+
+	PR target/42457
+	* config/avr/avr.c (avr_extra_arch_macro): Remove static.
+	(avr_cpu_cpp_builtins): Remove.
+	* config/avr/avr.h (avr_extra_arch_macro): Add prototype.
+	* config/avr/avr-c.c: New File.
+	(avr_cpu_cpp_builtins) : Add.
+	* config/avr/t-avr: Add make information for avr-c.
+	* config.gcc (avr-*-*): Include avr-c.o as c and cpp object. 
+
+2009-12-24  Andy Hutchinson  <hutchinsonandy@gcc.gnu.org>
+
+	PR target/35013, 27192
+	* config/avr/avr.c (print_operand_address): Print correct program
+	memory address.
+	Add warning for large device offset addresses.
+	(avr_assemble_integer): Ditto.
+	(print_operand): Add warnings for incorrect addressing.
+	(out_movqi_r_mr): Tag assembler with new address codes.
+	(out_movhi_r_mr): Ditto.
+	(out_movsi_r_mr): Ditto.
+	(out_movqi_mr_r): Ditto.
+	(out_movhi_mr_r): Ditto.
+	(out_movsi_mr_r): Ditto.
+	* config/avr/predicates.md (text_segment_operand): New predicate.
+	* config/avr/avr.md (jump): Tag assembler with new address codes.
+	(call_insn): Ditto.
+	(call_value_insn): Ditto.
+	(*tablejump_lib): Ditto.
+	(*cbi): Ditto.
+	(*sbi): Ditto.
+	(indirect_jump): New define_expand.
+	(jcindirect_jump): New pattern for constant expression jump.
+	(njcindirect_jump): Renamed old indirect_jump.
+
+2009-12-24  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* store-motion.c (build_store_vectors): Clear regs_set_in_block at
+	the start of a loop over basic blocks.
+
+2009-12-24  Julian Brown  <julian@codesourcery.com>
+	    Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	PR target/40887
+	* config/arm/arm.c (output_call_mem): Remove armv5 support.
+	* config/arm/arm.md (*call_mem): Disable for armv5. Add note.
+	(*call_value_mem): Likewise.
+
+2009-12-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/42475
+	* combine.c (make_compound_operation) <case SUBREG>: Use mode of
+	SUBREG_REG (x) instead of tem's mode.
+
+2009-12-23  Jakub Jelinek  <jakub@redhat.com>
+	    Cary Coutant  <ccoutant@google.com>
+
+	PR debug/42454
+	* dwarf2out.c (add_ranges_by_labels): Conditionally Add DW_AT_ranges
+	attribute.
+	(dwarf2out_finish): Change calls to add_ranges_by_labels.
+
+2009-12-23  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	PR target/42093
+	* config/arm/arm.h (CASE_VECTOR_PC_RELATIVE): Fix macro usage
+	to TARGET_THUMB1.
+	(CASE_VECTOR_SHORTEN_MODE): Allow signed offsets
+	only for TARGET_THUMB1.
+
+2009-12-23  Ramana Radhakrishnan  <ramrad01@arm.com>
+
+	PR target/40670
+	* config/arm/arm.md: Split for Thumb1 as well.
+
 2009-12-22  Cary Coutant  <ccoutant@google.com>
 
 	PR debug/42454

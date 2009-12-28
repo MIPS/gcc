@@ -1,3 +1,37 @@
+2009-12-24  Jason Merrill  <jason@redhat.com>
+
+	PR c++/41305, DR 384
+	* name-lookup.c (arg_assoc_class): Split out arg_assoc_class_only
+	and arg_assoc_bases.
+	(friend_of_associated_class_p): Remove.
+	(arg_assoc_namespace): Don't call it.
+	(arg_assoc_template_arg): Use arg_assoc_class_only for member
+	template context.
+	(arg_assoc_type): Handle UNION_TYPE and ENUMERAL_TYPE properly.
+
+	* name-lookup.c (arg_assoc): Handle TEMPLATE_ID_EXPR properly.
+
+2009-12-23  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/42260
+	* cp-tree.h (lookup_conversions): Add new bool parameter to
+	declaration.
+	* search.c (lookup_conversion): Use new bool parameter in
+	definition.
+	* call.c (add_builtin_candidates): Don't lookup template conversion
+	(convert_class_to_reference, build_user_type_conversion_1,
+	 build_op_call): Adjust.
+	* cvt.c (build_expr_type_conversion): Likewise
+
+2009-12-22  Jason Merrill  <jason@redhat.com>
+
+	PR c++/42466
+	* pt.c (reduce_template_parm_level): Check the type before
+	returning cached TEMPLATE_PARM_INDEX.
+
+	PR c++/42331
+	* typeck.c (cp_build_modify_expr): Fix thinko.
+
 2009-12-21  Jason Merrill  <jason@redhat.com>
 
 	* mangle.c (write_member_name): Move abi-version=1 code back to...
