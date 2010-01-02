@@ -29,6 +29,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "dependency.h"
 #include "data.h"
 #include "target-memory.h" /* for gfc_simplify_transfer */
+#include "constructor.h"
 
 /* Types used in equivalence statements.  */
 
@@ -830,7 +831,7 @@ resolve_structure_cons (gfc_expr *expr)
   symbol_attribute a;
 
   t = SUCCESS;
-  cons = expr->value.constructor;
+  cons = gfc_constructor_first (expr->value.constructor);
   /* A constructor may have references if it is the result of substituting a
      parameter variable.  In this case we just pull out the component we
      want.  */
@@ -849,7 +850,7 @@ resolve_structure_cons (gfc_expr *expr)
       return FAILURE;
     }
 
-  for (; comp; comp = comp->next, cons = cons->next)
+  for (; comp && cons; comp = comp->next, cons = gfc_constructor_next (cons))
     {
       int rank;
 

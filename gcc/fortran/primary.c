@@ -27,6 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "match.h"
 #include "parse.h"
 #include "toplev.h"
+#include "constructor.h"
 
 /* Matches a kind-parameter expression, which is either a named
    symbolic constant or a nonnegative integer constant.  If
@@ -2146,10 +2147,9 @@ gfc_free_structure_ctor_component (gfc_structure_ctor_component *comp)
    for components without explicit value given.  */
 static gfc_try
 build_actual_constructor (gfc_structure_ctor_component **comp_head,
-			  gfc_constructor **ctor_head, gfc_symbol *sym)
+			  gfc_constructor_base *ctor_head, gfc_symbol *sym)
 {
   gfc_structure_ctor_component *comp_iter;
-  gfc_constructor *ctor_tail = NULL;
   gfc_component *comp;
 
   for (comp = sym->components; comp; comp = comp->next)
@@ -2182,8 +2182,8 @@ build_actual_constructor (gfc_structure_ctor_component **comp_head,
 	      gfc_free_expr (value);
 	      return FAILURE;
 	    }
-	  *ctor_head = ctor_tail = gfc_get_constructor ();
-	  ctor_tail->expr = value;
+
+	  gfc_constructor_append_expr (ctor_head, value, NULL);
 	  continue;
 	}
 
@@ -2210,15 +2210,7 @@ build_actual_constructor (gfc_structure_ctor_component **comp_head,
 	value = comp_iter->val;
 
       /* Add the value to the constructor chain built.  */
-      if (ctor_tail)
-	{
-	  ctor_tail->next = gfc_get_constructor ();
-	  ctor_tail = ctor_tail->next;
-	}
-      else
-	*ctor_head = ctor_tail = gfc_get_constructor ();
-      gcc_assert (value);
-      ctor_tail->expr = value;
+      gfc_constructor_append_expr (ctor_head, value, NULL);
 
       /* Remove the entry from the component list.  We don't want the expression
 	 value to be free'd, so set it to NULL.  */
@@ -2237,7 +2229,7 @@ gfc_match_structure_constructor (gfc_symbol *sym, gfc_expr **result,
 				 bool parent)
 {
   gfc_structure_ctor_component *comp_tail, *comp_head, *comp_iter;
-  gfc_constructor *ctor_head, *ctor_tail;
+  gfc_constructor_base ctor_head = NULL;
   gfc_component *comp; /* Is set NULL when named component is first seen */
   gfc_expr *e;
   locus where;
@@ -2245,7 +2237,6 @@ gfc_match_structure_constructor (gfc_symbol *sym, gfc_expr **result,
   const char* last_name = NULL;
 
   comp_tail = comp_head = NULL;
-  ctor_head = ctor_tail = NULL;
 
   if (!parent && gfc_match_char ('(') != MATCH_YES)
     goto syntax;
@@ -2401,14 +2392,9 @@ gfc_match_structure_constructor (gfc_symbol *sym, gfc_expr **result,
   else
     gcc_assert (!comp_head);
 
-  e = gfc_get_expr ();
-
-  e->expr_type = EXPR_STRUCTURE;
-
+  e = gfc_build_structure_constructor_expr (NULL, &where);
   e->ts.type = BT_DERIVED;
   e->ts.u.derived = sym;
-  e->where = where;
-
   e->value.constructor = ctor_head;
 
   *result = e;
@@ -2424,7 +2410,7 @@ cleanup:
       gfc_free_structure_ctor_component (comp_iter);
       comp_iter = next;
     }
-  gfc_free_constructor (ctor_head);
+  gfc_constructor_free (ctor_head);
   return MATCH_ERROR;
 }
 

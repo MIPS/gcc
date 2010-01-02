@@ -30,6 +30,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gfortran.h"
 #include "arith.h"
 #include "target-memory.h"
+#include "constructor.h"
 
 /* MPFR does not have a direct replacement for mpz_set_f() from GMP.
    It's easily implemented with a few calls though.  */
@@ -1249,7 +1250,8 @@ static arith
 reduce_unary (arith (*eval) (gfc_expr *, gfc_expr **), gfc_expr *op,
 	      gfc_expr **result)
 {
-  gfc_constructor *c, *head;
+  gfc_constructor_base head;
+  gfc_constructor *c;
   gfc_expr *r;
   arith rc;
 
@@ -1257,9 +1259,8 @@ reduce_unary (arith (*eval) (gfc_expr *, gfc_expr **), gfc_expr *op,
     return eval (op, result);
 
   rc = ARITH_OK;
-  head = gfc_copy_constructor (op->value.constructor);
-
-  for (c = head; c; c = c->next)
+  head = gfc_constructor_copy (op->value.constructor);
+  for (c = gfc_constructor_first (head); c; c = gfc_constructor_next (c))
     {
       rc = reduce_unary (eval, c->expr, &r);
 
@@ -1270,18 +1271,14 @@ reduce_unary (arith (*eval) (gfc_expr *, gfc_expr **), gfc_expr *op,
     }
 
   if (rc != ARITH_OK)
-    gfc_free_constructor (head);
+    gfc_constructor_free (head);
   else
     {
-      r = gfc_get_expr ();
-      r->expr_type = EXPR_ARRAY;
-      r->value.constructor = head;
+      gfc_constructor *c = gfc_constructor_first (head);
+      r = gfc_build_array_expr (&c->expr->ts, &op->where);
       r->shape = gfc_copy_shape (op->shape, op->rank);
-
-      r->ts = head->expr->ts;
-      r->where = op->where;
       r->rank = op->rank;
-
+      r->value.constructor = head;
       *result = r;
     }
 
@@ -1293,14 +1290,13 @@ static arith
 reduce_binary_ac (arith (*eval) (gfc_expr *, gfc_expr *, gfc_expr **),
 		  gfc_expr *op1, gfc_expr *op2, gfc_expr **result)
 {
-  gfc_constructor *c, *head;
+  gfc_constructor_base head;
+  gfc_constructor *c;
   gfc_expr *r;
-  arith rc;
+  arith rc = ARITH_OK;
 
-  head = gfc_copy_constructor (op1->value.constructor);
-  rc = ARITH_OK;
-
-  for (c = head; c; c = c->next)
+  head = gfc_constructor_copy (op1->value.constructor);
+  for (c = gfc_constructor_first (head); c; c = gfc_constructor_next (c))
     {
       if (c->expr->expr_type == EXPR_CONSTANT)
         rc = eval (c->expr, op2, &r);
@@ -1314,18 +1310,14 @@ reduce_binary_ac (arith (*eval) (gfc_expr *, gfc_expr *, gfc_expr **),
     }
 
   if (rc != ARITH_OK)
-    gfc_free_constructor (head);
+    gfc_constructor_free (head);
   else
     {
-      r = gfc_get_expr ();
-      r->expr_type = EXPR_ARRAY;
-      r->value.constructor = head;
+      gfc_constructor *c = gfc_constructor_first (head);
+      r = gfc_build_array_expr (&c->expr->ts, &op1->where);
       r->shape = gfc_copy_shape (op1->shape, op1->rank);
-
-      r->ts = head->expr->ts;
-      r->where = op1->where;
       r->rank = op1->rank;
-
+      r->value.constructor = head;
       *result = r;
     }
 
@@ -1337,14 +1329,13 @@ static arith
 reduce_binary_ca (arith (*eval) (gfc_expr *, gfc_expr *, gfc_expr **),
 		  gfc_expr *op1, gfc_expr *op2, gfc_expr **result)
 {
-  gfc_constructor *c, *head;
+  gfc_constructor_base head;
+  gfc_constructor *c;
   gfc_expr *r;
-  arith rc;
+  arith rc = ARITH_OK;
 
-  head = gfc_copy_constructor (op2->value.constructor);
-  rc = ARITH_OK;
-
-  for (c = head; c; c = c->next)
+  head = gfc_constructor_copy (op2->value.constructor);
+  for (c = gfc_constructor_first (head); c; c = gfc_constructor_next (c))
     {
       if (c->expr->expr_type == EXPR_CONSTANT)
 	rc = eval (op1, c->expr, &r);
@@ -1358,18 +1349,14 @@ reduce_binary_ca (arith (*eval) (gfc_expr *, gfc_expr *, gfc_expr **),
     }
 
   if (rc != ARITH_OK)
-    gfc_free_constructor (head);
+    gfc_constructor_free (head);
   else
     {
-      r = gfc_get_expr ();
-      r->expr_type = EXPR_ARRAY;
-      r->value.constructor = head;
-      r->shape = gfc_copy_shape (op2->shape, op2->rank);
-
-      r->ts = head->expr->ts;
-      r->where = op2->where;
+      gfc_constructor *c = gfc_constructor_first (head);
+      r = gfc_build_array_expr (&c->expr->ts, &op2->where);
+	      r->shape = gfc_copy_shape (op2->shape, op2->rank);
       r->rank = op2->rank;
-
+      r->value.constructor = head;
       *result = r;
     }
 
@@ -1386,52 +1373,40 @@ static arith
 reduce_binary_aa (arith (*eval) (gfc_expr *, gfc_expr *, gfc_expr **),
 		  gfc_expr *op1, gfc_expr *op2, gfc_expr **result)
 {
-  gfc_constructor *c, *d, *head;
+  gfc_constructor_base head;
+  gfc_constructor *c, *d;
   gfc_expr *r;
-  arith rc;
+  arith rc = ARITH_OK;
 
-  head = gfc_copy_constructor (op1->value.constructor);
+  if (gfc_check_conformance (op1, op2,
+			     "elemental binary operation") != SUCCESS)
+    return ARITH_INCOMMENSURATE;
 
-  rc = ARITH_OK;
-  d = op2->value.constructor;
-
-  if (gfc_check_conformance (op1, op2, "elemental binary operation")
-      != SUCCESS)
-    rc = ARITH_INCOMMENSURATE;
-  else
+  head = gfc_constructor_copy (op1->value.constructor);
+  for (c = gfc_constructor_first (head),
+       d = gfc_constructor_first (op2->value.constructor);
+       c && d;
+       c = gfc_constructor_next (c), d = gfc_constructor_next (d))
     {
-      for (c = head; c; c = c->next, d = d->next)
-	{
-	  if (d == NULL)
-	    {
-	      rc = ARITH_INCOMMENSURATE;
-	      break;
-	    }
+	rc = reduce_binary (eval, c->expr, d->expr, &r);
+	if (rc != ARITH_OK)
+	  break;
 
-	  rc = reduce_binary (eval, c->expr, d->expr, &r);
-	  if (rc != ARITH_OK)
-	    break;
-
-	  gfc_replace_expr (c->expr, r);
-	}
-
-      if (d != NULL)
-	rc = ARITH_INCOMMENSURATE;
+	gfc_replace_expr (c->expr, r);
     }
 
+  if (c || d)
+    rc = ARITH_INCOMMENSURATE;
+
   if (rc != ARITH_OK)
-    gfc_free_constructor (head);
+    gfc_constructor_free (head);
   else
     {
-      r = gfc_get_expr ();
-      r->expr_type = EXPR_ARRAY;
-      r->value.constructor = head;
+      gfc_constructor *c = gfc_constructor_first (head);
+      r = gfc_build_array_expr (&c->expr->ts, &op1->where);
       r->shape = gfc_copy_shape (op1->shape, op1->rank);
-
-      r->ts = head->expr->ts;
-      r->where = op1->where;
       r->rank = op1->rank;
-
+      r->value.constructor = head;
       *result = r;
     }
 

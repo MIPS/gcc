@@ -1633,6 +1633,10 @@ gfc_class_esym_list;
 #define GFC_RND_MODE GMP_RNDN
 #define GFC_MPC_RND_MODE MPC_RNDNN
 
+/*#define gfc_constructor_base struct gfc_constructor* */
+#include "splay-tree.h"
+typedef splay_tree gfc_constructor_base;
+
 typedef struct gfc_expr
 {
   expr_t expr_type;
@@ -1663,9 +1667,6 @@ typedef struct gfc_expr
   /* Mark and expression where a user operator has been substituted by
      a function call in interface.c(gfc_extend_expr).  */
   unsigned int user_operator : 1;
-
-  /* Used to quickly find a given constructor by its offset.  */
-  splay_tree con_by_offset;
 
   /* If an expression comes from a Hollerith constant or compile-time
      evaluation of a transfer statement, it may have a prescribed target-
@@ -1735,7 +1736,7 @@ typedef struct gfc_expr
     }
     character;
 
-    struct gfc_constructor *constructor;
+    gfc_constructor_base constructor;
   }
   value;
 
@@ -2169,19 +2170,21 @@ extern gfc_option_t gfc_option;
 /* Constructor nodes for array and structure constructors.  */
 typedef struct gfc_constructor
 {
+  gfc_constructor_base base;
+  mpz_t offset;               /* Offset within a constructor, used as
+				 key within base. */
+
   gfc_expr *expr;
   gfc_iterator *iterator;
   locus where;
-  struct gfc_constructor *next;
-  struct
+
+  union
   {
-    mpz_t offset; /* Record the offset of array element which appears in
-                     data statement like "data a(5)/4/".  */
-    gfc_component *component; /* Record the component being initialized.  */
+     gfc_component *component; /* Record the component being initialized.  */
   }
   n;
   mpz_t repeat; /* Record the repeat number of initial values in data
-                 statement like "data a/5*10/".  */
+                  statement like "data a/5*10/".  */
 }
 gfc_constructor;
 
@@ -2655,6 +2658,8 @@ bool gfc_type_is_extensible (gfc_symbol *sym);
 
 
 /* array.c */
+gfc_iterator *gfc_copy_iterator (gfc_iterator *);
+
 void gfc_free_array_spec (gfc_array_spec *);
 gfc_array_ref *gfc_copy_array_ref (gfc_array_ref *);
 
@@ -2665,8 +2670,6 @@ gfc_try gfc_resolve_array_spec (gfc_array_spec *, int);
 int gfc_compare_array_spec (gfc_array_spec *, gfc_array_spec *);
 
 gfc_expr *gfc_start_constructor (bt, int, locus *);
-void gfc_append_constructor (gfc_expr *, gfc_expr *);
-void gfc_free_constructor (gfc_constructor *);
 void gfc_simplify_iterator_var (gfc_expr *);
 gfc_try gfc_expand_constructor (gfc_expr *);
 int gfc_constant_ac (gfc_expr *);
@@ -2676,14 +2679,11 @@ gfc_try gfc_resolve_array_constructor (gfc_expr *);
 gfc_try gfc_check_constructor_type (gfc_expr *);
 gfc_try gfc_check_iter_variable (gfc_expr *);
 gfc_try gfc_check_constructor (gfc_expr *, gfc_try (*)(gfc_expr *));
-gfc_constructor *gfc_copy_constructor (gfc_constructor *);
 gfc_expr *gfc_get_array_element (gfc_expr *, int);
 gfc_try gfc_array_size (gfc_expr *, mpz_t *);
 gfc_try gfc_array_dimen_size (gfc_expr *, int, mpz_t *);
 gfc_try gfc_array_ref_shape (gfc_array_ref *, mpz_t *);
 gfc_array_ref *gfc_find_array_ref (gfc_expr *);
-void gfc_insert_constructor (gfc_expr *, gfc_constructor *);
-gfc_constructor *gfc_get_constructor (void);
 tree gfc_conv_array_initializer (tree type, gfc_expr *);
 gfc_try spec_size (gfc_array_spec *, mpz_t *);
 gfc_try spec_dimen_size (gfc_array_spec *, int, mpz_t *);

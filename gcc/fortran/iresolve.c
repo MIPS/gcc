@@ -33,6 +33,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "gfortran.h"
 #include "intrinsic.h"
+#include "constructor.h"
 
 /* Given printf-like arguments, return a stable version of the result string. 
 
@@ -71,8 +72,10 @@ check_charlen_present (gfc_expr *source)
       source->rank = 0;
     }
   else if (source->expr_type == EXPR_ARRAY)
-    source->ts.u.cl->length =
-	gfc_int_expr (source->value.constructor->expr->value.character.length);
+    {
+      gfc_constructor *c = gfc_constructor_first (source->value.constructor);
+      source->ts.u.cl->length = gfc_int_expr (c->expr->value.character.length);
+    }
 }
 
 /* Helper function for resolving the "mask" argument.  */
@@ -1967,11 +1970,11 @@ gfc_resolve_reshape (gfc_expr *f, gfc_expr *source, gfc_expr *shape,
     {
       gfc_constructor *c;
       f->shape = gfc_get_shape (f->rank);
-      c = shape->value.constructor;
+      c = gfc_constructor_first (shape->value.constructor);
       for (i = 0; i < f->rank; i++)
 	{
 	  mpz_init_set (f->shape[i], c->expr->value.integer);
-	  c = c->next;
+	  c = gfc_constructor_next (c);
 	}
     }
 
@@ -2400,7 +2403,8 @@ gfc_resolve_transfer (gfc_expr *f, gfc_expr *source ATTRIBUTE_UNUSED,
 	mold->ts.u.cl->length = gfc_int_expr (mold->value.character.length);
       else
 	{
-	  len = mold->value.constructor->expr->value.character.length;
+	  gfc_constructor *c = gfc_constructor_first (mold->value.constructor);
+	  len = c->expr->value.character.length;
 	  mold->ts.u.cl->length = gfc_int_expr (len);
 	}
     }

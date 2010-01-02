@@ -25,6 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "arith.h"
 #include "match.h"
 #include "target-memory.h" /* for gfc_convert_boz */
+#include "constructor.h"
 
 /* Get a new expr node.  */
 
@@ -38,7 +39,6 @@ gfc_get_expr (void)
   e->shape = NULL;
   e->ref = NULL;
   e->symtree = NULL;
-  e->con_by_offset = NULL;
   return e;
 }
 
@@ -190,7 +190,7 @@ free_expr0 (gfc_expr *e)
 
     case EXPR_ARRAY:
     case EXPR_STRUCTURE:
-      gfc_free_constructor (e->value.constructor);
+      gfc_constructor_free (e->value.constructor);
       break;
 
     case EXPR_SUBSTRING:
@@ -226,8 +226,6 @@ gfc_free_expr (gfc_expr *e)
 {
   if (e == NULL)
     return;
-  if (e->con_by_offset)
-    splay_tree_delete (e->con_by_offset); 
   free_expr0 (e);
   gfc_free (e);
 }
@@ -544,7 +542,7 @@ gfc_copy_expr (gfc_expr *p)
 
     case EXPR_STRUCTURE:
     case EXPR_ARRAY:
-      q->value.constructor = gfc_copy_constructor (p->value.constructor);
+      q->value.constructor = gfc_constructor_copy (p->value.constructor);
       break;
 
     case EXPR_VARIABLE:
@@ -763,7 +761,6 @@ gfc_is_constant_expr (gfc_expr *e)
 {
   gfc_constructor *c;
   gfc_actual_arglist *arg;
-  int rv;
 
   if (e == NULL)
     return 1;
@@ -771,66 +768,53 @@ gfc_is_constant_expr (gfc_expr *e)
   switch (e->expr_type)
     {
     case EXPR_OP:
-      rv = (gfc_is_constant_expr (e->value.op.op1)
-	    && (e->value.op.op2 == NULL
-		|| gfc_is_constant_expr (e->value.op.op2)));
-      break;
+      return (gfc_is_constant_expr (e->value.op.op1)
+	      && (e->value.op.op2 == NULL
+		  || gfc_is_constant_expr (e->value.op.op2)));
 
     case EXPR_VARIABLE:
-      rv = 0;
-      break;
+      return 0;
 
     case EXPR_FUNCTION:
       /* Specification functions are constant.  */
       if (check_specification_function (e) == MATCH_YES)
-	{
-	  rv = 1;
-	  break;
-	}
+	return 1;
 
       /* Call to intrinsic with at least one argument.  */
-      rv = 0;
       if (e->value.function.isym && e->value.function.actual)
 	{
 	  for (arg = e->value.function.actual; arg; arg = arg->next)
-	    {
-	      if (!gfc_is_constant_expr (arg->expr))
-		break;
-	    }
-	  if (arg == NULL)
-	    rv = 1;
+	    if (!gfc_is_constant_expr (arg->expr))
+	      return 0;
+
+	  return 1;
 	}
-      break;
+      else
+	return 0;
 
     case EXPR_CONSTANT:
     case EXPR_NULL:
-      rv = 1;
-      break;
+      return 1;
 
     case EXPR_SUBSTRING:
-      rv = e->ref == NULL || (gfc_is_constant_expr (e->ref->u.ss.start)
-			      && gfc_is_constant_expr (e->ref->u.ss.end));
-      break;
+      return e->ref == NULL || (gfc_is_constant_expr (e->ref->u.ss.start)
+				&& gfc_is_constant_expr (e->ref->u.ss.end));
 
     case EXPR_STRUCTURE:
-      rv = 0;
-      for (c = e->value.constructor; c; c = c->next)
+      for (c = gfc_constructor_first (e->value.constructor);
+	   c; c = gfc_constructor_next (c))
 	if (!gfc_is_constant_expr (c->expr))
-	  break;
+	  return 0;
 
-      if (c == NULL)
-	rv = 1;
-      break;
+      return 1;
 
     case EXPR_ARRAY:
-      rv = gfc_constant_ac (e);
-      break;
+      return gfc_constant_ac (e);
 
     default:
       gfc_internal_error ("gfc_is_constant_expr(): Unknown expression type");
+      return 0;
     }
-
-  return rv;
 }
 
 
@@ -1002,11 +986,12 @@ simplify_intrinsic_op (gfc_expr *p, int type)
    with gfc_simplify_expr().  */
 
 static gfc_try
-simplify_constructor (gfc_constructor *c, int type)
+simplify_constructor (gfc_constructor_base base, int type)
 {
+  gfc_constructor *c;
   gfc_expr *p;
 
-  for (; c; c = c->next)
+  for (c = gfc_constructor_first (base); c; c = gfc_constructor_next (c))
     {
       if (c->iterator
 	  && (gfc_simplify_expr (c->iterator->start, type) == FAILURE
@@ -1038,7 +1023,7 @@ simplify_constructor (gfc_constructor *c, int type)
 /* Pull a single array element out of an array constructor.  */
 
 static gfc_try
-find_array_element (gfc_constructor *cons, gfc_array_ref *ar,
+find_array_element (gfc_constructor_base base, gfc_array_ref *ar,
 		    gfc_constructor **rval)
 {
   unsigned long nelemen;
@@ -1047,6 +1032,7 @@ find_array_element (gfc_constructor *cons, gfc_array_ref *ar,
   mpz_t offset;
   mpz_t span;
   mpz_t tmp;
+  gfc_constructor *cons;
   gfc_expr *e;
   gfc_try t;
 
@@ -1101,16 +1087,13 @@ find_array_element (gfc_constructor *cons, gfc_array_ref *ar,
       mpz_mul (span, span, tmp);
     }
 
-  for (nelemen = mpz_get_ui (offset); nelemen > 0; nelemen--)
+  for (cons = gfc_constructor_first (base), nelemen = mpz_get_ui (offset);
+       cons && nelemen > 0; cons = gfc_constructor_next (cons), nelemen--)
     {
-      if (cons)
+      if (cons->iterator)
 	{
-	  if (cons->iterator)
-	    {
-	      cons = NULL;
-	      goto depart;
-	    }
-	  cons = cons->next;
+	  cons = NULL;
+	  goto depart;
 	}
     }
 
@@ -1129,20 +1112,21 @@ depart:
 /* Find a component of a structure constructor.  */
 
 static gfc_constructor *
-find_component_ref (gfc_constructor *cons, gfc_ref *ref)
+find_component_ref (gfc_constructor_base base, gfc_ref *ref)
 {
   gfc_component *comp;
   gfc_component *pick;
+  gfc_constructor *c = gfc_constructor_first (base);
 
   comp = ref->u.c.sym->components;
   pick = ref->u.c.component;
   while (comp != pick)
     {
       comp = comp->next;
-      cons = cons->next;
+      c = gfc_constructor_next (c);
     }
 
-  return cons;
+  return c;
 }
 
 
@@ -1183,14 +1167,13 @@ find_array_section (gfc_expr *expr, gfc_ref *ref)
   mpz_t nelts;
   mpz_t ptr;
   mpz_t index;
-  gfc_constructor *cons;
-  gfc_constructor *base;
+  gfc_constructor_base base;
+  gfc_constructor *cons, *vecsub[GFC_MAX_DIMENSIONS];
   gfc_expr *begin;
   gfc_expr *finish;
   gfc_expr *step;
   gfc_expr *upper;
   gfc_expr *lower;
-  gfc_constructor *vecsub[GFC_MAX_DIMENSIONS], *c;
   gfc_try t;
 
   t = SUCCESS;
@@ -1232,6 +1215,7 @@ find_array_section (gfc_expr *expr, gfc_ref *ref)
 
       if (ref->u.ar.dimen_type[d] == DIMEN_VECTOR)  /* Vector subscript.  */
 	{
+	  gfc_constructor *ci;
 	  gcc_assert (begin);
 
 	  if (begin->expr_type != EXPR_ARRAY || !gfc_is_constant_expr (begin))
@@ -1248,16 +1232,16 @@ find_array_section (gfc_expr *expr, gfc_ref *ref)
 	      break;
 	    }
 
-	  vecsub[d] = begin->value.constructor;
+	  vecsub[d] = gfc_constructor_first (begin->value.constructor);
 	  mpz_set (ctr[d], vecsub[d]->expr->value.integer);
 	  mpz_mul (nelts, nelts, begin->shape[0]);
 	  mpz_set (expr->shape[shape_i++], begin->shape[0]);
 
 	  /* Check bounds.  */
-	  for (c = vecsub[d]; c; c = c->next)
+	  for (ci = vecsub[d]; ci; ci = gfc_constructor_next (ci))
 	    {
-	      if (mpz_cmp (c->expr->value.integer, upper->value.integer) > 0
-		  || mpz_cmp (c->expr->value.integer,
+	      if (mpz_cmp (ci->expr->value.integer, upper->value.integer) > 0
+		  || mpz_cmp (ci->expr->value.integer,
 			      lower->value.integer) < 0)
 		{
 		  gfc_error ("index in dimension %d is out of bounds "
@@ -1340,7 +1324,7 @@ find_array_section (gfc_expr *expr, gfc_ref *ref)
 
   mpz_init (index);
   mpz_init (ptr);
-  cons = base;
+  cons = gfc_constructor_first (base);
 
   /* Now clock through the array reference, calculating the index in
      the source constructor and transferring the elements to the new
@@ -1366,11 +1350,11 @@ find_array_section (gfc_expr *expr, gfc_ref *ref)
 	    {
 	      gcc_assert(vecsub[d]);
 
-	      if (!vecsub[d]->next)
-		vecsub[d] = ref->u.ar.start[d]->value.constructor;
+	      if (!gfc_constructor_next (vecsub[d]))
+		vecsub[d] = gfc_constructor_first (ref->u.ar.start[d]->value.constructor);
 	      else
 		{
-		  vecsub[d] = vecsub[d]->next;
+		  vecsub[d] = gfc_constructor_next (vecsub[d]);
 		  incr_ctr = false;
 		}
 	      mpz_set (ctr[d], vecsub[d]->expr->value.integer);
@@ -1393,16 +1377,18 @@ find_array_section (gfc_expr *expr, gfc_ref *ref)
       if (mpz_cmp (ptr, index) < 0)
 	{
 	  mpz_set_ui (index, 0);
-	  cons = base;
+	  cons = gfc_constructor_first (base);
 	}
 
-      while (cons && cons->next && mpz_cmp (ptr, index) > 0)
-	{
+      while (cons && gfc_constructor_next (cons)
+	     && mpz_cmp (ptr, index) > 0)
+        {
+	  cons = gfc_constructor_next (cons);
 	  mpz_add_ui (index, index, one);
-	  cons = cons->next;
 	}
 
-      gfc_append_constructor (expr, gfc_copy_expr (cons->expr));
+      gfc_constructor_append_expr (&expr->value.constructor,
+				   gfc_copy_expr (cons->expr), NULL);
     }
 
   mpz_clear (ptr);
@@ -1421,7 +1407,7 @@ cleanup:
       mpz_clear (ctr[d]);
       mpz_clear (stride[d]);
     }
-  gfc_free_constructor (base);
+  gfc_constructor_free (base);
   return t;
 }
 
@@ -1462,7 +1448,7 @@ find_substring_ref (gfc_expr *p, gfc_expr **newp)
 static gfc_try
 simplify_const_ref (gfc_expr *p)
 {
-  gfc_constructor *cons;
+  gfc_constructor *cons, *c;
   gfc_expr *newp;
 
   while (p->ref)
@@ -1494,11 +1480,11 @@ simplify_const_ref (gfc_expr *p)
 	      if (p->ref->next != NULL
 		  && (p->ts.type == BT_CHARACTER || p->ts.type == BT_DERIVED))
 		{
-		  cons = p->value.constructor;
-		  for (; cons; cons = cons->next)
+		  for (c = gfc_constructor_first (p->value.constructor);
+		       c; c = gfc_constructor_next (c))
 		    {
-		      cons->expr->ref = gfc_copy_ref (p->ref->next);
-		      if (simplify_const_ref (cons->expr) == FAILURE)
+		      c->expr->ref = gfc_copy_ref (p->ref->next);
+		      if (simplify_const_ref (c->expr) == FAILURE)
 			return FAILURE;
 		    }
 
@@ -1514,9 +1500,9 @@ simplify_const_ref (gfc_expr *p)
 		      gcc_assert (!p->ref->next->next);
 		      gcc_assert (p->ref->next->type == REF_SUBSTRING);
 
-		      if (p->value.constructor)
+		      if ((c = gfc_constructor_first (p->value.constructor)))
 			{
-			  const gfc_expr* first = p->value.constructor->expr;
+			  const gfc_expr* first = c->expr;
 			  gcc_assert (first->expr_type == EXPR_CONSTANT);
 			  gcc_assert (first->ts.type == BT_CHARACTER);
 			  string_len = first->value.character.length;
@@ -1789,10 +1775,12 @@ static gfc_try
 scalarize_intrinsic_call (gfc_expr *e)
 {
   gfc_actual_arglist *a, *b;
-  gfc_constructor *args[5], *ctor, *new_ctor;
+  gfc_constructor_base ctor;
+  gfc_constructor *args[5];
+  gfc_constructor *ci, *new_ctor;
   gfc_expr *expr, *old;
   int n, i, rank[5], array_arg;
-
+  
   /* Find which, if any, arguments are arrays.  Assume that the old
      expression carries the type information and that the first arg
      that is an array expression carries all the shape information.*/
@@ -1813,9 +1801,8 @@ scalarize_intrinsic_call (gfc_expr *e)
 
   old = gfc_copy_expr (e);
 
-  gfc_free_constructor (expr->value.constructor);
+  gfc_constructor_free (expr->value.constructor);
   expr->value.constructor = NULL;
-
   expr->ts = old->ts;
   expr->where = old->where;
   expr->expr_type = EXPR_ARRAY;
@@ -1835,7 +1822,7 @@ scalarize_intrinsic_call (gfc_expr *e)
 	{
 	  rank[n] = a->expr->rank;
 	  ctor = a->expr->symtree->n.sym->value->value.constructor;
-	  args[n] = gfc_copy_constructor (ctor);
+	  args[n] = gfc_constructor_first (ctor);
 	}
       else if (a->expr && a->expr->expr_type == EXPR_ARRAY)
 	{
@@ -1843,10 +1830,12 @@ scalarize_intrinsic_call (gfc_expr *e)
 	    rank[n] = a->expr->rank;
 	  else
 	    rank[n] = 1;
-	  args[n] = gfc_copy_constructor (a->expr->value.constructor);
+	  ctor = gfc_constructor_copy (a->expr->value.constructor);
+	  args[n] = gfc_constructor_first (ctor);
 	}
       else
 	args[n] = NULL;
+
       n++;
     }
 
@@ -1854,53 +1843,46 @@ scalarize_intrinsic_call (gfc_expr *e)
   /* Using the array argument as the master, step through the array
      calling the function for each element and advancing the array
      constructors together.  */
-  ctor = args[array_arg - 1];
-  new_ctor = NULL;
-  for (; ctor; ctor = ctor->next)
+  for (ci = args[array_arg - 1]; ci; ci = gfc_constructor_next (ci))
     {
-	  if (expr->value.constructor == NULL)
-	    expr->value.constructor
-		= new_ctor = gfc_get_constructor ();
+      new_ctor = gfc_constructor_append_expr (&expr->value.constructor,
+					      gfc_copy_expr (old), NULL);
+
+      gfc_free_actual_arglist (new_ctor->expr->value.function.actual);
+      a = NULL;
+      b = old->value.function.actual;
+      for (i = 0; i < n; i++)
+	{
+	  if (a == NULL)
+	    new_ctor->expr->value.function.actual
+			= a = gfc_get_actual_arglist ();
 	  else
 	    {
-	      new_ctor->next = gfc_get_constructor ();
-	      new_ctor = new_ctor->next;
-	    }
-	  new_ctor->expr = gfc_copy_expr (old);
-	  gfc_free_actual_arglist (new_ctor->expr->value.function.actual);
-	  a = NULL;
-	  b = old->value.function.actual;
-	  for (i = 0; i < n; i++)
-	    {
-	      if (a == NULL)
-		new_ctor->expr->value.function.actual
-			= a = gfc_get_actual_arglist ();
-	      else
-		{
-		  a->next = gfc_get_actual_arglist ();
-		  a = a->next;
-		}
-	      if (args[i])
-		a->expr = gfc_copy_expr (args[i]->expr);
-	      else
-		a->expr = gfc_copy_expr (b->expr);
-
-	      b = b->next;
+	      a->next = gfc_get_actual_arglist ();
+	      a = a->next;
 	    }
 
-	  /* Simplify the function calls.  If the simplification fails, the
-	     error will be flagged up down-stream or the library will deal
-	     with it.  */
-	  gfc_simplify_expr (new_ctor->expr, 0);
+	  if (args[i])
+	    a->expr = gfc_copy_expr (args[i]->expr);
+	  else
+	    a->expr = gfc_copy_expr (b->expr);
 
-	  for (i = 0; i < n; i++)
-	    if (args[i])
-	      args[i] = args[i]->next;
+	  b = b->next;
+	}
 
-	  for (i = 1; i < n; i++)
-	    if (rank[i] && ((args[i] != NULL && args[array_arg - 1] == NULL)
-			 || (args[i] == NULL && args[array_arg - 1] != NULL)))
-	      goto compliance;
+      /* Simplify the function calls.  If the simplification fails, the
+	 error will be flagged up down-stream or the library will deal
+	 with it.  */
+      gfc_simplify_expr (new_ctor->expr, 0);
+
+      for (i = 0; i < n; i++)
+	if (args[i])
+	  args[i] = gfc_constructor_next (args[i]);
+
+      for (i = 1; i < n; i++)
+	if (rank[i] && ((args[i] != NULL && args[array_arg - 1] == NULL)
+			|| (args[i] == NULL && args[array_arg - 1] != NULL)))
+	  goto compliance;
     }
 
   free_expr0 (e);
@@ -2040,21 +2022,22 @@ not_numeric:
 static gfc_try
 check_alloc_comp_init (gfc_expr *e)
 {
-  gfc_component *c;
+  gfc_component *comp;
   gfc_constructor *ctor;
 
   gcc_assert (e->expr_type == EXPR_STRUCTURE);
   gcc_assert (e->ts.type == BT_DERIVED);
 
-  for (c = e->ts.u.derived->components, ctor = e->value.constructor;
-       c; c = c->next, ctor = ctor->next)
+  for (comp = e->ts.u.derived->components,
+       ctor = gfc_constructor_first (e->value.constructor);
+       comp; comp = comp->next, ctor = gfc_constructor_next (ctor))
     {
-      if (c->attr.allocatable
+      if (comp->attr.allocatable
           && ctor->expr->expr_type != EXPR_NULL)
         {
 	  gfc_error("Invalid initialization expression for ALLOCATABLE "
 	            "component '%s' in structure constructor at %L",
-	            c->name, &ctor->expr->where);
+	            comp->name, &ctor->expr->where);
 	  return FAILURE;
 	}
     }
@@ -3406,45 +3389,35 @@ gfc_check_assign_symbol (gfc_symbol *sym, gfc_expr *rvalue)
 gfc_expr *
 gfc_default_initializer (gfc_typespec *ts)
 {
-  gfc_constructor *tail;
   gfc_expr *init;
-  gfc_component *c;
+  gfc_component *comp;
 
   /* See if we have a default initializer.  */
-  for (c = ts->u.derived->components; c; c = c->next)
-    if (c->initializer || c->attr.allocatable)
+  for (comp = ts->u.derived->components; comp; comp = comp->next)
+    if (comp->initializer || comp->attr.allocatable)
       break;
 
-  if (!c)
+  if (!comp)
     return NULL;
 
-  /* Build the constructor.  */
-  init = gfc_get_expr ();
-  init->expr_type = EXPR_STRUCTURE;
-  init->ts = *ts;
-  init->where = ts->u.derived->declared_at;
-
-  tail = NULL;
-  for (c = ts->u.derived->components; c; c = c->next)
+  init = gfc_build_structure_constructor_expr (ts, &ts->u.derived->declared_at);
+  for (comp = ts->u.derived->components; comp; comp = comp->next)
     {
-      if (tail == NULL)
-	init->value.constructor = tail = gfc_get_constructor ();
-      else
+      gfc_constructor *ctor = gfc_constructor_get();
+
+      if (comp->initializer)
+	ctor->expr = gfc_copy_expr (comp->initializer);
+
+      if (comp->attr.allocatable)
 	{
-	  tail->next = gfc_get_constructor ();
-	  tail = tail->next;
+	  ctor->expr = gfc_get_expr ();
+	  ctor->expr->expr_type = EXPR_NULL;
+	  ctor->expr->ts = comp->ts;
 	}
 
-      if (c->initializer)
-	tail->expr = gfc_copy_expr (c->initializer);
-
-      if (c->attr.allocatable)
-	{
-	  tail->expr = gfc_get_expr ();
-	  tail->expr->expr_type = EXPR_NULL;
-	  tail->expr->ts = c->ts;
-	}
+      gfc_constructor_append (&init->value.constructor, ctor);
     }
+
   return init;
 }
 
@@ -3519,7 +3492,8 @@ gfc_traverse_expr (gfc_expr *expr, gfc_symbol *sym,
 
     case EXPR_STRUCTURE:
     case EXPR_ARRAY:
-      for (c = expr->value.constructor; c; c = c->next)
+      for (c = gfc_constructor_first (expr->value.constructor);
+	   c; c = gfc_constructor_next (c))
 	{
 	  if (gfc_traverse_expr (c->expr, sym, func, f))
 	    return true;

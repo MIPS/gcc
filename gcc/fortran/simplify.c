@@ -26,10 +26,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "arith.h"
 #include "intrinsic.h"
 #include "target-memory.h"
+#include "constructor.h"
+
 
 /* Savely advance an array constructor by 'n' elements.
    Mainly used by simplifiers of transformational intrinsics.  */
-#define ADVANCE(ctor, n) do { int i; for (i = 0; i < n && ctor; ++i) ctor = ctor->next; } while (0)
+#define ADVANCE(ctor, n) do { int i; for (i = 0; i < n && ctor; ++i) ctor = gfc_constructor_next (ctor); } while (0)
 
 gfc_expr gfc_bad_expr;
 
@@ -227,7 +229,8 @@ is_constant_array_expr (gfc_expr *e)
   if (e->expr_type != EXPR_ARRAY || !gfc_is_constant_expr (e))
     return false;
 
-  for (c = e->value.constructor; c; c = c->next)
+  for (c = gfc_constructor_first (e->value.constructor);
+       c; c = gfc_constructor_next (c))
     if (c->expr->expr_type != EXPR_CONSTANT)
       return false;
 
@@ -242,11 +245,11 @@ init_result_expr (gfc_expr *e, int init, gfc_expr *array)
 {
   if (e && e->expr_type == EXPR_ARRAY)
     {
-      gfc_constructor *ctor = e->value.constructor;
+      gfc_constructor *ctor = gfc_constructor_first (e->value.constructor);
       while (ctor)
 	{
 	  init_result_expr (ctor->expr, init, array);
-	  ctor = ctor->next;
+	  ctor = gfc_constructor_next (ctor);
 	}
     }
   else if (e && e->expr_type == EXPR_CONSTANT)
@@ -392,8 +395,9 @@ transformational_result (gfc_expr *array, gfc_expr *dim, bt type,
 
   for (i = 0; i < nelem; ++i)
     {
-      gfc_expr *e = gfc_constant_result (type, kind, where);
-      gfc_append_constructor (result, e);
+      gfc_constructor_append_expr (&result->value.constructor,
+				   gfc_constant_result (type, kind, where),
+				   NULL);
     }
 
   return result;
@@ -446,21 +450,21 @@ simplify_transformation_to_scalar (gfc_expr *result, gfc_expr *array, gfc_expr *
       && !mask->value.logical)
     return result;
 
-  array_ctor = array->value.constructor;
+  array_ctor = gfc_constructor_first (array->value.constructor);
   mask_ctor = NULL;
   if (mask && mask->expr_type == EXPR_ARRAY)
-    mask_ctor = mask->value.constructor;
+    mask_ctor = gfc_constructor_first (mask->value.constructor);
 
   while (array_ctor)
     {
       a = array_ctor->expr;
-      array_ctor = array_ctor->next;
+      array_ctor = gfc_constructor_next (array_ctor);
 
       /* A constant MASK equals .TRUE. here and can be ignored.  */
       if (mask_ctor)
 	{
 	  m = mask_ctor->expr;
-	  mask_ctor = mask_ctor->next;
+	  mask_ctor = gfc_constructor_next (mask_ctor);
 	  if (!m->value.logical)
 	    continue;
 	}
@@ -505,22 +509,22 @@ simplify_transformation_to_array (gfc_expr *result, gfc_expr *array, gfc_expr *d
 
   arrayvec = (gfc_expr**) gfc_getmem (sizeof (gfc_expr*) * arraysize);
 
-  array_ctor = array->value.constructor;
+  array_ctor = gfc_constructor_first (array->value.constructor);
   mask_ctor = NULL;
   if (mask && mask->expr_type == EXPR_ARRAY)
-    mask_ctor = mask->value.constructor;
+    mask_ctor = gfc_constructor_first (mask->value.constructor);
 
   for (i = 0; i < arraysize; ++i)
     {
       arrayvec[i] = array_ctor->expr;
-      array_ctor = array_ctor->next;
+      array_ctor = gfc_constructor_next (array_ctor);
 
       if (mask_ctor)
 	{
 	  if (!mask_ctor->expr->value.logical)
 	    arrayvec[i] = NULL;
 
-	  mask_ctor = mask_ctor->next;
+	  mask_ctor = gfc_constructor_next (mask_ctor);
 	}
     }
 
@@ -530,11 +534,11 @@ simplify_transformation_to_array (gfc_expr *result, gfc_expr *array, gfc_expr *d
   mpz_clear (size);
 
   resultvec = (gfc_expr**) gfc_getmem (sizeof (gfc_expr*) * resultsize);
-  result_ctor = result->value.constructor;
+  result_ctor = gfc_constructor_first (result->value.constructor);
   for (i = 0; i < resultsize; ++i)
     {
       resultvec[i] = result_ctor->expr;
-      result_ctor = result_ctor->next;
+      result_ctor = gfc_constructor_next (result_ctor);
     }
 
   gfc_extract_int (dim, &dim_index);
@@ -592,11 +596,11 @@ simplify_transformation_to_array (gfc_expr *result, gfc_expr *array, gfc_expr *d
     }
 
   /* Place updated expression in result constructor.  */
-  result_ctor = result->value.constructor;
+  result_ctor = gfc_constructor_first (result->value.constructor);
   for (i = 0; i < resultsize; ++i)
     {
       result_ctor->expr = resultvec[i];
-      result_ctor = result_ctor->next;
+      result_ctor = gfc_constructor_next (result_ctor);
     }
 
   gfc_free (arrayvec);
@@ -1671,7 +1675,8 @@ gfc_expr*
 gfc_simplify_dot_product (gfc_expr *vector_a, gfc_expr *vector_b)
 {
   gfc_expr *result;
-
+  gfc_constructor *ctor_a, *ctor_b;
+  
   if (!is_constant_array_expr (vector_a)
       || !is_constant_array_expr (vector_b))
     return NULL;
@@ -1680,9 +1685,10 @@ gfc_simplify_dot_product (gfc_expr *vector_a, gfc_expr *vector_b)
   gcc_assert (vector_b->rank == 1);
   gcc_assert (gfc_compare_types (&vector_a->ts, &vector_b->ts));
 
-  if (vector_a->value.constructor && vector_b->value.constructor)
-    return compute_dot_product (vector_a->value.constructor, 1,
-			        vector_b->value.constructor, 1);
+  ctor_a = gfc_constructor_first (vector_a->value.constructor);
+  ctor_b = gfc_constructor_first (vector_b->value.constructor);
+  if (ctor_a && ctor_b)
+    return compute_dot_product (ctor_a, 1, ctor_b, 1);
 
   /* Zero sized array ...  */
   result = gfc_constant_result (vector_a->ts.type,
@@ -3015,7 +3021,6 @@ simplify_bound (gfc_expr *array, gfc_expr *dim, gfc_expr *kind, int upper)
       /* Multi-dimensional bounds.  */
       gfc_expr *bounds[GFC_MAX_DIMENSIONS];
       gfc_expr *e;
-      gfc_constructor *head, *tail;
       int k;
 
       /* UBOUND(ARRAY) is not valid for an assumed-size array.  */
@@ -3061,22 +3066,9 @@ simplify_bound (gfc_expr *array, gfc_expr *dim, gfc_expr *kind, int upper)
       mpz_init_set_ui (e->shape[0], array->rank);
 
       /* Create the constructor for this array.  */
-      head = tail = NULL;
       for (d = 0; d < array->rank; d++)
-	{
-	  /* Get a new constructor element.  */
-	  if (head == NULL)
-	    head = tail = gfc_get_constructor ();
-	  else
-	    {
-	      tail->next = gfc_get_constructor ();
-	      tail = tail->next;
-	    }
-
-	  tail->where = e->where;
-	  tail->expr = bounds[d];
-	}
-      e->value.constructor = head;
+	gfc_constructor_append_expr (&e->value.constructor,
+				     bounds[d], &e->where);
 
       return e;
     }
@@ -3405,20 +3397,19 @@ gfc_simplify_matmul (gfc_expr *matrix_a, gfc_expr *matrix_b)
   else
     gcc_unreachable();
 
-  ma_ctor = matrix_a->value.constructor;
-  mb_ctor = matrix_b->value.constructor;
+  ma_ctor = gfc_constructor_first (matrix_a->value.constructor);
+  mb_ctor = gfc_constructor_first (matrix_b->value.constructor);
 
   for (col = 0; col < result_columns; ++col)
     {
-      ma_ctor = matrix_a->value.constructor;
+      ma_ctor = gfc_constructor_first (matrix_a->value.constructor);
 
       for (row = 0; row < result_rows; ++row)
 	{
-	  gfc_expr *e;
-	  e = compute_dot_product (ma_ctor, stride_a,
-				   mb_ctor, 1);
-
-	  gfc_append_constructor (result, e);
+	  gfc_constructor_append_expr (&result->value.constructor,
+				       compute_dot_product (ma_ctor, stride_a,
+							    mb_ctor, 1),
+				       NULL);
 
 	  ADVANCE (ma_ctor, 1);
 	}
@@ -3583,26 +3574,25 @@ gfc_simplify_max (gfc_expr *e)
 static gfc_expr *
 simplify_minval_maxval (gfc_expr *expr, int sign)
 {
-  gfc_constructor *ctr, *extremum;
+  gfc_constructor *c, *extremum;
   gfc_intrinsic_sym * specific;
 
   extremum = NULL;
   specific = expr->value.function.isym;
 
-  ctr = expr->value.constructor;
-
-  for (; ctr; ctr = ctr->next)
+  for (c = gfc_constructor_first (expr->value.constructor);
+       c; c = gfc_constructor_next (c))
     {
-      if (ctr->expr->expr_type != EXPR_CONSTANT)
+      if (c->expr->expr_type != EXPR_CONSTANT)
 	return NULL;
 
       if (extremum == NULL)
 	{
-	  extremum = ctr;
+	  extremum = c;
 	  continue;
 	}
 
-      min_max_choose (ctr->expr, extremum->expr, sign);
+      min_max_choose (c->expr, extremum->expr, sign);
      }
 
   if (extremum == NULL)
@@ -3975,8 +3965,10 @@ gfc_simplify_pack (gfc_expr *array, gfc_expr *mask, gfc_expr *vector)
 				  array->ts.kind,
 				  &array->where);
 
-  array_ctor = array->value.constructor;
-  vector_ctor = vector ? vector->value.constructor : NULL;
+  array_ctor = gfc_constructor_first (array->value.constructor);
+  vector_ctor = vector
+		  ? gfc_constructor_first (vector->value.constructor)
+		  : NULL;
 
   if (mask->expr_type == EXPR_CONSTANT
       && mask->value.logical)
@@ -3984,8 +3976,9 @@ gfc_simplify_pack (gfc_expr *array, gfc_expr *mask, gfc_expr *vector)
       /* Copy all elements of ARRAY to RESULT.  */
       while (array_ctor)
 	{
-	  gfc_append_constructor (result, 
-				  gfc_copy_expr (array_ctor->expr));
+	  gfc_constructor_append_expr (&result->value.constructor,
+				       gfc_copy_expr (array_ctor->expr),
+				       NULL);
 
 	  ADVANCE (array_ctor, 1);
 	  ADVANCE (vector_ctor, 1);
@@ -3995,13 +3988,14 @@ gfc_simplify_pack (gfc_expr *array, gfc_expr *mask, gfc_expr *vector)
     {
       /* Copy only those elements of ARRAY to RESULT whose 
 	 MASK equals .TRUE..  */
-      mask_ctor = mask->value.constructor;
+      mask_ctor = gfc_constructor_first (mask->value.constructor);
       while (mask_ctor)
 	{
 	  if (mask_ctor->expr->value.logical)
 	    {
-	      gfc_append_constructor (result, 
-				      gfc_copy_expr (array_ctor->expr)); 
+	      gfc_constructor_append_expr (&result->value.constructor,
+					   gfc_copy_expr (array_ctor->expr),
+					   NULL);
 	      ADVANCE (vector_ctor, 1);
 	    }
 
@@ -4013,8 +4007,9 @@ gfc_simplify_pack (gfc_expr *array, gfc_expr *mask, gfc_expr *vector)
   /* Append any left-over elements from VECTOR to RESULT.  */
   while (vector_ctor)
     {
-      gfc_append_constructor (result, 
-			      gfc_copy_expr (vector_ctor->expr));
+      gfc_constructor_append_expr (&result->value.constructor,
+				   gfc_copy_expr (vector_ctor->expr),
+				   NULL);
       ADVANCE (vector_ctor, 1);
     }
 
@@ -4321,11 +4316,10 @@ gfc_simplify_reshape (gfc_expr *source, gfc_expr *shape_exp,
 {
   int order[GFC_MAX_DIMENSIONS], shape[GFC_MAX_DIMENSIONS];
   int i, rank, npad, x[GFC_MAX_DIMENSIONS];
-  gfc_constructor *head, *tail;
   mpz_t index, size;
   unsigned long j;
   size_t nsource;
-  gfc_expr *e;
+  gfc_expr *e, *result;
 
   /* Check that argument expression types are OK.  */
   if (!is_constant_array_expr (source)
@@ -4338,7 +4332,6 @@ gfc_simplify_reshape (gfc_expr *source, gfc_expr *shape_exp,
 
   mpz_init (index);
   rank = 0;
-  head = tail = NULL;
 
   for (;;)
     {
@@ -4405,6 +4398,12 @@ gfc_simplify_reshape (gfc_expr *source, gfc_expr *shape_exp,
   for (i = 0; i < rank; i++)
     x[i] = 0;
 
+  result = gfc_build_array_expr (&source->ts, &source->where);
+  result->rank = rank;
+  result->shape = gfc_get_shape (rank);
+  for (i = 0; i < rank; i++)
+    mpz_init_set_ui (result->shape[i], shape[i]);
+
   while (nsource > 0 || npad > 0)
     {
       /* Figure out which element to extract.  */
@@ -4434,16 +4433,8 @@ gfc_simplify_reshape (gfc_expr *source, gfc_expr *shape_exp,
 	}
       gcc_assert (e);
 
-      if (head == NULL)
-	head = tail = gfc_get_constructor ();
-      else
-	{
-	  tail->next = gfc_get_constructor ();
-	  tail = tail->next;
-	}
-
-      tail->where = e->where;
-      tail->expr = e;
+      gfc_constructor_append_expr (&result->value.constructor,
+				   e, &e->where);
 
       /* Calculate the next element.  */
       i = 0;
@@ -4460,19 +4451,7 @@ inc:
 
   mpz_clear (index);
 
-  e = gfc_get_expr ();
-  e->where = source->where;
-  e->expr_type = EXPR_ARRAY;
-  e->value.constructor = head;
-  e->shape = gfc_get_shape (rank);
-
-  for (i = 0; i < rank; i++)
-    mpz_init_set_ui (e->shape[i], shape[i]);
-
-  e->ts = source->ts;
-  e->rank = rank;
-
-  return e;
+  return result;
 }
 
 
@@ -4877,7 +4856,7 @@ gfc_simplify_shape (gfc_expr *source)
 	    }
 	}
 
-      gfc_append_constructor (result, e);
+      gfc_constructor_append_expr (&result->value.constructor, e, NULL);
     }
 
   return result;
@@ -5102,7 +5081,8 @@ gfc_simplify_spread (gfc_expr *source, gfc_expr *dim_expr, gfc_expr *ncopies_exp
       mpz_init_set_si (result->shape[0], ncopies);
 
       for (i = 0; i < ncopies; ++i)
-        gfc_append_constructor (result, gfc_copy_expr (source));
+        gfc_constructor_append_expr (&result->value.constructor,
+				     gfc_copy_expr (source), NULL);
     }
   else if (source->expr_type == EXPR_ARRAY)
     {
@@ -5132,10 +5112,10 @@ gfc_simplify_spread (gfc_expr *source, gfc_expr *dim_expr, gfc_expr *ncopies_exp
 	}
 
       for (i = 0; i < result_size; ++i)
-	gfc_append_constructor (result, NULL);
+	gfc_constructor_append_expr (&result->value.constructor, NULL, NULL);
 
-      source_ctor = source->value.constructor;
-      result_ctor = result->value.constructor;
+      source_ctor = gfc_constructor_first (source->value.constructor);
+      result_ctor = gfc_constructor_first (result->value.constructor);
       while (source_ctor)
 	{
 	  ctor = result_ctor;
@@ -5336,7 +5316,7 @@ gfc_simplify_transfer (gfc_expr *source, gfc_expr *mold, gfc_expr *size)
   result->ts = mold->ts;
 
   mold_element = mold->expr_type == EXPR_ARRAY
-		 ? mold->value.constructor->expr
+		 ? gfc_constructor_first (mold->value.constructor)->expr
 		 : mold;
 
   /* Set result character length, if needed.  Note that this needs to be
@@ -5422,14 +5402,15 @@ gfc_simplify_transpose (gfc_expr *matrix)
     result->ts.u.cl = matrix->ts.u.cl;
 
   matrix_rows = mpz_get_si (matrix->shape[0]);
-  matrix_ctor = matrix->value.constructor;
+  matrix_ctor = gfc_constructor_first (matrix->value.constructor);
   for (i = 0; i < matrix_rows; ++i)
     {
       gfc_constructor *column_ctor = matrix_ctor;
       while (column_ctor)
 	{
-	  gfc_append_constructor (result, 
-				  gfc_copy_expr (column_ctor->expr));
+	  gfc_constructor_append_expr (&result->value.constructor, 
+				       gfc_copy_expr (column_ctor->expr),
+				       NULL);
 
 	  ADVANCE (column_ctor, matrix_rows);
 	}
@@ -5504,9 +5485,12 @@ gfc_simplify_unpack (gfc_expr *vector, gfc_expr *mask, gfc_expr *field)
   if (vector->ts.type == BT_CHARACTER)
     result->ts.u.cl = vector->ts.u.cl;
 
-  vector_ctor = vector->value.constructor;
-  mask_ctor = mask->value.constructor;
-  field_ctor = field->expr_type == EXPR_ARRAY ? field->value.constructor : NULL;
+  vector_ctor = gfc_constructor_first (vector->value.constructor);
+  mask_ctor = gfc_constructor_first (mask->value.constructor);
+  field_ctor
+    = field->expr_type == EXPR_ARRAY
+			    ? gfc_constructor_first (field->value.constructor)
+			    : NULL;
 
   while (mask_ctor)
     {
@@ -5521,7 +5505,7 @@ gfc_simplify_unpack (gfc_expr *vector, gfc_expr *mask, gfc_expr *field)
       else
 	e = gfc_copy_expr (field);
 
-      gfc_append_constructor (result, e);
+      gfc_constructor_append_expr (&result->value.constructor, e, NULL);
 
       ADVANCE (mask_ctor, 1);
       ADVANCE (field_ctor, 1);
@@ -5639,7 +5623,7 @@ gfc_expr *
 gfc_convert_constant (gfc_expr *e, bt type, int kind)
 {
   gfc_expr *g, *result, *(*f) (gfc_expr *, int);
-  gfc_constructor *head, *c, *tail = NULL;
+  gfc_constructor *c;
 
   switch (e->ts.type)
     {
@@ -5759,45 +5743,39 @@ gfc_convert_constant (gfc_expr *e, bt type, int kind)
       if (!gfc_is_constant_expr (e))
 	break;
 
-      head = NULL;
+      result = gfc_build_array_expr (NULL, &e->where);
+      result->ts.type = type;
+      result->ts.kind = kind;
+      result->shape = gfc_copy_shape (e->shape, e->rank);
+      result->rank = e->rank;
 
-      for (c = e->value.constructor; c; c = c->next)
+      for (c = gfc_constructor_first (e->value.constructor);
+	   c; c = gfc_constructor_next (c))
 	{
-	  if (head == NULL)
-	    head = tail = gfc_get_constructor ();
-	  else
-	    {
-	      tail->next = gfc_get_constructor ();
-	      tail = tail->next;
-	    }
-
-	  tail->where = c->where;
-
+	  gfc_expr *tmp;
 	  if (c->iterator == NULL)
-	    tail->expr = f (c->expr, kind);
+	    tmp = f (c->expr, kind);
 	  else
 	    {
 	      g = gfc_convert_constant (c->expr, type, kind);
 	      if (g == &gfc_bad_expr)
-		return g;
-	      tail->expr = g;
+	        {
+		  gfc_free_expr (result);
+		  return g;
+		}
+	      tmp = g;
 	    }
 
-	  if (tail->expr == NULL)
+	  if (tmp == NULL)
 	    {
-	      gfc_free_constructor (head);
+	      gfc_free_expr (result);
 	      return NULL;
 	    }
+
+	  gfc_constructor_append_expr (&result->value.constructor,
+				       tmp, &c->where);
 	}
 
-      result = gfc_get_expr ();
-      result->ts.type = type;
-      result->ts.kind = kind;
-      result->expr_type = EXPR_ARRAY;
-      result->value.constructor = head;
-      result->shape = gfc_copy_shape (e->shape, e->rank);
-      result->where = e->where;
-      result->rank = e->rank;
       break;
 
     default:
@@ -5848,42 +5826,34 @@ gfc_convert_char_constant (gfc_expr *e, bt type ATTRIBUTE_UNUSED, int kind)
   else if (e->expr_type == EXPR_ARRAY)
     {
       /* For an array constructor, we convert each constructor element.  */
-      gfc_constructor *head = NULL, *tail = NULL, *c;
+      gfc_constructor *c;
 
-      for (c = e->value.constructor; c; c = c->next)
+      result = gfc_build_array_expr (NULL, &e->where);
+      result->ts.type = type;
+      result->ts.kind = kind;
+      result->shape = gfc_copy_shape (e->shape, e->rank);
+      result->rank = e->rank;
+      result->ts.u.cl = e->ts.u.cl;
+
+      for (c = gfc_constructor_first (e->value.constructor);
+	   c; c = gfc_constructor_next (c))
 	{
-	  if (head == NULL)
-	    head = tail = gfc_get_constructor ();
-	  else
+	  gfc_expr *tmp = gfc_convert_char_constant (c->expr, type, kind);
+	  if (tmp == &gfc_bad_expr)
 	    {
-	      tail->next = gfc_get_constructor ();
-	      tail = tail->next;
-	    }
-
-	  tail->where = c->where;
-	  tail->expr = gfc_convert_char_constant (c->expr, type, kind);
-	  if (tail->expr == &gfc_bad_expr)
-	    {
-	      tail->expr = NULL;
+	      gfc_free_expr (result);
 	      return &gfc_bad_expr;
 	    }
 
-	  if (tail->expr == NULL)
+	  if (tmp == NULL)
 	    {
-	      gfc_free_constructor (head);
+	      gfc_free_expr (result);
 	      return NULL;
 	    }
-	}
 
-      result = gfc_get_expr ();
-      result->ts.type = type;
-      result->ts.kind = kind;
-      result->expr_type = EXPR_ARRAY;
-      result->value.constructor = head;
-      result->shape = gfc_copy_shape (e->shape, e->rank);
-      result->where = e->where;
-      result->rank = e->rank;
-      result->ts.u.cl = e->ts.u.cl;
+	  gfc_constructor_append_expr (&result->value.constructor,
+				       tmp, &c->where);
+	}
 
       return result;
     }

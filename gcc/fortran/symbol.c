@@ -26,6 +26,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gfortran.h"
 #include "parse.h"
 #include "match.h"
+#include "constructor.h"
 
 
 /* Strings for all symbol attributes.  We use these for dumping the
@@ -3662,7 +3663,7 @@ gen_special_c_interop_ptr (int ptr_id, const char *ptr_name,
   /* Create a constructor with no expr, that way we can recognize if the user
      tries to call the structure constructor for one of the iso_c_binding
      derived types during resolution (resolve_structure_cons).  */
-  tmp_sym->value->value.constructor = gfc_get_constructor ();
+  gfc_constructor_append_expr (&tmp_sym->value->value.constructor, NULL, NULL);
   /* Must declare c_null_ptr and c_null_funptr as having the
      PARAMETER attribute so they can be used in init expressions.  */
   tmp_sym->attr.flavor = FL_PARAMETER;

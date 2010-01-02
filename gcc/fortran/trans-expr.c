@@ -35,6 +35,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "gfortran.h"
 #include "arith.h"
+#include "constructor.h"
 #include "trans.h"
 #include "trans-const.h"
 #include "trans-types.h"
@@ -278,11 +279,14 @@ flatten_array_ctors_without_strlen (gfc_expr* e)
       /* We've found what we're looking for.  */
       if (e->ts.type == BT_CHARACTER && !e->ts.u.cl->length)
 	{
+	  gfc_constructor *c;
 	  gfc_expr* new_expr;
+
 	  gcc_assert (e->value.constructor);
 
-	  new_expr = e->value.constructor->expr;
-	  e->value.constructor->expr = NULL;
+	  c = gfc_constructor_first (e->value.constructor);
+	  new_expr = c->expr;
+	  c->expr = NULL;
 
 	  flatten_array_ctors_without_strlen (new_expr);
 	  gfc_replace_expr (e, new_expr);
@@ -291,7 +295,8 @@ flatten_array_ctors_without_strlen (gfc_expr* e)
 
       /* Otherwise, fall through to handle constructor elements.  */
     case EXPR_STRUCTURE:
-      for (c = e->value.constructor; c; c = c->next)
+      for (c = gfc_constructor_first (e->value.constructor);
+	   c; c = gfc_constructor_next (c))
 	flatten_array_ctors_without_strlen (c->expr);
       break;
 
@@ -1986,9 +1991,10 @@ gfc_finish_interface_mapping (gfc_interface_mapping * mapping,
 
 static void
 gfc_apply_interface_mapping_to_cons (gfc_interface_mapping * mapping,
-				     gfc_constructor * c)
+				     gfc_constructor_base base)
 {
-  for (; c; c = c->next)
+  gfc_constructor *c;
+  for (c = gfc_constructor_first (base); c; c = gfc_constructor_next (c))
     {
       gfc_apply_interface_mapping_to_expr (mapping, c->expr);
       if (c->iterator)
@@ -4201,7 +4207,8 @@ gfc_trans_structure_assign (tree dest, gfc_expr * expr)
 
   gfc_start_block (&block);
   cm = expr->ts.u.derived->components;
-  for (c = expr->value.constructor; c; c = c->next, cm = cm->next)
+  for (c = gfc_constructor_first (expr->value.constructor);
+       c; c = gfc_constructor_next (c), cm = cm->next)
     {
       /* Skip absent members in default initializers.  */
       if (!c->expr)
@@ -4244,7 +4251,8 @@ gfc_conv_structure (gfc_se * se, gfc_expr * expr, int init)
 
   cm = expr->ts.u.derived->components;
 
-  for (c = expr->value.constructor; c; c = c->next, cm = cm->next)
+  for (c = gfc_constructor_first (expr->value.constructor);
+       c; c = gfc_constructor_next (c), cm = cm->next)
     {
       /* Skip absent members in default initializers and allocatable
 	 components.  Although the latter have a default initializer
