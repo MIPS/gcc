@@ -1708,15 +1708,17 @@ gfc_build_constant_array_constructor (gfc_expr * expr, tree type)
   as.type = AS_EXPLICIT;
   if (!expr->shape)
     {
-      as.lower[0] = gfc_int_expr (0);
-      as.upper[0] = gfc_int_expr (nelem - 1);
+      as.lower[0] = gfc_get_int_expr (gfc_default_integer_kind, NULL, 0);
+      as.upper[0] = gfc_get_int_expr (gfc_default_integer_kind,
+				      NULL, nelem - 1);
     }
   else
     for (i = 0; i < expr->rank; i++)
       {
 	int tmp = (int) mpz_get_si (expr->shape[i]);
-	as.lower[i] = gfc_int_expr (0);
-	as.upper[i] = gfc_int_expr (tmp - 1);
+        as.lower[i] = gfc_get_int_expr (gfc_default_integer_kind, NULL, 0);
+        as.upper[i] = gfc_get_int_expr (gfc_default_integer_kind,
+					NULL, tmp - 1);
       }
 
   tmptype = gfc_get_nodesc_array_type (type, &as, PACKED_STATIC, true);

@@ -296,7 +296,7 @@ match_array_element_spec (gfc_array_spec *as)
 
   if (gfc_match_char ('*') == MATCH_YES)
     {
-      *lower = gfc_int_expr (1);
+      *lower = gfc_get_int_expr (gfc_default_integer_kind, NULL, 1);
       return AS_ASSUMED_SIZE;
     }
 
@@ -313,7 +313,7 @@ match_array_element_spec (gfc_array_spec *as)
 
   if (gfc_match_char (':') == MATCH_NO)
     {
-      *lower = gfc_int_expr (1);
+      *lower = gfc_get_int_expr (gfc_default_integer_kind, NULL, 1);
       return AS_EXPLICIT;
     }
 
@@ -450,7 +450,7 @@ gfc_match_array_spec (gfc_array_spec **asp)
       for (i = 0; i < as->rank; i++)
 	{
 	  if (as->lower[i] == NULL)
-	    as->lower[i] = gfc_int_expr (1);
+	    as->lower[i] = gfc_get_int_expr (gfc_default_integer_kind, NULL, 1);
 	}
     }
   *asp = as;
@@ -693,7 +693,7 @@ match_array_list (gfc_constructor_base *result)
       goto cleanup;
     }
 
-  e = gfc_build_array_expr (NULL, &old_loc);
+  e = gfc_get_array_expr (BT_UNKNOWN, 0, &old_loc);
   e->value.constructor = head;
 
   p = gfc_constructor_append_expr (result, e, &gfc_current_locus);
@@ -1140,7 +1140,7 @@ gfc_simplify_iterator_var (gfc_expr *e)
   if (p == NULL)
     return;		/* Variable not found */
 
-  gfc_replace_expr (e, gfc_int_expr (0));
+  gfc_replace_expr (e, gfc_get_int_expr (gfc_default_integer_kind, NULL, 0));
 
   mpz_set (e->value.integer, p->value);
 
@@ -1509,7 +1509,8 @@ got_charlen:
       gcc_assert (found_length != -1);
 
       /* Update the character length of the array constructor.  */
-      expr->ts.u.cl->length = gfc_int_expr (found_length);
+      expr->ts.u.cl->length = gfc_get_int_expr (gfc_default_integer_kind,
+						NULL, found_length);
     }
   else 
     {

@@ -68,13 +68,17 @@ check_charlen_present (gfc_expr *source)
 
   if (source->expr_type == EXPR_CONSTANT)
     {
-      source->ts.u.cl->length = gfc_int_expr (source->value.character.length);
+      source->ts.u.cl->length
+		= gfc_get_int_expr (gfc_default_integer_kind, NULL,
+				    source->value.character.length);
       source->rank = 0;
     }
   else if (source->expr_type == EXPR_ARRAY)
     {
       gfc_constructor *c = gfc_constructor_first (source->value.constructor);
-      source->ts.u.cl->length = gfc_int_expr (c->expr->value.character.length);
+      source->ts.u.cl->length
+		= gfc_get_int_expr (gfc_default_integer_kind, NULL,
+				    c->expr->value.character.length);
     }
 }
 
@@ -165,7 +169,7 @@ gfc_resolve_char_achar (gfc_expr *f, gfc_expr *x, gfc_expr *kind,
   f->ts.kind = (kind == NULL)
 	     ? gfc_default_character_kind : mpz_get_si (kind->value.integer);
   f->ts.u.cl = gfc_new_charlen (gfc_current_ns, NULL);
-  f->ts.u.cl->length = gfc_int_expr (1);
+  f->ts.u.cl->length = gfc_get_int_expr (gfc_default_integer_kind, NULL, 1);
 
   f->value.function.name = gfc_get_string (name, f->ts.kind,
 					   gfc_type_letter (x->ts.type),
@@ -490,7 +494,8 @@ gfc_resolve_cmplx (gfc_expr *f, gfc_expr *x, gfc_expr *y, gfc_expr *kind)
 void
 gfc_resolve_dcmplx (gfc_expr *f, gfc_expr *x, gfc_expr *y)
 {
-  gfc_resolve_cmplx (f, x, y, gfc_int_expr (gfc_default_double_kind));
+  gfc_resolve_cmplx (f, x, y, gfc_get_int_expr (gfc_default_integer_kind, NULL,
+						gfc_default_double_kind));
 }
 
 
@@ -2400,12 +2405,17 @@ gfc_resolve_transfer (gfc_expr *f, gfc_expr *source ATTRIBUTE_UNUSED,
     {
       int len;
       if (mold->expr_type == EXPR_CONSTANT)
-	mold->ts.u.cl->length = gfc_int_expr (mold->value.character.length);
+        {
+	  len = mold->value.character.length;
+	  mold->ts.u.cl->length = gfc_get_int_expr (gfc_default_integer_kind,
+						    NULL, len);
+	}
       else
 	{
 	  gfc_constructor *c = gfc_constructor_first (mold->value.constructor);
 	  len = c->expr->value.character.length;
-	  mold->ts.u.cl->length = gfc_int_expr (len);
+	  mold->ts.u.cl->length = gfc_get_int_expr (gfc_default_integer_kind,
+						    NULL, len);
 	}
     }
 

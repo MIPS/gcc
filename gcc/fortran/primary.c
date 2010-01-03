@@ -277,8 +277,8 @@ match_hollerith_constant (gfc_expr **result)
       else
 	{
 	  gfc_free_expr (e);
-	  e = gfc_constant_result (BT_HOLLERITH, gfc_default_character_kind,
-				   &gfc_current_locus);
+	  e = gfc_get_constant_expr (BT_HOLLERITH, gfc_default_character_kind,
+				     &gfc_current_locus);
 
 	  e->representation.string = XCNEWVEC (char, num + 1);
 
@@ -712,7 +712,7 @@ match_substring (gfc_charlen *cl, int init, gfc_ref **result)
 
       ref->type = REF_SUBSTRING;
       if (start == NULL)
-	start = gfc_int_expr (1);
+	start = gfc_get_int_expr (gfc_default_integer_kind, NULL, 1);
       ref->u.ss.start = start;
       if (end == NULL && cl)
 	end = gfc_copy_expr (cl->length);
@@ -2392,8 +2392,7 @@ gfc_match_structure_constructor (gfc_symbol *sym, gfc_expr **result,
   else
     gcc_assert (!comp_head);
 
-  e = gfc_build_structure_constructor_expr (NULL, &where);
-  e->ts.type = BT_DERIVED;
+  e = gfc_get_structure_constructor_expr (BT_DERIVED, 0, &where);
   e->ts.u.derived = sym;
   e->value.constructor = ctor_head;
 

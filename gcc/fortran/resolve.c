@@ -225,7 +225,8 @@ resolve_formal_arglist (gfc_symbol *proc)
 	{
 	  sym->as->type = AS_ASSUMED_SHAPE;
 	  for (i = 0; i < sym->as->rank; i++)
-	    sym->as->lower[i] = gfc_int_expr (1);
+	    sym->as->lower[i] = gfc_get_int_expr (gfc_default_integer_kind,
+						  NULL, 1);
 	}
 
       if ((sym->as && sym->as->rank > 0 && sym->as->type == AS_ASSUMED_SHAPE)
@@ -4207,7 +4208,7 @@ gfc_resolve_substring_charlen (gfc_expr *e)
   if (char_ref->u.ss.start)
     start = gfc_copy_expr (char_ref->u.ss.start);
   else
-    start = gfc_int_expr (1);
+    start = gfc_get_int_expr (gfc_default_integer_kind, NULL, 1);
 
   if (char_ref->u.ss.end)
     end = gfc_copy_expr (char_ref->u.ss.end);
@@ -4221,7 +4222,9 @@ gfc_resolve_substring_charlen (gfc_expr *e)
 
   /* Length = (end - start +1).  */
   e->ts.u.cl->length = gfc_subtract (end, start);
-  e->ts.u.cl->length = gfc_add (e->ts.u.cl->length, gfc_int_expr (1));
+  e->ts.u.cl->length = gfc_add (e->ts.u.cl->length,
+				gfc_get_int_expr (gfc_default_integer_kind,
+						  NULL, 1));
 
   e->ts.u.cl->length->ts.type = BT_INTEGER;
   e->ts.u.cl->length->ts.kind = gfc_charlen_int_kind;
@@ -4670,12 +4673,14 @@ gfc_resolve_character_operator (gfc_expr *e)
   if (op1->ts.u.cl && op1->ts.u.cl->length)
     e1 = gfc_copy_expr (op1->ts.u.cl->length);
   else if (op1->expr_type == EXPR_CONSTANT)
-    e1 = gfc_int_expr (op1->value.character.length);
+    e1 = gfc_get_int_expr (gfc_default_integer_kind, NULL,
+			   op1->value.character.length);
 
   if (op2->ts.u.cl && op2->ts.u.cl->length)
     e2 = gfc_copy_expr (op2->ts.u.cl->length);
   else if (op2->expr_type == EXPR_CONSTANT)
-    e2 = gfc_int_expr (op2->value.character.length);
+    e2 = gfc_get_int_expr (gfc_default_integer_kind, NULL,
+			   op2->value.character.length);
 
   e->ts.u.cl = gfc_new_charlen (gfc_current_ns, NULL);
 
@@ -6978,12 +6983,14 @@ resolve_select_type (gfc_code *code)
   for (body = code->block; body; body = body->block)
     {
       c = body->ext.case_list;
-      
+
       if (c->ts.type == BT_DERIVED)
-	c->low = c->high = gfc_int_expr (c->ts.u.derived->hash_value);
+	c->low = c->high = gfc_get_int_expr (gfc_default_integer_kind, NULL,
+					     c->ts.u.derived->hash_value);
+
       else if (c->ts.type == BT_UNKNOWN)
 	continue;
-      
+
       /* Assign temporary to selector.  */
       if (c->ts.type == BT_CLASS)
 	sprintf (name, "tmp$class$%s", c->ts.u.derived->name);
@@ -8489,7 +8496,8 @@ resolve_charlen (gfc_charlen *cl)
     {
       gfc_warning_now ("CHARACTER variable has zero length at %L",
 		       &cl->length->where);
-      gfc_replace_expr (cl->length, gfc_int_expr (0));
+      gfc_replace_expr (cl->length,
+			gfc_get_int_expr (gfc_default_integer_kind, NULL, 0));
     }
 
   /* Check that the character length is not too large.  */
@@ -11872,7 +11880,8 @@ resolve_equivalence (gfc_equiv *eq)
 		{
 		  ref->type = REF_SUBSTRING;
 		  if (start == NULL)
-		    start = gfc_int_expr (1);
+		    start = gfc_get_int_expr (gfc_default_integer_kind,
+					      NULL, 1);
 		  ref->u.ss.start = start;
 		  if (end == NULL && e->ts.u.cl)
 		    end = gfc_copy_expr (e->ts.u.cl->length);

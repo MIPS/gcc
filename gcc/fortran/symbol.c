@@ -3869,7 +3869,8 @@ gen_shape_param (gfc_formal_arglist **head,
       param_sym->as->upper[i] = NULL;
     }
   param_sym->as->rank = 1;
-  param_sym->as->lower[0] = gfc_int_expr (1);
+  param_sym->as->lower[0] = gfc_get_int_expr (gfc_default_integer_kind,
+					      NULL, 1);
 
   /* The extent is unknown until we get it.  The length give us
      the rank the incoming pointer.  */
@@ -4212,7 +4213,8 @@ generate_isocbinding_symbol (const char *mod_name, iso_c_binding_symbol s,
 #define NAMED_CHARKNDCST(a,b,c) case a :
 #include "iso-c-binding.def"
 
-	tmp_sym->value = gfc_int_expr (c_interop_kinds_table[s].value);
+	tmp_sym->value = gfc_get_int_expr (gfc_default_integer_kind, NULL,
+				 	   c_interop_kinds_table[s].value);
 
 	/* Initialize an integer constant expression node.  */
 	tmp_sym->attr.flavor = FL_PARAMETER;
@@ -4255,7 +4257,8 @@ generate_isocbinding_symbol (const char *mod_name, iso_c_binding_symbol s,
 	  = (gfc_char_t) c_interop_kinds_table[s].value;
 	tmp_sym->value->value.character.string[1] = '\0';
 	tmp_sym->ts.u.cl = gfc_new_charlen (gfc_current_ns, NULL);
-	tmp_sym->ts.u.cl->length = gfc_int_expr (1);
+	tmp_sym->ts.u.cl->length = gfc_get_int_expr (gfc_default_integer_kind,
+						     NULL, 1);
 
 	/* May not need this in both attr and ts, but do need in
 	   attr for writing module file.  */
@@ -4774,7 +4777,8 @@ gfc_find_derived_vtab (gfc_symbol *derived)
 	      c->ts.type = BT_INTEGER;
 	      c->ts.kind = 4;
 	      c->attr.access = ACCESS_PRIVATE;
-	      c->initializer = gfc_int_expr (derived->hash_value);
+	      c->initializer = gfc_get_int_expr (gfc_default_integer_kind,
+						 NULL, derived->hash_value);
 
 	      /* Add component '$size'.  */
 	      if (gfc_add_component (vtype, "$size", &c) == FAILURE)
@@ -4786,7 +4790,8 @@ gfc_find_derived_vtab (gfc_symbol *derived)
 		 so that the correct initializer can be set later on
 		 (in gfc_conv_structure).  */
 	      c->ts.u.derived = derived;
-	      c->initializer = gfc_int_expr (0);
+	      c->initializer = gfc_get_int_expr (gfc_default_integer_kind,
+						 NULL, 0);
 
 	      /* Add component $extends.  */
 	      if (gfc_add_component (vtype, "$extends", &c) == FAILURE)

@@ -77,44 +77,6 @@ node_copy_and_insert (splay_tree_node node, void *base)
 }
 
 
-
-gfc_expr *
-gfc_build_array_expr (gfc_typespec *ts, locus *where)
-{
-  gfc_expr *e;
-
-  e = gfc_get_expr ();
-  e->expr_type = EXPR_ARRAY;
-  e->value.constructor = NULL;
-  e->rank = 1;
-  e->shape = NULL;
-
-  if (ts)
-    e->ts = *ts;
-  if (where)
-    e->where = *where;
-
-  return e;
-}
-
-gfc_expr *
-gfc_build_structure_constructor_expr (gfc_typespec *ts, locus *where)
-{
-  gfc_expr *e;
-
-  e = gfc_get_expr ();
-  e->expr_type = EXPR_STRUCTURE;
-  e->value.constructor = NULL;
-
-  if (ts)
-    e->ts = *ts;
-  if (where)
-    e->where = *where;
-
-  return e;
-}
-
-
 gfc_constructor *
 gfc_constructor_get (void)
 {

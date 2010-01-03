@@ -321,8 +321,8 @@ interpret_array (unsigned char *buffer, size_t buffer_size, gfc_expr *result)
   /* Iterate over array elements, producing constructors.  */
   for (i = 0; i < array_size; i++)
     {
-      gfc_expr *e = gfc_constant_result (result->ts.type, result->ts.kind,
-					 &result->where);
+      gfc_expr *e = gfc_get_constant_expr (result->ts.type, result->ts.kind,
+					   &result->where);
       e->ts = result->ts;
 
       if (e->ts.type == BT_CHARACTER)
@@ -449,8 +449,8 @@ gfc_interpret_derived (unsigned char *buffer, size_t buffer_size, gfc_expr *resu
   for (;cmp; cmp = cmp->next)
     {
       gfc_constructor *c;
-      gfc_expr *e = gfc_constant_result (cmp->ts.type, cmp->ts.kind,
-					 &result->where); 
+      gfc_expr *e = gfc_get_constant_expr (cmp->ts.type, cmp->ts.kind,
+					   &result->where); 
       e->ts = cmp->ts;
 
       /* Copy shape, if needed.  */

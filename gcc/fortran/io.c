@@ -2425,7 +2425,7 @@ default_unit (io_kind k)
   else
     unit = 6;
 
-  return gfc_int_expr (unit);
+  return gfc_get_int_expr (gfc_default_integer_kind, NULL, unit);
 }
 
 

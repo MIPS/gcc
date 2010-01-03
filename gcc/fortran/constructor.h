@@ -25,14 +25,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "splay-tree.h"
 
 
-/* Create an array constructor expression. The constructor
-   starts with zero elements, new elements should be inserted
-   by gfc_constructor_expr_insert().  */
-gfc_expr *gfc_build_array_expr (gfc_typespec *ts, locus *where);
-
-gfc_expr *gfc_build_structure_constructor_expr (gfc_typespec *ts, locus *where);
-
-
 /* Get a new constructor structure.  */
 gfc_constructor *gfc_constructor_get (void);
 

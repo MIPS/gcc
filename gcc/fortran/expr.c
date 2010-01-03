@@ -27,7 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target-memory.h" /* for gfc_convert_boz */
 #include "constructor.h"
 
-/* Get a new expr node.  */
+/* Get a new expression node.  */
 
 gfc_expr *
 gfc_get_expr (void)
@@ -43,87 +43,259 @@ gfc_get_expr (void)
 }
 
 
-/* Free an argument list and everything below it.  */
+/* Get a new expression node that is an array constructor
+   of given type and kind.  */
 
-void
-gfc_free_actual_arglist (gfc_actual_arglist *a1)
+gfc_expr *
+gfc_get_array_expr (bt type, int kind, locus *where)
 {
-  gfc_actual_arglist *a2;
+  gfc_expr *e;
 
-  while (a1)
-    {
-      a2 = a1->next;
-      gfc_free_expr (a1->expr);
-      gfc_free (a1);
-      a1 = a2;
-    }
+  e = gfc_get_expr ();
+  e->expr_type = EXPR_ARRAY;
+  e->value.constructor = NULL;
+  e->rank = 1;
+  e->shape = NULL;
+
+  e->ts.type = type;
+  e->ts.kind = kind;
+  if (where)
+    e->where = *where;
+
+  return e;
 }
 
 
-/* Copy an arglist structure and all of the arguments.  */
+/* Get a new expression node that is an structure constructor
+   of given type and kind.  */
 
-gfc_actual_arglist *
-gfc_copy_actual_arglist (gfc_actual_arglist *p)
+gfc_expr *
+gfc_get_structure_constructor_expr (bt type, int kind, locus *where)
 {
-  gfc_actual_arglist *head, *tail, *new_arg;
+  gfc_expr *e;
 
-  head = tail = NULL;
+  e = gfc_get_expr ();
+  e->expr_type = EXPR_STRUCTURE;
+  e->value.constructor = NULL;
 
-  for (; p; p = p->next)
-    {
-      new_arg = gfc_get_actual_arglist ();
-      *new_arg = *p;
+  e->ts.type = type;
+  e->ts.kind = kind;
+  if (where)
+    e->where = *where;
 
-      new_arg->expr = gfc_copy_expr (p->expr);
-      new_arg->next = NULL;
-
-      if (head == NULL)
-	head = new_arg;
-      else
-	tail->next = new_arg;
-
-      tail = new_arg;
-    }
-
-  return head;
+  return e;
 }
 
 
-/* Free a list of reference structures.  */
+/* Get a new expression node that is an constant of given type and kind.  */
 
-void
-gfc_free_ref_list (gfc_ref *p)
+gfc_expr *
+gfc_get_constant_expr (bt type, int kind, locus *where)
 {
-  gfc_ref *q;
-  int i;
+  gfc_expr *result;
 
-  for (; p; p = q)
+  if (!where)
+    gfc_internal_error ("gfc_get_constant_expr(): locus 'where' cannot be NULL");
+
+  result = gfc_get_expr ();
+
+  result->expr_type = EXPR_CONSTANT;
+  result->ts.type = type;
+  result->ts.kind = kind;
+  result->where = *where;
+
+  switch (type)
     {
-      q = p->next;
+    case BT_INTEGER:
+      mpz_init (result->value.integer);
+      break;
 
-      switch (p->type)
+    case BT_REAL:
+      gfc_set_model_kind (kind);
+      mpfr_init (result->value.real);
+      break;
+
+    case BT_COMPLEX:
+      gfc_set_model_kind (kind);
+      mpc_init2 (result->value.complex, mpfr_get_default_prec());
+      break;
+
+    default:
+      break;
+    }
+
+  return result;
+}
+
+
+/* Get a new expression node that is an integer constant.  */
+
+gfc_expr *
+gfc_get_int_expr (int kind, locus *where, int value)
+{
+  gfc_expr *p;
+  p = gfc_get_constant_expr (BT_INTEGER, kind,
+			     where ? where : &gfc_current_locus);
+
+  mpz_init_set_si (p->value.integer, value);
+
+  return p;
+}
+
+
+/* Get a new expression node that is a logical constant.  */
+
+gfc_expr *
+gfc_get_logical_expr (int kind, locus *where, bool value)
+{
+  gfc_expr *p;
+  p = gfc_get_constant_expr (BT_LOGICAL, kind,
+			     where ? where : &gfc_current_locus);
+
+  p->value.logical = value;
+
+  return p;
+}
+
+
+/* Given an expression pointer, return a copy of the expression.  This
+   subroutine is recursive.  */
+
+gfc_expr *
+gfc_copy_expr (gfc_expr *p)
+{
+  gfc_expr *q;
+  gfc_char_t *s;
+  char *c;
+
+  if (p == NULL)
+    return NULL;
+
+  q = gfc_get_expr ();
+  *q = *p;
+
+  switch (q->expr_type)
+    {
+    case EXPR_SUBSTRING:
+      s = gfc_get_wide_string (p->value.character.length + 1);
+      q->value.character.string = s;
+      memcpy (s, p->value.character.string,
+	      (p->value.character.length + 1) * sizeof (gfc_char_t));
+      break;
+
+    case EXPR_CONSTANT:
+      /* Copy target representation, if it exists.  */
+      if (p->representation.string)
 	{
-	case REF_ARRAY:
-	  for (i = 0; i < GFC_MAX_DIMENSIONS; i++)
+	  c = XCNEWVEC (char, p->representation.length + 1);
+	  q->representation.string = c;
+	  memcpy (c, p->representation.string, (p->representation.length + 1));
+	}
+
+      /* Copy the values of any pointer components of p->value.  */
+      switch (q->ts.type)
+	{
+	case BT_INTEGER:
+	  mpz_init_set (q->value.integer, p->value.integer);
+	  break;
+
+	case BT_REAL:
+	  gfc_set_model_kind (q->ts.kind);
+	  mpfr_init (q->value.real);
+	  mpfr_set (q->value.real, p->value.real, GFC_RND_MODE);
+	  break;
+
+	case BT_COMPLEX:
+	  gfc_set_model_kind (q->ts.kind);
+	  mpc_init2 (q->value.complex, mpfr_get_default_prec());
+	  mpc_set (q->value.complex, p->value.complex, GFC_MPC_RND_MODE);
+	  break;
+
+	case BT_CHARACTER:
+	  if (p->representation.string)
+	    q->value.character.string
+	      = gfc_char_to_widechar (q->representation.string);
+	  else
 	    {
-	      gfc_free_expr (p->u.ar.start[i]);
-	      gfc_free_expr (p->u.ar.end[i]);
-	      gfc_free_expr (p->u.ar.stride[i]);
+	      s = gfc_get_wide_string (p->value.character.length + 1);
+	      q->value.character.string = s;
+
+	      /* This is the case for the C_NULL_CHAR named constant.  */
+	      if (p->value.character.length == 0
+		  && (p->ts.is_c_interop || p->ts.is_iso_c))
+		{
+		  *s = '\0';
+		  /* Need to set the length to 1 to make sure the NUL
+		     terminator is copied.  */
+		  q->value.character.length = 1;
+		}
+	      else
+		memcpy (s, p->value.character.string,
+			(p->value.character.length + 1) * sizeof (gfc_char_t));
 	    }
-
 	  break;
 
-	case REF_SUBSTRING:
-	  gfc_free_expr (p->u.ss.start);
-	  gfc_free_expr (p->u.ss.end);
+	case BT_HOLLERITH:
+	case BT_LOGICAL:
+	case BT_DERIVED:
+	case BT_CLASS:
+	  break;		/* Already done.  */
+
+	case BT_PROCEDURE:
+        case BT_VOID:
+           /* Should never be reached.  */
+	case BT_UNKNOWN:
+	  gfc_internal_error ("gfc_copy_expr(): Bad expr node");
+	  /* Not reached.  */
+	}
+
+      break;
+
+    case EXPR_OP:
+      switch (q->value.op.op)
+	{
+	case INTRINSIC_NOT:
+	case INTRINSIC_PARENTHESES:
+	case INTRINSIC_UPLUS:
+	case INTRINSIC_UMINUS:
+	  q->value.op.op1 = gfc_copy_expr (p->value.op.op1);
 	  break;
 
-	case REF_COMPONENT:
+	default:		/* Binary operators.  */
+	  q->value.op.op1 = gfc_copy_expr (p->value.op.op1);
+	  q->value.op.op2 = gfc_copy_expr (p->value.op.op2);
 	  break;
 	}
 
-      gfc_free (p);
+      break;
+
+    case EXPR_FUNCTION:
+      q->value.function.actual =
+	gfc_copy_actual_arglist (p->value.function.actual);
+      break;
+
+    case EXPR_COMPCALL:
+    case EXPR_PPC:
+      q->value.compcall.actual =
+	gfc_copy_actual_arglist (p->value.compcall.actual);
+      q->value.compcall.tbp = p->value.compcall.tbp;
+      break;
+
+    case EXPR_STRUCTURE:
+    case EXPR_ARRAY:
+      q->value.constructor = gfc_constructor_copy (p->value.constructor);
+      break;
+
+    case EXPR_VARIABLE:
+    case EXPR_NULL:
+      break;
     }
+
+  q->shape = gfc_copy_shape (p->shape, p->rank);
+
+  q->ref = gfc_copy_ref (p->ref);
+
+  return q;
 }
 
 
@@ -228,6 +400,90 @@ gfc_free_expr (gfc_expr *e)
     return;
   free_expr0 (e);
   gfc_free (e);
+}
+
+
+/* Free an argument list and everything below it.  */
+
+void
+gfc_free_actual_arglist (gfc_actual_arglist *a1)
+{
+  gfc_actual_arglist *a2;
+
+  while (a1)
+    {
+      a2 = a1->next;
+      gfc_free_expr (a1->expr);
+      gfc_free (a1);
+      a1 = a2;
+    }
+}
+
+
+/* Copy an arglist structure and all of the arguments.  */
+
+gfc_actual_arglist *
+gfc_copy_actual_arglist (gfc_actual_arglist *p)
+{
+  gfc_actual_arglist *head, *tail, *new_arg;
+
+  head = tail = NULL;
+
+  for (; p; p = p->next)
+    {
+      new_arg = gfc_get_actual_arglist ();
+      *new_arg = *p;
+
+      new_arg->expr = gfc_copy_expr (p->expr);
+      new_arg->next = NULL;
+
+      if (head == NULL)
+	head = new_arg;
+      else
+	tail->next = new_arg;
+
+      tail = new_arg;
+    }
+
+  return head;
+}
+
+
+/* Free a list of reference structures.  */
+
+void
+gfc_free_ref_list (gfc_ref *p)
+{
+  gfc_ref *q;
+  int i;
+
+  for (; p; p = q)
+    {
+      q = p->next;
+
+      switch (p->type)
+	{
+	case REF_ARRAY:
+	  for (i = 0; i < GFC_MAX_DIMENSIONS; i++)
+	    {
+	      gfc_free_expr (p->u.ar.start[i]);
+	      gfc_free_expr (p->u.ar.end[i]);
+	      gfc_free_expr (p->u.ar.stride[i]);
+	    }
+
+	  break;
+
+	case REF_SUBSTRING:
+	  gfc_free_expr (p->u.ss.start);
+	  gfc_free_expr (p->u.ss.end);
+	  break;
+
+	case REF_COMPONENT:
+	  break;
+	}
+
+      gfc_free (p);
+    }
 }
 
 
@@ -417,147 +673,6 @@ gfc_copy_shape_excluding (mpz_t *shape, int rank, gfc_expr *dim)
 }
 
 
-/* Given an expression pointer, return a copy of the expression.  This
-   subroutine is recursive.  */
-
-gfc_expr *
-gfc_copy_expr (gfc_expr *p)
-{
-  gfc_expr *q;
-  gfc_char_t *s;
-  char *c;
-
-  if (p == NULL)
-    return NULL;
-
-  q = gfc_get_expr ();
-  *q = *p;
-
-  switch (q->expr_type)
-    {
-    case EXPR_SUBSTRING:
-      s = gfc_get_wide_string (p->value.character.length + 1);
-      q->value.character.string = s;
-      memcpy (s, p->value.character.string,
-	      (p->value.character.length + 1) * sizeof (gfc_char_t));
-      break;
-
-    case EXPR_CONSTANT:
-      /* Copy target representation, if it exists.  */
-      if (p->representation.string)
-	{
-	  c = XCNEWVEC (char, p->representation.length + 1);
-	  q->representation.string = c;
-	  memcpy (c, p->representation.string, (p->representation.length + 1));
-	}
-
-      /* Copy the values of any pointer components of p->value.  */
-      switch (q->ts.type)
-	{
-	case BT_INTEGER:
-	  mpz_init_set (q->value.integer, p->value.integer);
-	  break;
-
-	case BT_REAL:
-	  gfc_set_model_kind (q->ts.kind);
-	  mpfr_init (q->value.real);
-	  mpfr_set (q->value.real, p->value.real, GFC_RND_MODE);
-	  break;
-
-	case BT_COMPLEX:
-	  gfc_set_model_kind (q->ts.kind);
-	  mpc_init2 (q->value.complex, mpfr_get_default_prec());
-	  mpc_set (q->value.complex, p->value.complex, GFC_MPC_RND_MODE);
-	  break;
-
-	case BT_CHARACTER:
-	  if (p->representation.string)
-	    q->value.character.string
-	      = gfc_char_to_widechar (q->representation.string);
-	  else
-	    {
-	      s = gfc_get_wide_string (p->value.character.length + 1);
-	      q->value.character.string = s;
-
-	      /* This is the case for the C_NULL_CHAR named constant.  */
-	      if (p->value.character.length == 0
-		  && (p->ts.is_c_interop || p->ts.is_iso_c))
-		{
-		  *s = '\0';
-		  /* Need to set the length to 1 to make sure the NUL
-		     terminator is copied.  */
-		  q->value.character.length = 1;
-		}
-	      else
-		memcpy (s, p->value.character.string,
-			(p->value.character.length + 1) * sizeof (gfc_char_t));
-	    }
-	  break;
-
-	case BT_HOLLERITH:
-	case BT_LOGICAL:
-	case BT_DERIVED:
-	case BT_CLASS:
-	  break;		/* Already done.  */
-
-	case BT_PROCEDURE:
-        case BT_VOID:
-           /* Should never be reached.  */
-	case BT_UNKNOWN:
-	  gfc_internal_error ("gfc_copy_expr(): Bad expr node");
-	  /* Not reached.  */
-	}
-
-      break;
-
-    case EXPR_OP:
-      switch (q->value.op.op)
-	{
-	case INTRINSIC_NOT:
-	case INTRINSIC_PARENTHESES:
-	case INTRINSIC_UPLUS:
-	case INTRINSIC_UMINUS:
-	  q->value.op.op1 = gfc_copy_expr (p->value.op.op1);
-	  break;
-
-	default:		/* Binary operators.  */
-	  q->value.op.op1 = gfc_copy_expr (p->value.op.op1);
-	  q->value.op.op2 = gfc_copy_expr (p->value.op.op2);
-	  break;
-	}
-
-      break;
-
-    case EXPR_FUNCTION:
-      q->value.function.actual =
-	gfc_copy_actual_arglist (p->value.function.actual);
-      break;
-
-    case EXPR_COMPCALL:
-    case EXPR_PPC:
-      q->value.compcall.actual =
-	gfc_copy_actual_arglist (p->value.compcall.actual);
-      q->value.compcall.tbp = p->value.compcall.tbp;
-      break;
-
-    case EXPR_STRUCTURE:
-    case EXPR_ARRAY:
-      q->value.constructor = gfc_constructor_copy (p->value.constructor);
-      break;
-
-    case EXPR_VARIABLE:
-    case EXPR_NULL:
-      break;
-    }
-
-  q->shape = gfc_copy_shape (p->shape, p->rank);
-
-  q->ref = gfc_copy_ref (p->ref);
-
-  return q;
-}
-
-
 /* Return the maximum kind of two expressions.  In general, higher
    kind numbers mean more precision for numeric types.  */
 
@@ -583,48 +698,6 @@ int
 gfc_numeric_ts (gfc_typespec *ts)
 {
   return numeric_type (ts->type);
-}
-
-
-/* Returns an expression node that is an integer constant.  */
-
-gfc_expr *
-gfc_int_expr (int i)
-{
-  gfc_expr *p;
-
-  p = gfc_get_expr ();
-
-  p->expr_type = EXPR_CONSTANT;
-  p->ts.type = BT_INTEGER;
-  p->ts.kind = gfc_default_integer_kind;
-
-  p->where = gfc_current_locus;
-  mpz_init_set_si (p->value.integer, i);
-
-  return p;
-}
-
-
-/* Returns an expression node that is a logical constant.  */
-
-gfc_expr *
-gfc_logical_expr (int i, locus *where)
-{
-  gfc_expr *p;
-
-  p = gfc_get_expr ();
-
-  p->expr_type = EXPR_CONSTANT;
-  p->ts.type = BT_LOGICAL;
-  p->ts.kind = gfc_default_logical_kind;
-
-  if (where == NULL)
-    where = &gfc_current_locus;
-  p->where = *where;
-  p->value.logical = i;
-
-  return p;
 }
 
 
@@ -1516,7 +1589,9 @@ simplify_const_ref (gfc_expr *p)
 		      else
 			gfc_free_expr (p->ts.u.cl->length);
 
-		      p->ts.u.cl->length = gfc_int_expr (string_len);
+		      p->ts.u.cl->length
+				= gfc_get_int_expr (gfc_default_integer_kind,
+						    NULL, string_len);
 		    }
 		}
 	      gfc_free_ref_list (p->ref);
@@ -1687,7 +1762,9 @@ gfc_simplify_expr (gfc_expr *p, int type)
 	  p->value.character.string = s;
 	  p->value.character.length = end - start;
 	  p->ts.u.cl = gfc_new_charlen (gfc_current_ns, NULL);
-	  p->ts.u.cl->length = gfc_int_expr (p->value.character.length);
+	  p->ts.u.cl->length = gfc_get_int_expr (gfc_default_integer_kind,
+						 NULL,
+						 p->value.character.length);
 	  gfc_free_ref_list (p->ref);
 	  p->ref = NULL;
 	  p->expr_type = EXPR_CONSTANT;
@@ -3400,7 +3477,10 @@ gfc_default_initializer (gfc_typespec *ts)
   if (!comp)
     return NULL;
 
-  init = gfc_build_structure_constructor_expr (ts, &ts->u.derived->declared_at);
+  init = gfc_get_structure_constructor_expr (ts->type, ts->kind,
+					     &ts->u.derived->declared_at);
+  init->ts = *ts;
+
   for (comp = ts->u.derived->components; comp; comp = comp->next)
     {
       gfc_constructor *ctor = gfc_constructor_get();

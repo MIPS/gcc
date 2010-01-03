@@ -1433,7 +1433,8 @@ gfc_conv_scalar_char_value (gfc_symbol *sym, gfc_se *se, gfc_expr **expr)
 	  gfc_typespec ts;
           gfc_clear_ts (&ts);
 
-	  *expr = gfc_int_expr ((int)(*expr)->value.character.string[0]);
+	  *expr = gfc_get_int_expr (gfc_default_integer_kind, NULL,
+				    (int)(*expr)->value.character.string[0]);
 	  if ((*expr)->ts.kind != gfc_c_int_kind)
 	    {
   	      /* The expr needs to be compatible with a C int.  If the 
@@ -2102,7 +2103,9 @@ gfc_map_intrinsic_function (gfc_expr *expr, gfc_interface_mapping *mapping)
 	      return false;
 	    }
 
-	  tmp = gfc_add (gfc_copy_expr (sym->as->upper[d]), gfc_int_expr (1));
+	  tmp = gfc_add (gfc_copy_expr (sym->as->upper[d]),
+					gfc_get_int_expr (gfc_default_integer_kind,
+							  NULL, 1));
 	  tmp = gfc_subtract (tmp, gfc_copy_expr (sym->as->lower[d]));
 	  if (new_expr)
 	    new_expr = gfc_multiply (new_expr, tmp);
@@ -3869,12 +3872,10 @@ gfc_conv_initializer (gfc_expr * expr, gfc_typespec * ts, tree type,
     {
       gfc_symbol *derived = expr->ts.u.derived;
 
-      expr = gfc_int_expr (0);
-
       /* The derived symbol has already been converted to a (void *).  Use
 	 its kind.  */
+      expr = gfc_get_int_expr (derived->ts.kind, NULL, 0);
       expr->ts.f90_type = derived->ts.f90_type;
-      expr->ts.kind = derived->ts.kind;
     }
   
   if (array)
@@ -5426,7 +5427,7 @@ gfc_trans_class_assign (gfc_code *code)
 	  rhs->ts = vtab->ts;
 	}
       else if (code->expr2->expr_type == EXPR_NULL)
-	rhs = gfc_int_expr (0);
+	rhs = gfc_get_int_expr (gfc_default_integer_kind, NULL, 0);
       else
 	gcc_unreachable ();
 

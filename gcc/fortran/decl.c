@@ -658,7 +658,7 @@ match_char_length (gfc_expr **expr)
       if (gfc_notify_std (GFC_STD_F95_OBS, "Obsolescent feature: "
 			  "Old-style character length at %C") == FAILURE)
 	return MATCH_ERROR;
-      *expr = gfc_int_expr (length);
+      *expr = gfc_get_int_expr (gfc_default_integer_kind, NULL, length);
       return m;
     }
 
@@ -1282,14 +1282,18 @@ add_init_expr_to_sym (const char *name, gfc_expr **initp, locus *var_locus)
 		  if (init->expr_type == EXPR_CONSTANT)
 		    {
 		      clen = init->value.character.length;
-		      sym->ts.u.cl->length = gfc_int_expr (clen);
+		      sym->ts.u.cl->length
+				= gfc_get_int_expr (gfc_default_integer_kind,
+						    NULL, clen);
 		    }
 		  else if (init->expr_type == EXPR_ARRAY)
 		    {
 		      gfc_constructor *c;
 		      c = gfc_constructor_first (init->value.constructor);
 		      clen = c->expr->value.character.length;
-		      sym->ts.u.cl->length = gfc_int_expr (clen);
+		      sym->ts.u.cl->length
+				= gfc_get_int_expr (gfc_default_integer_kind,
+						    NULL, clen);
 		    }
 		  else if (init->ts.u.cl && init->ts.u.cl->length)
 		    sym->ts.u.cl->length =
@@ -1350,7 +1354,8 @@ add_init_expr_to_sym (const char *name, gfc_expr **initp, locus *var_locus)
 		&& spec_size (sym->as, &size) == SUCCESS
 		&& mpz_cmp_si (size, 0) > 0)
 	    {
-	      array = gfc_build_array_expr (&init->ts, &init->where);
+	      array = gfc_get_array_expr (init->ts.type, init->ts.kind,
+					  &init->where);
 	      for (n = 0; n < (int)mpz_get_si (size); n++)
 		gfc_constructor_append_expr (&array->value.constructor,
 					     n == 0
@@ -2235,7 +2240,7 @@ done:
   cl = gfc_new_charlen (gfc_current_ns, NULL);
 
   if (seen_length == 0)
-    cl->length = gfc_int_expr (1);
+    cl->length = gfc_get_int_expr (gfc_default_integer_kind, NULL, 1);
   else
     cl->length = len;
 
@@ -2616,7 +2621,8 @@ gfc_match_implicit (void)
 		{
 		  ts.kind = gfc_default_character_kind;
 		  ts.u.cl = gfc_new_charlen (gfc_current_ns, NULL);
-		  ts.u.cl->length = gfc_int_expr (1);
+		  ts.u.cl->length = gfc_get_int_expr (gfc_default_integer_kind,
+						      NULL, 1);
 		}
 
 	      /* Record the Successful match.  */
@@ -6887,7 +6893,8 @@ gfc_mod_pointee_as (gfc_array_spec *as)
   if (as->type == AS_ASSUMED_SIZE)
     {
       as->type = AS_EXPLICIT;
-      as->upper[as->rank - 1] = gfc_int_expr (1);
+      as->upper[as->rank - 1] = gfc_get_int_expr (gfc_default_integer_kind,
+						  NULL, 1);
       as->cp_was_assumed = true;
     }
   else if (as->type == AS_ASSUMED_SHAPE)
