@@ -1,3 +1,17 @@
+2009-12-23  Jakub Jelinek  <jakub@redhat.com>
+	    Cary Coutant  <ccoutant@google.com>
+
+	PR debug/42454
+	* dwarf2out.c (add_ranges_by_labels): Conditionally Add DW_AT_ranges
+	attribute.
+	(dwarf2out_finish): Change calls to add_ranges_by_labels.
+
+2009-12-22  Cary Coutant  <ccoutant@google.com>
+
+	PR debug/42454
+	* dwarf2out.c (dwarf2out_finish): Don't output range for .text
+	section unless .text section was used.  Likewise for cold.
+
 2010-01-02  Richard Guenther  <rguenther@suse.de>
 
 	Backport from mainline
