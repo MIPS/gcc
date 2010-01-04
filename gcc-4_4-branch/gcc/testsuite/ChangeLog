@@ -1,3 +1,88 @@
+2010-01-02  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2009-12-09  Xinliang David Li  <davidxl@google.com>
+
+	PR tree-optimization/42337
+	* g++.dg/tree-ssa/pr42337.C: New test.
+
+2010-01-02  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/42448
+	* gcc.target/alpha/pr42448-1.c: New test.
+	* gcc.target/alpha/pr42448-2.c: Ditto.
+
+2009-12-30  Ian Lance Taylor  <iant@google.com>
+
+	PR middle-end/42099
+	* gcc.c-torture/execute/20091229-1.c: New test.
+
+2009-12-30  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/42549
+	* gcc.target/i386/mmx-3dnow-check.h: New file.
+	* gcc.target/i386/pr42549.c: New test.
+
+2009-12-28  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2009-12-24  Jason Merrill  <jason@redhat.com>
+
+	PR c++/41305
+	* g++.dg/lookup/koenig10.C: New test.
+	* g++.dg/lookup/koenig11.C: New test.
+	* g++.dg/lookup/koenig12.C: New test.
+
+2009-12-28  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2009-12-28  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR middle-end/41344
+	* gfortran.dg/gomp/pr41344.f: New.
+
+2009-12-27  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/42231
+	* gcc.c-torture/execute/pr42231.c: New test.
+
+2009-12-22  Jason Merrill  <jason@redhat.com>
+
+	PR c++/42331
+	* g++.dg/cpp0x/initlist29.C: New.
+
+2009-12-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/42475
+	* gcc.dg/pr42475.c: New test.
+
+2009-12-22  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2009-12-19  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/42225
+	* g++.dg/template/typedef26.C: New test.
+
+	2009-12-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/42386
+	* g++.dg/opt/dtor3.C: New test.
+
+	2009-12-15  Jason Merrill  <jason@redhat.com>
+
+	PR c++/42358
+	* g++.dg/cpp0x/variadic98.C: New.
+
+	2009-12-13  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/42357
+	* g++.dg/torture/pr42357.C: New testcase.
+
+2009-12-21  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/abi/mangle14.C: Add expected mangling.
+
 2009-12-21  Thomas Koenig  <tkoenig@gcc.gnu.org>
 
 	PR libfortran/PR42422
