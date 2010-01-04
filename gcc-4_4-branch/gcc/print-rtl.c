@@ -41,6 +41,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "hard-reg-set.h"
 #include "basic-block.h"
 #include "cselib.h"
+#include "tree-pass.h"
 #endif
 
 static FILE *outfile;
@@ -288,7 +289,7 @@ print_rtx (const_rtx in_rtx)
 	  {
 	    tree decl = SYMBOL_REF_DECL (in_rtx);
 	    if (decl)
-	      print_node_brief (outfile, "", decl, 0);
+	      print_node_brief (outfile, "", decl, dump_flags);
 	  }
 #endif
 	else if (i == 4 && NOTE_P (in_rtx))
