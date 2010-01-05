@@ -8630,12 +8630,9 @@ build_default_init_expr (gfc_symbol *sym)
     return NULL;
 
   /* Now we'll try to build an initializer expression.  */
-  init_expr = gfc_get_expr ();
-  init_expr->expr_type = EXPR_CONSTANT;
-  init_expr->ts.type = sym->ts.type;
-  init_expr->ts.kind = sym->ts.kind;
-  init_expr->where = sym->declared_at;
-  
+  init_expr = gfc_get_constant_expr (sym->ts.type, sym->ts.kind,
+				     &sym->declared_at);
+
   /* We will only initialize integers, reals, complex, logicals, and
      characters, and only if the corresponding command-line flags
      were set.  Otherwise, we free init_expr and return null.  */

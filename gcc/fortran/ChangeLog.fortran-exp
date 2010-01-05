@@ -1,3 +1,64 @@
+2010-01-05  Daniel Franke  <franke.daniel@gmail.com>
+
+        * gfortran.h (gfc_get_null_expr): New prototype.
+        (gfc_get_operator_expr): New prototype.
+        (gfc_get_character_expr): New prototype.
+        (gfc_get_iokind_expr): New prototype.
+        * expr.c (gfc_get_null_expr): New.
+        (gfc_get_character_expr): New.
+        (gfc_get_iokind_expr): New.
+        (gfc_get_operator_expr): Moved here from matchexp.c (build_node).
+        * matchexp.c (build_node): Renamed and moved to
+        expr.c (gfc_get_operator_expr). Reordered arguments to match 
+        other functions. Fixed all callers.
+        (gfc_get_parentheses): Use specific function to build expr.
+        * array.c (gfc_match_array_constructor): Likewise.
+        * arith.c (eval_intrinsic): Likewise.
+        (gfc_hollerith2int): Likewise.
+        (gfc_hollerith2real): Likewise.
+        (gfc_hollerith2complex): Likewise.
+        (gfc_hollerith2logical): Likewise.
+        * data.c (create_character_intializer): Likewise.
+        * decl.c (gfc_match_null): Likewise.
+        (enum_initializer): Likewise.
+        * io.c (gfc_match_format): Likewise.
+        (match_io): Likewise.
+        * match.c (gfc_match_nullify): Likewise.
+        * primary.c (match_string_constant): Likewise.
+        (match_logical_constant): Likewise.
+        (build_actual_constructor): Likewise.
+        * resolve.c (build_default_init_expr): Likewise.
+        * symbol.c (generate_isocbinding_symbol): Likewise.
+        (gfc_build_class_symbol): Likewise.
+        (gfc_find_derived_vtab): Likewise.
+        * simplify.c (simplify_achar_char): Likewise.
+        (gfc_simplify_adjustl): Likewise.
+        (gfc_simplify_adjustr): Likewise.
+        (gfc_simplify_and): Likewise.
+        (gfc_simplify_bit_size): Likewise.
+        (gfc_simplify_is_iostat_end): Likewise.
+        (gfc_simplify_is_iostat_eor): Likewise.
+        (gfc_simplify_isnan): Likewise.
+        (simplify_bound): Likewise.
+        (gfc_simplify_leadz): Likewise.
+        (gfc_simplify_len_trim): Likewise.
+        (gfc_simplify_logical): Likewise.
+        (gfc_simplify_maxexponent): Likewise.
+        (gfc_simplify_minexponent): Likewise.
+        (gfc_simplify_new_line): Likewise.
+        (gfc_simplify_null): Likewise.
+        (gfc_simplify_or): Likewise.
+        (gfc_simplify_precision): Likewise.
+        (gfc_simplify_repeat): Likewise.
+        (gfc_simplify_scan): Likewise.
+        (gfc_simplify_size): Likewise.
+        (gfc_simplify_trailz): Likewise.
+        (gfc_simplify_trim): Likewise.
+        (gfc_simplify_verify): Likewise.
+        (gfc_simplify_xor): Likewise.
+        * trans-io.c (build_dt): Likewise.
+        (gfc_new_nml_name_expr): Removed.
+
 2010-01-03  Daniel Franke  <franke.daniel@gmail.com>
 
 	* arith.h (gfc_constant_result): Removed prototype.

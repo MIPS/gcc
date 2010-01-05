@@ -2599,10 +2599,15 @@ int gfc_has_vector_index (gfc_expr *);
 
 gfc_expr *gfc_get_expr (void);
 gfc_expr *gfc_get_array_expr (bt type, int kind, locus *);
+gfc_expr *gfc_get_null_expr (locus *);
+gfc_expr *gfc_get_operator_expr (locus *, gfc_intrinsic_op,gfc_expr *, gfc_expr *);
 gfc_expr *gfc_get_structure_constructor_expr (bt, int, locus *);
 gfc_expr *gfc_get_constant_expr (bt, int, locus *);
+gfc_expr *gfc_get_character_expr (int, locus *, const char *, int len);
 gfc_expr *gfc_get_int_expr (int, locus *, int);
 gfc_expr *gfc_get_logical_expr (int, locus *, bool);
+gfc_expr *gfc_get_iokind_expr (locus *, io_kind);
+
 void gfc_free_expr (gfc_expr *);
 void gfc_replace_expr (gfc_expr *, gfc_expr *);
 mpz_t *gfc_copy_shape (mpz_t *, int);

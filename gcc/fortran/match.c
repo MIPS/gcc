@@ -2662,10 +2662,7 @@ gfc_match_nullify (void)
 	}
 
       /* build ' => NULL() '.  */
-      e = gfc_get_expr ();
-      e->where = gfc_current_locus;
-      e->expr_type = EXPR_NULL;
-      e->ts.type = BT_UNKNOWN;
+      e = gfc_get_null_expr (&gfc_current_locus);
 
       /* Chain to list.  */
       if (tail == NULL)

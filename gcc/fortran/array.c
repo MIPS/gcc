@@ -811,23 +811,18 @@ gfc_match_array_constructor (gfc_expr **result)
     goto syntax;
 
 done:
-  expr = gfc_get_expr ();
-
-  expr->expr_type = EXPR_ARRAY;
+  /* Size must be calculated at resolution time.  */
+  if (seen_ts)
+    {
+      expr = gfc_get_array_expr (ts.type, ts.kind, &where);
+      expr->ts = ts;
+    }
+  else
+    expr = gfc_get_array_expr (BT_UNKNOWN, 0, &where);
 
   expr->value.constructor = head;
-  /* Size must be calculated at resolution time.  */
-
-  if (seen_ts)
-    expr->ts = ts;
-  else
-    expr->ts.type = BT_UNKNOWN;
-  
   if (expr->ts.u.cl)
     expr->ts.u.cl->length_from_typespec = seen_ts;
-
-  expr->where = where;
-  expr->rank = 1;
 
   *result = expr;
   return MATCH_YES;

@@ -1520,7 +1520,6 @@ match
 gfc_match_null (gfc_expr **result)
 {
   gfc_symbol *sym;
-  gfc_expr *e;
   match m;
 
   m = gfc_match (" null ( )");
@@ -1542,12 +1541,7 @@ gfc_match_null (gfc_expr **result)
 	  || gfc_add_function (&sym->attr, sym->name, NULL) == FAILURE))
     return MATCH_ERROR;
 
-  e = gfc_get_expr ();
-  e->where = gfc_current_locus;
-  e->expr_type = EXPR_NULL;
-  e->ts.type = BT_UNKNOWN;
-
-  *result = e;
+  *result = gfc_get_null_expr (&gfc_current_locus);
 
   return MATCH_YES;
 }
@@ -6940,12 +6934,7 @@ static gfc_expr *
 enum_initializer (gfc_expr *last_initializer, locus where)
 {
   gfc_expr *result;
-
-  result = gfc_get_expr ();
-  result->expr_type = EXPR_CONSTANT;
-  result->ts.type = BT_INTEGER;
-  result->ts.kind = gfc_c_int_kind;
-  result->where = where;
+  result = gfc_get_constant_expr (BT_INTEGER, gfc_c_int_kind, &where);
 
   mpz_init (result->value.integer);
 

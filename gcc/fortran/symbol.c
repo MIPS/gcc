@@ -4244,18 +4244,13 @@ generate_isocbinding_symbol (const char *mod_name, iso_c_binding_symbol s,
 
 	/* Initialize an integer constant expression node for the
 	   length of the character.  */
-	tmp_sym->value = gfc_get_expr (); 
-	tmp_sym->value->expr_type = EXPR_CONSTANT;
-	tmp_sym->value->ts.type = BT_CHARACTER;
-	tmp_sym->value->ts.kind = gfc_default_character_kind;
-	tmp_sym->value->where = gfc_current_locus;
+	tmp_sym->value = gfc_get_character_expr (gfc_default_character_kind,
+						 &gfc_current_locus, NULL, 1);
 	tmp_sym->value->ts.is_c_interop = 1;
 	tmp_sym->value->ts.is_iso_c = 1;
 	tmp_sym->value->value.character.length = 1;
-	tmp_sym->value->value.character.string = gfc_get_wide_string (2);
 	tmp_sym->value->value.character.string[0]
 	  = (gfc_char_t) c_interop_kinds_table[s].value;
-	tmp_sym->value->value.character.string[1] = '\0';
 	tmp_sym->ts.u.cl = gfc_new_charlen (gfc_current_ns, NULL);
 	tmp_sym->ts.u.cl->length = gfc_get_int_expr (gfc_default_integer_kind,
 						     NULL, 1);
@@ -4691,8 +4686,7 @@ gfc_build_class_symbol (gfc_typespec *ts, symbol_attribute *attr,
       c->attr.dimension = attr->dimension;
       c->attr.abstract = ts->u.derived->attr.abstract;
       c->as = (*as);
-      c->initializer = gfc_get_expr ();
-      c->initializer->expr_type = EXPR_NULL;
+      c->initializer = gfc_get_null_expr (NULL);
 
       /* Add component '$vptr'.  */
       if (gfc_add_component (fclass, "$vptr", &c) == FAILURE)
@@ -4702,8 +4696,6 @@ gfc_build_class_symbol (gfc_typespec *ts, symbol_attribute *attr,
       gcc_assert (vtab);
       c->ts.u.derived = vtab->ts.u.derived;
       c->attr.pointer = 1;
-      c->initializer = gfc_get_expr ();
-      c->initializer->expr_type = EXPR_NULL;
     }
 
   /* Since the extension field is 8 bit wide, we can only have
@@ -4798,13 +4790,13 @@ gfc_find_derived_vtab (gfc_symbol *derived)
 		return NULL;
 	      c->attr.pointer = 1;
 	      c->attr.access = ACCESS_PRIVATE;
-	      c->initializer = gfc_get_expr ();
 	      parent = gfc_get_derived_super_type (derived);
 	      if (parent)
 		{
 		  parent_vtab = gfc_find_derived_vtab (parent);
 		  c->ts.type = BT_DERIVED;
 		  c->ts.u.derived = parent_vtab->ts.u.derived;
+		  c->initializer = gfc_get_expr ();
 		  c->initializer->expr_type = EXPR_VARIABLE;
 		  gfc_find_sym_tree (parent_vtab->name, parent_vtab->ns, 0,
 				     &c->initializer->symtree);
@@ -4813,7 +4805,7 @@ gfc_find_derived_vtab (gfc_symbol *derived)
 		{
 		  c->ts.type = BT_DERIVED;
 		  c->ts.u.derived = vtype;
-		  c->initializer->expr_type = EXPR_NULL;
+		  c->initializer = gfc_get_null_expr (NULL);
 		}
 	    }
 	  vtab->ts.u.derived = vtype;

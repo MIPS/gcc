@@ -1582,16 +1582,8 @@ eval_intrinsic (gfc_intrinsic_op op,
 
 runtime:
   /* Create a run-time expression.  */
-  result = gfc_get_expr ();
+  result = gfc_get_operator_expr (&op1->where, op, op1, op2);
   result->ts = temp.ts;
-
-  result->expr_type = EXPR_OP;
-  result->value.op.op = op;
-
-  result->value.op.op1 = op1;
-  result->value.op.op2 = op2;
-
-  result->where = op1->where;
 
   return result;
 }
@@ -2293,12 +2285,7 @@ gfc_expr *
 gfc_hollerith2int (gfc_expr *src, int kind)
 {
   gfc_expr *result;
-
-  result = gfc_get_expr ();
-  result->expr_type = EXPR_CONSTANT;
-  result->ts.type = BT_INTEGER;
-  result->ts.kind = kind;
-  result->where = src->where;
+  result = gfc_get_constant_expr (BT_INTEGER, kind, &src->where);
 
   hollerith2representation (result, src);
   gfc_interpret_integer (kind, (unsigned char *) result->representation.string,
@@ -2314,12 +2301,7 @@ gfc_expr *
 gfc_hollerith2real (gfc_expr *src, int kind)
 {
   gfc_expr *result;
-
-  result = gfc_get_expr ();
-  result->expr_type = EXPR_CONSTANT;
-  result->ts.type = BT_REAL;
-  result->ts.kind = kind;
-  result->where = src->where;
+  result = gfc_get_constant_expr (BT_REAL, kind, &src->where);
 
   hollerith2representation (result, src);
   gfc_interpret_float (kind, (unsigned char *) result->representation.string,
@@ -2335,12 +2317,7 @@ gfc_expr *
 gfc_hollerith2complex (gfc_expr *src, int kind)
 {
   gfc_expr *result;
-
-  result = gfc_get_expr ();
-  result->expr_type = EXPR_CONSTANT;
-  result->ts.type = BT_COMPLEX;
-  result->ts.kind = kind;
-  result->where = src->where;
+  result = gfc_get_constant_expr (BT_COMPLEX, kind, &src->where);
 
   hollerith2representation (result, src);
   gfc_interpret_complex (kind, (unsigned char *) result->representation.string,
@@ -2375,12 +2352,7 @@ gfc_expr *
 gfc_hollerith2logical (gfc_expr *src, int kind)
 {
   gfc_expr *result;
-
-  result = gfc_get_expr ();
-  result->expr_type = EXPR_CONSTANT;
-  result->ts.type = BT_LOGICAL;
-  result->ts.kind = kind;
-  result->where = src->where;
+  result = gfc_get_constant_expr (BT_LOGICAL, kind, &src->where);
 
   hollerith2representation (result, src);
   gfc_interpret_logical (kind, (unsigned char *) result->representation.string,

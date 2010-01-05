@@ -110,20 +110,11 @@ create_character_intializer (gfc_expr *init, gfc_typespec *ts,
   if (init == NULL)
     {
       /* Create a new initializer.  */
-      init = gfc_get_expr ();
-      init->expr_type = EXPR_CONSTANT;
+      init = gfc_get_character_expr (ts->kind, NULL, NULL, len);
       init->ts = *ts;
-      
-      dest = gfc_get_wide_string (len + 1);
-      dest[len] = '\0';
-      init->value.character.length = len;
-      init->value.character.string = dest;
-      /* Blank the string if we're only setting a substring.  */
-      if (ref != NULL)
-	gfc_wide_memset (dest, ' ', len);
     }
-  else
-    dest = init->value.character.string;
+
+  dest = init->value.character.string;
 
   if (ref)
     {

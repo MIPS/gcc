@@ -27,6 +27,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "target-memory.h" /* for gfc_convert_boz */
 #include "constructor.h"
 
+
+/* The following set of functions provide access to gfc_expr* of
+   various types - actual all but EXPR_FUNCTION and EXPR_VARIABLE.
+
+   There are two functions available elsewhere that provide
+   slightly different flavours of variables.  Namely:
+     expr.c (gfc_get_variable_expr)
+     symbol.c (gfc_lval_expr_from_sym)
+   TODO: Merge these functions, if possible.  */
+
 /* Get a new expression node.  */
 
 gfc_expr *
@@ -66,6 +76,45 @@ gfc_get_array_expr (bt type, int kind, locus *where)
 }
 
 
+/* Get a new expression node that is the NULL expression.  */
+
+gfc_expr *
+gfc_get_null_expr (locus *where)
+{
+  gfc_expr *e;
+
+  e = gfc_get_expr ();
+  e->expr_type = EXPR_NULL;
+  e->ts.type = BT_UNKNOWN;
+
+  if (where)
+    e->where = *where;
+
+  return e;
+}
+
+
+/* Get a new expression node that is an operator expression node.  */
+
+gfc_expr *
+gfc_get_operator_expr (locus *where, gfc_intrinsic_op op,
+                      gfc_expr *op1, gfc_expr *op2)
+{
+  gfc_expr *e;
+
+  e = gfc_get_expr ();
+  e->expr_type = EXPR_OP;
+  e->value.op.op = op;
+  e->value.op.op1 = op1;
+  e->value.op.op2 = op2;
+
+  if (where)
+    e->where = *where;
+
+  return e;
+}
+
+
 /* Get a new expression node that is an structure constructor
    of given type and kind.  */
 
@@ -92,39 +141,67 @@ gfc_get_structure_constructor_expr (bt type, int kind, locus *where)
 gfc_expr *
 gfc_get_constant_expr (bt type, int kind, locus *where)
 {
-  gfc_expr *result;
+  gfc_expr *e;
 
   if (!where)
     gfc_internal_error ("gfc_get_constant_expr(): locus 'where' cannot be NULL");
 
-  result = gfc_get_expr ();
+  e = gfc_get_expr ();
 
-  result->expr_type = EXPR_CONSTANT;
-  result->ts.type = type;
-  result->ts.kind = kind;
-  result->where = *where;
+  e->expr_type = EXPR_CONSTANT;
+  e->ts.type = type;
+  e->ts.kind = kind;
+  e->where = *where;
 
   switch (type)
     {
     case BT_INTEGER:
-      mpz_init (result->value.integer);
+      mpz_init (e->value.integer);
       break;
 
     case BT_REAL:
       gfc_set_model_kind (kind);
-      mpfr_init (result->value.real);
+      mpfr_init (e->value.real);
       break;
 
     case BT_COMPLEX:
       gfc_set_model_kind (kind);
-      mpc_init2 (result->value.complex, mpfr_get_default_prec());
+      mpc_init2 (e->value.complex, mpfr_get_default_prec());
       break;
 
     default:
       break;
     }
 
-  return result;
+  return e;
+}
+
+
+/* Get a new expression node that is an string constant.
+   If no string is passed, a string of len is allocated,
+   blanked and null-terminated.  */
+
+gfc_expr *
+gfc_get_character_expr (int kind, locus *where, const char *src, int len)
+{
+  gfc_expr *e;
+  gfc_char_t *dest;
+
+  if (!src)
+    {
+      dest = gfc_get_wide_string (len + 1);
+      gfc_wide_memset (dest, ' ', len);
+      dest[len] = '\0';
+    }
+  else
+    dest = gfc_char_to_widechar (src);
+
+  e = gfc_get_constant_expr (BT_CHARACTER, kind,
+                            where ? where : &gfc_current_locus);
+  e->value.character.string = dest;
+  e->value.character.length = len;
+
+  return e;
 }
 
 
@@ -155,6 +232,25 @@ gfc_get_logical_expr (int kind, locus *where, bool value)
   p->value.logical = value;
 
   return p;
+}
+
+
+gfc_expr *
+gfc_get_iokind_expr (locus *where, io_kind k)
+{
+  gfc_expr *e;
+
+  /* Set the types to something compatible with iokind. This is needed to
+     get through gfc_free_expr later since iokind really has no Basic Type,
+     BT, of its own.  */
+
+  e = gfc_get_expr ();
+  e->expr_type = EXPR_CONSTANT;
+  e->ts.type = BT_LOGICAL;
+  e->value.iokind = k;
+  e->where = *where;
+
+  return e;
 }
 
 

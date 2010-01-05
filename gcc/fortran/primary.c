@@ -970,19 +970,10 @@ got_delim:
   if (peek == 'b' || peek == 'o' || peek =='z' || peek == 'x')
     goto no_match;
 
-
-  e = gfc_get_expr ();
-
-  e->expr_type = EXPR_CONSTANT;
+  e = gfc_get_character_expr (kind, &start_locus, NULL, length);
   e->ref = NULL;
-  e->ts.type = BT_CHARACTER;
-  e->ts.kind = kind;
   e->ts.is_c_interop = 0;
   e->ts.is_iso_c = 0;
-  e->where = start_locus;
-
-  e->value.character.string = p = gfc_get_wide_string (length + 1);
-  e->value.character.length = length;
 
   gfc_current_locus = start_locus;
   gfc_next_char ();		/* Skip delimiter */
@@ -992,6 +983,7 @@ got_delim:
   warn_ampersand = gfc_option.warn_ampersand;
   gfc_option.warn_ampersand = 0;
 
+  p = e->value.character.string;
   for (i = 0; i < length; i++)
     {
       c = next_string_char (delimiter, &ret);
@@ -1085,15 +1077,9 @@ match_logical_constant (gfc_expr **result)
       return MATCH_ERROR;
     }
 
-  e = gfc_get_expr ();
-
-  e->expr_type = EXPR_CONSTANT;
-  e->value.logical = i;
-  e->ts.type = BT_LOGICAL;
-  e->ts.kind = kind;
+  e = gfc_get_logical_expr (kind, &gfc_current_locus, i);
   e->ts.is_c_interop = 0;
   e->ts.is_iso_c = 0;
-  e->where = gfc_current_locus;
 
   *result = e;
   return MATCH_YES;
@@ -2170,11 +2156,10 @@ build_actual_constructor (gfc_structure_ctor_component **comp_head,
 	 a value expression for the parent derived type and calling self.  */
       if (!comp_iter && comp == sym->components && sym->attr.extension)
 	{
-	  value = gfc_get_expr ();
-	  value->expr_type = EXPR_STRUCTURE;
-	  value->value.constructor = NULL;
+	  value = gfc_get_structure_constructor_expr (comp->ts.type,
+						      comp->ts.kind,
+						      &gfc_current_locus);
 	  value->ts = comp->ts;
-	  value->where = gfc_current_locus;
 
 	  if (build_actual_constructor (comp_head, &value->value.constructor,
 					comp->ts.u.derived) == FAILURE)
