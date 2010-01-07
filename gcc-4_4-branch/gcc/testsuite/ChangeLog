@@ -1,3 +1,142 @@
+2010-01-07  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2010-01-06  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.c-torture/compile/pr42632.c: New testcase.
+
+	2010-01-05  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/42462
+	* g++.dg/torture/pr42462.C: New test.
+
+	2010-01-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/42508
+	* g++.dg/opt/pr42508.C: New test.
+
+	2010-01-04  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/42398
+	* gcc.c-torture/compile/pr42398.c: New test.
+
+	2010-01-04  Jason Merrill  <jason@redhat.com>
+
+	PR c++/42555
+	* g++.dg/ext/attrib35.C: New.
+
+	2010-01-01  Richard Guenther  <rguenther@suse.de>
+
+	PR c/42570
+	* gcc.c-torture/execute/pr42570.c: New testcase.
+
+	2010-01-01  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/42559
+	* gcc.c-torture/compile/pr42559.c: New testcase.
+
+	2009-12-30  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/42439
+	* gcc.dg/bitfld-19.c: New test.
+
+	2009-12-28  Jason Merrill  <jason@redhat.com>
+
+	PR c++/42447
+	* g++.dg/template/array21.C: New.
+
+2010-01-07  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2010-01-05  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/42542
+	* gcc.target/i386/pr42542-1.c: New.
+	* gcc.target/i386/pr42542-1a.c: Likewise.
+	* gcc.target/i386/pr42542-1b.c: Likewise.
+	* gcc.target/i386/pr42542-2.c: Likewise.
+	* gcc.target/i386/pr42542-2a.c: Likewise.
+	* gcc.target/i386/pr42542-2b.c: Likewise.
+	* gcc.target/i386/pr42542-3.c: Likewise.
+	* gcc.target/i386/pr42542-3a.c: Likewise.
+
+2010-01-05  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/tls/opt-15.c: New test.
+
+2010-01-05  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/42614
+	* gcc.c-torture/execute/pr42614.c: New testcase.
+
+2010-01-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR other/42611
+	* gcc.dg/pr42611.c: New test.
+
+2010-01-04  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/41956
+	* gcc.dg/vect/pr41956.c: New test.
+
+2010-01-02  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2009-12-09  Xinliang David Li  <davidxl@google.com>
+
+	PR tree-optimization/42337
+	* g++.dg/tree-ssa/pr42337.C: New test.
+
+2010-01-02  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/42448
+	* gcc.target/alpha/pr42448-1.c: New test.
+	* gcc.target/alpha/pr42448-2.c: Ditto.
+
+2009-12-30  Ian Lance Taylor  <iant@google.com>
+
+	PR middle-end/42099
+	* gcc.c-torture/execute/20091229-1.c: New test.
+
+2009-12-30  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/42549
+	* gcc.target/i386/mmx-3dnow-check.h: New file.
+	* gcc.target/i386/pr42549.c: New test.
+
+2009-12-28  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2009-12-24  Jason Merrill  <jason@redhat.com>
+
+	PR c++/41305
+	* g++.dg/lookup/koenig10.C: New test.
+	* g++.dg/lookup/koenig11.C: New test.
+	* g++.dg/lookup/koenig12.C: New test.
+
+2009-12-28  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2009-12-28  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR middle-end/41344
+	* gfortran.dg/gomp/pr41344.f: New.
+
+2009-12-27  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/42231
+	* gcc.c-torture/execute/pr42231.c: New test.
+
+2009-12-22  Jason Merrill  <jason@redhat.com>
+
+	PR c++/42331
+	* g++.dg/cpp0x/initlist29.C: New.
+
+2009-12-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/42475
+	* gcc.dg/pr42475.c: New test.
+
 2009-12-22  H.J. Lu  <hongjiu.lu@intel.com>
 
 	Backport from mainline:

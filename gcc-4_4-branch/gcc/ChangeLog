@@ -1,3 +1,132 @@
+2010-01-07  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2010-01-05  Paolo Bonzini  <bonzinI@gnu.rg>
+		    H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/42542
+	* config/i386/i386.c (ix86_expand_int_vcond): Convert GTU to GT
+	for V4SI and V2DI by subtracting (-(INT MAX) - 1) from both
+	operands to make them signed.
+
+2010-01-07  Uros Bizjak  <ubizjak@gmail.com>
+
+	* ifcvt.c (if_convert): Output slim multiple dumps with TDF_SLIM.
+
+	PR target/42511
+	* ifcvt.c (dead_or_predicable): Also remove REG_EQUAL note when
+	note itself is not function_invariant_p.
+
+2010-01-05  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/42564
+	* config/sparc/sparc.h (SPARC_SYMBOL_REF_TLS_P): Delete.
+	* config/sparc/sparc-protos.h (legitimize_pic_address): Likewise.
+	(legitimize_tls_address): Likewise.
+	(sparc_tls_referenced_p): Likewise.
+	* config/sparc/sparc.c (sparc_expand_move): Use legitimize_tls_address
+	and adjust calls to legitimize_pic_address.
+	(legitimate_constant_p) Use sparc_tls_referenced_p.
+	(legitimate_pic_operand_p): Likewise.
+	(sparc_legitimate_address_p): Do not use SPARC_SYMBOL_REF_TLS_P.
+	(sparc_tls_symbol_ref_1): Delete.
+	(sparc_tls_referenced_p): Make static, recognize specific patterns.
+	(legitimize_tls_address): Make static, handle CONST patterns.
+	(legitimize_pic_address): Make static, remove unused parameter and
+	adjust recursive calls.
+	(sparc_legitimize_address): Make static, use sparc_tls_referenced_p
+	and adjust call to legitimize_pic_address.
+	(sparc_output_mi_thunk): Likewise.
+
+2010-01-05  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/42614
+	* tree-ssa-alias.c (compute_flow_insensitive_aliasing):
+	Compute SMT aliases before symbol aliases.
+
+2010-01-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR other/42611
+	* cfgexpand.c (expand_one_var): Diagnose too large variables.
+
+2010-01-04  Mikael Pettersson  <mikpe@it.uu.se>
+
+	PR target/42503
+
+	Backport from mainline:
+
+	2009-09-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/t-slibgcc-elf-ver (SHLIB_MAKE_SOLINK, SHLIB_INSTALL_SOLINK):
+	New variables.
+	(SHLIB_LINK, SHLIB_INSTALL): Use them.
+	* config/t-slibgcc-libgcc: New file.
+
+	2009-10-19  Matthias Klose  <doko@ubuntu.com>
+
+	PR target/40134
+	* config.gcc (arm*-*-linux-*eabi): Use config/t-slibgcc-libgcc.
+
+2010-01-04  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/41956
+	* tree-vect-analyze.c (vect_supported_load_permutation_p): Add check
+	that the load indices differ.
+
+2010-01-02  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2009-12-10  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/42337
+	* tree-ssa-pre.c (seen_during_translate): Remove.
+	(phi_translate_1): Collapse into ...
+	(phi_translate): ... this.  Remove seen parameter and
+	adjust recursive calls.
+
+2010-01-02  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/42448
+	* config/alpha/predicates.md (aligned_memory_operand): Return false
+	for CQImode.
+	(unaligned_memory_operand): Return true for CQImode.
+	* config/alpha/alpha.c (get_aligned_mem): Assert that location
+	doesn not cross aligned SImode word boundary.
+
+2009-12-30  Ian Lance Taylor  <iant@google.com>
+
+	PR middle-end/42099
+	* expmed.c (expand_divmod): Don't shift HOST_WIDE_INT value more
+	than HOST_BITS_PER_WIDE_INT.
+
+2009-12-30  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/42549
+	* config/i386/mmx.md (*mmx_subv2sf3): Fix insn operand number for
+	alternative 1.
+
+2009-12-28  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2009-12-28  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR middle-end/41344
+	* omp-low.c (diagnose_sb_2): Handle GIMPLE_COND.
+
+2009-12-27  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/42231
+	* ipa-cp.c (ipcp_update_cloned_node): Add missing edges manually
+	instead of relying on rebuild_cgraph_edges and mark them as
+	indirect calls.
+	(ipcp_update_callgraph): Always redirect indirect edges.
+
+2009-12-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/42475
+	* combine.c (make_compound_operation) <case SUBREG>: Use mode of
+	SUBREG_REG (x) instead of tem's mode.
+
 2009-12-21  Jakub Jelinek  <jakub@redhat.com>
 
 	PR rtl-optimization/42429
@@ -28,9 +157,8 @@
 
 	PR target/41196
 	2009-10-14  Daniel Gutson  <dgutson@codesourcery.com>
-	
-	* config/arm/neon.md (neon_vshll_n<mode>): Checking Bounds
-	fixed.
+
+	* config/arm/neon.md (neon_vshll_n<mode>): Checking Bounds fixed.
 
 2009-12-11  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
 
@@ -41,14 +169,14 @@
 	floating point and we are not doing unsafe math optimizations.
 
 2009-12-11  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
-	
+
 	PR target/41939
 	Backport from mainline:
 	2009-06-05  Julian Brown  <julian@codesourcery.com>
 
 	* config/arm/ieee754-df.S (cmpdf2): Avoid writing below SP.
 	* config/arm/ieee754-sf.S (cmpsf2): Likewise.
-	
+
 2009-12-09  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
 
 	* config/s390/s390.md ("copysign<mode>3"): Pattern removed.
@@ -203,7 +331,7 @@
 2009-11-24  Wolfgang Gellerich  <gellerich@de.ibm.com>
 
 	* config/s390/s390.md: Added agen condition to operand
-	forwarding bypasses. 
+	forwarding bypasses.
 	Added bypass for early address generation use of int results.
 	Updated comments.
 
@@ -218,7 +346,7 @@
 
 2009-11-18  Matthias Klose  <doko@ubuntu.com>
 
-       * config.gcc: Update ARM --with-fpu option list.
+	* config.gcc: Update ARM --with-fpu option list.
 
 2009-11-17  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
 
@@ -561,7 +689,7 @@
 
 2009-10-02  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
 
-	Backport from mainline.	
+	Backport from mainline.
 	2009-10-01  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
 	* config/arm/arm.c (arm_override_options): Turn off
 	flag_dwarf2_cfi_asm for AAPCS variants.
