@@ -1,3 +1,25 @@
+2010-01-08  Antoniu Pop  <antoniu.pop@gmail.com>
+
+New builtin definitions for the window operations on streams.
+Generate code for window-level operations on streams.
+
+	* omp-low.c (stream_task, stmt_var, hash_stmt_var, eq_stmt_var,
+	lookup_actual_var, prepare_outer_context_for_streaming,
+	prepare_inner_context_for_streaming, register_consumer_task,
+	duplicate_task_body, traverse_task_sese_and_replace_rw_ops,
+	loopify_streaming_task_windowwise,
+	loopify_streaming_task_elementwise,
+	expand_task_streaming_extensions): New.
+	(var_stream, lookup_stream, stmt_location,
+	lower_rec_input_clauses, lower_send_clauses, stream_create_calls,
+	expand_omp_taskreg): Updated.
+		
+	* omp-builtins.def (BUILT_IN_GOMP_STREAM_PUSH_WINDOW,
+	BUILT_IN_GOMP_STREAM_TAIL_WINDOW,
+	BUILT_IN_GOMP_STREAM_HEAD_WINDOW,
+	BUILT_IN_GOMP_STREAM_POP_WINDOW): New.
+
+
 2009-09-22  Antoniu Pop  <antoniu.pop@gmail.com>
 
 Adding multi-reader support in libGOMP streams.
