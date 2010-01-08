@@ -1,5 +1,85 @@
 2010-01-09  Daniel Franke  <franke.daniel@gmail.com>
 
+	* simplify.c (only_convert_cmplx_boz): Renamed to ...
+	(convert_boz): ... this and moved to start of file.
+	(gfc_simplify_abs): Whitespace fix.
+	(gfc_simplify_acos): Whitespace fix.
+	(gfc_simplify_acosh): Whitespace fix.
+	(gfc_simplify_aint): Whitespace fix.
+	(gfc_simplify_dint): Whitespace fix.
+	(gfc_simplify_anint): Whitespace fix.
+	(gfc_simplify_and): Replaced if-gate by more common switch-over-type.
+	(gfc_simplify_dnint): Whitespace fix.
+	(gfc_simplify_asin): Whitespace fix.
+	(gfc_simplify_asinh): Moved creation of result-expr out of switch.
+	(gfc_simplify_atan): Likewise.
+	(gfc_simplify_atanh): Whitespace fix.
+	(gfc_simplify_atan2): Whitespace fix.
+	(gfc_simplify_bessel_j0): Removed ATTRIBUTE_UNUSED.
+	(gfc_simplify_bessel_j1): Likewise.
+	(gfc_simplify_bessel_jn): Likewise.
+	(gfc_simplify_bessel_y0): Likewise.
+	(gfc_simplify_bessel_y1): Likewise.
+	(gfc_simplify_bessel_yn): Likewise.
+	(gfc_simplify_ceiling): Reorderd statements.
+	(simplify_cmplx): Use convert_boz(), check for constant arguments.
+	Whitespace fix.
+	(gfc_simplify_cmplx): Use correct default kind. Removed check for
+	constant arguments.
+	(gfc_simplify_complex): Replaced if-gate. Removed check for
+	constant arguments.
+	(gfc_simplify_conjg): Whitespace fix.
+	(gfc_simplify_cos): Whitespace fix.
+	(gfc_simplify_cosh): Replaced if-gate by more common switch-over-type.
+	(gfc_simplify_dcmplx): Removed check for constant arguments.
+	(gfc_simplify_dble): Use convert_boz() and gfc_convert_constant().
+	(gfc_simplify_digits): Whitespace fix.
+	(gfc_simplify_dim): Whitespace fix.
+	(gfc_simplify_dprod): Reorderd statements.
+	(gfc_simplify_erf): Whitespace fix.
+	(gfc_simplify_erfc): Whitespace fix.
+	(gfc_simplify_epsilon): Whitespace fix.
+	(gfc_simplify_exp): Whitespace fix.
+	(gfc_simplify_exponent): Use convert_boz().
+	(gfc_simplify_floor): Reorderd statements.
+	(gfc_simplify_gamma): Whitespace fix.
+	(gfc_simplify_huge): Whitespace fix.
+	(gfc_simplify_iand): Whitespace fix.
+	(gfc_simplify_ieor): Whitespace fix.
+	(simplify_intconv): Use gfc_convert_constant().
+	(gfc_simplify_int): Use simplify_intconv().
+	(gfc_simplify_int2): Reorderd statements.
+	(gfc_simplify_idint): Reorderd statements.
+	(gfc_simplify_ior): Whitespace fix.
+	(gfc_simplify_ishftc): Removed duplicate type check.
+	(gfc_simplify_len): Use range_check() instead of manual range check.
+	(gfc_simplify_lgamma): Removed ATTRIBUTE_UNUSED. Whitespace fix.
+	(gfc_simplify_log): Whitespace fix.
+	(gfc_simplify_log10): Whitespace fix.
+	(gfc_simplify_minval): Whitespace fix.
+	(gfc_simplify_maxval): Whitespace fix.
+	(gfc_simplify_mod): Whitespace fix.
+	(gfc_simplify_modulo): Whitespace fix.
+	(simplify_nint): Reorderd statements.
+	(gfc_simplify_not): Whitespace fix.
+	(gfc_simplify_or): Replaced if-gate by more common switch-over-type.
+	(gfc_simplify_radix): Removed unused result-variable. Whitespace fix.
+	(gfc_simplify_range): Removed unused result-variable. Whitespace fix.
+	(gfc_simplify_real): Use convert_boz() and gfc_convert_constant().
+	(gfc_simplify_realpart): Whitespace fix.
+	(gfc_simplify_selected_char_kind): Removed unused result-variable.
+	(gfc_simplify_selected_int_kind): Removed unused result-variable.
+	(gfc_simplify_selected_real_kind): Removed unused result-variable.
+	(gfc_simplify_sign): Whitespace fix.
+	(gfc_simplify_sin): Whitespace fix.
+	(gfc_simplify_sinh): Replaced if-gate by more common switch-over-type.
+	(gfc_simplify_sqrt): Avoided goto by inlining check. Whitespace fix.
+	(gfc_simplify_tan): Replaced if-gate by more common switch-over-type.
+	(gfc_simplify_tanh): Replaced if-gate by more common switch-over-type.
+	(gfc_simplify_xor): Replaced if-gate by more common switch-over-type.
+
+2010-01-09  Daniel Franke  <franke.daniel@gmail.com>
+
 	* gfortran.h (gfc_start_constructor): Removed.
 	(gfc_get_array_element): Removed.
 	* array.c (gfc_start_constructor): Removed, use gfc_get_array_expr 
