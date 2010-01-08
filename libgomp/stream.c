@@ -103,10 +103,10 @@ GOMP_stream_create (size_t size_elt, size_t num_windows, size_t window_size,
 
   s->size_elt = size_elt;
   s->num_windows = num_windows;
-  s->size_local_buffer = window_size;
+  s->size_local_buffer = window_size * size_elt;
   s->num_consumers = num_consumers;
 
-  s->capacity = num_windows * window_size;
+  s->capacity = num_windows * window_size * size_elt;
 
   s->write_index = 0;
   s->write_buffer_index = 0;

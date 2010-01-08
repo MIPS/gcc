@@ -1,3 +1,10 @@
+2010-01-08  Antoniu Pop  <antoniu.pop@gmail.com>
+
+	* stream.c (GOMP_stream_create): Changed the prototype to take
+	WINDOW_SIZE as the number of elements per window rather than the
+	number of bytes.
+
+	
 2009-09-25  Antoniu Pop  <antoniu.pop@gmail.com>
 
 Adding stream window operations to libGOMP.
