@@ -6,6 +6,8 @@
 ! wide enough and have enough precision, by checking that values can
 ! be written and read back.
 !
+! { dg-options "-mieee" { target alpha*-*-* } }
+
 include "default_format_1.inc"
 
 program main
