@@ -1,3 +1,17 @@
+2010-01-09  Daniel Franke  <franke.daniel@gmail.com>
+
+	* gfortran.h (gfc_start_constructor): Removed.
+	(gfc_get_array_element): Removed.
+	* array.c (gfc_start_constructor): Removed, use gfc_get_array_expr 
+	instead. Fixed all callers.
+	(extract_element): Removed.
+	(gfc_expand_constructor): Temporarily removed check for
+	max-array-constructor. Will be re-introduced later if still required.
+	(gfc_get_array_element): Removed, use gfc_constructor_lookup_expr
+	instead. Fixed all callers.
+	* expr.c (find_array_section): Replaced manual lookup of elements
+	by gfc_constructor_lookup.
+
 2010-01-05  Daniel Franke  <franke.daniel@gmail.com>
 
         * gfortran.h (gfc_get_null_expr): New prototype.

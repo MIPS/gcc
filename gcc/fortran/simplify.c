@@ -369,7 +369,7 @@ transformational_result (gfc_expr *array, gfc_expr *dim, bt type,
   if (!dim || array->rank == 1)
     return gfc_get_constant_expr (type, kind, where);
 
-  result = gfc_start_constructor (type, kind, where);
+  result = gfc_get_array_expr (type, kind, where);
   result->shape = gfc_copy_shape_excluding (array->shape, array->rank, dim);
   result->rank = array->rank - 1;
 
@@ -3296,9 +3296,9 @@ gfc_simplify_matmul (gfc_expr *matrix_a, gfc_expr *matrix_b)
     return NULL;
 
   gcc_assert (gfc_compare_types (&matrix_a->ts, &matrix_b->ts));
-  result = gfc_start_constructor (matrix_a->ts.type,
-				  matrix_a->ts.kind,
-				  &matrix_a->where);
+  result = gfc_get_array_expr (matrix_a->ts.type,
+			       matrix_a->ts.kind,
+			       &matrix_a->where);
 
   if (matrix_a->rank == 1 && matrix_b->rank == 2)
     {
@@ -3886,9 +3886,7 @@ gfc_simplify_pack (gfc_expr *array, gfc_expr *mask, gfc_expr *vector)
           && !is_constant_array_expr(mask)))
     return NULL;
 
-  result = gfc_start_constructor (array->ts.type, 
-				  array->ts.kind,
-				  &array->where);
+  result = gfc_get_array_expr (array->ts.type, array->ts.kind, &array->where);
 
   array_ctor = gfc_constructor_first (array->value.constructor);
   vector_ctor = vector
@@ -4248,7 +4246,7 @@ gfc_simplify_reshape (gfc_expr *source, gfc_expr *shape_exp,
 
   for (;;)
     {
-      e = gfc_get_array_element (shape_exp, rank);
+      e = gfc_constructor_lookup_expr (shape_exp->value.constructor, rank);
       if (e == NULL)
 	break;
 
@@ -4257,7 +4255,6 @@ gfc_simplify_reshape (gfc_expr *source, gfc_expr *shape_exp,
       gcc_assert (rank >= 0 && rank < GFC_MAX_DIMENSIONS);
       gcc_assert (shape[rank] >= 0);
 
-      gfc_free_expr (e);
       rank++;
     }
 
@@ -4276,11 +4273,10 @@ gfc_simplify_reshape (gfc_expr *source, gfc_expr *shape_exp,
 
       for (i = 0; i < rank; i++)
 	{
-	  e = gfc_get_array_element (order_exp, i);
+	  e = gfc_constructor_lookup_expr (order_exp->value.constructor, i);
 	  gcc_assert (e);
 
 	  gfc_extract_int (e, &order[i]);
-	  gfc_free_expr (e);
 
 	  gcc_assert (order[i] >= 1 && order[i] <= rank);
 	  order[i]--;
@@ -4336,19 +4332,19 @@ gfc_simplify_reshape (gfc_expr *source, gfc_expr *shape_exp,
       j = mpz_get_ui (index);
 
       if (j < nsource)
-	e = gfc_get_array_element (source, j);
+	e = gfc_constructor_lookup_expr (source->value.constructor, j);
       else
 	{
 	  gcc_assert (npad > 0);
 
 	  j = j - nsource;
 	  j = j % npad;
-	  e = gfc_get_array_element (pad, j);
+	  e = gfc_constructor_lookup_expr (pad->value.constructor, j);
 	}
       gcc_assert (e);
 
       gfc_constructor_append_expr (&result->value.constructor,
-				   e, &e->where);
+				   gfc_copy_expr (e), &e->where);
 
       /* Calculate the next element.  */
       i = 0;
@@ -4726,14 +4722,14 @@ gfc_simplify_shape (gfc_expr *source)
   gfc_try t;
 
   if (source->rank == 0)
-    return gfc_start_constructor (BT_INTEGER, gfc_default_integer_kind,
-				  &source->where);
+    return gfc_get_array_expr (BT_INTEGER, gfc_default_integer_kind,
+			       &source->where);
 
   if (source->expr_type != EXPR_VARIABLE)
     return NULL;
 
-  result = gfc_start_constructor (BT_INTEGER, gfc_default_integer_kind,
-				  &source->where);
+  result = gfc_get_array_expr (BT_INTEGER, gfc_default_integer_kind,
+			       &source->where);
 
   ar = gfc_find_array_ref (source);
 
@@ -4980,9 +4976,8 @@ gfc_simplify_spread (gfc_expr *source, gfc_expr *dim_expr, gfc_expr *ncopies_exp
     {
       gcc_assert (dim == 0);
 
-      result = gfc_start_constructor (source->ts.type,
-				      source->ts.kind,
-				      &source->where);
+      result = gfc_get_array_expr (source->ts.type, source->ts.kind,
+				   &source->where);
       result->rank = 1;
       result->shape = gfc_get_shape (result->rank);
       mpz_init_set_si (result->shape[0], ncopies);
@@ -4999,9 +4994,8 @@ gfc_simplify_spread (gfc_expr *source, gfc_expr *dim_expr, gfc_expr *ncopies_exp
       gcc_assert (source->rank < GFC_MAX_DIMENSIONS);
       gcc_assert (dim >= 0 && dim <= source->rank);
 
-      result = gfc_start_constructor (source->ts.type,
-				      source->ts.kind,
-				      &source->where);
+      result = gfc_get_array_expr (source->ts.type, source->ts.kind,
+				   &source->where);
       result->rank = source->rank + 1;
       result->shape = gfc_get_shape (result->rank);
 
@@ -5296,7 +5290,8 @@ gfc_simplify_transpose (gfc_expr *matrix)
 
   gcc_assert (matrix->rank == 2);
 
-  result = gfc_start_constructor (matrix->ts.type, matrix->ts.kind, &matrix->where);
+  result = gfc_get_array_expr (matrix->ts.type, matrix->ts.kind,
+			       &matrix->where);
   result->rank = 2;
   result->shape = gfc_get_shape (result->rank);
   mpz_set (result->shape[0], matrix->shape[1]);
@@ -5373,9 +5368,8 @@ gfc_simplify_unpack (gfc_expr *vector, gfc_expr *mask, gfc_expr *field)
 	  && !is_constant_array_expr(field)))
     return NULL;
 
-  result = gfc_start_constructor (vector->ts.type,
-				  vector->ts.kind,
-				  &vector->where);
+  result = gfc_get_array_expr (vector->ts.type, vector->ts.kind,
+			       &vector->where);
   result->rank = mask->rank;
   result->shape = gfc_copy_shape (mask->shape, mask->rank);
 

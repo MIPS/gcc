@@ -2677,7 +2677,6 @@ gfc_try gfc_resolve_array_spec (gfc_array_spec *, int);
 
 int gfc_compare_array_spec (gfc_array_spec *, gfc_array_spec *);
 
-gfc_expr *gfc_start_constructor (bt, int, locus *);
 void gfc_simplify_iterator_var (gfc_expr *);
 gfc_try gfc_expand_constructor (gfc_expr *);
 int gfc_constant_ac (gfc_expr *);
@@ -2687,7 +2686,6 @@ gfc_try gfc_resolve_array_constructor (gfc_expr *);
 gfc_try gfc_check_constructor_type (gfc_expr *);
 gfc_try gfc_check_iter_variable (gfc_expr *);
 gfc_try gfc_check_constructor (gfc_expr *, gfc_try (*)(gfc_expr *));
-gfc_expr *gfc_get_array_element (gfc_expr *, int);
 gfc_try gfc_array_size (gfc_expr *, mpz_t *);
 gfc_try gfc_array_dimen_size (gfc_expr *, int, mpz_t *);
 gfc_try gfc_array_ref_shape (gfc_array_ref *, mpz_t *);

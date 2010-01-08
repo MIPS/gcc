@@ -2510,12 +2510,9 @@ gfc_check_reshape (gfc_expr *source, gfc_expr *shape,
       int i, extent;
       for (i = 0; i < shape_size; ++i)
 	{
-	  e = gfc_get_array_element (shape, i);
+	  e = gfc_constructor_lookup_expr (shape->value.constructor, i);
 	  if (e->expr_type != EXPR_CONSTANT)
-	    {
-	      gfc_free_expr (e);
-	      continue;
-	    }
+	    continue;
 
 	  gfc_extract_int (e, &extent);
 	  if (extent < 0)
@@ -2525,8 +2522,6 @@ gfc_check_reshape (gfc_expr *source, gfc_expr *shape,
 			 gfc_current_intrinsic, &e->where, extent);
 	      return FAILURE;
 	    }
-
-	  gfc_free_expr (e);
 	}
     }
 
@@ -2571,12 +2566,9 @@ gfc_check_reshape (gfc_expr *source, gfc_expr *shape,
 
 	  for (i = 1; i <= order_size; ++i)
 	    {
-	      e = gfc_get_array_element (order, i-1);
+	      e = gfc_constructor_lookup_expr (order->value.constructor, i-1);
 	      if (e->expr_type != EXPR_CONSTANT)
-		{
-		  gfc_free_expr (e);
-		  continue;
-		}
+		continue;
 
 	      gfc_extract_int (e, &dim);
 
@@ -2599,7 +2591,6 @@ gfc_check_reshape (gfc_expr *source, gfc_expr *shape,
 		}
 
 	      perm[dim-1] = 1;
-	      gfc_free_expr (e);
 	    }
 	}
     }

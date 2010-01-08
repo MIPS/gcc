@@ -1335,7 +1335,6 @@ find_array_section (gfc_expr *expr, gfc_ref *ref)
   mpz_t tmp_mpz;
   mpz_t nelts;
   mpz_t ptr;
-  mpz_t index;
   gfc_constructor_base base;
   gfc_constructor *cons, *vecsub[GFC_MAX_DIMENSIONS];
   gfc_expr *begin;
@@ -1491,7 +1490,6 @@ find_array_section (gfc_expr *expr, gfc_ref *ref)
       mpz_mul (delta_mpz, delta_mpz, tmp_mpz);
     }
 
-  mpz_init (index);
   mpz_init (ptr);
   cons = gfc_constructor_first (base);
 
@@ -1541,27 +1539,13 @@ find_array_section (gfc_expr *expr, gfc_ref *ref)
 	    }
 	}
 
-      /* There must be a better way of dealing with negative strides
-	 than resetting the index and the constructor pointer!  */ 
-      if (mpz_cmp (ptr, index) < 0)
-	{
-	  mpz_set_ui (index, 0);
-	  cons = gfc_constructor_first (base);
-	}
-
-      while (cons && gfc_constructor_next (cons)
-	     && mpz_cmp (ptr, index) > 0)
-        {
-	  cons = gfc_constructor_next (cons);
-	  mpz_add_ui (index, index, one);
-	}
-
+      cons = gfc_constructor_lookup (base, mpz_get_ui (ptr));
+      gcc_assert (cons);
       gfc_constructor_append_expr (&expr->value.constructor,
 				   gfc_copy_expr (cons->expr), NULL);
     }
 
   mpz_clear (ptr);
-  mpz_clear (index);
 
 cleanup:
 
