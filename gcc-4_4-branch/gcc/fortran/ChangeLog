@@ -1,3 +1,8 @@
+2010-01-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* gfortranspec.c (lang_specific_driver): Update copyright notice
+	dates.
+
 2009-04-20  Vasilis Liaskovitis  <vliaskov@gmail.com>
 	    Jakub Jelinek  <jakub@redhat.com>
 
