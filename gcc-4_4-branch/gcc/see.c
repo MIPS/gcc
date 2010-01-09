@@ -3776,13 +3776,15 @@ see_propagate_extensions_to_uses (void)
 	      for (use_rec = DF_INSN_UID_USES (uid); *use_rec; use_rec++)
 		{
 		  df_ref use = *use_rec;
-		  union_defs (use, def_entry, use_entry, see_update_leader_extra_info);
+		  union_defs (use, def_entry, NULL, use_entry,
+			      see_update_leader_extra_info);
 		}
 	      
 	      for (use_rec = DF_INSN_UID_EQ_USES (uid); *use_rec; use_rec++)
 		{
 		  df_ref use = *use_rec;
-		  union_defs (use, def_entry, use_entry, see_update_leader_extra_info);
+		  union_defs (use, def_entry, NULL, use_entry,
+			      see_update_leader_extra_info);
 		}
 	    }
 	}
@@ -3790,7 +3792,8 @@ see_propagate_extensions_to_uses (void)
       for (use_rec = df_get_artificial_uses (bb->index); *use_rec; use_rec++)
 	{
 	  df_ref use = *use_rec;
-	  union_defs (use, def_entry, use_entry, see_update_leader_extra_info);
+	  union_defs (use, def_entry, NULL, use_entry,
+		      see_update_leader_extra_info);
 	}
     }
 

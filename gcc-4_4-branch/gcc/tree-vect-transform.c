@@ -7437,7 +7437,7 @@ vect_update_ivs_after_vectorizer (loop_vec_info loop_vinfo, tree niters,
 					  true, GSI_SAME_STMT);
       
       /* Fix phi expressions in the successor bb.  */
-      SET_PHI_ARG_DEF (phi1, update_e->dest_idx, ni_name);
+      adjust_phi_and_debug_stmts (phi1, update_e, ni_name);
     }
 }
 
@@ -8158,7 +8158,7 @@ vect_loop_versioning (loop_vec_info loop_vinfo)
 				  new_exit_bb);
       arg = PHI_ARG_DEF_FROM_EDGE (orig_phi, e);
       add_phi_arg (new_phi, arg, new_exit_e);
-      SET_PHI_ARG_DEF (orig_phi, e->dest_idx, PHI_RESULT (new_phi));
+      adjust_phi_and_debug_stmts (orig_phi, e, PHI_RESULT (new_phi));
     } 
 
   /* End loop-exit-fixes after versioning.  */

@@ -1,3 +1,50 @@
+2010-01-09  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/42631
+	* web.c (union_defs): Add used argument, to combine uses of
+	uninitialized regs.
+	(entry_register): Adjust type and tests of used argument.
+	(web_main): Widen used for new use.  Pass it to union_defs.
+	* df.h (union_defs): Adjust prototype.
+
+2010-01-09  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/42630
+	* loop-unroll.c (referenced_in_one_insn_in_loop_p): Count debug
+	uses in new incoming argument.  Free body.
+	(reset_debug_uses_in_loop): New.
+	(analyze_insn_to_expand_var): Call the latter if the former found
+	anything.  Fix whitespace.  Reject invalid dest overlaps before
+	going through all insns in the loop.
+
+2010-01-09  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR middle-end/42363
+	* gimplify.c (gimplify_modify_expr): Drop lhs on noreturn calls.
+	* tree-cfg.c (is_ctrl_altering_stmt): Don't compute flags twice.
+	(verify_gimple_call): Reject LHS in noreturn calls.
+
+2010-01-09  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/42604
+	PR debug/42395
+	* tree-vectorizer.c (adjust_info): New type.
+	(adjust_vec): New pointer to vector.
+	(adjust_debug_stmts_now, adjust_vec_debug_stmts): New.
+	(adjust_debug_stmts, adjust_phi_and_debug_stmts): New.
+	(slpeel_update_phis_for_duplicate_loop): Use them.
+	(slpeel_update_phi_nodes_for_guard1): Likewise.
+	(slpeel_update_phi_nodes_for_guard2): Likewise.
+	(slpeel_tree_peel_loop_to_edge): Likewise.
+	* tree-vect-transform.c (vect_update_ivs_after_vectorizer):
+	Likewise.
+	* tree-vectorizer.h (adjust_phi_and_debug_stmts): New prototype.
+
+2010-01-09  Alexandre Oliva  <aoliva@redhat.com>
+
+	* vec.h (DEF_VEC_ALLOC_FUNC_O_STACK): Drop excess paren.
+	(DEF_VEC_ALLOC_FUNC_I_STACK): Likewise.
+
 2010-01-09  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/rs6000/rs6000.c (rs6000_emit_set_long_const): Shorten

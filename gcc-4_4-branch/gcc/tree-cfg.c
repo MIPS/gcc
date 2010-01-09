@@ -2659,7 +2659,7 @@ is_ctrl_altering_stmt (gimple t)
 	return true;
 
       /* A call also alters control flow if it does not return.  */
-      if (gimple_call_flags (t) & ECF_NORETURN)
+      if (flags & ECF_NORETURN)
 	return true;
     }
 
@@ -3330,6 +3330,12 @@ verify_gimple_call (gimple stmt)
       && !is_gimple_lvalue (gimple_call_lhs (stmt)))
     {
       error ("invalid LHS in gimple call");
+      return true;
+    }
+
+  if (gimple_call_lhs (stmt) && gimple_call_noreturn_p (stmt))
+    {
+      error ("LHS in noreturn call");
       return true;
     }
 

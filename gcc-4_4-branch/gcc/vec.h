@@ -1256,7 +1256,7 @@ struct vec_swallow_trailing_semi
 static inline VEC(T,stack) *VEC_OP (T,stack,alloc1)			  \
      (int alloc_, VEC(T,stack)* space MEM_STAT_DECL)			  \
 {									  \
-  return ((VEC(T,stack) *) vec_stack_p_reserve_exact_1 (alloc_, space); \
+  return (VEC(T,stack) *) vec_stack_p_reserve_exact_1 (alloc_, space);	  \
 }
 
 #define DEF_VEC_ALLOC_I_STACK(T)					  \
@@ -1269,7 +1269,7 @@ struct vec_swallow_trailing_semi
 static inline VEC(T,stack) *VEC_OP (T,stack,alloc1)			  \
      (int alloc_, VEC(T,stack)* space MEM_STAT_DECL)			  \
 {									  \
-  return ((VEC(T,stack) *) vec_stack_p_reserve_exact_1 (alloc_, space); \
+  return (VEC(T,stack) *) vec_stack_p_reserve_exact_1 (alloc_, space);   \
 }
 
 #endif /* GCC_VEC_H */

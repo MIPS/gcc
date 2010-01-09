@@ -245,6 +245,130 @@ rename_variables_in_loop (struct loop *loop)
   free (bbs);
 }
 
+typedef struct
+{
+  tree from, to;
+  basic_block bb;
+} adjust_info;
+
+DEF_VEC_O(adjust_info);
+DEF_VEC_ALLOC_O_STACK(adjust_info);
+#define VEC_adjust_info_stack_alloc(alloc) VEC_stack_alloc (adjust_info, alloc)
+
+/* A stack of values to be adjusted in debug stmts.  We have to
+   process them LIFO, so that the closest substitution applies.  If we
+   processed them FIFO, without the stack, we might substitute uses
+   with a PHI DEF that would soon become non-dominant, and when we got
+   to the suitable one, it wouldn't have anything to substitute any
+   more.  */
+static VEC(adjust_info, stack) *adjust_vec;
+
+/* Adjust any debug stmts that referenced AI->from values to use the
+   loop-closed AI->to, if the references are dominated by AI->bb and
+   not by the definition of AI->from.  */
+
+static void
+adjust_debug_stmts_now (adjust_info *ai)
+{
+  basic_block bbphi = ai->bb;
+  tree orig_def = ai->from;
+  tree new_def = ai->to;
+  imm_use_iterator imm_iter;
+  gimple stmt;
+  basic_block bbdef = gimple_bb (SSA_NAME_DEF_STMT (orig_def));
+
+  gcc_assert (dom_info_available_p (CDI_DOMINATORS));
+
+  /* Adjust any debug stmts that held onto non-loop-closed
+     references.  */
+  FOR_EACH_IMM_USE_STMT (stmt, imm_iter, orig_def)
+    {
+      use_operand_p use_p;
+      basic_block bbuse;
+
+      if (!is_gimple_debug (stmt))
+	continue;
+
+      gcc_assert (gimple_debug_bind_p (stmt));
+
+      bbuse = gimple_bb (stmt);
+
+      if ((bbuse == bbphi
+	   || dominated_by_p (CDI_DOMINATORS, bbuse, bbphi))
+	  && !(bbuse == bbdef
+	       || dominated_by_p (CDI_DOMINATORS, bbuse, bbdef)))
+	{
+	  if (new_def)
+	    FOR_EACH_IMM_USE_ON_STMT (use_p, imm_iter)
+	      SET_USE (use_p, new_def);
+	  else
+	    {
+	      gimple_debug_bind_reset_value (stmt);
+	      update_stmt (stmt);
+	    }
+	}
+    }
+}
+
+/* Adjust debug stmts as scheduled before.  */
+
+static void
+adjust_vec_debug_stmts (void)
+{
+  if (!MAY_HAVE_DEBUG_STMTS)
+    return;
+
+  gcc_assert (adjust_vec);
+
+  while (!VEC_empty (adjust_info, adjust_vec))
+    {
+      adjust_debug_stmts_now (VEC_last (adjust_info, adjust_vec));
+      VEC_pop (adjust_info, adjust_vec);
+    }
+
+  VEC_free (adjust_info, stack, adjust_vec);
+}
+
+/* Adjust any debug stmts that referenced FROM values to use the
+   loop-closed TO, if the references are dominated by BB and not by
+   the definition of FROM.  If adjust_vec is non-NULL, adjustments
+   will be postponed until adjust_vec_debug_stmts is called.  */
+
+static void
+adjust_debug_stmts (tree from, tree to, basic_block bb)
+{
+  adjust_info ai;
+
+  if (MAY_HAVE_DEBUG_STMTS && TREE_CODE (from) == SSA_NAME)
+    {
+      ai.from = from;
+      ai.to = to;
+      ai.bb = bb;
+
+      if (adjust_vec)
+	VEC_safe_push (adjust_info, stack, adjust_vec, &ai);
+      else
+	adjust_debug_stmts_now (&ai);
+    }
+}
+
+/* Change E's phi arg in UPDATE_PHI to NEW_DEF, and record information
+   to adjust any debug stmts that referenced the old phi arg,
+   presumably non-loop-closed references left over from other
+   transformations.  */
+
+void
+adjust_phi_and_debug_stmts (gimple update_phi, edge e, tree new_def)
+{
+  tree orig_def = PHI_ARG_DEF_FROM_EDGE (update_phi, e);
+
+  SET_PHI_ARG_DEF (update_phi, e->dest_idx, new_def);
+
+  if (MAY_HAVE_DEBUG_STMTS)
+    adjust_debug_stmts (orig_def, PHI_RESULT (update_phi),
+			gimple_bb (update_phi));
+}
+
 
 /* Update the PHI nodes of NEW_LOOP.
 
@@ -324,13 +448,15 @@ slpeel_update_phis_for_duplicate_loop (struct loop *orig_loop,
       /* An ordinary ssa name defined in the loop.  */
       add_phi_arg (phi_new, new_ssa_name, loop_latch_edge (new_loop));
 
+      /* Drop any debug references outside the loop, if they would
+	 become ill-formed SSA.  */
+      adjust_debug_stmts (def, NULL, single_exit (orig_loop)->dest);
+
       /* step 3 (case 1).  */
       if (!after)
         {
           gcc_assert (new_loop_exit_e == orig_entry_e);
-          SET_PHI_ARG_DEF (phi_orig,
-                           new_loop_exit_e->dest_idx,
-                           new_ssa_name);
+	  adjust_phi_and_debug_stmts (phi_orig, new_loop_exit_e, new_ssa_name);
         }
     }
 }
@@ -545,7 +671,7 @@ slpeel_update_phi_nodes_for_guard1 (edge guard_edge, struct loop *loop,
       /* 1.3. Update phi in successor block.  */
       gcc_assert (PHI_ARG_DEF_FROM_EDGE (update_phi, e) == loop_arg
                   || PHI_ARG_DEF_FROM_EDGE (update_phi, e) == guard_arg);
-      SET_PHI_ARG_DEF (update_phi, e->dest_idx, PHI_RESULT (new_phi));
+      adjust_phi_and_debug_stmts (update_phi, e, PHI_RESULT (new_phi));
       update_phi2 = new_phi;
 
 
@@ -563,7 +689,8 @@ slpeel_update_phi_nodes_for_guard1 (edge guard_edge, struct loop *loop,
 
       /* 2.3. Update phi in successor of NEW_EXIT_BB:  */
       gcc_assert (PHI_ARG_DEF_FROM_EDGE (update_phi2, new_exit_e) == loop_arg);
-      SET_PHI_ARG_DEF (update_phi2, new_exit_e->dest_idx, PHI_RESULT (new_phi));
+      adjust_phi_and_debug_stmts (update_phi2, new_exit_e,
+				  PHI_RESULT (new_phi));
 
       /* 2.4. Record the newly created name with set_current_def.
          We want to find a name such that
@@ -692,7 +819,7 @@ slpeel_update_phi_nodes_for_guard2 (edge guard_edge, struct loop *loop,
 
       /* 1.3. Update phi in successor block.  */
       gcc_assert (PHI_ARG_DEF_FROM_EDGE (update_phi, e) == orig_def);
-      SET_PHI_ARG_DEF (update_phi, e->dest_idx, PHI_RESULT (new_phi));
+      adjust_phi_and_debug_stmts (update_phi, e, PHI_RESULT (new_phi));
       update_phi2 = new_phi;
 
 
@@ -707,7 +834,8 @@ slpeel_update_phi_nodes_for_guard2 (edge guard_edge, struct loop *loop,
 
       /* 2.3. Update phi in successor of NEW_EXIT_BB:  */
       gcc_assert (PHI_ARG_DEF_FROM_EDGE (update_phi2, new_exit_e) == loop_arg);
-      SET_PHI_ARG_DEF (update_phi2, new_exit_e->dest_idx, PHI_RESULT (new_phi));
+      adjust_phi_and_debug_stmts (update_phi2, new_exit_e,
+				  PHI_RESULT (new_phi));
 
 
       /** 3. Handle loop-closed-ssa-form phis for first loop  **/
@@ -743,7 +871,8 @@ slpeel_update_phi_nodes_for_guard2 (edge guard_edge, struct loop *loop,
       /* 3.4. Update phi in successor of GUARD_BB:  */
       gcc_assert (PHI_ARG_DEF_FROM_EDGE (update_phi2, guard_edge)
                                                                 == guard_arg);
-      SET_PHI_ARG_DEF (update_phi2, guard_edge->dest_idx, PHI_RESULT (new_phi));
+      adjust_phi_and_debug_stmts (update_phi2, guard_edge,
+				  PHI_RESULT (new_phi));
     }
 }
 
@@ -1201,7 +1330,13 @@ slpeel_tree_peel_loop_to_edge (struct loop *loop,
         }
       return NULL;
     }
-  
+
+  if (MAY_HAVE_DEBUG_STMTS)
+    {
+      gcc_assert (!adjust_vec);
+      adjust_vec = VEC_alloc (adjust_info, stack, 32);
+    }
+
   if (e == exit_e)
     {
       /* NEW_LOOP was placed after LOOP.  */
@@ -1386,6 +1521,8 @@ slpeel_tree_peel_loop_to_edge (struct loop *loop,
    */
   if (update_first_loop_count)
     slpeel_make_loop_iterate_ntimes (first_loop, first_niters);
+
+  adjust_vec_debug_stmts ();
 
   BITMAP_FREE (definitions);
   delete_update_ssa ();
