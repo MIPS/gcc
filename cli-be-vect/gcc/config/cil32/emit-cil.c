@@ -165,6 +165,11 @@ emit_cil_init (void)
 
   if (simd_type == MONO_SIMD)
     add_referenced_assembly ("Mono.Simd");
+  else if (simd_type == GEN_SIMD)
+    {
+      add_referenced_assembly ("Xxxx.Simd");
+      add_referenced_assembly ("genvec_support");
+    }
 
   emit_referenced_assemblies (file);
 
@@ -511,8 +516,47 @@ dump_vector_type (FILE *file, cil_type_t cil_type)
 	}
       fprintf (file, "valuetype [Mono.Simd]Mono.Simd.Vector%s", suffix);
     }
-  else /* Gcc.Simd types */
+  else if (simd_type == GCC_SIMD)  /* Gcc.Simd types */
     fprintf (file, "valuetype [gcc4net]gcc4net.%s", cil_type_names [cil_type]);
+
+  else  /* Generic SIMD */
+    {
+      /* Generic SIMD is based on 64-bit vectors (from machine model). */
+      /* if not??? */
+      const char* suffix;
+      switch (cil_type)
+        {
+        case CIL_V2HI:
+        case CIL_V4HI:
+        case CIL_V8HI:
+          suffix = "HI";
+          break;
+        case CIL_V4QI:
+        case CIL_V8QI:
+        case CIL_V16QI:
+          suffix = "QI";
+          break;
+        case CIL_V2SI:
+        case CIL_V4SI:
+          suffix = "SI";
+          break;
+        case CIL_V2SF:
+        case CIL_V4SF:
+          suffix = "SF";
+          break;
+        case CIL_V2DI:
+          suffix = "DI";
+          break;
+        case CIL_V2DF:
+          suffix = "DF";
+          break;
+
+        default:
+          gcc_unreachable ();
+          break;
+        }
+      fprintf (file, "valuetype [Xxxx.Simd]Xxxx.Simd.VecGen%s", suffix);
+    }
 }
 
 static void

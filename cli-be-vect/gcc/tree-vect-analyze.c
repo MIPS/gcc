@@ -128,6 +128,7 @@ vect_determine_vectorization_factor (loop_vec_info loop_vinfo)
   stmt_vec_info stmt_info;
   int i;
   HOST_WIDE_INT dummy;
+  tree biggest_type = NULL;
 
   if (vect_print_dump_info (REPORT_DETAILS))
     fprintf (vect_dump, "=== vect_determine_vectorization_factor ===");
@@ -184,7 +185,10 @@ vect_determine_vectorization_factor (loop_vec_info loop_vinfo)
 
 	      if (!vectorization_factor
 		  || (nunits > vectorization_factor))
-		vectorization_factor = nunits;
+                {
+		  vectorization_factor = nunits;
+                  biggest_type = vectype;
+                }
 	    }
 	}
 
@@ -279,9 +283,18 @@ vect_determine_vectorization_factor (loop_vec_info loop_vinfo)
 
 	  if (!vectorization_factor
 	      || (nunits > vectorization_factor))
-	    vectorization_factor = nunits;
-
+            {
+	      vectorization_factor = nunits;
+              biggest_type = vectype;
+            }
         }
+    }
+
+  LOOP_VINFO_VF (loop_vinfo) = vect_get_vf (loop_vinfo, biggest_type);
+  if (LOOP_VINFO_VF (loop_vinfo) && vect_print_dump_info (REPORT_DETAILS))
+    {
+      fprintf (vect_dump, "vf = ");
+      print_generic_expr (vect_dump, LOOP_VINFO_VF (loop_vinfo), TDF_SLIM);
     }
 
   /* TODO: Analyze cost. Decide if worth while to vectorize.  */
@@ -572,6 +585,11 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
     vectorization_factor = least_common_multiple (vectorization_factor,
 				LOOP_VINFO_SLP_UNROLLING_FACTOR (loop_vinfo));
   
+  if ((unsigned)LOOP_VINFO_VECT_FACTOR (loop_vinfo) != vectorization_factor)
+    LOOP_VINFO_VF (loop_vinfo) 
+         = build_int_cst (TREE_TYPE (LOOP_VINFO_NITERS (loop_vinfo)), 
+                          vectorization_factor);  
+
   LOOP_VINFO_VECT_FACTOR (loop_vinfo) = vectorization_factor;
 
   if (LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo)

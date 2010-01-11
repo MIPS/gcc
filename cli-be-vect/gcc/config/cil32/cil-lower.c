@@ -133,42 +133,63 @@ lower_cil_vector_ctor (const_cil_stmt ctor)
         }
       return cil_build_call (cil32_builtins[builtin]);
     }
-  else  /* simd_type == MONO_SIMD */
+  else if (simd_type == MONO_SIMD)
     {
-      if (cil_short_ctor (ctor))
-        {
-          switch (cil_type)
-            {
-              /* No 8-byte support in Mono.Simd. Error/warning?  */
+      switch (cil_type)
+	{
+        /* No 8-byte support in Mono.Simd. Error/warning?  */
 
-            case CIL_V2DI: builtin = CIL32_MONO_V2DI_CTOR_U; break;
-            case CIL_V4SI: builtin = CIL32_MONO_V4SI_CTOR_U; break;
-            case CIL_V8HI: builtin = CIL32_MONO_V8HI_CTOR_U; break;
-            case CIL_V16QI: builtin = CIL32_MONO_V16QI_CTOR_U; break;
-            case CIL_V2DF: builtin = CIL32_MONO_V2DF_CTOR_U; break;
-            case CIL_V4SF: builtin = CIL32_MONO_V4SF_CTOR_U; break;
-            default:
-              internal_error ("Vector type expected, seen %d", cil_type);
-            }
-        }
-      else
-        {
-          switch (cil_type)
-            {
-              /* No 8-byte support in Mono.Simd. Error/warning?  */
+	case CIL_V2DI: builtin = CIL32_MONO_V2DI_CTOR; break;
+	case CIL_V4SI: builtin = CIL32_MONO_V4SI_CTOR; break;
+	case CIL_V8HI: builtin = CIL32_MONO_V8HI_CTOR; break;
+	case CIL_V16QI: builtin = CIL32_MONO_V16QI_CTOR; break;
+	case CIL_V2DF: builtin = CIL32_MONO_V2DF_CTOR; break;
+	case CIL_V4SF: builtin = CIL32_MONO_V4SF_CTOR; break;
+	default:
+	  internal_error ("Vector type expected, seen %d", cil_type);
+	}
 
-            case CIL_V2DI: builtin = CIL32_MONO_V2DI_CTOR; break;
-            case CIL_V4SI: builtin = CIL32_MONO_V4SI_CTOR; break;
-            case CIL_V8HI: builtin = CIL32_MONO_V8HI_CTOR; break;
-            case CIL_V16QI: builtin = CIL32_MONO_V16QI_CTOR; break;
-            case CIL_V2DF: builtin = CIL32_MONO_V2DF_CTOR; break;
-            case CIL_V4SF: builtin = CIL32_MONO_V4SF_CTOR; break;
-            default:
-              internal_error ("Vector type expected, seen %d", cil_type);
-            }
-        }
       return cil_build_newobj (cil32_builtins[builtin]);
     }
+  else  /* GENERIC_SIMD */
+    {
+#if 0
+      /* Can only handle uniform vectors, ie all elements must be equal.  */
+      switch (cil_type)
+        {
+        case CIL_V2DI:
+          builtin = CIL32_GEN_VDI_CTOR;
+          break;
+        case CIL_V2SI:
+          builtin = CIL32_GEN_VSI_CTOR;
+          break;
+        case CIL_V4HI:
+          builtin = CIL32_GEN_VHI_CTOR;
+          break;
+        case CIL_V8QI:
+          builtin = CIL32_GEN_VQI_CTOR;
+          break;
+	case CIL_V2DF:
+          builtin = CIL32_GEN_VDF_CTOR;
+          break;
+        case CIL_V2SF:
+          builtin = CIL32_GEN_VSF_CTOR;
+          break;
+
+	case CIL_V4SI:
+	case CIL_V8HI:
+	case CIL_V16QI:
+	case CIL_V4SF:
+	default:
+	  internal_error ("Vector type expected, seen %d", cil_type);
+	}
+
+      return cil_build_newobj (cil32_builtins[builtin]);
+#endif
+      internal_error ("CTOR");
+
+    }
+
 }
 
 /* Lower a generic CIL vector load STMT to a type-specific vector load
@@ -259,7 +280,7 @@ lower_cil_vector_add (cil_type_t type)
       default:
         gcc_unreachable ();
       }
-  else
+  else if (simd_type == MONO_SIMD)
     switch (type)
       {
         /* No 8-byte support in Mono.Simd. Error/warning?  */
@@ -270,6 +291,39 @@ lower_cil_vector_add (cil_type_t type)
       case CIL_V4SI: builtin = CIL32_MONO_V4SI_ADD; break;
       case CIL_V8HI: builtin = CIL32_MONO_V8HI_ADD; break;
       case CIL_V16QI: builtin = CIL32_MONO_V16QI_ADD; break;
+      default:
+        gcc_unreachable ();
+      }
+  else
+    switch (type)
+      {
+        /* 64-bit vectors */
+
+      case CIL_V2SF:
+        builtin = CIL32_GEN_VSF_ADD;
+        break;
+      case CIL_V2SI:
+        builtin = CIL32_GEN_VSI_ADD;
+        break;
+      case CIL_V4HI:
+        builtin = CIL32_GEN_VHI_ADD;
+        break;
+      case CIL_V8QI:
+        builtin = CIL32_GEN_VQI_ADD;
+        break;
+
+        /* if in 128-bit mode */
+      case CIL_V4SI:
+        builtin = CIL32_GEN_VSI_ADD;
+        break;
+      case CIL_V8HI:
+        builtin = CIL32_GEN_VHI_ADD;
+        break;
+      case CIL_V16QI:
+        builtin = CIL32_GEN_VQI_ADD;
+        break;
+
+      case CIL_V4SF:
       default:
         gcc_unreachable ();
       }
@@ -303,7 +357,7 @@ lower_cil_vector_sub (cil_type_t type)
       default:
         gcc_unreachable ();
       }
-  else
+  else if (simd_type == MONO_SIMD)
     switch (type)
       {
         /* No 8-byte support in Mono.Simd. Error/warning?  */
@@ -317,6 +371,30 @@ lower_cil_vector_sub (cil_type_t type)
       default:
         gcc_unreachable ();
       }
+  else
+    switch (type)
+      {
+      case CIL_V2SF:
+        builtin = CIL32_GEN_VSF_SUB;
+        break;
+      case CIL_V2SI:
+        builtin = CIL32_GEN_VSI_SUB;
+        break;
+      case CIL_V4HI:
+        builtin = CIL32_GEN_VHI_SUB;
+        break;
+      case CIL_V8QI:
+        builtin = CIL32_GEN_VQI_SUB;
+        break;
+
+      case CIL_V4SI:
+      case CIL_V8HI:
+      case CIL_V16QI:
+      case CIL_V4SF:
+      default:
+        gcc_unreachable ();
+      }
+
 
   return cil_build_call (cil32_builtins[builtin]);
 }
@@ -344,7 +422,7 @@ lower_cil_vector_and (cil_type_t type)
       default:
         gcc_unreachable ();
       }
-  else
+  else if (simd_type == MONO_SIMD)
     switch (type)
       {
         /* No 8-byte support in Mono.Simd. Error/warning?  */
@@ -356,6 +434,8 @@ lower_cil_vector_and (cil_type_t type)
       default:
         gcc_unreachable ();
       }
+  else
+    internal_error ("AND operator not defined yet\n");
 
   return cil_build_call (cil32_builtins[builtin]);
 }
@@ -383,7 +463,7 @@ lower_cil_vector_or (cil_type_t type)
       default:
         gcc_unreachable ();
       }
-  else
+  else if (simd_type == MONO_SIMD)
     switch (type)
       {
         /* No 8-byte support in Mono.Simd. Error/warning?  */
@@ -395,6 +475,8 @@ lower_cil_vector_or (cil_type_t type)
       default:
         gcc_unreachable ();
       }
+  else
+    internal_error ("OR operator not defined yet\n");
 
   return cil_build_call (cil32_builtins[builtin]);
 }
@@ -422,7 +504,7 @@ lower_cil_vector_xor (cil_type_t type)
       default:
         gcc_unreachable ();
       }
-  else
+  else if (simd_type == MONO_SIMD)
     switch (type)
       {
         /* No 8-byte support in Mono.Simd. Error/warning?  */
@@ -434,6 +516,8 @@ lower_cil_vector_xor (cil_type_t type)
       default:
         gcc_unreachable ();
       }
+  else
+    internal_error ("XOR operator not defined yet\n");
 
   return cil_build_call (cil32_builtins[builtin]);
 }

@@ -260,7 +260,8 @@ struct machine_function GTY(())
 enum simd_backend {
   UNDEF_SIMD,
   GCC_SIMD,
-  MONO_SIMD
+  MONO_SIMD,
+  GEN_SIMD
 };
 
 extern enum simd_backend simd_type;

@@ -473,6 +473,16 @@ struct gcc_target
 
     /* Target builtin that implements vector permute.  */
     tree (* builtin_vec_perm) (tree, tree*);
+
+    tree (* builtin_get_vec_stride) (tree);
+
+    tree (* builtin_build_uniform_vec) (tree, tree);
+
+    tree (* builtin_build_affine_vec) (tree, tree, tree);
+
+    tree (* builtin_get_vec_size) (tree);
+
+    tree (* builtin_get_vec_align) (tree);
 } vectorize;
 
   /* The initial value of target_flags.  */

@@ -1045,9 +1045,9 @@ set_prologue_iterations (basic_block bb_before_first_loop,
   gimple cond_stmt;
   gimple_seq gimplify_stmt_list = NULL, stmts = NULL;
   tree cost_pre_condition = NULL_TREE;
-  tree scalar_loop_iters = 
+  tree scalar_loop_iters =
     unshare_expr (LOOP_VINFO_NITERS_UNCHANGED (loop_vec_info_for_loop (loop)));
-
+ 
   e = single_pred_edge (bb_before_first_loop);
   cond_bb = split_edge(e);
 
@@ -1164,7 +1164,7 @@ slpeel_tree_peel_loop_to_edge (struct loop *loop,
   edge exit_e = single_exit (loop);
   LOC loop_loc;
   tree cost_pre_condition = NULL_TREE;
-  
+
   if (!slpeel_can_duplicate_loop_p (loop, e))
     return NULL;
   
@@ -1516,6 +1516,257 @@ vect_print_dump_info (enum verbosity_levels vl)
 }
 
 
+/* Split vectorization APIs.  */
+static void 
+vect_init_split_info (loop_vec_info loop_vinfo)
+{
+  LOOP_VINFO_SPLIT_INFO (loop_vinfo).qi_stride_stmt = NULL;
+  LOOP_VINFO_SPLIT_INFO (loop_vinfo).hi_stride_stmt = NULL;
+  LOOP_VINFO_SPLIT_INFO (loop_vinfo).si_stride_stmt = NULL;
+  LOOP_VINFO_SPLIT_INFO (loop_vinfo).di_stride_stmt = NULL;
+  LOOP_VINFO_SPLIT_INFO (loop_vinfo).vec_size = NULL;
+  LOOP_VINFO_SPLIT_INFO (loop_vinfo).qi_align_stmt = NULL;
+  LOOP_VINFO_SPLIT_INFO (loop_vinfo).hi_align_stmt = NULL;
+  LOOP_VINFO_SPLIT_INFO (loop_vinfo).si_align_stmt = NULL;
+  LOOP_VINFO_SPLIT_INFO (loop_vinfo).di_align_stmt = NULL;
+}
+
+tree vect_tree_type_vector_subparts (loop_vec_info loop_vinfo, tree type)
+{
+  unsigned element_size = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (TREE_TYPE (type)));
+  tree stride_bi, step;
+  edge pe;
+  gimple step_stmt;
+  tree step_var;
+
+  if (!targetm.vectorize.builtin_get_vec_stride 
+      || !targetm.vectorize.builtin_get_vec_stride (type))
+    return build_int_cst (unsigned_type_node, TYPE_VECTOR_SUBPARTS (type));
+
+  switch (element_size)
+    {
+      case 1:
+        if (LOOP_VINFO_SPLIT_INFO (loop_vinfo).qi_stride_stmt)
+          return gimple_assign_lhs (
+                            LOOP_VINFO_SPLIT_INFO (loop_vinfo).qi_stride_stmt);
+        break;
+
+      case 2:
+        if (LOOP_VINFO_SPLIT_INFO (loop_vinfo).hi_stride_stmt)
+          return gimple_assign_lhs (
+                            LOOP_VINFO_SPLIT_INFO (loop_vinfo).hi_stride_stmt);
+        break; 
+
+      case 4:
+        if (LOOP_VINFO_SPLIT_INFO (loop_vinfo).si_stride_stmt)
+          return gimple_assign_lhs (
+                            LOOP_VINFO_SPLIT_INFO (loop_vinfo).si_stride_stmt);
+        break;
+
+      case 8:
+        if (LOOP_VINFO_SPLIT_INFO (loop_vinfo).di_stride_stmt)
+          return gimple_assign_lhs (
+                            LOOP_VINFO_SPLIT_INFO (loop_vinfo).di_stride_stmt);
+        break;
+
+      default:
+        gcc_unreachable ();
+    }
+
+  pe = loop_preheader_edge (loop_vinfo->loop);
+  step_var = vect_get_new_vect_var (unsigned_type_node,
+                                    vect_simple_var, "stride_");
+
+  add_referenced_var (step_var);
+  stride_bi = targetm.vectorize.builtin_get_vec_stride (type);
+  step_stmt = gimple_build_call (stride_bi, 0);
+  step = make_ssa_name (step_var, step_stmt);
+  gimple_call_set_lhs (step_stmt, step);
+  gsi_insert_on_edge_immediate (pe, step_stmt);
+
+  switch (element_size)
+    {
+      case 1:
+        LOOP_VINFO_SPLIT_INFO (loop_vinfo).qi_stride_stmt = step_stmt;
+        break;
+
+      case 2:
+        LOOP_VINFO_SPLIT_INFO (loop_vinfo).hi_stride_stmt = step_stmt;
+        break;
+
+      case 4:
+        LOOP_VINFO_SPLIT_INFO (loop_vinfo).si_stride_stmt = step_stmt;
+        break;
+
+      case 8:
+        LOOP_VINFO_SPLIT_INFO (loop_vinfo).di_stride_stmt = step_stmt;
+        break;
+
+      default:
+        gcc_unreachable ();
+    }
+
+  return step;
+}
+
+tree vect_tree_type_vector_align (loop_vec_info loop_vinfo, tree type)
+{
+  unsigned element_size = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (TREE_TYPE (type)));
+  tree stride_bi, step;
+  edge pe;
+  gimple step_stmt;
+  tree step_var;
+
+  if (!targetm.vectorize.builtin_get_vec_align
+      || !targetm.vectorize.builtin_get_vec_align (type))
+    return build_int_cst (unsigned_type_node, TYPE_ALIGN (type)/BITS_PER_UNIT);
+
+  switch (element_size)
+    {
+      case 1:
+        if (LOOP_VINFO_SPLIT_INFO (loop_vinfo).qi_align_stmt)
+          return gimple_assign_lhs (
+                             LOOP_VINFO_SPLIT_INFO (loop_vinfo).qi_align_stmt);
+        break;
+
+      case 2:
+        if (LOOP_VINFO_SPLIT_INFO (loop_vinfo).hi_align_stmt)
+          return gimple_assign_lhs (
+                             LOOP_VINFO_SPLIT_INFO (loop_vinfo).hi_align_stmt);
+        break;
+
+      case 4:
+        if (LOOP_VINFO_SPLIT_INFO (loop_vinfo).si_align_stmt)
+          return gimple_assign_lhs (
+                             LOOP_VINFO_SPLIT_INFO (loop_vinfo).si_align_stmt);
+        break;
+
+      case 8:
+        if (LOOP_VINFO_SPLIT_INFO (loop_vinfo).di_align_stmt)
+          return gimple_assign_lhs (
+                             LOOP_VINFO_SPLIT_INFO (loop_vinfo).di_align_stmt);
+        break;
+
+      default:
+        gcc_unreachable ();
+    }
+
+  pe = loop_preheader_edge (loop_vinfo->loop);
+  step_var = vect_get_new_vect_var (unsigned_type_node,
+                                    vect_simple_var, "align_");
+
+  add_referenced_var (step_var);
+  stride_bi = targetm.vectorize.builtin_get_vec_align (type);
+  step_stmt = gimple_build_call (stride_bi, 0);
+  step = make_ssa_name (step_var, step_stmt);
+
+  gimple_call_set_lhs (step_stmt, step);
+  gsi_insert_on_edge_immediate (pe, step_stmt);
+
+  switch (element_size)
+    {
+      case 1:
+        LOOP_VINFO_SPLIT_INFO (loop_vinfo).qi_align_stmt = step_stmt;
+        break;
+
+      case 2:
+        LOOP_VINFO_SPLIT_INFO (loop_vinfo).hi_align_stmt = step_stmt;
+        break;
+
+      case 4:
+        LOOP_VINFO_SPLIT_INFO (loop_vinfo).si_align_stmt = step_stmt;
+        break;
+
+      case 8:
+        LOOP_VINFO_SPLIT_INFO (loop_vinfo).di_align_stmt = step_stmt;
+        break;
+
+      default:
+        gcc_unreachable ();
+    }
+
+  return step;
+}
+
+static inline void
+vect_mark_stmt_symbols (gimple stmt)
+{
+  tree sym;
+  ssa_op_iter iter;
+
+  FOR_EACH_SSA_TREE_OPERAND (sym, stmt, iter, SSA_OP_ALL_VIRTUALS)
+    {
+      if (TREE_CODE (sym) == SSA_NAME)
+        sym = SSA_NAME_VAR (sym);
+
+      mark_sym_for_renaming (sym);
+    }
+}
+
+
+void
+vect_mark_split_info_for_renaming (loop_vec_info loop_vinfo)
+{
+  if (LOOP_VINFO_SPLIT_INFO (loop_vinfo).qi_stride_stmt)
+    vect_mark_stmt_symbols (LOOP_VINFO_SPLIT_INFO (loop_vinfo).qi_stride_stmt);
+ 
+  if (LOOP_VINFO_SPLIT_INFO (loop_vinfo).hi_stride_stmt)
+    vect_mark_stmt_symbols (LOOP_VINFO_SPLIT_INFO (loop_vinfo).hi_stride_stmt);
+
+  if (LOOP_VINFO_SPLIT_INFO (loop_vinfo).si_stride_stmt)
+    vect_mark_stmt_symbols (LOOP_VINFO_SPLIT_INFO (loop_vinfo).si_stride_stmt);
+
+  if (LOOP_VINFO_SPLIT_INFO (loop_vinfo).di_stride_stmt)
+    vect_mark_stmt_symbols (LOOP_VINFO_SPLIT_INFO (loop_vinfo).di_stride_stmt);
+
+  if (LOOP_VINFO_SPLIT_INFO (loop_vinfo).qi_align_stmt)
+    vect_mark_stmt_symbols (LOOP_VINFO_SPLIT_INFO (loop_vinfo).qi_align_stmt);
+
+  if (LOOP_VINFO_SPLIT_INFO (loop_vinfo).hi_align_stmt)
+    vect_mark_stmt_symbols (LOOP_VINFO_SPLIT_INFO (loop_vinfo).hi_align_stmt);
+
+  if (LOOP_VINFO_SPLIT_INFO (loop_vinfo).si_align_stmt)
+    vect_mark_stmt_symbols (LOOP_VINFO_SPLIT_INFO (loop_vinfo).si_align_stmt);
+
+  if (LOOP_VINFO_SPLIT_INFO (loop_vinfo).di_align_stmt)
+    vect_mark_stmt_symbols (LOOP_VINFO_SPLIT_INFO (loop_vinfo).di_align_stmt);
+}
+
+tree vect_type_size_unit (loop_vec_info loop_vinfo, tree type)
+{
+  tree stride_bi, step;
+  edge pe;
+  gimple step_stmt;
+  tree step_var;
+
+  if (LOOP_VINFO_SPLIT_INFO (loop_vinfo).vec_size)
+    return LOOP_VINFO_SPLIT_INFO (loop_vinfo).vec_size;
+
+  if (!targetm.vectorize.builtin_get_vec_size
+      || !targetm.vectorize.builtin_get_vec_size (type))
+    return TYPE_SIZE_UNIT (type);
+
+  
+  pe = loop_preheader_edge (loop_vinfo->loop);
+  step_var = vect_get_new_vect_var (unsigned_type_node,
+                                    vect_simple_var, "vecsize_");
+
+  add_referenced_var (step_var);
+  stride_bi = targetm.vectorize.builtin_get_vec_size (type);
+  step_stmt = gimple_build_call (stride_bi, 0);
+  step = make_ssa_name (step_var, step_stmt);
+  gimple_call_set_lhs (step_stmt, step);
+  gsi_insert_on_edge_immediate (pe, step_stmt);
+
+  LOOP_VINFO_SPLIT_INFO (loop_vinfo).vec_size = step;
+  return step;
+}
+
+tree vect_get_vf (loop_vec_info loop_vinfo, tree type)
+{
+  return vect_tree_type_vector_subparts (loop_vinfo, type);
+}
+
 /*************************************************************************
   Vectorization Utilities.
  *************************************************************************/
@@ -1717,6 +1968,7 @@ new_loop_vec_info (struct loop *loop)
   LOOP_VINFO_STRIDED_STORES (res) = VEC_alloc (gimple, heap, 10);
   LOOP_VINFO_SLP_INSTANCES (res) = VEC_alloc (slp_instance, heap, 10);
   LOOP_VINFO_SLP_UNROLLING_FACTOR (res) = 1;
+  LOOP_VINFO_VF (res) = NULL_TREE;
 
   return res;
 }
@@ -2816,6 +3068,8 @@ vectorize_loops (void)
 
 	if (!loop_vinfo || !LOOP_VINFO_VECTORIZABLE_P (loop_vinfo))
 	  continue;
+
+        vect_init_split_info (loop_vinfo);
 
 	vect_transform_loop (loop_vinfo);
 	num_vectorized_loops++;

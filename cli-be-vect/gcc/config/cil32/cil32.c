@@ -82,6 +82,12 @@ static bool cil32_vector_mode_supported_p (enum machine_mode);
 
 const struct attribute_spec cil32_attribute_table[];
 
+static tree cil32_builtin_get_vec_stride (tree);
+static tree cil32_builtin_build_uniform_vec (tree, tree);
+static tree cil32_builtin_build_affine_vec (tree, tree, tree);
+static tree cil32_builtin_get_vec_size (tree);
+static tree cil32_builtin_get_vec_align (tree);
+
 /* Initialize the GCC target structure.  */
 #undef TARGET_ATTRIBUTE_TABLE
 #define TARGET_ATTRIBUTE_TABLE cil32_attribute_table
@@ -108,6 +114,21 @@ const struct attribute_spec cil32_attribute_table[];
 
 #undef TARGET_VECTOR_MODE_SUPPORTED_P
 #define TARGET_VECTOR_MODE_SUPPORTED_P cil32_vector_mode_supported_p
+
+#undef TARGET_VECTORIZE_BUILTIN_GET_VEC_STRIDE
+#define TARGET_VECTORIZE_BUILTIN_GET_VEC_STRIDE cil32_builtin_get_vec_stride
+
+#undef TARGET_VECTORIZE_BUILTIN_GET_VEC_SIZE
+#define TARGET_VECTORIZE_BUILTIN_GET_VEC_SIZE cil32_builtin_get_vec_size
+
+#undef TARGET_VECTORIZE_BUILTIN_BUILD_UNIFORM_VEC
+#define TARGET_VECTORIZE_BUILTIN_BUILD_UNIFORM_VEC cil32_builtin_build_uniform_vec
+
+#undef TARGET_VECTORIZE_BUILTIN_BUILD_AFFINE_VEC
+#define TARGET_VECTORIZE_BUILTIN_BUILD_AFFINE_VEC cil32_builtin_build_affine_vec
+
+#undef TARGET_VECTORIZE_BUILTIN_GET_VEC_ALIGN
+#define TARGET_VECTORIZE_BUILTIN_GET_VEC_ALIGN cil32_builtin_get_vec_align
 
 
 struct gcc_target targetm = TARGET_INITIALIZER;
@@ -140,6 +161,8 @@ cil_override_options (void)
 	simd_type = MONO_SIMD;
       else if (strcmp (simd_backend_str, "gcc") == 0)
         simd_type = GCC_SIMD;
+      else if (strcmp (simd_backend_str, "generic") == 0)
+        simd_type = GEN_SIMD;
       else
 	{
 	  fprintf (stderr, "Unknown SIMD backend '%s', using GCC\n",
@@ -288,3 +311,109 @@ cil32_vector_mode_supported_p (enum machine_mode mode ATTRIBUTE_UNUSED)
 {
   return true;
 }
+
+static tree
+cil32_builtin_get_vec_size (tree type ATTRIBUTE_UNUSED)
+{
+  return cil32_builtins[CIL32_GCC_GET_STEP];
+}
+
+static tree
+cil32_builtin_get_vec_stride (tree type)
+{
+  int subparts = TYPE_VECTOR_SUBPARTS (type);
+  
+  switch (subparts)
+    {
+      case 16:
+        return cil32_builtins[CIL32_GCC_GET_STRIDE_V16QI];
+
+      case 8:
+        return cil32_builtins[CIL32_GCC_GET_STRIDE_V8HI];
+
+      case 4:
+        return cil32_builtins[CIL32_GCC_GET_STRIDE_V4SI];
+
+      case 2:
+        return cil32_builtins[CIL32_GCC_GET_STRIDE_V2DI];
+
+      default:
+        return NULL_TREE;
+    }
+}
+
+static tree
+cil32_builtin_get_vec_align (tree type)
+{
+  int subparts = TYPE_VECTOR_SUBPARTS (type);
+
+  switch (subparts)
+    {
+      case 16:
+        return cil32_builtins[CIL32_GCC_GET_ALIGN_V16QI];
+
+      case 8:
+        return cil32_builtins[CIL32_GCC_GET_ALIGN_V8HI];
+
+      case 4:
+        return cil32_builtins[CIL32_GCC_GET_ALIGN_V4SI];
+
+      case 2:
+        return cil32_builtins[CIL32_GCC_GET_ALIGN_V2DI];
+
+      default:
+        return NULL_TREE;
+    }
+}
+
+static tree cil32_builtin_build_uniform_vec (tree value ATTRIBUTE_UNUSED, 
+                                             tree type)
+{
+  int subparts = TYPE_VECTOR_SUBPARTS (type);
+
+  switch (subparts)
+    {
+      case 16:
+        return cil32_builtins[CIL32_GCC_BUILD_UNIFORM_VEC_V16QI];
+
+      case 8:
+        return cil32_builtins[CIL32_GCC_BUILD_UNIFORM_VEC_V8HI];
+
+      case 4:
+        return cil32_builtins[CIL32_GCC_BUILD_UNIFORM_VEC_V4SI];
+
+      case 2:
+        return cil32_builtins[CIL32_GCC_BUILD_UNIFORM_VEC_V2DI];
+
+      default:
+        return NULL_TREE;
+    }
+}
+
+static tree cil32_builtin_build_affine_vec (tree init ATTRIBUTE_UNUSED, 
+                                            tree step ATTRIBUTE_UNUSED, 
+                                            tree type)
+{
+  int subparts = TYPE_VECTOR_SUBPARTS (type);
+
+  switch (subparts)
+    {
+      case 16:
+        return cil32_builtins[CIL32_GCC_BUILD_AFFINE_VEC_V16QI];
+
+      case 8:
+        return cil32_builtins[CIL32_GCC_BUILD_AFFINE_VEC_V8HI];
+
+      case 4:
+        return cil32_builtins[CIL32_GCC_BUILD_AFFINE_VEC_V4SI];
+
+      case 2:
+        return cil32_builtins[CIL32_GCC_BUILD_AFFINE_VEC_V2DI];
+
+      default:
+        return NULL_TREE;
+    }
+}
+
+
+

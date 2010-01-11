@@ -54,7 +54,6 @@ static tree vect_create_data_ref_ptr
   (gimple, struct loop*, tree, tree *, gimple *, bool, bool *, tree);
 static tree vect_create_addr_base_for_vector_ref 
   (gimple, gimple_seq *, tree, struct loop *);
-static tree vect_get_new_vect_var (tree, enum vect_var_kind, const char *);
 static tree vect_get_vec_def_for_operand (tree, gimple, tree *);
 static tree vect_init_vector (gimple, tree, tree, gimple_stmt_iterator *);
 static void vect_finish_stmt_generation 
@@ -802,7 +801,7 @@ vect_model_load_cost (stmt_vec_info stmt_info, int ncopies, slp_tree slp_node)
    the name of vectorizer generated variables, and appends that to NAME if 
    provided.  */
 
-static tree
+tree
 vect_get_new_vect_var (tree type, enum vect_var_kind var_kind, const char *name)
 {
   const char *prefix;
@@ -1175,7 +1174,8 @@ vect_create_data_ref_ptr (gimple stmt, struct loop *at_loop,
   else
     {
       /* The step of the vector pointer is the Vector Size.  */
-      tree step = TYPE_SIZE_UNIT (vectype);
+      tree step = vect_type_size_unit (loop_vinfo, vectype);
+
       /* One exception to the above is when the scalar step of the load in 
 	 LOOP is zero. In this case the step here is also zero.  */
       if (*inv_p)
@@ -1282,7 +1282,8 @@ bump_vector_ptr (tree dataref_ptr, gimple ptr_incr, gimple_stmt_iterator *gsi,
   struct data_reference *dr = STMT_VINFO_DATA_REF (stmt_info);
   tree vectype = STMT_VINFO_VECTYPE (stmt_info);
   tree ptr_var = SSA_NAME_VAR (dataref_ptr);
-  tree update = TYPE_SIZE_UNIT (vectype);
+  tree update = vect_type_size_unit (STMT_VINFO_LOOP_VINFO (stmt_info), 
+                                     vectype);
   gimple incr_stmt;
   ssa_op_iter iter;
   use_operand_p use_p;
@@ -1313,7 +1314,8 @@ bump_vector_ptr (tree dataref_ptr, gimple ptr_incr, gimple_stmt_iterator *gsi,
       if (use == dataref_ptr)
         SET_USE (use_p, new_dataref_ptr);
       else
-        gcc_assert (tree_int_cst_compare (use, update) == 0);
+        gcc_assert (!CONSTANT_CLASS_P (update)
+                    || (tree_int_cst_compare (use, update) == 0));
     }
 
   return new_dataref_ptr;
@@ -1665,6 +1667,8 @@ get_initial_def_for_induction (gimple iv_phi)
   tree loop_arg;
   gimple_stmt_iterator si;
   basic_block bb = gimple_bb (iv_phi);
+  tree var, step_var, builtin_decl;
+  gimple step_stmt;
 
   vectype = get_vectype_for_scalar_type (scalar_type);
   gcc_assert (vectype);
@@ -1725,31 +1729,47 @@ get_initial_def_for_induction (gimple iv_phi)
 	  gcc_assert (!new_bb);
 	}
 
-      t = NULL_TREE;
-      t = tree_cons (NULL_TREE, init_expr, t);
-      for (i = 1; i < nunits; i++)
-	{
-	  /* Create: new_name_i = new_name + step_expr  */
-	  enum tree_code code = POINTER_TYPE_P (scalar_type)
-				? POINTER_PLUS_EXPR : PLUS_EXPR;
-	  init_stmt = gimple_build_assign_with_ops (code, new_var,
-						    new_name, step_expr);
-	  new_name = make_ssa_name (new_var, init_stmt);
-	  gimple_assign_set_lhs (init_stmt, new_name);
-
-	  new_bb = gsi_insert_on_edge_immediate (pe, init_stmt);
-	  gcc_assert (!new_bb);
-
-	  if (vect_print_dump_info (REPORT_DETAILS))
-	    {
-	      fprintf (vect_dump, "created new init_stmt: ");
-	      print_gimple_stmt (vect_dump, init_stmt, 0, TDF_SLIM);
-	    }
-	  t = tree_cons (NULL_TREE, new_name, t);
-	}
-      /* Create a vector from [new_name_0, new_name_1, ..., new_name_nunits-1]  */
-      vec = build_constructor_from_list (vectype, nreverse (t));
-      vec_init = vect_init_vector (iv_phi, vec, vectype, NULL);
+      if (targetm.vectorize.builtin_build_affine_vec && 
+           (builtin_decl 
+              = targetm.vectorize.builtin_build_affine_vec (new_name, step_expr, 
+                                                            vectype)))
+        {
+          step_var = vect_get_new_vect_var (vectype, vect_simple_var,
+                                            "affine_vec_");
+          step_stmt = gimple_build_call (builtin_decl, 2, new_name, step_expr);
+          add_referenced_var (step_var);
+          vec_init = make_ssa_name (step_var, step_stmt);
+          gimple_call_set_lhs (step_stmt, vec_init);
+          new_bb = gsi_insert_on_edge_immediate (pe, step_stmt);
+          gcc_assert (!new_bb);
+        }
+      else
+        {
+          t = NULL_TREE;
+          t = tree_cons (NULL_TREE, init_expr, t);
+          for (i = 1; i < nunits; i++)
+            {
+              /* Create: new_name_i = new_name + step_expr  */
+              enum tree_code code = POINTER_TYPE_P (scalar_type)
+                               ? POINTER_PLUS_EXPR : PLUS_EXPR;
+              init_stmt = gimple_build_assign_with_ops (code, new_var,
+                                                   new_name, step_expr);
+              new_name = make_ssa_name (new_var, init_stmt);
+              gimple_assign_set_lhs (init_stmt, new_name);
+              new_bb = gsi_insert_on_edge_immediate (pe, init_stmt);
+              gcc_assert (!new_bb);
+              if (vect_print_dump_info (REPORT_DETAILS))
+                {
+                  fprintf (vect_dump, "created new init_stmt: ");
+                  print_gimple_stmt (vect_dump, init_stmt, 0, TDF_SLIM);
+                }
+              t = tree_cons (NULL_TREE, new_name, t);
+            }
+          /* Create a vector from 
+             [new_name_0, new_name_1, ..., new_name_nunits-1].  */
+          vec = build_constructor_from_list (vectype, nreverse (t));
+          vec_init = vect_init_vector (iv_phi, vec, vectype, NULL);
+        }
     }
 
 
@@ -1762,17 +1782,49 @@ get_initial_def_for_induction (gimple iv_phi)
     {
       /* iv_loop is the loop to be vectorized. Generate:
 	  vec_step = [VF*S, VF*S, VF*S, VF*S]  */
-      expr = build_int_cst (scalar_type, vf);
+      expr = LOOP_VINFO_VF (loop_vinfo);
+      if (!expr)
+        expr = build_int_cst (scalar_type, vf);
+
       new_name = fold_build2 (MULT_EXPR, scalar_type, expr, step_expr);
     }
 
-  t = NULL_TREE;
-  for (i = 0; i < nunits; i++)
-    t = tree_cons (NULL_TREE, unshare_expr (new_name), t);
-  gcc_assert (CONSTANT_CLASS_P (new_name));
-  vec = build_vector (vectype, t);
-  vec_step = vect_init_vector (iv_phi, vec, vectype, NULL);
+  if (vect_print_dump_info (REPORT_DETAILS))
+    {
+      fprintf (vect_dump, "new_name: ");
+      print_generic_expr (vect_dump, new_name, TDF_SLIM);
+    }
 
+  if (targetm.vectorize.builtin_build_uniform_vec
+      && (builtin_decl = targetm.vectorize.builtin_build_uniform_vec (new_name, 
+                                                                     vectype)))
+    {
+      var = create_tmp_var (scalar_type, "step");
+      add_referenced_var (var); 
+      new_stmt = gimple_build_assign (var, new_name);
+      new_name = make_ssa_name (var, new_stmt);
+      gimple_assign_set_lhs (new_stmt, new_name);
+      gsi_insert_before (&si, new_stmt, GSI_SAME_STMT);
+
+      step_var = vect_get_new_vect_var (vectype,
+                                    vect_simple_var, "uniform_vec_");
+      step_stmt = gimple_build_call (builtin_decl, 1, new_name);
+      add_referenced_var (step_var);
+      vec_step = make_ssa_name (step_var, step_stmt);
+      gimple_call_set_lhs (step_stmt, vec_step);
+      gsi_insert_before (&si, step_stmt, GSI_SAME_STMT);
+    }
+  else
+    {
+      t = NULL_TREE;
+      for (i = 0; i < nunits; i++)
+        t = tree_cons (NULL_TREE, unshare_expr (new_name), t);
+      if (CONSTANT_CLASS_P (new_name))
+        vec = build_vector (vectype, t);
+      else
+        vec = build_constructor_from_list (vectype, t); 
+      vec_step = vect_init_vector (iv_phi, vec, vectype, NULL);
+    }
 
   /* Create the following def-use cycle:
      loop prolog:
@@ -1919,7 +1971,10 @@ vect_get_vec_def_for_operand (tree op, gimple stmt, tree *scalar_def)
   int i;
   enum vect_def_type dt;
   bool is_simple_use;
-  tree vector_type;
+  tree vector_type, var, builtin_decl;
+  struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
+  basic_block new_bb;
+  gimple new_stmt;
 
   if (vect_print_dump_info (REPORT_DETAILS))
     {
@@ -1955,12 +2010,31 @@ vect_get_vec_def_for_operand (tree op, gimple stmt, tree *scalar_def)
         if (vect_print_dump_info (REPORT_DETAILS))
           fprintf (vect_dump, "Create vector_cst. nunits = %d", nunits);
 
-        for (i = nunits - 1; i >= 0; --i)
+        if (targetm.vectorize.builtin_build_uniform_vec
+            && (builtin_decl = targetm.vectorize.builtin_build_uniform_vec (op, 
+                                                                     vectype)))
           {
-            t = tree_cons (NULL_TREE, op, t);
+            var = vect_get_new_vect_var (vectype,
+                                     vect_simple_var, "uniform_vec_");
+
+            new_stmt = gimple_build_call (builtin_decl, 1, op);
+            add_referenced_var (var);
+            vec_cst = make_ssa_name (var, new_stmt);
+            gimple_call_set_lhs (new_stmt, vec_cst);
+            new_bb = gsi_insert_on_edge_immediate (loop_preheader_edge (loop), 
+                                                   new_stmt);
+            gcc_assert (!new_bb);
+            return vec_cst;
           }
-        vec_cst = build_vector (vectype, t);
-        return vect_init_vector (stmt, vec_cst, vectype, NULL);
+        else
+          {
+            for (i = nunits - 1; i >= 0; --i)
+              {
+                t = tree_cons (NULL_TREE, op, t);
+              }
+            vec_cst = build_vector (vectype, t);
+            return vect_init_vector (stmt, vec_cst, vectype, NULL);
+          }
       }
 
     /* Case 2: operand is defined outside the loop - loop invariant.  */
@@ -1977,14 +2051,33 @@ vect_get_vec_def_for_operand (tree op, gimple stmt, tree *scalar_def)
         if (vect_print_dump_info (REPORT_DETAILS))
           fprintf (vect_dump, "Create vector_inv.");
 
-        for (i = nunits - 1; i >= 0; --i)
+        if (targetm.vectorize.builtin_build_uniform_vec
+            && (builtin_decl = targetm.vectorize.builtin_build_uniform_vec (def, 
+                                                                      vectype)))
           {
-            t = tree_cons (NULL_TREE, def, t);
-          }
+            var = vect_get_new_vect_var (vectype,
+                                     vect_simple_var, "uniform_vec_");
 
-	/* FIXME: use build_constructor directly.  */
-        vec_inv = build_constructor_from_list (vector_type, t);
-        return vect_init_vector (stmt, vec_inv, vector_type, NULL);
+            new_stmt = gimple_build_call (builtin_decl, 1, def);
+            add_referenced_var (var);
+            vec_inv = make_ssa_name (var, new_stmt);
+            gimple_call_set_lhs (new_stmt, vec_inv);
+            new_bb = gsi_insert_on_edge_immediate (loop_preheader_edge (loop), 
+                                                   new_stmt);
+            gcc_assert (!new_bb);
+            return vec_inv;
+          }
+        else
+          {
+            for (i = nunits - 1; i >= 0; --i)
+             {
+               t = tree_cons (NULL_TREE, def, t);
+             }
+
+   	    /* FIXME: use build_constructor directly.  */
+            vec_inv = build_constructor_from_list (vector_type, t);
+            return vect_init_vector (stmt, vec_inv, vector_type, NULL);
+          }
       }
 
     /* Case 3: operand is defined inside the loop.  */
@@ -7254,8 +7347,10 @@ vect_generate_tmps_on_preheader (loop_vec_info loop_vinfo,
   tree ratio_mult_vf_name;
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   tree ni = LOOP_VINFO_NITERS (loop_vinfo);
-  int vf = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
-  tree log_vf;
+  tree vf = LOOP_VINFO_VF (loop_vinfo);
+
+  if (!vf)
+    vf = build_int_cst (integer_type_node, LOOP_VINFO_VECT_FACTOR (loop_vinfo));
 
   pe = loop_preheader_edge (loop);
 
@@ -7263,11 +7358,7 @@ vect_generate_tmps_on_preheader (loop_vec_info loop_vinfo,
      number of iterations loop executes.  */
 
   ni_name = vect_build_loop_niters (loop_vinfo);
-  log_vf = build_int_cst (TREE_TYPE (ni), exact_log2 (vf));
-
-  /* Create: ratio = ni >> log2(vf) */
-
-  ratio_name = fold_build2 (RSHIFT_EXPR, TREE_TYPE (ni_name), ni_name, log_vf);
+  ratio_name = fold_build2 (TRUNC_DIV_EXPR, TREE_TYPE (ni_name), ni_name, vf); 
   if (!is_gimple_val (ratio_name))
     {
       var = create_tmp_var (TREE_TYPE (ni), "bnd");
@@ -7282,8 +7373,8 @@ vect_generate_tmps_on_preheader (loop_vec_info loop_vinfo,
        
   /* Create: ratio_mult_vf = ratio << log2 (vf).  */
 
-  ratio_mult_vf_name = fold_build2 (LSHIFT_EXPR, TREE_TYPE (ratio_name),
-				    ratio_name, log_vf);
+  ratio_mult_vf_name = fold_build2 (MULT_EXPR, TREE_TYPE (ratio_name),
+			    ratio_name, vf);
   if (!is_gimple_val (ratio_mult_vf_name))
     {
       var = create_tmp_var (TREE_TYPE (ni), "ratio_mult_vf");
@@ -7595,11 +7686,11 @@ vect_gen_niters_for_prolog_loop (loop_vec_info loop_vinfo, tree loop_niters)
   gimple dr_stmt = DR_STMT (dr);
   stmt_vec_info stmt_info = vinfo_for_stmt (dr_stmt);
   tree vectype = STMT_VINFO_VECTYPE (stmt_info);
-  int vectype_align = TYPE_ALIGN (vectype) / BITS_PER_UNIT;
+  tree vectype_align = vect_tree_type_vector_align (loop_vinfo, vectype);
   tree niters_type = TREE_TYPE (loop_niters);
   int step = 1;
   int element_size = GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (DR_REF (dr))));
-  int nelements = TYPE_VECTOR_SUBPARTS (vectype);
+  tree nelements = vect_tree_type_vector_subparts (loop_vinfo, vectype);
 
   if (STMT_VINFO_STRIDED_ACCESS (stmt_info))
     step = DR_GROUP_SIZE (vinfo_for_stmt (DR_GROUP_FIRST_DR (stmt_info)));
@@ -7610,12 +7701,17 @@ vect_gen_niters_for_prolog_loop (loop_vec_info loop_vinfo, tree loop_niters)
     {
       int byte_misalign = LOOP_PEELING_FOR_ALIGNMENT (loop_vinfo);
       int elem_misalign = byte_misalign / element_size;
+      tree tmp1, tmp2, tmp3;
 
       if (vect_print_dump_info (REPORT_DETAILS))
         fprintf (vect_dump, "known alignment = %d.", byte_misalign);
 
-      iters = build_int_cst (niters_type,
-                     (((nelements - elem_misalign) & (nelements - 1)) / step));
+      tmp1 = fold_build2 (MINUS_EXPR, niters_type, nelements, 
+                          build_int_cst (niters_type, elem_misalign));
+      tmp2 = fold_build2 (MINUS_EXPR, niters_type, nelements, integer_one_node);
+      tmp3 = fold_build2 (BIT_AND_EXPR, niters_type, tmp1, tmp2);
+      iters = fold_build2 (TRUNC_DIV_EXPR, niters_type, tmp3, 
+                           build_int_cst (niters_type, step));
     }
   else
     {
@@ -7625,11 +7721,12 @@ vect_gen_niters_for_prolog_loop (loop_vec_info loop_vinfo, tree loop_niters)
       tree ptr_type = TREE_TYPE (start_addr);
       tree size = TYPE_SIZE (ptr_type);
       tree type = lang_hooks.types.type_for_size (tree_low_cst (size, 1), 1);
-      tree vectype_size_minus_1 = build_int_cst (type, vectype_align - 1);
-      tree elem_size_log =
-        build_int_cst (type, exact_log2 (vectype_align/nelements));
-      tree nelements_minus_1 = build_int_cst (type, nelements - 1);
-      tree nelements_tree = build_int_cst (type, nelements);
+      tree vectype_size_minus_1 = fold_build2 (MINUS_EXPR, type, vectype_align, 
+                                               integer_one_node);
+      tree elem_size = fold_build2 (TRUNC_DIV_EXPR, type, vectype_align, 
+                                    nelements);
+      tree nelements_minus_1 = fold_build2 (MINUS_EXPR, niters_type, nelements, 
+                                            integer_one_node); 
       tree byte_misalign;
       tree elem_misalign;
 
@@ -7638,14 +7735,15 @@ vect_gen_niters_for_prolog_loop (loop_vec_info loop_vinfo, tree loop_niters)
   
       /* Create:  byte_misalign = addr & (vectype_size - 1)  */
       byte_misalign = 
-        fold_build2 (BIT_AND_EXPR, type, fold_convert (type, start_addr), vectype_size_minus_1);
+        fold_build2 (BIT_AND_EXPR, type, fold_convert (type, start_addr), 
+                     vectype_size_minus_1);
   
       /* Create:  elem_misalign = byte_misalign / element_size  */
       elem_misalign =
-        fold_build2 (RSHIFT_EXPR, type, byte_misalign, elem_size_log);
+        fold_build2 (TRUNC_DIV_EXPR, type, byte_misalign, elem_size);
 
       /* Create:  (niters_type) (nelements - elem_misalign)&(nelements - 1)  */
-      iters = fold_build2 (MINUS_EXPR, type, nelements_tree, elem_misalign);
+      iters = fold_build2 (MINUS_EXPR, type, nelements, elem_misalign);
       iters = fold_build2 (BIT_AND_EXPR, type, iters, nelements_minus_1);
       iters = fold_convert (niters_type, iters);
     }
@@ -7762,7 +7860,6 @@ vect_do_peeling_for_alignment (loop_vec_info loop_vinfo)
       th = conservative_cost_threshold (loop_vinfo, 
 					min_profitable_iters);
     }
-
   /* Peel the prolog loop and iterate it niters_of_prolog_loop.  */
   new_loop =
     slpeel_tree_peel_loop_to_edge (loop, loop_preheader_edge (loop),
@@ -7938,8 +8035,9 @@ vect_vfa_segment_size (struct data_reference *dr, tree vect_factor)
 
   if (vect_supportable_dr_alignment (dr) == dr_explicit_realign_optimized)
     {
-      tree vector_size = TYPE_SIZE_UNIT
-			  (STMT_VINFO_VECTYPE (vinfo_for_stmt (DR_STMT (dr))));
+      tree vector_size = vect_type_size_unit 
+			  (STMT_VINFO_LOOP_VINFO (vinfo_for_stmt (DR_STMT (dr))),
+                           STMT_VINFO_VECTYPE (vinfo_for_stmt (DR_STMT (dr))));
 
       segment_length = fold_build2 (PLUS_EXPR, integer_type_node,
 				    segment_length, vector_size);
@@ -8328,6 +8426,7 @@ vect_transform_loop (loop_vec_info loop_vinfo)
   bool strided_store;
   bool slp_scheduled = false;
   unsigned int nunits;
+  tree vf;
 
   if (vect_print_dump_info (REPORT_DETAILS))
     fprintf (vect_dump, "=== vec_transform_loop ===");
@@ -8353,14 +8452,22 @@ vect_transform_loop (loop_vec_info loop_vinfo)
      and will compute the first (n/VF) iterations. The second copy of the loop
      will remain scalar and will compute the remaining (n%VF) iterations.
      (VF is the vectorization factor).  */
+  vf = LOOP_VINFO_VF (loop_vinfo);
+  if (!vf)
+    vf = build_int_cst (TREE_TYPE (LOOP_VINFO_NITERS (loop_vinfo)), 
+                        LOOP_VINFO_VECT_FACTOR (loop_vinfo));
 
   if (!LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo)
       || (LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo)
           && LOOP_VINFO_INT_NITERS (loop_vinfo) % vectorization_factor != 0))
     vect_do_peeling_for_loop_bound (loop_vinfo, &ratio);
   else
-    ratio = build_int_cst (TREE_TYPE (LOOP_VINFO_NITERS (loop_vinfo)),
-		LOOP_VINFO_INT_NITERS (loop_vinfo) / vectorization_factor);
+    ratio 
+      = fold_build2 (TRUNC_DIV_EXPR, 
+                     TREE_TYPE (LOOP_VINFO_NITERS (loop_vinfo)), 
+                     build_int_cst (TREE_TYPE (LOOP_VINFO_NITERS (loop_vinfo)), 
+                                    LOOP_VINFO_INT_NITERS (loop_vinfo)),
+                                    vf);
 
   /* 1) Make sure the loop header has exactly two entries
      2) Make sure we have a preheader basic block.  */
@@ -8368,6 +8475,8 @@ vect_transform_loop (loop_vec_info loop_vinfo)
   gcc_assert (EDGE_COUNT (loop->header->preds) == 2);
 
   split_edge (loop_preheader_edge (loop));
+
+  vect_mark_split_info_for_renaming (loop_vinfo);
 
   /* FORNOW: the vectorizer supports only loops which body consist
      of one basic block (header + empty latch). When the vectorizer will 

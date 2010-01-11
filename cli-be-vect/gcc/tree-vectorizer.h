@@ -160,9 +160,24 @@ DEF_VEC_ALLOC_P(slp_instance, heap);
 #define SLP_TREE_OUTSIDE_OF_LOOP_COST(S)         (S)->cost.outside_of_loop
 #define SLP_TREE_INSIDE_OF_LOOP_COST(S)          (S)->cost.inside_of_loop
 
+
+struct split_information
+{
+  gimple qi_stride_stmt;
+  gimple hi_stride_stmt;
+  gimple si_stride_stmt;
+  gimple di_stride_stmt;
+  tree vec_size;
+  gimple qi_align_stmt;
+  gimple hi_align_stmt;
+  gimple si_align_stmt;
+  gimple di_align_stmt;
+};
+
 /*-----------------------------------------------------------------*/
 /* Info on vectorized loops.                                       */
 /*-----------------------------------------------------------------*/
+
 typedef struct _loop_vec_info {
 
   /* The loop to which this info struct refers to.  */
@@ -187,6 +202,7 @@ typedef struct _loop_vec_info {
 
   /* Unrolling factor  */
   int vectorization_factor;
+  tree vf;
 
   /* Unknown DRs according to which loop was peeled.  */
   struct data_reference *unaligned_dr;
@@ -232,6 +248,8 @@ typedef struct _loop_vec_info {
   /* The unrolling factor needed to SLP the loop. In case of that pure SLP is 
      applied to the loop, i.e., no unrolling is needed, this is 1.  */
   unsigned slp_unrolling_factor;
+
+  struct split_information split_info;
 } *loop_vec_info;
 
 /* Access Functions.  */
@@ -244,6 +262,7 @@ typedef struct _loop_vec_info {
 #define LOOP_VINFO_COST_MODEL_MIN_ITERS(L)	(L)->min_profitable_iters
 #define LOOP_VINFO_VECTORIZABLE_P(L)  (L)->vectorizable
 #define LOOP_VINFO_VECT_FACTOR(L)     (L)->vectorization_factor
+#define LOOP_VINFO_VF(L)              (L)->vf
 #define LOOP_VINFO_PTR_MASK(L)        (L)->ptr_mask
 #define LOOP_VINFO_DATAREFS(L)        (L)->datarefs
 #define LOOP_VINFO_DDRS(L)            (L)->ddrs
@@ -256,6 +275,7 @@ typedef struct _loop_vec_info {
 #define LOOP_VINFO_STRIDED_STORES(L)  (L)->strided_stores
 #define LOOP_VINFO_SLP_INSTANCES(L)   (L)->slp_instances
 #define LOOP_VINFO_SLP_UNROLLING_FACTOR(L) (L)->slp_unrolling_factor
+#define LOOP_VINFO_SPLIT_INFO(L)      (L)->split_info
 
 #define NITERS_KNOWN_P(n)                     \
 (host_integerp ((n),0)                        \
@@ -791,6 +811,7 @@ extern void vect_model_store_cost (stmt_vec_info, int, enum vect_def_type,
 extern void vect_model_load_cost (stmt_vec_info, int, slp_tree);
 extern bool vect_transform_slp_perm_load (gimple, VEC (tree, heap) *, 
                              gimple_stmt_iterator *, int, slp_instance, bool);
+extern tree vect_get_new_vect_var (tree, enum vect_var_kind, const char *);
 
 /* Driver for transformation stage.  */
 extern void vect_transform_loop (loop_vec_info);
@@ -801,5 +822,12 @@ extern void vect_transform_loop (loop_vec_info);
 extern bool vect_print_dump_info (enum verbosity_levels);
 extern void vect_set_verbosity_level (const char *);
 extern LOC find_loop_location (struct loop *);
+
+/* Split vectorization APIs.  */
+extern tree vect_tree_type_vector_subparts (loop_vec_info, tree);
+extern tree vect_tree_type_vector_align (loop_vec_info, tree);
+extern tree vect_type_size_unit (loop_vec_info, tree);
+extern tree vect_get_vf (loop_vec_info, tree);
+extern void vect_mark_split_info_for_renaming (loop_vec_info);
 
 #endif  /* GCC_TREE_VECTORIZER_H  */
