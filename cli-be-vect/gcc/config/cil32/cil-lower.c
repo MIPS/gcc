@@ -153,41 +153,31 @@ lower_cil_vector_ctor (const_cil_stmt ctor)
     }
   else  /* GENERIC_SIMD */
     {
-#if 0
       /* Can only handle uniform vectors, ie all elements must be equal.  */
       switch (cil_type)
         {
-        case CIL_V2DI:
-          builtin = CIL32_GEN_VDI_CTOR;
-          break;
         case CIL_V2SI:
+	case CIL_V4SI:
           builtin = CIL32_GEN_VSI_CTOR;
           break;
         case CIL_V4HI:
+	case CIL_V8HI:
           builtin = CIL32_GEN_VHI_CTOR;
           break;
         case CIL_V8QI:
+	case CIL_V16QI:
           builtin = CIL32_GEN_VQI_CTOR;
           break;
-	case CIL_V2DF:
-          builtin = CIL32_GEN_VDF_CTOR;
-          break;
         case CIL_V2SF:
+	case CIL_V4SF:
           builtin = CIL32_GEN_VSF_CTOR;
           break;
 
-	case CIL_V4SI:
-	case CIL_V8HI:
-	case CIL_V16QI:
-	case CIL_V4SF:
 	default:
 	  internal_error ("Vector type expected, seen %d", cil_type);
 	}
 
       return cil_build_newobj (cil32_builtins[builtin]);
-#endif
-      internal_error ("CTOR");
-
     }
 
 }

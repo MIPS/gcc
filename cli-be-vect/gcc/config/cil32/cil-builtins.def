@@ -921,25 +921,25 @@ DEF_CILBUILTIN(GCC_BUILD_UNIFORM_VEC_V16QI, "[genvec_support]genvec_support.VQI:
                1,
                intQI_type_node)
 
-DEF_CILBUILTIN(GCC_BUILD_AFFINE_VEC_V2DI, "[genvec_support]genvec_support.V2DI::V2DI_affine_vec", \
+DEF_CILBUILTIN(GCC_BUILD_AFFINE_VEC_V2DI, "[genvec_support]genvec_support.VDI::VDI_affine_vec", \
                intDI2_type_node, \
                2,
-               intDI_type_node, unsigned_type_node)
+               intDI_type_node, integer_type_node)
 
-DEF_CILBUILTIN(GCC_BUILD_AFFINE_VEC_V4SI, "[genvec_support]genvec_support.V4SI::V4SI_affine_vec", \
+DEF_CILBUILTIN(GCC_BUILD_AFFINE_VEC_V4SI, "[genvec_support]genvec_support.VSI::VSI_affine_vec", \
                intSI4_type_node, \
                2,
-               intSI_type_node, unsigned_type_node)
+               intSI_type_node, integer_type_node)
 
-DEF_CILBUILTIN(GCC_BUILD_AFFINE_VEC_V8HI, "[genvec_support]genvec_support.V8HI::V8HI_affine_vec", \
+DEF_CILBUILTIN(GCC_BUILD_AFFINE_VEC_V8HI, "[genvec_support]genvec_support.VHI::VHI_affine_vec", \
                intHI8_type_node, \
                2,
-               intHI_type_node, unsigned_type_node)
+               intHI_type_node, integer_type_node)
 
-DEF_CILBUILTIN(GCC_BUILD_AFFINE_VEC_V16QI, "[genvec_support]genvec_support.V16QI::V16QI_affine_vec", \
+DEF_CILBUILTIN(GCC_BUILD_AFFINE_VEC_V16QI, "[genvec_support]genvec_support.VQI::VQI_affine_vec", \
                intQI16_type_node, \
                2,
-               intQI_type_node, unsigned_type_node)
+               intQI_type_node, integer_type_node)
 
 DEF_CILBUILTIN(GCC_GET_STEP, "[genvec_support]genvec_support.VQI::get_vec_size", \
                unsigned_type_node, \
@@ -964,11 +964,9 @@ DEF_CILBUILTIN(GCC_GET_ALIGN_V16QI, "[genvec_support]genvec_support.VQI::VQI_ali
 
 
 /* V SF */
-#if 0
 DEF_CILBUILTIN(GEN_VSF_CTOR, "[Xxxx.Simd]Xxxx.Simd.VgenSF::.ctor",
 	       float2_type_node,		\
 	       1, float_type_node)
-#endif
 
 DEF_CILBUILTIN(GEN_VSF_LOAD_ALIGNED,
 	       "[Xxxx.Simd]Xxxx.Simd.VgenSF::LoadAligned",	\
@@ -992,15 +990,9 @@ DEF_CILBUILTIN(GEN_VSF_SUB, "[Xxxx.Simd]Xxxx.Simd.VgenSF::op_Subtraction", \
 	       2, \
 	       float2_type_node, float2_type_node)
 /* V SI */
-#if 0
 DEF_CILBUILTIN(GEN_VSI_CTOR, "[Xxxx.Simd]Xxxx.Simd.VecGenSI::.ctor", \
 	       intSI2_type_node, \
 	       1, intSI_type_node)
-
-DEF_CILBUILTIN(GEN_VSI_CTOR_A, "[Xxxx.Simd]Xxxx.Simd.VecGenSI::.ctor", \
-	       intSI2_type_node, \
-	       2, intSI_type_node, intSI_type_node)
-#endif
 
 DEF_CILBUILTIN(GEN_VSI_LOAD_ALIGNED,
 	       "[Xxxx.Simd]Xxxx.Simd.VecGenSI::LoadAligned",	\
@@ -1040,11 +1032,9 @@ DEF_CILBUILTIN(GEN_VSI_XOR, "[Xxxx.Simd]Xxxx.Simd.VecGenSI::op_ExclusiveOr", \
 	       intSI2_type_node, intSI2_type_node)
 
 /* V HI */
-#if 0
 DEF_CILBUILTIN(GEN_VHI_CTOR, "[Xxxx.Simd]Xxxx.Simd.VgenHI::.ctor", \
 	       intHI4_type_node, \
 	       1, intHI_type_node)
-#endif
 
 DEF_CILBUILTIN(GEN_VHI_LOAD_ALIGNED,
 	       "[Xxxx.Simd]Xxxx.Simd.VgenHI::LoadAligned",	\
@@ -1084,11 +1074,9 @@ DEF_CILBUILTIN(GEN_VHI_XOR, "[Xxxx.Simd]Xxxx.Simd.VgenHI::op_ExclusiveOr",\
 	       intHI4_type_node, intHI4_type_node)
 
 /* V QI */
-#if 0
 DEF_CILBUILTIN(GEN_VQI_CTOR, "[Xxxx.Simd]Xxxx.Simd.VgenQI::.ctor", \
 	       intQI8_type_node, \
 	       1, intQI_type_node)
-#endif
 
 DEF_CILBUILTIN(GEN_VQI_LOAD_ALIGNED,
 	       "[Xxxx.Simd]Xxxx.Simd.VgenQI::LoadAligned",	\
