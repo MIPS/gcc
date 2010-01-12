@@ -94,6 +94,11 @@ dump_valuetype_name (const_tree t)
   tree name = TYPE_NAME (t);
   const char *str = NULL;
 
+  if (name == NULL)
+    {
+      printf ("noname?");
+      return;
+    }
 
   if (TREE_CODE (name) == IDENTIFIER_NODE)
     str = IDENTIFIER_POINTER (name);
