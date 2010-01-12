@@ -1804,7 +1804,8 @@ get_initial_def_for_induction (gimple iv_phi)
       new_stmt = gimple_build_assign (var, new_name);
       new_name = make_ssa_name (var, new_stmt);
       gimple_assign_set_lhs (new_stmt, new_name);
-      gsi_insert_before (&si, new_stmt, GSI_SAME_STMT);
+      new_bb = gsi_insert_on_edge_immediate (pe, new_stmt);
+      gcc_assert (!new_bb);
 
       step_var = vect_get_new_vect_var (vectype,
                                     vect_simple_var, "uniform_vec_");
@@ -1812,7 +1813,8 @@ get_initial_def_for_induction (gimple iv_phi)
       add_referenced_var (step_var);
       vec_step = make_ssa_name (step_var, step_stmt);
       gimple_call_set_lhs (step_stmt, vec_step);
-      gsi_insert_before (&si, step_stmt, GSI_SAME_STMT);
+      new_bb = gsi_insert_on_edge_immediate (pe, step_stmt);
+      gcc_assert (!new_bb);
     }
   else
     {
