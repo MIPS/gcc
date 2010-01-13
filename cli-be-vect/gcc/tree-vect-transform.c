@@ -8423,12 +8423,14 @@ vect_transform_loop (loop_vec_info loop_vinfo)
   int nbbs = loop->num_nodes;
   gimple_stmt_iterator si;
   int i;
-  tree ratio = NULL;
+  tree ratio = NULL, tmp;
   int vectorization_factor = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
   bool strided_store;
   bool slp_scheduled = false;
   unsigned int nunits;
   tree vf;
+  gimple new_stmt;
+  basic_block new_bb;
 
   if (vect_print_dump_info (REPORT_DETAILS))
     fprintf (vect_dump, "=== vec_transform_loop ===");
@@ -8465,7 +8467,7 @@ vect_transform_loop (loop_vec_info loop_vinfo)
     vect_do_peeling_for_loop_bound (loop_vinfo, &ratio);
   else
     ratio 
-      = fold_build2 (TRUNC_DIV_EXPR, 
+        = fold_build2 (TRUNC_DIV_EXPR, 
                      TREE_TYPE (LOOP_VINFO_NITERS (loop_vinfo)), 
                      build_int_cst (TREE_TYPE (LOOP_VINFO_NITERS (loop_vinfo)), 
                                     LOOP_VINFO_INT_NITERS (loop_vinfo)),
@@ -8618,6 +8620,14 @@ vect_transform_loop (loop_vec_info loop_vinfo)
 	  gsi_next (&si);
 	}		        /* stmts in BB */
     }				/* BBs in loop */
+
+  tmp = create_tmp_var (TREE_TYPE (ratio), NULL);
+  new_stmt = gimple_build_assign (tmp, ratio);
+  ratio = make_ssa_name (tmp, new_stmt);
+  gimple_assign_set_lhs (new_stmt, ratio);
+  new_bb = gsi_insert_on_edge_immediate (loop_preheader_edge (loop),
+                                         new_stmt); 
+  gcc_assert (!new_bb);
 
   slpeel_make_loop_iterate_ntimes (loop, ratio);
 
