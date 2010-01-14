@@ -1,3 +1,38 @@
+2010-01-14  Andi Kleen  <ak@linux.intel.com>
+
+	* config/i386/drivers-i386.c (detect_caches_intel):
+	Add l2sizekb parameter and fill in.
+	(host_detect_local_cpu): Add l2sizekb, fill in.
+	Add Atom small cache heuristic.
+
+2010-01-14  Andi Kleen  <ak@linux.intel.com>
+
+	* config/i386/drivers-i386.c (detect_caches_cpuid4):
+	Add level3 parameter and fill in.
+	(detect_caches_intel): Handle level3 cache.
+
+2010-01-14  Andi Kleen  <ak@linux.intel.com>
+
+	* config/i386/drivers-i386.c (host_detect_local_cpu):
+	Fix core duo detection.
+
+2010-01-14  Andi Kleen  <ak@linux.intel.com>
+
+	* config/i386/drivers-i386.c (host_detect_local_cpu):
+	Fix Atom detection.
+
+2010-01-14  Alexander Monakov  <amonakov@ispras.ru>
+
+	* sel-sched-ir.c (sel_restore_other_notes): Rename to
+	sel_restore_notes.  Update all callers.  Call reemit_notes
+	for all insns.
+
+2010-01-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/42699
+	* cse.c (cse_insn): Optimize lhs ZERO_EXTRACT if only CONST_INTs are
+	involved.
+
 2010-01-12  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
 
 	* Backport from mainline
