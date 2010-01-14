@@ -1,3 +1,9 @@
+2010-01-14  Alexandre Oliva  <aoliva@redhat.com>
+
+	* var-tracking.c (var_reg_delete): Don't delete the association
+	between REGs and values or one-part variables if the register
+	isn't clobbered.
+
 2010-01-14  Jakub Jelinek  <jakub@redhat.com>
 
 	PR middle-end/42674
@@ -9,6 +15,10 @@
 	doesn't have one already.
 	(assemble_external): Only add decls to weak_decls if they also
 	have weak attribute.
+
+	PR debug/42657
+	* tree-inline.c (copy_debug_stmt): Don't reset debug stmt just
+	because its first operand is a non-localized variable.
 
 2010-01-14  Jakub Jelinek  <jakub@redhat.com>
 
