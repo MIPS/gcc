@@ -1,5 +1,18 @@
 2010-01-14  Jakub Jelinek  <jakub@redhat.com>
 
+	PR middle-end/42674
+	* c-c++-common/pr42674.c: New test.
+
+	PR c++/42608
+	* g++.dg/template/instantiate11.C: New test.
+
+2010-01-14  Jason Merrill  <jason@redhat.com>
+
+	PR c++/42655
+	* g++.dg/overload/rvalue1.C: New.
+
+2010-01-14  Jakub Jelinek  <jakub@redhat.com>
+
 	PR c/42721
 	* gcc.c-torture/execute/pr42721.c: New test.
 
