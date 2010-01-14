@@ -321,9 +321,9 @@ cil32_builtin_get_vec_size (tree type ATTRIBUTE_UNUSED)
 static tree
 cil32_builtin_get_vec_stride (tree type)
 {
-  int subparts = TYPE_VECTOR_SUBPARTS (type);
+  unsigned element_size = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (TREE_TYPE (type)));
   
-  switch (subparts)
+  switch (element_size)
     {
       case 16:
         return cil32_builtins[CIL32_GCC_GET_STRIDE_V16QI];
@@ -345,9 +345,9 @@ cil32_builtin_get_vec_stride (tree type)
 static tree
 cil32_builtin_get_vec_align (tree type)
 {
-  int subparts = TYPE_VECTOR_SUBPARTS (type);
+  unsigned element_size = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (TREE_TYPE (type)));
 
-  switch (subparts)
+  switch (element_size)
     {
       case 16:
         return cil32_builtins[CIL32_GCC_GET_ALIGN_V16QI];
@@ -369,9 +369,9 @@ cil32_builtin_get_vec_align (tree type)
 static tree cil32_builtin_build_uniform_vec (tree value ATTRIBUTE_UNUSED, 
                                              tree type)
 {
-  int subparts = TYPE_VECTOR_SUBPARTS (type);
+  unsigned element_size = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (TREE_TYPE (type)));
 
-  switch (subparts)
+  switch (element_size)
     {
       case 16:
         return cil32_builtins[CIL32_GCC_BUILD_UNIFORM_VEC_V16QI];
@@ -394,9 +394,9 @@ static tree cil32_builtin_build_affine_vec (tree init ATTRIBUTE_UNUSED,
                                             tree step ATTRIBUTE_UNUSED, 
                                             tree type)
 {
-  int subparts = TYPE_VECTOR_SUBPARTS (type);
+  unsigned element_size = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (TREE_TYPE (type)));
 
-  switch (subparts)
+  switch (element_size)
     {
       case 16:
         return cil32_builtins[CIL32_GCC_BUILD_AFFINE_VEC_V16QI];

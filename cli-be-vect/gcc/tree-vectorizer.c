@@ -1517,7 +1517,7 @@ vect_print_dump_info (enum verbosity_levels vl)
 
 
 /* Split vectorization APIs.  */
-static void 
+void 
 vect_init_split_info (loop_vec_info loop_vinfo)
 {
   LOOP_VINFO_SPLIT_INFO (loop_vinfo).qi_stride_stmt = NULL;
@@ -1547,25 +1547,25 @@ tree vect_tree_type_vector_subparts (loop_vec_info loop_vinfo, tree type)
     {
       case 1:
         if (LOOP_VINFO_SPLIT_INFO (loop_vinfo).qi_stride_stmt)
-          return gimple_assign_lhs (
+          return gimple_call_lhs (
                             LOOP_VINFO_SPLIT_INFO (loop_vinfo).qi_stride_stmt);
         break;
 
       case 2:
         if (LOOP_VINFO_SPLIT_INFO (loop_vinfo).hi_stride_stmt)
-          return gimple_assign_lhs (
+          return gimple_call_lhs (
                             LOOP_VINFO_SPLIT_INFO (loop_vinfo).hi_stride_stmt);
         break; 
 
       case 4:
         if (LOOP_VINFO_SPLIT_INFO (loop_vinfo).si_stride_stmt)
-          return gimple_assign_lhs (
+          return gimple_call_lhs (
                             LOOP_VINFO_SPLIT_INFO (loop_vinfo).si_stride_stmt);
         break;
 
       case 8:
         if (LOOP_VINFO_SPLIT_INFO (loop_vinfo).di_stride_stmt)
-          return gimple_assign_lhs (
+          return gimple_call_lhs (
                             LOOP_VINFO_SPLIT_INFO (loop_vinfo).di_stride_stmt);
         break;
 
@@ -1625,25 +1625,25 @@ tree vect_tree_type_vector_align (loop_vec_info loop_vinfo, tree type)
     {
       case 1:
         if (LOOP_VINFO_SPLIT_INFO (loop_vinfo).qi_align_stmt)
-          return gimple_assign_lhs (
+          return gimple_call_lhs (
                              LOOP_VINFO_SPLIT_INFO (loop_vinfo).qi_align_stmt);
         break;
 
       case 2:
         if (LOOP_VINFO_SPLIT_INFO (loop_vinfo).hi_align_stmt)
-          return gimple_assign_lhs (
+          return gimple_call_lhs (
                              LOOP_VINFO_SPLIT_INFO (loop_vinfo).hi_align_stmt);
         break;
 
       case 4:
         if (LOOP_VINFO_SPLIT_INFO (loop_vinfo).si_align_stmt)
-          return gimple_assign_lhs (
+          return gimple_call_lhs (
                              LOOP_VINFO_SPLIT_INFO (loop_vinfo).si_align_stmt);
         break;
 
       case 8:
         if (LOOP_VINFO_SPLIT_INFO (loop_vinfo).di_align_stmt)
-          return gimple_assign_lhs (
+          return gimple_call_lhs (
                              LOOP_VINFO_SPLIT_INFO (loop_vinfo).di_align_stmt);
         break;
 
@@ -3069,7 +3069,6 @@ vectorize_loops (void)
 	if (!loop_vinfo || !LOOP_VINFO_VECTORIZABLE_P (loop_vinfo))
 	  continue;
 
-        vect_init_split_info (loop_vinfo);
 
 	vect_transform_loop (loop_vinfo);
 	num_vectorized_loops++;

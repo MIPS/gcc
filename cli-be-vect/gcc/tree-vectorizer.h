@@ -829,5 +829,6 @@ extern tree vect_tree_type_vector_align (loop_vec_info, tree);
 extern tree vect_type_size_unit (loop_vec_info, tree);
 extern tree vect_get_vf (loop_vec_info, tree);
 extern void vect_mark_split_info_for_renaming (loop_vec_info);
+extern void vect_init_split_info (loop_vec_info);
 
 #endif  /* GCC_TREE_VECTORIZER_H  */

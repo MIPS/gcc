@@ -4599,6 +4599,8 @@ vect_analyze_loop (struct loop *loop)
       return NULL;
     }
 
+  vect_init_split_info (loop_vinfo);
+
   /* Find all data references in the loop (which correspond to vdefs/vuses)
      and analyze their evolution in the loop.
 
