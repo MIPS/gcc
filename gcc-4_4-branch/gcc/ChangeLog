@@ -1,3 +1,28 @@
+2010-01-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/42721
+	Port from no-undefined-overflow branch
+	2009-03-09  Richard Guenther  <rguenther@suse.de>
+
+	* fold-const.c (add_double_with_sign): Fix unsigned overflow
+	detection.
+
+2010-01-14  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline
+	2010-01-10  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/42667
+	* builtins.c (fold_builtin_strlen): Add type argument and
+	convert the resulting length to it.
+	(fold_builtin_1): Adjust.
+
+2010-01-13  Sebastian Pop  <sebastian.pop@amd.com>
+
+	PR middle-end/40281
+	* tree-scalar-evolution.c (instantiate_scev_1): Base and stride
+	evolutions should not variate in inner loops.
+
 2010-01-14  Andi Kleen  <ak@linux.intel.com>
 
 	* config/i386/drivers-i386.c (detect_caches_intel):
