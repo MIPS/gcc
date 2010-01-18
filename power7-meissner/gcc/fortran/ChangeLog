@@ -1,0 +1,180 @@
+2010-01-17  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/42677
+	* gfortran.h (symbol_attribute): Remove 'ambiguous_interfaces'.
+	* interface.c (check_interface1): Move a warning message here from
+	resolve_fl_procedure.
+	(check_sym_interfaces): Removed 'attr.ambiguous_interfaces'.
+	* module.c (read_module): Remove call to gfc_check_interfaces, since
+	this comes too early here.
+	* resolve.c (resolve_fl_procedure): Move warning message to
+	check_interface1.
+
+2010-01-14 Jerry DeLisle <jvdelisle@gcc.gnu.org>
+
+	PR fortran/42684
+	* interface.c (check_interface1): Pass symbol name rather than NULL to
+	gfc_compare_interfaces.	(gfc_compare_interfaces): Add assert to
+	trap MULL.
+	* resolve.c (check_generic_tbp_ambiguity): Pass symbol name rather
+	than NULL to gfc_compare_interfaces.
+
+2010-01-14  Paul Thomas  <pault@gcc.gnu.org>
+
+        PR fortran/41478
+        * trans-array.c (duplicate_allocatable):  Static version of
+	gfc_duplicate_allocatable with provision to handle scalar
+	components. New boolean argument to switch off call to malloc
+	if true.
+	(gfc_duplicate_allocatable): New function to call above with
+	new argument false.
+	(gfc_copy_allocatable_data): New function to call above with
+	new argument true.
+	(structure_alloc_comps): Do not apply indirect reference to
+	scalar pointers. Add new section to copy allocatable components
+	of arrays. Extend copying of allocatable components to include
+	scalars.
+	(gfc_copy_only_alloc_comp): New function to copy allocatable
+	component derived types, without allocating the base structure.
+	* trans-array.h : Add primitive for gfc_copy_allocatable_data.
+	Add primitive for gfc_copy_only_alloc_comp.
+	* trans-expr.c (gfc_conv_procedure_call): After calls to
+	transformational functions with results that are derived types
+	with allocatable components, copy the components in the result.
+	(gfc_trans_arrayfunc_assign): Deallocate allocatable components
+	of lhs derived types before allocation.
+	
+2010-01-14  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/42481
+	* module.c (load_generic_interfaces): If a procedure that is
+	use associated but not generic is given an interface that
+	includes itself, then make it generic.
+
+2010-01-11  Joseph Myers  <joseph@codesourcery.com>  
+	    Shujing Zhao  <pearly.zhao@oracle.com>
+
+	PR translation/42469
+	* lang.opt (fblas-matmul-limit=, finit-character=, finit-integer=,
+	finit-logical=, finit-real=, fmax-array-constructor=): Use tab
+	character between option name and help text.
+
+2010-01-09 Jerry DeLisle <jvdelisle@gcc.gnu.org>
+
+	PR fortran/20923
+	PR fortran/32489
+	* trans-array.c (gfc_conv_array_initializer): Change call to
+	gfc_error_now to call to gfc_fatal_error.
+	* array.c (count_elements): Whitespace. (extract_element): Whitespace.
+	(is_constant_element): Changed name from constant_element.
+	(gfc_constant_ac): Only use expand_construuctor for expression
+	types of EXPR_ARRAY.  If expression type is EXPR_CONSTANT, no need to
+	call gfc_is_constant_expr.
+	* expr.c (gfc_reduce_init_expr): Adjust conditionals and delete error
+	message.
+	* resolve.c (gfc_is_expandable_expr): New function that determiners if
+	array expressions should have their constructors expanded.
+	(gfc_resolve_expr): Use new function to determine whether or not to call
+	gfc_expand_constructor.
+
+2010-01-09  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/41298
+	* trans-expr.c (gfc_trans_structure_assign): Handle
+	c_null_(fun)ptr.
+	* symbol.c (gen_special_c_interop_ptr): Add NULL_EXPR
+	to the constructor for c_null_(fun)ptr.
+	* resolve.c (resolve_structure_cons): Add special case
+	for c_null_(fun)ptr.
+
+2010-01-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* gfortranspec.c (lang_specific_driver): Update copyright notice
+	dates.
+
+2010-01-08  Tobias Burnus  <burnus@net-b.de>
+
+	PR/fortran 25829
+	* symbol.c (check_conflict, gfc_copy_attr): Add
+	ASYNCHRONOUS support.
+	(gfc_add_asynchronous): New function.
+	* decl.c (match_attr_spec): Add ASYNCHRONOUS support.
+	(gfc_match_asynchronous): New function.
+	* dump-parse-tree.c (show_attr): Add ASYNCHRONOUS support.
+	* gfortran.h (symbol_attribute): New ASYNCHRONOUS bit.
+	(gfc_add_asynchronous): New Prototype.
+	* module.c (ab_attribute, mio_symbol_attribute): Add
+	ASYNCHRONOUS support.
+	* resolve.c (was_declared): Ditto.
+	* match.h (gfc_match_asynchronous): New prototype.
+	* parse.c (decode_specification_statement,decode_statement):
+	Add ASYNCHRONOUS support.
+
+2010-01-07  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/42597
+	* trans-decl.c (get_proc_pointer_decl): Fix call to
+	gfc_conv_initializer for array-valued proc-pointer funcs.
+
+2010-01-07  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/41872
+	* trans-decl.c (gfc_trans_deferred_vars): Don't initialize
+	allocatable scalars with SAVE attribute.
+
+2010-01-05  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/42517
+	* options.c (gfc_post_options): Set -frecursion
+	when -fopenmp is used.
+
+2010-01-05  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/41872
+	* trans-expr.c (gfc_conv_procedure_call): Nullify
+	return value for allocatable-scalar character functions.
+
+2010-01-04  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/36161
+	* error.c (error_printf, gfc_warning, gfc_notify_std,
+	gfc_warning_now, gfc_error, gfc_error_now,
+	gfc_fatal_error): Change argument name from nocmsgid to
+	gmsgid to enable (x)gettext's % checking.
+
+2010-01-04  Tobias Burnus  <burnus@net-b.de>
+	
+	* trans-decl.c (gfc_trans_deferred_vars): Fix spelling.
+
+2010-01-04  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/41872
+	* trans-expr.c (gfc_conv_procedure_call): Add indirect ref
+	for functions returning allocatable scalars.
+	* trans-stmt.c (gfc_trans_allocate): Emmit error when
+	reallocating an allocatable scalar.
+	* trans.c (gfc_allocate_with_status): Fix pseudocode syntax
+	in comment.
+	* trans-decl.c (gfc_trans_deferred_vars): Nullify local
+	allocatable scalars.
+	(gfc_generate_function_code): Nullify result variable for
+	allocatable scalars.
+	
+	PR fortran/40849
+	* module.c (gfc_use_module): Fix warning string to allow
+	for translation.
+
+	PR fortran/42517
+	* invoke.texi (-fcheck=recursion): Mention that the checking
+	is also disabled for -frecursive.
+	* trans-decl.c (gfc_generate_function_code): Disable
+	-fcheck=recursion when -frecursive is used.
+
+	* intrinsic.texi (iso_c_binding): Improve wording.
+
+
+Copyright (C) 2010 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.

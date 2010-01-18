@@ -1,0 +1,17 @@
+2010-01-16  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* Makefile.am (write_entries_to_file): Use \012 instead of \n
+	with tr.
+	* scripts/makemake.tcl: Likewise.
+	* sources.am: Regenerate.
+	* Makefile.in: Regenerate.
+
+2010-01-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* gnu/gcj/convert/Convert.java (version): Update copyright notice
+	dates.
+	* gnu/gcj/tools/gcj_dbtool/Main.java (main): Likewise.
+
+2010-01-06  Matthias Klose  <doko@ubuntu.com>
+
+	* Regenerate .class files with updated ecj.jar (based on 3.5.1).

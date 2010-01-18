@@ -1,0 +1,30 @@
+2010-01-15  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/42742
+	* io/format.c (parse_format): Set limit on size of format strings that
+	will be cached.
+
+2010-01-05  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* configure: Regenerate.
+
+2010-01-03  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR libfortran/42420
+	* io/unix.c: Defines for MINGW stat and fstat.
+	(gfstat_t): New typedef.
+	(id_from_fd): Use gfstat_t instead of struct stat.
+	(fd_to_stream): Likewise.
+	(compare_file_filename): Likewise.
+	(find_file): Likewise.
+	(file_exists): Likewise.
+	(inquire_sequential): Likewise.
+	(inquire_direct): Likewise.
+	(inquire_formatted): Likewise.
+
+
+Copyright (C) 2010 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.
