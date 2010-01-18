@@ -1,3 +1,18 @@
+2010-01-18  Thierry LAFAGE  <lafage@dingdong.irisa.fr>
+
+	* gcc/config/cil32/source-location.h: new file defining utilities
+		  for source location information within CIL statements.
+	* gcc/config/cil32/missing-protos.c (replace_args): add source
+		  location information in CIL statements.
+	* gcc/config/cil32/gimple-to-cil.c: add source location information
+		  in CIL statements.
+	* gcc/config/cil32/remove-temps.c: add source location information
+		  in CIL statements.
+	* gcc/config/cil32/emit-cil.c: add source location information in
+		  CIL statements.
+	* gcc/config/cil32/cil-refs.h: add source location information in
+		  CIL statements.
+
 2010-01-18  Thierry Lafage  <thierry.lafage@inria.fr>
 
 	* MAINTAINERS: reindented my entry with tabs instead of spaces.
@@ -35,7 +50,7 @@
 2009-03-11  Nicola Pero  <nicola.pero@meta-innovation.com>
 
 	* MAINTAINERS: Update e-mail address.
-	
+
 2009-03-11  Dorit Nuzman  <dorit@il.ibm.com>
 
 	* MAINTAINERS: Remove myself as auto-vectorizer maintainer.

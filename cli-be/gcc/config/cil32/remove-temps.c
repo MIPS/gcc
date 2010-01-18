@@ -25,6 +25,7 @@ Authors:
    Andrea Ornstein
    Erven Rohou
    Gabriele Svelto
+   Thierry Lafage
 
 Contact information at STMicroelectronics:
 Andrea C. Ornstein      <andrea.ornstein@st.com>
@@ -65,7 +66,7 @@ static void visit_bb (basic_block);
 static bool visited_p (basic_block);
 
 static void record_address_taken_vars (void);
-static cil_stmt build_conversion (cil_type_t, cil_type_t);
+static cil_stmt build_conversion (cil_type_t, cil_type_t, source_location);
 static bool remove_matching_ldloc (cil_stmt_iterator, cil_stack, tree, bool);
 static void stloc_ldloc_to_dup (void);
 static bool compatible_vars_p (tree, tree);
@@ -136,9 +137,10 @@ record_address_taken_vars (void)
    those types.  */
 
 static cil_stmt
-build_conversion (cil_type_t dst, cil_type_t src)
+build_conversion (cil_type_t dst, cil_type_t src, source_location sloc)
 {
   enum cil_opcode opcode;
+  cil_stmt stmt;
 
   switch (dst)
     {
@@ -213,7 +215,9 @@ build_conversion (cil_type_t dst, cil_type_t src)
       return NULL;
     }
 
-  return cil_build_stmt (opcode);
+  stmt = cil_build_stmt (opcode);
+  cil_set_locus(stmt, sloc);
+  return stmt;
 }
 
 /* Looks for a LDLOC instruction operating on variable VAR using the CSI
@@ -384,7 +388,7 @@ stloc_ldloc_to_dup (void)
 			 as large as the STLOC/LDLOC couple it replaces but
 			 allows for the variable to be removed.  */
 		      type = scalar_to_cil (TREE_TYPE (var));
-		      conv = build_conversion (type, cil_stack_top (stack));
+		      conv = build_conversion (type, cil_stack_top (stack), cil_locus(stmt));
 
 		      if (conv)
 			{
@@ -394,6 +398,7 @@ stloc_ldloc_to_dup (void)
 		    }
 
 		  dup = cil_build_stmt (CIL_DUP);
+		  cil_set_locus(dup, cil_locus(stmt));
 		  csi_insert_before (&csi, dup, CSI_SAME_STMT);
 		  cil_stack_after_stmt (stack, dup);
 		}

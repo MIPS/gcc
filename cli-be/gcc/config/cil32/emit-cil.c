@@ -23,6 +23,7 @@ Authors:
    Andrea Ornstein
    Erven Rohou
    Gabriele Svelto
+   Thierry Lafage
 
 Contact information at STMicroelectronics:
 Andrea C. Ornstein      <andrea.ornstein@st.com>
@@ -47,6 +48,7 @@ Erven Rohou             <erven.rohou@inria.fr>
 #include "output.h"
 #include "pointer-set.h"
 #include "varray.h"
+#include "flags.h"
 
 #include "cil-builtins.h"
 #include "cil-refs.h"
@@ -898,8 +900,10 @@ emit_init_method (FILE *file)
 	  tree init = DECL_INITIAL (decl);
 
 	  DECL_INITIAL (decl) = NULL_TREE;
-	  csi_insert_seq_after (&csi, expand_init_to_cil_seq (decl, init),
-				CSI_CONTINUE_LINKING);
+	  csi_insert_seq_after (&csi,
+                                expand_init_to_cil_seq (decl, init,
+                                                        UNKNOWN_LOCATION),
+                                CSI_CONTINUE_LINKING);
 	}
 
       stmt = cil_build_stmt (CIL_RET);
@@ -1404,6 +1408,44 @@ emit_call_arg (FILE *file, const_cil_stmt call)
   fprintf (file, ")");
 }
 
+/* TL // Emits debug info before CIL statement STMT in the file
+ * specified by FILE.  */
+static source_location prev_loc = UNKNOWN_LOCATION;
+static void
+emit_cil_dbginfo_before (FILE *file, const_cil_stmt stmt)
+{
+  source_location loc;
+  expanded_location xloc;
+
+  if (debug_info_level == DINFO_LEVEL_NONE)
+    return;
+
+  loc = cil_locus (stmt);
+
+  if (loc == prev_loc)
+    {
+      if (debug_info_level >= DINFO_LEVEL_VERBOSE)
+        fprintf (file, "\n\t// Same location");
+      return;
+    }
+
+  if (loc == UNKNOWN_LOCATION)
+    {
+      if (debug_info_level >= DINFO_LEVEL_VERBOSE)
+        fprintf (file, "\n\t// UNKNOWN location");
+      return;
+    }
+
+  xloc = expand_location (loc);
+  fprintf (file, "\n\t");
+  if (xloc.column == 0) /* Means no column info or whole source line. */
+    fprintf (file, ".line %d '%s'", xloc.line, xloc.file);
+  else
+    fprintf (file, ".line %d:%d '%s'", xloc.line, xloc.column, xloc.file);
+
+  prev_loc = loc;
+}
+
 /* Emits a single CIL statement STMT the file specified by FILE.  */
 
 static void
@@ -1419,6 +1461,8 @@ emit_cil_stmt (FILE *file, const_cil_stmt stmt)
       && DECL_BUILT_IN (cil_call_fdecl (stmt))
       && emit_builtin_call (file, stmt))
     return;
+
+  emit_cil_dbginfo_before (file, stmt);
 
   emit_prefixes (file, stmt);
 

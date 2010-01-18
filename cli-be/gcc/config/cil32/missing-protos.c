@@ -23,6 +23,7 @@ Authors:
    Andrea Ornstein
    Erven Rohou
    Gabriele Svelto
+   Thierry Lafage
 
 Contact information at STMicroelectronics:
 Andrea C. Ornstein      <andrea.ornstein@st.com>
@@ -45,6 +46,7 @@ Erven Rohou             <erven.rohou@inria.fr>
 #include "cil-stmt.h"
 #include "cil-types.h"
 #include "emit-cil.h"
+#include "source-location.h"
 
 /******************************************************************************
  * Globals                                                                    *
@@ -161,9 +163,12 @@ replace_args (void)
 
       if (slot != NULL)
 	{
+          source_location sloc = source_location_from_tree (args);
 	  stmt = cil_build_stmt_arg (CIL_LDARG, args);
+	  cil_set_locus(stmt, sloc);
 	  csi_insert_after (&csi, stmt, CSI_CONTINUE_LINKING);
 	  stmt = cil_build_stmt_arg (CIL_STLOC, (tree) *slot);
+	  cil_set_locus(stmt, sloc);
 	  csi_insert_after (&csi, stmt, CSI_CONTINUE_LINKING);
 	}
     }

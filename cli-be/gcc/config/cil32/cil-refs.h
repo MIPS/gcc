@@ -23,6 +23,7 @@ Authors:
    Andrea Ornstein
    Erven Rohou
    Gabriele Svelto
+   Thierry Lafage
 
 Contact information at STMicroelectronics:
 Andrea C. Ornstein      <andrea.ornstein@st.com>
@@ -114,7 +115,7 @@ extern tree get_label_addrs ( void );
 
 extern void record_ctor (tree);
 extern VEC(tree, gc) *pending_ctors_vec ( void );
-extern cil_seq expand_init_to_cil_seq (tree, tree);
+extern cil_seq expand_init_to_cil_seq (tree, tree, source_location);
 extern void cil_lower_init (cil_seq);
 
 
