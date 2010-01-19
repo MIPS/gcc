@@ -171,9 +171,9 @@ package body Exp_Ch6 is
    --
    --    A := TypeA (Temp);
    --
-   --  after the call. Here TypeA is the actual type of variable A.
-   --  For out parameters, the initial declaration has no expression.
-   --  If A is not an entity name, we generate instead:
+   --  after the call. Here TypeA is the actual type of variable A. For out
+   --  parameters, the initial declaration has no expression. If A is not an
+   --  entity name, we generate instead:
    --
    --    Var  : TypeA renames A;
    --    Temp : T := Var;       --  omitting expression for out parameter.
@@ -183,8 +183,8 @@ package body Exp_Ch6 is
    --  For other in-out parameters, we emit the required constraint checks
    --  before and/or after the call.
    --
-   --  For all parameter modes, actuals that denote components and slices
-   --  of packed arrays are expanded into suitable temporaries.
+   --  For all parameter modes, actuals that denote components and slices of
+   --  packed arrays are expanded into suitable temporaries.
    --
    --  For non-scalar objects that are possibly unaligned, add call by copy
    --  code (copy in for IN and IN OUT, copy out for OUT and IN OUT).
@@ -419,8 +419,8 @@ package body Exp_Ch6 is
 
       --  Create the actual which is a pointer to the appropriate finalization
       --  list. Acc_Type is present if and only if this call is the
-      --  initialization of an allocator. Use the Current_Scope or the Acc_Type
-      --  as appropriate.
+      --  initialization of an allocator. Use the Current_Scope or the
+      --  Acc_Type as appropriate.
 
       if Present (Acc_Type)
         and then (Ekind (Acc_Type) = E_Anonymous_Access_Type
@@ -496,6 +496,7 @@ package body Exp_Ch6 is
       declare
          Activation_Chain_Actual : Node_Id;
          Activation_Chain_Formal : Node_Id;
+
       begin
          --  Locate implicit activation chain parameter in the called function
 
@@ -1807,6 +1808,10 @@ package body Exp_Ch6 is
                Make_Identifier (Loc, Chars (EF))));
 
          Analyze_And_Resolve (Expr, Etype (EF));
+
+         if Nkind (N) = N_Function_Call then
+            Set_Is_Accessibility_Actual (Parent (Expr));
+         end if;
       end Add_Extra_Actual;
 
       ---------------------------
@@ -2287,9 +2292,10 @@ package body Exp_Ch6 is
                         when Attribute_Access =>
                            Add_Extra_Actual
                              (Make_Integer_Literal (Loc,
-                                Intval =>
-                                  Object_Access_Level (Prefix (Prev_Orig))),
-                              Extra_Accessibility (Formal));
+                               Intval =>
+                                 Object_Access_Level
+                                   (Prefix (Prev_Orig))),
+                                    Extra_Accessibility (Formal));
 
                         --  Treat the unchecked attributes as library-level
 
@@ -2308,9 +2314,9 @@ package body Exp_Ch6 is
 
                      end case;
 
-                  --  For allocators we pass the level of the execution of
-                  --  the called subprogram, which is one greater than the
-                  --  current scope level.
+                  --  For allocators we pass the level of the execution of the
+                  --  called subprogram, which is one greater than the current
+                  --  scope level.
 
                   when N_Allocator =>
                      Add_Extra_Actual
@@ -2328,7 +2334,6 @@ package body Exp_Ch6 is
                        (Make_Integer_Literal (Loc,
                           Intval => Type_Access_Level (Etype (Prev))),
                         Extra_Accessibility (Formal));
-
                end case;
             end if;
          end if;
@@ -2773,6 +2778,19 @@ package body Exp_Ch6 is
                         Rewrite (Actual,
                           Unchecked_Convert_To (Parent_Typ,
                             Relocate_Node (Actual)));
+
+                        --  If the relocated node is a function call then it
+                        --  can be part of the expansion of the predefined
+                        --  equality operator of a tagged type and we may
+                        --  need to adjust its SCIL dispatching node.
+
+                        if Generate_SCIL
+                          and then Nkind (Actual) /= N_Null
+                          and then Nkind (Expression (Actual))
+                                     = N_Function_Call
+                        then
+                           Adjust_SCIL_Node (Actual, Expression (Actual));
+                        end if;
 
                         Analyze (Actual);
                         Resolve (Actual, Parent_Typ);
@@ -4484,6 +4502,21 @@ package body Exp_Ch6 is
             Analyze (Prot_Decl);
             Insert_Actions (N, Freeze_Entity (Prot_Id, Loc));
             Set_Protected_Body_Subprogram (Subp, Prot_Id);
+
+            --  Create protected operation as well. Even though the operation
+            --  is only accessible within the body, it is possible to make it
+            --  available outside of the protected object by using 'Access to
+            --  provide a callback, so we build the protected version in all
+            --  cases.
+
+            Prot_Decl :=
+                 Make_Subprogram_Declaration (Loc,
+                   Specification =>
+                     Build_Protected_Sub_Specification
+                      (N, Scop, Protected_Mode));
+            Insert_Before (Prot_Bod, Prot_Decl);
+            Analyze (Prot_Decl);
+
             Pop_Scope;
          end if;
 

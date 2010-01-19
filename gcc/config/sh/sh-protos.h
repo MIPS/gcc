@@ -142,7 +142,6 @@ extern int sh_cfun_interrupt_handler_p (void);
 extern int sh_cfun_resbank_handler_p (void);
 extern int sh_attr_renesas_p (const_tree);
 extern int sh_cfun_attr_renesas_p (void);
-extern void sh_initialize_trampoline (rtx, rtx, rtx);
 extern bool sh_cannot_change_mode_class
 	      (enum machine_mode, enum machine_mode, enum reg_class);
 extern void sh_mark_label (rtx, int);
@@ -164,7 +163,7 @@ extern rtx sh_function_arg (CUMULATIVE_ARGS *, enum machine_mode, tree, int);
 extern void sh_function_arg_advance (CUMULATIVE_ARGS *, enum machine_mode, tree, int);
 extern int sh_pass_in_reg_p (CUMULATIVE_ARGS *, enum machine_mode, tree);
 extern void sh_init_cumulative_args (CUMULATIVE_ARGS *, tree, rtx, tree, signed int, enum machine_mode);
-extern bool sh_promote_prototypes (const_tree);
+extern bool sh_function_value_regno_p (const unsigned int);
 extern rtx sh_dwarf_register_span (rtx);
 
 extern rtx replace_n_hard_rtx (rtx, rtx *, int , int);
@@ -184,15 +183,15 @@ extern bool sh_hard_regno_mode_ok (unsigned int, enum machine_mode);
 #endif /* ! GCC_SH_PROTOS_H */
 
 #ifdef SYMBIAN
-extern bool         sh_symbian_dllimport_name_p       (const char *);
 extern const char * sh_symbian_strip_name_encoding    (const char *);
-extern bool         sh_symbian_dllexport_name_p       (const char *);
-extern int          symbian_import_export_class       (tree, int);
+extern bool         sh_symbian_is_dllexported_name    (const char *);
 #ifdef TREE_CODE
-extern bool         sh_symbian_dllexport_p            (tree);
+extern bool         sh_symbian_is_dllexported         (tree);
+extern int          sh_symbian_import_export_class    (tree, int);
 extern tree         sh_symbian_handle_dll_attribute   (tree *, tree, tree, int, bool *);
 #ifdef RTX_CODE
 extern void         sh_symbian_encode_section_info    (tree, rtx, int);
 #endif
 #endif
 #endif /* SYMBIAN */
+

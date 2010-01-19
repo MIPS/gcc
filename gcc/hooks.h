@@ -14,7 +14,7 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; see the file COPYING3.  If not see
-   <http://www.gnu.org/licenses/>.  
+   <http://www.gnu.org/licenses/>.
 
    In other words, you are welcome to use, share and improve this program.
    You are forbidden to forbid anyone else to use, share and improve
@@ -28,6 +28,7 @@
 extern bool hook_bool_void_false (void);
 extern bool hook_bool_void_true (void);
 extern bool hook_bool_bool_false (bool);
+extern bool hook_bool_const_int_const_int_true (const int, const int);
 extern bool hook_bool_mode_false (enum machine_mode);
 extern bool hook_bool_mode_const_rtx_false (enum machine_mode, const_rtx);
 extern bool hook_bool_mode_const_rtx_true (enum machine_mode, const_rtx);
@@ -49,6 +50,7 @@ extern bool hook_bool_rtx_int_int_intp_bool_false (rtx, int, int, int *, bool);
 extern bool hook_bool_constcharptr_size_t_false (const char *, size_t);
 extern bool hook_bool_size_t_constcharptr_int_true (size_t, const char *, int);
 extern bool hook_bool_tree_tree_false (tree, tree);
+extern bool hook_bool_tree_tree_true (tree, tree);
 extern bool hook_bool_tree_bool_false (tree, bool);
 
 extern void hook_void_void (void);

@@ -360,7 +360,7 @@ enum dom_state
 };
 
 /* What sort of profiling information we have.  */
-enum profile_status
+enum profile_status_d
 {
   PROFILE_ABSENT,
   PROFILE_GUESSED,
@@ -393,7 +393,7 @@ struct GTY(()) control_flow_graph {
      only used for the gimple CFG.  */
   VEC(basic_block,gc) *x_label_to_block_map;
 
-  enum profile_status x_profile_status;
+  enum profile_status_d x_profile_status;
 
   /* Whether the dominators and the postdominators are available.  */
   enum dom_state x_dom_computed[2];
@@ -463,7 +463,7 @@ struct GTY(()) control_flow_graph {
   for ((INSN) = BB_HEAD (BB), (CURR) = (INSN) ? NEXT_INSN ((INSN)): NULL;	\
        (INSN) && (INSN) != NEXT_INSN (BB_END (BB));	\
        (INSN) = (CURR), (CURR) = (INSN) ? NEXT_INSN ((INSN)) : NULL)
-       
+
 #define FOR_BB_INSNS_REVERSE(BB, INSN)		\
   for ((INSN) = BB_END (BB);			\
        (INSN) && (INSN) != PREV_INSN (BB_HEAD (BB));	\
@@ -499,8 +499,6 @@ extern bitmap_obstack reg_obstack;
 /* The two blocks that are always in the cfg.  */
 #define NUM_FIXED_BLOCKS (2)
 
-
-#define BLOCK_NUM(INSN)	      (BLOCK_FOR_INSN (INSN)->index + 0)
 #define set_block_for_insn(INSN, BB)  (BLOCK_FOR_INSN (INSN) = BB)
 
 extern void compute_bb_for_insn (void);

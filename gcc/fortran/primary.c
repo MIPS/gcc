@@ -1347,6 +1347,25 @@ gfc_match_literal_constant (gfc_expr **result, int signflag)
 }
 
 
+/* This checks if a symbol is the return value of an encompassing function.
+   Function nesting can be maximally two levels deep, but we may have
+   additional local namespaces like BLOCK etc.  */
+
+bool
+gfc_is_function_return_value (gfc_symbol *sym, gfc_namespace *ns)
+{
+  if (!sym->attr.function || (sym->result != sym))
+    return false;
+  while (ns)
+    {
+      if (ns->proc_name == sym)
+	return true;
+      ns = ns->parent;
+    }
+  return false;
+}
+
+
 /* Match a single actual argument value.  An actual argument is
    usually an expression, but can also be a procedure name.  If the
    argument is a single name, it is not always possible to tell
@@ -1415,9 +1434,7 @@ match_actual_arg (gfc_expr **result)
 	     is being defined, then we have a variable.  */
 	  if (sym->attr.function && sym->result == sym)
 	    {
-	      if (gfc_current_ns->proc_name == sym
-		  || (gfc_current_ns->parent != NULL
-		      && gfc_current_ns->parent->proc_name == sym))
+	      if (gfc_is_function_return_value (sym, gfc_current_ns))
 		break;
 
 	      if (sym->attr.entry
@@ -1733,7 +1750,9 @@ gfc_match_varspec (gfc_expr *primary, int equiv_flag, bool sub_flag,
       || (sym->attr.dimension && !sym->attr.proc_pointer
 	  && !gfc_is_proc_ptr_comp (primary, NULL)
 	  && !(gfc_matching_procptr_assignment
-	       && sym->attr.flavor == FL_PROCEDURE)))
+	       && sym->attr.flavor == FL_PROCEDURE))
+      || (sym->ts.type == BT_CLASS
+	  && sym->ts.u.derived->components->attr.dimension))
     {
       /* In EQUIVALENCE, we don't know yet whether we are seeing
 	 an array, character variable or array of character
@@ -1767,7 +1786,8 @@ gfc_match_varspec (gfc_expr *primary, int equiv_flag, bool sub_flag,
       && gfc_get_default_type (sym->name, sym->ns)->type == BT_DERIVED)
     gfc_set_default_type (sym, 0, sym->ns);
 
-  if (sym->ts.type != BT_DERIVED || gfc_match_char ('%') != MATCH_YES)
+  if ((sym->ts.type != BT_DERIVED && sym->ts.type != BT_CLASS)
+      || gfc_match_char ('%') != MATCH_YES)
     goto check_substring;
 
   sym = sym->ts.u.derived;
@@ -1783,7 +1803,11 @@ gfc_match_varspec (gfc_expr *primary, int equiv_flag, bool sub_flag,
       if (m != MATCH_YES)
 	return MATCH_ERROR;
 
-      tbp = gfc_find_typebound_proc (sym, &t, name, false);
+      if (sym->f2k_derived)
+	tbp = gfc_find_typebound_proc (sym, &t, name, false, &gfc_current_locus);
+      else
+	tbp = NULL;
+
       if (tbp)
 	{
 	  gfc_symbol* tbp_sym;
@@ -1802,6 +1826,9 @@ gfc_match_varspec (gfc_expr *primary, int equiv_flag, bool sub_flag,
 	  primary->expr_type = EXPR_COMPCALL;
 	  primary->value.compcall.tbp = tbp->n.tb;
 	  primary->value.compcall.name = tbp->name;
+	  primary->value.compcall.ignore_pass = 0;
+	  primary->value.compcall.assign = 0;
+	  primary->value.compcall.base_object = NULL;
 	  gcc_assert (primary->symtree->n.sym->attr.referenced);
 	  if (tbp_sym)
 	    primary->ts = tbp_sym->ts;
@@ -1858,8 +1885,21 @@ gfc_match_varspec (gfc_expr *primary, int equiv_flag, bool sub_flag,
 	  if (m != MATCH_YES)
 	    return m;
 	}
+      else if (component->ts.type == BT_CLASS
+	       && component->ts.u.derived->components->as != NULL
+	       && !component->attr.proc_pointer)
+	{
+	  tail = extend_ref (primary, tail);
+	  tail->type = REF_ARRAY;
 
-      if (component->ts.type != BT_DERIVED
+	  m = gfc_match_array_ref (&tail->u.ar,
+				   component->ts.u.derived->components->as,
+				   equiv_flag);
+	  if (m != MATCH_YES)
+	    return m;
+	}
+
+      if ((component->ts.type != BT_DERIVED && component->ts.type != BT_CLASS)
 	  || gfc_match_char ('%') != MATCH_YES)
 	break;
 
@@ -1868,7 +1908,7 @@ gfc_match_varspec (gfc_expr *primary, int equiv_flag, bool sub_flag,
 
 check_substring:
   unknown = false;
-  if (primary->ts.type == BT_UNKNOWN)
+  if (primary->ts.type == BT_UNKNOWN && sym->attr.flavor != FL_DERIVED)
     {
       if (gfc_get_default_type (sym->name, sym->ns)->type == BT_CHARACTER)
        {
@@ -1936,23 +1976,35 @@ gfc_variable_attr (gfc_expr *expr, gfc_typespec *ts)
   int dimension, pointer, allocatable, target;
   symbol_attribute attr;
   gfc_ref *ref;
+  gfc_symbol *sym;
+  gfc_component *comp;
 
   if (expr->expr_type != EXPR_VARIABLE && expr->expr_type != EXPR_FUNCTION)
     gfc_internal_error ("gfc_variable_attr(): Expression isn't a variable");
 
   ref = expr->ref;
-  attr = expr->symtree->n.sym->attr;
+  sym = expr->symtree->n.sym;
+  attr = sym->attr;
 
-  dimension = attr.dimension;
-  pointer = attr.pointer;
-  allocatable = attr.allocatable;
+  if (sym->ts.type == BT_CLASS)
+    {
+      dimension = sym->ts.u.derived->components->attr.dimension;
+      pointer = sym->ts.u.derived->components->attr.pointer;
+      allocatable = sym->ts.u.derived->components->attr.allocatable;
+    }
+  else
+    {
+      dimension = attr.dimension;
+      pointer = attr.pointer;
+      allocatable = attr.allocatable;
+    }
 
   target = attr.target;
   if (pointer || attr.proc_pointer)
     target = 1;
 
   if (ts != NULL && expr->ts.type == BT_UNKNOWN)
-    *ts = expr->symtree->n.sym->ts;
+    *ts = sym->ts;
 
   for (; ref; ref = ref->next)
     switch (ref->type)
@@ -1981,10 +2033,11 @@ gfc_variable_attr (gfc_expr *expr, gfc_typespec *ts)
 	break;
 
       case REF_COMPONENT:
-	attr = ref->u.c.component->attr;
+	comp = ref->u.c.component;
+	attr = comp->attr;
 	if (ts != NULL)
 	  {
-	    *ts = ref->u.c.component->ts;
+	    *ts = comp->ts;
 	    /* Don't set the string length if a substring reference
 	       follows.  */
 	    if (ts->type == BT_CHARACTER
@@ -1992,8 +2045,16 @@ gfc_variable_attr (gfc_expr *expr, gfc_typespec *ts)
 		ts->u.cl = NULL;
 	  }
 
-	pointer = ref->u.c.component->attr.pointer;
-	allocatable = ref->u.c.component->attr.allocatable;
+	if (comp->ts.type == BT_CLASS)
+	  {
+	    pointer = comp->ts.u.derived->components->attr.pointer;
+	    allocatable = comp->ts.u.derived->components->attr.allocatable;
+	  }
+	else
+	  {
+	    pointer = comp->attr.pointer;
+	    allocatable = comp->attr.allocatable;
+	  }
 	if (pointer || attr.proc_pointer)
 	  target = 1;
 
@@ -2030,7 +2091,16 @@ gfc_expr_attr (gfc_expr *e)
       gfc_clear_attr (&attr);
 
       if (e->value.function.esym != NULL)
-	attr = e->value.function.esym->result->attr;
+	{
+	  gfc_symbol *sym = e->value.function.esym->result;
+	  attr = sym->attr;
+	  if (sym->ts.type == BT_CLASS)
+	    {
+	      attr.dimension = sym->ts.u.derived->components->attr.dimension;
+	      attr.pointer = sym->ts.u.derived->components->attr.pointer;
+	      attr.allocatable = sym->ts.u.derived->components->attr.allocatable;
+	    }
+	}
       else
 	attr = gfc_variable_attr (e, NULL);
 
@@ -2468,9 +2538,7 @@ gfc_match_rvalue (gfc_expr **result)
 	  return MATCH_ERROR;
 	}
 
-      if (gfc_current_ns->proc_name == sym
-	  || (gfc_current_ns->parent != NULL
-	      && gfc_current_ns->parent->proc_name == sym))
+      if (gfc_is_function_return_value (sym, gfc_current_ns))
 	goto variable;
 
       if (sym->attr.entry
@@ -2945,10 +3013,7 @@ match_variable (gfc_expr **result, int equiv_flag, int host_flag)
       if (sym->attr.function
           && !sym->attr.external
           && sym->result == sym
-          && ((sym == gfc_current_ns->proc_name
-               && sym == gfc_current_ns->proc_name->result)
-              || (gfc_current_ns->parent
-                  && sym == gfc_current_ns->parent->proc_name->result)
+          && (gfc_is_function_return_value (sym, gfc_current_ns)
               || (sym->attr.entry
                   && sym->ns == gfc_current_ns)
               || (sym->attr.entry

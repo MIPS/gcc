@@ -29,6 +29,7 @@ with Makeutl;          use Makeutl;
 with MLib.Tgt;
 with Opt;              use Opt;
 with Output;           use Output;
+with Prj.Env;
 with Prj.Err;
 with Prj.Part;
 with Prj.PP;
@@ -697,6 +698,8 @@ package body Prj.Conf is
             Args     : Argument_List (1 .. 5);
             Arg_Last : Positive;
 
+            Obj_Dir_Exists : Boolean := True;
+
          begin
             --  Check if the object directory exists. If Setup_Projects is True
             --  (-p) and directory does not exist, attempt to create it.
@@ -731,6 +734,7 @@ package body Prj.Conf is
                      Prj.Err.Error_Msg
                        (Flags,
                         "?object directory " & Obj_Dir & " does not exist");
+                     Obj_Dir_Exists := False;
                   when Silent =>
                      null;
                end case;
@@ -744,8 +748,35 @@ package body Prj.Conf is
             --  If no config file was specified, set the auto.cgpr one
 
             if Config_File_Name = "" then
-               Args (3) := new String'
-                 (Obj_Dir & Directory_Separator & Auto_Cgpr);
+               if Obj_Dir_Exists then
+                  Args (3) :=
+                    new String'(Obj_Dir & Directory_Separator & Auto_Cgpr);
+
+               else
+                  declare
+                     Path_FD   : File_Descriptor;
+                     Path_Name : Path_Name_Type;
+
+                  begin
+                     Prj.Env.Create_Temp_File
+                       (In_Tree   => Project_Tree,
+                        Path_FD   => Path_FD,
+                        Path_Name => Path_Name,
+                        File_Use  => "configuration file");
+
+                     if Path_FD /= Invalid_FD then
+                        Args (3) := new String'(Get_Name_String (Path_Name));
+                        GNAT.OS_Lib.Close (Path_FD);
+
+                     else
+                        --  We'll have an error message later on
+
+                        Args (3) :=
+                          new String'
+                            (Obj_Dir & Directory_Separator & Auto_Cgpr);
+                     end if;
+                  end;
+               end if;
             else
                Args (3) := new String'(Config_File_Name);
             end if;
@@ -783,9 +814,16 @@ package body Prj.Conf is
                Write_Eol;
 
             elsif not Quiet_Output then
-               Write_Str ("creating ");
-               Write_Str (Simple_Name (Args (3).all));
-               Write_Eol;
+               --  Display no message if we are creating auto.cgpr, unless in
+               --  verbose mode
+
+               if Config_File_Name /= ""
+                 or else Verbose_Mode
+               then
+                  Write_Str ("creating ");
+                  Write_Str (Simple_Name (Args (3).all));
+                  Write_Eol;
+               end if;
             end if;
 
             Spawn (Gprconfig_Path.all, Args (1 .. Arg_Last) & Switches.all,
@@ -1000,7 +1038,6 @@ package body Prj.Conf is
    begin
       --  Parse the user project tree
 
-      Prj.Tree.Initialize (Project_Node_Tree);
       Prj.Initialize (Project_Tree);
 
       Main_Project      := No_Project;
@@ -1151,8 +1188,11 @@ package body Prj.Conf is
          Index : String := "";
          Pkg   : Project_Node_Id := Empty_Node)
       is
-         Attr : Project_Node_Id;
-         Val  : Name_Id := No_Name;
+         Attr       : Project_Node_Id;
+         pragma Unreferenced (Attr);
+
+         Expr   : Name_Id         := No_Name;
+         Val    : Name_Id         := No_Name;
          Parent : Project_Node_Id := Config_File;
       begin
          if Index /= "" then
@@ -1165,23 +1205,20 @@ package body Prj.Conf is
             Parent := Pkg;
          end if;
 
+         Name_Len := Value'Length;
+         Name_Buffer (1 .. Name_Len) := Value;
+         Expr := Name_Find;
+
          Attr := Create_Attribute
            (Tree       => Project_Tree,
             Prj_Or_Pkg => Parent,
             Name       => Name,
             Index_Name => Val,
-            Kind       => Prj.Single);
-
-         Name_Len := Value'Length;
-         Name_Buffer (1 .. Name_Len) := Value;
-         Val := Name_Find;
-
-         Set_Expression_Of
-           (Attr, Project_Tree,
-            Enclose_In_Expression
-              (Create_Literal_String (Val, Project_Tree),
-               Project_Tree));
+            Kind       => Prj.Single,
+            Value      => Create_Literal_String (Expr, Project_Tree));
       end Create_Attribute;
+
+      --  Local variables
 
       Name   : Name_Id;
       Naming : Project_Node_Id;

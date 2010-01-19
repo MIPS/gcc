@@ -1,6 +1,7 @@
 // Versatile string -*- C++ -*-
 
-// Copyright (C) 2005, 2006, 2007, 2008, 2009 Free Software Foundation, Inc.
+// Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010
+// Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -49,7 +50,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
     class __versa_string
     : private _Base<_CharT, _Traits, _Alloc>
     {
-      typedef _Base<_CharT, _Traits, _Alloc>                __vstring_base;      
+      typedef _Base<_CharT, _Traits, _Alloc>                __vstring_base;    
       typedef typename __vstring_base::_CharT_alloc_type    _CharT_alloc_type;
 
       // Types:
@@ -259,8 +260,8 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       __versa_string&
       operator=(__versa_string&& __str)
       {
-	if (this != &__str)
-	  this->swap(__str);
+	// NB: DR 1204.
+	this->swap(__str);
 	return *this;
       }
 
@@ -454,6 +455,18 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       void
       resize(size_type __n)
       { this->resize(__n, _CharT()); }
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      /// A non-binding request to reduce capacity() to size().
+      void
+      shrink_to_fit()
+      {
+	try
+	  { this->reserve(0); }
+	catch(...)
+	  { }
+      }
+#endif
 
       /**
        *  Returns the total number of characters that the %string can
@@ -768,6 +781,23 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 	this->_M_assign(__str);
 	return *this;
       }
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      /**
+       *  @brief  Set value to contents of another string.
+       *  @param  __str  Source string to use.
+       *  @return  Reference to this string.
+       *
+       *  This function sets this string to the exact contents of @a __str.
+       *  @a __str is a valid, but unspecified string.
+       */
+      __versa_string&
+      assign(__versa_string&& __str)
+      {
+	this->swap(__str);
+	return *this;
+      }
+#endif // __GXX_EXPERIMENTAL_CXX0X__
 
       /**
        *  @brief  Set value to a substring of a string.
@@ -2464,6 +2494,32 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
   { return __gnu_cxx::__stoa(&std::strtold, "stold", __str.c_str(), __idx); }
 
   // NB: (v)snprintf vs sprintf.
+
+  // DR 1261.
+  inline __vstring
+  to_string(int __val)
+  { return __gnu_cxx::__to_xstring<__vstring>(&std::vsnprintf, 4 * sizeof(int),
+					      "%d", __val); }
+
+  inline __vstring
+  to_string(unsigned __val)
+  { return __gnu_cxx::__to_xstring<__vstring>(&std::vsnprintf,
+					      4 * sizeof(unsigned),
+					      "%u", __val); }
+
+  inline __vstring
+  to_string(long __val)
+  { return __gnu_cxx::__to_xstring<__vstring>(&std::vsnprintf,
+					      4 * sizeof(long),
+					      "%ld", __val); }
+
+  inline __vstring
+  to_string(unsigned long __val)
+  { return __gnu_cxx::__to_xstring<__vstring>(&std::vsnprintf,
+					      4 * sizeof(unsigned long),
+					      "%lu", __val); }
+
+
   inline __vstring
   to_string(long long __val)
   { return __gnu_cxx::__to_xstring<__vstring>(&std::vsnprintf,
@@ -2475,6 +2531,22 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
   { return __gnu_cxx::__to_xstring<__vstring>(&std::vsnprintf,
 					      4 * sizeof(unsigned long long),
 					      "%llu", __val); }
+
+  inline __vstring
+  to_string(float __val)
+  {
+    const int __n = __numeric_traits<float>::__max_exponent10 + 20;
+    return __gnu_cxx::__to_xstring<__vstring>(&std::vsnprintf, __n,
+					      "%f", __val);
+  }
+
+  inline __vstring
+  to_string(double __val)
+  {
+    const int __n = __numeric_traits<double>::__max_exponent10 + 20;
+    return __gnu_cxx::__to_xstring<__vstring>(&std::vsnprintf, __n,
+					      "%f", __val);
+  }
 
   inline __vstring
   to_string(long double __val)
@@ -2523,6 +2595,32 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
   stold(const __wvstring& __str, std::size_t* __idx = 0)
   { return __gnu_cxx::__stoa(&std::wcstold, "stold", __str.c_str(), __idx); }
 
+#ifndef _GLIBCXX_HAVE_BROKEN_VSWPRINTF
+  // DR 1261.
+  inline __wvstring
+  to_wstring(int __val)
+  { return __gnu_cxx::__to_xstring<__wvstring>(&std::vswprintf,
+					       4 * sizeof(int),
+					       L"%d", __val); }
+
+  inline __wvstring
+  to_wstring(unsigned __val)
+  { return __gnu_cxx::__to_xstring<__wvstring>(&std::vswprintf,
+					       4 * sizeof(unsigned),
+					       L"%u", __val); }
+
+  inline __wvstring
+  to_wstring(long __val)
+  { return __gnu_cxx::__to_xstring<__wvstring>(&std::vswprintf,
+					       4 * sizeof(long),
+					       L"%ld", __val); }
+
+  inline __wvstring
+  to_wstring(unsigned long __val)
+  { return __gnu_cxx::__to_xstring<__wvstring>(&std::vswprintf,
+					       4 * sizeof(unsigned long),
+					       L"%lu", __val); }
+
   inline __wvstring
   to_wstring(long long __val)
   { return __gnu_cxx::__to_xstring<__wvstring>(&std::vswprintf,
@@ -2536,12 +2634,29 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 					       L"%llu", __val); }
 
   inline __wvstring
+  to_wstring(float __val)
+  {
+    const int __n = __numeric_traits<float>::__max_exponent10 + 20;
+    return __gnu_cxx::__to_xstring<__wvstring>(&std::vswprintf, __n,
+					       L"%f", __val);
+  }
+
+  inline __wvstring
+  to_wstring(double __val)
+  {
+    const int __n = __numeric_traits<double>::__max_exponent10 + 20;
+    return __gnu_cxx::__to_xstring<__wvstring>(&std::vswprintf, __n,
+					       L"%f", __val);
+  }
+
+  inline __wvstring
   to_wstring(long double __val)
   {
     const int __n = __numeric_traits<long double>::__max_exponent10 + 20;
     return __gnu_cxx::__to_xstring<__wvstring>(&std::vswprintf, __n,
 					       L"%Lf", __val);
   }
+#endif
 #endif
 
 _GLIBCXX_END_NAMESPACE

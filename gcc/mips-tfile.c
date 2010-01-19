@@ -3,7 +3,7 @@
    in the form of comments (the mips assembler does not support
    assembly access to debug information).
    Copyright (C) 1991, 1993, 1994, 1995, 1997, 1998, 1999, 2000, 2001,
-   2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
+   2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
    Free Software Foundation, Inc.
    Contributed by Michael Meissner (meissner@cygnus.com).
 
@@ -3993,7 +3993,8 @@ write_varray (varray_t *vp,    /* virtual array */
     return;
 
   if (debug)
-    fprintf (stderr, "\twarray\tvp = %p, offset = %7lu, size = %7lu, %s\n",
+    fprintf (stderr, "\twarray\tvp = " HOST_PTR_PRINTF
+	    ", offset = %7lu, size = %7lu, %s\n",
 	     (void *) vp, (unsigned long) offset,
 	     vp->num_allocated * vp->object_size, str);
 
@@ -4032,7 +4033,8 @@ write_object (void)
   off_t offset;
 
   if (debug)
-    fprintf (stderr, "\n\twrite\tvp = %p, offset = %7u, size = %7lu, %s\n",
+    fprintf (stderr, "\n\twrite\tvp = " HOST_PTR_PRINTF
+	    ", offset = %7u, size = %7lu, %s\n",
 	     (void *) &symbolic_header, 0,
 	     (unsigned long) sizeof (symbolic_header), "symbolic header");
 
@@ -4062,7 +4064,8 @@ write_object (void)
 	pfatal_with_name (object_name);
 
       if (debug)
-	fprintf (stderr, "\twrite\tvp = %p, offset = %7lu, size = %7lu, %s\n",
+	fprintf (stderr, "\twrite\tvp = " HOST_PTR_PRINTF
+		", offset = %7lu, size = %7lu, %s\n",
 		 (void *) &orig_linenum, (long) symbolic_header.cbLineOffset,
 		 (long) symbolic_header.cbLine, "Line numbers");
 
@@ -4093,7 +4096,8 @@ write_object (void)
 	pfatal_with_name (object_name);
 
       if (debug)
-	fprintf (stderr, "\twrite\tvp = %p, offset = %7lu, size = %7lu, %s\n",
+	fprintf (stderr, "\twrite\tvp = " HOST_PTR_PRINTF
+		", offset = %7lu, size = %7lu, %s\n",
 		 (void *) &orig_opt_syms, (long) symbolic_header.cbOptOffset,
 		 num_write, "Optimizer symbols");
 
@@ -4181,7 +4185,8 @@ write_object (void)
 	   file_ptr = file_ptr->next_file)
 	{
 	  if (debug)
-	    fprintf (stderr, "\twrite\tvp = %p, offset = %7lu, size = %7lu, %s\n",
+	    fprintf (stderr, "\twrite\tvp = " HOST_PTR_PRINTF
+		    ", offset = %7lu, size = %7lu, %s\n",
 		     (void *) &file_ptr->fdr, file_offset,
 		     (unsigned long) sizeof (FDR), "File header");
 
@@ -4213,7 +4218,8 @@ write_object (void)
 	pfatal_with_name (object_name);
 
       if (debug)
-	fprintf (stderr, "\twrite\tvp = %p, offset = %7lu, size = %7lu, %s\n",
+	fprintf (stderr, "\twrite\tvp = " HOST_PTR_PRINTF
+		", offset = %7lu, size = %7lu, %s\n",
 		 (void *) &orig_rfds, (long) symbolic_header.cbRfdOffset,
 		 num_write, "Relative file descriptors");
 
@@ -4780,7 +4786,7 @@ main (int argc, char **argv)
   if (version)
     {
       printf (_("mips-tfile %s%s\n"), pkgversion_string, version_string);
-      fputs ("Copyright (C) 2009 Free Software Foundation, Inc.\n", stdout);
+      fputs ("Copyright (C) 2010 Free Software Foundation, Inc.\n", stdout);
       fputs (_("This is free software; see the source for copying conditions.  There is NO\n\
 warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"),
 	     stdout);
@@ -5006,7 +5012,7 @@ allocate_cluster (Size_t npages)
     pfatal_with_name ("allocate_cluster");
 
   if (debug > 3)
-    fprintf (stderr, "\talloc\tnpages = %lu, value = %p\n",
+    fprintf (stderr, "\talloc\tnpages = %lu, value = " HOST_PTR_PRINTF "\n",
 	     (unsigned long) npages, (void *) ptr);
 
   return ptr;

@@ -54,7 +54,9 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define TARGET_AVX	OPTION_ISA_AVX
 #define TARGET_FMA	OPTION_ISA_FMA
 #define TARGET_SSE4A	OPTION_ISA_SSE4A
-#define TARGET_SSE5	OPTION_ISA_SSE5
+#define TARGET_FMA4	OPTION_ISA_FMA4
+#define TARGET_XOP	OPTION_ISA_XOP
+#define TARGET_LWP	OPTION_ISA_LWP
 #define TARGET_ROUND	OPTION_ISA_ROUND
 #define TARGET_ABM	OPTION_ISA_ABM
 #define TARGET_POPCNT	OPTION_ISA_POPCNT
@@ -66,8 +68,8 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define TARGET_CMPXCHG16B OPTION_ISA_CX16
 
 
-/* SSE5 and SSE4.1 define the same round instructions */
-#define	OPTION_MASK_ISA_ROUND	(OPTION_MASK_ISA_SSE4_1 | OPTION_MASK_ISA_SSE5)
+/* SSE4.1 defines round instructions */
+#define	OPTION_MASK_ISA_ROUND	OPTION_MASK_ISA_SSE4_1
 #define	OPTION_ISA_ROUND	((ix86_isa_flags & OPTION_MASK_ISA_ROUND) != 0)
 
 #include "config/vxworks-dummy.h"
@@ -542,6 +544,8 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 %<mcpu=* \
 %{mintel-syntax:-masm=intel \
 %n`-mintel-syntax' is deprecated. Use `-masm=intel' instead.\n} \
+%{msse5:-mavx \
+%n'-msse5' was removed.\n} \
 %{mno-intel-syntax:-masm=att \
 %n`-mno-intel-syntax' is deprecated. Use `-masm=att' instead.\n}"
 
@@ -702,9 +706,7 @@ enum target_cpu_default
    generate an alternate prologue and epilogue that realigns the
    runtime stack if nessary.  This supports mixing codes that keep a
    4-byte aligned stack, as specified by i386 psABI, with codes that
-   need a 16-byte aligned stack, as required by SSE instructions.  If
-   STACK_REALIGN_DEFAULT is 1 and PREFERRED_STACK_BOUNDARY_DEFAULT is
-   128, stacks for all functions may be realigned.  */
+   need a 16-byte aligned stack, as required by SSE instructions.  */
 #define STACK_REALIGN_DEFAULT 0
 
 /* Boundary (in *bits*) on which the incoming stack is aligned.  */
@@ -869,6 +871,9 @@ enum target_cpu_default
    || ((MODE) == DFmode && (!TARGET_SSE2 || !TARGET_SSE_MATH))  \
    || (MODE) == XFmode)
 
+/* Cover class containing the stack registers.  */
+#define STACK_REG_COVER_CLASS FLOAT_REGS
+
 /* Number of actual hardware registers.
    The hardware registers are assigned numbers for the compiler
    from 0 to just below FIRST_PSEUDO_REGISTER.
@@ -1008,7 +1013,8 @@ enum target_cpu_default
    || (MODE) == V2DImode || (MODE) == DFmode)
 
 #define VALID_SSE_REG_MODE(MODE)					\
-  ((MODE) == TImode || (MODE) == V4SFmode || (MODE) == V4SImode		\
+  ((MODE) == V1TImode || (MODE) == TImode				\
+   || (MODE) == V4SFmode || (MODE) == V4SImode				\
    || (MODE) == SFmode || (MODE) == TFmode)
 
 #define VALID_MMX_REG_MODE_3DNOW(MODE) \
@@ -1046,11 +1052,11 @@ enum target_cpu_default
 
 /* Return true for modes passed in SSE registers.  */
 #define SSE_REG_MODE_P(MODE)						\
-  ((MODE) == TImode || (MODE) == V16QImode || (MODE) == TFmode		\
-   || (MODE) == V8HImode || (MODE) == V2DFmode || (MODE) == V2DImode	\
-   || (MODE) == V4SFmode || (MODE) == V4SImode || (MODE) == V32QImode	\
-   || (MODE) == V16HImode || (MODE) == V8SImode || (MODE) == V4DImode	\
-   || (MODE) == V8SFmode || (MODE) == V4DFmode)
+  ((MODE) == V1TImode || (MODE) == TImode || (MODE) == V16QImode	\
+   || (MODE) == TFmode || (MODE) == V8HImode || (MODE) == V2DFmode	\
+   || (MODE) == V2DImode || (MODE) == V4SFmode || (MODE) == V4SImode	\
+   || (MODE) == V32QImode || (MODE) == V16HImode || (MODE) == V8SImode	\
+   || (MODE) == V4DImode || (MODE) == V8SFmode || (MODE) == V4DFmode)
 
 /* Value is 1 if hard register REGNO can hold a value of machine-mode MODE.  */
 
@@ -1127,11 +1133,6 @@ enum target_cpu_default
 
 /* Base register for access to arguments of the function.  */
 #define ARG_POINTER_REGNUM 16
-
-/* Register in which static-chain is passed to a function.
-   We do use ECX as static chain register for 32 bit ABI.  On the
-   64bit ABI, ECX is an argument register, so we use R10 instead.  */
-#define STATIC_CHAIN_REGNUM (TARGET_64BIT ? R10_REG : CX_REG)
 
 /* Register to hold the addressing base for position independent
    code access to data items.  We don't use PIC pointer for 64bit
@@ -1351,6 +1352,10 @@ enum reg_class
 
 #define AVX_VEC_FLOAT_MODE_P(MODE) \
   (TARGET_AVX && ((MODE) == V4SFmode || (MODE) == V2DFmode \
+		  || (MODE) == V8SFmode || (MODE) == V4DFmode))
+
+#define FMA4_VEC_FLOAT_MODE_P(MODE) \
+  (TARGET_FMA4 && ((MODE) == V4SFmode || (MODE) == V2DFmode \
 		  || (MODE) == V8SFmode || (MODE) == V4DFmode))
 
 #define MMX_REG_P(XOP) (REG_P (XOP) && MMX_REGNO_P (REGNO (XOP)))
@@ -1656,14 +1661,7 @@ typedef struct ix86_args {
 
 /* Length in units of the trampoline for entering a nested function.  */
 
-#define TRAMPOLINE_SIZE (TARGET_64BIT ? 23 : 10)
-
-/* Emit RTL insns to initialize the variable parts of a trampoline.
-   FNADDR is an RTX for the address of the function's pure code.
-   CXT is an RTX for the static chain value for the function.  */
-
-#define INITIALIZE_TRAMPOLINE(TRAMP, FNADDR, CXT) \
-  x86_initialize_trampoline ((TRAMP), (FNADDR), (CXT))
+#define TRAMPOLINE_SIZE (TARGET_64BIT ? 24 : 10)
 
 /* Definitions for register eliminations.
 
@@ -1683,11 +1681,6 @@ typedef struct ix86_args {
  { ARG_POINTER_REGNUM, HARD_FRAME_POINTER_REGNUM},	\
  { FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM},		\
  { FRAME_POINTER_REGNUM, HARD_FRAME_POINTER_REGNUM}}	\
-
-/* Given FROM and TO register numbers, say whether this elimination is
-   allowed.   */
-
-#define CAN_ELIMINATE(FROM, TO) ix86_can_eliminate ((FROM), (TO))
 
 /* Define the offset between two registers, one to be eliminated, and the other
    its replacement, at the start of a routine.  */
@@ -2367,15 +2360,29 @@ struct GTY(()) machine_function {
   const char *some_ld_name;
   int varargs_gpr_size;
   int varargs_fpr_size;
-  int accesses_prev_frame;
   int optimize_mode_switching[MAX_386_ENTITIES];
-  int needs_cld;
+
+  /* Number of saved registers USE_FAST_PROLOGUE_EPILOGUE
+     has been computed for.  */
+  int use_fast_prologue_epilogue_nregs;
+
+  /* The CFA state at the end of the prologue.  */
+  struct machine_cfa_state cfa;
+
+  /* This value is used for amd64 targets and specifies the current abi
+     to be used. MS_ABI means ms abi. Otherwise SYSV_ABI means sysv abi.  */
+  enum calling_abi call_abi;
+
+  /* Nonzero if the function accesses a previous frame.  */
+  BOOL_BITFIELD accesses_prev_frame : 1;
+
+  /* Nonzero if the function requires a CLD in the prologue.  */
+  BOOL_BITFIELD needs_cld : 1;
+
   /* Set by ix86_compute_frame_layout and used by prologue/epilogue
      expander to determine the style used.  */
-  int use_fast_prologue_epilogue;
-  /* Number of saved registers USE_FAST_PROLOGUE_EPILOGUE has been computed
-     for.  */
-  int use_fast_prologue_epilogue_nregs;
+  BOOL_BITFIELD use_fast_prologue_epilogue : 1;
+
   /* If true, the current function needs the default PIC register, not
      an alternate register (on x86) and must not use the red zone (on
      x86_64), even if it's a leaf function.  We don't want the
@@ -2385,11 +2392,11 @@ struct GTY(()) machine_function {
      if all such instructions are optimized away.  Use the
      ix86_current_function_calls_tls_descriptor macro for a better
      approximation.  */
-  int tls_descriptor_call_expanded_p;
-  /* This value is used for amd64 targets and specifies the current abi
-     to be used. MS_ABI means ms abi. Otherwise SYSV_ABI means sysv abi.  */
-  enum calling_abi call_abi;
-  struct machine_cfa_state cfa;
+  BOOL_BITFIELD tls_descriptor_call_expanded_p : 1;
+
+  /* If true, the current function has a STATIC_CHAIN is placed on the
+     stack below the return address.  */
+  BOOL_BITFIELD static_chain_on_stack : 1;
 };
 #endif
 
@@ -2408,6 +2415,7 @@ struct GTY(()) machine_function {
 #define ix86_current_function_calls_tls_descriptor \
   (ix86_tls_descriptor_calls_expanded_in_cfun && df_regs_ever_live_p (SP_REG))
 #define ix86_cfa_state (&cfun->machine->cfa)
+#define ix86_static_chain_on_stack (cfun->machine->static_chain_on_stack)
 
 /* Control behavior of x86_file_start.  */
 #define X86_FILE_START_VERSION_DIRECTIVE false

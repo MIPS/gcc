@@ -152,7 +152,7 @@ build_conflict_bit_table (void)
 		}
 	    }
 	}
-	  
+
       for (r = ira_finish_point_ranges[i]; r != NULL; r = r->finish_next)
 	sparseset_clear_bit (allocnos_live, ALLOCNO_NUM (r->allocno));
     }
@@ -235,7 +235,7 @@ get_dup_num (int op_num, bool use_commut_op_p)
 	  {
 	  case 'X':
 	    return -1;
-	    
+
 	  case 'm':
 	  case 'o':
 	    /* Accept a register which might be placed in memory.  */
@@ -254,7 +254,7 @@ get_dup_num (int op_num, bool use_commut_op_p)
 
 	  case 'g':
 	    return -1;
-	    
+
 	  case 'r':
 	  case 'a': case 'b': case 'c': case 'd': case 'e': case 'f':
 	  case 'h': case 'j': case 'k': case 'l':
@@ -276,7 +276,7 @@ get_dup_num (int op_num, bool use_commut_op_p)
 #endif
 	      break;
 	    }
-	    
+
 	  case '0': case '1': case '2': case '3': case '4':
 	  case '5': case '6': case '7': case '8': case '9':
 	    if (original != -1 && original != c)
@@ -389,7 +389,7 @@ process_regs_for_copy (rtx reg1, rtx reg2, bool constraint_p,
 				 ira_curr_regno_allocno_map[REGNO (reg2)],
 				 freq, constraint_p, insn,
 				 ira_curr_loop_tree_node);
-      bitmap_set_bit (ira_curr_loop_tree_node->local_copies, cp->num); 
+      bitmap_set_bit (ira_curr_loop_tree_node->local_copies, cp->num);
       return true;
     }
   else
@@ -446,11 +446,11 @@ process_reg_shuffles (rtx reg, int op_num, int freq)
   for (i = 0; i < recog_data.n_operands; i++)
     {
       another_reg = recog_data.operand[i];
-      
+
       if (!REG_SUBREG_P (another_reg) || op_num == i
 	  || recog_data.operand_type[i] != OP_OUT)
 	continue;
-      
+
       process_regs_for_copy (reg, another_reg, false, NULL_RTX, freq);
     }
 }
@@ -465,7 +465,7 @@ add_insn_allocno_copies (rtx insn)
   const char *str;
   bool commut_p, bound_p;
   int i, j, freq;
-  
+
   freq = REG_FREQ_FROM_BB (BLOCK_FOR_INSN (insn));
   if (freq == 0)
     freq = 1;
@@ -522,7 +522,7 @@ add_copies (ira_loop_tree_node_t loop_tree_node)
   if (bb == NULL)
     return;
   FOR_BB_INSNS (bb, insn)
-    if (INSN_P (insn))
+    if (NONDEBUG_INSN_P (insn))
       add_insn_allocno_copies (insn);
 }
 
@@ -662,7 +662,7 @@ print_hard_reg_set (FILE *file, const char *title, HARD_REG_SET set)
 {
   int i, start;
 
-  fprintf (file, title);
+  fputs (title, file);
   for (start = -1, i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     {
       if (TEST_HARD_REG_BIT (set, i))
@@ -682,7 +682,7 @@ print_hard_reg_set (FILE *file, const char *title, HARD_REG_SET set)
 	  start = -1;
 	}
     }
-  fprintf (file, "\n");
+  putc ('\n', file);
 }
 
 /* Print information about allocno or only regno (if REG_P) conflicts
@@ -709,9 +709,9 @@ print_conflicts (FILE *file, bool reg_p)
 	    fprintf (file, "b%d", bb->index);
 	  else
 	    fprintf (file, "l%d", ALLOCNO_LOOP_TREE_NODE (a)->loop->num);
-	  fprintf (file, ")");
+	  putc (')', file);
 	}
-      fprintf (file, " conflicts:");
+      fputs (" conflicts:", file);
       if (ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a) != NULL)
 	FOR_EACH_ALLOCNO_CONFLICT (a, conflict_a, aci)
 	  {
@@ -743,7 +743,7 @@ print_conflicts (FILE *file, bool reg_p)
       print_hard_reg_set (file, ";;     conflict hard regs:",
 			  conflicting_hard_regs);
     }
-  fprintf (file, "\n");
+  putc ('\n', file);
 }
 
 /* Print information about allocno or only regno (if REG_P) conflicts

@@ -87,7 +87,6 @@ pack_internal (gfc_array_char *ret, const gfc_array_char *array,
 
   index_type count[GFC_MAX_DIMENSIONS];
   index_type extent[GFC_MAX_DIMENSIONS];
-  int zero_sized;
   index_type n;
   index_type dim;
   index_type nelem;
@@ -117,13 +116,10 @@ pack_internal (gfc_array_char *ret, const gfc_array_char *array,
   else
     runtime_error ("Funny sized logical array");
 
-  zero_sized = 0;
   for (n = 0; n < dim; n++)
     {
       count[n] = 0;
       extent[n] = GFC_DESCRIPTOR_EXTENT(array,n);
-      if (extent[n] <= 0)
-       zero_sized = 1;
       sstride[n] = GFC_DESCRIPTOR_STRIDE_BYTES(array,n);
       mstride[n] = GFC_DESCRIPTOR_STRIDE_BYTES(mask,n);
     }
@@ -132,7 +128,7 @@ pack_internal (gfc_array_char *ret, const gfc_array_char *array,
   if (mstride[0] == 0)
     mstride[0] = mask_kind;
 
-  if (ret->data == NULL || compile_options.bounds_check)
+  if (ret->data == NULL || unlikely (compile_options.bounds_check))
     {
       /* Count the elements, either for allocating memory or
 	 for bounds checking.  */
@@ -147,58 +143,7 @@ pack_internal (gfc_array_char *ret, const gfc_array_char *array,
 	{
 	  /* We have to count the true elements in MASK.  */
 
-	  /* TODO: We could speed up pack easily in the case of only
-	     few .TRUE. entries in MASK, by keeping track of where we
-	     would be in the source array during the initial traversal
-	     of MASK, and caching the pointers to those elements. Then,
-	     supposed the number of elements is small enough, we would
-	     only have to traverse the list, and copy those elements
-	     into the result array. In the case of datatypes which fit
-	     in one of the integer types we could also cache the
-	     value instead of a pointer to it.
-	     This approach might be bad from the point of view of
-	     cache behavior in the case where our cache is not big
-	     enough to hold all elements that have to be copied.  */
-
-	  const GFC_LOGICAL_1 *m = mptr;
-
-	  total = 0;
-	  if (zero_sized)
-	    m = NULL;
-
-	  while (m)
-	    {
-	      /* Test this element.  */
-	      if (*m)
-		total++;
-
-	      /* Advance to the next element.  */
-	      m += mstride[0];
-	      count[0]++;
-	      n = 0;
-	      while (count[n] == extent[n])
-		{
-		  /* When we get to the end of a dimension, reset it
-		     and increment the next dimension.  */
-		  count[n] = 0;
-		  /* We could precalculate this product, but this is a
-		     less frequently used path so probably not worth
-		     it.  */
-		  m -= mstride[n] * extent[n];
-		  n++;
-		  if (n >= dim)
-		    {
-		      /* Break out of the loop.  */
-		      m = NULL;
-		      break;
-		    }
-		  else
-		    {
-		      count[n]++;
-		      m += mstride[n];
-		    }
-		}
-	    }
+	  total = count_0 (mask);
 	}
 
       if (ret->data == NULL)
@@ -401,7 +346,7 @@ pack (gfc_array_char *ret, const gfc_array_char *array,
 
     case GFC_DTYPE_DERIVED_2:
       if (GFC_UNALIGNED_2(ret->data) || GFC_UNALIGNED_2(array->data)
-	  || GFC_UNALIGNED_2(vector->data))
+	  || (vector && GFC_UNALIGNED_2(vector->data)))
 	break;
       else
 	{
@@ -412,7 +357,7 @@ pack (gfc_array_char *ret, const gfc_array_char *array,
 
     case GFC_DTYPE_DERIVED_4:
       if (GFC_UNALIGNED_4(ret->data) || GFC_UNALIGNED_4(array->data)
-	  || GFC_UNALIGNED_4(vector->data))
+	  || (vector && GFC_UNALIGNED_4(vector->data)))
 	break;
       else
 	{
@@ -423,7 +368,7 @@ pack (gfc_array_char *ret, const gfc_array_char *array,
 
     case GFC_DTYPE_DERIVED_8:
       if (GFC_UNALIGNED_8(ret->data) || GFC_UNALIGNED_8(array->data)
-	  || GFC_UNALIGNED_8(vector->data))
+	  || (vector && GFC_UNALIGNED_8(vector->data)))
 	break;
       else
 	{
@@ -434,7 +379,7 @@ pack (gfc_array_char *ret, const gfc_array_char *array,
 #ifdef HAVE_GFC_INTEGER_16
     case GFC_DTYPE_DERIVED_16:
       if (GFC_UNALIGNED_16(ret->data) || GFC_UNALIGNED_16(array->data)
-	  || GFC_UNALIGNED_16(vector->data))
+	  || (vector && GFC_UNALIGNED_16(vector->data)))
 	break;
       else
 	{

@@ -26,50 +26,24 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "config.h"
 #include "system.h"
+#include "highlev-plugin-common.h"
+#include "hashtab.h"
 
-/* Event names.  Keep in sync with plugin_event_name[].  */
+/* Event names.  */
 enum plugin_event
 {
-  PLUGIN_PASS_MANAGER_SETUP,    /* To hook into pass manager.  */
-  PLUGIN_FINISH_TYPE,           /* After finishing parsing a type.  */
-  PLUGIN_FINISH_UNIT,           /* Useful for summary processing.  */
-  PLUGIN_CXX_CP_PRE_GENERICIZE, /* Allows to see low level AST in C++ FE.  */
-  PLUGIN_FINISH,                /* Called before GCC exits.  */
-  PLUGIN_INFO,                  /* Information about the plugin. */
-  PLUGIN_GGC_START,		/* Called at start of GCC Garbage Collection. */
-  PLUGIN_GGC_MARKING,		/* Extend the GGC marking. */
-  PLUGIN_GGC_END,		/* Called at end of GGC. */
-  PLUGIN_REGISTER_GGC_ROOTS,	/* Register an extra GGC root table. */
-  PLUGIN_ATTRIBUTES,            /* Called during attribute registration.  */
-  PLUGIN_START_UNIT,            /* Called before processing a translation unit.  */
-  PLUGIN_EVENT_LAST             /* Dummy event used for indexing callback
-                                   array.  */
+# define DEFEVENT(NAME) NAME,
+# include "plugin.def"
+# undef DEFEVENT
+  PLUGIN_EVENT_FIRST_DYNAMIC
 };
 
-extern const char *plugin_event_name[];
+extern const char **plugin_event_name;
 
 struct plugin_argument
 {
   char *key;    /* key of the argument.  */
   char *value;  /* value is optional and can be NULL.  */
-};
-
-enum pass_positioning_ops
-{
-  PASS_POS_INSERT_AFTER,  /* Insert after the reference pass.  */
-  PASS_POS_INSERT_BEFORE, /* Insert before the reference pass.  */
-  PASS_POS_REPLACE        /* Replace the reference pass.  */
-};
-
-struct plugin_pass
-{
-  struct opt_pass *pass;            /* New pass provided by the plugin.  */
-  const char *reference_pass_name;  /* Name of the reference pass for hooking
-                                       up the new pass.  */
-  int ref_pass_instance_number;     /* Insert the pass at the specified
-                                       instance number of the reference pass.
-                                       Do it for every instance if it is 0.  */
-  enum pass_positioning_ops pos_op; /* how to insert the new pass.  */
 };
 
 /* Additional information about the plugin. Used by --help and --version. */
@@ -143,14 +117,22 @@ typedef void (*plugin_callback_func) (void *gcc_data, void *user_data);
    USER_DATA   - plugin-provided data.
 */
 
+/* Number of event ids / names registered so far.  */
+
+extern int get_event_last (void);
+
+int get_named_event_id (const char *name, enum insert_option insert);
+
 /* This is also called without a callback routine for the
-   PLUGIN_PASS_MANAGER_SETUP, PLUGIN_INFO, PLUGIN_REGISTER_GGC_ROOTS
-   pseudo-events, with a specific user_data.
+   PLUGIN_PASS_MANAGER_SETUP, PLUGIN_INFO, PLUGIN_REGISTER_GGC_ROOTS and
+   PLUGIN_REGISTER_GGC_CACHES pseudo-events, with a specific user_data.
   */
 
 extern void register_callback (const char *plugin_name,
-                               enum plugin_event event,
+			       int event,
                                plugin_callback_func callback,
                                void *user_data);
+
+extern int unregister_callback (const char *plugin_name, int event);
 
 #endif /* GCC_PLUGIN_H */

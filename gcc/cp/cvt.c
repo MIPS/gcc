@@ -506,7 +506,8 @@ convert_to_reference (tree reftype, tree expr, int convtype,
 tree
 convert_from_reference (tree val)
 {
-  if (TREE_CODE (TREE_TYPE (val)) == REFERENCE_TYPE)
+  if (TREE_TYPE (val)
+      && TREE_CODE (TREE_TYPE (val)) == REFERENCE_TYPE)
     {
       tree t = TREE_TYPE (TREE_TYPE (val));
       tree ref = build1 (INDIRECT_REF, t, val);
@@ -956,6 +957,7 @@ convert_to_void (tree expr, const char *implicit, tsubst_flags_t complain)
 
     default:;
     }
+  expr = resolve_nondeduced_context (expr);
   {
     tree probe = expr;
 
@@ -1194,7 +1196,9 @@ build_expr_type_conversion (int desires, tree expr, bool complain)
   if (!TYPE_HAS_CONVERSION (basetype))
     return NULL_TREE;
 
-  for (conv = lookup_conversions (basetype); conv; conv = TREE_CHAIN (conv))
+  for (conv = lookup_conversions (basetype, /*lookup_template_convs_p=*/true);
+       conv;
+       conv = TREE_CHAIN (conv))
     {
       int win = 0;
       tree candidate;
@@ -1287,7 +1291,7 @@ type_promotes_to (tree type)
 
   /* bool always promotes to int (not unsigned), even if it's the same
      size.  */
-  if (type == boolean_type_node)
+  if (TREE_CODE (type) == BOOLEAN_TYPE)
     type = integer_type_node;
 
   /* Normally convert enums to int, but convert wide enums to something

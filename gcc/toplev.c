@@ -1,6 +1,6 @@
 /* Top level of GCC compilers (cc1, cc1plus, etc.)
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -152,6 +152,10 @@ struct line_maps *line_table;
 
 const char *dump_base_name;
 
+/* Directory used for dump output files.  */
+
+const char *dump_dir_name;
+
 /* Name to use as a base for auxiliary output files.  */
 
 const char *aux_base_name;
@@ -197,6 +201,17 @@ int optimize = 0;
    bloating optimizations are disabled.  */
 
 int optimize_size = 0;
+
+/* True if this is the lto front end.  This is used to disable
+   gimple generation and lowering passes that are normally run on the
+   output of a front end.  These passes must be bypassed for lto since
+   they have already been done before the gimple was written.  */
+
+bool in_lto_p = false;
+
+/* Nonzero if we should write GIMPLE bytecode for link-time optimization.  */
+
+int flag_generate_lto;
 
 /* The FUNCTION_DECL for the function currently being compiled,
    or 0 if between functions.  */
@@ -319,10 +334,22 @@ int flag_dump_rtl_in_asm = 0;
    the support provided depends on the backend.  */
 rtx stack_limit_rtx;
 
-/* Nonzero if we should track variables.  When
-   flag_var_tracking == AUTODETECT_VALUE it will be set according
-   to optimize, debug_info_level and debug_hooks in process_options ().  */
+/* Positive if we should track variables, negative if we should run
+   the var-tracking pass only to discard debug annotations, zero if
+   we're not to run it.  When flag_var_tracking == AUTODETECT_VALUE it
+   will be set according to optimize, debug_info_level and debug_hooks
+   in process_options ().  */
 int flag_var_tracking = AUTODETECT_VALUE;
+
+/* Positive if we should track variables at assignments, negative if
+   we should run the var-tracking pass only to discard debug
+   annotations.  When flag_var_tracking_assignments ==
+   AUTODETECT_VALUE it will be set according to flag_var_tracking.  */
+int flag_var_tracking_assignments = AUTODETECT_VALUE;
+
+/* Nonzero if we should toggle flag_var_tracking_assignments after
+   processing options and computing its default.  */
+int flag_var_tracking_assignments_toggle = 0;
 
 /* Type of stack check.  */
 enum stack_check_type flag_stack_check = NO_STACK_CHECK;
@@ -699,7 +726,7 @@ output_file_directive (FILE *asm_file, const char *input_name)
 #else
   fprintf (asm_file, "\t.file\t");
   output_quoted_string (asm_file, na);
-  fputc ('\n', asm_file);
+  putc ('\n', asm_file);
 #endif
 }
 
@@ -863,9 +890,9 @@ check_global_declaration_1 (tree decl)
       && ! (TREE_CODE (decl) == VAR_DECL && DECL_REGISTER (decl))
       /* Otherwise, ask the language.  */
       && lang_hooks.decls.warn_unused_global (decl))
-    warning ((TREE_CODE (decl) == FUNCTION_DECL) 
-	     ? OPT_Wunused_function 
-             : OPT_Wunused_variable, 
+    warning ((TREE_CODE (decl) == FUNCTION_DECL)
+	     ? OPT_Wunused_function
+             : OPT_Wunused_variable,
 	     "%q+D defined but not used", decl);
 }
 
@@ -1075,6 +1102,27 @@ compile_file (void)
   /* Flush any pending external directives.  */
   process_pending_assemble_externals ();
 
+  /* Emit LTO marker if LTO info has been previously emitted.  This is
+     used by collect2 to determine whether an object file contains IL.
+     We used to emit an undefined reference here, but this produces
+     link errors if an object file with IL is stored into a shared
+     library without invoking lto1.  */
+  if (flag_generate_lto)
+    {
+#if defined ASM_OUTPUT_ALIGNED_DECL_COMMON
+      ASM_OUTPUT_ALIGNED_DECL_COMMON (asm_out_file, NULL_TREE,
+				      "__gnu_lto_v1",
+				      (unsigned HOST_WIDE_INT) 1, 8);
+#elif defined ASM_OUTPUT_ALIGNED_COMMON
+      ASM_OUTPUT_ALIGNED_COMMON (asm_out_file, "__gnu_lto_v1",
+				 (unsigned HOST_WIDE_INT) 1, 8);
+#else
+      ASM_OUTPUT_COMMON (asm_out_file, "__gnu_lto_v1",
+			 (unsigned HOST_WIDE_INT) 1,
+			 (unsigned HOST_WIDE_INT) 1);
+#endif
+    }
+
   /* Attach a special .ident directive to the end of the file to identify
      the version of GCC which compiled this code.  The format of the .ident
      string is patterned after the ones produced by native SVR4 compilers.  */
@@ -1092,7 +1140,7 @@ compile_file (void)
 
   /* Invoke registered plugin callbacks.  */
   invoke_plugin_callbacks (PLUGIN_FINISH_UNIT, NULL);
-  
+
   /* This must be at the end.  Some target ports emit end of file directives
      into the assembly file here, and hence we can not output anything to the
      assembly file after this point.  */
@@ -1167,13 +1215,8 @@ print_version (FILE *file, const char *indent)
     N_("%s%s%s %sversion %s (%s) compiled by CC, ")
 #endif
     ;
-#ifdef HAVE_mpc
   static const char fmt2[] =
     N_("GMP version %s, MPFR version %s, MPC version %s\n");
-#else
-  static const char fmt2[] =
-    N_("GMP version %s, MPFR version %s\n");
-#endif
   static const char fmt3[] =
     N_("%s%swarning: %s header version %s differs from library version %s.\n");
   static const char fmt4[] =
@@ -1205,11 +1248,7 @@ print_version (FILE *file, const char *indent)
 #endif
   fprintf (file,
 	   file == stderr ? _(fmt2) : fmt2,
-	   GCC_GMP_STRINGIFY_VERSION, MPFR_VERSION_STRING
-#ifdef HAVE_mpc
-	   , MPC_VERSION_STRING
-#endif
-	   );
+	   GCC_GMP_STRINGIFY_VERSION, MPFR_VERSION_STRING, MPC_VERSION_STRING);
   if (strcmp (GCC_GMP_STRINGIFY_VERSION, gmp_version))
     fprintf (file,
 	     file == stderr ? _(fmt3) : fmt3,
@@ -1220,13 +1259,11 @@ print_version (FILE *file, const char *indent)
 	     file == stderr ? _(fmt3) : fmt3,
 	     indent, *indent != 0 ? " " : "",
 	     "MPFR", MPFR_VERSION_STRING, mpfr_get_version ());
-#ifdef HAVE_mpc
   if (strcmp (MPC_VERSION_STRING, mpc_get_version ()))
     fprintf (file,
 	     file == stderr ? _(fmt3) : fmt3,
 	     indent, *indent != 0 ? " " : "",
 	     "MPC", MPC_VERSION_STRING, mpc_get_version ());
-#endif
   fprintf (file,
 	   file == stderr ? _(fmt4) : fmt4,
 	   indent, *indent != 0 ? " " : "",
@@ -1259,7 +1296,7 @@ print_to_asm_out_file (print_switch_type type, const char * text)
     case SWITCH_TYPE_ENABLED:
       if (prepend_sep)
 	fputc (' ', asm_out_file);
-      fprintf (asm_out_file, text);
+      fputs (text, asm_out_file);
       /* No need to return the length here as
 	 print_single_switch has already done it.  */
       return 0;
@@ -1281,14 +1318,14 @@ print_to_stderr (print_switch_type type, const char * text)
 
     case SWITCH_TYPE_LINE_START:
       return 0;
-      
+
     case SWITCH_TYPE_PASSED:
     case SWITCH_TYPE_ENABLED:
       fputc (' ', stderr);
       /* Drop through.  */
 
     case SWITCH_TYPE_DESCRIPTIVE:
-      fprintf (stderr, text);
+      fputs (text, stderr);
       /* No need to return the length here as
 	 print_single_switch has already done it.  */
       return 0;
@@ -1355,6 +1392,7 @@ print_switch_values (print_switch_fn_type print_fn)
 	  /* Ignore these.  */
 	  if (strcmp (*p, "-o") == 0
 	      || strcmp (*p, "-dumpbase") == 0
+	      || strcmp (*p, "-dumpdir") == 0
 	      || strcmp (*p, "-auxbase") == 0)
 	    {
 	      if (p[1] != NULL)
@@ -1448,7 +1486,7 @@ init_asm_output (const char *name)
 	     into the assembler file as comments.  */
 	  print_version (asm_out_file, ASM_COMMENT_START);
 	  print_switch_values (print_to_asm_out_file);
-	  fprintf (asm_out_file, "\n");
+	  putc ('\n', asm_out_file);
 	}
 #endif
     }
@@ -1564,8 +1602,8 @@ default_pch_valid_p (const void *data_p, size_t len)
 }
 
 /* Default tree printer.   Handles declarations only.  */
-static bool
-default_tree_printer (pretty_printer * pp, text_info *text, const char *spec,
+bool
+default_tree_printer (pretty_printer *pp, text_info *text, const char *spec,
 		      int precision, bool wide, bool set_locus, bool hash)
 {
   tree t;
@@ -1812,11 +1850,12 @@ process_options (void)
 
   /* The loop unrolling code assumes that cse will be run after loop.
      web and rename-registers also help when run after loop unrolling.  */
-
   if (flag_rerun_cse_after_loop == AUTODETECT_VALUE)
     flag_rerun_cse_after_loop = flag_unroll_loops || flag_peel_loops;
+
   if (flag_web == AUTODETECT_VALUE)
     flag_web = flag_unroll_loops || flag_peel_loops;
+
   if (flag_rename_registers == AUTODETECT_VALUE)
     flag_rename_registers = flag_unroll_loops || flag_peel_loops;
 
@@ -1871,12 +1910,17 @@ process_options (void)
   if (flag_gtoggle)
     {
       if (debug_info_level == DINFO_LEVEL_NONE)
-	debug_info_level = DINFO_LEVEL_NORMAL;
+	{
+	  debug_info_level = DINFO_LEVEL_NORMAL;
+
+	  if (write_symbols == NO_DEBUG)
+	    write_symbols = PREFERRED_DEBUGGING_TYPE;
+	}
       else
 	debug_info_level = DINFO_LEVEL_NONE;
     }
 
-  if (flag_dump_final_insns)
+  if (flag_dump_final_insns && !flag_syntax_only && !no_backend)
     {
       FILE *final_output = fopen (flag_dump_final_insns, "w");
       if (!final_output)
@@ -1892,6 +1936,11 @@ process_options (void)
 	  flag_dump_final_insns = NULL;
 	}
     }
+
+  /* Unless over-ridden for the target, assume that all DWARF levels
+     may be emitted, if DWARF2_DEBUG is selected.  */
+  if (dwarf_strict < 0)
+    dwarf_strict = 0;
 
   /* A lot of code assumes write_symbols == NO_DEBUG if the debugging
      level is 0.  */
@@ -1950,9 +1999,8 @@ process_options (void)
     error ("target system does not support the \"%s\" debug format",
 	   debug_type_names[write_symbols]);
 
-  /* Now we know which debug output will be used so we can set
-     flag_var_tracking, flag_rename_registers if the user has
-     not specified them.  */
+  /* We know which debug output will be used so we can set flag_var_tracking
+     and flag_var_tracking_uninit if the user has not specified them.  */
   if (debug_info_level < DINFO_LEVEL_NORMAL
       || debug_hooks->var_location == do_nothing_debug_hooks.var_location)
     {
@@ -1970,12 +2018,28 @@ process_options (void)
       flag_var_tracking_uninit = 0;
     }
 
-  if (flag_rename_registers == AUTODETECT_VALUE)
-    flag_rename_registers = default_debug_hooks->var_location
-	    		    != do_nothing_debug_hooks.var_location;
+  /* If the user specifically requested variable tracking with tagging
+     uninitialized variables, we need to turn on variable tracking.
+     (We already determined above that variable tracking is feasible.)  */
+  if (flag_var_tracking_uninit)
+    flag_var_tracking = 1;
 
   if (flag_var_tracking == AUTODETECT_VALUE)
     flag_var_tracking = optimize >= 1;
+
+  if (flag_var_tracking_assignments == AUTODETECT_VALUE)
+    flag_var_tracking_assignments = flag_var_tracking
+      && !(flag_selective_scheduling || flag_selective_scheduling2);
+
+  if (flag_var_tracking_assignments_toggle)
+    flag_var_tracking_assignments = !flag_var_tracking_assignments;
+
+  if (flag_var_tracking_assignments && !flag_var_tracking)
+    flag_var_tracking = flag_var_tracking_assignments = -1;
+
+  if (flag_var_tracking_assignments
+      && (flag_selective_scheduling || flag_selective_scheduling2))
+    warning (0, "var-tracking-assignments changes selective scheduling");
 
   if (flag_tree_cselim == AUTODETECT_VALUE)
 #ifdef HAVE_conditional_move
@@ -1983,12 +2047,6 @@ process_options (void)
 #else
     flag_tree_cselim = 0;
 #endif
-
-  /* If the user specifically requested variable tracking with tagging
-     uninitialized variables, we need to turn on variable tracking.
-     (We already determined above that variable tracking is feasible.)  */
-  if (flag_var_tracking_uninit)
-    flag_var_tracking = 1;
 
   /* If auxiliary info generation is desired, open the output file.
      This goes in the same directory as the source file--unlike
@@ -2131,13 +2189,7 @@ backend_init_target (void)
 static void
 backend_init (void)
 {
-  init_emit_once (debug_info_level == DINFO_LEVEL_NORMAL
-		  || debug_info_level == DINFO_LEVEL_VERBOSE
-#ifdef VMS_DEBUGGING_INFO
-		    /* Enable line number info for traceback.  */
-		    || debug_info_level > DINFO_LEVEL_NONE
-#endif
-		    || flag_test_coverage);
+  init_emit_once ();
 
   init_rtlanal ();
   init_inline_once ();
@@ -2308,6 +2360,8 @@ finalize (void)
 	fatal_error ("error writing to %s: %m", asm_file_name);
       if (fclose (asm_out_file) != 0)
 	fatal_error ("error closing %s: %m", asm_file_name);
+      if (flag_wpa)
+	unlink_if_ordinary (asm_file_name);
     }
 
   statistics_fini ();
@@ -2392,7 +2446,7 @@ toplev_main (int argc, char **argv)
   if (!exit_after_options)
     do_compile ();
 
-  if (warningcount || errorcount) 
+  if (warningcount || errorcount)
     print_ignored_options ();
 
   /* Invoke registered plugin callbacks if any.  */

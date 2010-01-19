@@ -218,14 +218,14 @@ do {								\
 #define STACK_CHECK_STATIC_BUILTIN 0
 #endif
 
-/* The default interval is one page.  */
-#ifndef STACK_CHECK_PROBE_INTERVAL
-#define STACK_CHECK_PROBE_INTERVAL 4096
+/* The default interval is one page (4096 bytes).  */
+#ifndef STACK_CHECK_PROBE_INTERVAL_EXP
+#define STACK_CHECK_PROBE_INTERVAL_EXP 12
 #endif
 
-/* The default is to do a store into the stack.  */
-#ifndef STACK_CHECK_PROBE_LOAD
-#define STACK_CHECK_PROBE_LOAD 0
+/* The default is not to move the stack pointer.  */
+#ifndef STACK_CHECK_MOVING_SP
+#define STACK_CHECK_MOVING_SP 0
 #endif
 
 /* This is a kludge to try to capture the discrepancy between the old
@@ -252,7 +252,7 @@ do {								\
    one probe per function.  */
 #ifndef STACK_CHECK_MAX_FRAME_SIZE
 #define STACK_CHECK_MAX_FRAME_SIZE \
-  (STACK_CHECK_PROBE_INTERVAL - UNITS_PER_WORD)
+  ((1 << STACK_CHECK_PROBE_INTERVAL_EXP) - UNITS_PER_WORD)
 #endif
 
 /* This is arbitrary, but should be large enough everywhere.  */
@@ -390,7 +390,7 @@ extern rtx builtin_strncpy_read_str (void *, HOST_WIDE_INT, enum machine_mode);
 
 /* Functions from expr.c:  */
 
-/* This is run during target initialization to set up which modes can be 
+/* This is run during target initialization to set up which modes can be
    used directly in memory and to initialize the block move optab.  */
 extern void init_expr_target (void);
 
@@ -426,6 +426,7 @@ extern rtx emit_block_move (rtx, rtx, rtx, enum block_op_methods);
 extern rtx emit_block_move_via_libcall (rtx, rtx, rtx, bool);
 extern rtx emit_block_move_hints (rtx, rtx, rtx, enum block_op_methods,
 			          unsigned int, HOST_WIDE_INT);
+extern bool emit_storent_insn (rtx to, rtx from);
 
 /* Copy all or part of a value X into registers starting at REGNO.
    The number of registers to be filled is NREGS.  */
@@ -478,7 +479,7 @@ extern rtx clear_storage_hints (rtx, rtx, enum block_op_methods,
 rtx set_storage_via_libcall (rtx, rtx, rtx, bool);
 
 /* Expand a setmem pattern; return true if successful.  */
-extern bool set_storage_via_setmem (rtx, rtx, rtx, unsigned int, 
+extern bool set_storage_via_setmem (rtx, rtx, rtx, unsigned int,
 				    unsigned int, HOST_WIDE_INT);
 
 /* Determine whether the LEN bytes can be moved by using several move
@@ -539,9 +540,13 @@ extern rtx store_expr (tree, rtx, int, bool);
    Useful after calling expand_expr with 1 as sum_ok.  */
 extern rtx force_operand (rtx, rtx);
 
-/* Work horse for expand_expr.  */
-extern rtx expand_expr_real (tree, rtx, enum machine_mode, 
+/* Work horses for expand_expr.  */
+extern rtx expand_expr_real (tree, rtx, enum machine_mode,
 			     enum expand_modifier, rtx *);
+extern rtx expand_expr_real_1 (tree, rtx, enum machine_mode,
+			       enum expand_modifier, rtx *);
+extern rtx expand_expr_real_2 (sepops, rtx, enum machine_mode,
+			       enum expand_modifier);
 
 /* Generate code for computing expression EXP.
    An rtx for the computed value is returned.  The value is never null.
@@ -613,7 +618,7 @@ extern HOST_WIDE_INT int_expr_size (tree);
    in its original home.  This becomes invalid if any more code is emitted.  */
 extern rtx hard_function_value (const_tree, const_tree, const_tree, int);
 
-extern rtx prepare_call_address (rtx, rtx, rtx *, int, int);
+extern rtx prepare_call_address (tree, rtx, rtx, rtx *, int, int);
 
 extern bool shift_return_value (enum machine_mode, bool, rtx);
 
@@ -645,9 +650,15 @@ extern rtx force_label_rtx (tree);
    The constant terms are added and stored via a second arg.  */
 extern rtx eliminate_constant_term (rtx, rtx *);
 
-/* Convert arg to a valid memory address for specified machine mode,
-   by emitting insns to perform arithmetic if nec.  */
-extern rtx memory_address (enum machine_mode, rtx);
+/* Convert arg to a valid memory address for specified machine mode that points
+   to a specific named address space, by emitting insns to perform arithmetic
+   if necessary.  */
+extern rtx memory_address_addr_space (enum machine_mode, rtx, addr_space_t);
+
+/* Like memory_address_addr_space, except assume the memory address points to
+   the generic named address space.  */
+#define memory_address(MODE,RTX) \
+	memory_address_addr_space ((MODE), (RTX), ADDR_SPACE_GENERIC)
 
 /* Return a memory reference like MEMREF, but with its mode changed
    to MODE and its address changed to ADDR.
@@ -751,6 +762,9 @@ extern void adjust_stack (rtx);
 /* Add some bytes to the stack.  An rtx says how many.  */
 extern void anti_adjust_stack (rtx);
 
+/* Add some bytes to the stack while probing it.  An rtx says how many. */
+extern void anti_adjust_stack_and_probe (rtx, bool);
+
 /* This enum is used for the following two functions.  */
 enum save_level {SAVE_BLOCK, SAVE_FUNCTION, SAVE_NONLOCAL};
 
@@ -768,10 +782,9 @@ extern void update_nonlocal_goto_save_area (void);
 extern rtx allocate_dynamic_stack_space (rtx, rtx, int);
 
 /* Probe a range of stack addresses from FIRST to FIRST+SIZE, inclusive.
-   FIRST is a constant and size is a Pmode RTX.  These are offsets from the
-   current stack pointer.  STACK_GROWS_DOWNWARD says whether to add or
-   subtract from the stack.  If SIZE is constant, this is done
-   with a fixed number of probes.  Otherwise, we must make a loop.  */
+   FIRST is a constant and size is a Pmode RTX.  These are offsets from
+   the current stack pointer.  STACK_GROWS_DOWNWARD says whether to add
+   or subtract them from the stack pointer.  */
 extern void probe_stack_range (HOST_WIDE_INT, rtx);
 
 /* Return an rtx that refers to the value returned by a library call
@@ -808,6 +821,12 @@ extern void init_all_optabs (void);
 /* Call this to initialize an optab function entry.  */
 extern rtx init_one_libfunc (const char *);
 extern rtx set_user_assembler_libfunc (const char *, const char *);
+
+/* Build a decl for a libfunc named NAME. */
+extern tree build_libfunc_function (const char *);
+
+/* Get the personality libfunc for a function decl.  */
+rtx get_personality_function (tree);
 
 extern int vector_mode_valid_p (enum machine_mode);
 

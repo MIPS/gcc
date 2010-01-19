@@ -62,7 +62,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       
       _M_gcount = 0;
       sentry __cerb(*this, true);
-      if (__n > 0 && static_cast<bool>(__cerb))
+      if ( __n > 0 && __cerb)
 	{
 	  ios_base::iostate __err = ios_base::goodbit;
 	  __try
@@ -134,7 +134,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       
       _M_gcount = 0;
       sentry __cerb(*this, true);
-      if (__n > 0 && static_cast<bool>(__cerb))
+      if (__n > 0 && __cerb)
 	{
 	  ios_base::iostate __err = ios_base::goodbit;
 	  __try
@@ -512,25 +512,6 @@ extern __attribute__((used, weak)) const void * const _ZTIPKe[4]
   = { (void *) &_ZTVN10__cxxabiv119__pointer_type_infoE[2],
       (void *) _ZTSPKe, (void *) 1L, (void *) _ZTIe };
 #endif // _GLIBCXX_LONG_DOUBLE_COMPAT
-
-// gcc-4.4.0
-// <mutex> exported std::lock_error
-#if defined(_GLIBCXX_HAS_GTHREADS) && defined(_GLIBCXX_USE_C99_STDINT_TR1)
-namespace std
-{
-  class lock_error : public exception
-  {
-  public:
-    virtual const char*
-    _GLIBCXX_CONST what() const throw();
-  };
-
-  const char*
-  lock_error::what() const throw()
-  { return "std::lock_error"; }
-}
-#endif
-
 
 #ifdef _GLIBCXX_SYMVER_DARWIN
 #if (defined(__ppc__) || defined(__ppc64__)) && defined(PIC)

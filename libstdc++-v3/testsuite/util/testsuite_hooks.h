@@ -270,11 +270,6 @@ namespace __gnu_test
     int
     id() const { return id_; }
 
-  private:
-    int   id_;
-    const bool  throw_on_copy_;
-
-  public:
     static void
     reset()
     {
@@ -283,23 +278,19 @@ namespace __gnu_test
       destructor::reset();
     }
 
-    // for backwards-compatibility
-    static int
-    copyCount() 
-    { return copy_constructor::count(); }
-
-    // for backwards-compatibility
-    static int
-    dtorCount() 
-    { return destructor::count(); }
-
   private:
+    int   id_;
+    const bool  throw_on_copy_;
     static int next_id_;
   };
 
   inline bool
   operator==(const copy_tracker& lhs, const copy_tracker& rhs)
   { return lhs.id() == rhs.id(); }
+
+  inline bool
+  operator<(const copy_tracker& lhs, const copy_tracker& rhs)
+  { return lhs.id() < rhs.id(); }
 
   // Class for checking required type conversions, implicit and
   // explicit for given library data structures. 

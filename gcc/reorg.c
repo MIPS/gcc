@@ -1630,13 +1630,14 @@ redundant_insn (rtx insn, rtx target, rtx delay_list)
   for (trial = PREV_INSN (target),
 	 insns_to_search = MAX_DELAY_SLOT_INSN_SEARCH;
        trial && insns_to_search > 0;
-       trial = PREV_INSN (trial), --insns_to_search)
+       trial = PREV_INSN (trial))
     {
       if (LABEL_P (trial))
 	return 0;
 
-      if (! INSN_P (trial))
+      if (!NONDEBUG_INSN_P (trial))
 	continue;
+      --insns_to_search;
 
       pat = PATTERN (trial);
       if (GET_CODE (pat) == USE || GET_CODE (pat) == CLOBBER)
@@ -1735,10 +1736,11 @@ redundant_insn (rtx insn, rtx target, rtx delay_list)
   for (trial = PREV_INSN (target),
 	 insns_to_search = MAX_DELAY_SLOT_INSN_SEARCH;
        trial && !LABEL_P (trial) && insns_to_search > 0;
-       trial = PREV_INSN (trial), --insns_to_search)
+       trial = PREV_INSN (trial))
     {
-      if (!INSN_P (trial))
+      if (!NONDEBUG_INSN_P (trial))
 	continue;
+      --insns_to_search;
 
       pat = PATTERN (trial);
       if (GET_CODE (pat) == USE || GET_CODE (pat) == CLOBBER)
@@ -3504,8 +3506,11 @@ relax_delay_slots (rtx first)
 	    }
 
 	  /* If the first insn at TARGET_LABEL is redundant with a previous
-	     insn, redirect the jump to the following insn process again.  */
-	  trial = next_active_insn (target_label);
+	     insn, redirect the jump to the following insn and process again.
+	     We use next_real_insn instead of next_active_insn so we
+	     don't skip USE-markers, or we'll end up with incorrect
+	     liveness info.  */
+	  trial = next_real_insn (target_label);
 	  if (trial && GET_CODE (PATTERN (trial)) != SEQUENCE
 	      && redundant_insn (trial, insn, 0)
 	      && ! can_throw_internal (trial))

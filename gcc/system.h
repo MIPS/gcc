@@ -414,6 +414,14 @@ extern void *calloc (size_t, size_t);
 extern void *realloc (void *, size_t);
 #endif
 
+#ifdef HAVE_STDINT_H
+#include <stdint.h>
+#endif
+
+#ifdef HAVE_INTTYPES_H
+#include <inttypes.h>
+#endif
+
 /* If the system doesn't provide strsignal, we get it defined in
    libiberty but no declaration is supplied.  */
 #if !defined (HAVE_STRSIGNAL) \
@@ -517,6 +525,11 @@ extern int vsnprintf(char *, size_t, const char *, va_list);
 #ifdef MKDIR_TAKES_ONE_ARG
 # define mkdir(a,b) mkdir(a)
 #endif
+
+/* Provide a way to print an address via printf.  */
+#ifndef HOST_PTR_PRINTF
+#define HOST_PTR_PRINTF "%p"
+#endif /* ! HOST_PTR_PRINTF */
 
 /* By default, colon separates directories in a path.  */
 #ifndef PATH_SEPARATOR
@@ -693,7 +706,9 @@ extern void fancy_abort (const char *, int, const char *) ATTRIBUTE_NORETURN;
 	MUST_PASS_IN_STACK FUNCTION_ARG_PASS_BY_REFERENCE               \
         VECTOR_MODE_SUPPORTED_P TARGET_SUPPORTS_HIDDEN 			\
 	FUNCTION_ARG_PARTIAL_NREGS ASM_OUTPUT_DWARF_DTPREL		\
-	ALLOCATE_INITIAL_VALUE LEGITIMIZE_ADDRESS FRAME_POINTER_REQUIRED
+	ALLOCATE_INITIAL_VALUE LEGITIMIZE_ADDRESS FRAME_POINTER_REQUIRED \
+	CAN_ELIMINATE TRAMPOLINE_TEMPLATE INITIALIZE_TRAMPOLINE		\
+	TRAMPOLINE_ADJUST_ADDRESS STATIC_CHAIN STATIC_CHAIN_INCOMING
 
 /* Other obsolete target macros, or macros that used to be in target
    headers and were not used, and may be obsolete or may never have
@@ -741,12 +756,12 @@ extern void fancy_abort (const char *, int, const char *) ATTRIBUTE_NORETURN;
         TARGET_ESC TARGET_FF TARGET_NEWLINE TARGET_TAB TARGET_VT	   \
         LINK_LIBGCC_SPECIAL DONT_ACCESS_GBLS_AFTER_EPILOGUE		   \
 	TARGET_OPTIONS TARGET_SWITCHES EXTRA_CC_MODES FINALIZE_PIC	   \
-	PREDICATE_CODES SPECIAL_MODE_PREDICATES HOST_PTR_PRINTF		   \
+	PREDICATE_CODES SPECIAL_MODE_PREDICATES	UNALIGNED_WORD_ASM_OP	   \
 	EXTRA_SECTIONS EXTRA_SECTION_FUNCTIONS READONLY_DATA_SECTION	   \
 	TARGET_ASM_EXCEPTION_SECTION TARGET_ASM_EH_FRAME_SECTION	   \
 	SMALL_ARG_MAX ASM_OUTPUT_SHARED_BSS ASM_OUTPUT_SHARED_COMMON	   \
-	ASM_OUTPUT_SHARED_LOCAL UNALIGNED_WORD_ASM_OP			   \
-	ASM_MAKE_LABEL_LINKONCE
+	ASM_OUTPUT_SHARED_LOCAL ASM_MAKE_LABEL_LINKONCE			   \
+	STACK_CHECK_PROBE_INTERVAL STACK_CHECK_PROBE_LOAD
 
 /* Hooks that are no longer used.  */
  #pragma GCC poison LANG_HOOKS_FUNCTION_MARK LANG_HOOKS_FUNCTION_FREE	\

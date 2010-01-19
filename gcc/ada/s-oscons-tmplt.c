@@ -58,7 +58,7 @@ pragma Style_Checks ("M32766");
  **  s-oscons-tmpl.s.
  **
  **  The default one assumes that the template can be compiled by the newly-
- **  build cross compiler. It uses markup produced in the (pseudo-)assembly
+ **  built cross compiler. It uses markup produced in the (pseudo-)assembly
  **  listing:
  **
  **     xgcc -DTARGET=\"$target\" -C -E s-oscons-tmplt.c > s-oscons-tmplt.i
@@ -79,8 +79,18 @@ pragma Style_Checks ("M32766");
  **/
 
 #if defined (__linux__) && !defined (_XOPEN_SOURCE)
-/* For Linux _XOPEN_SOURCE must be defined, otherwise IOV_MAX is not defined */
+/** For Linux _XOPEN_SOURCE must be defined, otherwise IOV_MAX is not defined
+ **/
 #define _XOPEN_SOURCE 500
+
+#elif defined (__mips) && defined (__sgi)
+/** For IRIX 6, _XOPEN5 must be defined and _XOPEN_IOV_MAX must be used as
+ ** IOV_MAX, otherwise IOV_MAX is not defined.  IRIX 5 has neither.
+ **/
+#ifdef _XOPEN_IOV_MAX
+#define _XOPEN5
+#define IOV_MAX _XOPEN_IOV_MAX
+#endif
 #endif
 
 #include <stdlib.h>
@@ -153,6 +163,9 @@ int counter = 0;
 #define CNS(name,comment) \
   printf ("\n->CNS:$%d:" #name ":" name ":" comment, __LINE__);
 
+#define C(sname,type,value,comment)\
+  printf ("\n->C:$%d:" sname ":" #type ":" value ":" comment, __LINE__);
+
 #define TXT(text) \
   printf ("\n->TXT:$%d:" text, __LINE__);
 
@@ -166,7 +179,12 @@ int counter = 0;
 #define CNS(name, comment) \
   asm volatile("\n->CNS:%0:" #name ":" name ":" comment \
   : : "i" (__LINE__));
-/* General expression constant */
+/* General expression named number */
+
+#define C(sname, type, value, comment) \
+  asm volatile("\n->C:%0:" sname ":" #type ":" value ":" comment \
+  : : "i" (__LINE__));
+/* Typed constant */
 
 #define TXT(text) \
   asm volatile("\n->TXT:%0:" text \
@@ -174,6 +192,11 @@ int counter = 0;
 /* Freeform text */
 
 #endif
+
+#define CST(name,comment) C(#name,String,name,comment)
+
+#define STR(x) STR1(x)
+#define STR1(x) #x
 
 #ifdef __MINGW32__
 unsigned int _CRT_fmode = _O_BINARY;
@@ -216,6 +239,24 @@ package System.OS_Constants is
  **  General constants (all platforms)
  **/
 
+/*
+
+   -----------------------------
+   -- Platform identification --
+   -----------------------------
+
+   type OS_Type is (Windows, VMS, Other_OS);
+*/
+#if defined (__MINGW32__)
+# define TARGET_OS "Windows"
+#elif defined (__VMS)
+# define TARGET_OS "VMS"
+#else
+# define TARGET_OS "Other_OS"
+#endif
+C("Target_OS", OS_Type, TARGET_OS, "")
+#define Target_Name TARGET
+CST(Target_Name, "")
 /*
 
    -------------------
@@ -1159,7 +1200,7 @@ CND(SIZEOF_tv_usec, "tv_usec")
 }
 /*
 
-   --  Sizes of protocol specific address types (for sockaddr.sa_len)
+   --  Sizes of various data types
 */
 
 #define SIZEOF_sockaddr_in (sizeof (struct sockaddr_in))
@@ -1171,12 +1212,11 @@ CND(SIZEOF_sockaddr_in, "struct sockaddr_in")
 #endif
 CND(SIZEOF_sockaddr_in6, "struct sockaddr_in6")
 
-/*
-
-   --  Size of file descriptor sets
-*/
 #define SIZEOF_fd_set (sizeof (fd_set))
 CND(SIZEOF_fd_set, "fd_set");
+
+#define SIZEOF_struct_servent (sizeof (struct servent))
+CND(SIZEOF_struct_servent, "struct servent");
 /*
 
    --  Fields of struct hostent
@@ -1221,7 +1261,7 @@ CND(Has_Sockaddr_Len,  "Sockaddr has sa_len field")
  ** Do not change the format of the line below without also updating the
  ** MaRTE Makefile.
  **/
-TXT("   Thread_Blocking_IO  : constant Boolean := True;")
+C("Thread_Blocking_IO", Boolean, "True", "")
 /*
    --  Set False for contexts where socket i/o are process blocking
 
@@ -1232,7 +1272,7 @@ TXT("   Thread_Blocking_IO  : constant Boolean := True;")
 #else
 # define Inet_Pton_Linkname "__gnat_inet_pton"
 #endif
-TXT("   Inet_Pton_Linkname  : constant String := \"" Inet_Pton_Linkname "\";")
+CST(Inet_Pton_Linkname, "")
 
 #endif /* HAVE_SOCKETS */
 

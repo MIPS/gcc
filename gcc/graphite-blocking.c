@@ -54,8 +54,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "graphite-poly.h"
 
 
-/* Strip mines with a factor STRIDE the loop around PBB at depth
-   LOOP_DEPTH.  The following example comes from the wiki page:
+/* Strip mines with a factor STRIDE the scattering (time) dimension
+   around PBB at depth TIME_DEPTH.
+
+   The following example comes from the wiki page:
    http://gcc.gnu.org/wiki/Graphite/Strip_mine
 
    The strip mine of a loop with a tile of 64 can be obtained with a
@@ -106,16 +108,19 @@ along with GCC; see the file COPYING3.  If not see
 */
 
 static bool
-pbb_strip_mine_loop_depth (poly_bb_p pbb, int loop_depth, int stride)
+pbb_strip_mine_time_depth (poly_bb_p pbb, int time_depth, int stride)
 {
-  ppl_dimension_type iter, dim;
+  ppl_dimension_type iter, dim, strip;
   ppl_Polyhedron_t res = PBB_TRANSFORMED_SCATTERING (pbb);
-  ppl_dimension_type strip = psct_scattering_dim_for_loop_depth (pbb,
-								 loop_depth);
+  /* STRIP is the dimension that iterates with stride STRIDE.  */
+  /* ITER is the dimension that enumerates single iterations inside
+     one strip that has at most STRIDE iterations.  */
+  strip = time_depth;
+  iter = strip + 2;
 
   psct_add_scattering_dimension (pbb, strip);
+  psct_add_scattering_dimension (pbb, strip + 1);
 
-  iter = psct_iterator_dim (pbb, loop_depth);
   ppl_Polyhedron_space_dimension (res, &dim);
 
   /* Lower bound of the striped loop.  */
@@ -149,15 +154,31 @@ pbb_strip_mine_loop_depth (poly_bb_p pbb, int loop_depth, int stride)
     ppl_delete_Constraint (new_cstr);
   }
 
+  /* Static scheduling for ITER level.
+     This is mandatory to keep the 2d + 1 canonical scheduling format.  */
+  {
+    ppl_Constraint_t new_cstr;
+    ppl_Linear_Expression_t expr;
+
+    ppl_new_Linear_Expression_with_dimension (&expr, dim);
+    ppl_set_coef (expr, strip + 1, 1);
+    ppl_set_inhomogeneous (expr, 0);
+
+    ppl_new_Constraint (&new_cstr, expr, PPL_CONSTRAINT_TYPE_EQUAL);
+    ppl_delete_Linear_Expression (expr);
+    ppl_Polyhedron_add_constraint (res, new_cstr);
+    ppl_delete_Constraint (new_cstr);
+  }
+
   return true;
 }
 
 /* Returns true when strip mining with STRIDE of the loop around PBB
-   at depth LOOP_DEPTH is profitable.  */
+   at DEPTH is profitable.  */
 
 static bool
 pbb_strip_mine_profitable_p (poly_bb_p pbb,
-			     graphite_dim_t loop_depth,
+			     graphite_dim_t depth,
 			     int stride)
 {
   Value niter, strip_stride;
@@ -166,7 +187,7 @@ pbb_strip_mine_profitable_p (poly_bb_p pbb,
   value_init (strip_stride);
   value_init (niter);
   value_set_si (strip_stride, stride);
-  pbb_number_of_iterations (pbb, loop_depth, niter);
+  pbb_number_of_iterations_at_time (pbb, psct_dynamic_dim (pbb, depth), niter);
   res = value_gt (niter, strip_stride);
   value_clear (strip_stride);
   value_clear (niter);
@@ -174,21 +195,64 @@ pbb_strip_mine_profitable_p (poly_bb_p pbb,
   return res;
 }
 
-/* Strip mines all the loops around PBB.  Nothing profitable in all this:
-   this is just a driver function.  */
+/* Strip-mines all the loops of LST that are considered profitable to
+   strip-mine.  Return true if it did strip-mined some loops.  */
 
 static bool
-pbb_do_strip_mine (poly_bb_p pbb)
+lst_do_strip_mine_loop (lst_p lst, int depth)
 {
-  graphite_dim_t loop_depth;
-  int stride = 64;
-  bool transform_done = false;
+  int i;
+  lst_p l;
+  int stride = PARAM_VALUE (PARAM_LOOP_BLOCK_TILE_SIZE);
+  poly_bb_p pbb;
 
-  for (loop_depth = 0; loop_depth < pbb_dim_iter_domain (pbb); loop_depth++)
-    if (pbb_strip_mine_profitable_p (pbb, loop_depth, stride))
-      transform_done |= pbb_strip_mine_loop_depth (pbb, loop_depth, stride);
+  if (!lst)
+    return false;
 
-  return transform_done;
+  if (LST_LOOP_P (lst))
+    {
+      bool res = false;
+
+      for (i = 0; VEC_iterate (lst_p, LST_SEQ (lst), i, l); i++)
+	res |= lst_do_strip_mine_loop (l, depth);
+
+      return res;
+    }
+
+  pbb = LST_PBB (lst);
+  return pbb_strip_mine_time_depth (pbb, psct_dynamic_dim (pbb, depth),
+				    stride);
+}
+
+/* Strip-mines all the loops of LST that are considered profitable to
+   strip-mine.  Return true if it did strip-mined some loops.  */
+
+static bool
+lst_do_strip_mine (lst_p lst)
+{
+  int i;
+  lst_p l;
+  bool res = false;
+  int stride = PARAM_VALUE (PARAM_LOOP_BLOCK_TILE_SIZE);
+  int depth;
+
+  if (!lst
+      || !LST_LOOP_P (lst))
+    return false;
+
+  for (i = 0; VEC_iterate (lst_p, LST_SEQ (lst), i, l); i++)
+    res |= lst_do_strip_mine (l);
+
+  depth = lst_depth (lst);
+  if (depth >= 0
+      && pbb_strip_mine_profitable_p (LST_PBB (lst_find_first_pbb (lst)),
+				      depth, stride))
+    {
+      res |= lst_do_strip_mine_loop (lst, lst_depth (lst));
+      lst_add_loop_under_loop (lst);
+    }
+
+  return res;
 }
 
 /* Strip mines all the loops in SCOP.  Nothing profitable in all this:
@@ -197,14 +261,11 @@ pbb_do_strip_mine (poly_bb_p pbb)
 bool
 scop_do_strip_mine (scop_p scop)
 {
-  poly_bb_p pbb;
-  int i;
   bool transform_done = false;
 
   store_scattering (scop);
 
-  for (i = 0; VEC_iterate (poly_bb_p, SCOP_BBS (scop), i, pbb); i++)
-    transform_done |= pbb_do_strip_mine (pbb);
+  transform_done = lst_do_strip_mine (SCOP_TRANSFORMED_SCHEDULE (scop));
 
   if (!transform_done)
     return false;
@@ -215,7 +276,36 @@ scop_do_strip_mine (scop_p scop)
       return false;
     }
 
-  return true;
+  return transform_done;
+}
+
+/* Loop blocks all the loops in SCOP.  Returns true when we manage to
+   block some loops.  */
+
+bool
+scop_do_block (scop_p scop)
+{
+  bool strip_mined = false;
+  bool interchanged = false;
+
+  store_scattering (scop);
+
+  strip_mined = lst_do_strip_mine (SCOP_TRANSFORMED_SCHEDULE (scop));
+  interchanged = scop_do_interchange (scop);
+
+  /* If we don't interchange loops, then the strip mine is not
+     profitable, and the transform is not a loop blocking.  */
+  if (!interchanged
+      || !graphite_legal_transform (scop))
+    {
+      restore_scattering (scop);
+      return false;
+    }
+  else if (strip_mined && interchanged
+	   && dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "SCoP will be loop blocked.\n");
+
+  return strip_mined || interchanged;
 }
 
 #endif

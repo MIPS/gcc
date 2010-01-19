@@ -31,7 +31,6 @@ with Prj.Attr; use Prj.Attr;
 with Prj.Err;  use Prj.Err;
 with Prj.Ext;  use Prj.Ext;
 with Prj.Nmsc; use Prj.Nmsc;
-with Sinput;   use Sinput;
 with Snames;
 
 with GNAT.Case_Util; use GNAT.Case_Util;
@@ -1042,7 +1041,8 @@ package body Prj.Proc is
                      end if;
                   end if;
 
-                  Value := Prj.Ext.Value_Of (Name, Default);
+                  Value :=
+                    Prj.Ext.Value_Of (From_Project_Node_Tree, Name, Default);
 
                   if Value = No_Name then
                      if not Quiet_Output then
@@ -1869,9 +1869,16 @@ package body Prj.Proc is
                      else
                         declare
                            Index_Name : Name_Id :=
-                             Associative_Array_Index_Of
-                               (Current_Item, From_Project_Node_Tree);
-                           The_Array : Array_Id;
+                                          Associative_Array_Index_Of
+                                           (Current_Item,
+                                            From_Project_Node_Tree);
+
+                           Source_Index : constant Int :=
+                                            Source_Index_Of
+                                              (Current_Item,
+                                               From_Project_Node_Tree);
+
+                           The_Array         : Array_Id;
                            The_Array_Element : Array_Element_Id :=
                                                  No_Array_Element;
 
@@ -1889,9 +1896,9 @@ package body Prj.Proc is
                            if Pkg /= No_Package then
                               The_Array :=
                                 In_Tree.Packages.Table (Pkg).Decl.Arrays;
-
                            else
-                              The_Array := Project.Decl.Arrays;
+                              The_Array :=
+                                Project.Decl.Arrays;
                            end if;
 
                            while
@@ -1900,8 +1907,8 @@ package body Prj.Proc is
                                  In_Tree.Arrays.Table (The_Array).Name /=
                                                             Current_Item_Name
                            loop
-                              The_Array := In_Tree.Arrays.Table
-                                             (The_Array).Next;
+                              The_Array :=
+                                In_Tree.Arrays.Table (The_Array).Next;
                            end loop;
 
                            --  If the array cannot be found, create a new entry
@@ -1943,12 +1950,15 @@ package body Prj.Proc is
                            end if;
 
                            --  Look in the list, if any, to find an element
-                           --  with the same index.
+                           --  with the same index and same source index.
 
                            while The_Array_Element /= No_Array_Element
                              and then
-                               In_Tree.Array_Elements.Table
+                               (In_Tree.Array_Elements.Table
                                  (The_Array_Element).Index /= Index_Name
+                                 or else
+                                In_Tree.Array_Elements.Table
+                                 (The_Array_Element).Src_Index /= Source_Index)
                            loop
                               The_Array_Element :=
                                 In_Tree.Array_Elements.Table
@@ -1962,23 +1972,23 @@ package body Prj.Proc is
                            if The_Array_Element = No_Array_Element then
                               Array_Element_Table.Increment_Last
                                 (In_Tree.Array_Elements);
-                              The_Array_Element := Array_Element_Table.Last
-                                (In_Tree.Array_Elements);
+                              The_Array_Element :=
+                                Array_Element_Table.Last
+                                  (In_Tree.Array_Elements);
 
                               In_Tree.Array_Elements.Table
                                 (The_Array_Element) :=
-                                  (Index  => Index_Name,
-                                   Src_Index =>
-                                     Source_Index_Of
-                                       (Current_Item, From_Project_Node_Tree),
+                                  (Index                => Index_Name,
+                                   Src_Index            => Source_Index,
                                    Index_Case_Sensitive =>
                                      not Case_Insensitive
                                        (Current_Item, From_Project_Node_Tree),
-                                   Value  => New_Value,
-                                   Next   => In_Tree.Arrays.Table
-                                             (The_Array).Value);
-                              In_Tree.Arrays.Table
-                                (The_Array).Value := The_Array_Element;
+                                   Value                => New_Value,
+                                   Next                 =>
+                                     In_Tree.Arrays.Table (The_Array).Value);
+
+                              In_Tree.Arrays.Table (The_Array).Value :=
+                                The_Array_Element;
 
                            --  An element with the same index already exists,
                            --  just replace its value with the new one.
@@ -2256,9 +2266,8 @@ package body Prj.Proc is
          Check (In_Tree, Project, Flags);
       end if;
 
-      --  If main project is an extending all project, set the object
-      --  directory of all virtual extending projects to the object
-      --  directory of the main project.
+      --  If main project is an extending all project, set object directory of
+      --  all virtual extending projects to object directory of main project.
 
       if Project /= No_Project
         and then
@@ -2425,13 +2434,13 @@ package body Prj.Proc is
          declare
             Imported         : Project_List;
             Declaration_Node : Project_Node_Id  := Empty_Node;
-            Tref             : Source_Buffer_Ptr;
-            Name             : constant Name_Id :=
-                                 Name_Of
-                                   (From_Project_Node, From_Project_Node_Tree);
-            Location         : Source_Ptr :=
-                                 Location_Of
-                                   (From_Project_Node, From_Project_Node_Tree);
+
+            Name : constant Name_Id :=
+                     Name_Of (From_Project_Node, From_Project_Node_Tree);
+
+            Name_Node : constant Tree_Private_Part.Project_Name_And_Node :=
+                          Tree_Private_Part.Projects_Htable.Get
+                            (From_Project_Node_Tree.Projects_HT, Name);
 
          begin
             Project := Processed_Projects.Get (Name);
@@ -2458,6 +2467,7 @@ package body Prj.Proc is
             Processed_Projects.Set (Name, Project);
 
             Project.Name := Name;
+            Project.Display_Name := Name_Node.Display_Name;
             Project.Qualifier :=
               Project_Qualifier_Of (From_Project_Node, From_Project_Node_Tree);
 
@@ -2471,26 +2481,7 @@ package body Prj.Proc is
                          Virtual_Prefix
             then
                Project.Virtual := True;
-               Project.Display_Name := Name;
 
-            --  If there is no file, for example when the project node tree is
-            --  built in memory by GPS, the Display_Name cannot be found in
-            --  the source, so its value is the same as Name.
-
-            elsif Location = No_Location then
-               Project.Display_Name := Name;
-
-            --  Get the spelling of the project name from the project file
-
-            else
-               Tref := Source_Text (Get_Source_File_Index (Location));
-
-               for J in 1 .. Name_Len loop
-                  Name_Buffer (J) := Tref (Location);
-                  Location := Location + 1;
-               end loop;
-
-               Project.Display_Name := Name_Find;
             end if;
 
             Project.Path.Display_Name :=

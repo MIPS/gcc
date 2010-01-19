@@ -46,7 +46,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfgloop.h"
 
 
-/* Lowering of OpenMP parallel and workshare constructs proceeds in two 
+/* Lowering of OpenMP parallel and workshare constructs proceeds in two
    phases.  The first phase scans the function looking for OMP statements
    and then for variables that must be replaced to satisfy data sharing
    clauses.  The second phase expands code for the constructs, as well as
@@ -72,7 +72,7 @@ typedef struct omp_context
   struct omp_context *outer;
   gimple stmt;
 
-  /* Map variables to fields in a structure that allows communication 
+  /* Map variables to fields in a structure that allows communication
      between sending and receiving threads.  */
   splay_tree field_map;
   tree record_type;
@@ -293,7 +293,7 @@ extract_omp_for_data (gimple for_stmt, struct omp_for_data *fd,
       else
 	loop = &dummy_loop;
 
-      
+
       loop->v = gimple_omp_for_index (for_stmt, i);
       gcc_assert (SSA_VAR_P (loop->v));
       gcc_assert (TREE_CODE (TREE_TYPE (loop->v)) == INTEGER_TYPE
@@ -494,7 +494,7 @@ extract_omp_for_data (gimple for_stmt, struct omp_for_data *fd,
    	# BLOCK 2 (PAR_ENTRY_BB)
 	.omp_data_o.i = i;
 	#pragma omp parallel [child fn: bar.omp_fn.0 ( ..., D.1598)
-	
+
 	# BLOCK 3 (WS_ENTRY_BB)
 	.omp_data_i = &.omp_data_o;
 	D.1667 = .omp_data_i->i;
@@ -518,13 +518,10 @@ extract_omp_for_data (gimple for_stmt, struct omp_for_data *fd,
    hack something up here, it is really not worth the aggravation.  */
 
 static bool
-workshare_safe_to_combine_p (basic_block par_entry_bb, basic_block ws_entry_bb)
+workshare_safe_to_combine_p (basic_block ws_entry_bb)
 {
   struct omp_for_data fd;
-  gimple par_stmt, ws_stmt;
-
-  par_stmt = last_stmt (par_entry_bb);
-  ws_stmt = last_stmt (ws_entry_bb);
+  gimple ws_stmt = last_stmt (ws_entry_bb);
 
   if (gimple_code (ws_stmt) == GIMPLE_OMP_SECTIONS)
     return true;
@@ -631,7 +628,7 @@ determine_parallel_type (struct omp_region *region)
 
   if (single_succ (par_entry_bb) == ws_entry_bb
       && single_succ (ws_exit_bb) == par_exit_bb
-      && workshare_safe_to_combine_p (par_entry_bb, ws_entry_bb)
+      && workshare_safe_to_combine_p (ws_entry_bb)
       && (gimple_omp_parallel_combined_p (last_stmt (par_entry_bb))
 	  || (last_and_only_stmt (ws_entry_bb)
 	      && last_and_only_stmt (par_exit_bb))))
@@ -1103,7 +1100,7 @@ dump_omp_region (FILE *file, struct omp_region *region, int indent)
       fprintf (file, "%*sbb %d: GIMPLE_OMP_CONTINUE\n", indent, "",
 	       region->cont->index);
     }
-    
+
   if (region->exit)
     fprintf (file, "%*sbb %d: GIMPLE_OMP_RETURN\n", indent, "",
 	     region->exit->index);
@@ -1214,7 +1211,7 @@ new_omp_context (gimple stmt, omp_context *outer_ctx)
       ctx->cb.dst_node = ctx->cb.src_node;
       ctx->cb.src_cfun = cfun;
       ctx->cb.copy_decl = omp_copy_decl;
-      ctx->cb.eh_region = -1;
+      ctx->cb.eh_lp_nr = 0;
       ctx->cb.transform_call_graph_edges = CB_CGE_MOVE;
       ctx->depth = 1;
     }
@@ -1618,7 +1615,7 @@ create_omp_child_function (omp_context *ctx, bool task_copy)
       DECL_ARGUMENTS (decl) = t;
     }
 
-  /* Allocate memory for the function structure.  The call to 
+  /* Allocate memory for the function structure.  The call to
      allocate_struct_function clobbers CFUN, so we need to restore
      it afterward.  */
   push_struct_function (decl);
@@ -2240,7 +2237,7 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 
   /* Do all the fixed sized types in the first pass, and the variable sized
      types in the second pass.  This makes sure that the scalar arguments to
-     the variable sized types are processed before we use them in the 
+     the variable sized types are processed before we use them in the
      variable sized operations.  */
   for (pass = 0; pass < 2; ++pass)
     {
@@ -2388,7 +2385,7 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 	      /* ??? If VAR is not passed by reference, and the variable
 		 hasn't been initialized yet, then we'll get a warning for
 		 the store into the omp_data_s structure.  Ideally, we'd be
-		 able to notice this and not store anything at all, but 
+		 able to notice this and not store anything at all, but
 		 we're generating code too early.  Suppress the warning.  */
 	      if (!by_ref)
 		TREE_NO_WARNING (var) = 1;
@@ -2890,7 +2887,7 @@ gimple_build_cond_empty (tree cond)
 }
 
 
-/* Build the function calls to GOMP_parallel_start etc to actually 
+/* Build the function calls to GOMP_parallel_start etc to actually
    generate the parallel operation.  REGION is the parallel region
    being expanded.  BB is the block where to insert the code.  WS_ARGS
    will be set if this is a call to a combined parallel+workshare
@@ -3117,23 +3114,22 @@ expand_task_call (basic_block bb, gimple entry_stmt)
 static gimple_seq
 maybe_catch_exception (gimple_seq body)
 {
-  gimple f, t;
+  gimple g;
+  tree decl;
 
   if (!flag_exceptions)
     return body;
 
   if (lang_protect_cleanup_actions)
-    t = lang_protect_cleanup_actions ();
+    decl = lang_protect_cleanup_actions ();
   else
-    t = gimple_build_call (built_in_decls[BUILT_IN_TRAP], 0);
+    decl = built_in_decls[BUILT_IN_TRAP];
 
-  f = gimple_build_eh_filter (NULL, gimple_seq_alloc_with_stmt (t));
-  gimple_eh_filter_set_must_not_throw (f, true);
-
-  t = gimple_build_try (body, gimple_seq_alloc_with_stmt (f),
+  g = gimple_build_eh_must_not_throw (decl);
+  g = gimple_build_try (body, gimple_seq_alloc_with_stmt (g),
       			GIMPLE_TRY_CATCH);
 
- return gimple_seq_alloc_with_stmt (t);
+ return gimple_seq_alloc_with_stmt (g);
 }
 
 /* Chain all the DECLs in LIST by their TREE_CHAIN fields.  */
@@ -3498,7 +3494,7 @@ expand_omp_taskreg (struct omp_region *region)
 	}
 
       /* Move the parallel region into CHILD_CFUN.  */
- 
+
       if (gimple_in_ssa_p (cfun))
 	{
 	  push_cfun (child_cfun);
@@ -3555,7 +3551,7 @@ expand_omp_taskreg (struct omp_region *region)
       current_function_decl = save_current;
       pop_cfun ();
     }
-  
+
   /* Emit a library call to launch the children threads.  */
   if (gimple_code (entry_stmt) == GIMPLE_OMP_PARALLEL)
     expand_parallel_call (region, new_bb, entry_stmt, ws_args);
@@ -4139,7 +4135,7 @@ expand_omp_for_static_nochunk (struct omp_region *region,
   t = fold_convert (itype, t);
   nthreads = force_gimple_operand_gsi (&gsi, t, true, NULL_TREE,
 				       true, GSI_SAME_STMT);
-  
+
   t = build_call_expr (built_in_decls[BUILT_IN_OMP_GET_THREAD_NUM], 0);
   t = fold_convert (itype, t);
   threadid = force_gimple_operand_gsi (&gsi, t, true, NULL_TREE,
@@ -4203,7 +4199,7 @@ expand_omp_for_static_nochunk (struct omp_region *region,
 				false, GSI_CONTINUE_LINKING);
   stmt = gimple_build_assign (fd->loop.v, t);
   gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
- 
+
   t = fold_convert (itype, e0);
   t = fold_build2 (MULT_EXPR, itype, t, fd->loop.step);
   if (POINTER_TYPE_P (type))
@@ -4251,7 +4247,7 @@ expand_omp_for_static_nochunk (struct omp_region *region,
 
   find_edge (cont_bb, body_bb)->flags = EDGE_TRUE_VALUE;
   find_edge (cont_bb, fin_bb)->flags = EDGE_FALSE_VALUE;
- 
+
   set_immediate_dominator (CDI_DOMINATORS, seq_start_bb, entry_bb);
   set_immediate_dominator (CDI_DOMINATORS, body_bb,
 			   recompute_dominator (CDI_DOMINATORS, body_bb));
@@ -4337,7 +4333,7 @@ expand_omp_for_static_chunk (struct omp_region *region, struct omp_for_data *fd)
   t = fold_convert (itype, t);
   nthreads = force_gimple_operand_gsi (&si, t, true, NULL_TREE,
 				       true, GSI_SAME_STMT);
-  
+
   t = build_call_expr (built_in_decls[BUILT_IN_OMP_GET_THREAD_NUM], 0);
   t = fold_convert (itype, t);
   threadid = force_gimple_operand_gsi (&si, t, true, NULL_TREE,
@@ -4461,7 +4457,7 @@ expand_omp_for_static_chunk (struct omp_region *region, struct omp_for_data *fd)
 
   t = build2 (fd->loop.cond_code, boolean_type_node, v_back, e);
   gsi_insert_before (&si, gimple_build_cond_empty (t), GSI_SAME_STMT);
-  
+
   /* Remove GIMPLE_OMP_CONTINUE.  */
   gsi_remove (&si, true);
 
@@ -4651,7 +4647,7 @@ expand_omp_for (struct omp_region *region)
 static void
 expand_omp_sections (struct omp_region *region)
 {
-  tree t, u, vin = NULL, vmain, vnext, l1, l2;
+  tree t, u, vin = NULL, vmain, vnext, l2;
   VEC (tree,heap) *label_vec;
   unsigned len;
   basic_block entry_bb, l0_bb, l1_bb, l2_bb, default_bb;
@@ -4696,12 +4692,10 @@ expand_omp_sections (struct omp_region *region)
 	      }
 	}
       default_bb = create_empty_bb (l1_bb->prev_bb);
-      l1 = gimple_block_label (l1_bb);
     }
   else
     {
       default_bb = create_empty_bb (l0_bb);
-      l1 = NULL_TREE;
       l2 = gimple_block_label (default_bb);
     }
 
@@ -4929,17 +4923,17 @@ expand_omp_atomic_fetch_op (basic_block load_bb,
   location_t loc;
 
   /* We expect to find the following sequences:
-   
+
    load_bb:
        GIMPLE_OMP_ATOMIC_LOAD (tmp, mem)
 
    store_bb:
        val = tmp OP something; (or: something OP tmp)
-       GIMPLE_OMP_STORE (val) 
+       GIMPLE_OMP_STORE (val)
 
-  ???FIXME: Allow a more flexible sequence.  
+  ???FIXME: Allow a more flexible sequence.
   Perhaps use data flow to pick the statements.
-  
+
   */
 
   gsi = gsi_after_labels (store_bb);
@@ -5156,7 +5150,7 @@ expand_omp_atomic_pipeline (basic_block load_bb, basic_block store_bb,
     }
 
   /* Note that we always perform the comparison as an integer, even for
-     floating point.  This allows the atomic operation to properly 
+     floating point.  This allows the atomic operation to properly
      succeed even with NaNs and -0.0.  */
   stmt = gimple_build_cond_empty
            (build2 (NE_EXPR, boolean_type_node,
@@ -5197,18 +5191,18 @@ expand_omp_atomic_pipeline (basic_block load_bb, basic_block store_bb,
    references are within #pragma omp atomic directives.  According to
    responses received from omp@openmp.org, appears to be within spec.
    Which makes sense, since that's how several other compilers handle
-   this situation as well.  
+   this situation as well.
    LOADED_VAL and ADDR are the operands of GIMPLE_OMP_ATOMIC_LOAD we're
    expanding.  STORED_VAL is the operand of the matching
    GIMPLE_OMP_ATOMIC_STORE.
 
-   We replace 
-   GIMPLE_OMP_ATOMIC_LOAD (loaded_val, addr) with  
+   We replace
+   GIMPLE_OMP_ATOMIC_LOAD (loaded_val, addr) with
    loaded_val = *addr;
 
    and replace
    GIMPLE_OMP_ATOMIC_ATORE (stored_val)  with
-   *addr = stored_val;  
+   *addr = stored_val;
 */
 
 static bool
@@ -5247,12 +5241,12 @@ expand_omp_atomic_mutex (basic_block load_bb, basic_block store_bb,
   return true;
 }
 
-/* Expand an GIMPLE_OMP_ATOMIC statement.  We try to expand 
-   using expand_omp_atomic_fetch_op. If it failed, we try to 
+/* Expand an GIMPLE_OMP_ATOMIC statement.  We try to expand
+   using expand_omp_atomic_fetch_op. If it failed, we try to
    call expand_omp_atomic_pipeline, and if it fails too, the
    ultimate fallback is wrapping the operation in a mutex
-   (expand_omp_atomic_mutex).  REGION is the atomic region built 
-   by build_omp_regions_1().  */ 
+   (expand_omp_atomic_mutex).  REGION is the atomic region built
+   by build_omp_regions_1().  */
 
 static void
 expand_omp_atomic (struct omp_region *region)
@@ -5515,7 +5509,7 @@ gate_expand_omp (void)
   return (flag_openmp != 0 && errorcount == 0);
 }
 
-struct gimple_opt_pass pass_expand_omp = 
+struct gimple_opt_pass pass_expand_omp =
 {
  {
   GIMPLE_PASS,
@@ -5587,7 +5581,7 @@ lower_omp_sections (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	  gimple_seq_add_seq (&body, l);
 	  gimple_omp_section_set_last (sec_start);
 	}
-      
+
       gimple_seq_add_stmt (&body, gimple_build_omp_return (false));
     }
 
@@ -5780,7 +5774,7 @@ lower_omp_single (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 
   bind_body = maybe_catch_exception (bind_body);
 
-  t = gimple_build_omp_return 
+  t = gimple_build_omp_return
         (!!find_omp_clause (gimple_omp_single_clauses (single_stmt),
 			    OMP_CLAUSE_NOWAIT));
   gimple_seq_add_stmt (&bind_body, t);
@@ -5982,7 +5976,7 @@ lower_omp_for_lastprivate (struct omp_for_data *fd, gimple_seq *body_p,
   tree clauses, cond, vinit;
   enum tree_code cond_code;
   gimple_seq stmts;
-  
+
   cond_code = fd->loop.cond_code;
   cond_code = cond_code == LT_EXPR ? GE_EXPR : LE_EXPR;
 
@@ -6027,7 +6021,7 @@ lower_omp_for (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   tree *rhs_p, block;
   struct omp_for_data fd;
   gimple stmt = gsi_stmt (*gsi_p), new_stmt;
-  gimple_seq omp_for_body, body, dlist, ilist;
+  gimple_seq omp_for_body, body, dlist;
   size_t i;
   struct gimplify_ctx gctx;
 
@@ -6050,7 +6044,6 @@ lower_omp_for (gimple_stmt_iterator *gsi_p, omp_context *ctx)
     }
 
   /* The pre-body and input clauses go before the lowered GIMPLE_OMP_FOR.  */
-  ilist = NULL;
   dlist = NULL;
   body = NULL;
   lower_rec_input_clauses (gimple_omp_for_clauses (stmt), &body, &dlist, ctx);
@@ -6111,7 +6104,7 @@ lower_omp_for (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   gsi_replace (gsi_p, new_stmt, true);
 }
 
-/* Callback for walk_stmts.  Check if the current statement only contains 
+/* Callback for walk_stmts.  Check if the current statement only contains
    GIMPLE_OMP_FOR or GIMPLE_OMP_PARALLEL.  */
 
 static tree
@@ -6247,7 +6240,7 @@ create_task_copyfn (gimple task_stmt, omp_context *ctx)
       tcctx.cb.dst_node = tcctx.cb.src_node;
       tcctx.cb.src_cfun = ctx->cb.src_cfun;
       tcctx.cb.copy_decl = task_copyfn_copy_decl;
-      tcctx.cb.eh_region = -1;
+      tcctx.cb.eh_lp_nr = 0;
       tcctx.cb.transform_call_graph_edges = CB_CGE_MOVE;
       tcctx.cb.decl_map = pointer_map_create ();
       tcctx.ctx = ctx;
@@ -6690,7 +6683,7 @@ execute_lower_omp (void)
   return 0;
 }
 
-struct gimple_opt_pass pass_lower_omp = 
+struct gimple_opt_pass pass_lower_omp =
 {
  {
   GIMPLE_PASS,
@@ -6725,7 +6718,7 @@ diagnose_sb_0 (gimple_stmt_iterator *gsi_p,
   if (label_ctx == branch_ctx)
     return false;
 
-     
+
   /*
      Previously we kept track of the label's entire context in diagnose_sb_[12]
      so we could traverse it and issue a correct "exit" or "enter" error
@@ -6736,7 +6729,7 @@ diagnose_sb_0 (gimple_stmt_iterator *gsi_p,
      for issuing exit/enter error messages.  If someone really misses the
      distinct error message... patches welcome.
    */
-     
+
 #if 0
   /* Try to avoid confusing the user by producing and error message
      with correct "exit" or "enter" verbiage.  We prefer "exit"
@@ -6789,7 +6782,7 @@ diagnose_sb_1 (gimple_stmt_iterator *gsi_p, bool *handled_ops_p,
  switch (gimple_code (stmt))
     {
     WALK_SUBSTMTS;
-      
+
     case GIMPLE_OMP_PARALLEL:
     case GIMPLE_OMP_TASK:
     case GIMPLE_OMP_SECTIONS:
@@ -6866,6 +6859,27 @@ diagnose_sb_2 (gimple_stmt_iterator *gsi_p, bool *handled_ops_p,
 	  	       diagnose_sb_2, NULL, wi);
       walk_gimple_seq (gimple_omp_body (stmt), diagnose_sb_2, NULL, wi);
       wi->info = context;
+      break;
+
+    case GIMPLE_COND:
+	{
+	  tree lab = gimple_cond_true_label (stmt);
+	  if (lab)
+	    {
+	      n = splay_tree_lookup (all_labels,
+				     (splay_tree_key) lab);
+	      diagnose_sb_0 (gsi_p, context,
+			     n ? (gimple) n->value : NULL);
+	    }
+	  lab = gimple_cond_false_label (stmt);
+	  if (lab)
+	    {
+	      n = splay_tree_lookup (all_labels,
+				     (splay_tree_key) lab);
+	      diagnose_sb_0 (gsi_p, context,
+			     n ? (gimple) n->value : NULL);
+	    }
+	}
       break;
 
     case GIMPLE_GOTO:

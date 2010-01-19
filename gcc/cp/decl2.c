@@ -52,6 +52,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-dump.h"
 #include "intl.h"
 #include "gimple.h"
+#include "pointer-set.h"
 
 extern cpp_reader *parse_in;
 
@@ -113,20 +114,27 @@ tree
 build_memfn_type (tree fntype, tree ctype, cp_cv_quals quals)
 {
   tree raises;
+  tree attrs;
   int type_quals;
 
   if (fntype == error_mark_node || ctype == error_mark_node)
     return error_mark_node;
 
+  gcc_assert (TREE_CODE (fntype) == FUNCTION_TYPE
+	      || TREE_CODE (fntype) == METHOD_TYPE);
+
   type_quals = quals & ~TYPE_QUAL_RESTRICT;
   ctype = cp_build_qualified_type (ctype, type_quals);
+  raises = TYPE_RAISES_EXCEPTIONS (fntype);
+  attrs = TYPE_ATTRIBUTES (fntype);
   fntype = build_method_type_directly (ctype, TREE_TYPE (fntype),
 				       (TREE_CODE (fntype) == METHOD_TYPE
 					? TREE_CHAIN (TYPE_ARG_TYPES (fntype))
 					: TYPE_ARG_TYPES (fntype)));
-  raises = TYPE_RAISES_EXCEPTIONS (fntype);
   if (raises)
     fntype = build_exception_variant (fntype, raises);
+  if (attrs)
+    fntype = cp_build_type_attribute_variant (fntype, attrs);
 
   return fntype;
 }
@@ -236,6 +244,9 @@ maybe_retrofit_in_chrg (tree fn)
   if (TYPE_RAISES_EXCEPTIONS (TREE_TYPE (fn)))
     fntype = build_exception_variant (fntype,
 				      TYPE_RAISES_EXCEPTIONS (TREE_TYPE (fn)));
+  if (TYPE_ATTRIBUTES (TREE_TYPE (fn)))
+    fntype = (cp_build_type_attribute_variant
+	      (fntype, TYPE_ATTRIBUTES (TREE_TYPE (fn))));
   TREE_TYPE (fn) = fntype;
 
   /* Now we've got the in-charge parameter.  */
@@ -253,7 +264,7 @@ maybe_retrofit_in_chrg (tree fn)
    FUNCTION is a FUNCTION_DECL.  It was created by `grokdeclarator'.
 
    FLAGS contains bits saying what's special about today's
-   arguments.  1 == DESTRUCTOR.  2 == OPERATOR.
+   arguments.  DTOR_FLAG == DESTRUCTOR.
 
    If FUNCTION is a destructor, then we must add the `auto-delete' field
    as a second parameter.  There is some hair associated with the fact
@@ -763,6 +774,7 @@ grokfield (const cp_declarator *declarator,
   tree value;
   const char *asmspec = 0;
   int flags = LOOKUP_ONLYCONVERTING;
+  tree name;
 
   if (init
       && TREE_CODE (init) == TREE_LIST
@@ -777,7 +789,7 @@ grokfield (const cp_declarator *declarator,
 
   if (TREE_CODE (value) == TYPE_DECL && init)
     {
-      error ("typedef %qD is initialized (use __typeof__ instead)", value);
+      error ("typedef %qD is initialized (use decltype instead)", value);
       init = NULL_TREE;
     }
 
@@ -791,11 +803,21 @@ grokfield (const cp_declarator *declarator,
       && DECL_CONTEXT (value) != current_class_type)
     return value;
 
-  if (DECL_NAME (value) != NULL_TREE
-      && IDENTIFIER_POINTER (DECL_NAME (value))[0] == '_'
-      && ! strcmp (IDENTIFIER_POINTER (DECL_NAME (value)), "_vptr"))
-    error ("member %qD conflicts with virtual function table field name",
-	   value);
+  name = DECL_NAME (value);
+
+  if (name != NULL_TREE)
+    {
+      if (TREE_CODE (name) == TEMPLATE_ID_EXPR)
+	{
+	  error ("explicit template argument list not allowed");
+	  return error_mark_node;
+	}
+
+      if (IDENTIFIER_POINTER (name)[0] == '_'
+	  && ! strcmp (IDENTIFIER_POINTER (name), "_vptr"))
+	error ("member %qD conflicts with virtual function table field name",
+	       value);
+    }
 
   /* Stash away type declarations.  */
   if (TREE_CODE (value) == TYPE_DECL)
@@ -822,7 +844,7 @@ grokfield (const cp_declarator *declarator,
       if (declspecs->specs[(int)ds_typedef]
           && TREE_TYPE (value) != error_mark_node
           && TYPE_NAME (TYPE_MAIN_VARIANT (TREE_TYPE (value))) != value)
-	set_underlying_type (value);
+	cp_set_underlying_type (value);
 
       return value;
     }
@@ -850,9 +872,7 @@ grokfield (const cp_declarator *declarator,
 	    }
 	  else if (init == ridpointers[(int)RID_DEFAULT])
 	    {
-	      if (!defaultable_fn_p (value))
-		error ("%qD cannot be defaulted", value);
-	      else
+	      if (defaultable_fn_check (value))
 		{
 		  DECL_DEFAULTED_FN (value) = 1;
 		  DECL_INITIALIZED_IN_CLASS_P (value) = 1;
@@ -1209,6 +1229,8 @@ cp_reconstruct_complex_type (tree type, tree bottom)
   else
     return bottom;
 
+  if (TYPE_ATTRIBUTES (type))
+    outer = cp_build_type_attribute_variant (outer, TYPE_ATTRIBUTES (type));
   return cp_build_qualified_type (outer, TYPE_QUALS (type));
 }
 
@@ -1291,6 +1313,7 @@ build_anon_union_vars (tree type, tree object)
 	  decl = build_decl (input_location,
 			     VAR_DECL, DECL_NAME (field), TREE_TYPE (field));
 	  DECL_ANON_UNION_VAR_P (decl) = 1;
+	  DECL_ARTIFICIAL (decl) = 1;
 
 	  base = get_base_address (object);
 	  TREE_PUBLIC (decl) = TREE_PUBLIC (base);
@@ -1551,8 +1574,7 @@ comdat_linkage (tree decl)
 	}
     }
 
-  if (DECL_LANG_SPECIFIC (decl))
-    DECL_COMDAT (decl) = 1;
+  DECL_COMDAT (decl) = 1;
 }
 
 /* For win32 we also want to put explicit instantiations in
@@ -1591,6 +1613,22 @@ maybe_make_one_only (tree decl)
 	  mark_decl_referenced (decl);
 	}
     }
+}
+
+/* Returns true iff DECL, a FUNCTION_DECL, has vague linkage.  This
+   predicate will give the right answer during parsing of the function,
+   which other tests may not.  */
+
+bool
+vague_linkage_fn_p (tree fn)
+{
+  /* Unfortunately, import_export_decl has not always been called
+     before the function is processed, so we cannot simply check
+     DECL_COMDAT.  */
+  return (DECL_COMDAT (fn)
+	  || ((DECL_DECLARED_INLINE_P (fn)
+	       || DECL_TEMPLATE_INSTANTIATION (fn))
+	      && TREE_PUBLIC (fn)));
 }
 
 /* Determine whether or not we want to specifically import or export CTYPE,
@@ -1845,6 +1883,8 @@ constrain_visibility (tree decl, int visibility)
       if (!DECL_EXTERN_C_P (decl))
 	{
 	  TREE_PUBLIC (decl) = 0;
+	  DECL_WEAK (decl) = 0;
+	  DECL_COMMON (decl) = 0;
 	  DECL_COMDAT_GROUP (decl) = NULL_TREE;
 	  DECL_INTERFACE_KNOWN (decl) = 1;
 	  if (DECL_LANG_SPECIFIC (decl))
@@ -2063,6 +2103,16 @@ determine_visibility (tree decl)
 	  || ! DECL_VISIBILITY_SPECIFIED (decl))
 	constrain_visibility (decl, tvis);
     }
+  else if (no_linkage_check (TREE_TYPE (decl), /*relaxed_p=*/true))
+    /* DR 757: A type without linkage shall not be used as the type of a
+       variable or function with linkage, unless
+       o the variable or function has extern "C" linkage (7.5 [dcl.link]), or
+       o the variable or function is not used (3.2 [basic.def.odr]) or is
+       defined in the same translation unit.
+
+       Since non-extern "C" decls need to be defined in the same
+       translation unit, we can make the type internal.  */
+    constrain_visibility (decl, VISIBILITY_ANON);
 
   /* If visibility changed and DECL already has DECL_RTL, ensure
      symbol flags are updated.  */
@@ -2504,7 +2554,9 @@ get_guard (tree decl)
       TREE_PUBLIC (guard) = TREE_PUBLIC (decl);
       TREE_STATIC (guard) = TREE_STATIC (decl);
       DECL_COMMON (guard) = DECL_COMMON (decl);
-      DECL_COMDAT_GROUP (guard) = DECL_COMDAT_GROUP (decl);
+      DECL_COMDAT (guard) = DECL_COMDAT (decl);
+      if (DECL_ONE_ONLY (decl))
+	make_decl_one_only (guard, cxx_comdat_group (guard));
       if (TREE_PUBLIC (decl))
 	DECL_WEAK (guard) = DECL_WEAK (decl);
       DECL_VISIBILITY (guard) = DECL_VISIBILITY (decl);
@@ -3274,6 +3326,7 @@ cxx_callgraph_analyze_expr (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED)
 	    mark_decl_referenced (vtbl);
 	}
       else if (DECL_CONTEXT (t)
+	       && flag_use_repository
 	       && TREE_CODE (DECL_CONTEXT (t)) == FUNCTION_DECL)
 	/* If we need a static variable in a function, then we
 	   need the containing function.  */
@@ -3288,10 +3341,46 @@ cxx_callgraph_analyze_expr (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED)
 
 /* Java requires that we be able to reference a local address for a
    method, and not be confused by PLT entries.  If hidden aliases are
-   supported, emit one for each java function that we've emitted.  */
+   supported, collect and return all the functions for which we should
+   emit a hidden alias.  */
+
+static struct pointer_set_t *
+collect_candidates_for_java_method_aliases (void)
+{
+  struct cgraph_node *node;
+  struct pointer_set_t *candidates = NULL;
+
+#ifndef HAVE_GAS_HIDDEN
+  return candidates;
+#endif
+
+  for (node = cgraph_nodes; node ; node = node->next)
+    {
+      tree fndecl = node->decl;
+
+      if (DECL_CONTEXT (fndecl)
+	  && TYPE_P (DECL_CONTEXT (fndecl))
+	  && TYPE_FOR_JAVA (DECL_CONTEXT (fndecl))
+	  && TARGET_USE_LOCAL_THUNK_ALIAS_P (fndecl))
+	{
+	  if (candidates == NULL)
+	    candidates = pointer_set_create ();
+	  pointer_set_insert (candidates, fndecl);
+	}
+    }
+
+  return candidates;
+}
+
+
+/* Java requires that we be able to reference a local address for a
+   method, and not be confused by PLT entries.  If hidden aliases are
+   supported, emit one for each java function that we've emitted.
+   CANDIDATES is the set of FUNCTION_DECLs that were gathered
+   by collect_candidates_for_java_method_aliases.  */
 
 static void
-build_java_method_aliases (void)
+build_java_method_aliases (struct pointer_set_t *candidates)
 {
   struct cgraph_node *node;
 
@@ -3303,12 +3392,8 @@ build_java_method_aliases (void)
     {
       tree fndecl = node->decl;
 
-      if (node->local.externally_visible
-          && TREE_ASM_WRITTEN (fndecl)
-	  && DECL_CONTEXT (fndecl)
-	  && TYPE_P (DECL_CONTEXT (fndecl))
-	  && TYPE_FOR_JAVA (DECL_CONTEXT (fndecl))
-	  && TARGET_USE_LOCAL_THUNK_ALIAS_P (fndecl))
+      if (TREE_ASM_WRITTEN (fndecl)
+	  && pointer_set_contains (candidates, fndecl))
 	{
 	  /* Mangle the name in a predictable way; we need to reference
 	     this from a java compiled object file.  */
@@ -3380,6 +3465,7 @@ cp_write_global_declarations (void)
   unsigned ssdf_count = 0;
   int retries = 0;
   tree decl;
+  struct pointer_set_t *candidates;
 
   locus = input_location;
   at_eof = 1;
@@ -3573,7 +3659,36 @@ cp_write_global_declarations (void)
 	  if (DECL_NOT_REALLY_EXTERN (decl)
 	      && DECL_INITIAL (decl)
 	      && decl_needed_p (decl))
-	    DECL_EXTERNAL (decl) = 0;
+	    {
+	      struct cgraph_node *node = cgraph_get_node (decl), *alias, *next;
+
+	      DECL_EXTERNAL (decl) = 0;
+	      /* If we mark !DECL_EXTERNAL one of the same body aliases,
+		 we need to mark all of them that way.  */
+	      if (node && node->same_body)
+		{
+		  DECL_EXTERNAL (node->decl) = 0;
+		  for (alias = node->same_body; alias; alias = alias->next)
+		    DECL_EXTERNAL (alias->decl) = 0;
+		}
+	      /* If we mark !DECL_EXTERNAL one of the symbols in some comdat
+		 group, we need to mark all symbols in the same comdat group
+		 that way.  */
+	      if (node->same_comdat_group)
+		for (next = node->same_comdat_group;
+		     next != node;
+		     next = next->same_comdat_group)
+		  {
+		    DECL_EXTERNAL (next->decl) = 0;
+		    if (next->same_body)
+		      {
+			for (alias = next->same_body;
+			     alias;
+			     alias = alias->next)
+			  DECL_EXTERNAL (alias->decl) = 0;
+		      }
+		  }
+	    }
 
 	  /* If we're going to need to write this function out, and
 	     there's already a body for it, create RTL for it now.
@@ -3677,6 +3792,9 @@ cp_write_global_declarations (void)
      linkage now.  */
   pop_lang_context ();
 
+  /* Collect candidates for Java hidden aliases.  */
+  candidates = collect_candidates_for_java_method_aliases ();
+
   cgraph_finalize_compilation_unit ();
 
   /* Now, issue warnings about static, but not defined, functions,
@@ -3691,7 +3809,11 @@ cp_write_global_declarations (void)
     }
 
   /* Generate hidden aliases for Java.  */
-  build_java_method_aliases ();
+  if (candidates)
+    {
+      build_java_method_aliases (candidates);
+      pointer_set_destroy (candidates);
+    }
 
   finish_repo ();
 
@@ -3914,7 +4036,8 @@ mark_used (tree decl)
    o the variable or function has extern "C" linkage (7.5 [dcl.link]), or
    o the variable or function is not used (3.2 [basic.def.odr]) or is
    defined in the same translation unit.  */
-  if (TREE_PUBLIC (decl)
+  if (cxx_dialect > cxx98
+      && decl_linkage (decl) != lk_none
       && !DECL_EXTERN_C_P (decl)
       && !DECL_ARTIFICIAL (decl)
       && !decl_defined_p (decl)

@@ -83,6 +83,15 @@ call_ ## FUNC (void)					\
     && !defined(OBJECT_FORMAT_FLAT) \
     && defined(HAVE_LD_EH_FRAME_HDR) \
     && !defined(inhibit_libc) && !defined(CRTSTUFFT_O) \
+    && defined(__FreeBSD__) && __FreeBSD__ >= 7
+#include <link.h>
+# define USE_PT_GNU_EH_FRAME
+#endif
+
+#if defined(OBJECT_FORMAT_ELF) \
+    && !defined(OBJECT_FORMAT_FLAT) \
+    && defined(HAVE_LD_EH_FRAME_HDR) \
+    && !defined(inhibit_libc) && !defined(CRTSTUFFT_O) \
     && defined(__GLIBC__) && __GLIBC__ >= 2
 #include <link.h>
 /* uClibc pretends to be glibc 2.2 and DT_CONFIG is defined in its link.h.
@@ -126,7 +135,7 @@ call_ ## FUNC (void)					\
    declaration for functions that we want to have weak references.
 
    Neither way is particularly good.  */
-   
+
 /* References to __register_frame_info and __deregister_frame_info should
    be weak in this file if at all possible.  */
 extern void __register_frame_info (const void *, struct object *)
@@ -245,7 +254,7 @@ void *__dso_handle = 0;
 extern void __cxa_finalize (void *) TARGET_ATTRIBUTE_WEAK;
 
 /* Run all the global destructors on exit from the program.  */
- 
+
 /* Some systems place the number of pointers in the first word of the
    table.  On SVR4 however, that word is -1.  In all cases, the table is
    null-terminated.  On SVR4, we start from the beginning of the list and
@@ -325,11 +334,18 @@ __do_global_dtors_aux (void)
 /* Stick a call to __do_global_dtors_aux into the .fini section.  */
 #ifdef FINI_SECTION_ASM_OP
 CRT_CALL_STATIC_FUNCTION (FINI_SECTION_ASM_OP, __do_global_dtors_aux)
-#else /* !defined(FINI_SECTION_ASM_OP) */
+#elif defined (FINI_ARRAY_SECTION_ASM_OP)
 static func_ptr __do_global_dtors_aux_fini_array_entry[]
   __attribute__ ((__unused__, section(".fini_array")))
   = { __do_global_dtors_aux };
-#endif /* !defined(FINI_SECTION_ASM_OP) */
+#else /* !FINI_SECTION_ASM_OP && !FINI_ARRAY_SECTION_ASM_OP */
+static void __attribute__((used))
+__do_global_dtors_aux_1 (void)
+{
+  atexit (__do_global_dtors_aux);
+}
+CRT_CALL_STATIC_FUNCTION (INIT_SECTION_ASM_OP, __do_global_dtors_aux_1)
+#endif
 
 #if defined(USE_EH_FRAME_REGISTRY) || defined(JCR_SECTION_NAME)
 /* Stick a call to __register_frame_info into the .init section.  For some
@@ -530,7 +546,7 @@ STATIC EH_FRAME_SECTION_CONST int32 __FRAME_END__[]
 
 #ifdef JCR_SECTION_NAME
 /* Null terminate the .jcr section array.  */
-STATIC void *__JCR_END__[1] 
+STATIC void *__JCR_END__[1]
    __attribute__ ((unused, section(JCR_SECTION_NAME),
 		   aligned(sizeof(void *))))
    = { 0 };

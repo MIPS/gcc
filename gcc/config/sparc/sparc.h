@@ -1068,6 +1068,15 @@ enum reg_class { NO_REGS, FPCC_REGS, I64_REGS, GENERAL_REGS, FP_REGS,
    {-1, -1, -1, 0x20},	/* GENERAL_OR_EXTRA_FP_REGS */	\
    {-1, -1, -1, 0x3f}}	/* ALL_REGS */
 
+/* The same information, inverted:
+   Return the class number of the smallest class containing
+   reg number REGNO.  This could be a conditional expression
+   or could index an array.  */
+
+extern enum reg_class sparc_regno_reg_class[FIRST_PSEUDO_REGISTER];
+
+#define REGNO_REG_CLASS(REGNO) sparc_regno_reg_class[(REGNO)]
+
 /* The following macro defines cover classes for Integrated Register
    Allocator.  Cover classes is a set of non-intersected register
    classes covering all hard registers used for register allocation
@@ -1094,15 +1103,6 @@ enum reg_class { NO_REGS, FPCC_REGS, I64_REGS, GENERAL_REGS, FP_REGS,
    && (FROM) == SImode						\
    && GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO)		\
    ? reg_classes_intersect_p (CLASS, FP_REGS) : 0)
-
-/* The same information, inverted:
-   Return the class number of the smallest class containing
-   reg number REGNO.  This could be a conditional expression
-   or could index an array.  */
-
-extern enum reg_class sparc_regno_reg_class[FIRST_PSEUDO_REGISTER];
-
-#define REGNO_REG_CLASS(REGNO) sparc_regno_reg_class[(REGNO)]
 
 /* This is the order in which to allocate registers normally.
 
@@ -1369,12 +1369,6 @@ extern char leaf_reg_remap[];
   {{ FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM}, \
    { FRAME_POINTER_REGNUM, HARD_FRAME_POINTER_REGNUM} }
 
-/* The way this is structured, we can't eliminate SFP in favor of SP
-   if the frame pointer is required: we want to use the SFP->HFP elimination
-   in that case.  But the test in update_eliminables doesn't know we are
-   assuming below that we only do the former elimination.  */
-#define CAN_ELIMINATE(FROM, TO) sparc_can_eliminate((FROM), (TO))
-
 /* We always pretend that this is a leaf function because if it's not,
    there's no point in trying to eliminate the frame pointer.  If it
    is a leaf function, we guessed right!  */
@@ -1618,16 +1612,6 @@ do {									\
 #define TRAMPOLINE_SIZE (TARGET_ARCH64 ? 32 : 16)
 
 #define TRAMPOLINE_ALIGNMENT 128 /* 16 bytes */
-
-/* Emit RTL insns to initialize the variable parts of a trampoline.
-   FNADDR is an RTX for the address of the function's pure code.
-   CXT is an RTX for the static chain value for the function.  */
-
-#define INITIALIZE_TRAMPOLINE(TRAMP, FNADDR, CXT) \
-    if (TARGET_ARCH64)						\
-      sparc64_initialize_trampoline (TRAMP, FNADDR, CXT);	\
-    else							\
-      sparc_initialize_trampoline (TRAMP, FNADDR, CXT)
 
 /* Generate RTL to flush the register windows so as to make arbitrary frames
    available.  */
@@ -2228,9 +2212,6 @@ extern int sparc_indent_opcode;
 	sparc_indent_opcode = 0;	\
       }					\
   } while (0)
-
-#define SPARC_SYMBOL_REF_TLS_P(RTX) \
-  (GET_CODE (RTX) == SYMBOL_REF && SYMBOL_REF_TLS_MODEL (RTX) != 0)
 
 #define PRINT_OPERAND_PUNCT_VALID_P(CHAR) \
   ((CHAR) == '#' || (CHAR) == '*' || (CHAR) == '('		\

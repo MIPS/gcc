@@ -26,7 +26,7 @@
 with GNAT.Directory_Operations; use GNAT.Directory_Operations;
 
 with Csets;
-with Makeutl;
+with Makeutl;  use Makeutl;
 with MLib.Tgt; use MLib.Tgt;
 with MLib.Utl;
 with MLib.Fil;
@@ -38,6 +38,7 @@ with Prj;      use Prj;
 with Prj.Env;
 with Prj.Ext;  use Prj.Ext;
 with Prj.Pars;
+with Prj.Tree; use Prj.Tree;
 with Prj.Util; use Prj.Util;
 with Sinput.P;
 with Snames;   use Snames;
@@ -57,7 +58,7 @@ with GNAT.OS_Lib;             use GNAT.OS_Lib;
 with VMS_Conv;                use VMS_Conv;
 
 procedure GNATCmd is
-   Project_Tree      : constant Project_Tree_Ref := new Project_Tree_Data;
+   Project_Node_Tree : Project_Node_Tree_Ref;
    Project_File      : String_Access;
    Project           : Prj.Project_Id;
    Current_Verbosity : Prj.Verbosity := Prj.Default;
@@ -317,8 +318,31 @@ procedure GNATCmd is
 
       for Index in 1 .. Last_Switches.Last loop
          if Last_Switches.Table (Index) (1) /= '-' then
-            Add_Sources := False;
-            exit;
+            if Index = 1
+              or else
+                (The_Command = Check
+                   and then
+                     Last_Switches.Table (Index - 1).all /= "-o")
+              or else
+                (The_Command = Pretty
+                   and then
+                     Last_Switches.Table (Index - 1).all /= "-o"  and then
+                     Last_Switches.Table (Index - 1).all /= "-of")
+              or else
+                (The_Command = Metric
+                   and then
+                     Last_Switches.Table (Index - 1).all /= "-o"  and then
+                     Last_Switches.Table (Index - 1).all /= "-og" and then
+                     Last_Switches.Table (Index - 1).all /= "-ox" and then
+                     Last_Switches.Table (Index - 1).all /= "-d")
+              or else
+                (The_Command /= Check  and then
+                 The_Command /= Pretty and then
+                 The_Command /= Metric)
+            then
+               Add_Sources := False;
+               exit;
+            end if;
          end if;
       end loop;
 
@@ -551,8 +575,12 @@ procedure GNATCmd is
                                   (Unit.File_Names (Kind).Project, Project)
                        and then not Unit.File_Names (Kind).Locally_Removed
                      then
-                        Get_Name_String
-                          (Unit.File_Names (Kind).Path.Display_Name);
+                        Name_Len := 0;
+                        Add_Char_To_Name_Buffer ('"');
+                        Add_Str_To_Name_Buffer
+                          (Get_Name_String
+                             (Unit.File_Names (Kind).Path.Display_Name));
+                        Add_Char_To_Name_Buffer ('"');
 
                         if FD /= Invalid_FD then
                            Name_Len := Name_Len + 1;
@@ -1268,6 +1296,9 @@ begin
 
    Snames.Initialize;
 
+   Project_Node_Tree := new Project_Node_Tree_Data;
+   Prj.Tree.Initialize (Project_Node_Tree);
+
    Prj.Initialize (Project_Tree);
 
    Last_Switches.Init;
@@ -1600,7 +1631,7 @@ begin
                     and then Argv (Argv'First + 1 .. Argv'First + 2) = "aP"
                   then
                      Add_Search_Project_Directory
-                       (Argv (Argv'First + 3 .. Argv'Last));
+                       (Project_Node_Tree, Argv (Argv'First + 3 .. Argv'Last));
 
                      Remove_Switch (Arg_Num);
 
@@ -1608,6 +1639,7 @@ begin
 
                   elsif Argv.all = "-eL" then
                      Follow_Links_For_Files := True;
+                     Follow_Links_For_Dirs  := True;
 
                      Remove_Switch (Arg_Num);
 
@@ -1694,7 +1726,8 @@ begin
                      begin
                         if Equal_Pos >= Argv'First + 3 and then
                           Equal_Pos /= Argv'Last then
-                           Add (External_Name =>
+                           Add (Project_Node_Tree,
+                                External_Name =>
                                   Argv (Argv'First + 2 .. Equal_Pos - 1),
                                 Value => Argv (Equal_Pos + 1 .. Argv'Last));
                         else
@@ -1753,6 +1786,7 @@ begin
          Prj.Pars.Parse
            (Project           => Project,
             In_Tree           => Project_Tree,
+            In_Node_Tree      => Project_Node_Tree,
             Project_File_Name => Project_File.all,
             Flags             => Gnatmake_Flags,
             Packages_To_Check => Packages_To_Check);
@@ -2114,7 +2148,7 @@ begin
             --  arguments.
 
             for J in 1 .. Last_Switches.Last loop
-               Test_If_Relative_Path
+               GNATCmd.Test_If_Relative_Path
                  (Last_Switches.Table (J), Current_Work_Dir);
             end loop;
 
@@ -2124,7 +2158,7 @@ begin
                Project_Dir : constant String := Name_Buffer (1 .. Name_Len);
             begin
                for J in 1 .. First_Switches.Last loop
-                  Test_If_Relative_Path
+                  GNATCmd.Test_If_Relative_Path
                     (First_Switches.Table (J), Project_Dir);
                end loop;
             end;

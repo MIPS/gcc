@@ -957,7 +957,7 @@ mark_target_live_regs (rtx insns, rtx target, struct resources *res)
 
       /* Get starting and ending insn, handling the case where each might
 	 be a SEQUENCE.  */
-      start_insn = (b == ENTRY_BLOCK_PTR->next_bb->index ? 
+      start_insn = (b == ENTRY_BLOCK_PTR->next_bb->index ?
 		    insns : BB_HEAD (BASIC_BLOCK (b)));
       stop_insn = target;
 
@@ -975,6 +975,9 @@ mark_target_live_regs (rtx insns, rtx target, struct resources *res)
 	  rtx link;
 	  rtx real_insn = insn;
 	  enum rtx_code code = GET_CODE (insn);
+
+	  if (DEBUG_INSN_P (insn))
+	    continue;
 
 	  /* If this insn is from the target of a branch, it isn't going to
 	     be used in the sequel.  If it is used in both cases, this

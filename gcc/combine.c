@@ -321,7 +321,7 @@ static rtx *uid_log_links;
 
 static int label_tick;
 
-/* Reset to label_tick for each label.  */
+/* Reset to label_tick for each extended basic block in scanning order.  */
 
 static int label_tick_ebb_start;
 
@@ -767,7 +767,7 @@ do_SUBST_MODE (rtx *into, enum machine_mode newval)
 /* Subroutine of try_combine.  Determine whether the combine replacement
    patterns NEWPAT, NEWI2PAT and NEWOTHERPAT are cheaper according to
    insn_rtx_cost that the original instruction sequence I1, I2, I3 and
-   undobuf.other_insn.  Note that I1 and/or NEWI2PAT may be NULL_RTX. 
+   undobuf.other_insn.  Note that I1 and/or NEWI2PAT may be NULL_RTX.
    NEWOTHERPAT and undobuf.other_insn may also both be NULL_RTX.  This
    function returns false, if the costs of all instructions can be
    estimated, and the replacements are more expensive than the original
@@ -912,7 +912,7 @@ create_log_links (void)
      register and establishing log links when def is encountered.
      Note that we do not clear next_use array in order to save time,
      so we have to test whether the use is in the same basic block as def.
-              
+
      There are a few cases below when we do not consider the definition or
      usage -- these are taken from original flow.c did. Don't ask me why it is
      done this way; I don't know and if it works, I don't want to know.  */
@@ -921,7 +921,7 @@ create_log_links (void)
     {
       FOR_BB_INSNS_REVERSE (bb, insn)
         {
-          if (!INSN_P (insn))
+          if (!NONDEBUG_INSN_P (insn))
             continue;
 
 	  /* Log links are created only once.  */
@@ -1010,9 +1010,6 @@ clear_log_links (void)
     if (INSN_P (insn))
       free_INSN_LIST_list (&LOG_LINKS (insn));
 }
-
-
-
 
 /* Main entry point for combiner.  F is the first insn of the function.
    NREGS is the first unused pseudo-reg number.
@@ -1028,6 +1025,7 @@ combine_instructions (rtx f, unsigned int nregs)
 #endif
   rtx links, nextlinks;
   rtx first;
+  basic_block last_bb;
 
   int new_direct_jump_p = 0;
 
@@ -1058,6 +1056,7 @@ combine_instructions (rtx f, unsigned int nregs)
      problems when, for example, we have j <<= 1 in a loop.  */
 
   nonzero_sign_valid = 0;
+  label_tick = label_tick_ebb_start = 1;
 
   /* Scan all SETs and see if we can deduce anything about what
      bits are known to be zero for some registers and how many copies
@@ -1067,18 +1066,23 @@ combine_instructions (rtx f, unsigned int nregs)
      for what bits are known to be set.  */
 
   setup_incoming_promotions (first);
+  /* Allow the entry block and the first block to fall into the same EBB.
+     Conceptually the incoming promotions are assigned to the entry block.  */
+  last_bb = ENTRY_BLOCK_PTR;
 
   create_log_links ();
-  label_tick_ebb_start = ENTRY_BLOCK_PTR->index;
   FOR_EACH_BB (this_basic_block)
     {
       optimize_this_for_speed_p = optimize_bb_for_speed_p (this_basic_block);
       last_call_luid = 0;
       mem_last_set = -1;
-      label_tick = this_basic_block->index;
+
+      label_tick++;
       if (!single_pred_p (this_basic_block)
-	  || single_pred (this_basic_block)->index != label_tick - 1)
+	  || single_pred (this_basic_block) != last_bb)
 	label_tick_ebb_start = label_tick;
+      last_bb = this_basic_block;
+
       FOR_BB_INSNS (this_basic_block, insn)
         if (INSN_P (insn) && BLOCK_FOR_INSN (insn))
 	  {
@@ -1109,27 +1113,30 @@ combine_instructions (rtx f, unsigned int nregs)
   nonzero_sign_valid = 1;
 
   /* Now scan all the insns in forward order.  */
-
-  label_tick_ebb_start = ENTRY_BLOCK_PTR->index;
+  label_tick = label_tick_ebb_start = 1;
   init_reg_last ();
   setup_incoming_promotions (first);
+  last_bb = ENTRY_BLOCK_PTR;
 
   FOR_EACH_BB (this_basic_block)
     {
       optimize_this_for_speed_p = optimize_bb_for_speed_p (this_basic_block);
       last_call_luid = 0;
       mem_last_set = -1;
-      label_tick = this_basic_block->index;
+
+      label_tick++;
       if (!single_pred_p (this_basic_block)
-	  || single_pred (this_basic_block)->index != label_tick - 1)
+	  || single_pred (this_basic_block) != last_bb)
 	label_tick_ebb_start = label_tick;
+      last_bb = this_basic_block;
+
       rtl_profile_for_bb (this_basic_block);
       for (insn = BB_HEAD (this_basic_block);
 	   insn != NEXT_INSN (BB_END (this_basic_block));
 	   insn = next ? next : NEXT_INSN (insn))
 	{
 	  next = 0;
-	  if (INSN_P (insn))
+	  if (NONDEBUG_INSN_P (insn))
 	    {
 	      /* See if we know about function return values before this
 		 insn based upon SUBREG flags.  */
@@ -1336,7 +1343,7 @@ setup_incoming_promotions (rtx first)
   for (arg = DECL_ARGUMENTS (current_function_decl); arg;
        arg = TREE_CHAIN (arg))
     {
-      rtx reg = DECL_INCOMING_RTL (arg);
+      rtx x, reg = DECL_INCOMING_RTL (arg);
       int uns1, uns3;
       enum machine_mode mode1, mode2, mode3, mode4;
 
@@ -1360,7 +1367,7 @@ setup_incoming_promotions (rtx first)
       mode2 = TYPE_MODE (DECL_ARG_TYPE (arg));
       uns3 = TYPE_UNSIGNED (DECL_ARG_TYPE (arg));
 
-      /* The mode and signedness of the argument as it is actually passed, 
+      /* The mode and signedness of the argument as it is actually passed,
          after any TARGET_PROMOTE_FUNCTION_ARGS-driven ABI promotions.  */
       mode3 = promote_function_mode (DECL_ARG_TYPE (arg), mode2, &uns3,
 				     TREE_TYPE (cfun->decl), 0);
@@ -1368,30 +1375,38 @@ setup_incoming_promotions (rtx first)
       /* The mode of the register in which the argument is being passed.  */
       mode4 = GET_MODE (reg);
 
-      /* Eliminate sign extensions in the callee when possible.  Only
-         do this when:
-	 (a) a mode promotion has occurred;
-	 (b) the mode of the register is the same as the mode of
-	     the argument as it is passed; and
-	 (c) the signedness does not change across any of the promotions; and
-	 (d) when no language-level promotions (which we cannot guarantee
-	     will have been done by an external caller) are necessary,
-	     unless we know that this function is only ever called from
-	     the current compilation unit -- all of whose call sites will
-	     do the mode1 --> mode2 promotion.  */
-      if (mode1 != mode3
-          && mode3 == mode4
-          && uns1 == uns3
-	  && (mode1 == mode2 || strictly_local))
-        {
-	  /* Record that the value was promoted from mode1 to mode3,
-	     so that any sign extension at the head of the current
-	     function may be eliminated.  */
-	  rtx x;
-	  x = gen_rtx_CLOBBER (mode1, const0_rtx);
-	  x = gen_rtx_fmt_e ((uns3 ? ZERO_EXTEND : SIGN_EXTEND), mode3, x);
-	  record_value_for_reg (reg, first, x);
-	}
+      /* Eliminate sign extensions in the callee when:
+	 (a) A mode promotion has occurred;  */
+      if (mode1 == mode3)
+	continue;
+      /* (b) The mode of the register is the same as the mode of
+	     the argument as it is passed; */
+      if (mode3 != mode4)
+	continue;
+      /* (c) There's no language level extension;  */
+      if (mode1 == mode2)
+	;
+      /* (c.1) All callers are from the current compilation unit.  If that's
+	 the case we don't have to rely on an ABI, we only have to know
+	 what we're generating right now, and we know that we will do the
+	 mode1 to mode2 promotion with the given sign.  */
+      else if (!strictly_local)
+	continue;
+      /* (c.2) The combination of the two promotions is useful.  This is
+	 true when the signs match, or if the first promotion is unsigned.
+	 In the later case, (sign_extend (zero_extend x)) is the same as
+	 (zero_extend (zero_extend x)), so make sure to force UNS3 true.  */
+      else if (uns1)
+	uns3 = true;
+      else if (uns3)
+	continue;
+
+      /* Record that the value was promoted from mode1 to mode3,
+	 so that any sign extension at the head of the current
+	 function may be eliminated.  */
+      x = gen_rtx_CLOBBER (mode1, const0_rtx);
+      x = gen_rtx_fmt_e ((uns3 ? ZERO_EXTEND : SIGN_EXTEND), mode3, x);
+      record_value_for_reg (reg, first, x);
     }
 }
 
@@ -1562,7 +1577,6 @@ can_combine_p (rtx insn, rtx i3, rtx pred ATTRIBUTE_UNUSED, rtx succ,
       for (i = 0; i < XVECLEN (PATTERN (insn), 0); i++)
 	{
 	  rtx elt = XVECEXP (PATTERN (insn), 0, i);
-	  rtx note;
 
 	  switch (GET_CODE (elt))
 	    {
@@ -1613,9 +1627,8 @@ can_combine_p (rtx insn, rtx i3, rtx pred ATTRIBUTE_UNUSED, rtx succ,
 	      /* Ignore SETs whose result isn't used but not those that
 		 have side-effects.  */
 	      if (find_reg_note (insn, REG_UNUSED, SET_DEST (elt))
-		  && (!(note = find_reg_note (insn, REG_EH_REGION, NULL_RTX))
-		      || INTVAL (XEXP (note, 0)) <= 0)
-		  && ! side_effects_p (elt))
+		  && insn_nothrow_p (insn)
+		  && !side_effects_p (elt))
 		break;
 
 	      /* If we have already found a SET, this is a second one and
@@ -2161,8 +2174,177 @@ reg_subword_p (rtx x, rtx reg)
 	 && GET_MODE_CLASS (GET_MODE (x)) == MODE_INT;
 }
 
+#ifdef AUTO_INC_DEC
+/* Replace auto-increment addressing modes with explicit operations to
+   access the same addresses without modifying the corresponding
+   registers.  If AFTER holds, SRC is meant to be reused after the
+   side effect, otherwise it is to be reused before that.  */
 
-/* Delete the conditional jump INSN and adjust the CFG correspondingly.
+static rtx
+cleanup_auto_inc_dec (rtx src, bool after, enum machine_mode mem_mode)
+{
+  rtx x = src;
+  const RTX_CODE code = GET_CODE (x);
+  int i;
+  const char *fmt;
+
+  switch (code)
+    {
+    case REG:
+    case CONST_INT:
+    case CONST_DOUBLE:
+    case CONST_FIXED:
+    case CONST_VECTOR:
+    case SYMBOL_REF:
+    case CODE_LABEL:
+    case PC:
+    case CC0:
+    case SCRATCH:
+      /* SCRATCH must be shared because they represent distinct values.  */
+      return x;
+    case CLOBBER:
+      if (REG_P (XEXP (x, 0)) && REGNO (XEXP (x, 0)) < FIRST_PSEUDO_REGISTER)
+	return x;
+      break;
+
+    case CONST:
+      if (shared_const_p (x))
+	return x;
+      break;
+
+    case MEM:
+      mem_mode = GET_MODE (x);
+      break;
+
+    case PRE_INC:
+    case PRE_DEC:
+    case POST_INC:
+    case POST_DEC:
+      gcc_assert (mem_mode != VOIDmode && mem_mode != BLKmode);
+      if (after == (code == PRE_INC || code == PRE_DEC))
+	x = cleanup_auto_inc_dec (XEXP (x, 0), after, mem_mode);
+      else
+	x = gen_rtx_PLUS (GET_MODE (x),
+			  cleanup_auto_inc_dec (XEXP (x, 0), after, mem_mode),
+			  GEN_INT ((code == PRE_INC || code == POST_INC)
+				   ? GET_MODE_SIZE (mem_mode)
+				   : -GET_MODE_SIZE (mem_mode)));
+      return x;
+
+    case PRE_MODIFY:
+    case POST_MODIFY:
+      if (after == (code == PRE_MODIFY))
+	x = XEXP (x, 0);
+      else
+	x = XEXP (x, 1);
+      return cleanup_auto_inc_dec (x, after, mem_mode);
+
+    default:
+      break;
+    }
+
+  /* Copy the various flags, fields, and other information.  We assume
+     that all fields need copying, and then clear the fields that should
+     not be copied.  That is the sensible default behavior, and forces
+     us to explicitly document why we are *not* copying a flag.  */
+  x = shallow_copy_rtx (x);
+
+  /* We do not copy the USED flag, which is used as a mark bit during
+     walks over the RTL.  */
+  RTX_FLAG (x, used) = 0;
+
+  /* We do not copy FRAME_RELATED for INSNs.  */
+  if (INSN_P (x))
+    RTX_FLAG (x, frame_related) = 0;
+
+  fmt = GET_RTX_FORMAT (code);
+  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
+    if (fmt[i] == 'e')
+      XEXP (x, i) = cleanup_auto_inc_dec (XEXP (x, i), after, mem_mode);
+    else if (fmt[i] == 'E' || fmt[i] == 'V')
+      {
+	int j;
+	XVEC (x, i) = rtvec_alloc (XVECLEN (x, i));
+	for (j = 0; j < XVECLEN (x, i); j++)
+	  XVECEXP (x, i, j)
+	    = cleanup_auto_inc_dec (XVECEXP (src, i, j), after, mem_mode);
+      }
+
+  return x;
+}
+
+/* Auxiliary data structure for propagate_for_debug_stmt.  */
+
+struct rtx_subst_pair
+{
+  rtx to;
+  bool adjusted;
+  bool after;
+};
+
+/* DATA points to an rtx_subst_pair.  Return the value that should be
+   substituted.  */
+
+static rtx
+propagate_for_debug_subst (rtx from ATTRIBUTE_UNUSED, void *data)
+{
+  struct rtx_subst_pair *pair = (struct rtx_subst_pair *)data;
+
+  if (!pair->adjusted)
+    {
+      pair->adjusted = true;
+      pair->to = cleanup_auto_inc_dec (pair->to, pair->after, VOIDmode);
+      return pair->to;
+    }
+  return copy_rtx (pair->to);
+}
+#endif
+
+/* Replace occurrences of DEST with SRC in DEBUG_INSNs between INSN
+   and LAST.  If MOVE holds, debug insns must also be moved past
+   LAST.  */
+
+static void
+propagate_for_debug (rtx insn, rtx last, rtx dest, rtx src, bool move)
+{
+  rtx next, move_pos = move ? last : NULL_RTX, loc;
+
+#ifdef AUTO_INC_DEC
+  struct rtx_subst_pair p;
+  p.to = src;
+  p.adjusted = false;
+  p.after = move;
+#endif
+
+  next = NEXT_INSN (insn);
+  while (next != last)
+    {
+      insn = next;
+      next = NEXT_INSN (insn);
+      if (DEBUG_INSN_P (insn))
+	{
+#ifdef AUTO_INC_DEC
+	  loc = simplify_replace_fn_rtx (INSN_VAR_LOCATION_LOC (insn),
+					 dest, propagate_for_debug_subst, &p);
+#else
+	  loc = simplify_replace_rtx (INSN_VAR_LOCATION_LOC (insn), dest, src);
+#endif
+	  if (loc == INSN_VAR_LOCATION_LOC (insn))
+	    continue;
+	  INSN_VAR_LOCATION_LOC (insn) = loc;
+	  if (move_pos)
+	    {
+	      remove_insn (insn);
+	      PREV_INSN (insn) = NEXT_INSN (insn) = NULL_RTX;
+	      move_pos = emit_debug_insn_after (insn, move_pos);
+	    }
+	  else
+	    df_insn_rescan (insn);
+	}
+    }
+}
+
+/* Delete the unconditional jump INSN and adjust the CFG correspondingly.
    Note that the INSN should be deleted *after* removing dead edges, so
    that the kept edge is the fallthrough edge for a (set (pc) (pc))
    but not for a (set (pc) (label_ref FOO)).  */
@@ -2171,12 +2353,13 @@ static void
 update_cfg_for_uncondjump (rtx insn)
 {
   basic_block bb = BLOCK_FOR_INSN (insn);
+  bool at_end = (BB_END (bb) == insn);
 
-  if (BB_END (bb) == insn)
+  if (at_end)
     purge_dead_edges (bb);
 
   delete_insn (insn);
-  if (EDGE_COUNT (bb->succs) == 1)
+  if (at_end && EDGE_COUNT (bb->succs) == 1)
     single_succ_edge (bb)->flags |= EDGE_FALLTHRU;
 }
 
@@ -2217,7 +2400,9 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
      I2 and not in I3, a REG_DEAD note must be made.  */
   rtx i3dest_killed = 0;
   /* SET_DEST and SET_SRC of I2 and I1.  */
-  rtx i2dest, i2src, i1dest = 0, i1src = 0;
+  rtx i2dest = 0, i2src = 0, i1dest = 0, i1src = 0;
+  /* Set if I2DEST was reused as a scratch register.  */
+  bool i2scratch = false;
   /* PATTERN (I1) and PATTERN (I2), or a copy of it in certain cases.  */
   rtx i1pat = 0, i2pat = 0;
   /* Indicates if I2DEST or I1DEST is in I2SRC or I1_SRC.  */
@@ -2301,7 +2486,7 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
       && GET_CODE (SET_DEST (PATTERN (i3))) != STRICT_LOW_PART
       && ! reg_overlap_mentioned_p (SET_SRC (PATTERN (i3)),
 				    SET_DEST (PATTERN (i3)))
-      && next_real_insn (i2) == i3)
+      && next_active_insn (i2) == i3)
     {
       rtx p2 = PATTERN (i2);
 
@@ -2334,6 +2519,7 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
 	      subst_low_luid = DF_INSN_LUID (i2);
 
 	      added_sets_2 = added_sets_1 = 0;
+	      i2src = SET_DEST (PATTERN (i3));
 	      i2dest = SET_SRC (PATTERN (i3));
 	      i2dest_killed = dead_or_set_p (i2, i2dest);
 
@@ -2477,10 +2663,16 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
 	  i2dest = SET_DEST (temp);
 	  i2dest_killed = dead_or_set_p (i2, i2dest);
 
+	  /* Replace the source in I2 with the new constant and make the
+	     resulting insn the new pattern for I3.  Then skip to where we
+	     validate the pattern.  Everything was set up above.  */
 	  SUBST (SET_SRC (temp),
 		 immed_double_const (olo, ohi, GET_MODE (SET_DEST (temp))));
 
 	  newpat = PATTERN (i2);
+
+          /* The dest of I3 has been replaced with the dest of I2.  */
+          changed_i3_dest = 1;
 	  goto validate_replacement;
 	}
     }
@@ -2852,8 +3044,6 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
 	}
     }
 
-  /* We come here when we are replacing a destination in I2 with the
-     destination of I3.  */
  validate_replacement:
 
   /* Note which hard regs this insn has as inputs.  */
@@ -2902,15 +3092,13 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
     {
       rtx set0 = XVECEXP (newpat, 0, 0);
       rtx set1 = XVECEXP (newpat, 0, 1);
-      rtx note;
 
       if (((REG_P (SET_DEST (set1))
 	    && find_reg_note (i3, REG_UNUSED, SET_DEST (set1)))
 	   || (GET_CODE (SET_DEST (set1)) == SUBREG
 	       && find_reg_note (i3, REG_UNUSED, SUBREG_REG (SET_DEST (set1)))))
-	  && (!(note = find_reg_note (i3, REG_EH_REGION, NULL_RTX))
-	      || INTVAL (XEXP (note, 0)) <= 0)
-	  && ! side_effects_p (SET_SRC (set1)))
+	  && insn_nothrow_p (i3)
+	  && !side_effects_p (SET_SRC (set1)))
 	{
 	  newpat = set0;
 	  insn_code_number = recog_for_combine (&newpat, i3, &new_i3_notes);
@@ -2921,9 +3109,8 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
 		|| (GET_CODE (SET_DEST (set0)) == SUBREG
 		    && find_reg_note (i3, REG_UNUSED,
 				      SUBREG_REG (SET_DEST (set0)))))
-	       && (!(note = find_reg_note (i3, REG_EH_REGION, NULL_RTX))
-		   || INTVAL (XEXP (note, 0)) <= 0)
-	       && ! side_effects_p (SET_SRC (set0)))
+	       && insn_nothrow_p (i3)
+	       && !side_effects_p (SET_SRC (set0)))
 	{
 	  newpat = set1;
 	  insn_code_number = recog_for_combine (&newpat, i3, &new_i3_notes);
@@ -3006,6 +3193,8 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
 		  undobuf.frees = buf;
 		}
 	    }
+
+	  i2scratch = m_split != 0;
 	}
 
       /* If recog_for_combine has discarded clobbers, try to use them
@@ -3099,6 +3288,8 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
 	  enum machine_mode split_mode = GET_MODE (*split);
 	  bool subst_done = false;
 	  newi2pat = NULL_RTX;
+
+	  i2scratch = true;
 
 	  /* Get NEWDEST as a register in the proper mode.  We have already
 	     validated that we can do this.  */
@@ -3402,6 +3593,67 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
       return 0;
     }
 
+  if (MAY_HAVE_DEBUG_INSNS)
+    {
+      struct undo *undo;
+
+      for (undo = undobuf.undos; undo; undo = undo->next)
+	if (undo->kind == UNDO_MODE)
+	  {
+	    rtx reg = *undo->where.r;
+	    enum machine_mode new_mode = GET_MODE (reg);
+	    enum machine_mode old_mode = undo->old_contents.m;
+
+	    /* Temporarily revert mode back.  */
+	    adjust_reg_mode (reg, old_mode);
+
+	    if (reg == i2dest && i2scratch)
+	      {
+		/* If we used i2dest as a scratch register with a
+		   different mode, substitute it for the original
+		   i2src while its original mode is temporarily
+		   restored, and then clear i2scratch so that we don't
+		   do it again later.  */
+		propagate_for_debug (i2, i3, reg, i2src, false);
+		i2scratch = false;
+		/* Put back the new mode.  */
+		adjust_reg_mode (reg, new_mode);
+	      }
+	    else
+	      {
+		rtx tempreg = gen_raw_REG (old_mode, REGNO (reg));
+		rtx first, last;
+
+		if (reg == i2dest)
+		  {
+		    first = i2;
+		    last = i3;
+		  }
+		else
+		  {
+		    first = i3;
+		    last = undobuf.other_insn;
+		    gcc_assert (last);
+		  }
+
+		/* We're dealing with a reg that changed mode but not
+		   meaning, so we want to turn it into a subreg for
+		   the new mode.  However, because of REG sharing and
+		   because its mode had already changed, we have to do
+		   it in two steps.  First, replace any debug uses of
+		   reg, with its original mode temporarily restored,
+		   with this copy we have created; then, replace the
+		   copy with the SUBREG of the original shared reg,
+		   once again changed to the new mode.  */
+		propagate_for_debug (first, last, reg, tempreg, false);
+		adjust_reg_mode (reg, new_mode);
+		propagate_for_debug (first, last, tempreg,
+				     lowpart_subreg (old_mode, reg, new_mode),
+				     false);
+	      }
+	  }
+    }
+
   /* If we will be able to accept this, we have made a
      change to the destination of I3.  This requires us to
      do a few adjustments.  */
@@ -3592,16 +3844,24 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
 
     if (newi2pat)
       {
+	if (MAY_HAVE_DEBUG_INSNS && i2scratch)
+	  propagate_for_debug (i2, i3, i2dest, i2src, false);
 	INSN_CODE (i2) = i2_code_number;
 	PATTERN (i2) = newi2pat;
       }
     else
-      SET_INSN_DELETED (i2);
+      {
+	if (MAY_HAVE_DEBUG_INSNS && i2src)
+	  propagate_for_debug (i2, i3, i2dest, i2src, i3_subst_into_i2);
+	SET_INSN_DELETED (i2);
+      }
 
     if (i1)
       {
 	LOG_LINKS (i1) = 0;
 	REG_NOTES (i1) = 0;
+	if (MAY_HAVE_DEBUG_INSNS)
+	  propagate_for_debug (i1, i3, i1dest, i1src, false);
 	SET_INSN_DELETED (i1);
       }
 
@@ -3639,7 +3899,7 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
 
     if (newi2pat && new_i2_notes)
       distribute_notes (new_i2_notes, i2, i2, NULL_RTX, NULL_RTX, NULL_RTX);
-    
+
     if (new_i3_notes)
       distribute_notes (new_i3_notes, i3, i3, NULL_RTX, NULL_RTX, NULL_RTX);
 
@@ -3785,7 +4045,7 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
 	}
       df_insn_rescan (i3);
     }
-  
+
   /* Set new_direct_jump_p if a new return or simple jump instruction
      has been created.  Adjust the CFG accordingly.  */
 
@@ -3813,7 +4073,7 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
       *new_direct_jump_p = 1;
       update_cfg_for_uncondjump (i3);
     }
-  
+
   combine_successes++;
   undo_commit ();
 
@@ -3911,9 +4171,12 @@ find_split_point (rtx *loc, rtx insn)
       if (GET_CODE (XEXP (x, 0)) == CONST
 	  || GET_CODE (XEXP (x, 0)) == SYMBOL_REF)
 	{
+	  enum machine_mode address_mode
+	    = targetm.addr_space.address_mode (MEM_ADDR_SPACE (x));
+
 	  SUBST (XEXP (x, 0),
-		 gen_rtx_LO_SUM (Pmode,
-				 gen_rtx_HIGH (Pmode, XEXP (x, 0)),
+		 gen_rtx_LO_SUM (address_mode,
+				 gen_rtx_HIGH (address_mode, XEXP (x, 0)),
 				 XEXP (x, 0)));
 	  return &XEXP (XEXP (x, 0), 0);
 	}
@@ -3926,7 +4189,8 @@ find_split_point (rtx *loc, rtx insn)
 	 it will not remain in the result.  */
       if (GET_CODE (XEXP (x, 0)) == PLUS
 	  && CONST_INT_P (XEXP (XEXP (x, 0), 1))
-	  && ! memory_address_p (GET_MODE (x), XEXP (x, 0)))
+	  && ! memory_address_addr_space_p (GET_MODE (x), XEXP (x, 0),
+					    MEM_ADDR_SPACE (x)))
 	{
 	  rtx reg = regno_reg_rtx[FIRST_PSEUDO_REGISTER];
 	  rtx seq = combine_split_insns (gen_rtx_SET (VOIDmode, reg,
@@ -3949,8 +4213,9 @@ find_split_point (rtx *loc, rtx insn)
 	      && NONJUMP_INSN_P (NEXT_INSN (seq))
 	      && GET_CODE (PATTERN (NEXT_INSN (seq))) == SET
 	      && SET_DEST (PATTERN (NEXT_INSN (seq))) == reg
-	      && memory_address_p (GET_MODE (x),
-				   SET_SRC (PATTERN (NEXT_INSN (seq)))))
+	      && memory_address_addr_space_p
+		   (GET_MODE (x), SET_SRC (PATTERN (NEXT_INSN (seq))),
+		    MEM_ADDR_SPACE (x)))
 	    {
 	      rtx src1 = SET_SRC (PATTERN (seq));
 	      rtx src2 = SET_SRC (PATTERN (NEXT_INSN (seq)));
@@ -3989,7 +4254,8 @@ find_split_point (rtx *loc, rtx insn)
       /* If we have a PLUS whose first operand is complex, try computing it
          separately by making a split there.  */
       if (GET_CODE (XEXP (x, 0)) == PLUS
-          && ! memory_address_p (GET_MODE (x), XEXP (x, 0))
+          && ! memory_address_addr_space_p (GET_MODE (x), XEXP (x, 0),
+					    MEM_ADDR_SPACE (x))
           && ! OBJECT_P (XEXP (XEXP (x, 0), 0))
           && ! (GET_CODE (XEXP (XEXP (x, 0), 0)) == SUBREG
                 && OBJECT_P (SUBREG_REG (XEXP (XEXP (x, 0), 0)))))
@@ -4902,6 +5168,10 @@ combine_simplify_rtx (rtx x, enum machine_mode op0_mode, int in_dest)
 	       force_to_mode (XEXP (x, 0), GET_MODE (XEXP (x, 0)),
 			      GET_MODE_MASK (mode), 0));
 
+      /* We can truncate a constant value and return it.  */
+      if (CONST_INT_P (XEXP (x, 0)))
+	return gen_int_mode (INTVAL (XEXP (x, 0)), mode);
+
       /* Similarly to what we do in simplify-rtx.c, a truncate of a register
 	 whose value is a comparison can be replaced with a subreg if
 	 STORE_FLAG_VALUE permits.  */
@@ -5018,7 +5288,7 @@ combine_simplify_rtx (rtx x, enum machine_mode op0_mode, int in_dest)
 	}
 
       /* Try simplify a*(b/c) as (a*b)/c.  */
-      if (FLOAT_MODE_P (mode) && flag_associative_math 
+      if (FLOAT_MODE_P (mode) && flag_associative_math
 	  && GET_CODE (XEXP (x, 0)) == DIV)
 	{
 	  rtx tem = simplify_binary_operation (MULT, mode,
@@ -7040,15 +7310,14 @@ make_compound_operation (rtx x, enum rtx_code in_code)
       tem = make_compound_operation (SUBREG_REG (x), in_code);
 
       {
-	rtx simplified;
-	simplified = simplify_subreg (GET_MODE (x), tem, GET_MODE (tem),
-				      SUBREG_BYTE (x));
+	rtx simplified = simplify_subreg (mode, tem, GET_MODE (SUBREG_REG (x)),
+					  SUBREG_BYTE (x));
 
 	if (simplified)
 	  tem = simplified;
 
 	if (GET_CODE (tem) != GET_CODE (SUBREG_REG (x))
-	    && GET_MODE_SIZE (mode) < GET_MODE_SIZE (GET_MODE (tem))
+	    && GET_MODE_SIZE (mode) < GET_MODE_SIZE (GET_MODE (SUBREG_REG (x)))
 	    && subreg_lowpart_p (x))
 	  {
 	    rtx newer = force_to_mode (tem, mode, ~(HOST_WIDE_INT) 0,
@@ -8536,6 +8805,12 @@ distribute_and_simplify_rtx (rtx x, int n)
   enum rtx_code outer_code, inner_code;
   rtx decomposed, distributed, inner_op0, inner_op1, new_op0, new_op1, tmp;
 
+  /* Distributivity is not true for floating point as it can change the
+     value.  So we don't do it unless -funsafe-math-optimizations.  */
+  if (FLOAT_MODE_P (GET_MODE (x))
+      && ! flag_unsafe_math_optimizations)
+    return NULL_RTX;
+
   decomposed = XEXP (x, n);
   if (!ARITHMETIC_P (decomposed))
     return NULL_RTX;
@@ -9915,7 +10190,7 @@ recog_for_combine (rtx *pnewpat, rtx insn, rtx *pnotes)
 	  if (REG_P (XEXP (XVECEXP (newpat, 0, i), 0))
 	      && ! reg_dead_at_p (XEXP (XVECEXP (newpat, 0, i), 0), insn))
 	    return -1;
-	  if (GET_CODE (XEXP (XVECEXP (newpat, 0, i), 0)) != SCRATCH) 
+	  if (GET_CODE (XEXP (XVECEXP (newpat, 0, i), 0)) != SCRATCH)
 	    {
 	      gcc_assert (REG_P (XEXP (XVECEXP (newpat, 0, i), 0)));
 	      notes = alloc_reg_note (REG_UNUSED,
@@ -11207,6 +11482,22 @@ simplify_comparison (enum rtx_code code, rtx *pop0, rtx *pop1)
 	{
 	  int zero_extended;
 
+	  /* If this is a test for negative, we can make an explicit
+	     test of the sign bit.  Test this first so we can use
+	     a paradoxical subreg to extend OP0.  */
+
+	  if (op1 == const0_rtx && (code == LT || code == GE)
+	      && GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_WIDE_INT)
+	    {
+	      op0 = simplify_gen_binary (AND, tmode,
+					 gen_lowpart (tmode, op0),
+					 GEN_INT ((HOST_WIDE_INT) 1
+						  << (GET_MODE_BITSIZE (mode)
+						      - 1)));
+	      code = (code == LT) ? NE : EQ;
+	      break;
+	    }
+
 	  /* If the only nonzero bits in OP0 and OP1 are those in the
 	     narrower mode and this is an equality or unsigned comparison,
 	     we can use the wider mode.  Similarly for sign-extended
@@ -11237,27 +11528,20 @@ simplify_comparison (enum rtx_code code, rtx *pop0, rtx *pop1)
 							XEXP (op0, 0)),
 					   gen_lowpart (tmode,
 							XEXP (op0, 1)));
-
-	      op0 = gen_lowpart (tmode, op0);
-	      if (zero_extended && CONST_INT_P (op1))
-		op1 = GEN_INT (INTVAL (op1) & GET_MODE_MASK (mode));
-	      op1 = gen_lowpart (tmode, op1);
-	      break;
-	    }
-
-	  /* If this is a test for negative, we can make an explicit
-	     test of the sign bit.  */
-
-	  if (op1 == const0_rtx && (code == LT || code == GE)
-	      && GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_WIDE_INT)
-	    {
-	      op0 = simplify_gen_binary (AND, tmode,
-					 gen_lowpart (tmode, op0),
-					 GEN_INT ((HOST_WIDE_INT) 1
-						  << (GET_MODE_BITSIZE (mode)
-						      - 1)));
-	      code = (code == LT) ? NE : EQ;
-	      break;
+	      else
+		{
+		  if (zero_extended)
+		    {
+		      op0 = simplify_gen_unary (ZERO_EXTEND, tmode, op0, mode);
+		      op1 = simplify_gen_unary (ZERO_EXTEND, tmode, op1, mode);
+		    }
+		  else
+		    {
+		      op0 = simplify_gen_unary (SIGN_EXTEND, tmode, op0, mode);
+		      op1 = simplify_gen_unary (SIGN_EXTEND, tmode, op1, mode);
+		    }
+		  break;
+		}
 	    }
 	}
 
@@ -11477,12 +11761,10 @@ record_value_for_reg (rtx reg, rtx insn, rtx value)
      case, we must replace it with (clobber (const_int 0)) to prevent
      infinite loops.  */
   rsp = VEC_index (reg_stat_type, reg_stat, regno);
-  if (value && ! get_last_value_validate (&value, insn,
-					  rsp->last_set_label, 0))
+  if (value && !get_last_value_validate (&value, insn, label_tick, 0))
     {
       value = copy_rtx (value);
-      if (! get_last_value_validate (&value, insn,
-				     rsp->last_set_label, 1))
+      if (!get_last_value_validate (&value, insn, label_tick, 1))
 	value = 0;
     }
 
@@ -11774,15 +12056,14 @@ check_promoted_subreg (rtx insn, rtx x)
     }
 }
 
-/* Utility routine for the following function.  Verify that all the registers
-   mentioned in *LOC are valid when *LOC was part of a value set when
-   label_tick == TICK.  Return 0 if some are not.
-
-   If REPLACE is nonzero, replace the invalid reference with
-   (clobber (const_int 0)) and return 1.  This replacement is useful because
-   we often can get useful information about the form of a value (e.g., if
-   it was produced by a shift that always produces -1 or 0) even though
-   we don't know exactly what registers it was produced from.  */
+/* Verify that all the registers and memory references mentioned in *LOC are
+   still valid.  *LOC was part of a value set in INSN when label_tick was
+   equal to TICK.  Return 0 if some are not.  If REPLACE is nonzero, replace
+   the invalid references with (clobber (const_int 0)) and return 1.  This
+   replacement is useful because we often can get useful information about
+   the form of a value (e.g., if it was produced by a shift that always
+   produces -1 or 0) even though we don't know exactly what registers it
+   was produced from.  */
 
 static int
 get_last_value_validate (rtx *loc, rtx insn, int tick, int replace)
@@ -11818,11 +12099,12 @@ get_last_value_validate (rtx *loc, rtx insn, int tick, int replace)
 
       return 1;
     }
-  /* If this is a memory reference, make sure that there were
-     no stores after it that might have clobbered the value.  We don't
-     have alias info, so we assume any store invalidates it.  */
+  /* If this is a memory reference, make sure that there were no stores after
+     it that might have clobbered the value.  We don't have alias info, so we
+     assume any store invalidates it.  Moreover, we only have local UIDs, so
+     we also assume that there were stores in the intervening basic blocks.  */
   else if (MEM_P (x) && !MEM_READONLY_P (x)
-	   && DF_INSN_LUID (insn) <= mem_last_set)
+	   && (tick != label_tick || DF_INSN_LUID (insn) <= mem_last_set))
     {
       if (replace)
 	*loc = gen_rtx_CLOBBER (GET_MODE (x), const0_rtx);
@@ -11932,16 +12214,14 @@ get_last_value (const_rtx x)
     return 0;
 
   /* If the value has all its registers valid, return it.  */
-  if (get_last_value_validate (&value, rsp->last_set,
-			       rsp->last_set_label, 0))
+  if (get_last_value_validate (&value, rsp->last_set, rsp->last_set_label, 0))
     return value;
 
   /* Otherwise, make a copy and replace any invalid register with
      (clobber (const_int 0)).  If that fails for some reason, return 0.  */
 
   value = copy_rtx (value);
-  if (get_last_value_validate (&value, rsp->last_set,
-			       rsp->last_set_label, 1))
+  if (get_last_value_validate (&value, rsp->last_set, rsp->last_set_label, 1))
     return value;
 
   return 0;
@@ -12396,6 +12676,29 @@ reg_bitfield_target_p (rtx x, rtx body)
 
   return 0;
 }
+
+/* Return the next insn after INSN that is neither a NOTE nor a
+   DEBUG_INSN.  This routine does not look inside SEQUENCEs.  */
+
+static rtx
+next_nonnote_nondebug_insn (rtx insn)
+{
+  while (insn)
+    {
+      insn = NEXT_INSN (insn);
+      if (insn == 0)
+	break;
+      if (NOTE_P (insn))
+	continue;
+      if (DEBUG_INSN_P (insn))
+	continue;
+      break;
+    }
+
+  return insn;
+}
+
+
 
 /* Given a chain of REG_NOTES originally from FROM_INSN, try to place them
    as appropriate.  I3 and I2 are the insns resulting from the combination
@@ -12649,7 +12952,7 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2, rtx elim_i2,
 		place = from_insn;
 	      else if (reg_referenced_p (XEXP (note, 0), PATTERN (i3)))
 		place = i3;
-	      else if (i2 != 0 && next_nonnote_insn (i2) == i3
+	      else if (i2 != 0 && next_nonnote_nondebug_insn (i2) == i3
 		       && reg_referenced_p (XEXP (note, 0), PATTERN (i2)))
 		place = i2;
 	      else if ((rtx_equal_p (XEXP (note, 0), elim_i2)
@@ -12667,7 +12970,7 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2, rtx elim_i2,
 
 	      for (tem = PREV_INSN (tem); place == 0; tem = PREV_INSN (tem))
 		{
-		  if (! INSN_P (tem))
+		  if (!NONDEBUG_INSN_P (tem))
 		    {
 		      if (tem == BB_HEAD (bb))
 			break;
@@ -12868,7 +13171,7 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2, rtx elim_i2,
 			    for (tem = PREV_INSN (place); ;
 				 tem = PREV_INSN (tem))
 			      {
-				if (! INSN_P (tem))
+				if (!NONDEBUG_INSN_P (tem))
 				  {
 				    if (tem == BB_HEAD (bb))
 			 	      break;
@@ -12958,7 +13261,9 @@ distribute_links (rtx links)
 	   (insn && (this_basic_block->next_bb == EXIT_BLOCK_PTR
 		     || BB_HEAD (this_basic_block->next_bb) != insn));
 	   insn = NEXT_INSN (insn))
-	if (INSN_P (insn) && reg_overlap_mentioned_p (reg, PATTERN (insn)))
+	if (DEBUG_INSN_P (insn))
+	  continue;
+	else if (INSN_P (insn) && reg_overlap_mentioned_p (reg, PATTERN (insn)))
 	  {
 	    if (reg_referenced_p (reg, PATTERN (insn)))
 	      place = insn;

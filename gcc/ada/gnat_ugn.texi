@@ -5268,6 +5268,19 @@ This warning can also be turned on using @option{-gnatwa}.
 This switch disables warnings for a @code{with} of an internal GNAT
 implementation unit.
 
+@item -gnatw.i
+@emph{Activate warnings on overlapping actuals.}
+@cindex @option{-gnatw.i} (@command{gcc})
+This switch enables a warning on statically detectable overlapping actuals in
+a subprogram call, when one of the actuals is an in-out parameter, and the
+types of the actuals are not by-copy types. The warning is off by default,
+and is not included under -gnatwa.
+
+@item -gnatw.I
+@emph{Disable warnings on overlapping actuals.}
+@cindex @option{-gnatw.I} (@command{gcc})
+This switch disables warnings on overlapping actuals in a call..
+
 @item -gnatwj
 @emph{Activate warnings on obsolescent features (Annex J).}
 @cindex @option{-gnatwj} (@command{gcc})
@@ -6434,6 +6447,10 @@ If the token preceding a left parenthesis ends with a letter or digit, then
 a space must separate the two tokens.
 
 @item
+if the token following a right parenthesis starts with a letter or digit, then
+a space must separate the two tokens.
+
+@item
 A right parenthesis must either be the first non-blank character on
 a line, or it must be preceded by a non-blank character.
 
@@ -6523,8 +6540,6 @@ built-in standard style check options are enabled.
 the exception of ORDERED_SUBPROGRAMS, UNNECESSARY_BLANK_LINES,
 XTRA_PARENS, and DOS_LINE_ENDINGS. In addition
 @end ifset
-
-
 
 The switch
 @ifclear vms
@@ -7389,7 +7404,7 @@ through the compilation and binding steps.
 
 @table @option
 
-@item -gnatem^^=^@var{path}
+@item -gnatem=@var{path}
 @cindex @option{-gnatem} (@command{gcc})
 A mapping file is a way to communicate to the compiler two mappings:
 from unit names to file names (without any directory information) and from
@@ -7401,15 +7416,14 @@ compiler, but mapping files can improve efficiency, particularly when
 sources are read over a slow network connection. In normal operation,
 you need not be concerned with the format or use of mapping files,
 and the @option{-gnatem} switch is not a switch that you would use
-explicitly. it is intended only for use by automatic tools such as
+explicitly. It is intended primarily for use by automatic tools such as
 @command{gnatmake} running under the project file facility. The
 description here of the format of mapping files is provided
 for completeness and for possible use by other tools.
 
-A mapping file is a sequence of sets of three lines. In each set,
-the first line is the unit name, in lower case, with ``@code{%s}''
-appended for
-specs and ``@code{%b}'' appended for bodies; the second line is the
+A mapping file is a sequence of sets of three lines. In each set, the
+first line is the unit name, in lower case, with @code{%s} appended
+for specs and @code{%b} appended for bodies; the second line is the
 file name; and the third line is the path name.
 
 Example:
@@ -7419,16 +7433,16 @@ Example:
    /gnat/project1/sources/main.2.ada
 @end smallexample
 
-When the switch @option{-gnatem} is specified, the compiler will create
-in memory the two mappings from the specified file. If there is any problem
-(nonexistent file, truncated file or duplicate entries), no mapping will
-be created.
+When the switch @option{-gnatem} is specified, the compiler will
+create in memory the two mappings from the specified file. If there is
+any problem (nonexistent file, truncated file or duplicate entries),
+no mapping will be created.
 
-Several @option{-gnatem} switches may be specified; however, only the last
-one on the command line will be taken into account.
+Several @option{-gnatem} switches may be specified; however, only the
+last one on the command line will be taken into account.
 
-When using a project file, @command{gnatmake} create a temporary mapping file
-and communicates it to the compiler using this switch.
+When using a project file, @command{gnatmake} creates a temporary
+mapping file and communicates it to the compiler using this switch.
 
 @end table
 
@@ -9267,16 +9281,19 @@ the objects.
 
 @item ^-C^/MAPPING^
 @cindex @option{^-C^/MAPPING^} (@command{gnatmake})
-Use a temporary mapping file. A mapping file is a way to communicate to the
-compiler two mappings: from unit names to file names (without any directory
-information) and from file names to path names (with full directory
-information). These mappings are used by the compiler to short-circuit the path
-search. When @command{gnatmake} is invoked with this switch, it will create
-a temporary mapping file, initially populated by the project manager,
-if @option{^-P^/PROJECT_FILE^} is used, otherwise initially empty.
-Each invocation of the compiler will add the newly accessed sources to the
-mapping file. This will improve the source search during the next invocation
-of the compiler.
+Use a temporary mapping file. A mapping file is a way to communicate
+to the compiler two mappings: from unit names to file names (without
+any directory information) and from file names to path names (with
+full directory information). A mapping file can make the compiler's
+file searches faster, especially if there are many source directories,
+or the sources are read over a slow network connection. If
+@option{^-P^/PROJECT_FILE^} is used, a mapping file is always used, so
+@option{^-C^/MAPPING^} is unnecessary; in this case the mapping file
+is initially populated based on the project file. If
+@option{^-C^/MAPPING^} is used without
+@option{^-P^/PROJECT_FILE^},
+the mapping file is initially empty. Each invocation of the compiler
+will add any newly accessed sources to the mapping file.
 
 @item ^-C=^/USE_MAPPING_FILE=^@var{file}
 @cindex @option{^-C=^/USE_MAPPING^} (@command{gnatmake})
@@ -9309,7 +9326,21 @@ This switch cannot be used when using a project file.
 @ifclear vms
 @item -eL
 @cindex @option{-eL} (@command{gnatmake})
+@cindex symbolic links
 Follow all symbolic links when processing project files.
+This should be used if your project uses symbolic links for files or
+directories, but is not needed in other cases.
+
+@cindex naming scheme
+This also assumes that no directory matches the naming scheme for files (for
+instance that you do not have a directory called "sources.ads" when using the
+default GNAT naming scheme).
+
+When you do not have to use this switch (ie by default), gnatmake is able to
+save a lot of system calls (several per source file and object file), which
+can result in a significant speed up to load and manipulate a project file,
+especially when using source files from a remote system.
+
 @end ifclear
 
 @item ^-eS^/STANDARD_OUTPUT_FOR_COMMANDS^
@@ -20657,7 +20688,7 @@ Invoking @command{gnatcheck} on the command line has the form:
 @smallexample
 $ gnatcheck @ovar{switches}  @{@var{filename}@}
       @r{[}^-files^/FILES^=@{@var{arg_list_filename}@}@r{]}
-      @r{[}-cargs @var{gcc_switches}@r{]} @r{[}-rules @var{rule_options}@r{]}
+      @r{[}-cargs @var{gcc_switches}@r{]} -rules @var{rule_options}
 @end smallexample
 
 @noindent
@@ -20783,18 +20814,9 @@ Quiet mode. All the diagnostics about rule violations are placed in the
 Short format of the report file (no version information, no list of applied
 rules, no list of checked sources is included)
 
-@cindex @option{^-s1^/COMPILER_STYLE^} (@command{gnatcheck})
-@item ^-s1^/COMPILER_STYLE^
-Include the compiler-style section in the report file
-
-@cindex @option{^-s2^/BY_RULES^} (@command{gnatcheck})
-@item ^-s2^/BY_RULES^
-Include the section containing diagnostics ordered by rules in the report file
-
-@cindex @option{^-s3^/BY_FILES_BY_RULES^} (@command{gnatcheck})
-@item ^-s3^/BY_FILES_BY_RULES^
-Include the section containing diagnostics ordered by files and then by rules
-in the report file
+@cindex @option{^--include-file=@var{file}^/INCLUDE_FILE=@var{file}^} (@command{gnatcheck})
+@item ^--include-file^/INCLUDE_FILE^
+Append the content of the specified text file to the report file
 
 @cindex @option{^-t^/TIME^} (@command{gnatcheck})
 @item ^-t^/TIME^
@@ -20850,28 +20872,29 @@ Turn off the check for a specified rule with the specified parameter, if any.
 
 @cindex @option{-from} (@command{gnatcheck})
 @item -from=@var{rule_option_filename}
-Read the rule options from the text file @var{rule_option_filename}, referred as
-``rule file'' below.
+Read the rule options from the text file @var{rule_option_filename}, referred
+to as a ``coding standard file'' below.
 
 @end table
 
 @noindent
 The default behavior is that all the rule checks are disabled.
 
-A rule file is a text file containing a set of rule options.
-@cindex Rule file (for @code{gnatcheck})
+A coding standard file is a text file that contains a set of rule options
+described above.
+@cindex Coding standard file (for @code{gnatcheck})
 The file may contain empty lines and Ada-style comments (comment
-lines and end-of-line comments). The rule file has free format; that is,
-you do not have to start a new rule option on a new line.
+lines and end-of-line comments). There can be several rule options on a
+single line (separated by a space).
 
-A rule file may contain other @option{-from=@var{rule_option_filename}}
+A coding standard file may reference other coding standard files by including
+more @option{-from=@var{rule_option_filename}}
 options, each such option being replaced with the content of the
-corresponding rule file during the rule files processing. In case a
+corresponding coding standard file during processing. In case a
 cycle is detected (that is, @file{@var{rule_file_1}} reads rule options
 from @file{@var{rule_file_2}}, and @file{@var{rule_file_2}} reads
 (directly or indirectly) rule options from @file{@var{rule_file_1}}),
-the processing of rule files is interrupted and a part of their content
-is ignored.
+processing fails with an error message.
 
 
 @node Adding the Results of Compiler Checks to gnatcheck Output
@@ -21005,7 +21028,7 @@ exemption control annotations is as follows:
 @group
 pragma Annotate (gnatcheck, @i{exemption_control}, @i{Rule_Name}, [@i{justification}]);
 
-@i{exemption_control} ::= "Exempt_On" | "Exempt_Off"
+@i{exemption_control} ::= Exempt_On | Exempt_Off
 
 @i{Rule_Name}         ::= string_literal
 
@@ -21029,9 +21052,9 @@ A source code section where an exemption is active for a given rule is
 delimited by an @code{exempt_on} and @code{exempt_off} annotation pair:
 
 @smallexample @c ada
-pragma Annotate (gnatcheck, "Exempt_On", Rule_Name, "justification");
+pragma Annotate (gnatcheck, Exempt_On, Rule_Name, "justification");
 -- source code section
-pragma Annotate (gnatcheck, "Exempt_Off", Rule_Name);
+pragma Annotate (gnatcheck, Exempt_Off, Rule_Name);
 @end smallexample
 
 
@@ -21224,7 +21247,9 @@ This rule has no parameters.
 @cindex @code{Anonymous_Subtypes} rule (for @command{gnatcheck})
 
 @noindent
-Flag all uses of anonymous subtypes. A use of an anonymous subtype is
+Flag all uses of anonymous subtypes (except cases when subtype indication
+is a part of a record component definition, and this subtype indication
+depends on a discriminant). A use of an anonymous subtype is
 any instance of a subtype indication with a constraint, other than one
 that occurs immediately within a subtype declaration. Any use of a range
 other than as a constraint used immediately within a subtype declaration
@@ -22509,7 +22534,9 @@ This rule has no parameters.
 @cindex @code{Positional_Generic_Parameters} rule (for @command{gnatcheck})
 
 @noindent
-Flag each instantiation using positional parameter notation.
+Flag each positional actual generic parameter except for the case when
+the generic unit being iinstantiated has exactly one generic formal
+parameter.
 
 This rule has no parameters.
 
@@ -22519,15 +22546,15 @@ This rule has no parameters.
 @cindex @code{Positional_Parameters} rule (for @command{gnatcheck})
 
 @noindent
-Flag each subprogram or entry call using positional parameter notation,
+Flag each positional parameter notation in a subprogram or entry call,
 except for the following:
 
 @itemize @bullet
 @item
-Invocations of prefix or infix operators are not flagged
+Parameters of calls to of prefix or infix operators are not flagged
 @item
 If the called subprogram or entry has only one formal parameter,
-the call is not flagged;
+the parameter of the call is not flagged;
 @item
 If a subprogram call uses the @emph{Object.Operation} notation, then
 @itemize @minus

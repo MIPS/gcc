@@ -66,12 +66,16 @@ static section *v850_select_section (tree, int, unsigned HOST_WIDE_INT);
 static void v850_encode_data_area    (tree, rtx);
 static void v850_encode_section_info (tree, rtx, int);
 static bool v850_return_in_memory    (const_tree, const_tree);
+static rtx v850_function_value (const_tree, const_tree, bool);
 static void v850_setup_incoming_varargs (CUMULATIVE_ARGS *, enum machine_mode,
 					 tree, int *, int);
 static bool v850_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
 				    const_tree, bool);
 static int v850_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode,
 				   tree, bool);
+static bool v850_can_eliminate       (const int, const int);
+static void v850_asm_trampoline_template (FILE *);
+static void v850_trampoline_init (rtx, tree, rtx);
 
 /* Information about the various small memory areas.  */
 struct small_memory_info small_memory[ (int)SMALL_MEMORY_max ] =
@@ -161,6 +165,9 @@ static const struct attribute_spec v850_attribute_table[] =
 #undef TARGET_RETURN_IN_MEMORY
 #define TARGET_RETURN_IN_MEMORY v850_return_in_memory
 
+#undef TARGET_FUNCTION_VALUE
+#define TARGET_FUNCTION_VALUE v850_function_value
+
 #undef TARGET_PASS_BY_REFERENCE
 #define TARGET_PASS_BY_REFERENCE v850_pass_by_reference
 
@@ -172,6 +179,14 @@ static const struct attribute_spec v850_attribute_table[] =
 
 #undef TARGET_ARG_PARTIAL_BYTES
 #define TARGET_ARG_PARTIAL_BYTES v850_arg_partial_bytes
+
+#undef TARGET_CAN_ELIMINATE
+#define TARGET_CAN_ELIMINATE v850_can_eliminate
+
+#undef TARGET_ASM_TRAMPOLINE_TEMPLATE
+#define TARGET_ASM_TRAMPOLINE_TEMPLATE v850_asm_trampoline_template
+#undef TARGET_TRAMPOLINE_INIT
+#define TARGET_TRAMPOLINE_INIT v850_trampoline_init
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -249,8 +264,9 @@ v850_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
   return size > 8;
 }
 
-/* Return an RTX to represent where a value with mode MODE will be returned
-   from a function.  If the result is 0, the argument is pushed.  */
+/* Return an RTX to represent where an argument with mode MODE
+   and type TYPE will be passed to a function.  If the result
+   is NULL_RTX, the argument will be pushed.  */
 
 rtx
 function_arg (CUMULATIVE_ARGS * cum,
@@ -258,7 +274,7 @@ function_arg (CUMULATIVE_ARGS * cum,
               tree type,
               int named)
 {
-  rtx result = 0;
+  rtx result = NULL_RTX;
   int size, align;
 
   if (TARGET_GHS && !named)
@@ -270,7 +286,11 @@ function_arg (CUMULATIVE_ARGS * cum,
     size = GET_MODE_SIZE (mode);
 
   if (size < 1)
-    return 0;
+    {
+      /* Once we have stopped using argument registers, do not start up again.  */
+      cum->nbytes = 4 * UNITS_PER_WORD;
+      return NULL_RTX;
+    }
 
   if (type)
     align = TYPE_ALIGN (type) / BITS_PER_UNIT;
@@ -280,11 +300,11 @@ function_arg (CUMULATIVE_ARGS * cum,
   cum->nbytes = (cum->nbytes + align - 1) &~(align - 1);
 
   if (cum->nbytes > 4 * UNITS_PER_WORD)
-    return 0;
+    return NULL_RTX;
 
   if (type == NULL_TREE
       && cum->nbytes + size > 4 * UNITS_PER_WORD)
-    return 0;
+    return NULL_RTX;
 
   switch (cum->nbytes / UNITS_PER_WORD)
     {
@@ -301,7 +321,7 @@ function_arg (CUMULATIVE_ARGS * cum,
       result = gen_rtx_REG (mode, 9);
       break;
     default:
-      result = 0;
+      result = NULL_RTX;
     }
 
   return result;
@@ -325,12 +345,15 @@ v850_arg_partial_bytes (CUMULATIVE_ARGS * cum, enum machine_mode mode,
   else
     size = GET_MODE_SIZE (mode);
 
+  if (size < 1)
+    size = 1;
+  
   if (type)
     align = TYPE_ALIGN (type) / BITS_PER_UNIT;
   else
     align = size;
 
-  cum->nbytes = (cum->nbytes + align - 1) &~(align - 1);
+  cum->nbytes = (cum->nbytes + align - 1) & ~ (align - 1);
 
   if (cum->nbytes > 4 * UNITS_PER_WORD)
     return 0;
@@ -2944,6 +2967,17 @@ v850_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
   /* Return values > 8 bytes in length in memory.  */
   return int_size_in_bytes (type) > 8 || TYPE_MODE (type) == BLKmode;
 }
+
+/* Worker function for TARGET_FUNCTION_VALUE.  */
+
+rtx
+v850_function_value (const_tree valtype, 
+                    const_tree fn_decl_or_type ATTRIBUTE_UNUSED,
+                    bool outgoing ATTRIBUTE_UNUSED)
+{
+  return gen_rtx_REG (TYPE_MODE (valtype), 10);
+}
+
 
 /* Worker function for TARGET_SETUP_INCOMING_VARARGS.  */
 
@@ -2957,4 +2991,43 @@ v850_setup_incoming_varargs (CUMULATIVE_ARGS *ca,
   ca->anonymous_args = (!TARGET_GHS ? 1 : 0);
 }
 
+/* Worker function for TARGET_CAN_ELIMINATE.  */
+
+static bool
+v850_can_eliminate (const int from ATTRIBUTE_UNUSED, const int to)
+{
+  return (to == STACK_POINTER_REGNUM ? ! frame_pointer_needed : true);
+}
+
+
+/* Worker function for TARGET_ASM_TRAMPOLINE_TEMPLATE.  */
+
+static void
+v850_asm_trampoline_template (FILE *f)
+{
+  fprintf (f, "\tjarl .+4,r12\n");
+  fprintf (f, "\tld.w 12[r12],r20\n");
+  fprintf (f, "\tld.w 16[r12],r12\n");
+  fprintf (f, "\tjmp [r12]\n");
+  fprintf (f, "\tnop\n");
+  fprintf (f, "\t.long 0\n");
+  fprintf (f, "\t.long 0\n");
+}
+
+/* Worker function for TARGET_TRAMPOLINE_INIT.  */
+
+static void
+v850_trampoline_init (rtx m_tramp, tree fndecl, rtx chain_value)
+{
+  rtx mem, fnaddr = XEXP (DECL_RTL (fndecl), 0);
+
+  emit_block_move (m_tramp, assemble_trampoline_template (),
+		   GEN_INT (TRAMPOLINE_SIZE), BLOCK_OP_NORMAL);
+
+  mem = adjust_address (m_tramp, SImode, 16);
+  emit_move_insn (mem, chain_value);
+  mem = adjust_address (m_tramp, SImode, 20);
+  emit_move_insn (mem, fnaddr);
+}
+
 #include "gt-v850.h"

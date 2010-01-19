@@ -871,9 +871,16 @@ objc_build_struct (tree klass, tree fields, tree super_name)
      finish_struct(), and then reinstate it afterwards.  */
 
   for (t = TYPE_NEXT_VARIANT (s); t; t = TYPE_NEXT_VARIANT (t))
-    objc_info
-      = chainon (objc_info,
-		 build_tree_list (NULL_TREE, TYPE_OBJC_INFO (t)));
+    {
+      if (!TYPE_HAS_OBJC_INFO (t))
+	{
+	  INIT_TYPE_OBJC_INFO (t);
+	  TYPE_OBJC_INTERFACE (t) = klass;
+	}
+      objc_info
+	= chainon (objc_info,
+		   build_tree_list (NULL_TREE, TYPE_OBJC_INFO (t)));
+    }
 
   /* Point the struct at its related Objective-C class.  */
   INIT_TYPE_OBJC_INFO (s);
@@ -2038,7 +2045,6 @@ objc_add_static_instance (tree constructor, tree class_decl)
   sprintf (buf, "_OBJC_INSTANCE_%d", num_static_inst++);
   decl = build_decl (input_location,
 		     VAR_DECL, get_identifier (buf), class_decl);
-  DECL_COMMON (decl) = 1;
   TREE_STATIC (decl) = 1;
   DECL_ARTIFICIAL (decl) = 1;
   TREE_USED (decl) = 1;
@@ -3109,7 +3115,7 @@ objc_substitute_decl (tree expr, tree oldexpr, tree newexpr)
       return build_indirect_ref (input_location,
 				 objc_substitute_decl (TREE_OPERAND (expr, 0),
 						       oldexpr,
-						       newexpr), "->");
+						       newexpr), RO_ARROW);
     default:
       return expr;
     }
@@ -3475,7 +3481,7 @@ struct objc_try_context
   /* The CATCH_EXPR of an open @catch clause.  */
   tree current_catch;
 
-  /* The VAR_DECL holding the Darwin equivalent of EXC_PTR_EXPR.  */
+  /* The VAR_DECL holding the Darwin equivalent of __builtin_eh_pointer.  */
   tree caught_decl;
   tree stack_decl;
   tree rethrow_decl;
@@ -3483,54 +3489,36 @@ struct objc_try_context
 
 static struct objc_try_context *cur_try_context;
 
+static GTY(()) tree objc_eh_personality_decl;
+
 /* This hook, called via lang_eh_runtime_type, generates a runtime object
    that represents TYPE.  For Objective-C, this is just the class name.  */
 /* ??? Isn't there a class object or some such?  Is it easy to get?  */
 
 #ifndef OBJCPLUS
-static tree
+tree
 objc_eh_runtime_type (tree type)
 {
   return add_objc_string (OBJC_TYPE_NAME (TREE_TYPE (type)), class_names);
 }
-#endif
 
-/* Initialize exception handling.  */
-
-static void
-objc_init_exceptions (void)
+tree
+objc_eh_personality (void)
 {
-  static bool done = false;
-  if (done)
-    return;
-  done = true;
+  if (!flag_objc_sjlj_exceptions
+      && !objc_eh_personality_decl)
+    objc_eh_personality_decl
+      = build_personality_function (USING_SJLJ_EXCEPTIONS
+				    ? "__gnu_objc_personality_sj0"
+				    : "__gnu_objc_personality_v0");
 
-  if (flag_objc_sjlj_exceptions)
-    {
-      /* On Darwin, ObjC exceptions require a sufficiently recent
-	 version of the runtime, so the user must ask for them explicitly.  */
-      if (!flag_objc_exceptions)
-	warning (0, "use %<-fobjc-exceptions%> to enable Objective-C "
-		 "exception syntax");
-    }
-#ifndef OBJCPLUS
-  else
-    {
-      c_eh_initialized_p = true;
-      eh_personality_libfunc
-	= init_one_libfunc (USING_SJLJ_EXCEPTIONS
-			    ? "__gnu_objc_personality_sj0"
-			    : "__gnu_objc_personality_v0");
-      default_init_unwind_resume_libfunc ();
-      using_eh_for_cleanups ();
-      lang_eh_runtime_type = objc_eh_runtime_type;
-    }
-#endif
+  return objc_eh_personality_decl;
 }
+#endif
 
-/* Build an EXC_PTR_EXPR, or the moral equivalent.  In the case of Darwin,
-   we'll arrange for it to be initialized (and associated with a binding)
-   later.  */
+/* Build __builtin_eh_pointer, or the moral equivalent.  In the case
+   of Darwin, we'll arrange for it to be initialized (and associated
+   with a binding) later.  */
 
 static tree
 objc_build_exc_ptr (void)
@@ -3546,7 +3534,12 @@ objc_build_exc_ptr (void)
       return var;
     }
   else
-    return build0 (EXC_PTR_EXPR, objc_object_type);
+    {
+      tree t;
+      t = built_in_decls[BUILT_IN_EH_POINTER];
+      t = build_call_expr (t, 1, integer_zero_node);
+      return fold_convert (objc_object_type, t);
+    }
 }
 
 /* Build "objc_exception_try_exit(&_stack)".  */
@@ -3824,7 +3817,14 @@ objc_begin_try_stmt (location_t try_locus, tree body)
   c->end_try_locus = input_location;
   cur_try_context = c;
 
-  objc_init_exceptions ();
+  if (flag_objc_sjlj_exceptions)
+    {
+      /* On Darwin, ObjC exceptions require a sufficiently recent
+	 version of the runtime, so the user must ask for them explicitly.  */
+      if (!flag_objc_exceptions)
+	warning (0, "use %<-fobjc-exceptions%> to enable Objective-C "
+		 "exception syntax");
+    }
 
   if (flag_objc_sjlj_exceptions)
     objc_mark_locals_volatile (NULL);
@@ -3973,7 +3973,14 @@ objc_build_throw_stmt (location_t loc, tree throw_expr)
 {
   tree args;
 
-  objc_init_exceptions ();
+  if (flag_objc_sjlj_exceptions)
+    {
+      /* On Darwin, ObjC exceptions require a sufficiently recent
+	 version of the runtime, so the user must ask for them explicitly.  */
+      if (!flag_objc_exceptions)
+	warning (0, "use %<-fobjc-exceptions%> to enable Objective-C "
+		 "exception syntax");
+    }
 
   if (throw_expr == NULL)
     {
@@ -5780,7 +5787,7 @@ generate_category (tree cat)
 static void
 generate_shared_structures (int cls_flags)
 {
-  tree sc_spec, decl_specs, decl;
+  tree decl;
   tree name_expr, super_expr, root_expr;
   tree my_root_id = NULL_TREE, my_super_id = NULL_TREE;
   tree cast_type, initlist, protocol_decl;
@@ -5836,9 +5843,6 @@ generate_shared_structures (int cls_flags)
     protocol_decl = 0;
 
   /* static struct objc_class _OBJC_METACLASS_Foo = { ... }; */
-
-  sc_spec = build_tree_list (NULL_TREE, ridpointers[(int) RID_STATIC]);
-  decl_specs = tree_cons (NULL_TREE, objc_class_template, sc_spec);
 
   decl = start_var_decl (objc_class_template,
 			 IDENTIFIER_POINTER
@@ -6262,7 +6266,6 @@ tree
 objc_build_message_expr (tree mess)
 {
   tree receiver = TREE_PURPOSE (mess);
-  location_t loc;
   tree sel_name;
 #ifdef OBJCPLUS
   tree args = TREE_PURPOSE (TREE_VALUE (mess));
@@ -6273,11 +6276,6 @@ objc_build_message_expr (tree mess)
 
   if (TREE_CODE (receiver) == ERROR_MARK || TREE_CODE (args) == ERROR_MARK)
     return error_mark_node;
-
-  if (CAN_HAVE_LOCATION_P (receiver))
-    loc = EXPR_LOCATION (receiver);
-  else
-    loc = input_location;
 
   /* Obtain the full selector name.  */
   if (TREE_CODE (args) == IDENTIFIER_NODE)
@@ -6441,7 +6439,7 @@ objc_finish_message_expr (tree receiver, tree sel_name, tree method_params)
     }
   else if (rtype)
     {
-      tree orig_rtype = rtype, saved_rtype;
+      tree orig_rtype = rtype;
 
       if (TREE_CODE (rtype) == POINTER_TYPE)
 	rtype = TREE_TYPE (rtype);
@@ -6450,7 +6448,6 @@ objc_finish_message_expr (tree receiver, tree sel_name, tree method_params)
 	     && TREE_CODE (OBJC_TYPE_NAME (rtype)) == TYPE_DECL
 	     && DECL_ORIGINAL_TYPE (OBJC_TYPE_NAME (rtype)))
 	rtype = DECL_ORIGINAL_TYPE (OBJC_TYPE_NAME (rtype));
-      saved_rtype = rtype;
       if (TYPED_OBJECT (rtype))
 	{
 	  rprotos = TYPE_OBJC_PROTOCOL_LIST (rtype);
@@ -6826,7 +6823,8 @@ build_ivar_reference (tree id)
     }
 
   return objc_build_component_ref (build_indirect_ref (input_location,
-						       self_decl, "->"), id);
+						       self_decl, RO_ARROW),
+				   id);
 }
 
 /* Compute a hash value for a given method SEL_NAME.  */
@@ -8304,16 +8302,12 @@ encode_gnu_bitfield (int position, tree type, int size)
 static void
 encode_field_decl (tree field_decl, int curtype, int format)
 {
-  tree type;
-
 #ifdef OBJCPLUS
   /* C++ static members, and things that are not fields at all,
      should not appear in the encoding.  */
   if (TREE_CODE (field_decl) != FIELD_DECL || TREE_STATIC (field_decl))
     return;
 #endif
-
-  type = TREE_TYPE (field_decl);
 
   /* Generate the bitfield typing information, if needed.  Note the difference
      between GNU and NeXT runtimes.  */
@@ -8848,7 +8842,7 @@ get_super_receiver (void)
 		      (input_location,
 		       build_c_cast (input_location,
 				     build_pointer_type (objc_class_type),
-				     super_class), "unary *");
+				     super_class), RO_UNARY_STAR);
 	    }
 	  else
 	    {

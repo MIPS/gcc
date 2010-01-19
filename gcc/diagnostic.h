@@ -28,7 +28,7 @@ along with GCC; see the file COPYING3.  If not see
 /* Constants used to discriminate diagnostics.  */
 typedef enum
 {
-#define DEFINE_DIAGNOSTIC_KIND(K, msgid) K,  
+#define DEFINE_DIAGNOSTIC_KIND(K, msgid) K,
 #include "diagnostic.def"
 #undef DEFINE_DIAGNOSTIC_KIND
   DK_LAST_DIAGNOSTIC_KIND
@@ -70,7 +70,7 @@ struct diagnostic_context
   /* True if we should display the "warnings are being tread as error"
      message, usually displayed once per compiler run.  */
   bool issue_warnings_are_errors_message;
-  
+
   /* True if it has been requested that warnings be treated as errors.  */
   bool warning_as_error_requested;
 
@@ -213,6 +213,8 @@ extern bool emit_diagnostic (diagnostic_t, location_t, int,
 			     const char *, ...) ATTRIBUTE_GCC_DIAG(4,5);
 #endif
 extern char *diagnostic_build_prefix (diagnostic_info *);
+void default_diagnostic_starter (diagnostic_context *, diagnostic_info *);
+void default_diagnostic_finalizer (diagnostic_context *, diagnostic_info *);
 
 /* Pure text formatting support functions.  */
 extern char *file_name_as_prefix (const char *);
@@ -238,5 +240,9 @@ extern void print_gimple_seq (FILE *, gimple_seq, int, int);
 extern void print_gimple_stmt (FILE *, gimple, int, int);
 extern void print_gimple_expr (FILE *, gimple, int, int);
 extern void dump_gimple_stmt (pretty_printer *, gimple, int, int);
+
+/* In toplev.c  */
+extern bool default_tree_printer (pretty_printer *, text_info *, const char *,
+				  int, bool, bool, bool);
 
 #endif /* ! GCC_DIAGNOSTIC_H */

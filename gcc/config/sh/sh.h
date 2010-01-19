@@ -1453,37 +1453,7 @@ extern enum reg_class regno_reg_class[FIRST_PSEUDO_REGISTER];
    ? FIRST_FP_PARM_REG					\
    : FIRST_PARM_REG)
 
-/* Define how to find the value returned by a function.
-   VALTYPE is the data type of the value (as a tree).
-   If the precise function being called is known, FUNC is its FUNCTION_DECL;
-   otherwise, FUNC is 0.
-   For the SH, this is like LIBCALL_VALUE, except that we must change the
-   mode like PROMOTE_MODE does.
-   ??? PROMOTE_MODE is ignored for non-scalar types.  The set of types
-   tested here has to be kept in sync with the one in explow.c:promote_mode.  */
-
-#define FUNCTION_VALUE(VALTYPE, FUNC)					\
-  gen_rtx_REG (								\
-	   ((GET_MODE_CLASS (TYPE_MODE (VALTYPE)) == MODE_INT		\
-	     && GET_MODE_SIZE (TYPE_MODE (VALTYPE)) < 4                 \
-	     && (TREE_CODE (VALTYPE) == INTEGER_TYPE			\
-		 || TREE_CODE (VALTYPE) == ENUMERAL_TYPE		\
-		 || TREE_CODE (VALTYPE) == BOOLEAN_TYPE			\
-		 || TREE_CODE (VALTYPE) == REAL_TYPE			\
-		 || TREE_CODE (VALTYPE) == OFFSET_TYPE))		\
-             && sh_promote_prototypes (FUNC)				\
-	    ? (TARGET_SHMEDIA64 ? DImode : SImode) : TYPE_MODE (VALTYPE)), \
-	   BASE_RETURN_VALUE_REG (TYPE_MODE (VALTYPE)))
-
-/* Define how to find the value returned by a library function
-   assuming the value has mode MODE.  */
-#define LIBCALL_VALUE(MODE) \
-  gen_rtx_REG ((MODE), BASE_RETURN_VALUE_REG (MODE));
-
-/* 1 if N is a possible register number for a function value.  */
-#define FUNCTION_VALUE_REGNO_P(REGNO) \
-  ((REGNO) == FIRST_RET_REG || (TARGET_SH2E && (REGNO) == FIRST_FP_RET_REG) \
-   || (TARGET_SHMEDIA_FPU && (REGNO) == FIRST_FP_RET_REG))
+#define FUNCTION_VALUE_REGNO_P(REGNO) sh_function_value_regno_p (REGNO)
 
 /* 1 if N is a possible register number for function argument passing.  */
 /* ??? There are some callers that pass REGNO as int, and others that pass
@@ -1828,23 +1798,6 @@ struct sh_args {
 #define TRAMPOLINE_ALIGNMENT \
   ((CACHE_LOG < 3 || (TARGET_SMALLCODE && ! TARGET_HARVARD)) ? 32 \
    : TARGET_SHMEDIA ? 256 : 64)
-
-/* Emit RTL insns to initialize the variable parts of a trampoline.
-   FNADDR is an RTX for the address of the function's pure code.
-   CXT is an RTX for the static chain value for the function.  */
-
-#define INITIALIZE_TRAMPOLINE(TRAMP, FNADDR, CXT) \
-  sh_initialize_trampoline ((TRAMP), (FNADDR), (CXT))
-
-/* On SH5, trampolines are SHmedia code, so add 1 to the address.  */
-
-#define TRAMPOLINE_ADJUST_ADDRESS(TRAMP) do				\
-{									\
-  if (TARGET_SHMEDIA)							\
-    (TRAMP) = expand_simple_binop (Pmode, PLUS, (TRAMP), const1_rtx,	\
-				   gen_reg_rtx (Pmode), 0,		\
-				   OPTAB_LIB_WIDEN);			\
-} while (0)
 
 /* A C expression whose value is RTL representing the value of the return
    address for the frame COUNT steps up from the current frame.

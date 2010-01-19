@@ -53,10 +53,6 @@ struct GTY(()) gimple_df {
   /* Artificial variable used for the virtual operand FUD chain.  */
   tree vop;
 
-  /* Artificial variable used to model the effects of nonlocal
-     variables.  */
-  tree nonlocal_all;
-
   /* The PTA solution for the ESCAPED artificial variable.  */
   struct pt_solution escaped;
 
@@ -110,7 +106,7 @@ typedef struct
 
 /*---------------------------------------------------------------------------
 		      Attributes for SSA_NAMEs.
-  
+
   NOTE: These structures are stored in struct tree_ssa_name
   but are only used by the tree optimizers, so it makes better sense
   to declare them here to avoid recompiling unrelated files when
@@ -125,24 +121,6 @@ struct GTY(()) ptr_info_def
 };
 
 
-/*---------------------------------------------------------------------------
-		   Tree annotations stored in tree_base.ann
----------------------------------------------------------------------------*/
-enum tree_ann_type { TREE_ANN_COMMON, VAR_ANN, FUNCTION_ANN };
-
-struct GTY(()) tree_ann_common_d {
-  /* Annotation type.  */
-  enum tree_ann_type type;
-
-  /* Record EH region number into a statement tree created during RTL
-     expansion (see gimple_to_tree).  */
-  int rn;
-
-  /* Pointer to original GIMPLE statement.  Used during RTL expansion
-     (see gimple_to_tree).  */
-  gimple stmt;
-};
-
 /* It is advantageous to avoid things like life analysis for variables which
    do not need PHI nodes.  This enum describes whether or not a particular
    variable may need a PHI node.  */
@@ -153,7 +131,7 @@ enum need_phi_state {
      needs PHI nodes.  This is probably an overly conservative assumption.  */
   NEED_PHI_STATE_UNKNOWN,
 
-  /* This state indicates that we have seen one or more sets of the 
+  /* This state indicates that we have seen one or more sets of the
      variable in a single basic block and that the sets dominate all
      uses seen so far.  If after finding all definition and use sites
      we are still in this state, then the variable does not need any
@@ -192,8 +170,6 @@ enum noalias_state {
 
 
 struct GTY(()) var_ann_d {
-  struct tree_ann_common_d common;
-
   /* Used when building base variable structures in a var_map.  */
   unsigned base_var_processed : 1;
 
@@ -225,7 +201,7 @@ struct GTY(()) var_ann_d {
 
 
 /* Immediate use lists are used to directly access all uses for an SSA
-   name and get pointers to the statement for each use. 
+   name and get pointers to the statement for each use.
 
    The structure ssa_use_operand_d consists of PREV and NEXT pointers
    to maintain the list.  A USE pointer, which points to address where
@@ -247,7 +223,7 @@ struct GTY(()) var_ann_d {
    iterator manages this by inserting a marker node into the list
    immediately before the node currently being examined in the list.
    this marker node is uniquely identified by having null stmt *and* a
-   null use pointer.  
+   null use pointer.
 
    When iterating to the next use, the iteration routines check to see
    if the node after the marker has changed. if it has, then the node
@@ -280,7 +256,7 @@ typedef struct immediate_use_iterator_d
   for ((DEST) = first_readonly_imm_use (&(ITER), (SSAVAR));	\
        !end_readonly_imm_use_p (&(ITER));			\
        (DEST) = next_readonly_imm_use (&(ITER)))
-  
+
 /* Use this iterator to visit each stmt which has a use of SSAVAR.  */
 
 #define FOR_EACH_IMM_USE_STMT(STMT, ITER, SSAVAR)		\
@@ -288,7 +264,7 @@ typedef struct immediate_use_iterator_d
        !end_imm_use_stmt_p (&(ITER));				\
        (STMT) = next_imm_use_stmt (&(ITER)))
 
-/* Use this to terminate the FOR_EACH_IMM_USE_STMT loop early.  Failure to 
+/* Use this to terminate the FOR_EACH_IMM_USE_STMT loop early.  Failure to
    do so will result in leaving a iterator marker node in the immediate
    use list, and nothing good will come from that.   */
 #define BREAK_FROM_IMM_USE_STMT(ITER)				\
@@ -298,7 +274,7 @@ typedef struct immediate_use_iterator_d
    }
 
 
-/* Use this iterator in combination with FOR_EACH_IMM_USE_STMT to 
+/* Use this iterator in combination with FOR_EACH_IMM_USE_STMT to
    get access to each occurrence of ssavar on the stmt returned by
    that iterator..  for instance:
 
@@ -318,20 +294,10 @@ typedef struct immediate_use_iterator_d
 
 
 
-union GTY((desc ("ann_type ((tree_ann_t)&%h)"))) tree_ann_d {
-  struct tree_ann_common_d GTY((tag ("TREE_ANN_COMMON"))) common;
-  struct var_ann_d GTY((tag ("VAR_ANN"))) vdecl;
-};
-
-typedef union tree_ann_d *tree_ann_t;
 typedef struct var_ann_d *var_ann_t;
-typedef struct tree_ann_common_d *tree_ann_common_t;
 
-static inline tree_ann_common_t tree_common_ann (const_tree);
-static inline tree_ann_common_t get_tree_common_ann (tree);
 static inline var_ann_t var_ann (const_tree);
 static inline var_ann_t get_var_ann (tree);
-static inline enum tree_ann_type ann_type (tree_ann_t);
 static inline void update_stmt (gimple);
 static inline int get_lineno (const_gimple);
 
@@ -353,7 +319,7 @@ static inline void set_phi_nodes (basic_block, gimple_seq);
 			      Global declarations
 ---------------------------------------------------------------------------*/
 struct GTY(()) int_tree_map {
-  
+
   unsigned int uid;
   tree to;
 };
@@ -364,11 +330,10 @@ extern int int_tree_map_eq (const void *, const void *);
 extern unsigned int uid_decl_map_hash (const void *);
 extern int uid_decl_map_eq (const void *, const void *);
 
-typedef struct 
+typedef struct
 {
   htab_iterator hti;
 } referenced_var_iterator;
-
 
 /* This macro loops over all the referenced vars, one at a time, putting the
    current var in VAR.  Note:  You are not allowed to add referenced variables
@@ -378,26 +343,7 @@ typedef struct
 #define FOR_EACH_REFERENCED_VAR(VAR, ITER) \
   for ((VAR) = first_referenced_var (&(ITER)); \
        !end_referenced_vars_p (&(ITER)); \
-       (VAR) = next_referenced_var (&(ITER))) 
-
-
-typedef struct
-{
-  int i;
-} safe_referenced_var_iterator;
-
-/* This macro loops over all the referenced vars, one at a time, putting the
-   current var in VAR.  You are allowed to add referenced variables during the
-   execution of this macro, however, the macro will not iterate over them.  It
-   requires a temporary vector of trees, VEC, whose lifetime is controlled by
-   the caller.  The purpose of the vector is to temporarily store the
-   referenced_variables hashtable so that adding referenced variables does not
-   affect the hashtable.  */
-
-#define FOR_EACH_REFERENCED_VAR_SAFE(VAR, VEC, ITER) \
-  for ((ITER).i = 0, fill_referenced_var_vec (&(VEC)); \
-       VEC_iterate (tree, (VEC), (ITER).i, (VAR)); \
-       (ITER).i++)
+       (VAR) = next_referenced_var (&(ITER)))
 
 extern tree referenced_var_lookup (unsigned int);
 extern bool referenced_var_check_and_insert (tree);
@@ -540,6 +486,7 @@ extern basic_block move_sese_region_to_fn (struct function *, basic_block,
 				           basic_block, tree);
 void remove_edge_and_dominated_blocks (edge);
 void mark_virtual_ops_in_bb (basic_block);
+bool tree_node_can_be_shared (tree);
 
 /* In tree-cfgcleanup.c  */
 extern bitmap cfgcleanup_altered_bbs;
@@ -555,7 +502,6 @@ extern const char *op_symbol_code (enum tree_code);
 extern var_ann_t create_var_ann (tree);
 extern void renumber_gimple_stmt_uids (void);
 extern void renumber_gimple_stmt_uids_in_blocks (basic_block *, int);
-extern tree_ann_common_t create_tree_common_ann (tree);
 extern void dump_dfa_stats (FILE *);
 extern void debug_dfa_stats (void);
 extern void debug_referenced_vars (void);
@@ -636,6 +582,9 @@ typedef bool (*walk_use_def_chains_fn) (tree, gimple, void *);
 
 extern void walk_use_def_chains (tree, walk_use_def_chains_fn, void *, bool);
 
+void insert_debug_temps_for_defs (gimple_stmt_iterator *);
+void insert_debug_temp_for_var_def (gimple_stmt_iterator *, tree);
+void release_defs_bitset (bitmap toremove);
 
 /* In tree-into-ssa.c  */
 void update_ssa (unsigned);
@@ -674,10 +623,6 @@ tree get_symbol_constant_value (tree);
 tree fold_const_aggregate_ref (tree);
 bool may_propagate_address_into_dereference (tree, tree);
 
-
-/* In tree-vrp.c  */
-tree vrp_evaluate_conditional (enum tree_code, tree, tree, gimple);
-bool simplify_stmt_using_ranges (gimple_stmt_iterator *);
 
 /* In tree-ssa-dom.c  */
 extern void dump_dominator_optimization_stats (FILE *);
@@ -759,6 +704,7 @@ tree find_loop_niter (struct loop *, edge *);
 tree loop_niter_by_eval (struct loop *, edge);
 tree find_loop_niter_by_eval (struct loop *, edge *);
 void estimate_numbers_of_iterations (void);
+bool array_at_struct_end_p (tree);
 bool scev_probably_wraps_p (tree, tree, gimple, struct loop *, bool);
 bool convert_affine_scev (struct loop *, tree, tree *, tree *, gimple, bool);
 
@@ -802,6 +748,9 @@ bool contains_abnormal_ssa_name_p (tree);
 bool stmt_dominates_stmt_p (gimple, gimple);
 void mark_virtual_ops_for_renaming (gimple);
 
+/* In tree-ssa-dce.c */
+void mark_virtual_phi_result_for_renaming (gimple);
+
 /* In tree-ssa-threadedge.c */
 extern void threadedge_initialize_values (void);
 extern void threadedge_finalize_values (void);
@@ -837,7 +786,9 @@ static inline bool array_ref_contains_indirect_ref (const_tree);
 
 /* In tree-eh.c  */
 extern void make_eh_edges (gimple);
+extern bool make_eh_dispatch_edges (gimple);
 extern edge redirect_eh_edge (edge, basic_block);
+extern void redirect_eh_dispatch_edge (gimple, edge, basic_block);
 extern bool tree_could_trap_p (tree);
 extern bool operation_could_trap_helper_p (enum tree_code, bool, bool, bool,
 					   bool, tree, bool *);
@@ -846,16 +797,21 @@ extern bool stmt_could_throw_p (gimple);
 extern bool tree_could_throw_p (tree);
 extern bool stmt_can_throw_internal (gimple);
 extern bool stmt_can_throw_external (gimple);
-extern void add_stmt_to_eh_region (gimple, int);
-extern bool remove_stmt_from_eh_region (gimple);
+extern void add_stmt_to_eh_lp_fn (struct function *, gimple, int);
+extern void add_stmt_to_eh_lp (gimple, int);
+extern bool remove_stmt_from_eh_lp (gimple);
+extern bool remove_stmt_from_eh_lp_fn (struct function *, gimple);
+extern int lookup_stmt_eh_lp_fn (struct function *, gimple);
+extern int lookup_stmt_eh_lp (gimple);
+extern bool maybe_clean_eh_stmt_fn (struct function *, gimple);
+extern bool maybe_clean_eh_stmt (gimple);
 extern bool maybe_clean_or_replace_eh_stmt (gimple, gimple);
-extern void add_stmt_to_eh_region_fn (struct function *, gimple, int);
-extern bool remove_stmt_from_eh_region_fn (struct function *, gimple);
-extern int lookup_stmt_eh_region_fn (struct function *, gimple);
-extern int lookup_expr_eh_region (tree);
-extern int lookup_stmt_eh_region (gimple);
+extern bool maybe_duplicate_eh_stmt_fn (struct function *, gimple,
+					struct function *, gimple,
+					struct pointer_map_t *, int);
+extern bool maybe_duplicate_eh_stmt (gimple, gimple);
 extern bool verify_eh_edges (gimple);
-
+extern bool verify_eh_dispatch_edge (gimple);
 
 /* In tree-ssa-pre.c  */
 struct pre_expr_d;
@@ -879,7 +835,8 @@ extern void tree_check_data_deps (void);
 /* In tree-ssa-loop-ivopts.c  */
 bool expr_invariant_in_loop_p (struct loop *, tree);
 bool stmt_invariant_in_loop_p (struct loop *, gimple);
-bool multiplier_allowed_in_address_p (HOST_WIDE_INT, enum machine_mode);
+bool multiplier_allowed_in_address_p (HOST_WIDE_INT, enum machine_mode,
+				      addr_space_t);
 unsigned multiply_by_cost (HOST_WIDE_INT, enum machine_mode, bool);
 
 /* In tree-ssa-threadupdate.c.  */
@@ -891,12 +848,12 @@ tree force_gimple_operand (tree, gimple_seq *, bool, tree);
 tree force_gimple_operand_gsi (gimple_stmt_iterator *, tree, bool, tree,
 			       bool, enum gsi_iterator_update);
 tree gimple_fold_indirect_ref (tree);
-void mark_addressable (tree);
 
 /* In tree-ssa-live.c */
 extern void remove_unused_locals (void);
 extern void dump_scope_blocks (FILE *, int);
 extern void debug_scope_blocks (int);
+extern void debug_scope_block (tree, int);
 
 /* In tree-ssa-address.c  */
 
@@ -908,9 +865,9 @@ struct mem_address
 };
 
 struct affine_tree_combination;
-tree create_mem_ref (gimple_stmt_iterator *, tree, 
-		     struct affine_tree_combination *, bool);
-rtx addr_for_mem_ref (struct mem_address *, bool);
+tree create_mem_ref (gimple_stmt_iterator *, tree,
+		     struct affine_tree_combination *, tree, bool);
+rtx addr_for_mem_ref (struct mem_address *, addr_space_t, bool);
 void get_address_description (tree, struct mem_address *);
 tree maybe_fold_tmr (tree);
 
@@ -922,6 +879,5 @@ unsigned int execute_fixup_cfg (void);
 void swap_tree_operands (gimple, tree *, tree *);
 
 int least_common_multiple (int, int);
-edge redirect_eh_edge (edge e, basic_block new_bb);
 
 #endif /* _TREE_FLOW_H  */

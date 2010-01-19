@@ -14,7 +14,7 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; see the file COPYING3.  If not see
-   <http://www.gnu.org/licenses/>.  
+   <http://www.gnu.org/licenses/>.
 
    In other words, you are welcome to use, share and improve this program.
    You are forbidden to forbid anyone else to use, share and improve
@@ -54,6 +54,13 @@ bool
 hook_bool_bool_false (bool a ATTRIBUTE_UNUSED)
 {
   return false;
+}
+
+/* Generic hook that takes const int, const int) and returns true.  */
+bool hook_bool_const_int_const_int_true (const int a ATTRIBUTE_UNUSED,
+                                         const int b ATTRIBUTE_UNUSED)
+{
+  return true;
 }
 
 /* Generic hook that takes (enum machine_mode) and returns false.  */
@@ -211,6 +218,12 @@ bool
 hook_bool_tree_tree_false (tree a ATTRIBUTE_UNUSED, tree b ATTRIBUTE_UNUSED)
 {
   return false;
+}
+
+bool
+hook_bool_tree_tree_true (tree a ATTRIBUTE_UNUSED, tree b ATTRIBUTE_UNUSED)
+{
+  return true;
 }
 
 bool

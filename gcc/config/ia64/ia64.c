@@ -1,6 +1,7 @@
 /* Definitions of target machine for GNU compiler.
    Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008,
-   2009  Free Software Foundation, Inc.
+   2009
+   Free Software Foundation, Inc.
    Contributed by James E. Wilson <wilson@cygnus.com> and
 		  David Mosberger <davidm@hpl.hp.com>.
 
@@ -199,6 +200,7 @@ static rtx gen_movdi_x (rtx, rtx, rtx);
 static rtx gen_fr_spill_x (rtx, rtx, rtx);
 static rtx gen_fr_restore_x (rtx, rtx, rtx);
 
+static bool ia64_can_eliminate (const int, const int);
 static enum machine_mode hfa_element_mode (const_tree, bool);
 static void ia64_setup_incoming_varargs (CUMULATIVE_ARGS *, enum machine_mode,
 					 tree, int *, int);
@@ -279,6 +281,8 @@ static void ia64_soft_fp_init_libfuncs (void)
      ATTRIBUTE_UNUSED;
 static bool ia64_vms_valid_pointer_mode (enum machine_mode mode)
      ATTRIBUTE_UNUSED;
+static tree ia64_vms_common_object_attribute (tree *, tree, tree, int, bool *)
+     ATTRIBUTE_UNUSED;
 
 static tree ia64_handle_model_attribute (tree *, tree, tree, int, bool *);
 static tree ia64_handle_version_id_attribute (tree *, tree, tree, int, bool *);
@@ -298,6 +302,8 @@ static enum machine_mode ia64_promote_function_mode (const_tree,
 						     int *,
 						     const_tree,
 						     int);
+static void ia64_trampoline_init (rtx, tree, rtx);
+static void ia64_override_options_after_change (void);
 
 /* Table of valid machine attributes.  */
 static const struct attribute_spec ia64_attribute_table[] =
@@ -305,6 +311,9 @@ static const struct attribute_spec ia64_attribute_table[] =
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
   { "syscall_linkage", 0, 0, false, true,  true,  NULL },
   { "model",	       1, 1, true, false, false, ia64_handle_model_attribute },
+#if TARGET_ABI_OPEN_VMS
+  { "common_object",   1, 1, true, false, false, ia64_vms_common_object_attribute},
+#endif
   { "version_id",      1, 1, true, false, false,
     ia64_handle_version_id_attribute },
   { NULL,	       0, 0, false, false, false, NULL }
@@ -522,6 +531,15 @@ static const struct attribute_spec ia64_attribute_table[] =
 #undef TARGET_C_MODE_FOR_SUFFIX
 #define TARGET_C_MODE_FOR_SUFFIX ia64_c_mode_for_suffix
 
+#undef TARGET_CAN_ELIMINATE
+#define TARGET_CAN_ELIMINATE ia64_can_eliminate
+
+#undef TARGET_TRAMPOLINE_INIT
+#define TARGET_TRAMPOLINE_INIT ia64_trampoline_init
+
+#undef TARGET_OVERRIDE_OPTIONS_AFTER_CHANGE
+#define TARGET_OVERRIDE_OPTIONS_AFTER_CHANGE ia64_override_options_after_change
+
 struct gcc_target targetm = TARGET_INITIALIZER;
 
 typedef enum
@@ -621,6 +639,95 @@ ia64_handle_model_attribute (tree *node, tree name, tree args,
     }
 
   return NULL_TREE;
+}
+
+/* The section must have global and overlaid attributes.  */
+#define SECTION_VMS_OVERLAY SECTION_MACH_DEP
+
+/* Part of the low level implementation of DEC Ada pragma Common_Object which
+   enables the shared use of variables stored in overlaid linker areas
+   corresponding to the use of Fortran COMMON.  */
+
+static tree
+ia64_vms_common_object_attribute (tree *node, tree name, tree args,
+				  int flags ATTRIBUTE_UNUSED,
+				  bool *no_add_attrs)
+{
+    tree decl = *node;
+    tree id, val;
+    if (! DECL_P (decl))
+      abort ();
+  
+    DECL_COMMON (decl) = 1;
+    id = TREE_VALUE (args);
+    if (TREE_CODE (id) == IDENTIFIER_NODE)
+      val = build_string (IDENTIFIER_LENGTH (id), IDENTIFIER_POINTER (id));
+    else if (TREE_CODE (id) == STRING_CST)
+      val = id;
+    else
+      {
+	warning (OPT_Wattributes,
+		 "%qE attribute requires a string constant argument", name);
+	*no_add_attrs = true;
+	return NULL_TREE;
+      }
+    DECL_SECTION_NAME (decl) = val;
+    return NULL_TREE;
+}
+
+/* Part of the low level implementation of DEC Ada pragma Common_Object.  */
+
+void
+ia64_vms_output_aligned_decl_common (FILE *file, tree decl, const char *name,
+				     unsigned HOST_WIDE_INT size,
+				     unsigned int align)
+{
+  tree attr = DECL_ATTRIBUTES (decl);
+
+  /* As common_object attribute set DECL_SECTION_NAME check it before
+     looking up the attribute.  */
+  if (DECL_SECTION_NAME (decl) && attr)
+    attr = lookup_attribute ("common_object", attr);
+  else
+    attr = NULL_TREE;
+
+  if (!attr)
+    {
+      /*  Code from elfos.h.  */
+      fprintf (file, "%s", COMMON_ASM_OP);
+      assemble_name (file, name);
+      fprintf (file, ","HOST_WIDE_INT_PRINT_UNSIGNED",%u\n",
+	       size, align / BITS_PER_UNIT);
+    }
+  else
+    {
+      ASM_OUTPUT_ALIGN (file, floor_log2 (align / BITS_PER_UNIT));
+      ASM_OUTPUT_LABEL (file, name);
+      ASM_OUTPUT_SKIP (file, size ? size : 1);
+    }
+}
+
+/* Definition of TARGET_ASM_NAMED_SECTION for VMS.  */
+
+void
+ia64_vms_elf_asm_named_section (const char *name, unsigned int flags,
+				tree decl)
+{
+  if (!(flags & SECTION_VMS_OVERLAY))
+    {
+      default_elf_asm_named_section (name, flags, decl);
+      return;
+    }
+  if (flags != (SECTION_VMS_OVERLAY | SECTION_WRITE))
+    abort ();
+
+  if (flags & SECTION_DECLARED)
+    {
+      fprintf (asm_out_file, "\t.section\t%s\n", name);
+      return;
+    }
+
+  fprintf (asm_out_file, "\t.section\t%s,\"awgO\"\n", name);
 }
 
 static void
@@ -1626,25 +1733,18 @@ ia64_expand_vecint_compare (enum rtx_code code, enum machine_mode mode,
 	  {
 	    rtx t1, t2, mask;
 
-	    /* Perform a parallel modulo subtraction.  */
-	    t1 = gen_reg_rtx (V2SImode);
-	    emit_insn (gen_subv2si3 (t1, op0, op1));
-
-	    /* Extract the original sign bit of op0.  */
-	    mask = GEN_INT (-0x80000000);
+	    /* Subtract (-(INT MAX) - 1) from both operands to make
+	       them signed.  */
+	    mask = GEN_INT (0x80000000);
 	    mask = gen_rtx_CONST_VECTOR (V2SImode, gen_rtvec (2, mask, mask));
-	    mask = force_reg (V2SImode, mask);
-	    t2 = gen_reg_rtx (V2SImode);
-	    emit_insn (gen_andv2si3 (t2, op0, mask));
-
-	    /* XOR it back into the result of the subtraction.  This results
-	       in the sign bit set iff we saw unsigned underflow.  */
-	    x = gen_reg_rtx (V2SImode);
-	    emit_insn (gen_xorv2si3 (x, t1, t2));
-
+	    mask = force_reg (mode, mask);
+	    t1 = gen_reg_rtx (mode);
+	    emit_insn (gen_subv2si3 (t1, op0, mask));
+	    t2 = gen_reg_rtx (mode);
+	    emit_insn (gen_subv2si3 (t2, op1, mask));
+	    op0 = t1;
+	    op1 = t2;
 	    code = GT;
-	    op0 = x;
-	    op1 = CONST0_RTX (mode);
 	  }
 	  break;
 
@@ -2637,6 +2737,14 @@ ia64_compute_frame_size (HOST_WIDE_INT size)
   COPY_HARD_REG_SET (current_frame_info.mask, mask);
   current_frame_info.n_spilled = n_spilled;
   current_frame_info.initialized = reload_completed;
+}
+
+/* Worker function for TARGET_CAN_ELIMINATE.  */
+
+bool
+ia64_can_eliminate (const int from ATTRIBUTE_UNUSED, const int to)
+{
+  return (to == BR_REG (0) ? current_function_is_leaf : true);
 }
 
 /* Compute the initial difference between the specified pair of registers.  */
@@ -3838,10 +3946,35 @@ ia64_dbx_register_number (int regno)
     return regno;
 }
 
-void
-ia64_initialize_trampoline (rtx addr, rtx fnaddr, rtx static_chain)
+/* Implement TARGET_TRAMPOLINE_INIT.
+
+   The trampoline should set the static chain pointer to value placed
+   into the trampoline and should branch to the specified routine.
+   To make the normal indirect-subroutine calling convention work,
+   the trampoline must look like a function descriptor; the first
+   word being the target address and the second being the target's
+   global pointer.
+
+   We abuse the concept of a global pointer by arranging for it
+   to point to the data we need to load.  The complete trampoline
+   has the following form:
+
+		+-------------------+ \
+	TRAMP:	| __ia64_trampoline | |
+		+-------------------+  > fake function descriptor
+		| TRAMP+16          | |
+		+-------------------+ /
+		| target descriptor |
+		+-------------------+
+		| static link	    |
+		+-------------------+
+*/
+
+static void
+ia64_trampoline_init (rtx m_tramp, tree fndecl, rtx static_chain)
 {
-  rtx addr_reg, tramp, eight = GEN_INT (8);
+  rtx fnaddr = XEXP (DECL_RTL (fndecl), 0);
+  rtx addr, addr_reg, tramp, eight = GEN_INT (8);
 
   /* The Intel assembler requires that the global __ia64_trampoline symbol
      be declared explicitly */
@@ -3858,13 +3991,13 @@ ia64_initialize_trampoline (rtx addr, rtx fnaddr, rtx static_chain)
     }
 
   /* Make sure addresses are Pmode even if we are in ILP32 mode. */
-  addr = convert_memory_address (Pmode, addr);
+  addr = convert_memory_address (Pmode, XEXP (m_tramp, 0));
   fnaddr = convert_memory_address (Pmode, fnaddr);
   static_chain = convert_memory_address (Pmode, static_chain);
 
   /* Load up our iterator.  */
-  addr_reg = gen_reg_rtx (Pmode);
-  emit_move_insn (addr_reg, addr);
+  addr_reg = copy_to_reg (addr);
+  m_tramp = adjust_automodify_address (m_tramp, Pmode, addr_reg, 0);
 
   /* The first two words are the fake descriptor:
      __ia64_trampoline, ADDR+16.  */
@@ -3882,19 +4015,21 @@ ia64_initialize_trampoline (rtx addr, rtx fnaddr, rtx static_chain)
       emit_move_insn (reg, gen_rtx_MEM (Pmode, reg));
       tramp = reg;
    }
-  emit_move_insn (gen_rtx_MEM (Pmode, addr_reg), tramp);
+  emit_move_insn (m_tramp, tramp);
   emit_insn (gen_adddi3 (addr_reg, addr_reg, eight));
+  m_tramp = adjust_automodify_address (m_tramp, VOIDmode, NULL, 8);
 
-  emit_move_insn (gen_rtx_MEM (Pmode, addr_reg),
-		  copy_to_reg (plus_constant (addr, 16)));
+  emit_move_insn (m_tramp, force_reg (Pmode, plus_constant (addr, 16)));
   emit_insn (gen_adddi3 (addr_reg, addr_reg, eight));
+  m_tramp = adjust_automodify_address (m_tramp, VOIDmode, NULL, 8);
 
   /* The third word is the target descriptor.  */
-  emit_move_insn (gen_rtx_MEM (Pmode, addr_reg), fnaddr);
+  emit_move_insn (m_tramp, force_reg (Pmode, fnaddr));
   emit_insn (gen_adddi3 (addr_reg, addr_reg, eight));
+  m_tramp = adjust_automodify_address (m_tramp, VOIDmode, NULL, 8);
 
   /* The fourth word is the static chain.  */
-  emit_move_insn (gen_rtx_MEM (Pmode, addr_reg), static_chain);
+  emit_move_insn (m_tramp, static_chain);
 }
 
 /* Do any needed setup for a variadic function.  CUM has not been updated
@@ -5293,8 +5428,6 @@ fix_range (const char *const_str)
 static bool
 ia64_handle_option (size_t code, const char *arg, int value)
 {
-  static bool warned_itanium1_deprecated;
-
   switch (code)
     {
     case OPT_mfixed_range_:
@@ -5315,9 +5448,6 @@ ia64_handle_option (size_t code, const char *arg, int value)
 	  }
 	const processor_alias_table[] =
 	  {
-	    {"itanium", PROCESSOR_ITANIUM},
-	    {"itanium1", PROCESSOR_ITANIUM},
-	    {"merced", PROCESSOR_ITANIUM},
 	    {"itanium2", PROCESSOR_ITANIUM2},
 	    {"mckinley", PROCESSOR_ITANIUM2},
 	  };
@@ -5328,16 +5458,6 @@ ia64_handle_option (size_t code, const char *arg, int value)
 	  if (!strcmp (arg, processor_alias_table[i].name))
 	    {
 	      ia64_tune = processor_alias_table[i].processor;
-	      if (ia64_tune == PROCESSOR_ITANIUM
-		  && ! warned_itanium1_deprecated)
-		{
-		  inform (0,
-			  "value %<%s%> for -mtune= switch is deprecated",
-			  arg);
-		  inform (0, "GCC 4.4 is the last release with "
-			  "Itanium1 tuning support");
-		  warned_itanium1_deprecated = true;
-		}
 	      break;
 	    }
 	if (i == pta_size)
@@ -5358,6 +5478,33 @@ ia64_override_options (void)
   if (TARGET_AUTO_PIC)
     target_flags |= MASK_CONST_GP;
 
+  /* Numerous experiment shows that IRA based loop pressure
+     calculation works better for RTL loop invariant motion on targets
+     with enough (>= 32) registers.  It is an expensive optimization.
+     So it is on only for peak performance.  */
+  if (optimize >= 3)
+    flag_ira_loop_pressure = 1;
+
+
+  ia64_section_threshold = g_switch_set ? g_switch_value : IA64_DEFAULT_GVALUE;
+
+  init_machine_status = ia64_init_machine_status;
+
+  if (align_functions <= 0)
+    align_functions = 64;
+  if (align_loops <= 0)
+    align_loops = 32;
+  if (TARGET_ABI_OPEN_VMS)
+    flag_no_common = 1;
+
+  ia64_override_options_after_change();
+}
+
+/* Implement targetm.override_options_after_change.  */
+
+static void
+ia64_override_options_after_change (void)
+{
   ia64_flag_schedule_insns2 = flag_schedule_insns_after_reload;
   flag_schedule_insns_after_reload = 0;
 
@@ -5379,18 +5526,6 @@ ia64_override_options (void)
          a transformation.  */
       flag_auto_inc_dec = 0;
     }
-
-  ia64_section_threshold = g_switch_set ? g_switch_value : IA64_DEFAULT_GVALUE;
-
-  init_machine_status = ia64_init_machine_status;
-
-  if (align_functions <= 0)
-    align_functions = 64;
-  if (align_loops <= 0)
-    align_loops = 32;
-
-  if (TARGET_ABI_OPEN_VMS)
-    flag_no_common = 1;
 }
 
 /* Initialize the record of emitted frame related registers.  */
@@ -5414,6 +5549,8 @@ ia64_safe_itanium_class (rtx insn)
 {
   if (recog_memoized (insn) >= 0)
     return get_attr_itanium_class (insn);
+  else if (DEBUG_INSN_P (insn))
+    return ITANIUM_CLASS_IGNORE;
   else
     return ITANIUM_CLASS_UNKNOWN;
 }
@@ -6170,6 +6307,7 @@ group_barrier_needed (rtx insn)
   switch (GET_CODE (insn))
     {
     case NOTE:
+    case DEBUG_INSN:
       break;
 
     case BARRIER:
@@ -6327,7 +6465,7 @@ emit_insn_group_barriers (FILE *dump)
 	  init_insn_group_barriers ();
 	  last_label = 0;
 	}
-      else if (INSN_P (insn))
+      else if (NONDEBUG_INSN_P (insn))
 	{
 	  insns_since_last_label = 1;
 
@@ -6375,7 +6513,7 @@ emit_all_insn_group_barriers (FILE *dump ATTRIBUTE_UNUSED)
 
 	  init_insn_group_barriers ();
 	}
-      else if (INSN_P (insn))
+      else if (NONDEBUG_INSN_P (insn))
 	{
 	  if (recog_memoized (insn) == CODE_FOR_insn_group_barrier)
 	    init_insn_group_barriers ();
@@ -6458,17 +6596,6 @@ static int stop_before_p = 0;
    `add_cycles'. */
 
 static int clocks_length;
-
-/* The following array element values are cycles on which the
-   corresponding insn will be issued.  The array is used only for
-   Itanium1.  */
-
-static int *clocks;
-
-/* The following array element values are numbers of cycles should be
-   added to improve insn scheduling for MM_insns for Itanium1.  */
-
-static int *add_cycles;
 
 /* The following variable value is number of data speculations in progress.  */
 static int pending_data_specs = 0;
@@ -6843,8 +6970,6 @@ ia64_sched_reorder2 (FILE *dump ATTRIBUTE_UNUSED,
 		     int sched_verbose ATTRIBUTE_UNUSED, rtx *ready,
 		     int *pn_ready, int clock_var)
 {
-  if (ia64_tune == PROCESSOR_ITANIUM && reload_completed && last_scheduled_insn)
-    clocks [INSN_UID (last_scheduled_insn)] = clock_var;
   return ia64_dfa_sched_reorder (dump, sched_verbose, ready, pn_ready,
 				 clock_var, 1);
 }
@@ -6867,6 +6992,9 @@ ia64_variable_issue (FILE *dump ATTRIBUTE_UNUSED,
       if (CHECK_SPEC (insn) & BEGIN_DATA)
 	pending_data_specs--;
     }
+
+  if (DEBUG_INSN_P (insn))
+    return 1;
 
   last_scheduled_insn = insn;
   memcpy (prev_cycle_state, curr_state, dfa_state_size);
@@ -6950,6 +7078,10 @@ ia64_dfa_new_cycle (FILE *dump, int verbose, rtx insn, int last_clock,
   int setup_clocks_p = FALSE;
 
   gcc_assert (insn && INSN_P (insn));
+
+  if (DEBUG_INSN_P (insn))
+    return 0;
+
   /* When a group barrier is needed for insn, last_scheduled_insn
      should be set.  */
   gcc_assert (!(reload_completed && safe_group_barrier_needed (insn))
@@ -7006,37 +7138,6 @@ ia64_dfa_new_cycle (FILE *dump, int verbose, rtx insn, int last_clock,
   else if (reload_completed)
     setup_clocks_p = TRUE;
 
-  if (setup_clocks_p && ia64_tune == PROCESSOR_ITANIUM
-      && GET_CODE (PATTERN (insn)) != ASM_INPUT
-      && asm_noperands (PATTERN (insn)) < 0)
-    {
-      enum attr_itanium_class c = ia64_safe_itanium_class (insn);
-
-      if (c != ITANIUM_CLASS_MMMUL && c != ITANIUM_CLASS_MMSHF)
-	{
-	  sd_iterator_def sd_it;
-	  dep_t dep;
-	  int d = -1;
-
-	  FOR_EACH_DEP (insn, SD_LIST_BACK, sd_it, dep)
-	    if (DEP_TYPE (dep) == REG_DEP_TRUE)
-	      {
-		enum attr_itanium_class dep_class;
-		rtx dep_insn = DEP_PRO (dep);
-
-		dep_class = ia64_safe_itanium_class (dep_insn);
-		if ((dep_class == ITANIUM_CLASS_MMMUL
-		     || dep_class == ITANIUM_CLASS_MMSHF)
-		    && last_clock - clocks [INSN_UID (dep_insn)] < 4
-		    && (d < 0
-			|| last_clock - clocks [INSN_UID (dep_insn)] < d))
-		  d = last_clock - clocks [INSN_UID (dep_insn)];
-	      }
-	  if (d >= 0)
-	    add_cycles [INSN_UID (insn)] = 3 - d;
-	}
-    }
-
   return 0;
 }
 
@@ -7048,17 +7149,7 @@ ia64_h_i_d_extended (void)
   if (stops_p != NULL) 
     {
       int new_clocks_length = get_max_uid () * 3 / 2;
-      
       stops_p = (char *) xrecalloc (stops_p, new_clocks_length, clocks_length, 1);
-      
-      if (ia64_tune == PROCESSOR_ITANIUM)
-	{
-	  clocks = (int *) xrecalloc (clocks, new_clocks_length, clocks_length,
-				      sizeof (int));
-	  add_cycles = (int *) xrecalloc (add_cycles, new_clocks_length,
-					  clocks_length, sizeof (int));
-	}
-      
       clocks_length = new_clocks_length;
     }
 }
@@ -8415,9 +8506,7 @@ ia64_add_bundle_selector_before (int template0, rtx insn)
    automaton state for each insn in chosen bundle states.
 
    So the algorithm makes two (forward and backward) passes through
-   EBB.  There is an additional forward pass through EBB for Itanium1
-   processor.  This pass inserts more nops to make dependency between
-   a producer insn and MMMUL/MMSHF at least 4 cycles long.  */
+   EBB.  */
 
 static void
 bundling (FILE *dump, int verbose, rtx prev_head_insn, rtx tail)
@@ -8516,14 +8605,7 @@ bundling (FILE *dump, int verbose, rtx prev_head_insn, rtx tail)
 	       || (GET_MODE (next_insn) == TImode
 		   && INSN_CODE (insn) != CODE_FOR_insn_group_barrier));
 	  if (type == TYPE_F || type == TYPE_B || type == TYPE_L
-	      || type == TYPE_S
-	      /* We need to insert 2 nops for cases like M_MII.  To
-		 guarantee issuing all insns on the same cycle for
-		 Itanium 1, we need to issue 2 nops after the first M
-		 insn (MnnMII where n is a nop insn).  */
-	      || ((type == TYPE_M || type == TYPE_A)
-		  && ia64_tune == PROCESSOR_ITANIUM
-		  && !bundle_end_p && pos == 1))
+	      || type == TYPE_S)
 	    issue_nops_and_insn (curr_state, 2, insn, bundle_end_p,
 				 only_bundle_end_p);
 	  issue_nops_and_insn (curr_state, 1, insn, bundle_end_p,
@@ -8559,9 +8641,7 @@ bundling (FILE *dump, int verbose, rtx prev_head_insn, rtx tail)
 	       curr_state->before_nops_num, curr_state->after_nops_num,
 	       curr_state->accumulated_insns_num, curr_state->branch_deviation,
 	       curr_state->middle_bundle_stops,
-	       (ia64_tune == PROCESSOR_ITANIUM
-		? ((struct DFA_chip *) curr_state->dfa_state)->oneb_automaton_state
-		: ((struct DFA_chip *) curr_state->dfa_state)->twob_automaton_state),
+	       ((struct DFA_chip *) curr_state->dfa_state)->twob_automaton_state,
 	       INSN_UID (insn));
 	  }
     }
@@ -8624,9 +8704,7 @@ bundling (FILE *dump, int verbose, rtx prev_head_insn, rtx tail)
 	     curr_state->before_nops_num, curr_state->after_nops_num,
 	     curr_state->accumulated_insns_num, curr_state->branch_deviation,
 	     curr_state->middle_bundle_stops,
-	     (ia64_tune == PROCESSOR_ITANIUM
-	      ? ((struct DFA_chip *) curr_state->dfa_state)->oneb_automaton_state
-	      : ((struct DFA_chip *) curr_state->dfa_state)->twob_automaton_state),
+	     ((struct DFA_chip *) curr_state->dfa_state)->twob_automaton_state,
 	     INSN_UID (insn));
 	}
       /* Find the position in the current bundle window.  The window can
@@ -8725,103 +8803,6 @@ bundling (FILE *dump, int verbose, rtx prev_head_insn, rtx tail)
 	    }
 	}
     }
-  if (ia64_tune == PROCESSOR_ITANIUM)
-    /* Insert additional cycles for MM-insns (MMMUL and MMSHF).
-       Itanium1 has a strange design, if the distance between an insn
-       and dependent MM-insn is less 4 then we have a 6 additional
-       cycles stall.  So we make the distance equal to 4 cycles if it
-       is less.  */
-    for (insn = get_next_important_insn (NEXT_INSN (prev_head_insn), tail);
-	 insn != NULL_RTX;
-	 insn = next_insn)
-      {
-	gcc_assert (INSN_P (insn)
-		    && ia64_safe_itanium_class (insn) != ITANIUM_CLASS_IGNORE
-		    && GET_CODE (PATTERN (insn)) != USE
-		    && GET_CODE (PATTERN (insn)) != CLOBBER);
-	next_insn = get_next_important_insn (NEXT_INSN (insn), tail);
-	if (INSN_UID (insn) < clocks_length && add_cycles [INSN_UID (insn)])
-	  /* We found a MM-insn which needs additional cycles.  */
-	  {
-	    rtx last;
-	    int i, j, n;
-	    int pred_stop_p;
-
-	    /* Now we are searching for a template of the bundle in
-	       which the MM-insn is placed and the position of the
-	       insn in the bundle (0, 1, 2).  Also we are searching
-	       for that there is a stop before the insn.  */
-	    last = prev_active_insn (insn);
-	    pred_stop_p = recog_memoized (last) == CODE_FOR_insn_group_barrier;
-	    if (pred_stop_p)
-	      last = prev_active_insn (last);
-	    n = 0;
-	    for (;; last = prev_active_insn (last))
-	      if (recog_memoized (last) == CODE_FOR_bundle_selector)
-		{
-		  template0 = XINT (XVECEXP (PATTERN (last), 0, 0), 0);
-		  if (template0 == 9)
-		    /* The insn is in MLX bundle.  Change the template
-		       onto MFI because we will add nops before the
-		       insn.  It simplifies subsequent code a lot.  */
-		    PATTERN (last)
-		      = gen_bundle_selector (const2_rtx); /* -> MFI */
-		  break;
-		}
-	      else if (recog_memoized (last) != CODE_FOR_insn_group_barrier
-		       && (ia64_safe_itanium_class (last)
-			   != ITANIUM_CLASS_IGNORE))
-		n++;
-	    /* Some check of correctness: the stop is not at the
-	       bundle start, there are no more 3 insns in the bundle,
-	       and the MM-insn is not at the start of bundle with
-	       template MLX.  */
-	    gcc_assert ((!pred_stop_p || n)
-			&& n <= 2
-			&& (template0 != 9 || !n));
-	    /* Put nops after the insn in the bundle.  */
-	    for (j = 3 - n; j > 0; j --)
-	      ia64_emit_insn_before (gen_nop (), insn);
-	    /* It takes into account that we will add more N nops
-	       before the insn lately -- please see code below.  */
-	    add_cycles [INSN_UID (insn)]--;
-	    if (!pred_stop_p || add_cycles [INSN_UID (insn)])
-	      ia64_emit_insn_before (gen_insn_group_barrier (GEN_INT (3)),
-				     insn);
-	    if (pred_stop_p)
-	      add_cycles [INSN_UID (insn)]--;
-	    for (i = add_cycles [INSN_UID (insn)]; i > 0; i--)
-	      {
-		/* Insert "MII;" template.  */
-		ia64_emit_insn_before (gen_bundle_selector (const0_rtx),
-				       insn);
-		ia64_emit_insn_before (gen_nop (), insn);
-		ia64_emit_insn_before (gen_nop (), insn);
-		if (i > 1)
-		  {
-		    /* To decrease code size, we use "MI;I;"
-		       template.  */
-		    ia64_emit_insn_before
-		      (gen_insn_group_barrier (GEN_INT (3)), insn);
-		    i--;
-		  }
-		ia64_emit_insn_before (gen_nop (), insn);
-		ia64_emit_insn_before (gen_insn_group_barrier (GEN_INT (3)),
-				       insn);
-	      }
-	    /* Put the MM-insn in the same slot of a bundle with the
-	       same template as the original one.  */
-	    ia64_add_bundle_selector_before (template0, insn);
-	    /* To put the insn in the same slot, add necessary number
-	       of nops.  */
-	    for (j = n; j > 0; j --)
-	      ia64_emit_insn_before (gen_nop (), insn);
-	    /* Put the stop if the original bundle had it.  */
-	    if (pred_stop_p)
-	      ia64_emit_insn_before (gen_insn_group_barrier (GEN_INT (3)),
-				     insn);
-	  }
-      }
 
 #ifdef ENABLE_CHECKING
   {
@@ -8936,7 +8917,7 @@ final_emit_insn_group_barriers (FILE *dump ATTRIBUTE_UNUSED)
 	  need_barrier_p = 0;
 	  prev_insn = NULL_RTX;
 	}
-      else if (INSN_P (insn))
+      else if (NONDEBUG_INSN_P (insn))
 	{
 	  if (recog_memoized (insn) == CODE_FOR_insn_group_barrier)
 	    {
@@ -9216,11 +9197,7 @@ ia64_reorg (void)
       recog_memoized (ia64_nop);
       clocks_length = get_max_uid () + 1;
       stops_p = XCNEWVEC (char, clocks_length);
-      if (ia64_tune == PROCESSOR_ITANIUM)
-	{
-	  clocks = XCNEWVEC (int, clocks_length);
-	  add_cycles = XCNEWVEC (int, clocks_length);
-	}
+
       if (ia64_tune == PROCESSOR_ITANIUM2)
 	{
 	  pos_1 = get_cpu_unit_code ("2_1");
@@ -9292,11 +9269,6 @@ ia64_reorg (void)
       /* We cannot reuse this one because it has been corrupted by the
 	 evil glat.  */
       finish_bundle_states ();
-      if (ia64_tune == PROCESSOR_ITANIUM)
-	{
-	  free (add_cycles);
-	  free (clocks);
-	}
       free (stops_p);
       stops_p = NULL;
       emit_insn_group_barriers (dump_file);
@@ -9498,15 +9470,18 @@ ia64_emit_deleted_label_after_insn (rtx insn)
 /* Define the CFA after INSN with the steady-state definition.  */
 
 static void
-ia64_dwarf2out_def_steady_cfa (rtx insn)
+ia64_dwarf2out_def_steady_cfa (rtx insn, bool frame)
 {
   rtx fp = frame_pointer_needed
     ? hard_frame_pointer_rtx
     : stack_pointer_rtx;
+  const char *label = ia64_emit_deleted_label_after_insn (insn);
+
+  if (!frame)
+    return;
 
   dwarf2out_def_cfa
-    (ia64_emit_deleted_label_after_insn (insn),
-     REGNO (fp),
+    (label, REGNO (fp),
      ia64_initial_elimination_offset
      (REGNO (arg_pointer_rtx), REGNO (fp))
      + ARG_POINTER_CFA_OFFSET (current_function_decl));
@@ -9599,8 +9574,7 @@ process_set (FILE *asm_out_file, rtx pat, rtx insn, bool unwind, bool frame)
 	      if (unwind)
 		fprintf (asm_out_file, "\t.fframe "HOST_WIDE_INT_PRINT_DEC"\n",
 			 -INTVAL (op1));
-	      if (frame)
-		ia64_dwarf2out_def_steady_cfa (insn);
+	      ia64_dwarf2out_def_steady_cfa (insn, frame);
 	    }
 	  else
 	    process_epilogue (asm_out_file, insn, unwind, frame);
@@ -9658,8 +9632,7 @@ process_set (FILE *asm_out_file, rtx pat, rtx insn, bool unwind, bool frame)
 	  if (unwind)
 	    fprintf (asm_out_file, "\t.vframe r%d\n",
 		     ia64_dbx_register_number (dest_regno));
-	  if (frame)
-	    ia64_dwarf2out_def_steady_cfa (insn);
+	  ia64_dwarf2out_def_steady_cfa (insn, frame);
 	  return 1;
 
 	default:
@@ -9804,8 +9777,8 @@ process_for_unwind_directive (FILE *asm_out_file, rtx insn)
 		  fprintf (asm_out_file, "\t.copy_state %d\n",
 			   cfun->machine->state_num);
 		}
-	      if (IA64_CHANGE_CFA_IN_EPILOGUE && frame)
-		ia64_dwarf2out_def_steady_cfa (insn);
+	      if (IA64_CHANGE_CFA_IN_EPILOGUE)
+		ia64_dwarf2out_def_steady_cfa (insn, frame);
 	      need_copy_state = false;
 	    }
 	}
@@ -10229,6 +10202,12 @@ ia64_section_type_flags (tree decl, const char *name, int reloc)
       || strncmp (name, ".sbss.", 6) == 0
       || strncmp (name, ".gnu.linkonce.sb.", 17) == 0)
     flags = SECTION_SMALL;
+
+#if TARGET_ABI_OPEN_VMS
+  if (decl && DECL_ATTRIBUTES (decl)
+      && lookup_attribute ("common_object", DECL_ATTRIBUTES (decl)))
+    flags |= SECTION_VMS_OVERLAY;
+#endif
 
   flags |= default_section_type_flags (decl, name, reloc);
   return flags;

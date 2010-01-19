@@ -1,6 +1,6 @@
 // List implementation -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
+// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -606,9 +606,10 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
       list&
       operator=(list&& __x)
       {
+	// NB: DR 1204.
 	// NB: DR 675.
 	this->clear();
-	this->swap(__x); 
+	this->swap(__x);
 	return *this;
       }
 
@@ -1027,11 +1028,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
       insert(iterator __position, size_type __n, const value_type& __x)
       {  
 	list __tmp(__n, __x, _M_get_Node_allocator());
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
-	  splice(__position, std::move(__tmp));
-#else
-	  splice(__position, __tmp);
-#endif
+	splice(__position, __tmp);
       }
 
       /**
@@ -1053,11 +1050,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
 	       _InputIterator __last)
         {
 	  list __tmp(__first, __last, _M_get_Node_allocator());
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
-	  splice(__position, std::move(__tmp));
-#else
 	  splice(__position, __tmp);
-#endif
 	}
 
       /**
@@ -1164,6 +1157,12 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
 	  }
       }
 
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      void
+      splice(iterator __position, list& __x)
+      { splice(__position, std::move(__x)); }
+#endif
+
       /**
        *  @brief  Insert element from another %list.
        *  @param  position  Iterator referencing the element to insert before.
@@ -1190,6 +1189,12 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
 
 	this->_M_transfer(__position, __i, __j);
       }
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      void
+      splice(iterator __position, list& __x, iterator __i)
+      { splice(__position, std::move(__x), __i); }
+#endif
 
       /**
        *  @brief  Insert range from another %list.
@@ -1220,6 +1225,12 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
 	    this->_M_transfer(__position, __first, __last);
 	  }
       }
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      void
+      splice(iterator __position, list& __x, iterator __first, iterator __last)
+      { splice(__position, std::move(__x), __first, __last); }
+#endif
 
       /**
        *  @brief  Remove all elements equal to value.
@@ -1288,10 +1299,15 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
        *  sorted order, leaving @a x empty when complete.  Elements in
        *  this list precede elements in @a x that are equal.
        */
-      void
 #ifdef __GXX_EXPERIMENTAL_CXX0X__
+      void
       merge(list&& __x);
+
+      void
+      merge(list& __x)
+      { merge(std::move(__x)); }
 #else
+      void
       merge(list& __x);
 #endif
 
@@ -1307,11 +1323,18 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
        *  in this list precede elements in @a x that are equivalent
        *  according to StrictWeakOrdering().
        */
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
       template<typename _StrictWeakOrdering>
         void
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
         merge(list&&, _StrictWeakOrdering);
+
+      template<typename _StrictWeakOrdering>
+        void
+        merge(list& __x, _StrictWeakOrdering __comp)
+        { merge(std::move(__x), __comp); }
 #else
+      template<typename _StrictWeakOrdering>
+        void
         merge(list&, _StrictWeakOrdering);
 #endif
 

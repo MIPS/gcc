@@ -205,7 +205,10 @@ package body Exp_Ch4 is
    --  its expression. If N is neither comparison nor a type conversion, the
    --  call has no effect.
 
-   function Tagged_Membership (N : Node_Id) return Node_Id;
+   procedure Tagged_Membership
+     (N         : Node_Id;
+      SCIL_Node : out Node_Id;
+      Result    : out Node_Id);
    --  Construct the expression corresponding to the tagged membership test.
    --  Deals with a second operand being (or not) a class-wide type.
 
@@ -4017,8 +4020,12 @@ package body Exp_Ch4 is
       Thenx  : constant Node_Id    := Next (Cond);
       Elsex  : constant Node_Id    := Next (Thenx);
       Typ    : constant Entity_Id  := Etype (N);
+
       Cnn    : Entity_Id;
+      Decl   : Node_Id;
       New_If : Node_Id;
+      New_N  : Node_Id;
+      P_Decl : Node_Id;
 
    begin
       --  If either then or else actions are present, then given:
@@ -4038,13 +4045,12 @@ package body Exp_Ch4 is
 
       --  and replace the conditional expression by a reference to Cnn
 
-      --  ??? Note: this expansion is wrong for limited types, since it does
-      --  a copy of a limited value. Similarly it's wrong for unconstrained or
-      --  class-wide types since in neither case can we have an uninitialized
-      --  object declaration The proper fix would be to do the following
-      --  expansion:
+      --  If the type is limited or unconstrained, the above expansion is
+      --  not legal, because it involves either an uninitialized object
+      --  or an illegal assignment. Instead, we generate:
 
-      --      Cnn : access typ;
+      --      type Ptr is access all Typ;
+      --      Cnn : Ptr;
       --      if cond then
       --         <<then actions>>
       --         Cnn := then-expr'Unrestricted_Access;
@@ -4053,10 +4059,28 @@ package body Exp_Ch4 is
       --         Cnn := else-expr'Unrestricted_Access;
       --      end if;
 
-      --  and replace the conditional expresion by a reference to Cnn.all ???
+      --  and replace the conditional expresion by a reference to Cnn.all.
 
-      if Present (Then_Actions (N)) or else Present (Else_Actions (N)) then
+      if Is_By_Reference_Type (Typ) then
          Cnn := Make_Temporary (Loc, 'C', N);
+
+         P_Decl :=
+           Make_Full_Type_Declaration (Loc,
+             Defining_Identifier =>
+               Make_Defining_Identifier (Loc, New_Internal_Name ('A')),
+             Type_Definition =>
+               Make_Access_To_Object_Definition (Loc,
+                 All_Present => True,
+                 Subtype_Indication =>
+                   New_Reference_To (Typ, Loc)));
+
+         Insert_Action (N, P_Decl);
+
+         Decl :=
+            Make_Object_Declaration (Loc,
+              Defining_Identifier => Cnn,
+              Object_Definition   =>
+                   New_Occurrence_Of (Defining_Identifier (P_Decl), Loc));
 
          New_If :=
            Make_Implicit_If_Statement (N,
@@ -4065,47 +4089,88 @@ package body Exp_Ch4 is
              Then_Statements => New_List (
                Make_Assignment_Statement (Sloc (Thenx),
                  Name => New_Occurrence_Of (Cnn, Sloc (Thenx)),
-                 Expression => Relocate_Node (Thenx))),
+                 Expression =>
+                   Make_Attribute_Reference (Loc,
+                     Attribute_Name => Name_Unrestricted_Access,
+                     Prefix =>  Relocate_Node (Thenx)))),
 
              Else_Statements => New_List (
                Make_Assignment_Statement (Sloc (Elsex),
                  Name => New_Occurrence_Of (Cnn, Sloc (Elsex)),
+                 Expression =>
+                   Make_Attribute_Reference (Loc,
+                     Attribute_Name => Name_Unrestricted_Access,
+                     Prefix => Relocate_Node (Elsex)))));
+
+         New_N :=
+           Make_Explicit_Dereference (Loc,
+             Prefix => New_Occurrence_Of (Cnn, Loc));
+
+      --  For other types, we only need to expand if there are other actions
+      --  associated with either branch.
+
+      elsif Present (Then_Actions (N)) or else Present (Else_Actions (N)) then
+         Cnn := Make_Temporary (Loc, 'C', N);
+
+         Decl :=
+           Make_Object_Declaration (Loc,
+             Defining_Identifier => Cnn,
+             Object_Definition   => New_Occurrence_Of (Typ, Loc));
+
+         New_If :=
+           Make_Implicit_If_Statement (N,
+             Condition => Relocate_Node (Cond),
+
+             Then_Statements => New_List (
+               Make_Assignment_Statement (Sloc (Thenx),
+                 Name       => New_Occurrence_Of (Cnn, Sloc (Thenx)),
+                 Expression => Relocate_Node (Thenx))),
+
+             Else_Statements => New_List (
+               Make_Assignment_Statement (Sloc (Elsex),
+                 Name       => New_Occurrence_Of (Cnn, Sloc (Elsex)),
                  Expression => Relocate_Node (Elsex))));
-
-         --  Move the SLOC of the parent If statement to the newly created one
-         --  and change it to the SLOC of the expression which, after
-         --  expansion, will correspond to what is being evaluated.
-
-         if Present (Parent (N))
-           and then Nkind (Parent (N)) = N_If_Statement
-         then
-            Set_Sloc (New_If, Sloc (Parent (N)));
-            Set_Sloc (Parent (N), Loc);
-         end if;
 
          Set_Assignment_OK (Name (First (Then_Statements (New_If))));
          Set_Assignment_OK (Name (First (Else_Statements (New_If))));
 
-         if Present (Then_Actions (N)) then
-            Insert_List_Before
-              (First (Then_Statements (New_If)), Then_Actions (N));
-         end if;
+         New_N := New_Occurrence_Of (Cnn, Loc);
 
-         if Present (Else_Actions (N)) then
-            Insert_List_Before
-              (First (Else_Statements (New_If)), Else_Actions (N));
-         end if;
+      else
+         --  No expansion needed, gigi handles it like a C conditional
+         --  expression.
 
-         Rewrite (N, New_Occurrence_Of (Cnn, Loc));
-
-         Insert_Action (N,
-           Make_Object_Declaration (Loc,
-             Defining_Identifier => Cnn,
-             Object_Definition   => New_Occurrence_Of (Typ, Loc)));
-
-         Insert_Action (N, New_If);
-         Analyze_And_Resolve (N, Typ);
+         return;
       end if;
+
+      --  Move the SLOC of the parent If statement to the newly created one and
+      --  change it to the SLOC of the expression which, after expansion, will
+      --  correspond to what is being evaluated.
+
+      if Present (Parent (N))
+        and then Nkind (Parent (N)) = N_If_Statement
+      then
+         Set_Sloc (New_If, Sloc (Parent (N)));
+         Set_Sloc (Parent (N), Loc);
+      end if;
+
+      --  Make sure Then_Actions and Else_Actions are appropriately moved
+      --  to the new if statement.
+
+      if Present (Then_Actions (N)) then
+         Insert_List_Before
+           (First (Then_Statements (New_If)), Then_Actions (N));
+      end if;
+
+      if Present (Else_Actions (N)) then
+         Insert_List_Before
+           (First (Else_Statements (New_If)), Else_Actions (N));
+      end if;
+
+      Insert_Action (N, Decl);
+      Insert_Action (N, New_If);
+      Rewrite (N, New_N);
+      Analyze_And_Resolve (N, Typ);
    end Expand_N_Conditional_Expression;
 
    -----------------------------------
@@ -4441,10 +4506,12 @@ package body Exp_Ch4 is
 
       else
          declare
-            Typ    : Entity_Id        := Etype (Rop);
-            Is_Acc : constant Boolean := Is_Access_Type (Typ);
-            Obj    : Node_Id          := Lop;
-            Cond   : Node_Id          := Empty;
+            Typ       : Entity_Id        := Etype (Rop);
+            Is_Acc    : constant Boolean := Is_Access_Type (Typ);
+            Cond      : Node_Id          := Empty;
+            New_N     : Node_Id;
+            Obj       : Node_Id          := Lop;
+            SCIL_Node : Node_Id;
 
          begin
             Remove_Side_Effects (Obj);
@@ -4459,8 +4526,19 @@ package body Exp_Ch4 is
                --  normal tagged membership expansion is not what we want).
 
                if Tagged_Type_Expansion then
-                  Rewrite (N, Tagged_Membership (N));
+                  Tagged_Membership (N, SCIL_Node, New_N);
+                  Rewrite (N, New_N);
                   Analyze_And_Resolve (N, Rtyp);
+
+                  --  Update decoration of relocated node referenced by the
+                  --  SCIL node.
+
+                  if Generate_SCIL
+                    and then Present (SCIL_Node)
+                  then
+                     Set_SCIL_Related_Node (SCIL_Node, N);
+                     Insert_Action (N, SCIL_Node);
+                  end if;
                end if;
 
                return;
@@ -4963,10 +5041,26 @@ package body Exp_Ch4 is
          Expand_Boolean_Operator (N);
 
       elsif Is_Boolean_Type (Etype (N)) then
-         Adjust_Condition (Left_Opnd (N));
-         Adjust_Condition (Right_Opnd (N));
-         Set_Etype (N, Standard_Boolean);
-         Adjust_Result_Type (N, Typ);
+
+         --  Replace AND by AND THEN if Short_Circuit_And_Or active and the
+         --  type is standard Boolean (do not mess with AND that uses a non-
+         --  standard Boolean type, because something strange is going on).
+
+         if Short_Circuit_And_Or and then Typ = Standard_Boolean then
+            Rewrite (N,
+              Make_And_Then (Sloc (N),
+                Left_Opnd  => Relocate_Node (Left_Opnd (N)),
+                Right_Opnd => Relocate_Node (Right_Opnd (N))));
+            Analyze_And_Resolve (N, Typ);
+
+         --  Otherwise, adjust conditions
+
+         else
+            Adjust_Condition (Left_Opnd (N));
+            Adjust_Condition (Right_Opnd (N));
+            Set_Etype (N, Standard_Boolean);
+            Adjust_Result_Type (N, Typ);
+         end if;
       end if;
    end Expand_N_Op_And;
 
@@ -6851,10 +6945,26 @@ package body Exp_Ch4 is
          Expand_Boolean_Operator (N);
 
       elsif Is_Boolean_Type (Etype (N)) then
-         Adjust_Condition (Left_Opnd (N));
-         Adjust_Condition (Right_Opnd (N));
-         Set_Etype (N, Standard_Boolean);
-         Adjust_Result_Type (N, Typ);
+
+         --  Replace OR by OR ELSE if Short_Circuit_And_Or active and the
+         --  type is standard Boolean (do not mess with AND that uses a non-
+         --  standard Boolean type, because something strange is going on).
+
+         if Short_Circuit_And_Or and then Typ = Standard_Boolean then
+            Rewrite (N,
+              Make_Or_Else (Sloc (N),
+                Left_Opnd  => Relocate_Node (Left_Opnd (N)),
+                Right_Opnd => Relocate_Node (Right_Opnd (N))));
+            Analyze_And_Resolve (N, Typ);
+
+         --  Otherwise, adjust conditions
+
+         else
+            Adjust_Condition (Left_Opnd (N));
+            Adjust_Condition (Right_Opnd (N));
+            Set_Etype (N, Standard_Boolean);
+            Adjust_Result_Type (N, Typ);
+         end if;
       end if;
    end Expand_N_Op_Or;
 
@@ -7980,88 +8090,41 @@ package body Exp_Ch4 is
       --  have to be sure not to generate junk overflow checks in the first
       --  place, since it would be trick to remove them here!
 
-      declare
-         Root_Operand_Type : constant Entity_Id := Root_Type (Operand_Type);
+      if Integer_Promotion_Possible (N) then
 
-      begin
-         --  Enable transformation if all conditions are met
+         --  All conditions met, go ahead with transformation
 
-         if
-           --  We only do this transformation for source constructs. We assume
-           --  that the expander knows what it is doing when it generates code.
+         declare
+            Opnd : Node_Id;
+            L, R : Node_Id;
 
-           Comes_From_Source (N)
+         begin
+            R :=
+              Make_Type_Conversion (Loc,
+                Subtype_Mark => New_Reference_To (Standard_Integer, Loc),
+                Expression   => Relocate_Node (Right_Opnd (Operand)));
 
-           --  If the operand type is Short_Integer or Short_Short_Integer,
-           --  then we will promote to Integer, which is available on all
-           --  targets, and is sufficient to ensure no intermediate overflow.
-           --  Furthermore it is likely to be as efficient or more efficient
-           --  than using the smaller type for the computation so we do this
-           --  unconditionally.
+            Opnd := New_Op_Node (Nkind (Operand), Loc);
+            Set_Right_Opnd (Opnd, R);
 
-           and then
-             (Root_Operand_Type = Base_Type (Standard_Short_Integer)
-               or else
-              Root_Operand_Type = Base_Type (Standard_Short_Short_Integer))
-
-           --  Test for interesting operation, which includes addition,
-           --  division, exponentiation, multiplication, subtraction, and
-           --  unary negation.
-
-           and then Nkind_In (Operand, N_Op_Add,
-                                       N_Op_Divide,
-                                       N_Op_Expon,
-                                       N_Op_Minus,
-                                       N_Op_Multiply,
-                                       N_Op_Subtract)
-         then
-            --  All conditions met, go ahead with transformation
-
-            declare
-               Opnd : Node_Id;
-               L, R : Node_Id;
-
-            begin
-               R :=
+            if Nkind (Operand) in N_Binary_Op then
+               L :=
                  Make_Type_Conversion (Loc,
                    Subtype_Mark => New_Reference_To (Standard_Integer, Loc),
-                   Expression   => Relocate_Node (Right_Opnd (Operand)));
+                   Expression   => Relocate_Node (Left_Opnd (Operand)));
 
-               if Nkind (Operand) = N_Op_Minus then
-                  Opnd := Make_Op_Minus (Loc, Right_Opnd => R);
+               Set_Left_Opnd  (Opnd, L);
+            end if;
 
-               else
-                  L :=
-                    Make_Type_Conversion (Loc,
-                      Subtype_Mark => New_Reference_To (Standard_Integer, Loc),
-                      Expression   => Relocate_Node (Left_Opnd (Operand)));
+            Rewrite (N,
+              Make_Type_Conversion (Loc,
+                Subtype_Mark => Relocate_Node (Subtype_Mark (N)),
+                Expression   => Opnd));
 
-                  case Nkind (Operand) is
-                     when N_Op_Add =>
-                        Opnd := Make_Op_Add (Loc, L, R);
-                     when N_Op_Divide =>
-                        Opnd := Make_Op_Divide (Loc, L, R);
-                     when N_Op_Expon =>
-                        Opnd := Make_Op_Expon (Loc, L, R);
-                     when N_Op_Multiply =>
-                        Opnd := Make_Op_Multiply (Loc, L, R);
-                     when N_Op_Subtract =>
-                        Opnd := Make_Op_Subtract (Loc, L, R);
-                     when others =>
-                        raise Program_Error;
-                  end case;
-
-                  Rewrite (N,
-                    Make_Type_Conversion (Loc,
-                      Subtype_Mark => Relocate_Node (Subtype_Mark (N)),
-                      Expression   => Opnd));
-
-                     Analyze_And_Resolve (N, Target_Type);
-                     return;
-               end if;
-            end;
-         end if;
-      end;
+            Analyze_And_Resolve (N, Target_Type);
+            return;
+         end;
+      end if;
 
       --  Do validity check if validity checking operands
 
@@ -9125,6 +9188,51 @@ package body Exp_Ch4 is
          return;
    end Insert_Dereference_Action;
 
+   --------------------------------
+   -- Integer_Promotion_Possible --
+   --------------------------------
+
+   function Integer_Promotion_Possible (N : Node_Id) return Boolean is
+      Operand           : constant Node_Id   := Expression (N);
+      Operand_Type      : constant Entity_Id := Etype (Operand);
+      Root_Operand_Type : constant Entity_Id := Root_Type (Operand_Type);
+
+   begin
+      pragma Assert (Nkind (N) = N_Type_Conversion);
+
+      return
+
+           --  We only do the transformation for source constructs. We assume
+           --  that the expander knows what it is doing when it generates code.
+
+           Comes_From_Source (N)
+
+           --  If the operand type is Short_Integer or Short_Short_Integer,
+           --  then we will promote to Integer, which is available on all
+           --  targets, and is sufficient to ensure no intermediate overflow.
+           --  Furthermore it is likely to be as efficient or more efficient
+           --  than using the smaller type for the computation so we do this
+           --  unconditionally.
+
+           and then
+             (Root_Operand_Type = Base_Type (Standard_Short_Integer)
+               or else
+              Root_Operand_Type = Base_Type (Standard_Short_Short_Integer))
+
+           --  Test for interesting operation, which includes addition,
+           --  division, exponentiation, multiplication, subtraction, absolute
+           --  value and unary negation. Unary "+" is omitted since it is a
+           --  no-op and thus can't overflow.
+
+           and then Nkind_In (Operand, N_Op_Abs,
+                                       N_Op_Add,
+                                       N_Op_Divide,
+                                       N_Op_Expon,
+                                       N_Op_Minus,
+                                       N_Op_Multiply,
+                                       N_Op_Subtract);
+   end Integer_Promotion_Possible;
+
    ------------------------------
    -- Make_Array_Comparison_Op --
    ------------------------------
@@ -9765,16 +9873,23 @@ package body Exp_Ch4 is
    --  table of abstract interface types plus the ancestor table contained in
    --  the dispatch table pointed by Left_Expr.Tag for Typ'Tag
 
-   function Tagged_Membership (N : Node_Id) return Node_Id is
+   procedure Tagged_Membership
+     (N         : Node_Id;
+      SCIL_Node : out Node_Id;
+      Result    : out Node_Id)
+   is
       Left  : constant Node_Id    := Left_Opnd  (N);
       Right : constant Node_Id    := Right_Opnd (N);
       Loc   : constant Source_Ptr := Sloc (N);
 
       Left_Type  : Entity_Id;
+      New_Node   : Node_Id;
       Right_Type : Entity_Id;
       Obj_Tag    : Node_Id;
 
    begin
+      SCIL_Node := Empty;
+
       --  Handle entities from the limited view
 
       Left_Type  := Available_View (Etype (Left));
@@ -9822,7 +9937,8 @@ package body Exp_Ch4 is
                                            (Typ   => Left_Type,
                                             Iface => Etype (Right_Type))))
          then
-            return New_Reference_To (Standard_True, Loc);
+            Result := New_Reference_To (Standard_True, Loc);
+            return;
          end if;
 
          --  Ada 2005 (AI-251): Class-wide applied to interfaces
@@ -9839,10 +9955,11 @@ package body Exp_Ch4 is
             if not RTE_Available (RE_IW_Membership) then
                Error_Msg_CRT
                  ("dynamic membership test on interface types", N);
-               return Empty;
+               Result := Empty;
+               return;
             end if;
 
-            return
+            Result :=
               Make_Function_Call (Loc,
                  Name => New_Occurrence_Of (RTE (RE_IW_Membership), Loc),
                  Parameter_Associations => New_List (
@@ -9857,14 +9974,27 @@ package body Exp_Ch4 is
          --  Ada 95: Normal case
 
          else
-            return
-              Build_CW_Membership (Loc,
-                Obj_Tag_Node => Obj_Tag,
-                Typ_Tag_Node =>
-                   New_Reference_To (
-                     Node (First_Elmt
-                            (Access_Disp_Table (Root_Type (Right_Type)))),
-                     Loc));
+            Build_CW_Membership (Loc,
+              Obj_Tag_Node => Obj_Tag,
+              Typ_Tag_Node =>
+                 New_Reference_To (
+                   Node (First_Elmt
+                          (Access_Disp_Table (Root_Type (Right_Type)))),
+                   Loc),
+              Related_Nod => N,
+              New_Node    => New_Node);
+
+            --  Generate the SCIL node for this class-wide membership test.
+            --  Done here because the previous call to Build_CW_Membership
+            --  relocates Obj_Tag.
+
+            if Generate_SCIL then
+               SCIL_Node := Make_SCIL_Membership_Test (Sloc (N));
+               Set_SCIL_Entity (SCIL_Node, Etype (Right_Type));
+               Set_SCIL_Tag_Value (SCIL_Node, Obj_Tag);
+            end if;
+
+            Result := New_Node;
          end if;
 
       --  Right_Type is not a class-wide type
@@ -9873,10 +10003,10 @@ package body Exp_Ch4 is
          --  No need to check the tag of the object if Right_Typ is abstract
 
          if Is_Abstract_Type (Right_Type) then
-            return New_Reference_To (Standard_False, Loc);
+            Result := New_Reference_To (Standard_False, Loc);
 
          else
-            return
+            Result :=
               Make_Op_Eq (Loc,
                 Left_Opnd  => Obj_Tag,
                 Right_Opnd =>

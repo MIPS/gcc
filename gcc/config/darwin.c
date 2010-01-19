@@ -1373,6 +1373,25 @@ darwin_globalize_label (FILE *stream, const char *name)
     default_globalize_label (stream, name);
 }
 
+/* This routine returns non-zero if 'name' starts with the special objective-c 
+   anonymous file-scope static name.  It accommodates c++'s mangling of such 
+   symbols (in this case the symbols will have form _ZL{d}*_OBJC_* d=digit).  */
+   
+int 
+darwin_label_is_anonymous_local_objc_name (const char *name)
+{
+  const unsigned char *p = (const unsigned char *) name;
+  if (*p != '_')
+    return 0;
+  if (p[1] == 'Z' && p[2] == 'L')
+  {
+    p += 3;
+    while (*p >= '0' && *p <= '9')
+      p++;
+  }
+  return (!strncmp ((const char *)p, "_OBJC_", 6));
+}
+
 void
 darwin_asm_named_section (const char *name,
 			  unsigned int flags ATTRIBUTE_UNUSED,
@@ -1692,6 +1711,22 @@ darwin_kextabi_p (void) {
 void
 darwin_override_options (void)
 {
+  /* Don't emit DWARF3/4 unless specifically selected.  This is a 
+     workaround for tool bugs.  */
+  if (dwarf_strict < 0) 
+    dwarf_strict = 1;
+
+  /* Disable -freorder-blocks-and-partition for darwin_emit_unwind_label.  */
+  if (flag_reorder_blocks_and_partition 
+      && (targetm.asm_out.unwind_label == darwin_emit_unwind_label))
+    {
+      inform (input_location,
+              "-freorder-blocks-and-partition does not work with exceptions "
+              "on this architecture");
+      flag_reorder_blocks_and_partition = 0;
+      flag_reorder_blocks = 1;
+    }
+
   if (flag_mkernel || flag_apple_kext)
     {
       /* -mkernel implies -fapple-kext for C++ */

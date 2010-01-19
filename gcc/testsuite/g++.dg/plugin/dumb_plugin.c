@@ -82,7 +82,7 @@ int
 plugin_init (struct plugin_name_args *plugin_info,
              struct plugin_gcc_version *version)
 {
-  struct plugin_pass pass_info;
+  struct register_pass_info pass_info;
   const char *plugin_name = plugin_info->base_name;
   int argc = plugin_info->argc;
   struct plugin_argument *argv = plugin_info->argv;
@@ -130,7 +130,7 @@ plugin_init (struct plugin_name_args *plugin_info,
 
   register_callback (plugin_name, PLUGIN_FINISH_TYPE, handle_struct, NULL);
 
-  register_callback (plugin_name, PLUGIN_CXX_CP_PRE_GENERICIZE,
+  register_callback (plugin_name, PLUGIN_PRE_GENERICIZE,
                      handle_pre_generic, NULL);
 
   register_callback (plugin_name, PLUGIN_FINISH_UNIT,

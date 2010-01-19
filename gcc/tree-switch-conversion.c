@@ -443,7 +443,7 @@ build_constructors (gimple swtch)
 	  tree low = CASE_LOW (cs);
 	  pos = CASE_LOW (cs);
 
-	  do 
+	  do
 	    {
 	      constructor_elt *elt;
 
@@ -473,7 +473,7 @@ constructor_contains_same_values_p (VEC (constructor_elt, gc) *vec)
   for (i = 0; i < len; i++)
     {
       constructor_elt *elt = VEC_index (constructor_elt, vec, i);
-      
+
       if (!prev)
 	prev = elt->value;
       else if (!operand_equal_p (elt->value, prev, OEP_ONLY_CONST))
@@ -875,7 +875,7 @@ do_switchconv (void)
 		     "SWITCH statement (%s:%d) : ------- \n",
 		     loc.file, loc.line);
 	    print_gimple_stmt (dump_file, stmt, 0, TDF_SLIM);
-	    fprintf (dump_file, "\n");
+	    putc ('\n', dump_file);
 	  }
 
 	info.reason = NULL;
@@ -883,8 +883,8 @@ do_switchconv (void)
 	  {
 	    if (dump_file)
 	      {
-		fprintf (dump_file, "Switch converted\n");
-		fprintf (dump_file, "--------------------------------\n");
+		fputs ("Switch converted\n", dump_file);
+		fputs ("--------------------------------\n", dump_file);
 	      }
 	  }
 	else
@@ -892,9 +892,9 @@ do_switchconv (void)
 	    if (dump_file)
 	      {
 		gcc_assert (info.reason);
-		fprintf (dump_file, "Bailing out - ");
-		fprintf (dump_file, info.reason);
-		fprintf (dump_file, "--------------------------------\n");
+		fputs ("Bailing out - ", dump_file);
+		fputs (info.reason, dump_file);
+		fputs ("--------------------------------\n", dump_file);
 	      }
 	  }
       }

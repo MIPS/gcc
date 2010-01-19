@@ -143,6 +143,7 @@ struct ipa_opt_pass_d pass_ipa_profile =
  NULL,					/* write_summary */
  NULL,					/* read_summary */
  NULL,					/* function_read_summary */
+ NULL,					/* stmt_fixup */
  0,					/* TODOs */
  NULL,			                /* function_transform */
  NULL					/* variable_transform */

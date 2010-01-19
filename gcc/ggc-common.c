@@ -41,7 +41,7 @@ along with GCC; see the file COPYING3.  If not see
 # include <sys/mman.h>
 # ifdef HAVE_MINCORE
 /* This is on Solaris.  */
-#  include <sys/types.h> 
+#  include <sys/types.h>
 # endif
 #endif
 
@@ -91,30 +91,59 @@ ggc_htab_delete (void **slot, void *info)
 
 /* This extra vector of dynamically registered root_tab-s is used by
    ggc_mark_roots and gives the ability to dynamically add new GGC root
-   tables, for instance from some plugins; this vector is a heap one
-   [since it is used by GGC internally!] */
-typedef const struct ggc_root_tab* const_ggc_root_tab_t;
+   tables, for instance from some plugins; this vector is on the heap
+   since it is used by GGC internally.  */
+typedef const struct ggc_root_tab *const_ggc_root_tab_t;
 DEF_VEC_P(const_ggc_root_tab_t);
 DEF_VEC_ALLOC_P(const_ggc_root_tab_t, heap);
 static VEC(const_ggc_root_tab_t, heap) *extra_root_vec;
 
-
 /* Dynamically register a new GGC root table RT. This is useful for
    plugins. */
 
-void 
+void
 ggc_register_root_tab (const struct ggc_root_tab* rt)
 {
-  if (!rt)
-    return;
-  if (!extra_root_vec) 
-    {
-      int vlen = 32;
-      extra_root_vec = VEC_alloc (const_ggc_root_tab_t, heap, vlen);
-    }
-  VEC_safe_push (const_ggc_root_tab_t, heap, extra_root_vec, rt);
+  if (rt)
+    VEC_safe_push (const_ggc_root_tab_t, heap, extra_root_vec, rt);
 }
 
+/* This extra vector of dynamically registered cache_tab-s is used by
+   ggc_mark_roots and gives the ability to dynamically add new GGC cache
+   tables, for instance from some plugins; this vector is on the heap
+   since it is used by GGC internally.  */
+typedef const struct ggc_cache_tab *const_ggc_cache_tab_t;
+DEF_VEC_P(const_ggc_cache_tab_t);
+DEF_VEC_ALLOC_P(const_ggc_cache_tab_t, heap);
+static VEC(const_ggc_cache_tab_t, heap) *extra_cache_vec;
+
+/* Dynamically register a new GGC cache table CT. This is useful for
+   plugins. */
+
+void
+ggc_register_cache_tab (const struct ggc_cache_tab* ct)
+{
+  if (ct)
+    VEC_safe_push (const_ggc_cache_tab_t, heap, extra_cache_vec, ct);
+}
+
+/* Scan a hash table that has objects which are to be deleted if they are not
+   already marked.  */
+
+static void
+ggc_scan_cache_tab (const_ggc_cache_tab_t ctp)
+{
+  const struct ggc_cache_tab *cti;
+
+  for (cti = ctp; cti->base != NULL; cti++)
+    if (*cti->base)
+      {
+        ggc_set_mark (*cti->base);
+        htab_traverse_noresize (*cti->base, ggc_htab_delete,
+                                CONST_CAST (void *, (const void *)cti));
+        ggc_set_mark ((*cti->base)->entries);
+      }
+}
 
 /* Iterate through all registered roots and mark each element.  */
 
@@ -123,8 +152,9 @@ ggc_mark_roots (void)
 {
   const struct ggc_root_tab *const *rt;
   const struct ggc_root_tab *rti;
+  const_ggc_root_tab_t rtp;
   const struct ggc_cache_tab *const *ct;
-  const struct ggc_cache_tab *cti;
+  const_ggc_cache_tab_t ctp;
   size_t i;
 
   for (rt = gt_ggc_deletable_rtab; *rt; rt++)
@@ -136,18 +166,11 @@ ggc_mark_roots (void)
       for (i = 0; i < rti->nelt; i++)
 	(*rti->cb) (*(void **)((char *)rti->base + rti->stride * i));
 
-  if (extra_root_vec 
-      && VEC_length(const_ggc_root_tab_t,extra_root_vec) > 0)
+  for (i = 0; VEC_iterate (const_ggc_root_tab_t, extra_root_vec, i, rtp); i++)
     {
-      const_ggc_root_tab_t rtp = NULL;
-      for (i=0; 
-	   VEC_iterate(const_ggc_root_tab_t, extra_root_vec, i, rtp); 
-	   i++) 
-	{
-	  for (rti = rtp; rti->base != NULL; rti++)
-	    for (i = 0; i < rti->nelt; i++)
-	      (*rti->cb) (*(void **) ((char *)rti->base + rti->stride * i));
-	}
+      for (rti = rtp; rti->base != NULL; rti++)
+        for (i = 0; i < rti->nelt; i++)
+          (*rti->cb) (*(void **) ((char *)rti->base + rti->stride * i));
     }
 
   if (ggc_protect_identifiers)
@@ -156,14 +179,10 @@ ggc_mark_roots (void)
   /* Now scan all hash tables that have objects which are to be deleted if
      they are not already marked.  */
   for (ct = gt_ggc_cache_rtab; *ct; ct++)
-    for (cti = *ct; cti->base != NULL; cti++)
-      if (*cti->base)
-	{
-	  ggc_set_mark (*cti->base);
-	  htab_traverse_noresize (*cti->base, ggc_htab_delete,
-				  CONST_CAST (void *, (const void *)cti));
-	  ggc_set_mark ((*cti->base)->entries);
-	}
+    ggc_scan_cache_tab (*ct);
+
+  for (i = 0; VEC_iterate (const_ggc_cache_tab_t, extra_cache_vec, i, ctp); i++)
+    ggc_scan_cache_tab (ctp);
 
   if (! ggc_protect_identifiers)
     ggc_purge_stringpool ();
@@ -504,11 +523,11 @@ gt_pch_save (FILE *f)
 
   /* Try to arrange things so that no relocation is necessary, but
      don't try very hard.  On most platforms, this will always work,
-     and on the rest it's a lot of work to do better.  
+     and on the rest it's a lot of work to do better.
      (The extra work goes in HOST_HOOKS_GT_PCH_GET_ADDRESS and
      HOST_HOOKS_GT_PCH_USE_ADDRESS.)  */
   mmi.preferred_base = host_hooks.gt_pch_get_address (mmi.size, fileno (f));
-      
+
   ggc_pch_this_base (state.d, mmi.preferred_base);
 
   state.ptrs = XNEWVEC (struct ptr_data *, state.count);
@@ -691,7 +710,7 @@ mmap_gt_pch_get_address (size_t size, int fd)
 }
 
 /* Default version of HOST_HOOKS_GT_PCH_USE_ADDRESS when mmap is present.
-   Map SIZE bytes of FD+OFFSET at BASE.  Return 1 if we succeeded at 
+   Map SIZE bytes of FD+OFFSET at BASE.  Return 1 if we succeeded at
    mapping the data at BASE, -1 if we couldn't.
 
    This version assumes that the kernel honors the START operand of mmap
@@ -783,7 +802,7 @@ ggc_min_heapsize_heuristic (void)
   phys_kbytes /= 8;
 
 #if defined(HAVE_GETRLIMIT) && defined (RLIMIT_RSS)
-  /* Try not to overrun the RSS limit while doing garbage collection.  
+  /* Try not to overrun the RSS limit while doing garbage collection.
      The RSS limit is only advisory, so no margin is subtracted.  */
  {
    struct rlimit rlim;

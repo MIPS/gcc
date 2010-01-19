@@ -1,6 +1,7 @@
 /* Handle modules, which amounts to loading and saving symbols and
    their attendant structures.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008,
+   2009, 2010
    Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
@@ -77,7 +78,7 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Don't put any single quote (') in MOD_VERSION, 
    if yout want it to be recognized.  */
-#define MOD_VERSION "2"
+#define MOD_VERSION "4"
 
 
 /* Structure that describes a position within a module file.  */
@@ -741,8 +742,7 @@ static int
 number_use_names (const char *name, bool interface)
 {
   int i = 0;
-  const char *c;
-  c = find_use_name_n (name, &i, interface);
+  find_use_name_n (name, &i, interface);
   return i;
 }
 
@@ -1461,6 +1461,25 @@ mio_integer (int *ip)
 }
 
 
+/* Read or write a gfc_intrinsic_op value.  */
+
+static void
+mio_intrinsic_op (gfc_intrinsic_op* op)
+{
+  /* FIXME: Would be nicer to do this via the operators symbolic name.  */
+  if (iomode == IO_OUTPUT)
+    {
+      int converted = (int) *op;
+      write_atom (ATOM_INTEGER, &converted);
+    }
+  else
+    {
+      require_atom (ATOM_INTEGER);
+      *op = (gfc_intrinsic_op) atom_int;
+    }
+}
+
+
 /* Read or write a character pointer that points to a string on the heap.  */
 
 static const char *
@@ -1653,13 +1672,14 @@ typedef enum
   AB_CRAY_POINTER, AB_CRAY_POINTEE, AB_THREADPRIVATE, AB_ALLOC_COMP,
   AB_POINTER_COMP, AB_PRIVATE_COMP, AB_VALUE, AB_VOLATILE, AB_PROTECTED,
   AB_IS_BIND_C, AB_IS_C_INTEROP, AB_IS_ISO_C, AB_ABSTRACT, AB_ZERO_COMP,
-  AB_EXTENSION, AB_PROCEDURE, AB_PROC_POINTER
+  AB_IS_CLASS, AB_PROCEDURE, AB_PROC_POINTER, AB_ASYNCHRONOUS
 }
 ab_attribute;
 
 static const mstring attr_bits[] =
 {
     minit ("ALLOCATABLE", AB_ALLOCATABLE),
+    minit ("ASYNCHRONOUS", AB_ASYNCHRONOUS),
     minit ("DIMENSION", AB_DIMENSION),
     minit ("EXTERNAL", AB_EXTERNAL),
     minit ("INTRINSIC", AB_INTRINSIC),
@@ -1693,7 +1713,7 @@ static const mstring attr_bits[] =
     minit ("ZERO_COMP", AB_ZERO_COMP),
     minit ("PROTECTED", AB_PROTECTED),
     minit ("ABSTRACT", AB_ABSTRACT),
-    minit ("EXTENSION", AB_EXTENSION),
+    minit ("IS_CLASS", AB_IS_CLASS),
     minit ("PROCEDURE", AB_PROCEDURE),
     minit ("PROC_POINTER", AB_PROC_POINTER),
     minit (NULL, -1)
@@ -1752,7 +1772,7 @@ static void
 mio_symbol_attribute (symbol_attribute *attr)
 {
   atom_type t;
-  unsigned ext_attr;
+  unsigned ext_attr,extension_level;
 
   mio_lparen ();
 
@@ -1761,14 +1781,21 @@ mio_symbol_attribute (symbol_attribute *attr)
   attr->proc = MIO_NAME (procedure_type) (attr->proc, procedures);
   attr->if_source = MIO_NAME (ifsrc) (attr->if_source, ifsrc_types);
   attr->save = MIO_NAME (save_state) (attr->save, save_status);
+  
   ext_attr = attr->ext_attr;
   mio_integer ((int *) &ext_attr);
   attr->ext_attr = ext_attr;
+
+  extension_level = attr->extension;
+  mio_integer ((int *) &extension_level);
+  attr->extension = extension_level;
 
   if (iomode == IO_OUTPUT)
     {
       if (attr->allocatable)
 	MIO_NAME (ab_attribute) (AB_ALLOCATABLE, attr_bits);
+      if (attr->asynchronous)
+	MIO_NAME (ab_attribute) (AB_ASYNCHRONOUS, attr_bits);
       if (attr->dimension)
 	MIO_NAME (ab_attribute) (AB_DIMENSION, attr_bits);
       if (attr->external)
@@ -1839,8 +1866,8 @@ mio_symbol_attribute (symbol_attribute *attr)
 	MIO_NAME (ab_attribute) (AB_PRIVATE_COMP, attr_bits);
       if (attr->zero_comp)
 	MIO_NAME (ab_attribute) (AB_ZERO_COMP, attr_bits);
-      if (attr->extension)
-	MIO_NAME (ab_attribute) (AB_EXTENSION, attr_bits);
+      if (attr->is_class)
+	MIO_NAME (ab_attribute) (AB_IS_CLASS, attr_bits);
       if (attr->procedure)
 	MIO_NAME (ab_attribute) (AB_PROCEDURE, attr_bits);
       if (attr->proc_pointer)
@@ -1863,6 +1890,9 @@ mio_symbol_attribute (symbol_attribute *attr)
 	    {
 	    case AB_ALLOCATABLE:
 	      attr->allocatable = 1;
+	      break;
+	    case AB_ASYNCHRONOUS:
+	      attr->asynchronous = 1;
 	      break;
 	    case AB_DIMENSION:
 	      attr->dimension = 1;
@@ -1963,8 +1993,8 @@ mio_symbol_attribute (symbol_attribute *attr)
 	    case AB_ZERO_COMP:
 	      attr->zero_comp = 1;
 	      break;
-	    case AB_EXTENSION:
-	      attr->extension = 1;
+	    case AB_IS_CLASS:
+	      attr->is_class = 1;
 	      break;
 	    case AB_PROCEDURE:
 	      attr->procedure = 1;
@@ -1985,6 +2015,7 @@ static const mstring bt_types[] = {
     minit ("LOGICAL", BT_LOGICAL),
     minit ("CHARACTER", BT_CHARACTER),
     minit ("DERIVED", BT_DERIVED),
+    minit ("CLASS", BT_CLASS),
     minit ("PROCEDURE", BT_PROCEDURE),
     minit ("UNKNOWN", BT_UNKNOWN),
     minit ("VOID", BT_VOID),
@@ -2035,7 +2066,7 @@ mio_typespec (gfc_typespec *ts)
 
   ts->type = MIO_NAME (bt) (ts->type, bt_types);
 
-  if (ts->type != BT_DERIVED)
+  if (ts->type != BT_DERIVED && ts->type != BT_CLASS)
     mio_integer (&ts->kind);
   else
     mio_symbol_ref (&ts->u.derived);
@@ -3324,6 +3355,7 @@ mio_typebound_proc (gfc_typebound_proc** proc)
   mio_rparen ();
 }
 
+/* Walker-callback function for this purpose.  */
 static void
 mio_typebound_symtree (gfc_symtree* st)
 {
@@ -3338,6 +3370,33 @@ mio_typebound_symtree (gfc_symtree* st)
   /* For IO_INPUT, the above is done in mio_f2k_derived.  */
 
   mio_typebound_proc (&st->n.tb);
+  mio_rparen ();
+}
+
+/* IO a full symtree (in all depth).  */
+static void
+mio_full_typebound_tree (gfc_symtree** root)
+{
+  mio_lparen ();
+
+  if (iomode == IO_OUTPUT)
+    gfc_traverse_symtree (*root, &mio_typebound_symtree);
+  else
+    {
+      while (peek_atom () == ATOM_LPAREN)
+	{
+	  gfc_symtree* st;
+
+	  mio_lparen (); 
+
+	  require_atom (ATOM_STRING);
+	  st = gfc_get_tbp_symtree (root, atom_string);
+	  gfc_free (atom_string);
+
+	  mio_typebound_symtree (st);
+	}
+    }
+
   mio_rparen ();
 }
 
@@ -3388,24 +3447,40 @@ mio_f2k_derived (gfc_namespace *f2k)
   mio_rparen ();
 
   /* Handle type-bound procedures.  */
+  mio_full_typebound_tree (&f2k->tb_sym_root);
+
+  /* Type-bound user operators.  */
+  mio_full_typebound_tree (&f2k->tb_uop_root);
+
+  /* Type-bound intrinsic operators.  */
   mio_lparen ();
   if (iomode == IO_OUTPUT)
-    gfc_traverse_symtree (f2k->tb_sym_root, &mio_typebound_symtree);
-  else
     {
-      while (peek_atom () == ATOM_LPAREN)
+      int op;
+      for (op = GFC_INTRINSIC_BEGIN; op != GFC_INTRINSIC_END; ++op)
 	{
-	  gfc_symtree* st;
+	  gfc_intrinsic_op realop;
 
-	  mio_lparen (); 
+	  if (op == INTRINSIC_USER || !f2k->tb_op[op])
+	    continue;
 
-	  require_atom (ATOM_STRING);
-	  st = gfc_get_tbp_symtree (&f2k->tb_sym_root, atom_string);
-	  gfc_free (atom_string);
-
-	  mio_typebound_symtree (st);
+	  mio_lparen ();
+	  realop = (gfc_intrinsic_op) op;
+	  mio_intrinsic_op (&realop);
+	  mio_typebound_proc (&f2k->tb_op[op]);
+	  mio_rparen ();
 	}
     }
+  else
+    while (peek_atom () != ATOM_RPAREN)
+      {
+	gfc_intrinsic_op op = 0; /* Silence GCC.  */
+
+	mio_lparen ();
+	mio_intrinsic_op (&op);
+	mio_typebound_proc (&f2k->tb_op[op]);
+	mio_rparen ();
+      }
   mio_rparen ();
 }
 
@@ -3503,7 +3578,10 @@ mio_symbol (gfc_symbol *sym)
     }
   
   mio_integer (&(sym->intmod_sym_id));
-  
+
+  if (sym->attr.flavor == FL_DERIVED)
+    mio_integer (&(sym->hash_value));
+
   mio_rparen ();
 }
 
@@ -3673,8 +3751,9 @@ load_generic_interfaces (void)
   const char *p;
   char name[GFC_MAX_SYMBOL_LEN + 1], module[GFC_MAX_SYMBOL_LEN + 1];
   gfc_symbol *sym;
-  gfc_interface *generic = NULL;
+  gfc_interface *generic = NULL, *gen = NULL;
   int n, i, renamed;
+  bool ambiguous_set = false;
 
   mio_lparen ();
 
@@ -3759,9 +3838,13 @@ load_generic_interfaces (void)
 	      sym = st->n.sym;
 
 	      if (st && !sym->attr.generic
+		     && !st->ambiguous
 		     && sym->module
 		     && strcmp(module, sym->module))
-		st->ambiguous = 1;
+		{
+		  ambiguous_set = true;
+		  st->ambiguous = 1;
+		}
 	    }
 
 	  sym->attr.use_only = only_flag;
@@ -3777,6 +3860,26 @@ load_generic_interfaces (void)
 	      sym->generic = generic;
 	      sym->attr.generic_copy = 1;
 	    }
+
+	  /* If a procedure that is not generic has generic interfaces
+	     that include itself, it is generic! We need to take care
+	     to retain symbols ambiguous that were already so.  */
+	  if (sym->attr.use_assoc
+		&& !sym->attr.generic
+		&& sym->attr.flavor == FL_PROCEDURE)
+	    {
+	      for (gen = generic; gen; gen = gen->next)
+		{
+		  if (gen->sym == sym)
+		    {
+		      sym->attr.generic = 1;
+		      if (ambiguous_set)
+		        st->ambiguous = 0;
+		      break;
+		    }
+		}
+	    }
+
 	}
     }
 
@@ -3896,6 +3999,71 @@ load_equiv (void)
 
   mio_rparen ();
   in_load_equiv = false;
+}
+
+
+/* This function loads the sym_root of f2k_derived with the extensions to
+   the derived type.  */
+static void
+load_derived_extensions (void)
+{
+  int symbol, j;
+  gfc_symbol *derived;
+  gfc_symbol *dt;
+  gfc_symtree *st;
+  pointer_info *info;
+  char name[GFC_MAX_SYMBOL_LEN + 1];
+  char module[GFC_MAX_SYMBOL_LEN + 1];
+  const char *p;
+
+  mio_lparen ();
+  while (peek_atom () != ATOM_RPAREN)
+    {
+      mio_lparen ();
+      mio_integer (&symbol);
+      info = get_integer (symbol);
+      derived = info->u.rsym.sym;
+
+      /* This one is not being loaded.  */
+      if (!info || !derived)
+	{
+	  while (peek_atom () != ATOM_RPAREN)
+	    skip_list ();
+	  continue;
+	}
+
+      gcc_assert (derived->attr.flavor == FL_DERIVED);
+      if (derived->f2k_derived == NULL)
+	derived->f2k_derived = gfc_get_namespace (NULL, 0);
+
+      while (peek_atom () != ATOM_RPAREN)
+	{
+	  mio_lparen ();
+	  mio_internal_string (name);
+	  mio_internal_string (module);
+
+          /* Only use one use name to find the symbol.  */
+	  j = 1;
+	  p = find_use_name_n (name, &j, false);
+	  if (p)
+	    {
+	      st = gfc_find_symtree (gfc_current_ns->sym_root, p);
+	      dt = st->n.sym;
+	      st = gfc_find_symtree (derived->f2k_derived->sym_root, name);
+	      if (st == NULL)
+		{
+		  /* Only use the real name in f2k_derived to ensure a single
+		    symtree.  */
+		  st = gfc_new_symtree (&derived->f2k_derived->sym_root, name);
+		  st->n.sym = dt;
+		  st->n.sym->refs++;
+		}
+	    }
+	  mio_rparen ();
+	}
+      mio_rparen ();
+    }
+  mio_rparen ();
 }
 
 
@@ -4040,7 +4208,7 @@ check_for_ambiguous (gfc_symbol *st_sym, pointer_info *info)
 static void
 read_module (void)
 {
-  module_locus operator_interfaces, user_operators;
+  module_locus operator_interfaces, user_operators, extensions;
   const char *p;
   char name[GFC_MAX_SYMBOL_LEN + 1];
   int i;
@@ -4057,8 +4225,11 @@ read_module (void)
   skip_list ();
   skip_list ();
 
-  /* Skip commons and equivalences for now.  */
+  /* Skip commons, equivalences and derived type extensions for now.  */
   skip_list ();
+  skip_list ();
+
+  get_module_locus (&extensions);
   skip_list ();
 
   mio_lparen ();
@@ -4313,6 +4484,11 @@ read_module (void)
 
   gfc_check_interfaces (gfc_current_ns);
 
+  /* Now we should be in a position to fill f2k_derived with derived type
+     extensions, since everything has been loaded.  */
+  set_module_locus (&extensions);
+  load_derived_extensions ();
+
   /* Clean up symbol nodes that were never loaded, create references
      to hidden symbols.  */
 
@@ -4518,6 +4694,40 @@ write_equiv (void)
       num++;
       mio_rparen ();
     }
+}
+
+
+/* Write derived type extensions to the module.  */
+
+static void
+write_dt_extensions (gfc_symtree *st)
+{
+  if (!gfc_check_access (st->n.sym->attr.access,
+			 st->n.sym->ns->default_access))
+    return;
+
+  mio_lparen ();
+  mio_pool_string (&st->n.sym->name);
+  if (st->n.sym->module != NULL)
+    mio_pool_string (&st->n.sym->module);
+  else
+    mio_internal_string (module_name);
+  mio_rparen ();
+}
+
+static void
+write_derived_extensions (gfc_symtree *st)
+{
+  if (!((st->n.sym->attr.flavor == FL_DERIVED)
+	  && (st->n.sym->f2k_derived != NULL)
+	  && (st->n.sym->f2k_derived->sym_root != NULL)))
+    return;
+
+  mio_lparen ();
+  mio_symbol_ref (&(st->n.sym));
+  gfc_traverse_symtree (st->n.sym->f2k_derived->sym_root,
+			write_dt_extensions);
+  mio_rparen ();
 }
 
 
@@ -4743,6 +4953,13 @@ write_module (void)
 
   mio_lparen ();
   write_equiv ();
+  mio_rparen ();
+  write_char ('\n');
+  write_char ('\n');
+
+  mio_lparen ();
+  gfc_traverse_symtree (gfc_current_ns->sym_root,
+			write_derived_extensions);
   mio_rparen ();
   write_char ('\n');
   write_char ('\n');
@@ -5306,9 +5523,9 @@ gfc_use_module (void)
 
 	  if (strcmp (atom_string, MOD_VERSION))
 	    {
-	      gfc_fatal_error ("Wrong module version '%s' (expected '"
-			       MOD_VERSION "') for file '%s' opened"
-			       " at %C", atom_string, filename);
+	      gfc_fatal_error ("Wrong module version '%s' (expected '%s') "
+			       "for file '%s' opened at %C", atom_string,
+			       MOD_VERSION, filename);
 	    }
 	}
 

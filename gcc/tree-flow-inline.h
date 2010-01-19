@@ -44,15 +44,6 @@ gimple_referenced_vars (const struct function *fun)
   return fun->gimple_df->referenced_vars;
 }
 
-/* Artificial variable used to model the effects of nonlocal
-   variables.  */
-static inline tree
-gimple_nonlocal_all (const struct function *fun)
-{
-  gcc_assert (fun && fun->gimple_df);
-  return fun->gimple_df->nonlocal_all;
-}
-
 /* Artificial variable used for the virtual operand FUD chain.  */
 static inline tree
 gimple_vop (const struct function *fun)
@@ -75,7 +66,7 @@ first_htab_element (htab_iterator *hti, htab_t table)
       if (x != HTAB_EMPTY_ENTRY && x != HTAB_DELETED_ENTRY)
 	break;
     } while (++(hti->slot) < hti->limit);
-  
+
   if (hti->slot < hti->limit)
     return *(hti->slot);
   return NULL;
@@ -133,18 +124,6 @@ static inline tree
 next_referenced_var (referenced_var_iterator *iter)
 {
   return (tree) next_htab_element (&iter->hti);
-} 
-
-/* Fill up VEC with the variables in the referenced vars hashtable.  */
-
-static inline void
-fill_referenced_var_vec (VEC (tree, heap) **vec)
-{
-  referenced_var_iterator rvi;
-  tree var;
-  *vec = NULL;
-  FOR_EACH_REFERENCED_VAR (var, rvi)
-    VEC_safe_push (tree, heap, *vec, var);
 }
 
 /* Return the variable annotation for T, which must be a _DECL node.
@@ -152,15 +131,8 @@ fill_referenced_var_vec (VEC (tree, heap) **vec)
 static inline var_ann_t
 var_ann (const_tree t)
 {
-  var_ann_t ann;
-
-  if (!t->base.ann)
-    return NULL;
-  ann = (var_ann_t) t->base.ann;
-
-  gcc_assert (ann->common.type == VAR_ANN);
-
-  return ann;
+  const var_ann_t *p = DECL_VAR_ANN_PTR (t);
+  return p ? *p : NULL;
 }
 
 /* Return the variable annotation for T, which must be a _DECL node.
@@ -168,8 +140,9 @@ var_ann (const_tree t)
 static inline var_ann_t
 get_var_ann (tree var)
 {
-  var_ann_t ann = var_ann (var);
-  return (ann) ? ann : create_var_ann (var);
+  var_ann_t *p = DECL_VAR_ANN_PTR (var);
+  gcc_assert (p);
+  return *p ? *p : create_var_ann (var);
 }
 
 /* Get the number of the next statement uid to be allocated.  */
@@ -191,13 +164,6 @@ static inline unsigned int
 inc_gimple_stmt_max_uid (struct function *fn)
 {
   return fn->last_stmt_uid++;
-}
-
-/* Return the annotation type for annotation ANN.  */
-static inline enum tree_ann_type
-ann_type (tree_ann_t ann)
-{
-  return ann->common.type;
 }
 
 /* Return the line number for EXPR, or return -1 if we have no line
@@ -235,7 +201,7 @@ delink_imm_use (ssa_use_operand_t *linknode)
 static inline void
 link_imm_use_to_list (ssa_use_operand_t *linknode, ssa_use_operand_t *list)
 {
-  /* Link the new node at the head of the list.  If we are in the process of 
+  /* Link the new node at the head of the list.  If we are in the process of
      traversing the list, we won't visit any new nodes added to it.  */
   linknode->prev = list;
   linknode->next = list->next;
@@ -271,7 +237,7 @@ set_ssa_use_from_ptr (use_operand_p use, tree val)
   link_imm_use (use, val);
 }
 
-/* Link ssa_imm_use node LINKNODE into the chain for DEF, with use occurring 
+/* Link ssa_imm_use node LINKNODE into the chain for DEF, with use occurring
    in STMT.  */
 static inline void
 link_imm_use_stmt (ssa_use_operand_t *linknode, tree def, gimple stmt)
@@ -300,7 +266,7 @@ relink_imm_use (ssa_use_operand_t *node, ssa_use_operand_t *old)
     }
 }
 
-/* Relink ssa_imm_use node LINKNODE into the chain for OLD, with use occurring 
+/* Relink ssa_imm_use node LINKNODE into the chain for OLD, with use occurring
    in STMT.  */
 static inline void
 relink_imm_use_stmt (ssa_use_operand_t *linknode, ssa_use_operand_t *old,
@@ -325,8 +291,6 @@ end_readonly_imm_use_p (const imm_use_iterator *imm)
 static inline use_operand_p
 first_readonly_imm_use (imm_use_iterator *imm, tree var)
 {
-  gcc_assert (TREE_CODE (var) == SSA_NAME);
-
   imm->end_p = &(SSA_NAME_IMM_USE_NODE (var));
   imm->imm_use = imm->end_p->next;
 #ifdef ENABLE_CHECKING
@@ -358,43 +322,88 @@ next_readonly_imm_use (imm_use_iterator *imm)
   return imm->imm_use;
 }
 
-/* Return true if VAR has no uses.  */
+/* tree-cfg.c */
+extern bool has_zero_uses_1 (const ssa_use_operand_t *head);
+extern bool single_imm_use_1 (const ssa_use_operand_t *head,
+			      use_operand_p *use_p, gimple *stmt);
+
+/* Return true if VAR has no nondebug uses.  */
 static inline bool
 has_zero_uses (const_tree var)
 {
   const ssa_use_operand_t *const ptr = &(SSA_NAME_IMM_USE_NODE (var));
-  /* A single use means there is no items in the list.  */
-  return (ptr == ptr->next);
+
+  /* A single use_operand means there is no items in the list.  */
+  if (ptr == ptr->next)
+    return true;
+
+  /* If there are debug stmts, we have to look at each use and see
+     whether there are any nondebug uses.  */
+  if (!MAY_HAVE_DEBUG_STMTS)
+    return false;
+
+  return has_zero_uses_1 (ptr);
 }
 
-/* Return true if VAR has a single use.  */
+/* Return true if VAR has a single nondebug use.  */
 static inline bool
 has_single_use (const_tree var)
 {
   const ssa_use_operand_t *const ptr = &(SSA_NAME_IMM_USE_NODE (var));
-  /* A single use means there is one item in the list.  */
-  return (ptr != ptr->next && ptr == ptr->next->next);
+
+  /* If there aren't any uses whatsoever, we're done.  */
+  if (ptr == ptr->next)
+    return false;
+
+  /* If there's a single use, check that it's not a debug stmt.  */
+  if (ptr == ptr->next->next)
+    return !is_gimple_debug (USE_STMT (ptr->next));
+
+  /* If there are debug stmts, we have to look at each of them.  */
+  if (!MAY_HAVE_DEBUG_STMTS)
+    return false;
+
+  return single_imm_use_1 (ptr, NULL, NULL);
 }
 
 
-/* If VAR has only a single immediate use, return true, and set USE_P and STMT
-   to the use pointer and stmt of occurrence.  */
+/* If VAR has only a single immediate nondebug use, return true, and
+   set USE_P and STMT to the use pointer and stmt of occurrence.  */
 static inline bool
 single_imm_use (const_tree var, use_operand_p *use_p, gimple *stmt)
 {
   const ssa_use_operand_t *const ptr = &(SSA_NAME_IMM_USE_NODE (var));
-  if (ptr != ptr->next && ptr == ptr->next->next)
+
+  /* If there aren't any uses whatsoever, we're done.  */
+  if (ptr == ptr->next)
     {
-      *use_p = ptr->next;
-      *stmt = ptr->next->loc.stmt;
-      return true;
+    return_false:
+      *use_p = NULL_USE_OPERAND_P;
+      *stmt = NULL;
+      return false;
     }
-  *use_p = NULL_USE_OPERAND_P;
-  *stmt = NULL;
-  return false;
+
+  /* If there's a single use, check that it's not a debug stmt.  */
+  if (ptr == ptr->next->next)
+    {
+      if (!is_gimple_debug (USE_STMT (ptr->next)))
+	{
+	  *use_p = ptr->next;
+	  *stmt = ptr->next->loc.stmt;
+	  return true;
+	}
+      else
+	goto return_false;
+    }
+
+  /* If there are debug stmts, we have to look at each of them.  */
+  if (!MAY_HAVE_DEBUG_STMTS)
+    goto return_false;
+
+  return single_imm_use_1 (ptr, use_p, stmt);
 }
 
-/* Return the number of immediate uses of VAR.  */
+/* Return the number of nondebug immediate uses of VAR.  */
 static inline unsigned int
 num_imm_uses (const_tree var)
 {
@@ -402,18 +411,23 @@ num_imm_uses (const_tree var)
   const ssa_use_operand_t *ptr;
   unsigned int num = 0;
 
-  for (ptr = start->next; ptr != start; ptr = ptr->next)
-     num++;
+  if (!MAY_HAVE_DEBUG_STMTS)
+    for (ptr = start->next; ptr != start; ptr = ptr->next)
+      num++;
+  else
+    for (ptr = start->next; ptr != start; ptr = ptr->next)
+      if (!is_gimple_debug (USE_STMT (ptr)))
+	num++;
 
   return num;
 }
 
-/* Return the tree pointed-to by USE.  */ 
+/* Return the tree pointed-to by USE.  */
 static inline tree
 get_use_from_ptr (use_operand_p use)
-{ 
+{
   return *(use->use);
-} 
+}
 
 /* Return the tree pointed-to by DEF.  */
 static inline tree
@@ -534,13 +548,13 @@ phi_arg_index_from_use (use_operand_p use)
   index = element - root;
 
 #ifdef ENABLE_CHECKING
-  /* Make sure the calculation doesn't have any leftover bytes.  If it does, 
+  /* Make sure the calculation doesn't have any leftover bytes.  If it does,
      then imm_use is likely not the first element in phi_arg_d.  */
-  gcc_assert (
-	  (((char *)element - (char *)root) % sizeof (struct phi_arg_d)) == 0);
-  gcc_assert (index < gimple_phi_capacity (phi));
+  gcc_assert ((((char *)element - (char *)root)
+	       % sizeof (struct phi_arg_d)) == 0
+	      && index < gimple_phi_capacity (phi));
 #endif
- 
+
  return index;
 }
 
@@ -566,12 +580,18 @@ is_global_var (const_tree t)
 
 /* Return true if VAR may be aliased.  A variable is considered as
    maybe aliased if it has its address taken by the local TU
-   or possibly by another TU.  */
+   or possibly by another TU and might be modified through a pointer.  */
 
 static inline bool
 may_be_aliased (const_tree var)
 {
-  return (TREE_PUBLIC (var) || DECL_EXTERNAL (var) || TREE_ADDRESSABLE (var));
+  return (TREE_CODE (var) != CONST_DECL
+	  && !((TREE_STATIC (var) || TREE_PUBLIC (var) || DECL_EXTERNAL (var))
+	       && TREE_READONLY (var)
+	       && !TYPE_NEEDS_CONSTRUCTING (TREE_TYPE (var)))
+	  && (TREE_PUBLIC (var)
+	      || DECL_EXTERNAL (var)
+	      || TREE_ADDRESSABLE (var)));
 }
 
 
@@ -620,26 +640,6 @@ is_call_used (const_tree var)
   return (is_call_clobbered (var)
 	  || (may_be_aliased (var)
 	      && pt_solution_includes (&cfun->gimple_df->callused, var)));
-}
-
-/* Return the common annotation for T.  Return NULL if the annotation
-   doesn't already exist.  */
-static inline tree_ann_common_t
-tree_common_ann (const_tree t)
-{
-  /* Watch out static variables with unshared annotations.  */
-  if (DECL_P (t) && TREE_CODE (t) == VAR_DECL)
-    return &var_ann (t)->common;
-  return &t->base.ann->common;
-}
-
-/* Return a common annotation for T.  Create the constant annotation if it
-   doesn't exist.  */
-static inline tree_ann_common_t
-get_tree_common_ann (tree t)
-{
-  tree_ann_common_t ann = tree_common_ann (t);
-  return (ann) ? ann : create_tree_common_ann (t);
 }
 
 /*  -----------------------------------------------------------------------  */
@@ -852,7 +852,7 @@ single_ssa_def_operand (gimple stmt, int flags)
 }
 
 
-/* Return true if there are zero operands in STMT matching the type 
+/* Return true if there are zero operands in STMT matching the type
    given in FLAGS.  */
 static inline bool
 zero_ssa_operands (gimple stmt, int flags)
@@ -897,7 +897,7 @@ static inline tree
 single_phi_def (gimple stmt, int flags)
 {
   tree def = PHI_RESULT (stmt);
-  if ((flags & SSA_OP_DEF) && is_gimple_reg (def)) 
+  if ((flags & SSA_OP_DEF) && is_gimple_reg (def))
     return def;
   if ((flags & SSA_OP_VIRTUAL_DEFS) && !is_gimple_reg (def))
     return def;
@@ -918,7 +918,7 @@ op_iter_init_phiuse (ssa_op_iter *ptr, gimple phi, int flags)
   gcc_assert ((flags & (SSA_OP_USE | SSA_OP_VIRTUAL_USES)) != 0);
 
   comp = (is_gimple_reg (phi_def) ? SSA_OP_USE : SSA_OP_VIRTUAL_USES);
-    
+
   /* If the PHI node doesn't the operand type we care about, we're done.  */
   if ((flags & comp) == 0)
     {
@@ -947,7 +947,7 @@ op_iter_init_phidef (ssa_op_iter *ptr, gimple phi, int flags)
   gcc_assert ((flags & (SSA_OP_DEF | SSA_OP_VIRTUAL_DEFS)) != 0);
 
   comp = (is_gimple_reg (phi_def) ? SSA_OP_DEF : SSA_OP_VIRTUAL_DEFS);
-    
+
   /* If the PHI node doesn't have the operand type we care about,
      we're done.  */
   if ((flags & comp) == 0)
@@ -982,15 +982,17 @@ end_imm_use_stmt_traverse (imm_use_iterator *imm)
 
 /* Immediate use traversal of uses within a stmt require that all the
    uses on a stmt be sequentially listed.  This routine is used to build up
-   this sequential list by adding USE_P to the end of the current list 
-   currently delimited by HEAD and LAST_P.  The new LAST_P value is 
+   this sequential list by adding USE_P to the end of the current list
+   currently delimited by HEAD and LAST_P.  The new LAST_P value is
    returned.  */
 
 static inline use_operand_p
-move_use_after_head (use_operand_p use_p, use_operand_p head, 
+move_use_after_head (use_operand_p use_p, use_operand_p head,
 		      use_operand_p last_p)
 {
+#ifdef ENABLE_CHECKING
   gcc_assert (USE_FROM_PTR (use_p) == USE_FROM_PTR (head));
+#endif
   /* Skip head when we find it.  */
   if (use_p != head)
     {
@@ -1055,8 +1057,6 @@ link_use_stmts_after (use_operand_p head, imm_use_iterator *imm)
 static inline gimple
 first_imm_use_stmt (imm_use_iterator *imm, tree var)
 {
-  gcc_assert (TREE_CODE (var) == SSA_NAME);
-  
   imm->end_p = &(SSA_NAME_IMM_USE_NODE (var));
   imm->imm_use = imm->end_p->next;
   imm->next_imm_name = NULL_USE_OPERAND_P;

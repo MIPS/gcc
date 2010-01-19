@@ -1,22 +1,22 @@
 /* Dead code elimination pass for the GNU compiler.
-   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Ben Elliston <bje@redhat.com>
    and Andrew MacLeod <amacleod@redhat.com>
    Adapted to use control dependence by Steven Bosscher, SUSE Labs.
- 
+
 This file is part of GCC.
-   
+
 GCC is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
 Free Software Foundation; either version 3, or (at your option) any
 later version.
-   
+
 GCC is distributed in the hope that it will be useful, but WITHOUT
 ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
 FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
-   
+
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
@@ -221,7 +221,7 @@ mark_stmt_necessary (gimple stmt, bool add_to_worklist)
   gimple_set_plf (stmt, STMT_NECESSARY, true);
   if (add_to_worklist)
     VEC_safe_push (gimple, heap, worklist, stmt);
-  if (bb_contains_live_stmts)
+  if (bb_contains_live_stmts && !is_gimple_debug (stmt))
     SET_BIT (bb_contains_live_stmts, gimple_bb (stmt)->index);
 }
 
@@ -323,6 +323,16 @@ mark_stmt_if_obviously_necessary (gimple stmt, bool aggressive)
       if (!lhs)
         lhs = gimple_assign_lhs (stmt);
       break;
+
+    case GIMPLE_DEBUG:
+      /* Debug temps without a value are not useful.  ??? If we could
+	 easily locate the debug temp bind stmt for a use thereof,
+	 would could refrain from marking all debug temps here, and
+	 mark them only if they're used.  */
+      if (gimple_debug_bind_has_value_p (stmt)
+	  || TREE_CODE (gimple_debug_bind_get_var (stmt)) != DEBUG_EXPR_DECL)
+	mark_stmt_necessary (stmt, false);
+      return;
 
     case GIMPLE_GOTO:
       gcc_assert (!simple_goto_p (stmt));
@@ -479,17 +489,18 @@ ref_may_be_aliased (tree ref)
 static bitmap visited = NULL;
 static unsigned int longest_chain = 0;
 static unsigned int total_chain = 0;
+static unsigned int nr_walks = 0;
 static bool chain_ovfl = false;
 
 /* Worker for the walker that marks reaching definitions of REF,
    which is based on a non-aliased decl, necessary.  It returns
    true whenever the defining statement of the current VDEF is
    a kill for REF, as no dominating may-defs are necessary for REF
-   anymore.  DATA points to cached get_ref_base_and_extent data for REF.  */
+   anymore.  DATA points to the basic-block that contains the
+   stmt that refers to REF.  */
 
 static bool
-mark_aliased_reaching_defs_necessary_1 (ao_ref *ref, tree vdef,
-					void *data ATTRIBUTE_UNUSED)
+mark_aliased_reaching_defs_necessary_1 (ao_ref *ref, tree vdef, void *data)
 {
   gimple def_stmt = SSA_NAME_DEF_STMT (vdef);
 
@@ -519,6 +530,12 @@ mark_aliased_reaching_defs_necessary_1 (ao_ref *ref, tree vdef,
 	    }
 	  /* Or they need to be exactly the same.  */
 	  else if (ref->ref
+		   /* Make sure there is no induction variable involved
+		      in the references (gcc.c-torture/execute/pr42142.c).
+		      The simplest way is to check if the kill dominates
+		      the use.  */
+		   && dominated_by_p (CDI_DOMINATORS, (basic_block) data,
+				      gimple_bb (def_stmt))
 		   && operand_equal_p (ref->ref, lhs, 0))
 	    return true;
 	}
@@ -537,10 +554,11 @@ mark_aliased_reaching_defs_necessary (gimple stmt, tree ref)
   ao_ref_init (&refd, ref);
   chain = walk_aliased_vdefs (&refd, gimple_vuse (stmt),
 			      mark_aliased_reaching_defs_necessary_1,
-			      NULL, NULL);
+			      gimple_bb (stmt), NULL);
   if (chain > longest_chain)
     longest_chain = chain;
   total_chain += chain;
+  nr_walks++;
 }
 
 /* Worker for the walker that marks reaching definitions of REF, which
@@ -602,7 +620,7 @@ degenerate_phi_p (gimple phi)
 /* Propagate necessity using the operands of necessary statements.
    Process the uses on each statement in the worklist, and add all
    feeding statements which contribute to the calculation of this
-   value to the worklist. 
+   value to the worklist.
 
    In conservative mode, EL is NULL.  */
 
@@ -610,7 +628,7 @@ static void
 propagate_necessity (struct edge_list *el)
 {
   gimple stmt;
-  bool aggressive = (el ? true : false); 
+  bool aggressive = (el ? true : false);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "\nProcessing worklist:\n");
@@ -678,7 +696,7 @@ propagate_necessity (struct edge_list *el)
       else
 	{
 	  /* Propagate through the operands.  Examine all the USE, VUSE and
-	     VDEF operands in this statement.  Mark all the statements 
+	     VDEF operands in this statement.  Mark all the statements
 	     which feed this statement's uses as necessary.  */
 	  ssa_op_iter iter;
 	  tree use;
@@ -787,11 +805,16 @@ propagate_necessity (struct edge_list *el)
 	    gcc_unreachable ();
 
 	  /* If we over-used our alias oracle budget drop to simple
-	     mode.  The cost metric allows quadratic behavior up to
-	     a constant maximal chain and after that falls back to
+	     mode.  The cost metric allows quadratic behavior
+	     (number of uses times number of may-defs queries) up to
+	     a constant maximal number of queries and after that falls back to
 	     super-linear complexity.  */
-	  if (longest_chain > 256
-	      && total_chain > 256 * longest_chain)
+	  if (/* Constant but quadratic for small functions.  */
+	      total_chain > 128 * 128
+	      /* Linear in the number of may-defs.  */
+	      && total_chain > 32 * longest_chain
+	      /* Linear in the number of uses.  */
+	      && total_chain > nr_walks * 32)
 	    {
 	      chain_ovfl = true;
 	      if (visited)
@@ -804,28 +827,33 @@ propagate_necessity (struct edge_list *el)
 /* Replace all uses of result of PHI by underlying variable and mark it
    for renaming.  */
 
-static void
+void
 mark_virtual_phi_result_for_renaming (gimple phi)
 {
   bool used = false;
   imm_use_iterator iter;
   use_operand_p use_p;
   gimple stmt;
+  tree result_ssa, result_var;
+
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "Marking result for renaming : ");
       print_gimple_stmt (dump_file, phi, 0, TDF_SLIM);
       fprintf (dump_file, "\n");
     }
-  FOR_EACH_IMM_USE_STMT (stmt, iter, gimple_phi_result (phi))
+
+  result_ssa = gimple_phi_result (phi);
+  result_var = SSA_NAME_VAR (result_ssa);
+  FOR_EACH_IMM_USE_STMT (stmt, iter, result_ssa)
     {
       FOR_EACH_IMM_USE_ON_STMT (use_p, iter)
-        SET_USE (use_p, SSA_NAME_VAR (gimple_phi_result (phi)));
+        SET_USE (use_p, result_var);
       update_stmt (stmt);
       used = true;
     }
   if (used)
-    mark_sym_for_renaming (SSA_NAME_VAR (PHI_RESULT (phi)));
+    mark_sym_for_renaming (result_var);
 }
 
 /* Remove dead PHI nodes from block BB.  */
@@ -1050,10 +1078,9 @@ remove_dead_stmt (gimple_stmt_iterator *i, basic_block bb)
     }
 
   unlink_stmt_vdef (stmt);
-  gsi_remove (i, true);  
-  release_defs (stmt); 
+  gsi_remove (i, true);
+  release_defs (stmt);
 }
-
 
 /* Eliminate unnecessary statements. Any instruction not marked as necessary
    contributes nothing to the program, and can be deleted.  */
@@ -1063,29 +1090,61 @@ eliminate_unnecessary_stmts (void)
 {
   bool something_changed = false;
   basic_block bb;
-  gimple_stmt_iterator gsi;
+  gimple_stmt_iterator gsi, psi;
   gimple stmt;
   tree call;
+  VEC (basic_block, heap) *h;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "\nEliminating unnecessary statements:\n");
 
   clear_special_calls ();
 
-  FOR_EACH_BB (bb)
+  /* Walking basic blocks and statements in reverse order avoids
+     releasing SSA names before any other DEFs that refer to them are
+     released.  This helps avoid loss of debug information, as we get
+     a chance to propagate all RHSs of removed SSAs into debug uses,
+     rather than only the latest ones.  E.g., consider:
+
+     x_3 = y_1 + z_2;
+     a_5 = x_3 - b_4;
+     # DEBUG a => a_5
+
+     If we were to release x_3 before a_5, when we reached a_5 and
+     tried to substitute it into the debug stmt, we'd see x_3 there,
+     but x_3's DEF, type, etc would have already been disconnected.
+     By going backwards, the debug stmt first changes to:
+
+     # DEBUG a => x_3 - b_4
+
+     and then to:
+
+     # DEBUG a => y_1 + z_2 - b_4
+
+     as desired.  */
+  gcc_assert (dom_info_available_p (CDI_DOMINATORS));
+  h = get_all_dominated_blocks (CDI_DOMINATORS, single_succ (ENTRY_BLOCK_PTR));
+
+  while (VEC_length (basic_block, h))
     {
+      bb = VEC_pop (basic_block, h);
+
       /* Remove dead statements.  */
-      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi);)
+      for (gsi = gsi_last_bb (bb); !gsi_end_p (gsi); gsi = psi)
 	{
 	  stmt = gsi_stmt (gsi);
+
+	  psi = gsi;
+	  gsi_prev (&psi);
 
 	  stats.total++;
 
 	  /* If GSI is not necessary then remove it.  */
 	  if (!gimple_plf (stmt, STMT_NECESSARY))
 	    {
+	      if (!is_gimple_debug (stmt))
+		something_changed = true;
 	      remove_dead_stmt (&gsi, bb);
-	      something_changed = true;
 	    }
 	  else if (is_gimple_call (stmt))
 	    {
@@ -1107,7 +1166,7 @@ eliminate_unnecessary_stmts (void)
 			  print_gimple_stmt (dump_file, stmt, 0, TDF_SLIM);
 			  fprintf (dump_file, "\n");
 			}
-		      
+
 		      gimple_call_set_lhs (stmt, NULL_TREE);
 		      maybe_clean_or_replace_eh_stmt (stmt, stmt);
 		      update_stmt (stmt);
@@ -1115,24 +1174,26 @@ eliminate_unnecessary_stmts (void)
 		    }
 		  notice_special_calls (stmt);
 		}
-	      gsi_next (&gsi);
-	    }
-	  else
-	    {
-	      gsi_next (&gsi);
 	    }
 	}
     }
+
+  VEC_free (basic_block, heap, h);
+
   /* Since we don't track liveness of virtual PHI nodes, it is possible that we
      rendered some PHI nodes unreachable while they are still in use.
      Mark them for renaming.  */
   if (cfg_altered)
     {
-      basic_block next_bb;
+      basic_block prev_bb;
+
       find_unreachable_blocks ();
-      for (bb = ENTRY_BLOCK_PTR->next_bb; bb != EXIT_BLOCK_PTR; bb = next_bb)
+
+      /* Delete all unreachable basic blocks in reverse dominator order.  */
+      for (bb = EXIT_BLOCK_PTR->prev_bb; bb != ENTRY_BLOCK_PTR; bb = prev_bb)
 	{
-	  next_bb = bb->next_bb;
+	  prev_bb = bb->prev_bb;
+
 	  if (!TEST_BIT (bb_contains_live_stmts, bb->index)
 	      || !(bb->flags & BB_REACHABLE))
 	    {
@@ -1156,8 +1217,36 @@ eliminate_unnecessary_stmts (void)
 		    if (found)
 		      mark_virtual_phi_result_for_renaming (gsi_stmt (gsi));
 		  }
+
 	      if (!(bb->flags & BB_REACHABLE))
-	        delete_basic_block (bb);
+		{
+		  /* Speed up the removal of blocks that don't
+		     dominate others.  Walking backwards, this should
+		     be the common case.  ??? Do we need to recompute
+		     dominators because of cfg_altered?  */
+		  if (!MAY_HAVE_DEBUG_STMTS
+		      || !first_dom_son (CDI_DOMINATORS, bb))
+		    delete_basic_block (bb);
+		  else
+		    {
+		      h = get_all_dominated_blocks (CDI_DOMINATORS, bb);
+
+		      while (VEC_length (basic_block, h))
+			{
+			  bb = VEC_pop (basic_block, h);
+			  prev_bb = bb->prev_bb;
+			  /* Rearrangements to the CFG may have failed
+			     to update the dominators tree, so that
+			     formerly-dominated blocks are now
+			     otherwise reachable.  */
+			  if (!!(bb->flags & BB_REACHABLE))
+			    continue;
+			  delete_basic_block (bb);
+			}
+
+		      VEC_free (basic_block, heap, h);
+		    }
+		}
 	    }
 	}
     }
@@ -1294,7 +1383,9 @@ perform_tree_ssa_dce (bool aggressive)
 
   longest_chain = 0;
   total_chain = 0;
+  nr_walks = 0;
   chain_ovfl = false;
+  visited = BITMAP_ALLOC (NULL);
   propagate_necessity (el);
   BITMAP_FREE (visited);
 
@@ -1322,7 +1413,7 @@ perform_tree_ssa_dce (bool aggressive)
   free_edge_list (el);
 
   if (something_changed)
-    return (TODO_update_ssa | TODO_cleanup_cfg | TODO_ggc_collect 
+    return (TODO_update_ssa | TODO_cleanup_cfg | TODO_ggc_collect
 	    | TODO_remove_unused_locals);
   else
     return 0;

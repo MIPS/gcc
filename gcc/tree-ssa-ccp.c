@@ -5,17 +5,17 @@
    Adapted to GIMPLE trees by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
-   
+
 GCC is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
 Free Software Foundation; either version 3, or (at your option) any
 later version.
-   
+
 GCC is distributed in the hope that it will be useful, but WITHOUT
 ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
 FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
-   
+
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
@@ -63,7 +63,7 @@ along with GCC; see the file COPYING3.  If not see
       mark the outgoing edges as executable or not executable
       depending on the predicate's value.  This is then used when
       visiting PHI nodes to know when a PHI argument can be ignored.
-      
+
 
    2- In ccp_visit_phi_node, if all the PHI arguments evaluate to the
       same constant C, then the LHS of the PHI is set to C.  This
@@ -229,6 +229,7 @@ typedef enum
 static prop_value_t *const_val;
 
 static void canonicalize_float_value (prop_value_t *);
+static bool ccp_fold_stmt (gimple_stmt_iterator *);
 
 /* Dump constant propagation value VAL to file OUTF prefixed by PREFIX.  */
 
@@ -650,7 +651,15 @@ ccp_initialize (void)
       for (i = gsi_start_bb (bb); !gsi_end_p (i); gsi_next (&i))
         {
 	  gimple stmt = gsi_stmt (i);
-	  bool is_varying = surely_varying_stmt_p (stmt);
+	  bool is_varying;
+
+	  /* If the statement is a control insn, then we do not
+	     want to avoid simulating the statement once.  Failure
+	     to do so means that those edges will never get added.  */
+	  if (stmt_ends_bb_p (stmt))
+	    is_varying = false;
+	  else
+	    is_varying = surely_varying_stmt_p (stmt);
 
 	  if (is_varying)
 	    {
@@ -705,7 +714,7 @@ do_dbg_cnt (void)
 
 
 /* Do final substitution of propagated values, cleanup the flowgraph and
-   free allocated storage.  
+   free allocated storage.
 
    Return TRUE when something was optimized.  */
 
@@ -716,7 +725,7 @@ ccp_finalize (void)
 
   do_dbg_cnt ();
   /* Perform substitutions based on the known constant values.  */
-  something_changed = substitute_and_fold (const_val, false);
+  something_changed = substitute_and_fold (const_val, ccp_fold_stmt);
 
   free (const_val);
   const_val = NULL;
@@ -873,7 +882,7 @@ ccp_visit_phi_node (gimple phi)
     return SSA_PROP_NOT_INTERESTING;
 }
 
-/* Return true if we may propagate the address expression ADDR into the 
+/* Return true if we may propagate the address expression ADDR into the
    dereference DEREF and cancel them.  */
 
 bool
@@ -1018,7 +1027,7 @@ ccp_fold (gimple stmt)
                 return get_symbol_constant_value (rhs);
               return rhs;
             }
-            
+
           case GIMPLE_UNARY_RHS:
             {
               /* Handle unary operators that can appear in GIMPLE form.
@@ -1062,7 +1071,7 @@ ccp_fold (gimple stmt)
 		  return op0;
 		}
 
-              return 
+              return
 		fold_unary_ignore_overflow_loc (loc, subcode,
 						gimple_expr_type (stmt), op0);
             }
@@ -1406,7 +1415,7 @@ evaluate_stmt (gimple stmt)
       if (code == GIMPLE_ASSIGN)
         {
           enum tree_code subcode = gimple_assign_rhs_code (stmt);
-          
+
           /* Other cases cannot satisfy is_gimple_min_invariant
              without folding.  */
           if (get_gimple_rhs_class (subcode) == GIMPLE_SINGLE_RHS)
@@ -1415,8 +1424,8 @@ evaluate_stmt (gimple stmt)
       else if (code == GIMPLE_SWITCH)
         simplified = gimple_switch_index (stmt);
       else
-        /* These cannot satisfy is_gimple_min_invariant without folding.  */
-        gcc_assert (code == GIMPLE_CALL || code == GIMPLE_COND);
+	/* These cannot satisfy is_gimple_min_invariant without folding.  */
+	gcc_assert (code == GIMPLE_CALL || code == GIMPLE_COND);
     }
 
   is_constant = simplified && is_gimple_min_invariant (simplified);
@@ -1462,6 +1471,34 @@ evaluate_stmt (gimple stmt)
     }
 
   return val;
+}
+
+/* Fold the stmt at *GSI with CCP specific information that propagating
+   and regular folding does not catch.  */
+
+static bool
+ccp_fold_stmt (gimple_stmt_iterator *gsi)
+{
+  gimple stmt = gsi_stmt (*gsi);
+  prop_value_t val;
+
+  if (gimple_code (stmt) != GIMPLE_COND)
+    return false;
+
+  /* Statement evaluation will handle type mismatches in constants
+     more gracefully than the final propagation.  This allows us to
+     fold more conditionals here.  */
+  val = evaluate_stmt (stmt);
+  if (val.lattice_val != CONSTANT
+      || TREE_CODE (val.value) != INTEGER_CST)
+    return false;
+
+  if (integer_zerop (val.value))
+    gimple_cond_make_false (stmt);
+  else
+    gimple_cond_make_true (stmt);
+
+  return true;
 }
 
 /* Visit the assignment statement STMT.  Set the value of its LHS to the
@@ -1550,7 +1587,7 @@ visit_cond_stmt (gimple stmt, edge *taken_edge_p)
    its evaluation changes the lattice value of its output, return
    SSA_PROP_INTERESTING and set *OUTPUT_P to the SSA_NAME holding the
    output value.
-   
+
    If STMT is a conditional branch and we can determine its truth
    value, set *TAKEN_EDGE_P accordingly.  If STMT produces a varying
    value, return SSA_PROP_VARYING.  */
@@ -1632,7 +1669,7 @@ gate_ccp (void)
 }
 
 
-struct gimple_opt_pass pass_ccp = 
+struct gimple_opt_pass pass_ccp =
 {
  {
   GIMPLE_PASS,
@@ -1770,7 +1807,7 @@ maybe_fold_offset_to_array_ref (location_t loc, tree base, tree offset,
        (char *)a - 4;
      which should be not folded to &a->d[-8].  */
   if (domain_type
-      && TYPE_MAX_VALUE (domain_type) 
+      && TYPE_MAX_VALUE (domain_type)
       && TREE_CODE (TYPE_MAX_VALUE (domain_type)) == INTEGER_CST)
     {
       tree up_bound = TYPE_MAX_VALUE (domain_type);
@@ -1810,8 +1847,7 @@ maybe_fold_offset_to_array_ref (location_t loc, tree base, tree offset,
 
 static tree
 maybe_fold_offset_to_component_ref (location_t loc, tree record_type,
-				    tree base, tree offset,
-				    tree orig_type, bool base_is_ptr)
+				    tree base, tree offset, tree orig_type)
 {
   tree f, t, field_type, tail_array_field, field_offset;
   tree ret;
@@ -1863,12 +1899,10 @@ maybe_fold_offset_to_component_ref (location_t loc, tree record_type,
       if (cmp == 0
 	  && useless_type_conversion_p (orig_type, field_type))
 	{
-	  if (base_is_ptr)
-	    base = build1 (INDIRECT_REF, record_type, base);
 	  t = build3 (COMPONENT_REF, field_type, base, f, NULL_TREE);
 	  return t;
 	}
-      
+
       /* Don't care about offsets into the middle of scalars.  */
       if (!AGGREGATE_TYPE_P (field_type))
 	continue;
@@ -1889,13 +1923,8 @@ maybe_fold_offset_to_component_ref (location_t loc, tree record_type,
 
       /* If we matched, then set offset to the displacement into
 	 this field.  */
-      if (base_is_ptr)
-	new_base = build1 (INDIRECT_REF, record_type, base);
-      else
-	new_base = base;
-      protected_set_expr_location (new_base, loc);
-      new_base = build3 (COMPONENT_REF, field_type, new_base, f, NULL_TREE);
-      protected_set_expr_location (new_base, loc);
+      new_base = build3 (COMPONENT_REF, field_type, base, f, NULL_TREE);
+      SET_EXPR_LOCATION (new_base, loc);
 
       /* Recurse to possibly find the match.  */
       ret = maybe_fold_offset_to_array_ref (loc, new_base, t, orig_type,
@@ -1903,7 +1932,7 @@ maybe_fold_offset_to_component_ref (location_t loc, tree record_type,
       if (ret)
 	return ret;
       ret = maybe_fold_offset_to_component_ref (loc, field_type, new_base, t,
-						orig_type, false);
+						orig_type);
       if (ret)
 	return ret;
     }
@@ -1915,13 +1944,8 @@ maybe_fold_offset_to_component_ref (location_t loc, tree record_type,
   field_type = TREE_TYPE (f);
   offset = int_const_binop (MINUS_EXPR, offset, byte_position (f), 1);
 
-  /* If we get here, we've got an aggregate field, and a possibly 
+  /* If we get here, we've got an aggregate field, and a possibly
      nonzero offset into them.  Recurse and hope for a valid match.  */
-  if (base_is_ptr)
-    {
-      base = build1 (INDIRECT_REF, record_type, base);
-      SET_EXPR_LOCATION (base, loc);
-    }
   base = build3 (COMPONENT_REF, field_type, base, f, NULL_TREE);
   SET_EXPR_LOCATION (base, loc);
 
@@ -1930,7 +1954,7 @@ maybe_fold_offset_to_component_ref (location_t loc, tree record_type,
   if (t)
     return t;
   return maybe_fold_offset_to_component_ref (loc, field_type, base, offset,
-					     orig_type, false);
+					     orig_type);
 }
 
 /* Attempt to express (ORIG_TYPE)BASE+OFFSET as BASE->field_of_orig_type
@@ -1947,61 +1971,44 @@ maybe_fold_offset_to_reference (location_t loc, tree base, tree offset,
 {
   tree ret;
   tree type;
-  bool base_is_ptr = true;
 
   STRIP_NOPS (base);
-  if (TREE_CODE (base) == ADDR_EXPR)
+  if (TREE_CODE (base) != ADDR_EXPR)
+    return NULL_TREE;
+
+  base = TREE_OPERAND (base, 0);
+
+  /* Handle case where existing COMPONENT_REF pick e.g. wrong field of union,
+     so it needs to be removed and new COMPONENT_REF constructed.
+     The wrong COMPONENT_REF are often constructed by folding the
+     (type *)&object within the expression (type *)&object+offset  */
+  if (handled_component_p (base))
     {
-      base_is_ptr = false;
-
-      base = TREE_OPERAND (base, 0);
-
-      /* Handle case where existing COMPONENT_REF pick e.g. wrong field of union,
-	 so it needs to be removed and new COMPONENT_REF constructed.
-	 The wrong COMPONENT_REF are often constructed by folding the
-	 (type *)&object within the expression (type *)&object+offset  */
-      if (handled_component_p (base))
+      HOST_WIDE_INT sub_offset, size, maxsize;
+      tree newbase;
+      newbase = get_ref_base_and_extent (base, &sub_offset,
+					 &size, &maxsize);
+      gcc_assert (newbase);
+      if (size == maxsize
+	  && size != -1
+	  && !(sub_offset & (BITS_PER_UNIT - 1)))
 	{
-          HOST_WIDE_INT sub_offset, size, maxsize;
-	  tree newbase;
-	  newbase = get_ref_base_and_extent (base, &sub_offset,
-					     &size, &maxsize);
-	  gcc_assert (newbase);
-	  if (size == maxsize
-	      && size != -1
-	      && !(sub_offset & (BITS_PER_UNIT - 1)))
-	    {
-	      base = newbase;
-	      if (sub_offset)
-		offset = int_const_binop (PLUS_EXPR, offset,
-					  build_int_cst (TREE_TYPE (offset),
-					  sub_offset / BITS_PER_UNIT), 1);
-	    }
+	  base = newbase;
+	  if (sub_offset)
+	    offset = int_const_binop (PLUS_EXPR, offset,
+				      build_int_cst (TREE_TYPE (offset),
+						     sub_offset / BITS_PER_UNIT), 1);
 	}
-      if (useless_type_conversion_p (orig_type, TREE_TYPE (base))
-	  && integer_zerop (offset))
-	return base;
-      type = TREE_TYPE (base);
     }
-  else
-    {
-      base_is_ptr = true;
-      if (!POINTER_TYPE_P (TREE_TYPE (base)))
-	return NULL_TREE;
-      type = TREE_TYPE (TREE_TYPE (base));
-    }
-  ret = maybe_fold_offset_to_component_ref (loc, type, base, offset,
-					    orig_type, base_is_ptr);
+  if (useless_type_conversion_p (orig_type, TREE_TYPE (base))
+      && integer_zerop (offset))
+    return base;
+  type = TREE_TYPE (base);
+
+  ret = maybe_fold_offset_to_component_ref (loc, type, base, offset, orig_type);
   if (!ret)
-    {
-      if (base_is_ptr)
-	{
-	  base = build1 (INDIRECT_REF, type, base);
-	  SET_EXPR_LOCATION (base, loc);
-	}
-      ret = maybe_fold_offset_to_array_ref (loc,
-					    base, offset, orig_type, true);
-    }
+    ret = maybe_fold_offset_to_array_ref (loc, base, offset, orig_type, true);
+
   return ret;
 }
 
@@ -2113,6 +2120,10 @@ maybe_fold_stmt_indirect (tree expr, tree base, tree offset)
 	  && is_gimple_min_invariant (DECL_INITIAL (base)))
 	return DECL_INITIAL (base);
 
+      /* If there is no offset involved simply return the folded base.  */
+      if (integer_zerop (offset))
+	return base;
+
       /* Try folding *(&B+O) to B.X.  */
       t = maybe_fold_offset_to_reference (loc, base_addr, offset,
 					  TREE_TYPE (expr));
@@ -2128,7 +2139,7 @@ maybe_fold_stmt_indirect (tree expr, tree base, tree offset)
     }
   else
     {
-      /* We can get here for out-of-range string constant accesses, 
+      /* We can get here for out-of-range string constant accesses,
 	 such as "_"[3].  Bail out of the entire substitution search
 	 and arrange for the entire statement to be replaced by a
 	 call to __builtin_trap.  In all likelihood this will all be
@@ -2141,11 +2152,11 @@ maybe_fold_stmt_indirect (tree expr, tree base, tree offset)
 	  && TREE_CODE (TREE_OPERAND (t, 0)) == STRING_CST)
 	{
 	  /* FIXME: Except that this causes problems elsewhere with dead
-	     code not being deleted, and we die in the rtl expanders 
+	     code not being deleted, and we die in the rtl expanders
 	     because we failed to remove some ssa_name.  In the meantime,
 	     just return zero.  */
 	  /* FIXME2: This condition should be signaled by
-	     fold_read_from_constant_string directly, rather than 
+	     fold_read_from_constant_string directly, rather than
 	     re-checking for it here.  */
 	  return integer_zero_node;
 	}
@@ -2206,16 +2217,16 @@ maybe_fold_stmt_addition (location_t loc, tree res_type, tree op0, tree op1)
 	      && TREE_CODE (gimple_assign_rhs2 (offset_def)) == INTEGER_CST
 	      && tree_int_cst_equal (gimple_assign_rhs2 (offset_def),
 				     TYPE_SIZE_UNIT (TREE_TYPE (op0))))
-	    return build1 (ADDR_EXPR, res_type,
-			   build4 (ARRAY_REF, TREE_TYPE (op0),
+	    return build_fold_addr_expr
+			  (build4 (ARRAY_REF, TREE_TYPE (op0),
 				   TREE_OPERAND (op0, 0),
 				   gimple_assign_rhs1 (offset_def),
 				   TREE_OPERAND (op0, 2),
 				   TREE_OPERAND (op0, 3)));
 	  else if (integer_onep (TYPE_SIZE_UNIT (TREE_TYPE (op0)))
 		   && gimple_assign_rhs_code (offset_def) != MULT_EXPR)
-	    return build1 (ADDR_EXPR, res_type,
-			   build4 (ARRAY_REF, TREE_TYPE (op0),
+	    return build_fold_addr_expr
+			  (build4 (ARRAY_REF, TREE_TYPE (op0),
 				   TREE_OPERAND (op0, 0),
 				   op1,
 				   TREE_OPERAND (op0, 2),
@@ -2278,7 +2289,7 @@ maybe_fold_stmt_addition (location_t loc, tree res_type, tree op0, tree op1)
   t = maybe_fold_offset_to_array_ref (loc, op0, op1, ptd_type, true);
   if (!t)
     t = maybe_fold_offset_to_component_ref (loc, TREE_TYPE (op0), op0, op1,
-					    ptd_type, false);
+					    ptd_type);
   if (t)
     {
       t = build1 (ADDR_EXPR, res_type, t);
@@ -2373,7 +2384,7 @@ get_maxval_strlen (tree arg, tree *length, bitmap visited, int type)
 {
   tree var, val;
   gimple def_stmt;
-  
+
   if (TREE_CODE (arg) != SSA_NAME)
     {
       if (TREE_CODE (arg) == COND_EXPR)
@@ -2468,7 +2479,7 @@ get_maxval_strlen (tree arg, tree *length, bitmap visited, int type)
               return false;
           }
         }
-        return true;        
+        return true;
 
       default:
         return false;
@@ -2765,7 +2776,7 @@ fold_gimple_assign (gimple_stmt_iterator *si)
           result = fold (rhs);
 
         /* Strip away useless type conversions.  Both the NON_LVALUE_EXPR
-           that may have been added by fold, and "useless" type 
+           that may have been added by fold, and "useless" type
            conversions that might now be apparent due to propagation.  */
         STRIP_USELESS_TYPE_CONVERSION (result);
 
@@ -2888,6 +2899,7 @@ fold_gimple_cond (gimple stmt)
   return false;
 }
 
+static void gimplify_and_update_call_from_tree (gimple_stmt_iterator *, tree);
 
 /* Attempt to fold a call statement referenced by the statement iterator GSI.
    The statement may be replaced by another statement, e.g., if the call
@@ -2908,7 +2920,11 @@ fold_gimple_call (gimple_stmt_iterator *gsi)
       tree result = ccp_fold_builtin (stmt);
 
       if (result)
-        return update_call_from_tree (gsi, result);
+	{
+          if (!update_call_from_tree (gsi, result))
+	    gimplify_and_update_call_from_tree (gsi, result);
+	  return true;
+	}
     }
   else
     {
@@ -3082,9 +3098,8 @@ fold_stmt_inplace (gimple stmt)
 static tree
 optimize_stack_restore (gimple_stmt_iterator i)
 {
-  tree callee, rhs;
-  gimple stmt, stack_save;
-  gimple_stmt_iterator stack_save_gsi;
+  tree callee;
+  gimple stmt;
 
   basic_block bb = gsi_bb (i);
   gimple call = gsi_stmt (i);
@@ -3108,32 +3123,49 @@ optimize_stack_restore (gimple_stmt_iterator i)
 	return NULL_TREE;
 
       if (DECL_FUNCTION_CODE (callee) == BUILT_IN_STACK_RESTORE)
-	break;
+	goto second_stack_restore;
     }
 
-  if (gsi_end_p (i)
-      && (! single_succ_p (bb)
-	  || single_succ_edge (bb)->dest != EXIT_BLOCK_PTR))
+  if (!gsi_end_p (i))
     return NULL_TREE;
 
-  stack_save = SSA_NAME_DEF_STMT (gimple_call_arg (call, 0));
-  if (gimple_code (stack_save) != GIMPLE_CALL
-      || gimple_call_lhs (stack_save) != gimple_call_arg (call, 0)
-      || stmt_could_throw_p (stack_save)
-      || !has_single_use (gimple_call_arg (call, 0)))
-    return NULL_TREE;
+  /* Allow one successor of the exit block, or zero successors.  */
+  switch (EDGE_COUNT (bb->succs))
+    {
+    case 0:
+      break;
+    case 1:
+      if (single_succ_edge (bb)->dest != EXIT_BLOCK_PTR)
+	return NULL_TREE;
+      break;
+    default:
+      return NULL_TREE;
+    }
+ second_stack_restore:
 
-  callee = gimple_call_fndecl (stack_save);
-  if (!callee
-      || DECL_BUILT_IN_CLASS (callee) != BUILT_IN_NORMAL
-      || DECL_FUNCTION_CODE (callee) != BUILT_IN_STACK_SAVE
-      || gimple_call_num_args (stack_save) != 0)
-    return NULL_TREE;
+  /* If there's exactly one use, then zap the call to __builtin_stack_save.
+     If there are multiple uses, then the last one should remove the call.
+     In any case, whether the call to __builtin_stack_save can be removed
+     or not is irrelevant to removing the call to __builtin_stack_restore.  */
+  if (has_single_use (gimple_call_arg (call, 0)))
+    {
+      gimple stack_save = SSA_NAME_DEF_STMT (gimple_call_arg (call, 0));
+      if (is_gimple_call (stack_save))
+	{
+	  callee = gimple_call_fndecl (stack_save);
+	  if (callee
+	      && DECL_BUILT_IN_CLASS (callee) == BUILT_IN_NORMAL
+	      && DECL_FUNCTION_CODE (callee) == BUILT_IN_STACK_SAVE)
+	    {
+	      gimple_stmt_iterator stack_save_gsi;
+	      tree rhs;
 
-  stack_save_gsi = gsi_for_stmt (stack_save);
-  rhs = build_int_cst (TREE_TYPE (gimple_call_arg (call, 0)), 0);
-  if (!update_call_from_tree (&stack_save_gsi, rhs))
-    return NULL_TREE;
+	      stack_save_gsi = gsi_for_stmt (stack_save);
+	      rhs = build_int_cst (TREE_TYPE (gimple_call_arg (call, 0)), 0);
+	      update_call_from_tree (&stack_save_gsi, rhs);
+	    }
+	}
+    }
 
   /* No effect, so the statement will be deleted.  */
   return integer_zero_node;
@@ -3177,7 +3209,7 @@ optimize_stdarg_builtin (gimple call)
 	  || TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (lhs)))
 	     != TYPE_MAIN_VARIANT (cfun_va_list))
 	return NULL_TREE;
-      
+
       lhs = build_fold_indirect_ref_loc (loc, lhs);
       rhs = build_call_expr_loc (loc, built_in_decls[BUILT_IN_NEXT_ARG],
                              1, integer_zero_node);
@@ -3243,7 +3275,7 @@ gimplify_and_update_call_from_tree (gimple_stmt_iterator *si_p, tree expr)
 
   if (lhs == NULL_TREE)
     gimplify_and_add (expr, &stmts);
-  else 
+  else
     tmp = get_initialized_tmp_var (expr, &stmts, NULL);
 
   pop_gimplify_context (NULL);
@@ -3288,7 +3320,7 @@ execute_fold_all_builtins (void)
   bool cfg_changed = false;
   basic_block bb;
   unsigned int todoflags = 0;
-  
+
   FOR_EACH_BB (bb)
     {
       gimple_stmt_iterator i;
@@ -3390,16 +3422,16 @@ execute_fold_all_builtins (void)
 	    gsi_next (&i);
 	}
     }
-  
+
   /* Delete unreachable blocks.  */
   if (cfg_changed)
     todoflags |= TODO_cleanup_cfg;
-  
+
   return todoflags;
 }
 
 
-struct gimple_opt_pass pass_fold_builtins = 
+struct gimple_opt_pass pass_fold_builtins =
 {
  {
   GIMPLE_PASS,

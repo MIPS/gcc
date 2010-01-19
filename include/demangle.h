@@ -1,6 +1,6 @@
 /* Defs for interface to demanglers.
    Copyright 1992, 1993, 1994, 1995, 1996, 1997, 1998, 2000, 2001, 2002,
-   2003, 2004, 2005, 2007 Free Software Foundation, Inc.
+   2003, 2004, 2005, 2007, 2008, 2009 Free Software Foundation, Inc.
    
    This program is free software; you can redistribute it and/or
    modify it under the terms of the GNU Library General Public License
@@ -159,6 +159,9 @@ java_demangle_v3_callback (const char *mangled,
 
 extern char*
 java_demangle_v3 (const char *mangled);
+
+char *
+ada_demangle (const char *mangled, int options);
 
 enum gnu_v3_ctor_kinds {
   gnu_v3_complete_object_ctor = 1,
@@ -381,6 +384,12 @@ enum demangle_component_type
   DEMANGLE_COMPONENT_GLOBAL_CONSTRUCTORS,
   /* Global destructors keyed to name.  */
   DEMANGLE_COMPONENT_GLOBAL_DESTRUCTORS,
+  /* A lambda closure type.  */
+  DEMANGLE_COMPONENT_LAMBDA,
+  /* A default argument scope.  */
+  DEMANGLE_COMPONENT_DEFAULT_ARG,
+  /* An unnamed type.  */
+  DEMANGLE_COMPONENT_UNNAMED_TYPE,
   /* A pack expansion.  */
   DEMANGLE_COMPONENT_PACK_EXPANSION
 };
@@ -493,6 +502,14 @@ struct demangle_component
       /* Right subtree.  */
       struct demangle_component *right;
     } s_binary;
+
+    struct
+    {
+      /* subtree, same place as d_left.  */
+      struct demangle_component *sub;
+      /* integer.  */
+      int num;
+    } s_unary_num;
 
   } u;
 };

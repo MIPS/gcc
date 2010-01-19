@@ -58,6 +58,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "cgraph.h"
 #include "plugin.h"
+#include "except.h"
 
 
 /* Initialization routine for this file.  */
@@ -70,6 +71,10 @@ c_parse_init (void)
   unsigned int i;
   tree id;
   int mask = 0;
+
+  /* Make sure RID_MAX hasn't grown past the 8 bits used to hold the keyword in
+     the c_token structure.  */
+  gcc_assert (RID_MAX <= 255);
 
   mask |= D_CXXONLY;
   if (!flag_isoc99)
@@ -131,6 +136,8 @@ typedef enum c_id_kind {
   C_ID_TYPENAME,
   /* An identifier declared as an Objective-C class name.  */
   C_ID_CLASSNAME,
+  /* An address space identifier.  */
+  C_ID_ADDRSPACE,
   /* Not an identifier.  */
   C_ID_NONE
 } c_id_kind;
@@ -224,6 +231,13 @@ c_lex_one_token (c_parser *parser, c_token *token)
 			    OPT_Wc___compat,
 			    "identifier %qE conflicts with C++ keyword",
 			    token->value);
+	      }
+	    else if (rid_code >= RID_FIRST_ADDR_SPACE
+		     && rid_code <= RID_LAST_ADDR_SPACE)
+	      {
+		token->id_kind = C_ID_ADDRSPACE;
+		token->keyword = rid_code;
+		break;
 	      }
 	    else if (c_dialect_objc ())
 	      {
@@ -351,6 +365,8 @@ c_token_starts_typename (c_token *token)
 	{
 	case C_ID_ID:
 	  return false;
+	case C_ID_ADDRSPACE:
+	  return true;
 	case C_ID_TYPENAME:
 	  return true;
 	case C_ID_CLASSNAME:
@@ -421,6 +437,8 @@ c_token_starts_declspecs (c_token *token)
 	{
 	case C_ID_ID:
 	  return false;
+	case C_ID_ADDRSPACE:
+	  return true;
 	case C_ID_TYPENAME:
 	  return true;
 	case C_ID_CLASSNAME:
@@ -902,6 +920,7 @@ static void c_parser_do_statement (c_parser *);
 static void c_parser_for_statement (c_parser *);
 static tree c_parser_asm_statement (c_parser *);
 static tree c_parser_asm_operands (c_parser *, bool);
+static tree c_parser_asm_goto_operands (c_parser *);
 static tree c_parser_asm_clobbers (c_parser *);
 static struct c_expr c_parser_expr_no_commas (c_parser *, struct c_expr *);
 static struct c_expr c_parser_conditional_expression (c_parser *,
@@ -973,7 +992,7 @@ c_parser_translation_unit (c_parser *parser)
 {
   if (c_parser_next_token_is (parser, CPP_EOF))
     {
-      pedwarn (c_parser_peek_token (parser)->location, OPT_pedantic, 
+      pedwarn (c_parser_peek_token (parser)->location, OPT_pedantic,
 	       "ISO C forbids an empty translation unit");
     }
   else
@@ -1059,7 +1078,7 @@ c_parser_external_declaration (c_parser *parser)
 	}
       break;
     case CPP_SEMICOLON:
-      pedwarn (c_parser_peek_token (parser)->location, OPT_pedantic, 
+      pedwarn (c_parser_peek_token (parser)->location, OPT_pedantic,
 	       "ISO C does not allow extra %<;%> outside of a function");
       c_parser_consume_token (parser);
       break;
@@ -1139,9 +1158,9 @@ c_parser_external_declaration (c_parser *parser)
    C we also allow but diagnose declarations without declaration
    specifiers, but only at top level (elsewhere they conflict with
    other syntax).
-   
+
    OpenMP:
-   
+
    declaration:
      threadprivate-directive  */
 
@@ -1321,6 +1340,11 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok, bool empty_ok,
       if (nested)
 	{
 	  tree decl = current_function_decl;
+	  /* Mark nested functions as needing static-chain initially.
+	     lower_nested_functions will recompute it but the
+	     DECL_STATIC_CHAIN flag is also used before that happens,
+	     by initializer_constant_valid_p.  See gcc.dg/nested-fn-2.c.  */
+	  DECL_STATIC_CHAIN (decl) = 1;
 	  add_stmt (fnbody);
 	  finish_function ();
 	  c_pop_function_context ();
@@ -1404,6 +1428,7 @@ c_parser_asm_definition (c_parser *parser)
      const
      restrict
      volatile
+     address-space-qualifier
 
    (restrict is new in C99.)
 
@@ -1411,6 +1436,12 @@ c_parser_asm_definition (c_parser *parser)
 
    declaration-specifiers:
      attributes declaration-specifiers[opt]
+
+   type-qualifier:
+     address-space
+
+   address-space:
+     identifier recognized by the target
 
    storage-class-specifier:
      __thread
@@ -1452,6 +1483,17 @@ c_parser_declspecs (c_parser *parser, struct c_declspecs *specs,
 	{
 	  tree value = c_parser_peek_token (parser)->value;
 	  c_id_kind kind = c_parser_peek_token (parser)->id_kind;
+
+	  if (kind == C_ID_ADDRSPACE)
+	    {
+	      addr_space_t as
+		= c_parser_peek_token (parser)->keyword - RID_FIRST_ADDR_SPACE;
+	      declspecs_add_addrspace (specs, as);
+	      c_parser_consume_token (parser);
+	      attrs_ok = true;
+	      continue;
+	    }
+
 	  /* This finishes the specifiers unless a type name is OK, it
 	     is declared as a type name and a type name hasn't yet
 	     been seen.  */
@@ -1866,7 +1908,7 @@ c_parser_struct_or_union_specifier (c_parser *parser)
 	  /* Parse any stray semicolon.  */
 	  if (c_parser_next_token_is (parser, CPP_SEMICOLON))
 	    {
-	      pedwarn (c_parser_peek_token (parser)->location, OPT_pedantic, 
+	      pedwarn (c_parser_peek_token (parser)->location, OPT_pedantic,
 		       "extra semicolon in struct or union specified");
 	      c_parser_consume_token (parser);
 	      continue;
@@ -1895,7 +1937,7 @@ c_parser_struct_or_union_specifier (c_parser *parser)
 	  else
 	    {
 	      if (c_parser_next_token_is (parser, CPP_CLOSE_BRACE))
-		pedwarn (c_parser_peek_token (parser)->location, 0, 
+		pedwarn (c_parser_peek_token (parser)->location, 0,
 			 "no semicolon at end of struct or union");
 	      else
 		{
@@ -1991,7 +2033,7 @@ c_parser_struct_declaration (c_parser *parser)
       tree ret;
       if (!specs->type_seen_p)
 	{
-	  pedwarn (decl_loc, OPT_pedantic, 
+	  pedwarn (decl_loc, OPT_pedantic,
 		   "ISO C forbids member declarations with no members");
 	  shadow_tag_warned (specs, pedantic);
 	  ret = NULL_TREE;
@@ -2372,7 +2414,7 @@ c_parser_direct_declarator_inner (c_parser *parser, bool id_present,
   /* Parse a sequence of array declarators and parameter lists.  */
   if (c_parser_next_token_is (parser, CPP_OPEN_SQUARE))
     {
-      location_t brace_loc = c_parser_peek_token (parser)->location; 
+      location_t brace_loc = c_parser_peek_token (parser)->location;
       struct c_declarator *declarator;
       struct c_declspecs *quals_attrs = build_null_declspecs ();
       bool static_seen;
@@ -3101,7 +3143,7 @@ c_parser_initelt (c_parser *parser)
       /* Old-style structure member designator.  */
       set_init_label (c_parser_peek_token (parser)->value);
       /* Use the colon as the error location.  */
-      pedwarn (c_parser_peek_2nd_token (parser)->location, OPT_pedantic, 
+      pedwarn (c_parser_peek_2nd_token (parser)->location, OPT_pedantic,
 	       "obsolete use of designated initializer with %<:%>");
       c_parser_consume_token (parser);
       c_parser_consume_token (parser);
@@ -3236,7 +3278,7 @@ c_parser_initelt (c_parser *parser)
 		  c_parser_consume_token (parser);
 		  set_init_index (first, second);
 		  if (second)
-		    pedwarn (ellipsis_loc, OPT_pedantic, 
+		    pedwarn (ellipsis_loc, OPT_pedantic,
 			     "ISO C forbids specifying range of elements to initialize");
 		}
 	      else
@@ -3249,14 +3291,14 @@ c_parser_initelt (c_parser *parser)
 	  if (c_parser_next_token_is (parser, CPP_EQ))
 	    {
 	      if (!flag_isoc99)
-		pedwarn (des_loc, OPT_pedantic, 
+		pedwarn (des_loc, OPT_pedantic,
 			 "ISO C90 forbids specifying subobject to initialize");
 	      c_parser_consume_token (parser);
 	    }
 	  else
 	    {
 	      if (des_seen == 1)
-		pedwarn (c_parser_peek_token (parser)->location, OPT_pedantic, 
+		pedwarn (c_parser_peek_token (parser)->location, OPT_pedantic,
 			 "obsolete use of designated initializer without %<=%>");
 	      else
 		{
@@ -3343,9 +3385,9 @@ c_parser_initval (c_parser *parser, struct c_expr *after)
    old parser in requiring something after label declarations.
    Although they are erroneous if the labels declared aren't defined,
    is it useful for the syntax to be this way?
-   
+
    OpenMP:
-   
+
    block-item:
      openmp-directive
 
@@ -3454,7 +3496,7 @@ c_parser_compound_statement_nostart (c_parser *parser)
 	  mark_valid_location_for_stdc_pragma (false);
 	  c_parser_declaration_or_fndef (parser, true, true, true, true);
 	  if (last_stmt)
-	    pedwarn_c90 (loc, 
+	    pedwarn_c90 (loc,
 			 (pedantic && !flag_isoc99)
 			 ? OPT_pedantic
 			 : OPT_Wdeclaration_after_statement,
@@ -3511,13 +3553,13 @@ c_parser_compound_statement_nostart (c_parser *parser)
 	}
       else if (c_parser_next_token_is_keyword (parser, RID_ELSE))
         {
-          if (parser->in_if_block) 
+          if (parser->in_if_block)
             {
 	      mark_valid_location_for_stdc_pragma (save_valid_for_pragma);
               error_at (loc, """expected %<}%> before %<else%>");
               return;
             }
-          else 
+          else
             {
               error_at (loc, "%<else%> without a previous %<if%>");
               c_parser_consume_token (parser);
@@ -3616,7 +3658,7 @@ c_parser_label (c_parser *parser)
 	  error_at (c_parser_peek_token (parser)->location,
 		    "a label can only be part of a statement and "
 		    "a declaration is not a statement");
-	  c_parser_declaration_or_fndef (parser, /*fndef_ok*/ false, 
+	  c_parser_declaration_or_fndef (parser, /*fndef_ok*/ false,
 					 /*nested*/ true, /*empty_ok*/ false,
 					 /*start_attr_ok*/ true);
 	}
@@ -3972,7 +4014,7 @@ c_parser_else_body (c_parser *parser)
       add_stmt (build_empty_stmt (loc));
       c_parser_consume_token (parser);
     }
-  else 
+  else
     c_parser_statement_after_labels (parser);
   return c_end_compound_stmt (else_loc, block, flag_isoc99);
 }
@@ -4225,12 +4267,17 @@ c_parser_for_statement (c_parser *parser)
 
    asm-statement:
      asm type-qualifier[opt] ( asm-argument ) ;
+     asm type-qualifier[opt] goto ( asm-goto-argument ) ;
 
    asm-argument:
      asm-string-literal
      asm-string-literal : asm-operands[opt]
      asm-string-literal : asm-operands[opt] : asm-operands[opt]
-     asm-string-literal : asm-operands[opt] : asm-operands[opt] : asm-clobbers
+     asm-string-literal : asm-operands[opt] : asm-operands[opt] : asm-clobbers[opt]
+
+   asm-goto-argument:
+     asm-string-literal : : asm-operands[opt] : asm-clobbers[opt] \
+       : asm-goto-operands
 
    Qualifiers other than volatile are accepted in the syntax but
    warned for.  */
@@ -4238,9 +4285,11 @@ c_parser_for_statement (c_parser *parser)
 static tree
 c_parser_asm_statement (c_parser *parser)
 {
-  tree quals, str, outputs, inputs, clobbers, ret;
-  bool simple;
+  tree quals, str, outputs, inputs, clobbers, labels, ret;
+  bool simple, is_goto;
   location_t asm_loc = c_parser_peek_token (parser)->location;
+  int section, nsections;
+
   gcc_assert (c_parser_next_token_is_keyword (parser, RID_ASM));
   c_parser_consume_token (parser);
   if (c_parser_next_token_is_keyword (parser, RID_VOLATILE))
@@ -4260,85 +4309,96 @@ c_parser_asm_statement (c_parser *parser)
     }
   else
     quals = NULL_TREE;
+
+  is_goto = false;
+  if (c_parser_next_token_is_keyword (parser, RID_GOTO))
+    {
+      c_parser_consume_token (parser);
+      is_goto = true;
+    }
+
   /* ??? Follow the C++ parser rather than using the
      lex_untranslated_string kludge.  */
   parser->lex_untranslated_string = true;
+  ret = NULL;
+
   if (!c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
-    {
-      parser->lex_untranslated_string = false;
-      return NULL_TREE;
-    }
+    goto error;
+
   str = c_parser_asm_string_literal (parser);
   if (str == NULL_TREE)
+    goto error_close_paren;
+
+  simple = true;
+  outputs = NULL_TREE;
+  inputs = NULL_TREE;
+  clobbers = NULL_TREE;
+  labels = NULL_TREE;
+
+  if (c_parser_next_token_is (parser, CPP_CLOSE_PAREN) && !is_goto)
+    goto done_asm;
+
+  /* Parse each colon-delimited section of operands.  */
+  nsections = 3 + is_goto;
+  for (section = 0; section < nsections; ++section)
     {
-      parser->lex_untranslated_string = false;
-      c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, NULL);
-      return NULL_TREE;
+      if (!c_parser_require (parser, CPP_COLON,
+			     is_goto
+			     ? "expected %<:%>"
+			     : "expected %<:%> or %<)%>"))
+	goto error_close_paren;
+
+      /* Once past any colon, we're no longer a simple asm.  */
+      simple = false;
+
+      if ((!c_parser_next_token_is (parser, CPP_COLON)
+	   && !c_parser_next_token_is (parser, CPP_CLOSE_PAREN))
+	  || section == 3)
+	switch (section)
+	  {
+	  case 0:
+	    /* For asm goto, we don't allow output operands, but reserve
+	       the slot for a future extension that does allow them.  */
+	    if (!is_goto)
+	      outputs = c_parser_asm_operands (parser, false);
+	    break;
+	  case 1:
+	    inputs = c_parser_asm_operands (parser, true);
+	    break;
+	  case 2:
+	    clobbers = c_parser_asm_clobbers (parser);
+	    break;
+	  case 3:
+	    labels = c_parser_asm_goto_operands (parser);
+	    break;
+	  default:
+	    gcc_unreachable ();
+	  }
+
+      if (c_parser_next_token_is (parser, CPP_CLOSE_PAREN) && !is_goto)
+	goto done_asm;
     }
-  if (c_parser_next_token_is (parser, CPP_CLOSE_PAREN))
-    {
-      simple = true;
-      outputs = NULL_TREE;
-      inputs = NULL_TREE;
-      clobbers = NULL_TREE;
-      goto done_asm;
-    }
-  if (!c_parser_require (parser, CPP_COLON, "expected %<:%> or %<)%>"))
-    {
-      parser->lex_untranslated_string = false;
-      c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, NULL);
-      return NULL_TREE;
-    }
-  simple = false;
-  /* Parse outputs.  */
-  if (c_parser_next_token_is (parser, CPP_COLON)
-      || c_parser_next_token_is (parser, CPP_CLOSE_PAREN))
-    outputs = NULL_TREE;
-  else
-    outputs = c_parser_asm_operands (parser, false);
-  if (c_parser_next_token_is (parser, CPP_CLOSE_PAREN))
-    {
-      inputs = NULL_TREE;
-      clobbers = NULL_TREE;
-      goto done_asm;
-    }
-  if (!c_parser_require (parser, CPP_COLON, "expected %<:%> or %<)%>"))
-    {
-      parser->lex_untranslated_string = false;
-      c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, NULL);
-      return NULL_TREE;
-    }
-  /* Parse inputs.  */
-  if (c_parser_next_token_is (parser, CPP_COLON)
-      || c_parser_next_token_is (parser, CPP_CLOSE_PAREN))
-    inputs = NULL_TREE;
-  else
-    inputs = c_parser_asm_operands (parser, true);
-  if (c_parser_next_token_is (parser, CPP_CLOSE_PAREN))
-    {
-      clobbers = NULL_TREE;
-      goto done_asm;
-    }
-  if (!c_parser_require (parser, CPP_COLON, "expected %<:%> or %<)%>"))
-    {
-      parser->lex_untranslated_string = false;
-      c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, NULL);
-      return NULL_TREE;
-    }
-  /* Parse clobbers.  */
-  clobbers = c_parser_asm_clobbers (parser);
+
  done_asm:
-  parser->lex_untranslated_string = false;
   if (!c_parser_require (parser, CPP_CLOSE_PAREN, "expected %<)%>"))
     {
       c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, NULL);
-      return NULL_TREE;
+      goto error;
     }
+
   if (!c_parser_require (parser, CPP_SEMICOLON, "expected %<;%>"))
     c_parser_skip_to_end_of_block_or_statement (parser);
+
   ret = build_asm_stmt (quals, build_asm_expr (asm_loc, str, outputs, inputs,
-					       clobbers, simple));
+					       clobbers, labels, simple));
+
+ error:
+  parser->lex_untranslated_string = false;
   return ret;
+
+ error_close_paren:
+  c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, NULL);
+  goto error;
 }
 
 /* Parse asm operands, a GNU extension.  If CONVERT_P (for inputs but
@@ -4438,6 +4498,45 @@ c_parser_asm_clobbers (c_parser *parser)
 	break;
     }
   return list;
+}
+
+/* Parse asm goto labels, a GNU extension.
+
+   asm-goto-operands:
+     identifier
+     asm-goto-operands , identifier
+*/
+
+static tree
+c_parser_asm_goto_operands (c_parser *parser)
+{
+  tree list = NULL_TREE;
+  while (true)
+    {
+      tree name, label;
+
+      if (c_parser_next_token_is (parser, CPP_NAME))
+	{
+	  c_token *tok = c_parser_peek_token (parser);
+	  name = tok->value;
+	  label = lookup_label_for_goto (tok->location, name);
+	  c_parser_consume_token (parser);
+	  TREE_USED (label) = 1;
+	}
+      else
+	{
+	  c_parser_error (parser, "expected identifier");
+	  return NULL_TREE;
+	}
+
+      name = build_string (IDENTIFIER_LENGTH (name),
+			   IDENTIFIER_POINTER (name));
+      list = tree_cons (name, label, list);
+      if (c_parser_next_token_is (parser, CPP_COMMA))
+	c_parser_consume_token (parser);
+      else
+	return nreverse (list);
+    }
 }
 
 /* Parse an expression other than a compound expression; that is, an
@@ -4553,7 +4652,7 @@ c_parser_conditional_expression (c_parser *parser, struct c_expr *after)
   if (c_parser_next_token_is (parser, CPP_COLON))
     {
       tree eptype = NULL_TREE;
-      pedwarn (c_parser_peek_token (parser)->location, OPT_pedantic, 
+      pedwarn (c_parser_peek_token (parser)->location, OPT_pedantic,
 	       "ISO C forbids omitting the middle term of a ?: expression");
       if (TREE_CODE (cond.value) == EXCESS_PRECISION_EXPR)
 	{
@@ -5003,7 +5102,7 @@ c_parser_unary_expression (c_parser *parser)
       exp_loc = c_parser_peek_token (parser)->location;
       op = c_parser_cast_expression (parser, NULL);
       op = default_function_array_conversion (exp_loc, op);
-      ret.value = build_indirect_ref (op_loc, op.value, "unary *");
+      ret.value = build_indirect_ref (op_loc, op.value, RO_UNARY_STAR);
       return ret;
     case CPP_PLUS:
       if (!c_dialect_objc () && !in_system_header)
@@ -5285,6 +5384,7 @@ c_parser_postfix_expression (c_parser *parser)
     case CPP_STRING16:
     case CPP_STRING32:
     case CPP_WSTRING:
+    case CPP_UTF8STRING:
       expr.value = c_parser_peek_token (parser)->value;
       expr.original_code = STRING_CST;
       c_parser_consume_token (parser);
@@ -5336,7 +5436,7 @@ c_parser_postfix_expression (c_parser *parser)
 	  c_parser_compound_statement_nostart (parser);
 	  c_parser_skip_until_found (parser, CPP_CLOSE_PAREN,
 				     "expected %<)%>");
-	  pedwarn (loc, OPT_pedantic, 
+	  pedwarn (loc, OPT_pedantic,
 		   "ISO C forbids braced-groups within expressions");
 	  expr.value = c_finish_stmt_expr (brace_loc, stmt);
 	}
@@ -5710,6 +5810,14 @@ c_parser_postfix_expression_after_paren_type (c_parser *parser,
   finish_init ();
   maybe_warn_string_init (type, init);
 
+  if (type != error_mark_node
+      && !ADDR_SPACE_GENERIC_P (TYPE_ADDR_SPACE (type))
+      && current_function_decl)
+    {
+      error ("compound literal qualified by address-space qualifier");
+      type = error_mark_node;
+    }
+
   if (!flag_isoc99)
     pedwarn (start_loc, OPT_pedantic, "ISO C90 forbids compound literals");
   non_const = ((init.value && TREE_CODE (init.value) == CONSTRUCTOR)
@@ -5839,7 +5947,7 @@ c_parser_postfix_expression_after_primary (c_parser *parser,
 	  expr.value = build_component_ref (op_loc,
 					    build_indirect_ref (op_loc,
 								expr.value,
-								"->"),
+								RO_ARROW),
 					    ident);
 	  expr.original_code = ERROR_MARK;
 	  if (TREE_CODE (expr.value) != COMPONENT_REF)
@@ -6108,7 +6216,7 @@ c_parser_objc_class_instance_variables (c_parser *parser)
       /* Parse any stray semicolon.  */
       if (c_parser_next_token_is (parser, CPP_SEMICOLON))
 	{
-	  pedwarn (c_parser_peek_token (parser)->location, OPT_pedantic, 
+	  pedwarn (c_parser_peek_token (parser)->location, OPT_pedantic,
 		   "extra semicolon in struct or union specified");
 	  c_parser_consume_token (parser);
 	  continue;
@@ -6325,7 +6433,7 @@ c_parser_objc_method_definition (c_parser *parser)
   if (c_parser_next_token_is (parser, CPP_SEMICOLON))
     {
       c_parser_consume_token (parser);
-      pedwarn (c_parser_peek_token (parser)->location, OPT_pedantic, 
+      pedwarn (c_parser_peek_token (parser)->location, OPT_pedantic,
 	       "extra semicolon in method definition specified");
     }
   if (!c_parser_next_token_is (parser, CPP_OPEN_BRACE))
@@ -6362,7 +6470,7 @@ c_parser_objc_methodprotolist (c_parser *parser)
       switch (c_parser_peek_token (parser)->type)
 	{
 	case CPP_SEMICOLON:
-	  pedwarn (c_parser_peek_token (parser)->location, OPT_pedantic, 
+	  pedwarn (c_parser_peek_token (parser)->location, OPT_pedantic,
 		   "ISO C does not allow extra %<;%> outside of a function");
 	  c_parser_consume_token (parser);
 	  break;
@@ -6938,7 +7046,7 @@ c_parser_pragma (c_parser *parser, enum pragma_context context)
   c_parser_consume_pragma (parser);
   c_invoke_pragma_handler (id);
 
-  /* Skip to EOL, but suppress any error message.  Those will have been 
+  /* Skip to EOL, but suppress any error message.  Those will have been
      generated by the handler routine through calling error, as opposed
      to calling c_parser_error.  */
   parser->error = true;
@@ -7702,7 +7810,7 @@ c_parser_omp_structured_block (c_parser *parser)
    binop:
      +, *, -, /, &, ^, |, <<, >>
 
-  where x is an lvalue expression with scalar type.  
+  where x is an lvalue expression with scalar type.
 
   LOC is the location of the #pragma token.  */
 
@@ -8212,7 +8320,7 @@ c_parser_omp_ordered (location_t loc, c_parser *parser)
 
    section-sequence:
      section-directive[opt] structured-block
-     section-sequence section-directive structured-block  
+     section-sequence section-directive structured-block
 
     SECTIONS_LOC is the location of the #pragma omp sections.  */
 
@@ -8489,12 +8597,6 @@ c_parser_omp_construct (c_parser *parser)
   p_kind = c_parser_peek_token (parser)->pragma_kind;
   c_parser_consume_pragma (parser);
 
-  /* For all constructs below except #pragma omp atomic
-     MUST_NOT_THROW catch handlers are needed when exceptions
-     are enabled.  */
-  if (p_kind != PRAGMA_OMP_ATOMIC)
-    c_maybe_initialize_eh ();
-
   switch (p_kind)
     {
     case PRAGMA_OMP_ATOMIC:
@@ -8606,6 +8708,10 @@ c_parse_file (void)
 
   the_parser = GGC_NEW (c_parser);
   *the_parser = tparser;
+
+  /* Initialize EH, if we've been told to do so.  */
+  if (flag_exceptions)
+    using_eh_for_cleanups ();
 
   c_parser_translation_unit (the_parser);
   the_parser = NULL;

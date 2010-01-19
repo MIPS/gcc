@@ -2185,14 +2185,21 @@ package body Freeze is
 
             Comp := First_Component (Rec);
             while Present (Comp) loop
-               if Has_Controlled_Component (Etype (Comp))
-                 or else (Chars (Comp) /= Name_uParent
-                           and then Is_Controlled (Etype (Comp)))
-                 or else (Is_Protected_Type (Etype (Comp))
-                           and then Present
-                             (Corresponding_Record_Type (Etype (Comp)))
-                           and then Has_Controlled_Component
-                             (Corresponding_Record_Type (Etype (Comp))))
+
+               --  Do not set Has_Controlled_Component on a class-wide
+               --  equivalent type. See Make_CW_Equivalent_Type.
+
+               if not Is_Class_Wide_Equivalent_Type (Rec)
+                 and then (Has_Controlled_Component (Etype (Comp))
+                            or else (Chars (Comp) /= Name_uParent
+                                      and then Is_Controlled (Etype (Comp)))
+                            or else (Is_Protected_Type (Etype (Comp))
+                                      and then Present
+                                        (Corresponding_Record_Type
+                                          (Etype (Comp)))
+                                      and then Has_Controlled_Component
+                                        (Corresponding_Record_Type
+                                          (Etype (Comp)))))
                then
                   Set_Has_Controlled_Component (Rec);
                   exit;
@@ -2443,11 +2450,16 @@ package body Freeze is
          --  If entity is exported or imported and does not have an external
          --  name, now is the time to provide the appropriate default name.
          --  Skip this if the entity is stubbed, since we don't need a name
-         --  for any stubbed routine.
+         --  for any stubbed routine. For the case on intrinsics, if no
+         --  external name is specified, then calls will be handled in
+         --  Exp_Intr.Expand_Intrinsic_Call, and no name is needed; if
+         --  an external name is provided, then Expand_Intrinsic_Call leaves
+         --  calls in place for expansion by GIGI.
 
          if (Is_Imported (E) or else Is_Exported (E))
            and then No (Interface_Name (E))
            and then Convention (E) /= Convention_Stubbed
+           and then Convention (E) /= Convention_Intrinsic
          then
             Set_Encoded_Interface_Name
               (E, Get_Default_External_Name (E));
@@ -2530,6 +2542,8 @@ package body Freeze is
                        and then not Has_Warnings_Off (F_Type)
                        and then not Has_Warnings_Off (Formal)
                      then
+                        --  Qualify mention of formals with subprogram name
+
                         Error_Msg_Qual_Level := 1;
 
                         --  Check suspicious use of fat C pointer
@@ -2538,8 +2552,8 @@ package body Freeze is
                           and then Esize (F_Type) > Ttypes.System_Address_Size
                         then
                            Error_Msg_N
-                             ("?type of & does not correspond "
-                              & "to C pointer!", Formal);
+                             ("?type of & does not correspond to C pointer!",
+                              Formal);
 
                         --  Check suspicious return of boolean
 
@@ -2547,10 +2561,13 @@ package body Freeze is
                           and then Convention (F_Type) = Convention_Ada
                           and then not Has_Warnings_Off (F_Type)
                           and then not Has_Size_Clause (F_Type)
+                          and then VM_Target = No_VM
                         then
                            Error_Msg_N
-                             ("?& is an 8-bit Ada Boolean, "
-                              & "use char in C!", Formal);
+                             ("& is an 8-bit Ada Boolean?", Formal);
+                           Error_Msg_N
+                             ("\use appropriate corresponding type in C "
+                              & "(e.g. char)?", Formal);
 
                         --  Check suspicious tagged type
 
@@ -2579,6 +2596,8 @@ package body Freeze is
                               Formal, F_Type);
                         end if;
 
+                        --  Turn off name qualification after message output
+
                         Error_Msg_Qual_Level := 0;
                      end if;
 
@@ -2590,6 +2609,11 @@ package body Freeze is
                        and then Is_Array_Type (F_Type)
                        and then not Is_Constrained (F_Type)
                        and then Warn_On_Export_Import
+
+                       --  Exclude VM case, since both .NET and JVM can handle
+                       --  unconstrained arrays without a problem.
+
+                       and then VM_Target = No_VM
                      then
                         Error_Msg_Qual_Level := 1;
 
@@ -2671,13 +2695,22 @@ package body Freeze is
 
                         elsif Root_Type (R_Type) = Standard_Boolean
                           and then Convention (R_Type) = Convention_Ada
+                          and then VM_Target = No_VM
                           and then not Has_Warnings_Off (E)
                           and then not Has_Warnings_Off (R_Type)
                           and then not Has_Size_Clause (R_Type)
                         then
-                           Error_Msg_N
-                             ("?return type of & is an 8-bit "
-                              & "Ada Boolean, use char in C!", E);
+                           declare
+                              N : constant Node_Id :=
+                                    Result_Definition (Declaration_Node (E));
+                           begin
+                              Error_Msg_NE
+                                ("return type of & is an 8-bit Ada Boolean?",
+                                 N, E);
+                              Error_Msg_NE
+                                ("\use appropriate corresponding type in C "
+                                 & "(e.g. char)?", N, E);
+                           end;
 
                         --  Check suspicious return tagged type
 
@@ -3335,9 +3368,7 @@ package body Freeze is
 
                --  For bit-packed arrays, check the size
 
-               if Is_Bit_Packed_Array (E)
-                 and then Known_RM_Size (E)
-               then
+               if Is_Bit_Packed_Array (E) and then Known_RM_Size (E) then
                   declare
                      SizC : constant Node_Id := Size_Clause (E);
 
@@ -3456,10 +3487,7 @@ package body Freeze is
             end if;
 
             --  The equivalent type associated with a class-wide subtype needs
-            --  to be frozen to ensure that its layout is done. Class-wide
-            --  subtypes are currently only frozen on targets requiring
-            --  front-end layout (see New_Class_Wide_Subtype and
-            --  Make_CW_Equivalent_Type in exp_util.adb).
+            --  to be frozen to ensure that its layout is done.
 
             if Ekind (E) = E_Class_Wide_Subtype
               and then Present (Equivalent_Type (E))

@@ -334,7 +334,7 @@ enum optab_index
   OTI_vec_shr,
   /* Extract specified elements from vectors, for vector load.  */
   OTI_vec_realign_load,
-  /* Widening multiplication.  
+  /* Widening multiplication.
      The high/low part of the resulting vector of products is returned.  */
   OTI_vec_widen_umult_hi,
   OTI_vec_widen_umult_lo,
@@ -705,6 +705,9 @@ extern rtx expand_unop (enum machine_mode, optab, rtx, rtx, int);
 /* Expand the absolute value operation.  */
 extern rtx expand_abs_nojump (enum machine_mode, rtx, rtx, int);
 extern rtx expand_abs (enum machine_mode, rtx, rtx, int, int);
+
+/* Expand the one's complement absolute value operation.  */
+extern rtx expand_one_cmpl_abs_nojump (enum machine_mode, rtx, rtx);
 
 /* Expand the copysign operation.  */
 extern rtx expand_copysign (rtx, rtx, rtx);

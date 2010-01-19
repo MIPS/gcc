@@ -90,6 +90,7 @@ extern void print_operand_address (FILE *, rtx);
 extern bool rs6000_output_addr_const_extra (FILE *, rtx);
 extern enum rtx_code rs6000_reverse_condition (enum machine_mode,
 					       enum rtx_code);
+extern void rs6000_emit_sISEL (enum machine_mode, rtx[]);
 extern void rs6000_emit_sCOND (enum machine_mode, rtx[]);
 extern void rs6000_emit_cbranch (enum machine_mode, rtx[]);
 extern char * output_cbranch (rtx, const char *, int, rtx);
@@ -109,7 +110,6 @@ extern void rs6000_emit_swdivsf (rtx, rtx, rtx);
 extern void rs6000_emit_swdivdf (rtx, rtx, rtx);
 extern void rs6000_emit_swrsqrtsf (rtx, rtx);
 extern void output_toc (FILE *, rtx, int, enum machine_mode);
-extern void rs6000_initialize_trampoline (rtx, rtx, rtx);
 extern rtx rs6000_longcall_ref (rtx);
 extern void rs6000_fatal_bad_address (rtx);
 extern rtx create_TOC_reference (rtx);
@@ -142,7 +142,6 @@ extern void function_arg_advance (CUMULATIVE_ARGS *, enum machine_mode,
 extern int function_arg_boundary (enum machine_mode, tree);
 extern rtx function_arg (CUMULATIVE_ARGS *, enum machine_mode, tree, int);
 extern tree altivec_resolve_overloaded_builtin (location_t, tree, void *);
-extern rtx rs6000_function_value (const_tree, const_tree);
 extern rtx rs6000_libcall_value (enum machine_mode);
 extern rtx rs6000_va_arg (tree, tree);
 extern int function_ok_for_sibcall (tree);
@@ -178,6 +177,8 @@ extern int rs6000_register_move_cost (enum machine_mode,
 extern int rs6000_memory_move_cost (enum machine_mode, enum reg_class, int);
 extern bool rs6000_tls_referenced_p (rtx);
 extern void rs6000_conditional_register_usage (void);
+
+extern void rs6000_aix_asm_output_dwarf_table_ref (char *);
 
 /* Declare functions in rs6000-c.c */
 
