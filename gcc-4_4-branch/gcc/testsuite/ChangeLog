@@ -6,10 +6,20 @@
 	PR middle-end/42803
 	* g++.dg/parse/limits-initializer1.C: New test.
 
+2010-01-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/42728
+	* gcc.dg/pr42728.c: New test.
+
 2010-01-18  Uros Bizjak  <ubizjak@gmail.com>
 
 	PR target/42774
 	* gcc.target/alpha/pr42774.c: New test.
+
+2010-01-17  Jie Zhang  <jie.zhang@analog.com>
+
+	PR debug/42767
+	* gcc.dg/debug/pr42767.c: New.
 
 2010-01-17  H.J. Lu  <hongjiu.lu@intel.com>
 

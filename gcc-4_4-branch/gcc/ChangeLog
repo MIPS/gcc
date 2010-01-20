@@ -15,6 +15,12 @@
 	(initializer_constant_valid_p_1): New function.
 	(initializer_constant_valid_p): Use it.
 
+2010-01-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/42728
+	* fwprop.c (all_uses_available_at): Return false if def_set dest
+	is a REG that is used in def_insn.
+
 2010-01-18  Uros Bizjak  <ubizjak@gmail.com>
 
 	PR target/42774
@@ -22,6 +28,17 @@
 	memory references with unaligned offsets.  Remove CQImode handling.
 	(unaligned_memory_operand): Return 1 for memory references with
 	unaligned offsets.  Remove CQImode handling.
+
+2010-01-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (mem_loc_descriptor): Don't ICE on
+	{S,U}S_{PLUS,MINUS,NEG,ABS,ASHIFT}.
+
+2010-01-17  Jie Zhang  <jie.zhang@analog.com>
+
+	PR debug/42767
+	* dwarf2out.c (mem_loc_descriptor): Handle SS_TRUNCATE
+	and US_TRUNCATE.
 
 2010-01-17  H.J. Lu  <hongjiu.lu@intel.com>
 
