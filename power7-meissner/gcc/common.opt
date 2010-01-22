@@ -862,6 +862,18 @@ fpost-ipa-mem-report
 Common Report Var(post_ipa_mem_report)
 Report on memory allocation before interprocedural optimization
 
+fpow-max-sqrt=
+Common RejectNegative Var(flag_pow_max_sqrt) Joined UInteger Init(2)
+-fpow-max-sqrt=<number>	Use at most <number> sqrt calls to replace the builtin
+pow function if the -ffast-math or -funsafe-math-optimizations switches are
+used.
+
+fpow-max-cbrt=
+Common RejectNegative Var(flag_pow_max_cbrt) Joined UInteger Init(1)
+-fpow-max-cbrt=<number>	Use at most <number> cbrt calls to replace the builtin
+pow function if the -ffast-math or -funsafe-math-optimizations switches are
+used.
+
 fpack-struct
 Common Report Var(flag_pack_struct) Optimization
 Pack structure members together without holes

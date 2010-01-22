@@ -148,6 +148,7 @@ static rtx expand_builtin_signbit (tree, rtx);
 static tree fold_builtin_sqrt (location_t, tree, tree);
 static tree fold_builtin_cbrt (location_t, tree, tree);
 static tree fold_builtin_pow (location_t, tree, tree, tree, tree);
+static tree fold_builtin_pow_root (location_t, tree, tree, tree);
 static tree fold_builtin_powi (location_t, tree, tree, tree, tree);
 static tree fold_builtin_cos (location_t, tree, tree, tree);
 static tree fold_builtin_cosh (location_t, tree, tree, tree);
@@ -2918,7 +2919,7 @@ expand_powi (rtx x, enum machine_mode mode, HOST_WIDE_INT n)
 static rtx
 expand_builtin_pow (tree exp, rtx target, rtx subtarget)
 {
-  tree arg0, arg1;
+  tree arg0, arg1, sop;
   tree fn, narg0;
   tree type = TREE_TYPE (exp);
   REAL_VALUE_TYPE cint, c, c2;
@@ -2995,6 +2996,12 @@ expand_builtin_pow (tree exp, rtx target, rtx subtarget)
 	}
     }
 
+  /* Check whether we can do a series of sqrt or cbrt's instead of the pow
+     call.  */
+  sop = fold_builtin_pow_root (EXPR_LOCATION (exp), arg0, arg1, type);
+  if (sop)
+    return expand_expr (sop, subtarget, mode, EXPAND_NORMAL);
+
   /* Try if the exponent is a third of an integer.  In this case
      we can expand to x**(n/3) * cbrt(x)**(n%3).  As cbrt (x) is
      different from pow (x, 1./3.) due to rounding and behavior
@@ -3003,6 +3010,7 @@ expand_builtin_pow (tree exp, rtx target, rtx subtarget)
   fn = mathfn_built_in (type, BUILT_IN_CBRT);
   if (fn != NULL_TREE
       && flag_unsafe_math_optimizations
+      && flag_pow_max_cbrt >= 1
       && (tree_expr_nonnegative_p (arg0)
 	  || !HONOR_NANS (mode)))
     {
@@ -6960,8 +6968,9 @@ fold_builtin_sqrt (location_t loc, tree arg, tree type)
       return build_call_expr_loc (loc, expfn, 1, arg);
     }
 
-  /* Optimize sqrt(Nroot(x)) -> pow(x,1/(2*N)).  */
-  if (flag_unsafe_math_optimizations && BUILTIN_ROOT_P (fcode))
+  /* Optimize sqrt(sqrt(x)) -> pow(x,1/4)).  */
+  if (flag_unsafe_math_optimizations && BUILTIN_SQRT_P (fcode)
+      && flag_pow_max_sqrt < 2)
     {
       tree powfn = mathfn_built_in (type, BUILT_IN_POW);
 
@@ -6969,14 +6978,28 @@ fold_builtin_sqrt (location_t loc, tree arg, tree type)
 	{
 	  tree arg0 = CALL_EXPR_ARG (arg, 0);
 	  tree tree_root;
-	  /* The inner root was either sqrt or cbrt.  */
-	  /* This was a conditional expression but it triggered a bug
-	     in Sun C 5.5.  */
-	  REAL_VALUE_TYPE dconstroot;
-	  if (BUILTIN_SQRT_P (fcode))
-	    dconstroot = dconsthalf;
-	  else
-	    dconstroot = dconst_third ();
+	  REAL_VALUE_TYPE dconstroot = dconsthalf;
+
+	  /* Adjust for the outer root.  */
+	  SET_REAL_EXP (&dconstroot, REAL_EXP (&dconstroot) - 1);
+	  dconstroot = real_value_truncate (TYPE_MODE (type), dconstroot);
+	  tree_root = build_real (type, dconstroot);
+	  return build_call_expr_loc (loc, powfn, 2, arg0, tree_root);
+	}
+    }
+
+  /* Optimize sqrt(cbrt(x)) -> pow(x,1/6)) if we are not wanting to
+     optimize pow in terms of cbrt/sqrt.  */
+  if (flag_unsafe_math_optimizations && BUILTIN_CBRT_P (fcode)
+      && (flag_pow_max_cbrt < 1 || flag_pow_max_sqrt < 2))
+    {
+      tree powfn = mathfn_built_in (type, BUILT_IN_POW);
+
+      if (powfn)
+	{
+	  tree arg0 = CALL_EXPR_ARG (arg, 0);
+	  tree tree_root;
+	  REAL_VALUE_TYPE dconstroot = dconst_third ();
 
 	  /* Adjust for the outer root.  */
 	  SET_REAL_EXP (&dconstroot, REAL_EXP (&dconstroot) - 1);
@@ -7055,7 +7078,7 @@ fold_builtin_cbrt (location_t loc, tree arg, tree type)
 	}
 
       /* Optimize cbrt(cbrt(x)) -> pow(x,1/9) iff x is nonnegative.  */
-      if (BUILTIN_CBRT_P (fcode))
+      if (BUILTIN_CBRT_P (fcode) && flag_pow_max_cbrt < 2)
 	{
 	  tree arg0 = CALL_EXPR_ARG (arg, 0);
 	  if (tree_expr_nonnegative_p (arg0))
@@ -7775,6 +7798,111 @@ fold_builtin_hypot (location_t loc, tree fndecl,
   return NULL_TREE;
 }
 
+/* Fold a builtin function call to pow, powf, or powl into a series of sqrts or
+   cbrts.  Return NULL_TREE if no simplification can be made.  */
+static tree
+fold_builtin_pow_root (location_t loc, tree arg0, tree arg1, tree type)
+{
+  if (TREE_CODE (arg1) == REAL_CST
+      && !TREE_OVERFLOW (arg1)
+      && flag_unsafe_math_optimizations)
+    {
+      tree sqrtfn = mathfn_built_in (type, BUILT_IN_SQRT);
+      tree cbrtfn = mathfn_built_in (type, BUILT_IN_CBRT);
+      REAL_VALUE_TYPE c = TREE_REAL_CST (arg1);
+      REAL_VALUE_TYPE dconst34, dconstexp;
+      int num, num2, i;
+
+      if (sqrtfn)
+	{
+	  /* Check whether we can do a series of sqrt's for recprocal powers of
+	     two (0.5, 0.25, 0.125, etc.) until the limit of the number of
+	     sqrts is reached.  */
+	  dconstexp = dconsthalf;
+	  for (num = 1; num <= flag_pow_max_sqrt; num++)
+	    {
+	      if (REAL_VALUES_EQUAL (c, dconstexp))
+		{
+		  tree op = build_call_nofold_loc (loc, sqrtfn, 1, arg0);
+
+		  for (i = 1; i < num; i++)
+		    op = build_call_nofold_loc (loc, sqrtfn, 1, op);
+
+		  return op;
+		}
+
+	      SET_REAL_EXP (&dconstexp, REAL_EXP (&dconstexp) - 1);
+	    }
+
+	  /* Optimize pow(x,0.75) = sqrt(x) * sqrt(sqrt(x)).  */
+	  if (flag_pow_max_sqrt >= 2 && !TREE_SIDE_EFFECTS (arg0))
+	    {
+	      real_from_integer (&dconst34, VOIDmode, 3, 0, 0);
+	      SET_REAL_EXP (&dconst34, REAL_EXP (&dconst34) - 2);
+
+	      if (REAL_VALUES_EQUAL (c, dconst34))
+		{
+		  tree sqrt1 = build_call_expr_loc (loc, sqrtfn, 1, arg0);
+		  tree sqrt2 = builtin_save_expr (sqrt1);
+		  tree sqrt3 = build_call_expr_loc (loc, sqrtfn, 1, sqrt1);
+		  return fold_build2_loc (loc, MULT_EXPR, type, sqrt2, sqrt3);
+		}
+	    }
+
+	  /* Check whether we can do a series of cbrt/sqrts instead of pow,
+	     until the limit of cbrts/sqrts is reached.  */
+	  if (cbrtfn
+	      && flag_pow_max_cbrt > 0
+	      && (tree_expr_nonnegative_p (arg0)
+		  || !HONOR_NANS (TYPE_MODE (type))))
+	    {
+	      dconstexp = dconst_third ();
+
+	      for (num = 1; num <= flag_pow_max_cbrt; num++)
+		{
+		  /* First try 1/(3**n).  */
+		  REAL_VALUE_TYPE dconstexp_trunc
+		    = real_value_truncate (TYPE_MODE (type), dconstexp);
+
+		  if (REAL_VALUES_EQUAL (c, dconstexp_trunc))
+		    {
+		      tree op = build_call_nofold_loc (loc, cbrtfn, 1, arg0);
+
+		      for (i = 1; i < num; i++)
+			op = build_call_nofold_loc (loc, cbrtfn, 1, op);
+
+		      return op;
+		    }
+
+		  /* Now try using sqrts as well to handle 1/6. etc.  */
+		  for (num2 = num+1; num2 <= flag_pow_max_sqrt; num2++)
+		    {
+		      SET_REAL_EXP (&dconstexp_trunc,
+				    REAL_EXP (&dconstexp_trunc) - 1);
+
+		      if (REAL_VALUES_EQUAL (c, dconstexp_trunc))
+			{
+			  tree op = build_call_nofold_loc (loc, cbrtfn, 1, arg0);
+
+			  for (i = 1; i < num; i++)
+			    op = build_call_nofold_loc (loc, cbrtfn, 1, op);
+
+			  for (i = num; i < num2; i++)
+			    op = build_call_nofold_loc (loc, sqrtfn, 1, op);
+
+			  return op;
+			}
+		    }
+
+		  real_arithmetic (&dconstexp, MULT_EXPR, dconst_third_ptr (),
+				   &dconstexp);
+		}
+	    }
+	}
+    }
+
+  return NULL_TREE;
+}
 
 /* Fold a builtin function call to pow, powf, or powl.  Return
    NULL_TREE if no simplification can be made.  */
@@ -7818,29 +7946,10 @@ fold_builtin_pow (location_t loc, tree fndecl, tree arg0, tree arg1, tree type)
 	return fold_build2_loc (loc, RDIV_EXPR, type,
 			    build_real (type, dconst1), arg0);
 
-      /* Optimize pow(x,0.5) = sqrt(x).  */
-      if (flag_unsafe_math_optimizations
-	  && REAL_VALUES_EQUAL (c, dconsthalf))
-	{
-	  tree sqrtfn = mathfn_built_in (type, BUILT_IN_SQRT);
-
-	  if (sqrtfn != NULL_TREE)
-	    return build_call_expr_loc (loc, sqrtfn, 1, arg0);
-	}
-
-      /* Optimize pow(x,1.0/3.0) = cbrt(x).  */
-      if (flag_unsafe_math_optimizations)
-	{
-	  const REAL_VALUE_TYPE dconstroot
-	    = real_value_truncate (TYPE_MODE (type), dconst_third ());
-
-	  if (REAL_VALUES_EQUAL (c, dconstroot))
-	    {
-	      tree cbrtfn = mathfn_built_in (type, BUILT_IN_CBRT);
-	      if (cbrtfn != NULL_TREE)
-		return build_call_expr_loc (loc, cbrtfn, 1, arg0);
-	    }
-	}
+      /* See if we can optimize pow into a series of sqrt's or cbrt's.  */
+      res = fold_builtin_pow_root (loc, arg0, arg1, type);
+      if (res)
+	return res;
 
       /* Check for an integer exponent.  */
       n = real_to_integer (&c);
