@@ -1,25 +1,14 @@
-2010-01-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
+2010-01-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
-	* common.opt (-fpow-max-sqrt=n): New switch to control the max
-	number of sqrts to replace pow builtins with.
-	(-fpow-max-cbrt-n): New switch to control the max number of cbrts
-	to replace pow builtins with.
+	* common.opt (-fpow-max-sqrt): New switches to control number of
+	sqrts and cbrts are generated for pow expansions.
+	(-fpow-max-sqrt-after-cbrt): Ditto.
+	(-fpow-max-cbrt): Ditto.
 
-	* builtins.c (fold_builtin_pow_root): New function that adds
-	support for optimizing 0.25, 0.75, 0.125, and 0.0625 into sqrt's,
-	and 1/6 into sqrt and cbrt. Don't optimize sqrt(sqrt(x)) into pow
-	(x, 0.25) by default.
-	(expand_builtin_pow): Call fold_builtin_pow_sqrt for sqrt/cbrt
-	based optimizations.  Add checks for -fpow-max-cbrt and
-	-fpow-max-sqrt.
-	(fold_builtin_pow): Ditto.
-	(fold_builtin_cbrt): Ditto.
-	(fold_builtin_sqrt): Don't optimize sqrt(sqrt(x)) into pow(x,0.25)
-	by default.
+	* builtins.c (expand_builtin_pow_root): New function to expand pow
+	with a constant exponent into a series of sqrt and cbrt calls.
+	(expand_builtin_pow): Call it.
 
-	* doc/invoke.texi (-fpow-max-sqrt=n): Document.
-	(-fpow-max-cbrt=n): Ditto.
-	
 2010-01-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* Clone from trunk version 156025.
