@@ -1,3 +1,8 @@
+2010-01-22  Thierry LAFAGE  <lafage@dingdong.irisa.fr>
+
+	* gcc/testsuite/gcc.dg/20020312-2.c: added case for __cil32__
+		  architecture in order to make test pass.
+
 2010-01-18  Thierry LAFAGE  <lafage@dingdong.irisa.fr>
 
 	* gcc/config/cil32/source-location.h: new file defining utilities

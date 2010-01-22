@@ -18,6 +18,8 @@ extern void abort (void);
 # define PIC_REG  "9"
 #elif defined(AVR)
 /* No pic register.  */
+#elif defined(__cil32__)
+/* No pic register.  */
 #elif defined(__cris__)
 # define PIC_REG  "0"
 #elif defined(__fr30__)
