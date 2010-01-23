@@ -315,6 +315,12 @@
 #endif
 
 
+/* Define if your assembler supports the swap suffix. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_IX86_SWAP
+#endif
+
+
 /* Define if your assembler supports the lituse_jsrdirect relocation. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_AS_JSRDIRECT_RELOCS
@@ -1471,12 +1477,6 @@
 #endif
 
 
-/* Define if mpc is in use. */
-#ifndef USED_FOR_TARGET
-#undef HAVE_mpc
-#endif
-
-
 /* Define as const if the declaration of iconv() needs const. */
 #ifndef USED_FOR_TARGET
 #undef ICONV_CONST
@@ -1541,6 +1541,12 @@
 /* Define to the version of this package. */
 #ifndef USED_FOR_TARGET
 #undef PACKAGE_VERSION
+#endif
+
+
+/* Specify plugin linker */
+#ifndef USED_FOR_TARGET
+#undef PLUGIN_LD
 #endif
 
 

@@ -1,3 +1,58 @@
+2010-01-11  Tristan Gingold  <gingold@adacore.com>
+
+	* cplus-dem.c (ada_demangle): Remove prototype.
+	(grow_vect): Removed.
+	(ada_demangle): Rewritten.
+	(cplus_demangle): Fix indentation.
+	* testsuite/demangle-expected: Add tests for Ada.
+
+2010-01-09  Ian Lance Taylor  <iant@google.com>
+
+	PR other/42230
+	* cp-demangle.c (d_demangle): Return dgs.alc on success.
+
+2010-01-04  Nobuhiro Iwamatsu <iwamatsu@nigauri.org>
+
+	PR target/42316
+	* configure.ac (PICFLAG): Use -fPIC on SH hosts.
+	* configure: Regenerate.
+
+2009-12-07  Doug Evans  <dje@google.com>
+
+	* pex-unix.c (pex_unix_exec_child): Save/restore environ.
+
+2009-11-26  Ben Elliston  <bje@au.ibm.com>
+
+	* configure.ac (AC_CHECK_FUNCS): Sort into alphabetic order.
+	* configure: Regenerate.
+
+2009-11-25  Ben Elliston  <bje@au.ibm.com>
+
+	* functions.texi: Rebuild.
+
+2009-11-25  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+	    Ben Elliston  <bje@au.ibm.com>
+
+	* README: Mention changes to Makefile.in and functions.texi.
+	* gather-docs: Mention 'make stamp-functions' in the header.
+
+2009-11-23  Ben Elliston  <bje@au.ibm.com>
+	    Ian Lance Taylor  <iant@google.com>
+
+	* pex-unix.c (pex_child_error): Improve warning avoidance by
+	checking the results of write(3) and exiting with -2 if any write
+	returns a negative value.
+
+2009-11-22  Steve Ward  <planet36@gmail.com>
+
+	* dyn-string.c (dyn_string_append_char): Fix typo in comment.
+
+2009-11-20  Ben Elliston  <bje@au.ibm.com>
+
+	* pex-unix.c (pex_child_error): Define writeerr macro to avoid
+	unused result warnings from write(3) calls.  Undefine writeerr
+	after all uses.
+
 2009-10-08  Daniel Gutson  <dgutson@codesourcery.com>
 	Daniel Jacobowitz  <dan@codesourcery.com>
 	Pedro Alves  <pedro@codesourcery.com>

@@ -626,6 +626,7 @@ gfc_check_operator_interface (gfc_symbol *sym, gfc_intrinsic_op op,
 	 - Types and kinds do not conform, and
 	 - First argument is of derived type.  */
       if (sym->formal->sym->ts.type != BT_DERIVED
+	  && sym->formal->sym->ts.type != BT_CLASS
 	  && (r1 == 0 || r1 == r2)
 	  && (sym->formal->sym->ts.type == sym->formal->next->sym->ts.type
 	      || (gfc_numeric_ts (&sym->formal->sym->ts)
@@ -2379,12 +2380,18 @@ gfc_procedure_use (gfc_symbol *sym, gfc_actual_arglist **ap, locus *where)
 
   /* Warn about calls with an implicit interface.  Special case
      for calling a ISO_C_BINDING becase c_loc and c_funloc
-     are pseudo-unknown.  */
-  if (gfc_option.warn_implicit_interface
-      && sym->attr.if_source == IFSRC_UNKNOWN
-      && ! sym->attr.is_iso_c)
-    gfc_warning ("Procedure '%s' called with an implicit interface at %L",
-		 sym->name, where);
+     are pseudo-unknown.  Additionally, warn about procedures not
+     explicitly declared at all if requested.  */
+  if (sym->attr.if_source == IFSRC_UNKNOWN && ! sym->attr.is_iso_c)
+    {
+      if (gfc_option.warn_implicit_interface)
+	gfc_warning ("Procedure '%s' called with an implicit interface at %L",
+		     sym->name, where);
+      else if (gfc_option.warn_implicit_procedure
+	       && sym->attr.proc == PROC_UNKNOWN)
+	gfc_warning ("Procedure '%s' called at %L is not explicitly declared",
+		     sym->name, where);
+    }
 
   if (sym->attr.if_source == IFSRC_UNKNOWN)
     {
@@ -2573,13 +2580,16 @@ matching_typebound_op (gfc_expr** tb_base,
   gfc_actual_arglist* base;
 
   for (base = args; base; base = base->next)
-    if (base->expr->ts.type == BT_DERIVED)
+    if (base->expr->ts.type == BT_DERIVED || base->expr->ts.type == BT_CLASS)
       {
 	gfc_typebound_proc* tb;
 	gfc_symbol* derived;
 	gfc_try result;
 
-	derived = base->expr->ts.u.derived;
+	if (base->expr->ts.type == BT_CLASS)
+	  derived = base->expr->ts.u.derived->components->ts.u.derived;
+	else
+	  derived = base->expr->ts.u.derived;
 
 	if (op == INTRINSIC_USER)
 	  {
@@ -2836,7 +2846,7 @@ gfc_extend_assign (gfc_code *c, gfc_namespace *ns)
   rhs = c->expr2;
 
   /* Don't allow an intrinsic assignment to be replaced.  */
-  if (lhs->ts.type != BT_DERIVED
+  if (lhs->ts.type != BT_DERIVED && lhs->ts.type != BT_CLASS
       && (rhs->rank == 0 || rhs->rank == lhs->rank)
       && (lhs->ts.type == rhs->ts.type
 	  || (gfc_numeric_ts (&lhs->ts) && gfc_numeric_ts (&rhs->ts))))

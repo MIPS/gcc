@@ -129,6 +129,8 @@ decode_specification_statement (void)
     case 'a':
       match ("abstract% interface", gfc_match_abstract_interface,
 	     ST_INTERFACE);
+      match ("allocatable", gfc_match_asynchronous, ST_ATTR_DECL);
+      match ("asynchronous", gfc_match_asynchronous, ST_ATTR_DECL);
       break;
 
     case 'b':
@@ -328,6 +330,7 @@ decode_statement (void)
       match ("allocate", gfc_match_allocate, ST_ALLOCATE);
       match ("allocatable", gfc_match_allocatable, ST_ATTR_DECL);
       match ("assign", gfc_match_assign, ST_LABEL_ASSIGNMENT);
+      match ("asynchronous", gfc_match_asynchronous, ST_ATTR_DECL);
       break;
 
     case 'b':
@@ -1940,7 +1943,6 @@ parse_derived (void)
   int compiling_type, seen_private, seen_sequence, seen_component, error_flag;
   gfc_statement st;
   gfc_state_data s;
-  gfc_symbol *derived_sym = NULL;
   gfc_symbol *sym;
   gfc_component *c;
 
@@ -2061,18 +2063,20 @@ endType:
   /* need to verify that all fields of the derived type are
    * interoperable with C if the type is declared to be bind(c)
    */
-  derived_sym = gfc_current_block();
-
   sym = gfc_current_block ();
   for (c = sym->components; c; c = c->next)
     {
       /* Look for allocatable components.  */
       if (c->attr.allocatable
+	  || (c->ts.type == BT_CLASS
+	      && c->ts.u.derived->components->attr.allocatable)
 	  || (c->ts.type == BT_DERIVED && c->ts.u.derived->attr.alloc_comp))
 	sym->attr.alloc_comp = 1;
 
       /* Look for pointer components.  */
       if (c->attr.pointer
+	  || (c->ts.type == BT_CLASS
+	      && c->ts.u.derived->components->attr.pointer)
 	  || (c->ts.type == BT_DERIVED && c->ts.u.derived->attr.pointer_comp))
 	sym->attr.pointer_comp = 1;
 
@@ -2339,7 +2343,7 @@ match_deferred_characteristics (gfc_typespec * ts)
     {
       ts->kind = 0;
 
-      if (!ts->u.derived || !ts->u.derived->components)
+      if (!ts->u.derived)
 	m = MATCH_ERROR;
     }
 
@@ -3069,7 +3073,9 @@ gfc_build_block_ns (gfc_namespace *parent_ns)
 			  my_ns->proc_name->name, NULL);
       gcc_assert (t == SUCCESS);
     }
-  my_ns->proc_name->attr.recursive = parent_ns->proc_name->attr.recursive;
+
+  if (parent_ns->proc_name)
+    my_ns->proc_name->attr.recursive = parent_ns->proc_name->attr.recursive;
 
   return my_ns;
 }

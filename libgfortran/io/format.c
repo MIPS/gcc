@@ -29,6 +29,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
  * interpretation during I/O statements */
 
 #include "io.h"
+#include "format.h"
 #include <ctype.h>
 #include <string.h>
 #include <stdbool.h>
@@ -706,7 +707,8 @@ parse_format_list (st_parameter_dt *dtp, bool *save_ok)
 	  goto data_desc;
 	}
 
-      if (t != FMT_COMMA && t != FMT_RPAREN && t != FMT_SLASH)
+      if (t != FMT_COMMA && t != FMT_RPAREN && t != FMT_SLASH
+	  && t != FMT_POSINT)
 	{
 	  fmt->error = "Comma required after P descriptor";
 	  goto finished;

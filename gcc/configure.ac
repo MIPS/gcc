@@ -785,6 +785,14 @@ AC_SUBST(TARGET_SYSTEM_ROOT)
 AC_SUBST(TARGET_SYSTEM_ROOT_DEFINE)
 AC_SUBST(CROSS_SYSTEM_HEADER_DIR)
 
+AC_ARG_WITH(specs,
+  [AS_HELP_STRING([--with-specs=SPECS],
+                  [add SPECS to driver command-line processing])],
+  [CONFIGURE_SPECS=$withval],
+  [CONFIGURE_SPECS=]
+)
+AC_SUBST(CONFIGURE_SPECS)
+
 # Build with intermodule optimisations
 AC_ARG_ENABLE(intermodule,
 [  --enable-intermodule    build the compiler in one step],
@@ -1915,6 +1923,17 @@ else
         AC_PATH_PROG(gcc_cv_ld, $LD_FOR_TARGET)
 fi])
 
+ORIGINAL_PLUGIN_LD_FOR_TARGET=$gcc_cv_ld
+PLUGIN_LD=`basename $gcc_cv_ld`
+AC_ARG_WITH(plugin-ld,
+[  --with-plugin-ld=[[ARG]]  specify the plugin linker],
+[if test x"$withval" != x; then
+   ORIGINAL_PLUGIN_LD_FOR_TARGET="$withval"
+   PLUGIN_LD="$withval"
+ fi])
+AC_SUBST(ORIGINAL_PLUGIN_LD_FOR_TARGET)
+AC_DEFINE_UNQUOTED(PLUGIN_LD, "$PLUGIN_LD", [Specify plugin linker])
+
 ORIGINAL_LD_FOR_TARGET=$gcc_cv_ld
 AC_SUBST(ORIGINAL_LD_FOR_TARGET)
 case "$ORIGINAL_LD_FOR_TARGET" in
@@ -2100,6 +2119,20 @@ gcc_GAS_CHECK_FEATURE([.hidden], gcc_cv_as_hidden,
 [	.hidden foobar
 foobar:])
 
+changequote(,)dnl
+if test $in_tree_ld != yes ; then
+  ld_ver=`$gcc_cv_ld --version 2>/dev/null | sed 1q`
+  if echo "$ld_ver" | grep GNU > /dev/null; then
+    ld_vers=`echo $ld_ver | sed -n \
+	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*.*\)$,\1,p'`
+    ld_date=`echo $ld_ver | sed -n 's,^.*\([2-9][0-9][0-9][0-9]\)[-]*\([01][0-9]\)[-]*\([0-3][0-9]\).*$,\1\2\3,p'`
+    ld_vers_major=`expr "$ld_vers" : '\([0-9]*\)'`
+    ld_vers_minor=`expr "$ld_vers" : '[0-9]*\.\([0-9]*\)'`
+    ld_vers_patch=`expr "$ld_vers" : '[0-9]*\.[0-9]*\.\([0-9]*\)'`
+  fi
+fi
+changequote([,])dnl
+
 AC_CACHE_CHECK(linker for .hidden support, gcc_cv_ld_hidden,
 [if test $in_tree_ld = yes ; then
   gcc_cv_ld_hidden=no
@@ -2110,14 +2143,7 @@ AC_CACHE_CHECK(linker for .hidden support, gcc_cv_ld_hidden,
 else
 changequote(,)dnl
   gcc_cv_ld_hidden=yes
-  ld_ver=`$gcc_cv_ld --version 2>/dev/null | sed 1q`
   if echo "$ld_ver" | grep GNU > /dev/null; then
-    ld_vers=`echo $ld_ver | sed -n \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*.*\)$,\1,p'`
-    ld_date=`echo $ld_ver | sed -n 's,^.*\([2-9][0-9][0-9][0-9]\)[-]*\([01][0-9]\)[-]*\([0-3][0-9]\).*$,\1\2\3,p'`
-    ld_vers_major=`expr "$ld_vers" : '\([0-9]*\)'`
-    ld_vers_minor=`expr "$ld_vers" : '[0-9]*\.\([0-9]*\)'`
-    ld_vers_patch=`expr "$ld_vers" : '[0-9]*\.[0-9]*\.\([0-9]*\)'`
     if test 0"$ld_date" -lt 20020404; then
       if test -n "$ld_date"; then
 	# If there was date string, but was earlier than 2002-04-04, fail
@@ -2995,7 +3021,13 @@ changequote([,])dnl
 	# wrappers to aid in interposing and redirecting operators new, delete,
 	# etc., as per n2800 #17.6.4.6 [replacement.functions].  Check if we
 	# are configuring for a version of Cygwin that exports the wrappers.
-	AC_CHECK_FUNC([__wrap__Znaj],[gcc_ac_cygwin_dll_wrappers=yes],[gcc_ac_cygwin_dll_wrappers=no])
+	if test x$host = x$target; then
+	  AC_CHECK_FUNC([__wrap__Znaj],[gcc_ac_cygwin_dll_wrappers=yes],[gcc_ac_cygwin_dll_wrappers=no])
+	else
+	  # Can't check presence of libc functions during cross-compile, so
+	  # we just have to assume we're building for an up-to-date target.
+	  gcc_ac_cygwin_dll_wrappers=yes
+	fi
 	AC_DEFINE_UNQUOTED(USE_CYGWIN_LIBSTDCXX_WRAPPERS,
 	  [`if test $gcc_ac_cygwin_dll_wrappers = yes; then echo 1; else echo 0; fi`],
 	  [Define if you want to generate code by default that assumes that the
@@ -3059,6 +3091,12 @@ foo:	nop
       [sahf],,
       [AC_DEFINE(HAVE_AS_IX86_SAHF, 1,
         [Define if your assembler supports the sahf mnemonic.])])
+
+    gcc_GAS_CHECK_FEATURE([swap suffix],
+      gcc_cv_as_ix86_swap,,,
+      [movl.s %esp, %ebp],,
+      [AC_DEFINE(HAVE_AS_IX86_SWAP, 1,
+        [Define if your assembler supports the swap suffix.])])
 
     gcc_GAS_CHECK_FEATURE([different section symbol subtraction],
       gcc_cv_as_ix86_diff_sect_delta,,,
@@ -4096,8 +4134,8 @@ done
 rm -f Make-hooks
 touch Make-hooks
 target_list="all.cross start.encap rest.encap tags \
-	install-common install-man install-info install-pdf dvi pdf \
-	html uninstall info man srcextra srcman srcinfo \
+	install-common install-man install-info install-pdf install-html dvi \
+	pdf html uninstall info man srcextra srcman srcinfo \
 	mostlyclean clean distclean maintainer-clean install-plugin"
 
 for t in $target_list
@@ -4236,10 +4274,6 @@ fi
 AC_ARG_VAR(GMPLIBS,[How to link GMP])
 AC_ARG_VAR(GMPINC,[How to find GMP include files])
 
-case "${GMPLIBS}" in
-  *-lmpc*) AC_DEFINE(HAVE_mpc, 1, [Define if mpc is in use.]) ;;
-esac
-
 AC_ARG_VAR(PPLLIBS,[How to link PPL])
 AC_ARG_VAR(PPLINC,[How to find PPL include files])
 
@@ -4263,30 +4297,32 @@ enable_plugin=yes; default_plugin=yes)
 
 pluginlibs=
 if test x"$enable_plugin" = x"yes"; then
-  # Check that the host supports -rdynamic and -ldl
-  have_rdynamic=no
-  have_dl=no
-  saved_LDFLAGS="$LDFLAGS"
-  saved_LIBS="$LIBS"
-  LIBS=
 
-  # Check -rdynamic
-  LDFLAGS="$LDFLAGS -rdynamic"
-  AC_MSG_CHECKING([for -rdynamic])
-  AC_TRY_LINK([],[return 0;],
-    [AC_MSG_RESULT([yes]); have_rdynamic=yes],
-    [AC_MSG_RESULT([no])])
-  if test x"$have_rdynamic" = x"yes" ; then
-    pluginlibs="-rdynamic"
+  AC_MSG_CHECKING([for exported symbols])
+  echo "int main() {return 0;} int foobar() {return 0;}" > conftest.c
+  ${CC} ${CFLAGS} ${LDFLAGS} conftest.c -o conftest > /dev/null 2>&1
+  if $gcc_cv_objdump -T conftest | grep foobar > /dev/null; then
+    : # No need to use a flag
+  else
+    AC_MSG_CHECKING([for -rdynamic])
+    ${CC} ${CFLAGS} ${LDFLAGS} -rdynamic conftest.c -o conftest > /dev/null 2>&1
+    if $gcc_cv_objdump -T conftest | grep foobar > /dev/null; then
+      pluginlibs="-rdynamic"
+    else
+      enable_plugin=no
+    fi
   fi
 
   # Check -ldl
+  saved_LIBS="$LIBS"
   AC_SEARCH_LIBS([dlopen], [dl])
   if test x"$ac_cv_search_dlopen" = x"-ldl"; then
     pluginlibs="$pluginlibs -ldl"
   fi
+  LIBS="$saved_LIBS"
 
   # Check that we can build shared objects with -fPIC -shared
+  saved_LDFLAGS="$LDFLAGS"
   LDFLAGS="$LDFLAGS -fPIC -shared"
   AC_MSG_CHECKING([for -fPIC -shared])
   AC_TRY_LINK(
@@ -4297,6 +4333,7 @@ if test x"$enable_plugin" = x"yes"; then
     pluginlibs=
     enable_plugin=no
   fi
+  LDFLAGS="$saved_LDFLAGS"
 
   # If plugin support had been requested but not available, fail.
   if test x"$enable_plugin" = x"no" ; then
@@ -4306,9 +4343,6 @@ Building GCC with plugin support requires a host that supports
 -fPIC, -shared, -ldl and -rdynamic.])
     fi
   fi
-
-  LDFLAGS="$saved_LDFLAGS"
-  LIBS="$saved_LIBS"
 fi
 
 AC_SUBST(pluginlibs)
