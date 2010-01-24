@@ -233,7 +233,6 @@ extern void init_eh_for_function (void);
 
 extern void remove_eh_landing_pad (eh_landing_pad);
 extern void remove_eh_handler (eh_region);
-void remove_eh_region_and_replace_by_outer_of (int, int);
 
 extern bool current_function_has_exception_handlers (void);
 extern void output_function_exception_table (const char *);
@@ -346,7 +345,6 @@ struct GTY(()) throw_stmt_node {
   gimple stmt;
   int lp_nr;
 };
-struct edge_def;
 
 extern struct htab *get_eh_throw_stmt_table (struct function *);
 extern void set_eh_throw_stmt_table (struct function *, struct htab *);

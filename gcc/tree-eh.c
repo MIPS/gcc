@@ -2066,6 +2066,7 @@ make_eh_dispatch_edges (gimple stmt)
 
 /* Create the single EH edge from STMT to its nearest landing pad,
    if there is such a landing pad within the current function.  */
+
 void
 make_eh_edges (gimple stmt)
 {

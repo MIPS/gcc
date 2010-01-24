@@ -183,21 +183,6 @@ DEF_VEC_P(tree);
 DEF_VEC_ALLOC_P(tree,gc);
 DEF_VEC_ALLOC_P(tree,heap);
 
-/* Structure holding info about fully optimized out user declaration.
-   DECL points to DECL_ABSTRACT_ORIGIN of the optimized out declaration,
-   VALUE, if non-NULL, contains expression that can be used to compute
-   value originally hold in DECL same vay as in DECL_VALUDE_EXPR.
-   It is used by debug info output.  */
-
-typedef struct GTY(()) nonlocalized_var 
-{
-  tree decl;
-  tree value;
-} nonlocalized_var;
-
-DEF_VEC_O(nonlocalized_var);
-DEF_VEC_ALLOC_O(nonlocalized_var,gc);
-
 /* We have to be able to tell cgraph about the needed-ness of the target
    of an alias.  This requires that the decl have been defined.  Aliases
    that precede their definition have to be queued for later processing.  */
@@ -1974,9 +1959,8 @@ struct varray_head_tag;
 /* In a BLOCK node.  */
 #define BLOCK_VARS(NODE) (BLOCK_CHECK (NODE)->block.vars)
 #define BLOCK_NONLOCALIZED_VARS(NODE) (BLOCK_CHECK (NODE)->block.nonlocalized_vars)
-#define BLOCK_NUM_NONLOCALIZED_VARS(NODE) VEC_length (nonlocalized_var, BLOCK_NONLOCALIZED_VARS (NODE))
-#define BLOCK_NONLOCALIZED_VAR(NODE,N) VEC_index (nonlocalized_var, BLOCK_NONLOCALIZED_VARS (NODE), N)->decl
-#define BLOCK_NONLOCALIZED_VAR_VALUE(NODE,N) VEC_index (nonlocalized_var, BLOCK_NONLOCALIZED_VARS (NODE), N)->value
+#define BLOCK_NUM_NONLOCALIZED_VARS(NODE) VEC_length (tree, BLOCK_NONLOCALIZED_VARS (NODE))
+#define BLOCK_NONLOCALIZED_VAR(NODE,N) VEC_index (tree, BLOCK_NONLOCALIZED_VARS (NODE), N)
 #define BLOCK_SUBBLOCKS(NODE) (BLOCK_CHECK (NODE)->block.subblocks)
 #define BLOCK_SUPERCONTEXT(NODE) (BLOCK_CHECK (NODE)->block.supercontext)
 /* Note: when changing this, make sure to find the places
@@ -2030,7 +2014,7 @@ struct GTY(()) tree_block {
   location_t locus;
 
   tree vars;
-  VEC(nonlocalized_var,gc) *nonlocalized_vars;
+  VEC(tree,gc) *nonlocalized_vars;
 
   tree subblocks;
   tree supercontext;
@@ -2267,16 +2251,18 @@ extern enum machine_mode vector_type_mode (const_tree);
 #define TYPE_NEEDS_CONSTRUCTING(NODE) \
   (TYPE_CHECK (NODE)->type.needs_constructing_flag)
 
-/* Indicates that objects of this type (a UNION_TYPE), should be passed
-   the same way that the first union alternative would be passed.  */
-#define TYPE_TRANSPARENT_UNION(NODE)  \
-  (UNION_TYPE_CHECK (NODE)->type.transparent_union_flag)
+/* Indicates that a UNION_TYPE object should be passed the same way that
+   the first union alternative would be passed, or that a RECORD_TYPE
+   object should be passed the same way that the first (and only) member
+   would be passed.  */
+#define TYPE_TRANSPARENT_AGGR(NODE) \
+  (RECORD_OR_UNION_CHECK (NODE)->type.transparent_aggr_flag)
 
 /* For an ARRAY_TYPE, indicates that it is not permitted to take the
    address of a component of the type.  This is the counterpart of
    DECL_NONADDRESSABLE_P for arrays, see the definition of this flag.  */
 #define TYPE_NONALIASED_COMPONENT(NODE) \
-  (ARRAY_TYPE_CHECK (NODE)->type.transparent_union_flag)
+  (ARRAY_TYPE_CHECK (NODE)->type.transparent_aggr_flag)
 
 /* Indicated that objects of this type should be laid out in as
    compact a way as possible.  */
@@ -2301,7 +2287,7 @@ struct GTY(()) tree_type {
   unsigned int precision : 10;
   unsigned no_force_blk_flag : 1;
   unsigned needs_constructing_flag : 1;
-  unsigned transparent_union_flag : 1;
+  unsigned transparent_aggr_flag : 1;
   unsigned restrict_flag : 1;
   unsigned contains_placeholder_bits : 2;
 
@@ -4375,6 +4361,10 @@ extern int list_length (const_tree);
 /* Returns the number of FIELD_DECLs in a type.  */
 
 extern int fields_length (const_tree);
+
+/* Returns the first FIELD_DECL in a type.  */
+
+extern tree first_field (const_tree);
 
 /* Given an initializer INIT, return TRUE if INIT is zero or some
    aggregate of zeros.  Otherwise return FALSE.  */

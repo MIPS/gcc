@@ -777,16 +777,6 @@ init_optimization_passes (void)
 	     locals into SSA form if possible.  */
 	  NEXT_PASS (pass_build_ealias);
 	  NEXT_PASS (pass_sra_early);
- 	  /* After SRA keeps the temporaries used to initialize structure fields:
-
-	     D.1599_3 = t();
-	     a$a_9 = D.1599_3;
-
-	     copyprop would kill a$a_9 instead of D.1599_3 degrading debug info.
-	     Do copyrename first.  */
-	  NEXT_PASS (pass_rename_ssa_copies);
-          NEXT_PASS (pass_complete_unrolli);
-          NEXT_PASS (pass_fre);
 	  NEXT_PASS (pass_copy_prop);
 	  NEXT_PASS (pass_merge_phi);
 	  NEXT_PASS (pass_cd_dce);
@@ -950,7 +940,6 @@ init_optimization_passes (void)
       NEXT_PASS (pass_fold_builtins);
       NEXT_PASS (pass_tail_calls);
       NEXT_PASS (pass_rename_ssa_copies);
-      NEXT_PASS (pass_merge_phi);
       NEXT_PASS (pass_uncprop);
       NEXT_PASS (pass_local_pure_const);
     }
@@ -1371,8 +1360,6 @@ pass_init_dump_file (struct opt_pass *pass)
 	  fprintf (dump_file, "\n;; Function %s (%s)%s\n\n", dname, aname,
 	     cfun->function_frequency == FUNCTION_FREQUENCY_HOT
 	     ? " (hot)"
-	     : cfun->function_frequency == FUNCTION_FREQUENCY_EXECUTED_ONCE
-	     ? " (executed once)"
 	     : cfun->function_frequency == FUNCTION_FREQUENCY_UNLIKELY_EXECUTED
 	     ? " (unlikely executed)"
 	     : "");

@@ -2178,7 +2178,7 @@ cgraph_add_new_function (tree fndecl, bool lowered)
     DECL_FUNCTION_PERSONALITY (fndecl) = lang_hooks.eh_personality ();
 }
 
-/* Return true if NODE can be made local for API change.  
+/* Return true if NODE can be made local for API change.
    Extern inline functions and C++ COMDAT functions can be made local
    at the expense of possible code size growth if function is used in multiple
    compilation units.  */

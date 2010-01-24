@@ -150,6 +150,10 @@ typedef struct eni_weights_d
   bool time_based;
 } eni_weights;
 
+/* Weights that estimate_num_insns uses for heuristics in inlining.  */
+
+extern eni_weights eni_inlining_weights;
+
 /* Weights that estimate_num_insns uses to estimate the size of the
    produced code.  */
 

@@ -136,7 +136,6 @@ mark_irreducible_loops (void)
   /* Find the strongly connected components.  */
   graphds_scc (g, NULL);
 
-  irred_loop_found = false;
   /* Mark the irreducible loops.  */
   for (i = 0; i < g->n_vertices; i++)
     for (ge = g->vertices[i].succ; ge; ge = ge->succ_next)

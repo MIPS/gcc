@@ -1742,8 +1742,8 @@ unpack_ts_type_value_fields (struct bitpack_d *bp, tree expr)
   TYPE_STRING_FLAG (expr) = (unsigned) bp_unpack_value (bp, 1);
   TYPE_NO_FORCE_BLK (expr) = (unsigned) bp_unpack_value (bp, 1);
   TYPE_NEEDS_CONSTRUCTING(expr) = (unsigned) bp_unpack_value (bp, 1);
-  if (TREE_CODE (expr) == UNION_TYPE)
-    TYPE_TRANSPARENT_UNION (expr) = (unsigned) bp_unpack_value (bp, 1);
+  if (TREE_CODE (expr) == UNION_TYPE || TREE_CODE (expr) == RECORD_TYPE)
+    TYPE_TRANSPARENT_AGGR (expr) = (unsigned) bp_unpack_value (bp, 1);
   TYPE_PACKED (expr) = (unsigned) bp_unpack_value (bp, 1);
   TYPE_RESTRICT (expr) = (unsigned) bp_unpack_value (bp, 1);
   TYPE_CONTAINS_PLACEHOLDER_INTERNAL (expr)
@@ -2232,13 +2232,8 @@ lto_input_ts_block_tree_pointers (struct lto_input_block *ib,
   len = lto_input_uleb128 (ib);
   for (i = 0; i < len; i++)
     {
-      nonlocalized_var var;
       tree t = lto_input_tree (ib, data_in);
-      var.decl = t;
-      t = lto_input_tree (ib, data_in);
-      var.value = t;
-      VEC_safe_push (nonlocalized_var, gc,
-		     BLOCK_NONLOCALIZED_VARS (expr), &var);
+      VEC_safe_push (tree, gc, BLOCK_NONLOCALIZED_VARS (expr), t);
     }
 
   BLOCK_SUPERCONTEXT (expr) = lto_input_tree (ib, data_in);

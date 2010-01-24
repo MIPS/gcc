@@ -518,8 +518,8 @@ pack_ts_type_value_fields (struct bitpack_d *bp, tree expr)
   bp_pack_value (bp, TYPE_STRING_FLAG (expr), 1);
   bp_pack_value (bp, TYPE_NO_FORCE_BLK (expr), 1);
   bp_pack_value (bp, TYPE_NEEDS_CONSTRUCTING(expr), 1);
-  if (TREE_CODE (expr) == UNION_TYPE)
-    bp_pack_value (bp, TYPE_TRANSPARENT_UNION (expr), 1);
+  if (TREE_CODE (expr) == UNION_TYPE || TREE_CODE (expr) == RECORD_TYPE)
+    bp_pack_value (bp, TYPE_TRANSPARENT_AGGR (expr), 1);
   bp_pack_value (bp, TYPE_PACKED (expr), 1);
   bp_pack_value (bp, TYPE_RESTRICT (expr), 1);
   bp_pack_value (bp, TYPE_CONTAINS_PLACEHOLDER_INTERNAL (expr), 2);
@@ -1029,16 +1029,14 @@ lto_output_ts_block_tree_pointers (struct output_block *ob, tree expr,
 				   bool ref_p)
 {
   unsigned i;
+  tree t;
 
   lto_output_location (ob, BLOCK_SOURCE_LOCATION (expr));
   lto_output_chain (ob, BLOCK_VARS (expr), ref_p);
 
-  output_uleb128 (ob, BLOCK_NUM_NONLOCALIZED_VARS (expr));
-  for (i = 0; i < BLOCK_NUM_NONLOCALIZED_VARS (expr); i++)
-    {
-      lto_output_tree_or_ref (ob, BLOCK_NONLOCALIZED_VAR (expr, i), ref_p);
-      lto_output_tree_or_ref (ob, BLOCK_NONLOCALIZED_VAR_VALUE (expr, i), ref_p);
-    }
+  output_uleb128 (ob, VEC_length (tree, BLOCK_NONLOCALIZED_VARS (expr)));
+  for (i = 0; VEC_iterate (tree, BLOCK_NONLOCALIZED_VARS (expr), i, t); i++)
+    lto_output_tree_or_ref (ob, t, ref_p);
 
   lto_output_tree_or_ref (ob, BLOCK_SUPERCONTEXT (expr), ref_p);
   lto_output_tree_or_ref (ob, BLOCK_ABSTRACT_ORIGIN (expr), ref_p);
