@@ -2925,98 +2925,75 @@ expand_builtin_pow_root (location_t loc, tree arg0, tree arg1, tree type,
       tree sqrtfn = mathfn_built_in (type, BUILT_IN_SQRT);
       tree cbrtfn = mathfn_built_in (type, BUILT_IN_CBRT);
       REAL_VALUE_TYPE c = TREE_REAL_CST (arg1);
-      REAL_VALUE_TYPE dconst34, dconstexp;
-      int num, num2, i;
+      tree op = NULL_TREE;
 
       if (sqrtfn)
 	{
-	  /* Check whether we can do a series of sqrt's for recprocal powers of
-	     two (0.5, 0.25, 0.125, etc.) until the limit of the number of
-	     sqrts is reached.  */
-	  dconstexp = dconsthalf;
-	  for (num = 1; num <= flag_pow_max_sqrt; num++)
+	  /* Optimize pow (x, 0.5) into sqrt.  */
+	  if (REAL_VALUES_EQUAL (c, dconsthalf))
+	    op = build_call_nofold_loc (loc, sqrtfn, 1, arg0);
+
+	  else
 	    {
-	      if (REAL_VALUES_EQUAL (c, dconstexp))
+	      REAL_VALUE_TYPE dconst1_4 = dconst1;
+	      REAL_VALUE_TYPE dconst3_4;
+	      SET_REAL_EXP (&dconst1_4, REAL_EXP (&dconst1_4) - 2);
+
+	      real_from_integer (&dconst3_4, VOIDmode, 3, 0, 0);
+	      SET_REAL_EXP (&dconst3_4, REAL_EXP (&dconst3_4) - 2);
+
+	      /* Optimize pow (x, 0.25) into sqrt (sqrt (x)).  Assume on most
+		 machines that a builtin sqrt instruction is smaller than a
+		 call to pow with 0.25, so do this optimization even if
+		 -Os.  */
+	      if (REAL_VALUES_EQUAL (c, dconst1_4))
 		{
-		  tree op = build_call_nofold_loc (loc, sqrtfn, 1, arg0);
-
-		  for (i = 1; i < num; i++)
-		    op = build_call_nofold_loc (loc, sqrtfn, 1, op);
-
-		  return expand_expr (op, subtarget, mode, EXPAND_NORMAL);
+		  op = build_call_nofold_loc (loc, sqrtfn, 1, arg0);
+		  op = build_call_nofold_loc (loc, sqrtfn, 1, op);
 		}
 
-	      SET_REAL_EXP (&dconstexp, REAL_EXP (&dconstexp) - 1);
-	    }
-
-	  /* Optimize pow(x,0.75) = sqrt(x) * sqrt(sqrt(x)).  */
-	  if (flag_pow_max_sqrt >= 2 && !TREE_SIDE_EFFECTS (arg0))
-	    {
-	      real_from_integer (&dconst34, VOIDmode, 3, 0, 0);
-	      SET_REAL_EXP (&dconst34, REAL_EXP (&dconst34) - 2);
-
-	      if (REAL_VALUES_EQUAL (c, dconst34))
+	      /* Optimize pow (x, 0.75) = sqrt (x) * sqrt (sqrt (x)) unless we
+		 are optimizing for space.  */
+	      else if (optimize_insn_for_speed_p ()
+		       && !TREE_SIDE_EFFECTS (arg0)
+		       && REAL_VALUES_EQUAL (c, dconst3_4))
 		{
 		  tree sqrt1 = build_call_expr_loc (loc, sqrtfn, 1, arg0);
 		  tree sqrt2 = builtin_save_expr (sqrt1);
 		  tree sqrt3 = build_call_expr_loc (loc, sqrtfn, 1, sqrt1);
-		  tree op = fold_build2_loc (loc, MULT_EXPR, type, sqrt2,
-					     sqrt3);
-		  return expand_expr (op, subtarget, mode, EXPAND_NORMAL);
-		}
-	    }
-
-	  /* Check whether we can do a series of cbrt/sqrts instead of pow,
-	     until the limit of cbrts/sqrts is reached.  */
-	  if (cbrtfn
-	      && flag_pow_max_cbrt > 0
-	      && (tree_expr_nonnegative_p (arg0)
-		  || !HONOR_NANS (TYPE_MODE (type))))
-	    {
-	      dconstexp = dconst_third ();
-
-	      for (num = 1; num <= flag_pow_max_cbrt; num++)
-		{
-		  /* First try 1/(3**n).  */
-		  REAL_VALUE_TYPE dconstexp_trunc
-		    = real_value_truncate (TYPE_MODE (type), dconstexp);
-
-		  if (REAL_VALUES_EQUAL (c, dconstexp_trunc))
-		    {
-		      tree op = arg0;
-
-		      for (i = 0; i < num; i++)
-			op = build_call_nofold_loc (loc, cbrtfn, 1, op);
-
-		      return expand_expr (op, subtarget, mode, EXPAND_NORMAL);
-		    }
-
-		  /* Now try using sqrts as well to handle 1/6. etc.  */
-		  for (num2 = 1; num2 <= flag_pow_max_sqrt_after_cbrt; num2++)
-		    {
-		      SET_REAL_EXP (&dconstexp_trunc,
-				    REAL_EXP (&dconstexp_trunc) - 1);
-
-		      if (REAL_VALUES_EQUAL (c, dconstexp_trunc))
-			{
-			  tree op = arg0;
-
-			  for (i = 0; i < num2; i++)
-			    op = build_call_nofold_loc (loc, sqrtfn, 1, op);
-
-			  for (i = 0; i < num; i++)
-			    op = build_call_nofold_loc (loc, cbrtfn, 1, op);
-
-			  return expand_expr (op, subtarget, mode,
-					      EXPAND_NORMAL);
-			}
-		    }
-
-		  real_arithmetic (&dconstexp, MULT_EXPR, dconst_third_ptr (),
-				   &dconstexp);
+		  op = fold_build2_loc (loc, MULT_EXPR, type, sqrt2, sqrt3);
 		}
 	    }
 	}
+
+      /* Check whether we can do cbrt insstead of pow (x, 1./3.) and
+	 cbrt/sqrts instead of pow (x, 1./6.).  */
+      if (cbrtfn && ! op
+	  && (tree_expr_nonnegative_p (arg0) || !HONOR_NANS (mode)))
+	{
+	  /* First try 1/3.  */
+	  REAL_VALUE_TYPE dconst1_3
+	    = real_value_truncate (mode, dconst_third ());
+
+	  if (REAL_VALUES_EQUAL (c, dconst1_3))
+	    op = build_call_nofold_loc (loc, cbrtfn, 1, arg0);
+
+	      /* Now try 1/6.  */
+	  else if (optimize_insn_for_speed_p ())
+	    {
+	      REAL_VALUE_TYPE dconst1_6 = dconst1_3;
+	      SET_REAL_EXP (&dconst1_6, REAL_EXP (&dconst1_6) - 1);
+
+	      if (REAL_VALUES_EQUAL (c, dconst1_6))
+		{
+		  op = build_call_nofold_loc (loc, sqrtfn, 1, arg0);
+		  op = build_call_nofold_loc (loc, cbrtfn, 1, op);
+		}
+	    }
+	}
+
+      if (op)
+	return expand_expr (op, subtarget, mode, EXPAND_NORMAL);
     }
 
   return NULL_RTX;

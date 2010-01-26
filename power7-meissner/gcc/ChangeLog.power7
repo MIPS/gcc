@@ -1,20 +1,17 @@
 2010-01-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	PR middle/42694-end
+	* builtins.c (expand_builtin_pow_root): New function to expand pow
+	with a constant exponent into a series of sqrt and cbrt calls.
+	(expand_builtin_pow): Call it.
+
 	Merge up to 156262.
 
 2010-01-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 156180.
 
-	PR 42694/middle-end
-	* common.opt (-fpow-max-sqrt): New switches to control number of
-	sqrts and cbrts are generated for pow expansions.
-	(-fpow-max-sqrt-after-cbrt): Ditto.
-	(-fpow-max-cbrt): Ditto.
-
-	* builtins.c (expand_builtin_pow_root): New function to expand pow
-	with a constant exponent into a series of sqrt and cbrt calls.
-	(expand_builtin_pow): Call it.
+	(common.opt, builtins.c, doc/invoke.texi): Delete intermediate changes.
 
 2010-01-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
 

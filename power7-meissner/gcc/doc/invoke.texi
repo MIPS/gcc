@@ -360,10 +360,9 @@ Objective-C and Objective-C++ Dialects}.
 -fno-sched-interblock -fno-sched-spec -fno-signed-zeros @gol
 -fno-toplevel-reorder -fno-trapping-math -fno-zero-initialized-in-bss @gol
 -fomit-frame-pointer -foptimize-register-move -foptimize-sibling-calls @gol
--fpeel-loops -fpow-num-sqrt=@var{num} -fpow-num-cbrt=@var{num}
--fpredictive-commoning @gol
--fprefetch-loop-arrays -fprofile-correction -fprofile-dir=@var{path} @gol
--fprofile-generate -fprofile-generate=@var{path} @gol
+-fpeel-loops -fpredictive-commoning -fprefetch-loop-arrays @gol
+-fprofile-correction -fprofile-dir=@var{path} -fprofile-generate @gol
+-fprofile-generate=@var{path} @gol
 -fprofile-use -fprofile-use=@var{path} -fprofile-values @gol
 -freciprocal-math -fregmove -frename-registers -freorder-blocks @gol
 -freorder-blocks-and-partition -freorder-functions @gol
@@ -7638,30 +7637,6 @@ The default is @option{-fno-signaling-nans}.
 
 This option is experimental and does not currently guarantee to
 disable all GCC optimizations that affect signaling NaN behavior.
-
-@item -fpow-max-sqrt=@var{n}
-@opindex fpow-max-sqrt
-Limit the number of builtin @code{sqrt} calls to replace builtin
-@code{pow} calls when @option{-funsafe-math-optimizations} is used.
-
-For example, if @option{-fpow-max-sqrt} is set to 2, the compiler may
-optimize @code{pow(x,0.25)} into @code{sqrt(sqrt(x))}, but it would
-not optimize @code{pow(x,0.125)} into @code{sqrt(sqrt(sqrt(x)))}
-
-The default is 2.
-
-@item -fpow-max-cbrt=@var{n}
-@opindex fpow-max-cbrt
-Limit the number of builtin @code{cbrt} calls to replace builtin
-@code{pow} calls when @option{-funsafe-math-optimizations} is used.
-
-If the value for @option{-fpow-max-sqrt} is higher than the value for
-@option{-fpow-max-cbrt}, the compiler may optimize the code to use a
-combination of @code{cbrt} and @code{sqrt} calls.  For example, if
-@option{-fpow-max-sqrt} is 2 and @option{-fpow-max-cbrt} is 1, the
-compiler max optimize @code{pow(x,1./6.)} into @code{sqrt(cbrt(x))}.
-
-The default is 1.
 
 @item -fsingle-precision-constant
 @opindex fsingle-precision-constant
