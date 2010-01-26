@@ -1,5 +1,8 @@
 2010-01-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to 156180.
+
+	PR 42694/middle-end
 	* common.opt (-fpow-max-sqrt): New switches to control number of
 	sqrts and cbrts are generated for pow expansions.
 	(-fpow-max-sqrt-after-cbrt): Ditto.
