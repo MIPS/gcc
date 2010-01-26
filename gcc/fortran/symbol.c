@@ -1,6 +1,6 @@
 /* Maintain binary trees of symbols.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
-   Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008,
+   2009, 2010 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -1959,21 +1959,15 @@ gfc_find_component (gfc_symbol *sym, const char *name,
 
   else if (sym->attr.use_assoc && !noaccess)
     {
-      if (p->attr.access == ACCESS_PRIVATE)
+      bool is_parent_comp = sym->attr.extension && (p == sym->components);
+      if (p->attr.access == ACCESS_PRIVATE ||
+	  (p->attr.access != ACCESS_PUBLIC
+	   && sym->component_access == ACCESS_PRIVATE
+	   && !is_parent_comp))
 	{
 	  if (!silent)
 	    gfc_error ("Component '%s' at %C is a PRIVATE component of '%s'",
 		       name, sym->name);
-	  return NULL;
-	}
-	
-      /* If there were components given and all components are private, error
-	 out at this place.  */
-      if (p->attr.access != ACCESS_PUBLIC && sym->component_access == ACCESS_PRIVATE)
-	{
-	  if (!silent)
-	    gfc_error ("All components of '%s' are PRIVATE in structure"
-		       " constructor at %C", sym->name);
 	  return NULL;
 	}
     }
@@ -3630,6 +3624,7 @@ gen_special_c_interop_ptr (int ptr_id, const char *ptr_name,
 {
   gfc_symtree *tmp_symtree;
   gfc_symbol *tmp_sym;
+  gfc_constructor *c;
 
   tmp_symtree = gfc_find_symtree (gfc_current_ns->sym_root, ptr_name);
 	 
@@ -3691,10 +3686,11 @@ gen_special_c_interop_ptr (int ptr_id, const char *ptr_name,
   tmp_sym->value->expr_type = EXPR_STRUCTURE;
   tmp_sym->value->ts.type = BT_DERIVED;
   tmp_sym->value->ts.u.derived = tmp_sym->ts.u.derived;
-  /* Create a constructor with no expr, that way we can recognize if the user
-     tries to call the structure constructor for one of the iso_c_binding
-     derived types during resolution (resolve_structure_cons).  */
-  gfc_constructor_append_expr (&tmp_sym->value->value.constructor, NULL, NULL);
+  c = gfc_constructor_first (tmp_sym->value->value.constructor);
+  gfc_constructor_append_expr (&c, NULL, NULL);
+  c->expr = gfc_get_expr ();
+  c->expr->expr_type = EXPR_NULL;
+  c->expr->ts.is_iso_c = 1;
   /* Must declare c_null_ptr and c_null_funptr as having the
      PARAMETER attribute so they can be used in init expressions.  */
   tmp_sym->attr.flavor = FL_PARAMETER;

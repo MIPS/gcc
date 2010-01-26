@@ -13387,16 +13387,6 @@ ix86_fixup_binary_operands (enum rtx_code code, enum machine_mode mode,
   if (MEM_P (src1) && !rtx_equal_p (dst, src1))
     src1 = force_reg (mode, src1);
 
-  /* In order for the multiply-add patterns to get matched, we need
-     to aid combine by forcing all operands into registers to start.  */
-  if (optimize && TARGET_FMA4)
-    {
-      if (MEM_P (src2))
-	src2 = force_reg (GET_MODE (src2), src2);
-      else if (MEM_P (src1))
-	src1 = force_reg (GET_MODE (src1), src1);
-    }
-
   operands[1] = src1;
   operands[2] = src2;
   return dst;
@@ -28886,7 +28876,7 @@ ix86_vectorize_builtin_vec_perm (tree vec_type, tree *mask_type)
   tree itype = TREE_TYPE (vec_type);
   bool u = TYPE_UNSIGNED (itype);
   enum machine_mode vmode = TYPE_MODE (vec_type);
-  enum ix86_builtins fcode;
+  enum ix86_builtins fcode = fcode; /* Silence bogus warning.  */
   bool ok = TARGET_SSE2;
 
   switch (vmode)

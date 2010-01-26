@@ -1289,7 +1289,7 @@ done:
    FAILURE if not so.  */
 
 static gfc_try
-constant_element (gfc_expr *e)
+is_constant_element (gfc_expr *e)
 {
   int rv;
 
@@ -1314,7 +1314,7 @@ gfc_constant_ac (gfc_expr *e)
 
   iter_stack = NULL;
   expand_save = current_expand;
-  current_expand.expand_work_function = constant_element;
+  current_expand.expand_work_function = is_constant_element;
 
   rc = expand_constructor (e->value.constructor);
 
@@ -1762,7 +1762,15 @@ gfc_array_dimen_size (gfc_expr *array, int dimen, mpz_t *result)
 	  return SUCCESS;
 	}
 
-      if (spec_dimen_size (array->symtree->n.sym->as, dimen, result) == FAILURE)
+      if (array->symtree->n.sym->attr.generic
+	  && !array->symtree->n.sym->attr.intrinsic)
+	{
+	  if (spec_dimen_size (array->value.function.esym->as, dimen, result)
+	      == FAILURE)
+	    return FAILURE;
+	}
+      else if (spec_dimen_size (array->symtree->n.sym->as, dimen, result)
+	       == FAILURE)
 	return FAILURE;
 
       break;
