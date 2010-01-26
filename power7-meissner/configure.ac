@@ -2540,6 +2540,11 @@ fi
 target_configdirs=`echo "${target_configdirs}" | sed -e 's/target-//g'`
 build_configdirs=`echo "${build_configdirs}" | sed -e 's/build-//g'`
 
+# If we are building libgomp, bootstrap it.
+if echo " ${target_configdirs} " | grep " libgomp " > /dev/null 2>&1 ; then
+  bootstrap_target_libs=${bootstrap_target_libs}target-libgomp,
+fi
+
 # Determine whether gdb needs tk/tcl or not.
 # Use 'maybe' since enable_gdbtk might be true even if tk isn't available
 # and in that case we want gdb to be built without tk.  Ugh!

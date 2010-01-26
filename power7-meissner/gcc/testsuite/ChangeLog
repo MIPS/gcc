@@ -1,3 +1,59 @@
+2010-01-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* ada/acats/run_all.sh: Make sure norun.lst is sorted using the
+	current collation.
+
+2010-01-26  Richard Guenther  <rguenther@suse.de>
+
+	PR rtl-optimization/42685
+	* gcc.dg/pr42685.c: New testcase.
+	* g++.dg/other/pr42685.C: Likewise.
+
+2010-01-26  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/42806
+	* g++.dg/other/pr42806.C: New testcase.
+
+2010-01-26  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/42250
+	* gcc.dg/pr42250.c: New testcase.
+
+2010-01-25  Arnaud Charlet  <charlet@adacore.com>
+
+	* gnat.dg/array_bounds_test.adb: New test.
+
+2010-01-25  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/42858
+	* gfortran.dg/generic_21.f90: New test.
+
+2010-01-25  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR testsuite/41522
+	* gcc.c-torture/compile/pr38789.c: Change to dg-do compile.
+
+2010-01-24  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/42748
+	* g++.dg/abi/arm_va_list2.C: New test.
+	* g++.dg/abi/arm_va_list2.h: Companion header file.
+
+2010-01-24  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/41044
+	* gfortran.dg/parameter_array_ref_2.f90 : New test.
+
+	PR fortran/41167
+	* gfortran.dg/char_array_arg_1.f90 : New test.
+
+	* gfortran.dg/pr25923.f90 : Remove XFAIL.
+
+2010-01-24  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/39304
+	* gfortran.dg/generic_20.f90: New test.
+
 2010-01-22  Michael Matz  <matz@suse.de>
 
 	* gfortran.dg/vect/fast-math-mgrid-resid.f: Limit to x86, add
