@@ -1,0 +1,17 @@
+2010-01-27  Joern Rennecke  <amylaar@spamcop.net>
+
+	PR tree-optimization/39141
+	* tree-ssa-loop-manip.c (gimple_can_duplicate_loop_to_header_edge):
+	New function.
+	* tree-ssa-loop-ivcanon.c (enum unroll_level): New value
+	UL_ESTIMATE_GROWTH.
+	(try_unroll_loop_completely): Handle UL_ESTIMATE_GROWTH.
+	(canonicalize_loop_induction_variables): Likewise.
+	(tree_unroll_loops_completely): Don't completely unroll loops where
+	the outer loop/function is larger than
+	PARAM_MAX_COMPLETELY_PEELED_OUTER_INSNS, or will/would become thus
+	due to unrolling.
+	* cfgloop.h (enum li_flags): New value LI_REALLY_FROM_INNERMOST.
+	(fel_init): Handle LI_REALLY_FROM_INNERMOST.
+	* tree-flow.h (gimple_can_duplicate_loop_to_header_edge): Declare.
+	* params.def (PARAM_MAX_COMPLETELY_PEELED_OUTER_INSNS): New parameter.
