@@ -1,3 +1,39 @@
+2010-01-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (mem_loc_descriptor): Remove special casing of
+	CONSTANT_POOL_ADDRESS_P SYMBOL_REFs.  If for MEM recursive call
+	on MEM's address failed, try avoid_constant_pool_reference and
+	recurse if it returned something different.
+	(loc_descriptor): If for MEM mem_loc_descriptor failed on the
+	address, try avoid_constant_pool_reference and recurse if it
+	returned something different.
+	(dw_loc_list_1): If for MEM mem_loc_descriptor failed on the
+	address and avoid_constant_pool_reference returned something
+	different, don't set have_address.
+
+2010-01-27  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/42861
+	* var-tracking.c (val_store): Add modified argument, obey it.
+	Adjust callers.
+	(count_uses): Move down logging of main.
+	(compute_bb_dataflow): Use val_store for MO_VAL_USEs that
+	don't need resolution.
+	(emit_notes_in_bb): Likewise.
+
+2010-01-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/rs6000/rs6000.c (TARGET_DELEGITIMIZE_ADDRESS): Redefine.
+	(rs6000_delegitimize_address): New function.
+
+	* config/s390/s390.c (s390_delegitimize_address): Call
+	delegitimize_mem_from_attrs.
+
+2010-01-22  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-into-ssa.c (maybe_register_def): If stmt ends the bb,
+	insert the debug stmt on the single non-EH edge from the stmt.
+
 2010-01-26  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
 
 	* config/sparc/sparc.c (sparc_elf_asm_named_section): Test for

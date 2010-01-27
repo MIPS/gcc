@@ -1518,10 +1518,12 @@ var_mem_delete (dataflow_set *set, rtx loc, bool clobber)
   delete_variable_part (set, loc, dv_from_decl (decl), offset);
 }
 
-/* Map a value to a location it was just stored in.  */
+/* Bind a value to a location it was just stored in.  If MODIFIED
+   holds, assume the location was modified, detaching it from any
+   values bound to it.  */
 
 static void
-val_store (dataflow_set *set, rtx val, rtx loc, rtx insn)
+val_store (dataflow_set *set, rtx val, rtx loc, rtx insn, bool modified)
 {
   cselib_val *v = CSELIB_VAL_PTR (val);
 
@@ -1547,7 +1549,8 @@ val_store (dataflow_set *set, rtx val, rtx loc, rtx insn)
 
   if (REG_P (loc))
     {
-      var_regno_delete (set, REGNO (loc));
+      if (modified)
+	var_regno_delete (set, REGNO (loc));
       var_reg_decl_set (set, loc, VAR_INIT_STATUS_INITIALIZED,
 			dv_from_value (val), 0, NULL_RTX, INSERT);
     }
@@ -4529,11 +4532,6 @@ count_uses (rtx *ploc, void *cuip)
       cselib_val *val;
       enum machine_mode mode = GET_MODE (loc);
 
-      VTI (cui->bb)->n_mos++;
-
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	log_op_type (loc, cui->bb, cui->insn, mopt, dump_file);
-
       switch (mopt)
 	{
 	case MO_VAL_LOC:
@@ -4547,12 +4545,15 @@ count_uses (rtx *ploc, void *cuip)
 	  if (MEM_P (loc)
 	      && !REG_P (XEXP (loc, 0)) && !MEM_P (XEXP (loc, 0)))
 	    {
-	      val = cselib_lookup (XEXP (loc, 0), Pmode, false);
+	      val = cselib_lookup (XEXP (loc, 0), Pmode, 0);
 
 	      if (val && !cselib_preserved_value_p (val))
 		{
 		  VTI (cui->bb)->n_mos++;
 		  cselib_preserve_value (val);
+		  if (dump_file && (dump_flags & TDF_DETAILS))
+		    log_op_type (XEXP (loc, 0), cui->bb, cui->insn,
+				 MO_VAL_USE, dump_file);
 		}
 	    }
 
@@ -4575,6 +4576,9 @@ count_uses (rtx *ploc, void *cuip)
 		    {
 		      VTI (cui->bb)->n_mos++;
 		      cselib_preserve_value (oval);
+		      if (dump_file && (dump_flags & TDF_DETAILS))
+			log_op_type (loc, cui->bb, cui->insn,
+				     MO_VAL_USE, dump_file);
 		    }
 		}
 
@@ -4589,6 +4593,10 @@ count_uses (rtx *ploc, void *cuip)
 	default:
 	  break;
 	}
+
+      VTI (cui->bb)->n_mos++;
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	log_op_type (loc, cui->bb, cui->insn, mopt, dump_file);
     }
 
   return 0;
@@ -5318,6 +5326,8 @@ compute_bb_dataflow (basic_block bb)
 
 	      if (VAL_NEEDS_RESOLUTION (loc))
 		val_resolve (out, val, vloc, insn);
+	      else
+		val_store (out, val, uloc, insn, false);
 
 	      if (VAL_HOLDS_TRACK_EXPR (loc))
 		{
@@ -5409,7 +5419,7 @@ compute_bb_dataflow (basic_block bb)
 	      else if (REG_P (uloc))
 		var_regno_delete (out, REGNO (uloc));
 
-	      val_store (out, val, vloc, insn);
+	      val_store (out, val, vloc, insn, true);
 	    }
 	    break;
 
@@ -6939,6 +6949,8 @@ emit_notes_in_bb (basic_block bb, dataflow_set *set)
 
 	      if (VAL_NEEDS_RESOLUTION (loc))
 		val_resolve (set, val, vloc, insn);
+	      else
+		val_store (set, val, uloc, insn, false);
 
 	      if (VAL_HOLDS_TRACK_EXPR (loc))
 		{
@@ -7026,7 +7038,7 @@ emit_notes_in_bb (basic_block bb, dataflow_set *set)
 	      else if (REG_P (uloc))
 		var_regno_delete (set, REGNO (uloc));
 
-	      val_store (set, val, vloc, insn);
+	      val_store (set, val, vloc, insn, true);
 
 	      emit_notes_for_changes (NEXT_INSN (insn), EMIT_NOTE_BEFORE_INSN,
 				      set->vars);
