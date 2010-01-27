@@ -3686,8 +3686,8 @@ gen_special_c_interop_ptr (int ptr_id, const char *ptr_name,
   tmp_sym->value->expr_type = EXPR_STRUCTURE;
   tmp_sym->value->ts.type = BT_DERIVED;
   tmp_sym->value->ts.u.derived = tmp_sym->ts.u.derived;
+  gfc_constructor_append_expr (&tmp_sym->value->value.constructor, NULL, NULL);
   c = gfc_constructor_first (tmp_sym->value->value.constructor);
-  gfc_constructor_append_expr (&c, NULL, NULL);
   c->expr = gfc_get_expr ();
   c->expr->expr_type = EXPR_NULL;
   c->expr->ts.is_iso_c = 1;
