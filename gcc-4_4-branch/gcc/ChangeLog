@@ -1,3 +1,51 @@
+2010-01-26  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* config/sparc/sparc.c (sparc_elf_asm_named_section): Test for
+	HAVE_GNU_AS value.
+	* config/sparc/sysv4.h [HAVE_GNU_AS] (TARGET_ASM_NAMED_SECTION):
+	Test for HAVE_GNU_AS value.
+
+2010-01-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/42866
+	* omp-low.c (expand_omp_sections): Only use single_pred if
+	l2_bb is single_pred_p.
+
+2010-01-25  Christian Bruel  <christian.bruel@st.com>
+
+	PR target/42841
+	* config/sh/sh.c (find_barrier): Increase length for non delayed
+	conditional branches.
+	(sh_insn_length_adjustment): Use JUMP_TABLE_DATA_P.
+	
+2010-01-25  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	Backport from trunk.
+	2010-01-19  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	PR target/38697
+	* config/arm/neon-testgen.m (emit_automatics): New parameter
+	features. Adjust for Fixed_return_reg feature.
+	(test_intrinsic): Call emit_automatics with new feature.
+	* config/arm/neon.ml: Update copyright years.
+	(features): New Fixed_return_reg feature.
+	(ops): Update feature for Vget_low.
+
+2010-01-24  David S. Miller  <davem@davemloft.net>
+
+	* config/sparc/sysv4.h (TARGET_ASM_NAMED_SECTION): Only
+	define if not using GAS.
+	* config/sparc/sparc.c (sparc_elf_asm_named_section):
+	Likewise.  Delete SECTION_MERGE code, which is only applicable
+	when using GAS.
+
+2010-01-21  Felyza Wishbringer  <fwishbringer@gmail.com>
+
+	PR bootstrap/42786
+	* config.gcc (i[34567]86-*-*): Fix handling of athlon64 and athlon-fx
+	cpu types.  Add support for *-sse3 cpu types.
+	(x86_64-*-*): Ditto.
+
 2010-01-21  Jakub Jelinek  <jakub@redhat.com>
 
 	* BASE-VER: Set to 4.4.4.
