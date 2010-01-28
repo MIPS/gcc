@@ -86,7 +86,7 @@
 (define_expand "movmisalign<mode>"
   [(set (match_operand:VECMODES 0 "nonimmediate_operand" "")
 	(match_operand:VECMODES 1 "general_operand" ""))]
-  ""
+  "TARGET_HAS_MISALIGNED"
 )
 
 

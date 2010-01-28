@@ -77,3 +77,7 @@ Target supports Threads
 msimd=
 Target Joined RejectNegative Var(simd_backend_str)
 -msimd=gcc|mono   Select the SIMD backend
+
+mmisaligned
+Target Mask(HAS_MISALIGNED)
+Enable misaligned loads and stores in the bytecode
