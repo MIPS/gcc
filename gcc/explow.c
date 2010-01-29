@@ -425,7 +425,14 @@ memory_address_addr_space (enum machine_mode mode, rtx x, addr_space_t as)
   /* By passing constant addresses through registers
      we get a chance to cse them.  */
   if (! cse_not_expected && CONSTANT_P (x) && CONSTANT_ADDRESS_P (x))
-    x = force_reg (address_mode, x);
+    {
+      /* If the target has offset addressing and a suitable
+	 TARGET_LEGITIMIZE_ADDRESS definition, that can give much better
+	 cse.  */
+      x = targetm.addr_space.legitimize_address (x, oldx, mode, as);
+
+      x = force_reg (address_mode, x);
+    }
 
   /* We get better cse by rejecting indirect addressing at this stage.
      Let the combiner create indirect addresses where appropriate.

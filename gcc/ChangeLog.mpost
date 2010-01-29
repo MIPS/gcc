@@ -29,6 +29,9 @@
 	* opts.c (decode_options): Initialize flag_tree_pre_partial_partial.
 	* tree-ssa-pre.c (execute_pre): Use flag_tree_pre_partial_partial.
 
+	* explow.c (memory_address_addr_space): Call legitimate_address
+	hook also in the cse-driven case.
+
 2010-01-27  Joern Rennecke  <amylaar@spamcop.net>
 
 	PR tree-optimization/39141
