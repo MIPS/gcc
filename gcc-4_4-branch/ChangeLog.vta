@@ -1,0 +1,145 @@
+2009-06-11  Alexandre Oliva  <aoliva@redhat.com>
+
+	* config/bootstrap-debug.mk: Add comments.
+	* config/bootstrap-debug-big.mk: New.
+	* config/bootstrap-debug-lean.mk: New.
+	* config/bootstrap-debug-ckovw.mk: Add comments.
+	* config/bootstrap-debug-lib.mk: Drop CFLAGS for stages.  Use -g0
+	for TFLAGS in stage1.  Drop -fvar-tracking-assignments-toggle.
+	* contrib/compare-debug: Look for .gkd files and compare them.
+	* Makefile.tpl (BUILD_CONFIG): Default to bootstrap-debug.
+	* Makefile.in: Rebuilt.
+
+2009-06-11  Alexandre Oliva  <aoliva@redhat.com>
+
+	* contrib/compare-debug: Use * rather than \? in portable regexp.
+
+2009-05-27  Alexandre Oliva  <aoliva@redhat.com>
+
+	* Makefile.tpl (all): Avoid harmless warning in make all when
+	gcc-bootstrap is enabled but stage_last does not exist.
+	* Makefile.in: Rebuilt.
+
+2009-05-18  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR other/40159
+	* Makefile.tpl (all): Don't assume gcc-bootstrap and
+	gcc-no-bootstrap are mutually exclusive.
+	* Makefile.in: Rebuilt.
+
+2009-05-18  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR other/40159
+	* Makefile.tpl (all): Don't end with unconditional success.
+	* Makefile.in: Rebuilt.
+
+2009-03-01  Alexandre Oliva  <aoliva@redhat.com>
+
+	* libdecnumber/dpd/decimal128.c (decimal128ToNumber): Use memcpy
+	to copy across aliasing-incompatible types.
+
+2008-12-05  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR target/37033
+	* libcpp/pch.c (cpp_valid_state): Improve message for poisoned
+	symbols.  Allow for differences in __GCC_HAVE_DWARF2_CFI_ASM.
+
+2008-10-29  Alexandre Oliva  <aoliva@redhat.com>
+
+	* config/bootstrap-debug-lib.mk (STAGE1_TFLAGS, STAGE3_TFLAGS):
+	Don't use -gtoggle for crtstuff and target libs.
+
+2008-10-10  Alexandre Oliva  <aoliva@redhat.com>
+
+	* config/multi.m4: Save CXX, GFORTRAN and GCJ in config.status.
+	* libjava/configure.ac (libgcjdir): Quoting only for use in sed
+	command.  Quote backslashes too.
+	* libjava/configure: Rebuilt.
+
+2008-10-07  Alexandre Oliva  <aoliva@redhat.com>
+
+	* Makefile.def (flags_to_pass): Remove redundant and incomplete
+	STAGE1_CFLAGS, STAGE2_CFLAGS, STAGE3_CFLAGS, and STAGE4_CFLAGS.
+	Add FLAGS_FOR_TARGET and BUILD_CONFIG.
+	(bootstrap_stage): Remove bootstrap-debug custom stages.  Turn
+	stage_configureflags, stage_cflags and stage_libcflags into
+	explicit Makefile macros.
+	* Makefile.tpl (HOST_EXPORTS, EXTRA_HOST_FLAGS): Pass GCJ and
+	GFORTRAN.
+	(POSTSTAGE1_HOST_EXPORTS): Add XGCC_FLAGS_FOR_TARGET and TFLAGS to
+	CC.  Set CC_FOR_BUILD from CC.
+	(BASE_TARGET_EXPORTS, RAW_CXX_TARGET_EXPORTS,
+	NORMAL_TARGET_EXPORTS): Move SYSROOT_CFLAGS_FOR_TARGET and
+	DEBUG_PREFIX_CFLAGS_FOR_TARGET from CFLAGS and CXXFLAGS to
+	XGCC_FLAGS_FOR_TARGET.  Add it along with TFLAGS to CC, CXX, GCJ,
+	and GFORTRAN.
+	(TFLAGS, STAGE_CFLAGS, STAGE_TFLAGS, STAGE_CONFIGURE_FLAGS): New.
+	(_LIBCFLAGS): Renamed to _TFLAGS.
+	(do-compare-debug, do-compare3-debug): Drop.
+	(CC, GCC_FOR_TARGET, CXX_FOR_TARGET, RAW_CXX_FOR_TARGET,
+	GCJ_FOR_TARGET, GFORTRAN_FOR_TARGET): Remove FLAGS_FOR_TARGET.
+	(FLAGS_FOR_TARGET, SYSROOT_CFLAGS_FOR_TARGET,
+	DEBUG_PREFIX_CFLAGS_FOR_TARGET): Move down.
+	(XGCC_FLAGS_FOR_TARGET): New.
+	(BASE_FLAGS_TO_PASS): Pass STAGEid_CFLAGS, STAGEid_TFLAGS and TFLAGS.
+	(EXTRA_HOST_FLAGS): Pass GCJ and GFORTRAN.
+	(POSTSTAGE1_FLAGS_TO_PASS): Move SYSROOT_CFLAGS_FOR_TARGET and
+	DEBUG_PREFIX_CFLAGS_FOR_TARGET from CFLAGS, CXXFLAGS, LIBCFLAGS,
+	LIBCXXFLAGS to XGCC_FLAGS_FOR_TARGET.    Add it along with TFLAGS
+	to CC, CXX, GCJ, and GFORTRAN.  Pass XGCC_FLAGS_FOR_TARGET and
+	TFLAGS.
+	(BUILD_CONFIG): Include if requested.
+	(all): Set TFLAGS on bootstrap.
+	(configure-stageid-prefixmodule): Pass TFLAGS, adjust FLAGS.
+	(all-stageid-prefixmodule): Likewise.
+	(do-clean, distclean-stageid): Set TFLAGS.
+	(restrap): Fix whitespace.
+	(bootstrap4-debug): Drop.
+	* Makefile.in: Rebuilt.
+	* config/mt-gnu (CXXFLAGS_FOR_TARGET): Adjust.
+	* config/bootstrap-O1.mk: New.
+	* config/bootstrap-O3.mk: New.
+	* config/bootstrap-time.mk: New.
+	* config/bootstrap-debug.mk: New.
+	* config/bootstrap-debug-ckovw.mk: New.
+	* config/bootstrap-debug-lib.mk: New.
+	* libjava/configure.ac: Insert libgcjdir in the GCJ passed in the
+	environment, rather than overriding completely.
+	* libjava/configure: Rebuilt.
+
+2008-08-12  Alexandre Oliva  <aoliva@redhat.com>
+
+	* Makefile.def: Add stage_libcflags to 4g stage.
+	* Makefile.in: Rebuild.
+
+2007-11-12  Alexandre Oliva  <aoliva@redhat.com>
+
+	* Makefile.tpl (bootstrap4-debug-init): New macro.
+	(bootstrap4-debug-lib-gcc-clean): New macro.
+	(cp-lR): New macro.
+	(prepare-bootstrap4-debug-lib): New target.
+	(clean-bootstrap4-debug-lib): New target.
+	(sed-script-prepare-bootstrap4-debug-lib-g0): New macro.
+	(sed-script-prepare-bootstrap4-debug-lib-novta): New macro.
+	(sed-script-prepare-bootstrap4-debug-lib-custom): New macro.
+	(prepare-bootstrap4-debug-lib-g0): New target.
+	(prepare-bootstrap4-debug-lib-novta): New target.
+	(prepare-bootstrap4-debug-lib-custom): New target.
+	* Makefile.in: Rebuilt.
+
+2007-11-12  Alexandre Oliva  <aoliva@redhat.com>
+
+	* Makefile.def: Add stage b4g after b3g2.
+	* Makefile.tpl (do-compare3-debug): Define.
+	* Makefile.in: Rebuilt.
+
+2007-11-12  Alexandre Oliva  <aoliva@redhat.com>
+
+	* Makefile.tpl ([+compare-target+]): Compare all stage
+	directories, rather than just gcc.
+	* Makefile.in: Rebuilt.
+
+Local Variables:
+mode: change-log
+change-log-default-name: "ChangeLog.vta"
+End:
