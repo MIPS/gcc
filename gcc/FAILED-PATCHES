@@ -15,3 +15,6 @@ comparison failures between stage2 and stage3.
  - Continuing execution after hitting a breakpoint / watchpoint leaves the
    compiler taking a different path than uninterrupted execution,
    making it hit an ICE.
+
+The patch for PR38440 / PR31849 conflicts with, and is likely superceded by,
+Bernd Schmidt check-in from 2009-08-09
