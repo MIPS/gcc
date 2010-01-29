@@ -1,3 +1,34 @@
+2010-01-29  Joern Rennecke  <amylaar@spamcop.net>
+
+  PR tree-optimization/38785
+  2009-02-02  J"orn Rennecke  <joern.rennecke@arc.com>
+	* tree-ssa-pre.c (ppre_n_insert_for_speed_p): New function.
+	* (do_partial_partial_insertion): Use it to throttle
+	insert_into_preds_of_block calls.
+	* common.opt (-ftree-pre-partial-partial-obliviously): New option.
+  2009-01-15  Steven Bosscher  <steven@gcc.gnu.org>
+	http://gcc.gnu.org/ml/gcc-patches/2008-12/msg00199.html
+	* opts.c (decode_options): Fix initialization of
+	flag_tree_switch_conversion.
+	* tree-ssa-pre.c: Update outline of the algorithm.
+	(bitmap_set_and): Prototype.
+	(insert_into_preds_of_block): Don't report discovery of partial
+	redundancies here, do so from the callers instead (see below).
+	(do_regular_insertion): Add counter for an estimate for the number
+	of inserts required to eliminate a partial redundancy.  If the
+	current function is optimized for size, only perform the partial
+	redundancy elimination if this requires inserting in only one
+	predecessor.  Report all found partial redundancies from here.
+	(do_partial_partial_insertion): Report them from here too.
+	(insert_aux): Do not insert for partial-partial redundancies when
+	optimizing for size.
+	(do_pre): Run FRE at least, if PRE is disabled.
+	(gate_pre): Return true if flag_tree pre or flag_tree_fre is set.
+  2009-01-15  J"orn Rennecke  <joern.rennecke@arc.com>
+	* common.opt (ftree-pre-partial-partial): New option.
+	* opts.c (decode_options): Initialize flag_tree_pre_partial_partial.
+	* tree-ssa-pre.c (execute_pre): Use flag_tree_pre_partial_partial.
+
 2010-01-27  Joern Rennecke  <amylaar@spamcop.net>
 
 	PR tree-optimization/39141

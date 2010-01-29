@@ -1323,6 +1323,15 @@ ftree-pta
 Common Report Var(flag_tree_pta) Init(1) Optimization
 Perform function-local points-to analysis on trees.
 
+ftree-pre-partial-partial
+Common Report Var(flag_tree_pre_partial_partial) Optimization
+In SSA-PRE optimization on trees, enable partial-partial redundancy elimination.
+
+ftree-pre-partial-partial-obliviously
+Common Report Var(flag_tree_pre_partial_partial_obliviously) Optimization
+In SSA-PRE optimization on trees, enable partial-partial redundancy
+elimination without regard for the cost of the inserted phi nodes.
+
 ftree-reassoc
 Common Report Var(flag_tree_reassoc) Init(1) Optimization
 Enable reassociation on tree level

@@ -1,3 +1,6 @@
+Patches relating to the ARC 32 bit LIMM addresses have been dropped
+untested for lack of a popular test platform.
+
 The patch for PR tree-optimization/39305 triggeres multiple bootstrap
 comparison failures between stage2 and stage3. 
  Case study tree-tailcall.o
@@ -18,3 +21,10 @@ comparison failures between stage2 and stage3.
 
 The patch for PR38440 / PR31849 conflicts with, and is likely superceded by,
 Bernd Schmidt check-in from 2009-08-09
+
+The following piece of the patch for PR tree-optimization/38785 was dropped
+because of a regression in gcc.dg/tree-ssa/ssa-pre-26.c scan-tree-dump pre:
+  2009-01-15  Steven Bosscher  <steven@gcc.gnu.org>
+	* opts.c (decode_options): Don't set optimize_size in block
+	that is conditional on optimize_size (sic).  Explicitly disable
+	PRE when optimizing for size (and add comment for rationale).
