@@ -1,0 +1,17 @@
+The patch for PR tree-optimization/39305 triggeres multiple bootstrap
+comparison failures between stage2 and stage3. 
+ Case study tree-tailcall.o
+ First difference in disassembly is for tree_optimize_tail_calls_1.
+ tree-tailcall.c.014t.inline_param1 is identical between stage2 and 3.
+ The next dump, tree-tailcall.c.021t.cleanup_cfg, shows differences in
+ variable numbers, first function where this is observed: gimple_ops.
+ The next dump, tree-tailcall.c.023t.ssa, shows additional # DEBUG statements for stage3 - from 0 to 230.  First function where this is observed: gimple_seq_last_stmt 
+ tree-tailcall.c.073t.tailr2 shows code differences, first function where this is observed: add_successor_phi_arg.
+ Debugging of the stage2 cc1 (compiling the stage3 tree-tailcall.o) with gdb
+ is impeded by the following factors on i686-pc-linux-gun
+ (Intel Q9550, Fedora12):
+ - Corrupt backtraces
+ - Source line information is unavailable
+ - Continuing execution after hitting a breakpoint / watchpoint leaves the
+   compiler taking a different path than uninterrupted execution,
+   making it hit an ICE.
