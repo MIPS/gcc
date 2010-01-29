@@ -1,6 +1,6 @@
 ;; GCC machine description for cil32.
 ;;
-;;    Copyright (C) 2006, 2009 Free Software Foundation, Inc.
+;;    Copyright (C) 2006, 2009, 2010 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -243,6 +243,13 @@
   ""
   "vec_sub")
 
+(define_insn "mul<mode>3"
+  [(set (match_operand:VECMODES 0 "nonimmediate_operand"  "")
+       (mult:VECMODES
+        (match_operand:VECMODES 1 "general_operand" "")
+        (match_operand:VECMODES 2 "general_operand" "")))]
+  ""
+  "vec_mul")
 
 
 ;; Call insns.

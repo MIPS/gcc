@@ -1,6 +1,6 @@
 /* CIL IR lowering.
 
-   Copyright (C) 2009 Free Software Foundation, Inc.
+   Copyright (C) 2009-2010 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -321,6 +321,50 @@ lower_cil_vector_sub (cil_type_t type)
   return cil_build_call (cil32_builtins[builtin]);
 }
 
+/* Lower a generic CIL vector multiply on the vector type represented by
+   TYPE to a type-specific vector substraction depending on the vector type.
+   Return the replacement statement.  */
+
+static cil_stmt
+lower_cil_vector_mul (cil_type_t type)
+{
+  enum cil32_builtin builtin;
+
+  if (simd_type == GCC_SIMD)
+    switch (type)
+      {
+      case CIL_V2SF: builtin = CIL32_GCC_V2SF_MUL; break;
+      case CIL_V2SI: builtin = CIL32_GCC_V2SI_MUL; break;
+      case CIL_V4HI: builtin = CIL32_GCC_V4HI_MUL; break;
+      case CIL_V8QI: builtin = CIL32_GCC_V8QI_MUL; break;
+
+      case CIL_V2DF: builtin = CIL32_GCC_V2DF_MUL; break;
+      case CIL_V4SF: builtin = CIL32_GCC_V4SF_MUL; break;
+      case CIL_V2DI: builtin = CIL32_GCC_V2DI_MUL; break;
+      case CIL_V4SI: builtin = CIL32_GCC_V4SI_MUL; break;
+      case CIL_V8HI: builtin = CIL32_GCC_V8HI_MUL; break;
+      case CIL_V16QI: builtin = CIL32_GCC_V16QI_MUL; break;
+      default:
+        gcc_unreachable ();
+      }
+  else
+    switch (type)
+      {
+        /* No 8-byte support in Mono.Simd. Error/warning?  */
+
+      case CIL_V2DF: builtin = CIL32_MONO_V2DF_MUL; break;
+      case CIL_V4SF: builtin = CIL32_MONO_V4SF_MUL; break;
+      case CIL_V2DI: builtin = CIL32_MONO_V2DI_MUL; break;
+      case CIL_V4SI: builtin = CIL32_MONO_V4SI_MUL; break;
+      case CIL_V8HI: builtin = CIL32_MONO_V8HI_MUL; break;
+      case CIL_V16QI: builtin = CIL32_MONO_V16QI_MUL; break;
+      default:
+        gcc_unreachable ();
+      }
+
+  return cil_build_call (cil32_builtins[builtin]);
+}
+
 /* Lower a generic CIL vector logical AND on the vector type represented by
    TYPE to a type-specific vector logical AND depending on the vector type.
    Return the replacement statement.  */
@@ -544,6 +588,15 @@ lower_cil (void)
 
 	      if (cil_vector_p (top))
 		csi_replace (&csi, lower_cil_vector_sub (top));
+
+	      break;
+
+	    case CIL_MUL:
+	      top = cil_stack_top (stack);
+	      cil_stack_after_stmt (stack, stmt);
+
+	      if (cil_vector_p (top))
+		csi_replace (&csi, lower_cil_vector_mul (top));
 
 	      break;
 

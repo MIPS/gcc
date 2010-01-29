@@ -1,6 +1,6 @@
 /*
 
-   Copyright (C) 2006-2009 Free Software Foundation, Inc.
+   Copyright (C) 2006-2010 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -251,6 +251,11 @@ DEF_CILBUILTIN(MONO_V2DF_SUB, "[Mono.Simd]Mono.Simd.Vector2d::op_Subtraction", \
 	       2, \
 	       double2_type_node, double2_type_node)
 
+DEF_CILBUILTIN(MONO_V2DF_MUL, "[Mono.Simd]Mono.Simd.Vector2d::op_Multiply", \
+	       double2_type_node, \
+	       2, \
+	       double2_type_node, double2_type_node)
+
 /* V4SF */
 DEF_CILBUILTIN(MONO_V4SF_CTOR, "[Mono.Simd]Mono.Simd.Vector4f::.ctor",
 	       float4_type_node,		\
@@ -284,6 +289,11 @@ DEF_CILBUILTIN(MONO_V4SF_SUB, "[Mono.Simd]Mono.Simd.Vector4f::op_Subtraction", \
 	       2, \
 	       float4_type_node, float4_type_node)
 
+DEF_CILBUILTIN(MONO_V4SF_MUL, "[Mono.Simd]Mono.Simd.Vector4f::op_Multiply", \
+	       float4_type_node, \
+	       2, \
+	       float4_type_node, float4_type_node)
+
 /* V2DI */
 DEF_CILBUILTIN(MONO_V2DI_CTOR, "[Mono.Simd]Mono.Simd.Vector2l::.ctor", \
 	       intDI2_type_node, \
@@ -312,6 +322,11 @@ DEF_CILBUILTIN(MONO_V2DI_ADD, "[Mono.Simd]Mono.Simd.Vector2l::op_Addition", \
 	       intDI2_type_node, intDI2_type_node)
 
 DEF_CILBUILTIN(MONO_V2DI_SUB, "[Mono.Simd]Mono.Simd.Vector2l::op_Subtraction", \
+	       intDI2_type_node, \
+	       2, \
+	       intDI2_type_node, intDI2_type_node)
+
+DEF_CILBUILTIN(MONO_V2DI_MUL, "[Mono.Simd]Mono.Simd.Vector2l::op_Multiply", \
 	       intDI2_type_node, \
 	       2, \
 	       intDI2_type_node, intDI2_type_node)
@@ -364,6 +379,11 @@ DEF_CILBUILTIN(MONO_V4SI_SUB, "[Mono.Simd]Mono.Simd.Vector4i::op_Subtraction", \
 	       2, \
 	       intSI4_type_node, intSI4_type_node)
 
+DEF_CILBUILTIN(MONO_V4SI_MUL, "[Mono.Simd]Mono.Simd.Vector4i::op_Multiply", \
+	       intSI4_type_node, \
+	       2, \
+	       intSI4_type_node, intSI4_type_node)
+
 DEF_CILBUILTIN(MONO_V4SI_AND, "[Mono.Simd]Mono.Simd.Vector4i::op_BitwiseAnd", \
 	       intSI4_type_node, \
 	       2, \
@@ -410,6 +430,11 @@ DEF_CILBUILTIN(MONO_V8HI_ADD, "[Mono.Simd]Mono.Simd.Vector8hs::op_Addition", \
 	       intHI8_type_node, intHI8_type_node)
 
 DEF_CILBUILTIN(MONO_V8HI_SUB, "[Mono.Simd]Mono.Simd.Vector8hs::op_Subtraction",\
+	       intHI8_type_node, \
+	       2, \
+	       intHI8_type_node, intHI8_type_node)
+
+DEF_CILBUILTIN(MONO_V8HI_MUL, "[Mono.Simd]Mono.Simd.Vector8hs::op_Multiply",\
 	       intHI8_type_node, \
 	       2, \
 	       intHI8_type_node, intHI8_type_node)
@@ -468,6 +493,11 @@ DEF_CILBUILTIN(MONO_V16QI_SUB, "[Mono.Simd]Mono.Simd.Vector16sb::op_Subtraction"
 	       2, \
 	       intQI16_type_node, intQI16_type_node)
 
+DEF_CILBUILTIN(MONO_V16QI_MUL, "[Mono.Simd]Mono.Simd.Vector16sb::op_Multiply",\
+	       intQI16_type_node, \
+	       2, \
+	       intQI16_type_node, intQI16_type_node)
+
 DEF_CILBUILTIN(MONO_V16QI_AND, "[Mono.Simd]Mono.Simd.Vector16sb::op_BitwiseAnd",\
 	       intQI16_type_node, \
 	       2, \
@@ -504,6 +534,11 @@ DEF_CILBUILTIN(GCC_V2SF_SUB, "[gcc4net]gcc4net.V2SF::'sub'", \
 	       2, \
 	       float2_type_node, float2_type_node)
 
+DEF_CILBUILTIN(GCC_V2SF_MUL, "[gcc4net]gcc4net.V2SF::'mul'", \
+	       float2_type_node, \
+	       2, \
+	       float2_type_node, float2_type_node)
+
 /* V2SI */
 DEF_CILBUILTIN(GCC_V2SI_CTOR, "[gcc4net]gcc4net.V2SI::V2SI_ctor1", \
 	       intSI2_type_node, \
@@ -520,6 +555,11 @@ DEF_CILBUILTIN(GCC_V2SI_ADD, "[gcc4net]gcc4net.V2SI::'add'", \
 	       intSI2_type_node, intSI2_type_node)
 
 DEF_CILBUILTIN(GCC_V2SI_SUB, "[gcc4net]gcc4net.V2SI::'sub'", \
+	       intSI2_type_node, \
+	       2, \
+	       intSI2_type_node, intSI2_type_node)
+
+DEF_CILBUILTIN(GCC_V2SI_MUL, "[gcc4net]gcc4net.V2SI::'mul'", \
 	       intSI2_type_node, \
 	       2, \
 	       intSI2_type_node, intSI2_type_node)
@@ -556,6 +596,11 @@ DEF_CILBUILTIN(GCC_V4HI_ADD, "[gcc4net]gcc4net.V4HI::'add'", \
 	       intHI4_type_node, intHI4_type_node)
 
 DEF_CILBUILTIN(GCC_V4HI_SUB, "[gcc4net]gcc4net.V4HI::'sub'", \
+	       intHI4_type_node, \
+	       2, \
+	       intHI4_type_node, intHI4_type_node)
+
+DEF_CILBUILTIN(GCC_V4HI_MUL, "[gcc4net]gcc4net.V4HI::'mul'", \
 	       intHI4_type_node, \
 	       2, \
 	       intHI4_type_node, intHI4_type_node)
@@ -598,6 +643,11 @@ DEF_CILBUILTIN(GCC_V8QI_SUB, "[gcc4net]gcc4net.V8QI::'sub'", \
 	       2, \
 	       intQI8_type_node, intQI8_type_node)
 
+DEF_CILBUILTIN(GCC_V8QI_MUL, "[gcc4net]gcc4net.V8QI::'mul'", \
+	       intQI8_type_node, \
+	       2, \
+	       intQI8_type_node, intQI8_type_node)
+
 DEF_CILBUILTIN(GCC_V8QI_AND, "[gcc4net]gcc4net.V8QI::'and'", \
 	       intQI8_type_node, \
 	       2, \
@@ -633,6 +683,11 @@ DEF_CILBUILTIN(GCC_V2DF_SUB, "[gcc4net]gcc4net.V2DF::'sub'", \
 	       2, \
 	       double2_type_node, double2_type_node)
 
+DEF_CILBUILTIN(GCC_V2DF_MUL, "[gcc4net]gcc4net.V2DF::'mul'", \
+	       double2_type_node, \
+	       2, \
+	       double2_type_node, double2_type_node)
+
 /* V4SF */
 DEF_CILBUILTIN(GCC_V4SF_CTOR, "[gcc4net]gcc4net.V4SF::V4SF_ctor1",
 	       float4_type_node,		\
@@ -654,6 +709,11 @@ DEF_CILBUILTIN(GCC_V4SF_SUB, "[gcc4net]gcc4net.V4SF::'sub'", \
 	       2, \
 	       float4_type_node, float4_type_node)
 
+DEF_CILBUILTIN(GCC_V4SF_MUL, "[gcc4net]gcc4net.V4SF::'mul'", \
+	       float4_type_node, \
+	       2, \
+	       float4_type_node, float4_type_node)
+
 /* V2DI */
 DEF_CILBUILTIN(GCC_V2DI_CTOR, "[gcc4net]gcc4net.V2DI::V2DI_ctor1", \
 	       intDI2_type_node, \
@@ -670,6 +730,11 @@ DEF_CILBUILTIN(GCC_V2DI_ADD, "[gcc4net]gcc4net.V2DI::'add'", \
 	       intDI2_type_node, intDI2_type_node)
 
 DEF_CILBUILTIN(GCC_V2DI_SUB, "[gcc4net]gcc4net.V2DI::'sub'", \
+	       intDI2_type_node, \
+	       2, \
+	       intDI2_type_node, intDI2_type_node)
+
+DEF_CILBUILTIN(GCC_V2DI_MUL, "[gcc4net]gcc4net.V2DI::'mul'", \
 	       intDI2_type_node, \
 	       2, \
 	       intDI2_type_node, intDI2_type_node)
@@ -706,6 +771,11 @@ DEF_CILBUILTIN(GCC_V4SI_ADD, "[gcc4net]gcc4net.V4SI::'add'", \
 	       intSI4_type_node, intSI4_type_node)
 
 DEF_CILBUILTIN(GCC_V4SI_SUB, "[gcc4net]gcc4net.V4SI::'sub'", \
+	       intSI4_type_node, \
+	       2, \
+	       intSI4_type_node, intSI4_type_node)
+
+DEF_CILBUILTIN(GCC_V4SI_MUL, "[gcc4net]gcc4net.V4SI::'mul'", \
 	       intSI4_type_node, \
 	       2, \
 	       intSI4_type_node, intSI4_type_node)
@@ -752,6 +822,11 @@ DEF_CILBUILTIN(GCC_V8HI_SUB, "[gcc4net]gcc4net.V8HI::'sub'", \
 	       2, \
 	       intHI8_type_node, intHI8_type_node)
 
+DEF_CILBUILTIN(GCC_V8HI_MUL, "[gcc4net]gcc4net.V8HI::'mul'", \
+	       intHI8_type_node, \
+	       2, \
+	       intHI8_type_node, intHI8_type_node)
+
 DEF_CILBUILTIN(GCC_V8HI_AND, "[gcc4net]gcc4net.V8HI::'and'", \
 	       intHI8_type_node, \
 	       2, \
@@ -790,6 +865,11 @@ DEF_CILBUILTIN(GCC_V16QI_ADD, "[gcc4net]gcc4net.V16QI::'add'", \
 	       intQI16_type_node, intQI16_type_node)
 
 DEF_CILBUILTIN(GCC_V16QI_SUB, "[gcc4net]gcc4net.V16QI::'sub'", \
+	       intQI16_type_node, \
+	       2, \
+	       intQI16_type_node, intQI16_type_node)
+
+DEF_CILBUILTIN(GCC_V16QI_MUL, "[gcc4net]gcc4net.V16QI::'mul'", \
 	       intQI16_type_node, \
 	       2, \
 	       intQI16_type_node, intQI16_type_node)

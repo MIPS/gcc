@@ -1,3 +1,11 @@
+2010-01-29  Erven Rohou <erven.rohou@inria.fr>
+
+	Add support for vector multiply
+	* config/cil32/cil-builtins.def: Add builtins for vector multiply.
+	* config/cil32/cil32.md: Add vector multiply insn.
+	* config/cil32/cil-lower.c (lower_cil_vector_mul): Lower vector multiply.
+	* libgcc4net/vector.cs: Implement to semantics of the vector mul.
+	
 2009-03-27  Xinliang David Li  <davidxl@google.com>
 
 	PR tree-optimization/39557
