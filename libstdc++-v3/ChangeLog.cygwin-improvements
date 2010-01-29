@@ -1,5 +1,40 @@
 libstdc++-v3/ChangeLog.cygwin-improvements:
 
+2010-01-29  Dave Korn  <dave.korn.cygwin@gmail.com>
+
+  Synchronize libstdc-as-dll changes to mainline version, preparatory to
+  adopting new "apply dllimport attribute to namespace" approach.
+
+	* libstdc++-v3/src/Makefile.in: Synch to mainline.
+	* libstdc++-v3/src/Makefile.am: Likewise.
+	* libstdc++-v3/include/std/iostream: Likewise.
+	* libstdc++-v3/include/std/stdexcept: Likewise.
+	* libstdc++-v3/include/ext/concurrence.h: Likewise.
+	* libstdc++-v3/include/bits/locale_classes.tcc: Likewise.
+	* libstdc++-v3/include/bits/locale_facets.tcc: Likewise.
+	* libstdc++-v3/include/bits/locale_classes.h: Likewise.
+	* libstdc++-v3/include/bits/locale_facets.h: Likewise.
+	* libstdc++-v3/include/bits/basic_ios.tcc: Likewise.
+	* libstdc++-v3/include/bits/ios_base.h: Likewise.
+	* libstdc++-v3/include/bits/istream.tcc: Likewise.
+	* libstdc++-v3/include/bits/codecvt.h: Likewise.
+	* libstdc++-v3/include/bits/ostream.tcc: Likewise.
+	* libstdc++-v3/include/bits/sstream.tcc: Likewise.
+	* libstdc++-v3/include/bits/c++config: Likewise.
+	* libstdc++-v3/include/bits/basic_string.tcc: Likewise.
+	* libstdc++-v3/include/bits/locale_facets_nonio.tcc: Likewise.
+	* libstdc++-v3/include/bits/streambuf.tcc: Likewise.
+	* libstdc++-v3/include/bits/fstream.tcc: Likewise.
+	* libstdc++-v3/include/backward/strstream: Likewise.
+	* libstdc++-v3/libsupc++/typeinfo: Likewise.
+	* libstdc++-v3/libsupc++/exception: Likewise.
+	* libstdc++-v3/libsupc++/new: Likewise.
+	* libstdc++-v3/testsuite/lib/libstdc++.exp: Likewise.
+	* libstdc++-v3/config/os/newlib/os_defines.h: Likewise.
+	* libstdc++-v3/config/os/mingw32/os_defines.h: Likewise.
+
+	* libstdc++-v3/include/profile/hashtable.h: Delete.
+
 2009-09-16  Dave Korn  <dave.korn.cygwin@gmail.com>
             Danny Smith  <dansmister@gmail.com>
             Aaron W. LaFramboise  <aaronavay62@aaronwl.com>

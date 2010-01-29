@@ -207,8 +207,7 @@ libstdc___la_DEPENDENCIES = \
 	$(top_builddir)/libsupc++/libsupc++convenience.la
 
 libstdc___la_LDFLAGS = \
-	-version-info $(libtool_VERSION) ${version_arg} -lm \
-	-no-undefined -bindir $(bindir)
+	-version-info $(libtool_VERSION) ${version_arg} -lm 
 
 libstdc___la_LINK = $(CXXLINK) $(libstdc___la_LDFLAGS)
 

@@ -60,7 +60,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 
   // NB: As this is used in libsupc++, need to only depend on
   // exception. No stdexception classes, no use of std::string.
-  class _GLIBCXX_IMPORT __concurrence_lock_error : public std::exception
+  class __concurrence_lock_error : public std::exception
   {
   public:
     virtual char const*
@@ -68,7 +68,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
     { return "__gnu_cxx::__concurrence_lock_error"; }
   };
 
-  class _GLIBCXX_IMPORT __concurrence_unlock_error : public std::exception
+  class __concurrence_unlock_error : public std::exception
   {
   public:
     virtual char const*
