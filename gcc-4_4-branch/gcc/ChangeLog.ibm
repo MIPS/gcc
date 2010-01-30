@@ -1,0 +1,60 @@
+2009-11-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/linux64.h (LINK_OS_LINUX_SPEC): Remove
+	--hash-style=gnu.
+	* config/rs6000/sysv4.h (LINK_OS_LINUX_SPEC): Ditto.
+
+	PR target/41787
+	* config/rs6000/rs6000.c (struct machine_function): Revert
+	2009-10-23 change to set VRSAVE to non-0 if we use VSX.
+	(rs6000_expand_to_rtl_hook): Ditto.
+	(rs6000_check_vector_mode): Ditto.
+	(compute_vrsave_mask): Ditto.
+
+	Backport from mainline
+	2009-04-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR driver/39293
+	* gcc.c (save_temps_flag): Add support for -save-temps=obj.
+	(cpp_options): Ditto.
+	(default_compilers): Ditto.
+	(display_help): Ditto.
+	(process_command): Ditto.
+	(do_spec_1): Ditto.
+	(set_input): Use lbasename instead of duplicate code.
+	(save_temps_prefix): New static for -save-temps=obj.
+	(save_temps_length): Ditto.
+
+	* doc/invoke.texi (-save-temps=obj): Document new variant to
+	-save-temps switch.
+
+2009-11-17  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* DEV-PHASE: Set to IBM Advanced-Toolchain, prerelease.
+	* REVISION: Set to [merged from redhat/gcc-4_4-branch, 154266].
+
+	clone from branches/redhat/gcc-4_4-branch, subversion id 154266.
+
+2009-10-12  Ben Elliston  <bje@au.ibm.com>
+
+	Backport from mainline
+	2009-10-07  Ben Elliston  <bje@au.ibm.com>
+
+	* config.gcc (powerpc*-*-*): Handle a2.
+	* config/rs6000/rs6000.md (cpu): Add ppca2.  Include "a2.md".
+	* config/rs6000/a2.md: New file.
+	* config/rs6000/rs6000.h (ASM_CPU_SPEC): Add support for a2.
+	(enum processor_type): Add PROCESSOR_PPCA2.
+	* config/rs6000/rs6000.c (ppca2_cost): New costs.
+	(rs6000_override_options): Add "a2" to processor_target_table.
+	Update rs6000_always_hint logic.  Correctly set rs6000_cost for
+	a2.
+	* config/rs6000/rs6000.opt (-mno-update, -mupdate): Make NO_UPDATE
+	a mask option.
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Document
+	-mcpu=a2.
+
+2009-06-02  Luis Machado  <luisgpm@br.ibm.com>
+
+	* alias.c (find_base_term): Check for NULL term before returning.
+
