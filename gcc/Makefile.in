@@ -214,11 +214,13 @@ ENABLE_BUILD_WITH_CXX = @ENABLE_BUILD_WITH_CXX@
 ifneq ($(ENABLE_BUILD_WITH_CXX),yes)
 COMPILER = $(CC)
 COMPILER_FLAGS = $(CFLAGS)
+HOST_PLUGIN_CC ="$(CC) $(CFLAGS)"
 LINKER = $(CC)
 LINKER_FLAGS = $(CFLAGS)
 else
 COMPILER = $(CXX)
 COMPILER_FLAGS = $(CXXFLAGS)
+HOST_PLUGIN_CC ="$(CXX) $(CXXFLAGS)"
 # If HOST_LIBS is set, then the user is controlling the libraries to
 # link against.  In that case, link with $(CC) so that the -lstdc++
 # library is not introduced.  If HOST_LIBS is not set, link with
@@ -4589,6 +4591,7 @@ site.exp: ./config.status Makefile
 	@echo "set CXXFLAGS \"\"" >> ./tmp0
 	@echo "set HOSTCC \"$(CC)\"" >> ./tmp0
 	@echo "set HOSTCFLAGS \"$(CFLAGS)\"" >> ./tmp0
+	@echo "set HOST_PLUGIN_CC \"$(HOST_PLUGIN_CC)\"" >> ./tmp0
 # When running the tests we set GCC_EXEC_PREFIX to the install tree so that
 # files that have already been installed there will be found.  The -B option
 # overrides it, so use of GCC_EXEC_PREFIX will not result in using GCC files
