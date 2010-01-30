@@ -101,7 +101,7 @@ extern int writeargv PARAMS ((char **, FILE *));
    declaration without arguments.  If it is 0, we checked and failed
    to find the declaration so provide a fully prototyped one.  If it
    is 1, we found it so don't provide any declaration at all.  */
-#if !HAVE_DECL_BASENAME
+#if defined(_GNU_SOURCE) ? HAVE_GNU_SOURCE_DECL_BASENAME : !HAVE_DECL_BASENAME
 #if defined (__GNU_LIBRARY__ ) || defined (__linux__) || defined (__FreeBSD__) || defined (__OpenBSD__) || defined(__NetBSD__) || defined (__CYGWIN__) || defined (__CYGWIN32__) || defined (__MINGW32__) || defined (HAVE_DECL_BASENAME)
 extern char *basename (const char *);
 #else
