@@ -39,6 +39,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "df.h"
 #include "splay-tree.h"
 #include "ira-int.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 /* This file contains code for regional graph coloring, spill/restore
    code placement optimization, and code helping the reload pass to do
@@ -3338,3 +3341,5 @@ ira_color (void)
   else
     fast_allocation ();
 }
+
+END_TARGET_SPECIFIC

@@ -44,6 +44,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "except.h"
 #include "dbgcnt.h"
 #include "tree-flow.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 /* Like PREFERRED_STACK_BOUNDARY but in units of bytes, not bits.  */
 #define STACK_BYTES (PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT)
@@ -452,6 +455,8 @@ emit_call_1 (rtx funexp, tree fntree ATTRIBUTE_UNUSED, tree fndecl ATTRIBUTE_UNU
     anti_adjust_stack (GEN_INT (n_popped));
 }
 
+#ifndef EXTRA_TARGET
+
 /* Determine if the function identified by NAME and FNDECL is one with
    special properties we wish to know about.
 
@@ -642,6 +647,8 @@ call_expr_flags (const_tree t)
 
   return flags;
 }
+
+#endif /* !EXTRA_TARGET */
 
 /* Precompute all register parameters as described by ARGS, storing values
    into fields within the ARGS array.
@@ -4391,3 +4398,5 @@ must_pass_in_stack_var_size_or_pad (enum machine_mode mode, const_tree type)
 
   return false;
 }
+
+END_TARGET_SPECIFIC

@@ -25,6 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "hashtab.h"
 #include "vecprim.h"
+#include "multi-target.h"
 
 /* Stack of pending (incomplete) sequences saved by `start_sequence'.
    Each element describes one pending sequence.
@@ -84,13 +85,14 @@ struct GTY(()) emit_status {
   unsigned char * GTY((skip)) regno_pointer_align;
 };
 
-
+START_TARGET_SPECIFIC
 /* Indexed by pseudo register number, gives the rtx for that pseudo.
    Allocated in parallel with regno_pointer_align.
    FIXME: We could put it into emit_status struct, but gengtype is not able to deal
    with length attribute nested in top level structures.  */
 
 extern GTY ((length ("crtl->emit.x_reg_rtx_no"))) rtx * regno_reg_rtx;
+END_TARGET_SPECIFIC
 
 /* For backward compatibility... eventually these should all go away.  */
 #define reg_rtx_no (crtl->emit.x_reg_rtx_no)
@@ -196,6 +198,7 @@ struct GTY(()) varasm_status {
   unsigned int deferred_constants;
 };
 
+START_TARGET_SPECIFIC
 /* Information mainlined about RTL representation of incoming arguments.  */
 struct GTY(()) incoming_args {
   /* Number of bytes of args popped by function being compiled on its return.
@@ -224,6 +227,7 @@ struct GTY(()) incoming_args {
   /* The arg pointer hard register, or the pseudo into which it was copied.  */
   rtx internal_arg_pointer;
 };
+END_TARGET_SPECIFIC
 
 /* Data for function partitioning.  */
 struct GTY(()) function_subsections {
@@ -242,6 +246,9 @@ struct GTY(()) function_subsections {
   const char *unlikely_text_section_name;
 };
 
+struct initial_value_struct;
+
+START_TARGET_SPECIFIC
 /* Datastructures maintained for currently processed function in RTL form.  */
 struct GTY(()) rtl_data {
   struct expr_status expr;
@@ -434,6 +441,7 @@ struct GTY(()) rtl_data {
      function where currently compiled version of it is nothrow.  */
   bool nothrow;
 };
+END_TARGET_SPECIFIC
 
 #define return_label (crtl->x_return_label)
 #define naked_return_label (crtl->x_naked_return_label)
@@ -450,12 +458,14 @@ struct GTY(()) rtl_data {
 #define stack_realign_fp (crtl->stack_realign_needed && !crtl->need_drap)
 #define stack_realign_drap (crtl->stack_realign_needed && crtl->need_drap)
 
+START_TARGET_SPECIFIC
 extern GTY(()) struct rtl_data x_rtl;
 
 /* Accessor to RTL datastructures.  We keep them statically allocated now since
    we never keep multiple functions.  For threaded compiler we might however
    want to do differently.  */
 #define crtl (&x_rtl)
+END_TARGET_SPECIFIC
 
 /* This structure can save all the important global and static variables
    describing the status of the current function.  */
@@ -596,6 +606,9 @@ struct GTY(()) function {
      adjusts one of its arguments and forwards to another
      function.  */
   unsigned int is_thunk : 1;
+
+  /* Target architecture to compile this function for.  */
+  unsigned int target_arch : 8;
 };
 
 /* If va_list_[gf]pr_size is set to this, it means we don't know how
@@ -611,6 +624,7 @@ extern GTY(()) struct function *cfun;
    push_cfun or set_cfun.  */
 #define cfun (cfun + 0)
 
+START_TARGET_SPECIFIC
 /* Nonzero if we've already converted virtual regs to hard regs.  */
 extern int virtuals_instantiated;
 
@@ -703,4 +717,5 @@ extern bool reference_callee_copied (CUMULATIVE_ARGS *, enum machine_mode,
 extern void used_types_insert (tree);
 
 extern int get_next_funcdef_no (void);
+END_TARGET_SPECIFIC
 #endif  /* GCC_FUNCTION_H */

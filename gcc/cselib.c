@@ -43,6 +43,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "alloc-pool.h"
 #include "target.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 static bool cselib_record_memory;
 static int entry_and_rtx_equal_p (const void *, const void *);
@@ -2167,3 +2170,5 @@ dump_cselib_table (FILE *out)
 }
 
 #include "gt-cselib.h"
+
+END_TARGET_SPECIFIC

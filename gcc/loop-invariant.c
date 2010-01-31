@@ -56,6 +56,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "regs.h"
 #include "ira.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 /* The data stored for the loop.  */
 
@@ -1920,3 +1923,5 @@ move_loop_invariants (void)
   verify_flow_info ();
 #endif
 }
+
+END_TARGET_SPECIFIC

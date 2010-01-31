@@ -61,8 +61,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "reload.h"
 #include "timevar.h"
 #include "tree-pass.h"
+#include "multi-target.h"
 
 
+START_TARGET_SPECIFIC
+
 /* Turn STACK_GROWS_DOWNWARD into a boolean.  */
 #ifdef STACK_GROWS_DOWNWARD
 #undef STACK_GROWS_DOWNWARD
@@ -589,3 +592,5 @@ struct rtl_opt_pass pass_stack_adjustments =
   TODO_ggc_collect,                     /* todo_flags_finish */
  }
 };
+
+END_TARGET_SPECIFIC

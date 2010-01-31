@@ -36,6 +36,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "toplev.h"
 #include "timevar.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 static void make_edges (basic_block, basic_block, int);
 static void make_label_edge (sbitmap, basic_block, rtx, int);
@@ -620,3 +623,5 @@ find_many_sub_basic_blocks (sbitmap blocks)
   FOR_EACH_BB (bb)
     SET_STATE (bb, 0);
 }
+
+END_TARGET_SPECIFIC

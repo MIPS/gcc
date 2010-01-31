@@ -50,7 +50,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "function.h"
 #include "timevar.h"
 #include "tree-pass.h"
+#include "multi-target.h"
 
+START_TARGET_SPECIFIC
 
 /* Find the root of unionfind tree (the representative of set).  */
 
@@ -401,3 +403,4 @@ struct rtl_opt_pass pass_web =
  }
 };
 
+END_TARGET_SPECIFIC

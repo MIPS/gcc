@@ -18,16 +18,21 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
+#include "multi-target.h"
+
+extern rtx default_legitimize_address (rtx, rtx, enum machine_mode);
+START_TARGET_SPECIFIC
 extern bool default_legitimate_address_p (enum machine_mode, rtx, bool);
 
 extern void default_external_libcall (rtx);
-extern rtx default_legitimize_address (rtx, rtx, enum machine_mode);
 
 extern int default_unspec_may_trap_p (const_rtx, unsigned);
+
 extern enum machine_mode default_promote_function_mode (const_tree, enum machine_mode,
 							int *, const_tree, int);
 extern enum machine_mode default_promote_function_mode_always_promote
 			(const_tree, enum machine_mode, int *, const_tree, int);
+END_TARGET_SPECIFIC
 
 extern enum machine_mode default_cc_modes_compatible (enum machine_mode,
 						      enum machine_mode);
@@ -35,38 +40,50 @@ extern enum machine_mode default_cc_modes_compatible (enum machine_mode,
 extern bool default_return_in_memory (const_tree, const_tree);
 
 extern rtx default_expand_builtin_saveregs (void);
+START_TARGET_SPECIFIC
 extern void default_setup_incoming_varargs (CUMULATIVE_ARGS *, enum machine_mode, tree, int *, int);
+END_TARGET_SPECIFIC
 extern rtx default_builtin_setjmp_frame_value (void);
+START_TARGET_SPECIFIC
 extern bool default_pretend_outgoing_varargs_named (CUMULATIVE_ARGS *);
+END_TARGET_SPECIFIC
 
 extern enum machine_mode default_eh_return_filter_mode (void);
+START_TARGET_SPECIFIC
 extern enum machine_mode default_libgcc_cmp_return_mode (void);
 extern enum machine_mode default_libgcc_shift_count_mode (void);
 extern enum machine_mode default_unwind_word_mode (void);
 extern unsigned HOST_WIDE_INT default_shift_truncation_mask
   (enum machine_mode);
 extern unsigned int default_min_divisions_for_recip_mul (enum machine_mode);
+END_TARGET_SPECIFIC
 extern int default_mode_rep_extended (enum machine_mode, enum machine_mode);
 
 extern tree default_stack_protect_guard (void);
 extern tree default_external_stack_protect_fail (void);
+START_TARGET_SPECIFIC
 extern tree default_hidden_stack_protect_fail (void);
+END_TARGET_SPECIFIC
 
 extern enum machine_mode default_mode_for_suffix (char);
 
 extern tree default_cxx_guard_type (void);
+START_TARGET_SPECIFIC
 extern tree default_cxx_get_cookie_size (tree);
 
 extern bool hook_pass_by_reference_must_pass_in_stack
   (CUMULATIVE_ARGS *, enum machine_mode mode, const_tree, bool);
 extern bool hook_callee_copies_named
   (CUMULATIVE_ARGS *ca, enum machine_mode, const_tree, bool);
+END_TARGET_SPECIFIC
 
 extern void default_unwind_emit (FILE *, rtx);
 
+START_TARGET_SPECIFIC
 extern bool default_scalar_mode_supported_p (enum machine_mode);
 extern bool default_decimal_float_supported_p (void);
 extern bool default_fixed_point_supported_p (void);
+END_TARGET_SPECIFIC
 
 extern const char * default_invalid_within_doloop (const_rtx);
 
@@ -85,6 +102,7 @@ default_builtin_support_vector_misalignment (enum machine_mode mode,
 /* These are here, and not in hooks.[ch], because not all users of
    hooks.h include tm.h, and thus we don't have CUMULATIVE_ARGS.  */
 
+START_TARGET_SPECIFIC
 extern bool hook_bool_CUMULATIVE_ARGS_false (CUMULATIVE_ARGS *);
 extern bool hook_bool_CUMULATIVE_ARGS_true (CUMULATIVE_ARGS *);
 
@@ -97,18 +115,22 @@ extern int hook_int_CUMULATIVE_ARGS_mode_tree_bool_0
 extern const char *hook_invalid_arg_for_unprototyped_fn
   (const_tree, const_tree, const_tree);
 extern bool hook_bool_const_rtx_commutative_p (const_rtx, int);
+extern void default_trampoline_init (rtx, tree, rtx);
+START_TARGET_SPECIFIC
 extern rtx default_function_value (const_tree, const_tree, bool);
 extern rtx default_libcall_value (enum machine_mode, const_rtx);
 extern rtx default_internal_arg_pointer (void);
 extern rtx default_static_chain (const_tree, bool);
-extern void default_trampoline_init (rtx, tree, rtx);
-extern enum reg_class default_branch_target_register_class (void);
+extern int /*enum reg_class*/ default_branch_target_register_class (void);
 #ifdef IRA_COVER_CLASSES
-extern const enum reg_class *default_ira_cover_classes (void);
+extern const int /*enum reg_class*/ *default_ira_cover_classes (void);
 #endif
-extern enum reg_class default_secondary_reload (bool, rtx, enum reg_class,
+extern int /*enum reg_class*/ default_secondary_reload (bool, rtx,
+							int */enum reg_class*/,
 						enum machine_mode,
 						secondary_reload_info *);
+extern bool default_override_options (bool);
+END_TARGET_SPECIFIC
 extern void hook_void_bitmap (bitmap);
 extern bool default_handle_c_option (size_t, const char *, int);
 extern int default_reloc_rw_mask (void);

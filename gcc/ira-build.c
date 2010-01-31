@@ -39,6 +39,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "reload.h"
 #include "sparseset.h"
 #include "ira-int.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 static ira_copy_t find_allocno_copy (ira_allocno_t, ira_allocno_t, rtx,
 				     ira_loop_tree_node_t);
@@ -2851,3 +2854,5 @@ ira_destroy (void)
   finish_cost_vectors ();
   ira_finish_allocno_live_ranges ();
 }
+
+END_TARGET_SPECIFIC

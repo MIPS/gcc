@@ -41,6 +41,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-inline.h"
 #include "tree-dump.h"
 #include "gimple.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 /* Data type for the expressions representing sizes of data types.
    It is the first integer type laid out.  */
@@ -2522,3 +2525,5 @@ get_mode_bounds (enum machine_mode mode, int sign,
 }
 
 #include "gt-stor-layout.h"
+
+END_TARGET_SPECIFIC

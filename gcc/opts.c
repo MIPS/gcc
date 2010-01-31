@@ -45,6 +45,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "plugin.h"
 #include "except.h"
 #include "lto-streamer.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
+#ifndef EXTRA_TARGET
 
 /* Value of the -G xx switch, and whether it was passed or not.  */
 unsigned HOST_WIDE_INT g_switch_value;
@@ -767,22 +771,30 @@ handle_options (unsigned int argc, const char **argv, unsigned int lang_mask)
     }
 }
 
+EXTRA_TARGETS_DECL (void decode_options (unsigned int argc, const char **argv));
+#endif /* !EXTRA_TARGET */
 /* Parse command line options and set default flag values.  Do minimal
    options processing.  */
 void
-decode_options (unsigned int argc, const char **argv)
+decode_options (unsigned int argc ATTRIBUTE_UNUSED,
+		const char **argv ATTRIBUTE_UNUSED)
 {
   static bool first_time_p = true;
+#ifndef EXTRA_TARGET
   static int initial_min_crossjump_insns;
   static int initial_max_fields_for_field_sensitive;
   static int initial_loop_invariant_max_bbs_in_loop;
   static unsigned int initial_lang_mask;
 
   unsigned int i, lang_mask;
+#endif /* !EXTRA_TARGET */
   int opt1;
   int opt2;
+#ifndef EXTRA_TARGET
   int opt3;
+#endif /* !EXTRA_TARGET */
   int opt1_max;
+#ifndef EXTRA_TARGET
 
   if (first_time_p)
     {
@@ -837,9 +849,10 @@ decode_options (unsigned int argc, const char **argv)
 	}
     }
 
+#endif /* !EXTRA_TARGET */
   /* Use priority coloring if cover classes is not defined for the
      target.  */
-  if (targetm.ira_cover_classes == NULL)
+  if (this_targetm.ira_cover_classes == NULL)
     flag_ira_algorithm = IRA_ALGORITHM_PRIORITY;
 
   /* -O1 optimizations.  */
@@ -851,11 +864,14 @@ decode_options (unsigned int argc, const char **argv)
 #ifdef CAN_DEBUG_WITHOUT_FP
   flag_omit_frame_pointer = opt1;
 #endif
+#ifndef EXTRA_TARGET
   flag_guess_branch_prob = opt1;
   flag_cprop_registers = opt1;
   flag_forward_propagate = opt1;
+#endif /* !EXTRA_TARGET */
   flag_if_conversion = opt1;
   flag_if_conversion2 = opt1;
+#ifndef EXTRA_TARGET
   flag_ipa_pure_const = opt1;
   flag_ipa_reference = opt1;
   flag_merge_constants = opt1;
@@ -871,17 +887,22 @@ decode_options (unsigned int argc, const char **argv)
   flag_tree_copy_prop = opt1;
   flag_tree_sink = opt1;
   flag_tree_ch = opt1;
+#endif /* !EXTRA_TARGET
 
   /* -O2 optimizations.  */
   opt2 = (optimize >= 2);
+#ifndef EXTRA_TARGET
   flag_inline_small_functions = opt2;
   flag_indirect_inlining = opt2;
+#endif /* !EXTRA_TARGET */
   flag_thread_jumps = opt2;
   flag_crossjumping = opt2;
+#ifndef EXTRA_TARGET
   flag_optimize_sibling_calls = opt2;
   flag_cse_follow_jumps = opt2;
   flag_gcse = opt2;
   flag_expensive_optimizations = opt2;
+#endif /* !EXTRA_TARGET */
   flag_rerun_cse_after_loop = opt2;
   flag_caller_saves = opt2;
   flag_peephole2 = opt2;
@@ -891,6 +912,7 @@ decode_options (unsigned int argc, const char **argv)
   flag_schedule_insns_after_reload = opt2;
 #endif
   flag_regmove = opt2;
+#ifndef EXTRA_TARGET
   flag_strict_aliasing = opt2;
   flag_strict_overflow = opt2;
   flag_reorder_blocks = opt2;
@@ -920,6 +942,7 @@ decode_options (unsigned int argc, const char **argv)
   flag_ipa_cp_clone = opt3;
   if (flag_ipa_cp_clone)
     flag_ipa_cp = 1;
+#endif /* !EXTRA_TARGET */
 
   /* Just -O1/-O0 optimizations.  */
   opt1_max = (optimize <= 1);
@@ -928,6 +951,7 @@ decode_options (unsigned int argc, const char **argv)
   align_labels = opt1_max;
   align_functions = opt1_max;
 
+#ifndef EXTRA_TARGET
   if (optimize_size)
     {
       /* Inlining of functions reducing size is a good idea regardless of them
@@ -945,7 +969,9 @@ decode_options (unsigned int argc, const char **argv)
   else
     set_param_value ("min-crossjump-insns", initial_min_crossjump_insns);
 
+#endif /* !EXTRA_TARGET */
   if (first_time_p)
+#ifndef EXTRA_TARGET
     {
       /* Initialize whether `char' is signed.  */
       flag_signed_char = DEFAULT_SIGNED_CHAR;
@@ -953,21 +979,26 @@ decode_options (unsigned int argc, const char **argv)
 	 set after target options have been processed.  */
       flag_short_enums = 2;
 
+#endif /* !EXTRA_TARGET */
       /* Initialize target_flags before OPTIMIZATION_OPTIONS so the latter can
 	 modify it.  */
-      target_flags = targetm.default_target_flags;
+      target_flags = this_targetm.default_target_flags;
+#ifndef EXTRA_TARGET
 
       /* Some targets have ABI-specified unwind tables.  */
       flag_unwind_tables = targetm.unwind_tables_default;
     }
+  EXTRA_TARGETS_CALL (decode_options (argc, argv));
 
   /* Clear any options currently held for LTO.  */
   lto_clear_user_options ();
 
+#endif /* !EXTRA_TARGET */
 #ifdef OPTIMIZATION_OPTIONS
   /* Allow default optimizations to be specified on a per-machine basis.  */
   OPTIMIZATION_OPTIONS (optimize, optimize_size);
 #endif
+#ifndef EXTRA_TARGET
 
   handle_options (argc, argv, lang_mask);
 
@@ -1103,8 +1134,9 @@ decode_options (unsigned int argc, const char **argv)
      capabilities are requested.  */
   if (!flag_sel_sched_pipelining)
     flag_sel_sched_pipelining_outer_loops = 0;
+#endif /* !EXTRA_TARGET */
 
-  if (!targetm.ira_cover_classes
+  if (!this_targetm.ira_cover_classes
       && flag_ira_algorithm == IRA_ALGORITHM_CB)
     {
       inform (input_location,
@@ -1112,12 +1144,15 @@ decode_options (unsigned int argc, const char **argv)
       flag_ira_algorithm = IRA_ALGORITHM_PRIORITY;
     }
 
+#ifndef EXTRA_TARGET
   /* Save the current optimization options if this is the first call.  */
   if (first_time_p)
     {
       optimization_default_node = build_optimization_node ();
       optimization_current_node = optimization_default_node;
+#endif /* !EXTRA_TARGET */
       first_time_p = false;
+#ifndef EXTRA_TARGET
     }
   if (flag_conserve_stack)
     {
@@ -1145,7 +1180,9 @@ decode_options (unsigned int argc, const char **argv)
      check option consistency.  */
   if (flag_lto && flag_whopr)
     error ("-flto and -fwhopr are mutually exclusive");
+#endif /* !EXTRA_TARGET */
 }
+#ifndef EXTRA_TARGET
 
 #define LEFT_COLUMN	27
 
@@ -2427,3 +2464,6 @@ enable_warning_as_error (const char *arg, int value, unsigned int lang_mask)
     }
   free (new_option);
 }
+
+#endif /* !EXTRA_TARGET */
+END_TARGET_SPECIFIC

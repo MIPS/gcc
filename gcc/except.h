@@ -21,6 +21,7 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "sbitmap.h"
 #include "vecprim.h"
+#include "multi-target.h"
 
 struct function;
 struct eh_region_d;
@@ -221,6 +222,8 @@ struct GTY(()) eh_status
 };
 
 
+START_TARGET_SPECIFIC
+
 /* Test: is exception handling turned on?  */
 extern int doing_eh (int);
 
@@ -297,6 +300,7 @@ extern tree (*lang_protect_cleanup_actions) (void);
 /* Return true if type A catches type B.  */
 extern int (*lang_eh_type_covers) (tree a, tree b);
 
+END_TARGET_SPECIFIC
 
 /* Just because the user configured --with-sjlj-exceptions=no doesn't
    mean that we can use call frame exceptions.  Detect that the target
@@ -346,8 +350,10 @@ struct GTY(()) throw_stmt_node {
   int lp_nr;
 };
 
+START_TARGET_SPECIFIC
 extern struct htab *get_eh_throw_stmt_table (struct function *);
 extern void set_eh_throw_stmt_table (struct function *, struct htab *);
+END_TARGET_SPECIFIC
 
 enum eh_personality_kind {
   eh_personality_none,

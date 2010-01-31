@@ -396,6 +396,9 @@ are write-only operations.
 #include "df.h"
 #include "tree-pass.h"
 #include "params.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 static void *df_get_bb_info (struct dataflow *, unsigned int);
 static void df_set_bb_info (struct dataflow *, unsigned int, void *);
@@ -2208,3 +2211,5 @@ debug_df_chain (struct df_link *link)
   df_chain_dump (link, stderr);
   fputc ('\n', stderr);
 }
+
+END_TARGET_SPECIFIC

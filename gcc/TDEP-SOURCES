@@ -1,0 +1,123 @@
+This is a list of source files that have to be compiled target-architecture
+dependent.
+Mostly this are passes that operate on rtl; passes that work on rtl are
+included without checking for evidence that they actually depend on the
+target architecture, since they could reasonably depend on it, and
+changing the dependencies and build system all the time for what should
+be implementation choices seems to promote too much churn.
+Some utility modules are also included because they depend on things
+like FIRST_PSEUDO_REGISTER.
+genmodes.c and read-rtl.c area also included because they depend on
+NUM_MACHINE_MODES.
+??? NUM_MACHINE_MODES is now uniform.
+
+VOIDmode and BLKmode are assumed to be constant.
+BITS_PER_UNIT must also be unchanging; otherwise we'd have to redefine trees
+size meansures to be independent of BITS_PER_UNIT.
+
+// FIXME: originally planned to generate insn-* files that use #ifdef EXTRA_TARGET / #ifdef EXTRA_TARGET_XXX to select the right content; is there still any use for EXTRA_TARGET_XXX ?
+// FIXME: gty handling needs to be unified.
+
+alias.c
+auto-inc-dec.c
+bb-reorder.c
+bt-load.c
+builtins.c
+caller-save.c
+calls.c
+cfganal.c
+cfgbuild.c
+cfg.c
+cfgcleanup.c
+cfgexpand.c
+cfghooks.c
+cfglayout.c
+cfgloopanal.c
+cfgrtl.c
+combine.c
+combine-stack-adj.c
+cse.c
+cselib.c
+dbxout.c
+dce.c
+ddg.c
+df-byte-scan.c
+df-core.c
+df-problems.c
+df-scan.c
+dojump.c
+dse.c
+dwarf2asm.c
+dwarf2out.c
+emit-rtl.c
+except.c
+explow.c
+expmed.c
+expr.c
+final.c FIXME: init_final
+function.c
+fwprop.c
+gcse.c
+genopinit.c
+graph.c
+haifa-sched.c
+ifcvt.c
+init-regs.c
+integrate.c
+ira-build.c
+ira.c
+ira-color.c
+ira-conflicts.c
+ira-costs.c
+ira-emit.c
+ira-lives.c
+jump.c
+loop-doloop.c
+loop-init.c
+loop-invariant.c
+loop-iv.c
+loop-unroll.c
+loop-unswitch.c
+lower-subreg.c
+mode-switching.c
+modulo-sched.c
+optabs.c
+passes.c FIXME rest_of_decl_compilation FIXME
+postreload.c
+postreload-gcse.c
+predict.c
+print-rtl.c
+read-rtl.c
+recog.c
+reginfo.c
+regmove.c
+regrename.c
+reg-stack.c
+regstat.c
+reload1.c
+reload.c
+reorg.c
+resource.c
+rtlanal.c
+rtl.c
+rtl-factoring.c
+rtlhooks.c
+sched-deps.c
+sched-ebb.c
+sched-rgn.c
+sched-vis.c
+sdbout.c
+see.c
+sel-sched.c
+sel-sched-dump.c
+sel-sched-ir.c
+simplify-rtx.c
+stack-ptr-mod.c
+stmt.c
+stor-layout.c
+targhooks.c
+toplev.c FIXME: backend_init_target lang_dependent_init_target general_init emit_debug_global_declarations compile_file do_compile
+varasm.c
+var-tracking.c
+vmsdbgout.c
+web.c

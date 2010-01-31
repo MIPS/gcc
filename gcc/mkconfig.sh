@@ -56,13 +56,15 @@ fi
 
 # Provide defines for other macros set in config.gcc for this file.
 for def in $DEFINES; do
-    echo "#ifndef $def" | sed 's/=.*//' >> ${output}T
+    echo "#ifndef $def" | sed 's/[=(].*//' >> ${output}T
     echo "# define $def" | sed 's/=/ /' >> ${output}T
     echo "#endif" >> ${output}T
 done
 
 # The first entry in HEADERS may be auto-FOO.h ;
 # it wants to be included even when not -DIN_GCC.
+# We wrap FOO/FOO-protos.h in START_TARGET_SPECIFIC / END_TARGET_SPECIFIC
+# so that we don't need to do this manually for every target.
 if [ -n "$HEADERS" ]; then
     set $HEADERS
     case "$1" in auto-* )
@@ -73,8 +75,19 @@ if [ -n "$HEADERS" ]; then
     if [ $# -ge 1 ]; then
 	echo '#ifdef IN_GCC' >> ${output}T
 	for file in "$@"; do
+	    if test x"$file" = x"tm-preds.h"; then
+		echo 'END_TARGET_SPECIFIC' >> ${output}T
+		in_namespace=no
+	    fi
 	    echo "# include \"$file\"" >> ${output}T
+	    if test x"$file" = x"multi-target.h"; then
+		echo 'START_TARGET_SPECIFIC' >> ${output}T
+		in_namespace=yes
+	    fi
 	done
+	if test x"$in_namespace" = x"yes"; then
+	    echo 'END_TARGET_SPECIFIC' >> ${output}T
+	fi
 	echo '#endif' >> ${output}T
     fi
 fi

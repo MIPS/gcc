@@ -39,11 +39,14 @@
 #include "timevar.h"
 #include "tree-pass.h"
 #include "df.h"
+#include "multi-target.h"
 
 #if HOST_BITS_PER_WIDE_INT <= MAX_RECOG_OPERANDS
 #error "Use a different bitmap implementation for untracked_operands."
 #endif
    
+START_TARGET_SPECIFIC
+
 /* We keep linked lists of DU_HEAD structures, each of which describes
    a chain of occurrences of a reg.  */
 struct du_head
@@ -1345,3 +1348,4 @@ struct rtl_opt_pass pass_regrename =
  }
 };
 
+END_TARGET_SPECIFIC

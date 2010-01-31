@@ -38,6 +38,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "function.h"
 #include "df.h"
 #include "tree.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 /* Forward declarations */
 static void set_of_1 (rtx, const_rtx, void *);
@@ -5083,3 +5086,5 @@ low_bitmask_len (enum machine_mode mode, unsigned HOST_WIDE_INT m)
 
   return exact_log2 (m + 1);
 }
+
+END_TARGET_SPECIFIC

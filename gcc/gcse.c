@@ -170,6 +170,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "df.h"
 #include "dbgcnt.h"
 #include "target.h"
+#include "multi-target.h"
 
 /* Propagate flow information through back edges and thus enable PRE's
    moving loop invariant calculations out of loops.
@@ -283,6 +284,8 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Set to non-zero if CSE should run after all GCSE optimizations are done.  */
 int flag_rerun_cse_after_global_opts;
+
+START_TARGET_SPECIFIC
 
 /* An obstack for our working variables.  */
 static struct obstack gcse_obstack;
@@ -5187,3 +5190,5 @@ struct rtl_opt_pass pass_rtl_hoist =
 };
 
 #include "gt-gcse.h"
+
+END_TARGET_SPECIFIC

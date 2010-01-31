@@ -4,6 +4,13 @@
 	* Makefile.in (HOST_PLUGIN_CC): Define.
 	(site.exp): Set HOST_PLUGIN_CC.
 
+	2009-05-06  J"orn Rennecke  <joern.rennecke@arc.com>
+	  * config/sh/sh-protos.h: Fix end of multiple inclusion guard.
+	2009-05-01  J"orn Rennecke  <joern.rennecke@arc.com>
+	  * coverage.c (ctr_labels): Remove unused variable.
+	  Makefile.in ($(TA)rtlanal.o): Depend on $(DF_H).
+	  ($(TA)sel-sched-ir.o): Depend on $(CFGLOOP_H).
+
 2010-01-29  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* tree-ssa-alias.c (same_type_for_tbaa): Return -1 if the types have

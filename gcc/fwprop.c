@@ -39,6 +39,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfgloop.h"
 #include "tree-pass.h"
 #include "domwalk.h"
+#include "multi-target.h"
 
 
 /* This pass does simple forward propagation and simplification when an
@@ -113,6 +114,8 @@ along with GCC; see the file COPYING3.  If not see
    I just punt and record only singleton use-def chains, which is
    all that is needed by fwprop.  */
 
+
+START_TARGET_SPECIFIC
 
 static int num_changes;
 
@@ -1505,3 +1508,4 @@ struct rtl_opt_pass pass_rtl_fwprop_addr =
   TODO_dump_func                        /* todo_flags_finish */
  }
 };
+END_TARGET_SPECIFIC

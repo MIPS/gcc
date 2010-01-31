@@ -269,6 +269,9 @@ main (int argc, char **argv)
   puts ("#ifndef GCC_INSN_FLAGS_H");
   puts ("#define GCC_INSN_FLAGS_H\n");
 
+  puts ("#include \"multi-target.h\"\n"
+	"START_TARGET_SPECIFIC\n");
+
   /* Read the machine description.  */
 
   while (1)
@@ -289,6 +292,8 @@ main (int argc, char **argv)
 
   for (insn_ptr = insns; *insn_ptr; insn_ptr++)
     gen_proto (*insn_ptr);
+
+  puts ("\nEND_TARGET_SPECIFIC");
 
   puts("\n#endif /* GCC_INSN_FLAGS_H */");
 

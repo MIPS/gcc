@@ -55,6 +55,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "df.h"
 #include "diagnostic.h"
 #include "ssaexpand.h"
+#include "multi-target.h"
 
 /* Decide whether a function's arguments should be processed
    from first to last or from last to first.
@@ -81,6 +82,7 @@ along with GCC; see the file COPYING3.  If not see
 #endif
 
 
+START_TARGET_SPECIFIC
 /* If this is nonzero, we do not bother generating VOLATILE
    around volatile memory references, and we are willing to
    output indirect addresses.  If cse is to follow, we reject
@@ -88,6 +90,7 @@ along with GCC; see the file COPYING3.  If not see
    if it is used only once, instruction combination will produce
    the same indirect address eventually.  */
 int cse_not_expected;
+END_TARGET_SPECIFIC
 
 /* This structure is used by move_by_pieces to describe the move to
    be performed.  */
@@ -121,6 +124,8 @@ struct store_by_pieces_d
   void *constfundata;
   int reverse;
 };
+
+START_TARGET_SPECIFIC
 
 static unsigned HOST_WIDE_INT move_by_pieces_ninsns (unsigned HOST_WIDE_INT,
 						     unsigned int,
@@ -4996,6 +5001,8 @@ categorize_ctor_elements (const_tree ctor, HOST_WIDE_INT *p_nz_elts,
     categorize_ctor_elements_1 (ctor, p_nz_elts, p_elt_count, p_must_clear);
 }
 
+#ifndef EXTRA_TARGET
+
 /* Count the number of scalars in TYPE.  Return -1 on overflow or
    variable-sized.  If ALLOW_FLEXARR is true, don't count flexible
    array member at the end of the structure.  */
@@ -5083,6 +5090,8 @@ count_type_elements (const_tree type, bool allow_flexarr)
       gcc_unreachable ();
     }
 }
+
+#endif /* !EXTRA_TARGET */
 
 /* Return 1 if EXP contains mostly (3/4)  zeros.  */
 
@@ -6128,6 +6137,7 @@ get_inner_reference (tree exp, HOST_WIDE_INT *pbitsize,
   return exp;
 }
 
+#ifndef EXTRA_TARGET
 /* Given an expression EXP that may be a COMPONENT_REF, an ARRAY_REF or an
    ARRAY_RANGE_REF, look for whether EXP or any nested component-refs within
    EXP is marked as PACKED.  */
@@ -6234,6 +6244,7 @@ array_ref_up_bound (tree exp)
   /* Otherwise fail.  */
   return NULL_TREE;
 }
+#endif /* EXTRA_TARGET */
 
 /* Return a tree representing the offset, in bytes, of the field referenced
    by EXP.  This does not include any offset in DECL_FIELD_BIT_OFFSET.  */
@@ -10273,10 +10284,12 @@ tree
 build_personality_function (const char *name)
 {
   tree decl, type;
+  /* build a pointer type with the current targets mode.  */
+  tree ptr_type = build_pointer_type (void_type_node);
 
   type = build_function_type_list (integer_type_node, integer_type_node,
 				   long_long_unsigned_type_node,
-				   ptr_type_node, ptr_type_node, NULL_TREE);
+				   ptr_type, ptr_type, NULL_TREE);
   decl = build_decl (UNKNOWN_LOCATION, FUNCTION_DECL,
 		     get_identifier (name), type);
   DECL_ARTIFICIAL (decl) = 1;
@@ -10314,3 +10327,5 @@ get_personality_function (tree decl)
 }
 
 #include "gt-expr.h"
+
+END_TARGET_SPECIFIC

@@ -85,6 +85,9 @@
 #include "toplev.h"
 #include "tree-pass.h"
 #include "df.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 /* The number of rounds.  In most cases there will only be 4 rounds, but
    when partitioning hot and cold basic blocks into separate sections of
@@ -2292,3 +2295,5 @@ struct rtl_opt_pass pass_partition_blocks =
   TODO_dump_func | TODO_verify_rtl_sharing/* todo_flags_finish */
  }
 };
+
+END_TARGET_SPECIFIC

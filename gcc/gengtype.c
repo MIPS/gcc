@@ -1553,6 +1553,8 @@ open_base_files (void)
     return;
 
   header_file = create_file ("GCC", "gtype-desc.h");
+  oprintf (header_file, "\n#include \"multi-target.h\"\n");
+  oprintf (header_file, "\nSTART_TARGET_SPECIFIC\n");
 
   base_files = XNEWVEC (outf_p, num_lang_dirs);
 
@@ -1571,7 +1573,7 @@ open_base_files (void)
       "optabs.h", "libfuncs.h", "debug.h", "ggc.h", "cgraph.h",
       "tree-flow.h", "reload.h", "cpp-id-data.h", "tree-chrec.h",
       "cfglayout.h", "except.h", "output.h", "gimple.h", "cfgloop.h",
-      "target.h", "ipa-prop.h", NULL
+      "target.h", "ipa-prop.h", "multi-target.h", NULL
     };
     const char *const *ifp;
     outf_p gtype_desc_c;
@@ -1580,6 +1582,7 @@ open_base_files (void)
     for (ifp = ifiles; *ifp; ifp++)
       oprintf (gtype_desc_c, "#include \"%s\"\n", *ifp);
 
+    oprintf (gtype_desc_c, "\nSTART_TARGET_SPECIFIC\n");
     /* Make sure we handle "cfun" specially.  */
     oprintf (gtype_desc_c, "\n/* See definition in function.h.  */\n");
     oprintf (gtype_desc_c, "#undef cfun\n");
@@ -2555,6 +2558,9 @@ write_func_for_structure (type_p orig_s, type_p s, type_p *param,
   options_p opt;
   struct walk_type_data d;
 
+#ifdef EXTRA_TARGET /* FIXME */
+  return;
+#endif
   /* This is a hack, and not the good kind either.  */
   for (i = NUM_PARAM - 1; i >= 0; i--)
     if (param && param[i] && param[i]->kind == TYPE_POINTER
@@ -3440,6 +3446,9 @@ write_roots (pair_p variables, bool emit_pch)
 	}
     }
 
+#ifdef EXTRA_TARGET /* FIXME */
+  return;
+#endif
   for (v = variables; v; v = v->next)
     {
       outf_p f = get_output_file_with_visibility (v->line.file);
@@ -3771,6 +3780,8 @@ main (int argc, char **argv)
     }
   write_roots (variables, plugin_files == NULL);
   write_rtx_next ();
+  oprintf (get_output_file_with_visibility (NULL), "\nEND_TARGET_SPECIFIC\n");
+  oprintf (header_file, "\nEND_TARGET_SPECIFIC\n");
   close_output_files ();
 
   if (plugin_files)

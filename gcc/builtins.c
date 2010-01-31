@@ -50,6 +50,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-flow.h"
 #include "value-prof.h"
 #include "diagnostic.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 #ifndef SLOW_UNALIGNED_ACCESS
 #define SLOW_UNALIGNED_ACCESS(MODE, ALIGN) STRICT_ALIGNMENT
@@ -13592,3 +13595,5 @@ set_builtin_user_assembler_name (tree decl, const char *asmspec)
       break;
     }
 }
+
+END_TARGET_SPECIFIC

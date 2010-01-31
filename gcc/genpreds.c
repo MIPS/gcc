@@ -1085,7 +1085,11 @@ write_tm_constrs_h (void)
 
   puts ("\
 #ifndef GCC_TM_CONSTRS_H\n\
-#define GCC_TM_CONSTRS_H\n");
+#define GCC_TM_CONSTRS_H\n\
+\n\
+#include \"multi-target.h\"\n\
+\n\
+START_TARGET_SPECIFIC\n");
 
   FOR_ALL_CONSTRAINTS (c)
     if (!c->is_register)
@@ -1130,7 +1134,10 @@ write_tm_constrs_h (void)
 	write_predicate_stmts (c->exp);
 	fputs ("}\n", stdout);
       }
-  puts ("#endif /* tm-constrs.h */");
+  puts ("\
+END_TARGET_SPECIFIC\n\
+\n\
+#endif /* tm-constrs.h */");
 }
 
 /* Write out the wrapper function, constraint_satisfied_p, that maps
@@ -1255,6 +1262,10 @@ write_tm_preds_h (void)
 #ifndef GCC_TM_PREDS_H\n\
 #define GCC_TM_PREDS_H\n\
 \n\
+#include \"multi-target.h\"\n\
+\n\
+START_TARGET_SPECIFIC\n\
+\n\
 #ifdef HAVE_MACHINE_MODES");
 
   FOR_ALL_PREDICATES (p)
@@ -1317,7 +1328,9 @@ write_tm_preds_h (void)
 	puts ("#define EXTRA_ADDRESS_CONSTRAINT(c_,s_) false\n");
     }
 
-  puts ("#endif /* tm-preds.h */");
+  puts ("END_TARGET_SPECIFIC\n"
+	"\n"
+	"#endif /* tm-preds.h */");
 }
 
 /* Write insn-preds.c.
@@ -1356,7 +1369,10 @@ write_insn_preds_c (void)
 #include \"toplev.h\"\n\
 #include \"reload.h\"\n\
 #include \"regs.h\"\n\
-#include \"tm-constrs.h\"\n");
+#include \"multi-target.h\"\n\
+#include \"tm-constrs.h\"\n\
+\n\
+START_TARGET_SPECIFIC\n");
 
   FOR_ALL_PREDICATES (p)
     write_one_predicate_function (p);
@@ -1376,6 +1392,7 @@ write_insn_preds_c (void)
       if (have_address_constraints)
 	write_insn_extra_address_constraint ();
     }
+  puts ("END_TARGET_SPECIFIC");
 }
 
 /* Argument parsing.  */

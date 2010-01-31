@@ -41,6 +41,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "df.h"
 #include "dbgcnt.h"
 #include "target.h"
+#include "multi-target.h"
 
 /* This pass was originally removed from flow.c. However there is
    almost nothing that remains of that code.
@@ -111,6 +112,8 @@ along with GCC; see the file COPYING3.  If not see
   its width and that offset is equal to -c when the increment was
   before the ref or +c if the increment was after the ref, then if we
   can do the combination but switch the pre/post bit.  */
+
+START_TARGET_SPECIFIC
 
 #ifdef AUTO_INC_DEC
 
@@ -1527,3 +1530,5 @@ struct rtl_opt_pass pass_inc_dec =
   TODO_df_finish,                       /* todo_flags_finish */
  }
 };
+
+END_TARGET_SPECIFIC

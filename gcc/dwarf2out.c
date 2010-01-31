@@ -91,6 +91,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "input.h"
 #include "gimple.h"
 #include "tree-pass.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 #ifdef DWARF2_DEBUGGING_INFO
 static void dwarf2out_source_line (unsigned int, const char *, int, bool);
@@ -233,6 +236,8 @@ static GTY(()) section *debug_frame_section;
 /* Personality decl of current unit.  Used only when assembler does not support
    personality CFI.  */
 static GTY(()) rtx current_unit_personality;
+
+END_TARGET_SPECIFIC
 
 /* How to start an assembler comment.  */
 #ifndef ASM_COMMENT_START
@@ -389,6 +394,8 @@ dw_fde_node;
 #define DWARF_CIE_ID DW_CIE_ID
 #endif
 
+START_TARGET_SPECIFIC
+
 /* A pointer to the base of a table that contains frame description
    information for each routine.  */
 static GTY((length ("fde_table_allocated"))) dw_fde_ref fde_table;
@@ -422,12 +429,16 @@ static GTY(()) dw_cfi_ref cie_cfi_head;
 static unsigned current_funcdef_fde;
 #endif
 
+END_TARGET_SPECIFIC
+
 struct GTY(()) indirect_string_node {
   const char *str;
   unsigned int refcount;
   enum dwarf_form form;
   char *label;
 };
+
+START_TARGET_SPECIFIC
 
 static GTY ((param_is (struct indirect_string_node))) htab_t debug_str_hash;
 
@@ -2886,7 +2897,7 @@ dwarf2out_frame_debug_restore_state (void)
   cfa_remember.in_use = 0;
 }
 
-#endif
+#endif /* defined (DWARF2_DEBUGGING_INFO) || defined (DWARF2_UNWIND_INFO) */
 
 /* Describe for the GTY machinery what parts of dw_cfi_oprnd1 are used.  */
 static enum dw_cfi_oprnd_type dw_cfi_oprnd1_desc
@@ -4138,7 +4149,9 @@ dwarf2out_switch_text_section (void)
       fde->dw_fde_switch_cfi = cfi;
     }
 }
-#endif
+#endif /* defined (DWARF2_DEBUGGING_INFO) || defined (DWARF2_UNWIND_INFO) */
+
+END_TARGET_SPECIFIC
 
 /* And now, the subset of the debugging information support code necessary
    for emitting location expressions.  */
@@ -4262,6 +4275,8 @@ typedef struct GTY(()) dw_loc_list_struct {
   const char *section; /* Section this loclist is relative to */
   dw_loc_descr_ref expr;
 } dw_loc_list_node;
+
+START_TARGET_SPECIFIC
 
 #if defined (DWARF2_DEBUGGING_INFO) || defined (DWARF2_UNWIND_INFO)
 
@@ -5466,7 +5481,10 @@ const struct gcc_debug_hooks dwarf2_debug_hooks =
   dwarf2out_set_name,
   1                             /* start_end_main_source_file */
 };
-#endif
+#endif /* DWARF2_DEBUGGING_INFO */
+
+END_TARGET_SPECIFIC
+
 
 /* NOTE: In the comments in this file, many references are made to
    "Debugging Information Entries".  This term is abbreviated as `DIE'
@@ -5568,8 +5586,10 @@ typedef struct GTY(()) pubname_struct {
 }
 pubname_entry;
 
+START_TARGET_SPECIFIC
 DEF_VEC_O(pubname_entry);
 DEF_VEC_ALLOC_O(pubname_entry, gc);
+END_TARGET_SPECIFIC
 
 struct GTY(()) dw_ranges_struct {
   /* If this is positive, it's a block number, otherwise it's a
@@ -5686,6 +5706,8 @@ skeleton_chain_node;
    the beginning of a source statement, because that information
    is not made available by the GCC front-end.  */
 #define	DWARF_LINE_DEFAULT_IS_STMT_START 1
+
+START_TARGET_SPECIFIC
 
 #ifdef DWARF2_DEBUGGING_INFO
 /* This location is used by calc_die_sizes() to keep track
@@ -21463,3 +21485,5 @@ const struct gcc_debug_hooks dwarf2_debug_hooks =
 #endif /* DWARF2_DEBUGGING_INFO */
 
 #include "gt-dwarf2out.h"
+
+END_TARGET_SPECIFIC

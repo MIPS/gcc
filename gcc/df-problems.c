@@ -44,6 +44,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "except.h"
 #include "dce.h"
 #include "vecprim.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 /* Note that turning REG_DEAD_DEBUGGING on will cause
    gcc.c-torture/unsorted/dump-noaddr.c to fail because it prints
@@ -4428,5 +4431,4 @@ df_md_add_problem (void)
   df_add_problem (&problem_MD);
 }
 
-
-
+END_TARGET_SPECIFIC
