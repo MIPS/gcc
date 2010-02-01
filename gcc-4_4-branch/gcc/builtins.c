@@ -2940,12 +2940,16 @@ expand_builtin_pow_root (tree arg0, tree arg1, tree type, rtx subtarget)
       tree cbrtfn = mathfn_built_in (type, BUILT_IN_CBRT);
       REAL_VALUE_TYPE c = TREE_REAL_CST (arg1);
       tree op = NULL_TREE;
+      tree sqrt1, sqrt2, sqrt3;
 
       if (sqrtfn)
 	{
 	  /* Optimize pow (x, 0.5) into sqrt.  */
 	  if (REAL_VALUES_EQUAL (c, dconsthalf))
-	    op = build_call_expr (sqrtfn, 1, arg0);
+	    {
+	      op = build_call_expr (sqrtfn, 1, arg0);
+	      CALL_EXPR_NOFOLD (op) = true;
+	    }
 
 	  else
 	    {
@@ -2963,7 +2967,9 @@ expand_builtin_pow_root (tree arg0, tree arg1, tree type, rtx subtarget)
 	      if (REAL_VALUES_EQUAL (c, dconst1_4))
 		{
 		  op = build_call_expr (sqrtfn, 1, arg0);
+		  CALL_EXPR_NOFOLD (op) = true;
 		  op = build_call_expr (sqrtfn, 1, op);
+		  CALL_EXPR_NOFOLD (op) = true;
 		}
 
 	      /* Optimize pow (x, 0.75) = sqrt (x) * sqrt (sqrt (x)) unless we
@@ -2972,10 +2978,13 @@ expand_builtin_pow_root (tree arg0, tree arg1, tree type, rtx subtarget)
 		       && !TREE_SIDE_EFFECTS (arg0)
 		       && REAL_VALUES_EQUAL (c, dconst3_4))
 		{
-		  tree sqrt1 = build_call_expr (sqrtfn, 1, arg0);
-		  tree sqrt2 = builtin_save_expr (sqrt1);
-		  tree sqrt3 = build_call_expr (sqrtfn, 1, sqrt1);
+		  sqrt1 = build_call_expr (sqrtfn, 1, arg0);
+		  CALL_EXPR_NOFOLD (sqrt1) = true;
+		  sqrt2 = builtin_save_expr (sqrt1);
+		  sqrt3 = build_call_expr (sqrtfn, 1, sqrt1);
+		  CALL_EXPR_NOFOLD (sqrt3) = true;
 		  op = fold_build2 (MULT_EXPR, type, sqrt2, sqrt3);
+		  CALL_EXPR_NOFOLD (op) = true;
 		}
 	    }
 	}
@@ -2990,7 +2999,10 @@ expand_builtin_pow_root (tree arg0, tree arg1, tree type, rtx subtarget)
 	    = real_value_truncate (mode, dconst_third ());
 
 	  if (REAL_VALUES_EQUAL (c, dconst1_3))
-	    op = build_call_expr (cbrtfn, 1, arg0);
+	    {
+	      op = build_call_expr (cbrtfn, 1, arg0);
+	      CALL_EXPR_NOFOLD (op) = true;
+	    }
 
 	      /* Now try 1/6.  */
 	  else if (optimize_insn_for_speed_p ())
@@ -3001,7 +3013,9 @@ expand_builtin_pow_root (tree arg0, tree arg1, tree type, rtx subtarget)
 	      if (REAL_VALUES_EQUAL (c, dconst1_6))
 		{
 		  op = build_call_expr (sqrtfn, 1, arg0);
+		  CALL_EXPR_NOFOLD (op) = true;
 		  op = build_call_expr (cbrtfn, 1, op);
+		  CALL_EXPR_NOFOLD (op) = true;
 		}
 	    }
 	}
@@ -7807,8 +7821,11 @@ fold_builtin_sqrt (tree arg, tree type)
       return build_call_expr (expfn, 1, arg);
     }
 
-  /* Optimize sqrt(Nroot(x)) -> pow(x,1/(2*N)).  */
-  if (flag_unsafe_math_optimizations && BUILTIN_ROOT_P (fcode))
+  /* Optimize sqrt(Nroot(x)) -> pow(x,1/(2*N)) at the tree level, but when we
+     are expanding it, we don't want to do this conversion, since sqrt(sqrt(x))
+     and sqrt(cbrt(x)) are faster than the equivalent pow call.  */
+  if (flag_unsafe_math_optimizations && BUILTIN_ROOT_P (fcode)
+      && !CALL_EXPR_NOFOLD (arg))
     {
       tree powfn = mathfn_built_in (type, BUILT_IN_POW);
 
@@ -7883,8 +7900,10 @@ fold_builtin_cbrt (tree arg, tree type)
 	  return build_call_expr (expfn, 1, arg);
 	}
 
-      /* Optimize cbrt(sqrt(x)) -> pow(x,1/6).  */
-      if (BUILTIN_SQRT_P (fcode))
+      /* Optimize cbrt(sqrt(x)) -> pow(x,1/6)) at the tree level, but when we
+	 are expanding it, we don't want to do this conversion, since
+	 cbrt(sqrt(x)) is faster than the equivalent pow call.  */
+      if (BUILTIN_SQRT_P (fcode) && !CALL_EXPR_NOFOLD (arg))
 	{
 	  tree powfn = mathfn_built_in (type, BUILT_IN_POW);
 

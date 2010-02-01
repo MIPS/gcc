@@ -383,7 +383,12 @@ struct tree_base GTY(())
 
   unsigned visited : 1;
 
-  unsigned spare : 23;
+  /* Used for pow -> sqrt/sqrt conversion to mark that the sqrt and cbrt calls
+     should not be folded.  GCC 4.6 doesn't need this, since it has nofold
+     calls. */
+  unsigned nofold : 1;
+
+  unsigned spare : 22;
 
   union tree_ann_d *ann;
 };
@@ -1121,6 +1126,11 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
    call optimizations.  */
 #define CALL_EXPR_TAILCALL(NODE) \
   (CALL_EXPR_CHECK(NODE)->base.addressable_flag)
+
+/* Set on a CALL_EXPR if the call is a builtin function that is not to be
+   folded.  This is a hack to bring the pow -> sqrt/sqrt code back from the GCC
+   4.6 tree which has direct nofold support.  */
+#define CALL_EXPR_NOFOLD(NODE) (CALL_EXPR_CHECK(NODE)->base.nofold)
 
 /* Used as a temporary field on a CASE_LABEL_EXPR to indicate that the
    CASE_LOW operand has been processed.  */
