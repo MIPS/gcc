@@ -483,6 +483,10 @@ struct gcc_target
     tree (* builtin_get_vec_size) (tree);
 
     tree (* builtin_get_vec_align) (tree);
+
+    tree (* builtin_build_reduc_epilogue) (tree);
+
+    bool (* builtin_vectorize_independent_drs_only) (void);
 } vectorize;
 
   /* The initial value of target_flags.  */

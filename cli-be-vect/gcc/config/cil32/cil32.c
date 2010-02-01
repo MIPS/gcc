@@ -87,6 +87,8 @@ static tree cil32_builtin_build_uniform_vec (tree, tree);
 static tree cil32_builtin_build_affine_vec (tree, tree, tree);
 static tree cil32_builtin_get_vec_size (tree);
 static tree cil32_builtin_get_vec_align (tree);
+static tree cil32_builtin_build_reduc_epilogue (tree);
+static bool cil32_builtin_vectorize_independent_drs_only (void);
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ATTRIBUTE_TABLE
@@ -122,13 +124,23 @@ static tree cil32_builtin_get_vec_align (tree);
 #define TARGET_VECTORIZE_BUILTIN_GET_VEC_SIZE cil32_builtin_get_vec_size
 
 #undef TARGET_VECTORIZE_BUILTIN_BUILD_UNIFORM_VEC
-#define TARGET_VECTORIZE_BUILTIN_BUILD_UNIFORM_VEC cil32_builtin_build_uniform_vec
+#define TARGET_VECTORIZE_BUILTIN_BUILD_UNIFORM_VEC \
+  cil32_builtin_build_uniform_vec
 
 #undef TARGET_VECTORIZE_BUILTIN_BUILD_AFFINE_VEC
-#define TARGET_VECTORIZE_BUILTIN_BUILD_AFFINE_VEC cil32_builtin_build_affine_vec
+#define TARGET_VECTORIZE_BUILTIN_BUILD_AFFINE_VEC \
+  cil32_builtin_build_affine_vec
 
 #undef TARGET_VECTORIZE_BUILTIN_GET_VEC_ALIGN
 #define TARGET_VECTORIZE_BUILTIN_GET_VEC_ALIGN cil32_builtin_get_vec_align
+
+#undef TARGET_VECTORIZE_BUILTIN_BUILD_REDUC_EPILOGUE
+#define TARGET_VECTORIZE_BUILTIN_BUILD_REDUC_EPILOGUE \
+  cil32_builtin_build_reduc_epilogue
+
+#undef TARGET_VECTORIZE_BUILTIN_VECT_INDEPENDENT_DRS
+#define TARGET_VECTORIZE_BUILTIN_VECT_INDEPENDENT_DRS \
+  cil32_builtin_vectorize_independent_drs_only
 
 
 struct gcc_target targetm = TARGET_INITIALIZER;
@@ -416,4 +428,30 @@ static tree cil32_builtin_build_affine_vec (tree init ATTRIBUTE_UNUSED,
 }
 
 
+static tree cil32_builtin_build_reduc_epilogue (tree type) 
+{
+  unsigned element_size = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (TREE_TYPE (type)));
 
+  switch (element_size)
+    {
+      case 16:
+        return cil32_builtins[CIL32_GCC_BUILD_REDUC_EPILOGUE_V16QI];
+
+      case 8:
+        return cil32_builtins[CIL32_GCC_BUILD_REDUC_EPILOGUE_V8HI];
+
+      case 4:
+        return cil32_builtins[CIL32_GCC_BUILD_REDUC_EPILOGUE_V4SI];
+
+      case 2:
+        return cil32_builtins[CIL32_GCC_BUILD_REDUC_EPILOGUE_V2DI];
+
+      default:
+        return NULL_TREE;
+    }
+}
+
+static bool cil32_builtin_vectorize_independent_drs_only (void)
+{
+  return true;
+}

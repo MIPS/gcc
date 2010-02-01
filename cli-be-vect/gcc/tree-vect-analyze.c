@@ -1302,6 +1302,20 @@ vect_analyze_data_ref_dependence (struct data_dependence_relation *ddr,
       return !vect_mark_for_runtime_alias_test (ddr, loop_vinfo);
     }
 
+  if (targetm.vectorize.builtin_vectorize_independent_drs_only
+      && targetm.vectorize.builtin_vectorize_independent_drs_only ())
+    {
+      if (vect_print_dump_info (REPORT_DR_DETAILS))
+        {
+          fprintf (vect_dump, "possible dependence between ");
+          print_generic_expr (vect_dump, DR_REF (dra), TDF_SLIM);
+          fprintf (vect_dump, " and ");
+          print_generic_expr (vect_dump, DR_REF (drb), TDF_SLIM);
+        }
+
+      return false;
+    }
+
   if (DDR_NUM_DIST_VECTS (ddr) == 0)
     {
       if (vect_print_dump_info (REPORT_DR_DETAILS))

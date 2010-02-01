@@ -2483,6 +2483,7 @@ vect_create_epilog_for_reduction (tree vect_def, gimple stmt,
   VEC(gimple,heap) *phis = NULL;
   enum vect_def_type dt = vect_unknown_def_type;
   int j, i;
+  tree builtin_decl;
   
   if (nested_in_vect_loop_p (loop, stmt))
     {
@@ -2633,6 +2634,35 @@ vect_create_epilog_for_reduction (tree vect_def, gimple stmt,
 
   /* 2.3 Create the reduction code, using one of the three schemes described
          above.  */
+
+  if (targetm.vectorize.builtin_build_reduc_epilogue &&
+      (builtin_decl
+             = targetm.vectorize.builtin_build_reduc_epilogue (vectype)))
+    {
+      tree sym;
+      ssa_op_iter iter;
+
+      if (vect_print_dump_info (REPORT_DETAILS))
+        fprintf (vect_dump, "Reduce using builtin.");
+
+      epilog_stmt = gimple_build_call (builtin_decl, 2, 
+                               build_int_cst (integer_type_node, reduc_code),    
+                               PHI_RESULT (new_phi));
+      add_referenced_var (new_scalar_dest);
+      new_temp = make_ssa_name (new_scalar_dest, epilog_stmt);
+      gimple_call_set_lhs (epilog_stmt, new_temp);
+      gsi_insert_before (&exit_gsi, epilog_stmt, GSI_SAME_STMT);
+
+      FOR_EACH_SSA_TREE_OPERAND (sym, epilog_stmt, iter, SSA_OP_ALL_VIRTUALS)
+        {
+          if (TREE_CODE (sym) == SSA_NAME)
+            sym = SSA_NAME_VAR (sym);
+
+          mark_sym_for_renaming (sym);
+        }
+
+      goto vect_finalize_reduction;
+    }
 
   if (reduc_code < NUM_TREE_CODES)
     {
