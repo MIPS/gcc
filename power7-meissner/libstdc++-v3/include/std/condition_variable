@@ -98,10 +98,10 @@ namespace std
 		 const chrono::time_point<_Clock, _Duration>& __atime)
       {
 	// DR 887 - Sync unknown clock to known clock.
-	typename _Clock::time_point __c_entry = _Clock::now();
-	__clock_t::time_point __s_entry = __clock_t::now();
-	chrono::nanoseconds __delta = __atime - __c_entry;
-	__clock_t::time_point __s_atime = __s_entry + __delta;
+	const typename _Clock::time_point __c_entry = _Clock::now();
+	const __clock_t::time_point __s_entry = __clock_t::now();
+	const chrono::nanoseconds __delta = __atime - __c_entry;
+	const __clock_t::time_point __s_atime = __s_entry + __delta;
 
 	return __wait_until_impl(__lock, __s_atime);
       }
@@ -185,13 +185,7 @@ namespace std
 
     template<typename _Lock>
       void
-      wait(_Lock& __lock)
-      {
-	int __e = __gthread_cond_wait(&_M_cond,
-				      __lock.mutex()->native_handle());
-	if (__e)
-	  __throw_system_error(__e);
-      }
+      wait(_Lock& __lock);
 
     template<typename _Lock, typename _Predicate>
       void

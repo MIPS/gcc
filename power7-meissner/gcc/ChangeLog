@@ -1,3 +1,68 @@
+2010-02-01  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR target/41399
+	* sched-deps.c (sched_analyze_insn): Ignore fixed registers for
+	implicitly set registers.
+
+2010-02-01  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm.c (FL_FOR_ARCH_7A): is also a superset of ARMv6K.
+	(arm_override_options): Allow automatic selection of the thread
+	pointer register if thumb2.
+	(legitimize_pic_address): Improve code sequences for Thumb2.
+	(arm_call_tls_get_addr): Likewise.
+	(legitimize_tls_address): Likewise.
+	* arm.md (pic_load_addr_arm): Delete.  Replace with ...
+	(pic_load_addr_32bit): ... this.  New named pattern.
+	* thumb2.md (pic_load_addr_thumb2): Delete.
+	(pic_load_dot_plus_four): Delete.
+	(tls_load_dot_plus_four): New named pattern.
+
+2010-02-01  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR libgomp/29986
+	* doc/install.texi (Specific): Add sparc-sun-solaris2.10 entry.
+	Document fix for TLS bug.
+
+2010-01-31  Richard Guenther  <rguenther@suse.de>
+
+	* tree-sra.c (ptr_parm_has_direct_uses): Rewrite to be
+	conservatively correct.
+
+2010-01-31  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/42850
+	Revert:
+	2010-01-02  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* config/pa/t-slibgcc-dwarf-ver (SHLIB_SOVERSION): Bump by two.
+
+2010-01-31  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* doc/install.texi: Update recommended GMP/MPFR/MPC versions.
+
+2010-01-31  Kai Tietz  <kai.tietz@onevision.com>
+
+	* config.gcc: Adjust order of makefile fragments for mingw targets.
+
+2010-01-31  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/42898
+	* gimplify.c (gimplify_init_constructor): For volatile LHS
+	initialize a temporary.
+
+2010-01-31  Matthias Klose  <doko@ubuntu.com>
+
+	* configure.ac: Fix __stack_chk_fail check for cross builds configured
+	--with-headers
+	* configure: Regenerate.
+
+2010-01-29  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-ssa-alias.c (same_type_for_tbaa): Return -1 if the types have
+	the same alias set and their sizes different constantness.
+	(aliasing_component_refs_p): Revert 2009-10-24 change.
+
 2010-01-29  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
 
 	* config/sparc/sparc.c (sparc_elf_asm_named_section): Declare decl

@@ -1,3 +1,35 @@
+2010-02-01  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/42922
+	* gfortran.dg/pure_initializer_3.f90: News test.
+
+2010-01-31  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/42888
+	* gfortran.dg/allocate_derived_2.f90: New test.
+
+2010-01-31  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR middle-end/42898
+	* gcc.dg/torture/pr42898-2.c: New test.
+
+2010-01-31  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/42898
+	* gcc.dg/torture/pr42898.c: New testcase.
+
+2010-01-31  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/38324
+	* gfortran.dg/alloc_comp_basics_1.f90: Remove option -O2.
+	* gfortran.dg/alloc_comp_bounds_1.f90: New test.
+
+2010-01-30  Paolo Bonzini  <bonzini@gnu.org>
+
+	* g++.dg/tree-ssa/inline-1.C: New.
+	* g++.dg/tree-ssa/inline-2.C: New.
+	* g++.dg/tree-ssa/inline-3.C: New.
+
 2010-01-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	PR testsuite/41701
