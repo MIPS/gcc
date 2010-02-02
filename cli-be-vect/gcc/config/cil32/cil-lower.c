@@ -1,6 +1,6 @@
 /* CIL IR lowering.
 
-   Copyright (C) 2009 Free Software Foundation, Inc.
+   Copyright (C) 2009-2010 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -284,36 +284,21 @@ lower_cil_vector_add (cil_type_t type)
       default:
         gcc_unreachable ();
       }
-  else
+  else  /* simd_type == GENERIC_SIMD */
     switch (type)
       {
         /* 64-bit vectors */
-
-      case CIL_V2SF:
-        builtin = CIL32_GEN_VSF_ADD;
-        break;
-      case CIL_V2SI:
-        builtin = CIL32_GEN_VSI_ADD;
-        break;
-      case CIL_V4HI:
-        builtin = CIL32_GEN_VHI_ADD;
-        break;
-      case CIL_V8QI:
-        builtin = CIL32_GEN_VQI_ADD;
-        break;
+      case CIL_V2SF: builtin = CIL32_GEN_VSF_ADD; break;
+      case CIL_V2SI: builtin = CIL32_GEN_VSI_ADD; break;
+      case CIL_V4HI: builtin = CIL32_GEN_VHI_ADD; break;
+      case CIL_V8QI: builtin = CIL32_GEN_VQI_ADD; break;
 
         /* if in 128-bit mode */
-      case CIL_V4SI:
-        builtin = CIL32_GEN_VSI_ADD;
-        break;
-      case CIL_V8HI:
-        builtin = CIL32_GEN_VHI_ADD;
-        break;
-      case CIL_V16QI:
-        builtin = CIL32_GEN_VQI_ADD;
-        break;
+      case CIL_V4SI: builtin = CIL32_GEN_VSI_ADD; break;
+      case CIL_V8HI: builtin = CIL32_GEN_VHI_ADD; break;
+      case CIL_V16QI: builtin = CIL32_GEN_VQI_ADD; break;
+      case CIL_V4SF: builtin = CIL32_GEN_VSF_ADD; break;
 
-      case CIL_V4SF:
       default:
         gcc_unreachable ();
       }
@@ -361,30 +346,84 @@ lower_cil_vector_sub (cil_type_t type)
       default:
         gcc_unreachable ();
       }
-  else
+  else  /* simd_type == GENERIC_SIMD */
     switch (type)
       {
-      case CIL_V2SF:
-        builtin = CIL32_GEN_VSF_SUB;
-        break;
-      case CIL_V2SI:
-        builtin = CIL32_GEN_VSI_SUB;
-        break;
-      case CIL_V4HI:
-        builtin = CIL32_GEN_VHI_SUB;
-        break;
-      case CIL_V8QI:
-        builtin = CIL32_GEN_VQI_SUB;
-        break;
+        /* 64-bit vectors */
+      case CIL_V2SF: builtin = CIL32_GEN_VSF_SUB; break;
+      case CIL_V2SI: builtin = CIL32_GEN_VSI_SUB; break;
+      case CIL_V4HI: builtin = CIL32_GEN_VHI_SUB; break;
+      case CIL_V8QI: builtin = CIL32_GEN_VQI_SUB; break;
 
-      case CIL_V4SI:
-      case CIL_V8HI:
-      case CIL_V16QI:
-      case CIL_V4SF:
+        /* if in 128-bit mode */
+      case CIL_V4SI: builtin = CIL32_GEN_VSI_SUB; break;
+      case CIL_V8HI: builtin = CIL32_GEN_VHI_SUB; break;
+      case CIL_V16QI: builtin = CIL32_GEN_VQI_SUB; break;
+      case CIL_V4SF: builtin = CIL32_GEN_VSF_SUB; break;
       default:
         gcc_unreachable ();
       }
 
+
+  return cil_build_call (cil32_builtins[builtin]);
+}
+
+/* Lower a generic CIL vector multiply on the vector type represented by
+   TYPE to a type-specific vector substraction depending on the vector type.
+   Return the replacement statement.  */
+
+static cil_stmt
+lower_cil_vector_mul (cil_type_t type)
+{
+  enum cil32_builtin builtin;
+
+  if (simd_type == GCC_SIMD)
+    switch (type)
+      {
+      case CIL_V2SF: builtin = CIL32_GCC_V2SF_MUL; break;
+      case CIL_V2SI: builtin = CIL32_GCC_V2SI_MUL; break;
+      case CIL_V4HI: builtin = CIL32_GCC_V4HI_MUL; break;
+      case CIL_V8QI: builtin = CIL32_GCC_V8QI_MUL; break;
+
+      case CIL_V2DF: builtin = CIL32_GCC_V2DF_MUL; break;
+      case CIL_V4SF: builtin = CIL32_GCC_V4SF_MUL; break;
+      case CIL_V2DI: builtin = CIL32_GCC_V2DI_MUL; break;
+      case CIL_V4SI: builtin = CIL32_GCC_V4SI_MUL; break;
+      case CIL_V8HI: builtin = CIL32_GCC_V8HI_MUL; break;
+      case CIL_V16QI: builtin = CIL32_GCC_V16QI_MUL; break;
+      default:
+        gcc_unreachable ();
+      }
+  else if (simd_type == MONO_SIMD)
+    switch (type)
+      {
+        /* No 8-byte support in Mono.Simd. Error/warning?  */
+      case CIL_V2DF: builtin = CIL32_MONO_V2DF_MUL; break;
+      case CIL_V4SF: builtin = CIL32_MONO_V4SF_MUL; break;
+      case CIL_V2DI: builtin = CIL32_MONO_V2DI_MUL; break;
+      case CIL_V4SI: builtin = CIL32_MONO_V4SI_MUL; break;
+      case CIL_V8HI: builtin = CIL32_MONO_V8HI_MUL; break;
+      case CIL_V16QI: builtin = CIL32_MONO_V16QI_MUL; break;
+      default:
+        gcc_unreachable ();
+      }
+  else  /* simd_type == GENERIC_SIMD */
+    switch (type)
+      {
+        /* 64-bit vectors */
+      case CIL_V2SF: builtin = CIL32_GEN_VSF_MUL; break;
+      case CIL_V2SI: builtin = CIL32_GEN_VSI_MUL; break;
+      case CIL_V4HI: builtin = CIL32_GEN_VHI_MUL; break;
+      case CIL_V8QI: builtin = CIL32_GEN_VQI_MUL; break;
+
+        /* if in 128-bit mode */
+      case CIL_V4SI: builtin = CIL32_GEN_VSI_MUL; break;
+      case CIL_V8HI: builtin = CIL32_GEN_VHI_MUL; break;
+      case CIL_V16QI: builtin = CIL32_GEN_VQI_MUL; break;
+      case CIL_V4SF: builtin = CIL32_GEN_VSF_MUL; break;
+      default:
+        gcc_unreachable ();
+      }
 
   return cil_build_call (cil32_builtins[builtin]);
 }
@@ -618,6 +657,15 @@ lower_cil (void)
 
 	      if (cil_vector_p (top))
 		csi_replace (&csi, lower_cil_vector_sub (top));
+
+	      break;
+
+	    case CIL_MUL:
+	      top = cil_stack_top (stack);
+	      cil_stack_after_stmt (stack, stmt);
+
+	      if (cil_vector_p (top))
+		csi_replace (&csi, lower_cil_vector_mul (top));
 
 	      break;
 
