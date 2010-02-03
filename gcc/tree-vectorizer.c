@@ -213,15 +213,71 @@ vectorize_loops (void)
   FOR_EACH_LOOP (li, loop, 0)
     if (optimize_loop_nest_for_speed_p (loop))
       {
-	loop_vec_info loop_vinfo;
+	loop_vec_info loop_vinfo = 0;
+	int best_factor = -1;
+	int target_arch, best_arch = -1;
 
 	vect_location = find_loop_location (loop);
-	loop_vinfo = vect_analyze_loop (loop);
+	for (target_arch = -1; targetm_pnt = targetm_array[++target_arch]; )
+	  {
+	    if (loop_vinfo)
+	      destroy_loop_vec_info (loop_vinfo, true);
+	    loop_vinfo = vect_analyze_loop (loop);
+	    if (!loop_vinfo)
+	      continue;
+	    /* FIXME: insert some machine learning heuristic here to
+	       better compare the targets.  */
+	    if (LOOP_VINFO_VECTORIZABLE_P (loop_vinfo)
+		&& LOOP_VINFO_VECT_FACTOR (loop_vinfo) > best_factor)
+	      {
+		best_arch = target_arch;
+		best_factor = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
+	      }
+	  }
+	if (best_arch >= 0 && target_arch != best_arch)
+	  {
+	    if (loop_vinfo)
+	      {
+		destroy_loop_vec_info (loop_vinfo, true);
+		loop_vinfo = 0;
+	      }
+	    targetm_pnt = targetm_array[best_arch];
+	    loop_vinfo = vect_analyze_loop (loop);
+	    target_arch = best_arch;
+	  }
+	targetm_pnt = targetm_array[cfun->target_arch];
 	loop->aux = loop_vinfo;
 
-	if (!loop_vinfo || !LOOP_VINFO_VECTORIZABLE_P (loop_vinfo))
+	if (best_arch < 0)
 	  continue;
 
+	if (best_arch != (int) cfun->target_arch)
+	  {
+	    /* This loop should be vectorized for another target.
+	       We do the vectorization now because, if required, alias checks
+	       and a loop version for the aliased case should run on the main
+	       target (saving code space on the extra target).
+	       Likewise, peeling to obtain the vectorization factor
+	       (vect_do_peeling_for_loop_bound) should be done for the main
+	       target.  ??? We might want to extend this peeling to do
+	       a bit of looping to work concurrently with the extra target.
+	       ??? This is good for arc-mxp or ppc-spu, but h8300-sh64 would
+	       be better off (at least if power is no object once we activate
+	       the sh64) doing more work on the sh64.
+	       Alignment checks will not be necessary because alignment
+	       mismatch is taken care of during data transfer.
+	       (Might need to modify this aspect if the DMA mechanism for
+		some target architecture pair as alignment restrictions).
+	       Since we might to have more than one thread on this other
+	       target, but do the reduction on the main processor, we leave
+	       the outlining parallelize_loops.
+	       As parallelize_loops will see the vectorized loop, there should
+	       be no trouble with a thread other than on the main target
+	       gettingvector subunits not making up a full vector.
+	       An additional task that vectorization the will have to do now
+	       is to translate pointers to use the appropriate ptr_mode.  */
+	    loop->target_arch = best_arch;
+	  }
 	vect_transform_loop (loop_vinfo);
 	num_vectorized_loops++;
       }

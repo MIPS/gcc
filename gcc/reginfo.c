@@ -57,9 +57,11 @@ along with GCC; see the file COPYING3.  If not see
 
 START_TARGET_SPECIFIC
 
+#ifndef EXTRA_TARGET
 /* Maximum register number used in this function, plus one.  */
 
 int max_regno;
+#endif /* !EXTRA_TARGET */
 
 
 /* Register tables used by many passes.  */

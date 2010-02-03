@@ -406,18 +406,22 @@ static void df_set_bb_info (struct dataflow *, unsigned int, void *);
 static void df_set_clean_cfg (void);
 #endif
 
+#ifndef EXTRA_TARGET
 /* An obstack for bitmap not related to specific dataflow problems.
    This obstack should e.g. be used for bitmaps with a short life time
    such as temporary bitmaps.  */
 
 bitmap_obstack df_bitmap_obstack;
+#endif /* !EXTRA_TARGET */
 
 
 /*----------------------------------------------------------------------------
   Functions to create, destroy and manipulate an instance of df.
 ----------------------------------------------------------------------------*/
 
-struct df *df;
+#ifndef EXTRA_TARGET
+struct df_d *df;
+#endif /* !EXTRA_TARGET */
 
 /* Add PROBLEM (and any dependent problems) to the DF instance.  */
 
@@ -708,7 +712,7 @@ static unsigned int
 rest_of_handle_df_initialize (void)
 {
   gcc_assert (!df);
-  df = XCNEW (struct df);
+  df = XCNEW (struct df_d);
   df->changeable_flags = 0;
 
   bitmap_obstack_initialize (&df_bitmap_obstack);

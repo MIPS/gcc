@@ -20,7 +20,11 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_DCE_H
 #define GCC_DCE_H
 
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 extern void run_fast_dce (void);
 extern void run_fast_df_dce (void);
+END_TARGET_SPECIFIC
 
 #endif /* GCC_DCE_H */

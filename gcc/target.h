@@ -120,6 +120,13 @@ struct gcc_target
      this target for options, attributes and error messages.  */
   const char *name;
 
+  /* Position of this target vector in targetm_array.
+     Initialized with the Makefile-generated TARGET_NUM.  */
+  int target_arch;
+
+  /* Points to the ptr_mode variable for this target.  */
+  enum machine_mode *ptr_mode;
+
   /* Functions that output assembler for the target.  */
   struct asm_out
   {
@@ -166,6 +173,9 @@ struct gcc_target
     /* Emit an assembler directive to set visibility for the symbol
        associated with the tree decl.  */
     void (* visibility) (tree, int);
+
+    /* Output assembler code when changing architectures.  */
+    void (* new_arch) (FILE *, struct gcc_target *, struct gcc_target *);
 
     /* Output the assembler code for entry to a function.  */
     void (* function_prologue) (FILE *, HOST_WIDE_INT);
@@ -469,6 +479,9 @@ struct gcc_target
   /* Functions relating to vectorization.  */
   struct vectorize
   {
+    /* Return a vector type for SCALAR_TYPE.  */
+    tree (* vectype_for_scalar_type) (tree scalar_type, FILE *vect_dump);
+
     /* The following member value is a pointer to a function called
        by the vectorizer, and return the decl of the target builtin
        function.  */
@@ -1247,7 +1260,7 @@ extern struct gcc_target *targetm_pnt, *targetm_array[];
 START_TARGET_SPECIFIC
 extern struct gcc_target this_targetm;
 END_TARGET_SPECIFIC
-EXTRA_TARGETS_DECL(struct gcc_target this_targetm);
+EXTRA_TARGETS_DECL(struct gcc_target this_targetm)
 
 struct gcc_targetcm {
   /* Handle target switch CODE (an OPT_* value).  ARG is the argument

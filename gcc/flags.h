@@ -266,6 +266,7 @@ extern bool sel_sched_switch_set;
 /* Whether to run the warn_unused_result attribute pass.  */
 extern bool flag_warn_unused_result;
 
+START_TARGET_SPECIFIC
 /* Values of the -falign-* flags: how much to align labels in code.
    0 means `use default', 1 means `don't align'.
    For each variable, there is an _log variant which is the power
@@ -278,6 +279,7 @@ extern int align_jumps_max_skip;
 extern int align_labels_log;
 extern int align_labels_max_skip;
 extern int align_functions_log;
+END_TARGET_SPECIFIC
 
 /* Nonzero if we dump in VCG format, not plain text.  */
 extern int dump_for_graph;

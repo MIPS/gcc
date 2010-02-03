@@ -1068,7 +1068,7 @@ create_loads_and_stores_for_name (void **slot, void *data)
 static void
 separate_decls_in_region (edge entry, edge exit, htab_t reduction_list,
 			  tree *arg_struct, tree *new_arg_struct,
-			  struct clsn_data *ld_st_data)
+			  struct clsn_data *ld_st_data, unsigned new_target)
 
 {
   basic_block bb1 = split_edge (entry);
@@ -1170,7 +1170,10 @@ separate_decls_in_region (edge entry, edge exit, htab_t reduction_list,
       /* Create the loads and stores.  */
       *arg_struct = create_tmp_var (type, ".paral_data_store");
       add_referenced_var (*arg_struct);
-      nvar = create_tmp_var (build_pointer_type (type), ".paral_data_load");
+      nvar = create_tmp_var (build_pointer_type_for_mode
+			      (type, *targetm_array[new_target]->ptr_mode,
+			       false),
+			     ".paral_data_load");
       add_referenced_var (nvar);
       *new_arg_struct = make_ssa_name (nvar, NULL);
 
@@ -1220,7 +1223,7 @@ parallelized_function_p (tree fn)
    a parallelized loop.  */
 
 static tree
-create_loop_fn (void)
+create_loop_fn (unsigned int target_arch)
 {
   char buf[100];
   char *tname;
@@ -1265,6 +1268,15 @@ create_loop_fn (void)
   TREE_USED (t) = 1;
   DECL_ARGUMENTS (decl) = t;
 
+  if (target_arch)
+    {
+      const char *target_name = targetm_array[target_arch]->name;
+
+      tree value = build_string (strlen (target_name), target_name);
+      decl_attributes (&decl, build_tree_list (get_identifier ("target_arch"),
+					       build_tree_list (NULL, value)),
+		       0);
+    }
   allocate_struct_function (decl, false);
 
   /* The call to allocate_struct_function clobbers CFUN, so we need to restore
@@ -1644,11 +1656,15 @@ gen_parallel_loop (struct loop *loop, htab_t reduction_list,
   /* In the old loop, move all variables non-local to the loop to a structure
      and back, and create separate decls for the variables used in loop.  */
   separate_decls_in_region (entry, exit, reduction_list, &arg_struct,
-			    &new_arg_struct, &clsn_data);
+			    &new_arg_struct, &clsn_data, loop->target_arch);
 
   /* Create the parallel constructs.  */
-  parallel_head = create_parallel_loop (loop, create_loop_fn (), arg_struct,
-					new_arg_struct, n_threads);
+  parallel_head
+    = create_parallel_loop (loop, create_loop_fn (loop->target_arch),
+			    arg_struct, new_arg_struct, n_threads);
+  /* ??? for loop->target_arch != cfun->target_arch, should create another
+     function so that a small slice of the loop can be run on the main
+     processor.  */
   if (htab_elements (reduction_list) > 0)
     create_call_for_reduction (loop, reduction_list, &clsn_data);
 
@@ -1930,8 +1946,12 @@ parallelize_loops (void)
 	  !can_duplicate_loop_p (loop)
 	  || loop_has_blocks_with_irreducible_flag (loop)
 	  || (loop_preheader_edge (loop)->src->flags & BB_IRREDUCIBLE_LOOP)
-	  /* FIXME: the check for vector phi nodes could be removed.  */
-	  || loop_has_vector_phi_nodes (loop))
+	  || (loop->target_arch != cfun->target_arch
+	      ? !number_of_iterations_exit (loop, single_dom_exit (loop),
+					    &niter_desc, false)
+	      /* FIXME: the check for vector phi nodes could be removed.  */
+	      : (loop_has_vector_phi_nodes (loop)
+		 || flag_tree_parallelize_loops <= 1)))
 	continue;
       estimated = estimated_loop_iterations_int (loop, false);
       /* FIXME: Bypass this check as graphite doesn't update the
@@ -1949,7 +1969,8 @@ parallelize_loops (void)
       if (!try_create_reduction_list (loop, reduction_list))
 	continue;
 
-      if (!flag_loop_parallelize_all && !loop_parallel_p (loop))
+      if (loop->target_arch == cfun->target_arch
+	  && !flag_loop_parallelize_all && !loop_parallel_p (loop))
 	continue;
 
       changed = true;

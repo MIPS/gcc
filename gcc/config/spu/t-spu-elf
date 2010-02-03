@@ -115,6 +115,17 @@ spu.o: $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
 spu-c.o: $(srcdir)/config/spu/spu-c.c \
     $(srcdir)/config/spu/spu-protos.h \
     $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(CPPLIB_H) \
-    $(TM_P_H) c-pragma.h coretypes.h $(TM_H) insn-codes.h
+    $(TM_P_H) c-pragma.h coretypes.h $(TM_H) insn-codes.h $(C_TREE_H)
 	$(COMPILER) -c $(ALL_COMPILERFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
 		$(srcdir)/config/spu/spu-c.c
+
+spu-cxx.o: $(srcdir)/config/spu/spu-c.c \
+    $(srcdir)/config/spu/spu-protos.h \
+    $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(CPPLIB_H) \
+    cp/name-lookup.h cp/cp-tree.h $(C_COMMON_H) \
+    c-common.def $(FUNCTION_H) $(VARRAY_H) \
+    $(SYSTEM_H) coretypes.h $(TARGET_H) $(GGC_H) \
+    $(srcdir)/../include/hashtab.h $(srcdir)/../include/splay-tree.h \
+    $(TM_P_H) c-pragma.h coretypes.h $(TM_H) insn-codes.h
+^I$(COMPILER) -c $(ALL_COMPILERFLAGS) $(ALL_CPPFLAGS)  $(INCLUDES) \
+^I^I$(srcdir)/config/spu/spu-c.c -DCC1PLUS -o $@

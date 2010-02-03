@@ -224,7 +224,7 @@ free_after_compilation (struct function *f)
 
   memset (crtl, 0, sizeof (struct rtl_data));
   f->eh = NULL;
-  f->machine = NULL;
+  MACHINE_FUNCTION (*f) = NULL;
   f->cfg = NULL;
 
   regno_reg_rtx = NULL;
@@ -3312,7 +3312,7 @@ assign_parms (tree fndecl)
   /* For stdarg.h function, save info about
      regs and stack space used by the named args.  */
 
-  crtl->args.info = all.args_so_far;
+  INCOMING_ARGS_INFO (crtl->args) = all.args_so_far;
 
   /* Set the rtx used for the function return value.  Put this in its
      own variable so any optimizers that need this information don't have
@@ -4170,7 +4170,7 @@ allocate_struct_function_1 (tree fndecl, bool abstract_p)
   init_eh_for_function ();
 
   if (init_machine_status)
-    cfun->machine = (*init_machine_status) ();
+    MACHINE_FUNCTION (*cfun) = (*init_machine_status) ();
 
 #ifdef OVERRIDE_ABI_FORMAT
   OVERRIDE_ABI_FORMAT (fndecl);
@@ -4215,6 +4215,20 @@ push_struct_function (tree fndecl)
   allocate_struct_function (fndecl, false);
 }
 
+END_TARGET_SPECIFIC
+extern void (*init_emit_array[]) (void);
+START_TARGET_SPECIFIC
+
+#ifndef EXTRA_TARGET
+
+EXTRA_TARGETS_DECL (void init_emit (void))
+
+void (*init_emit_array[]) (void)
+  = { &init_emit, EXTRA_TARGETS_EXPAND_COMMA (&,init_emit) };
+
+#endif /* !EXTRA_TARGET */
+
+
 /* Reset cfun, and other non-struct-function variables to defaults as
    appropriate for emitting rtl at the start of a function.  */
 
@@ -4223,7 +4237,13 @@ prepare_function_start (void)
 {
   gcc_assert (!crtl->emit.x_last_insn);
   init_temp_slots ();
-  init_emit ();
+  /* Instruction emitting must be initialized even before the function is
+     actually expanded from trees to rtl for the benefit of tree
+     optimizers like tree-ssa-loop-ivopts.c which use expand_expr to
+     gauge the cost of certain expressions.  Since init_function_start is
+     called from tree_rest_of_compilation, we must dispatch here to the
+     different target variants of init_emit.  */
+  (cfun ? *init_emit_array[cfun->target_arch] : init_emit) ();
   init_varasm_status ();
   init_expr ();
   default_rtl_profile ();

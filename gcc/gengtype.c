@@ -1554,7 +1554,6 @@ open_base_files (void)
 
   header_file = create_file ("GCC", "gtype-desc.h");
   oprintf (header_file, "\n#include \"multi-target.h\"\n");
-  oprintf (header_file, "\nSTART_TARGET_SPECIFIC\n");
 
   base_files = XNEWVEC (outf_p, num_lang_dirs);
 
@@ -1582,7 +1581,6 @@ open_base_files (void)
     for (ifp = ifiles; *ifp; ifp++)
       oprintf (gtype_desc_c, "#include \"%s\"\n", *ifp);
 
-    oprintf (gtype_desc_c, "\nSTART_TARGET_SPECIFIC\n");
     /* Make sure we handle "cfun" specially.  */
     oprintf (gtype_desc_c, "\n/* See definition in function.h.  */\n");
     oprintf (gtype_desc_c, "#undef cfun\n");
@@ -3137,6 +3135,7 @@ finish_root_table (struct flist *flp, const char *pfx, const char *lastname,
 	lang_bitmap bitmap = get_lang_bitmap (fli2->name);
 	int fnum;
 
+	oprintf (fli2->f, "END_TARGET_SPECIFIC\n");
 	fli2->started_p = 0;
 
 	for (fnum = 0; base_files && bitmap != 0; fnum++, bitmap >>= 1)
@@ -3446,9 +3445,6 @@ write_roots (pair_p variables, bool emit_pch)
 	}
     }
 
-#ifdef EXTRA_TARGET /* FIXME */
-  return;
-#endif
   for (v = variables; v; v = v->next)
     {
       outf_p f = get_output_file_with_visibility (v->line.file);
@@ -3474,6 +3470,7 @@ write_roots (pair_p variables, bool emit_pch)
 	{
 	  fli->started_p = 1;
 
+	  oprintf (f, "START_TARGET_SPECIFIC\n");
 	  oprintf (f, "EXPORTED_CONST struct ggc_root_tab gt_ggc_r_");
 	  put_mangled_filename (f, v->line.file);
 	  oprintf (f, "[] = {\n");
@@ -3508,6 +3505,7 @@ write_roots (pair_p variables, bool emit_pch)
 	{
 	  fli->started_p = 1;
 
+	  oprintf (f, "START_TARGET_SPECIFIC\n");
 	  oprintf (f, "EXPORTED_CONST struct ggc_root_tab gt_ggc_rd_");
 	  put_mangled_filename (f, v->line.file);
 	  oprintf (f, "[] = {\n");
@@ -3552,6 +3550,7 @@ write_roots (pair_p variables, bool emit_pch)
 	{
 	  fli->started_p = 1;
 
+	  oprintf (f, "START_TARGET_SPECIFIC\n");
 	  oprintf (f, "EXPORTED_CONST struct ggc_cache_tab gt_ggc_rc_");
 	  put_mangled_filename (f, v->line.file);
 	  oprintf (f, "[] = {\n");
@@ -3591,6 +3590,7 @@ write_roots (pair_p variables, bool emit_pch)
 	{
 	  fli->started_p = 1;
 
+	  oprintf (f, "START_TARGET_SPECIFIC\n");
 	  oprintf (f, "EXPORTED_CONST struct ggc_root_tab gt_pch_rc_");
 	  put_mangled_filename (f, v->line.file);
 	  oprintf (f, "[] = {\n");
@@ -3627,6 +3627,7 @@ write_roots (pair_p variables, bool emit_pch)
 	{
 	  fli->started_p = 1;
 
+	  oprintf (f, "START_TARGET_SPECIFIC\n");
 	  oprintf (f, "EXPORTED_CONST struct ggc_root_tab gt_pch_rs_");
 	  put_mangled_filename (f, v->line.file);
 	  oprintf (f, "[] = {\n");
@@ -3780,8 +3781,6 @@ main (int argc, char **argv)
     }
   write_roots (variables, plugin_files == NULL);
   write_rtx_next ();
-  oprintf (get_output_file_with_visibility (NULL), "\nEND_TARGET_SPECIFIC\n");
-  oprintf (header_file, "\nEND_TARGET_SPECIFIC\n");
   close_output_files ();
 
   if (plugin_files)

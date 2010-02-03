@@ -77,7 +77,7 @@ struct rtx_constant_pool;
 
 extern struct gcc_target *last_arch;
 #ifndef EXTRA_TARGET
-struct gcc_target *last_arch = &this_targetm;
+struct gcc_target *last_arch;
 #endif /* !EXTRA_TARGET */
 
 START_TARGET_SPECIFIC
@@ -1656,6 +1656,20 @@ notice_global_symbol (tree decl)
     }
 }
 
+void
+default_target_new_arch (FILE *out_file,
+			 struct gcc_target *last_arch,
+			 struct gcc_target *new_arch)
+{
+#ifndef EXTRA_TARGET
+  if (&targetm != &this_targetm)
+    targetm.asm_out.new_arch (out_file, last_arch, new_arch);
+  else if (last_arch)
+#endif
+    if (last_arch != new_arch)
+      fprintf (out_file, "\t.arch\t\"%s\"\n", new_arch->name);
+}
+
 /* Output assembler code for the constant pool of a function and associated
    with defining the name of the function.  DECL describes the function.
    NAME is the function's name.  For the constant pool, we use the current
@@ -1668,11 +1682,9 @@ assemble_start_function (tree decl, const char *fnname)
   char tmp_label[100];
   bool hot_label_written = false;
 
-  if (last_arch != &targetm)
-    {
-      fprintf (asm_out_file, "\t.arch\t\"%s\"\n", targetm.name);
-      last_arch = &targetm;
-    }
+  /* Give the main target ultimate control how to handle a target change.  */
+  targetm_array[0]->asm_out.new_arch (asm_out_file, last_arch, &targetm);
+  last_arch = &targetm;
 
   crtl->subsections.unlikely_text_section_name = NULL;
 

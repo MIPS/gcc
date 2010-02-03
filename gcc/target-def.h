@@ -94,6 +94,7 @@
 #define TARGET_ASM_ASSEMBLE_VISIBILITY default_assemble_visibility
 #endif
 
+#define TARGET_ASM_NEW_ARCH default_target_new_arch
 #define TARGET_ASM_FUNCTION_PROLOGUE default_function_pro_epilogue
 #define TARGET_ASM_FUNCTION_EPILOGUE default_function_pro_epilogue
 #define TARGET_ASM_FUNCTION_END_PROLOGUE no_asm_to_stream
@@ -277,6 +278,7 @@
 			TARGET_ASM_INTERNAL_LABEL,		\
 			TARGET_ASM_TTYPE,			\
 			TARGET_ASM_ASSEMBLE_VISIBILITY,		\
+			TARGET_ASM_NEW_ARCH,			\
 			TARGET_ASM_FUNCTION_PROLOGUE,		\
 			TARGET_ASM_FUNCTION_END_PROLOGUE,	\
 			TARGET_ASM_FUNCTION_BEGIN_EPILOGUE,	\
@@ -382,6 +384,8 @@
    TARGET_SCHED_SKIP_RTX_P,					\
    TARGET_SCHED_SMS_RES_MII}
 
+#define TARGET_VECTORIZE_VECTYPE_FOR_SCALAR_TYPE \
+  default_vectype_for_scalar_type
 #define TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD 0
 #define TARGET_VECTORIZE_BUILTIN_VECTORIZED_FUNCTION \
   default_builtin_vectorized_function
@@ -401,6 +405,7 @@
 
 #define TARGET_VECTORIZE                                                \
   {									\
+    TARGET_VECTORIZE_VECTYPE_FOR_SCALAR_TYPE,				\
     TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD,				\
     TARGET_VECTORIZE_BUILTIN_VECTORIZED_FUNCTION,			\
     TARGET_VECTORIZE_BUILTIN_CONVERSION,				\
@@ -914,6 +919,8 @@
 #define TARGET_INITIALIZER			\
 {						\
   TARGET_NAME,					\
+  TARGET_NUM,					\
+  &ptr_mode,					\
   TARGET_ASM_OUT,				\
   TARGET_SCHED,					\
   TARGET_VECTORIZE,				\

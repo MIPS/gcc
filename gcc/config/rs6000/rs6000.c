@@ -4939,7 +4939,7 @@ avoiding_indexed_address_p (enum machine_mode mode)
   return (TARGET_AVOID_XFORM && VECTOR_MEM_NONE_P (mode));
 }
 
-inline bool
+bool
 legitimate_indirect_address_p (rtx x, int strict)
 {
   return GET_CODE (x) == REG && INT_REG_OK_FOR_BASE_P (x, strict);
@@ -6444,14 +6444,16 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
       return;
     }
 
-  if (reload_in_progress && cfun->machine->sdmode_stack_slot != NULL_RTX)
-    cfun->machine->sdmode_stack_slot =
-      eliminate_regs (cfun->machine->sdmode_stack_slot, VOIDmode, NULL_RTX);
+  if (reload_in_progress
+      && MACHINE_FUNCTION (*cfun)->sdmode_stack_slot != NULL_RTX)
+    MACHINE_FUNCTION (*cfun)->sdmode_stack_slot =
+      eliminate_regs (MACHINE_FUNCTION (*cfun)->sdmode_stack_slot, VOIDmode,
+		      NULL_RTX);
 
   if (reload_in_progress
       && mode == SDmode
       && MEM_P (operands[0])
-      && rtx_equal_p (operands[0], cfun->machine->sdmode_stack_slot)
+      && rtx_equal_p (operands[0], MACHINE_FUNCTION (*cfun)->sdmode_stack_slot)
       && REG_P (operands[1]))
     {
       if (FP_REGNO_P (REGNO (operands[1])))
@@ -6474,7 +6476,7 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
       && mode == SDmode
       && REG_P (operands[0])
       && MEM_P (operands[1])
-      && rtx_equal_p (operands[1], cfun->machine->sdmode_stack_slot))
+      && rtx_equal_p (operands[1], MACHINE_FUNCTION (*cfun)->sdmode_stack_slot))
     {
       if (FP_REGNO_P (REGNO (operands[0])))
 	{
@@ -8155,7 +8157,7 @@ setup_incoming_varargs (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 		gcc_assert (reg_save_area == virtual_stack_vars_rtx);
 	    }
 
-	  cfun->machine->varargs_save_offset = offset;
+	  MACHINE_FUNCTION (*cfun)->varargs_save_offset = offset;
 	  save_area = plus_constant (virtual_stack_vars_rtx, offset);
 	}
     }
@@ -8327,10 +8329,10 @@ rs6000_va_start (tree valist, rtx nextarg)
 		f_sav, NULL_TREE);
 
   /* Count number of gp and fp argument registers used.  */
-  words = crtl->args.info.words;
-  n_gpr = MIN (crtl->args.info.sysv_gregno - GP_ARG_MIN_REG,
+  words = INCOMING_ARGS_INFO (crtl->args).words;
+  n_gpr = MIN (INCOMING_ARGS_INFO (crtl->args).sysv_gregno - GP_ARG_MIN_REG,
 	       GP_ARG_NUM_REG);
-  n_fpr = MIN (crtl->args.info.fregno - FP_ARG_MIN_REG,
+  n_fpr = MIN (INCOMING_ARGS_INFO (crtl->args).fregno - FP_ARG_MIN_REG,
 	       FP_ARG_NUM_REG);
 
   if (TARGET_DEBUG_ARG)
@@ -8373,9 +8375,9 @@ rs6000_va_start (tree valist, rtx nextarg)
 
   /* Find the register save area.  */
   t = make_tree (TREE_TYPE (sav), virtual_stack_vars_rtx);
-  if (cfun->machine->varargs_save_offset)
+  if (MACHINE_FUNCTION (*cfun)->varargs_save_offset)
     t = build2 (POINTER_PLUS_EXPR, TREE_TYPE (sav), t,
-	        size_int (cfun->machine->varargs_save_offset));
+	        size_int (MACHINE_FUNCTION (*cfun)->varargs_save_offset));
   t = build2 (MODIFY_EXPR, TREE_TYPE (sav), sav, t);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
@@ -13221,13 +13223,13 @@ rs6000_secondary_memory_needed_rtx (enum machine_mode mode)
     ret = assign_stack_local (mode, GET_MODE_SIZE (mode), 0);
   else
     {
-      rtx mem = cfun->machine->sdmode_stack_slot;
+      rtx mem = MACHINE_FUNCTION (*cfun)->sdmode_stack_slot;
       gcc_assert (mem != NULL_RTX);
 
       if (!eliminated)
 	{
 	  mem = eliminate_regs (mem, VOIDmode, NULL_RTX);
-	  cfun->machine->sdmode_stack_slot = mem;
+	  MACHINE_FUNCTION (*cfun)->sdmode_stack_slot = mem;
 	  eliminated = true;
 	}
       ret = mem;
@@ -13728,7 +13730,7 @@ rs6000_alloc_sdmode_stack_slot (void)
   basic_block bb;
   gimple_stmt_iterator gsi;
 
-  gcc_assert (cfun->machine->sdmode_stack_slot == NULL_RTX);
+  gcc_assert (MACHINE_FUNCTION (*cfun)->sdmode_stack_slot == NULL_RTX);
 
   FOR_EACH_BB (bb)
     for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
@@ -13737,8 +13739,8 @@ rs6000_alloc_sdmode_stack_slot (void)
 	if (ret)
 	  {
 	    rtx stack = assign_stack_local (DDmode, GET_MODE_SIZE (DDmode), 0);
-	    cfun->machine->sdmode_stack_slot = adjust_address_nv (stack,
-								  SDmode, 0);
+	    MACHINE_FUNCTION (*cfun)->sdmode_stack_slot
+	      = adjust_address_nv (stack, SDmode, 0);
 	    return;
 	  }
       }
@@ -13753,8 +13755,8 @@ rs6000_alloc_sdmode_stack_slot (void)
 	  || TYPE_MODE (DECL_ARG_TYPE (t)) == SDmode)
 	{
 	  rtx stack = assign_stack_local (DDmode, GET_MODE_SIZE (DDmode), 0);
-	  cfun->machine->sdmode_stack_slot = adjust_address_nv (stack,
-								SDmode, 0);
+	  MACHINE_FUNCTION (*cfun)->sdmode_stack_slot
+	    = adjust_address_nv (stack, SDmode, 0);
 	  return;
 	}
     }
@@ -13763,8 +13765,8 @@ rs6000_alloc_sdmode_stack_slot (void)
 static void
 rs6000_instantiate_decls (void)
 {
-  if (cfun->machine->sdmode_stack_slot != NULL_RTX)
-    instantiate_decl_rtl (cfun->machine->sdmode_stack_slot);
+  if (MACHINE_FUNCTION (*cfun)->sdmode_stack_slot != NULL_RTX)
+    instantiate_decl_rtl (MACHINE_FUNCTION (*cfun)->sdmode_stack_slot);
 }
 
 /* Given an rtx X being reloaded into a reg required to be
@@ -14248,14 +14250,14 @@ rs6000_get_some_local_dynamic_name (void)
 {
   rtx insn;
 
-  if (cfun->machine->some_ld_name)
-    return cfun->machine->some_ld_name;
+  if (MACHINE_FUNCTION (*cfun)->some_ld_name)
+    return MACHINE_FUNCTION (*cfun)->some_ld_name;
 
   for (insn = get_insns (); insn ; insn = NEXT_INSN (insn))
     if (INSN_P (insn)
 	&& for_each_rtx (&PATTERN (insn),
 			 rs6000_get_some_local_dynamic_name_1, 0))
-      return cfun->machine->some_ld_name;
+      return MACHINE_FUNCTION (*cfun)->some_ld_name;
 
   gcc_unreachable ();
 }
@@ -14272,7 +14274,7 @@ rs6000_get_some_local_dynamic_name_1 (rtx *px, void *data ATTRIBUTE_UNUSED)
       const char *str = XSTR (x, 0);
       if (SYMBOL_REF_TLS_MODEL (x) == TLS_MODEL_LOCAL_DYNAMIC)
 	{
-	  cfun->machine->some_ld_name = str;
+	  MACHINE_FUNCTION (*cfun)->some_ld_name = str;
 	  return 1;
 	}
     }
@@ -16932,7 +16934,8 @@ compute_vrsave_mask (void)
      them in again.  More importantly, the mask we compute here is
      used to generate CLOBBERs in the set_vrsave insn, and we do not
      wish the argument registers to die.  */
-  for (i = crtl->args.info.vregno - 1; i >= ALTIVEC_ARG_MIN_REG; --i)
+  for (i = INCOMING_ARGS_INFO (crtl->args).vregno - 1;
+       i >= ALTIVEC_ARG_MIN_REG; --i)
     mask &= ~ALTIVEC_REG_BIT (i);
 
   /* Similarly, remove the return value from the set.  */
@@ -17124,10 +17127,11 @@ rs6000_stack_info (void)
   if (TARGET_SPE)
     {
       /* Cache value so we don't rescan instruction chain over and over.  */
-      if (cfun->machine->insn_chain_scanned_p == 0)
-	cfun->machine->insn_chain_scanned_p
+      if (MACHINE_FUNCTION (*cfun)->insn_chain_scanned_p == 0)
+	MACHINE_FUNCTION (*cfun)->insn_chain_scanned_p
 	  = spe_func_has_64bit_regs_p () + 1;
-      info_ptr->spe_64bit_regs_used = cfun->machine->insn_chain_scanned_p - 1;
+      info_ptr->spe_64bit_regs_used
+	= MACHINE_FUNCTION (*cfun)->insn_chain_scanned_p - 1;
     }
 
   /* Select which calling sequence.  */
@@ -17174,7 +17178,7 @@ rs6000_stack_info (void)
 
   /* Does this function call anything?  */
   info_ptr->calls_p = (! current_function_is_leaf
-		       || cfun->machine->ra_needs_full_frame);
+		       || MACHINE_FUNCTION (*cfun)->ra_needs_full_frame);
 
   /* Determine if we need to save the link register.  */
   if ((DEFAULT_ABI == ABI_AIX
@@ -17600,7 +17604,7 @@ rs6000_return_addr (int count, rtx frame)
      don't try to be too clever here.  */
   if (count != 0 || (DEFAULT_ABI != ABI_AIX && flag_pic))
     {
-      cfun->machine->ra_needs_full_frame = 1;
+      MACHINE_FUNCTION (*cfun)->ra_needs_full_frame = 1;
 
       return
 	gen_rtx_MEM
@@ -17613,7 +17617,7 @@ rs6000_return_addr (int count, rtx frame)
 			   RETURN_ADDRESS_OFFSET)));
     }
 
-  cfun->machine->ra_need_lr = 1;
+  MACHINE_FUNCTION (*cfun)->ra_need_lr = 1;
   return get_hard_reg_initial_val (Pmode, LR_REGNO);
 }
 
@@ -18591,7 +18595,7 @@ rs6000_savres_strategy (rs6000_stack_t *info, bool savep,
 	    || sibcall
 	    || crtl->calls_eh_return
 	    || !info->lr_save_p
-	    || cfun->machine->ra_need_lr
+	    || MACHINE_FUNCTION (*cfun)->ra_need_lr
 	    || info->total_size > 32767);
   savres_fprs_inline = (common
 			|| info->first_fp_reg_save == 64

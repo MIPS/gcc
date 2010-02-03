@@ -2000,7 +2000,7 @@ vect_gen_niters_for_prolog_loop (loop_vec_info loop_vinfo, tree loop_niters,
     {
       gimple_seq new_stmts = NULL;
       tree start_addr = vect_create_addr_base_for_vector_ref (dr_stmt,
-						&new_stmts, NULL_TREE, loop);
+						&new_stmts, NULL_TREE, loop, 0);
       tree ptr_type = TREE_TYPE (start_addr);
       tree size = TYPE_SIZE (ptr_type);
       tree type = lang_hooks.types.type_for_size (tree_low_cst (size, 1), 1);
@@ -2245,7 +2245,7 @@ vect_create_cond_for_align_checks (loop_vec_info loop_vinfo,
       /* create: addr_tmp = (int)(address_of_first_vector) */
       addr_base =
 	vect_create_addr_base_for_vector_ref (ref_stmt, &new_stmt_list,
-					      NULL_TREE, loop);
+					      NULL_TREE, loop, 0);
       if (new_stmt_list != NULL)
 	gimple_seq_add_seq (cond_expr_stmt_list, new_stmt_list);
 
@@ -2412,10 +2412,10 @@ vect_create_cond_for_alias_checks (loop_vec_info loop_vinfo,
 
       addr_base_a =
         vect_create_addr_base_for_vector_ref (stmt_a, cond_expr_stmt_list,
-					      NULL_TREE, loop);
+					      NULL_TREE, loop, 0);
       addr_base_b =
         vect_create_addr_base_for_vector_ref (stmt_b, cond_expr_stmt_list,
-					      NULL_TREE, loop);
+					      NULL_TREE, loop, 0);
 
       segment_length_a = vect_vfa_segment_size (dr_a, vect_factor);
       segment_length_b = vect_vfa_segment_size (dr_b, vect_factor);

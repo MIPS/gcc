@@ -43,6 +43,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ggc.h"
 #include "tree-affine.h"
 #include "target.h"
+#include "multi-target.h
 
 /* TODO -- handling of symbols (according to Richard Hendersons
    comments, http://gcc.gnu.org/ml/gcc-patches/2005-04/msg00949.html):
@@ -81,6 +82,8 @@ typedef struct GTY (()) mem_addr_template {
 
 DEF_VEC_O (mem_addr_template);
 DEF_VEC_ALLOC_O (mem_addr_template, gc);
+
+START_TARGET_SPECIFIC
 
 /* The templates.  Each of the low five bits of the index corresponds to one
    component of TARGET_MEM_REF being present, while the high bits identify
@@ -258,6 +261,7 @@ addr_for_mem_ref (struct mem_address *addr, addr_space_t as,
   return address;
 }
 
+#ifndef EXTRA_TARGET
 /* Returns address of MEM_REF in TYPE.  */
 
 tree
@@ -316,6 +320,7 @@ tree_mem_ref_addr (tree type, tree mem_ref)
 
   return addr;
 }
+#endif /* !EXTRA_TARGET */
 
 /* Returns true if a memory reference in MODE and with parameters given by
    ADDR is valid on the current target.  */
@@ -746,6 +751,7 @@ create_mem_ref (gimple_stmt_iterator *gsi, tree type, aff_tree *addr,
   gcc_unreachable ();
 }
 
+#ifndef EXTRA_TARGET
 /* Copies components of the address from OP to ADDR.  */
 
 void
@@ -766,6 +772,7 @@ copy_mem_ref_info (tree to, tree from)
   /* And the info about the original reference.  */
   TMR_ORIGINAL (to) = TMR_ORIGINAL (from);
 }
+#endif /* !EXTRA_TARGET */
 
 /* Move constants in target_mem_ref REF to offset.  Returns the new target
    mem ref if anything changes, NULL_TREE otherwise.  */
@@ -825,6 +832,7 @@ maybe_fold_tmr (tree ref)
   return ret;
 }
 
+#ifndef EXTRA_TARGET
 /* Dump PARTS to FILE.  */
 
 extern void dump_mem_address (FILE *, struct mem_address *);
@@ -862,5 +870,8 @@ dump_mem_address (FILE *file, struct mem_address *parts)
       fprintf (file, "\n");
     }
 }
+#endif /* EXTRA_TARGET */
 
 #include "gt-tree-ssa-address.h"
+
+END_TARGET_SPECIFIC

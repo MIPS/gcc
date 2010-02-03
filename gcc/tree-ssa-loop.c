@@ -245,7 +245,7 @@ struct gimple_opt_pass pass_vectorize =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   TODO_verify_loops,			/* todo_flags_start */
-  TODO_dump_func | TODO_update_ssa
+  TODO_dump_func | TODO_update_ssa | TODO_rebuild_alias
     | TODO_ggc_collect			/* todo_flags_finish */
  }
 };
@@ -558,7 +558,15 @@ struct gimple_opt_pass pass_complete_unrolli =
 static bool
 gate_tree_parallelize_loops (void)
 {
-  return flag_tree_parallelize_loops > 1;
+  struct loop *loop;
+  loop_iterator li;
+
+  if (flag_tree_parallelize_loops > 1)
+    return true;
+  FOR_EACH_LOOP (li, loop, 0)
+    if (loop->target_arch != cfun->target_arch)
+      return true;
+  return false;
 }
 
 static unsigned

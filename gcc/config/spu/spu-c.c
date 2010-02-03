@@ -20,7 +20,13 @@
 #include "tm.h"
 #include "cpplib.h"
 #include "tree.h"
+#ifdef CC1PLUS
+#include "cp/cp-tree.h"
+#else /* !CC1PLUS */
 #include "c-tree.h"
+#define same_type_p(TYPE1, TYPE2) \
+  comptypes ((TYPE1), (TYPE2))
+#endif /* !CC1PLUS */
 #include "c-pragma.h"
 #include "function.h"
 #include "rtl.h"
@@ -162,8 +168,8 @@ spu_resolve_overloaded_builtin (location_t loc, tree fndecl, void *passed_args)
 	  if ((!SCALAR_TYPE_P (param_type)
 	       || !SCALAR_TYPE_P (arg_type)
 	       || (all_scalar && p == 0))
-	      && !comptypes (TYPE_MAIN_VARIANT (param_type),
-			     TYPE_MAIN_VARIANT (arg_type)))
+	      && !same_type_p (TYPE_MAIN_VARIANT (param_type),
+			       TYPE_MAIN_VARIANT (arg_type)))
 	    break;
 	}
       if (param == void_list_node)

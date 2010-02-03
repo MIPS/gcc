@@ -148,6 +148,8 @@ struct GTY ((chain_next ("%h.next"))) loop {
 
   bool any_upper_bound;
   bool any_estimate;
+  /* For what target is this loop to be vectorized?  targetm_array index.  */
+  unsigned target_arch : 8;
 
   /* An integer estimation of the number of iterations.  Estimate_state
      describes what is the state of the estimation.  */
@@ -224,8 +226,8 @@ START_TARGET_SPECIFIC
 /* Loop data structure manipulation/querying.  */
 extern void flow_loop_tree_node_add (struct loop *, struct loop *);
 extern void flow_loop_tree_node_remove (struct loop *);
-extern void add_loop (struct loop *, struct loop *);
 END_TARGET_SPECIFIC
+extern void add_loop (struct loop *, struct loop *);
 extern bool flow_loop_nested_p	(const struct loop *, const struct loop *);
 extern bool flow_bb_inside_loop_p (const struct loop *, const_basic_block);
 extern struct loop * find_common_loop (struct loop *, struct loop *);

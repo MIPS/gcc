@@ -2240,9 +2240,11 @@ EXTRA_TARGETS_DECL (void backend_init (void));
 void
 backend_init (void)
 {
+  targetm_pnt = &this_targetm;
   init_emit_once ();
 
   EXTRA_TARGETS_CALL (backend_init ());
+  targetm_pnt = &this_targetm;
 
   init_rtlanal ();
   init_inline_once ();
@@ -2325,8 +2327,11 @@ EXTRA_TARGETS_DECL (int lang_dependent_init (const char *));
 int
 lang_dependent_init (const char *name)
 {
+  location_t save_loc ATTRIBUTE_UNUSED;
+
+  targetm_pnt = &this_targetm;
 #ifndef EXTRA_TARGET
-  location_t save_loc = input_location;
+  save_loc = input_location;
   if (dump_base_name == 0)
     dump_base_name = name && name[0] ? name : "gccdump";
 
@@ -2336,6 +2341,7 @@ lang_dependent_init (const char *name)
     return 0;
   input_location = save_loc;
   EXTRA_TARGETS_CALL (lang_dependent_init (name));
+  targetm_pnt = &this_targetm;
 
   init_asm_output (name);
 #endif /* !EXTRA_TARGET */

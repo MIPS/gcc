@@ -121,3 +121,4 @@ varasm.c
 var-tracking.c
 vmsdbgout.c
 web.c
+tree-ssa-address.c

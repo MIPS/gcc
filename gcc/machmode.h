@@ -257,6 +257,7 @@ END_TARGET_SPECIFIC
 
 #define GET_MODE_ALIGNMENT(MODE) get_mode_alignment (MODE)
 
+START_TARGET_SPECIFIC
 /* For each class, get the narrowest mode in that class.  */
 
 extern const unsigned char class_narrowest_mode[MAX_MODE_CLASS];
@@ -272,5 +273,6 @@ extern enum machine_mode ptr_mode;
 
 /* Target-dependent machine mode initialization - in insn-modes.c.  */
 extern void init_adjust_machine_modes (void);
+END_TARGET_SPECIFIC
 
 #endif /* not HAVE_MACHINE_MODES */
