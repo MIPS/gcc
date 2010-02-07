@@ -1,3 +1,18 @@
+2010-02-07  Daniel Franke  <franke.daniel@gmail.com>
+
+	* simplify.c (compute_dot_product): Replaced usage of ADVANCE macro
+	with direct access access to elements. Adjusted prototype, fixed all
+	callers.
+	(gfc_simplify_dot_product): Removed duplicate check for zero-sized
+	array.
+	(gfc_simplify_matmul): Removed usage of ADVANCE macro.
+	(gfc_simplify_spread): Removed workaround, directly insert elements
+	at a given array position.
+	(gfc_simplify_transpose): Likewise.
+	(gfc_simplify_pack): Replaced usage of ADVANCE macro with corresponding
+	function calls.
+	(gfc_simplify_unpack): Likewise.
+
 2010-01-09  Daniel Franke  <franke.daniel@gmail.com>
 
 	* simplify.c (only_convert_cmplx_boz): Renamed to ...
