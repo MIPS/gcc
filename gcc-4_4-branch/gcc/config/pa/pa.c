@@ -158,6 +158,7 @@ static enum reg_class pa_secondary_reload (bool, rtx, enum reg_class,
 					   enum machine_mode,
 					   secondary_reload_info *);
 static void pa_extra_live_on_entry (bitmap);
+static rtx pa_delegitimize_address (rtx);
 
 /* The following extra sections are only used for SOM.  */
 static GTY(()) section *som_readonly_data_section;
@@ -322,6 +323,9 @@ static size_t n_deferred_plabels = 0;
 
 #undef TARGET_EXTRA_LIVE_ON_ENTRY
 #define TARGET_EXTRA_LIVE_ON_ENTRY pa_extra_live_on_entry
+
+#undef TARGET_DELEGITIMIZE_ADDRESS
+#define TARGET_DELEGITIMIZE_ADDRESS pa_delegitimize_address
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -9733,4 +9737,16 @@ pa_modes_tieable_p (enum machine_mode mode1, enum machine_mode mode2)
   return true;
 }
 
+static rtx
+pa_delegitimize_address (rtx orig_x)
+{
+  rtx x = delegitimize_mem_from_attrs (orig_x);
+
+  if (GET_CODE (x) == LO_SUM
+      && GET_CODE (XEXP (x, 1)) == UNSPEC
+      && XINT (XEXP (x, 1), 1) == UNSPEC_DLTIND14R)
+    return gen_const_mem (Pmode, XVECEXP (XEXP (x, 1), 0, 0));
+  return x;
+}
+
 #include "gt-pa.h"
