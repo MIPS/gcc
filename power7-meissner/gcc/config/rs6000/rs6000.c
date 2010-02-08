@@ -222,6 +222,13 @@ int rs6000_debug_arg;		/* debug argument handling */
 int rs6000_debug_reg;		/* debug register classes */
 int rs6000_debug_addr;		/* debug memory addressing */
 int rs6000_debug_cost;		/* debug rtx_costs */
+int rs6000_debug_mrm;		/* temporary switch */
+
+#define MRM_POWER7_FIRST_INSN_P		((rs6000_debug_mrm & 0x01) != 0)
+#define MRM_POWER7_LAST_INSN_P		((rs6000_debug_mrm & 0x02) != 0)
+#define MRM_POWER7_VERBOSE_P		((rs6000_debug_mrm & 0x04) != 0)
+#define MRM_POWER7_P5COST_P		((rs6000_debug_mrm & 0x10) != 0)
+#define MRM_POWER7_DEFAULT		(0x13)
 
 /* Specify the machine mode that pointers have.  After generation of rtl, the
    compiler makes no further distinction between pointers and any other objects
@@ -1856,11 +1863,20 @@ rs6000_debug_reg_global (void)
 	   "align_branch_targets            = %s\n"
 	   "sched_restricted_insns_priority = %d\n"
 	   "sched_costly_dep                = %s\n"
-	   "sched_insert_nops               = %s\n\n",
+	   "sched_insert_nops               = %s\n"
+	   "MRM_POWER7_FIRST_INSN_P         = %s\n"
+	   "MRM_POWER7_LAST_INSN_P          = %s\n"
+	   "MRM_POWER7_VERBOSE_P            = %s\n"
+	   "MRM_POWER7_P5COST_P             = %s\n"
+	   "\n",
 	   rs6000_always_hint ? "true" : "false",
 	   rs6000_align_branch_targets ? "true" : "false",
 	   (int)rs6000_sched_restricted_insns_priority,
-	   costly_str, nop_str);
+	   costly_str, nop_str,
+	   MRM_POWER7_FIRST_INSN_P ? "true" : "false",
+	   MRM_POWER7_LAST_INSN_P ? "true" : "false",
+	   MRM_POWER7_VERBOSE_P ? "true" : "false",
+	   MRM_POWER7_P5COST_P ? "true" : "false");
 }
 
 /* Initialize the various global tables that are based on register size.  */
@@ -2091,6 +2107,38 @@ rs6000_init_hard_regno_mode_ok (void)
 
   if (TARGET_DEBUG_REG)
     rs6000_debug_reg_global ();
+
+  if (TARGET_DEBUG_COST || TARGET_DEBUG_REG)
+    fprintf (stderr,
+	     "SImode variable mult cost       = %d\n"
+	     "SImode constant mult cost       = %d\n"
+	     "SImode short constant mult cost = %d\n"
+	     "DImode multipliciation cost     = %d\n"
+	     "SImode division cost            = %d\n"
+	     "DImode division cost            = %d\n"
+	     "Simple fp operation cost        = %d\n"
+	     "DFmode multiplication cost      = %d\n"
+	     "SFmode division cost            = %d\n"
+	     "DFmode division cost            = %d\n"
+	     "cache line size                 = %d\n"
+	     "l1 cache size                   = %d\n"
+	     "l2 cache size                   = %d\n"
+	     "simultaneous prefetches         = %d\n"
+	     "\n",
+	     rs6000_cost->mulsi,
+	     rs6000_cost->mulsi_const,
+	     rs6000_cost->mulsi_const9,
+	     rs6000_cost->muldi,
+	     rs6000_cost->divsi,
+	     rs6000_cost->divdi,
+	     rs6000_cost->fp,
+	     rs6000_cost->dmul,
+	     rs6000_cost->sdiv,
+	     rs6000_cost->ddiv,
+	     rs6000_cost->cache_line_size,
+	     rs6000_cost->l1_cache_size,
+	     rs6000_cost->l2_cache_size,
+	     rs6000_cost->simultaneous_prefetches);
 }
 
 #if TARGET_MACHO
@@ -2465,6 +2513,30 @@ rs6000_override_options (const char *default_cpu)
 	rs6000_debug_addr = 1;
       else if (! strcmp (rs6000_debug_name, "cost"))
 	rs6000_debug_cost = 1;
+      else if (! strcmp (rs6000_debug_name, "mrm"))
+	rs6000_debug_mrm = (int) MRM_POWER7_DEFAULT;
+      else if (! strncmp (rs6000_debug_name, "mrm", 3))
+	rs6000_debug_mrm = (int) strtoul (rs6000_debug_name+3, NULL, 0);
+      else if (! strcmp (rs6000_debug_name, "xmrm"))
+	{
+	  rs6000_debug_mrm = (int) MRM_POWER7_DEFAULT;
+	  rs6000_debug_cost = rs6000_debug_reg = 1;
+	}
+      else if (! strncmp (rs6000_debug_name, "xmrm", 4))
+	{
+	  rs6000_debug_mrm = (int) strtoul (rs6000_debug_name+4, NULL, 0);
+	  rs6000_debug_cost = rs6000_debug_reg = 1;
+	}
+      else if (! strcmp (rs6000_debug_name, "ymrm"))
+	{
+	  rs6000_debug_mrm = (int) MRM_POWER7_DEFAULT;
+	  rs6000_debug_reg = 1;
+	}
+      else if (! strncmp (rs6000_debug_name, "ymrm", 4))
+	{
+	  rs6000_debug_mrm = (int) strtoul (rs6000_debug_name+4, NULL, 0);
+	  rs6000_debug_reg = 1;
+	}
       else
 	error ("unknown -mdebug-%s switch", rs6000_debug_name);
 
@@ -2821,7 +2893,7 @@ rs6000_override_options (const char *default_cpu)
 	break;
 
       case PROCESSOR_POWER7:
-	rs6000_cost = &power7_cost;
+	rs6000_cost = (MRM_POWER7_P5COST_P) ? &power4_cost : &power7_cost;
 	break;
 
       case PROCESSOR_PPCA2:
@@ -22648,6 +22720,34 @@ insn_must_be_first_in_group (rtx insn)
         }
       break;
     case PROCESSOR_POWER7:
+      if (MRM_POWER7_FIRST_INSN_P)
+	{
+	  if (is_cracked_insn (insn))
+	    {
+	      if (MRM_POWER7_VERBOSE_P)
+		{
+		  fprintf (stderr, "\ninsn_must_be_first_in_group, cracked\n");
+		  debug_rtx (insn);
+		}
+	      return true;
+	    }
+	  if (is_microcoded_insn (insn))
+	    {
+	      if (MRM_POWER7_VERBOSE_P)
+		{
+		  fprintf (stderr, "\ninsn_must_be_first_in_group, microcoded\n");
+		  debug_rtx (insn);
+		}
+	      return true;
+	    }
+	  if (!rs6000_sched_groups)
+	    {
+	      if (MRM_POWER7_VERBOSE_P)
+		fprintf (stderr, "\ninsn_must_be_first_in_group, no sched groups\n");
+	      return false;
+	    }
+	}
+
       type = get_attr_type (insn);
 
       switch (type)
@@ -22744,6 +22844,29 @@ insn_must_be_last_in_group (rtx insn)
     }
     break;
   case PROCESSOR_POWER7:
+    if (MRM_POWER7_LAST_INSN_P)
+      {
+	if (is_microcoded_insn (insn))
+	  {
+	    if (MRM_POWER7_VERBOSE_P)
+	      {
+		fprintf (stderr, "\ninsn_must_be_last_in_group, microcoded\n");
+		debug_rtx (insn);
+	      }
+	    return true;
+	  }
+
+	if (is_branch_slot_insn (insn))
+	  {
+	    if (MRM_POWER7_VERBOSE_P)
+	      {
+		fprintf (stderr, "\ninsn_must_be_last_in_group, branch_slot\n");
+		debug_rtx (insn);
+	      }
+	    return true;
+	  }
+      }
+
     type = get_attr_type (insn);
 
     switch (type)

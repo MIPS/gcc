@@ -1,3 +1,18 @@
+2010-02-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_debug_mrm): New variable for
+	debugging.
+	(MRM_POWER7_*): New accessor macros for debugging.
+	(rs6000_debug_reg_global): Print new MRM debug information.
+	(rs6000_init_hard_regno_mode_ok): Print the cost structure if
+	debugging.
+	(rs6000_override_options): Add support for -mdebug={,x,y}mrm*.
+	Set power7 costs to power5 if -mdebug=mrm8.
+	(insn_must_be_first_in_group): If -mdebug=mrm1 add in power5 rules
+	about cracked/microcode insns.
+	(insn_must_be_last_in_group): If -mdebug=mrm2 add in power5 rules
+	about microcoded/branch insns.
+
 2010-02-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 156472.
