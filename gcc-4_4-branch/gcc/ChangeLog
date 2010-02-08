@@ -1,3 +1,35 @@
+2010-02-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/42890
+	* tree-inline.c (delete_unreachable_blocks_update_callgraph): New
+	function backported from the trunk.
+	(tree_function_versioning): Call it instead of
+	delete_unreachable_blocks.
+
+	PR tree-optimization/42931
+	* tree-loop-linear.c (try_interchange_loops): Don't call
+	double_int_mul if estimated_loop_iterations failed.
+
+2010-02-08  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/42995
+	* tree-inline.c (estimate_move_cost): Assert we are not called
+	with a void type.
+	(estimate_num_insns): Do not count the terminating void_type_node
+	of a function argument type list.
+
+	Backport from mainline:
+	2010-01-06  Richard Guenther  <rguenther@suse.de>
+
+	* ipa-inline.c (cgraph_decide_inlining_incrementally): Do
+	not inline regular functions into always-inline functions.
+
+	2010-01-05  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/42462
+	* ipa-inline.c (compute_inline_parameters): Pass node->decl instead of
+	current_function_decl to helper functions and macros.
+
 2010-02-05  Steve Ellcey  <sje@cup.hp.com>
 
 	PR target/42924
