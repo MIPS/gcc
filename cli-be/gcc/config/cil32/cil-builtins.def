@@ -400,7 +400,7 @@ DEF_CILBUILTIN(MONO_V4SI_XOR, "[Mono.Simd]Mono.Simd.Vector4i::op_ExclusiveOr", \
 	       intSI4_type_node, intSI4_type_node)
 
 /* V8HI */
-DEF_CILBUILTIN(MONO_V8HI_CTOR, "[Mono.Simd]Mono.Simd.Vector8hs::.ctor", \
+DEF_CILBUILTIN(MONO_V8HI_CTOR, "[Mono.Simd]Mono.Simd.Vector8s::.ctor", \
 	       intHI8_type_node, \
 	       8, \
 	       intHI_type_node, intHI_type_node, \
@@ -408,48 +408,48 @@ DEF_CILBUILTIN(MONO_V8HI_CTOR, "[Mono.Simd]Mono.Simd.Vector8hs::.ctor", \
 	       intHI_type_node, intHI_type_node, \
 	       intHI_type_node, intHI_type_node)
 
-DEF_CILBUILTIN(MONO_V8HI_CTOR_U, "[Mono.Simd]Mono.Simd.Vector8hs::.ctor ", \
+DEF_CILBUILTIN(MONO_V8HI_CTOR_U, "[Mono.Simd]Mono.Simd.Vector8s::.ctor ", \
 	       intHI8_type_node, \
 	       1, intHI_type_node)
 
 DEF_CILBUILTIN(MONO_V8HI_LOAD_ALIGNED,
-	       "[Mono.Simd]Mono.Simd.Vector8hs::LoadAligned",	\
+	       "[Mono.Simd]Mono.Simd.Vector8s::LoadAligned",	\
 	       intHI8_type_node, \
 	       1, \
 	       V8HI_ptr_type_node)
 
 DEF_CILBUILTIN(MONO_V8HI_STORE_ALIGNED,
-	       "[Mono.Simd]Mono.Simd.Vector8hs::StoreAligned",	\
+	       "[Mono.Simd]Mono.Simd.Vector8s::StoreAligned",	\
 	       void_type_node, \
 	       2, \
 	       V8HI_ptr_type_node, intHI8_type_node)
 
-DEF_CILBUILTIN(MONO_V8HI_ADD, "[Mono.Simd]Mono.Simd.Vector8hs::op_Addition", \
+DEF_CILBUILTIN(MONO_V8HI_ADD, "[Mono.Simd]Mono.Simd.Vector8s::op_Addition", \
 	       intHI8_type_node, \
 	       2, \
 	       intHI8_type_node, intHI8_type_node)
 
-DEF_CILBUILTIN(MONO_V8HI_SUB, "[Mono.Simd]Mono.Simd.Vector8hs::op_Subtraction",\
+DEF_CILBUILTIN(MONO_V8HI_SUB, "[Mono.Simd]Mono.Simd.Vector8s::op_Subtraction",\
 	       intHI8_type_node, \
 	       2, \
 	       intHI8_type_node, intHI8_type_node)
 
-DEF_CILBUILTIN(MONO_V8HI_MUL, "[Mono.Simd]Mono.Simd.Vector8hs::op_Multiply",\
+DEF_CILBUILTIN(MONO_V8HI_MUL, "[Mono.Simd]Mono.Simd.Vector8s::op_Multiply",\
 	       intHI8_type_node, \
 	       2, \
 	       intHI8_type_node, intHI8_type_node)
 
-DEF_CILBUILTIN(MONO_V8HI_AND, "[Mono.Simd]Mono.Simd.Vector8hs::op_BitwiseAnd",\
+DEF_CILBUILTIN(MONO_V8HI_AND, "[Mono.Simd]Mono.Simd.Vector8s::op_BitwiseAnd",\
 	       intHI8_type_node, \
 	       2, \
 	       intHI8_type_node, intHI8_type_node)
 
-DEF_CILBUILTIN(MONO_V8HI_OR, "[Mono.Simd]Mono.Simd.Vector8hs::op_BitwiseOr",\
+DEF_CILBUILTIN(MONO_V8HI_OR, "[Mono.Simd]Mono.Simd.Vector8s::op_BitwiseOr",\
 	       intHI8_type_node, \
 	       2, \
 	       intHI8_type_node, intHI8_type_node)
 
-DEF_CILBUILTIN(MONO_V8HI_XOR, "[Mono.Simd]Mono.Simd.Vector8hs::op_ExclusiveOr",\
+DEF_CILBUILTIN(MONO_V8HI_XOR, "[Mono.Simd]Mono.Simd.Vector8s::op_ExclusiveOr",\
 	       intHI8_type_node, \
 	       2, \
 	       intHI8_type_node, intHI8_type_node)
