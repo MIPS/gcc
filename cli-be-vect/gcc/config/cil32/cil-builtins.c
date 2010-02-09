@@ -35,6 +35,7 @@ Erven Rohou             <erven.rohou@inria.fr>
 #include "coretypes.h"
 #include "tree.h"
 #include "langhooks.h"
+#include "c-common.h"
 
 #include "cil-builtins.h"
 #include "cil-refs.h"
@@ -57,13 +58,13 @@ static GTY(()) tree cil32_complex_double_type = NULL_TREE;
 
 static GTY((param_is (union tree_node))) htab_t builtin_types = NULL;
 
-static void cil_add_builtin (enum cil32_builtin, const char *, tree, int, ...);
+static void cil_add_builtin (enum cil32_builtin, const char *, int, tree, int, ...);
 static void cil_build_builtin_types (void);
 static void cil_build_complex_types (void);
 
 static void
 cil_add_builtin (enum cil32_builtin bi, const char *name,
-		tree ret_type, int n, ...)
+                 int attrs, tree ret_type, int n, ...)
 {
   tree arglist;
   va_list va;
@@ -85,7 +86,7 @@ cil_add_builtin (enum cil32_builtin bi, const char *name,
 					     bi,
 					     BUILT_IN_MD,
 					     NULL,
-					     NULL_TREE);
+					     built_in_attributes [attrs]);
 }
 
 void
@@ -127,8 +128,8 @@ cil_init_builtins (void)
 
   cil_build_builtin_types ();
 
-#define DEF_CILBUILTIN(bid, name, ret_type, ...) \
-  cil_add_builtin (CIL32_##bid, name, ret_type, ## __VA_ARGS__);
+#define DEF_CILBUILTIN(bid, name, attrs, ret_type, ...)                  \
+  cil_add_builtin (CIL32_##bid, name, attrs, ret_type, ## __VA_ARGS__);
 #include "cil-builtins.def"
 #undef DEF_CILBUILTIN
 }

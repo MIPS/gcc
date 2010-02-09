@@ -3886,21 +3886,10 @@ c_alignof_expr (tree expr)
 
 /* Handle C and C++ default attributes.  */
 
-enum built_in_attribute
-{
-#define DEF_ATTR_NULL_TREE(ENUM) ENUM,
-#define DEF_ATTR_INT(ENUM, VALUE) ENUM,
-#define DEF_ATTR_IDENT(ENUM, STRING) ENUM,
-#define DEF_ATTR_TREE_LIST(ENUM, PURPOSE, VALUE, CHAIN) ENUM,
-#include "builtin-attrs.def"
-#undef DEF_ATTR_NULL_TREE
-#undef DEF_ATTR_INT
-#undef DEF_ATTR_IDENT
-#undef DEF_ATTR_TREE_LIST
-  ATTR_LAST
-};
 
-static GTY(()) tree built_in_attributes[(int) ATTR_LAST];
+/* FIXME: need to see this in the cil32 specific part, for target dependent
+   builtins */
+/* static GTY(()) */ tree built_in_attributes[(int) ATTR_LAST];
 
 static void c_init_attributes (void);
 

@@ -1042,4 +1042,21 @@ extern tree c_omp_remap_decl (tree, bool);
 #define GCC_DIAG_STYLE __gcc_cdiag__
 #endif
 
+
+enum built_in_attribute
+{
+#define DEF_ATTR_NULL_TREE(ENUM) ENUM,
+#define DEF_ATTR_INT(ENUM, VALUE) ENUM,
+#define DEF_ATTR_IDENT(ENUM, STRING) ENUM,
+#define DEF_ATTR_TREE_LIST(ENUM, PURPOSE, VALUE, CHAIN) ENUM,
+#include "builtin-attrs.def"
+#undef DEF_ATTR_NULL_TREE
+#undef DEF_ATTR_INT
+#undef DEF_ATTR_IDENT
+#undef DEF_ATTR_TREE_LIST
+  ATTR_LAST
+};
+
+extern tree built_in_attributes[];
+
 #endif /* ! GCC_C_COMMON_H */
