@@ -1,3 +1,7 @@
+2010-02-09  Erven Rohou <erven.rohou@inria.fr>
+
+	* config/cil32/emit-cil32.c: Bug fix for 64-bit machines.
+
 2010-01-29  Erven Rohou <erven.rohou@inria.fr>
 
 	Add support for vector multiply

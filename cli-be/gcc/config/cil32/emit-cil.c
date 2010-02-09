@@ -1560,6 +1560,10 @@ emit_cil_stmt (FILE *file, const_cil_stmt stmt)
 
 	    real_to_target (buf, &d, TYPE_MODE (type));
 	    real_to_decimal (string, &d, sizeof (string), 0, 1);
+	    /* On 64-bit machines, we need to drop high 32 bits to print the
+	       value properly. real_to_target guarantees that only 32 bits are
+	       set, no matter the size of the host long.  */
+	    buf[1] &= 0xffffffffl;
 	    fprintf (file, "float64(%#08lx%08lx)\t/* %s */",
 		     buf[1], buf[0], string);
 	  }
