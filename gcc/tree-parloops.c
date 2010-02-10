@@ -625,10 +625,15 @@ separate_decls_in_region_name (tree name,
       tree type = TREE_TYPE (var);
 
       if (new_target != targetm.target_arch && POINTER_TYPE_P (type))
-	type
-	  = ((TREE_CODE (type) == POINTER_TYPE
-	      ? build_pointer_type_for_mode : build_reference_type_for_mode)
-	     (TREE_TYPE (type), *targetm_array[new_target]->ptr_mode, false));
+	{
+	  enum machine_mode pointer_mode
+	    = (targetm_array[new_target]->addr_space.pointer_mode
+		(ADDR_SPACE_GENERIC));
+	  type
+	    = ((TREE_CODE (type) == POINTER_TYPE
+		? build_pointer_type_for_mode : build_reference_type_for_mode)
+	       (TREE_TYPE (type), pointer_mode, false));
+	}
       var_copy = create_tmp_var (type, get_name (var));
       DECL_GIMPLE_REG_P (var_copy) = DECL_GIMPLE_REG_P (var);
       add_referenced_var (var_copy);
@@ -1382,10 +1387,12 @@ separate_decls_in_region (edge entry, edge exit, htab_t reduction_list,
 	  tree niter;
 	  tree ptype;
 	  gimple_stmt_iterator gsi;
+	  enum machine_mode pointer_mode
+	    = (targetm_array[new_target]->addr_space.pointer_mode
+		(ADDR_SPACE_GENERIC));
 
-	  ptype = (build_pointer_type_for_mode
-		    (void_type_node, *targetm_array[new_target]->ptr_mode,
-		     false));
+	  ptype
+	    = build_pointer_type_for_mode (void_type_node, pointer_mode, false);
 	  copy_base_var = create_tmp_var (ptype, "copy_base");
 	  add_referenced_var (copy_base_var);
 	  niter = number_of_latch_executions (loop);

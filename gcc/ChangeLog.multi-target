@@ -1,3 +1,21 @@
+2010-02-10  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* tree-ssa-loop-manip.c: Include target.h and multi-target.h.
+	* tree-pass.h (rtl_dispatch_pass): Always define, but make
+	target_variants fiel dependent on NUM_TARGETS > 1.
+	* toplev.c: Remove tailing semicolon from EXTRA_TARGETS_DECL use.
+	(process_options): Not static.
+	(backend_init_target): Make static.
+	* opts.c: Remove tailing semicolon from EXTRA_TARGETS_DECL use.
+	Fix unterminated comment.
+	* tree-parloops.c (separate_decls_in_region_name): Use
+	addr_space.pointer_mode hook.
+	* cfgexpand.c (pass_expand): Don't initialize target_variants field
+	if it's not present.
+	* passes.c: Remove tailing semicolon from EXTRA_TARGETS_DECL use.
+	(execute_pass_list): Don't use target_variants field if it's not
+	present.
+
 2009-09-08  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* toplev.c (lang_dependent_init): Move EXTRA_TARGETS_CALL of

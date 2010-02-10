@@ -3773,11 +3773,9 @@ struct rtl_dispatch_pass pass_expand =
   TODO_dump_func
   | TODO_ggc_collect			/* todo_flags_finish */
  },
- {
-#ifndef EXTRA_TARGET
-  EXTRA_TARGETS_EXPAND_COMMA (&,pass_expand.pass)
+#if NUM_TARGETS > 1 && !defined(EXTRA_TARGET)
+ { EXTRA_TARGETS_EXPAND_COMMA (&,pass_expand.pass) }
 #endif /* !EXTRA_TARGET */
- }
 };
 
 END_TARGET_SPECIFIC

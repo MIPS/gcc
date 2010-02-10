@@ -1278,7 +1278,7 @@ execute_function_todo (void *data)
   cfun->last_verified = flags & TODO_verify_all;
 }
 
-EXTRA_TARGETS_DECL (void df_finish_pass (bool));
+EXTRA_TARGETS_DECL (void df_finish_pass (bool))
 
 /* Perform all TODO actions.  */
 static void
@@ -1638,8 +1638,10 @@ execute_pass_list (struct opt_pass *pass)
       if (pass->todo_flags_start & TODO_arch_dispatch)
 	{
 	  gcc_assert (cfun);
+#if NUM_TARGETS > 1
 	  if (cfun->target_arch)
-	  pass = ((struct rtl_dispatch_pass *)pass)->target_variants[cfun->target_arch-1];
+	    pass = ((struct rtl_dispatch_pass *)pass)->target_variants[cfun->target_arch-1];
+#endif
 	}
 
       if (execute_one_pass (pass) && pass->sub)

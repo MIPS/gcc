@@ -165,15 +165,15 @@ struct rtl_opt_pass
   struct opt_pass pass;
 };
 
-#ifdef NUM_TARGETS
 /* Description of RTL pass which dispatches according to the target
    architecure.  */
 struct rtl_dispatch_pass
 {
   struct opt_pass pass;
+#if NUM_TARGETS > 1
   struct opt_pass *target_variants[NUM_TARGETS-1];
-};
 #endif
+};
 
 struct varpool_node;
 struct cgraph_node;

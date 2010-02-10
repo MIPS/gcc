@@ -38,6 +38,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "tree-inline.h"
 #include "langhooks.h"
+#include "target.h"
+#include "multi-target.h"
 
 /* Creates an induction variable with value BASE + STEP * iteration in LOOP.
    It is expected that neither BASE nor STEP are shared with other expressions

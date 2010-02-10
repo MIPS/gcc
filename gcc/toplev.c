@@ -108,7 +108,7 @@ along with GCC; see the file COPYING3.  If not see
 START_TARGET_SPECIFIC
 
 void process_options (void);
-EXTRA_TARGETS_DECL (void process_options (void));
+EXTRA_TARGETS_DECL (void process_options (void))
 void backend_init (void);
 int lang_dependent_init (const char *);
 static void init_asm_output (const char *);
@@ -1807,7 +1807,7 @@ init_alignments (void)
 }
 
 /* Process the options that have been parsed.  */
-static void
+void
 process_options (void)
 {
   bool main_target = false;
@@ -2195,7 +2195,7 @@ process_options (void)
 /* This function can be called multiple times to reinitialize the compiler
    back end when register classes or instruction sets have changed,
    before each function.  */
-void
+static void
 backend_init_target (void)
 {
   /* Initialize alignment variables.  */

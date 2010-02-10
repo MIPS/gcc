@@ -771,7 +771,7 @@ handle_options (unsigned int argc, const char **argv, unsigned int lang_mask)
     }
 }
 
-EXTRA_TARGETS_DECL (void decode_options (unsigned int argc, const char **argv));
+EXTRA_TARGETS_DECL (void decode_options (unsigned int argc, const char **argv))
 #endif /* !EXTRA_TARGET */
 /* Parse command line options and set default flag values.  Do minimal
    options processing.  */
@@ -887,7 +887,7 @@ decode_options (unsigned int argc ATTRIBUTE_UNUSED,
   flag_tree_copy_prop = opt1;
   flag_tree_sink = opt1;
   flag_tree_ch = opt1;
-#endif /* !EXTRA_TARGET
+#endif /* !EXTRA_TARGET */
 
   /* -O2 optimizations.  */
   opt2 = (optimize >= 2);
