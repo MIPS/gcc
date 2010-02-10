@@ -97,9 +97,9 @@ enum loop_estimation
   EST_AVAILABLE
 };
 
-struct tree_range GTY (()) { tree min, max; } ;
+struct GTY (()) tree_range { tree min, max; } ;
 
-typedef struct param_array_d GTY (())
+typedef struct GTY (()) param_array_d
 {
   /* The declaration of the base variable, as obtained with get_name_decl.
      Its name is used to compute the hash key.  */

@@ -82,7 +82,7 @@ extern int insn_min_length (rtx);\n\
 extern int insn_variable_length_p (rtx);\n\
 extern int insn_current_length (rtx);\n\n\
 END_TARGET_SPECIFIC /* insn-addr.h includes vecprim.h */\n\
-#include \"insn-addr.h\"\n"
+#include \"insn-addr.h\"\n\
 START_TARGET_SPECIFIC\n");
     }
 }

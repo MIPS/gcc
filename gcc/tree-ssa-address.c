@@ -43,7 +43,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ggc.h"
 #include "tree-affine.h"
 #include "target.h"
-#include "multi-target.h
+#include "multi-target.h"
 
 /* TODO -- handling of symbols (according to Richard Hendersons
    comments, http://gcc.gnu.org/ml/gcc-patches/2005-04/msg00949.html):

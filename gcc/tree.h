@@ -4987,7 +4987,7 @@ extern bool is_builtin_fn (tree);
 extern int get_object_alignment (tree, unsigned int, unsigned int);
 extern tree fold_call_stmt (gimple, bool);
 extern tree gimple_fold_builtin_snprintf_chk (gimple, tree, enum built_in_function);
-END_TARGET_SPECIFIC$
+END_TARGET_SPECIFIC
 extern void set_builtin_user_assembler_name (tree decl, const char *asmspec);
 
 /* In fold-const.c */

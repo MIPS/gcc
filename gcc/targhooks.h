@@ -127,7 +127,7 @@ extern int /*enum reg_class*/ default_branch_target_register_class (void);
 extern const int /*enum reg_class*/ *default_ira_cover_classes (void);
 #endif
 extern int /*enum reg_class*/ default_secondary_reload (bool, rtx,
-							int */enum reg_class*/,
+							int /*enum reg_class*/,
 						enum machine_mode,
 						secondary_reload_info *);
 extern bool default_override_options (bool);
