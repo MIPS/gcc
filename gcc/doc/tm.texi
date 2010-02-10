@@ -9560,7 +9560,7 @@ function specific options.
 This target hook parses the options for @code{#pragma GCC option} to
 set the machine specific options for functions that occur later in the
 input stream.  The options should be the same as handled by the
-@code{TARGET_VALID_OPTION_ATTRIBUTE_P} hook.
+@code{TARGET_OPTION_VALID_ATTRIBUTE_P} hook.
 @end deftypefn
 
 @deftypefn {Target Hook} bool TARGET_CAN_INLINE_P (tree @var{caller}, tree @var{callee})

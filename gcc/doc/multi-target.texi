@@ -1,0 +1,21 @@
+Multi-target vectorization:
+ The host processor is supposed to take care of tasks that cost more code size
+ than execution time, to keep the usage of the SIMD engine code emmeory low.
+ e.g. index ranges are computed in the host processor, so in general the SIMD
+ engine will need no division operation, unlike SMP GOMP threads.
+Array passing for multi-target vectorization operation:
+ A vectorized loop is chopped up into one or more slices, so that slices of
+ input, intermediate and output arrays fit in the data memory.
+ If more than one slice is needed per SIMD data memory, then the aim is to
+ allow at least two slices to fit into each SIMD data memory, so that
+ the SIMD engine can be active on one slice in one half of the memory
+ while in the other half the previous output array(s) slice is DMAed out
+ and the succeeding input array(s) slice is DMAed in.
+ Each array slice is allocated a fixed amount of memory in the memory slice
+ so that the array slice can be found at a fixed offset from the memory slice;
+ a biased index - or multiple ones, if there are different scaling factors -
+ is used to address the current array element in each array slice.
+ If there is only a single slice (for small, fixed index ranges), the
+ indices can be the same even if they use different scale factors, and biv
+ elimination can be used - instead of offsets for the array slice bases,
+ absolute array addresses in SIMD data memory are used then.

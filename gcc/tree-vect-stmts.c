@@ -2966,7 +2966,8 @@ vectorizable_store (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
   vec_mode = TYPE_MODE (vectype);
   /* FORNOW. In some cases can vectorize even if data-type not supported
      (e.g. - array initialization with 0).  */
-  if (optab_handler (mov_optab, (int)vec_mode)->insn_code == CODE_FOR_nothing)
+  if (optab_handler (&targetm.optab_table[OTI_mov], (int)vec_mode)->insn_code
+      == CODE_FOR_nothing)
     return false;
 
   if (!STMT_VINFO_DATA_REF (stmt_info))
@@ -3343,7 +3344,8 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
 
   /* FORNOW. In some cases can vectorize even if data-type not supported
     (e.g. - data copies).  */
-  if (optab_handler (mov_optab, mode)->insn_code == CODE_FOR_nothing)
+  if (optab_handler (&targetm.optab_table[OTI_mov], mode)->insn_code
+      == CODE_FOR_nothing)
     {
       if (vect_print_dump_info (REPORT_DETAILS))
 	fprintf (vect_dump, "Aligned load, but unsupported type.");

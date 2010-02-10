@@ -1044,6 +1044,12 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
   (TREE_CODE (TYPE) == COMPLEX_TYPE	\
    && TREE_CODE (TREE_TYPE (TYPE)) == REAL_TYPE)
 
+/* Nonzero if TYPE represents a integer floating-point type.  */
+
+#define VECTOR_INT_TYPE_P(TYPE)	\
+  (TREE_CODE (TYPE) == VECTOR_TYPE	\
+   && TREE_CODE (TREE_TYPE (TYPE)) == INTEGER_TYPE)
+
 /* Nonzero if TYPE represents a vector floating-point type.  */
 
 #define VECTOR_FLOAT_TYPE_P(TYPE)	\
@@ -1809,7 +1815,9 @@ enum omp_clause_schedule_kind
   OMP_CLAUSE_SCHEDULE_DYNAMIC,
   OMP_CLAUSE_SCHEDULE_GUIDED,
   OMP_CLAUSE_SCHEDULE_AUTO,
-  OMP_CLAUSE_SCHEDULE_RUNTIME
+  OMP_CLAUSE_SCHEDULE_RUNTIME,
+  /* Used internally for NUMA targets to schedule on the main processor.  */
+  OMP_CLAUSE_SCHEDULE_MASTER
 };
 
 #define OMP_CLAUSE_SCHEDULE_KIND(NODE) \
@@ -3916,6 +3924,7 @@ extern tree build_constructor_single (tree, tree, tree);
 extern tree build_constructor_from_list (tree, tree);
 extern tree build_real_from_int_cst (tree, const_tree);
 extern tree build_complex (tree, tree, tree);
+extern tree build_rep_vector (tree, tree);
 extern tree build_one_cst (tree);
 extern tree build_string (int, const char *);
 extern tree build_tree_list_stat (tree, tree MEM_STAT_DECL);
@@ -4302,7 +4311,9 @@ enum size_type_kind
   SBITSIZETYPE,		/* Signed representation of sizes in bits.  */
   TYPE_KIND_LAST};
 
+START_TARGET_SPECIFIC
 extern GTY(()) tree sizetype_tab[(int) TYPE_KIND_LAST];
+END_TARGET_SPECIFIC
 
 #define sizetype sizetype_tab[(int) SIZETYPE]
 #define bitsizetype sizetype_tab[(int) BITSIZETYPE]
@@ -4730,6 +4741,7 @@ extern tree *call_expr_argp (tree, int);
 extern tree call_expr_arglist (tree);
 extern tree create_artificial_label (location_t);
 extern const char *get_name (tree);
+extern tree get_get_name_decl (tree);
 extern bool stdarg_p (tree);
 extern bool prototype_p (tree);
 extern bool auto_var_in_fn_p (const_tree, const_tree);
@@ -5053,6 +5065,7 @@ extern void expand_dummy_function_end (void);
 extern unsigned int init_function_for_compilation (void);
 END_TARGET_SPECIFIC
 /* Allocate_struct_function uses targetm->name.  */
+extern int lookup_attr_target (tree);
 extern void allocate_struct_function (tree, bool);
 START_TARGET_SPECIFIC
 extern void push_struct_function (tree fndecl);

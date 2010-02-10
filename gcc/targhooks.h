@@ -132,6 +132,8 @@ extern int /*enum reg_class*/ default_secondary_reload (bool, rtx,
 						secondary_reload_info *);
 extern bool default_override_options (bool);
 extern tree default_vectype_for_scalar_type (tree, FILE *);
+extern bool default_task_ok_for_target (struct gcc_target *, enum task_type);
+extern bool default_common_data_with_target (struct gcc_target *);
 END_TARGET_SPECIFIC
 extern void hook_void_bitmap (bitmap);
 extern bool default_handle_c_option (size_t, const char *, int);
@@ -143,6 +145,7 @@ extern bool default_hard_regno_scratch_ok (unsigned int);
 extern bool default_target_option_valid_attribute_p (tree, tree, tree, int);
 extern bool default_target_option_pragma_parse (tree, tree);
 extern bool default_target_can_inline_p (tree, tree);
+START_TARGET_SPECIFIC
 extern bool default_valid_pointer_mode (enum machine_mode);
 extern enum machine_mode default_addr_space_pointer_mode (addr_space_t);
 extern enum machine_mode default_addr_space_address_mode (addr_space_t);
@@ -152,6 +155,7 @@ extern bool default_addr_space_legitimate_address_p (enum machine_mode, rtx,
 						     bool, addr_space_t);
 extern rtx default_addr_space_legitimize_address (rtx, rtx, enum machine_mode,
 						  addr_space_t);
+END_TARGET_SPECIFIC
 extern bool default_addr_space_subset_p (addr_space_t, addr_space_t);
 extern rtx default_addr_space_convert (rtx, tree, tree);
 extern unsigned int default_case_values_threshold (void);

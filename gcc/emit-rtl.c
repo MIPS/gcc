@@ -71,6 +71,8 @@ enum machine_mode double_mode;	/* Mode whose width is DOUBLE_TYPE_SIZE.  */
 enum machine_mode ptr_mode;	/* Mode whose width is POINTER_SIZE.  */
 END_TARGET_SPECIFIC
 
+extern GTY(()) int label_num;
+
 #ifndef EXTRA_TARGET
 /* Datastructures maintained for currently processed function in RTL form.  */
 
@@ -82,13 +84,15 @@ struct rtl_data x_rtl;
    with length attribute nested in top level structures.  */
 
 rtx * regno_reg_rtx;
-#endif /* !EXTRA_TARGET */
 
-START_TARGET_SPECIFIC
 /* This is *not* reset after each function.  It gives each CODE_LABEL
    in the entire compilation a unique label number.  */
 
-static GTY(()) int label_num = 1;
+int label_num = 1;
+
+#endif /* !EXTRA_TARGET */
+
+START_TARGET_SPECIFIC
 
 /* Commonly used rtx's, so that we only need space for one copy.
    These are initialized once for the entire compilation.

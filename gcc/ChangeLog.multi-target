@@ -1,3 +1,236 @@
+2009-09-08  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* toplev.c (lang_dependent_init): Move EXTRA_TARGETS_CALL of
+	lang_dependent_init after the initialization of the asm output file.
+
+2009-09-04  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* targhooks.c (default_task_ok_for_target): New function.
+	* targhooks.h (default_task_ok_for_target): Declare.
+	* target.h (enum task_type): New enum.
+	(struct gcc_target): New member task_ok_for_target.
+	* tree-vectorizer.c (vectorize_loops): Check task_ok_for_target hook.
+	* target-def.h (TARGET_TASK_OK_FOR_TARGET): Define.
+	(TARGET_INITIALIZER): Include it.
+
+2009-08-19  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* tree-parloops.c (create_loads_and_stores_for_name): Only expect
+	POINTER_TYPE names correspond to an entry in param_arrays.
+
+2009-08-18  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* tree-vect-transform.c (vectorizable_store):
+	Use &targetm.optab_table[OTI_mov].
+
+	* emit-rtl.c (label_num): No longer target specific.
+
+	* tree-parloops.c (separate_decls_in_region): Copy input parameter
+	struct to callee target only after initializing reduction fields.
+
+2009-08-10  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* tree-ssa-pre.c (next_expression_id): Initialize to 1.
+	(eliminate): Check that lhsexpr has id > 0.
+
+	* tree-parloops.c (separate_reduction_decl_data): New struct.
+	(separate_reduction_decl): New function.
+	(remove_reduction_decl_from_name_htab): Likewise.
+	(separate_decls_in_region): Call separate_reduction_decl and
+	remove_reduction_decl_from_name_htab via htab_traverse.
+	(separate_decls_in_region_stmt): Handle copy != name.
+
+	* passes.c <!EXTRA_TARGETS>:
+	Do an EXTRA_TARGETS_CALL of df_finish_pass.
+	(execute_todo): Dispatch to target-specific df_finish_pass function.
+
+	* tree-ssa-parloops.c (struct clsn_data): New member numa.
+	(create_call_for_reduction_1): Don't generate atomic accesses if
+	numa is set.
+	(gen_parallel_loop): Set numa field.
+
+	* tree-parloops.c (separate_decls_in_region): Call copy_from_target
+	hook for reduction results.
+
+	* tree.c (build2_stat): Allow POINTER_PLUS_EXPR to match sizetype
+	of cfun instead of current sizetype.
+
+2009-08-09  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* tree-pretty-print.c (dump_omp_clause):
+	Handle OMP_CLAUSE_SCHEDULE_MASTER.
+
+	* tree-parloops.c (create_call_for_reduction_1):
+	Handle case where clsn_data->load_bb has statements.
+	Make sure store of reduction value is insterted after its
+	calculation, rather than inside.
+
+	* tree-parloops.c (create_call_for_reduction_1): If the reduction
+	is for a vector type, set the DECL_GIMPLE_REG_P of tmp_load.
+
+	* tree-parloops.c (compute_reduction_results): Create empty block
+	for reduction loads.
+
+	* tree-vect-transform.c (vect_create_addr_base_for_vector_ref):
+	New parameter ins_target.  Changed call callers.
+
+	* tree-vect-generic.c (expand_reduction_piecewise): New function.
+	(expand_vector_operation): Use it.
+
+2009-08-07  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* tree-parloops.c (struct reduction_info): New member keep_res_name.
+	(create_loads_for_reductions): If keep_res is not set,
+	use keep_res_name instead.
+	(compute_reduction_results): New function.
+	(gen_parallel_loop): Use it.
+
+2009-08-04  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* Makefile.in (tree-ssa-address.o): Change to:
+	$(TA)tree-ssa-address.o.
+
+2009-07-29  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* tree.c (build_rep_vector): New function.
+	* tree.h (VECTOR_INT_TYPE_P): Define.
+	(build_rep_vector): Declare.
+	* omp-low.c (omp_reduction_init) <MAX_EXPR>: Handle VECTOR_INT_TYPE_P.
+
+	* tree-parloops.c (add_size_for_param_array): Round up sizes_addr[1]
+	to multiple of stride.
+
+2009-07-29  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* tree-phinodes.c (reserve_phi_args_for_duplication): New function.
+	* tree-parloops.c (loop_parallel_p): Call it.
+	* tree-flow.h (reserve_phi_args_for_duplication): Declare.
+
+2009-07-27  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* target.h (struct gcc_target): New member optab_table.
+	* tree-parloops.c (parallelize_loops): Also call loop_parallel_p
+	in loop_has_vector_phi_nodes case.
+	* target-def.h (TARGET_INITIALIZER): Add initializer for optab_table.
+	* tree-vect-transform.c (vect_create_addr_base_for_vector_ref):
+	Use targetm.sizetype.
+	(vectorizable_load): Use &targetm.optab_table[OTI_mov].
+
+2009-07-22  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* doc/tm.texi (TARGET_VALID_OPTION_ATTRIBUTE_P): Change to:
+	(TARGET_OPTION_VALID_ATTRIBUTE_P).
+
+	* targhooks.c (default_target_option_valid_attribute_p):
+	Indicate the target for which the target attribute is not implemented.
+	* c-common.c (handle_target_attribute):
+	Call hook on appropriate target.
+	* Makefile.in (EXTRA_TARGET_RULES):
+	Move up definitionto be before OBJS-common.
+
+2009-07-20  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* target.h (alloc_task_on_target): New hook.
+	* omp-low.c (expand_parallel_call): Look for caller_arch attribute
+	instead of target_arch attribute.  Pass value of that attribute to
+	call_on_target hook.
+	* tree-parloops.c (separate_decls_in_region):
+	Use alloc_task_on_target hook, and return its result.
+	(create_loop_fn): Replace target_arch with fn_attrib hook.
+	Changed caller.
+	(gen_parallel_loop): Set caller_arch attribute on loop_fn.
+	* target-def.h (TARGET_ALLOC_TASK_ON_TARGET): Define.
+	(TARGET_INITIALIZER): Initialize new member.
+	* c-common.c (handle_caller_arch_attribute): New function.
+	(c_common_attribute_table): Add caller_arch entry.
+
+2009-07-17  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* targhooks.c (default_common_data_with_target): New function.
+	* targhooks.h (default_common_data_with_target): Declare.
+	* tree.c (build2_stat): Use targetm.sizetype.
+	(get_get_name_decl): New function.
+	* tree.h (enum omp_clause_schedule_kind): New value
+	OMP_CLAUSE_SCHEDULE_MASTER.
+	(tree sizetype_tab): Now target specific.
+	(get_get_name_decl): Declare.
+	(lookup_attr_target): Declare.
+	* target.h (struct gimple_stmt_iterator_d): Forward delcaration.
+	(struct gcc_target): New members sizetype_tab,
+	common_data_with_target, copy_to_target, copy_from_target,
+	build_call_on_target.
+	* omp-low.c (expand_parallel_call): If child function has target_arch
+	attribute, use targetm.build_call_on_target hook.
+	(expand_omp_taskreg): Also check for
+	gimple_omp_taskreg_data_arg (entry_stmt) being an INDIRECT_REF.
+	(expand_numa_for_static_nochunk): New function.
+	(expand_omp_for): Check for OMP_CLAUSE_SCHEDULE_MASTER.
+	* toplev.c (lang_dependent_init) [!EXTRA_TARGET]:
+	Do an EXTRA_TARGETS_CALL of initialize_sizetypes.
+	(lang_dependent_init) [EXTRA_TARGET]: Fix up size_type_node.
+	* tree-ssa-loop-ivopts.c (computation_cost): Use tree_expand_expr.
+	(force_expr_to_var_cost): Use targetm.sizetype.
+	(rewrite_use_address ): Use tree_create_mem_ref.
+	* expr.c [!EXTRA_TARGET] (tree_expand_expr): New function.
+	expr.h (tree_expand_expr): Declare.
+	* tree-parloops.c (separate_decls_in_region_name): New parameter
+	new_target.  Changed all callers.
+	(separate_decls_in_region_stmt): Likewise.
+	(add_size_for_param_array): New function.
+	(struct clsn_data): New members result_seq and loop.
+	(create_loads_and_stores_for_name): If array contents have to be
+	copied, insert statements to copy to/from the callee target.
+	(separate_decls_in_region): Likewise.  Emit statements to allocate 
+	parameter array area for this purpose.
+	Change last parameter from usinged to loop.  Changed caller.
+	(canonicalize_loop_ivs): Use sizetype for the callee target.
+	(create_parallel_loop): If target has data memory separate from
+	caller, use OMP_CLAUSE_SCHEDULE_MASTER.
+	(gen_parallel_loop): Set targetm_pnt to the callee target during
+	the canonicalize_loop_ivs call.
+	* tree-ssa-address.c [!EXTRA_TARGET] (tree_mem_ref_addr): New function.
+	[!EXTRA_TARGET] (tree_create_mem_ref): Likewise.
+	* function.c (lookup_attr_target): New function, broken out of:
+	(allocate_struct_function).
+	* tree-affine.c (target.h): Include.
+	(add_elt_to_tree): Use targetm.sizetype.
+	(aff_combination_to_tree): Likewise.
+	* target-def.h (TARGET_COMMON_DATA_WITH_TARGET): Define.
+	(TARGET_COPY_TO_TARGET): Likewise.
+	(TARGET_COPY_FROM_TARGET, TARGET_BUILD_CALL_ON_TARGET): Likewise.
+	(TARGET_INITIALIZER): Initialize new members.
+	* tree-vect-transform.c (vect_decompose_addr_base_for_vector_ref):
+	New function.
+	(param_array_hash, param_array_eq): Likewise.
+	(vect_create_data_ref_ptr): If target has data memory separate from
+	caller, create hash table of parameter arrays with information on
+	accesses.
+	* cfgloop.h (struct tree_range, struct param_array_d): New struct.
+	(param_array): New typedef.
+	(struct loop): New members param_arrays, vect_vars.
+	* tree-flow.h (tree_create_mem_ref): Declare.
+	* gimple.h (struct gimple_stmt_iterator_d): New struct tag.
+	* Makefile.in (tree-affine.o): Depend on $(TARGET_H).
+
+2009-06-27  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* Makefile.in [!EXTRA_TARGETS] (target-types.h target-gtypes.h)
+	<machine_function_u>: Add missing * for _mf member.
+
+2009-06-15  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* doc/multi-target.texi: New file.
+	* tree-ssa-loop.c (pass_vectorize): Undo last change.
+	* tree-parloops.c (gen_parallel_loop): When parallelizing loop
+	for different target architecture, force parallelization, and don't
+	use transform_to_exit_first_loop.
+	* tree-vect-transform.c (vect_create_data_ref_ptr): Use ptr_mode for
+	loop target architecture.
+	* tree-vect-generic.c: Include cfgloop.h.
+	(expand_vector_operations): Don't operate on bbs in loops for a
+	different target architecture.
+	* Makefilein (tree-vect-generic.o): Depend on $(CFGLOOP_H).
+
 2009-06-04  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* tree-parloops.c (parallelize_loops): Don't check for vector phi

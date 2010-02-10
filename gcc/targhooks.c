@@ -888,6 +888,8 @@ default_builtin_support_vector_misalignment (enum machine_mode mode,
   return false;
 }
 
+#endif /* !EXTRA_TARGET */
+
 /* Determine whether or not a pointer mode is valid. Assume defaults
    of ptr_mode or Pmode - can be overridden.  */
 bool
@@ -922,11 +924,13 @@ bool
 default_addr_space_valid_pointer_mode (enum machine_mode mode, addr_space_t as)
 {
   if (!ADDR_SPACE_GENERIC_P (as))
-    return (mode == targetm.addr_space.pointer_mode (as)
-	    || mode == targetm.addr_space.address_mode (as));
+    return (mode == this_targetm.addr_space.pointer_mode (as)
+	    || mode == this_targetm.addr_space.address_mode (as));
 
-  return targetm.valid_pointer_mode (mode);
+  return this_targetm.valid_pointer_mode (mode);
 }
+
+#ifndef EXTRA_TARGET
 
 /* Some places still assume that all pointer or address modes are the
    standard Pmode and ptr_mode.  These optimizations become invalid if
@@ -944,6 +948,8 @@ target_default_pointer_address_modes_p (void)
   return true;
 }
 
+#endif /* !EXTRA_TARGET */
+
 /* Named address space version of legitimate_address_p.  */
 
 bool
@@ -953,7 +959,7 @@ default_addr_space_legitimate_address_p (enum machine_mode mode, rtx mem,
   if (!ADDR_SPACE_GENERIC_P (as))
     gcc_unreachable ();
 
-  return targetm.legitimate_address_p (mode, mem, strict);
+  return this_targetm.legitimate_address_p (mode, mem, strict);
 }
 
 /* Named address space version of LEGITIMIZE_ADDRESS.  */
@@ -965,8 +971,10 @@ default_addr_space_legitimize_address (rtx x, rtx oldx,
   if (!ADDR_SPACE_GENERIC_P (as))
     return x;
 
-  return targetm.legitimize_address (x, oldx, mode);
+  return this_targetm.legitimize_address (x, oldx, mode);
 }
+
+#ifndef EXTRA_TARGET
 
 /* The default hook for determining if one named address space is a subset of
    another and to return which address space to use as the common address
@@ -1001,8 +1009,13 @@ default_target_option_valid_attribute_p (tree ARG_UNUSED (fndecl),
 					 tree ARG_UNUSED (args),
 					 int ARG_UNUSED (flags))
 {
+  const char *where = "this machine";
+  int i = lookup_attr_target (fndecl);
+
+  if (i)
+    where = targetm_array[i]->name;
   warning (OPT_Wattributes,
-	   "target attribute is not supported on this machine");
+	   "target attribute is not supported on %s", where);
 
   return false;
 }
@@ -1112,6 +1125,19 @@ default_vectype_for_scalar_type (tree scalar_type, FILE *vect_dump)
     }
 
   return vectype;
+}
+
+bool
+default_task_ok_for_target (struct gcc_target *other,
+			    enum task_type tt ATTRIBUTE_UNUSED)
+{
+  return &this_targetm == other;
+}
+
+bool
+default_common_data_with_target (struct gcc_target *other)
+{
+  return &this_targetm == other;
 }
 
 #include "gt-targhooks.h"

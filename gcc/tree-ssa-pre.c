@@ -229,7 +229,7 @@ pre_expr_hash (const void *p1)
 
 
 /* Next global expression id number.  */
-static unsigned int next_expression_id;
+static unsigned int next_expression_id = 1;
 
 /* Mapping from expression to id number we can use in bitmap sets.  */
 DEF_VEC_P (pre_expr);
@@ -4102,13 +4102,19 @@ eliminate (void)
 	      tree sprime = NULL;
 	      pre_expr lhsexpr = get_or_alloc_expr_for_name (lhs);
 	      pre_expr sprimeexpr;
+	      unsigned value_id;
 
 	      if (gimple_assign_single_p (stmt))
 		rhs = gimple_assign_rhs1 (stmt);
 
-	      sprimeexpr = bitmap_find_leader (AVAIL_OUT (b),
-					       get_expr_value_id (lhsexpr),
-					       NULL);
+	      value_id = get_expr_value_id (lhsexpr);
+	      if (!value_id)
+		{
+		  gcc_unreachable ();
+		  continue;
+		}
+
+	      sprimeexpr = bitmap_find_leader (AVAIL_OUT (b), value_id, NULL);
 
 	      if (sprimeexpr)
 		{

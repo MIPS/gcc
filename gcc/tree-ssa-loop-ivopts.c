@@ -2740,7 +2740,7 @@ computation_cost (tree expr, bool speed)
   crtl->maybe_hot_insn_p = speed;
   walk_tree (&expr, prepare_decl_rtl, &regno, NULL);
   start_sequence ();
-  rslt = expand_expr (expr, NULL_RTX, TYPE_MODE (type), EXPAND_NORMAL);
+  rslt = tree_expand_expr (expr, NULL_RTX, TYPE_MODE (type), EXPAND_NORMAL);
   seq = get_insns ();
   end_sequence ();
   default_rtl_profile ();
@@ -3404,9 +3404,9 @@ force_expr_to_var_cost (tree expr, bool speed)
 	  symbol_cost[i] = computation_cost (addr, i) + 1;
 
 	  address_cost[i]
-	    = computation_cost (build2 (POINTER_PLUS_EXPR, type,
-					addr,
-					build_int_cst (sizetype, 2000)), i) + 1;
+	    = computation_cost (build2 (POINTER_PLUS_EXPR, type, addr,
+					build_int_cst (targetm.sizetype, 2000)),
+					i) + 1;
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 	      fprintf (dump_file, "force_expr_to_var_cost %s costs:\n", i ? "speed" : "size");
@@ -5523,7 +5523,7 @@ rewrite_use_address (struct ivopts_data *data,
      create_mem_ref to distinguish an IV that is based on a memory object
      from one that represents simply an offset.
 
-     To work around this problem, we pass a hint to create_mem_ref that
+     To work around this problem, we pass a hint to tree_create_mem_ref that
      indicates which variable (if any) in aff is an IV based on a memory
      object.  Note that we only consider the candidate.  If this is not
      based on an object, the base of the reference is in some subexpression
@@ -5532,8 +5532,8 @@ rewrite_use_address (struct ivopts_data *data,
   if (cand->iv->base_object)
     base_hint = var_at_stmt (data->current_loop, cand, use->stmt);
 
-  ref = create_mem_ref (&bsi, TREE_TYPE (*use->op_p), &aff, base_hint,
-			data->speed);
+  ref = tree_create_mem_ref (&bsi, TREE_TYPE (*use->op_p), &aff, base_hint,
+			     data->speed);
   copy_ref_info (ref, *use->op_p);
   *use->op_p = ref;
 }

@@ -1205,6 +1205,65 @@ OBJS-rtl = \
 	vmsdbgout.o \
 	web.o
 
+# EXTRA_TARGET_RULES includes the extra target's T-extra(s), which is/are
+# needed for OBJS-common.  OTOH we need OBJS-rtl to be defined beforehand.
+
+define EXTRA_TARGET_RULES
+
+THIS-TARGET/config.status THIS-TARGET/T-extra: intl/config.intl
+	-mkdir THIS-TARGET
+	cd THIS-TARGET \
+	&& $(srcdir:.%=../.%)/configure --target=THIS-TARGET
+
+CURRENT_TARGET=THIS-TARGET-
+-include THIS-TARGET/T-extra
+
+THIS-TARGET/Makefile: THIS-TARGET/config.status Makefile
+	$(info THIS-TARGET/Makefile will be remade when needed.)
+#	$(MAKE) -C THIS-TARGET Makefile
+
+# Wo don't want a stamp file for the recursive make invocation, because
+# only the recursive make understands all the dependencies for THIS-TARGET,
+# and besides, stamp file can get out-of-sync with what they stand for
+# when individual files are deleted manually or due interrupts / error
+# conditions.  Just say that each file is up-to-date if we have used
+# a recursive make to update it.
+$(addprefix THIS-TARGET/THIS-TARGET-,$(OBJS-rtl) $(THIS-TARGET-out_object_file)) \
+$(addprefix THIS-TARGET/,$(THIS-TARGET-EXTRA_OBJS)) : make-THIS-TARGET ;
+
+# Use a single recursive make invokation to update all files of THIS-TARGET.
+# Having more than one would not merely cost more time, but cause serious
+# synchronization issues for parallel make.
+XTGT_COPY_FILES=\
+  $(addprefix THIS-TARGET/,extra-modes.h target-types.h)
+.PHONY: make-THIS-TARGET
+make-THIS-TARGET : THIS-TARGET/Makefile $(XTGT_COPY_FILES) \
+  THIS-TARGET/target-gtypes.h $(COMMON_ABI)
+	$(MAKE) -C THIS-TARGET make-OBJS-rtl \
+	EXTRA_TARGET='THIS_TARGET' TA='THIS-TARGET-' \
+	TARGET_NUM=THIS-TARGET-NUM \
+	toplevel_builddir='$(toplevel_builddir:.%=../.%)' \
+	GMPLIBS='$(GMPLIBS)' GMPINC='$(GMPINC)'
+$(XTGT_COPY_FILES): THIS-TARGET/% : %
+	cp $< $@
+THIS-TARGET/target-gtypes.h: target-gtypes.h
+	sed 's/\(_ca\|_mf\)/THIS_TARGET&/' < $< > $@
+
+endef
+# EXTRA_TARGET_RULES
+
+.PHONY: make-OBJS-rtl
+make-OBJS-rtl: $(addprefix $(TA),$(OBJS-rtl) $(out_object_file)) $(EXTRA_OBJS);
+
+enumerate=$(if $(1),$(call enumerate,$(wordlist 2,999,$(1))) $(words $(1)))
+
+ifndef EXTRA_TARGET
+$(eval $(foreach num,$(call enumerate,$(EXTRA_TARGETS)),\
+$(subst THIS_TARGET,$(subst -,_,$(word $(num),$(EXTRA_TARGETS))),\
+$(subst THIS-TARGET,$(word $(num),$(EXTRA_TARGETS)),\
+$(subst THIS-TARGET-NUM,$(num),$(value EXTRA_TARGET_RULES))))))
+endif
+
 OBJS-common = \
 	$(OBJS-rtl) \
 	$(foreach TA,$(EXTRA_TARGETS),$(addprefix $(TA)/$(TA)-,$(OBJS-rtl) $($(TA)-out_object_file))) \
@@ -2414,7 +2473,7 @@ tree-ssa-loop-unswitch.o : tree-ssa-loop-unswitch.c $(TREE_FLOW_H) \
    $(PARAMS_H) output.h $(DIAGNOSTIC_H) $(TIMEVAR_H) $(TM_H) \
    coretypes.h $(TREE_DUMP_H) $(TREE_PASS_H) $(BASIC_BLOCK_H) hard-reg-set.h \
     $(TREE_INLINE_H)
-tree-ssa-address.o : tree-ssa-address.c $(TREE_FLOW_H) $(CONFIG_H) \
+$(TA)tree-ssa-address.o : tree-ssa-address.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) \
    output.h $(DIAGNOSTIC_H) $(TIMEVAR_H) $(TM_H) coretypes.h $(TREE_DUMP_H) \
    $(TREE_PASS_H) $(FLAGS_H) $(TREE_INLINE_H) $(RECOG_H) insn-config.h \
@@ -2452,7 +2511,8 @@ tree-ssa-loop-ivopts.o : tree-ssa-loop-ivopts.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(VARRAY_H) tree-affine.h pointer-set.h $(TARGET_H)
 tree-affine.o : tree-affine.c tree-affine.h $(CONFIG_H) pointer-set.h \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) hard-reg-set.h $(GIMPLE_H) \
-   output.h $(DIAGNOSTIC_H) $(TM_H) coretypes.h $(TREE_DUMP_H) $(FLAGS_H)
+   output.h $(DIAGNOSTIC_H) $(TM_H) coretypes.h $(TREE_DUMP_H) $(FLAGS_H) \
+   $(TARGET_H)
 tree-ssa-loop-manip.o : tree-ssa-loop-manip.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) $(RTL_H) $(TM_P_H) hard-reg-set.h \
    $(BASIC_BLOCK_H) output.h $(DIAGNOSTIC_H) $(TREE_FLOW_H) $(TREE_DUMP_H) \
@@ -2984,7 +3044,7 @@ tree-vect-generic.o : tree-vect-generic.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) \
     $(TM_H) $(TREE_FLOW_H) $(GIMPLE_H) tree-iterator.h $(TREE_PASS_H) \
     $(FLAGS_H) $(OPTABS_H) $(RTL_H) $(MACHMODE_H) $(EXPR_H) \
     langhooks.h $(FLAGS_H) $(DIAGNOSTIC_H) gt-tree-vect-generic.h $(GGC_H) \
-    coretypes.h insn-codes.h
+    coretypes.h insn-codes.h $(CFGLOOP_H)
 $(TA)df-core.o : df-core.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(RTL_H) insn-config.h $(RECOG_H) $(FUNCTION_H) $(REGS_H) alloc-pool.h \
    hard-reg-set.h $(BASIC_BLOCK_H) $(DF_H) $(BITMAP_H) sbitmap.h $(TIMEVAR_H) \
@@ -3723,62 +3783,6 @@ COMMON_ABI=target-types.h target-gtypes.h
 intl/config.intl: ../intl/config.intl
 	-$(LN) -s ../intl .
 
-define EXTRA_TARGET_RULES
-
-THIS-TARGET/config.status THIS-TARGET/T-extra: intl/config.intl
-	-mkdir THIS-TARGET
-	cd THIS-TARGET \
-	&& $(srcdir:.%=../.%)/configure --target=THIS-TARGET
-
-CURRENT_TARGET=THIS-TARGET-
--include THIS-TARGET/T-extra
-
-THIS-TARGET/Makefile: THIS-TARGET/config.status Makefile
-	$(info THIS-TARGET/Makefile will be remade when needed.)
-#	$(MAKE) -C THIS-TARGET Makefile
-
-# Wo don't want a stamp file for the recursive make invocation, because
-# only the recursive make understands all the dependencies for THIS-TARGET,
-# and besides, stamp file can get out-of-sync with what they stand for
-# when individual files are deleted manually or due interrupts / error
-# conditions.  Just say that each file is up-to-date if we have used
-# a recursive make to update it.
-$(addprefix THIS-TARGET/THIS-TARGET-,$(OBJS-rtl) $(THIS-TARGET-out_object_file)) \
-$(addprefix THIS-TARGET/,$(THIS-TARGET-EXTRA_OBJS)) : make-THIS-TARGET ;
-
-# Use a single recursive make invokation to update all files of THIS-TARGET.
-# Having more than one would not merely cost more time, but cause serious
-# synchronization issues for parallel make.
-XTGT_COPY_FILES=\
-  $(addprefix THIS-TARGET/,extra-modes.h target-types.h)
-.PHONY: make-THIS-TARGET
-make-THIS-TARGET : THIS-TARGET/Makefile $(XTGT_COPY_FILES) \
-  THIS-TARGET/target-gtypes.h $(COMMON_ABI)
-	$(MAKE) -C THIS-TARGET make-OBJS-rtl \
-	EXTRA_TARGET='THIS_TARGET' TA='THIS-TARGET-' \
-	TARGET_NUM=THIS-TARGET-NUM \
-	toplevel_builddir='$(toplevel_builddir:.%=../.%)' \
-	GMPLIBS='$(GMPLIBS)' GMPINC='$(GMPINC)'
-$(XTGT_COPY_FILES): THIS-TARGET/% : %
-	cp $< $@
-THIS-TARGET/target-gtypes.h: target-gtypes.h
-	sed 's/\(_ca\|_mf\)/THIS_TARGET&/' < $< > $@
-
-endef
-# EXTRA_TARGET_RULES
-
-.PHONY: make-OBJS-rtl
-make-OBJS-rtl: $(addprefix $(TA),$(OBJS-rtl) $(out_object_file)) $(EXTRA_OBJS);
-
-enumerate=$(if $(1),$(call enumerate,$(wordlist 2,999,$(1))) $(words $(1)))
-
-ifndef EXTRA_TARGET
-$(eval $(foreach num,$(call enumerate,$(EXTRA_TARGETS)),\
-$(subst THIS_TARGET,$(subst -,_,$(word $(num),$(EXTRA_TARGETS))),\
-$(subst THIS-TARGET,$(word $(num),$(EXTRA_TARGETS)),\
-$(subst THIS-TARGET-NUM,$(num),$(value EXTRA_TARGET_RULES))))))
-endif
-
 ifndef TA
 extra-modes.h: Makefile T-extra $(foreach ta,$(EXTRA_TARGETS),$(ta)/T-extra)
 	echo target=\"$(subst -,_,$(target_noncanonical))\"\; > $@
@@ -3832,7 +3836,8 @@ target-types.h target-gtypes.h: Makefile
 	echo '  } cumulative_args_u;' >> $@
 	echo 'typedef union GTY (())' >> $@
 	echo '  {' >> $@
-	echo '    struct machine_function GTY ((tag ("TARGET_NUM"))) _mf;' >> $@
+	echo '    struct machine_function *GTY ((tag ("TARGET_NUM"))) _mf;' \
+		>> $@
 	echo '  } machine_function_u;' >> $@
 endif # !EXTRA_TARGETS
 EXTRA_OBJS := $(EXTRA_OBJS) \

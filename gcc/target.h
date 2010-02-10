@@ -108,6 +108,10 @@ struct asm_int_op
   const char *ti;
 };
 
+struct gimple_stmt_iterator_d;
+
+enum task_type { TASK_TYPE_VECTORIZED_LOOP };
+
 /* The target structure.  This holds all the backend hooks.  */
 
 /* ??? the use of the target vector makes it necessary to cast
@@ -124,8 +128,11 @@ struct gcc_target
      Initialized with the Makefile-generated TARGET_NUM.  */
   int target_arch;
 
-  /* Points to the ptr_mode variable for this target.  */
-  enum machine_mode *ptr_mode;
+  /* The sizetype table for this target.  */
+  tree *sizetype_tab;
+
+  /* The optab table for this target*/
+  struct optab_d *optab_table;
 
   /* Functions that output assembler for the target.  */
   struct asm_out
@@ -714,6 +721,30 @@ struct gcc_target
   /* Undo the effects of encode_section_info on the symbol string.  */
   const char * (* strip_name_encoding) (const char *);
 
+  bool (*task_ok_for_target) (struct gcc_target *other, enum task_type);
+
+  /* Say if the target OTHER shares its data memory with this target.  */
+  bool (*common_data_with_target) (struct gcc_target *other);
+  /* Emit gimple to copy SIZE bytes from SRC on this target to DEST on
+     TARGET.  */
+  void (*copy_to_target) (struct gimple_stmt_iterator_d *,
+			  struct gcc_target *, tree, tree, tree);
+  /* Emit gimple to copy SIZE bytes from SRC on TARGET to DEST on this
+     target.  */
+  void (*copy_from_target) (struct gimple_stmt_iterator_d *,
+			    struct gcc_target *, tree, tree, tree);
+  /* Generate gimple to allocate SIZE bytes of data on TARGET and assign
+     the base address to COPY, for the purpose of passing data to/from
+     FUNCTION on TARGET.  Return a value that is passed to the
+     build_call_on_target hook.  */
+  tree (*alloc_task_on_target) (struct gimple_stmt_iterator_d *,
+				struct gcc_target *, tree copy, tree size,
+				tree function);
+  /* Generate gimple for a call to fn with NARGS arguments ARGS
+     on target OTHER.  */
+  void (*build_call_on_target) (struct gimple_stmt_iterator_d *,
+				struct gcc_target *, int nargs, tree *args);
+
   /* If shift optabs for MODE are known to always truncate the shift count,
      return the mask that they apply.  Return 0 otherwise.  */
   unsigned HOST_WIDE_INT (* shift_truncation_mask) (enum machine_mode mode);
@@ -1187,7 +1218,8 @@ struct gcc_target
        global options like flag_pic or flag_finite_math_only allowed to be
        tampered with.  Return true if code can be genarated for this target
        (e.g. if flag_pic is set and main_taget is false, and the target can't
-	return pic code, return false.)  */
+	generate code that is suitable to include in pic code, return false.)
+     */
     /* ??? should add another hook elsewhere if code can sometimes be
        generated, depending on the tree in question.  E.g. might be able to
        do pic if no statically allocated data is involved.  */

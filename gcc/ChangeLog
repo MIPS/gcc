@@ -1,3 +1,12 @@
+2010-02-10  Joern Rennecke  <joern.rennecke@embecosm.com>
+	2009-08-19  J"orn Rennecke  <joern.rennecke@arc.com>
+	  * loop-invariant.c (move_invariant_reg): Set reg before use.
+	2009-08-19  J"orn Rennecke  <joern.rennecke@arc.com>
+	  * cfglayout.c (locator_file): If locations_locators_locs is zero,
+	  return NULL.
+	2009-08-17  J"orn Rennecke  <joern.rennecke@arc.com>
+	  * loop-invariant.c (move_invariant_reg): Check changes for validity.
+
 2010-01-30  Joern Rennecke  <amylaar@spamcop.net>
 
 	PR testsuite/42843
