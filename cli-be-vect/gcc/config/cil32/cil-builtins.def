@@ -30,8 +30,6 @@ Contact information at INRIA:
 Erven Rohou             <erven.rohou@inria.fr>
 */
 
-/* #define ATTR_NULL 0 */
-
 DEF_CILBUILTIN(BUILT_IN_VA_START, "__builtin_cil_va_start", ATTR_NULL, \
                void_type_node, \
                1, cil32_va_list_type)
