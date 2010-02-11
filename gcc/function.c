@@ -160,7 +160,7 @@ static void do_clobber_return_reg (rtx, void *);
 static void do_use_return_reg (rtx, void *);
 static void set_insn_locators (rtx, int) ATTRIBUTE_UNUSED;
 extern void allocate_struct_function_1 (tree fndecl, bool abstract_p);
-EXTRA_TARGETS_DECL (void allocate_struct_function_1 (tree, bool));
+EXTRA_TARGETS_DECL (void allocate_struct_function_1 (tree, bool))
 
 /* Stack of nested functions.  */
 /* Keep track of the cfun stack.  */
@@ -4124,7 +4124,7 @@ static void (* const allocate_struct_function_1_array[]) (tree, bool)
 /* If FNDECL has a target _arch attribute, return the index of that target
    architecture in targetm_array; otherwise, return 0.  */
 int
-lookup_attr_target (tree fndecl)
+lookup_attr_target (tree fndecl ATTRIBUTE_UNUSED)
 {
   int i = 0;
 #if NUM_TARGETS > 1
@@ -4289,7 +4289,7 @@ init_dummy_function_start (void)
   prepare_function_start ();
 }
 
-EXTRA_TARGETS_DECL (void init_function_start (tree));
+EXTRA_TARGETS_DECL (void init_function_start (tree))
 
 /* Generate RTL for the start of the function SUBR (a FUNCTION_DECL tree node)
    and initialize static variables for generating RTL for the statements

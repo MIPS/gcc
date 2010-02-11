@@ -9656,7 +9656,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 
 #ifndef EXTRA_TARGET
 EXTRA_TARGETS_DECL (rtx expand_expr_real (tree, rtx, enum machine_mode,
-		    enum expand_modifier, rtx *));
+		    enum expand_modifier, rtx *))
 /* Like expand_expr, but dispatch according to targetm, so this is suitable
    for tree optimizers that don't have target-specific variants.  */
 rtx

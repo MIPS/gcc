@@ -6579,7 +6579,8 @@ handle_target_arch_attribute (tree *node, tree ARG_UNUSED (name), tree args,
       {
 	return NULL_TREE;
       }
-  error ("%Jtarget attribute for non-configured target", *node);
+  error_at (DECL_SOURCE_LOCATION (*node),
+	    "target attribute for non-configured target");
   *no_add_attrs = true;
   return NULL_TREE;
 }
@@ -6598,7 +6599,8 @@ handle_caller_arch_attribute (tree *node, tree ARG_UNUSED (name), tree args,
       {
 	return NULL_TREE;
       }
-  error ("%Jcaller_arch attribute for non-configured target", *node);
+  error_at (DECL_SOURCE_LOCATION (*node),
+	    "caller_arch attribute for non-configured target");
   *no_add_attrs = true;
   return NULL_TREE;
 }

@@ -231,7 +231,7 @@ reg_set_to_hard_reg_set (HARD_REG_SET *to, const_bitmap from)
     }
 }
 
-EXTRA_TARGETS_DECL (void init_reg_sets (void));
+EXTRA_TARGETS_DECL (void init_reg_sets (void))
 /* Function called only once to initialize the above data on reg usage.
    Once this is done, various switches may override.  */
 void

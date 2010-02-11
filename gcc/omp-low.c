@@ -3038,12 +3038,13 @@ expand_parallel_call (struct omp_region *region, basic_block bb,
   if (attr)
     {
       tree args[3];
+      struct gcc_target *tgt;
 
       args[0] = TREE_VALUE (TREE_VALUE (attr));
       args[1] = t2;
       args[2] = force_gimple_operand_gsi (&gsi, t1, true, NULL_TREE, false,
 					  GSI_CONTINUE_LINKING);
-      struct gcc_target *tgt = targetm_array[lookup_attr_target (child_fn)];
+      tgt = targetm_array[lookup_attr_target (child_fn)];
       targetm.build_call_on_target (&gsi, tgt, 3, args);
       return;
     }

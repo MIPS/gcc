@@ -2234,7 +2234,7 @@ backend_init_target (void)
   expand_dummy_function_end ();
 }
 
-EXTRA_TARGETS_DECL (void backend_init (void));
+EXTRA_TARGETS_DECL (void backend_init (void))
 /* Initialize the compiler back end.  This function is called only once,
    when starting the compiler.  */
 void
@@ -2295,7 +2295,7 @@ init_excess_precision (void)
 
 /* Initialize things that are both lang-dependent and target-dependent.
    This function can be called more than once if target parameters change.  */
-void
+static void
 lang_dependent_init_target (void)
 {
   /* This determines excess precision settings.  */
@@ -2321,8 +2321,8 @@ lang_dependent_init_target (void)
   expand_dummy_function_end ();
 }
 
-EXTRA_TARGETS_DECL (int lang_dependent_init (const char *));
-EXTRA_TARGETS_DECL (int initialize_sizetypes (bool));
+EXTRA_TARGETS_DECL (int lang_dependent_init (const char *))
+EXTRA_TARGETS_DECL (int initialize_sizetypes (bool))
 
 /* Language-dependent initialization.  Returns nonzero on success.  */
 int
@@ -2381,7 +2381,7 @@ lang_dependent_init (const char *name)
   return 1;
 }
 
-EXTRA_TARGETS_DECL (void target_reinit (void));
+EXTRA_TARGETS_DECL (void target_reinit (void))
 
 /* Reinitialize everything when target parameters, such as register usage,
    have changed.  */

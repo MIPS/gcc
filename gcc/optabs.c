@@ -317,7 +317,7 @@ widen_operand (rtx op, enum machine_mode mode, enum machine_mode oldmode,
 
 #ifndef EXTRA_TARGET
 EXTRA_TARGETS_DECL (optab optab_for_tree_code_1 (enum tree_code, const_tree,
-						 enum optab_subtype));
+						 enum optab_subtype))
 optab
   (*optab_for_tree_code_array[]) (enum tree_code, const_tree, enum optab_subtype)
     = { optab_for_tree_code_1,

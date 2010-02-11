@@ -23,6 +23,22 @@
 	(emit_mode_adjustments): Use strcmp for comparisons with
 	output_target.
 
+	* c-common.c (handle_target_arch_attribute): Use error_at instead of
+	%J.
+	(handle_caller_arch_attribute): Likewise.
+
+	* optabs.c: Remove tailing semicolon from EXTRA_TARGETS_DECL use.
+	* toplev.c, expr.c, tree-ssa-address.c, function.c: Likewise.
+	* stor-layout.c, reginfo.c: Likewise.
+
+	* toplev.c (lang_dependent_init_target): Make static.
+
+	* function.c (lookup_attr_target): Mark fndecl as ATTRIBUTE_UNUSED.
+
+	* tree-ssa-address.c (tree_addr_for_mem_ref): #if 0.
+
+	* omp-low.c (expand_parallel_call): Separate decalrations and code.
+
 2010-02-10  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* tree-ssa-loop-manip.c: Include target.h and multi-target.h.

@@ -262,8 +262,9 @@ addr_for_mem_ref (struct mem_address *addr, addr_space_t as,
 }
 
 #ifndef EXTRA_TARGET
-EXTRA_TARGETS_DECL (rtx addr_for_mem_ref (struct mem_address *, bool));
+EXTRA_TARGETS_DECL (rtx addr_for_mem_ref (struct mem_address *, bool))
 
+#if 0
 /* Like addr_for_mem_ref, but dispatch according to targetm, so this is
    suitable for tree optimizers that don't have target-specific variants.  */
 
@@ -275,6 +276,7 @@ tree_addr_for_mem_ref (struct mem_address *addr, bool really_expand)
 
   return (*addr_for_mem_ref_array[targetm.target_arch]) (addr, really_expand);
 }
+#endif
 
 /* Returns address of MEM_REF in TYPE.  */
 
@@ -767,7 +769,7 @@ create_mem_ref (gimple_stmt_iterator *gsi, tree type, aff_tree *addr,
 
 #ifndef EXTRA_TARGET
 EXTRA_TARGETS_DECL (tree create_mem_ref (gimple_stmt_iterator *gsi, tree type,
-					 aff_tree *addr, bool speed));
+					 aff_tree *addr, bool speed))
 
 /* Like create_mem_ref, but dispatch according to targetm, so this is
    suitable for tree optimizers that don't have target-specific variants.  */

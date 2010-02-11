@@ -2141,7 +2141,7 @@ vector_type_mode (const_tree t)
 }
 
 #ifndef EXTRA_TARGET
-EXTRA_TARGETS_DECL (enum machine_mode vector_type_mode (const_tree));
+EXTRA_TARGETS_DECL (enum machine_mode vector_type_mode (const_tree))
 enum machine_mode (*vector_type_mode_array[]) (const_tree)
   = { &vector_type_mode, EXTRA_TARGETS_EXPAND_COMMA (&, vector_type_mode) };
 #endif /* !EXTRA_TARGET */
