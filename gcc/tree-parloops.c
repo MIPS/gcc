@@ -1412,6 +1412,10 @@ separate_decls_in_region (edge entry, edge exit, htab_t reduction_list,
 	    = targetm.alloc_task_on_target (&gsi, targetm_array[new_target],
 					    copy_base, size, loop_fn);
 	}
+      else
+	/* ??? Without this, gcc gives a spurious uninitialized warning/error.
+	 */
+	copy_base = NULL;
 
       /* Create the loads and stores.  */
       *arg_struct = create_tmp_var (type, ".paral_data_store");

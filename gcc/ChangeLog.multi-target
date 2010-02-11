@@ -39,6 +39,9 @@
 
 	* omp-low.c (expand_parallel_call): Separate decalrations and code.
 
+	* tree-parloops.c (separate_decls_in_region): Avoid spurious
+	uninitalized error for copy_base.
+
 2010-02-10  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* tree-ssa-loop-manip.c: Include target.h and multi-target.h.
