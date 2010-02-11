@@ -2148,7 +2148,6 @@ vect_create_addr_base_for_vector_ref (gimple stmt,
 				      gimple_seq *new_stmt_list,
 				      tree offset,
 				      struct loop *loop,
-				      alias_set_type ptr_alias_set,
 				      struct gcc_target *ins_target)
 {
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
@@ -2235,8 +2234,6 @@ vect_create_addr_base_for_vector_ref (gimple stmt,
   vec_stmt = fold_convert (vect_ptr_type, addr_base);
   addr_expr = vect_get_new_vect_var (vect_ptr_type, vect_pointer_var,
                                      get_name (base_name));
-  if (ptr_alias_set)
-    DECL_POINTER_ALIAS_SET (addr_expr) = ptr_alias_set;
   /* FIXME: as addr_expr has no memory tag, alias analysis thinks it
      'points-to anything' .  */
   add_referenced_var (addr_expr);
@@ -2430,7 +2427,6 @@ vect_create_data_ref_ptr (gimple stmt, struct loop *at_loop,
   tree step;
   bb_vec_info bb_vinfo = STMT_VINFO_BB_VINFO (stmt_info);
   gimple_stmt_iterator gsi = gsi_for_stmt (stmt);
-  alias_set_type ptr_alias_set = 0;
   bool numa = !((*targetm_array[cfun->target_arch]->common_data_with_target)
 		 (targetm_array[loop->target_arch]));
   enum machine_mode tptrmode
@@ -2525,7 +2521,6 @@ vect_create_data_ref_ptr (gimple stmt, struct loop *at_loop,
       while (orig_stmt);
     }
 
-  ptr_alias_set = DECL_POINTER_ALIAS_SET (vect_ptr);
   add_referenced_var (vect_ptr);
 
   if (numa)
@@ -2634,9 +2629,8 @@ vect_create_data_ref_ptr (gimple stmt, struct loop *at_loop,
 
   gcc_assert (pe != NULL);
   ins_target = targetm_array[pe->src->loop_father->target_arch];
-  new_temp
-    = vect_create_addr_base_for_vector_ref (stmt, &new_stmt_list, offset, loop,
-					    ptr_alias_set, ins_target);
+  new_temp = vect_create_addr_base_for_vector_ref (stmt, &new_stmt_list,
+						   offset, loop, ins_target);
   if (new_stmt_list)
     {
       if (pe)

@@ -1,3 +1,10 @@
+2010-02-11  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* tree-vect-data-refs.c (vect_create_addr_base_for_vector_ref):
+	Remove ptr_alias_set argument.  Changed caller.
+	* tree-vectorizer.h (vect_create_addr_base_for_vector_ref): Update
+	prototype.
+
 2010-02-10  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* tree-ssa-loop-manip.c: Include target.h and multi-target.h.
