@@ -24831,10 +24831,10 @@ ix86_free_from_memory (enum machine_mode mode)
 static const int /*enum reg_class*/ *
 i386_ira_cover_classes (void)
 {
-  static const enum reg_class sse_fpmath_classes[] = {
+  static const int /*enum reg_class*/ sse_fpmath_classes[] = {
     GENERAL_REGS, SSE_REGS, MMX_REGS, FLOAT_REGS, LIM_REG_CLASSES
   };
-  static const enum reg_class no_sse_fpmath_classes[] = {
+  static const int /*enum reg_class*/ no_sse_fpmath_classes[] = {
     GENERAL_REGS, FLOAT_REGS, MMX_REGS, SSE_REGS, LIM_REG_CLASSES
   };
 
