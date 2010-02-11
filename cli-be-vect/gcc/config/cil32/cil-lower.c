@@ -135,18 +135,37 @@ lower_cil_vector_ctor (const_cil_stmt ctor)
     }
   else if (simd_type == MONO_SIMD)
     {
-      switch (cil_type)
-	{
-        /* No 8-byte support in Mono.Simd. Error/warning?  */
+      if (cil_short_ctor (ctor))
+        {
+	  switch (cil_type)
+	    {
+	      /* No 8-byte support in Mono.Simd. Error/warning?  */
 
-	case CIL_V2DI: builtin = CIL32_MONO_V2DI_CTOR; break;
-	case CIL_V4SI: builtin = CIL32_MONO_V4SI_CTOR; break;
-	case CIL_V8HI: builtin = CIL32_MONO_V8HI_CTOR; break;
-	case CIL_V16QI: builtin = CIL32_MONO_V16QI_CTOR; break;
-	case CIL_V2DF: builtin = CIL32_MONO_V2DF_CTOR; break;
-	case CIL_V4SF: builtin = CIL32_MONO_V4SF_CTOR; break;
-	default:
-	  internal_error ("Vector type expected, seen %d", cil_type);
+	    case CIL_V2DI: builtin = CIL32_MONO_V2DI_CTOR_U; break;
+	    case CIL_V4SI: builtin = CIL32_MONO_V4SI_CTOR_U; break;
+	    case CIL_V8HI: builtin = CIL32_MONO_V8HI_CTOR_U; break;
+	    case CIL_V16QI: builtin = CIL32_MONO_V16QI_CTOR_U; break;
+	    case CIL_V2DF: builtin = CIL32_MONO_V2DF_CTOR_U; break;
+	    case CIL_V4SF: builtin = CIL32_MONO_V4SF_CTOR_U; break;
+	    default:
+	      internal_error ("Vector type expected, seen %d", cil_type);
+	    }
+	}
+      else
+	{
+	  switch (cil_type)
+	    {
+	      /* No 8-byte support in Mono.Simd. Error/warning?  */
+
+	    case CIL_V2DI: builtin = CIL32_MONO_V2DI_CTOR; break;
+	    case CIL_V4SI: builtin = CIL32_MONO_V4SI_CTOR; break;
+	    case CIL_V8HI: builtin = CIL32_MONO_V8HI_CTOR; break;
+	    case CIL_V16QI: builtin = CIL32_MONO_V16QI_CTOR; break;
+	    case CIL_V2DF: builtin = CIL32_MONO_V2DF_CTOR; break;
+	    case CIL_V4SF: builtin = CIL32_MONO_V4SF_CTOR; break;
+	    default:
+	      internal_error ("Vector type expected, seen %d", cil_type);
+	    }
 	}
 
       return cil_build_newobj (cil32_builtins[builtin]);
