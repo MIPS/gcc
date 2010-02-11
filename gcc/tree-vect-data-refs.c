@@ -2427,11 +2427,8 @@ vect_create_data_ref_ptr (gimple stmt, struct loop *at_loop,
   tree step;
   bb_vec_info bb_vinfo = STMT_VINFO_BB_VINFO (stmt_info);
   gimple_stmt_iterator gsi = gsi_for_stmt (stmt);
-  bool numa = !((*targetm_array[cfun->target_arch]->common_data_with_target)
-		 (targetm_array[loop->target_arch]));
-  enum machine_mode tptrmode
-    = (targetm_array[loop->target_arch]->addr_space.pointer_mode
-	(ADDR_SPACE_GENERIC));
+  bool numa = false;
+  enum machine_mode tptrmode = VOIDmode;
   struct gcc_target *ins_target;
 
   if (loop_vinfo)
@@ -2440,6 +2437,10 @@ vect_create_data_ref_ptr (gimple stmt, struct loop *at_loop,
       nested_in_vect_loop = nested_in_vect_loop_p (loop, stmt);
       containing_loop = (gimple_bb (stmt))->loop_father;
       pe = loop_preheader_edge (loop);
+      numa = !((*targetm_array[cfun->target_arch]->common_data_with_target)
+		(targetm_array[loop->target_arch]));
+      tptrmode = (targetm_array[loop->target_arch]->addr_space.pointer_mode
+		   (ADDR_SPACE_GENERIC));
     }
   else
     {
@@ -2480,7 +2481,9 @@ vect_create_data_ref_ptr (gimple stmt, struct loop *at_loop,
     }
 
   /** (1) Create the new vector-pointer variable:  **/
-  vect_ptr_type = build_pointer_type_for_mode (vectype, tptrmode, false);
+  vect_ptr_type = (numa
+		   ? build_pointer_type_for_mode (vectype, tptrmode, false)
+		   : build_pointer_type (vectype));
   vect_ptr = vect_get_new_vect_var (vect_ptr_type, vect_pointer_var,
                                     get_name (base_name));
 

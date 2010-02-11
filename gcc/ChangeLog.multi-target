@@ -42,6 +42,11 @@
 	* tree-parloops.c (separate_decls_in_region): Avoid spurious
 	uninitalized error for copy_base.
 
+	* tree-vect-data-refs.c (vect_create_data_ref_ptr): Defer uses of
+	loop till after it is set from loop_vinfo.
+	In !numa case, use build_pointer_type (vectype) rather than
+	build_pointer_type_for_mode (vectype, tptrmode, false).
+
 2010-02-10  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* tree-ssa-loop-manip.c: Include target.h and multi-target.h.
