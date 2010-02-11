@@ -2339,7 +2339,7 @@ vect_decompose_addr_base_for_vector_ref (gimple stmt, tree offset,
 static unsigned int
 param_array_hash (const void *p)
 {
-  param_array elem = (param_array) p;
+  const_param_array elem = (const_param_array) p;
 
   return htab_hash_pointer (elem->decl);
 }
@@ -2347,8 +2347,8 @@ param_array_hash (const void *p)
 static int
 param_array_eq (const void *p0, const void *p1)
 {
-  param_array e0 = (param_array) p0;
-  param_array e1 = (param_array) p1;
+  const_param_array e0 = (const_param_array) p0;
+  const_param_array e1 = (const_param_array) p1;
 
   return e0->decl == e1->decl;
 }
@@ -3198,7 +3198,7 @@ vect_setup_realignment (gimple stmt, gimple_stmt_iterator *gsi,
 	  /* Generate the INIT_ADDR computation outside LOOP.  */
 	  init_addr
 	    = vect_create_addr_base_for_vector_ref (stmt, &stmts, NULL_TREE,
-						    loop, 0, &targetm);
+						    loop, &targetm);
 	  pe = loop_preheader_edge (loop);
 	  new_bb = gsi_insert_seq_on_edge_immediate (pe, stmts);
 	  gcc_assert (!new_bb);

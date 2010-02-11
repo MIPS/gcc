@@ -5,6 +5,10 @@
 	* tree-vectorizer.h (vect_create_addr_base_for_vector_ref): Update
 	prototype.
 
+	* cfgloop.h (const_param_array): New typedef.
+	* tree-vect-data-refs.c (param_array_hash): Use const_param_array.
+	(param_array_eq): Likewise.
+
 2010-02-10  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* tree-ssa-loop-manip.c: Include target.h and multi-target.h.

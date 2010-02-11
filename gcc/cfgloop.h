@@ -131,6 +131,7 @@ typedef struct GTY (()) param_array_d
   struct tree_range write_offset;
   tree size;
 } *param_array;
+typedef const struct GTY (()) param_array_d *const_param_array;
 
 /* Structure to hold information for each natural loop.  */
 struct GTY ((chain_next ("%h.next"))) loop {
