@@ -2135,6 +2135,7 @@ gfc_conv_subref_array_arg (gfc_se * parmse, gfc_expr * expr, int g77,
   tree size;
   stmtblock_t body;
   int n;
+  int dimen;
 
   gcc_assert (expr->expr_type == EXPR_VARIABLE);
 
@@ -2263,9 +2264,10 @@ gfc_conv_subref_array_arg (gfc_se * parmse, gfc_expr * expr, int g77,
      outside the innermost loop, so the overall transfer could be
      optimized further.  */
   info = &rse.ss->data.info;
+  dimen = info->dimen;
 
   tmp_index = gfc_index_zero_node;
-  for (n = info->dimen - 1; n > 0; n--)
+  for (n = dimen - 1; n > 0; n--)
     {
       tree tmp_str;
       tmp = rse.loop->loopvar[n];
@@ -2331,7 +2333,7 @@ gfc_conv_subref_array_arg (gfc_se * parmse, gfc_expr * expr, int g77,
     {
       size = gfc_index_one_node;
       offset = gfc_index_zero_node;  
-      for (n = 0; n < info->dimen; n++)
+      for (n = 0; n < dimen; n++)
 	{
 	  tmp = gfc_conv_descriptor_ubound_get (parmse->expr,
 						gfc_rank_cst[n]);

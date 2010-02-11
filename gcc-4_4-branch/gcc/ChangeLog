@@ -1,3 +1,23 @@
+2010-02-10  Daniel Gutson  <dgutson@codesourcery.com>
+
+	* config/arm/lib1funcs.asm (__ARM_ARCH__): __ARM_ARCH_7EM__
+	added to the preprocessor condition.
+
+2010-02-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/43010
+	* dwarf2out.c (retry_incomplete_types): Don't call gen_type_die
+	if no debug info should be emitted for it.
+
+2010-02-09  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline:
+	2010-01-13  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/42705
+	* tree-ssa-reassoc.c (build_and_add_sum): Insert stmts after
+	labels.
+
 2009-03-30  H.J. Lu  <hongjiu.lu@intel.com>
 
 	PR target/38781
