@@ -443,7 +443,7 @@ complete_all_modes (void)
 /* Remove the duplicate mode OLD.  All referenecs to it should be replaced
    with NEW.  */
 static void
-drop_mode (struct mode_data *old, struct mode_data *new)
+drop_mode (struct mode_data *old, struct mode_data *new_m)
 {
   struct mode_data *m, *last;
 
@@ -451,9 +451,9 @@ drop_mode (struct mode_data *old, struct mode_data *new)
   if (old->contained)
     {
       for (m = old->contained; m; last = m, m = m->next_cont)
-	m->component = new;
-      last->next_cont = new->contained;
-      new->contained = old->contained;
+	m->component = new_m;
+      last->next_cont = new_m->contained;
+      new_m->contained = old->contained;
     }
 }
 
@@ -1371,7 +1371,7 @@ emit_mode_adjustments (void)
      A size adjustment forces us to recalculate the alignment too.  */
   for (a = adj_bytesize; a; a = a->next)
     {
-      if (a->target && a->target != output_target)
+      if (a->target && strcmp (a->target, output_target) != 0)
 	continue;
       printf ("\n  /* %s:%d */\n  s = %s;\n",
 	      a->file, a->line, a->adjustment);
@@ -1415,7 +1415,7 @@ emit_mode_adjustments (void)
      ??? This may not be the right thing for vector modes.  */
   for (a = adj_alignment; a; a = a->next)
     {
-      if (a->target && a->target != output_target)
+      if (a->target && strcmp (a->target, output_target) != 0)
 	continue;
       printf ("\n  /* %s:%d */\n  s = %s;\n",
 	      a->file, a->line, a->adjustment);
@@ -1452,7 +1452,7 @@ emit_mode_adjustments (void)
   /* Ibit adjustments don't have to propagate.  */
   for (a = adj_ibit; a; a = a->next)
     {
-      if (a->target && a->target != output_target)
+      if (a->target && strcmp (a->target, output_target) != 0)
 	continue;
       printf ("\n  /* %s:%d */\n  s = %s;\n",
 	      a->file, a->line, a->adjustment);
@@ -1462,7 +1462,7 @@ emit_mode_adjustments (void)
   /* Fbit adjustments don't have to propagate.  */
   for (a = adj_fbit; a; a = a->next)
     {
-      if (a->target && a->target != output_target)
+      if (a->target && strcmp (a->target, output_target) != 0)
 	continue;
       printf ("\n  /* %s:%d */\n  s = %s;\n",
 	      a->file, a->line, a->adjustment);
@@ -1472,7 +1472,7 @@ emit_mode_adjustments (void)
   /* Real mode formats don't have to propagate anywhere.  */
   for (a = adj_format; a; a = a->next)
     {
-      if (a->target && a->target != output_target)
+      if (a->target && strcmp (a->target, output_target) != 0)
 	continue;
       printf ("\n  /* %s:%d */\n  REAL_MODE_FORMAT (%smode) = %s;\n",
 	      a->file, a->line, a->mode->name, a->adjustment);

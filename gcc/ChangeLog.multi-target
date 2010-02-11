@@ -17,6 +17,12 @@
 	* config/i386/i386.c (i386_ira_cover_classes): Adjust return type to
 	match hook return type.
 
+	* Makefile.in (options.c): Remove rtl.h from header_names.
+
+	* genmodes.c (drop_mode): Rename 'new' parameter to 'new_m'.
+	(emit_mode_adjustments): Use strcmp for comparisons with
+	output_target.
+
 2010-02-10  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* tree-ssa-loop-manip.c: Include target.h and multi-target.h.

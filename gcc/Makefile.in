@@ -2168,7 +2168,7 @@ s-options: $(ALL_OPT_FILES) Makefile $(srcdir)/opt-gather.awk
 
 options.c: optionlist $(srcdir)/opt-functions.awk $(srcdir)/optc-gen.awk
 	$(AWK) -f $(srcdir)/opt-functions.awk -f $(srcdir)/optc-gen.awk \
-	       -v header_name="config.h system.h coretypes.h tm.h rtl.h" \
+	       -v header_name="config.h system.h coretypes.h tm.h" \
 	       < $< > $@
 
 options.h: s-options-h ; @true
