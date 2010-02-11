@@ -1,5 +1,7 @@
 2010-02-10  Jakub Jelinek  <jakub@redhat.com>
 
+	* gcc.dg/builtin-ffs-1.c: New test.
+
 	PR debug/43010
 	* g++.dg/debug/pr43010.C: New test.
 

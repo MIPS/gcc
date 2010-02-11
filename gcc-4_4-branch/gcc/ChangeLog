@@ -1,3 +1,28 @@
+2010-02-11  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-pch.c (pch_init): Clear v.
+
+	* reload1.c (eliminate_regs_1): If insn is DEBUG_INSN, avoid any
+	modifications outside of the DEBUG_INSN.  Accept CLOBBERs inside
+	of DEBUG_INSNs.
+	(eliminate_regs_in_insn): Eliminate regs even in DEBUG_INSNs.
+
+	* dwarf2out.c (mem_loc_descriptor) <case MEM>: Use DW_OP_deref_size
+	if MEM's mode size isn't DWARF2_ADDR_SIZE.
+	(mem_loc_descriptor) <do_scompare>: Allow also VOIDmode arguments.
+	Optimize eq/ne comparisons when both arguments are known to be
+	zero-extended.
+	(mem_loc_descriptor) <do_ucompare>: Allow also VOIDmode arguments.
+	Don't mask operands unnecessarily if they are known to be already
+	zero-extended.
+
+2010-02-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* Makefile.in (c-common.o): Depend on $(OPTABS_H).
+	* c-common.c: Include optabs.h.
+	(set_builtin_user_assembler_name): Also handle
+	ffs if int is smaller than word.
+
 2010-02-10  Daniel Gutson  <dgutson@codesourcery.com>
 
 	* config/arm/lib1funcs.asm (__ARM_ARCH__): __ARM_ARCH_7EM__
