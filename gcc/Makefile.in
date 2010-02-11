@@ -3398,7 +3398,7 @@ $(TA)$(out_object_file): $(out_file) $(CONFIG_H) coretypes.h $(TM_H) $(TREE_H) \
    cselib.h gt-$(basename $(notdir $(out_file))).h
 	$(COMPILER) -c $(ALL_COMPILERFLAGS) $(ALL_CPPFLAGS) \
 		$(out_file) $(OUTPUT_OPTION) -Dtargetm=this_targetm \
-		-DTARGET_NAME=\"$(target_noncanonical)
+		-DTARGET_NAME=\"$(target_noncanonical)\"
 
 # Build auxiliary files that support ecoff format.
 mips-tfile: mips-tfile.o version.o $(LIBDEPS)

@@ -2415,8 +2415,9 @@ struct GTY(()) machine_function {
    REG_SP is live.  */
 #define ix86_current_function_calls_tls_descriptor \
   (ix86_tls_descriptor_calls_expanded_in_cfun && df_regs_ever_live_p (SP_REG))
-#define ix86_cfa_state (&cfun->machine->cfa)
-#define ix86_static_chain_on_stack (cfun->machine->static_chain_on_stack)
+#define ix86_cfa_state (&MACHINE_FUNCTION (*cfun)->cfa)
+#define ix86_static_chain_on_stack \
+  (MACHINE_FUNCTION (*cfun)->static_chain_on_stack)
 
 /* Control behavior of x86_file_start.  */
 #define X86_FILE_START_VERSION_DIRECTIVE false

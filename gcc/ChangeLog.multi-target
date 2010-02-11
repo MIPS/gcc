@@ -9,6 +9,14 @@
 	* tree-vect-data-refs.c (param_array_hash): Use const_param_array.
 	(param_array_eq): Likewise.
 
+	* Makefile.in ($(TA)$(out_object_file)): Fix -DTARGET_NAME typo.
+
+	* config/i386/i386.h (ix86_cfa_state): Use MACHINE_FUNCTION.
+	(ix86_cfa_state): Likewise.
+
+	* config/i386/i386.c (i386_ira_cover_classes): Adjust return type to
+	match hook return type.
+
 2010-02-10  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* tree-ssa-loop-manip.c: Include target.h and multi-target.h.

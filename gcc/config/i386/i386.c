@@ -24828,7 +24828,7 @@ ix86_free_from_memory (enum machine_mode mode)
 /* Implement TARGET_IRA_COVER_CLASSES.  If -mfpmath=sse, we prefer
    SSE_REGS to FLOAT_REGS if their costs for a pseudo are the
    same.  */
-static const enum reg_class *
+static const int /*enum reg_class*/ *
 i386_ira_cover_classes (void)
 {
   static const enum reg_class sse_fpmath_classes[] = {
