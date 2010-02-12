@@ -223,11 +223,11 @@ DEF_CILBUILTIN(CPLX_DOUBLE_CTOR, \
 DEF_CILBUILTIN(MONO_V2DF_CTOR, "[Mono.Simd]Mono.Simd.Vector2d::.ctor",
 	       double2_type_node,		\
 	       2, \
-	       float_type_node, float_type_node)
+	       double_type_node, double_type_node)
 
 DEF_CILBUILTIN(MONO_V2DF_CTOR_U, "[Mono.Simd]Mono.Simd.Vector2d::.ctor ",
 	       double2_type_node,		\
-	       1, float_type_node)
+	       1, double_type_node)
 
 DEF_CILBUILTIN(MONO_V2DF_LOAD_ALIGNED,
 	       "[Mono.Simd]Mono.Simd.Vector2d::LoadAligned",	\
