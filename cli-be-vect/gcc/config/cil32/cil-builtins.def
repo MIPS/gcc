@@ -1085,30 +1085,78 @@ DEF_CILBUILTIN(GCC_GET_ALIGN_V16QI, "[genvec_support]genvec_support.VQI::VQI_ali
                ATTR_CONST_NOTHROW_LIST,          \
                unsigned_type_node, \
                0)
-DEF_CILBUILTIN(GCC_BUILD_REDUC_EPILOGUE_V2DI, "[genvec_support]genvec_support.VDI::VDI_reduc_epilogue", \
-               ATTR_CONST_NOTHROW_LIST,          \
-               intDI_type_node, \
-               2,
-               unsigned_type_node, intDI2_type_node)
 
-DEF_CILBUILTIN(GCC_BUILD_REDUC_EPILOGUE_V4SI, "[genvec_support]genvec_support.VSI::VSI_reduc_epilogue", \
+DEF_CILBUILTIN(GCC_BUILD_REDUC_MAX_EPILOGUE_V2DI, "[genvec_support]genvec_support.VDI::VDI_reduc_max_epilogue", \
                ATTR_CONST_NOTHROW_LIST,          \
-               intSI_type_node, \
-               2,
-               unsigned_type_node, intSI4_type_node)
+               intDI2_type_node, \
+               1,
+               intDI2_type_node)
 
-DEF_CILBUILTIN(GCC_BUILD_REDUC_EPILOGUE_V8HI, "[genvec_support]genvec_support.VHI::VHI_reduc_epilogue", \
+DEF_CILBUILTIN(GCC_BUILD_REDUC_MIN_EPILOGUE_V2DI, "[genvec_support]genvec_support.VDI::VDI_reduc_min_epilogue", \
                ATTR_CONST_NOTHROW_LIST,          \
-               intHI_type_node, \
-               2,
-               unsigned_type_node, intHI8_type_node)
+               intDI2_type_node, \
+               1,
+               intDI2_type_node)
 
-DEF_CILBUILTIN(GCC_BUILD_REDUC_EPILOGUE_V16QI, "[genvec_support]genvec_support.VQI::VQI_reduc_epilogue", \
+DEF_CILBUILTIN(GCC_BUILD_REDUC_PLUS_EPILOGUE_V2DI, "[genvec_support]genvec_support.VDI::VDI_reduc_plus_epilogue", \
                ATTR_CONST_NOTHROW_LIST,          \
-               intQI_type_node, \
-               2,
-               unsigned_type_node, intQI16_type_node)
+               intDI2_type_node, \
+               1,
+               intDI2_type_node)
 
+DEF_CILBUILTIN(GCC_BUILD_REDUC_MAX_EPILOGUE_V4SI, "[genvec_support]genvec_support.VSI::VSI_reduc_max_epilogue", \
+               ATTR_CONST_NOTHROW_LIST,          \
+               intSI4_type_node, \
+               1,
+               intSI4_type_node)
+
+DEF_CILBUILTIN(GCC_BUILD_REDUC_MIN_EPILOGUE_V4SI, "[genvec_support]genvec_support.VSI::VSI_reduc_min_epilogue", \
+               ATTR_CONST_NOTHROW_LIST,          \
+               intSI4_type_node, \
+               1,
+               intSI4_type_node)
+
+DEF_CILBUILTIN(GCC_BUILD_REDUC_PLUS_EPILOGUE_V4SI, "[genvec_support]genvec_support.VSI::VSI_reduc_plus_epilogue", \
+               ATTR_CONST_NOTHROW_LIST,          \
+               intSI4_type_node, \
+               1,
+               intSI4_type_node)
+
+DEF_CILBUILTIN(GCC_BUILD_REDUC_MAX_EPILOGUE_V8HI, "[genvec_support]genvec_support.VHI::VHI_reduc_max_epilogue", \
+               ATTR_CONST_NOTHROW_LIST,          \
+               intHI8_type_node, \
+               1,
+               intHI8_type_node)
+
+DEF_CILBUILTIN(GCC_BUILD_REDUC_MIN_EPILOGUE_V8HI, "[genvec_support]genvec_support.VHI::VHI_reduc_min_epilogue", \
+               ATTR_CONST_NOTHROW_LIST,          \
+               intHI8_type_node, \
+               1,
+               intHI8_type_node)
+
+DEF_CILBUILTIN(GCC_BUILD_REDUC_PLUS_EPILOGUE_V8HI, "[genvec_support]genvec_support.VHI::VHI_reduc_plus_epilogue", \
+               ATTR_CONST_NOTHROW_LIST,          \
+               intHI8_type_node, \
+               1,
+               intHI8_type_node)
+
+DEF_CILBUILTIN(GCC_BUILD_REDUC_MAX_EPILOGUE_V16QI, "[genvec_support]genvec_support.VQI::VQI_reduc_max_epilogue", \
+               ATTR_CONST_NOTHROW_LIST,          \
+               intQI16_type_node, \
+               1,
+               intQI16_type_node)
+
+DEF_CILBUILTIN(GCC_BUILD_REDUC_MIN_EPILOGUE_V16QI, "[genvec_support]genvec_support.VQI::VQI_reduc_min_epilogue", \
+               ATTR_CONST_NOTHROW_LIST,          \
+               intQI16_type_node, \
+               1,
+               intQI16_type_node)
+
+DEF_CILBUILTIN(GCC_BUILD_REDUC_PLUS_EPILOGUE_V16QI, "[genvec_support]genvec_support.VQI::VQI_reduc_plus_epilogue", \
+               ATTR_CONST_NOTHROW_LIST,          \
+               intQI16_type_node, \
+               1,
+               intQI16_type_node)
 
 /* V SF */
 DEF_CILBUILTIN(GEN_VSF_CTOR, "[Xxxx.Simd]Xxxx.Simd.VgenSF::.ctor", \

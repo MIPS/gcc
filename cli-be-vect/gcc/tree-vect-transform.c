@@ -2635,167 +2635,179 @@ vect_create_epilog_for_reduction (tree vect_def, gimple stmt,
   /* 2.3 Create the reduction code, using one of the three schemes described
          above.  */
 
-  if (targetm.vectorize.builtin_build_reduc_epilogue &&
-      (builtin_decl
-             = targetm.vectorize.builtin_build_reduc_epilogue (vectype)))
+  if (targetm.vectorize.builtin_build_reduc_epilogue)
     {
-      tree sym;
-      ssa_op_iter iter;
+      enum tree_code builtin_reduc_code;
 
-      if (vect_print_dump_info (REPORT_DETAILS))
-        fprintf (vect_dump, "Reduce using builtin.");
-
-      epilog_stmt = gimple_build_call (builtin_decl, 2, 
-                               build_int_cst (integer_type_node, reduc_code),    
-                               PHI_RESULT (new_phi));
-      add_referenced_var (new_scalar_dest);
-      new_temp = make_ssa_name (new_scalar_dest, epilog_stmt);
-      gimple_call_set_lhs (epilog_stmt, new_temp);
-      gsi_insert_before (&exit_gsi, epilog_stmt, GSI_SAME_STMT);
-
-      FOR_EACH_SSA_TREE_OPERAND (sym, epilog_stmt, iter, SSA_OP_ALL_VIRTUALS)
+      reduction_code_for_scalar_code (code, &builtin_reduc_code);
+      if (builtin_reduc_code 
+          && (builtin_decl
+              = targetm.vectorize.builtin_build_reduc_epilogue (
+                               builtin_reduc_code, vectype)))
         {
-          if (TREE_CODE (sym) == SSA_NAME)
-            sym = SSA_NAME_VAR (sym);
+          tree sym;
+          ssa_op_iter iter;
 
-          mark_sym_for_renaming (sym);
+          if (vect_print_dump_info (REPORT_DETAILS))
+            fprintf (vect_dump, "Reduce using builtin.");
+
+          epilog_stmt = gimple_build_call (builtin_decl, 1,
+                                           PHI_RESULT (new_phi)); 
+          vec_dest = vect_create_destination_var (scalar_dest, vectype);
+          new_temp = make_ssa_name (vec_dest, epilog_stmt);
+          add_referenced_var (vec_dest);
+          gimple_call_set_lhs (epilog_stmt, new_temp);
+          gsi_insert_before (&exit_gsi, epilog_stmt, GSI_SAME_STMT);
+
+          FOR_EACH_SSA_TREE_OPERAND (sym, epilog_stmt, iter, 
+                                     SSA_OP_ALL_VIRTUALS)
+           {
+             if (TREE_CODE (sym) == SSA_NAME)
+               sym = SSA_NAME_VAR (sym);
+
+             mark_sym_for_renaming (sym);
+           }
+
+          extract_scalar_result = true;
         }
-
-      goto vect_finalize_reduction;
-    }
-
-  if (reduc_code < NUM_TREE_CODES)
-    {
-      tree tmp;
-
-      /*** Case 1:  Create:
-	   v_out2 = reduc_expr <v_out1>  */
-
-      if (vect_print_dump_info (REPORT_DETAILS))
-	fprintf (vect_dump, "Reduce using direct vector reduction.");
-
-      vec_dest = vect_create_destination_var (scalar_dest, vectype);
-      tmp = build1 (reduc_code, vectype,  PHI_RESULT (new_phi));
-      epilog_stmt = gimple_build_assign (vec_dest, tmp);
-      new_temp = make_ssa_name (vec_dest, epilog_stmt);
-      gimple_assign_set_lhs (epilog_stmt, new_temp);
-      gsi_insert_before (&exit_gsi, epilog_stmt, GSI_SAME_STMT);
-
-      extract_scalar_result = true;
     }
   else
     {
-      enum tree_code shift_code = 0;
-      bool have_whole_vector_shift = true;
-      int bit_offset;
-      int element_bitsize = tree_low_cst (bitsize, 1);
-      int vec_size_in_bits = tree_low_cst (TYPE_SIZE (vectype), 1);
-      tree vec_temp;
-
-      if (optab_handler (vec_shr_optab, mode)->insn_code != CODE_FOR_nothing)
-	shift_code = VEC_RSHIFT_EXPR;
-      else
-	have_whole_vector_shift = false;
-
-      /* Regardless of whether we have a whole vector shift, if we're
-	 emulating the operation via tree-vect-generic, we don't want
-	 to use it.  Only the first round of the reduction is likely
-	 to still be profitable via emulation.  */
-      /* ??? It might be better to emit a reduction tree code here, so that
-	 tree-vect-generic can expand the first round via bit tricks.  */
-      if (!VECTOR_MODE_P (mode))
-	have_whole_vector_shift = false;
-      else
-	{
-	  optab optab = optab_for_tree_code (code, vectype, optab_default);
-	  if (optab_handler (optab, mode)->insn_code == CODE_FOR_nothing)
-	    have_whole_vector_shift = false;
-	}
-
-      if (have_whole_vector_shift)
+      if (reduc_code < NUM_TREE_CODES)
         {
-	  /*** Case 2: Create:
-	     for (offset = VS/2; offset >= element_size; offset/=2)
-	        {
-	          Create:  va' = vec_shift <va, offset>
-	          Create:  va = vop <va, va'>
-	        }  */
+          tree tmp;
 
-	  if (vect_print_dump_info (REPORT_DETAILS))
-	    fprintf (vect_dump, "Reduce using vector shifts");
+          /*** Case 1:  Create:
+	       v_out2 = reduc_expr <v_out1>  */
 
-	  vec_dest = vect_create_destination_var (scalar_dest, vectype);
-	  new_temp = PHI_RESULT (new_phi);
+          if (vect_print_dump_info (REPORT_DETAILS))
+    	    fprintf (vect_dump, "Reduce using direct vector reduction.");
 
-	  for (bit_offset = vec_size_in_bits/2;
-	       bit_offset >= element_bitsize;
-	       bit_offset /= 2)
+          vec_dest = vect_create_destination_var (scalar_dest, vectype);
+          tmp = build1 (reduc_code, vectype,  PHI_RESULT (new_phi));
+          epilog_stmt = gimple_build_assign (vec_dest, tmp);
+          new_temp = make_ssa_name (vec_dest, epilog_stmt);
+          gimple_assign_set_lhs (epilog_stmt, new_temp);
+          gsi_insert_before (&exit_gsi, epilog_stmt, GSI_SAME_STMT);
+
+          extract_scalar_result = true;
+        }
+      else
+        {
+          enum tree_code shift_code = 0;
+          bool have_whole_vector_shift = true;
+          int bit_offset;
+          int element_bitsize = tree_low_cst (bitsize, 1);
+          int vec_size_in_bits = tree_low_cst (TYPE_SIZE (vectype), 1);
+          tree vec_temp;
+
+          if (optab_handler (vec_shr_optab, mode)->insn_code 
+              != CODE_FOR_nothing)
+  	    shift_code = VEC_RSHIFT_EXPR;
+          else
+	    have_whole_vector_shift = false;
+
+          /* Regardless of whether we have a whole vector shift, if we're
+  	     emulating the operation via tree-vect-generic, we don't want
+  	     to use it.  Only the first round of the reduction is likely
+ 	     to still be profitable via emulation.  */
+          /* ??? It might be better to emit a reduction tree code here, so that
+	     tree-vect-generic can expand the first round via bit tricks.  */
+          if (!VECTOR_MODE_P (mode))
+	    have_whole_vector_shift = false;
+          else
 	    {
-	      tree bitpos = size_int (bit_offset);
-	      epilog_stmt = gimple_build_assign_with_ops (shift_code, vec_dest,
-							  new_temp, bitpos);
-	      new_name = make_ssa_name (vec_dest, epilog_stmt);
-	      gimple_assign_set_lhs (epilog_stmt, new_name);
-	      gsi_insert_before (&exit_gsi, epilog_stmt, GSI_SAME_STMT);
-
-	      epilog_stmt = gimple_build_assign_with_ops (code, vec_dest,
-							  new_name, new_temp);
-	      new_temp = make_ssa_name (vec_dest, epilog_stmt);
-	      gimple_assign_set_lhs (epilog_stmt, new_temp);
-	      gsi_insert_before (&exit_gsi, epilog_stmt, GSI_SAME_STMT);
+	      optab optab = optab_for_tree_code (code, vectype, optab_default);
+	      if (optab_handler (optab, mode)->insn_code == CODE_FOR_nothing)
+	        have_whole_vector_shift = false;
 	    }
 
-	  extract_scalar_result = true;
-	}
-      else
-        {
-	  tree rhs;
+          if (have_whole_vector_shift)
+            {
+	      /*** Case 2: Create:
+	          for (offset = VS/2; offset >= element_size; offset/=2)
+	            {
+	              Create:  va' = vec_shift <va, offset>
+	              Create:  va = vop <va, va'>
+	            }  */
 
-	  /*** Case 3: Create:  
-	     s = extract_field <v_out2, 0>
-	     for (offset = element_size; 
-		  offset < vector_size; 
-		  offset += element_size;)
-	       {
-	         Create:  s' = extract_field <v_out2, offset>
-	         Create:  s = op <s, s'>
-	       }  */
+	      if (vect_print_dump_info (REPORT_DETAILS))
+	        fprintf (vect_dump, "Reduce using vector shifts");
 
-	  if (vect_print_dump_info (REPORT_DETAILS))
-	    fprintf (vect_dump, "Reduce using scalar code. ");
+	      vec_dest = vect_create_destination_var (scalar_dest, vectype);
+	      new_temp = PHI_RESULT (new_phi);
 
-	  vec_temp = PHI_RESULT (new_phi);
-	  vec_size_in_bits = tree_low_cst (TYPE_SIZE (vectype), 1);
-	  rhs = build3 (BIT_FIELD_REF, scalar_type, vec_temp, bitsize,
-			 bitsize_zero_node);
-	  epilog_stmt = gimple_build_assign (new_scalar_dest, rhs);
-	  new_temp = make_ssa_name (new_scalar_dest, epilog_stmt);
-	  gimple_assign_set_lhs (epilog_stmt, new_temp);
-	  gsi_insert_before (&exit_gsi, epilog_stmt, GSI_SAME_STMT);
-	      
-	  for (bit_offset = element_bitsize;
-	       bit_offset < vec_size_in_bits;
-	       bit_offset += element_bitsize)
-	    { 
-	      tree bitpos = bitsize_int (bit_offset);
-	      tree rhs = build3 (BIT_FIELD_REF, scalar_type, vec_temp, bitsize,
-				 bitpos);
-		
-	      epilog_stmt = gimple_build_assign (new_scalar_dest, rhs);
-	      new_name = make_ssa_name (new_scalar_dest, epilog_stmt);
-	      gimple_assign_set_lhs (epilog_stmt, new_name);
-	      gsi_insert_before (&exit_gsi, epilog_stmt, GSI_SAME_STMT);
+	      for (bit_offset = vec_size_in_bits/2;
+	           bit_offset >= element_bitsize;
+	           bit_offset /= 2)
+	        {
+	          tree bitpos = size_int (bit_offset);
+	          epilog_stmt = gimple_build_assign_with_ops (shift_code, 
+                                                              vec_dest,
+							  new_temp, bitpos);
+  	          new_name = make_ssa_name (vec_dest, epilog_stmt);
+	          gimple_assign_set_lhs (epilog_stmt, new_name);
+	          gsi_insert_before (&exit_gsi, epilog_stmt, GSI_SAME_STMT);
 
-	      epilog_stmt = gimple_build_assign_with_ops (code,
-							  new_scalar_dest,
+	          epilog_stmt = gimple_build_assign_with_ops (code, vec_dest,
 							  new_name, new_temp);
+ 	          new_temp = make_ssa_name (vec_dest, epilog_stmt);
+	          gimple_assign_set_lhs (epilog_stmt, new_temp);
+	          gsi_insert_before (&exit_gsi, epilog_stmt, GSI_SAME_STMT);
+	        }
+
+	      extract_scalar_result = true;
+	    }
+          else
+            {
+	      tree rhs;
+
+	      /*** Case 3: Create:  
+	        s = extract_field <v_out2, 0>
+	        for (offset = element_size; 
+	  	     offset < vector_size; 
+		     offset += element_size;)
+	         {
+	           Create:  s' = extract_field <v_out2, offset>
+	           Create:  s = op <s, s'>
+	         }  */
+
+	      if (vect_print_dump_info (REPORT_DETAILS))
+	        fprintf (vect_dump, "Reduce using scalar code. ");
+
+	      vec_temp = PHI_RESULT (new_phi);
+	      vec_size_in_bits = tree_low_cst (TYPE_SIZE (vectype), 1);
+	      rhs = build3 (BIT_FIELD_REF, scalar_type, vec_temp, bitsize,
+	 		    bitsize_zero_node);
+	      epilog_stmt = gimple_build_assign (new_scalar_dest, rhs);
 	      new_temp = make_ssa_name (new_scalar_dest, epilog_stmt);
 	      gimple_assign_set_lhs (epilog_stmt, new_temp);
 	      gsi_insert_before (&exit_gsi, epilog_stmt, GSI_SAME_STMT);
-	    }
+	      
+	      for (bit_offset = element_bitsize;
+	           bit_offset < vec_size_in_bits;
+	           bit_offset += element_bitsize)
+	        { 
+	          tree bitpos = bitsize_int (bit_offset);
+	          tree rhs = build3 (BIT_FIELD_REF, scalar_type, vec_temp,
+				     bitsize, bitpos);
+		
+  	          epilog_stmt = gimple_build_assign (new_scalar_dest, rhs);
+	          new_name = make_ssa_name (new_scalar_dest, epilog_stmt);
+	          gimple_assign_set_lhs (epilog_stmt, new_name);
+	          gsi_insert_before (&exit_gsi, epilog_stmt, GSI_SAME_STMT);
 
-	  extract_scalar_result = false;
-	}
+	          epilog_stmt = gimple_build_assign_with_ops (code,
+							  new_scalar_dest,
+							  new_name, new_temp);
+	          new_temp = make_ssa_name (new_scalar_dest, epilog_stmt);
+	          gimple_assign_set_lhs (epilog_stmt, new_temp);
+	          gsi_insert_before (&exit_gsi, epilog_stmt, GSI_SAME_STMT);
+	        }
+
+	      extract_scalar_result = false;
+	    }
+        }
     }
 
   /* 2.4  Extract the final scalar result.  Create:
