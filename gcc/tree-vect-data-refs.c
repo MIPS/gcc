@@ -2630,8 +2630,13 @@ vect_create_data_ref_ptr (gimple stmt, struct loop *at_loop,
 
   /* Create: (&(base[init_val+offset]) in the loop preheader.  */
 
-  gcc_assert (pe != NULL);
-  ins_target = targetm_array[pe->src->loop_father->target_arch];
+  if (loop_vinfo)
+    {
+      gcc_assert (pe != NULL);
+      ins_target = targetm_array[pe->src->loop_father->target_arch];
+    }
+  else
+    ins_target = &targetm;
   new_temp = vect_create_addr_base_for_vector_ref (stmt, &new_stmt_list,
 						   offset, loop, ins_target);
   if (new_stmt_list)
