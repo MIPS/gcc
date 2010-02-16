@@ -487,6 +487,8 @@ struct gcc_target
     tree (* builtin_build_reduc_epilogue) (enum tree_code, tree);
 
     bool (* builtin_vectorize_independent_drs_only) (void);
+
+    bool (* builtin_always_realign) (void);
 } vectorize;
 
   /* The initial value of target_flags.  */

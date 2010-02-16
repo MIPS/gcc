@@ -260,6 +260,7 @@ cil_stack_after_stmt (cil_stack stack, cil_stmt stmt)
       VEC_quick_push (cil_type_t, vstack, CIL_VALUE_TYPE);
       break;
 
+    case CIL_ALDVEC:
     case CIL_LDVEC:
       {
 	tree type = cil_type (stmt);

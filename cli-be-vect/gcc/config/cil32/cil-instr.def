@@ -1,6 +1,6 @@
 /* 
 
-   Copyright (C) 2006-2009 Free Software Foundation, Inc.
+   Copyright (C) 2006-2010 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -39,6 +39,8 @@ Erven Rohou             <erven.rohou@inria.fr>
 
 /* Add numeric values */
 CIL_INSTRDEF(CIL_ADD,CIL_NONE,"add","ADD")
+/* Copy a vector value from an aligned address to the stack */
+CIL_INSTRDEF(CIL_ALDVEC,CIL_TYPE,"","ALDVEC")
 /* Logical and */
 CIL_INSTRDEF(CIL_AND,CIL_NONE,"and","AND")
 /* Get argument list */

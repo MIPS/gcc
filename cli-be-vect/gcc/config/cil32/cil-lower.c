@@ -63,6 +63,7 @@ static unsigned int lower_cil (void);
 
 static cil_stmt lower_cil_vector_ctor (const_cil_stmt);
 static cil_stmt lower_cil_ldvec (const_cil_stmt);
+static cil_stmt lower_cil_aldvec (const_cil_stmt);
 static cil_stmt lower_cil_stvec (const_cil_stmt);
 static cil_stmt lower_cil_vector_add (cil_type_t);
 static cil_stmt lower_cil_vector_sub (cil_type_t);
@@ -231,6 +232,57 @@ lower_cil_ldvec (const_cil_stmt stmt)
   else
     return cil_build_stmt_arg (CIL_LDOBJ, type);
 }
+
+/* Lower a generic CIL vector aligned load STMT to a type-specific
+   vector load depending on the vector type.  Return the replacement
+   statement.  */
+
+static cil_stmt
+lower_cil_aldvec (const_cil_stmt stmt)
+{
+  enum cil32_builtin builtin;
+  tree type = cil_type (stmt);
+  cil_type_t cil_type = vector_to_cil (type);
+
+  gcc_assert(simd_type == GEN_SIMD);
+
+  switch (cil_type)
+    {
+    /* case CIL_V2DF: */
+    /*   builtin = CIL32_GEN_VDF_ALOAD; */
+    /*   break; */
+
+    case CIL_V2SF:
+    case CIL_V4SF:
+      builtin = CIL32_GEN_VSF_ALOAD;
+      break;
+
+    /* case CIL_V2DI: */
+    /*   builtin = CIL32_GEN_VDI_ALOAD; */
+    /*   break; */
+
+    case CIL_V2SI:
+    case CIL_V4SI:
+      builtin = CIL32_GEN_VSI_ALOAD;
+      break;
+
+    case CIL_V4HI:
+    case CIL_V8HI:
+      builtin = CIL32_GEN_VHI_ALOAD;
+      break;
+
+    case CIL_V8QI:
+    case CIL_V16QI:
+      builtin = CIL32_GEN_VQI_ALOAD;
+      break;
+
+    default:
+      gcc_unreachable ();
+    }
+
+  return cil_build_call (cil32_builtins[builtin]);
+}
+
 
 /* Lower a generic CIL vector store STMT to a type-specific vector store
    depending on the vector type.  Return the replacement statement.  */
@@ -652,6 +704,14 @@ lower_cil (void)
 		 going to be an opaque valuetype.  */
 	      cil_stack_after_stmt (stack, stmt);
 	      stmt = lower_cil_ldvec (stmt);
+	      csi_replace (&csi, stmt);
+	      break;
+
+	    case CIL_ALDVEC:
+	      /* Process the stack now. After expansion, the return type is
+		 going to be an opaque valuetype.  */
+	      cil_stack_after_stmt (stack, stmt);
+	      stmt = lower_cil_aldvec (stmt);
 	      csi_replace (&csi, stmt);
 	      break;
 

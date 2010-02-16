@@ -89,6 +89,8 @@ static tree cil32_builtin_get_vec_size (tree);
 static tree cil32_builtin_get_vec_align (tree);
 static tree cil32_builtin_build_reduc_epilogue (enum tree_code, tree);
 static bool cil32_builtin_vectorize_independent_drs_only (void);
+static bool cil32_builtin_always_realign (void);
+static tree cil32_builtin_mask_for_load (void);
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ATTRIBUTE_TABLE
@@ -142,6 +144,13 @@ static bool cil32_builtin_vectorize_independent_drs_only (void);
 #define TARGET_VECTORIZE_BUILTIN_VECT_INDEPENDENT_DRS \
   cil32_builtin_vectorize_independent_drs_only
 
+#undef TARGET_VECTORIZE_BUILTIN_ALWAYS_REALIGN
+#define TARGET_VECTORIZE_BUILTIN_ALWAYS_REALIGN \
+  cil32_builtin_always_realign
+
+#undef TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD
+#define TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD \
+  cil32_builtin_mask_for_load
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -333,72 +342,132 @@ cil32_builtin_get_vec_size (tree type ATTRIBUTE_UNUSED)
 static tree
 cil32_builtin_get_vec_stride (tree type)
 {
-  unsigned element_size = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (TREE_TYPE (type)));
-  
-  switch (element_size)
+  tree elem_type = TREE_TYPE (type);
+  unsigned element_size = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (elem_type));
+
+  if (TREE_CODE (elem_type) == INTEGER_TYPE)
     {
-      case 16:
-        return cil32_builtins[CIL32_GCC_GET_STRIDE_V16QI];
+      switch (element_size)
+        {
+#if 0
+        case 8:
+          return cil32_builtins[CIL32_GCC_GET_STRIDE_VDI];
+#endif
+        case 4:
+          return cil32_builtins[CIL32_GCC_GET_STRIDE_VSI];
 
-      case 8:
-        return cil32_builtins[CIL32_GCC_GET_STRIDE_V8HI];
+        case 2:
+          return cil32_builtins[CIL32_GCC_GET_STRIDE_VHI];
 
-      case 4:
-        return cil32_builtins[CIL32_GCC_GET_STRIDE_V4SI];
+        case 1:
+          return cil32_builtins[CIL32_GCC_GET_STRIDE_VQI];
 
-      case 2:
-        return cil32_builtins[CIL32_GCC_GET_STRIDE_V2DI];
+        default:
+          return NULL_TREE;
+        }
+    }
+  else
+    {
+      switch (element_size)
+        {
+#if 0
+        case 8:
+          return cil32_builtins[CIL32_GCC_GET_STRIDE_VDF];
+#endif
+        case 4:
+          return cil32_builtins[CIL32_GCC_GET_STRIDE_VSF];
 
-      default:
-        return NULL_TREE;
+        default:
+          return NULL_TREE;
+        }
     }
 }
 
 static tree
 cil32_builtin_get_vec_align (tree type)
 {
-  unsigned element_size = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (TREE_TYPE (type)));
+  tree elem_type = TREE_TYPE (type);
+  unsigned element_size = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (elem_type));
 
-  switch (element_size)
+  if (TREE_CODE (elem_type) == INTEGER_TYPE)
     {
-      case 16:
-        return cil32_builtins[CIL32_GCC_GET_ALIGN_V16QI];
+      switch (element_size)
+        {
+#if 0
+        case 8:
+          return cil32_builtins[CIL32_GCC_GET_ALIGN_VDI];
+#endif
+        case 4:
+          return cil32_builtins[CIL32_GCC_GET_ALIGN_VSI];
 
-      case 8:
-        return cil32_builtins[CIL32_GCC_GET_ALIGN_V8HI];
+        case 2:
+          return cil32_builtins[CIL32_GCC_GET_ALIGN_VHI];
 
-      case 4:
-        return cil32_builtins[CIL32_GCC_GET_ALIGN_V4SI];
+        case 1:
+          return cil32_builtins[CIL32_GCC_GET_ALIGN_VQI];
 
-      case 2:
-        return cil32_builtins[CIL32_GCC_GET_ALIGN_V2DI];
+        default:
+          return NULL_TREE;
+        }
+    }
+  else
+    {
+      switch (element_size)
+        {
+#if 0
+        case 8:
+          return cil32_builtins[CIL32_GCC_GET_ALIGN_VDF];
+#endif
+        case 4:
+          return cil32_builtins[CIL32_GCC_GET_ALIGN_VSF];
 
-      default:
-        return NULL_TREE;
+        default:
+          return NULL_TREE;
+        }
     }
 }
 
 static tree cil32_builtin_build_uniform_vec (tree value ATTRIBUTE_UNUSED, 
                                              tree type)
 {
-  unsigned element_size = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (TREE_TYPE (type)));
+  tree elem_type = TREE_TYPE (type);
+  unsigned element_size = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (elem_type));
 
-  switch (element_size)
+  if (TREE_CODE (elem_type) == INTEGER_TYPE)
     {
-      case 16:
-        return cil32_builtins[CIL32_GCC_BUILD_UNIFORM_VEC_V16QI];
+      switch (element_size)
+        {
+#if 0
+        case 8:
+          return cil32_builtins[CIL32_GCC_BUILD_UNIFORM_VEC_VDI];
+#endif
+        case 4:
+          return cil32_builtins[CIL32_GCC_BUILD_UNIFORM_VEC_VSI];
 
-      case 8:
-        return cil32_builtins[CIL32_GCC_BUILD_UNIFORM_VEC_V8HI];
+        case 2:
+          return cil32_builtins[CIL32_GCC_BUILD_UNIFORM_VEC_VHI];
 
-      case 4:
-        return cil32_builtins[CIL32_GCC_BUILD_UNIFORM_VEC_V4SI];
+        case 1:
+          return cil32_builtins[CIL32_GCC_BUILD_UNIFORM_VEC_VQI];
 
-      case 2:
-        return cil32_builtins[CIL32_GCC_BUILD_UNIFORM_VEC_V2DI];
+        default:
+          return NULL_TREE;
+        }
+    }
+  else
+    {
+      switch (element_size)
+        {
+#if 0
+        case 8:
+          return cil32_builtins[CIL32_GCC_BUILD_UNIFORM_VEC_VDF];
+#endif
+        case 4:
+          return cil32_builtins[CIL32_GCC_BUILD_UNIFORM_VEC_VSF];
 
-      default:
-        return NULL_TREE;
+        default:
+          return NULL_TREE;
+        }
     }
 }
 
@@ -406,24 +475,44 @@ static tree cil32_builtin_build_affine_vec (tree init ATTRIBUTE_UNUSED,
                                             tree step ATTRIBUTE_UNUSED, 
                                             tree type)
 {
-  unsigned element_size = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (TREE_TYPE (type)));
+  tree elem_type = TREE_TYPE (type);
+  unsigned element_size = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (elem_type));
 
-  switch (element_size)
+  if (TREE_CODE (elem_type) == INTEGER_TYPE)
     {
-      case 16:
-        return cil32_builtins[CIL32_GCC_BUILD_AFFINE_VEC_V16QI];
+      switch (element_size)
+        {
+#if 0
+        case 8:
+          return cil32_builtins[CIL32_GCC_BUILD_AFFINE_VEC_VDI];
+#endif
+        case 4:
+          return cil32_builtins[CIL32_GCC_BUILD_AFFINE_VEC_VSI];
 
-      case 8:
-        return cil32_builtins[CIL32_GCC_BUILD_AFFINE_VEC_V8HI];
+        case 2:
+          return cil32_builtins[CIL32_GCC_BUILD_AFFINE_VEC_VHI];
 
-      case 4:
-        return cil32_builtins[CIL32_GCC_BUILD_AFFINE_VEC_V4SI];
+        case 1:
+          return cil32_builtins[CIL32_GCC_BUILD_AFFINE_VEC_VQI];
 
-      case 2:
-        return cil32_builtins[CIL32_GCC_BUILD_AFFINE_VEC_V2DI];
+        default:
+          return NULL_TREE;
+        }
+    }
+  else
+    {
+      switch (element_size)
+        {
+#if 0
+        case 8:
+          return cil32_builtins[CIL32_GCC_BUILD_AFFINE_VEC_VDF];
+#endif
+        case 4:
+          return cil32_builtins[CIL32_GCC_BUILD_AFFINE_VEC_VSF];
 
-      default:
-        return NULL_TREE;
+        default:
+          return NULL_TREE;
+        }
     }
 }
 
@@ -431,77 +520,124 @@ static tree cil32_builtin_build_affine_vec (tree init ATTRIBUTE_UNUSED,
 static tree cil32_builtin_build_reduc_epilogue (enum tree_code reduc_code, 
                                                 tree type) 
 {
-  unsigned element_size = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (TREE_TYPE (type)));
+  tree elem_type = TREE_TYPE (type);
+  unsigned element_size = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (elem_type));
 
-  switch (element_size)
+  if (TREE_CODE (elem_type) == INTEGER_TYPE)
     {
-      case 16:
-        switch (reduc_code)
-          {
+      switch (element_size)
+        {
+#if 0
+        case 8:
+          switch (reduc_code)
+            {
             case REDUC_MAX_EXPR:
-              return cil32_builtins[CIL32_GCC_BUILD_REDUC_MAX_EPILOGUE_V16QI];
+              return cil32_builtins[CIL32_GCC_BUILD_REDUC_MAX_EPILOGUE_VDI];
 
             case REDUC_MIN_EXPR:
-              return cil32_builtins[CIL32_GCC_BUILD_REDUC_MIN_EPILOGUE_V16QI];
+              return cil32_builtins[CIL32_GCC_BUILD_REDUC_MIN_EPILOGUE_VDI];
 
             case REDUC_PLUS_EXPR:
-              return cil32_builtins[CIL32_GCC_BUILD_REDUC_PLUS_EPILOGUE_V16QI];
+              return cil32_builtins[CIL32_GCC_BUILD_REDUC_PLUS_EPILOGUE_VDI];
 
             default:
               return NULL_TREE;
-          }
-
-      case 8:
-        switch (reduc_code)
-          {
+            }
+#endif
+        case 4:
+          switch (reduc_code)
+            {
             case REDUC_MAX_EXPR:
-              return cil32_builtins[CIL32_GCC_BUILD_REDUC_MAX_EPILOGUE_V8HI];
+              return cil32_builtins[CIL32_GCC_BUILD_REDUC_MAX_EPILOGUE_VSI];
 
             case REDUC_MIN_EXPR:
-              return cil32_builtins[CIL32_GCC_BUILD_REDUC_MIN_EPILOGUE_V8HI];
+              return cil32_builtins[CIL32_GCC_BUILD_REDUC_MIN_EPILOGUE_VSI];
 
             case REDUC_PLUS_EXPR:
-              return cil32_builtins[CIL32_GCC_BUILD_REDUC_PLUS_EPILOGUE_V8HI];
+              return cil32_builtins[CIL32_GCC_BUILD_REDUC_PLUS_EPILOGUE_VSI];
 
             default:
               return NULL_TREE;
-          }
+            }
 
-      case 4:
-        switch (reduc_code)
-          {
+
+        case 2:
+          switch (reduc_code)
+            {
             case REDUC_MAX_EXPR:
-              return cil32_builtins[CIL32_GCC_BUILD_REDUC_MAX_EPILOGUE_V4SI];
+              return cil32_builtins[CIL32_GCC_BUILD_REDUC_MAX_EPILOGUE_VHI];
 
             case REDUC_MIN_EXPR:
-              return cil32_builtins[CIL32_GCC_BUILD_REDUC_MIN_EPILOGUE_V4SI];
+              return cil32_builtins[CIL32_GCC_BUILD_REDUC_MIN_EPILOGUE_VHI];
 
             case REDUC_PLUS_EXPR:
-              return cil32_builtins[CIL32_GCC_BUILD_REDUC_PLUS_EPILOGUE_V4SI];
+              return cil32_builtins[CIL32_GCC_BUILD_REDUC_PLUS_EPILOGUE_VHI];
 
             default:
               return NULL_TREE;
-          }
+            }
 
-
-      case 2:
-        switch (reduc_code)
-          {
+        case 1:
+          switch (reduc_code)
+            {
             case REDUC_MAX_EXPR:
-              return cil32_builtins[CIL32_GCC_BUILD_REDUC_MAX_EPILOGUE_V2DI];
+              return cil32_builtins[CIL32_GCC_BUILD_REDUC_MAX_EPILOGUE_VQI];
 
             case REDUC_MIN_EXPR:
-              return cil32_builtins[CIL32_GCC_BUILD_REDUC_MIN_EPILOGUE_V2DI];
+              return cil32_builtins[CIL32_GCC_BUILD_REDUC_MIN_EPILOGUE_VQI];
 
             case REDUC_PLUS_EXPR:
-              return cil32_builtins[CIL32_GCC_BUILD_REDUC_PLUS_EPILOGUE_V2DI];
+              return cil32_builtins[CIL32_GCC_BUILD_REDUC_PLUS_EPILOGUE_VQI];
 
             default:
               return NULL_TREE;
-          }
+            }
 
-      default:
-        return NULL_TREE;
+        default:
+          return NULL_TREE;
+        }
+    }
+  else
+    {
+      switch (element_size)
+        {
+#if 0
+        case 8:
+          switch (reduc_code)
+            {
+            case REDUC_MAX_EXPR:
+              return cil32_builtins[CIL32_GCC_BUILD_REDUC_MAX_EPILOGUE_VDF];
+
+            case REDUC_MIN_EXPR:
+              return cil32_builtins[CIL32_GCC_BUILD_REDUC_MIN_EPILOGUE_VDF];
+
+            case REDUC_PLUS_EXPR:
+              return cil32_builtins[CIL32_GCC_BUILD_REDUC_PLUS_EPILOGUE_VDF];
+
+            default:
+              return NULL_TREE;
+            }
+#endif
+
+        case 2:
+          switch (reduc_code)
+            {
+            case REDUC_MAX_EXPR:
+              return cil32_builtins[CIL32_GCC_BUILD_REDUC_MAX_EPILOGUE_VSF];
+
+            case REDUC_MIN_EXPR:
+              return cil32_builtins[CIL32_GCC_BUILD_REDUC_MIN_EPILOGUE_VSF];
+
+            case REDUC_PLUS_EXPR:
+              return cil32_builtins[CIL32_GCC_BUILD_REDUC_PLUS_EPILOGUE_VSF];
+
+            default:
+              return NULL_TREE;
+            }
+
+        default:
+          return NULL_TREE;
+        }
     }
 }
 
@@ -509,3 +645,14 @@ static bool cil32_builtin_vectorize_independent_drs_only (void)
 {
   return true;
 }
+
+static bool cil32_builtin_always_realign (void)
+{
+  return true;
+}
+
+static tree cil32_builtin_mask_for_load (void)
+{
+  return cil32_builtins[CIL32_GCC_MASK_FOR_LOAD];
+}
+

@@ -93,7 +93,7 @@ extern int target_flags;
 #define WORDS_BIG_ENDIAN 0
 
 #define UNITS_PER_WORD 4
-#define UNITS_PER_SIMD_WORD(mode) 16
+#define UNITS_PER_SIMD_WORD(mode) 8
 
 /* Unused by cil32 machine */
 #define PARM_BOUNDARY 32

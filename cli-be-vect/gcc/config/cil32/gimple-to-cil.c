@@ -78,6 +78,8 @@ static void gen_scalar_ld_st_ind (cil_stmt_iterator *, tree, bool, bool);
 static inline void gen_scalar_stind (cil_stmt_iterator *, tree, bool);
 static inline void gen_scalar_ldind (cil_stmt_iterator *, tree, bool);
 static void gen_ldind (cil_stmt_iterator *, tree, bool);
+static void gen_misaligned_ldvec (cil_stmt_iterator *, tree, bool);
+static void gen_aligned_ldind (cil_stmt_iterator *, tree, bool);
 static void gen_stind (cil_stmt_iterator *, tree, bool);
 static bool mostly_zeros_p (tree);
 static bool all_zeros_p (tree);
@@ -305,6 +307,7 @@ gen_addr_expr (cil_stmt_iterator *csi, tree node)
 
     case INDIRECT_REF:
     case MISALIGNED_INDIRECT_REF:
+    case ALIGN_INDIRECT_REF:
       gimple_to_cil_node (csi, TREE_OPERAND (node, 0));
       break;
 
@@ -589,6 +592,24 @@ gen_misaligned_ldvec (cil_stmt_iterator *csi, tree type, bool volat)
     }
   else
     gen_scalar_ldind (csi, type, volat);
+}
+
+/* Generate an aligned load indirect statement for the type specified
+   by TYPE. The load is made volatile if VOLAT is true. The generated
+   statements are appended to the current function's CIL code using
+   the CSI iterator.  */
+
+static void
+gen_aligned_ldind (cil_stmt_iterator *csi, tree type, bool volat)
+{
+  cil_stmt stmt;
+
+  gcc_assert (TREE_CODE (type) == VECTOR_TYPE);  /* FIXME: is this true? */
+
+  stmt = cil_build_stmt_arg (CIL_ALDVEC, type);
+  cil_set_prefix_volatile (stmt, volat);
+  csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
+  cfun->machine->has_vec = true;
 }
 
 /* Generate a store indirect statement for the type specified by TYPE. The
@@ -3840,6 +3861,55 @@ gimple_to_cil_node (cil_stmt_iterator *csi, tree node)
       gen_addr_expr (csi, node);
       gen_misaligned_ldvec (csi, TREE_TYPE (node), TREE_THIS_VOLATILE (node));
       break;
+
+    case ALIGN_INDIRECT_REF:
+      gen_addr_expr (csi, node);
+      gen_aligned_ldind (csi, TREE_TYPE (node), TREE_THIS_VOLATILE (node));
+      break;
+
+    case REALIGN_LOAD_EXPR:
+      {
+        tree op2;
+        cil_type_t cil_type;
+        enum cil32_builtin builtin = 0;
+
+        op0 = TREE_OPERAND (node, 0);
+        op1 = TREE_OPERAND (node, 1);
+        op2 = TREE_OPERAND (node, 2);
+
+        gimple_to_cil_node (csi, op0);
+        gimple_to_cil_node (csi, op1);
+        gimple_to_cil_node (csi, op2);
+
+        cil_type = vector_to_cil (TREE_TYPE (op0));
+        switch (cil_type)
+          {
+          case CIL_V8QI:
+          case CIL_V16QI:
+            builtin = CIL32_GEN_VQI_REALIGN_LOAD;
+            break;
+          case CIL_V4HI:
+          case CIL_V8HI:
+            builtin = CIL32_GEN_VHI_REALIGN_LOAD;
+            break;
+
+          case CIL_V2SI:
+          case CIL_V4SI:
+            builtin = CIL32_GEN_VSI_REALIGN_LOAD;
+            break;
+          case CIL_V2SF:
+          case CIL_V4SF:
+            builtin = CIL32_GEN_VSF_REALIGN_LOAD;
+              break;
+          default:
+            gcc_unreachable ();
+            break;
+          }
+
+        stmt = cil_build_call (cil32_builtins[builtin]);
+        csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
+        break;
+      }
 
     case TARGET_MEM_REF:
       gen_target_mem_ref (csi, node);

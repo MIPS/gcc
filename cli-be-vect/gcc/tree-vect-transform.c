@@ -5788,6 +5788,7 @@ vect_setup_realignment (gimple stmt, gimple_stmt_iterator *gsi,
   if (targetm.vectorize.builtin_mask_for_load)
     {
       tree builtin_decl;
+      struct data_reference *dr = STMT_VINFO_DATA_REF (stmt_info);
 
       /* Compute INIT_ADDR - the initial addressed accessed by this memref.  */
       if (compute_in_loop)
@@ -5803,7 +5804,8 @@ vect_setup_realignment (gimple stmt, gimple_stmt_iterator *gsi,
 	}
 
       builtin_decl = targetm.vectorize.builtin_mask_for_load ();
-      new_stmt = gimple_build_call (builtin_decl, 1, init_addr);
+      new_stmt = gimple_build_call (builtin_decl, 2, init_addr, 
+                     build_int_cst (integer_type_node, DR_MISALIGNMENT (dr)));
       vec_dest =
 	vect_create_destination_var (scalar_dest,
 				     gimple_call_return_type (new_stmt));
@@ -6716,6 +6718,12 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
     {
       gcc_assert (alignment_support_scheme != dr_explicit_realign_optimized);
       compute_in_loop = true;
+    }
+  else
+    {
+      if (targetm.vectorize.builtin_always_realign
+          && targetm.vectorize.builtin_always_realign ())
+        alignment_support_scheme = dr_explicit_realign_optimized;
     }
 
   if ((alignment_support_scheme == dr_explicit_realign_optimized

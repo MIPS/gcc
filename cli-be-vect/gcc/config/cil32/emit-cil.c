@@ -534,7 +534,7 @@ dump_vector_type (FILE *file, cil_type_t cil_type)
         case CIL_V4QI:
         case CIL_V8QI:
         case CIL_V16QI:
-          suffix = "QI";
+          suffix = "QQQI";
           break;
         case CIL_V2SI:
         case CIL_V4SI:
@@ -1456,6 +1456,7 @@ emit_cil_stmt (FILE *file, const_cil_stmt stmt)
   enum cil_opcode opcode = cil_opcode (stmt);
 
   gcc_assert (opcode != CIL_LDVEC
+	      && opcode != CIL_ALDVEC
 	      && opcode != CIL_STVEC
 	      && opcode != CIL_VEC_CTOR);
 
