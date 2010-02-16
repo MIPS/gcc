@@ -1,3 +1,156 @@
+2010-02-16  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR rtl-optimization/41917
+	* rtlanal.c (num_sign_bit_copies1) <case UMOD>: If sign bit of second
+	operand isn't known to be 0, return 1.
+
+2010-02-04  Richard Guenther  <rguenther@suse.de>
+
+	PR rtl-optimization/42952
+	* dse.c (const_or_frame_p): Remove MEM handling.
+
+2010-01-31  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR middle-end/42898
+	Backport from mainline:
+	2009-04-23  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gimplify.c (gimplify_modify_expr_rhs) <VAR_DECL>: Do not do a direct
+	assignment from the constructor either if the target is volatile.
+
+2010-01-31  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/42898
+	* gimplify.c (gimplify_init_constructor): For volatile LHS
+	initialize a temporary.
+
+2010-01-26  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* config/sparc/sparc.c (sparc_elf_asm_named_section): Test for
+	HAVE_GNU_AS value.
+	* config/sparc/sysv4.h [HAVE_GNU_AS] (TARGET_ASM_NAMED_SECTION):
+	Test for HAVE_GNU_AS value.
+
+2010-01-25  Christian Bruel  <christian.bruel@st.com>
+
+	PR target/42841
+	* config/sh/sh.c (find_barrier): Increase length for non delayed
+	conditional branches.
+	(sh_insn_length_adjustment): Use JUMP_TABLE_DATA_P.
+
+2010-01-24  David S. Miller  <davem@davemloft.net>
+
+	* config/sparc/sysv4.h (TARGET_ASM_NAMED_SECTION): Only
+	define if not using GAS.
+	* config/sparc/sparc.c (sparc_elf_asm_named_section):
+	Likewise.  Delete SECTION_MERGE code, which is only applicable
+	when using GAS.
+
+2010-01-21  Felyza Wishbringer  <fwishbringer@gmail.com>
+
+	PR bootstrap/42786
+	* config.gcc (i[34567]86-*-*): Fix handling of athlon64 and athlon-fx
+	cpu types.  Add support for *-sse3 cpu types.
+	(x86_64-*-*): Ditto.
+
+2010-01-20  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/41826
+	* tree-ssa-structalias.c (get_constraint_for_ptr_offset): Avoid
+	access to re-allocated vector fields.
+
+2010-01-18  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/42774
+	* config/alpha/predicates.md (aligned_memory_operand): Return 0 for
+	memory references with unaligned offsets.  Remove CQImode handling.
+	(unaligned_memory_operand): Return 1 for memory references with
+	unaligned offsets.  Remove CQImode handling.
+
+2010-01-17  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2010-01-13  Steve Ellcey  <sje@cup.hp.com>
+
+	PR target/42542
+	* config/ia64/ia64.c (ia64_expand_vecint_compare): Convert GTU to GT
+	for V2SI by subtracting (-(INT MAX) - 1) from both operands to make
+	them signed.
+
+2010-01-07  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2010-01-05  Paolo Bonzini  <bonzini@gnu.org>
+		    H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/42542
+	* config/i386/i386.c (ix86_expand_int_vcond): Convert GTU to GT
+	for V4SI and V2DI by subtracting (-(INT MAX) - 1) from both
+	operands to make them signed.
+
+2010-01-07  Uros Bizjak  <ubizjak@gmail.com>
+
+	* ifcvt.c (if_convert): Output slim multiple dumps with TDF_SLIM.
+
+	PR target/42511
+	* ifcvt.c (dead_or_predicable): Also remove REG_EQUAL note when
+	note itself is not function_invariant_p.
+
+2010-01-05  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/42564
+	* config/sparc/sparc.h (SPARC_SYMBOL_REF_TLS_P): Delete.
+	* config/sparc/sparc-protos.h (legitimize_pic_address): Likewise.
+	(legitimize_tls_address): Likewise.
+	(sparc_tls_referenced_p): Likewise.
+	* config/sparc/sparc.c (sparc_expand_move): Use legitimize_tls_address
+	and adjust calls to legitimize_pic_address.
+	(legitimate_constant_p) Use sparc_tls_referenced_p.
+	(legitimate_pic_operand_p): Likewise.
+	(sparc_legitimate_address_p): Do not use SPARC_SYMBOL_REF_TLS_P.
+	(sparc_tls_symbol_ref_1): Delete.
+	(sparc_tls_referenced_p): Make static, recognize specific patterns.
+	(legitimize_tls_address): Make static, handle CONST patterns.
+	(legitimize_pic_address): Make static, remove unused parameter and
+	adjust recursive calls.
+	(sparc_legitimize_address): Make static, use sparc_tls_referenced_p
+	and adjust call to legitimize_pic_address.
+	(sparc_output_mi_thunk): Likewise.
+
+2010-01-02  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/42448
+	* config/alpha/predicates.md (aligned_memory_operand): Return false
+	for CQImode.
+	(unaligned_memory_operand): Return true for CQImode.
+	* config/alpha/alpha.c (get_aligned_mem): Assert that location
+	doesn not cross aligned SImode word boundary.
+
+2009-12-30  Ian Lance Taylor  <iant@google.com>
+
+	PR middle-end/42099
+	* expmed.c (expand_divmod): Don't shift HOST_WIDE_INT value more
+	than HOST_BITS_PER_WIDE_INT.
+
+2009-12-30  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/42549
+	* config/i386/mmx.md (*mmx_subv2sf3): Fix insn operand number for
+	alternative 1.
+
+2009-12-07  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (*iorqi_ext_2): Fix insn mnemonic typo.
+
+2009-11-23  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/42113
+	* config/alpha/alpha.md (*cmp_sadd_si): Change mode
+	of scratch register to SImode.
+	(*cmp_sadd_sidi): Ditto.
+	(*cmp_ssub_si): Ditto.
+	(*cmp_ssub_sidi): Ditto.
+
 2009-11-17  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
 
 	* config/spu/spu.c (get_pic_reg): Use LAST_ARG_REGNUM as PIC
