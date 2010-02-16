@@ -198,7 +198,7 @@ dump_cil_stmt (const_cil_stmt stmt, cil_stack stack)
       else
 	top_type = "<empty>";
 
-      printf ("\n[%d] %-11s   %s", depth, top_type, cil_names[opcode]);
+      printf ("\n[%d] %-14s   %s", depth, top_type, cil_names[opcode]);
     }
   else
     {
