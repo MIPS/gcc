@@ -237,6 +237,7 @@ vectorize_loops (void)
 		best_factor = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
 	      }
 	  }
+	target_arch--;
 	if (best_arch >= 0 && target_arch != best_arch)
 	  {
 	    if (loop_vinfo)

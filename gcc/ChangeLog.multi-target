@@ -1,3 +1,8 @@
+2010-02-16  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* tree-vectorizer.c (vectorize_loops): Avoid extra vect_analyze_loop
+	call when last analysis is still current.
+
 2010-02-15  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* tree-vect-data-refs.c (vect_create_data_ref_ptr): Allow pe to be
