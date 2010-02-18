@@ -1,3 +1,7 @@
+2010-02-18  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* config/spu/spu.c (ea_load_store_inline): Use add_reg_note.
+
 2009-08-28  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* config/i386/i386.c (ix86_expand_args_builtin): Update to take new
