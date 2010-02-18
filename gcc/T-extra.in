@@ -1,6 +1,6 @@
 # $(CURRENT_TARGET) is empty if these are definitions for the Makfile in the
 # same directory, but it is set to the target name if this makefile fragment
-# is used from a parent directory in a multi-targte configuration.
+# is used from a parent directory in a multi-target configuration.
 
 $(CURRENT_TARGET)out_file=$(srcdir)/config/@out_file@
 $(CURRENT_TARGET)out_object_file=@out_object_file@
