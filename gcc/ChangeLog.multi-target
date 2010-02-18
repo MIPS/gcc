@@ -14,6 +14,10 @@
 
 	* regcprop.c: Include multi-target.h.  Make code target specific.
 
+	* config/rs6000/rs6000.c (rs6000_secondary_reload): Adjust return
+	and argument types to match hook.
+	(rs6000_ira_cover_classes): Adjust return type to match hook.
+
 2010-02-16  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* tree-vectorizer.c (vectorize_loops): Avoid extra vect_analyze_loop
