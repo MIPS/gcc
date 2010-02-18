@@ -4,6 +4,9 @@
 
 	* config/spu/t-spu-elf (spu-cxx.o): Fix merge pasto.
 
+	* Makefile.in (THIS-TARGET/config.status): Add --enable-build-with-cxx
+	to configure options.
+
 2010-02-16  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* tree-vectorizer.c (vectorize_loops): Avoid extra vect_analyze_loop

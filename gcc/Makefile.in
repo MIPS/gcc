@@ -1213,7 +1213,8 @@ define EXTRA_TARGET_RULES
 THIS-TARGET/config.status THIS-TARGET/T-extra: intl/config.intl
 	-mkdir THIS-TARGET
 	cd THIS-TARGET \
-	&& $(srcdir:.%=../.%)/configure --target=THIS-TARGET
+	&& $(srcdir:.%=../.%)/configure --target=THIS-TARGET \
+		--enable-build-with-cxx
 
 CURRENT_TARGET=THIS-TARGET-
 -include THIS-TARGET/T-extra
