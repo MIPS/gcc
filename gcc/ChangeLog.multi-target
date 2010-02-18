@@ -18,6 +18,11 @@
 	and argument types to match hook.
 	(rs6000_ira_cover_classes): Adjust return type to match hook.
 
+	* targhooks.c (default_branch_target_register_class): Provide
+	separate definitions for all targets.
+
+	* cfgloop.h (verify_loop_structure): Not target specific.
+
 2010-02-16  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* tree-vectorizer.c (vectorize_loops): Avoid extra vect_analyze_loop

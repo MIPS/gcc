@@ -711,13 +711,13 @@ default_trampoline_init (rtx ARG_UNUSED (m_tramp), tree ARG_UNUSED (t_func),
 {
   sorry ("nested function trampolines not supported on this target");
 }
+#endif /* !EXTRA_TARGET */
 
 int /*enum reg_class*/
 default_branch_target_register_class (void)
 {
   return (int) NO_REGS;
 }
-#endif /* !EXTRA_TARGET */
 
 #ifdef IRA_COVER_CLASSES
 const int /*enum reg_class*/ *
