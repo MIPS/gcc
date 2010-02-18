@@ -5804,8 +5804,7 @@ vect_setup_realignment (gimple stmt, gimple_stmt_iterator *gsi,
 	}
 
       builtin_decl = targetm.vectorize.builtin_mask_for_load ();
-      new_stmt = gimple_build_call (builtin_decl, 2, init_addr, 
-                     build_int_cst (integer_type_node, DR_MISALIGNMENT (dr)));
+      new_stmt = gimple_build_call (builtin_decl, 1, init_addr);
       vec_dest =
 	vect_create_destination_var (scalar_dest,
 				     gimple_call_return_type (new_stmt));
@@ -6722,7 +6721,7 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
   else
     {
       if (targetm.vectorize.builtin_always_realign
-          && targetm.vectorize.builtin_always_realign ())
+           && targetm.vectorize.builtin_always_realign ())
         alignment_support_scheme = dr_explicit_realign_optimized;
     }
 
@@ -6823,18 +6822,34 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
 	  if (alignment_support_scheme == dr_explicit_realign_optimized
 	      || alignment_support_scheme == dr_explicit_realign)
 	    {
-	      tree tmp;
+	      tree tmp, builtin_decl;
 
 	      lsq = gimple_assign_lhs (new_stmt);
 	      if (!realignment_token)
 		realignment_token = dataref_ptr;
+
 	      vec_dest = vect_create_destination_var (scalar_dest, vectype);
-	      tmp = build3 (REALIGN_LOAD_EXPR, vectype, msq, lsq,
-			    realignment_token);
-	      new_stmt = gimple_build_assign (vec_dest, tmp);
-	      new_temp = make_ssa_name (vec_dest, new_stmt);
-	      gimple_assign_set_lhs (new_stmt, new_temp);
-	      vect_finish_stmt_generation (stmt, new_stmt, gsi);
+              if (targetm.vectorize.builtin_realign_load
+                  && (builtin_decl = targetm.vectorize.builtin_realign_load (vectype)))
+                {
+                  new_stmt = gimple_build_call (builtin_decl, 5, msq, lsq, 
+                                                realignment_token, dataref_ptr, 
+                                    vect_type_size_unit (loop_vinfo, vectype));
+                  new_temp = make_ssa_name (vec_dest, new_stmt);
+                  add_referenced_var (vec_dest);
+                  gimple_call_set_lhs (new_stmt, new_temp);
+                  vect_finish_stmt_generation (stmt, new_stmt, gsi);
+                  mark_symbols_for_renaming (new_stmt);
+                }
+              else
+                {
+ 	          tmp = build3 (REALIGN_LOAD_EXPR, vectype, msq, lsq,
+		  	        realignment_token);
+ 	          new_stmt = gimple_build_assign (vec_dest, tmp);
+	          new_temp = make_ssa_name (vec_dest, new_stmt);
+	          gimple_assign_set_lhs (new_stmt, new_temp);
+	          vect_finish_stmt_generation (stmt, new_stmt, gsi);
+                }
 
 	      if (alignment_support_scheme == dr_explicit_realign_optimized)
 		{

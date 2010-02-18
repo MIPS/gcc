@@ -91,6 +91,7 @@ static tree cil32_builtin_build_reduc_epilogue (enum tree_code, tree);
 static bool cil32_builtin_vectorize_independent_drs_only (void);
 static bool cil32_builtin_always_realign (void);
 static tree cil32_builtin_mask_for_load (void);
+static tree cil32_builtin_realign_load (tree);
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ATTRIBUTE_TABLE
@@ -151,6 +152,10 @@ static tree cil32_builtin_mask_for_load (void);
 #undef TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD
 #define TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD \
   cil32_builtin_mask_for_load
+
+#undef TARGET_VECTORIZE_BUILTIN_REALIGN_LOAD
+#define TARGET_VECTORIZE_BUILTIN_REALIGN_LOAD \
+  cil32_builtin_realign_load
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -655,4 +660,36 @@ static tree cil32_builtin_mask_for_load (void)
 {
   return cil32_builtins[CIL32_GCC_MASK_FOR_LOAD];
 }
+
+static tree cil32_builtin_realign_load (tree type)
+{
+  tree elem_type = TREE_TYPE (type);
+  unsigned element_size = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (elem_type));
+
+  if (TREE_CODE (elem_type) == INTEGER_TYPE)
+    {
+      switch (element_size)
+        {
+          case 16:
+            return cil32_builtins[CIL32_GEN_VQI_REALIGN_LOAD];
+
+          case 8:
+            return cil32_builtins[CIL32_GEN_VHI_REALIGN_LOAD];
+
+          case 4:
+            return cil32_builtins[CIL32_GEN_VSI_REALIGN_LOAD];
+
+          default:
+            return NULL_TREE;
+        }
+    }
+  else
+    {
+      if (element_size == 4)
+        return cil32_builtins[CIL32_GEN_VSF_REALIGN_LOAD];
+    }  
+
+  return NULL_TREE;
+}
+
 

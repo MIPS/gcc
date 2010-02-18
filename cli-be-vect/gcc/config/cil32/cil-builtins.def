@@ -1229,8 +1229,8 @@ DEF_CILBUILTIN(GCC_BUILD_REDUC_PLUS_EPILOGUE_VQI, "[genvec_support]genvec_suppor
 DEF_CILBUILTIN(GCC_MASK_FOR_LOAD, "[genvec_support]genvec_support.VQI::VQI_mask_for_load", \
                ATTR_CONST_NOTHROW_LIST,          \
                intQI16_type_node, \
-               2,
-               unsigned_type_node, V16QI_ptr_type_node)
+               1,
+               V16QI_ptr_type_node)
 
 
 /* V SF */
@@ -1257,8 +1257,8 @@ DEF_CILBUILTIN(GEN_VSF_REALIGN_LOAD, \
 	       "[genvec_support]genvec_support.VSF::RealignLoad", \
                ATTR_NULL,        \
 	       float2_type_node, \
-	       3, \
-	       float2_type_node, float2_type_node, float2_type_node)
+	       5, \
+	       float2_type_node, float2_type_node, float2_type_node, V2SF_ptr_type_node, unsigned_type_node)
 
 DEF_CILBUILTIN(GEN_VSF_STORE_ALIGNED,
 	       "[Xxxx.Simd]Xxxx.Simd.VecGenSF::StoreAligned", \
@@ -1308,8 +1308,8 @@ DEF_CILBUILTIN(GEN_VSI_REALIGN_LOAD, \
 	       "[genvec_support]genvec_support.VSI::RealignLoad", \
                ATTR_NULL,        \
 	       intSI2_type_node, \
-	       3, \
-	       intSI2_type_node, intSI2_type_node, intSI2_type_node)
+	       5, \
+	       intSI2_type_node, intSI2_type_node, intSI2_type_node, V2SI_ptr_type_node, unsigned_type_node)
 
 DEF_CILBUILTIN(GEN_VSI_STORE_ALIGNED,
 	       "[Xxxx.Simd]Xxxx.Simd.VecGenSI::StoreAligned", \
@@ -1376,8 +1376,8 @@ DEF_CILBUILTIN(GEN_VHI_REALIGN_LOAD, \
 	       "[genvec_support]genvec_support.VHI::RealignLoad", \
                ATTR_NULL,        \
 	       intHI4_type_node, \
-	       3, \
-	       intHI4_type_node, intHI4_type_node, intHI4_type_node)
+	       5, \
+	       intHI4_type_node, intHI4_type_node, intHI4_type_node, V4HI_ptr_type_node, unsigned_type_node)
 
 DEF_CILBUILTIN(GEN_VHI_STORE_ALIGNED, "[Xxxx.Simd]Xxxx.Simd.VecGenHI::StoreAligned", \
                ATTR_NULL,      \
@@ -1441,8 +1441,8 @@ DEF_CILBUILTIN(GEN_VQI_REALIGN_LOAD, \
 	       "[genvec_support]genvec_support.VQI::RealignLoad", \
                ATTR_NULL,        \
 	       intQI8_type_node, \
-	       3, \
-	       intQI8_type_node, intQI8_type_node, intQI8_type_node)
+	       5, \
+	       intQI8_type_node, intQI8_type_node, intQI8_type_node, V8QI_ptr_type_node, unsigned_type_node)
 
 DEF_CILBUILTIN(GEN_VQI_STORE_ALIGNED, "[Xxxx.Simd]Xxxx.Simd.VecGenQQQI::StoreAligned", \
                ATTR_NULL,      \

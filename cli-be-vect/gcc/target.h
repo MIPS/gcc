@@ -489,6 +489,8 @@ struct gcc_target
     bool (* builtin_vectorize_independent_drs_only) (void);
 
     bool (* builtin_always_realign) (void);
+
+    tree (* builtin_realign_load) (tree);
 } vectorize;
 
   /* The initial value of target_flags.  */
