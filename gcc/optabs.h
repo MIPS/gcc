@@ -744,7 +744,7 @@ static inline optab
 optab_for_tree_code (enum tree_code code, const_tree type,
                      enum optab_subtype subtype)
 {
-#if NUM_TARGETS > 1
+#if NUM_TARGETS > 1 && !defined(EXTRA_TARGET)
   return (*optab_for_tree_code_array[targetm.target_arch]) (code, type,
 							    subtype);
 #else

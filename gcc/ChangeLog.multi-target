@@ -11,6 +11,8 @@
 	(register_dump_files_1, register_dump_files): Likewise.
 	* Makefile (EXTRA_TARGET_RULES <MAKE_THIS_TARGET>: Also pass
 	NUM_TARGETS to $(MAKE).
+	* optabs.h (optab_for_tree_code): Make code that uses
+	optab_for_tree_code_array dependent on !EXTRA_TARGET.
 
 	* regcprop.c: Include multi-target.h.  Make code target specific.
 
@@ -22,6 +24,9 @@
 	separate definitions for all targets.
 
 	* cfgloop.h (verify_loop_structure): Not target specific.
+
+	* gcse.c (flag_rerun_cse_after_global_opts): Only define for
+	!EXTRA_TARGET.
 
 2010-02-16  Joern Rennecke  <joern.rennecke@embecosm.com>
 

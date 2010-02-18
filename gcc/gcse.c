@@ -282,8 +282,10 @@ along with GCC; see the file COPYING3.  If not see
 
 /* GCSE global vars.  */
 
+#ifndef EXTRA_TARGET
 /* Set to non-zero if CSE should run after all GCSE optimizations are done.  */
 int flag_rerun_cse_after_global_opts;
+#endif
 
 START_TARGET_SPECIFIC
 
