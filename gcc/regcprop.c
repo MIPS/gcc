@@ -39,6 +39,7 @@
 #include "timevar.h"
 #include "tree-pass.h"
 #include "df.h"
+#include "multi-target.h"
 
 /* The following code does forward propagation of hard register copies.
    The object is to eliminate as many dependencies as possible, so that
@@ -58,6 +59,8 @@ struct value_data_entry
   unsigned int oldest_regno;
   unsigned int next_regno;
 };
+
+START_TARGET_SPECIFIC
 
 struct value_data
 {
@@ -1033,3 +1036,4 @@ struct rtl_opt_pass pass_cprop_hardreg =
   TODO_dump_func | TODO_verify_rtl_sharing /* todo_flags_finish */
  }
 };
+END_TARGET_SPECIFIC

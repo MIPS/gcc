@@ -12,6 +12,8 @@
 	* Makefile (EXTRA_TARGET_RULES <MAKE_THIS_TARGET>: Also pass
 	NUM_TARGETS to $(MAKE).
 
+	* regcprop.c: Include multi-target.h.  Make code target specific.
+
 2010-02-16  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* tree-vectorizer.c (vectorize_loops): Avoid extra vect_analyze_loop
