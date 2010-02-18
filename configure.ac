@@ -1228,6 +1228,16 @@ fi
 ACX_PROG_GNAT
 ACX_PROG_CMP_IGNORE_INITIAL
 
+if test "x$with_extra_target_list" != x; then
+  if test "x$enable_build_with_cxx" == xno; then
+    AC_MSG_ERROR([--with-extra-target-list requires --enable-build-with-cxx.])
+  elif test "x$with_extra_target_list" != xyes; then
+    $as_echo "setting enable_build_with_cxx."
+    enable_build_with_cxx=yes
+    ac_configure_args="$ac_configure_args --enable-build-with-cxx"
+  fi
+fi
+
 # See if we are building gcc with C++.
 AC_ARG_ENABLE(build-with-cxx,
 [  --enable-build-with-cxx build with C++ compiler instead of C compiler],

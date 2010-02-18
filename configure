@@ -5277,6 +5277,16 @@ do_compare="$gcc_cv_prog_cmp_skip"
 
 
 
+if test "x$with_extra_target_list" != x; then
+  if test "x$enable_build_with_cxx" == xno; then
+    as_fn_error "--with-extra-target-list requires --enable-build-with-cxx." "$LINENO" 5
+  elif test "x$with_extra_target_list" != xyes; then
+    $as_echo "setting enable_build_with_cxx."
+    enable_build_with_cxx=yes
+    ac_configure_args="$ac_configure_args --enable-build-with-cxx"
+  fi
+fi
+
 # See if we are building gcc with C++.
 # Check whether --enable-build-with-cxx was given.
 if test "${enable_build_with_cxx+set}" = set; then :
