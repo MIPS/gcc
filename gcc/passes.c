@@ -377,6 +377,7 @@ get_pass_for_id (int id)
   return passes_by_id[id];
 }
 
+#ifndef EXTRA_TARGET
 /* Iterate over the pass tree allocating dump file numbers.  We want
    to do this depth first, and independent of whether the pass is
    enabled or not.  */
@@ -456,6 +457,7 @@ register_dump_files (struct opt_pass *pass,int properties)
   pass->properties_required |= properties;
   register_dump_files_1 (pass, properties);
 }
+#endif /* !EXTRA_TARGET */
 
 /* Look at the static_pass_number and duplicate the pass
    if it is already added to a list. */

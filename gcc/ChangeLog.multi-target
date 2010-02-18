@@ -7,6 +7,11 @@
 	* Makefile.in (THIS-TARGET/config.status): Add --enable-build-with-cxx
 	to configure options.
 
+	* passes.c (register_one_dump_file): Make dependent on !EXTRA_TARGET.
+	(register_dump_files_1, register_dump_files): Likewise.
+	* Makefile (EXTRA_TARGET_RULES <MAKE_THIS_TARGET>: Also pass
+	NUM_TARGETS to $(MAKE).
+
 2010-02-16  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* tree-vectorizer.c (vectorize_loops): Avoid extra vect_analyze_loop
