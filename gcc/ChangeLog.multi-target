@@ -28,6 +28,10 @@
 	* gcse.c (flag_rerun_cse_after_global_opts): Only define for
 	!EXTRA_TARGET.
 
+	* toplev.c (flag_excess_precision_cmdline, flag_excess_precision):
+	Don't define for EXTRA_TARGET.
+	(flag_pedantic_errors, flag_permissive): Likewise.
+
 2010-02-16  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* tree-vectorizer.c (vectorize_loops): Avoid extra vect_analyze_loop

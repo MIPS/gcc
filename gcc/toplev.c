@@ -314,6 +314,7 @@ enum ira_region flag_ira_region = IRA_REGION_MIXED;
 
 unsigned int flag_ira_verbose = 5;
 
+#ifndef EXTRA_TARGET
 /* Set the default for excess precision.  */
 
 enum excess_precision flag_excess_precision_cmdline = EXCESS_PRECISION_DEFAULT;
@@ -327,6 +328,7 @@ int flag_pedantic_errors = 0;
 /* Nonzero means make permerror produce warnings instead of errors.  */
 
 int flag_permissive = 0;
+#endif /* !EXTRA_TARGET */
 
 /* -dA causes debug commentary information to be produced in
    the generated assembly code (to make it more readable).  This option
