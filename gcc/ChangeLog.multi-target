@@ -1,3 +1,9 @@
+2010-02-18  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* tree-ssa-address.c (create_mem_ref): Fix EXTRA_TARGETS_DECL type.
+
+	* config/spu/t-spu-elf (spu-cxx.o): Fix merge pasto.
+
 2010-02-16  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* tree-vectorizer.c (vectorize_loops): Avoid extra vect_analyze_loop

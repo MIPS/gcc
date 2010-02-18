@@ -769,7 +769,7 @@ create_mem_ref (gimple_stmt_iterator *gsi, tree type, aff_tree *addr,
 
 #ifndef EXTRA_TARGET
 EXTRA_TARGETS_DECL (tree create_mem_ref (gimple_stmt_iterator *gsi, tree type,
-					 aff_tree *addr, bool speed))
+					 aff_tree *addr, tree, bool speed))
 
 /* Like create_mem_ref, but dispatch according to targetm, so this is
    suitable for tree optimizers that don't have target-specific variants.  */

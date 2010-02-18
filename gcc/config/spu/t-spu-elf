@@ -127,5 +127,5 @@ spu-cxx.o: $(srcdir)/config/spu/spu-c.c \
     $(SYSTEM_H) coretypes.h $(TARGET_H) $(GGC_H) \
     $(srcdir)/../include/hashtab.h $(srcdir)/../include/splay-tree.h \
     $(TM_P_H) c-pragma.h coretypes.h $(TM_H) insn-codes.h
-^I$(COMPILER) -c $(ALL_COMPILERFLAGS) $(ALL_CPPFLAGS)  $(INCLUDES) \
-^I^I$(srcdir)/config/spu/spu-c.c -DCC1PLUS -o $@
+	$(COMPILER) -c $(ALL_COMPILERFLAGS) $(ALL_CPPFLAGS)  $(INCLUDES) \
+		$(srcdir)/config/spu/spu-c.c -DCC1PLUS -o $@
