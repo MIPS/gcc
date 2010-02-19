@@ -337,4 +337,6 @@ mxilinx-fpu
 Target Var(rs6000_xilinx_fpu)
 Specify Xilinx FPU.
 
-
+mspu
+Target Var(rs6000_use_spu) Init(1)
+Enable use  of spu

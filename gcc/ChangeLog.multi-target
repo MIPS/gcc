@@ -1,3 +1,13 @@
+2010-02-19  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* config/rs6000/rs6000.opt (mspu): New option.
+	* config/rs6000/rs6000.c (ppc_task_ok_for_target): New function.
+	(ppc_asm_new_arch): Likewise.
+	(TARGET_TASK_OK_FOR_TARGET, TARGET<ASM_NEW_ARCH): Define.
+	(TARGET_COPY_TO_TARGET, TARGET_COPY_FROM_TARGET): Use ARCompact/mxp
+	definition for test purposes.
+	(TARGET_ALLOC_TASK_ON_TARGET, TARGET_BUILD_CALL_ON_TARGER): Likewise.
+
 2010-02-18  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* tree-ssa-address.c (create_mem_ref): Fix EXTRA_TARGETS_DECL type.

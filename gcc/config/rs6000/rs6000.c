@@ -1170,6 +1170,18 @@ static enum machine_mode rs6000_eh_return_filter_mode (void);
 static bool rs6000_can_eliminate (const int, const int);
 static void rs6000_trampoline_init (rtx, tree, rtx);
 
+static bool ppc_task_ok_for_target (struct gcc_target *, enum task_type);
+static void arc_copy_to_target (gimple_stmt_iterator *, struct gcc_target *,
+				tree, tree, tree);
+static void arc_copy_from_target (gimple_stmt_iterator *, struct gcc_target *,
+				  tree, tree, tree);
+static tree arc_alloc_task_on_target (gimple_stmt_iterator *gsi,
+				      struct gcc_target *, tree, tree, tree);
+static void arc_build_call_on_target (gimple_stmt_iterator *,
+				      struct gcc_target *, int, tree *);
+
+static void ppc_asm_new_arch (FILE *, struct gcc_target *, struct gcc_target *);
+
 /* Hash table stuff for keeping track of TOC entries.  */
 
 struct GTY(()) toc_hash_struct
@@ -1549,6 +1561,20 @@ static const struct attribute_spec rs6000_attribute_table[] =
 
 #undef TARGET_FUNCTION_VALUE
 #define TARGET_FUNCTION_VALUE rs6000_function_value
+
+#undef TARGET_TASK_OK_FOR_TARGET
+#define TARGET_TASK_OK_FOR_TARGET ppc_task_ok_for_target
+#undef TARGET_COPY_TO_TARGET
+#define TARGET_COPY_TO_TARGET arc_copy_to_target
+#undef TARGET_COPY_FROM_TARGET
+#define TARGET_COPY_FROM_TARGET arc_copy_from_target
+#undef TARGET_ALLOC_TASK_ON_TARGET
+#define TARGET_ALLOC_TASK_ON_TARGET arc_alloc_task_on_target
+#undef TARGET_BUILD_CALL_ON_TARGET
+#define TARGET_BUILD_CALL_ON_TARGET arc_build_call_on_target
+
+#undef TARGET_ASM_NEW_ARCH
+#define TARGET_ASM_NEW_ARCH ppc_asm_new_arch
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -25748,6 +25774,297 @@ rs6000_final_prescan_insn (rtx insn, rtx *operand ATTRIBUTE_UNUSED,
 		    "emitting conditional microcode insn %s\t[%s] #%d",
 		    temp, insn_data[INSN_CODE (insn)].name, INSN_UID (insn));
     }
+}
+
+static void
+build_sdma_op (gimple_stmt_iterator *gsi, tree fn,
+	       tree sdm_addr, tree main_addr, tree size)
+{
+  tree t;
+  HOST_WIDE_INT size_i = tree_low_cst (size, 1);
+  int n, m = 0;
+#if 1
+  const unsigned arc_sdma_xalign = 4;
+  const unsigned arc_sdma_xalign_threshold = 7;
+#endif
+
+  gcc_assert (arc_sdma_xalign >= 1 && arc_sdma_xalign <= 128);
+  gcc_assert (size_i > 0 && size_i <= 255*256);
+  /* We want to express size_i as n*m, with n being divisible by
+     arc_sdma_align, and as large as possible.  */
+  /* First, try to find an exact fit without misalignment.  */
+  if (size_i <= 255 || size_i % arc_sdma_xalign == 0)
+    {
+      int min_n, max_n;
+
+      min_n = (size_i + 254) / 255;
+      if (min_n < arc_sdma_xalign)
+	min_n = arc_sdma_xalign;
+      max_n = size_i <= 255 ? size_i : 255 - 255 % arc_sdma_xalign;
+      for (n = max_n; n >= min_n; n -= arc_sdma_xalign)
+	{
+	  if (size_i % n == 0)
+	    {
+	      m = size_i / n;
+	      break;
+	    }
+	}
+    }
+  /* If that failed, try to find an exact fit with misalignment.  */
+  if (!m && arc_sdma_xalign > 1)
+    {
+      int min_m, max_m;
+
+      gcc_assert (size_i > 255);
+      min_m = (size_i + 254) / 255;
+      /* If n ends up being divisible by arc_sdma_xalign/2, only every
+	 second line is misaligned.  */
+      max_m = 2 * arc_sdma_xalign_threshold + 1;
+      if (max_m > 255)
+	max_m = 255;
+      for (n = 0, m = min_m; m <= max_m; m++)
+	{
+	  if (size_i % m == 0)
+	    {
+	      int i, s;
+
+	      n = size_i / n;
+	      /* Calculate how many lines have to be aggregated to
+		 get alignment.  */
+	      for (i = 1, s = n; s % arc_sdma_xalign; i++, s += n);
+	      if (m - (m + (i - 1)) / i > arc_sdma_xalign_threshold)
+		n = 0;
+	      else
+		break;
+	    }
+	}
+    }
+  if (!n || !m)
+    {
+      gcc_assert (size_i > 255);
+      n = 255 - 255 % arc_sdma_xalign;
+      m = size_i / n;
+    }
+  t = build_call_nary (void_type_node, fn, 4, sdm_addr, main_addr,
+		       build_int_cst (integer_type_node, n),
+		       build_int_cst (integer_type_node, m));
+  force_gimple_operand_gsi (gsi, t, true, NULL_TREE, false,
+			    GSI_CONTINUE_LINKING);
+  size_i -= n * m;
+  if (size_i > n * m)
+    {
+      gcc_assert (size_i <= 255);
+      t = (build_call_nary
+	   (void_type_node, fn, 4,
+	    fold_build2 (PLUS_EXPR, TREE_TYPE (sdm_addr), sdm_addr,
+			 size_int (n * m)),
+	    fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (main_addr), main_addr,
+			 size_int (n * m)),
+	    build_int_cst (integer_type_node, n), 1));
+      force_gimple_operand_gsi (gsi, t, true, NULL_TREE, false,
+				GSI_CONTINUE_LINKING);
+    }
+}
+
+static bool
+ppc_task_ok_for_target (struct gcc_target *other,
+			enum task_type tt ATTRIBUTE_UNUSED)
+{
+  if (&this_targetm == other)
+    return true;
+  gcc_assert (strcmp (other->name, "spu-elf") == 0);
+  return rs6000_use_spu ? true : false;
+}
+
+static void
+arc_copy_to_target (gimple_stmt_iterator *gsi, struct gcc_target *target,
+		    tree dst, tree src, tree size)
+{
+  tree fn;
+
+  gcc_assert (strcmp (target->name, "mxp-elf") == 0);
+  fn = build_fold_addr_expr (
+#if 0
+arc_builtin_decls[ARC_SIMD_BUILTIN_DMA_IN]
+#else
+rs6000_builtin_decls[0]
+#endif
+);
+  build_sdma_op (gsi, fn, dst, src, size);
+}
+
+static void
+arc_copy_from_target (gimple_stmt_iterator *gsi, struct gcc_target *target,
+		      tree src, tree dst, tree size)
+{
+  tree fn;
+
+  gcc_assert (strcmp (target->name, "mxp-elf") == 0);
+  fn = build_fold_addr_expr (
+#if 0
+arc_builtin_decls[ARC_SIMD_BUILTIN_DMA_OUT]
+#else
+rs6000_builtin_decls[0]
+#endif
+);
+  build_sdma_op (gsi, fn, src, dst, size);
+}
+
+void
+arc_output_sdma_1 (char c, char dma_reg_c, rtx op, rtx scratch,
+		   const char *comment)
+{
+  char buf[40];
+
+  if (CONST_INT_P (op) && (INTVAL (op) >= 1<<14 || /* assembler is broken */ 1))
+    {
+      int scratchno = REGNO (scratch);
+      bool creg_p = scratchno < 4 || scratchno == 12;
+      rtx xop[2];
+
+      sprintf (buf, "mov%s %%0,%%1%s", creg_p ? "_s" : "", comment);
+      xop[0] = scratch;
+      xop[1] = op;
+      output_asm_insn (buf, xop);
+      op = scratch;
+    }
+  sprintf (buf, "vdma%cset dr%c,%%0%s", c, dma_reg_c, comment);
+  output_asm_insn (buf, &op);
+}
+
+const char *
+arc_output_sdma (rtx *operands, char c)
+{
+  char buf[280];
+  rtx xop[7];
+
+  int n = INTVAL (operands[2]);
+  int m = INTVAL (operands[3]);
+  rtx scratch = operands[4];
+
+  gcc_assert (1 <= n && n <= 255);
+  gcc_assert (1 <= m && m <= 255);
+  arc_output_sdma_1 (c, '0', operands[0], scratch, "");
+  arc_output_sdma_1 (c, '1', operands[2], scratch, "");
+  sprintf (buf, " ; %d * %d bytes", n, m);
+  arc_output_sdma_1 (c, '2', GEN_INT (31 << 16 | m << 8 | n), scratch, buf);
+  arc_output_sdma_1 (c, '4', operands[1], scratch, "");
+  arc_output_sdma_1 (c, '5', operands[2], scratch, "");
+  sprintf (buf, "vdma%crun I0,I0", c);
+  output_asm_insn (buf, xop);
+  return "";
+}
+
+static tree
+arc_alloc_task_on_target (gimple_stmt_iterator *gsi, struct gcc_target *target,
+			  tree copy, tree size, tree fn)
+{
+  const char *section_name;
+  tree ct, t, sdm;
+  gimple stmt;
+  const char *attrib_name = "halfpic-r0";
+  tree fn_attrib;
+
+  gcc_assert (strcmp (target->name, "mxp-elf") == 0);
+  fn_attrib =
+    build_tree_list (get_identifier ("target"),
+                     build_tree_list (NULL_TREE,
+                                      build_string (strlen (attrib_name),
+						    attrib_name)));
+  decl_attributes (&fn, fn_attrib, 0);
+#if 1
+  /* ??? The assembler doesn't work right.  */
+  attrib_name = "no-immediate";
+  fn_attrib =
+    build_tree_list (get_identifier ("target"),
+                     build_tree_list (NULL_TREE,
+                                      build_string (strlen (attrib_name),
+						    attrib_name)));
+  decl_attributes (&fn, fn_attrib, 0);
+#endif
+
+
+  ct = TREE_TYPE (copy);
+  gcc_assert (TREE_CODE (ct) == POINTER_TYPE);
+  /* The types used for the 'variables' here do not mean anything -
+     it doesn't seem worth the hassle to build meaningful types.  */
+  t = build_decl (UNKNOWN_LOCATION, VAR_DECL,
+		  get_identifier ("__simd_task_sdm"), TREE_TYPE (ct));
+  /* Set DECL_SECTION_NAME so this won't get put into small data.  */
+  section_name = ".sdm";
+  DECL_SECTION_NAME (t) = build_string (strlen (section_name), section_name);
+  /* ??? cribbed from default_stack_protect_guard.  Check what is needed and
+     what is cargo cult.  */
+      TREE_STATIC (t) = 1;
+      TREE_PUBLIC (t) = 1;
+      DECL_EXTERNAL (t) = 1;
+      TREE_USED (t) = 1;
+      DECL_ARTIFICIAL (t) = 1;
+      DECL_IGNORED_P (t) = 1;
+  add_referenced_var (t);
+  sdm = t = build1 (ADDR_EXPR, ct, t);
+  /* For deadlock-free allocation of tasks in a multi-simd environment, should
+     allocate SDM, SCM and execution engine tuple together.
+     The latter two can be packaged together in a TREE_LIST.
+     FORNOW: just name a statically determined start address to record the
+     function to.  */
+  t = force_gimple_operand_gsi (gsi, t, true, NULL_TREE, false,
+				GSI_CONTINUE_LINKING);
+  stmt = gimple_build_assign (copy, t);
+  gsi_insert_after (gsi, stmt, GSI_CONTINUE_LINKING);
+  t = build_decl (UNKNOWN_LOCATION,
+		  VAR_DECL, get_identifier ("__simd_task_scm"), ct);
+  section_name = ".scm";
+  DECL_SECTION_NAME (t) = build_string (strlen (section_name), section_name);
+      TREE_STATIC (t) = 1;
+      TREE_PUBLIC (t) = 1;
+      DECL_EXTERNAL (t) = 1;
+      TREE_USED (t) = 1;
+      DECL_ARTIFICIAL (t) = 1;
+      DECL_IGNORED_P (t) = 1;
+  add_referenced_var (t);
+  t = build1 (ADDR_EXPR, ct, t);
+  t = force_gimple_operand_gsi (gsi, t, true, NULL_TREE, false,
+				GSI_CONTINUE_LINKING);
+  sdm = build2 (PLUS_EXPR, integer_type_node,
+		build1 (NOP_EXPR, integer_type_node, sdm),
+		size);
+  return build_tree_list (t, sdm);
+}
+
+static void
+arc_build_call_on_target (gimple_stmt_iterator *gsi, struct gcc_target *target,
+			  int nargs, tree *args)
+{
+  tree fn, t, *xargs;
+
+  gcc_assert (nargs > 0);
+  xargs = (tree *) alloca (sizeof (tree[nargs+1]));
+  xargs[0] = TREE_PURPOSE (args[0]);
+  xargs[1] = TREE_VALUE (args[0]);
+  memcpy (&xargs[2], &args[1], sizeof (tree[nargs-1]));
+  gcc_assert (strcmp (target->name, "mxp-elf") == 0);
+  fn = build_fold_addr_expr (
+#if 0
+arc_builtin_decls[ARC_SIMD_BUILTIN_CALL]
+#else
+rs6000_builtin_decls[0]
+#endif
+);
+  t = build_call_array (void_type_node, fn, nargs+1, xargs);
+  force_gimple_operand_gsi (gsi, t, true, NULL_TREE, false,
+			    GSI_CONTINUE_LINKING);
+}
+
+static void
+ppc_asm_new_arch (FILE *out_file, struct gcc_target *last_arch,
+                  struct gcc_target *new_arch)
+{
+  gcc_assert (strstr (new_arch->name, "ppc-")
+	      || strcmp (new_arch->name, "spu-elf") == 0);
+  if (last_arch)
+    fprintf (out_file, "; Output architecture was: %s.\n", last_arch->name);
+  fprintf (out_file, "; New output architecture: %s.\n", new_arch->name);
 }
 
 #include "gt-rs6000.h"
