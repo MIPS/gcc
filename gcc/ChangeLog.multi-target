@@ -8,6 +8,9 @@
 	definition for test purposes.
 	(TARGET_ALLOC_TASK_ON_TARGET, TARGET_BUILD_CALL_ON_TARGER): Likewise.
 
+	* tree-parloops.c (parllelize_loops): Don't apply number-of-iterations
+	pre thread test if loop is to be executed on different target.
+
 2010-02-18  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* tree-ssa-address.c (create_mem_ref): Fix EXTRA_TARGETS_DECL type.

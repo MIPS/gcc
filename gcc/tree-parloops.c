@@ -2338,8 +2338,9 @@ parallelize_loops (void)
       /* FIXME: Bypass this check as graphite doesn't update the
       count and frequency correctly now.  */
       if (!flag_loop_parallelize_all
+	  && loop->target_arch == cfun->target_arch
 	  && ((estimated !=-1 
-	     && estimated <= (HOST_WIDE_INT) n_threads * MIN_PER_THREAD)
+	       && estimated <= (HOST_WIDE_INT) n_threads * MIN_PER_THREAD)
 	      /* Do not bother with loops in cold areas.  */
 	      || optimize_loop_nest_for_size_p (loop)))
 	continue;
