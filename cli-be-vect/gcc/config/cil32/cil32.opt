@@ -81,3 +81,7 @@ Target Joined RejectNegative Var(simd_backend_str)
 mmisaligned
 Target Mask(HAS_MISALIGNED)
 Enable misaligned loads and stores in the bytecode
+
+malways-realign
+Target Mask(ALWAYS_REALIGN)
+Always generate software pipeline realignment

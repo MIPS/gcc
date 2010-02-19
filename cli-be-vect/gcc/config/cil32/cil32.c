@@ -184,19 +184,26 @@ cil_override_options (void)
   if (simd_backend_str)
     {
       if (strcmp (simd_backend_str, "mono") == 0)
-	simd_type = MONO_SIMD;
+        {
+	  warning (0, "The Mono SIMD backend is unlikely to work\n");
+          simd_type = MONO_SIMD;
+        }
       else if (strcmp (simd_backend_str, "gcc") == 0)
-        simd_type = GCC_SIMD;
+        {
+	  warning (0, "The Mono GCC backend is unlikely to work\n");
+          simd_type = GCC_SIMD;
+        }
       else if (strcmp (simd_backend_str, "generic") == 0)
         simd_type = GEN_SIMD;
       else
 	{
-	  fprintf (stderr, "Unknown SIMD backend '%s', using GCC\n",
+	  fprintf (stderr, "Unknown SIMD backend '%s', using GENERIC\n",
 		   simd_backend_str);
+          simd_type = GEN_SIMD;
 	}
     }
   else
-    simd_type = GCC_SIMD;
+    simd_type = GEN_SIMD;
 }
 
 /* Hash value calculation function for CIL basic blocks.  */
@@ -653,7 +660,10 @@ static bool cil32_builtin_vectorize_independent_drs_only (void)
 
 static bool cil32_builtin_always_realign (void)
 {
-  return true;
+  if (TARGET_ALWAYS_REALIGN)
+    return true;
+  else
+    return false;
 }
 
 static tree cil32_builtin_mask_for_load (void)
