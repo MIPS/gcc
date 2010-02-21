@@ -1,3 +1,32 @@
+2010-02-18  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+        PR target/40887
+	Backport from trunk.
+        2009-12-24  Julian Brown  <julian@codesourcery.com>
+                    Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	* gcc.target/arm/pr40887.c: New test.
+
+2010-02-16  Ira Rosen <irar@il.ibm.com>
+
+	PR tree-optimization/43074
+	* gcc.dg/vect/fast-math-pr43074.c: New test.
+
+2010-02-16  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/41869
+	* gfortran.dg/module_write_1.f90: New test.
+
+2010-02-13  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/42871
+	* g++.dg/torture/pr42871.C: New testcase.
+
+2010-02-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/43033
+	* g++.dg/other/default3.C: Xfail g4 test.
+
 2010-02-10  Jakub Jelinek  <jakub@redhat.com>
 
 	* gcc.dg/builtin-ffs-1.c: New test.
