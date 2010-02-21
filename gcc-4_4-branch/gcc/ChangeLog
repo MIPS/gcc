@@ -1,3 +1,47 @@
+2010-02-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* ipa-struct-reorg.c (make_field_acc_node, gen_cluster, peel_field):
+	Use XCNEW instead of xcalloc.
+	(add_access_to_acc_sites, create_new_var_node, add_alloc_site): Use
+	XNEW instead of xmalloc.
+	(get_fields): Use XNEWVEC instead of xmalloc.
+
+	PR debug/43084
+	* ipa-struct-reorg.c (add_access_to_acc_sites): For debug stmts don't
+	populate vars array.
+	(create_new_general_access): For debug stmts just reset value.
+	(get_stmt_accesses): For accesses within debug stmts just record them
+	using add_access_to_acc_sites instead of preventing the peeling or
+	counting them as accesses.
+
+2010-02-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (add_var_loc_to_decl): Change last argument to
+	rtx, allocate struct var_loc_node here and return it to the
+	caller, and only if it is actually needed.
+	(dwarf2out_var_location): Adjust add_var_loc_to_decl caller,
+	move it earlier and return immediately if it returns NULL.
+
+2010-02-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/42918
+	* caller-save.c (save_call_clobbered_regs): If BB ends with
+	a DEBUG_INSN, move any notes in between last real insn and the last
+	DEBUG_INSN after the last DEBUG_INSN.
+
+2010-02-16  Alexandre Oliva  <aoliva@redhat.com>
+
+	* params.def (PARAM_MAX_VARTRACK_SIZE): New.
+	* doc/invoke.texi: Document it.
+	* var-tracking.c: Include toplev.h and params.h.
+	(vt_find_locations): Return bool indicating success.  Compute
+	hash sizes unconditionally.  Check new parameter, report.
+	(variable_tracking_main_1): Check vt_find_locations results and
+	retry.  Renamed from...
+	(variable_tracking_main): ... this.  New wrapper to preserve
+	flag_var_tracking_assignments.
+	* Makefile.in (var-tracking.o): Adjust dependencies.
+
 2010-02-18  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
 
 	* config/spu/spu-c.c (spu_resolve_overloaded_builtin): Call
