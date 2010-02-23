@@ -1,3 +1,9 @@
+2010-02-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to redhat/gcc-4_4-brnach, id 157018.
+
+	* REVISION: Update subversion merge point.
+
 2010-02-01  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* tree.h (struct tree_base): Add nofold bitfield.

@@ -771,6 +771,13 @@ DEFPARAM (PARAM_LOOP_INVARIANT_MAX_BBS_IN_LOOP,
 	  "max basic blocks number in loop for loop invariant motion",
 	  10000, 0, 0)
 
+/* Set maximum hash table size for var tracking.  */
+
+DEFPARAM (PARAM_MAX_VARTRACK_SIZE,
+	  "max-vartrack-size",
+	  "Max. size of var tracking hash tables",
+	  50000000, 0, 0)
+
 /* Set minimum insn uid for non-debug insns.  */
 
 DEFPARAM (PARAM_MIN_NONDEBUG_INSN_UID,
