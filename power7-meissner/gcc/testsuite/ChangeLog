@@ -1,3 +1,66 @@
+2010-02-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/43139
+	* gcc.dg/pr43139.c: New test.
+
+	PR debug/43077
+	* gcc.dg/guality/pr43077-1.c: New test.
+
+2010-02-23  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR 43123
+	* gcc.dg/march.c: New.
+	* gcc.dg/march-generic.c: New.
+	* gcc.dg/mtune.c: New.
+	
+2010-02-22  Sebastian Pop  <sebastian.pop@amd.com>
+
+	PR middle-end/43083
+	* gcc.dg/graphite/pr43083.c: New.
+
+2010-02-22  Sebastian Pop  <sebastian.pop@amd.com>
+
+	PR middle-end/43097
+	* gfortran.dg/graphite/pr43097.f: New.
+
+2010-02-22  Sebastian Pop  <sebastian.pop@amd.com>
+	    Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR middle-end/43140
+	* g++.dg/graphite/pr41305.C: Add -Wno-conversion-null.
+
+2010-02-22  Sebastian Pop  <sebastian.pop@amd.com>
+
+	PR middle-end/43026
+	* g++.dg/graphite/pr43026.C: New.
+
+2010-02-22  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR c++/43126
+	* gcc.dg/cleanup-1.c: Update.
+	* gcc.dg/func-args-1.c: Update.
+	* gcc.dg/format/sentinel-1.c: Update.
+	* g++.old-deja/g++.jason/scoping10.C: Update.
+	* g++.old-deja/g++.ns/lookup5.C: Update.
+	* g++.dg/ext/cleanup-1.C: Update.
+	* g++.dg/parse/varmod1.C: Update.
+	* g++.dg/parse/error33.C: Update.
+	* g++.dg/expr/call3.C: Update.
+	* g++.dg/func-args-1.C: New.
+
+2010-02-22  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR c/43125
+	* gcc.dg/attr-used-2.c: Moved to ...
+	* c-c++-common/attr-used-2.c: Here.
+
+	* gcc.dg/attr-used.c: Moved to ...
+	* c-c++-common/attr-used.c: Here.
+
+2010-02-22  Ozkan Sezer  <sezeroz@gmail.com>
+
+	* gcc.c-torture/execute/991014-1.c: Use __SIZE_TYPE__ for size types.
+
 2010-02-22  Richard Guenther  <rguenther@suse.de>
 
 	PR lto/43045

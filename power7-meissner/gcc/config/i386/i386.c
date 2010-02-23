@@ -2621,6 +2621,7 @@ override_options (bool main_args_p)
 {
   int i;
   unsigned int ix86_arch_mask, ix86_tune_mask;
+  const bool ix86_tune_specified = (ix86_tune_string != NULL); 
   const char *prefix;
   const char *suffix;
   const char *sw;
@@ -2821,8 +2822,12 @@ override_options (bool main_args_p)
 		   || !strcmp (ix86_tune_string, "generic64")))
 	;
       else if (!strncmp (ix86_tune_string, "generic", 7))
-	error ("bad value (%s) for %stune=%s %s",
+        error ("bad value (%s) for %stune=%s %s",
 	       ix86_tune_string, prefix, suffix, sw);
+      else if (!strcmp (ix86_tune_string, "x86-64"))
+        warning (OPT_Wdeprecated, "%stune=x86-64%s is deprecated.  Use "
+                 "%stune=k8%s or %stune=generic%s instead as appropriate.",
+                 prefix, suffix, prefix, suffix, prefix, suffix);
     }
   else
     {
@@ -2846,6 +2851,7 @@ override_options (bool main_args_p)
 	    ix86_tune_string = "generic32";
 	}
     }
+
   if (ix86_stringop_string)
     {
       if (!strcmp (ix86_stringop_string, "rep_byte"))
@@ -2868,22 +2874,11 @@ override_options (bool main_args_p)
 	error ("bad value (%s) for %sstringop-strategy=%s %s",
 	       ix86_stringop_string, prefix, suffix, sw);
     }
-  if (!strcmp (ix86_tune_string, "x86-64"))
-    warning (OPT_Wdeprecated, "%stune=x86-64%s is deprecated.  Use "
-	     "%stune=k8%s or %stune=generic%s instead as appropriate.",
-	     prefix, suffix, prefix, suffix, prefix, suffix);
 
   if (!ix86_arch_string)
     ix86_arch_string = TARGET_64BIT ? "x86-64" : "i386";
   else
     ix86_arch_specified = 1;
-
-  if (!strcmp (ix86_arch_string, "generic"))
-    error ("generic CPU can be used only for %stune=%s %s",
-	   prefix, suffix, sw);
-  if (!strncmp (ix86_arch_string, "generic", 7))
-    error ("bad value (%s) for %sarch=%s %s",
-	   ix86_arch_string, prefix, suffix, sw);
 
   /* Validate -mabi= value.  */
   if (ix86_abi_string)
@@ -3032,7 +3027,10 @@ override_options (bool main_args_p)
 	break;
       }
 
-  if (i == pta_size)
+  if (!strcmp (ix86_arch_string, "generic"))
+    error ("generic CPU can be used only for %stune=%s %s",
+	   prefix, suffix, sw);
+  else if (!strncmp (ix86_arch_string, "generic", 7) || i == pta_size)
     error ("bad value (%s) for %sarch=%s %s",
 	   ix86_arch_string, prefix, suffix, sw);
 
@@ -3071,7 +3069,8 @@ override_options (bool main_args_p)
 	  x86_prefetch_sse = true;
 	break;
       }
-  if (i == pta_size)
+
+  if (ix86_tune_specified && i == pta_size)
     error ("bad value (%s) for %stune=%s %s",
 	   ix86_tune_string, prefix, suffix, sw);
 
@@ -10884,6 +10883,9 @@ static rtx
 ix86_delegitimize_address (rtx x)
 {
   rtx orig_x = delegitimize_mem_from_attrs (x);
+  /* addend is NULL or some rtx if x is something+GOTOFF where
+     something doesn't include the PIC register.  */
+  rtx addend = NULL_RTX;
   /* reg_addend is NULL or a multiple of some register.  */
   rtx reg_addend = NULL_RTX;
   /* const_addend is NULL or a const_int.  */
@@ -10922,14 +10924,13 @@ ix86_delegitimize_address (rtx x)
       else if (ix86_pic_register_p (XEXP (reg_addend, 1)))
 	reg_addend = XEXP (reg_addend, 0);
       else
-	return orig_x;
-      if (!REG_P (reg_addend)
-	  && GET_CODE (reg_addend) != MULT
-	  && GET_CODE (reg_addend) != ASHIFT)
-	return orig_x;
+	{
+	  reg_addend = NULL_RTX;
+	  addend = XEXP (x, 0);
+	}
     }
   else
-    return orig_x;
+    addend = XEXP (x, 0);
 
   x = XEXP (XEXP (x, 1), 0);
   if (GET_CODE (x) == PLUS
@@ -10940,7 +10941,7 @@ ix86_delegitimize_address (rtx x)
     }
 
   if (GET_CODE (x) == UNSPEC
-      && ((XINT (x, 1) == UNSPEC_GOT && MEM_P (orig_x))
+      && ((XINT (x, 1) == UNSPEC_GOT && MEM_P (orig_x) && !addend)
 	  || (XINT (x, 1) == UNSPEC_GOTOFF && !MEM_P (orig_x))))
     result = XVECEXP (x, 0, 0);
 
@@ -10955,6 +10956,22 @@ ix86_delegitimize_address (rtx x)
     result = gen_rtx_CONST (Pmode, gen_rtx_PLUS (Pmode, result, const_addend));
   if (reg_addend)
     result = gen_rtx_PLUS (Pmode, reg_addend, result);
+  if (addend)
+    {
+      /* If the rest of original X doesn't involve the PIC register, add
+	 addend and subtract pic_offset_table_rtx.  This can happen e.g.
+	 for code like:
+	 leal (%ebx, %ecx, 4), %ecx
+	 ...
+	 movl foo@GOTOFF(%ecx), %edx
+	 in which case we return (%ecx - %ebx) + foo.  */
+      if (pic_offset_table_rtx)
+        result = gen_rtx_PLUS (Pmode, gen_rtx_MINUS (Pmode, copy_rtx (addend),
+						     pic_offset_table_rtx),
+			       result);
+      else
+	return orig_x;
+    }
   return result;
 }
 

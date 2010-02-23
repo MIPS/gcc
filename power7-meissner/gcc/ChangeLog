@@ -1,3 +1,52 @@
+2010-02-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/43139
+	* config/i386/i386.c (ix86_delegitimize_address): Delegitimize all
+	GOTOFF relocs, even when the base reg isn't pic pointer.
+
+2010-02-23  Michael Matz  <matz@suse.de>
+
+	PR debug/43077
+	* cfgexpand (expand_debug_expr): Expand TERed ssa names in place.
+	(expand_gimple_basic_block): Generate and use debug temps if there
+	are debug uses left after the last real use of TERed ssa names.
+	Unlink debug immediate uses when they are expanded.
+
+2010-02-23  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR 43123
+	* config/i386/i386.c (override_options): Reorganise to provide
+	better error messages.
+
+2010-02-22  Sebastian Pop  <sebastian.pop@amd.com>
+
+	PR middle-end/43083
+	* graphite-scop-detection.c (create_single_exit_edge): Move
+	the call to find_single_exit_edge to....
+	(create_sese_edges): ...here.  Don't handle multiple edges
+	exiting the function.
+	(build_graphite_scops): Don't handle multiple edges
+	exiting the function.
+
+2010-02-22  Sebastian Pop  <sebastian.pop@amd.com>
+
+	PR middle-end/43097
+	* sese.c (get_rename): Assert that old_name is an SSA_NAME.
+	(rename_variables_in_stmt): Continue when the use is not an SSA_NAME.
+
+2010-02-22  Sebastian Pop  <sebastian.pop@amd.com>
+
+	PR middle-end/43026
+	* sese.c (expand_scalar_variables_expr): Handle COMPONENT_REF.
+
+2010-02-22  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR c++/43126
+	* c-typeck.c (convert_arguments): Print declaration location.
+	* c-common.c (validate_nargs): Rename as
+	builtin_function_validate_nargs.
+	(check_builtin_function_arguments): Update.
+
 2010-02-22  Richard Guenther  <rguenther@suse.de>
 
 	PR lto/43045
