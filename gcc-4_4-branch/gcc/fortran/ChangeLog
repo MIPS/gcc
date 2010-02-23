@@ -1,3 +1,25 @@
+2010-02-16  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/41869
+	* module.c (fix_mio_expr): Fix for private generic procedures.
+
+2010-02-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/43030
+	* resolve.c (gfc_resolve_dim_arg): Call gfc_clear_ts.
+
+	PR fortran/43029
+	* decl.c (enumerator_decl): Don't call gfc_free_enum_history
+	here.
+	(gfc_match_enumerator_def): But here whenever enumerator_decl returns
+	MATCH_ERROR.
+
+2010-02-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/42309
+	* trans-expr.c (gfc_conv_subref_array_arg): Avoid accessing
+	info->dimen after info has been freed.
+
 2010-02-06  Paul Thomas  <pault@gcc.gnu.org>
 
 	PR fortran/42309

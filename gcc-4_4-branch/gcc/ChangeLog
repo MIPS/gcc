@@ -1,3 +1,112 @@
+2010-02-22  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/s390.md ("movqi"): Re-add the mem->mem alternative.
+	(QI to BLKmode splitter): New splitter.
+
+2010-02-18  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/spu/spu-c.c (spu_resolve_overloaded_builtin): Call
+	lang_hooks.types_compatible_p instead of comptypes.
+
+2010-02-18  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	PR target/40887
+	Backport from trunk.
+	2009-12-24  Julian Brown  <julian@codesourcery.com>
+        	    Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+        * config/arm/arm.c (output_call_mem): Remove armv5 support.
+        * config/arm/arm.md (*call_mem): Disable for armv5. Add note.
+        (*call_value_mem): Likewise.
+
+2010-02-17  Mikael Pettersson  <mikpe@it.uu.se>
+
+	* config/sparc/gas.h: New file.  Restore
+	TARGET_ASM_NAMED_SECTION to its ELF default.
+	* config/sparc/sysv4.h (TARGET_ASM_NAMED_SECTION): Do not
+	check !HAVE_GNU_AS.
+	* config/sparc/sparc.c (sparc_elf_asm_named_section):
+	Likewise.  Add ATTRIBUTE_UNUSED to prototype.
+	* config.gcc (sparc*-*-linux*): Include sparc/gas.h
+	after sparc/sysv4.h.
+
+2010-02-17  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	Backport from trunk.
+	2009-12-07  Julian Brown  <julian@codesourcery.com>
+
+        * config/arm/constraints.md (Ps, Pt): New constraint letters.
+        * config/arm/thumb2.md (*thumb2_addsi_short): Tighten constraints.
+
+2010-02-16  Ira Rosen <irar@il.ibm.com>
+
+	PR tree-optimization/43074
+	* tree-vect-analyze.c (vect_detect_hybrid_slp_stmts): Add
+	vectorizable cycles in hybrid SLP check.
+
+2010-02-14  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/s390.c (s390_sched_init): New function.
+	(TARGET_SCHED_INIT): Target hook defined.
+
+2010-02-13  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/42871
+	* tree-ssa-pre.c (phi_translate_set): Make sure to retain
+	leaders.
+
+2010-02-10  Daniel Gutson  <dgutson@codesourcery.com>
+
+	* config/arm/lib1funcs.asm (__ARM_ARCH__): __ARM_ARCH_7EM__
+	added to the preprocessor condition.
+
+2010-02-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/43010
+	* dwarf2out.c (retry_incomplete_types): Don't call gen_type_die
+	if no debug info should be emitted for it.
+
+2010-02-09  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline:
+	2010-01-13  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/42705
+	* tree-ssa-reassoc.c (build_and_add_sum): Insert stmts after
+	labels.
+
+2010-02-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/42890
+	* tree-inline.c (delete_unreachable_blocks_update_callgraph): New
+	function backported from the trunk.
+	(tree_function_versioning): Call it instead of
+	delete_unreachable_blocks.
+
+	PR tree-optimization/42931
+	* tree-loop-linear.c (try_interchange_loops): Don't call
+	double_int_mul if estimated_loop_iterations failed.
+
+2010-02-08  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/42995
+	* tree-inline.c (estimate_move_cost): Assert we are not called
+	with a void type.
+	(estimate_num_insns): Do not count the terminating void_type_node
+	of a function argument type list.
+
+	Backport from mainline:
+	2010-01-06  Richard Guenther  <rguenther@suse.de>
+
+	* ipa-inline.c (cgraph_decide_inlining_incrementally): Do
+	not inline regular functions into always-inline functions.
+
+	2010-01-05  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/42462
+	* ipa-inline.c (compute_inline_parameters): Pass node->decl instead of
+	current_function_decl to helper functions and macros.
+
 2010-02-04  Richard Guenther  <rguenther@suse.de>
 
 	PR rtl-optimization/42952
