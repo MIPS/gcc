@@ -1,6 +1,6 @@
 /* GIMPLE to CIL conversion pass.
 
-   Copyright (C) 2006-2009 Free Software Foundation, Inc.
+   Copyright (C) 2006-2010 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -2700,6 +2700,43 @@ gen_minmax_expr (cil_stmt_iterator *csi, tree node)
 	  gcc_assert (size == 64);
 	  builtin = max ? CIL32_MAXDF3 : CIL32_MINDF3;
 	}
+    }
+  else if (TREE_CODE (type) == VECTOR_TYPE)
+    {
+      cil_type_t cil_type = vector_to_cil (type);
+      switch (cil_type)
+        {
+        case CIL_V8QI:
+          if (max)
+            builtin = CIL32_GEN_VQI_MAX;
+          else
+            builtin = CIL32_GEN_VQI_MIN;
+          break;
+
+        case CIL_V4HI:
+          if (max)
+            builtin = CIL32_GEN_VHI_MAX;
+          else
+            builtin = CIL32_GEN_VHI_MIN;
+          break;
+
+        case CIL_V2SI:
+          if (max)
+            builtin = CIL32_GEN_VSI_MAX;
+          else
+            builtin = CIL32_GEN_VSI_MIN;
+          break;
+
+        case CIL_V2SF:
+          if (max)
+            builtin = CIL32_GEN_VSF_MAX;
+          else
+            builtin = CIL32_GEN_VSF_MIN;
+          break;
+
+        default:
+          internal_error ("Unexpected vector type for min/max\n");
+        }
     }
   else
     gcc_unreachable ();

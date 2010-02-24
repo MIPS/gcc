@@ -251,6 +251,38 @@
   ""
   "vec_mul")
 
+(define_insn "smax<mode>3"
+  [(set (match_operand:VECMODES 0 "nonimmediate_operand"  "")
+       (smax:VECMODES
+        (match_operand:VECMODES 1 "general_operand" "")
+        (match_operand:VECMODES 2 "general_operand" "")))]
+  ""
+  "vec_smax")
+
+;; (define_insn "umax<mode>3"
+;;   [(set (match_operand:VECMODES 0 "nonimmediate_operand"  "")
+;;        (umax:VECMODES
+;;         (match_operand:VECMODES 1 "general_operand" "")
+;;         (match_operand:VECMODES 2 "general_operand" "")))]
+;;   ""
+;;   "vec_umax")
+
+(define_insn "smin<mode>3"
+  [(set (match_operand:VECMODES 0 "nonimmediate_operand"  "")
+       (smin:VECMODES
+        (match_operand:VECMODES 1 "general_operand" "")
+        (match_operand:VECMODES 2 "general_operand" "")))]
+  ""
+  "vec_smin")
+
+;; (define_insn "umin<mode>3"
+;;   [(set (match_operand:VECMODES 0 "nonimmediate_operand"  "")
+;;        (umin:VECMODES
+;;         (match_operand:VECMODES 1 "general_operand" "")
+;;         (match_operand:VECMODES 2 "general_operand" "")))]
+;;   ""
+;;   "vec_umin")
+
 
 ;; Call insns.
 

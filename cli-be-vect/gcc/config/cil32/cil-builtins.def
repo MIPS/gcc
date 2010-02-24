@@ -1173,9 +1173,9 @@ DEF_CILBUILTIN(GCC_BUILD_REDUC_PLUS_EPILOGUE_VDI, "[genvec_support]genvec_suppor
 #endif
 DEF_CILBUILTIN(GCC_BUILD_REDUC_MAX_EPILOGUE_VSI, "[genvec_support]genvec_support.VSI::VSI_reduc_max_epilogue", \
                ATTR_CONST_NOTHROW_LIST,          \
-               intSI_type_node, \
+               intSI2_type_node, \
                1,
-               intSI_type_node)
+               intSI2_type_node)
 
 DEF_CILBUILTIN(GCC_BUILD_REDUC_MIN_EPILOGUE_VSI, "[genvec_support]genvec_support.VSI::VSI_reduc_min_epilogue", \
                ATTR_CONST_NOTHROW_LIST,          \
@@ -1284,6 +1284,16 @@ DEF_CILBUILTIN(GEN_VSF_MUL, "[Xxxx.Simd]Xxxx.Simd.VecGenSF::op_Multiply", \
 	       2, \
 	       float2_type_node, float2_type_node)
 
+DEF_CILBUILTIN(GEN_VSF_MIN, "[Xxxx.Simd]Xxxx.Simd.VectorOperations::Min", \
+               ATTR_NULL,                                               \
+               float2_type_node,                                        \
+               2, float2_type_node, float2_type_node)
+
+DEF_CILBUILTIN(GEN_VSF_MAX, "[Xxxx.Simd]Xxxx.Simd.VectorOperations::Max", \
+               ATTR_NULL,                                               \
+               float2_type_node,                                        \
+               2, float2_type_node, float2_type_node)
+
 /* V SI */
 DEF_CILBUILTIN(GEN_VSI_CTOR, "[Xxxx.Simd]Xxxx.Simd.VecGenSI::.ctor", \
                ATTR_NULL,        \
@@ -1354,6 +1364,16 @@ DEF_CILBUILTIN(GEN_VSI_XOR, "[Xxxx.Simd]Xxxx.Simd.VecGenSI::op_ExclusiveOr", \
 	       2, \
 	       intSI2_type_node, intSI2_type_node)
 
+DEF_CILBUILTIN(GEN_VSI_MIN, "[Xxxx.Simd]Xxxx.Simd.VectorOperations::Min ", \
+               ATTR_NULL,                                               \
+               intSI2_type_node,                                        \
+               2, intSI2_type_node, intSI2_type_node)
+
+DEF_CILBUILTIN(GEN_VSI_MAX, "[Xxxx.Simd]Xxxx.Simd.VectorOperations::Max ", \
+               ATTR_NULL,                                               \
+               intSI2_type_node,                                        \
+               2, intSI2_type_node, intSI2_type_node)
+
 /* V HI */
 DEF_CILBUILTIN(GEN_VHI_CTOR, "[Xxxx.Simd]Xxxx.Simd.VecGenHI::.ctor", \
                ATTR_NULL,        \
@@ -1421,6 +1441,16 @@ DEF_CILBUILTIN(GEN_VHI_XOR, "[Xxxx.Simd]Xxxx.Simd.VecGenHI::op_ExclusiveOr", \
 	       2, \
 	       intHI4_type_node, intHI4_type_node)
 
+DEF_CILBUILTIN(GEN_VHI_MIN, "[Xxxx.Simd]Xxxx.Simd.VectorOperations::Min  ", \
+               ATTR_NULL,                                               \
+               intHI4_type_node,                                        \
+               2, intHI4_type_node, intHI4_type_node)
+
+DEF_CILBUILTIN(GEN_VHI_MAX, "[Xxxx.Simd]Xxxx.Simd.VectorOperations::Max  ", \
+               ATTR_NULL,                                               \
+               intHI4_type_node,                                        \
+               2, intHI4_type_node, intHI4_type_node)
+
 /* V QI */
 DEF_CILBUILTIN(GEN_VQI_CTOR, "[Xxxx.Simd]Xxxx.Simd.VecGenQQQI::.ctor", \
                ATTR_NULL,        \
@@ -1485,3 +1515,13 @@ DEF_CILBUILTIN(GEN_VQI_XOR, "[Xxxx.Simd]Xxxx.Simd.VecGenQQQI::op_ExclusiveOr", \
 	       intQI8_type_node, \
 	       2, \
 	       intQI8_type_node, intQI8_type_node)
+
+DEF_CILBUILTIN(GEN_VQI_MIN, "[Xxxx.Simd]Xxxx.Simd.VectorOperations::Min   ", \
+               ATTR_NULL,                                               \
+               intQI8_type_node,                                        \
+               2, intQI8_type_node, intQI8_type_node)
+
+DEF_CILBUILTIN(GEN_VQI_MAX, "[Xxxx.Simd]Xxxx.Simd.VectorOperations::Max   ", \
+               ATTR_NULL,                                               \
+               intQI8_type_node,                                        \
+               2, intQI8_type_node, intQI8_type_node)
