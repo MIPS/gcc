@@ -1171,13 +1171,13 @@ static bool rs6000_can_eliminate (const int, const int);
 static void rs6000_trampoline_init (rtx, tree, rtx);
 
 static bool ppc_task_ok_for_target (struct gcc_target *, enum task_type);
-static void arc_copy_to_target (gimple_stmt_iterator *, struct gcc_target *,
+static void ppc_copy_to_target (gimple_stmt_iterator *, struct gcc_target *,
 				tree, tree, tree);
-static void arc_copy_from_target (gimple_stmt_iterator *, struct gcc_target *,
+static void ppc_copy_from_target (gimple_stmt_iterator *, struct gcc_target *,
 				  tree, tree, tree);
 static tree arc_alloc_task_on_target (gimple_stmt_iterator *gsi,
 				      struct gcc_target *, tree, tree, tree);
-static void arc_build_call_on_target (gimple_stmt_iterator *,
+static void ppc_build_call_on_target (gimple_stmt_iterator *,
 				      struct gcc_target *, int, tree *);
 
 static void ppc_asm_new_arch (FILE *, struct gcc_target *, struct gcc_target *);
@@ -1229,7 +1229,8 @@ char rs6000_reg_names[][8] =
       /* SPE registers.  */
       "spe_acc", "spefscr",
       /* Soft frame pointer.  */
-      "sfp"
+      "sfp",
+      "spu_mem",
 };
 
 #ifdef TARGET_REGNAMES
@@ -1255,7 +1256,8 @@ static const char alt_reg_names[][8] =
   /* SPE registers.  */
   "spe_acc", "spefscr",
   /* Soft frame pointer.  */
-  "sfp"
+  "sfp",
+  "spu_mem",
 };
 #endif
 
@@ -1565,13 +1567,13 @@ static const struct attribute_spec rs6000_attribute_table[] =
 #undef TARGET_TASK_OK_FOR_TARGET
 #define TARGET_TASK_OK_FOR_TARGET ppc_task_ok_for_target
 #undef TARGET_COPY_TO_TARGET
-#define TARGET_COPY_TO_TARGET arc_copy_to_target
+#define TARGET_COPY_TO_TARGET ppc_copy_to_target
 #undef TARGET_COPY_FROM_TARGET
-#define TARGET_COPY_FROM_TARGET arc_copy_from_target
+#define TARGET_COPY_FROM_TARGET ppc_copy_from_target
 #undef TARGET_ALLOC_TASK_ON_TARGET
 #define TARGET_ALLOC_TASK_ON_TARGET arc_alloc_task_on_target
 #undef TARGET_BUILD_CALL_ON_TARGET
-#define TARGET_BUILD_CALL_ON_TARGET arc_build_call_on_target
+#define TARGET_BUILD_CALL_ON_TARGET ppc_build_call_on_target
 
 #undef TARGET_ASM_NEW_ARCH
 #define TARGET_ASM_NEW_ARCH ppc_asm_new_arch
@@ -8800,6 +8802,23 @@ static const struct builtin_description bdesc_3arg[] =
   { 0, CODE_FOR_paired_sum0, "__builtin_paired_sum0", PAIRED_BUILTIN_SUM0 },
   { 0, CODE_FOR_paired_sum1, "__builtin_paired_sum1", PAIRED_BUILTIN_SUM1 },
   { 0, CODE_FOR_selv2sf4, "__builtin_paired_selv2sf4", PAIRED_BUILTIN_SELV2SF4 },
+
+  /* DMA from / to Cell SPE.  Because the mostly unrelated e500 part is also
+     called spe, and the CELL SPE target port is named after the core, spu,
+     we use spu in the names here.  */
+  /* ??? Initiating all DAM transfers from the PPE is probably not the best
+     use of the Cell.  Should add hooks to allow initiating DMA from the
+     SPU where this is suitable for the compiled program.  */
+  { NUM_TARGETS > 1 ? -MASK_64BIT : 0,
+    CODE_FOR_spu_dma_in_si, "__builtin_spu_dma_in", SPU_BUILTIN_DMA_IN_SI },
+  { NUM_TARGETS > 1 ? MASK_64BIT : 0,
+    CODE_FOR_spu_dma_in_di, "__builtin_spu_dma_in", SPU_BUILTIN_DMA_IN_DI },
+  { NUM_TARGETS > 1 ? -MASK_64BIT : 0,
+    CODE_FOR_spu_dma_out_si, "__builtin_spu_dma_out", SPU_BUILTIN_DMA_OUT_SI },
+  { NUM_TARGETS > 1 ? MASK_64BIT : 0,
+    CODE_FOR_spu_dma_out_di, "__builtin_spu_dma_out", SPU_BUILTIN_DMA_OUT_DI },
+  { NUM_TARGETS > 1 ? 0x7fffffff: 0,
+    CODE_FOR_spu_call, "__builtin_spu_call", SPU_BUILTIN_CALL },
 };
 
 /* DST operations: void foo (void *, const int, const char).  */
@@ -11160,6 +11179,7 @@ rs6000_init_builtins (void)
 
   /* Initialize the modes for builtin_function_type, mapping a machine mode to
      tree type node.  */
+  builtin_mode_to_type[VOIDmode][0] = void_type_node;
   builtin_mode_to_type[QImode][0] = integer_type_node;
   builtin_mode_to_type[HImode][0] = integer_type_node;
   builtin_mode_to_type[SImode][0] = intSI_type_node;
@@ -11300,7 +11320,8 @@ rs6000_init_builtins (void)
     spe_init_builtins ();
   if (TARGET_ALTIVEC)
     altivec_init_builtins ();
-  if (TARGET_ALTIVEC || TARGET_SPE || TARGET_PAIRED_FLOAT || TARGET_VSX)
+  if (TARGET_ALTIVEC || TARGET_SPE || TARGET_PAIRED_FLOAT || TARGET_VSX
+      || NUM_TARGETS > 1)
     rs6000_common_init_builtins ();
   if (TARGET_PPC_GFXOPT)
     {
@@ -12244,6 +12265,13 @@ builtin_function_type (enum machine_mode mode_ret, enum machine_mode mode_arg0,
       h.uns_p[0] = 1;
       break;
 
+    case SPU_BUILTIN_CALL:
+      /* FORNOW */
+      h.mode[1] = ptr_mode;
+      arg_type[1] = ptr_type_node;
+      num_args = 1;
+      break;
+
     default:
       break;
     }
@@ -12321,7 +12349,8 @@ rs6000_common_init_builtins (void)
       tree type;
       int mask = d->mask;
 
-      if ((mask != 0 && (mask & target_flags) == 0)
+      if ((mask != 0
+	   && (mask < 0 ? (-mask & ~target_flags) : (mask & target_flags)) == 0)
 	  || (mask == 0 && !TARGET_PAIRED_FLOAT))
 	continue;
 
@@ -25776,6 +25805,7 @@ rs6000_final_prescan_insn (rtx insn, rtx *operand ATTRIBUTE_UNUSED,
     }
 }
 
+/* ??? This is ARCompact/mxp code.  Need to replace this with ppc/spu code.  */
 static void
 build_sdma_op (gimple_stmt_iterator *gsi, tree fn,
 	       tree sdm_addr, tree main_addr, tree size)
@@ -25877,36 +25907,28 @@ ppc_task_ok_for_target (struct gcc_target *other,
 }
 
 static void
-arc_copy_to_target (gimple_stmt_iterator *gsi, struct gcc_target *target,
+ppc_copy_to_target (gimple_stmt_iterator *gsi, struct gcc_target *target,
 		    tree dst, tree src, tree size)
 {
+  enum rs6000_builtins fn_num;
   tree fn;
 
-  gcc_assert (strcmp (target->name, "mxp-elf") == 0);
-  fn = build_fold_addr_expr (
-#if 0
-arc_builtin_decls[ARC_SIMD_BUILTIN_DMA_IN]
-#else
-rs6000_builtin_decls[0]
-#endif
-);
+  gcc_assert (strcmp (target->name, "spu-elf") == 0);
+  fn_num = (TARGET_64BIT ? SPU_BUILTIN_DMA_IN_DI : SPU_BUILTIN_DMA_IN_SI);
+  fn = build_fold_addr_expr (rs6000_builtin_decls[fn_num]);
   build_sdma_op (gsi, fn, dst, src, size);
 }
 
 static void
-arc_copy_from_target (gimple_stmt_iterator *gsi, struct gcc_target *target,
+ppc_copy_from_target (gimple_stmt_iterator *gsi, struct gcc_target *target,
 		      tree src, tree dst, tree size)
 {
+  enum rs6000_builtins fn_num;
   tree fn;
 
-  gcc_assert (strcmp (target->name, "mxp-elf") == 0);
-  fn = build_fold_addr_expr (
-#if 0
-arc_builtin_decls[ARC_SIMD_BUILTIN_DMA_OUT]
-#else
-rs6000_builtin_decls[0]
-#endif
-);
+  gcc_assert (strcmp (target->name, "spu-elf") == 0);
+  fn_num = (TARGET_64BIT ? SPU_BUILTIN_DMA_OUT_DI : SPU_BUILTIN_DMA_OUT_SI);
+  fn = build_fold_addr_expr (rs6000_builtin_decls[fn_num]);
   build_sdma_op (gsi, fn, src, dst, size);
 }
 
@@ -25965,14 +25987,16 @@ arc_alloc_task_on_target (gimple_stmt_iterator *gsi, struct gcc_target *target,
   const char *attrib_name = "halfpic-r0";
   tree fn_attrib;
 
-  gcc_assert (strcmp (target->name, "mxp-elf") == 0);
+  gcc_assert (strcmp (target->name, "spu-elf") == 0);
+#if 0
   fn_attrib =
     build_tree_list (get_identifier ("target"),
                      build_tree_list (NULL_TREE,
                                       build_string (strlen (attrib_name),
 						    attrib_name)));
   decl_attributes (&fn, fn_attrib, 0);
-#if 1
+#endif
+#if 0
   /* ??? The assembler doesn't work right.  */
   attrib_name = "no-immediate";
   fn_attrib =
@@ -25989,7 +26013,7 @@ arc_alloc_task_on_target (gimple_stmt_iterator *gsi, struct gcc_target *target,
   /* The types used for the 'variables' here do not mean anything -
      it doesn't seem worth the hassle to build meaningful types.  */
   t = build_decl (UNKNOWN_LOCATION, VAR_DECL,
-		  get_identifier ("__simd_task_sdm"), TREE_TYPE (ct));
+		  get_identifier ("__simd_task_sdm"), ct);
   /* Set DECL_SECTION_NAME so this won't get put into small data.  */
   section_name = ".sdm";
   DECL_SECTION_NAME (t) = build_string (strlen (section_name), section_name);
@@ -26028,12 +26052,12 @@ arc_alloc_task_on_target (gimple_stmt_iterator *gsi, struct gcc_target *target,
 				GSI_CONTINUE_LINKING);
   sdm = build2 (PLUS_EXPR, integer_type_node,
 		build1 (NOP_EXPR, integer_type_node, sdm),
-		size);
+		fold_convert (integer_type_node, size));
   return build_tree_list (t, sdm);
 }
 
 static void
-arc_build_call_on_target (gimple_stmt_iterator *gsi, struct gcc_target *target,
+ppc_build_call_on_target (gimple_stmt_iterator *gsi, struct gcc_target *target,
 			  int nargs, tree *args)
 {
   tree fn, t, *xargs;
@@ -26043,14 +26067,8 @@ arc_build_call_on_target (gimple_stmt_iterator *gsi, struct gcc_target *target,
   xargs[0] = TREE_PURPOSE (args[0]);
   xargs[1] = TREE_VALUE (args[0]);
   memcpy (&xargs[2], &args[1], sizeof (tree[nargs-1]));
-  gcc_assert (strcmp (target->name, "mxp-elf") == 0);
-  fn = build_fold_addr_expr (
-#if 0
-arc_builtin_decls[ARC_SIMD_BUILTIN_CALL]
-#else
-rs6000_builtin_decls[0]
-#endif
-);
+  gcc_assert (strcmp (target->name, "spu-elf") == 0);
+  fn = build_fold_addr_expr (rs6000_builtin_decls[SPU_BUILTIN_CALL]);
   t = build_call_array (void_type_node, fn, nargs+1, xargs);
   force_gimple_operand_gsi (gsi, t, true, NULL_TREE, false,
 			    GSI_CONTINUE_LINKING);

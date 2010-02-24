@@ -37,6 +37,17 @@ PARTIAL_INT_MODE (SI);
 CC_MODE (CCUNS);
 CC_MODE (CCFP);
 CC_MODE (CCEQ);
+/* For operations on the Cell SPEs, we need to track changes in an unpecified
+   number of bits.  (If we lie to the compiler and pick a too-small number,
+   it could use this to calculate a maximum number of states; if wed pick a
+   conservatively large number, we'd most likly produce overflows all over
+   the place.)
+   Logically, we would describe the memory in and attached to the SPEs as
+   BLKmode, however, BLKmode is not tracked by data flow.  So we use fake
+   register SPU_MEM with a mode which is notianally a CC_MODE to make data
+   flow track operations that affect / use the SPEs.  */
+/* ??? would it make sense to define a separate fake register for each SPE?  */
+CC_MODE (CC_BLK);
 
 /* Vector modes.  */
 VECTOR_MODES (INT, 8);        /*       V8QI V4HI V2SI */

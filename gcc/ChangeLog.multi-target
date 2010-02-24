@@ -1,3 +1,34 @@
+2010-02-24  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* tree-parloops.c (create_loads_and_stores_for_name): Avoid arithmetic
+	in assignment to memory.
+
+	* config/rs6000/rs6000-modes.def (CC_BLK): New mode.
+	* config/rs6000/rs6000-builtin.def (SPU_BUILTIN_DMA_IN_SI): New.
+	(SPU_BUILTIN_DMA_IN_DI, SPU_BUILTIN_DMA_OUT_SI): Likewise.
+	(SPU_BUILTIN_DMA_OUT_DI, SPU_BUILTIN_CALL): Likewise.
+	* config/rs6000/rs6000.c (ppc_copy_to_target): New function.
+	(ppc_copy_from_target, ppc_build_call_on_target): Likewise.
+	(rs6000_reg_names, alt_reg_names): Add name spu_mem.
+	(TARGET_COPY_TO_TARGET): Use ppc_copy_to_target.
+	(TARGET_COPY_FROM_TARGET): Use ppc_copy_from_target.
+	(TARGET_BUILD_CALL_ON_TARGET): Use ppc_build_call_on_target.
+	(bdesc_3arg): Add entries for SPU_BUILTIN_DMA_IN_SI,
+	SPU_BUILTIN_DMA_IN_DI, SPU_BUILTIN_DMA_OUT_SI, SPU_BUILTIN_DMA_OUT_DI
+	and SPU_BUILTIN_CALL.
+	(rs6000_init_builtins): Initialize builtin_mode_to_type[VOIDmode][0].
+	Also call rs6000_common_init_builtins in NUM_TARGETS > 1 case.
+	(builtin_function_type): Add special case for SPU_BUILTIN_CALL.
+	(rs6000_common_init_builtins): When testing mask flags, allow
+	negative constants to designate flags that have to be cleared.
+	(arc_alloc_task_on_target): Change mxp test to spu.
+	Comment out mxp attribute settings.  Fix types in generated code.
+	* config/rs6000/rs6000.h (FIRST_PSEUDO_REGISTER): Change to 115.
+	(FIXED_REGISTERS, CALL_USED_REGISTERS): Add APU_MEM entry.
+	(CALL_REALLY_USED_REGISTERS, rs6000_reg_names): Likewise.
+	* config/rs6000/rs6000.md (SPU_MEM, UNSPEC_PPE_SPU_DMA): New constants.
+	(spu_dma_in_<mode>, spu_dma_out_<mode>, spu_call): New patterns.
+
 2010-02-19  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* config/rs6000/rs6000.opt (mspu): New option.

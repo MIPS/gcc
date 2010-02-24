@@ -1205,7 +1205,9 @@ create_loads_and_stores_for_name (void **slot, void *data)
 	  (*targetm.copy_from_target) (&i, loop_target, dst, src_param,
 				       a->size);
 	}
-      src = dst;
+      src = fold_convert (TREE_TYPE (t), dst);
+      src = force_gimple_operand_gsi (&gsi, src, true, NULL, false,
+				      GSI_CONTINUE_LINKING);
     }
   stmt = gimple_build_assign (t, src);
   mark_virtual_ops_for_renaming (stmt);
