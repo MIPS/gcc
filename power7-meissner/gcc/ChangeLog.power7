@@ -1,11 +1,11 @@
 2010-02-25  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
-	Merge up to 157069.
+	Merge up to 157074.
 	* REVISION: Update subversion id.
 
 2010-02-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
-	PR target/43154
+	PR target/43154 (checked into mainline)
 	* config/rs6000/vector.md (VEC_64): New iterator for V2DF, V2DI.
 	(vec_interleave_high<mode>): Rename from vec_interleave_highv2df
 	and support both V2DF and V2DI modes.
