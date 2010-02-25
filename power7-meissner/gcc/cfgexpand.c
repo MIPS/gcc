@@ -1331,8 +1331,7 @@ expand_used_vars (void)
       if (is_gimple_reg (var))
 	{
 	  TREE_USED (var) = 0;
-	  ggc_free (t);
-	  continue;
+	  goto next;
 	}
       /* We didn't set a block for static or extern because it's hard
 	 to tell the difference between a global variable (re)declared
@@ -1353,20 +1352,20 @@ expand_used_vars (void)
       TREE_USED (var) = 1;
 
       if (expand_now)
-	{
-	  expand_one_var (var, true, true);
-	  if (DECL_ARTIFICIAL (var) && !DECL_IGNORED_P (var))
-	    {
-	      rtx rtl = DECL_RTL_IF_SET (var);
+	expand_one_var (var, true, true);
 
-	      /* Keep artificial non-ignored vars in cfun->local_decls
-		 chain until instantiate_decls.  */
-	      if (rtl && (MEM_P (rtl) || GET_CODE (rtl) == CONCAT))
-		{
-		  TREE_CHAIN (t) = cfun->local_decls;
-		  cfun->local_decls = t;
-		  continue;
-		}
+    next:
+      if (DECL_ARTIFICIAL (var) && !DECL_IGNORED_P (var))
+	{
+	  rtx rtl = DECL_RTL_IF_SET (var);
+
+	  /* Keep artificial non-ignored vars in cfun->local_decls
+	     chain until instantiate_decls.  */
+	  if (rtl && (MEM_P (rtl) || GET_CODE (rtl) == CONCAT))
+	    {
+	      TREE_CHAIN (t) = cfun->local_decls;
+	      cfun->local_decls = t;
+	      continue;
 	    }
 	}
 
@@ -2317,7 +2316,11 @@ expand_debug_expr (tree exp)
       else
 	op0 = copy_rtx (op0);
 
-      if (GET_MODE (op0) == BLKmode)
+      if (GET_MODE (op0) == BLKmode
+	  /* If op0 is not BLKmode, but BLKmode is, adjust_mode
+	     below would ICE.  While it is likely a FE bug,
+	     try to be robust here.  See PR43166.  */
+	  || mode == BLKmode)
 	{
 	  gcc_assert (MEM_P (op0));
 	  op0 = adjust_address_nv (op0, mode, 0);
@@ -2539,8 +2542,9 @@ expand_debug_expr (tree exp)
 	    if (bitpos >= GET_MODE_BITSIZE (opmode))
 	      return NULL;
 
-	    return simplify_gen_subreg (mode, op0, opmode,
-					bitpos / BITS_PER_UNIT);
+	    if ((bitpos % GET_MODE_BITSIZE (mode)) == 0)
+	      return simplify_gen_subreg (mode, op0, opmode,
+					  bitpos / BITS_PER_UNIT);
 	  }
 
 	return simplify_gen_ternary (SCALAR_INT_MODE_P (GET_MODE (op0))

@@ -1,3 +1,63 @@
+2010-02-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/43166
+	* gfortran.dg/debug/pr43166.f: New test.
+
+	PR debug/43165
+	* gcc.dg/torture/pr43165.c: New test.
+
+2010-02-24  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR c/43128
+	* c-c++-common/pr41779.c: Update.
+
+2010-02-24  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR ada/32547
+	* lib/gnat-dg.exp (gnat_load): Redefine.
+
+	* ada/acats/run_acats: Run run_all.sh with $SHELL.
+	* ada/acats/run_all.sh: Downcase tasking not implemented message.
+
+2010-02-24  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR libobjc/36610
+	* objc/execute/forward-1.x: XFAIL on alpha*-dec-osf*, 64-bit
+	i?86-*-solaris2*, mips-sgi-irix*, sparc*-sun-solaris2* with
+	-fgnu-runtime.
+	Sort entries.
+
+2010-02-24  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc.dg/cpp/_Pragma6.c: Skip on mips-sgi-irix*, alpha*-dec-osf*.
+
+2010-02-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/43150
+	* gcc.dg/guality/vla-1.c: New test.
+
+2010-02-24  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/43042
+	* gfortran.dg/c_ptr_tests_15.f90: New test.
+
+2010-02-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/43107
+	* gcc.target/i386/pr43107.c: New test.
+
+2010-02-23  Jason Merrill  <jason@redhat.com>
+
+	PR c++/43143
+	* g++.dg/cpp0x/variadic100.C: New.
+
+2010-02-23  Jason Merrill  <jason@redhat.com>
+
+	PR debug/42800
+	* gcc.dg/debug/dwarf2/dwarf2.exp: Run c-c++-common dwarf2 tests.
+	* g++.dg/debug/dwarf2/dwarf2.exp: Likewise.
+	* c-c++-common/dwarf2/vla1.c: New.
+
 2010-02-23  Jakub Jelinek  <jakub@redhat.com>
 
 	PR target/43139
@@ -12,7 +72,7 @@
 	* gcc.dg/march.c: New.
 	* gcc.dg/march-generic.c: New.
 	* gcc.dg/mtune.c: New.
-	
+
 2010-02-22  Sebastian Pop  <sebastian.pop@amd.com>
 
 	PR middle-end/43083
