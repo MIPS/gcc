@@ -1,3 +1,17 @@
+2010-02-24  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	Backport from trunk
+	2009-07-10  Mark Mitchell  <mark@codesourcery.com>
+
+	* config/arm/thumb2.md (thumb2_cbz): Correct computation of length
+	attribute.
+	(thumb2_cbnz): Likewise.
+
+2010-02-22  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/s390.md ("movqi"): Re-add the mem->mem alternative.
+	(QI to BLKmode splitter): New splitter.
+
 2010-02-19  Jakub Jelinek  <jakub@redhat.com>
 
 	* ipa-struct-reorg.c (make_field_acc_node, gen_cluster, peel_field):
