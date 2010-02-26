@@ -1,3 +1,45 @@
+2010-02-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/43190
+	* c-c++-common/dwarf2/pr43190.c: New test.
+
+2010-02-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/43166
+	* gfortran.dg/debug/pr43166.f: New test.
+
+	PR debug/43165
+	* gcc.dg/torture/pr43165.c: New test.
+
+2010-02-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/43150
+	* gcc.dg/guality/vla-1.c: New test.
+
+2010-02-23  Jason Merrill  <jason@redhat.com>
+
+	PR debug/42800
+	* gcc.dg/debug/dwarf2/dwarf2.exp: Run c-c++-common dwarf2 tests.
+	* g++.dg/debug/dwarf2/dwarf2.exp: Likewise.
+	* c-c++-common/dwarf2/vla1.c: New.
+
+2010-02-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/43139
+	* gcc.dg/pr43139.c: New test.
+
+	PR debug/43077
+	* gcc.dg/guality/pr43077-1.c: New test.
+
+2009-03-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR middle-end/39315
+	* gcc.target/i386/pr39315-1.c: New.
+	* gcc.target/i386/pr39315-2.c: Likewise.
+	* gcc.target/i386/pr39315-3.c: Likewise.
+	* gcc.target/i386/pr39315-4.c: Likewise.
+	* gcc.target/i386/pr39315-check.c: Likewise.
+
 2010-02-24  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
 
 	* gcc.target/arm/thumb2-cbnz.c: New test.

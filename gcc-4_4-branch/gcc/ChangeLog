@@ -1,3 +1,79 @@
+2010-02-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/43190
+	* function.c (used_types_insert): Don't skip through named pointer
+	types.  Don't use TYPE_MAIN_VARIANT if the original type has a name
+	and it is different from the main variant's type.
+
+2010-02-26  Jan Kratochvil  <jan.kratochvil@redhat.com>
+
+	* doc/invoke.texi (-fvar-tracking-assignments): Fix typo.
+
+2010-02-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* Makefile.in (var-tracking.o): Depend on $(DIAGNOSTIC_H).
+	* var-tracking.c: Include diagnostic.h.
+	(debug_dv): New function.
+	(dump_var): Print DEBUG_EXPR_DECLs as D#N instead of D.-N.
+
+	PR debug/43160
+	* var-tracking.c (dv_onepart_p): Return true for DEBUG_EXPR_DECLs.
+	(add_value_chain, add_value_chains, remove_value_chain,
+	remove_value_chains): Handle DEBUG_EXPRs.
+	(check_changed_vars_1, check_changed_vars_2): Handle DEBUG_EXPR_DECLs.
+
+	PR debug/43161
+	* regrename.c (struct queued_debug_insn_change): New type.
+	(struct value_data_entry): Add debug_insn_changes field.
+	(struct value_data): Add n_debug_insn_changes field.
+	(debug_insn_changes_pool): New variable.
+	(free_debug_insn_changes, apply_debug_insn_changes,
+	cprop_find_used_regs_1, cprop_find_used_regs): New functions.
+	(kill_value_one_regno): Call free_debug_insn_changes if needed.
+	(init_value_data): Clear debug_insn_changes and n_debug_insn_changes
+	fields.
+	(replace_oldest_value_reg): Don't change DEBUG_INSNs, instead queue
+	changes for them.
+	(copyprop_hardreg_forward_1): Don't call apply_change_group for
+	DEBUG_INSNs.  For a real insn, if there are queued DEBUG_INSN
+	changes, call cprop_find_used_regs via note_stores.
+	(copyprop_hardreg_forward): When copying vd from predecessor
+	which has any queued DEBUG_INSN changes, make sure the pointers are
+	cleared.  At the end call df_analyze and then if there are any
+	DEBUG_INSN changes queued at the end of some basic block for still
+	live registers, apply them.
+	(pass_cprop_hardreg): Set TODO_df_finish in todo_flags_finish.
+
+2010-02-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/43166
+	* cfgexpand.c (expand_debug_expr) <case VAR_DECL>: If mode is
+	BLKmode, assert op0 is a MEM and just adjust its mode.
+
+	PR debug/43165
+	* cfgexpand.c (expand_debug_expr): Don't call simplify_gen_subreg
+	if bitpos isn't multiple of mode's bitsize.
+
+2010-02-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/43150
+	* gimplify.c (gimplify_type_sizes): Clear DECL_IGNORED_P for VLA
+	bounds even for -O+.
+	* var-tracking.c (track_expr_p): If !need_rtl, don't mandate
+	expr needs to have DECL_NAME set.
+
+2010-02-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/43139
+	* config/i386/i386.c (ix86_delegitimize_address): Delegitimize all
+	GOTOFF relocs, even when the base reg isn't pic pointer.
+
+2009-03-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR middle-end/39315
+	* cfgexpand.c (expand_one_stack_var_at): Change alignment
+	limit to MAX_SUPPORTED_STACK_ALIGNMENT.
+
 2010-02-24  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
 
 	Backport from trunk

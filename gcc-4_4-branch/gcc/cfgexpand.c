@@ -878,7 +878,8 @@ dump_stack_var_partition (void)
 static void
 expand_one_stack_var_at (tree decl, HOST_WIDE_INT offset)
 {
-  HOST_WIDE_INT align;
+  /* Alignment is unsigned.   */
+  unsigned HOST_WIDE_INT align;
   rtx x;
 
   /* If this fails, we've overflowed the stack frame.  Error nicely?  */
@@ -891,8 +892,10 @@ expand_one_stack_var_at (tree decl, HOST_WIDE_INT offset)
   offset -= frame_phase;
   align = offset & -offset;
   align *= BITS_PER_UNIT;
-  if (align > STACK_BOUNDARY || align == 0)
+  if (align == 0)
     align = STACK_BOUNDARY;
+  else if (align > MAX_SUPPORTED_STACK_ALIGNMENT)
+    align = MAX_SUPPORTED_STACK_ALIGNMENT;
   DECL_ALIGN (decl) = align;
   DECL_USER_ALIGN (decl) = 0;
 
@@ -2112,7 +2115,11 @@ expand_debug_expr (tree exp)
       else
 	op0 = copy_rtx (op0);
 
-      if (GET_MODE (op0) == BLKmode)
+      if (GET_MODE (op0) == BLKmode
+	  /* If op0 is not BLKmode, but BLKmode is, adjust_mode
+	     below would ICE.  While it is likely a FE bug,
+	     try to be robust here.  See PR43166.  */
+	  || mode == BLKmode)
 	{
 	  gcc_assert (MEM_P (op0));
 	  op0 = adjust_address_nv (op0, mode, 0);
@@ -2325,8 +2332,9 @@ expand_debug_expr (tree exp)
 	    if (bitpos >= GET_MODE_BITSIZE (opmode))
 	      return NULL;
 
-	    return simplify_gen_subreg (mode, op0, opmode,
-					bitpos / BITS_PER_UNIT);
+	    if ((bitpos % GET_MODE_BITSIZE (mode)) == 0)
+	      return simplify_gen_subreg (mode, op0, opmode,
+					  bitpos / BITS_PER_UNIT);
 	  }
 
 	return simplify_gen_ternary (SCALAR_INT_MODE_P (GET_MODE (op0))
