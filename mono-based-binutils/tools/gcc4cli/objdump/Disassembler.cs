@@ -44,9 +44,13 @@ namespace gcc4cli.objdump {
         void EmitModuleReferences (ModuleReferenceCollection modules)
         {
             foreach (ModuleReference module in modules) {
-                Writer.Write (".module extern");
-                Writer.WriteSymbolName (module.Name);
-                Writer.WriteLine ();
+		if (module.Name == null || module.Name == "")
+		    Writer.WriteLine ("/* .module extern \"\" */");
+		else {
+		    Writer.Write (".module extern");
+		    Writer.WriteSymbolName (module.Name);
+		    Writer.WriteLine ();
+		}
             }
         }
 
@@ -478,8 +482,13 @@ namespace gcc4cli.objdump {
             if (method.IsPInvokeImpl) {
                 Writer.Write ("pinvokeimpl (");
                 if (method.PInvokeInfo != null) {
-                    if (method.PInvokeInfo.Module != null)
-                        Writer.WriteSymbolName (method.PInvokeInfo.Module.Name);
+                    if (method.PInvokeInfo.Module != null) {
+			if (   method.PInvokeInfo.Module.Name == null
+			    || method.PInvokeInfo.Module.Name == "")
+			    Writer.Write ("\"\"");
+			else
+			    Writer.WriteSymbolName (method.PInvokeInfo.Module.Name);
+		    }
                     if (method.PInvokeInfo.EntryPoint != null) {
                         Writer.Write ("as");
                         Writer.Write (method.PInvokeInfo.EntryPoint);
