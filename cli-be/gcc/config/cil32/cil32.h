@@ -43,7 +43,7 @@ Erven Rohou             <erven.rohou@inria.fr>
 #define TARGET_DECLARE_VARIABLE(STREAM,DECL) emit_cil_decl(STREAM,DECL)
 
 /* Node: Driver */
-#define CPP_SPEC "%{mthreads:-D_MTHREADS}"
+#define CPP_SPEC "%{mthreads:-D_MTHREADS} %{,assembler-with-cpp:-P}"
 #if defined(MONO_BINUTILS)
 #define CC1_SPEC "-mgcc4net-linker"
 #define LIBGCC_SPEC ""
@@ -70,6 +70,10 @@ Erven Rohou             <erven.rohou@inria.fr>
       builtin_define_std ("__GNU_CIL__");	\
       builtin_assert ("cpu=cil32");		\
       builtin_assert ("machine=cil32");		\
+      if (TARGET_GCC4NET_LINKER)		\
+	builtin_define_std ("__MONOLINKER");	\
+      else if (TARGET_OPENSYSTEMC)		\
+	builtin_define_std ("__DOTGNULINKER");	\
     }						\
   while(0)
 
