@@ -25272,8 +25272,9 @@ rs6000_emit_swdivdf (rtx dst, rtx n, rtx d)
 void
 rs6000_emit_swrsqrtsf (rtx dst, rtx src)
 {
-  rtx x0, x1, x2, y1, u0, u1, u2, v0, v1, v2, t0,
-    half, one, halfthree, c1, cond, label;
+  rtx x0, x1, x2, y1, u0, u1, u2, v0, v1, v2, half, one, halfthree, c1;
+
+  gcc_assert (flag_finite_math_only && !flag_trapping_math);
 
   x0 = gen_reg_rtx (SFmode);
   x1 = gen_reg_rtx (SFmode);
@@ -25285,19 +25286,7 @@ rs6000_emit_swrsqrtsf (rtx dst, rtx src)
   v0 = gen_reg_rtx (SFmode);
   v1 = gen_reg_rtx (SFmode);
   v2 = gen_reg_rtx (SFmode);
-  t0 = gen_reg_rtx (SFmode);
   halfthree = gen_reg_rtx (SFmode);
-  cond = gen_rtx_REG (CCFPmode, CR1_REGNO);
-  label = gen_rtx_LABEL_REF (VOIDmode, gen_label_rtx ());
-
-  /* check 0.0, 1.0, NaN, Inf by testing src * src = src */
-  emit_insn (gen_rtx_SET (VOIDmode, t0,
-			  gen_rtx_MULT (SFmode, src, src)));
-
-  emit_insn (gen_rtx_SET (VOIDmode, cond,
-			  gen_rtx_COMPARE (CCFPmode, t0, src)));
-  c1 = gen_rtx_EQ (VOIDmode, cond, const0_rtx);
-  emit_unlikely_jump (c1, label);
 
   half = force_reg (SFmode, CONST_DOUBLE_FROM_REAL_VALUE (dconsthalf, SFmode));
   one = force_reg (SFmode, CONST_DOUBLE_FROM_REAL_VALUE (dconst1, SFmode));
@@ -25346,8 +25335,6 @@ rs6000_emit_swrsqrtsf (rtx dst, rtx src)
 					 gen_rtx_MULT (SFmode, y1, u2))));
   emit_insn (gen_rtx_SET (VOIDmode, dst,
 			  gen_rtx_MULT (SFmode, x2, v2)));
-
-  emit_label (XEXP (label, 0));
 }
 
 /* Emit popcount intrinsic on TARGET_POPCNTB (Power5) and TARGET_POPCNTD
