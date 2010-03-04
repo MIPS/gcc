@@ -228,6 +228,7 @@ int rs6000_debug_mrm;		/* temporary switch */
 #define MRM_POWER7_LAST_INSN_P		((rs6000_debug_mrm & 0x02) != 0)
 #define MRM_POWER7_VERBOSE_P		((rs6000_debug_mrm & 0x04) != 0)
 #define MRM_POWER7_P5COST_P		((rs6000_debug_mrm & 0x10) != 0)
+#define MRM_POWER7_NO_IRA_COVER_CLASS	((rs6000_debug_mrm & 0x20) != 0)
 #define MRM_POWER7_DEFAULT		(0x13)
 
 /* Specify the machine mode that pointers have.  After generation of rtl, the
@@ -13765,7 +13766,9 @@ rs6000_ira_cover_classes (void)
   static const enum reg_class cover_pre_vsx[] = IRA_COVER_CLASSES_PRE_VSX;
   static const enum reg_class cover_vsx[]     = IRA_COVER_CLASSES_VSX;
 
-  return (TARGET_VSX) ? cover_vsx : cover_pre_vsx;
+  return ((TARGET_VSX && !MRM_POWER7_NO_IRA_COVER_CLASS)
+	  ? cover_vsx
+	  : cover_pre_vsx);
 }
 
 /* Allocate a 64-bit stack slot to be used for copying SDmode
