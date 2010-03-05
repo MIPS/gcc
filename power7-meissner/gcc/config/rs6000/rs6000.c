@@ -1869,6 +1869,7 @@ rs6000_debug_reg_global (void)
 	   "MRM_POWER7_LAST_INSN_P          = %s\n"
 	   "MRM_POWER7_VERBOSE_P            = %s\n"
 	   "MRM_POWER7_P5COST_P             = %s\n"
+	   "MRM_POWER7_NO_IRA_COVER_CLASS   = %s\n"
 	   "\n",
 	   rs6000_always_hint ? "true" : "false",
 	   rs6000_align_branch_targets ? "true" : "false",
@@ -1877,7 +1878,8 @@ rs6000_debug_reg_global (void)
 	   MRM_POWER7_FIRST_INSN_P ? "true" : "false",
 	   MRM_POWER7_LAST_INSN_P ? "true" : "false",
 	   MRM_POWER7_VERBOSE_P ? "true" : "false",
-	   MRM_POWER7_P5COST_P ? "true" : "false");
+	   MRM_POWER7_P5COST_P ? "true" : "false",
+	   MRM_POWER7_NO_IRA_COVER_CLASS ? "true" : "false");
 }
 
 /* Initialize the various global tables that are based on register size.  */
@@ -2027,8 +2029,9 @@ rs6000_init_hard_regno_mode_ok (void)
       rs6000_constraints[RS6000_CONSTRAINT_wa] = VSX_REGS;
       rs6000_constraints[RS6000_CONSTRAINT_wf] = VSX_REGS;
       rs6000_constraints[RS6000_CONSTRAINT_wd] = VSX_REGS;
-      if (TARGET_VSX_SCALAR_DOUBLE)
-	rs6000_constraints[RS6000_CONSTRAINT_ws] = VSX_REGS;
+      rs6000_constraints[RS6000_CONSTRAINT_ws] = (TARGET_VSX_SCALAR_MEMORY
+						  ? VSX_REGS
+						  : FLOAT_REGS);
     }
 
   if (TARGET_ALTIVEC)
@@ -13864,22 +13867,8 @@ rs6000_preferred_reload_class (rtx x, enum reg_class rclass)
      and V4SI).  */
   if (rclass == VSX_REGS && VECTOR_MEM_VSX_P (mode))
     {
-      if (mode == DFmode && GET_CODE (x) == MEM)
-	{
-	  rtx addr = XEXP (x, 0);
-
-	  if (legitimate_indirect_address_p (addr, false))	/* reg */
-	    return VSX_REGS;
-
-	  if (legitimate_indexed_address_p (addr, false))	/* reg+reg */
-	    return VSX_REGS;
-
-	  if (GET_CODE (addr) == PRE_MODIFY
-	      && legitimate_indexed_address_p (XEXP (addr, 0), false))
-	    return VSX_REGS;
-
-	  return FLOAT_REGS;
-	}
+      if (GET_MODE_SIZE (mode) <= 8)
+	return FLOAT_REGS;
 
       if (VECTOR_UNIT_ALTIVEC_P (mode))
 	return ALTIVEC_REGS;

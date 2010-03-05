@@ -1,7 +1,17 @@
+2010-03-04  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_debug_reg_global): Print out the
+	no ira cover class debug item.
+	(rs6000_init_hard_regno_mode_ok): Make ws constraint map to
+	FLOAT_REGS unless we explicitly want VSX memory reference
+	instructions.
+	(rs6000_preferred_reload_class): For small types, prefer
+	FLOAT_REGS over VSX_REGS.
+
 2010-03-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.c (rs6000_ira_cover_classes): If
-	-mdebug=mrm0x20, don't use a common cover class for VSX.
+	-mdebug=mrm32, don't use a common cover class for VSX.
 
 	Merge up to 157207.
 	* REVISION: Update subversion id.
