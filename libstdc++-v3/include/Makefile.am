@@ -628,6 +628,8 @@ tr2_headers = \
 	${tr2_srcdir}/fp_comp.h \
 	${tr2_srcdir}/integer \
 	${tr2_srcdir}/integer.h \
+	${tr2_srcdir}/polynomial \
+	${tr2_srcdir}/ratio \
 	${tr2_srcdir}/rational \
 	${tr2_srcdir}/rational.h \
 	${tr2_srcdir}/real \

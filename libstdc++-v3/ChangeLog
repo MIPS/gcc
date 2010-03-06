@@ -1,3 +1,22 @@
+2010-03-06  Ed Smith-Rowland  <3dw4rd@verizon.net>
+
+	* include/tr2/ratio: New.
+	* include/tr2/polynomial: New.
+	* include/Makefile.am: Adjust.
+	* include/Makefile.in: Adjust.
+	* include/tr2/cmath: Remove executable bit.
+	* include/tr2/integer: Same.
+	* include/tr2/integer.h: Same.
+	* include/tr2/real: Same.
+	* include/tr2/real.h: Same.
+	* include/tr2/rational: Same.
+	* include/tr2/rational.h: Same.
+	* include/tr2/rope: Same.
+	* include/tr2/rope.tcc: Same.
+	* include/tr2/bool_set: Same.
+	* include/tr2/bool_set.tcc: Same.
+	* include/tr2/fp_comp.h: Same.
+
 2009-10-19  Ed Smith-Rowland  <3dw4rd@verizon.net>
 
 	* include/Makefile.in: Removed fp_comp.cpp and bool_set.cc.

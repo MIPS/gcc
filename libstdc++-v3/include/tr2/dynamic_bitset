@@ -1,6 +1,6 @@
 // <dynamic_bitset> -*- C++ -*-
 
-// Copyright (C) 2009
+// Copyright (C) 2009, 2010
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -70,13 +70,8 @@ public:
    *
    *  See documentation for dynamic_bitset.
    */
-#ifdef _GLIBCXX_USE_LONG_LONG
   template<typename _WordT = unsigned long long,
 	   typename _Alloc = std::allocator<_WordT>>
-#else
-  template<typename _WordT = unsigned long,
-	   typename _Alloc = std::allocator<_WordT>>
-#endif
     struct _Base_dynamic_bitset
     {
       static_assert(std::is_unsigned<_WordT>::value, "template argument "
@@ -101,7 +96,6 @@ public:
       _Base_dynamic_bitset(_Base_dynamic_bitset&& __b)
       { this->_M_w.swap(__b._M_w); }
 
-#ifdef _GLIBCXX_USE_LONG_LONG
       explicit
       _Base_dynamic_bitset(size_type __nbits, unsigned long long __val = 0ULL,
 			   const allocator_type& __alloc = allocator_type())
@@ -118,24 +112,6 @@ public:
 	    __mask <<= _S_bits_per_block;
 	  }
       }
-#else
-      explicit
-      _Base_dynamic_bitset(size_type __nbits, unsigned long __val = 0UL,
-			   const allocator_type& __alloc = allocator_type())
-      : _M_w(__nbits / _S_bits_per_block
-	     + (__nbits % _S_bits_per_block > 0),
-	     __val, __alloc)
-      {
-	unsigned long __mask = ~static_cast<block_type>(0);
-	size_t __n = std::min(this->_M_w.size(),
-			      sizeof(unsigned long) / sizeof(block_type));
-	for (size_t __i = 0; __i < __n; ++__i)
-	  {
-	    this->_M_w[__i] = (__val & __mask) >> (__i * _S_bits_per_block);
-	    __mask <<= _S_bits_per_block;
-	  }
-      }
-#endif
 
       void
       _M_assign(const _Base_dynamic_bitset<block_type, allocator_type>& __b)
@@ -357,10 +333,8 @@ public:
       unsigned long
       _M_do_to_ulong() const;
 
-#ifdef _GLIBCXX_USE_LONG_LONG
       unsigned long long
       _M_do_to_ullong() const;
-#endif
 
       // find first "on" bit
       size_type
@@ -454,7 +428,6 @@ public:
       return __res;
     }
 
-#ifdef _GLIBCXX_USE_LONG_LONG
   template<typename _WordT, typename _Alloc>
     unsigned long long
     _Base_dynamic_bitset<_WordT, _Alloc>::_M_do_to_ullong() const
@@ -468,7 +441,6 @@ public:
 	__res += this->_M_w[__i] << (__i * _S_bits_per_block);
       return __res;
     }
-#endif
 
   template<typename _WordT, typename _Alloc>
     size_t
@@ -584,13 +556,8 @@ public:
    *  _Base_dynamic_bitset @e is a vector, and is indexed as such.  This is
    *  carefully encapsulated.
    */
-#ifdef _GLIBCXX_USE_LONG_LONG
   template<typename _WordT = unsigned long long,
 	   typename _Alloc = std::allocator<_WordT>>
-#else
-  template<typename _WordT = unsigned long,
-	   typename _Alloc = std::allocator<_WordT>>
-#endif
     class dynamic_bitset
     : private _Base_dynamic_bitset<_WordT, _Alloc>
     {
@@ -746,21 +713,12 @@ public:
       { }
 
       /// Initial bits bitwise-copied from a single word (others set to zero).
-#ifdef _GLIBCXX_USE_LONG_LONG
       explicit
       dynamic_bitset(size_type __nbits, unsigned long long __val = 0ULL,
 		     const allocator_type& __alloc = allocator_type())
       : _Base(__nbits, __val, __alloc),
 	_M_Nb(__nbits)
       { }
-#else
-      explicit
-      dynamic_bitset(size_type __nbits, unsigned long __val = 0UL,
-		     const allocator_type& __alloc = allocator_type())
-      : _Base(__nbits, __val, __alloc),
-	_M_Nb(__nbits)
-      { }
-#endif
 
       dynamic_bitset(initializer_list<block_type> __il,
 		     const allocator_type& __alloc = allocator_type())
@@ -1117,7 +1075,6 @@ public:
       to_ulong() const
       { return this->_M_do_to_ulong(); }
 
-#ifdef _GLIBCXX_USE_LONG_LONG
       /**
        *  @brief Returns a numerical interpretation of the %dynamic_bitset.
        *  @return  The integral equivalent of the bits.
@@ -1127,7 +1084,6 @@ public:
       unsigned long long
       to_ullong() const
       { return this->_M_do_to_ullong(); }
-#endif
 
       /**
        *  @brief Returns a character interpretation of the %dynamic_bitset.
