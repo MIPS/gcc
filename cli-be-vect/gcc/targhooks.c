@@ -400,6 +400,11 @@ default_builtin_reciprocal (enum built_in_function fn ATTRIBUTE_UNUSED,
   return NULL_TREE;
 }
 
+extern bool default_builtin_can_force_alignment (void)
+{
+  return true;
+}
+
 bool
 hook_bool_CUMULATIVE_ARGS_mode_tree_bool_false (
 	CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,

@@ -5787,7 +5787,7 @@ vect_setup_realignment (gimple stmt, gimple_stmt_iterator *gsi,
 
   if (targetm.vectorize.builtin_mask_for_load)
     {
-      tree builtin_decl;
+      tree builtin_decl, alignment, misalign;
       struct data_reference *dr = STMT_VINFO_DATA_REF (stmt_info);
 
       /* Compute INIT_ADDR - the initial addressed accessed by this memref.  */
@@ -5803,8 +5803,23 @@ vect_setup_realignment (gimple stmt, gimple_stmt_iterator *gsi,
 	  gcc_assert (!new_bb);
 	}
 
+      if (DR_MISALIGNMENT (dr) != -1)
+        {
+          alignment = build_int_cst (TREE_TYPE (DR_INIT (dr)), VECT_MAX_SIZE);
+          misalign = size_binop (TRUNC_MOD_EXPR,  
+                                 build_int_cst (TREE_TYPE (DR_INIT (dr)), 
+                                                DR_MISALIGNMENT (dr)), 
+                                 alignment);
+        }
+      else
+        {
+          alignment = build_int_cst (TREE_TYPE (DR_INIT (dr)), 0);
+          misalign = build_int_cst (TREE_TYPE (DR_INIT (dr)), 0);
+        }
+
       builtin_decl = targetm.vectorize.builtin_mask_for_load ();
-      new_stmt = gimple_build_call (builtin_decl, 1, init_addr);
+      new_stmt = gimple_build_call (builtin_decl, 3, init_addr, misalign, 
+                                    alignment);
       vec_dest =
 	vect_create_destination_var (scalar_dest,
 				     gimple_call_return_type (new_stmt));
@@ -6718,12 +6733,6 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
       gcc_assert (alignment_support_scheme != dr_explicit_realign_optimized);
       compute_in_loop = true;
     }
-  else
-    {
-      if (targetm.vectorize.builtin_always_realign
-           && targetm.vectorize.builtin_always_realign ())
-        alignment_support_scheme = dr_explicit_realign_optimized;
-    }
 
   if ((alignment_support_scheme == dr_explicit_realign_optimized
        || alignment_support_scheme == dr_explicit_realign)
@@ -6830,11 +6839,32 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
 
 	      vec_dest = vect_create_destination_var (scalar_dest, vectype);
               if (targetm.vectorize.builtin_realign_load
-                  && (builtin_decl = targetm.vectorize.builtin_realign_load (vectype)))
+                  && (builtin_decl 
+                           = targetm.vectorize.builtin_realign_load (vectype)))
                 {
-                  new_stmt = gimple_build_call (builtin_decl, 5, msq, lsq, 
+                  tree alignment, misalign;
+
+                  if (DR_MISALIGNMENT (first_dr) != -1)
+                    {
+                      alignment 
+                        = build_int_cst (TREE_TYPE (DR_INIT (first_dr)), 
+                                         VECT_MAX_SIZE);
+                      misalign = size_binop (TRUNC_MOD_EXPR,
+                                 build_int_cst (TREE_TYPE (DR_INIT (dr)),
+                                                DR_MISALIGNMENT (dr)),
+                                 alignment);
+                    }
+                  else
+                    {
+                      alignment 
+                        = build_int_cst (TREE_TYPE (DR_INIT (first_dr)), 0);
+                      misalign 
+                        = build_int_cst (TREE_TYPE (DR_INIT (first_dr)), 0);
+                    }
+
+                  new_stmt = gimple_build_call (builtin_decl, 6, msq, lsq, 
                                                 realignment_token, dataref_ptr, 
-                                    vect_type_size_unit (loop_vinfo, vectype));
+                                                misalign, alignment);
                   new_temp = make_ssa_name (vec_dest, new_stmt);
                   add_referenced_var (vec_dest);
                   gimple_call_set_lhs (new_stmt, new_temp);
@@ -8081,6 +8111,148 @@ vect_create_cond_for_align_checks (loop_vec_info loop_vinfo,
     *cond_expr = part_cond_expr;
 }
 
+
+static void
+vect_create_cond_for_dr_align_checks (loop_vec_info loop_vinfo,
+                                      tree *cond_expr,
+                                      gimple_seq *cond_expr_stmt_list)
+{
+  struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
+  VEC (data_reference_p, heap) *may_misalign_drs
+    = LOOP_VINFO_DRS_FOR_ALIGN_CHECKS (loop_vinfo);
+  gimple ref_stmt;
+  tree mask;
+  unsigned int i;
+  tree psize;
+  tree int_ptrsize_type;
+  char tmp_name[20];
+  tree or_tmp_name = NULL_TREE;
+  tree and_tmp, and_tmp_name;
+  gimple and_stmt;
+  tree ptrsize_zero;
+  tree part_cond_expr;
+  struct data_reference *dr = VEC_index (data_reference_p, may_misalign_drs, 0);
+  tree align = vect_tree_type_vector_align (loop_vinfo, 
+                   get_vectype_for_scalar_type (TREE_TYPE (DR_REF (dr))));
+  tree vectype_size_minus_1, mask_var;
+  gimple mask_stmt;
+  basic_block new_bb;
+  gimple_seq stmts;
+  tree tmp, mask_var2;
+
+  /* CHECKME: what is the best integer or unsigned type to use to hold a
+     cast from a pointer value?  */
+  psize = TYPE_SIZE (ptr_type_node);
+  int_ptrsize_type
+    = lang_hooks.types.type_for_size (tree_low_cst (psize, 1), 0);
+
+  vectype_size_minus_1 = fold_build2 (MINUS_EXPR, int_ptrsize_type, 
+                                      fold_convert (int_ptrsize_type, align),
+                                      integer_one_node);
+  mask_var = create_tmp_var (int_ptrsize_type, "mask");
+  add_referenced_var (mask_var);
+  stmts = NULL;
+  tmp = force_gimple_operand (vectype_size_minus_1, &stmts, false, mask_var);
+
+  /* Insert stmt on loop preheader edge.  */
+  if (stmts)
+    {
+      new_bb = gsi_insert_seq_on_edge_immediate (loop_preheader_edge (loop), stmts);
+      gcc_assert (!new_bb);
+    }
+
+  mask_var2 = create_tmp_var (int_ptrsize_type, "mask");
+  add_referenced_var (mask_var2);
+  mask_stmt = gimple_build_assign (mask_var2, tmp);
+  mask = make_ssa_name (mask_var2, mask_stmt);
+  gimple_assign_set_lhs (mask_stmt, mask);
+  new_bb = gsi_insert_on_edge_immediate (loop_preheader_edge (loop), mask_stmt);
+  gcc_assert (!new_bb);
+
+  /* Create expression (mask & (dr_1 || ... || dr_n)) where dr_i is the address
+     of the first vector of the i'th data reference. */
+
+  for (i = 0; VEC_iterate (data_reference_p, may_misalign_drs, i, dr); i++)
+    {
+      gimple_seq new_stmt_list = NULL;
+      tree addr_base;
+      tree addr_tmp, addr_tmp_name;
+      tree or_tmp, new_or_tmp_name;
+      gimple addr_stmt, or_stmt;
+
+      if (DR_MISALIGNMENT (dr) != -1)
+        {
+          /* Known misalignment, check base.  */
+          tree base_addr = DR_BASE_ADDRESS (dr);
+          /*tree base = build_fold_indirect_ref (base_addr);*/
+
+          addr_base = base_addr;
+        }
+      else
+        {
+          /* Unknown misalignment, check the access itself.  */
+          /* create: addr_tmp = (int)(address_of_first_vector) */
+          ref_stmt = DR_STMT (dr);
+          addr_base =
+            vect_create_addr_base_for_vector_ref (ref_stmt, &new_stmt_list,
+                                                  NULL_TREE, loop);
+          if (new_stmt_list != NULL)
+            gimple_seq_add_seq (cond_expr_stmt_list, new_stmt_list);
+        }
+      
+      sprintf (tmp_name, "%s%d", "addr2int", i);
+      addr_tmp = create_tmp_var (int_ptrsize_type, tmp_name);
+      add_referenced_var (addr_tmp);
+      addr_tmp_name = make_ssa_name (addr_tmp, NULL);
+      addr_stmt = gimple_build_assign_with_ops (NOP_EXPR, addr_tmp_name,
+                                                addr_base, NULL_TREE);
+      SSA_NAME_DEF_STMT (addr_tmp_name) = addr_stmt;
+      gimple_seq_add_stmt (cond_expr_stmt_list, addr_stmt);
+
+      /* The addresses are OR together.  */
+
+      if (or_tmp_name != NULL_TREE)
+        {
+          /* create: or_tmp = or_tmp | addr_tmp */
+          sprintf (tmp_name, "%s%d", "orptrs", i);
+          or_tmp = create_tmp_var (int_ptrsize_type, tmp_name);
+          add_referenced_var (or_tmp);
+          new_or_tmp_name = make_ssa_name (or_tmp, NULL);
+          or_stmt = gimple_build_assign_with_ops (BIT_IOR_EXPR,
+                                                  new_or_tmp_name,
+                                                  or_tmp_name, addr_tmp_name);
+          SSA_NAME_DEF_STMT (new_or_tmp_name) = or_stmt;
+          gimple_seq_add_stmt (cond_expr_stmt_list, or_stmt);
+          or_tmp_name = new_or_tmp_name;
+        }
+      else
+        or_tmp_name = addr_tmp_name;
+
+    } /* end for i */
+
+
+  /* create: and_tmp = or_tmp & mask  */
+  and_tmp = create_tmp_var (int_ptrsize_type, "andmask" );
+  add_referenced_var (and_tmp);
+  and_tmp_name = make_ssa_name (and_tmp, NULL);
+  and_stmt = gimple_build_assign_with_ops (BIT_AND_EXPR, and_tmp_name,
+                                           or_tmp_name, mask);
+  SSA_NAME_DEF_STMT (and_tmp_name) = and_stmt;
+  gimple_seq_add_stmt (cond_expr_stmt_list, and_stmt);
+
+  /* Make and_tmp the left operand of the conditional test against zero.
+     if and_tmp has a nonzero bit then some address is unaligned.  */
+  ptrsize_zero = build_int_cst (int_ptrsize_type, 0);
+  part_cond_expr = fold_build2 (EQ_EXPR, boolean_type_node,
+                                and_tmp_name, ptrsize_zero);
+  if (*cond_expr)
+    *cond_expr = fold_build2 (TRUTH_AND_EXPR, boolean_type_node,
+                              *cond_expr, part_cond_expr);
+  else
+    *cond_expr = part_cond_expr;
+}
+
+
 /* Function vect_vfa_segment_size.
 
    Create an expression that computes the size of segment
@@ -8248,7 +8420,7 @@ vect_create_cond_for_alias_checks (loop_vec_info loop_vinfo,
    is modified to also check for profitability as indicated by the 
    cost model initially.  */
 
-static void
+static struct loop *
 vect_loop_versioning (loop_vec_info loop_vinfo)
 {
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
@@ -8268,6 +8440,14 @@ vect_loop_versioning (loop_vec_info loop_vinfo)
   int min_profitable_iters = 0;
   unsigned int th;
 
+  if (VEC_length (data_reference_p, LOOP_VINFO_DRS_FOR_ALIGN_CHECKS (loop_vinfo))
+      && !LOOP_VINFO_ALIGN_SCHEME (loop_vinfo))
+    {
+      vect_create_cond_for_dr_align_checks (loop_vinfo, &cond_expr,
+                                         &cond_expr_stmt_list);
+    }
+  else
+    {
   /* Get profitability threshold for vectorized loop.  */
   min_profitable_iters = LOOP_VINFO_COST_MODEL_MIN_ITERS (loop_vinfo);
 
@@ -8288,12 +8468,16 @@ vect_loop_versioning (loop_vec_info loop_vinfo)
   if (VEC_length (ddr_p, LOOP_VINFO_MAY_ALIAS_DDRS (loop_vinfo)))
     vect_create_cond_for_alias_checks (loop_vinfo, &cond_expr, 
 				       &cond_expr_stmt_list);
+    }
 
   cond_expr =
     fold_build2 (NE_EXPR, boolean_type_node, cond_expr, integer_zero_node);
   cond_expr =
     force_gimple_operand (cond_expr, &gimplify_stmt_list, true, NULL_TREE);
   gimple_seq_add_seq (&cond_expr_stmt_list, gimplify_stmt_list);
+
+  //vect_mark_split_info_for_renaming (loop_vinfo);
+  //update_ssa (TODO_update_ssa);
 
   initialize_original_copy_tables ();
   nloop = loop_version (loop, cond_expr, &condition_bb,
@@ -8332,6 +8516,8 @@ vect_loop_versioning (loop_vec_info loop_vinfo)
       cond_exp_gsi = gsi_last_bb (condition_bb);
       gsi_insert_seq_before (&cond_exp_gsi, cond_expr_stmt_list, GSI_SAME_STMT);
     }
+
+  return nloop;
 }
 
 /* Remove a group of stores (for SLP or interleaving), free their 
@@ -8499,6 +8685,17 @@ vect_transform_loop (loop_vec_info loop_vinfo)
 
   if (vect_print_dump_info (REPORT_DETAILS))
     fprintf (vect_dump, "=== vec_transform_loop ===");
+
+  if (VEC_length (data_reference_p, LOOP_VINFO_DRS_FOR_ALIGN_CHECKS (loop_vinfo))
+      && !LOOP_VINFO_ALIGN_SCHEME (loop_vinfo))
+    {
+      struct loop *new_loop = vect_loop_versioning (loop_vinfo);
+      loop_vec_info new_loop_vinfo = vect_analyze_loop (new_loop, true);
+      new_loop->aux = new_loop_vinfo;
+
+      if (new_loop_vinfo && LOOP_VINFO_VECTORIZABLE_P (new_loop_vinfo))
+        vect_transform_loop (new_loop_vinfo);
+    }
 
   if (VEC_length (gimple, LOOP_VINFO_MAY_MISALIGN_STMTS (loop_vinfo))
       || VEC_length (ddr_p, LOOP_VINFO_MAY_ALIAS_DDRS (loop_vinfo)))

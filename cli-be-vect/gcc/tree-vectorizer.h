@@ -174,6 +174,13 @@ struct split_information
   gimple di_align_stmt;
 };
 
+
+enum alignment_scheme
+{
+  no_forced_scheme,
+  unknown_alignment
+};
+
 /*-----------------------------------------------------------------*/
 /* Info on vectorized loops.                                       */
 /*-----------------------------------------------------------------*/
@@ -250,6 +257,11 @@ typedef struct _loop_vec_info {
   unsigned slp_unrolling_factor;
 
   struct split_information split_info;
+
+  enum alignment_scheme align_scheme;
+
+  VEC (data_reference_p, heap) *drs_for_alignment_checks;
+
 } *loop_vec_info;
 
 /* Access Functions.  */
@@ -276,6 +288,8 @@ typedef struct _loop_vec_info {
 #define LOOP_VINFO_SLP_INSTANCES(L)   (L)->slp_instances
 #define LOOP_VINFO_SLP_UNROLLING_FACTOR(L) (L)->slp_unrolling_factor
 #define LOOP_VINFO_SPLIT_INFO(L)      (L)->split_info
+#define LOOP_VINFO_ALIGN_SCHEME(L)    (L)->align_scheme
+#define LOOP_VINFO_DRS_FOR_ALIGN_CHECKS(L) (L)-> drs_for_alignment_checks
 
 #define NITERS_KNOWN_P(n)                     \
 (host_integerp ((n),0)                        \
@@ -766,7 +780,7 @@ extern void free_stmt_vec_info (gimple stmt);
 
 /** In tree-vect-analyze.c  **/
 /* Driver for analysis stage.  */
-extern loop_vec_info vect_analyze_loop (struct loop *);
+extern loop_vec_info vect_analyze_loop (struct loop *, bool);
 extern void vect_free_slp_instance (slp_instance);
 extern loop_vec_info vect_analyze_loop_form (struct loop *);
 extern tree vect_get_smallest_scalar_type (gimple, HOST_WIDE_INT *, 
@@ -830,5 +844,6 @@ extern tree vect_type_size_unit (loop_vec_info, tree);
 extern tree vect_get_vf (loop_vec_info, tree);
 extern void vect_mark_split_info_for_renaming (loop_vec_info);
 extern void vect_init_split_info (loop_vec_info);
+#define VECT_MAX_SIZE 32
 
 #endif  /* GCC_TREE_VECTORIZER_H  */

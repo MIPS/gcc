@@ -92,6 +92,7 @@ static bool cil32_builtin_vectorize_independent_drs_only (void);
 static bool cil32_builtin_always_realign (void);
 static tree cil32_builtin_mask_for_load (void);
 static tree cil32_builtin_realign_load (tree);
+static bool cil32_builtin_can_force_alignment (void);
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ATTRIBUTE_TABLE
@@ -156,6 +157,10 @@ static tree cil32_builtin_realign_load (tree);
 #undef TARGET_VECTORIZE_BUILTIN_REALIGN_LOAD
 #define TARGET_VECTORIZE_BUILTIN_REALIGN_LOAD \
   cil32_builtin_realign_load
+
+#undef TARGET_VECTORIZE_BUILTIN_CAN_FORCE_ALIGNMENT
+#define TARGET_VECTORIZE_BUILTIN_CAN_FORCE_ALIGNMENT \
+  cil32_builtin_can_force_alignment
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -702,4 +707,7 @@ static tree cil32_builtin_realign_load (tree type)
   return NULL_TREE;
 }
 
-
+static bool cil32_builtin_can_force_alignment (void)
+{
+  return false;
+}

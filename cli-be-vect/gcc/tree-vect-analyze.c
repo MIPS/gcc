@@ -1442,6 +1442,7 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
   bool base_aligned;
   tree misalign;
   tree aligned_to, alignment;
+  bool cannot_force_alignment = false;
    
   if (vect_print_dump_info (REPORT_DETAILS))
     fprintf (vect_dump, "vect_compute_data_ref_alignment:");
@@ -1485,13 +1486,19 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
   alignment = ssize_int (TYPE_ALIGN (vectype)/BITS_PER_UNIT);
 
   if ((aligned_to && tree_int_cst_compare (aligned_to, alignment) < 0)
-      || !misalign)
+      || !misalign 
+      || LOOP_VINFO_ALIGN_SCHEME (loop_vinfo) == unknown_alignment)
     {
       if (vect_print_dump_info (REPORT_ALIGNMENT))
 	{
 	  fprintf (vect_dump, "Unknown alignment for access: ");
 	  print_generic_expr (vect_dump, base, TDF_SLIM);
 	}
+
+      if (!LOOP_VINFO_ALIGN_SCHEME (loop_vinfo))
+        VEC_safe_push (data_reference_p, heap, 
+                       LOOP_VINFO_DRS_FOR_ALIGN_CHECKS (loop_vinfo), dr);
+
       return true;
     }
 
@@ -1506,6 +1513,13 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
   else
     base_aligned = false;   
 
+  if (targetm.vectorize.builtin_can_force_alignment
+      && !targetm.vectorize.builtin_can_force_alignment ())
+    {
+      base_aligned = false;
+      cannot_force_alignment = true;
+    }
+
   if (!base_aligned) 
     {
       /* Do not change the alignment of global variables if 
@@ -1518,25 +1532,38 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
 	      fprintf (vect_dump, "can't force alignment of ref: ");
 	      print_generic_expr (vect_dump, ref, TDF_SLIM);
 	    }
+
+          if (!LOOP_VINFO_ALIGN_SCHEME (loop_vinfo))
+            VEC_safe_push (data_reference_p, heap,
+                           LOOP_VINFO_DRS_FOR_ALIGN_CHECKS (loop_vinfo), dr);
+
 	  return true;
 	}
-      
-      /* Force the alignment of the decl.
-	 NOTE: This is the only change to the code we make during
-	 the analysis phase, before deciding to vectorize the loop.  */
-      if (vect_print_dump_info (REPORT_DETAILS))
-	fprintf (vect_dump, "force alignment");
-      DECL_ALIGN (base) = TYPE_ALIGN (vectype);
-      DECL_USER_ALIGN (base) = 1;
+
+      if (cannot_force_alignment && !LOOP_VINFO_ALIGN_SCHEME (loop_vinfo))
+        VEC_safe_push (data_reference_p, heap,
+                       LOOP_VINFO_DRS_FOR_ALIGN_CHECKS (loop_vinfo), dr);
+      else
+        {
+          /* Force the alignment of the decl.
+  	     NOTE: This is the only change to the code we make during
+	     the analysis phase, before deciding to vectorize the loop.  */
+          if (vect_print_dump_info (REPORT_DETAILS))
+  	    fprintf (vect_dump, "force alignment");
+          DECL_ALIGN (base) = TYPE_ALIGN (vectype);
+          DECL_USER_ALIGN (base) = 1;
+        }
     }
 
   /* At this point we assume that the base is aligned.  */
   gcc_assert (base_aligned
 	      || (TREE_CODE (base) == VAR_DECL 
-		  && DECL_ALIGN (base) >= TYPE_ALIGN (vectype)));
+		  && DECL_ALIGN (base) >= TYPE_ALIGN (vectype))
+              || cannot_force_alignment);
 
-  /* Modulo alignment.  */
-  misalign = size_binop (TRUNC_MOD_EXPR, misalign, alignment);
+  if (!(cannot_force_alignment && !LOOP_VINFO_ALIGN_SCHEME (loop_vinfo)))
+    /* Modulo alignment.  */
+    misalign = size_binop (TRUNC_MOD_EXPR, misalign, alignment);
 
   if (!host_integerp (misalign, 1))
     {
@@ -1597,6 +1624,7 @@ vect_update_misalignment_for_peel (struct data_reference *dr,
   int dr_peel_size = GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (DR_REF (dr_peel))));
   stmt_vec_info stmt_info = vinfo_for_stmt (DR_STMT (dr));
   stmt_vec_info peel_stmt_info = vinfo_for_stmt (DR_STMT (dr_peel));
+  loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
 
  /* For interleaved data accesses the step in the loop must be multiplied by
      the size of the interleaving group.  */
@@ -1620,10 +1648,14 @@ vect_update_misalignment_for_peel (struct data_reference *dr,
     }
 
   if (known_alignment_for_access_p (dr)
-      && known_alignment_for_access_p (dr_peel))
+      && known_alignment_for_access_p (dr_peel)
+      && !(targetm.vectorize.builtin_can_force_alignment
+            && !targetm.vectorize.builtin_can_force_alignment ()
+            && !LOOP_VINFO_ALIGN_SCHEME (loop_vinfo)))
     {
       int misal = DR_MISALIGNMENT (dr);
       tree vectype = STMT_VINFO_VECTYPE (stmt_info);
+
       misal += npeel * dr_size;
       misal %= GET_MODE_SIZE (TYPE_MODE (vectype));
       SET_DR_MISALIGNMENT (dr, misal);
@@ -2034,7 +2066,8 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
   do_versioning = 
 	flag_tree_vect_loop_version 
 	&& optimize_loop_nest_for_speed_p (loop)
-	&& (!loop->inner); /* FORNOW */
+	&& (!loop->inner) /* FORNOW */
+        && !LOOP_VINFO_ALIGN_SCHEME (loop_vinfo); 
 
   if (do_versioning)
     {
@@ -4586,7 +4619,7 @@ vect_analyze_loop_form (struct loop *loop)
    for it. The different analyses will record information in the
    loop_vec_info struct.  */
 loop_vec_info
-vect_analyze_loop (struct loop *loop)
+vect_analyze_loop (struct loop *loop, bool version)
 {
   bool ok;
   loop_vec_info loop_vinfo;
@@ -4614,6 +4647,8 @@ vect_analyze_loop (struct loop *loop)
     }
 
   vect_init_split_info (loop_vinfo);
+  if (version)
+    LOOP_VINFO_ALIGN_SCHEME (loop_vinfo) = unknown_alignment;
 
   /* Find all data references in the loop (which correspond to vdefs/vuses)
      and analyze their evolution in the loop.

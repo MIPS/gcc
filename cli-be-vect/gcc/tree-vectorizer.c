@@ -1969,6 +1969,8 @@ new_loop_vec_info (struct loop *loop)
   LOOP_VINFO_SLP_INSTANCES (res) = VEC_alloc (slp_instance, heap, 10);
   LOOP_VINFO_SLP_UNROLLING_FACTOR (res) = 1;
   LOOP_VINFO_VF (res) = NULL_TREE;
+  LOOP_VINFO_ALIGN_SCHEME (res) = no_forced_scheme;
+  LOOP_VINFO_DRS_FOR_ALIGN_CHECKS (res) = VEC_alloc (data_reference_p, heap, 10);
 
   return res;
 }
@@ -2227,10 +2229,12 @@ vect_supportable_dr_alignment (struct data_reference *dr)
 
   if (DR_IS_READ (dr))
     {
-      if (optab_handler (vec_realign_load_optab, mode)->insn_code != 
+      if ((optab_handler (vec_realign_load_optab, mode)->insn_code != 
 						   	     CODE_FOR_nothing
 	  && (!targetm.vectorize.builtin_mask_for_load
 	      || targetm.vectorize.builtin_mask_for_load ()))
+          || (targetm.vectorize.builtin_always_realign
+              && targetm.vectorize.builtin_always_realign ()))
 	{
 	  tree vectype = STMT_VINFO_VECTYPE (stmt_info);
 	  if (nested_in_vect_loop
@@ -3063,7 +3067,7 @@ vectorize_loops (void)
 	loop_vec_info loop_vinfo;
 
 	vect_loop_location = find_loop_location (loop);
-	loop_vinfo = vect_analyze_loop (loop);
+	loop_vinfo = vect_analyze_loop (loop, false);
 	loop->aux = loop_vinfo;
 
 	if (!loop_vinfo || !LOOP_VINFO_VECTORIZABLE_P (loop_vinfo))
