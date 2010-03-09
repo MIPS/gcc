@@ -229,6 +229,21 @@ lower_cil_ldvec (const_cil_stmt stmt)
 
       return cil_build_call (cil32_builtins[builtin]);
     }
+  else if ((simd_type == GEN_SIMD) && (cil_prefix_unaligned (stmt) == 0))
+    {
+      switch (cil_type)
+        {
+        case CIL_V2SF: builtin = CIL32_GEN_VSF_LOAD_ALIGNED; break;
+        case CIL_V2SI: builtin = CIL32_GEN_VSI_LOAD_ALIGNED; break;
+        case CIL_V4HI: builtin = CIL32_GEN_VHI_LOAD_ALIGNED; break;
+        case CIL_V8QI: builtin = CIL32_GEN_VQI_LOAD_ALIGNED; break;
+        default:
+          gcc_unreachable ();
+        }
+
+      return cil_build_call (cil32_builtins[builtin]);
+    }
+
   else
     return cil_build_stmt_arg (CIL_LDOBJ, type);
 }
@@ -305,6 +320,20 @@ lower_cil_stvec (const_cil_stmt stmt)
 	case CIL_V4SI: builtin = CIL32_MONO_V4SI_STORE_ALIGNED; break;
 	case CIL_V8HI: builtin = CIL32_MONO_V8HI_STORE_ALIGNED; break;
 	case CIL_V16QI: builtin = CIL32_MONO_V16QI_STORE_ALIGNED; break;
+	default:
+	  gcc_unreachable ();
+	}
+
+      return cil_build_call (cil32_builtins[builtin]);
+    }
+  else if ((simd_type == GEN_SIMD) && (cil_prefix_unaligned (stmt) == 0))
+    {
+      switch (cil_type)
+	{
+	case CIL_V2SF: builtin = CIL32_GEN_VSF_STORE_ALIGNED; break;
+	case CIL_V2SI: builtin = CIL32_GEN_VSI_STORE_ALIGNED; break;
+	case CIL_V4HI: builtin = CIL32_GEN_VHI_STORE_ALIGNED; break;
+	case CIL_V8QI: builtin = CIL32_GEN_VQI_STORE_ALIGNED; break;
 	default:
 	  gcc_unreachable ();
 	}
