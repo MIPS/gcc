@@ -497,13 +497,12 @@ gfc_trans_runtime_check (bool error, bool once, tree cond, stmtblock_t * pblock,
 
 
 /* Call malloc to allocate size bytes of memory, with special conditions:
-      + if size < 0, generate a runtime error,
-      + if size == 0, return a malloced area of size 1,
+      + if size <= 0, return a malloced area of size 1,
       + if malloc returns NULL, issue a runtime error.  */
 tree
 gfc_call_malloc (stmtblock_t * block, tree type, tree size)
 {
-  tree tmp, msg, negative, malloc_result, null_result, res;
+  tree tmp, msg, malloc_result, null_result, res;
   stmtblock_t block2;
 
   size = gfc_evaluate_now (size, block);
@@ -514,18 +513,7 @@ gfc_call_malloc (stmtblock_t * block, tree type, tree size)
   /* Create a variable to hold the result.  */
   res = gfc_create_var (prvoid_type_node, NULL);
 
-  /* size < 0 ?  */
-  negative = fold_build2 (LT_EXPR, boolean_type_node, size,
-			  build_int_cst (size_type_node, 0));
-  msg = gfc_build_addr_expr (pchar_type_node, gfc_build_localized_cstring_const
-      ("Attempt to allocate a negative amount of memory."));
-  tmp = fold_build3 (COND_EXPR, void_type_node, negative,
-		     build_call_expr_loc (input_location,
-				      gfor_fndecl_runtime_error, 1, msg),
-		     build_empty_stmt (input_location));
-  gfc_add_expr_to_block (block, tmp);
-
-  /* Call malloc and check the result.  */
+  /* Call malloc.  */
   gfc_start_block (&block2);
 
   size = fold_build2 (MAX_EXPR, size_type_node, size,
@@ -535,15 +523,21 @@ gfc_call_malloc (stmtblock_t * block, tree type, tree size)
 		  fold_convert (prvoid_type_node,
 				build_call_expr_loc (input_location,
 				   built_in_decls[BUILT_IN_MALLOC], 1, size)));
-  null_result = fold_build2 (EQ_EXPR, boolean_type_node, res,
-			     build_int_cst (pvoid_type_node, 0));
-  msg = gfc_build_addr_expr (pchar_type_node, gfc_build_localized_cstring_const
-      ("Memory allocation failed"));
-  tmp = fold_build3 (COND_EXPR, void_type_node, null_result,
-		     build_call_expr_loc (input_location,
-				      gfor_fndecl_os_error, 1, msg),
-		     build_empty_stmt (input_location));
-  gfc_add_expr_to_block (&block2, tmp);
+
+  /* Optionally check whether malloc was successful.  */
+  if (gfc_option.rtcheck & GFC_RTCHECK_MEM)
+    {
+      null_result = fold_build2 (EQ_EXPR, boolean_type_node, res,
+				 build_int_cst (pvoid_type_node, 0));
+      msg = gfc_build_addr_expr (pchar_type_node,
+	      gfc_build_localized_cstring_const ("Memory allocation failed"));
+      tmp = fold_build3 (COND_EXPR, void_type_node, null_result,
+	      build_call_expr_loc (input_location,
+				   gfor_fndecl_os_error, 1, msg),
+				   build_empty_stmt (input_location));
+      gfc_add_expr_to_block (&block2, tmp);
+    }
+
   malloc_result = gfc_finish_block (&block2);
 
   gfc_add_expr_to_block (block, malloc_result);
@@ -552,6 +546,7 @@ gfc_call_malloc (stmtblock_t * block, tree type, tree size)
     res = fold_convert (type, res);
   return res;
 }
+
 
 /* Allocate memory, using an optional status argument.
  
@@ -711,6 +706,7 @@ gfc_allocate_with_status (stmtblock_t * block, tree size, tree status)
 	}
 	else
 	  runtime_error ("Attempting to allocate already allocated array");
+      }
     }
     
     expr must be set to the original expression being allocated for its locus
@@ -1047,10 +1043,12 @@ gfc_set_backend_locus (locus * loc)
 }
 
 
-/* Translate an executable statement.  */
+/* Translate an executable statement. The tree cond is used by gfc_trans_do.
+   This static function is wrapped by gfc_trans_code_cond and
+   gfc_trans_code.  */
 
-tree
-gfc_trans_code (gfc_code * code)
+static tree
+trans_code (gfc_code * code, tree cond)
 {
   stmtblock_t block;
   tree res;
@@ -1079,7 +1077,10 @@ gfc_trans_code (gfc_code * code)
 	  break;
 
 	case EXEC_ASSIGN:
-	  res = gfc_trans_assign (code);
+	  if (code->expr1->ts.type == BT_CLASS)
+	    res = gfc_trans_class_assign (code);
+	  else
+	    res = gfc_trans_assign (code);
 	  break;
 
         case EXEC_LABEL_ASSIGN:
@@ -1087,11 +1088,17 @@ gfc_trans_code (gfc_code * code)
           break;
 
 	case EXEC_POINTER_ASSIGN:
-	  res = gfc_trans_pointer_assign (code);
+	  if (code->expr1->ts.type == BT_CLASS)
+	    res = gfc_trans_class_assign (code);
+	  else
+	    res = gfc_trans_pointer_assign (code);
 	  break;
 
 	case EXEC_INIT_ASSIGN:
-	  res = gfc_trans_init_assign (code);
+	  if (code->expr1->ts.type == BT_CLASS)
+	    res = gfc_trans_class_assign (code);
+	  else
+	    res = gfc_trans_init_assign (code);
 	  break;
 
 	case EXEC_CONTINUE:
@@ -1162,7 +1169,7 @@ gfc_trans_code (gfc_code * code)
 	  break;
 
 	case EXEC_DO:
-	  res = gfc_trans_do (code);
+	  res = gfc_trans_do (code, cond);
 	  break;
 
 	case EXEC_DO_WHILE:
@@ -1275,9 +1282,7 @@ gfc_trans_code (gfc_code * code)
 
       if (res != NULL_TREE && ! IS_EMPTY_STMT (res))
 	{
-	  if (TREE_CODE (res) == STATEMENT_LIST)
-	    tree_annotate_all_with_location (&res, input_location);
-	  else
+	  if (TREE_CODE (res) != STATEMENT_LIST)
 	    SET_EXPR_LOCATION (res, input_location);
 	    
 	  /* Add the new statement to the block.  */
@@ -1287,6 +1292,25 @@ gfc_trans_code (gfc_code * code)
 
   /* Return the finished block.  */
   return gfc_finish_block (&block);
+}
+
+
+/* Translate an executable statement with condition, cond.  The condition is
+   used by gfc_trans_do to test for IO result conditions inside implied
+   DO loops of READ and WRITE statements.  See build_dt in trans-io.c.  */
+
+tree
+gfc_trans_code_cond (gfc_code * code, tree cond)
+{
+  return trans_code (code, cond);
+}
+
+/* Translate an executable statement without condition.  */
+
+tree
+gfc_trans_code (gfc_code * code)
+{
+  return trans_code (code, NULL_TREE);
 }
 
 

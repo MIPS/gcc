@@ -654,12 +654,9 @@ build_binary_op (enum tree_code op_code, tree result_type,
 	 can convert the constructor to the inner type, to avoid putting a
 	 VIEW_CONVERT_EXPR on the LHS.  But don't do so if we wouldn't have
 	 actually copied anything.  */
-      else if (TREE_CODE (left_type) == RECORD_TYPE
-	       && TYPE_IS_PADDING_P (left_type)
+      else if (TYPE_IS_PADDING_P (left_type)
 	       && TREE_CONSTANT (TYPE_SIZE (left_type))
 	       && ((TREE_CODE (right_operand) == COMPONENT_REF
-		    && TREE_CODE (TREE_TYPE (TREE_OPERAND (right_operand, 0)))
-		       == RECORD_TYPE
 		    && TYPE_IS_PADDING_P
 		       (TREE_TYPE (TREE_OPERAND (right_operand, 0)))
 		    && gnat_types_compatible_p
@@ -758,6 +755,12 @@ build_binary_op (enum tree_code op_code, tree result_type,
 	  left_type = TREE_TYPE (left_operand);
 	}
 
+      /* For a range, make sure the element type is consistent.  */
+      if (op_code == ARRAY_RANGE_REF
+	  && TREE_TYPE (operation_type) != TREE_TYPE (left_type))
+	operation_type = build_array_type (TREE_TYPE (left_type),
+					   TYPE_DOMAIN (operation_type));
+
       /* Then convert the right operand to its base type.  This will prevent
 	 unneeded sign conversions when sizetype is wider than integer.  */
       right_operand = convert (right_base_type, right_operand);
@@ -831,26 +834,28 @@ build_binary_op (enum tree_code op_code, tree result_type,
 	  return result;
 	}
 
-      /* Otherwise, the base types must be the same unless the objects are
-	 fat pointers or records.  If we have records, use the best type and
-	 convert both operands to that type.  */
+      /* Otherwise, the base types must be the same, unless they are both fat
+	 pointer types or record types.  In the latter case, use the best type
+	 and convert both operands to that type.  */
       if (left_base_type != right_base_type)
 	{
-	  if (TYPE_FAT_POINTER_P (left_base_type)
-	      && TYPE_FAT_POINTER_P (right_base_type)
-	      && TYPE_MAIN_VARIANT (left_base_type)
-		 == TYPE_MAIN_VARIANT (right_base_type))
-	    best_type = left_base_type;
+	  if (TYPE_IS_FAT_POINTER_P (left_base_type)
+	      && TYPE_IS_FAT_POINTER_P (right_base_type))
+	    {
+	      gcc_assert (TYPE_MAIN_VARIANT (left_base_type)
+			  == TYPE_MAIN_VARIANT (right_base_type));
+	      best_type = left_base_type;
+	    }
+
 	  else if (TREE_CODE (left_base_type) == RECORD_TYPE
 		   && TREE_CODE (right_base_type) == RECORD_TYPE)
 	    {
-	      /* The only way these are permitted to be the same is if both
-		 types have the same name.  In that case, one of them must
-		 not be self-referential.  Use that one as the best type.
-		 Even better is if one is of fixed size.  */
+	      /* The only way this is permitted is if both types have the same
+		 name.  In that case, one of them must not be self-referential.
+		 Use it as the best type.  Even better with a fixed size.  */
 	      gcc_assert (TYPE_NAME (left_base_type)
-			  && (TYPE_NAME (left_base_type)
-			      == TYPE_NAME (right_base_type)));
+			  && TYPE_NAME (left_base_type)
+			     == TYPE_NAME (right_base_type));
 
 	      if (TREE_CONSTANT (TYPE_SIZE (left_base_type)))
 		best_type = left_base_type;
@@ -863,32 +868,32 @@ build_binary_op (enum tree_code op_code, tree result_type,
 	      else
 		gcc_unreachable ();
 	    }
+
 	  else
 	    gcc_unreachable ();
 
 	  left_operand = convert (best_type, left_operand);
 	  right_operand = convert (best_type, right_operand);
 	}
-
-      /* If we are comparing a fat pointer against zero, we need to
-	 just compare the data pointer.  */
-      else if (TYPE_FAT_POINTER_P (left_base_type)
-	       && TREE_CODE (right_operand) == CONSTRUCTOR
-	       && integer_zerop (VEC_index (constructor_elt,
-					    CONSTRUCTOR_ELTS (right_operand),
-					    0)
-				 ->value))
-	{
-	  right_operand = build_component_ref (left_operand, NULL_TREE,
-					       TYPE_FIELDS (left_base_type),
-					       false);
-	  left_operand = convert (TREE_TYPE (right_operand),
-				  integer_zero_node);
-	}
       else
 	{
 	  left_operand = convert (left_base_type, left_operand);
 	  right_operand = convert (right_base_type, right_operand);
+	}
+
+      /* If we are comparing a fat pointer against zero, we just need to
+	 compare the data pointer.  */
+      if (TYPE_IS_FAT_POINTER_P (left_base_type)
+	  && TREE_CODE (right_operand) == CONSTRUCTOR
+	  && integer_zerop (VEC_index (constructor_elt,
+				       CONSTRUCTOR_ELTS (right_operand),
+				       0)->value))
+	{
+	  left_operand
+	    = build_component_ref (left_operand, NULL_TREE,
+				   TYPE_FIELDS (left_base_type), false);
+	  right_operand
+	    = convert (TREE_TYPE (left_operand), integer_zero_node);
 	}
 
       modulus = NULL_TREE;
@@ -1117,11 +1122,10 @@ build_unary_op (enum tree_code op_code, tree result_type, tree operand)
 	      /* If INNER is a padding type whose field has a self-referential
 		 size, convert to that inner type.  We know the offset is zero
 		 and we need to have that type visible.  */
-	      if (TREE_CODE (TREE_TYPE (inner)) == RECORD_TYPE
-		  && TYPE_IS_PADDING_P (TREE_TYPE (inner))
-		  && (CONTAINS_PLACEHOLDER_P
-		      (TYPE_SIZE (TREE_TYPE (TYPE_FIELDS
-					     (TREE_TYPE (inner)))))))
+	      if (TYPE_IS_PADDING_P (TREE_TYPE (inner))
+		  && CONTAINS_PLACEHOLDER_P
+		     (TYPE_SIZE (TREE_TYPE (TYPE_FIELDS
+					    (TREE_TYPE (inner))))))
 		inner = convert (TREE_TYPE (TYPE_FIELDS (TREE_TYPE (inner))),
 				 inner);
 
@@ -1154,13 +1158,11 @@ build_unary_op (enum tree_code op_code, tree result_type, tree operand)
 	  /* If this is just a constructor for a padded record, we can
 	     just take the address of the single field and convert it to
 	     a pointer to our type.  */
-	  if (TREE_CODE (type) == RECORD_TYPE && TYPE_IS_PADDING_P (type))
+	  if (TYPE_IS_PADDING_P (type))
 	    {
-	      result = (VEC_index (constructor_elt,
-				   CONSTRUCTOR_ELTS (operand),
-				   0)
-			->value);
-
+	      result = VEC_index (constructor_elt,
+				  CONSTRUCTOR_ELTS (operand),
+				  0)->value;
 	      result = convert (build_pointer_type (TREE_TYPE (operand)),
 				build_unary_op (ADDR_EXPR, NULL_TREE, result));
 	      break;
@@ -1202,8 +1204,7 @@ build_unary_op (enum tree_code op_code, tree result_type, tree operand)
 
 	  /* If we are taking the address of a padded record whose field is
 	     contains a template, take the address of the template.  */
-	  if (TREE_CODE (type) == RECORD_TYPE
-	      && TYPE_IS_PADDING_P (type)
+	  if (TYPE_IS_PADDING_P (type)
 	      && TREE_CODE (TREE_TYPE (TYPE_FIELDS (type))) == RECORD_TYPE
 	      && TYPE_CONTAINS_TEMPLATE_P (TREE_TYPE (TYPE_FIELDS (type))))
 	    {
@@ -1226,7 +1227,7 @@ build_unary_op (enum tree_code op_code, tree result_type, tree operand)
 	 make up an expression to do so.  This will never survive to
 	 the backend.  If TYPE is a thin pointer, first convert the
 	 operand to a fat pointer.  */
-      if (TYPE_THIN_POINTER_P (type)
+      if (TYPE_IS_THIN_POINTER_P (type)
 	  && TYPE_UNCONSTRAINED_ARRAY (TREE_TYPE (type)))
 	{
 	  operand
@@ -1235,7 +1236,7 @@ build_unary_op (enum tree_code op_code, tree result_type, tree operand)
 	  type = TREE_TYPE (operand);
 	}
 
-      if (TYPE_FAT_POINTER_P (type))
+      if (TYPE_IS_FAT_POINTER_P (type))
 	{
 	  result = build1 (UNCONSTRAINED_ARRAY_REF,
 			   TYPE_UNCONSTRAINED_ARRAY (type), operand);
@@ -1252,7 +1253,7 @@ build_unary_op (enum tree_code op_code, tree result_type, tree operand)
 	}
 
       side_effects
-	=  (!TYPE_FAT_POINTER_P (type) && TYPE_VOLATILE (TREE_TYPE (type)));
+	= (!TYPE_IS_FAT_POINTER_P (type) && TYPE_VOLATILE (TREE_TYPE (type)));
       break;
 
     case NEGATE_EXPR:
@@ -2027,7 +2028,7 @@ build_allocator (tree type, tree init, tree result_type, Entity_Id gnat_proc,
   /* If RESULT_TYPE is a fat or thin pointer, set SIZE to be the sum of the
      sizes of the object and its template.  Allocate the whole thing and
      fill in the parts that are known.  */
-  else if (TYPE_FAT_OR_THIN_POINTER_P (result_type))
+  else if (TYPE_IS_FAT_OR_THIN_POINTER_P (result_type))
     {
       tree storage_type
 	= build_unc_object_type_from_ptr (result_type, type,
@@ -2049,10 +2050,9 @@ build_allocator (tree type, tree init, tree result_type, Entity_Id gnat_proc,
 					  gnat_proc, gnat_pool, gnat_node);
       storage = convert (storage_ptr_type, protect_multiple_eval (storage));
 
-      if (TREE_CODE (type) == RECORD_TYPE && TYPE_IS_PADDING_P (type))
+      if (TYPE_IS_PADDING_P (type))
 	{
 	  type = TREE_TYPE (TYPE_FIELDS (type));
-
 	  if (init)
 	    init = convert (type, init);
 	}

@@ -202,6 +202,8 @@ __enable_execute_stack (void *addr)					\
 
 #undef ENABLE_EXECUTE_STACK
 #define ENABLE_EXECUTE_STACK MINGW_ENABLE_EXECUTE_STACK
+#undef  CHECK_EXECUTE_STACK_ENABLED
+#define CHECK_EXECUTE_STACK_ENABLED flag_setstackexecutable
 
 #ifdef IN_LIBGCC2
 #include <windows.h>
@@ -223,5 +225,5 @@ __enable_execute_stack (void *addr)					\
 #define LIBGCC_SONAME "libgcc_s" LIBGCC_EH_EXTN "-1.dll"
 
 /* We should find a way to not have to update this manually.  */
-#define LIBGCJ_SONAME "cyggcj" /*LIBGCC_EH_EXTN*/ "-11.dll"
+#define LIBGCJ_SONAME "libgcj" /*LIBGCC_EH_EXTN*/ "-11.dll"
 

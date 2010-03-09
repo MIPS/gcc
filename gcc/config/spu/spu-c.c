@@ -162,8 +162,7 @@ spu_resolve_overloaded_builtin (location_t loc, tree fndecl, void *passed_args)
 	  if ((!SCALAR_TYPE_P (param_type)
 	       || !SCALAR_TYPE_P (arg_type)
 	       || (all_scalar && p == 0))
-	      && !comptypes (TYPE_MAIN_VARIANT (param_type),
-			     TYPE_MAIN_VARIANT (arg_type)))
+	      && !lang_hooks.types_compatible_p (param_type, arg_type))
 	    break;
 	}
       if (param == void_list_node)
@@ -201,6 +200,17 @@ spu_cpu_cpp_builtins (struct cpp_reader *pfile)
   if (spu_arch == PROCESSOR_CELLEDP)
     builtin_define_std ("__SPU_EDP__");
   builtin_define_std ("__vector=__attribute__((__spu_vector__))");
+  switch (spu_ea_model)
+    {
+    case 32:
+      builtin_define_std ("__EA32__");
+      break;
+    case 64:
+      builtin_define_std ("__EA64__");
+      break;
+    default:
+       gcc_unreachable ();
+    }
 
   if (!flag_iso)
     {

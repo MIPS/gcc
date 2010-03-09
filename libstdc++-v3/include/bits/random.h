@@ -1,6 +1,6 @@
 // random number generation -*- C++ -*-
 
-// Copyright (C) 2009 Free Software Foundation, Inc.
+// Copyright (C) 2009, 2010 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -32,11 +32,12 @@
 
 namespace std
 {
-
   // [26.4] Random number generation
 
   /**
-   * @addtogroup std_random Random Number Generation
+   * @defgroup random Random Number Generation
+   * @ingroup numerics
+   *
    * A facility for generating random numbers on selected distributions.
    * @{
    */
@@ -50,8 +51,6 @@ namespace std
 	   typename _UniformRandomNumberGenerator>
     _RealType
     generate_canonical(_UniformRandomNumberGenerator& __g);
-
-  class seed_seq;
 
   /*
    * Implementation-space details.
@@ -117,8 +116,8 @@ namespace std
   } // namespace __detail
 
   /**
-   * @addtogroup std_random_generators Random Number Generators
-   * @ingroup std_random
+   * @addtogroup random_generators Random Number Generators
+   * @ingroup random
    *
    * These classes define objects which provide random or pseudorandom
    * numbers, either from a discrete or a continuous interval.  The
@@ -140,8 +139,11 @@ namespace std
   /**
    * @brief A model of a linear congruential random number generator.
    *
-   * A random number generator that produces pseudorandom numbers using the
-   * linear function @f$x_{i+1}\leftarrow(ax_{i} + c) \bmod m @f$.
+   * A random number generator that produces pseudorandom numbers via
+   * linear function:
+   * @f[
+   *     x_{i+1}\leftarrow(ax_{i} + c) \bmod m 
+   * @f]
    *
    * The template parameter @p _UIntType must be an unsigned integral type
    * large enough to store values up to (__m-1). If the template parameter
@@ -149,15 +151,15 @@ namespace std
    * std::numeric_limits<_UIntType>::max() plus 1. Otherwise, the template
    * parameters @p __a and @p __c must be less than @p __m.
    *
-   * The size of the state is @f$ 1 @f$.
+   * The size of the state is @f$1@f$.
    */
   template<typename _UIntType, _UIntType __a, _UIntType __c, _UIntType __m>
     class linear_congruential_engine
     {
-      __glibcxx_class_requires(_UIntType, _UnsignedIntegerConcept)
-      static_assert(__m == 0 || (__a < __m && __c < __m),
-		    "template arguments out of bounds"
-		    " in linear_congruential_engine");
+      static_assert(std::is_unsigned<_UIntType>::value, "template argument "
+		    "substituting _UIntType not an unsigned integral type");
+      static_assert(__m == 0u || (__a < __m && __c < __m),
+		    "template argument substituting __m out of bounds");
 
     public:
       /** The type of the generated random value. */
@@ -180,7 +182,7 @@ namespace std
        */
       explicit
       linear_congruential_engine(result_type __s = default_seed)
-      { this->seed(__s); }
+      { seed(__s); }
 
       /**
        * @brief Constructs a %linear_congruential_engine random number
@@ -188,9 +190,12 @@ namespace std
        *
        * @param __q the seed sequence.
        */
-      explicit
-      linear_congruential_engine(seed_seq& __q)
-      { this->seed(__q); }
+      template<typename _Sseq, typename = typename
+	std::enable_if<!std::is_same<_Sseq, linear_congruential_engine>::value>
+	       ::type>
+        explicit
+        linear_congruential_engine(_Sseq& __q)
+        { seed(__q); }
 
       /**
        * @brief Reseeds the %linear_congruential_engine random number generator
@@ -208,8 +213,9 @@ namespace std
        *
        * @param __q the seed sequence.
        */
-      void
-      seed(seed_seq& __q);
+      template<typename _Sseq>
+        typename std::enable_if<std::is_class<_Sseq>::value>::type
+        seed(_Sseq& __q);
 
       /**
        * @brief Gets the smallest possible value in the output range.
@@ -341,35 +347,32 @@ namespace std
 	   _UIntType __c, size_t __l, _UIntType __f>
     class mersenne_twister_engine
     {
-      __glibcxx_class_requires(_UIntType, _UnsignedIntegerConcept)
-
-      static_assert(__m >= 1U, 
-		    "mersenne_twister_engine template arguments out of bounds");
-      static_assert(__n >= __m,
-		    "mersenne_twister_engine template arguments out of bounds");
-      static_assert(__w >= __r,
-		    "mersenne_twister_engine template arguments out of bounds");
-      static_assert(__w >= __u,
-		    "mersenne_twister_engine template arguments out of bounds");
-      static_assert(__w >= __s,
-		    "mersenne_twister_engine template arguments out of bounds");
-      static_assert(__w >= __t,
-		    "mersenne_twister_engine template arguments out of bounds");
-      static_assert(__w >= __l,
-		    "mersenne_twister_engine template arguments out of bounds");
-      static_assert(__w <=
-		    static_cast<size_t>(std::numeric_limits<_UIntType>::digits),
-		    "mersenne_twister_engine template arguments out of bounds");
+      static_assert(std::is_unsigned<_UIntType>::value, "template argument "
+		    "substituting _UIntType not an unsigned integral type");
+      static_assert(1u <= __m && __m <= __n,
+		    "template argument substituting __m out of bounds");
+      static_assert(__r <= __w, "template argument substituting "
+		    "__r out of bound");
+      static_assert(__u <= __w, "template argument substituting "
+		    "__u out of bound");
+      static_assert(__s <= __w, "template argument substituting "
+		    "__s out of bound");
+      static_assert(__t <= __w, "template argument substituting "
+		    "__t out of bound");
+      static_assert(__l <= __w, "template argument substituting "
+		    "__l out of bound");
+      static_assert(__w <= std::numeric_limits<_UIntType>::digits,
+		    "template argument substituting __w out of bound");
       static_assert(__a <= (__detail::_Shift<_UIntType, __w>::__value - 1),
-		    "mersenne_twister_engine template arguments out of bounds");
+		    "template argument substituting __a out of bound");
       static_assert(__b <= (__detail::_Shift<_UIntType, __w>::__value - 1),
-		    "mersenne_twister_engine template arguments out of bounds");
+		    "template argument substituting __b out of bound");
       static_assert(__c <= (__detail::_Shift<_UIntType, __w>::__value - 1),
-		    "mersenne_twister_engine template arguments out of bounds");
+		    "template argument substituting __c out of bound");
       static_assert(__d <= (__detail::_Shift<_UIntType, __w>::__value - 1),
-		    "mersenne_twister_engine template arguments out of bounds");
+		    "template argument substituting __d out of bound");
       static_assert(__f <= (__detail::_Shift<_UIntType, __w>::__value - 1),
-		    "mersenne_twister_engine template arguments out of bounds");
+		    "template argument substituting __f out of bound");
 
     public:
       /** The type of the generated random value. */
@@ -402,15 +405,19 @@ namespace std
        *
        * @param __q the seed sequence.
        */
-      explicit
-      mersenne_twister_engine(seed_seq& __q)
-      { seed(__q); }
+      template<typename _Sseq, typename = typename
+        std::enable_if<!std::is_same<_Sseq, mersenne_twister_engine>::value>
+	       ::type>
+        explicit
+        mersenne_twister_engine(_Sseq& __q)
+        { seed(__q); }
 
       void
       seed(result_type __sd = default_seed);
 
-      void
-      seed(seed_seq& __q);
+      template<typename _Sseq>
+	typename std::enable_if<std::is_class<_Sseq>::value>::type
+        seed(_Sseq& __q);
 
       /**
        * @brief Gets the smallest possible value in the output range.
@@ -525,11 +532,13 @@ namespace std
    * generator, sometimes referred to as the SWC generator.
    *
    * A discrete random number generator that produces pseudorandom
-   * numbers using @f$x_{i}\leftarrow(x_{i - s} - x_{i - r} -
-   * carry_{i-1}) \bmod m @f$.
+   * numbers using:
+   * @f[
+   *     x_{i}\leftarrow(x_{i - s} - x_{i - r} - carry_{i-1}) \bmod m 
+   * @f]
    *
-   * The size of the state is @f$ r @f$
-   * and the maximum period of the generator is @f$ m^r - m^s - 1 @f$.
+   * The size of the state is @f$r@f$
+   * and the maximum period of the generator is @f$(m^r - m^s - 1)@f$.
    *
    * @var _M_x     The state of the generator.  This is a ring buffer.
    * @var _M_carry The carry.
@@ -538,13 +547,12 @@ namespace std
   template<typename _UIntType, size_t __w, size_t __s, size_t __r>
     class subtract_with_carry_engine
     {
-      __glibcxx_class_requires(_UIntType, _UnsignedIntegerConcept)
-      static_assert(__s > 0U && __r > __s
-		    && __w > 0U
-		    && __w <= static_cast<size_t>
-		    (std::numeric_limits<_UIntType>::digits),
-		    "template arguments out of bounds"
-		    " in subtract_with_carry_engine");
+      static_assert(std::is_unsigned<_UIntType>::value, "template argument "
+		    "substituting _UIntType not an unsigned integral type");
+      static_assert(0u < __s && __s < __r,
+		    "template argument substituting __s out of bounds");
+      static_assert(0u < __w && __w <= std::numeric_limits<_UIntType>::digits,
+		    "template argument substituting __w out of bounds");
 
     public:
       /** The type of the generated random value. */
@@ -562,7 +570,7 @@ namespace std
        */
       explicit
       subtract_with_carry_engine(result_type __sd = default_seed)
-      { this->seed(__sd); }
+      { seed(__sd); }
 
       /**
        * @brief Constructs a %subtract_with_carry_engine random number engine
@@ -570,12 +578,15 @@ namespace std
        *
        * @param __q the seed sequence.
        */
-      explicit
-      subtract_with_carry_engine(seed_seq& __q)
-      { this->seed(__q); }
+      template<typename _Sseq, typename = typename
+        std::enable_if<!std::is_same<_Sseq, subtract_with_carry_engine>::value>
+	       ::type>
+        explicit
+        subtract_with_carry_engine(_Sseq& __q)
+        { seed(__q); }
 
       /**
-       * @brief Seeds the initial state @f$ x_0 @f$ of the random number
+       * @brief Seeds the initial state @f$x_0@f$ of the random number
        *        generator.
        *
        * N1688[4.19] modifies this as follows.  If @p __value == 0,
@@ -590,11 +601,12 @@ namespace std
       seed(result_type __sd = default_seed);
 
       /**
-       * @brief Seeds the initial state @f$ x_0 @f$ of the
+       * @brief Seeds the initial state @f$x_0@f$ of the
        * % subtract_with_carry_engine random number generator.
        */
-      void
-      seed(seed_seq& __q);
+      template<typename _Sseq>
+	typename std::enable_if<std::is_class<_Sseq>::value>::type
+        seed(_Sseq& __q);
 
       /**
        * @brief Gets the inclusive minimum value of the range of random
@@ -675,7 +687,8 @@ namespace std
        *        @p __is.
        *
        * @param __is An input stream.
-       * @param __x  A % subtract_with_carry_engine random number generator engine.
+       * @param __x  A % subtract_with_carry_engine random number generator
+       *             engine.
        *
        * @returns The input stream with the state of @p __x extracted or in
        * an error state.
@@ -702,9 +715,8 @@ namespace std
   template<typename _RandomNumberEngine, size_t __p, size_t __r>
     class discard_block_engine
     {
-      static_assert(__r >= 1U && __p >= __r,
-		    "template arguments out of bounds"
-		    " in discard_block_engine");
+      static_assert(1 <= __r && __r <= __p,
+		    "template argument substituting __r out of bounds");
 
     public:
       /** The type of the generated random value. */
@@ -757,10 +769,14 @@ namespace std
        *
        * @param __q A seed sequence.
        */
-      explicit
-      discard_block_engine(seed_seq& __q)
-      : _M_b(__q), _M_n(0)
-      { }
+      template<typename _Sseq, typename = typename
+	std::enable_if<!std::is_same<_Sseq, discard_block_engine>::value
+		       && !std::is_same<_Sseq, _RandomNumberEngine>::value>
+	       ::type>
+        explicit
+        discard_block_engine(_Sseq& __q)
+	: _M_b(__q), _M_n(0)
+        { }
 
       /**
        * @brief Reseeds the %discard_block_engine object with the default
@@ -789,12 +805,13 @@ namespace std
        *        sequence.
        * @param __q A seed generator function.
        */
-      void
-      seed(seed_seq& __q)
-      {
-        _M_b.seed(__q);
-        _M_n = 0;
-      }
+      template<typename _Sseq>
+        void
+        seed(_Sseq& __q)
+        {
+	  _M_b.seed(__q);
+	  _M_n = 0;
+	}
 
       /**
        * @brief Gets a const reference to the underlying generator engine
@@ -903,12 +920,10 @@ namespace std
   template<typename _RandomNumberEngine, size_t __w, typename _UIntType>
     class independent_bits_engine
     {
-      static_assert(__w > 0U
-		    && __w <=
-		    static_cast<size_t>
-		    (std::numeric_limits<_UIntType>::digits),
-		    "template arguments out of bounds "
-		    "in independent_bits_engine");
+      static_assert(std::is_unsigned<_UIntType>::value, "template argument "
+		    "substituting _UIntType not an unsigned integral type");
+      static_assert(0u < __w && __w <= std::numeric_limits<_UIntType>::digits,
+		    "template argument substituting __w out of bounds");
 
     public:
       /** The type of the generated random value. */
@@ -957,10 +972,14 @@ namespace std
        *
        * @param __q A seed sequence.
        */
-      explicit
-      independent_bits_engine(seed_seq& __q)
-      : _M_b(__q)
-      { }
+      template<typename _Sseq, typename = typename
+	std::enable_if<!std::is_same<_Sseq, independent_bits_engine>::value
+		       && !std::is_same<_Sseq, _RandomNumberEngine>::value>
+               ::type>
+        explicit
+        independent_bits_engine(_Sseq& __q)
+        : _M_b(__q)
+        { }
 
       /**
        * @brief Reseeds the %independent_bits_engine object with the default
@@ -983,9 +1002,10 @@ namespace std
        *        seed sequence.
        * @param __q A seed generator function.
        */
-      void
-      seed(seed_seq& __q)
-      { _M_b.seed(__q); }
+      template<typename _Sseq>
+        void
+        seed(_Sseq& __q)
+        { _M_b.seed(__q); }
 
       /**
        * @brief Gets a const reference to the underlying generator engine
@@ -1102,9 +1122,8 @@ namespace std
   template<typename _RandomNumberEngine, size_t __k>
     class shuffle_order_engine
     {
-      static_assert(__k >= 1U,
-		    "template arguments out of bounds"
-		    " in shuffle_order_engine");
+      static_assert(1u <= __k, "template argument substituting "
+		    "__k out of bound");
 
     public:
       /** The type of the generated random value. */
@@ -1159,10 +1178,14 @@ namespace std
        *
        * @param __q A seed sequence.
        */
-      explicit
-      shuffle_order_engine(seed_seq& __q)
-      : _M_b(__q)
-      { _M_initialize(); }
+      template<typename _Sseq, typename = typename
+	std::enable_if<!std::is_same<_Sseq, shuffle_order_engine>::value
+		       && !std::is_same<_Sseq, _RandomNumberEngine>::value>
+	       ::type>
+        explicit
+        shuffle_order_engine(_Sseq& __q)
+        : _M_b(__q)
+        { _M_initialize(); }
 
       /**
        * @brief Reseeds the %shuffle_order_engine object with the default seed
@@ -1191,12 +1214,13 @@ namespace std
        *        sequence.
        * @param __q A seed generator function.
        */
-      void
-      seed(seed_seq& __q)
-      {
-        _M_b.seed(__q);
-        _M_initialize();
-      }
+      template<typename _Sseq>
+        void
+        seed(_Sseq& __q)
+        {
+	  _M_b.seed(__q);
+	  _M_initialize();
+	}
 
       /**
        * Gets a const reference to the underlying generator engine object.
@@ -1311,7 +1335,7 @@ namespace std
   minstd_rand0;
 
   /**
-   * An alternative LCR (Lehmer Generator function) .
+   * An alternative LCR (Lehmer Generator function).
    */
   typedef linear_congruential_engine<uint_fast32_t, 48271UL, 0UL, 2147483647UL>
   minstd_rand;
@@ -1320,8 +1344,8 @@ namespace std
    * The classic Mersenne Twister.
    *
    * Reference:
-   * M. Matsumoto and T. Nishimura, "Mersenne Twister: A 623-Dimensionally
-   * Equidistributed Uniform Pseudo-Random Number Generator", ACM Transactions
+   * M. Matsumoto and T. Nishimura, Mersenne Twister: A 623-Dimensionally
+   * Equidistributed Uniform Pseudo-Random Number Generator, ACM Transactions
    * on Modeling and Computer Simulation, Vol. 8, No. 1, January 1998, pp 3-30.
    */
   typedef mersenne_twister_engine<
@@ -1344,9 +1368,6 @@ namespace std
     0xfff7eee000000000ULL, 43,
     6364136223846793005ULL> mt19937_64;
 
-  /**
-   * .
-   */
   typedef subtract_with_carry_engine<uint_fast32_t, 24, 10, 24>
     ranlux24_base;
 
@@ -1357,14 +1378,8 @@ namespace std
 
   typedef discard_block_engine<ranlux48_base, 389, 11> ranlux48;
 
-  /**
-   * .
-   */
   typedef shuffle_order_engine<minstd_rand0, 256> knuth_b;
 
-  /**
-   * .
-   */
   typedef minstd_rand0 default_random_engine;
 
   /**
@@ -1458,17 +1473,17 @@ namespace std
 #endif
   };
 
-  /* @} */ // group std_random_generators
+  /* @} */ // group random_generators
 
   /**
-   * @addtogroup std_random_distributions Random Number Distributions
-   * @ingroup std_random
+   * @addtogroup random_distributions Random Number Distributions
+   * @ingroup random
    * @{
    */
 
   /**
-   * @addtogroup std_random_distributions_uniform Uniform Distributions
-   * @ingroup std_random_distributions
+   * @addtogroup random_distributions_uniform Uniform Distributions
+   * @ingroup random_distributions
    * @{
    */
 
@@ -1480,7 +1495,8 @@ namespace std
   template<typename _IntType = int>
     class uniform_int_distribution
     {
-      __glibcxx_class_requires(_IntType, _IntegerConcept)
+      static_assert(std::is_integral<_IntType>::value,
+		    "template argument not an integral type");
 
     public:
       /** The type of the range of the distribution. */
@@ -1633,6 +1649,9 @@ namespace std
   template<typename _RealType = double>
     class uniform_real_distribution
     {
+      static_assert(std::is_floating_point<_RealType>::value,
+		    "template argument not a floating point type");
+
     public:
       /** The type of the range of the distribution. */
       typedef _RealType result_type;
@@ -1773,11 +1792,11 @@ namespace std
     operator>>(std::basic_istream<_CharT, _Traits>&,
 	       std::uniform_real_distribution<_RealType>&);
 
-  /* @} */ // group std_random_distributions_uniform
+  /* @} */ // group random_distributions_uniform
 
   /**
-   * @addtogroup std_random_distributions_normal Normal Distributions
-   * @ingroup std_random_distributions
+   * @addtogroup random_distributions_normal Normal Distributions
+   * @ingroup random_distributions
    * @{
    */
 
@@ -1785,12 +1804,17 @@ namespace std
    * @brief A normal continuous distribution for random numbers.
    *
    * The formula for the normal probability density function is
-   * @f$ p(x|\mu,\sigma) = \frac{1}{\sigma \sqrt{2 \pi}}
-   *            e^{- \frac{{x - \mu}^ {2}}{2 \sigma ^ {2}} } @f$.
+   * @f[
+   *     p(x|\mu,\sigma) = \frac{1}{\sigma \sqrt{2 \pi}}
+   *            e^{- \frac{{x - \mu}^ {2}}{2 \sigma ^ {2}} } 
+   * @f]
    */
   template<typename _RealType = double>
     class normal_distribution
     {
+      static_assert(std::is_floating_point<_RealType>::value,
+		    "template argument not a floating point type");
+
     public:
       /** The type of the range of the distribution. */
       typedef _RealType result_type;
@@ -1822,7 +1846,7 @@ namespace std
 
     public:
       /**
-       * Constructs a normal distribution with parameters @f$ mean @f$ and
+       * Constructs a normal distribution with parameters @f$mean@f$ and
        * standard deviation.
        */
       explicit
@@ -1937,12 +1961,17 @@ namespace std
    * @brief A lognormal_distribution random number distribution.
    *
    * The formula for the normal probability mass function is
-   * @f$ p(x|m,s) = \frac{1}{sx\sqrt{2\pi}}
-   *             \exp{-\frac{(\ln{x} - m)^2}{2s^2}} @f$
+   * @f[
+   *     p(x|m,s) = \frac{1}{sx\sqrt{2\pi}}
+   *                \exp{-\frac{(\ln{x} - m)^2}{2s^2}} 
+   * @f]
    */
   template<typename _RealType = double>
     class lognormal_distribution
     {
+      static_assert(std::is_floating_point<_RealType>::value,
+		    "template argument not a floating point type");
+
     public:
       /** The type of the range of the distribution. */
       typedef _RealType result_type;
@@ -2079,13 +2108,18 @@ namespace std
   /**
    * @brief A gamma continuous distribution for random numbers.
    *
-   * The formula for the gamma probability density function is
-   * @f$ p(x|\alpha,\beta) = \frac{1}{\beta\Gamma(\alpha)}
-   *                         (x/\beta)^{\alpha - 1} e^{-x/\beta} @f$.
+   * The formula for the gamma probability density function is:
+   * @f[
+   *     p(x|\alpha,\beta) = \frac{1}{\beta\Gamma(\alpha)}
+   *                         (x/\beta)^{\alpha - 1} e^{-x/\beta} 
+   * @f]
    */
   template<typename _RealType = double>
     class gamma_distribution
     {
+      static_assert(std::is_floating_point<_RealType>::value,
+		    "template argument not a floating point type");
+
     public:
       /** The type of the range of the distribution. */
       typedef _RealType result_type;
@@ -2125,7 +2159,7 @@ namespace std
     public:
       /**
        * @brief Constructs a gamma distribution with parameters
-       * @f$ \alpha @f$ and @f$ \beta @f$.
+       * @f$\alpha@f$ and @f$\beta@f$.
        */
       explicit
       gamma_distribution(_RealType __alpha_val = _RealType(1),
@@ -2146,14 +2180,14 @@ namespace std
       { _M_nd.reset(); }
 
       /**
-       * @brief Returns the @f$ \alpha @f$ of the distribution.
+       * @brief Returns the @f$\alpha@f$ of the distribution.
        */
       _RealType
       alpha() const
       { return _M_param.alpha(); }
 
       /**
-       * @brief Returns the @f$ \beta @f$ of the distribution.
+       * @brief Returns the @f$\beta@f$ of the distribution.
        */
       _RealType
       beta() const
@@ -2238,11 +2272,14 @@ namespace std
    * @brief A chi_squared_distribution random number distribution.
    *
    * The formula for the normal probability mass function is
-   * @f$ p(x|n) = \frac{x^{(n/2) - 1}e^{-x/2}}{\Gamma(n/2) 2^{n/2}} @f$
+   * @f$p(x|n) = \frac{x^{(n/2) - 1}e^{-x/2}}{\Gamma(n/2) 2^{n/2}}@f$
    */
   template<typename _RealType = double>
     class chi_squared_distribution
     {
+      static_assert(std::is_floating_point<_RealType>::value,
+		    "template argument not a floating point type");
+
     public:
       /** The type of the range of the distribution. */
       typedef _RealType result_type;
@@ -2373,11 +2410,14 @@ namespace std
    * @brief A cauchy_distribution random number distribution.
    *
    * The formula for the normal probability mass function is
-   * @f$ p(x|a,b) = (\pi b (1 + (\frac{x-a}{b})^2))^{-1} @f$
+   * @f$p(x|a,b) = (\pi b (1 + (\frac{x-a}{b})^2))^{-1}@f$
    */
   template<typename _RealType = double>
     class cauchy_distribution
     {
+      static_assert(std::is_floating_point<_RealType>::value,
+		    "template argument not a floating point type");
+
     public:
       /** The type of the range of the distribution. */
       typedef _RealType result_type;
@@ -2512,13 +2552,18 @@ namespace std
    * @brief A fisher_f_distribution random number distribution.
    *
    * The formula for the normal probability mass function is
-   * @f$ p(x|m,n) = \frac{\Gamma((m+n)/2)}{\Gamma(m/2)\Gamma(n/2)}
+   * @f[
+   *     p(x|m,n) = \frac{\Gamma((m+n)/2)}{\Gamma(m/2)\Gamma(n/2)}
    *                (\frac{m}{n})^{m/2} x^{(m/2)-1}
-   *                (1 + \frac{mx}{n})^{-(m+n)/2} @f$
+   *                (1 + \frac{mx}{n})^{-(m+n)/2} 
+   * @f]
    */
   template<typename _RealType = double>
     class fisher_f_distribution
     {
+      static_assert(std::is_floating_point<_RealType>::value,
+		    "template argument not a floating point type");
+
     public:
       /** The type of the range of the distribution. */
       typedef _RealType result_type;
@@ -2663,13 +2708,18 @@ namespace std
   /**
    * @brief A student_t_distribution random number distribution.
    *
-   * The formula for the normal probability mass function is
-   * @f$ p(x|n) = \frac{1}{\sqrt(n\pi)} \frac{\Gamma((n+1)/2)}{\Gamma(n/2)}
-   *              (1 + \frac{x^2}{n}) ^{-(n+1)/2} @f$
+   * The formula for the normal probability mass function is:
+   * @f[
+   *     p(x|n) = \frac{1}{\sqrt(n\pi)} \frac{\Gamma((n+1)/2)}{\Gamma(n/2)}
+   *              (1 + \frac{x^2}{n}) ^{-(n+1)/2} 
+   * @f]
    */
   template<typename _RealType = double>
     class student_t_distribution
     {
+      static_assert(std::is_floating_point<_RealType>::value,
+		    "template argument not a floating point type");
+
     public:
       /** The type of the range of the distribution. */
       typedef _RealType result_type;
@@ -2801,19 +2851,19 @@ namespace std
       std::gamma_distribution<result_type> _M_gd;
     };
 
-  /* @} */ // group std_random_distributions_normal
+  /* @} */ // group random_distributions_normal
 
   /**
-   * @addtogroup std_random_distributions_bernoulli Bernoulli Distributions
-   * @ingroup std_random_distributions
+   * @addtogroup random_distributions_bernoulli Bernoulli Distributions
+   * @ingroup random_distributions
    * @{
    */
 
   /**
    * @brief A Bernoulli random number distribution.
    *
-   * Generates a sequence of true and false values with likelihood @f$ p @f$
-   * that true will come up and @f$ (1 - p) @f$ that false will appear.
+   * Generates a sequence of true and false values with likelihood @f$p@f$
+   * that true will come up and @f$(1 - p)@f$ that false will appear.
    */
   class bernoulli_distribution
   {
@@ -2845,7 +2895,7 @@ namespace std
      * @brief Constructs a Bernoulli distribution with likelihood @p p.
      *
      * @param __p  [IN]  The likelihood of a true result being returned.
-     *                   Must be in the interval @f$ [0, 1] @f$.
+     *                   Must be in the interval @f$[0, 1]@f$.
      */
     explicit
     bernoulli_distribution(double __p = 0.5)
@@ -2966,13 +3016,14 @@ namespace std
    * @brief A discrete binomial random number distribution.
    *
    * The formula for the binomial probability density function is
-   * @f$ p(i|t,p) = \binom{n}{i} p^i (1 - p)^{t - i} @f$ where @f$ t @f$
-   * and @f$ p @f$ are the parameters of the distribution.
+   * @f$p(i|t,p) = \binom{n}{i} p^i (1 - p)^{t - i}@f$ where @f$t@f$
+   * and @f$p@f$ are the parameters of the distribution.
    */
   template<typename _IntType = int>
     class binomial_distribution
     {
-      __glibcxx_class_requires(_IntType, _IntegerConcept)
+      static_assert(std::is_integral<_IntType>::value,
+		    "template argument not an integral type");
 
     public:
       /** The type of the range of the distribution. */
@@ -3136,13 +3187,14 @@ namespace std
    * @brief A discrete geometric random number distribution.
    *
    * The formula for the geometric probability density function is
-   * @f$ p(i|p) = (1 - p)p^{i-1} @f$ where @f$ p @f$ is the parameter of the
+   * @f$p(i|p) = (1 - p)p^{i-1}@f$ where @f$p@f$ is the parameter of the
    * distribution.
    */
   template<typename _IntType = int>
     class geometric_distribution
     {
-      __glibcxx_class_requires(_IntType, _IntegerConcept)
+      static_assert(std::is_integral<_IntType>::value,
+		    "template argument not an integral type");
 
     public:
       /** The type of the range of the distribution. */
@@ -3281,13 +3333,14 @@ namespace std
    * @brief A negative_binomial_distribution random number distribution.
    *
    * The formula for the negative binomial probability mass function is
-   * @f$ p(i) = \binom{n}{i} p^i (1 - p)^{t - i} @f$ where @f$ t @f$
-   * and @f$ p @f$ are the parameters of the distribution.
+   * @f$p(i) = \binom{n}{i} p^i (1 - p)^{t - i}@f$ where @f$t@f$
+   * and @f$p@f$ are the parameters of the distribution.
    */
   template<typename _IntType = int>
     class negative_binomial_distribution
     {
-      __glibcxx_class_requires(_IntType, _IntegerConcept)
+      static_assert(std::is_integral<_IntType>::value,
+		    "template argument not an integral type");
 
     public:
       /** The type of the range of the distribution. */
@@ -3333,14 +3386,14 @@ namespace std
       { _M_gd.reset(); }
 
       /**
-       * @brief Return the @f$ k @f$ parameter of the distribution.
+       * @brief Return the @f$k@f$ parameter of the distribution.
        */
       _IntType
       k() const
       { return _M_param.k(); }
 
       /**
-       * @brief Return the @f$ p @f$ parameter of the distribution.
+       * @brief Return the @f$p@f$ parameter of the distribution.
        */
       double
       p() const
@@ -3421,11 +3474,11 @@ namespace std
       std::gamma_distribution<double> _M_gd;
     };
 
-  /* @} */ // group std_random_distributions_bernoulli
+  /* @} */ // group random_distributions_bernoulli
 
   /**
-   * @addtogroup std_random_distributions_poisson Poisson Distributions
-   * @ingroup std_random_distributions
+   * @addtogroup random_distributions_poisson Poisson Distributions
+   * @ingroup random_distributions
    * @{
    */
 
@@ -3433,13 +3486,14 @@ namespace std
    * @brief A discrete Poisson random number distribution.
    *
    * The formula for the Poisson probability density function is
-   * @f$ p(i|\mu) = \frac{\mu^i}{i!} e^{-\mu} @f$ where @f$ \mu @f$ is the
+   * @f$p(i|\mu) = \frac{\mu^i}{i!} e^{-\mu}@f$ where @f$\mu@f$ is the
    * parameter of the distribution.
    */
   template<typename _IntType = int>
     class poisson_distribution
     {
-      __glibcxx_class_requires(_IntType, _IntegerConcept)
+      static_assert(std::is_integral<_IntType>::value,
+		    "template argument not an integral type");
 
     public:
       /** The type of the range of the distribution. */
@@ -3580,20 +3634,23 @@ namespace std
    * @brief An exponential continuous distribution for random numbers.
    *
    * The formula for the exponential probability density function is
-   * @f$ p(x|\lambda) = \lambda e^{-\lambda x} @f$.
+   * @f$p(x|\lambda) = \lambda e^{-\lambda x}@f$.
    *
    * <table border=1 cellpadding=10 cellspacing=0>
    * <caption align=top>Distribution Statistics</caption>
-   * <tr><td>Mean</td><td>@f$ \frac{1}{\lambda} @f$</td></tr>
-   * <tr><td>Median</td><td>@f$ \frac{\ln 2}{\lambda} @f$</td></tr>
-   * <tr><td>Mode</td><td>@f$ zero @f$</td></tr>
+   * <tr><td>Mean</td><td>@f$\frac{1}{\lambda}@f$</td></tr>
+   * <tr><td>Median</td><td>@f$\frac{\ln 2}{\lambda}@f$</td></tr>
+   * <tr><td>Mode</td><td>@f$zero@f$</td></tr>
    * <tr><td>Range</td><td>@f$[0, \infty]@f$</td></tr>
-   * <tr><td>Standard Deviation</td><td>@f$ \frac{1}{\lambda} @f$</td></tr>
+   * <tr><td>Standard Deviation</td><td>@f$\frac{1}{\lambda}@f$</td></tr>
    * </table>
    */
   template<typename _RealType = double>
     class exponential_distribution
     {
+      static_assert(std::is_floating_point<_RealType>::value,
+		    "template argument not a floating point type");
+
     public:
       /** The type of the range of the distribution. */
       typedef _RealType result_type;
@@ -3620,7 +3677,7 @@ namespace std
     public:
       /**
        * @brief Constructs an exponential distribution with inverse scale
-       *        parameter @f$ \lambda @f$.
+       *        parameter @f$\lambda@f$.
        */
       explicit
       exponential_distribution(const result_type& __lambda = result_type(1))
@@ -3729,13 +3786,18 @@ namespace std
   /**
    * @brief A weibull_distribution random number distribution.
    *
-   * The formula for the normal probability density function is
-   * @f$ p(x|\alpha,\beta) = \frac{a}{b} (frac{x}{b})^{a-1}
-   *                         \exp{(-(frac{x}{b})^a)} @f$.
+   * The formula for the normal probability density function is:
+   * @f[
+   *     p(x|\alpha,\beta) = \frac{\alpha}{\beta} (\frac{x}{\beta})^{\alpha-1}
+   *                         \exp{(-(\frac{x}{\beta})^\alpha)} 
+   * @f]
    */
   template<typename _RealType = double>
     class weibull_distribution
     {
+      static_assert(std::is_floating_point<_RealType>::value,
+		    "template argument not a floating point type");
+
     public:
       /** The type of the range of the distribution. */
       typedef _RealType result_type;
@@ -3782,14 +3844,14 @@ namespace std
       { }
 
       /**
-       * @brief Return the @f$ a @f$ parameter of the distribution.
+       * @brief Return the @f$a@f$ parameter of the distribution.
        */
       _RealType
       a() const
       { return _M_param.a(); }
 
       /**
-       * @brief Return the @f$ b @f$ parameter of the distribution.
+       * @brief Return the @f$b@f$ parameter of the distribution.
        */
       _RealType
       b() const
@@ -3873,12 +3935,17 @@ namespace std
    * @brief A extreme_value_distribution random number distribution.
    *
    * The formula for the normal probability mass function is
-   * @f$ p(x|a,b) = \frac{1}{b}
-   *                \exp( \frac{a-x}{b} - \exp(\frac{a-x}{b})) @f$
+   * @f[
+   *     p(x|a,b) = \frac{1}{b}
+   *                \exp( \frac{a-x}{b} - \exp(\frac{a-x}{b})) 
+   * @f]
    */
   template<typename _RealType = double>
     class extreme_value_distribution
     {
+      static_assert(std::is_floating_point<_RealType>::value,
+		    "template argument not a floating point type");
+
     public:
       /** The type of the range of the distribution. */
       typedef _RealType result_type;
@@ -3925,14 +3992,14 @@ namespace std
       { }
 
       /**
-       * @brief Return the @f$ a @f$ parameter of the distribution.
+       * @brief Return the @f$a@f$ parameter of the distribution.
        */
       _RealType
       a() const
       { return _M_param.a(); }
 
       /**
-       * @brief Return the @f$ b @f$ parameter of the distribution.
+       * @brief Return the @f$b@f$ parameter of the distribution.
        */
       _RealType
       b() const
@@ -4021,7 +4088,8 @@ namespace std
   template<typename _IntType = int>
     class discrete_distribution
     {
-      __glibcxx_class_requires(_IntType, _IntegerConcept)
+      static_assert(std::is_integral<_IntType>::value,
+		    "template argument not an integral type");
 
     public:
       /** The type of the range of the distribution. */
@@ -4185,6 +4253,9 @@ namespace std
   template<typename _RealType = double>
     class piecewise_constant_distribution
     {
+      static_assert(std::is_floating_point<_RealType>::value,
+		    "template argument not a floating point type");
+
     public:
       /** The type of the range of the distribution. */
       typedef _RealType result_type;
@@ -4363,6 +4434,9 @@ namespace std
   template<typename _RealType = double>
     class piecewise_linear_distribution
     {
+      static_assert(std::is_floating_point<_RealType>::value,
+		    "template argument not a floating point type");
+
     public:
       /** The type of the range of the distribution. */
       typedef _RealType result_type;
@@ -4534,13 +4608,13 @@ namespace std
     };
 
 
-  /* @} */ // group std_random_distributions_poisson
+  /* @} */ // group random_distributions_poisson
 
-  /* @} */ // group std_random_distributions
+  /* @} */ // group random_distributions
 
   /**
-   * @addtogroup std_random_utilities Random Number Utilities
-   * @ingroup std_random
+   * @addtogroup random_utilities Random Number Utilities
+   * @ingroup random
    * @{
    */
 
@@ -4585,9 +4659,9 @@ namespace std
     std::vector<result_type> _M_v;
   };
 
-  /* @} */ // group std_random_utilities
+  /* @} */ // group random_utilities
 
-  /* @} */ // group std_random
+  /* @} */ // group random
 
 }
 

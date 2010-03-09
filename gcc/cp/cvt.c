@@ -33,6 +33,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "flags.h"
 #include "cp-tree.h"
+#include "intl.h"
 #include "convert.h"
 #include "toplev.h"
 #include "decl.h"
@@ -367,17 +368,17 @@ warn_ref_binding (tree reftype, tree intype, tree decl)
       const char *msg;
 
       if (CP_TYPE_VOLATILE_P (ttl) && decl)
-	  msg = "initialization of volatile reference type %q#T from"
-	    " rvalue of type %qT";
+	msg = G_("initialization of volatile reference type %q#T from "
+	         "rvalue of type %qT");
       else if (CP_TYPE_VOLATILE_P (ttl))
-	  msg = "conversion to volatile reference type %q#T "
-	    " from rvalue of type %qT";
+	msg = G_("conversion to volatile reference type %q#T "
+	         "from rvalue of type %qT");
       else if (decl)
-	  msg = "initialization of non-const reference type %q#T from"
-	    " rvalue of type %qT";
+	msg = G_("initialization of non-const reference type %q#T from "
+	         "rvalue of type %qT");
       else
-	  msg = "conversion to non-const reference type %q#T from"
-	    " rvalue of type %qT";
+	msg = G_("conversion to non-const reference type %q#T from "
+	         "rvalue of type %qT");
 
       permerror (input_location, msg, reftype, intype);
     }
@@ -506,7 +507,8 @@ convert_to_reference (tree reftype, tree expr, int convtype,
 tree
 convert_from_reference (tree val)
 {
-  if (TREE_CODE (TREE_TYPE (val)) == REFERENCE_TYPE)
+  if (TREE_TYPE (val)
+      && TREE_CODE (TREE_TYPE (val)) == REFERENCE_TYPE)
     {
       tree t = TREE_TYPE (TREE_TYPE (val));
       tree ref = build1 (INDIRECT_REF, t, val);
@@ -1139,7 +1141,8 @@ build_expr_type_conversion (int desires, tree expr, bool complain)
   if (expr == null_node
       && (desires & WANT_INT)
       && !(desires & WANT_NULL))
-    warning (OPT_Wconversion, "converting NULL to non-pointer type");
+    warning_at (input_location, OPT_Wconversion_null,
+		"converting NULL to non-pointer type");
 
   basetype = TREE_TYPE (expr);
 
@@ -1168,8 +1171,9 @@ build_expr_type_conversion (int desires, tree expr, bool complain)
 	return (desires & WANT_POINTER) ? decay_conversion (expr)
 					: NULL_TREE;
 
+      case COMPLEX_TYPE:
       case VECTOR_TYPE:
-	if ((desires & WANT_VECTOR) == 0)
+	if ((desires & WANT_VECTOR_OR_COMPLEX) == 0)
 	  return NULL_TREE;
 	switch (TREE_CODE (TREE_TYPE (basetype)))
 	  {
@@ -1195,11 +1199,14 @@ build_expr_type_conversion (int desires, tree expr, bool complain)
   if (!TYPE_HAS_CONVERSION (basetype))
     return NULL_TREE;
 
-  for (conv = lookup_conversions (basetype); conv; conv = TREE_CHAIN (conv))
+  for (conv = lookup_conversions (basetype, /*lookup_template_convs_p=*/true);
+       conv;
+       conv = TREE_CHAIN (conv))
     {
       int win = 0;
       tree candidate;
       tree cand = TREE_VALUE (conv);
+      cand = OVL_CURRENT (cand);
 
       if (winner && winner == cand)
 	continue;
@@ -1221,8 +1228,9 @@ build_expr_type_conversion (int desires, tree expr, bool complain)
 	case POINTER_TYPE:
 	  win = (desires & WANT_POINTER); break;
 
+	case COMPLEX_TYPE:
 	case VECTOR_TYPE:
-	  if ((desires & WANT_VECTOR) == 0)
+	  if ((desires & WANT_VECTOR_OR_COMPLEX) == 0)
 	    break;
 	  switch (TREE_CODE (TREE_TYPE (candidate)))
 	    {

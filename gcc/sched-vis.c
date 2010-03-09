@@ -521,6 +521,10 @@ print_value (char *buf, const_rtx x, int verbose)
       cur = safe_concat (buf, cur, t);
       cur = safe_concat (buf, cur, "]");
       break;
+    case DEBUG_EXPR:
+      sprintf (t, "D#%i", DEBUG_TEMP_UID (DEBUG_EXPR_TREE_DECL (x)));
+      cur = safe_concat (buf, cur, t);
+      break;
     default:
       print_exp (t, x, verbose);
       cur = safe_concat (buf, cur, t);
@@ -670,11 +674,18 @@ print_insn (char *buf, const_rtx x, int verbose)
 	if (DECL_P (INSN_VAR_LOCATION_DECL (insn)))
 	  {
 	    tree id = DECL_NAME (INSN_VAR_LOCATION_DECL (insn));
+	    char idbuf[32];
 	    if (id)
 	      name = IDENTIFIER_POINTER (id);
+	    else if (TREE_CODE (INSN_VAR_LOCATION_DECL (insn))
+		     == DEBUG_EXPR_DECL)
+	      {
+		sprintf (idbuf, "D#%i",
+			 DEBUG_TEMP_UID (INSN_VAR_LOCATION_DECL (insn)));
+		name = idbuf;
+	      }
 	    else
 	      {
-		char idbuf[32];
 		sprintf (idbuf, "D.%i",
 			 DECL_UID (INSN_VAR_LOCATION_DECL (insn)));
 		name = idbuf;
@@ -768,7 +779,7 @@ print_rtl_slim_with_bb (FILE *f, rtx first, int flags)
   print_rtl_slim (f, first, NULL, -1, flags);
 }
 
-/* Same as above, but stop at LAST or when COUNT == 0.  
+/* Same as above, but stop at LAST or when COUNT == 0.
    If COUNT < 0 it will stop only at LAST or NULL rtx.  */
 void
 print_rtl_slim (FILE *f, rtx first, rtx last, int count, int flags)
@@ -777,8 +788,8 @@ print_rtl_slim (FILE *f, rtx first, rtx last, int count, int flags)
   rtx insn, tail;
 
   tail = last ? NEXT_INSN (last) : NULL_RTX;
-  for (insn = first; 
-       (insn != NULL) && (insn != tail) && (count != 0); 
+  for (insn = first;
+       (insn != NULL) && (insn != tail) && (count != 0);
        insn = NEXT_INSN (insn))
     {
       if ((flags & TDF_BLOCKS)
@@ -804,7 +815,7 @@ print_rtl_slim (FILE *f, rtx first, rtx last, int count, int flags)
     }
 }
 
-void 
+void
 debug_bb_slim (struct basic_block_def *bb)
 {
   print_rtl_slim (stderr, BB_HEAD (bb), BB_END (bb), -1, 32);

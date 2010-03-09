@@ -24,6 +24,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 <http://www.gnu.org/licenses/>.  */
 
 #include "io.h"
+#include "format.h"
 #include <string.h>
 #include <errno.h>
 #include <ctype.h>
@@ -44,6 +45,8 @@ set_integer (void *dest, GFC_INTEGER_LARGEST value, int length)
   switch (length)
     {
 #ifdef HAVE_GFC_INTEGER_16
+/* length=10 comes about for kind=10 real/complex BOZ, cf. PR41711. */
+    case 10:
     case 16:
       {
 	GFC_INTEGER_16 tmp = value;
@@ -141,25 +144,25 @@ convert_real (st_parameter_dt *dtp, void *dest, const char *buffer, int length)
     case 4:
       *((GFC_REAL_4*) dest) =
 #if defined(HAVE_STRTOF)
-	strtof (buffer, NULL);
+	gfc_strtof (buffer, NULL);
 #else
-	(GFC_REAL_4) strtod (buffer, NULL);
+	(GFC_REAL_4) gfc_strtod (buffer, NULL);
 #endif
       break;
 
     case 8:
-      *((GFC_REAL_8*) dest) = strtod (buffer, NULL);
+      *((GFC_REAL_8*) dest) = gfc_strtod (buffer, NULL);
       break;
 
 #if defined(HAVE_GFC_REAL_10) && defined (HAVE_STRTOLD)
     case 10:
-      *((GFC_REAL_10*) dest) = strtold (buffer, NULL);
+      *((GFC_REAL_10*) dest) = gfc_strtold (buffer, NULL);
       break;
 #endif
 
 #if defined(HAVE_GFC_REAL_16) && defined (HAVE_STRTOLD)
     case 16:
-      *((GFC_REAL_16*) dest) = strtold (buffer, NULL);
+      *((GFC_REAL_16*) dest) = gfc_strtold (buffer, NULL);
       break;
 #endif
 

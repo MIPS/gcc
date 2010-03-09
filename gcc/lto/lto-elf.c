@@ -1,5 +1,5 @@
 /* LTO routines for ELF object files.
-   Copyright 2009 Free Software Foundation, Inc.
+   Copyright 2009, 2010 Free Software Foundation, Inc.
    Contributed by CodeSourcery, Inc.
 
 This file is part of GCC.
@@ -29,12 +29,29 @@ along with GCC; see the file COPYING3.  If not see
 #include "ggc.h"
 #include "lto-streamer.h"
 
+/* Cater to hosts with half-backed <elf.h> file like HP-UX.  */
+#ifndef EM_SPARC
+# define EM_SPARC 2
+#endif
+
+#ifndef EM_SPARC32PLUS
+# define EM_SPARC32PLUS 18
+#endif
+
+
+/* Handle opening elf files on hosts, such as Windows, that may use 
+   text file handling that will break binary access.  */
+#ifndef O_BINARY
+# define O_BINARY 0
+#endif
+
 
 /* Initialize FILE, an LTO file object for FILENAME.  */
 static void
-lto_file_init (lto_file *file, const char *filename)
+lto_file_init (lto_file *file, const char *filename, off_t offset)
 {
   file->filename = filename;
+  file->offset = offset;
 }
 
 /* An ELF file.  */
@@ -167,9 +184,11 @@ lto_elf_build_section_table (lto_file *lto_file)
   lto_elf_file *elf_file = (lto_elf_file *)lto_file;
   htab_t section_hash_table;
   Elf_Scn *section;
+  size_t base_offset;
 
   section_hash_table = htab_create (37, hash_name, eq_name, free);
 
+  base_offset = elf_getbase (elf_file->elf);
   for (section = elf_getscn (elf_file->elf, 0);
        section;
        section = elf_nextscn (elf_file->elf, section)) 
@@ -206,7 +225,7 @@ lto_elf_build_section_table (lto_file *lto_file)
 
 	  new_slot->name = new_name;
 	  /* The offset into the file for this section.  */
-	  new_slot->start = shdr->sh_offset;
+	  new_slot->start = base_offset + shdr->sh_offset;
 	  new_slot->len = shdr->sh_size;
 	  *slot = new_slot;
 	}
@@ -364,6 +383,41 @@ lto_elf_end_section (void)
 }
 
 
+/* Return true if ELF_MACHINE is compatible with the cached value of the
+   architecture and possibly update the latter.  Return false otherwise.
+
+   Note: if you want to add more EM_* cases, you'll need to provide the
+   corresponding definitions at the beginning of the file.  */
+
+static bool
+is_compatible_architecture (Elf64_Half elf_machine)
+{
+  if (cached_file_attrs.elf_machine == elf_machine)
+    return true;
+
+  switch (cached_file_attrs.elf_machine)
+    {
+    case EM_SPARC:
+      if (elf_machine == EM_SPARC32PLUS)
+	{
+	  cached_file_attrs.elf_machine = elf_machine;
+	  return true;
+	}
+      break;
+
+    case EM_SPARC32PLUS:
+      if (elf_machine == EM_SPARC)
+	return true;
+      break;
+
+    default:
+      break;
+    }
+
+  return false;
+}
+
+
 /* Validate's ELF_FILE's executable header and, if cached_file_attrs is
    uninitialized, caches the architecture.  */
 
@@ -388,8 +442,7 @@ validate_ehdr##BITS (lto_elf_file *elf_file)			\
 								\
   if (!cached_file_attrs.initialized)				\
     cached_file_attrs.elf_machine = elf_header->e_machine;	\
-								\
-  if (cached_file_attrs.elf_machine != elf_header->e_machine)	\
+  else if (!is_compatible_architecture (elf_header->e_machine))	\
     {								\
       error ("inconsistent file architecture detected");	\
       return false;						\
@@ -530,7 +583,6 @@ init_ehdr (lto_elf_file *elf_file)
     }
 }
 
-
 /* Open ELF file FILENAME.  If WRITABLE is true, the file is opened for write
    and, if necessary, created.  Otherwise, the file is opened for reading.
    Returns the opened file.  */
@@ -539,19 +591,48 @@ lto_file *
 lto_elf_file_open (const char *filename, bool writable)
 {
   lto_elf_file *elf_file;
-  lto_file *result;
+  lto_file *result = NULL;
+  off_t offset;
+  long loffset;
+  off_t header_offset;
+  const char *offset_p;
+  char *fname;
+  int consumed;
+
+  offset_p = strrchr (filename, '@');
+  if (offset_p
+      && offset_p != filename
+      && sscanf (offset_p, "@%li%n", &loffset, &consumed) >= 1
+      && strlen (offset_p) == (unsigned int)consumed)
+    {
+      fname = (char *) xmalloc (offset_p - filename + 1);
+      memcpy (fname, filename, offset_p - filename);
+      fname[offset_p - filename] = '\0';
+      offset = (off_t)loffset;
+      /* elf_rand expects the offset to point to the ar header, not the
+         object itself. Subtract the size of the ar header (60 bytes).
+         We don't uses sizeof (struct ar_hd) to avoid including ar.h */
+      header_offset = offset - 60;
+    }
+  else
+    {
+      fname = xstrdup (filename);
+      offset = 0;
+      header_offset = 0;
+    }
 
   /* Set up.  */
   elf_file = XCNEW (lto_elf_file);
   result = (lto_file *) elf_file;
-  lto_file_init (result, filename);
+  lto_file_init (result, fname, offset);
   elf_file->fd = -1;
 
   /* Open the file.  */
-  elf_file->fd = open (filename, writable ? O_WRONLY|O_CREAT : O_RDONLY, 0666);
+  elf_file->fd = open (fname, writable ? O_WRONLY|O_CREAT|O_BINARY 
+				       : O_RDONLY|O_BINARY, 0666);
   if (elf_file->fd == -1)
     {
-      error ("could not open file %s", filename);
+      error ("could not open file %s", fname);
       goto fail;
     }
 
@@ -571,6 +652,26 @@ lto_elf_file_open (const char *filename, bool writable)
       goto fail;
     }
 
+  if (offset != 0)
+    {
+      Elf *e;
+      off_t t = elf_rand (elf_file->elf, header_offset);
+      if (t != header_offset)
+        {
+          error ("could not seek in archive");
+          goto fail;
+        }
+
+      e = elf_begin (elf_file->fd, ELF_C_READ, elf_file->elf);
+      if (e == NULL)
+        {
+          error("could not find archive member");
+          goto fail;
+        }
+      elf_end (elf_file->elf);
+      elf_file->elf = e;
+    }
+
   if (writable)
     {
       init_ehdr (elf_file);
@@ -586,7 +687,8 @@ lto_elf_file_open (const char *filename, bool writable)
   return result;
 
  fail:
-  lto_elf_file_close (result);
+  if (result)
+    lto_elf_file_close (result);
   return NULL;
 }
 

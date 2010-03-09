@@ -126,6 +126,30 @@ enum rid
   RID_AT_INTERFACE,
   RID_AT_IMPLEMENTATION,
 
+  /* Named address support, mapping the keyword to a particular named address
+     number.  Named address space 0 is reserved for the generic address.  If
+     there are more than 254 named addresses, the addr_space_t type will need
+     to be grown from an unsigned char to unsigned short.  */
+  RID_ADDR_SPACE_0,		/* generic address */
+  RID_ADDR_SPACE_1,
+  RID_ADDR_SPACE_2,
+  RID_ADDR_SPACE_3,
+  RID_ADDR_SPACE_4,
+  RID_ADDR_SPACE_5,
+  RID_ADDR_SPACE_6,
+  RID_ADDR_SPACE_7,
+  RID_ADDR_SPACE_8,
+  RID_ADDR_SPACE_9,
+  RID_ADDR_SPACE_10,
+  RID_ADDR_SPACE_11,
+  RID_ADDR_SPACE_12,
+  RID_ADDR_SPACE_13,
+  RID_ADDR_SPACE_14,
+  RID_ADDR_SPACE_15,
+
+  RID_FIRST_ADDR_SPACE = RID_ADDR_SPACE_0,
+  RID_LAST_ADDR_SPACE = RID_ADDR_SPACE_15,
+
   RID_MAX,
 
   RID_FIRST_MODIFIER = RID_STATIC,
@@ -263,6 +287,10 @@ struct c_common_resword
 #define D_CXX_OBJC	0x100	/* In Objective C, and C++, but not C.  */
 #define D_CXXWARN	0x200	/* In C warn with -Wcxx-compat.  */
 
+/* Macro for backends to define named address keywords.  */
+#define ADDR_SPACE_KEYWORD(STRING, VALUE) \
+  { STRING, RID_FIRST_ADDR_SPACE + (VALUE), D_CONLY | D_EXT }
+
 /* The reserved keyword table.  */
 extern const struct c_common_resword c_common_reswords[];
 
@@ -363,6 +391,20 @@ extern c_language_kind c_language;
 #define c_dialect_cxx()		((c_language & clk_cxx) != 0)
 #define c_dialect_objc()	((c_language & clk_objc) != 0)
 
+/* The various name of operator that appears in error messages. */
+typedef enum ref_operator {
+  /* NULL */
+  RO_NULL,
+  /* array indexing */
+  RO_ARRAY_INDEXING,
+  /* unary * */
+  RO_UNARY_STAR,
+  /* -> */
+  RO_ARROW,
+  /* implicit conversion */
+  RO_IMPLICIT_CONVERSION
+} ref_operator;
+
 /* Information about a statement tree.  */
 
 struct GTY(()) stmt_tree_s {
@@ -420,7 +462,7 @@ extern tree pushdecl_top_level (tree);
 extern tree pushdecl (tree);
 extern tree build_modify_expr (location_t, tree, tree, enum tree_code,
 			       location_t, tree, tree);
-extern tree build_indirect_ref (location_t, tree, const char *);
+extern tree build_indirect_ref (location_t, tree, ref_operator);
 
 extern int c_expand_decl (tree);
 
@@ -760,6 +802,7 @@ extern const struct attribute_spec c_common_format_attribute_table[];
 
 extern tree (*make_fname_decl) (location_t, tree, int);
 
+extern const char *c_addr_space_name (addr_space_t as);
 extern tree identifier_global_value (tree);
 extern void record_builtin_type (enum rid, const char *, tree);
 extern tree build_void_list_node (void);
@@ -1009,9 +1052,9 @@ extern void warn_about_parentheses (enum tree_code,
 extern void warn_for_unused_label (tree label);
 extern void warn_for_div_by_zero (location_t, tree divisor);
 extern void warn_for_sign_compare (location_t,
-				   tree orig_op0, tree orig_op1, 
-				   tree op0, tree op1, 
-				   tree result_type, 
+				   tree orig_op0, tree orig_op1,
+				   tree op0, tree op1,
+				   tree result_type,
 				   enum tree_code resultcode);
 extern void set_underlying_type (tree x);
 extern bool is_typedef_decl (tree x);

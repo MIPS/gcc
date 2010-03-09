@@ -65,7 +65,7 @@ along with GCC; see the file COPYING3.  If not see
      return acc;
    }
 
-   To do this, we maintain two accumulators (a_acc and m_acc) that indicate 
+   To do this, we maintain two accumulators (a_acc and m_acc) that indicate
    when we reach the return x statement, we should return a_acc + x * m_acc
    instead.  They are initially initialized to 0 and 1, respectively,
    so the semantics of the function is obviously preserved.  If we are
@@ -79,12 +79,12 @@ along with GCC; see the file COPYING3.  If not see
 
    1) Just return x, where x is not in any of the remaining special shapes.
       We rewrite this to a gimple equivalent of return m_acc * x + a_acc.
-      
+
    2) return f (...), where f is the current function, is rewritten in a
       classical tail-recursion elimination way, into assignment of arguments
       and jump to the start of the function.  Values of the accumulators
       are unchanged.
-	       
+
    3) return a + m * f(...), where a and m do not depend on call to f.
       To preserve the semantics described before we want this to be rewritten
       in such a way that we finally return
@@ -211,7 +211,7 @@ independent_of_stmt_p (tree expr, gimple at, gimple_stmt_iterator gsi)
   bb->aux = &bb->aux;
 
   while (1)
-    { 
+    {
       at = SSA_NAME_DEF_STMT (expr);
       bb = gimple_bb (at);
 
@@ -270,7 +270,7 @@ process_assignment (gimple stmt, gimple_stmt_iterator call, tree *m,
   enum tree_code code = gimple_assign_rhs_code (stmt);
   enum gimple_rhs_class rhs_class = get_gimple_rhs_class (code);
   tree src_var = gimple_assign_rhs1 (stmt);
-  
+
   /* See if this is a simple copy operation of an SSA name to the function
      result.  In that case we may have a simple tail call.  Ignore type
      conversions that can never produce extra code between the function
@@ -350,7 +350,7 @@ propagate_through_phis (tree var, edge e)
 {
   basic_block dest = e->dest;
   gimple_stmt_iterator gsi;
- 
+
   for (gsi = gsi_start_phis (dest); !gsi_end_p (gsi); gsi_next (&gsi))
     {
       gimple phi = gsi_stmt (gsi);
@@ -411,7 +411,7 @@ find_tail_calls (basic_block bb, struct tailcall **ret)
       return;
     }
 
-  /* If the LHS of our call is not just a simple register, we can't 
+  /* If the LHS of our call is not just a simple register, we can't
      transform this into a tail or sibling call.  This situation happens,
      in (e.g.) "*p = foo()" where foo returns a struct.  In this case
      we won't have a temporary here, but we need to carry out the side
@@ -569,28 +569,42 @@ add_successor_phi_arg (edge e, tree var, tree phi_arg)
    tree node of the statement's result.  */
 
 static tree
-adjust_return_value_with_ops (enum tree_code code, const char *label, 
-			      tree op0, tree op1, gimple_stmt_iterator gsi,
-			      enum gsi_iterator_update update)
+adjust_return_value_with_ops (enum tree_code code, const char *label,
+			      tree acc, tree op1, gimple_stmt_iterator gsi)
 {
 
   tree ret_type = TREE_TYPE (DECL_RESULT (current_function_decl));
   tree tmp = create_tmp_var (ret_type, label);
-  gimple stmt = gimple_build_assign_with_ops (code, tmp, op0, op1);
+  gimple stmt;
   tree result;
 
   if (TREE_CODE (ret_type) == COMPLEX_TYPE
       || TREE_CODE (ret_type) == VECTOR_TYPE)
     DECL_GIMPLE_REG_P (tmp) = 1;
   add_referenced_var (tmp);
+
+  if (types_compatible_p (TREE_TYPE (acc), TREE_TYPE (op1)))
+    stmt = gimple_build_assign_with_ops (code, tmp, acc, op1);
+  else
+    {
+      tree rhs = fold_convert (TREE_TYPE (acc),
+			       fold_build2 (code,
+					    TREE_TYPE (op1),
+					    fold_convert (TREE_TYPE (op1), acc),
+					    op1));
+      rhs = force_gimple_operand_gsi (&gsi, rhs,
+				      false, NULL, true, GSI_CONTINUE_LINKING);
+      stmt = gimple_build_assign (NULL_TREE, rhs);
+    }
+
   result = make_ssa_name (tmp, stmt);
   gimple_assign_set_lhs (stmt, result);
   update_stmt (stmt);
-  gsi_insert_before (&gsi, stmt, update);
+  gsi_insert_before (&gsi, stmt, GSI_NEW_STMT);
   return result;
 }
 
-/* Creates a new GIMPLE statement that adjusts the value of accumulator ACC by 
+/* Creates a new GIMPLE statement that adjusts the value of accumulator ACC by
    the computation specified by CODE and OP1 and insert the statement
    at the position specified by GSI as a new statement.  Returns new SSA name
    of updated accumulator.  */
@@ -599,9 +613,22 @@ static tree
 update_accumulator_with_ops (enum tree_code code, tree acc, tree op1,
 			     gimple_stmt_iterator gsi)
 {
-  gimple stmt = gimple_build_assign_with_ops (code, SSA_NAME_VAR (acc), acc,
-					      op1);
-  tree var = make_ssa_name (SSA_NAME_VAR (acc), stmt);
+  gimple stmt;
+  tree var;
+  if (types_compatible_p (TREE_TYPE (acc), TREE_TYPE (op1)))
+    stmt = gimple_build_assign_with_ops (code, SSA_NAME_VAR (acc), acc, op1);
+  else
+    {
+      tree rhs = fold_convert (TREE_TYPE (acc),
+			       fold_build2 (code,
+					    TREE_TYPE (op1),
+					    fold_convert (TREE_TYPE (op1), acc),
+					    op1));
+      rhs = force_gimple_operand_gsi (&gsi, rhs,
+				      false, NULL, false, GSI_CONTINUE_LINKING);
+      stmt = gimple_build_assign (NULL_TREE, rhs);
+    }
+  var = make_ssa_name (SSA_NAME_VAR (acc), stmt);
   gimple_assign_set_lhs (stmt, var);
   update_stmt (stmt);
   gsi_insert_after (&gsi, stmt, GSI_NEW_STMT);
@@ -631,7 +658,7 @@ adjust_accumulator_values (gimple_stmt_iterator gsi, tree m, tree a, edge back)
 	    var = m_acc;
 	  else
 	    var = adjust_return_value_with_ops (MULT_EXPR, "acc_tmp", m_acc,
-						a, gsi, GSI_NEW_STMT);
+						a, gsi);
 	}
       else
 	var = a;
@@ -667,10 +694,10 @@ adjust_return_value (basic_block bb, tree m, tree a)
 
   if (m)
     retval = adjust_return_value_with_ops (MULT_EXPR, "mul_tmp", m_acc, retval,
-					   gsi, GSI_SAME_STMT);
+					   gsi);
   if (a)
     retval = adjust_return_value_with_ops (PLUS_EXPR, "acc_tmp", a_acc, retval,
-					   gsi, GSI_SAME_STMT);
+					   gsi);
   gimple_return_set_retval (ret_stmt, retval);
   update_stmt (ret_stmt);
 }
@@ -708,7 +735,7 @@ arg_needs_copy_p (tree param)
 
   if (!is_gimple_reg (param) || !var_ann (param))
     return false;
-		
+
   /* Parameters that are only defined but never used need not be copied.  */
   def = gimple_default_def (cfun, param);
   if (!def)
@@ -893,7 +920,7 @@ create_tailcall_accumulator (const char *label, basic_block bb, tree init)
 	       UNKNOWN_LOCATION);
   return PHI_RESULT (phi);
 }
- 
+
 /* Optimizes tail calls in the function, turning the tail recursion
    into iteration.  */
 
@@ -953,7 +980,7 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
 		set_default_def (param, new_name);
 		phi = create_phi_node (name, first);
 		SSA_NAME_DEF_STMT (name) = phi;
-		add_phi_arg (phi, new_name, single_pred_edge (first), 
+		add_phi_arg (phi, new_name, single_pred_edge (first),
 			     EXPR_LOCATION (param));
 	      }
 	  phis_constructed = true;
@@ -1016,7 +1043,7 @@ execute_tail_calls (void)
   return tree_optimize_tail_calls_1 (true);
 }
 
-struct gimple_opt_pass pass_tail_recursion = 
+struct gimple_opt_pass pass_tail_recursion =
 {
  {
   GIMPLE_PASS,
@@ -1035,7 +1062,7 @@ struct gimple_opt_pass pass_tail_recursion =
  }
 };
 
-struct gimple_opt_pass pass_tail_calls = 
+struct gimple_opt_pass pass_tail_calls =
 {
  {
   GIMPLE_PASS,

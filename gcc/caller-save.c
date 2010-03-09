@@ -1,6 +1,6 @@
 /* Save and restore call-clobbered registers which are live across a call.
    Copyright (C) 1989, 1992, 1994, 1995, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
+   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -311,7 +311,7 @@ init_save_areas (void)
     for (j = 1; j <= MOVE_MAX_WORDS; j++)
       regno_save_mem[i][j] = 0;
   save_slots_num = 0;
-    
+
 }
 
 /* The structure represents a hard register which should be saved
@@ -394,7 +394,7 @@ saved_hard_reg_compare_func (const void *v1p, const void *v2p)
 {
   const struct saved_hard_reg *p1 = *(struct saved_hard_reg * const *) v1p;
   const struct saved_hard_reg *p2 = *(struct saved_hard_reg * const *) v2p;
-  
+
   if (flag_omit_frame_pointer)
     {
       if (p1->call_freq - p2->call_freq != 0)
@@ -467,7 +467,7 @@ setup_save_areas (void)
       int best_slot_num;
       int prev_save_slots_num;
       rtx prev_save_slots[FIRST_PSEUDO_REGISTER];
-      
+
       initiate_saved_hard_regs ();
       /* Create hard reg saved regs.  */
       for (chain = reload_insn_chain; chain != 0; chain = next)
@@ -510,10 +510,10 @@ setup_save_areas (void)
 	    {
 	      int r = reg_renumber[regno];
 	      int bound;
-	      
+
 	      if (r < 0)
 		continue;
-	      
+
 	      bound = r + hard_regno_nregs[r][PSEUDO_REGNO_MODE (regno)];
 	      for (; r < bound; r++)
 		if (TEST_HARD_REG_BIT (used_regs, r))
@@ -549,7 +549,7 @@ setup_save_areas (void)
 	  CLEAR_HARD_REG_SET (this_insn_sets);
 	  note_stores (PATTERN (insn), mark_set_regs, &this_insn_sets);
 	  /* Sibcalls are considered to set the return value,
-	     compare flow.c:propagate_one_insn.  */
+	     compare df-scan.c:df_get_call_refs.  */
 	  if (SIBLING_CALL_P (insn) && crtl->return_rtx)
 	    mark_set_regs (crtl->return_rtx, NULL_RTX, &this_insn_sets);
 
@@ -568,7 +568,7 @@ setup_save_areas (void)
 	    {
 	      int r = reg_renumber[regno];
 	      int bound;
-	      
+
 	      if (r < 0)
 		continue;
 
@@ -686,17 +686,17 @@ setup_save_areas (void)
       /* Now run through all the call-used hard-registers and allocate
 	 space for them in the caller-save area.  Try to allocate space
 	 in a manner which allows multi-register saves/restores to be done.  */
-      
+
       for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
 	for (j = MOVE_MAX_WORDS; j > 0; j--)
 	  {
 	    int do_save = 1;
-	    
+
 	    /* If no mode exists for this size, try another.  Also break out
 	       if we have already saved this hard register.  */
 	    if (regno_save_mode[i][j] == VOIDmode || regno_save_mem[i][1] != 0)
 	      continue;
-	    
+
 	    /* See if any register in this group has been saved.  */
 	    for (k = 0; k < j; k++)
 	      if (regno_save_mem[i + k][1])
@@ -706,7 +706,7 @@ setup_save_areas (void)
 		}
 	    if (! do_save)
 	      continue;
-	    
+
 	    for (k = 0; k < j; k++)
 	      if (! TEST_HARD_REG_BIT (hard_regs_used, i + k))
 		{
@@ -715,7 +715,7 @@ setup_save_areas (void)
 		}
 	    if (! do_save)
 	      continue;
-	    
+
 	    /* We have found an acceptable mode to store in.  Since
 	       hard register is always saved in the widest mode
 	       available, the mode may be wider than necessary, it is
@@ -727,7 +727,7 @@ setup_save_areas (void)
 	      = assign_stack_local_1 (regno_save_mode[i][j],
 				      GET_MODE_SIZE (regno_save_mode[i][j]),
 				      0, true);
-	    
+
 	    /* Setup single word save area just in case...  */
 	    for (k = 0; k < j; k++)
 	      /* This should not depend on WORDS_BIG_ENDIAN.
@@ -754,7 +754,7 @@ setup_save_areas (void)
 void
 save_call_clobbered_regs (void)
 {
-  struct insn_chain *chain, *next;
+  struct insn_chain *chain, *next, *last = NULL;
   enum machine_mode save_mode [FIRST_PSEUDO_REGISTER];
 
   /* Computed in mark_set_regs, holds all registers set by the current
@@ -861,6 +861,7 @@ save_call_clobbered_regs (void)
 		if (TEST_HARD_REG_BIT (hard_regs_saved, regno))
 		  n_regs_saved++;
 	    }
+          last = chain;
 	}
       else if (DEBUG_INSN_P (insn) && n_regs_saved)
 	mark_referenced_regs (&PATTERN (insn),
@@ -873,6 +874,36 @@ save_call_clobbered_regs (void)
 	  /* At the end of the basic block, we must restore any registers that
 	     remain saved.  If the last insn in the block is a JUMP_INSN, put
 	     the restore before the insn, otherwise, put it after the insn.  */
+
+	  if (DEBUG_INSN_P (insn) && last && last->block == chain->block)
+	    {
+	      rtx ins, prev;
+	      basic_block bb = BLOCK_FOR_INSN (insn);
+
+	      /* When adding hard reg restores after a DEBUG_INSN, move
+		 all notes between last real insn and this DEBUG_INSN after
+		 the DEBUG_INSN, otherwise we could get code
+		 -g/-g0 differences.  */
+	      for (ins = PREV_INSN (insn); ins != last->insn; ins = prev)
+		{
+		  prev = PREV_INSN (ins);
+		  if (NOTE_P (ins))
+		    {
+		      NEXT_INSN (prev) = NEXT_INSN (ins);
+		      PREV_INSN (NEXT_INSN (ins)) = prev;
+		      PREV_INSN (ins) = insn;
+		      NEXT_INSN (ins) = NEXT_INSN (insn);
+		      NEXT_INSN (insn) = ins;
+		      if (NEXT_INSN (ins))
+			PREV_INSN (NEXT_INSN (ins)) = ins;
+                      if (BB_END (bb) == insn)
+			BB_END (bb) = ins;
+		    }
+		  else
+		    gcc_assert (DEBUG_INSN_P (ins));
+		}
+	    }
+	  last = NULL;
 
 	  if (n_regs_saved)
 	    for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)

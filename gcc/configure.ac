@@ -785,6 +785,14 @@ AC_SUBST(TARGET_SYSTEM_ROOT)
 AC_SUBST(TARGET_SYSTEM_ROOT_DEFINE)
 AC_SUBST(CROSS_SYSTEM_HEADER_DIR)
 
+AC_ARG_WITH(specs,
+  [AS_HELP_STRING([--with-specs=SPECS],
+                  [add SPECS to driver command-line processing])],
+  [CONFIGURE_SPECS=$withval],
+  [CONFIGURE_SPECS=]
+)
+AC_SUBST(CONFIGURE_SPECS)
+
 # Build with intermodule optimisations
 AC_ARG_ENABLE(intermodule,
 [  --enable-intermodule    build the compiler in one step],
@@ -1915,6 +1923,17 @@ else
         AC_PATH_PROG(gcc_cv_ld, $LD_FOR_TARGET)
 fi])
 
+ORIGINAL_PLUGIN_LD_FOR_TARGET=$gcc_cv_ld
+PLUGIN_LD=`basename $gcc_cv_ld`
+AC_ARG_WITH(plugin-ld,
+[  --with-plugin-ld=[[ARG]]  specify the plugin linker],
+[if test x"$withval" != x; then
+   ORIGINAL_PLUGIN_LD_FOR_TARGET="$withval"
+   PLUGIN_LD="$withval"
+ fi])
+AC_SUBST(ORIGINAL_PLUGIN_LD_FOR_TARGET)
+AC_DEFINE_UNQUOTED(PLUGIN_LD, "$PLUGIN_LD", [Specify plugin linker])
+
 ORIGINAL_LD_FOR_TARGET=$gcc_cv_ld
 AC_SUBST(ORIGINAL_LD_FOR_TARGET)
 case "$ORIGINAL_LD_FOR_TARGET" in
@@ -2100,16 +2119,8 @@ gcc_GAS_CHECK_FEATURE([.hidden], gcc_cv_as_hidden,
 [	.hidden foobar
 foobar:])
 
-AC_CACHE_CHECK(linker for .hidden support, gcc_cv_ld_hidden,
-[if test $in_tree_ld = yes ; then
-  gcc_cv_ld_hidden=no
-  if test "$gcc_cv_gld_major_version" -eq 2 -a "$gcc_cv_gld_minor_version" -ge 13 -o "$gcc_cv_gld_major_version" -gt 2 \
-     && test $in_tree_ld_is_elf = yes; then
-     gcc_cv_ld_hidden=yes
-  fi
-else
 changequote(,)dnl
-  gcc_cv_ld_hidden=yes
+if test $in_tree_ld != yes ; then
   ld_ver=`$gcc_cv_ld --version 2>/dev/null | sed 1q`
   if echo "$ld_ver" | grep GNU > /dev/null; then
     ld_vers=`echo $ld_ver | sed -n \
@@ -2118,6 +2129,20 @@ changequote(,)dnl
     ld_vers_major=`expr "$ld_vers" : '\([0-9]*\)'`
     ld_vers_minor=`expr "$ld_vers" : '[0-9]*\.\([0-9]*\)'`
     ld_vers_patch=`expr "$ld_vers" : '[0-9]*\.[0-9]*\.\([0-9]*\)'`
+  fi
+fi
+changequote([,])dnl
+
+AC_CACHE_CHECK(linker for .hidden support, gcc_cv_ld_hidden,
+[[if test $in_tree_ld = yes ; then
+  gcc_cv_ld_hidden=no
+  if test "$gcc_cv_gld_major_version" -eq 2 -a "$gcc_cv_gld_minor_version" -ge 13 -o "$gcc_cv_gld_major_version" -gt 2 \
+     && test $in_tree_ld_is_elf = yes; then
+     gcc_cv_ld_hidden=yes
+  fi
+else
+  gcc_cv_ld_hidden=yes
+  if echo "$ld_ver" | grep GNU > /dev/null; then
     if test 0"$ld_date" -lt 20020404; then
       if test -n "$ld_date"; then
 	# If there was date string, but was earlier than 2002-04-04, fail
@@ -2149,8 +2174,7 @@ changequote(,)dnl
 	;;
     esac
   fi
-changequote([,])dnl
-fi])
+fi]])
 libgcc_visibility=no
 AC_SUBST(libgcc_visibility)
 GCC_TARGET_TEMPLATE([HAVE_GAS_HIDDEN])
@@ -2208,24 +2232,22 @@ L1:
 	.uleb128 1280
 	.sleb128 -1010
 L2:],
- [# GAS versions before 2.11 do not support uleb128,
+[[# GAS versions before 2.11 do not support uleb128,
   # despite appearing to.
   # ??? There exists an elf-specific test that will crash
   # the assembler.  Perhaps it's better to figure out whether
   # arbitrary sections are supported and try the test.
   as_ver=`$gcc_cv_as --version 2>/dev/null | sed 1q`
   if echo "$as_ver" | grep GNU > /dev/null; then
-changequote(,)dnl
     as_vers=`echo $as_ver | sed -n \
 	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*.*\)$,\1,p'`
     as_major=`expr "$as_vers" : '\([0-9]*\)'`
     as_minor=`expr "$as_vers" : '[0-9]*\.\([0-9]*\)'`
-changequote([,])dnl
     if test $as_major -eq 2 && test $as_minor -lt 11
     then :
     else gcc_cv_as_leb128=yes
     fi
-  fi],
+  fi]],
   [AC_DEFINE(HAVE_AS_LEB128, 1,
     [Define if your assembler supports .sleb128 and .uleb128.])])
 
@@ -2250,7 +2272,23 @@ gcc_GAS_CHECK_FEATURE([cfi directives], gcc_cv_as_cfi_directive,
 		sed -e /.eh_frame/!d -e N | grep READONLY > /dev/null; then
 	  gcc_cv_as_cfi_directive=no
 	else
-	  gcc_cv_as_cfi_directive=yes
+	  case "$target" in
+	    i?86-*-solaris2.1[[0-9]]*)
+	      # On Solaris/x86, make sure that GCC and gas agree on using
+	      # read-only .eh_frame sections for 64-bit.
+	      if $gcc_cv_as --64 -o conftest.o conftest.s > /dev/null 2>&1 && \
+		$gcc_cv_objdump -h conftest.o 2>/dev/null | \
+			sed -e /.eh_frame/!d -e N | \
+			grep READONLY > /dev/null; then
+		gcc_cv_as_cfi_directive=yes
+	      else
+		gcc_cv_as_cfi_directive=no
+	      fi
+	      ;;
+	    *)
+	      gcc_cv_as_cfi_directive=yes
+	      ;;
+	  esac 
 	fi
       else
         # no objdump, err on the side of caution
@@ -2270,17 +2308,15 @@ gcc_GAS_CHECK_FEATURE([working cfi advance], gcc_cv_as_cfi_advance_working,
 [	.text
 	.cfi_startproc
 	.cfi_adjust_cfa_offset 64
-	.skip 512, 0
+	.skip 75031, 0
 	.cfi_adjust_cfa_offset 128
 	.cfi_endproc],
-[
-changequote(,)dnl
+[[
 if $gcc_cv_readelf -wf conftest.o 2>/dev/null \
-    | grep 'DW_CFA_advance_loc[12]:[ 	][ 	]*512[ 	]' >/dev/null; then
+    | grep 'DW_CFA_advance_loc[124]:[ 	][ 	]*75031[ 	]' >/dev/null; then
    gcc_cv_as_cfi_advance_working=yes
 fi
-changequote([,])dnl
-])
+]])
 else
   # no readelf, err on the side of caution
   gcc_cv_as_cfi_advance_working=no
@@ -2924,6 +2960,28 @@ case "$target" in
       [AC_DEFINE(HAVE_AS_RELAX_OPTION, 1,
 		[Define if your assembler supports -relax option.])])
 
+    gcc_GAS_CHECK_FEATURE([GOTDATA_OP relocs],
+      gcc_cv_as_sparc_gotdata_op,,
+      [-K PIC],
+[.text
+foo:
+	nop
+bar:
+	sethi %gdop_hix22(foo), %g1
+	xor    %g1, %gdop_lox10(foo), %g1
+	ld    [[%l7 + %g1]], %g2, %gdop(foo)],
+      [if test x$gcc_cv_ld != x \
+       && $gcc_cv_ld -o conftest conftest.o -G > /dev/null 2>&1 \
+       && (test x$gnu_ld_flag = xno \
+           || (test x$gcc_cv_objdump != x \
+               && $gcc_cv_objdump -s -j .text conftest.o 2> /dev/null \
+                  | grep ' 03000004 82186004 c405c001'> /dev/null 2>&1)); then
+	 gcc_cv_as_sparc_gotdata_op=yes
+       fi
+       rm -f conftest],
+      [AC_DEFINE(HAVE_AS_SPARC_GOTDATA_OP, 1,
+		[Define if your assembler and linker support GOTDATA_OP relocs.])])
+
     gcc_GAS_CHECK_FEATURE([unaligned pcrel relocs],
       gcc_cv_as_sparc_ua_pcrel,,
       [-K PIC],
@@ -2989,6 +3047,25 @@ changequote(,)dnl
   i[34567]86-*-* | x86_64-*-*)
 changequote([,])dnl
     case $target_os in
+      cygwin*)
+	# Full C++ conformance when using a shared libstdc++-v3 requires some
+	# support from the Cygwin DLL, which in more recent versions exports
+	# wrappers to aid in interposing and redirecting operators new, delete,
+	# etc., as per n2800 #17.6.4.6 [replacement.functions].  Check if we
+	# are configuring for a version of Cygwin that exports the wrappers.
+	if test x$host = x$target; then
+	  AC_CHECK_FUNC([__wrap__Znaj],[gcc_ac_cygwin_dll_wrappers=yes],[gcc_ac_cygwin_dll_wrappers=no])
+	else
+	  # Can't check presence of libc functions during cross-compile, so
+	  # we just have to assume we're building for an up-to-date target.
+	  gcc_ac_cygwin_dll_wrappers=yes
+	fi
+	AC_DEFINE_UNQUOTED(USE_CYGWIN_LIBSTDCXX_WRAPPERS,
+	  [`if test $gcc_ac_cygwin_dll_wrappers = yes; then echo 1; else echo 0; fi`],
+	  [Define if you want to generate code by default that assumes that the
+	   Cygwin DLL exports wrappers to support libstdc++ function replacement.])
+    esac
+    case $target_os in
       cygwin* | pe | mingw32*)
 	# Recent binutils allows the three-operand form of ".comm" on PE.  This
 	# definition is used unconditionally to initialise the default state of
@@ -3046,6 +3123,12 @@ foo:	nop
       [sahf],,
       [AC_DEFINE(HAVE_AS_IX86_SAHF, 1,
         [Define if your assembler supports the sahf mnemonic.])])
+
+    gcc_GAS_CHECK_FEATURE([swap suffix],
+      gcc_cv_as_ix86_swap,,,
+      [movl.s %esp, %ebp],,
+      [AC_DEFINE(HAVE_AS_IX86_SWAP, 1,
+        [Define if your assembler supports the swap suffix.])])
 
     gcc_GAS_CHECK_FEATURE([different section symbol subtraction],
       gcc_cv_as_ix86_diff_sect_delta,,,
@@ -3260,6 +3343,21 @@ LCF0:
       [ bl __tls_get_addr(x@tlsgd)],,
       [AC_DEFINE(HAVE_AS_TLS_MARKERS, 1,
 	  [Define if your assembler supports arg info for __tls_get_addr.])])
+
+    case $target in
+      *-*-aix*)
+	gcc_GAS_CHECK_FEATURE([.ref support],
+	  gcc_cv_as_aix_ref, [2.21.0],,
+	  [	.csect stuff[[rw]]
+	     stuff:
+		.long 1
+		.extern sym
+		.ref sym
+	  ],,
+	  [AC_DEFINE(HAVE_AS_REF, 1,
+	    [Define if your assembler supports .ref])])
+	;;
+    esac
     ;;
 
   mips*-*-*)
@@ -3485,15 +3583,15 @@ Valid choices are 'yes' and 'no'.]) ;;
    [elf,2,19,52],,
    [.type foo, @gnu_unique_object],,
 # Also check for ld.so support, i.e. glibc 2.11 or higher.
-   [if test x$host = x$build -a x$host = x$target &&
-       glibcver=`ldd --version 2>/dev/null`; then
-      glibcmajor=`expr "$glibcver" : "ldd (GNU libc) \([[0-9]]*\)"`
-      glibcminor=`expr "$glibcver" : "ldd (GNU libc) [[0-9]]*\.\([[0-9]]*\)"`
+   [[if test x$host = x$build -a x$host = x$target &&
+       glibcver=`ldd --version 2>/dev/null | sed 's/.* //;q'`; then
+      glibcmajor=`expr "$glibcver" : "\([0-9]*\)"`
+      glibcminor=`expr "$glibcver" : "[2-9]*\.\([0-9]*\)"`
       glibcnum=`expr $glibcmajor \* 1000 + $glibcminor`
       if test "$glibcnum" -ge 2011 ; then
         enable_gnu_unique_object=yes
       fi
-    fi])])
+    fi]])])
 if test x$enable_gnu_unique_object = xyes; then
   AC_DEFINE(HAVE_GAS_GNU_UNIQUE_OBJECT, 1,
    [Define if your assembler supports @gnu_unique_object.])
@@ -3772,7 +3870,9 @@ AC_CACHE_CHECK(__stack_chk_fail in target C library,
     case "$target" in
        *-*-linux* | *-*-kfreebsd*-gnu | *-*-knetbsd*-gnu)
       if test x$host != x$target || test "x$TARGET_SYSTEM_ROOT" != x; then
-	if test "x$with_sysroot" = x; then
+	if test "x$with_headers" != x; then
+	  glibc_header_dir=$with_headers
+	elif test "x$with_sysroot" = x; then
 	  glibc_header_dir="${exec_prefix}/${target_noncanonical}/sys-include"
 	elif test "x$with_build_sysroot" != "x"; then
 	  glibc_header_dir="${with_build_sysroot}/usr/include"
@@ -3784,27 +3884,27 @@ AC_CACHE_CHECK(__stack_chk_fail in target C library,
       else
 	glibc_header_dir=/usr/include
       fi
-      # glibc 2.4 and later provides __stack_chk_fail and
+      [# glibc 2.4 and later provides __stack_chk_fail and
       # either __stack_chk_guard, or TLS access to stack guard canary.
       if test -f $glibc_header_dir/features.h \
-	 && $EGREP '^@<:@ 	@:>@*#[ 	]*define[ 	]+__GNU_LIBRARY__[ 	]+([1-9][0-9]|[6-9])' \
+	 && $EGREP '^[ 	]*#[ 	]*define[ 	]+__GNU_LIBRARY__[ 	]+([1-9][0-9]|[6-9])' \
 	    $glibc_header_dir/features.h > /dev/null; then
-	if $EGREP '^@<:@ 	@:>@*#[ 	]*define[ 	]+__GLIBC__[ 	]+([1-9][0-9]|[3-9])' \
+	if $EGREP '^[ 	]*#[ 	]*define[ 	]+__GLIBC__[ 	]+([1-9][0-9]|[3-9])' \
 	   $glibc_header_dir/features.h > /dev/null; then
 	  gcc_cv_libc_provides_ssp=yes
-	elif $EGREP '^@<:@ 	@:>@*#[ 	]*define[ 	]+__GLIBC__[ 	]+2' \
+	elif $EGREP '^[ 	]*#[ 	]*define[ 	]+__GLIBC__[ 	]+2' \
 	     $glibc_header_dir/features.h > /dev/null \
-	     && $EGREP '^@<:@ 	@:>@*#[ 	]*define[ 	]+__GLIBC_MINOR__[ 	]+([1-9][0-9]|[4-9])' \
+	     && $EGREP '^[ 	]*#[ 	]*define[ 	]+__GLIBC_MINOR__[ 	]+([1-9][0-9]|[4-9])' \
 	     $glibc_header_dir/features.h > /dev/null; then
 	  gcc_cv_libc_provides_ssp=yes
-	elif $EGREP '^@<:@ 	@:>@*#[ 	]*define[ 	]+__UCLIBC__[ 	]+1' \
+	elif $EGREP '^[ 	]*#[ 	]*define[ 	]+__UCLIBC__[ 	]+1' \
 	     $glibc_header_dir/features.h > /dev/null && \
 	     test -f $glibc_header_dir/bits/uClibc_config.h && \
-	     $EGREP '^@<:@ 	@:>@*#[ 	]*define[ 	]+__UCLIBC_HAS_SSP__[ 	]+1' \
+	     $EGREP '^[ 	]*#[ 	]*define[ 	]+__UCLIBC_HAS_SSP__[ 	]+1' \
 	     $glibc_header_dir/bits/uClibc_config.h > /dev/null; then
 	  gcc_cv_libc_provides_ssp=yes
 	fi
-      fi
+      fi]
 	;;
        *-*-gnu*)
 	 # Avoid complicated tests (see
@@ -3836,7 +3936,7 @@ case "$target" in
     AC_ARG_WITH(long-double-128,
 [  --with-long-double-128  Use 128-bit long double by default.],
       gcc_cv_target_ldbl128="$with_long_double_128",
-      [gcc_cv_target_ldbl128=no
+      [[gcc_cv_target_ldbl128=no
       if test x$host != x$target || test "x$TARGET_SYSTEM_ROOT" != x; then
 	if test "x$with_sysroot" = x; then
 	  glibc_header_dir="${exec_prefix}/${target_noncanonical}/sys-include"
@@ -3850,12 +3950,10 @@ case "$target" in
       else
 	glibc_header_dir=/usr/include
       fi
-changequote(,)dnl
       grep '^[ 	]*#[ 	]*define[ 	][ 	]*__LONG_DOUBLE_MATH_OPTIONAL' \
         $glibc_header_dir/bits/wordsize.h > /dev/null 2>&1 \
       && gcc_cv_target_ldbl128=yes
-changequote([,])dnl
-      ])
+      ]])
     ;;
 esac
 if test x$gcc_cv_target_ldbl128 = xyes; then
@@ -4068,8 +4166,8 @@ done
 rm -f Make-hooks
 touch Make-hooks
 target_list="all.cross start.encap rest.encap tags \
-	install-common install-man install-info install-pdf dvi pdf \
-	html uninstall info man srcextra srcman srcinfo \
+	install-common install-man install-info install-pdf install-html dvi \
+	pdf html uninstall info man srcextra srcman srcinfo \
 	mostlyclean clean distclean maintainer-clean install-plugin"
 
 for t in $target_list
@@ -4208,10 +4306,6 @@ fi
 AC_ARG_VAR(GMPLIBS,[How to link GMP])
 AC_ARG_VAR(GMPINC,[How to find GMP include files])
 
-case "${GMPLIBS}" in
-  *-lmpc*) AC_DEFINE(HAVE_mpc, 1, [Define if mpc is in use.]) ;;
-esac
-
 AC_ARG_VAR(PPLLIBS,[How to link PPL])
 AC_ARG_VAR(PPLINC,[How to find PPL include files])
 
@@ -4235,30 +4329,32 @@ enable_plugin=yes; default_plugin=yes)
 
 pluginlibs=
 if test x"$enable_plugin" = x"yes"; then
-  # Check that the host supports -rdynamic and -ldl
-  have_rdynamic=no
-  have_dl=no
-  saved_LDFLAGS="$LDFLAGS"
-  saved_LIBS="$LIBS"
-  LIBS=
 
-  # Check -rdynamic
-  LDFLAGS="$LDFLAGS -rdynamic"
-  AC_MSG_CHECKING([for -rdynamic])
-  AC_TRY_LINK([],[return 0;],
-    [AC_MSG_RESULT([yes]); have_rdynamic=yes],
-    [AC_MSG_RESULT([no])])
-  if test x"$have_rdynamic" = x"yes" ; then
-    pluginlibs="-rdynamic"
+  AC_MSG_CHECKING([for exported symbols])
+  echo "int main() {return 0;} int foobar() {return 0;}" > conftest.c
+  ${CC} ${CFLAGS} ${LDFLAGS} conftest.c -o conftest > /dev/null 2>&1
+  if $gcc_cv_objdump -T conftest | grep foobar > /dev/null; then
+    : # No need to use a flag
+  else
+    AC_MSG_CHECKING([for -rdynamic])
+    ${CC} ${CFLAGS} ${LDFLAGS} -rdynamic conftest.c -o conftest > /dev/null 2>&1
+    if $gcc_cv_objdump -T conftest | grep foobar > /dev/null; then
+      pluginlibs="-rdynamic"
+    else
+      enable_plugin=no
+    fi
   fi
 
   # Check -ldl
+  saved_LIBS="$LIBS"
   AC_SEARCH_LIBS([dlopen], [dl])
   if test x"$ac_cv_search_dlopen" = x"-ldl"; then
     pluginlibs="$pluginlibs -ldl"
   fi
+  LIBS="$saved_LIBS"
 
   # Check that we can build shared objects with -fPIC -shared
+  saved_LDFLAGS="$LDFLAGS"
   LDFLAGS="$LDFLAGS -fPIC -shared"
   AC_MSG_CHECKING([for -fPIC -shared])
   AC_TRY_LINK(
@@ -4269,6 +4365,7 @@ if test x"$enable_plugin" = x"yes"; then
     pluginlibs=
     enable_plugin=no
   fi
+  LDFLAGS="$saved_LDFLAGS"
 
   # If plugin support had been requested but not available, fail.
   if test x"$enable_plugin" = x"no" ; then
@@ -4278,9 +4375,6 @@ Building GCC with plugin support requires a host that supports
 -fPIC, -shared, -ldl and -rdynamic.])
     fi
   fi
-
-  LDFLAGS="$saved_LDFLAGS"
-  LIBS="$saved_LIBS"
 fi
 
 AC_SUBST(pluginlibs)

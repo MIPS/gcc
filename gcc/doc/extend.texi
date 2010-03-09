@@ -21,8 +21,8 @@ These extensions are available in C and Objective-C@.  Most of them are
 also available in C++.  @xref{C++ Extensions,,Extensions to the
 C++ Language}, for extensions that apply @emph{only} to C++.
 
-Some features that are in ISO C99 but not C89 or C++ are also, as
-extensions, accepted by GCC in C89 mode and in C++.
+Some features that are in ISO C99 but not C90 or C++ are also, as
+extensions, accepted by GCC in C90 mode and in C++.
 
 @menu
 * Statement Exprs::     Putting statements and declarations inside expressions.
@@ -39,6 +39,7 @@ extensions, accepted by GCC in C89 mode and in C++.
 * Decimal Float::       Decimal Floating Types. 
 * Hex Floats::          Hexadecimal floating-point constants.
 * Fixed-Point::         Fixed-Point Types.
+* Named Address Spaces::Named address spaces.
 * Zero Length::         Zero-length arrays.
 * Variable Length::     Arrays whose length is computed at run time.
 * Empty Structures::    Structures with no members.
@@ -812,7 +813,7 @@ effects of recomputing it.
 @cindex @code{ULL} integer suffix
 
 ISO C99 supports data types for integers that are at least 64 bits wide,
-and as an extension GCC supports them in C89 mode and in C++.
+and as an extension GCC supports them in C90 mode and in C++.
 Simply write @code{long long int} for a signed integer, or
 @code{unsigned long long int} for an unsigned integer.  To make an
 integer constant of type @code{long long int}, add the suffix @samp{LL}
@@ -842,7 +843,7 @@ Likewise, if the function expects @code{long long int} and you pass
 @cindex @code{__complex__} keyword
 
 ISO C99 supports complex floating data types, and as an extension GCC
-supports them in C89 mode and in C++, and supports complex integer data
+supports them in C90 mode and in C++, and supports complex integer data
 types which are not part of ISO C99.  You can declare complex types
 using the keyword @code{_Complex}.  As an extension, the older GNU
 keyword @code{__complex__} is also supported.
@@ -959,8 +960,9 @@ direct conversion.
 ARM provides hardware support for conversions between 
 @code{__fp16} and @code{float} values
 as an extension to VFP and NEON (Advanced SIMD).  GCC generates
-code using the instructions provided by this extension if you compile
-with the options @option{-mfpu=neon-fp16 -mfloat-abi=softfp},
+code using these hardware instructions if you compile with
+options to select an FPU that provides them; 
+for example, @option{-mfpu=neon-fp16 -mfloat-abi=softfp},
 in addition to the @option{-mfp16-format} option to select
 a half-precision format.  
 
@@ -1030,7 +1032,7 @@ are supported by the DWARF2 debug information format.
 ISO C99 supports floating-point numbers written not only in the usual
 decimal notation, such as @code{1.55e1}, but also numbers such as
 @code{0x1.fp3} written in hexadecimal format.  As a GNU extension, GCC
-supports this in C89 mode (except in some cases when strictly
+supports this in C90 mode (except in some cases when strictly
 conforming) and in C++.  In that format the
 @samp{0x} hex introducer and the @samp{p} or @samp{P} exponent field are
 mandatory.  The exponent is a decimal number that indicates the power of
@@ -1197,6 +1199,31 @@ Pragmas to control overflow and rounding behaviors are not implemented.
 
 Fixed-point types are supported by the DWARF2 debug information format.
 
+@node Named Address Spaces
+@section Named address spaces
+@cindex named address spaces
+
+As an extension, the GNU C compiler supports named address spaces as
+defined in the N1275 draft of ISO/IEC DTR 18037.  Support for named
+address spaces in GCC will evolve as the draft technical report changes.
+Calling conventions for any target might also change.  At present, only
+the SPU target supports other address spaces.  On the SPU target, for
+example, variables may be declared as belonging to another address space
+by qualifying the type with the @code{__ea} address space identifier:
+
+@smallexample
+extern int __ea i;
+@end smallexample
+
+When the variable @code{i} is accessed, the compiler will generate
+special code to access this variable.  It may use runtime library
+support, or generate special machine instructions to access that address
+space.
+
+The @code{__ea} identifier may be used exactly like any other C type
+qualifier (e.g., @code{const} or @code{volatile}).  See the N1275
+document for more details.
+
 @node Zero Length
 @section Arrays of Length Zero
 @cindex arrays of length zero
@@ -1318,7 +1345,7 @@ member of type @code{char}.
 @cindex VLAs
 
 Variable-length automatic arrays are allowed in ISO C99, and as an
-extension GCC accepts them in C89 mode and in C++.  (However, GCC's
+extension GCC accepts them in C90 mode and in C++.  (However, GCC's
 implementation of variable-length arrays does not yet conform in detail
 to the ISO C99 standard.)  These arrays are
 declared like any other automatic arrays, but with a length that is not
@@ -1484,9 +1511,9 @@ In ISO C99, arrays that are not lvalues still decay to pointers, and
 may be subscripted, although they may not be modified or used after
 the next sequence point and the unary @samp{&} operator may not be
 applied to them.  As an extension, GCC allows such arrays to be
-subscripted in C89 mode, though otherwise they do not decay to
+subscripted in C90 mode, though otherwise they do not decay to
 pointers outside C99 mode.  For example,
-this is valid in GNU C though not valid in C89:
+this is valid in GNU C though not valid in C90:
 
 @smallexample
 @group
@@ -1549,7 +1576,7 @@ ISO C99 supports compound literals.  A compound literal looks like
 a cast containing an initializer.  Its value is an object of the
 type specified in the cast, containing the elements specified in
 the initializer; it is an lvalue.  As an extension, GCC supports
-compound literals in C89 mode and in C++.
+compound literals in C90 mode and in C++.
 
 Usually, the specified type is a structure.  Assume that
 @code{struct foo} and @code{structure} are declared as shown:
@@ -1619,13 +1646,13 @@ static int z[] = @{1, 0, 0@};
 @cindex case labels in initializers
 @cindex designated initializers
 
-Standard C89 requires the elements of an initializer to appear in a fixed
+Standard C90 requires the elements of an initializer to appear in a fixed
 order, the same as the order of the elements in the array or structure
 being initialized.
 
 In ISO C99 you can give the elements in any order, specifying the array
 indices or structure field names they apply to, and GNU C allows this as
-an extension in C89 mode as well.  This extension is not
+an extension in C90 mode as well.  This extension is not
 implemented in GNU C++.
 
 To specify an array index, write
@@ -1842,7 +1869,7 @@ hack ((union foo) x);
 
 ISO C99 and ISO C++ allow declarations and code to be freely mixed
 within compound statements.  As an extension, GCC also allows this in
-C89 mode.  For example, you could do:
+C90 mode.  For example, you could do:
 
 @smallexample
 int i;
@@ -1894,6 +1921,8 @@ attributes are currently defined for functions on all targets:
 particular target systems.  Other attributes, including @code{section}
 are supported for variables declarations (@pxref{Variable Attributes})
 and for types (@pxref{Type Attributes}).
+
+GCC plugins may provide their own attributes.
 
 You may also specify attributes with @samp{__} preceding and following
 each keyword.  This allows you to use them in header files without
@@ -1977,7 +2006,7 @@ if no optimization level was specified.
 @cindex @code{gnu_inline} function attribute
 This attribute should be used with a function which is also declared
 with the @code{inline} keyword.  It directs GCC to treat the function
-as if it were defined in gnu89 mode even when compiling in C99 or
+as if it were defined in gnu90 mode even when compiling in C99 or
 gnu99 mode.
 
 If the function is declared @code{extern}, then this definition of the
@@ -2280,7 +2309,7 @@ addressing modes.
 
 @item fast_interrupt
 @cindex interrupt handler functions
-Use this attribute on the M32C port to indicate that the specified
+Use this attribute on the M32C and RX ports to indicate that the specified
 function is a fast interrupt handler.  This is just like the
 @code{interrupt} attribute, except that @code{freit} is used to return
 instead of @code{reit}.
@@ -2472,8 +2501,8 @@ This attribute is ignored for R8C target.
 
 @item interrupt
 @cindex interrupt handler functions
-Use this attribute on the ARM, AVR, CRX, M32C, M32R/D, m68k, MeP, MIPS
-and Xstormy16 ports to indicate that the specified function is an
+Use this attribute on the ARM, AVR, CRX, M32C, M32R/D, m68k, MeP, MIPS,
+RX and Xstormy16 ports to indicate that the specified function is an
 interrupt handler.  The compiler will generate function entry and exit
 sequences suitable for use in an interrupt handler when this attribute
 is present.
@@ -2521,14 +2550,14 @@ void __attribute__ ((interrupt, use_shadow_register_set)) v1 ();
 void __attribute__ ((interrupt, keep_interrupts_masked)) v2 ();
 void __attribute__ ((interrupt, use_debug_exception_return)) v3 ();
 void __attribute__ ((interrupt, use_shadow_register_set,
-		     keep_interrupts_masked)) v4 ();
+                     keep_interrupts_masked)) v4 ();
 void __attribute__ ((interrupt, use_shadow_register_set,
-		     use_debug_exception_return)) v5 ();
+                     use_debug_exception_return)) v5 ();
 void __attribute__ ((interrupt, keep_interrupts_masked,
-		     use_debug_exception_return)) v6 ();
+                     use_debug_exception_return)) v6 ();
 void __attribute__ ((interrupt, use_shadow_register_set,
-		     keep_interrupts_masked,
-		     use_debug_exception_return)) v7 ();
+                     keep_interrupts_masked,
+                     use_debug_exception_return)) v7 ();
 @end smallexample
 
 @item interrupt_handler
@@ -2679,9 +2708,17 @@ when targeting Windows.  On all other systems, the default is the AMD ABI.
 
 Note, This feature is currently sorried out for Windows targets trying to
 
+@item ms_hook_prologue
+@cindex @code{ms_hook_prologue} attribute
+
+On 32 bit i[34567]86-*-* targets, you can use this function attribute to make
+gcc generate the "hot-patching" function prologue used in Win32 API
+functions in Microsoft Windows XP Service Pack 2 and newer. This requires
+support for the swap suffix in the assembler. (GNU Binutils 2.19.51 or later)
+
 @item naked
 @cindex function without a prologue/epilogue code
-Use this attribute on the ARM, AVR, IP2K and SPU ports to indicate that
+Use this attribute on the ARM, AVR, IP2K, RX and SPU ports to indicate that
 the specified function does not need prologue/epilogue sequences generated by
 the compiler.  It is up to the programmer to provide these sequences. The 
 only statements that can be safely included in naked functions are 
@@ -3172,6 +3209,16 @@ Enable/disable the generation of the SSE4A instructions.
 @itemx no-fma4
 @cindex @code{target("fma4")} attribute
 Enable/disable the generation of the FMA4 instructions.
+
+@item xop
+@itemx no-xop
+@cindex @code{target("xop")} attribute
+Enable/disable the generation of the XOP instructions.
+
+@item lwp
+@itemx no-lwp
+@cindex @code{target("lwp")} attribute
+Enable/disable the generation of the LWP instructions.
 
 @item ssse3
 @itemx no-ssse3
@@ -3790,7 +3837,7 @@ continue until the end of the line.  Many other C implementations allow
 such comments, and they are included in the 1999 C standard.  However,
 C++ style comments are not recognized if you specify an @option{-std}
 option specifying a version of ISO C before C99, or @option{-ansi}
-(equivalent to @option{-std=c89}).
+(equivalent to @option{-std=c90}).
 
 @node Dollar Signs
 @section Dollar Signs in Identifier Names
@@ -4188,8 +4235,8 @@ Three attributes are currently defined for the Blackfin.
 
 @table @code
 @item l1_data
-@item l1_data_A
-@item l1_data_B
+@itemx l1_data_A
+@itemx l1_data_B
 @cindex @code{l1_data} variable attribute
 @cindex @code{l1_data_A} variable attribute
 @cindex @code{l1_data_B} variable attribute
@@ -4261,7 +4308,7 @@ allows modules to make no assumptions about where variables might be
 stored.
 
 @item io
-@item io (@var{addr})
+@itemx io (@var{addr})
 Variables with the @code{io} attribute are used to address
 memory-mapped peripherals.  If an address is specified, the variable
 is assigned that address, else it is not assigned an address (it is
@@ -4272,7 +4319,7 @@ int timer_count __attribute__((io(0x123)));
 @end example
 
 @item cb
-@item cb (@var{addr})
+@itemx cb (@var{addr})
 Variables with the @code{cb} attribute are used to access the control
 bus, using special instructions.  @code{addr} indicates the control bus
 address.  Example:
@@ -4891,7 +4938,7 @@ inc (int *a)
 @}
 @end smallexample
 
-If you are writing a header file to be included in ISO C89 programs, write
+If you are writing a header file to be included in ISO C90 programs, write
 @code{__inline__} instead of @code{inline}.  @xref{Alternate Keywords}.
 
 The three types of inlining behave similarly in two important cases:
@@ -4954,7 +5001,7 @@ the @samp{always_inline} attribute for the function, like this:
 inline void foo (const char) __attribute__((always_inline));
 @end smallexample
 
-The remainder of this section is specific to GNU C89 inlining.
+The remainder of this section is specific to GNU C90 inlining.
 
 @cindex non-static inline function
 When an inline function is not @code{static}, then the compiler must assume
@@ -5387,9 +5434,9 @@ void doit(void)
   int i = 0;
   asm goto ("mfsr %%r1, 123; jmp %%r1;"
             ".pushsection doit_table;"
-	    ".long %l0, %l1, %l2, %l3;"
-	    ".popsection"
-	    : : : "r1" : label1, label2, label3, label4);
+            ".long %l0, %l1, %l2, %l3;"
+            ".popsection"
+            : : : "r1" : label1, label2, label3, label4);
   __builtin_unreachable ();
 
  label1:
@@ -6009,7 +6056,7 @@ purposes.
 
 On some targets, the instruction set contains SIMD vector instructions that
 operate on multiple values contained in one large register at the same time.
-For example, on the i386 the MMX, 3Dnow! and SSE extensions can be used
+For example, on the i386 the MMX, 3DNow!@: and SSE extensions can be used
 this way.
 
 The first step in using these extensions is to provide the necessary data
@@ -6797,7 +6844,7 @@ be emitted.
 
 @opindex ansi
 @opindex std
-Outside strict ISO C mode (@option{-ansi}, @option{-std=c89} or
+Outside strict ISO C mode (@option{-ansi}, @option{-std=c90} or
 @option{-std=c99}), the functions
 @code{_exit}, @code{alloca}, @code{bcmp}, @code{bzero},
 @code{dcgettext}, @code{dgettext}, @code{dremf}, @code{dreml},
@@ -6820,7 +6867,7 @@ Outside strict ISO C mode (@option{-ansi}, @option{-std=c89} or
 @code{yn}
 may be handled as built-in functions.
 All these functions have corresponding versions
-prefixed with @code{__builtin_}, which may be used even in strict C89
+prefixed with @code{__builtin_}, which may be used even in strict C90
 mode.
 
 The ISO C99 functions
@@ -6864,7 +6911,7 @@ The ISO C99 functions
 @code{tgamma}, @code{truncf}, @code{truncl}, @code{trunc},
 @code{vfscanf}, @code{vscanf}, @code{vsnprintf} and @code{vsscanf}
 are handled as built-in functions
-except in strict ISO C90 mode (@option{-ansi} or @option{-std=c89}).
+except in strict ISO C90 mode (@option{-ansi} or @option{-std=c90}).
 
 There are also built-in versions of the ISO C99 functions
 @code{acosf}, @code{acosl}, @code{asinf}, @code{asinl}, @code{atan2f},
@@ -6886,7 +6933,7 @@ The ISO C94 functions
 @code{iswspace}, @code{iswupper}, @code{iswxdigit}, @code{towlower} and
 @code{towupper}
 are handled as built-in functions
-except in strict ISO C90 mode (@option{-ansi} or @option{-std=c89}).
+except in strict ISO C90 mode (@option{-ansi} or @option{-std=c90}).
 
 The ISO C90 functions
 @code{abort}, @code{abs}, @code{acos}, @code{asin}, @code{atan2},
@@ -7452,6 +7499,7 @@ instructions, but allow the compiler to schedule those calls.
 * Other MIPS Built-in Functions::
 * picoChip Built-in Functions::
 * PowerPC AltiVec/VSX Built-in Functions::
+* RX Built-in Functions::
 * SPARC VIS Built-in Functions::
 * SPU Built-in Functions::
 @end menu
@@ -8153,7 +8201,7 @@ The following machine modes are available for use with MMX built-in functions
 vector of eight 8-bit integers.  Some of the built-in functions operate on
 MMX registers as a whole 64-bit entity, these use @code{V1DI} as their mode.
 
-If 3Dnow extensions are enabled, @code{V2SF} is used as a mode for a vector
+If 3DNow!@: extensions are enabled, @code{V2SF} is used as a mode for a vector
 of two 32-bit floating point values.
 
 If SSE extensions are enabled, @code{V4SF} is used for a vector of four 32-bit
@@ -8893,6 +8941,134 @@ v2di __builtin_ia32_insertq (v2di, v2di)
 v2di __builtin_ia32_insertqi (v2di, v2di, const unsigned int, const unsigned int)
 @end smallexample
 
+The following built-in functions are available when @option{-mxop} is used.
+@smallexample
+v2df __builtin_ia32_vfrczpd (v2df)
+v4sf __builtin_ia32_vfrczps (v4sf)
+v2df __builtin_ia32_vfrczsd (v2df, v2df)
+v4sf __builtin_ia32_vfrczss (v4sf, v4sf)
+v4df __builtin_ia32_vfrczpd256 (v4df)
+v8sf __builtin_ia32_vfrczps256 (v8sf)
+v2di __builtin_ia32_vpcmov (v2di, v2di, v2di)
+v2di __builtin_ia32_vpcmov_v2di (v2di, v2di, v2di)
+v4si __builtin_ia32_vpcmov_v4si (v4si, v4si, v4si)
+v8hi __builtin_ia32_vpcmov_v8hi (v8hi, v8hi, v8hi)
+v16qi __builtin_ia32_vpcmov_v16qi (v16qi, v16qi, v16qi)
+v2df __builtin_ia32_vpcmov_v2df (v2df, v2df, v2df)
+v4sf __builtin_ia32_vpcmov_v4sf (v4sf, v4sf, v4sf)
+v4di __builtin_ia32_vpcmov_v4di256 (v4di, v4di, v4di)
+v8si __builtin_ia32_vpcmov_v8si256 (v8si, v8si, v8si)
+v16hi __builtin_ia32_vpcmov_v16hi256 (v16hi, v16hi, v16hi)
+v32qi __builtin_ia32_vpcmov_v32qi256 (v32qi, v32qi, v32qi)
+v4df __builtin_ia32_vpcmov_v4df256 (v4df, v4df, v4df)
+v8sf __builtin_ia32_vpcmov_v8sf256 (v8sf, v8sf, v8sf)
+v16qi __builtin_ia32_vpcomeqb (v16qi, v16qi)
+v8hi __builtin_ia32_vpcomeqw (v8hi, v8hi)
+v4si __builtin_ia32_vpcomeqd (v4si, v4si)
+v2di __builtin_ia32_vpcomeqq (v2di, v2di)
+v16qi __builtin_ia32_vpcomequb (v16qi, v16qi)
+v4si __builtin_ia32_vpcomequd (v4si, v4si)
+v2di __builtin_ia32_vpcomequq (v2di, v2di)
+v8hi __builtin_ia32_vpcomequw (v8hi, v8hi)
+v8hi __builtin_ia32_vpcomeqw (v8hi, v8hi)
+v16qi __builtin_ia32_vpcomfalseb (v16qi, v16qi)
+v4si __builtin_ia32_vpcomfalsed (v4si, v4si)
+v2di __builtin_ia32_vpcomfalseq (v2di, v2di)
+v16qi __builtin_ia32_vpcomfalseub (v16qi, v16qi)
+v4si __builtin_ia32_vpcomfalseud (v4si, v4si)
+v2di __builtin_ia32_vpcomfalseuq (v2di, v2di)
+v8hi __builtin_ia32_vpcomfalseuw (v8hi, v8hi)
+v8hi __builtin_ia32_vpcomfalsew (v8hi, v8hi)
+v16qi __builtin_ia32_vpcomgeb (v16qi, v16qi)
+v4si __builtin_ia32_vpcomged (v4si, v4si)
+v2di __builtin_ia32_vpcomgeq (v2di, v2di)
+v16qi __builtin_ia32_vpcomgeub (v16qi, v16qi)
+v4si __builtin_ia32_vpcomgeud (v4si, v4si)
+v2di __builtin_ia32_vpcomgeuq (v2di, v2di)
+v8hi __builtin_ia32_vpcomgeuw (v8hi, v8hi)
+v8hi __builtin_ia32_vpcomgew (v8hi, v8hi)
+v16qi __builtin_ia32_vpcomgtb (v16qi, v16qi)
+v4si __builtin_ia32_vpcomgtd (v4si, v4si)
+v2di __builtin_ia32_vpcomgtq (v2di, v2di)
+v16qi __builtin_ia32_vpcomgtub (v16qi, v16qi)
+v4si __builtin_ia32_vpcomgtud (v4si, v4si)
+v2di __builtin_ia32_vpcomgtuq (v2di, v2di)
+v8hi __builtin_ia32_vpcomgtuw (v8hi, v8hi)
+v8hi __builtin_ia32_vpcomgtw (v8hi, v8hi)
+v16qi __builtin_ia32_vpcomleb (v16qi, v16qi)
+v4si __builtin_ia32_vpcomled (v4si, v4si)
+v2di __builtin_ia32_vpcomleq (v2di, v2di)
+v16qi __builtin_ia32_vpcomleub (v16qi, v16qi)
+v4si __builtin_ia32_vpcomleud (v4si, v4si)
+v2di __builtin_ia32_vpcomleuq (v2di, v2di)
+v8hi __builtin_ia32_vpcomleuw (v8hi, v8hi)
+v8hi __builtin_ia32_vpcomlew (v8hi, v8hi)
+v16qi __builtin_ia32_vpcomltb (v16qi, v16qi)
+v4si __builtin_ia32_vpcomltd (v4si, v4si)
+v2di __builtin_ia32_vpcomltq (v2di, v2di)
+v16qi __builtin_ia32_vpcomltub (v16qi, v16qi)
+v4si __builtin_ia32_vpcomltud (v4si, v4si)
+v2di __builtin_ia32_vpcomltuq (v2di, v2di)
+v8hi __builtin_ia32_vpcomltuw (v8hi, v8hi)
+v8hi __builtin_ia32_vpcomltw (v8hi, v8hi)
+v16qi __builtin_ia32_vpcomneb (v16qi, v16qi)
+v4si __builtin_ia32_vpcomned (v4si, v4si)
+v2di __builtin_ia32_vpcomneq (v2di, v2di)
+v16qi __builtin_ia32_vpcomneub (v16qi, v16qi)
+v4si __builtin_ia32_vpcomneud (v4si, v4si)
+v2di __builtin_ia32_vpcomneuq (v2di, v2di)
+v8hi __builtin_ia32_vpcomneuw (v8hi, v8hi)
+v8hi __builtin_ia32_vpcomnew (v8hi, v8hi)
+v16qi __builtin_ia32_vpcomtrueb (v16qi, v16qi)
+v4si __builtin_ia32_vpcomtrued (v4si, v4si)
+v2di __builtin_ia32_vpcomtrueq (v2di, v2di)
+v16qi __builtin_ia32_vpcomtrueub (v16qi, v16qi)
+v4si __builtin_ia32_vpcomtrueud (v4si, v4si)
+v2di __builtin_ia32_vpcomtrueuq (v2di, v2di)
+v8hi __builtin_ia32_vpcomtrueuw (v8hi, v8hi)
+v8hi __builtin_ia32_vpcomtruew (v8hi, v8hi)
+v4si __builtin_ia32_vphaddbd (v16qi)
+v2di __builtin_ia32_vphaddbq (v16qi)
+v8hi __builtin_ia32_vphaddbw (v16qi)
+v2di __builtin_ia32_vphadddq (v4si)
+v4si __builtin_ia32_vphaddubd (v16qi)
+v2di __builtin_ia32_vphaddubq (v16qi)
+v8hi __builtin_ia32_vphaddubw (v16qi)
+v2di __builtin_ia32_vphaddudq (v4si)
+v4si __builtin_ia32_vphadduwd (v8hi)
+v2di __builtin_ia32_vphadduwq (v8hi)
+v4si __builtin_ia32_vphaddwd (v8hi)
+v2di __builtin_ia32_vphaddwq (v8hi)
+v8hi __builtin_ia32_vphsubbw (v16qi)
+v2di __builtin_ia32_vphsubdq (v4si)
+v4si __builtin_ia32_vphsubwd (v8hi)
+v4si __builtin_ia32_vpmacsdd (v4si, v4si, v4si)
+v2di __builtin_ia32_vpmacsdqh (v4si, v4si, v2di)
+v2di __builtin_ia32_vpmacsdql (v4si, v4si, v2di)
+v4si __builtin_ia32_vpmacssdd (v4si, v4si, v4si)
+v2di __builtin_ia32_vpmacssdqh (v4si, v4si, v2di)
+v2di __builtin_ia32_vpmacssdql (v4si, v4si, v2di)
+v4si __builtin_ia32_vpmacsswd (v8hi, v8hi, v4si)
+v8hi __builtin_ia32_vpmacssww (v8hi, v8hi, v8hi)
+v4si __builtin_ia32_vpmacswd (v8hi, v8hi, v4si)
+v8hi __builtin_ia32_vpmacsww (v8hi, v8hi, v8hi)
+v4si __builtin_ia32_vpmadcsswd (v8hi, v8hi, v4si)
+v4si __builtin_ia32_vpmadcswd (v8hi, v8hi, v4si)
+v16qi __builtin_ia32_vpperm (v16qi, v16qi, v16qi)
+v16qi __builtin_ia32_vprotb (v16qi, v16qi)
+v4si __builtin_ia32_vprotd (v4si, v4si)
+v2di __builtin_ia32_vprotq (v2di, v2di)
+v8hi __builtin_ia32_vprotw (v8hi, v8hi)
+v16qi __builtin_ia32_vpshab (v16qi, v16qi)
+v4si __builtin_ia32_vpshad (v4si, v4si)
+v2di __builtin_ia32_vpshaq (v2di, v2di)
+v8hi __builtin_ia32_vpshaw (v8hi, v8hi)
+v16qi __builtin_ia32_vpshlb (v16qi, v16qi)
+v4si __builtin_ia32_vpshld (v4si, v4si)
+v2di __builtin_ia32_vpshlq (v2di, v2di)
+v8hi __builtin_ia32_vpshlw (v8hi, v8hi)
+@end smallexample
+
 The following built-in functions are available when @option{-mfma4} is used.
 All of them generate the machine instruction that is part of the name
 with MMX registers.
@@ -8931,6 +9107,23 @@ v8sf __builtin_ia32_fmaddsubps256 (v8sf, v8sf, v8sf)
 v4df __builtin_ia32_fmsubaddpd256 (v4df, v4df, v4df)
 v8sf __builtin_ia32_fmsubaddps256 (v8sf, v8sf, v8sf)
 
+@end smallexample
+
+The following built-in functions are available when @option{-mlwp} is used.
+
+@smallexample
+void __builtin_ia32_llwpcb16 (void *);
+void __builtin_ia32_llwpcb32 (void *);
+void __builtin_ia32_llwpcb64 (void *);
+void * __builtin_ia32_llwpcb16 (void);
+void * __builtin_ia32_llwpcb32 (void);
+void * __builtin_ia32_llwpcb64 (void);
+void __builtin_ia32_lwpval16 (unsigned short, unsigned int, unsigned short)
+void __builtin_ia32_lwpval32 (unsigned int, unsigned int, unsigned int)
+void __builtin_ia32_lwpval64 (unsigned __int64, unsigned int, unsigned int)
+unsigned char __builtin_ia32_lwpins16 (unsigned short, unsigned int, unsigned short)
+unsigned char __builtin_ia32_lwpins32 (unsigned int, unsigned int, unsigned int)
+unsigned char __builtin_ia32_lwpins64 (unsigned __int64, unsigned int, unsigned int)
 @end smallexample
 
 The following built-in functions are available when @option{-m3dnow} is used.
@@ -9732,7 +9925,7 @@ storing the value 32767 if the result overflows.
 
 @item int __builtin_subs (int @var{x}, int @var{y})
 Saturating subtraction.  Return the result of subtracting @var{y} from
-@var{x}, storing the value -32768 if the result overflows.
+@var{x}, storing the value @minus{}32768 if the result overflows.
 
 @item void __builtin_halt (void)
 Halt.  The processor will stop execution.  This built-in is useful for
@@ -11746,6 +11939,121 @@ long __builtin_bpermd (long, long);
 int __builtin_bswap16 (int);
 @end smallexample
 
+@node RX Built-in Functions
+@subsection RX Built-in Functions
+GCC supports some of the RX instructions which cannot be expressed in
+the C programming language via the use of built-in functions.  The
+following functions are supported:
+
+@deftypefn {Built-in Function}  void __builtin_rx_brk (void)
+Generates the @code{brk} machine instruction.
+@end deftypefn
+
+@deftypefn {Built-in Function}  void __builtin_rx_clrpsw (int)
+Generates the @code{clrpsw} machine instruction to clear the specified
+bit in the processor status word.
+@end deftypefn
+
+@deftypefn {Built-in Function}  void __builtin_rx_int (int)
+Generates the @code{int} machine instruction to generate an interrupt
+with the specified value.
+@end deftypefn
+
+@deftypefn {Built-in Function}  void __builtin_rx_machi (int, int)
+Generates the @code{machi} machine instruction to add the result of
+multiplying the top 16-bits of the two arguments into the
+accumulator.
+@end deftypefn
+
+@deftypefn {Built-in Function}  void __builtin_rx_maclo (int, int)
+Generates the @code{maclo} machine instruction to add the result of
+multiplying the bottom 16-bits of the two arguments into the
+accumulator.
+@end deftypefn
+
+@deftypefn {Built-in Function}  void __builtin_rx_mulhi (int, int)
+Generates the @code{mulhi} machine instruction to place the result of
+multiplying the top 16-bits of the two arguments into the
+accumulator.
+@end deftypefn
+
+@deftypefn {Built-in Function}  void __builtin_rx_mullo (int, int)
+Generates the @code{mullo} machine instruction to place the result of
+multiplying the bottom 16-bits of the two arguments into the
+accumulator.
+@end deftypefn
+
+@deftypefn {Built-in Function}  int  __builtin_rx_mvfachi (void)
+Generates the @code{mvfachi} machine instruction to read the top
+32-bits of the accumulator.
+@end deftypefn
+
+@deftypefn {Built-in Function}  int  __builtin_rx_mvfacmi (void)
+Generates the @code{mvfacmi} machine instruction to read the middle
+32-bits of the accumulator.
+@end deftypefn
+
+@deftypefn {Built-in Function}  int __builtin_rx_mvfc (int)
+Generates the @code{mvfc} machine instruction which reads the control
+register specified in its argument and returns its value.
+@end deftypefn
+
+@deftypefn {Built-in Function}  void __builtin_rx_mvtachi (int)
+Generates the @code{mvtachi} machine instruction to set the top
+32-bits of the accumulator.
+@end deftypefn
+
+@deftypefn {Built-in Function}  void __builtin_rx_mvtaclo (int)
+Generates the @code{mvtaclo} machine instruction to set the bottom
+32-bits of the accumulator.
+@end deftypefn
+
+@deftypefn {Built-in Function}  void __builtin_rx_mvtc (int reg, int val)
+Generates the @code{mvtc} machine instruction which sets control
+register number @code{reg} to @code{val}.
+@end deftypefn
+
+@deftypefn {Built-in Function}  void __builtin_rx_mvtipl (int)
+Generates the @code{mvtipl} machine instruction set the interrupt
+priority level.
+@end deftypefn
+
+@deftypefn {Built-in Function}  void __builtin_rx_racw (int)
+Generates the @code{racw} machine instruction to round the accumulator
+according to the specified mode.
+@end deftypefn
+
+@deftypefn {Built-in Function}  int __builtin_rx_revw (int)
+Generates the @code{revw} machine instruction which swaps the bytes in
+the argument so that bits 0--7 now occupy bits 8--15 and vice versa,
+and also bits 16--23 occupy bits 24--31 and vice versa.
+@end deftypefn
+
+@deftypefn {Built-in Function}  void __builtin_rx_rmpa (void)
+Generates the @code{rmpa} machine instruction which initiates a
+repeated multiply and accumulate sequence.
+@end deftypefn
+
+@deftypefn {Built-in Function}  void __builtin_rx_round (float)
+Generates the @code{round} machine instruction which returns the
+floating point argument rounded according to the current rounding mode
+set in the floating point status word register.
+@end deftypefn
+
+@deftypefn {Built-in Function}  int __builtin_rx_sat (int)
+Generates the @code{sat} machine instruction which returns the
+saturated value of the argument.
+@end deftypefn
+
+@deftypefn {Built-in Function}  void __builtin_rx_setpsw (int)
+Generates the @code{setpsw} machine instruction to set the specified
+bit in the processor status word.
+@end deftypefn
+
+@deftypefn {Built-in Function}  void __builtin_rx_wait (void)
+Generates the @code{wait} machine instruction.
+@end deftypefn
+
 @node SPARC VIS Built-in Functions
 @subsection SPARC VIS Built-in Functions
 
@@ -11995,7 +12303,6 @@ extern int foo ();
 
 @end table
 
-
 @node RS/6000 and PowerPC Pragmas
 @subsection RS/6000 and PowerPC Pragmas
 
@@ -12092,7 +12399,7 @@ adding a call to the @code{.init} section.
 
 For compatibility with the Solaris and Tru64 UNIX system headers, GCC
 supports two @code{#pragma} directives which change the name used in
-assembly for a given declaration.  @code{#pragma_extern_prefix} is only 
+assembly for a given declaration.  @code{#pragma extern_prefix} is only 
 available on platforms whose system headers need it. To get this effect 
 on all platforms supported by GCC, use the asm labels extension (@pxref{Asm
 Labels}).

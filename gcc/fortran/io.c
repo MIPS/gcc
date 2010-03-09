@@ -643,6 +643,8 @@ format_item_1:
 
     case FMT_X:
       /* X requires a prior number if we're being pedantic.  */
+      if (mode != MODE_FORMAT)
+	format_locus.nextc += format_string_pos;
       if (gfc_notify_std (GFC_STD_GNU, "Extension: X descriptor "
 			  "requires leading space count at %L", &format_locus)
 	  == FAILURE)
@@ -722,7 +724,7 @@ data_desc:
       break;
 
     case FMT_P:
-      /* Comma after P is allowed only for F, E, EN, ES, D, or G.
+      /* No comma after P allowed only for F, E, EN, ES, D, or G.
 	 10.1.1 (1).  */
       t = format_lex ();
       if (t == FMT_ERROR)
@@ -1052,7 +1054,7 @@ between_desc:
 
     default:
       if (mode != MODE_FORMAT)
-	format_locus.nextc += format_string_pos;
+	format_locus.nextc += format_string_pos - 1;
       if (gfc_notify_std (GFC_STD_GNU, "Extension: Missing comma at %L",
 	  &format_locus) == FAILURE)
 	return FAILURE;
@@ -4058,15 +4060,12 @@ gfc_match_wait (void)
 {
   gfc_wait *wait;
   match m;
-  locus loc;
 
   m = gfc_match_char ('(');
   if (m == MATCH_NO)
     return m;
 
   wait = XCNEW (gfc_wait);
-
-  loc = gfc_current_locus;
 
   m = match_wait_element (wait);
   if (m == MATCH_ERROR)

@@ -23,12 +23,16 @@ along with GCC; see the file COPYING3.  If not see
    Calls gfc_trans_*.  */
 tree gfc_trans_code (gfc_code *);
 
+/* Wrapper function used to pass a check condition for implied DO loops.  */
+tree gfc_trans_code_cond (gfc_code *, tree);
+
 /* All other gfc_trans_* should only need be called by gfc_trans_code */
 
 /* trans-expr.c */
 tree gfc_trans_assign (gfc_code *);
 tree gfc_trans_pointer_assign (gfc_code *);
 tree gfc_trans_init_assign (gfc_code *);
+tree gfc_trans_class_assign (gfc_code *code);
 
 /* trans-stmt.c */
 tree gfc_trans_cycle (gfc_code *);
@@ -44,7 +48,7 @@ tree gfc_trans_return (gfc_code *);
 tree gfc_trans_if (gfc_code *);
 tree gfc_trans_arithmetic_if (gfc_code *);
 tree gfc_trans_block_construct (gfc_code *);
-tree gfc_trans_do (gfc_code *);
+tree gfc_trans_do (gfc_code *, tree);
 tree gfc_trans_do_while (gfc_code *);
 tree gfc_trans_select (gfc_code *);
 tree gfc_trans_forall (gfc_code *);

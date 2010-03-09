@@ -1,6 +1,6 @@
 # Pretty-printers for libstc++.
 
-# Copyright (C) 2008, 2009 Free Software Foundation, Inc.
+# Copyright (C) 2008, 2009, 2010 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -196,6 +196,64 @@ class StdVectorIteratorPrinter:
 
     def to_string(self):
         return self.val['_M_current'].dereference()
+
+class StdTuplePrinter:
+    "Print a std::tuple"
+
+    class _iterator:
+        def __init__ (self, head):
+            self.head = head
+
+            # Set the base class as the initial head of the
+            # tuple.
+            nodes = self.head.type.fields ()
+            if len (nodes) != 1:
+                raise "Top of tuple tree does not consist of a single node."
+
+            # Set the actual head to the first pair.
+            self.head  = self.head.cast (nodes[0].type)
+            self.count = 0
+
+        def __iter__ (self):
+            return self
+
+        def next (self):
+            nodes = self.head.type.fields ()
+            # Check for further recursions in the inheritance tree.
+            if len (nodes) == 0:
+                raise StopIteration
+            # Check that this iteration has an expected structure.
+            if len (nodes) != 2:
+                raise "Cannot parse more than 2 nodes in a tuple tree."
+
+            # - Left node is the next recursion parent.
+            # - Right node is the actual class contained in the tuple.
+
+            # Process right node.
+            impl = self.head.cast (nodes[1].type)
+
+            # Process left node and set it as head.
+            self.head  = self.head.cast (nodes[0].type)
+            self.count = self.count + 1
+
+            # Finally, check the implementation.  If it is
+            # wrapped in _M_head_impl return that, otherwise return
+            # the value "as is".
+            fields = impl.type.fields ()
+            if len (fields) < 1 or fields[0].name != "_M_head_impl":
+                return ('[%d]' % self.count, impl)
+            else:
+                return ('[%d]' % self.count, impl['_M_head_impl'])
+
+    def __init__ (self, typename, val):
+        self.typename = typename
+        self.val = val;
+
+    def children (self):
+        return self._iterator (self.val)
+
+    def to_string (self):
+        return '%s containing' % (self.typename)
 
 class StdStackOrQueuePrinter:
     "Print a std::stack or std::queue"
@@ -471,18 +529,10 @@ class StdDequeIteratorPrinter:
 class StdStringPrinter:
     "Print a std::basic_string of some kind"
 
-    def __init__(self, encoding, val):
-        self.encoding = encoding
+    def __init__(self, val):
         self.val = val
 
     def to_string(self):
-        # Look up the target encoding as late as possible.
-        encoding = self.encoding
-        if encoding == 0:
-            encoding = gdb.parameter('target-charset')
-        elif encoding == 1:
-            encoding = gdb.parameter('target-wide-charset')
-
         # Make sure &string works, too.
         type = self.val.type
         if type.code == gdb.TYPE_CODE_REF:
@@ -496,7 +546,7 @@ class StdStringPrinter:
         reptype = gdb.lookup_type (str (realtype) + '::_Rep').pointer ()
         header = ptr.cast(reptype) - 1
         len = header.dereference ()['_M_length']
-        return self.val['_M_dataplus']['_M_p'].string (encoding, length = len)
+        return self.val['_M_dataplus']['_M_p'].lazy_string (length = len)
 
     def display_hint (self):
         return 'string'
@@ -629,10 +679,7 @@ def build_libstdcxx_dictionary ():
     # libstdc++ objects requiring pretty-printing.
     # In order from:
     # http://gcc.gnu.org/onlinedocs/libstdc++/latest-doxygen/a01847.html
-    pretty_printers_dict[re.compile('^std::basic_string<char(,.*)?>$')] = lambda val: StdStringPrinter(0, val)
-    pretty_printers_dict[re.compile('^std::basic_string<wchar_t(,.*)?>$')] = lambda val: StdStringPrinter(1, val)
-    pretty_printers_dict[re.compile('^std::basic_string<char16_t(,.*)?>$')] = lambda val: StdStringPrinter('UTF-16', val)
-    pretty_printers_dict[re.compile('^std::basic_string<char32_t(,.*)?>$')] = lambda val: StdStringPrinter('UTF-32', val)
+    pretty_printers_dict[re.compile('^std::basic_string<.*>$')] = lambda val: StdStringPrinter(val)
     pretty_printers_dict[re.compile('^std::bitset<.*>$')] = lambda val: StdBitsetPrinter("std::bitset", val)
     pretty_printers_dict[re.compile('^std::deque<.*>$')] = lambda val: StdDequePrinter("std::deque", val)
     pretty_printers_dict[re.compile('^std::list<.*>$')] = lambda val: StdListPrinter("std::list", val)
@@ -641,6 +688,7 @@ def build_libstdcxx_dictionary ():
     pretty_printers_dict[re.compile('^std::multiset<.*>$')] = lambda val: StdSetPrinter("std::multiset", val)
     pretty_printers_dict[re.compile('^std::priority_queue<.*>$')] = lambda val: StdStackOrQueuePrinter("std::priority_queue", val)
     pretty_printers_dict[re.compile('^std::queue<.*>$')] = lambda val: StdStackOrQueuePrinter("std::queue", val)
+    pretty_printers_dict[re.compile('^std::tuple<.*>$')] = lambda val: StdTuplePrinter("std::tuple", val)
     pretty_printers_dict[re.compile('^std::set<.*>$')] = lambda val: StdSetPrinter("std::set", val)
     pretty_printers_dict[re.compile('^std::stack<.*>$')] = lambda val: StdStackOrQueuePrinter("std::stack", val)
     pretty_printers_dict[re.compile('^std::unique_ptr<.*>$')] = UniquePointerPrinter

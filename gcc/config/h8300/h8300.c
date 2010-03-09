@@ -83,7 +83,7 @@ static int h8300_interrupt_function_p (tree);
 static int h8300_saveall_function_p (tree);
 static int h8300_monitor_function_p (tree);
 static int h8300_os_task_function_p (tree);
-static void h8300_emit_stack_adjustment (int, HOST_WIDE_INT);
+static void h8300_emit_stack_adjustment (int, HOST_WIDE_INT, bool);
 static HOST_WIDE_INT round_frame_size (HOST_WIDE_INT);
 static unsigned int compute_saved_regs (void);
 static void push (int);
@@ -98,7 +98,7 @@ static void h8300_asm_named_section (const char *, unsigned int, tree);
 #endif
 static int h8300_and_costs (rtx);
 static int h8300_shift_costs (rtx);
-static void          h8300_push_pop               (int, int, int, int);
+static void          h8300_push_pop               (int, int, bool, bool);
 static int           h8300_stack_offset_p         (rtx, int);
 static int           h8300_ldm_stm_regno          (rtx, int, int, int);
 static void          h8300_reorg                  (void);
@@ -507,11 +507,38 @@ byte_reg (rtx x, int b)
 	   && call_used_regs[regno]					\
 	   && !current_function_is_leaf)))
 
+/* We use this to wrap all emitted insns in the prologue.  */
+static rtx
+F (rtx x, bool set_it)
+{
+  if (set_it)
+    RTX_FRAME_RELATED_P (x) = 1;
+  return x;
+}
+
+/* Mark all the subexpressions of the PARALLEL rtx PAR as
+   frame-related.  Return PAR.
+
+   dwarf2out.c:dwarf2out_frame_debug_expr ignores sub-expressions of a
+   PARALLEL rtx other than the first if they do not have the
+   FRAME_RELATED flag set on them.  */
+static rtx
+Fpa (rtx par)
+{
+  int len = XVECLEN (par, 0);
+  int i;
+
+  for (i = 0; i < len; i++)
+    F (XVECEXP (par, 0, i), true);
+
+  return par;
+}
+
 /* Output assembly language to FILE for the operation OP with operand size
    SIZE to adjust the stack pointer.  */
 
 static void
-h8300_emit_stack_adjustment (int sign, HOST_WIDE_INT size)
+h8300_emit_stack_adjustment (int sign, HOST_WIDE_INT size, bool in_prologue)
 {
   /* If the frame size is 0, we don't have anything to do.  */
   if (size == 0)
@@ -526,22 +553,27 @@ h8300_emit_stack_adjustment (int sign, HOST_WIDE_INT size)
       && !(cfun->static_chain_decl != NULL && sign < 0))
     {
       rtx r3 = gen_rtx_REG (Pmode, 3);
-      emit_insn (gen_movhi (r3, GEN_INT (sign * size)));
-      emit_insn (gen_addhi3 (stack_pointer_rtx,
-			     stack_pointer_rtx, r3));
+      F (emit_insn (gen_movhi (r3, GEN_INT (sign * size))), in_prologue);
+      F (emit_insn (gen_addhi3 (stack_pointer_rtx,
+				stack_pointer_rtx, r3)), in_prologue);
     }
   else
     {
       /* The stack adjustment made here is further optimized by the
 	 splitter.  In case of H8/300, the splitter always splits the
-	 addition emitted here to make the adjustment
-	 interrupt-safe.  */
+	 addition emitted here to make the adjustment interrupt-safe.
+	 FIXME: We don't always tag those, because we don't know what
+	 the splitter will do.  */
       if (Pmode == HImode)
-	emit_insn (gen_addhi3 (stack_pointer_rtx,
-			       stack_pointer_rtx, GEN_INT (sign * size)));
+	{
+	  rtx x = emit_insn (gen_addhi3 (stack_pointer_rtx,
+					 stack_pointer_rtx, GEN_INT (sign * size)));
+	  if (size < 4)
+	    F (x, in_prologue);
+	}
       else
-	emit_insn (gen_addsi3 (stack_pointer_rtx,
-			       stack_pointer_rtx, GEN_INT (sign * size)));
+	F (emit_insn (gen_addsi3 (stack_pointer_rtx,
+				  stack_pointer_rtx, GEN_INT (sign * size))), in_prologue);
     }
 }
 
@@ -591,7 +623,7 @@ push (int rn)
     x = gen_push_h8300hs_advanced (reg);
   else
     x = gen_push_h8300hs_normal (reg);
-  x = emit_insn (x);
+  x = F (emit_insn (x), true);
   REG_NOTES (x) = gen_rtx_EXPR_LIST (REG_INC, stack_pointer_rtx, 0);
 }
 
@@ -630,11 +662,11 @@ pop (int rn)
 	(set sp (plus sp (const_int adjust)))]  */
 
 static void
-h8300_push_pop (int regno, int nregs, int pop_p, int return_p)
+h8300_push_pop (int regno, int nregs, bool pop_p, bool return_p)
 {
   int i, j;
   rtvec vec;
-  rtx sp, offset;
+  rtx sp, offset, x;
 
   /* See whether we can use a simple push or pop.  */
   if (!return_p && nregs == 1)
@@ -648,7 +680,7 @@ h8300_push_pop (int regno, int nregs, int pop_p, int return_p)
 
   /* We need one element for the return insn, if present, one for each
      register, and one for stack adjustment.  */
-  vec = rtvec_alloc ((return_p != 0) + nregs + 1);
+  vec = rtvec_alloc ((return_p ? 1 : 0) + nregs + 1);
   sp = stack_pointer_rtx;
   i = 0;
 
@@ -685,7 +717,14 @@ h8300_push_pop (int regno, int nregs, int pop_p, int return_p)
   RTVEC_ELT (vec, i + j) = gen_rtx_SET (VOIDmode, sp,
 					gen_rtx_PLUS (Pmode, sp, offset));
 
-  emit_insn (gen_rtx_PARALLEL (VOIDmode, vec));
+  x = gen_rtx_PARALLEL (VOIDmode, vec);
+  if (!pop_p)
+    x = Fpa (x);
+
+  if (return_p)
+    emit_jump_insn (x);
+  else
+    emit_insn (x);
 }
 
 /* Return true if X has the value sp + OFFSET.  */
@@ -820,7 +859,7 @@ h8300_expand_prologue (void)
     {
       /* Push fp.  */
       push (HARD_FRAME_POINTER_REGNUM);
-      emit_move_insn (hard_frame_pointer_rtx, stack_pointer_rtx);
+      F (emit_move_insn (hard_frame_pointer_rtx, stack_pointer_rtx), true);
     }
 
   /* Push the rest of the registers in ascending order.  */
@@ -846,12 +885,12 @@ h8300_expand_prologue (void)
 		n_regs = 2;
 	    }
 
-	  h8300_push_pop (regno, n_regs, 0, 0);
+	  h8300_push_pop (regno, n_regs, false, false);
 	}
     }
 
   /* Leave room for locals.  */
-  h8300_emit_stack_adjustment (-1, round_frame_size (get_frame_size ()));
+  h8300_emit_stack_adjustment (-1, round_frame_size (get_frame_size ()), true);
 }
 
 /* Return nonzero if we can use "rts" for the function currently being
@@ -886,7 +925,7 @@ h8300_expand_epilogue (void)
   returned_p = false;
 
   /* Deallocate locals.  */
-  h8300_emit_stack_adjustment (1, frame_size);
+  h8300_emit_stack_adjustment (1, frame_size, false);
 
   /* Pop the saved registers in descending order.  */
   saved_regs = compute_saved_regs ();
@@ -919,7 +958,7 @@ h8300_expand_epilogue (void)
 	      && (saved_regs & ((1 << (regno - n_regs + 1)) - 1)) == 0)
 	    returned_p = true;
 
-	  h8300_push_pop (regno - n_regs + 1, n_regs, 1, returned_p);
+	  h8300_push_pop (regno - n_regs + 1, n_regs, true, returned_p);
 	}
     }
 
@@ -928,7 +967,7 @@ h8300_expand_epilogue (void)
     {
       if (TARGET_H8300SX)
 	returned_p = true;
-      h8300_push_pop (HARD_FRAME_POINTER_REGNUM, 1, 1, returned_p);
+      h8300_push_pop (HARD_FRAME_POINTER_REGNUM, 1, true, returned_p);
     }
 
   if (!returned_p)
