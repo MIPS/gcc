@@ -642,7 +642,7 @@ static tree cil32_builtin_build_reduc_epilogue (enum tree_code reduc_code,
             }
 #endif
 
-        case 2:
+        case 4:
           switch (reduc_code)
             {
             case REDUC_MAX_EXPR:
