@@ -1232,6 +1232,13 @@ DEF_CILBUILTIN(GCC_MASK_FOR_LOAD, "[genvec_support]genvec_support.VQI::VQI_mask_
                3,
                V16QI_ptr_type_node, integer_type_node, integer_type_node)
 
+/* loop bound */
+DEF_CILBUILTIN(GCC_GET_LOOP_NITERS, "[genvec_support]genvec_support.VI::VI_get_loop_niters", \
+               ATTR_CONST_NOTHROW_LIST,          \
+               integer_type_node, \
+               2,
+               integer_type_node, integer_type_node)
+
 
 /* V SF */
 DEF_CILBUILTIN(GEN_VSF_CTOR, "[Xxxx.Simd]Xxxx.Simd.VecGenSF::.ctor", \

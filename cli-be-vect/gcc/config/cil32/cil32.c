@@ -93,6 +93,7 @@ static bool cil32_builtin_always_realign (void);
 static tree cil32_builtin_mask_for_load (void);
 static tree cil32_builtin_realign_load (tree);
 static bool cil32_builtin_can_force_alignment (void);
+static tree cil32_builtin_get_loop_niters (void);
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ATTRIBUTE_TABLE
@@ -161,6 +162,11 @@ static bool cil32_builtin_can_force_alignment (void);
 #undef TARGET_VECTORIZE_BUILTIN_CAN_FORCE_ALIGNMENT
 #define TARGET_VECTORIZE_BUILTIN_CAN_FORCE_ALIGNMENT \
   cil32_builtin_can_force_alignment
+
+#undef TARGET_VECTORIZE_BUILTIN_GET_LOOP_NITERS
+#define TARGET_VECTORIZE_BUILTIN_GET_LOOP_NITERS \
+  cil32_builtin_get_loop_niters
+
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -711,3 +717,10 @@ static bool cil32_builtin_can_force_alignment (void)
 {
   return false;
 }
+
+
+static tree cil32_builtin_get_loop_niters (void)
+{
+  return cil32_builtins[CIL32_GCC_GET_LOOP_NITERS];
+}
+

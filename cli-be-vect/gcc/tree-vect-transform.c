@@ -7935,6 +7935,7 @@ vect_do_peeling_for_alignment (loop_vec_info loop_vinfo)
   bool check_profitability = false;
   unsigned int th = 0;
   int min_profitable_iters;
+  tree builtin_decl;
 
   if (vect_print_dump_info (REPORT_DETAILS))
     fprintf (vect_dump, "=== vect_do_peeling_for_alignment ===");
@@ -7944,6 +7945,23 @@ vect_do_peeling_for_alignment (loop_vec_info loop_vinfo)
   ni_name = vect_build_loop_niters (loop_vinfo);
   niters_of_prolog_loop = vect_gen_niters_for_prolog_loop (loop_vinfo, ni_name);
   
+  if (targetm.vectorize.builtin_get_loop_niters 
+      && (builtin_decl = targetm.vectorize.builtin_get_loop_niters ()))
+    {
+      tree var = create_tmp_var (TREE_TYPE (niters_of_prolog_loop), 
+                                 "prolog_niters");
+      gimple new_stmt;
+      basic_block new_bb;
+
+      add_referenced_var (var);
+      new_stmt = gimple_build_call (builtin_decl, 2, niters_of_prolog_loop,
+                                    LOOP_VINFO_NITERS (loop_vinfo));
+      niters_of_prolog_loop = make_ssa_name (var, new_stmt);
+      gimple_call_set_lhs (new_stmt, niters_of_prolog_loop);
+      new_bb = gsi_insert_on_edge_immediate (loop_preheader_edge (loop), 
+                                             new_stmt);
+      gcc_assert (!new_bb);
+    }
 
   /* If cost model check not done during versioning.  */
   if (!VEC_length (gimple, LOOP_VINFO_MAY_MISALIGN_STMTS (loop_vinfo))
