@@ -10904,6 +10904,22 @@ const_ok_for_output_1 (rtx *rtlp, void *data ATTRIBUTE_UNUSED)
 {
   rtx rtl = *rtlp;
 
+  if (GET_CODE (rtl) == UNSPEC)
+    {
+      /* If delegitimize_address couldn't do anything with the UNSPEC, assume
+	 we can't express it in the debug info.  */
+#ifdef ENABLE_CHECKING
+      inform (current_function_decl
+	      ? DECL_SOURCE_LOCATION (current_function_decl)
+	      : UNKNOWN_LOCATION,
+	      "non-delegitimized UNSPEC %d found in variable location",
+	      XINT (rtl, 1));
+#endif
+      expansion_failed (NULL_TREE, rtl,
+			"UNSPEC hasn't been delegitimized.\n");
+      return 1;
+    }
+
   if (GET_CODE (rtl) != SYMBOL_REF)
     return 0;
 
@@ -14306,6 +14322,8 @@ add_comp_dir_attribute (dw_die_ref die)
 static void
 add_bound_info (dw_die_ref subrange_die, enum dwarf_attribute bound_attr, tree bound)
 {
+  int want_address = 2;
+
   switch (TREE_CODE (bound))
     {
     case ERROR_MARK:
@@ -14336,7 +14354,6 @@ add_bound_info (dw_die_ref subrange_die, enum dwarf_attribute bound_attr, tree b
     case RESULT_DECL:
       {
 	dw_die_ref decl_die = lookup_decl_die (bound);
-	dw_loc_list_ref loc;
 
 	/* ??? Can this happen, or should the variable have been bound
 	   first?  Probably it can, since I imagine that we try to create
@@ -14344,14 +14361,13 @@ add_bound_info (dw_die_ref subrange_die, enum dwarf_attribute bound_attr, tree b
 	   the list, and won't have created a forward reference to a
 	   later parameter.  */
 	if (decl_die != NULL)
-	  add_AT_die_ref (subrange_die, bound_attr, decl_die);
-	else
 	  {
-	    loc = loc_list_from_tree (bound, 0);
-	    add_AT_location_description (subrange_die, bound_attr, loc);
+	    add_AT_die_ref (subrange_die, bound_attr, decl_die);
+	    break;
 	  }
-	break;
+	want_address = 0;
       }
+      /* FALLTHRU */
 
     default:
       {
@@ -14361,9 +14377,15 @@ add_bound_info (dw_die_ref subrange_die, enum dwarf_attribute bound_attr, tree b
 	dw_die_ref ctx, decl_die;
 	dw_loc_list_ref list;
 
-	list = loc_list_from_tree (bound, 2);
+	list = loc_list_from_tree (bound, want_address);
 	if (list == NULL)
 	  break;
+
+	if (single_element_loc_list_p (list))
+	  {
+	    add_AT_loc (subrange_die, bound_attr, list->expr);
+	    break;
+	  }
 
 	if (current_function_decl == 0)
 	  ctx = comp_unit_die;
@@ -14373,11 +14395,7 @@ add_bound_info (dw_die_ref subrange_die, enum dwarf_attribute bound_attr, tree b
 	decl_die = new_die (DW_TAG_variable, ctx, bound);
 	add_AT_flag (decl_die, DW_AT_artificial, 1);
 	add_type_attribute (decl_die, TREE_TYPE (bound), 1, 0, ctx);
-	if (list->dw_loc_next)
-	  add_AT_loc_list (decl_die, DW_AT_location, list);
-	else
-	  add_AT_loc (decl_die, DW_AT_location, list->expr);
-
+	add_AT_location_description (decl_die, DW_AT_location, list);
 	add_AT_die_ref (subrange_die, bound_attr, decl_die);
 	break;
       }
