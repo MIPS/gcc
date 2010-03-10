@@ -1233,7 +1233,7 @@ DEF_CILBUILTIN(GCC_MASK_FOR_LOAD, "[genvec_support]genvec_support.VQI::VQI_mask_
                V16QI_ptr_type_node, integer_type_node, integer_type_node)
 
 /* loop bound */
-DEF_CILBUILTIN(GCC_GET_LOOP_NITERS, "[genvec_support]genvec_support.VI::VI_get_loop_niters", \
+DEF_CILBUILTIN(GCC_GET_LOOP_NITERS, "[genvec_support]genvec_support.VQI::VI_get_loop_niters", \
                ATTR_CONST_NOTHROW_LIST,          \
                integer_type_node, \
                2,
