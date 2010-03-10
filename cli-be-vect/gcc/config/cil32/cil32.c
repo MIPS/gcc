@@ -691,10 +691,10 @@ static tree cil32_builtin_realign_load (tree type)
     {
       switch (element_size)
         {
-          case 16:
+          case 1:
             return cil32_builtins[CIL32_GEN_VQI_REALIGN_LOAD];
 
-          case 8:
+          case 2:
             return cil32_builtins[CIL32_GEN_VHI_REALIGN_LOAD];
 
           case 4:
