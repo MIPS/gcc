@@ -923,13 +923,18 @@ vect_create_addr_base_for_vector_ref (gimple stmt,
 
   if (offset)
     {
-      tree tmp = create_tmp_var (sizetype, "offset");
+      tree tmp = create_tmp_var (sizetype, "tmp");
 
       add_referenced_var (tmp);
+      offset = force_gimple_operand (offset, &seq, true, tmp);
+      gimple_seq_add_seq (new_stmt_list, seq);
+
       offset = fold_build2 (MULT_EXPR, sizetype,
 			    fold_convert (sizetype, offset), step);
       base_offset = fold_build2 (PLUS_EXPR, sizetype,
 				 base_offset, offset);
+      tmp = create_tmp_var (sizetype, "offset");
+      add_referenced_var (tmp);
       base_offset = force_gimple_operand (base_offset, &seq, false, tmp);
       gimple_seq_add_seq (new_stmt_list, seq);
     }
@@ -6744,7 +6749,9 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
       if (alignment_support_scheme == dr_explicit_realign_optimized)
 	{
 	  phi = SSA_NAME_DEF_STMT (msq);
-	  offset = size_int (TYPE_VECTOR_SUBPARTS (vectype) - 1);
+	  offset = fold_build2 (MINUS_EXPR, sizetype,
+                            fold_convert (sizetype, 
+                    vect_tree_type_vector_subparts (loop_vinfo, vectype)), integer_one_node);
 	}
     }
   else
@@ -6789,7 +6796,7 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
 	    case dr_explicit_realign:
 	      {
 		tree ptr, bump;
-		tree vs_minus_1 = size_int (TYPE_VECTOR_SUBPARTS (vectype) - 1);
+                tree vs_minus_1 = size_int (TYPE_VECTOR_SUBPARTS (vectype) - 1);
 
 		if (compute_in_loop)
 		  msq = vect_setup_realignment (first_stmt, gsi,
