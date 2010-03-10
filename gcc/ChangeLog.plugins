@@ -1,3 +1,8 @@
+2009-10-22  Diego Novillo  <dnovillo@google.com>
+
+	* Makefile.in (PLUGIN_HEADERS): Add output.h and
+	IPA_UTILS_H.
+
 2009-08-20  Matt Rice  <ratmice@gmail.com>
 	    Diego Novillo  <dnovillo@google.com>
 
