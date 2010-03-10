@@ -1,3 +1,13 @@
+2009-05-06  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR testsuite/40050
+	* lib/plugin-support.exp (plugin-test-execute): Use HOSTCC to
+	build plugin.
+
+2009-05-06  Diego Novillo  <dnovillo@google.com>
+
+	* lib/plugin-support.exp: Do not prefix $GMPINC with -I.
+
 2009-05-06  Le-Chun Wu  <lcwu@google.com>
 
 	* lib/plugin-support.exp: New file containing support procs for
