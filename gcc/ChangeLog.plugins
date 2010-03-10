@@ -1,3 +1,7 @@
+2009-04-30  Rafael Avila de Espindola  <espindola@google.com>
+
+	* plugin.c: Include plugin-version.h only if ENABLE_PLUGIN is defined.
+
 2009-05-13  Taras Glek  <tglek@mozilla.com>
 
        * attribs.c moved out attribute registration into register_attribute
