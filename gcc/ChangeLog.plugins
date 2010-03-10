@@ -1,3 +1,7 @@
+2009-10-22  Matthias Klose  <doko@ubuntu.com>
+
+	* doc/install.texi: Document --enable-browser-plugin.
+
 2010-03-05  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* Makefile.in (PLUGINCC, PLUGINCFLAGS): New variables.

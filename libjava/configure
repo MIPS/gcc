@@ -1015,7 +1015,7 @@ Optional Features:
   --enable-version-specific-runtime-libs
                           specify that runtime libraries should be installed
                           in a compiler-specific directory
-  --enable-plugin         build gcjwebplugin web browser plugin
+  --enable-browser-plugin build gcjwebplugin web browser plugin
   --enable-gconf-peer     compile GConf native peers for util.preferences
   --disable-gjdoc         compile GJDoc (disabled by --disable-gjdoc)
                           default=yes
@@ -5514,8 +5514,10 @@ ac_configure_args="$ac_configure_args --with-vm-classes=$dir1:$dir2"
 ac_configure_args="$ac_configure_args --disable-core-jni"
 ac_configure_args="$ac_configure_args --disable-examples"
 ac_configure_args="$ac_configure_args --with-glibj=build"
-if test "$plugin_enabled" != yes; then
+if test "$browser_plugin_enabled" != yes; then
   ac_configure_args="$ac_configure_args --disable-plugin"
+else
+  ac_configure_args="$ac_configure_args --enable-plugin"
 fi
 if test "$gconf_enabled" != yes; then
   ac_configure_args="$ac_configure_args --disable-gconf-peer"

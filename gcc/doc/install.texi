@@ -1740,6 +1740,9 @@ not specified, then the Python modules are installed in $(prefix)/share/python.
 @item --enable-aot-compile-rpm
 Adds aot-compile-rpm to the list of installed scripts.
 
+@item --enable-browser-plugin
+Build the gcjwebplugin web browser plugin.
+
 @table @code
 @item ansi
 Use the single-byte @code{char} and the Win32 A functions natively,
