@@ -4146,10 +4146,14 @@ installdirs:
 
 PLUGIN_HEADERS = $(TREE_H) $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
   $(TOPLEV_H) $(BASIC_BLOCK_H) $(GIMPLE_H) $(TREE_PASS_H) $(GCC_PLUGIN_H) \
-  intl.h $(PLUGIN_VERSION_H)
+  $(GGC_H) $(TREE_DUMP_H) $(PRETTY_PRINT_H) \
+  $(tm_file_list) $(tm_include_list) $(tm_p_file_list) $(tm_p_include_list) \
+  $(host_xm_file_list) $(host_xm_include_list) $(xm_include_list) \
+  intl.h $(PLUGIN_VERSION_H) $(DIAGNOSTIC_H) $(C_COMMON_H) $(C_PRETTY_PRINT_H) \
+  tree-iterator.h $(PLUGIN_H) $(TREE_FLOW_H) langhooks.h
 
 # Install the headers needed to build a plugin.
-install-plugin: installdirs
+install-plugin: installdirs lang.install-plugin
 # We keep the directory structure for files in config and .def files. All
 # other files are flattened to a single directory.
 	$(mkinstalldirs) $(DESTDIR)$(plugin_includedir)
@@ -4167,10 +4171,10 @@ install-plugin: installdirs
 	  *) base=`basename $$path` ;; \
 	  esac; \
 	  dest=$(plugin_includedir)/$$base; \
-	  echo $(INSTALL_DATA) $$path $(DESTDIR)/$$dest; \
+	  echo $(INSTALL_DATA) $$path $(DESTDIR)$$dest; \
 	  dir=`dirname $$dest`; \
-	  $(mkinstalldirs) $$dir; \
-	  $(INSTALL_DATA) $$path $(DESTDIR)/$$dest; \
+	  $(mkinstalldirs) $(DESTDIR)$$dir; \
+	  $(INSTALL_DATA) $$path $(DESTDIR)$$dest; \
 	done
 
 # Install the compiler executables built during cross compilation.

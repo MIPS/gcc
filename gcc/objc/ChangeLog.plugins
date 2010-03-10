@@ -1,0 +1,5 @@
+2009-07-14  Taras Glek  <tglek@mozilla.com>
+	    Rafael Espindola  <espindola@google.com>
+
+	* Make-lang.in (objc.install-plugin): New target for
+	installing plugin headers.
