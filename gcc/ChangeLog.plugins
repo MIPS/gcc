@@ -1,3 +1,7 @@
+2009-05-13  Brad Hards  <bradh@kde.org>
+
+	* Makefile.in (TEXI_GCCINT_FILES): Add plugins.texi.
+
 2009-05-27  Rafael Avila de Espindola  <espindola@google.com>
 
 	* Makefile.in (GCC_PLUGIN_H): New. Replace all uses of gcc-plugin.h with
