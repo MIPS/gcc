@@ -1,0 +1,109 @@
+2009-04-17  Rafael Avila de Espindola  <espindola@google.com>
+
+	* Makefile.in (REVISION_s): Always include quotes. Change ifdef to use
+	REVISION_c.
+	(OBJS-common): Add plugin-version.o.
+	(plugin-version.o): New.
+	* gcc-plugin.h (plugin_gcc_version): New.
+	(plugin_default_version_check): New.
+	(plugin_init_func, plugin_init): Add version argument.
+	* plugin-version.c: New.
+	* plugin.c (str_plugin_gcc_version_name): New.
+	(try_init_one_plugin): Read plugin_gcc_version from the plugin and
+	pass it to the init function.
+	(plugin_default_version_check): New.
+
+2009-04-16  Rafael Avila de Espindola  <espindola@google.com>
+
+	* common.opt (fhelp): Add Var(help_flag).
+	* gcc-plugin.h (plugin_info): Add help.
+	* plugin.c (plugin_name_args): Add help.
+	(register_plugin_info): Set plugin->help.
+	(print_help_one_plugin): New.
+	(print_plugins_help): New.
+	* plugin.h (print_plugins_help): New.
+	* toplev.c (toplev_main): Call print_plugins_help if needed.
+
+2009-04-16  Rafael Avila de Espindola  <espindola@google.com>
+
+	* gcc-plugin.h (plugin_event): Add PLUGIN_INFO.
+	(plugin_info): New.
+	* opts.c (common_handle_option): Don't call print_version.
+	* plugin.c (plugin_name_args): Add version.
+	(register_plugin_info): New.
+	(register_callback): Handle PLUGIN_INFO.
+	(try_init_one_plugin): New.
+	(init_one_plugin): Use try_init_one_plugin. Only free plugin_name_args
+	if failed to init.
+	(finalize_one_plugin): New.
+	(finalize_plugins): New.
+	(print_one_plugin): New.
+	(print_plugins_versions): New.
+	* plugin.h (print_plugins_versions): New.
+	(finalize_plugins): New.
+	* toplev.c (compile_file): Don't call initialize_plugins.
+	(print_version): Call print_plugins_versions.
+	(toplev_main): Call initialize_plugins. Print version if needed.
+	Call finalize_plugins.
+
+2009-04-16  Rafael Avila de Espindola  <espindola@google.com>
+
+	* common.opt (fversion): New.
+	* gcc.c (print_version): New.
+	(process_command): Don't print the version. Just set print_version.
+	(main): Print version. Call subprocesses if print_version and
+	verbose_flag are set.
+	* opts.c (common_handle_option): Handle OPT_fversion.
+
+2009-04-14  Diego Novillo  <dnovillo@google.com>
+
+	* diagnostic.c (diagnostic_report_diagnostic): Do not
+	warn about loaded plugins for DK_ERROR and DK_WARNING.
+	* c-decl.c (declspecs_add_type): Move call to
+	invoke_plugin_callbacks ...
+	* c-parser.c (c_parser_declspecs): ... here.
+	* plugin.c (dump_active_plugins): Tidy output.
+
+2009-04-14  Diego Novillo  <dnovillo@google.com>
+	    Le-Chun Wu  <lcwu@google.com>
+
+	* configure.ac: Add --enable-plugin support.
+	Define ENABLE_PLUGIN and PLUGINLIBS when specified.
+	* Makefile.in (PLUGIN_H): Define.
+	Export ENABLE_PLUGIN and GMPINC to site.exp.
+	Add PLUGINLIBS to link command.
+	Add/modify dependencies for plugin.o and files including plugin.h.
+	(plugin.o): New.
+	* config.in: Regenerate.
+
+	* opts.c (common_handle_option): Handle OPT_fplugin_ and
+	OPT_fplugin_arg_.
+
+2009-04-14  Le-Chun Wu  <lcwu@google.com>
+
+	* tree-pass.h (register_one_dump_file): Add a prototype for
+	register_one_dump_file.
+	* toplev.c (compile_file): Call initialize_plugins.
+	(do_compile): Call invoke_plugin_callbacks.
+	(toplev_main): Call invoke_plugin_callbacks.
+	* common.opt: Add -fplugin= and -fplugin-arg-.
+	* gcc-plugin.h: New public header file for plugins to include.
+	* plugin.c: New source file.
+	* plugin.h: New internal header file.
+	* passes.c (register_one_dump_file): Make it external.
+
+	* c-parser.c (c_parser_declspecs): Call invoke_plugin_callbacks.
+
+2009-04-14  Diego Novillo  <dnovillo@google.com>
+
+	* doc/plugins.texi: New.
+	* doc/gccint.texi: Add reference to Plugins chapter.
+	* doc/invoke.texi: Document -fplugin and -fplugin-arg
+	* diagnostic.c (diagnostic_report_diagnostic): Warn about
+	loaded plugins, if any.
+	* timevar.def (TV_PLUGIN_INIT): Define.
+	(TV_PLUGIN_RUN): Define.
+	* plugin.c: Include timevar.h
+	(plugins_active_p): New.
+	(dump_active_plugins): New.
+	(debug_active_plugins): New.

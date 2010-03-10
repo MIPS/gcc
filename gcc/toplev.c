@@ -84,6 +84,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-mudflap.h"
 #include "tree-pass.h"
 #include "gimple.h"
+#include "plugin.h"
 
 #if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
 #include "dwarf2out.h"
@@ -1160,6 +1161,8 @@ print_version (FILE *file, const char *indent)
 	   file == stderr ? _(fmt4) : fmt4,
 	   indent, *indent != 0 ? " " : "",
 	   PARAM_VALUE (GGC_MIN_EXPAND), PARAM_VALUE (GGC_MIN_HEAPSIZE));
+
+  print_plugins_versions (file, indent);
 }
 
 #ifdef ASM_COMMENT_START
@@ -2197,6 +2200,9 @@ do_compile (void)
 	compile_file ();
 
       finalize ();
+
+      /* Invoke registered plugin callbacks.  */
+      invoke_plugin_callbacks (PLUGIN_FINISH_UNIT, NULL);
     }
 
   /* Stop timing and print the times.  */
@@ -2224,6 +2230,14 @@ toplev_main (unsigned int argc, const char **argv)
 
   init_local_tick ();
 
+  initialize_plugins ();
+
+  if (version_flag)
+    print_version (stderr, "");
+
+  if (help_flag)
+    print_plugins_help (stderr, "");
+
   /* Exit early if we can (e.g. -help).  */
   if (!exit_after_options)
     do_compile ();
@@ -2231,6 +2245,10 @@ toplev_main (unsigned int argc, const char **argv)
   if (warningcount || errorcount) 
     print_ignored_options ();
 
+  /* Invoke registered plugin callbacks if any.  */
+  invoke_plugin_callbacks (PLUGIN_FINISH, NULL);
+
+  finalize_plugins ();
   if (errorcount || sorrycount)
     return (FATAL_EXIT_CODE);
 
