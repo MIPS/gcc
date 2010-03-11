@@ -95,6 +95,7 @@ static tree cil32_builtin_realign_load (tree);
 static bool cil32_builtin_can_force_alignment (void);
 static tree cil32_builtin_get_loop_niters (void);
 static tree cil32_builtin_pattern (enum tree_code code, tree);
+static tree cil32_builtin_realign_offset (tree);
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ATTRIBUTE_TABLE
@@ -171,6 +172,10 @@ static tree cil32_builtin_pattern (enum tree_code code, tree);
 #undef TARGET_VECTORIZE_BUILTIN_PATTERN
 #define TARGET_VECTORIZE_BUILTIN_PATTERN \
   cil32_builtin_pattern 
+
+#undef TARGET_VECTORIZE_BUILTIN_REALIGN_OFFSET
+#define TARGET_VECTORIZE_BUILTIN_REALIGN_OFFSET \
+  cil32_builtin_realign_offset
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -751,4 +756,40 @@ static tree cil32_builtin_pattern (enum tree_code code, tree type)
 
   return NULL_TREE;
 }
+
+static tree cil32_builtin_realign_offset (tree type)
+{
+  tree elem_type = TREE_TYPE (type);
+  unsigned element_size = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (elem_type));
+
+  if (TREE_CODE (elem_type) == INTEGER_TYPE)
+    {
+      switch (element_size)
+        {
+        case 4:
+          return cil32_builtins[CIL32_GCC_REALIGN_OFFSET_VSI];
+
+        case 2:
+          return cil32_builtins[CIL32_GCC_REALIGN_OFFSET_VHI];
+
+        case 1:
+          return cil32_builtins[CIL32_GCC_REALIGN_OFFSET_VQI];
+
+        default:
+          return NULL_TREE;
+        }
+    }
+  else
+    {
+      switch (element_size)
+        {
+        case 4:
+          return cil32_builtins[CIL32_GCC_REALIGN_OFFSET_VSF];
+
+        default:
+          return NULL_TREE;
+        }
+    }
+}
+
 

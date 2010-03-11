@@ -497,6 +497,8 @@ struct gcc_target
     tree (* builtin_get_loop_niters) (void);
 
     tree (* builtin_pattern) (enum tree_code, tree);
+
+    tree (* builtin_realign_offset) (tree)
 } vectorize;
 
   /* The initial value of target_flags.  */

@@ -6777,8 +6777,25 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
 				    &at_loop);
       if (alignment_support_scheme == dr_explicit_realign_optimized)
 	{
+          tree builtin_decl;
+
 	  phi = SSA_NAME_DEF_STMT (msq);
-	  offset = fold_build2 (MINUS_EXPR, sizetype,
+          if (targetm.vectorize.builtin_realign_offset
+              && (builtin_decl = targetm.vectorize.builtin_realign_offset (vectype)))
+            {
+              tree var = create_tmp_var (sizetype, "offset");
+              basic_block new_bb;
+
+              add_referenced_var (var);
+              new_stmt = gimple_build_call (builtin_decl, 0);
+              offset = make_ssa_name (var, new_stmt);
+              gimple_call_set_lhs (new_stmt, offset);
+              new_bb = gsi_insert_on_edge_immediate (loop_preheader_edge (loop),
+                                                     new_stmt);
+             gcc_assert (!new_bb);
+            }
+          else
+	    offset = fold_build2 (MINUS_EXPR, sizetype,
                             fold_convert (sizetype, 
                     vect_tree_type_vector_subparts (loop_vinfo, vectype)), integer_one_node);
 	}
