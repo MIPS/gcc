@@ -1496,8 +1496,11 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
 	}
 
       if (!LOOP_VINFO_ALIGN_SCHEME (loop_vinfo))
-        VEC_safe_push (data_reference_p, heap, 
-                       LOOP_VINFO_DRS_FOR_ALIGN_CHECKS (loop_vinfo), dr);
+        {
+          VEC_safe_push (data_reference_p, heap, 
+                         LOOP_VINFO_DRS_FOR_ALIGN_CHECKS (loop_vinfo), dr);
+          SET_DR_MISALIGNMENT (dr, 0);
+        }
 
       return true;
     }
@@ -1534,8 +1537,11 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
 	    }
 
           if (!LOOP_VINFO_ALIGN_SCHEME (loop_vinfo))
-            VEC_safe_push (data_reference_p, heap,
-                           LOOP_VINFO_DRS_FOR_ALIGN_CHECKS (loop_vinfo), dr);
+            {
+              VEC_safe_push (data_reference_p, heap,
+                             LOOP_VINFO_DRS_FOR_ALIGN_CHECKS (loop_vinfo), dr);
+              SET_DR_MISALIGNMENT (dr, 0);
+            }
 
 	  return true;
 	}

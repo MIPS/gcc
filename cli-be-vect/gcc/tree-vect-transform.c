@@ -8499,6 +8499,7 @@ vect_loop_versioning (loop_vec_info loop_vinfo)
     {
       vect_create_cond_for_dr_align_checks (loop_vinfo, &cond_expr,
                                          &cond_expr_stmt_list);
+      VEC_free (data_reference_p, heap, LOOP_VINFO_DRS_FOR_ALIGN_CHECKS (loop_vinfo));
     }
   else
     {
