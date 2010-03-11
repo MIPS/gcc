@@ -3109,35 +3109,42 @@ vectorizable_reduction (gimple stmt, gimple_stmt_iterator *gsi,
 
   /* 4. Supportable by target?  */
 
-  /* 4.1. check support for the operation in the loop  */
-  optab = optab_for_tree_code (code, vectype, optab_default);
-  if (!optab)
-    {
-      if (vect_print_dump_info (REPORT_DETAILS))
-        fprintf (vect_dump, "no optab.");
-      return false;
-    }
   vec_mode = TYPE_MODE (vectype);
-  if (optab_handler (optab, vec_mode)->insn_code == CODE_FOR_nothing)
+  /* 4.1. check support for the operation in the loop  */
+  if (!(targetm.vectorize.builtin_pattern
+        && targetm.vectorize.builtin_pattern (code, vectype)))
     {
-      if (vect_print_dump_info (REPORT_DETAILS))
-        fprintf (vect_dump, "op not supported by target.");
-      if (GET_MODE_SIZE (vec_mode) != UNITS_PER_WORD
-          || LOOP_VINFO_VECT_FACTOR (loop_vinfo)
-	     < vect_min_worthwhile_factor (code))
-        return false;
-      if (vect_print_dump_info (REPORT_DETAILS))
-	fprintf (vect_dump, "proceeding using word mode.");
-    }
+      optab = optab_for_tree_code (code, vectype, optab_default);
+      if (!optab)
+        {
+          if (vect_print_dump_info (REPORT_DETAILS))
+            fprintf (vect_dump, "no optab.");
+          return false;
+        }
+      else
+        {
+          if (optab_handler (optab, vec_mode)->insn_code == CODE_FOR_nothing)
+            {
+              if (vect_print_dump_info (REPORT_DETAILS))
+                fprintf (vect_dump, "op not supported by target.");
+              if (GET_MODE_SIZE (vec_mode) != UNITS_PER_WORD
+                  || LOOP_VINFO_VECT_FACTOR (loop_vinfo)
+           	     < vect_min_worthwhile_factor (code))
+                return false;
+              if (vect_print_dump_info (REPORT_DETAILS))
+         	fprintf (vect_dump, "proceeding using word mode.");
+           }
 
-  /* Worthwhile without SIMD support?  */
-  if (!VECTOR_MODE_P (TYPE_MODE (vectype))
-      && LOOP_VINFO_VECT_FACTOR (loop_vinfo)
-	 < vect_min_worthwhile_factor (code))
-    {
-      if (vect_print_dump_info (REPORT_DETAILS))
-	fprintf (vect_dump, "not worthwhile without SIMD support.");
-      return false;
+         /* Worthwhile without SIMD support?  */
+        if (!VECTOR_MODE_P (TYPE_MODE (vectype))
+            && LOOP_VINFO_VECT_FACTOR (loop_vinfo)
+	     < vect_min_worthwhile_factor (code))
+          {
+            if (vect_print_dump_info (REPORT_DETAILS))
+       	      fprintf (vect_dump, "not worthwhile without SIMD support.");
+            return false;
+          }
+       }
     }
 
   /* 4.2. Check support for the epilog operation.
@@ -3307,13 +3314,35 @@ vectorizable_reduction (gimple stmt, gimple_stmt_iterator *gsi,
 
       /* Arguments are ready. create the new vector stmt.  */
       if (op_type == binary_op)
-        expr = build2 (code, vectype, loop_vec_def0, reduc_def);
+        {
+          expr = build2 (code, vectype, loop_vec_def0, reduc_def);
+          new_stmt = gimple_build_assign (vec_dest, expr);
+          new_temp = make_ssa_name (vec_dest, new_stmt);
+          gimple_assign_set_lhs (new_stmt, new_temp);
+        }
       else
-        expr = build3 (code, vectype, loop_vec_def0, loop_vec_def1, 
-		       reduc_def);
-      new_stmt = gimple_build_assign (vec_dest, expr);
-      new_temp = make_ssa_name (vec_dest, new_stmt);
-      gimple_assign_set_lhs (new_stmt, new_temp);
+        {
+          tree builtin_decl;
+
+          if (targetm.vectorize.builtin_pattern
+              && (builtin_decl 
+                     = targetm.vectorize.builtin_pattern (code,
+                                                  TREE_TYPE (loop_vec_def0))))
+            {
+              new_stmt = gimple_build_call (builtin_decl, 3, loop_vec_def0, 
+                                            loop_vec_def1, reduc_def);
+              new_temp = make_ssa_name (vec_dest, new_stmt);
+              gimple_call_set_lhs (new_stmt, new_temp);
+            }
+          else
+            {
+              expr = build3 (code, vectype, loop_vec_def0, loop_vec_def1, 
+	                     reduc_def);
+              new_stmt = gimple_build_assign (vec_dest, expr);
+              new_temp = make_ssa_name (vec_dest, new_stmt);
+              gimple_assign_set_lhs (new_stmt, new_temp);
+            }
+         }
       vect_finish_stmt_generation (stmt, new_stmt, gsi);
 
       if (j == 0)

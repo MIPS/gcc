@@ -1239,6 +1239,20 @@ DEF_CILBUILTIN(GCC_GET_LOOP_NITERS, "[genvec_support]genvec_support.VQI::VI_get_
                2,
                integer_type_node, integer_type_node)
 
+/* dot product pattern */
+
+DEF_CILBUILTIN(GEN_DOT_PRODUCT_VHI, "[genvec_support]genvec_support.VHI::VHI_dot_product", \
+               ATTR_CONST_NOTHROW_LIST,          \
+               intSI4_type_node, \
+               3,
+               intHI8_type_node, intHI8_type_node, intSI4_type_node)
+
+DEF_CILBUILTIN(GEN_DOT_PRODUCT_VQI, "[genvec_support]genvec_support.VQI::VQI_dot_product", \
+               ATTR_CONST_NOTHROW_LIST,          \
+               intHI8_type_node, \
+               3,
+               intQI16_type_node, intQI16_type_node, intHI8_type_node)
+
 
 /* V SF */
 DEF_CILBUILTIN(GEN_VSF_CTOR, "[Xxxx.Simd]Xxxx.Simd.VecGenSF::.ctor", \

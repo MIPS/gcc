@@ -94,6 +94,7 @@ static tree cil32_builtin_mask_for_load (void);
 static tree cil32_builtin_realign_load (tree);
 static bool cil32_builtin_can_force_alignment (void);
 static tree cil32_builtin_get_loop_niters (void);
+static tree cil32_builtin_pattern (enum tree_code code, tree);
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ATTRIBUTE_TABLE
@@ -167,6 +168,9 @@ static tree cil32_builtin_get_loop_niters (void);
 #define TARGET_VECTORIZE_BUILTIN_GET_LOOP_NITERS \
   cil32_builtin_get_loop_niters
 
+#undef TARGET_VECTORIZE_BUILTIN_PATTERN
+#define TARGET_VECTORIZE_BUILTIN_PATTERN \
+  cil32_builtin_pattern 
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -722,5 +726,29 @@ static bool cil32_builtin_can_force_alignment (void)
 static tree cil32_builtin_get_loop_niters (void)
 {
   return cil32_builtins[CIL32_GCC_GET_LOOP_NITERS];
+}
+
+
+static tree cil32_builtin_pattern (enum tree_code code, tree type)
+{
+  tree elem_type = TREE_TYPE (type);
+  unsigned element_size = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (elem_type));
+
+  if (code == DOT_PROD_EXPR && TREE_CODE (elem_type) == INTEGER_TYPE)
+    {
+      switch (element_size)
+        {
+          case 1:
+            return cil32_builtins[CIL32_GEN_DOT_PRODUCT_VQI];
+
+          case 2:
+            return cil32_builtins[CIL32_GEN_DOT_PRODUCT_VHI];
+
+          default:
+            return NULL_TREE;
+        }
+    }
+
+  return NULL_TREE;
 }
 

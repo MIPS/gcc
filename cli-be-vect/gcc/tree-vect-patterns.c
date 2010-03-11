@@ -306,10 +306,10 @@ vect_recog_dot_prod_pattern (gimple last_stmt, tree *type_in, tree *type_out)
   half_type = TREE_TYPE (oprnd00);
   *type_in = half_type;
   *type_out = type;
-  
+
   /* Pattern detected. Create a stmt to be used to replace the pattern: */
   var = vect_recog_temp_ssa_var (type, NULL);
-  rhs =	build3 (DOT_PROD_EXPR, type, oprnd00, oprnd01, oprnd1),
+  rhs = build3 (DOT_PROD_EXPR, type, oprnd00, oprnd01, oprnd1),
   pattern_stmt = gimple_build_assign (var, rhs);
 				      
   if (vect_print_dump_info (REPORT_DETAILS))
@@ -716,13 +716,15 @@ vect_pattern_recog_1 (
 
       optab = optab_for_tree_code (code, pattern_vectype, optab_default);
       vec_mode = TYPE_MODE (pattern_vectype);
-      if (!optab
-          || (icode = optab_handler (optab, vec_mode)->insn_code) ==
-              CODE_FOR_nothing
-          || (type_out
-              && (!get_vectype_for_scalar_type (type_out)
-                  || (insn_data[icode].operand[0].mode !=
-                      TYPE_MODE (get_vectype_for_scalar_type (type_out))))))
+      if ((!optab
+           || (icode = optab_handler (optab, vec_mode)->insn_code) ==
+               CODE_FOR_nothing
+           || (type_out
+               && (!get_vectype_for_scalar_type (type_out)
+                   || (insn_data[icode].operand[0].mode !=
+                       TYPE_MODE (get_vectype_for_scalar_type (type_out))))))
+          && !(targetm.vectorize.builtin_pattern
+               && targetm.vectorize.builtin_pattern (code, pattern_vectype)))
 	return;
     }
 

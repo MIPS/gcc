@@ -395,6 +395,7 @@
 #define TARGET_VECTORIZE_BUILTIN_CAN_FORCE_ALIGNMENT \
   default_builtin_can_force_alignment
 #define TARGET_VECTORIZE_BUILTIN_GET_LOOP_NITERS 0
+#define TARGET_VECTORIZE_BUILTIN_PATTERN 0
 
 #define TARGET_VECTORIZE                                                \
   {									\
@@ -416,7 +417,8 @@
     TARGET_VECTORIZE_BUILTIN_ALWAYS_REALIGN,                            \
     TARGET_VECTORIZE_BUILTIN_REALIGN_LOAD,                              \
     TARGET_VECTORIZE_BUILTIN_CAN_FORCE_ALIGNMENT,                       \
-    TARGET_VECTORIZE_BUILTIN_GET_LOOP_NITERS                            \
+    TARGET_VECTORIZE_BUILTIN_GET_LOOP_NITERS,                           \
+    TARGET_VECTORIZE_BUILTIN_PATTERN                                    \
   }
 
 #define TARGET_DEFAULT_TARGET_FLAGS 0

@@ -495,6 +495,8 @@ struct gcc_target
     bool (* builtin_can_force_alignment) (void);
 
     tree (* builtin_get_loop_niters) (void);
+
+    tree (* builtin_pattern) (enum tree_code, tree);
 } vectorize;
 
   /* The initial value of target_flags.  */
