@@ -1,3 +1,87 @@
+2010-03-08  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline:
+	2010-03-04  Andrew Pinski  <andrew_pinski@caviumnetworks.com>
+
+	PR c/43248
+	* c-decl.c (build_compound_literal): Return early if init is
+	an error_mark_node.
+
+2010-03-08  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline:
+	2010-02-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/42233
+	* dojump.c (do_jump) <case TRUTH_NOT_EXPR>: Invert priority.
+
+	PR bootstrap/43121
+	* except.c (sjlj_emit_function_enter): Don't call
+	add_reg_br_prob_note, instead add REG_BR_PROB note to the last insn
+	directly.
+	* rtl.h (add_reg_br_prob_note): Remove prototype.
+
+	PR middle-end/42233
+	* loop-doloop.c (add_test): Adjust do_compare_rtx_and_jump caller.
+
+	PR middle-end/42233
+	* expr.h (jumpifnot, jumpifnot_1, jumpif, jumpif_1, do_jump,
+	do_jump_1, do_compare_rtx_and_jump): Add PROB argument.
+	* dojump.c: Include output.h.
+	(inv): New inline function.
+	(jumpifnot, jumpifnot_1, jumpif, jumpif_1, do_jump_1, do_jump,
+	do_jump_by_parts_greater_rtx, do_jump_by_parts_greater,
+	do_jump_by_parts_zero_rtx, do_jump_by_parts_equality_rtx,
+	do_jump_by_parts_equality, do_compare_and_jump): Add PROB
+	argument, pass it down to other calls.
+	(do_compare_rtx_and_jump): Likewise.  If PROB is not -1,
+	add REG_BR_PROB note to the conditional jump.
+	* cfgexpand.c (add_reg_br_prob_note): Removed.
+	(expand_gimple_cond): Don't call it, add the probability
+	as last argument to jumpif_1/jumpifnot_1.
+	* Makefile.in (dojump.o): Depend on output.h.
+	* builtins.c (expand_errno_check): Adjust do_compare_rtx_and_jump
+	callers.
+	* expmed.c (emit_store_flag_force, do_cmp_and_jump): Likewise.
+	* stmt.c (do_jump_if_equal): Likewise.
+	* cfgrtl.c (rtl_lv_add_condition_to_bb): Likewise.
+	* loop-unswitch.c (compare_and_jump_seq): Likewise.
+	* config/rs6000/rs6000.c (rs6000_aix_emit_builtin_unwind_init):
+	Likewise.
+	* optabs.c (expand_doubleword_shift, expand_abs): Likewise.
+	* expr.c (expand_expr_real_1): Adjust do_jump, jumpifnot and
+	jumpifnot_1 callers.
+	(expand_expr_real_2): Adjust jumpifnot_1 and do_compare_rtx_and_jump
+	callers.
+	(store_expr): Adjust jumpifnot caller.
+	(store_constructor): Adjust jumpif caller.
+
+	PR middle-end/42233
+	* gimplify.c (gimple_boolify): For __builtin_expect call
+	gimple_boolify also on its first argument.
+
+2010-03-02  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/alpha/alpha.c (override_options): Fix -mtune error message.
+
+2010-03-02  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline:
+	2010-03-01  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/43220
+	* tree-ssa-ccp.c (optimize_stack_restore): Do not optimize
+	BUILT_IN_STACK_{SAVE,RESTORE} around alloca.
+
+2010-02-24  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	Backport from trunk
+	2009-07-10  Mark Mitchell  <mark@codesourcery.com>
+
+	* config/arm/thumb2.md (thumb2_cbz): Correct computation of length
+	attribute.
+	(thumb2_cbnz): Likewise.
+
 2010-02-22  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
 
 	* config/s390/s390.md ("movqi"): Re-add the mem->mem alternative.
@@ -13,11 +97,11 @@
 	PR target/40887
 	Backport from trunk.
 	2009-12-24  Julian Brown  <julian@codesourcery.com>
-        	    Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+		    Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
 
-        * config/arm/arm.c (output_call_mem): Remove armv5 support.
-        * config/arm/arm.md (*call_mem): Disable for armv5. Add note.
-        (*call_value_mem): Likewise.
+	* config/arm/arm.c (output_call_mem): Remove armv5 support.
+	* config/arm/arm.md (*call_mem): Disable for armv5. Add note.
+	(*call_value_mem): Likewise.
 
 2010-02-17  Mikael Pettersson  <mikpe@it.uu.se>
 
@@ -35,8 +119,8 @@
 	Backport from trunk.
 	2009-12-07  Julian Brown  <julian@codesourcery.com>
 
-        * config/arm/constraints.md (Ps, Pt): New constraint letters.
-        * config/arm/thumb2.md (*thumb2_addsi_short): Tighten constraints.
+	* config/arm/constraints.md (Ps, Pt): New constraint letters.
+	* config/arm/thumb2.md (*thumb2_addsi_short): Tighten constraints.
 
 2010-02-16  Ira Rosen <irar@il.ibm.com>
 
@@ -146,7 +230,7 @@
 	* config/sh/sh.c (find_barrier): Increase length for non delayed
 	conditional branches.
 	(sh_insn_length_adjustment): Use JUMP_TABLE_DATA_P.
-	
+
 2010-01-25  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
 
 	Backport from trunk.
@@ -290,9 +374,9 @@
 	* Backport from mainline
 	2010-01-12  Julian Brown  <julian@codesourcery.com>
 
-        * config/arm/neon-schedgen.ml (Utils): Don't try to
+	* config/arm/neon-schedgen.ml (Utils): Don't try to
 	open missing module.
-        (find_with_result): New.
+	(find_with_result): New.
 
 2010-01-12  Jakub Jelinek  <jakub@redhat.com>
 
