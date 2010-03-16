@@ -1,3 +1,121 @@
+2010-03-13  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2010-03-11  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/43257
+	* g++.dg/torture/pr43257.C: New test.
+
+	2010-03-11  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/43255
+	* gcc.c-torture/compile/pr43255.c: New testcase.
+
+	2010-03-11  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* gcc.dg/pr43280.c: New testcase.
+
+	2010-03-10  Jan Hubicka   <jh@suse.cz>
+
+	* gcc.c-torture/compile/pr43288.c: New test.
+
+	2010-03-10  Andrey Belevantsev  <abel@ispras.ru>
+
+	PR middle-end/42859
+	* g++.dg/eh/pr42859.C: New test.
+
+	2010-03-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/43299
+	* gcc.dg/pr43299.c: New test.
+
+	2010-03-08  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/43269
+	* gcc.c-torture/execute/pr43269.c: New testcase.
+
+	2010-03-04  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/43164
+	PR tree-optimization/43191
+	* gcc.c-torture/compile/pr43164.c: New test.
+	* gcc.c-torture/compile/pr43191.c: Likewise.
+
+	2010-03-04  Changpeng Fang  <changpeng.fang@amd.com>
+
+	PR middle-end/43209
+	* gcc.dg/tree-ssa/ivopts-4.c: New.
+
+	2010-03-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/43229
+	* gfortran.dg/pr43229.f90: New test.
+
+	PR debug/43237
+	* gcc.dg/debug/dwarf2/pr43237.c: New test.
+
+	2010-03-02  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/43180
+	* gfortran.dg/internal_pack_10.f90: New test.
+
+	2010-02-26  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/43188
+	* gcc.c-torture/compile/pr43188.c: New testcase.
+
+	2010-02-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/43166
+	* gfortran.dg/debug/pr43166.f: New test.
+
+	PR debug/43165
+	* gcc.dg/torture/pr43165.c: New test.
+
+	2010-02-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/43107
+	* gcc.target/i386/pr43107.c: New test.
+
+2010-03-12  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.target/arm/sibcall-1.c: Allow PLT to appear with pic code.
+
+2010-03-12  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/43320
+	PR libfortran/43265
+	* gfortran.dg/read_eof_6.f: New test
+	* gfortran.dg/read_x_eof.f90: New test.
+	* gfortran.dg/read_x_past.f: Update test.
+
+2010-03-11  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/43228
+	* gfortran.dg/namelist_61.f90: New test.
+	
+2010-03-11  Janis Johnson  <janis187@us.ibm.com>
+
+	* lib/target-supports-dg.exp (check-flags): Provide defaults for
+	include-opts and exclude-opts; skip checking the flags if arguments
+	are the same as the defaults.
+	(dg-xfail-if): Verify the number of arguments, supply defaults
+	for unspecified optional arguments.
+	(dg-skip-if, dg-xfail-run-if): Verify the number of arguments.
+
+2010-03-11  Tobias Burnus  <burnus@net-b.de
+
+	PR fortran/43303
+	* gfortran.dg/c_assoc_3.f90: New test.
+
+2010-03-10  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* g++.old-deja/g++.pt/asm1.C: Don't detect pic via looking for the
+	-fpic/-fPIC flags.
+	* g++.old-deja/g++.pt/asm2.C: Likewise.
+	* gcc.c-torture/compile/20000804-1.c: Likewise.
+	* gcc.target/i386/clobbers.c: Likewise.
+
 2010-03-09  Jakub Jelinek  <jakub@redhat.com>
 
 	PR debug/43299
