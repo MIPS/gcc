@@ -1,3 +1,344 @@
+2010-03-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/43051
+	* gcc.dg/guality/pr43051-1.c: New test.
+
+2010-03-15  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/43317
+	* gcc.dg/pr43317.c: New testcase.
+
+2010-03-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/43329
+	* gcc.dg/guality/pr43329-1.c: New test.
+
+2010-03-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/36728
+	* gcc.dg/guality/pr36728-1.c: New test.
+	* gcc.dg/guality/pr36728-2.c: New test.
+
+2010-03-13  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2010-03-11  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/43257
+	* g++.dg/torture/pr43257.C: New test.
+
+	2010-03-11  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/43255
+	* gcc.c-torture/compile/pr43255.c: New testcase.
+
+	2010-03-11  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* gcc.dg/pr43280.c: New testcase.
+
+	2010-03-10  Jan Hubicka   <jh@suse.cz>
+
+	* gcc.c-torture/compile/pr43288.c: New test.
+
+	2010-03-10  Andrey Belevantsev  <abel@ispras.ru>
+
+	PR middle-end/42859
+	* g++.dg/eh/pr42859.C: New test.
+
+	2010-03-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/43299
+	* gcc.dg/pr43299.c: New test.
+
+	2010-03-08  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/43269
+	* gcc.c-torture/execute/pr43269.c: New testcase.
+
+	2010-03-04  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/43164
+	PR tree-optimization/43191
+	* gcc.c-torture/compile/pr43164.c: New test.
+	* gcc.c-torture/compile/pr43191.c: Likewise.
+
+	2010-03-04  Changpeng Fang  <changpeng.fang@amd.com>
+
+	PR middle-end/43209
+	* gcc.dg/tree-ssa/ivopts-4.c: New.
+
+	2010-03-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/43229
+	* gfortran.dg/pr43229.f90: New test.
+
+	PR debug/43237
+	* gcc.dg/debug/dwarf2/pr43237.c: New test.
+
+	2010-03-02  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/43180
+	* gfortran.dg/internal_pack_10.f90: New test.
+
+	2010-02-26  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/43188
+	* gcc.c-torture/compile/pr43188.c: New testcase.
+
+	2010-02-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/43166
+	* gfortran.dg/debug/pr43166.f: New test.
+
+	PR debug/43165
+	* gcc.dg/torture/pr43165.c: New test.
+
+	2010-02-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/43107
+	* gcc.target/i386/pr43107.c: New test.
+
+2010-03-12  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.target/arm/sibcall-1.c: Allow PLT to appear with pic code.
+
+2010-03-12  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/43320
+	PR libfortran/43265
+	* gfortran.dg/read_eof_6.f: New test
+	* gfortran.dg/read_x_eof.f90: New test.
+	* gfortran.dg/read_x_past.f: Update test.
+
+2010-03-11  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/43228
+	* gfortran.dg/namelist_61.f90: New test.
+	
+2010-03-11  Janis Johnson  <janis187@us.ibm.com>
+
+	* lib/target-supports-dg.exp (check-flags): Provide defaults for
+	include-opts and exclude-opts; skip checking the flags if arguments
+	are the same as the defaults.
+	(dg-xfail-if): Verify the number of arguments, supply defaults
+	for unspecified optional arguments.
+	(dg-skip-if, dg-xfail-run-if): Verify the number of arguments.
+
+2010-03-11  Tobias Burnus  <burnus@net-b.de
+
+	PR fortran/43303
+	* gfortran.dg/c_assoc_3.f90: New test.
+
+2010-03-10  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* g++.old-deja/g++.pt/asm1.C: Don't detect pic via looking for the
+	-fpic/-fPIC flags.
+	* g++.old-deja/g++.pt/asm2.C: Likewise.
+	* gcc.c-torture/compile/20000804-1.c: Likewise.
+	* gcc.target/i386/clobbers.c: Likewise.
+
+2010-03-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/43299
+	* gcc.dg/pr43299.c: New test.
+
+	PR debug/43290
+	* g++.dg/eh/unwind2.C: New test.
+
+2010-03-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/43229
+	* gfortran.dg/pr43229.f90: New test.
+
+	PR debug/43237
+	* gcc.dg/debug/dwarf2/pr43237.c: New test.
+
+	PR debug/43177
+	* gcc.dg/guality/pr43177.c: New test.
+
+2010-03-08  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline:
+	2010-03-04  Andrew Pinski  <andrew_pinski@caviumnetworks.com>
+
+	PR c/43248
+	* gcc.dg/compound-literal-1.c: New testcase.
+
+2010-03-05  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	Backport:
+	2009-10-15  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+	* lib/target-supports.exp (add_options_for_bind_pic_locally): New.
+	
+	2009-10-16  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+	* g++.dg/ipa/iinline-1.C: Use dg-add-options bind_pic_locally.
+	* g++.dg/other/first-global.C: Likewise.
+	* g++.dg/parse/attr-externally-visible-1.C: Likewise.
+	* g++.dg/tree-ssa/nothrow-1.C: Likewise.
+	* gcc.dg/inline-33.c: Likewise.
+	* gcc.dg/ipa/ipa-1.c: Likewise.
+	* gcc.dg/ipa/ipa-2.c: Likewise.
+	* gcc.dg/ipa/ipa-3.c: Likewise.
+	* gcc.dg/ipa/ipa-4.c: Likewise.
+	* gcc.dg/ipa/ipa-5.c: Likewise.
+	* gcc.dg/ipa/ipa-7.c: Likewise.
+	* gcc.dg/ipa/ipacost-2.c: Likewise.
+	
+	2010-02-09  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+	* gcc.dg/tree-ssa/inline-4.c: Bind pic locally.
+
+2010-03-02  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline:
+	2010-03-01  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/43220
+	* gcc.c-torture/execute/pr43220.c: New testcase.
+
+2010-02-27  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/thin_pointer.ad[sb]: Rename into...
+	* gnat.dg/thin_pointer1.ad[sb]: ...this.
+	* gnat.dg/thin_pointer2.adb: New test.
+	* gnat.dg/thin_pointer2_pkg.ad[sb]: New helper.
+
+2010-02-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/43190
+	* c-c++-common/dwarf2/pr43190.c: New test.
+
+2010-02-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/43166
+	* gfortran.dg/debug/pr43166.f: New test.
+
+	PR debug/43165
+	* gcc.dg/torture/pr43165.c: New test.
+
+2010-02-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/43150
+	* gcc.dg/guality/vla-1.c: New test.
+
+2010-02-23  Jason Merrill  <jason@redhat.com>
+
+	PR debug/42800
+	* gcc.dg/debug/dwarf2/dwarf2.exp: Run c-c++-common dwarf2 tests.
+	* g++.dg/debug/dwarf2/dwarf2.exp: Likewise.
+	* c-c++-common/dwarf2/vla1.c: New.
+
+2010-02-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/43139
+	* gcc.dg/pr43139.c: New test.
+
+	PR debug/43077
+	* gcc.dg/guality/pr43077-1.c: New test.
+
+2009-03-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR middle-end/39315
+	* gcc.target/i386/pr39315-1.c: New.
+	* gcc.target/i386/pr39315-2.c: Likewise.
+	* gcc.target/i386/pr39315-3.c: Likewise.
+	* gcc.target/i386/pr39315-4.c: Likewise.
+	* gcc.target/i386/pr39315-check.c: Likewise.
+
+2010-02-24  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	* gcc.target/arm/thumb2-cbnz.c: New test.
+
+2010-02-23  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2010-02-22  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/42749
+	* gcc.c-torture/compile/pr42749.c: New testcase.
+
+	2010-02-21  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/42824
+	* g++.dg/template/memclass4.C: New test.
+
+	2010-02-20  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/43111
+	* gfortran.dg/internal_pack_8.f90: New test.
+
+	2010-02-18  Jason Merrill  <jason@redhat.com>
+
+	PR c++/43109
+	* g++.dg/parse/namespace12.C: New.
+
+	2010-02-18  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/43066
+	* gcc.c-torture/compile/pr43066.c: New test.
+
+	2010-02-17  Jason Merrill  <jason@redhat.com>
+
+	PR c++/43069
+	* g++.dg/parse/namespace11.C: New.
+
+	PR c++/43093
+	* g++.dg/ext/attrib37.C: New.
+
+	PR c++/43079
+	* g++.dg/template/ptrmem20.C: New.
+
+	2010-02-16  Jason Merrill  <jason@redhat.com>
+
+	PR c++/43031
+	* g++.dg/ext/attrib36.C: New.
+
+	2010-02-15  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/43068
+	* g++.dg/torture/pr43068.C: New testcase.
+
+	2010-02-11  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/42998
+	* gcc.c-torture/compile/pr42998.c: New testcase.
+
+	2010-02-10  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/43017
+	* gcc.dg/torture/pr43017.c: New testcase.
+
+	2010-02-10  Richard Guenther  <rguenther@suse.de>
+
+	PR c/43007
+	* gcc.c-torture/execute/20100209-1.c: New testcase.
+	* gcc.dg/fold-div-3.c: Likewise.
+
+	2010-02-09  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/42999
+	* gfortran.dg/array_constructor_35.f90: New test.
+
+	2010-02-09  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/43008
+	* gcc.c-torture/execute/pr43008.c: New testcase.
+
+	2010-02-09  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/43000
+	* gcc.dg/torture/pr43000.c: New testcase.
+	* gcc.dg/torture/pr43002.c: Likewise.
+
+	2010-02-06  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/42742
+	* gfortran.dg/fmt_cache_2.f: New test.
+
+	2010-02-03  Jason Merrill  <jason@redhat.com>
+
+	PR c++/42870
+	* g++.dg/ext/dllexport3.C: New.
+
 2010-02-19  Jakub Jelinek  <jakub@redhat.com>
 
 	PR debug/43084
@@ -20,10 +361,10 @@
 
 2010-02-18  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
 
-        PR target/40887
+	PR target/40887
 	Backport from trunk.
-        2009-12-24  Julian Brown  <julian@codesourcery.com>
-                    Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+	2009-12-24  Julian Brown  <julian@codesourcery.com>
+		    Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
 
 	* gcc.target/arm/pr40887.c: New test.
 
@@ -62,6 +403,15 @@
 
 	PR tree-optimization/42890
 	* g++.dg/torture/pr42890.C: New test.
+
+2010-02-08  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	2010-01-05  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/42462
+	* gcc.dg/tree-ssa/inline-4.c: New testcase.
+	* gcc.dg/Wunreachable-2.c: Remove.
 
 2010-02-08  H.J. Lu  <hongjiu.lu@intel.com>
 

@@ -352,6 +352,7 @@ remove_forwarder_block (basic_block bb)
   edge_iterator ei;
   gimple_stmt_iterator gsi, gsi_to;
   bool seen_abnormal_edge = false;
+  bool can_move_debug_stmts;
 
   /* We check for infinite loops already in tree_forwarder_block_p.
      However it may happen that the infinite loop is created
@@ -403,6 +404,8 @@ remove_forwarder_block (basic_block bb)
 	}
     }
 
+  can_move_debug_stmts = single_pred_p (dest);
+
   /* Redirect the edges.  */
   for (ei = ei_start (bb->preds); (e = ei_safe_edge (ei)); )
     {
@@ -443,6 +446,21 @@ remove_forwarder_block (basic_block bb)
 		      || is_gimple_debug (label));
 	  gsi_remove (&gsi, false);
 	  gsi_insert_before (&gsi_to, label, GSI_SAME_STMT);
+	}
+    }
+
+  /* Move debug statements if the destination has just a single
+     predecessor.  */
+  if (can_move_debug_stmts)
+    {
+      gsi_to = gsi_after_labels (dest);
+      for (gsi = gsi_after_labels (bb); !gsi_end_p (gsi); )
+	{
+	  gimple debug = gsi_stmt (gsi);
+	  if (!is_gimple_debug (debug))
+	    break;
+	  gsi_remove (&gsi, false);
+	  gsi_insert_before (&gsi_to, debug, GSI_SAME_STMT);
 	}
     }
 

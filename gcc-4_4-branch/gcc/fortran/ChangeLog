@@ -1,3 +1,15 @@
+2010-03-11  Tobias Burnus  <burnus@net-b.de
+
+	PR fortran/43303
+	* symbol.c (get_iso_c_sym): Set sym->result.
+
+2010-02-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/43166
+	* trans-common.c (build_common_decl): Also update DECL_MODE,
+	and DECL_SIZE when encountering a larger common block and call
+	layout_decl.
+
 2010-02-16  Paul Thomas  <pault@gcc.gnu.org>
 
 	PR fortran/41869
