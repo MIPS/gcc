@@ -2354,6 +2354,7 @@ get_initial_def_for_reduction (gimple stmt, tree init_val, tree *adjustment_def)
   tree t = NULL_TREE;
   int i;
   bool nested_in_vect_loop = false; 
+  tree builtin_decl;
 
   gcc_assert (POINTER_TYPE_P (type) || INTEGRAL_TYPE_P (type) || SCALAR_FLOAT_TYPE_P (type));
   if (nested_in_vect_loop_p (loop, stmt))
@@ -2372,15 +2373,37 @@ get_initial_def_for_reduction (gimple stmt, tree init_val, tree *adjustment_def)
       *adjustment_def = vecdef;
     else
       *adjustment_def = init_val;
+
     /* Create a vector of zeros for init_def.  */
     if (SCALAR_FLOAT_TYPE_P (scalar_type))
       def_for_init = build_real (scalar_type, dconst0);
     else
       def_for_init = build_int_cst (scalar_type, 0);
-      
-    for (i = nunits - 1; i >= 0; --i)
-      t = tree_cons (NULL_TREE, def_for_init, t);
-    init_def = build_vector (vectype, t);
+
+    if (targetm.vectorize.builtin_build_uniform_vec
+      && (builtin_decl 
+           = targetm.vectorize.builtin_build_uniform_vec (def_for_init,
+                                                          TREE_TYPE (vecdef))))
+      {
+        tree var = vect_get_new_vect_var (vectype,
+                                          vect_simple_var, "uniform_vec_");
+        gimple new_stmt = gimple_build_call (builtin_decl, 1, def_for_init);
+        basic_block new_bb;
+
+        add_referenced_var (var);
+        init_def = make_ssa_name (var, new_stmt);
+        gimple_call_set_lhs (new_stmt, init_def);
+        new_bb = gsi_insert_on_edge_immediate (loop_preheader_edge (loop), 
+                                               new_stmt);
+        gcc_assert (!new_bb);
+      }
+    else
+      {  
+        for (i = nunits - 1; i >= 0; --i)
+          t = tree_cons (NULL_TREE, def_for_init, t);
+        init_def = build_vector (vectype, t);
+      }
+
     break;
 
   case MIN_EXPR:
