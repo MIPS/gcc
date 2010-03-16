@@ -4633,6 +4633,13 @@ vect_analyze_loop (struct loop *loop, bool version)
   if (vect_print_dump_info (REPORT_DETAILS))
     fprintf (vect_dump, "===== analyze_loop_nest =====");
 
+  if (loop->inner && flag_no_vect_outer_loop)
+    {
+      if (vect_print_dump_info (REPORT_DETAILS))
+        fprintf (vect_dump, "outer-loop vectorization disabled.");
+      return NULL;
+    }
+
   if (loop_outer (loop) 
       && loop_vec_info_for_loop (loop_outer (loop))
       && LOOP_VINFO_VECTORIZABLE_P (loop_vec_info_for_loop (loop_outer (loop))))
