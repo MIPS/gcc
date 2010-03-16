@@ -744,10 +744,10 @@ static tree cil32_builtin_pattern (enum tree_code code, tree type)
       switch (element_size)
         {
           case 1:
-            return cil32_builtins[CIL32_GEN_DOT_PRODUCT_VQI];
+            return cil32_builtins[CIL32_GEN_DOT_PRODUCT_VHI];
 
           case 2:
-            return cil32_builtins[CIL32_GEN_DOT_PRODUCT_VHI];
+            return cil32_builtins[CIL32_GEN_DOT_PRODUCT_VSI];
 
           default:
             return NULL_TREE;
