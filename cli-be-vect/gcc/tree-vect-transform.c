@@ -1968,8 +1968,6 @@ vect_get_vec_def_for_operand (tree op, gimple stmt, tree *scalar_def)
   gimple def_stmt;
   stmt_vec_info def_stmt_info = NULL;
   stmt_vec_info stmt_vinfo = vinfo_for_stmt (stmt);
-  tree vectype = STMT_VINFO_VECTYPE (stmt_vinfo);
-  unsigned int nunits = TYPE_VECTOR_SUBPARTS (vectype);
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_vinfo);
   tree vec_inv;
   tree vec_cst;
@@ -2013,15 +2011,19 @@ vect_get_vec_def_for_operand (tree op, gimple stmt, tree *scalar_def)
 	if (scalar_def) 
 	  *scalar_def = op;
 
+        vector_type = get_vectype_for_scalar_type (TREE_TYPE (op));
+        gcc_assert (vector_type);
+        nunits = TYPE_VECTOR_SUBPARTS (vector_type);
+
         /* Create 'vect_cst_ = {cst,cst,...,cst}'  */
         if (vect_print_dump_info (REPORT_DETAILS))
           fprintf (vect_dump, "Create vector_cst. nunits = %d", nunits);
 
         if (targetm.vectorize.builtin_build_uniform_vec
             && (builtin_decl = targetm.vectorize.builtin_build_uniform_vec (op, 
-                                                                     vectype)))
+                                                                 vector_type)))
           {
-            var = vect_get_new_vect_var (vectype,
+            var = vect_get_new_vect_var (vector_type,
                                      vect_simple_var, "uniform_vec_");
 
             new_stmt = gimple_build_call (builtin_decl, 1, op);
@@ -2039,8 +2041,8 @@ vect_get_vec_def_for_operand (tree op, gimple stmt, tree *scalar_def)
               {
                 t = tree_cons (NULL_TREE, op, t);
               }
-            vec_cst = build_vector (vectype, t);
-            return vect_init_vector (stmt, vec_cst, vectype, NULL);
+            vec_cst = build_vector (vector_type, t);
+            return vect_init_vector (stmt, vec_cst, vector_type, NULL);
           }
       }
 
@@ -2060,9 +2062,9 @@ vect_get_vec_def_for_operand (tree op, gimple stmt, tree *scalar_def)
 
         if (targetm.vectorize.builtin_build_uniform_vec
             && (builtin_decl = targetm.vectorize.builtin_build_uniform_vec (def, 
-                                                                      vectype)))
+                                                                  vector_type)))
           {
-            var = vect_get_new_vect_var (vectype,
+            var = vect_get_new_vect_var (vector_type,
                                      vect_simple_var, "uniform_vec_");
 
             new_stmt = gimple_build_call (builtin_decl, 1, def);
