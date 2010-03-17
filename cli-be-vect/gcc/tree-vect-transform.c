@@ -1980,6 +1980,7 @@ vect_get_vec_def_for_operand (tree op, gimple stmt, tree *scalar_def)
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   basic_block new_bb;
   gimple new_stmt;
+  int nunits;
 
   if (vect_print_dump_info (REPORT_DETAILS))
     {
