@@ -924,7 +924,7 @@ INCLUDES = -I. -I$(@D) -I$(srcdir) -I$(srcdir)/$(@D) \
 	   $(PPLINC) $(CLOOGINC)
 
 # [gcc-in-cxx] Keep the .c extension, but compile with C++.
-CXXX :=	$(CXX) -x c++ -c $(ALL_CXXFLAGS) $(ALL_CPPFLAGS)
+CXXX :=	$(CXX) -x c++ -c -fpermissive $(ALL_CXXFLAGS) $(ALL_CPPFLAGS)
 .c.o:
 	$(CXXX) $< $(OUTPUT_OPTION)
 ifdef EXTRA_TARGET

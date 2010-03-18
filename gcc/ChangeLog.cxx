@@ -1,3 +1,14 @@
+2010-03-18  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* Makefile.in (CXXX): Add -fpermissive.
+	* graphite.h (struct name_tree, struct sese): Rename to:
+	(struct name_tree_s, struct sese_s).
+	* graphite.c: Likewise.
+	(struct ivtype_map_elt, struct rename_map_elt): Rename to:
+	(struct ivtype_map_elt_s, struct rename_map_elt_s).
+	(struct ifsese): Rename to:
+	(struct ifsese_s).
+
 2009-08-28  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* config/i386/i386.c (ix86_expand_args_builtin): Update to take new
