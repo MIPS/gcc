@@ -2737,6 +2737,14 @@ reduction_code_for_scalar_code (enum tree_code code,
     *reduc_code = REDUC_PLUS_EXPR;
     return true;
 
+  case MULT_EXPR:
+  case MINUS_EXPR:
+  case BIT_IOR_EXPR:
+  case BIT_XOR_EXPR:
+  case BIT_AND_EXPR:
+    *reduc_code = ERROR_MARK;
+     return true;
+
   default:
     return false;
   }
@@ -2772,7 +2780,8 @@ report_vect_op (gimple stmt, const char *msg)
    Conditions 2,3 are tested in vect_mark_stmts_to_be_vectorized.  */
 
 gimple
-vect_is_simple_reduction (loop_vec_info loop_info, gimple phi)
+vect_is_simple_reduction (loop_vec_info loop_info, gimple phi,
+                          bool check_reduction, bool *double_reduc)
 {
   struct loop *loop = (gimple_bb (phi))->loop_father;
   struct loop *vect_loop = LOOP_VINFO_LOOP (loop_info);
@@ -2786,8 +2795,15 @@ vect_is_simple_reduction (loop_vec_info loop_info, gimple phi)
   tree name;
   imm_use_iterator imm_iter;
   use_operand_p use_p;
+  bool phi_def;
 
-  gcc_assert (loop == vect_loop || flow_loop_nested_p (vect_loop, loop));
+  *double_reduc = false;
+
+  /* If CHECK_REDUCTION is true, we assume inner-most loop vectorization,
+     otherwise, we assume outer loop vectorization.  */
+  gcc_assert ((check_reduction && loop == vect_loop) 
+              || (!check_reduction && flow_loop_nested_p (vect_loop, loop)));
+ 
 
   name = PHI_RESULT (phi);
   nloop_uses = 0;
@@ -2824,14 +2840,24 @@ vect_is_simple_reduction (loop_vec_info loop_info, gimple phi)
       return NULL;
     }
 
-  if (!is_gimple_assign (def_stmt))
+  if (!is_gimple_assign (def_stmt) && gimple_code (def_stmt) != GIMPLE_PHI)
     {
       if (vect_print_dump_info (REPORT_DETAILS))
         print_gimple_stmt (vect_dump, def_stmt, 0, TDF_SLIM);
       return NULL;
     }
 
-  name = gimple_assign_lhs (def_stmt);
+  if (is_gimple_assign (def_stmt))
+    {
+      name = gimple_assign_lhs (def_stmt);
+      phi_def = false;
+    }
+  else
+    {
+      name = PHI_RESULT (def_stmt);
+      phi_def = true;
+    }
+
   nloop_uses = 0;
   FOR_EACH_IMM_USE_FAST (use_p, imm_iter, name)
     {
@@ -2848,9 +2874,41 @@ vect_is_simple_reduction (loop_vec_info loop_info, gimple phi)
 	}
     }
 
+  /* If DEF_STMT is a phi node itself, we expect it to have a single argument
+     defined in the inner loop.  */
+  if (phi_def)
+    {
+      op1 = PHI_ARG_DEF (def_stmt, 0);
+
+      if (gimple_phi_num_args (def_stmt) != 1
+          || TREE_CODE (op1) != SSA_NAME)
+        {
+          if (vect_print_dump_info (REPORT_DETAILS))
+            fprintf (vect_dump, "unsupported phi node definition.");
+
+          return NULL;
+        }
+
+      def1 = SSA_NAME_DEF_STMT (op1); 
+      if (flow_bb_inside_loop_p (loop, gimple_bb (def_stmt)) 
+          && loop->inner
+          && flow_bb_inside_loop_p (loop->inner, gimple_bb (def1))
+          && is_gimple_assign (def1))
+        {
+          if (vect_print_dump_info (REPORT_DETAILS))
+            report_vect_op (def_stmt, "detected double reduction: ");
+ 
+          *double_reduc = true;
+          return def_stmt;
+        }
+
+      return NULL;
+    }
+
   code = gimple_assign_rhs_code (def_stmt);
 
-  if (!commutative_tree_code (code) || !associative_tree_code (code))
+  if (check_reduction 
+      && (!commutative_tree_code (code) || !associative_tree_code (code)))
     {
       if (vect_print_dump_info (REPORT_DETAILS))
         report_vect_op (def_stmt, "reduction: not commutative/associative: ");
@@ -2899,7 +2957,7 @@ vect_is_simple_reduction (loop_vec_info loop_info, gimple phi)
 
   /* CHECKME: check for !flag_finite_math_only too?  */
   if (SCALAR_FLOAT_TYPE_P (type) && !flag_associative_math
-      && !nested_in_vect_loop_p (vect_loop, def_stmt)) 
+      && check_reduction)
     {
       /* Changing the order of operations changes the semantics.  */
       if (vect_print_dump_info (REPORT_DETAILS))
@@ -2907,14 +2965,14 @@ vect_is_simple_reduction (loop_vec_info loop_info, gimple phi)
       return NULL;
     }
   else if (INTEGRAL_TYPE_P (type) && TYPE_OVERFLOW_TRAPS (type)
-	   && !nested_in_vect_loop_p (vect_loop, def_stmt))
+	   && check_reduction)
     {
       /* Changing the order of operations changes the semantics.  */
       if (vect_print_dump_info (REPORT_DETAILS))
 	report_vect_op (def_stmt, "reduction: unsafe int math optimization: ");
       return NULL;
     }
-  else if (SAT_FIXED_POINT_TYPE_P (type))
+  else if (SAT_FIXED_POINT_TYPE_P (type) && check_reduction)
     {
       /* Changing the order of operations changes the semantics.  */
       if (vect_print_dump_info (REPORT_DETAILS))
@@ -2961,14 +3019,23 @@ vect_is_simple_reduction (loop_vec_info loop_info, gimple phi)
 		   && STMT_VINFO_DEF_TYPE (vinfo_for_stmt (def2)) == vect_loop_def
 		   && !is_loop_header_bb_p (gimple_bb (def2)))))
     {
-      /* Swap operands (just for simplicity - so that the rest of the code
-	 can assume that the reduction variable is always the last (second)
-	 argument).  */
-      if (vect_print_dump_info (REPORT_DETAILS))
-	report_vect_op (def_stmt ,
-		        "detected reduction: need to swap operands:");
-      swap_tree_operands (def_stmt, gimple_assign_rhs1_ptr (def_stmt),
-			  gimple_assign_rhs2_ptr (def_stmt));
+      if (check_reduction)
+        {
+          /* Swap operands (just for simplicity - so that the rest of the code
+	     can assume that the reduction variable is always the last (second)
+	     argument).  */
+          if (vect_print_dump_info (REPORT_DETAILS))
+	    report_vect_op (def_stmt,
+	  	            "detected reduction: need to swap operands: ");
+
+          swap_tree_operands (def_stmt, gimple_assign_rhs1_ptr (def_stmt),
+ 			      gimple_assign_rhs2_ptr (def_stmt));
+        }
+      else
+        {
+          if (vect_print_dump_info (REPORT_DETAILS))
+            report_vect_op (def_stmt, "detected reduction: ");
+        }
       return def_stmt;
     }
   else

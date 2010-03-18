@@ -476,9 +476,9 @@ struct gcc_target
 
     tree (* builtin_get_vec_stride) (tree);
 
-    tree (* builtin_build_uniform_vec) (tree, tree);
+    tree (* builtin_build_uniform_vec) (tree);
 
-    tree (* builtin_build_affine_vec) (tree, tree, tree);
+    tree (* builtin_build_affine_vec) (tree);
 
     tree (* builtin_get_vec_size) (tree);
 
@@ -499,6 +499,8 @@ struct gcc_target
     tree (* builtin_pattern) (enum tree_code, tree);
 
     tree (* builtin_realign_offset) (tree);
+
+    tree (* builtin_build_init_vec) (tree);
 } vectorize;
 
   /* The initial value of target_flags.  */

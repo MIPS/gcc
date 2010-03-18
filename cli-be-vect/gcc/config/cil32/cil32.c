@@ -83,8 +83,8 @@ static bool cil32_vector_mode_supported_p (enum machine_mode);
 const struct attribute_spec cil32_attribute_table[];
 
 static tree cil32_builtin_get_vec_stride (tree);
-static tree cil32_builtin_build_uniform_vec (tree, tree);
-static tree cil32_builtin_build_affine_vec (tree, tree, tree);
+static tree cil32_builtin_build_uniform_vec (tree);
+static tree cil32_builtin_build_affine_vec (tree);
 static tree cil32_builtin_get_vec_size (tree);
 static tree cil32_builtin_get_vec_align (tree);
 static tree cil32_builtin_build_reduc_epilogue (enum tree_code, tree);
@@ -96,6 +96,7 @@ static bool cil32_builtin_can_force_alignment (void);
 static tree cil32_builtin_get_loop_niters (void);
 static tree cil32_builtin_pattern (enum tree_code code, tree);
 static tree cil32_builtin_realign_offset (tree);
+static tree cil32_builtin_build_init_vec (tree);
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ATTRIBUTE_TABLE
@@ -176,6 +177,11 @@ static tree cil32_builtin_realign_offset (tree);
 #undef TARGET_VECTORIZE_BUILTIN_REALIGN_OFFSET
 #define TARGET_VECTORIZE_BUILTIN_REALIGN_OFFSET \
   cil32_builtin_realign_offset
+
+#undef TARGET_VECTORIZE_BUILTIN_BUILD_INIT_VEC
+#define TARGET_VECTORIZE_BUILTIN_BUILD_INIT_VEC \
+  cil32_builtin_build_init_vec
+
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -459,8 +465,7 @@ cil32_builtin_get_vec_align (tree type)
     }
 }
 
-static tree cil32_builtin_build_uniform_vec (tree value ATTRIBUTE_UNUSED, 
-                                             tree type)
+static tree cil32_builtin_build_uniform_vec (tree type)
 {
   tree elem_type = TREE_TYPE (type);
   unsigned element_size = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (elem_type));
@@ -503,9 +508,7 @@ static tree cil32_builtin_build_uniform_vec (tree value ATTRIBUTE_UNUSED,
     }
 }
 
-static tree cil32_builtin_build_affine_vec (tree init ATTRIBUTE_UNUSED, 
-                                            tree step ATTRIBUTE_UNUSED, 
-                                            tree type)
+static tree cil32_builtin_build_affine_vec (tree type)
 {
   tree elem_type = TREE_TYPE (type);
   unsigned element_size = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (elem_type));
@@ -792,4 +795,38 @@ static tree cil32_builtin_realign_offset (tree type)
     }
 }
 
+static tree cil32_builtin_build_init_vec (tree type)
+{
+  tree elem_type = TREE_TYPE (type);
+  unsigned element_size = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (elem_type));
+
+  if (TREE_CODE (elem_type) == INTEGER_TYPE)
+    {
+      switch (element_size)
+        {
+        case 4:
+          return cil32_builtins[CIL32_GCC_BUILD_INIT_VEC_VSI];
+
+        case 2:
+          return cil32_builtins[CIL32_GCC_BUILD_INIT_VEC_VHI];
+
+        case 1:
+          return cil32_builtins[CIL32_GCC_BUILD_INIT_VEC_VQI];
+
+        default:
+          return NULL_TREE;
+        }
+    }
+  else
+    {
+      switch (element_size)
+        {
+        case 4:
+          return cil32_builtins[CIL32_GCC_BUILD_INIT_VEC_VSF];
+
+        default:
+          return NULL_TREE;
+        }
+    }
+}
 

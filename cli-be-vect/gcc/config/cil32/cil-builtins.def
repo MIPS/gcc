@@ -1274,6 +1274,31 @@ DEF_CILBUILTIN(GEN_DOT_PRODUCT_VHI, "[genvec_support]genvec_support.VHI::VHI_dot
                3,
                intQI16_type_node, intQI16_type_node, intHI8_type_node)
 
+/* init */
+DEF_CILBUILTIN(GCC_BUILD_INIT_VEC_VSF, "[genvec_support]genvec_support.VSF::VSF_init_vec", \
+               ATTR_CONST_NOTHROW_LIST,        \
+               float2_type_node, \
+               2, \
+               float_type_node, float_type_node)
+
+DEF_CILBUILTIN(GCC_BUILD_INIT_VEC_VSI, "[genvec_support]genvec_support.VSI::VSI_init_vec", \
+               ATTR_CONST_NOTHROW_LIST,        \
+               intSI2_type_node, \
+               2, \
+               intSI_type_node, intSI_type_node)
+
+DEF_CILBUILTIN(GCC_BUILD_INIT_VEC_VHI, "[genvec_support]genvec_support.VHI::VHI_init_vec", \
+               ATTR_CONST_NOTHROW_LIST,        \
+               intHI4_type_node, \
+               2, \
+               intHI_type_node, intHI_type_node)
+
+DEF_CILBUILTIN(GCC_BUILD_INIT_VEC_VQI, "[genvec_support]genvec_support.VQI::VQI_init_vec", \
+               ATTR_CONST_NOTHROW_LIST,         \
+               intQI8_type_node, \
+               2, \
+               intQI_type_node, intQI_type_node)
+
 
 /* V SF */
 DEF_CILBUILTIN(GEN_VSF_CTOR, "[Xxxx.Simd]Xxxx.Simd.VecGenSF::.ctor", \

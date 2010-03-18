@@ -57,6 +57,8 @@ enum vect_def_type {
   vect_loop_def,
   vect_induction_def,
   vect_reduction_def,
+  vect_double_reduction_def,
+  vect_nested_cycle,
   vect_unknown_def_type
 };
 
@@ -760,7 +762,7 @@ extern tree get_vectype_for_scalar_type (tree);
 extern bool vect_is_simple_use (tree, loop_vec_info, gimple *, tree *,
 				enum vect_def_type *);
 extern bool vect_is_simple_iv_evolution (unsigned, tree, tree *, tree *);
-extern gimple vect_is_simple_reduction (loop_vec_info, gimple);
+extern gimple vect_is_simple_reduction (loop_vec_info, gimple, bool, bool *);
 extern bool vect_can_force_dr_alignment_p (const_tree, unsigned int);
 extern enum dr_alignment_support vect_supportable_dr_alignment
   (struct data_reference *);
