@@ -1,3 +1,8 @@
+2010-03-18  Joern Rennecke  <joern.rennecke@embecosm.com>
+	From mainline:
+	2009-06-09  Ian Lance Taylor  <ian@airs.com>
+	  * ansidecl.h (ATTRIBUTE_UNUSED_LABEL): Define for C++.
+
 2009-03-06  Ian Lance Taylor  <iant@google.com>
 
 	* ansidecl.h: Don't define inline as a macro for C++.
