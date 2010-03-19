@@ -1,3 +1,163 @@
+2010-03-19  Martin Jambor  <mjambor@suse.cz>
+
+	* doc/gimple.texi (Logical Operators): Describe is_gimple_ip_invariant
+	and is_gimple_ip_invariant_address.
+
+2010-03-19  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	Revert
+	2009-10-01  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	* config/arm/arm.c (arm_override_options): Turn off
+	flag_dwarf2_cfi_asm for AAPCS variants.
+
+2010-03-19  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	PR target/43399
+	* config/arm/arm.c (emit_multi_reg_push): Update comments.
+	Use PRE_MODIFY instead of PRE_DEC.
+	(emit_sfm): Use PRE_MODIFY instead of PRE_DEC.
+	(vfp_emit_fstmd): Likewise.
+
+2010-03-19  Michael Matz  <matz@suse.de>
+
+	PR target/43305
+	* builtins.c (expand_builtin_interclass_mathfn,
+	expand_builtin_signbit): Use maybe_emit_unop_insn, emit libcalls
+	if that fails.
+
+2010-03-19  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/43415
+	* tree-ssa-pre.c (phi_translate): Split out worker to ...
+	(phi_translate_1): ... this.
+	(phi_translate): Move all caching here.  Cache all NARY
+	and REFERENCE translations.
+
+2010-03-19  David S. Miller  <davem@davemloft.net>
+
+	With help from Eric Botcazou.
+	* config/sparc/sparc.c: Include dwarf2out.h.
+	(emit_pic_helper): Delete.
+	(pic_helper_symbol_name): Delete.
+	(pic_helper_emitted_p): Delete.
+	(pic_helper_needed): New.
+	(USE_HIDDEN_LINKONCE): Define to '1' if HAVE_GAS_HIDDEN else '0'.
+	(get_pc_thunk_name): New.
+	(load_pic_register): Remove 'delay_pic_helper' arg.  Use
+	get_thunk_pc_name and ggc_strdup to generate PIC thunk symbol.
+	Set pic_helper_needed to true.  Don't call emit_pic_helper.
+	(sparc_expand_prologue): Update load_pic_register call.
+	(sparc_output_mi_thunk): Likewise.
+	(sparc_file_end): Emit a hidden comdat symbol for the PIC
+	thunk if possible.  Output CFI information as needed.
+
+2010-03-18  Francois-Xavier Coudert <fxcoudert@gcc.gnu.org>
+	    Jack Howarth <howarth@bromo.med.uc.edu>
+
+	PR target/36399
+	* config/i386/i386.h: Fix ABI on darwin x86-32.
+
+2010-03-18  Aldy Hernandez  <aldyh@redhat.com>
+
+	* tree.h: Declare make_decl_rtl_for_debug.
+	* varasm.c (make_decl_rtl_for_debug): New.
+	* dwarf2out.c (rtl_for_decl_location): Call it.
+	* cfgexpand.c (expand_debug_expr): Call it.
+
+2010-03-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/43399
+	* var-tracking.c (adjust_mems) <case POST_MODIFY>: Allow BLKmode
+	mem_mode.
+
+	PR bootstrap/43403
+	* var-tracking.c (vt_init_cfa_base): Do nothing if
+	cfa_base_rtx would be hard_frame_pointer_rtx or non-fixed
+	register.
+
+2010-03-18  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/42873
+	* var-tracking.c (canonicalize_vars_star): New.
+	(dataflow_post_merge_adjust): Use it.
+
+2010-03-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/43058
+	* var-tracking.c (non_suitable_const): New function.
+	(add_uses): For DEBUG_INSNs with constants, don't record any
+	value, instead just the constant value itself.
+	(compute_bb_dataflow) <case MO_VAL_LOC>: If PAT_VAR_LOCATION_LOC
+	is not VAR_LOC_UNKNOWN_P, set var to the constant.
+	(emit_notes_in_bb): Likewise.
+	(emit_note_insn_var_location): For onepart variables if
+	cur_loc is a VOIDmode constant, use DECL_MODE.
+
+2010-03-18  Martin Jambor  <mjambor@suse.cz>
+
+	PR middle-end/42450
+	* cgraph.h (cgraph_redirect_edge_call_stmt_to_callee): Declare.
+	* cgraphunit.c (cgraph_materialize_all_clones): Update calls in
+	all non-clones.  Moved call redirection...
+	(cgraph_redirect_edge_call_stmt_to_callee): ...to this new
+	function.
+	(cgraph_materialize_all_clones): Dispose of all
+	combined_args_to_skip bitmaps.
+	(verify_cgraph_node): Do not check for edges pointing to wrong
+	nodes in inline clones.
+	* tree-inline.c (copy_bb): Call
+	cgraph_redirect_edge_call_stmt_to_callee.
+	* ipa.c (cgraph_remove_unreachable_nodes): Call
+	cgraph_node_remove_callees even when there are used clones.
+
+2010-03-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/libgcc-glibc.ver: Make GCC_4.5.0 inherit GCC_4.4.0.
+
+2010-03-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/43383
+	* config/i386/libgcc-glibc.ver: Add __extendxftf2 to GCC_4.5.0
+	for 32bit.
+
+2010-03-18  Michael Matz  <matz@suse.de>
+
+	PR middle-end/43419
+	* builtins.c (expand_builtin_pow): Don't transform pow(x, 0.5)
+	into sqrt(x) if we need to preserve signed zeros.
+
+2010-03-18  Steven Bosscher  <steven@gcc.gnu.org>
+	    Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR rtl-optimization/43360
+	* loop-invariant.c (move_invariant_reg): Remove the REG_EQUAL
+	note if we don't know its invariant status.
+
+2010-03-18  Michael Matz  <matz@suse.de>
+
+	PR tree-optimization/43402
+	* tree-cfgcleanup.c (cleanup_control_expr_graph): Don't follow
+	PHI chains of ssa names registered for update.
+
+2010-03-17  Peter Bergner  <bergner@vnet.ibm.com>
+
+	PR target/42427
+	* config/rs6000/rs6000.c (rs6000_split_multireg_move): Add support for
+	non-offsettable and pre_modify update addressing.
+	* config/rs6000/dfp.md (*movdd_hardfloat32): Make the "0", "1"
+	and "2" alternatives "#".
+	(*movdd_softfloat32): Make all alternatives "#";
+	* config/rs6000/rs6000.md (DIFD): New define_mode_iterator.
+	(*movdf_hardfloat32): Make the "0", "1" and "2" alternatives "#".
+	(*movdf_softfloat32): Make all alternatives "#";
+	(movdi): Use the new DIFD mode iterator to create a common splitter
+	for movdi, movdf and movdd patterns.
+
+2010-03-18  Shujing Zhao  <pearly.zhao@oracle.com>
+
+	* common.opt (dumpdir): Remove redundant tab.
+
 2010-03-17  Martin Jambor  <mjambor@suse.cz>
 
 	PR tree-optimization/43347

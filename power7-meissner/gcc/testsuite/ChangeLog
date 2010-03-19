@@ -1,3 +1,64 @@
+2010-03-19  Michael Matz  <matz@suse.de>
+
+	PR target/43305
+	* gcc.dg/pr43305.c: New testcase.
+
+2010-03-19  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/43415
+	* gcc.c-torture/compile/pr43415.c: New testcase.
+
+2010-03-19  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR ada/43106
+	* gnat.dg/case_optimization2.adb: New test.
+	* gnat.dg/case_optimization_pkg2.ad[sb]: New helper.
+
+2010-03-18  Francois-Xavier Coudert <fxcoudert@gcc.gnu.org>
+	    Jack Howarth <howarth@bromo.med.uc.edu>
+
+	PR target/36399
+	* gcc.target/i386/push-1.c: Don't xfail
+	  scan-assembler-not "movups" on darwin.
+
+2010-03-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/43058
+	* gcc.dg/pr43058.c: New test.
+
+2010-03-18  Martin Jambor  <mjambor@suse.cz>
+
+	PR middle-end/42450
+	* g++.dg/torture/pr42450.C: New test.
+
+2010-03-18  Michael Matz  <matz@suse.de>
+
+	PR middle-end/43419
+	* gcc.dg/pr43419.c: New testcase.
+
+2010-03-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR rtl-optimization/43360
+	* gcc.dg/torture/pr43360.c: New.
+
+2010-03-18  Michael Matz  <matz@suse.de>
+
+	PR tree-optimization/43402
+	* gcc.dg/pr43402.c: New testcase.
+
+2010-03-17  Peter Bergner  <bergner@vnet.ibm.com>
+
+	PR target/42427
+	* gcc.dg/pr42427.c: New test.
+
+2010-03-17  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/43265
+	* gfortran.dg/read_empty_file.f: New test.
+	* gfortran.dg/read_eof_all.f90: New test.
+	* gfortran.dg/namelist_27.f90: Eliminate infinite loop posibility.
+	* gfortran.dg/namelist_28.f90: Eliminate infinite loop posibility.
+
 2010-03-17  Michael Matz  <matz@suse.de>
 
 	* gcc.dg/pr43300.c: Add -w.
