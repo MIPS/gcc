@@ -1,3 +1,117 @@
+2010-02-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/42309
+	* trans-expr.c (gfc_conv_subref_array_arg): Avoid accessing
+	info->dimen after info has been freed.
+
+2010-02-09  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/42999
+	* array.c (gfc_constant_ac): Do not prevent expansion of constructors
+	with iterators.
+
+2010-02-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* module.c (fix_mio_expr): Declare sym.
+
+2010-02-09  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/41869
+	* module.c (fix_mio_expr): Fix for private generic procedures.
+
+2010-02-09  Daniel Kraft  <d@domob.eu>
+
+	PR fortran/39171
+	* resolve.c (resolve_charlen): Change warning about negative CHARACTER
+	length to be correct and issue only with -Wsurprising.
+	* invoke.texi (Wsurprising): Mention this new warning that is
+	turned on by -Wsurprising.
+
+2010-02-09  Daniel Kraft  <d@domob.eu>
+
+	PR fortran/41507
+	* intrinsic.texi (MAXVAL): Remove wrong claim that array argument
+	can be CHARACTER type.
+	(MINVAL), (MAXLOC), (MINLOC): Ditto.
+
+2010-02-05  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/42309
+	* trans-expr.c (gfc_conv_subref_array_arg): Add new argument
+	'formal_ptr'. If this is true, give returned descriptor unity
+	lbounds, in all dimensions, and the appropriate offset.
+	(gfc_conv_procedure_call); If formal is a pointer, set the last
+	argument of gfc_conv_subref_array_arg to true.
+	* trans.h : Add last argument for gfc_conv_subref_array_arg.
+	* trans-io.c (set_internal_unit, gfc_trans_transfer): Set the
+	new arg of gfc_conv_subref_array_arg to false.
+	* trans-stmt.c (forall_make_variable_temp): The same.
+
+2010-02-03  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/42936
+	* interface.c (compare_parameter): Disable rank-checking
+	for NULL().
+
+2010-02-02  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/42650
+	* parse.c (decode_specification_statement): Use sym->result not sym.
+
+2010-02-01  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/42922
+	* decl.c (variable_decl): Allow default initializer in
+	TYPE declarations in PURE functions.
+
+2010-01-31  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/42888
+	* resolve.c (resolve_allocate_expr): Move default initialization code
+	here from gfc_trans_allocate.
+	* trans.c (gfc_trans_code): Call gfc_trans_class_assign also for
+	EXEC_INIT_ASSIGN.
+	* trans-expr.c (gfc_trans_class_assign): Handle default initialization
+	of CLASS variables via memcpy.
+	* trans-stmt.c (gfc_trans_allocate): Move default initialization code
+	to resolve_allocate_expr.
+
+2010-01-31  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/38324
+	* expr.c (gfc_get_full_arrayspec_from_expr): New function.
+	* gfortran.h : Add prototype for above.
+	* trans-expr.c (gfc_trans_alloc_subarray_assign): New function.
+	(gfc_trans_subcomponent_assign): Call new function to replace
+	the code to deal with allocatable components.
+	* trans-intrinsic.c (gfc_conv_intrinsic_bound): Call
+	gfc_get_full_arrayspec_from_expr to replace existing code.
+
+2010-01-25  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/42858
+	* array.c (gfc_array_dimen_size): Fix intrinsic procedure
+	check.
+
+2010-01-24  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/41044
+	PR fortran/41167
+	* expr.c (remove_subobject_ref): If the constructor is NULL use
+	the expression as the source.
+	(simplify_const_ref): Change the type of expression if
+	there are component references.  Allow for substring to be at
+	the end of an arbitrarily long chain of references.  If an
+	element is found that is not in an EXPR_ARRAY, assume that this
+	is scalar initialization of array. Call remove_subobject_ref in
+	this case with NULL second argument.
+
+2010-01-24  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/39304
+	* array.c (gfc_array_dimen_size): Use correct specific
+	function in the check.
+
 2010-01-21  Paul Thomas  <pault@gcc.gnu.org>
 
 	PR fortran/42736
