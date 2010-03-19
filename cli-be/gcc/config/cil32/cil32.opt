@@ -77,3 +77,11 @@ Target supports Threads
 msimd=
 Target Joined RejectNegative Var(simd_backend_str)
 -msimd=gcc|mono   Select the SIMD backend
+
+fcil32simpcond
+Target Report Var(flag_cil32_simp_cond) Optimization ; added to -O1
+Enable simplification of conditional expressions to make use of the fall through path when possible
+
+fcil32simpcondfloat
+Target Report Var(flag_cil32_simp_cond_float) Optimization ; added to -Os
+Enable simplification of conditional expressions with floating-point arguments to make use of the fall through path when possible

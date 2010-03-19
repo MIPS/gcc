@@ -1,3 +1,18 @@
+2010-03-19  Thierry LAFAGE  <thierry.lafage@inria.fr>
+
+	* gcc/config/cil32/simp-cond.c: added condition inversion for brtrue
+	and brfalse (for integer args and if -fcil32impcomd is activated),
+	added condition inversion for floating-point branches when
+	-fcil32impcomdfloat is activated.
+	* gcc/config/cil32/cil32.opt: added -fcil32impcomd and
+	-fcil32impcomdfloat options
+	* gcc/config/cil32/cil-stmt.c: added brtrue and brfalse to list of
+	conditional branches.
+	* gcc/config/cil32/cil32.h: added option -fcil32impcomd to
+	optimization options and size optimizations options, and
+	-fcil32impcomdfloat to size optimizations options. Also added -O
+	option to assembly pass when -On (n!=0) is set on the command line.
+
 2010-03-10  Thierry LAFAGE  <thierry.lafage@inria.fr>
 
 	* gcc/testsuite/gcc.dg/pr19340.c: skip test for cil32-*-* (scheduler

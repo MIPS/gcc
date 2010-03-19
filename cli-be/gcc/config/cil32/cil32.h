@@ -53,6 +53,7 @@ Erven Rohou             <erven.rohou@inria.fr>
 #else
 #error "Unrecognized binutils: impossible to choose default compiler driver arguments"
 #endif
+#define ASM_SPEC "%{!O0:%{O*:-O}}"
 #define LIB_SPEC "-l libstd.dll"
 #define LINK_SPEC "%{shared:--shared} %{mthreads:-mt}"
 #define STARTFILE_SPEC ""
@@ -89,6 +90,16 @@ extern int target_flags;
  fprintf (stderr, " [cil32]")
 
 #define OVERRIDE_OPTIONS cil_override_options ()
+
+#define OPTIMIZATION_OPTIONS(OPTIMIZE, SIZE)	\
+  do						\
+    {						\
+      if ((OPTIMIZE) >= 1 || (SIZE))		\
+	flag_cil32_simp_cond = 1;		\
+      if ((SIZE))				\
+	flag_cil32_simp_cond_float = 1;		\
+    }						\
+  while (0)
 
 /* Node: Storage Layout */
 

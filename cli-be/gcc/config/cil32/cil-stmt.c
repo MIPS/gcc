@@ -1,6 +1,6 @@
 /* CIL statements, sequences and iterators implementation.
 
-   Copyright (C) 2006-2009 Free Software Foundation, Inc.
+   Copyright (C) 2006-2010 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -23,11 +23,13 @@ Authors:
    Andrea Ornstein
    Erven Rohou
    Gabriele Svelto
+   Thierry Lafage
 
 Contact information at STMicroelectronics:
 Andrea C. Ornstein      <andrea.ornstein@st.com>
 Contact information at INRIA:
 Erven Rohou             <erven.rohou@inria.fr>
+Thierry Lafage          <thierry.lafage@inria.fr>
 */
 
 #include "config.h"
@@ -502,7 +504,9 @@ cil_cond_branch_p (const_cil_stmt stmt)
     case CIL_BLT:
     case CIL_BLT_UN:
     case CIL_BNE_UN:
-      return true;
+    case CIL_BRFALSE:
+    case CIL_BRTRUE:
+    return true;
 
     default:
       return false;

@@ -2,7 +2,7 @@
    conditional/unconditional branches if one of the two outgoing paths falls
    through to the next basic block.
 
-   Copyright (C) 2006-2009 Free Software Foundation, Inc.
+   Copyright (C) 2006-2010 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -25,11 +25,13 @@ Authors:
    Andrea Ornstein
    Erven Rohou
    Gabriele Svelto
+   Thierry Lafage
 
 Contact information at STMicroelectronics:
 Andrea C. Ornstein      <andrea.ornstein@st.com>
 Contact information at INRIA:
 Erven Rohou             <erven.rohou@inria.fr>
+Thierry Lafage          <thierry.lafage@inria.fr>
 */
 
 #include "config.h"
@@ -45,10 +47,16 @@ Erven Rohou             <erven.rohou@inria.fr>
 #include "cil-stmt.h"
 #include "cil-types.h"
 
+/* These 2 lines avoid including options.h */
+extern int flag_cil32_simp_cond;
+extern int flag_cil32_simp_cond_float;
+
 /******************************************************************************
  * Local functions prototypes                                                 *
  ******************************************************************************/
 
+static inline enum cil_opcode int_condbr_invert (enum cil_opcode);
+static inline enum cil_opcode float_condbr_invert (enum cil_opcode);
 static void simplify_cond_branch (cil_stmt_iterator *, cil_stack);
 static unsigned int simp_cond (void);
 static bool simp_cond_gate (void);
@@ -57,12 +65,54 @@ static bool simp_cond_gate (void);
  * Pass implementation                                                        *
  ******************************************************************************/
 
+static inline enum cil_opcode
+int_condbr_invert (enum cil_opcode condbr)
+{
+  switch (condbr)
+  {
+    case CIL_BEQ:     return CIL_BNE_UN;
+    case CIL_BGE:     return CIL_BLT;
+    case CIL_BGE_UN:  return CIL_BLT_UN;
+    case CIL_BGT:     return CIL_BLE;
+    case CIL_BGT_UN:  return CIL_BLE_UN;
+    case CIL_BLE:     return CIL_BGT;
+    case CIL_BLE_UN:  return CIL_BGT_UN;
+    case CIL_BLT:     return CIL_BGE;
+    case CIL_BLT_UN:  return CIL_BGE_UN;
+    case CIL_BNE_UN:  return CIL_BEQ;
+    case CIL_BRTRUE:  return CIL_BRFALSE;
+    case CIL_BRFALSE: return CIL_BRTRUE;
+    default:
+      return condbr;  /* Do nothing, we cannot change this branch.  */
+  }
+}
+
+static inline enum cil_opcode
+float_condbr_invert (enum cil_opcode condbr)
+{
+  switch (condbr)
+  {
+    case CIL_BEQ:     return CIL_BNE_UN;
+    case CIL_BGE:     return CIL_BLT_UN;
+    case CIL_BGE_UN:  return CIL_BLT;
+    case CIL_BGT:     return CIL_BLE_UN;
+    case CIL_BGT_UN:  return CIL_BLE;
+    case CIL_BLE:     return CIL_BGT_UN;
+    case CIL_BLE_UN:  return CIL_BGT;
+    case CIL_BLT:     return CIL_BGE_UN;
+    case CIL_BLT_UN:  return CIL_BGE;
+    case CIL_BNE_UN:  return CIL_BEQ;
+    default:
+      return condbr;  /* Do nothing, we cannot change this branch.  */
+  }
+}
+
 static void
 simplify_cond_branch (cil_stmt_iterator *csi, cil_stack stack)
 {
   cil_stmt stmt;
   cil_type_t type;
-  enum cil_opcode opcode;
+  enum cil_opcode opcode, condbr;
   tree label_then, label_else;
   basic_block then_bb;
   edge true_edge, false_edge;
@@ -79,34 +129,24 @@ simplify_cond_branch (cil_stmt_iterator *csi, cil_stack stack)
   if (csi_bb (*csi)->next_bb == then_bb)
     {
       type = cil_stack_top (stack);
+      opcode = condbr = cil_opcode (csi_stmt (*csi));
 
-      if (cil_integer_p (type) || cil_pointer_p (type))
-	{
-	  switch (cil_opcode (csi_stmt (*csi)))
-	    {
-	    case CIL_BEQ:    opcode = CIL_BNE_UN; break;
-	    case CIL_BGE:    opcode = CIL_BLT;    break;
-	    case CIL_BGE_UN: opcode = CIL_BLT_UN; break;
-	    case CIL_BGT:    opcode = CIL_BLE;    break;
-	    case CIL_BGT_UN: opcode = CIL_BLE_UN; break;
-	    case CIL_BLE:    opcode = CIL_BGT;    break;
-	    case CIL_BLE_UN: opcode = CIL_BGT_UN; break;
-	    case CIL_BLT:    opcode = CIL_BGE;    break;
-	    case CIL_BLT_UN: opcode = CIL_BGE_UN; break;
-	    case CIL_BNE_UN: opcode = CIL_BEQ;    break;
-	    default:
-	      return; /* Do nothing, we cannot change this branch.  */
-	    }
+      if (flag_cil32_simp_cond && (cil_integer_p (type) || cil_pointer_p (type)))
+	  opcode = int_condbr_invert (condbr);
+      else if (flag_cil32_simp_cond_float && cil_float_p (type))
+	  opcode = float_condbr_invert (condbr);
 
-	  stmt = cil_build_stmt_arg (opcode, label_else);
-	  csi_replace (csi, stmt);
-	  csi_next (csi);
-	  csi_remove (csi);
+      if (opcode == condbr)
+	return; /* No opcode change */
 
-	  /* Invert the out-going edges */
-	  true_edge->flags ^= (EDGE_TRUE_VALUE | EDGE_FALSE_VALUE);
-	  false_edge->flags ^= (EDGE_TRUE_VALUE | EDGE_FALSE_VALUE);
-	}
+      stmt = cil_build_stmt_arg (opcode, label_else);
+      csi_replace (csi, stmt);
+      csi_next (csi);
+      csi_remove (csi);
+
+      /* Invert the out-going edges */
+      true_edge->flags ^= (EDGE_TRUE_VALUE | EDGE_FALSE_VALUE);
+      false_edge->flags ^= (EDGE_TRUE_VALUE | EDGE_FALSE_VALUE);
     }
 }
 
@@ -169,7 +209,7 @@ simp_cond (void)
 static bool
 simp_cond_gate (void)
 {
-  return true;
+  return flag_cil32_simp_cond != 0 || flag_cil32_simp_cond_float != 0;
 }
 
 /* Define the parameters of the cond-simp pass.  */
