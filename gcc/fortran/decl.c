@@ -6960,23 +6960,14 @@ gfc_match_derived_decl (void)
 
 
 /* Cray Pointees can be declared as: 
-      pointer (ipt, a (n,m,...,*)) 
-   By default, this is treated as an AS_ASSUMED_SIZE array.  We'll
-   cheat and set a constant bound of 1 for the last dimension, if this
-   is the case. Since there is no bounds-checking for Cray Pointees,
-   this will be okay.  */
+      pointer (ipt, a (n,m,...,*))  */
 
 match
 gfc_mod_pointee_as (gfc_array_spec *as)
 {
   as->cray_pointee = true; /* This will be useful to know later.  */
   if (as->type == AS_ASSUMED_SIZE)
-    {
-      as->type = AS_EXPLICIT;
-      as->upper[as->rank - 1] = gfc_get_int_expr (gfc_default_integer_kind,
-						  NULL, 1);
-      as->cp_was_assumed = true;
-    }
+    as->cp_was_assumed = true;
   else if (as->type == AS_ASSUMED_SHAPE)
     {
       gfc_error ("Cray Pointee at %C cannot be assumed shape array");
@@ -7797,8 +7788,18 @@ gfc_match_final_decl (void)
   bool first, last;
   gfc_symbol* block;
 
+  if (gfc_current_form == FORM_FREE)
+    {
+      char c = gfc_peek_ascii_char ();
+      if (!gfc_is_whitespace (c) && c != ':')
+	return MATCH_NO;
+    }
+  
   if (gfc_state_stack->state != COMP_DERIVED_CONTAINS)
     {
+      if (gfc_current_form == FORM_FIXED)
+	return MATCH_NO;
+
       gfc_error ("FINAL declaration at %C must be inside a derived type "
 		 "CONTAINS section");
       return MATCH_ERROR;
