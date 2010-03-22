@@ -6228,6 +6228,15 @@ thumb1_rtx_costs (rtx x, enum rtx_code code, enum rtx_code outer)
       else if ((outer == IOR || outer == XOR || outer == AND)
 	       && INTVAL (x) < 256 && INTVAL (x) >= -256)
 	return COSTS_N_INSNS (1);
+      else if (outer == AND)
+	{
+	  int i;
+	  /* This duplicates the tests in the andsi3 expander.  */
+	  for (i = 9; i <= 31; i++)
+	    if ((((HOST_WIDE_INT) 1) << i) - 1 == INTVAL (x)
+		|| (((HOST_WIDE_INT) 1) << i) - 1 == ~INTVAL (x))
+	      return COSTS_N_INSNS (2);
+	}
       else if (outer == ASHIFT || outer == ASHIFTRT
 	       || outer == LSHIFTRT)
 	return 0;
@@ -13722,24 +13731,29 @@ arm_output_epilogue (rtx sibling)
 
       if (TARGET_HARD_FLOAT && TARGET_VFP)
 	{
-	  start_reg = FIRST_VFP_REGNUM;
-	  for (reg = FIRST_VFP_REGNUM; reg < LAST_VFP_REGNUM; reg += 2)
+	  int end_reg = LAST_VFP_REGNUM + 1;
+
+	  /* Scan the registers in reverse order.  We need to match
+	     any groupings made in the prologue and generate matching
+	     pop operations.  */
+	  for (reg = LAST_VFP_REGNUM - 1; reg >= FIRST_VFP_REGNUM; reg -= 2)
 	    {
 	      if ((!df_regs_ever_live_p (reg) || call_used_regs[reg])
-		  && (!df_regs_ever_live_p (reg + 1) || call_used_regs[reg + 1]))
+		  && (!df_regs_ever_live_p (reg + 1)
+		      || call_used_regs[reg + 1]))
 		{
-		  if (start_reg != reg)
+		  if (end_reg > reg + 2)
 		    vfp_output_fldmd (f, SP_REGNUM,
-				      (start_reg - FIRST_VFP_REGNUM) / 2,
-				      (reg - start_reg) / 2);
-		  start_reg = reg + 2;
+				      (reg + 2 - FIRST_VFP_REGNUM) / 2,
+				      (end_reg - (reg + 2)) / 2);
+		  end_reg = reg;
 		}
 	    }
-	  if (start_reg != reg)
-	    vfp_output_fldmd (f, SP_REGNUM,
-			      (start_reg - FIRST_VFP_REGNUM) / 2,
-			      (reg - start_reg) / 2);
+	  if (end_reg > reg + 2)
+	    vfp_output_fldmd (f, SP_REGNUM, 0,
+			      (end_reg - (reg + 2)) / 2);
 	}
+
       if (TARGET_IWMMXT)
 	for (reg = FIRST_IWMMXT_REGNUM; reg <= LAST_IWMMXT_REGNUM; reg++)
 	  if (df_regs_ever_live_p (reg) && !call_used_regs[reg])

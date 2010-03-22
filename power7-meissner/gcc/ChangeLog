@@ -1,3 +1,84 @@
+2010-03-22  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/43390
+	* tree-vect-stmts.c (get_vectype_for_scalar_type): Make
+	sure vector extracts are type correct.
+
+2010-03-22  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/40106
+	* builtins.c (expand_builtin_pow): Expand pow (x, 1.5) as
+	x * sqrt (x) even when optimizing for size if the target
+	has native support for sqrt.
+
+2010-03-22  Jakub Jelinek  <jakub@redhat.com>
+
+	* varasm.c (make_decl_rtl_for_debug): Also clear
+	flag_mudflap for the duration of make_decl_rtl call.
+
+	PR debug/43443
+	* var-tracking.c (add_cselib_value_chains): Remove ASM_OPERANDS
+	locs from preserved VALUEs.
+
+2010-03-21  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR middle-end/42718
+	* pa.md (movmemsi): Set align to one if zero.
+	(movmemdi): Likewise.
+
+2010-03-21  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR target/42321
+	* arm.c (arm_output_epilogue): Correctly match VFP pop instructions
+	with their corresponding prologue pushes.
+
+2010-03-20  Andrew Pinski  <pinskia@gmail.com>
+
+	PR target/43156
+	* config/spu/spu.c (spu_expand_prologue): Don't emit NOTE_INSN_DELETED
+	at the begining or end.
+	(spu_expand_epilogue): Likewise.
+
+2010-03-20  Richard Guenther  <rguenther@suse.de>
+
+	PR rtl-optimization/43438
+	* combine.c (make_extraction): Properly zero-/sign-extend an
+	extraction of the low part of a CONST_INT.  Also handle
+	CONST_DOUBLE.
+
+2010-03-19  Mike Stump  <mikestump@comcast.net>
+
+	* config/i386/darwin.h (SUBTARGET32_DEFAULT_CPU): Add.
+	* config/i386/i386.c (SUBTARGET32_DEFAULT_CPU): Add.
+	(override_options): Use SUBTARGET32_DEFAULT_CPU.
+
+2010-03-19  Andrew Pinski  <andrew_pinski@caviumnetworks.com>
+
+	PR C/43211
+	* c-decl.c (grokparms): Set arg_types to NULL_TREE if there was an error.
+
+2010-03-19  Bernd Schmidt  <bernd.schmidt@codesourcery.com>
+
+	PR rtl-optimization/42258
+	* ira-lives.c (check_and_make_def_conflict): Ignore conflict for a
+	use that may match DEF.
+
+	PR target/40697
+	* optabs.c (avoid_expensive_constant): Use rtx_cost to find out
+	the cost of loading the constant rather than assuming
+	COSTS_N_INSNS (1).
+	* config/arm/arm.c (thumb1_rtx_costs) <case CONST_INT>: If the
+	outer code is AND, do the same tests as the andsi3 expander and
+	return COSTS_N_INSNS (1) if and is cheap.
+
+	* optabs.c (avoid_expensive_constant): Fix formatting.
+
+2010-03-19  Michael Matz  <matz@suse.de>
+
+	PR c++/43116
+	* attribs.c (decl_attributes): When rebuilding a function pointer
+	type use the same qualifiers as the original pointer type.
+
 2010-03-19  Martin Jambor  <mjambor@suse.cz>
 
 	* doc/gimple.texi (Logical Operators): Describe is_gimple_ip_invariant

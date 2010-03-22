@@ -1,3 +1,61 @@
+2010-03-22  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/43390
+	* gfortran.fortran-torture/execute/pr43390.f90: New testcase.
+
+2010-03-21  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.target/powerpc/ppc-sdata-1.c: Require nonpic.
+	* gcc.target/powerpc/ppc-sdata-2.c: Likewise.
+
+2010-03-20  Simon Martin  <simartin@users.sourceforge.net>
+	    Michael Matz  <matz@suse.de>
+
+	PR c++/43081
+	* g++.dg/parse/crash56.C: New test.
+
+2010-03-20  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/43450
+	* gfortran.dg/whole_file_15.f90 : New test.
+
+2010-03-20  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/43409
+	* gfortran.dg/inquire_size.f90: New test.
+
+2010-03-20  Richard Guenther  <rguenther@suse.de>
+
+	PR rtl-optimization/43438
+	* gcc.c-torture/execute/pr43438.c: New testcase.
+
+2010-03-20  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/43375
+	* g++.dg/abi/mangle42.C: New test.
+
+2010-03-19  Andrew Pinski  <andrew_pinski@caviumnetworks.com>
+
+	PR C/43211
+	* gcc.dg/pr43211.c: New test.
+	* gcc.dg/pr18809-1.c: Don't expect an error when calling foo.
+
+2010-03-19  Bernd Schmidt  <bernd.schmidt@codesourcery.com>
+
+	PR rtl-optimization/42258
+	* gcc.target/arm/thumb1-mul-moves.c: New test.
+
+	PR target/40697
+	* gcc.target/arm/thumb-andsi.c: New test.
+
+	* gcc.target/arm/thumb-andsi.c: Correct dg-options and add
+	dg-require-effective-target.
+
+2010-03-19  Michael Matz  <matz@suse.de>
+
+	PR c++/43116
+	* g++.dg/other/pr43116.C: New testcase.
+
 2010-03-19  Michael Matz  <matz@suse.de>
 
 	PR target/43305
