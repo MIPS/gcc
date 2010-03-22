@@ -2760,11 +2760,12 @@ dwarf2out_frame_debug (rtx insn, bool after_p)
 	if (REG_P (n))
 	  {
 	    dw_fde_ref fde = current_fde ();
-	    gcc_assert (fde
-			&& fde->drap_reg != INVALID_REGNUM
-			&& fde->vdrap_reg == INVALID_REGNUM);
-	    if (REG_P (n))
-	      fde->vdrap_reg = REGNO (n);
+	    if (fde)
+	      {
+		gcc_assert (fde->vdrap_reg == INVALID_REGNUM);
+		if (REG_P (n))
+		  fde->vdrap_reg = REGNO (n);
+	      }
 	  }
 	handled_one = true;
 	break;
@@ -12726,7 +12727,6 @@ based_loc_descr (rtx reg, HOST_WIDE_INT offset,
     }
   else if (!optimize
 	   && fde
-	   && fde->drap_reg != INVALID_REGNUM
 	   && (fde->drap_reg == REGNO (reg)
 	       || fde->vdrap_reg == REGNO (reg)))
     {
@@ -15770,10 +15770,7 @@ rtl_for_decl_location (tree decl)
       && !DECL_HARD_REGISTER (decl)
       && DECL_MODE (decl) != VOIDmode)
     {
-      rtl = DECL_RTL (decl);
-      /* Reset DECL_RTL back, as various parts of the compiler expects
-	 DECL_RTL set meaning it is actually going to be output.  */
-      SET_DECL_RTL (decl, NULL);
+      rtl = make_decl_rtl_for_debug (decl);
       if (!MEM_P (rtl)
 	  || GET_CODE (XEXP (rtl, 0)) != SYMBOL_REF
 	  || SYMBOL_REF_DECL (XEXP (rtl, 0)) != decl)
@@ -17382,14 +17379,16 @@ gen_formal_parameter_die (tree node, tree origin, bool emit_name_p,
 			  dw_die_ref context_die)
 {
   tree node_or_origin = node ? node : origin;
+  tree ultimate_origin;
   dw_die_ref parm_die
     = new_die (DW_TAG_formal_parameter, context_die, node);
 
   switch (TREE_CODE_CLASS (TREE_CODE (node_or_origin)))
     {
     case tcc_declaration:
-      if (!origin)
-        origin = decl_ultimate_origin (node);
+      ultimate_origin = decl_ultimate_origin (node_or_origin);
+      if (node || ultimate_origin)
+	origin = ultimate_origin;
       if (origin != NULL)
 	add_abstract_origin_attribute (parm_die, origin);
       else
@@ -18106,15 +18105,16 @@ gen_variable_die (tree decl, tree origin, dw_die_ref context_die)
   HOST_WIDE_INT off;
   tree com_decl;
   tree decl_or_origin = decl ? decl : origin;
+  tree ultimate_origin;
   dw_die_ref var_die;
   dw_die_ref old_die = decl ? lookup_decl_die (decl) : NULL;
   dw_die_ref origin_die;
   int declaration = (DECL_EXTERNAL (decl_or_origin)
 		     || class_or_namespace_scope_p (context_die));
 
-  if (!origin)
-    origin = decl_ultimate_origin (decl);
-
+  ultimate_origin = decl_ultimate_origin (decl_or_origin);
+  if (decl || ultimate_origin)
+    origin = ultimate_origin;
   com_decl = fortran_common (decl_or_origin, &off);
 
   /* Symbol in common gets emitted as a child of the common block, in the form
@@ -19160,10 +19160,6 @@ process_scope_var (tree stmt, tree decl, tree origin, dw_die_ref context_die)
 {
   dw_die_ref die;
   tree decl_or_origin = decl ? decl : origin;
-  tree ultimate_origin = origin ? decl_ultimate_origin (origin) : NULL;
-
-  if (ultimate_origin)
-    origin = ultimate_origin;
 
   if (TREE_CODE (decl_or_origin) == FUNCTION_DECL)
     die = lookup_decl_die (decl_or_origin);
@@ -19435,7 +19431,7 @@ static void
 gen_decl_die (tree decl, tree origin, dw_die_ref context_die)
 {
   tree decl_or_origin = decl ? decl : origin;
-  tree class_origin = NULL;
+  tree class_origin = NULL, ultimate_origin;
 
   if (DECL_P (decl_or_origin) && DECL_IGNORED_P (decl_or_origin))
     return;
@@ -19481,7 +19477,9 @@ gen_decl_die (tree decl, tree origin, dw_die_ref context_die)
 
       /* If we're emitting a clone, emit info for the abstract instance.  */
       if (origin || DECL_ORIGIN (decl) != decl)
-	dwarf2out_abstract_function (origin ? origin : DECL_ABSTRACT_ORIGIN (decl));
+	dwarf2out_abstract_function (origin
+				     ? DECL_ORIGIN (origin)
+				     : DECL_ABSTRACT_ORIGIN (decl));
 
       /* If we're emitting an out-of-line copy of an inline function,
 	 emit info for the abstract instance and set up to refer to it.  */
@@ -19580,9 +19578,9 @@ gen_decl_die (tree decl, tree origin, dw_die_ref context_die)
 	 complicated because of the possibility that the VAR_DECL really
 	 represents an inlined instance of a formal parameter for an inline
 	 function.  */
-      if (!origin)
-        origin = decl_ultimate_origin (decl);
-      if (origin != NULL_TREE && TREE_CODE (origin) == PARM_DECL)
+      ultimate_origin = decl_ultimate_origin (decl_or_origin);
+      if (ultimate_origin != NULL_TREE
+	  && TREE_CODE (ultimate_origin) == PARM_DECL)
 	gen_formal_parameter_die (decl, origin,
 				  true /* Emit name attribute.  */,
 				  context_die);
