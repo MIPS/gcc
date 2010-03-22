@@ -4353,7 +4353,14 @@ stabilize_va_list_loc (location_t loc, tree valist, int needs_lvalue)
 {
   tree vatype = targetm.canonical_va_list_type (TREE_TYPE (valist));
 
+  /* The current way of determining the type of valist is completely
+     bogus.  We should have the information on the current function
+     declaration instead.  */
+#if 0
   gcc_assert (vatype != NULL_TREE);
+#endif
+  if (!vatype)
+    vatype = va_list_type_node;
 
   if (TREE_CODE (vatype) == ARRAY_TYPE)
     {

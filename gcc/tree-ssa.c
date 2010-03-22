@@ -1291,28 +1291,18 @@ useless_type_conversion_p (tree outer_type, tree inner_type)
 	  && TYPE_VOLATILE (TREE_TYPE (outer_type)))
 	return false;
 
-      /* We require explicit conversions from incomplete target types.  */
-      if (!COMPLETE_TYPE_P (TREE_TYPE (inner_type))
-	  && COMPLETE_TYPE_P (TREE_TYPE (outer_type)))
-	return false;
-
-      /* Do not lose casts between pointers that when dereferenced access
-	 memory with different alias sets.  */
-      if (get_deref_alias_set (inner_type) != get_deref_alias_set (outer_type))
+      /* Do not lose casts to function pointer types.  */
+      if ((TREE_CODE (TREE_TYPE (outer_type)) == FUNCTION_TYPE
+	   || TREE_CODE (TREE_TYPE (outer_type)) == METHOD_TYPE)
+	  && !useless_type_conversion_p (TREE_TYPE (outer_type),
+					 TREE_TYPE (inner_type)))
 	return false;
 
       /* We do not care for const qualification of the pointed-to types
 	 as const qualification has no semantic value to the middle-end.  */
 
-      /* Otherwise pointers/references are equivalent if their pointed
-	 to types are effectively the same.  We can strip qualifiers
-	 on pointed-to types for further comparison, which is done in
-	 the callee.  Note we have to use true compatibility here
-	 because addresses are subject to propagation into dereferences
-	 and thus might get the original type exposed which is equivalent
-	 to a reverse conversion.  */
-      return types_compatible_p (TREE_TYPE (outer_type),
-				 TREE_TYPE (inner_type));
+      /* Otherwise pointers/references are equivalent.  */
+      return true;
     }
 
   /* Recurse for complex types.  */
@@ -1933,17 +1923,38 @@ execute_update_addresses_taken (bool do_optimize)
 	    {
               tree lhs = gimple_get_lhs (stmt);
 
-              /* We may not rewrite TMR_SYMBOL to SSA.  */
-              if (lhs && TREE_CODE (lhs) == TARGET_MEM_REF
-                  && TMR_SYMBOL (lhs))
-                bitmap_set_bit (not_reg_needs, DECL_UID (TMR_SYMBOL (lhs)));
+              /* A plain decl does not need it set.  */
+              if (lhs && !DECL_P (lhs))
+		{
+		  if (handled_component_p (lhs))
+		    lhs = get_base_address (lhs);
+
+                  if (DECL_P (lhs))
+                    bitmap_set_bit (not_reg_needs, DECL_UID (lhs));
+		  else if (TREE_CODE (lhs) == MEM_REF
+			   && TREE_CODE (TREE_OPERAND (lhs, 0)) == ADDR_EXPR
+			   && DECL_P (TREE_OPERAND (TREE_OPERAND (lhs, 0), 0))
+			   && !integer_zerop (TREE_OPERAND (lhs, 1)))
+		    bitmap_set_bit (not_reg_needs, DECL_UID (TREE_OPERAND (TREE_OPERAND (lhs, 0), 0)));
+                }
+	    }
+
+	  if (gimple_assign_single_p (stmt))
+	    {
+	      tree rhs = gimple_assign_rhs1 (stmt);
 
               /* A plain decl does not need it set.  */
-              else if (lhs && handled_component_p (lhs))
-                {
-                  var = get_base_address (lhs);
-                  if (DECL_P (var))
-                    bitmap_set_bit (not_reg_needs, DECL_UID (var));
+              if (!DECL_P (rhs))
+		{
+		  if (handled_component_p (rhs))
+		    rhs = get_base_address (rhs);
+
+		  if (rhs
+		      && TREE_CODE (rhs) == MEM_REF
+		      && TREE_CODE (TREE_OPERAND (rhs, 0)) == ADDR_EXPR
+		      && DECL_P (TREE_OPERAND (TREE_OPERAND (rhs, 0), 0))
+		      && !integer_zerop (TREE_OPERAND (rhs, 1)))
+		    bitmap_set_bit (not_reg_needs, DECL_UID (TREE_OPERAND (TREE_OPERAND (rhs, 0), 0)));
                 }
 	    }
 	}
@@ -2020,6 +2031,66 @@ execute_update_addresses_taken (bool do_optimize)
 	  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	    {
 	      gimple stmt = gsi_stmt (gsi);
+
+	      /* Re-write TARGET_MEM_REFs of symbols we want to
+		 rewrite into SSA form.  */
+	      if (gimple_assign_single_p (stmt))
+		{
+		  tree lhs = gimple_assign_lhs (stmt);
+		  tree rhs, *rhsp = gimple_assign_rhs1_ptr (stmt);
+		  tree sym;
+
+		  /* We shouldn't have any fancy wrapping of
+		     component-refs on the LHS, but look through
+		     VIEW_CONVERT_EXPRs as that is easy.  */
+		  while (TREE_CODE (lhs) == VIEW_CONVERT_EXPR)
+		    lhs = TREE_OPERAND (lhs, 0);
+		  if (TREE_CODE (lhs) == MEM_REF
+		      && TREE_CODE (TREE_OPERAND (lhs, 0)) == ADDR_EXPR
+		      && integer_zerop (TREE_OPERAND (lhs, 1))
+		      && (sym = TREE_OPERAND (TREE_OPERAND (lhs, 0), 0))
+		      && DECL_P (sym)
+		      && !TREE_ADDRESSABLE (sym)
+		      && symbol_marked_for_renaming (sym))
+		    lhs = sym;
+		  else
+		    lhs = gimple_assign_lhs (stmt);
+
+		  /* We can have fancy wrappings on the RHS though.  */
+		  while (handled_component_p (*rhsp))
+		    rhsp = &TREE_OPERAND (*rhsp, 0);
+		  if (TREE_CODE (*rhsp) == MEM_REF
+		      && TREE_CODE (TREE_OPERAND (*rhsp, 0)) == ADDR_EXPR
+		      && integer_zerop (TREE_OPERAND (*rhsp, 1))
+		      && (sym = TREE_OPERAND (TREE_OPERAND (*rhsp, 0), 0))
+		      && DECL_P (sym)
+		      && !TREE_ADDRESSABLE (sym)
+		      && symbol_marked_for_renaming (sym))
+		    {
+		      if (!useless_type_conversion_p (TREE_TYPE (*rhsp),
+						      TREE_TYPE (sym)))
+			*rhsp = build1 (VIEW_CONVERT_EXPR,
+					TREE_TYPE (*rhsp), sym);
+		      else
+			*rhsp = sym;
+		    }
+
+		  rhs = gimple_assign_rhs1 (stmt);
+		  if (gimple_assign_lhs (stmt) != lhs
+		      && !useless_type_conversion_p (TREE_TYPE (lhs),
+						     TREE_TYPE (rhs)))
+		    rhs = fold_build1 (VIEW_CONVERT_EXPR,
+				       TREE_TYPE (lhs), rhs);
+
+		  if (gimple_assign_lhs (stmt) != lhs)
+		    gimple_assign_set_lhs (stmt, lhs);
+
+		  if (gimple_assign_rhs1 (stmt) != rhs)
+		    {
+		      gimple_stmt_iterator gsi = gsi_for_stmt (stmt);
+		      gimple_assign_set_rhs_from_tree (&gsi, rhs);
+		    }
+		}
 
 	      if (gimple_references_memory_p (stmt)
 		  || is_gimple_debug (stmt))

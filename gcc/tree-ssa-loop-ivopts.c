@@ -806,7 +806,7 @@ determine_base_object (tree expr)
       if (!base)
 	return expr;
 
-      if (TREE_CODE (base) == INDIRECT_REF)
+      if (TREE_CODE (base) == MEM_REF)
 	return determine_base_object (TREE_OPERAND (base, 0));
 
       return fold_convert (ptr_type_node,
@@ -2009,7 +2009,8 @@ strip_offset_1 (tree expr, bool inside_addr, bool top_compref,
       expr = build_fold_addr_expr (op0);
       return fold_convert (orig_type, expr);
 
-    case INDIRECT_REF:
+    case MEM_REF:
+      /* ???  Offset operand?  */
       inside_addr = false;
       break;
 
@@ -5851,6 +5852,8 @@ tree_ssa_iv_optimize (void)
   struct loop *loop;
   struct ivopts_data data;
   loop_iterator li;
+
+  return;
 
   tree_ssa_iv_optimize_init (&data);
 

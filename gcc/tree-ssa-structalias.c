@@ -3179,6 +3179,13 @@ get_constraint_for_1 (tree t, VEC (ce_s, heap) **results, bool address_p)
 	      do_deref (results);
 	      return;
 	    }
+	  case MEM_REF:
+	    {
+	      get_constraint_for_ptr_offset (TREE_OPERAND (t, 0),
+					     TREE_OPERAND (t, 1), results);
+	      do_deref (results);
+	      return;
+	    }
 	  case ARRAY_REF:
 	  case ARRAY_RANGE_REF:
 	  case COMPONENT_REF:

@@ -603,6 +603,7 @@ extract_component (gimple_stmt_iterator *gsi, tree t, bool imagpart_p,
     case COMPONENT_REF:
     case ARRAY_REF:
     case VIEW_CONVERT_EXPR:
+    case MEM_REF:
       {
 	tree inner_type = TREE_TYPE (TREE_TYPE (t));
 

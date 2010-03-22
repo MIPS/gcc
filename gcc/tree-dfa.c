@@ -877,6 +877,23 @@ get_ref_base_and_extent (tree exp, HOST_WIDE_INT *poffset,
 	case VIEW_CONVERT_EXPR:
 	  break;
 
+	case MEM_REF:
+	  /* ???  We should avoid doing this when doing so hides 
+	     the effective alias set.  */
+	  if (TREE_CODE (TREE_OPERAND (exp, 0)) == ADDR_EXPR
+	      /* We do need to handle large offsets here, for example
+	         from gcc.c-torture/compile/pr28489.c.  Thus the whole
+		 function should probably be audited for overflowing
+		 bit_offset ... */
+	      && (TREE_INT_CST_HIGH (TREE_OPERAND (exp, 1)) == -1
+		  || host_integerp (TREE_OPERAND (exp, 1), 0)))
+	    {
+	      bit_offset
+		+= TREE_INT_CST_LOW (TREE_OPERAND (exp, 1)) * BITS_PER_UNIT;
+	      exp = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
+	    }
+	  goto done;
+
 	default:
 	  goto done;
 	}
@@ -921,6 +938,27 @@ get_ref_base_and_extent (tree exp, HOST_WIDE_INT *poffset,
   *pmax_size = maxsize;
 
   return exp;
+}
+
+/* Returns the base object and a constant offset in *POFFSET that
+   denotes the starting address of the memory access EXP.
+   Returns NULL_TREE if the offset is not constant.  */
+
+tree
+get_addr_base_and_offset (tree exp, HOST_WIDE_INT *poffset)
+{
+  tree base;
+  HOST_WIDE_INT size;
+  tree ncoffset;
+  enum machine_mode mode;
+  int dummy;
+
+  base = get_inner_reference (exp, &size, poffset, &ncoffset,
+			      &mode, &dummy, &dummy, false);
+  if (ncoffset != NULL_TREE)
+    return NULL_TREE;
+
+  return base;
 }
 
 /* Returns true if STMT references an SSA_NAME that has

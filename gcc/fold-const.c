@@ -8299,6 +8299,15 @@ build_fold_addr_expr_with_type_loc (location_t loc, tree t, tree ptrtype)
       if (TREE_TYPE (t) != ptrtype)
 	t = fold_convert_loc (loc, ptrtype, t);
     }
+  else if (TREE_CODE (t) == MEM_REF)
+    {
+      tree tem = fold_convert_loc (loc, ptrtype, TREE_OPERAND (t, 0));
+      if (!integer_zerop (TREE_OPERAND (t, 1)))
+	t = fold_build2 (POINTER_PLUS_EXPR, ptrtype, tem,
+			 fold_convert (sizetype, TREE_OPERAND (t, 1)));
+      else
+	t = tem;
+    }
   else
     {
       t = build1 (ADDR_EXPR, ptrtype, t);
@@ -8556,10 +8565,11 @@ fold_unary_loc (location_t loc, enum tree_code code, tree type, tree op0)
 				      &mode, &unsignedp, &volatilep, false);
 	  /* If the reference was to a (constant) zero offset, we can use
 	     the address of the base if it has the same base type
-	     as the result type.  */
+	     as the result type and the pointer type is unqualified.  */
 	  if (! offset && bitpos == 0
-	      && TYPE_MAIN_VARIANT (TREE_TYPE (type))
+	      && (TYPE_MAIN_VARIANT (TREE_TYPE (type))
 		  == TYPE_MAIN_VARIANT (TREE_TYPE (base)))
+	      && TYPE_QUALS (type) == TYPE_UNQUALIFIED)
 	    return fold_convert_loc (loc, type,
 				     build_fold_addr_expr_loc (loc, base));
         }
@@ -9361,6 +9371,11 @@ fold_comparison (location_t loc, enum tree_code code, tree type,
       else if (TREE_CODE (arg0) == POINTER_PLUS_EXPR)
 	{
 	  base0 = TREE_OPERAND (arg0, 0);
+	  if (TREE_CODE (base0) == ADDR_EXPR)
+	    {
+	      base0 = TREE_OPERAND (base0, 0);
+	      indirect_base0 = true;
+	    }
 	  offset0 = TREE_OPERAND (arg0, 1);
 	}
 
@@ -9378,6 +9393,11 @@ fold_comparison (location_t loc, enum tree_code code, tree type,
       else if (TREE_CODE (arg1) == POINTER_PLUS_EXPR)
 	{
 	  base1 = TREE_OPERAND (arg1, 0);
+	  if (TREE_CODE (base1) == ADDR_EXPR)
+	    {
+	      base1 = TREE_OPERAND (base1, 0);
+	      indirect_base1 = true;
+	    }
 	  offset1 = TREE_OPERAND (arg1, 1);
 	}
 

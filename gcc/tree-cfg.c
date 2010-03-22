@@ -2518,6 +2518,22 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	}
       break;
 
+    case MEM_REF:
+      x = TREE_OPERAND (t, 0);
+      if (!is_gimple_reg (x) && !is_gimple_min_invariant (x))
+	{
+	  error ("MEM_REFs operand is not a register or a constant.");
+	  return x;
+	}
+      if (TREE_CODE (x) == ADDR_EXPR
+	  && !DECL_P (TREE_OPERAND (x, 0))
+	  && !CONSTANT_CLASS_P (TREE_OPERAND (x, 0)))
+	{
+	  error ("Invalid address operand of MEM_REF.");
+	  return x;
+	}
+      break;
+
     case ASSERT_EXPR:
       x = fold (ASSERT_EXPR_COND (t));
       if (x == boolean_false_node)
@@ -2570,11 +2586,14 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	      || TREE_CODE (x) == PARM_DECL
 	      || TREE_CODE (x) == RESULT_DECL))
 	  return NULL;
+#if 0
+	/* FIXME.  */
 	if (!TREE_ADDRESSABLE (x))
 	  {
 	    error ("address taken, but ADDRESSABLE bit not set");
 	    return x;
 	  }
+#endif
 	if (DECL_GIMPLE_REG_P (x))
 	  {
 	    error ("DECL_GIMPLE_REG_P set on a variable with address taken");
@@ -2764,8 +2783,10 @@ verify_types_in_gimple_min_lval (tree expr)
   if (is_gimple_id (expr))
     return false;
 
-  if (!INDIRECT_REF_P (expr)
-      && TREE_CODE (expr) != TARGET_MEM_REF)
+  if (TREE_CODE (expr) != ALIGN_INDIRECT_REF
+      && TREE_CODE (expr) != MISALIGNED_INDIRECT_REF
+      && TREE_CODE (expr) != TARGET_MEM_REF
+      && TREE_CODE (expr) != MEM_REF)
     {
       error ("invalid expression for min lvalue");
       return true;
@@ -2782,6 +2803,7 @@ verify_types_in_gimple_min_lval (tree expr)
       debug_generic_stmt (op);
       return true;
     }
+#if 0
   if (!useless_type_conversion_p (TREE_TYPE (expr),
 				  TREE_TYPE (TREE_TYPE (op))))
     {
@@ -2790,6 +2812,7 @@ verify_types_in_gimple_min_lval (tree expr)
       debug_generic_stmt (TREE_TYPE (TREE_TYPE (op)));
       return true;
     }
+#endif
 
   return false;
 }
@@ -2881,6 +2904,27 @@ verify_types_in_gimple_reference (tree expr, bool require_lvalue)
 	}
 
       expr = op;
+    }
+
+  if (TREE_CODE (expr) == MEM_REF)
+    {
+      if (!is_gimple_val (TREE_OPERAND (expr, 0))
+	  || TREE_CODE (TREE_OPERAND (expr, 1)) != INTEGER_CST
+	  || !POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (expr, 1))))
+	{
+	  error ("Invalid operands in MEM_REF.");
+	  debug_generic_stmt (expr);
+	  return true;
+	}
+      if (TREE_CODE (TREE_OPERAND (expr, 0)) == ADDR_EXPR
+	  && !DECL_P (TREE_OPERAND (TREE_OPERAND (expr, 0), 0))
+	  /* ???  FIXME.  We should always fold these.  */
+	  && !CONSTANT_CLASS_P (TREE_OPERAND (TREE_OPERAND (expr, 0), 0)))
+	{
+	  error ("Invalid address operand for MEM_REF.");
+	  debug_generic_stmt (expr);
+	  return true;
+	}
     }
 
   return ((require_lvalue || !is_gimple_min_invariant (expr))
@@ -3527,9 +3571,12 @@ verify_gimple_assign_single (gimple stmt)
       }
 
     /* tcc_reference  */
+    case INDIRECT_REF:
+      error ("INDIRECT_REF in gimple IL");
+      return true;
+
     case COMPONENT_REF:
     case BIT_FIELD_REF:
-    case INDIRECT_REF:
     case ALIGN_INDIRECT_REF:
     case MISALIGNED_INDIRECT_REF:
     case ARRAY_REF:
@@ -3538,6 +3585,7 @@ verify_gimple_assign_single (gimple stmt)
     case REALPART_EXPR:
     case IMAGPART_EXPR:
     case TARGET_MEM_REF:
+    case MEM_REF:
       if (!is_gimple_reg (lhs)
 	  && is_gimple_reg_type (TREE_TYPE (lhs)))
 	{

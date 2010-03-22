@@ -760,7 +760,7 @@ get_static_chain (struct nesting_info *info, tree target_context,
 	{
 	  tree field = get_chain_field (i);
 
-	  x = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (x)), x);
+	  x = build_simple_mem_ref (x);
 	  x = build3 (COMPONENT_REF, TREE_TYPE (field), x, field, NULL_TREE);
 	  x = init_tmp_var (info, x, gsi);
 	}
@@ -795,12 +795,12 @@ get_frame_field (struct nesting_info *info, tree target_context,
 	{
 	  tree field = get_chain_field (i);
 
-	  x = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (x)), x);
+	  x = build_simple_mem_ref (x);
 	  x = build3 (COMPONENT_REF, TREE_TYPE (field), x, field, NULL_TREE);
 	  x = init_tmp_var (info, x, gsi);
 	}
 
-      x = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (x)), x);
+      x = build_simple_mem_ref (x);
     }
 
   x = build3 (COMPONENT_REF, TREE_TYPE (field), x, field, NULL_TREE);
@@ -843,16 +843,16 @@ get_nonlocal_debug_decl (struct nesting_info *info, tree decl)
       for (i = info->outer; i->context != target_context; i = i->outer)
 	{
 	  field = get_chain_field (i);
-	  x = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (x)), x);
+	  x = build_simple_mem_ref (x);
 	  x = build3 (COMPONENT_REF, TREE_TYPE (field), x, field, NULL_TREE);
 	}
-      x = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (x)), x);
+      x = build_simple_mem_ref (x);
     }
 
   field = lookup_field_for_decl (i, decl, INSERT);
   x = build3 (COMPONENT_REF, TREE_TYPE (field), x, field, NULL_TREE);
   if (use_pointer_in_frame (decl))
-    x = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (x)), x);
+    x = build_simple_mem_ref (x);
 
   /* ??? We should be remapping types as well, surely.  */
   new_decl = build_decl (DECL_SOURCE_LOCATION (decl),
@@ -929,7 +929,7 @@ convert_nonlocal_reference_op (tree *tp, int *walk_subtrees, void *data)
 	      if (use_pointer_in_frame (t))
 		{
 		  x = init_tmp_var (info, x, &wi->gsi);
-		  x = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (x)), x);
+		  x = build_simple_mem_ref (x);
 		}
 	    }
 

@@ -528,12 +528,8 @@ copy_reference_ops_from_ref (tree ref, VEC(vn_reference_op_s, heap) **result)
 
       switch (temp.opcode)
 	{
-	case ALIGN_INDIRECT_REF:
-	case INDIRECT_REF:
-	  /* The only operand is the address, which gets its own
-	     vn_reference_op_s structure.  */
-	  break;
-	case MISALIGNED_INDIRECT_REF:
+	case MEM_REF:
+	  /* The base address gets its own vn_reference_op_s structure.  */
 	  temp.op0 = TREE_OPERAND (ref, 1);
 	  break;
 	case BIT_FIELD_REF:

@@ -4215,6 +4215,10 @@ expand_assignment (tree to, tree from, bool nontemporal)
      an array element in an unaligned packed structure field, has the same
      problem.  */
   if (handled_component_p (to)
+      /* ???  We only need to handle MEM_REF here if the access is not
+         a full access of the base object.  */
+      || (TREE_CODE (to) == MEM_REF
+	  && TREE_CODE (TREE_OPERAND (to, 0)) == ADDR_EXPR)
       || TREE_CODE (TREE_TYPE (to)) == ARRAY_TYPE)
     {
       enum machine_mode mode1;
@@ -6085,6 +6089,30 @@ get_inner_reference (tree exp, HOST_WIDE_INT *pbitsize,
 	    goto done;
 	  break;
 
+	case MEM_REF:
+	  /* ???  We should avoid doing this when doing so hides
+	     the effective alias set.  */
+	  if (TREE_CODE (TREE_OPERAND (exp, 0)) == ADDR_EXPR)
+	    {
+	      tree off = TREE_OPERAND (exp, 1);
+	      if (!integer_zerop (off))
+		{
+		  unsigned HOST_WIDE_INT boffl;
+		  HOST_WIDE_INT boffh;
+		  lshift_double (TREE_INT_CST_LOW (off),
+				 TREE_INT_CST_HIGH (off),
+				 exact_log2 (BITS_PER_UNIT),
+				 2 * HOST_BITS_PER_WIDE_INT,
+				 &boffl, &boffh, 1);
+		  bit_offset
+		    = size_binop (PLUS_EXPR, bit_offset,
+				  build_int_cst_wide_type (bitsizetype,
+							   boffl, boffh));
+		}
+	      exp = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
+	    }
+	  goto done;
+
 	default:
 	  goto done;
 	}
@@ -6842,6 +6870,15 @@ expand_expr_addr_expr_1 (tree exp, rtx target, enum machine_mode tmode,
     case INDIRECT_REF:
       /* This case will happen via recursion for &a->b.  */
       return expand_expr (TREE_OPERAND (exp, 0), target, tmode, modifier);
+
+    case MEM_REF:
+      {
+	tree tem = TREE_OPERAND (exp, 0);
+	if (!integer_zerop (TREE_OPERAND (exp, 1)))
+	  tem = build2 (POINTER_PLUS_EXPR, TREE_TYPE (TREE_OPERAND (exp, 1)),
+			tem, fold_convert (sizetype, TREE_OPERAND (exp, 1)));
+	return expand_expr (tem, target, tmode, modifier);
+      }
 
     case CONST_DECL:
       /* Expand the initializer like constants above.  */
@@ -8735,6 +8772,69 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	set_mem_addr_space (temp, as);
       }
       return temp;
+
+    case MEM_REF:
+      {
+	addr_space_t as
+	  = TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (TREE_OPERAND (exp, 1))));
+	enum machine_mode address_mode;
+	tree base = TREE_OPERAND (exp, 0);
+	/* Handle expansion of non-aliased memory with non-BLKmode.  That
+	   might end up in a register.  */
+	if (TREE_CODE (base) == ADDR_EXPR)
+	  {
+	    tree offset = TREE_OPERAND (exp, 1);
+	    base = TREE_OPERAND (base, 0);
+	    offset = build_int_cst_wide_type (bitsizetype,
+					      TREE_INT_CST_LOW (offset),
+					      TREE_INT_CST_HIGH (offset));
+	    offset = size_binop (MULT_EXPR,
+				 offset, bitsize_int (BITS_PER_UNIT));
+	    if (!DECL_P (base))
+	      {
+		HOST_WIDE_INT off;
+		base = get_addr_base_and_offset (base, &off);
+		gcc_assert (base);
+		offset = size_binop (PLUS_EXPR, offset, bitsize_int (off));
+	      }
+	    if (DECL_P (base)
+		&& !TREE_ADDRESSABLE (base)
+		&& integer_zerop (offset)
+		&& DECL_MODE (base) != BLKmode
+		&& host_integerp (TYPE_SIZE (TREE_TYPE (exp)), 1)
+		&& (GET_MODE_BITSIZE (DECL_MODE (base))
+		    == TREE_INT_CST_LOW (TYPE_SIZE (TREE_TYPE (exp)))))
+	      return expand_expr (build1 (VIEW_CONVERT_EXPR,
+					  TREE_TYPE (exp), base),
+				  target, tmode, modifier);
+	    if (DECL_P (base)
+		&& !TREE_ADDRESSABLE (base)
+		&& TYPE_MODE (TREE_TYPE (exp)) != BLKmode)
+	      return expand_expr (build3 (BIT_FIELD_REF, TREE_TYPE (exp),
+					  base,
+					  bitsize_int (GET_MODE_BITSIZE (TYPE_MODE (TREE_TYPE (exp)))),
+					  offset),
+				  target, tmode, modifier);
+	  }
+	address_mode = targetm.addr_space.address_mode (as);
+	op0 = expand_expr (TREE_OPERAND (exp, 0), NULL_RTX, address_mode,
+			   EXPAND_NORMAL);
+	if (!integer_zerop (TREE_OPERAND (exp, 1)))
+	  {
+	    rtx off;
+	    off = immed_double_const (TREE_INT_CST_LOW (TREE_OPERAND (exp, 1)),
+				      TREE_INT_CST_HIGH (TREE_OPERAND (exp, 1)),
+				      address_mode);
+	    op0 = simplify_gen_binary (PLUS, address_mode, op0, off);
+	  }
+	op0 = memory_address_addr_space (mode, op0, as);
+	temp = gen_rtx_MEM (mode, op0);
+	set_mem_attributes (temp, exp, 0);
+	set_mem_addr_space (temp, as);
+	if (TREE_THIS_VOLATILE (exp))
+	  MEM_VOLATILE_P (temp) = 1;
+	return temp;
+      }
 
     case ARRAY_REF:
 

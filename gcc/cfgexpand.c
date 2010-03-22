@@ -2418,6 +2418,11 @@ expand_debug_expr (tree exp)
 	return op0;
       }
 
+    case MEM_REF:
+      /* ??? FIXME.  */
+      if (!integer_zerop (TREE_OPERAND (exp, 1)))
+	return NULL;
+      /* Fallthru.  */
     case INDIRECT_REF:
     case ALIGN_INDIRECT_REF:
     case MISALIGNED_INDIRECT_REF:

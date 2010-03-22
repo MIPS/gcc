@@ -786,6 +786,30 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       NIY;
       break;
 
+    case MEM_REF:
+      {
+	if (0 && integer_zerop (TREE_OPERAND (node, 1)))
+	  {
+	    pp_string (buffer, "*");
+	    dump_generic_node (buffer, TREE_OPERAND (node, 0),
+			       spc, flags, false);
+	  }
+	else
+	  {
+	    pp_string (buffer, "MEM[");
+	    pp_string (buffer, "(");
+	    dump_generic_node (buffer, TREE_TYPE (TREE_OPERAND (node, 1)),
+			       spc, flags, false);
+	    pp_string (buffer, ")");
+	    dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
+	    pp_string (buffer, " + ");
+	    dump_generic_node (buffer, TREE_OPERAND (node, 1),
+			       spc, flags, false);
+	    pp_string (buffer, "]");
+	  }
+	break;
+      }
+
     case TARGET_MEM_REF:
       {
 	const char *sep = "";
@@ -1092,7 +1116,10 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
     case COMPONENT_REF:
       op0 = TREE_OPERAND (node, 0);
       str = ".";
-      if (op0 && TREE_CODE (op0) == INDIRECT_REF)
+      if (op0
+	  && (TREE_CODE (op0) == INDIRECT_REF
+	      || (0 && TREE_CODE (op0) == MEM_REF
+		  && integer_zerop (TREE_OPERAND (op0, 1)))))
 	{
 	  op0 = TREE_OPERAND (op0, 0);
 	  str = "->";

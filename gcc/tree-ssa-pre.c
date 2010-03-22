@@ -2697,6 +2697,28 @@ create_component_ref_by_pieces_1 (basic_block block, vn_reference_t ref,
 	return folded;
       }
       break;
+    case MEM_REF:
+      {
+	tree baseop = create_component_ref_by_pieces_1 (block, ref, operand,
+							stmts, domstmt);
+	tree offset = currop->op0;
+	if (!baseop)
+	  return NULL_TREE;
+	if (TREE_CODE (baseop) == ADDR_EXPR
+	    && handled_component_p (TREE_OPERAND (baseop, 0)))
+	  {
+	    HOST_WIDE_INT off;
+	    tree base;
+	    base = get_addr_base_and_offset (TREE_OPERAND (baseop, 0), &off);
+	    gcc_assert (base && off % BITS_PER_UNIT == 0);
+	    offset = int_const_binop (PLUS_EXPR, offset,
+				      build_int_cst (TREE_TYPE (offset),
+						     off / BITS_PER_UNIT), 0);
+	    baseop = build_fold_addr_expr (base);
+	  }
+	return build2 (MEM_REF, currop->type, baseop, offset);
+      }
+      break;
     case TARGET_MEM_REF:
       {
 	vn_reference_op_t nextop = VEC_index (vn_reference_op_s, ref->operands,

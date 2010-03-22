@@ -3832,6 +3832,33 @@ build6_stat (enum tree_code code, tree tt, tree arg0, tree arg1,
   return t;
 }
 
+/* Build a simple MEM_REF tree with the sematics of a plain INDIRECT_REF
+   on the pointer PTR.  */
+
+tree
+build_simple_mem_ref_loc (location_t loc, tree ptr)
+{
+  HOST_WIDE_INT offset = 0;
+  tree ptype = TREE_TYPE (ptr);
+  tree tem;
+  /* For convenience allow invariant addresses with component-refs.  */
+  if (TREE_CODE (ptr) == ADDR_EXPR
+      && handled_component_p (TREE_OPERAND (ptr, 0)))
+    {
+      HOST_WIDE_INT size, max_size;
+      gcc_assert (is_gimple_min_invariant (ptr));
+      ptr = get_ref_base_and_extent (TREE_OPERAND (ptr, 0), &offset,
+				     &size, &max_size);
+      gcc_assert (SSA_VAR_P (ptr) && offset % BITS_PER_UNIT == 0);
+      offset = offset / BITS_PER_UNIT;
+      ptr = build_fold_addr_expr (ptr);
+    }
+  tem = build2 (MEM_REF, TREE_TYPE (ptype),
+		ptr, build_int_cst (ptype, offset));
+  SET_EXPR_LOCATION (tem, loc);
+  return tem;
+}
+
 /* Similar except don't specify the TREE_TYPE
    and leave the TREE_SIDE_EFFECTS as 0.
    It is permissible for arguments to be null,

@@ -1,0 +1,138 @@
+2010-03-22  Richard Guenther  <rguenther@suse.de>
+
+	* fold-const.c (fold_unary_loc): Do not strip qualifiers when
+	folding address expressions.
+	* gimple.c (gimple_ior_addresses_taken_1): Use get_base_address.
+	* tree-ssa-alias.c (decl_refs_may_alias_p): Do not use
+	operand_equal_p to compare decls.
+	(ptr_deref_may_alias_decl_p): Likewise.
+	* tree-ssa-operands.c (get_asm_expr_operands): Simplify
+	* tree-ssa-forwprop.c (forward_propagate_into_gimple_cond):
+	Handle reversed comparison ops.
+	* tree-sra.c (asm_visit_addr): Use get_base_address.
+	* ipa-prop.c (visit_store_addr_for_mod_analysis): Use
+	get_base_address.
+	* ipa-reference.c (mark_address): Use get_base_address.
+
+	* alias.c (ao_ref_from_mem): Handle MEM_REF.
+	(get_alias_set): Likewise.
+	* expr.c (expand_assignment): Handle MEM_REF.
+	(get_inner_reference): Likewise.
+	(expand_expr_addr_expr_1): Likewise.
+	(expand_expr_real_1): Likewise.
+	* fold-const.c (build_fold_addr_expr_with_type_loc): Handle MEM_REF.
+	(fold_comparison): Likewise.
+	* gimple.c (is_gimple_addressable): Adjust for MEM_REF.
+	(is_gimple_address): Likewise.
+	(is_gimple_min_lval): Likewise.
+	(get_base_address): Adjust for MEM_REFs with ADDR_EXPRs.
+	(count_ptr_derefs): Adjust for MEM_REFs.
+	(get_base_loadstore): Likewise.
+	* gimplify.c (gimplify_init_ctor_preeval_1): Handle MEM_REF.
+	(gimple_fold_indirect_ref): Adjust for MEM_REF.
+	(gimplify_expr): Gimplify INDIRECT_REF to MEM_REF.  Handle
+	MEM_REF.
+	* tree-cfg.c (verify_expr): Handle MEM_REF.
+	Disable TREE_ADDRESSABLE checking for now.
+	(verify_types_in_gimple_min_lval): Handle MEM_REF.
+	(verify_types_in_gimple_reference): Likewise.
+	(verify_gimple_assign_single): Do not allow INDIRECT_REF.
+	Handle MEM_REF.
+	* tree-flow.h (get_addr_base_and_offset): Declare.
+	(symbol_marked_for_renaming): Likewise.
+	* tree-into-ssa.c (symbol_marked_for_renaming): Export.
+	* tree-pretty-print.c (dump_generic_node): Handle MEM_REF.
+	* tree-ssa-alias.c (ptr_deref_may_alias_decl_p): Adjust
+	for MEM_REFs.
+	(ptr_derefs_may_alias_p): Likewise.
+	(ptr_deref_may_alias_ref_p_1): Likewise.
+	(ao_ref_init_from_ptr_and_size): Likewise.
+	(indirect_ref_may_alias_decl_p): Likewise.
+	(indirect_refs_may_alias_p): Likewise.
+	(refs_may_alias_p_1): Likewise.
+	(ref_maybe_used_by_call_p_1): Likewise.
+	(call_may_clobber_ref_p_1): Likewise.
+	* tree-ssa-loop-im.c (for_each_index): Handle MEM_REF.
+	(gen_lsm_tmp_name): Likewise.  Handle ADDR_EXPR.
+	* tree-ssa-loop-ivopts.c (determine_base_object): Adjust
+	for MEM_REF.
+	(strip_offset_1): Likewise.
+	(tree_ssa_iv_optimize): Disable for now.
+	* tree-ssa-operands.c (opf_non_addressable, opf_not_non_addressable):
+	New.
+	(mark_address_taken): Handle MEM_REF.
+	(get_indirect_ref_operands): Pass through opf_not_non_addressable.
+	* tree-ssa-operands.c (get_asm_expr_operands): Pass
+	opf_not_non_addressable.
+	(get_expr_operands): Handle opf_[not_]non_addressable.
+	Handle MEM_REF.
+	* tree-ssa-pre.c (create_component_ref_by_pieces_1): Handle
+	MEM_REF.
+	* tree-ssa-sccvn.c (copy_reference_ops_from_ref): Handle MEM_REF.
+	* tree-ssa-sink.c (is_hidden_global_store): Handle MEM_REF
+	and constants.
+	* tree-ssa.c (useless_type_conversion_p): Make most pointer
+	conversions useless.
+	(execute_update_addresses_taken): Implement re-writing of MEM_REFs
+	to SSA form.
+	* tree.def (MEM_REF): New tree code.
+	* tree-ssa-ccp.c (maybe_fold_reference): Fold MEM_REF back to
+	usual references if possible.  Validize MEM_REF of invariant
+	address bases.  Collapse component-refs around MEM_REF.
+	(fold_gimple_assign): Fold the address of a MEM_REF to
+	POINTER_PLUS_EXPR.
+	* tree-dfa.c (get_ref_base_and_extent): Handle MEM_REF.
+	(get_addr_base_and_offset): New function.
+	* tree-nested.c (get_static_chain): Adjust for MEM_REF.
+	(get_frame_field): Likewise.
+	(get_nonlocal_debug_decl): Likewise.
+	(convert_nonlocal_reference_op): Likewise.
+	* tree-ssa-dce.c (ref_may_be_aliased): Handle MEM_REF.
+	* tree-stdarg.c (check_all_va_list_escapes): Adjust for MEM_REF.
+	* tree-vect-stmts.c (vectorizable_store): Adjust for MEM_REF.
+	(vectorizable_load): Likewise.
+	* tree.c (build_simple_mem_ref_loc): New function.
+	* tree.h (build_simple_mem_ref_loc): Declare.
+	(build_simple_mem_ref): Define.
+	* cfgexpand.c (expand_debug_expr): Handle MEM_REF.
+	* config/i386/i386.c (ix86_va_start): Adjust for MEM_REF.
+	(ix86_canonical_va_list_type): Likewise.
+	* dwarf2out.c (loc_list_from_tree): Handle MEM_REF.
+	* tree-eh.c (tree_could_trap_p): Handle MEM_REF.
+	* tree-sra.c (build_access_from_expr_1): Handle MEM_REF.
+	(build_ref_for_offset_1): Remove.
+	(build_ref_for_offset): Build MEM_REFs.
+	(gate_intra_sra): Disable for now.
+	(sra_ipa_modify_expr): Handle MEM_REF.
+	(ipa_early_sra_gate): Disable for now.
+	* tree-ssa-structalias.c (get_constraint_for_1): Handle MEM_REF.
+	* tree-complex.c (extract_component): Handle MEM_REF.
+	* tree-inline.c (declare_return_variable): Handle MEM_REF.
+	* builtins.c (stabilize_va_list_loc): Work around very broken
+	va_list_type_node design.
+	* tree-data-ref.c (dr_analyze_indices): Handle MEM_REF.
+	* cgraphunit.c (thunk_adjust): Adjust for MEM_REF.
+	* omp-low.c (build_receiver_ref): Adjust for MEM_REF.
+	(build_outer_var_ref): Likewise.
+	(scan_omp_1_op): Likewise.
+	(lower_rec_input_clauses): Likewise.
+	(lower_lastprivate_clauses): Likewise.
+	(lower_reduction_clauses): Likewise.
+	(lower_copyprivate_clauses): Likewise.
+	(expand_omp_atomic_pipeline): Likewise.
+	(expand_omp_atomic_mutex): Likewise.
+	(create_task_copyfn): Likewise.
+	* tree-parloops.c (take_address_of): Adjust for MEM_REF.
+	(eliminate_local_variables_1): Likewise.
+	(create_call_for_reduction_1): Likewise.
+	(create_loads_for_reductions): Likewise.
+	(create_loads_and_stores_for_name): Likewise.
+	* ipa-struct-reorg.c (decompose_indirect_ref_acc): Handle MEM_REF.
+	(decompose_access): Likewise.
+	(replace_field_acc): Likewise.
+	(replace_field_access_stmt): Likewise.
+	(insert_new_var_in_stmt): Likewise.
+	(get_stmt_accesses): Likewise.
+	* tree-mudflap.c (mf_xform_derefs_1): Adjust for MEM_REF.
+
+	* gcc.c-torture/execute/20100316-1.c: New testcase.

@@ -276,7 +276,7 @@ for_each_index (tree *addr_p, bool (*cbck) (tree, tree *, void *), void *data)
 
 	case MISALIGNED_INDIRECT_REF:
 	case ALIGN_INDIRECT_REF:
-	case INDIRECT_REF:
+	case MEM_REF:
 	  nxt = &TREE_OPERAND (*addr_p, 0);
 	  return cbck (*addr_p, nxt, data);
 
@@ -1749,9 +1749,13 @@ gen_lsm_tmp_name (tree ref)
     {
     case MISALIGNED_INDIRECT_REF:
     case ALIGN_INDIRECT_REF:
-    case INDIRECT_REF:
+    case MEM_REF:
       gen_lsm_tmp_name (TREE_OPERAND (ref, 0));
       lsm_tmp_name_add ("_");
+      break;
+
+    case ADDR_EXPR:
+      gen_lsm_tmp_name (TREE_OPERAND (ref, 0));
       break;
 
     case BIT_FIELD_REF:

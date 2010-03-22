@@ -2942,7 +2942,8 @@ vectorizable_store (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
       && TREE_CODE (scalar_dest) != INDIRECT_REF
       && TREE_CODE (scalar_dest) != COMPONENT_REF
       && TREE_CODE (scalar_dest) != IMAGPART_EXPR
-      && TREE_CODE (scalar_dest) != REALPART_EXPR)
+      && TREE_CODE (scalar_dest) != REALPART_EXPR
+      && TREE_CODE (scalar_dest) != MEM_REF)
     return false;
 
   gcc_assert (gimple_assign_single_p (stmt));
@@ -3193,7 +3194,7 @@ vectorizable_store (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
 	    vec_oprnd = VEC_index (tree, result_chain, i);
 
           if (aligned_access_p (first_dr))
-            data_ref = build_fold_indirect_ref (dataref_ptr);
+	    data_ref = build_simple_mem_ref (dataref_ptr);
           else
           {
             int mis = DR_MISALIGNMENT (first_dr);
@@ -3332,7 +3333,8 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
       && code != INDIRECT_REF
       && code != COMPONENT_REF
       && code != IMAGPART_EXPR
-      && code != REALPART_EXPR)
+      && code != REALPART_EXPR
+      && code != MEM_REF)
     return false;
 
   if (!STMT_VINFO_DATA_REF (stmt_info))
@@ -3570,7 +3572,7 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
 	    {
 	    case dr_aligned:
 	      gcc_assert (aligned_access_p (first_dr));
-	      data_ref = build_fold_indirect_ref (dataref_ptr);
+	      data_ref = build_simple_mem_ref (dataref_ptr);
 	      break;
 	    case dr_unaligned_supported:
 	      {

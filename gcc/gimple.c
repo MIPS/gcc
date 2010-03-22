@@ -2475,7 +2475,8 @@ is_gimple_condexpr (tree t)
 bool
 is_gimple_addressable (tree t)
 {
-  return (is_gimple_id (t) || handled_component_p (t) || INDIRECT_REF_P (t));
+  return (is_gimple_id (t) || handled_component_p (t)
+	  || TREE_CODE (t) == MEM_REF);
 }
 
 /* Return true if T is a valid gimple constant.  */
@@ -2526,7 +2527,7 @@ is_gimple_address (const_tree t)
       op = TREE_OPERAND (op, 0);
     }
 
-  if (CONSTANT_CLASS_P (op) || INDIRECT_REF_P (op))
+  if (CONSTANT_CLASS_P (op) || TREE_CODE (op) == MEM_REF)
     return true;
 
   switch (TREE_CODE (op))
@@ -2804,7 +2805,7 @@ is_gimple_min_lval (tree t)
 {
   if (!(t = CONST_CAST_TREE (strip_invariant_refs (t))))
     return false;
-  return (is_gimple_id (t) || TREE_CODE (t) == INDIRECT_REF);
+  return (is_gimple_id (t) || TREE_CODE (t) == MEM_REF);
 }
 
 /* Return true if T is a typecast operation.  */
@@ -2855,10 +2856,14 @@ get_base_address (tree t)
   while (handled_component_p (t))
     t = TREE_OPERAND (t, 0);
 
+  if (TREE_CODE (t) == MEM_REF
+      && TREE_CODE (TREE_OPERAND (t, 0)) == ADDR_EXPR)
+    t = TREE_OPERAND (TREE_OPERAND (t, 0), 0);
+
   if (SSA_VAR_P (t)
       || TREE_CODE (t) == STRING_CST
       || TREE_CODE (t) == CONSTRUCTOR
-      || INDIRECT_REF_P (t))
+      || TREE_CODE (t) == MEM_REF)
     return t;
   else
     return NULL_TREE;
@@ -4252,7 +4257,7 @@ count_ptr_derefs (tree *tp, int *walk_subtrees, void *data)
       return NULL_TREE;
     }
 
-  if (INDIRECT_REF_P (*tp) && TREE_OPERAND (*tp, 0) == count_p->ptr)
+  if (TREE_CODE (*tp) == MEM_REF && TREE_OPERAND (*tp, 0) == count_p->ptr)
     {
       if (wi_p->is_lhs)
 	count_p->num_stores++;
@@ -4324,7 +4329,7 @@ get_base_loadstore (tree op)
   while (handled_component_p (op))
     op = TREE_OPERAND (op, 0);
   if (DECL_P (op)
-      || INDIRECT_REF_P (op)
+      || TREE_CODE (op) == MEM_REF
       || TREE_CODE (op) == TARGET_MEM_REF)
     return op;
   return NULL_TREE;
@@ -4532,9 +4537,9 @@ gimple_ior_addresses_taken_1 (gimple stmt ATTRIBUTE_UNUSED,
 			      tree addr, void *data)
 {
   bitmap addresses_taken = (bitmap)data;
-  while (handled_component_p (addr))
-    addr = TREE_OPERAND (addr, 0);
-  if (DECL_P (addr))
+  addr = get_base_address (addr);
+  if (addr
+      && DECL_P (addr))
     {
       bitmap_set_bit (addresses_taken, DECL_UID (addr));
       return true;

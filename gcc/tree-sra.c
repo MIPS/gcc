@@ -932,6 +932,7 @@ build_access_from_expr_1 (tree *expr_ptr, gimple stmt, bool write)
   switch (TREE_CODE (expr))
     {
     case INDIRECT_REF:
+    case MEM_REF:
       if (sra_mode != SRA_MODE_EARLY_IPA)
 	return NULL;
       /* fall through */
@@ -1066,7 +1067,9 @@ static bool
 asm_visit_addr (gimple stmt ATTRIBUTE_UNUSED, tree op,
 		void *data ATTRIBUTE_UNUSED)
 {
-  if (DECL_P (op))
+  op = get_base_address (op);
+  if (op
+      && DECL_P (op))
     disqualify_candidate (op, "Non-scalarizable GIMPLE_ASM operand.");
 
   return false;
@@ -1372,100 +1375,6 @@ make_fancy_name (tree expr)
   return XOBFINISH (&name_obstack, char *);
 }
 
-/* Helper function for build_ref_for_offset.  */
-
-static bool
-build_ref_for_offset_1 (tree *res, tree type, HOST_WIDE_INT offset,
-			tree exp_type)
-{
-  while (1)
-    {
-      tree fld;
-      tree tr_size, index, minidx;
-      HOST_WIDE_INT el_size;
-
-      if (offset == 0 && exp_type
-	  && types_compatible_p (exp_type, type))
-	return true;
-
-      switch (TREE_CODE (type))
-	{
-	case UNION_TYPE:
-	case QUAL_UNION_TYPE:
-	case RECORD_TYPE:
-	  for (fld = TYPE_FIELDS (type); fld; fld = TREE_CHAIN (fld))
-	    {
-	      HOST_WIDE_INT pos, size;
-	      tree expr, *expr_ptr;
-
-	      if (TREE_CODE (fld) != FIELD_DECL)
-		continue;
-
-	      pos = int_bit_position (fld);
-	      gcc_assert (TREE_CODE (type) == RECORD_TYPE || pos == 0);
-	      tr_size = DECL_SIZE (fld);
-	      if (!tr_size || !host_integerp (tr_size, 1))
-		continue;
-	      size = tree_low_cst (tr_size, 1);
-	      if (size == 0)
-		{
-		  if (pos != offset)
-		    continue;
-		}
-	      else if (pos > offset || (pos + size) <= offset)
-		continue;
-
-	      if (res)
-		{
-		  expr = build3 (COMPONENT_REF, TREE_TYPE (fld), *res, fld,
-				 NULL_TREE);
-		  expr_ptr = &expr;
-		}
-	      else
-		expr_ptr = NULL;
-	      if (build_ref_for_offset_1 (expr_ptr, TREE_TYPE (fld),
-					  offset - pos, exp_type))
-		{
-		  if (res)
-		    *res = expr;
-		  return true;
-		}
-	    }
-	  return false;
-
-	case ARRAY_TYPE:
-	  tr_size = TYPE_SIZE (TREE_TYPE (type));
-	  if (!tr_size || !host_integerp (tr_size, 1))
-	    return false;
-	  el_size = tree_low_cst (tr_size, 1);
-
-	  minidx = TYPE_MIN_VALUE (TYPE_DOMAIN (type));
-	  if (TREE_CODE (minidx) != INTEGER_CST || el_size == 0)
-	    return false;
-	  if (res)
-	    {
-	      index = build_int_cst (TYPE_DOMAIN (type), offset / el_size);
-	      if (!integer_zerop (minidx))
-		index = int_const_binop (PLUS_EXPR, index, minidx, 0);
-	      *res = build4 (ARRAY_REF, TREE_TYPE (type), *res, index,
-			     NULL_TREE, NULL_TREE);
-	    }
-	  offset = offset % el_size;
-	  type = TREE_TYPE (type);
-	  break;
-
-	default:
-	  if (offset != 0)
-	    return false;
-
-	  if (exp_type)
-	    return false;
-	  else
-	    return true;
-	}
-    }
-}
-
 /* Construct an expression that would reference a part of aggregate *EXPR of
    type TYPE at the given OFFSET of the type EXP_TYPE.  If EXPR is NULL, the
    function only determines whether it can build such a reference without
@@ -1483,17 +1392,36 @@ build_ref_for_offset (tree *expr, tree type, HOST_WIDE_INT offset,
 {
   location_t loc = expr ? EXPR_LOCATION (*expr) : UNKNOWN_LOCATION;
 
-  if (expr)
-    *expr = unshare_expr (*expr);
+  if (offset % BITS_PER_UNIT != 0)
+    return false;
+
+  if (!expr)
+    return true;
+
+  *expr = unshare_expr (*expr);
 
   if (allow_ptr && POINTER_TYPE_P (type))
+    *expr = build2 (MEM_REF, exp_type,
+		    *expr, build_int_cst (type, offset / BITS_PER_UNIT));
+  else if (TREE_CODE (*expr) == MEM_REF)
     {
-      type = TREE_TYPE (type);
-      if (expr)
-	*expr = fold_build1_loc (loc, INDIRECT_REF, type, *expr);
+      tree addr = TREE_OPERAND (*expr, 0);
+      tree off = build_int_cst (TREE_TYPE (TREE_OPERAND (*expr, 1)),
+				offset / BITS_PER_UNIT);
+      off = int_const_binop (PLUS_EXPR, TREE_OPERAND (*expr, 1), off, 0);
+      *expr = build2 (MEM_REF, exp_type, addr, off);
+    }
+  else
+    {
+      tree ptype = build_pointer_type (type);
+      tree off = build_int_cst (ptype, offset / BITS_PER_UNIT);
+      tree addr = build_fold_addr_expr (*expr);
+      STRIP_NOPS (addr);
+      *expr = build2 (MEM_REF, exp_type, addr, off);
     }
 
-  return build_ref_for_offset_1 (expr, type, offset, exp_type);
+  SET_EXPR_LOCATION (*expr, loc);
+  return true;
 }
 
 /* Return true iff TYPE is stdarg va_list type.  */
@@ -2839,7 +2767,7 @@ late_intra_sra (void)
 static bool
 gate_intra_sra (void)
 {
-  return flag_tree_sra != 0;
+  return 0 && flag_tree_sra != 0;
 }
 
 
@@ -3830,6 +3758,12 @@ sra_ipa_modify_expr (tree *expr, gimple_stmt_iterator *gsi ATTRIBUTE_UNUSED,
   if (INDIRECT_REF_P (base))
     base = TREE_OPERAND (base, 0);
 
+  if (TREE_CODE (base) == MEM_REF)
+    {
+      offset += TREE_INT_CST_LOW (TREE_OPERAND (base, 1)) * BITS_PER_UNIT;
+      base = TREE_OPERAND (base, 0);
+    }
+
   base = get_ssa_base_param (base);
   if (!base || TREE_CODE (base) != PARM_DECL)
     return false;
@@ -4219,7 +4153,7 @@ ipa_early_sra (void)
 static bool
 ipa_early_sra_gate (void)
 {
-  return flag_ipa_sra;
+  return 0 && flag_ipa_sra;
 }
 
 struct gimple_opt_pass pass_early_ipa_sra =

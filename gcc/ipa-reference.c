@@ -351,9 +351,9 @@ static bool
 mark_address (gimple stmt ATTRIBUTE_UNUSED, tree addr,
 	      void *data ATTRIBUTE_UNUSED)
 {
-  while (handled_component_p (addr))
-    addr = TREE_OPERAND (addr, 0);
-  mark_address_taken (addr);
+  addr = get_base_address (addr);
+  if (addr)
+    mark_address_taken (addr);
   return false;
 }
 

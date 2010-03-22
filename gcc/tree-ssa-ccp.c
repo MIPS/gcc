@@ -2430,6 +2430,47 @@ maybe_fold_reference (tree expr, bool is_lhs)
 	  return expr;
 	}
     }
+  /* Fold back MEM_REFs to reference trees.  */
+  else if (TREE_CODE (*t) == MEM_REF
+	   && TREE_CODE (TREE_OPERAND (*t, 0)) == ADDR_EXPR
+	   && integer_zerop (TREE_OPERAND (*t, 1))
+	   && TREE_THIS_VOLATILE (*t) == TREE_THIS_VOLATILE (TREE_OPERAND (TREE_OPERAND (*t, 0), 0))
+	   && get_alias_set (*t) == get_alias_set (TREE_OPERAND (TREE_OPERAND (*t, 0), 0))
+	   && useless_type_conversion_p (TREE_TYPE (*t),
+					 TREE_TYPE (TREE_OPERAND (TREE_OPERAND (*t, 0), 0))))
+    {
+      tree tem;
+      *t = TREE_OPERAND (TREE_OPERAND (*t, 0), 0);
+      tem = maybe_fold_reference (expr, is_lhs);
+      if (tem)
+	return tem;
+      return expr;
+    }
+  /* Canonicalize MEM_REFs invariant address operand.  */
+  else if (TREE_CODE (*t) == MEM_REF
+	   && TREE_CODE (TREE_OPERAND (*t, 0)) == ADDR_EXPR
+	   && !DECL_P (TREE_OPERAND (TREE_OPERAND (*t, 0), 0))
+	   && !CONSTANT_CLASS_P (TREE_OPERAND (TREE_OPERAND (*t, 0), 0))
+	   && is_gimple_min_invariant (TREE_OPERAND (*t, 0)))
+    {
+      tree base;
+      HOST_WIDE_INT offset, size, max_size;
+      base = get_ref_base_and_extent (TREE_OPERAND (TREE_OPERAND (*t, 0), 0),
+				      &offset, &size, &max_size);
+      /* We only care for the offset here - and is_gimple_min_invariant
+         address should ensure that that is not variable.
+	 ???  Maybe better use get_inner_reference for this.  */
+      gcc_assert (offset % BITS_PER_UNIT == 0);
+      TREE_OPERAND (*t, 0) = build_fold_addr_expr_loc (EXPR_LOCATION (TREE_OPERAND (*t, 0)),
+						       base);
+      TREE_OPERAND (*t, 1) = int_const_binop (PLUS_EXPR,
+					      TREE_OPERAND (*t, 1),
+					      build_int_cst (TREE_TYPE (TREE_OPERAND (*t, 1)), offset / BITS_PER_UNIT), 0);
+      base = maybe_fold_reference (expr, is_lhs);
+      if (base)
+	return base;
+      return expr;
+    }
   else if (!is_lhs
 	   && DECL_P (*t))
     {
@@ -2442,6 +2483,34 @@ maybe_fold_reference (tree expr, bool is_lhs)
 	  if (tem)
 	    return tem;
 	  return expr;
+	}
+    }
+
+  /* Strip constant-offset component refs.  */
+  if (TREE_CODE (*t) == MEM_REF
+      && handled_component_p (expr)
+      /* We can't properly expand these.  */
+      && !((TREE_CODE (expr) == COMPONENT_REF
+	    && DECL_BIT_FIELD (TREE_OPERAND (expr, 1)))
+	   || TREE_CODE (expr) == BIT_FIELD_REF))
+    {
+      tree base;
+      HOST_WIDE_INT offset;
+      base = get_addr_base_and_offset (expr, &offset);
+      if (base
+	  && offset % BITS_PER_UNIT == 0)
+	{
+	  if (base == *t)
+	    return build2 (MEM_REF, TREE_TYPE (expr),
+			   TREE_OPERAND (*t, 0),
+			   int_const_binop (PLUS_EXPR,
+					    TREE_OPERAND (*t, 1),
+					    build_int_cst (TREE_TYPE (TREE_OPERAND (*t, 1)), offset / BITS_PER_UNIT), 0));
+	  else if (TREE_CODE (TREE_OPERAND (*t, 0)) == ADDR_EXPR
+		   && base == TREE_OPERAND (TREE_OPERAND (*t, 0), 0))
+	    return build2 (MEM_REF, TREE_TYPE (expr),
+			   TREE_OPERAND (*t, 0),
+			   build_int_cst (TREE_TYPE (TREE_OPERAND (*t, 1)), offset / BITS_PER_UNIT));
 	}
     }
 
@@ -2821,10 +2890,25 @@ fold_gimple_assign (gimple_stmt_iterator *si)
 
 	else if (TREE_CODE (rhs) == ADDR_EXPR)
 	  {
-	    tree tem = maybe_fold_reference (TREE_OPERAND (rhs, 0), true);
-	    if (tem)
+	    tree ref = TREE_OPERAND (rhs, 0);
+	    tree tem = maybe_fold_reference (ref, true);
+	    if (tem
+		&& TREE_CODE (tem) == MEM_REF)
+	      {
+		ref = tem;
+		goto do_mem_ref;
+	      }
+	    else if (tem)
 	      result = fold_convert (TREE_TYPE (rhs),
 				     build_fold_addr_expr_loc (loc, tem));
+	    else if (TREE_CODE (ref) == MEM_REF)
+	      {
+do_mem_ref:
+		result = fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (rhs),
+				      TREE_OPERAND (ref, 0),
+				      fold_convert (sizetype,
+						    TREE_OPERAND (ref, 1)));
+	      }
 	  }
 
 	else if (TREE_CODE (rhs) == CONSTRUCTOR

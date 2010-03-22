@@ -280,7 +280,8 @@ ao_ref_from_mem (ao_ref *ref, const_rtx mem)
 
   /* If this is a pointer dereference of a non-SSA_NAME punt.
      ???  We could replace it with a pointer to anything.  */
-  if (INDIRECT_REF_P (base)
+  if ((INDIRECT_REF_P (base)
+       || TREE_CODE (base) == MEM_REF)
       && TREE_CODE (TREE_OPERAND (base, 0)) != SSA_NAME)
     return false;
 
@@ -301,7 +302,7 @@ ao_ref_from_mem (ao_ref *ref, const_rtx mem)
       if (namep)
 	{
 	  ref->base_alias_set = get_alias_set (base);
-	  ref->base = build1 (INDIRECT_REF, TREE_TYPE (base), *(tree *)namep);
+	  ref->base = build_simple_mem_ref (*(tree *)namep);
 	}
     }
 
@@ -668,6 +669,8 @@ get_alias_set (tree t)
 	  if (set != -1)
 	    return set;
 	}
+      else if (TREE_CODE (inner) == MEM_REF)
+	return get_deref_alias_set (TREE_OPERAND (inner, 1));
 
       /* Otherwise, pick up the outermost object that we could have a pointer
 	 to, processing conversions as above.  */

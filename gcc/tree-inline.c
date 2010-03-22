@@ -2591,6 +2591,9 @@ declare_return_variable (copy_body_data *id, tree return_slot, tree modify_dest)
 					  false);
 	      if (TREE_CODE (base) == INDIRECT_REF)
 		base = TREE_OPERAND (base, 0);
+	      if (TREE_CODE (base) == MEM_REF
+		  && integer_zerop (TREE_OPERAND (base, 1)))
+		base = TREE_OPERAND (base, 0);
 	      if (TREE_CODE (base) == SSA_NAME)
 		base = SSA_NAME_VAR (base);
 	      mark_sym_for_renaming (base);
