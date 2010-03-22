@@ -1,3 +1,56 @@
+2010-03-22  Jakub Jelinek  <jakub@redhat.com>
+
+	* varasm.c (make_decl_rtl_for_debug): Also clear
+	flag_mudflap for the duration of make_decl_rtl call.
+
+	PR debug/43443
+	* var-tracking.c (add_cselib_value_chains): Remove ASM_OPERANDS
+	locs from preserved VALUEs.
+
+2010-03-19  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	PR target/43399
+	* config/arm/arm.c (emit_multi_reg_push): Update comments.
+	Use PRE_MODIFY instead of PRE_DEC.
+	(emit_sfm): Use PRE_MODIFY instead of PRE_DEC.
+	(vfp_emit_fstmd): Likewise.
+
+2010-03-18  Aldy Hernandez  <aldyh@redhat.com>
+
+	* tree.h: Declare make_decl_rtl_for_debug.
+	* varasm.c (make_decl_rtl_for_debug): New.
+	* dwarf2out.c (rtl_for_decl_location): Call it.
+	* cfgexpand.c (expand_debug_expr): Call it.
+
+2010-03-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/43399
+	* var-tracking.c (adjust_mems) <case POST_MODIFY>: Allow BLKmode
+	mem_mode.
+
+	PR bootstrap/43403
+	* var-tracking.c (vt_init_cfa_base): Do nothing if
+	cfa_base_rtx would be hard_frame_pointer_rtx or non-fixed
+	register.
+
+2010-03-18  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/42873
+	* var-tracking.c (canonicalize_vars_star): New.
+	(dataflow_post_merge_adjust): Use it.
+
+2010-03-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/43058
+	* var-tracking.c (non_suitable_const): New function.
+	(add_uses): For DEBUG_INSNs with constants, don't record any
+	value, instead just the constant value itself.
+	(compute_bb_dataflow) <case MO_VAL_LOC>: If PAT_VAR_LOCATION_LOC
+	is not VAR_LOC_UNKNOWN_P, set var to the constant.
+	(emit_notes_in_bb): Likewise.
+	(emit_note_insn_var_location): For onepart variables if
+	cur_loc is a VOIDmode constant, use DECL_MODE.
+
 2010-03-21  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
 
 	PR middle-end/42718
