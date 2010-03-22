@@ -1,3 +1,28 @@
+2010-03-21  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR middle-end/42718
+	* pa.md (movmemsi): Set align to one if zero.
+	(movmemdi): Likewise.
+
+2010-03-21  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	Backport from mainline:
+	2009-05-12  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR target/43417
+	* config/sh/sh.md (cbranchdi4_i): Use an "I08" constraint
+	instead of "i" constraint.
+
+2010-03-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2010-03-18  Steven Bosscher  <steven@gcc.gnu.org>
+		    Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR rtl-optimization/43360
+	* loop-invariant.c (move_invariant_reg): Remove the REG_EQUAL
+	note if we don't know its invariant status.
+
 2010-03-16  Aldy Hernandez  <aldyh@redhat.com>
 	    Alexandre Oliva  <aoliva@redhat.com>
 

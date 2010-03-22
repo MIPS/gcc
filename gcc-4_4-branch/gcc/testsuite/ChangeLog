@@ -1,3 +1,24 @@
+2010-03-21  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.target/powerpc/ppc-sdata-1.c: Require nonpic.
+	* gcc.target/powerpc/ppc-sdata-2.c: Likewise.
+
+2010-03-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2010-03-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR rtl-optimization/43360
+	* gcc.dg/torture/pr43360.c: New.
+
+2010-03-17  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/43265
+	*gfortran.dg/read_empty_file.f: New test.
+	*gfortran.dg/read_eof_all.f90: New test.
+	*gfortran.dg/namelist_27.f90: Eliminate infinite loop posibility.
+	*gfortran.dg/namelist_28.f90: Eliminate infinite loop posibility.
+
 2010-03-16  Jakub Jelinek  <jakub@redhat.com>
 
 	PR debug/43051
@@ -617,8 +638,8 @@
 2010-02-04  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
 	PR libfortran/42901
-	*gfortran.dg/namelist_60.f90: New test.
-	*gfortran.dg/namelist_59.f90: New test.
+	* gfortran.dg/namelist_60.f90: New test.
+	* gfortran.dg/namelist_59.f90: New test.
 
 2010-02-04  Richard Guenther  <rguenther@suse.de>
 
