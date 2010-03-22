@@ -1,3 +1,24 @@
+2010-03-22  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline:
+	2010-03-20  Richard Guenther  <rguenther@suse.de>
+
+	PR rtl-optimization/43438
+	* gcc.c-torture/execute/pr43438.c: New testcase.
+
+	2010-03-19  Michael Matz  <matz@suse.de>
+
+	PR c++/43116
+	* g++.dg/other/pr43116.C: New testcase.
+
+	PR target/43305
+	* gcc.dg/pr43305.c: New testcase.
+
+	2010-03-18  Michael Matz  <matz@suse.de>
+
+	PR middle-end/43419
+	* gcc.dg/pr43419.c: New testcase.
+
 2010-03-18  Jakub Jelinek  <jakub@redhat.com>
 
 	PR debug/43058
@@ -19,10 +40,10 @@
 2010-03-17  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
 	PR libfortran/43265
-	*gfortran.dg/read_empty_file.f: New test.
-	*gfortran.dg/read_eof_all.f90: New test.
-	*gfortran.dg/namelist_27.f90: Eliminate infinite loop posibility.
-	*gfortran.dg/namelist_28.f90: Eliminate infinite loop posibility.
+	* gfortran.dg/read_empty_file.f: New test.
+	* gfortran.dg/read_eof_all.f90: New test.
+	* gfortran.dg/namelist_27.f90: Eliminate infinite loop posibility.
+	* gfortran.dg/namelist_28.f90: Eliminate infinite loop posibility.
 
 2010-03-16  Jakub Jelinek  <jakub@redhat.com>
 

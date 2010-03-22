@@ -1,5 +1,32 @@
 2010-03-22  Jakub Jelinek  <jakub@redhat.com>
 
+	Backport from mainline:
+	2010-03-20  Richard Guenther  <rguenther@suse.de>
+
+	PR rtl-optimization/43438
+	* combine.c (make_extraction): Properly zero-/sign-extend an
+	extraction of the low part of a CONST_INT.  Also handle
+	CONST_DOUBLE.
+
+	2010-03-19  Michael Matz  <matz@suse.de>
+
+	PR c++/43116
+	* attribs.c (decl_attributes): When rebuilding a function pointer
+	type use the same qualifiers as the original pointer type.
+
+	PR target/43305
+	* builtins.c (expand_builtin_interclass_mathfn,
+	expand_builtin_signbit): Use maybe_emit_unop_insn, emit libcalls
+	if that fails.
+
+	2010-03-18  Michael Matz  <matz@suse.de>
+
+	PR middle-end/43419
+	* builtins.c (expand_builtin_pow): Don't transform pow(x, 0.5)
+	into sqrt(x) if we need to preserve signed zeros.
+
+2010-03-22  Jakub Jelinek  <jakub@redhat.com>
+
 	* varasm.c (make_decl_rtl_for_debug): Also clear
 	flag_mudflap for the duration of make_decl_rtl call.
 
