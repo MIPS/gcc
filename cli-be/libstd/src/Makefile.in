@@ -88,6 +88,7 @@ am__objects_1 = libstd_la-_Exit.lo libstd_la-__io_device.lo \
 	libstd_la-qsort.lo libstd_la-rand.lo libstd_la-read.lo \
 	libstd_la-realloc.lo libstd_la-remove.lo libstd_la-rename.lo \
 	libstd_la-rewind.lo libstd_la-scanf.lo libstd_la-setbuf.lo \
+	libstd_la-setjmp.lo \
 	libstd_la-setlocale.lo libstd_la-setvbuf.lo \
 	libstd_la-signal.lo libstd_la-snprintf.lo libstd_la-sprintf.lo \
 	libstd_la-sscanf.lo libstd_la-stat.lo libstd_la-strcat.lo \
@@ -155,6 +156,7 @@ am__objects_2 = libstd_dll-_Exit.$(OBJEXT) \
 	libstd_dll-realloc.$(OBJEXT) libstd_dll-remove.$(OBJEXT) \
 	libstd_dll-rename.$(OBJEXT) libstd_dll-rewind.$(OBJEXT) \
 	libstd_dll-scanf.$(OBJEXT) libstd_dll-setbuf.$(OBJEXT) \
+	libstd_dll-setjmp.$(OBJEXT) \
 	libstd_dll-setlocale.$(OBJEXT) libstd_dll-setvbuf.$(OBJEXT) \
 	libstd_dll-signal.$(OBJEXT) libstd_dll-snprintf.$(OBJEXT) \
 	libstd_dll-sprintf.$(OBJEXT) libstd_dll-sscanf.$(OBJEXT) \
@@ -394,6 +396,7 @@ SRC = _Exit.c \
       rewind.c \
       scanf.c \
       setbuf.c \
+      setjmp.c \
       setlocale.c \
       setvbuf.c \
       signal.c \
@@ -612,6 +615,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-rewind.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-scanf.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-setbuf.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-setjmp.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-setlocale.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-setvbuf.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-signal.Po@am__quote@
@@ -737,6 +741,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-rewind.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-scanf.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-setbuf.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-setjmp.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-setlocale.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-setvbuf.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-signal.Plo@am__quote@
@@ -1369,6 +1374,13 @@ libstd_la-setbuf.lo: setbuf.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='setbuf.c' object='libstd_la-setbuf.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_la_CFLAGS) $(CFLAGS) -c -o libstd_la-setbuf.lo `test -f 'setbuf.c' || echo '$(srcdir)/'`setbuf.c
+
+libstd_la-setjmp.lo: setjmp.c
+@am__fastdepCC_TRUE@	if $(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_la_CFLAGS) $(CFLAGS) -MT libstd_la-setjmp.lo -MD -MP -MF "$(DEPDIR)/libstd_la-setjmp.Tpo" -c -o libstd_la-setjmp.lo `test -f 'setjmp.c' || echo '$(srcdir)/'`setjmp.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/libstd_la-setjmp.Tpo" "$(DEPDIR)/libstd_la-setjmp.Plo"; else rm -f "$(DEPDIR)/libstd_la-setjmp.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='setjmp.c' object='libstd_la-setjmp.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_la_CFLAGS) $(CFLAGS) -c -o libstd_la-setjmp.lo `test -f 'setjmp.c' || echo '$(srcdir)/'`setjmp.c
 
 libstd_la-setlocale.lo: setlocale.c
 @am__fastdepCC_TRUE@	if $(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_la_CFLAGS) $(CFLAGS) -MT libstd_la-setlocale.lo -MD -MP -MF "$(DEPDIR)/libstd_la-setlocale.Tpo" -c -o libstd_la-setlocale.lo `test -f 'setlocale.c' || echo '$(srcdir)/'`setlocale.c; \
@@ -2811,6 +2823,20 @@ libstd_dll-setbuf.obj: setbuf.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='setbuf.c' object='libstd_dll-setbuf.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -c -o libstd_dll-setbuf.obj `if test -f 'setbuf.c'; then $(CYGPATH_W) 'setbuf.c'; else $(CYGPATH_W) '$(srcdir)/setbuf.c'; fi`
+
+libstd_dll-setjmp.o: setjmp.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -MT libstd_dll-setjmp.o -MD -MP -MF "$(DEPDIR)/libstd_dll-setjmp.Tpo" -c -o libstd_dll-setjmp.o `test -f 'setjmp.c' || echo '$(srcdir)/'`setjmp.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/libstd_dll-setjmp.Tpo" "$(DEPDIR)/libstd_dll-setjmp.Po"; else rm -f "$(DEPDIR)/libstd_dll-setjmp.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='setjmp.c' object='libstd_dll-setjmp.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -c -o libstd_dll-setjmp.o `test -f 'setjmp.c' || echo '$(srcdir)/'`setjmp.c
+
+libstd_dll-setjmp.obj: setjmp.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -MT libstd_dll-setjmp.obj -MD -MP -MF "$(DEPDIR)/libstd_dll-setjmp.Tpo" -c -o libstd_dll-setjmp.obj `if test -f 'setjmp.c'; then $(CYGPATH_W) 'setjmp.c'; else $(CYGPATH_W) '$(srcdir)/setjmp.c'; fi`; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/libstd_dll-setjmp.Tpo" "$(DEPDIR)/libstd_dll-setjmp.Po"; else rm -f "$(DEPDIR)/libstd_dll-setjmp.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='setjmp.c' object='libstd_dll-setjmp.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -c -o libstd_dll-setjmp.obj `if test -f 'setjmp.c'; then $(CYGPATH_W) 'setjmp.c'; else $(CYGPATH_W) '$(srcdir)/setjmp.c'; fi`
 
 libstd_dll-setlocale.o: setlocale.c
 @am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -MT libstd_dll-setlocale.o -MD -MP -MF "$(DEPDIR)/libstd_dll-setlocale.Tpo" -c -o libstd_dll-setlocale.o `test -f 'setlocale.c' || echo '$(srcdir)/'`setlocale.c; \

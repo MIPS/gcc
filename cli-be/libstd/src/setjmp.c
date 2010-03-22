@@ -1,7 +1,7 @@
 /*
 
-   Copyright (C) 2007-2010 Free Software Foundation, Inc.
-   Contributed by STMicroelectronics
+   Copyright (C) 2010 Free Software Foundation, Inc.
+   Contributed by INRIA
 
 This file is part of GCC.
 
@@ -20,23 +20,20 @@ along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 02110-1301, USA.  */
 
-#ifndef __SETJMP_H__
-#define __SETJMP_H__
+/* If we are compiling this, we are sure this is to build C-runtime*/
+#define __LIBSTD_CRT_BUILD
 
-#include <__cdefs.h>
+#include <setjmp.h>
+#include <stdio.h>
+#include <stdlib.h>
 
-__BEGIN_EXTERN_C
+LIBSTD_LPROTO_IMPL(int, setjmp, jmp_buf buf)
+{
+    return 0;
+}
 
-#if !defined(__LIBSTD_CRT_BUILD)
-#warning "<setjmp.h>: longjmp not supported yet. Use at your own risks."
-#endif
-
-typedef int jmp_buf;
-
-LIBSTD_LPROTO(int, setjmp, jmp_buf);
-
-LIBSTD_LPROTO(void, longjmp, jmp_buf, int);
-
-__END_EXTERN_C
-
-#endif /*__SETJMP_H__*/
+LIBSTD_LPROTO_IMPL(void, longjmp, jmp_buf buf, int val)
+{
+    LIBSTD_LNAME(fprintf)(stderr, "** longjmp not implemented **\n");
+    LIBSTD_LNAME(exit)(EXIT_FAILURE);
+}

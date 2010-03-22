@@ -80,6 +80,7 @@ SRC = _Exit.c \
       rewind.c \
       scanf.c \
       setbuf.c \
+      setjmp.c \
       setlocale.c \
       setvbuf.c \
       signal.c \

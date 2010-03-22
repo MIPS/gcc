@@ -51,6 +51,7 @@ math.h:
 
 setjmp.h:
  - missing support
+   setjmp returns 0, longjmp aborts.
 
 signal.h:
  - missing support
