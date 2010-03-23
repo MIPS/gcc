@@ -4729,6 +4729,9 @@ darwin_rs6000_special_round_type_align (tree type, unsigned int computed,
       field = TREE_CHAIN (field);
     if (! field)
       break;
+    /* A packed field does not contribute any extra alignment.  */
+    if (DECL_PACKED (field))
+      return align;
     type = TREE_TYPE (field);
     while (TREE_CODE (type) == ARRAY_TYPE)
       type = TREE_TYPE (type);
@@ -16837,8 +16840,11 @@ rs6000_split_multireg_move (rtx dst, rtx src)
 	  /* If the base register we are using to address memory is
 	     also a destination reg, then change that register last.  */
 	  if (REG_P (breg)
-	      && REGNO (breg) >= REGNO (dst)
-	      && REGNO (breg) < REGNO (dst) + nregs)
+	      && ((REGNO (breg) < FIRST_PSEUDO_REGISTER
+		   && REGNO (dst) < FIRST_PSEUDO_REGISTER)
+		  ? (REGNO (breg) >= REGNO (dst)
+		     && REGNO (breg) < REGNO (dst) + nregs)
+		  : (REGNO (breg) == REGNO (dst))))
 	    j = REGNO (breg) - REGNO (dst);
 	}
       else if (MEM_P (dst) && INT_REGNO_P (reg))
@@ -16893,6 +16899,15 @@ rs6000_split_multireg_move (rtx dst, rtx src)
 		{
 		  rtx basereg = XEXP (XEXP (dst, 0), 0);
 		  rtx offsetreg = XEXP (XEXP (dst, 0), 1);
+		  gcc_assert (GET_CODE (XEXP (dst, 0)) == PLUS
+			      && REG_P (basereg)
+			      && REG_P (offsetreg));
+		  if (REGNO (basereg) == 0)
+		    {
+		      rtx tmp = offsetreg;
+		      offsetreg = basereg;
+		      basereg = tmp;
+		    }
 		  emit_insn (gen_add3_insn (basereg, basereg, offsetreg));
 		  restore_basereg = gen_sub3_insn (basereg, basereg, offsetreg);
 		  dst = replace_equiv_address (dst, basereg);
