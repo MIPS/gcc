@@ -1,3 +1,82 @@
+2010-03-23  Mike Stump  <mikestump@comcast.net>
+
+	PR target/33120
+	* config/darwin.h (ASM_OUTPUT_ALIGNED_BSS): Add.
+	* config/darwin.c (darwin_output_aligned_bss): Add.
+	* config/darwin-protos.h: Add darwin_output_aligned_bss.
+
+2010-03-23  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/43413
+	* ira-color.c (setup_allocno_available_regs_num): Count prohibited
+	hard regs too.
+
+2010-03-22  James E. Wilson  <wilson@codesourcery.com>
+
+	PR target/43348
+	* ia64.md (call_nogp, call_value_nogp, sibcall_nogp, call_gp,
+	call_value_gp,sibcall_gp): Use 's' constraint not 'i'.
+
+2010-03-22  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_target_string): Fix a typo in comments.
+	Add -mfma.
+
+2010-03-22  Mike Stump  <mikestump@comcast.net>
+
+	PR target/23071
+	* config/rs6000/rs6000.c (darwin_rs6000_special_round_type_align):
+	Don't overly align based upon packed packed fields.
+
+2010-03-22  Jason Merrill  <jason@redhat.com>
+
+	* c-pretty-print.c (pp_c_specifier_qualifier_list) [VECTOR_TYPE]:
+	Use () rather than [], and move before the element type.
+
+2010-03-22  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* doc/configfiles.texi (Configuration Files): Removed
+	fixinc/Makefile*, intl/Makefile.*.
+	* doc/makefile.texi: Fixed markup.
+	Abstract from version control system used.
+	(Makefile): Removed obsolete gcc/java/parse.y example.
+	* doc/sourcebuild.texi: Likewise.
+	(Top Level): Added config, gnattools, libdecnumber, libgcc,
+	libgomp, libssp.
+	Removed fastjar.
+	(Miscellaneous Docs): Clarify location.
+	Added COPYING3, COPYING3.LIB.
+	(Front End Directory): Moved Make-lang.in entry to new
+	subsubsection.
+
+2010-03-22  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR target/38085
+	* config/i386/i386.c (x86_function_profiler)
+	[!NO_PROFILE_COUNTERS]: Fix typo.
+	* config/i386/gmon-sol2.c (_mcleanup) [__x86_64__]: Use call
+	instead of callq.
+
+2010-03-22  Janis Johnson  <janis187@us.ibm.com>
+	    Rainer Orth <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* doc/sourcebuild.texi (Test Directives): Split into six
+	subsections, with most of the current text in new subsections
+	Directives, Selectors, and Final Actions.
+	(Directives): Split list of test directives into multiple
+	subsubsections.
+	(Selectors): Describe use and syntax of selectors.
+	(Effective-Target Keywords): Describe all existing keywords.
+	(Add Options): Describe features for dg-add-options.
+	(Require Support): Describe variants of dg-require-support.
+	(Final Actions): Describe commands to use in dg-final.
+
+2010-03-22  Michael Matz  <matz@suse.de>
+
+	PR middle-end/43475
+	* recog.c (validate_replace_rtx_group): Replace also in
+	REG_EQUAL and REG_EQUIV notes.
+
 2010-03-22  Richard Guenther  <rguenther@suse.de>
 
 	PR tree-optimization/43390
@@ -54,8 +133,9 @@
 
 2010-03-19  Andrew Pinski  <andrew_pinski@caviumnetworks.com>
 
-	PR C/43211
-	* c-decl.c (grokparms): Set arg_types to NULL_TREE if there was an error.
+	PR c/43211
+	* c-decl.c (grokparms): Set arg_types to NULL_TREE if there was an
+	error.
 
 2010-03-19  Bernd Schmidt  <bernd.schmidt@codesourcery.com>
 
