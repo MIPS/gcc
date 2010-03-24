@@ -165,15 +165,21 @@ addr_object_size (struct object_size_info *osi, const_tree ptr,
     pt_var = get_base_address (pt_var);
 
   if (pt_var
-      && TREE_CODE (pt_var) == INDIRECT_REF
+      && TREE_CODE (pt_var) == MEM_REF
       && TREE_CODE (TREE_OPERAND (pt_var, 0)) == SSA_NAME
       && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (pt_var, 0))))
     {
       unsigned HOST_WIDE_INT sz;
 
       if (!osi || (object_size_type & 1) != 0)
-	sz = compute_builtin_object_size (TREE_OPERAND (pt_var, 0),
-					  object_size_type & ~1);
+	{
+	  sz = compute_builtin_object_size (TREE_OPERAND (pt_var, 0),
+					    object_size_type & ~1);
+	  if (host_integerp (TREE_OPERAND (pt_var, 1), 0))
+	    sz += TREE_INT_CST_LOW (TREE_OPERAND (pt_var, 1));
+	  else
+	    sz = offset_limit;
+	}
       else
 	{
 	  tree var = TREE_OPERAND (pt_var, 0);
@@ -224,7 +230,7 @@ addr_object_size (struct object_size_info *osi, const_tree ptr,
 		  && tree_int_cst_lt (pt_var_size,
 				      TYPE_SIZE_UNIT (TREE_TYPE (var)))))
 	    var = pt_var;
-	  else if (var != pt_var && TREE_CODE (pt_var) == INDIRECT_REF)
+	  else if (var != pt_var && TREE_CODE (pt_var) == MEM_REF)
 	    {
 	      tree v = var;
 	      /* For &X->fld, compute object size only if fld isn't the last
@@ -327,12 +333,14 @@ addr_object_size (struct object_size_info *osi, const_tree ptr,
 	}
       if (var != pt_var
 	  && pt_var_size
-	  && TREE_CODE (pt_var) == INDIRECT_REF
+	  && TREE_CODE (pt_var) == MEM_REF
 	  && bytes != error_mark_node)
 	{
 	  tree bytes2 = compute_object_offset (TREE_OPERAND (ptr, 0), pt_var);
 	  if (bytes2 != error_mark_node)
 	    {
+	      bytes2 = size_binop (PLUS_EXPR, bytes2,
+				   TREE_OPERAND (pt_var, 1));
 	      if (TREE_CODE (bytes2) == INTEGER_CST
 		  && tree_int_cst_lt (pt_var_size, bytes2))
 		bytes2 = size_zero_node;

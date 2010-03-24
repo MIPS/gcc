@@ -3359,6 +3359,9 @@ operand_equal_p (const_tree arg0, const_tree arg1, unsigned int flags)
 	case IMAGPART_EXPR:
 	  return OP_SAME (0);
 
+	case MEM_REF:
+	  return OP_SAME (0) && OP_SAME (1);
+
 	case ARRAY_REF:
 	case ARRAY_RANGE_REF:
 	  /* Operands 2 and 3 may be null.
@@ -8292,21 +8295,15 @@ build_fold_addr_expr_with_type_loc (location_t loc, tree t, tree ptrtype)
 	  SET_EXPR_LOCATION (t, loc);
 	}
     }
+  else if (TREE_CODE (t) == MEM_REF
+      && integer_zerop (TREE_OPERAND (t, 1)))
+    return TREE_OPERAND (t, 0);
   else if (TREE_CODE (t) == VIEW_CONVERT_EXPR)
     {
       t = build_fold_addr_expr_loc (loc, TREE_OPERAND (t, 0));
 
       if (TREE_TYPE (t) != ptrtype)
 	t = fold_convert_loc (loc, ptrtype, t);
-    }
-  else if (TREE_CODE (t) == MEM_REF)
-    {
-      tree tem = fold_convert_loc (loc, ptrtype, TREE_OPERAND (t, 0));
-      if (!integer_zerop (TREE_OPERAND (t, 1)))
-	t = fold_build2 (POINTER_PLUS_EXPR, ptrtype, tem,
-			 fold_convert (sizetype, TREE_OPERAND (t, 1)));
-      else
-	t = tem;
     }
   else
     {
@@ -10219,6 +10216,48 @@ fold_binary_loc (location_t loc,
 
   switch (code)
     {
+    case MEM_REF:
+      /* MEM[&MEM[p, CST1], CST2] -> MEM[p, CST1 + CST2].  */
+      if (TREE_CODE (arg0) == ADDR_EXPR
+	  && TREE_CODE (TREE_OPERAND (arg0, 0)) == MEM_REF)
+	{
+	  tree iref = TREE_OPERAND (arg0, 0);
+	  return fold_build2 (MEM_REF, type,
+			      TREE_OPERAND (iref, 0),
+			      int_const_binop (PLUS_EXPR, arg1,
+					       TREE_OPERAND (iref, 1), 0));
+	}
+
+      /* MEM[&a.b, CST2] -> MEM[&a, offsetof (a, b) + CST2].  */
+      if (TREE_CODE (arg0) == ADDR_EXPR
+	  && handled_component_p (TREE_OPERAND (arg0, 0)))
+	{
+	  tree base;
+	  HOST_WIDE_INT size, coffset;
+	  tree ncoffset;
+	  enum machine_mode mode;
+	  int dummy;
+
+	  base = get_inner_reference (TREE_OPERAND (arg0, 0), &size,
+				      &coffset, &ncoffset,
+				      &mode, &dummy, &dummy, false);
+	  if (coffset % BITS_PER_UNIT != 0
+	      || (ncoffset != NULL_TREE
+		  && TREE_CODE (ncoffset) != INTEGER_CST))
+	    return NULL_TREE;
+	  if (!ncoffset)
+	    ncoffset = size_int (coffset / BITS_PER_UNIT);
+	  else
+	    ncoffset = int_const_binop (PLUS_EXPR, ncoffset,
+					size_int (coffset / BITS_PER_UNIT), 0);
+
+	  return fold_build2 (MEM_REF, type,
+			      build_fold_addr_expr (base),
+			      int_const_binop (PLUS_EXPR, arg1, ncoffset, 0));
+	}
+
+      return NULL_TREE;
+
     case POINTER_PLUS_EXPR:
       /* 0 +p index -> (type)index */
       if (integer_zerop (arg0))

@@ -2716,7 +2716,7 @@ create_component_ref_by_pieces_1 (basic_block block, vn_reference_t ref,
 						     off / BITS_PER_UNIT), 0);
 	    baseop = build_fold_addr_expr (base);
 	  }
-	return build2 (MEM_REF, currop->type, baseop, offset);
+	return fold_build2 (MEM_REF, currop->type, baseop, offset);
       }
       break;
     case TARGET_MEM_REF:

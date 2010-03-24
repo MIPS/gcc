@@ -6667,8 +6667,16 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	  }
 
 	case MEM_REF:
-	  ret = gimplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
-			       is_gimple_val, fb_rvalue);
+	  tmp = fold_binary (MEM_REF, TREE_TYPE (*expr_p),
+			     TREE_OPERAND (*expr_p, 0),
+			     TREE_OPERAND (*expr_p, 1));
+	  if (tmp)
+	    *expr_p = tmp;
+	  if (TREE_CODE (TREE_OPERAND (*expr_p, 0)) != ADDR_EXPR
+	      || (!CONSTANT_CLASS_P (TREE_OPERAND (TREE_OPERAND (*expr_p, 0), 0))
+		  && !decl_address_invariant_p (TREE_OPERAND (TREE_OPERAND (*expr_p, 0), 0))))
+	    ret = gimplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
+				 is_gimple_reg, fb_rvalue);
 	  recalculate_side_effects (*expr_p);
 	  break;
 

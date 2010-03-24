@@ -774,17 +774,14 @@ forward_propagate_addr_expr_1 (tree name, tree def_rhs,
     lhsp = &TREE_OPERAND (*lhsp, 0);
   lhs = *lhsp;
 
-  /* Now see if the LHS node is an INDIRECT_REF using NAME.  If so,
+  /* Now see if the LHS node is a MEM_REF using NAME.  If so,
      propagate the ADDR_EXPR into the use of NAME and fold the result.  */
-  if (TREE_CODE (lhs) == INDIRECT_REF
+  if (TREE_CODE (lhs) == MEM_REF
       && TREE_OPERAND (lhs, 0) == name)
     {
-      if (may_propagate_address_into_dereference (def_rhs, lhs)
-	  && (lhsp != gimple_assign_lhs_ptr (use_stmt)
-	      || useless_type_conversion_p
-	           (TREE_TYPE (TREE_OPERAND (def_rhs, 0)), TREE_TYPE (rhs))))
+      if (is_gimple_min_invariant (def_rhs))
 	{
-	  *lhsp = unshare_expr (TREE_OPERAND (def_rhs, 0));
+	  TREE_OPERAND (lhs, 0) = unshare_expr (def_rhs);
 	  fold_stmt_inplace (use_stmt);
 	  tidy_after_forward_propagate_addr (use_stmt);
 
@@ -807,65 +804,17 @@ forward_propagate_addr_expr_1 (tree name, tree def_rhs,
     rhsp = &TREE_OPERAND (*rhsp, 0);
   rhs = *rhsp;
 
-  /* Now see if the RHS node is an INDIRECT_REF using NAME.  If so,
+  /* Now see if the RHS node is a MEM_REF using NAME.  If so,
      propagate the ADDR_EXPR into the use of NAME and fold the result.  */
-  if (TREE_CODE (rhs) == INDIRECT_REF
+  if (TREE_CODE (rhs) == MEM_REF
       && TREE_OPERAND (rhs, 0) == name
-      && may_propagate_address_into_dereference (def_rhs, rhs))
+      && is_gimple_min_invariant (def_rhs))
     {
-      *rhsp = unshare_expr (TREE_OPERAND (def_rhs, 0));
+      TREE_OPERAND (rhs, 0) = unshare_expr (def_rhs);
       fold_stmt_inplace (use_stmt);
       tidy_after_forward_propagate_addr (use_stmt);
       return res;
     }
-
-  /* Now see if the RHS node is an INDIRECT_REF using NAME.  If so,
-     propagate the ADDR_EXPR into the use of NAME and try to
-     create a VCE and fold the result.  */
-  if (TREE_CODE (rhs) == INDIRECT_REF
-      && TREE_OPERAND (rhs, 0) == name
-      && TYPE_SIZE (TREE_TYPE (rhs))
-      && TYPE_SIZE (TREE_TYPE (TREE_OPERAND (def_rhs, 0)))
-      /* Function decls should not be used for VCE either as it could be a
-         function descriptor that we want and not the actual function code.  */
-      && TREE_CODE (TREE_OPERAND (def_rhs, 0)) != FUNCTION_DECL
-      /* We should not convert volatile loads to non volatile loads. */
-      && !TYPE_VOLATILE (TREE_TYPE (rhs))
-      && !TYPE_VOLATILE (TREE_TYPE (TREE_OPERAND (def_rhs, 0)))
-      && operand_equal_p (TYPE_SIZE (TREE_TYPE (rhs)),
-			  TYPE_SIZE (TREE_TYPE (TREE_OPERAND (def_rhs, 0))), 0)
-      /* Make sure we only do TBAA compatible replacements.  */
-      && get_alias_set (TREE_OPERAND (def_rhs, 0)) == get_alias_set (rhs))
-   {
-     tree def_rhs_base, new_rhs = unshare_expr (TREE_OPERAND (def_rhs, 0));
-     new_rhs = fold_build1 (VIEW_CONVERT_EXPR, TREE_TYPE (rhs), new_rhs);
-     if (TREE_CODE (new_rhs) != VIEW_CONVERT_EXPR)
-       {
-	 /* If we have folded the VIEW_CONVERT_EXPR then the result is only
-	    valid if we can replace the whole rhs of the use statement.  */
-	 if (rhs != gimple_assign_rhs1 (use_stmt))
-	   return false;
-	 new_rhs = force_gimple_operand_gsi (use_stmt_gsi, new_rhs, true, NULL,
-					     true, GSI_NEW_STMT);
-	 gimple_assign_set_rhs1 (use_stmt, new_rhs);
-	 tidy_after_forward_propagate_addr (use_stmt);
-	 return res;
-       }
-     /* If the defining rhs comes from an indirect reference, then do not
-        convert into a VIEW_CONVERT_EXPR.  */
-     def_rhs_base = TREE_OPERAND (def_rhs, 0);
-     while (handled_component_p (def_rhs_base))
-       def_rhs_base = TREE_OPERAND (def_rhs_base, 0);
-     if (!INDIRECT_REF_P (def_rhs_base))
-       {
-	 /* We may have arbitrary VIEW_CONVERT_EXPRs in a nested component
-	    reference.  Place it there and fold the thing.  */
-	 *rhsp = new_rhs;
-	 fold_stmt_inplace (use_stmt);
-	 tidy_after_forward_propagate_addr (use_stmt);
-	 return res;
-       }
-   }
 
   /* If the use of the ADDR_EXPR is not a POINTER_PLUS_EXPR, there
      is nothing to do. */

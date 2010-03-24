@@ -681,6 +681,12 @@ ao_ref_init_from_vn_reference (ao_ref *ref,
 	  op0_p = &TREE_OPERAND (*op0_p, 0);
 	  break;
 
+	case MEM_REF:
+	  *op0_p = build2 (MEM_REF, op->type,
+			   NULL_TREE, op->op0);
+	  op0_p = &TREE_OPERAND (*op0_p, 0);
+	  break;
+
 	case VAR_DECL:
 	case PARM_DECL:
 	case RESULT_DECL:
@@ -1099,7 +1105,7 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_)
      the copy kills ref.  */
   else if (gimple_assign_single_p (def_stmt)
 	   && (DECL_P (gimple_assign_rhs1 (def_stmt))
-	       || INDIRECT_REF_P (gimple_assign_rhs1 (def_stmt))
+	       || TREE_CODE (gimple_assign_rhs1 (def_stmt)) == MEM_REF
 	       || handled_component_p (gimple_assign_rhs1 (def_stmt))))
     {
       tree base2;

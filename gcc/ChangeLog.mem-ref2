@@ -1,3 +1,37 @@
+2010-03-24  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-ccp.c (gimplify_and_update_call_from_tree): Avoid
+	inserting GIMPLE_NOPs into the IL.
+	* tree-ssa-structalias.c (get_constraint_for_component_ref):
+	Explicitly strip handled components and indirect references.
+
+	* fold-const.c (operand_equal_p): Handle MEM_REF.
+	(build_fold_addr_expr_with_type_loc): Only fold addresses of
+	MEM_REF with zero constant offset.
+	(fold_binary_loc): Do simple MEM_REF combining.
+	* tree-ssa-ccp.c (ccp_fold): Replace INDIRECT_REF folding with
+	MEM_REF.  Propagate &foo + CST as &MEM[&foo, CST].
+	(fold_const_aggregate_ref): Handle MEM_REF.
+	(ccp_fold_stmt): Use VIEW_CONVERT_EXPR on mismatched types.
+	(maybe_fold_reference): Use fold_binary.
+	(fold_gimple_assign): Simplify ADDR_EXPR handling.
+	* tree-ssa-forwprop.c (forward_propagate_addr_expr_1): Replace
+	INDIRECT_REF folding with MEM_REF.
+	* gimple.c (is_gimple_invariant_address): &MEM[&foo, CST] is
+	invariant.
+	* tree-ssa-sccvn.c (ao_ref_init_from_vn_reference): Handle
+	MEM_REF.
+	(vn_reference_lookup_3): Replace INDIRECT_REF handling with
+	MEM_REF.
+	* tree-ssa-pre.c (create_component_ref_by_pieces_1): Fold
+	the build MEM_REF.
+	* gimplify.c (gimplify_expr): Fold MEM_REFs before gimplifying
+	them.  Gimplify operand zero to a register if it doesn't
+	satisfy the constraint invariant address form.
+	* tree-object-size.c (addr_object_size): Handle MEM_REFs
+	instead of INDIRECT_REFs.
+	* tree-predcom.c (ref_at_iteration): Handle MEM_REFs.
+
 2010-03-22  Richard Guenther  <rguenther@suse.de>
 
 	* fold-const.c (fold_unary_loc): Do not strip qualifiers when
