@@ -1,5 +1,10 @@
 2010-03-24  Richard Guenther  <rguenther@suse.de>
 
+	* tree-object-size.c (compute_object_offset): Remove extra
+	break stmt.
+
+2010-03-24  Richard Guenther  <rguenther@suse.de>
+
 	* tree-object-size.c (compute_object_offset): Handle MEM_REF.
 
 2010-03-24  Richard Guenther  <rguenther@suse.de>
