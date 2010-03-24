@@ -1,5 +1,14 @@
 2010-03-24  Richard Guenther  <rguenther@suse.de>
 
+	* tree.c (recompute_tree_invariant_for_addr_expr): Handle MEM_REF.
+	* tree-ssa-sccvn.c (copy_reference_ops_from_ref): Re-instantiate
+	code handling ALIGN_INDIRECT_REF and MISALIGNED_INDIRECT_REF.
+	* tree-ssa-ccp.c (maybe_fold_reference): Drop code folding
+	constant-offset component references into the MEM_REF constant
+	offset.
+
+2010-03-24  Richard Guenther  <rguenther@suse.de>
+
 	* tree-object-size.c (compute_object_offset): Remove extra
 	break stmt.
 

@@ -3522,7 +3522,8 @@ do { tree _node = (NODE); \
      address is constant too.  If it's a decl, its address is constant if the
      decl is static.  Everything else is not constant and, furthermore,
      taking the address of a volatile variable is not volatile.  */
-  if (TREE_CODE (node) == INDIRECT_REF)
+  if (TREE_CODE (node) == INDIRECT_REF
+      || TREE_CODE (node) == MEM_REF)
     UPDATE_FLAGS (TREE_OPERAND (node, 0));
   else if (CONSTANT_CLASS_P (node))
     ;

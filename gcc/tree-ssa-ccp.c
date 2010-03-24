@@ -2580,34 +2580,6 @@ maybe_fold_reference (tree expr, bool is_lhs)
 	}
     }
 
-  /* Strip constant-offset component refs.  */
-  if (TREE_CODE (*t) == MEM_REF
-      && handled_component_p (expr)
-      /* We can't properly expand these.  */
-      && !((TREE_CODE (expr) == COMPONENT_REF
-	    && DECL_BIT_FIELD (TREE_OPERAND (expr, 1)))
-	   || TREE_CODE (expr) == BIT_FIELD_REF))
-    {
-      tree base;
-      HOST_WIDE_INT offset;
-      base = get_addr_base_and_offset (expr, &offset);
-      if (base
-	  && offset % BITS_PER_UNIT == 0)
-	{
-	  if (base == *t)
-	    return build2 (MEM_REF, TREE_TYPE (expr),
-			   TREE_OPERAND (*t, 0),
-			   int_const_binop (PLUS_EXPR,
-					    TREE_OPERAND (*t, 1),
-					    build_int_cst (TREE_TYPE (TREE_OPERAND (*t, 1)), offset / BITS_PER_UNIT), 0));
-	  else if (TREE_CODE (TREE_OPERAND (*t, 0)) == ADDR_EXPR
-		   && base == TREE_OPERAND (TREE_OPERAND (*t, 0), 0))
-	    return build2 (MEM_REF, TREE_TYPE (expr),
-			   TREE_OPERAND (*t, 0),
-			   build_int_cst (TREE_TYPE (TREE_OPERAND (*t, 1)), offset / BITS_PER_UNIT));
-	}
-    }
-
   return NULL_TREE;
 }
 
