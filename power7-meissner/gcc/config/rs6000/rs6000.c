@@ -16840,11 +16840,8 @@ rs6000_split_multireg_move (rtx dst, rtx src)
 	  /* If the base register we are using to address memory is
 	     also a destination reg, then change that register last.  */
 	  if (REG_P (breg)
-	      && ((REGNO (breg) < FIRST_PSEUDO_REGISTER
-		   && REGNO (dst) < FIRST_PSEUDO_REGISTER)
-		  ? (REGNO (breg) >= REGNO (dst)
-		     && REGNO (breg) < REGNO (dst) + nregs)
-		  : (REGNO (breg) == REGNO (dst))))
+	      && REGNO (breg) >= REGNO (dst)
+	      && REGNO (breg) < REGNO (dst) + nregs)
 	    j = REGNO (breg) - REGNO (dst);
 	}
       else if (MEM_P (dst) && INT_REGNO_P (reg))
@@ -16901,7 +16898,8 @@ rs6000_split_multireg_move (rtx dst, rtx src)
 		  rtx offsetreg = XEXP (XEXP (dst, 0), 1);
 		  gcc_assert (GET_CODE (XEXP (dst, 0)) == PLUS
 			      && REG_P (basereg)
-			      && REG_P (offsetreg));
+			      && REG_P (offsetreg)
+			      && REGNO (basereg) != REGNO (offsetreg));
 		  if (REGNO (basereg) == 0)
 		    {
 		      rtx tmp = offsetreg;

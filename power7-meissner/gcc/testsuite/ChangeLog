@@ -1,4 +1,39 @@
+2010-03-24  Jason Merrill  <jason@redhat.com>
+
+	PR c++/43502
+	* g++.dg/cpp0x/lambda/lambda-debug.C: New.
+
+2010-03-24  Martin Jambor  <mjambor@suse.cz>
+
+	* gcc.dg/ipa/ipa-1.c: Delete trailing spaces, put the call to f into
+	a loop.	
+	* gcc.dg/ipa/ipa-2.c: Likewise.
+	* gcc.dg/ipa/ipa-3.c: Likewise.
+	* gcc.dg/ipa/ipa-4.c: Likewise.
+	* gcc.dg/ipa/ipa-5.c: Likewise.
+	* gcc.dg/ipa/ipa-7.c: Likewise.
+	* gcc.dg/ipa/ipa-6.c: Delete trailing spaces, put the call to foo into
+	a loop.
+	* gcc.dg/ipa/ipacost-2.c: Delete trailing spaces, put the call to
+	i_can_not_be_propagated_fully2 into a loop.
+	* gcc.dg/ipa/ipa-8.c: New test.
+	* g++.dg/ipa/iinline-1.C: Put the call to docalling into a loop.
+
+2010-03-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/19192
+	PR debug/43479
+	* gcc.dg/guality/pr43479.c: New test.
+	* gcc.dg/debug/dwarf2/inline2.c (third): Make a a global var
+	and add volatile keyword.
+
+2010-03-23  Mike Stump  <mikestump@comcast.net>
+
+	* g++.dg/warn/Wstrict-aliasing-float-ref-int-obj.C: Enhance portability.
+
 2010-03-23  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/ext/altivec-17.C: Adjust error message.
 
 	* g++.dg/cpp0x/lambda/lambda-const-neg.C: Adjust for non-static op().
 	* g++.dg/cpp0x/lambda/lambda-conv.C: Likewise.
@@ -6,13 +41,6 @@
 	* g++.dg/cpp0x/lambda/lambda-non-const.C: Likewise.
 	* g++.dg/cpp0x/lambda/lambda-conv2.C: New.
 	* g++.dg/cpp0x/lambda/lambda-conv3.C: New.
-
-2010-03-23  Mike Stump  <mikestump@comcast.net>
-
-	PR target/33120
-	* g++.dg/ext/instantiate2.C: Update for .zerofill as it doesn't
-	follow the usual conventions for symbol definitions.
-	* gcc.target/i386/darwin-zerofill.c: Add.
 
 2010-03-22  Jason Merrill  <jason@redhat.com>
 
