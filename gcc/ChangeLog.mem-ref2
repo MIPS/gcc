@@ -1,5 +1,9 @@
 2010-03-24  Richard Guenther  <rguenther@suse.de>
 
+	* tree-object-size.c (compute_object_offset): Handle MEM_REF.
+
+2010-03-24  Richard Guenther  <rguenther@suse.de>
+
 	* tree-ssa-ccp.c (gimplify_and_update_call_from_tree): Avoid
 	inserting GIMPLE_NOPs into the IL.
 	* tree-ssa-structalias.c (get_constraint_for_component_ref):
