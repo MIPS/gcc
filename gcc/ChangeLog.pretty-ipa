@@ -1,3 +1,7 @@
+2010-03-24  Martin Jambor  <mjambor@suse.cz>
+
+	* tree-inline.c: Use the file from trunk.
+
 2009-07-10  Jan Hubicka  <jh@suse.cz>
 
 	* tree-ssa-dce.c: Fix merge error.
