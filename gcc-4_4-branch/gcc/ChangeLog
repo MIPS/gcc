@@ -1,3 +1,86 @@
+2010-03-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/43385
+	* gimplify.c (gimple_boolify): Only recurse on __builtin_expect
+	argument if the argument is truth_value_p.
+
+2010-03-23  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	Backport from mainline:
+	2010-01-08  DJ Delorie  <dj@redhat.com>
+
+	* config/sh/sh.c (sh_expand_epilogue): Fix interrupt handler
+	register popping order.
+
+2010-03-22  James E. Wilson  <wilson@codesourcery.com>
+
+	PR target/43348
+	* ia64.md (call_nogp, call_value_nogp, sibcall_nogp, call_gp,
+	call_value_gp,sibcall_gp): Use 's' constraint not 'i'.
+
+2010-03-22  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	2010-03-19  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/43415
+	* tree-ssa-pre.c (phi_translate): Split out worker to ...
+	(phi_translate_1): ... this.
+	(phi_translate): Move all caching here.  Cache all NARY
+	and REFERENCE translations.
+
+2010-03-22  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline:
+	2010-03-20  Richard Guenther  <rguenther@suse.de>
+
+	PR rtl-optimization/43438
+	* combine.c (make_extraction): Properly zero-/sign-extend an
+	extraction of the low part of a CONST_INT.  Also handle
+	CONST_DOUBLE.
+
+	2010-03-19  Michael Matz  <matz@suse.de>
+
+	PR c++/43116
+	* attribs.c (decl_attributes): When rebuilding a function pointer
+	type use the same qualifiers as the original pointer type.
+
+	PR target/43305
+	* builtins.c (expand_builtin_interclass_mathfn,
+	expand_builtin_signbit): Use maybe_emit_unop_insn, emit libcalls
+	if that fails.
+
+	2010-03-18  Michael Matz  <matz@suse.de>
+
+	PR middle-end/43419
+	* builtins.c (expand_builtin_pow): Don't transform pow(x, 0.5)
+	into sqrt(x) if we need to preserve signed zeros.
+
+2010-03-21  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR middle-end/42718
+	* pa.md (movmemsi): Set align to one if zero.
+	(movmemdi): Likewise.
+
+2010-03-21  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	Backport from mainline:
+	2009-05-12  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR target/43417
+	* config/sh/sh.md (cbranchdi4_i): Use an "I08" constraint
+	instead of "i" constraint.
+
+2010-03-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2010-03-18  Steven Bosscher  <steven@gcc.gnu.org>
+		    Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR rtl-optimization/43360
+	* loop-invariant.c (move_invariant_reg): Remove the REG_EQUAL
+	note if we don't know its invariant status.
+
 2010-03-08  Jakub Jelinek  <jakub@redhat.com>
 
 	Backport from mainline:
