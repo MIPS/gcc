@@ -564,8 +564,13 @@ replace_use_variable (var_map map, use_operand_p p, gimple *expr)
     {
       int version = SSA_NAME_VERSION (var);
       if (expr[version])
-        {
-	  SET_USE (p, unshare_expr (gimple_assign_rhs_to_tree (expr[version])));
+	{
+	  tree t = unshare_expr (gimple_assign_rhs_to_tree (expr[version]));
+	  if (gimple_has_location (expr[version]) && CAN_HAVE_LOCATION_P (t))
+	    SET_EXPR_LOCATION (t, gimple_location (expr[version]));
+	  if (gimple_block (expr[version]) && EXPR_P (t))
+	    TREE_BLOCK (t) = gimple_block (expr[version]);
+	  SET_USE (p, t);
 	  return true;
 	}
     }

@@ -36,12 +36,12 @@
    actually inlined.  */
 /* { dg-final { scan-assembler-times "byte.*?0x3.*? DW_AT_inline" 3 } } */
 
+volatile int *a;
 
 inline void
 third (int arg3)
 {
   int var3 = arg3;
-  int* a = 0;
   a[0] = var3;
 }
 
