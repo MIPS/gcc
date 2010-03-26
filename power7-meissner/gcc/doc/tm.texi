@@ -6786,6 +6786,18 @@ containing the assembler operation to identify the following data as
 uninitialized, writable small data.
 @end defmac
 
+@defmac TLS_COMMON_ASM_OP
+If defined, a C expression whose value is a string containing the
+assembler operation to identify the following data as thread-local
+common data.  The default is @code{".tls_common"}.
+@end defmac
+
+@defmac TLS_SECTION_ASM_FLAG
+If defined, a C expression whose value is a character constant
+containing the flag used to mark a section as a TLS section.  The
+default is @code{'T'}.
+@end defmac
+
 @defmac INIT_SECTION_ASM_OP
 If defined, a C expression whose value is a string, including spacing,
 containing the assembler operation to identify the following data as

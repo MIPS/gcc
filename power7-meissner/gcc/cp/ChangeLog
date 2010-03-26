@@ -1,3 +1,31 @@
+2010-03-26  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/43327
+	* pt.c (add_to_template_args): Support NULL ARGS;
+	(most_specialized_class): call coerce_template_parms on
+	template arguments passed to get_class_bindings. Use
+	add_to_template_args.
+	(unify): Handle VAR_DECLs.
+
+2010-03-26  Dodji Seketeli  <dodji@redhat.com>
+
+	* cp-tree.h (get_template_parms_at_level): Change unsigned parm
+	into int.
+	* pt.c (get_template_parms_at_level): Adjust.
+
+2010-03-25  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/43206
+	* cp-tree.h (get_template_parms_at_level): Declare ...
+	* pt.c (get_template_parms_at_level): ... new function.
+	* typeck.c (get_template_parms_of_dependent_type): If a template
+	type parm's DECL_CONTEXT isn't yet set, get its siblings from
+	current_template_parms. Use get_template_parms_at_level. Remove
+	useless test.
+	(incompatible_dependent_types_p): If we get empty parms from just one
+	of the template type parms we are comparing then the template parms are
+	incompatible.
+
 2010-03-24  Jason Merrill  <jason@redhat.com>
 
 	PR c++/43502

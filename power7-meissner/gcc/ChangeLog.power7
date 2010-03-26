@@ -1,5 +1,8 @@
 2010-03-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to 157760.
+	* REVISION: Update subversion id.
+
 	PR tree-optimization/43544
 	* doc/tm.texi (TARGET_VECTORIZE_BUILTIN_VECTORIZED_FUNCTION):
 	First argument for builtin vectorized function hook is now a
