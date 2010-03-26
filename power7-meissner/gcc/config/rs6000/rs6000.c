@@ -917,7 +917,7 @@ static rtx rs6000_emit_stack_reset (rs6000_stack_t *, rtx, rtx, int, bool);
 static rtx rs6000_make_savres_rtx (rs6000_stack_t *, rtx, int,
 				   enum machine_mode, bool, bool, bool);
 static bool rs6000_reg_live_or_pic_offset_p (int);
-static tree rs6000_builtin_vectorized_function (unsigned int, tree, tree);
+static tree rs6000_builtin_vectorized_function (tree, tree, tree);
 static int rs6000_savres_strategy (rs6000_stack_t *, bool, int, int);
 static void rs6000_restore_saved_cr (rtx, int);
 static void rs6000_output_function_prologue (FILE *, HOST_WIDE_INT);
@@ -2944,6 +2944,13 @@ rs6000_override_options (const char *default_cpu)
      the DERAT mispredict penalty.  */
     TARGET_AVOID_XFORM = (rs6000_cpu == PROCESSOR_POWER6 && TARGET_CMPB);
 
+  /* If -mrecip was not passed, only set it to true at high optimization levels
+     with -ffast-math.  */
+  if (TARGET_RECIP < 0)
+    TARGET_RECIP = (optimize >= 3 && TARGET_HARD_FLOAT && TARGET_PPC_GFXOPT
+		    && !optimize_size && flag_finite_math_only
+		    && !flag_trapping_math) ? 1 : 0;
+
   rs6000_init_hard_regno_mode_ok ();
 }
 
@@ -3255,15 +3262,17 @@ rs6000_parse_fpu_option (const char *option)
    if it is not available.  */
 
 static tree
-rs6000_builtin_vectorized_function (unsigned int fn, tree type_out,
+rs6000_builtin_vectorized_function (tree fndecl, tree type_out,
 				    tree type_in)
 {
   enum machine_mode in_mode, out_mode;
   int in_n, out_n;
+  enum built_in_function fn = DECL_FUNCTION_CODE (fndecl);
 
   if (TREE_CODE (type_out) != VECTOR_TYPE
       || TREE_CODE (type_in) != VECTOR_TYPE
-      || !TARGET_VECTORIZE_BUILTINS)
+      || !TARGET_VECTORIZE_BUILTINS
+      || DECL_BUILT_IN_CLASS (fndecl) != BUILT_IN_NORMAL)
     return NULL_TREE;
 
   out_mode = TYPE_MODE (TREE_TYPE (type_out));
@@ -11041,6 +11050,9 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
   if (fcode == RS6000_BUILTIN_RSQRTF)
       return rs6000_expand_unop_builtin (CODE_FOR_rsqrtsf2, exp, target);
 
+  if (fcode == RS6000_BUILTIN_RSQRT)
+      return rs6000_expand_unop_builtin (CODE_FOR_rsqrtdf2, exp, target);
+
   if (fcode == RS6000_BUILTIN_BSWAP_HI)
     return rs6000_expand_unop_builtin (CODE_FOR_bswaphi2, exp, target);
 
@@ -11352,6 +11364,11 @@ rs6000_init_builtins (void)
 				     "__builtin_rsqrtf");
       def_builtin (MASK_PPC_GFXOPT, "__builtin_rsqrtf", ftype,
 		   RS6000_BUILTIN_RSQRTF);
+      ftype = builtin_function_type (DFmode, DFmode, VOIDmode, VOIDmode,
+				     RS6000_BUILTIN_RSQRT,
+				     "__builtin_rsqrt");
+      def_builtin (MASK_PPC_GFXOPT, "__builtin_rsqrt", ftype,
+		   RS6000_BUILTIN_RSQRT);
     }
   if (TARGET_POPCNTB)
     {
@@ -25186,6 +25203,9 @@ rs6000_builtin_reciprocal (unsigned int fn, bool md_fn,
   else
     switch (fn)
       {
+      case BUILT_IN_SQRT:
+	return rs6000_builtin_decls[RS6000_BUILTIN_RSQRT];
+
       case BUILT_IN_SQRTF:
 	return rs6000_builtin_decls[RS6000_BUILTIN_RSQRTF];
 
@@ -25298,75 +25318,72 @@ rs6000_emit_swdivdf (rtx dst, rtx n, rtx d)
 }
 
 
-/* Newton-Raphson approximation of single-precision floating point rsqrt.
-   Assumes no trapping math and finite arguments.  */
+/* Newton-Raphson approximation of single/double-precision floating point
+   rsqrt.  Assumes no trapping math and finite arguments.  */
 
 void
-rs6000_emit_swrsqrtsf (rtx dst, rtx src)
+rs6000_emit_swrsqrt (rtx dst, rtx src)
 {
-  rtx x0, x1, x2, y1, u0, u1, u2, v0, v1, v2, half, one, halfthree;
+  enum machine_mode mode = GET_MODE (src);
+  rtx x0 = gen_reg_rtx (mode);
+  int passes;
 
   gcc_assert (flag_finite_math_only && !flag_trapping_math);
 
-  x0 = gen_reg_rtx (SFmode);
-  x1 = gen_reg_rtx (SFmode);
-  x2 = gen_reg_rtx (SFmode);
-  y1 = gen_reg_rtx (SFmode);
-  u0 = gen_reg_rtx (SFmode);
-  u1 = gen_reg_rtx (SFmode);
-  u2 = gen_reg_rtx (SFmode);
-  v0 = gen_reg_rtx (SFmode);
-  v1 = gen_reg_rtx (SFmode);
-  v2 = gen_reg_rtx (SFmode);
-  halfthree = gen_reg_rtx (SFmode);
+  if (mode == SFmode)
+    passes = rs6000_recip_float_passes;
 
-  half = force_reg (SFmode, CONST_DOUBLE_FROM_REAL_VALUE (dconsthalf, SFmode));
-  one = force_reg (SFmode, CONST_DOUBLE_FROM_REAL_VALUE (dconst1, SFmode));
+  else if (mode == DFmode)
+    passes = rs6000_recip_double_passes;
 
-  /* halfthree = 1.5 = 1.0 + 0.5 */
-  emit_insn (gen_rtx_SET (VOIDmode, halfthree,
-			  gen_rtx_PLUS (SFmode, one, half)));
+  else
+    gcc_unreachable ();
 
   /* x0 = rsqrt estimate */
   emit_insn (gen_rtx_SET (VOIDmode, x0,
-			  gen_rtx_UNSPEC (SFmode, gen_rtvec (1, src),
+			  gen_rtx_UNSPEC (mode, gen_rtvec (1, src),
 					  UNSPEC_RSQRT)));
 
-  /* y1 = 0.5 * src = 1.5 * src - src -> fewer constants */
-  emit_insn (gen_rtx_SET (VOIDmode, y1,
-			  gen_rtx_MINUS (SFmode,
-					 gen_rtx_MULT (SFmode, src, halfthree),
-					 src)));
+  if (passes > 0)
+    {
+      REAL_VALUE_TYPE dconst3_2;
+      int i;
+      rtx halfthree;
+      rtx y = gen_reg_rtx (mode);
+      rtx m;
+      rtx d;
 
-  /* x1 = x0 * (1.5 - y1 * (x0 * x0)) */
-  emit_insn (gen_rtx_SET (VOIDmode, u0,
-			  gen_rtx_MULT (SFmode, x0, x0)));
-  emit_insn (gen_rtx_SET (VOIDmode, v0,
-			  gen_rtx_MINUS (SFmode,
-					 halfthree,
-					 gen_rtx_MULT (SFmode, y1, u0))));
-  emit_insn (gen_rtx_SET (VOIDmode, x1,
-			  gen_rtx_MULT (SFmode, x0, v0)));
+      real_from_integer (&dconst3_2, VOIDmode, 3, 0, 0);
+      SET_REAL_EXP (&dconst3_2, REAL_EXP (&dconst3_2) - 1);
+      d = CONST_DOUBLE_FROM_REAL_VALUE (dconst3_2, mode);
+      halfthree = force_reg (mode, d);
 
-  /* x2 = x1 * (1.5 - y1 * (x1 * x1)) */
-  emit_insn (gen_rtx_SET (VOIDmode, u1,
-			  gen_rtx_MULT (SFmode, x1, x1)));
-  emit_insn (gen_rtx_SET (VOIDmode, v1,
-			  gen_rtx_MINUS (SFmode,
-					 halfthree,
-					 gen_rtx_MULT (SFmode, y1, u1))));
-  emit_insn (gen_rtx_SET (VOIDmode, x2,
-			  gen_rtx_MULT (SFmode, x1, v1)));
+      /* y = 0.5 * src = 1.5 * src - src -> fewer constants */
+      m = gen_rtx_MULT (mode, src, halfthree),
+      emit_insn (gen_rtx_SET (VOIDmode, y, gen_rtx_MINUS (mode, m, src)));
 
-  /* dst = x2 * (1.5 - y1 * (x2 * x2)) */
-  emit_insn (gen_rtx_SET (VOIDmode, u2,
-			  gen_rtx_MULT (SFmode, x2, x2)));
-  emit_insn (gen_rtx_SET (VOIDmode, v2,
-			  gen_rtx_MINUS (SFmode,
-					 halfthree,
-					 gen_rtx_MULT (SFmode, y1, u2))));
-  emit_insn (gen_rtx_SET (VOIDmode, dst,
-			  gen_rtx_MULT (SFmode, x2, v2)));
+      for (i = 0; i < passes; i++)
+	{
+	  rtx x1 = gen_reg_rtx (mode);
+	  rtx u = gen_reg_rtx (mode);
+	  rtx v = gen_reg_rtx (mode);
+
+	  /* x1 = x0 * (1.5 - y * (x0 * x0)) */
+	  emit_insn (gen_rtx_SET (VOIDmode, u,
+				  gen_rtx_MULT (mode, x0, x0)));
+
+	  m = gen_rtx_MULT (mode, y, u);
+	  emit_insn (gen_rtx_SET (VOIDmode, v,
+				  gen_rtx_MINUS (mode, halfthree, m)));
+
+	  emit_insn (gen_rtx_SET (VOIDmode, x1,
+				  gen_rtx_MULT (mode, x0, v)));
+	  x0 = x1;
+	}
+    }
+
+  emit_move_insn (dst, x0);
+  return;
 }
 
 /* Emit popcount intrinsic on TARGET_POPCNTB (Power5) and TARGET_POPCNTD

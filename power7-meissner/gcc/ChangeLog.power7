@@ -1,3 +1,44 @@
+2010-03-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR tree-optimization/43544
+	* doc/tm.texi (TARGET_VECTORIZE_BUILTIN_VECTORIZED_FUNCTION):
+	First argument for builtin vectorized function hook is now a
+	tree to be able to distinguish between machine specific and
+	standard builtins.
+	* targhooks.c (default_builtin_vectorized_function): Ditto.
+	* targhooks.h (default_builtin_vectorized_function): Ditto.
+	* target.h (struct gcc_target): Ditto.
+	* tree-vect-stmts.c (vectorizable_function): Ditto.
+	* config/i386/i386.c (ix86_builtin_vectorized_function): Ditto.
+	* config/rs6000/rs6000.c (rs6000_builtin_vectorized_function):
+	Ditto.
+
+	* doc/invoke.texi (-mrecip): Document.
+	(-mno-recip): Ditto.
+	(-mrecip-float-passes=n): New switch.
+	(-mrecip-double-passes=n): Ditto.
+
+	* config/rs6000/rs6000-builtin.def (RS6000_BUILTIN_RSQRT): New
+	builtin for double reciprocal sqrt.
+
+	* config/rs6000/rs6000.c (rs6000_override_options): If -mrecip was
+	not set, set it to true if -O3 and -ffast-math.
+	(rs6000_expand_builtin): Add support for double reciprocal sqrt.
+	(rs6000_init_builtins): Ditto.
+	(rs6000_builtin_reciprocal): Ditto.
+	(rs6000_emit_swrsqrt): Rename from rs6000_emit_swrsqrtsf, and
+	handle both single/double.  Implement -mrecip-*-passes=n to
+	control how many passes of fixup are needed.
+
+	* config/rs6000/vsx.md (UNSPEC_VSX_RSQRTE): Delete.
+	(vsx_rsqrte<mode>2): Use UNSPEC_RSQRT, not UNSPEC_VSX_RSQRTE.
+
+	* config/rs6000/rs6000.md (FP2): New iterator.
+	(rsqrt<mode>2): Generalize to handle both single/double reciprocal
+	sqrt.
+	(rsqrtsf_internal1): Rename from rsqrt_internal1.
+	(rsqrtdf_internal1): New insn to handle double reciprocal sqrt.
+
 2010-03-24  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 157713.

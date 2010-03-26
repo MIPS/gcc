@@ -195,8 +195,20 @@ Target Report Var(TARGET_XL_COMPAT)
 Conform more closely to IBM XLC semantics
 
 mrecip
-Target Report Var(TARGET_RECIP)
-Generate software reciprocal sqrt for better throughput
+Target Report Var(TARGET_RECIP) Init(-1)
+Generate software reciprocal for better throughput.
+
+mrecip=
+Target Report RejectNegative Joined
+-mrecip=sqrt,div,fsqrt,dsqrt,fdiv,ddiv	Generate software reciprocal for better throughput.
+
+mrecip-float-passes=
+Target Report UInteger Joined Var(rs6000_recip_float_passes) Init(3)
+Number of fixup passes after doing the single precision reciprocal esitmate.  Default is 3.
+
+mrecip-double-passes=
+Target Report UInteger Joined Var(rs6000_recip_double_passes) Init(3)
+Number of fixup passes after doing the double precision reciprocal esitmate.  Default is 3.
 
 mno-fp-in-toc
 Target Report RejectNegative Var(TARGET_NO_FP_IN_TOC)
