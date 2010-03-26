@@ -2537,8 +2537,12 @@ maybe_fold_reference (tree expr, bool is_lhs)
 	   && integer_zerop (TREE_OPERAND (*t, 1))
 	   && TREE_THIS_VOLATILE (*t) == TREE_THIS_VOLATILE (TREE_OPERAND (TREE_OPERAND (*t, 0), 0))
 	   && get_alias_set (*t) == get_alias_set (TREE_OPERAND (TREE_OPERAND (*t, 0), 0))
-	   && useless_type_conversion_p (TREE_TYPE (*t),
-					 TREE_TYPE (TREE_OPERAND (TREE_OPERAND (*t, 0), 0))))
+	   /* We have to look out here to not drop a required conversion
+	      from the rhs to the lhs if is_lhs, but we don't have the
+	      rhs here to verify that.  Thus require strict type
+	      compatibility.  */
+	   && types_compatible_p (TREE_TYPE (*t),
+				  TREE_TYPE (TREE_OPERAND (TREE_OPERAND (*t, 0), 0))))
     {
       tree tem;
       *t = TREE_OPERAND (TREE_OPERAND (*t, 0), 0);

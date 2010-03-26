@@ -363,7 +363,8 @@ static bool
 mark_load (gimple stmt ATTRIBUTE_UNUSED, tree t, void *data)
 {
   ipa_reference_local_vars_info_t local = (ipa_reference_local_vars_info_t)data;
-  if (TREE_CODE (t) == VAR_DECL
+  t = get_base_address (t);
+  if (t && TREE_CODE (t) == VAR_DECL
       && has_proper_scope_for_analysis (t))
     bitmap_set_bit (local->statics_read, DECL_UID (t));
   return false;
@@ -375,7 +376,8 @@ static bool
 mark_store (gimple stmt ATTRIBUTE_UNUSED, tree t, void *data)
 {
   ipa_reference_local_vars_info_t local = (ipa_reference_local_vars_info_t)data;
-  if (TREE_CODE (t) == VAR_DECL
+  t = get_base_address (t);
+  if (t && TREE_CODE (t) == VAR_DECL
       && has_proper_scope_for_analysis (t))
     {
       if (local)

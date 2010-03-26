@@ -2484,10 +2484,31 @@ expand_debug_expr (tree exp)
 	HOST_WIDE_INT bitsize, bitpos;
 	tree offset;
 	int volatilep = 0;
-	tree tem = get_inner_reference (exp, &bitsize, &bitpos, &offset,
-					&mode1, &unsignedp, &volatilep, false);
+	tree *tp = &exp;
+	tree tem;
 	rtx orig_op0;
 
+	/* First fold un-folded results from CCP.  */
+	do
+	  {
+	    while (handled_component_p (*tp))
+	      tp = &TREE_OPERAND (*tp, 0);
+	    if (TREE_CODE (*tp) == MEM_REF)
+	      {
+		tem = fold_binary (MEM_REF, TREE_TYPE (*tp),
+				   TREE_OPERAND (*tp, 0),
+				   TREE_OPERAND (*tp, 1));
+		if (!tem)
+		  break;
+		*tp = tem;
+	      }
+	    else
+	      break;
+	  }
+	while (1);
+
+	tem = get_inner_reference (exp, &bitsize, &bitpos, &offset,
+				   &mode1, &unsignedp, &volatilep, false);
 	if (bitsize == 0)
 	  return NULL;
 

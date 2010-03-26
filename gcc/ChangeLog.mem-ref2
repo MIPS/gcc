@@ -1,3 +1,15 @@
+2010-03-26  Richard Guenther  <rguenther@suse.de>
+
+	* ipa-reference.c (mark_load): Use get_base_address.
+	(mark_store): Likewise.
+
+	* tree-ssa-ccp.c (maybe_fold_reference): Avoid introducing
+	not useless type conversions.
+	* ipa-pure-const.c (check_op): Handle MEM_REF.
+	* cfgexpand.c (expand_debug_expr): Fold MEM_REFs in debug
+	expressions to avoid handing non-canonicalized MEM_EXPRs
+	to the alias-oracle from the scheduler.
+
 2010-03-24  Richard Guenther  <rguenther@suse.de>
 
 	* tree.c (recompute_tree_invariant_for_addr_expr): Handle MEM_REF.
