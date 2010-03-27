@@ -1,3 +1,42 @@
+2010-03-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (dwarf2_debug_hooks): Use dwarf2out_function_decl
+	instead of dwarf2out_decl.
+	(struct var_loc_node): Remove section_label field.
+	(dwarf2out_function_decl): New function.
+	(dwarf2out_var_location): Don't set section_label field.
+	(dwarf2out_begin_function): Don't empty decl_loc_table here.
+
+2010-03-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* var-tracking.c (vt_expand_loc_callback): Don't run
+	cselib_expand_value_rtx_cb in dummy mode if
+	cselib_dummy_expand_value_rtx_cb returned false.
+
+	* var-tracking.c (emit_note_insn_var_location): For one part
+	notes with offset 0, don't add EXPR_LIST around the location.
+	* dwarf2out.c (loc_descriptor, dw_loc_list_1,
+	add_location_or_const_value_attribute): Adjust for that change.
+
+	PR debug/43540
+	* dwarf2out.c (reg_save): For DW_CFA_expression put regnum
+	into first operand and location into second.
+	(dw_cfi_oprnd1_desc): Return dw_cfi_oprnd_reg_num instead of
+	dw_cfi_oprnd_loc for DW_CFA_expression.
+	(dw_cfi_oprnd2_desc): Return dw_cfi_oprnd_loc for DW_CFA_expression.
+	(output_cfa_loc, output_cfa_loc_raw): For DW_CFA_expression
+	assume first argument is regnum and second argument is location.
+
+2010-03-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/43516
+	* flags.h (final_insns_dump_p): New extern.
+	* final.c (final_insns_dump_p): New variable.
+	(rest_of_clean_state): Set it before -fdump-final-insns=
+	dumping, clear afterwards.
+	* print-rtl.c (print_rtx): If final_insns_dump_p don't dump
+	MEM_ALIAS_SET on MEMs.
+
 2010-03-27  Uros Bizjak  <ubizjak@gmail.com>
 
 	PR target/42113
