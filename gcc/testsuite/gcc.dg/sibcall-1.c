@@ -37,8 +37,7 @@ recurser_void (int n)
 
 void *trackpoint;
 
-__attribute__ ((noinline))
-void
+void __attribute__ ((noinline))
 track (int n)
 {
   char stackpos[1];
