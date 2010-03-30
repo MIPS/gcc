@@ -2984,7 +2984,6 @@ expand_builtin_pow_root (tree arg0, tree arg1, tree type, rtx subtarget)
 		  sqrt3 = build_call_expr (sqrtfn, 1, sqrt1);
 		  CALL_EXPR_NOFOLD (sqrt3) = true;
 		  op = fold_build2 (MULT_EXPR, type, sqrt2, sqrt3);
-		  CALL_EXPR_NOFOLD (op) = true;
 		}
 	    }
 	}
