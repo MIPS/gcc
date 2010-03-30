@@ -1041,11 +1041,25 @@ read_x (st_parameter_dt *dtp, int n)
       goto done;
     }
 
+  if (dtp->u.p.sf_seen_eor)
+    return;
+
   p = fbuf_read (dtp->u.p.current_unit, &length);
-  if (p == NULL || (length == 0 && dtp->u.p.item_count == 1))
+  if (p == NULL)
     {
       hit_eof (dtp);
       return;
+    }
+  
+  if (length == 0 && dtp->u.p.item_count == 1)
+    {
+      if (dtp->u.p.current_unit->pad_status == PAD_NO)
+	{
+	  hit_eof (dtp);
+	  return;
+	}
+      else
+	return;
     }
 
   n = 0;

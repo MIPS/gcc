@@ -1,5 +1,8 @@
 2010-03-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to redhat_branch, subversion id 157832.
+	* REVISION: Update subversion id.
+
 	* builtins.c (expand_builtin_pow_root): Only use CALL_EXPR_NOFOLD
 	on the sqrt calls, not the multiply.
 

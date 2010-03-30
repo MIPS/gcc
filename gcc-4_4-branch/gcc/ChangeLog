@@ -1,3 +1,251 @@
+2010-03-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (dwarf2_debug_hooks): Use dwarf2out_function_decl
+	instead of dwarf2out_decl.
+	(struct var_loc_node): Remove section_label field.
+	(dwarf2out_function_decl): New function.
+	(dwarf2out_var_location): Don't set section_label field.
+	(dwarf2out_begin_function): Don't empty decl_loc_table here.
+
+2010-03-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* var-tracking.c (vt_expand_loc_callback): Don't run
+	cselib_expand_value_rtx_cb in dummy mode if
+	cselib_dummy_expand_value_rtx_cb returned false.
+
+	* var-tracking.c (emit_note_insn_var_location): For one part
+	notes with offset 0, don't add EXPR_LIST around the location.
+	* dwarf2out.c (loc_descriptor, dw_loc_list_1,
+	add_location_or_const_value_attribute): Adjust for that change.
+
+	PR debug/43540
+	* dwarf2out.c (reg_save): For DW_CFA_expression put regnum
+	into first operand and location into second.
+	(dw_cfi_oprnd1_desc): Return dw_cfi_oprnd_reg_num instead of
+	dw_cfi_oprnd_loc for DW_CFA_expression.
+	(dw_cfi_oprnd2_desc): Return dw_cfi_oprnd_loc for DW_CFA_expression.
+	(output_cfa_loc, output_cfa_loc_raw): For DW_CFA_expression
+	assume first argument is regnum and second argument is location.
+
+2010-03-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/43516
+	* flags.h (final_insns_dump_p): New extern.
+	* final.c (final_insns_dump_p): New variable.
+	(rest_of_clean_state): Set it before -fdump-final-insns=
+	dumping, clear afterwards.
+	* print-rtl.c (print_rtx): If final_insns_dump_p don't dump
+	MEM_ALIAS_SET on MEMs.
+
+2010-03-27  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/42113
+	* config/alpha/alpha.md (*cmp_sadd_si): Change mode
+	of scratch register to DImode.  Split to DImode comparison operator.
+	Use SImode subreg of scratch register in the multiplication.
+	(*cmp_sadd_sidi): Ditto.
+	(*cmp_ssub_si): Ditto.
+	(*cmp_ssub_sidi): Ditto.
+
+2010-03-27  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/43381
+	* c-decl.c (get_parm_info): Assert that decl going in OTHERS has a
+	nested binding iff it is a FUNCTION_DECL.
+	(store_parm_decls_newstyle): Pass nested=true to bind for
+	FUNCTION_DECLs amongst parameters.
+
+2010-03-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/43511
+	* config/i386/i386.c (ix86_code_end): Set DECL_WEAK if TARGET_MACHO.
+	Clear first_function_block_is_cold.
+
+	PR c/43385
+	* gimplify.c (gimple_boolify): Only recurse on __builtin_expect
+	argument if the argument is truth_value_p.
+
+2010-03-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/43293
+	* target.h (struct gcc_target): Add code_end hook.
+	* target-def.h (TARGET_ASM_CODE_END): Define to hook_void_void
+	if not yet defined.
+	(TARGET_ASM_OUT): Add TARGET_ASM_CODE_END.
+	* toplev.c (compile_file): Call targetm.asm_out.code_end
+	hook before unwind info/debug info output.
+	* config/i386/winnt.c (i386_pe_file_end): Don't call ix86_file_end.
+	* config/i386/linux.h (NEED_INDICATE_EXEC_STACK): Don't define.
+	(TARGET_ASM_FILE_END): Define to file_end_indicate_exec_stack.
+	* config/i386/linux64.h (NEED_INDICATE_EXEC_STACK): Don't define.
+	(TARGET_ASM_FILE_END): Define to file_end_indicate_exec_stack.
+	* config/i386/i386.c (ix86_file_end): Renamed to...
+	(ix86_code_end): ... this.  Make static.  Don't call
+	file_end_indicate_exec_stack.  Emit unwind info using
+	final_start_function/final_end_function.
+	(darwin_x86_file_end): Remove.
+	(TARGET_ASM_CODE_END): Define.
+	* config/i386/i386.h (TARGET_ASM_FILE_END,
+	NEED_INDICATE_EXEC_STACK): Don't define.
+	* config/i386/darwin.h (darwin_x86_file_end): Remove prototype.
+	(TARGET_ASM_FILE_END): Define to darwin_file_end.
+	* config/i386/i386-protos.h (ix86_file_end): Remove prototype.
+	* doc/tm.texi (TARGET_ASM_CODE_END): Document.
+
+	PR target/43498
+	* config/i386/i386.c (x86_output_mi_thunk): Call final_start_function
+	at the beginning and final_end_function at the end.
+	* config/s390/s390.c (s390_output_mi_thunk): Likewise.
+
+	PR debug/43508
+	* dwarf2out.c (mem_loc_descriptor): Don't ICE on
+	VEC_{MERGE,SELECT,CONCAT,DUPLICATE}.
+
+	PR debug/43479
+	* ira.c (adjust_cleared_regs): New function.
+	(update_equiv_regs): Adjust cleared_regs in DEBUG_INSNs.
+
+	PR debug/19192
+	PR debug/43479
+	* expr.c (expand_expr_real): Restore previous
+	curr_insn_source_location and curr_insn_block after
+	expand_expr_real_1 call.
+	* stmt.t (expand_expr_stmt): Call set_curr_insn_source_location
+	and set_curr_insn_block if exp has location.
+	* tree-outof-ssa.c (replace_use_variable): Set TREE_BLOCK
+	and SET_EXPR_LOCATION from expr[version]'s gimple_location
+	and gimple_block.
+
+2010-03-23  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	Backport from mainline:
+	2010-01-08  DJ Delorie  <dj@redhat.com>
+
+	* config/sh/sh.c (sh_expand_epilogue): Fix interrupt handler
+	register popping order.
+
+2010-03-22  James E. Wilson  <wilson@codesourcery.com>
+
+	PR target/43348
+	* ia64.md (call_nogp, call_value_nogp, sibcall_nogp, call_gp,
+	call_value_gp,sibcall_gp): Use 's' constraint not 'i'.
+
+2010-03-22  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	2010-03-19  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/43415
+	* tree-ssa-pre.c (phi_translate): Split out worker to ...
+	(phi_translate_1): ... this.
+	(phi_translate): Move all caching here.  Cache all NARY
+	and REFERENCE translations.
+
+2010-03-22  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline:
+	2010-03-20  Richard Guenther  <rguenther@suse.de>
+
+	PR rtl-optimization/43438
+	* combine.c (make_extraction): Properly zero-/sign-extend an
+	extraction of the low part of a CONST_INT.  Also handle
+	CONST_DOUBLE.
+
+	2010-03-19  Michael Matz  <matz@suse.de>
+
+	PR c++/43116
+	* attribs.c (decl_attributes): When rebuilding a function pointer
+	type use the same qualifiers as the original pointer type.
+
+	PR target/43305
+	* builtins.c (expand_builtin_interclass_mathfn,
+	expand_builtin_signbit): Use maybe_emit_unop_insn, emit libcalls
+	if that fails.
+
+	2010-03-18  Michael Matz  <matz@suse.de>
+
+	PR middle-end/43419
+	* builtins.c (expand_builtin_pow): Don't transform pow(x, 0.5)
+	into sqrt(x) if we need to preserve signed zeros.
+
+2010-03-22  Jakub Jelinek  <jakub@redhat.com>
+
+	* varasm.c (make_decl_rtl_for_debug): Also clear
+	flag_mudflap for the duration of make_decl_rtl call.
+
+	PR debug/43443
+	* var-tracking.c (add_cselib_value_chains): Remove ASM_OPERANDS
+	locs from preserved VALUEs.
+
+2010-03-19  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	PR target/43399
+	* config/arm/arm.c (emit_multi_reg_push): Update comments.
+	Use PRE_MODIFY instead of PRE_DEC.
+	(emit_sfm): Use PRE_MODIFY instead of PRE_DEC.
+	(vfp_emit_fstmd): Likewise.
+
+2010-03-18  Aldy Hernandez  <aldyh@redhat.com>
+
+	* tree.h: Declare make_decl_rtl_for_debug.
+	* varasm.c (make_decl_rtl_for_debug): New.
+	* dwarf2out.c (rtl_for_decl_location): Call it.
+	* cfgexpand.c (expand_debug_expr): Call it.
+
+2010-03-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/43399
+	* var-tracking.c (adjust_mems) <case POST_MODIFY>: Allow BLKmode
+	mem_mode.
+
+	PR bootstrap/43403
+	* var-tracking.c (vt_init_cfa_base): Do nothing if
+	cfa_base_rtx would be hard_frame_pointer_rtx or non-fixed
+	register.
+
+2010-03-18  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/42873
+	* var-tracking.c (canonicalize_vars_star): New.
+	(dataflow_post_merge_adjust): Use it.
+
+2010-03-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/43058
+	* var-tracking.c (non_suitable_const): New function.
+	(add_uses): For DEBUG_INSNs with constants, don't record any
+	value, instead just the constant value itself.
+	(compute_bb_dataflow) <case MO_VAL_LOC>: If PAT_VAR_LOCATION_LOC
+	is not VAR_LOC_UNKNOWN_P, set var to the constant.
+	(emit_notes_in_bb): Likewise.
+	(emit_note_insn_var_location): For onepart variables if
+	cur_loc is a VOIDmode constant, use DECL_MODE.
+
+2010-03-21  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR middle-end/42718
+	* pa.md (movmemsi): Set align to one if zero.
+	(movmemdi): Likewise.
+
+2010-03-21  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	Backport from mainline:
+	2009-05-12  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR target/43417
+	* config/sh/sh.md (cbranchdi4_i): Use an "I08" constraint
+	instead of "i" constraint.
+
+2010-03-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2010-03-18  Steven Bosscher  <steven@gcc.gnu.org>
+		    Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR rtl-optimization/43360
+	* loop-invariant.c (move_invariant_reg): Remove the REG_EQUAL
+	note if we don't know its invariant status.
+
 2010-03-16  Aldy Hernandez  <aldyh@redhat.com>
 	    Alexandre Oliva  <aoliva@redhat.com>
 

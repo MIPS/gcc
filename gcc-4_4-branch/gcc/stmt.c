@@ -1374,6 +1374,12 @@ expand_expr_stmt (tree exp)
   rtx value;
   tree type;
 
+  if (cfun && EXPR_HAS_LOCATION (exp))
+    {
+      set_curr_insn_source_location (EXPR_LOCATION (exp));
+      set_curr_insn_block (TREE_BLOCK (exp));
+    }
+
   value = expand_expr (exp, const0_rtx, VOIDmode, EXPAND_NORMAL);
   type = TREE_TYPE (exp);
 

@@ -1,3 +1,177 @@
+2010-03-29  Jason Merrill  <jason@redhat.com>
+
+	* gcc.dg/cpp/include6.c: Change [] to ().
+
+	N3077
+	* c-c++-common/raw-string-1.c: Update handling of trigraphs, line
+	splicing and UCNs.
+	* c-c++-common/raw-string-2.c: Add trigraph test.
+	* c-c++-common/raw-string-8.c: New.
+	* c-c++-common/raw-string-9.c: New.
+	* c-c++-common/raw-string-10.c: New.
+
+	* c-c++-common/raw-string-1.c: Combine C and C++ raw string tests.
+	* c-c++-common/raw-string-2.c: Combine C and C++ raw string tests.
+	* c-c++-common/raw-string-3.c: Combine C and C++ raw string tests.
+	* c-c++-common/raw-string-4.c: Combine C and C++ raw string tests.
+	* c-c++-common/raw-string-5.c: Combine C and C++ raw string tests.
+	* c-c++-common/raw-string-6.c: Combine C and C++ raw string tests.
+	* c-c++-common/raw-string-7.c: Combine C and C++ raw string tests.
+
+2010-03-29  Jason Merrill  <jason@redhat.com>
+
+	N3077
+	* g++.dg/ext/raw-string-1.C: Change [] to ().
+	* g++.dg/ext/raw-string-2.C: Change [] to ().
+	Don't use \ in delimiter.
+	* g++.dg/ext/raw-string-3.C: Change [] to ().
+	* g++.dg/ext/raw-string-4.C: Change [] to ().
+	* g++.dg/ext/raw-string-5.C: Change [] to ().
+	Test for error on \ in delimiter.
+	* g++.dg/ext/raw-string-6.C: Change [] to ().
+	* g++.dg/ext/raw-string-7.C: Change [] to ().
+
+2010-03-27  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/43381
+	* gcc.dg/parm-impl-decl-3.c: New test.
+
+2010-03-26  Volker Reichelt  <reichelt@gcc.gnu.org>
+
+	PR c++/43024
+	* g++.dg/opt/ice1.C: New.
+
+2010-03-25  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/43517
+	* gfortran.dg/read_eof_7.f90: New test.
+
+2010-03-25  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2010-03-22  Jason Merrill  <jason@redhat.com>
+
+	PR c++/43333
+	* g++.dg/ext/is_pod_98.C: New.
+
+	2010-03-22  Michael Matz  <matz@suse.de>
+
+	PR middle-end/43475
+	* gfortran.dg/pr43475.f90: New testcase.
+
+	2010-03-22  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/43390
+	* gfortran.fortran-torture/execute/pr43390.f90: New testcase.
+
+	2010-03-20  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/43375
+	* g++.dg/abi/mangle42.C: New test.
+
+	2010-03-19  Andrew Pinski  <andrew_pinski@caviumnetworks.com>
+
+	PR C/43211
+	* gcc.dg/pr43211.c: New test.
+
+	2010-03-18  Martin Jambor  <mjambor@suse.cz>
+
+	PR middle-end/42450
+	* g++.dg/torture/pr42450.C: New test.
+
+	2010-03-18  Michael Matz  <matz@suse.de>
+
+	PR tree-optimization/43402
+	* gcc.dg/pr43402.c: New testcase.
+
+	2010-03-17  Peter Bergner  <bergner@vnet.ibm.com>
+
+	PR target/42427
+	* gcc.dg/pr42427.c: New test.
+
+	2010-03-16  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/43379
+	* gcc.dg/pr43379.c: New testcase.
+
+	2010-03-15  Michael Matz  <matz@suse.de>
+
+	PR middle-end/43300
+	* gcc.dg/pr43300.c: New testcase.
+
+	2010-03-15  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/43367
+	* gcc.c-torture/compile/pr43367.c: New testcase.
+
+2010-03-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/43385
+	* gcc.c-torture/execute/pr43385.c: New test.
+
+2010-03-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/19192
+	PR debug/43479
+	* gcc.dg/guality/pr43479.c: New test.
+	* gcc.dg/debug/dwarf2/inline2.c (third): Make a a global var
+	and add volatile keyword.
+
+2010-03-22  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	2010-03-19  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/43415
+	* gcc.c-torture/compile/pr43415.c: New testcase.
+
+2010-03-22  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline:
+	2010-03-20  Richard Guenther  <rguenther@suse.de>
+
+	PR rtl-optimization/43438
+	* gcc.c-torture/execute/pr43438.c: New testcase.
+
+	2010-03-19  Michael Matz  <matz@suse.de>
+
+	PR c++/43116
+	* g++.dg/other/pr43116.C: New testcase.
+
+	PR target/43305
+	* gcc.dg/pr43305.c: New testcase.
+
+	2010-03-18  Michael Matz  <matz@suse.de>
+
+	PR middle-end/43419
+	* gcc.dg/pr43419.c: New testcase.
+
+2010-03-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/43058
+	* gcc.dg/pr43058.c: New test.
+
+2010-03-21  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.target/powerpc/ppc-sdata-1.c: Require nonpic.
+	* gcc.target/powerpc/ppc-sdata-2.c: Likewise.
+
+2010-03-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2010-03-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR rtl-optimization/43360
+	* gcc.dg/torture/pr43360.c: New.
+
+2010-03-17  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/43265
+	* gfortran.dg/read_empty_file.f: New test.
+	* gfortran.dg/read_eof_all.f90: New test.
+	* gfortran.dg/namelist_27.f90: Eliminate infinite loop posibility.
+	* gfortran.dg/namelist_28.f90: Eliminate infinite loop posibility.
+
 2010-03-16  Jakub Jelinek  <jakub@redhat.com>
 
 	PR debug/43051
@@ -617,8 +791,8 @@
 2010-02-04  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
 	PR libfortran/42901
-	*gfortran.dg/namelist_60.f90: New test.
-	*gfortran.dg/namelist_59.f90: New test.
+	* gfortran.dg/namelist_60.f90: New test.
+	* gfortran.dg/namelist_59.f90: New test.
 
 2010-02-04  Richard Guenther  <rguenther@suse.de>
 
