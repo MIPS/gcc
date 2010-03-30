@@ -888,7 +888,7 @@ ccp_visit_phi_node (gimple phi)
 bool
 may_propagate_address_into_dereference (tree addr, tree deref)
 {
-  gcc_assert (INDIRECT_REF_P (deref)
+  gcc_assert (TREE_CODE (deref) == MEM_REF
 	      && TREE_CODE (addr) == ADDR_EXPR);
 
   /* Don't propagate if ADDR's operand has incomplete type.  */

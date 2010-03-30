@@ -1,5 +1,18 @@
 2010-03-30  Richard Guenther  <rguenther@suse.de>
 
+	* tree-ssa-ccp.c (may_propagate_address_into_dereference):
+	Handle MEM_REF.
+	* tree-ssa-forwprop.c (forward_propagate_addr_expr_1):
+	Propagate through constant pointer adjustments.
+	Re-instantiate more cases to propagate into dereferences.
+	(tree_ssa_forward_propagate_single_use_vars): Adjust
+	accordingly.
+	* tree-ssa-alias.c (indirect_ref_may_alias_decl_p): Fix
+	offset check.  Disable fancy access-path based TBAA disambiguation.
+	(indirect_refs_may_alias_p): Likewise.
+
+2010-03-30  Richard Guenther  <rguenther@suse.de>
+
 	* gimplify.c (mark_addressable): Handle MEM_REF.
 	(gimplify_modify_expr_to_memcpy): Properly build a MEM_REF tree.
  

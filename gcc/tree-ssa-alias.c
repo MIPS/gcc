@@ -564,6 +564,7 @@ same_type_for_tbaa (tree type1, tree type2)
   return 0;
 }
 
+#if 0
 /* Determine if the two component references REF1 and REF2 which are
    based on access types TYPE1 and TYPE2 and of which at least one is based
    on an indirect reference may alias.  */
@@ -620,6 +621,7 @@ aliasing_component_refs_p (tree ref1, tree type1,
      only alias if either B1 is in B2.path2 or B2 is in B1.path1.  */
   return false;
 }
+#endif
 
 /* Return true if two memory references based on the variables BASE1
    and BASE2 constrained to [OFFSET1, OFFSET1 + MAX_SIZE1) and
@@ -650,10 +652,11 @@ decl_refs_may_alias_p (tree base1,
    if non-NULL are the complete memory reference trees.  */
 
 static bool
-indirect_ref_may_alias_decl_p (tree ref1, tree base1,
-			       HOST_WIDE_INT offset1, HOST_WIDE_INT max_size1,
+indirect_ref_may_alias_decl_p (tree ref1 ATTRIBUTE_UNUSED, tree base1,
+			       HOST_WIDE_INT offset1,
+			       HOST_WIDE_INT max_size1 ATTRIBUTE_UNUSED,
 			       alias_set_type base1_alias_set,
-			       tree ref2, tree base2,
+			       tree ref2 ATTRIBUTE_UNUSED, tree base2,
 			       HOST_WIDE_INT offset2, HOST_WIDE_INT max_size2,
 			       alias_set_type base2_alias_set)
 {
@@ -665,8 +668,7 @@ indirect_ref_may_alias_decl_p (tree ref1, tree base1,
      (the pointer base cannot validly point to an offset less than zero
      of the variable).
      They also cannot alias if the pointer may not point to the decl.  */
-  if (max_size2 != -1
-      && !ranges_overlap_p (offset1, max_size1, 0, offset2 + max_size2))
+  if (!ranges_overlap_p (MAX (0, offset1), -1, offset2, max_size2))
     return false;
   if (!ptr_deref_may_alias_decl_p (ptr1, base2))
     return false;
@@ -688,12 +690,15 @@ indirect_ref_may_alias_decl_p (tree ref1, tree base1,
   if (base2_alias_set == -1)
     base2_alias_set = get_alias_set (base2);
 
+  /* See indirect_refs_may_alias_p.  */
+#if 0
   /* If both references are through the same type, they do not alias
      if the accesses do not overlap.  This does extra disambiguation
      for mixed/pointer accesses but requires strict aliasing.  */
   if (same_type_for_tbaa (TREE_TYPE (ptrtype1),
 			  TREE_TYPE (base2)) == 1)
     return ranges_overlap_p (offset1, max_size1, offset2, max_size2);
+#endif
 
   /* The only way to access a variable is through a pointer dereference
      of the same alias set or a subset of it.  */
@@ -701,6 +706,8 @@ indirect_ref_may_alias_decl_p (tree ref1, tree base1,
       && !alias_set_subset_of (base1_alias_set, base2_alias_set))
     return false;
 
+  /* See indirect_refs_may_alias_p.  */
+#if 0
   /* Do access-path based disambiguation.  */
   if (ref1 && ref2
       && handled_component_p (ref1)
@@ -709,6 +716,7 @@ indirect_ref_may_alias_decl_p (tree ref1, tree base1,
 				      offset1, max_size1,
 				      ref2, TREE_TYPE (base2),
 				      offset2, max_size2);
+#endif
 
   return true;
 }
@@ -721,10 +729,10 @@ indirect_ref_may_alias_decl_p (tree ref1, tree base1,
    if non-NULL are the complete memory reference trees. */
 
 static bool
-indirect_refs_may_alias_p (tree ref1, tree base1,
+indirect_refs_may_alias_p (tree ref1 ATTRIBUTE_UNUSED, tree base1,
 			   HOST_WIDE_INT offset1, HOST_WIDE_INT max_size1,
 			   alias_set_type base1_alias_set,
-			   tree ref2, tree base2,
+			   tree ref2 ATTRIBUTE_UNUSED, tree base2,
 			   HOST_WIDE_INT offset2, HOST_WIDE_INT max_size2,
 			   alias_set_type base2_alias_set)
 {
@@ -763,18 +771,28 @@ indirect_refs_may_alias_p (tree ref1, tree base1,
   if (base2_alias_set == 0)
     return true;
 
+  /* The following no longer holds true.  The type for TBAA purposes
+     is the type of operand 1 of a MEM_REF, but that doesn't mean
+     that operand 0 points to an object of that type - but instead
+     it might still point anywhere inside of that object (if
+     adjusted by operand 1, the pointer itself may point even outside
+     of the object).  */
+#if 0
   /* If both references are through the same type, they do not alias
      if the accesses do not overlap.  This does extra disambiguation
      for mixed/pointer accesses but requires strict aliasing.  */
   if (same_type_for_tbaa (TREE_TYPE (ptrtype1),
 			  TREE_TYPE (ptrtype2)) == 1)
     return ranges_overlap_p (offset1, max_size1, offset2, max_size2);
+#endif
 
   /* Do type-based disambiguation.  */
   if (base1_alias_set != base2_alias_set
       && !alias_sets_conflict_p (base1_alias_set, base2_alias_set))
     return false;
 
+  /* For the same reason as above this won't work anymore.  */
+#if 0
   /* Do access-path based disambiguation.  */
   if (ref1 && ref2
       && handled_component_p (ref1)
@@ -783,6 +801,7 @@ indirect_refs_may_alias_p (tree ref1, tree base1,
 				      offset1, max_size1,
 				      ref2, TREE_TYPE (ptrtype2),
 				      offset2, max_size2);
+#endif
 
   return true;
 }

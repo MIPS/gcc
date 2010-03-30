@@ -767,6 +767,42 @@ forward_propagate_addr_expr_1 (tree name, tree def_rhs,
       return true;
     }
 
+  /* Propagate through constant pointer adjustments.  */
+  if (TREE_CODE (lhs) == SSA_NAME
+      && rhs_code == POINTER_PLUS_EXPR
+      && rhs == name
+      && TREE_CODE (gimple_assign_rhs2 (use_stmt)) == INTEGER_CST)
+    {
+      tree new_def_rhs;
+      /* As we come here with non-invariant addresses in def_rhs we need
+         to make sure we can build a valid constant offsetted address
+	 for further propagation.  Simply rely on fold building that
+	 and check after the fact.  */
+      new_def_rhs = fold_build2 (MEM_REF, TREE_TYPE (TREE_TYPE (rhs)),
+				 def_rhs,
+				 fold_convert (ptr_type_node,
+					       gimple_assign_rhs2 (use_stmt)));
+      if (TREE_CODE (new_def_rhs) == MEM_REF
+	  && TREE_CODE (TREE_OPERAND (new_def_rhs, 0)) == ADDR_EXPR
+	  && !DECL_P (TREE_OPERAND (TREE_OPERAND (new_def_rhs, 0), 0))
+	  && !CONSTANT_CLASS_P (TREE_OPERAND (TREE_OPERAND (new_def_rhs, 0), 0)))
+	return false;
+      new_def_rhs = build_fold_addr_expr_with_type (new_def_rhs,
+						    TREE_TYPE (rhs));
+
+      /* Recurse.  If we could propagate into all uses of lhs do not
+	 bother to replace into the current use but just pretend we did.  */
+      if (TREE_CODE (new_def_rhs) == ADDR_EXPR
+	  && forward_propagate_addr_expr (lhs, new_def_rhs))
+	return true;
+
+      gimple_assign_set_rhs_with_ops (use_stmt_gsi, TREE_CODE (new_def_rhs),
+				      new_def_rhs, NULL_TREE);
+      gcc_assert (gsi_stmt (*use_stmt_gsi) == use_stmt);
+      update_stmt (use_stmt);
+      return true;
+    }
+
   /* Now strip away any outer COMPONENT_REF/ARRAY_REF nodes from the LHS.
      ADDR_EXPR will not appear on the LHS.  */
   lhsp = gimple_assign_lhs_ptr (use_stmt);
@@ -779,7 +815,53 @@ forward_propagate_addr_expr_1 (tree name, tree def_rhs,
   if (TREE_CODE (lhs) == MEM_REF
       && TREE_OPERAND (lhs, 0) == name)
     {
-      if (is_gimple_min_invariant (def_rhs))
+      /* If *def_rhs has a MEM base we could transfer the alias set of the
+         original MEM.  Likewise for a DECL base we could create a new MEM base
+	 with the alias set of the original MEM.  For a plain MEM
+	 *def_rhs we could also embed a conversion.  */
+      tree *def_rhs_basep = &TREE_OPERAND (def_rhs, 0);
+      while (handled_component_p (*def_rhs_basep))
+	def_rhs_basep = &TREE_OPERAND (*def_rhs_basep, 0);
+      /* Replace MEM[name, 0] with *def_rhs if possible.  That should
+         preserve as much of the original trees as possible.  */
+      if (integer_zerop (TREE_OPERAND (lhs, 1))
+	  && may_propagate_address_into_dereference (def_rhs, lhs)
+	  && (lhsp != gimple_assign_lhs_ptr (use_stmt)
+	      || useless_type_conversion_p
+	           (TREE_TYPE (TREE_OPERAND (def_rhs, 0)), TREE_TYPE (rhs))))
+	{
+	  tree subst_rhs;
+	  if (TREE_CODE (*def_rhs_basep) == MEM_REF
+	      && (TREE_TYPE (TREE_OPERAND (*def_rhs_basep, 1))
+		  != TREE_TYPE (TREE_OPERAND (lhs, 1))))
+	    {
+	      tree saved = TREE_OPERAND (*def_rhs_basep, 1);
+	      TREE_OPERAND (*def_rhs_basep, 1)
+		= fold_convert (TREE_TYPE (TREE_OPERAND (lhs, 1)),
+				TREE_OPERAND (*def_rhs_basep, 1));
+	      subst_rhs = unshare_expr (TREE_OPERAND (def_rhs, 0));
+	      TREE_OPERAND (*def_rhs_basep, 1) = saved;
+	    }
+	  else if (TREE_CODE (*def_rhs_basep) != MEM_REF)
+	    {
+	      tree saved = *def_rhs_basep;
+	      *def_rhs_basep = build2 (MEM_REF, TREE_TYPE (saved),
+				       build_fold_addr_expr (saved),
+				       TREE_OPERAND (lhs, 1));
+	      subst_rhs = unshare_expr (TREE_OPERAND (def_rhs, 0));
+	      *def_rhs_basep = saved;
+	    }
+	  else
+	    subst_rhs = unshare_expr (TREE_OPERAND (def_rhs, 0));
+	  *lhsp = subst_rhs;
+	  fold_stmt_inplace (use_stmt);
+	  tidy_after_forward_propagate_addr (use_stmt);
+
+	  /* Continue propagating into the RHS if this was not the only use.  */
+	  if (single_use_p)
+	    return true;
+	}
+      else if (is_gimple_min_invariant (def_rhs))
 	{
 	  TREE_OPERAND (lhs, 0) = unshare_expr (def_rhs);
 	  fold_stmt_inplace (use_stmt);
@@ -807,13 +889,55 @@ forward_propagate_addr_expr_1 (tree name, tree def_rhs,
   /* Now see if the RHS node is a MEM_REF using NAME.  If so,
      propagate the ADDR_EXPR into the use of NAME and fold the result.  */
   if (TREE_CODE (rhs) == MEM_REF
-      && TREE_OPERAND (rhs, 0) == name
-      && is_gimple_min_invariant (def_rhs))
+      && TREE_OPERAND (rhs, 0) == name)
     {
-      TREE_OPERAND (rhs, 0) = unshare_expr (def_rhs);
-      fold_stmt_inplace (use_stmt);
-      tidy_after_forward_propagate_addr (use_stmt);
-      return res;
+      /* If *def_rhs has a MEM base we could transfer the alias set of the
+         original MEM.  Likewise for a DECL base we could create a new MEM base
+	 with the alias set of the original MEM.  For a plain MEM
+	 *def_rhs we could also embed a conversion.  */
+      tree *def_rhs_basep = &TREE_OPERAND (def_rhs, 0);
+      while (handled_component_p (*def_rhs_basep))
+	def_rhs_basep = &TREE_OPERAND (*def_rhs_basep, 0);
+      /* Replace MEM[name, 0] with *def_rhs if possible.  That should
+         preserve as much of the original trees as possible.  */
+      if (integer_zerop (TREE_OPERAND (rhs, 1))
+	  && may_propagate_address_into_dereference (def_rhs, rhs))
+	{
+	  tree subst_rhs;
+	  if (TREE_CODE (*def_rhs_basep) == MEM_REF
+	      && (TREE_TYPE (TREE_OPERAND (*def_rhs_basep, 1))
+		  != TREE_TYPE (TREE_OPERAND (rhs, 1))))
+	    {
+	      tree saved = TREE_OPERAND (*def_rhs_basep, 1);
+	      TREE_OPERAND (*def_rhs_basep, 1)
+		= fold_convert (TREE_TYPE (TREE_OPERAND (rhs, 1)),
+				TREE_OPERAND (*def_rhs_basep, 1));
+	      subst_rhs = unshare_expr (TREE_OPERAND (def_rhs, 0));
+	      TREE_OPERAND (*def_rhs_basep, 1) = saved;
+	    }
+	  else if (TREE_CODE (*def_rhs_basep) != MEM_REF)
+	    {
+	      tree saved = *def_rhs_basep;
+	      *def_rhs_basep = build2 (MEM_REF, TREE_TYPE (saved),
+				       build_fold_addr_expr (saved),
+				       TREE_OPERAND (rhs, 1));
+	      subst_rhs = unshare_expr (TREE_OPERAND (def_rhs, 0));
+	      *def_rhs_basep = saved;
+	    }
+	  else
+	    subst_rhs = unshare_expr (TREE_OPERAND (def_rhs, 0));
+	  *rhsp = subst_rhs;
+	  fold_stmt_inplace (use_stmt);
+	  tidy_after_forward_propagate_addr (use_stmt);
+	  return res;
+	}
+      else if (is_gimple_min_invariant (def_rhs))
+	{
+	  TREE_OPERAND (rhs, 0) = unshare_expr (def_rhs);
+	  fold_stmt_inplace (use_stmt);
+	  tidy_after_forward_propagate_addr (use_stmt);
+	  return res;
+	}
     }
 
   /* If the use of the ADDR_EXPR is not a POINTER_PLUS_EXPR, there
@@ -1241,13 +1365,32 @@ tree_ssa_forward_propagate_single_use_vars (void)
 		  else
 		    gsi_next (&gsi);
 		}
-	      else if (gimple_assign_rhs_code (stmt) == POINTER_PLUS_EXPR
-		       && is_gimple_min_invariant (rhs))
+	      else if (gimple_assign_rhs_code (stmt) == POINTER_PLUS_EXPR)
 		{
-		  /* Make sure to fold &a[0] + off_1 here.  */
-		  fold_stmt_inplace (stmt);
-		  update_stmt (stmt);
-		  if (gimple_assign_rhs_code (stmt) == POINTER_PLUS_EXPR)
+		  if (TREE_CODE (gimple_assign_rhs2 (stmt)) == INTEGER_CST
+		      /* ???  Better adjust the interface to that function
+			 instead of building new trees here.  */
+		      && forward_propagate_addr_expr (lhs,
+						      build1 (ADDR_EXPR,
+							      TREE_TYPE (rhs),
+							      build2 (MEM_REF,
+								      TREE_TYPE (TREE_TYPE (rhs)),
+								      rhs,
+								      fold_convert (ptr_type_node, gimple_assign_rhs2 (stmt))))))
+		    {
+		      release_defs (stmt);
+		      todoflags |= TODO_remove_unused_locals;
+		      gsi_remove (&gsi, true);
+		    }
+		  else if (is_gimple_min_invariant (rhs))
+		    {
+		      /* Make sure to fold &a[0] + off_1 here.  */
+		      fold_stmt_inplace (stmt);
+		      update_stmt (stmt);
+		      if (gimple_assign_rhs_code (stmt) == POINTER_PLUS_EXPR)
+			gsi_next (&gsi);
+		    }
+		  else
 		    gsi_next (&gsi);
 		}
 	      else if ((gimple_assign_rhs_code (stmt) == BIT_NOT_EXPR
