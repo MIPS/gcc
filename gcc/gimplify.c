@@ -113,10 +113,13 @@ mark_addressable (tree x)
 {
   while (handled_component_p (x))
     x = TREE_OPERAND (x, 0);
+  if (TREE_CODE (x) == MEM_REF
+      && TREE_CODE (TREE_OPERAND (x, 0)) == ADDR_EXPR)
+    x = TREE_OPERAND (TREE_OPERAND (x, 0), 0);
   if (TREE_CODE (x) != VAR_DECL
       && TREE_CODE (x) != PARM_DECL
       && TREE_CODE (x) != RESULT_DECL)
-    return ;
+    return;
   TREE_ADDRESSABLE (x) = 1;
 }
 
@@ -3127,7 +3130,7 @@ gimplify_modify_expr_to_memcpy (tree *expr_p, tree size, bool want_value,
       gimple_call_set_lhs (gs, t);
       gimplify_seq_add_stmt (seq_p, gs);
 
-      *expr_p = build1 (INDIRECT_REF, TREE_TYPE (to), t);
+      *expr_p = build_simple_mem_ref (t);
       return GS_ALL_DONE;
     }
 

@@ -1,3 +1,8 @@
+2010-03-30  Richard Guenther  <rguenther@suse.de>
+
+	* gimplify.c (mark_addressable): Handle MEM_REF.
+	(gimplify_modify_expr_to_memcpy): Properly build a MEM_REF tree.
+ 
 2010-03-26  Richard Guenther  <rguenther@suse.de>
 
 	* ipa-reference.c (mark_load): Use get_base_address.
