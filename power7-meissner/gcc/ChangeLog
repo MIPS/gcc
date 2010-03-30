@@ -1,3 +1,145 @@
+2010-03-30  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/s390.c (s390_emit_prologue): Omit issuing a dynamic
+	stack check if the mask would be zero.
+
+2010-03-30  Seongbae Park <seongbae.park@gmail.com>
+	    Jack Howarth <howarth@bromo.med.uc.edu>
+
+	* tree-profile.c (tree_init_ic_make_global_vars): Make static
+	variables TLS.
+
+2010-03-30  Joseph Myers  <joseph@codesourcery.com>
+
+	PR other/25232
+	* libgcc-std.ver (GCC_4.5.0): Define version.  Include __unordxf2
+	and __unordtf2.
+	* config/bfin/libgcc-bfin.ver (GCC_4.5.0): Define version.
+	Include ___unordxf2 and ___unordtf2.
+	* config/i386/libgcc-glibc.ver: Do not define inheritance from
+	GCC_4.4.0 here.
+
+2010-03-30  Tarik Graba  <tarik.graba@telecom-paristech.fr>
+
+	* config/lm32/t-lm32: New file.
+	* config.gcc: Use the above file when targetting lm32.
+
+2010-03-28  Duncan Sands  <baldrick@free.fr>
+
+       * Makefile.in (PLUGIN_HEADERS): Add except.h.
+
+2010-03-29  Sebastian Pop  <sebastian.pop@amd.com>
+
+	PR middle-end/43431
+	* tree-vect-loop.c (vect_estimate_min_profitable_iters):
+	Improve vectorization cost model diagnostic.
+
+2010-03-29  Sebastian Pop  <sebastian.pop@amd.com>
+
+	PR middle-end/43436
+	* tree-vect-data-refs.c (vect_analyze_data_refs): When
+	compute_data_dependences_for_loop returns false, early exit
+	and output an extra diagnostic for the failed data reference
+	analysis.
+
+2010-03-29  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/43560
+	* tree-ssa-loop-im.c (ref_always_accessed_p): Add store_p
+	parameter.
+	(can_sm_ref_p): Treat stores to readonly locations as
+	trapping.
+
+2010-03-29  Jie Zhang  <jie@codesourcery.com>
+
+	PR 43564
+	* toplev.c (process_options): Set optimization_default_node
+	and optimization_current_node.
+	* opts.c (decode_options): Don't set optimization_default_node
+	and optimization_current_node.
+
+2010-03-29  Ralf Corsépius  <ralf.corsepius@rtems.org>
+
+	* config/rtems.h: Abandon -qrtems_debug.
+
+2010-03-28  Jan Hubicka  <jh@suse.cz>
+
+	PR tree-optimization/43505
+	* cgraph.c (cgraph_clone_node): When clonning a clone, replacement
+	map should not be copied.
+
+2010-03-27  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR middle-end/41674
+	* cgraphunit.c (cgraph_build_static_cdtor): If target doesn't have
+	cdtors, set DECL_PRESERVE_P.
+	* ipa.c (cgraph_externally_visible_p): Return true if declaration
+	should be preseved.
+
+2010-03-27  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR tree-optimization/43528
+	* stor-layout.c (place_field): Check that constant fits into
+	unsigned HWI when skipping calculation of MS bitfield layout.
+
+2010-03-27  Jan Hubicka  <jh@suse.cz>
+
+	PR middle-end/43391
+	* varasm.c (make_decl_rtl): Deal with COMMON flag to make
+	notice_global_symbol work.
+
+2010-03-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (dwarf2_debug_hooks): Use dwarf2out_function_decl
+	instead of dwarf2out_decl.
+	(struct var_loc_node): Remove section_label field.
+	(dwarf2out_function_decl): New function.
+	(dwarf2out_var_location): Don't set section_label field.
+	(dwarf2out_begin_function): Don't empty decl_loc_table here.
+
+2010-03-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR tree-optimization/43544
+	* doc/tm.texi (TARGET_VECTORIZE_BUILTIN_VECTORIZED_FUNCTION):
+	First argument for builtin vectorized function hook is now a
+	tree to be able to distinguish between machine specific and
+	standard builtins.
+	* targhooks.c (default_builtin_vectorized_function): Ditto.
+	* targhooks.h (default_builtin_vectorized_function): Ditto.
+	* target.h (struct gcc_target): Ditto.
+	* tree-vect-stmts.c (vectorizable_function): Ditto.
+	* config/i386/i386.c (ix86_builtin_vectorized_function): Ditto.
+	* config/rs6000/rs6000.c (rs6000_builtin_vectorized_function):
+	Ditto.
+
+2010-03-26  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/43381
+	* c-decl.c (get_parm_info): Assert that decl going in OTHERS has a
+	nested binding iff it is a FUNCTION_DECL.
+	(store_parm_decls_newstyle): Pass nested=true to bind for
+	FUNCTION_DECLs amongst parameters.
+
+2010-03-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* var-tracking.c (vt_expand_loc_callback): Don't run
+	cselib_expand_value_rtx_cb in dummy mode if
+	cselib_dummy_expand_value_rtx_cb returned false.
+
+	* var-tracking.c (emit_note_insn_var_location): For one part
+	notes with offset 0, don't add EXPR_LIST around the location.
+	* dwarf2out.c (loc_descriptor, dw_loc_list_1,
+	add_location_or_const_value_attribute): Adjust for that change.
+
+	PR debug/43540
+	* dwarf2out.c (reg_save): For DW_CFA_expression put regnum
+	into first operand and location into second.
+	(dw_cfi_oprnd1_desc): Return dw_cfi_oprnd_reg_num instead of
+	dw_cfi_oprnd_loc for DW_CFA_expression.
+	(dw_cfi_oprnd2_desc): Return dw_cfi_oprnd_loc for DW_CFA_expression.
+	(output_cfa_loc, output_cfa_loc_raw): For DW_CFA_expression
+	assume first argument is regnum and second argument is location.
+
 2010-03-26  Uros Bizjak  <ubizjak@gmail.com>
 
 	PR target/42113
