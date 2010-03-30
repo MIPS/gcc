@@ -1,3 +1,36 @@
+2010-03-29  Jason Merrill  <jason@redhat.com>
+
+	* gcc.dg/cpp/include6.c: Change [] to ().
+
+	N3077
+	* c-c++-common/raw-string-1.c: Update handling of trigraphs, line
+	splicing and UCNs.
+	* c-c++-common/raw-string-2.c: Add trigraph test.
+	* c-c++-common/raw-string-8.c: New.
+	* c-c++-common/raw-string-9.c: New.
+	* c-c++-common/raw-string-10.c: New.
+
+	* c-c++-common/raw-string-1.c: Combine C and C++ raw string tests.
+	* c-c++-common/raw-string-2.c: Combine C and C++ raw string tests.
+	* c-c++-common/raw-string-3.c: Combine C and C++ raw string tests.
+	* c-c++-common/raw-string-4.c: Combine C and C++ raw string tests.
+	* c-c++-common/raw-string-5.c: Combine C and C++ raw string tests.
+	* c-c++-common/raw-string-6.c: Combine C and C++ raw string tests.
+	* c-c++-common/raw-string-7.c: Combine C and C++ raw string tests.
+
+2010-03-29  Jason Merrill  <jason@redhat.com>
+
+	N3077
+	* g++.dg/ext/raw-string-1.C: Change [] to ().
+	* g++.dg/ext/raw-string-2.C: Change [] to ().
+	Don't use \ in delimiter.
+	* g++.dg/ext/raw-string-3.C: Change [] to ().
+	* g++.dg/ext/raw-string-4.C: Change [] to ().
+	* g++.dg/ext/raw-string-5.C: Change [] to ().
+	Test for error on \ in delimiter.
+	* g++.dg/ext/raw-string-6.C: Change [] to ().
+	* g++.dg/ext/raw-string-7.C: Change [] to ().
+
 2010-03-27  Joseph Myers  <joseph@codesourcery.com>
 
 	PR c/43381
