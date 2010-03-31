@@ -1,5 +1,12 @@
 2010-03-31  Richard Guenther  <rguenther@suse.de>
 
+	* tree-ssa-loop-ivopts.c (find_interesting_uses_address):
+	Replace INDIRECT_REF handling with MEM_REF handling.
+	(get_computation_cost_at): Likewise.
+	(tree_ssa_iv_optimize): Re-enable.
+
+2010-03-31  Richard Guenther  <rguenther@suse.de>
+
 	* tree-ssa.c (useless_type_conversion_p): Move restrict
 	cast conversion check before void type check.
 
