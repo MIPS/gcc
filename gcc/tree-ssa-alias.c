@@ -870,9 +870,9 @@ refs_may_alias_p_1 (ao_ref *ref1, ao_ref *ref2, bool tbaa_p)
   ind1_p = INDIRECT_REF_P (base1) || (TREE_CODE (base1) == MEM_REF);
   ind2_p = INDIRECT_REF_P (base2) || (TREE_CODE (base2) == MEM_REF);
   if (TREE_CODE (base1) == MEM_REF)
-    offset1 += TREE_INT_CST_LOW (TREE_OPERAND (base1, 1)) * BITS_PER_UNIT;
+    offset1 += mem_ref_offset (base1).low * BITS_PER_UNIT;
   if (TREE_CODE (base2) == MEM_REF)
-    offset2 += TREE_INT_CST_LOW (TREE_OPERAND (base2, 1)) * BITS_PER_UNIT;
+    offset2 += mem_ref_offset (base2).low * BITS_PER_UNIT;
 
   /* Canonicalize the pointer-vs-decl case.  */
   if (ind1_p && var2_p)

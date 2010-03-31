@@ -6097,10 +6097,10 @@ get_inner_reference (tree exp, HOST_WIDE_INT *pbitsize,
 	      tree off = TREE_OPERAND (exp, 1);
 	      if (!integer_zerop (off))
 		{
+		  double_int coff = mem_ref_offset (exp);
 		  unsigned HOST_WIDE_INT boffl;
 		  HOST_WIDE_INT boffh;
-		  lshift_double (TREE_INT_CST_LOW (off),
-				 TREE_INT_CST_HIGH (off),
+		  lshift_double (coff.low, coff.high,
 				 exact_log2 (BITS_PER_UNIT),
 				 2 * HOST_BITS_PER_WIDE_INT,
 				 &boffl, &boffh, 1);
@@ -6876,7 +6876,8 @@ expand_expr_addr_expr_1 (tree exp, rtx target, enum machine_mode tmode,
 	tree tem = TREE_OPERAND (exp, 0);
 	if (!integer_zerop (TREE_OPERAND (exp, 1)))
 	  tem = build2 (POINTER_PLUS_EXPR, TREE_TYPE (TREE_OPERAND (exp, 1)),
-			tem, fold_convert (sizetype, TREE_OPERAND (exp, 1)));
+			tem,
+			double_int_to_tree (sizetype, mem_ref_offset (exp)));
 	return expand_expr (tem, target, tmode, modifier);
       }
 

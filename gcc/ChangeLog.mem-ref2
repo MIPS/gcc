@@ -1,3 +1,12 @@
+2010-03-31  Richard Guenther  <rguenther@suse.de>
+
+	* tree.h (mem_ref_offset): Declare.
+	* tree.c (mem_ref_offset): New function.
+	* tree-ssa-alias.c (refs_may_alias_p_1): Use it.
+	* expr.c (get_inner_reference): Likewise.
+	(expand_expr_addr_expr_1): Likewise.
+	* tree-dfa.c (get_ref_base_and_extent): Likewise.
+
 2010-03-30  Richard Guenther  <rguenther@suse.de>
 
 	* tree-ssa-ccp.c (may_propagate_address_into_dereference):

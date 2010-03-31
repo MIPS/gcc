@@ -884,12 +884,13 @@ get_ref_base_and_extent (tree exp, HOST_WIDE_INT *poffset,
 	      /* We do need to handle large offsets here, for example
 	         from gcc.c-torture/compile/pr28489.c.  Thus the whole
 		 function should probably be audited for overflowing
-		 bit_offset ... */
+		 bit_offset ...
+		 Also we need to treat the pointer constants as
+		 sign-extending.  */
 	      && (TREE_INT_CST_HIGH (TREE_OPERAND (exp, 1)) == -1
 		  || host_integerp (TREE_OPERAND (exp, 1), 0)))
 	    {
-	      bit_offset
-		+= TREE_INT_CST_LOW (TREE_OPERAND (exp, 1)) * BITS_PER_UNIT;
+	      bit_offset += mem_ref_offset (exp).low * BITS_PER_UNIT;
 	      exp = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
 	    }
 	  goto done;

@@ -3860,6 +3860,16 @@ build_simple_mem_ref_loc (location_t loc, tree ptr)
   return tem;
 }
 
+/* Return the constant offset of a MEM_REF tree T.  */
+
+double_int
+mem_ref_offset (const_tree t)
+{
+  tree toff = TREE_OPERAND (t, 1);
+  return double_int_sext (tree_to_double_int (toff),
+			  TYPE_PRECISION (TREE_TYPE (toff)));
+}
+
 /* Similar except don't specify the TREE_TYPE
    and leave the TREE_SIDE_EFFECTS as 0.
    It is permissible for arguments to be null,
