@@ -1,5 +1,19 @@
 2010-03-31  Richard Guenther  <rguenther@suse.de>
 
+	* tree-sra.c (create_access): Swap INDIRECT_REF handling for
+	MEM_REF handling.
+	(disqualify_base_of_expr): Likewise.
+	(build_ref_for_offset_1): Re-instantiate.
+	(build_ref_for_offset): Revert previous changes.
+	(gate_intra_sra): Re-enable.
+	(ptr_parm_has_direct_uses): Swap INDIRECT_REF handling for
+	MEM_REF handling.
+	(sra_ipa_modify_expr): Remove INDIRECT_REF handling.
+	Use mem_ref_offset.
+	(ipa_early_sra_gate): Re-enable.
+
+2010-03-31  Richard Guenther  <rguenther@suse.de>
+
 	* tree.h (mem_ref_offset): Declare.
 	* tree.c (mem_ref_offset): New function.
 	* tree-ssa-alias.c (refs_may_alias_p_1): Use it.

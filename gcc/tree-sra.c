@@ -746,7 +746,8 @@ create_access (tree expr, gimple stmt, bool write)
 
   base = get_ref_base_and_extent (expr, &offset, &size, &max_size);
 
-  if (sra_mode == SRA_MODE_EARLY_IPA && INDIRECT_REF_P (base))
+  if (sra_mode == SRA_MODE_EARLY_IPA
+      && TREE_CODE (base) == MEM_REF)
     {
       base = get_ssa_base_param (TREE_OPERAND (base, 0));
       if (!base)
@@ -885,7 +886,7 @@ disqualify_base_of_expr (tree t, const char *reason)
 
   if (sra_mode == SRA_MODE_EARLY_IPA)
     {
-      if (INDIRECT_REF_P (t))
+      if (TREE_CODE (t) == MEM_REF)
 	t = TREE_OPERAND (t, 0);
       t = get_ssa_base_param (t);
     }
@@ -931,7 +932,6 @@ build_access_from_expr_1 (tree *expr_ptr, gimple stmt, bool write)
 
   switch (TREE_CODE (expr))
     {
-    case INDIRECT_REF:
     case MEM_REF:
       if (sra_mode != SRA_MODE_EARLY_IPA)
 	return NULL;
@@ -1375,6 +1375,100 @@ make_fancy_name (tree expr)
   return XOBFINISH (&name_obstack, char *);
 }
 
+/* Helper function for build_ref_for_offset.  */
+
+static bool
+build_ref_for_offset_1 (tree *res, tree type, HOST_WIDE_INT offset,
+			tree exp_type)
+{
+  while (1)
+    {
+      tree fld;
+      tree tr_size, index, minidx;
+      HOST_WIDE_INT el_size;
+
+      if (offset == 0 && exp_type
+	  && types_compatible_p (exp_type, type))
+	return true;
+
+      switch (TREE_CODE (type))
+	{
+	case UNION_TYPE:
+	case QUAL_UNION_TYPE:
+	case RECORD_TYPE:
+	  for (fld = TYPE_FIELDS (type); fld; fld = TREE_CHAIN (fld))
+	    {
+	      HOST_WIDE_INT pos, size;
+	      tree expr, *expr_ptr;
+
+	      if (TREE_CODE (fld) != FIELD_DECL)
+		continue;
+
+	      pos = int_bit_position (fld);
+	      gcc_assert (TREE_CODE (type) == RECORD_TYPE || pos == 0);
+	      tr_size = DECL_SIZE (fld);
+	      if (!tr_size || !host_integerp (tr_size, 1))
+		continue;
+	      size = tree_low_cst (tr_size, 1);
+	      if (size == 0)
+		{
+		  if (pos != offset)
+		    continue;
+		}
+	      else if (pos > offset || (pos + size) <= offset)
+		continue;
+
+	      if (res)
+		{
+		  expr = build3 (COMPONENT_REF, TREE_TYPE (fld), *res, fld,
+				 NULL_TREE);
+		  expr_ptr = &expr;
+		}
+	      else
+		expr_ptr = NULL;
+	      if (build_ref_for_offset_1 (expr_ptr, TREE_TYPE (fld),
+					  offset - pos, exp_type))
+		{
+		  if (res)
+		    *res = expr;
+		  return true;
+		}
+	    }
+	  return false;
+
+	case ARRAY_TYPE:
+	  tr_size = TYPE_SIZE (TREE_TYPE (type));
+	  if (!tr_size || !host_integerp (tr_size, 1))
+	    return false;
+	  el_size = tree_low_cst (tr_size, 1);
+
+	  minidx = TYPE_MIN_VALUE (TYPE_DOMAIN (type));
+	  if (TREE_CODE (minidx) != INTEGER_CST || el_size == 0)
+	    return false;
+	  if (res)
+	    {
+	      index = build_int_cst (TYPE_DOMAIN (type), offset / el_size);
+	      if (!integer_zerop (minidx))
+		index = int_const_binop (PLUS_EXPR, index, minidx, 0);
+	      *res = build4 (ARRAY_REF, TREE_TYPE (type), *res, index,
+			     NULL_TREE, NULL_TREE);
+	    }
+	  offset = offset % el_size;
+	  type = TREE_TYPE (type);
+	  break;
+
+	default:
+	  if (offset != 0)
+	    return false;
+
+	  if (exp_type)
+	    return false;
+	  else
+	    return true;
+	}
+    }
+}
+
 /* Construct an expression that would reference a part of aggregate *EXPR of
    type TYPE at the given OFFSET of the type EXP_TYPE.  If EXPR is NULL, the
    function only determines whether it can build such a reference without
@@ -1392,36 +1486,17 @@ build_ref_for_offset (tree *expr, tree type, HOST_WIDE_INT offset,
 {
   location_t loc = expr ? EXPR_LOCATION (*expr) : UNKNOWN_LOCATION;
 
-  if (offset % BITS_PER_UNIT != 0)
-    return false;
-
-  if (!expr)
-    return true;
-
-  *expr = unshare_expr (*expr);
+  if (expr)
+    *expr = unshare_expr (*expr);
 
   if (allow_ptr && POINTER_TYPE_P (type))
-    *expr = build2 (MEM_REF, exp_type,
-		    *expr, build_int_cst (type, offset / BITS_PER_UNIT));
-  else if (TREE_CODE (*expr) == MEM_REF)
     {
-      tree addr = TREE_OPERAND (*expr, 0);
-      tree off = build_int_cst (TREE_TYPE (TREE_OPERAND (*expr, 1)),
-				offset / BITS_PER_UNIT);
-      off = int_const_binop (PLUS_EXPR, TREE_OPERAND (*expr, 1), off, 0);
-      *expr = build2 (MEM_REF, exp_type, addr, off);
-    }
-  else
-    {
-      tree ptype = build_pointer_type (type);
-      tree off = build_int_cst (ptype, offset / BITS_PER_UNIT);
-      tree addr = build_fold_addr_expr (*expr);
-      STRIP_NOPS (addr);
-      *expr = build2 (MEM_REF, exp_type, addr, off);
+      type = TREE_TYPE (type);
+      if (expr)
+	*expr = build_simple_mem_ref_loc (loc, *expr);
     }
 
-  SET_EXPR_LOCATION (*expr, loc);
-  return true;
+  return build_ref_for_offset_1 (expr, type, offset, exp_type);
 }
 
 /* Return true iff TYPE is stdarg va_list type.  */
@@ -2767,7 +2842,7 @@ late_intra_sra (void)
 static bool
 gate_intra_sra (void)
 {
-  return 0 && flag_tree_sra != 0;
+  return flag_tree_sra != 0;
 }
 
 
@@ -2855,8 +2930,10 @@ ptr_parm_has_direct_uses (tree parm)
 	  tree lhs = gimple_get_lhs (stmt);
 	  while (handled_component_p (lhs))
 	    lhs = TREE_OPERAND (lhs, 0);
-	  if (INDIRECT_REF_P (lhs)
-	      && TREE_OPERAND (lhs, 0) == name)
+	  if (TREE_CODE (lhs) == MEM_REF
+	      && TREE_OPERAND (lhs, 0) == name
+	      && integer_zerop (TREE_OPERAND (lhs, 1))
+	      && types_compatible_p (TREE_TYPE (lhs), TREE_TYPE (name)))
 	    uses_ok++;
 	}
       if (gimple_assign_single_p (stmt))
@@ -2864,8 +2941,10 @@ ptr_parm_has_direct_uses (tree parm)
 	  tree rhs = gimple_assign_rhs1 (stmt);
 	  while (handled_component_p (rhs))
 	    rhs = TREE_OPERAND (rhs, 0);
-	  if (INDIRECT_REF_P (rhs)
-	      && TREE_OPERAND (rhs, 0) == name)
+	  if (TREE_CODE (rhs) == MEM_REF
+	      && TREE_OPERAND (rhs, 0) == name
+	      && integer_zerop (TREE_OPERAND (rhs, 1))
+	      && types_compatible_p (TREE_TYPE (rhs), TREE_TYPE (name)))
 	    uses_ok++;
 	}
       else if (is_gimple_call (stmt))
@@ -2876,8 +2955,10 @@ ptr_parm_has_direct_uses (tree parm)
 	      tree arg = gimple_call_arg (stmt, i);
 	      while (handled_component_p (arg))
 		arg = TREE_OPERAND (arg, 0);
-	      if (INDIRECT_REF_P (arg)
-		  && TREE_OPERAND (arg, 0) == name)
+	      if (TREE_CODE (arg) == MEM_REF
+		  && TREE_OPERAND (arg, 0) == name
+		  && integer_zerop (TREE_OPERAND (arg, 1))
+		  && types_compatible_p (TREE_TYPE (arg), TREE_TYPE (name)))
 		uses_ok++;
 	    }
 	}
@@ -3755,12 +3836,9 @@ sra_ipa_modify_expr (tree *expr, gimple_stmt_iterator *gsi ATTRIBUTE_UNUSED,
   if (!base || size == -1 || max_size == -1)
     return false;
 
-  if (INDIRECT_REF_P (base))
-    base = TREE_OPERAND (base, 0);
-
   if (TREE_CODE (base) == MEM_REF)
     {
-      offset += TREE_INT_CST_LOW (TREE_OPERAND (base, 1)) * BITS_PER_UNIT;
+      offset += mem_ref_offset (base).low * BITS_PER_UNIT;
       base = TREE_OPERAND (base, 0);
     }
 
@@ -3785,8 +3863,7 @@ sra_ipa_modify_expr (tree *expr, gimple_stmt_iterator *gsi ATTRIBUTE_UNUSED,
   if (cand->by_ref)
     {
       tree folded;
-      src = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (cand->reduction)),
-		    cand->reduction);
+      src = build_simple_mem_ref (cand->reduction);
       folded = gimple_fold_indirect_ref (src);
       if (folded)
         src = folded;
@@ -4153,7 +4230,7 @@ ipa_early_sra (void)
 static bool
 ipa_early_sra_gate (void)
 {
-  return 0 && flag_ipa_sra;
+  return flag_ipa_sra;
 }
 
 struct gimple_opt_pass pass_early_ipa_sra =
