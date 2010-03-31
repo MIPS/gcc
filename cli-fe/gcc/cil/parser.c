@@ -319,7 +319,23 @@ parser_get_method_is_gcc4netstdlib (MonoMethod *method)
 {
   MonoClass *method_klass = mono_method_get_class (method);
   MonoImage *method_image = mono_class_get_image(method_klass);
-  return (strcmp ("libstd", mono_image_get_name(method_image)) == 0);
+  const char *image_name = mono_image_get_name(method_image);
+  if (strcmp ("libstd",image_name) == 0)
+    {
+      /* Even though these two methods are in libstd, they have no
+         counterpart in a standard libc.  */
+      const char *method_name = mono_method_get_name(method);
+      if ( (strcmp (".init", method_name) == 0) ||
+           (strcmp (".fini", method_name) == 0))
+        {
+          return 0;
+        }
+      return 1;
+    }
+  else
+    {
+      return 0;
+    }
 }
 
 static GCCCilMethodMode

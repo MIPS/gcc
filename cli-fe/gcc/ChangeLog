@@ -1,3 +1,7 @@
+2010-03-31  Erven Rohou <erven.rohou@inria.fr>
+
+	* cil/parser.c: Special handling for init and fini methods in libstd.
+	
 2007-07-27  Jan Hubicka  <jh@suse.cz>
 
 	* config/i386/i386.c (register_move_cost): Remove accidentally comitted
