@@ -129,3 +129,8 @@ void
 _libstd__init_System_Void (void)
 {
 }
+
+void
+_libstd__fini_System_Void (void)
+{
+}

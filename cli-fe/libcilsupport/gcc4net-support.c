@@ -52,6 +52,12 @@ gcc4net_StartupHelper_Shutdown_System_Int32_System_Void (int eval)
   /* TODO */
 }
 
+void
+System_Environment_Exit_System_Int32_System_Void(int n)
+{
+  exit(n);
+}
+
 int
 gcc4net_Crt___isLittleEndian_System_Boolean (void)
 {
