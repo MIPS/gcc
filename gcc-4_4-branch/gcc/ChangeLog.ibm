@@ -1,3 +1,32 @@
+2010-03-31  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	(back ported from mainline, 2010-03-02, Jeff Law)
+	PR middle-end/42431
+	* reload1.c (rtx_p, substitute_stack): Declare.
+	(substitute): Record addresses of changed rtxs.
+	(gen_reload_chain_without_interm_reg_p): Don't use copy_rtx anymore.
+	Restore the original rtx when complete.
+	(reload): Free subsitute_stack when complete.
+
+	(back ported from mainline, 2010-03-12, Michael Meissner)
+	PR middle-end/42431
+	* gcc/config/rs6000/rs6000.c (rs6000_emit_move): Delete band-aid
+	code added to work around reload clobbering CONST insns.
+
+	(back ported from mainline, 2010-03-26, Michael Meissner)
+	PR tree-optimization/43544
+	* doc/tm.texi (TARGET_VECTORIZE_BUILTIN_VECTORIZED_FUNCTION):
+	First argument for builtin vectorized function hook is now a
+	tree to be able to distinguish between machine specific and
+	standard builtins.
+	* targhooks.c (default_builtin_vectorized_function): Ditto.
+	* targhooks.h (default_builtin_vectorized_function): Ditto.
+	* target.h (struct gcc_target): Ditto.
+	* tree-vect-transform.c (vectorizable_function): Ditto.
+	* config/i386/i386.c (ix86_builtin_vectorized_function): Ditto.
+	* config/rs6000/rs6000.c (rs6000_builtin_vectorized_function):
+	Ditto.
+
 2010-03-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to redhat_branch, subversion id 157832.
@@ -8,7 +37,7 @@
 
 2010-03-23  Vladimir Makarov  <vmakarov@redhat.com>
 
-	(back ported from mainline)
+	(back ported from mainline, 2010-03-23, Vladimir Makarov)
 	PR rtl-optimization/43413
 	* ira-color.c (setup_allocno_available_regs_num): Count prohibited
 	hard regs too.

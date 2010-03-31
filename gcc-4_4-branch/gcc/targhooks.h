@@ -1,5 +1,6 @@
 /* Default target hook functions.
-   Copyright (C) 2003, 2004, 2005, 2007, 2008 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2007, 2008, 2009, 2010
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -62,8 +63,7 @@ extern bool default_fixed_point_supported_p (void);
 
 extern const char * default_invalid_within_doloop (const_rtx);
 
-extern tree default_builtin_vectorized_function
-  (enum built_in_function, tree, tree);
+extern tree default_builtin_vectorized_function (tree, tree, tree);
 
 extern tree default_builtin_vectorized_conversion (enum tree_code, tree);
 
