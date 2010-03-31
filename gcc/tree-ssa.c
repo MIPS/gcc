@@ -1209,6 +1209,12 @@ useless_type_conversion_p (tree outer_type, tree inner_type)
 	  != TYPE_ADDR_SPACE (TREE_TYPE (inner_type)))
 	return false;
 
+      /* Do not lose casts to restrict qualified pointers.  */
+      if ((TYPE_RESTRICT (outer_type)
+	   != TYPE_RESTRICT (inner_type))
+	  && TYPE_RESTRICT (outer_type))
+	return false;
+
       /* If the outer type is (void *) or a pointer to an incomplete
 	 record type or a pointer to an unprototyped function,
 	 then the conversion is not necessary.  */
@@ -1221,12 +1227,6 @@ useless_type_conversion_p (tree outer_type, tree inner_type)
 	      && useless_type_conversion_p (TREE_TYPE (TREE_TYPE (outer_type)),
 					    TREE_TYPE (TREE_TYPE (inner_type)))))
 	return true;
-
-      /* Do not lose casts to restrict qualified pointers.  */
-      if ((TYPE_RESTRICT (outer_type)
-	   != TYPE_RESTRICT (inner_type))
-	  && TYPE_RESTRICT (outer_type))
-	return false;
     }
 
   /* From now on qualifiers on value types do not matter.  */

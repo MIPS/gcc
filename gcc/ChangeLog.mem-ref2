@@ -1,5 +1,10 @@
 2010-03-31  Richard Guenther  <rguenther@suse.de>
 
+	* tree-ssa.c (useless_type_conversion_p): Move restrict
+	cast conversion check before void type check.
+
+2010-03-31  Richard Guenther  <rguenther@suse.de>
+
 	* tree-sra.c (create_access): Swap INDIRECT_REF handling for
 	MEM_REF handling.
 	(disqualify_base_of_expr): Likewise.
