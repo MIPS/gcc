@@ -1,5 +1,8 @@
 2010-04-01  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to 157920.
+	* REVISION: Update subversion id.
+
 	* config/rs6000/rs6000.opt (-mrecip): Only mention software
 	reciprocal square root at this time.
 	(-mrecip=): Delete.
