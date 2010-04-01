@@ -1,3 +1,45 @@
+2010-03-31  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2010-03-27  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR tree-optimization/43528
+	* gcc.target/i386/pr43528.c: New test.
+
+	2010-03-26  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/43524
+	* gcc.target/i386/pr43524.c: New test.
+
+2010-03-31  Jie Zhang  <jie@codesourcery.com>
+
+	PR 43562
+	* gcc.dg/pr43562.c: New test.
+
+2010-03-30  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/43409
+	* gfortran.dg/inquire_size.f90: New test.
+
+2010-03-30  Jason Merrill  <jason@redhat.com>
+
+	PR c++/41786
+	* g++.dg/parse/ambig5.C: New.
+
+2010-03-30  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* gcc.target/s390/stackcheck1.c: New testcase.
+
+2010-03-29  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/43265
+	* gfortran.dg/read_eof_8.f90: New test.
+
+2010-03-29  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/43551
+	* gfortran.dg/direct_io_12.f90: New test.
+
 2010-03-29  Jason Merrill  <jason@redhat.com>
 
 	* gcc.dg/cpp/include6.c: Change [] to ().
