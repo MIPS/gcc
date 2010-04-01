@@ -1945,7 +1945,7 @@ sched_analyze_1 (struct deps *deps, rtx x, rtx insn)
       if (sched_deps_info->use_cselib)
 	{
 	  t = shallow_copy_rtx (dest);
-	  cselib_lookup (XEXP (t, 0), Pmode, 1);
+	  cselib_lookup_from_insn (XEXP (t, 0), Pmode, 1, insn);
 	  XEXP (t, 0) = cselib_subst_to_values (XEXP (t, 0));
 	}
       t = canon_rtx (t);
@@ -2099,7 +2099,7 @@ sched_analyze_2 (struct deps *deps, rtx x, rtx insn)
 	if (sched_deps_info->use_cselib)
 	  {
 	    t = shallow_copy_rtx (t);
-	    cselib_lookup (XEXP (t, 0), Pmode, 1);
+	    cselib_lookup_from_insn (XEXP (t, 0), Pmode, 1, insn);
 	    XEXP (t, 0) = cselib_subst_to_values (XEXP (t, 0));
 	  }
 
