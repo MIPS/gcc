@@ -1,3 +1,11 @@
+2010-04-01  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-alias.c (indirect_ref_may_alias_decl_p): Re-instantiate
+	TBAA code.
+	(indirect_refs_may_alias_p): Likewise.
+	(refs_may_alias_p_1): Move MEM_REF base offset handling to
+	disambiguators.  Remove pointer SSA name def chasing code.
+
 2010-03-31  Richard Guenther  <rguenther@suse.de>
 
 	* tree-ssa-loop-ivopts.c (find_interesting_uses_address):
