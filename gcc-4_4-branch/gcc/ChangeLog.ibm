@@ -1,4 +1,4 @@
-2010-03-31  Michael Meissner  <meissner@linux.vnet.ibm.com>
+2010-04-01  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* doc/extend.texi (__builtin_rsqrt): Document.
 
