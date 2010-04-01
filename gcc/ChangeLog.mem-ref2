@@ -1,5 +1,11 @@
 2010-04-01  Richard Guenther  <rguenther@suse.de>
 
+	* emit-rtl.c (set_mem_attributes_minus_bitpos): Handle MEM_REF.
+	* tree-loop-distribution.c (generate_builtin): Exchange INDIRECT_REF
+	handling for MEM_REF.
+
+2010-04-01  Richard Guenther  <rguenther@suse.de>
+
 	* tree-ssa-alias.c (indirect_ref_may_alias_decl_p): Re-instantiate
 	TBAA code.
 	(indirect_refs_may_alias_p): Likewise.
