@@ -11634,6 +11634,7 @@ GCC provides a few other builtins on Powerpc to access certain instructions:
 float __builtin_recipdivf (float, float);
 float __builtin_rsqrtf (float);
 double __builtin_recipdiv (double, double);
+double __builtin_rsqrt (double);
 long __builtin_bpermd (long, long);
 int __builtin_bswap16 (int);
 @end smallexample
