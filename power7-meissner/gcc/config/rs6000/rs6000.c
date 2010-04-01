@@ -2680,6 +2680,11 @@ rs6000_override_options (const char *default_cpu)
 				 || rs6000_cpu == PROCESSOR_PPCE500MC
 				 || rs6000_cpu == PROCESSOR_PPCE500MC64);
 
+  /* Set the default # of passes to use for -mrecip.  */
+  if (rs6000_recip_passes < 0)
+    rs6000_recip_passes = (rs6000_cpu == PROCESSOR_POWER6
+			   || rs6000_cpu == PROCESSOR_POWER7) ? 2 : 3;
+
   /* Allow debug switches to override the above settings.  */
   if (TARGET_ALWAYS_HINT > 0)
     rs6000_always_hint = TARGET_ALWAYS_HINT;
@@ -2945,7 +2950,7 @@ rs6000_override_options (const char *default_cpu)
     TARGET_AVOID_XFORM = (rs6000_cpu == PROCESSOR_POWER6 && TARGET_CMPB);
 
   /* If -mrecip was not passed, only set it to true at high optimization levels
-     with -ffast-math.  */
+     with -ffast-math and if machine supports a high precision rsqrte instruction.  */
   if (TARGET_RECIP < 0)
     TARGET_RECIP = (optimize >= 3 && TARGET_HARD_FLOAT && TARGET_PPC_GFXOPT
 		    && !optimize_size && flag_finite_math_only
@@ -11364,6 +11369,7 @@ rs6000_init_builtins (void)
 				     "__builtin_rsqrtf");
       def_builtin (MASK_PPC_GFXOPT, "__builtin_rsqrtf", ftype,
 		   RS6000_BUILTIN_RSQRTF);
+
       ftype = builtin_function_type (DFmode, DFmode, VOIDmode, VOIDmode,
 				     RS6000_BUILTIN_RSQRT,
 				     "__builtin_rsqrt");
@@ -25285,7 +25291,7 @@ rs6000_emit_swdivdf (rtx dst, rtx n, rtx d)
   /* e0 = 1. - d * x0 */
   emit_insn (gen_rtx_SET (VOIDmode, e0,
 			  gen_rtx_MINUS (DFmode, one,
-					 gen_rtx_MULT (SFmode, d, x0))));
+					 gen_rtx_MULT (DFmode, d, x0))));
   /* y1 = x0 + e0 * x0 */
   emit_insn (gen_rtx_SET (VOIDmode, y1,
 			  gen_rtx_PLUS (DFmode,
@@ -25326,25 +25332,16 @@ rs6000_emit_swrsqrt (rtx dst, rtx src)
 {
   enum machine_mode mode = GET_MODE (src);
   rtx x0 = gen_reg_rtx (mode);
-  int passes;
 
   gcc_assert (flag_finite_math_only && !flag_trapping_math);
-
-  if (mode == SFmode)
-    passes = rs6000_recip_float_passes;
-
-  else if (mode == DFmode)
-    passes = rs6000_recip_double_passes;
-
-  else
-    gcc_unreachable ();
+  gcc_assert (mode == SFmode || mode == DFmode);
 
   /* x0 = rsqrt estimate */
   emit_insn (gen_rtx_SET (VOIDmode, x0,
 			  gen_rtx_UNSPEC (mode, gen_rtvec (1, src),
 					  UNSPEC_RSQRT)));
 
-  if (passes > 0)
+  if (rs6000_recip_passes > 0)
     {
       REAL_VALUE_TYPE dconst3_2;
       int i;
@@ -25362,7 +25359,7 @@ rs6000_emit_swrsqrt (rtx dst, rtx src)
       m = gen_rtx_MULT (mode, src, halfthree),
       emit_insn (gen_rtx_SET (VOIDmode, y, gen_rtx_MINUS (mode, m, src)));
 
-      for (i = 0; i < passes; i++)
+      for (i = 0; i < rs6000_recip_passes; i++)
 	{
 	  rtx x1 = gen_reg_rtx (mode);
 	  rtx u = gen_reg_rtx (mode);
