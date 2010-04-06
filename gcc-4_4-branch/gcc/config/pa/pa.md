@@ -3548,7 +3548,7 @@
 
   size = INTVAL (operands[2]);
   align = INTVAL (operands[3]);
-  align = align > 4 ? 4 : (align ? align : 1);
+  align = align > 4 ? 4 : align;
 
   /* If size/alignment is large, then use the library routines.  */
   if (size / align > 16)
@@ -3736,7 +3736,7 @@
 
   size = INTVAL (operands[2]);
   align = INTVAL (operands[3]);
-  align = align > 8 ? 8 : (align ? align : 1);
+  align = align > 8 ? 8 : align;
 
   /* If size/alignment is large, then use the library routines.  */
   if (size / align > 16)

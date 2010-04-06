@@ -1017,10 +1017,6 @@ compile_file (void)
   /* Write out any pending weak symbol declarations.  */
   weak_finish ();
 
-  /* This must be at the end before unwind and debug info.
-     Some target ports emit PIC setup thunks here.  */
-  targetm.asm_out.code_end ();
-
   /* Do dbx symbols.  */
   timevar_push (TV_SYMOUT);
 

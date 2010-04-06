@@ -1,46 +1,16 @@
-2010-04-01  Michael Meissner  <meissner@linux.vnet.ibm.com>
+2010-04-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
-	* doc/extend.texi (__builtin_rsqrt): Document.
+	Revert 2010-04-01 reciprocal sqrt changes.
+	Revert 2010-03-30 change to merge up to 157832.
 
-	* doc/invoke.texi (-mrecip): Document.
-	(-mno-recip): Ditto.
-	(-mrecip-passes=n): New switch to control the number of passes for
-	reciprocal square root estimate.
-
-	* config/rs6000/rs6000-protos.h (rs6000_emit_swrsqrt): Rename from
-	rs6000_emit_swrsqrtsf.
-
-	* config/rs6000/rs6000.opt (-mrecip): Change documentation.
-	(-mrecip-passes=n): New switch.
-
-	* config/rs6000/rs6000-builtin.def (RS6000_BUILTIN_RSQRT): New
-	builtin.
-
-	* config/rs6000/rs6000.c (rs6000_override_options): Don't allow
-	-mvsx -mno-altivec.  Set rs6000_recip_passes to 2 on power6 and
-	power7, or 3 on other machines.  Add some enum casts.
-	(rs6000_expand_builtin): Add __builtin_rsqrt support.
-	(rs6000_init_builtins): Ditto.
-	(rs6000_builtin_reciprocal): Ditto.
-	(rs6000_emit_swdivdf): Emit correct type for MULT.
-	(rs6000_emit_swrsqrt): Rewrite.  Support both single and double
-	precision.  Add support for reducing the number of Newton-Raphson
-	passes on newer machines.
-
-	* config/rs6000/vsx.md (UNSPEC_VSX_RSQRTE): Delete.
-	(vsx_rsqrte<mode>2): Use UNSPEC_RSQRT.
-	(FP2): New iterator.
-	(rsqrt<mode>2): Rename from rsqrtsf2, and add DFmode support.
-	Call rs6000_emit_swrsqrt instead of rs6000_emit_swrsqrtsf.
-	(rsqrtsf_internal1): Rename from rsqrt_internal1.  Add test for
-	TARGET_SINGLE_FLOAT for completeness.
+2010-03-31  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	(back ported from mainline, 2010-03-02, Jeff Law)
 	PR middle-end/42431
 	* reload1.c (rtx_p, substitute_stack): Declare.
 	(substitute): Record addresses of changed rtxs.
 	(gen_reload_chain_without_interm_reg_p): Don't use copy_rtx anymore.
-	Restore the original rtx when complete.
+	Re1store the original rtx when complete.
 	(reload): Free subsitute_stack when complete.
 
 	(back ported from mainline, 2010-03-12, Michael Meissner)
@@ -63,9 +33,6 @@
 	Ditto.
 
 2010-03-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
-
-	Merge up to redhat_branch, subversion id 157832.
-	* REVISION: Update subversion id.
 
 	* builtins.c (expand_builtin_pow_root): Only use CALL_EXPR_NOFOLD
 	on the sqrt calls, not the multiply.

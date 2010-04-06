@@ -2309,7 +2309,8 @@ rs6000_override_options (const char *default_cpu)
 	}
     }
 
-  /* Add some warnings for VSX.  */
+  /* Add some warnings for VSX.  Enable -maltivec unless the user explicitly
+     used -mno-altivec  */
   if (TARGET_VSX)
     {
       const char *msg = NULL;
@@ -2330,20 +2331,14 @@ rs6000_override_options (const char *default_cpu)
 	msg = N_("-mvsx used with little endian code");
       else if (TARGET_AVOID_XFORM > 0)
 	msg = N_("-mvsx needs indexed addressing");
-      else if (!TARGET_ALTIVEC && (target_flags_explicit & MASK_ALTIVEC))
-        {
-	  if (target_flags_explicit & MASK_VSX)
-	    msg = N_("-mvsx and -mno-altivec are incompatible");
-	  else
-	    msg = N_("-mno-altivec disables vsx");
-        }
 
       if (msg)
 	{
 	  warning (0, msg);
 	  target_flags &= ~ MASK_VSX;
 	}
-      else if (TARGET_VSX && !TARGET_ALTIVEC)
+      else if (TARGET_VSX && !TARGET_ALTIVEC
+	       && (target_flags_explicit & MASK_ALTIVEC) == 0)
 	target_flags |= MASK_ALTIVEC;
     }
 
@@ -2501,11 +2496,6 @@ rs6000_override_options (const char *default_cpu)
 				 || rs6000_cpu == PROCESSOR_POWER6
 				 || rs6000_cpu == PROCESSOR_POWER7);
 
-  /* Set the default # of passes to use for -mrecip.  */
-  if (rs6000_recip_passes < 0)
-    rs6000_recip_passes = (rs6000_cpu == PROCESSOR_POWER6
-			   || rs6000_cpu == PROCESSOR_POWER7) ? 2 : 3;
-
   /* Allow debug switches to override the above settings.  */
   if (TARGET_ALWAYS_HINT > 0)
     rs6000_always_hint = TARGET_ALWAYS_HINT;
@@ -2534,8 +2524,7 @@ rs6000_override_options (const char *default_cpu)
       else if (! strcmp (rs6000_sched_costly_dep_str, "store_to_load"))
 	rs6000_sched_costly_dep = store_to_load_dep_costly;
       else
-	rs6000_sched_costly_dep = ((enum rs6000_dependence_cost)
-				   atoi (rs6000_sched_costly_dep_str));
+	rs6000_sched_costly_dep = atoi (rs6000_sched_costly_dep_str);
     }
 
   /* Handle -minsert-sched-nops option.  */
@@ -2551,8 +2540,7 @@ rs6000_override_options (const char *default_cpu)
       else if (! strcmp (rs6000_sched_insert_nops_str, "regroup_exact"))
 	rs6000_sched_insert_nops = sched_finish_regroup_exact;
       else
-	rs6000_sched_insert_nops = ((enum rs6000_nop_insertion)
-				    atoi (rs6000_sched_insert_nops_str));
+	rs6000_sched_insert_nops = atoi (rs6000_sched_insert_nops_str);
     }
 
 #ifdef TARGET_REGNAMES
@@ -10814,9 +10802,6 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
   if (fcode == RS6000_BUILTIN_RSQRTF)
       return rs6000_expand_unop_builtin (CODE_FOR_rsqrtsf2, exp, target);
 
-  if (fcode == RS6000_BUILTIN_RSQRT)
-      return rs6000_expand_unop_builtin (CODE_FOR_rsqrtdf2, exp, target);
-
   if (fcode == RS6000_BUILTIN_BSWAP_HI)
     return rs6000_expand_unop_builtin (CODE_FOR_bswaphi2, exp, target);
 
@@ -11098,12 +11083,6 @@ rs6000_init_builtins (void)
 				     "__builtin_rsqrtf");
       def_builtin (MASK_PPC_GFXOPT, "__builtin_rsqrtf", ftype,
 		   RS6000_BUILTIN_RSQRTF);
-
-      ftype = builtin_function_type (DFmode, DFmode, VOIDmode, VOIDmode,
-				     RS6000_BUILTIN_RSQRT,
-				     "__builtin_rsqrt");
-      def_builtin (MASK_PPC_GFXOPT, "__builtin_rsqrt", ftype,
-		   RS6000_BUILTIN_RSQRT);
     }
   if (TARGET_POPCNTB)
     {
@@ -24817,9 +24796,6 @@ rs6000_builtin_reciprocal (unsigned int fn, bool md_fn,
   else
     switch (fn)
       {
-      case BUILT_IN_SQRT:
-	return rs6000_builtin_decls[RS6000_BUILTIN_RSQRT];
-
       case BUILT_IN_SQRTF:
 	return rs6000_builtin_decls[RS6000_BUILTIN_RSQRTF];
 
@@ -24899,7 +24875,7 @@ rs6000_emit_swdivdf (rtx dst, rtx n, rtx d)
   /* e0 = 1. - d * x0 */
   emit_insn (gen_rtx_SET (VOIDmode, e0,
 			  gen_rtx_MINUS (DFmode, one,
-					 gen_rtx_MULT (DFmode, d, x0))));
+					 gen_rtx_MULT (SFmode, d, x0))));
   /* y1 = x0 + e0 * x0 */
   emit_insn (gen_rtx_SET (VOIDmode, y1,
 			  gen_rtx_PLUS (DFmode,
@@ -24932,63 +24908,88 @@ rs6000_emit_swdivdf (rtx dst, rtx n, rtx d)
 }
 
 
-/* Newton-Raphson approximation of single/double-precision floating point
-   rsqrt.  Assumes no trapping math and finite arguments.  */
+/* Newton-Raphson approximation of single-precision floating point rsqrt.
+   Assumes no trapping math and finite arguments.  */
 
 void
-rs6000_emit_swrsqrt (rtx dst, rtx src)
+rs6000_emit_swrsqrtsf (rtx dst, rtx src)
 {
-  enum machine_mode mode = GET_MODE (src);
-  rtx x0 = gen_reg_rtx (mode);
+  rtx x0, x1, x2, y1, u0, u1, u2, v0, v1, v2, t0,
+    half, one, halfthree, c1, cond, label;
 
-  gcc_assert (flag_finite_math_only && !flag_trapping_math);
-  gcc_assert (mode == SFmode || mode == DFmode);
+  x0 = gen_reg_rtx (SFmode);
+  x1 = gen_reg_rtx (SFmode);
+  x2 = gen_reg_rtx (SFmode);
+  y1 = gen_reg_rtx (SFmode);
+  u0 = gen_reg_rtx (SFmode);
+  u1 = gen_reg_rtx (SFmode);
+  u2 = gen_reg_rtx (SFmode);
+  v0 = gen_reg_rtx (SFmode);
+  v1 = gen_reg_rtx (SFmode);
+  v2 = gen_reg_rtx (SFmode);
+  t0 = gen_reg_rtx (SFmode);
+  halfthree = gen_reg_rtx (SFmode);
+  cond = gen_rtx_REG (CCFPmode, CR1_REGNO);
+  label = gen_rtx_LABEL_REF (VOIDmode, gen_label_rtx ());
+
+  /* check 0.0, 1.0, NaN, Inf by testing src * src = src */
+  emit_insn (gen_rtx_SET (VOIDmode, t0,
+			  gen_rtx_MULT (SFmode, src, src)));
+
+  emit_insn (gen_rtx_SET (VOIDmode, cond,
+			  gen_rtx_COMPARE (CCFPmode, t0, src)));
+  c1 = gen_rtx_EQ (VOIDmode, cond, const0_rtx);
+  emit_unlikely_jump (c1, label);
+
+  half = force_reg (SFmode, CONST_DOUBLE_FROM_REAL_VALUE (dconsthalf, SFmode));
+  one = force_reg (SFmode, CONST_DOUBLE_FROM_REAL_VALUE (dconst1, SFmode));
+
+  /* halfthree = 1.5 = 1.0 + 0.5 */
+  emit_insn (gen_rtx_SET (VOIDmode, halfthree,
+			  gen_rtx_PLUS (SFmode, one, half)));
 
   /* x0 = rsqrt estimate */
   emit_insn (gen_rtx_SET (VOIDmode, x0,
-			  gen_rtx_UNSPEC (mode, gen_rtvec (1, src),
+			  gen_rtx_UNSPEC (SFmode, gen_rtvec (1, src),
 					  UNSPEC_RSQRT)));
 
-  if (rs6000_recip_passes > 0)
-    {
-      REAL_VALUE_TYPE dconst3_2;
-      int i;
-      rtx halfthree;
-      rtx y = gen_reg_rtx (mode);
-      rtx m;
-      rtx d;
+  /* y1 = 0.5 * src = 1.5 * src - src -> fewer constants */
+  emit_insn (gen_rtx_SET (VOIDmode, y1,
+			  gen_rtx_MINUS (SFmode,
+					 gen_rtx_MULT (SFmode, src, halfthree),
+					 src)));
 
-      real_from_integer (&dconst3_2, VOIDmode, 3, 0, 0);
-      SET_REAL_EXP (&dconst3_2, REAL_EXP (&dconst3_2) - 1);
-      d = CONST_DOUBLE_FROM_REAL_VALUE (dconst3_2, mode);
-      halfthree = force_reg (mode, d);
+  /* x1 = x0 * (1.5 - y1 * (x0 * x0)) */
+  emit_insn (gen_rtx_SET (VOIDmode, u0,
+			  gen_rtx_MULT (SFmode, x0, x0)));
+  emit_insn (gen_rtx_SET (VOIDmode, v0,
+			  gen_rtx_MINUS (SFmode,
+					 halfthree,
+					 gen_rtx_MULT (SFmode, y1, u0))));
+  emit_insn (gen_rtx_SET (VOIDmode, x1,
+			  gen_rtx_MULT (SFmode, x0, v0)));
 
-      /* y = 0.5 * src = 1.5 * src - src -> fewer constants */
-      m = gen_rtx_MULT (mode, src, halfthree),
-      emit_insn (gen_rtx_SET (VOIDmode, y, gen_rtx_MINUS (mode, m, src)));
+  /* x2 = x1 * (1.5 - y1 * (x1 * x1)) */
+  emit_insn (gen_rtx_SET (VOIDmode, u1,
+			  gen_rtx_MULT (SFmode, x1, x1)));
+  emit_insn (gen_rtx_SET (VOIDmode, v1,
+			  gen_rtx_MINUS (SFmode,
+					 halfthree,
+					 gen_rtx_MULT (SFmode, y1, u1))));
+  emit_insn (gen_rtx_SET (VOIDmode, x2,
+			  gen_rtx_MULT (SFmode, x1, v1)));
 
-      for (i = 0; i < rs6000_recip_passes; i++)
-	{
-	  rtx x1 = gen_reg_rtx (mode);
-	  rtx u = gen_reg_rtx (mode);
-	  rtx v = gen_reg_rtx (mode);
+  /* dst = x2 * (1.5 - y1 * (x2 * x2)) */
+  emit_insn (gen_rtx_SET (VOIDmode, u2,
+			  gen_rtx_MULT (SFmode, x2, x2)));
+  emit_insn (gen_rtx_SET (VOIDmode, v2,
+			  gen_rtx_MINUS (SFmode,
+					 halfthree,
+					 gen_rtx_MULT (SFmode, y1, u2))));
+  emit_insn (gen_rtx_SET (VOIDmode, dst,
+			  gen_rtx_MULT (SFmode, x2, v2)));
 
-	  /* x1 = x0 * (1.5 - y * (x0 * x0)) */
-	  emit_insn (gen_rtx_SET (VOIDmode, u,
-				  gen_rtx_MULT (mode, x0, x0)));
-
-	  m = gen_rtx_MULT (mode, y, u);
-	  emit_insn (gen_rtx_SET (VOIDmode, v,
-				  gen_rtx_MINUS (mode, halfthree, m)));
-
-	  emit_insn (gen_rtx_SET (VOIDmode, x1,
-				  gen_rtx_MULT (mode, x0, v)));
-	  x0 = x1;
-	}
-    }
-
-  emit_move_insn (dst, x0);
-  return;
+  emit_label (XEXP (label, 0));
 }
 
 /* Emit popcount intrinsic on TARGET_POPCNTB (Power5) and TARGET_POPCNTD

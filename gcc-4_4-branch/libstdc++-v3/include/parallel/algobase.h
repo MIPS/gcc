@@ -146,7 +146,7 @@ namespace __parallel
   template<typename InputIterator1, typename InputIterator2>
     inline bool
     equal(InputIterator1 begin1, InputIterator1 end1, InputIterator2 begin2)
-    { return _GLIBCXX_STD_P::mismatch(begin1, end1, begin2).first == end1; }
+    { return mismatch(begin1, end1, begin2).first == end1; }
 
   // Public interface
   template<typename InputIterator1, typename InputIterator2,
@@ -154,10 +154,7 @@ namespace __parallel
     inline bool
     equal(InputIterator1 begin1, InputIterator1 end1, InputIterator2 begin2, 
 	  Predicate pred)
-    {
-      return _GLIBCXX_STD_P::mismatch(begin1, end1, begin2, pred).first
-                  == end1;
-    }
+    { return mismatch(begin1, end1, begin2, pred).first == end1; }
 
   // Sequential fallback
   template<typename InputIterator1, typename InputIterator2>

@@ -753,8 +753,7 @@ See RS/6000 and PowerPC Options.
 -mfloat-gprs=yes  -mfloat-gprs=no -mfloat-gprs=single -mfloat-gprs=double @gol
 -mprototype  -mno-prototype @gol
 -msim  -mmvme  -mads  -myellowknife  -memb  -msdata @gol
--msdata=@var{opt}  -mvxworks  -G @var{num}  -pthread @gol
--mrecip -mno-recip -mrecip-passes=@var{num}}
+-msdata=@var{opt}  -mvxworks  -G @var{num}  -pthread}
 
 @emph{S/390 and zSeries Options}
 @gccoptlist{-mtune=@var{cpu-type}  -march=@var{cpu-type} @gol
@@ -14610,27 +14609,6 @@ when the linker is known to generate glue.
 @opindex pthread
 Adds support for multithreading with the @dfn{pthreads} library.
 This option sets flags for both the preprocessor and linker.
-
-@item -mrecip
-@itemx -mno-recip
-@opindex mrecip
-This option will enable GCC to use FRSQRTE instruction for reciprocal
-square root with an additional Newton-Raphson step to increase
-precision instead of FSQRTS/FDIVS for single precision floating point
-arguments.  These instructions are generated only when
-@option{-funsafe-math-optimizations} is enabled together with
-@option{-finite-math-only} and @option{-fno-trapping-math}.  Note that
-while the throughput of the sequence is generally higher than the
-throughput of the non-reciprocal instruction, the precision of the
-sequence can be decreased by up to 2 ulp (i.e. the inverse of 1.0
-equals 0.99999994).
-
-@item -mrecip-passes=@var{num}
-@opindex mrecip-passes
-Control the number of Newton-Raphson passes to use after an estimate
-instruction if @option{-mrecip} was used.  The default is 2 on newer
-machines that support higher precision estimate instruction and 3 on
-older machines.
 
 @end table
 

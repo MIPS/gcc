@@ -1,4 +1,4 @@
-! { dg-do run }
+! { dg-do run { target fd_truncate } }
 ! PR31052 Bad IOSTAT values when readings NAMELISTs past EOF.
 ! Patch derived from PR, submitted by Jerry DeLisle <jvdelisle@gcc.gnu.org>
 program gfcbug61
@@ -41,14 +41,14 @@ contains
     character(len=*), intent(in) :: name
 
     character(len=255) :: line
-    integer            :: ios, idx, k
+    integer            :: ios, idx
     logical            :: first
 
     first = .true.
     status = 0
     ios = 0
     line = ""
-    do k=1,10
+    do
        read (unit,'(a)',iostat=ios) line
        if (first) then
           first = .false.
@@ -74,7 +74,7 @@ contains
   subroutine read_report (unit, status)
     integer :: unit, status
 
-    integer            :: iuse, ios, k
+    integer            :: iuse, ios
     !------------------
     ! Namelist 'REPORT'
     !------------------
@@ -85,7 +85,7 @@ contains
     ! Loop to read namelist multiple times
     !-------------------------------------
     iuse = 0
-    do k=1,5
+    do
        !----------------------------------------
        ! Preset namelist variables with defaults
        !----------------------------------------

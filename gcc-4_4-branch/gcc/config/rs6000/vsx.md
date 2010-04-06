@@ -195,7 +195,7 @@
    (UNSPEC_VSX_MSUB		511)
    (UNSPEC_VSX_NMADD		512)
    (UNSPEC_VSX_NMSUB		513)
-   ; 514 deleted
+   (UNSPEC_VSX_RSQRTE		514)
    (UNSPEC_VSX_TDIV		515)
    (UNSPEC_VSX_TSQRT		516)
    (UNSPEC_VSX_XXPERMDI		517)
@@ -449,7 +449,7 @@
 (define_insn "vsx_rsqrte<mode>2"
   [(set (match_operand:VSX_B 0 "vsx_register_operand" "=<VSr>,?wa")
 	(unspec:VSX_B [(match_operand:VSX_B 1 "vsx_register_operand" "<VSr>,wa")]
-		      UNSPEC_RSQRT))]
+		      UNSPEC_VSX_RSQRTE))]
   "VECTOR_UNIT_VSX_P (<MODE>mode)"
   "x<VSv>rsqrte<VSs> %x0,%x1"
   [(set_attr "type" "<VStype_simple>")

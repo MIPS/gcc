@@ -7584,8 +7584,8 @@ get_pc_thunk_name (char name[32], unsigned int regno)
 /* This function generates code for -fpic that loads %ebx with
    the return address of the caller and then returns.  */
 
-static void
-ix86_code_end (void)
+void
+ix86_file_end (void)
 {
   rtx xops[2];
   int regno;
@@ -7593,18 +7593,14 @@ ix86_code_end (void)
   for (regno = 0; regno < 8; ++regno)
     {
       char name[32];
-      tree decl;
+#ifdef DWARF2_UNWIND_INFO
+      bool do_cfi;
+#endif
 
       if (! ((pic_labels_used >> regno) & 1))
 	continue;
 
       get_pc_thunk_name (name, regno);
-
-      decl = build_decl (FUNCTION_DECL, get_identifier (name),
-			 build_function_type (void_type_node, void_list_node));
-      DECL_RESULT (decl) = build_decl (RESULT_DECL, NULL_TREE, void_type_node);
-      TREE_PUBLIC (decl) = 1;
-      TREE_STATIC (decl) = 1;
 
 #if TARGET_MACHO
       if (TARGET_MACHO)
@@ -7616,12 +7612,17 @@ ix86_code_end (void)
 	  assemble_name (asm_out_file, name);
 	  fputs ("\n", asm_out_file);
 	  ASM_OUTPUT_LABEL (asm_out_file, name);
-	  DECL_WEAK (decl) = 1;
 	}
       else
 #endif
       if (USE_HIDDEN_LINKONCE)
 	{
+	  tree decl;
+
+	  decl = build_decl (FUNCTION_DECL, get_identifier (name),
+			     error_mark_node);
+	  TREE_PUBLIC (decl) = 1;
+	  TREE_STATIC (decl) = 1;
 	  DECL_ONE_ONLY (decl) = 1;
 
 	  (*targetm.asm_out.unique_section) (decl, 0);
@@ -7639,23 +7640,23 @@ ix86_code_end (void)
 	  ASM_OUTPUT_LABEL (asm_out_file, name);
 	}
 
-      DECL_INITIAL (decl) = make_node (BLOCK);
-      current_function_decl = decl;
-      init_function_start (decl);
-      first_function_block_is_cold = false;
-      /* Make sure unwind info is emitted for the thunk if needed.  */
-      final_start_function (emit_barrier (), asm_out_file, 1);
-
+#ifdef DWARF2_UNWIND_INFO
+      do_cfi = dwarf2out_do_cfi_asm ();
+      if (do_cfi)
+	fprintf (asm_out_file, "\t.cfi_startproc\n");
+#endif
       xops[0] = gen_rtx_REG (Pmode, regno);
       xops[1] = gen_rtx_MEM (Pmode, stack_pointer_rtx);
       output_asm_insn ("mov%z0\t{%1, %0|%0, %1}", xops);
       output_asm_insn ("ret", xops);
-      final_end_function ();
-      init_insn_lengths ();
-      free_after_compilation (cfun);
-      set_cfun (NULL);
-      current_function_decl = NULL;
+#ifdef DWARF2_UNWIND_INFO
+      if (do_cfi)
+	fprintf (asm_out_file, "\t.cfi_endproc\n");
+#endif
     }
+
+  if (NEED_INDICATE_EXEC_STACK)
+    file_end_indicate_exec_stack ();
 }
 
 /* Emit code for the SET_GOT patterns.  */
@@ -27207,6 +27208,13 @@ machopic_output_stub (FILE *file, const char *symb, const char *stub)
   fprintf (file, "\t.indirect_symbol %s\n", symbol_name);
   fprintf (file, "\t.long %s\n", binder_name);
 }
+
+void
+darwin_x86_file_end (void)
+{
+  darwin_file_end ();
+  ix86_file_end ();
+}
 #endif /* TARGET_MACHO */
 
 /* Order the registers for register allocator.  */
@@ -27426,16 +27434,13 @@ x86_can_output_mi_thunk (const_tree thunk ATTRIBUTE_UNUSED,
    *(*this + vcall_offset) should be added to THIS.  */
 
 static void
-x86_output_mi_thunk (FILE *file,
+x86_output_mi_thunk (FILE *file ATTRIBUTE_UNUSED,
 		     tree thunk ATTRIBUTE_UNUSED, HOST_WIDE_INT delta,
 		     HOST_WIDE_INT vcall_offset, tree function)
 {
   rtx xops[3];
   rtx this_param = x86_this_parameter (function);
   rtx this_reg, tmp;
-
-  /* Make sure unwind info is emitted for the thunk if needed.  */
-  final_start_function (emit_barrier (), file, 1);
 
   /* If VCALL_OFFSET, we'll need THIS in a register.  Might as well
      pull it in now and let DELTA benefit.  */
@@ -27557,7 +27562,6 @@ x86_output_mi_thunk (FILE *file,
 	  output_asm_insn ("jmp\t{*}%1", xops);
 	}
     }
-  final_end_function ();
 }
 
 static void
@@ -30562,9 +30566,6 @@ ix86_enum_va_list (int idx, const char **pname, tree *ptree)
 
 #undef TARGET_EXPAND_TO_RTL_HOOK
 #define TARGET_EXPAND_TO_RTL_HOOK ix86_maybe_switch_abi
-
-#undef TARGET_ASM_CODE_END
-#define TARGET_ASM_CODE_END ix86_code_end
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

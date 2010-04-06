@@ -1,5 +1,4 @@
-/* Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010
-   Free Software Foundation, Inc.
+/* Copyright (C) 2005, 2006, 2007, 2008, 2009 Free Software Foundation, Inc.
    Contributed by Richard Henderson <rth@redhat.com>.
 
    This file is part of the GNU OpenMP Library (libgomp).
@@ -146,7 +145,7 @@ parse_schedule (void)
    present and it was successfully parsed.  */
 
 static bool
-parse_unsigned_long (const char *name, unsigned long *pvalue, bool allow_zero)
+parse_unsigned_long (const char *name, unsigned long *pvalue)
 {
   char *env, *end;
   unsigned long value;
@@ -162,7 +161,7 @@ parse_unsigned_long (const char *name, unsigned long *pvalue, bool allow_zero)
 
   errno = 0;
   value = strtoul (env, &end, 10);
-  if (errno || (long) value <= 0 - allow_zero)
+  if (errno || (long) value <= 0)
     goto invalid;
 
   while (isspace ((unsigned char) *end))
@@ -482,9 +481,8 @@ initialize_env (void)
   parse_schedule ();
   parse_boolean ("OMP_DYNAMIC", &gomp_global_icv.dyn_var);
   parse_boolean ("OMP_NESTED", &gomp_global_icv.nest_var);
-  parse_unsigned_long ("OMP_MAX_ACTIVE_LEVELS", &gomp_max_active_levels_var,
-		       true);
-  parse_unsigned_long ("OMP_THREAD_LIMIT", &gomp_thread_limit_var, false);
+  parse_unsigned_long ("OMP_MAX_ACTIVE_LEVELS", &gomp_max_active_levels_var);
+  parse_unsigned_long ("OMP_THREAD_LIMIT", &gomp_thread_limit_var);
   if (gomp_thread_limit_var != ULONG_MAX)
     gomp_remaining_threads_count = gomp_thread_limit_var - 1;
 #ifndef HAVE_SYNC_BUILTINS
@@ -492,8 +490,7 @@ initialize_env (void)
 #endif
   gomp_init_num_threads ();
   gomp_available_cpus = gomp_global_icv.nthreads_var;
-  if (!parse_unsigned_long ("OMP_NUM_THREADS", &gomp_global_icv.nthreads_var,
-			    false))
+  if (!parse_unsigned_long ("OMP_NUM_THREADS", &gomp_global_icv.nthreads_var))
     gomp_global_icv.nthreads_var = gomp_available_cpus;
   if (parse_affinity ())
     gomp_init_affinity ();
@@ -635,7 +632,7 @@ omp_get_thread_limit (void)
 void
 omp_set_max_active_levels (int max_levels)
 {
-  if (max_levels >= 0)
+  if (max_levels > 0)
     gomp_max_active_levels_var = max_levels;
 }
 

@@ -10184,14 +10184,9 @@ vfp_emit_fstmd (int base_reg, int count)
 
   XVECEXP (par, 0, 0)
     = gen_rtx_SET (VOIDmode,
-		   gen_frame_mem
-		   (BLKmode,
-		    gen_rtx_PRE_MODIFY (Pmode,
-					stack_pointer_rtx,
-					plus_constant
-					(stack_pointer_rtx,
-					 - (count * 8)))
-		    ),
+		   gen_frame_mem (BLKmode,
+				  gen_rtx_PRE_DEC (BLKmode,
+						   stack_pointer_rtx)),
 		   gen_rtx_UNSPEC (BLKmode,
 				   gen_rtvec (1, reg),
 				   UNSPEC_PUSH_MULT));
@@ -12410,17 +12405,16 @@ emit_multi_reg_push (unsigned long mask)
 
   /* For the body of the insn we are going to generate an UNSPEC in
      parallel with several USEs.  This allows the insn to be recognized
-     by the push_multi pattern in the arm.md file.
-
-     The body of the insn looks something like this:
+     by the push_multi pattern in the arm.md file.  The insn looks
+     something like this:
 
        (parallel [
-           (set (mem:BLK (pre_modify:SI (reg:SI sp)
-	                                (const_int:SI <num>)))
+           (set (mem:BLK (pre_dec:BLK (reg:SI sp)))
 	        (unspec:BLK [(reg:SI r4)] UNSPEC_PUSH_MULT))
-           (use (reg:SI XX))
-           (use (reg:SI YY))
-	   ...
+           (use (reg:SI 11 fp))
+           (use (reg:SI 12 ip))
+           (use (reg:SI 14 lr))
+           (use (reg:SI 15 pc))
         ])
 
      For the frame note however, we try to be more explicit and actually
@@ -12433,20 +12427,13 @@ emit_multi_reg_push (unsigned long mask)
       (sequence [
            (set (reg:SI sp) (plus:SI (reg:SI sp) (const_int -20)))
            (set (mem:SI (reg:SI sp)) (reg:SI r4))
-           (set (mem:SI (plus:SI (reg:SI sp) (const_int 4))) (reg:SI XX))
-           (set (mem:SI (plus:SI (reg:SI sp) (const_int 8))) (reg:SI YY))
-	   ...
+           (set (mem:SI (plus:SI (reg:SI sp) (const_int 4))) (reg:SI fp))
+           (set (mem:SI (plus:SI (reg:SI sp) (const_int 8))) (reg:SI ip))
+           (set (mem:SI (plus:SI (reg:SI sp) (const_int 12))) (reg:SI lr))
         ])
 
-     FIXME:: In an ideal world the PRE_MODIFY would not exist and
-     instead we'd have a parallel expression detailing all
-     the stores to the various memory addresses so that debug
-     information is more up-to-date. Remember however while writing
-     this to take care of the constraints with the push instruction.
-
-     Note also that this has to be taken care of for the VFP registers.
-
-     For more see PR43399.  */
+      This sequence is used both by the code to support stack unwinding for
+      exceptions handlers and the code to generate dwarf2 frame debugging.  */
 
   par = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (num_regs));
   dwarf = gen_rtx_SEQUENCE (VOIDmode, rtvec_alloc (num_dwarf_regs + 1));
@@ -12460,14 +12447,9 @@ emit_multi_reg_push (unsigned long mask)
 
 	  XVECEXP (par, 0, 0)
 	    = gen_rtx_SET (VOIDmode,
-			   gen_frame_mem
-			   (BLKmode,
-			    gen_rtx_PRE_MODIFY (Pmode,
-						stack_pointer_rtx,
-						plus_constant
-						(stack_pointer_rtx,
-						 -4 * num_regs))
-			    ),
+			   gen_frame_mem (BLKmode,
+					  gen_rtx_PRE_DEC (BLKmode,
+							   stack_pointer_rtx)),
 			   gen_rtx_UNSPEC (BLKmode,
 					   gen_rtvec (1, reg),
 					   UNSPEC_PUSH_MULT));
@@ -12498,10 +12480,9 @@ emit_multi_reg_push (unsigned long mask)
 	    {
 	      tmp
 		= gen_rtx_SET (VOIDmode,
-			       gen_frame_mem
-			       (SImode,
-				plus_constant (stack_pointer_rtx,
-					       4 * j)),
+			       gen_frame_mem (SImode,
+					      plus_constant (stack_pointer_rtx,
+							     4 * j)),
 			       reg);
 	      RTX_FRAME_RELATED_P (tmp) = 1;
 	      XVECEXP (dwarf, 0, dwarf_par_index++) = tmp;
@@ -12553,14 +12534,9 @@ emit_sfm (int base_reg, int count)
 
   XVECEXP (par, 0, 0)
     = gen_rtx_SET (VOIDmode,
-		   gen_frame_mem
-		   (BLKmode,
-		    gen_rtx_PRE_MODIFY (Pmode,
-					stack_pointer_rtx,
-					plus_constant
-					(stack_pointer_rtx,
-					 -12 * count))
-		    ),
+		   gen_frame_mem (BLKmode,
+				  gen_rtx_PRE_DEC (BLKmode,
+						   stack_pointer_rtx)),
 		   gen_rtx_UNSPEC (BLKmode,
 				   gen_rtvec (1, reg),
 				   UNSPEC_PUSH_MULT));
