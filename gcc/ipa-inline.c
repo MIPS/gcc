@@ -336,8 +336,6 @@ cgraph_mark_inline_edge (struct cgraph_edge *e, bool update_original,
   gcc_assert (what->global.inlined_to == to);
   if (new_size > old_size)
     overall_size += new_size - old_size;
-  if (!duplicate)
-    overall_size -= orig_size;
   ncalls_inlined++;
 
   if (flag_indirect_inlining)

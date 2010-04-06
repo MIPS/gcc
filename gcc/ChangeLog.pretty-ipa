@@ -1,5 +1,11 @@
 2010-04-06 Jan Hubicka  <jh@suse.cz>
 
+	* tree-inline.c (cgraph_mark_inline_edge): Do not update overall size for fully
+	inlined functions.
+	* params.def (PARAM_INLINE_UNIT_GROWTH): Set to 50%.
+
+2010-04-06 Jan Hubicka  <jh@suse.cz>
+
 	* Merge from mainline.
 
 2010-03-24  Martin Jambor  <mjambor@suse.cz>
