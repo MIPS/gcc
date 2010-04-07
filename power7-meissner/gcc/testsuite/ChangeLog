@@ -1,3 +1,210 @@
+2010-04-07  Iain Sandoe <iains@gcc.gnu.org>
+
+	PR objc++/23716
+	* obj-c++.dg/comp-types-10.mm: Remove XFAIL.
+
+2010-04-07  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/template/dr408.C: New.
+
+	* g++.dg/lookup/ns4.C: New.
+
+	PR c++/38392
+	* g++.dg/template/friend51.C: New test.
+
+	PR c++/41970
+	* g++.old-deja/g++.other/linkage1.C: Adjust.
+
+2010-04-07  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/42697
+	* g++.dg/template/crash94.C: New test.
+
+2010-04-07  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/40239
+	* g++.dg/init/aggr5.C: New test.
+	* g++.dg/init/aggr5.C: New test.
+
+2010-04-07  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/43270
+	* g++.dg/warn/Warray-bounds-4.C: New testcase.
+	* gcc.dg/Warray-bounds-7.c: Likewise.
+
+2010-04-07  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/bit_packed_array.ad[sb]: Rename into...
+	* gnat.dg/bit_packed_array1.ad[sb]: ...this.
+	* gnat.dg/bit_packed_array4.ad[sb]: New test.
+
+2010-04-07  Jie Zhang  <jie@codesourcery.com>
+
+	PR c++/42556
+	* g++.dg/init/pr42556.C: New test.
+
+2010-04-07  Dodji Seketeli  <dodji@redhat.com>
+
+	PR debug/43628
+	* g++.dg/debug/dwarf2/typedef2.C: New test.
+
+2010-04-06  Dodji Seketeli  <dodji@redhat.com>
+
+	* g++.dg/debug/dwarf2/redeclaration-1.C: Moved from 
+	c-c++-common/dwarf2/redeclaration-1.C
+
+2010-04-06  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/pr31437.C: Adjust error location.
+	* g++.dg/ext/attrib18.C: Likewise.
+	* g++.dg/ext/bitfield2.C: Likewise.
+	* g++.dg/ext/bitfield4.C: Likewise.
+	* g++.dg/ext/visibility/warn2.C: Likewise.
+	* g++.dg/ext/visibility/warn3.C: Likewise.
+	* g++.dg/gomp/pr26690-1.C: Likewise.
+	* g++.dg/inherit/covariant7.C: Likewise.
+	* g++.dg/init/synth2.C: Likewise.
+	* g++.dg/lookup/using7.C: Likewise.
+	* g++.dg/other/crash-4.C: Likewise.
+	* g++.dg/other/error13.C: Likewise.
+	* g++.dg/other/error20.C: Likewise.
+	* g++.dg/parse/crash31.C: Likewise.
+	* g++.dg/parse/error16.C: Likewise.
+	* g++.dg/parse/error19.C: Likewise.
+	* g++.dg/parse/error27.C: Likewise.
+	* g++.dg/parse/error28.C: Likewise.
+	* g++.dg/parse/fused-params1.C: Likewise.
+	* g++.dg/template/error2.C: Likewise.
+	* g++.dg/template/local6.C: Likewise.
+	* g++.dg/template/qualttp15.C: Likewise.
+	* g++.dg/warn/Wnvdtor-2.C: Likewise.
+	* g++.dg/warn/anonymous-namespace-3.C: Likewise.
+	* g++.old-deja/g++.benjamin/15309-1.C: Likewise.
+	* g++.old-deja/g++.brendan/crash29.C: Likewise.
+	* g++.old-deja/g++.eh/spec6.C: Likewise.
+	* g++.old-deja/g++.jason/crash3.C: Likewise.
+	* g++.old-deja/g++.jason/destruct2.C: Likewise.
+	* g++.old-deja/g++.law/ctors5.C: Likewise.
+	* g++.old-deja/g++.law/ctors9.C: Likewise.
+	* g++.old-deja/g++.mike/p3538a.C: Likewise.
+	* g++.old-deja/g++.mike/p3538b.C: Likewise.
+	* g++.old-deja/g++.other/struct1.C: Likewise.
+	* g++.old-deja/g++.other/volatile1.C: Likewise.
+	* g++.old-deja/g++.pt/crash36.C: Likewise.
+	* g++.old-deja/g++.pt/derived3.C: Likewise.
+	* g++.old-deja/g++.robertl/eb109.C: Likewise.
+	* g++.old-deja/g++.robertl/eb4.C: Likewise.
+
+2010-04-06  Sebastian Pop  <sebastian.pop@amd.com>
+
+	PR middle-end/43519
+	* gcc.dg/graphite/run-id-pr42644.c: Call abort.
+	* gcc.dg/graphite/id-19.c: New.
+
+2010-04-06  Changpeng Fang  <changpeng.fang@amd.com>
+
+	PR middle-end/32824
+	* gcc.dg/vect/pr32824: New.
+
+2010-04-06  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/18918
+	* gfortran.dg/coarray_2.f90: Add dg-options -fcoarray=single.
+	* gfortran.dg/coarray_3.f90: Ditto.
+	* gfortran.dg/coarray_4.f90: Ditto.
+	* gfortran.dg/coarray_5.f90: Ditto.
+	* gfortran.dg/coarray_6.f90: Ditto.
+	* gfortran.dg/coarray_9.f90: New -fcoarray=none test.
+
+2010-04-06  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/18918
+	* gfortran.dg/coarray_4.f90: Fix test.
+	* gfortran.dg/coarray_6.f90: Add more tests.
+
+2010-04-06  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/18918
+	* gfortran.dg/coarray_4.f90: New test.
+	* gfortran.dg/coarray_5.f90: New test.
+	* gfortran.dg/coarray_6.f90: New test.
+
+2010-04-06  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/18918
+	* gfortran.dg/iso_fortran_env_5.f90: New test.
+	* gfortran.dg/iso_fortran_env_6.f90: New test.
+
+2010-04-06  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/39997
+	* gfortran.dg/coarray_1.f90: New test.
+	* gfortran.dg/coarray_2.f90: New test.
+	* gfortran.dg/coarray_3.f90: New test.
+
+2010-04-06  Jason Merrill  <jason@redhat.com>
+
+	PR c++/43648
+	* g++.dg/template/dtor8.C: New.
+
+	PR c++/43621
+	* g++.dg/template/error-recovery2.C: New.
+
+2010-04-06  Jan Hubicka  <jh@suse.czpli
+
+	PR tree-optimization/42906
+	* gcc.dg/tree-ssa/dce-1.c: New testcase.
+
+2010-04-06  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/43178
+	* gfortran.dg/alloc_comp_basics_1.f90: Update scan-tree-dump-times.
+	* gfortran.dg/alloc_comp_constructor_1.f90: Ditto.
+	* gfortran.dg/auto_dealloc_1.f90: Ditto.
+
+2010-04-06  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/43627
+	* gcc.dg/tree-ssa/vrp49.c: New testcase.
+
+2010-04-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/43638
+	* gcc.target/i386/pr43638.c: New test.
+
+2010-04-06  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/43661
+	* gcc.c-torture/compile/pr43661.c: New testcase.
+
+2010-04-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.target/s390/stackcheck1.c: Add dg-warning.
+
+2010-04-04  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* gcc.dg/vect/pr43430-1.c: Don't use uint8_t.
+
+2010-04-02  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/43629
+	* gcc.c-torture/execute/pr43629.c: New testcase.
+
+2010-04-01  Janne Blomqvist  <jb@gcc.gnu.org>
+            Dominique d'Humieres  <dominiq@lps.ens.fr>
+
+	PR libfortran/43605
+	* gfortran.dg/ftell_3.f90: Enhance test case by reading more.
+
+2010-04-01  Dodji Seketeli  <dodji@redhat.com>
+
+	PR debug/43325
+	* c-c++-common/dwarf2/redeclaration-1.C: New test.
+
+2010-04-01  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/initlist12.C: Adjust expected errors.
+
 2010-04-01  Janne Blomqvist  <jb@gcc.gnu.org>
 	    Manfred Schwarb  <manfred99@gmx.ch>
 

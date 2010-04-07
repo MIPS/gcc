@@ -1,5 +1,8 @@
 2010-04-07  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to 158077 (after 4.5 branch split).
+	* REVISION: Update subversion id.
+
 	* config/rs6000/rs6000.opt (-mrecip-passes=): Delete.
 	(-mrecip-precision): New switch.
 

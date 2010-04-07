@@ -1,5 +1,6 @@
 /* Interprocedural analyses.
-   Copyright (C) 2005, 2007, 2008, 2009 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2007, 2008, 2009, 2010
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -198,7 +199,9 @@ visit_store_addr_for_mod_analysis (gimple stmt ATTRIBUTE_UNUSED,
 {
   struct ipa_node_params *info = (struct ipa_node_params *) data;
 
-  if (TREE_CODE (op) == PARM_DECL)
+  op = get_base_address (op);
+  if (op
+      && TREE_CODE (op) == PARM_DECL)
     {
       int index = ipa_get_param_decl_index (info, op);
       gcc_assert (index >= 0);

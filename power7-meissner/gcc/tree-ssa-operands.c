@@ -1,5 +1,5 @@
 /* SSA operands management for trees.
-   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009
+   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -798,11 +798,7 @@ get_asm_expr_operands (gimple stmt)
       /* Memory operands are addressable.  Note that STMT needs the
 	 address of this operand.  */
       if (!allows_reg && allows_mem)
-	{
-	  tree t = get_base_address (TREE_VALUE (link));
-	  if (t && DECL_P (t))
-	    mark_address_taken (t);
-	}
+	mark_address_taken (TREE_VALUE (link));
 
       get_expr_operands (stmt, &TREE_VALUE (link), opf_def);
     }
@@ -818,11 +814,7 @@ get_asm_expr_operands (gimple stmt)
       /* Memory operands are addressable.  Note that STMT needs the
 	 address of this operand.  */
       if (!allows_reg && allows_mem)
-	{
-	  tree t = get_base_address (TREE_VALUE (link));
-	  if (t && DECL_P (t))
-	    mark_address_taken (t);
-	}
+	mark_address_taken (TREE_VALUE (link));
 
       get_expr_operands (stmt, &TREE_VALUE (link), 0);
     }
