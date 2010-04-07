@@ -1,3 +1,67 @@
+2010-03-30  Jason Merrill  <jason@redhat.com>
+
+	PR c++/41185
+	PR c++/41786
+	* parser.c (cp_parser_direct_declarator): Don't allow VLAs in
+	function parameter context.  Don't print an error if parsing
+	tentatively.
+
+2010-02-12  Jason Merrill  <jason@redhat.com>
+
+	PR c++/43024
+	* name-lookup.h (current_binding_level): Check for null
+	cp_function_chain.
+
+2010-02-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/43033
+	* name-lookup.c (pushdecl_maybe_friend): Check default args of t
+	instead of x.
+
+2010-01-21  Release Manager
+
+	* GCC 4.4.3 released.
+
+2010-01-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/42674
+	* decl.c (finish_function): Don't emit -Wreturn-type warnings in
+	functions with noreturn attribute.
+
+2010-01-14  Jason Merrill  <jason@redhat.com>
+
+	PR c++/42655
+	* call.c (convert_like_real): Do full decay_conversion for ck_rvalue.
+
+2009-12-22  Jason Merrill  <jason@redhat.com>
+
+	PR c++/42331
+	* typeck.c (cp_build_modify_expr): Fix thinko.
+
+2009-12-21  Jason Merrill  <jason@redhat.com>
+
+	* mangle.c (write_member_name): Move abi-version=1 code back to...
+	(write_expression): ...here.
+
+2009-12-16  Jason Merrill  <jason@redhat.com>
+
+	PR c++/42387
+	* decl.c (compute_array_index_type): Mark a VLA as dependent.
+
+2009-12-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/41183
+	* cp-tree.h (current_class_ptr): Give NULL even when cfun
+	has NULL cfun->language.
+
+2009-11-13  Jason Merrill  <jason@redhat.com>
+
+	PR c++/27425
+	PR c++/34274
+	PR c++/42301
+	* pt.c (expand_template_argument_pack): Handle null arg gracefully.
+	(convert_template_argument): Use %T for type.
+
 2009-11-17  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/42061

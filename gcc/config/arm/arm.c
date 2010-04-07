@@ -53,6 +53,7 @@
 #include "debug.h"
 #include "langhooks.h"
 #include "df.h"
+#include "libfuncs.h"
 
 /* Forward definitions of types.  */
 typedef struct minipool_node    Mnode;
@@ -922,6 +923,9 @@ arm_init_libfuncs (void)
   set_optab_libfunc (umod_optab, DImode, NULL);
   set_optab_libfunc (smod_optab, SImode, NULL);
   set_optab_libfunc (umod_optab, SImode, NULL);
+
+  if (TARGET_AAPCS_BASED)
+    synchronize_libfunc = init_one_libfunc ("__sync_synchronize");
 }
 
 /* On AAPCS systems, this is the "struct __va_list".  */
@@ -10269,11 +10273,14 @@ output_call (rtx *operands)
   return "";
 }
 
-/* Output a 'call' insn that is a reference in memory.  */
+/* Output a 'call' insn that is a reference in memory. This is
+   disabled for ARMv5 and we prefer a blx instead because otherwise
+   there's a significant performance overhead.  */
 const char *
 output_call_mem (rtx *operands)
 {
-  if (TARGET_INTERWORK && !arm_arch5)
+  gcc_assert (!arm_arch5);
+  if (TARGET_INTERWORK)
     {
       output_asm_insn ("ldr%?\t%|ip, %0", operands);
       output_asm_insn ("mov%?\t%|lr, %|pc", operands);
@@ -10285,16 +10292,11 @@ output_call_mem (rtx *operands)
 	 first instruction.  It's safe to use IP as the target of the
 	 load since the call will kill it anyway.  */
       output_asm_insn ("ldr%?\t%|ip, %0", operands);
-      if (arm_arch5)
-	output_asm_insn ("blx%?\t%|ip", operands);
+      output_asm_insn ("mov%?\t%|lr, %|pc", operands);
+      if (arm_arch4t)
+	output_asm_insn ("bx%?\t%|ip", operands);
       else
-	{
-	  output_asm_insn ("mov%?\t%|lr, %|pc", operands);
-	  if (arm_arch4t)
-	    output_asm_insn ("bx%?\t%|ip", operands);
-	  else
-	    output_asm_insn ("mov%?\t%|pc, %|ip", operands);
-	}
+	output_asm_insn ("mov%?\t%|pc, %|ip", operands);
     }
   else
     {

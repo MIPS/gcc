@@ -1,6 +1,6 @@
 /* Tree lowering pass.  This pass converts the GENERIC functions-as-trees
    tree representation into the GIMPLE form.
-   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
    Free Software Foundation, Inc.
    Major work done by Sebastian Pop <s.pop@laposte.net>,
    Diego Novillo <dnovillo@redhat.com> and Jason Merrill <jason@redhat.com>.
@@ -2762,6 +2762,36 @@ gimple_boolify (tree expr)
 {
   tree type = TREE_TYPE (expr);
 
+  if (TREE_CODE (expr) == NE_EXPR
+      && TREE_CODE (TREE_OPERAND (expr, 0)) == CALL_EXPR
+      && integer_zerop (TREE_OPERAND (expr, 1)))
+    {
+      tree call = TREE_OPERAND (expr, 0);
+      tree fn = get_callee_fndecl (call);
+
+      /* For __builtin_expect ((long) (x), y) recurse into x as well
+	 if x is truth_value_p.  */
+      if (fn
+	  && DECL_BUILT_IN_CLASS (fn) == BUILT_IN_NORMAL
+	  && DECL_FUNCTION_CODE (fn) == BUILT_IN_EXPECT
+	  && call_expr_nargs (call) == 2)
+	{
+	  tree arg = CALL_EXPR_ARG (call, 0);
+	  if (arg)
+	    {
+	      if (TREE_CODE (arg) == NOP_EXPR
+		  && TREE_TYPE (arg) == TREE_TYPE (call))
+		arg = TREE_OPERAND (arg, 0);
+	      if (truth_value_p (TREE_CODE (arg)))
+		{
+		  arg = gimple_boolify (arg);
+		  CALL_EXPR_ARG (call, 0)
+		    = fold_convert (TREE_TYPE (call), arg);
+		}
+	    }
+	}
+    }
+
   if (TREE_CODE (type) == BOOLEAN_TYPE)
     return expr;
 
@@ -3684,6 +3714,21 @@ gimplify_init_constructor (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	      }
 	  }
 
+	/* If the target is volatile and we have non-zero elements
+	   initialize the target from a temporary.  */
+	if (TREE_THIS_VOLATILE (object)
+	    && !TREE_ADDRESSABLE (type)
+	    && num_nonzero_elements > 0)
+	  {
+	    tree temp = create_tmp_var (TYPE_MAIN_VARIANT (type), NULL);
+	    TREE_OPERAND (*expr_p, 0) = temp;
+	    *expr_p = build2 (COMPOUND_EXPR, TREE_TYPE (*expr_p),
+			      *expr_p,
+			      build2 (MODIFY_EXPR, void_type_node,
+				      object, temp));
+	    return GS_OK;
+	  }
+
 	if (notify_temp_creation)
 	  return GS_OK;
 
@@ -3931,11 +3976,14 @@ gimplify_modify_expr_rhs (tree *expr_p, tree *from_p, tree *to_p,
     switch (TREE_CODE (*from_p))
       {
       case VAR_DECL:
-	/* If we're assigning from a constant constructor, move the
-	   constructor expression to the RHS of the MODIFY_EXPR.  */
+	/* If we're assigning from a read-only variable initialized with
+	   a constructor, do the direct assignment from the constructor,
+	   but only if neither source nor target are volatile since this
+	   latter assignment might end up being done on a per-field basis.  */
 	if (DECL_INITIAL (*from_p)
 	    && TREE_READONLY (*from_p)
 	    && !TREE_THIS_VOLATILE (*from_p)
+	    && !TREE_THIS_VOLATILE (*to_p)
 	    && TREE_CODE (DECL_INITIAL (*from_p)) == CONSTRUCTOR)
 	  {
 	    tree old_from = *from_p;

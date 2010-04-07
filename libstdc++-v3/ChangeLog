@@ -1,3 +1,60 @@
+2010-03-22  Johannes Singler  <singler@kit.edu>
+
+        * include/parallel/numeric (inner_product, partial_sum):
+        Precede subsequent call with _GLIBCXX_STD_P:: to avoid ambiguity 
+        between __gnu_parallel:: and std::
+        * include/parallel/algobase.h (equal): Likewise.
+        * include/parallel/algo.h (find_first_of, search_n, merge, nth_element,
+        partial_sort, max_element, min_element): Likewise.
+        * include/parallel/partial_sum.h (parallel_partial_sum_linear):
+        Qualify accumulate call with __gnu_parallel::.
+
+2010-03-18  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/backward/hash_map: Use consistently the _BACKWARD_*
+	prefix for the include guard.
+	* include/backward/hash_fun.h: Likewise.
+	* include/backward/hashtable.h: Likewise.
+	* include/backward/auto_ptr.h: Likewise.
+	* include/backward/strstream: Likewise.
+	* include/backward/binders.h: Likewise.
+	* include/backward/hash_set: Likewise.
+
+2010-02-23  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	Backport:
+	2010-01-20  Janis Johnson  <janis187@us.ibm.com>
+		    Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/21769
+	* testsuite/lib/dg-options.exp (add_options_for_no_pch): Add.
+	* testsuite/26_numerics/headers/cmath/c99_classification_macros_c.cc:
+	Use it.
+
+2010-01-21  Release Manager
+
+	* GCC 4.4.3 released.
+
+2009-12-10  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	Revert:
+        2009-12-04  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/42261
+	* include/bits/basic_string.h (_S_construct_aux(_Integer, _Integer,
+	const _Alloc&, __true_type)): Cast the second argument to value_type.
+	* include/ext/sso_string_base.h (_M_construct_aux(_Integer, _Integer,
+	std::__true_type)): Likewise.
+	* include/ext/rc_string_base.h (_S_construct_aux(_Integer, _Integer,
+	const _Alloc&, std::__true_type)): Likewise.
+	* testsuite/21_strings/basic_string/cons/char/42261.cc: New.
+	* testsuite/21_strings/basic_string/cons/wchar_t/42261.cc: Likewise.
+
+2009-12-09  Roman Odaisky  <to.roma.from.bugcc@qwertty.com>
+
+	PR libstdc++/42273
+	* include/bits/atomic_2.h: Fix typo.
+
 2009-12-04  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	PR libstdc++/42261

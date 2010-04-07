@@ -7218,11 +7218,8 @@ compute_array_index_type (tree name, tree size)
 	 structural equality checks.  */
       itype = build_index_type (build_min (MINUS_EXPR, sizetype,
 					   size, integer_one_node));
-      if (!TREE_SIDE_EFFECTS (size))
-	{
-	  TYPE_DEPENDENT_P (itype) = 1;
-	  TYPE_DEPENDENT_P_VALID (itype) = 1;
-	}
+      TYPE_DEPENDENT_P (itype) = 1;
+      TYPE_DEPENDENT_P_VALID (itype) = 1;
       SET_TYPE_STRUCTURAL_EQUALITY (itype);
       return itype;
     }
@@ -12356,6 +12353,8 @@ finish_function (int flags)
       && !current_function_returns_value && !current_function_returns_null
       /* Don't complain if we abort or throw.  */
       && !current_function_returns_abnormally
+      /* Don't complain if we are declared noreturn.  */
+      && !TREE_THIS_VOLATILE (fndecl)
       && !DECL_NAME (DECL_RESULT (fndecl))
       && !TREE_NO_WARNING (fndecl)
       /* Structor return values (if any) are set by the compiler.  */

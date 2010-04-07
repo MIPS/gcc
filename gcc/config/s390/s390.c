@@ -7763,20 +7763,37 @@ s390_emit_prologue (void)
 	    }
 	  else
 	    {
-	      HOST_WIDE_INT stack_check_mask = ((s390_stack_size - 1)
-						& ~(stack_guard - 1));
-	      rtx t = gen_rtx_AND (Pmode, stack_pointer_rtx,
-				   GEN_INT (stack_check_mask));
-	      if (TARGET_64BIT)
-		gen_cmpdi (t, const0_rtx);
-	      else
-		gen_cmpsi (t, const0_rtx);
+ 	      /* stack_guard has to be smaller than s390_stack_size.
+ 		 Otherwise we would emit an AND with zero which would
+ 		 not match the test under mask pattern.  */
+ 	      if (stack_guard >= s390_stack_size)
+ 		{
+ 		  warning (0, "frame size of function %qs is "
+			   HOST_WIDE_INT_PRINT_DEC
+ 			   " bytes which is more than half the stack size. "
+ 			   "The dynamic check would not be reliable. "
+ 			   "No check emitted for this function.",
+ 			   current_function_name(),
+ 			   cfun_frame_layout.frame_size);
+ 		}
+ 	      else
+ 		{
+		  HOST_WIDE_INT stack_check_mask = ((s390_stack_size - 1)
+						    & ~(stack_guard - 1));
+		  rtx t = gen_rtx_AND (Pmode, stack_pointer_rtx,
+				       GEN_INT (stack_check_mask));
+		  if (TARGET_64BIT)
+		    gen_cmpdi (t, const0_rtx);
+		  else
+		    gen_cmpsi (t, const0_rtx);
 
-	      emit_insn (gen_conditional_trap (gen_rtx_EQ (CCmode,
-							   gen_rtx_REG (CCmode,
-								     CC_REGNUM),
-							   const0_rtx),
-					       const0_rtx));
+		  emit_insn (gen_conditional_trap (
+                               gen_rtx_EQ (CCmode,
+					   gen_rtx_REG (CCmode,
+							CC_REGNUM),
+					   const0_rtx),
+			       const0_rtx));
+		}
 	    }
   	}
 
@@ -10090,6 +10107,14 @@ s390_sched_variable_issue (FILE *file ATTRIBUTE_UNUSED,
     return more;
 }
 
+static void
+s390_sched_init (FILE *file ATTRIBUTE_UNUSED,
+		 int verbose ATTRIBUTE_UNUSED,
+		 int max_ready ATTRIBUTE_UNUSED)
+{
+  last_scheduled_insn = NULL_RTX;
+}
+
 /* Initialize GCC target structure.  */
 
 #undef  TARGET_ASM_ALIGNED_HI_OP
@@ -10147,6 +10172,8 @@ s390_sched_variable_issue (FILE *file ATTRIBUTE_UNUSED,
 #define TARGET_SCHED_VARIABLE_ISSUE s390_sched_variable_issue
 #undef TARGET_SCHED_REORDER
 #define TARGET_SCHED_REORDER s390_sched_reorder
+#undef TARGET_SCHED_INIT
+#define TARGET_SCHED_INIT s390_sched_init
 
 #undef TARGET_CANNOT_COPY_INSN_P
 #define TARGET_CANNOT_COPY_INSN_P s390_cannot_copy_insn_p

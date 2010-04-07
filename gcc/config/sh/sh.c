@@ -1,6 +1,6 @@
 /* Output routines for GCC for Renesas / SuperH SH.
    Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
-   2003, 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
+   2003, 2004, 2005, 2006, 2007, 2008, 2010 Free Software Foundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com).
    Improved by Jim Wilson (wilson@cygnus.com).
 
@@ -4061,6 +4061,13 @@ find_barrier (int num_mova, rtx mova, rtx from)
 	       && ! TARGET_SMALLCODE)
 	new_align = 4;
 
+      /* There is a possibility that a bf is transformed into a bf/s by the
+	 delay slot scheduler.  */
+      if (JUMP_P (from) && !JUMP_TABLE_DATA_P (from) 
+	  && get_attr_type (from) == TYPE_CBRANCH
+	  && GET_CODE (PATTERN (NEXT_INSN (PREV_INSN (from)))) != SEQUENCE)
+	inc += 2;
+
       if (found_si)
 	{
 	  count_si += inc;
@@ -6764,13 +6771,13 @@ sh_expand_epilogue (bool sibcall_p)
 	  pop (PR_REG);
 	}
 
-      /* Banked registers are poped first to avoid being scheduled in the
+      /* Banked registers are popped first to avoid being scheduled in the
 	 delay slot. RTE switches banks before the ds instruction.  */
       if (current_function_interrupt)
 	{
-	  for (i = FIRST_BANKED_REG; i <= LAST_BANKED_REG; i++)
-	    if (TEST_HARD_REG_BIT (live_regs_mask, i)) 
-	      pop (LAST_BANKED_REG - i);
+	  for (i = LAST_BANKED_REG; i >= FIRST_BANKED_REG; i--)
+	    if (TEST_HARD_REG_BIT (live_regs_mask, i))
+	      pop (i);
 
 	  last_reg = FIRST_PSEUDO_REGISTER - LAST_BANKED_REG - 1;
 	}
@@ -8721,9 +8728,7 @@ sh_insn_length_adjustment (rtx insn)
 	&& GET_CODE (PATTERN (insn)) != USE
 	&& GET_CODE (PATTERN (insn)) != CLOBBER)
        || GET_CODE (insn) == CALL_INSN
-       || (GET_CODE (insn) == JUMP_INSN
-	   && GET_CODE (PATTERN (insn)) != ADDR_DIFF_VEC
-	   && GET_CODE (PATTERN (insn)) != ADDR_VEC))
+       || (JUMP_P (insn) && !JUMP_TABLE_DATA_P (insn)))
       && GET_CODE (PATTERN (NEXT_INSN (PREV_INSN (insn)))) != SEQUENCE
       && get_attr_needs_delay_slot (insn) == NEEDS_DELAY_SLOT_YES)
     return 2;
@@ -8731,9 +8736,7 @@ sh_insn_length_adjustment (rtx insn)
   /* SH2e has a bug that prevents the use of annulled branches, so if
      the delay slot is not filled, we'll have to put a NOP in it.  */
   if (sh_cpu == CPU_SH2E
-      && GET_CODE (insn) == JUMP_INSN
-      && GET_CODE (PATTERN (insn)) != ADDR_DIFF_VEC
-      && GET_CODE (PATTERN (insn)) != ADDR_VEC
+      && JUMP_P (insn) && !JUMP_TABLE_DATA_P (insn)
       && get_attr_type (insn) == TYPE_CBRANCH
       && GET_CODE (PATTERN (NEXT_INSN (PREV_INSN (insn)))) != SEQUENCE)
     return 2;

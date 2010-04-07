@@ -454,13 +454,17 @@ buf_write (unix_stream * s, const void * buf, ssize_t nbyte)
           s->ndirty += nbyte;
         }
       else
-        {
-          if (s->file_length != -1 && s->physical_offset != s->logical_offset
-              && lseek (s->fd, s->logical_offset, SEEK_SET) < 0)
-            return -1;
-          nbyte = raw_write (s, buf, nbyte);
-          s->physical_offset += nbyte;
-        }
+	{
+	  if (s->file_length != -1 && s->physical_offset != s->logical_offset)
+	    {
+	      if (lseek (s->fd, s->logical_offset, SEEK_SET) < 0)
+		return -1;
+	      s->physical_offset = s->logical_offset;
+	    }
+
+	  nbyte = raw_write (s, buf, nbyte);
+	  s->physical_offset += nbyte;
+	}
     }
   s->logical_offset += nbyte;
   /* Don't increment file_length if the file is non-seekable.  */
@@ -1392,6 +1396,22 @@ file_exists (const char *file, gfc_charlen_type file_len)
 }
 
 
+/* file_size()-- Returns the size of the file.  */
+
+GFC_IO_INT
+file_size (const char *file, gfc_charlen_type file_len)
+{
+  char path[PATH_MAX + 1];
+  struct stat statbuf;
+
+  if (unpack_filename (path, file, file_len))
+    return -1;
+
+  if (stat (path, &statbuf) < 0)
+    return -1;
+
+  return (GFC_IO_INT) statbuf.st_size;
+}
 
 static const char yes[] = "YES", no[] = "NO", unknown[] = "UNKNOWN";
 

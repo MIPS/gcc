@@ -391,7 +391,7 @@ override_options (void)
 	    break;
 	  }
       if (! cpu_table [i].name)
-	error ("bad value %qs for -mcpu switch", alpha_tune_string);
+	error ("bad value %qs for -mtune switch", alpha_tune_string);
     }
 
   /* Do some sanity checks on the above options.  */
@@ -1456,6 +1456,10 @@ get_aligned_mem (rtx ref, rtx *paligned_mem, rtx *pbitnum)
     offset = 0;
   else
     offset = disp & 3;
+
+  /* The location should not cross aligned word boundary.  */
+  gcc_assert (offset + GET_MODE_SIZE (GET_MODE (ref))
+	      <= GET_MODE_SIZE (SImode));
 
   /* Access the entire aligned word.  */
   *paligned_mem = widen_memory_access (ref, SImode, -offset);
