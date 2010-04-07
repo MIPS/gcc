@@ -14405,10 +14405,10 @@ add_bound_info (dw_die_ref subrange_die, enum dwarf_attribute bound_attr, tree b
 
     /* All fixed-bounds are represented by INTEGER_CST nodes.  */
     case INTEGER_CST:
-      if (bound_attr == DW_AT_lower_bound
-	  && host_integerp (bound, 0)
-	  && (dflt = lower_bound_default ()) != -1
-	  && tree_low_cst (bound, 0) == dflt)
+      if (! host_integerp (bound, 0)
+	  || (bound_attr == DW_AT_lower_bound
+	      && (dflt = lower_bound_default ()) != -1
+	      && tree_low_cst (bound, 0) == dflt))
 	/* Use the default.  */
 	;
       else
