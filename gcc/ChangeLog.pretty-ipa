@@ -1,4 +1,4 @@
-2010-04-06 Jan Hubicka  <jh@suse.cz>
+2010-04-06 Jan Hubicka  <jh@suse.cz> 
 
 	* tree-inline.c (cgraph_mark_inline_edge): Do not update overall size for fully
 	inlined functions.
