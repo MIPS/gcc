@@ -1,4 +1,4 @@
-2008-12-07  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+2009-12-07  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
 
 	Backport from mainline:
 
@@ -20,7 +20,7 @@ gcc/testsuite/
 	* gcc.dg/simd-1b.c: % is now allowed for integer vectors.
 	* g++.dg/ext/vector16.C: New testcase.
 
-2008-12-07  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+2009-12-07  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
 
 	Backport from mainline:
 
@@ -40,11 +40,11 @@ gcc/testsuite/
 	* gcc.dg/vector-init-1.c: New testcase.
 	* gcc.dg/vector-init-2.c: New testcase.
 
-2008-12-07  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+2009-12-07  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
 
 	Update to gcc-4_4-branch revision 155038.
 
-2008-12-04  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+2009-12-04  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
 
 	Backport from mainline:
 
@@ -60,7 +60,7 @@ gcc/
 	(NO_PROFILE_COUNTERS): Define.
 	(PROFILE_BEFORE_PROLOGUE): Likewise.
 
-2008-12-04  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+2009-12-04  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
 
 	Backport from mainline:
 
@@ -77,7 +77,7 @@ gcc/
 	* fold-const.c (fit_double_type): Likewise.
 	* varasm.c (initializer_constant_valid_p): Likewise.
 
-2008-12-04  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+2009-12-04  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
 
 	Backport from mainline:
 
@@ -88,7 +88,7 @@ gcc/
 	* tree-ssa-address.c (move_hint_to_base): Use void pointer to
 	TYPE's address space instead of pointer to TYPE.
 
-2008-12-04  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+2009-12-04  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
 
 	Backport from mainline:
 
@@ -97,7 +97,7 @@ gcc/
 
 	* reload.c (find_reloads_address): Fix typo.
 
-2008-12-04  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+2009-12-04  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
 
 	Backport from mainline:
 
@@ -122,7 +122,7 @@ gcc/testsuite/
 	PR tree-optimization/41857
 	* gcc.target/spu/ea/pr41857.c: New file.
 
-2008-12-04  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+2009-12-04  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
 
 	Backport from mainline:
 
@@ -148,7 +148,7 @@ gcc/testsuite/
 	* gcc.target/spu/ea/options1.c: Likewise.
 	* gcc.target/spu/ea/test-sizes.c: Likewise.
 
-2008-12-04  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+2009-12-04  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
 
 	Backport from mainline:
 
@@ -220,7 +220,7 @@ gcc/
 	(-mcache-size=): Likewise.
 	(-matomic-updates): Likewise.
 
-2008-12-04  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+2009-12-04  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
 
 	Backport from mainline:
 
@@ -277,7 +277,7 @@ gcc/
 	(pointer_diff): Handle named address spaces.  Use intermediate
 	integer type of sufficient size if required.
 
-2008-12-04  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+2009-12-04  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
 
 	Backport from mainline:
 
@@ -428,7 +428,7 @@ gcc/
 	* convert.c (convert_to_pointer): Don't assume the target
 	pointer type is POINTER_SIZE long. Fetch its precision instead.
 
-2008-12-04  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+2009-12-04  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
 
 	Backport from mainline:
 
@@ -614,7 +614,7 @@ gcc/
 	to different address spaces are not useless.
 	(useless_type_conversion_p_1): Likewise.
 
-2008-12-04  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+2009-12-04  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
 
 	Backport from mainline:
 
@@ -624,7 +624,7 @@ gcc/
 	* c-lex.c (c_lex_with_flags): Increase size of local variable
 	to avoid memory clobber.
 
-2008-12-04  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+2009-12-04  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
 
 	Backport from mainline:
 
@@ -638,6 +638,6 @@ libgfortran/
 	* Makefile.am: Add SECTION_FLAGS to AM_CFLAGS.
 	* Makefile.in: Regenerate.
 
-2008-12-04  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+2009-12-04  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
 
 	* Created "cell-4_4-branch".
