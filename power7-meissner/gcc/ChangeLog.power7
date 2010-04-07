@@ -1,3 +1,30 @@
+2010-04-07  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.opt (-mrecip-passes=): Delete.
+	(-mrecip-precision): New switch.
+
+	* config/rs6000/rs6000-c.c (rs6000_cpu_cpp_builtins): Define
+	__RECIP__ if -mrecip, and define __RECIP_PRECISION__ if
+	-mrecip-precision.
+
+	* config/rs6000/rs6000.c (rs6000_override_options): Delete
+	-mrecip-passes= support.  Set -mrecip-precision if power6 or
+	power7.
+	(rs6000_init_builtins): Don't define __builtin_recipdiv or
+	__builtin_rsqrt unless we have high precision reciprocal
+	estimate instructions.
+	(rs6000_builtin_reciprocal): Ditto.
+	(rs6000_emit_swdivdf): Cut down on the passes if
+	-mrecip-precision.
+	(rs6000_emit_swrsqrt): Delete -mrecip-passes=, and add support for
+	-mrecip-precision.
+
+	* config/rs6000/rs6000.md (rsqrt<mode>2): Don't enable rsqrtdf2
+	unless -mrecip-precision.
+
+	* doc/invoke.texi (-mrecip-passes=): Delete.
+	(-mrecip-precision): New switch.
+
 2010-04-01  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 157920.

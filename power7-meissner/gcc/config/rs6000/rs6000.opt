@@ -198,10 +198,9 @@ mrecip
 Target Report Var(TARGET_RECIP) Init(-1)
 Generate software reciprocal square root for better throughput.
 
-mrecip-passes=
-Target Report UInteger Joined Var(rs6000_recip_passes) Init(-1)
-Number of fixup passes after doing the reciprocal sqrt esitmate.  Default is 2
-for the power6 and newer machines, and 3 for older machines.
+mrecip-precision
+Target Report Var(TARGET_RECIP_PRECISION) Init(-1)
+Assume that the reciprocal estimate instructions provide more accuracy.
 
 mno-fp-in-toc
 Target Report RejectNegative Var(TARGET_NO_FP_IN_TOC)

@@ -363,6 +363,10 @@ rs6000_cpu_cpp_builtins (cpp_reader *pfile)
       builtin_define ("__builtin_vsx_xvnmsubasp=__builtin_vsx_xvnmsubsp");
       builtin_define ("__builtin_vsx_xvnmsubmsp=__builtin_vsx_xvnmsubsp");
     }
+  if (TARGET_RECIP)
+    builtin_define ("__RECIP__");
+  if (TARGET_RECIP_PRECISION)
+    builtin_define ("__RECIP_PRECISION__");
 
   /* Tell users they can use __builtin_bswap{16,64}.  */
   builtin_define ("__HAVE_BSWAP__");

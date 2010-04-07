@@ -2680,10 +2680,10 @@ rs6000_override_options (const char *default_cpu)
 				 || rs6000_cpu == PROCESSOR_PPCE500MC
 				 || rs6000_cpu == PROCESSOR_PPCE500MC64);
 
-  /* Set the default # of passes to use for -mrecip.  */
-  if (rs6000_recip_passes < 0)
-    rs6000_recip_passes = (rs6000_cpu == PROCESSOR_POWER6
-			   || rs6000_cpu == PROCESSOR_POWER7) ? 2 : 3;
+  /* Assume if the machine has decimal or VSX instructions that its reciprocal
+     divide is more accurate.  */
+  if (TARGET_RECIP_PRECISION < 0)
+    TARGET_RECIP_PRECISION = (TARGET_DFP || TARGET_VSX || TARGET_POPCNTD);
 
   /* Allow debug switches to override the above settings.  */
   if (TARGET_ALWAYS_HINT > 0)
@@ -11364,26 +11364,26 @@ rs6000_init_builtins (void)
       def_builtin (MASK_PPC_GFXOPT, "__builtin_recipdivf", ftype,
 		   RS6000_BUILTIN_RECIPF);
 
+      ftype = builtin_function_type (DFmode, DFmode, DFmode, VOIDmode,
+				     RS6000_BUILTIN_RECIP,
+				     "__builtin_recipdiv");
+      def_builtin (MASK_POPCNTB, "__builtin_recipdiv", ftype,
+		   RS6000_BUILTIN_RECIP);
+
       ftype = builtin_function_type (SFmode, SFmode, VOIDmode, VOIDmode,
 				     RS6000_BUILTIN_RSQRTF,
 				     "__builtin_rsqrtf");
       def_builtin (MASK_PPC_GFXOPT, "__builtin_rsqrtf", ftype,
 		   RS6000_BUILTIN_RSQRTF);
 
-      ftype = builtin_function_type (DFmode, DFmode, VOIDmode, VOIDmode,
-				     RS6000_BUILTIN_RSQRT,
-				     "__builtin_rsqrt");
+    }
+  if (TARGET_RECIP_PRECISION)
+    {
+      tree ftype = builtin_function_type (DFmode, DFmode, VOIDmode, VOIDmode,
+					  RS6000_BUILTIN_RSQRT,
+					  "__builtin_rsqrt");
       def_builtin (MASK_PPC_GFXOPT, "__builtin_rsqrt", ftype,
 		   RS6000_BUILTIN_RSQRT);
-    }
-  if (TARGET_POPCNTB)
-    {
-      tree ftype = builtin_function_type (DFmode, DFmode, DFmode, VOIDmode,
-					  RS6000_BUILTIN_RECIP,
-					  "__builtin_recipdiv");
-      def_builtin (MASK_POPCNTB, "__builtin_recipdiv", ftype,
-		   RS6000_BUILTIN_RECIP);
-
     }
   if (TARGET_POPCNTD)
     {
@@ -25210,7 +25210,11 @@ rs6000_builtin_reciprocal (unsigned int fn, bool md_fn,
     switch (fn)
       {
       case BUILT_IN_SQRT:
-	return rs6000_builtin_decls[RS6000_BUILTIN_RSQRT];
+	/* The older machines double precision reciprocal sqrt estimate just
+	   was not accurate enough.  */
+	return ((TARGET_RECIP_PRECISION)
+		? rs6000_builtin_decls[RS6000_BUILTIN_RSQRT]
+		: NULL_TREE);
 
       case BUILT_IN_SQRTF:
 	return rs6000_builtin_decls[RS6000_BUILTIN_RSQRTF];
@@ -25276,10 +25280,8 @@ rs6000_emit_swdivdf (rtx dst, rtx n, rtx d)
   x0 = gen_reg_rtx (DFmode);
   e0 = gen_reg_rtx (DFmode);
   e1 = gen_reg_rtx (DFmode);
-  e2 = gen_reg_rtx (DFmode);
   y1 = gen_reg_rtx (DFmode);
   y2 = gen_reg_rtx (DFmode);
-  y3 = gen_reg_rtx (DFmode);
   u0 = gen_reg_rtx (DFmode);
   v0 = gen_reg_rtx (DFmode);
   one = force_reg (DFmode, CONST_DOUBLE_FROM_REAL_VALUE (dconst1, DFmode));
@@ -25303,13 +25305,26 @@ rs6000_emit_swdivdf (rtx dst, rtx n, rtx d)
   emit_insn (gen_rtx_SET (VOIDmode, y2,
 			  gen_rtx_PLUS (DFmode,
 					gen_rtx_MULT (DFmode, e1, y1), y1)));
-  /* e2 = e1 * e1 */
-  emit_insn (gen_rtx_SET (VOIDmode, e2,
-			  gen_rtx_MULT (DFmode, e1, e1)));
-  /* y3 = y2 + e2 * y2 */
-  emit_insn (gen_rtx_SET (VOIDmode, y3,
-			  gen_rtx_PLUS (DFmode,
-					gen_rtx_MULT (DFmode, e2, y2), y2)));
+
+  /* Newer machines have higher precision estimate instructions, so reduce the
+     number of Newton-Raphson passes used.  */
+  if (TARGET_RECIP_PRECISION)
+    y3 = y2;
+  else
+    {
+      e2 = gen_reg_rtx (DFmode);
+      y3 = gen_reg_rtx (DFmode);
+
+      /* e2 = e1 * e1 */
+      emit_insn (gen_rtx_SET (VOIDmode, e2,
+			      gen_rtx_MULT (DFmode, e1, e1)));
+      /* y3 = y2 + e2 * y2 */
+      emit_insn (gen_rtx_SET (VOIDmode, y3,
+			      gen_rtx_PLUS (DFmode,
+					    gen_rtx_MULT (DFmode, e2, y2),
+					    y2)));
+    }
+
   /* u0 = n * y3 */
   emit_insn (gen_rtx_SET (VOIDmode, u0,
 			  gen_rtx_MULT (DFmode, n, y3)));
@@ -25323,7 +25338,6 @@ rs6000_emit_swdivdf (rtx dst, rtx n, rtx d)
 					gen_rtx_MULT (DFmode, v0, y3), u0)));
 }
 
-
 /* Newton-Raphson approximation of single/double-precision floating point
    rsqrt.  Assumes no trapping math and finite arguments.  */
 
@@ -25332,51 +25346,55 @@ rs6000_emit_swrsqrt (rtx dst, rtx src)
 {
   enum machine_mode mode = GET_MODE (src);
   rtx x0 = gen_reg_rtx (mode);
+  rtx y = gen_reg_rtx (mode);
+  int passes = (TARGET_RECIP_PRECISION) ? 2 : 3;
+  REAL_VALUE_TYPE dconst3_2;
+  int i;
+  rtx halfthree;
+  rtx d, m;
 
-  gcc_assert (flag_finite_math_only && !flag_trapping_math);
   gcc_assert (mode == SFmode || mode == DFmode);
+  gcc_assert (TARGET_FUSED_MADD);
 
   /* x0 = rsqrt estimate */
   emit_insn (gen_rtx_SET (VOIDmode, x0,
 			  gen_rtx_UNSPEC (mode, gen_rtvec (1, src),
 					  UNSPEC_RSQRT)));
 
-  if (rs6000_recip_passes > 0)
+  real_from_integer (&dconst3_2, VOIDmode, 3, 0, 0);
+  SET_REAL_EXP (&dconst3_2, REAL_EXP (&dconst3_2) - 1);
+  d = CONST_DOUBLE_FROM_REAL_VALUE (dconst3_2, mode);
+  halfthree = force_reg (mode, d);
+
+  /* y = 0.5 * src = 1.5 * src - src -> fewer constants */
+  emit_insn (gen_rtx_SET (VOIDmode, y,
+			  gen_rtx_MINUS (mode,
+					 gen_rtx_MULT (mode, src, halfthree),
+					 src)));
+
+  for (i = 0; i < passes; i++)
     {
-      REAL_VALUE_TYPE dconst3_2;
-      int i;
-      rtx halfthree;
-      rtx y = gen_reg_rtx (mode);
-      rtx m;
-      rtx d;
+      rtx x1 = gen_reg_rtx (mode);
+      rtx u = gen_reg_rtx (mode);
+      rtx v = gen_reg_rtx (mode);
 
-      real_from_integer (&dconst3_2, VOIDmode, 3, 0, 0);
-      SET_REAL_EXP (&dconst3_2, REAL_EXP (&dconst3_2) - 1);
-      d = CONST_DOUBLE_FROM_REAL_VALUE (dconst3_2, mode);
-      halfthree = force_reg (mode, d);
+      /* x1 = x0 * (1.5 - y * (x0 * x0)) */
+      emit_insn (gen_rtx_SET (VOIDmode, u,
+			      gen_rtx_MULT (mode, x0, x0)));
 
-      /* y = 0.5 * src = 1.5 * src - src -> fewer constants */
-      m = gen_rtx_MULT (mode, src, halfthree),
-      emit_insn (gen_rtx_SET (VOIDmode, y, gen_rtx_MINUS (mode, m, src)));
+      m = gen_rtx_MULT (mode, y, u);
+      if (!HONOR_SIGNED_ZEROS (mode))
+	emit_insn (gen_rtx_SET (VOIDmode, v,
+				gen_rtx_MINUS (mode, halfthree, m)));
+      else
+	emit_insn (gen_rtx_SET (VOIDmode, v,
+				gen_rtx_NEG (mode,
+					     gen_rtx_MINUS (mode, m,
+							    halfthree))));
 
-      for (i = 0; i < rs6000_recip_passes; i++)
-	{
-	  rtx x1 = gen_reg_rtx (mode);
-	  rtx u = gen_reg_rtx (mode);
-	  rtx v = gen_reg_rtx (mode);
-
-	  /* x1 = x0 * (1.5 - y * (x0 * x0)) */
-	  emit_insn (gen_rtx_SET (VOIDmode, u,
-				  gen_rtx_MULT (mode, x0, x0)));
-
-	  m = gen_rtx_MULT (mode, y, u);
-	  emit_insn (gen_rtx_SET (VOIDmode, v,
-				  gen_rtx_MINUS (mode, halfthree, m)));
-
-	  emit_insn (gen_rtx_SET (VOIDmode, x1,
-				  gen_rtx_MULT (mode, x0, v)));
-	  x0 = x1;
-	}
+      emit_insn (gen_rtx_SET (VOIDmode, x1,
+			      gen_rtx_MULT (mode, x0, v)));
+      x0 = x1;
     }
 
   emit_move_insn (dst, x0);

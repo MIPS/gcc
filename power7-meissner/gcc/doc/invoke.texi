@@ -785,7 +785,7 @@ See RS/6000 and PowerPC Options.
 -mprototype  -mno-prototype @gol
 -msim  -mmvme  -mads  -myellowknife  -memb  -msdata @gol
 -msdata=@var{opt}  -mvxworks  -G @var{num}  -pthread @gol
--mrecip -mno-recip -mrecip-passes=@var{num}}
+-mrecip -mno-recip -mrecip-precision -mno-recip-precision}
 
 @emph{RX Options}
 @gccoptlist{-m64bit-doubles  -m32bit-doubles  -fpu  -nofpu@gol
@@ -15522,12 +15522,12 @@ throughput of the non-reciprocal instruction, the precision of the
 sequence can be decreased by up to 2 ulp (i.e. the inverse of 1.0
 equals 0.99999994).
 
-@item -mrecip-passes=@var{num}
-@opindex mrecip-passes
-Control the number of Newton-Raphson passes to use after an estimate
-instruction if @option{-mrecip} was used.  The default is 2 on newer
-machines that support higher precision estimate instruction and 3 on
-older machines.
+@item -mrecip-precision
+@itemx -mno-recip-precision
+@opindex mrecip-precision
+Assume (do not assume) that the reciprocal estimate instructions
+provide higher precision estimates than is mandated by the powerpc
+ABI.
 @end table
 
 @node RX Options
