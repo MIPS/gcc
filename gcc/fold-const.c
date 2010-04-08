@@ -3170,6 +3170,11 @@ operand_equal_p (const_tree arg0, const_tree arg1, unsigned int flags)
       || TREE_TYPE (arg1) == error_mark_node)
     return 0;
 
+  /* Similar, if either does not have a type (like a released SSA name), 
+     they aren't equal.  */
+  if (!TREE_TYPE (arg0) || !TREE_TYPE (arg1))
+    return 0;
+
   /* Check equality of integer constants before bailing out due to
      precision differences.  */
   if (TREE_CODE (arg0) == INTEGER_CST && TREE_CODE (arg1) == INTEGER_CST)
@@ -9593,7 +9598,9 @@ fold_comparison (location_t loc, enum tree_code code, tree type,
       tree variable1 = TREE_OPERAND (arg0, 0);
       enum tree_code cmp_code = code;
 
-      gcc_assert (!integer_zerop (const1));
+      /* Handle unfolded multiplication by zero.  */
+      if (integer_zerop (const1))
+	return fold_build2_loc (loc, cmp_code, type, const1, const2);
 
       fold_overflow_warning (("assuming signed overflow does not occur when "
 			      "eliminating multiplication in comparison "
