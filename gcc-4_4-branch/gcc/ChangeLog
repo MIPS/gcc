@@ -1,3 +1,9 @@
+2010-02-17  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/43103
+	* config/i386/sse.md (xop_vpermil2<mode>3): Use avxmodesuffixf2c
+	for insn mnemonic suffix.
+
 2010-04-06  Jakub Jelinek  <jakub@redhat.com>
 
 	PR target/43638
