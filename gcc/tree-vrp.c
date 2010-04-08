@@ -5016,7 +5016,8 @@ check_array_ref (location_t location, tree ref, bool ignore_off_by_one)
      beyond the types array bounds.  */
   base = get_base_address (ref);
   if (base
-      && INDIRECT_REF_P (base))
+      && (INDIRECT_REF_P (base)
+	  || TREE_CODE (base) == MEM_REF))
     {
       tree cref, next = NULL_TREE;
 
