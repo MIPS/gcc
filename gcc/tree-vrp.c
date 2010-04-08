@@ -961,7 +961,7 @@ vrp_stmt_computes_nonzero (gimple stmt, bool *strict_overflow_p)
       tree base = get_base_address (TREE_OPERAND (expr, 0));
 
       if (base != NULL_TREE
-	  && TREE_CODE (base) == INDIRECT_REF
+	  && TREE_CODE (base) == MEM_REF
 	  && TREE_CODE (TREE_OPERAND (base, 0)) == SSA_NAME)
 	{
 	  value_range_t *vr = get_value_range (TREE_OPERAND (base, 0));

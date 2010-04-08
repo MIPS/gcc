@@ -4010,13 +4010,45 @@ gimple_fold_indirect_ref (tree t)
         }
     }
 
-  /* *(p + CST) -> MEM_REF <p, CST>.  */
+  /* *(p + CST) -> ...  */
   if (TREE_CODE (sub) == POINTER_PLUS_EXPR
       && TREE_CODE (TREE_OPERAND (sub, 1)) == INTEGER_CST)
     {
       tree addr = TREE_OPERAND (sub, 0);
       tree off = TREE_OPERAND (sub, 1);
+      tree addrtype;
+
       STRIP_NOPS (addr);
+      addrtype = TREE_TYPE (addr);
+
+      /* ((foo*)&vectorfoo)[1] -> BIT_FIELD_REF<vectorfoo,...> */
+      if (TREE_CODE (addr) == ADDR_EXPR
+	  && TREE_CODE (TREE_TYPE (addrtype)) == VECTOR_TYPE
+	  && useless_type_conversion_p (type, TREE_TYPE (TREE_TYPE (addrtype))))
+	{
+          HOST_WIDE_INT offset = tree_low_cst (off, 0);
+          tree part_width = TYPE_SIZE (type);
+          unsigned HOST_WIDE_INT part_widthi
+            = tree_low_cst (part_width, 0) / BITS_PER_UNIT;
+          unsigned HOST_WIDE_INT indexi = offset * BITS_PER_UNIT;
+          tree index = bitsize_int (indexi);
+          if (offset / part_widthi
+              <= TYPE_VECTOR_SUBPARTS (TREE_TYPE (addrtype)))
+            return fold_build3 (BIT_FIELD_REF, type, TREE_OPERAND (addr, 0),
+                                part_width, index);
+	}
+
+      /* ((foo*)&complexfoo)[1] -> __imag__ complexfoo */
+      if (TREE_CODE (addr) == ADDR_EXPR
+	  && TREE_CODE (TREE_TYPE (addrtype)) == COMPLEX_TYPE
+	  && useless_type_conversion_p (type, TREE_TYPE (TREE_TYPE (addrtype))))
+        {
+          tree size = TYPE_SIZE_UNIT (type);
+          if (tree_int_cst_equal (size, off))
+            return fold_build1 (IMAGPART_EXPR, type, TREE_OPERAND (addr, 0));
+        }
+
+      /* *(p + CST) -> MEM_REF <p, CST>.  */
       if (TREE_CODE (addr) != ADDR_EXPR
 	  || DECL_P (TREE_OPERAND (addr, 0)))
 	return fold_build2 (MEM_REF, type,

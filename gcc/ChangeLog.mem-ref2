@@ -1,5 +1,13 @@
 2010-04-08  Richard Guenther  <rguenther@suse.de>
 
+	* tree-vrp.c (vrp_stmt_computes_nonzero): Adjust for MEM_REF.
+	* tree-pretty-print.c (dump_generic_node): Print MEM_REFs
+	equivalent to plain old INDIRECT_REFs as * and -> again.
+	* gimplify.c (gimple_fold_indirect_ref): Restore some
+	foldings.
+
+2010-04-08  Richard Guenther  <rguenther@suse.de>
+
 	* tree-vrp.c (check_array_ref): Handle MEM_REF.
  
 2010-04-08  Richard Guenther  <rguenther@suse.de>
