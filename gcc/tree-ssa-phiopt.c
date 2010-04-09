@@ -1057,7 +1057,7 @@ static void
 add_or_mark_expr (basic_block bb, tree exp,
 		  struct pointer_set_t *nontrap, bool store)
 {
-  if (INDIRECT_REF_P (exp)
+  if (TREE_CODE (exp) == MEM_REF
       && TREE_CODE (TREE_OPERAND (exp, 0)) == SSA_NAME)
     {
       tree name = TREE_OPERAND (exp, 0);
@@ -1202,7 +1202,8 @@ cond_store_replacement (basic_block middle_bb, basic_block join_bb,
   locus = gimple_location (assign);
   lhs = gimple_assign_lhs (assign);
   rhs = gimple_assign_rhs1 (assign);
-  if (!INDIRECT_REF_P (lhs))
+  if (TREE_CODE (lhs) != MEM_REF
+      || TREE_CODE (TREE_OPERAND (lhs, 0)) != SSA_NAME)
     return false;
 
   /* RHS is either a single SSA_NAME or a constant. */

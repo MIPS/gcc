@@ -180,7 +180,7 @@ addr_object_size (struct object_size_info *osi, const_tree ptr,
 	  sz = compute_builtin_object_size (TREE_OPERAND (pt_var, 0),
 					    object_size_type & ~1);
 	  if (host_integerp (TREE_OPERAND (pt_var, 1), 0))
-	    sz += TREE_INT_CST_LOW (TREE_OPERAND (pt_var, 1));
+	    sz -= TREE_INT_CST_LOW (TREE_OPERAND (pt_var, 1));
 	  else
 	    sz = offset_limit;
 	}
@@ -194,6 +194,10 @@ addr_object_size (struct object_size_info *osi, const_tree ptr,
 	    sz = object_sizes[object_size_type][SSA_NAME_VERSION (var)];
 	  else
 	    sz = unknown[object_size_type];
+	  if (host_integerp (TREE_OPERAND (pt_var, 1), 0))
+	    sz -= TREE_INT_CST_LOW (TREE_OPERAND (pt_var, 1));
+	  else
+	    sz = offset_limit;
 	}
 
       if (sz != unknown[object_size_type] && sz < offset_limit)

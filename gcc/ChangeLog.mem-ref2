@@ -1,3 +1,13 @@
+2010-04-09  Richard Guenther  <rguenther@suse.de>
+
+	* builtins.c (maybe_emit_free_warning): Handle MEM_REF.
+	* tree-ssa-phiopt.c (add_or_mark_expr): Likewise.
+	(cond_store_replacement): Likewise.
+	* tree-ssa-phiprop.c (phiprop_insert_phi): Likewise.
+	(propagate_with_phi): Likewise.
+	* tree-object-size.c (addr_object_size): Complete MEM_REF
+	handling, fix error in previous conversion.
+
 2010-04-08  Richard Guenther  <rguenther@suse.de>
 
 	* tree-vrp.c (vrp_stmt_computes_nonzero): Adjust for MEM_REF.

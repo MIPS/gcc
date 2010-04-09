@@ -11887,7 +11887,7 @@ maybe_emit_free_warning (tree exp)
     return;
 
   arg = get_base_address (TREE_OPERAND (arg, 0));
-  if (arg == NULL || INDIRECT_REF_P (arg))
+  if (arg == NULL || INDIRECT_REF_P (arg) || TREE_CODE (arg) == MEM_REF)
     return;
 
   if (SSA_VAR_P (arg))
