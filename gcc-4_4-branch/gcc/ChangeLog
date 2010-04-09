@@ -1,3 +1,97 @@
+2010-04-08  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	Backport from mainline:
+	2009-12-05  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR ada/41912
+	* pa/linux-unwind.h (pa32_fallback_frame_state): Set fs->signal_frame
+	for signal frames.
+	* pa/hpux-unwind.h (pa32_fallback_frame_state): Likewise.
+
+2010-04-08  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR target/43643
+	* config/i386/gmon-sol2.c [__x86_64__]: Properly restore %rcx.
+
+2010-04-08  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2010-03-22  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR target/38085
+	* config/i386/i386.c (x86_function_profiler)
+	[!NO_PROFILE_COUNTERS]: Fix typo.
+	* config/i386/gmon-sol2.c (_mcleanup) [__x86_64__]: Use call
+	instead of callq.
+
+2010-04-08  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/42956
+	* gimplify.c (gimple_fold_indirect_ref): Avoid generating
+	new ARRAY_REFs on variable size element or minimal index arrays.
+	* tree-ssa-loop-ivopts.c (find_interesting_uses_address): Use
+	gimple_fold_indirect_ref.
+
+2010-04-08  Wolfgang Gellerich  <gellerich@de.ibm.com>
+
+	* config/s390/s390.c (override_options): Adjust the z10
+          defaults for max-unroll-times, max-completely-peeled-insns
+          and max-completely-peel-times.
+
+2010-04-08  Wolfgang Gellerich  <gellerich@de.ibm.com>
+
+	* config/s390/s390.c (override_options): Set
+	default of max-pending-list-length to 256
+
+2010-04-08  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline:
+	2010-03-29  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/43560
+	* tree-ssa-loop-im.c (ref_always_accessed_p): Add store_p
+	parameter.
+	(can_sm_ref_p): Treat stores to readonly locations as
+	trapping.
+
+	2010-04-01  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/43607
+	* ipa-type-escape.c (check_call): Do not access non-existing
+	arguments.
+
+	2010-04-01  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/43614
+	* tree-ssa-address.c (copy_mem_ref_info): Copy TREE_SIDE_EFFECTS
+	and TREE_THIS_VOLATILE.
+	(copy_ref_info): Likewise.
+	* tree-ssa-operands.c (get_tmr_operands): Check TREE_THIS_VOLATILE.
+	* tree.c (build7_stat): Ignore side-effects of all but arg5
+	for TARGET_MEM_REF.  Set TREE_THIS_VOLATILE from arg5 of
+	TARGET_MEM_REF.
+
+2010-04-08  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/43186
+	* params.def (PARAM_MAX_UNROLL_ITERATIONS): New param.
+	* doc/invoke.texi (max-completely-peel-loop-nest-depth): Document.
+	* tree-ssa-loop-ivcanon.c (tree_unroll_loops_completely): Limit
+	unroller iterations.
+
+2010-04-07  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/43668
+	* config/i386/i386.c (setup_incoming_varargs_64): Align stack to
+	16byte for FP register save area.
+
+2010-04-07  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/43629
+	* tree-ssa-ccp.c (likely_value): Properly look for constant
+	values.  Reset all_undefined_operands if we have seen a
+	constant value.
+
 2010-02-17  Uros Bizjak  <ubizjak@gmail.com>
 
 	PR target/43103

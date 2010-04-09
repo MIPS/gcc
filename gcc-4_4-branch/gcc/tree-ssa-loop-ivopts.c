@@ -1674,7 +1674,11 @@ find_interesting_uses_address (struct ivopts_data *data, gimple stmt, tree *op_p
 	  while (handled_component_p (*ref))
 	    ref = &TREE_OPERAND (*ref, 0);
 	  if (TREE_CODE (*ref) == INDIRECT_REF)
-	    *ref = fold_indirect_ref (*ref);
+	    {
+	      tree tem = gimple_fold_indirect_ref (TREE_OPERAND (*ref, 0));
+	      if (tem)
+		*ref = tem;
+	    }
 	}
     }
 
@@ -5257,6 +5261,8 @@ copy_ref_info (tree new_ref, tree old_ref)
     {
       TMR_ORIGINAL (new_ref) = unshare_and_remove_ssa_names (old_ref);
       TMR_TAG (new_ref) = get_ref_tag (old_ref, TMR_ORIGINAL (new_ref));
+      TREE_SIDE_EFFECTS (new_ref) = TREE_SIDE_EFFECTS (old_ref);
+      TREE_THIS_VOLATILE (new_ref) = TREE_THIS_VOLATILE (old_ref);
     }
 }
 
