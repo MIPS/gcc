@@ -8806,7 +8806,7 @@ static const struct builtin_description bdesc_3arg[] =
   /* DMA from / to Cell SPE.  Because the mostly unrelated e500 part is also
      called spe, and the CELL SPE target port is named after the core, spu,
      we use spu in the names here.  */
-  /* ??? Initiating all DAM transfers from the PPE is probably not the best
+  /* ??? Initiating all DMA transfers from the PPE is probably not the best
      use of the Cell.  Should add hooks to allow initiating DMA from the
      SPU where this is suitable for the compiled program.  */
   { NUM_TARGETS > 1 ? -MASK_64BIT : 0,
