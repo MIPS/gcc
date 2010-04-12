@@ -1,3 +1,11 @@
+2010-04-12  Thierry LAFAGE  <lafage@dingdong.irisa.fr>
+
+	* gcc/config/cil32/emit-cil.c: if -g is enabled, add .line
+	directives before each method/function definition.
+	* gcc/config/cil32/t-cil32: gcc/config/cil32/emit-cil.c depends on
+	source-location.h
+
+
 2010-03-19  Thierry LAFAGE  <thierry.lafage@inria.fr>
 
 	* gcc/config/cil32/simp-cond.c: added condition inversion for brtrue

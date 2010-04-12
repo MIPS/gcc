@@ -57,6 +57,7 @@ Erven Rohou             <erven.rohou@inria.fr>
 #include "cil-types.h"
 #include "emit-hints.h"
 #include "emit-cil.h"
+#include "source-location.h"
 
 /******************************************************************************
  * Type declarations                                                          *
@@ -132,6 +133,9 @@ static void emit_switch_labels (FILE *, const_cil_stmt);
 static void emit_string_custom_attr (FILE *, const char *);
 static bool emit_builtin_call (FILE *, const_cil_stmt);
 static void emit_call_arg (FILE *, const_cil_stmt);
+static void emit_cil_dbginfo_init (void);
+static void emit_cil_dbginfo (FILE *, source_location, const char*);
+static void emit_cil_dbginfo_before (FILE *, const_cil_stmt);
 static void emit_cil_stmt (FILE *, const_cil_stmt);
 static void emit_referenced_assemblies (FILE *);
 static void emit_start_function (FILE *, struct function *);
@@ -1411,39 +1415,49 @@ emit_call_arg (FILE *file, const_cil_stmt call)
 /* TL // Emits debug info before CIL statement STMT in the file
  * specified by FILE.  */
 static source_location prev_loc = UNKNOWN_LOCATION;
+
 static void
-emit_cil_dbginfo_before (FILE *file, const_cil_stmt stmt)
+emit_cil_dbginfo_init (void)
 {
-  source_location loc;
+  prev_loc = UNKNOWN_LOCATION;
+}
+
+static void
+emit_cil_dbginfo (FILE *file, source_location loc, const char *indent)
+{
   expanded_location xloc;
 
   if (debug_info_level == DINFO_LEVEL_NONE)
     return;
 
-  loc = cil_locus (stmt);
-
   if (loc == prev_loc)
     {
       if (debug_info_level >= DINFO_LEVEL_VERBOSE)
-        fprintf (file, "\n\t// Same location");
+        fprintf (file, "\n%s// Same location", indent);
       return;
     }
 
   if (loc == UNKNOWN_LOCATION)
     {
       if (debug_info_level >= DINFO_LEVEL_VERBOSE)
-        fprintf (file, "\n\t// UNKNOWN location");
+        fprintf (file, "\n%s// UNKNOWN location", indent);
       return;
     }
 
   xloc = expand_location (loc);
-  fprintf (file, "\n\t");
+  fprintf (file, "\n%s", indent);
   if (xloc.column == 0) /* Means no column info or whole source line. */
     fprintf (file, ".line %d '%s'", xloc.line, xloc.file);
   else
     fprintf (file, ".line %d:%d '%s'", xloc.line, xloc.column, xloc.file);
 
   prev_loc = loc;
+}
+
+static void
+emit_cil_dbginfo_before (FILE *file, const_cil_stmt stmt)
+{
+  emit_cil_dbginfo (file, cil_locus (stmt), "\t");
 }
 
 /* Emits a single CIL statement STMT the file specified by FILE.  */
@@ -1906,6 +1920,8 @@ emit_function_header (FILE *file, struct function *fun)
       missing = true;
   }
 
+  emit_cil_dbginfo (file, fun->function_start_locus, "");
+
   fprintf (file, "\n.method %s static %s",
 	   TREE_PUBLIC (fun->decl) ? "public" : "private",
 	   varargs ? "vararg " : "");
@@ -1978,6 +1994,9 @@ static void
 emit_cil_1 (FILE *file, struct function *fun)
 {
   basic_block bb;
+
+  if (debug_info_level != DINFO_LEVEL_NONE)
+    emit_cil_dbginfo_init ();
 
   emit_referenced_assemblies (file);
 
