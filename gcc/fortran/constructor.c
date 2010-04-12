@@ -41,6 +41,7 @@ node_free (splay_tree_value value)
   gfc_free (c);
 }
 
+
 static gfc_constructor *
 node_copy (splay_tree_node node, void *base)
 {
@@ -59,13 +60,6 @@ node_copy (splay_tree_node node, void *base)
   return c;
 }
 
-/*static int
-node_copy_and_append (splay_tree_node node, void *base)
-{
-  gfc_constructor_append ((gfc_constructor_base*)base,
-			  node_copy (node, base));
-  return 0;
-}*/
 
 static int
 node_copy_and_insert (splay_tree_node node, void *base)

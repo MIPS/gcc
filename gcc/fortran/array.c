@@ -1063,6 +1063,29 @@ count_elements (gfc_expr *e)
 }
 
 
+/* Work function that extracts a particular element from an array
+   constructor, freeing the rest.  */
+
+static gfc_try
+extract_element (gfc_expr *e)
+{
+  if (e->rank != 0)
+    {				/* Something unextractable */
+      gfc_free_expr (e);
+      return FAILURE;
+    }
+
+  if (current_expand.extract_count == current_expand.extract_n)
+    current_expand.extracted = e;
+  else
+    gfc_free_expr (e);
+
+  current_expand.extract_count++;
+  
+  return SUCCESS;
+}
+
+
 /* Work function that constructs a new constructor out of the old one,
    stringing new elements together.  */
 
@@ -1246,6 +1269,39 @@ expand_constructor (gfc_constructor_base base)
 }
 
 
+/* Given an array expression and an element number (starting at zero),
+   return a pointer to the array element.  NULL is returned if the
+   size of the array has been exceeded.  The expression node returned
+   remains a part of the array and should not be freed.  Access is not
+   efficient at all, but this is another place where things do not
+   have to be particularly fast.  */
+
+static gfc_expr *
+gfc_get_array_element (gfc_expr *array, int element)
+{
+  expand_info expand_save;
+  gfc_expr *e;
+  gfc_try rc;
+
+  expand_save = current_expand;
+  current_expand.extract_n = element;
+  current_expand.expand_work_function = extract_element;
+  current_expand.extracted = NULL;
+  current_expand.extract_count = 0;
+
+  iter_stack = NULL;
+
+  rc = expand_constructor (array->value.constructor);
+  e = current_expand.extracted;
+  current_expand = expand_save;
+
+  if (rc == FAILURE)
+    return NULL;
+
+  return e;
+}
+
+
 /* Top level subroutine for expanding constructors.  We only expand
    constructor if they are small enough.  */
 
@@ -1253,11 +1309,19 @@ gfc_try
 gfc_expand_constructor (gfc_expr *e)
 {
   expand_info expand_save;
+  gfc_expr *f;
   gfc_try rc;
 
-  /* TODO: Removed check against flag_max_array_constructor.
-     Might be necessary to re-introduce it later?!  */
+  /* If we can successfully get an array element at the max array size then
+     the array is too big to expand, so we just return.  */
+  f = gfc_get_array_element (e, gfc_option.flag_max_array_constructor);
+  if (f != NULL)
+    {
+      gfc_free_expr (f);
+      return SUCCESS;
+    }
 
+  /* We now know the array is not too big so go ahead and try to expand it.  */
   expand_save = current_expand;
   current_expand.base = NULL;
 

@@ -1,3 +1,14 @@
+2010-04-11  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	* array.c (extract_element): Restore function from trunk.
+	(gfc_get_array_element): Restore function from trunk.
+	(gfc_expand_constructor): Restore check against
+	flag_max_array_constructor.
+	* constructor.c (node_copy_and_append): Delete unused.
+	* gfortran.h: Delete comment and extra include.
+	* constructor.h: Bump copyright and clean up TODO comments.
+	* resolve.c: Whitespace.
+
 2010-02-07  Daniel Franke  <franke.daniel@gmail.com>
 
 	* simplify.c (compute_dot_product): Replaced usage of ADVANCE macro

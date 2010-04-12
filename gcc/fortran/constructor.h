@@ -1,5 +1,5 @@
 /* Array and structure constructors
-   Copyright (C) 2009
+   Copyright (C) 2009, 2010
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -59,10 +59,8 @@ gfc_constructor *gfc_constructor_insert_expr (gfc_constructor_base *base,
 /* Given an array constructor expression and an element number (starting
    at zero), return a pointer to the array element.  NULL is returned if
    the size of the array has been exceeded. The expression node returned
-   remains a part of the array and should not be freed.
-   TODO: remove array.c (gfc_get_array_element)
-   TODO: remove expr.c (find_array_element)
-   TODO: ???    data.c (get_array_index).  */
+   remains a part of the array and should not be freed.  */
+
 gfc_constructor *gfc_constructor_lookup (gfc_constructor_base base, int n);
 
 /* Convenience function. Same as ...

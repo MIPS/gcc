@@ -1632,8 +1632,6 @@ gfc_class_esym_list;
 #define GFC_RND_MODE GMP_RNDN
 #define GFC_MPC_RND_MODE MPC_RNDNN
 
-/*#define gfc_constructor_base struct gfc_constructor* */
-#include "splay-tree.h"
 typedef splay_tree gfc_constructor_base;
 
 typedef struct gfc_expr

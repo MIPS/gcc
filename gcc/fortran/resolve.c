@@ -5563,12 +5563,12 @@ gfc_is_expandable_expr (gfc_expr *e)
       for (; con; con = gfc_constructor_next (con))
 	{
 	  if (con->expr->expr_type == EXPR_VARIABLE
-	  && con->expr->symtree
-	  && (con->expr->symtree->n.sym->attr.flavor == FL_PARAMETER
+	      && con->expr->symtree
+	      && (con->expr->symtree->n.sym->attr.flavor == FL_PARAMETER
 	      || con->expr->symtree->n.sym->attr.flavor == FL_VARIABLE))
 	    return true;
 	  if (con->expr->expr_type == EXPR_ARRAY
-	    && gfc_is_expandable_expr (con->expr))
+	      && gfc_is_expandable_expr (con->expr))
 	    return true;
 	}
     }
