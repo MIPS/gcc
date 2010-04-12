@@ -1,3 +1,13 @@
+2010-04-12  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Backport from ibm/gcc-4_3-branch
+	2009-06-11  Alan Modra  <amodra@au.ibm.com>
+
+	PR target/25972
+	* config/rs6000/darwin-ldouble.c (longDblUnion): Delete.
+	(pack): New inline function.  Use throughout in place of packing a
+	pair of doubles to long double via union.
+
 2010-04-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Revert 2010-04-01 reciprocal sqrt changes.
