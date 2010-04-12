@@ -1,6 +1,6 @@
 /* Simplify intrinsic functions at compile-time.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
-   Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,
+   2010 Free Software Foundation, Inc.
    Contributed by Andy Vaught & Katherine Holcomb
 
 This file is part of GCC.
@@ -3695,6 +3695,18 @@ gfc_simplify_null (gfc_expr *mold)
   else
     result = gfc_get_null_expr (NULL);
 
+  return result;
+}
+
+
+gfc_expr *
+gfc_simplify_num_images (void)
+{
+  gfc_expr *result;
+  /* FIXME: gfc_current_locus is wrong.  */
+  result = gfc_get_constant_expr (BT_INTEGER, gfc_default_integer_kind,
+				  &gfc_current_locus);
+  mpz_set_si (result->value.integer, 1);
   return result;
 }
 
