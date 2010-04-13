@@ -1262,6 +1262,9 @@ block_move_libcall_safe_for_call_parm (void)
      an outgoing argument.  */
 #if defined (REG_PARM_STACK_SPACE)
   fn = emit_block_move_libcall_fn (false);
+  /* Avoid set but not used warning if *REG_PARM_STACK_SPACE doesn't
+     depend on its argument.  */
+  (void) fn;
   if (OUTGOING_REG_PARM_STACK_SPACE ((!fn ? NULL_TREE : TREE_TYPE (fn)))
       && REG_PARM_STACK_SPACE (fn) != 0)
     return false;
@@ -4858,9 +4861,8 @@ categorize_ctor_elements_1 (const_tree ctor, HOST_WIDE_INT *p_nz_elts,
 
   FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (ctor), idx, purpose, value)
     {
-      HOST_WIDE_INT mult;
+      HOST_WIDE_INT mult = 1;
 
-      mult = 1;
       if (TREE_CODE (purpose) == RANGE_EXPR)
 	{
 	  tree lo_index = TREE_OPERAND (purpose, 0);
@@ -4922,12 +4924,17 @@ categorize_ctor_elements_1 (const_tree ctor, HOST_WIDE_INT *p_nz_elts,
 	  break;
 
 	default:
-	  nz_elts += mult;
-	  elt_count += mult;
+	  {
+	    HOST_WIDE_INT tc = count_type_elements (TREE_TYPE (value), true);
+	    if (tc < 1)
+	      tc = 1;
+	    nz_elts += mult * tc;
+	    elt_count += mult * tc;
 
-	  if (const_from_elts_p && const_p)
-	    const_p = initializer_constant_valid_p (value, TREE_TYPE (value))
-		      != NULL_TREE;
+	    if (const_from_elts_p && const_p)
+	      const_p = initializer_constant_valid_p (value, TREE_TYPE (value))
+			!= NULL_TREE;
+	  }
 	  break;
 	}
     }

@@ -56,9 +56,6 @@ struct GTY(()) gimple_df {
   /* The PTA solution for the ESCAPED artificial variable.  */
   struct pt_solution escaped;
 
-  /* The PTA solution for the CALLUSED artificial variable.  */
-  struct pt_solution callused;
-
   /* A map of decls to artificial ssa-names that point to the partition
      of the decl.  */
   struct pointer_map_t * GTY((skip(""))) decls_to_pointers;
@@ -252,17 +249,17 @@ typedef struct immediate_use_iterator_d
 /* Use this iterator when simply looking at stmts.  Adding, deleting or
    modifying stmts will cause this iterator to malfunction.  */
 
-#define FOR_EACH_IMM_USE_FAST(DEST, ITER, SSAVAR)			\
+#define FOR_EACH_IMM_USE_FAST(DEST, ITER, SSAVAR)		\
   for ((DEST) = first_readonly_imm_use (&(ITER), (SSAVAR));	\
        !end_readonly_imm_use_p (&(ITER));			\
-       (DEST) = next_readonly_imm_use (&(ITER)))
+       (void) ((DEST) = next_readonly_imm_use (&(ITER))))
 
 /* Use this iterator to visit each stmt which has a use of SSAVAR.  */
 
 #define FOR_EACH_IMM_USE_STMT(STMT, ITER, SSAVAR)		\
   for ((STMT) = first_imm_use_stmt (&(ITER), (SSAVAR));		\
        !end_imm_use_stmt_p (&(ITER));				\
-       (STMT) = next_imm_use_stmt (&(ITER)))
+       (void) ((STMT) = next_imm_use_stmt (&(ITER))))
 
 /* Use this to terminate the FOR_EACH_IMM_USE_STMT loop early.  Failure to
    do so will result in leaving a iterator marker node in the immediate
@@ -290,7 +287,7 @@ typedef struct immediate_use_iterator_d
 #define FOR_EACH_IMM_USE_ON_STMT(DEST, ITER)			\
   for ((DEST) = first_imm_use_on_stmt (&(ITER));		\
        !end_imm_use_on_stmt_p (&(ITER));			\
-       (DEST) = next_imm_use_on_stmt (&(ITER)))
+       (void) ((DEST) = next_imm_use_on_stmt (&(ITER))))
 
 
 

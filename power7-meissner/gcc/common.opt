@@ -89,6 +89,10 @@ Wcast-align
 Common Var(warn_cast_align) Warning
 Warn about pointer casts which increase alignment
 
+Wcpp
+Common Var(warn_cpp) Init(1) Warning
+Warn when a #warning directive is encountered
+
 Wdeprecated-declarations
 Common Var(warn_deprecated_decl) Init(1) Warning
 Warn about uses of __attribute__((deprecated)) declarations
@@ -207,6 +211,14 @@ Does nothing. Preserved for backward compatibility.
 Wunused
 Common Var(warn_unused) Init(0) Warning
 Enable all -Wunused- warnings
+
+Wunused-but-set-parameter
+Common Var(warn_unused_but_set_parameter) Init(-1) Warning
+Warn when a function parameter is only set, otherwise unused
+
+Wunused-but-set-variable
+Common Var(warn_unused_but_set_variable) Init(-1) Warning
+Warn when a variable is only set, otherwise unused
 
 Wunused-function
 Common Var(warn_unused_function) Init(-1) Warning
@@ -1526,6 +1538,10 @@ Generate debug information in XCOFF format
 gxcoff+
 Common JoinedOrMissing Negative(gcoff)
 Generate debug information in extended XCOFF format
+
+iplugindir=
+Common Joined Var(plugindir_string) Init(0)
+-iplugindir=<dir>	Set <dir> to be the default plugin directory
 
 o
 Common Joined Separate
