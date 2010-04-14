@@ -467,6 +467,8 @@ eliminate_duplicate_pair (enum tree_code opcode,
   return false;
 }
 
+static VEC(tree, heap) *plus_negates;
+
 /* If OPCODE is PLUS_EXPR, CURR->OP is really a negate expression,
    look in OPS for a corresponding positive operation to cancel it
    out.  If we find one, remove the other from OPS, replace
@@ -520,6 +522,10 @@ eliminate_plus_minus_pair (enum tree_code opcode,
 	  return true;
 	}
     }
+
+  /* CURR->OP is a negate expr in a plus expr: save it for later
+     inspection in repropagate_negates().  */
+  VEC_safe_push (tree, heap, plus_negates, curr->op);
 
   return false;
 }
@@ -1500,8 +1506,6 @@ get_single_immediate_use (tree lhs)
   return NULL;
 }
 
-static VEC(tree, heap) *broken_up_subtracts;
-
 /* Recursively negate the value of TONEGATE, and return the SSA_NAME
    representing the negated value.  Insertions of any necessary
    instructions go before GSI.
@@ -1544,7 +1548,6 @@ negate_value (tree tonegate, gimple_stmt_iterator *gsi)
   tonegate = fold_build1 (NEGATE_EXPR, TREE_TYPE (tonegate), tonegate);
   resultofnegate = force_gimple_operand_gsi (gsi, tonegate, true,
 					     NULL_TREE, true, GSI_SAME_STMT);
-  VEC_safe_push (tree, heap, broken_up_subtracts, resultofnegate);
   return resultofnegate;
 }
 
@@ -1700,18 +1703,19 @@ repropagate_negates (void)
   unsigned int i = 0;
   tree negate;
 
-  for (i = 0; VEC_iterate (tree, broken_up_subtracts, i, negate); i++)
+  for (i = 0; VEC_iterate (tree, plus_negates, i, negate); i++)
     {
       gimple user = get_single_immediate_use (negate);
+
+      if (!user || !is_gimple_assign (user))
+	continue;
 
       /* The negate operand can be either operand of a PLUS_EXPR
 	 (it can be the LHS if the RHS is a constant for example).
 
 	 Force the negate operand to the RHS of the PLUS_EXPR, then
 	 transform the PLUS_EXPR into a MINUS_EXPR.  */
-      if (user
-	  && is_gimple_assign (user)
-	  && gimple_assign_rhs_code (user) == PLUS_EXPR)
+      if (gimple_assign_rhs_code (user) == PLUS_EXPR)
 	{
 	  /* If the negated operand appears on the LHS of the
 	     PLUS_EXPR, exchange the operands of the PLUS_EXPR
@@ -1734,7 +1738,61 @@ repropagate_negates (void)
 	      update_stmt (user);
 	    }
 	}
+      else if (gimple_assign_rhs_code (user) == MINUS_EXPR)
+	{
+	  if (gimple_assign_rhs1 (user) == negate)
+	    {
+	      /* We have
+	           x = -a
+		   y = x - b
+		 which we transform into
+		   x = a + b
+		   y = -x .
+		 This pushes down the negate which we possibly can merge
+		 into some other operation, hence insert it into the
+		 plus_negates vector.  */
+	      gimple feed = SSA_NAME_DEF_STMT (negate);
+	      tree a = gimple_assign_rhs1 (feed);
+	      tree rhs2 = gimple_assign_rhs2 (user);
+	      gimple_stmt_iterator gsi = gsi_for_stmt (feed), gsi2;
+	      gimple_replace_lhs (feed, negate);
+	      gimple_assign_set_rhs_with_ops (&gsi, PLUS_EXPR, a, rhs2);
+	      update_stmt (gsi_stmt (gsi));
+	      gsi2 = gsi_for_stmt (user);
+	      gimple_assign_set_rhs_with_ops (&gsi2, NEGATE_EXPR, negate, NULL);
+	      update_stmt (gsi_stmt (gsi2));
+	      gsi_move_before (&gsi, &gsi2);
+	      VEC_safe_push (tree, heap, plus_negates,
+			     gimple_assign_lhs (gsi_stmt (gsi2)));
+	    }
+	  else
+	    {
+	      /* Transform "x = -a; y = b - x" into "y = b + a", getting
+	         rid of one operation.  */
+	      gimple feed = SSA_NAME_DEF_STMT (negate);
+	      tree a = gimple_assign_rhs1 (feed);
+	      tree rhs1 = gimple_assign_rhs1 (user);
+	      gimple_stmt_iterator gsi = gsi_for_stmt (user);
+	      gimple_assign_set_rhs_with_ops (&gsi, PLUS_EXPR, rhs1, a);
+	      update_stmt (gsi_stmt (gsi));
+	    }
+	}
     }
+}
+
+/* Returns true if OP is of a type for which we can do reassociation.
+   That is for integral or non-saturating fixed-point types, and for
+   floating point type when associative-math is enabled.  */
+
+static bool
+can_reassociate_p (tree op)
+{
+  tree type = TREE_TYPE (op);
+  if (INTEGRAL_TYPE_P (type)
+      || NON_SAT_FIXED_POINT_TYPE_P (type)
+      || (flag_associative_math && SCALAR_FLOAT_TYPE_P (type)))
+    return true;
+  return false;
 }
 
 /* Break up subtract operations in block BB.
@@ -1765,27 +1823,15 @@ break_up_subtract_bb (basic_block bb)
       gimple stmt = gsi_stmt (gsi);
       gimple_set_visited (stmt, false);
 
-      /* Look for simple gimple subtract operations.  */
-      if (is_gimple_assign (stmt)
-	  && gimple_assign_rhs_code (stmt) == MINUS_EXPR)
-	{
-	  tree lhs = gimple_assign_lhs (stmt);
-	  tree rhs1 = gimple_assign_rhs1 (stmt);
-	  tree rhs2 = gimple_assign_rhs2 (stmt);
+      if (!is_gimple_assign (stmt)
+	  || !can_reassociate_p (gimple_assign_lhs (stmt)))
+	continue;
 
-	  /* If associative-math we can do reassociation for
-	     non-integral types.  Or, we can do reassociation for
-	     non-saturating fixed-point types.  */
-	  if ((!INTEGRAL_TYPE_P (TREE_TYPE (lhs))
-	       || !INTEGRAL_TYPE_P (TREE_TYPE (rhs1))
-	       || !INTEGRAL_TYPE_P (TREE_TYPE (rhs2)))
-	      && (!SCALAR_FLOAT_TYPE_P (TREE_TYPE (lhs))
-		  || !SCALAR_FLOAT_TYPE_P (TREE_TYPE(rhs1))
-		  || !SCALAR_FLOAT_TYPE_P (TREE_TYPE(rhs2))
-		  || !flag_associative_math)
-	      && (!NON_SAT_FIXED_POINT_TYPE_P (TREE_TYPE (lhs))
-		  || !NON_SAT_FIXED_POINT_TYPE_P (TREE_TYPE(rhs1))
-		  || !NON_SAT_FIXED_POINT_TYPE_P (TREE_TYPE(rhs2))))
+      /* Look for simple gimple subtract operations.  */
+      if (gimple_assign_rhs_code (stmt) == MINUS_EXPR)
+	{
+	  if (!can_reassociate_p (gimple_assign_rhs1 (stmt))
+	      || !can_reassociate_p (gimple_assign_rhs2 (stmt)))
 	    continue;
 
 	  /* Check for a subtract used only in an addition.  If this
@@ -1795,6 +1841,9 @@ break_up_subtract_bb (basic_block bb)
 	  if (should_break_up_subtract (stmt))
 	    break_up_subtract (stmt, &gsi);
 	}
+      else if (gimple_assign_rhs_code (stmt) == NEGATE_EXPR
+	       && can_reassociate_p (gimple_assign_rhs1 (stmt)))
+	VEC_safe_push (tree, heap, plus_negates, gimple_assign_lhs (stmt));
     }
   for (son = first_dom_son (CDI_DOMINATORS, bb);
        son;
@@ -1855,19 +1904,9 @@ reassociate_bb (basic_block bb)
 	  rhs1 = gimple_assign_rhs1 (stmt);
 	  rhs2 = gimple_assign_rhs2 (stmt);
 
-	  /* If associative-math we can do reassociation for
-	     non-integral types.  Or, we can do reassociation for
-	     non-saturating fixed-point types.  */
-	  if ((!INTEGRAL_TYPE_P (TREE_TYPE (lhs))
-	       || !INTEGRAL_TYPE_P (TREE_TYPE (rhs1))
-	       || !INTEGRAL_TYPE_P (TREE_TYPE (rhs2)))
-	      && (!SCALAR_FLOAT_TYPE_P (TREE_TYPE (lhs))
-		  || !SCALAR_FLOAT_TYPE_P (TREE_TYPE(rhs1))
-		  || !SCALAR_FLOAT_TYPE_P (TREE_TYPE(rhs2))
-		  || !flag_associative_math)
-	      && (!NON_SAT_FIXED_POINT_TYPE_P (TREE_TYPE (lhs))
-		  || !NON_SAT_FIXED_POINT_TYPE_P (TREE_TYPE(rhs1))
-		  || !NON_SAT_FIXED_POINT_TYPE_P (TREE_TYPE(rhs2))))
+	  if (!can_reassociate_p (lhs)
+	      || !can_reassociate_p (rhs1)
+	      || !can_reassociate_p (rhs2))
 	    continue;
 
 	  if (associative_tree_code (rhs_code))
@@ -2014,7 +2053,7 @@ init_reassoc (void)
 
   free (bbs);
   calculate_dominance_info (CDI_POST_DOMINATORS);
-  broken_up_subtracts = NULL;
+  plus_negates = NULL;
 }
 
 /* Cleanup after the reassociation pass, and print stats if
@@ -2035,7 +2074,7 @@ fini_reassoc (void)
   pointer_map_destroy (operand_rank);
   free_alloc_pool (operand_entry_pool);
   free (bb_rank);
-  VEC_free (tree, heap, broken_up_subtracts);
+  VEC_free (tree, heap, plus_negates);
   free_dominance_info (CDI_POST_DOMINATORS);
   loop_optimizer_finalize ();
 }

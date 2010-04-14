@@ -1,3 +1,7 @@
+2010-14-06 Jan Hubicka  <jh@suse.cz> 
+
+	* Merge from mainline.
+
 2010-04-06 Jan Hubicka  <jh@suse.cz> 
 
 	* tree-inline.c (cgraph_mark_inline_edge): Do not update overall size for fully
