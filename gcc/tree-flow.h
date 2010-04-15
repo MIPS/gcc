@@ -56,9 +56,6 @@ struct GTY(()) gimple_df {
   /* The PTA solution for the ESCAPED artificial variable.  */
   struct pt_solution escaped;
 
-  /* The PTA solution for the CALLUSED artificial variable.  */
-  struct pt_solution callused;
-
   /* A map of decls to artificial ssa-names that point to the partition
      of the decl.  */
   struct pointer_map_t * GTY((skip(""))) decls_to_pointers;
@@ -78,6 +75,9 @@ struct GTY(()) gimple_df {
 
   /* True if the code is in ssa form.  */
   unsigned int in_ssa_p : 1;
+
+  /* True if IPA points-to information was computed for this function.  */
+  unsigned int ipa_pta : 1;
 
   struct ssa_operands ssa_operands;
 };
@@ -114,9 +114,10 @@ typedef struct
 ---------------------------------------------------------------------------*/
 
 /* Aliasing information for SSA_NAMEs representing pointer variables.  */
+
 struct GTY(()) ptr_info_def
 {
-  /* The points-to solution, TBAA-pruned if the pointer is dereferenced.  */
+  /* The points-to solution.  */
   struct pt_solution pt;
 };
 
@@ -619,12 +620,7 @@ extern void ssanames_print_statistics (void);
 #endif
 
 /* In tree-ssa-ccp.c  */
-bool fold_stmt (gimple_stmt_iterator *);
-bool fold_stmt_inplace (gimple);
-tree get_symbol_constant_value (tree);
 tree fold_const_aggregate_ref (tree);
-bool may_propagate_address_into_dereference (tree, tree);
-
 
 /* In tree-ssa-dom.c  */
 extern void dump_dominator_optimization_stats (FILE *);

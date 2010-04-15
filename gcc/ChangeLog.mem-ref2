@@ -1,3 +1,7 @@
+2010-04-15  Richard Guenther  <rguenther@suse.de>
+
+	Merge from trunk r158375.
+
 2010-04-09  Richard Guenther  <rguenther@suse.de>
 
 	* builtins.c (maybe_emit_free_warning): Handle MEM_REF.

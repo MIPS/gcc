@@ -1110,9 +1110,10 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
    In CONSTRUCTOR nodes, it means object constructed must be in memory.
    In LABEL_DECL nodes, it means a goto for this label has been seen
    from a place outside all binding contours that restore stack levels.
-   In ..._TYPE nodes, it means that objects of this type must
-   be fully addressable.  This means that pieces of this
-   object cannot go into register parameters, for example.
+   In ..._TYPE nodes, it means that objects of this type must be fully
+   addressable.  This means that pieces of this object cannot go into
+   register parameters, for example.  If this a function type, this
+   means that the value must be returned in memory.
    In IDENTIFIER_NODEs, this means that some extern decl for this name
    had its address taken.  That matters for inline functions.  */
 #define TREE_ADDRESSABLE(NODE) ((NODE)->base.addressable_flag)
@@ -2488,6 +2489,15 @@ struct function;
    uses.  */
 #define DEBUG_TEMP_UID(NODE) (-DECL_UID (TREE_CHECK ((NODE), DEBUG_EXPR_DECL)))
 
+/* Every ..._DECL node gets a unique number that stays the same even
+   when the decl is copied by the inliner once it is set.  */
+#define DECL_PT_UID(NODE) (DECL_MINIMAL_CHECK (NODE)->decl_minimal.pt_uid == -1u ? (NODE)->decl_minimal.uid : (NODE)->decl_minimal.pt_uid)
+/* Initialize the ..._DECL node pt-uid to the decls uid.  */
+#define SET_DECL_PT_UID(NODE, UID) (DECL_MINIMAL_CHECK (NODE)->decl_minimal.pt_uid = (UID))
+/* Whether the ..._DECL node pt-uid has been initialized and thus needs to
+   be preserved when copyin the decl.  */
+#define DECL_PT_UID_SET_P(NODE) (DECL_MINIMAL_CHECK (NODE)->decl_minimal.pt_uid != -1u)
+
 /* These two fields describe where in the source code the declaration
    was.  If the declaration appears in several places (as for a C
    function that is declared first and then defined later), this
@@ -2511,6 +2521,7 @@ struct GTY(()) tree_decl_minimal {
   struct tree_common common;
   location_t locus;
   unsigned int uid;
+  unsigned int pt_uid;
   tree name;
   tree context;
 };
@@ -4819,44 +4830,6 @@ extern void fold_undefer_overflow_warnings (bool, const_gimple, int);
 extern void fold_undefer_and_ignore_overflow_warnings (void);
 extern bool fold_deferring_overflow_warnings_p (void);
 
-extern tree force_fit_type_double (tree, unsigned HOST_WIDE_INT, HOST_WIDE_INT,
-				   int, bool);
-
-extern int fit_double_type (unsigned HOST_WIDE_INT, HOST_WIDE_INT,
-			    unsigned HOST_WIDE_INT *, HOST_WIDE_INT *, const_tree);
-extern int add_double_with_sign (unsigned HOST_WIDE_INT, HOST_WIDE_INT,
-				 unsigned HOST_WIDE_INT, HOST_WIDE_INT,
-				 unsigned HOST_WIDE_INT *, HOST_WIDE_INT *,
-				 bool);
-#define add_double(l1,h1,l2,h2,lv,hv) \
-  add_double_with_sign (l1, h1, l2, h2, lv, hv, false)
-extern int neg_double (unsigned HOST_WIDE_INT, HOST_WIDE_INT,
-		       unsigned HOST_WIDE_INT *, HOST_WIDE_INT *);
-extern int mul_double_with_sign (unsigned HOST_WIDE_INT, HOST_WIDE_INT,
-				 unsigned HOST_WIDE_INT, HOST_WIDE_INT,
-				 unsigned HOST_WIDE_INT *, HOST_WIDE_INT *,
-				 bool);
-#define mul_double(l1,h1,l2,h2,lv,hv) \
-  mul_double_with_sign (l1, h1, l2, h2, lv, hv, false)
-extern void lshift_double (unsigned HOST_WIDE_INT, HOST_WIDE_INT,
-			   HOST_WIDE_INT, unsigned int,
-			   unsigned HOST_WIDE_INT *, HOST_WIDE_INT *, int);
-extern void rshift_double (unsigned HOST_WIDE_INT, HOST_WIDE_INT,
-			   HOST_WIDE_INT, unsigned int,
-			   unsigned HOST_WIDE_INT *, HOST_WIDE_INT *, int);
-extern void lrotate_double (unsigned HOST_WIDE_INT, HOST_WIDE_INT,
-			    HOST_WIDE_INT, unsigned int,
-			    unsigned HOST_WIDE_INT *, HOST_WIDE_INT *);
-extern void rrotate_double (unsigned HOST_WIDE_INT, HOST_WIDE_INT,
-			    HOST_WIDE_INT, unsigned int,
-			    unsigned HOST_WIDE_INT *, HOST_WIDE_INT *);
-
-extern int div_and_round_double (enum tree_code, int, unsigned HOST_WIDE_INT,
-				 HOST_WIDE_INT, unsigned HOST_WIDE_INT,
-				 HOST_WIDE_INT, unsigned HOST_WIDE_INT *,
-				 HOST_WIDE_INT *, unsigned HOST_WIDE_INT *,
-				 HOST_WIDE_INT *);
-
 enum operand_equal_flag
 {
   OEP_ONLY_CONST = 1,
@@ -5322,11 +5295,6 @@ struct GTY(()) tree_priority_map {
 /* In tree-ssa.c */
 
 tree target_for_debug_bind (tree);
-
-/* In tree-ssa-ccp.c */
-extern tree maybe_fold_offset_to_reference (location_t, tree, tree, tree);
-extern tree maybe_fold_offset_to_address (location_t, tree, tree, tree);
-extern tree maybe_fold_stmt_addition (location_t, tree, tree, tree);
 
 /* In tree-ssa-address.c.  */
 extern tree tree_mem_ref_addr (tree, tree);
