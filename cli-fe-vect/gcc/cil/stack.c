@@ -280,7 +280,7 @@ get_cil_stack_type_for_mono_simd_class (const char * called_klass_name)
   }else if(strcmp(called_klass_name,"Vector16b")==0){
     return CIL_STYPE_VECTOR16B;
   }else{
-//    error("no stack type for vector %s",called_klass_name);
+    error("no stack type for vector %s",called_klass_name);
     gcc_unreachable ();
     return CIL_STYPE_ERROR;
   }

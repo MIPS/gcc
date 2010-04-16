@@ -979,6 +979,8 @@ get_treecode_for_mono_simd_function (const char * called_name)
     return ALIGN_INDIRECT_REF;
   }else if(strcmp(called_name,"LoadAligned") == 0){
     return INDIRECT_REF;
+  }else if(strcmp(called_name,"Max") == 0){
+    return MAX_EXPR;
   }else{
     error("unsupported Mono.Simd operation : %s\n",called_name);
     gcc_unreachable ();
@@ -989,76 +991,89 @@ get_treecode_for_mono_simd_function (const char * called_name)
 static void
 parser_emit_mono_simd_call (MonoMethod *caller, guint32 token)
 {
-  MonoImage *image = mono_class_get_image (mono_method_get_class (caller));
-  MonoMethod *called = mono_get_method (image, token, NULL);
-  MonoClass *called_klass = mono_method_get_class (called);
+	MonoImage *image = mono_class_get_image (mono_method_get_class (caller));
+	MonoMethod *called = mono_get_method (image, token, NULL);
+	MonoClass *called_klass = mono_method_get_class (called);
 
-  const char *called_klass_name = mono_class_get_name (called_klass);
-  const char *called_namespace_name = mono_class_get_namespace (called_klass);
-  const char *called_name = mono_method_get_name (called);
+	const char *called_klass_name = mono_class_get_name (called_klass);
+	const char *called_namespace_name = mono_class_get_namespace (called_klass);
+	const char *called_name = mono_method_get_name (called);
 
-//  MonoMethodSignature *called_signature = mono_method_get_signature_full (called, image, token, NULL);
-//  guint16 param_count = mono_signature_get_param_count(called_signature);
-//  printf ("parser_emit_mono_simd_call : '%s'.%s::%s\n\tparam_count = %d\n",called_namespace_name,called_klass_name,called_name,param_count); fflush(stdout); fflush(stderr);
+//	MonoMethodSignature *called_signature = mono_method_get_signature_full (called, image, token, NULL);
+//	guint16 param_count = mono_signature_get_param_count(called_signature);
+//	printf ("parser_emit_mono_simd_call : '%s'.%s::%s\n\tparam_count = %d\n",called_namespace_name,called_klass_name,called_name,param_count); fflush(stdout); fflush(stderr);
 
-  enum tree_code code = get_treecode_for_mono_simd_function (called_name);
-  tree type_tree = get_vector_type_for_mono_simd_class (called_klass_name);
-  switch(code)
-  {
-    case PLUS_EXPR: // op_Add
-    case MINUS_EXPR: // op_Subtract
-    case MULT_EXPR: // op_Multiply
-    case RDIV_EXPR: // op_Divide
-    {
-      gcc_assert(cil_stack_is_empty () == 0);
-      tree opB = cil_stack_pop (NULL);
-      gcc_assert(cil_stack_is_empty () == 0);
-      tree opA = cil_stack_pop (NULL);
-      tree exp = fold_build2 (code, type_tree, opA, opB);
-      cil_stack_push (exp, get_cil_stack_type_for_mono_simd_class (called_klass_name) );
-      break;
-    }
-    case ALIGN_INDIRECT_REF: // StoreAligned
-    {
-      gcc_assert(cil_stack_is_empty () == 0);
-      tree value_tree = cil_stack_pop (NULL);
-      
-      gcc_assert(cil_stack_is_empty () == 0);
-      tree dest_ptr_tree = cil_stack_pop (NULL);
+	enum tree_code code = get_treecode_for_mono_simd_function (called_name);
+	switch(code)
+	{
+		case PLUS_EXPR: // op_Add
+		case MINUS_EXPR: // op_Subtract
+		case MULT_EXPR: // op_Multiply
+		case RDIV_EXPR: // op_Divide
+		{
+			tree type_tree = get_vector_type_for_mono_simd_class (called_klass_name);
+			gcc_assert(cil_stack_is_empty () == 0);
+			tree opB = cil_stack_pop (NULL);
+			gcc_assert(cil_stack_is_empty () == 0);
+			tree opA = cil_stack_pop (NULL);
+			tree exp = fold_build2 (code, type_tree, opA, opB);
+			cil_stack_push (exp, get_cil_stack_type_for_mono_simd_class (called_klass_name) );
+			break;
+		}
+		case MAX_EXPR:
+		{
+			gcc_assert(cil_stack_is_empty () == 0);
+			tree opB = cil_stack_pop (NULL);
+			gcc_assert(cil_stack_is_empty () == 0);
+			tree opA = cil_stack_pop (NULL);
+			tree type_tree = TREE_TYPE(opA);
+			tree exp = fold_build2 (code, type_tree, opA, opB);
+			cil_stack_push (exp, CIL_STYPE_VECTOR8S );
+			break;
+		}
+		case ALIGN_INDIRECT_REF: // StoreAligned
+		{
+			tree type_tree = get_vector_type_for_mono_simd_class (called_klass_name);
+			gcc_assert(cil_stack_is_empty () == 0);
+			tree value_tree = cil_stack_pop (NULL);
 
-      tree converted_dest_ptr_tree = convert (build_pointer_type (type_tree), dest_ptr_tree);
+			gcc_assert(cil_stack_is_empty () == 0);
+			tree dest_ptr_tree = cil_stack_pop (NULL);
 
-      tree dest_tree = build1 (ALIGN_INDIRECT_REF, type_tree, converted_dest_ptr_tree);
-      if (parser_current_prefix.bolatile)
-      {
-	dest_tree = parser_build_volatile_reference_tree (dest_tree);
-      }
-      tree setexp = fold_build2 (MODIFY_EXPR, type_tree, dest_tree, value_tree);
-      TREE_SIDE_EFFECTS (setexp) = 1;
-      TREE_USED (setexp) = 1;
-      cil_bindings_output_statements (setexp);
-      break;
-    }
-    case INDIRECT_REF: // LoadAligned
-    {
-      gcc_assert(cil_stack_is_empty () == 0);
-      tree src_tree = cil_stack_pop (NULL);
-      tree converted_src_tree = convert (build_pointer_type (type_tree), src_tree);
-      tree value_tree = build1 (INDIRECT_REF, type_tree, converted_src_tree);
-      if (parser_current_prefix.bolatile)
-      {
-	value_tree = parser_build_volatile_reference_tree (value_tree);
-      }
-      cil_stack_push (cil_bindings_output_statements_and_create_temp (value_tree), get_cil_stack_type_for_mono_simd_class (called_klass_name) );
-      break;
-    }
-    default:
-    {
-      error("unsupported Mono.Simd call : '%s'.%s::%s\n",called_namespace_name,called_klass_name,called_name);
-      gcc_unreachable ();
-      break;
-    }
-  }
+			tree converted_dest_ptr_tree = convert (build_pointer_type (type_tree), dest_ptr_tree);
+
+			tree dest_tree = build1 (ALIGN_INDIRECT_REF, type_tree, converted_dest_ptr_tree);
+			if (parser_current_prefix.bolatile)
+			{
+				dest_tree = parser_build_volatile_reference_tree (dest_tree);
+			}
+			tree setexp = fold_build2 (MODIFY_EXPR, type_tree, dest_tree, value_tree);
+			TREE_SIDE_EFFECTS (setexp) = 1;
+			TREE_USED (setexp) = 1;
+			cil_bindings_output_statements (setexp);
+			break;
+		}
+		case INDIRECT_REF: // LoadAligned
+		{
+			tree type_tree = get_vector_type_for_mono_simd_class (called_klass_name);
+			gcc_assert(cil_stack_is_empty () == 0);
+			tree src_tree = cil_stack_pop (NULL);
+			tree converted_src_tree = convert (build_pointer_type (type_tree), src_tree);
+			tree value_tree = build1 (INDIRECT_REF, type_tree, converted_src_tree);
+			if (parser_current_prefix.bolatile)
+			{
+				value_tree = parser_build_volatile_reference_tree (value_tree);
+			}
+			cil_stack_push (cil_bindings_output_statements_and_create_temp (value_tree), get_cil_stack_type_for_mono_simd_class (called_klass_name) );
+			break;
+		}
+		default:
+		{
+			error("unsupported Mono.Simd call : '%s'.%s::%s\n",called_namespace_name,called_klass_name,called_name);
+			gcc_unreachable ();
+			break;
+		}
+	}
 }
 
 static void

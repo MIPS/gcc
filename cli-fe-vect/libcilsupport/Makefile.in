@@ -91,7 +91,7 @@ am__installdirs = "$(DESTDIR)$(toolexeclibdir)"
 toolexeclibLTLIBRARIES_INSTALL = $(INSTALL)
 LTLIBRARIES = $(toolexeclib_LTLIBRARIES)
 libcilsupport_la_LIBADD =
-am_libcilsupport_la_OBJECTS = gcc4net-support.lo libstd-support.lo \
+am_libcilsupport_la_OBJECTS = gcc4net-support.lo genvec-support.lo libstd-support.lo \
 	runtime-support.lo
 libcilsupport_la_OBJECTS = $(am_libcilsupport_la_OBJECTS)
 DEFAULT_INCLUDES = -I. -I$(srcdir)
@@ -229,6 +229,7 @@ gcc_version := $(shell cat $(top_srcdir)/../gcc/BASE-VER)
 toolexeclib_LTLIBRARIES = libcilsupport.la
 libcilsupport_la_SOURCES = \
 	gcc4net-support.c \
+	genvec-support.c \
 	libstd-support.c \
 	runtime-support.c
 
@@ -306,6 +307,7 @@ distclean-compile:
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gcc4net-support.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/genvec-support.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd-support.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/runtime-support.Plo@am__quote@
 

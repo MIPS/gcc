@@ -34,6 +34,7 @@ toolexeclib_LTLIBRARIES = libcilsupport.la
 
 libcilsupport_la_SOURCES = \
 	gcc4net-support.c \
+	genvec-support.c \
 	libstd-support.c \
 	runtime-support.c
 
