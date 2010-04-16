@@ -6668,6 +6668,30 @@
     operands[2] = force_reg (SImode, operands[2]);
   ")
 
+;; A pattern to recognize a special situation and optimize for it.
+;; On the thumb, zero-extension from memory is preferrable to sign-extension
+;; due to the available addressing modes.  Hence, convert a signed comparison
+;; with zero into an unsigned comparison with 127 if possible.
+(define_expand "cbranchqi4"
+  [(set (pc) (if_then_else
+	      (match_operator 0 "lt_ge_comparison_operator"
+	       [(match_operand:QI 1 "memory_operand" "")
+	        (match_operand:QI 2 "const0_operand" "")])
+	      (label_ref (match_operand 3 "" ""))
+	      (pc)))]
+  "TARGET_THUMB1"
+{
+  rtx xops[3];
+  xops[1] = gen_reg_rtx (SImode);
+  emit_insn (gen_zero_extendqisi2 (xops[1], operands[1]));
+  xops[2] = GEN_INT (127);
+  xops[0] = gen_rtx_fmt_ee (GET_CODE (operands[0]) == GE ? LEU : GTU,
+			    VOIDmode, xops[1], xops[2]);
+  xops[3] = operands[3];
+  emit_insn (gen_cbranchsi4 (xops[0], xops[1], xops[2], xops[3]));
+  DONE;
+})
+
 (define_expand "cbranchsf4"
   [(set (pc) (if_then_else
 	      (match_operator 0 "arm_comparison_operator"
@@ -6705,7 +6729,7 @@
 				   operands[3])); DONE;"
 )
 
-(define_insn "*cbranchsi4_insn"
+(define_insn "cbranchsi4_insn"
   [(set (pc) (if_then_else
 	      (match_operator 0 "arm_comparison_operator"
 	       [(match_operand:SI 1 "s_register_operand" "l,*h")
@@ -6714,7 +6738,20 @@
 	      (pc)))]
   "TARGET_THUMB1"
   "*
-  output_asm_insn (\"cmp\\t%1, %2\", operands);
+  rtx t = prev_nonnote_insn (insn);
+  if (t != NULL_RTX
+      && INSN_P (t)
+      && INSN_CODE (t) == CODE_FOR_cbranchsi4_insn)
+    {
+      t = XEXP (SET_SRC (PATTERN (t)), 0);
+      if (!rtx_equal_p (XEXP (t, 0), operands[1])
+	  || !rtx_equal_p (XEXP (t, 1), operands[2]))
+	t = NULL_RTX;
+    }
+  else
+    t = NULL_RTX;
+  if (t == NULL_RTX)
+    output_asm_insn (\"cmp\\t%1, %2\", operands);
 
   switch (get_attr_length (insn))
     {
@@ -7530,15 +7567,15 @@
 	(if_then_else
 	 (match_operator 4 "arm_comparison_operator"
 	  [(plus:SI
-	    (match_operand:SI 2 "s_register_operand" "%l,0,*0,1,1,1")
-	    (match_operand:SI 3 "reg_or_int_operand" "lL,IJ,*r,lIJ,lIJ,lIJ"))
+	    (match_operand:SI 2 "s_register_operand" "%l,0,*l,1,1,1")
+	    (match_operand:SI 3 "reg_or_int_operand" "lL,IJ,*l,lIJ,lIJ,lIJ"))
 	   (const_int 0)])
 	 (label_ref (match_operand 5 "" ""))
 	 (pc)))
    (set
     (match_operand:SI 0 "thumb_cbrch_target_operand" "=l,l,*!h,*?h,*?m,*?m")
     (plus:SI (match_dup 2) (match_dup 3)))
-   (clobber (match_scratch:SI 1 "=X,X,X,l,&l,&l"))]
+   (clobber (match_scratch:SI 1 "=X,X,l,l,&l,&l"))]
   "TARGET_THUMB1
    && (GET_CODE (operands[4]) == EQ
        || GET_CODE (operands[4]) == NE
@@ -7548,8 +7585,7 @@
    {
      rtx cond[3];
 
-     
-     cond[0] = (which_alternative < 3) ? operands[0] : operands[1];
+     cond[0] = (which_alternative < 2) ? operands[0] : operands[1];
      cond[1] = operands[2];
      cond[2] = operands[3];
 
@@ -7558,7 +7594,7 @@
      else
        output_asm_insn (\"add\\t%0, %1, %2\", cond);
 
-     if (which_alternative >= 3
+     if (which_alternative >= 2
 	 && which_alternative < 4)
        output_asm_insn (\"mov\\t%0, %1\", operands);
      else if (which_alternative >= 4)
