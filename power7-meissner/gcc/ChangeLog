@@ -1,3 +1,16 @@
+2010-04-16  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (*bt<mode>): Macroize insn from *btsi and
+	*btdi_rex64 using SWI48 mode iterator.
+	(*jcc_bt<mode>): Ditto from *jcc_btsi and *jcc_btdi_rex64.
+	(*jcc_bt<mode>_mask): Ditto from *jcc_btsi_mask and
+	*jcc_btdi_mask_rex64.
+
+2010-04-16  Anatoly Sokolov  <aesok@post.ru>
+
+	* double-int.h (tree_to_double_int): Convert to macro.
+	* double-int.c (tree_to_double_int): Remove.
+
 2010-04-16  Jakub Jelinek  <jakub@redhat.com>
 
 	PR debug/43762
@@ -6,6 +19,15 @@
 	possible, call it again with want_address 0.
 
 2010-04-12  Kaushik Phatak  <kaushik.phatak@kpitcummins.com>
+
+	* config/h8300/h8300.h (OK_FOR_U): Support 'U' constraint for H8300SX.
+
+	* config/h8300/h8300.md (movqi_h8sx, movhi_h8sx, movsi_h8sx, 
+	cmphi_h8300hs_znvc, cmpsi, addhi3_h8sx) : Emit instructions in
+	#xx:3 and #xx:4 mode.
+
+	* config/h8300/h8300.md (inverted load with HImode dest): Add
+	support for H8300SX.
 
 	* config/h8300/predicate.md (bit_operand): Allow immediate values that
 	satisfy 'U' constraint.
@@ -295,7 +317,7 @@
 	(logic): Ditto from logicprefix.
 	(absneg_mnemonic): Ditto from absnegprefix.
 	* config/i386/mmx.md: Update all users of maxminiprefix,
-	maxminfprefix and loficprefix for rename.
+	maxminfprefix and logicprefix for rename.
 	* config/i386/sse.md: Ditto.
 	* config/i386/sync.md (sync_<code><mode>): Update for
 	logicprefix rename.
