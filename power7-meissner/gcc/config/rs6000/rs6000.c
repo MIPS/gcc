@@ -222,14 +222,6 @@ int rs6000_debug_arg;		/* debug argument handling */
 int rs6000_debug_reg;		/* debug register classes */
 int rs6000_debug_addr;		/* debug memory addressing */
 int rs6000_debug_cost;		/* debug rtx_costs */
-int rs6000_debug_mrm;		/* temporary switch */
-
-#define MRM_POWER7_FIRST_INSN_P		((rs6000_debug_mrm & 0x01) != 0)
-#define MRM_POWER7_LAST_INSN_P		((rs6000_debug_mrm & 0x02) != 0)
-#define MRM_POWER7_VERBOSE_P		((rs6000_debug_mrm & 0x04) != 0)
-#define MRM_POWER7_P5COST_P		((rs6000_debug_mrm & 0x10) != 0)
-#define MRM_POWER7_NO_IRA_COVER_CLASS	((rs6000_debug_mrm & 0x20) != 0)
-#define MRM_POWER7_DEFAULT		(0x13)
 
 /* Specify the machine mode that pointers have.  After generation of rtl, the
    compiler makes no further distinction between pointers and any other objects
@@ -1861,22 +1853,11 @@ rs6000_debug_reg_global (void)
 	   "align_branch_targets            = %s\n"
 	   "sched_restricted_insns_priority = %d\n"
 	   "sched_costly_dep                = %s\n"
-	   "sched_insert_nops               = %s\n"
-	   "MRM_POWER7_FIRST_INSN_P         = %s\n"
-	   "MRM_POWER7_LAST_INSN_P          = %s\n"
-	   "MRM_POWER7_VERBOSE_P            = %s\n"
-	   "MRM_POWER7_P5COST_P             = %s\n"
-	   "MRM_POWER7_NO_IRA_COVER_CLASS   = %s\n"
-	   "\n",
+	   "sched_insert_nops               = %s\n\n",
 	   rs6000_always_hint ? "true" : "false",
 	   rs6000_align_branch_targets ? "true" : "false",
 	   (int)rs6000_sched_restricted_insns_priority,
-	   costly_str, nop_str,
-	   MRM_POWER7_FIRST_INSN_P ? "true" : "false",
-	   MRM_POWER7_LAST_INSN_P ? "true" : "false",
-	   MRM_POWER7_VERBOSE_P ? "true" : "false",
-	   MRM_POWER7_P5COST_P ? "true" : "false",
-	   MRM_POWER7_NO_IRA_COVER_CLASS ? "true" : "false");
+	   costly_str, nop_str);
 }
 
 /* Initialize the various global tables that are based on register size.  */
@@ -2514,30 +2495,6 @@ rs6000_override_options (const char *default_cpu)
 	rs6000_debug_addr = 1;
       else if (! strcmp (rs6000_debug_name, "cost"))
 	rs6000_debug_cost = 1;
-      else if (! strcmp (rs6000_debug_name, "mrm"))
-	rs6000_debug_mrm = (int) MRM_POWER7_DEFAULT;
-      else if (! strncmp (rs6000_debug_name, "mrm", 3))
-	rs6000_debug_mrm = (int) strtoul (rs6000_debug_name+3, NULL, 0);
-      else if (! strcmp (rs6000_debug_name, "xmrm"))
-	{
-	  rs6000_debug_mrm = (int) MRM_POWER7_DEFAULT;
-	  rs6000_debug_cost = rs6000_debug_reg = 1;
-	}
-      else if (! strncmp (rs6000_debug_name, "xmrm", 4))
-	{
-	  rs6000_debug_mrm = (int) strtoul (rs6000_debug_name+4, NULL, 0);
-	  rs6000_debug_cost = rs6000_debug_reg = 1;
-	}
-      else if (! strcmp (rs6000_debug_name, "ymrm"))
-	{
-	  rs6000_debug_mrm = (int) MRM_POWER7_DEFAULT;
-	  rs6000_debug_reg = 1;
-	}
-      else if (! strncmp (rs6000_debug_name, "ymrm", 4))
-	{
-	  rs6000_debug_mrm = (int) strtoul (rs6000_debug_name+4, NULL, 0);
-	  rs6000_debug_reg = 1;
-	}
       else
 	error ("unknown -mdebug-%s switch", rs6000_debug_name);
 
@@ -2899,7 +2856,7 @@ rs6000_override_options (const char *default_cpu)
 	break;
 
       case PROCESSOR_POWER7:
-	rs6000_cost = (MRM_POWER7_P5COST_P) ? &power4_cost : &power7_cost;
+	rs6000_cost = &power7_cost;
 	break;
 
       case PROCESSOR_PPCA2:
@@ -13801,9 +13758,7 @@ rs6000_ira_cover_classes (void)
   static const enum reg_class cover_pre_vsx[] = IRA_COVER_CLASSES_PRE_VSX;
   static const enum reg_class cover_vsx[]     = IRA_COVER_CLASSES_VSX;
 
-  return ((TARGET_VSX && !MRM_POWER7_NO_IRA_COVER_CLASS)
-	  ? cover_vsx
-	  : cover_pre_vsx);
+  return (TARGET_VSX) ? cover_vsx : cover_pre_vsx;
 }
 
 /* Allocate a 64-bit stack slot to be used for copying SDmode
@@ -13893,16 +13848,16 @@ rs6000_preferred_reload_class (rtx x, enum reg_class rclass)
   if (GET_MODE_CLASS (mode) == MODE_INT && rclass == NON_SPECIAL_REGS)
     return GENERAL_REGS;
 
-  /* For VSX, prefer the traditional registers for DF if the address is of the
-     form reg+offset because we can use the non-VSX loads.  Prefer the Altivec
-     registers if Altivec is handling the vector operations (i.e. V16QI, V8HI,
-     and V4SI).  */
-  if (rclass == VSX_REGS && VECTOR_MEM_VSX_P (mode))
+  /* For VSX, prefer the traditional registers for 64-bit values because we can
+     use the non-VSX loads.  Prefer the Altivec registers if Altivec is
+     handling the vector operations (i.e. V16QI, V8HI, and V4SI), or if we
+     prefer Altivec loads..  */
+  if (rclass == VSX_REGS)
     {
       if (GET_MODE_SIZE (mode) <= 8)
 	return FLOAT_REGS;
 
-      if (VECTOR_UNIT_ALTIVEC_P (mode))
+      if (VECTOR_UNIT_ALTIVEC_P (mode) || VECTOR_MEM_ALTIVEC_P (mode))
 	return ALTIVEC_REGS;
 
       return rclass;
@@ -22778,34 +22733,6 @@ insn_must_be_first_in_group (rtx insn)
         }
       break;
     case PROCESSOR_POWER7:
-      if (MRM_POWER7_FIRST_INSN_P)
-	{
-	  if (is_cracked_insn (insn))
-	    {
-	      if (MRM_POWER7_VERBOSE_P)
-		{
-		  fprintf (stderr, "\ninsn_must_be_first_in_group, cracked\n");
-		  debug_rtx (insn);
-		}
-	      return true;
-	    }
-	  if (is_microcoded_insn (insn))
-	    {
-	      if (MRM_POWER7_VERBOSE_P)
-		{
-		  fprintf (stderr, "\ninsn_must_be_first_in_group, microcoded\n");
-		  debug_rtx (insn);
-		}
-	      return true;
-	    }
-	  if (!rs6000_sched_groups)
-	    {
-	      if (MRM_POWER7_VERBOSE_P)
-		fprintf (stderr, "\ninsn_must_be_first_in_group, no sched groups\n");
-	      return false;
-	    }
-	}
-
       type = get_attr_type (insn);
 
       switch (type)
@@ -22902,29 +22829,6 @@ insn_must_be_last_in_group (rtx insn)
     }
     break;
   case PROCESSOR_POWER7:
-    if (MRM_POWER7_LAST_INSN_P)
-      {
-	if (is_microcoded_insn (insn))
-	  {
-	    if (MRM_POWER7_VERBOSE_P)
-	      {
-		fprintf (stderr, "\ninsn_must_be_last_in_group, microcoded\n");
-		debug_rtx (insn);
-	      }
-	    return true;
-	  }
-
-	if (is_branch_slot_insn (insn))
-	  {
-	    if (MRM_POWER7_VERBOSE_P)
-	      {
-		fprintf (stderr, "\ninsn_must_be_last_in_group, branch_slot\n");
-		debug_rtx (insn);
-	      }
-	    return true;
-	  }
-      }
-
     type = get_attr_type (insn);
 
     switch (type)

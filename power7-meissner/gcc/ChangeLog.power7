@@ -1,5 +1,17 @@
 2010-04-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/rs6000.c (rs6000_debug_mrm): Delete debug stuff no
+	longer used.
+	(MRM_POWER7_*): Ditto.
+	(rs6000_debug_reg_global): Ditto.
+	(rs6000_init_hard_regno_mode_ok): Ditto.
+	(rs6000_override_options): Ditto.
+	(rs6000_ira_cover_classes): Ditto.
+	(insn_must_be_first_in_group): Ditto.
+	(insn_must_be_last_in_group): Ditto.
+	(rs6000_preferred_reload_class): Prefer altivec registers if we
+	are using altivec memory instructions.
+
 	Merge up to 158434.
 	* REVISION: Update subversion id.
 
