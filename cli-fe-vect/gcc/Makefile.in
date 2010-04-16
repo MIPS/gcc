@@ -283,6 +283,10 @@ PPLINC = @PPLINC@
 CLOOGLIBS = @CLOOGLIBS@
 CLOOGINC = @CLOOGINC@
 
+# How to find Mono
+MONOLIBS = @MONOLIBS@
+MONOINC = @MONOINC@
+
 # Libs and linker option needed for plugin support
 PLUGINLIBS = @pluginlibs@
 

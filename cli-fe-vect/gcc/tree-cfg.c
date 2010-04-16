@@ -3483,6 +3483,10 @@ verify_gimple_assign_binary (gimple stmt)
   tree rhs2 = gimple_assign_rhs2 (stmt);
   tree rhs2_type = TREE_TYPE (rhs2);
 
+//   fflush(stdout);  fflush(stderr);
+//  printf("\nverify_gimple_assign_binary %s =\t\t%s\t%s\t%s\n",tree_code_name[TREE_CODE(lhs_type)],tree_code_name[TREE_CODE(rhs1_type)],tree_code_name[rhs_code],tree_code_name[TREE_CODE(rhs2_type)]); fflush(stdout);
+//  printf("\t\t\t\t\t\t%s\t%s\t%s\n",tree_code_name[TREE_CODE(rhs1)],tree_code_name[rhs_code],tree_code_name[TREE_CODE(rhs2)]); fflush(stdout);
+
   if (!is_gimple_reg (lhs)
       && !(optimize == 0
 	   && TREE_CODE (lhs_type) == COMPLEX_TYPE))

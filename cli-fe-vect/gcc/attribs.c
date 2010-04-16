@@ -281,8 +281,8 @@ decl_attributes (tree *node, tree attributes, int flags)
 
       if (spec == NULL)
 	{
-	  warning (OPT_Wattributes, "%qs attribute directive ignored",
-		   IDENTIFIER_POINTER (name));
+//	  warning (OPT_Wattributes, "%qs attribute directive ignored", IDENTIFIER_POINTER (name));
+	  printf ("%qs attribute directive ignored", IDENTIFIER_POINTER (name));
 	  continue;
 	}
       else if (list_length (args) < spec->min_length

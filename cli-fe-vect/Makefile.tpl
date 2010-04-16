@@ -204,6 +204,11 @@ HOST_EXPORTS = \
 	PPLINC="$(HOST_PPLINC)"; export PPLINC; \
 	CLOOGLIBS="$(HOST_CLOOGLIBS)"; export CLOOGLIBS; \
 	CLOOGINC="$(HOST_CLOOGINC)"; export CLOOGINC; \
+<<<<<<< HEAD
+=======
+	MONOLIBS="$(HOST_MONOLIBS)"; export MONOLIBS; \
+	MONOINC="$(HOST_MONOINC)"; export MONOINC; \
+>>>>>>> eaf33697c149e6d0a34eb45c31d511a5ead2d8b0
 @if gcc-bootstrap
 	$(RPATH_ENVVAR)=`echo "$(TARGET_LIB_PATH)$$$(RPATH_ENVVAR)" | sed 's,::*,:,g;s,^:*,,;s,:*$$,,'`; export $(RPATH_ENVVAR); \
 @endif gcc-bootstrap
@@ -263,6 +268,12 @@ NORMAL_TARGET_EXPORTS = \
 HOST_GMPLIBS = @gmplibs@
 HOST_GMPINC = @gmpinc@
 
+<<<<<<< HEAD
+=======
+HOST_MONOLIBS = @monolibs@
+HOST_MONOINC = @monoinc@
+
+>>>>>>> eaf33697c149e6d0a34eb45c31d511a5ead2d8b0
 # Where to find PPL
 HOST_PPLLIBS = @ppllibs@
 HOST_PPLINC = @pplinc@
@@ -356,6 +367,10 @@ LDFLAGS = @LDFLAGS@
 LIBCFLAGS = $(CFLAGS)
 CXXFLAGS = @CXXFLAGS@
 LIBCXXFLAGS = $(CXXFLAGS) -fno-implicit-templates
+<<<<<<< HEAD
+=======
+PICFLAG =
+>>>>>>> eaf33697c149e6d0a34eb45c31d511a5ead2d8b0
 
 # Only build the C compiler for stage1, because that is the only one that
 # we can guarantee will build with the native compiler, and also it is the
