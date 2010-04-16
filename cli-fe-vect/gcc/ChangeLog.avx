@@ -1,0 +1,1968 @@
+2009-02-08  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/39119
+	* config/i386/i386.c (x86_64_reg_class): Remove X86_64_AVX_CLASS.
+	(x86_64_reg_class_name): Removed.
+	(classify_argument): Return 0 if bytes > 32.  Return 0 if the
+	first one isn't X86_64_SSE_CLASS or any other ones aren't
+	X86_64_SSEUP_CLASS when size > 16bytes.  Don't turn
+	X86_64_SSEUP_CLASS into X86_64_SSE_CLASS if the preceded one
+	is X86_64_SSEUP_CLASS.  Set AVX modes to 1 X86_64_SSE_CLASS
+	and 3 X86_64_SSEUP_CLASS.
+	(construct_container): Remove X86_64_AVX_CLASS.  Handle 4
+	registers with 1 X86_64_SSE_CLASS and 3 X86_64_SSEUP_CLASS.
+
+2008-08-22  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/sse.md (*avx_loadhpd): Correct attributes.
+	(*avx_loadlpd): Likewise.
+
+2008-08-21  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.md (*cmpfp_iu_sse): Remove extra athlon_decode
+	attribute.
+
+2008-08-21  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.md (mode): Re-order.
+
+2008-08-21  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (setup_incoming_varargs_64): Remove FIXME.
+	* config/i386/i386.md (*sse_prologue_save_insn): Likewise.
+
+2008-08-21  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_expand_vector_move_misalign): Handle
+	MODE_INT for AVX.
+
+2008-08-20  Joey Ye  <joey.ye@intel.com>
+
+	* doc/extend.texi: Document AVX built-in function.
+	* doc/invoke.texi: Document -mavx.
+
+2008-08-20  Xuepeng Guo  <xuepeng.guo@intel.com>
+
+	* config/i386/sse.md (*avx_aesenc): New.
+	(*avx_aesenclast): Likewise.
+	(*avx_aesdec): Likewise.
+	(*avx_aesdeclast): Likewise.
+	(aesimc): Support AVX.
+	(aeskeygenassist): Likewise.
+
+2008-08-15  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (standard_sse_mode_p): Return 2 for 256bit
+	AVX modes.
+	(standard_sse_constant_p): Return -2 for all 1s if SSE2 isn't
+	enabled.  For all 1s in 256bit AVX modes, return 3 if AVX is
+	enabled, otherwise return -3.
+	(standard_sse_constant_opcode): Remove MODE_V8SF, MODE_V4DF
+	and MODE_OI.
+
+	* config/i386/sse.md (*avx_mov<mode>_internal): Remove FIXME.
+
+2008-08-14  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/37101
+	* config/i386/sse.md (*vec_concatv2di_avx): Remove vmovlps
+	alternative.
+	(*vec_concatv2di_rex64_avx): Likewise.
+
+2008-08-11  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_builtin_type): Add
+	V8SF_FTYPE_V8SF_V8SI, V4DF_FTYPE_V4DF_V4DI,
+	V4SF_FTYPE_V4SF_V4SI and V2DF_FTYPE_V2DF_V2DI.  Replace
+	V8SF_FTYPE_V8SF_V8SF_V8SF_INT, V4DF_FTYPE_V4DF_V4DF_V4DF_INT,
+	V4SF_FTYPE_V4SF_V4SF_V4SF_INT and V2DF_FTYPE_V2DF_V2DF_V2DF_INT
+	with V8SF_FTYPE_V8SF_V8SF_V8SI_INT, V4DF_FTYPE_V4DF_V4DF_V4DI_INT,
+	V4SF_FTYPE_V4SF_V4SF_V4SI_INT and V2DF_FTYPE_V2DF_V2DF_V2DI_INT,
+	respectively.
+	(bdesc_args): Correct the type of control parameter for
+	__builtin_ia32_vpermilvarpd, __builtin_ia32_vpermilvarps,
+	__builtin_ia32_vpermilvarpd256, __builtin_ia32_vpermilvarps256,
+	__builtin_ia32_vpermil2pd, __builtin_ia32_vpermil2ps,
+	__builtin_ia32_vpermil2pd256 and __builtin_ia32_vpermil2ps256.
+	(ix86_init_mmx_sse_builtins): Replace
+	v8sf_ftype_v8sf_v8sf_v8sf_int, v4df_ftype_v4df_v4df_v4df_int,
+	v4sf_ftype_v4sf_v4sf_v4sf_int and v2df_ftype_v2df_v2df_v2df_int
+	with v8sf_ftype_v8sf_v8sf_v8si_int, v4df_ftype_v4df_v4df_v4di_int,
+	v4sf_ftype_v4sf_v4sf_v4si_int and v2df_ftype_v2df_v2df_v2di_int,
+	respectively.  Add v8sf_ftype_v8sf_v8si, v4df_ftype_v4df_v4di,
+	v4sf_ftype_v4sf_v4si and v2df_ftype_v2df_v2di.  Handle
+	V8SF_FTYPE_V8SF_V8SI, V4DF_FTYPE_V4DF_V4DI,
+	V4SF_FTYPE_V4SF_V4SI and V2DF_FTYPE_V2DF_V2DI.
+	(ix86_expand_args_builtin): Handle V8SF_FTYPE_V8SF_V8SI,
+	V4DF_FTYPE_V4DF_V4DI, V4SF_FTYPE_V4SF_V4SI and
+	V2DF_FTYPE_V2DF_V2DI.  Replace V8SF_FTYPE_V8SF_V8SF_V8SF_INT,
+	V4DF_FTYPE_V4DF_V4DF_V4DF_INT, V4SF_FTYPE_V4SF_V4SF_V4SF_INT and
+	V2DF_FTYPE_V2DF_V2DF_V2DF_INT with V8SF_FTYPE_V8SF_V8SF_V8SI_INT,
+	V4DF_FTYPE_V4DF_V4DF_V4DI_INT, V4SF_FTYPE_V4SF_V4SF_V4SI_INT and
+	V2DF_FTYPE_V2DF_V2DF_V2DI_INT, respectively.
+
+	* config/i386/gmmintrin.h (_mm_permutevar_pd): Correct the
+	type of control parameter.
+	(_mm256_permutevar_pd): Likewise.
+	(_mm_permutevar_ps): Likewise.
+	(_mm256_permutevar_ps): Likewise.
+	(_mm_permute2_pd): Likewise.
+	(_mm256_permute2_pd): Likewise.
+	(_mm_permute2_ps): Likewise.
+	(_mm256_permute2_ps): Likewise.
+
+	* config/i386/sse.md (avxpermvecmode): New.
+	(avx_vpermilvar<mode>3): Use <avxpermvecmode>.
+	(avx_vpermil2<mode>3): Likewise.
+
+2008-08-06  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_expand_special_args_builtin): Replace
+	class with klass.
+
+2008-08-06  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/sse.md (sse2_movq128): Removed.
+	(*sse2_movq128): Renamd to ...
+	(sse2_movq128): This.  Updated.
+
+2008-08-05  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/sse.md (sse2_movq128): Remove "=x" and "x".
+	(*sse2_movq128): Use "xm" on nonimmediate_operand.
+
+2008-08-05  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/sse.md (*sse2_movq128): Support AVX.
+
+2008-08-05  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/36992
+	* config/i386/emmintrin.h (_mm_move_epi64): Use
+	__builtin_ia32_movq128.
+
+	* config/i386/i386.c (ix86_builtins): Add IX86_BUILTIN_MOVQ128.
+	(bdesc_args): Add IX86_BUILTIN_MOVQ128.
+
+	* config/i386/sse.md (sse2_movq128): New.
+	(*sse2_movq128): Likewise.
+
+	* doc/extend.texi: Document __builtin_ia32_movq128.
+
+2008-08-04  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/sse.md (*avx_shufps_1): Removed.
+	(*avx_shufpd_1): Likewise.
+	(*avx_shufps_<mode>): New.
+	(*avx_shufpd_<mode>): Likewise.
+
+2008-08-01  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (x86_64_reg_class): Add X86_64_AVX_CLASS.
+	(classify_argument): Return 0 for COImode and OImode.  Return
+	1 and X86_64_AVX_CLASS for 256bit vector types.
+	(examine_argument): Handle X86_64_AVX_CLASS.
+	(construct_container): Likewise.
+	(function_arg_advance_32): Pass OImode in AVX register.
+	(function_arg_advance_64): Take a new argument to indicate if a
+	parameter is named.  Return immediately for unnamed 256bit
+	vector mode parameters.
+	(function_arg_advance): Updated.
+	(function_arg_32): Add comments for TImode and OImode.
+	(function_arg_64): Take a new argument to indicate if a
+	parameter is named.  Don't pass OImode in AVX register.
+	Return NULL for unnamed 256bit vector mode parameters.
+	(function_arg): Updated.
+	(ix86_gimplify_va_arg): Handle unnamed 256bit vector mode
+	parameters.
+
+2008-08-01  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/sse.md (avx_maskloadp<avxmodesuffixf2c><avxmodesuffix>):
+	Add (match_dup 0).
+	(avx_maskstorep<avxmodesuffixf2c><avxmodesuffix>): Likewise.
+
+2008-07-26  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386-c.c (ix86_target_macros_internal): Handle
+	OPTION_MASK_ISA_AVX and OPTION_MASK_ISA_FMA.
+
+2008-07-08  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* Correct merge trunk revision to 137621.
+
+2008-06-09  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/sse.md (AVXMODEI): Removed.
+	(*avx_nand<mode>3): Replace AVXMODEI with AVX256MODEI.
+	(*avx_<code><mode>3): Likewise.
+	(*avx_<code><mode>3): New.
+
+2008-06-05  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/sse.md (avx_cmps<ssemodesuffixf2c><mode>3): Use
+	<ssemodesuffixf2c> instead of <avxmodesuffixf2c>.
+	(avx_dpp<avxmodesuffixf2c><avxmodesuffix>): Replace vdpps
+	with vdpps<avxmodesuffixf2c>.
+
+2008-06-05  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (setup_incoming_varargs_64): Fix typos
+	in comments.
+
+2008-06-04  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (setup_incoming_varargs_64): Support
+	AVX encoding for *sse_prologue_save_insn.
+
+	* config/i386/i386.h (UNITS_PER_SIMD_WORD): Limit AVX to
+	128bit.
+
+	* config/i386/i386.md (*sse_prologue_save_insn): Disallow
+	REX prefix for AVX.  Set length attribute properly for AVX.
+
+2008-06-03  H.J. Lu  <hongjiu.lu@intel.com>
+	    Xuepeng Guo  <xuepeng.guo@intel.com>
+	    Joey Ye  <joey.ye@intel.com>
+
+	* config/i386/i386.md (*cmpfp_i_mixed): Move prefix attribute
+	before mode attribute.
+	(*cmpfp_i_sse): Likewise.
+	(*cmpfp_iu_mixed): Likewise.
+	(*cmpfp_iu_sse): Likewise.
+	(*sqrt<mode>2_sse): Likewise.
+	(*movti_internal): Support AVX.
+	(*movti_rex64): Likewise.
+	(*movtf_internal): Likewise.
+	(zero_extendsidi2_32): Likewise.
+	(zero_extendsidi2_rex64): Likewise.
+	(*float<SSEMODEI24:mode><MODEF:mode>2_mixed_interunit): Likewise.
+	(*float<SSEMODEI24:mode><MODEF:mode>2_mixed_nointerunit): Likewise.
+	(*float<SSEMODEI24:mode><MODEF:mode>2_sse_nointerunit): Likewise.
+
+2008-06-01  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.md (*fop_sf_comm_mixed_avx): Removed.
+	(*fop_sf_comm_avx): Likewise.
+	(*fop_sf_1_mixed_avx): Likewise.
+	(*fop_sf_1_avx): Likewise.
+	(*fop_df_comm_mixed_avx): Likewise.
+	(*fop_df_comm_avx): Likewise.
+	(*fop_df_1_mixed_avx): Likewise.
+	(*fop_df_1_avx): Likewise.
+	(*fop_<mode>_comm_mixed_avx): New.
+	(*fop_<mode>_comm_avx): Likewise.
+	(*fop_<mode>_1_mixed_avx): Likewise.
+	(*fop_<mode>_1_avx): Likewise.
+
+2008-05-30  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.md (*movdf_integer_rex64): Use %vmovd
+	instead of %vmovq.
+
+2008-05-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.h (AVX128_VEC_FLOAT_MODE_P): New.
+	* config/i386/sse.md (*avx_vm<plusminus_insn><mode>3): Use it.
+	(*avx_div<mode>3): Likewise.
+	(*avx_vmdiv<mode>3): Likewise.
+	(*avx_vm<code><mode>3): Likewise.
+
+2008-05-26  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/sse.md (*sse2_storeq_rex64): Fix a typo.
+
+2008-05-26  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/sse.md (<sse>_movnt<mode>): Use "%v" for AVX
+	support.
+	(sse_rcpv4sf2): Likewise.
+	(sse_sqrtv4sf2): Likewise.
+	(sqrtv2df2): Likewise.
+	(sse_rsqrtv4sf2): Likewise.
+	(<sse>_comi): Likewise.
+	(<sse>_ucomi): Likewise.
+	(sse_cvtss2si): Likewise.
+	(sse_cvtss2si_2): Likewise.
+	(sse_cvtss2siq): Likewise.
+	(sse_cvtss2siq_2): Likewise.
+	(sse_cvttss2si): Likewise.
+	(sse_cvttss2siq): Likewise.
+	(sse2_cvtsd2si): Likewise.
+	(sse2_cvtsd2si_2): Likewise.
+	(sse2_cvtsd2siq): Likewise.
+	(sse2_cvtsd2siq_2): Likewise.
+	(sse2_cvttsd2si): Likewise.
+	(sse2_cvttsd2siq): Likewise.
+	(sse2_cvtdq2pd): Likewise.
+	(sse2_cvtps2pd): Likewise.
+	(*vec_dupv2df_sse3): Likewise.
+	(*vec_concatv2df_sse3): Likewise.
+	(*sse4_1_pextrb): Likewise.
+	(*sse4_1_pextrb_memory): Likewise.
+	(*sse2_pextrw): Likewise.
+	(*sse4_1_pextrw_memory): Likewise.
+	(*sse4_1_pextrd): Likewise.
+	(*sse4_1_pextrq): Likewise.
+	(sse2_pshufd_1): Likewise.
+	(sse2_pshuflw_1): Likewise.
+	(sse2_pshufhw_1): Likewise.
+	(<sse>_movmskp<ssemodesuffixf2c>): Likewise.
+	(sse2_pmovmskb): Likewise.
+	(*sse2_maskmovdqu): Likewise.
+	(*sse2_maskmovdqu_rex64): Likewise.
+	(sse_ldmxcsr): Likewise.
+	(sse_stmxcsr): Likewise.
+	(abs<mode>2): Likewise.
+	(sse4_1_movntdqa): Likewise.
+	(sse4_1_phminposuw): Likewise.
+	(sse4_1_extendv8qiv8hi2): Likewise.
+	(*sse4_1_extendv8qiv8hi2): Likewise.
+	(sse4_1_extendv4qiv4si2): Likewise.
+	(*sse4_1_extendv4qiv4si2): Likewise.
+	(sse4_1_extendv2qiv2di2): Likewise.
+	(*sse4_1_extendv2qiv2di2): Likewise.
+	(sse4_1_extendv4hiv4si2): Likewise.
+	(*sse4_1_extendv4hiv4si2): Likewise.
+	(sse4_1_extendv2hiv2di2): Likewise.
+	(*sse4_1_extendv2hiv2di2): Likewise.
+	(sse4_1_extendv2siv2di2): Likewise.
+	(*sse4_1_extendv2siv2di2): Likewise.
+	(sse4_1_zero_extendv8qiv8hi2): Likewise.
+	(*sse4_1_zero_extendv8qiv8hi2): Likewise.
+	(sse4_1_zero_extendv4qiv4si2): Likewise.
+	(*sse4_1_zero_extendv4qiv4si2): Likewise.
+	(sse4_1_zero_extendv2qiv2di2): Likewise.
+	(*sse4_1_zero_extendv2qiv2di2): Likewise.
+	(sse4_1_zero_extendv4hiv4si2): Likewise.
+	(*sse4_1_zero_extendv4hiv4si2): Likewise.
+	(sse4_1_zero_extendv2hiv2di2): Likewise.
+	(*sse4_1_zero_extendv2hiv2di2): Likewise.
+	(sse4_1_zero_extendv2siv2di2): Likewise.
+	(*sse4_1_zero_extendv2siv2di2): Likewise.
+	(sse4_1_ptest): Likewise.
+	(sse4_1_roundp<ssemodesuffixf2c>): Likewise.
+	(sse4_2_pcmpestri): Likewise.
+	(sse4_2_pcmpestrm): Likewise.
+	(sse4_2_pcmpistri): Likewise.
+	(sse4_2_pcmpistrm): Likewise.
+	(*avx_movntv2di): Removed.
+	(*avx_storelpd): Likewise.
+	(*sse2_storeq_rex64_avx): Likewise.
+	(*vec_dupv4si_avx): Likewise.
+	(*avx_pcmpestr_cconly): Likewise.
+	(*avx_pcmpistr_cconly): Likewise.
+	(sse2_movntv2di): Support AVX.
+	(sse2_storelpd): Likewise.
+	(*sse2_storeq_rex64): Likewise.
+	(*vec_dupv4si): Likewise.
+	(sse4_2_pcmpestr_cconly): Likewise.
+	(sse4_2_pcmpistr_cconly): Likewise.
+
+2008-05-26  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.md (*avx_<code><mode>3): Use AVX_FLOAT_MODE_P.
+	(*avx_ieee_smin<mode>3): Likewise.
+	(*avx_ieee_smax<mode>3): Likewise.
+
+2008-05-26  Xuepeng Guo  <xuepeng.guo@intel.com>
+
+	* config/i386/i386.h (AVX_FLOAT_MODE_P): New.
+	* config/i386/sse.md (*avx_nand<mode>3): Likewise.
+	(*avx_<code><mode>3): Likewise.
+
+2008-05-26  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.md (*movsi_1): Use "%v" and "%d0" for AVX
+	support.
+	(*movsf_1): Likewise.
+	(*movdf_integer_rex64): Likewise.
+	(*extendsfdf2_mixed): Likewise.
+	(*truncdfsf_fast_mixed): Likewise.
+	(*truncdfsf_fast_sse): Likewise.
+	(*truncdfsf_mixed): Likewise.
+	(fix_trunc<mode>di_sse): Likewise.
+	(*extendsfdf2_sse): Likewise.
+	(fix_trunc<mode>si_sse): Likewise.
+	(*float<SSEMODEI24:mode><MODEF:mode>2_sse_interunit): Likewise.
+	(*rcpsf2_sse): Likewise.
+	(*rsqrtsf2_sse): Likewise.
+	(*sqrt<mode>2_sse): Likewise.
+	(sse4_1_round<mode>2): Likewise.
+
+2008-05-25  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.md (*sse_prologue_save_insn): Support AVX.
+
+2008-05-25  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/gas.h (ASM_OUTPUT_OPCODE): Undefine before
+	define.  Use ASM_OUTPUT_AVX_PREFIX.
+
+	* config/i386/i386.c (print_reg): Handle 'd' to duplicate
+	the operand.
+	(print_operand): Handle 'd'.
+
+	* config/i386/i386.h (ASM_OUTPUT_AVX_PREFIX): New.
+	(ASM_OUTPUT_OPCODE): Likewise.
+
+	* config/i386/i386.md (*movdi_2): Support AVX.
+	(*movdf_nointeger): Likewise.
+
+	* config/i386/mmx.md (*mov<mode>_internal_rex64_avx): Removed.
+	(*mov<mode>_internal_rex64): Support AVX.
+
+	* config/i386/sse.md (*avx_storehps): Removed.
+	(sse_storehps): Support AVX.
+	(*vec_dupv2df): Remove AVX support.
+
+2008-05-23  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.md (maxmin): New.
+	(*avx_<code><mode>3): Likewise.
+	(*avx_ieee_smin<mode>3): Likewise.
+	(*avx_ieee_smax<mode>3): Likewise.
+	(*movdi_1_rex64): Support AVX.
+
+	* config/i386/mmx.md (*movv2sf_internal_rex64_avx): New.
+	(*movv2sf_internal_avx): Likewise.
+
+	* config/i386/sse.md (*avx_vm<plusminus_insn><mode>3): New.
+	(*avx_div<mode>3): Likewise.
+	(*avx_<code><mode>3_finite: Likewise.
+	(*avx_<code><mode>3): Likewise.
+	(*avx_vm<code><mode>3): Likewise.
+	(*avx_pmaddwd): Likewise.
+	(*avx_<code><mode>3): Likewise.
+	(<code><mode>3): Check flag_finite_math_only.
+	(*avx_<code><mode>3): Moved before "*<code><mode>3".
+	(sse_stmxcsr): Support AVX.
+	(abs<mode>2): Likewise.
+	
+2008-05-23  Joey Ye  <joey.ye@intel.com>
+
+	* config/i386/i386.md (*movsf_1): Insert the missing 'v'.
+	(fix_trunc<mode>di_sse): Support AVX.
+	(fix_trunc<mode>si_sse): Likewise.
+	(*float<SSEMODEI24:mode><MODEF:mode>2_sse_interunit): Likewise.
+
+2008-05-23  Joey Ye <joey.ye@intel.com>
+
+	* final.c (output_asm_name): Don't add one to which_alternative.
+
+2008-05-22  Joey Ye  <joey.ye@intel.com>
+	    H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.md (*movdf_integer_rex64): Support AVX.
+
+2008-05-21  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_expand_vector_init_one_var): Support
+	256bit AVX modes.
+
+	* config/i386/mmx.md (*mov<mode>_internal_rex64_avx): New for
+	AVX.
+	(*mov<mode>_internal_avx): Likewise.
+
+	* config/i386/sse.md (*vec_concatv2sf_avx): Set prefix to
+	orig for MMX instructions.
+	(*vec_concatv2di_avx): Likewise.
+	(*vec_concatv2si_avx): Likewise.
+	(*vec_concatv2di_rex64_avx): Likewise.
+
+2008-05-21  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_expand_vector_init_general): Remove
+	goto for vec_concat and vec_interleave.
+
+2008-05-21  Joey Ye  <joey.ye@intel.com>
+	    Xuepeng Guo  <xuepeng.guo@intel.com>
+	    H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.md (*movsi_1): Support AVX.
+	(*movsf_1): Likewise.
+	(*truncdfsf_fast_sse): Likewise.
+	(*sse4_1_round<mode>2): Likewise.
+
+	* config/i386/sse.md (*vec_extractv2di_1_rex64_avx): New.
+	(*vec_extractv2di_1_avx): Likewise.
+
+2008-05-21  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (bdesc_args): Updated.
+	(ix86_expand_args_builtin): Likewise.
+	(ix86_expand_vector_set): Don't cast to V4DFmode for 256bit AVX
+	modes.
+
+	* config/i386/sse.md (SSEMODE4F): Removed.
+	(SSEMODEIF4): Likewise.
+	(avxextractmode): Likewise.
+	(avx_vextractf128_<avxmodesuffixp>256): Likewise.
+	(avx_vextractf128_pd256_0): Likewise.
+	(avx_vextractf128_pd256_1): Likewise.
+	(avx_vextractf128_<avxmodesuffixp>256_0): Likewise.
+	(avx_vextractf128_<avxmodesuffixp>256_1): Likewise.
+	(avx_vinsertf128_<avxmodesuffixp>256): Likewise.
+	(avx_vinsertf128_pd256_0): Likewise.
+	(avx_vinsertf128_pd256_1): Likewise.
+	(avx_vinsertf128_<avxmodesuffixp>256_0): Likewise.
+	(avx_vinsertf128_<avxmodesuffixp>256_1): Likewise.
+	(AVX256MODE4P): New.
+	(avx_vextractf128<mode>): Likewise.
+	(vec_extract_lo_<mode>): Likewise.
+	(vec_extract_hi_<mode>): Likewise.
+	(vec_extract_lo_<mode>): Likewise.
+	(vec_extract_hi_<mode>): Likewise.
+	(vec_extract_lo_v16hi): Likewise.
+	(vec_extract_hi_v16hi): Likewise.
+	(vec_extract_lo_v32qi): Likewise.
+	(vec_extract_hi_v32qi): Likewise.
+	(avx_vinsertf128<mode>): Likewise.
+	(vec_set_lo_<mode>): Likewise.
+	(vec_set_hi_<mode>): Likewise.
+	(vec_set_lo_<mode>): Likewise.
+	(vec_set_hi_<mode>): Likewise.
+	(vec_set_lo_v16hi): Likewise.
+	(vec_set_hi_v16hi): Likewise.
+	(vec_set_lo_v32qi): Likewise.
+	(vec_set_hi_v32qi): Likewise.
+
+2008-05-20  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_expand_vector_init_duplicate): Add
+	support for V16HImode and V32QImode.
+	(ix86_expand_vector_init_one_nonzero): Call ix86_expand_vector_set
+	for 256bit AVX modes.
+	(ix86_expand_vector_set): Support 256bit AVX modes.
+
+2008-05-20  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* tree-vectorizer.c (get_vectype_for_scalar_type): Fix typo.
+
+2008-05-20  Xuepeng Guo  <xuepeng.guo@intel.com>
+
+	* config/i386/sse.md (*avx_vmmul<mode>3): New.
+	(*avx_pcmpestr_cconly): Likewise.
+	(sse4_2_pcmpestri): Support AVX.
+	(sse4_2_pcmpestrm): Likewise.
+
+2008-05-20  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* defaults.h (UNITS_PER_SIMD_WORD): Use mode instead of type
+	as argument.
+	* doc/tm.texi (UNITS_PER_SIMD_WORD): Likewise.
+
+	* tree-vectorizer.c (get_vectype_for_scalar_type): Pass mod
+	of scalar_type to UNITS_PER_SIMD_WORD.
+
+	* config/arm/arm.h (UNITS_PER_SIMD_WORD): Updated.
+	* config/i386/i386.h (UNITS_PER_SIMD_WORD): Likewise.
+	* config/mips/mips.h (UNITS_PER_SIMD_WORD): Likewise.
+	* config/rs6000/rs6000.h (UNITS_PER_SIMD_WORD): Likewise.
+	* config/sparc/sparc.h (UNITS_PER_SIMD_WORD): Likewise.
+
+2008-05-19  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* defaults.h (UNITS_PER_SIMD_WORD): Add type as argument.
+	* doc/tm.texi (UNITS_PER_SIMD_WORD): Likewise.
+
+	* tree-vectorizer.c (get_vectype_for_scalar_type): Pass
+	scalar_type to UNITS_PER_SIMD_WORD.
+
+	* config/arm/arm.h (UNITS_PER_SIMD_WORD): Updated.
+	* config/mips/mips.h (UNITS_PER_SIMD_WORD): Likewise.
+	* config/rs6000/rs6000.h (UNITS_PER_SIMD_WORD): Likewise.
+	* config/sparc/sparc.h (UNITS_PER_SIMD_WORD): Likewise.
+
+	* config/i386/i386.h (UNITS_PER_SIMD_WORD): For AVX, return
+	32 only for DF/SF, 16 otherwise.
+
+2008-05-19  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* tree-vect-analyze.c (vect_compute_data_ref_alignment): Replace
+	UNITS_PER_SIMD_WORD with GET_MODE_SIZE (TYPE_MODE (vectype)).
+	(vect_update_misalignment_for_peel): Likewise.
+	(vector_alignment_reachable_p): Likewise.
+	* tree-vect-transform.c (vectorizable_load): Likewise.
+	* tree-vectorizer.c (vect_supportable_dr_alignment): Likewise.
+
+2008-05-19  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_expand_vector_init_general): Add
+	goto half for consistency.
+
+2008-05-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_expand_vector_init_interleave): New.
+	(ix86_expand_vector_init_general): Use it.  Assert word_mode
+	== SImode when n_words == 4.
+
+2008-05-17  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/gmmintrin.h (_mm256_extract_ps): Removed.
+	(_mm256_extract_epi32): Remove const.
+	(_mm256_extract_epi16): Likewise.
+	(_mm256_extract_epi8): Likewise.
+	(_mm256_extract_epi64): Likewise.
+	(_mm256_insert_epi32): New.
+	(_mm256_insert_epi16): Likewise. 
+	(_mm256_insert_epi8): Likewise. 
+	(_mm256_insert_epi64): Likewise. 
+
+2008-05-17  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/gmmintrin.h (_mm256_extract_ps): New.
+	(_mm256_extract_epi32): Likewise.
+	(_mm256_extract_epi16): Likewise.
+	(_mm256_extract_epi8): Likewise.
+	(_mm256_extract_epi64): Likewise.
+
+	* config/i386/i386.c (bdesc_args): Updated.
+	(ix86_expand_args_builtin): Likewise.
+	(ix86_expand_vector_init_general): Properly expand V16HImode,
+	V32QImode, V8HImode and V16QImode.
+
+	* config/i386/sse.md (SSEMODE4F): New.
+	(SSEMODEIF4): Likewise.
+	(avxextractmode): Remove V16QI, V8HI and V2DI.
+	(avx_vextractf128<mode>): Removed.
+	(avx_vextractf128_<avxmodesuffixp>256): New.
+	(avx_vextractf128_pd256_0): Likewise.
+	(avx_vextractf128_pd256_1): Likewise.
+	(avx_vextractf128_<avxmodesuffixp>256_0): Likewise.
+	(avx_vextractf128_<avxmodesuffixp>256_1): Likewise.
+	(avx_vinsertf128_pd256_0): Set type attribute to sselog.
+	(avx_vinsertf128_pd256_1): Likewise.
+	(avx_vinsertf128_<avxmodesuffixp>256_0): Likewise.
+	(avx_vinsertf128_<avxmodesuffixp>256_1): Likewise.
+
+2008-05-17  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_expand_vector_init_general): Fix
+	compilation for merge.
+
+2008-05-15  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/sse.md (*avx_cvtsi2sd): Put prefix attribute
+	before mode attribute.
+	(*avx_cvtsi2sdq): Likewise.
+	(avx_unpckhps256): Likewise.
+	(*avx_unpckhps): Likewise.
+	(avx_unpcklps256): Likewise.
+	(*avx_unpcklps): Likewise.
+	(avx_movshdup256): Likewise.
+	(avx_movsldup256): Likewise.
+	(*avx_shufps_1): Likewise.
+	(*avx_movss): Likewise.
+	(*vec_concatv4sf_avx): Likewise.
+	(avx_unpckhpd256): Likewise.
+	(avx_unpcklpd256): Likewise.
+	(*avx_unpcklpd): Likewise.
+	(*avx_shufpd_1): Likewise.
+	(*avx_movsd): Likewise.
+	(*vec_concatv2df_avx): Likewise.
+	(*vec_concat<mode>_avx): Likewise.
+
+2008-05-15  Xuepeng Guo  <xuepeng.guo@intel.com>
+
+	* config/i386/sse.md (*avx_addsubv4sf3): New.
+	(*avx_addsubv2df3): Likewise.
+	(*avx_h<plusminus_insn>v4sf3): Likewise.
+	(*avx_h<plusminus_insn>v2df3): Likewise.
+	(*avx_mulv8hi3): Likewise.
+	(*avxv8hi3_highpart): Likewise.
+	(*avx_umulv8hi3_highpart): Likewise.
+	(*avx_umulv2siv2di3): Likewise.
+	(*avx_mulv2siv2di3): Likewise.
+	(*avx_mulv4si3): Likewise.
+	(*avx_nand<mode>3): Likewise.
+	(sse2_pshufd_1): Support AVX.
+	(sse2_pshuflw_1): Likewise.
+	(sse2_pshufhw_1): Likewise.
+
+2008-05-15  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/sse.md (*vec_concatv2sf_avx): Add "m" constraint
+	to alternative 4 of operand 2.
+
+2008-05-15  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/sse.md (*vec_concatv2sf_avx): Add missing
+	alternatives.
+	(*vec_concatv2di_avx): Likewise.
+	(*vec_concatv2si_1_avx): Removed.
+	(*vec_concatv2si_2_avx): Likewise.
+	(*vec_concatv2di_rex64_1_avx): Likewise.
+	(*vec_concatv2di_rex64_2_avx): Likewise.
+	(*vec_concatv2si_avx): New.
+	(*vec_concatv2di_rex64_avx): Likewise.
+
+2008-05-14  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/gmmintrin.h (_mm256_set_epi16): New.
+	(_mm256_set_epi8): Likewise.
+	(_mm256_set1_epi16): Likewise.
+	(_mm256_set1_epi8): Likewise.
+	(_mm256_setr_pd): Likewise.
+	(_mm256_setr_ps): Likewise.
+	(_mm256_setr_epi32): Likewise.
+	(_mm256_setr_epi16): Likewise.
+	(_mm256_setr_epi8): Likewise.
+	(_mm256_setr_epi64x): Likewise.
+
+	* config/i386/i386.c (ix86_expand_vector_init_concat): New.
+	(ix86_expand_vector_init_general): Use it.  Handle V32QImode
+	and V16HImode.
+
+	* config/i386/sse.md (AVX256MODE3P): Removed.
+	(*avx_pinsrb): Likewise.
+	(*avx_pinsrw): Likewise.
+	(*avx_pinsrd): Likewise.
+	(avxhalfvecmode): Handle V32QI and V16HI.
+	(avxscalarmode): Add V16QI, V8HI and V4SI.
+	(avxmodesuffixs): New.
+	(pinsrbits): Likewise.
+	(*avx_pinsr<avxmodesuffixs>): Likewise.
+	(*vec_concatv2si_1_avx): New.
+	(*vec_concatv2di_rex64_1_avx): Likewise.
+	(*vec_concatv2sf_avx): Fix the first alternative and add a
+	new alternative.
+	(*vec_concatv2df_avx): Fix the first alternative.
+	(*avx_pinsrq): Make it 64bit only.
+	(*vec_concatv2si_avx): Renamed to ...
+	(*vec_concatv2si_2_avx): This.
+	(*vec_concatv2di_rex_avx): Renamed to ...
+	(*vec_concatv2di_rex64_2_avx): This.
+	(vec_init<mode>): Replace AVX256MODE3P with AVX256MODE.
+	(*vec_concat<mode>_avx): Likewise.  Use vinsertf128 instead
+	of vperm2f128.
+
+2008-05-14  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.md (*sse4_1_pinsrq): Make it 64bit only.
+
+2008-05-14  Joey Ye  <joey.ye@intel.com>
+
+	* config/i386/i386.md (*cmpfp_i_mixed): Use comma form to
+	simplify maybe_vex attribute.
+	(*cmpfp_iu_mixed): Likewise.
+	(*extendsfdf2_mixed): Likewise.
+	(*truncdfsf_fast_mixed): Likewise.
+	(*truncdfsf_mixed): Likewise.
+	(*fop_sf_comm_mixed_avx): Likewise.
+	(*fop_sf_1_mixed_avx): Likewise.
+	(*fop_df_comm_mixed_avx): Likewise.
+	(*fop_df_1_mixed_avx): Likewise.
+	(*extendsfdf2_sse): Support AVX.
+
+2008-05-14  Xuepeng Guo  <xuepeng.guo@intel.com>
+
+	* config/i386/sse.md (<sse>_movnt<mode>): New.
+	(*avx_vmdiv<mode>3): Likewise.
+	(*avx_ashr<mode>3): Likewise.
+	(*avx_lshr<mode>3): Likewise.
+	(*avx_ashl<mode>3): Likewise.
+	(*avx_palignrti): Likewise.
+	(*avx_pblendvb): Likewise.
+	(*avx_pcmpistr_cconly): Likewise.
+	(*sse4_1_extractps): Support AVX.
+	(*sse2_maskmovdqu): Likewise.
+	(*sse2_maskmovdqu_rex64): Likewise.
+	(sse4_1_phminposuw): Likewise.
+	(sse4_2_pcmpistri): Likewise.
+	(sse4_2_pcmpistrm): Likewise.
+
+2008-05-14  Xuepeng Guo  <xuepeng.guo@intel.com>
+	    H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/sse.md (*avx_eq<mode>3): New.
+	(*avx_gt<mode>3): Likewise.
+
+2008-05-13  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/sse.md (*vex_concatv2sf_avx): Renamed to ...
+	(*vec_concatv2sf_avx): This.
+	(*vex_concatv4sf_avx): Renamed to ...
+	(*vec_concatv4sf_avx): This.
+	(*vex_concatv2si_avx): Renamed to ...
+	(*vec_concatv2si_avx): This.
+
+2008-05-13  Xuepeng Guo  <xuepeng.guo@intel.com>
+
+	* config/i386/sse.md (sse4_1_extendv8qiv8hi2): Support AVX.
+	(*sse4_1_extendv8qiv8hi2): Likewise.
+	(sse4_1_extendv4qiv4si2): Likewise.
+	(*sse4_1_extendv4qiv4si2): Likewise.
+	(sse4_1_extendv2qiv2di2): Likewise.
+	(*sse4_1_extendv2qiv2di2): Likewise.
+	(sse4_1_extendv4hiv4si2): Likewise.
+	(*sse4_1_extendv4hiv4si2): Likewise.
+	(sse4_1_extendv2hiv2di2): Likewise.
+	(*sse4_1_extendv2hiv2di2): Likewise.
+	(sse4_1_extendv2siv2di2): Likewise.
+	(*sse4_1_extendv2siv2di2): Likewise.
+	(sse4_1_zero_extendv8qiv8hi2): Likewise.
+	(*sse4_1_zero_extendv8qiv8hi2): Likewise.
+	(sse4_1_zero_extendv4qiv4si2): Likewise.
+	(*sse4_1_zero_extendv4qiv4si2): Likewise.
+	(sse4_1_zero_extendv2qiv2di2): Likewise.
+	(*sse4_1_zero_extendv2qiv2di2): Likewise.
+	(sse4_1_zero_extendv4hiv4si2): Likewise.
+	(*sse4_1_zero_extendv4hiv4si2): Likewise.
+	(sse4_1_zero_extendv2hiv2di2): Likewise.
+	(*sse4_1_zero_extendv2hiv2di2): Likewise.
+	(sse4_1_zero_extendv2siv2di2): Likewise.
+	(*sse4_1_zero_extendv2siv2di2): Likewise.
+
+2008-05-12  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/sse.md (*avx_concatv2sf): Renamed to ...
+	(*vex_concatv2sf_avx): This.
+	(*avx_concatv4sf): Renamed to ...
+	(*vex_concatv4sf_avx): This.
+	(*avx_concatv2si): Renamed to ...
+	(*vex_concatv2si_avx): This.
+
+2008-05-12  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/sse.md (*vec_concat<mode>_avx): Support
+	concatenate with zero vector.
+
+2008-05-12  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/sse.md (sse_rcpv4sf2): Set prefix attribute to
+	maybe_vex.
+	(sse_sqrtv4sf2): Likewise.
+	(sqrtv2df2): Likewise.
+	(sse_rsqrtv4sf2): Likewise.
+	(<sse>_comi): Likewise.
+	(<sse>_ucomi): Likewise.
+	(sse_cvtss2si): Likewise.
+	(sse_cvtss2si_2): Likewise.
+	(sse_cvtss2siq): Likewise.
+	(sse_cvtss2siq_2): Likewise.
+	(sse_cvttss2si): Likewise.
+	(sse_cvttss2siq): Likewise.
+	(sse2_cvtsd2si): Likewise.
+	(sse2_cvtsd2si_2): Likewise.
+	(sse2_cvtsd2siq): Likewise.
+	(sse2_cvtsd2siq_2): Likewise.
+	(sse2_cvttsd2si): Likewise.
+	(sse2_cvttsd2siq): Likewise.
+	(sse2_cvtdq2pd): Likewise.
+	(*sse2_cvtpd2dq): Likewise.
+	(*sse2_cvttpd2dq): Likewise.
+	(*sse2_cvtpd2ps): Likewise.
+	(sse2_cvtps2pd): Likewise.
+	(sse3_movshdup): Likewise.
+	(sse3_movsldup): Likewise.
+	(*vec_dupv2df_sse3): Likewise.
+	(vec_dupv2df): Likewise.
+	(*vec_concatv2df_sse3): Likewise.
+	(*sse4_1_pextrb): Likewise.
+	(*sse4_1_pextrb_memory): Likewise.
+	(*sse2_pextrw): Likewise.
+	(*sse4_1_pextrw_memory): Likewise.
+	(*sse4_1_pextrd): Likewise.
+	(*sse4_1_pextrq): Likewise.
+	(<sse>_movmskp<ssemodesuffixf2c>): Likewise.
+	(sse2_pmovmskb): Likewise.
+	(sse_ldmxcsr): Likewise.
+	(sse4_1_movntdqa): Likewise.
+	(sse4_1_ptest): Likewise.
+	(sse4_1_roundp<ssemodesuffixf2c>): Likewise.
+
+2008-05-12  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/sse.md (*avx_loadld): New.
+	(*sse2_storeq_rex64_avx): Likewise.
+
+2008-05-12  Xuepeng Guo  <xuepeng.guo@intel.com>
+
+	* config/i386/sse.md (*avx_packsswb): New.
+	(*avx_packssdw): Likewise.
+	(*avx_packuswb): Likewise.
+	(*avx_punpckhbw): Likewise.
+	(*avx_punpcklbw): Likewise.
+	(*avx_punpckhwd): Likewise.
+	(*avx_punpcklwd): Likewise.
+	(*avx_punpckhdq): Likewise.
+	(*avx_punpckldq): Likewise.
+	(*avx_punpckhqdq): Likewise.
+	(*avx_punpcklqdq): Likewise.
+	(*avx_uavgv16qi3): Likewise.
+	(*avx_uavgv8hi3): Likewise.
+	(*avx_psadbw): Likewise.
+	(*avx_phaddwv8hi3): Likewise.
+	(*avx_phadddv4si3): Likewise.
+	(*avx_phaddswv8hi3): Likewise.
+	(*avx_phsubwv8hi3): Likewise.
+	(*avx_phsubdv4si3): Likewise.
+	(*avx_phsubswv8hi3): Likewise.
+	(*avx_pmaddubsw128): Likewise.
+	(*avx_pmulhrswv8hi3): Likewise.
+	(*avx_pshufbv16qi3): Likewise.
+	(*avx_psign<mode>3): Likewise.
+	(*avx_mpsadbw): Likewise.
+	(*avx_packusdw): Likewise.
+	(*avx_pblendw): Likewise.
+	(sse4_1_movntdqa): Support AVX.
+
+2008-05-12  Joey Ye  <joey.ye@intel.com>
+	    H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.md (prefix): Add maybe_vex.
+	(length): Handle maybe_vex.
+	(*cmpfp_i_mixed): Set prefix attribute to maybe_vex instead
+	of vex.
+	(*cmpfp_iu_mixed): Likewise.
+	(*extendsfdf2_mixed): Likewise.
+	(*truncdfsf_fast_mixed): Likewise.
+	(*truncdfsf_mixed): Likewise.
+	(*fop_sf_comm_mixed_avx): Likewise.
+	(*fop_sf_1_mixed_avx): Likewise.
+	(*fop_df_comm_mixed_avx): Likewise.
+	(*fop_df_1_mixed_avx): Likewise.
+	(*cmpfp_i_sse): Set prefix attribute to maybe_vex.
+	(*cmpfp_iu_sse): Likewise.
+	(*rcpsf2_sse): Likewise.
+	(*rsqrtsf2_sse): Likewise.
+	(*sqrt<mode>2_sse): Likewise.
+
+2008-05-11  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/gmmintrin.h (_mm256_set_epi64x): New.
+	(_mm256_set1_epi64x): Likewise.
+
+	* config/i386/i386.c (ix86_expand_vector_init_duplicate): Support
+	V4DImode.
+	(ix86_expand_vector_init_general): Likewise.
+
+	* config/i386/sse.md (AVX256MODE3P): New.
+	(avxhalfvecmode): Handle V4DI.
+	(vec_init<mode>): Replace AVX256MODE2P with AVX256MODE3P.
+	(*vec_concat<mode>_avx): Likewise.
+
+2008-05-11  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (print_reg): Support 't' for 256bit AVX
+	register.
+	(print_operand): Likewise.
+	(ix86_expand_vector_init_duplicate): Support V4DFmode,
+	V8SFmode and V8SImode.
+	(ix86_expand_vector_init_general): Likewise.
+
+	* config/i386/sse.md (*avx_concatv2sf): New.
+	(*vec_concatv2df_avx): Likewise.
+	(*avx_concatv2si): Likewise.
+	(vec_init<mode>): Likewise.
+	(*vec_concat<mode>_avx): Likewise.
+
+2008-05-11  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/sse.md (*vec_concatv4si_1_avx): New.
+	(*vec_concatv2di_avx): Likewise.
+	(*vec_concatv2di_rex_avx): Likewise.
+
+2008-05-11  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/sse.md (*vec_dupv4sf_avx): New.
+	(*vec_dupv4si_avx): Likewise.
+	(*vec_dupv2di_avx): Likewise.
+	(*avx_vec_setv4sf_0): Renamed to ...
+	(*vec_setv4sf_0_avx): This.
+	(*vec_dupv2df_sse3): Support AVX.
+
+2008-05-11  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (standard_sse_constant_opcode): Fix a
+	typo.
+
+2008-05-11  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.md (*rcpsf2_sse): Reformat.
+	(*rsqrtsf2_sse): No need to set prefix_0f attribute.
+	(*sqrt<mode>2_sse): Likewise.
+
+	* config/i386/sse.md (<sse>_comi): Reformat.
+	(<sse>_ucomi): Likewise.
+	(sse3_movshdup): Likewise.
+	(sse3_movsldup): Likewise.
+	(*vec_dupv2df_sse3): Likewise.
+	(vec_dupv2df): Likewise.
+	(*sse4_1_pextrb): Likewise.
+	(*sse4_1_pextrb_memory): Likewise.
+	(*sse2_pextrw): Likewise.
+	(*sse4_1_pextrw_memory): Likewise.
+	(*sse4_1_pextrd): Likewise.
+	(*sse4_1_pextrq): Likewise.
+	(sse_ldmxcsr): Likewise.
+
+2008-05-10  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/gmmintrin.h (_mm256_round_pd): Fix a typo.
+	(_mm256_round_ps): Likewise.
+	(_mm_testz_pd): New.
+	(_mm_testc_pd): Likewise.
+	(_mm_testnzc_pd): Likewise.
+	(_mm_testz_ps): Likewise.
+	(_mm_testc_ps): Likewise.
+	(_mm_testnzc_ps): Likewise.
+	(_mm256_testz_pd): Updated.
+	(_mm256_testc_pd): Likewise.
+	(_mm256_testnzc_pd): Likewise.
+	(_mm256_testz_ps): Likewise.
+	(_mm256_testc_ps): Likewise.
+	(_mm256_testnzc_ps): Likewise.
+	(_mm256_setzero_ps): Likewise.
+	(_mm256_setzero_si256): Likewise.
+	(_mm256_set_ps): Likewise.
+	(_mm256_set_epi32): Likewise.
+	(_mm256_set1_ps): Likewise.
+	(_mm256_set1_epi32): Likewise.
+
+	* config/i386/i386.c (ix86_builtins): Add
+	IX86_BUILTIN_SQRTPD256, IX86_BUILTIN_SQRTPS256,
+	IX86_BUILTIN_SQRTPS_NR256, IX86_BUILTIN_RSQRTPS256,
+	IX86_BUILTIN_RSQRTPS_NR256, IX86_BUILTIN_RCPPS256,
+	IX86_BUILTIN_ROUNDPD256, IX86_BUILTIN_ROUNDPS256.
+	IX86_BUILTIN_VTESTZPD, IX86_BUILTIN_VTESTCPD,
+	IX86_BUILTIN_VTESTNZCPD, IX86_BUILTIN_VTESTZPS,
+	IX86_BUILTIN_VTESTCPS, IX86_BUILTIN_VTESTNZCPS,
+	IX86_BUILTIN_VTESTZPD256, IX86_BUILTIN_VTESTCPD256,
+	IX86_BUILTIN_VTESTNZCPD256, IX86_BUILTIN_VTESTZPS256,
+	IX86_BUILTIN_VTESTCPS256, IX86_BUILTIN_VTESTNZCPS256,
+	IX86_BUILTIN_PTESTZ256, IX86_BUILTIN_PTESTC256,
+	IX86_BUILTIN_PTESTNZC256, IX86_BUILTIN_MOVMSKPD256 and
+	IX86_BUILTIN_MOVMSKPS256.
+	(ix86_builtin_type): Add INT_FTYPE_V8SF_V8SF_PTEST,
+	INT_FTYPE_V4DI_V4DI_PTEST, INT_FTYPE_V4SF_V4SF_PTEST,
+	INT_FTYPE_V2DF_V2DF_PTEST, INT_FTYPE_V8SF and
+	INT_FTYPE_V4DF.
+	(bdesc_args): Add __builtin_ia32_sqrtpd256,
+	__builtin_ia32_sqrtps256, __builtin_ia32_sqrtps_nr256,
+	__builtin_ia32_rsqrtps256, __builtin_ia32_rsqrtps_nr256,
+	__builtin_ia32_rcpps256, __builtin_ia32_roundpd256,
+	__builtin_ia32_roundps256,  AVX vtest builtins,
+	__builtin_ia32_movmskpd256 and __builtin_ia32_movmskps256.
+	(ix86_init_mmx_sse_builtins): Updated.
+	(ix86_expand_args_builtin): Updated.  Handle
+	CODE_FOR_avx_roundpd256 and CODE_FOR_avx_roundps256.
+	(ix86_hard_regno_mode_ok): OImode is OK only when AVX is
+	enabled.
+
+	* config/i386/i386.md (UNSPEC_VTESTP): New.
+	(movoi): Likewise.
+	(*movoi_internal): Likewise.
+	(*cmpfp_i_sse): Reformat.
+	(*cmpfp_iu_sse): Likewise.
+	(*rsqrtsf2_sse): Likewise.
+	(*sqrt<mode>2_sse): Likewise.
+
+	* config/i386/sse.md (avx_rcpv8sf2): New.
+	(*avx_vmrcpv4sf2): Likewise.
+	(sqrtv8sf2): Likewise.
+	(avx_sqrtv8sf2): Likewise.
+	(sqrtv4df2): Likewise.
+	(*avx_vmsqrt<mode>2): Likewise.
+	(rsqrtv8sf2): Likewise.
+	(avx_rsqrtv8sf2): Likewise.
+	(*avx_vmrsqrtv4sf2): Likewise.
+	(avx_movmskp<avxmodesuffixf2c>256): Likewise.
+	(avx_vtestp<avxmodesuffixf2c><avxmodesuffix>): Likewise.
+	(avx_ptest256): Likewise.
+	(avx_roundp<avxmodesuffixf2c>256): Likewise.
+	(*avx_rounds<ssemodesuffixf2c>): Likewise.
+	(sse_rcpv4sf2): Support AVX.
+	(sqrtv4sf2): Likewise.
+	(sqrtv2df2): Likewise.
+	(rsqrtv4sf2): Likewise.
+	(<sse>_movmskp<ssemodesuffixf2c>): Likewise.
+	(sse2_pmovmskb): Likewise.
+	(sse4_1_ptest): Likewise.
+	(sse4_1_roundp<ssemodesuffixf2c>): Likewise.
+	(avx_<avxmodesuffixp><avxmodesuffix>_<avxmodesuffixp>): Set
+	type attribute to ssemov.
+	(avx_<avxmodesuffixp>_<avxmodesuffixp><avxmodesuffix>): Likewise.
+
+2008-05-10  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/sse.md (<sse>_comi): Reformat.
+	(<sse>_ucomi): Likewise.
+	(sse_cvtss2si): Likewise.
+	(sse_cvtss2si_2): Likewise.
+	(sse_cvtss2siq): Likewise.
+	(sse_cvtss2siq_2): Likewise.
+	(sse_cvttss2si): Likewise.
+	(sse_cvttss2siq): Likewise.
+	(sse2_cvtsd2si): Likewise.
+	(sse2_cvtsd2si_2): Likewise.
+	(sse2_cvtsd2siq): Likewise.
+	(sse2_cvtsd2siq_2): Likewise.
+	(sse2_cvttsd2si): Likewise.
+	(sse2_cvttsd2siq): Likewise.
+	(sse2_cvtdq2pd): Likewise.
+	(*sse2_cvtpd2dq): Likewise.
+	(*sse2_cvttpd2dq): Likewise.
+	(*sse2_cvtpd2ps): Likewise.
+	(sse2_cvtps2pd): Likewise.
+	(sse3_movshdup): Likewise.
+	(sse3_movsldup): Likewise.
+	(*vec_dupv2df_sse3): Likewise.
+	(sse_ldmxcsr): Likewise.
+
+2008-05-10  Joey Ye  <joey.ye@intel.com>
+	    H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.md (*rcpsf2_sse): Support AVX.
+
+2008-05-10  Xuepeng Guo  <xuepeng.guo@intel.com>
+
+	* config/i386/sse.md (*avx_pinsrb): New.
+	(*avx_pinsrw): Likewise.
+	(*avx_pinsrd): Likewise.
+	(*avx_pinsrq): Likewise.
+	(*sse4_1_pextrd): Support AVX.
+	(*sse4_1_pextrq): Likewise.
+	(*sse4_1_pextrb): Likewise.
+	(*sse4_1_pextrb_memory): Likewise.
+	(*sse2_pextrw): Likewise.
+	(*sse4_1_pextrw_memory): Likewise.
+
+2008-05-08  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/gmmintrin.h (_mm_maskload_pd): Fix a typo.
+	(_mm_maskstore_pd): Likewise.
+	(_mm256_maskload_pd): Likewise.
+	(_mm256_maskstore_pd): Likewise.
+	(_mm_maskload_ps): Likewise.
+	(_mm_maskstore_ps): Likewise.
+	(_mm256_maskload_ps): Likewise.
+	(_mm256_maskstore_ps): Likewise.
+	(_mm256_movedup_pd): Likewise.
+	(_mm256_unpackhi_pd): Likewise.
+	(_mm256_castpd256_pd128): Updated.
+	(_mm256_castps256_ps128): Likewise.
+	(_mm256_castsi256_si128): Likewise.
+	(_mm256_castpd128_pd256): Likewise.
+	(_mm256_castps128_ps256): Likewise.
+	(_mm256_castsi128_si256): Likewise.
+
+	* config/i386/i386.c (ix86_builtins): Add
+	IX86_BUILTIN_MOVSHDUP256, IX86_BUILTIN_MOVSLDUP256,
+	IX86_BUILTIN_MOVDDUP256, IX86_BUILTIN_UNPCKHPD256,
+	IX86_BUILTIN_UNPCKLPD256, IX86_BUILTIN_UNPCKHPS256,
+	IX86_BUILTIN_UNPCKLPS256, IX86_BUILTIN_SI256_SI,
+	IX86_BUILTIN_PS256_PS, IX86_BUILTIN_PD256_PD,
+	IX86_BUILTIN_SI_SI256, IX86_BUILTIN_PS_PS256 and
+	IX86_BUILTIN_PD_PD256.
+	(ix86_special_builtin_type): Add V8SF_FTYPE_PCV8SF_V8SF,
+	V4DF_FTYPE_PCV4DF_V4DF, V4SF_FTYPE_PCV4SF_V4SF,
+	V2DF_FTYPE_PCV2DF_V2DF, VOID_FTYPE_PV8SF_V8SF_V8SF,
+	VOID_FTYPE_PV4DF_V4DF_V4DF, VOID_FTYPE_PV4SF_V4SF_V4SF and
+	VOID_FTYPE_PV2DF_V2DF_V2DF.
+	(ix86_builtin_type): Add V8SF_FTYPE_V8SF, V8SI_FTYPE_V4SI,
+	V8SF_FTYPE_V4SF, V4SI_FTYPE_V8SI, V4DF_FTYPE_V4DF,
+	V4DF_FTYPE_V2DF, V4SF_FTYPE_V8SF and V2DF_FTYPE_V4DF.
+	(bdesc_special_args): Add AVX maskload and maskstore builtins.
+	(bdesc_args): Add __builtin_ia32_movshdup256,
+	__builtin_ia32_movsldup256, __builtin_ia32_movddup256.
+	__builtin_ia32_unpckhpd256, __builtin_ia32_unpcklpd256,
+	__builtin_ia32_unpckhps256, __builtin_ia32_unpcklps256.
+	 __builtin_ia32_si256_si, __builtin_ia32_ps256_ps,
+	 __builtin_ia32_pd256_pd, __builtin_ia32_si_si256,
+	 __builtin_ia32_ps_ps256 and __builtin_ia32_pd_pd256.
+	(ix86_init_mmx_sse_builtins): Updated.
+	(ix86_expand_args_builtin): Likewise.
+	(ix86_expand_special_args_builtin): Likewise.
+
+	* config/i386/i386.md (UNSPEC_MASKLOAD): New.
+	(UNSPEC_MASKSTORE): Likewise.
+	(UNSPEC_CAST): Likewise.
+
+	* config/i386/sse.md (AVXMODEF21P): Removed.
+	(AVX256MODEF128): Renamed to ...
+	(AVX256MODE2P): This.
+	(AVX256MODEF128S): Renamed to ...
+	(AVX256MODE8P): This.
+	(avxmodesuffixf128): Renamed to ...
+	(avxmodesuffixp): This.
+	(avx_dpp<avxmodesuffixf2c><avxmodesuffix>): Updated.
+	(avx_vperm2f128<mode>3): Likewise.
+	(avx_vinsertf128_<avxmodesuffixf128>256): Renamed to ...
+	(avx_vinsertf128_<avxmodesuffixp>256): This.  Updated.
+	(avx_vinsertf128_<avxmodesuffixf128>256_0): Renamed to ...
+	(avx_vinsertf128_<avxmodesuffixp>256_0): This.  Updated.
+	(avx_vinsertf128_<avxmodesuffixf128>256_1): Renamed to ...
+	(avx_vinsertf128_<avxmodesuffixp>256_1): This.  Updated.
+
+2008-05-08  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/sse.md (*avx_<plusminus_insn><mode>3): New.
+	(*avx_<plusminus_insn><mode>3): Likewise.
+	(*avx_add<mode>3): Removed.
+	(*avx_ssadd<mode>3): Likewise.
+	(*avx_usadd<mode>3): Likewise.
+	(*avx_sub<mode>3): Likewise.
+	(*avx_sssub<mode>3): Likewise.
+	(*avx_ussub<mode>3): Likewise.
+	(avx_maskloadp<avxmodesuffixf2c><avxmodesuffix>): Likewise.
+	(avx_maskstorep<avxmodesuffixf2c><avxmodesuffix>): Likewise.
+	(avx_<avxmodesuffixp><avxmodesuffix>_<avxmodesuffixp>):Likewise.
+	(avx_<avxmodesuffixp>_<avxmodesuffixp><avxmodesuffix>): Likewise.
+
+2008-05-08  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/sse.md (avx_storehps): Renamed to ...
+	(*avx_storehps): This.
+	(avx_loadhps): Renamed to ...
+	(*avx_loadhps): This.
+	(avx_storelps): Renamed to ...
+	(*avx_storelps): This.
+	(avx_loadlps): Renamed to ...
+	(*avx_loadlps): This.
+	(avx_storehpd): Renamed to ...
+	(*avx_storehpd): This.
+	(avx_storelpd): Renamed to ...
+	(*avx_storelpd): This.
+	(avx_loadhpd): Renamed to ...
+	(*avx_loadhpd): This.
+	(avx_loadlpd): Renamed to ...
+	(*avx_loadlpd): This.
+
+2008-05-08  Xuepeng Guo  <xuepeng.guo@intel.com>
+	    H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/sse.md (*avx_movhlps): New.
+	(*avx_movlhps): Likewise.
+	(avx_unpckhps256): Likewise.
+	(*avx_unpckhps): Likewise.
+	(avx_unpcklps256): Likewise.
+	(*avx_unpcklps): Likewise.
+	(avx_movshdup256): Likewise.
+	(avx_movsldup256): Likewise.
+	(*avx_shufps_1): Likewise.
+	(*avx_movss): Likewise.
+	(*avx_concatv4sf): Likewise.
+	(*avx_vec_setv4sf_0): Likewise.
+	(*vec_setv4sf_avx): Likewise.
+	(avx_unpckhpd256): Likewise.
+	(*avx_unpckhpd): Likewise.
+	(avx_movddup256): Likewise.
+	(*avx_movddup): Likewise.
+	(avx_unpcklpd256): Likewise.
+	(*avx_unpcklpd): Likewise.
+	(*avx_shufpd_1): Likewise.
+	(*avx_movsd): Likewise.
+
+2008-05-08  Xuepeng Guo  <xuepeng.guo@intel.com>
+
+	* config/i386/sse.md (<sse>_comi): Support AVX.
+	(<sse>_ucomi): Likewise.
+	(sse3_movshdup): Likewise.
+	(sse3_movsldup): Likewise.
+	(*vec_dupv2df_sse3): Likewise.
+	(vec_dupv2df): Likewise.
+	(sse_ldmxcsr): Likewise.
+	(*avx_cvtss2sd): Replace constraint x by xm for operand 2.
+
+2008-05-03  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_builtins): Add
+	IX86_BUILTIN_VZEROUPPER_REX64.
+
+2008-05-02  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_builtins): Add IX86_BUILTIN_MASKLOADPD,
+	IX86_BUILTIN_MASKLOADPS, IX86_BUILTIN_MASKSTOREPD,
+	IX86_BUILTIN_MASKSTOREPS, IX86_BUILTIN_MASKLOADPD256,
+	IX86_BUILTIN_MASKLOADPS256, IX86_BUILTIN_MASKSTOREPD256 and
+	IX86_BUILTIN_MASKSTOREPS256.
+
+2008-05-02  Xuepeng Guo  <xuepeng.guo@intel.com>
+	    H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/sse.md (*avx_cvtsi2ss): New.
+	(*avx_cvtsi2ssq): Likewise.
+	(*avx_cvtsi2sd): Likewise.
+	(*avx_cvtsi2sdq): Likewise.
+	(*avx_cvtsd2ss): Likewise.
+	(avx_cvtss2sd): Likewise.
+	(sse_cvtss2si): Support AVX.
+	(sse_cvtss2si_2): Likewise.
+	(sse_cvtss2siq): Likewise.
+	(sse_cvtss2siq_2): Likewise.
+	(sse_cvttss2si): Likewise.
+	(sse_cvttss2siq): Likewise.
+	(sse2_cvtsd2si): Likewise.
+	(sse2_cvtsd2si_2): Likewise.
+	(sse2_cvtsd2siq): Likewise.
+	(sse2_cvtsd2siq_2): Likewise.
+	(sse2_cvttsd2si): Likewise.
+	(sse2_cvttsd2siq): Likewise.
+	(*sse2_cvtpd2ps): Likewise.
+	(sse2_cvtps2pd): Likewise.
+
+2008-04-26  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/gmmintrin.h (_mm256_insertf128_pd): Fix typos.
+	(_mm256_insertf128_ps): Likewise.
+	(_mm256_insertf128_si256): Likewise.
+	(_mm256_load_si256): Likewise.
+
+	* config/i386/i386.c (ix86_builtins): Add
+	IX86_BUILTIN_VINSERTF128PD256, IX86_BUILTIN_VINSERTF128PS256,
+	IX86_BUILTIN_VINSERTF128SI256, IX86_BUILTIN_LOADUPD256,
+	IX86_BUILTIN_LOADUPS256, IX86_BUILTIN_STOREUPD256,
+	IX86_BUILTIN_STOREUPS256 and IX86_BUILTIN_STOREUPS256.
+	(sse_builtin_type): Add V8SI_FTYPE_V8SI_V4SI_INT,
+	V8SF_FTYPE_V8SF_V4SF_INT and V4DF_FTYPE_V4DF_V2DF_INT.
+	(bdesc_sse_args): Add __builtin_ia32_vinsertf128_pd256,
+	__builtin_ia32_vinsertf128_ps256 and
+	__builtin_ia32_vinsertf128_si256.
+	(ix86_init_mmx_sse_builtins): Updated.  Define
+	__builtin_ia32_loadupd256, __builtin_ia32_loadups256,
+	__builtin_ia32_storeupd256 and __builtin_ia32_storeups256.
+	(ix86_expand_sse_operands_builtin): Handle
+	CODE_FOR_avx_vinsertf128_pd256, CODE_FOR_avx_vinsertf128_ps256
+	and CODE_FOR_avx_vinsertf128_si256.
+	(ix86_expand_builtin): Handle IX86_BUILTIN_LOADUPS256,
+	IX86_BUILTIN_STOREUPS256, IX86_BUILTIN_LOADUPD256
+	and IX86_BUILTIN_STOREUPD256.
+
+	* config/i386/sse.md (AVX256MODEF128): New.
+	(AVX256MODEF128S): Likewise.
+	(avxmodesuffixf128): Likewise.
+	(avx_vinsertf128_<avxmodesuffixf128>256): Likewise.
+	(avx_vinsertf128_pd256_0): Likewise.
+	(avx_vinsertf128_pd256_1): Likewise.
+	(avx_vinsertf128_<avxmodesuffixf128>256_0): Likewise.
+	(avx_vinsertf128_<avxmodesuffixf128>256_1): Likewise.
+	(avxhalfvecmode): Add V8SI.
+	(avx_vperm2f128<mode>3): Replace AVX256MODE with AVX256MODEF128.
+
+2008-04-25  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_expand_sse4_unpack): Revert the
+	last change.
+	(ix86_expand_binop_imm_builtin): Don't check AVX.
+	(ix86_expand_store_builtin): Likewise.
+	(ix86_expand_unop_builtin): Likewise.
+
+	* config/i386/i386.md (avx_ashlti3): Renamed to ...
+	(*avx_ashlti3): This.
+	(avx_lshrti3): Renamed to ...
+	(*avx_lshrti3): This.
+
+	* config/i386/sse.md (avx_movntv2di): Renamed to ...
+	(*avx_movntv2di): This.
+
+2008-04-25  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/sse.md (AVXMODEDCVTDQ2PS): New.
+	(AVXMODEDCVTPS2DQ): Likewise.
+	(avxcvtvecmode): Likewise.
+	(avxmodesuffix): Add V4SI and V8SI.
+	(avx_cvtdq2ps256): Renamed to ...
+	(avx_cvtdq2ps<avxmodesuffix>): This.  Support 128bit AVX.
+	(avx_cvtps2dq256): Renamed to ...
+	(avx_cvtps2dq<avxmodesuffix>): This.  Support 128bit AVX.
+	(avx_cvttps2dq256): Renamed to ...
+	(avx_cvttps2dq<avxmodesuffix>): This.  Support 128bit AVX.
+	(sse2_cvtdq2pd): Support 128bit AVX.
+	(*sse2_cvtpd2dq): Likewise.
+	(*sse2_cvttpd2dq): Likewise.
+	(avx_cvtpd2dq256): Set mode attribute to "OI".
+	(avx_cvttpd2dq256): Likewise.
+
+2008-04-25  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/sse.md (mov<mode>): Replace SSEMODEI with
+	SSEMODE.
+	(*mov<mode>_internal): Likewise.  Support V4SF and V2DF.
+	(mov<mode>): Removed.
+	(*movv4sf_internal): Likewise.
+	(*movv2df_internal): Likewise.
+
+2008-04-25  H.J. Lu  <hongjiu.lu@intel.com>
+	    Xuepeng Guo  <xuepeng.guo@intel.com>
+	    Joey Ye  <joey.ye@intel.com>
+
+	* config/i386/gmmintrin.h (_mm_broadcast_ss): Don't dereference
+	pointer.
+	(_mm256_broadcast_sd): Likewise.
+	(_mm256_broadcast_ss): Likewise.
+	(_mm256_broadcast_pd): Likewise.
+	(_mm256_broadcast_ps): Likewise.
+	(_mm256_loadu_si256): Add const to argument.
+
+	* config/i386/i386.c (standard_sse_mode_p): Return true on
+	256bit AVX modes.
+	(standard_sse_constant_opcode): Generate vpcmpeqd/vperm2f128
+	pair to fill 256bit register to all 1s.
+	(output_387_binary_op): Avoid extra store for AVX.
+	(output_fp_compare): Support AVX.
+	(ix86_expand_vector_move_misalign): Implement AVX support.
+	(ix86_expand_sse4_unpack): Reformat.
+	(ix86_attr_length_vex_default): New.
+	(ix86_builtins): Add IX86_BUILTIN_VBROADCASTSS,
+	IX86_BUILTIN_VBROADCASTSD256, IX86_BUILTIN_VBROADCASTSS256,
+	IX86_BUILTIN_VBROADCASTPD256, IX86_BUILTIN_VBROADCASTPS256,
+	IX86_BUILTIN_LDDQU256, IX86_BUILTIN_LOADDQU256 and
+	IX86_BUILTIN_STOREDQU256.
+	(ix86_init_mmx_sse_builtins): Define __builtin_ia32_vbroadcastss,
+	__builtin_ia32_vbroadcastsd256, __builtin_ia32_vbroadcastss256,
+	__builtin_ia32_vbroadcastf128_pd256,
+	__builtin_ia32_vbroadcastf128_ps256, __builtin_ia32_lddqu256,
+	__builtin_ia32_loaddqu256 and __builtin_ia32_storedqu256.
+	(ix86_expand_binop_imm_builtin): Don't use gcc_unreachable
+	for AVX.
+	(ix86_expand_store_builtin): Enable CODE_FOR_avx_movntv2di
+	and CODE_FOR_avx_movdqu.
+	(ix86_expand_unop_builtin): Enable CODE_FOR_avx_lddqu and
+	CODE_FOR_avx_movdqu.
+	(ix86_expand_builtin): Handle IX86_BUILTIN_LOADDQU256,
+	IX86_BUILTIN_STOREDQU256, IX86_BUILTIN_LDDQU256,
+	IX86_BUILTIN_VBROADCASTSS, IX86_BUILTIN_VBROADCASTSD256,
+	IX86_BUILTIN_VBROADCASTSS256, IX86_BUILTIN_VBROADCASTPD256
+	and IX86_BUILTIN_VBROADCASTPS256.
+	(x86_extended_reg_mentioned_p): Check INSN_P before using
+	PATTERN.
+
+	* config/i386/i386.h (AVX_VEC_FLOAT_MODE_P): New.
+
+	* config/i386/i386.md (prefix_vex): Renamed to ...
+	(prefix): This.  Change list of values to "orig,vex" and default
+	to "orig".
+	(prefix_vex_imm8): New.
+	(prefix_vex_w): Likewise.
+	(length_vex): Likewise.
+	(*fop_sf_comm_mixed_avx): Likewise.
+	(*fop_sf_comm_avx): Likewise.
+	(*fop_sf_1_mixed_avx): Likewise.
+	(*fop_sf_1_avx): Likewise.
+	(*fop_df_comm_mixed_avx): Likewise.
+	(*fop_df_comm_avx): Likewise.
+	(*fop_df_1_mixed_avx): Likewise.
+	(*fop_df_1_avx): Likewise.
+	(length): Support VEX prefix.
+	(*cmpfp_i_mixed): Set prefix attribute
+	(*cmpfp_i_sse): Likewise.
+	(*cmpfp_iu_mixed): Likewise.
+	(*cmpfp_iu_sse): Likewise.
+	(avx_ashlti3): Likewise.
+	(avx_lshrti3): Likewise.
+	(*avx_setcc<mode>): Likewise.
+	(*extendsfdf2_mixed): Add AVX support and set prefix attribute.
+	(*truncdfsf_fast_mixed): Likewise.
+	(*truncdfsf_mixed): Likewise.
+	(*sqrt<mode>2_sse): Likewise.
+	(*rsqrtsf2_sse): Likewise.
+
+	* config/i386/i386-protos.h (ix86_attr_length_vex_default): New.
+
+	* config/i386/sse.md (AVXMODEQI): New.
+	(AVXMODEF21P): Likewise.
+	(AVXMODEF4P): Likewise.
+	(avxvecpsmode): Likewise.
+	(avxhalfvecmode): Likewise.
+	(avxscalarmode): Likewise.
+	(avxmodesuffix): Likewise.
+	(*mov<mode>_internal): Renamed to ...
+	(*avx_mov<mode>_internal): This.  Support 128bit AVX.  Set
+	prefix attribute.
+	(avx_movup<avxmodesuffixf2c>256): Renamed to ...
+	(avx_movup<avxmodesuffixf2c><avxmodesuffix>): This.  Support
+	128bit AVX.  Set prefix attribute.
+	(avx_movdqu): Renamed to ...
+	(avx_movdqu<avxmodesuffix>): This.  Support 128bit AVX.  Set
+	prefix attribute.
+	(*<addsub><mode>3): Renamed to ...
+	(*avx_<addsub><mode>3): This.  Support 128bit AVX. Set prefix
+	attribute.
+	(*mul<mode>3): Renamed to ...
+	(*avx_mul<mode>3): This.  Support 128bit AVX.  Set prefix
+	attribute.
+	(avx_movntv2di): New.
+	(avx_lddqu<avxmodesuffix>): Likewise.
+	(avx_storehps): New.
+	(avx_loadhps): Likewise.
+	(avx_storelps): Likewise.
+	(avx_loadlps): Likewise.
+	(avx_storehpd): Likewise.
+	(avx_storelpd): Likewise.
+	(avx_loadhpd): Likewise.
+	(avx_loadlpd): Likewise.
+	(avx_vbroadcasts<avxmodesuffixf2c><avxmodesuffix>): Likewise.
+	(avx_vbroadcastss256): Likewise.
+	(avx_vbroadcastf128_p<avxmodesuffixf2c>256): Likewise.
+	(avx_div<mode>3): Support 128bit AVX.  Set prefix attribute.
+	(*avx_maskcmp<mode>3): Likewise.
+	(avx_nand<mode>3): Likewise.
+	(*avx_nand<mode>3): Likewise.
+	(*avx_<code><mode>3): Likewise.
+	(*<code><mode>3): Renamed to ...
+	(*avx_<code><mode>3): This.  Support 128bit AVX.  Set prefix
+	attribute.
+	(*ieee_smin<mode>3): Renamed to ...
+	(*avx_ieee_smin<mode>3): This.  Support 128bit AVX.  Set prefix
+	attribute.
+	(*ieee_smax<mode>3): Renamed to ...
+	(*avx_ieee_smax<mode>3): This.  Support 128bit AVX.  Set prefix
+	attribute.
+	(avx_addsubv8sf3): Add prefix attribute.
+	(avx_addsubv4df3): Likewise.
+	(avx_h<addsub>v4df3): Likewise.
+	(avx_h<addsub>v8sf3): Likewise.
+	(avx_cmpp<avxmodesuffixf2c><mode>3): Likewise.
+	(avx_cmps<ssemodesuffixf2c><mode>3): Likewise.
+	(avx_cvtdq2ps256): Likewise.
+	(avx_cvtps2dq256): Likewise.
+	(avx_cvtdq2pd256): Likewise.
+	(avx_cvtpd2dq256): Likewise.
+	(avx_cvttpd2dq256): Likewise.
+	(avx_cvtpd2ps256): Likewise.
+	(avx_cvtps2pd256): Likewise.
+	(avx_shufps256_1): Likewise.
+	(avx_vextractf128<mode>): Likewise.
+	(avx_shufpd256_1): Likewise.
+	(*avx_vzeroall): Likewise.
+	(avx_vzeroupper): Likewise.
+	(avx_vzeroupper_rex64): Likewise.
+	(avx_vpermil<mode>): Likewise.
+	(avx_vpermilvar<mode>3): Likewise.
+	(avx_vpermil2<mode>3): Likewise.
+	(avx_vperm2f128<mode>3): Likewise.
+	(*<code><mode>3): Renamed to ...
+	(*avx_<code><mode>3): This.  Support 128bit AVX.  Set prefix
+	attribute.
+	(avx_blendp<avxmodesuffixf2c>256): Renamed to ...
+	(avx_blendp<avxmodesuffixf2c><avxmodesuffix>): This.  Support
+	128bit AVX.  Set prefix attribute.
+	(avx_blendvp<avxmodesuffixf2c>256): Renamed to ...
+	(avx_blendvp<avxmodesuffixf2c><avxmodesuffix>): This.  Support
+	128bit AVX.  Set prefix attribute.
+	(avx_dpps256): Renamed to ...
+	(avx_dpp<avxmodesuffixf2c><avxmodesuffix>): This.  Support
+	128bit AVX.  Set prefix attribute.
+
+2008-04-20  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (sse_builtin_type): Revert the last change.
+	(bdesc_2arg): Likewise.
+	(bdesc_sse_args): Likewise.
+	(ix86_init_mmx_sse_builtins): Likewise.
+	(ix86_expand_sse_operands_builtin): Likewise.
+
+2008-04-20  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (sse_builtin_type): Add V8SF_FTYPE_V8SF_V8SF,
+	V4DF_FTYPE_V4DF_V4DF, V4SF_FTYPE_V4SF_V4SF and
+	V2DF_FTYPE_V2DF_V2DF.
+	(bdesc_2arg): Move all AVX builtins to ...
+	(bdesc_sse_args): Here.
+	(ix86_init_mmx_sse_builtins): Updated to handle more AVX builtins.
+	(ix86_expand_sse_operands_builtin): Handle more AVX builtins.
+
+2008-04-19  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/gmmintrin.h (_mm_permutevar_pd): Call
+	__builtin_ia32_vpermilvarpd instead of __builtin_ia32_vpermilpd128.
+	(_mm256_permutevar_pd): Call __builtin_ia32_vpermilvarpd256
+	instead of __builtin_ia32_vpermilpd256.
+	(_mm_permutevar_ps): Call __builtin_ia32_vpermilvarps instead
+	of __builtin_ia32_vpermilps128.
+	(_mm256_permutevar_ps): Call __builtin_ia32_vpermilvarps256
+	instead of __builtin_ia32_vpermilps256.
+	(_mm_permute_pd): Call __builtin_ia32_vpermilpd instead of
+	__builtin_ia32_vpermilpd128.
+	(_mm256_permute_pd): Fix a typo.
+	(_mm_permute_ps): Call __builtin_ia32_vpermilps instead of
+	__builtin_ia32_vpermilps128.
+	(_mm_permute2_pd): Call __builtin_ia32_vpermil2pd instead of
+	__builtin_ia32_vpermil2pd128.
+	(_mm_permute2_ps): Call __builtin_ia32_vpermil2ps instead of
+	__builtin_ia32_vpermil2ps128.
+	(_mm_maskload_pd): Call __builtin_ia32_maskloadpd instead of
+	__builtin_ia32_maskloadpd128.
+	(_mm_maskstore_pd): Call __builtin_ia32_maskstorepd instead of
+	__builtin_ia32_maskstorepd128.
+	(_mm_maskload_ps): Call __builtin_ia32_maskloadps instead of
+	__builtin_ia32_maskloadps128.
+	(_mm_maskstore_ps): Call __builtin_ia32_maskstoreps instead of
+	__builtin_ia32_maskstoreps128.
+
+	* config/i386/i386.c (ix86_builtins): Add IX86_BUILTIN_VPERMILVARPD,
+	IX86_BUILTIN_VPERMILVARPS, IX86_BUILTIN_VPERMILVARPD256,
+	IX86_BUILTIN_VPERMILVARPS256, IX86_BUILTIN_VPERMILPD,
+	IX86_BUILTIN_VPERMILPS, IX86_BUILTIN_VPERMILPD256,
+	IX86_BUILTIN_VPERMILPS256, IX86_BUILTIN_VPERMIL2PD,
+	IX86_BUILTIN_VPERMIL2PS, IX86_BUILTIN_VPERMIL2PD256,
+	IX86_BUILTIN_VPERMIL2PS256, IX86_BUILTIN_VPERM2F128PD256,
+	IX86_BUILTIN_VPERM2F128PS256 and IX86_BUILTIN_VPERM2F128SI256.
+	(sse_builtin_type): Add V8SF_FTYPE_V8SF_INT,
+	V4DF_FTYPE_V4DF_INT, V8SI_FTYPE_V8SI_V8SI_INT,
+	V8SF_FTYPE_V8SF_V8SF_V8SF_INT, V4DF_FTYPE_V4DF_V4DF_V4DF_INT,
+	V4SF_FTYPE_V4SF_V4SF_V4SF_INT and V2DF_FTYPE_V2DF_V2DF_V2DF_INT.
+	(bdesc_sse_args): Add __builtin_ia32_vperm2f128_pd256,
+	__builtin_ia32_vperm2f128_ps256, __builtin_ia32_vperm2f128_si256,
+	__builtin_ia32_vpermilpd, __builtin_ia32_vpermilps,
+	__builtin_ia32_vpermilpd256, __builtin_ia32_vpermilps256,
+	__builtin_ia32_vpermil2pd, __builtin_ia32_vpermil2ps,
+	__builtin_ia32_vpermil2pd256 and __builtin_ia32_vpermil2ps256.
+	(bdesc_2arg): Add __builtin_ia32_vpermilvarpd,
+	__builtin_ia32_vpermilvarps, __builtin_ia32_vpermilvarpd256
+	and __builtin_ia32_vpermilvarps256.
+	(bdesc_1arg): Add IX86_BUILTIN_VPERMILPD, IX86_BUILTIN_VPERMILPS,
+	IX86_BUILTIN_VPERMILPD256 and IX86_BUILTIN_VPERMILPS256.
+	(ix86_init_mmx_sse_builtins): Handle bdesc_avx_4arg.  Support
+	v8si_ftype_v8si_v8si_int in bdesc_2arg.  Define
+	__builtin_ia32_vpermilpd, __builtin_ia32_vpermilps,
+	__builtin_ia32_vpermilpd256 and __builtin_ia32_vpermilps256.
+	(ix86_init_mmx_sse_builtins): Handle more AVX builtins.
+	(ix86_expand_sse_operands_builtin): Support 4 arguments.  Handle
+	more AVX builtins.
+
+	* config/i386/i386.md (UNSPEC_VPERMIL): New.
+	(UNSPEC_VPERMIL2): Likewise.
+	(UNSPEC_VPERMIL2F128): Likewise.
+
+	* config/i386/sse.md (vpermilbits): New.
+	(avx_vpermil<mode>3): Likewise.
+	(avx_vpermilvar<mode>3): Likewise.
+	(avx_vpermil2<mode>3): Likewise.
+	(avx_vpermil2f128<mode>3): Likewise.
+
+2008-04-19  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_expand_sse4_unpack): Use
+	gen_avx_lshrti3 for AVX.
+	(ix86_expand_binop_imm_builtin): Use CODE_FOR_avx_ashlti3 and
+	CODE_FOR_avx_lshrti3 for AVX.
+
+2008-04-19  Xuepeng Guo  <xuepeng.guo@intel.com>
+
+	* config/i386/i386.md (avx_ashlti3): New.
+	(avx_lshlti3): Likewise.
+
+2008-04-19  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (sse_builtin_type): Add V8SI_FTYPE_V8SF,
+	V8SF_FTYPE_V8SI, V4SI_FTYPE_V4DF, V4DF_FTYPE_V4SI,
+	V4DF_FTYPE_V4SF and V4SF_FTYPE_V4DF.
+	(bdesc_2arg): Move AVX builtins to ...
+	(bdesc_sse_args): Here.
+	(ix86_init_mmx_sse_builtins): Updated to handle more AVX builtins.
+	Remove __builtin_ia32_cvtdq2pd256, __builtin_ia32_cvtdq2ps256,
+	__builtin_ia32_cvtpd2ps256, __builtin_ia32_cvtps2dq256,
+	__builtin_ia32_cvttps2dq256, __builtin_ia32_cvtps2pd256,
+	__builtin_ia32_cvtpd2dq256 and __builtin_ia32_cvttpd2dq256.
+	(ix86_expand_sse_operands_builtin): Handle more AVX builtins.
+
+2008-04-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (sse_builtin_type): Add V4SI_FTYPE_V8SI_INT,
+	V4SF_FTYPE_V8SF_INT, V2DF_FTYPE_V4DF_INT,
+	V8SF_FTYPE_V8SF_V8SF_V8SF, V4DF_FTYPE_V4DF_V4DF_V4DF,
+	V8SF_FTYPE_V8SF_V8SF_INT and V4DF_FTYPE_V4DF_V4DF_INT.
+	(bdesc_sse_args): Add some AVX instrincis.
+	(bdesc_1arg): Remove IX86_BUILTIN_EXTRACTF128PD256,
+	IX86_BUILTIN_EXTRACTF128PS256 and
+	and IX86_BUILTIN_EXTRACTF128SI256.
+	(ix86_init_mmx_sse_builtins): Updated to handle some AVX
+	instrincis.  Remove __builtin_ia32_vextractf128_pd256,
+	__builtin_ia32_vextractf128_ps256 and
+	__builtin_ia32_vextractf128_si256.
+	(ix86_expand_sse_operands_builtin): Handle some AVX instrincis.
+	(ix86_expand_unop_builtin): Remove CODE_FOR_avx_vextractf128v2df,
+	CODE_FOR_avx_vextractf128v4sf and CODE_FOR_avx_vextractf128v4si.
+
+2008-04-15  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_expand_builtin): Updated.
+
+	* config/i386/i386.md (XMM0_REG...XMM15_REG): Restored.
+
+	* config/i386/sse.md (avx_vzeroupper): Rewrite for 32bit.
+	(avx_vzeroupper_rex64): New.
+
+2008-04-14  Uros Bizjak  <ubizjak@gmail.com>
+	    H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.md (XMM0_REG...XMM15_REG): Removed.
+	* config/i386/sse.md (avx_vzeroall_rex64): Likewise.
+	* config/i386/i386.c (ix86_expand_builtin): Updated.
+
+2008-04-14  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/predicates.md (vzeroall_operation): New.
+
+	* config/i386/sse.md (avx_vzeroall): Rewrite to use define_expand.
+	(*avx_vzeroall): New.
+
+2008-04-11  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_builtins): Add IX86_BUILTIN_VZEROALL
+	and IX86_BUILTIN_VZEROUPPER.
+	(ix86_init_mmx_sse_builtins): Handle __builtin_ia32_vzeroall
+	and __builtin_ia32_vzeroupper.
+	(ix86_expand_builtin): Handle IX86_BUILTIN_VZEROALL and
+	IX86_BUILTIN_VZEROUPPER.
+
+	* config/i386/i386.md (UNSPECV_VZEROALL): New.
+	(UNSPECV_VZEROUPPER): Likewise.
+	(XMM0_REG): Likewise.
+	(XMM1_REG): Likewise.
+	(XMM2_REG): Likewise.
+	(XMM3_REG): Likewise.
+	(XMM4_REG): Likewise.
+	(XMM5_REG): Likewise.
+	(XMM6_REG): Likewise.
+	(XMM7_REG): Likewise.
+	(XMM8_REG): Likewise.
+	(XMM9_REG): Likewise.
+	(XMM10_REG): Likewise.
+	(XMM11_REG): Likewise.
+	(XMM12_REG): Likewise.
+	(XMM13_REG): Likewise.
+	(XMM14_REG): Likewise.
+	(XMM15_REG): Likewise.
+
+	* config/i386/sse.md (avx_vzeroall): New.
+	(avx_vzeroall_rex64): Likewise.
+	(avx_vzeroupper): Likewise.
+
+2008-04-11  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/gmmintrin.h (_mm256_extractf128_pd): Fix a typo.
+	(_mm256_extractf128_ps): Likewise.
+	(_mm256_extractf128_si256): Likewise.
+
+	* config/i386/i386.c (ix86_builtins): Add
+	IX86_BUILTIN_EXTRACTF128PD256, IX86_BUILTIN_EXTRACTF128PS256
+	and IX86_BUILTIN_EXTRACTF128SI256.
+	(bdesc_1arg): Add IX86_BUILTIN_EXTRACTF128PD256,
+	IX86_BUILTIN_EXTRACTF128PS256 and
+	and IX86_BUILTIN_EXTRACTF128SI256.
+	(ix86_init_mmx_sse_builtins): Handle
+	__builtin_ia32_vextractf128_pd256,
+	__builtin_ia32_vextractf128_ps256 and
+	__builtin_ia32_vextractf128_si256.
+	(ix86_expand_unop_builtin): Handle CODE_FOR_avx_vextractf128v2df,
+	CODE_FOR_avx_vextractf128v4sf and CODE_FOR_avx_vextractf128v4si.
+
+	* config/i386/sse.md (avxextractmode): New.
+	(avx_vextractf128<mode>): Likewise.
+
+2008-04-11  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR middle-end/35897
+	* dse.c (store_info): Change positions_needed to unsigned
+	HOST_WIDE_INT.
+	(lowpart_bitmask): New.
+	(record_store): Cast to unsigned HOST_WIDE_INT for
+	positions_needed.  Assert width <= size of positions_needed *
+	CHAR_BIT.  Call lowpart_bitmask to initialize positions_needed.
+	(check_mem_read_rtx): Use unsigned HOST_WIDE_INT on mask.  Call
+	lowpart_bitmask to set mask.
+
+2008-04-10  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.h (VALID_AVX_REG_MODE): Renamed to ...
+	(VALID_AVX256_REG_MODE): This.
+	(AVX_VEC_FLOAT_MODE_P): Renamed to ...
+	(AVX256_VEC_FLOAT_MODE_P): This.
+	* config/i386/i386.c: Updated.
+	* config/i386/sse.md: Likewise.
+
+2008-04-10  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.md (UNSPEC_PCMP): New.
+	(*avx_setcc<mode>): Likewise.
+	(prefix_vex): Likewise.
+	(*fop_df_comm_avx): Likewise.
+	(mode): Add OI, V8SF and V4DF.
+
+	* config/i386/predicates.md (const_4_to_5_operand): New.
+	(const_6_to_7_operand): Likewise.
+	(const_8_to_11_operand): Likewise.
+	(const_12_to_15_operand): Likewise.
+	(avx_comparison_float_operator): Likewise.
+
+	* config/i386/sse.md (AVX256MODEI): New.
+	(AVXMODEI): Likewise.
+	(AVX256MODE): Likewise.
+	(AVXMODE): Likewise.
+	(AVX256MODEF2P): Likewise.
+	(AVXMODEF2P): Likewise.
+	(avxvecmode): New.
+	(avxmodesuffixf2c): Likewise.
+	(blendbits): Support V8SF and V4DF.
+	(mov<mode>): New 256bit AVX integer vector pattern.
+	(*mov<mode>_internal): Likewise.
+	(mov<mode>): New 256bit AVX floating point vector pattern.
+	(*mov<mode>_internal): Likewise.
+	(<addsub><mode>3): Likewise.
+	(*<addsub><mode>3): Likewise.
+	(mul<mode>3): Likewise.
+	(*mul<mode>3): Likewise.
+	(<code><mode>3): Likewise.
+	(*<code><mode>3): Likewise.
+	(*ieee_smin<mode>3): Likewise.
+	(*ieee_smax<mode>3): Likewise.
+	(<code><mode>3): Likewise.
+	(*<code><mode>3): Likewise.
+	(push<mode>1): New 256bit AVX vector pattern.
+	(movmisalign<mode>): Likewise.
+	(avx_movup<avxmodesuffixf2c>): New.
+	(avx_movdqu): Likewise.
+	(divv8sf3): Likewise.
+	(divv4df3): Likewise.
+	(avx_div<mode>3): Likewise.
+	(avx_addsubv8sf3): Likewise.
+	(avx_addsubv4df3): Likewise.
+	(avx_h<addsub>v4df3): Likewise.
+	(avx_h<addsub>v8sf3): Likewise.
+	(avx_cmpp<avxmodesuffixf2c><mode>3): Likewise.
+	(avx_cmps<ssemodesuffixf2c><mode>3): Likewise.
+	(*avx_maskcmp<mode>3): Likewise.
+	(avx_nand<mode>3): Likewise.
+	(*avx_nand<mode>3): Likewise.
+	(avx_cvtdq2ps256): Likewise.
+	(avx_cvtps2dq256): Likewise.
+	(avx_cvttps2dq256): Likewise.
+	(avx_cvtdq2pd256): Likewise.
+	(avx_cvtpd2dq256): Likewise.
+	(avx_cvttpd2dq256): Likewise.
+	(avx_cvtpd2ps256): Likewise.
+	(avx_cvtps2pd256): Likewise.
+	(avx_shufps256): Likewise.
+	(avx_shufps256_1): Likewise.
+	(avx_shufpd256): Likewise.
+	(avx_shufpd256_1): Likewise.
+	(*avx_nand<mode>3): Likewise.
+	(*avx_<code><mode>3): Likewise.
+	(avx_blendp<avxmodesuffixf2c>256): Likewise.
+	(avx_blendvp<avxmodesuffixf2c>256): Likewise.
+	(avx_dpps256): Likewise.
+
+2008-04-10  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config.gcc (extra_headers): Add gmmintrin.h for x86 and x86-64.
+
+	* config/i386/cpuid.h (bit_FMA): New.
+	(bit_XSAVE): Likewise.
+	(bit_OSXSAVE): Likewise.
+	(bit_AVX): Likewise.
+
+	* config/i386/gmmintrin.h: New.
+
+	* config/i386/i386.c (OPTION_MASK_ISA_AVX_SET): New.
+	(OPTION_MASK_ISA_FMA_SET): Likewise.
+	(OPTION_MASK_ISA_AVX_UNSET): Likewise.
+	(OPTION_MASK_ISA_FMA_SET): Likewise.
+	(OPTION_MASK_ISA_SSE4_2_UNSET): Updated.
+	(ix86_handle_option): Handle OPT_mavx and OPT_mfma.
+	(pta_flags): Add PTA_AVX and PTA_FMA.
+	(override_options): Handle PTA_AVX and PTA_FMA.
+	(init_cumulative_args): Handle warn_avx.
+	(classify_argument): Handle V8SFmode, V8SImode, V32QImode,
+	V16HImode, V4DFmode and V4DImode.
+	(function_arg_advance_32): Likewise.
+	(function_arg_64): Likewise.
+	(standard_sse_constant_opcode): Handle AVX modes.
+	(print_reg): Handle 'x' and AVX registers.
+	(print_operand): Handle 'x' and AVX vector compare instructions.
+	(output_387_binary_op): Support AVX.
+	(ix86_builtins): Add IX86_BUILTIN_ADDPD256 and
+	IX86_BUILTIN_ADDPS256,  IX86_BUILTIN_ADDSUBPD256,
+	IX86_BUILTIN_ADDSUBPS256, IX86_BUILTIN_ANDPD256,
+	IX86_BUILTIN_ANDPS256, IX86_BUILTIN_ANDNPD256,
+	IX86_BUILTIN_ANDNPS256,  IX86_BUILTIN_BLENDPD256,
+	IX86_BUILTIN_BLENDPS256, IX86_BUILTIN_BLENDVPD256,
+	IX86_BUILTIN_BLENDVPS256, IX86_BUILTIN_DPPS256.
+	IX86_BUILTIN_DIVPD256, IX86_BUILTIN_DIVPS256,
+	IX86_BUILTIN_HADDPD256, IX86_BUILTIN_HADDPS256,
+	IX86_BUILTIN_HSUBPD256, IX86_BUILTIN_HSUBPS256,
+	IX86_BUILTIN_MAXPD256, IX86_BUILTIN_MAXPS256,
+	IX86_BUILTIN_MINPD256, IX86_BUILTIN_MINPS256,
+	IX86_BUILTIN_MULPD256, IX86_BUILTIN_MULPS256,
+	IX86_BUILTIN_ORPD256, IX86_BUILTIN_ORPS256,
+	IX86_BUILTIN_SHUFPD256, IX86_BUILTIN_SHUFPS256,
+	IX86_BUILTIN_SUBPD256, IX86_BUILTIN_SUBPS256,
+	IX86_BUILTIN_XORPD256, IX86_BUILTIN_XORPS256,
+	IX86_BUILTIN_CMPSD, IX86_BUILTIN_CMPSS, IX86_BUILTIN_CMPPD,
+	IX86_BUILTIN_CMPPS, IX86_BUILTIN_CMPPD256, IX86_BUILTIN_CMPPS256,
+	IX86_BUILTIN_CVTPD2PS256, IX86_BUILTIN_CVTPS2DQ256,
+	IX86_BUILTIN_CVTPS2PD256, IX86_BUILTIN_CVTTPD2DQ256,
+	IX86_BUILTIN_CVTPD2DQ256 and IX86_BUILTIN_CVTTPS2DQ256.
+	(bdesc_sse_3arg): Add __builtin_ia32_blendpd256,
+	__builtin_ia32_blendps256, __builtin_ia32_blendvpd256,
+	__builtin_ia32_blendvps256,  __builtin_ia32_dpps256,
+	__builtin_ia32_shufpd256, __builtin_ia32_shufps256,
+	__builtin_ia32_cmpsd, __builtin_ia32_cmpss,
+	__builtin_ia32_cmppd, __builtin_ia32_cmpps,
+	__builtin_ia32_cmppd256 and __builtin_ia32_cmpps256.
+	(bdesc_2arg): Add __builtin_ia32_addpd256,
+	__builtin_ia32_addps256, __builtin_ia32_addsubpd256,
+	__builtin_ia32_addsubps256, __builtin_ia32_andpd256,
+	__builtin_ia32_andps256, __builtin_ia32_andnpd256,
+	__builtin_ia32_andnps256, __builtin_ia32_divpd256,
+	__builtin_ia32_divps256, __builtin_ia32_haddpd256,
+	__builtin_ia32_hsubps256, __builtin_ia32_hsubpd256,
+	__builtin_ia32_haddps256, __builtin_ia32_maxpd256,
+	__builtin_ia32_maxps256, __builtin_ia32_minpd256,
+	__builtin_ia32_minps256, __builtin_ia32_mulpd256,
+	__builtin_ia32_mulps256, __builtin_ia32_orpd256,
+	__builtin_ia32_orps256, __builtin_ia32_subpd256,
+	__builtin_ia32_subps256, __builtin_ia32_xorpd256,
+	__builtin_ia32_xorps256.
+	(bdesc_1arg): Add entries for IX86_BUILTIN_CVTDQ2PD256,
+	IX86_BUILTIN_CVTDQ2PS256,  IX86_BUILTIN_CVTPD2PS256,
+	IX86_BUILTIN_CVTPS2DQ256, IX86_BUILTIN_CVTPS2PD256,
+	IX86_BUILTIN_CVTTPD2DQ256, IX86_BUILTIN_CVTPD2DQ256 and
+	IX86_BUILTIN_CVTTPS2DQ256.
+	(ix86_init_mmx_sse_builtins): Handle __builtin_ia32_blendpd256,
+	__builtin_ia32_blendps256, __builtin_ia32_blendvpd256,
+	__builtin_ia32_blendvps256, __builtin_ia32_addpd256 and
+	__builtin_ia32_addps256.  Define __builtin_ia32_cvtdq2pd256,
+	__builtin_ia32_cvtdq2ps256, __builtin_ia32_cvtpd2ps256,
+	__builtin_ia32_cvtps2dq256, __builtin_ia32_cvtps2pd256,
+	__builtin_ia32_cvttpd2dq256, __builtin_ia32_cvtpd2dq256 and
+	__builtin_ia32_cvttps2dq256.
+	(ix86_expand_sse_4_operands_builtin): Handle 
+	CODE_FOR_avx_blendpd256, CODE_FOR_avx_blendvpd256,
+	CODE_FOR_avx_blendvps256, CODE_FOR_avx_cmpsdv2df3,
+	CODE_FOR_avx_cmpssv4sf3, CODE_FOR_avx_cmppdv2df3,
+	CODE_FOR_avx_cmppsv4sf3, CODE_FOR_avx_cmppsv8sf3 and
+	CODE_FOR_avx_cmppdv4df3.
+	(ix86_expand_builtin): Use switch instead of if.
+	(ix86_hard_regno_mode_ok): Handle AVX mode.
+	(ix86_vector_mode_supported_p): Likewise.
+
+	* config/i386/i386.h (TARGET_AVX): New.
+	(TARGET_FMA): Likewise.
+	(TARGET_CPU_CPP_BUILTINS): Handle TARGET_AVX and TARGET_FMA.
+	(BIGGEST_ALIGNMENT): Set to 256 for TARGET_AVX.
+	(VALID_AVX_REG_MODE): New.
+	(AVX_VEC_FLOAT_MODE_P): Likewise.
+	(UNITS_PER_SIMD_WORD): Set to 32 for TARGET_AVX.
+	(SSE_REG_MODE_P): Allow AVX modes.
+	(ix86_args): Add a warn_avx field.
+
+	* config/i386/i386-modes.def (VECTOR_MODES (INT, 32)): New.
+	(VECTOR_MODES (FLOAT, 32)): Likewise.
+	(VECTOR_MODE (INT, DI, 8)): Likewise.
+	(VECTOR_MODE (INT, HI, 32)): Likewise.
+	(VECTOR_MODE (INT, QI, 64)): Likewise.
+	(VECTOR_MODE (FLOAT, DF, 8)): Likewise.
+	(VECTOR_MODE (FLOAT, SF, 16)): Likewise.
+	(VECTOR_MODE (INT, DI, 4)): Removed.
+	(VECTOR_MODE (INT, SI, 8)): Likewise.
+	(VECTOR_MODE (INT, HI, 16)): Likewise.
+	(VECTOR_MODE (INT, QI, 32)): Likewise.
+	(VECTOR_MODE (FLOAT, SF, 8)): Likewise.
+	(INT_MODE (OI, 32)): Likewise.
+
+	* config/i386/i386.opt (mavx): New.
+	(mfma): Likewise.
