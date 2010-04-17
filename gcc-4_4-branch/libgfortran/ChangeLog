@@ -1,3 +1,42 @@
+2010-04-01  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR libfortran/43605
+	* io/intrinsics.c (gf_ftell): New function, seek to correct offset.
+        (ftell): Call gf_ftell.
+	(FTELL_SUB): Likewise.
+
+2010-04-01  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR libfortran/43605
+	* io/intrinsics.c (ftell): Reset fbuf, correct offset.
+	(FTELL_SUB): Likewise.
+
+2010-03-30  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/43409
+	Back port from trunk.
+	* io/io.h: Fix type of size in st_parameter_inquire structure.
+	Add prototype for new function to return file size.
+	* io/unix.c (file_size): New function.
+	* io/inquire.c (inquire_via_unit): Use new function.
+	(inquire_via_filename): Use new function.
+
+2010-03-29  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/43265
+	* io/transfer.c (next_record_r): Only call hit_eof for specific
+	conditions when an EOF is encountered.
+
+2010-03-29  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/43551
+	* io/unix.c (buf_write): Set physical_offset after lseek.
+
+2010-03-25  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/43517
+	* io/read.c (read_x): Return if seen EOR condition.
+
 2010-03-17  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
 	PR libfortran/43265

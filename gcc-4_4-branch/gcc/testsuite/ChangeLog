@@ -1,3 +1,127 @@
+2010-04-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/43560
+	* gcc.c-torture/execute/pr43560.c: New test.
+
+2010-04-10  Jie Zhang  <jie@codesourcery.com>
+
+	PR target/43417
+	* gcc.target/sh/pr43417.c: New test.
+
+2010-04-08  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR target/43643
+	* gcc.dg/pr43643.c: New test.
+
+2010-04-08  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/42956
+	* gcc.c-torture/compile/pr42956.c: New testcase.
+
+2010-04-08  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline:
+	2010-03-29  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/43560
+	* gcc.dg/torture/pr43560.c: New testcase.
+
+	2010-04-01  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/43614
+	* gcc.c-torture/compile/pr43614.c: New testcase.
+
+2010-04-08  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/43186
+	* gcc.c-torture/compile/pr43186.c: New testcase.
+
+2010-04-07  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/43668
+	* gcc.target/i386/pr43668.c: New.
+
+2010-04-07  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/43629
+	* gcc.c-torture/execute/pr43629.c: New testcase.
+
+2010-04-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.target/s390/stackcheck1.c: Add dg-warning.
+
+	PR target/43638
+	* gcc.target/i386/pr43638.c: New test.
+
+2010-04-01  Janne Blomqvist  <jb@gcc.gnu.org>
+	    Dominique d'Humieres  <dominiq@lps.ens.fr>
+
+	PR libfortran/43605
+	* gfortran.dg/ftell_3.f90: Enhance test case by reading more.
+
+2010-04-01  Janne Blomqvist  <jb@gcc.gnu.org>
+	    Manfred Schwarb  <manfred99@gmx.ch>
+
+	PR libfortran/43605
+	* gfortran.dg/ftell_3.f90: New test.
+
+2010-03-31  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2010-03-27  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR tree-optimization/43528
+	* gcc.target/i386/pr43528.c: New test.
+
+	2010-03-26  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/43524
+	* gcc.target/i386/pr43524.c: New test.
+
+2010-03-31  Jie Zhang  <jie@codesourcery.com>
+
+	PR 43562
+	* gcc.dg/pr43562.c: New test.
+
+2010-03-30  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/43409
+	* gfortran.dg/inquire_size.f90: New test.
+
+2010-03-30  Jason Merrill  <jason@redhat.com>
+
+	PR c++/41786
+	* g++.dg/parse/ambig5.C: New.
+
+2010-03-30  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* gcc.target/s390/stackcheck1.c: New testcase.
+
+2010-03-29  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/43265
+	* gfortran.dg/read_eof_8.f90: New test.
+
+2010-03-29  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/43551
+	* gfortran.dg/direct_io_12.f90: New test.
+
+2010-03-27  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/43381
+	* gcc.dg/parm-impl-decl-3.c: New test.
+
+2010-03-26  Volker Reichelt  <reichelt@gcc.gnu.org>
+
+	PR c++/43024
+	* g++.dg/opt/ice1.C: New.
+
+2010-03-25  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/43517
+	* gfortran.dg/read_eof_7.f90: New test.
+
 2010-03-25  H.J. Lu  <hongjiu.lu@intel.com>
 
 	Backport from mainline:

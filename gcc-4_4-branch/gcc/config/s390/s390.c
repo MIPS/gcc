@@ -1650,9 +1650,19 @@ override_options (void)
     target_flags |= MASK_LONG_DOUBLE_128;
 #endif
 
-  if (s390_tune == PROCESSOR_2097_Z10
-      && !PARAM_SET_P (PARAM_MAX_UNROLLED_INSNS))
-    set_param_value ("max-unrolled-insns", 100);
+  if (s390_tune == PROCESSOR_2097_Z10)
+    {
+      if (!PARAM_SET_P (PARAM_MAX_UNROLLED_INSNS))
+	set_param_value ("max-unrolled-insns", 100);
+      if (!PARAM_SET_P (PARAM_MAX_UNROLL_TIMES))
+	set_param_value ("max-unroll-times", 32);
+      if (!PARAM_SET_P (PARAM_MAX_COMPLETELY_PEELED_INSNS))
+	set_param_value ("max-completely-peeled-insns", 800);
+      if (!PARAM_SET_P (PARAM_MAX_COMPLETELY_PEEL_TIMES))
+	set_param_value ("max-completely-peel-times", 64);
+    }
+
+  set_param_value ("max-pending-list-length", 256);
 }
 
 /* Map for smallest class containing reg regno.  */
@@ -7763,20 +7773,37 @@ s390_emit_prologue (void)
 	    }
 	  else
 	    {
-	      HOST_WIDE_INT stack_check_mask = ((s390_stack_size - 1)
-						& ~(stack_guard - 1));
-	      rtx t = gen_rtx_AND (Pmode, stack_pointer_rtx,
-				   GEN_INT (stack_check_mask));
-	      if (TARGET_64BIT)
-		gen_cmpdi (t, const0_rtx);
-	      else
-		gen_cmpsi (t, const0_rtx);
+ 	      /* stack_guard has to be smaller than s390_stack_size.
+ 		 Otherwise we would emit an AND with zero which would
+ 		 not match the test under mask pattern.  */
+ 	      if (stack_guard >= s390_stack_size)
+ 		{
+ 		  warning (0, "frame size of function %qs is "
+			   HOST_WIDE_INT_PRINT_DEC
+ 			   " bytes which is more than half the stack size. "
+ 			   "The dynamic check would not be reliable. "
+ 			   "No check emitted for this function.",
+ 			   current_function_name(),
+ 			   cfun_frame_layout.frame_size);
+ 		}
+ 	      else
+ 		{
+		  HOST_WIDE_INT stack_check_mask = ((s390_stack_size - 1)
+						    & ~(stack_guard - 1));
+		  rtx t = gen_rtx_AND (Pmode, stack_pointer_rtx,
+				       GEN_INT (stack_check_mask));
+		  if (TARGET_64BIT)
+		    gen_cmpdi (t, const0_rtx);
+		  else
+		    gen_cmpsi (t, const0_rtx);
 
-	      emit_insn (gen_conditional_trap (gen_rtx_EQ (CCmode,
-							   gen_rtx_REG (CCmode,
-								     CC_REGNUM),
-							   const0_rtx),
-					       const0_rtx));
+		  emit_insn (gen_conditional_trap (
+                               gen_rtx_EQ (CCmode,
+					   gen_rtx_REG (CCmode,
+							CC_REGNUM),
+					   const0_rtx),
+			       const0_rtx));
+		}
 	    }
   	}
 
