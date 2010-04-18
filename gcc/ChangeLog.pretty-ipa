@@ -1,5 +1,9 @@
 2010-14-06 Jan Hubicka  <jh@suse.cz> 
 
+	* passes.c (init_optimization_passes): Fix position of ipa-profile pass.
+
+2010-14-06 Jan Hubicka  <jh@suse.cz> 
+
 	* Merge from mainline.
 
 2010-04-06 Jan Hubicka  <jh@suse.cz> 
