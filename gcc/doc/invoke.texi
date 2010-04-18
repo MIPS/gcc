@@ -344,7 +344,7 @@ Objective-C and Objective-C++ Dialects}.
 -fgcse-sm -fif-conversion -fif-conversion2 -findirect-inlining @gol
 -finline-functions -finline-functions-called-once -finline-limit=@var{n} @gol
 -finline-small-functions -fipa-cp -fipa-cp-clone -fipa-matrix-reorg -fipa-pta @gol
--fipa-pure-const -fipa-reference -fipa-struct-reorg @gol
+-fipa-profile -fipa-pure-const -fipa-reference -fipa-struct-reorg @gol
 -fipa-type-escape -fira-algorithm=@var{algorithm} @gol
 -fira-region=@var{region} -fira-coalesce @gol
 -fira-loop-pressure -fno-ira-share-save-slots @gol
@@ -6590,6 +6590,17 @@ Perform interprocedural pointer analysis and interprocedural modification
 and reference analysis.  This option can cause excessive memory and
 compile-time usage on large compilation units.  It is not enabled by
 default at any optimization level.
+Enabled by default at @option{-O} and higher.
+
+@item -fipa-profile
+@opindex fipa-profile
+Perform interprocedural profile propagation.  The functions called only from
+cold functions are marked as cold. Also functions executed once (such as
+@samp{cold}, @samp{noreturn}, static constructors or destructors) are identified. Cold
+functions and loop less parts of functions executed once are then optimized for
+size.
+
+This flag is enabled by default at @option{-O1}.
 
 @item -fipa-cp
 @opindex fipa-cp

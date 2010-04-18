@@ -119,7 +119,7 @@ propagate (void)
 static bool
 gate_profile (void)
 {
-  return true;
+  return flag_ipa_profile;
 }
 
 struct ipa_opt_pass_d pass_ipa_profile =
@@ -132,7 +132,7 @@ struct ipa_opt_pass_d pass_ipa_profile =
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
-  TV_IPA_REFERENCE,		        /* tv_id */
+  TV_IPA_PROFILE,		        /* tv_id */
   0,	                                /* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
