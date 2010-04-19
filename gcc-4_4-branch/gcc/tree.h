@@ -1308,6 +1308,9 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
   (TREE_CHECK3 (NODE, VAR_DECL, PARM_DECL, \
 		RESULT_DECL)->decl_common.decl_by_reference_flag)
 
+#define DECL_READ_P(NODE) \
+  (TREE_CHECK2 (NODE, VAR_DECL, PARM_DECL)->decl_common.decl_read_flag)
+
 /* In a CALL_EXPR, means that the call is the jump from a thunk to the
    thunked-to function.  */
 #define CALL_FROM_THUNK_P(NODE) (CALL_EXPR_CHECK (NODE)->base.protected_flag)
@@ -2737,8 +2740,9 @@ struct tree_decl_common GTY(())
   unsigned no_tbaa_flag : 1;
   /* In VAR_DECL, PARM_DECL and RESULT_DECL, this is DECL_BY_REFERENCE.  */
   unsigned decl_by_reference_flag : 1;
-  /* Padding so that 'align' can be on a 32-bit boundary.  */
-  unsigned decl_common_unused : 1;
+  /* In VAR_DECL and PARM_DECL set when the decl has been used except for
+     being set.  */
+  unsigned decl_read_flag : 1;
 
   unsigned int align : 24;
   /* DECL_OFFSET_ALIGN, used only for FIELD_DECLs.  */
