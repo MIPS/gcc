@@ -1,3 +1,28 @@
+2010-04-19  Jie Zhang  <jie@codesourcery.com>
+
+	PR target/43662
+	* gcc.target/i386/pr43662.c: New test.
+
+2010-04-19 Ira Rosen <irar@il.ibm.com>
+
+	PR tree-optimization/43771
+	* g++.dg/vect/pr43771.cc: New test.
+
+2010-04-18  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/rep_clause5.ad[sb]: New test.
+	* gnat.dg/rep_clause5_pkg.ads: New helper.
+
+2010-04-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/43560
+	* gcc.c-torture/execute/pr43560.c: New test.
+
+2010-04-10  Jie Zhang  <jie@codesourcery.com>
+
+	PR target/43417
+	* gcc.target/sh/pr43417.c: New test.
+
 2010-04-08  Jakub Jelinek  <jakub@redhat.com>
 
 	PR debug/43670
