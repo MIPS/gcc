@@ -3708,6 +3708,11 @@ output_call_frame_info (int for_eh)
     }
 
   dw2_asm_output_nstring (augmentation, -1, "CIE Augmentation");
+  if (dw_cie_version >= 4)
+    {
+      dw2_asm_output_data (1, DWARF2_ADDR_SIZE, "CIE Address Size");
+      dw2_asm_output_data (1, 0, "CIE Segment Size");
+    }
   dw2_asm_output_data_uleb128 (1, "CIE Code Alignment Factor");
   dw2_asm_output_data_sleb128 (DWARF_CIE_DATA_ALIGNMENT,
 			       "CIE Data Alignment Factor");
@@ -5599,8 +5604,7 @@ static GTY(()) dw_die_ref comp_unit_die;
 static GTY(()) limbo_die_node *limbo_die_list;
 
 /* A list of DIEs for which we may have to generate
-   DW_AT_MIPS_linkage_name once their DECL_ASSEMBLER_NAMEs are
-   set.  */
+   DW_AT_{,MIPS_}linkage_name once their DECL_ASSEMBLER_NAMEs are set.  */
 static GTY(()) limbo_die_node *deferred_asm_name;
 
 /* Filenames referenced by this compilation unit.  */
@@ -5627,8 +5631,12 @@ struct var_loc_list_def GTY (())
 {
   struct var_loc_node * GTY (()) first;
 
-  /* Do not mark the last element of the chained list because
-     it is marked through the chain.  */
+  /* Pointer to the last but one or last element of the
+     chained list.  If the list is empty, both first and
+     last are NULL, if the list contains just one node
+     or the last node certainly is not redundant, it points
+     to the last node, otherwise points to the last but one.
+     Do not mark it for GC because it is marked through the chain.  */
   struct var_loc_node * GTY ((skip ("%h"))) last;
 
   /* DECL_UID of the variable decl.  */
@@ -5827,7 +5835,7 @@ static hashval_t decl_loc_table_hash (const void *);
 static int decl_loc_table_eq (const void *, const void *);
 static var_loc_list *lookup_decl_loc (const_tree);
 static void equate_decl_number_to_die (tree, dw_die_ref);
-static struct var_loc_node *add_var_loc_to_decl (tree, rtx);
+static struct var_loc_node *add_var_loc_to_decl (tree, rtx, const char *);
 static void print_spaces (FILE *);
 static void print_die (dw_die_ref, FILE *);
 static void print_dwarf_line_table (FILE *);
@@ -6074,6 +6082,12 @@ static int maybe_emit_file (struct dwarf_file_data *fd);
 #define DEBUG_MACINFO_SECTION_LABEL     "Ldebug_macinfo"
 #endif
 
+/* Mangled name attribute to use.  This used to be a vendor extension
+   until DWARF 4 standardized it.  */
+#define AT_linkage_name \
+  (dwarf_version >= 4 ? DW_AT_linkage_name : DW_AT_MIPS_linkage_name)
+
+
 /* Definitions of defaults for formats and names of various special
    (artificial) labels which may be generated within this file (when the -g
    options is used and DWARF2_DEBUGGING_INFO is in effect.
@@ -6286,6 +6300,12 @@ dwarf_tag_name (unsigned int tag)
       return "DW_TAG_condition";
     case DW_TAG_shared_type:
       return "DW_TAG_shared_type";
+    case DW_TAG_type_unit:
+      return "DW_TAG_type_unit";
+    case DW_TAG_rvalue_reference_type:
+      return "DW_TAG_rvalue_reference_type";
+    case DW_TAG_template_alias:
+      return "DW_TAG_template_alias";
     case DW_TAG_MIPS_loop:
       return "DW_TAG_MIPS_loop";
     case DW_TAG_format_label:
@@ -6462,6 +6482,19 @@ dwarf_attr_name (unsigned int attr)
     case DW_AT_call_line:
       return "DW_AT_call_line";
 
+    case DW_AT_signature:
+      return "DW_AT_signature";
+    case DW_AT_main_subprogram:
+      return "DW_AT_main_subprogram";
+    case DW_AT_data_bit_offset:
+      return "DW_AT_data_bit_offset";
+    case DW_AT_const_expr:
+      return "DW_AT_const_expr";
+    case DW_AT_enum_class:
+      return "DW_AT_enum_class";
+    case DW_AT_linkage_name:
+      return "DW_AT_linkage_name";
+
     case DW_AT_MIPS_fde:
       return "DW_AT_MIPS_fde";
     case DW_AT_MIPS_loop_begin:
@@ -6557,6 +6590,14 @@ dwarf_form_name (unsigned int form)
       return "DW_FORM_ref_udata";
     case DW_FORM_indirect:
       return "DW_FORM_indirect";
+    case DW_FORM_sec_offset:
+      return "DW_FORM_sec_offset";
+    case DW_FORM_exprloc:
+      return "DW_FORM_exprloc";
+    case DW_FORM_flag_present:
+      return "DW_FORM_flag_present";
+    case DW_FORM_ref_sig8:
+      return "DW_FORM_ref_sig8";
     default:
       return "DW_FORM_<unknown>";
     }
@@ -7442,7 +7483,7 @@ equate_decl_number_to_die (tree decl, dw_die_ref decl_die)
 /* Add a variable location node to the linked list for DECL.  */
 
 static struct var_loc_node *
-add_var_loc_to_decl (tree decl, rtx loc_note)
+add_var_loc_to_decl (tree decl, rtx loc_note, const char *label)
 {
   unsigned int decl_id = DECL_UID (decl);
   var_loc_list *temp;
@@ -7461,23 +7502,62 @@ add_var_loc_to_decl (tree decl, rtx loc_note)
 
   if (temp->last)
     {
+      struct var_loc_node *last = temp->last, *unused = NULL;
+      if (last->next)
+	{
+	  last = last->next;
+	  gcc_assert (last->next == NULL);
+	}
+      /* TEMP->LAST here is either pointer to the last but one or
+	 last element in the chained list, LAST is pointer to the
+	 last element.  */
+      /* If the last note doesn't cover any instructions, remove it.  */
+      if (label && strcmp (last->label, label) == 0)
+	{
+	  if (temp->last != last)
+	    {
+	      temp->last->next = NULL;
+	      unused = last;
+	      last = temp->last;
+	      gcc_assert (strcmp (last->label, label) != 0);
+	    }
+	  else
+	    {
+	      gcc_assert (temp->first == temp->last);
+	      memset (temp->last, '\0', sizeof (*temp->last));
+	      return temp->last;
+	    }
+	}
       /* If the current location is the same as the end of the list,
 	 and either both or neither of the locations is uninitialized,
 	 we have nothing to do.  */
-      if ((!rtx_equal_p (NOTE_VAR_LOCATION_LOC (temp->last->var_loc_note),
+      if ((!rtx_equal_p (NOTE_VAR_LOCATION_LOC (last->var_loc_note),
 			 NOTE_VAR_LOCATION_LOC (loc_note)))
-	  || ((NOTE_VAR_LOCATION_STATUS (temp->last->var_loc_note)
+	  || ((NOTE_VAR_LOCATION_STATUS (last->var_loc_note)
 	       != NOTE_VAR_LOCATION_STATUS (loc_note))
-	      && ((NOTE_VAR_LOCATION_STATUS (temp->last->var_loc_note)
+	      && ((NOTE_VAR_LOCATION_STATUS (last->var_loc_note)
 		   == VAR_INIT_STATUS_UNINITIALIZED)
 		  || (NOTE_VAR_LOCATION_STATUS (loc_note)
 		      == VAR_INIT_STATUS_UNINITIALIZED))))
 	{
-	  /* Add LOC to the end of list and update LAST.  */
-	  loc = GGC_CNEW (struct var_loc_node);
-	  temp->last->next = loc;
-	  temp->last = loc;
+	  /* Add LOC to the end of list and update LAST.  If the last
+	     element of the list has been removed above, reuse its
+	     memory for the new node, otherwise allocate a new one.  */
+	  if (unused)
+	    {
+	      loc = unused;
+	      memset (loc, '\0', sizeof (*loc));
+	    }
+	  else
+	    loc = GGC_CNEW (struct var_loc_node);
+	  last->next = loc;
+	  /* Ensure TEMP->LAST will point either to the new last but one
+	     element of the chain, or to the last element in it.  */
+	  if (last != temp->last)
+	    temp->last = last;
 	}
+      else if (unused)
+	ggc_free (unused);
     }
   else
     {
@@ -7996,6 +8076,7 @@ is_type_die (dw_die_ref die)
     case DW_TAG_enumeration_type:
     case DW_TAG_pointer_type:
     case DW_TAG_reference_type:
+    case DW_TAG_rvalue_reference_type:
     case DW_TAG_string_type:
     case DW_TAG_structure_type:
     case DW_TAG_subroutine_type:
@@ -8033,6 +8114,7 @@ is_comdat_die (dw_die_ref c)
 
   if (c->die_tag == DW_TAG_pointer_type
       || c->die_tag == DW_TAG_reference_type
+      || c->die_tag == DW_TAG_rvalue_reference_type
       || c->die_tag == DW_TAG_const_type
       || c->die_tag == DW_TAG_volatile_type)
     {
@@ -10464,7 +10546,11 @@ modified_type_die (tree type, int is_const_type, int is_volatile_type,
     }
   else if (code == REFERENCE_TYPE)
     {
-      mod_type_die = new_die (DW_TAG_reference_type, comp_unit_die, type);
+      if (TYPE_REF_IS_RVALUE (type) && dwarf_version >= 4)
+	mod_type_die = new_die (DW_TAG_rvalue_reference_type, comp_unit_die,
+				type);
+      else
+	mod_type_die = new_die (DW_TAG_reference_type, comp_unit_die, type);
       add_AT_unsigned (mod_type_die, DW_AT_byte_size,
 		       simple_type_size_in_bits (type) / BITS_PER_UNIT);
       item_type = TREE_TYPE (type);
@@ -13983,7 +14069,7 @@ add_location_or_const_value_attribute (dw_die_ref die, tree decl,
   loc_list = lookup_decl_loc (decl);
   if (loc_list
       && loc_list->first
-      && loc_list->first == loc_list->last
+      && loc_list->first->next == NULL
       && NOTE_VAR_LOCATION (loc_list->first->var_loc_note)
       && NOTE_VAR_LOCATION_LOC (loc_list->first->var_loc_note))
     {
@@ -14376,6 +14462,7 @@ lower_bound_default (void)
       return 1;
     case DW_LANG_UPC:
     case DW_LANG_D:
+    case DW_LANG_Python:
       return dwarf_version >= 4 ? 0 : -1;
     case DW_LANG_Ada95:
     case DW_LANG_Ada83:
@@ -14781,7 +14868,7 @@ add_name_and_src_coords_attributes (dw_die_ref die, tree decl)
 	      deferred_asm_name = asm_name;
 	    }
 	  else if (DECL_ASSEMBLER_NAME (decl) != DECL_NAME (decl))
-	    add_AT_string (die, DW_AT_MIPS_linkage_name,
+	    add_AT_string (die, AT_linkage_name,
 			   IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)));
 	}
     }
@@ -16598,8 +16685,12 @@ gen_pointer_type_die (tree type, dw_die_ref context_die)
 static void
 gen_reference_type_die (tree type, dw_die_ref context_die)
 {
-  dw_die_ref ref_die
-    = new_die (DW_TAG_reference_type, scope_die_for (type, context_die), type);
+  dw_die_ref ref_die, scope_die = scope_die_for (type, context_die);
+
+  if (TYPE_REF_IS_RVALUE (type) && dwarf_version >= 4)
+    ref_die = new_die (DW_TAG_rvalue_reference_type, scope_die, type);
+  else
+    ref_die = new_die (DW_TAG_reference_type, scope_die, type);
 
   equate_type_number_to_die (type, ref_die);
   add_type_attribute (ref_die, TREE_TYPE (type), 0, 0, context_die);
@@ -18133,22 +18224,33 @@ dwarf2out_var_location (rtx loc_note)
   if (next_real == NULL_RTX)
     return;
 
+  /* If there were any real insns between note we processed last time
+     and this note (or if it is the first note), clear
+     last_{,postcall_}label so that they are not reused this time.  */
+  if (last_var_location_insn == NULL_RTX
+      || last_var_location_insn != next_real
+      || last_in_cold_section_p != in_cold_section_p)
+    {
+      last_label = NULL;
+      last_postcall_label = NULL;
+    }
+
   decl = NOTE_VAR_LOCATION_DECL (loc_note);
-  newloc = add_var_loc_to_decl (decl, loc_note);
+  newloc = add_var_loc_to_decl (decl, loc_note,
+				NOTE_DURING_CALL_P (loc_note)
+				? last_postcall_label : last_label);
   if (newloc == NULL)
     return;
 
   /* If there were no real insns between note we processed last time
-     and this note, use the label we emitted last time.  */
-  if (last_var_location_insn == NULL_RTX
-      || last_var_location_insn != next_real
-      || last_in_cold_section_p != in_cold_section_p)
+     and this note, use the label we emitted last time.  Otherwise
+     create a new label and emit it.  */
+  if (last_label == NULL)
     {
       ASM_GENERATE_INTERNAL_LABEL (loclabel, "LVL", loclabel_num);
       ASM_OUTPUT_DEBUG_LABEL (asm_out_file, "LVL", loclabel_num);
       loclabel_num++;
       last_label = ggc_strdup (loclabel);
-      last_postcall_label = NULL;
     }
   newloc->var_loc_note = loc_note;
   newloc->next = NULL;
@@ -18652,6 +18754,7 @@ prune_unused_types_walk (dw_die_ref die)
     case DW_TAG_packed_type:
     case DW_TAG_pointer_type:
     case DW_TAG_reference_type:
+    case DW_TAG_rvalue_reference_type:
     case DW_TAG_volatile_type:
     case DW_TAG_typedef:
     case DW_TAG_array_type:
@@ -18832,7 +18935,7 @@ file_table_relative_p (void ** slot, void *param)
   return 1;
 }
 
-/* Move a DW_AT_MIPS_linkage_name attribute just added to dw_die_ref
+/* Move a DW_AT_{,MIPS_}linkage_name attribute just added to dw_die_ref
    to the location it would have been added, should we know its
    DECL_ASSEMBLER_NAME when we added other attributes.  This will
    probably improve compactness of debug info, removing equivalent
@@ -18846,7 +18949,7 @@ move_linkage_attr (dw_die_ref die)
   dw_attr_node linkage = *VEC_last (dw_attr_node, die->die_attr);
   dw_attr_ref prev;
 
-  gcc_assert (linkage.dw_attr == DW_AT_MIPS_linkage_name);
+  gcc_assert (linkage.dw_attr == AT_linkage_name);
 
   while (--ix)
     {
@@ -19078,7 +19181,7 @@ dwarf2out_finish (const char *filename)
       tree decl = node->created_for;
       if (DECL_ASSEMBLER_NAME (decl) != DECL_NAME (decl))
 	{
-	  add_AT_string (node->die, DW_AT_MIPS_linkage_name,
+	  add_AT_string (node->die, AT_linkage_name,
 			 IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)));
 	  move_linkage_attr (node->die);
 	}

@@ -1,4 +1,61 @@
+2010-04-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (add_var_loc_to_decl): Add LABEL argument.  Drop
+	last chain entry if it starts with the still current label.
+	(add_location_or_const_value_attribute): Check that
+	loc_list->first->next is NULL instead of comparing ->first with
+	->last.
+	(dwarf2out_var_location): Pass last_label resp. last_postcall_label
+	to add_var_loc_to_decl.
+
+	* dwarf2out.c (output_call_frame_info): For dw_cie_version
+	>= 4 add also address size and segment size fields into CIE
+	header.
+
+	* unwind-dw2.c (extract_cie_info): Handle CIE version 4, as
+	long as address size is the same as sizeof (void *) and
+	segment size is 0.
+	* unwind-dw2-fde.c (get_cie_encoding): Likewise.  If
+	address size or segment size is unexpected, return DW_EH_PE_omit.
+	(classify_object_over_fdes): If get_cie_encoding returned
+	DW_EH_PE_omit, return -1.
+	(init_object): If classify_object_over_fdes returned -1,
+	pretend there were no FDEs at all.
+
+2010-04-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (AT_linkage_name): Define.
+	(add_name_and_src_coords_attributes): Use AT_linkage_name instead
+	of DW_AT_MIPS_linkage_name.
+	(move_linkage_attr): Likewise.
+	(dwarf2out_finish): Likewise.
+
+	* tree.h (TYPE_REF_IS_RVALUE): Define.
+	* dwarf2out.c (is_type_die, is_comdat_die, prune_unused_types_walk):
+	Handle DW_TAG_rvalue_reference_type like DW_TAG_reference_type.
+	(modified_type_die, gen_reference_type_die): Emit
+	DW_TAG_rvalue_reference_type instead of DW_TAG_reference_type
+	if TYPE_REF_IS_RVALUE and -gdwarf-4.
+
+2009-10-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (dwarf_tag_name): Handle DW_TAG_rvalue_reference_type
+	and DW_TAG_template_alias.
+	(dwarf_attr_name): Handle DW_AT_main_subprogram,
+	DW_AT_data_bit_offset, DW_AT_const_expr, DW_AT_enum_class and
+	DW_AT_linkage_name.
+	(dwarf_form_name): Handle DW_FORM_sec_offset, DW_FORM_exprloc,
+	DW_FORM_flag_present and DW_FORM_ref_sig8.
+
+2009-10-02  Cary Coutant  <ccoutant@google.com>
+
+	* dwarf2out.c (dwarf_tag_name): Add DW_TAG_type_unit.
+	(dwarf_attr_name): Add DW_AT_signature.
+
 2010-04-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (lower_bound_default): For DW_LANG_Python return
+	0 for -gdwarf-4.
 
 	* tree.h (ENUM_IS_SCOPED): Define.
 	* dwarf2out.c (gen_enumeration_type_die): Add DW_AT_enum_class
