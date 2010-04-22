@@ -1,5 +1,20 @@
 2010-04-21  Jakub Jelinek  <jakub@redhat.com>
 
+	PR middle-end/43570
+	* omp-low.c (scan_sharing_clauses): Don't scan_omp_op
+	OMP_CLAUSE_DECL for OMP_CLAUSE_COPYPRIVATE.
+	(lower_copyprivate_clauses): Use private var in outer
+	context instead of original var.  Make sure the types
+	are correct for VLAs.
+
+2010-04-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/43337
+	* tree-nested.c (convert_nonlocal_omp_clauses): OMP_CLAUSE_PRIVATE
+	with non-local decl doesn't need chain.
+
+2010-04-21  Jakub Jelinek  <jakub@redhat.com>
+
 	PR debug/40040
 	* dwarf2out.c (add_name_and_src_coords_attributes): Add
 	DW_AT_{,MIPS_}linkage_name even for Fortran decls.

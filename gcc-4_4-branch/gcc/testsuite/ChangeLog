@@ -1,3 +1,18 @@
+2010-04-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/43836
+	* gfortran.dg/gomp/pr43836.f90: New test.
+
+2010-04-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/43339
+	* gfortran.dg/gomp/sharing-2.f90: Adjust for iteration vars
+	of sequential loops being private only in the innermost containing
+	task region.
+
+	PR middle-end/43337
+	* gfortran.dg/gomp/pr43337.f90: New test.
+
 2010-04-20  Jakub Jelinek  <jakub@redhat.com>
 
 	* g++.dg/debug/dwarf2/rv1.C: New test.
