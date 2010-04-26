@@ -898,6 +898,20 @@ pure_const_read_summary (void)
 					  LTO_section_ipa_pure_const,
 					  ib, data, len);
 	}
+      else
+	{
+	  /* We did not find the summary in given file.  Disable the
+	     option and inform users.  
+	     We can be more sane here: with -flto we can compute missing
+	     information.  In WPA stage we can either assume conservative
+	     values or simply read in the functions missing summaries and
+	     analyze.  But it is probably better to instruct users to not
+	     combine -O0 and -O2 compilations and expect sane results.  */
+	  warning (0,
+		   "Function summaries missing in file %s. implying -fno-pure-const",
+		   file_data->file_name);
+	  flag_pure_const = false;
+	}
     }
 }
 
