@@ -1,3 +1,57 @@
+2010-04-26  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.c (cgraph_create_node): Set node frequency to normal.
+	(cgraph_clone_node): Copy function frequency.
+	* cgraph.h (node_frequency): New enum
+	(struct cgraph_node): Add.
+	* final.c (rest_of_clean_state): Update.
+	* lto-cgraph.c (lto_output_node): Output node frequency.
+	(input_overwrite_node): Input node frequency.
+	* tre-ssa-loop-ivopts (computation_cost): Update.
+	* lto-streamer-out.c (output_function): Do not output function frequency.
+	* predict.c (maybe_hot_frequency_p): Update and handle functions executed once.
+	(cgraph_maybe_hot_edge_p): Likewise; use cgraph frequency instead of
+	attribute lookup.
+	(probably_never_executed_bb_p, optimize_function_for_size_p): Update.
+	(compute_function_frequency): Set noreturn functions to be executed once.
+	(choose_function_section): Update.
+	* lto-streamer-in.c (input_function): Do not input function frequency.
+	* function.c (allocate_struct_function): Do not initialize function frequency.
+	* function.h (function_frequency): Remove.
+	(struct function): Remove function frequency.
+	* ipa-profile.c (CGRAPH_NODE_FREQUENCY): Remove.
+	(try_update): Update.
+	* tree-inline.c (initialize_cfun): Do not update function frequency.
+	* passes.c (pass_init_dump_file): Update.
+	* i386.c (ix86_compute_frame_layout): Update.
+	(ix86_pad_returns): Update.
+
+2010-04-26  Jie Zhang  <jie@codesourcery.com>
+
+	PR tree-optimization/43833
+	* tree-vrp.c (range_int_cst_p): New.
+	(range_int_cst_singleton_p): New.
+	(extract_range_from_binary_expr): Optimize BIT_AND_EXPR case
+	when both operands are constants.  Use range_int_cst_p in
+	BIT_IOR_EXPR case.
+
+2010-04-26  Jan Hubicka  <jh@suse.cz>
+
+	* cgraphunit.c (cgraph_copy_node_for_versioning): Fix profile updating.
+
+2010-04-26  Richard Guenther  <rguenther@suse.de>
+
+	PR lto/43080
+	* gimple.c (gimple_decl_printable_name): Deal gracefully
+	with a NULL DECL_NAME.
+
+2010-04-26  Richard Guenther  <rguenther@suse.de>
+
+	PR lto/42425
+	* tree.c (free_lang_data_in_type): Do not free TYPE_CONTEXT
+	if emitting debug information and it is either a function
+	or a namespace decl.
+
 2010-04-26  Ira Rosen  <irar@il.ibm.com>
 
 	* tree-vectorizer.h (struct _stmt_vec_info): Add new field to 

@@ -2162,12 +2162,15 @@ compute_function_frequency (void)
 
   if (!profile_info || !flag_branch_probabilities)
     {
+      int flags = flags_from_decl_or_type (current_function_decl);
       if (lookup_attribute ("cold", DECL_ATTRIBUTES (current_function_decl))
 	  != NULL)
         node->frequency = NODE_FREQUENCY_UNLIKELY_EXECUTED;
       else if (lookup_attribute ("hot", DECL_ATTRIBUTES (current_function_decl))
 	       != NULL)
         node->frequency = NODE_FREQUENCY_HOT;
+      else if (flags & ECF_NORETURN)
+        node->frequency = NODE_FREQUENCY_EXECUTED_ONCE;
       else if (MAIN_NAME_P (DECL_NAME (current_function_decl)))
         node->frequency = NODE_FREQUENCY_EXECUTED_ONCE;
       else if (DECL_STATIC_CONSTRUCTOR (current_function_decl)
