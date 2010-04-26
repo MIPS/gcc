@@ -126,8 +126,9 @@ typedef enum
      scalarization loop.  */
   GFC_SS_SCALAR,
 
-  /* Like GFC_SS_SCALAR except it evaluates a pointer to the expression.
-     Used for elemental function parameters.  */
+  /* Like GFC_SS_SCALAR it evaluates the expression outside the
+     loop. Is always evaluated as a reference to the temporary.
+     Used for elemental function arguments.  */
   GFC_SS_REFERENCE,
 
   /* An array section.  Scalarization indices will be substituted during
@@ -773,7 +774,6 @@ void gfc_apply_interface_mapping (gfc_interface_mapping *,
 
 
 /* Standard error messages used in all the trans-*.c files.  */
-extern const char gfc_msg_bounds[];
 extern const char gfc_msg_fault[];
 extern const char gfc_msg_wrong_return[];
 

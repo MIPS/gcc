@@ -4361,7 +4361,8 @@ free_lang_data_in_decl (tree decl)
 
   /* Ignore any intervening types, because we are going to clear their
      TYPE_CONTEXT fields.  */
-  if (TREE_CODE (decl) != FIELD_DECL)
+  if (TREE_CODE (decl) != FIELD_DECL
+      && TREE_CODE (decl) != FUNCTION_DECL)
     DECL_CONTEXT (decl) = decl_function_context (decl);
 
   if (DECL_CONTEXT (decl)
@@ -8747,12 +8748,12 @@ make_or_reuse_accum_type (unsigned size, int unsignedp, int satp)
    this function to select one of the types as sizetype.  */
 
 void
-build_common_tree_nodes (bool signed_char, bool signed_sizetype)
+build_common_tree_nodes (bool signed_char)
 {
   error_mark_node = make_node (ERROR_MARK);
   TREE_TYPE (error_mark_node) = error_mark_node;
 
-  initialize_sizetypes (signed_sizetype);
+  initialize_sizetypes ();
 
   /* Define both `signed char' and `unsigned char'.  */
   signed_char_type_node = make_signed_type (CHAR_TYPE_SIZE);
