@@ -130,8 +130,6 @@ typedef struct machine_function GTY(())
      64-bits wide and is allocated early enough so that the offset
      does not overflow the 16-bit load/store offset field.  */
   rtx sdmode_stack_slot;
-  /* True if any VSX or ALTIVEC vector type was used.  */
-  bool vsx_or_altivec_used_p;
 } machine_function;
 
 /* Target cpu type */
@@ -884,7 +882,7 @@ static void rs6000_elf_encode_section_info (tree, rtx, int)
      ATTRIBUTE_UNUSED;
 #endif
 static bool rs6000_use_blocks_for_constant_p (enum machine_mode, const_rtx);
-static void rs6000_expand_to_rtl_hook (void);
+static void rs6000_alloc_sdmode_stack_slot (void);
 static void rs6000_instantiate_decls (void);
 #if TARGET_XCOFF
 static void rs6000_xcoff_asm_output_anchor (rtx);
@@ -1458,7 +1456,7 @@ static const char alt_reg_names[][8] =
 #define TARGET_BUILTIN_RECIPROCAL rs6000_builtin_reciprocal
 
 #undef TARGET_EXPAND_TO_RTL_HOOK
-#define TARGET_EXPAND_TO_RTL_HOOK rs6000_expand_to_rtl_hook
+#define TARGET_EXPAND_TO_RTL_HOOK rs6000_alloc_sdmode_stack_slot
 
 #undef TARGET_INSTANTIATE_DECLS
 #define TARGET_INSTANTIATE_DECLS rs6000_instantiate_decls
@@ -8791,6 +8789,10 @@ static struct builtin_description bdesc_2arg[] =
   { MASK_VSX, CODE_FOR_vsx_xxmrghw_v4si, "__builtin_vsx_xxmrghw_4si", VSX_BUILTIN_XXMRGHW_4SI },
   { MASK_VSX, CODE_FOR_vsx_xxmrglw_v4sf, "__builtin_vsx_xxmrglw", VSX_BUILTIN_XXMRGLW_4SF },
   { MASK_VSX, CODE_FOR_vsx_xxmrglw_v4si, "__builtin_vsx_xxmrglw_4si", VSX_BUILTIN_XXMRGLW_4SI },
+  { MASK_VSX, CODE_FOR_vec_interleave_lowv2df, "__builtin_vsx_mergel_2df", VSX_BUILTIN_VEC_MERGEL_V2DF },
+  { MASK_VSX, CODE_FOR_vec_interleave_lowv2di, "__builtin_vsx_mergel_2di", VSX_BUILTIN_VEC_MERGEL_V2DI },
+  { MASK_VSX, CODE_FOR_vec_interleave_highv2df, "__builtin_vsx_mergeh_2df", VSX_BUILTIN_VEC_MERGEH_V2DF },
+  { MASK_VSX, CODE_FOR_vec_interleave_highv2di, "__builtin_vsx_mergeh_2di", VSX_BUILTIN_VEC_MERGEH_V2DI },
 
   { MASK_ALTIVEC|MASK_VSX, CODE_FOR_nothing, "__builtin_vec_add", ALTIVEC_BUILTIN_VEC_ADD },
   { MASK_ALTIVEC|MASK_VSX, CODE_FOR_nothing, "__builtin_vec_vaddfp", ALTIVEC_BUILTIN_VEC_VADDFP },
@@ -13076,38 +13078,6 @@ rs6000_check_sdmode (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
   return NULL_TREE;
 }
 
-static tree
-rs6000_check_vector_mode (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
-{
-  /* Don't walk into types.  */
-  if (*tp == NULL_TREE || *tp == error_mark_node || TYPE_P (*tp))
-    {
-      *walk_subtrees = 0;
-      return NULL_TREE;
-    }
-
-  switch (TREE_CODE (*tp))
-    {
-    case VAR_DECL:
-    case PARM_DECL:
-    case FIELD_DECL:
-    case RESULT_DECL:
-    case SSA_NAME:
-    case REAL_CST:
-    case INDIRECT_REF:
-    case ALIGN_INDIRECT_REF:
-    case MISALIGNED_INDIRECT_REF:
-    case VIEW_CONVERT_EXPR:
-      if (VECTOR_MODE_P (TYPE_MODE (TREE_TYPE (*tp))))
-	return *tp;
-      break;
-    default:
-      break;
-    }
-
-  return NULL_TREE;
-}
-
 enum reload_reg_type {
   GPR_REGISTER_TYPE,
   VECTOR_REGISTER_TYPE,
@@ -13548,17 +13518,11 @@ rs6000_ira_cover_classes (void)
   return (TARGET_VSX) ? cover_vsx : cover_pre_vsx;
 }
 
-/* Scan the trees looking for certain types.
-
-   Allocate a 64-bit stack slot to be used for copying SDmode values through if
-   this function has any SDmode references.
-
-   If VSX, note whether any vector operation was done so we can set VRSAVE to
-   non-zero, even if we just use the floating point registers to tell the
-   kernel to save the vector registers.  */
+/* Allocate a 64-bit stack slot to be used for copying SDmode
+   values through if this function has any SDmode references.  */
 
 static void
-rs6000_expand_to_rtl_hook (void)
+rs6000_alloc_sdmode_stack_slot (void)
 {
   tree t;
   basic_block bb;
@@ -13566,24 +13530,6 @@ rs6000_expand_to_rtl_hook (void)
 
   gcc_assert (cfun->machine->sdmode_stack_slot == NULL_RTX);
 
-  /* Check for vectors.  */
-  if (TARGET_VSX)
-    {
-      FOR_EACH_BB (bb)
-	for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
-	  {
-	    if (walk_gimple_op (gsi_stmt (gsi), rs6000_check_vector_mode,
-				NULL))
-	      {
-		cfun->machine->vsx_or_altivec_used_p = true;
-		goto found_vector;
-	      }
-	  }
-    found_vector:
-      ;
-    }
-
-  /* Check for SDmode being used.  */
   FOR_EACH_BB (bb)
     for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
       {
@@ -16750,15 +16696,6 @@ compute_vrsave_mask (void)
   for (i = FIRST_ALTIVEC_REGNO; i <= LAST_ALTIVEC_REGNO; ++i)
     if (df_regs_ever_live_p (i))
       mask |= ALTIVEC_REG_BIT (i);
-
-  /* If VSX is used, we might have used a traditional floating point register
-     in a vector mode without using any altivec registers.  However the VRSAVE
-     register does not have room to indicate the floating point registers.
-     Modern kernels only look to see if the value is non-zero to determine if
-     they need to save the vector registers, so we just set an arbitrary
-     value if any vector type was used.  */
-  if (mask == 0 && TARGET_VSX && cfun->machine->vsx_or_altivec_used_p)
-    mask = 0xFFF;
 
   if (mask == 0)
     return mask;
