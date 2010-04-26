@@ -8298,7 +8298,8 @@ vect_do_peeling_for_alignment (loop_vec_info loop_vinfo)
   initialize_original_copy_tables ();
 
   ni_name = vect_build_loop_niters (loop_vinfo);
-  niters_of_prolog_loop = vect_gen_niters_for_prolog_loop (loop_vinfo, ni_name);
+  niters_of_prolog_loop = vect_gen_niters_for_prolog_loop (loop_vinfo, 
+                                                           ni_name);
   
   if (targetm.vectorize.builtin_get_loop_niters 
       && (builtin_decl = targetm.vectorize.builtin_get_loop_niters ()))
@@ -8307,10 +8308,39 @@ vect_do_peeling_for_alignment (loop_vec_info loop_vinfo)
                                  "prolog_niters");
       gimple new_stmt;
       basic_block new_bb;
+      gimple_seq stmts = NULL;
+      tree loop_niters;
+
+      niters_of_prolog_loop = force_gimple_operand (niters_of_prolog_loop, 
+                                                    &stmts, false, NULL_TREE);
+      if (stmts)
+        {
+          new_bb = gsi_insert_seq_on_edge_immediate (
+                                  loop_preheader_edge (loop), stmts);
+          gcc_assert (!new_bb);
+        }
+
+      loop_niters = force_gimple_operand (LOOP_VINFO_NITERS (loop_vinfo),
+                                          &stmts, false, NULL_TREE);
+      if (stmts)
+        {
+          new_bb = gsi_insert_seq_on_edge_immediate (
+                                  loop_preheader_edge (loop), stmts);
+          gcc_assert (!new_bb);
+        }
+
+      var = create_tmp_var (TREE_TYPE (niters_of_prolog_loop), "loop_niters");
+      add_referenced_var (var);
+      new_stmt = gimple_build_assign (var, loop_niters);
+      loop_niters = make_ssa_name (var, new_stmt);
+      gimple_assign_set_lhs (new_stmt, loop_niters);
+      new_bb = gsi_insert_on_edge_immediate (loop_preheader_edge (loop), 
+                                             new_stmt);
+      gcc_assert (!new_bb);
 
       add_referenced_var (var);
-      new_stmt = gimple_build_call (builtin_decl, 2, niters_of_prolog_loop,
-                                    LOOP_VINFO_NITERS (loop_vinfo));
+      new_stmt = gimple_build_call (builtin_decl, 2, niters_of_prolog_loop, 
+                                    loop_niters);
       niters_of_prolog_loop = make_ssa_name (var, new_stmt);
       gimple_call_set_lhs (new_stmt, niters_of_prolog_loop);
       new_bb = gsi_insert_on_edge_immediate (loop_preheader_edge (loop), 
@@ -8553,6 +8583,8 @@ vect_create_cond_for_dr_align_checks (loop_vec_info loop_vinfo,
       tree or_tmp, new_or_tmp_name;
       gimple addr_stmt, or_stmt;
 
+#if 0
+      /* Looks like unnecessary for now.  */
       if (DR_MISALIGNMENT (dr) != -1)
         {
           /* Known misalignment, check base.  */
@@ -8563,20 +8595,21 @@ vect_create_cond_for_dr_align_checks (loop_vec_info loop_vinfo,
         }
       else
         {
-          /* Unknown misalignment, check the access itself.  */
-          /* create: addr_tmp = (int)(address_of_first_vector) */
-          ref_stmt = DR_STMT (dr);
-          addr_base =
+#endif
+      /* Unknown misalignment, check the access itself.  */
+      /* create: addr_tmp = (int)(address_of_first_vector) */
+      ref_stmt = DR_STMT (dr);
+      addr_base =
             vect_create_addr_base_for_vector_ref (ref_stmt, &new_stmt_list,
                                                   NULL_TREE, loop);
-          if (new_stmt_list != NULL)
-            gimple_seq_add_seq (cond_expr_stmt_list, new_stmt_list);
-        }
-      
+      if (new_stmt_list != NULL)
+        gimple_seq_add_seq (cond_expr_stmt_list, new_stmt_list);
+        
       sprintf (tmp_name, "%s%d", "addr2int", i);
       addr_tmp = create_tmp_var (int_ptrsize_type, tmp_name);
       add_referenced_var (addr_tmp);
       addr_tmp_name = make_ssa_name (addr_tmp, NULL);
+
       addr_stmt = gimple_build_assign_with_ops (NOP_EXPR, addr_tmp_name,
                                                 addr_base, NULL_TREE);
       SSA_NAME_DEF_STMT (addr_tmp_name) = addr_stmt;
