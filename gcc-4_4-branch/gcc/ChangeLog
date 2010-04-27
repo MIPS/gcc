@@ -1,3 +1,21 @@
+2010-03-30  Joseph Myers  <joseph@codesourcery.com>
+
+	PR other/25232
+	* libgcc-std.ver (GCC_4.5.0): Define version.  Include __unordxf2
+	and __unordtf2.
+	* config/i386/libgcc-glibc.ver: Do not define inheritance from
+	GCC_4.4.0 here.
+
+2010-03-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/libgcc-glibc.ver: Make GCC_4.5.0 inherit GCC_4.4.0.
+
+2010-03-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/43383
+	* config/i386/libgcc-glibc.ver: Add __extendxftf2 to GCC_4.5.0
+	for 32bit.
+
 2010-03-23  Vladimir Makarov  <vmakarov@redhat.com>
 
 	PR rtl-optimization/43413
