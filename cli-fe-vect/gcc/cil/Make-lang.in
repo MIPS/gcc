@@ -82,7 +82,7 @@ cil1$(exeext): cil/cil1.o cil/cil-lang.o cil/bindings.o cil/parser.o cil/stack.o
 	$(BACKEND) $(LIBSDEPS) attribs.o
 	$(CC) $(ALL_CFLAGS) $(LDFLAGS) $(MONO_LIBS) -o $@ \
 	cil/cil1.o cil/cil-lang.o cil/bindings.o cil/parser.o cil/stack.o cil/cil-builtins.o \
-	$(BACKEND) $(LIBS) attribs.o -lgmp -lmpfr -L/local/kwilliam/opt/lib
+	$(BACKEND) $(LIBS) attribs.o $(GMPLIBS)
 
 # Create the compiler driver cil.
 gcil$(exeext): $(GCC_OBJS) version.o prefix.o intl.o $(EXTRA_GCC_OBJS) \
