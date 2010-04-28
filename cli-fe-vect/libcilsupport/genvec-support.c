@@ -639,7 +639,7 @@ genvec_support_VSF_VSI_affine_vec (float bas, float step)
 
 
 v4sf
-genvec_support_VSF_ALoad_Mono_Simd_Vector4f_Mono_Simd_Vector4f(u4sf* addr)
+genvec_support_VSF_ALoad_Mono_Simd_Vector4f__Mono_Simd_Vector4f(u4sf* addr)
 {
   int addr_val = (int)addr;
   int rounded_addr = addr_val & ~0xf;
