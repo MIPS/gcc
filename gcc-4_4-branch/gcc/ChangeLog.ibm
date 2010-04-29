@@ -1,3 +1,200 @@
+2010-04-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from Advanced Toolchain 2.1:
+	2009-09-17  Revital Eres  <eres@il.ibm.com>
+
+	* doc/tm.texi (TARGET_SUPPORT_VECTOR_MISALIGNMENT): Document.
+	* targhooks.c (default_builtin_support_vector_misalignment):
+	New builtin function.
+	* targhooks.h (default_builtin_support_vector_misalignment):
+	Declare.
+	* target.h (builtin_support_vector_misalignment):
+	New field in struct gcc_target.
+	* tree-vectorizer.c (vect_supportable_dr_alignment): Call
+	new builtin function.
+	* target-def.h (TARGET_SUPPORT_VECTOR_MISALIGNMENT):
+	Define.
+	* config/rs6000/rs6000.c
+	(rs6000_builtin_support_vector_misalignment): New function.
+	(TARGET_SUPPORT_VECTOR_MISALIGNMENT): Define.
+
+2010-04-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from mainline and/or GCC 4.5.0
+
+	2010-03-24  Michael Meissner  <meissner@linux.vnet.ibm.com>
+        * config/rs6000/constraints.md: Update copyright year for my changes.
+
+        PR target/43484
+        * config/rs6000/rs6000.c (rs6000_split_multireg_move): If r0 is
+        used in reg+reg addressing, swap registers.
+
+	2010-03-22  Mike Stump  <mikestump@comcast.net>
+        PR target/23071
+        * config/rs6000/rs6000.c (darwin_rs6000_special_round_type_align):
+        Don't overly align based upon packed packed fields.
+
+	2010-03-17  Peter Bergner  <bergner@vnet.ibm.com>
+        PR target/42427
+        * config/rs6000/rs6000.c (rs6000_split_multireg_move): Add support for
+        non-offsettable and pre_modify update addressing.
+        * config/rs6000/dfp.md (*movdd_hardfloat32): Make the "0", "1"
+        and "2" alternatives "#".
+        (*movdd_softfloat32): Make all alternatives "#";
+        * config/rs6000/rs6000.md (DIFD): New define_mode_iterator.
+        (*movdf_hardfloat32): Make the "0", "1" and "2" alternatives "#".
+        (*movdf_softfloat32): Make all alternatives "#";
+        (movdi): Use the new DIFD mode iterator to create a common splitter
+        for movdi, movdf and movdd patterns.
+
+	2010-01-11  Janis Johnson  <janis187@us.ibm.com>
+        PR target/42416
+        * config/rs6000/rs6000.c (rs6000_override_options): On targets
+        that support VSX, warn for -mno-altivec if vsx is not disabled,
+        and disable vsx.
+
+	2009-07-18  Richard Sandiford  <r.sandiford@uk.ibm.com>
+        * doc/md.texi: Document the new PowerPC "es" constraint.
+        Document that "m" can include automodified addresses on this target,
+        and explain how %U must be used.  Extend the "Q" and "Z" documentation
+        to suggest "es" as well as "m".
+        * config/rs6000/constraints.md (es): New memory constraint.
+        (Q, Z): Update strings to match new documentation.
+
+        * config/rs6000/rs6000.c (rs6000_mode_dependent_address): Allow any
+        offset from virtual_stack_vars_rtx and arg_pointer_rtx.
+        * config/rs6000/predicates.md (volatile_mem_operand): Use
+        offsettable_nonstrict_memref_p.
+        * config/rs6000/rs6000.md (*floatsidf2_internal): Remove split check.
+        (*floatunssidf2_internal): Likewise.
+        (*fix_truncdfsi2_internal): Likewise.
+        (*fix_trunctfsi2_internal): Likewise.
+
+	2009-06-17  Michael Eager  <eager@eagercon.com>
+        * config/rs6000/constraints.md (register_constraint "d"): New.
+        * config/rs6000/dfp.md (movsd_store, extendsddd2, extendsdtd2,
+        truncddsd2, *negdd2_fpr, *absdd2_fpr, *nabsdd2_fpr,
+        *movdd_hardfloat32, *movdd_hardfloat64_mfpgpr, *movdd_hardfloat64,
+        *negtd2_fp, *abstd2_fpr, *nabstd2_fpr, *movtd_internal, extendddtd2,
+        trunctddd2, adddd3, addtd3, subdd3, subtd3, muldd3, multd3, divdd3,
+        divtd3, *cmpdd_internal1, *cmptd_internal1, floatditd2, ftruncdd2,
+        fixdddi2, ftrunctd2, fixtddi2): replace 'f' constraint with 'd'
+        * config/rs6000/ppu_intrinsics.h (__mffs, __mtfsf, __mtfsfi, __fabs,
+        __fnabs, __fmadd, __fmsub, __fnmadd, __fnmsub, __fsel, __frsqrte,
+        __fsqrt, __fmul, __fmuls, __frsp, __fcfid, __fctid, __fctidz, __fctiw,
+        __fctiwz): Same.
+        * config/rs6000/rs6000.md (*extendsfdf2_fpr, *truncdfsf2_fpr,
+        *fseldfsf4, *negdf2_fpr, *absdf2_fpr, *nabsdf2_fpr, *adddf3_fpr,
+        *subdf3_fpr, *muldf3_fpr, *divdf3_fpr, recipdf3, fred, sqrtdf2,
+        *fseldfdf4, *fselsfdf4, *floatsidf2_internal, *floatunssidf2_internal,
+        *fix_truncdfsi2_internal, fix_truncdfsi2_internal_gfxopt,
+        fix_truncdfsi2_mfpgpr, fctiwz, btruncdf2, ceildf2, floordf2, rounddf2,
+        stfiwx, floatdidf2, fix_truncdfdi2, floatdisf2_internal1,
+        *movdf_hardfloat32, *movdf_hardfloat64_mfpgpr, *movdf_hardfloat64,
+        *movtf_internal, *extenddftf2_internal, trunctfdf2_internal1,
+        trunctfdf2_internal2, trunctfsf2_fprs, fix_trunc_helper,
+        *fix_trunctfsi2_internal, negtf2_internal, *movdi_internal32,
+        *movdi_mfpgpr, *movdi_internal64, *movdf_update1, *movdf_update2,
+        *cmpdf_internal1, *cmptf_internal1, *cmptf_internal2): Same.
+        * doc/md.texi: Describe PowerPC 'd' constraint, update 'f' constraint.
+
+	2010-02-17  Steven Bosscher  <steven@gcc.gnu.org>
+        * gensupport.c (process_one_cond_exec): Derive name for COND_EXEC
+        patterns from predicated pattern.
+
+	2009-10-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
+        * config/rs6000/t-rs6000 (MD_INCLUDES): Add a2.md.
+
+	2009-09-10  Nathan Froyd  <froydnj@codesourcery.com>
+        * config/rs6000/rs6000.h (DATA_ALIGNMENT): Check that we are dealing
+        with actual SPE/paired vector modes before using 64-bit alignment.
+        Check that TYPE is a REAL_TYPE for TARGET_E500_DOUBLE.
+
+	2009-06-25  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+        PR target/38731
+        * config/rs6000/rs6000.c (LOCAL_ALIGNMENT): Redefine to just use
+        DATA_ALIGNMENT instead.
+
+	2009-06-16  J"orn Rennecke  <joern.rennecke@arc.com>
+		    Janis Johnson  <janis187@us.ibm.com>
+        PR target/39254
+        * config/rs6000/rs6000.c (rs6000_emit_move): Don't emit a USE
+        for the symbol ref of a constant that is the source of a move
+        - nor for any other not-obvious-label-ref constants.
+
+	2009-04-30  Michael Matz  <matz@suse.de>
+        PR tree-optimization/39955
+        * config/rs6000/rs6000.c (rs6000_check_sdmode): Also check SSA_NAMEs.
+
+	2009-04-27  Ian Lance Taylor  <iant@google.com>
+	* gensupport.c (std_preds): Use UNKNOWN instead of 0.
+
+	2009-04-24  Ian Lance Taylor  <iant@google.com>
+        * config/rs6000/rs6000.c (rs6000_override_options): Add casts to
+        enum type.
+
+	2009-04-21  Joseph Myers  <joseph@codesourcery.com>
+	* config/rs6000/ppc-asm.h: Add copyright and license notices.
+
+	2009-04-20  Ian Lance Taylor  <iant@google.com>
+	* gensupport.c (init_predicate_table): Add cast to enum type.
+
+        * config/rs6000/rs6000.c (rs6000_init_hard_regno_mode_ok): Add
+        cast to enum type.
+        (altivec_expand_vec_set_builtin): Change 0 to EXPAND_NORMAL in
+        function call.
+        (emit_unlikely_jump): Use add_reg_note.
+        (rs6000_emit_allocate_stack): Likewise.
+        (rs6000_frame_related, rs6000_emit_prologue): Likewise.
+        (output_toc): Change 1 to INSERT in function call.
+        (output_profile_hook): Change 0 to LCT_NORMAL in function call.
+        (rs6000_initialize_trampoline): Likewise.
+        (rs6000_init_dwarf_reg_sizes_extra): Change 0 to EXPAND_NORMAL in
+        function call.
+
+	2009-04-13  Vladimir Makarov  <vmakarov@redhat.com>
+        * genautomata.c: Put blank after comma.
+        (automaton_decls): New.
+        (struct unit_usage): Add comments to member next.
+        (store_alt_unit_usage): Keep the list ordered.
+        (unit_present_on_list_p, equal_alternatives_p): New.
+        (check_regexp_units_distribution): Check units distribution
+        correctness correctly.
+        (main): Don't write automata if error is found.  Return correct
+        exit code.
+
+        * config/rs6000/power4.md (lsuq_power4, iq_power4, fpq_power4,
+        power4-load-ext, power4-store, power4-store-update,
+        power4-fpstore, power4-fpstore-update, power4-two, power4-three,
+        power4-insert, power4-compare, power4-lmul-cmp, power4-imul-cmp,
+        power4-lmul, , power4-imul, power4-imul3, power4-sdiv,
+        power4-sqrt, power4-isync): Modify reservation to make correct
+        unit distribution to automata.
+
+        * config/rs6000/power5.md (iq_power5, fpq_power5, power5-store,
+        power5-store-update, power5-two, power5-three, power5-lmul,
+        power5-imul, power5-imul3, power5-sdiv, power5-sqrt): Ditto.
+
+	2009-04-08  Paolo Bonzini  <bonzini@gnu.org>
+        * recog.c (ordered_comparison_operator): New.
+        * gensupport.c (std_preds): Add it.
+        * doc/md.texi (Machine-Independent Predicates): Document it.
+
+	2009-03-31  Alan Modra  <amodra@bigpond.net.au>
+	(doc/invoke.texi, configure.ac, configure, config.in changes not
+	yet merged in)
+        * config/rs6000/rs6000.opt (mtls-markers): Add.
+        * config/rs6000/rs6000.h (TARGET_TLS_MARKERS): Define.
+        * config/rs6000/rs6000.md (tls_gd_aix, tls_gd_sysv): Add splitter.
+        (tls_ld_aix, tls_ld_sysv): Likewise.
+        (tls_gd, tls_gd_call_aix, tls_gd_call_sysv): New insns.
+        (tls_ld, tls_ld_call_aix, tls_ld_call_sysv): Likewise.
+
+	2009-03-31  Ben Elliston  <bje@au.ibm.com>
+        PR target/31635
+        * config/rs6000/rs6000.c (rs6000_handle_option): Handle
+        OPT_mvrsave.
+
 2010-04-29  Peter Bergner  <bergner@vnet.ibm.com>
 
 	Backport from mainline.

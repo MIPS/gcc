@@ -1,6 +1,6 @@
 /* Subroutines used by or related to instruction recognition.
    Copyright (C) 1987, 1988, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -286,7 +286,7 @@ canonicalize_change_group (rtx insn, rtx x)
   else
     return false;
 }
-  
+
 
 /* This subroutine of apply_change_group verifies whether the changes to INSN
    were valid; i.e. whether INSN can still be recognized.  */
@@ -1320,6 +1320,32 @@ indirect_operand (rtx op, enum machine_mode mode)
   return (MEM_P (op)
 	  && memory_operand (op, mode)
 	  && general_operand (XEXP (op, 0), Pmode));
+}
+
+/* Return 1 if this is an ordered comparison operator (not including
+   ORDERED and UNORDERED).  */
+
+int
+ordered_comparison_operator (rtx op, enum machine_mode mode)
+{
+  if (mode != VOIDmode && GET_MODE (op) != mode)
+    return false;
+  switch (GET_CODE (op))
+    {
+    case EQ:
+    case NE:
+    case LT:
+    case LTU:
+    case LE:
+    case LEU:
+    case GT:
+    case GTU:
+    case GE:
+    case GEU:
+      return true;
+    default:
+      return false;
+    }
 }
 
 /* Return 1 if this is a comparison operator.  This allows the use of

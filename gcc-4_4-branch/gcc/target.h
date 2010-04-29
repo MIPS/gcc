@@ -1,5 +1,5 @@
 /* Data structure definitions for a generic GCC target.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
    Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify it
@@ -473,6 +473,12 @@ struct gcc_target
 
     /* Target builtin that implements vector permute.  */
     tree (* builtin_vec_perm) (tree, tree*);
+
+    /* Return true if the target supports misaligned store/load of a
+       specific factor denoted in the third parameter.  The last parameter
+       is true if the access is defined in a packed struct.  */
+    bool (* builtin_support_vector_misalignment) (enum machine_mode,
+                                                  const_tree, int, bool);
 } vectorize;
 
   /* The initial value of target_flags.  */

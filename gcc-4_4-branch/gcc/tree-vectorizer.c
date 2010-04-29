@@ -1,5 +1,5 @@
 /* Loop Vectorization
-   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008 Free Software
+   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010 Free Software
    Foundation, Inc.
    Contributed by Dorit Naishlos <dorit@il.ibm.com>
 
@@ -2112,6 +2112,9 @@ vect_supportable_dr_alignment (struct data_reference *dr)
 
   if (DR_IS_READ (dr))
     {
+      bool is_packed = false;
+      tree type = (TREE_TYPE (DR_REF (dr)));
+
       if (optab_handler (vec_realign_load_optab, mode)->insn_code != 
 						   	     CODE_FOR_nothing
 	  && (!targetm.vectorize.builtin_mask_for_load
@@ -2125,9 +2128,17 @@ vect_supportable_dr_alignment (struct data_reference *dr)
 	  else
 	    return dr_explicit_realign_optimized;
 	}
+      if (!known_alignment_for_access_p (dr))
+        {
+          tree ba = DR_BASE_OBJECT (dr);
 
-      if (optab_handler (movmisalign_optab, mode)->insn_code != 
-							     CODE_FOR_nothing)
+          if (ba)
+            is_packed = contains_packed_reference (ba);
+        }
+
+      if (targetm.vectorize.
+          builtin_support_vector_misalignment (mode, type,
+                                               DR_MISALIGNMENT (dr), is_packed))
 	/* Can't software pipeline the loads, but can at least do them.  */
 	return dr_unaligned_supported;
     }

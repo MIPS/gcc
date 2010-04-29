@@ -279,6 +279,15 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 #define TARGET_LWSYNC_INSTRUCTION 0
 #endif
 
+/* Define TARGET_TLS_MARKERS if the target assembler does not support
+   arg markers for __tls_get_addr calls.  */
+#ifndef HAVE_AS_TLS_MARKERS
+#undef  TARGET_TLS_MARKERS
+#define TARGET_TLS_MARKERS 0
+#else
+#define TARGET_TLS_MARKERS tls_markers
+#endif
+
 #ifndef TARGET_SECURE_PLT
 #define TARGET_SECURE_PLT 0
 #endif
@@ -707,14 +716,7 @@ extern unsigned rs6000_pointer_size;
    local store.  TYPE is the data type, and ALIGN is the alignment
    that the object would ordinarily have.  */
 #define LOCAL_ALIGNMENT(TYPE, ALIGN)				\
-  (((TARGET_ALTIVEC || TARGET_VSX)				\
-    && TREE_CODE (TYPE) == VECTOR_TYPE) ? 128 :			\
-    (TARGET_E500_DOUBLE						\
-     && TYPE_MODE (TYPE) == DFmode) ? 64 :			\
-    ((TARGET_SPE && TREE_CODE (TYPE) == VECTOR_TYPE		\
-     && SPE_VECTOR_MODE (TYPE_MODE (TYPE))) || (TARGET_PAIRED_FLOAT \
-        && TREE_CODE (TYPE) == VECTOR_TYPE \
-        && PAIRED_VECTOR_MODE (TYPE_MODE (TYPE)))) ? 64 : ALIGN)
+  DATA_ALIGNMENT (TYPE, ALIGN)
 
 /* Alignment of field after `int : 0' in a structure.  */
 #define EMPTY_FIELD_BOUNDARY 32
@@ -753,14 +755,18 @@ extern unsigned rs6000_pointer_size;
 /* Make arrays of chars word-aligned for the same reasons.
    Align vectors to 128 bits.  Align SPE vectors and E500 v2 doubles to
    64 bits.  */
-#define DATA_ALIGNMENT(TYPE, ALIGN)		\
-  (TREE_CODE (TYPE) == VECTOR_TYPE ? ((TARGET_SPE_ABI \
-   || TARGET_PAIRED_FLOAT) ? 64 : 128)	\
-   : (TARGET_E500_DOUBLE			\
-      && TYPE_MODE (TYPE) == DFmode) ? 64 \
-   : TREE_CODE (TYPE) == ARRAY_TYPE		\
-   && TYPE_MODE (TREE_TYPE (TYPE)) == QImode	\
-   && (ALIGN) < BITS_PER_WORD ? BITS_PER_WORD : (ALIGN))
+#define DATA_ALIGNMENT(TYPE, ALIGN)					\
+  (TREE_CODE (TYPE) == VECTOR_TYPE					\
+   ? (((TARGET_SPE && SPE_VECTOR_MODE (TYPE_MODE (TYPE)))		\
+       || (TARGET_PAIRED_FLOAT && PAIRED_VECTOR_MODE (TYPE_MODE (TYPE)))) \
+      ? 64 : 128)							\
+   : ((TARGET_E500_DOUBLE						\
+       && TREE_CODE (TYPE) == REAL_TYPE					\
+       && TYPE_MODE (TYPE) == DFmode)					\
+      ? 64								\
+      : (TREE_CODE (TYPE) == ARRAY_TYPE					\
+	 && TYPE_MODE (TREE_TYPE (TYPE)) == QImode			\
+	 && (ALIGN) < BITS_PER_WORD) ? BITS_PER_WORD : (ALIGN)))
 
 /* Nonzero if move instructions will actually fail to work
    when given unaligned data.  */

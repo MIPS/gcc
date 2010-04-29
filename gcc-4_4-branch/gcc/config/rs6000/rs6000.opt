@@ -171,12 +171,16 @@ mfused-madd
 Target Report Var(TARGET_FUSED_MADD) Init(1)
 Generate fused multiply/add instructions
 
-msched-prolog
-Target Report Var(TARGET_SCHED_PROLOG) Init(1)
-Schedule the start and end of the procedure
+mtls-markers
+Target Report Var(tls_markers) Init(1)
+Mark __tls_get_addr calls with argument info
 
 msched-epilog
-Target Undocumented Var(TARGET_SCHED_PROLOG) VarExists
+Target Undocumented Var(TARGET_SCHED_PROLOG) Init(1)
+
+msched-prolog
+Target Report Var(TARGET_SCHED_PROLOG) VarExists
+Schedule the start and end of the procedure
 
 maix-struct-return
 Target Report RejectNegative Var(aix_struct_return)
