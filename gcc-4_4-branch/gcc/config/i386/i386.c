@@ -11326,7 +11326,7 @@ get_some_local_dynamic_name (void)
     return cfun->machine->some_ld_name;
 
   for (insn = get_insns (); insn ; insn = NEXT_INSN (insn))
-    if (INSN_P (insn)
+    if (NONDEBUG_INSN_P (insn)
 	&& for_each_rtx (&PATTERN (insn), get_some_local_dynamic_name_1, 0))
       return cfun->machine->some_ld_name;
 
@@ -13532,7 +13532,7 @@ distance_non_agu_define (rtx op1, rtx op2, rtx insn)
       rtx prev = PREV_INSN (insn);
       while (prev && distance < LEA_SEARCH_THRESHOLD)
 	{
-	  if (INSN_P (prev))
+	  if (NONDEBUG_INSN_P (prev))
 	    {
 	      distance++;
 	      if ((reg_op1 && reg_set_p (reg_op1, prev))
@@ -13565,7 +13565,7 @@ distance_non_agu_define (rtx op1, rtx op2, rtx insn)
 		 && prev != insn
 		 && distance < LEA_SEARCH_THRESHOLD)
 	    {
-	      if (INSN_P (prev))
+	      if (NONDEBUG_INSN_P (prev))
 		{
 		  distance++;
 		  if ((reg_op1 && reg_set_p (reg_op1, prev))
@@ -13595,7 +13595,7 @@ distance_agu_use (rtx op0, rtx insn)
 
       while (next && distance < LEA_SEARCH_THRESHOLD)
 	{
-	  if (INSN_P (next))
+	  if (NONDEBUG_INSN_P (next))
 	    {
 	      distance++;
 	      if (reg_mentioned_by_mem_p (op0, next))
@@ -13629,7 +13629,7 @@ distance_agu_use (rtx op0, rtx insn)
 	    {
 	      if (next == insn)
 		break;
-	      if (INSN_P (next))
+	      if (NONDEBUG_INSN_P (next))
 		{
 		  distance++;
 		  if (reg_mentioned_by_mem_p (op0, next))
