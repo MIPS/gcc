@@ -10195,7 +10195,6 @@ fold_builtin_1 (tree fndecl, tree arg0, bool ignore)
   enum built_in_function fcode = DECL_FUNCTION_CODE (fndecl);
   switch (fcode)
     {
-
     case BUILT_IN_CONSTANT_P:
       {
 	tree val = fold_builtin_constant_p (arg0);
@@ -10491,6 +10490,11 @@ fold_builtin_1 (tree fndecl, tree arg0, bool ignore)
     case BUILT_IN_PRINTF_UNLOCKED:
     case BUILT_IN_VPRINTF:
       return fold_builtin_printf (fndecl, arg0, NULL_TREE, ignore, fcode);
+
+    case BUILT_IN_FREE:
+      if (integer_zerop (arg0))
+	return build_empty_stmt ();
+      break;
 
     default:
       break;

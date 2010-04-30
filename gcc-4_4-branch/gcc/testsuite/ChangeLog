@@ -1,3 +1,7 @@
+2010-04-30  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.dg/tree-ssa/builtin-free.c: New testcase.
+
 2010-02-25  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	PR target/43154
