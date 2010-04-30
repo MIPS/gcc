@@ -1,3 +1,7 @@
+2010-04-29  Release Manager
+
+	* GCC 4.4.4 released.
+
 2010-04-30  Richard Guenther  <rguenther@suse.de>
 
 	* gcc.dg/tree-ssa/builtin-free.c: New testcase.
