@@ -1,5 +1,5 @@
 /* Subroutines for the C front end on the POWER and PowerPC architectures.
-   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
    Free Software Foundation, Inc.
 
    Contributed by Zack Weinberg <zack@codesourcery.com>
@@ -3084,7 +3084,7 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
   { ALTIVEC_BUILTIN_VCMPGE_P, VSX_BUILTIN_XVCMPGEDP_P,
     RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_V2DF, RS6000_BTI_V2DF },
 
-  { 0, 0, 0, 0, 0, 0 }
+  { (enum rs6000_builtins) 0, (enum rs6000_builtins) 0, 0, 0, 0, 0 }
 };
 
 

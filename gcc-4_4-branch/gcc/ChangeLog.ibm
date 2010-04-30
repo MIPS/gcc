@@ -1,3 +1,13 @@
+2010-04-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from mainline (and deal movement of functions):
+	2010-03-30  Sebastian Pop  <sebastian.pop@amd.com>
+	PR middle-end/43430
+	* tree-vect-analyze.c (vect_get_and_check_slp_defs): Replace type
+	pointer comparisons with types_compatible_p.
+	* tree-vect-transform.c (vectorizable_call): Same.
+	(vectorizable_condition): Same.
+
 2010-04-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Backport from Advanced Toolchain 2.1:
