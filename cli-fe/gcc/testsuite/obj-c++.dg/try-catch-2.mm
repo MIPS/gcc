@@ -2,10 +2,12 @@
    all uncaught exceptions.  */
 /* Developed by Ziemowit Laski <zlaski@apple.com>.  */
 
-/* { dg-options "-fobjc-exceptions" } */
 /* { dg-do run } */
+/* { dg-xfail-if "PR23616" { "*-*-*" } { "*" } { "-fnext-runtime" } } */
+/* { dg-xfail-if "Needs OBJC2 ABI" { *-*-darwin* && { lp64 && { ! objc2 } } } { "-fnext-runtime" } { "" } } 
+/* { dg-options "-fobjc-exceptions" } */
 
-#include <objc/Object.h>
+#include "../objc-obj-c++-shared/Object1.h"
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -76,3 +78,4 @@ int main (void) {
   test((Object *)-1);
   return 0;
 }
+#include "../objc-obj-c++-shared/Object1-implementation.h"

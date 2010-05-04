@@ -1,7 +1,8 @@
 /* Gcov.c: prepend line execution counts and branch probabilities to a
    source file.
    Copyright (C) 1990, 1991, 1992, 1993, 1994, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
+   Free Software Foundation, Inc.
    Contributed by James E. Wilson of Cygnus Support.
    Mangled by Bob Manson of Cygnus Support.
    Mangled further by Nathan Sidwell <nathan@codesourcery.com>
@@ -82,7 +83,7 @@ typedef struct arc_info
   /* Arc is for a function that abnormally returns.  */
   unsigned int is_call_non_return : 1;
 
-  /* Arc is for catch/setjump.  */
+  /* Arc is for catch/setjmp.  */
   unsigned int is_nonlocal_return : 1;
 
   /* Is an unconditional branch.  */
@@ -360,6 +361,9 @@ main (int argc, char **argv)
 
   gcc_init_libintl ();
 
+  /* Handle response files.  */
+  expandargv (&argc, &argv);
+
   argno = process_args (argc, argv);
   if (optind == argc)
     print_usage (true);
@@ -422,7 +426,7 @@ static void
 print_version (void)
 {
   fnotice (stdout, "gcov %s%s\n", pkgversion_string, version_string);
-  fprintf (stdout, "Copyright %s 2007 Free Software Foundation, Inc.\n",
+  fprintf (stdout, "Copyright %s 2010 Free Software Foundation, Inc.\n",
 	   _("(C)"));
   fnotice (stdout,
 	   _("This is free software; see the source for copying conditions.\n"
@@ -657,7 +661,7 @@ create_file_names (const char *file_name)
 
       base = !stat (object_directory, &status) && S_ISDIR (status.st_mode);
       strcat (name, object_directory);
-      if (base && name[strlen (name) - 1] != '/')
+      if (base && (! IS_DIR_SEPARATOR (name[strlen (name) - 1])))
 	strcat (name, "/");
     }
   else
@@ -670,8 +674,8 @@ create_file_names (const char *file_name)
   if (base)
     {
       /* Append source file name.  */
-      cptr = strrchr (file_name, '/');
-      strcat (name, cptr ? cptr + 1 : file_name);
+      const char *cptr = lbasename (file_name);
+      strcat (name, cptr ? cptr : file_name);
     }
 
   /* Remove the extension.  */
@@ -680,7 +684,7 @@ create_file_names (const char *file_name)
     *cptr = 0;
 
   length = strlen (name);
-  
+
   bbg_file_name = XNEWVEC (char, length + strlen (GCOV_NOTE_SUFFIX) + 1);
   strcpy (bbg_file_name, name);
   strcpy (bbg_file_name + length, GCOV_NOTE_SUFFIX);
@@ -717,7 +721,7 @@ find_source (const char *file_name)
       src->index = source_index++;
       src->next = sources;
       sources = src;
-      
+
       if (!stat (file_name, &status))
 	src->file_time = status.st_mtime;
     }
@@ -1039,7 +1043,7 @@ read_count_file (void)
 
       GCOV_UNSIGNED2STRING (v, version);
       GCOV_UNSIGNED2STRING (e, GCOV_VERSION);
-      
+
       fnotice (stderr, "%s:version '%.4s', prefer version '%.4s'\n",
 	       da_file_name, v, e);
     }
@@ -1061,27 +1065,29 @@ read_count_file (void)
 	program_count++;
       else if (tag == GCOV_TAG_FUNCTION)
 	{
-	  unsigned ident = gcov_read_unsigned ();
-	  struct function_info *fn_n = functions;
+	  {
+	    unsigned ident = gcov_read_unsigned ();
+	    struct function_info *fn_n = functions;
 
-	  /* Try to find the function in the list.
-	     To speed up the search, first start from the last function
-	     found.   */
-	  for (fn = fn ? fn->next : NULL; ; fn = fn->next)
-	    {
-	      if (fn)
-		;
-	      else if ((fn = fn_n))
-		fn_n = NULL;
-	      else
-		{
-		  fnotice (stderr, "%s:unknown function '%u'\n",
-			   da_file_name, ident);
+	    /* Try to find the function in the list.
+	       To speed up the search, first start from the last function
+	       found.   */
+	    for (fn = fn ? fn->next : NULL; ; fn = fn->next)
+	      {
+		if (fn)
+		  ;
+		else if ((fn = fn_n))
+		  fn_n = NULL;
+		else
+		  {
+		    fnotice (stderr, "%s:unknown function '%u'\n",
+			     da_file_name, ident);
+		    break;
+		  }
+		if (fn->ident == ident)
 		  break;
-		}
-	      if (fn->ident == ident)
-		break;
-	    }
+	      }
+	  }
 
 	  if (!fn)
 	    ;
@@ -1478,7 +1484,7 @@ function_summary (const coverage_t *coverage, const char *title)
 static char *
 make_gcov_file_name (const char *input_name, const char *src_name)
 {
-  char *cptr;
+  const char *cptr;
   char *name;
 
   if (flag_long_names && input_name && strcmp (src_name, input_name))
@@ -1486,8 +1492,8 @@ make_gcov_file_name (const char *input_name, const char *src_name)
       name = XNEWVEC (char, strlen (src_name) + strlen (input_name) + 10);
       name[0] = 0;
       /* Generate the input filename part.  */
-      cptr = flag_preserve_paths ? NULL : strrchr (input_name, '/');
-      strcat (name, cptr ? cptr + 1 : input_name);
+      cptr = flag_preserve_paths ? NULL : lbasename (input_name);
+      strcat (name, cptr ? cptr : input_name);
       strcat (name, "##");
     }
   else
@@ -1497,39 +1503,52 @@ make_gcov_file_name (const char *input_name, const char *src_name)
     }
 
   /* Generate the source filename part.  */
-  cptr = flag_preserve_paths ? NULL : strrchr (src_name, '/');
-  strcat (name, cptr ? cptr + 1 : src_name);
+
+  cptr = flag_preserve_paths ? NULL : lbasename (src_name);
+  strcat (name, cptr ? cptr : src_name);
 
   if (flag_preserve_paths)
     {
-      /* Convert '/' to '#', remove '/./', convert '/../' to '/^/' */
-      char *prev;
+      /* Convert '/' and '\' to '#', remove '/./', convert '/../' to '/^/',
+	 convert ':' to '~' on DOS based file system.  */
+      char *pnew = name, *pold = name;
 
-      for (cptr = name; (cptr = strchr ((prev = cptr), '/'));)
+      /* First check for leading drive separator.  */
+
+      while (*pold != '\0')
 	{
-	  unsigned shift = 0;
-
-	  if (prev + 1 == cptr && prev[0] == '.')
+	  if (*pold == '/' || *pold == '\\')
 	    {
-	      /* Remove '.' */
-	      shift = 2;
+	      *pnew++ = '#';
+	      pold++;
 	    }
-	  else if (prev + 2 == cptr && prev[0] == '.' && prev[1] == '.')
+#if defined (HAVE_DOS_BASED_FILE_SYSTEM)
+	  else if (*pold == ':')
 	    {
-	      /* Convert '..' */
-	      shift = 1;
-	      prev[1] = '^';
+	      *pnew++ = '~';
+	      pold++;
+	    }
+#endif
+	  else if ((*pold == '/' && strstr (pold, "/./") == pold)
+		   || (*pold == '\\' && strstr (pold, "\\.\\") == pold))
+	      pold += 3;
+	  else if (*pold == '/' && strstr (pold, "/../") == pold)
+	    {
+	      strcpy (pnew, "/^/");
+	      pnew += 3;
+	      pold += 4;
+	    }
+	  else if (*pold == '\\' && strstr (pold, "\\..\\") == pold)
+	    {
+	      strcpy (pnew, "\\^\\");
+	      pnew += 3;
+	      pold += 4;
 	    }
 	  else
-	    *cptr++ = '#';
-	  if (shift)
-	    {
-	      cptr = prev;
-	      do
-		prev[0] = prev[shift];
-	      while (*prev++);
-	    }
+	    *pnew++ = *pold++;
 	}
+
+      *pnew = '\0';
     }
 
   strcat (name, ".gcov");
@@ -1877,11 +1896,11 @@ output_lines (FILE *gcov_file, const source_t *src)
 	{
 	  arc_t *arc = fn->blocks[fn->num_blocks - 1].pred;
 	  gcov_type return_count = fn->blocks[fn->num_blocks - 1].count;
-	  
+
 	  for (; arc; arc = arc->pred_next)
 	    if (arc->fake)
 	      return_count -= arc->count;
-	  
+
 	  fprintf (gcov_file, "function %s", fn->name);
 	  fprintf (gcov_file, " called %s",
 		   format_gcov (fn->blocks[0].count, 0, -1));

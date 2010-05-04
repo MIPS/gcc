@@ -1,5 +1,5 @@
 /* Target definitions for GCC for Intel 80386 running Interix
-   Parts Copyright (C) 1991, 1999, 2000, 2002, 2003, 2004, 2007
+   Parts Copyright (C) 1991, 1999, 2000, 2002, 2003, 2004, 2007, 2008
    Free Software Foundation, Inc.
 
    Parts:
@@ -209,7 +209,7 @@ along with GCC; see the file COPYING3.  If not see
 	  else								\
 	    {								\
 	      if (bytes_in_chunk == 0)					\
-		fprintf ((FILE), "\t.byte\t");				\
+		fputs (ASM_BYTE, (FILE));				\
 	      else							\
 		fputc (',', (FILE));					\
 	      fprintf ((FILE), "0x%02x", *_ascii_bytes);		\
@@ -217,7 +217,7 @@ along with GCC; see the file COPYING3.  If not see
 	    }								\
 	}								\
       if (bytes_in_chunk > 0)						\
-        fprintf ((FILE), "\n");						\
+        fputc ('\n', (FILE));						\
     }									\
   while (0)
 
@@ -277,11 +277,11 @@ do {									\
 #define ASM_OUTPUT_DEF(FILE,LABEL1,LABEL2)				\
 do									\
 {									\
-    fprintf ((FILE), "%s", SET_ASM_OP);					\
+    fputs (SET_ASM_OP, (FILE));						\
     assemble_name (FILE, LABEL1);					\
-    fprintf (FILE, ",");						\
+    fputc (',', (FILE));						\
     assemble_name (FILE, LABEL2);					\
-    fprintf (FILE, "\n");						\
+    fputc ('\n', (FILE));						\
     }									\
 while (0)
 
@@ -357,7 +357,6 @@ extern void i386_pe_unique_section (tree, int);
 
 #define DEFAULT_PCC_STRUCT_RETURN 0
 
-#undef RETURN_IN_MEMORY
-#define RETURN_IN_MEMORY(TYPE) \
-  (TYPE_MODE (TYPE) == BLKmode || \
-     (AGGREGATE_TYPE_P (TYPE) && int_size_in_bytes(TYPE) > 8 ))
+#define SUBTARGET_RETURN_IN_MEMORY(TYPE, FNTYPE) \
+	(TYPE_MODE (TYPE) == BLKmode \
+	 || (AGGREGATE_TYPE_P (TYPE) && int_size_in_bytes (TYPE) > 8 ))

@@ -9,11 +9,12 @@
 class B
 {
 public:
-      operator=(B &); // { dg-error "" } no type or storage class
+      operator=(B &); // { dg-error "no type" }
+      // { dg-message "candidate is" "note" { target *-*-* } 12 }
 };
 
 void
 test(B &b1, const B &b2)
 {
-        b1 = b2;// { dg-error "" } .*
+        b1 = b2;// { dg-error "match" }
 }

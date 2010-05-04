@@ -6,25 +6,23 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2004-2007, Free Software Foundation, Inc.         --
+--          Copyright (C) 2004-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
--- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
--- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- or FITNESS FOR A PARTICULAR PURPOSE.                                     --
 --                                                                          --
--- As a special exception,  if other files  instantiate  generics from this --
--- unit, or you link  this unit with other files  to produce an executable, --
--- this  unit  does not  by itself cause  the resulting  executable  to  be --
--- covered  by the  GNU  General  Public  License.  This exception does not --
--- however invalidate  any other reasons why  the executable file  might be --
--- covered by the  GNU Public License.                                      --
+-- As a special exception under Section 7 of GPL version 3, you are granted --
+-- additional permissions described in the GCC Runtime Library Exception,   --
+-- version 3.1, as published by the Free Software Foundation.               --
+--                                                                          --
+-- You should have received a copy of the GNU General Public License and    --
+-- a copy of the GCC Runtime Library Exception along with this program;     --
+-- see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see    --
+-- <http://www.gnu.org/licenses/>.                                          --
 --                                                                          --
 -- This unit was originally developed by Matthew J Heaney.                  --
 ------------------------------------------------------------------------------
@@ -563,15 +561,9 @@ package body Ada.Containers.Doubly_Linked_Lists is
          ----------
 
          procedure Sort (Front, Back : Node_Access) is
-            Pivot : Node_Access;
-
+            Pivot : constant Node_Access :=
+                      (if Front = null then Container.First else Front.Next);
          begin
-            if Front = null then
-               Pivot := Container.First;
-            else
-               Pivot := Front.Next;
-            end if;
-
             if Pivot /= Back then
                Partition (Pivot, Back);
                Sort (Front, Pivot);
@@ -629,7 +621,7 @@ package body Ada.Containers.Doubly_Linked_Lists is
       if Before.Container /= null then
          if Before.Container /= Container'Unrestricted_Access then
             raise Program_Error with
-              "attempt to tamper with elements (list is busy)";
+              "Before cursor designates wrong list";
          end if;
 
          pragma Assert (Vet (Before), "bad cursor in Insert");
@@ -1719,11 +1711,17 @@ package body Ada.Containers.Doubly_Linked_Lists is
             return False;
          end if;
 
+         --  If we get here, we know that this disjunction is true:
+         --  Position.Node.Prev /= null or else Position.Node = L.First
+
          if Position.Node.Next = null
            and then Position.Node /= L.Last
          then
             return False;
          end if;
+
+         --  If we get here, we know that this disjunction is true:
+         --  Position.Node.Next /= null or else Position.Node = L.Last
 
          if L.Length = 1 then
             return L.First = L.Last;
@@ -1769,21 +1767,21 @@ package body Ada.Containers.Doubly_Linked_Lists is
             return False;
          end if;
 
-         if Position.Node = L.First then
+         if Position.Node = L.First then  -- eliminates ealier disjunct
             return True;
          end if;
 
-         if Position.Node = L.Last then
+         --  If we get here, we know, per disjunctive syllogism (modus
+         --  tollendo ponens), that this predicate is true:
+         --  Position.Node.Prev /= null
+
+         if Position.Node = L.Last then  -- eliminates earlier disjunct
             return True;
          end if;
 
-         if Position.Node.Next = null then
-            return False;
-         end if;
-
-         if Position.Node.Prev = null then
-            return False;
-         end if;
+         --  If we get here, we know, per disjunctive syllogism (modus
+         --  tollendo ponens), that this predicate is true:
+         --  Position.Node.Next /= null
 
          if Position.Node.Next.Prev /= Position.Node then
             return False;

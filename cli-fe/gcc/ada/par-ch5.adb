@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -178,7 +178,8 @@ package body Ch5 is
       procedure Junk_Declaration is
       begin
          if (not Declaration_Found) or All_Errors_Mode then
-            Error_Msg_SC ("declarations must come before BEGIN");
+            Error_Msg_SC -- CODEFIX
+              ("declarations must come before BEGIN");
             Declaration_Found := True;
          end if;
 
@@ -203,10 +204,7 @@ package body Ch5 is
       Statement_Required := SS_Flags.Sreq;
 
       loop
-         while Token = Tok_Semicolon loop
-            Error_Msg_SC ("unexpected semicolon ignored");
-            Scan; -- past junk semicolon
-         end loop;
+         Ignore (Tok_Semicolon);
 
          begin
             if Style_Check then
@@ -453,7 +451,8 @@ package body Ch5 is
                     and then Block_Label = Name_Go
                     and then Token_Name = Name_To
                   then
-                     Error_Msg_SP ("goto is one word");
+                     Error_Msg_SP -- CODEFIX
+                       ("goto is one word");
                      Append_To (Statement_List, P_Goto_Statement);
                      Statement_Required := False;
 
@@ -565,10 +564,7 @@ package body Ch5 is
 
                      --  Skip junk right parens in this context
 
-                     while Token = Tok_Right_Paren loop
-                        Error_Msg_SC ("extra right paren");
-                        Scan; -- past )
-                     end loop;
+                     Ignore (Tok_Right_Paren);
 
                      --  Check context following call
 
@@ -990,7 +986,7 @@ package body Ch5 is
 
    --  LABEL ::= <<label_STATEMENT_IDENTIFIER>>
 
-   --  STATEMENT_INDENTIFIER ::= DIRECT_NAME
+   --  STATEMENT_IDENTIFIER ::= DIRECT_NAME
 
    --  The IDENTIFIER of a STATEMENT_IDENTIFIER shall be an identifier
    --  (not an OPERATOR_SYMBOL)
@@ -1073,7 +1069,7 @@ package body Ch5 is
       --  scanned out and is in Prev_Token.
 
       procedure Check_If_Column;
-      --  An internal procedure used to check that THEN, ELSE ELSE, or ELSIF
+      --  An internal procedure used to check that THEN, ELSE, or ELSIF
       --  appear in the right place if column checking is enabled (i.e. if
       --  they are the first token on the line, then they must appear in
       --  the same column as the opening IF).
@@ -1110,7 +1106,7 @@ package body Ch5 is
 
       procedure Check_If_Column is
       begin
-         if Style.RM_Column_Check and then Token_Is_At_Start_Of_Line
+         if RM_Column_Check and then Token_Is_At_Start_Of_Line
            and then Start_Column /= Scope.Table (Scope.Last).Ecol
          then
             Error_Msg_Col := Scope.Table (Scope.Last).Ecol;
@@ -2082,7 +2078,7 @@ package body Ch5 is
 
             Error_Msg_Col := Scope.Table (Scope.Last).Ecol;
 
-            if Style.RM_Column_Check
+            if RM_Column_Check
               and then Token_Is_At_Start_Of_Line
               and then Start_Column /= Error_Msg_Col
             then
@@ -2200,7 +2196,7 @@ package body Ch5 is
       --  What we are interested in is whether it was a case of a bad IS.
 
       if Scope.Table (Scope.Last + 1).Etyp = E_Bad_Is then
-         Error_Msg ("IS should be "";""", Scope.Table (Scope.Last + 1).S_Is);
+         Error_Msg ("|IS should be "";""", Scope.Table (Scope.Last + 1).S_Is);
          Set_Bad_Is_Detected (Parent, True);
       end if;
 
@@ -2235,7 +2231,7 @@ package body Ch5 is
 
       if Token = Tok_And or else Token = Tok_Or then
          Error_Msg_SC ("unexpected logical operator");
-         Scan;
+         Scan; -- past logical operator
 
          if (Prev_Token = Tok_And and then Token = Tok_Then)
               or else

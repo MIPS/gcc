@@ -1,6 +1,6 @@
 // I, Howard Hinnant, hereby place this code in the public domain.
 
-// Test overlaod resolution among referece types
+// Test overload resolution among reference types
 
 // { dg-do compile }
 // { dg-options "-std=c++0x" }
@@ -30,8 +30,8 @@ const volatile A cv_source();
 
 // 2 at a time
 
-one   sink_2_12(               A&);  // { dg-error "" }
-two   sink_2_12(const          A&);  // { dg-error "" }
+one   sink_2_12(               A&);  // { dg-message "candidates|argument" }
+two   sink_2_12(const          A&);  // { dg-message "note|argument" }
 
 int test2_12()
 {
@@ -46,8 +46,8 @@ int test2_12()
     return 0;
 }
 
-one   sink_2_13(               A&);  // { dg-error "" }
-three sink_2_13(volatile       A&);  // { dg-error "" }
+one   sink_2_13(               A&);  // { dg-message "candidates|argument" }
+three sink_2_13(volatile       A&);  // { dg-message "note|argument" }
 
 int test2_13()
 {
@@ -64,8 +64,8 @@ int test2_13()
     return 0;
 }
 
-one   sink_2_14(               A&);  // { dg-error "" }
-four  sink_2_14(const volatile A&);  // { dg-error "" }
+one   sink_2_14(               A&);  // { dg-message "candidates|argument" }
+four  sink_2_14(const volatile A&);  // { dg-message "note|argument" }
 
 int test2_14()
 {
@@ -80,8 +80,8 @@ int test2_14()
     return 0;
 }
 
-one   sink_2_15(               A&);  // { dg-error "" }
-five  sink_2_15(               A&&);  // { dg-error "" }
+one   sink_2_15(               A&);  // { dg-message "candidates|argument" }
+five  sink_2_15(               A&&);  // { dg-message "note|argument" }
 
 int test2_15()
 {
@@ -98,8 +98,8 @@ int test2_15()
     return 0;
 }
 
-one   sink_2_16(               A&);  // { dg-error "" }
-six   sink_2_16(const          A&&);  // { dg-error "" }
+one   sink_2_16(               A&);  // { dg-message "candidates|argument" }
+six   sink_2_16(const          A&&);  // { dg-message "note|argument" }
 
 int test2_16()
 {
@@ -107,6 +107,7 @@ int test2_16()
     const          A ca = a;
           volatile A va;
     const volatile A cva = a;
+    sink_2_16(ca);	     // { dg-error "lvalue" }
     sink_2_16(va);           // { dg-error "no match" }
     sink_2_16(cva);          // { dg-error "no match" }
     sink_2_16(v_source());   // { dg-error "no match" }
@@ -114,8 +115,8 @@ int test2_16()
     return 0;
 }
 
-one   sink_2_17(               A&);  // { dg-error "" }
-seven sink_2_17(volatile       A&&);  // { dg-error "" }
+one   sink_2_17(               A&);  // { dg-message "candidates|argument" }
+seven sink_2_17(volatile       A&&);  // { dg-message "note|argument" }
 
 int test2_17()
 {
@@ -124,14 +125,29 @@ int test2_17()
           volatile A va;
     const volatile A cva = a;
     sink_2_17(ca);           // { dg-error "no match" }
+    sink_2_17(va);           // { dg-error "lvalue" }
     sink_2_17(cva);          // { dg-error "no match" }
     sink_2_17(c_source());   // { dg-error "no match" }
     sink_2_17(cv_source());  // { dg-error "no match" }
     return 0;
 }
 
-two   sink_2_23(const          A&);  // { dg-error "" }
-three sink_2_23(volatile       A&);  // { dg-error "" }
+one   sink_2_18(               A&);
+eight sink_2_18(const volatile A&&); // { dg-error "argument" }
+
+int test2_18()
+{
+                   A a;
+    const          A ca = a;
+          volatile A va;
+    const volatile A cva = a;
+    sink_2_18(ca);		// { dg-error "lvalue" }
+    sink_2_18(va);		// { dg-error "lvalue" }
+    sink_2_18(cva);		// { dg-error "lvalue" }
+}
+
+two   sink_2_23(const          A&);  // { dg-message "candidates|argument" }
+three sink_2_23(volatile       A&);  // { dg-message "note|argument" }
 
 int test2_23()
 {
@@ -146,8 +162,8 @@ int test2_23()
     return 0;
 }
 
-two   sink_2_24(const          A&);  // { dg-error "" }
-four  sink_2_24(const volatile A&);  // { dg-error "" }
+two   sink_2_24(const          A&);  // { dg-message "candidates|argument" }
+four  sink_2_24(const volatile A&);  // { dg-message "note|argument" }
 
 int test2_24()
 {
@@ -160,8 +176,8 @@ int test2_24()
     return 0;
 }
 
-three sink_2_34(volatile       A&);  // { dg-error "" }
-four  sink_2_34(const volatile A&);  // { dg-error "" }
+three sink_2_34(volatile       A&);  // { dg-message "candidate" }
+four  sink_2_34(const volatile A&);  // { dg-message "note|argument" }
 
 int test2_34()
 {
@@ -176,8 +192,8 @@ int test2_34()
     return 0;
 }
 
-two   sink_2_25(const          A&);  // { dg-error "" }
-five  sink_2_25(               A&&);  // { dg-error "" }
+two   sink_2_25(const          A&);  // { dg-message "candidate" }
+five  sink_2_25(               A&&);  // { dg-message "note|argument" }
 
 int test2_25()
 {
@@ -192,8 +208,8 @@ int test2_25()
     return 0;
 }
 
-two   sink_2_26(const          A&);  // { dg-error "" }
-six   sink_2_26(const          A&&);  // { dg-error "" }
+two   sink_2_26(const          A&);  // { dg-message "candidate" }
+six   sink_2_26(const          A&&);  // { dg-message "note|argument" }
 
 int test2_26()
 {
@@ -208,8 +224,8 @@ int test2_26()
     return 0;
 }
 
-two   sink_2_27(const          A&);  // { dg-error "" }
-seven sink_2_27(volatile       A&&);  // { dg-error "" }
+two   sink_2_27(const          A&);  // { dg-message "candidate" }
+seven sink_2_27(volatile       A&&);  // { dg-message "note|argument" }
 
 int test2_27()
 {
@@ -217,13 +233,27 @@ int test2_27()
     const          A ca = a;
           volatile A va;
     const volatile A cva = a;
+    sink_2_27(va);	     // { dg-error "lvalue" }
     sink_2_27(cva);          // { dg-error "no match" }
     sink_2_27(cv_source());  // { dg-error "no match" }
     return 0;
 }
 
-three sink_2_35(volatile       A&);  // { dg-error "" }
-five  sink_2_35(               A&&);  // { dg-error "" }
+two   sink_2_28(const          A&);
+eight sink_2_28(const volatile A&&); // { dg-error "argument" }
+
+int test2_28()
+{
+                   A a;
+    const          A ca = a;
+          volatile A va;
+    const volatile A cva = a;
+    sink_2_28(va);		// { dg-error "lvalue" }
+    sink_2_28(cva);		// { dg-error "lvalue" }
+}
+
+three sink_2_35(volatile       A&);  // { dg-message "candidate" }
+five  sink_2_35(               A&&);  // { dg-message "note|argument" }
 
 int test2_35()
 {
@@ -239,8 +269,8 @@ int test2_35()
     return 0;
 }
 
-three sink_2_36(volatile       A&);  // { dg-error "" }
-six   sink_2_36(const          A&&);  // { dg-error "" }
+three sink_2_36(volatile       A&);  // { dg-message "candidate" }
+six   sink_2_36(const          A&&);  // { dg-message "note|argument" }
 
 int test2_36()
 {
@@ -248,14 +278,15 @@ int test2_36()
     const          A ca = a;
           volatile A va;
     const volatile A cva = a;
+    sink_2_36(ca);		// { dg-error "lvalue" }
     sink_2_36(cva);          // { dg-error "no match" }
     sink_2_36(v_source());   // { dg-error "no match" }
     sink_2_36(cv_source());  // { dg-error "no match" }
     return 0;
 }
 
-three sink_2_37(volatile       A&);  // { dg-error "" }
-seven sink_2_37(volatile       A&&);  // { dg-error "" }
+three sink_2_37(volatile       A&);  // { dg-message "candidate" }
+seven sink_2_37(volatile       A&&);  // { dg-message "note|argument" }
 
 int test2_37()
 {
@@ -270,8 +301,21 @@ int test2_37()
     return 0;
 }
 
-four  sink_2_45(const volatile A&);   // { dg-error "" }
-five  sink_2_45(               A&&);  // { dg-error "" }
+three sink_2_38(volatile       A&);
+eight sink_2_38(const volatile A&&); // { dg-error "argument" }
+
+int test2_38()
+{
+                   A a;
+    const          A ca = a;
+          volatile A va;
+    const volatile A cva = a;
+    sink_2_38(ca);		// { dg-error "lvalue" }
+    sink_2_38(cva);		// { dg-error "lvalue" }
+}
+
+four  sink_2_45(const volatile A&);   // { dg-message "candidate" }
+five  sink_2_45(               A&&);  // { dg-message "note|argument" }
 
 int test2_45()
 {
@@ -285,8 +329,8 @@ int test2_45()
     return 0;
 }
 
-four  sink_2_46(const volatile A&);   // { dg-error "" }
-six   sink_2_46(const          A&&);  // { dg-error "" }
+four  sink_2_46(const volatile A&);   // { dg-message "candidate" }
+six   sink_2_46(const          A&&);  // { dg-message "note|argument" }
 
 int test2_46()
 {
@@ -299,8 +343,8 @@ int test2_46()
     return 0;
 }
 
-four  sink_2_47(const volatile A&);   // { dg-error "" }
-seven sink_2_47(volatile       A&&);  // { dg-error "" }
+four  sink_2_47(const volatile A&);   // { dg-message "candidate" }
+seven sink_2_47(volatile       A&&);  // { dg-message "note|argument" }
 
 int test2_47()
 {
@@ -313,8 +357,8 @@ int test2_47()
     return 0;
 }
 
-five  sink_2_56(               A&&);  // { dg-error "" }
-six   sink_2_56(const          A&&);  // { dg-error "" }
+five  sink_2_56(               A&&);  // { dg-message "candidate|argument" }
+six   sink_2_56(const          A&&);  // { dg-message "note|argument" }
 
 int test2_56()
 {
@@ -322,6 +366,8 @@ int test2_56()
     const          A ca = a;
           volatile A va;
     const volatile A cva = a;
+    sink_2_56(a);		// { dg-error "lvalue" }
+    sink_2_56(ca);		// { dg-error "lvalue" }
     sink_2_56(va);           // { dg-error "no match" }
     sink_2_56(cva);          // { dg-error "no match" }
     sink_2_56(v_source());   // { dg-error "no match" }
@@ -329,8 +375,8 @@ int test2_56()
     return 0;
 }
 
-five  sink_2_57(               A&&);  // { dg-error "" }
-seven sink_2_57(volatile       A&&);  // { dg-error "" }
+five  sink_2_57(               A&&);  // { dg-message "candidate|argument" }
+seven sink_2_57(volatile       A&&);  // { dg-message "note|argument" }
 
 int test2_57()
 {
@@ -338,6 +384,8 @@ int test2_57()
     const          A ca = a;
           volatile A va;
     const volatile A cva = a;
+    sink_2_57(a);		// { dg-error "lvalue" }
+    sink_2_57(va);		// { dg-error "lvalue" }
     sink_2_57(ca);           // { dg-error "no match" }
     sink_2_57(cva);          // { dg-error "no match" }
     sink_2_57(c_source());   // { dg-error "no match" }
@@ -345,8 +393,23 @@ int test2_57()
     return 0;
 }
 
-six   sink_2_67(const          A&&);  // { dg-error "" }
-seven sink_2_67(volatile       A&&);  // { dg-error "" }
+five  sink_2_58(               A&&); // { dg-error "argument" }
+eight sink_2_58(const volatile A&&); // { dg-error "argument" }
+
+int test2_58()
+{
+                   A a;
+    const          A ca = a;
+          volatile A va;
+    const volatile A cva = a;
+    sink_2_58(a);		// { dg-error "lvalue" }
+    sink_2_58(ca);		// { dg-error "lvalue" }
+    sink_2_58(va);		// { dg-error "lvalue" }
+    sink_2_58(cva);		// { dg-error "lvalue" }
+}
+
+six   sink_2_67(const          A&&);  // { dg-message "candidate|argument" }
+seven sink_2_67(volatile       A&&);  // { dg-message "note|argument" }
 
 int test2_67()
 {
@@ -355,10 +418,42 @@ int test2_67()
           volatile A va;
     const volatile A cva = a;
     sink_2_67(a);            // { dg-error "ambiguous" }
+    sink_2_67(ca);	     // { dg-error "lvalue" }
+    sink_2_67(va);	     // { dg-error "lvalue" }
     sink_2_67(cva);          // { dg-error "no match" }
     sink_2_67(source());     // { dg-error "ambiguous" }
     sink_2_67(cv_source());  // { dg-error "no match" }
     return 0;
+}
+
+six   sink_2_68(const          A&&); // { dg-error "argument" }
+eight sink_2_68(const volatile A&&); // { dg-error "argument" }
+
+int test2_68()
+{
+                   A a;
+    const          A ca = a;
+          volatile A va;
+    const volatile A cva = a;
+    sink_2_68(a);		// { dg-error "lvalue" }
+    sink_2_68(ca);		// { dg-error "lvalue" }
+    sink_2_68(va);		// { dg-error "lvalue" }
+    sink_2_68(cva);		// { dg-error "lvalue" }
+}
+
+seven sink_2_78(volatile       A&&); // { dg-error "argument" }
+eight sink_2_78(const volatile A&&); // { dg-error "argument" }
+
+int test2_78()
+{
+                   A a;
+    const          A ca = a;
+          volatile A va;
+    const volatile A cva = a;
+    sink_2_78(a);		// { dg-error "lvalue" }
+    sink_2_78(ca);		// { dg-error "lvalue" }
+    sink_2_78(va);		// { dg-error "lvalue" }
+    sink_2_78(cva);		// { dg-error "lvalue" }
 }
 
 int main()

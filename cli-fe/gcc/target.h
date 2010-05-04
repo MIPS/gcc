@@ -1,5 +1,5 @@
 /* Data structure definitions for a generic GCC target.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
    Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify it
@@ -68,6 +68,12 @@ typedef int (* print_switch_fn_type) (print_switch_type, const char *);
 /* An example implementation for ELF targets.  Defined in varasm.c  */
 extern int elf_record_gcc_switches (print_switch_type type, const char *);
 
+/* Some places still assume that all pointer or address modes are the
+   standard Pmode and ptr_mode.  These optimizations become invalid if
+   the target actually supports multiple different modes.  For now,
+   we disable such optimizations on such targets, using this function.  */
+extern bool target_default_pointer_address_modes_p (void);
+
 struct stdarg_info;
 struct spec_info_def;
 
@@ -91,6 +97,18 @@ struct _dep;
 /* This is defined in ddg.h .  */
 struct ddg;
 
+/* Assembler instructions for creating various kinds of integer object.  */
+
+struct asm_int_op
+{
+  const char *hi;
+  const char *si;
+  const char *di;
+  const char *ti;
+};
+
+/* The target structure.  This holds all the backend hooks.  */
+
 struct gcc_target
 {
   /* Functions that output assembler for the target.  */
@@ -101,13 +119,7 @@ struct gcc_target
 
     /* Assembler instructions for creating various kinds of integer object.  */
     const char *byte_op;
-    struct asm_int_op
-    {
-      const char *hi;
-      const char *si;
-      const char *di;
-      const char *ti;
-    } aligned_op, unaligned_op;
+    struct asm_int_op aligned_op, unaligned_op;
 
     /* Try to output the assembler code for an integer object whose
        value is given by X.  SIZE is the size of the object in bytes and
@@ -223,6 +235,10 @@ struct gcc_target
        translation unit.  */
     void (*file_end) (void);
 
+    /* Output any boilerplace text needed at the end of a
+       translation unit before debug and unwind info is emitted.  */
+    void (*code_end) (void);
+
     /* Output an assembler pseudo-op to declare a library function name
        external.  */
     void (*external_libcall) (rtx);
@@ -245,6 +261,11 @@ struct gcc_target
     /* Output a DTP-relative reference to a TLS symbol.  */
     void (*output_dwarf_dtprel) (FILE *file, int size, rtx x);
 
+    /* Some target machines need to postscan each insn after it is output.  */
+    void (*final_postscan_insn) (FILE *, rtx, rtx *, int);
+
+    /* Emit the trampoline template.  This hook may be NULL.  */
+    void (*trampoline_template) (FILE *);
   } asm_out;
 
   /* Functions relating to instruction scheduling.  */
@@ -274,7 +295,7 @@ struct gcc_target
     /* Finalize machine-dependent scheduling code.  */
     void (* md_finish) (FILE *, int);
 
-    /* Initialize machine-dependent function while scheduling code.  */
+    /* Initialize machine-dependent function wide scheduling code.  */
     void (* md_init_global) (FILE *, int, int);
 
     /* Finalize machine-dependent function wide scheduling code.  */
@@ -351,14 +372,36 @@ struct gcc_target
        second argument is the cost of the dependence as estimated by
        the scheduler.  The last argument is the distance in cycles
        between the already scheduled insn (first parameter) and the
-       the second insn (second parameter).  */
+       second insn (second parameter).  */
     bool (* is_costly_dependence) (struct _dep *_dep, int, int);
+
+    /* Given the current cost, COST, of an insn, INSN, calculate and
+       return a new cost based on its relationship to DEP_INSN through the
+       dependence of type DEP_TYPE.  The default is to make no adjustment.  */
+    int (* adjust_cost_2) (rtx insn, int, rtx dep_insn, int cost, int dw);
 
     /* The following member value is a pointer to a function called
        by the insn scheduler. This hook is called to notify the backend
        that new instructions were emitted.  */
     void (* h_i_d_extended) (void);
-    
+
+    /* Next 5 functions are for multi-point scheduling.  */
+
+    /* Allocate memory for scheduler context.  */
+    void *(* alloc_sched_context) (void);
+
+    /* Fills the context from the local machine scheduler context.  */
+    void (* init_sched_context) (void *, bool);
+
+    /* Sets local machine scheduler context to a saved value.  */
+    void (* set_sched_context) (void *);
+
+    /* Clears a scheduler context so it becomes like after init.  */
+    void (* clear_sched_context) (void *);
+
+    /* Frees the scheduler context.  */
+    void (* free_sched_context) (void *);
+
     /* The following member value is a pointer to a function called
        by the insn scheduler.
        The first parameter is an instruction, the second parameter is the type
@@ -374,9 +417,8 @@ struct gcc_target
 
     /* The following member value is a pointer to a function called
        by the insn scheduler.  It should return true if the check instruction
-       corresponding to the instruction passed as the parameter needs a
-       recovery block.  */
-    bool (* needs_block_p) (const_rtx);
+       passed as the parameter needs a recovery block.  */
+    bool (* needs_block_p) (int);
 
     /* The following member value is a pointer to a function called
        by the insn scheduler.  It should return a pattern for the check
@@ -386,7 +428,7 @@ struct gcc_target
        simple check).  If the mutation of the check is requested (e.g. from
        ld.c to chk.a), the third parameter is true - in this case the first
        parameter is the previous check.  */
-    rtx (* gen_check) (rtx, rtx, bool);
+    rtx (* gen_spec_check) (rtx, rtx, int);
 
     /* The following member value is a pointer to a function controlling
        what insns from the ready insn queue will be considered for the
@@ -400,6 +442,17 @@ struct gcc_target
        information about the speculation capabilities of the target.
        The parameter is a pointer to spec_info variable.  */
     void (* set_sched_flags) (struct spec_info_def *);
+
+    /* Return speculation types of the instruction passed as the parameter.  */
+    int (* get_insn_spec_ds) (rtx);
+
+    /* Return speculation types that are checked for the instruction passed as
+       the parameter.  */
+    int (* get_insn_checked_ds) (rtx);
+
+    /* Return bool if rtx scanning should just skip current layer and
+       advance to the inner rtxes.  */
+    bool (* skip_rtx_p) (const_rtx);
 
     /* The following member value is a pointer to a function that provides
        information about the target resource-based lower bound which is
@@ -418,14 +471,14 @@ struct gcc_target
 
     /* Returns a code for builtin that realizes vectorized version of
        function, or NULL_TREE if not available.  */
-    tree (* builtin_vectorized_function) (unsigned, tree, tree);
+    tree (* builtin_vectorized_function) (tree, tree, tree);
 
     /* Returns a code for builtin that realizes vectorized version of
        conversion, or NULL_TREE if not available.  */
     tree (* builtin_conversion) (unsigned, tree);
 
     /* Target builtin that implements vector widening multiplication.
-       builtin_mul_widen_eve computes the element-by-element products 
+       builtin_mul_widen_eve computes the element-by-element products
        for the even elements, and builtin_mul_widen_odd computes the
        element-by-element products for the odd elements.  */
     tree (* builtin_mul_widen_even) (tree);
@@ -438,10 +491,27 @@ struct gcc_target
     /* Return true if vector alignment is reachable (by peeling N
        iterations) for the given type.  */
     bool (* vector_alignment_reachable) (const_tree, bool);
+
+    /* Target builtin that implements vector permute.  */
+    tree (* builtin_vec_perm) (tree, tree*);
+
+    /* Return true if a vector created for builtin_vec_perm is valid.  */
+    bool (* builtin_vec_perm_ok) (tree, tree);
+
+    /* Return true if the target supports misaligned store/load of a
+       specific factor denoted in the third parameter.  The last parameter
+       is true if the access is defined in a packed struct.  */
+    bool (* builtin_support_vector_misalignment) (enum machine_mode,
+                                                  const_tree, int, bool);
   } vectorize;
 
   /* The initial value of target_flags.  */
   int default_target_flags;
+
+  /* Allow target specific overriding of option settings after options have
+     been changed by an attribute or pragma or when it is reset at the
+     end of the code affected by an attribute or pragma.  */
+  void (* override_options_after_change) (void);
 
   /* Handle target switch CODE (an OPT_* value).  ARG is the argument
      passed to the switch; it is NULL if no argument was.  VALUE is the
@@ -462,6 +532,9 @@ struct gcc_target
 
   /* Return machine mode for libgcc expanded shift instructions.  */
   enum machine_mode (* libgcc_shift_count_mode) (void);
+
+  /* Return machine mode to be used for _Unwind_Word type.  */
+  enum machine_mode (* unwind_word_mode) (void);
 
   /* Given two decls, merge their attributes and return the result.  */
   tree (* merge_decl_attributes) (tree, tree);
@@ -508,15 +581,24 @@ struct gcc_target
   /* Set up target-specific built-in functions.  */
   void (* init_builtins) (void);
 
+  /* Initialize (if INITIALIZE_P is true) and return the target-specific
+     built-in function decl for CODE.
+     Return NULL if that is not possible.  Return error_mark_node if CODE
+     is outside of the range of valid target builtin function codes.  */
+  tree (* builtin_decl) (unsigned code, bool initialize_p);
+
   /* Expand a target-specific builtin.  */
   rtx (* expand_builtin) (tree exp, rtx target, rtx subtarget,
 			  enum machine_mode mode, int ignore);
 
   /* Select a replacement for a target-specific builtin.  This is done
-     *before* regular type checking, and so allows the target to implement
-     a crude form of function overloading.  The result is a complete
-     expression that implements the operation.  */
-  tree (*resolve_overloaded_builtin) (tree decl, tree params);
+     *before* regular type checking, and so allows the target to
+     implement a crude form of function overloading.  The result is a
+     complete expression that implements the operation.  PARAMS really
+     has type VEC(tree,gc)*, but we don't want to include tree.h
+     here.  */
+  tree (*resolve_overloaded_builtin) (unsigned int /*location_t*/,
+      				      tree decl, void *params);
 
   /* Fold a target-specific builtin.  */
   tree (* fold_builtin) (tree fndecl, tree arglist, bool ignore);
@@ -544,13 +626,16 @@ struct gcc_target
 
   /* Return a register class for which branch target register
      optimizations should be applied.  */
-  int (* branch_target_register_class) (void);
+  enum reg_class (* branch_target_register_class) (void);
 
   /* Return true if branch target register optimizations should include
      callee-saved registers that are not already live during the current
      function.  AFTER_PE_GEN is true if prologues and epilogues have
      already been generated.  */
   bool (* branch_target_register_callee_saved) (bool after_pe_gen);
+
+  /* Return true if the target supports conditional execution.  */
+  bool (* have_conditional_execution) (void);
 
   /* True if the constant X cannot be placed in the constant pool.  */
   bool (* cannot_force_const_mem) (rtx);
@@ -561,8 +646,15 @@ struct gcc_target
   /* True if X is considered to be commutative.  */
   bool (* commutative_p) (const_rtx, int);
 
+  /* Given an invalid address X for a given machine mode, try machine-specific
+     ways to make it legitimate.  Return X or an invalid address on failure.  */
+  rtx (* legitimize_address) (rtx, rtx, enum machine_mode);
+
   /* Given an address RTX, undo the effects of LEGITIMIZE_ADDRESS.  */
   rtx (* delegitimize_address) (rtx);
+
+  /* Given an address RTX, say whether it is valid.  */
+  bool (* legitimate_address_p) (enum machine_mode, rtx, bool);
 
   /* True if the given constant can be put into an object_block.  */
   bool (* use_blocks_for_constant_p) (enum machine_mode, const_rtx);
@@ -588,7 +680,7 @@ struct gcc_target
   bool (* in_small_data_p) (const_tree);
 
   /* True if EXP names an object for which name resolution must resolve
-     to the current module.  */
+     to the current executable or shared library.  */
   bool (* binds_local_p) (const_tree);
 
   /* Modify and return the identifier of a DECL's external name,
@@ -624,6 +716,36 @@ struct gcc_target
   /* True if MODE is valid for a pointer in __attribute__((mode("MODE"))).  */
   bool (* valid_pointer_mode) (enum machine_mode mode);
 
+  /* Support for named address spaces.  */
+  struct addr_space {
+    /* MODE to use for a pointer into another address space.  */
+    enum machine_mode (* pointer_mode) (addr_space_t);
+
+    /* MODE to use for an address in another address space.  */
+    enum machine_mode (* address_mode) (addr_space_t);
+
+    /* True if MODE is valid for a pointer in __attribute__((mode("MODE")))
+       in another address space.  */
+    bool (* valid_pointer_mode) (enum machine_mode, addr_space_t);
+
+    /* True if an address is a valid memory address to a given named address
+       space for a given mode.  */
+    bool (* legitimate_address_p) (enum machine_mode, rtx, bool, addr_space_t);
+
+    /* Return an updated address to convert an invalid pointer to a named
+       address space to a valid one.  If NULL_RTX is returned use machine
+       independent methods to make the address valid.  */
+    rtx (* legitimize_address) (rtx, rtx, enum machine_mode, addr_space_t);
+
+    /* True if one named address space is a subset of another named address. */
+    bool (* subset_p) (addr_space_t, addr_space_t);
+
+    /* Function to convert an rtl expression from one address space to
+       another.  */
+    rtx (* convert) (rtx, tree, tree);
+
+  } addr_space;
+
   /* True if MODE is valid for the target.  By "valid", we mean able to
      be manipulated in non-trivial ways.  In particular, this means all
      the arithmetic is supported.  */
@@ -634,19 +756,16 @@ struct gcc_target
      for further details.  */
   bool (* vector_mode_supported_p) (enum machine_mode mode);
 
-  /* True if a vector is opaque.  */
-  bool (* vector_opaque_p) (const_tree);
-
   /* Compute a (partial) cost for rtx X.  Return true if the complete
      cost has been computed, and false if subexpressions should be
      scanned.  In either case, *TOTAL contains the cost result.  */
   /* Note that CODE and OUTER_CODE ought to be RTX_CODE, but that's
      not necessarily defined at this point.  */
-  bool (* rtx_costs) (rtx x, int code, int outer_code, int *total);
+  bool (* rtx_costs) (rtx x, int code, int outer_code, int *total, bool speed);
 
   /* Compute the cost of X, used as an address.  Never called with
      invalid addresses.  */
-  int (* address_cost) (rtx x);
+  int (* address_cost) (rtx x, bool speed);
 
   /* Return where to allocate pseudo for a given hard register initial
      value.  */
@@ -694,12 +813,18 @@ struct gcc_target
   /* Create the __builtin_va_list type.  */
   tree (* build_builtin_va_list) (void);
 
+  /* Get the cfun/fndecl calling abi __builtin_va_list type.  */
+  tree (* fn_abi_va_list) (tree);
+
+  /* Get the __builtin_va_list type dependent on input type.  */
+  tree (* canonical_va_list_type) (tree);
+
   /* Expand the __builtin_va_start builtin.  */
   void (* expand_builtin_va_start) (tree valist, rtx nextarg);
 
   /* Gimplifies a VA_ARG_EXPR.  */
-  tree (* gimplify_va_arg_expr) (tree valist, tree type, tree *pre_p,
-				 tree *post_p);
+  tree (* gimplify_va_arg_expr) (tree valist, tree type, gimple_seq *pre_p,
+				 gimple_seq *post_p);
 
   /* Validity-checking routines for PCH files, target-specific.
      get_pch_validity returns a pointer to the data to be stored,
@@ -745,10 +870,9 @@ struct gcc_target
   void (* dwarf_handle_frame_unspec) (const char *, rtx, int);
 
   /* Perform architecture specific checking of statements gimplified
-     from VA_ARG_EXPR.  LHS is left hand side of MODIFY_EXPR, RHS
-     is right hand side.  Returns true if the statements doesn't need
-     to be checked for va_list references.  */
-  bool (* stdarg_optimize_hook) (struct stdarg_info *ai, const_tree lhs, const_tree rhs);
+     from VA_ARG_EXPR.  STMT is the statement.  Returns true if the statement
+     doesn't need to be checked for va_list references.  */
+  bool (* stdarg_optimize_hook) (struct stdarg_info *ai, const_gimple stmt);
 
   /* This target hook allows the operating system to override the DECL
      that represents the external variable that contains the stack
@@ -768,10 +892,17 @@ struct gcc_target
      checks to  handle_dll_attribute ().  */
   bool (* valid_dllimport_attribute_p) (const_tree decl);
 
+  /* If non-zero, align constant anchors in CSE to a multiple of this
+     value.  */
+  unsigned HOST_WIDE_INT const_anchor;
+
   /* Functions relating to calls - argument passing, returns, etc.  */
   struct calls {
-    bool (*promote_function_args) (const_tree fntype);
-    bool (*promote_function_return) (const_tree fntype);
+    enum machine_mode (*promote_function_mode) (const_tree type,
+						enum machine_mode mode,
+						int *punsignedp,
+						const_tree fntype,
+						int for_return);
     bool (*promote_prototypes) (const_tree fntype);
     rtx (*struct_value_rtx) (tree fndecl, int incoming);
     bool (*return_in_memory) (const_tree type, const_tree fndecl);
@@ -827,9 +958,35 @@ struct gcc_target
     rtx (*function_value) (const_tree ret_type, const_tree fn_decl_or_type,
 			   bool outgoing);
 
+    /* Return the rtx for the result of a libcall of mode MODE,
+       calling the function FN_NAME.  */
+    rtx (*libcall_value) (enum machine_mode, const_rtx);
+
     /* Return an rtx for the argument pointer incoming to the
        current function.  */
     rtx (*internal_arg_pointer) (void);
+
+    /* Update the current function stack boundary if needed.  */
+    void (*update_stack_boundary) (void);
+
+    /* Handle stack alignment and return an rtx for Dynamic Realign
+       Argument Pointer if necessary.  */
+    rtx (*get_drap_rtx) (void);
+
+    /* Return true if all function parameters should be spilled to the
+       stack.  */
+    bool (*allocate_stack_slots_for_args) (void);
+
+    /* Return an rtx for the static chain for FNDECL.  If INCOMING_P is true,
+       then it should be for the callee; otherwise for the caller.  */
+    rtx (*static_chain) (const_tree fndecl, bool incoming_p);
+
+    /* Fill in the trampoline at MEM with a call to FNDECL and a
+       static chain value of CHAIN.  */
+    void (*trampoline_init) (rtx mem, tree fndecl, rtx chain);
+
+    /* Adjust the address of the trampoline in a target-specific way.  */
+    rtx (*trampoline_adjust_address) (rtx addr);
   } calls;
 
   /* Return the diagnostic message string if conversion from FROMTYPE
@@ -844,10 +1001,55 @@ struct gcc_target
      is not permitted on TYPE1 and TYPE2, NULL otherwise.  */
   const char *(*invalid_binary_op) (int op, const_tree type1, const_tree type2);
 
+  /* Return the diagnostic message string if TYPE is not valid as a
+     function parameter type, NULL otherwise.  */
+  const char *(*invalid_parameter_type) (const_tree type);
+
+  /* Return the diagnostic message string if TYPE is not valid as a
+     function return type, NULL otherwise.  */
+  const char *(*invalid_return_type) (const_tree type);
+
+  /* If values of TYPE are promoted to some other type when used in
+     expressions (analogous to the integer promotions), return that type,
+     or NULL_TREE otherwise.  */
+  tree (*promoted_type) (const_tree type);
+
+  /* Convert EXPR to TYPE, if target-specific types with special conversion
+     rules are involved.  Return the converted expression, or NULL to apply
+     the standard conversion rules.  */
+  tree (*convert_to_type) (tree type, tree expr);
+
+  /* Return the array of IRA cover classes for the current target.  */
+  const enum reg_class *(*ira_cover_classes) (void);
+
   /* Return the class for a secondary reload, and fill in extra information.  */
   enum reg_class (*secondary_reload) (bool, rtx, enum reg_class,
 				      enum machine_mode,
-				      struct secondary_reload_info *);
+				      secondary_reload_info *);
+
+  /* This target hook allows the backend to perform additional
+     processing while initializing for variable expansion.  */
+  void (* expand_to_rtl_hook) (void);
+
+  /* This target hook allows the backend to perform additional
+     instantiations on rtx that are not actually in insns yet,
+     but will be later.  */
+  void (* instantiate_decls) (void);
+
+  /* Return true if is OK to use a hard register REGNO as scratch register
+     in peephole2.  */
+  bool (* hard_regno_scratch_ok) (unsigned int regno);
+
+  /* Return the smallest number of different values for which it is best to
+     use a jump-table instead of a tree of conditional branches.  */
+  unsigned int (* case_values_threshold) (void);
+
+  /* Retutn true if a function must have and use a frame pointer.  */
+  bool (* frame_pointer_required) (void);
+
+  /* Returns true if the compiler is allowed to try to replace register number
+     from-reg with register number to-reg.  */
+  bool (* can_eliminate) (const int, const int);
 
   /* Functions specific to the C family of frontends.  */
   struct c {
@@ -908,10 +1110,66 @@ struct gcc_target
     void (*adjust_class_at_definition) (tree type);
   } cxx;
 
+  /* Functions and data for emulated TLS support.  */
+  struct emutls {
+    /* Name of the address and common functions.  */
+    const char *get_address;
+    const char *register_common;
+
+    /* Prefixes for proxy variable and template.  */
+    const char *var_section;
+    const char *tmpl_section;
+
+    /* Prefixes for proxy variable and template.  */
+    const char *var_prefix;
+    const char *tmpl_prefix;
+
+    /* Function to generate field definitions of the proxy variable.  */
+    tree (*var_fields) (tree, tree *);
+
+    /* Function to initialize a proxy variable.  */
+    tree (*var_init) (tree, tree, tree);
+
+    /* Whether we are allowed to alter the usual alignment of the
+       proxy variable.  */
+    bool var_align_fixed;
+
+    /* Whether we can emit debug information for TLS vars.  */
+    bool debug_form_tls_address;
+  } emutls;
+
+  struct target_option_hooks {
+    /* Function to validate the attribute((option(...))) strings or NULL.  If
+       the option is validated, it is assumed that DECL_FUNCTION_SPECIFIC will
+       be filled in in the function decl node.  */
+    bool (*valid_attribute_p) (tree, tree, tree, int);
+
+    /* Function to save any extra target state in the target options
+       structure.  */
+    void (*save) (struct cl_target_option *);
+
+    /* Function to restore any extra target state from the target options
+       structure.  */
+    void (*restore) (struct cl_target_option *);
+
+    /* Function to print any extra target state from the target options
+       structure.  */
+    void (*print) (FILE *, int, struct cl_target_option *);
+
+    /* Function to parse arguments to be validated for #pragma option, and to
+       change the state if the options are valid.  If the first argument is
+       NULL, the second argument specifies the default options to use.  Return
+       true if the options are valid, and set the current state.  */
+    bool (*pragma_parse) (tree, tree);
+
+    /* Function to determine if one function can inline another function.  */
+    bool (*can_inline_p) (tree, tree);
+  } target_option;
+
   /* For targets that need to mark extra registers as live on entry to
      the function, they should define this target hook and set their
-     bits in the bitmap passed in. */  
-  void (*live_on_entry) (bitmap); 
+     bits in the bitmap passed in. */
+  void (*live_on_entry) (bitmap);
 
   /* True if unwinding tables should be generated by default.  */
   bool unwind_tables_default;
@@ -945,9 +1203,6 @@ struct gcc_target
   /* True if output_file_directive should be called for main_input_filename
      at the beginning of assembly output.  */
   bool file_start_file_directive;
-
-  /* True if #pragma redefine_extname is to be supported.  */
-  bool handle_pragma_redefine_extname;
 
   /* True if #pragma extern_prefix is to be supported.  */
   bool handle_pragma_extern_prefix;

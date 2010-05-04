@@ -1,6 +1,6 @@
 /* Definitions of target machine for GCC, for SPARC running Solaris 2
    Copyright 1992, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2004, 2005,
-   2006, 2007 Free Software Foundation, Inc.
+   2006, 2007, 2008, 2010 Free Software Foundation, Inc.
    Contributed by Ron Guilmette (rfg@netcom.com).
    Additional changes by David V. Henkel-Wallace (gumby@cygnus.com).
 
@@ -138,9 +138,6 @@ along with GCC; see the file COPYING3.  If not see
    SPARC ABI says that long double is 4 words.  */
 #define LONG_DOUBLE_TYPE_SIZE 128
 
-/* But indicate that it isn't supported by the hardware.  */
-#define WIDEST_HARDWARE_FP_SIZE 64
-
 /* Solaris's _Qp_* library routine implementation clobbers the output
    memory before the inputs are fully consumed.  */
 
@@ -167,6 +164,9 @@ along with GCC; see the file COPYING3.  If not see
 #define SUBTARGET_INSERT_ATTRIBUTES solaris_insert_attributes
 #define SUBTARGET_ATTRIBUTE_TABLE SOLARIS_ATTRIBUTE_TABLE
 
+/* Register the Solaris-specific #pragma directives.  */
+#define REGISTER_TARGET_PRAGMAS() solaris_register_pragmas ()
+
 /* Output a simple call for .init/.fini.  */
 #define ASM_OUTPUT_CALL(FILE, FN)			        \
   do								\
@@ -176,3 +176,16 @@ along with GCC; see the file COPYING3.  If not see
       fprintf (FILE, "\n\tnop\n");				\
     }								\
   while (0)
+
+/* Use Solaris ELF section syntax.  */
+#undef TARGET_ASM_NAMED_SECTION
+#define TARGET_ASM_NAMED_SECTION sparc_solaris_elf_asm_named_section
+
+/* Solaris/SPARC as uses a non-standard .section/.pushsection syntax.
+   While gas supports it, too, we prefer the standard variant.  */
+#ifndef USE_GAS
+#undef PUSHSECTION_FORMAT
+#define PUSHSECTION_FORMAT	"\t.pushsection\t\"%s\"\n"
+#endif
+
+#define MD_UNWIND_SUPPORT "config/sparc/sol2-unwind.h"

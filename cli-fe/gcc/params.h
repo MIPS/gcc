@@ -1,5 +1,6 @@
 /* params.h - Run-time parameters.
-   Copyright (C) 2001, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2003, 2004, 2005, 2007, 2008, 2009
+   Free Software Foundation, Inc.
    Written by Mark Mitchell <mark@codesourcery.com>.
 
 This file is part of GCC.
@@ -51,10 +52,10 @@ typedef struct param_info
 
   /* Minimum acceptable value.  */
   int min_value;
-  
+
   /* Maximum acceptable value, if greater than minimum  */
   int max_value;
-  
+
   /* A short description of the option.  */
   const char *const help;
 } param_info;
@@ -63,6 +64,9 @@ typedef struct param_info
    values.  */
 
 extern param_info *compiler_params;
+
+/* Returns the number of entries in the table, for the use by plugins.  */
+extern size_t get_num_compiler_params (void);
 
 /* Add the N PARAMS to the current list of compiler parameters.  */
 
@@ -93,16 +97,6 @@ typedef enum compiler_param
   (compiler_params[(int) ENUM].set)
 
 /* Macros for the various parameters.  */
-#define SALIAS_MAX_IMPLICIT_FIELDS \
-  PARAM_VALUE (PARAM_SALIAS_MAX_IMPLICIT_FIELDS)
-#define SALIAS_MAX_ARRAY_ELEMENTS \
-  PARAM_VALUE (PARAM_SALIAS_MAX_ARRAY_ELEMENTS)
-#define SRA_MAX_STRUCTURE_SIZE \
-  PARAM_VALUE (PARAM_SRA_MAX_STRUCTURE_SIZE)
-#define SRA_MAX_STRUCTURE_COUNT \
-  PARAM_VALUE (PARAM_SRA_MAX_STRUCTURE_COUNT)
-#define SRA_FIELD_STRUCTURE_RATIO \
-  PARAM_VALUE (PARAM_SRA_FIELD_STRUCTURE_RATIO)
 #define STRUCT_REORG_COLD_STRUCT_RATIO \
   PARAM_VALUE (PARAM_STRUCT_REORG_COLD_STRUCT_RATIO)
 #define MAX_INLINE_INSNS_SINGLE \
@@ -127,8 +121,6 @@ typedef enum compiler_param
   PARAM_VALUE (PARAM_MAX_PENDING_LIST_LENGTH)
 #define MAX_GCSE_MEMORY \
   ((size_t) PARAM_VALUE (PARAM_MAX_GCSE_MEMORY))
-#define MAX_GCSE_PASSES \
-  PARAM_VALUE (PARAM_MAX_GCSE_PASSES)
 #define GCSE_AFTER_RELOAD_PARTIAL_FRACTION \
   PARAM_VALUE (PARAM_GCSE_AFTER_RELOAD_PARTIAL_FRACTION)
 #define GCSE_AFTER_RELOAD_CRITICAL_FRACTION \
@@ -143,10 +135,6 @@ typedef enum compiler_param
   PARAM_VALUE (PARAM_SMS_DFA_HISTORY)
 #define SMS_LOOP_AVERAGE_COUNT_THRESHOLD \
   PARAM_VALUE (PARAM_SMS_LOOP_AVERAGE_COUNT_THRESHOLD)
-#define MAX_ALIASED_VOPS \
-  PARAM_VALUE (PARAM_MAX_ALIASED_VOPS)
-#define AVG_ALIASED_VOPS \
-  PARAM_VALUE (PARAM_AVG_ALIASED_VOPS)
 #define INTEGER_SHARE_LIMIT \
   PARAM_VALUE (PARAM_INTEGER_SHARE_LIMIT)
 #define MAX_LAST_VALUE_RTL \
@@ -171,4 +159,22 @@ typedef enum compiler_param
   PARAM_VALUE (PARAM_L2_CACHE_SIZE)
 #define USE_CANONICAL_TYPES \
   PARAM_VALUE (PARAM_USE_CANONICAL_TYPES)
+#define IRA_MAX_LOOPS_NUM \
+  PARAM_VALUE (PARAM_IRA_MAX_LOOPS_NUM)
+#define IRA_MAX_CONFLICT_TABLE_SIZE \
+  PARAM_VALUE (PARAM_IRA_MAX_CONFLICT_TABLE_SIZE)
+#define IRA_LOOP_RESERVED_REGS \
+  PARAM_VALUE (PARAM_IRA_LOOP_RESERVED_REGS)
+#define SWITCH_CONVERSION_BRANCH_RATIO \
+  PARAM_VALUE (PARAM_SWITCH_CONVERSION_BRANCH_RATIO)
+#define LOOP_INVARIANT_MAX_BBS_IN_LOOP \
+  PARAM_VALUE (PARAM_LOOP_INVARIANT_MAX_BBS_IN_LOOP)
+#define SLP_MAX_INSNS_IN_BB \
+  PARAM_VALUE (PARAM_SLP_MAX_INSNS_IN_BB)
+#define MIN_INSN_TO_PREFETCH_RATIO \
+  PARAM_VALUE (PARAM_MIN_INSN_TO_PREFETCH_RATIO)
+#define PREFETCH_MIN_INSN_TO_MEM_RATIO \
+  PARAM_VALUE (PARAM_PREFETCH_MIN_INSN_TO_MEM_RATIO)
+#define MIN_NONDEBUG_INSN_UID \
+  PARAM_VALUE (PARAM_MIN_NONDEBUG_INSN_UID)
 #endif /* ! GCC_PARAMS_H */

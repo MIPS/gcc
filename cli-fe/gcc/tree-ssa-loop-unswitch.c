@@ -1,18 +1,18 @@
 /* Loop unswitching.
-   Copyright (C) 2004, 2005, 2007 Free Software Foundation, Inc.
-   
+   Copyright (C) 2004, 2005, 2007, 2008 Free Software Foundation, Inc.
+
 This file is part of GCC.
-   
+
 GCC is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
 Free Software Foundation; either version 3, or (at your option) any
 later version.
-   
+
 GCC is distributed in the hope that it will be useful, but WITHOUT
 ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
 FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
-   
+
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
@@ -32,7 +32,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-dump.h"
 #include "timevar.h"
 #include "cfgloop.h"
-#include "domwalk.h"
 #include "params.h"
 #include "tree-pass.h"
 #include "tree-inline.h"
@@ -103,26 +102,29 @@ tree_ssa_unswitch_loops (void)
 static tree
 tree_may_unswitch_on (basic_block bb, struct loop *loop)
 {
-  tree stmt, def, cond, use;
+  gimple stmt, def;
+  tree cond, use;
   basic_block def_bb;
   ssa_op_iter iter;
 
   /* BB must end in a simple conditional jump.  */
   stmt = last_stmt (bb);
-  if (!stmt || TREE_CODE (stmt) != COND_EXPR)
+  if (!stmt || gimple_code (stmt) != GIMPLE_COND)
     return NULL_TREE;
 
   /* Condition must be invariant.  */
   FOR_EACH_SSA_TREE_OPERAND (use, stmt, iter, SSA_OP_USE)
     {
       def = SSA_NAME_DEF_STMT (use);
-      def_bb = bb_for_stmt (def);
+      def_bb = gimple_bb (def);
       if (def_bb
 	  && flow_bb_inside_loop_p (loop, def_bb))
 	return NULL_TREE;
     }
 
-  cond = COND_EXPR_COND (stmt);
+  cond = build2 (gimple_cond_code (stmt), boolean_type_node,
+		 gimple_cond_lhs (stmt), gimple_cond_rhs (stmt));
+
   /* To keep the things simple, we do not directly remove the conditions,
      but just replace tests with 0/1.  Prevent the infinite loop where we
      would unswitch again on such a condition.  */
@@ -140,14 +142,18 @@ static tree
 simplify_using_entry_checks (struct loop *loop, tree cond)
 {
   edge e = loop_preheader_edge (loop);
-  tree stmt;
+  gimple stmt;
 
   while (1)
     {
       stmt = last_stmt (e->src);
       if (stmt
-	  && TREE_CODE (stmt) == COND_EXPR
-	  && operand_equal_p (COND_EXPR_COND (stmt), cond, 0))
+	  && gimple_code (stmt) == GIMPLE_COND
+	  && gimple_cond_code (stmt) == TREE_CODE (cond)
+	  && operand_equal_p (gimple_cond_lhs (stmt),
+			      TREE_OPERAND (cond, 0), 0)
+	  && operand_equal_p (gimple_cond_rhs (stmt),
+			      TREE_OPERAND (cond, 1), 0))
 	return (e->flags & EDGE_TRUE_VALUE
 		? boolean_true_node
 		: boolean_false_node);
@@ -171,7 +177,8 @@ tree_unswitch_single_loop (struct loop *loop, int num)
   basic_block *bbs;
   struct loop *nloop;
   unsigned i;
-  tree cond = NULL_TREE, stmt;
+  tree cond = NULL_TREE;
+  gimple stmt;
   bool changed = false;
 
   /* Do not unswitch too much.  */
@@ -190,6 +197,14 @@ tree_unswitch_single_loop (struct loop *loop, int num)
       return false;
     }
 
+  /* Do not unswitch in cold regions.  */
+  if (optimize_loop_for_size_p (loop))
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, ";; Not unswitching cold loops\n");
+      return false;
+    }
+
   /* The loop should not be too large, to limit code growth.  */
   if (tree_num_loop_insns (loop, &eni_size_weights)
       > (unsigned) PARAM_VALUE (PARAM_MAX_UNSWITCH_INSNS))
@@ -201,7 +216,7 @@ tree_unswitch_single_loop (struct loop *loop, int num)
 
   i = 0;
   bbs = get_loop_body (loop);
-  
+
   while (1)
     {
       /* Find a bb to unswitch on.  */
@@ -220,13 +235,13 @@ tree_unswitch_single_loop (struct loop *loop, int num)
       if (integer_nonzerop (cond))
 	{
 	  /* Remove false path.  */
-	  COND_EXPR_COND (stmt) = boolean_true_node;
+	  gimple_cond_set_condition_from_tree (stmt, boolean_true_node);
 	  changed = true;
 	}
       else if (integer_zerop (cond))
 	{
 	  /* Remove true path.  */
-	  COND_EXPR_COND (stmt) = boolean_false_node;
+	  gimple_cond_set_condition_from_tree (stmt, boolean_false_node);
 	  changed = true;
 	}
       else
@@ -279,7 +294,7 @@ tree_unswitch_loop (struct loop *loop,
 
   extract_true_false_edges_from_block (unswitch_on, &edge_true, &edge_false);
   prob_true = edge_true->probability;
-  return loop_version (loop, unshare_expr (cond), 
+  return loop_version (loop, unshare_expr (cond),
 		       NULL, prob_true, prob_true,
 		       REG_BR_PROB_BASE - prob_true, false);
 }

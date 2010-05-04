@@ -1,5 +1,5 @@
 /* Language-dependent hooks for Objective-C++.
-   Copyright 2005, 2007 Free Software Foundation, Inc.
+   Copyright 2005, 2007, 2008 Free Software Foundation, Inc.
    Contributed by Ziemowit Laski  <zlaski@apple.com>
 
 This file is part of GCC.
@@ -33,9 +33,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic.h"
 #include "debug.h"
 #include "cp-objcp-common.h"
+#include "except.h"
 
 enum c_language_kind c_language = clk_objcxx;
 static void objcxx_init_ts (void);
+static tree objcxx_eh_personality (void);
 
 /* Lang hooks common to C++ and ObjC++ are declared in cp/cp-objcp-common.h;
    consequently, there should be very few hooks below.  */
@@ -48,60 +50,15 @@ static void objcxx_init_ts (void);
 #define LANG_HOOKS_DECL_PRINTABLE_NAME	objc_printable_name
 #undef LANG_HOOKS_GIMPLIFY_EXPR 
 #define LANG_HOOKS_GIMPLIFY_EXPR objc_gimplify_expr
-#undef LANG_HOOKS_GET_CALLEE_FNDECL
-#define LANG_HOOKS_GET_CALLEE_FNDECL	objc_get_callee_fndecl
 #undef LANG_HOOKS_INIT_TS
 #define LANG_HOOKS_INIT_TS objcxx_init_ts
+#undef LANG_HOOKS_EH_PERSONALITY
+#define LANG_HOOKS_EH_PERSONALITY objcxx_eh_personality
+#undef LANG_HOOKS_EH_RUNTIME_TYPE
+#define LANG_HOOKS_EH_RUNTIME_TYPE build_eh_type_type
 
 /* Each front end provides its own lang hook initializer.  */
-const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
-
-/* Tree code classes.  */
-
-#define DEFTREECODE(SYM, NAME, TYPE, LENGTH) TYPE,
-
-const enum tree_code_class tree_code_type[] = {
-#include "tree.def"
-  tcc_exceptional,
-#include "c-common.def"
-  tcc_exceptional,
-#include "cp-tree.def"
-  tcc_exceptional,
-#include "objc-tree.def"
-};
-#undef DEFTREECODE
-
-/* Table indexed by tree code giving number of expression
-   operands beyond the fixed part of the node structure.
-   Not used for types or decls.  */
-
-#define DEFTREECODE(SYM, NAME, TYPE, LENGTH) LENGTH,
-
-const unsigned char tree_code_length[] = {
-#include "tree.def"
-  0,
-#include "c-common.def"
-  0,
-#include "cp-tree.def"
-  0,
-#include "objc-tree.def"
-};
-#undef DEFTREECODE
-
-/* Names of tree components.
-   Used for printing out the tree and error messages.  */
-#define DEFTREECODE(SYM, NAME, TYPE, LEN) NAME,
-
-const char *const tree_code_name[] = {
-#include "tree.def"
-  "@@dummy",
-#include "c-common.def"
-  "@@dummy",
-#include "cp-tree.def"
-  "@@dummy",
-#include "objc-tree.def"
-};
-#undef DEFTREECODE
+struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
 
 /* Lang hook routines common to C++ and ObjC++ appear in cp/cp-objcp-common.c;
    there should be very few (if any) routines below.  */
@@ -185,6 +142,20 @@ objcxx_init_ts (void)
   tree_contains_struct[TEMPLATE_DECL][TS_DECL_MINIMAL] = 1;
 
   init_shadowed_var_for_decl ();
+}
+
+static GTY(()) tree objcp_eh_personality_decl;
+
+static tree
+objcxx_eh_personality (void)
+{
+  if (!objcp_eh_personality_decl)
+    objcp_eh_personality_decl
+	= build_personality_function (USING_SJLJ_EXCEPTIONS
+				      ? "__gxx_personality_sj0"
+				      : "__gxx_personality_v0");
+
+  return objcp_eh_personality_decl;
 }
 
 

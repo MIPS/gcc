@@ -6,7 +6,7 @@
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---            Copyright (C) 1991-2002 Florida State University              --
+--            Copyright (C) 1991-2009 Florida State University              --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -57,6 +57,17 @@ package body System.OS_Interface is
       return Duration (TS.tv_sec) + Duration (TS.tv_nsec) / 10#1#E9;
    end To_Duration;
 
+   ------------------------
+   -- To_Target_Priority --
+   ------------------------
+
+   function To_Target_Priority
+     (Prio : System.Any_Priority) return Interfaces.C.int
+   is
+   begin
+      return Interfaces.C.int (Prio);
+   end To_Target_Priority;
+
    -----------------
    -- To_Timespec --
    -----------------
@@ -70,36 +81,26 @@ package body System.OS_Interface is
 
       --  If F has negative value due to round-up, adjust for positive F value
 
-      if F < 0.0 then S := S - 1; F := F + 1.0; end if;
+      if F < 0.0 then
+         S := S - 1;
+         F := F + 1.0;
+      end if;
       return timespec'(tv_sec => S,
                        tv_nsec => long (Long_Long_Integer (F * 10#1#E9)));
    end To_Timespec;
 
-   function To_Duration (TV : struct_timeval) return Duration is
-   begin
-      return Duration (TV.tv_sec) + Duration (TV.tv_usec) / 10#1#E6;
-   end To_Duration;
-
-   function To_Timeval (D : Duration) return struct_timeval is
-      S : int;
-      F : Duration;
-   begin
-      S := int (Long_Long_Integer (D));
-      F := D - Duration (S);
-
-      --  If F has negative value due to a round-up, adjust for positive F
-      --  value.
-      if F < 0.0 then S := S - 1; F := F + 1.0; end if;
-      return
-        struct_timeval'
-          (tv_sec  => S,
-           tv_usec => int (Long_Long_Integer (F * 10#1#E6)));
-   end To_Timeval;
+   ------------------
+   -- pthread_init --
+   ------------------
 
    procedure pthread_init is
    begin
       null;
    end pthread_init;
+
+   --------------------
+   -- Get_Stack_Base --
+   --------------------
 
    function Get_Stack_Base (thread : pthread_t) return Address is
       pragma Warnings (Off, thread);
@@ -108,14 +109,17 @@ package body System.OS_Interface is
       return Null_Address;
    end Get_Stack_Base;
 
-   function Get_Page_Size return size_t is
-   begin
-      return 0;
-   end Get_Page_Size;
+   -----------------
+   -- sigaltstack --
+   -----------------
 
-   function Get_Page_Size return Address is
+   function sigaltstack
+     (ss  : not null access stack_t;
+      oss : access stack_t) return int is
+      pragma Unreferenced (ss);
+      pragma Unreferenced (oss);
    begin
       return 0;
-   end Get_Page_Size;
+   end sigaltstack;
 
 end System.OS_Interface;

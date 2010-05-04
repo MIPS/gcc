@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -104,7 +104,13 @@ package Exp_Disp is
    --      of the cases. See Expand_N_Attribute_Reference in Exp_Attr and
    --      Expand_N_Abort_Statement in Exp_Ch9 for more information.
 
-   --      _Disp_Timed_Select (15) - used in the expansion of timed selects
+   --      _Disp_Requeue (15) - used in the expansion of dispatching requeue
+   --      statements. Null implementation is provided for protected, task
+   --      and synchronized interfaces. Protected and task types implementing
+   --      concurrent interfaces receive full bodies. See Expand_N_Requeue_
+   --      Statement in Exp_Ch9 for more information.
+
+   --      _Disp_Timed_Select (16) - used in the expansion of timed selects
    --      with dispatching triggers. Null implementation for limited
    --      interfaces, full body generation for types that implement limited
    --      interfaces, not generated for the rest of the cases. See Expand_N_
@@ -140,7 +146,7 @@ package Exp_Disp is
    --      Snames.adb.
 
    --      Categorize the new PPO name as predefined by adding an entry in
-   --      Is_Predefined_Dispatching_Operation in Exp_Util.adb.
+   --      Is_Predefined_Dispatching_Operation in Exp_Disp.
 
    --      Generate the specification of the new PPO in Make_Predefined_
    --      Primitive_Spec in Exp_Ch3.adb. The Is_Internal flag of the defining
@@ -163,6 +169,9 @@ package Exp_Disp is
    --    Ada.Tags.Max_Predef_Prims         - indirect use
    --    Exp_Disp.Default_Prim_Op_Position - indirect use
    --    Exp_Disp.Set_All_DT_Position      - direct   use
+
+   procedure Apply_Tag_Checks (Call_Node : Node_Id);
+   --  Generate checks required on dispatching calls
 
    function Building_Static_DT (Typ : Entity_Id) return Boolean;
    pragma Inline (Building_Static_DT);
@@ -205,6 +214,18 @@ package Exp_Disp is
    --  generate the thunk then Thunk_Id and Thunk_Code are set to Empty.
    --  Otherwise they are set to the defining identifier and the subprogram
    --  body of the generated thunk.
+
+   function Is_Predefined_Dispatching_Operation (E : Entity_Id) return Boolean;
+   --  Ada 2005 (AI-251): Determines if E is a predefined primitive operation
+
+   function Is_Predefined_Internal_Operation (E : Entity_Id) return Boolean;
+   --  Similar to the previous one, but excludes stream operations, because
+   --  these may be overridden, and need extra formals, like user-defined
+   --  operations.
+
+   function Is_Predefined_Interface_Primitive (E : Entity_Id) return Boolean;
+   --  Ada 2005 (AI-345): Returns True if E is one of the predefined primitives
+   --  required to implement interfaces.
 
    function Make_DT (Typ : Entity_Id; N : Node_Id := Empty) return List_Id;
    --  Expand the declarations for the Dispatch Table. The node N is the
@@ -258,10 +279,21 @@ package Exp_Disp is
    --  of type Typ used for retrieving the _task_id field of a task interface
    --  class-wide type.
 
+   function Make_Disp_Requeue_Body
+     (Typ : Entity_Id) return Node_Id;
+   --  Ada 2005 (AI05-0030): Generate the body of the primitive operation of
+   --  type Typ used for dispatching on requeue statements. Generate a body
+   --  containing a single null-statement if Typ is an interface type.
+
+   function Make_Disp_Requeue_Spec
+     (Typ : Entity_Id) return Node_Id;
+   --  Ada 2005 (AI05-0030): Generate the specification of the primitive
+   --  operation of type Typ used for dispatching requeue statements.
+
    function Make_Disp_Timed_Select_Body
      (Typ : Entity_Id) return Node_Id;
    --  Ada 2005 (AI-345): Generate the body of the primitive operation of type
-   --  Typ used for dispatching in timed selects. Generates a body containing
+   --  Typ used for dispatching in timed selects. Generate a body containing
    --  a single null-statement if Typ is an interface type.
 
    function Make_Disp_Timed_Select_Spec
@@ -282,29 +314,35 @@ package Exp_Disp is
    --  tagged types this routine imports the forward declaration of the tag
    --  entity, that will be declared and exported by Make_DT.
 
-   procedure Register_Primitive
+   function Register_Primitive
      (Loc     : Source_Ptr;
-      Prim    : Entity_Id;
-      Ins_Nod : Node_Id);
-   --  Register Prim in the corresponding primary or secondary dispatch table.
+      Prim    : Entity_Id) return List_Id;
+   --  Build code to register Prim in the primary or secondary dispatch table.
    --  If Prim is associated with a secondary dispatch table then generate also
    --  its thunk and register it in the associated secondary dispatch table.
    --  In general the dispatch tables are always generated by Make_DT and
    --  Make_Secondary_DT; this routine is only used in two corner cases:
+   --
    --    1) To construct the dispatch table of a tagged type whose parent
    --       is a CPP_Class (see Build_Init_Procedure).
    --    2) To handle late overriding of dispatching operations (see
-   --       Check_Dispatching_Operation).
+   --       Check_Dispatching_Operation and Make_DT).
+   --
+   --  The caller is responsible for inserting the generated code in the
+   --  proper place.
 
    procedure Set_All_DT_Position (Typ : Entity_Id);
    --  Set the DT_Position field for each primitive operation. In the CPP
    --  Class case check that no pragma CPP_Virtual is missing and that the
    --  DT_Position are coherent
 
-   procedure Set_Default_Constructor (Typ : Entity_Id);
-   --  Typ is a CPP_Class type. Create the Init procedure of that type to
-   --  be the default constructor (i.e. the function returning this type,
-   --  having a pragma CPP_Constructor and no parameter)
+   procedure Set_CPP_Constructors (Typ : Entity_Id);
+   --  Typ is a CPP_Class type. Create the Init procedures of that type
+   --  required to handle its default and non-default constructors. The
+   --  functions to which pragma CPP_Constructor is applied in the sources
+   --  are functions returning this type, and having an implicit access to the
+   --  target object in its first argument; such implicit argument is explicit
+   --  in the IP procedures built here.
 
    procedure Set_DTC_Entity_Value
      (Tagged_Type : Entity_Id;

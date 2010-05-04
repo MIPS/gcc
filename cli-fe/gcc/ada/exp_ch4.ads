@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -84,8 +84,15 @@ package Exp_Ch4 is
    --  Lhs, Rhs are the record expressions to be compared, these
    --  expressions need not to be analyzed but have to be side-effect free.
    --  Bodies is a list on which to attach bodies of local functions that
-   --  are created in the process. This is the responsability of the caller
-   --  to insert those bodies at the right place. Nod provdies the Sloc
+   --  are created in the process. This is the responsibility of the caller
+   --  to insert those bodies at the right place. Nod provides the Sloc
    --  value for generated code.
+
+   function Integer_Promotion_Possible (N : Node_Id) return Boolean;
+   --  Returns true if the node is a type conversion whose operand is an
+   --  arithmetic operation on signed integers, and the base type of the
+   --  signed integer type is smaller than Standard.Integer. In such case we
+   --  have special circuitry in Expand_N_Type_Conversion to promote both of
+   --  the operands to type Integer.
 
 end Exp_Ch4;

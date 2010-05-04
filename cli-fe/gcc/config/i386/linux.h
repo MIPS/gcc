@@ -1,6 +1,6 @@
 /* Definitions for Intel 386 running Linux-based GNU systems with ELF format.
    Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2001, 2002, 2004, 2005,
-   2006, 2007 Free Software Foundation, Inc.
+   2006, 2007, 2008, 2009, 2010 Free Software Foundation, Inc.
    Contributed by Eric Youngdale.
    Modified for stabs-in-ELF by H.J. Lu.
 
@@ -55,7 +55,7 @@ along with GCC; see the file COPYING3.  If not see
    frame, so we cannot allow profiling without a frame pointer.  */
 
 #undef SUBTARGET_FRAME_POINTER_REQUIRED
-#define SUBTARGET_FRAME_POINTER_REQUIRED current_function_profile
+#define SUBTARGET_FRAME_POINTER_REQUIRED crtl->profile
 
 #undef SIZE_TYPE
 #define SIZE_TYPE "unsigned int"
@@ -101,6 +101,11 @@ along with GCC; see the file COPYING3.  If not see
 /* These macros may be overridden in k*bsd-gnu.h and i386/k*bsd-gnu.h. */
 #define LINK_EMULATION "elf_i386"
 #define GLIBC_DYNAMIC_LINKER "/lib/ld-linux.so.2"
+
+#undef  ASM_SPEC
+#define ASM_SPEC \
+  "%{v:-V} %{Qy:} %{!Qn:-Qy} %{n} %{T} %{Ym,*} %{Yd,*} %{Wa,*:%*} --32 \
+  %{!mno-sse2avx:%{mavx:-msse2avx}} %{msse2avx:%{!mavx:-msse2avx}}"
 
 #undef  SUBTARGET_EXTRA_SPECS
 #define SUBTARGET_EXTRA_SPECS \
@@ -148,8 +153,10 @@ along with GCC; see the file COPYING3.  If not see
 	fprintf ((FILE), "\t.p2align %d,,%d\n", (LOG), (MAX_SKIP));	\
 	/* Make sure that we have at least 8 byte alignment if > 8 byte \
 	   alignment is preferred.  */					\
-	if ((LOG) > 3 && (1 << (LOG)) > ((MAX_SKIP) + 1))		\
-	  fprintf ((FILE), "\t.p2align 3\n");				\
+	if ((LOG) > 3							\
+	    && (1 << (LOG)) > ((MAX_SKIP) + 1)				\
+	    && (MAX_SKIP) >= 7)						\
+	  fputs ("\t.p2align 3\n", (FILE));				\
       }									\
     }									\
   } while (0)
@@ -189,10 +196,18 @@ along with GCC; see the file COPYING3.  If not see
 	   : "=d"(BASE))
 #endif
 
-#undef NEED_INDICATE_EXEC_STACK
-#define NEED_INDICATE_EXEC_STACK 1
+/* Put all *tf routines in libgcc.  */
+#undef LIBGCC2_HAS_TF_MODE
+#define LIBGCC2_HAS_TF_MODE 1
+#define LIBGCC2_TF_CEXT q
+#define TF_SIZE 113
+
+#define TARGET_ASM_FILE_END file_end_indicate_exec_stack
 
 #define MD_UNWIND_SUPPORT "config/i386/linux-unwind.h"
+
+/* The stack pointer needs to be moved while checking the stack.  */
+#define STACK_CHECK_MOVING_SP 1
 
 /* This macro may be overridden in i386/k*bsd-gnu.h.  */
 #define REG_NAME(reg) reg

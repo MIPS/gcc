@@ -1,5 +1,5 @@
 /* Prototypes for Blackfin functions used in the md file & elsewhere.
-   Copyright (C) 2005, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2007, 2008, 2009 Free Software Foundation, Inc.
 
    This file is part of GNU CC.
 
@@ -22,35 +22,6 @@
 #ifndef GCC_BFIN_PROTOS_H
 #define GCC_BFIN_PROTOS_H
 
-/* CPU type.  */
-typedef enum bfin_cpu_type
-{
-  BFIN_CPU_BF522,
-  BFIN_CPU_BF525,
-  BFIN_CPU_BF527,
-  BFIN_CPU_BF531,
-  BFIN_CPU_BF532,
-  BFIN_CPU_BF533,
-  BFIN_CPU_BF534,
-  BFIN_CPU_BF536,
-  BFIN_CPU_BF537,
-  BFIN_CPU_BF538,
-  BFIN_CPU_BF539,
-  BFIN_CPU_BF542,
-  BFIN_CPU_BF544,
-  BFIN_CPU_BF548,
-  BFIN_CPU_BF549,
-  BFIN_CPU_BF561
-} bfin_cpu_t;
-
-/* Value of -mcpu= */
-extern bfin_cpu_t bfin_cpu_type;
-
-/* Value of -msi-revision= */
-extern int bfin_si_revision;
-
-extern unsigned int bfin_workarounds;
-
 /* For the anomaly 05-00-0245 */
 #define WA_SPECULATIVE_LOADS 0x00000001
 #define ENABLE_WA_SPECULATIVE_LOADS \
@@ -61,6 +32,36 @@ extern unsigned int bfin_workarounds;
 #define ENABLE_WA_SPECULATIVE_SYNCS \
   (bfin_workarounds & WA_SPECULATIVE_SYNCS)
 
+/* For the anomaly 05-00-0371 */
+#define WA_RETS 0x00000004
+#define ENABLE_WA_RETS \
+  (bfin_workarounds & WA_RETS)
+
+/* For the anomaly 05-00-0426 */
+#define WA_INDIRECT_CALLS 0x00000008
+#define ENABLE_WA_INDIRECT_CALLS \
+  ((bfin_workarounds & WA_INDIRECT_CALLS) && !TARGET_ICPLB)
+
+#define WA_05000257 0x00000010
+#define ENABLE_WA_05000257 \
+  (bfin_workarounds & WA_05000257)
+
+#define WA_05000283 0x00000020
+#define ENABLE_WA_05000283 \
+  (bfin_workarounds & WA_05000283)
+
+#define WA_05000315 0x00000040
+#define ENABLE_WA_05000315 \
+  (bfin_workarounds & WA_05000315)
+
+/* For the anomaly 05-00-0312 */
+#define WA_LOAD_LCREGS 0x00000080
+#define ENABLE_WA_LOAD_LCREGS \
+  (bfin_workarounds & WA_LOAD_LCREGS)
+
+#define WA_05000074 0x00000100
+#define ENABLE_WA_05000074 \
+  (bfin_workarounds & WA_05000074)
 
 #define Mmode enum machine_mode
 
@@ -74,11 +75,9 @@ extern char *bfin_asm_long (void);
 extern char *bfin_asm_short (void);
 extern int log2constp (unsigned HOST_WIDE_INT);
 
-extern rtx legitimize_address (rtx, rtx, Mmode);
 extern bool bfin_legitimate_constant_p (rtx);
 extern int hard_regno_mode_ok (int, Mmode);
 extern void init_cumulative_args (CUMULATIVE_ARGS *, tree, rtx);	  
-extern int bfin_frame_pointer_required (void);
 extern HOST_WIDE_INT bfin_initial_elimination_offset (int, int);
 
 extern int effective_address_32bit_p (rtx, Mmode);
@@ -111,9 +110,6 @@ extern void asm_conditional_branch (rtx, rtx *, int, int);
 extern rtx bfin_gen_compare (rtx, Mmode);
 
 extern int bfin_local_alignment (tree, int);
-extern int bfin_return_in_memory (const_tree);
-extern void initialize_trampoline (rtx, rtx, rtx);
-extern bool bfin_legitimate_address_p (Mmode, rtx, int);
 extern rtx bfin_va_arg (tree, tree);
 
 extern void bfin_expand_prologue (void);

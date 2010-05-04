@@ -1,5 +1,5 @@
 /* Definitions for AMD x86-64 running Linux-based GNU systems with ELF format.
-   Copyright (C) 2001, 2002, 2004, 2005, 2006, 2007
+   Copyright (C) 2001, 2002, 2004, 2005, 2006, 2007, 2008, 2009, 2010
    Free Software Foundation, Inc.
    Contributed by Jan Hubicka <jh@suse.cz>, based on linux.h.
 
@@ -15,8 +15,13 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING3.  If not see
+Under Section 7 of GPL version 3, you are granted additional
+permissions described in the GCC Runtime Library Exception, version
+3.1, as published by the Free Software Foundation.
+
+You should have received a copy of the GNU General Public License and
+a copy of the GCC Runtime Library Exception along with this program;
+see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 <http://www.gnu.org/licenses/>.  */
 
 #if TARGET_64BIT_DEFAULT
@@ -64,6 +69,11 @@ along with GCC; see the file COPYING3.  If not see
 #define SPEC_64 "m64"
 #endif
 
+#undef ASM_SPEC
+#define ASM_SPEC "%{v:-V} %{Qy:} %{!Qn:-Qy} %{n} %{T} %{Ym,*} %{Yd,*} \
+ %{Wa,*:%*} %{" SPEC_32 ":--32} %{" SPEC_64 ":--64} \
+ %{!mno-sse2avx:%{mavx:-msse2avx}} %{msse2avx:%{!mavx:-msse2avx}}"
+
 #undef	LINK_SPEC
 #define LINK_SPEC "%{" SPEC_64 ":-m elf_x86_64} %{" SPEC_32 ":-m elf_i386} \
   %{shared:-shared} \
@@ -91,14 +101,16 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Put all *tf routines in libgcc.  */
 #undef LIBGCC2_HAS_TF_MODE
-#define LIBGCC2_HAS_TF_MODE TARGET_64BIT
+#define LIBGCC2_HAS_TF_MODE 1
 #define LIBGCC2_TF_CEXT q
 #define TF_SIZE 113
 
-#undef NEED_INDICATE_EXEC_STACK
-#define NEED_INDICATE_EXEC_STACK 1
+#define TARGET_ASM_FILE_END file_end_indicate_exec_stack
 
 #define MD_UNWIND_SUPPORT "config/i386/linux-unwind.h"
+
+/* The stack pointer needs to be moved while checking the stack.  */
+#define STACK_CHECK_MOVING_SP 1
 
 /* This macro may be overridden in i386/k*bsd-gnu.h.  */
 #define REG_NAME(reg) reg

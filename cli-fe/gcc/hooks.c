@@ -1,5 +1,6 @@
 /* General-purpose hooks.
-   Copyright (C) 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2007, 2008, 2009
+   Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the
@@ -13,7 +14,7 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; see the file COPYING3.  If not see
-   <http://www.gnu.org/licenses/>.  
+   <http://www.gnu.org/licenses/>.
 
    In other words, you are welcome to use, share and improve this program.
    You are forbidden to forbid anyone else to use, share and improve
@@ -48,18 +49,18 @@ hook_bool_void_true (void)
   return true;
 }
 
-/* Generic hook that takes no arguments and returns NO_REGS.  */
-int
-hook_int_void_no_regs (void)
-{
-  return NO_REGS;
-}
-
 /* Generic hook that takes (bool) and returns false.  */
 bool
 hook_bool_bool_false (bool a ATTRIBUTE_UNUSED)
 {
   return false;
+}
+
+/* Generic hook that takes const int, const int) and returns true.  */
+bool hook_bool_const_int_const_int_true (const int a ATTRIBUTE_UNUSED,
+                                         const int b ATTRIBUTE_UNUSED)
+{
+  return true;
 }
 
 /* Generic hook that takes (enum machine_mode) and returns false.  */
@@ -154,6 +155,12 @@ hook_int_rtx_0 (rtx a ATTRIBUTE_UNUSED)
 }
 
 int
+hook_int_rtx_bool_0 (rtx a ATTRIBUTE_UNUSED, bool b ATTRIBUTE_UNUSED)
+{
+  return 0;
+}
+
+int
 hook_int_size_t_constcharptr_int_0 (size_t a ATTRIBUTE_UNUSED,
 				    const char *b ATTRIBUTE_UNUSED,
 				    int c ATTRIBUTE_UNUSED)
@@ -214,6 +221,12 @@ hook_bool_tree_tree_false (tree a ATTRIBUTE_UNUSED, tree b ATTRIBUTE_UNUSED)
 }
 
 bool
+hook_bool_tree_tree_true (tree a ATTRIBUTE_UNUSED, tree b ATTRIBUTE_UNUSED)
+{
+  return true;
+}
+
+bool
 hook_bool_tree_bool_false (tree a ATTRIBUTE_UNUSED, bool b ATTRIBUTE_UNUSED)
 {
   return false;
@@ -233,10 +246,11 @@ hook_bool_uintp_uintp_false (unsigned int *a ATTRIBUTE_UNUSED,
 }
 
 bool
-hook_bool_rtx_int_int_intp_false (rtx a ATTRIBUTE_UNUSED,
-				  int b ATTRIBUTE_UNUSED,
-				  int c ATTRIBUTE_UNUSED,
-				  int *d ATTRIBUTE_UNUSED)
+hook_bool_rtx_int_int_intp_bool_false (rtx a ATTRIBUTE_UNUSED,
+				       int b ATTRIBUTE_UNUSED,
+				       int c ATTRIBUTE_UNUSED,
+				       int *d ATTRIBUTE_UNUSED,
+				       bool speed_p ATTRIBUTE_UNUSED)
 {
   return false;
 }
@@ -291,6 +305,14 @@ hook_tree_tree_tree_null (tree t0 ATTRIBUTE_UNUSED, tree t1 ATTRIBUTE_UNUSED)
   return NULL;
 }
 
+tree
+hook_tree_tree_tree_tree_null (tree t0 ATTRIBUTE_UNUSED,
+			       tree t1 ATTRIBUTE_UNUSED,
+			       tree t2 ATTRIBUTE_UNUSED)
+{
+  return NULL;
+}
+
 /* Generic hook that takes a rtx and returns a NULL string.  */
 const char *
 hook_constcharptr_const_rtx_null (const_rtx r ATTRIBUTE_UNUSED)
@@ -316,6 +338,13 @@ const char *
 hook_constcharptr_int_const_tree_const_tree_null (int i ATTRIBUTE_UNUSED,
 						  const_tree t0 ATTRIBUTE_UNUSED,
 						  const_tree t1 ATTRIBUTE_UNUSED)
+{
+  return NULL;
+}
+
+/* Generic hook that takes a const_tree and returns NULL_TREE.  */
+tree
+hook_tree_const_tree_null (const_tree t ATTRIBUTE_UNUSED)
 {
   return NULL;
 }

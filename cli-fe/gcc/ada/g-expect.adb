@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                     Copyright (C) 2000-2007, AdaCore                     --
+--                     Copyright (C) 2000-2009, AdaCore                     --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -31,8 +31,9 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with System;       use System;
-with Ada.Calendar; use Ada.Calendar;
+with System;              use System;
+with System.OS_Constants; use System.OS_Constants;
+with Ada.Calendar;        use Ada.Calendar;
 
 with GNAT.IO;
 with GNAT.OS_Lib;  use GNAT.OS_Lib;
@@ -261,7 +262,7 @@ package body GNAT.Expect is
      (Descriptor  : in out Process_Descriptor;
       Result      : out Expect_Match;
       Regexp      : String;
-      Timeout     : Integer := 10000;
+      Timeout     : Integer := 10_000;
       Full_Buffer : Boolean := False)
    is
    begin
@@ -277,7 +278,7 @@ package body GNAT.Expect is
       Result      : out Expect_Match;
       Regexp      : String;
       Matched     : out GNAT.Regpat.Match_Array;
-      Timeout     : Integer := 10000;
+      Timeout     : Integer := 10_000;
       Full_Buffer : Boolean := False)
    is
    begin
@@ -296,7 +297,7 @@ package body GNAT.Expect is
      (Descriptor  : in out Process_Descriptor;
       Result      : out Expect_Match;
       Regexp      : GNAT.Regpat.Pattern_Matcher;
-      Timeout     : Integer := 10000;
+      Timeout     : Integer := 10_000;
       Full_Buffer : Boolean := False)
    is
       Matched : GNAT.Regpat.Match_Array (0 .. 0);
@@ -310,7 +311,7 @@ package body GNAT.Expect is
       Result      : out Expect_Match;
       Regexp      : GNAT.Regpat.Pattern_Matcher;
       Matched     : out GNAT.Regpat.Match_Array;
-      Timeout     : Integer := 10000;
+      Timeout     : Integer := 10_000;
       Full_Buffer : Boolean := False)
    is
       N           : Expect_Match;
@@ -382,7 +383,7 @@ package body GNAT.Expect is
      (Descriptor  : in out Process_Descriptor;
       Result      : out Expect_Match;
       Regexps     : Regexp_Array;
-      Timeout     : Integer := 10000;
+      Timeout     : Integer := 10_000;
       Full_Buffer : Boolean := False)
    is
       Patterns : Compiled_Regexp_Array (Regexps'Range);
@@ -406,7 +407,7 @@ package body GNAT.Expect is
      (Descriptor  : in out Process_Descriptor;
       Result      : out Expect_Match;
       Regexps     : Compiled_Regexp_Array;
-      Timeout     : Integer := 10000;
+      Timeout     : Integer := 10_000;
       Full_Buffer : Boolean := False)
    is
       Matched : GNAT.Regpat.Match_Array (0 .. 0);
@@ -418,7 +419,7 @@ package body GNAT.Expect is
    procedure Expect
      (Result      : out Expect_Match;
       Regexps     : Multiprocess_Regexp_Array;
-      Timeout     : Integer := 10000;
+      Timeout     : Integer := 10_000;
       Full_Buffer : Boolean := False)
    is
       Matched : GNAT.Regpat.Match_Array (0 .. 0);
@@ -432,7 +433,7 @@ package body GNAT.Expect is
       Result      : out Expect_Match;
       Regexps     : Regexp_Array;
       Matched     : out GNAT.Regpat.Match_Array;
-      Timeout     : Integer := 10000;
+      Timeout     : Integer := 10_000;
       Full_Buffer : Boolean := False)
    is
       Patterns : Compiled_Regexp_Array (Regexps'Range);
@@ -456,7 +457,7 @@ package body GNAT.Expect is
       Result      : out Expect_Match;
       Regexps     : Compiled_Regexp_Array;
       Matched     : out GNAT.Regpat.Match_Array;
-      Timeout     : Integer := 10000;
+      Timeout     : Integer := 10_000;
       Full_Buffer : Boolean := False)
    is
       N           : Expect_Match;
@@ -503,7 +504,7 @@ package body GNAT.Expect is
      (Result      : out Expect_Match;
       Regexps     : Multiprocess_Regexp_Array;
       Matched     : out GNAT.Regpat.Match_Array;
-      Timeout     : Integer := 10000;
+      Timeout     : Integer := 10_000;
       Full_Buffer : Boolean := False)
    is
       N           : Expect_Match;
@@ -660,7 +661,7 @@ package body GNAT.Expect is
                            else
                               --  Add what we read to the buffer
 
-                              if Descriptors (J).Buffer_Index + N - 1 >
+                              if Descriptors (J).Buffer_Index + N >
                                 Descriptors (J).Buffer_Size
                               then
                                  --  If the user wants to know when we have
@@ -814,7 +815,8 @@ package body GNAT.Expect is
          Send (Process, Input);
       end if;
 
-      GNAT.OS_Lib.Close (Get_Input_Fd (Process));
+      Close (Process.Input_Fd);
+      Process.Input_Fd := Invalid_FD;
 
       declare
          Result : Expect_Match;
@@ -1001,11 +1003,10 @@ package body GNAT.Expect is
          --  Prepare low-level argument list from the normalized arguments
 
          for K in Arg_List'Range loop
-            if Arg_List (K) /= null then
-               C_Arg_List (K) := Arg_List (K).all'Address;
-            else
-               C_Arg_List (K) := System.Null_Address;
-            end if;
+            C_Arg_List (K) :=
+              (if Arg_List (K) /= null
+               then Arg_List (K).all'Address
+               else System.Null_Address);
          end loop;
 
          --  This does not return on Unix systems
@@ -1190,36 +1191,46 @@ package body GNAT.Expect is
       Args  : System.Address)
    is
       pragma Warnings (Off, Pid);
+      pragma Warnings (Off, Pipe1);
+      pragma Warnings (Off, Pipe2);
+      pragma Warnings (Off, Pipe3);
 
       Input  : File_Descriptor;
       Output : File_Descriptor;
       Error  : File_Descriptor;
 
-   begin
-      --  Since Windows does not have a separate fork/exec, we need to
-      --  perform the following actions:
-      --    - save stdin, stdout, stderr
-      --    - replace them by our pipes
-      --    - create the child with process handle inheritance
-      --    - revert to the previous stdin, stdout and stderr.
+      No_Fork_On_Target : constant Boolean := Target_OS = Windows;
 
-      Input  := Dup (GNAT.OS_Lib.Standin);
-      Output := Dup (GNAT.OS_Lib.Standout);
-      Error  := Dup (GNAT.OS_Lib.Standerr);
+   begin
+      if No_Fork_On_Target then
+
+         --  Since Windows does not have a separate fork/exec, we need to
+         --  perform the following actions:
+
+         --    - save stdin, stdout, stderr
+         --    - replace them by our pipes
+         --    - create the child with process handle inheritance
+         --    - revert to the previous stdin, stdout and stderr.
+
+         Input  := Dup (GNAT.OS_Lib.Standin);
+         Output := Dup (GNAT.OS_Lib.Standout);
+         Error  := Dup (GNAT.OS_Lib.Standerr);
+      end if;
 
       --  Since we are still called from the parent process, there is no way
       --  currently we can cleanly close the unneeded ends of the pipes, but
       --  this doesn't really matter.
-      --  We could close Pipe1.Output, Pipe2.Input, Pipe3.Input.
+
+      --  We could close Pipe1.Output, Pipe2.Input, Pipe3.Input
 
       Dup2 (Pipe1.Input,  GNAT.OS_Lib.Standin);
       Dup2 (Pipe2.Output, GNAT.OS_Lib.Standout);
       Dup2 (Pipe3.Output, GNAT.OS_Lib.Standerr);
 
-      Portable_Execvp (Pid.Pid'Access, Cmd & ASCII.Nul, Args);
+      Portable_Execvp (Pid.Pid'Access, Cmd & ASCII.NUL, Args);
 
-      --  The following commands are not executed on Unix systems, and are
-      --  only required for Windows systems. We are now in the parent process.
+      --  The following commands are not executed on Unix systems, and are only
+      --  required for Windows systems. We are now in the parent process.
 
       --  Restore the old descriptors
 
@@ -1272,8 +1283,8 @@ package body GNAT.Expect is
          --  Reuse the standard output pipe for standard error
 
          Pipe3.all := Pipe2.all;
-      else
 
+      else
          --  Create a separate pipe for standard error
 
          if Create_Pipe (Pipe3) /= 0 then
@@ -1298,10 +1309,17 @@ package body GNAT.Expect is
       Pipe3 : in out Pipe_Type)
    is
       pragma Warnings (Off, Pid);
+      pragma Warnings (Off, Pipe1);
+      pragma Warnings (Off, Pipe2);
+      pragma Warnings (Off, Pipe3);
+
    begin
       Close (Pipe1.Input);
       Close (Pipe2.Output);
-      Close (Pipe3.Output);
+
+      if Pipe3.Output /= Pipe2.Output then
+         Close (Pipe3.Output);
+      end if;
    end Set_Up_Parent_Communications;
 
    ------------------

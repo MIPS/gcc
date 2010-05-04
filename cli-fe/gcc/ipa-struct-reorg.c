@@ -1,5 +1,5 @@
 /* Struct-reorg optimization.
-   Copyright (C) 2007 Free Software Foundation, Inc.
+   Copyright (C) 2007, 2008, 2009, 2010 Free Software Foundation, Inc.
    Contributed by Olga Golovanevsky <olga@il.ibm.com>
    (Initial version of this code was developed
    by Caroline Tice and Mostafa Hagog.)
@@ -8,7 +8,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -17,9 +17,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -28,14 +27,13 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "ggc.h"
 #include "tree.h"
 #include "rtl.h"
-#include "tree-gimple.h"
+#include "gimple.h"
 #include "tree-inline.h"
 #include "tree-flow.h"
 #include "tree-flow-inline.h"
 #include "langhooks.h"
 #include "pointer-set.h"
 #include "hashtab.h"
-#include "c-tree.h"
 #include "toplev.h"
 #include "flags.h"
 #include "debug.h"
@@ -54,7 +52,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "opts.h"
 #include "ipa-type-escape.h"
 #include "tree-dump.h"
-#include "c-common.h"
+#include "gimple.h"
 
 /* This optimization implements structure peeling.
 
@@ -168,7 +166,7 @@ typedef const struct new_var_data *const_new_var;
 /* This structure represents allocation site of the structure.  */
 typedef struct alloc_site
 {
-  tree stmt;
+  gimple stmt;
   d_str str;
 } alloc_site_t;
 
@@ -187,7 +185,7 @@ typedef struct func_alloc_sites *fallocs_t;
 typedef const struct func_alloc_sites *const_fallocs_t;
 
 /* All allocation sites in the program.  */
-htab_t alloc_sites;
+htab_t alloc_sites = NULL;
 
 /* New global variables. Generated once for whole program.  */
 htab_t new_global_vars;
@@ -225,17 +223,17 @@ get_type_of_var (tree var)
 {
   if (!var)
     return NULL;
-  
+
   if (TREE_CODE (var) == PARM_DECL)
       return DECL_ARG_TYPE (var);
-  else 
+  else
     return TREE_TYPE (var);
 }
 
-/* Set of actions we do for each newly generated STMT.  */ 
+/* Set of actions we do for each newly generated STMT.  */
 
 static inline void
-finalize_stmt (tree stmt)
+finalize_stmt (gimple stmt)
 {
   update_stmt (stmt);
   mark_symbols_for_renaming (stmt);
@@ -244,14 +242,40 @@ finalize_stmt (tree stmt)
 /* This function finalizes STMT and appends it to the list STMTS.  */
 
 static inline void
-finalize_stmt_and_append (tree *stmts, tree stmt)
+finalize_stmt_and_append (gimple_seq *stmts, gimple stmt)
 {
-  append_to_statement_list (stmt, stmts);
+  gimple_seq_add_stmt (stmts, stmt);
   finalize_stmt (stmt);
 }
 
-/* Given structure type SRT_TYPE and field FIELD, 
-   this function is looking for a field with the same name 
+/* This function returns true if two fields FIELD1 and FIELD2 are 
+   semantically equal, and false otherwise.  */
+
+static bool
+compare_fields (tree field1, tree field2)
+{
+  if (DECL_NAME (field1) && DECL_NAME (field2))
+    {
+      const char *name1 = IDENTIFIER_POINTER (DECL_NAME (field1));
+      const char *name2 = IDENTIFIER_POINTER (DECL_NAME (field2));
+
+      gcc_assert (name1 && name2);
+
+      if (strcmp (name1, name2))
+	return false;
+	
+    }
+  else if (DECL_NAME (field1) || DECL_NAME (field2))
+    return false;
+
+  if (!is_equal_types (TREE_TYPE (field1), TREE_TYPE (field2)))
+    return false;
+
+  return true;
+}
+
+/* Given structure type SRT_TYPE and field FIELD,
+   this function is looking for a field with the same name
    and type as FIELD in STR_TYPE. It returns it if found,
    or NULL_TREE otherwise.  */
 
@@ -260,37 +284,31 @@ find_field_in_struct_1 (tree str_type, tree field)
 {
   tree str_field;
 
-  for (str_field = TYPE_FIELDS (str_type); str_field; 
+  if (!DECL_NAME (field))
+    return NULL;
+
+  for (str_field = TYPE_FIELDS (str_type); str_field;
        str_field = TREE_CHAIN (str_field))
     {
-      const char * str_field_name;
-      const char * field_name;
 
-      str_field_name = IDENTIFIER_POINTER (DECL_NAME (str_field));
-      field_name = IDENTIFIER_POINTER (DECL_NAME (field));
-      
-      gcc_assert (str_field_name);
-      gcc_assert (field_name);
+      if (!DECL_NAME (str_field))
+	continue;
 
-      if (!strcmp (str_field_name, field_name))
-	{
-	  /* Check field types.  */	  
-	  if (is_equal_types (TREE_TYPE (str_field), TREE_TYPE (field)))
-	      return str_field;
-	}
+      if (compare_fields (field, str_field))
+	return str_field;
     }
 
   return NULL_TREE;
 }
 
-/* Given a field declaration FIELD_DECL, this function 
+/* Given a field declaration FIELD_DECL, this function
    returns corresponding field entry in structure STR.  */
 
 static struct field_entry *
 find_field_in_struct (d_str str, tree field_decl)
 {
   int i;
-  
+
   tree field = find_field_in_struct_1 (str->decl, field_decl);
 
   for (i = 0; i < str->num_fields; i++)
@@ -300,32 +318,31 @@ find_field_in_struct (d_str str, tree field_decl)
   return NULL;
 }
 
-/* This function checks whether ARG is a result of multiplication 
-   of some number by STRUCT_SIZE. If yes, the function returns true 
+/* This function checks whether ARG is a result of multiplication
+   of some number by STRUCT_SIZE. If yes, the function returns true
    and this number is filled into NUM.  */
 
 static bool
 is_result_of_mult (tree arg, tree *num, tree struct_size)
 {
-  tree size_def_stmt = SSA_NAME_DEF_STMT (arg);
+  gimple size_def_stmt = SSA_NAME_DEF_STMT (arg);
 
-  /* If allocation  statementt was of the form 
+  /* If the allocation statement was of the form
      D.2229_10 = <alloc_func> (D.2228_9);
      then size_def_stmt can be D.2228_9 = num.3_8 * 8;  */
 
-  if (size_def_stmt && TREE_CODE (size_def_stmt) == GIMPLE_MODIFY_STMT)
+  if (size_def_stmt && is_gimple_assign (size_def_stmt))
     {
-      tree lhs = GIMPLE_STMT_OPERAND (size_def_stmt, 0);
-      tree rhs = GIMPLE_STMT_OPERAND (size_def_stmt, 1);
+      tree lhs = gimple_assign_lhs (size_def_stmt);
 
       /* We expect temporary here.  */
-      if (!is_gimple_reg (lhs))	
+      if (!is_gimple_reg (lhs))
 	return false;
 
-      if (TREE_CODE (rhs) == MULT_EXPR)
+      if (gimple_assign_rhs_code (size_def_stmt) == MULT_EXPR)
 	{
-	  tree arg0 = TREE_OPERAND (rhs, 0);
-	  tree arg1 = TREE_OPERAND (rhs, 1);
+	  tree arg0 = gimple_assign_rhs1 (size_def_stmt);
+	  tree arg1 = gimple_assign_rhs2 (size_def_stmt);
 
 	  if (operand_equal_p (arg0, struct_size, OEP_ONLY_CONST))
 	    {
@@ -347,8 +364,8 @@ is_result_of_mult (tree arg, tree *num, tree struct_size)
 
 
 /* This function returns true if access ACC corresponds to the pattern
-   generated by compiler when an address of element i of an array 
-   of structures STR_DECL (pointed by p) is calculated (p[i]). If this 
+   generated by compiler when an address of element i of an array
+   of structures STR_DECL (pointed by p) is calculated (p[i]). If this
    pattern is recognized correctly, this function returns true
    and fills missing fields in ACC. Otherwise it returns false.  */
 
@@ -356,9 +373,10 @@ static bool
 decompose_indirect_ref_acc (tree str_decl, struct field_access_site *acc)
 {
   tree ref_var;
-  tree rhs, struct_size, op0, op1;
+  tree struct_size, op0, op1;
   tree before_cast;
- 
+  enum tree_code rhs_code;
+
   ref_var = TREE_OPERAND (acc->ref, 0);
 
   if (TREE_CODE (ref_var) != SSA_NAME)
@@ -366,21 +384,21 @@ decompose_indirect_ref_acc (tree str_decl, struct field_access_site *acc)
 
   acc->ref_def_stmt = SSA_NAME_DEF_STMT (ref_var);
   if (!(acc->ref_def_stmt)
-      || (TREE_CODE (acc->ref_def_stmt) != GIMPLE_MODIFY_STMT))
+      || (gimple_code (acc->ref_def_stmt) != GIMPLE_ASSIGN))
     return false;
 
-  rhs = GIMPLE_STMT_OPERAND (acc->ref_def_stmt, 1);
+  rhs_code = gimple_assign_rhs_code (acc->ref_def_stmt);
 
-  if (TREE_CODE (rhs) != PLUS_EXPR
-      && TREE_CODE (rhs)!= MINUS_EXPR
-      && TREE_CODE (rhs) != POINTER_PLUS_EXPR)
+  if (rhs_code != PLUS_EXPR
+      && rhs_code != MINUS_EXPR
+      && rhs_code != POINTER_PLUS_EXPR)
     return false;
 
-  op0 = TREE_OPERAND (rhs, 0);
-  op1 = TREE_OPERAND (rhs, 1);
+  op0 = gimple_assign_rhs1 (acc->ref_def_stmt);
+  op1 = gimple_assign_rhs2 (acc->ref_def_stmt);
 
-  if (!is_array_access_through_pointer_and_index (TREE_CODE (rhs), op0, op1, 
-						 &acc->base, &acc->offset, 
+  if (!is_array_access_through_pointer_and_index (rhs_code, op0, op1,
+						 &acc->base, &acc->offset,
 						 &acc->cast_stmt))
     return false;
 
@@ -394,7 +412,7 @@ decompose_indirect_ref_acc (tree str_decl, struct field_access_site *acc)
 
 
   if (SSA_NAME_IS_DEFAULT_DEF (before_cast))
-    return false; 
+    return false;
 
   struct_size = TYPE_SIZE_UNIT (str_decl);
 
@@ -405,8 +423,8 @@ decompose_indirect_ref_acc (tree str_decl, struct field_access_site *acc)
 }
 
 
-/* This function checks whether the access ACC of structure type STR 
-   is of the form suitable for tranformation. If yes, it returns true. 
+/* This function checks whether the access ACC of structure type STR
+   is of the form suitable for transformation. If yes, it returns true.
    False otherwise.  */
 
 static bool
@@ -429,75 +447,74 @@ decompose_access (tree str_decl, struct field_access_site *acc)
 static inline struct field_access_site *
 make_field_acc_node (void)
 {
-  int size = sizeof (struct field_access_site);
-
-  return (struct field_access_site *) xcalloc (1, size);
+  return XCNEW (struct field_access_site);
 }
 
 /* This function returns the structure field access, defined by STMT,
-   if it is aready in hashtable of function accesses F_ACCS.  */
+   if it is already in hashtable of function accesses F_ACCS.  */
 
 static struct field_access_site *
-is_in_field_accs (tree stmt, htab_t f_accs)
+is_in_field_accs (gimple stmt, htab_t f_accs)
 {
-  return (struct field_access_site *) 
+  return (struct field_access_site *)
     htab_find_with_hash (f_accs, stmt, htab_hash_pointer (stmt));
 }
 
-/* This function adds an access ACC to the hashtable 
+/* This function adds an access ACC to the hashtable
    F_ACCS of field accesses.  */
 
 static void
-add_field_acc_to_acc_sites (struct field_access_site *acc, 
+add_field_acc_to_acc_sites (struct field_access_site *acc,
 			    htab_t f_accs)
 {
   void **slot;
-  
+
   gcc_assert (!is_in_field_accs (acc->stmt, f_accs));
   slot = htab_find_slot_with_hash (f_accs, acc->stmt,
-				   htab_hash_pointer (acc->stmt), 
+				   htab_hash_pointer (acc->stmt),
 				   INSERT);
-  *slot = acc;  
+  *slot = acc;
 }
 
-/* This function adds the VAR to vector of variables of 
-   an access site defined by statement STMT. If access entry 
-   with statement STMT does not exist in hashtable of 
-   accesses ACCS, this function creates it.  */ 
+/* This function adds the VAR to vector of variables of
+   an access site defined by statement STMT. If access entry
+   with statement STMT does not exist in hashtable of
+   accesses ACCS, this function creates it.  */
 
 static void
-add_access_to_acc_sites (tree stmt, tree var, htab_t accs)
+add_access_to_acc_sites (gimple stmt, tree var, htab_t accs)
 {
    struct access_site *acc;
 
-   acc = (struct access_site *) 
+   acc = (struct access_site *)
      htab_find_with_hash (accs,	stmt, htab_hash_pointer (stmt));
 
    if (!acc)
      {
        void **slot;
 
-       acc = (struct access_site *) xmalloc (sizeof (struct access_site));
+       acc = XNEW (struct access_site);
        acc->stmt = stmt;
-       acc->vars = VEC_alloc (tree, heap, 10);
+       if (!is_gimple_debug (stmt))
+	 acc->vars = VEC_alloc (tree, heap, 10);
+       else
+	 acc->vars = NULL;
        slot = htab_find_slot_with_hash (accs, stmt,
 					htab_hash_pointer (stmt), INSERT);
        *slot = acc;
-
-     }  
-   VEC_safe_push (tree, heap, acc->vars, var);
+     }
+   if (!is_gimple_debug (stmt))
+     VEC_safe_push (tree, heap, acc->vars, var);
 }
 
-/* This function adds NEW_DECL to function 
+/* This function adds NEW_DECL to function
    referenced vars, and marks it for renaming.  */
 
 static void
 finalize_var_creation (tree new_decl)
 {
-  add_referenced_var (new_decl);  
-  if (is_global_var (new_decl))
-    mark_call_clobbered (new_decl, ESCAPE_UNKNOWN);
-  mark_sym_for_renaming (new_decl); 
+  add_referenced_var (new_decl);
+  mark_sym_for_renaming (new_decl);
 }
 
 /* This function finalizes VAR creation if it is a global VAR_DECL.  */
@@ -523,8 +540,8 @@ insert_global_to_varpool (tree new_decl)
   varpool_finalize_decl (new_decl);
 }
 
-/* This function finalizes the creation of new variables, 
-   defined by *SLOT->new_vars.  */ 
+/* This function finalizes the creation of new variables,
+   defined by *SLOT->new_vars.  */
 
 static int
 finalize_new_vars_creation (void **slot, void *data ATTRIBUTE_UNUSED)
@@ -536,23 +553,6 @@ finalize_new_vars_creation (void **slot, void *data ATTRIBUTE_UNUSED)
   for (i = 0; VEC_iterate (tree, n_var->new_vars, i, var); i++)
     finalize_var_creation (var);
   return 1;
-}
-
-/* This funciton updates statements in STMT_LIST with BB info.  */
-
-static void
-add_bb_info (basic_block bb, tree stmt_list)
-{
-  if (TREE_CODE (stmt_list) == STATEMENT_LIST)
-    {
-      tree_stmt_iterator tsi;
-      for (tsi = tsi_start (stmt_list); !tsi_end_p (tsi); tsi_next (&tsi))
-	{
-	  tree stmt = tsi_stmt (tsi);
-
-	  set_bb_for_stmt (stmt, bb);
-	}
-    }
 }
 
 /* This function looks for the variable of NEW_TYPE type, stored in VAR.
@@ -568,7 +568,7 @@ find_var_in_new_vars_vec (new_var var, tree new_type)
     {
       tree type = strip_type(get_type_of_var (n_var));
       gcc_assert (type);
-      
+
       if (type == new_type)
 	return n_var;
     }
@@ -577,17 +577,17 @@ find_var_in_new_vars_vec (new_var var, tree new_type)
 }
 
 /* This function returns new_var node, the orig_var of which is DECL.
-   It looks for new_var's in NEW_VARS_HTAB. If not found, 
+   It looks for new_var's in NEW_VARS_HTAB. If not found,
    the function returns NULL.  */
 
 static new_var
 is_in_new_vars_htab (tree decl, htab_t new_vars_htab)
 {
   return (new_var) htab_find_with_hash (new_vars_htab, decl,
-					htab_hash_pointer (decl));
+					DECL_UID (decl));
 }
 
-/* Given original varaiable ORIG_VAR, this function returns
+/* Given original variable ORIG_VAR, this function returns
    new variable corresponding to it of NEW_TYPE type. */
 
 static tree
@@ -610,12 +610,12 @@ find_new_var_of_type (tree orig_var, tree new_type)
    res = NUM * sizeof(TYPE) and returns it.
    res is filled into RES.  */
 
-static tree
+static gimple
 gen_size (tree num, tree type, tree *res)
 {
   tree struct_size = TYPE_SIZE_UNIT (type);
   HOST_WIDE_INT struct_size_int = TREE_INT_CST_LOW (struct_size);
-  tree new_stmt;
+  gimple new_stmt;
 
   *res = create_tmp_var (TREE_TYPE (num), NULL);
 
@@ -623,12 +623,17 @@ gen_size (tree num, tree type, tree *res)
     add_referenced_var (*res);
 
   if (exact_log2 (struct_size_int) == -1)
-    new_stmt = build_gimple_modify_stmt (num, struct_size);
+    {
+      tree size = build_int_cst (TREE_TYPE (num), struct_size_int);
+      new_stmt = gimple_build_assign (*res, fold_build2 (MULT_EXPR,
+							 TREE_TYPE (num),
+							 num, size));
+    }
   else
     {
       tree C = build_int_cst (TREE_TYPE (num), exact_log2 (struct_size_int));
- 
-      new_stmt = build_gimple_modify_stmt (*res, build2 (LSHIFT_EXPR, 
+
+      new_stmt = gimple_build_assign (*res, fold_build2 (LSHIFT_EXPR,
 							 TREE_TYPE (num),
 							 num, C));
     }
@@ -637,25 +642,22 @@ gen_size (tree num, tree type, tree *res)
   return new_stmt;
 }
 
-/* This function generates and returns a statement, that cast variable 
-   BEFORE_CAST to NEW_TYPE. The cast result variable is stored 
+/* This function generates and returns a statement, that cast variable
+   BEFORE_CAST to NEW_TYPE. The cast result variable is stored
    into RES_P. ORIG_CAST_STMT is the original cast statement.  */
 
-static tree
-gen_cast_stmt (tree before_cast, tree new_type, tree orig_cast_stmt,
+static gimple
+gen_cast_stmt (tree before_cast, tree new_type, gimple orig_cast_stmt,
 	       tree *res_p)
 {
-  tree lhs, new_lhs, new_stmt;
-  gcc_assert (TREE_CODE (orig_cast_stmt) == GIMPLE_MODIFY_STMT);
-    
-  lhs = GIMPLE_STMT_OPERAND (orig_cast_stmt, 0);
+  tree lhs, new_lhs;
+  gimple new_stmt;
+
+  lhs = gimple_assign_lhs (orig_cast_stmt);
   new_lhs = find_new_var_of_type (lhs, new_type);
   gcc_assert (new_lhs);
 
-  new_stmt = build_gimple_modify_stmt (new_lhs, 
-				       build1 (NOP_EXPR, 
-					       TREE_TYPE (new_lhs),
-					       before_cast));
+  new_stmt = gimple_build_assign_with_ops (NOP_EXPR, new_lhs, before_cast, 0);
   finalize_stmt (new_stmt);
   *res_p = new_lhs;
   return new_stmt;
@@ -668,45 +670,61 @@ static edge
 make_edge_and_fix_phis_of_dest (basic_block bb, edge e)
 {
   edge new_e;
-  tree phi, arg;
-		      
+  tree arg;
+  gimple_stmt_iterator si;
+
   new_e = make_edge (bb, e->dest, e->flags);
 
-  for (phi = phi_nodes (new_e->dest); phi; phi = PHI_CHAIN (phi))
+  for (si = gsi_start_phis (new_e->dest); !gsi_end_p (si); gsi_next (&si))
     {
+      gimple phi = gsi_stmt (si);
       arg = PHI_ARG_DEF_FROM_EDGE (phi, e);
-      add_phi_arg (phi, arg, new_e); 
+      add_phi_arg (phi, arg, new_e, gimple_phi_arg_location_from_edge (phi, e));
     }
 
   return new_e;
 }
 
-/* This function inserts NEW_STMTS before STMT.  */
+/* This function inserts NEW_STMT before STMT.  */
 
 static void
-insert_before_stmt (tree stmt, tree new_stmts)
+insert_before_stmt (gimple stmt, gimple new_stmt)
 {
-  block_stmt_iterator bsi;
+  gimple_stmt_iterator bsi;
 
-  if (!stmt || !new_stmts)
+  if (!stmt || !new_stmt)
     return;
 
-  bsi = bsi_for_stmt (stmt); 
-  bsi_insert_before (&bsi, new_stmts, BSI_SAME_STMT);   
+  bsi = gsi_for_stmt (stmt);
+  gsi_insert_before (&bsi, new_stmt, GSI_SAME_STMT);
 }
 
 /* Insert NEW_STMTS after STMT.  */
 
 static void
-insert_after_stmt (tree stmt, tree new_stmts)
+insert_seq_after_stmt (gimple stmt, gimple_seq new_stmts)
 {
-  block_stmt_iterator bsi;
+  gimple_stmt_iterator bsi;
 
   if (!stmt || !new_stmts)
     return;
 
-  bsi = bsi_for_stmt (stmt); 
-  bsi_insert_after (&bsi, new_stmts, BSI_SAME_STMT);   
+  bsi = gsi_for_stmt (stmt);
+  gsi_insert_seq_after (&bsi, new_stmts, GSI_SAME_STMT);
+}
+
+/* Insert NEW_STMT after STMT.  */
+
+static void
+insert_after_stmt (gimple stmt, gimple new_stmt)
+{
+  gimple_stmt_iterator bsi;
+
+  if (!stmt || !new_stmt)
+    return;
+
+  bsi = gsi_for_stmt (stmt);
+  gsi_insert_after (&bsi, new_stmt, GSI_SAME_STMT);
 }
 
 /* This function returns vector of allocation sites
@@ -714,31 +732,31 @@ insert_after_stmt (tree stmt, tree new_stmts)
 
 static fallocs_t
 get_fallocs (tree fn_decl)
-{  
+{
   return (fallocs_t) htab_find_with_hash (alloc_sites, fn_decl,
 					 htab_hash_pointer (fn_decl));
 }
 
 /* If ALLOC_STMT is D.2225_7 = <alloc_func> (D.2224_6);
    and it is a part of allocation of a structure,
-   then it is usually followed by a cast stmt 
+   then it is usually followed by a cast stmt
    p_8 = (struct str_t *) D.2225_7;
    which is returned by this function.  */
 
-static tree
-get_final_alloc_stmt (tree alloc_stmt)
+static gimple
+get_final_alloc_stmt (gimple alloc_stmt)
 {
-  tree final_stmt;
+  gimple final_stmt;
   use_operand_p use_p;
   tree alloc_res;
 
   if (!alloc_stmt)
     return NULL;
-  
-  if (TREE_CODE (alloc_stmt) != GIMPLE_MODIFY_STMT)
+
+  if (!is_gimple_call (alloc_stmt))
     return NULL;
 
-  alloc_res = GIMPLE_STMT_OPERAND (alloc_stmt, 0);
+  alloc_res = gimple_get_lhs (alloc_stmt);
 
   if (TREE_CODE (alloc_res) != SSA_NAME)
     return NULL;
@@ -749,21 +767,20 @@ get_final_alloc_stmt (tree alloc_stmt)
     return final_stmt;
 }
 
-/* This function returns true if STMT is one of allocation 
+/* This function returns true if STMT is one of allocation
    sites of function FN_DECL. It returns false otherwise.  */
 
 static bool
-is_part_of_malloc (tree stmt, tree fn_decl)
+is_part_of_malloc (gimple stmt, tree fn_decl)
 {
   fallocs_t fallocs = get_fallocs (fn_decl);
-  
+
   if (fallocs)
     {
       alloc_site_t *call;
       unsigned i;
 
-      for (i = 0;
-	   VEC_iterate (alloc_site_t, fallocs->allocs, i, call); i++)
+      for (i = 0; VEC_iterate (alloc_site_t, fallocs->allocs, i, call); i++)
 	if (call->stmt == stmt
 	    || get_final_alloc_stmt (call->stmt) == stmt)
 	  return true;
@@ -775,19 +792,18 @@ is_part_of_malloc (tree stmt, tree fn_decl)
 struct find_stmt_data
 {
   bool found;
-  tree stmt;
+  gimple stmt;
 };
 
-/* This function looks for DATA->stmt among 
-   the statements involved in the field access, 
+/* This function looks for DATA->stmt among
+   the statements involved in the field access,
    defined by SLOT. It stops when it's found. */
 
 static int
 find_in_field_accs (void **slot, void *data)
 {
-  struct field_access_site *f_acc = 
-    *(struct field_access_site **) slot;
-  tree stmt = ((struct find_stmt_data *)data)->stmt;
+  struct field_access_site *f_acc = *(struct field_access_site **) slot;
+  gimple stmt = ((struct find_stmt_data *)data)->stmt;
 
   if (f_acc->stmt == stmt
       || f_acc->ref_def_stmt == stmt
@@ -805,7 +821,7 @@ find_in_field_accs (void **slot, void *data)
    and false otherwise.  */
 
 static bool
-is_part_of_field_access (tree stmt, d_str str)
+is_part_of_field_access (gimple stmt, d_str str)
 {
   int i;
 
@@ -833,7 +849,7 @@ struct exclude_data
   d_str str;
 };
 
-/* This function returns component_ref with the BASE and 
+/* This function returns component_ref with the BASE and
    field named FIELD_ID from structure TYPE.  */
 
 static inline tree
@@ -841,7 +857,7 @@ build_comp_ref (tree base, tree field_id, tree type)
 {
   tree field;
   bool found = false;
-  
+
 
   /* Find field of structure type with the same name as field_id. */
   for (field = TYPE_FIELDS (type); field; field = TREE_CHAIN (field))
@@ -859,18 +875,19 @@ build_comp_ref (tree base, tree field_id, tree type)
 }
 
 
-/* This struct represent data used for walk_tree 
+/* This struct represent data used for walk_tree
    called from function find_pos_in_stmt.
-   - ref is a tree to be found, 
+   - ref is a tree to be found,
    - and pos is a pointer that points to ref in stmt.  */
 struct ref_pos
 {
   tree *pos;
   tree ref;
+  tree container;
 };
 
 
-/* This is a callback function for walk_tree, called from 
+/* This is a callback function for walk_tree, called from
    collect_accesses_in_bb function. DATA is a pointer to ref_pos structure.
    When *TP is equal to DATA->ref, the walk_tree stops,
    and found position, equal to TP, is assigned to DATA->pos.  */
@@ -878,33 +895,20 @@ struct ref_pos
 static tree
 find_pos_in_stmt_1 (tree *tp, int *walk_subtrees, void * data)
 {
-  struct ref_pos * r_pos = (struct ref_pos *) data;
+  struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
+  struct ref_pos *r_pos = (struct ref_pos *) wi->info;
   tree ref = r_pos->ref;
   tree t = *tp;
 
-  if (t == ref)
+  if (t == ref || (TREE_CODE (t) == SSA_NAME && SSA_NAME_VAR (t) == ref))
     {
       r_pos->pos = tp;
       return t;
     }
 
-  switch (TREE_CODE (t))
-    {
-    case GIMPLE_MODIFY_STMT:
-      {
-	tree lhs = GIMPLE_STMT_OPERAND (t, 0);
-	tree rhs = GIMPLE_STMT_OPERAND (t, 1);
-	*walk_subtrees = 1;
-	walk_tree (&lhs, find_pos_in_stmt_1, data, NULL);
-	walk_tree (&rhs, find_pos_in_stmt_1, data, NULL);
-	*walk_subtrees = 0;	    
-      }
-      break;
-
-    default:
-      *walk_subtrees = 1;      
-    }
-    return NULL_TREE;
+  r_pos->container = t;
+  *walk_subtrees = 1;
+  return NULL_TREE;
 }
 
 
@@ -912,24 +916,27 @@ find_pos_in_stmt_1 (tree *tp, int *walk_subtrees, void * data)
    It returns it, if found, and NULL otherwise.  */
 
 static tree *
-find_pos_in_stmt (tree stmt, tree ref)
+find_pos_in_stmt (gimple stmt, tree ref, struct ref_pos * r_pos)
 {
-  struct ref_pos r_pos;
+  struct walk_stmt_info wi;
 
-  r_pos.ref = ref;
-  r_pos.pos = NULL;
-  walk_tree (&stmt, find_pos_in_stmt_1, &r_pos, NULL);
+  r_pos->ref = ref;
+  r_pos->pos = NULL;
+  r_pos->container = NULL_TREE;
+  memset (&wi, 0, sizeof (wi));
+  wi.info = r_pos;
+  walk_gimple_op (stmt, find_pos_in_stmt_1, &wi);
 
-  return r_pos.pos;
+  return r_pos->pos;
 }
 
-/* This structure is used to represent array 
+/* This structure is used to represent array
    or pointer-to wrappers of structure type.
-   For example, if type1 is structure type, 
-   then for type1 ** we generate two type_wrapper 
-   structures with wrap = 0 each one.  
-   It's used to unwind the original type up to 
-   structure type, replace it with the new structure type 
+   For example, if type1 is structure type,
+   then for type1 ** we generate two type_wrapper
+   structures with wrap = 0 each one.
+   It's used to unwind the original type up to
+   structure type, replace it with the new structure type
    and wrap it back in the opposite order.  */
 
 typedef struct type_wrapper
@@ -938,13 +945,13 @@ typedef struct type_wrapper
   bool wrap;
 
   /* Relevant for arrays as domain or index.  */
-  tree domain; 
+  tree domain;
 }type_wrapper_t;
 
 DEF_VEC_O (type_wrapper_t);
 DEF_VEC_ALLOC_O (type_wrapper_t, heap);
 
-/* This function replace field access ACC by the new 
+/* This function replace field access ACC by the new
    field access of structure type NEW_TYPE.  */
 
 static void
@@ -958,7 +965,8 @@ replace_field_acc (struct field_access_site *acc, tree new_type)
   tree field_id = DECL_NAME (acc->field_decl);
   VEC (type_wrapper_t, heap) *wrapper = VEC_alloc (type_wrapper_t, heap, 10);
   type_wrapper_t *wr_p = NULL;
-  
+  struct ref_pos r_pos;
+
   while (TREE_CODE (ref_var) == INDIRECT_REF
 	 || TREE_CODE (ref_var) == ARRAY_REF)
     {
@@ -986,9 +994,9 @@ replace_field_acc (struct field_access_site *acc, tree new_type)
     {
       tree type = TREE_TYPE (TREE_TYPE (new_ref));
 
-      wr_p = VEC_last (type_wrapper_t, wrapper); 
+      wr_p = VEC_last (type_wrapper_t, wrapper);
       if (wr_p->wrap) /* Array.  */
-	new_ref = build4 (ARRAY_REF, type, new_ref, 
+	new_ref = build4 (ARRAY_REF, type, new_ref,
 			  wr_p->domain, NULL_TREE, NULL_TREE);
       else /* Pointer.  */
 	new_ref = build1 (INDIRECT_REF, type, new_ref);
@@ -996,36 +1004,35 @@ replace_field_acc (struct field_access_site *acc, tree new_type)
     }
 
   new_acc = build_comp_ref (new_ref, field_id, new_type);
-  VEC_free (type_wrapper_t, heap, wrapper);  
+  VEC_free (type_wrapper_t, heap, wrapper);
 
-  if (TREE_CODE (acc->stmt) == GIMPLE_MODIFY_STMT)
-    {      
-      lhs = GIMPLE_STMT_OPERAND (acc->stmt, 0);
-      rhs = GIMPLE_STMT_OPERAND (acc->stmt, 1);
-      
-	
+  if (is_gimple_assign (acc->stmt))
+    {
+      lhs = gimple_assign_lhs (acc->stmt);
+      rhs = gimple_assign_rhs1 (acc->stmt);
+
       if (lhs == acc->comp_ref)
-	GIMPLE_STMT_OPERAND (acc->stmt, 0) = new_acc;
+	gimple_assign_set_lhs (acc->stmt, new_acc);
       else if (rhs == acc->comp_ref)
-	GIMPLE_STMT_OPERAND (acc->stmt, 1) = new_acc;
+	gimple_assign_set_rhs1 (acc->stmt, new_acc);
       else
 	{
-	  pos = find_pos_in_stmt (acc->stmt, acc->comp_ref);
+	  pos = find_pos_in_stmt (acc->stmt, acc->comp_ref, &r_pos);
 	  gcc_assert (pos);
 	  *pos = new_acc;
 	}
     }
   else
     {
-      pos = find_pos_in_stmt (acc->stmt, acc->comp_ref);
+      pos = find_pos_in_stmt (acc->stmt, acc->comp_ref, &r_pos);
       gcc_assert (pos);
       *pos = new_acc;
     }
-  
+
   finalize_stmt (acc->stmt);
 }
 
-/* This function replace field access ACC by a new field access 
+/* This function replace field access ACC by a new field access
    of structure type NEW_TYPE.  */
 
 static void
@@ -1040,10 +1047,10 @@ replace_field_access_stmt (struct field_access_site *acc, tree new_type)
     gcc_unreachable ();
 }
 
-/* This function looks for d_str, represented by TYPE, in the structures 
-   vector. If found, it returns an index of found structure. Otherwise 
+/* This function looks for d_str, represented by TYPE, in the structures
+   vector. If found, it returns an index of found structure. Otherwise
    it returns a length of the structures vector.  */
- 
+
 static unsigned
 find_structure (tree type)
 {
@@ -1060,48 +1067,44 @@ find_structure (tree type)
 }
 
 /* In this function we create new statements that have the same
-   form as ORIG_STMT, but of type NEW_TYPE. The statements 
-   treated by this function are simple assignments, 
-   like assignments:  p.8_7 = p; or statements with rhs of 
+   form as ORIG_STMT, but of type NEW_TYPE. The statements
+   treated by this function are simple assignments,
+   like assignments:  p.8_7 = p; or statements with rhs of
    tree codes PLUS_EXPR and MINUS_EXPR.  */
 
-static tree
-create_base_plus_offset (tree orig_stmt, tree new_type, 
-			 tree offset)
+static gimple
+create_base_plus_offset (gimple orig_stmt, tree new_type, tree offset)
 {
-  tree lhs, rhs;
-  tree new_lhs, new_rhs;
-  tree new_stmt;
+  tree lhs;
+  tree new_lhs;
+  gimple new_stmt;
+  tree new_op0 = NULL_TREE, new_op1 = NULL_TREE;
 
-  gcc_assert (TREE_CODE (orig_stmt) == GIMPLE_MODIFY_STMT);
-
-  lhs = GIMPLE_STMT_OPERAND (orig_stmt, 0);
-  rhs = GIMPLE_STMT_OPERAND (orig_stmt, 1);
+  lhs = gimple_assign_lhs (orig_stmt);
 
   gcc_assert (TREE_CODE (lhs) == VAR_DECL
 	      || TREE_CODE (lhs) == SSA_NAME);
-  
+
   new_lhs = find_new_var_of_type (lhs, new_type);
   gcc_assert (new_lhs);
   finalize_var_creation (new_lhs);
 
-  switch (TREE_CODE (rhs))
+  switch (gimple_assign_rhs_code (orig_stmt))
     {
     case PLUS_EXPR:
     case MINUS_EXPR:
     case POINTER_PLUS_EXPR:
       {
-	tree op0 = TREE_OPERAND (rhs, 0);
-	tree op1 = TREE_OPERAND (rhs, 1);
-	tree new_op0 = NULL_TREE, new_op1 = NULL_TREE;
+	tree op0 = gimple_assign_rhs1 (orig_stmt);
+	tree op1 = gimple_assign_rhs2 (orig_stmt);
 	unsigned str0, str1;
 	unsigned length = VEC_length (structure, structures);
-	
 
-	str0 = find_structure (strip_type (get_type_of_var (op0)));     
+
+	str0 = find_structure (strip_type (get_type_of_var (op0)));
 	str1 = find_structure (strip_type (get_type_of_var (op1)));
 	gcc_assert ((str0 != length) || (str1 != length));
-	
+
 	if (str0 != length)
 	  new_op0 = find_new_var_of_type (op0, new_type);
 	if (str1 != length)
@@ -1111,23 +1114,21 @@ create_base_plus_offset (tree orig_stmt, tree new_type,
 	  new_op0 = offset;
 	if (!new_op1)
 	  new_op1 = offset;
-
-	new_rhs = build2 (TREE_CODE (rhs), TREE_TYPE (new_op0), 
-			  new_op0, new_op1);
       }
       break;
 
     default:
       gcc_unreachable();
     }
-  
-  new_stmt = build_gimple_modify_stmt (new_lhs, new_rhs);
-  finalize_stmt (new_stmt);	
+
+  new_stmt = gimple_build_assign_with_ops (gimple_assign_rhs_code (orig_stmt),
+                                           new_lhs, new_op0, new_op1);
+  finalize_stmt (new_stmt);
 
   return new_stmt;
 }
 
-/* Given a field access F_ACC of the FIELD, this function 
+/* Given a field access F_ACC of the FIELD, this function
    replaces it by the new field access.  */
 
 static void
@@ -1135,11 +1136,12 @@ create_new_field_access (struct field_access_site *f_acc,
 			 struct field_entry field)
 {
   tree new_type = field.field_mapping;
-  tree new_stmt;
+  gimple new_stmt;
   tree size_res;
-  tree mult_stmt, cast_stmt;
+  gimple mult_stmt;
+  gimple cast_stmt;
   tree cast_res = NULL;
-  
+
   if (f_acc->num)
     {
       mult_stmt = gen_size (f_acc->num, new_type, &size_res);
@@ -1148,7 +1150,7 @@ create_new_field_access (struct field_access_site *f_acc,
 
   if (f_acc->cast_stmt)
     {
-      cast_stmt = gen_cast_stmt (size_res, new_type, 
+      cast_stmt = gen_cast_stmt (size_res, new_type,
 				 f_acc->cast_stmt, &cast_res);
       insert_after_stmt (f_acc->cast_stmt, cast_stmt);
     }
@@ -1161,7 +1163,7 @@ create_new_field_access (struct field_access_site *f_acc,
       else
 	offset = size_res;
 
-      new_stmt = create_base_plus_offset (f_acc->ref_def_stmt, 
+      new_stmt = create_base_plus_offset (f_acc->ref_def_stmt,
 					  new_type, offset);
       insert_after_stmt (f_acc->ref_def_stmt, new_stmt);
     }
@@ -1171,74 +1173,69 @@ create_new_field_access (struct field_access_site *f_acc,
   replace_field_access_stmt (f_acc, new_type);
 }
 
-/* This function creates a new condition statement 
+/* This function creates a new condition statement
    corresponding to the original COND_STMT, adds new basic block
-   and redirects condition edges. NEW_VAR is a new condition 
+   and redirects condition edges. NEW_VAR is a new condition
    variable located in the condition statement at the position POS.  */
 
 static void
-create_new_stmts_for_cond_expr_1 (tree new_var, tree cond_stmt, bool pos)
+create_new_stmts_for_cond_expr_1 (tree new_var, gimple cond_stmt, unsigned pos)
 {
-  tree new_cond;
-  tree new_stmt;
+  gimple new_stmt;
   edge true_e = NULL, false_e = NULL;
   basic_block new_bb;
-  tree stmt_list;
+  gimple_stmt_iterator si;
 
-  extract_true_false_edges_from_block (bb_for_stmt (cond_stmt),
+  extract_true_false_edges_from_block (gimple_bb (cond_stmt),
 				       &true_e, &false_e);
 
-  new_cond = unshare_expr (COND_EXPR_COND (cond_stmt));
-
-  TREE_OPERAND (new_cond, pos) = new_var;
-				      
-  new_stmt = build3 (COND_EXPR, TREE_TYPE (cond_stmt),
-		     new_cond, NULL_TREE, NULL_TREE);
+  new_stmt = gimple_build_cond (gimple_cond_code (cond_stmt),
+			       pos == 0 ? new_var : gimple_cond_lhs (cond_stmt),
+			       pos == 1 ? new_var : gimple_cond_rhs (cond_stmt),
+			       NULL_TREE,
+			       NULL_TREE);
 
   finalize_stmt (new_stmt);
 
   /* Create new basic block after bb.  */
-  new_bb = create_empty_bb (bb_for_stmt (cond_stmt));
+  new_bb = create_empty_bb (gimple_bb (cond_stmt));
 
   /* Add new condition stmt to the new_bb.  */
-  stmt_list = bb_stmt_list (new_bb);
-  append_to_statement_list (new_stmt, &stmt_list);
-  add_bb_info (new_bb, stmt_list);
+  si = gsi_start_bb (new_bb);
+  gsi_insert_after (&si, new_stmt, GSI_NEW_STMT);
 
-		  
   /* Create false and true edges from new_bb.  */
   make_edge_and_fix_phis_of_dest (new_bb, true_e);
   make_edge_and_fix_phis_of_dest (new_bb, false_e);
-		  
+
   /* Redirect one of original edges to point to new_bb.  */
-  if (TREE_CODE (cond_stmt) == NE_EXPR)
+  if (gimple_cond_code (cond_stmt) == NE_EXPR)
     redirect_edge_succ (true_e, new_bb);
   else
     redirect_edge_succ (false_e, new_bb);
 }
 
-/* This function creates new condition statements corresponding 
-   to original condition STMT, one for each new type, and 
+/* This function creates new condition statements corresponding
+   to original condition STMT, one for each new type, and
    recursively redirect edges to newly generated basic blocks.  */
 
 static void
-create_new_stmts_for_cond_expr (tree stmt)
+create_new_stmts_for_cond_expr (gimple stmt)
 {
-  tree cond = COND_EXPR_COND (stmt);
   tree arg0, arg1, arg;
   unsigned str0, str1;
   bool s0, s1;
   d_str str;
   tree type;
-  bool pos;
+  unsigned pos;
   int i;
   unsigned length = VEC_length (structure, structures);
 
-  gcc_assert (TREE_CODE (cond) == EQ_EXPR
-	      || TREE_CODE (cond) == NE_EXPR);
+  gcc_assert (gimple_cond_code (stmt) == EQ_EXPR
+	      || gimple_cond_code (stmt) == NE_EXPR);
 
-  arg0 = TREE_OPERAND (cond, 0);
-  arg1 = TREE_OPERAND (cond, 1);
+  arg0 = gimple_cond_lhs (stmt);
+  arg1 = gimple_cond_rhs (stmt);
 
   str0 = find_structure (strip_type (get_type_of_var (arg0)));
   str1 = find_structure (strip_type (get_type_of_var (arg1)));
@@ -1246,13 +1243,16 @@ create_new_stmts_for_cond_expr (tree stmt)
   s0 = (str0 != length) ? true : false;
   s1 = (str1 != length) ? true : false;
 
-  gcc_assert ((!s0 && s1) || (!s1 && s0));
-  
-  str = s0 ? VEC_index (structure, structures, str0): 
-    VEC_index (structure, structures, str1);
-  arg = s0 ? arg0 : arg1;
-  pos = s0 ? 0 : 1;
-  
+  gcc_assert (s0 || s1);
+  /* For now we allow only comparison with 0 or NULL.  */
+  gcc_assert (integer_zerop (arg0) || integer_zerop (arg1));
+
+  str = integer_zerop (arg0) ?
+    VEC_index (structure, structures, str1):
+    VEC_index (structure, structures, str0);
+  arg = integer_zerop (arg0) ? arg1 : arg0;
+  pos = integer_zerop (arg0) ? 1 : 0;
+
   for (i = 0; VEC_iterate (tree, str->new_types, i, type); i++)
     {
       tree new_arg;
@@ -1262,66 +1262,90 @@ create_new_stmts_for_cond_expr (tree stmt)
     }
 }
 
+/* This function looks for VAR in STMT, and replace it with NEW_VAR.
+   If needed, it wraps NEW_VAR in pointers and indirect references
+   before insertion.  */
+
+static void
+insert_new_var_in_stmt (gimple stmt, tree var, tree new_var)
+{
+  struct ref_pos r_pos;
+  tree *pos;
+
+  pos = find_pos_in_stmt (stmt, var, &r_pos);
+  gcc_assert (pos);
+
+  while (r_pos.container && (TREE_CODE(r_pos.container) == INDIRECT_REF
+			     || TREE_CODE(r_pos.container) == ADDR_EXPR))
+    {
+      tree type = TREE_TYPE (TREE_TYPE (new_var));
+
+      if (TREE_CODE(r_pos.container) == INDIRECT_REF)
+	new_var = build1 (INDIRECT_REF, type, new_var);
+      else
+	new_var = build_fold_addr_expr (new_var);
+      pos = find_pos_in_stmt (stmt, r_pos.container, &r_pos);
+    }
+
+  *pos = new_var;
+}
+
+
 /* Create a new general access to replace original access ACC
    for structure type NEW_TYPE.  */
 
-static tree
+static gimple
 create_general_new_stmt (struct access_site *acc, tree new_type)
 {
-  tree old_stmt = acc->stmt;
+  gimple old_stmt = acc->stmt;
   tree var;
-  tree new_stmt = unshare_expr (old_stmt);
+  gimple new_stmt = gimple_copy (old_stmt);
   unsigned i;
 
-  
+  /* We are really building a new stmt, clear the virtual operands.  */
+  if (gimple_has_mem_ops (new_stmt))
+    {
+      gimple_set_vuse (new_stmt, NULL_TREE);
+      gimple_set_vdef (new_stmt, NULL_TREE);
+    }
+
   for (i = 0; VEC_iterate (tree, acc->vars, i, var); i++)
     {
-      tree *pos;
       tree new_var = find_new_var_of_type (var, new_type);
-      tree lhs, rhs;
+      tree lhs, rhs = NULL_TREE;
 
       gcc_assert (new_var);
       finalize_var_creation (new_var);
 
-      if (TREE_CODE (new_stmt) == GIMPLE_MODIFY_STMT)
+      if (is_gimple_assign (new_stmt))
 	{
-      
-	  lhs = GIMPLE_STMT_OPERAND (new_stmt, 0);
-	  rhs = GIMPLE_STMT_OPERAND (new_stmt, 1);
-	  
+	  lhs = gimple_assign_lhs (new_stmt);
+
 	  if (TREE_CODE (lhs) == SSA_NAME)
 	    lhs = SSA_NAME_VAR (lhs);
-	  if (TREE_CODE (rhs) == SSA_NAME)
-	    rhs = SSA_NAME_VAR (rhs); 
+	  if (gimple_assign_rhs_code (new_stmt) == SSA_NAME)
+	    rhs = SSA_NAME_VAR (gimple_assign_rhs1 (new_stmt));
 
 	  /* It can happen that rhs is a constructor.
 	   Then we have to replace it to be of new_type.  */
-	  if (TREE_CODE (rhs) == CONSTRUCTOR)
+	  if (gimple_assign_rhs_code (new_stmt) == CONSTRUCTOR)
 	    {
 	      /* Dealing only with empty constructors right now.  */
-	      gcc_assert (VEC_empty (constructor_elt, 
+	      gcc_assert (VEC_empty (constructor_elt,
 				     CONSTRUCTOR_ELTS (rhs)));
 	      rhs = build_constructor (new_type, 0);
-	      GIMPLE_STMT_OPERAND (new_stmt, 1) = rhs;
+	      gimple_assign_set_rhs1 (new_stmt, rhs);
 	    }
-	  
+
 	  if (lhs == var)
-	    GIMPLE_STMT_OPERAND (new_stmt, 0) = new_var;
+	    gimple_assign_set_lhs (new_stmt, new_var);
 	  else if (rhs == var)
-	    GIMPLE_STMT_OPERAND (new_stmt, 1) = new_var;
+	    gimple_assign_set_rhs1 (new_stmt, new_var);
 	  else
-	    {
-	      pos = find_pos_in_stmt (new_stmt, var);
-	      gcc_assert (pos);
-	      *pos = new_var;
-	    }      
+	    insert_new_var_in_stmt (new_stmt, var, new_var);
 	}
       else
-	{
-	  pos = find_pos_in_stmt (new_stmt, var);
-	  gcc_assert (pos);
-	  *pos = new_var;
-	}
+	insert_new_var_in_stmt (new_stmt, var, new_var);
     }
 
   finalize_stmt (new_stmt);
@@ -1335,29 +1359,37 @@ static void
 create_new_stmts_for_general_acc (struct access_site *acc, d_str str)
 {
   tree type;
-  tree stmt = acc->stmt;
+  gimple stmt = acc->stmt;
   unsigned i;
 
   for (i = 0; VEC_iterate (tree, str->new_types, i, type); i++)
     {
-      tree new_stmt;
+      gimple new_stmt;
 
       new_stmt = create_general_new_stmt (acc, type);
       insert_after_stmt (stmt, new_stmt);
     }
 }
 
-/* This function creates a new general access of structure STR 
+/* This function creates a new general access of structure STR
    to replace the access ACC.  */
 
 static void
 create_new_general_access (struct access_site *acc, d_str str)
 {
-  tree stmt = acc->stmt;
-  switch (TREE_CODE (stmt))
+  gimple stmt = acc->stmt;
+  switch (gimple_code (stmt))
     {
-    case COND_EXPR:
+    case GIMPLE_COND:
       create_new_stmts_for_cond_expr (stmt);
+      break;
+
+    case GIMPLE_DEBUG:
+      /* It is very hard to maintain usable debug info after struct peeling,
+	 for now just reset all debug stmts referencing objects that have
+	 been peeled.  */
+      gimple_debug_bind_reset_value (stmt);
+      update_stmt (stmt);
       break;
 
     default:
@@ -1383,7 +1415,7 @@ create_new_acc (void **slot, void *data)
   basic_block bb = ((struct create_acc_data *)data)->bb;
   d_str str = ((struct create_acc_data *)data)->str;
 
-  if (bb_for_stmt (acc->stmt) == bb)
+  if (gimple_bb (acc->stmt) == bb)
     create_new_general_access (acc, str);
   return 1;
 }
@@ -1399,12 +1431,12 @@ create_new_field_acc (void **slot, void *data)
   d_str str = ((struct create_acc_data *)data)->str;
   int i = ((struct create_acc_data *)data)->field_index;
 
-  if (bb_for_stmt (f_acc->stmt) == bb)
+  if (gimple_bb (f_acc->stmt) == bb)
     create_new_field_access (f_acc, str->fields[i]);
   return 1;
 }
 
-/* This function creates new accesses for the structure 
+/* This function creates new accesses for the structure
    type STR in basic block BB.  */
 
 static void
@@ -1416,21 +1448,21 @@ create_new_accs_for_struct (d_str str, basic_block bb)
   dt.str = str;
   dt.bb = bb;
   dt.field_index = -1;
-      
+
   for (i = 0; i < str->num_fields; i++)
     {
       dt.field_index = i;
 
       if (str->fields[i].acc_sites)
-	htab_traverse (str->fields[i].acc_sites, 
+	htab_traverse (str->fields[i].acc_sites,
 		       create_new_field_acc, &dt);
-    }  
+    }
   if (str->accs)
     htab_traverse (str->accs, create_new_acc, &dt);
 }
 
-/* This function inserts new variables from new_var, 
-   defined by SLOT, into varpool.  */ 
+/* This function inserts new variables from new_var,
+   defined by SLOT, into varpool.  */
 
 static int
 update_varpool_with_new_var (void **slot, void *data ATTRIBUTE_UNUSED)
@@ -1444,7 +1476,7 @@ update_varpool_with_new_var (void **slot, void *data ATTRIBUTE_UNUSED)
   return 1;
 }
 
-/* This function prints a field access site, defined by SLOT.  */ 
+/* This function prints a field access site, defined by SLOT.  */
 
 static int
 dump_field_acc (void **slot, void *data ATTRIBUTE_UNUSED)
@@ -1454,11 +1486,11 @@ dump_field_acc (void **slot, void *data ATTRIBUTE_UNUSED)
 
   fprintf(dump_file, "\n");
   if (f_acc->stmt)
-    print_generic_stmt (dump_file, f_acc->stmt, 0);
+    print_gimple_stmt (dump_file, f_acc->stmt, 0, 0);
   if (f_acc->ref_def_stmt)
-    print_generic_stmt (dump_file, f_acc->ref_def_stmt, 0);
+    print_gimple_stmt (dump_file, f_acc->ref_def_stmt, 0, 0);
   if (f_acc->cast_stmt)
-    print_generic_stmt (dump_file, f_acc->cast_stmt, 0);
+    print_gimple_stmt (dump_file, f_acc->cast_stmt, 0, 0);
   return 1;
 }
 
@@ -1482,7 +1514,7 @@ malloc_hash (const void *x)
   return htab_hash_pointer (((const_fallocs_t)x)->func);
 }
 
-/* This function returns nonzero if function of func_alloc_sites' X 
+/* This function returns nonzero if function of func_alloc_sites' X
    is equal to Y.  */
 
 static int
@@ -1504,7 +1536,7 @@ free_accs (void **slot, void *data ATTRIBUTE_UNUSED)
   return 1;
 }
 
-/* This is a callback function for traversal over field accesses. 
+/* This is a callback function for traversal over field accesses.
    It frees a field access represented by SLOT.  */
 
 static int
@@ -1516,7 +1548,7 @@ free_field_accs (void **slot, void *data ATTRIBUTE_UNUSED)
   return 1;
 }
 
-/* This function inserts TYPE into vector of UNSUITABLE_TYPES, 
+/* This function inserts TYPE into vector of UNSUITABLE_TYPES,
    if it is not there yet.  */
 
 static void
@@ -1533,7 +1565,7 @@ add_unsuitable_type (VEC (tree, heap) **unsuitable_types, tree type)
   for (i = 0; VEC_iterate (tree, *unsuitable_types, i, t); i++)
     if (is_equal_types (t, type))
       break;
-  
+
   if (i == VEC_length (tree, *unsuitable_types))
     VEC_safe_push (tree, heap, *unsuitable_types, type);
 }
@@ -1557,10 +1589,10 @@ get_type_name (tree type)
 
 /* This function is a temporary hack to overcome the types problem.
    When several compilation units are compiled together
-   with -combine, the TYPE_MAIN_VARIANT of the same type 
+   with -combine, the TYPE_MAIN_VARIANT of the same type
    can appear differently in different compilation units.
    Therefore this function first compares type names.
-   If there are no names, structure bodies are recursively 
+   If there are no names, structure bodies are recursively
    compared.  */
 
 static bool
@@ -1586,13 +1618,10 @@ is_equal_types (tree type1, tree type2)
 
   name1 = get_type_name (type1);
   name2 = get_type_name (type2);
-  
-  if (name1 && name2 && !strcmp (name1, name2))
-    return true;
 
-  if (name1 && name2 && strcmp (name1, name2))
-    return false;
-  
+  if (name1 && name2)
+    return strcmp (name1, name2) == 0;
+
   switch (TREE_CODE (type1))
     {
     case POINTER_TYPE:
@@ -1607,16 +1636,20 @@ is_equal_types (tree type1, tree type2)
     case QUAL_UNION_TYPE:
     case ENUMERAL_TYPE:
       {
-	tree field1;
-	/* Compare fields of struture.  */
-	for (field1 = TYPE_FIELDS (type1); field1; 
-	     field1 = TREE_CHAIN (field1))
+	tree field1, field2;
+
+	/* Compare fields of structure.  */
+	for (field1 = TYPE_FIELDS (type1), field2 = TYPE_FIELDS (type2);
+	     field1 && field2;
+	     field1 = TREE_CHAIN (field1), field2 = TREE_CHAIN (field2))
 	  {
-	    tree field2 = find_field_in_struct_1 (type2, field1);
-	    if (!field2)
+	    if (!compare_fields (field1, field2))
 	      return false;
 	  }
-	return true;
+	if (field1 || field2)
+	  return false;
+	else
+	  return true;
       }
       break;
 
@@ -1671,7 +1704,7 @@ static void
 free_accesses (htab_t accs)
 {
   if (accs)
-    htab_traverse (accs, free_accs, NULL);  
+    htab_traverse (accs, free_accs, NULL);
   htab_delete (accs);
 }
 
@@ -1681,7 +1714,7 @@ static void
 free_field_accesses (htab_t f_accs)
 {
   if (f_accs)
-    htab_traverse (f_accs, free_field_accs, NULL);  
+    htab_traverse (f_accs, free_field_accs, NULL);
   htab_delete (f_accs);
 }
 
@@ -1689,78 +1722,77 @@ free_field_accesses (htab_t f_accs)
    The edge origin is CONTEXT function.  */
 
 static void
-update_cgraph_with_malloc_call (tree malloc_stmt, tree context)
+update_cgraph_with_malloc_call (gimple malloc_stmt, tree context)
 {
-  tree call_expr;
   struct cgraph_node *src, *dest;
   tree malloc_fn_decl;
 
   if (!malloc_stmt)
     return;
 
-  call_expr = get_call_expr_in (malloc_stmt);
-  malloc_fn_decl = get_callee_fndecl (call_expr);
-    
+  malloc_fn_decl = gimple_call_fndecl (malloc_stmt);
+
   src = cgraph_node (context);
   dest = cgraph_node (malloc_fn_decl);
-  cgraph_create_edge (src, dest, malloc_stmt, 
-		      0, 0, bb_for_stmt (malloc_stmt)->loop_depth);
+  cgraph_create_edge (src, dest, malloc_stmt,
+		      gimple_bb (malloc_stmt)->count,
+		      compute_call_stmt_bb_frequency
+		        (context, gimple_bb (malloc_stmt)),
+		      gimple_bb (malloc_stmt)->loop_depth);
 }
 
-/* This function generates set of statements required 
+/* This function generates set of statements required
    to allocate number NUM of structures of type NEW_TYPE.
    The statements are stored in NEW_STMTS. The statement that contain
    call to malloc is returned. MALLOC_STMT is an original call to malloc.  */
 
-static tree
-create_new_malloc (tree malloc_stmt, tree new_type, tree *new_stmts, tree num)
+static gimple
+create_new_malloc (gimple malloc_stmt, tree new_type, gimple_seq *new_stmts,
+		   tree num)
 {
   tree new_malloc_size;
-  tree call_expr, malloc_fn_decl;
-  tree new_stmt, malloc_res;
-  tree call_stmt, final_stmt;
+  tree malloc_fn_decl;
+  gimple new_stmt;
+  tree malloc_res;
+  gimple call_stmt, final_stmt;
   tree cast_res;
 
   gcc_assert (num && malloc_stmt && new_type);
-  *new_stmts = alloc_stmt_list ();
+  *new_stmts = gimple_seq_alloc ();
 
-  /* Generate argument to malloc as multiplication of num 
+  /* Generate argument to malloc as multiplication of num
      and size of new_type.  */
   new_stmt = gen_size (num, new_type, &new_malloc_size);
-  append_to_statement_list (new_stmt, new_stmts);
+  gimple_seq_add_stmt (new_stmts, new_stmt);
 
   /* Generate new call for malloc.  */
-  malloc_res = create_tmp_var (integer_type_node, NULL);
+  malloc_res = create_tmp_var (ptr_type_node, NULL);
+  add_referenced_var (malloc_res);
 
-  if (malloc_res)
-    add_referenced_var (malloc_res);
-
-  call_expr = get_call_expr_in (malloc_stmt);
-  malloc_fn_decl = get_callee_fndecl (call_expr);
-  call_expr = build_call_expr (malloc_fn_decl, 1, new_malloc_size); 
-  call_stmt = build_gimple_modify_stmt (malloc_res, call_expr);
+  malloc_fn_decl = gimple_call_fndecl (malloc_stmt);
+  call_stmt = gimple_build_call (malloc_fn_decl, 1, new_malloc_size);
+  gimple_call_set_lhs (call_stmt, malloc_res);
   finalize_stmt_and_append (new_stmts, call_stmt);
 
   /* Create new cast statement. */
   final_stmt = get_final_alloc_stmt (malloc_stmt);
   gcc_assert (final_stmt);
   new_stmt = gen_cast_stmt (malloc_res, new_type, final_stmt, &cast_res);
-  append_to_statement_list (new_stmt, new_stmts);
- 
-  return call_stmt;      
+  gimple_seq_add_stmt (new_stmts, new_stmt);
+
+  return call_stmt;
 }
 
-/* This function returns a tree representing 
-   the number of instances of structure STR_DECL allocated 
-   by allocation STMT. If new statments are generated, 
+/* This function returns a tree representing
+   the number of instances of structure STR_DECL allocated
+   by allocation STMT. If new statements are generated,
    they are filled into NEW_STMTS_P.  */
 
-static tree 
-gen_num_of_structs_in_malloc (tree stmt, tree str_decl, tree *new_stmts_p)
+static tree
+gen_num_of_structs_in_malloc (gimple stmt, tree str_decl,
+			      gimple_seq *new_stmts_p)
 {
-  call_expr_arg_iterator iter;
   tree arg;
-  tree call_expr;
   tree struct_size;
   HOST_WIDE_INT struct_size_int;
 
@@ -1768,27 +1800,27 @@ gen_num_of_structs_in_malloc (tree stmt, tree str_decl, tree *new_stmts_p)
     return NULL_TREE;
 
   /* Get malloc argument.  */
-  call_expr = get_call_expr_in (stmt);
-  if (!call_expr)
+  if (!is_gimple_call (stmt))
     return NULL_TREE;
 
-  arg = first_call_expr_arg (call_expr, &iter);
+  arg = gimple_call_arg (stmt, 0);
 
   if (TREE_CODE (arg) != SSA_NAME
       && !TREE_CONSTANT (arg))
     return NULL_TREE;
-  
+
   struct_size = TYPE_SIZE_UNIT (str_decl);
   struct_size_int = TREE_INT_CST_LOW (struct_size);
-  
+
   gcc_assert (struct_size);
 
   if (TREE_CODE (arg) == SSA_NAME)
     {
-      tree num, div_stmt;
+      tree num;
+      gimple div_stmt;
 
       if (is_result_of_mult (arg, &num, struct_size))
-	  return num;      
+	  return num;
 
       num = create_tmp_var (integer_type_node, NULL);
 
@@ -1796,38 +1828,31 @@ gen_num_of_structs_in_malloc (tree stmt, tree str_decl, tree *new_stmts_p)
 	add_referenced_var (num);
 
       if (exact_log2 (struct_size_int) == -1)
-	div_stmt = build_gimple_modify_stmt (num, 
-					     build2 (TRUNC_DIV_EXPR, 
-						     integer_type_node,
-						     arg, struct_size));
+	div_stmt = gimple_build_assign_with_ops (TRUNC_DIV_EXPR, num, arg,
+						 struct_size);
       else
 	{
 	  tree C =  build_int_cst (integer_type_node,
-				   exact_log2 (struct_size_int)); 
+				   exact_log2 (struct_size_int));
 
-	  div_stmt = 
-	    build_gimple_modify_stmt (num, build2 (RSHIFT_EXPR, 
-						   integer_type_node,
-						   arg, C)); 
+	  div_stmt = gimple_build_assign_with_ops (RSHIFT_EXPR, num, arg, C);
 	}
-      *new_stmts_p = alloc_stmt_list ();
-      append_to_statement_list (div_stmt, 
-				new_stmts_p);
+      gimple_seq_add_stmt (new_stmts_p, div_stmt);
       finalize_stmt (div_stmt);
       return num;
     }
 
   if (CONSTANT_CLASS_P (arg)
-      && multiple_of_p (TREE_TYPE (struct_size), arg, struct_size))   
+      && multiple_of_p (TREE_TYPE (struct_size), arg, struct_size))
     return int_const_binop (TRUNC_DIV_EXPR, arg, struct_size, 0);
 
-  return NULL_TREE; 
+  return NULL_TREE;
 }
 
 /* This function is a callback for traversal on new_var's hashtable.
-   SLOT is a pointer to new_var. This function prints to dump_file 
-   an original variable and all new variables from the new_var 
-   pointed by *SLOT.  */ 
+   SLOT is a pointer to new_var. This function prints to dump_file
+   an original variable and all new variables from the new_var
+   pointed by *SLOT.  */
 
 static int
 dump_new_var (void **slot, void *data ATTRIBUTE_UNUSED)
@@ -1847,9 +1872,9 @@ dump_new_var (void **slot, void *data ATTRIBUTE_UNUSED)
 
   for (i = 0;
        VEC_iterate (tree, n_var->new_vars, i, var); i++)
-    {	  
+    {
       var_type = get_type_of_var (var);
-	  	  
+
       fprintf (dump_file, "      ");
       print_generic_expr (dump_file, var, 0);
       fprintf (dump_file, " of type ");
@@ -1861,7 +1886,7 @@ dump_new_var (void **slot, void *data ATTRIBUTE_UNUSED)
 
 /* This function copies attributes form ORIG_DECL to NEW_DECL.  */
 
-static inline void 
+static inline void
 copy_decl_attributes (tree new_decl, tree orig_decl)
 {
 
@@ -1873,7 +1898,7 @@ copy_decl_attributes (tree new_decl, tree orig_decl)
   DECL_CONTEXT (new_decl) = DECL_CONTEXT (orig_decl);
   TREE_THIS_VOLATILE (new_decl) = TREE_THIS_VOLATILE (orig_decl);
   TREE_ADDRESSABLE (new_decl) = TREE_ADDRESSABLE (orig_decl);
-  
+
   if (TREE_CODE (orig_decl) == VAR_DECL)
     {
       TREE_READONLY (new_decl) = TREE_READONLY (orig_decl);
@@ -1881,8 +1906,8 @@ copy_decl_attributes (tree new_decl, tree orig_decl)
     }
 }
 
-/* This function wraps NEW_STR_TYPE in pointers or arrays wrapper 
-   the same way as a structure type is wrapped in DECL. 
+/* This function wraps NEW_STR_TYPE in pointers or arrays wrapper
+   the same way as a structure type is wrapped in DECL.
    It returns the generated type.  */
 
 static inline tree
@@ -1893,17 +1918,18 @@ gen_struct_type (tree decl, tree new_str_type)
   VEC (type_wrapper_t, heap) *wrapper = VEC_alloc (type_wrapper_t, heap, 10);
   type_wrapper_t wr;
   type_wrapper_t *wr_p;
-  
+
   while (POINTER_TYPE_P (type_orig)
 	 || TREE_CODE (type_orig) == ARRAY_TYPE)
-    {      
+    {
       if (POINTER_TYPE_P (type_orig))
 	{
 	  wr.wrap = 0;
 	  wr.domain = NULL_TREE;
 	}
-      else if (TREE_CODE (type_orig) == ARRAY_TYPE)
+      else
 	{
+	  gcc_assert (TREE_CODE (type_orig) == ARRAY_TYPE);
 	  wr.wrap = 1;
 	  wr.domain = TYPE_DOMAIN (type_orig);
 	}
@@ -1913,17 +1939,17 @@ gen_struct_type (tree decl, tree new_str_type)
 
   while (VEC_length (type_wrapper_t, wrapper) != 0)
     {
-      wr_p = VEC_last (type_wrapper_t, wrapper); 
+      wr_p = VEC_last (type_wrapper_t, wrapper);
 
       if (wr_p->wrap) /* Array.  */
 	new_type = build_array_type (new_type, wr_p->domain);
       else /* Pointer.  */
 	new_type = build_pointer_type (new_type);
-      
+
       VEC_pop (type_wrapper_t, wrapper);
     }
 
-  VEC_free (type_wrapper_t, heap, wrapper);  
+  VEC_free (type_wrapper_t, heap, wrapper);
   return new_type;
 }
 
@@ -1942,11 +1968,11 @@ gen_var_name (tree orig_decl, unsigned HOST_WIDE_INT i)
       || !IDENTIFIER_POINTER (DECL_NAME (orig_decl)))
      return NULL;
 
-  /* If the original variable has a name, create an 
+  /* If the original variable has a name, create an
      appropriate new name for the new variable.  */
 
   old_name = IDENTIFIER_POINTER (DECL_NAME (orig_decl));
-  prefix = alloca (strlen (old_name) + 1);
+  prefix = XALLOCAVEC (char, strlen (old_name) + 1);
   strcpy (prefix, old_name);
   ASM_FORMAT_PRIVATE_NAME (new_name, prefix, i);
   return get_identifier (new_name);
@@ -1960,12 +1986,12 @@ add_to_new_vars_htab (new_var new_node, htab_t new_vars_htab)
   void **slot;
 
   slot = htab_find_slot_with_hash (new_vars_htab, new_node->orig_var,
-				   htab_hash_pointer (new_node->orig_var), 
+				   DECL_UID (new_node->orig_var),
 				   INSERT);
   *slot = new_node;
 }
 
-/* This function creates and returns new_var_data node 
+/* This function creates and returns new_var_data node
    with empty new_vars and orig_var equal to VAR.  */
 
 static new_var
@@ -1973,7 +1999,7 @@ create_new_var_node (tree var, d_str str)
 {
   new_var node;
 
-  node = (new_var) xmalloc (sizeof (struct new_var_data));
+  node = XNEW (struct new_var_data);
   node->orig_var = var;
   node->new_vars = VEC_alloc (tree, heap, VEC_length (tree, str->new_types));
   return node;
@@ -1999,18 +2025,26 @@ is_candidate (tree var, tree *type_p, VEC (tree, heap) **unsuitable_types)
   if (TREE_CODE (var) == VAR_DECL
       && DECL_INITIAL (var) != NULL_TREE)
     initialized = true;
-  
+
   type = get_type_of_var (var);
 
   if (type)
     {
       type = TYPE_MAIN_VARIANT (strip_type (type));
       if (TREE_CODE (type) != RECORD_TYPE)
-	  return false; 
+	  return false;
       else
 	{
 	  if (initialized && unsuitable_types && *unsuitable_types)
-	    add_unsuitable_type (unsuitable_types, type);
+	    {
+	      if (dump_file)
+		{
+		  fprintf (dump_file, "The type ");
+		  print_generic_expr (dump_file, type, 0);
+		  fprintf (dump_file, " is initialized...Excluded.");
+		}
+	      add_unsuitable_type (unsuitable_types, type);
+	    }
 	  *type_p = type;
 	  return true;
       }
@@ -2027,16 +2061,16 @@ field_acc_hash (const void *x)
   return htab_hash_pointer (((const struct field_access_site *)x)->stmt);
 }
 
-/* This function returns nonzero if stmt of field_access_site X 
+/* This function returns nonzero if stmt of field_access_site X
    is equal to Y.  */
 
 static int
 field_acc_eq (const void *x, const void *y)
 {
-  return ((const struct field_access_site *)x)->stmt == (const_tree)y;
+  return ((const struct field_access_site *)x)->stmt == (const_gimple)y;
 }
 
-/* This function prints an access site, defined by SLOT.  */ 
+/* This function prints an access site, defined by SLOT.  */
 
 static int
 dump_acc (void **slot, void *data ATTRIBUTE_UNUSED)
@@ -2047,18 +2081,18 @@ dump_acc (void **slot, void *data ATTRIBUTE_UNUSED)
 
   fprintf(dump_file, "\n");
   if (acc->stmt)
-    print_generic_stmt (dump_file, acc->stmt, 0);
+    print_gimple_stmt (dump_file, acc->stmt, 0, 0);
   fprintf(dump_file, " : ");
 
   for (i = 0; VEC_iterate (tree, acc->vars, i, var); i++)
     {
       print_generic_expr (dump_file, var, 0);
-      fprintf(dump_file, ", ");	  
+      fprintf(dump_file, ", ");
     }
   return 1;
 }
 
-/* This function frees memory allocated for strcuture clusters, 
+/* This function frees memory allocated for structure clusters,
    starting from CLUSTER.  */
 
 static void
@@ -2067,7 +2101,7 @@ free_struct_cluster (struct field_cluster* cluster)
   if (cluster)
     {
       if (cluster->fields_in_cluster)
-	sbitmap_free (cluster->fields_in_cluster);	    
+	sbitmap_free (cluster->fields_in_cluster);
       if (cluster->sibling)
 	free_struct_cluster (cluster->sibling);
       free (cluster);
@@ -2083,11 +2117,11 @@ free_data_struct (d_str d_node)
 
   if (!d_node)
     return;
- 
+
   if (dump_file)
     {
       fprintf (dump_file, "\nRemoving data structure \"");
-      print_generic_expr (dump_file, d_node->decl, 0); 
+      print_generic_expr (dump_file, d_node->decl, 0);
       fprintf (dump_file, "\" from data_struct_list.");
     }
 
@@ -2129,43 +2163,42 @@ create_new_alloc_sites (fallocs_t m_data, tree context)
 {
   alloc_site_t *call;
   unsigned j;
-  
-  for (j = 0;
-       VEC_iterate (alloc_site_t, m_data->allocs, j, call); j++)
+
+  for (j = 0; VEC_iterate (alloc_site_t, m_data->allocs, j, call); j++)
     {
-      tree stmt = call->stmt;
+      gimple stmt = call->stmt;
       d_str str = call->str;
       tree num;
-      tree new_stmts = NULL_TREE;
-      tree last_stmt = get_final_alloc_stmt (stmt);
+      gimple_seq new_stmts = NULL;
+      gimple last_stmt = get_final_alloc_stmt (stmt);
       unsigned i;
       tree type;
 
       num = gen_num_of_structs_in_malloc (stmt, str->decl, &new_stmts);
       if (new_stmts)
 	{
-	  last_stmt = tsi_stmt (tsi_last (new_stmts));
-	  insert_after_stmt (last_stmt, new_stmts);
+	  gimple last_stmt_tmp = gimple_seq_last_stmt (new_stmts);
+	  insert_seq_after_stmt (last_stmt, new_stmts);
+	  last_stmt = last_stmt_tmp;
 	}
-      
-      /* Generate an allocation sites for each new structure type.  */      
-      for (i = 0; 
-	   VEC_iterate (tree, str->new_types, i, type); i++)	
-	{
-	  tree new_malloc_stmt = NULL_TREE;
-	  tree last_stmt_tmp = NULL_TREE;
 
-	  new_stmts = NULL_TREE;
+      /* Generate an allocation sites for each new structure type.  */
+      for (i = 0; VEC_iterate (tree, str->new_types, i, type); i++)
+	{
+	  gimple new_malloc_stmt = NULL;
+	  gimple last_stmt_tmp = NULL;
+
+	  new_stmts = NULL;
 	  new_malloc_stmt = create_new_malloc (stmt, type, &new_stmts, num);
-	  last_stmt_tmp = tsi_stmt (tsi_last (new_stmts));
-	  insert_after_stmt (last_stmt, new_stmts);
+	  last_stmt_tmp = gimple_seq_last_stmt (new_stmts);
+	  insert_seq_after_stmt (last_stmt, new_stmts);
 	  update_cgraph_with_malloc_call (new_malloc_stmt, context);
 	  last_stmt = last_stmt_tmp;
 	}
     }
 }
 
-/* This function prints new variables from hashtable  
+/* This function prints new variables from hashtable
    NEW_VARS_HTAB to dump_file.  */
 
 static void
@@ -2179,7 +2212,7 @@ dump_new_vars (htab_t new_vars_htab)
 }
 
 /* Given an original variable ORIG_DECL of structure type STR,
-   this function generates new variables of the types defined 
+   this function generates new variables of the types defined
    by STR->new_type. Generated types are saved in new_var node NODE.
    ORIG_DECL should has VAR_DECL tree_code.  */
 
@@ -2189,30 +2222,31 @@ create_new_var_1 (tree orig_decl, d_str str, new_var node)
   unsigned i;
   tree type;
 
-  for (i = 0; 
+  for (i = 0;
        VEC_iterate (tree, str->new_types, i, type); i++)
     {
       tree new_decl = NULL;
       tree new_name;
 
       new_name = gen_var_name (orig_decl, i);
-      type = gen_struct_type (orig_decl, type); 
+      type = gen_struct_type (orig_decl, type);
 
       if (is_global_var (orig_decl))
-	new_decl = build_decl (VAR_DECL, new_name, type); 
+	new_decl = build_decl (DECL_SOURCE_LOCATION (orig_decl),
+			       VAR_DECL, new_name, type);
       else
 	{
 	  const char *name = new_name ? IDENTIFIER_POINTER (new_name) : NULL;
-	  new_decl = create_tmp_var (type, name);				   
+	  new_decl = create_tmp_var (type, name);
 	}
-      
+
       copy_decl_attributes (new_decl, orig_decl);
       VEC_safe_push (tree, heap, node->new_vars, new_decl);
     }
 }
 
-/* This function creates new variables to 
-   substitute the original variable VAR_DECL and adds 
+/* This function creates new variables to
+   substitute the original variable VAR_DECL and adds
    them to the new_var's hashtable NEW_VARS_HTAB.  */
 
 static void
@@ -2228,7 +2262,7 @@ create_new_var (tree var_decl, htab_t new_vars_htab)
 
   if (!is_candidate (var_decl, &type, NULL))
     return;
-  
+
   i = find_structure (type);
   if (i == VEC_length (structure, structures))
     return;
@@ -2244,20 +2278,24 @@ create_new_var (tree var_decl, htab_t new_vars_htab)
 static hashval_t
 new_var_hash (const void *x)
 {
-  return htab_hash_pointer (((const_new_var)x)->orig_var);
+  return DECL_UID (((const_new_var)x)->orig_var);
 }
 
-/* This function returns nonzero if orig_var of new_var X is equal to Y.  */
+/* This function returns nonzero if orig_var of new_var X 
+   and tree Y have equal UIDs.  */
 
 static int
 new_var_eq (const void *x, const void *y)
 {
-  return ((const_new_var)x)->orig_var == (const_tree)y;
+  if (DECL_P ((const_tree)y))
+    return DECL_UID (((const_new_var)x)->orig_var) == DECL_UID ((const_tree)y);
+  else
+    return 0;
 }
 
-/* This function check whether a structure type represented by STR 
-   escapes due to ipa-type-escape analysis. If yes, this type is added 
-   to UNSUITABLE_TYPES vector.  */ 
+/* This function check whether a structure type represented by STR
+   escapes due to ipa-type-escape analysis. If yes, this type is added
+   to UNSUITABLE_TYPES vector.  */
 
 static void
 check_type_escape (d_str str, VEC (tree, heap) **unsuitable_types)
@@ -2288,11 +2326,11 @@ acc_hash (const void *x)
 static int
 acc_eq (const void *x, const void *y)
 {
-  return ((const struct access_site *)x)->stmt == (const_tree)y;
+  return ((const struct access_site *)x)->stmt == (const_gimple)y;
 }
 
-/* Given a structure declaration STRUCT_DECL, and number of fields 
-   in the structure NUM_FIELDS, this function creates and returns 
+/* Given a structure declaration STRUCT_DECL, and number of fields
+   in the structure NUM_FIELDS, this function creates and returns
    corresponding field_entry's.  */
 
 static struct field_entry *
@@ -2302,15 +2340,14 @@ get_fields (tree struct_decl, int num_fields)
   tree t = TYPE_FIELDS (struct_decl);
   int idx = 0;
 
-  list = 
-    (struct field_entry *) xmalloc (num_fields * sizeof (struct field_entry));
+  list = XNEWVEC (struct field_entry, num_fields);
 
   for (idx = 0 ; t; t = TREE_CHAIN (t), idx++)
     if (TREE_CODE (t) == FIELD_DECL)
       {
 	list[idx].index = idx;
 	list[idx].decl = t;
-	list[idx].acc_sites = 
+	list[idx].acc_sites =
 	  htab_create (32, field_acc_hash, field_acc_eq, NULL);
 	list[idx].count = 0;
 	list[idx].field_mapping = NULL_TREE;
@@ -2331,44 +2368,77 @@ dump_access_sites (htab_t accs)
     htab_traverse (accs, dump_acc, NULL);
 }
 
+/* This function is a callback for alloc_sites hashtable
+   traversal. SLOT is a pointer to fallocs_t. This function
+   removes all allocations of the structure defined by DATA.  */
+
+static int
+remove_str_allocs_in_func (void **slot, void *data)
+{
+  fallocs_t fallocs = *(fallocs_t *) slot;
+  unsigned i = 0;
+  alloc_site_t *call;
+
+  while (VEC_iterate (alloc_site_t, fallocs->allocs, i, call))
+    {
+      if (call->str == (d_str) data)
+	VEC_ordered_remove (alloc_site_t, fallocs->allocs, i);
+      else
+	i++;
+    }
+
+  return 1;
+}
+
+/* This function remove all entries corresponding to the STR structure
+   from alloc_sites hashtable.   */
+
+static void
+remove_str_allocs (d_str str)
+{
+  if (!str)
+    return;
+
+  if (alloc_sites)
+    htab_traverse (alloc_sites, remove_str_allocs_in_func, str);
+}
+
 /* This function removes the structure with index I from structures vector.  */
 
-static void 
+static void
 remove_structure (unsigned i)
-{    
+{
   d_str str;
 
   if (i >= VEC_length (structure, structures))
     return;
 
-  str = VEC_index (structure, structures, i);  
+  str = VEC_index (structure, structures, i);
+
+  /* Before removing the structure str, we have to remove its
+     allocations from alloc_sites hashtable.  */
+  remove_str_allocs (str);
   free_data_struct (str);
   VEC_ordered_remove (structure, structures, i);
 }
 
 /* Currently we support only EQ_EXPR or NE_EXPR conditions.
-   COND_STNT is a condition statement to check.  */
+   COND_STMT is a condition statement to check.  */
 
 static bool
-is_safe_cond_expr (tree cond_stmt)
+is_safe_cond_expr (gimple cond_stmt)
 {
-
   tree arg0, arg1;
   unsigned str0, str1;
   bool s0, s1;
   unsigned length = VEC_length (structure, structures);
 
-  tree cond = COND_EXPR_COND (cond_stmt);
-
-  if (TREE_CODE (cond) != EQ_EXPR
-      && TREE_CODE (cond) != NE_EXPR)
-    return false;
-  
-  if (TREE_CODE_LENGTH (TREE_CODE (cond)) != 2)
+  if (gimple_cond_code (cond_stmt) != EQ_EXPR
+      && gimple_cond_code (cond_stmt) != NE_EXPR)
     return false;
 
-  arg0 = TREE_OPERAND (cond, 0);
-  arg1 = TREE_OPERAND (cond, 1);
+  arg0 = gimple_cond_lhs (cond_stmt);
+  arg1 = gimple_cond_rhs (cond_stmt);
 
   str0 = find_structure (strip_type (get_type_of_var (arg0)));
   str1 = find_structure (strip_type (get_type_of_var (arg1)));
@@ -2376,16 +2446,20 @@ is_safe_cond_expr (tree cond_stmt)
   s0 = (str0 != length) ? true : false;
   s1 = (str1 != length) ? true : false;
 
-  if (!((!s0 && s1) || (!s1 && s0)))
+  if (!s0 && !s1)
+    return false;
+
+  /* For now we allow only comparison with 0 or NULL.  */
+  if (!integer_zerop (arg0) && !integer_zerop (arg1))
     return false;
 
   return true;
 }
 
-/* This function excludes statements, that are 
+/* This function excludes statements, that are
    part of allocation sites or field accesses, from the
-   hashtable of general accesses. SLOT represents general 
-   access that will be checked. DATA is a pointer to 
+   hashtable of general accesses. SLOT represents general
+   access that will be checked. DATA is a pointer to
    exclude_data structure.  */
 
 static int
@@ -2405,13 +2479,14 @@ exclude_from_accs (void **slot, void *data)
   return 1;
 }
 
-/* Callback function for walk_tree called from collect_accesses_in_bb 
+/* Callback function for walk_tree called from collect_accesses_in_bb
    function. DATA is the statement which is analyzed.  */
 
 static tree
 get_stmt_accesses (tree *tp, int *walk_subtrees, void *data)
 {
-  tree stmt = (tree) data;
+  struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
+  gimple stmt = (gimple) wi->info;
   tree t = *tp;
 
   if (!t)
@@ -2419,17 +2494,6 @@ get_stmt_accesses (tree *tp, int *walk_subtrees, void *data)
 
   switch (TREE_CODE (t))
     {
-    case GIMPLE_MODIFY_STMT:
-      {
-	tree lhs = GIMPLE_STMT_OPERAND (t, 0);
-	tree rhs = GIMPLE_STMT_OPERAND (t, 1);
-	*walk_subtrees = 1;
-	walk_tree (&lhs, get_stmt_accesses, data, NULL);
-	walk_tree (&rhs, get_stmt_accesses, data, NULL);
-	*walk_subtrees = 0;	    
-      }
-      break;
-
     case BIT_FIELD_REF:
       {
 	tree var = TREE_OPERAND(t, 0);
@@ -2437,7 +2501,24 @@ get_stmt_accesses (tree *tp, int *walk_subtrees, void *data)
 	unsigned i = find_structure (type);
 
 	if (i != VEC_length (structure, structures))
-	  remove_structure (i);	
+	  {
+	    if (is_gimple_debug (stmt))
+	      {
+		d_str str;
+
+		str = VEC_index (structure, structures, i);
+		add_access_to_acc_sites (stmt, NULL, str->accs);
+		*walk_subtrees = 0;
+		break;
+	      }
+	    if (dump_file)
+	      {
+		fprintf (dump_file, "\nThe type ");
+		print_generic_expr (dump_file, type, 0);
+		fprintf (dump_file, " has bitfield.");
+	      }
+	    remove_structure (i);
+	  }
       }
       break;
 
@@ -2458,8 +2539,15 @@ get_stmt_accesses (tree *tp, int *walk_subtrees, void *data)
 	    if (i != VEC_length (structure, structures))
 	      {
 		d_str str = VEC_index (structure, structures, i);
-		struct field_entry * field = 
+		struct field_entry * field =
 		  find_field_in_struct (str, field_decl);
+
+		if (is_gimple_debug (stmt))
+		  {
+		    add_access_to_acc_sites (stmt, NULL, str->accs);
+		    *walk_subtrees = 0;
+		    break;
+		  }
 
 		if (field)
 		  {
@@ -2472,17 +2560,26 @@ get_stmt_accesses (tree *tp, int *walk_subtrees, void *data)
 		    acc->ref = ref;
 		    acc->field_decl = field_decl;
 
-		    /* Check whether the access is of the form 
+		    /* Check whether the access is of the form
 		       we can deal with.  */
 		    if (!decompose_access (str->decl, acc))
 		      {
+			if (dump_file)
+			  {
+			    fprintf (dump_file, "\nThe type ");
+			    print_generic_expr (dump_file, type, 0);
+			    fprintf (dump_file,
+				     " has complicate access in statement ");
+			    print_gimple_stmt (dump_file, stmt, 0, 0);
+			  }
+
 			remove_structure (i);
 			free (acc);
 		      }
 		    else
 		      {
 			/* Increase count of field.  */
-			basic_block bb = bb_for_stmt (stmt);
+			basic_block bb = gimple_bb (stmt);
 			field->count += bb->count;
 
 			/* Add stmt to the acc_sites of field.  */
@@ -2490,20 +2587,8 @@ get_stmt_accesses (tree *tp, int *walk_subtrees, void *data)
 		      }
 		    *walk_subtrees = 0;
 		  }
-	      }	      
+	      }
 	  }
-      }
-      break;
-
-    case MINUS_EXPR:
-    case PLUS_EXPR:
-      {
-	tree op0 = TREE_OPERAND (t, 0);
-	tree op1 = TREE_OPERAND (t, 1);
-	*walk_subtrees = 1;	    
-	walk_tree (&op0, get_stmt_accesses, data, NULL);
-	walk_tree (&op1, get_stmt_accesses, data, NULL);	
-	*walk_subtrees = 0;	    
       }
       break;
 
@@ -2518,7 +2603,7 @@ get_stmt_accesses (tree *tp, int *walk_subtrees, void *data)
 	    *walk_subtrees = 1;
 	    walk_tree (&t, get_stmt_accesses, data, NULL);
 	  }
-	*walk_subtrees = 0;	    
+	*walk_subtrees = 0;
       }
       break;
 
@@ -2539,14 +2624,6 @@ get_stmt_accesses (tree *tp, int *walk_subtrees, void *data)
 	    add_access_to_acc_sites (stmt, t, str->accs);
 	  }
 	*walk_subtrees = 0;
-      }
-      break;
-
-    case CALL_EXPR:
-      {
-	/* It was checked as part of stage1 that structures 
-	   to be transformed cannot be passed as parameters of functions.  */
-	*walk_subtrees = 0;	    
       }
       break;
 
@@ -2573,7 +2650,7 @@ free_structures (void)
 }
 
 /* This function is a callback for traversal over new_var's hashtable.
-   SLOT is a pointer to new_var. This function frees memory allocated 
+   SLOT is a pointer to new_var. This function frees memory allocated
    for new_var and pointed by *SLOT.  */
 
 static int
@@ -2593,7 +2670,7 @@ static void
 free_new_vars_htab (htab_t new_vars_htab)
 {
   if (new_vars_htab)
-    htab_traverse (new_vars_htab, free_new_var, NULL);  
+    htab_traverse (new_vars_htab, free_new_var, NULL);
   htab_delete (new_vars_htab);
   new_vars_htab = NULL;
 }
@@ -2628,8 +2705,8 @@ create_new_local_vars (void)
 {
   tree var;
   referenced_var_iterator rvi;
-   
-  new_local_vars = htab_create (num_referenced_vars, 
+
+  new_local_vars = htab_create (num_referenced_vars,
 				new_var_hash, new_var_eq, NULL);
 
   FOR_EACH_REFERENCED_VAR (var, rvi)
@@ -2639,7 +2716,7 @@ create_new_local_vars (void)
     }
 
   if (new_local_vars)
-    htab_traverse (new_local_vars, finalize_new_vars_creation, NULL); 
+    htab_traverse (new_local_vars, finalize_new_vars_creation, NULL);
   dump_new_vars (new_local_vars);
 }
 
@@ -2651,7 +2728,7 @@ print_shift (unsigned HOST_WIDE_INT shift)
   unsigned HOST_WIDE_INT sh = shift;
 
   while (sh--)
-    fprintf (dump_file, " ");    
+    fprintf (dump_file, " ");
 }
 
 /* This function updates field_mapping of FIELDS in CLUSTER with NEW_TYPE.  */
@@ -2664,11 +2741,11 @@ update_fields_mapping (struct field_cluster *cluster, tree new_type,
 
   for (i = 0; i < num_fields; i++)
     if (TEST_BIT (cluster->fields_in_cluster, i))
-	fields[i].field_mapping = new_type;  
+	fields[i].field_mapping = new_type;
 }
 
-/* This functions builds structure with FIELDS, 
-   NAME and attributes similar to ORIG_STRUCT. 
+/* This functions builds structure with FIELDS,
+   NAME and attributes similar to ORIG_STRUCT.
    It returns the newly created structure.  */
 
 static tree
@@ -2682,7 +2759,7 @@ build_basic_struct (tree fields, tree name, tree orig_struct)
     attributes = unshare_expr (TYPE_ATTRIBUTES (orig_struct));
   ref = make_node (RECORD_TYPE);
   TYPE_SIZE (ref) = 0;
-  decl_attributes (&ref, attributes, (int) ATTR_FLAG_TYPE_IN_PLACE); 
+  decl_attributes (&ref, attributes, (int) ATTR_FLAG_TYPE_IN_PLACE);
   TYPE_PACKED (ref) = TYPE_PACKED (orig_struct);
   for (x = fields; x; x = TREE_CHAIN (x))
     {
@@ -2696,13 +2773,13 @@ build_basic_struct (tree fields, tree name, tree orig_struct)
   return ref;
 }
 
-/* This function copies FIELDS from CLUSTER into TREE_CHAIN as part 
-   of preparation for new structure building. NUM_FIELDS is a total 
-   number of fields in the structure. The function returns newly 
+/* This function copies FIELDS from CLUSTER into TREE_CHAIN as part
+   of preparation for new structure building. NUM_FIELDS is a total
+   number of fields in the structure. The function returns newly
    generated fields.  */
 
 static tree
-create_fields (struct field_cluster * cluster, 
+create_fields (struct field_cluster * cluster,
 	       struct field_entry * fields, int num_fields)
 {
   int i;
@@ -2726,9 +2803,9 @@ create_fields (struct field_cluster * cluster,
 
 }
 
-/* This function creates a cluster name. The name is based on 
+/* This function creates a cluster name. The name is based on
    the original structure name, if it is present. It has a form:
-   
+
    <original_struct_name>_sub.<CLUST_NUM>
 
    The original structure name is taken from the type of DECL.
@@ -2746,16 +2823,16 @@ gen_cluster_name (tree decl, int clust_num, int str_num)
   char * prefix;
   char * new_name;
   size_t len;
-  
+
   if (!orig_name)
     ASM_FORMAT_PRIVATE_NAME(tmp_name, "struct", str_num);
 
   len = strlen (tmp_name ? tmp_name : orig_name) + strlen ("_sub");
-  prefix = alloca (len + 1);
-  memcpy (prefix, tmp_name ? tmp_name : orig_name, 
+  prefix = XALLOCAVEC (char, len + 1);
+  memcpy (prefix, tmp_name ? tmp_name : orig_name,
 	  strlen (tmp_name ? tmp_name : orig_name));
-  strcpy (prefix + strlen (tmp_name ? tmp_name : orig_name), "_sub");      
-  
+  strcpy (prefix + strlen (tmp_name ? tmp_name : orig_name), "_sub");
+
   ASM_FORMAT_PRIVATE_NAME (new_name, prefix, clust_num);
   return get_identifier (new_name);
 }
@@ -2784,8 +2861,8 @@ check_bitfields (d_str str, VEC (tree, heap) **unsuitable_types)
       }
 }
 
-/* This function adds to UNSUITABLE_TYPES those types that escape 
-   due to results of ipa-type-escpae analysis. See ipa-type-escpae.[c,h].  */
+/* This function adds to UNSUITABLE_TYPES those types that escape
+   due to results of ipa-type-escape analysis. See ipa-type-escape.[c,h].  */
 
 static void
 exclude_escaping_types_1 (VEC (tree, heap) **unsuitable_types)
@@ -2827,8 +2904,8 @@ exclude_returned_types (VEC (tree, heap) **unsuitable_types)
     }
 }
 
-/* This function looks for parameters of local functions 
-   which are of structure types, or derived from them (arrays 
+/* This function looks for parameters of local functions
+   which are of structure types, or derived from them (arrays
    of structures, pointers to structures, or their combinations).
    We are not handling peeling of such structures right now.
    The found structures types are added to UNSUITABLE_TYPES vector.  */
@@ -2843,7 +2920,7 @@ exclude_types_passed_to_local_func (VEC (tree, heap) **unsuitable_types)
       {
 	tree fn = c_node->decl;
 	tree arg;
-	
+
 	for (arg = DECL_ARGUMENTS (fn); arg; arg = TREE_CHAIN (arg))
 	  {
 	    tree type = TREE_TYPE (arg);
@@ -2851,30 +2928,30 @@ exclude_types_passed_to_local_func (VEC (tree, heap) **unsuitable_types)
 	    type = strip_type (type);
 	    if (TREE_CODE (type) == RECORD_TYPE)
 	      {
-		add_unsuitable_type (unsuitable_types, 
+		add_unsuitable_type (unsuitable_types,
 				     TYPE_MAIN_VARIANT (type));
 		if (dump_file)
 		  {
 		    fprintf (dump_file, "\nPointer to type \"");
 		    print_generic_expr (dump_file, type, 0);
-		    fprintf (dump_file, 
-			     "\" is passed to local function...Excluded.");				 
+		    fprintf (dump_file,
+			     "\" is passed to local function...Excluded.");
 		  }
 	      }
 	  }
       }
 }
 
-/* This function analyzes structure form of structures 
+/* This function analyzes structure form of structures
    potential for transformation. If we are not capable to transform
    structure of some form, we remove it from the structures hashtable.
-   Right now we cannot handle nested structs, when nesting is 
-   through any level of pointers or arrays.  
+   Right now we cannot handle nested structs, when nesting is
+   through any level of pointers or arrays.
 
    TBD: release these constrains in future.
 
-   Note, that in this function we suppose that all structures 
-   in the program are members of the structures hashtable right now, 
+   Note, that in this function we suppose that all structures
+   in the program are members of the structures hashtable right now,
    without excluding escaping types.  */
 
 static void
@@ -2885,7 +2962,7 @@ check_struct_form (d_str str, VEC (tree, heap) **unsuitable_types)
   for (i = 0; i < str->num_fields; i++)
     {
       tree f_type = strip_type(TREE_TYPE (str->fields[i].decl));
-	  
+
       if (TREE_CODE (f_type) == RECORD_TYPE)
 	{
 	  add_unsuitable_type (unsuitable_types, TYPE_MAIN_VARIANT (f_type));
@@ -2933,17 +3010,17 @@ add_structure (tree type)
   if (dump_file)
     {
       fprintf (dump_file, "\nAdding data structure \"");
-      print_generic_expr (dump_file, type, 0); 
+      print_generic_expr (dump_file, type, 0);
       fprintf (dump_file, "\" to data_struct_list.");
     }
 }
 
 /* This function adds an allocation site to alloc_sites hashtable.
-   The allocation site appears in STMT of function FN_DECL and 
+   The allocation site appears in STMT of function FN_DECL and
    allocates the structure represented by STR.  */
 
 static void
-add_alloc_site (tree fn_decl, tree stmt, d_str str)
+add_alloc_site (tree fn_decl, gimple stmt, d_str str)
 {
   fallocs_t fallocs = NULL;
   alloc_site_t m_call;
@@ -2951,7 +3028,7 @@ add_alloc_site (tree fn_decl, tree stmt, d_str str)
   m_call.stmt = stmt;
   m_call.str = str;
 
-  fallocs = 
+  fallocs =
     (fallocs_t) htab_find_with_hash (alloc_sites,
 				     fn_decl, htab_hash_pointer (fn_decl));
 
@@ -2959,21 +3036,20 @@ add_alloc_site (tree fn_decl, tree stmt, d_str str)
     {
       void **slot;
 
-      fallocs = (fallocs_t) 
-	xmalloc (sizeof (struct func_alloc_sites));
+      fallocs = XNEW (struct func_alloc_sites);
       fallocs->func = fn_decl;
       fallocs->allocs = VEC_alloc (alloc_site_t, heap, 1);
       slot = htab_find_slot_with_hash (alloc_sites, fn_decl,
 				      htab_hash_pointer (fn_decl), INSERT);
       *slot = fallocs;
     }
-  VEC_safe_push (alloc_site_t, heap, 
+  VEC_safe_push (alloc_site_t, heap,
 		 fallocs->allocs, &m_call);
-  
+
   if (dump_file)
     {
       fprintf (dump_file, "\nAdding stmt ");
-      print_generic_stmt (dump_file, stmt, 0);
+      print_gimple_stmt (dump_file, stmt, 0, 0);
       fprintf (dump_file, " to list of mallocs.");
     }
 }
@@ -2981,15 +3057,15 @@ add_alloc_site (tree fn_decl, tree stmt, d_str str)
 /* This function returns true if the result of STMT, that contains a call
    to an allocation function, is cast to one of the structure types.
    STMT should be of the form:    T.2 = <alloc_func> (T.1);
-   If true, I_P contains an index of an allocated structure. 
+   If true, I_P contains an index of an allocated structure.
    Otherwise I_P contains the length of the vector of structures.  */
 
 static bool
-is_alloc_of_struct (tree stmt, unsigned *i_p)
+is_alloc_of_struct (gimple stmt, unsigned *i_p)
 {
   tree lhs;
   tree type;
-  tree final_stmt;
+  gimple final_stmt;
 
   final_stmt = get_final_alloc_stmt (stmt);
 
@@ -2999,13 +3075,13 @@ is_alloc_of_struct (tree stmt, unsigned *i_p)
   /* final_stmt should be of the form:
      T.3 = (struct_type *) T.2; */
 
-  if (TREE_CODE (final_stmt) != GIMPLE_MODIFY_STMT)
+  if (gimple_code (final_stmt) != GIMPLE_ASSIGN)
     return false;
 
-  lhs = GIMPLE_STMT_OPERAND (final_stmt, 0);      
+  lhs = gimple_assign_lhs (final_stmt);
 
   type = get_type_of_var (lhs);
-      
+
   if (!type)
     return false;
 
@@ -3021,8 +3097,8 @@ is_alloc_of_struct (tree stmt, unsigned *i_p)
   return true;
 }
 
-/* This function prints non-field and field accesses 
-   of the structure STR.  */ 
+/* This function prints non-field and field accesses
+   of the structure STR.  */
 
 static void
 dump_accs (d_str str)
@@ -3036,27 +3112,32 @@ dump_accs (d_str str)
     {
       fprintf (dump_file, "\nAccess site of field ");
       print_generic_expr (dump_file, str->fields[i].decl, 0);
-      dump_field_acc_sites (str->fields[i].acc_sites);   
+      dump_field_acc_sites (str->fields[i].acc_sites);
       fprintf (dump_file, ":\n");
     }
   fprintf (dump_file, "\nGeneral access sites\n");
-  dump_access_sites (str->accs);   
+  dump_access_sites (str->accs);
 }
 
 /* This function checks whether an access statement, pointed by SLOT,
-   is a condition we are capable to transform. If not, it removes
-   the structure with index, represented by DATA, from the vector
-   of structures.  */
- 
+   is a condition we are capable to transform.  It returns false if not,
+   setting bool *DATA to false.  */
+
 static int
 safe_cond_expr_check (void **slot, void *data)
 {
   struct access_site *acc = *(struct access_site **) slot;
 
-  if (TREE_CODE (acc->stmt) == COND_EXPR)
+  if (gimple_code (acc->stmt) == GIMPLE_COND
+      && !is_safe_cond_expr (acc->stmt))
     {
-      if (!is_safe_cond_expr (acc->stmt))
-	remove_structure (*(unsigned *) data);
+      if (dump_file)
+	{
+	  fprintf (dump_file, "\nUnsafe conditional statement ");
+	  print_gimple_stmt (dump_file, acc->stmt, 0, 0);
+	}
+      *(bool *) data = false;
+      return 0;
     }
   return 1;
 }
@@ -3074,42 +3155,44 @@ exclude_alloc_and_field_accs_1 (d_str str, struct cgraph_node *node)
   dt.fn_decl = node->decl;
 
   if (dt.str->accs)
-    htab_traverse (dt.str->accs, exclude_from_accs, &dt);  
+    htab_traverse (dt.str->accs, exclude_from_accs, &dt);
 }
 
-/* Collect accesses to the structure types that apear in basic bloack BB.  */
+/* Collect accesses to the structure types that appear in basic block BB.  */
 
 static void
 collect_accesses_in_bb (basic_block bb)
 {
-  block_stmt_iterator bsi;
+  gimple_stmt_iterator bsi;
+  struct walk_stmt_info wi;
 
-  for (bsi = bsi_start (bb); ! bsi_end_p (bsi); bsi_next (&bsi))
+  memset (&wi, 0, sizeof (wi));
+
+  for (bsi = gsi_start_bb (bb); !gsi_end_p (bsi); gsi_next (&bsi))
     {
-      tree stmt = bsi_stmt (bsi);
+      gimple stmt = gsi_stmt (bsi);
 
       /* In asm stmt we cannot always track the arguments,
 	 so we just give up.  */
-      if (TREE_CODE (stmt) == ASM_EXPR)
+      if (gimple_code (stmt) == GIMPLE_ASM)
 	{
 	  free_structures ();
 	  break;
 	}
 
-      walk_tree (&stmt, get_stmt_accesses, stmt, NULL);
+      wi.info = (void *) stmt;
+      walk_gimple_op (stmt, get_stmt_accesses, &wi);
     }
 }
 
-/* This function generates cluster substructure that cointains FIELDS.
-   The cluster added to the set of clusters of the structure SRT.  */
+/* This function generates cluster substructure that contains FIELDS.
+   The cluster added to the set of clusters of the structure STR.  */
 
 static void
 gen_cluster (sbitmap fields, d_str str)
 {
-  struct field_cluster *crr_cluster = NULL;
+  struct field_cluster *crr_cluster = XCNEW (struct field_cluster);
 
-  crr_cluster = 
-    (struct field_cluster *) xcalloc (1, sizeof (struct field_cluster));
   crr_cluster->sibling = str->struct_clustering;
   str->struct_clustering = crr_cluster;
   crr_cluster->fields_in_cluster = fields;
@@ -3120,19 +3203,17 @@ gen_cluster (sbitmap fields, d_str str)
 static void
 peel_field (int i, d_str ds)
 {
-  struct field_cluster *crr_cluster = NULL;
+  struct field_cluster *crr_cluster = XCNEW (struct field_cluster);
 
-  crr_cluster = 
-    (struct field_cluster *) xcalloc (1, sizeof (struct field_cluster));
   crr_cluster->sibling = ds->struct_clustering;
   ds->struct_clustering = crr_cluster;
   crr_cluster->fields_in_cluster =
     sbitmap_alloc ((unsigned int) ds->num_fields);
   sbitmap_zero (crr_cluster->fields_in_cluster);
-  SET_BIT (crr_cluster->fields_in_cluster, i);  
+  SET_BIT (crr_cluster->fields_in_cluster, i);
 }
 
-/* This function calculates maximum field count in 
+/* This function calculates maximum field count in
    the structure STR.  */
 
 static gcov_type
@@ -3143,32 +3224,32 @@ get_max_field_count (d_str str)
 
   for (i = 0; i < str->num_fields; i++)
     if (str->fields[i].count > max)
-      max = str->fields[i].count; 
+      max = str->fields[i].count;
 
   return max;
 }
 
-/* Do struct-reorg transformation for individual function 
-   represented by NODE. All structure types relevant 
+/* Do struct-reorg transformation for individual function
+   represented by NODE. All structure types relevant
    for this function are transformed.  */
 
 static void
 do_reorg_for_func (struct cgraph_node *node)
 {
-  create_new_local_vars ();  
+  create_new_local_vars ();
   create_new_alloc_sites_for_func (node);
   create_new_accesses_for_func ();
   update_ssa (TODO_update_ssa);
   cleanup_tree_cfg ();
 
   /* Free auxiliary data representing local variables.  */
-  free_new_vars_htab (new_local_vars); 
+  free_new_vars_htab (new_local_vars);
 }
 
 /* Print structure TYPE, its name, if it exists, and body.
-   INDENT defines the level of indentation (similar 
-   to the option -i of indent command). SHIFT parameter 
-   defines a number of spaces by which a structure will 
+   INDENT defines the level of indentation (similar
+   to the option -i of indent command). SHIFT parameter
+   defines a number of spaces by which a structure will
    be shifted right.  */
 
 static void
@@ -3186,21 +3267,21 @@ dump_struct_type (tree type, unsigned HOST_WIDE_INT indent,
       print_generic_expr (dump_file, type, 0);
       return;
     }
-  
+
   print_shift (shift);
-  struct_name = get_type_name (type);  
+  struct_name = get_type_name (type);
   fprintf (dump_file, "struct ");
-  if (struct_name)    
+  if (struct_name)
     fprintf (dump_file, "%s\n",struct_name);
   print_shift (shift);
   fprintf (dump_file, "{\n");
-       
-  for (field = TYPE_FIELDS (type); field; 
+
+  for (field = TYPE_FIELDS (type); field;
        field = TREE_CHAIN (field))
     {
       unsigned HOST_WIDE_INT s = indent;
       tree f_type = TREE_TYPE (field);
-      
+
       print_shift (shift);
       while (s--)
 	fprintf (dump_file, " ");
@@ -3213,9 +3294,9 @@ dump_struct_type (tree type, unsigned HOST_WIDE_INT indent,
   fprintf (dump_file, "}\n");
 }
 
-/* This function creates new structure types to replace original type, 
-   indicated by STR->decl. The names of the new structure types are 
-   derived from the original structure type. If the original structure 
+/* This function creates new structure types to replace original type,
+   indicated by STR->decl. The names of the new structure types are
+   derived from the original structure type. If the original structure
    type has no name, we assume that its name is 'struct.<STR_NUM>'.  */
 
 static void
@@ -3225,28 +3306,28 @@ create_new_type (d_str str, int *str_num)
 
   struct field_cluster *cluster = str->struct_clustering;
   while (cluster)
-    {	  
-      tree  name = gen_cluster_name (str->decl, cluster_num, 
+    {
+      tree  name = gen_cluster_name (str->decl, cluster_num,
 				     *str_num);
       tree fields;
       tree new_type;
       cluster_num++;
-	   
-      fields = create_fields (cluster, str->fields, 
+
+      fields = create_fields (cluster, str->fields,
 			      str->num_fields);
       new_type = build_basic_struct (fields, name, str->decl);
-	  
-      update_fields_mapping (cluster, new_type, 
+
+      update_fields_mapping (cluster, new_type,
 			     str->fields, str->num_fields);
 
       VEC_safe_push (tree, heap, str->new_types, new_type);
-      cluster = cluster->sibling; 
+      cluster = cluster->sibling;
     }
   (*str_num)++;
 }
 
-/* This function is a callback for alloc_sites hashtable 
-   traversal. SLOT is a pointer to fallocs_t. 
+/* This function is a callback for alloc_sites hashtable
+   traversal. SLOT is a pointer to fallocs_t.
    This function frees memory pointed by *SLOT.  */
 
 static int
@@ -3279,8 +3360,8 @@ remove_unsuitable_types (VEC (tree, heap) *unsuitable_types)
 }
 
 /* Exclude structure types with bitfields.
-   We would not want to interfere with other optimizations 
-   that can be done in this case. The structure types with 
+   We would not want to interfere with other optimizations
+   that can be done in this case. The structure types with
    bitfields are added to UNSUITABLE_TYPES vector.  */
 
 static void
@@ -3297,7 +3378,7 @@ exclude_types_with_bit_fields (VEC (tree, heap) **unsuitable_types)
 
    1. if it's a type of parameter of a local function.
    2. if it's a type of function return value.
-   3. if it escapes as a result of ipa-type-escape analysis.  
+   3. if it escapes as a result of ipa-type-escape analysis.
 
   The escaping structure types are added to UNSUITABLE_TYPES vector.  */
 
@@ -3309,8 +3390,8 @@ exclude_escaping_types (VEC (tree, heap) **unsuitable_types)
   exclude_escaping_types_1 (unsuitable_types);
 }
 
-/* This function analyzes whether the form of 
-   structure is such that we are capable to transform it. 
+/* This function analyzes whether the form of
+   structure is such that we are capable to transform it.
    Nested structures are checked here. Unsuitable structure
    types are added to UNSUITABLE_TYPE vector.  */
 
@@ -3324,8 +3405,8 @@ analyze_struct_form (VEC (tree, heap) **unsuitable_types)
     check_struct_form (str, unsuitable_types);
 }
 
-/* This function looks for structure types instantiated in the program. 
-   The candidate types are added to the structures vector. 
+/* This function looks for structure types instantiated in the program.
+   The candidate types are added to the structures vector.
    Unsuitable types are collected into UNSUITABLE_TYPES vector.  */
 
 static void
@@ -3336,7 +3417,7 @@ build_data_structure (VEC (tree, heap) **unsuitable_types)
   struct varpool_node *current_varpool;
   struct cgraph_node *c_node;
 
-  /* Check global variables.  */ 
+  /* Check global variables.  */
   FOR_EACH_STATIC_VARIABLE (current_varpool)
     {
       var = current_varpool->decl;
@@ -3344,11 +3425,11 @@ build_data_structure (VEC (tree, heap) **unsuitable_types)
 	add_structure (type);
     }
 
-  /* Now add structures that are types of function parameters and 
+  /* Now add structures that are types of function parameters and
      local variables.  */
   for (c_node = cgraph_nodes; c_node; c_node = c_node->next)
     {
-      enum availability avail = 
+      enum availability avail =
 	cgraph_function_body_availability (c_node);
 
       /* We need AVAIL_AVAILABLE for main function.  */
@@ -3356,13 +3437,21 @@ build_data_structure (VEC (tree, heap) **unsuitable_types)
 	{
 	  struct function *fn = DECL_STRUCT_FUNCTION (c_node->decl);
 
-	  for (var = DECL_ARGUMENTS (c_node->decl); var; 
+	  for (var = DECL_ARGUMENTS (c_node->decl); var;
 	       var = TREE_CHAIN (var))
 	      if (is_candidate (var, &type, unsuitable_types))
 		add_structure (type);
 
+	  if (fn == NULL)
+	    {
+	      /* Skip cones that haven't been materialized yet.  */
+	      gcc_assert (c_node->clone_of
+			  && c_node->clone_of->decl != c_node->decl);
+	      continue;
+	    }
+
 	  /* Check function local variables.  */
-	  for (var_list = fn->unexpanded_var_list; var_list; 
+	  for (var_list = fn->local_decls; var_list;
 	       var_list = TREE_CHAIN (var_list))
 	    {
 	      var = TREE_VALUE (var_list);
@@ -3374,7 +3463,7 @@ build_data_structure (VEC (tree, heap) **unsuitable_types)
     }
 }
 
-/* This function returns true if the program contains 
+/* This function returns true if the program contains
    a call to user defined allocation function, or other
    functions that can interfere with struct-reorg optimizations.  */
 
@@ -3384,27 +3473,22 @@ program_redefines_malloc_p (void)
   struct cgraph_node *c_node;
   struct cgraph_node *c_node2;
   struct cgraph_edge *c_edge;
-  tree fndecl;
   tree fndecl2;
-  tree call_expr;
-  
+
   for (c_node = cgraph_nodes; c_node; c_node = c_node->next)
     {
-      fndecl = c_node->decl;
-
       for (c_edge = c_node->callees; c_edge; c_edge = c_edge->next_callee)
 	{
-	  call_expr = get_call_expr_in (c_edge->call_stmt);
 	  c_node2 = c_edge->callee;
 	  fndecl2 = c_node2->decl;
-	  if (call_expr)
+	  if (is_gimple_call (c_edge->call_stmt))
 	    {
 	      const char * fname = get_name (fndecl2);
 
-	      if ((call_expr_flags (call_expr) & ECF_MALLOC) &&
-		  (DECL_FUNCTION_CODE (fndecl2) != BUILT_IN_MALLOC) &&
-		  (DECL_FUNCTION_CODE (fndecl2) != BUILT_IN_CALLOC) &&
-		  (DECL_FUNCTION_CODE (fndecl2) != BUILT_IN_ALLOCA))
+	      if ((gimple_call_flags (c_edge->call_stmt) & ECF_MALLOC)
+		  && (DECL_FUNCTION_CODE (fndecl2) != BUILT_IN_MALLOC)
+		  && (DECL_FUNCTION_CODE (fndecl2) != BUILT_IN_CALLOC)
+		  && (DECL_FUNCTION_CODE (fndecl2) != BUILT_IN_ALLOCA))
 		return true;
 
 	      /* Check that there is no __builtin_object_size,
@@ -3412,18 +3496,18 @@ program_redefines_malloc_p (void)
 	      if (DECL_FUNCTION_CODE (fndecl2) == BUILT_IN_OBJECT_SIZE
 		  || !strcmp (fname, "__builtin_offsetof")
 		  || !strcmp (fname, "realloc"))
-		return true;		
+		return true;
 	    }
 	}
     }
-  
+
   return false;
 }
 
-/* In this function we assume that an allocation statement 
+/* In this function we assume that an allocation statement
 
    var = (type_cast) malloc (size);
-   
+
    is converted into the following set of statements:
 
    T.1 = size;
@@ -3431,8 +3515,8 @@ program_redefines_malloc_p (void)
    T.3 = (type_cast) T.2;
    var = T.3;
 
-   In this function we collect into alloc_sites the allocation 
-   sites of variables of structure types that are present 
+   In this function we collect into alloc_sites the allocation
+   sites of variables of structure types that are present
    in structures vector.  */
 
 static void
@@ -3446,15 +3530,15 @@ collect_alloc_sites (void)
       {
 	for (cs = node->callees; cs; cs = cs->next_callee)
 	  {
-	    tree stmt = cs->call_stmt;
+	    gimple stmt = cs->call_stmt;
 
 	    if (stmt)
 	      {
-		tree call = get_call_expr_in (stmt);
 		tree decl;
 
-		if (call && (decl = get_callee_fndecl (call)) 
-		    && TREE_CODE (stmt) == GIMPLE_MODIFY_STMT)
+		if (is_gimple_call (stmt)
+		    && (decl = gimple_call_fndecl (stmt))
+		    && gimple_call_lhs (stmt))
 		  {
 		    unsigned i;
 
@@ -3464,15 +3548,23 @@ collect_alloc_sites (void)
 			if (DECL_FUNCTION_CODE (decl) == BUILT_IN_MALLOC)
 			  {
 			    d_str str;
-			    
+
 			    str = VEC_index (structure, structures, i);
 			    add_alloc_site (node->decl, stmt, str);
 			  }
 			else
-			  remove_structure (i);		
+			  {
+			    if (dump_file)
+			      {
+				fprintf (dump_file,
+					 "\nUnsupported allocation function ");
+				print_gimple_stmt (dump_file, stmt, 0, 0);
+			      }
+			    remove_structure (i);
+			  }
 		      }
 		  }
-	      }	      
+	      }
 	  }
       }
 }
@@ -3492,8 +3584,8 @@ dump_accesses (void)
     dump_accs (str);
 }
 
-/* This function checks whether the accesses of structures in condition 
-   expressions are of the kind we are capable to transform. 
+/* This function checks whether the accesses of structures in condition
+   expressions are of the kind we are capable to transform.
    If not, such structures are removed from the vector of structures.  */
 
 static void
@@ -3502,13 +3594,22 @@ check_cond_exprs (void)
   d_str str;
   unsigned i;
 
-  for (i = 0; VEC_iterate (structure, structures, i, str); i++)
-    if (str->accs)
-      htab_traverse (str->accs, safe_cond_expr_check, &i);
+  i = 0;
+  while (VEC_iterate (structure, structures, i, str))
+    {
+      bool safe_p = true;
+
+      if (str->accs)
+	htab_traverse (str->accs, safe_cond_expr_check, &safe_p);
+      if (!safe_p)
+	remove_structure (i);
+      else
+	i++;
+    }
 }
 
-/* We exclude from non-field accesses of the structure 
-   all statements that will be treated as part of the structure 
+/* We exclude from non-field accesses of the structure
+   all statements that will be treated as part of the structure
    allocation sites or field accesses.  */
 
 static void
@@ -3521,7 +3622,7 @@ exclude_alloc_and_field_accs (struct cgraph_node *node)
     exclude_alloc_and_field_accs_1 (str, node);
 }
 
-/* This function collects accesses of the fields of the structures 
+/* This function collects accesses of the fields of the structures
    that appear at function FN.  */
 
 static void
@@ -3540,10 +3641,10 @@ collect_accesses_in_func (struct function *fn)
 /* This function summarizes counts of the fields into the structure count.  */
 
 static void
-sum_counts (d_str str, gcov_type *hotest)
+sum_counts (d_str str, gcov_type *hottest)
 {
   int i;
-      
+
   str->count = 0;
   for (i = 0; i < str->num_fields; i++)
     {
@@ -3551,7 +3652,7 @@ sum_counts (d_str str, gcov_type *hotest)
 	{
 	  fprintf (dump_file, "\nCounter of field \"");
 	  print_generic_expr (dump_file, str->fields[i].decl, 0);
-	  fprintf (dump_file, "\" is " HOST_WIDEST_INT_PRINT_DEC, 
+	  fprintf (dump_file, "\" is " HOST_WIDEST_INT_PRINT_DEC,
 		   str->fields[i].count);
 	}
       str->count += str->fields[i].count;
@@ -3564,12 +3665,12 @@ sum_counts (d_str str, gcov_type *hotest)
       fprintf (dump_file, "\" is " HOST_WIDEST_INT_PRINT_DEC, str->count);
     }
 
-  if (str->count > *hotest)
-    *hotest = str->count;
+  if (str->count > *hottest)
+    *hottest = str->count;
 }
 
 /* This function peels the field into separate structure if it's
-   sufficiently hot, i.e. if its count provides at least 90% of 
+   sufficiently hot, i.e. if its count provides at least 90% of
    the maximum field count in the structure.  */
 
 static void
@@ -3580,7 +3681,7 @@ peel_hot_fields (d_str str)
   int i;
 
   sbitmap_ones (fields_left);
-  max_field_count = 
+  max_field_count =
     (gcov_type) (get_max_field_count (str)/100)*90;
 
   str->struct_clustering = NULL;
@@ -3589,7 +3690,7 @@ peel_hot_fields (d_str str)
     {
       if (str->count >= max_field_count)
 	{
-	  RESET_BIT (fields_left, i);	  
+	  RESET_BIT (fields_left, i);
 	  peel_field (i, str);
 	}
     }
@@ -3599,10 +3700,10 @@ peel_hot_fields (d_str str)
     gen_cluster (fields_left, str);
   else
     sbitmap_free (fields_left);
-} 
+}
 
-/* This function is a helper for do_reorg. It goes over 
-   functions in call graph and performs actual transformation 
+/* This function is a helper for do_reorg. It goes over
+   functions in call graph and performs actual transformation
    on them.  */
 
 static void
@@ -3614,12 +3715,12 @@ do_reorg_1 (void)
   bitmap_obstack_initialize (NULL);
 
   for (node = cgraph_nodes; node; node = node->next)
-    if (node->analyzed && node->decl && !node->next_clone)
+    if (node->analyzed && node->decl)
       {
 	push_cfun (DECL_STRUCT_FUNCTION (node->decl));
 	current_function_decl = node->decl;
 	if (dump_file)
-	  fprintf (dump_file, "\nFunction to do reorg is  %s: \n",
+	  fprintf (dump_file, "\nFunction to do reorg is %s: \n",
 		   (const char *) IDENTIFIER_POINTER (DECL_NAME (node->decl)));
 	do_reorg_for_func (node);
 	free_dominance_info (CDI_DOMINATORS);
@@ -3629,15 +3730,16 @@ do_reorg_1 (void)
       }
 
   set_cfun (NULL);
+  bitmap_obstack_release (NULL);
 }
 
 /* This function creates new global struct variables.
-   For each original variable, the set of new variables 
-   is created with the new structure types corresponding 
-   to the structure type of original variable. 
+   For each original variable, the set of new variables
+   is created with the new structure types corresponding
+   to the structure type of original variable.
    Only VAR_DECL variables are treated by this function.  */
 
-static void 
+static void
 create_new_global_vars (void)
 {
   struct varpool_node *current_varpool;
@@ -3647,7 +3749,7 @@ create_new_global_vars (void)
   for (i = 0; i < 2; i++)
     {
       if (i)
-	new_global_vars = htab_create (varpool_size, 
+	new_global_vars = htab_create (varpool_size,
 				       new_var_hash, new_var_eq, NULL);
       FOR_EACH_STATIC_VARIABLE(current_varpool)
 	{
@@ -3682,8 +3784,17 @@ dump_new_types (void)
 	   " this optimization:\n");
 
   for (i = 0; VEC_iterate (structure, structures, i, str); i++)
-    for (j = 0; VEC_iterate (tree, str->new_types, j, type); j++)
-      dump_struct_type (type, 2, 0); 
+    {
+      if (dump_file)
+	{
+	  fprintf (dump_file, "\nFor type ");
+	  dump_struct_type (str->decl, 2, 0);
+	  fprintf (dump_file, "\nthe number of new types is %d\n",
+		   VEC_length (tree, str->new_types));
+	}
+      for (j = 0; VEC_iterate (tree, str->new_types, j, type); j++)
+	dump_struct_type (type, 2, 0);
+    }
 }
 
 /* This function creates new types to replace old structure types.  */
@@ -3705,36 +3816,36 @@ static void
 free_alloc_sites (void)
 {
   if (alloc_sites)
-    htab_traverse (alloc_sites, free_falloc_sites, NULL);  
+    htab_traverse (alloc_sites, free_falloc_sites, NULL);
   htab_delete (alloc_sites);
   alloc_sites = NULL;
 }
 
-/* This function collects structures potential 
-   for peeling transformation, and inserts 
+/* This function collects structures potential
+   for peeling transformation, and inserts
    them into structures hashtable.  */
 
-static void 
+static void
 collect_structures (void)
 {
   VEC (tree, heap) *unsuitable_types = VEC_alloc (tree, heap, 32);
 
   structures = VEC_alloc (structure, heap, 32);
-   
+
   /* If program contains user defined mallocs, we give up.  */
   if (program_redefines_malloc_p ())
-     return; 
+     return;
 
-  /* Build data structures hashtable of all data structures 
+  /* Build data structures hashtable of all data structures
      in the program.  */
   build_data_structure (&unsuitable_types);
 
-  /* This function analyzes whether the form of 
-     structure is such that we are capable to transform it. 
+  /* This function analyzes whether the form of
+     structure is such that we are capable to transform it.
      Nested structures are checked here.  */
   analyze_struct_form (&unsuitable_types);
 
-  /* This function excludes those structure types 
+  /* This function excludes those structure types
      that escape compilation unit.  */
   exclude_escaping_types (&unsuitable_types);
 
@@ -3743,13 +3854,6 @@ collect_structures (void)
 
   remove_unsuitable_types (unsuitable_types);
   VEC_free (tree, heap, unsuitable_types);
-
-  if (!VEC_length (structure, structures))
-    {
-      if (dump_file)
-	fprintf (dump_file, "\nNo structures to transform. Exiting...");
-      return;
-    }
 }
 
 /* Collect structure allocation sites. In case of arrays
@@ -3762,11 +3866,11 @@ collect_allocation_sites (void)
   collect_alloc_sites ();
 }
 
-/* This function collects data accesses for the 
-   structures to be transformed. For each structure 
+/* This function collects data accesses for the
+   structures to be transformed. For each structure
    field it updates the count field in field_entry.  */
 
-static void 
+static void
 collect_data_accesses (void)
 {
   struct cgraph_node *c_node;
@@ -3779,8 +3883,7 @@ collect_data_accesses (void)
 	{
 	  struct function *func = DECL_STRUCT_FUNCTION (c_node->decl);
 
-	  if (!c_node->next_clone)
-	    collect_accesses_in_func (func);
+	  collect_accesses_in_func (func);
 	  exclude_alloc_and_field_accs (c_node);
 	}
     }
@@ -3791,8 +3894,8 @@ collect_data_accesses (void)
 }
 
 /* We do not bother to transform cold structures.
-   Coldness of the structure is defined relatively 
-   to the highest structure count among the structures 
+   Coldness of the structure is defined relatively
+   to the highest structure count among the structures
    to be transformed. It's triggered by the compiler parameter
 
    --param struct-reorg-cold-struct-ratio=<value>
@@ -3803,21 +3906,32 @@ collect_data_accesses (void)
 static void
 exclude_cold_structs (void)
 {
-  gcov_type hotest = 0;
+  gcov_type hottest = 0;
   unsigned i;
   d_str str;
 
   /* We summarize counts of fields of a structure into the structure count.  */
   for (i = 0; VEC_iterate (structure, structures, i, str); i++)
-    sum_counts (str, &hotest);
+    sum_counts (str, &hottest);
 
   /* Remove cold structures from structures vector.  */
-  for (i = 0; VEC_iterate (structure, structures, i, str); i++)
-    if (str->count * 100 < (hotest * STRUCT_REORG_COLD_STRUCT_RATIO))
-      remove_structure (i);
+  i = 0;
+  while (VEC_iterate (structure, structures, i, str))
+    if (str->count * 100 < (hottest * STRUCT_REORG_COLD_STRUCT_RATIO))
+      {
+	if (dump_file)
+	  {
+	    fprintf (dump_file, "\nThe structure ");
+	    print_generic_expr (dump_file, str->decl, 0);
+	    fprintf (dump_file, " is cold.");
+	  }
+	remove_structure (i);
+      }
+    else
+      i++;
 }
 
-/* This function decomposes original structure into substructures, 
+/* This function decomposes original structure into substructures,
    i.e.clusters.  */
 
 static void
@@ -3839,7 +3953,19 @@ do_reorg (void)
 {
   /* Check that there is a work to do.  */
   if (!VEC_length (structure, structures))
-    return;
+    {
+      if (dump_file)
+	fprintf (dump_file, "\nNo structures to transform. Exiting...");
+      return;
+    }
+  else
+    {
+      if (dump_file)
+	{
+	  fprintf (dump_file, "\nNumber of structures to transform is %d",
+		   VEC_length (structure, structures));
+	}
+    }
 
   /* Generate new types.  */
   create_new_types ();
@@ -3847,13 +3973,13 @@ do_reorg (void)
 
   /* Create new global variables.  */
   create_new_global_vars ();
-  dump_new_vars (new_global_vars); 
+  dump_new_vars (new_global_vars);
 
   /* Decompose structures for each function separately.  */
   do_reorg_1 ();
 
   /* Free auxiliary data collected for global variables.  */
-  free_new_vars_htab (new_global_vars);   
+  free_new_vars_htab (new_global_vars);
 }
 
 /* Free all auxiliary data used by this optimization.  */
@@ -3862,7 +3988,7 @@ static void
 free_data_structs (void)
 {
   free_structures ();
-  free_alloc_sites (); 
+  free_alloc_sites ();
 }
 
 /* Perform structure decomposition (peeling).  */
@@ -3871,15 +3997,15 @@ static void
 reorg_structs (void)
 {
 
-  /* Stage1.  */  
+  /* Stage1.  */
   /* Collect structure types.  */
   collect_structures ();
 
   /* Collect structure allocation sites.  */
-  collect_allocation_sites (); 
+  collect_allocation_sites ();
 
   /* Collect structure accesses.  */
-  collect_data_accesses (); 
+  collect_data_accesses ();
 
   /* We transform only hot structures.  */
   exclude_cold_structs ();
@@ -3888,13 +4014,13 @@ reorg_structs (void)
   /* Decompose structures into substructures, i.e. clusters.  */
   peel_structs ();
 
-  /* Stage3. */  
+  /* Stage3. */
   /* Do the actual transformation for each structure
      from the structures hashtable.  */
   do_reorg ();
 
   /* Free all auxiliary data used by this optimization.  */
-  free_data_structs ();  
+  free_data_structs ();
 }
 
 /* Struct-reorg optimization entry point function.  */
@@ -3911,12 +4037,15 @@ reorg_structs_drive (void)
 static bool
 struct_reorg_gate (void)
 {
-  return flag_ipa_struct_reorg && flag_whole_program 
-    && (optimize > 0);
+  return flag_ipa_struct_reorg
+	 && flag_whole_program
+	 && (optimize > 0);
 }
 
-struct tree_opt_pass pass_ipa_struct_reorg = 
+struct simple_ipa_opt_pass pass_ipa_struct_reorg =
 {
+ {
+  SIMPLE_IPA_PASS,
   "ipa_struct_reorg",	 	  /* name */
   struct_reorg_gate,		  /* gate */
   reorg_structs_drive,		  /* execute */
@@ -3928,6 +4057,6 @@ struct tree_opt_pass pass_ipa_struct_reorg =
   0,				  /* properties_provided */
   0,				  /* properties_destroyed */
   TODO_verify_ssa,		  /* todo_flags_start */
-  TODO_dump_func | TODO_verify_ssa,	/* todo_flags_finish */
-  0					/* letter */
+  TODO_dump_func | TODO_verify_ssa	/* todo_flags_finish */
+ }
 };

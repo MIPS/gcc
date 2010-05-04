@@ -1,6 +1,6 @@
 /* Subroutines used for code generation on the Argonaut ARC cpu.
    Copyright (C) 1994, 1995, 1997, 1998, 1999, 2000, 2001, 2002, 2003,
-   2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   2004, 2005, 2006, 2007, 2008, 2009 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -38,6 +38,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "recog.h"
 #include "toplev.h"
+#include "df.h"
 #include "tm_p.h"
 #include "target.h"
 #include "target-def.h"
@@ -48,10 +49,6 @@ int arc_cpu_type;
 /* Name of mangle string to add to symbols to separate code compiled for each
    cpu (or NULL).  */
 const char *arc_mangle_cpu;
-
-/* Save the operands last given to a compare for use when we
-   generate a scc or bcc insn.  */
-rtx arc_compare_op0, arc_compare_op1;
 
 /* Name of text, data, and rodata sections used in varasm.c.  */
 const char *arc_text_section;
@@ -82,7 +79,6 @@ static bool arc_handle_option (size_t, const char *, int);
 static void record_cc_ref (rtx);
 static void arc_init_reg_tables (void);
 static int get_arc_condition_code (rtx);
-const struct attribute_spec arc_attribute_table[];
 static tree arc_handle_interrupt_attribute (tree *, tree, tree, int, bool *);
 static bool arc_assemble_integer (rtx, unsigned int, int);
 static void arc_output_function_prologue (FILE *, HOST_WIDE_INT);
@@ -92,12 +88,23 @@ static void arc_internal_label (FILE *, const char *, unsigned long);
 static void arc_va_start (tree, rtx);
 static void arc_setup_incoming_varargs (CUMULATIVE_ARGS *, enum machine_mode,
 					tree, int *, int);
-static bool arc_rtx_costs (rtx, int, int, int *);
-static int arc_address_cost (rtx);
+static bool arc_rtx_costs (rtx, int, int, int *, bool);
+static int arc_address_cost (rtx, bool);
 static void arc_external_libcall (rtx);
 static bool arc_return_in_memory (const_tree, const_tree);
 static bool arc_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
 				   const_tree, bool);
+static void arc_trampoline_init (rtx, tree, rtx);
+
+
+/* ARC specific attributs.  */
+
+static const struct attribute_spec arc_attribute_table[] =
+{
+  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
+  { "interrupt", 1, 1, true,  false, false, arc_handle_interrupt_attribute },
+  { NULL,        0, 0, false, false, false, NULL }
+};
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ASM_ALIGNED_HI_OP
@@ -128,10 +135,8 @@ static bool arc_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
 #undef TARGET_ADDRESS_COST
 #define TARGET_ADDRESS_COST arc_address_cost
 
-#undef TARGET_PROMOTE_FUNCTION_ARGS
-#define TARGET_PROMOTE_FUNCTION_ARGS hook_bool_const_tree_true
-#undef TARGET_PROMOTE_FUNCTION_RETURN
-#define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_const_tree_true
+#undef TARGET_PROMOTE_FUNCTION_MODE
+#define TARGET_PROMOTE_FUNCTION_MODE default_promote_function_mode_always_promote
 #undef TARGET_PROMOTE_PROTOTYPES
 #define TARGET_PROMOTE_PROTOTYPES hook_bool_const_tree_true
 
@@ -147,6 +152,9 @@ static bool arc_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
 
 #undef TARGET_EXPAND_BUILTIN_VA_START
 #define TARGET_EXPAND_BUILTIN_VA_START arc_va_start
+
+#undef TARGET_TRAMPOLINE_INIT
+#define TARGET_TRAMPOLINE_INIT arc_trampoline_init
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -173,11 +181,11 @@ arc_init (void)
   char *tmp;
   
   /* Set the pseudo-ops for the various standard sections.  */
-  arc_text_section = tmp = xmalloc (strlen (arc_text_string) + sizeof (ARC_SECTION_FORMAT) + 1);
+  arc_text_section = tmp = XNEWVEC (char, strlen (arc_text_string) + sizeof (ARC_SECTION_FORMAT) + 1);
   sprintf (tmp, ARC_SECTION_FORMAT, arc_text_string);
-  arc_data_section = tmp = xmalloc (strlen (arc_data_string) + sizeof (ARC_SECTION_FORMAT) + 1);
+  arc_data_section = tmp = XNEWVEC (char, strlen (arc_data_string) + sizeof (ARC_SECTION_FORMAT) + 1);
   sprintf (tmp, ARC_SECTION_FORMAT, arc_data_string);
-  arc_rodata_section = tmp = xmalloc (strlen (arc_rodata_string) + sizeof (ARC_SECTION_FORMAT) + 1);
+  arc_rodata_section = tmp = XNEWVEC (char, strlen (arc_rodata_string) + sizeof (ARC_SECTION_FORMAT) + 1);
   sprintf (tmp, ARC_SECTION_FORMAT, arc_rodata_string);
 
   arc_init_reg_tables ();
@@ -368,13 +376,6 @@ arc_init_reg_tables (void)
    interrupt - for interrupt functions
 */
 
-const struct attribute_spec arc_attribute_table[] =
-{
-  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
-  { "interrupt", 1, 1, true,  false, false, arc_handle_interrupt_attribute },
-  { NULL,        0, 0, false, false, false, NULL }
-};
-
 /* Handle an "interrupt" attribute; arguments as in
    struct attribute_spec.handler.  */
 static tree
@@ -389,16 +390,16 @@ arc_handle_interrupt_attribute (tree *node ATTRIBUTE_UNUSED,
   if (TREE_CODE (value) != STRING_CST)
     {
       warning (OPT_Wattributes,
-	       "argument of %qs attribute is not a string constant",
-	       IDENTIFIER_POINTER (name));
+	       "argument of %qE attribute is not a string constant",
+	       name);
       *no_add_attrs = true;
     }
   else if (strcmp (TREE_STRING_POINTER (value), "ilink1")
 	   && strcmp (TREE_STRING_POINTER (value), "ilink2"))
     {
       warning (OPT_Wattributes,
-	       "argument of %qs attribute is not \"ilink1\" or \"ilink2\"",
-	       IDENTIFIER_POINTER (name));
+	       "argument of %qE attribute is not \"ilink1\" or \"ilink2\"",
+	       name);
       *no_add_attrs = true;
     }
 
@@ -729,21 +730,14 @@ proper_comparison_operator (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 
 /* Misc. utilities.  */
 
-/* X and Y are two things to compare using CODE.  Emit the compare insn and
-   return the rtx for the cc reg in the proper mode.  */
+/* X and Y are two things to compare using CODE.  Return the rtx
+   for the cc reg in the proper mode.  */
 
 rtx
 gen_compare_reg (enum rtx_code code, rtx x, rtx y)
 {
   enum machine_mode mode = SELECT_CC_MODE (code, x, y);
-  rtx cc_reg;
-
-  cc_reg = gen_rtx_REG (mode, 61);
-
-  emit_insn (gen_rtx_SET (VOIDmode, cc_reg,
-			  gen_rtx_COMPARE (mode, x, y)));
-
-  return cc_reg;
+  return gen_rtx_REG (mode, 61);
 }
 
 /* Return 1 if VALUE, a const_double, will fit in a limm (4 byte number).
@@ -830,7 +824,8 @@ arc_setup_incoming_varargs (CUMULATIVE_ARGS *cum,
    scanned.  In either case, *TOTAL contains the cost result.  */
 
 static bool
-arc_rtx_costs (rtx x, int code, int outer_code ATTRIBUTE_UNUSED, int *total)
+arc_rtx_costs (rtx x, int code, int outer_code ATTRIBUTE_UNUSED, int *total,
+	       bool speed ATTRIBUTE_UNUSED)
 {
   switch (code)
     {
@@ -884,7 +879,7 @@ arc_rtx_costs (rtx x, int code, int outer_code ATTRIBUTE_UNUSED, int *total)
    If ADDR is not a valid address, its cost is irrelevant.  */
 
 static int
-arc_address_cost (rtx addr)
+arc_address_cost (rtx addr, bool speed ATTRIBUTE_UNUSED)
 {
   switch (GET_CODE (addr))
     {
@@ -907,7 +902,7 @@ arc_address_cost (rtx addr)
 	switch (GET_CODE (plus1))
 	  {
 	  case CONST_INT :
-	    return SMALL_INT (plus1) ? 1 : 2;
+	    return SMALL_INT (INTVAL (plus1)) ? 1 : 2;
 	  case CONST :
 	  case SYMBOL_REF :
 	  case LABEL_REF :
@@ -1079,11 +1074,11 @@ arc_compute_frame_size (int size /* # of var. bytes allocated.  */)
   int interrupt_p;
 
   var_size	= size;
-  args_size	= current_function_outgoing_args_size;
-  pretend_size	= current_function_pretend_args_size;
+  args_size	= crtl->outgoing_args_size;
+  pretend_size	= crtl->args.pretend_args_size;
   extra_size	= FIRST_PARM_OFFSET (0);
   total_size	= extra_size + pretend_size + args_size + var_size;
-  reg_offset	= FIRST_PARM_OFFSET(0) + current_function_outgoing_args_size;
+  reg_offset	= FIRST_PARM_OFFSET(0) + crtl->outgoing_args_size;
   reg_size	= 0;
   gmask		= 0;
 
@@ -1254,7 +1249,7 @@ arc_output_function_prologue (FILE *file, HOST_WIDE_INT size)
 static void
 arc_output_function_epilogue (FILE *file, HOST_WIDE_INT size)
 {
-  rtx epilogue_delay = current_function_epilogue_delay_list;
+  rtx epilogue_delay = crtl->epilogue_delay_list;
   int noepilogue = FALSE;
   enum arc_function_type fn_type = arc_compute_function_type (current_function_decl);
 
@@ -1283,7 +1278,7 @@ arc_output_function_epilogue (FILE *file, HOST_WIDE_INT size)
       unsigned int pretend_size = current_frame_info.pretend_size;
       unsigned int frame_size = size - pretend_size;
       int restored, fp_restored_p;
-      int can_trust_sp_p = !current_function_calls_alloca;
+      int can_trust_sp_p = !cfun->calls_alloca;
       const char *sp_str = reg_names[STACK_POINTER_REGNUM];
       const char *fp_str = reg_names[FRAME_POINTER_REGNUM];
 
@@ -1512,9 +1507,10 @@ output_shift (rtx *operands)
     }
   else
     {
-      int n = INTVAL (operands[2]);
+      int n;
 
       /* If the count is negative, make it 0.  */
+      n = INTVAL (operands[2]);
       if (n < 0)
 	n = 0;
       /* If the count is too big, truncate it.
@@ -2282,8 +2278,8 @@ static void
 arc_va_start (tree valist, rtx nextarg)
 {
   /* See arc_setup_incoming_varargs for reasons for this oddity.  */
-  if (current_function_args_info < 8
-      && (current_function_args_info & 1))
+  if (crtl->args.info < 8
+      && (crtl->args.info & 1))
     nextarg = plus_constant (nextarg, UNITS_PER_WORD);
 
   std_expand_builtin_va_start (valist, nextarg);
@@ -2351,4 +2347,40 @@ arc_pass_by_reference (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,
     size = GET_MODE_SIZE (mode);
 
   return size > 8;
+}
+
+/* Trampolines.  */
+/* ??? This doesn't work yet because GCC will use as the address of a nested
+   function the address of the trampoline.  We need to use that address
+   right shifted by 2.  It looks like we'll need PSImode after all. :-( 
+
+   ??? The above comment sounds like it's doable via
+   TARGET_TRAMPOLINE_ADJUST_ADDRESS; no PSImode needed.
+
+   On the ARC, the trampoline is quite simple as we have 32-bit immediate
+   constants.
+
+	mov r24,STATIC
+	j.nd FUNCTION
+*/
+
+static void
+arc_trampoline_init (rtx m_tramp, tree fndecl, rtx chain_value)
+{
+  rtx fnaddr = XEXP (DECL_RTL (fndecl), 0);
+  rtx mem;
+
+  mem = adjust_address (m_tramp, SImode, 0);
+  emit_move_insn (mem, GEN_INT (0x631f7c00));
+
+  mem = adjust_address (m_tramp, SImode, 4);
+  emit_move_insn (mem, chain_value);
+
+  mem = adjust_address (m_tramp, SImode, 8);
+  emit_move_insn (mem, GEN_INT (0x381f0000));
+
+  mem = adjust_address (m_tramp, SImode, 12);
+  emit_move_insn (mem, fnaddr);
+
+  emit_insn (gen_flush_icache (m_tramp));
 }

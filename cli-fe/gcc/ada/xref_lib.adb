@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1998-2007, Free Software Foundation, Inc.         --
+--          Copyright (C) 1998-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -49,7 +49,7 @@ package body Xref_Lib is
 
    No_Xref_Information : exception;
    --  Exception raised when there is no cross-referencing information in
-   --  the .ali files
+   --  the .ali files.
 
    procedure Parse_EOL
      (Source                 : not null access String;
@@ -109,7 +109,7 @@ package body Xref_Lib is
      (Source : not null access String;
       Ptr    : in out Positive;
       Number : out Natural);
-   --  Skips any separators and parses Source upto the first character that
+   --  Skips any separators and parses Source up to the first character that
    --  is not a decimal digit. Returns value of parsed digits or 0 if none.
 
    procedure Parse_X_Filename (File : in out ALI_File);
@@ -308,7 +308,7 @@ package body Xref_Lib is
          --  Case where we have an ALI file, accept it even though this is
          --  not official usage, since the intention is obvious
 
-         if Tail (File, 4) = ".ali" then
+         if Tail (File, 4) = "." & Osint.ALI_Suffix.all then
             File_Ref := Add_To_Xref_File
                           (File, Visited => False, Emit_Warning => True);
 
@@ -466,7 +466,9 @@ package body Xref_Lib is
                   return;
                end if;
 
-            elsif Last > 4 and then Dir_Ent (Last - 3 .. Last) = ".ali" then
+            elsif Last > 4
+              and then Dir_Ent (Last - 3 .. Last) = "." & Osint.ALI_Suffix.all
+            then
                File_Ref :=
                  Add_To_Xref_File (Dir_Ent (1 .. Last), Visited => False);
             end if;
@@ -481,8 +483,7 @@ package body Xref_Lib is
    function Get_Full_Type (Decl : Declaration_Reference) return String is
 
       function Param_String return String;
-      --  Return the string to display depending on whether Decl is a
-      --  parameter or not
+      --  Return the string to display depending on whether Decl is a parameter
 
       ------------------
       -- Param_String --
@@ -709,8 +710,10 @@ package body Xref_Lib is
             Ptr := Ptr + 1;
          end loop;
 
+         --  Skip CR or LF if not at end of file
+
          if Source (Ptr) /= EOF then
-            Ptr := Ptr + 1;      -- skip CR or LF
+            Ptr := Ptr + 1;
          end if;
 
          --  Skip past CR/LF or LF/CR combination
@@ -808,7 +811,7 @@ package body Xref_Lib is
             exit when Ali (Ptr) = EOF;
          end loop;
 
-         --  We were not able to find the symbol, this should not happend but
+         --  We were not able to find the symbol, this should not happen but
          --  since we don't want to stop here we return a string of three
          --  question marks as the symbol name.
 
@@ -894,6 +897,21 @@ package body Xref_Lib is
 
       if Ali (Ptr) = '[' then
          Skip_To_Matching_Closing_Bracket;
+      end if;
+
+      --  Skip any renaming indication
+
+      if Ali (Ptr) = '=' then
+         declare
+            P_Line, P_Column : Natural;
+            pragma Warnings (Off, P_Line);
+            pragma Warnings (Off, P_Column);
+         begin
+            Ptr := Ptr + 1;
+            Parse_Number (Ali, Ptr, P_Line);
+            Ptr := Ptr + 1;
+            Parse_Number (Ali, Ptr, P_Column);
+         end;
       end if;
 
       if Ali (Ptr) = '<'
@@ -1036,19 +1054,6 @@ package body Xref_Lib is
             end loop;
             Ptr := Ptr + 1;
          end if;
-
-      elsif Ali (Ptr) = '=' then
-         declare
-            P_Line, P_Column : Natural;
-            pragma Warnings (Off, P_Line);
-            pragma Warnings (Off, P_Column);
-
-         begin
-            Ptr := Ptr + 1;
-            Parse_Number (Ali, Ptr, P_Line);
-            Ptr := Ptr + 1;
-            Parse_Number (Ali, Ptr, P_Column);
-         end;
       end if;
 
       --  To find the body, we will have to parse the file too
@@ -1069,7 +1074,7 @@ package body Xref_Lib is
       loop
          --  Process references on current line
 
-         while Ali (Ptr) = ' ' or Ali (Ptr) = ASCII.HT loop
+         while Ali (Ptr) = ' ' or else Ali (Ptr) = ASCII.HT loop
 
             --  For every reference read the line, type and column,
             --  optionally preceded by a file number and a pipe symbol.
@@ -1602,9 +1607,15 @@ package body Xref_Lib is
 
          Write_Str (Get_Symbol (Decl));
 
-         while Column < Type_Position loop
+         --  Put the declaration type in column Type_Position, but if the
+         --  declaration name is too long, put at least one space between its
+         --  name and its type.
+
+         while Column < Type_Position - 1 loop
             Write_Char (' ');
          end loop;
+
+         Write_Char (' ');
 
          Write_Line (Get_Full_Type (Decl));
 

@@ -1,18 +1,18 @@
 /* Operations with long integers.
-   Copyright (C) 2006, 2007 Free Software Foundation, Inc.
-   
+   Copyright (C) 2006, 2007, 2008 Free Software Foundation, Inc.
+
 This file is part of GCC.
-   
+
 GCC is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
 Free Software Foundation; either version 3, or (at your option) any
 later version.
-   
+
 GCC is distributed in the hope that it will be useful, but WITHOUT
 ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
 FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
-   
+
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
@@ -20,7 +20,9 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef DOUBLE_INT_H
 #define DOUBLE_INT_H
 
+#ifndef GENERATOR_FILE
 #include <gmp.h>
+#endif
 #include "coretypes.h"
 
 /* A large integer is currently represented as a pair of HOST_WIDE_INTs.
@@ -70,7 +72,7 @@ static inline double_int
 shwi_to_double_int (HOST_WIDE_INT cst)
 {
   double_int r;
-  
+
   r.low = (unsigned HOST_WIDE_INT) cst;
   r.high = cst < 0 ? -1 : 0;
 
@@ -92,7 +94,7 @@ static inline double_int
 uhwi_to_double_int (unsigned HOST_WIDE_INT cst)
 {
   double_int r;
-  
+
   r.low = cst;
   r.high = 0;
 
@@ -176,10 +178,11 @@ double_int_equal_p (double_int cst1, double_int cst2)
   return cst1.low == cst2.low && cst1.high == cst2.high;
 }
 
+#ifndef GENERATOR_FILE
 /* Conversion to and from GMP integer representations.  */
 
 void mpz_set_double_int (mpz_t, double_int, bool);
 double_int mpz_get_double_int (const_tree, mpz_t, bool);
-
+#endif
 
 #endif /* DOUBLE_INT_H */

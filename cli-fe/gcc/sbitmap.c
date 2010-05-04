@@ -1,5 +1,5 @@
 /* Simple bitmaps.
-   Copyright (C) 1999, 2000, 2002, 2003, 2004, 2006, 2007
+   Copyright (C) 1999, 2000, 2002, 2003, 2004, 2006, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -55,7 +55,7 @@ sbitmap_verify_popcount (const_sbitmap a)
 {
   unsigned ix;
   unsigned int lastword;
-  
+
   if (!a->popcount)
     return;
 
@@ -79,7 +79,7 @@ sbitmap_alloc (unsigned int n_elms)
   bytes = size * sizeof (SBITMAP_ELT_TYPE);
   amt = (sizeof (struct simple_bitmap_def)
 	 + bytes - sizeof (SBITMAP_ELT_TYPE));
-  bmap = xmalloc (amt);
+  bmap = (sbitmap) xmalloc (amt);
   bmap->n_bits = n_elms;
   bmap->size = size;
   bmap->popcount = NULL;
@@ -91,8 +91,8 @@ sbitmap_alloc (unsigned int n_elms)
 sbitmap
 sbitmap_alloc_with_popcount (unsigned int n_elms)
 {
-  sbitmap const bmap = sbitmap_alloc (n_elms);  
-  bmap->popcount = xmalloc (bmap->size * sizeof (unsigned char));
+  sbitmap const bmap = sbitmap_alloc (n_elms);
+  bmap->popcount = XNEWVEC (unsigned char, bmap->size);
   return bmap;
 }
 
@@ -112,17 +112,16 @@ sbitmap_resize (sbitmap bmap, unsigned int n_elms, int def)
     {
       amt = (sizeof (struct simple_bitmap_def)
 	    + bytes - sizeof (SBITMAP_ELT_TYPE));
-      bmap = xrealloc (bmap, amt);
+      bmap = (sbitmap) xrealloc (bmap, amt);
       if (bmap->popcount)
-	bmap->popcount = xrealloc (bmap->popcount,
-				   size * sizeof (unsigned char));
+	bmap->popcount = XRESIZEVEC (unsigned char, bmap->popcount, size);
     }
 
   if (n_elms > bmap->n_bits)
     {
       if (def)
 	{
-	  memset (bmap->elms + bmap->size, -1, 
+	  memset (bmap->elms + bmap->size, -1,
 		  bytes - SBITMAP_SIZE_BYTES (bmap));
 
 	  /* Set the new bits if the original last element.  */
@@ -139,13 +138,13 @@ sbitmap_resize (sbitmap bmap, unsigned int n_elms, int def)
 	}
       else
 	{
-	  memset (bmap->elms + bmap->size, 0, 
+	  memset (bmap->elms + bmap->size, 0,
 		  bytes - SBITMAP_SIZE_BYTES (bmap));
 	  if (bmap->popcount)
 	    memset (bmap->popcount + bmap->size, 0,
-		    (size * sizeof (unsigned char)) 
+		    (size * sizeof (unsigned char))
 		    - (bmap->size * sizeof (unsigned char)));
-		    
+
 	}
     }
   else if (n_elms < bmap->n_bits)
@@ -218,7 +217,7 @@ sbitmap_vector_alloc (unsigned int n_vecs, unsigned int n_elms)
   }
 
   amt = vector_bytes + (n_vecs * elm_bytes);
-  bitmap_vector = xmalloc (amt);
+  bitmap_vector = (sbitmap *) xmalloc (amt);
 
   for (i = 0, offset = vector_bytes; i < n_vecs; i++, offset += elm_bytes)
     {
@@ -248,7 +247,7 @@ sbitmap_copy (sbitmap dst, const_sbitmap src)
 void
 sbitmap_copy_n (sbitmap dst, const_sbitmap src, unsigned int n)
 {
-  memcpy (dst->elms, src->elms, sizeof (SBITMAP_ELT_TYPE) * n);  
+  memcpy (dst->elms, src->elms, sizeof (SBITMAP_ELT_TYPE) * n);
   if (dst->popcount)
     memcpy (dst->popcount, src->popcount, sizeof (unsigned char) * n);
 }
@@ -272,6 +271,57 @@ sbitmap_empty_p (const_sbitmap bmap)
 
   return true;
 }
+
+/* Return false if any of the N bits are set in MAP starting at
+   START.  */
+
+bool
+sbitmap_range_empty_p (const_sbitmap bmap, unsigned int start, unsigned int n)
+{
+  unsigned int i = start / SBITMAP_ELT_BITS;
+  SBITMAP_ELT_TYPE elm;
+  unsigned int shift = start % SBITMAP_ELT_BITS;
+
+  gcc_assert (bmap->n_bits >= start + n);
+
+  elm = bmap->elms[i];
+  elm = elm >> shift;
+
+  if (shift + n <= SBITMAP_ELT_BITS)
+    {
+      /* The bits are totally contained in a single element.  */
+      if (shift + n < SBITMAP_ELT_BITS)
+        elm &= ((1 << n) - 1);
+      return (elm == 0);
+    }
+
+  if (elm)
+    return false;
+
+  n -= SBITMAP_ELT_BITS - shift;
+  i++;
+
+  /* Deal with full elts.  */
+  while (n >= SBITMAP_ELT_BITS)
+    {
+      if (bmap->elms[i])
+	return false;
+      i++;
+      n -= SBITMAP_ELT_BITS;
+    }
+
+  /* The leftover bits.  */
+  if (n)
+    {
+      elm = bmap->elms[i];
+      elm &= ((1 << n) - 1);
+      return (elm == 0);
+    }
+
+  return true;
+}
+
+
 
 /* Zero all elements in a bitmap.  */
 
@@ -300,7 +350,7 @@ sbitmap_ones (sbitmap bmap)
       bmap->elms[bmap->size - 1]
 	= (SBITMAP_ELT_TYPE)-1 >> (SBITMAP_ELT_BITS - last_bit);
       if (bmap->popcount)
-	bmap->popcount[bmap->size - 1] 
+	bmap->popcount[bmap->size - 1]
 	  = do_popcount (bmap->elms[bmap->size - 1]);
     }
 }
@@ -342,7 +392,7 @@ sbitmap_union_of_diff_cg (sbitmap dst, const_sbitmap a, const_sbitmap b, const_s
   SBITMAP_ELT_TYPE changed = 0;
 
   gcc_assert (!dst->popcount);
-  
+
   for (i = 0; i < n; i++)
     {
       const SBITMAP_ELT_TYPE tmp = *ap++ | (*bp++ & ~*cp++);
@@ -379,7 +429,7 @@ sbitmap_not (sbitmap dst, const_sbitmap src)
   const_sbitmap_ptr srcp = src->elms;
   unsigned int last_bit;
 
-  gcc_assert (!dst->popcount);  
+  gcc_assert (!dst->popcount);
 
   for (i = 0; i < n; i++)
     *dstp++ = ~*srcp++;
@@ -481,7 +531,7 @@ sbitmap_a_and_b (sbitmap dst, const_sbitmap a, const_sbitmap b)
 	  if (wordchanged)
 	    *popcountp = do_popcount (tmp);
 	  popcountp++;
-	}      
+	}
       *dstp++ = tmp;
     }
 #ifdef BITMAP_DEBUGGING
@@ -501,7 +551,7 @@ sbitmap_a_xor_b_cg (sbitmap dst, const_sbitmap a, const_sbitmap b)
   const_sbitmap_ptr ap = a->elms;
   const_sbitmap_ptr bp = b->elms;
   SBITMAP_ELT_TYPE changed = 0;
-  
+
   gcc_assert (!dst->popcount);
 
   for (i = 0; i < n; i++)
@@ -533,7 +583,7 @@ sbitmap_a_xor_b (sbitmap dst, const_sbitmap a, const_sbitmap b)
 	  if (wordchanged)
 	    *popcountp = do_popcount (tmp);
 	  popcountp++;
-	} 
+	}
       *dstp++ = tmp;
     }
 #ifdef BITMAP_DEBUGGING
@@ -585,7 +635,7 @@ sbitmap_a_or_b (sbitmap dst, const_sbitmap a, const_sbitmap b)
 	  if (wordchanged)
 	    *popcountp = do_popcount (tmp);
 	  popcountp++;
-	} 
+	}
       *dstp++ = tmp;
     }
 #ifdef BITMAP_DEBUGGING
@@ -706,7 +756,7 @@ sbitmap_intersection_of_succs (sbitmap dst, sbitmap *src, int bb)
       e = EDGE_SUCC (b, ix);
       if (e->dest == EXIT_BLOCK_PTR)
 	continue;
-      
+
       sbitmap_copy (dst, src[e->dest->index]);
       break;
     }
@@ -1011,7 +1061,7 @@ sbitmap_popcount (const_sbitmap a, unsigned long maxbit)
 
   if (maxbit == 0)
     return 0;
-  
+
   if (maxbit >= a->n_bits)
     maxbit = a->n_bits;
 

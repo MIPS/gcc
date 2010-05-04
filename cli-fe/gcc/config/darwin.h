@@ -1,6 +1,6 @@
 /* Target definitions for Darwin (Mac OS X) systems.
    Copyright (C) 1989, 1990, 1991, 1992, 1993, 2000, 2001, 2002, 2003, 2004,
-   2005, 2006, 2007
+   2005, 2006, 2007, 2008, 2009, 2010
    Free Software Foundation, Inc.
    Contributed by Apple Computer Inc.
 
@@ -8,7 +8,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -16,10 +16,14 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+Under Section 7 of GPL version 3, you are granted additional
+permissions described in the GCC Runtime Library Exception, version
+3.1, as published by the Free Software Foundation.
+
+You should have received a copy of the GNU General Public License and
+a copy of the GCC Runtime Library Exception along with this program;
+see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+<http://www.gnu.org/licenses/>.  */
 
 #ifndef CONFIG_DARWIN_H
 #define CONFIG_DARWIN_H
@@ -71,6 +75,38 @@ Boston, MA 02110-1301, USA.  */
 #define WCHAR_TYPE "int"
 #undef	WCHAR_TYPE_SIZE
 #define WCHAR_TYPE_SIZE 32
+
+#define INT8_TYPE "signed char"
+#define INT16_TYPE "short int"
+#define INT32_TYPE "int"
+#define INT64_TYPE "long long int"
+#define UINT8_TYPE "unsigned char"
+#define UINT16_TYPE "short unsigned int"
+#define UINT32_TYPE "unsigned int"
+#define UINT64_TYPE "long long unsigned int"
+
+#define INT_LEAST8_TYPE "signed char"
+#define INT_LEAST16_TYPE "short int"
+#define INT_LEAST32_TYPE "int"
+#define INT_LEAST64_TYPE "long long int"
+#define UINT_LEAST8_TYPE "unsigned char"
+#define UINT_LEAST16_TYPE "short unsigned int"
+#define UINT_LEAST32_TYPE "unsigned int"
+#define UINT_LEAST64_TYPE "long long unsigned int"
+
+#define INT_FAST8_TYPE "signed char"
+#define INT_FAST16_TYPE "short int"
+#define INT_FAST32_TYPE "int"
+#define INT_FAST64_TYPE "long long int"
+#define UINT_FAST8_TYPE "unsigned char"
+#define UINT_FAST16_TYPE "short unsigned int"
+#define UINT_FAST32_TYPE "unsigned int"
+#define UINT_FAST64_TYPE "long long unsigned int"
+
+#define INTPTR_TYPE "long int"
+#define UINTPTR_TYPE "long unsigned int"
+
+#define SIG_ATOMIC_TYPE "int"
 
 /* Default to using the NeXT-style runtime, since that's what is
    pre-installed on Darwin systems.  */
@@ -236,9 +272,10 @@ extern GTY(()) int darwin_ms_struct;
     %{A} %{e*} %{m} %{r} %{x} \
     %{o*}%{!o:-o a.out} \
     %{!A:%{!nostdlib:%{!nostartfiles:%S}}} \
-    %{L*} %{fopenmp:%:include(libgomp.spec)%(link_gomp)}   \
-    %(link_libgcc) %o %{fprofile-arcs|fprofile-generate|coverage:-lgcov} \
-    %{!nostdlib:%{!nodefaultlibs:%(link_ssp) %G %L}} \
+    %{L*} %(link_libgcc) %o %{fprofile-arcs|fprofile-generate*|coverage:-lgcov} \
+    %{fopenmp|ftree-parallelize-loops=*: \
+      %{static|static-libgcc|static-libstdc++|static-libgfortran: libgomp.a%s; : -lgomp } } \
+    %{!nostdlib:%{!nodefaultlibs: %(link_ssp) %G %L }} \
     %{!A:%{!nostdlib:%{!nostartfiles:%E}}} %{T*} %{F*} }}}}}}}\n\
 %{!fdump=*:%{!fsyntax-only:%{!c:%{!M:%{!MM:%{!E:%{!S:\
     %{.c|.cc|.C|.cpp|.cp|.c++|.cxx|.CPP|.m|.mm: \
@@ -257,7 +294,12 @@ extern GTY(()) int darwin_ms_struct;
    so put a * after their names so all of them get passed.  */
 #define LINK_SPEC  \
   "%{static}%{!static:-dynamic} \
-   %{fgnu-runtime:%:replace-outfile(-lobjc -lobjc-gnu)}\
+   %{fgnu-runtime: %{static|static-libgcc: \
+                     %:replace-outfile(-lobjc libobjc-gnu.a%s); \
+                    :%:replace-outfile(-lobjc -lobjc-gnu ) } }\
+   %{static|static-libgcc|static-libgfortran:%:replace-outfile(-lgfortran libgfortran.a%s)}\
+   %{static|static-libgcc|static-libstdc++|static-libgfortran:%:replace-outfile(-lgomp libgomp.a%s)}\
+   %{static|static-libgcc|static-libstdc++:%:replace-outfile(-lstdc++ libstdc++.a%s)}\
    %{!Zdynamiclib: \
      %{Zforce_cpusubtype_ALL:-arch %(darwin_arch) -force_cpusubtype_ALL} \
      %{!Zforce_cpusubtype_ALL:-arch %(darwin_subarch)} \
@@ -356,9 +398,13 @@ extern GTY(()) int darwin_ms_struct;
       shared-libgcc|fexceptions|fgnu-runtime:				   \
        %:version-compare(!> 10.5 mmacosx-version-min= -lgcc_s.10.4)	   \
        %:version-compare(>= 10.5 mmacosx-version-min= -lgcc_s.10.5)	   \
+       %:version-compare(!> 10.5 mmacosx-version-min= -lgcc_ext.10.4)	   \
+       %:version-compare(>= 10.5 mmacosx-version-min= -lgcc_ext.10.5)	   \
        -lgcc;								   \
       :%:version-compare(>< 10.3.9 10.5 mmacosx-version-min= -lgcc_s.10.4) \
        %:version-compare(>= 10.5 mmacosx-version-min= -lgcc_s.10.5)	   \
+       %:version-compare(!> 10.5 mmacosx-version-min= -lgcc_ext.10.4)	   \
+       %:version-compare(>= 10.5 mmacosx-version-min= -lgcc_ext.10.5)	   \
        -lgcc}"
 
 /* We specify crt0.o as -lcrt0.o so that ld will search the library path.
@@ -409,7 +455,7 @@ extern GTY(()) int darwin_ms_struct;
 
 #define DBX_DEBUGGING_INFO 1
 
-#define DWARF2_DEBUGGING_INFO
+#define DWARF2_DEBUGGING_INFO 1
 #define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
 
 #define DEBUG_FRAME_SECTION	"__DWARF,__debug_frame,regular,debug"
@@ -456,8 +502,7 @@ extern GTY(()) int darwin_ms_struct;
       targetm.asm_out.globalize_label (FILE, NAME);			\
     if (DECL_EXTERNAL (DECL))						\
       fputs ("\t.weak_reference ", FILE);				\
-    else if (! lookup_attribute ("weak", DECL_ATTRIBUTES (DECL))	\
-	&& lookup_attribute ("weak_import", DECL_ATTRIBUTES (DECL)))	\
+    else if (lookup_attribute ("weak_import", DECL_ATTRIBUTES (DECL)))	\
       break;								\
     else if (TREE_PUBLIC (DECL))					\
       fputs ("\t.weak_definition ", FILE);				\
@@ -524,6 +569,9 @@ extern GTY(()) int darwin_ms_struct;
 /* Always prefix with an underscore.  */
 
 #define USER_LABEL_PREFIX "_"
+
+/* A dummy symbol that will be replaced with the function base name.  */
+#define MACHOPIC_FUNCTION_BASE_NAME "<pic base>"
 
 /* Don't output a .file directive.  That is only used by the assembler for
    error reporting.  */
@@ -603,13 +651,17 @@ extern GTY(()) int darwin_ms_struct;
   } while (0)
 
 /* Wrap new method names in quotes so the assembler doesn't gag.
-   Make Objective-C internal symbols local.  */
+   Make Objective-C internal symbols local and in doing this, we need 
+   to accommodate the name mangling done by c++ on file scope locals.  */
+
+
+int darwin_label_is_anonymous_local_objc_name (const char *name);
 
 #undef	ASM_OUTPUT_LABELREF
 #define ASM_OUTPUT_LABELREF(FILE,NAME)					     \
   do {									     \
        const char *xname = (NAME);					     \
-       if (! strcmp (xname, "<pic base>"))				     \
+       if (! strcmp (xname, MACHOPIC_FUNCTION_BASE_NAME))		     \
          machopic_output_function_base_name(FILE);                           \
        else if (xname[0] == '&' || xname[0] == '*')			     \
          {								     \
@@ -629,7 +681,7 @@ extern GTY(()) int darwin_ms_struct;
 	 }								     \
        else if (xname[0] == '+' || xname[0] == '-')			     \
          fprintf (FILE, "\"%s\"", xname);				     \
-       else if (!strncmp (xname, "_OBJC_", 6))				     \
+       else if (darwin_label_is_anonymous_local_objc_name (xname))				     \
          fprintf (FILE, "L%s", xname);					     \
        else if (!strncmp (xname, ".objc_class_name_", 17))		     \
 	 fprintf (FILE, "%s", xname);					     \
@@ -892,8 +944,9 @@ enum machopic_addr_class {
 
 #define DARWIN_REGISTER_TARGET_PRAGMAS()			\
   do {								\
-    cpp_register_pragma (parse_in, NULL, "mark",		\
-			 darwin_pragma_ignore, false);		\
+    if (!flag_preprocess_only)					\
+      cpp_register_pragma (parse_in, NULL, "mark",		\
+			   darwin_pragma_ignore, false);	\
     c_register_pragma (0, "options", darwin_pragma_options);	\
     c_register_pragma (0, "segment", darwin_pragma_ignore);	\
     c_register_pragma (0, "unused", darwin_pragma_unused);	\
@@ -941,7 +994,7 @@ void add_framework_path (char *);
 #endif
 
 /* Attempt to turn on execute permission for the stack.  This may be
-    used by INITIALIZE_TRAMPOLINE of the target needs it (that is,
+    used by TARGET_TRAMPOLINE_INIT if the target needs it (that is,
     if the target machine can change execute permissions on a page).
 
     There is no way to query the execute permission of the stack, so
@@ -992,5 +1045,9 @@ extern void darwin_default_min_version (int * argc, char *** argv);
 #define GCC_DRIVER_HOST_INITIALIZATION \
   darwin_default_min_version (&argc, &argv)
 #endif /* CROSS_DIRECTORY_STRUCTURE */
+
+/* The Apple assembler and linker do not support constructor priorities.  */
+#undef SUPPORTS_INIT_PRIORITY
+#define SUPPORTS_INIT_PRIORITY 0
 
 #endif /* CONFIG_DARWIN_H */

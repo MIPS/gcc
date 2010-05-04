@@ -1,5 +1,5 @@
 /* Swing Modulo Scheduling implementation.
-   Copyright (C) 2004, 2005, 2006, 2007
+   Copyright (C) 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Ayal Zaks and Mustafa Hagog <zaks,mustafa@il.ibm.com>
 
@@ -96,7 +96,7 @@ along with GCC; see the file COPYING3.  If not see
     Currently SMS relies on the do-loop pattern to recognize such loops,
     where (1) the control part comprises of all insns defining and/or
     using a certain 'count' register and (2) the loop count can be
-    adjusted by modifying this register prior to the loop.  
+    adjusted by modifying this register prior to the loop.
     TODO: Rely on cfgloop analysis instead.  */
 
 /* This page defines partial-schedule structures and functions for
@@ -168,7 +168,7 @@ struct undo_replace_buff_elem
 };
 
 
-  
+
 static partial_schedule_ptr create_partial_schedule (int ii, ddg_ptr, int history);
 static void free_partial_schedule (partial_schedule_ptr);
 static void reset_partial_schedule (partial_schedule_ptr, int new_ii);
@@ -186,13 +186,6 @@ static int compute_split_row (sbitmap, int, int, int, ddg_node_ptr);
 
 /* This page defines constants and structures for the modulo scheduling
    driver.  */
-
-/* As in haifa-sched.c:  */
-/* issue_rate is the number of insns that can be scheduled in the same
-   machine cycle.  It can be defined in the config/mach/mach.h file,
-   otherwise we set it to 1.  */
-
-static int issue_rate;
 
 static int sms_order_nodes (ddg_ptr, int, int *, int *);
 static void set_node_sched_params (ddg_ptr);
@@ -242,7 +235,7 @@ typedef struct node_sched_params
    code in order to use sched_analyze() for computing the dependencies.
    They are used when initializing the sched_info structure.  */
 static const char *
-sms_print_insn (rtx insn, int aligned ATTRIBUTE_UNUSED)
+sms_print_insn (const_rtx insn, int aligned ATTRIBUTE_UNUSED)
 {
   static char tmp[80];
 
@@ -258,7 +251,17 @@ compute_jump_reg_dependencies (rtx insn ATTRIBUTE_UNUSED,
 {
 }
 
-static struct sched_info sms_sched_info =
+static struct common_sched_info_def sms_common_sched_info;
+
+static struct sched_deps_info_def sms_sched_deps_info =
+  {
+    compute_jump_reg_dependencies,
+    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+    NULL,
+    0, 0, 0
+  };
+
+static struct haifa_sched_info sms_sched_info =
 {
   NULL,
   NULL,
@@ -267,15 +270,14 @@ static struct sched_info sms_sched_info =
   NULL,
   sms_print_insn,
   NULL,
-  compute_jump_reg_dependencies,
+  NULL, /* insn_finishes_block_p */
   NULL, NULL,
   NULL, NULL,
-  0, 0, 0,
+  0, 0,
 
-  NULL, NULL, NULL, NULL, NULL,
+  NULL, NULL, NULL,
   0
 };
-
 
 /* Given HEAD and TAIL which are the first and last insns in a loop;
    return the register which controls the loop.  Return zero if it has
@@ -347,12 +349,12 @@ const_iteration_count (rtx count_reg, basic_block pre_header,
   get_ebb_head_tail (pre_header, pre_header, &head, &tail);
 
   for (insn = tail; insn != PREV_INSN (head); insn = PREV_INSN (insn))
-    if (INSN_P (insn) && single_set (insn) &&
+    if (NONDEBUG_INSN_P (insn) && single_set (insn) &&
 	rtx_equal_p (count_reg, SET_DEST (single_set (insn))))
       {
 	rtx pat = single_set (insn);
 
-	if (GET_CODE (SET_SRC (pat)) == CONST_INT)
+	if (CONST_INT_P (SET_SRC (pat)))
 	  {
 	    *count = INTVAL (SET_SRC (pat));
 	    return insn;
@@ -371,9 +373,9 @@ static int
 res_MII (ddg_ptr g)
 {
   if (targetm.sched.sms_res_mii)
-    return targetm.sched.sms_res_mii (g); 
-  
-  return (g->num_nodes / issue_rate);
+    return targetm.sched.sms_res_mii (g);
+
+  return ((g->num_nodes - g->num_debug) / issue_rate);
 }
 
 
@@ -506,7 +508,9 @@ generate_reg_moves (partial_schedule_ptr ps, bool rescan)
       /* Now generate the reg_moves, attaching relevant uses to them.  */
       SCHED_NREG_MOVES (u) = nreg_moves;
       old_reg = prev_reg = copy_rtx (SET_DEST (single_set (u->insn)));
-      last_reg_move = u->insn;
+      /* Insert the reg-moves right before the notes which precede
+         the insn they relates to.  */
+      last_reg_move = u->first_note;
 
       for (i_reg_move = 0; i_reg_move < nreg_moves; i_reg_move++)
 	{
@@ -701,7 +705,7 @@ generate_prolog_epilog (partial_schedule_ptr ps, struct loop *loop,
   int i;
   int last_stage = PS_STAGE_COUNT (ps) - 1;
   edge e;
-  
+
   /* Generate the prolog, inserting its insns on the loop-entry edge.  */
   start_sequence ();
 
@@ -723,7 +727,7 @@ generate_prolog_epilog (partial_schedule_ptr ps, struct loop *loop,
 
   for (i = 0; i < last_stage; i++)
     duplicate_insns_of_cycles (ps, 0, i, 1, count_reg);
-  
+
   /* Put the prolog on the entry edge.  */
   e = loop_preheader_edge (loop);
   split_edge_and_insert (e, get_insns ());
@@ -735,7 +739,7 @@ generate_prolog_epilog (partial_schedule_ptr ps, struct loop *loop,
 
   for (i = 0; i < last_stage; i++)
     duplicate_insns_of_cycles (ps, i + 1, last_stage, 0, count_reg);
-  
+
   /* Put the epilogue on the exit edge.  */
   gcc_assert (single_exit (loop));
   e = single_exit (loop);
@@ -765,7 +769,7 @@ loop_single_full_bb_p (struct loop *loop)
       for (; head != NEXT_INSN (tail); head = NEXT_INSN (head))
         {
           if (NOTE_P (head) || LABEL_P (head)
- 	      || (INSN_P (head) && JUMP_P (head)))
+ 	      || (INSN_P (head) && (DEBUG_INSN_P (head) || JUMP_P (head))))
  	    continue;
  	  empty_bb = false;
  	  break;
@@ -794,14 +798,18 @@ loop_canon_p (struct loop *loop)
 {
 
   if (loop->inner || !loop_outer (loop))
+  {
+    if (dump_file)
+      fprintf (dump_file, "SMS loop inner or !loop_outer\n");
     return false;
+  }
 
   if (!single_exit (loop))
     {
       if (dump_file)
 	{
 	  rtx insn = BB_END (loop->header);
- 
+
 	  fprintf (dump_file, "SMS loop many exits ");
 	  	  fprintf (dump_file, " %s %d (file, line)\n",
 			   insn_file (insn), insn_line (insn));
@@ -814,7 +822,7 @@ loop_canon_p (struct loop *loop)
       if (dump_file)
 	{
 	  rtx insn = BB_END (loop->header);
- 
+
 	  fprintf (dump_file, "SMS loop many BBs. ");
 	  fprintf (dump_file, " %s %d (file, line)\n",
 		   insn_file (insn), insn_line (insn));
@@ -848,6 +856,19 @@ canon_loop (struct loop *loop)
           break;
       split_edge (e);
     }
+}
+
+/* Setup infos.  */
+static void
+setup_sched_infos (void)
+{
+  memcpy (&sms_common_sched_info, &haifa_common_sched_info,
+	  sizeof (sms_common_sched_info));
+  sms_common_sched_info.sched_pass_id = SCHED_SMS_PASS;
+  common_sched_info = &sms_common_sched_info;
+
+  sched_deps_info = &sms_sched_deps_info;
+  current_sched_info = &sms_sched_info;
 }
 
 /* Probability in % that the sms-ed loop rolls enough so that optimized
@@ -895,20 +916,18 @@ sms_schedule (void)
     issue_rate = 1;
 
   /* Initialize the scheduler.  */
-  current_sched_info = &sms_sched_info;
-
-  /* Init Data Flow analysis, to be used in interloop dep calculation.  */
-  df_set_flags (DF_LR_RUN_DCE);
-  df_rd_add_problem ();
-  df_note_add_problem ();
-  df_chain_add_problem (DF_DU_CHAIN + DF_UD_CHAIN);
-  df_analyze ();
-  regstat_compute_calls_crossed ();
-  sched_init ();
+  setup_sched_infos ();
+  haifa_sched_init ();
 
   /* Allocate memory to hold the DDG array one entry for each loop.
      We use loop->num as index into this array.  */
   g_arr = XCNEWVEC (ddg_ptr, number_of_loops ());
+
+  if (dump_file)
+  {
+    fprintf (dump_file, "\n\nSMS analysis phase\n");
+    fprintf (dump_file, "===================\n\n");
+  }
 
   /* Build DDGs for all the relevant loops and hold them in G_ARR
      indexed by the loop index.  */
@@ -926,11 +945,24 @@ sms_schedule (void)
           break;
         }
 
+      if (dump_file)
+      {
+         rtx insn = BB_END (loop->header);
+
+         fprintf (dump_file, "SMS loop num: %d, file: %s, line: %d\n",
+                  loop->num, insn_file (insn), insn_line (insn));
+
+      }
+
       if (! loop_canon_p (loop))
         continue;
 
       if (! loop_single_full_bb_p (loop))
+      {
+        if (dump_file)
+          fprintf (dump_file, "SMS not loop_single_full_bb_p\n");
 	continue;
+      }
 
       bb = loop->header;
 
@@ -940,7 +972,7 @@ sms_schedule (void)
       if (single_exit (loop)->count)
 	trip_count = latch_edge->count / single_exit (loop)->count;
 
-      /* Perfrom SMS only on loops that their average count is above threshold.  */
+      /* Perform SMS only on loops that their average count is above threshold.  */
 
       if ( latch_edge->count
           && (latch_edge->count < single_exit (loop)->count * SMS_LOOP_AVERAGE_COUNT_THRESHOLD))
@@ -971,11 +1003,15 @@ sms_schedule (void)
 
       /* Make sure this is a doloop.  */
       if ( !(count_reg = doloop_register_get (head, tail)))
+      {
+        if (dump_file)
+          fprintf (dump_file, "SMS doloop_register_get failed\n");
 	continue;
+      }
 
       /* Don't handle BBs with calls or barriers, or !single_set insns,
          or auto-increment insns (to avoid creating invalid reg-moves
-         for the auto-increment insns).  
+         for the auto-increment insns).
          ??? Should handle auto-increment insns.
          ??? Should handle insns defining subregs.  */
      for (insn = head; insn != NEXT_INSN (tail); insn = NEXT_INSN (insn))
@@ -984,7 +1020,7 @@ sms_schedule (void)
 
         if (CALL_P (insn)
             || BARRIER_P (insn)
-            || (INSN_P (insn) && !JUMP_P (insn)
+            || (NONDEBUG_INSN_P (insn) && !JUMP_P (insn)
                 && !single_set (insn) && GET_CODE (PATTERN (insn)) != USE)
             || (FIND_REG_INC_NOTE (insn, NULL_RTX) != 0)
             || (INSN_P (insn) && (set = single_set (insn))
@@ -1002,7 +1038,7 @@ sms_schedule (void)
 		fprintf (dump_file, "SMS loop-with-barrier\n");
               else if (FIND_REG_INC_NOTE (insn, NULL_RTX) != 0)
                 fprintf (dump_file, "SMS reg inc\n");
-              else if ((INSN_P (insn) && !JUMP_P (insn)
+              else if ((NONDEBUG_INSN_P (insn) && !JUMP_P (insn)
                 && !single_set (insn) && GET_CODE (PATTERN (insn)) != USE))
                 fprintf (dump_file, "SMS loop-with-not-single-set\n");
               else
@@ -1016,12 +1052,20 @@ sms_schedule (void)
       if (! (g = create_ddg (bb, 0)))
         {
           if (dump_file)
-	    fprintf (dump_file, "SMS doloop\n");
+	    fprintf (dump_file, "SMS create_ddg failed\n");
 	  continue;
         }
 
       g_arr[loop->num] = g;
+      if (dump_file)
+        fprintf (dump_file, "...OK\n");
+
     }
+  if (dump_file)
+  {
+    fprintf (dump_file, "\nSMS transformation phase\n");
+    fprintf (dump_file, "=========================\n\n");
+  }
 
   /* We don't want to perform SMS on new loops - created by versioning.  */
   FOR_EACH_LOOP (li, loop, 0)
@@ -1036,7 +1080,14 @@ sms_schedule (void)
         continue;
 
       if (dump_file)
-	print_ddg (dump_file, g);
+      {
+         rtx insn = BB_END (loop->header);
+
+         fprintf (dump_file, "SMS loop num: %d, file: %s, line: %d\n",
+                  loop->num, insn_file (insn), insn_line (insn));
+
+         print_ddg (dump_file, g);
+      }
 
       get_ebb_head_tail (loop->header, loop->header, &head, &tail);
 
@@ -1106,12 +1157,14 @@ sms_schedule (void)
 
       ps = sms_schedule_by_order (g, mii, maxii, node_order);
 
-      if (ps)
+      if (ps){
 	stage_count = PS_STAGE_COUNT (ps);
+        gcc_assert(stage_count >= 1);
+      }
 
       /* Stage count of 1 means that there is no interleaving between
          iterations, let the scheduling passes do the job.  */
-      if (stage_count < 1
+      if (stage_count <= 1
 	  || (count_init && (loop_count <= stage_count))
 	  || (flag_branch_probabilities && (trip_count <= stage_count)))
 	{
@@ -1145,14 +1198,14 @@ sms_schedule (void)
 	     the closing_branch was scheduled and should appear in the last (ii-1)
 	     row.  Otherwise, we are free to schedule the branch, and we let nodes
 	     that were scheduled at the first PS_MIN_CYCLE cycle appear in the first
-	     row; this should reduce stage_count to minimum.  
+	     row; this should reduce stage_count to minimum.
              TODO: Revisit the issue of scheduling the insns of the
              control part relative to the branch when the control part
              has more than one insn.  */
 	  normalize_sched_times (ps);
 	  rotate_partial_schedule (ps, PS_MIN_CYCLE (ps));
 	  set_columns_for_ps (ps);
-	  
+
 	  canon_loop (loop);
 
           /* case the BCT count is not known , Do loop-versioning */
@@ -1188,7 +1241,7 @@ sms_schedule (void)
 	    print_node_sched_params (dump_file, g->num_nodes, g);
 	  /* Generate prolog and epilog.  */
           generate_prolog_epilog (ps, loop, count_reg, count_init);
- 
+
 	  free_undo_replace_buff (reg_move_replaces);
 	}
 
@@ -1198,11 +1251,10 @@ sms_schedule (void)
       free_ddg (g);
     }
 
-  regstat_free_calls_crossed ();
   free (g_arr);
 
   /* Release scheduler data, needed until now because of DFA.  */
-  sched_finish ();
+  haifa_sched_finish ();
   loop_optimizer_finalize ();
 }
 
@@ -1325,7 +1377,7 @@ get_sched_window (partial_schedule_ptr ps, int *nodes_order, int i,
 	  ddg_node_ptr v_node = e->src;
 
           if (dump_file)
-            {     
+            {
 	      fprintf (dump_file, "\nProcessing edge: ");
               print_ddg_edge (dump_file, e);
 	      fprintf (dump_file,
@@ -1343,7 +1395,7 @@ get_sched_window (partial_schedule_ptr ps, int *nodes_order, int i,
                 MAX (early_start, p_st + e->latency - (e->distance * ii));
 
               if (dump_file)
-                fprintf (dump_file, 
+                fprintf (dump_file,
                          "pred st = %d; early_start = %d; latency: %d",
                          p_st, early_start, e->latency);
 
@@ -1392,7 +1444,7 @@ get_sched_window (partial_schedule_ptr ps, int *nodes_order, int i,
                                 s_st - e->latency + (e->distance * ii));
 
               if (dump_file)
-                fprintf (dump_file, 
+                fprintf (dump_file,
                          "succ st = %d; late_start = %d; latency = %d",
                          s_st, late_start, e->latency);
 
@@ -1451,7 +1503,7 @@ get_sched_window (partial_schedule_ptr ps, int *nodes_order, int i,
 				 - (e->distance * ii));
 
               if (dump_file)
-                fprintf (dump_file, 
+                fprintf (dump_file,
                          "pred st = %d; early_start = %d; latency = %d",
                          p_st, early_start, e->latency);
 
@@ -1489,7 +1541,7 @@ get_sched_window (partial_schedule_ptr ps, int *nodes_order, int i,
 				+ (e->distance * ii));
 
               if (dump_file)
-                fprintf (dump_file, 
+                fprintf (dump_file,
                          "succ st = %d; late_start = %d; latency = %d",
                          s_st, late_start, e->latency);
 
@@ -1543,18 +1595,17 @@ get_sched_window (partial_schedule_ptr ps, int *nodes_order, int i,
 
 /* Calculate MUST_PRECEDE/MUST_FOLLOW bitmaps of U_NODE; which is the
    node currently been scheduled.  At the end of the calculation
-   MUST_PRECEDE/MUST_FOLLOW contains all predecessors/successors of U_NODE
-   which are in SCHED_NODES (already scheduled nodes) and scheduled at
-   the same row as the first/last row of U_NODE's scheduling window.
-   The first and last rows are calculated using the following paramaters:
+   MUST_PRECEDE/MUST_FOLLOW contains all predecessors/successors of
+   U_NODE which are (1) already scheduled in the first/last row of
+   U_NODE's scheduling window, (2) whose dependence inequality with U
+   becomes an equality when U is scheduled in this same row, and (3)
+   whose dependence latency is zero.
+
+   The first and last rows are calculated using the following parameters:
    START/END rows - The cycles that begins/ends the traversal on the window;
    searching for an empty cycle to schedule U_NODE.
    STEP - The direction in which we traverse the window.
-   II - The initiation interval.
-   TODO: We can add an insn to the must_precede/must_follow bitmap only
-   if it has tight dependence to U and they are both scheduled in the
-   same row.  The current check is more conservative and content with
-   the fact that both U and the insn are scheduled in the same row.  */
+   II - The initiation interval.  */
 
 static void
 calculate_must_precede_follow (ddg_node_ptr u_node, int start, int end,
@@ -1563,7 +1614,6 @@ calculate_must_precede_follow (ddg_node_ptr u_node, int start, int end,
 {
   ddg_edge_ptr e;
   int first_cycle_in_window, last_cycle_in_window;
-  int first_row_in_window, last_row_in_window;
 
   gcc_assert (must_precede && must_follow);
 
@@ -1577,18 +1627,27 @@ calculate_must_precede_follow (ddg_node_ptr u_node, int start, int end,
   first_cycle_in_window = (step == 1) ? start : end - step;
   last_cycle_in_window = (step == 1) ? end - step : start;
 
-  first_row_in_window = SMODULO (first_cycle_in_window, ii);
-  last_row_in_window = SMODULO (last_cycle_in_window, ii);
-
   sbitmap_zero (must_precede);
   sbitmap_zero (must_follow);
 
   if (dump_file)
     fprintf (dump_file, "\nmust_precede: ");
 
+  /* Instead of checking if:
+      (SMODULO (SCHED_TIME (e->src), ii) == first_row_in_window)
+      && ((SCHED_TIME (e->src) + e->latency - (e->distance * ii)) ==
+             first_cycle_in_window)
+      && e->latency == 0
+     we use the fact that latency is non-negative:
+      SCHED_TIME (e->src) - (e->distance * ii) <=
+      SCHED_TIME (e->src) + e->latency - (e->distance * ii)) <=
+      first_cycle_in_window
+     and check only if
+      SCHED_TIME (e->src) - (e->distance * ii) == first_cycle_in_window  */
   for (e = u_node->in; e != 0; e = e->next_in)
     if (TEST_BIT (sched_nodes, e->src->cuid)
-	&& (SMODULO (SCHED_TIME (e->src), ii) == first_row_in_window))
+	&& ((SCHED_TIME (e->src) - (e->distance * ii)) ==
+             first_cycle_in_window))
       {
 	if (dump_file)
 	  fprintf (dump_file, "%d ", e->src->cuid);
@@ -1599,9 +1658,21 @@ calculate_must_precede_follow (ddg_node_ptr u_node, int start, int end,
   if (dump_file)
     fprintf (dump_file, "\nmust_follow: ");
 
+  /* Instead of checking if:
+      (SMODULO (SCHED_TIME (e->dest), ii) == last_row_in_window)
+      && ((SCHED_TIME (e->dest) - e->latency + (e->distance * ii)) ==
+             last_cycle_in_window)
+      && e->latency == 0
+     we use the fact that latency is non-negative:
+      SCHED_TIME (e->dest) + (e->distance * ii) >=
+      SCHED_TIME (e->dest) - e->latency + (e->distance * ii)) >=
+      last_cycle_in_window
+     and check only if
+      SCHED_TIME (e->dest) + (e->distance * ii) == last_cycle_in_window  */
   for (e = u_node->out; e != 0; e = e->next_out)
     if (TEST_BIT (sched_nodes, e->dest->cuid)
-	&& (SMODULO (SCHED_TIME (e->dest), ii) == last_row_in_window))
+	&& ((SCHED_TIME (e->dest) + (e->distance * ii)) ==
+             last_cycle_in_window))
       {
 	if (dump_file)
 	  fprintf (dump_file, "%d ", e->dest->cuid);
@@ -1617,7 +1688,7 @@ calculate_must_precede_follow (ddg_node_ptr u_node, int start, int end,
    parameters to decide if that's possible:
    PS - The partial schedule.
    U - The serial number of U_NODE.
-   NUM_SPLITS - The number of row spilts made so far.
+   NUM_SPLITS - The number of row splits made so far.
    MUST_PRECEDE - The nodes that must precede U_NODE. (only valid at
    the first row of the scheduling window)
    MUST_FOLLOW - The nodes that must follow U_NODE. (only valid at the
@@ -1625,7 +1696,7 @@ calculate_must_precede_follow (ddg_node_ptr u_node, int start, int end,
 
 static bool
 try_scheduling_node_in_cycle (partial_schedule_ptr ps, ddg_node_ptr u_node,
-			      int u, int row, sbitmap sched_nodes,
+			      int u, int cycle, sbitmap sched_nodes,
 			      int *num_splits, sbitmap must_precede,
 			      sbitmap must_follow)
 {
@@ -1633,16 +1704,16 @@ try_scheduling_node_in_cycle (partial_schedule_ptr ps, ddg_node_ptr u_node,
   bool success = 0;
 
   verify_partial_schedule (ps, sched_nodes);
-  psi = ps_add_node_check_conflicts (ps, u_node, row,
+  psi = ps_add_node_check_conflicts (ps, u_node, cycle,
 				     must_precede, must_follow);
   if (psi)
     {
-      SCHED_TIME (u_node) = row;
+      SCHED_TIME (u_node) = cycle;
       SET_BIT (sched_nodes, u);
       success = 1;
       *num_splits = 0;
       if (dump_file)
-	fprintf (dump_file, "Scheduled w/o split in %d\n", row);
+	fprintf (dump_file, "Scheduled w/o split in %d\n", cycle);
 
     }
 
@@ -1683,7 +1754,7 @@ sms_schedule_by_order (ddg_ptr g, int mii, int maxii, int *nodes_order)
   	  ddg_node_ptr u_node = &ps->g->nodes[u];
 	  rtx insn = u_node->insn;
 
-	  if (!INSN_P (insn))
+	  if (!NONDEBUG_INSN_P (insn))
 	    {
 	      RESET_BIT (tobe_scheduled, u);
 	      continue;
@@ -1764,11 +1835,14 @@ sms_schedule_by_order (ddg_ptr g, int mii, int maxii, int *nodes_order)
                 }
 
               num_splits++;
+              /* The scheduling window is exclusive of 'end'
+                 whereas compute_split_window() expects an inclusive,
+                 ordered range.  */
               if (step == 1)
-                split_row = compute_split_row (sched_nodes, start, end,
+                split_row = compute_split_row (sched_nodes, start, end - 1,
                                                ps->ii, u_node);
               else
-                split_row = compute_split_row (sched_nodes, end, start,
+                split_row = compute_split_row (sched_nodes, end + 1, start,
                                                ps->ii, u_node);
 
               ps_insert_empty_row (ps, split_row, sched_nodes);
@@ -2006,10 +2080,10 @@ check_nodes_order (int *node_order, int num_nodes)
 
       SET_BIT (tmp, u);
     }
- 
+
   if (dump_file)
     fprintf (dump_file, "\n");
- 
+
   sbitmap_free (tmp);
 }
 
@@ -2062,7 +2136,7 @@ order_nodes_of_sccs (ddg_all_sccs_ptr all_sccs, int * node_order)
   sbitmap_zero (prev_sccs);
   sbitmap_ones (ones);
 
-  /* Perfrom the node ordering starting from the SCC with the highest recMII.
+  /* Perform the node ordering starting from the SCC with the highest recMII.
      For each SCC order the nodes according to their ASAP/ALAP/HEIGHT etc.  */
   for (i = 0; i < all_sccs->num_sccs; i++)
     {
@@ -2428,7 +2502,7 @@ print_partial_schedule (partial_schedule_ptr ps, FILE *dump)
     {
       ps_insn_ptr ps_i = ps->rows[i];
 
-      fprintf (dump, "\n[CYCLE %d ]: ", i);
+      fprintf (dump, "\n[ROW %d ]: ", i);
       while (ps_i)
 	{
 	  fprintf (dump, "%d, ",
@@ -2548,8 +2622,8 @@ ps_insn_find_column (partial_schedule_ptr ps, ps_insn_ptr ps_i,
 }
 
 /* Advances the PS_INSN one column in its current row; returns false
-   in failure and true in success.  Bit N is set in MUST_FOLLOW if 
-   the node with cuid N must be come after the node pointed to by 
+   in failure and true in success.  Bit N is set in MUST_FOLLOW if
+   the node with cuid N must be come after the node pointed to by
    PS_I when scheduled in the same cycle.  */
 static int
 ps_insn_advance_column (partial_schedule_ptr ps, ps_insn_ptr ps_i,
@@ -2597,9 +2671,9 @@ ps_insn_advance_column (partial_schedule_ptr ps, ps_insn_ptr ps_i,
 }
 
 /* Inserts a DDG_NODE to the given partial schedule at the given cycle.
-   Returns 0 if this is not possible and a PS_INSN otherwise.  Bit N is 
-   set in MUST_PRECEDE/MUST_FOLLOW if the node with cuid N must be come 
-   before/after (respectively) the node pointed to by PS_I when scheduled 
+   Returns 0 if this is not possible and a PS_INSN otherwise.  Bit N is
+   set in MUST_PRECEDE/MUST_FOLLOW if the node with cuid N must be come
+   before/after (respectively) the node pointed to by PS_I when scheduled
    in the same cycle.  */
 static ps_insn_ptr
 add_node_to_ps (partial_schedule_ptr ps, ddg_node_ptr node, int cycle,
@@ -2669,7 +2743,7 @@ ps_has_conflicts (partial_schedule_ptr ps, int from, int to)
 	{
 	  rtx insn = crr_insn->node->insn;
 
-	  if (!INSN_P (insn))
+	  if (!NONDEBUG_INSN_P (insn))
 	    continue;
 
 	  /* Check if there is room for the current insn.  */
@@ -2677,7 +2751,7 @@ ps_has_conflicts (partial_schedule_ptr ps, int from, int to)
 	    return true;
 
 	  /* Update the DFA state and return with failure if the DFA found
-	     recource conflicts.  */
+	     resource conflicts.  */
 	  if (state_transition (curr_state, insn) >= 0)
 	    return true;
 
@@ -2700,8 +2774,8 @@ ps_has_conflicts (partial_schedule_ptr ps, int from, int to)
 
 /* Checks if the given node causes resource conflicts when added to PS at
    cycle C.  If not the node is added to PS and returned; otherwise zero
-   is returned.  Bit N is set in MUST_PRECEDE/MUST_FOLLOW if the node with 
-   cuid N must be come before/after (respectively) the node pointed to by 
+   is returned.  Bit N is set in MUST_PRECEDE/MUST_FOLLOW if the node with
+   cuid N must be come before/after (respectively) the node pointed to by
    PS_I when scheduled in the same cycle.  */
 ps_insn_ptr
 ps_add_node_check_conflicts (partial_schedule_ptr ps, ddg_node_ptr n,
@@ -2808,8 +2882,10 @@ rest_of_handle_sms (void)
   return 0;
 }
 
-struct tree_opt_pass pass_sms =
+struct rtl_opt_pass pass_sms =
 {
+ {
+  RTL_PASS,
   "sms",                                /* name */
   gate_handle_sms,                      /* gate */
   rest_of_handle_sms,                   /* execute */
@@ -2823,7 +2899,7 @@ struct tree_opt_pass pass_sms =
   TODO_dump_func,                       /* todo_flags_start */
   TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_dump_func |
-  TODO_ggc_collect,                     /* todo_flags_finish */
-  'm'                                   /* letter */
+  TODO_ggc_collect                      /* todo_flags_finish */
+ }
 };
 

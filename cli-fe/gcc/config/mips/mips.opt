@@ -1,6 +1,6 @@
 ; Options for the MIPS port of the compiler
 ;
-; Copyright (C) 2005, 2007 Free Software Foundation, Inc.
+; Copyright (C) 2005, 2007, 2008 Free Software Foundation, Inc.
 ;
 ; This file is part of GCC.
 ;
@@ -112,6 +112,10 @@ mfix-r4400
 Target Report Mask(FIX_R4400)
 Work around certain R4400 errata
 
+mfix-r10000
+Target Report Mask(FIX_R10000)
+Work around certain R10000 errata
+
 mfix-sb1
 Target Report Var(TARGET_FIX_SB1)
 Work around errata for early SB-1 revision 2 cores
@@ -160,6 +164,10 @@ mgpopt
 Target Report Var(TARGET_GPOPT) Init(1)
 Use GP-relative addressing to access small data
 
+mplt
+Target Report Var(TARGET_PLT)
+When generating -mabicalls code, allow executables to use PLTs and copy relocations
+
 mhard-float
 Target Report RejectNegative InverseMask(SOFT_FLOAT_ABI, HARD_FLOAT_ABI)
 Allow the use of hardware floating-point ABI and instructions
@@ -200,6 +208,10 @@ mlong64
 Target Report RejectNegative Mask(LONG64)
 Use a 64-bit long type
 
+mmcount-ra-address
+Target Report Var(TARGET_MCOUNT_RA_ADDRESS)
+Pass the address of the ra save location to _mcount in $12
+
 mmemcpy
 Target Report Mask(MEMCPY)
 Don't optimize block moves
@@ -232,6 +244,14 @@ mpaired-single
 Target Report Mask(PAIRED_SINGLE_FLOAT)
 Use paired-single floating-point instructions
 
+mr10k-cache-barrier=
+Target Joined RejectNegative
+-mr10k-cache-barrier=SETTING	Specify when r10k cache barriers should be inserted
+
+mrelax-pic-calls
+Target Report Mask(RELAX_PIC_CALLS)
+Try to allow the linker to turn PIC calls into direct calls
+
 mshared
 Target Report Var(TARGET_SHARED) Init(1)
 When generating -mabicalls code, make the code suitable for use in shared libraries
@@ -241,7 +261,7 @@ Target Report RejectNegative Mask(SINGLE_FLOAT)
 Restrict the use of hardware floating-point instructions to 32-bit operations
 
 msmartmips
-Target Report RejectNegative Mask(SMARTMIPS)
+Target Report Mask(SMARTMIPS)
 Use SmartMIPS instructions
 
 msoft-float
@@ -255,6 +275,10 @@ Optimize lui/addiu address loads
 msym32
 Target Report Var(TARGET_SYM32)
 Assume all symbols have 32-bit values
+
+msynci
+Target Report Mask(SYNCI)
+Use synci instruction to invalidate i-cache
 
 mtune=
 Target RejectNegative Joined Var(mips_tune_string)

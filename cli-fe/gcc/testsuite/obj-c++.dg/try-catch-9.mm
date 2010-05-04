@@ -2,10 +2,13 @@
    block survive until the @catch block is reached.  */
 /* Developed by Ziemowit Laski <zlaski@apple.com>.  */
 
-/* { dg-options "-fobjc-exceptions -O2" } */
 /* { dg-do run } */
+/* { dg-xfail-if "PR23616" { *-*-* } { "*" } { "-fnext-runtime" } } */
+/* { dg-xfail-if "Needs OBJC2 ABI" { *-*-darwin* && { lp64 && { ! objc2 } } } { "-fnext-runtime" } { "" } } 
+/* { dg-prune-output ".*internal compiler error.*" } */
+/* { dg-options "-fobjc-exceptions -O2" } */
 
-#include <objc/Object.h>
+#include "../objc-obj-c++-shared/Object1.h"
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -63,3 +66,4 @@ int main(void) {
   foo(15, &gf1);
   return 0;
 }
+#include "../objc-obj-c++-shared/Object1-implementation.h"

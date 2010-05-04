@@ -1,4 +1,5 @@
-/* { dg-mips-options "-mabi=64 -mhard-float -O2 -EB" } */
+/* { dg-options "-mabi=64 -mhard-float -O2 -EB" } */
+/* { dg-require-effective-target mips_newabi_large_long_double } */
 
 NOMIPS16 void
 foo (long double d, long double *x)

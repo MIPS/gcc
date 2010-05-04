@@ -1,5 +1,5 @@
 /* Exported functions from emit-rtl.c
-   Copyright (C) 2004, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2007, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -26,6 +26,9 @@ extern void set_mem_alias_set (rtx, alias_set_type);
 /* Set the alignment of MEM to ALIGN bits.  */
 extern void set_mem_align (rtx, unsigned int);
 
+/* Set the address space of MEM to ADDRSPACE.  */
+extern void set_mem_addr_space (rtx, addr_space_t);
+
 /* Set the expr for MEM to EXPR.  */
 extern void set_mem_expr (rtx, tree);
 
@@ -34,6 +37,10 @@ extern void set_mem_offset (rtx, rtx);
 
 /* Set the size for MEM to SIZE.  */
 extern void set_mem_size (rtx, rtx);
+
+/* Set the attributes for MEM appropriate for a spill slot.  */
+extern void set_mem_attrs_for_spill (rtx);
+extern tree get_spill_slot_decl (bool);
 
 /* Return a memory reference like MEMREF, but with its address changed to
    ADDR.  The caller is asserting that the actual piece of memory pointed

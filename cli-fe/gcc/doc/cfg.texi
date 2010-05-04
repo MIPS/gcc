@@ -1,5 +1,6 @@
 @c -*-texinfo-*-
-@c Copyright (C) 2001, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+@c Copyright (C) 2001, 2003, 2004, 2005, 2006, 2007, 2008 Free Software
+@c Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -292,13 +293,13 @@ series of jumps,
 
 @smallexample
   goto *x;
-  [ ... ]
+  [ @dots{} ]
 
   goto *x;
-  [ ... ]
+  [ @dots{} ]
 
   goto *x;
-  [ ... ]
+  [ @dots{} ]
 @end smallexample
 
 @noindent
@@ -307,13 +308,13 @@ which has a much simpler flow graph:
 
 @smallexample
   goto y;
-  [ ... ]
+  [ @dots{} ]
 
   goto y;
-  [ ... ]
+  [ @dots{} ]
 
   goto y;
-  [ ... ]
+  [ @dots{} ]
 
 y:
   goto *x;
@@ -512,9 +513,9 @@ containing the queried statement.
 When changes need to be applied to a function in its @code{tree}
 representation, @dfn{block statement iterators} should be used.  These
 iterators provide an integrated abstraction of the flow graph and the
-instruction stream.  Block statement iterators iterators are
-constructed using the @code{block_stmt_iterator} data structure and
-several modifier are available, including the following:
+instruction stream.  Block statement iterators are constructed using
+the @code{block_stmt_iterator} data structure and several modifier are
+available, including the following:
 
 @ftable @code
 @item bsi_start
@@ -607,7 +608,7 @@ includes the creation of new basic blocks where needed.  In the
 iterator on an edge, and @code{bsi_commit_edge_inserts} which flushes
 the instruction to actual instruction stream.
 
-While debugging the optimization pass, an @code{verify_flow_info}
+While debugging the optimization pass, a @code{verify_flow_info}
 function may be useful to find bugs in the control flow graph updating
 code.
 
@@ -637,7 +638,7 @@ used on some path from @code{P} to the end of the function.  With
 beginning of the function to @code{P} that defines the variable.  
 @code{LIVE} is the intersection of the @code{LR} and @code{UR} and a
 variable is live at @code{P} if there is both an assignment that reaches
-it from the beginning of the function and a uses that can be reached on
+it from the beginning of the function and a use that can be reached on
 some path from @code{P} to the end of the function.
 
 In general @code{LIVE} is the most useful of the three.  The macros

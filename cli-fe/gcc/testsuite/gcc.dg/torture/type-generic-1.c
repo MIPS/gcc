@@ -2,7 +2,8 @@
    without any fast-math flags.  */
 
 /* { dg-do run } */
-/* { dg-options "-mieee" { target sh*-*-* } } */
+/* { dg-skip-if "No Inf/NaN support" { spu-*-* } } */
+/* { dg-add-options ieee } */
 
 #include "../tg-tests.h"
 

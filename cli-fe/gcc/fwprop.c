@@ -1,5 +1,6 @@
 /* RTL-based forward propagation pass for GNU compiler.
-   Copyright (C) 2005, 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010
+   Free Software Foundation, Inc.
    Contributed by Paolo Bonzini and Steven Bosscher.
 
 This file is part of GCC.
@@ -38,6 +39,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "cfgloop.h"
 #include "tree-pass.h"
+#include "domwalk.h"
 
 
 /* This pass does simple forward propagation and simplification when an
@@ -100,10 +102,211 @@ along with GCC; see the file COPYING3.  If not see
      (set (reg:QI 121) (subreg:QI (reg:SI 119) 0))
      (set (reg:SI 122) (plus:SI (reg:SI 118) (reg:SI 119)))
 
-   where the first two insns are now dead.  */
+   where the first two insns are now dead.
+
+   We used to use reaching definitions to find which uses have a
+   single reaching definition (sounds obvious...), but this is too
+   complex a problem in nasty testcases like PR33928.  Now we use the
+   multiple definitions problem in df-problems.c.  The similarity
+   between that problem and SSA form creation is taken further, in
+   that fwprop does a dominator walk to create its chains; however,
+   instead of creating a PHI function where multiple definitions meet
+   I just punt and record only singleton use-def chains, which is
+   all that is needed by fwprop.  */
 
 
 static int num_changes;
+
+DEF_VEC_P(df_ref);
+DEF_VEC_ALLOC_P(df_ref,heap);
+static VEC(df_ref,heap) *use_def_ref;
+static VEC(df_ref,heap) *reg_defs;
+static VEC(df_ref,heap) *reg_defs_stack;
+
+/* The MD bitmaps are trimmed to include only live registers to cut
+   memory usage on testcases like insn-recog.c.  Track live registers
+   in the basic block and do not perform forward propagation if the
+   destination is a dead pseudo occurring in a note.  */
+static bitmap local_md;
+static bitmap local_lr;
+
+/* Return the only def in USE's use-def chain, or NULL if there is
+   more than one def in the chain.  */
+
+static inline df_ref
+get_def_for_use (df_ref use)
+{
+  return VEC_index (df_ref, use_def_ref, DF_REF_ID (use));
+}
+
+
+/* Update the reg_defs vector with non-partial definitions in DEF_REC.
+   TOP_FLAG says which artificials uses should be used, when DEF_REC
+   is an artificial def vector.  LOCAL_MD is modified as after a
+   df_md_simulate_* function; we do more or less the same processing
+   done there, so we do not use those functions.  */
+
+#define DF_MD_GEN_FLAGS \
+	(DF_REF_PARTIAL | DF_REF_CONDITIONAL | DF_REF_MAY_CLOBBER)
+
+static void
+process_defs (df_ref *def_rec, int top_flag)
+{
+  df_ref def;
+  while ((def = *def_rec++) != NULL)
+    {
+      df_ref curr_def = VEC_index (df_ref, reg_defs, DF_REF_REGNO (def));
+      unsigned int dregno;
+
+      if ((DF_REF_FLAGS (def) & DF_REF_AT_TOP) != top_flag)
+	continue;
+
+      dregno = DF_REF_REGNO (def);
+      if (curr_def)
+	VEC_safe_push (df_ref, heap, reg_defs_stack, curr_def);
+      else
+	{
+	  /* Do not store anything if "transitioning" from NULL to NULL.  But
+             otherwise, push a special entry on the stack to tell the
+	     leave_block callback that the entry in reg_defs was NULL.  */
+	  if (DF_REF_FLAGS (def) & DF_MD_GEN_FLAGS)
+	    ;
+	  else
+	    VEC_safe_push (df_ref, heap, reg_defs_stack, def);
+	}
+
+      if (DF_REF_FLAGS (def) & DF_MD_GEN_FLAGS)
+	{
+	  bitmap_set_bit (local_md, dregno);
+	  VEC_replace (df_ref, reg_defs, dregno, NULL);
+	}
+      else
+	{
+	  bitmap_clear_bit (local_md, dregno);
+	  VEC_replace (df_ref, reg_defs, dregno, def);
+	}
+    }
+}
+
+
+/* Fill the use_def_ref vector with values for the uses in USE_REC,
+   taking reaching definitions info from LOCAL_MD and REG_DEFS.
+   TOP_FLAG says which artificials uses should be used, when USE_REC
+   is an artificial use vector.  */
+
+static void
+process_uses (df_ref *use_rec, int top_flag)
+{
+  df_ref use;
+  while ((use = *use_rec++) != NULL)
+    if ((DF_REF_FLAGS (use) & DF_REF_AT_TOP) == top_flag)
+      {
+        unsigned int uregno = DF_REF_REGNO (use);
+        if (VEC_index (df_ref, reg_defs, uregno)
+	    && !bitmap_bit_p (local_md, uregno)
+	    && bitmap_bit_p (local_lr, uregno))
+	  VEC_replace (df_ref, use_def_ref, DF_REF_ID (use),
+		       VEC_index (df_ref, reg_defs, uregno));
+      }
+}
+
+
+static void
+single_def_use_enter_block (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
+			    basic_block bb)
+{
+  int bb_index = bb->index;
+  struct df_md_bb_info *md_bb_info = df_md_get_bb_info (bb_index);
+  struct df_lr_bb_info *lr_bb_info = df_lr_get_bb_info (bb_index);
+  rtx insn;
+
+  bitmap_copy (local_md, md_bb_info->in);
+  bitmap_copy (local_lr, lr_bb_info->in);
+
+  /* Push a marker for the leave_block callback.  */
+  VEC_safe_push (df_ref, heap, reg_defs_stack, NULL);
+
+  process_uses (df_get_artificial_uses (bb_index), DF_REF_AT_TOP);
+  process_defs (df_get_artificial_defs (bb_index), DF_REF_AT_TOP);
+  df_simulate_initialize_forwards (bb, local_lr);
+
+  FOR_BB_INSNS (bb, insn)
+    if (INSN_P (insn))
+      {
+        unsigned int uid = INSN_UID (insn);
+        process_uses (DF_INSN_UID_USES (uid), 0);
+        process_uses (DF_INSN_UID_EQ_USES (uid), 0);
+        process_defs (DF_INSN_UID_DEFS (uid), 0);
+	df_simulate_one_insn_forwards (bb, insn, local_lr);
+      }
+
+  process_uses (df_get_artificial_uses (bb_index), 0);
+  process_defs (df_get_artificial_defs (bb_index), 0);
+}
+
+/* Pop the definitions created in this basic block when leaving its
+   dominated parts.  */
+
+static void
+single_def_use_leave_block (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
+			    basic_block bb ATTRIBUTE_UNUSED)
+{
+  df_ref saved_def;
+  while ((saved_def = VEC_pop (df_ref, reg_defs_stack)) != NULL)
+    {
+      unsigned int dregno = DF_REF_REGNO (saved_def);
+
+      /* See also process_defs.  */
+      if (saved_def == VEC_index (df_ref, reg_defs, dregno))
+	VEC_replace (df_ref, reg_defs, dregno, NULL);
+      else
+	VEC_replace (df_ref, reg_defs, dregno, saved_def);
+    }
+}
+
+
+/* Build a vector holding the reaching definitions of uses reached by a
+   single dominating definition.  */
+
+static void
+build_single_def_use_links (void)
+{
+  struct dom_walk_data walk_data;
+
+  /* We use the multiple definitions problem to compute our restricted
+     use-def chains.  */
+  df_set_flags (DF_EQ_NOTES);
+  df_md_add_problem ();
+  df_note_add_problem ();
+  df_analyze ();
+  df_maybe_reorganize_use_refs (DF_REF_ORDER_BY_INSN_WITH_NOTES);
+
+  use_def_ref = VEC_alloc (df_ref, heap, DF_USES_TABLE_SIZE ());
+  VEC_safe_grow_cleared (df_ref, heap, use_def_ref, DF_USES_TABLE_SIZE ());
+
+  reg_defs = VEC_alloc (df_ref, heap, max_reg_num ());
+  VEC_safe_grow_cleared (df_ref, heap, reg_defs, max_reg_num ());
+
+  reg_defs_stack = VEC_alloc (df_ref, heap, n_basic_blocks * 10);
+  local_md = BITMAP_ALLOC (NULL);
+  local_lr = BITMAP_ALLOC (NULL);
+
+  /* Walk the dominator tree looking for single reaching definitions
+     dominating the uses.  This is similar to how SSA form is built.  */
+  walk_data.dom_direction = CDI_DOMINATORS;
+  walk_data.initialize_block_local_data = NULL;
+  walk_data.before_dom_children = single_def_use_enter_block;
+  walk_data.after_dom_children = single_def_use_leave_block;
+
+  init_walk_dominator_tree (&walk_data);
+  walk_dominator_tree (&walk_data, ENTRY_BLOCK_PTR);
+  fini_walk_dominator_tree (&walk_data);
+
+  BITMAP_FREE (local_lr);
+  BITMAP_FREE (local_md);
+  VEC_free (df_ref, heap, reg_defs);
+  VEC_free (df_ref, heap, reg_defs_stack);
+}
 
 
 /* Do not try to replace constant addresses or addresses of local and
@@ -149,7 +352,7 @@ canonicalize_address (rtx x)
     switch (GET_CODE (x))
       {
       case ASHIFT:
-        if (GET_CODE (XEXP (x, 1)) == CONST_INT
+        if (CONST_INT_P (XEXP (x, 1))
             && INTVAL (XEXP (x, 1)) < GET_MODE_BITSIZE (GET_MODE (x))
             && INTVAL (XEXP (x, 1)) >= 0)
 	  {
@@ -184,71 +387,106 @@ canonicalize_address (rtx x)
    for a memory access in the given MODE.  */
 
 static bool
-should_replace_address (rtx old, rtx new, enum machine_mode mode)
+should_replace_address (rtx old_rtx, rtx new_rtx, enum machine_mode mode,
+			addr_space_t as, bool speed)
 {
   int gain;
 
-  if (rtx_equal_p (old, new) || !memory_address_p (mode, new))
+  if (rtx_equal_p (old_rtx, new_rtx)
+      || !memory_address_addr_space_p (mode, new_rtx, as))
     return false;
 
   /* Copy propagation is always ok.  */
-  if (REG_P (old) && REG_P (new))
+  if (REG_P (old_rtx) && REG_P (new_rtx))
     return true;
 
   /* Prefer the new address if it is less expensive.  */
-  gain = address_cost (old, mode) - address_cost (new, mode);
+  gain = (address_cost (old_rtx, mode, as, speed)
+	  - address_cost (new_rtx, mode, as, speed));
 
   /* If the addresses have equivalent cost, prefer the new address
      if it has the highest `rtx_cost'.  That has the potential of
      eliminating the most insns without additional costs, and it
      is the same that cse.c used to do.  */
   if (gain == 0)
-    gain = rtx_cost (new, SET) - rtx_cost (old, SET);
+    gain = rtx_cost (new_rtx, SET, speed) - rtx_cost (old_rtx, SET, speed);
 
   return (gain > 0);
 }
 
+
+/* Flags for the last parameter of propagate_rtx_1.  */
+
+enum {
+  /* If PR_CAN_APPEAR is true, propagate_rtx_1 always returns true;
+     if it is false, propagate_rtx_1 returns false if, for at least
+     one occurrence OLD, it failed to collapse the result to a constant.
+     For example, (mult:M (reg:M A) (minus:M (reg:M B) (reg:M A))) may
+     collapse to zero if replacing (reg:M B) with (reg:M A).
+
+     PR_CAN_APPEAR is disregarded inside MEMs: in that case,
+     propagate_rtx_1 just tries to make cheaper and valid memory
+     addresses.  */
+  PR_CAN_APPEAR = 1,
+
+  /* If PR_HANDLE_MEM is not set, propagate_rtx_1 won't attempt any replacement
+     outside memory addresses.  This is needed because propagate_rtx_1 does
+     not do any analysis on memory; thus it is very conservative and in general
+     it will fail if non-read-only MEMs are found in the source expression.
+
+     PR_HANDLE_MEM is set when the source of the propagation was not
+     another MEM.  Then, it is safe not to treat non-read-only MEMs as
+     ``opaque'' objects.  */
+  PR_HANDLE_MEM = 2,
+
+  /* Set when costs should be optimized for speed.  */
+  PR_OPTIMIZE_FOR_SPEED = 4
+};
+
+
 /* Replace all occurrences of OLD in *PX with NEW and try to simplify the
    resulting expression.  Replace *PX with a new RTL expression if an
    occurrence of OLD was found.
-
-   If CAN_APPEAR is true, we always return true; if it is false, we
-   can return false if, for at least one occurrence OLD, we failed to
-   collapse the result to a constant.  For example, (mult:M (reg:M A)
-   (minus:M (reg:M B) (reg:M A))) may collapse to zero if replacing
-   (reg:M B) with (reg:M A).
-
-   CAN_APPEAR is disregarded inside MEMs: in that case, we always return
-   true if the simplification is a cheaper and valid memory address.
 
    This is only a wrapper around simplify-rtx.c: do not add any pattern
    matching code here.  (The sole exception is the handling of LO_SUM, but
    that is because there is no simplify_gen_* function for LO_SUM).  */
 
 static bool
-propagate_rtx_1 (rtx *px, rtx old, rtx new, bool can_appear)
+propagate_rtx_1 (rtx *px, rtx old_rtx, rtx new_rtx, int flags)
 {
   rtx x = *px, tem = NULL_RTX, op0, op1, op2;
   enum rtx_code code = GET_CODE (x);
   enum machine_mode mode = GET_MODE (x);
   enum machine_mode op_mode;
+  bool can_appear = (flags & PR_CAN_APPEAR) != 0;
   bool valid_ops = true;
 
-  /* If X is OLD_RTX, return NEW_RTX.  Otherwise, if this is an expression,
-     try to build a new expression from recursive substitution.  */
-
-  if (x == old)
+  if (!(flags & PR_HANDLE_MEM) && MEM_P (x) && !MEM_READONLY_P (x))
     {
-      *px = new;
+      /* If unsafe, change MEMs to CLOBBERs or SCRATCHes (to preserve whether
+	 they have side effects or not).  */
+      *px = (side_effects_p (x)
+	     ? gen_rtx_CLOBBER (GET_MODE (x), const0_rtx)
+	     : gen_rtx_SCRATCH (GET_MODE (x)));
+      return false;
+    }
+
+  /* If X is OLD_RTX, return NEW_RTX.  But not if replacing only within an
+     address, and we are *not* inside one.  */
+  if (x == old_rtx)
+    {
+      *px = new_rtx;
       return can_appear;
     }
 
+  /* If this is an expression, try recursive substitution.  */
   switch (GET_RTX_CLASS (code))
     {
     case RTX_UNARY:
       op0 = XEXP (x, 0);
       op_mode = GET_MODE (op0);
-      valid_ops &= propagate_rtx_1 (&op0, old, new, can_appear);
+      valid_ops &= propagate_rtx_1 (&op0, old_rtx, new_rtx, flags);
       if (op0 == XEXP (x, 0))
 	return true;
       tem = simplify_gen_unary (code, mode, op0, op_mode);
@@ -258,8 +496,8 @@ propagate_rtx_1 (rtx *px, rtx old, rtx new, bool can_appear)
     case RTX_COMM_ARITH:
       op0 = XEXP (x, 0);
       op1 = XEXP (x, 1);
-      valid_ops &= propagate_rtx_1 (&op0, old, new, can_appear);
-      valid_ops &= propagate_rtx_1 (&op1, old, new, can_appear);
+      valid_ops &= propagate_rtx_1 (&op0, old_rtx, new_rtx, flags);
+      valid_ops &= propagate_rtx_1 (&op1, old_rtx, new_rtx, flags);
       if (op0 == XEXP (x, 0) && op1 == XEXP (x, 1))
 	return true;
       tem = simplify_gen_binary (code, mode, op0, op1);
@@ -270,8 +508,8 @@ propagate_rtx_1 (rtx *px, rtx old, rtx new, bool can_appear)
       op0 = XEXP (x, 0);
       op1 = XEXP (x, 1);
       op_mode = GET_MODE (op0) != VOIDmode ? GET_MODE (op0) : GET_MODE (op1);
-      valid_ops &= propagate_rtx_1 (&op0, old, new, can_appear);
-      valid_ops &= propagate_rtx_1 (&op1, old, new, can_appear);
+      valid_ops &= propagate_rtx_1 (&op0, old_rtx, new_rtx, flags);
+      valid_ops &= propagate_rtx_1 (&op1, old_rtx, new_rtx, flags);
       if (op0 == XEXP (x, 0) && op1 == XEXP (x, 1))
 	return true;
       tem = simplify_gen_relational (code, mode, op_mode, op0, op1);
@@ -283,9 +521,9 @@ propagate_rtx_1 (rtx *px, rtx old, rtx new, bool can_appear)
       op1 = XEXP (x, 1);
       op2 = XEXP (x, 2);
       op_mode = GET_MODE (op0);
-      valid_ops &= propagate_rtx_1 (&op0, old, new, can_appear);
-      valid_ops &= propagate_rtx_1 (&op1, old, new, can_appear);
-      valid_ops &= propagate_rtx_1 (&op2, old, new, can_appear);
+      valid_ops &= propagate_rtx_1 (&op0, old_rtx, new_rtx, flags);
+      valid_ops &= propagate_rtx_1 (&op1, old_rtx, new_rtx, flags);
+      valid_ops &= propagate_rtx_1 (&op2, old_rtx, new_rtx, flags);
       if (op0 == XEXP (x, 0) && op1 == XEXP (x, 1) && op2 == XEXP (x, 2))
 	return true;
       if (op_mode == VOIDmode)
@@ -298,7 +536,7 @@ propagate_rtx_1 (rtx *px, rtx old, rtx new, bool can_appear)
       if (code == SUBREG)
 	{
           op0 = XEXP (x, 0);
-	  valid_ops &= propagate_rtx_1 (&op0, old, new, can_appear);
+	  valid_ops &= propagate_rtx_1 (&op0, old_rtx, new_rtx, flags);
           if (op0 == XEXP (x, 0))
 	    return true;
 	  tem = simplify_gen_subreg (mode, op0, GET_MODE (SUBREG_REG (x)),
@@ -307,7 +545,7 @@ propagate_rtx_1 (rtx *px, rtx old, rtx new, bool can_appear)
       break;
 
     case RTX_OBJ:
-      if (code == MEM && x != new)
+      if (code == MEM && x != new_rtx)
 	{
 	  rtx new_op0;
 	  op0 = XEXP (x, 0);
@@ -317,7 +555,8 @@ propagate_rtx_1 (rtx *px, rtx old, rtx new, bool can_appear)
 	    return true;
 
 	  op0 = new_op0 = targetm.delegitimize_address (op0);
-	  valid_ops &= propagate_rtx_1 (&new_op0, old, new, true);
+	  valid_ops &= propagate_rtx_1 (&new_op0, old_rtx, new_rtx,
+					flags | PR_CAN_APPEAR);
 
 	  /* Dismiss transformation that we do not want to carry on.  */
 	  if (!valid_ops
@@ -329,8 +568,10 @@ propagate_rtx_1 (rtx *px, rtx old, rtx new, bool can_appear)
 	  canonicalize_address (new_op0);
 
 	  /* Copy propagations are always ok.  Otherwise check the costs.  */
-	  if (!(REG_P (old) && REG_P (new))
-	      && !should_replace_address (op0, new_op0, GET_MODE (x)))
+	  if (!(REG_P (old_rtx) && REG_P (new_rtx))
+	      && !should_replace_address (op0, new_op0, GET_MODE (x),
+					  MEM_ADDR_SPACE (x),
+	      			 	  flags & PR_OPTIMIZE_FOR_SPEED))
 	    return true;
 
 	  tem = replace_equiv_address_nv (x, new_op0);
@@ -344,8 +585,8 @@ propagate_rtx_1 (rtx *px, rtx old, rtx new, bool can_appear)
 	  /* The only simplification we do attempts to remove references to op0
 	     or make it constant -- in both cases, op0's invalidity will not
 	     make the result invalid.  */
-	  propagate_rtx_1 (&op0, old, new, true);
-	  valid_ops &= propagate_rtx_1 (&op1, old, new, can_appear);
+	  propagate_rtx_1 (&op0, old_rtx, new_rtx, flags | PR_CAN_APPEAR);
+	  valid_ops &= propagate_rtx_1 (&op1, old_rtx, new_rtx, flags);
           if (op0 == XEXP (x, 0) && op1 == XEXP (x, 1))
 	    return true;
 
@@ -363,9 +604,9 @@ propagate_rtx_1 (rtx *px, rtx old, rtx new, bool can_appear)
 
       else if (code == REG)
 	{
-	  if (rtx_equal_p (x, old))
+	  if (rtx_equal_p (x, old_rtx))
 	    {
-              *px = new;
+              *px = new_rtx;
               return can_appear;
 	    }
 	}
@@ -387,6 +628,18 @@ propagate_rtx_1 (rtx *px, rtx old, rtx new, bool can_appear)
   return valid_ops || can_appear || CONSTANT_P (tem);
 }
 
+
+/* for_each_rtx traversal function that returns 1 if BODY points to
+   a non-constant mem.  */
+
+static int
+varying_mem_p (rtx *body, void *data ATTRIBUTE_UNUSED)
+{
+  rtx x = *body;
+  return MEM_P (x) && !MEM_READONLY_P (x);
+}
+
+
 /* Replace all occurrences of OLD in X with NEW and try to simplify the
    resulting expression (in mode MODE).  Return a new expression if it is
    a constant, otherwise X.
@@ -396,24 +649,33 @@ propagate_rtx_1 (rtx *px, rtx old, rtx new, bool can_appear)
    Otherwise, we accept simplifications that have a lower or equal cost.  */
 
 static rtx
-propagate_rtx (rtx x, enum machine_mode mode, rtx old, rtx new)
+propagate_rtx (rtx x, enum machine_mode mode, rtx old_rtx, rtx new_rtx,
+	       bool speed)
 {
   rtx tem;
   bool collapsed;
+  int flags;
 
-  if (REG_P (new) && REGNO (new) < FIRST_PSEUDO_REGISTER)
+  if (REG_P (new_rtx) && REGNO (new_rtx) < FIRST_PSEUDO_REGISTER)
     return NULL_RTX;
 
-  new = copy_rtx (new);
+  flags = 0;
+  if (REG_P (new_rtx) || CONSTANT_P (new_rtx))
+    flags |= PR_CAN_APPEAR;
+  if (!for_each_rtx (&new_rtx, varying_mem_p, NULL))
+    flags |= PR_HANDLE_MEM;
+
+  if (speed)
+    flags |= PR_OPTIMIZE_FOR_SPEED;
 
   tem = x;
-  collapsed = propagate_rtx_1 (&tem, old, new, REG_P (new) || CONSTANT_P (new));
+  collapsed = propagate_rtx_1 (&tem, old_rtx, copy_rtx (new_rtx), flags);
   if (tem == x || !collapsed)
     return NULL_RTX;
 
   /* gen_lowpart_common will not be able to process VOIDmode entities other
      than CONST_INTs.  */
-  if (GET_MODE (tem) == VOIDmode && GET_CODE (tem) != CONST_INT)
+  if (GET_MODE (tem) == VOIDmode && !CONST_INT_P (tem))
     return NULL_RTX;
 
   if (GET_MODE (tem) == VOIDmode)
@@ -431,19 +693,19 @@ propagate_rtx (rtx x, enum machine_mode mode, rtx old, rtx new)
    between FROM to (but not including) TO.  */
 
 static bool
-local_ref_killed_between_p (struct df_ref * ref, rtx from, rtx to)
+local_ref_killed_between_p (df_ref ref, rtx from, rtx to)
 {
   rtx insn;
 
   for (insn = from; insn != to; insn = NEXT_INSN (insn))
     {
-      struct df_ref **def_rec;
+      df_ref *def_rec;
       if (!INSN_P (insn))
 	continue;
 
       for (def_rec = DF_INSN_DEFS (insn); *def_rec; def_rec++)
 	{
-	  struct df_ref *def = *def_rec;
+	  df_ref def = *def_rec;
 	  if (DF_REF_REGNO (ref) == DF_REF_REGNO (def))
 	    return true;
 	}
@@ -461,29 +723,34 @@ local_ref_killed_between_p (struct df_ref * ref, rtx from, rtx to)
      we check if the definition is killed after DEF_INSN or before
      TARGET_INSN insn, in their respective basic blocks.  */
 static bool
-use_killed_between (struct df_ref *use, rtx def_insn, rtx target_insn)
+use_killed_between (df_ref use, rtx def_insn, rtx target_insn)
 {
   basic_block def_bb = BLOCK_FOR_INSN (def_insn);
   basic_block target_bb = BLOCK_FOR_INSN (target_insn);
   int regno;
-  struct df_ref * def;
+  df_ref def;
 
-  /* In some obscure situations we can have a def reaching a use
-     that is _before_ the def.  In other words the def does not
-     dominate the use even though the use and def are in the same
-     basic block.  This can happen when a register may be used
-     uninitialized in a loop.  In such cases, we must assume that
-     DEF is not available.  */
+  /* We used to have a def reaching a use that is _before_ the def,
+     with the def not dominating the use even though the use and def
+     are in the same basic block, when a register may be used
+     uninitialized in a loop.  This should not happen anymore since
+     we do not use reaching definitions, but still we test for such
+     cases and assume that DEF is not available.  */
   if (def_bb == target_bb
       ? DF_INSN_LUID (def_insn) >= DF_INSN_LUID (target_insn)
       : !dominated_by_p (CDI_DOMINATORS, target_bb, def_bb))
     return true;
 
   /* Check if the reg in USE has only one definition.  We already
-     know that this definition reaches use, or we wouldn't be here.  */
+     know that this definition reaches use, or we wouldn't be here.
+     However, this is invalid for hard registers because if they are
+     live at the beginning of the function it does not mean that we
+     have an uninitialized access.  */
   regno = DF_REF_REGNO (use);
   def = DF_REG_DEF_CHAIN (regno);
-  if (def && (def->next_reg == NULL))
+  if (def
+      && DF_REF_NEXT_REG (def) == NULL
+      && regno >= FIRST_PSEUDO_REGISTER)
     return false;
 
   /* Check locally if we are in the same basic block.  */
@@ -494,18 +761,18 @@ use_killed_between (struct df_ref *use, rtx def_insn, rtx target_insn)
   if (single_pred_p (target_bb)
       && single_pred (target_bb) == def_bb)
     {
-      struct df_ref *x;
+      df_ref x;
 
       /* See if USE is killed between DEF_INSN and the last insn in the
 	 basic block containing DEF_INSN.  */
       x = df_bb_regno_last_def_find (def_bb, regno);
-      if (x && DF_INSN_LUID (x->insn) >= DF_INSN_LUID (def_insn))
+      if (x && DF_INSN_LUID (DF_REF_INSN (x)) >= DF_INSN_LUID (def_insn))
 	return true;
 
       /* See if USE is killed between TARGET_INSN and the first insn in the
 	 basic block containing TARGET_INSN.  */
       x = df_bb_regno_first_def_find (target_bb, regno);
-      if (x && DF_INSN_LUID (x->insn) < DF_INSN_LUID (target_insn))
+      if (x && DF_INSN_LUID (DF_REF_INSN (x)) < DF_INSN_LUID (target_insn))
 	return true;
 
       return false;
@@ -516,23 +783,14 @@ use_killed_between (struct df_ref *use, rtx def_insn, rtx target_insn)
 }
 
 
-/* for_each_rtx traversal function that returns 1 if BODY points to
-   a non-constant mem.  */
-
-static int
-varying_mem_p (rtx *body, void *data ATTRIBUTE_UNUSED)
-{
-  rtx x = *body;
-  return MEM_P (x) && !MEM_READONLY_P (x);
-}
-
 /* Check if all uses in DEF_INSN can be used in TARGET_INSN.  This
    would require full computation of available expressions;
    we check only restricted conditions, see use_killed_between.  */
 static bool
 all_uses_available_at (rtx def_insn, rtx target_insn)
 {
-  struct df_ref **use_rec;
+  df_ref *use_rec;
+  struct df_insn_info *insn_info = DF_INSN_INFO_GET (def_insn);
   rtx def_set = single_set (def_insn);
 
   gcc_assert (def_set);
@@ -546,40 +804,44 @@ all_uses_available_at (rtx def_insn, rtx target_insn)
 
       /* If the insn uses the reg that it defines, the substitution is
          invalid.  */
-      for (use_rec = DF_INSN_USES (def_insn); *use_rec; use_rec++)
+      for (use_rec = DF_INSN_INFO_USES (insn_info); *use_rec; use_rec++)
 	{
-	  struct df_ref *use = *use_rec;
+	  df_ref use = *use_rec;
 	  if (rtx_equal_p (DF_REF_REG (use), def_reg))
 	    return false;
 	}
-      for (use_rec = DF_INSN_EQ_USES (def_insn); *use_rec; use_rec++)
+      for (use_rec = DF_INSN_INFO_EQ_USES (insn_info); *use_rec; use_rec++)
 	{
-	  struct df_ref *use = *use_rec;
-	  if (rtx_equal_p (use->reg, def_reg))
+	  df_ref use = *use_rec;
+	  if (rtx_equal_p (DF_REF_REG (use), def_reg))
 	    return false;
 	}
     }
   else
     {
+      rtx def_reg = REG_P (SET_DEST (def_set)) ? SET_DEST (def_set) : NULL_RTX;
+
       /* Look at all the uses of DEF_INSN, and see if they are not
 	 killed between DEF_INSN and TARGET_INSN.  */
-      for (use_rec = DF_INSN_USES (def_insn); *use_rec; use_rec++)
+      for (use_rec = DF_INSN_INFO_USES (insn_info); *use_rec; use_rec++)
 	{
-	  struct df_ref *use = *use_rec;
+	  df_ref use = *use_rec;
+	  if (def_reg && rtx_equal_p (DF_REF_REG (use), def_reg))
+	    return false;
 	  if (use_killed_between (use, def_insn, target_insn))
 	    return false;
 	}
-      for (use_rec = DF_INSN_EQ_USES (def_insn); *use_rec; use_rec++)
+      for (use_rec = DF_INSN_INFO_EQ_USES (insn_info); *use_rec; use_rec++)
 	{
-	  struct df_ref *use = *use_rec;
+	  df_ref use = *use_rec;
+	  if (def_reg && rtx_equal_p (DF_REF_REG (use), def_reg))
+	    return false;
 	  if (use_killed_between (use, def_insn, target_insn))
 	    return false;
 	}
     }
 
-  /* We don't do any analysis of memories or aliasing.  Reject any
-     instruction that involves references to non-constant memory.  */
-  return !for_each_rtx (&SET_SRC (def_set), varying_mem_p, NULL);
+  return true;
 }
 
 
@@ -632,7 +894,7 @@ find_occurrence (rtx *px, rtx find)
    in the data flow object of the pass.  Mark any new uses as having the
    given TYPE.  */
 static void
-update_df (rtx insn, rtx *loc, struct df_ref **use_rec, enum df_ref_type type,
+update_df (rtx insn, rtx *loc, df_ref *use_rec, enum df_ref_type type,
 	   int new_flags)
 {
   bool changed = false;
@@ -640,22 +902,34 @@ update_df (rtx insn, rtx *loc, struct df_ref **use_rec, enum df_ref_type type,
   /* Add a use for the registers that were propagated.  */
   while (*use_rec)
     {
-      struct df_ref *use = *use_rec;
-      struct df_ref *orig_use = use, *new_use;
+      df_ref use = *use_rec;
+      df_ref orig_use = use, new_use;
+      int width = -1;
+      int offset = -1;
+      enum machine_mode mode = VOIDmode;
       rtx *new_loc = find_occurrence (loc, DF_REF_REG (orig_use));
       use_rec++;
 
       if (!new_loc)
 	continue;
 
+      if (DF_REF_FLAGS_IS_SET (orig_use, DF_REF_SIGN_EXTRACT | DF_REF_ZERO_EXTRACT))
+	{
+	  width = DF_REF_EXTRACT_WIDTH (orig_use);
+	  offset = DF_REF_EXTRACT_OFFSET (orig_use);
+	  mode = DF_REF_EXTRACT_MODE (orig_use);
+	}
+
       /* Add a new insn use.  Use the original type, because it says if the
          use was within a MEM.  */
       new_use = df_ref_create (DF_REF_REG (orig_use), new_loc,
 			       insn, BLOCK_FOR_INSN (insn),
-			       type, DF_REF_FLAGS (orig_use) | new_flags);
+			       type, DF_REF_FLAGS (orig_use) | new_flags,
+			       width, offset, mode);
 
       /* Set up the use-def chain.  */
-      df_chain_copy (new_use, DF_REF_CHAIN (orig_use));
+      gcc_assert (DF_REF_ID (new_use) == (int) VEC_length (df_ref, use_def_ref));
+      VEC_safe_push (df_ref, heap, use_def_ref, get_def_for_use (orig_use));
       changed = true;
     }
   if (changed)
@@ -670,25 +944,31 @@ update_df (rtx insn, rtx *loc, struct df_ref **use_rec, enum df_ref_type type,
    performed.  */
 
 static bool
-try_fwprop_subst (struct df_ref *use, rtx *loc, rtx new, rtx def_insn, bool set_reg_equal)
+try_fwprop_subst (df_ref use, rtx *loc, rtx new_rtx, rtx def_insn, bool set_reg_equal)
 {
   rtx insn = DF_REF_INSN (use);
   enum df_ref_type type = DF_REF_TYPE (use);
   int flags = DF_REF_FLAGS (use);
   rtx set = single_set (insn);
-  int old_cost = rtx_cost (SET_SRC (set), SET);
+  bool speed = optimize_bb_for_speed_p (BLOCK_FOR_INSN (insn));
+  int old_cost = 0;
   bool ok;
 
+  /* forward_propagate_subreg may be operating on an instruction with
+     multiple sets.  If so, assume the cost of the new instruction is
+     not greater than the old one.  */
+  if (set)
+    old_cost = rtx_cost (SET_SRC (set), SET, speed);
   if (dump_file)
     {
       fprintf (dump_file, "\nIn insn %d, replacing\n ", INSN_UID (insn));
       print_inline_rtx (dump_file, *loc, 2);
       fprintf (dump_file, "\n with ");
-      print_inline_rtx (dump_file, new, 2);
+      print_inline_rtx (dump_file, new_rtx, 2);
       fprintf (dump_file, "\n");
     }
 
-  validate_unshare_change (insn, loc, new, true);
+  validate_unshare_change (insn, loc, new_rtx, true);
   if (!verify_changes (0))
     {
       if (dump_file)
@@ -698,7 +978,8 @@ try_fwprop_subst (struct df_ref *use, rtx *loc, rtx new, rtx def_insn, bool set_
     }
 
   else if (DF_REF_TYPE (use) == DF_REF_REG_USE
-	   && rtx_cost (SET_SRC (set), SET) > old_cost)
+	   && set
+	   && rtx_cost (SET_SRC (set), SET, speed) > old_cost)
     {
       if (dump_file)
 	fprintf (dump_file, "Changes to insn %d not profitable\n",
@@ -719,32 +1000,34 @@ try_fwprop_subst (struct df_ref *use, rtx *loc, rtx new, rtx def_insn, bool set_
       num_changes++;
 
       df_ref_remove (use);
-      if (!CONSTANT_P (new))
+      if (!CONSTANT_P (new_rtx))
 	{
-	  update_df (insn, loc, DF_INSN_USES (def_insn), type, flags);
-	  update_df (insn, loc, DF_INSN_EQ_USES (def_insn), type, flags);
+	  struct df_insn_info *insn_info = DF_INSN_INFO_GET (def_insn);
+	  update_df (insn, loc, DF_INSN_INFO_USES (insn_info), type, flags);
+	  update_df (insn, loc, DF_INSN_INFO_EQ_USES (insn_info), type, flags);
 	}
     }
   else
     {
       cancel_changes (0);
 
-      /* Can also record a simplified value in a REG_EQUAL note, making a
-	 new one if one does not already exist.  */
+      /* Can also record a simplified value in a REG_EQUAL note,
+	 making a new one if one does not already exist.  */
       if (set_reg_equal)
 	{
 	  if (dump_file)
 	    fprintf (dump_file, " Setting REG_EQUAL note\n");
 
-	  set_unique_reg_note (insn, REG_EQUAL, copy_rtx (new));
+	  set_unique_reg_note (insn, REG_EQUAL, copy_rtx (new_rtx));
 
 	  /* ??? Is this still necessary if we add the note through
 	     set_unique_reg_note?  */
-          if (!CONSTANT_P (new))
+          if (!CONSTANT_P (new_rtx))
 	    {
-	      update_df (insn, loc, DF_INSN_USES (def_insn),
+	      struct df_insn_info *insn_info = DF_INSN_INFO_GET (def_insn);
+	      update_df (insn, loc, DF_INSN_INFO_USES (insn_info),
 			 type, DF_REF_IN_NOTE);
-	      update_df (insn, loc, DF_INSN_EQ_USES (def_insn),
+	      update_df (insn, loc, DF_INSN_INFO_EQ_USES (insn_info),
 			 type, DF_REF_IN_NOTE);
 	    }
 	}
@@ -753,58 +1036,205 @@ try_fwprop_subst (struct df_ref *use, rtx *loc, rtx new, rtx def_insn, bool set_
   return ok;
 }
 
-
-/* If USE is a paradoxical subreg, see if it can be replaced by a pseudo.  */
+/* For the given single_set INSN, containing SRC known to be a
+   ZERO_EXTEND or SIGN_EXTEND of a register, return true if INSN
+   is redundant due to the register being set by a LOAD_EXTEND_OP
+   load from memory.  */
 
 static bool
-forward_propagate_subreg (struct df_ref *use, rtx def_insn, rtx def_set)
+free_load_extend (rtx src, rtx insn)
+{
+  rtx reg;
+  df_ref *use_vec;
+  df_ref use = 0, def;
+
+  reg = XEXP (src, 0);
+#ifdef LOAD_EXTEND_OP
+  if (LOAD_EXTEND_OP (GET_MODE (reg)) != GET_CODE (src))
+#endif
+    return false;
+
+  for (use_vec = DF_INSN_USES (insn); *use_vec; use_vec++)
+    {
+      use = *use_vec;
+
+      if (!DF_REF_IS_ARTIFICIAL (use)
+	  && DF_REF_TYPE (use) == DF_REF_REG_USE
+	  && DF_REF_REG (use) == reg)
+	break;
+    }
+  if (!use)
+    return false;
+
+  def = get_def_for_use (use);
+  if (!def)
+    return false;
+
+  if (DF_REF_IS_ARTIFICIAL (def))
+    return false;
+
+  if (NONJUMP_INSN_P (DF_REF_INSN (def)))
+    {
+      rtx patt = PATTERN (DF_REF_INSN (def));
+
+      if (GET_CODE (patt) == SET
+	  && GET_CODE (SET_SRC (patt)) == MEM
+	  && rtx_equal_p (SET_DEST (patt), reg))
+	return true;
+    }
+  return false;
+}
+
+/* If USE is a subreg, see if it can be replaced by a pseudo.  */
+
+static bool
+forward_propagate_subreg (df_ref use, rtx def_insn, rtx def_set)
 {
   rtx use_reg = DF_REF_REG (use);
   rtx use_insn, src;
 
-  /* Only consider paradoxical subregs... */
+  /* Only consider subregs... */
   enum machine_mode use_mode = GET_MODE (use_reg);
   if (GET_CODE (use_reg) != SUBREG
-      || !REG_P (SET_DEST (def_set))
-      || GET_MODE_SIZE (use_mode)
-	 <= GET_MODE_SIZE (GET_MODE (SUBREG_REG (use_reg))))
+      || !REG_P (SET_DEST (def_set)))
     return false;
 
-  /* If this is a paradoxical SUBREG, we have no idea what value the
-     extra bits would have.  However, if the operand is equivalent to
-     a SUBREG whose operand is the same as our mode, and all the modes
-     are within a word, we can just use the inner operand because
-     these SUBREGs just say how to treat the register.  */
-  use_insn = DF_REF_INSN (use);
+  /* If this is a paradoxical SUBREG...  */
+  if (GET_MODE_SIZE (use_mode)
+      > GET_MODE_SIZE (GET_MODE (SUBREG_REG (use_reg))))
+    {
+      /* If this is a paradoxical SUBREG, we have no idea what value the
+	 extra bits would have.  However, if the operand is equivalent to
+	 a SUBREG whose operand is the same as our mode, and all the modes
+	 are within a word, we can just use the inner operand because
+	 these SUBREGs just say how to treat the register.  */
+      use_insn = DF_REF_INSN (use);
+      src = SET_SRC (def_set);
+      if (GET_CODE (src) == SUBREG
+	  && REG_P (SUBREG_REG (src))
+	  && GET_MODE (SUBREG_REG (src)) == use_mode
+	  && subreg_lowpart_p (src)
+	  && all_uses_available_at (def_insn, use_insn))
+	return try_fwprop_subst (use, DF_REF_LOC (use), SUBREG_REG (src),
+				 def_insn, false);
+    }
+
+  /* If this is a SUBREG of a ZERO_EXTEND or SIGN_EXTEND, and the SUBREG
+     is the low part of the reg being extended then just use the inner
+     operand.  Don't do this if the ZERO_EXTEND or SIGN_EXTEND insn will
+     be removed due to it matching a LOAD_EXTEND_OP load from memory.  */
+  else if (subreg_lowpart_p (use_reg))
+    {
+      use_insn = DF_REF_INSN (use);
+      src = SET_SRC (def_set);
+      if ((GET_CODE (src) == ZERO_EXTEND
+	   || GET_CODE (src) == SIGN_EXTEND)
+	  && REG_P (XEXP (src, 0))
+	  && GET_MODE (XEXP (src, 0)) == use_mode
+	  && !free_load_extend (src, def_insn)
+	  && all_uses_available_at (def_insn, use_insn))
+	return try_fwprop_subst (use, DF_REF_LOC (use), XEXP (src, 0),
+				 def_insn, false);
+    }
+
+  return false;
+}
+
+/* Try to replace USE with SRC (defined in DEF_INSN) in __asm.  */
+
+static bool
+forward_propagate_asm (df_ref use, rtx def_insn, rtx def_set, rtx reg)
+{
+  rtx use_insn = DF_REF_INSN (use), src, use_pat, asm_operands, new_rtx, *loc;
+  int speed_p, i;
+  df_ref *use_vec;
+
+  gcc_assert ((DF_REF_FLAGS (use) & DF_REF_IN_NOTE) == 0);
+
   src = SET_SRC (def_set);
-  if (GET_CODE (src) == SUBREG
-      && REG_P (SUBREG_REG (src))
-      && GET_MODE (SUBREG_REG (src)) == use_mode
-      && subreg_lowpart_p (src)
-      && all_uses_available_at (def_insn, use_insn))
-    return try_fwprop_subst (use, DF_REF_LOC (use), SUBREG_REG (src),
-			     def_insn, false);
-  else
+  use_pat = PATTERN (use_insn);
+
+  /* In __asm don't replace if src might need more registers than
+     reg, as that could increase register pressure on the __asm.  */
+  use_vec = DF_INSN_USES (def_insn);
+  if (use_vec[0] && use_vec[1])
     return false;
+
+  speed_p = optimize_bb_for_speed_p (BLOCK_FOR_INSN (use_insn));
+  asm_operands = NULL_RTX;
+  switch (GET_CODE (use_pat))
+    {
+    case ASM_OPERANDS:
+      asm_operands = use_pat;
+      break;
+    case SET:
+      if (MEM_P (SET_DEST (use_pat)))
+	{
+	  loc = &SET_DEST (use_pat);
+	  new_rtx = propagate_rtx (*loc, GET_MODE (*loc), reg, src, speed_p);
+	  if (new_rtx)
+	    validate_unshare_change (use_insn, loc, new_rtx, true);
+	}
+      asm_operands = SET_SRC (use_pat);
+      break;
+    case PARALLEL:
+      for (i = 0; i < XVECLEN (use_pat, 0); i++)
+	if (GET_CODE (XVECEXP (use_pat, 0, i)) == SET)
+	  {
+	    if (MEM_P (SET_DEST (XVECEXP (use_pat, 0, i))))
+	      {
+		loc = &SET_DEST (XVECEXP (use_pat, 0, i));
+		new_rtx = propagate_rtx (*loc, GET_MODE (*loc), reg,
+					 src, speed_p);
+		if (new_rtx)
+		  validate_unshare_change (use_insn, loc, new_rtx, true);
+	      }
+	    asm_operands = SET_SRC (XVECEXP (use_pat, 0, i));
+	  }
+	else if (GET_CODE (XVECEXP (use_pat, 0, i)) == ASM_OPERANDS)
+	  asm_operands = XVECEXP (use_pat, 0, i);
+      break;
+    default:
+      gcc_unreachable ();
+    }
+
+  gcc_assert (asm_operands && GET_CODE (asm_operands) == ASM_OPERANDS);
+  for (i = 0; i < ASM_OPERANDS_INPUT_LENGTH (asm_operands); i++)
+    {
+      loc = &ASM_OPERANDS_INPUT (asm_operands, i);
+      new_rtx = propagate_rtx (*loc, GET_MODE (*loc), reg, src, speed_p);
+      if (new_rtx)
+	validate_unshare_change (use_insn, loc, new_rtx, true);
+    }
+
+  if (num_changes_pending () == 0 || !apply_change_group ())
+    return false;
+
+  num_changes++;
+  return true;
 }
 
 /* Try to replace USE with SRC (defined in DEF_INSN) and simplify the
    result.  */
 
 static bool
-forward_propagate_and_simplify (struct df_ref *use, rtx def_insn, rtx def_set)
+forward_propagate_and_simplify (df_ref use, rtx def_insn, rtx def_set)
 {
   rtx use_insn = DF_REF_INSN (use);
   rtx use_set = single_set (use_insn);
-  rtx src, reg, new, *loc;
+  rtx src, reg, new_rtx, *loc;
   bool set_reg_equal;
   enum machine_mode mode;
+  int asm_use = -1;
 
-  if (!use_set)
+  if (INSN_CODE (use_insn) < 0)
+    asm_use = asm_noperands (PATTERN (use_insn));
+
+  if (!use_set && asm_use < 0 && !DEBUG_INSN_P (use_insn))
     return false;
 
   /* Do not propagate into PC, CC0, etc.  */
-  if (GET_MODE (SET_DEST (use_set)) == VOIDmode)
+  if (use_set && GET_MODE (SET_DEST (use_set)) == VOIDmode)
     return false;
 
   /* If def and use are subreg, check if they match.  */
@@ -836,22 +1266,30 @@ forward_propagate_and_simplify (struct df_ref *use, rtx def_insn, rtx def_set)
   if (MEM_P (src) && MEM_READONLY_P (src))
     {
       rtx x = avoid_constant_pool_reference (src);
-      if (x != src)
+      if (x != src && use_set)
 	{
           rtx note = find_reg_note (use_insn, REG_EQUAL, NULL_RTX);
-	  rtx old = note ? XEXP (note, 0) : SET_SRC (use_set);
-	  rtx new = simplify_replace_rtx (old, src, x);
-	  if (old != new)
-            set_unique_reg_note (use_insn, REG_EQUAL, copy_rtx (new));
+	  rtx old_rtx = note ? XEXP (note, 0) : SET_SRC (use_set);
+	  rtx new_rtx = simplify_replace_rtx (old_rtx, src, x);
+	  if (old_rtx != new_rtx)
+            set_unique_reg_note (use_insn, REG_EQUAL, copy_rtx (new_rtx));
 	}
       return false;
     }
+
+  if (asm_use >= 0)
+    return forward_propagate_asm (use, def_insn, def_set, reg);
 
   /* Else try simplifying.  */
 
   if (DF_REF_TYPE (use) == DF_REF_REG_MEM_STORE)
     {
       loc = &SET_DEST (use_set);
+      set_reg_equal = false;
+    }
+  else if (!use_set)
+    {
+      loc = &INSN_VAR_LOCATION_LOC (use_insn);
       set_reg_equal = false;
     }
   else
@@ -874,12 +1312,13 @@ forward_propagate_and_simplify (struct df_ref *use, rtx def_insn, rtx def_set)
   else
     mode = GET_MODE (*loc);
 
-  new = propagate_rtx (*loc, mode, reg, src);
+  new_rtx = propagate_rtx (*loc, mode, reg, src,
+  			   optimize_bb_for_speed_p (BLOCK_FOR_INSN (use_insn)));
 
-  if (!new)
+  if (!new_rtx)
     return false;
 
-  return try_fwprop_subst (use, loc, new, def_insn, set_reg_equal);
+  return try_fwprop_subst (use, loc, new_rtx, def_insn, set_reg_equal);
 }
 
 
@@ -887,10 +1326,9 @@ forward_propagate_and_simplify (struct df_ref *use, rtx def_insn, rtx def_set)
    definition, try to forward propagate it into that insn.  */
 
 static void
-forward_propagate_into (struct df_ref *use)
+forward_propagate_into (df_ref use)
 {
-  struct df_link *defs;
-  struct df_ref *def;
+  df_ref def;
   rtx def_insn, def_set, use_insn;
   rtx parent;
 
@@ -900,11 +1338,9 @@ forward_propagate_into (struct df_ref *use)
     return;
 
   /* Only consider uses that have a single definition.  */
-  defs = DF_REF_CHAIN (use);
-  if (!defs || defs->next)
+  def = get_def_for_use (use);
+  if (!def)
     return;
-
-  def = defs->ref;
   if (DF_REF_FLAGS (def) & DF_REF_READ_WRITE)
     return;
   if (DF_REF_IS_ARTIFICIAL (def))
@@ -921,7 +1357,7 @@ forward_propagate_into (struct df_ref *use)
   else
     parent = PATTERN (use_insn);
 
-  if (!loc_mentioned_in_p (DF_REF_LOC (use), parent))
+  if (!reg_mentioned_p (DF_REF_REG (use), parent))
     return;
 
   def_insn = DF_REF_INSN (def);
@@ -950,12 +1386,7 @@ fwprop_init (void)
      insns (sadly) if we are not working in cfglayout mode.  */
   loop_optimizer_init (0);
 
-  /* Now set up the dataflow problem (we only want use-def chains) and
-     put the dataflow solver to work.  */
-  df_set_flags (DF_EQ_NOTES);
-  df_chain_add_problem (DF_UD_CHAIN);
-  df_analyze ();
-  df_maybe_reorganize_use_refs (DF_REF_ORDER_BY_INSN_WITH_NOTES);
+  build_single_def_use_links ();
   df_set_flags (DF_DEFER_INSN_RESCAN);
 }
 
@@ -964,6 +1395,7 @@ fwprop_done (void)
 {
   loop_optimizer_finalize ();
 
+  VEC_free (df_ref, heap, use_def_ref);
   free_dominance_info (CDI_DOMINATORS);
   cleanup_cfg (0);
   delete_trivially_dead_insns (get_insns (), max_reg_num ());
@@ -973,7 +1405,6 @@ fwprop_done (void)
 	     "\nNumber of successful forward propagations: %d\n\n",
 	     num_changes);
 }
-
 
 
 /* Main entry point.  */
@@ -999,10 +1430,12 @@ fwprop (void)
 
   for (i = 0; i < DF_USES_TABLE_SIZE (); i++)
     {
-      struct df_ref *use = DF_USES_GET (i);
+      df_ref use = DF_USES_GET (i);
       if (use)
 	if (DF_REF_TYPE (use) == DF_REF_REG_USE
-	    || DF_REF_BB (use)->loop_father == NULL)
+	    || DF_REF_BB (use)->loop_father == NULL
+	    /* The outer most loop is not really a loop.  */
+	    || loop_outer (DF_REF_BB (use)->loop_father) == NULL)
 	  forward_propagate_into (use);
     }
 
@@ -1010,8 +1443,10 @@ fwprop (void)
   return 0;
 }
 
-struct tree_opt_pass pass_rtl_fwprop =
+struct rtl_opt_pass pass_rtl_fwprop =
 {
+ {
+  RTL_PASS,
   "fwprop1",                            /* name */
   gate_fwprop,				/* gate */
   fwprop,				/* execute */
@@ -1024,8 +1459,8 @@ struct tree_opt_pass pass_rtl_fwprop =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_df_finish | TODO_verify_rtl_sharing |
-  TODO_dump_func,                       /* todo_flags_finish */
-  0                                     /* letter */
+  TODO_dump_func                        /* todo_flags_finish */
+ }
 };
 
 static unsigned int
@@ -1036,14 +1471,14 @@ fwprop_addr (void)
 
   /* Go through all the uses.  update_df will create new ones at the
      end, and we'll go through them as well.  */
-  df_set_flags (DF_DEFER_INSN_RESCAN);
-
   for (i = 0; i < DF_USES_TABLE_SIZE (); i++)
     {
-      struct df_ref *use = DF_USES_GET (i);
+      df_ref use = DF_USES_GET (i);
       if (use)
 	if (DF_REF_TYPE (use) != DF_REF_REG_USE
-	    && DF_REF_BB (use)->loop_father != NULL)
+	    && DF_REF_BB (use)->loop_father != NULL
+	    /* The outer most loop is not really a loop.  */
+	    && loop_outer (DF_REF_BB (use)->loop_father) != NULL)
 	  forward_propagate_into (use);
     }
 
@@ -1052,8 +1487,10 @@ fwprop_addr (void)
   return 0;
 }
 
-struct tree_opt_pass pass_rtl_fwprop_addr =
+struct rtl_opt_pass pass_rtl_fwprop_addr =
 {
+ {
+  RTL_PASS,
   "fwprop2",                            /* name */
   gate_fwprop,				/* gate */
   fwprop_addr,				/* execute */
@@ -1066,6 +1503,6 @@ struct tree_opt_pass pass_rtl_fwprop_addr =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_df_finish | TODO_verify_rtl_sharing |
-  TODO_dump_func,                       /* todo_flags_finish */
-  0                                     /* letter */
+  TODO_dump_func                        /* todo_flags_finish */
+ }
 };

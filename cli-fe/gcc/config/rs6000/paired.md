@@ -1,5 +1,5 @@
 ;; PowerPC paired single and double hummer description
-;; Copyright (C) 2007
+;; Copyright (C) 2007, 2009
 ;; Free Software Foundation, Inc.
 ;; Contributed by David Edelsohn <edelsohn@gnu.org> and Revital Eres
 ;; <eres@il.ibm.com>
@@ -8,18 +8,17 @@
 
 ;; GCC is free software; you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published
-;; by the Free Software Foundation; either version 2, or (at your
+;; by the Free Software Foundation; either version 3, or (at your
 ;; option) any later version.
 
 ;; GCC is distributed in the hope that it will be useful, but WITHOUT
 ;; ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
 ;; or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
 ;; License for more details.
-
+;; 
 ;; You should have received a copy of the GNU General Public License
-;; along with GCC; see the file COPYING.  If not, write to the
-;; Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston,
-;; MA 02110-1301, USA.
+;; along with this program; see the file COPYING3.  If not see
+;; <http://www.gnu.org/licenses/>.
 
 (define_constants
 [(UNSPEC_INTERHI_V2SF     330)
@@ -28,7 +27,7 @@
  (UNSPEC_EXTODD_V2SF      333)
 ])
 
-(define_insn "negv2sf2"
+(define_insn "paired_negv2sf2"
   [(set (match_operand:V2SF 0 "gpc_reg_operand" "=f")
 	(neg:V2SF (match_operand:V2SF 1 "gpc_reg_operand" "f")))]
   "TARGET_PAIRED_FLOAT"
@@ -42,7 +41,7 @@
   "ps_rsqrte %0,%1"
   [(set_attr "type" "fp")])
 
-(define_insn "absv2sf2"
+(define_insn "paired_absv2sf2"
   [(set (match_operand:V2SF 0 "gpc_reg_operand" "=f")
 	(abs:V2SF (match_operand:V2SF 1 "gpc_reg_operand" "f")))]
   "TARGET_PAIRED_FLOAT"
@@ -56,7 +55,7 @@
   "ps_nabs %0,%1"
   [(set_attr "type" "fp")])
 
-(define_insn "addv2sf3"
+(define_insn "paired_addv2sf3"
   [(set (match_operand:V2SF 0 "gpc_reg_operand" "=f")
 	(plus:V2SF (match_operand:V2SF 1 "gpc_reg_operand" "%f")
 		   (match_operand:V2SF 2 "gpc_reg_operand" "f")))]
@@ -64,7 +63,7 @@
   "ps_add %0,%1,%2"
   [(set_attr "type" "fp")])
 
-(define_insn "subv2sf3"
+(define_insn "paired_subv2sf3"
   [(set (match_operand:V2SF 0 "gpc_reg_operand" "=f")
         (minus:V2SF (match_operand:V2SF 1 "gpc_reg_operand" "f")
                     (match_operand:V2SF 2 "gpc_reg_operand" "f")))]
@@ -72,7 +71,7 @@
   "ps_sub %0,%1,%2"
   [(set_attr "type" "fp")])
 
-(define_insn "mulv2sf3"
+(define_insn "paired_mulv2sf3"
   [(set (match_operand:V2SF 0 "gpc_reg_operand" "=f")
 	(mult:V2SF (match_operand:V2SF 1 "gpc_reg_operand" "%f")
 		   (match_operand:V2SF 2 "gpc_reg_operand" "f")))]
@@ -87,7 +86,7 @@
   "ps_res %0,%1"
   [(set_attr "type" "fp")])
 
-(define_insn "divv2sf3"
+(define_insn "paired_divv2sf3"
   [(set (match_operand:V2SF 0 "gpc_reg_operand" "=f")
 	(div:V2SF (match_operand:V2SF 1 "gpc_reg_operand" "f")
 		  (match_operand:V2SF 2 "gpc_reg_operand" "f")))]

@@ -6,33 +6,32 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 2003-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 2003-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
--- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
--- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- or FITNESS FOR A PARTICULAR PURPOSE.                                     --
 --                                                                          --
--- As a special exception,  if other files  instantiate  generics from this --
--- unit, or you link  this unit with other files  to produce an executable, --
--- this  unit  does not  by itself cause  the resulting  executable  to  be --
--- covered  by the  GNU  General  Public  License.  This exception does not --
--- however invalidate  any other reasons why  the executable file  might be --
--- covered by the  GNU Public License.                                      --
+-- As a special exception under Section 7 of GPL version 3, you are granted --
+-- additional permissions described in the GCC Runtime Library Exception,   --
+-- version 3.1, as published by the Free Software Foundation.               --
+--                                                                          --
+-- You should have received a copy of the GNU General Public License and    --
+-- a copy of the GCC Runtime Library Exception along with this program;     --
+-- see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see    --
+-- <http://www.gnu.org/licenses/>.                                          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
---  This package provides the low level interface to the C Run Time Library
---  on non-VMS systems.
+--  This package provides the low level interface to the C runtime library
+
+pragma Compiler_Unit;
 
 with System.Parameters;
 
@@ -41,6 +40,9 @@ package System.CRTL is
 
    subtype chars is System.Address;
    --  Pointer to null-terminated array of characters
+   --  Should use Interfaces.C.Strings types instead, but this causes bootstrap
+   --  issues as i-c contains Ada 2005 specific features, not compatible with
+   --  older, Ada 95-only base compilers???
 
    subtype DIRs is System.Address;
    --  Corresponds to the C type DIR*
@@ -51,14 +53,14 @@ package System.CRTL is
    subtype int is Integer;
 
    type long is range -(2 ** (System.Parameters.long_bits - 1))
-      .. +(2 ** (System.Parameters.long_bits - 1)) - 1;
+                   .. +(2 ** (System.Parameters.long_bits - 1)) - 1;
 
    subtype off_t is Long_Integer;
 
    type size_t is mod 2 ** Standard'Address_Size;
 
-   type Filename_Encoding is (UTF8, ASCII_8bits);
-   for Filename_Encoding use (UTF8 => 0, ASCII_8bits => 1);
+   type Filename_Encoding is (UTF8, ASCII_8bits, Unspecified);
+   for Filename_Encoding use (UTF8 => 0, ASCII_8bits => 1, Unspecified => 2);
    pragma Convention (C, Filename_Encoding);
    --  Describes the filename's encoding
 
@@ -92,7 +94,7 @@ package System.CRTL is
    function fopen
      (filename : chars;
       mode     : chars;
-      encoding : Filename_Encoding := UTF8) return FILEs;
+      encoding : Filename_Encoding := Unspecified) return FILEs;
    pragma Import (C, fopen, "__gnat_fopen");
 
    function fputc (C : int; stream : FILEs) return int;
@@ -108,14 +110,13 @@ package System.CRTL is
      (filename : chars;
       mode     : chars;
       stream   : FILEs;
-      encoding : Filename_Encoding := UTF8) return FILEs;
+      encoding : Filename_Encoding := Unspecified) return FILEs;
    pragma Import (C, freopen, "__gnat_freopen");
 
    function fseek
      (stream : FILEs;
       offset : long;
-      origin : int)
-      return   int;
+      origin : int) return int;
    pragma Import (C, fseek, "fseek");
 
    function ftell (stream : FILEs) return long;
@@ -148,9 +149,6 @@ package System.CRTL is
    function popen (command, mode : System.Address) return System.Address;
    pragma Import (C, popen, "popen");
 
-   function read (fd : int; buffer : chars; nbytes : int) return int;
-   pragma Import (C, read, "read");
-
    function realloc
      (Ptr : System.Address; Size : size_t) return System.Address;
    pragma Import (C, realloc, "realloc");
@@ -158,15 +156,17 @@ package System.CRTL is
    procedure rewind (stream : FILEs);
    pragma Import (C, rewind, "rewind");
 
-   procedure rmdir (dir_name : String);
-   pragma Import (C, rmdir, "rmdir");
+   function rmdir (dir_name : String) return int;
+   pragma Import (C, rmdir, "__gnat_rmdir");
+
+   function chdir (dir_name : String) return int;
+   pragma Import (C, chdir, "__gnat_chdir");
 
    function setvbuf
      (stream : FILEs;
       buffer : chars;
       mode   : int;
-      size   : size_t)
-      return   int;
+      size   : size_t) return int;
    pragma Import (C, setvbuf, "setvbuf");
 
    procedure tmpnam (string : chars);
@@ -179,7 +179,16 @@ package System.CRTL is
    pragma Import (C, ungetc, "ungetc");
 
    function unlink (filename : chars) return int;
-   pragma Import (C, unlink, "unlink");
+   pragma Import (C, unlink, "__gnat_unlink");
+
+   function open (filename : chars; oflag : int) return int;
+   pragma Import (C, open, "open");
+
+   function close (fd : int) return int;
+   pragma Import (C, close, "close");
+
+   function read (fd : int; buffer : chars; nbytes : int) return int;
+   pragma Import (C, read, "read");
 
    function write (fd : int; buffer : chars; nbytes : int) return int;
    pragma Import (C, write, "write");

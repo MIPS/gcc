@@ -2,7 +2,7 @@
    regardless of runtime used on target system.  */
 
 /* { dg-do compile } */
-/* { dg-options "-fgnu-runtime" } */
+/* { dg-skip-if "" { *-*-* } { "-fnext-runtime" } { "" } } */
 
 #include <objc/Object.h>
 #include <string.h>
@@ -22,7 +22,7 @@
 -(unsigned int) length  { return len; }
 @end
 
-int main(int argc, void **args)
+int main(int argc, const char **args)
 {
   if (strcmp ([@"this is a string" cString], "this is a string"))
     abort ();

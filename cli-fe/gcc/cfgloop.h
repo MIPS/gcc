@@ -1,6 +1,6 @@
 /* Natural loop functions
    Copyright (C) 1987, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
-   2005, 2006, 2007  Free Software Foundation, Inc.
+   2005, 2006, 2007, 2008, 2009  Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -38,18 +38,16 @@ enum lpt_dec
   LPT_UNROLL_STUPID
 };
 
-struct lpt_decision GTY (())
-{
+struct GTY (()) lpt_decision {
   enum lpt_dec decision;
   unsigned times;
 };
 
 /* The structure describing a bound on number of iterations of a loop.  */
 
-struct nb_iter_bound GTY ((chain_next ("%h.next")))
-{
+struct GTY ((chain_next ("%h.next"))) nb_iter_bound {
   /* The statement STMT is executed at most ...  */
-  tree stmt;
+  gimple stmt;
 
   /* ... BOUND + 1 times (BOUND must be an unsigned constant).
      The + 1 is added for the following reasons:
@@ -60,7 +58,7 @@ struct nb_iter_bound GTY ((chain_next ("%h.next")))
      b) it is consistent with the result of number_of_iterations_exit.  */
   double_int bound;
 
-  /* True if the statement will cause the loop to be leaved the (at most) 
+  /* True if the statement will cause the loop to be leaved the (at most)
      BOUND + 1-st time it is executed, that is, all the statements after it
      are executed at most BOUND times.  */
   bool is_exit;
@@ -71,8 +69,7 @@ struct nb_iter_bound GTY ((chain_next ("%h.next")))
 
 /* Description of the loop exit.  */
 
-struct loop_exit GTY (())
-{
+struct GTY (()) loop_exit {
   /* The exit edge.  */
   struct edge_def *e;
 
@@ -100,10 +97,12 @@ enum loop_estimation
 };
 
 /* Structure to hold information for each natural loop.  */
-struct loop GTY ((chain_next ("%h.next")))
-{
+struct GTY ((chain_next ("%h.next"))) loop {
   /* Index into loops array.  */
   int num;
+
+  /* Number of loop insns.  */
+  unsigned ninsns;
 
   /* Basic block of loop header.  */
   struct basic_block_def *header;
@@ -113,9 +112,6 @@ struct loop GTY ((chain_next ("%h.next")))
 
   /* For loop unrolling/peeling decision.  */
   struct lpt_decision lpt_decision;
-
-  /* Number of loop insns.  */
-  unsigned ninsns;
 
   /* Average number of executed insns per iteration.  */
   unsigned av_ninsns;
@@ -142,24 +138,32 @@ struct loop GTY ((chain_next ("%h.next")))
      information in this field.  */
   tree nb_iterations;
 
-  /* An integer estimation of the number of iterations.  Estimate_state
-     describes what is the state of the estimation.  */
-  enum loop_estimation estimate_state;
-
   /* An integer guaranteed to bound the number of iterations of the loop
      from above.  */
-  bool any_upper_bound;
   double_int nb_iterations_upper_bound;
 
   /* An integer giving the expected number of iterations of the loop.  */
-  bool any_estimate;
   double_int nb_iterations_estimate;
+
+  bool any_upper_bound;
+  bool any_estimate;
+
+  /* An integer estimation of the number of iterations.  Estimate_state
+     describes what is the state of the estimation.  */
+  enum loop_estimation estimate_state;
 
   /* Upper bound on number of iterations of a loop.  */
   struct nb_iter_bound *bounds;
 
   /* Head of the cyclic list of the exits of the loop.  */
   struct loop_exit *exits;
+
+  /* True if the loop can be parallel.  */
+  bool can_be_parallel;
+
+  /* The single induction variable of the loop when the loop is in
+     normal form.  */
+  tree single_iv;
 };
 
 /* Flags for state of loop structure.  */
@@ -171,7 +175,8 @@ enum
   LOOPS_HAVE_RECORDED_EXITS = 8,
   LOOPS_MAY_HAVE_MULTIPLE_LATCHES = 16,
   LOOP_CLOSED_SSA = 32,
-  LOOPS_NEED_FIXUP = 64
+  LOOPS_NEED_FIXUP = 64,
+  LOOPS_HAVE_FALLTHRU_PREHEADERS = 128
 };
 
 #define LOOPS_NORMAL (LOOPS_HAVE_PREHEADERS | LOOPS_HAVE_SIMPLE_LATCHES \
@@ -179,8 +184,7 @@ enum
 #define AVOID_CFG_MODIFICATIONS (LOOPS_MAY_HAVE_MULTIPLE_LATCHES)
 
 /* Structure to hold CFG information about natural loops within a function.  */
-struct loops GTY (())
-{
+struct GTY (()) loops {
   /* State of loops.  */
   int state;
 
@@ -208,7 +212,7 @@ struct loop *alloc_loop (void);
 extern void flow_loop_free (struct loop *);
 int flow_loop_nodes_find (basic_block, struct loop *);
 void fix_loop_structure (bitmap changed_bbs);
-void mark_irreducible_loops (void);
+bool mark_irreducible_loops (void);
 void release_recorded_exits (void);
 void record_loop_exits (void);
 void rescan_loop_exit (edge, bool, bool);
@@ -227,6 +231,7 @@ extern int num_loop_insns (const struct loop *);
 extern int average_num_loop_insns (const struct loop *);
 extern unsigned get_loop_level (const struct loop *);
 extern bool loop_exit_edge_p (const struct loop *, const_edge);
+extern bool is_loop_exit (struct loop *, basic_block);
 extern void mark_loop_exit_edges (void);
 
 /* Loops & cfg manipulation.  */
@@ -235,6 +240,9 @@ extern unsigned get_loop_body_with_size (const struct loop *, basic_block *,
 					 unsigned);
 extern basic_block *get_loop_body_in_dom_order (const struct loop *);
 extern basic_block *get_loop_body_in_bfs_order (const struct loop *);
+extern basic_block *get_loop_body_in_custom_order (const struct loop *,
+			       int (*) (const void *, const void *));
+
 extern VEC (edge, heap) *get_loop_exit_edges (const struct loop *);
 edge single_exit (const struct loop *);
 extern unsigned num_loop_branches (const struct loop *);
@@ -250,7 +258,8 @@ extern void delete_loop (struct loop *);
 
 enum
 {
-  CP_SIMPLE_PREHEADERS = 1
+  CP_SIMPLE_PREHEADERS = 1,
+  CP_FALLTHRU_PREHEADERS = 2
 };
 
 basic_block create_preheader (struct loop *, int);
@@ -279,8 +288,12 @@ extern bool can_duplicate_loop_p (const struct loop *loop);
 #define DLTHE_FLAG_COMPLETTE_PEEL 4	/* Update frequencies expecting
 					   a complete peeling.  */
 
+extern edge create_empty_if_region_on_edge (edge, tree);
+extern struct loop *create_empty_loop_on_edge (edge, tree, tree, tree, tree,
+					       tree *, tree *, struct loop *);
 extern struct loop * duplicate_loop (struct loop *, struct loop *);
-extern bool duplicate_loop_to_header_edge (struct loop *, edge, 
+extern void duplicate_subloops (struct loop *, struct loop *);
+extern bool duplicate_loop_to_header_edge (struct loop *, edge,
 					   unsigned, sbitmap, edge,
  					   VEC (edge, heap) **, int);
 extern struct loop *loopify (edge, edge,
@@ -610,12 +623,12 @@ fel_init (loop_iterator *li, loop_p *loop, unsigned flags)
 
 extern unsigned target_avail_regs;
 extern unsigned target_res_regs;
-extern unsigned target_reg_cost;
-extern unsigned target_spill_cost;
+extern unsigned target_reg_cost [2];
+extern unsigned target_spill_cost [2];
 
 /* Register pressure estimation for induction variable optimizations & loop
    invariant motion.  */
-extern unsigned estimate_reg_pressure_cost (unsigned, unsigned);
+extern unsigned estimate_reg_pressure_cost (unsigned, unsigned, bool);
 extern void init_set_costs (void);
 
 /* Loop optimizer initialization.  */
@@ -635,5 +648,6 @@ enum
 extern void unroll_and_peel_loops (int);
 extern void doloop_optimize_loops (void);
 extern void move_loop_invariants (void);
+extern bool finite_loop_p (struct loop *);
 
 #endif /* GCC_CFGLOOP_H */

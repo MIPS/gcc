@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                     Copyright (C) 2002-2007, AdaCore                     --
+--                     Copyright (C) 2002-2009, AdaCore                     --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -249,7 +249,7 @@ package body GNAT.Expect is
      (Descriptor  : in out Process_Descriptor;
       Result      : out Expect_Match;
       Regexp      : String;
-      Timeout     : Integer := 10000;
+      Timeout     : Integer := 10_000;
       Full_Buffer : Boolean := False)
    is
    begin
@@ -265,7 +265,7 @@ package body GNAT.Expect is
       Result      : out Expect_Match;
       Regexp      : String;
       Matched     : out GNAT.Regpat.Match_Array;
-      Timeout     : Integer := 10000;
+      Timeout     : Integer := 10_000;
       Full_Buffer : Boolean := False)
    is
    begin
@@ -284,7 +284,7 @@ package body GNAT.Expect is
      (Descriptor  : in out Process_Descriptor;
       Result      : out Expect_Match;
       Regexp      : GNAT.Regpat.Pattern_Matcher;
-      Timeout     : Integer := 10000;
+      Timeout     : Integer := 10_000;
       Full_Buffer : Boolean := False)
    is
       Matched : GNAT.Regpat.Match_Array (0 .. 0);
@@ -298,7 +298,7 @@ package body GNAT.Expect is
       Result      : out Expect_Match;
       Regexp      : GNAT.Regpat.Pattern_Matcher;
       Matched     : out GNAT.Regpat.Match_Array;
-      Timeout     : Integer := 10000;
+      Timeout     : Integer := 10_000;
       Full_Buffer : Boolean := False)
    is
       N           : Expect_Match;
@@ -370,7 +370,7 @@ package body GNAT.Expect is
      (Descriptor  : in out Process_Descriptor;
       Result      : out Expect_Match;
       Regexps     : Regexp_Array;
-      Timeout     : Integer := 10000;
+      Timeout     : Integer := 10_000;
       Full_Buffer : Boolean := False)
    is
       Patterns : Compiled_Regexp_Array (Regexps'Range);
@@ -392,7 +392,7 @@ package body GNAT.Expect is
      (Descriptor  : in out Process_Descriptor;
       Result      : out Expect_Match;
       Regexps     : Compiled_Regexp_Array;
-      Timeout     : Integer := 10000;
+      Timeout     : Integer := 10_000;
       Full_Buffer : Boolean := False)
    is
       Matched : GNAT.Regpat.Match_Array (0 .. 0);
@@ -404,7 +404,7 @@ package body GNAT.Expect is
    procedure Expect
      (Result      : out Expect_Match;
       Regexps     : Multiprocess_Regexp_Array;
-      Timeout     : Integer := 10000;
+      Timeout     : Integer := 10_000;
       Full_Buffer : Boolean := False)
    is
       Matched : GNAT.Regpat.Match_Array (0 .. 0);
@@ -418,7 +418,7 @@ package body GNAT.Expect is
       Result      : out Expect_Match;
       Regexps     : Regexp_Array;
       Matched     : out GNAT.Regpat.Match_Array;
-      Timeout     : Integer := 10000;
+      Timeout     : Integer := 10_000;
       Full_Buffer : Boolean := False)
    is
       Patterns : Compiled_Regexp_Array (Regexps'Range);
@@ -442,7 +442,7 @@ package body GNAT.Expect is
       Result      : out Expect_Match;
       Regexps     : Compiled_Regexp_Array;
       Matched     : out GNAT.Regpat.Match_Array;
-      Timeout     : Integer := 10000;
+      Timeout     : Integer := 10_000;
       Full_Buffer : Boolean := False)
    is
       N           : Expect_Match;
@@ -489,7 +489,7 @@ package body GNAT.Expect is
      (Result      : out Expect_Match;
       Regexps     : Multiprocess_Regexp_Array;
       Matched     : out GNAT.Regpat.Match_Array;
-      Timeout     : Integer := 10000;
+      Timeout     : Integer := 10_000;
       Full_Buffer : Boolean := False)
    is
       N           : Expect_Match;
@@ -646,7 +646,7 @@ package body GNAT.Expect is
                            else
                               --  Add what we read to the buffer
 
-                              if Descriptors (J).Buffer_Index + N - 1 >
+                              if Descriptors (J).Buffer_Index + N >
                                 Descriptors (J).Buffer_Size
                               then
                                  --  If the user wants to know when we have
@@ -1030,11 +1030,7 @@ package body GNAT.Expect is
          Reinitialize_Buffer (Descriptor);
       end if;
 
-      if Add_LF then
-         Last := Full_Str'Last;
-      else
-         Last := Full_Str'Last - 1;
-      end if;
+      Last := (if Add_LF then Full_Str'Last else Full_Str'Last - 1);
 
       Call_Filters (Descriptor, Full_Str (Full_Str'First .. Last), Input);
 
@@ -1082,6 +1078,9 @@ package body GNAT.Expect is
       Args  : System.Address)
    is
       pragma Warnings (Off, Pid);
+      pragma Warnings (Off, Pipe1);
+      pragma Warnings (Off, Pipe2);
+      pragma Warnings (Off, Pipe3);
 
    begin
       --  Since the code between fork and exec on VMS executes
@@ -1099,14 +1098,14 @@ package body GNAT.Expect is
       --  Since we are still called from the parent process, there is no way
       --  currently we can cleanly close the unneeded ends of the pipes, but
       --  this doesn't really matter.
-      --  We could close Pipe1.Output, Pipe2.Input, Pipe3.Input.
+
+      --  We could close Pipe1.Output, Pipe2.Input, Pipe3.Input
 
       Dup2 (Pipe1.Input,  GNAT.OS_Lib.Standin);
       Dup2 (Pipe2.Output, GNAT.OS_Lib.Standout);
       Dup2 (Pipe3.Output, GNAT.OS_Lib.Standerr);
 
-      Portable_Execvp (Pid.Pid'Access, Cmd & ASCII.Nul, Args);
-
+      Portable_Execvp (Pid.Pid'Access, Cmd & ASCII.NUL, Args);
    end Set_Up_Child_Communications;
 
    ---------------------------
@@ -1156,6 +1155,9 @@ package body GNAT.Expect is
       Pipe3 : in out Pipe_Type)
    is
       pragma Warnings (Off, Pid);
+      pragma Warnings (Off, Pipe1);
+      pragma Warnings (Off, Pipe2);
+      pragma Warnings (Off, Pipe3);
 
    begin
 

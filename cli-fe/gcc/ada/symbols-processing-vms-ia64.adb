@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2004-2007, Free Software Foundation, Inc.         --
+--          Copyright (C) 2004-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -61,7 +61,6 @@ package body Processing is
       Success     : out Boolean)
    is
       B : Byte;
-      H : Integer;
       W : Integer;
 
       Str : String (1 .. 1000) := (others => ' ');
@@ -86,9 +85,14 @@ package body Processing is
 
       Stname  : Integer;
       Stinfo  : Character;
+      Stother : Character;
       Sttype  : Integer;
       Stbind  : Integer;
       Stshndx : Integer;
+      Stvis   : Integer;
+
+      STV_Internal : constant := 1;
+      STV_Hidden   : constant := 2;
 
       Section_Headers : Section_Header_Ptr;
 
@@ -96,10 +100,19 @@ package body Processing is
       OK     : Boolean := True;
 
       procedure Get_Byte (B : out Byte);
+      --  Read one byte from the object file
+
       procedure Get_Half (H : out Integer);
+      --  Read one half work from the object file
+
       procedure Get_Word (W : out Integer);
+      --  Read one full word from the object file
+
       procedure Reset;
-      --  All the above require comments ???
+      --  Restart reading the object file
+
+      procedure Skip_Half;
+      --  Read and disregard one half word from the object file
 
       --------------
       -- Get_Byte --
@@ -144,6 +157,19 @@ package body Processing is
          Byte_IO.Reset (File);
       end Reset;
 
+      ---------------
+      -- Skip_Half --
+      ---------------
+
+      procedure Skip_Half is
+         B : Byte;
+         pragma Unreferenced (B);
+      begin
+         Byte_IO.Read (File, B);
+         Byte_IO.Read (File, B);
+         Offset := Offset + 2;
+      end Skip_Half;
+
    --  Start of processing for Process
 
    begin
@@ -172,11 +198,11 @@ package body Processing is
 
       --  Skip e_type
 
-      Get_Half (H);
+      Skip_Half;
 
       --  Skip e_machine
 
-      Get_Half (H);
+      Skip_Half;
 
       --  Skip e_version
 
@@ -208,15 +234,15 @@ package body Processing is
 
       --  Skip e_ehsize
 
-      Get_Half (H);
+      Skip_Half;
 
       --  Skip e_phentsize
 
-      Get_Half (H);
+      Skip_Half;
 
       --  Skip e_phnum
 
-      Get_Half (H);
+      Skip_Half;
 
       Get_Half (Shentsize);
 
@@ -319,7 +345,7 @@ package body Processing is
       while Offset < End_Symtab loop
          Get_Word (Stname);
          Get_Byte (Stinfo);
-         Get_Byte (B);
+         Get_Byte (Stother);
          Get_Half (Stshndx);
          for J in 1 .. 4 loop
             Get_Word (W);
@@ -327,10 +353,13 @@ package body Processing is
 
          Sttype := Integer'(Character'Pos (Stinfo)) mod 16;
          Stbind := Integer'(Character'Pos (Stinfo)) / 16;
+         Stvis  := Integer'(Character'Pos (Stother)) mod 4;
 
          if (Sttype = 1 or else Sttype = 2)
               and then Stbind /= 0
               and then Stshndx /= 0
+              and then Stvis /= STV_Internal
+              and then Stvis /= STV_Hidden
          then
             --  Check if this is a symbol from a generic body
 

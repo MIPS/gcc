@@ -1,33 +1,28 @@
 /* DWARF2 exception handling and frame unwinding for Xtensa.
    Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006,
-   2007
+   2007, 2008, 2009
    Free Software Foundation, Inc.
 
    This file is part of GCC.
 
    GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
+   the Free Software Foundation; either version 3, or (at your option)
    any later version.
-
-   In addition to the permissions in the GNU General Public License, the
-   Free Software Foundation gives you unlimited permission to link the
-   compiled version of this file into combinations with other programs,
-   and to distribute those combinations without any restriction coming
-   from the use of this file.  (The General Public License restrictions
-   do apply in other respects; for example, they cover modification of
-   the file, and distribution when not linked into a combined
-   executable.)
 
    GCC is distributed in the hope that it will be useful, but WITHOUT
    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
    or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
    License for more details.
 
-   You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-   02110-1301, USA.  */
+   Under Section 7 of GPL version 3, you are granted additional
+   permissions described in the GCC Runtime Library Exception, version
+   3.1, as published by the Free Software Foundation.
+
+   You should have received a copy of the GNU General Public License and
+   a copy of the GCC Runtime Library Exception along with this program;
+   see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+   <http://www.gnu.org/licenses/>.  */
 
 #include "tconfig.h"
 #include "tsystem.h"
@@ -325,10 +320,6 @@ uw_frame_state_for (struct _Unwind_Context *context, _Unwind_FrameState *fs)
   memset (fs, 0, sizeof (*fs));
   context->lsda = 0;
 
-  ra_ptr = context->reg[0];
-  if (ra_ptr && *ra_ptr == 0)
-    return _URC_END_OF_STACK;
-
   fde = _Unwind_Find_FDE (context->ra + _Unwind_IsSignalFrame (context) - 1,
 			  &context->bases);
   if (fde == NULL)
@@ -341,16 +332,13 @@ uw_frame_state_for (struct _Unwind_Context *context, _Unwind_FrameState *fs)
       reason = MD_FALLBACK_FRAME_STATE_FOR (context, fs);
       if (reason != _URC_END_OF_STACK)
 	return reason;
+#endif
       /* The frame was not recognized and handled by the fallback function,
 	 but it is not really the end of the stack.  Fall through here and
 	 unwind it anyway.  */
-#endif
-      fs->pc = context->ra;
     }
   else
     {
-      fs->pc = context->bases.func;
-
       cie = get_cie (fde);
       if (extract_cie_info (cie, context, fs) == NULL)
 	/* CIE contained unknown augmentation.  */
@@ -373,6 +361,15 @@ uw_frame_state_for (struct _Unwind_Context *context, _Unwind_FrameState *fs)
 	}
     }
 
+  /* Check for the end of the stack.  This needs to be checked after
+     the MD_FALLBACK_FRAME_STATE_FOR check for signal frames because
+     the contents of context->reg[0] are undefined at a signal frame,
+     and register a0 may appear to be zero.  (The return address in
+     context->ra comes from register a4 or a8).  */
+  ra_ptr = context->reg[0];
+  if (ra_ptr && *ra_ptr == 0)
+    return _URC_END_OF_STACK;
+
   /* Find the window size from the high bits of the return address.  */
   if (ra_ptr)
     window_size = (*ra_ptr >> 30) * 4;
@@ -391,7 +388,7 @@ uw_update_context_1 (struct _Unwind_Context *context, _Unwind_FrameState *fs)
   _Unwind_Word *sp, *cfa, *next_cfa;
   int i;
 
-  if (fs->signal_frame)
+  if (fs->signal_regs)
     {
       cfa = (_Unwind_Word *) fs->signal_regs[1];
       next_cfa = (_Unwind_Word *) cfa[-3];
@@ -437,8 +434,11 @@ uw_update_context (struct _Unwind_Context *context, _Unwind_FrameState *fs)
 
   /* Compute the return address now, since the return address column
      can change from frame to frame.  */
-  context->ra = (void *) ((_Unwind_GetGR (context, fs->retaddr_column)
-			   & XTENSA_RA_FIELD_MASK) | context->ra_high_bits);
+  if (fs->signal_ra != 0)
+    context->ra = (void *) fs->signal_ra;
+  else
+    context->ra = (void *) ((_Unwind_GetGR (context, fs->retaddr_column)
+			     & XTENSA_RA_FIELD_MASK) | context->ra_high_bits);
 }
 
 static void
@@ -459,7 +459,7 @@ uw_advance_context (struct _Unwind_Context *context, _Unwind_FrameState *fs)
     }									   \
   while (0)
 
-static void
+static void __attribute__((noinline))
 uw_init_context_1 (struct _Unwind_Context *context, void *outer_cfa,
 		   void *outer_ra)
 {

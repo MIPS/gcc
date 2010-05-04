@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                       Copyright (C) 2005, AdaCore                        --
+--                    Copyright (C) 2005-2009, AdaCore                      --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -75,11 +75,8 @@ begin
 
    --  Fork a new process (it is not possible to do this in a subprogram)
 
-   if Alloc_Vfork_Blocks >= 0 then
-      Descriptor.Pid := Setjmp1 (Get_Vfork_Jmpbuf);
-   else
-      Descriptor.Pid := -1;
-   end if;
+   Descriptor.Pid :=
+     (if Alloc_Vfork_Blocks >= 0 then Setjmp1 (Get_Vfork_Jmpbuf) else -1);
 
    --  Are we now in the child
 
@@ -89,13 +86,13 @@ begin
 
       Arg   := new String (1 .. Command_With_Path'Length + 1);
       Arg (1 .. Command_With_Path'Length) := Command_With_Path.all;
-      Arg (Arg'Last)        := ASCII.Nul;
+      Arg (Arg'Last)        := ASCII.NUL;
       Arg_List (1)          := Arg.all'Address;
 
       for J in Args'Range loop
          Arg                     := new String (1 .. Args (J)'Length + 1);
          Arg (1 .. Args (J)'Length)  := Args (J).all;
-         Arg (Arg'Last)              := ASCII.Nul;
+         Arg (Arg'Last)              := ASCII.NUL;
          Arg_List (J + 2 - Args'First) := Arg.all'Address;
       end loop;
 

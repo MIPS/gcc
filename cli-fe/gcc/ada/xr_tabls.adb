@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1998-2007, Free Software Foundation, Inc.         --
+--          Copyright (C) 1998-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -49,7 +49,7 @@ package body Xr_Tabls is
    function  Get_Key (E : File_Reference) return Cst_String_Access;
    function  Hash (F : Cst_String_Access) return HTable_Headers;
    function  Equal (F1, F2 : Cst_String_Access) return Boolean;
-   --  The five subprograms above are used to instanciate the static
+   --  The five subprograms above are used to instantiate the static
    --  htable to store the files that should be processed.
 
    package File_HTable is new GNAT.HTable.Static_HTable
@@ -81,7 +81,7 @@ package body Xr_Tabls is
    function Next (E : Declaration_Reference) return Declaration_Reference;
    procedure Set_Next (E, Next : Declaration_Reference);
    function  Get_Key (E : Declaration_Reference) return Cst_String_Access;
-   --  The subprograms above are used to instanciate the static
+   --  The subprograms above are used to instantiate the static
    --  htable to store the entities that have been found in the application
 
    package Entities_HTable is new GNAT.HTable.Static_HTable
@@ -495,9 +495,10 @@ package body Xr_Tabls is
 
    begin
       if Index /= 0 then
-         return Ada_File_Name (Ada_File_Name'First .. Index) & "ali";
+         return Ada_File_Name (Ada_File_Name'First .. Index)
+           & Osint.ALI_Suffix.all;
       else
-         return Ada_File_Name & ".ali";
+         return Ada_File_Name & "." & Osint.ALI_Suffix.all;
       end if;
    end ALI_File_Name;
 
@@ -823,12 +824,14 @@ package body Xr_Tabls is
       end if;
 
       if File.Dir = null then
-         if Ada.Strings.Fixed.Tail (File.File.all, 3) = "ali" then
+         if Ada.Strings.Fixed.Tail (File.File.all, 3) =
+                                               Osint.ALI_Suffix.all
+         then
             Tmp := Locate_Regular_File
-              (Internal_Strip (File.File.all), Directories.Obj_Dir);
+                     (Internal_Strip (File.File.all), Directories.Obj_Dir);
          else
             Tmp := Locate_Regular_File
-              (File.File.all, Directories.Src_Dir);
+                     (File.File.all, Directories.Src_Dir);
          end if;
 
          if Tmp = null then
@@ -1389,10 +1392,10 @@ package body Xr_Tabls is
       File_Ref.Visited := False;
 
       --  ??? Do not add a source file to the list. This is true at
-      --  least for gnatxref, and probably for gnatfind as wel
+      --  least for gnatxref, and probably for gnatfind as well
 
       if F'Length > 4
-        and then F (F'Last - 3 .. F'Last) = ".ali"
+        and then F (F'Last - 3 .. F'Last) = "." & Osint.ALI_Suffix.all
       then
          Unvisited_Files := new Unvisited_Files_Record'
            (File => File_Ref,

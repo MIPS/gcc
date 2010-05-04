@@ -1,6 +1,6 @@
 /* Control flow graph manipulation code for GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -67,6 +67,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "alloc-pool.h"
 #include "df.h"
 #include "cfgloop.h"
+#include "tree-flow.h"
 
 /* The obstack on which the flow graph components are allocated.  */
 
@@ -80,17 +81,21 @@ static void free_edge (edge);
 /* Called once at initialization time.  */
 
 void
-init_flow (void)
+init_flow (struct function *the_fun)
 {
-  if (!cfun->cfg)
-    cfun->cfg = GGC_CNEW (struct control_flow_graph);
-  n_edges = 0;
-  ENTRY_BLOCK_PTR = GGC_CNEW (struct basic_block_def);
-  ENTRY_BLOCK_PTR->index = ENTRY_BLOCK;
-  EXIT_BLOCK_PTR = GGC_CNEW (struct basic_block_def);
-  EXIT_BLOCK_PTR->index = EXIT_BLOCK;
-  ENTRY_BLOCK_PTR->next_bb = EXIT_BLOCK_PTR;
-  EXIT_BLOCK_PTR->prev_bb = ENTRY_BLOCK_PTR;
+  if (!the_fun->cfg)
+    the_fun->cfg = GGC_CNEW (struct control_flow_graph);
+  n_edges_for_function (the_fun) = 0;
+  ENTRY_BLOCK_PTR_FOR_FUNCTION (the_fun)
+    = GGC_CNEW (struct basic_block_def);
+  ENTRY_BLOCK_PTR_FOR_FUNCTION (the_fun)->index = ENTRY_BLOCK;
+  EXIT_BLOCK_PTR_FOR_FUNCTION (the_fun)
+    = GGC_CNEW (struct basic_block_def);
+  EXIT_BLOCK_PTR_FOR_FUNCTION (the_fun)->index = EXIT_BLOCK;
+  ENTRY_BLOCK_PTR_FOR_FUNCTION (the_fun)->next_bb
+    = EXIT_BLOCK_PTR_FOR_FUNCTION (the_fun);
+  EXIT_BLOCK_PTR_FOR_FUNCTION (the_fun)->prev_bb
+    = ENTRY_BLOCK_PTR_FOR_FUNCTION (the_fun);
 }
 
 /* Helper function for remove_edge and clear_edges.  Frees edge structure
@@ -166,13 +171,13 @@ compact_blocks (void)
 
   SET_BASIC_BLOCK (ENTRY_BLOCK, ENTRY_BLOCK_PTR);
   SET_BASIC_BLOCK (EXIT_BLOCK, EXIT_BLOCK_PTR);
-  
+
   if (df)
     df_compact_blocks ();
-  else 
+  else
     {
       basic_block bb;
-      
+
       i = NUM_FIXED_BLOCKS;
       FOR_EACH_BB (bb)
 	{
@@ -359,6 +364,9 @@ remove_edge_raw (edge e)
   disconnect_src (e);
   disconnect_dest (e);
 
+  /* This is probably not needed, but it doesn't hurt.  */
+  redirect_edge_var_map_clear (e);
+
   free_edge (e);
 }
 
@@ -395,6 +403,7 @@ redirect_edge_succ_nodup (edge e, basic_block new_succ)
 	s->probability = REG_BR_PROB_BASE;
       s->count += e->count;
       remove_edge (e);
+      redirect_edge_var_map_dup (s, e);
       e = s;
     }
   else
@@ -424,7 +433,7 @@ clear_bb_flags (void)
   basic_block bb;
 
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
-    bb->flags = (BB_PARTITION (bb)  
+    bb->flags = (BB_PARTITION (bb)
 		 | (bb->flags & (BB_DISABLE_SCHEDULE + BB_RTL + BB_NON_LOCAL_GOTO_TARGET)));
 }
 
@@ -535,12 +544,12 @@ dump_bb_info (basic_block bb, bool header, bool footer, int flags,
       fprintf (file, HOST_WIDEST_INT_PRINT_DEC, bb->count);
       fprintf (file, ", freq %i", bb->frequency);
       /* Both maybe_hot_bb_p & probably_never_executed_bb_p functions
-	 crash without cfun. */ 
+	 crash without cfun. */
       if (cfun && maybe_hot_bb_p (bb))
-	fprintf (file, ", maybe hot");
+	fputs (", maybe hot", file);
       if (cfun && probably_never_executed_bb_p (bb))
-	fprintf (file, ", probably never executed");
-      fprintf (file, ".\n");
+	fputs (", probably never executed", file);
+      fputs (".\n", file);
 
       fprintf (file, "%sPredecessors: ", prefix);
       FOR_EACH_EDGE (e, ei, bb->preds)
@@ -550,7 +559,7 @@ dump_bb_info (basic_block bb, bool header, bool footer, int flags,
 	  && (bb->flags & BB_RTL)
 	  && df)
 	{
-	  fprintf (file, "\n");
+	  putc ('\n', file);
 	  df_dump_top (bb, file);
 	}
    }
@@ -565,7 +574,7 @@ dump_bb_info (basic_block bb, bool header, bool footer, int flags,
 	  && (bb->flags & BB_RTL)
 	  && df)
 	{
-	  fprintf (file, "\n");
+	  putc ('\n', file);
 	  df_dump_bottom (bb, file);
 	}
    }
@@ -575,7 +584,7 @@ dump_bb_info (basic_block bb, bool header, bool footer, int flags,
 
 /* Dump the register info to FILE.  */
 
-void 
+void
 dump_reg_info (FILE *file)
 {
   unsigned int i, max = max_reg_num ();
@@ -588,15 +597,15 @@ dump_reg_info (FILE *file)
   fprintf (file, "%d registers.\n", max);
   for (i = FIRST_PSEUDO_REGISTER; i < max; i++)
     {
-      enum reg_class class, altclass;
-      
+      enum reg_class rclass, altclass;
+
       if (regstat_n_sets_and_refs)
 	fprintf (file, "\nRegister %d used %d times across %d insns",
 		 i, REG_N_REFS (i), REG_LIVE_LENGTH (i));
       else if (df)
 	fprintf (file, "\nRegister %d used %d times across %d insns",
 		 i, DF_REG_USE_COUNT (i) + DF_REG_DEF_COUNT (i), REG_LIVE_LENGTH (i));
-      
+
       if (REG_BASIC_BLOCK (i) >= NUM_FIXED_BLOCKS)
 	fprintf (file, " in block %d", REG_BASIC_BLOCK (i));
       if (regstat_n_sets_and_refs)
@@ -606,34 +615,36 @@ dump_reg_info (FILE *file)
 	fprintf (file, "; set %d time%s", DF_REG_DEF_COUNT (i),
 		 (DF_REG_DEF_COUNT (i) == 1) ? "" : "s");
       if (regno_reg_rtx[i] != NULL && REG_USERVAR_P (regno_reg_rtx[i]))
-	fprintf (file, "; user var");
+	fputs ("; user var", file);
       if (REG_N_DEATHS (i) != 1)
 	fprintf (file, "; dies in %d places", REG_N_DEATHS (i));
       if (REG_N_CALLS_CROSSED (i) == 1)
-	fprintf (file, "; crosses 1 call");
+	fputs ("; crosses 1 call", file);
       else if (REG_N_CALLS_CROSSED (i))
 	fprintf (file, "; crosses %d calls", REG_N_CALLS_CROSSED (i));
+      if (REG_FREQ_CALLS_CROSSED (i))
+	fprintf (file, "; crosses call with %d frequency", REG_FREQ_CALLS_CROSSED (i));
       if (regno_reg_rtx[i] != NULL
 	  && PSEUDO_REGNO_BYTES (i) != UNITS_PER_WORD)
 	fprintf (file, "; %d bytes", PSEUDO_REGNO_BYTES (i));
-      
-      class = reg_preferred_class (i);
+
+      rclass = reg_preferred_class (i);
       altclass = reg_alternate_class (i);
-      if (class != GENERAL_REGS || altclass != ALL_REGS)
+      if (rclass != GENERAL_REGS || altclass != ALL_REGS)
 	{
-	  if (altclass == ALL_REGS || class == ALL_REGS)
-	    fprintf (file, "; pref %s", reg_class_names[(int) class]);
+	  if (altclass == ALL_REGS || rclass == ALL_REGS)
+	    fprintf (file, "; pref %s", reg_class_names[(int) rclass]);
 	  else if (altclass == NO_REGS)
-	    fprintf (file, "; %s or none", reg_class_names[(int) class]);
+	    fprintf (file, "; %s or none", reg_class_names[(int) rclass]);
 	  else
 	    fprintf (file, "; pref %s, else %s",
-		     reg_class_names[(int) class],
+		     reg_class_names[(int) rclass],
 		     reg_class_names[(int) altclass]);
 	}
-      
+
       if (regno_reg_rtx[i] != NULL && REG_POINTER (regno_reg_rtx[i]))
-	fprintf (file, "; pointer");
-      fprintf (file, ".\n");
+	fputs ("; pointer", file);
+      fputs (".\n", file);
     }
 }
 
@@ -680,7 +691,7 @@ dump_edge_info (FILE *file, edge e, int do_succ)
 
   if (e->count)
     {
-      fprintf (file, " count:");
+      fputs (" count:", file);
       fprintf (file, HOST_WIDEST_INT_PRINT_DEC, e->count);
     }
 
@@ -723,7 +734,7 @@ static void *first_edge_aux_obj = 0;
 /* Allocate a memory block of SIZE as BB->aux.  The obstack must
    be first initialized by alloc_aux_for_blocks.  */
 
-inline void
+void
 alloc_aux_for_block (basic_block bb, int size)
 {
   /* Verify that aux field is clear.  */
@@ -786,7 +797,7 @@ free_aux_for_blocks (void)
 /* Allocate a memory edge of SIZE as BB->aux.  The obstack must
    be first initialized by alloc_aux_for_edges.  */
 
-inline void
+void
 alloc_aux_for_edge (edge e, int size)
 {
   /* Verify that aux field is clear.  */
@@ -893,24 +904,24 @@ dump_cfg_bb_info (FILE *file, basic_block bb)
     if (bb->flags & (1 << i))
       {
 	if (first)
-	  fprintf (file, " (");
+	  fputs (" (", file);
 	else
-	  fprintf (file, ", ");
+	  fputs (", ", file);
 	first = false;
-	fprintf (file, bb_bitnames[i]);
+	fputs (bb_bitnames[i], file);
       }
   if (!first)
-    fprintf (file, ")");
-  fprintf (file, "\n");
+    putc (')', file);
+  putc ('\n', file);
 
-  fprintf (file, "Predecessors: ");
+  fputs ("Predecessors: ", file);
   FOR_EACH_EDGE (e, ei, bb->preds)
     dump_edge_info (file, e, 0);
 
   fprintf (file, "\nSuccessors: ");
   FOR_EACH_EDGE (e, ei, bb->succs)
     dump_edge_info (file, e, 1);
-  fprintf (file, "\n\n");
+  fputs ("\n\n", file);
 }
 
 /* Dumps a brief description of cfg to FILE.  */

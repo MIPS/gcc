@@ -1,6 +1,6 @@
 /* Core target definitions for GCC for Intel 80x86 running Netware.
    and using dwarf for the debugging format.
-   Copyright (C) 1993, 1994, 2004, 2007 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1994, 2004, 2007, 2008 Free Software Foundation, Inc.
 
    Written by David V. Henkel-Wallace (gumby@cygnus.com)
 
@@ -72,6 +72,17 @@ along with GCC; see the file COPYING3.  If not see
 #define TARGET_SUBTARGET_DEFAULT (MASK_80387 | MASK_IEEE_FP | \
 	MASK_FLOAT_RETURNS | MASK_ALIGN_DOUBLE | MASK_MS_BITFIELD_LAYOUT)
 
+/* Don't allow flag_pic to propagate since invalid relocations will
+   result otherwise.  */
+#define SUBTARGET_OVERRIDE_OPTIONS					\
+do {									\
+  if (flag_pic)								\
+    {									\
+      error ("-fPIC and -fpic are not supported for this target");	\
+      flag_pic = 0;							\
+    }									\
+} while (0)
+
 #undef MATH_LIBRARY
 #define MATH_LIBRARY ""
 
@@ -86,6 +97,9 @@ along with GCC; see the file COPYING3.  If not see
    removed by the caller.  */
 #undef KEEP_AGGREGATE_RETURN_POINTER
 #define KEEP_AGGREGATE_RETURN_POINTER 1
+
+#undef ASM_COMMENT_START
+#define ASM_COMMENT_START "#"
 
 #undef DBX_REGISTER_NUMBER
 #define DBX_REGISTER_NUMBER(n) (svr4_dbx_register_map[n])
@@ -142,13 +156,15 @@ along with GCC; see the file COPYING3.  If not see
    function named by the symbol (such as what section it is in).
 
    On i386 running NetWare, modify the assembler name with an underscore (_)
-   prefix and a suffix consisting of an atsign (@) followed by a string of
-   digits that represents the number of bytes of arguments passed to the
-   function, if it has the attribute STDCALL. Alternatively, if it has the 
-   REGPARM attribute, prefix it with an underscore (_), a digit representing
-   the number of registers used, and an atsign (@). */
+   or atsign (@) prefix and a suffix consisting of an atsign (@) followed by
+   a string of digits that represents the number of bytes of arguments passed
+   to the function, if it has the attribute STDCALL. Alternatively, if it has
+   the REGPARM attribute, prefix it with an underscore (_), a digit
+   representing the number of registers used, and an atsign (@). */
 void i386_nlm_encode_section_info (tree, rtx, int);
+extern tree i386_nlm_mangle_decl_assembler_name (tree, tree);
 const char *i386_nlm_strip_name_encoding (const char *);
 #define SUBTARGET_ENCODE_SECTION_INFO  i386_nlm_encode_section_info
+#define TARGET_MANGLE_DECL_ASSEMBLER_NAME i386_nlm_mangle_decl_assembler_name
 #undef  TARGET_STRIP_NAME_ENCODING
 #define TARGET_STRIP_NAME_ENCODING  i386_nlm_strip_name_encoding

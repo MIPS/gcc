@@ -1,5 +1,6 @@
 /* Declarations for C++ name lookup routines.
-   Copyright (C) 2003, 2004, 2005, 2007  Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2007, 2008, 2009
+   Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@integrable-solutions.net>
 
 This file is part of GCC.
@@ -31,8 +32,7 @@ typedef struct binding_entry_s *binding_entry;
 /* The type of a routine repeatedly called by binding_table_foreach.  */
 typedef void (*bt_foreach_proc) (binding_entry, void *);
 
-struct binding_entry_s GTY(())
-{
+struct GTY(()) binding_entry_s {
   binding_entry chain;
   tree name;
   tree type;
@@ -63,8 +63,7 @@ typedef struct cp_binding_level cxx_scope;
    currently being defined.  */
 #define INHERITED_VALUE_BINDING_P(NODE) ((NODE)->value_is_inherited)
 
-struct cxx_binding GTY(())
-{
+struct GTY(()) cxx_binding {
   /* Link to chain together various bindings for this name.  */
   cxx_binding *previous;
   /* The non-type entity this name is bound to.  */
@@ -79,8 +78,7 @@ struct cxx_binding GTY(())
 
 /* Datatype used to temporarily save C++ bindings (for implicit
    instantiations purposes and like).  Implemented in decl.c.  */
-typedef struct cxx_saved_binding GTY(())
-{
+typedef struct GTY(()) cxx_saved_binding {
   /* The name of the current binding.  */
   tree identifier;
   /* The binding we're saving.  */
@@ -113,6 +111,8 @@ typedef enum scope_kind {
 			for-init-statement.  */
   sk_function_parms, /* The scope containing function parameters.  */
   sk_class,	     /* The scope containing the members of a class.  */
+  sk_scoped_enum,    /* The scope containing the enumertors of a C++0x
+                        scoped enumeration.  */
   sk_namespace,	     /* The scope containing the members of a
 			namespace, including the global scope.  */
   sk_template_parms, /* A scope for template parameters.  */
@@ -139,8 +139,7 @@ typedef enum tag_scope {
 					   and [class.friend]/9.  */
 } tag_scope;
 
-typedef struct cp_class_binding GTY(())
-{
+typedef struct GTY(()) cp_class_binding {
   cxx_binding base;
   /* The bound name.  */
   tree identifier;
@@ -173,8 +172,7 @@ DEF_VEC_ALLOC_O(cp_class_binding,gc);
 /* Note that the information in the `names' component of the global contour
    is duplicated in the IDENTIFIER_GLOBAL_VALUEs of all identifiers.  */
 
-struct cp_binding_level GTY(())
-  {
+struct GTY(()) cp_binding_level {
     /* A chain of _DECL nodes for all variables, constants, functions,
        and typedef types.  These are in the reverse of the order
        supplied.  There may be OVERLOADs on this list, too, but they
@@ -261,7 +259,7 @@ struct cp_binding_level GTY(())
 /* The binding level currently in effect.  */
 
 #define current_binding_level			\
-  (*(cfun && cp_function_chain->bindings	\
+  (*(cfun && cp_function_chain && cp_function_chain->bindings \
    ? &cp_function_chain->bindings		\
    : &scope_chain->bindings))
 
@@ -319,7 +317,9 @@ extern bool hidden_name_p (tree);
 extern tree remove_hidden_names (tree);
 extern tree lookup_qualified_name (tree, tree, bool, bool);
 extern tree lookup_name_nonclass (tree);
-extern tree lookup_function_nonclass (tree, tree, bool);
+extern tree lookup_name_innermost_nonclass_level (tree);
+extern bool is_local_extern (tree);
+extern tree lookup_function_nonclass (tree, VEC(tree,gc) *, bool);
 extern void push_local_binding (tree, tree, int);
 extern bool pushdecl_class_level (tree);
 extern tree pushdecl_namespace_level (tree, bool);
@@ -334,7 +334,7 @@ extern void do_toplevel_using_decl (tree, tree, tree);
 extern void do_local_using_decl (tree, tree, tree);
 extern tree do_class_using_decl (tree, tree);
 extern void do_using_directive (tree);
-extern tree lookup_arg_dependent (tree, tree, tree);
+extern tree lookup_arg_dependent (tree, tree, VEC(tree,gc) *);
 extern bool is_associated_namespace (tree, tree);
 extern void parse_using_directive (tree, tree);
 extern tree innermost_non_namespace_value (tree);

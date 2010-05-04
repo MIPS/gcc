@@ -1,7 +1,8 @@
 /* Breadth-first and depth-first routines for
    searching multiple-inheritance lattice for GNU C++.
    Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
+   1999, 2000, 2002, 2003, 2004, 2005, 2007, 2008, 2009
+   Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -28,6 +29,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "tree.h"
 #include "cp-tree.h"
+#include "intl.h"
 #include "obstack.h"
 #include "flags.h"
 #include "rtl.h"
@@ -62,7 +64,6 @@ static tree dfs_access_in_type (tree, void *);
 static access_kind access_in_type (tree, tree);
 static int protected_accessible_p (tree, tree, tree);
 static int friend_accessible_p (tree, tree, tree);
-static int template_self_reference_p (tree, tree);
 static tree dfs_get_pure_virtuals (tree, void *);
 
 
@@ -213,9 +214,12 @@ lookup_base (tree t, tree base, base_access access, base_kind *kind_ptr)
       t_binfo = TYPE_BINFO (t);
     }
 
-  base = complete_type (TYPE_MAIN_VARIANT (base));
+  base = TYPE_MAIN_VARIANT (base);
 
-  if (t_binfo)
+  /* If BASE is incomplete, it can't be a base of T--and instantiating it
+     might cause an error.  */
+  if (t_binfo && CLASS_TYPE_P (base)
+      && (COMPLETE_TYPE_P (base) || TYPE_BEING_DEFINED (base)))
     {
       struct lookup_base_data_s data;
 
@@ -394,12 +398,10 @@ lookup_field_1 (tree type, tree name, bool want_type)
        The TYPE_FIELDS of TYPENAME_TYPE is its TYPENAME_TYPE_FULLNAME.  */
     return NULL_TREE;
 
-  if (TYPE_NAME (type)
-      && DECL_LANG_SPECIFIC (TYPE_NAME (type))
-      && DECL_SORTED_FIELDS (TYPE_NAME (type)))
+  if (CLASSTYPE_SORTED_FIELDS (type))
     {
-      tree *fields = &DECL_SORTED_FIELDS (TYPE_NAME (type))->elts[0];
-      int lo = 0, hi = DECL_SORTED_FIELDS (TYPE_NAME (type))->len;
+      tree *fields = &CLASSTYPE_SORTED_FIELDS (type)->elts[0];
+      int lo = 0, hi = CLASSTYPE_SORTED_FIELDS (type)->len;
       int i;
 
       while (lo < hi)
@@ -720,20 +722,13 @@ protected_accessible_p (tree decl, tree derived, tree binfo)
 
        m as a member of N is protected, and the reference occurs in a
        member or friend of class N, or in a member or friend of a
-       class P derived from N, where m as a member of P is private or
-       protected.
+       class P derived from N, where m as a member of P is public, private
+       or protected.
 
-    Here DERIVED is a possible P and DECL is m.  accessible_p will
-    iterate over various values of N, but the access to m in DERIVED
-    does not change.
+    Here DERIVED is a possible P, DECL is m and BINFO_TYPE (binfo) is N.  */
 
-    Note that I believe that the passage above is wrong, and should read
-    "...is private or protected or public"; otherwise you get bizarre results
-    whereby a public using-decl can prevent you from accessing a protected
-    member of a base.  (jason 2000/02/28)  */
-
-  /* If DERIVED isn't derived from m's class, then it can't be a P.  */
-  if (!DERIVED_FROM_P (context_for_name_lookup (decl), derived))
+  /* If DERIVED isn't derived from N, then it can't be a P.  */
+  if (!DERIVED_FROM_P (BINFO_TYPE (binfo), derived))
     return 0;
 
   access = access_in_type (derived, decl);
@@ -960,24 +955,6 @@ struct lookup_field_info {
   const char *errstr;
 };
 
-/* Within the scope of a template class, you can refer to the to the
-   current specialization with the name of the template itself.  For
-   example:
-
-     template <typename T> struct S { S* sp; }
-
-   Returns nonzero if DECL is such a declaration in a class TYPE.  */
-
-static int
-template_self_reference_p (tree type, tree decl)
-{
-  return  (CLASSTYPE_USE_TEMPLATE (type)
-	   && PRIMARY_TEMPLATE_P (CLASSTYPE_TI_TEMPLATE (type))
-	   && TREE_CODE (decl) == TYPE_DECL
-	   && DECL_ARTIFICIAL (decl)
-	   && DECL_NAME (decl) == constructor_name (type));
-}
-
 /* Nonzero for a class member means that it is shared between all objects
    of that class.
 
@@ -1097,11 +1074,6 @@ lookup_field_r (tree binfo, void *data)
 	}
     }
 
-  /* You must name a template base class with a template-id.  */
-  if (!same_type_p (type, lfi->type)
-      && template_self_reference_p (type, nval))
-    goto done;
-
   /* If the lookup already found a match, and the new value doesn't
      hide the old one, we might have an ambiguity.  */
   if (lfi->rval_binfo
@@ -1130,7 +1102,7 @@ lookup_field_r (tree binfo, void *data)
 	  /* Add the new value.  */
 	  lfi->ambiguous = tree_cons (NULL_TREE, nval, lfi->ambiguous);
 	  TREE_TYPE (lfi->ambiguous) = error_mark_node;
-	  lfi->errstr = "request for member %qD is ambiguous";
+	  lfi->errstr = G_("request for member %qD is ambiguous");
 	}
     }
   else
@@ -1212,7 +1184,7 @@ lookup_member (tree xbasetype, tree name, int protect, bool want_type)
     }
   else
     {
-      if (!IS_AGGR_TYPE_CODE (TREE_CODE (xbasetype)))
+      if (!RECORD_OR_UNION_CODE_P (TREE_CODE (xbasetype)))
 	return NULL_TREE;
       type = xbasetype;
       xbasetype = NULL_TREE;
@@ -1388,6 +1360,8 @@ lookup_fnfields_1 (tree type, tree name)
 	    lazily_declare_fn (sfk_constructor, type);
 	  if (CLASSTYPE_LAZY_COPY_CTOR (type))
 	    lazily_declare_fn (sfk_copy_constructor, type);
+	  if (CLASSTYPE_LAZY_MOVE_CTOR (type))
+	    lazily_declare_fn (sfk_move_constructor, type);
 	}
       else if (name == ansi_assopname(NOP_EXPR)
 	       && CLASSTYPE_LAZY_ASSIGNMENT_OP (type))
@@ -1911,6 +1885,20 @@ check_final_overrider (tree overrider, tree basefn)
       return 0;
     }
 
+  if (DECL_DELETED_FN (basefn) != DECL_DELETED_FN (overrider))
+    {
+      if (DECL_DELETED_FN (overrider))
+	{
+	  error ("deleted function %q+D", overrider);
+	  error ("overriding non-deleted function %q+D", basefn);
+	}
+      else
+	{
+	  error ("non-deleted function %q+D", overrider);
+	  error ("overriding deleted function %q+D", basefn);
+	}
+      return 0;
+    }
   return 1;
 }
 
@@ -2432,10 +2420,13 @@ lookup_conversions_r (tree binfo,
    functions in this node were selected.  This function is effectively
    performing a set of member lookups as lookup_fnfield does, but
    using the type being converted to as the unique key, rather than the
-   field name.  */
+   field name.
+   If LOOKUP_TEMPLATE_CONVS_P is TRUE, the returned TREE_LIST contains
+   the non-hidden user-defined template conversion functions too.  */
 
 tree
-lookup_conversions (tree type)
+lookup_conversions (tree type,
+		    bool lookup_template_convs_p)
 {
   tree convs, tpl_convs;
   tree list = NULL_TREE;
@@ -2461,6 +2452,9 @@ lookup_conversions (tree type)
 	  list = probe;
 	}
     }
+
+  if (lookup_template_convs_p == false)
+    tpl_convs = NULL_TREE;
 
   for (; tpl_convs; tpl_convs = TREE_CHAIN (tpl_convs))
     {

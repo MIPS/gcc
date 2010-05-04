@@ -25,7 +25,7 @@ end module global
  use global
  integer :: a,b, c(20)
  integer(8) :: ierr
- character*80 :: buffer(3)
+ character(80) :: buffer(3)
 
 
 ! Appending to a USE associated namelist is an extension.
@@ -66,7 +66,7 @@ end module global
 
  READ(1, fmt='(i6)', advance='NO', size = buffer) a ! { dg-error "INTEGER" }
 !Was correctly picked up before patch. -correct syntax error
- READ(1, fmt='(i6)', advance='YES', size = 10) a    ! { dg-error "Syntax error" }
+ READ(1, fmt='(i6)', advance='YES', size = 10) a    ! { dg-error "Invalid value for SIZE specification" }
 
  READ(1, fmt='(i6)', advance='MAYBE')               !  { dg-error "YES or NO" }
 

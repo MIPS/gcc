@@ -1,5 +1,5 @@
 /* Simulate storage of variables into target memory.
-   Copyright (C) 2007
+   Copyright (C) 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Paul Thomas and Brooks Moses
 
@@ -73,9 +73,10 @@ size_logical (int kind)
 
 
 static size_t
-size_character (int length)
+size_character (int length, int kind)
 {
-  return length;
+  int i = gfc_validate_kind (BT_CHARACTER, kind, false);
+  return length * gfc_character_kinds[i].bit_size / 8;
 }
 
 
@@ -100,7 +101,16 @@ gfc_target_expr_size (gfc_expr *e)
     case BT_LOGICAL:
       return size_logical (e->ts.kind);
     case BT_CHARACTER:
-      return size_character (e->value.character.length);
+      if (e->expr_type == EXPR_SUBSTRING && e->ref)
+        {
+          int start, end;
+
+          gfc_extract_int (e->ref->u.ss.start, &start);
+          gfc_extract_int (e->ref->u.ss.end, &end);
+          return size_character (MAX(end - start + 1, 0), e->ts.kind);
+        }
+      else
+        return size_character (e->value.character.length, e->ts.kind);
     case BT_HOLLERITH:
       return e->representation.length;
     case BT_DERIVED:
@@ -148,18 +158,19 @@ encode_integer (int kind, mpz_t integer, unsigned char *buffer,
 static int
 encode_float (int kind, mpfr_t real, unsigned char *buffer, size_t buffer_size)
 {
-  return native_encode_expr (gfc_conv_mpfr_to_tree (real, kind), buffer,
+  return native_encode_expr (gfc_conv_mpfr_to_tree (real, kind, 0), buffer,
 			     buffer_size);
 }
 
 
 static int
-encode_complex (int kind, mpfr_t real, mpfr_t imaginary, unsigned char *buffer,
-		size_t buffer_size)
+encode_complex (int kind, mpc_t cmplx,
+		unsigned char *buffer, size_t buffer_size)
 {
   int size;
-  size = encode_float (kind, real, &buffer[0], buffer_size);
-  size += encode_float (kind, imaginary, &buffer[size], buffer_size - size);
+  size = encode_float (kind, mpc_realref (cmplx), &buffer[0], buffer_size);
+  size += encode_float (kind, mpc_imagref (cmplx),
+			&buffer[size], buffer_size - size);
   return size;
 }
 
@@ -173,12 +184,20 @@ encode_logical (int kind, int logical, unsigned char *buffer, size_t buffer_size
 }
 
 
-static int
-encode_character (int length, char *string, unsigned char *buffer,
-		  size_t buffer_size)
+int
+gfc_encode_character (int kind, int length, const gfc_char_t *string,
+		      unsigned char *buffer, size_t buffer_size)
 {
-  gcc_assert (buffer_size >= size_character (length));
-  memcpy (buffer, string, length);
+  size_t elsize = size_character (1, kind);
+  tree type = gfc_get_char_type (kind);
+  int i;
+
+  gcc_assert (buffer_size >= size_character (length, kind));
+
+  for (i = 0; i < length; i++)
+    native_encode_expr (build_int_cst (type, string[i]), &buffer[i*elsize],
+			elsize);
+
   return length;
 }
 
@@ -194,7 +213,7 @@ encode_derived (gfc_expr *source, unsigned char *buffer, size_t buffer_size)
   type = gfc_typenode_for_spec (&source->ts);
 
   ctr = source->value.constructor;
-  cmp = source->ts.derived->components;
+  cmp = source->ts.u.derived->components;
   for (;ctr; ctr = ctr->next, cmp = cmp->next)
     {
       gcc_assert (cmp);
@@ -202,8 +221,13 @@ encode_derived (gfc_expr *source, unsigned char *buffer, size_t buffer_size)
 	continue;
       ptr = TREE_INT_CST_LOW(DECL_FIELD_OFFSET(cmp->backend_decl))
 	    + TREE_INT_CST_LOW(DECL_FIELD_BIT_OFFSET(cmp->backend_decl))/8;
-      gfc_target_encode_expr (ctr->expr, &buffer[ptr],
-			      buffer_size - ptr);
+
+      if (ctr->expr->expr_type == EXPR_NULL)
+ 	memset (&buffer[ptr], 0,
+		int_size_in_bytes (TREE_TYPE (cmp->backend_decl)));
+      else
+	gfc_target_encode_expr (ctr->expr, &buffer[ptr],
+				buffer_size - ptr);
     }
 
   return int_size_in_bytes (type);
@@ -222,7 +246,8 @@ gfc_target_encode_expr (gfc_expr *source, unsigned char *buffer,
     return encode_array (source, buffer, buffer_size);
 
   gcc_assert (source->expr_type == EXPR_CONSTANT
-	      || source->expr_type == EXPR_STRUCTURE);
+	      || source->expr_type == EXPR_STRUCTURE
+	      || source->expr_type == EXPR_SUBSTRING);
 
   /* If we already have a target-memory representation, we use that rather 
      than recreating one.  */
@@ -242,15 +267,29 @@ gfc_target_encode_expr (gfc_expr *source, unsigned char *buffer,
       return encode_float (source->ts.kind, source->value.real, buffer,
 			   buffer_size);
     case BT_COMPLEX:
-      return encode_complex (source->ts.kind, source->value.complex.r,
-			     source->value.complex.i, buffer, buffer_size);
+      return encode_complex (source->ts.kind, source->value.complex,
+			     buffer, buffer_size);
     case BT_LOGICAL:
       return encode_logical (source->ts.kind, source->value.logical, buffer,
 			     buffer_size);
     case BT_CHARACTER:
-      return encode_character (source->value.character.length, 
-			       source->value.character.string, buffer,
-			       buffer_size);
+      if (source->expr_type == EXPR_CONSTANT || source->ref == NULL)
+	return gfc_encode_character (source->ts.kind,
+				     source->value.character.length,
+				     source->value.character.string,
+				     buffer, buffer_size);
+      else
+	{
+	  int start, end;
+
+	  gcc_assert (source->expr_type == EXPR_SUBSTRING);
+	  gfc_extract_int (source->ref->u.ss.start, &start);
+	  gfc_extract_int (source->ref->u.ss.end, &end);
+	  return gfc_encode_character (source->ts.kind, MAX(end - start + 1, 0),
+				       &source->value.character.string[start-1],
+				       buffer, buffer_size);
+	}
+
     case BT_DERIVED:
       return encode_derived (source, buffer, buffer_size);
     default:
@@ -316,8 +355,9 @@ gfc_interpret_integer (int kind, unsigned char *buffer, size_t buffer_size,
 
 int
 gfc_interpret_float (int kind, unsigned char *buffer, size_t buffer_size,
-		 mpfr_t real)
+		     mpfr_t real)
 {
+  gfc_set_model_kind (kind);
   mpfr_init (real);
   gfc_conv_tree_to_mpfr (real,
 			 native_interpret_expr (gfc_get_real_type (kind),
@@ -329,11 +369,13 @@ gfc_interpret_float (int kind, unsigned char *buffer, size_t buffer_size,
 
 int
 gfc_interpret_complex (int kind, unsigned char *buffer, size_t buffer_size,
-		   mpfr_t real, mpfr_t imaginary)
+		       mpc_t complex)
 {
   int size;
-  size = gfc_interpret_float (kind, &buffer[0], buffer_size, real);
-  size += gfc_interpret_float (kind, &buffer[size], buffer_size - size, imaginary);
+  size = gfc_interpret_float (kind, &buffer[0], buffer_size,
+			      mpc_realref (complex));
+  size += gfc_interpret_float (kind, &buffer[size], buffer_size - size,
+			       mpc_imagref (complex));
   return size;
 }
 
@@ -351,18 +393,43 @@ gfc_interpret_logical (int kind, unsigned char *buffer, size_t buffer_size,
 
 
 int
-gfc_interpret_character (unsigned char *buffer, size_t buffer_size, gfc_expr *result)
+gfc_interpret_character (unsigned char *buffer, size_t buffer_size,
+			 gfc_expr *result)
 {
-  if (result->ts.cl && result->ts.cl->length)
-    result->value.character.length =
-      (int)mpz_get_ui (result->ts.cl->length->value.integer);
+  int i;
 
-  gcc_assert (buffer_size >= size_character (result->value.character.length));
+  if (result->ts.u.cl && result->ts.u.cl->length)
+    result->value.character.length =
+      (int) mpz_get_ui (result->ts.u.cl->length->value.integer);
+
+  gcc_assert (buffer_size >= size_character (result->value.character.length,
+					     result->ts.kind));
   result->value.character.string =
-    gfc_getmem (result->value.character.length + 1);
-  memcpy (result->value.character.string, buffer,
-	  result->value.character.length);
-  result->value.character.string [result->value.character.length] = '\0';
+    gfc_get_wide_string (result->value.character.length + 1);
+
+  if (result->ts.kind == gfc_default_character_kind)
+    for (i = 0; i < result->value.character.length; i++)
+      result->value.character.string[i] = (gfc_char_t) buffer[i];
+  else
+    {
+      mpz_t integer;
+      unsigned bytes = size_character (1, result->ts.kind);
+      mpz_init (integer);
+      gcc_assert (bytes <= sizeof (unsigned long));
+
+      for (i = 0; i < result->value.character.length; i++)
+	{
+	  gfc_conv_tree_to_mpz (integer,
+	    native_interpret_expr (gfc_get_char_type (result->ts.kind),
+				   &buffer[bytes*i], buffer_size-bytes*i));
+	  result->value.character.string[i]
+	    = (gfc_char_t) mpz_get_ui (integer);
+	}
+
+      mpz_clear (integer);
+    }
+
+  result->value.character.string[result->value.character.length] = '\0';
 
   return result->value.character.length;
 }
@@ -380,7 +447,7 @@ gfc_interpret_derived (unsigned char *buffer, size_t buffer_size, gfc_expr *resu
   result->expr_type = EXPR_STRUCTURE;
 
   type = gfc_typenode_for_spec (&result->ts);
-  cmp = result->ts.derived->components;
+  cmp = result->ts.u.derived->components;
 
   /* Run through the derived type components.  */
   for (;cmp; cmp = cmp->next)
@@ -455,8 +522,7 @@ gfc_target_interpret_expr (unsigned char *buffer, size_t buffer_size,
     case BT_COMPLEX:
       result->representation.length = 
         gfc_interpret_complex (result->ts.kind, buffer, buffer_size,
-			       result->value.complex.r,
-			       result->value.complex.i);
+			       result->value.complex);
       break;
 
     case BT_LOGICAL:
@@ -481,11 +547,13 @@ gfc_target_interpret_expr (unsigned char *buffer, size_t buffer_size,
     }
 
   if (result->ts.type == BT_CHARACTER)
-    result->representation.string = result->value.character.string;
+    result->representation.string
+      = gfc_widechar_to_char (result->value.character.string,
+			      result->value.character.length);
   else
     {
       result->representation.string =
-        gfc_getmem (result->representation.length + 1);
+        (char *) gfc_getmem (result->representation.length + 1);
       memcpy (result->representation.string, buffer,
 	      result->representation.length);
       result->representation.string[result->representation.length] = '\0';
@@ -522,7 +590,7 @@ expr_to_char (gfc_expr *e, unsigned char *data, unsigned char *chk, size_t len)
   if (e->ts.type == BT_DERIVED)
     {
       ctr = e->value.constructor;
-      cmp = e->ts.derived->components;
+      cmp = e->ts.u.derived->components;
       for (;ctr; ctr = ctr->next, cmp = cmp->next)
 	{
 	  gcc_assert (cmp && cmp->backend_decl);
@@ -596,26 +664,52 @@ gfc_merge_initializers (gfc_typespec ts, gfc_expr *e, unsigned char *data,
   return len;
 }
 
-void
+
+/* Transfer the bitpattern of a (integer) BOZ to real or complex variables.
+   When successful, no BOZ or nothing to do, true is returned.  */
+
+bool
 gfc_convert_boz (gfc_expr *expr, gfc_typespec *ts)
 {
-  size_t buffer_size;
+  size_t buffer_size, boz_bit_size, ts_bit_size;
+  int index;
   unsigned char *buffer;
 
   if (!expr->is_boz)
-    return;
+    return true;
 
   gcc_assert (expr->expr_type == EXPR_CONSTANT
 	      && expr->ts.type == BT_INTEGER);
 
   /* Don't convert BOZ to logical, character, derived etc.  */
   if (ts->type == BT_REAL)
-    buffer_size = size_float (ts->kind);
+    {
+      buffer_size = size_float (ts->kind);
+      ts_bit_size = buffer_size * 8;
+    }
   else if (ts->type == BT_COMPLEX)
-    buffer_size = size_complex (ts->kind);
+    {
+      buffer_size = size_complex (ts->kind);
+      ts_bit_size = buffer_size * 8 / 2;
+    }
   else
-    return;
+    return true;
 
+  /* Convert BOZ to the smallest possible integer kind.  */
+  boz_bit_size = mpz_sizeinbase (expr->value.integer, 2);
+
+  if (boz_bit_size > ts_bit_size)
+    {
+      gfc_error_now ("BOZ constant at %L is too large (%ld vs %ld bits)",
+		     &expr->where, (long) boz_bit_size, (long) ts_bit_size);
+      return false;
+    }
+
+  for (index = 0; gfc_integer_kinds[index].kind != 0; ++index)
+    if ((unsigned) gfc_integer_kinds[index].bit_size >= ts_bit_size)
+      break;
+
+  expr->ts.kind = gfc_integer_kinds[index].kind;
   buffer_size = MAX (buffer_size, size_integer (expr->ts.kind));
 
   buffer = (unsigned char*)alloca (buffer_size);
@@ -629,12 +723,13 @@ gfc_convert_boz (gfc_expr *expr, gfc_typespec *ts)
     }
   else
     {
-      mpfr_init (expr->value.complex.r);
-      mpfr_init (expr->value.complex.i);
+      mpc_init2 (expr->value.complex, mpfr_get_default_prec());
       gfc_interpret_complex (ts->kind, buffer, buffer_size,
-			     expr->value.complex.r, expr->value.complex.i);
+			     expr->value.complex);
     }
   expr->is_boz = 0;  
   expr->ts.type = ts->type;
   expr->ts.kind = ts->kind;
+
+  return true;
 }

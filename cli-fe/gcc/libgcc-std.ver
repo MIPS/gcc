@@ -1,3 +1,22 @@
+# Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,
+# 2008, 2010 Free Software Foundation, Inc.
+#
+# This file is part of GCC.
+#
+# GCC is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3, or (at your option)
+# any later version.
+#
+# GCC is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with GCC; see the file COPYING3.  If not see
+# <http://www.gnu.org/licenses/>.
+
 GCC_3.0 {
   # libgcc1 integer symbols
   __absvsi2
@@ -1799,4 +1818,95 @@ GCC_4.3.0 {
   __satfractunstiusa
   __satfractunstiuda
   __satfractunstiuta
+}
+
+%inherit GCC_4.4.0 GCC_4.3.0
+GCC_4.4.0 {
+  __sync_fetch_and_add_1
+  __sync_fetch_and_sub_1
+  __sync_fetch_and_or_1
+  __sync_fetch_and_and_1
+  __sync_fetch_and_xor_1
+  __sync_fetch_and_nand_1
+  __sync_add_and_fetch_1
+  __sync_sub_and_fetch_1
+  __sync_or_and_fetch_1
+  __sync_and_and_fetch_1
+  __sync_xor_and_fetch_1
+  __sync_nand_and_fetch_1
+  __sync_bool_compare_and_swap_1
+  __sync_val_compare_and_swap_1
+  __sync_lock_test_and_set_1
+
+  __sync_fetch_and_add_2
+  __sync_fetch_and_sub_2
+  __sync_fetch_and_or_2
+  __sync_fetch_and_and_2
+  __sync_fetch_and_xor_2
+  __sync_fetch_and_nand_2
+  __sync_add_and_fetch_2
+  __sync_sub_and_fetch_2
+  __sync_or_and_fetch_2
+  __sync_and_and_fetch_2
+  __sync_xor_and_fetch_2
+  __sync_nand_and_fetch_2
+  __sync_bool_compare_and_swap_2
+  __sync_val_compare_and_swap_2
+  __sync_lock_test_and_set_2
+
+  __sync_fetch_and_add_4
+  __sync_fetch_and_sub_4
+  __sync_fetch_and_or_4
+  __sync_fetch_and_and_4
+  __sync_fetch_and_xor_4
+  __sync_fetch_and_nand_4
+  __sync_add_and_fetch_4
+  __sync_sub_and_fetch_4
+  __sync_or_and_fetch_4
+  __sync_and_and_fetch_4
+  __sync_xor_and_fetch_4
+  __sync_nand_and_fetch_4
+  __sync_bool_compare_and_swap_4
+  __sync_val_compare_and_swap_4
+  __sync_lock_test_and_set_4
+
+  __sync_fetch_and_add_8
+  __sync_fetch_and_sub_8
+  __sync_fetch_and_or_8
+  __sync_fetch_and_and_8
+  __sync_fetch_and_xor_8
+  __sync_fetch_and_nand_8
+  __sync_add_and_fetch_8
+  __sync_sub_and_fetch_8
+  __sync_or_and_fetch_8
+  __sync_and_and_fetch_8
+  __sync_xor_and_fetch_8
+  __sync_nand_and_fetch_8
+  __sync_bool_compare_and_swap_8
+  __sync_val_compare_and_swap_8
+  __sync_lock_test_and_set_8
+
+  __sync_fetch_and_add_16
+  __sync_fetch_and_sub_16
+  __sync_fetch_and_or_16
+  __sync_fetch_and_and_16
+  __sync_fetch_and_xor_16
+  __sync_fetch_and_nand_16
+  __sync_add_and_fetch_16
+  __sync_sub_and_fetch_16
+  __sync_or_and_fetch_16
+  __sync_and_and_fetch_16
+  __sync_xor_and_fetch_16
+  __sync_nand_and_fetch_16
+  __sync_bool_compare_and_swap_16
+  __sync_val_compare_and_swap_16
+  __sync_lock_test_and_set_16
+
+  __sync_synchronize
+}
+
+%inherit GCC_4.5.0 GCC_4.4.0
+GCC_4.5.0 {
+  __unordxf2
+  __unordtf2
 }

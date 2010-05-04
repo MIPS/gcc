@@ -4,33 +4,28 @@
    files.  On this glorious day maybe this code can be integrated into
    it too.  */
 
-/* Copyright (C) 2005  Free Software Foundation, Inc.
+/* Copyright (C) 2005, 2008, 2009  Free Software Foundation, Inc.
 
    This file is part of GCC.
 
    GCC is free software; you can redistribute it and/or modify it under
    the terms of the GNU General Public License as published by the Free
-   Software Foundation; either version 2, or (at your option) any later
+   Software Foundation; either version 3, or (at your option) any later
    version.
-
-   In addition to the permissions in the GNU General Public License, the
-   Free Software Foundation gives you unlimited permission to link the
-   compiled version of this file into combinations with other programs,
-   and to distribute those combinations without any restriction coming
-   from the use of this file.  (The General Public License restrictions
-   do apply in other respects; for example, they cover modification of
-   the file, and distribution when not linked into a combine
-   executable.)
 
    GCC is distributed in the hope that it will be useful, but WITHOUT ANY
    WARRANTY; without even the implied warranty of MERCHANTABILITY or
    FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
    for more details.
 
-   You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-   02110-1301, USA.  */
+   Under Section 7 of GPL version 3, you are granted additional
+   permissions described in the GCC Runtime Library Exception, version
+   3.1, as published by the Free Software Foundation.
+
+   You should have received a copy of the GNU General Public License and
+   a copy of the GCC Runtime Library Exception along with this program;
+   see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+   <http://www.gnu.org/licenses/>.  */
 
 #include "tconfig.h"
 #include "tsystem.h"
@@ -42,6 +37,23 @@
 #else
 #define ATTRIBUTE_HIDDEN
 #endif
+
+#ifndef MIN_UNITS_PER_WORD
+#define MIN_UNITS_PER_WORD UNITS_PER_WORD
+#endif
+
+#ifndef LIBGCC2_UNITS_PER_WORD
+# if MIN_UNITS_PER_WORD > 4
+#  define LIBGCC2_UNITS_PER_WORD 8
+# elif (MIN_UNITS_PER_WORD > 2 \
+        || (MIN_UNITS_PER_WORD > 1 && LONG_LONG_TYPE_SIZE > 32))
+#  define LIBGCC2_UNITS_PER_WORD 4
+# else
+#  define LIBGCC2_UNITS_PER_WORD MIN_UNITS_PER_WORD
+# endif
+#endif
+
+#define word_type Wtype
 
 #include "libgcc2.h"
 #undef int
@@ -63,7 +75,7 @@ extern int __clzhi2 (UHWtype);
 extern int __ctzhi2 (UHWtype);
 
 
-
+#ifdef XSTORMY16_UDIVMODSI4
 USItype
 udivmodsi4 (USItype num, USItype den, word_type modwanted)
 {
@@ -90,7 +102,9 @@ udivmodsi4 (USItype num, USItype den, word_type modwanted)
     return num;
   return res;
 }
+#endif
 
+#ifdef XSTORMY16_DIVSI3
 SItype
 __divsi3 (SItype a, SItype b)
 {
@@ -116,7 +130,9 @@ __divsi3 (SItype a, SItype b)
 
   return res;
 }
+#endif
 
+#ifdef XSTORMY16_MODSI3
 SItype
 __modsi3 (SItype a, SItype b)
 {
@@ -139,19 +155,25 @@ __modsi3 (SItype a, SItype b)
 
   return res;
 }
+#endif
 
+#ifdef XSTORMY16_UDIVSI3
 SItype
 __udivsi3 (SItype a, SItype b)
 {
   return udivmodsi4 (a, b, 0);
 }
+#endif
 
+#ifdef XSTORMY16_UMODSI3
 SItype
 __umodsi3 (SItype a, SItype b)
 {
   return udivmodsi4 (a, b, 1);
 }
+#endif
 
+#ifdef XSTORMY16_ASHLSI3
 SItype
 __ashlsi3 (SItype a, SItype b)
 {
@@ -165,7 +187,9 @@ __ashlsi3 (SItype a, SItype b)
     a <<= 1;
   return a;
 }
+#endif
 
+#ifdef XSTORMY16_ASHRSI3
 SItype
 __ashrsi3 (SItype a, SItype b)
 {
@@ -179,7 +203,9 @@ __ashrsi3 (SItype a, SItype b)
     a >>= 1;
   return a;
 }
+#endif
 
+#ifdef XSTORMY16_LSHRSI3
 USItype
 __lshrsi3 (USItype a, USItype b)
 {
@@ -193,9 +219,11 @@ __lshrsi3 (USItype a, USItype b)
     a >>= 1;
   return a;
 }
+#endif
 
+#ifdef XSTORMY16_POPCOUNTHI2
 /* Returns the number of set bits in X.
-   FIXME:  The return type really should be unsigned,
+   FIXME:  The return type really should be "unsigned int"
    but this is not how the builtin is prototyped.  */
 int
 __popcounthi2 (UHWtype x)
@@ -207,9 +235,11 @@ __popcounthi2 (UHWtype x)
 
   return ret;
 }
+#endif
 
+#ifdef XSTORMY16_PARITYHI2
 /* Returns the number of set bits in X, modulo 2.
-   FIXME:  The return type really should be unsigned,
+   FIXME:  The return type really should be "unsigned int"
    but this is not how the builtin is prototyped.  */
 
 int
@@ -220,32 +250,62 @@ __parityhi2 (UHWtype x)
   x &= 0xf;
   return (0x6996 >> x) & 1;
 }
+#endif
 
-/* Returns the number of leading zero bits in X.
-   FIXME:  The return type really should be unsigned,
-   but this is not how the builtin is prototyped.  */
-
+#ifdef XSTORMY16_CLZHI2
+/* Returns the number of zero-bits from the most significant bit to the
+   first nonzero bit in X.  Returns 16 for X == 0.  Implemented as a
+   simple for loop in order to save space by removing the need for
+   the __clz_tab array.
+   FIXME:  The return type really should be "unsigned int" but this is
+   not how the builtin is prototyped.  */
+#undef unsigned
 int
 __clzhi2 (UHWtype x)
 {
-  if (x > 0xff)
-    return 8 - __clz_tab[x >> 8];
-  return 16 - __clz_tab[x];
-}
+  unsigned int i;
+  unsigned int c;
+  unsigned int value = x;
 
+  for (c = 0, i = 1 << 15; i; i >>= 1, c++)
+    if (i & value)
+      break;
+  return c;
+}
+#endif
+
+#ifdef XSTORMY16_CTZHI2
 /* Returns the number of trailing zero bits in X.
-   FIXME:  The return type really should be unsigned,
-   but this is not how the builtin is prototyped.  */
+   FIXME:  The return type really should be "signed int" since
+   ctz(0) returns -1, but this is not how the builtin is prototyped.  */
 
 int
 __ctzhi2 (UHWtype x)
 {
   /* This is cunning.  It converts X into a number with only the one bit
-     set, the bit was the least significant bit in X.  From this we can
-     use the __clz_tab[] array to compute the number of trailing bits.  */
+     set, the bit that was the least significant bit in X.  From this we
+     can use the count_leading_zeros to compute the number of trailing
+     bits.  */
   x &= - x;
 
-  if (x > 0xff)
-    return __clz_tab[x >> 8] + 7;
-  return __clz_tab[x] - 1;
+  return 15 - __builtin_clz (x);
 }
+#endif
+
+#ifdef XSTORMY16_FFSHI2
+/* Returns one plus the index of the least significant 1-bit of X,
+   or if X is zero, returns zero.  FIXME:  The return type really
+   should be "unsigned int" but this is not how the builtin is
+   prototyped.  */
+
+int
+__ffshi2 (UHWtype u)
+{
+  UHWtype count;
+
+  if (u == 0)
+    return 0;
+
+  return 16 - __builtin_clz (u & - u);
+}
+#endif

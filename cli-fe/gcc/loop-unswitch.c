@@ -1,5 +1,6 @@
 /* Loop unswitching for GNU compiler.
-   Copyright (C) 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2007, 2008, 2009, 2010
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -120,13 +121,13 @@ compare_and_jump_seq (rtx op0, rtx op1, enum rtx_code comp, rtx label, int prob,
       op0 = force_operand (op0, NULL_RTX);
       op1 = force_operand (op1, NULL_RTX);
       do_compare_rtx_and_jump (op0, op1, comp, 0,
-			       mode, NULL_RTX, NULL_RTX, label);
+			       mode, NULL_RTX, NULL_RTX, label, -1);
       jump = get_last_insn ();
       JUMP_LABEL (jump) = label;
       LABEL_NUSES (label)++;
     }
-  REG_NOTES (jump) = gen_rtx_EXPR_LIST (REG_BR_PROB, GEN_INT (prob),
-					REG_NOTES (jump));
+  add_reg_note (jump, REG_BR_PROB, GEN_INT (prob));
+
   seq = get_insns ();
   end_sequence ();
 
@@ -290,7 +291,7 @@ unswitch_single_loop (struct loop *loop, rtx cond_checked, int num)
     }
 
   /* Do not unswitch in cold areas.  */
-  if (!maybe_hot_bb_p (loop->header))
+  if (optimize_loop_for_size_p (loop))
     {
       if (dump_file)
 	fprintf (dump_file, ";; Not unswitching, not hot area\n");
@@ -391,7 +392,6 @@ unswitch_loop (struct loop *loop, basic_block unswitch_on, rtx cond, rtx cinsn)
   edge entry, latch_edge, true_edge, false_edge, e;
   basic_block switch_bb, unswitch_on_alt;
   struct loop *nloop;
-  sbitmap zero_bitmap;
   int irred_flag, prob;
   rtx seq;
 
@@ -408,7 +408,6 @@ unswitch_loop (struct loop *loop, basic_block unswitch_on, rtx cond, rtx cinsn)
   /* Make a copy.  */
   irred_flag = entry->flags & EDGE_IRREDUCIBLE_LOOP;
   entry->flags &= ~EDGE_IRREDUCIBLE_LOOP;
-  zero_bitmap = sbitmap_alloc (2);
   if (!duplicate_loop_to_header_edge (loop, entry, 1,
 			      	      NULL, NULL, NULL, 0))
     return NULL;

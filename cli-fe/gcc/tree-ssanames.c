@@ -1,18 +1,19 @@
 /* Generic routines for manipulating SSA_NAME expressions
-   Copyright (C) 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
-                                                                               
+   Copyright (C) 2003, 2004, 2005, 2007, 2008, 2009
+   Free Software Foundation, Inc.
+
 This file is part of GCC.
-                                                                               
+
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 3, or (at your option)
 any later version.
-                                                                               
+
 GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
-                                                                               
+
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
@@ -29,7 +30,7 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Rewriting a function into SSA form can create a huge number of SSA_NAMEs,
    many of which may be thrown away shortly after their creation if jumps
-   were threaded through PHI nodes.  
+   were threaded through PHI nodes.
 
    While our garbage collection mechanisms will handle this situation, it
    is extremely wasteful to create nodes and throw them away, especially
@@ -43,7 +44,7 @@ along with GCC; see the file COPYING3.  If not see
 
    Right now we maintain our free list on a per-function basis.  It may
    or may not make sense to maintain the free list for the duration of
-   a compilation unit. 
+   a compilation unit.
 
    External code should rely solely upon HIGHEST_SSA_VERSION and the
    externally defined functions.  External code should not know about
@@ -67,12 +68,16 @@ unsigned int ssa_name_nodes_reused;
 unsigned int ssa_name_nodes_created;
 #endif
 
-/* Initialize management of SSA_NAMEs.  */
+/* Initialize management of SSA_NAMEs to default SIZE.  If SIZE is
+   zero use default.  */
 
 void
-init_ssanames (void)
+init_ssanames (struct function *fn, int size)
 {
-  SSANAMES (cfun) = VEC_alloc (tree, gc, 50);
+  if (size < 50)
+    size = 50;
+
+  SSANAMES (fn) = VEC_alloc (tree, gc, size);
 
   /* Version 0 is special, so reserve the first slot in the table.  Though
      currently unused, we may use version 0 in alias analysis as part of
@@ -81,8 +86,10 @@ init_ssanames (void)
 
      We use VEC_quick_push here because we know that SSA_NAMES has at
      least 50 elements reserved in it.  */
-  VEC_quick_push (tree, SSANAMES (cfun), NULL_TREE);
-  FREE_SSANAMES (cfun) = NULL;
+  VEC_quick_push (tree, SSANAMES (fn), NULL_TREE);
+  FREE_SSANAMES (fn) = NULL;
+
+  SYMS_TO_RENAME (fn) = BITMAP_GGC_ALLOC ();
 }
 
 /* Finalize management of SSA_NAMEs.  */
@@ -105,29 +112,24 @@ ssanames_print_statistics (void)
 }
 #endif
 
-/* Return an SSA_NAME node for variable VAR defined in statement STMT.
-   STMT may be an empty statement for artificial references (e.g., default
-   definitions created when a variable is used without a preceding
-   definition).  */
+/* Return an SSA_NAME node for variable VAR defined in statement STMT
+   in function FN.  STMT may be an empty statement for artificial
+   references (e.g., default definitions created when a variable is
+   used without a preceding definition).  */
 
 tree
-make_ssa_name (tree var, tree stmt)
+make_ssa_name_fn (struct function *fn, tree var, gimple stmt)
 {
   tree t;
   use_operand_p imm;
 
-  gcc_assert (DECL_P (var)
-	      || TREE_CODE (var) == INDIRECT_REF);
-
-  gcc_assert (!stmt
-	      || EXPR_P (stmt) || GIMPLE_STMT_P (stmt)
-	      || TREE_CODE (stmt) == PHI_NODE);
+  gcc_assert (DECL_P (var));
 
   /* If our free list has an element, then use it.  */
-  if (FREE_SSANAMES (cfun))
+  if (FREE_SSANAMES (fn))
     {
-      t = FREE_SSANAMES (cfun);
-      FREE_SSANAMES (cfun) = TREE_CHAIN (FREE_SSANAMES (cfun));
+      t = FREE_SSANAMES (fn);
+      FREE_SSANAMES (fn) = TREE_CHAIN (FREE_SSANAMES (fn));
 #ifdef GATHER_STATISTICS
       ssa_name_nodes_reused++;
 #endif
@@ -135,13 +137,13 @@ make_ssa_name (tree var, tree stmt)
       /* The node was cleared out when we put it on the free list, so
 	 there is no need to do so again here.  */
       gcc_assert (ssa_name (SSA_NAME_VERSION (t)) == NULL);
-      VEC_replace (tree, SSANAMES (cfun), SSA_NAME_VERSION (t), t);
+      VEC_replace (tree, SSANAMES (fn), SSA_NAME_VERSION (t), t);
     }
   else
     {
       t = make_node (SSA_NAME);
-      SSA_NAME_VERSION (t) = num_ssa_names;
-      VEC_safe_push (tree, gc, SSANAMES (cfun), t);
+      SSA_NAME_VERSION (t) = VEC_length (tree, SSANAMES (fn));
+      VEC_safe_push (tree, gc, SSANAMES (fn), t);
 #ifdef GATHER_STATISTICS
       ssa_name_nodes_created++;
 #endif
@@ -157,14 +159,14 @@ make_ssa_name (tree var, tree stmt)
   imm->use = NULL;
   imm->prev = imm;
   imm->next = imm;
-  imm->stmt = t;
+  imm->loc.ssa_name = t;
 
   return t;
 }
 
 
 /* We no longer need the SSA_NAME expression VAR, release it so that
-   it may be reused. 
+   it may be reused.
 
    Note it is assumed that no calls to make_ssa_name will be made
    until all uses of the ssa name are released and that the only
@@ -193,7 +195,7 @@ release_ssa_name (tree var)
   /* release_ssa_name can be called multiple times on a single SSA_NAME.
      However, it should only end up on our free list one time.   We
      keep a status bit in the SSA_NAME node itself to indicate it has
-     been put on the free list. 
+     been put on the free list.
 
      Note that once on the freelist you can not reference the SSA_NAME's
      defining statement.  */
@@ -202,6 +204,9 @@ release_ssa_name (tree var)
       tree saved_ssa_name_var = SSA_NAME_VAR (var);
       int saved_ssa_name_version = SSA_NAME_VERSION (var);
       use_operand_p imm = &(SSA_NAME_IMM_USE_NODE (var));
+
+      if (MAY_HAVE_DEBUG_STMTS)
+	insert_debug_temp_for_var_def (NULL, var);
 
 #ifdef ENABLE_CHECKING
       verify_imm_links (stderr, var);
@@ -215,7 +220,8 @@ release_ssa_name (tree var)
 
       imm->prev = imm;
       imm->next = imm;
-      imm->stmt = var;
+      imm->loc.ssa_name = var;
+
       /* First put back the right tree node so that the tree checking
 	 macros do not complain.  */
       TREE_SET_CODE (var, SSA_NAME);
@@ -239,7 +245,7 @@ release_ssa_name (tree var)
 /* Creates a duplicate of a ssa name NAME defined in statement STMT.  */
 
 tree
-duplicate_ssa_name (tree name, tree stmt)
+duplicate_ssa_name (tree name, gimple stmt)
 {
   tree new_name = make_ssa_name (SSA_NAME_VAR (name), stmt);
   struct ptr_info_def *old_ptr_info = SSA_NAME_PTR_INFO (name);
@@ -268,12 +274,6 @@ duplicate_ssa_name_ptr_info (tree name, struct ptr_info_def *ptr_info)
   new_ptr_info = GGC_NEW (struct ptr_info_def);
   *new_ptr_info = *ptr_info;
 
-  if (ptr_info->pt_vars)
-    {
-      new_ptr_info->pt_vars = BITMAP_GGC_ALLOC ();
-      bitmap_copy (new_ptr_info->pt_vars, ptr_info->pt_vars);
-    }
-
   SSA_NAME_PTR_INFO (name) = new_ptr_info;
 }
 
@@ -281,7 +281,7 @@ duplicate_ssa_name_ptr_info (tree name, struct ptr_info_def *ptr_info)
 /* Release all the SSA_NAMEs created by STMT.  */
 
 void
-release_defs (tree stmt)
+release_defs (gimple stmt)
 {
   tree def;
   ssa_op_iter iter;
@@ -343,19 +343,21 @@ release_dead_ssa_names (void)
   return 0;
 }
 
-struct tree_opt_pass pass_release_ssa_names =
+struct gimple_opt_pass pass_release_ssa_names =
 {
+ {
+  GIMPLE_PASS,
   "release_ssa",			/* name */
   NULL,					/* gate */
   release_dead_ssa_names,		/* execute */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
-  0,					/* tv_id */
+  TV_NONE,				/* tv_id */
   PROP_ssa,				/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0,					/* todo_flags_finish */
-  0					/* letter */
+  TODO_dump_func 			/* todo_flags_finish */
+ }
 };

@@ -1,6 +1,6 @@
 /* Output xcoff-format symbol table information from GNU compiler.
    Copyright (C) 1992, 1994, 1995, 1997, 1998, 1999, 2000, 2002, 2003, 2004,
-   2007  Free Software Foundation, Inc.
+   2007, 2008  Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -145,7 +145,7 @@ static const struct xcoff_type_number xcoff_type_numbers[] = {
 
   /* ??? Should also handle built-in C++ and Obj-C types.  There perhaps
      aren't any that C doesn't already have.  */
-};    
+};
 
 /* Returns an XCOFF fundamental type number for DECL (assumed to be a
    TYPE_DECL), or 0 if dbxout.c should assign a type number normally.  */
@@ -321,7 +321,9 @@ xcoffout_source_file (FILE *file, const char *filename, int inline_p)
 /* Output a line number symbol entry for location (FILENAME, LINE).  */
 
 void
-xcoffout_source_line (unsigned int line, const char *filename)
+xcoffout_source_line (unsigned int line, const char *filename,
+                      int discriminator ATTRIBUTE_UNUSED,
+                      bool is_stmt ATTRIBUTE_UNUSED)
 {
   bool inline_p = (strcmp (xcoff_current_function_file, filename) != 0
 		   || (int) line < xcoff_begin_function_line);
@@ -413,7 +415,7 @@ xcoffout_declare_function (FILE *file, tree decl, const char *name)
   len = strlen (name);
   if (name[len - 1] == ']')
     {
-      char *n = alloca (len - 3);
+      char *n = XALLOCAVEC (char, len - 3);
       memcpy (n, name, len - 4);
       n[len - 4] = '\0';
       name = n;

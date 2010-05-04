@@ -1,5 +1,6 @@
 /* Callgraph construction.
-   Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009
+   Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -28,16 +29,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "pointer-set.h"
 #include "cgraph.h"
 #include "intl.h"
-#include "tree-gimple.h"
+#include "gimple.h"
 #include "tree-pass.h"
 
 /* Walk tree and record all calls and references to functions/variables.
-   Called via walk_tree: TP is pointer to tree to be examined.  */
+   Called via walk_tree: TP is pointer to tree to be examined.
+   When DATA is non-null, record references to callgraph.
+   */
 
 static tree
-record_reference (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
+record_reference (tree *tp, int *walk_subtrees, void *data)
 {
   tree t = *tp;
+  tree decl;
+  bool do_callgraph = data != NULL;
 
   switch (TREE_CODE (t))
     {
@@ -52,14 +57,11 @@ record_reference (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 
     case FDESC_EXPR:
     case ADDR_EXPR:
-      if (flag_unit_at_a_time)
-	{
-	  /* Record dereferences to the functions.  This makes the
-	     functions reachable unconditionally.  */
-	  tree decl = TREE_OPERAND (*tp, 0);
-	  if (TREE_CODE (decl) == FUNCTION_DECL)
-	    cgraph_mark_needed_node (cgraph_node (decl));
-	}
+      /* Record dereferences to the functions.  This makes the
+	 functions reachable unconditionally.  */
+      decl = TREE_OPERAND (*tp, 0);
+      if (TREE_CODE (decl) == FUNCTION_DECL && do_callgraph)
+	cgraph_mark_address_taken_node (cgraph_node (decl));
       break;
 
     default:
@@ -79,29 +81,49 @@ record_reference (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
   return NULL_TREE;
 }
 
-/* Give initial reasons why inlining would fail on all calls from
-   NODE.  Those get either nullified or usually overwritten by more precise
-   reason later.  */
+/* Reset inlining information of all incoming call edges of NODE.  */
 
-static void
-initialize_inline_failed (struct cgraph_node *node)
+void
+reset_inline_failed (struct cgraph_node *node)
 {
   struct cgraph_edge *e;
 
   for (e = node->callers; e; e = e->next_caller)
     {
-      gcc_assert (!e->callee->global.inlined_to);
-      gcc_assert (e->inline_failed);
-      if (node->local.redefined_extern_inline)
-	e->inline_failed = N_("redefined extern inline functions are not "
-			   "considered for inlining");
+      e->callee->global.inlined_to = NULL;
+      if (!node->analyzed)
+	e->inline_failed = CIF_BODY_NOT_AVAILABLE;
+      else if (node->local.redefined_extern_inline)
+	e->inline_failed = CIF_REDEFINED_EXTERN_INLINE;
       else if (!node->local.inlinable)
-	e->inline_failed = N_("function not inlinable");
-      else if (CALL_CANNOT_INLINE_P (e->call_stmt))
-	e->inline_failed = N_("mismatched arguments");
+	e->inline_failed = CIF_FUNCTION_NOT_INLINABLE;
+      else if (e->call_stmt_cannot_inline_p)
+	e->inline_failed = CIF_MISMATCHED_ARGUMENTS;
       else
-	e->inline_failed = N_("function not considered for inlining");
+	e->inline_failed = CIF_FUNCTION_NOT_CONSIDERED;
     }
+}
+
+/* Computes the frequency of the call statement so that it can be stored in
+   cgraph_edge.  BB is the basic block of the call statement.  */
+int
+compute_call_stmt_bb_frequency (tree decl, basic_block bb)
+{
+  int entry_freq = ENTRY_BLOCK_PTR_FOR_FUNCTION
+  		     (DECL_STRUCT_FUNCTION (decl))->frequency;
+  int freq = bb->frequency;
+
+  if (profile_status_for_function (DECL_STRUCT_FUNCTION (decl)) == PROFILE_ABSENT)
+    return CGRAPH_FREQ_BASE;
+
+  if (!entry_freq)
+    entry_freq = 1, freq++;
+
+  freq = freq * CGRAPH_FREQ_BASE / entry_freq;
+  if (freq > CGRAPH_FREQ_MAX)
+    freq = CGRAPH_FREQ_MAX;
+
+  return freq;
 }
 
 /* Create cgraph edges for function calls.
@@ -113,88 +135,102 @@ build_cgraph_edges (void)
   basic_block bb;
   struct cgraph_node *node = cgraph_node (current_function_decl);
   struct pointer_set_t *visited_nodes = pointer_set_create ();
-  block_stmt_iterator bsi;
+  gimple_stmt_iterator gsi;
   tree step;
-  int entry_freq = ENTRY_BLOCK_PTR->frequency;
-
-  if (!entry_freq)
-    entry_freq = 1;
 
   /* Create the callgraph edges and record the nodes referenced by the function.
      body.  */
   FOR_EACH_BB (bb)
-    for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+    for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
       {
-	tree stmt = bsi_stmt (bsi);
-	tree call = get_call_expr_in (stmt);
+	gimple stmt = gsi_stmt (gsi);
 	tree decl;
 
-	if (call && (decl = get_callee_fndecl (call)))
+	if (is_gimple_call (stmt) && (decl = gimple_call_fndecl (stmt)))
 	  {
-	    int i;
-	    int n = call_expr_nargs (call);
-	    int freq = (!bb->frequency && !entry_freq ? CGRAPH_FREQ_BASE
-			: bb->frequency * CGRAPH_FREQ_BASE / entry_freq);
-	    if (freq > CGRAPH_FREQ_MAX)
-	      freq = CGRAPH_FREQ_MAX;
+	    size_t i;
+	    size_t n = gimple_call_num_args (stmt);
 	    cgraph_create_edge (node, cgraph_node (decl), stmt,
-				bb->count, freq,
+				bb->count, compute_call_stmt_bb_frequency (current_function_decl, bb),
 				bb->loop_depth);
 	    for (i = 0; i < n; i++)
-	      walk_tree (&CALL_EXPR_ARG (call, i),
-			 record_reference, node, visited_nodes);
-	    if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT)
-	      walk_tree (&GIMPLE_STMT_OPERAND (stmt, 0),
-			 record_reference, node, visited_nodes);
+	      walk_tree (gimple_call_arg_ptr (stmt, i), record_reference,
+			 node, visited_nodes);
+	    if (gimple_call_lhs (stmt))
+	      walk_tree (gimple_call_lhs_ptr (stmt), record_reference, node,
+		         visited_nodes);
 	  }
 	else
-	  walk_tree (bsi_stmt_ptr (bsi), record_reference, node, visited_nodes);
+	  {
+	    struct walk_stmt_info wi;
+	    memset (&wi, 0, sizeof (wi));
+	    wi.info = node;
+	    wi.pset = visited_nodes;
+	    walk_gimple_op (stmt, record_reference, &wi);
+	    if (gimple_code (stmt) == GIMPLE_OMP_PARALLEL
+		&& gimple_omp_parallel_child_fn (stmt))
+	      {
+		tree fn = gimple_omp_parallel_child_fn (stmt);
+		cgraph_mark_needed_node (cgraph_node (fn));
+	      }
+	    if (gimple_code (stmt) == GIMPLE_OMP_TASK)
+	      {
+		tree fn = gimple_omp_task_child_fn (stmt);
+		if (fn)
+		  cgraph_mark_needed_node (cgraph_node (fn));
+		fn = gimple_omp_task_copy_fn (stmt);
+		if (fn)
+		  cgraph_mark_needed_node (cgraph_node (fn));
+	      }
+	  }
       }
 
   /* Look for initializers of constant variables and private statics.  */
-  for (step = cfun->unexpanded_var_list;
+  for (step = cfun->local_decls;
        step;
        step = TREE_CHAIN (step))
     {
       tree decl = TREE_VALUE (step);
       if (TREE_CODE (decl) == VAR_DECL
-	  && (TREE_STATIC (decl) && !DECL_EXTERNAL (decl))
-	  && flag_unit_at_a_time)
+	  && (TREE_STATIC (decl) && !DECL_EXTERNAL (decl)))
 	varpool_finalize_decl (decl);
       else if (TREE_CODE (decl) == VAR_DECL && DECL_INITIAL (decl))
 	walk_tree (&DECL_INITIAL (decl), record_reference, node, visited_nodes);
     }
 
   pointer_set_destroy (visited_nodes);
-  initialize_inline_failed (node);
   return 0;
 }
 
-struct tree_opt_pass pass_build_cgraph_edges =
+struct gimple_opt_pass pass_build_cgraph_edges =
 {
-  NULL,					/* name */
+ {
+  GIMPLE_PASS,
+  "*build_cgraph_edges",			/* name */
   NULL,					/* gate */
   build_cgraph_edges,			/* execute */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
-  0,					/* tv_id */
+  TV_NONE,				/* tv_id */
   PROP_cfg,				/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0,					/* todo_flags_finish */
-  0					/* letter */
+  0					/* todo_flags_finish */
+ }
 };
 
 /* Record references to functions and other variables present in the
-   initial value of DECL, a variable.  */
+   initial value of DECL, a variable.
+   When ONLY_VARS is true, we mark needed only variables, not functions.  */
 
 void
-record_references_in_initializer (tree decl)
+record_references_in_initializer (tree decl, bool only_vars)
 {
   struct pointer_set_t *visited_nodes = pointer_set_create ();
-  walk_tree (&DECL_INITIAL (decl), record_reference, NULL, visited_nodes);
+  walk_tree (&DECL_INITIAL (decl), record_reference,
+            only_vars ? NULL : decl, visited_nodes);
   pointer_set_destroy (visited_nodes);
 }
 
@@ -206,51 +242,73 @@ rebuild_cgraph_edges (void)
 {
   basic_block bb;
   struct cgraph_node *node = cgraph_node (current_function_decl);
-  block_stmt_iterator bsi;
-  int entry_freq = ENTRY_BLOCK_PTR->frequency;
-
-  if (!entry_freq)
-    entry_freq = 1;
+  gimple_stmt_iterator gsi;
 
   cgraph_node_remove_callees (node);
 
   node->count = ENTRY_BLOCK_PTR->count;
 
   FOR_EACH_BB (bb)
-    for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+    for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
       {
-	tree stmt = bsi_stmt (bsi);
-	tree call = get_call_expr_in (stmt);
+	gimple stmt = gsi_stmt (gsi);
 	tree decl;
 
-	if (call && (decl = get_callee_fndecl (call)))
-	  {
-	    int freq = (!bb->frequency && !entry_freq ? CGRAPH_FREQ_BASE
-			: bb->frequency * CGRAPH_FREQ_BASE / entry_freq);
-	    if (freq > CGRAPH_FREQ_MAX)
-	      freq = CGRAPH_FREQ_MAX;
-	    cgraph_create_edge (node, cgraph_node (decl), stmt,
-				bb->count, freq, bb->loop_depth);
-	   }
+	if (is_gimple_call (stmt) && (decl = gimple_call_fndecl (stmt)))
+	  cgraph_create_edge (node, cgraph_node (decl), stmt,
+			      bb->count,
+			      compute_call_stmt_bb_frequency
+			        (current_function_decl, bb),
+			      bb->loop_depth);
+
       }
-  initialize_inline_failed (node);
   gcc_assert (!node->global.inlined_to);
+
   return 0;
 }
 
-struct tree_opt_pass pass_rebuild_cgraph_edges =
+struct gimple_opt_pass pass_rebuild_cgraph_edges =
 {
-  NULL,					/* name */
+ {
+  GIMPLE_PASS,
+  "*rebuild_cgraph_edges",		/* name */
   NULL,					/* gate */
   rebuild_cgraph_edges,			/* execute */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
-  0,					/* tv_id */
+  TV_NONE,				/* tv_id */
   PROP_cfg,				/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   0,					/* todo_flags_finish */
-  0					/* letter */
+ }
+};
+
+
+static unsigned int
+remove_cgraph_callee_edges (void)
+{
+  cgraph_node_remove_callees (cgraph_node (current_function_decl));
+  return 0;
+}
+
+struct gimple_opt_pass pass_remove_cgraph_callee_edges =
+{
+ {
+  GIMPLE_PASS,
+  "*remove_cgraph_callee_edges",		/* name */
+  NULL,					/* gate */
+  remove_cgraph_callee_edges,		/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_NONE,				/* tv_id */
+  0,					/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  0,					/* todo_flags_finish */
+ }
 };

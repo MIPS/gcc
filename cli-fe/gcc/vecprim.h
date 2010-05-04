@@ -1,5 +1,5 @@
 /* VEC types for primitive types
-   Copyright (C) 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2006, 2007, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -23,7 +23,15 @@ along with GCC; see the file COPYING3.  If not see
 DEF_VEC_I(char);
 DEF_VEC_ALLOC_I(char,heap);
 
+typedef unsigned char uchar;
+DEF_VEC_I(uchar);
+DEF_VEC_ALLOC_I(uchar,heap);
+DEF_VEC_ALLOC_I(uchar,gc);
+
 DEF_VEC_I(int);
 DEF_VEC_ALLOC_I(int,heap);
+
+DEF_VEC_I(unsigned);
+DEF_VEC_ALLOC_I(unsigned,heap);
 
 #endif /* GCC_VECPRIM_H */

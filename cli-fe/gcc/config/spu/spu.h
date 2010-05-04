@@ -1,4 +1,4 @@
-/* Copyright (C) 2006, 2007 Free Software Foundation, Inc.
+/* Copyright (C) 2006, 2007, 2008, 2009 Free Software Foundation, Inc.
 
    This file is free software; you can redistribute it and/or modify it under
    the terms of the GNU General Public License as published by the Free
@@ -50,7 +50,8 @@ extern GTY(()) int spu_tune;
 
 /* Default target_flags if no switches specified.  */
 #ifndef TARGET_DEFAULT
-#define TARGET_DEFAULT (MASK_ERROR_RELOC | MASK_SAFE_DMA | MASK_BRANCH_HINTS)
+#define TARGET_DEFAULT (MASK_ERROR_RELOC | MASK_SAFE_DMA | MASK_BRANCH_HINTS \
+			| MASK_SAFE_HINTS | MASK_ADDRESS_SPACE_CONVERSION)
 #endif
 
 
@@ -124,34 +125,6 @@ extern GTY(()) int spu_tune;
 
 #define STACK_SIZE_MODE SImode
 
-/* #define TARGET_FLOAT_FORMAT     	SPU_FLOAT_FORMAT */
-
-#ifndef MODE_HAS_NANS
-#define MODE_HAS_NANS(MODE)                                     \
-  (FLOAT_MODE_P (MODE) 						\
-   && MODE != SFmode						\
-   && !LARGEST_EXPONENT_IS_NORMAL (GET_MODE_BITSIZE (MODE)))
-#endif
-                                                                              
-#ifndef MODE_HAS_INFINITIES
-#define MODE_HAS_INFINITIES(MODE)                               \
-  (FLOAT_MODE_P (MODE) 						\
-   && MODE != SFmode                                            \
-   && !LARGEST_EXPONENT_IS_NORMAL (GET_MODE_BITSIZE (MODE)))
-#endif
-                                                                              
-#ifndef MODE_HAS_SIGN_DEPENDENT_ROUNDING
-#define MODE_HAS_SIGN_DEPENDENT_ROUNDING(MODE)                  \
-  (FLOAT_MODE_P (MODE)                                          \
-    && MODE != SFmode                                           \
-   && !ROUND_TOWARDS_ZERO)
-#endif
-
-#define ROUND_TOWARDS_ZERO 1
-
-/* This is certainly true.  Should it be defined?  (It wasn't before.) */
-/* #define LARGEST_EXPONENT_IS_NORMAL(size) (size != 32) */
-
 
 /* Type Layout */
 
@@ -168,6 +141,8 @@ extern GTY(()) int spu_tune;
 #define LONG_DOUBLE_TYPE_SIZE 64
 
 #define DEFAULT_SIGNED_CHAR 0
+
+#define STDINT_LONG32 0
 
 
 /* Register Basics */
@@ -224,6 +199,9 @@ enum reg_class {
    LIM_REG_CLASSES 
 };
 
+/* SPU is simple, it really only has one class of registers.  */
+#define IRA_COVER_CLASSES { GENERAL_REGS, LIM_REG_CLASSES }
+
 #define N_REG_CLASSES (int) LIM_REG_CLASSES
 
 #define REG_CLASS_NAMES \
@@ -263,6 +241,7 @@ enum reg_class {
    only true for SPU. */
 #define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS) \
         ((GET_MODE_SIZE (FROM) > 4 || GET_MODE_SIZE (TO) > 4) \
+	 && (GET_MODE_SIZE (FROM) < 16 || GET_MODE_SIZE (TO) < 16) \
 	 && GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO))
 
 #define REGISTER_TARGET_PRAGMAS() do {					\
@@ -273,6 +252,8 @@ targetm.resolve_overloaded_builtin = spu_resolve_overloaded_builtin;	\
 /* Frame Layout */
 
 #define STACK_GROWS_DOWNWARD
+
+#define FRAME_GROWS_DOWNWARD 1
 
 #define STARTING_FRAME_OFFSET (0)
 
@@ -289,7 +270,10 @@ targetm.resolve_overloaded_builtin = spu_resolve_overloaded_builtin;	\
 
 #define INCOMING_RETURN_ADDR_RTX gen_rtx_REG(Pmode, LINK_REGISTER_REGNUM)
 
-#define ARG_POINTER_CFA_OFFSET(FNDECL) (-STACK_POINTER_OFFSET)
+#define DWARF_FRAME_RETURN_COLUMN DWARF_FRAME_REGNUM (LINK_REGISTER_REGNUM)
+
+#define ARG_POINTER_CFA_OFFSET(FNDECL) \
+  (crtl->args.pretend_args_size - STACK_POINTER_OFFSET)
 
 
 /* Stack Checking */
@@ -331,17 +315,11 @@ targetm.resolve_overloaded_builtin = spu_resolve_overloaded_builtin;	\
 
 /* Elimination */
 
-#define FRAME_POINTER_REQUIRED 0
-
-#define INITIAL_FRAME_POINTER_OFFSET(DEPTH) ((DEPTH) = 0)
-
 #define ELIMINABLE_REGS  \
   {{ARG_POINTER_REGNUM,	 STACK_POINTER_REGNUM},				\
   {ARG_POINTER_REGNUM,	 HARD_FRAME_POINTER_REGNUM},			\
   {FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM},				\
   {FRAME_POINTER_REGNUM, HARD_FRAME_POINTER_REGNUM}}
-
-#define CAN_ELIMINATE(FROM,TO) 1 
 
 #define INITIAL_ELIMINATION_OFFSET(FROM, TO, OFFSET) \
   ((OFFSET) = spu_initial_elimination_offset((FROM),(TO)))
@@ -353,7 +331,7 @@ targetm.resolve_overloaded_builtin = spu_resolve_overloaded_builtin;	\
 
 #define REG_PARM_STACK_SPACE(FNDECL) 0
 
-#define OUTGOING_REG_PARM_STACK_SPACE 1
+#define OUTGOING_REG_PARM_STACK_SPACE(FNTYPE) 1
 
 #define RETURN_POPS_ARGS(FUNDECL,FUNTYPE,SIZE) (0)
 
@@ -374,6 +352,14 @@ targetm.resolve_overloaded_builtin = spu_resolve_overloaded_builtin;	\
 	 : (MODE) == BLKmode ? ((int_size_in_bytes(TYPE)+15) / 16) \
          : (MODE) == VOIDmode ? 1 \
 	 : HARD_REGNO_NREGS(CUM,MODE))
+
+
+/* The SPU ABI wants 32/64-bit types at offset 0 in the quad-word on the
+   stack.  8/16-bit types should be at offsets 3/2 respectively.  */
+#define FUNCTION_ARG_OFFSET(MODE, TYPE)					\
+(((TYPE) && INTEGRAL_TYPE_P (TYPE) && GET_MODE_SIZE (MODE) < 4)		\
+ ? (4 - GET_MODE_SIZE (MODE))						\
+ : 0)
 
 #define FUNCTION_ARG_PADDING(MODE,TYPE) upward
 
@@ -408,9 +394,12 @@ targetm.resolve_overloaded_builtin = spu_resolve_overloaded_builtin;	\
 
 /* Profiling */
 
-/* Nothing, for now. */
 #define FUNCTION_PROFILER(FILE, LABELNO)  \
-   fprintf (FILE, "\t\n")
+  spu_function_profiler ((FILE), (LABELNO));
+
+#define NO_PROFILE_COUNTERS 1
+
+#define PROFILE_BEFORE_PROLOGUE 1
 
 
 /* Trampolines */
@@ -418,10 +407,6 @@ targetm.resolve_overloaded_builtin = spu_resolve_overloaded_builtin;	\
 #define TRAMPOLINE_SIZE (TARGET_LARGE_MEM ? 20 : 16)
 
 #define TRAMPOLINE_ALIGNMENT 128
-
-#define INITIALIZE_TRAMPOLINE(TRAMP,FNADDR,CXT) \
-	  spu_initialize_trampoline(TRAMP,FNADDR,CXT)
-
 
 /* Addressing Modes */
 
@@ -429,38 +414,16 @@ targetm.resolve_overloaded_builtin = spu_resolve_overloaded_builtin;	\
 
 #define MAX_REGS_PER_ADDRESS 2
 
-#ifdef REG_OK_STRICT
-# define REG_OK_STRICT_FLAG 1
-#else
-# define REG_OK_STRICT_FLAG 0
-#endif
-
-#define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)			\
-    { if (spu_legitimate_address (MODE, X, REG_OK_STRICT_FLAG))	\
-	goto ADDR;						\
-    }
-
-#define LEGITIMIZE_ADDRESS(X,OLDX,MODE,WIN) \
-  {  rtx result = spu_legitimize_address (X, OLDX, MODE);	\
-     if (result != NULL_RTX)					\
-       {							\
-	 (X) = result;						\
-	 goto WIN;						\
-       }							\
-  }
-
-#define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR,LABEL)
-
 #define LEGITIMATE_CONSTANT_P(X) spu_legitimate_constant_p(X)
 
 
 /* Costs */
 
-#define BRANCH_COST spu_branch_cost
+#define BRANCH_COST(speed_p, predictable_p) spu_branch_cost
 
 #define SLOW_BYTE_ACCESS 0
 
-#define MOVE_RATIO 32
+#define MOVE_RATIO(speed) 32
 
 #define NO_FUNCTION_CSE
 
@@ -509,6 +472,17 @@ targetm.resolve_overloaded_builtin = spu_resolve_overloaded_builtin;	\
 
 #define ASM_OUTPUT_LABELREF(FILE, NAME) \
   asm_fprintf (FILE, "%U%s", default_strip_name_encoding (NAME))
+
+#define ASM_OUTPUT_SYMBOL_REF(FILE, X) \
+  do							\
+    {							\
+      tree decl;					\
+      assemble_name (FILE, XSTR ((X), 0));		\
+      if ((decl = SYMBOL_REF_DECL ((X))) != 0		\
+	  && TREE_CODE (decl) == VAR_DECL		\
+	  && TYPE_ADDR_SPACE (TREE_TYPE (decl)))	\
+	fputs ("@ppu", FILE);				\
+    } while (0)
 
 
 /* Instruction Output */
@@ -594,6 +568,11 @@ targetm.resolve_overloaded_builtin = spu_resolve_overloaded_builtin;	\
 #undef TARG_VEC_STORE_COST
 #define TARG_VEC_STORE_COST          1
 
+/* Cost of vector permutation.  */
+#ifndef TARG_VEC_PERMUTE_COST
+#define TARG_VEC_PERMUTE_COST        1 
+#endif
+
 
 /* Misc */
 
@@ -625,8 +604,40 @@ targetm.resolve_overloaded_builtin = spu_resolve_overloaded_builtin;	\
       }                                                                   \
   } while (0)
 
-/* These are set by the cmp patterns and used while expanding
-   conditional branches. */
-extern GTY(()) rtx spu_compare_op0;
-extern GTY(()) rtx spu_compare_op1;
+
+/* Address spaces.  */
+#define ADDR_SPACE_EA	1
+
+/* Named address space keywords.  */
+#define TARGET_ADDR_SPACE_KEYWORDS ADDR_SPACE_KEYWORD ("__ea", ADDR_SPACE_EA)
+
+
+/* Builtins.  */
+
+enum spu_builtin_type
+{
+  B_INSN,
+  B_JUMP,
+  B_BISLED,
+  B_CALL,
+  B_HINT,
+  B_OVERLOAD,
+  B_INTERNAL
+};
+
+struct GTY(()) spu_builtin_description
+{
+  int fcode;
+  int icode;
+  const char *name;
+  enum spu_builtin_type type;
+
+  /* The first element of parm is always the return type.  The rest
+     are a zero terminated list of parameters.  */
+  int parm[5];
+
+  tree fndecl;
+};
+
+extern struct spu_builtin_description spu_builtins[];
 

@@ -1,5 +1,5 @@
 /* Definitions of Tensilica's Xtensa target machine for GNU compiler.
-   Copyright 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Bob Wilson (bwilson@tensilica.com) at Tensilica.
 
@@ -23,22 +23,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "xtensa-config.h"
 
 /* Standard GCC variables that we reference.  */
-extern int current_function_calls_alloca;
 extern int optimize;
 
 /* External variables defined in xtensa.c.  */
 
-/* comparison type */
-enum cmp_type {
-  CMP_SI,				/* four byte integers */
-  CMP_DI,				/* eight byte integers */
-  CMP_SF,				/* single precision floats */
-  CMP_DF,				/* double precision floats */
-  CMP_MAX				/* max comparison type */
-};
-
-extern struct rtx_def * branch_cmp[2];	/* operands for compare */
-extern enum cmp_type branch_type;	/* what type of branch to use */
 extern unsigned xtensa_current_frame_size;
 
 /* Macros used in the machine description to select various Xtensa
@@ -51,6 +39,9 @@ extern unsigned xtensa_current_frame_size;
 #endif
 #ifndef XCHAL_HAVE_S32C1I
 #define XCHAL_HAVE_S32C1I 0
+#endif
+#ifndef XCHAL_HAVE_THREADPTR
+#define XCHAL_HAVE_THREADPTR 0
 #endif
 #define TARGET_BIG_ENDIAN	XCHAL_HAVE_BE
 #define TARGET_DENSITY		XCHAL_HAVE_DENSITY
@@ -72,9 +63,16 @@ extern unsigned xtensa_current_frame_size;
 #define TARGET_ADDX		XCHAL_HAVE_ADDX
 #define TARGET_RELEASE_SYNC	XCHAL_HAVE_RELEASE_SYNC
 #define TARGET_S32C1I		XCHAL_HAVE_S32C1I
+#define TARGET_ABSOLUTE_LITERALS XSHAL_USE_ABSOLUTE_LITERALS
+#define TARGET_THREADPTR	XCHAL_HAVE_THREADPTR
 
-#define TARGET_DEFAULT (						\
-  (XCHAL_HAVE_L32R	? 0 : MASK_CONST16))
+#define TARGET_DEFAULT \
+  ((XCHAL_HAVE_L32R	? 0 : MASK_CONST16) |				\
+   MASK_SERIALIZE_VOLATILE)
+
+#ifndef HAVE_AS_TLS
+#define HAVE_AS_TLS 0
+#endif
 
 #define OVERRIDE_OPTIONS override_options ()
 
@@ -382,25 +380,8 @@ extern char xtensa_hard_regno_mode_ok[][FIRST_PSEUDO_REGISTER];
    either the stack pointer or the hard frame pointer.  */
 #define FRAME_POINTER_REGNUM (GP_REG_FIRST + 16)
 
-/* Value should be nonzero if functions must have frame pointers.
-   Zero means the frame pointer need not be set up (and parms
-   may be accessed via the stack pointer) in functions that seem suitable.
-   This is computed in 'reload', in reload1.c.  */
-#define FRAME_POINTER_REQUIRED xtensa_frame_pointer_required ()
-
 /* Base register for access to arguments of the function.  */
 #define ARG_POINTER_REGNUM (GP_REG_FIRST + 17)
-
-/* If the static chain is passed in memory, these macros provide rtx
-   giving 'mem' expressions that denote where they are stored.
-   'STATIC_CHAIN' and 'STATIC_CHAIN_INCOMING' give the locations as
-   seen by the calling and called functions, respectively.  */
-
-#define STATIC_CHAIN							\
-  gen_rtx_MEM (Pmode, plus_constant (stack_pointer_rtx, -5 * UNITS_PER_WORD))
-
-#define STATIC_CHAIN_INCOMING						\
-  gen_rtx_MEM (Pmode, plus_constant (arg_pointer_rtx, -5 * UNITS_PER_WORD))
 
 /* For now we don't try to use the full set of boolean registers.  Without
    software pipelining of FP operations, there's not much to gain and it's
@@ -478,6 +459,11 @@ enum reg_class
   { 0xffffffff, 0x0000000f }  /* all registers */ \
 }
 
+#define IRA_COVER_CLASSES						\
+{									\
+  BR_REGS, FP_REGS, ACC_REG, AR_REGS, LIM_REG_CLASSES			\
+}
+
 /* A C expression whose value is a register class containing hard
    register REGNO.  In general there is more that one such class;
    choose a class which is "minimal", meaning that no smaller class
@@ -502,12 +488,6 @@ extern const enum reg_class xtensa_regno_to_class[FIRST_PSEUDO_REGISTER];
 #define PREFERRED_OUTPUT_RELOAD_CLASS(X, CLASS)				\
   xtensa_preferred_reload_class (X, CLASS, 1)
   
-#define SECONDARY_INPUT_RELOAD_CLASS(CLASS, MODE, X)			\
-  xtensa_secondary_reload_class (CLASS, MODE, X, 0)
-
-#define SECONDARY_OUTPUT_RELOAD_CLASS(CLASS, MODE, X)			\
-  xtensa_secondary_reload_class (CLASS, MODE, X, 1)
-
 /* Return the maximum number of consecutive registers
    needed to represent mode MODE in a register of class CLASS.  */
 #define CLASS_UNITS(mode, size)						\
@@ -523,7 +503,7 @@ extern const enum reg_class xtensa_regno_to_class[FIRST_PSEUDO_REGISTER];
 
 /* Offset within stack frame to start allocating local variables at.  */
 #define STARTING_FRAME_OFFSET						\
-  current_function_outgoing_args_size
+  crtl->outgoing_args_size
 
 /* The ARG_POINTER and FRAME_POINTER are not real Xtensa registers, so
    they are eliminated to either the stack pointer or hard frame pointer.  */
@@ -532,8 +512,6 @@ extern const enum reg_class xtensa_regno_to_class[FIRST_PSEUDO_REGISTER];
  { ARG_POINTER_REGNUM,		HARD_FRAME_POINTER_REGNUM},		\
  { FRAME_POINTER_REGNUM,	STACK_POINTER_REGNUM},			\
  { FRAME_POINTER_REGNUM,	HARD_FRAME_POINTER_REGNUM}}
-
-#define CAN_ELIMINATE(FROM, TO) 1
 
 /* Specify the initial difference between the specified pair of registers.  */
 #define INITIAL_ELIMINATION_OFFSET(FROM, TO, OFFSET)			\
@@ -554,7 +532,7 @@ extern const enum reg_class xtensa_regno_to_class[FIRST_PSEUDO_REGISTER];
 
 /* If defined, the maximum amount of space required for outgoing
    arguments will be computed and placed into the variable
-   'current_function_outgoing_args_size'.  No space will be pushed
+   'crtl->outgoing_args_size'.  No space will be pushed
    onto the stack for each call; instead, the function prologue
    should increase the stack frame size by this amount.  */
 #define ACCUMULATE_OUTGOING_ARGS 1
@@ -593,7 +571,7 @@ extern const enum reg_class xtensa_regno_to_class[FIRST_PSEUDO_REGISTER];
 
 /* Define how to find the value returned by a library function
    assuming the value has mode MODE.  Because we have defined
-   TARGET_PROMOTE_FUNCTION_RETURN that returns true, we have to
+   TARGET_PROMOTE_FUNCTION_MODE to promote everything, we have to
    perform the same promotions as PROMOTE_MODE.  */
 #define XTENSA_LIBCALL_VALUE(MODE, OUTGOINGP)				\
   gen_rtx_REG ((GET_MODE_CLASS (MODE) == MODE_INT			\
@@ -606,22 +584,6 @@ extern const enum reg_class xtensa_regno_to_class[FIRST_PSEUDO_REGISTER];
 
 #define LIBCALL_OUTGOING_VALUE(MODE)			 		\
   XTENSA_LIBCALL_VALUE ((MODE), 1)
-
-/* Define how to find the value returned by a function.
-   VALTYPE is the data type of the value (as a tree).
-   If the precise function being called is known, FUNC is its FUNCTION_DECL;
-   otherwise, FUNC is 0.  */
-#define XTENSA_FUNCTION_VALUE(VALTYPE, FUNC, OUTGOINGP)			\
-  gen_rtx_REG ((INTEGRAL_TYPE_P (VALTYPE)				\
-	        && TYPE_PRECISION (VALTYPE) < BITS_PER_WORD)		\
-	       ? SImode: TYPE_MODE (VALTYPE),				\
-	       OUTGOINGP ? GP_OUTGOING_RETURN : GP_RETURN)
-
-#define FUNCTION_VALUE(VALTYPE, FUNC)					\
-  XTENSA_FUNCTION_VALUE (VALTYPE, FUNC, 0)
-
-#define FUNCTION_OUTGOING_VALUE(VALTYPE, FUNC)				\
-  XTENSA_FUNCTION_VALUE (VALTYPE, FUNC, 1)
 
 /* A C expression that is nonzero if REGNO is the number of a hard
    register in which the values of called function may come back.  A
@@ -704,83 +666,12 @@ typedef struct xtensa_args
 /* Stack pointer value doesn't matter at exit.  */
 #define EXIT_IGNORE_STACK 1
 
-/* A C statement to output, on the stream FILE, assembler code for a
-   block of data that contains the constant parts of a trampoline. 
-   This code should not include a label--the label is taken care of
-   automatically.
-
-   For Xtensa, the trampoline must perform an entry instruction with a
-   minimal stack frame in order to get some free registers.  Once the
-   actual call target is known, the proper stack frame size is extracted
-   from the entry instruction at the target and the current frame is
-   adjusted to match.  The trampoline then transfers control to the
-   instruction following the entry at the target.  Note: this assumes
-   that the target begins with an entry instruction.  */
-
-/* minimum frame = reg save area (4 words) plus static chain (1 word)
-   and the total number of words must be a multiple of 128 bits */
-#define MIN_FRAME_SIZE (8 * UNITS_PER_WORD)
-
-#define TRAMPOLINE_TEMPLATE(STREAM)					\
-  do {									\
-    fprintf (STREAM, "\t.begin no-transform\n");			\
-    fprintf (STREAM, "\tentry\tsp, %d\n", MIN_FRAME_SIZE);		\
-									\
-    /* save the return address */					\
-    fprintf (STREAM, "\tmov\ta10, a0\n");				\
-									\
-    /* Use a CALL0 instruction to skip past the constants and in the	\
-       process get the PC into A0.  This allows PC-relative access to	\
-       the constants without relying on L32R, which may not always be	\
-       available.  */							\
-									\
-    fprintf (STREAM, "\tcall0\t.Lskipconsts\n");			\
-    fprintf (STREAM, "\t.align\t4\n");					\
-    fprintf (STREAM, ".Lchainval:%s0\n", integer_asm_op (4, TRUE));	\
-    fprintf (STREAM, ".Lfnaddr:%s0\n", integer_asm_op (4, TRUE));	\
-    fprintf (STREAM, ".Lskipconsts:\n");				\
-									\
-    /* store the static chain */					\
-    fprintf (STREAM, "\taddi\ta0, a0, 3\n");				\
-    fprintf (STREAM, "\tl32i\ta8, a0, 0\n");				\
-    fprintf (STREAM, "\ts32i\ta8, sp, %d\n", MIN_FRAME_SIZE - 20);	\
-									\
-    /* set the proper stack pointer value */				\
-    fprintf (STREAM, "\tl32i\ta8, a0, 4\n");				\
-    fprintf (STREAM, "\tl32i\ta9, a8, 0\n");				\
-    fprintf (STREAM, "\textui\ta9, a9, %d, 12\n",			\
-	     TARGET_BIG_ENDIAN ? 8 : 12);				\
-    fprintf (STREAM, "\tslli\ta9, a9, 3\n");				\
-    fprintf (STREAM, "\taddi\ta9, a9, %d\n", -MIN_FRAME_SIZE);		\
-    fprintf (STREAM, "\tsub\ta9, sp, a9\n");				\
-    fprintf (STREAM, "\tmovsp\tsp, a9\n");				\
-									\
-    /* restore the return address */					\
-    fprintf (STREAM, "\tmov\ta0, a10\n");				\
-									\
-    /* jump to the instruction following the entry */			\
-    fprintf (STREAM, "\taddi\ta8, a8, 3\n");				\
-    fprintf (STREAM, "\tjx\ta8\n");					\
-    fprintf (STREAM, "\t.byte\t0\n");					\
-    fprintf (STREAM, "\t.end no-transform\n");				\
-  } while (0)
-
 /* Size in bytes of the trampoline, as an integer.  Make sure this is
    a multiple of TRAMPOLINE_ALIGNMENT to avoid -Wpadded warnings.  */
-#define TRAMPOLINE_SIZE 60
+#define TRAMPOLINE_SIZE (TARGET_CONST16 || TARGET_ABSOLUTE_LITERALS ? 60 : 52)
 
 /* Alignment required for trampolines, in bits.  */
-#define TRAMPOLINE_ALIGNMENT (32)
-
-/* A C statement to initialize the variable parts of a trampoline.  */
-#define INITIALIZE_TRAMPOLINE(ADDR, FUNC, CHAIN)			\
-  do {									\
-    rtx addr = ADDR;							\
-    emit_move_insn (gen_rtx_MEM (SImode, plus_constant (addr, 12)), CHAIN); \
-    emit_move_insn (gen_rtx_MEM (SImode, plus_constant (addr, 16)), FUNC); \
-    emit_library_call (gen_rtx_SYMBOL_REF (Pmode, "__xtensa_sync_caches"), \
-		       0, VOIDmode, 1, addr, Pmode);			\
-  } while (0)
+#define TRAMPOLINE_ALIGNMENT 32
 
 /* If defined, a C expression that produces the machine-specific code
    to setup the stack so that arbitrary frames can be accessed.
@@ -854,13 +745,6 @@ typedef struct xtensa_args
 /* Maximum number of registers that can appear in a valid memory address.  */
 #define MAX_REGS_PER_ADDRESS 1
 
-/* Identify valid Xtensa addresses.  */
-#define GO_IF_LEGITIMATE_ADDRESS(MODE, ADDR, LABEL)			\
-  do {									\
-    if (xtensa_legitimate_address_p (MODE, ADDR, REG_OK_STRICT_FLAG))	\
-      goto LABEL;							\
-  } while (0)
-
 /* A C expression that is 1 if the RTX X is a constant which is a
    valid address.  This is defined to be the same as 'CONSTANT_P (X)',
    but rejecting CONST_DOUBLE.  */
@@ -871,7 +755,7 @@ typedef struct xtensa_args
 
 /* Nonzero if the constant value X is a legitimate general operand.
    It is given that X satisfies CONSTANT_P or is a CONST_DOUBLE.  */
-#define LEGITIMATE_CONSTANT_P(X) 1
+#define LEGITIMATE_CONSTANT_P(X) (! xtensa_tls_referenced_p (X))
 
 /* A C expression that is nonzero if X is a legitimate immediate
    operand on the target machine when generating position independent
@@ -881,17 +765,6 @@ typedef struct xtensa_args
     || (SYMBOL_REF_LOCAL_P (X) && !SYMBOL_REF_EXTERNAL_P (X)))		\
    && GET_CODE (X) != LABEL_REF						\
    && GET_CODE (X) != CONST)
-
-#define LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN)				\
-  do {									\
-    rtx new_x = xtensa_legitimize_address (X, OLDX, MODE);		\
-    if (new_x)								\
-      {									\
-	X = new_x;							\
-	goto WIN;							\
-      }									\
-  } while (0)
-
 
 /* Treat constant-pool references as "mode dependent" since they can
    only be accessed with SImode loads.  This works around a bug in the
@@ -961,7 +834,7 @@ typedef struct xtensa_args
 
 #define MEMORY_MOVE_COST(MODE, CLASS, IN) 4
 
-#define BRANCH_COST 3
+#define BRANCH_COST(speed_p, predictable_p) 3
 
 /* How to refer to registers in assembler output.
    This sequence is indexed by compiler's hard-register-number (see above).  */

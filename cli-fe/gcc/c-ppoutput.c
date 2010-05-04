@@ -1,6 +1,6 @@
 /* Preprocess only, using cpplib.
-   Copyright (C) 1995, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2007
-   Free Software Foundation, Inc.
+   Copyright (C) 1995, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2007,
+   2008, 2009 Free Software Foundation, Inc.
    Written by Per Bothner, 1994-95.
 
    This program is free software; you can redistribute it and/or modify it
@@ -39,6 +39,17 @@ static struct
   bool first_time;		/* pp_file_change hasn't been called yet.  */
 } print;
 
+/* Defined and undefined macros being queued for output with -dU at
+   the next newline.  */
+typedef struct macro_queue
+{
+  struct macro_queue *next;	/* Next macro in the list.  */
+  char *macro;			/* The name of the macro if not
+				   defined, the full definition if
+				   defined.  */
+} macro_queue;
+static macro_queue *define_queue, *undef_queue;
+
 /* General output routines.  */
 static void scan_translation_unit (cpp_reader *);
 static void print_lines_directives_only (int, const void *, size_t);
@@ -46,15 +57,20 @@ static void scan_translation_unit_directives_only (cpp_reader *);
 static void scan_translation_unit_trad (cpp_reader *);
 static void account_for_newlines (const unsigned char *, size_t);
 static int dump_macro (cpp_reader *, cpp_hashnode *, void *);
+static void dump_queued_macros (cpp_reader *);
 
 static void print_line (source_location, const char *);
 static void maybe_print_line (source_location);
+static void do_line_change (cpp_reader *, const cpp_token *,
+			    source_location, int);
 
 /* Callback routines for the parser.   Most of these are active only
    in specific modes.  */
 static void cb_line_change (cpp_reader *, const cpp_token *, int);
 static void cb_define (cpp_reader *, source_location, cpp_hashnode *);
 static void cb_undef (cpp_reader *, source_location, cpp_hashnode *);
+static void cb_used_define (cpp_reader *, source_location, cpp_hashnode *);
+static void cb_used_undef (cpp_reader *, source_location, cpp_hashnode *);
 static void cb_include (cpp_reader *, source_location, const unsigned char *,
 			const char *, int, const cpp_token **);
 static void cb_ident (cpp_reader *, source_location, const cpp_string *);
@@ -125,10 +141,15 @@ init_pp_output (FILE *out_stream)
       cb->undef  = cb_undef;
     }
 
-  /* Initialize the print structure.  Setting print.src_line to -1 here is
-     a trick to guarantee that the first token of the file will cause
-     a linemarker to be output by maybe_print_line.  */
-  print.src_line = -1;
+  if (flag_dump_macros == 'U')
+    {
+      cb->before_define = dump_queued_macros;
+      cb->used_define = cb_used_define;
+      cb->used_undef = cb_used_undef;
+    }
+
+  /* Initialize the print structure.  */
+  print.src_line = 1;
   print.printed = 0;
   print.prev = 0;
   print.outf = out_stream;
@@ -141,11 +162,16 @@ static void
 scan_translation_unit (cpp_reader *pfile)
 {
   bool avoid_paste = false;
+  bool do_line_adjustments
+    = cpp_get_options (parse_in)->lang != CLK_ASM
+      && !flag_no_line_commands;
+  bool in_pragma = false;
 
   print.source = NULL;
   for (;;)
     {
-      const cpp_token *token = cpp_get_token (pfile);
+      source_location loc;
+      const cpp_token *token = cpp_get_token_with_location (pfile, &loc);
 
       if (token->type == CPP_PADDING)
 	{
@@ -163,21 +189,64 @@ scan_translation_unit (cpp_reader *pfile)
       /* Subtle logic to output a space if and only if necessary.  */
       if (avoid_paste)
 	{
+	  const struct line_map *map
+	    = linemap_lookup (line_table, loc);
+	  int src_line = SOURCE_LINE (map, loc);
+
 	  if (print.source == NULL)
 	    print.source = token;
-	  if (print.source->flags & PREV_WHITE
-	      || (print.prev
-		  && cpp_avoid_paste (pfile, print.prev, token))
-	      || (print.prev == NULL && token->type == CPP_HASH))
+
+	  if (src_line != print.src_line
+	      && do_line_adjustments
+	      && !in_pragma)
+	    {
+	      do_line_change (pfile, token, loc, false);
+	      putc (' ', print.outf);
+	    }
+	  else if (print.source->flags & PREV_WHITE
+		   || (print.prev
+		       && cpp_avoid_paste (pfile, print.prev, token))
+		   || (print.prev == NULL && token->type == CPP_HASH))
 	    putc (' ', print.outf);
 	}
       else if (token->flags & PREV_WHITE)
-	putc (' ', print.outf);
+	{
+	  const struct line_map *map
+	    = linemap_lookup (line_table, loc);
+	  int src_line = SOURCE_LINE (map, loc);
+
+	  if (src_line != print.src_line
+	      && do_line_adjustments
+	      && !in_pragma)
+	    do_line_change (pfile, token, loc, false);
+	  putc (' ', print.outf);
+	}
 
       avoid_paste = false;
       print.source = NULL;
       print.prev = token;
-      cpp_output_token (token, print.outf);
+      if (token->type == CPP_PRAGMA)
+	{
+	  const char *space;
+	  const char *name;
+
+	  maybe_print_line (token->src_loc);
+	  fputs ("#pragma ", print.outf);
+	  c_pp_lookup_pragma (token->val.pragma, &space, &name);
+	  if (space)
+	    fprintf (print.outf, "%s %s", space, name);
+	  else
+	    fprintf (print.outf, "%s", name);
+	  print.printed = 1;
+	  in_pragma = true;
+	}
+      else if (token->type == CPP_PRAGMA_EOL)
+	{
+	  maybe_print_line (token->src_loc);
+	  in_pragma = false;
+	}
+      else
+	cpp_output_token (token, print.outf);
 
       if (token->type == CPP_COMMENT)
 	account_for_newlines (token->val.str.text, token->val.str.len);
@@ -295,13 +364,13 @@ print_line (source_location src_loc, const char *special_flags)
     }
 }
 
-/* Called when a line of output is started.  TOKEN is the first token
-   of the line, and at end of file will be CPP_EOF.  */
+/* Helper function for cb_line_change and scan_translation_unit.  */
 static void
-cb_line_change (cpp_reader *pfile, const cpp_token *token,
-		int parsing_args)
+do_line_change (cpp_reader *pfile, const cpp_token *token,
+		source_location src_loc, int parsing_args)
 {
-  source_location src_loc = token->src_loc;
+  if (define_queue || undef_queue)
+    dump_queued_macros (pfile);
 
   if (token->type == CPP_EOF || parsing_args)
     return;
@@ -324,6 +393,15 @@ cb_line_change (cpp_reader *pfile, const cpp_token *token,
       while (-- spaces >= 0)
 	putc (' ', print.outf);
     }
+}
+
+/* Called when a line of output is started.  TOKEN is the first token
+   of the line, and at end of file will be CPP_EOF.  */
+static void
+cb_line_change (cpp_reader *pfile, const cpp_token *token,
+		int parsing_args)
+{
+  do_line_change (pfile, token, token->src_loc, parsing_args);
 }
 
 static void
@@ -360,6 +438,70 @@ cb_undef (cpp_reader *pfile ATTRIBUTE_UNUSED, source_location line,
   maybe_print_line (line);
   fprintf (print.outf, "#undef %s\n", NODE_NAME (node));
   print.src_line++;
+}
+
+static void
+cb_used_define (cpp_reader *pfile, source_location line ATTRIBUTE_UNUSED,
+		cpp_hashnode *node)
+{
+  macro_queue *q;
+  if (node->flags & NODE_BUILTIN)
+    return;
+  q = XNEW (macro_queue);
+  q->macro = xstrdup ((const char *) cpp_macro_definition (pfile, node));
+  q->next = define_queue;
+  define_queue = q;
+}
+
+static void
+cb_used_undef (cpp_reader *pfile ATTRIBUTE_UNUSED,
+	       source_location line ATTRIBUTE_UNUSED,
+	       cpp_hashnode *node)
+{
+  macro_queue *q;
+  q = XNEW (macro_queue);
+  q->macro = xstrdup ((const char *) NODE_NAME (node));
+  q->next = undef_queue;
+  undef_queue = q;
+}
+
+static void
+dump_queued_macros (cpp_reader *pfile ATTRIBUTE_UNUSED)
+{
+  macro_queue *q;
+
+  /* End the previous line of text.  */
+  if (print.printed)
+    {
+      putc ('\n', print.outf);
+      print.src_line++;
+      print.printed = 0;
+    }
+
+  for (q = define_queue; q;)
+    {
+      macro_queue *oq;
+      fputs ("#define ", print.outf);
+      fputs (q->macro, print.outf);
+      putc ('\n', print.outf);
+      print.src_line++;
+      oq = q;
+      q = q->next;
+      free (oq->macro);
+      free (oq);
+    }
+  define_queue = NULL;
+  for (q = undef_queue; q;)
+    {
+      macro_queue *oq;
+      fprintf (print.outf, "#undef %s\n", q->macro);
+      print.src_line++;
+      oq = q;
+      q = q->next;
+      free (oq->macro);
+      free (oq);
+    }
+  undef_queue = NULL;
 }
 
 static void
@@ -418,6 +560,7 @@ pp_file_change (const struct line_map *map)
 
   if (map != NULL)
     {
+      input_location = map->start_location;
       if (print.first_time)
 	{
 	  /* Avoid printing foo.i when the main file is foo.c.  */

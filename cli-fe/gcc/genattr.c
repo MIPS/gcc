@@ -1,5 +1,5 @@
 /* Generate attribute information (insn-attr.h) from machine description.
-   Copyright (C) 1991, 1994, 1996, 1998, 1999, 2000, 2003, 2004, 2007
+   Copyright (C) 1991, 1994, 1996, 1998, 1999, 2000, 2003, 2004, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
@@ -184,6 +184,10 @@ main (int argc, char **argv)
       printf ("   Use the function if bypass_p returns nonzero for\n");
       printf ("   the 1st insn. */\n");
       printf ("extern int insn_latency (rtx, rtx);\n\n");
+      printf ("/* Maximal insn latency time possible of all bypasses for this insn.\n");
+      printf ("   Use the function if bypass_p returns nonzero for\n");
+      printf ("   the 1st insn. */\n");
+      printf ("extern int maximal_insn_latency (rtx);\n\n");
       printf ("\n#if AUTOMATON_ALTS\n");
       printf ("/* The following function returns number of alternative\n");
       printf ("   reservations of given insn.  It may be used for better\n");
@@ -252,7 +256,7 @@ main (int argc, char **argv)
       printf ("   define_insn_reservation will be changed after\n");
       printf ("   last call of dfa_start.  */\n");
       printf ("extern void dfa_clean_insn_cache (void);\n\n");
-      printf ("extern void dfa_clear_single_insn_cache (rtx);\n\n");      
+      printf ("extern void dfa_clear_single_insn_cache (rtx);\n\n");
       printf ("/* Initiate and finish work with DFA.  They should be\n");
       printf ("   called as the first and the last interface\n");
       printf ("   functions.  */\n");

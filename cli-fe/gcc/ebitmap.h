@@ -1,5 +1,5 @@
 /* Sparse array based bitmaps.
-   Copyright (C) 2007 Free Software Foundation, Inc.
+   Copyright (C) 2007, 2008, 2009 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -26,7 +26,7 @@ along with GCC; see the file COPYING3.  If not see
 #define EBITMAP_ELT_TYPE unsigned HOST_WIDEST_FAST_INT
 
 typedef struct ebitmap_def
-{  
+{
   unsigned int n_elts;		/* number of elements in the array.  */
   sbitmap wordmask;		/* wordmask saying which words are
 				   nonzero.  */
@@ -64,7 +64,6 @@ extern bool ebitmap_equal_p (ebitmap, ebitmap);
 extern void ebitmap_clear (ebitmap);
 extern int ebitmap_last_set_bit (ebitmap);
 extern void debug_ebitmap (ebitmap);
-extern void dump_ebitmap (FILE *, ebitmap);
 extern unsigned long ebitmap_popcount(ebitmap, unsigned long);
 
 /* The iterator for ebitmap.  */
@@ -87,15 +86,21 @@ typedef struct {
   /* The word mask iterator.  */
   sbitmap_iterator maskiter;
 } ebitmap_iterator;
-  
+
 static inline void
 ebitmap_iter_init (ebitmap_iterator *i, ebitmap bmp, unsigned int min)
 {
-  sbitmap_iter_init (&i->maskiter, bmp->wordmask, 
+  sbitmap_iter_init (&i->maskiter, bmp->wordmask,
 		     min / EBITMAP_ELT_BITS);
   i->size = bmp->numwords;
   if (i->size == 0)
-    return;
+    {
+      i->ptr = NULL;
+      i->eltnum = 0;
+      i->bit_num = 0;
+      i->word = 0;
+      return;
+    }
   i->ptr = bmp->elts;
   i->bit_num = min;
   i->eltnum = 0;
@@ -121,7 +126,7 @@ ebitmap_iter_init (ebitmap_iterator *i, ebitmap bmp, unsigned int min)
 static inline bool
 ebitmap_iter_cond (ebitmap_iterator *i, unsigned int *n)
 {
-  unsigned int ourn;
+  unsigned int ourn = 0;
 
   if (i->size == 0)
     return false;

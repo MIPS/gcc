@@ -2,7 +2,7 @@
    - prototype declarations for operand predicates (tm-preds.h)
    - function definitions of operand predicates, if defined new-style
      (insn-preds.c)
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2007
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2007, 2008, 2009
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -102,7 +102,7 @@ process_define_predicate (rtx defn, int lineno)
   for (p = XSTR (defn, 0) + 1; *p; p++)
     if (!ISALNUM (*p) && *p != '_')
       goto bad_name;
-  
+
   if (validate_exp (XEXP (defn, 1), XSTR (defn, 0), lineno))
     return;
 
@@ -153,7 +153,7 @@ process_define_predicate (rtx defn, int lineno)
    The only wart is that there's no way to insist on a { } string in
    an RTL template, so we have to handle "" strings.  */
 
-   
+
 static void
 write_predicate_subfunction (struct pred_data *p)
 {
@@ -234,7 +234,7 @@ needs_variable (rtx exp, const char *var)
 	if (q != p && (ISALNUM (q[-1]) || q[-1] == '_'))
 	  return false;
 	q += strlen (var);
-	if (ISALNUM (q[0] || q[0] == '_'))
+	if (ISALNUM (q[0]) || q[0] == '_')
 	  return false;
       }
       return true;
@@ -290,7 +290,7 @@ mark_mode_tests (rtx exp)
       NO_MODE_TEST (exp) = (NO_MODE_TEST (XEXP (exp, 0))
 			    && NO_MODE_TEST (XEXP (exp, 1)));
       break;
-      
+
     case IOR:
       mark_mode_tests (XEXP (exp, 0));
       mark_mode_tests (XEXP (exp, 1));
@@ -383,23 +383,23 @@ add_mode_tests (struct pred_data *p)
 	  {
 	    int test0 = NO_MODE_TEST (XEXP (subexp, 0));
 	    int test1 = NO_MODE_TEST (XEXP (subexp, 1));
-	    
+
 	    gcc_assert (test0 || test1);
-	    
+
 	    if (test0 && test1)
 	      goto break_loop;
 	    pos = test0 ? &XEXP (subexp, 0) : &XEXP (subexp, 1);
 	  }
 	  break;
-	  
+
 	case IF_THEN_ELSE:
 	  {
 	    int test0 = NO_MODE_TEST (XEXP (subexp, 0));
 	    int test1 = NO_MODE_TEST (XEXP (subexp, 1));
 	    int test2 = NO_MODE_TEST (XEXP (subexp, 2));
-	    
+
 	    gcc_assert ((test0 && test1) || test2);
-	    
+
 	    if (test0 && test1 && test2)
 	      goto break_loop;
 	    if (test0 && test1)
@@ -411,7 +411,7 @@ add_mode_tests (struct pred_data *p)
 	      pos = &XEXP (subexp, 2);
 	  }
 	  break;
-	  
+
 	default:
 	  goto break_loop;
 	}
@@ -473,7 +473,7 @@ write_match_code (const char *path, const char *codes)
 	  putchar (TOUPPER (*code));
 	  code++;
 	}
-      
+
       if (*codes == ',')
 	fputs (" || ", stdout);
     }
@@ -493,7 +493,7 @@ write_predicate_expr (rtx exp)
       write_predicate_expr (XEXP (exp, 1));
       putchar (')');
       break;
-  
+
     case IOR:
       putchar ('(');
       write_predicate_expr (XEXP (exp, 0));
@@ -690,8 +690,11 @@ static struct constraint_data **last_constraint_ptr = &first_constraint;
   for (iter_ = first_constraint; iter_; iter_ = iter_->next_textual)
 
 /* These letters, and all names beginning with them, are reserved for
-   generic constraints.  */
-static const char generic_constraint_letters[] = "EFVXgimnoprs";
+   generic constraints.
+   The 'm' constraint is not mentioned here since that constraint
+   letter can be overridden by the back end by defining the
+   TARGET_MEM_CONSTRAINT macro.  */
+static const char generic_constraint_letters[] = "EFVXginoprs";
 
 /* Machine-independent code expects that constraints with these
    (initial) letters will allow only (a subset of all) CONST_INTs.  */
@@ -729,7 +732,7 @@ mangle (const char *name)
       }
 
   obstack_1grow (rtl_obstack, '\0');
-  return obstack_finish (rtl_obstack);
+  return XOBFINISH (rtl_obstack, const char *);
 }
 
 /* Add one constraint, of any sort, to the tables.  NAME is its name;
@@ -798,7 +801,7 @@ add_constraint (const char *name, const char *regclass,
       return;
     }
 
-  
+
   namelen = strlen (name);
   slot = &constraints_by_letter_table[(unsigned int)name[0]];
   for (iter = slot; *iter; iter = &(*iter)->next_this_letter)
@@ -858,7 +861,7 @@ add_constraint (const char *name, const char *regclass,
 	  else
 	    message_with_line (lineno, "constraint names beginning with '%c' "
 			       "(%s) are reserved for %s constraints",
-			       name[0], name, 
+			       name[0], name,
 			       GET_RTX_NAME (appropriate_code));
 
 	  have_error = 1;
@@ -893,8 +896,8 @@ add_constraint (const char *name, const char *regclass,
 	}
     }
 
-  
-  c = obstack_alloc (rtl_obstack, sizeof (struct constraint_data));
+
+  c = XOBNEW (rtl_obstack, struct constraint_data);
   c->name = name;
   c->c_name = need_mangled_name ? mangle (name) : name;
   c->lineno = lineno;
@@ -951,12 +954,13 @@ write_enum_constraint_num (void)
 {
   struct constraint_data *c;
 
+  fputs ("#define CONSTRAINT_NUM_DEFINED_P 1\n", stdout);
   fputs ("enum constraint_num\n"
 	 "{\n"
 	 "  CONSTRAINT__UNKNOWN = 0", stdout);
   FOR_ALL_CONSTRAINTS (c)
     printf (",\n  CONSTRAINT_%s", c->c_name);
-  puts ("\n};\n");
+  puts (",\n  CONSTRAINT__LIMIT\n};\n");
 }
 
 /* Write out a function which looks at a string and determines what
@@ -1044,7 +1048,7 @@ write_insn_constraint_len (void)
 	"  return 1;\n"
 	"}\n");
 }
-  
+
 /* Write out the function which computes the register class corresponding
    to a register constraint.  */
 static void
@@ -1100,7 +1104,7 @@ write_tm_constrs_h (void)
 		"{\n", c->c_name,
 		needs_op ? "op" : "ARG_UNUSED (op)");
 	if (needs_mode)
-	  puts ("enum machine_mode mode = GET_MODE (op);");
+	  puts ("  enum machine_mode mode = GET_MODE (op);");
 	if (needs_ival)
 	  puts ("  HOST_WIDE_INT ival = 0;");
 	if (needs_hval)
@@ -1111,7 +1115,7 @@ write_tm_constrs_h (void)
 	  puts ("  const REAL_VALUE_TYPE *rval = 0;");
 
 	if (needs_ival)
-	  puts ("  if (GET_CODE (op) == CONST_INT)\n"
+	  puts ("  if (CONST_INT_P (op))\n"
 		"    ival = INTVAL (op);");
 	if (needs_hval)
 	  puts ("  if (GET_CODE (op) == CONST_DOUBLE && mode == VOIDmode)"
@@ -1276,9 +1280,13 @@ write_tm_preds_h (void)
 	puts ("extern enum reg_class regclass_for_constraint "
 	      "(enum constraint_num);\n"
 	      "#define REG_CLASS_FROM_CONSTRAINT(c_,s_) \\\n"
-	      "    regclass_for_constraint (lookup_constraint (s_))\n");
+	      "    regclass_for_constraint (lookup_constraint (s_))\n"
+	      "#define REG_CLASS_FOR_CONSTRAINT(x_) \\\n"
+	      "    regclass_for_constraint (x_)\n");
       else
-	puts ("#define REG_CLASS_FROM_CONSTRAINT(c_,s_) NO_REGS");
+	puts ("#define REG_CLASS_FROM_CONSTRAINT(c_,s_) NO_REGS\n"
+	      "#define REG_CLASS_FOR_CONSTRAINT(x_) \\\n"
+	      "    NO_REGS\n");
       if (have_const_int_constraints)
 	puts ("extern bool insn_const_int_ok_for_constraint "
 	      "(HOST_WIDE_INT, enum constraint_num);\n"
@@ -1312,7 +1320,7 @@ write_tm_preds_h (void)
   puts ("#endif /* tm-preds.h */");
 }
 
-/* Write insn-preds.c.  
+/* Write insn-preds.c.
    N.B. the list of headers to include was copied from genrecog; it
    may not be ideal.
 
@@ -1359,7 +1367,7 @@ write_insn_preds_c (void)
       if (have_register_constraints)
 	write_regclass_for_constraint ();
       write_constraint_satisfied_p ();
-      
+
       if (have_const_int_constraints)
 	write_insn_const_int_ok_for_constraint ();
 

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                     Copyright (C) 2001-2007, AdaCore                     --
+--                     Copyright (C) 2001-2009, AdaCore                     --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -33,10 +33,12 @@
 
 with Ada.Streams;              use Ada.Streams;
 with Ada.Exceptions;           use Ada.Exceptions;
+with Ada.Finalization;
 with Ada.Unchecked_Conversion;
 
 with Interfaces.C.Strings;
-with GNAT.Sockets.Constants;
+
+with GNAT.Sockets.Thin_Common;          use GNAT.Sockets.Thin_Common;
 with GNAT.Sockets.Thin;                 use GNAT.Sockets.Thin;
 with GNAT.Sockets.Thin.Task_Safe_NetDB; use GNAT.Sockets.Thin.Task_Safe_NetDB;
 
@@ -44,82 +46,76 @@ with GNAT.Sockets.Linker_Options;
 pragma Warnings (Off, GNAT.Sockets.Linker_Options);
 --  Need to include pragma Linker_Options which is platform dependent
 
-with System; use System;
+with System;               use System;
+with System.Communication; use System.Communication;
+with System.CRTL;          use System.CRTL;
 
 package body GNAT.Sockets is
 
-   use type C.int;
+   package C renames Interfaces.C;
 
-   Finalized   : Boolean := False;
-   Initialized : Boolean := False;
+   use type C.int;
 
    ENOERROR : constant := 0;
 
-   Netdb_Buffer_Size : constant := Constants.Need_Netdb_Buffer * 1024;
+   Netdb_Buffer_Size : constant := SOSC.Need_Netdb_Buffer * 1024;
    --  The network database functions gethostbyname, gethostbyaddr,
    --  getservbyname and getservbyport can either be guaranteed task safe by
    --  the operating system, or else return data through a user-provided buffer
    --  to ensure concurrent uses do not interfere.
 
-   --  Correspondance tables
-
-   Families : constant array (Family_Type) of C.int :=
-                (Family_Inet  => Constants.AF_INET,
-                 Family_Inet6 => Constants.AF_INET6);
+   --  Correspondence tables
 
    Levels : constant array (Level_Type) of C.int :=
-              (Socket_Level              => Constants.SOL_SOCKET,
-               IP_Protocol_For_IP_Level  => Constants.IPPROTO_IP,
-               IP_Protocol_For_UDP_Level => Constants.IPPROTO_UDP,
-               IP_Protocol_For_TCP_Level => Constants.IPPROTO_TCP);
+              (Socket_Level              => SOSC.SOL_SOCKET,
+               IP_Protocol_For_IP_Level  => SOSC.IPPROTO_IP,
+               IP_Protocol_For_UDP_Level => SOSC.IPPROTO_UDP,
+               IP_Protocol_For_TCP_Level => SOSC.IPPROTO_TCP);
 
    Modes : constant array (Mode_Type) of C.int :=
-             (Socket_Stream   => Constants.SOCK_STREAM,
-              Socket_Datagram => Constants.SOCK_DGRAM);
+             (Socket_Stream   => SOSC.SOCK_STREAM,
+              Socket_Datagram => SOSC.SOCK_DGRAM);
 
    Shutmodes : constant array (Shutmode_Type) of C.int :=
-                 (Shut_Read       => Constants.SHUT_RD,
-                  Shut_Write      => Constants.SHUT_WR,
-                  Shut_Read_Write => Constants.SHUT_RDWR);
+                 (Shut_Read       => SOSC.SHUT_RD,
+                  Shut_Write      => SOSC.SHUT_WR,
+                  Shut_Read_Write => SOSC.SHUT_RDWR);
 
    Requests : constant array (Request_Name) of C.int :=
-                (Non_Blocking_IO => Constants.FIONBIO,
-                 N_Bytes_To_Read => Constants.FIONREAD);
+                (Non_Blocking_IO => SOSC.FIONBIO,
+                 N_Bytes_To_Read => SOSC.FIONREAD);
 
    Options : constant array (Option_Name) of C.int :=
-               (Keep_Alive      => Constants.SO_KEEPALIVE,
-                Reuse_Address   => Constants.SO_REUSEADDR,
-                Broadcast       => Constants.SO_BROADCAST,
-                Send_Buffer     => Constants.SO_SNDBUF,
-                Receive_Buffer  => Constants.SO_RCVBUF,
-                Linger          => Constants.SO_LINGER,
-                Error           => Constants.SO_ERROR,
-                No_Delay        => Constants.TCP_NODELAY,
-                Add_Membership  => Constants.IP_ADD_MEMBERSHIP,
-                Drop_Membership => Constants.IP_DROP_MEMBERSHIP,
-                Multicast_If    => Constants.IP_MULTICAST_IF,
-                Multicast_TTL   => Constants.IP_MULTICAST_TTL,
-                Multicast_Loop  => Constants.IP_MULTICAST_LOOP,
-                Send_Timeout    => Constants.SO_SNDTIMEO,
-                Receive_Timeout => Constants.SO_RCVTIMEO);
+               (Keep_Alive          => SOSC.SO_KEEPALIVE,
+                Reuse_Address       => SOSC.SO_REUSEADDR,
+                Broadcast           => SOSC.SO_BROADCAST,
+                Send_Buffer         => SOSC.SO_SNDBUF,
+                Receive_Buffer      => SOSC.SO_RCVBUF,
+                Linger              => SOSC.SO_LINGER,
+                Error               => SOSC.SO_ERROR,
+                No_Delay            => SOSC.TCP_NODELAY,
+                Add_Membership      => SOSC.IP_ADD_MEMBERSHIP,
+                Drop_Membership     => SOSC.IP_DROP_MEMBERSHIP,
+                Multicast_If        => SOSC.IP_MULTICAST_IF,
+                Multicast_TTL       => SOSC.IP_MULTICAST_TTL,
+                Multicast_Loop      => SOSC.IP_MULTICAST_LOOP,
+                Receive_Packet_Info => SOSC.IP_PKTINFO,
+                Send_Timeout        => SOSC.SO_SNDTIMEO,
+                Receive_Timeout     => SOSC.SO_RCVTIMEO);
+   --  ??? Note: for OpenSolaris, Receive_Packet_Info should be IP_RECVPKTINFO,
+   --  but for Linux compatibility this constant is the same as IP_PKTINFO.
 
    Flags : constant array (0 .. 3) of C.int :=
-             (0 => Constants.MSG_OOB,     --  Process_Out_Of_Band_Data
-              1 => Constants.MSG_PEEK,    --  Peek_At_Incoming_Data
-              2 => Constants.MSG_WAITALL, --  Wait_For_A_Full_Reception
-              3 => Constants.MSG_EOR);    --  Send_End_Of_Record
+             (0 => SOSC.MSG_OOB,     --  Process_Out_Of_Band_Data
+              1 => SOSC.MSG_PEEK,    --  Peek_At_Incoming_Data
+              2 => SOSC.MSG_WAITALL, --  Wait_For_A_Full_Reception
+              3 => SOSC.MSG_EOR);    --  Send_End_Of_Record
 
    Socket_Error_Id : constant Exception_Id := Socket_Error'Identity;
    Host_Error_Id   : constant Exception_Id := Host_Error'Identity;
 
    Hex_To_Char : constant String (1 .. 16) := "0123456789ABCDEF";
    --  Use to print in hexadecimal format
-
-   function To_In_Addr is new Ada.Unchecked_Conversion (C.int, In_Addr);
-   function To_Int     is new Ada.Unchecked_Conversion (In_Addr, C.int);
-
-   function Err_Code_Image (E : Integer) return String;
-   --  Return the value of E surrounded with brackets
 
    -----------------------
    -- Local subprograms --
@@ -139,7 +135,7 @@ package body GNAT.Sockets is
    --  Return the int value corresponding to the specified flags combination
 
    function Set_Forced_Flags (F : C.int) return C.int;
-   --  Return F with the bits from Constants.MSG_Forced_Flags forced set
+   --  Return F with the bits from SOSC.MSG_Forced_Flags forced set
 
    function Short_To_Network
      (S : C.unsigned_short) return C.unsigned_short;
@@ -149,7 +145,7 @@ package body GNAT.Sockets is
    function Network_To_Short
      (S : C.unsigned_short) return C.unsigned_short
    renames Short_To_Network;
-   --  Symetric operation
+   --  Symmetric operation
 
    function Image
      (Val :  Inet_Addr_VN_Type;
@@ -159,7 +155,7 @@ package body GNAT.Sockets is
    function Is_IP_Address (Name : String) return Boolean;
    --  Return true when Name is an IP address in standard dot notation
 
-   function To_In_Addr (Addr : Inet_Addr_Type) return Thin.In_Addr;
+   function To_In_Addr (Addr : Inet_Addr_Type) return In_Addr;
    procedure To_Inet_Addr
      (Addr   : In_Addr;
       Result : out Inet_Addr_Type);
@@ -168,7 +164,7 @@ package body GNAT.Sockets is
    function To_Host_Entry (E : Hostent) return Host_Entry_Type;
    --  Conversion function
 
-   function To_Service_Entry (E : Servent) return Service_Entry_Type;
+   function To_Service_Entry (E : Servent_Access) return Service_Entry_Type;
    --  Conversion function
 
    function To_Timeval (Val : Timeval_Duration) return Timeval;
@@ -227,6 +223,46 @@ package body GNAT.Sockets is
      (Stream : in out Stream_Socket_Stream_Type;
       Item   : Ada.Streams.Stream_Element_Array);
 
+   procedure Stream_Write
+     (Socket : Socket_Type;
+      Item   : Ada.Streams.Stream_Element_Array;
+      To     : access Sock_Addr_Type);
+   --  Common implementation for the Write operation of Datagram_Socket_Stream_
+   --  Type and Stream_Socket_Stream_Type.
+
+   procedure Wait_On_Socket
+     (Socket    : Socket_Type;
+      For_Read  : Boolean;
+      Timeout   : Selector_Duration;
+      Selector  : access Selector_Type := null;
+      Status    : out Selector_Status);
+   --  Common code for variants of socket operations supporting a timeout:
+   --  block in Check_Selector on Socket for at most the indicated timeout.
+   --  If For_Read is True, Socket is added to the read set for this call, else
+   --  it is added to the write set. If no selector is provided, a local one is
+   --  created for this call and destroyed prior to returning.
+
+   type Sockets_Library_Controller is new Ada.Finalization.Limited_Controlled
+     with null record;
+   --  This type is used to generate automatic calls to Initialize and Finalize
+   --  during the elaboration and finalization of this package. A single object
+   --  of this type must exist at library level.
+
+   function Err_Code_Image (E : Integer) return String;
+   --  Return the value of E surrounded with brackets
+
+   procedure Initialize (X : in out Sockets_Library_Controller);
+   procedure Finalize   (X : in out Sockets_Library_Controller);
+
+   procedure Normalize_Empty_Socket_Set (S : in out Socket_Set_Type);
+   --  If S is the empty set (detected by Last = No_Socket), make sure its
+   --  fd_set component is actually cleared. Note that the case where it is
+   --  not can occur for an uninitialized Socket_Set_Type object.
+
+   function Is_Open (S : Selector_Type) return Boolean;
+   --  Return True for an "open" Selector_Type object, i.e. one for which
+   --  Create_Selector has been called and Close_Selector has not been called.
+
    ---------
    -- "+" --
    ---------
@@ -244,6 +280,10 @@ package body GNAT.Sockets is
       Res : C.int;
 
    begin
+      if not Is_Open (Selector) then
+         raise Program_Error with "closed selector";
+      end if;
+
       --  Send one byte to unblock select system call
 
       Res := Signalling_Fds.Write (C.int (Selector.W_Sig_Socket));
@@ -277,6 +317,41 @@ package body GNAT.Sockets is
 
       To_Inet_Addr (Sin.Sin_Addr, Address.Addr);
       Address.Port := Port_Type (Network_To_Short (Sin.Sin_Port));
+   end Accept_Socket;
+
+   -------------------
+   -- Accept_Socket --
+   -------------------
+
+   procedure Accept_Socket
+     (Server   : Socket_Type;
+      Socket   : out Socket_Type;
+      Address  : out Sock_Addr_Type;
+      Timeout  : Selector_Duration;
+      Selector : access Selector_Type := null;
+      Status   : out Selector_Status)
+   is
+   begin
+      if Selector /= null and then not Is_Open (Selector.all) then
+         raise Program_Error with "closed selector";
+      end if;
+
+      --  Wait for socket to become available for reading
+
+      Wait_On_Socket
+        (Socket    => Server,
+         For_Read  => True,
+         Timeout   => Timeout,
+         Selector  => Selector,
+         Status    => Status);
+
+      --  Accept connection if available
+
+      if Status = Completed then
+         Accept_Socket (Server, Socket, Address);
+      else
+         Socket := No_Socket;
+      end if;
    end Accept_Socket;
 
    ---------------
@@ -353,14 +428,14 @@ package body GNAT.Sockets is
       Res : C.int;
       Sin : aliased Sockaddr_In;
       Len : constant C.int := Sin'Size / 8;
+      --  This assumes that Address.Family = Family_Inet???
 
    begin
       if Address.Family = Family_Inet6 then
-         raise Socket_Error;
+         raise Socket_Error with "IPv6 not supported";
       end if;
 
-      Set_Length  (Sin'Unchecked_Access, Len);
-      Set_Family  (Sin'Unchecked_Access, Families (Address.Family));
+      Set_Family  (Sin.Sin_Family, Address.Family);
       Set_Address (Sin'Unchecked_Access, To_In_Addr (Address.Addr));
       Set_Port
         (Sin'Unchecked_Access,
@@ -384,11 +459,15 @@ package body GNAT.Sockets is
       Status       : out Selector_Status;
       Timeout      : Selector_Duration := Forever)
    is
-      E_Socket_Set : Socket_Set_Type; --  (No_Socket, No_Socket_Set)
+      E_Socket_Set : Socket_Set_Type;
    begin
       Check_Selector
         (Selector, R_Socket_Set, W_Socket_Set, E_Socket_Set, Status, Timeout);
    end Check_Selector;
+
+   --------------------
+   -- Check_Selector --
+   --------------------
 
    procedure Check_Selector
      (Selector     : in out Selector_Type;
@@ -400,118 +479,75 @@ package body GNAT.Sockets is
    is
       Res  : C.int;
       Last : C.int;
-      RSig : Socket_Type renames Selector.R_Sig_Socket;
-      RSet : Socket_Set_Type;
-      WSet : Socket_Set_Type;
-      ESet : Socket_Set_Type;
+      RSig : constant Socket_Type := Selector.R_Sig_Socket;
       TVal : aliased Timeval;
       TPtr : Timeval_Access;
 
    begin
-      begin
-         Status := Completed;
+      if not Is_Open (Selector) then
+         raise Program_Error with "closed selector";
+      end if;
 
-         --  No timeout or Forever is indicated by a null timeval pointer
+      Status := Completed;
 
-         if Timeout = Forever then
-            TPtr := null;
-         else
-            TVal := To_Timeval (Timeout);
-            TPtr := TVal'Unchecked_Access;
-         end if;
+      --  No timeout or Forever is indicated by a null timeval pointer
 
-         --  Copy R_Socket_Set in RSet and add read signalling socket
+      if Timeout = Forever then
+         TPtr := null;
+      else
+         TVal := To_Timeval (Timeout);
+         TPtr := TVal'Unchecked_Access;
+      end if;
 
-         RSet := (Set  => New_Socket_Set (R_Socket_Set.Set),
-                  Last => R_Socket_Set.Last);
-         Set (RSet, RSig);
+      --  Add read signalling socket
 
-         --  Copy W_Socket_Set in WSet
+      Set (R_Socket_Set, RSig);
 
-         WSet := (Set  => New_Socket_Set (W_Socket_Set.Set),
-                  Last => W_Socket_Set.Last);
+      Last := C.int'Max (C.int'Max (C.int (R_Socket_Set.Last),
+                                    C.int (W_Socket_Set.Last)),
+                                    C.int (E_Socket_Set.Last));
 
-         --  Copy E_Socket_Set in ESet
+      --  Zero out fd_set for empty Socket_Set_Type objects
 
-         ESet := (Set  => New_Socket_Set (E_Socket_Set.Set),
-                  Last => E_Socket_Set.Last);
+      Normalize_Empty_Socket_Set (R_Socket_Set);
+      Normalize_Empty_Socket_Set (W_Socket_Set);
+      Normalize_Empty_Socket_Set (E_Socket_Set);
 
-         Last := C.int'Max (C.int'Max (C.int (RSet.Last),
-                                       C.int (WSet.Last)),
-                                       C.int (ESet.Last));
+      Res :=
+        C_Select
+         (Last + 1,
+          R_Socket_Set.Set'Access,
+          W_Socket_Set.Set'Access,
+          E_Socket_Set.Set'Access,
+          TPtr);
 
-         Res :=
-           C_Select
-            (Last + 1,
-             RSet.Set,
-             WSet.Set,
-             ESet.Set,
-             TPtr);
+      if Res = Failure then
+         Raise_Socket_Error (Socket_Errno);
+      end if;
+
+      --  If Select was resumed because of read signalling socket, read this
+      --  data and remove socket from set.
+
+      if Is_Set (R_Socket_Set, RSig) then
+         Clear (R_Socket_Set, RSig);
+
+         Res := Signalling_Fds.Read (C.int (RSig));
 
          if Res = Failure then
             Raise_Socket_Error (Socket_Errno);
          end if;
 
-         --  If Select was resumed because of read signalling socket, read this
-         --  data and remove socket from set.
+         Status := Aborted;
 
-         if Is_Set (RSet, RSig) then
-            Clear (RSet, RSig);
+      elsif Res = 0 then
+         Status := Expired;
+      end if;
 
-            Res := Signalling_Fds.Read (C.int (RSig));
+      --  Update socket sets in regard to their new contents
 
-            if Res = Failure then
-               Raise_Socket_Error (Socket_Errno);
-            end if;
-
-            Status := Aborted;
-
-         elsif Res = 0 then
-            Status := Expired;
-         end if;
-
-         --  Update RSet, WSet and ESet in regard to their new socket sets
-
-         Narrow (RSet);
-         Narrow (WSet);
-         Narrow (ESet);
-
-         --  Reset RSet as it should be if R_Sig_Socket was not added
-
-         if Is_Empty (RSet) then
-            Empty (RSet);
-         end if;
-
-         if Is_Empty (WSet) then
-            Empty (WSet);
-         end if;
-
-         if Is_Empty (ESet) then
-            Empty (ESet);
-         end if;
-
-         --  Deliver RSet, WSet and ESet
-
-         Empty (R_Socket_Set);
-         R_Socket_Set := RSet;
-
-         Empty (W_Socket_Set);
-         W_Socket_Set := WSet;
-
-         Empty (E_Socket_Set);
-         E_Socket_Set := ESet;
-
-      exception
-         when Socket_Error =>
-
-            --  The local socket sets must be emptied before propagating
-            --  Socket_Error so the associated storage is freed.
-
-            Empty (RSet);
-            Empty (WSet);
-            Empty (ESet);
-            raise;
-      end;
+      Narrow (R_Socket_Set);
+      Narrow (W_Socket_Set);
+      Narrow (E_Socket_Set);
    end Check_Selector;
 
    -----------
@@ -525,8 +561,8 @@ package body GNAT.Sockets is
       Last : aliased C.int := C.int (Item.Last);
    begin
       if Item.Last /= No_Socket then
-         Remove_Socket_From_Set (Item.Set, C.int (Socket));
-         Last_Socket_In_Set (Item.Set, Last'Unchecked_Access);
+         Remove_Socket_From_Set (Item.Set'Access, C.int (Socket));
+         Last_Socket_In_Set (Item.Set'Access, Last'Unchecked_Access);
          Item.Last := Socket_Type (Last);
       end if;
    end Clear;
@@ -537,6 +573,13 @@ package body GNAT.Sockets is
 
    procedure Close_Selector (Selector : in out Selector_Type) is
    begin
+      if not Is_Open (Selector) then
+
+         --  Selector already in closed state: nothing to do
+
+         return;
+      end if;
+
       --  Close the signalling file descriptors used internally for the
       --  implementation of Abort_Selector.
 
@@ -544,7 +587,7 @@ package body GNAT.Sockets is
       Signalling_Fds.Close (C.int (Selector.W_Sig_Socket));
 
       --  Reset R_Sig_Socket and W_Sig_Socket to No_Socket to ensure that any
-      --  (errneous) subsequent attempt to use this selector properly fails.
+      --  (erroneous) subsequent attempt to use this selector properly fails.
 
       Selector.R_Sig_Socket := No_Socket;
       Selector.W_Sig_Socket := No_Socket;
@@ -571,7 +614,7 @@ package body GNAT.Sockets is
 
    procedure Connect_Socket
      (Socket : Socket_Type;
-      Server : in out Sock_Addr_Type)
+      Server : Sock_Addr_Type)
    is
       Res : C.int;
       Sin : aliased Sockaddr_In;
@@ -579,11 +622,10 @@ package body GNAT.Sockets is
 
    begin
       if Server.Family = Family_Inet6 then
-         raise Socket_Error;
+         raise Socket_Error with "IPv6 not supported";
       end if;
 
-      Set_Length (Sin'Unchecked_Access, Len);
-      Set_Family (Sin'Unchecked_Access, Families (Server.Family));
+      Set_Family  (Sin.Sin_Family, Server.Family);
       Set_Address (Sin'Unchecked_Access, To_In_Addr (Server.Addr));
       Set_Port
         (Sin'Unchecked_Access,
@@ -594,6 +636,59 @@ package body GNAT.Sockets is
       if Res = Failure then
          Raise_Socket_Error (Socket_Errno);
       end if;
+   end Connect_Socket;
+
+   --------------------
+   -- Connect_Socket --
+   --------------------
+
+   procedure Connect_Socket
+     (Socket   : Socket_Type;
+      Server   : Sock_Addr_Type;
+      Timeout  : Selector_Duration;
+      Selector : access Selector_Type := null;
+      Status   : out Selector_Status)
+   is
+      Req : Request_Type;
+      --  Used to set Socket to non-blocking I/O
+
+   begin
+      if Selector /= null and then not Is_Open (Selector.all) then
+         raise Program_Error with "closed selector";
+      end if;
+
+      --  Set the socket to non-blocking I/O
+
+      Req := (Name => Non_Blocking_IO, Enabled => True);
+      Control_Socket (Socket, Request => Req);
+
+      --  Start operation (non-blocking), will raise Socket_Error with
+      --  EINPROGRESS.
+
+      begin
+         Connect_Socket (Socket, Server);
+      exception
+         when E : Socket_Error =>
+            if Resolve_Exception (E) = Operation_Now_In_Progress then
+               null;
+            else
+               raise;
+            end if;
+      end;
+
+      --  Wait for socket to become available for writing
+
+      Wait_On_Socket
+        (Socket    => Socket,
+         For_Read  => False,
+         Timeout   => Timeout,
+         Selector  => Selector,
+         Status    => Status);
+
+      --  Reset the socket to blocking I/O
+
+      Req := (Name => Non_Blocking_IO, Enabled => False);
+      Control_Socket (Socket, Request => Req);
    end Connect_Socket;
 
    --------------------
@@ -616,10 +711,8 @@ package body GNAT.Sockets is
             null;
       end case;
 
-      Res := C_Ioctl
-        (C.int (Socket),
-         Requests (Request.Name),
-         Arg'Unchecked_Access);
+      Res := Socket_Ioctl
+               (C.int (Socket), Requests (Request.Name), Arg'Unchecked_Access);
 
       if Res = Failure then
          Raise_Socket_Error (Socket_Errno);
@@ -640,14 +733,10 @@ package body GNAT.Sockets is
 
    procedure Copy
      (Source : Socket_Set_Type;
-      Target : in out Socket_Set_Type)
+      Target : out Socket_Set_Type)
    is
    begin
-      Empty (Target);
-      if Source.Last /= No_Socket then
-         Target.Set  := New_Socket_Set (Source.Set);
-         Target.Last := Source.Last;
-      end if;
+      Target := Source;
    end Copy;
 
    ---------------------
@@ -659,6 +748,12 @@ package body GNAT.Sockets is
       Res     : C.int;
 
    begin
+      if Is_Open (Selector) then
+         --  Raise exception to prevent socket descriptor leak
+
+         raise Program_Error with "selector already open";
+      end if;
+
       --  We open two signalling file descriptors. One of them is used to send
       --  data to the other, which is included in a C_Select socket set. The
       --  communication is used to force a call to C_Select to complete, and
@@ -699,13 +794,9 @@ package body GNAT.Sockets is
    -- Empty --
    -----------
 
-   procedure Empty  (Item : in out Socket_Set_Type) is
+   procedure Empty (Item : out Socket_Set_Type) is
    begin
-      if Item.Set /= No_Socket_Set then
-         Free_Socket_Set (Item.Set);
-         Item.Set := No_Socket_Set;
-      end if;
-
+      Reset_Socket_Set (Item.Set'Access);
       Item.Last := No_Socket;
    end Empty;
 
@@ -724,14 +815,26 @@ package body GNAT.Sockets is
    -- Finalize --
    --------------
 
+   procedure Finalize (X : in out Sockets_Library_Controller) is
+      pragma Unreferenced (X);
+
+   begin
+      --  Finalization operation for the GNAT.Sockets package
+
+      Thin.Finalize;
+   end Finalize;
+
+   --------------
+   -- Finalize --
+   --------------
+
    procedure Finalize is
    begin
-      if not Finalized
-        and then Initialized
-      then
-         Finalized := True;
-         Thin.Finalize;
-      end if;
+      --  This is a dummy placeholder for an obsolete API.
+      --  The real finalization actions are in Initialize primitive operation
+      --  of Sockets_Library_Controller.
+
+      null;
    end Finalize;
 
    ---------
@@ -748,7 +851,7 @@ package body GNAT.Sockets is
    begin
       if Item.Last /= No_Socket then
          Get_Socket_From_Set
-           (Item.Set, L'Unchecked_Access, S'Unchecked_Access);
+           (Item.Set'Access, Last => L'Access, Socket => S'Access);
          Item.Last := Socket_Type (L);
          Socket    := Socket_Type (S);
       else
@@ -760,11 +863,11 @@ package body GNAT.Sockets is
    -- Get_Address --
    -----------------
 
-   function Get_Address (Stream : Stream_Access) return Sock_Addr_Type is
+   function Get_Address
+     (Stream : not null Stream_Access) return Sock_Addr_Type
+   is
    begin
-      if Stream = null then
-         raise Socket_Error;
-      elsif Stream.all in Datagram_Socket_Stream_Type then
+      if Stream.all in Datagram_Socket_Stream_Type then
          return Datagram_Socket_Stream_Type (Stream.all).From;
       else
          return Get_Peer_Name (Stream_Socket_Stream_Type (Stream.all).Socket);
@@ -788,7 +891,7 @@ package body GNAT.Sockets is
       Err    : aliased C.int;
 
    begin
-      if Safe_Gethostbyaddr (HA'Address, HA'Size / 8, Constants.AF_INET,
+      if Safe_Gethostbyaddr (HA'Address, HA'Size / 8, SOSC.AF_INET,
                              Res'Access, Buf'Address, Buflen, Err'Access) /= 0
       then
          Raise_Host_Error (Integer (Err));
@@ -863,13 +966,12 @@ package body GNAT.Sockets is
 
    begin
       if Safe_Getservbyname (SN, SP, Res'Access, Buf'Address, Buflen) /= 0 then
-         Ada.Exceptions.Raise_Exception
-           (Service_Error'Identity, "Service not found");
+         raise Service_Error with "Service not found";
       end if;
 
       --  Translate from the C format to the API format
 
-      return To_Service_Entry (Res);
+      return To_Service_Entry (Res'Unchecked_Access);
    end Get_Service_By_Name;
 
    -------------------------
@@ -890,13 +992,12 @@ package body GNAT.Sockets is
         (C.int (Short_To_Network (C.unsigned_short (Port))), SP,
          Res'Access, Buf'Address, Buflen) /= 0
       then
-         Ada.Exceptions.Raise_Exception
-           (Service_Error'Identity, "Service not found");
+         raise Service_Error with "Service not found";
       end if;
 
       --  Translate from the C format to the API format
 
-      return To_Service_Entry (Res);
+      return To_Service_Entry (Res'Unchecked_Access);
    end Get_Service_By_Port;
 
    ---------------------
@@ -944,8 +1045,9 @@ package body GNAT.Sockets is
 
    begin
       case Name is
-         when Multicast_Loop  |
-              Multicast_TTL   =>
+         when Multicast_Loop      |
+              Multicast_TTL       |
+              Receive_Packet_Info =>
             Len := V1'Size / 8;
             Add := V1'Address;
 
@@ -1013,7 +1115,8 @@ package body GNAT.Sockets is
          when Multicast_TTL   =>
             Opt.Time_To_Live := Integer (V1);
 
-         when Multicast_Loop  =>
+         when Multicast_Loop      |
+              Receive_Packet_Info =>
             Opt.Enabled := (V1 /= 0);
 
          when Send_Timeout    |
@@ -1089,11 +1192,7 @@ package body GNAT.Sockets is
    --  Start of processing for Image
 
    begin
-      if Hex then
-         Separator := ':';
-      else
-         Separator := '.';
-      end if;
+      Separator := (if Hex then ':' else '.');
 
       for J in Val'Range loop
          if Hex then
@@ -1143,41 +1242,69 @@ package body GNAT.Sockets is
       return Socket'Img;
    end Image;
 
+   -----------
+   -- Image --
+   -----------
+
+   function Image (Item : Socket_Set_Type) return String is
+      Socket_Set : Socket_Set_Type := Item;
+
+   begin
+      declare
+         Last_Img : constant String := Socket_Set.Last'Img;
+         Buffer   : String
+                      (1 .. (Integer (Socket_Set.Last) + 1) * Last_Img'Length);
+         Index    : Positive := 1;
+         Socket   : Socket_Type;
+
+      begin
+         while not Is_Empty (Socket_Set) loop
+            Get (Socket_Set, Socket);
+
+            declare
+               Socket_Img : constant String := Socket'Img;
+            begin
+               Buffer (Index .. Index + Socket_Img'Length - 1) := Socket_Img;
+               Index := Index + Socket_Img'Length;
+            end;
+         end loop;
+
+         return "[" & Last_Img & "]" & Buffer (1 .. Index - 1);
+      end;
+   end Image;
+
    ---------------
    -- Inet_Addr --
    ---------------
 
    function Inet_Addr (Image : String) return Inet_Addr_Type is
+      use Interfaces.C;
       use Interfaces.C.Strings;
 
-      Img    : chars_ptr;
+      Img    : aliased char_array := To_C (Image);
+      Cp     : constant chars_ptr := To_Chars_Ptr (Img'Unchecked_Access);
+      Addr   : aliased C.int;
       Res    : C.int;
       Result : Inet_Addr_Type;
 
    begin
-      --  Special case for the all-ones broadcast address: this address has the
-      --  same in_addr_t value as Failure, and thus cannot be properly returned
-      --  by inet_addr(3).
-
-      if Image = "255.255.255.255" then
-         return Broadcast_Inet_Addr;
-
       --  Special case for an empty Image as on some platforms (e.g. Windows)
       --  calling Inet_Addr("") will not return an error.
 
-      elsif Image = "" then
-         Raise_Socket_Error (Constants.EINVAL);
+      if Image = "" then
+         Raise_Socket_Error (SOSC.EINVAL);
       end if;
 
-      Img := New_String (Image);
-      Res := C_Inet_Addr (Img);
-      Free (Img);
+      Res := Inet_Pton (SOSC.AF_INET, Cp, Addr'Address);
 
-      if Res = Failure then
-         Raise_Socket_Error (Constants.EINVAL);
+      if Res < 0 then
+         Raise_Socket_Error (Socket_Errno);
+
+      elsif Res = 0 then
+         Raise_Socket_Error (SOSC.EINVAL);
       end if;
 
-      To_Inet_Addr (To_In_Addr (Res), Result);
+      To_Inet_Addr (To_In_Addr (Addr), Result);
       return Result;
    end Inet_Addr;
 
@@ -1185,15 +1312,32 @@ package body GNAT.Sockets is
    -- Initialize --
    ----------------
 
+   procedure Initialize (X : in out Sockets_Library_Controller) is
+      pragma Unreferenced (X);
+
+   begin
+      Thin.Initialize;
+   end Initialize;
+
+   ----------------
+   -- Initialize --
+   ----------------
+
    procedure Initialize (Process_Blocking_IO : Boolean) is
-      Expected : constant Boolean := not Constants.Thread_Blocking_IO;
+      Expected : constant Boolean := not SOSC.Thread_Blocking_IO;
+
    begin
       if Process_Blocking_IO /= Expected then
          raise Socket_Error with
            "incorrect Process_Blocking_IO setting, expected " & Expected'Img;
       end if;
 
-      Initialize;
+      --  This is a dummy placeholder for an obsolete API
+
+      --  Real initialization actions are in Initialize primitive operation
+      --  of Sockets_Library_Controller.
+
+      null;
    end Initialize;
 
    ----------------
@@ -1202,10 +1346,12 @@ package body GNAT.Sockets is
 
    procedure Initialize is
    begin
-      if not Initialized then
-         Initialized := True;
-         Thin.Initialize;
-      end if;
+      --  This is a dummy placeholder for an obsolete API
+
+      --  Real initialization actions are in Initialize primitive operation
+      --  of Sockets_Library_Controller.
+
+      null;
    end Initialize;
 
    --------------
@@ -1234,6 +1380,22 @@ package body GNAT.Sockets is
       return True;
    end Is_IP_Address;
 
+   -------------
+   -- Is_Open --
+   -------------
+
+   function Is_Open (S : Selector_Type) return Boolean is
+   begin
+      --  Either both controlling socket descriptors are valid (case of an
+      --  open selector) or neither (case of a closed selector).
+
+      pragma Assert ((S.R_Sig_Socket /= No_Socket)
+                       =
+                     (S.W_Sig_Socket /= No_Socket));
+
+      return S.R_Sig_Socket /= No_Socket;
+   end Is_Open;
+
    ------------
    -- Is_Set --
    ------------
@@ -1245,7 +1407,7 @@ package body GNAT.Sockets is
    begin
       return Item.Last /= No_Socket
         and then Socket <= Item.Last
-        and then Is_Socket_In_Set (Item.Set, C.int (Socket)) /= 0;
+        and then Is_Socket_In_Set (Item.Set'Access, C.int (Socket)) /= 0;
    end Is_Set;
 
    -------------------
@@ -1254,7 +1416,7 @@ package body GNAT.Sockets is
 
    procedure Listen_Socket
      (Socket : Socket_Type;
-      Length : Positive := 15)
+      Length : Natural := 15)
    is
       Res : constant C.int := C_Listen (C.int (Socket), C.int (Length));
    begin
@@ -1270,11 +1432,22 @@ package body GNAT.Sockets is
    procedure Narrow (Item : in out Socket_Set_Type) is
       Last : aliased C.int := C.int (Item.Last);
    begin
-      if Item.Set /= No_Socket_Set then
-         Last_Socket_In_Set (Item.Set, Last'Unchecked_Access);
+      if Item.Last /= No_Socket then
+         Last_Socket_In_Set (Item.Set'Access, Last'Unchecked_Access);
          Item.Last := Socket_Type (Last);
       end if;
    end Narrow;
+
+   --------------------------------
+   -- Normalize_Empty_Socket_Set --
+   --------------------------------
+
+   procedure Normalize_Empty_Socket_Set (S : in out Socket_Set_Type) is
+   begin
+      if S.Last = No_Socket then
+         Reset_Socket_Set (S.Set'Access);
+      end if;
+   end Normalize_Empty_Socket_Set;
 
    -------------------
    -- Official_Name --
@@ -1293,6 +1466,54 @@ package body GNAT.Sockets is
    begin
       return To_String (S.Official);
    end Official_Name;
+
+   --------------------
+   -- Wait_On_Socket --
+   --------------------
+
+   procedure Wait_On_Socket
+     (Socket    : Socket_Type;
+      For_Read  : Boolean;
+      Timeout   : Selector_Duration;
+      Selector  : access Selector_Type := null;
+      Status    : out Selector_Status)
+   is
+      type Local_Selector_Access is access Selector_Type;
+      for Local_Selector_Access'Storage_Size use Selector_Type'Size;
+
+      S : Selector_Access;
+      --  Selector to use for waiting
+
+      R_Fd_Set : Socket_Set_Type;
+      W_Fd_Set : Socket_Set_Type;
+
+   begin
+      --  Create selector if not provided by the user
+
+      if Selector = null then
+         declare
+            Local_S : constant Local_Selector_Access := new Selector_Type;
+         begin
+            S := Local_S.all'Unchecked_Access;
+            Create_Selector (S.all);
+         end;
+
+      else
+         S := Selector.all'Access;
+      end if;
+
+      if For_Read then
+         Set (R_Fd_Set, Socket);
+      else
+         Set (W_Fd_Set, Socket);
+      end if;
+
+      Check_Selector (S.all, R_Fd_Set, W_Fd_Set, Status, Timeout);
+
+      if Selector = null then
+         Close_Selector (S.all);
+      end if;
+   end Wait_On_Socket;
 
    -----------------
    -- Port_Number --
@@ -1318,9 +1539,9 @@ package body GNAT.Sockets is
 
    procedure Raise_Host_Error (H_Error : Integer) is
    begin
-      Ada.Exceptions.Raise_Exception (Host_Error'Identity,
+      raise Host_Error with
         Err_Code_Image (H_Error)
-        & C.Strings.Value (Host_Error_Messages.Host_Error_Message (H_Error)));
+        & C.Strings.Value (Host_Error_Messages.Host_Error_Message (H_Error));
    end Raise_Host_Error;
 
    ------------------------
@@ -1330,9 +1551,9 @@ package body GNAT.Sockets is
    procedure Raise_Socket_Error (Error : Integer) is
       use type C.Strings.chars_ptr;
    begin
-      Ada.Exceptions.Raise_Exception (Socket_Error'Identity,
+      raise Socket_Error with
         Err_Code_Image (Error)
-        & C.Strings.Value (Socket_Error_Message (Error)));
+        & C.Strings.Value (Socket_Error_Message (Error));
    end Raise_Socket_Error;
 
    ----------
@@ -1376,6 +1597,8 @@ package body GNAT.Sockets is
       Item   : out Ada.Streams.Stream_Element_Array;
       Last   : out Ada.Streams.Stream_Element_Offset)
    is
+      pragma Warnings (Off, Stream);
+
       First : Ada.Streams.Stream_Element_Offset          := Item'First;
       Index : Ada.Streams.Stream_Element_Offset          := First - 1;
       Max   : constant Ada.Streams.Stream_Element_Offset := Item'Last;
@@ -1414,7 +1637,7 @@ package body GNAT.Sockets is
          Raise_Socket_Error (Socket_Errno);
       end if;
 
-      Last := Item'First + Ada.Streams.Stream_Element_Offset (Res - 1);
+      Last := Last_Index (First => Item'First, Count => size_t (Res));
    end Receive_Socket;
 
    --------------------
@@ -1439,18 +1662,60 @@ package body GNAT.Sockets is
            Item'Address,
            Item'Length,
            To_Int (Flags),
-           Sin'Unchecked_Access,
+           Sin'Address,
            Len'Access);
 
       if Res = Failure then
          Raise_Socket_Error (Socket_Errno);
       end if;
 
-      Last := Item'First + Ada.Streams.Stream_Element_Offset (Res - 1);
+      Last := Last_Index (First => Item'First, Count => size_t (Res));
 
       To_Inet_Addr (Sin.Sin_Addr, From.Addr);
       From.Port := Port_Type (Network_To_Short (Sin.Sin_Port));
    end Receive_Socket;
+
+   --------------------
+   -- Receive_Vector --
+   --------------------
+
+   procedure Receive_Vector
+     (Socket : Socket_Type;
+      Vector : Vector_Type;
+      Count  : out Ada.Streams.Stream_Element_Count;
+      Flags  : Request_Flag_Type := No_Request_Flag)
+   is
+      Res : ssize_t;
+
+      Msg : Msghdr :=
+              (Msg_Name       => System.Null_Address,
+               Msg_Namelen    => 0,
+               Msg_Iov        => Vector'Address,
+
+               --  recvmsg(2) returns EMSGSIZE on Linux (and probably on other
+               --  platforms) when the supplied vector is longer than IOV_MAX,
+               --  so use minimum of the two lengths.
+
+               Msg_Iovlen     => SOSC.Msg_Iovlen_T'Min
+                                   (Vector'Length, SOSC.IOV_MAX),
+
+               Msg_Control    => System.Null_Address,
+               Msg_Controllen => 0,
+               Msg_Flags      => 0);
+
+   begin
+      Res :=
+        C_Recvmsg
+          (C.int (Socket),
+           Msg'Address,
+           To_Int (Flags));
+
+      if Res = ssize_t (Failure) then
+         Raise_Socket_Error (Socket_Errno);
+      end if;
+
+      Count := Ada.Streams.Stream_Element_Count (Res);
+   end Receive_Vector;
 
    -------------------
    -- Resolve_Error --
@@ -1460,18 +1725,30 @@ package body GNAT.Sockets is
      (Error_Value : Integer;
       From_Errno  : Boolean := True) return Error_Type
    is
-      use GNAT.Sockets.Constants;
+      use GNAT.Sockets.SOSC;
 
    begin
       if not From_Errno then
          case Error_Value is
-            when Constants.HOST_NOT_FOUND => return Unknown_Host;
-            when Constants.TRY_AGAIN      => return Host_Name_Lookup_Failure;
-            when Constants.NO_RECOVERY    => return Non_Recoverable_Error;
-            when Constants.NO_DATA        => return Unknown_Server_Error;
-            when others                   => return Cannot_Resolve_Error;
+            when SOSC.HOST_NOT_FOUND => return Unknown_Host;
+            when SOSC.TRY_AGAIN      => return Host_Name_Lookup_Failure;
+            when SOSC.NO_RECOVERY    => return Non_Recoverable_Error;
+            when SOSC.NO_DATA        => return Unknown_Server_Error;
+            when others              => return Cannot_Resolve_Error;
          end case;
       end if;
+
+      --  Special case: EAGAIN may be the same value as EWOULDBLOCK, so we
+      --  can't include it in the case statement below.
+
+      pragma Warnings (Off);
+      --  Condition "EAGAIN /= EWOULDBLOCK" is known at compile time
+
+      if EAGAIN /= EWOULDBLOCK and then Error_Value = EAGAIN then
+         return Resource_Temporarily_Unavailable;
+      end if;
+
+      pragma Warnings (On);
 
       case Error_Value is
          when ENOERROR        => return Success;
@@ -1508,6 +1785,7 @@ package body GNAT.Sockets is
          when ENOTSOCK        => return Socket_Operation_On_Non_Socket;
          when EOPNOTSUPP      => return Operation_Not_Supported;
          when EPFNOSUPPORT    => return Protocol_Family_Not_Supported;
+         when EPIPE           => return Broken_Pipe;
          when EPROTONOSUPPORT => return Protocol_Not_Supported;
          when EPROTOTYPE      => return Protocol_Wrong_Type_For_Socket;
          when ESHUTDOWN       => return
@@ -1516,10 +1794,9 @@ package body GNAT.Sockets is
          when ETIMEDOUT       => return Connection_Timed_Out;
          when ETOOMANYREFS    => return Too_Many_References;
          when EWOULDBLOCK     => return Resource_Temporarily_Unavailable;
-         when others          => null;
-      end case;
 
-      return Cannot_Resolve_Error;
+         when others          => return Cannot_Resolve_Error;
+      end case;
    end Resolve_Error;
 
    -----------------------
@@ -1558,37 +1835,14 @@ package body GNAT.Sockets is
 
       if Id = Socket_Error_Id then
          return Resolve_Error (Val);
+
       elsif Id = Host_Error_Id then
          return Resolve_Error (Val, False);
+
       else
          return Cannot_Resolve_Error;
       end if;
    end Resolve_Exception;
-
-   --------------------
-   -- Receive_Vector --
-   --------------------
-
-   procedure Receive_Vector
-     (Socket : Socket_Type;
-      Vector : Vector_Type;
-      Count  : out Ada.Streams.Stream_Element_Count)
-   is
-      Res : C.int;
-
-   begin
-      Res :=
-        C_Readv
-          (C.int (Socket),
-           Vector'Address,
-           Vector'Length);
-
-      if Res = Failure then
-         Raise_Socket_Error (Socket_Errno);
-      end if;
-
-      Count := Ada.Streams.Stream_Element_Count (Res);
-   end Receive_Vector;
 
    -----------------
    -- Send_Socket --
@@ -1600,21 +1854,8 @@ package body GNAT.Sockets is
       Last   : out Ada.Streams.Stream_Element_Offset;
       Flags  : Request_Flag_Type := No_Request_Flag)
    is
-      Res : C.int;
-
    begin
-      Res :=
-        C_Send
-          (C.int (Socket),
-           Item'Address,
-           Item'Length,
-           Set_Forced_Flags (To_Int (Flags)));
-
-      if Res = Failure then
-         Raise_Socket_Error (Socket_Errno);
-      end if;
-
-      Last := Item'First + Ada.Streams.Stream_Element_Offset (Res - 1);
+      Send_Socket (Socket, Item, Last, To => null, Flags => Flags);
    end Send_Socket;
 
    -----------------
@@ -1628,31 +1869,56 @@ package body GNAT.Sockets is
       To     : Sock_Addr_Type;
       Flags  : Request_Flag_Type := No_Request_Flag)
    is
-      Res : C.int;
-      Sin : aliased Sockaddr_In;
-      Len : constant C.int := Sin'Size / 8;
+   begin
+      Send_Socket
+        (Socket, Item, Last, To => To'Unrestricted_Access, Flags => Flags);
+   end Send_Socket;
+
+   -----------------
+   -- Send_Socket --
+   -----------------
+
+   procedure Send_Socket
+     (Socket : Socket_Type;
+      Item   : Ada.Streams.Stream_Element_Array;
+      Last   : out Ada.Streams.Stream_Element_Offset;
+      To     : access Sock_Addr_Type;
+      Flags  : Request_Flag_Type := No_Request_Flag)
+   is
+      Res  : C.int;
+
+      Sin  : aliased Sockaddr_In;
+      C_To : System.Address;
+      Len  : C.int;
 
    begin
-      Set_Length (Sin'Unchecked_Access, Len);
-      Set_Family (Sin'Unchecked_Access, Families (To.Family));
-      Set_Address (Sin'Unchecked_Access, To_In_Addr (To.Addr));
-      Set_Port
-        (Sin'Unchecked_Access,
-         Short_To_Network (C.unsigned_short (To.Port)));
+      if To /= null then
+         Set_Family  (Sin.Sin_Family, To.Family);
+         Set_Address (Sin'Unchecked_Access, To_In_Addr (To.Addr));
+         Set_Port
+           (Sin'Unchecked_Access,
+            Short_To_Network (C.unsigned_short (To.Port)));
+         C_To := Sin'Address;
+         Len := Sin'Size / 8;
+
+      else
+         C_To := System.Null_Address;
+         Len := 0;
+      end if;
 
       Res := C_Sendto
         (C.int (Socket),
          Item'Address,
          Item'Length,
          Set_Forced_Flags (To_Int (Flags)),
-         Sin'Unchecked_Access,
+         C_To,
          Len);
 
       if Res = Failure then
          Raise_Socket_Error (Socket_Errno);
       end if;
 
-      Last := Item'First + Ada.Streams.Stream_Element_Offset (Res - 1);
+      Last := Last_Index (First => Item'First, Count => size_t (Res));
    end Send_Socket;
 
    -----------------
@@ -1662,11 +1928,16 @@ package body GNAT.Sockets is
    procedure Send_Vector
      (Socket : Socket_Type;
       Vector : Vector_Type;
-      Count  : out Ada.Streams.Stream_Element_Count)
+      Count  : out Ada.Streams.Stream_Element_Count;
+      Flags  : Request_Flag_Type := No_Request_Flag)
    is
-      Res            : C.int;
-      Iov_Count      : C.int;
-      This_Iov_Count : C.int;
+      use SOSC;
+      use Interfaces.C;
+
+      Res            : ssize_t;
+      Iov_Count      : SOSC.Msg_Iovlen_T;
+      This_Iov_Count : SOSC.Msg_Iovlen_T;
+      Msg            : Msghdr;
 
    begin
       Count := 0;
@@ -1676,21 +1947,30 @@ package body GNAT.Sockets is
          pragma Warnings (Off);
          --  Following test may be compile time known on some targets
 
-         if Vector'Length - Iov_Count > Constants.IOV_MAX then
-            This_Iov_Count := Constants.IOV_MAX;
-         else
-            This_Iov_Count := Vector'Length - Iov_Count;
-         end if;
+         This_Iov_Count :=
+           (if Vector'Length - Iov_Count > SOSC.IOV_MAX
+            then SOSC.IOV_MAX
+            else Vector'Length - Iov_Count);
 
          pragma Warnings (On);
 
-         Res :=
-           C_Writev
-             (C.int (Socket),
-              Vector (Vector'First + Integer (Iov_Count))'Address,
-              This_Iov_Count);
+         Msg :=
+           (Msg_Name       => System.Null_Address,
+            Msg_Namelen    => 0,
+            Msg_Iov        => Vector
+                                (Vector'First + Integer (Iov_Count))'Address,
+            Msg_Iovlen     => This_Iov_Count,
+            Msg_Control    => System.Null_Address,
+            Msg_Controllen => 0,
+            Msg_Flags      => 0);
 
-         if Res = Failure then
+         Res :=
+           C_Sendmsg
+             (C.int (Socket),
+              Msg'Address,
+              Set_Forced_Flags (To_Int (Flags)));
+
+         if Res = ssize_t (Failure) then
             Raise_Socket_Error (Socket_Errno);
          end if;
 
@@ -1705,15 +1985,18 @@ package body GNAT.Sockets is
 
    procedure Set (Item : in out Socket_Set_Type; Socket : Socket_Type) is
    begin
-      if Item.Set = No_Socket_Set then
-         Item.Set  := New_Socket_Set (No_Socket_Set);
+      if Item.Last = No_Socket then
+
+         --  Uninitialized socket set, make sure it is properly zeroed out
+
+         Reset_Socket_Set (Item.Set'Access);
          Item.Last := Socket;
 
       elsif Item.Last < Socket then
          Item.Last := Socket;
       end if;
 
-      Insert_Socket_In_Set (Item.Set, C.int (Socket));
+      Insert_Socket_In_Set (Item.Set'Access, C.int (Socket));
    end Set;
 
    ----------------------
@@ -1727,7 +2010,7 @@ package body GNAT.Sockets is
       function To_int is
         new Ada.Unchecked_Conversion (C.unsigned, C.int);
    begin
-      return To_int (To_unsigned (F) or Constants.MSG_Forced_Flags);
+      return To_int (To_unsigned (F) or SOSC.MSG_Forced_Flags);
    end Set_Forced_Flags;
 
    -----------------------
@@ -1791,7 +2074,8 @@ package body GNAT.Sockets is
             Len := V1'Size / 8;
             Add := V1'Address;
 
-         when Multicast_Loop  =>
+         when Multicast_Loop      |
+              Receive_Packet_Info =>
             V1  := C.unsigned_char (Boolean'Pos (Option.Enabled));
             Len := V1'Size / 8;
             Add := V1'Address;
@@ -1890,6 +2174,43 @@ package body GNAT.Sockets is
       return Stream_Access (S);
    end Stream;
 
+   ------------------
+   -- Stream_Write --
+   ------------------
+
+   procedure Stream_Write
+     (Socket : Socket_Type;
+      Item   : Ada.Streams.Stream_Element_Array;
+      To     : access Sock_Addr_Type)
+   is
+      First : Ada.Streams.Stream_Element_Offset;
+      Index : Ada.Streams.Stream_Element_Offset;
+      Max   : constant Ada.Streams.Stream_Element_Offset := Item'Last;
+
+   begin
+      First := Item'First;
+      Index := First - 1;
+      while First <= Max loop
+         Send_Socket (Socket, Item (First .. Max), Index, To);
+
+         --  Exit when all or zero data sent. Zero means that the socket has
+         --  been closed by peer.
+
+         exit when Index < First or else Index = Max;
+
+         First := Index + 1;
+      end loop;
+
+      --  For an empty array, we have First > Max, and hence Index >= Max (no
+      --  error, the loop above is never executed). After a succesful send,
+      --  Index = Max. The only remaining case, Index < Max, is therefore
+      --  always an actual send failure.
+
+      if Index < Max then
+         Raise_Socket_Error (Socket_Errno);
+      end if;
+   end Stream_Write;
+
    ----------
    -- To_C --
    ----------
@@ -1966,7 +2287,7 @@ package body GNAT.Sockets is
    -- To_In_Addr --
    ----------------
 
-   function To_In_Addr (Addr : Inet_Addr_Type) return Thin.In_Addr is
+   function To_In_Addr (Addr : Inet_Addr_Type) return In_Addr is
    begin
       if Addr.Family = Family_Inet then
          return (S_B1 => C.unsigned_char (Addr.Sin_V4 (1)),
@@ -1975,7 +2296,7 @@ package body GNAT.Sockets is
                  S_B4 => C.unsigned_char (Addr.Sin_V4 (4)));
       end if;
 
-      raise Socket_Error;
+      raise Socket_Error with "IPv6 not supported";
    end To_In_Addr;
 
    ------------------
@@ -2007,7 +2328,7 @@ package body GNAT.Sockets is
 
          if Current mod 2 /= 0 then
             if Flags (J) = -1 then
-               Raise_Socket_Error (Constants.EOPNOTSUPP);
+               Raise_Socket_Error (SOSC.EOPNOTSUPP);
             end if;
 
             Result := Result + Flags (J);
@@ -2032,17 +2353,17 @@ package body GNAT.Sockets is
    -- To_Service_Entry --
    ----------------------
 
-   function To_Service_Entry (E : Servent) return Service_Entry_Type is
+   function To_Service_Entry (E : Servent_Access) return Service_Entry_Type is
       use type C.size_t;
 
-      Official : constant String := C.Strings.Value (E.S_Name);
+      Official : constant String := C.Strings.Value (Servent_S_Name (E));
 
       Aliases : constant Chars_Ptr_Array :=
-                  Chars_Ptr_Pointers.Value (E.S_Aliases);
+                  Chars_Ptr_Pointers.Value (Servent_S_Aliases (E));
       --  S_Aliases points to a list of name aliases. The list is
       --  terminated by a NULL pointer.
 
-      Protocol : constant String := C.Strings.Value (E.S_Proto);
+      Protocol : constant String := C.Strings.Value (Servent_S_Proto (E));
 
       Result : Service_Entry_Type (Aliases_Length => Aliases'Length - 1);
       --  The last element is a null pointer
@@ -2063,7 +2384,7 @@ package body GNAT.Sockets is
       end loop;
 
       Result.Port :=
-        Port_Type (Network_To_Short (C.unsigned_short (E.S_Port)));
+        Port_Type (Network_To_Short (C.unsigned_short (Servent_S_Port (E))));
 
       Result.Protocol := To_Name (Protocol);
       return Result;
@@ -2111,29 +2432,8 @@ package body GNAT.Sockets is
      (Stream : in out Datagram_Socket_Stream_Type;
       Item   : Ada.Streams.Stream_Element_Array)
    is
-      First : Ada.Streams.Stream_Element_Offset          := Item'First;
-      Index : Ada.Streams.Stream_Element_Offset          := First - 1;
-      Max   : constant Ada.Streams.Stream_Element_Offset := Item'Last;
-
    begin
-      loop
-         Send_Socket
-           (Stream.Socket,
-            Item (First .. Max),
-            Index,
-            Stream.To);
-
-         --  Exit when all or zero data sent. Zero means that the socket has
-         --  been closed by peer.
-
-         exit when Index < First or else Index = Max;
-
-         First := Index + 1;
-      end loop;
-
-      if Index /= Max then
-         raise Socket_Error;
-      end if;
+      Stream_Write (Stream.Socket, Item, To => Stream.To'Unrestricted_Access);
    end Write;
 
    -----------
@@ -2144,25 +2444,13 @@ package body GNAT.Sockets is
      (Stream : in out Stream_Socket_Stream_Type;
       Item   : Ada.Streams.Stream_Element_Array)
    is
-      First : Ada.Streams.Stream_Element_Offset          := Item'First;
-      Index : Ada.Streams.Stream_Element_Offset          := First - 1;
-      Max   : constant Ada.Streams.Stream_Element_Offset := Item'Last;
-
    begin
-      loop
-         Send_Socket (Stream.Socket, Item (First .. Max), Index);
-
-         --  Exit when all or zero data sent. Zero means that the socket has
-         --  been closed by peer.
-
-         exit when Index < First or else Index = Max;
-
-         First := Index + 1;
-      end loop;
-
-      if Index /= Max then
-         raise Socket_Error;
-      end if;
+      Stream_Write (Stream.Socket, Item, To => null);
    end Write;
+
+   Sockets_Library_Controller_Object : Sockets_Library_Controller;
+   pragma Unreferenced (Sockets_Library_Controller_Object);
+   --  The elaboration and finalization of this object perform the required
+   --  initialization and cleanup actions for the sockets library.
 
 end GNAT.Sockets;

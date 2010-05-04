@@ -1,6 +1,7 @@
 /* Functions dealing with attribute handling, used by most front ends.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
-   2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
+   2002, 2003, 2004, 2005, 2007, 2008, 2009, 2010
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -33,6 +34,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "langhooks.h"
 #include "hashtab.h"
+#include "plugin.h"
 
 static void init_attributes (void);
 
@@ -182,18 +184,27 @@ init_attributes (void)
   for (i = 0; i < ARRAY_SIZE (attribute_tables); i++)
     for (k = 0; attribute_tables[i][k].name != NULL; k++)
       {
-	struct substring str;
-	const void **slot;
-
-	str.str = attribute_tables[i][k].name;
-	str.length = strlen (attribute_tables[i][k].name);
-	slot = (const void **)htab_find_slot_with_hash (attribute_hash, &str,
-					 substring_hash (str.str, str.length),
-					 INSERT);
-	gcc_assert (!*slot);
-	*slot = &attribute_tables[i][k];
+        register_attribute (&attribute_tables[i][k]);
       }
+  invoke_plugin_callbacks (PLUGIN_ATTRIBUTES, NULL);
   attributes_initialized = true;
+}
+
+/* Insert a single ATTR into the attribute table.  */
+
+void
+register_attribute (const struct attribute_spec *attr)
+{
+  struct substring str;
+  void **slot;
+
+  str.str = attr->name;
+  str.length = strlen (str.str);
+  slot = htab_find_slot_with_hash (attribute_hash, &str,
+				   substring_hash (str.str, str.length),
+				   INSERT);
+  gcc_assert (!*slot);
+  *slot = (void *) CONST_CAST (struct attribute_spec *, attr);
 }
 
 /* Return the spec for the attribute named NAME.  */
@@ -206,8 +217,9 @@ lookup_attribute_spec (tree name)
   attr.str = IDENTIFIER_POINTER (name);
   attr.length = IDENTIFIER_LENGTH (name);
   extract_attribute_substring (&attr);
-  return htab_find_with_hash (attribute_hash, &attr,
-			      substring_hash (attr.str, attr.length));
+  return (const struct attribute_spec *)
+    htab_find_with_hash (attribute_hash, &attr,
+			 substring_hash (attr.str, attr.length));
 }
 
 /* Process the attributes listed in ATTRIBUTES and install them in *NODE,
@@ -225,8 +237,46 @@ decl_attributes (tree *node, tree attributes, int flags)
   tree a;
   tree returned_attrs = NULL_TREE;
 
+  if (TREE_TYPE (*node) == error_mark_node)
+    return NULL_TREE;
+
   if (!attributes_initialized)
     init_attributes ();
+
+  /* If this is a function and the user used #pragma GCC optimize, add the
+     options to the attribute((optimize(...))) list.  */
+  if (TREE_CODE (*node) == FUNCTION_DECL && current_optimize_pragma)
+    {
+      tree cur_attr = lookup_attribute ("optimize", attributes);
+      tree opts = copy_list (current_optimize_pragma);
+
+      if (! cur_attr)
+	attributes
+	  = tree_cons (get_identifier ("optimize"), opts, attributes);
+      else
+	TREE_VALUE (cur_attr) = chainon (opts, TREE_VALUE (cur_attr));
+    }
+
+  if (TREE_CODE (*node) == FUNCTION_DECL
+      && optimization_current_node != optimization_default_node
+      && !DECL_FUNCTION_SPECIFIC_OPTIMIZATION (*node))
+    DECL_FUNCTION_SPECIFIC_OPTIMIZATION (*node) = optimization_current_node;
+
+  /* If this is a function and the user used #pragma GCC target, add the
+     options to the attribute((target(...))) list.  */
+  if (TREE_CODE (*node) == FUNCTION_DECL
+      && current_target_pragma
+      && targetm.target_option.valid_attribute_p (*node, NULL_TREE,
+						  current_target_pragma, 0))
+    {
+      tree cur_attr = lookup_attribute ("target", attributes);
+      tree opts = copy_list (current_target_pragma);
+
+      if (! cur_attr)
+	attributes = tree_cons (get_identifier ("target"), opts, attributes);
+      else
+	TREE_VALUE (cur_attr) = chainon (opts, TREE_VALUE (cur_attr));
+    }
 
   targetm.insert_attributes (*node, &attributes);
 
@@ -237,20 +287,21 @@ decl_attributes (tree *node, tree attributes, int flags)
       tree *anode = node;
       const struct attribute_spec *spec = lookup_attribute_spec (name);
       bool no_add_attrs = 0;
+      int fn_ptr_quals = 0;
       tree fn_ptr_tmp = NULL_TREE;
 
       if (spec == NULL)
 	{
-	  warning (OPT_Wattributes, "%qs attribute directive ignored",
-		   IDENTIFIER_POINTER (name));
+	  warning (OPT_Wattributes, "%qE attribute directive ignored",
+		   name);
 	  continue;
 	}
       else if (list_length (args) < spec->min_length
 	       || (spec->max_length >= 0
 		   && list_length (args) > spec->max_length))
 	{
-	  error ("wrong number of arguments specified for %qs attribute",
-		 IDENTIFIER_POINTER (name));
+	  error ("wrong number of arguments specified for %qE attribute",
+		 name);
 	  continue;
 	}
       gcc_assert (is_attribute_p (spec->name, name));
@@ -267,8 +318,8 @@ decl_attributes (tree *node, tree attributes, int flags)
 	    }
 	  else
 	    {
-	      warning (OPT_Wattributes, "%qs attribute does not apply to types",
-		       IDENTIFIER_POINTER (name));
+	      warning (OPT_Wattributes, "%qE attribute does not apply to types",
+		       name);
 	      continue;
 	    }
 	}
@@ -280,7 +331,11 @@ decl_attributes (tree *node, tree attributes, int flags)
       if (spec->type_required && DECL_P (*anode))
 	{
 	  anode = &TREE_TYPE (*anode);
-	  flags &= ~(int) ATTR_FLAG_TYPE_IN_PLACE;
+	  /* Allow ATTR_FLAG_TYPE_IN_PLACE for the type's naming decl.  */
+	  if (!(TREE_CODE (*anode) == TYPE_DECL
+		&& *anode == TYPE_NAME (TYPE_MAIN_VARIANT
+					(TREE_TYPE (*anode)))))
+	    flags &= ~(int) ATTR_FLAG_TYPE_IN_PLACE;
 	}
 
       if (spec->function_type_required && TREE_CODE (*anode) != FUNCTION_TYPE
@@ -300,6 +355,7 @@ decl_attributes (tree *node, tree attributes, int flags)
 		 This would all be simpler if attributes were part of the
 		 declarator, grumble grumble.  */
 	      fn_ptr_tmp = TREE_TYPE (*anode);
+	      fn_ptr_quals = TYPE_QUALS (*anode);
 	      anode = &fn_ptr_tmp;
 	      flags &= ~(int) ATTR_FLAG_TYPE_IN_PLACE;
 	    }
@@ -314,8 +370,8 @@ decl_attributes (tree *node, tree attributes, int flags)
 	      && TREE_CODE (*anode) != METHOD_TYPE)
 	    {
 	      warning (OPT_Wattributes,
-		       "%qs attribute only applies to function types",
-		       IDENTIFIER_POINTER (name));
+		       "%qE attribute only applies to function types",
+		       name);
 	      continue;
 	    }
 	}
@@ -396,6 +452,8 @@ decl_attributes (tree *node, tree attributes, int flags)
 	  /* Rebuild the function pointer type and put it in the
 	     appropriate place.  */
 	  fn_ptr_tmp = build_pointer_type (fn_ptr_tmp);
+	  if (fn_ptr_quals)
+	    fn_ptr_tmp = build_qualified_type (fn_ptr_tmp, fn_ptr_quals);
 	  if (DECL_P (*node))
 	    TREE_TYPE (*node) = fn_ptr_tmp;
 	  else

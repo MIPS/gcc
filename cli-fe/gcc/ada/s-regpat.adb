@@ -7,7 +7,7 @@
 --                                 B o d y                                  --
 --                                                                          --
 --               Copyright (C) 1986 by University of Toronto.               --
---                      Copyright (C) 1999-2007, AdaCore                    --
+--                      Copyright (C) 1999-2009, AdaCore                    --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -136,10 +136,10 @@ package body System.Regpat is
       --  Matches after or before a word
 
       BOL,        -- no        Match "" at beginning of line
-      MBOL,       -- no        Same, assuming mutiline (match after \n)
+      MBOL,       -- no        Same, assuming multiline (match after \n)
       SBOL,       -- no        Same, assuming single line (don't match at \n)
       EOL,        -- no        Match "" at end of line
-      MEOL,       -- no        Same, assuming mutiline (match before \n)
+      MEOL,       -- no        Same, assuming multiline (match before \n)
       SEOL,       -- no        Same, assuming single line (don't match at \n)
 
       BOUND,      -- no        Match "" at any word boundary
@@ -386,7 +386,7 @@ package body System.Regpat is
       function  Emit_Node (Op : Opcode) return Pointer;
       --  If code-generation is enabled, Emit_Node outputs the
       --  opcode Op and reserves space for a pointer to the next node.
-      --  Return value is the location of new opcode, ie old Emit_Ptr.
+      --  Return value is the location of new opcode, i.e. old Emit_Ptr.
 
       procedure Emit_Natural (IP : Pointer; N : Natural);
       --  Split N on two characters at position IP
@@ -449,7 +449,7 @@ package body System.Regpat is
       --  Link_Tail sets the next-pointer at the end of a node chain
 
       procedure Link_Operand_Tail (P, Val : Pointer);
-      --  Link_Tail on operand of first argument; nop if operandless
+      --  Link_Tail on operand of first argument; noop if operand-less
 
       function  Next_Instruction (P : Pointer) return Pointer;
       --  Dig the "next" pointer out of a node
@@ -460,7 +460,7 @@ package body System.Regpat is
 
       function Is_Curly_Operator (IP : Natural) return Boolean;
       --  Return True if IP is looking at a '{' that is the beginning
-      --  of a curly operator, ie it matches {\d+,?\d*}
+      --  of a curly operator, i.e. it matches {\d+,?\d*}
 
       function Is_Mult (IP : Natural) return Boolean;
       --  Return True if C is a regexp multiplier: '+', '*' or '?'
@@ -484,8 +484,8 @@ package body System.Regpat is
       --  Parse_Literal encodes a string of characters to be matched exactly
 
       function Parse_Posix_Character_Class return Std_Class;
-      --  Parse a posic character class, like [:alpha:] or [:^alpha:].
-      --  The called is suppoed to absorbe the opening [.
+      --  Parse a posix character class, like [:alpha:] or [:^alpha:].
+      --  The caller is supposed to absorb the opening [.
 
       pragma Inline (Is_Mult);
       pragma Inline (Emit_Natural);
@@ -905,7 +905,7 @@ package body System.Regpat is
             Flags.Has_Width := False;
          end if;
 
-         Flags.SP_Start := Flags.SP_Start or New_Flags.SP_Start;
+         Flags.SP_Start := Flags.SP_Start or else New_Flags.SP_Start;
 
          while Parse_Pos <= Parse_End
            and then (E (Parse_Pos) = '|')
@@ -924,7 +924,7 @@ package body System.Regpat is
                Flags.Has_Width := False;
             end if;
 
-            Flags.SP_Start := Flags.SP_Start or New_Flags.SP_Start;
+            Flags.SP_Start := Flags.SP_Start or else New_Flags.SP_Start;
          end loop;
 
          --  Make a closing node, and hook it on the end
@@ -988,29 +988,23 @@ package body System.Regpat is
 
          case (C) is
             when '^' =>
-               if (Flags and Multiple_Lines) /= 0  then
-                  IP := Emit_Node (MBOL);
-               elsif (Flags and Single_Line) /= 0 then
-                  IP := Emit_Node (SBOL);
-               else
-                  IP := Emit_Node (BOL);
-               end if;
+               IP :=
+                 Emit_Node
+                   (if (Flags and Multiple_Lines) /= 0 then MBOL
+                    elsif (Flags and Single_Line) /= 0 then SBOL
+                    else BOL);
 
             when '$' =>
-               if (Flags and Multiple_Lines) /= 0  then
-                  IP := Emit_Node (MEOL);
-               elsif (Flags and Single_Line) /= 0 then
-                  IP := Emit_Node (SEOL);
-               else
-                  IP := Emit_Node (EOL);
-               end if;
+               IP :=
+                 Emit_Node
+                   (if (Flags and Multiple_Lines) /= 0 then MEOL
+                    elsif (Flags and Single_Line) /= 0 then SEOL
+                    else EOL);
 
             when '.' =>
-               if (Flags and Single_Line) /= 0 then
-                  IP := Emit_Node (SANY);
-               else
-                  IP := Emit_Node (ANY);
-               end if;
+               IP :=
+                 Emit_Node
+                   (if (Flags and Single_Line) /= 0 then SANY else ANY);
 
                Expr_Flags.Has_Width := True;
                Expr_Flags.Simple := True;
@@ -1032,9 +1026,9 @@ package body System.Regpat is
                   end if;
 
                   Expr_Flags.Has_Width :=
-                    Expr_Flags.Has_Width or New_Flags.Has_Width;
+                    Expr_Flags.Has_Width or else New_Flags.Has_Width;
                   Expr_Flags.SP_Start :=
-                    Expr_Flags.SP_Start or New_Flags.SP_Start;
+                    Expr_Flags.SP_Start or else New_Flags.SP_Start;
                end;
 
             when '|' | ASCII.LF | ')' =>
@@ -1146,15 +1140,9 @@ package body System.Regpat is
 
       begin
          Flags := Worst_Expression;    -- Tentatively
-
-         if First then
-            IP := Emit_Ptr;
-         else
-            IP := Emit_Node (BRANCH);
-         end if;
+         IP := (if First then Emit_Ptr else Emit_Node (BRANCH));
 
          Chain := 0;
-
          while Parse_Pos <= Parse_End
            and then E (Parse_Pos) /= ')'
            and then E (Parse_Pos) /= ASCII.LF
@@ -1167,10 +1155,10 @@ package body System.Regpat is
                return;
             end if;
 
-            Flags.Has_Width := Flags.Has_Width or New_Flags.Has_Width;
+            Flags.Has_Width := Flags.Has_Width or else New_Flags.Has_Width;
 
             if Chain = 0 then            -- First piece
-               Flags.SP_Start := Flags.SP_Start or New_Flags.SP_Start;
+               Flags.SP_Start := Flags.SP_Start or else New_Flags.SP_Start;
             else
                Link_Tail (Chain, Last);
             end if;
@@ -1195,7 +1183,7 @@ package body System.Regpat is
          In_Range    : Boolean := False;
          Named_Class : Std_Class := ANYOF_NONE;
          Value       : Character;
-         Last_Value  : Character := ASCII.Nul;
+         Last_Value  : Character := ASCII.NUL;
 
       begin
          Reset_Class (Bitmap);
@@ -1566,11 +1554,9 @@ package body System.Regpat is
       begin
          Parse_Pos := Parse_Pos - 1;      --  Look at current character
 
-         if (Flags and Case_Insensitive) /= 0 then
-            IP := Emit_Node (EXACTF);
-         else
-            IP := Emit_Node (EXACT);
-         end if;
+         IP :=
+           Emit_Node
+             (if (Flags and Case_Insensitive) /= 0 then EXACTF else EXACT);
 
          Length_Ptr := Emit_Ptr;
          Emit_Ptr := String_Operand (IP);
@@ -1707,11 +1693,10 @@ package body System.Regpat is
 
          Op := Expression (Parse_Pos);
 
-         if Op /= '+' then
-            Expr_Flags := (SP_Start => True, others => False);
-         else
-            Expr_Flags := (Has_Width => True, others => False);
-         end if;
+         Expr_Flags :=
+           (if Op /= '+'
+            then (SP_Start  => True, others => False)
+            else (Has_Width => True, others => False));
 
          --  Detect non greedy operators in the easy cases
 
@@ -1840,36 +1825,23 @@ package body System.Regpat is
                      if
                        E (Parse_Pos .. Parse_Pos + Alnum'Length - 1) = Alnum
                      then
-                        if Invert then
-                           Class := ANYOF_NALNUMC;
-                        else
-                           Class := ANYOF_ALNUMC;
-                        end if;
-
+                        Class :=
+                          (if Invert then ANYOF_NALNUMC else ANYOF_ALNUMC);
                         Parse_Pos := Parse_Pos + Alnum'Length;
 
                      elsif
                        E (Parse_Pos .. Parse_Pos + Alpha'Length - 1) = Alpha
                      then
-                        if Invert then
-                           Class := ANYOF_NALPHA;
-                        else
-                           Class := ANYOF_ALPHA;
-                        end if;
-
+                        Class :=
+                          (if Invert then ANYOF_NALPHA else ANYOF_ALPHA);
                         Parse_Pos := Parse_Pos + Alpha'Length;
 
                      elsif E (Parse_Pos .. Parse_Pos + Ascii_C'Length - 1) =
                                                                       Ascii_C
                      then
-                        if Invert then
-                           Class := ANYOF_NASCII;
-                        else
-                           Class := ANYOF_ASCII;
-                        end if;
-
+                        Class :=
+                          (if Invert then ANYOF_NASCII else ANYOF_ASCII);
                         Parse_Pos := Parse_Pos + Ascii_C'Length;
-
                      else
                         Fail ("Invalid character class: " & E);
                      end if;
@@ -1883,14 +1855,8 @@ package body System.Regpat is
                     and then
                       E (Parse_Pos .. Parse_Pos + Cntrl'Length - 1) = Cntrl
                   then
-                     if Invert then
-                        Class := ANYOF_NCNTRL;
-                     else
-                        Class := ANYOF_CNTRL;
-                     end if;
-
+                     Class := (if Invert then ANYOF_NCNTRL else ANYOF_CNTRL);
                      Parse_Pos := Parse_Pos + Cntrl'Length;
-
                   else
                      Fail ("Invalid character class: " & E);
                   end if;
@@ -1900,12 +1866,7 @@ package body System.Regpat is
                     and then
                       E (Parse_Pos .. Parse_Pos + Digit'Length - 1) = Digit
                   then
-                     if Invert then
-                        Class := ANYOF_NDIGIT;
-                     else
-                        Class := ANYOF_DIGIT;
-                     end if;
-
+                     Class := (if Invert then ANYOF_NDIGIT else ANYOF_DIGIT);
                      Parse_Pos := Parse_Pos + Digit'Length;
                   end if;
 
@@ -1914,14 +1875,8 @@ package body System.Regpat is
                     and then
                       E (Parse_Pos .. Parse_Pos + Graph'Length - 1) = Graph
                   then
-                     if Invert then
-                        Class := ANYOF_NGRAPH;
-                     else
-                        Class := ANYOF_GRAPH;
-                     end if;
-
+                     Class := (if Invert then ANYOF_NGRAPH else ANYOF_GRAPH);
                      Parse_Pos := Parse_Pos + Graph'Length;
-
                   else
                      Fail ("Invalid character class: " & E);
                   end if;
@@ -1931,14 +1886,8 @@ package body System.Regpat is
                     and then
                       E (Parse_Pos .. Parse_Pos + Lower'Length - 1) = Lower
                   then
-                     if Invert then
-                        Class := ANYOF_NLOWER;
-                     else
-                        Class := ANYOF_LOWER;
-                     end if;
-
+                     Class := (if Invert then ANYOF_NLOWER else ANYOF_LOWER);
                      Parse_Pos := Parse_Pos + Lower'Length;
-
                   else
                      Fail ("Invalid character class: " & E);
                   end if;
@@ -1951,23 +1900,15 @@ package body System.Regpat is
                      if
                        E (Parse_Pos .. Parse_Pos + Print'Length - 1) = Print
                      then
-                        if Invert then
-                           Class := ANYOF_NPRINT;
-                        else
-                           Class := ANYOF_PRINT;
-                        end if;
-
+                        Class :=
+                          (if Invert then ANYOF_NPRINT else ANYOF_PRINT);
                         Parse_Pos := Parse_Pos + Print'Length;
 
                      elsif
                        E (Parse_Pos .. Parse_Pos + Punct'Length - 1) = Punct
                      then
-                        if Invert then
-                           Class := ANYOF_NPUNCT;
-                        else
-                           Class := ANYOF_PUNCT;
-                        end if;
-
+                        Class :=
+                          (if Invert then ANYOF_NPUNCT else ANYOF_PUNCT);
                         Parse_Pos := Parse_Pos + Punct'Length;
 
                      else
@@ -1983,14 +1924,8 @@ package body System.Regpat is
                     and then
                       E (Parse_Pos .. Parse_Pos + Space'Length - 1) = Space
                   then
-                     if Invert then
-                        Class := ANYOF_NSPACE;
-                     else
-                        Class := ANYOF_SPACE;
-                     end if;
-
+                     Class := (if Invert then ANYOF_NSPACE else ANYOF_SPACE);
                      Parse_Pos := Parse_Pos + Space'Length;
-
                   else
                      Fail ("Invalid character class: " & E);
                   end if;
@@ -2000,14 +1935,8 @@ package body System.Regpat is
                     and then
                       E (Parse_Pos .. Parse_Pos + Upper'Length - 1) = Upper
                   then
-                     if Invert then
-                        Class := ANYOF_NUPPER;
-                     else
-                        Class := ANYOF_UPPER;
-                     end if;
-
+                     Class := (if Invert then ANYOF_NUPPER else ANYOF_UPPER);
                      Parse_Pos := Parse_Pos + Upper'Length;
-
                   else
                      Fail ("Invalid character class: " & E);
                   end if;
@@ -2017,14 +1946,8 @@ package body System.Regpat is
                     and then
                       E (Parse_Pos .. Parse_Pos + Word'Length - 1) = Word
                   then
-                     if Invert then
-                        Class := ANYOF_NALNUM;
-                     else
-                        Class := ANYOF_ALNUM;
-                     end if;
-
+                     Class := (if Invert then ANYOF_NALNUM else ANYOF_ALNUM);
                      Parse_Pos := Parse_Pos + Word'Length;
-
                   else
                      Fail ("Invalid character class: " & E);
                   end if;
@@ -2034,12 +1957,7 @@ package body System.Regpat is
                     and then
                       E (Parse_Pos .. Parse_Pos + Xdigit'Length - 1) = Xdigit
                   then
-                     if Invert then
-                        Class := ANYOF_NXDIGIT;
-                     else
-                        Class := ANYOF_XDIGIT;
-                     end if;
-
+                     Class := (if Invert then ANYOF_NXDIGIT else ANYOF_XDIGIT);
                      Parse_Pos := Parse_Pos + Xdigit'Length;
 
                   else
@@ -2192,7 +2110,7 @@ package body System.Regpat is
                when ANYOF =>  null;
                   declare
                      Bitmap  : Character_Class;
-                     Last    : Character := ASCII.Nul;
+                     Last    : Character := ASCII.NUL;
                      Current : Natural := 0;
 
                      Current_Char : Character;
@@ -2633,11 +2551,10 @@ package body System.Regpat is
                         N := Is_Alnum (Data (Input_Pos - 1));
                      end if;
 
-                     if Input_Pos > Last_In_Data then
-                        Ln := False;
-                     else
-                        Ln := Is_Alnum (Data (Input_Pos));
-                     end if;
+                     Ln :=
+                       (if Input_Pos > Last_In_Data
+                        then False
+                        else Is_Alnum (Data (Input_Pos)));
 
                      if Op = BOUND then
                         if N = Ln then
@@ -2858,7 +2775,7 @@ package body System.Regpat is
          Next   : Pointer;
          Greedy : Boolean) return Boolean
       is
-         Next_Char       : Character := ASCII.Nul;
+         Next_Char       : Character := ASCII.NUL;
          Next_Char_Known : Boolean := False;
          No              : Integer;  --  Can be negative
          Min             : Natural;

@@ -1,5 +1,5 @@
 /* score3.c for Sunplus S+CORE processor
-   Copyright (C) 2005, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2007, 2008 Free Software Foundation, Inc.
    Contributed by Sunnorth
 
    This file is part of GCC.
@@ -49,13 +49,11 @@
 #include "langhooks.h"
 #include "cfglayout.h"
 #include "score3.h"
+#include "df.h"
 
 #define BITSET_P(VALUE, BIT)      (((VALUE) & (1L << (BIT))) != 0)
 #define INS_BUF_SZ                128
 
-/* Define the information needed to generate branch insns.  This is
-   stored from the compare operation.  */
-extern rtx cmp_op0, cmp_op1;
 extern enum reg_class score_char_to_class[256];
 
 static int score3_sdata_max;
@@ -183,13 +181,13 @@ score3_compute_frame_size (HOST_WIDE_INT size)
   f->gp_reg_size = 0;
   f->mask = 0;
   f->var_size = SCORE3_STACK_ALIGN (size);
-  f->args_size = current_function_outgoing_args_size;
+  f->args_size = crtl->outgoing_args_size;
   f->cprestore_size = flag_pic ? UNITS_PER_WORD : 0;
 
   if (f->var_size == 0 && current_function_is_leaf)
     f->args_size = f->cprestore_size = 0;
 
-  if (f->args_size == 0 && current_function_calls_alloca)
+  if (f->args_size == 0 && cfun->calls_alloca)
     f->args_size = UNITS_PER_WORD;
 
   f->total_size = f->var_size + f->args_size + f->cprestore_size;
@@ -202,7 +200,7 @@ score3_compute_frame_size (HOST_WIDE_INT size)
         }
     }
 
-  if (current_function_calls_eh_return)
+  if (crtl->calls_eh_return)
     {
       unsigned int i;
       for (i = 0;; ++i)
@@ -323,7 +321,7 @@ score3_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
                         HOST_WIDE_INT delta, HOST_WIDE_INT vcall_offset,
                         tree function)
 {
-  rtx this, temp1, insn, fnaddr;
+  rtx this_rtx, temp1, insn, fnaddr;
 
   /* Pretend to be a post-reload pass while generating rtl.  */
   reload_completed = 1;
@@ -336,11 +334,11 @@ score3_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
 
   /* Find out which register contains the "this" pointer.  */
   if (aggregate_value_p (TREE_TYPE (TREE_TYPE (function)), function))
-    this = gen_rtx_REG (Pmode, ARG_REG_FIRST + 1);
+    this_rtx = gen_rtx_REG (Pmode, ARG_REG_FIRST + 1);
   else
-    this = gen_rtx_REG (Pmode, ARG_REG_FIRST);
+    this_rtx = gen_rtx_REG (Pmode, ARG_REG_FIRST);
 
-  /* Add DELTA to THIS.  */
+  /* Add DELTA to THIS_RTX.  */
   if (delta != 0)
     {
       rtx offset = GEN_INT (delta);
@@ -349,23 +347,23 @@ score3_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
           emit_move_insn (temp1, offset);
           offset = temp1;
         }
-      emit_insn (gen_add3_insn (this, this, offset));
+      emit_insn (gen_add3_insn (this_rtx, this_rtx, offset));
     }
 
-  /* If needed, add *(*THIS + VCALL_OFFSET) to THIS.  */
+  /* If needed, add *(*THIS_RTX + VCALL_OFFSET) to THIS_RTX.  */
   if (vcall_offset != 0)
     {
       rtx addr;
 
-      /* Set TEMP1 to *THIS.  */
-      emit_move_insn (temp1, gen_rtx_MEM (Pmode, this));
+      /* Set TEMP1 to *THIS_RTX.  */
+      emit_move_insn (temp1, gen_rtx_MEM (Pmode, this_rtx));
 
-      /* Set ADDR to a legitimate address for *THIS + VCALL_OFFSET.  */
+      /* Set ADDR to a legitimate address for *THIS_RTX + VCALL_OFFSET.  */
       addr = score3_add_offset (temp1, vcall_offset);
 
-      /* Load the offset and add it to THIS.  */
+      /* Load the offset and add it to THIS_RTX.  */
       emit_move_insn (temp1, gen_rtx_MEM (Pmode, addr));
-      emit_insn (gen_add3_insn (this, this, temp1));
+      emit_insn (gen_add3_insn (this_rtx, this_rtx, temp1));
     }
 
   /* Jump to the target function.  */
@@ -412,31 +410,28 @@ score3_split_symbol (rtx temp, rtx addr)
   return gen_rtx_LO_SUM (Pmode, high, addr);
 }
 
-/* This function is used to implement LEGITIMIZE_ADDRESS.  If *XLOC can
+/* This function is used to implement LEGITIMIZE_ADDRESS.  If X can
    be legitimized in a way that the generic machinery might not expect,
-   put the new address in *XLOC and return true.  */
-int
-score3_legitimize_address (rtx *xloc)
+   return the new address.  */
+rtx
+score3_legitimize_address (rtx x)
 {
   enum score_symbol_type symbol_type;
 
-  if (score3_symbolic_constant_p (*xloc, &symbol_type)
+  if (score3_symbolic_constant_p (x, &symbol_type)
       && symbol_type == SYMBOL_GENERAL)
-    {
-      *xloc = score3_split_symbol (0, *xloc);
-      return 1;
-    }
+    return score3_split_symbol (0, x);
 
-  if (GET_CODE (*xloc) == PLUS
-      && GET_CODE (XEXP (*xloc, 1)) == CONST_INT)
+  if (GET_CODE (x) == PLUS
+      && GET_CODE (XEXP (x, 1)) == CONST_INT)
     {
-      rtx reg = XEXP (*xloc, 0);
+      rtx reg = XEXP (x, 0);
       if (!score3_valid_base_register_p (reg, 0))
         reg = copy_to_mode_reg (Pmode, reg);
-      *xloc = score3_add_offset (reg, INTVAL (XEXP (*xloc, 1)));
-      return 1;
+      return score3_add_offset (reg, INTVAL (XEXP (x, 1)));
     }
-  return 0;
+
+  return x;
 }
 
 /* Fill INFO with information about a single argument.  CUM is the
@@ -690,19 +685,19 @@ score3_reg_class (int regno)
 
 /* Implement PREFERRED_RELOAD_CLASS macro.  */
 enum reg_class
-score3_preferred_reload_class (rtx x ATTRIBUTE_UNUSED, enum reg_class class)
+score3_preferred_reload_class (rtx x ATTRIBUTE_UNUSED, enum reg_class rclass)
 {
-  if (reg_class_subset_p (G16_REGS, class))
+  if (reg_class_subset_p (G16_REGS, rclass))
     return G16_REGS;
-  if (reg_class_subset_p (G32_REGS, class))
+  if (reg_class_subset_p (G32_REGS, rclass))
     return G32_REGS;
-  return class;
+  return rclass;
 }
 
 /* Implement SECONDARY_INPUT_RELOAD_CLASS
    and SECONDARY_OUTPUT_RELOAD_CLASS macro.  */
 enum reg_class
-score3_secondary_reload_class (enum reg_class class,
+score3_secondary_reload_class (enum reg_class rclass,
                                enum machine_mode mode ATTRIBUTE_UNUSED,
                                rtx x)
 {
@@ -710,7 +705,7 @@ score3_secondary_reload_class (enum reg_class class,
   if (GET_CODE (x) == REG || GET_CODE(x) == SUBREG)
     regno = true_regnum (x);
 
-  if (!GR_REG_CLASS_P (class))
+  if (!GR_REG_CLASS_P (rclass))
     return GP_REG_P (regno) ? NO_REGS : G32_REGS;
   return NO_REGS;
 }
@@ -767,21 +762,21 @@ int
 score3_hard_regno_mode_ok (unsigned int regno, enum machine_mode mode)
 {
   int size = GET_MODE_SIZE (mode);
-  enum mode_class class = GET_MODE_CLASS (mode);
+  enum mode_class mclass = GET_MODE_CLASS (mode);
 
-  if (class == MODE_CC)
+  if (mclass == MODE_CC)
     return regno == CC_REGNUM;
   else if (regno == FRAME_POINTER_REGNUM
            || regno == ARG_POINTER_REGNUM)
-    return class == MODE_INT;
+    return mclass == MODE_INT;
   else if (GP_REG_P (regno))
     return !(regno & 1) || (size <= UNITS_PER_WORD);
   else if (CE_REG_P (regno))
-    return (class == MODE_INT
+    return (mclass == MODE_INT
             && ((size <= UNITS_PER_WORD)
                 || (regno == CE_REG_FIRST && size == 2 * UNITS_PER_WORD)));
   else
-    return (class == MODE_INT) && (size <= UNITS_PER_WORD);
+    return (mclass == MODE_INT) && (size <= UNITS_PER_WORD);
 }
 
 /* Implement INITIAL_ELIMINATION_OFFSET.  FROM is either the frame
@@ -863,36 +858,60 @@ score3_function_arg (const CUMULATIVE_ARGS *cum, enum machine_mode mode,
    VALTYPE is the return type and MODE is VOIDmode.  For libcalls,
    VALTYPE is null and MODE is the mode of the return value.  */
 rtx
-score3_function_value (tree valtype, tree func ATTRIBUTE_UNUSED,
-                       enum machine_mode mode)
+score3_function_value (tree valtype, tree func, enum machine_mode mode)
 {
   if (valtype)
     {
       int unsignedp;
       mode = TYPE_MODE (valtype);
       unsignedp = TYPE_UNSIGNED (valtype);
-      mode = promote_mode (valtype, mode, &unsignedp, 1);
+      mode = promote_function_mode (valtype, mode, &unsignedp, func, 1);
     }
   return gen_rtx_REG (mode, RT_REGNUM);
 }
 
-/* Implement INITIALIZE_TRAMPOLINE macro.  */
+/* Implement TARGET_ASM_TRAMPOLINE_TEMPLATE.  */
+
 void
-score3_initialize_trampoline (rtx ADDR, rtx FUNC, rtx CHAIN)
+score3_asm_trampoline_template (FILE *f)
+{
+  fprintf (f, "\t.set r1\n");
+  fprintf (f, "\tmv! r31, r3\n");
+  fprintf (f, "\tnop!\n");
+  fprintf (f, "\tbl nextinsn\n");
+  fprintf (f, "nextinsn:\n");
+  fprintf (f, "\tlw! r1, [r3, 6*4-8]\n");
+  fprintf (f, "\tnop!\n");
+  fprintf (f, "\tlw r23, [r3, 6*4-4]\n");
+  fprintf (f, "\tmv! r3, r31\n");
+  fprintf (f, "\tnop!\n");
+  fprintf (f, "\tbr! r1\n");
+  fprintf (f, "\tnop!\n");
+  fprintf (f, "\t.set nor1\n");
+}
+
+/* Implement TARGET_TRAMPOLINE_INIT.  */
+void
+score3_trampoline_init (rtx m_tramp, tree fndecl, rtx chain_value)
 {
 #define FFCACHE          "_flush_cache"
 #define CODE_SIZE        (TRAMPOLINE_INSNS * UNITS_PER_WORD)
 
-  rtx pfunc, pchain;
+  rtx fnaddr = XEXP (DECL_RTL (fndecl), 0);
+  rtx addr = XEXP (m_tramp, 0);
+  rtx mem;
 
-  pfunc = plus_constant (ADDR, CODE_SIZE);
-  pchain = plus_constant (ADDR, CODE_SIZE + GET_MODE_SIZE (SImode));
+  emit_block_move (m_tramp, assemble_trampoline_template (),
+		   GEN_INT (TRAMPOLINE_SIZE), BLOCK_OP_NORMAL);
 
-  emit_move_insn (gen_rtx_MEM (SImode, pfunc), FUNC);
-  emit_move_insn (gen_rtx_MEM (SImode, pchain), CHAIN);
+  mem = adjust_address (m_tramp, SImode, CODE_SIZE);
+  emit_move_insn (mem, fnaddr);
+  mem = adjust_address (m_tramp, SImode, CODE_SIZE + GET_MODE_SIZE (SImode));
+  emit_move_insn (mem, chain_value);
+
   emit_library_call (gen_rtx_SYMBOL_REF (Pmode, FFCACHE),
                      0, VOIDmode, 2,
-                     ADDR, Pmode,
+                     addr, Pmode,
                      GEN_INT (TRAMPOLINE_SIZE), SImode);
 #undef FFCACHE
 #undef CODE_SIZE
@@ -914,9 +933,9 @@ score3_regno_mode_ok_for_base_p (int regno, int strict)
   return GP_REG_P (regno);
 }
 
-/* Implement GO_IF_LEGITIMATE_ADDRESS macro.  */
-int
-score3_address_p (enum machine_mode mode, rtx x, int strict)
+/* Implement TARGET_LEGITIMATE_ADDRESS_P macro.  */
+bool
+score3_legitimate_address_p (enum machine_mode mode, rtx x, bool strict)
 {
   struct score3_address_info addr;
 
@@ -999,7 +1018,8 @@ score3_address_insns (rtx x, enum machine_mode mode)
 
 /* Implement TARGET_RTX_COSTS macro.  */
 bool
-score3_rtx_costs (rtx x, int code, int outer_code, int *total)
+score3_rtx_costs (rtx x, int code, int outer_code, int *total,
+		  bool speed ATTRIBUTE_UNUSED)
 {
   enum machine_mode mode = GET_MODE (x);
 
@@ -1466,7 +1486,7 @@ rpush (int rd, int cnt)
   rtx mem = gen_rtx_MEM (SImode, gen_rtx_PRE_DEC (SImode, stack_pointer_rtx));
   rtx reg = gen_rtx_REG (SImode, rd);
 
-  if (!current_function_calls_eh_return)
+  if (!crtl->calls_eh_return)
     MEM_READONLY_P (mem) = 1;
 
   if (cnt == 1)
@@ -1580,7 +1600,7 @@ rpop (int rd, int cnt)
   rtx mem = gen_rtx_MEM (SImode, gen_rtx_POST_INC (SImode, stack_pointer_rtx));
   rtx reg = gen_rtx_REG (SImode, rd);
 
-  if (!current_function_calls_eh_return)
+  if (!crtl->calls_eh_return)
     MEM_READONLY_P (mem) = 1;
 
   if (cnt == 1)
@@ -1624,7 +1644,7 @@ score3_epilogue (int sibcall_p)
   if (base != stack_pointer_rtx)
     emit_move_insn (stack_pointer_rtx, base);
 
-  if (current_function_calls_eh_return)
+  if (crtl->calls_eh_return)
     emit_insn (gen_add3_insn (stack_pointer_rtx,
                               stack_pointer_rtx,
                               EH_RETURN_STACKADJ_RTX));
@@ -1645,13 +1665,6 @@ score3_epilogue (int sibcall_p)
 
   if (!sibcall_p)
     emit_jump_insn (gen_return_internal_score3 (gen_rtx_REG (Pmode, RA_REGNUM)));
-}
-
-void
-score3_gen_cmp (enum machine_mode mode)
-{
-  emit_insn (gen_rtx_SET (VOIDmode, gen_rtx_REG (mode, CC_REGNUM),
-                          gen_rtx_COMPARE (mode, cmp_op0, cmp_op1)));
 }
 
 /* Return true if X is a symbolic constant that can be calculated in
@@ -1692,7 +1705,8 @@ score3_movsicc (rtx *ops)
 
   mode = score3_select_cc_mode (GET_CODE (ops[1]), ops[2], ops[3]);
   emit_insn (gen_rtx_SET (VOIDmode, gen_rtx_REG (mode, CC_REGNUM),
-                          gen_rtx_COMPARE (mode, cmp_op0, cmp_op1)));
+                          gen_rtx_COMPARE (mode, XEXP (ops[1], 0),
+					   XEXP (ops[1], 1))));
 }
 
 /* Call and sibcall pattern all need call this function.  */

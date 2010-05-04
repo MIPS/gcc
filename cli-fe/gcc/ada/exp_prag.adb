@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -29,7 +29,6 @@ with Debug;    use Debug;
 with Einfo;    use Einfo;
 with Errout;   use Errout;
 with Exp_Ch11; use Exp_Ch11;
-with Exp_Tss;  use Exp_Tss;
 with Exp_Util; use Exp_Util;
 with Expander; use Expander;
 with Namet;    use Namet;
@@ -40,7 +39,6 @@ with Restrict; use Restrict;
 with Rident;   use Rident;
 with Rtsfind;  use Rtsfind;
 with Sem;      use Sem;
-with Sem_Eval; use Sem_Eval;
 with Sem_Res;  use Sem_Res;
 with Sem_Util; use Sem_Util;
 with Sinfo;    use Sinfo;
@@ -60,16 +58,18 @@ package body Exp_Prag is
 
    function Arg1 (N : Node_Id) return Node_Id;
    function Arg2 (N : Node_Id) return Node_Id;
+   function Arg3 (N : Node_Id) return Node_Id;
    --  Obtain specified pragma argument expression
 
    procedure Expand_Pragma_Abort_Defer             (N : Node_Id);
-   procedure Expand_Pragma_Assert                  (N : Node_Id);
+   procedure Expand_Pragma_Check                   (N : Node_Id);
    procedure Expand_Pragma_Common_Object           (N : Node_Id);
    procedure Expand_Pragma_Import_Or_Interface     (N : Node_Id);
    procedure Expand_Pragma_Import_Export_Exception (N : Node_Id);
    procedure Expand_Pragma_Inspection_Point        (N : Node_Id);
    procedure Expand_Pragma_Interrupt_Priority      (N : Node_Id);
    procedure Expand_Pragma_Psect_Object            (N : Node_Id);
+   procedure Expand_Pragma_Relative_Deadline       (N : Node_Id);
 
    ----------
    -- Arg1 --
@@ -93,9 +93,11 @@ package body Exp_Prag is
 
    function Arg2 (N : Node_Id) return Node_Id is
       Arg1 : constant Node_Id := First (Pragma_Argument_Associations (N));
+
    begin
       if No (Arg1) then
          return Empty;
+
       else
          declare
             Arg : constant Node_Id := Next (Arg1);
@@ -111,25 +113,60 @@ package body Exp_Prag is
       end if;
    end Arg2;
 
+   ----------
+   -- Arg3 --
+   ----------
+
+   function Arg3 (N : Node_Id) return Node_Id is
+      Arg1 : constant Node_Id := First (Pragma_Argument_Associations (N));
+
+   begin
+      if No (Arg1) then
+         return Empty;
+
+      else
+         declare
+            Arg : Node_Id := Next (Arg1);
+         begin
+            if No (Arg) then
+               return Empty;
+
+            else
+               Next (Arg);
+
+               if Present (Arg)
+                 and then Nkind (Arg) = N_Pragma_Argument_Association
+               then
+                  return Expression (Arg);
+               else
+                  return Arg;
+               end if;
+            end if;
+         end;
+      end if;
+   end Arg3;
+
    ---------------------
    -- Expand_N_Pragma --
    ---------------------
 
    procedure Expand_N_Pragma (N : Node_Id) is
+      Pname : constant Name_Id := Pragma_Name (N);
+
    begin
-      --  Note: we may have a pragma whose chars field is not a
+      --  Note: we may have a pragma whose Pragma_Identifier field is not a
       --  recognized pragma, and we must ignore it at this stage.
 
-      if Is_Pragma_Name (Chars (N)) then
-         case Get_Pragma_Id (Chars (N)) is
+      if Is_Pragma_Name (Pname) then
+         case Get_Pragma_Id (Pname) is
 
             --  Pragmas requiring special expander action
 
             when Pragma_Abort_Defer =>
                Expand_Pragma_Abort_Defer (N);
 
-            when Pragma_Assert =>
-               Expand_Pragma_Assert (N);
+            when Pragma_Check =>
+               Expand_Pragma_Check (N);
 
             when Pragma_Common_Object =>
                Expand_Pragma_Common_Object (N);
@@ -154,6 +191,9 @@ package body Exp_Prag is
 
             when Pragma_Psect_Object =>
                Expand_Pragma_Psect_Object (N);
+
+            when Pragma_Relative_Deadline =>
+               Expand_Pragma_Relative_Deadline (N);
 
             --  All other pragmas need no expander action
 
@@ -225,25 +265,25 @@ package body Exp_Prag is
    end Expand_Pragma_Abort_Defer;
 
    --------------------------
-   -- Expand_Pragma_Assert --
+   -- Expand_Pragma_Check --
    --------------------------
 
-   procedure Expand_Pragma_Assert (N : Node_Id) is
+   procedure Expand_Pragma_Check (N : Node_Id) is
       Loc  : constant Source_Ptr := Sloc (N);
-      Cond : constant Node_Id    := Arg1 (N);
-      Msg  : String_Id;
+      Cond : constant Node_Id    := Arg2 (N);
+      Nam  : constant Name_Id    := Chars (Arg1 (N));
+      Msg  : Node_Id;
 
    begin
-      --  We already know that assertions are enabled, because otherwise
-      --  the semantic pass dealt with rewriting the assertion (see Sem_Prag)
+      --  We already know that this check is enabled, because otherwise the
+      --  semantic pass dealt with rewriting the assertion (see Sem_Prag)
 
-      pragma Assert (Assertions_Enabled);
-
-      --  Since assertions are on, we rewrite the pragma with its
+      --  Since this check is enabled, we rewrite the pragma into a
       --  corresponding if statement, and then analyze the statement
+
       --  The normal case expansion transforms:
 
-      --    pragma Assert (condition [,message]);
+      --    pragma Check (name, condition [,message]);
 
       --  into
 
@@ -252,7 +292,9 @@ package body Exp_Prag is
       --    end if;
 
       --  where Str is the message if one is present, or the default of
-      --  file:line if no message is given.
+      --  name failed at file:line if no message is given (the "name failed
+      --  at" is omitted for name = Assertion, since it is redundant, given
+      --  that the name of the exception is Assert_Failure.
 
       --  An alternative expansion is used when the No_Exception_Propagation
       --  restriction is active and there is a local Assert_Failure handler.
@@ -279,7 +321,7 @@ package body Exp_Prag is
       --  Case where we generate a direct raise
 
       if (Debug_Flag_Dot_G
-          or else Restriction_Active (No_Exception_Propagation))
+           or else Restriction_Active (No_Exception_Propagation))
         and then Present (Find_Local_Handler (RTE (RE_Assert_Failure), N))
       then
          Rewrite (N,
@@ -295,13 +337,29 @@ package body Exp_Prag is
       --  Case where we call the procedure
 
       else
-         --  First, we need to prepare the string literal
+         --  First, we need to prepare the string argument
 
-         if Present (Arg2 (N)) then
-            Msg := Strval (Expr_Value_S (Arg2 (N)));
+         --  If we have a message given, use it
+
+         if Present (Arg3 (N)) then
+            Msg := Arg3 (N);
+
+         --  Otherwise string is "name failed at location" except in the case
+         --  of Assertion where "name failed at" is omitted.
+
          else
+            if Nam = Name_Assertion then
+               Name_Len := 0;
+            else
+               Get_Name_String (Nam);
+               Set_Casing (Identifier_Casing (Current_Source_File));
+               Add_Str_To_Name_Buffer (" failed at ");
+            end if;
+
             Build_Location_String (Loc);
-            Msg := String_From_Name_Buffer;
+            Msg :=
+              Make_String_Literal (Loc,
+                Strval => String_From_Name_Buffer);
          end if;
 
          --  Now rewrite as an if statement
@@ -315,29 +373,31 @@ package body Exp_Prag is
                Make_Procedure_Call_Statement (Loc,
                  Name =>
                    New_Reference_To (RTE (RE_Raise_Assert_Failure), Loc),
-                 Parameter_Associations => New_List (
-                   Make_String_Literal (Loc, Msg))))));
+                 Parameter_Associations => New_List (Msg)))));
       end if;
 
       Analyze (N);
 
       --  If new condition is always false, give a warning
 
-      if Nkind (N) = N_Procedure_Call_Statement
+      if Warn_On_Assertion_Failure
+        and then Nkind (N) = N_Procedure_Call_Statement
         and then Is_RTE (Entity (Name (N)), RE_Raise_Assert_Failure)
       then
          --  If original condition was a Standard.False, we assume that this is
-         --  indeed intented to raise assert error and no warning is required.
+         --  indeed intended to raise assert error and no warning is required.
 
          if Is_Entity_Name (Original_Node (Cond))
            and then Entity (Original_Node (Cond)) = Standard_False
          then
             return;
-         else
+         elsif Nam = Name_Assertion then
             Error_Msg_N ("?assertion will fail at run-time", N);
+         else
+            Error_Msg_N ("?check will fail at run time", N);
          end if;
       end if;
-   end Expand_Pragma_Assert;
+   end Expand_Pragma_Check;
 
    ---------------------------------
    -- Expand_Pragma_Common_Object --
@@ -348,6 +408,8 @@ package body Exp_Prag is
    --    pragma Machine_Attribute (intern_name, "common_object", extern_name);
 
    --  For now we do nothing with the size attribute ???
+
+   --  Note: Psect_Object shares this processing
 
    procedure Expand_Pragma_Common_Object (N : Node_Id) is
       Loc : constant Source_Ptr := Sloc (N);
@@ -391,7 +453,6 @@ package body Exp_Prag is
       --  Insert the pragma
 
       Insert_After_And_Analyze (N,
-
          Make_Pragma (Loc,
            Chars => Name_Machine_Attribute,
            Pragma_Argument_Associations => New_List (
@@ -423,29 +484,17 @@ package body Exp_Prag is
 
    procedure Expand_Pragma_Import_Or_Interface (N : Node_Id) is
       Def_Id    : constant Entity_Id := Entity (Arg2 (N));
-      Typ       : Entity_Id;
       Init_Call : Node_Id;
 
    begin
       if Ekind (Def_Id) = E_Variable then
-         Typ  := Etype (Def_Id);
 
-         --  Iterate from declaration of object to import pragma, to find
-         --  generated initialization call for object, if any.
+         --  Find generated initialization call for object, if any
 
-         Init_Call := Next (Parent (Def_Id));
-         while Present (Init_Call) and then Init_Call /= N loop
-            if Has_Non_Null_Base_Init_Proc (Typ)
-              and then Nkind (Init_Call) = N_Procedure_Call_Statement
-              and then Is_Entity_Name (Name (Init_Call))
-              and then Entity (Name (Init_Call)) = Base_Init_Proc (Typ)
-            then
-               Remove (Init_Call);
-               exit;
-            else
-               Next (Init_Call);
-            end if;
-         end loop;
+         Init_Call := Find_Init_Call (Def_Id, Rep_Clause => N);
+         if Present (Init_Call) then
+            Remove (Init_Call);
+         end if;
 
          --  Any default initialization expression should be removed
          --  (e.g., null defaults for access objects, zero initialization
@@ -453,9 +502,7 @@ package body Exp_Prag is
          --  have explicit initialization, so the expression must have
          --  been generated by the compiler.
 
-         if Init_Call = N
-           and then Present (Expression (Parent (Def_Id)))
-         then
+         if No (Init_Call) and then Present (Expression (Parent (Def_Id))) then
             Set_Expression (Parent (Def_Id), Empty);
          end if;
       end if;
@@ -492,15 +539,14 @@ package body Exp_Prag is
                Excep_Internal : constant Node_Id :=
                                  Make_Defining_Identifier
                                   (Loc, New_Internal_Name ('V'));
-               Export_Pragma  : Node_Id;
-               Excep_Alias    : Node_Id;
-               Excep_Object   : Node_Id;
-               Excep_Image : String_Id;
-               Exdata      : List_Id;
-               Lang1       : Node_Id;
-               Lang2       : Node_Id;
-               Lang3       : Node_Id;
-               Code        : Node_Id;
+
+               Export_Pragma : Node_Id;
+               Excep_Alias   : Node_Id;
+               Excep_Object  : Node_Id;
+               Excep_Image   : String_Id;
+               Exdata        : List_Id;
+               Lang_Char     : Node_Id;
+               Code          : Node_Id;
 
             begin
                if Present (Interface_Name (Id)) then
@@ -514,30 +560,16 @@ package body Exp_Prag is
                Exdata := Component_Associations (Expression (Parent (Id)));
 
                if Is_VMS_Exception (Id) then
-                  Lang1 := Next (First (Exdata));
-                  Lang2 := Next (Lang1);
-                  Lang3 := Next (Lang2);
+                  Lang_Char := Next (First (Exdata));
 
-                  Rewrite (Expression (Lang1),
+                  --  Change the one-character language designator to 'V'
+
+                  Rewrite (Expression (Lang_Char),
                     Make_Character_Literal (Loc,
                       Chars => Name_uV,
                       Char_Literal_Value =>
                         UI_From_Int (Character'Pos ('V'))));
-                  Analyze (Expression (Lang1));
-
-                  Rewrite (Expression (Lang2),
-                    Make_Character_Literal (Loc,
-                      Chars => Name_uM,
-                      Char_Literal_Value =>
-                        UI_From_Int (Character'Pos ('M'))));
-                  Analyze (Expression (Lang2));
-
-                  Rewrite (Expression (Lang3),
-                    Make_Character_Literal (Loc,
-                      Chars => Name_uS,
-                      Char_Literal_Value =>
-                        UI_From_Int (Character'Pos ('S'))));
-                  Analyze (Expression (Lang3));
+                  Analyze (Expression (Lang_Char));
 
                   if Exception_Code (Id) /= No_Uint then
                      Code :=
@@ -730,10 +762,42 @@ package body Exp_Prag is
 
    --  Convert to Common_Object, and expand the resulting pragma
 
-   procedure Expand_Pragma_Psect_Object (N : Node_Id) is
+   procedure Expand_Pragma_Psect_Object (N : Node_Id)
+     renames Expand_Pragma_Common_Object;
+
+   -------------------------------------
+   -- Expand_Pragma_Relative_Deadline --
+   -------------------------------------
+
+   procedure Expand_Pragma_Relative_Deadline (N : Node_Id) is
+      P    : constant Node_Id    := Parent (N);
+      Loc  : constant Source_Ptr := Sloc (N);
+
    begin
-      Set_Chars (N, Name_Common_Object);
-      Expand_Pragma_Common_Object (N);
-   end Expand_Pragma_Psect_Object;
+      --  Expand the pragma only in the case of the main subprogram. For tasks
+      --  the expansion is done in exp_ch9. Generate a call to Set_Deadline
+      --  at Clock plus the relative deadline specified in the pragma. Time
+      --  values are translated into Duration to allow for non-private
+      --  addition operation.
+
+      if Nkind (P) = N_Subprogram_Body then
+         Rewrite
+           (N,
+            Make_Procedure_Call_Statement (Loc,
+              Name => New_Reference_To (RTE (RE_Set_Deadline), Loc),
+              Parameter_Associations => New_List (
+                Unchecked_Convert_To (RTE (RO_RT_Time),
+                  Make_Op_Add (Loc,
+                    Left_Opnd  =>
+                      Make_Function_Call (Loc,
+                        New_Reference_To (RTE (RO_RT_To_Duration), Loc),
+                        New_List (Make_Function_Call (Loc,
+                          New_Reference_To (RTE (RE_Clock), Loc)))),
+                    Right_Opnd  =>
+                      Unchecked_Convert_To (Standard_Duration, Arg1 (N)))))));
+
+         Analyze (N);
+      end if;
+   end Expand_Pragma_Relative_Deadline;
 
 end Exp_Prag;

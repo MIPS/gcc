@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                     Copyright (C) 2001-2007, AdaCore                     --
+--                     Copyright (C) 2001-2009, AdaCore                     --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -43,10 +43,13 @@ with System;               use System;
 package body GNAT.Sockets.Thin is
 
    use type C.unsigned;
+   use type C.int;
 
    WSAData_Dummy : array (1 .. 512) of C.int;
 
-   WS_Version  : constant := 16#0202#;
+   WS_Version : constant := 16#0202#;
+   --  Winsock 2.2
+
    Initialized : Boolean := False;
 
    function Standard_Connect
@@ -57,9 +60,9 @@ package body GNAT.Sockets.Thin is
 
    function Standard_Select
      (Nfds      : C.int;
-      Readfds   : Fd_Set_Access;
-      Writefds  : Fd_Set_Access;
-      Exceptfds : Fd_Set_Access;
+      Readfds   : access Fd_Set;
+      Writefds  : access Fd_Set;
+      Exceptfds : access Fd_Set;
       Timeout   : Timeval_Access) return C.int;
    pragma Import (Stdcall, Standard_Select, "select");
 
@@ -238,46 +241,66 @@ package body GNAT.Sockets.Thin is
       Res := Standard_Connect (S, Name, Namelen);
 
       if Res = -1 then
-         if Socket_Errno = Constants.EWOULDBLOCK then
-            Set_Socket_Errno (Constants.EINPROGRESS);
+         if Socket_Errno = SOSC.EWOULDBLOCK then
+            Set_Socket_Errno (SOSC.EINPROGRESS);
          end if;
       end if;
 
       return Res;
    end C_Connect;
 
-   -------------
-   -- C_Readv --
-   -------------
+   ------------------
+   -- Socket_Ioctl --
+   ------------------
 
-   function C_Readv
-     (Fd     : C.int;
-      Iov    : System.Address;
-      Iovcnt : C.int) return C.int
+   function Socket_Ioctl
+     (S   : C.int;
+      Req : C.int;
+      Arg : access C.int) return C.int
+   is
+   begin
+      return C_Ioctl (S, Req, Arg);
+   end Socket_Ioctl;
+
+   ---------------
+   -- C_Recvmsg --
+   ---------------
+
+   function C_Recvmsg
+     (S     : C.int;
+      Msg   : System.Address;
+      Flags : C.int) return ssize_t
    is
       Res   : C.int;
       Count : C.int := 0;
 
-      Iovec : array (0 .. Iovcnt - 1) of Vector_Element;
-      for Iovec'Address use Iov;
+      MH : Msghdr;
+      for MH'Address use Msg;
+
+      Iovec : array (0 .. MH.Msg_Iovlen - 1) of Vector_Element;
+      for Iovec'Address use MH.Msg_Iov;
       pragma Import (Ada, Iovec);
 
    begin
+      --  Windows does not provide an implementation of recvmsg(). The spec for
+      --  WSARecvMsg() is incompatible with the data types we define, and is
+      --  not available in all versions of Windows. So, we use C_Recv instead.
+
       for J in Iovec'Range loop
          Res := C_Recv
-           (Fd,
+           (S,
             Iovec (J).Base.all'Address,
             C.int (Iovec (J).Length),
-            0);
+            Flags);
 
          if Res < 0 then
-            return Res;
+            return ssize_t (Res);
          else
             Count := Count + Res;
          end if;
       end loop;
-      return Count;
-   end C_Readv;
+      return ssize_t (Count);
+   end C_Recvmsg;
 
    --------------
    -- C_Select --
@@ -285,62 +308,51 @@ package body GNAT.Sockets.Thin is
 
    function C_Select
      (Nfds      : C.int;
-      Readfds   : Fd_Set_Access;
-      Writefds  : Fd_Set_Access;
-      Exceptfds : Fd_Set_Access;
+      Readfds   : access Fd_Set;
+      Writefds  : access Fd_Set;
+      Exceptfds : access Fd_Set;
       Timeout   : Timeval_Access) return C.int
    is
       pragma Warnings (Off, Exceptfds);
 
-      RFS  : constant Fd_Set_Access := Readfds;
-      WFS  : constant Fd_Set_Access := Writefds;
-      WFSC : Fd_Set_Access := No_Fd_Set;
-      EFS  : Fd_Set_Access := Exceptfds;
+      Original_WFS : aliased constant Fd_Set := Writefds.all;
+
       Res  : C.int;
       S    : aliased C.int;
       Last : aliased C.int;
 
    begin
-      --  Asynchronous connection failures are notified in the
-      --  exception fd set instead of the write fd set. To ensure
-      --  POSIX compatitibility, copy write fd set into exception fd
-      --  set. Once select() returns, check any socket present in the
-      --  exception fd set and peek at incoming out-of-band data. If
-      --  the test is not successful, and the socket is present in
-      --  the initial write fd set, then move the socket from the
+      --  Asynchronous connection failures are notified in the exception fd set
+      --  instead of the write fd set. To ensure POSIX compatibility, copy
+      --  write fd set into exception fd set. Once select() returns, check any
+      --  socket present in the exception fd set and peek at incoming
+      --  out-of-band data. If the test is not successful, and the socket is
+      --  present in the initial write fd set, then move the socket from the
       --  exception fd set to the write fd set.
 
-      if WFS /= No_Fd_Set then
+      if Writefds /= No_Fd_Set_Access then
+
          --  Add any socket present in write fd set into exception fd set
 
-         if EFS = No_Fd_Set then
-            EFS := New_Socket_Set (WFS);
-
-         else
-            WFSC := New_Socket_Set (WFS);
-
+         declare
+            WFS : aliased Fd_Set := Writefds.all;
+         begin
             Last := Nfds - 1;
             loop
                Get_Socket_From_Set
-                 (WFSC, S'Unchecked_Access, Last'Unchecked_Access);
+                 (WFS'Access, S'Unchecked_Access, Last'Unchecked_Access);
                exit when S = -1;
-               Insert_Socket_In_Set (EFS, S);
+               Insert_Socket_In_Set (Exceptfds, S);
             end loop;
-
-            Free_Socket_Set (WFSC);
-         end if;
-
-         --  Keep a copy of write fd set
-
-         WFSC := New_Socket_Set (WFS);
+         end;
       end if;
 
-      Res := Standard_Select (Nfds, RFS, WFS, EFS, Timeout);
+      Res := Standard_Select (Nfds, Readfds, Writefds, Exceptfds, Timeout);
 
-      if EFS /= No_Fd_Set then
+      if Exceptfds /= No_Fd_Set_Access then
          declare
-            EFSC    : constant Fd_Set_Access := New_Socket_Set (EFS);
-            Flag    : constant C.int := Constants.MSG_PEEK + Constants.MSG_OOB;
+            EFSC    : aliased Fd_Set := Exceptfds.all;
+            Flag    : constant C.int := SOSC.MSG_PEEK + SOSC.MSG_OOB;
             Buffer  : Character;
             Length  : C.int;
             Fromlen : aliased C.int;
@@ -349,7 +361,7 @@ package body GNAT.Sockets.Thin is
             Last := Nfds - 1;
             loop
                Get_Socket_From_Set
-                 (EFSC, S'Unchecked_Access, Last'Unchecked_Access);
+                 (EFSC'Access, S'Unchecked_Access, Last'Unchecked_Access);
 
                --  No more sockets in EFSC
 
@@ -359,76 +371,74 @@ package body GNAT.Sockets.Thin is
 
                Length := C_Recvfrom
                  (S, Buffer'Address, 1, Flag,
-                  null, Fromlen'Unchecked_Access);
+                  From    => System.Null_Address,
+                  Fromlen => Fromlen'Unchecked_Access);
+               --  Is Fromlen necessary if From is Null_Address???
 
                --  If the signal is not an out-of-band data, then it
                --  is a connection failure notification.
 
                if Length = -1 then
-                  Remove_Socket_From_Set (EFS, S);
+                  Remove_Socket_From_Set (Exceptfds, S);
 
-                  --  If S is present in the initial write fd set,
-                  --  move it from exception fd set back to write fd
-                  --  set. Otherwise, ignore this event since the user
-                  --  is not watching for it.
+                  --  If S is present in the initial write fd set, move it from
+                  --  exception fd set back to write fd set. Otherwise, ignore
+                  --  this event since the user is not watching for it.
 
-                  if WFSC /= No_Fd_Set
-                    and then (Is_Socket_In_Set (WFSC, S) /= 0)
+                  if Writefds /= No_Fd_Set_Access
+                    and then (Is_Socket_In_Set (Original_WFS'Access, S) /= 0)
                   then
-                     Insert_Socket_In_Set (WFS, S);
+                     Insert_Socket_In_Set (Writefds, S);
                   end if;
                end if;
             end loop;
-
-            Free_Socket_Set (EFSC);
          end;
-
-         if Exceptfds = No_Fd_Set then
-            Free_Socket_Set (EFS);
-         end if;
       end if;
-
-      --  Free any copy of write fd set
-
-      if WFSC /= No_Fd_Set then
-         Free_Socket_Set (WFSC);
-      end if;
-
       return Res;
    end C_Select;
 
-   --------------
-   -- C_Writev --
-   --------------
+   ---------------
+   -- C_Sendmsg --
+   ---------------
 
-   function C_Writev
-     (Fd     : C.int;
-      Iov    : System.Address;
-      Iovcnt : C.int) return C.int
+   function C_Sendmsg
+     (S     : C.int;
+      Msg   : System.Address;
+      Flags : C.int) return ssize_t
    is
       Res   : C.int;
       Count : C.int := 0;
 
-      Iovec : array (0 .. Iovcnt - 1) of Vector_Element;
-      for Iovec'Address use Iov;
+      MH : Msghdr;
+      for MH'Address use Msg;
+
+      Iovec : array (0 .. MH.Msg_Iovlen - 1) of Vector_Element;
+      for Iovec'Address use MH.Msg_Iov;
       pragma Import (Ada, Iovec);
 
    begin
+      --  Windows does not provide an implementation of sendmsg(). The spec for
+      --  WSASendMsg() is incompatible with the data types we define, and is
+      --  not available in all versions of Windows. So, we'll use C_Sendto
+      --  instead.
+
       for J in Iovec'Range loop
-         Res := C_Send
-           (Fd,
+         Res := C_Sendto
+           (S,
             Iovec (J).Base.all'Address,
             C.int (Iovec (J).Length),
-            0);
+            Flags => Flags,
+            To    => MH.Msg_Name,
+            Tolen => C.int (MH.Msg_Namelen));
 
          if Res < 0 then
-            return Res;
+            return ssize_t (Res);
          else
             Count := Count + Res;
          end if;
       end loop;
-      return Count;
-   end C_Writev;
+      return ssize_t (Count);
+   end C_Sendmsg;
 
    --------------
    -- Finalize --
@@ -473,57 +483,6 @@ package body GNAT.Sockets.Thin is
       end if;
    end Initialize;
 
-   -----------------
-   -- Set_Address --
-   -----------------
-
-   procedure Set_Address
-     (Sin     : Sockaddr_In_Access;
-      Address : In_Addr)
-   is
-   begin
-      Sin.Sin_Addr := Address;
-   end Set_Address;
-
-   ----------------
-   -- Set_Family --
-   ----------------
-
-   procedure Set_Family
-     (Sin    : Sockaddr_In_Access;
-      Family : C.int)
-   is
-   begin
-      Sin.Sin_Family := C.unsigned_short (Family);
-   end Set_Family;
-
-   ----------------
-   -- Set_Length --
-   ----------------
-
-   procedure Set_Length
-     (Sin : Sockaddr_In_Access;
-      Len : C.int)
-   is
-      pragma Unreferenced (Sin);
-      pragma Unreferenced (Len);
-
-   begin
-      null;
-   end Set_Length;
-
-   --------------
-   -- Set_Port --
-   --------------
-
-   procedure Set_Port
-     (Sin  : Sockaddr_In_Access;
-      Port : C.unsigned_short)
-   is
-   begin
-      Sin.Sin_Port := Port;
-   end Set_Port;
-
    --------------------
    -- Signalling_Fds --
    --------------------
@@ -537,7 +496,8 @@ package body GNAT.Sockets.Thin is
    function Socket_Error_Message
      (Errno : Integer) return C.Strings.chars_ptr
    is
-      use GNAT.Sockets.Constants;
+      use GNAT.Sockets.SOSC;
+
    begin
       case Errno is
          when EINTR =>           return Error_Messages (N_EINTR);

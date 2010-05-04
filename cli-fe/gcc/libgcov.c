@@ -1,33 +1,29 @@
 /* Routines required for instrumenting a program.  */
 /* Compile this one with gcc.  */
 /* Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004, 2005  Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004, 2005, 2008, 2009
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
-
-In addition to the permissions in the GNU General Public License, the
-Free Software Foundation gives you unlimited permission to link the
-compiled version of this file into combinations with other programs,
-and to distribute those combinations without any restriction coming
-from the use of this file.  (The General Public License restrictions
-do apply in other respects; for example, they cover modification of
-the file, and distribution when not linked into a combine
-executable.)
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or
 FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
-You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+Under Section 7 of GPL version 3, you are granted additional
+permissions described in the GCC Runtime Library Exception, version
+3.1, as published by the Free Software Foundation.
+
+You should have received a copy of the GNU General Public License and
+a copy of the GCC Runtime Library Exception along with this program;
+see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+<http://www.gnu.org/licenses/>.  */
 
 #include "tconfig.h"
 #include "tsystem.h"
@@ -92,8 +88,8 @@ static gcov_unsigned_t gcov_crc32;
 static size_t gcov_max_filename = 0;
 
 #ifdef TARGET_POSIX_IO
-/* Make sure path component of the given FILENAME exists, create 
-   missing directories. FILENAME must be writable. 
+/* Make sure path component of the given FILENAME exists, create
+   missing directories. FILENAME must be writable.
    Returns zero on success, or -1 if an error occurred.  */
 
 static int
@@ -118,7 +114,7 @@ create_file_directory (char *filename)
             *s = sep;
 	    return -1;
 	  };
-        
+
 	*s = sep;
       };
   return 0;
@@ -127,9 +123,9 @@ create_file_directory (char *filename)
 
 /* Check if VERSION of the info block PTR matches libgcov one.
    Return 1 on success, or zero in case of versions mismatch.
-   If FILENAME is not NULL, its value used for reporting purposes 
+   If FILENAME is not NULL, its value used for reporting purposes
    instead of value from the info block.  */
-   
+
 static int
 gcov_version (struct gcov_info *ptr, gcov_unsigned_t version,
 	      const char *filename)
@@ -140,7 +136,7 @@ gcov_version (struct gcov_info *ptr, gcov_unsigned_t version,
 
       GCOV_UNSIGNED2STRING (v, version);
       GCOV_UNSIGNED2STRING (e, GCOV_VERSION);
-      
+
       fprintf (stderr,
 	       "profiling:%s:Version mismatch - expected %.4s got %.4s\n",
 	       filename? filename : ptr->filename, e, v);
@@ -207,7 +203,7 @@ gcov_exit (void)
           if (gcov_prefix_strip < 0)
             gcov_prefix_strip = 0;
         }
-      
+
       prefix_length = strlen(gcov_prefix);
 
       /* Remove an unnecessary trailing '/' */
@@ -216,13 +212,13 @@ gcov_exit (void)
     }
   else
     prefix_length = 0;
-  
+
   /* Allocate and initialize the filename scratch space.  */
   gi_filename = (char *) alloca (prefix_length + gcov_max_filename + 1);
   if (prefix_length)
     memcpy (gi_filename, gcov_prefix, prefix_length);
   gi_filename_up = gi_filename + prefix_length;
-  
+
   /* Now merge each file.  */
   for (gi_ptr = gcov_list; gi_ptr; gi_ptr = gi_ptr->next)
     {
@@ -240,8 +236,8 @@ gcov_exit (void)
 
       memset (&this_object, 0, sizeof (this_object));
       memset (&object, 0, sizeof (object));
-      
-      /* Build relocated filename, stripping off leading 
+
+      /* Build relocated filename, stripping off leading
          directories from the initial filename if requested. */
       if (gcov_prefix_strip > 0)
         {
@@ -298,7 +294,7 @@ gcov_exit (void)
 	  fi_stride += __alignof__ (struct gcov_fn_info) - 1;
 	  fi_stride &= ~(__alignof__ (struct gcov_fn_info) - 1);
 	}
-      
+
       if (!gcov_open (gi_filename))
 	{
 #ifdef TARGET_POSIX_IO
@@ -335,7 +331,7 @@ gcov_exit (void)
 	  if (length != gi_ptr->stamp)
 	    /* Read from a different compilation. Overwrite the file.  */
 	    goto rewrite;
-	  
+
 	  /* Merge execution counts for each function.  */
 	  for (f_ix = 0; f_ix < gi_ptr->n_functions; f_ix++)
 	    {
@@ -364,10 +360,10 @@ gcov_exit (void)
 
 		  if (!((1 << t_ix) & gi_ptr->ctr_mask))
 		    continue;
-		  
+
 		  n_counts = fi_ptr->n_ctrs[c_ix];
 		  merge = gi_ptr->counts[c_ix].merge;
-		    
+
 		  tag = gcov_read_unsigned ();
 		  length = gcov_read_unsigned ();
 		  if (tag != GCOV_TAG_FOR_COUNTER (t_ix)
@@ -386,7 +382,7 @@ gcov_exit (void)
 	  while (1)
 	    {
 	      int is_program;
-	      
+
 	      eof_pos = gcov_position ();
 	      tag = gcov_read_unsigned ();
 	      if (!tag)
@@ -408,11 +404,11 @@ gcov_exit (void)
 	    }
 	}
       goto rewrite;
-      
+
     read_error:;
       fprintf (stderr, error < 0 ? "profiling:%s:Overflow merging\n"
 	       : "profiling:%s:Error merging\n", gi_filename);
-	      
+
     read_fatal:;
       gcov_close ();
       continue;
@@ -442,7 +438,7 @@ gcov_exit (void)
 	      if (cs_obj->run_max < cs_tobj->run_max)
 		cs_obj->run_max = cs_tobj->run_max;
 	      cs_obj->sum_max += cs_tobj->run_max;
-	      
+
 	      if (!cs_prg->runs++)
 		cs_prg->num = cs_tprg->num;
 	      else if (cs_prg->num != cs_tprg->num)
@@ -454,7 +450,7 @@ gcov_exit (void)
 	    }
 	  else if (cs_obj->num || cs_prg->num)
 	    goto read_mismatch;
-	  
+
 	  if (!cs_all->runs && cs_prg->runs)
 	    memcpy (cs_all, cs_prg, sizeof (*cs_all));
 	  else if (!all.checksum
@@ -467,7 +463,7 @@ gcov_exit (void)
 	      all.checksum = ~0u;
 	    }
 	}
-      
+
       c_ix = 0;
       for (t_ix = 0; t_ix < GCOV_COUNTERS; t_ix++)
 	if ((1 << t_ix) & gi_ptr->ctr_mask)
@@ -477,11 +473,11 @@ gcov_exit (void)
 	  }
 
       program.checksum = gcov_crc32;
-      
+
       /* Write out the data.  */
       gcov_write_tag_length (GCOV_DATA_MAGIC, GCOV_VERSION);
       gcov_write_unsigned (gi_ptr->stamp);
-      
+
       /* Write execution counts for each function.  */
       for (f_ix = 0; f_ix < gi_ptr->n_functions; f_ix++)
 	{
@@ -502,7 +498,7 @@ gcov_exit (void)
 		continue;
 
 	      n_counts = fi_ptr->n_ctrs[c_ix];
-		    
+
 	      gcov_write_tag_length (GCOV_TAG_FOR_COUNTER (t_ix),
 				     GCOV_TAG_COUNTER_LENGTH (n_counts));
 	      c_ptr = values[c_ix];
@@ -548,7 +544,7 @@ __gcov_init (struct gcov_info *info)
       /* Refresh the longest file name information */
       if (filename_length > gcov_max_filename)
         gcov_max_filename = filename_length;
-      
+
       do
 	{
 	  unsigned ix;
@@ -564,12 +560,12 @@ __gcov_init (struct gcov_info *info)
 	    }
 	}
       while (*ptr++);
-      
+
       gcov_crc32 = crc32;
-      
+
       if (!gcov_list)
 	atexit (gcov_exit);
-      
+
       info->next = gcov_list;
       gcov_list = info;
     }
@@ -590,7 +586,7 @@ __gcov_flush (void)
     {
       unsigned t_ix;
       const struct gcov_ctr_info *ci_ptr;
-      
+
       for (t_ix = 0, ci_ptr = gi_ptr->counts; t_ix != GCOV_COUNTERS; t_ix++)
 	if ((1 << t_ix) & gi_ptr->ctr_mask)
 	  {
@@ -632,7 +628,7 @@ __gcov_merge_ior (gcov_type *counters, unsigned n_counters)
    reads the same number of counters from the gcov file.  The counters
    are split into 3-tuples where the members of the tuple have
    meanings:
-   
+
    -- the stored candidate on the most common value of the measured entity
    -- counter
    -- total number of evaluations of the value  */
@@ -670,7 +666,7 @@ __gcov_merge_single (gcov_type *counters, unsigned n_counters)
    given an array COUNTERS of N_COUNTERS old counters and it reads the
    same number of counters from the gcov file.  The counters are split
    into 4-tuples where the members of the tuple have meanings:
-   
+
    -- the last value of the measured entity
    -- the stored candidate on the most common difference
    -- counter
@@ -679,13 +675,13 @@ void
 __gcov_merge_delta (gcov_type *counters, unsigned n_counters)
 {
   unsigned i, n_measures;
-  gcov_type last, value, counter, all;
+  gcov_type value, counter, all;
 
   gcc_assert (!(n_counters % 4));
   n_measures = n_counters / 4;
   for (i = 0; i < n_measures; i++, counters += 4)
     {
-      last = gcov_read_counter ();
+      /* last = */ gcov_read_counter ();
       value = gcov_read_counter ();
       counter = gcov_read_counter ();
       all = gcov_read_counter ();
@@ -774,10 +770,15 @@ __gcov_one_value_profiler (gcov_type *counters, gcov_type value)
 #ifdef L_gcov_indirect_call_profiler
 /* Tries to determine the most common value among its inputs. */
 void
-__gcov_indirect_call_profiler (gcov_type* counter, gcov_type value, 
+__gcov_indirect_call_profiler (gcov_type* counter, gcov_type value,
 			       void* cur_func, void* callee_func)
 {
-  if (cur_func == callee_func)
+  /* If the C++ virtual tables contain function descriptors then one
+     function may have multiple descriptors and we need to dereference
+     the descriptors to see if they point to the same function.  */
+  if (cur_func == callee_func
+      || (TARGET_VTABLE_USES_DESCRIPTORS && callee_func
+	  && *(void **) cur_func == *(void **) callee_func))
     __gcov_one_value_profiler_body (counter, value);
 }
 #endif
@@ -823,7 +824,7 @@ __gcov_fork (void)
    that they are not lost.  */
 
 int
-__gcov_execl (const char *path, const char *arg, ...)
+__gcov_execl (const char *path, char *arg, ...)
 {
   va_list ap, aq;
   unsigned i, length;
@@ -840,7 +841,7 @@ __gcov_execl (const char *path, const char *arg, ...)
   va_end (ap);
 
   args = (char **) alloca (length * sizeof (void *));
-  args[0] = (char *) arg;
+  args[0] = arg;
   for (i = 1; i < length; i++)
     args[i] = va_arg (aq, char *);
   va_end (aq);
@@ -854,7 +855,7 @@ __gcov_execl (const char *path, const char *arg, ...)
    that they are not lost.  */
 
 int
-__gcov_execlp (const char *path, const char *arg, ...)
+__gcov_execlp (const char *path, char *arg, ...)
 {
   va_list ap, aq;
   unsigned i, length;
@@ -871,7 +872,7 @@ __gcov_execlp (const char *path, const char *arg, ...)
   va_end (ap);
 
   args = (char **) alloca (length * sizeof (void *));
-  args[0] = (char *) arg;
+  args[0] = arg;
   for (i = 1; i < length; i++)
     args[i] = va_arg (aq, char *);
   va_end (aq);
@@ -885,7 +886,7 @@ __gcov_execlp (const char *path, const char *arg, ...)
    that they are not lost.  */
 
 int
-__gcov_execle (const char *path, const char *arg, ...)
+__gcov_execle (const char *path, char *arg, ...)
 {
   va_list ap, aq;
   unsigned i, length;
@@ -903,7 +904,7 @@ __gcov_execle (const char *path, const char *arg, ...)
   va_end (ap);
 
   args = (char **) alloca (length * sizeof (void *));
-  args[0] = (char *) arg;
+  args[0] = arg;
   for (i = 1; i < length; i++)
     args[i] = va_arg (aq, char *);
   envp = va_arg (aq, char **);

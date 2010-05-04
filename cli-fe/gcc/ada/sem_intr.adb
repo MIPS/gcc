@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -102,7 +102,9 @@ package body Sem_Intr is
       Arg1 : constant Node_Id   := First_Actual (N);
 
    begin
-      --  For Import_xxx calls, argument must be static string
+      --  For Import_xxx calls, argument must be static string. A string
+      --  literal is legal even in Ada83 mode, where such literals are
+      --  not static.
 
       if Cnam = Name_Import_Address
            or else
@@ -115,7 +117,9 @@ package body Sem_Intr is
          then
             null;
 
-         elsif not Is_Static_Expression (Arg1) then
+         elsif Nkind (Arg1) /= N_String_Literal
+           and then not Is_Static_Expression (Arg1)
+         then
             Error_Msg_FE
               ("call to & requires static string argument!", N, Nam);
             Why_Not_Static (Arg1);
@@ -132,7 +136,7 @@ package body Sem_Intr is
          end if;
 
       --  Check for the case of freeing a non-null object which will raise
-      --  Constaint_Error. Issue warning here, do the expansion in Exp_Intr.
+      --  Constraint_Error. Issue warning here, do the expansion in Exp_Intr.
 
       elsif Cnam = Name_Free
         and then Can_Never_Be_Null (Etype (Arg1))
@@ -158,7 +162,7 @@ package body Sem_Intr is
       T2  : Entity_Id;
 
    begin
-      --  Aritnmetic operators
+      --  Arithmetic operators
 
       if Nam = Name_Op_Add
            or else
@@ -304,7 +308,7 @@ package body Sem_Intr is
          Errint ("unrecognized intrinsic subprogram", E, N);
 
       --  We always allow intrinsic specifications in language defined units
-      --  and in expanded code. We assume that the GNAT implemetors know what
+      --  and in expanded code. We assume that the GNAT implementors know what
       --  they are doing, and do not write or generate junk use of intrinsic!
 
       elsif not Comes_From_Source (E)
@@ -418,9 +422,7 @@ package body Sem_Intr is
              Ptyp1, N);
          return;
 
-      elsif Is_Modular_Integer_Type (Typ1)
-        and then Non_Binary_Modulus (Typ1)
-      then
+      elsif Non_Binary_Modulus (Typ1) then
          Errint
            ("shifts not allowed for non-binary modular types",
             Ptyp1, N);

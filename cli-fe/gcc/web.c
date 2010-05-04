@@ -1,6 +1,6 @@
 /* Web construction code for GNU compiler.
    Contributed by Jan Hubicka.
-   Copyright (C) 2001, 2002, 2004, 2006, 2007
+   Copyright (C) 2001, 2002, 2004, 2006, 2007, 2008, 2010
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -28,14 +28,6 @@ along with GCC; see the file COPYING3.  If not see
    is almost unusable.
 
    TODO
-    - Add code to keep debugging up-to-date after splitting user variable
-      pseudos.  This can be done by keeping track of all the pseudos used
-      for the variable and using life analysis information before reload
-      to determine which one is live and, in case more than one are live,
-      choose the one with the latest definition.
-
-      Other optimization passes can benefit from the infrastructure too.
-
     - We may use profile information and ignore infrequent use for the
       purpose of web unifying, inserting the compensation code later to
       implement full induction variable expansion for loops (currently
@@ -60,9 +52,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 
 
-static rtx entry_register (struct web_entry *, struct df_ref *, char *);
-static void replace_ref (struct df_ref *, rtx);
-
 /* Find the root of unionfind tree (the representative of set).  */
 
 struct web_entry *
@@ -81,7 +70,7 @@ unionfind_root (struct web_entry *element)
   return element;
 }
 
-/* Union sets.  
+/* Union sets.
    Return true if FIRST and SECOND points to the same web entry structure and
    nothing is done.  Otherwise, return false.  */
 
@@ -98,29 +87,36 @@ unionfind_union (struct web_entry *first, struct web_entry *second)
 
 /* For each use, all possible defs reaching it must come in the same
    register, union them.
-   FUN is the function that does the union.  */
+   FUN is the function that does the union.
+
+   In USED, we keep the DF_REF_ID of the first uninitialized uses of a
+   register, so that all uninitialized uses of the register can be
+   combined into a single web.  We actually offset it by 2, because
+   the values 0 and 1 are reserved for use by entry_register.  */
 
 void
-union_defs (struct df_ref *use, struct web_entry *def_entry,
- 	    struct web_entry *use_entry,
+union_defs (df_ref use, struct web_entry *def_entry,
+	    unsigned int *used, struct web_entry *use_entry,
  	    bool (*fun) (struct web_entry *, struct web_entry *))
 {
-  rtx insn = DF_REF_INSN (use);
+  struct df_insn_info *insn_info = DF_REF_INSN_INFO (use);
   struct df_link *link = DF_REF_CHAIN (use);
-  struct df_ref **use_link;
-  struct df_ref **eq_use_link;
-  struct df_ref **def_link;
+  df_ref *use_link;
+  df_ref *eq_use_link;
+  df_ref *def_link;
   rtx set;
 
-  if (insn)
+  if (insn_info)
     {
-      use_link = DF_INSN_USES (insn);
-      eq_use_link = DF_INSN_EQ_USES (insn);
-      def_link = DF_INSN_DEFS (insn);
+      rtx insn = insn_info->insn;
+      use_link = DF_INSN_INFO_USES (insn_info);
+      eq_use_link = DF_INSN_INFO_EQ_USES (insn_info);
+      def_link = DF_INSN_INFO_DEFS (insn_info);
       set = single_set (insn);
     }
   else
     {
+      /* An artificial use.  It links up with nothing.  */
       use_link = NULL;
       eq_use_link = NULL;
       def_link = NULL;
@@ -152,9 +148,7 @@ union_defs (struct df_ref *use, struct web_entry *def_entry,
 	eq_use_link++;
     }
 
-  /* Recognize trivial noop moves and attempt to keep them as noop.
-     While most of noop moves should be removed, we still keep some
-     of them at libcall boundaries and such.  */
+  /* Recognize trivial noop moves and attempt to keep them as noop.  */
 
   if (set
       && SET_SRC (set) == DF_REF_REG (use)
@@ -169,6 +163,25 @@ union_defs (struct df_ref *use, struct web_entry *def_entry,
 	    def_link++;
 	  }
     }
+
+  /* UD chains of uninitialized REGs are empty.  Keeping all uses of
+     the same uninitialized REG in a single web is not necessary for
+     correctness, since the uses are undefined, but it's wasteful to
+     allocate one register or slot for each reference.  Furthermore,
+     creating new pseudos for uninitialized references in debug insns
+     (see PR 42631) causes -fcompare-debug failures.  We record the
+     number of the first uninitialized reference we found, and merge
+     with it any other uninitialized references to the same
+     register.  */
+  if (!link)
+    {
+      int regno = REGNO (DF_REF_REAL_REG (use));
+      if (used[regno])
+	(*fun) (use_entry + DF_REF_ID (use), use_entry + used[regno] - 2);
+      else
+	used[regno] = DF_REF_ID (use) + 2;
+    }
+
   while (link)
     {
       (*fun) (use_entry + DF_REF_ID (use),
@@ -178,12 +191,12 @@ union_defs (struct df_ref *use, struct web_entry *def_entry,
 
   /* A READ_WRITE use requires the corresponding def to be in the same
      register.  Find it and union.  */
-  if (use->flags & DF_REF_READ_WRITE)
+  if (DF_REF_FLAGS (use) & DF_REF_READ_WRITE)
     {
-      struct df_ref **link;
+      df_ref *link;
 
-      if (DF_REF_INSN (use))
-	link = DF_INSN_DEFS (DF_REF_INSN (use));
+      if (insn_info)
+	link = DF_INSN_INFO_DEFS (insn_info);
       else
 	link = NULL;
 
@@ -201,7 +214,7 @@ union_defs (struct df_ref *use, struct web_entry *def_entry,
 /* Find the corresponding register for the given entry.  */
 
 static rtx
-entry_register (struct web_entry *entry, struct df_ref *ref, char *used)
+entry_register (struct web_entry *entry, df_ref ref, unsigned int *used)
 {
   struct web_entry *root;
   rtx reg, newreg;
@@ -214,17 +227,14 @@ entry_register (struct web_entry *entry, struct df_ref *ref, char *used)
   /* We are seeing this web for the first time, do the assignment.  */
   reg = DF_REF_REAL_REG (ref);
 
-  /* In case the original register is already assigned, generate new one.  */
-  if (!used[REGNO (reg)])
+  /* In case the original register is already assigned, generate new
+     one.  Since we use USED to merge uninitialized refs into a single
+     web, we might found an element to be nonzero without our having
+     used it.  Test for 1, because union_defs saves it for our use,
+     and there won't be any use for the other values when we get to
+     this point.  */
+  if (used[REGNO (reg)] != 1)
     newreg = reg, used[REGNO (reg)] = 1;
-  else if (REG_USERVAR_P (reg) && 0/*&& !flag_messy_debugging*/)
-    {
-      newreg = reg;
-      if (dump_file)
-	fprintf (dump_file,
-		 "New web forced to keep reg=%i (user variable)\n",
-		 REGNO (reg));
-    }
   else
     {
       newreg = gen_reg_rtx (GET_MODE (reg));
@@ -243,17 +253,17 @@ entry_register (struct web_entry *entry, struct df_ref *ref, char *used)
 /* Replace the reference by REG.  */
 
 static void
-replace_ref (struct df_ref *ref, rtx reg)
+replace_ref (df_ref ref, rtx reg)
 {
   rtx oldreg = DF_REF_REAL_REG (ref);
   rtx *loc = DF_REF_REAL_LOC (ref);
-  unsigned int uid = INSN_UID (DF_REF_INSN (ref));
+  unsigned int uid = DF_REF_INSN_UID (ref);
 
   if (oldreg == reg)
     return;
   if (dump_file)
     fprintf (dump_file, "Updating insn %i (%i->%i)\n",
-	     uid, REGNO (oldreg), REGNO (reg)); 
+	     uid, REGNO (oldreg), REGNO (reg));
   *loc = reg;
   df_insn_rescan (DF_REF_INSN (ref));
 }
@@ -273,7 +283,7 @@ web_main (void)
   struct web_entry *def_entry;
   struct web_entry *use_entry;
   unsigned int max = max_reg_num ();
-  char *used;
+  unsigned int *used;
   basic_block bb;
   unsigned int uses_num = 0;
   rtx insn;
@@ -288,18 +298,18 @@ web_main (void)
     FOR_BB_INSNS (bb, insn)
     {
       unsigned int uid = INSN_UID (insn);
-      if (INSN_P (insn))
+      if (NONDEBUG_INSN_P (insn))
 	{
-	  struct df_ref **use_rec;
+	  df_ref *use_rec;
 	  for (use_rec = DF_INSN_UID_USES (uid); *use_rec; use_rec++)
 	    {
-	      struct df_ref *use = *use_rec;
+	      df_ref use = *use_rec;
 	      if (DF_REF_REGNO (use) >= FIRST_PSEUDO_REGISTER)
 		DF_REF_ID (use) = uses_num++;
 	    }
 	  for (use_rec = DF_INSN_UID_EQ_USES (uid); *use_rec; use_rec++)
 	    {
-	      struct df_ref *use = *use_rec;
+	      df_ref use = *use_rec;
 	      if (DF_REF_REGNO (use) >= FIRST_PSEUDO_REGISTER)
 		DF_REF_ID (use) = uses_num++;
 	    }
@@ -308,7 +318,7 @@ web_main (void)
 
   /* Record the number of uses and defs at the beginning of the optimization.  */
   def_entry = XCNEWVEC (struct web_entry, DF_DEFS_TABLE_SIZE());
-  used = XCNEWVEC (char, max);
+  used = XCNEWVEC (unsigned, max);
   use_entry = XCNEWVEC (struct web_entry, uses_num);
 
   /* Produce the web.  */
@@ -316,20 +326,20 @@ web_main (void)
     FOR_BB_INSNS (bb, insn)
     {
       unsigned int uid = INSN_UID (insn);
-      if (INSN_P (insn))
+      if (NONDEBUG_INSN_P (insn))
 	{
-	  struct df_ref **use_rec;
+	  df_ref *use_rec;
 	  for (use_rec = DF_INSN_UID_USES (uid); *use_rec; use_rec++)
 	    {
-	      struct df_ref *use = *use_rec;
+	      df_ref use = *use_rec;
 	      if (DF_REF_REGNO (use) >= FIRST_PSEUDO_REGISTER)
-		union_defs (use, def_entry, use_entry, unionfind_union);
+		union_defs (use, def_entry, used, use_entry, unionfind_union);
 	    }
 	  for (use_rec = DF_INSN_UID_EQ_USES (uid); *use_rec; use_rec++)
 	    {
-	      struct df_ref *use = *use_rec;
+	      df_ref use = *use_rec;
 	      if (DF_REF_REGNO (use) >= FIRST_PSEUDO_REGISTER)
-		union_defs (use, def_entry, use_entry, unionfind_union);
+		union_defs (use, def_entry, used, use_entry, unionfind_union);
 	    }
 	}
     }
@@ -340,25 +350,25 @@ web_main (void)
     FOR_BB_INSNS (bb, insn)
     {
       unsigned int uid = INSN_UID (insn);
-      if (INSN_P (insn))
+      if (NONDEBUG_INSN_P (insn))
 	{
-	  struct df_ref **use_rec;
-	  struct df_ref **def_rec;
+	  df_ref *use_rec;
+	  df_ref *def_rec;
 	  for (use_rec = DF_INSN_UID_USES (uid); *use_rec; use_rec++)
 	    {
-	      struct df_ref *use = *use_rec;
+	      df_ref use = *use_rec;
 	      if (DF_REF_REGNO (use) >= FIRST_PSEUDO_REGISTER)
 		replace_ref (use, entry_register (use_entry + DF_REF_ID (use), use, used));
 	    }
 	  for (use_rec = DF_INSN_UID_EQ_USES (uid); *use_rec; use_rec++)
 	    {
-	      struct df_ref *use = *use_rec;
+	      df_ref use = *use_rec;
 	      if (DF_REF_REGNO (use) >= FIRST_PSEUDO_REGISTER)
 		replace_ref (use, entry_register (use_entry + DF_REF_ID (use), use, used));
 	    }
 	  for (def_rec = DF_INSN_UID_DEFS (uid); *def_rec; def_rec++)
 	    {
-	      struct df_ref *def = *def_rec;
+	      df_ref def = *def_rec;
 	      if (DF_REF_REGNO (def) >= FIRST_PSEUDO_REGISTER)
 		replace_ref (def, entry_register (def_entry + DF_REF_ID (def), def, used));
 	    }
@@ -371,8 +381,10 @@ web_main (void)
   return 0;
 }
 
-struct tree_opt_pass pass_web =
+struct rtl_opt_pass pass_web =
 {
+ {
+  RTL_PASS,
   "web",                                /* name */
   gate_handle_web,                      /* gate */
   web_main,		                /* execute */
@@ -384,8 +396,8 @@ struct tree_opt_pass pass_web =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_df_finish | TODO_verify_rtl_sharing | 
-  TODO_dump_func,                       /* todo_flags_finish */
-  'Z'                                   /* letter */
+  TODO_df_finish | TODO_verify_rtl_sharing |
+  TODO_dump_func                        /* todo_flags_finish */
+ }
 };
 

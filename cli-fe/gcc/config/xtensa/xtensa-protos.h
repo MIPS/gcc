@@ -1,5 +1,6 @@
 /* Prototypes of target machine for GNU compiler for Xtensa.
-   Copyright 2001, 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003, 2004, 2005, 2007, 2008, 2009
+   Free Software Foundation, Inc.
    Contributed by Bob Wilson (bwilson@tensilica.com) at Tensilica.
 
 This file is part of GCC.
@@ -38,9 +39,9 @@ extern int smalloffset_mem_p (rtx);
 extern int constantpool_address_p (rtx);
 extern int constantpool_mem_p (rtx);
 extern void xtensa_extend_reg (rtx, rtx);
-extern void xtensa_expand_conditional_branch (rtx *, enum rtx_code);
+extern void xtensa_expand_conditional_branch (rtx *, enum machine_mode);
 extern int xtensa_expand_conditional_move (rtx *, int);
-extern int xtensa_expand_scc (rtx *);
+extern int xtensa_expand_scc (rtx *, enum machine_mode);
 extern int xtensa_expand_block_move (rtx *);
 extern void xtensa_split_operand_pair (rtx *, enum machine_mode);
 extern int xtensa_emit_move_sequence (rtx *, enum machine_mode);
@@ -53,8 +54,7 @@ extern char *xtensa_emit_branch (bool, bool, rtx *);
 extern char *xtensa_emit_bit_branch (bool, bool, rtx *);
 extern char *xtensa_emit_movcc (bool, bool, bool, rtx *);
 extern char *xtensa_emit_call (int, rtx *);
-extern bool xtensa_legitimate_address_p (enum machine_mode, rtx, bool);
-extern rtx xtensa_legitimize_address (rtx, rtx, enum machine_mode);
+extern bool xtensa_tls_referenced_p (rtx);
 
 #ifdef TREE_CODE
 extern void init_cumulative_args (CUMULATIVE_ARGS *, int);
@@ -66,9 +66,10 @@ extern bool xtensa_output_addr_const_extra (FILE *, rtx);
 extern void xtensa_output_literal (FILE *, rtx, enum machine_mode, int);
 extern rtx xtensa_return_addr (int, rtx);
 extern enum reg_class xtensa_preferred_reload_class (rtx, enum reg_class, int);
-extern enum reg_class xtensa_secondary_reload_class (enum reg_class,
-						     enum machine_mode, rtx,
-						     int);
+struct secondary_reload_info;
+extern enum reg_class xtensa_secondary_reload (bool, rtx, enum reg_class,
+					       enum machine_mode,
+					       struct secondary_reload_info *);
 #endif /* RTX_CODE */
 
 #ifdef TREE_CODE
@@ -82,7 +83,6 @@ extern void xtensa_setup_frame_addresses (void);
 extern int xtensa_dbx_register_number (int);
 extern void override_options (void);
 extern long compute_frame_size (int);
-extern int xtensa_frame_pointer_required (void);
 extern void xtensa_expand_prologue (void);
 extern void order_regs_for_local_alloc (void);
 

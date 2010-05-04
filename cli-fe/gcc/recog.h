@@ -1,6 +1,6 @@
 /* Declarations for interface to insn recognizer and insn-output.c.
    Copyright (C) 1987, 1996, 1997, 1998, 1999, 2000, 2001, 2003, 2004,
-   2005, 2006, 2007 Free Software Foundation, Inc.
+   2005, 2006, 2007, 2008, 2009 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -50,7 +50,8 @@ struct operand_alternative
 
   /* Nonzero if '&' was found in the constraint string.  */
   unsigned int earlyclobber:1;
-  /* Nonzero if 'm' was found in the constraint string.  */
+  /* Nonzero if TARGET_MEM_CONSTRAINT was found in the constraint
+     string.  */
   unsigned int memory_ok:1;
   /* Nonzero if 'o' was found in the constraint string.  */
   unsigned int offmem_ok:1;
@@ -71,7 +72,7 @@ struct operand_alternative
 extern void init_recog (void);
 extern void init_recog_no_volatile (void);
 extern int check_asm_operands (rtx);
-extern int asm_operand_ok (rtx, const char *);
+extern int asm_operand_ok (rtx, const char *, const char **);
 extern bool validate_change (rtx, rtx *, rtx, bool);
 extern bool validate_unshare_change (rtx, rtx *, rtx, bool);
 extern bool canonicalize_change_group (rtx insn, rtx x);
@@ -83,9 +84,17 @@ extern int num_validated_changes (void);
 extern void cancel_changes (int);
 extern int constrain_operands (int);
 extern int constrain_operands_cached (int);
-extern int memory_address_p (enum machine_mode, rtx);
-extern int strict_memory_address_p (enum machine_mode, rtx);
+extern int memory_address_addr_space_p (enum machine_mode, rtx, addr_space_t);
+#define memory_address_p(mode,addr) \
+	memory_address_addr_space_p ((mode), (addr), ADDR_SPACE_GENERIC)
+extern int strict_memory_address_addr_space_p (enum machine_mode, rtx,
+					       addr_space_t);
+#define strict_memory_address_p(mode,addr) \
+	strict_memory_address_addr_space_p ((mode), (addr), ADDR_SPACE_GENERIC)
+extern int validate_replace_rtx_subexp (rtx, rtx, rtx, rtx *);
 extern int validate_replace_rtx (rtx, rtx, rtx);
+extern int validate_replace_rtx_part (rtx, rtx, rtx *, rtx);
+extern int validate_replace_rtx_part_nosimplify (rtx, rtx, rtx *, rtx);
 extern void validate_replace_rtx_group (rtx, rtx, rtx);
 extern void validate_replace_src_group (rtx, rtx, rtx);
 extern bool validate_simplify_insn (rtx insn);
@@ -97,7 +106,11 @@ extern int reg_fits_class_p (rtx, enum reg_class, int, enum machine_mode);
 
 extern int offsettable_memref_p (rtx);
 extern int offsettable_nonstrict_memref_p (rtx);
-extern int offsettable_address_p (int, enum machine_mode, rtx);
+extern int offsettable_address_addr_space_p (int, enum machine_mode, rtx,
+					     addr_space_t);
+#define offsettable_address_p(strict,mode,addr) \
+	offsettable_address_addr_space_p ((strict), (mode), (addr), \
+					  ADDR_SPACE_GENERIC)
 extern int mode_dependent_address_p (rtx);
 
 extern int recog (rtx, rtx, int *);
@@ -141,6 +154,19 @@ recog_memoized (rtx insn)
   return INSN_CODE (insn);
 }
 #endif
+
+/* Skip chars until the next ',' or the end of the string.  This is
+   useful to skip alternatives in a constraint string.  */
+static inline const char *
+skip_alternative (const char *p)
+{
+  const char *r = p;
+  while (*r != '\0' && *r != ',')
+    r++;
+  if (*r == ',')
+    r++;
+  return r;
+}
 
 /* Nonzero means volatile operands are recognized.  */
 extern int volatile_ok;
@@ -200,6 +226,12 @@ struct recog_data
 
   /* The number of alternatives in the constraints for the insn.  */
   char n_alternatives;
+
+  /* Specifies whether an insn alternative is enabled using the
+     `enabled' attribute in the insn pattern definition.  For back
+     ends not using the `enabled' attribute the array fields are
+     always set to `true' in expand_insn.  */
+  bool alternative_enabled_p [MAX_RECOG_ALTERNATIVES];
 
   /* In case we are caching, hold insn data was generated for.  */
   rtx insn;

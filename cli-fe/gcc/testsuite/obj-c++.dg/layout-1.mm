@@ -3,7 +3,7 @@
 /* { dg-do compile } */
 /* { dg-options "-Wpadded -Wpacked -Wabi" } */
 
-#include <objc/Object.h>
+#include "../objc-obj-c++-shared/Object1.h"
 
 @interface Derived1: Object
 { }
@@ -13,3 +13,5 @@
 - (id) foo;
 @end
 
+/* { dg-prune-output "In output included from" }   Ignore this message.  */
+/* { dg-bogus "padding struct to align" "PR23610" { target *-*-* } 0 } */

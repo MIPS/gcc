@@ -1,6 +1,6 @@
 /* Frv prototypes.
-   Copyright (C) 1999, 2000, 2001, 2003, 2004, 2005, 2007 Free Software Foundation,
-   Inc.
+   Copyright (C) 1999, 2000, 2001, 2003, 2004, 2005, 2007, 2008, 2009
+   Free Software Foundation, Inc.
    Contributed by Red Hat, Inc.
 
 This file is part of GCC.
@@ -43,13 +43,11 @@ extern void frv_optimization_options		(int, int);
 extern void frv_conditional_register_usage	(void);
 extern frv_stack_t *frv_stack_info		(void);
 extern void frv_debug_stack			(frv_stack_t *);
-extern int frv_frame_pointer_required		(void);
 extern int frv_initial_elimination_offset	(int, int);
 
 #ifdef RTX_CODE
-extern int frv_legitimate_address_p		(enum machine_mode, rtx,
+extern int frv_legitimate_address_p_1		(enum machine_mode, rtx,
 						 int, int, int);
-extern rtx frv_legitimize_address		(rtx, rtx, enum machine_mode);
 extern rtx frv_find_base_term			(rtx);
 
 #ifdef TREE_CODE
@@ -64,6 +62,7 @@ extern rtx frv_function_arg			(CUMULATIVE_ARGS *,
 extern void frv_function_arg_advance		(CUMULATIVE_ARGS *,
 						 enum machine_mode,
 						 tree, int);
+extern bool frv_function_value_regno_p		(const unsigned int);
 #endif /* TREE_CODE */
 
 extern int frv_expand_block_move		(rtx *);
@@ -82,8 +81,8 @@ extern const char *output_move_single	(rtx *, rtx);
 extern const char *output_move_double	(rtx *, rtx);
 extern const char *output_condmove_single
 					(rtx *, rtx);
-extern int frv_emit_cond_branch		(enum rtx_code, rtx);
-extern int frv_emit_scc			(enum rtx_code, rtx);
+extern int frv_emit_cond_branch		(rtx *);
+extern int frv_emit_scc			(rtx *);
 extern rtx frv_split_scc		(rtx, rtx, rtx, rtx, HOST_WIDE_INT);
 extern int frv_emit_cond_move		(rtx, rtx, rtx, rtx);
 extern rtx frv_split_cond_move		(rtx *);
@@ -102,15 +101,13 @@ extern void frv_ifcvt_modify_final	(ce_if_block_t *);
 extern void frv_ifcvt_modify_cancel	(ce_if_block_t *);
 #endif
 extern int frv_trampoline_size		(void);
-extern void frv_initialize_trampoline	(rtx, rtx, rtx);
 extern enum reg_class frv_secondary_reload_class
-					(enum reg_class class,
-					 enum machine_mode mode,
-					 rtx x, int);
-extern int frv_class_likely_spilled_p	(enum reg_class class);
+					(enum reg_class,
+					 enum machine_mode, rtx);
+extern int frv_class_likely_spilled_p	(enum reg_class rclass);
 extern int frv_hard_regno_mode_ok	(int, enum machine_mode);
 extern int frv_hard_regno_nregs		(int, enum machine_mode);
-extern int frv_class_max_nregs		(enum reg_class class,
+extern int frv_class_max_nregs		(enum reg_class rclass,
 					 enum machine_mode mode);
 extern int frv_legitimate_constant_p	(rtx);
 extern enum machine_mode frv_select_cc_mode (enum rtx_code, rtx, rtx);

@@ -1,6 +1,7 @@
 /* Definitions of target machine for GNU compiler, for CRX.
    Copyright (C) 1991, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
+   Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -182,6 +183,19 @@ enum reg_class
 
 #define N_REG_CLASSES (int) LIM_REG_CLASSES
 
+/* The following macro defines cover classes for Integrated Register
+   Allocator.  Cover classes is a set of non-intersected register
+   classes covering all hard registers used for register allocation
+   purpose.  Any move between two registers of a cover class should be
+   cheaper than load or store of the registers.  The macro value is
+   array of register classes with LIM_REG_CLASSES used as the end
+   marker.  */
+
+#define IRA_COVER_CLASSES         \
+{                                 \
+   GENERAL_REGS, LIM_REG_CLASSES  \
+} 
+
 #define REG_CLASS_NAMES \
   {			\
     "NO_REGS",		\
@@ -277,17 +291,12 @@ enum reg_class
 
 #define FIRST_PARM_OFFSET(FNDECL)  0
 
-#define FRAME_POINTER_REQUIRED (current_function_calls_alloca)
-
 #define ELIMINABLE_REGS \
   { \
     { ARG_POINTER_REGNUM,   STACK_POINTER_REGNUM}, \
     { ARG_POINTER_REGNUM,   FRAME_POINTER_REGNUM}, \
     { FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM}  \
   }
-
-#define CAN_ELIMINATE(FROM, TO) \
- ((TO) == STACK_POINTER_REGNUM ? ! frame_pointer_needed : 1)
 
 #define INITIAL_ELIMINATION_OFFSET(FROM, TO, OFFSET)			\
   do {									\
@@ -360,11 +369,6 @@ struct cumulative_args
 
 #define TRAMPOLINE_SIZE	32
 
-#define INITIALIZE_TRAMPOLINE(addr, fnaddr, static_chain)	\
-{								\
-    sorry ("Trampoline support for CRX");			\
-}
-
 /*****************************************************************************/
 /* ADDRESSING MODES							     */
 /*****************************************************************************/
@@ -390,22 +394,6 @@ struct cumulative_args
 #define REG_OK_FOR_INDEX_P(X)	1
 #endif /* REG_OK_STRICT */
 
-#ifdef REG_OK_STRICT
-#define GO_IF_LEGITIMATE_ADDRESS(MODE, X, LABEL)			\
-{									\
-  if (crx_legitimate_address_p (MODE, X, 1))				\
-      goto LABEL;							\
-}
-#else
-#define GO_IF_LEGITIMATE_ADDRESS(MODE, X, LABEL)			\
-{									\
-  if (crx_legitimate_address_p (MODE, X, 0))				\
-      goto LABEL;							\
-}
-#endif /* REG_OK_STRICT */
-
-#define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR, LABEL)
-
 #define LEGITIMATE_CONSTANT_P(X)  1
 
 /*****************************************************************************/
@@ -420,7 +408,7 @@ struct cumulative_args
 /* Moving to processor register flushes pipeline - thus asymmetric */
 #define REGISTER_MOVE_COST(MODE, FROM, TO) ((TO != GENERAL_REGS) ? 8 : 2)
 /* Assume best case (branch predicted) */
-#define BRANCH_COST 2
+#define BRANCH_COST(speed_p, predictable_p) 2
 
 #define SLOW_BYTE_ACCESS  1
 
@@ -507,12 +495,5 @@ struct cumulative_args
 #define Pmode		SImode
 
 #define FUNCTION_MODE	QImode
-
-/*****************************************************************************/
-/* EXTERNAL DECLARATIONS FOR VARIABLES DEFINED IN CRX.C			     */
-/*****************************************************************************/
-
-extern rtx crx_compare_op0;    /* operand 0 for comparisons */
-extern rtx crx_compare_op1;    /* operand 1 for comparisons */
 
 #endif /* ! GCC_CRX_H */

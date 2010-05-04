@@ -1,5 +1,5 @@
 /* Target definitions for GCC for Intel 80386 running System V.4
-   Copyright (C) 1991, 2001, 2002, 2007 Free Software Foundation, Inc.
+   Copyright (C) 1991, 2001, 2002, 2007, 2008 Free Software Foundation, Inc.
 
    Written by Ron Guilmette (rfg@netcom.com).
 
@@ -25,10 +25,9 @@ along with GCC; see the file COPYING3.  If not see
 /* The svr4 ABI for the i386 says that records and unions are returned
    in memory.  */
 
-#undef RETURN_IN_MEMORY
-#define RETURN_IN_MEMORY(TYPE) \
-  (TYPE_MODE (TYPE) == BLKmode \
-   || (VECTOR_MODE_P (TYPE_MODE (TYPE)) && int_size_in_bytes (TYPE) == 8))
+#define SUBTARGET_RETURN_IN_MEMORY(TYPE, FNTYPE) \
+	(TYPE_MODE (TYPE) == BLKmode \
+	 || (VECTOR_MODE_P (TYPE_MODE (TYPE)) && int_size_in_bytes (TYPE) == 8));
 
 /* Output at beginning of assembler file.  */
 /* The .file command should always begin the output.  */
@@ -56,7 +55,7 @@ along with GCC; see the file COPYING3.  If not see
       const unsigned char *limit = _ascii_bytes + (LENGTH);		\
       unsigned bytes_in_chunk = 0;					\
       for (; _ascii_bytes < limit; _ascii_bytes++)			\
-        {								\
+	{								\
 	  const unsigned char *p;					\
 	  if (bytes_in_chunk >= 64)					\
 	    {								\
@@ -78,7 +77,7 @@ along with GCC; see the file COPYING3.  If not see
 	  else								\
 	    {								\
 	      if (bytes_in_chunk == 0)					\
-		fprintf ((FILE), "\t.byte\t");				\
+		fputs (ASM_BYTE, (FILE));				\
 	      else							\
 		fputc (',', (FILE));					\
 	      fprintf ((FILE), "0x%02x", *_ascii_bytes);		\
@@ -86,7 +85,7 @@ along with GCC; see the file COPYING3.  If not see
 	    }								\
 	}								\
       if (bytes_in_chunk > 0)						\
-        fprintf ((FILE), "\n");						\
+	fputc ('\n', (FILE));						\
     }									\
   while (0)
 
@@ -104,10 +103,10 @@ along with GCC; see the file COPYING3.  If not see
   do {									\
     if ((SIZE) == 4 && ((ENCODING) & 0x70) == DW_EH_PE_datarel)		\
       {									\
-        fputs (ASM_LONG, FILE);						\
-        assemble_name (FILE, XSTR (ADDR, 0));				\
-	fputs (((ENCODING) & DW_EH_PE_indirect ? "@GOT" : "@GOTOFF"), FILE); \
-        goto DONE;							\
+	fputs (ASM_LONG, (FILE));					\
+	assemble_name (FILE, XSTR (ADDR, 0));				\
+	fputs (((ENCODING) & DW_EH_PE_indirect ? "@GOT" : "@GOTOFF"), (FILE)); \
+	goto DONE;							\
       }									\
   } while (0)
 

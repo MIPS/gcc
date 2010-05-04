@@ -1,6 +1,6 @@
 /* RTL reader for GCC.
    Copyright (C) 1987, 1988, 1991, 1994, 1997, 1998, 1999, 2000, 2001, 2002,
-   2003, 2004, 2005, 2007
+   2003, 2004, 2005, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -787,6 +787,9 @@ join_c_conditions (const char *cond1, const char *cond2)
   if (cond2 == 0 || cond2[0] == 0)
     return cond1;
 
+  if (strcmp (cond1, cond2) == 0)
+    return cond1;
+
   result = concat ("(", cond1, ") && (", cond2, ")", NULL);
   obstack_ptr_grow (&joined_conditions_obstack, result);
   obstack_ptr_grow (&joined_conditions_obstack, cond1);
@@ -1480,7 +1483,7 @@ read_rtx_1 (FILE *infile, struct map_value **mode_maps)
 
   if (c == EOF)
     return 0;
-  
+
   if (c != '(')
     fatal_expected_char (infile, '(', c);
 
@@ -1592,6 +1595,8 @@ read_rtx_1 (FILE *infile, struct map_value **mode_maps)
 	  obstack_init (&vector_stack);
 	  while ((c = read_skip_spaces (infile)) && c != ']')
 	    {
+	      if (c == EOF)
+		fatal_expected_char (infile, ']', c);
 	      ungetc (c, infile);
 	      list_counter++;
 	      obstack_ptr_grow (&vector_stack, read_rtx_1 (infile, mode_maps));
@@ -1735,7 +1740,7 @@ read_rtx_variadic (FILE *infile, struct map_value **mode_maps, rtx form)
 
       XEXP (q, 0) = XEXP (p, 1);
       XEXP (q, 1) = read_rtx_1 (infile, mode_maps);
-      
+
       XEXP (p, 1) = q;
       p = q;
       c = read_skip_spaces (infile);

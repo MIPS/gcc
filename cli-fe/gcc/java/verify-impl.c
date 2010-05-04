@@ -1,4 +1,5 @@
-/* Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006  Free Software Foundation
+/* Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2008, 2009
+   Free Software Foundation
 
    This file is part of libgcj.
 
@@ -983,7 +984,7 @@ copy_state_with_stack (state *s, state *orig, int max_stack, int max_locals)
 static state *
 make_state_copy (state *orig, int max_stack, int max_locals)
 {
-  state *s = vfy_alloc (sizeof (state));
+  state *s = (state *) vfy_alloc (sizeof (state));
   copy_state_with_stack (s, orig, max_stack, max_locals);
   return s;
 }
@@ -991,7 +992,7 @@ make_state_copy (state *orig, int max_stack, int max_locals)
 static state *
 make_state (int max_stack, int max_locals)
 {
-  state *s = vfy_alloc (sizeof (state));
+  state *s = (state *) vfy_alloc (sizeof (state));
   init_state_with_stack (s, max_stack, max_locals);
   return s;
 }
@@ -1385,7 +1386,7 @@ add_new_state (int npc, state *old_state)
   debug_print_state (new_state, "New", npc, current_method->max_stack,
 		    current_method->max_locals);
 
-  nlink = vfy_alloc (sizeof (state_list));
+  nlink = (state_list *) vfy_alloc (sizeof (state_list));
   nlink->val = new_state;
   nlink->next = vfr->states[npc];
   vfr->states[npc] = nlink;
@@ -1946,7 +1947,7 @@ check_pool_index (int index)
 static type
 check_class_constant (int index)
 {
-  type t = { 0, 0, 0 };
+  type t = { (type_val) 0, 0, 0 };
   vfy_constants *pool;
 
   check_pool_index (index);
@@ -1963,7 +1964,7 @@ check_class_constant (int index)
 static type
 check_constant (int index)
 {
-  type t = { 0, 0, 0 };
+  type t = { (type_val) 0, 0, 0 };
   vfy_constants *pool;
 
   check_pool_index (index);
@@ -1987,7 +1988,7 @@ check_constant (int index)
 static type
 check_wide_constant (int index)
 {
-  type t = { 0, 0, 0 };
+  type t = { (type_val) 0, 0, 0 };
   vfy_constants *pool;
 
   check_pool_index (index);
@@ -2034,7 +2035,6 @@ check_field_constant (int index, type *class_type, bool putfield)
 {
   vfy_string name, field_type;
   const char *typec;
-  int len;
   type t;
 
   type ct = handle_field_or_method (index,
@@ -2043,7 +2043,6 @@ check_field_constant (int index, type *class_type, bool putfield)
   if (class_type)
     *class_type = ct;
   typec = vfy_string_bytes (field_type);
-  len = vfy_string_length (field_type);
   if (typec[0] == '[' || typec[0] == 'L')
     init_type_from_string (&t, field_type);
   else
@@ -3024,13 +3023,15 @@ verify_instructions_0 (void)
 	case op_newarray:
 	  {
 	    int atype = get_byte ();
+	    vfy_jclass k;
 	    type t;
 	    /* We intentionally have chosen constants to make this
 	       valid.  */
 	    if (atype < boolean_type || atype > long_type)
 	      verify_fail_pc ("type not primitive", vfr->start_PC);
 	    pop_type (int_type);
-	    init_type_from_class (&t, construct_primitive_array_type (atype));
+	    k = construct_primitive_array_type ((type_val) atype);
+	    init_type_from_class (&t, k);
 	    push_type_t (t);
 	  }
 	  break;

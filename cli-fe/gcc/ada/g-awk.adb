@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                     Copyright (C) 2000-2007, AdaCore                     --
+--                     Copyright (C) 2000-2010, AdaCore                     --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -36,10 +36,6 @@ pragma Ada_95;
 --  Default_Session (see below) do not work when compiling clients of this
 --  package that instantiate generic units herein.
 
-pragma Style_Checks (All_Checks);
---  Turn off alpha ordering check for subprograms, since we cannot
---  Put Finalize and Initialize in alpha order (see comments).
-
 with Ada.Exceptions;
 with Ada.Text_IO;
 with Ada.Strings.Unbounded;
@@ -55,6 +51,18 @@ package body GNAT.AWK is
 
    use Ada;
    use Ada.Strings.Unbounded;
+
+   -----------------------
+   -- Local subprograms --
+   -----------------------
+
+   --  The following two subprograms provide a functional interface to the
+   --  two special session variables, that are manipulated explicitly by
+   --  Finalize, but must be declared after Finalize to prevent static
+   --  elaboration warnings.
+
+   function Get_Def return Session_Data_Access;
+   procedure Set_Cur;
 
    ----------------
    -- Split mode --
@@ -277,6 +285,28 @@ package body GNAT.AWK is
    procedure Free is
       new Unchecked_Deallocation (Session_Data, Session_Data_Access);
 
+   --------------
+   -- Finalize --
+   --------------
+
+   procedure Finalize (Session : in out Session_Type) is
+   begin
+      --  We release the session data only if it is not the default session
+
+      if Session.Data /= Get_Def then
+         --  Release separators
+
+         Free (Session.Data.Separators);
+
+         Free (Session.Data);
+
+         --  Since we have closed the current session, set it to point now to
+         --  the default session.
+
+         Set_Cur;
+      end if;
+   end Finalize;
+
    ----------------
    -- Initialize --
    ----------------
@@ -301,33 +331,8 @@ package body GNAT.AWK is
    -- Session Variables --
    -----------------------
 
-   --  These must come after the body of Initialize, since they make
-   --  implicit calls to Initialize at elaboration time.
-
    Def_Session : Session_Type;
    Cur_Session : Session_Type;
-
-   --------------
-   -- Finalize --
-   --------------
-
-   --  Note: Finalize must come after Initialize and the definition
-   --  of the Def_Session and Cur_Session variables, since it references
-   --  the latter.
-
-   procedure Finalize (Session : in out Session_Type) is
-   begin
-      --  We release the session data only if it is not the default session
-
-      if Session.Data /= Def_Session.Data then
-         Free (Session.Data);
-
-         --  Since we have closed the current session, set it to point now to
-         --  the default session.
-
-         Cur_Session.Data := Def_Session.Data;
-      end if;
-   end Finalize;
 
    ----------------------
    -- Private Services --
@@ -484,11 +489,10 @@ package body GNAT.AWK is
       procedure Current_Line (S : Separator; Session : Session_Type) is
          Line   : constant String := To_String (Session.Data.Current_Line);
          Fields : Field_Table.Instance renames Session.Data.Fields;
+         Seps   : constant Maps.Character_Set := Maps.To_Set (S.Separators);
 
-         Start : Natural;
-         Stop  : Natural;
-
-         Seps  : constant Maps.Character_Set := Maps.To_Set (S.Separators);
+         Start  : Natural;
+         Stop   : Natural;
 
       begin
          --  First field start here
@@ -505,8 +509,8 @@ package body GNAT.AWK is
             --  Look for next separator
 
             Stop := Fixed.Index
-              (Source  => Line (Start .. Line'Last),
-               Set     => Seps);
+              (Source => Line (Start .. Line'Last),
+               Set    => Seps);
 
             exit when Stop = 0;
 
@@ -525,6 +529,7 @@ package body GNAT.AWK is
                if Start = 0 then
                   Start := Stop + 1;
                end if;
+
             else
                Start := Stop + 1;
             end if;
@@ -644,7 +649,7 @@ package body GNAT.AWK is
       when others =>
          Raise_With_Info
            (File_Error'Identity,
-            "Error scaning directory " & Directory
+            "Error scanning directory " & Directory
             & " for files " & Filenames & '.',
             Session);
    end Add_Files;
@@ -705,10 +710,6 @@ package body GNAT.AWK is
       if Text_IO.Is_Open (Session.Data.Current_File) then
          Text_IO.Close (Session.Data.Current_File);
       end if;
-
-      --  Release separators
-
-      Free (Session.Data.Separators);
 
       --  Release Filters table
 
@@ -1475,11 +1476,28 @@ package body GNAT.AWK is
 
    procedure Split_Line (Session : Session_Type) is
       Fields : Field_Table.Instance renames Session.Data.Fields;
-      pragma Unreferenced (Fields);
    begin
       Field_Table.Init (Fields);
       Split.Current_Line (Session.Data.Separators.all, Session);
    end Split_Line;
+
+   -------------
+   -- Get_Def --
+   -------------
+
+   function Get_Def return Session_Data_Access is
+   begin
+      return Def_Session.Data;
+   end Get_Def;
+
+   -------------
+   -- Set_Cur --
+   -------------
+
+   procedure Set_Cur is
+   begin
+      Cur_Session.Data := Def_Session.Data;
+   end Set_Cur;
 
 begin
    --  We have declared two sessions but both should share the same data.

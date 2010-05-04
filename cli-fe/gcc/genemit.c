@@ -1,6 +1,6 @@
 /* Generate code from machine description to emit insns as rtl.
    Copyright (C) 1987, 1988, 1991, 1994, 1995, 1997, 1998, 1999, 2000, 2001,
-   2003, 2004, 2005, 2007 Free Software Foundation, Inc.
+   2003, 2004, 2005, 2007, 2008, 2009 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -357,17 +357,17 @@ gen_insn (rtx insn, int lineno)
 
 	      for (j = i + 1; j < XVECLEN (insn, 1); j++)
 		{
-		  rtx old = XEXP (XVECEXP (p->pattern, 1, j), 0);
-		  rtx new = XEXP (XVECEXP (insn, 1, j), 0);
+		  rtx old_rtx = XEXP (XVECEXP (p->pattern, 1, j), 0);
+		  rtx new_rtx = XEXP (XVECEXP (insn, 1, j), 0);
 
-		  /* OLD and NEW are the same if both are to be a SCRATCH
+		  /* OLD and NEW_INSN are the same if both are to be a SCRATCH
 		     of the same mode,
 		     or if both are registers of the same mode and number.  */
-		  if (! (GET_MODE (old) == GET_MODE (new)
-			 && ((GET_CODE (old) == MATCH_SCRATCH
-			      && GET_CODE (new) == MATCH_SCRATCH)
-			     || (REG_P (old) && REG_P (new)
-				 && REGNO (old) == REGNO (new)))))
+		  if (! (GET_MODE (old_rtx) == GET_MODE (new_rtx)
+			 && ((GET_CODE (old_rtx) == MATCH_SCRATCH
+			      && GET_CODE (new_rtx) == MATCH_SCRATCH)
+			     || (REG_P (old_rtx) && REG_P (new_rtx)
+				 && REGNO (old_rtx) == REGNO (new_rtx)))))
 		    break;
 		}
 
@@ -782,9 +782,7 @@ output_peephole2_scratches (rtx split)
 {
   int i;
   int insn_nr = 0;
-
-  printf ("  HARD_REG_SET _regs_allocated;\n");
-  printf ("  CLEAR_HARD_REG_SET (_regs_allocated);\n");
+  bool first = true;
 
   for (i = 0; i < XVECLEN (split, 0); i++)
     {
@@ -802,6 +800,13 @@ output_peephole2_scratches (rtx split)
 	      }
 	    else if (GET_CODE (XVECEXP (split, 0, j)) != MATCH_SCRATCH)
 	      cur_insn_nr++;
+
+	  if (first)
+	    {
+	      printf ("  HARD_REG_SET _regs_allocated;\n");
+	      printf ("  CLEAR_HARD_REG_SET (_regs_allocated);\n");
+	      first = false;
+	    }
 
 	  printf ("  if ((operands[%d] = peep2_find_free_register (%d, %d, \"%s\", %smode, &_regs_allocated)) == NULL_RTX)\n\
     return NULL;\n",

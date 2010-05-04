@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -325,14 +325,14 @@ package body Binde is
 
       --  Prefer a waiting body to any other case
 
-      if Is_Waiting_Body (U1) and not Is_Waiting_Body (U2) then
+      if Is_Waiting_Body (U1) and then not Is_Waiting_Body (U2) then
          if Debug_Flag_B then
             Write_Line ("  True: u1 is waiting body, u2 is not");
          end if;
 
          return True;
 
-      elsif Is_Waiting_Body (U2) and not Is_Waiting_Body (U1) then
+      elsif Is_Waiting_Body (U2) and then not Is_Waiting_Body (U1) then
          if Debug_Flag_B then
             Write_Line ("  False: u2 is waiting body, u1 is not");
          end if;
@@ -341,14 +341,14 @@ package body Binde is
 
       --  Prefer a predefined unit to a non-predefined unit
 
-      elsif UT1.Predefined and not UT2.Predefined then
+      elsif UT1.Predefined and then not UT2.Predefined then
          if Debug_Flag_B then
             Write_Line ("  True: u1 is predefined, u2 is not");
          end if;
 
          return True;
 
-      elsif UT2.Predefined and not UT1.Predefined then
+      elsif UT2.Predefined and then not UT1.Predefined then
          if Debug_Flag_B then
             Write_Line ("  False: u2 is predefined, u1 is not");
          end if;
@@ -357,13 +357,13 @@ package body Binde is
 
       --  Prefer an internal unit to a non-internal unit
 
-      elsif UT1.Internal and not UT2.Internal then
+      elsif UT1.Internal and then not UT2.Internal then
          if Debug_Flag_B then
             Write_Line ("  True: u1 is internal, u2 is not");
          end if;
          return True;
 
-      elsif UT2.Internal and not UT1.Internal then
+      elsif UT2.Internal and then not UT1.Internal then
          if Debug_Flag_B then
             Write_Line ("  False: u2 is internal, u1 is not");
          end if;
@@ -372,14 +372,14 @@ package body Binde is
 
       --  Prefer a body to a spec
 
-      elsif Is_Body_Unit (U1) and not Is_Body_Unit (U2) then
+      elsif Is_Body_Unit (U1) and then not Is_Body_Unit (U2) then
          if Debug_Flag_B then
             Write_Line ("  True: u1 is body, u2 is not");
          end if;
 
          return True;
 
-      elsif Is_Body_Unit (U2) and not Is_Body_Unit (U1) then
+      elsif Is_Body_Unit (U2) and then not Is_Body_Unit (U1) then
          if Debug_Flag_B then
             Write_Line ("  False: u2 is body, u1 is not");
          end if;
@@ -867,10 +867,12 @@ package body Binde is
          --  Skip if this with is an interface to a stand-alone library.
          --  Skip also if no ALI file for this WITH, happens for language
          --  defined generics while bootstrapping the compiler (see body of
-         --  Lib.Writ.Write_With_Lines).
+         --  Lib.Writ.Write_With_Lines). Finally, skip if it is a limited
+         --  with clause, which does not impose an elaboration link.
 
          if not Withs.Table (W).SAL_Interface
            and then Withs.Table (W).Afile /= No_File
+           and then not Withs.Table (W).Limited_With
          then
             declare
                Info : constant Int :=
@@ -916,9 +918,9 @@ package body Binde is
                      end if;
 
                      Osint.Fail
-                       ("could not find unit ",
-                        Withed (Withed'First .. Last_Withed) & " needed by " &
-                        Withing (Withing'First .. Last_Withing) & Spec_Body);
+                       ("could not find unit "
+                        & Withed (Withed'First .. Last_Withed) & " needed by "
+                        & Withing (Withing'First .. Last_Withing) & Spec_Body);
                   end;
                end if;
 
@@ -1237,8 +1239,8 @@ package body Binde is
                         Make_Elab_Entry
                           (Withs.Table (W).Uname, No_Elab_All_Link));
 
-                     --  Elaborate_All_Desirable case, for this we establish
-                     --  the same links as above, but with a different reason.
+                  --  Elaborate_All_Desirable case, for this we establish the
+                  --  same links as above, but with a different reason.
 
                   elsif Withs.Table (W).Elab_All_Desirable then
 
@@ -1256,15 +1258,15 @@ package body Binde is
                         Make_Elab_Entry
                           (Withs.Table (W).Uname, No_Elab_All_Link));
 
-                     --  Pragma Elaborate case. We must build a link for the
-                     --  withed unit itself, and also the corresponding body
-                     --  if there is one.
+                  --  Pragma Elaborate case. We must build a link for the
+                  --  withed unit itself, and also the corresponding body if
+                  --  there is one.
 
-                     --  However, skip this processing if there is no ALI file
-                     --  for the WITH entry, because this means it is a
-                     --  generic (even when we fix the generics so that an ALI
-                     --  file is present, we probably still will have no ALI
-                     --  file for unchecked and other special cases).
+                  --  However, skip this processing if there is no ALI file for
+                  --  the WITH entry, because this means it is a generic (even
+                  --  when we fix the generics so that an ALI file is present,
+                  --  we probably still will have no ALI file for unchecked and
+                  --  other special cases).
 
                   elsif Withs.Table (W).Elaborate
                     and then Withs.Table (W).Afile /= No_File
@@ -1276,8 +1278,8 @@ package body Binde is
                           (Corresponding_Body (Withed_Unit), U, Elab);
                      end if;
 
-                     --  Elaborate_Desirable case, for this we establish
-                     --  the same links as above, but with a different reason.
+                  --  Elaborate_Desirable case, for this we establish
+                  --  the same links as above, but with a different reason.
 
                   elsif Withs.Table (W).Elab_Desirable then
                      Build_Link (Withed_Unit, U, Withed);
@@ -1288,8 +1290,14 @@ package body Binde is
                            U, Elab_Desirable);
                      end if;
 
-                     --  Case of normal WITH with no elaboration pragmas, just
-                     --  build the single link to the directly referenced unit
+                  --  A limited_with does not establish an elaboration
+                  --  dependence (that's the whole point!).
+
+                  elsif Withs.Table (W).Limited_With then
+                     null;
+
+                  --  Case of normal WITH with no elaboration pragmas, just
+                  --  build the single link to the directly referenced unit
 
                   else
                      Build_Link (Withed_Unit, U, Withed);
@@ -1371,18 +1379,18 @@ package body Binde is
 
       --  Prefer anything else to a waiting body (!)
 
-      elsif Is_Waiting_Body (U1) and not Is_Waiting_Body (U2) then
+      elsif Is_Waiting_Body (U1) and then not Is_Waiting_Body (U2) then
          return False;
 
-      elsif Is_Waiting_Body (U2) and not Is_Waiting_Body (U1) then
+      elsif Is_Waiting_Body (U2) and then not Is_Waiting_Body (U1) then
          return True;
 
       --  Prefer a spec to a body (!)
 
-      elsif Is_Body_Unit (U1) and not Is_Body_Unit (U2) then
+      elsif Is_Body_Unit (U1) and then not Is_Body_Unit (U2) then
          return False;
 
-      elsif Is_Body_Unit (U2) and not Is_Body_Unit (U1) then
+      elsif Is_Body_Unit (U2) and then not Is_Body_Unit (U1) then
          return True;
 
       --  If both are waiting bodies, then prefer the one whose spec is

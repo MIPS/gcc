@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                     Copyright (C) 2000-2007, AdaCore                     --
+--                     Copyright (C) 2000-2009, AdaCore                     --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -30,6 +30,8 @@
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
+
+pragma Compiler_Unit;
 
 with GNAT.Heap_Sort_G;
 with System;        use System;
@@ -64,10 +66,7 @@ package body GNAT.Dynamic_Tables is
    -- Allocate --
    --------------
 
-   procedure Allocate
-     (T   : in out Instance;
-      Num : Integer := 1)
-   is
+   procedure Allocate (T : in out Instance; Num : Integer := 1) is
    begin
       T.P.Last_Val := T.P.Last_Val + Num;
 
@@ -84,6 +83,17 @@ package body GNAT.Dynamic_Tables is
    begin
       Set_Item (T, Table_Index_Type (T.P.Last_Val + 1), New_Val);
    end Append;
+
+   ----------------
+   -- Append_All --
+   ----------------
+
+   procedure Append_All (T : in out Instance; New_Vals : Table_Type) is
+   begin
+      for J in New_Vals'Range loop
+         Append (T, New_Vals (J));
+      end loop;
+   end Append_All;
 
    --------------------
    -- Decrement_Last --
@@ -257,7 +267,7 @@ package body GNAT.Dynamic_Tables is
       --  checks are suppressed because this unit uses direct calls to
       --  System.Memory for allocation, and this can yield misaligned storage
       --  (and we cannot rely on the bootstrap compiler supporting specifically
-      --  disabling alignment cheks, so we need to suppress all range checks).
+      --  disabling alignment checks, so we need to suppress all range checks).
       --  It is safe to suppress this check here because we know that a
       --  (possibly misaligned) object of that type does actually exist at that
       --  address.
@@ -269,7 +279,7 @@ package body GNAT.Dynamic_Tables is
       --  involve moving table contents around).
 
    begin
-      --  If we're going to reallocate, check wheter Item references an
+      --  If we're going to reallocate, check whether Item references an
       --  element of the currently allocated table.
 
       if Need_Realloc

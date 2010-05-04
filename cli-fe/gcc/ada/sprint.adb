@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -35,6 +35,8 @@ with Nlists;   use Nlists;
 with Opt;      use Opt;
 with Output;   use Output;
 with Rtsfind;  use Rtsfind;
+with Sem_Eval; use Sem_Eval;
+with Sem_Util; use Sem_Util;
 with Sinfo;    use Sinfo;
 with Sinput;   use Sinput;
 with Sinput.D; use Sinput.D;
@@ -85,9 +87,6 @@ package body Sprint is
    Last_Line_Printed : Physical_Line_Number;
    --  This keeps track of the physical line number of the last source line
    --  that has been output. The value is only valid in Dump_Source_Text mode.
-
-   Line_Limit : constant := 72;
-   --  Limit value for chopping long lines
 
    -------------------------------
    -- Operator Precedence Table --
@@ -166,11 +165,6 @@ package body Sprint is
    procedure Indent_End;
    --  Decrease indentation level
 
-   procedure Note_Implicit_Run_Time_Call (N : Node_Id);
-   --  N is the Name field of a function call or procedure statement call.
-   --  The effect of the call is to output a $ if the call is identified as
-   --  an implicit call to a run time routine.
-
    procedure Print_Debug_Line (S : String);
    --  Used to print output lines in Debug_Generated_Code mode (this is used
    --  as the argument for a call to Set_Special_Output in package Output).
@@ -229,7 +223,7 @@ package body Sprint is
    --  then output all source lines up to this matching line.
 
    procedure Write_Discr_Specs (N : Node_Id);
-   --  Ouput discriminant specification for node, which is any of the type
+   --  Output discriminant specification for node, which is any of the type
    --  declarations that can have discriminants.
 
    procedure Write_Ekind (E : Entity_Id);
@@ -268,7 +262,7 @@ package body Sprint is
 
    function Write_Indent_Identifiers_Sloc (Node : Node_Id) return Boolean;
    --  Like Write_Indent_Identifiers except that in Debug_Generated_Code
-   --  mode, the Sloc of the current debug node is set to point ot the
+   --  mode, the Sloc of the current debug node is set to point to the
    --  first output identifier.
 
    procedure Write_Indent_Str (S : String);
@@ -327,8 +321,13 @@ package body Sprint is
    --  initial Write_Indent (to get new line) if current line is too full.
 
    procedure Write_Str_With_Col_Check_Sloc (S : String);
-   --  Like Write_Str_WIth_Col_Check, but sets debug Sloc of current debug
+   --  Like Write_Str_With_Col_Check, but sets debug Sloc of current debug
    --  node to first non-blank character if a current debug node is active.
+
+   procedure Write_Subprogram_Name (N : Node_Id);
+   --  N is the Name field of a function call or procedure statement call.
+   --  The effect of the call is to output the name, preceded by a $ if the
+   --  call is identified as an implicit call to a run time routine.
 
    procedure Write_Uint_With_Col_Check (U : Uint; Format : UI_Format);
    --  Write Uint (using UI_Write) with initial column check, and possible
@@ -354,7 +353,7 @@ package body Sprint is
 
    procedure Col_Check (N : Nat) is
    begin
-      if N + Column > Line_Limit then
+      if N + Column > Sprint_Line_Limit then
          Write_Indent_Str ("  ");
       end if;
    end Col_Check;
@@ -396,30 +395,6 @@ package body Sprint is
    begin
       Indent := Indent - 3;
    end Indent_End;
-
-   ---------------------------------
-   -- Note_Implicit_Run_Time_Call --
-   ---------------------------------
-
-   procedure Note_Implicit_Run_Time_Call (N : Node_Id) is
-   begin
-      if not Comes_From_Source (N)
-        and then Is_Entity_Name (N)
-      then
-         declare
-            Ent : constant Entity_Id := Entity (N);
-         begin
-            if not In_Extended_Main_Source_Unit (Ent)
-              and then
-                Is_Predefined_File_Name
-                  (Unit_File_Name (Get_Source_Unit (Ent)))
-            then
-               Col_Check (Length_Of_Name (Chars (Ent)));
-               Write_Char ('$');
-            end if;
-         end;
-      end if;
-   end Note_Implicit_Run_Time_Call;
 
    --------
    -- pg --
@@ -552,7 +527,7 @@ package body Sprint is
          Write_Eol;
       end Underline;
 
-   --  Start of processing for Tree_Dump
+   --  Start of processing for Source_Dump
 
    begin
       Dump_Generated_Only := Debug_Flag_G or
@@ -963,12 +938,16 @@ package body Sprint is
                if Present (Expressions (Node)) then
                   Sprint_Comma_List (Expressions (Node));
 
-                  if Present (Component_Associations (Node)) then
+                  if Present (Component_Associations (Node))
+                    and then not Is_Empty_List (Component_Associations (Node))
+                  then
                      Write_Str (", ");
                   end if;
                end if;
 
-               if Present (Component_Associations (Node)) then
+               if Present (Component_Associations (Node))
+                 and then not Is_Empty_List (Component_Associations (Node))
+               then
                   Indent_Begin;
 
                   declare
@@ -1040,7 +1019,7 @@ package body Sprint is
             Indent_End;
 
             --  Note: let the printing of Abortable_Part handle outputting
-            --  the ABORT keyword, so that the Slco can be set correctly.
+            --  the ABORT keyword, so that the Sloc can be set correctly.
 
             Write_Indent_Str ("then ");
             Sprint_Node (Abortable_Part (Node));
@@ -1118,7 +1097,7 @@ package body Sprint is
             Sprint_Indented_List (Statements (Node));
 
          when N_Character_Literal =>
-            if Column > 70 then
+            if Column > Sprint_Line_Limit - 2 then
                Write_Indent_Str ("  ");
             end if;
 
@@ -1331,6 +1310,7 @@ package body Sprint is
             Sprint_Node (Subtype_Indication (Node));
 
             if Present (Interface_List (Node)) then
+               Write_Str_With_Col_Check (" and ");
                Sprint_And_List (Interface_List (Node));
                Write_Str_With_Col_Check (" with ");
             end if;
@@ -1575,6 +1555,11 @@ package body Sprint is
             Write_Str_With_Col_Check_Sloc ("new ");
             Sprint_Node (Subtype_Mark (Node));
 
+            if Present (Interface_List (Node)) then
+               Write_Str_With_Col_Check (" and ");
+               Sprint_And_List (Interface_List (Node));
+            end if;
+
             if Private_Present (Node) then
                Write_Str_With_Col_Check (" with private");
             end if;
@@ -1741,8 +1726,7 @@ package body Sprint is
 
          when N_Function_Call =>
             Set_Debug_Sloc;
-            Note_Implicit_Run_Time_Call (Name (Node));
-            Sprint_Node (Name (Node));
+            Write_Subprogram_Name (Name (Node));
             Sprint_Opt_Paren_Comma_List (Parameter_Associations (Node));
 
          when N_Function_Instantiation =>
@@ -1877,7 +1861,12 @@ package body Sprint is
          when N_In =>
             Sprint_Left_Opnd (Node);
             Write_Str_Sloc (" in ");
-            Sprint_Right_Opnd (Node);
+
+            if Present (Right_Opnd (Node)) then
+               Sprint_Right_Opnd (Node);
+            else
+               Sprint_Bar_List (Alternatives (Node));
+            end if;
 
          when N_Incomplete_Type_Declaration =>
             Write_Indent_Str_Sloc ("type ");
@@ -1976,7 +1965,12 @@ package body Sprint is
          when N_Not_In =>
             Sprint_Left_Opnd (Node);
             Write_Str_Sloc (" not in ");
-            Sprint_Right_Opnd (Node);
+
+            if Present (Right_Opnd (Node)) then
+               Sprint_Right_Opnd (Node);
+            else
+               Sprint_Bar_List (Alternatives (Node));
+            end if;
 
          when N_Null =>
             Write_Str_With_Col_Check_Sloc ("null");
@@ -2327,10 +2321,9 @@ package body Sprint is
                   Write_Str_With_Col_Check ("out ");
                end if;
 
-               --  Ada 2005 (AI-231) parameter specification may carry
-               --  null exclusion. Do not print it now if this is an
-               --  access parameter, it is emitted when the access
-               --  definition is displayed.
+               --  Ada 2005 (AI-231): Parameter specification may carry null
+               --  exclusion. Do not print it now if this is an access formal,
+               --  it is emitted when the access definition is displayed.
 
                if Null_Exclusion_Present (Node)
                  and then Nkind (Parameter_Type (Node))
@@ -2387,7 +2380,7 @@ package body Sprint is
 
          when N_Pragma =>
             Write_Indent_Str_Sloc ("pragma ");
-            Write_Name_With_Col_Check (Chars (Node));
+            Write_Name_With_Col_Check (Pragma_Name (Node));
 
             if Present (Pragma_Argument_Associations (Node)) then
                Sprint_Opt_Paren_Comma_List
@@ -2440,13 +2433,18 @@ package body Sprint is
 
             Write_Str_With_Col_Check (" is new ");
             Sprint_Node (Subtype_Indication (Node));
+
+            if Present (Interface_List (Node)) then
+               Write_Str_With_Col_Check (" and ");
+               Sprint_And_List (Interface_List (Node));
+            end if;
+
             Write_Str_With_Col_Check (" with private;");
 
          when N_Procedure_Call_Statement =>
             Write_Indent;
             Set_Debug_Sloc;
-            Note_Implicit_Run_Time_Call (Name (Node));
-            Sprint_Node (Name (Node));
+            Write_Subprogram_Name (Name (Node));
             Sprint_Opt_Paren_Comma_List (Parameter_Associations (Node));
             Write_Char (';');
 
@@ -2640,6 +2638,26 @@ package body Sprint is
 
             Write_Char (';');
 
+         --  Don't we want to print more detail???
+
+         --  Doc of this extended syntax belongs in sinfo.ads and/or
+         --  sprint.ads ???
+
+         when N_SCIL_Dispatch_Table_Object_Init =>
+            Write_Indent_Str ("[N_SCIL_Dispatch_Table_Object_Init]");
+
+         when N_SCIL_Dispatch_Table_Tag_Init =>
+            Write_Indent_Str ("[N_SCIL_Dispatch_Table_Tag_Init]");
+
+         when N_SCIL_Dispatching_Call =>
+            Write_Indent_Str ("[N_SCIL_Dispatching_Node]");
+
+         when N_SCIL_Membership_Test =>
+            Write_Indent_Str ("[N_SCIL_Membership_Test]");
+
+         when N_SCIL_Tag_Init =>
+            Write_Indent_Str ("[N_SCIL_Dispatch_Table_Tag_Init]");
+
          when N_Simple_Return_Statement =>
             if Present (Expression (Node)) then
                Write_Indent_Str_Sloc ("return ");
@@ -2711,7 +2729,7 @@ package body Sprint is
             Write_Char (')');
 
          when N_String_Literal =>
-            if String_Length (Strval (Node)) + Column > 75 then
+            if String_Length (Strval (Node)) + Column > Sprint_Line_Limit then
                Write_Indent_Str ("  ");
             end if;
 
@@ -3664,10 +3682,12 @@ package body Sprint is
                Write_Char (' ');
             end loop;
 
-            --  If we have a constructed declaration, print it
+            --  If we have a constructed declaration for the itype, print it
 
-            if Present (P) and then Nkind (P) in N_Declaration then
-
+            if Present (P)
+              and then Nkind (P) in N_Declaration
+              and then Defining_Entity (P) = Typ
+            then
                --  We must set Itype_Printed true before the recursive call to
                --  print the node, otherwise we get an infinite recursion!
 
@@ -3708,7 +3728,7 @@ package body Sprint is
 
                      Write_Id (Directly_Designated_Type (Typ));
 
-                     --  Array types and string types
+                  --  Array types and string types
 
                   when E_Array_Type | E_String_Type =>
                      Write_Header;
@@ -3728,9 +3748,17 @@ package body Sprint is
                      end loop;
 
                      Write_Str (") of ");
-                     Sprint_Node (Component_Type (Typ));
+                     X := Component_Type (Typ);
 
-                     --  Array subtypes and string subtypes
+                     --  Preserve sloc of component type, which is defined
+                     --  elsewhere than the itype (see comment above).
+
+                     Old_Sloc := Sloc (X);
+                     Sprint_Node (X);
+                     Set_Sloc (X, Old_Sloc);
+
+                     --  Array subtypes and string subtypes.
+                     --  Preserve Sloc of index subtypes, as above.
 
                   when E_Array_Subtype | E_String_Subtype =>
                      Write_Header (False);
@@ -3739,7 +3767,9 @@ package body Sprint is
 
                      X := First_Index (Typ);
                      loop
+                        Old_Sloc := Sloc (X);
                         Sprint_Node (X);
+                        Set_Sloc (X, Old_Sloc);
                         Next_Index (X);
                         exit when No (X);
                         Write_Str (", ");
@@ -3747,11 +3777,13 @@ package body Sprint is
 
                      Write_Char (')');
 
-                     --  Signed integer types, and modular integer subtypes
+                  --  Signed integer types, and modular integer subtypes,
+                  --  and also enumeration subtypes.
 
                   when E_Signed_Integer_Type     |
                        E_Signed_Integer_Subtype  |
-                       E_Modular_Integer_Subtype =>
+                       E_Modular_Integer_Subtype |
+                       E_Enumeration_Subtype     =>
 
                      Write_Header (Ekind (Typ) = E_Signed_Integer_Type);
 
@@ -3803,14 +3835,14 @@ package body Sprint is
                         end if;
                      end;
 
-                     --  Modular integer types
+                  --  Modular integer types
 
                   when E_Modular_Integer_Type =>
                      Write_Header;
                      Write_Str (" mod ");
                      Write_Uint_With_Col_Check (Modulus (Typ), Auto);
 
-                     --  Floating point types and subtypes
+                  --  Floating point types and subtypes
 
                   when E_Floating_Point_Type    |
                        E_Floating_Point_Subtype =>
@@ -3933,7 +3965,7 @@ package body Sprint is
                   when E_String_Literal_Subtype =>
                      declare
                         LB  : constant Uint :=
-                                Intval (String_Literal_Low_Bound (Typ));
+                                Expr_Value (String_Literal_Low_Bound (Typ));
                         Len : constant Uint :=
                                 String_Literal_Length (Typ);
                      begin
@@ -4086,8 +4118,8 @@ package body Sprint is
             exit when Spec = Empty;
 
             --  Add semicolon, unless we are printing original tree and the
-            --  next specification is part of a list (but not the first
-            --  element of that list)
+            --  next specification is part of a list (but not the first element
+            --  of that list).
 
             if not Dump_Original_Only or else not Prev_Ids (Spec) then
                Write_Str ("; ");
@@ -4195,7 +4227,7 @@ package body Sprint is
 
    procedure Write_Str_With_Col_Check (S : String) is
    begin
-      if Int (S'Last) + Column > Line_Limit then
+      if Int (S'Last) + Column > Sprint_Line_Limit then
          Write_Indent_Str ("  ");
 
          if S (S'First) = ' ' then
@@ -4215,7 +4247,7 @@ package body Sprint is
 
    procedure Write_Str_With_Col_Check_Sloc (S : String) is
    begin
-      if Int (S'Last) + Column > Line_Limit then
+      if Int (S'Last) + Column > Sprint_Line_Limit then
          Write_Indent_Str ("  ");
 
          if S (S'First) = ' ' then
@@ -4228,6 +4260,39 @@ package body Sprint is
          Write_Str_Sloc (S);
       end if;
    end Write_Str_With_Col_Check_Sloc;
+
+   ---------------------------
+   -- Write_Subprogram_Name --
+   ---------------------------
+
+   procedure Write_Subprogram_Name (N : Node_Id) is
+   begin
+      if not Comes_From_Source (N)
+        and then Is_Entity_Name (N)
+      then
+         declare
+            Ent : constant Entity_Id := Entity (N);
+         begin
+            if not In_Extended_Main_Source_Unit (Ent)
+              and then
+                Is_Predefined_File_Name
+                  (Unit_File_Name (Get_Source_Unit (Ent)))
+            then
+               --  Run-time routine name, output name with a preceding dollar
+               --  making sure that we do not get a line split between them.
+
+               Col_Check (Length_Of_Name (Chars (Ent)) + 1);
+               Write_Char ('$');
+               Write_Name (Chars (Ent));
+               return;
+            end if;
+         end;
+      end if;
+
+      --  Normal case, not a run-time routine name
+
+      Sprint_Node (N);
+   end Write_Subprogram_Name;
 
    -------------------------------
    -- Write_Uint_With_Col_Check --

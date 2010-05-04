@@ -6,29 +6,36 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *            Copyright (C) 2005-2007, Free Software Foundation, Inc.       *
+ *            Copyright (C) 2005-2009, Free Software Foundation, Inc.       *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
- * ware  Foundation;  either version 2,  or (at your option) any later ver- *
+ * ware  Foundation;  either version 3,  or (at your option) any later ver- *
  * sion.  GNAT is distributed in the hope that it will be useful, but WITH- *
  * OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY *
- * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License *
- * for  more details.  You should have  received  a copy of the GNU General *
- * Public License  distributed with GNAT;  see file COPYING.  If not, write *
- * to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, *
- * Boston, MA 02110-1301, USA.                                              *
+ * or FITNESS FOR A PARTICULAR PURPOSE.                                     *
  *                                                                          *
- * As a  special  exception,  if you  link  this file  with other  files to *
- * produce an executable,  this file does not by itself cause the resulting *
- * executable to be covered by the GNU General Public License. This except- *
- * ion does not  however invalidate  any other reasons  why the  executable *
- * file might be covered by the  GNU Public License.                        *
+ * As a special exception under Section 7 of GPL version 3, you are granted *
+ * additional permissions described in the GCC Runtime Library Exception,   *
+ * version 3.1, as published by the Free Software Foundation.               *
+ *                                                                          *
+ * You should have received a copy of the GNU General Public License and    *
+ * a copy of the GCC Runtime Library Exception along with this program;     *
+ * see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see    *
+ * <http://www.gnu.org/licenses/>.                                          *
  *                                                                          *
  * GNAT was originally developed  by the GNAT team at  New York University. *
  * Extensive contributions were provided by Ada Core Technologies Inc.      *
  *                                                                          *
  ****************************************************************************/
+
+/* Tru64 UNIX V4.0F <stdlib.h> declares unsetenv() only if AES_SOURCE (which
+   is plain broken, this should be _AES_SOURCE instead as everywhere else;
+   Tru64 UNIX V5.1B declares it only if _BSD.  */
+#if defined (__alpha__) && defined (__osf__)
+#define AES_SOURCE
+#define _BSD
+#endif
 
 #ifdef IN_RTS
 #include "tconfig.h"
@@ -41,15 +48,12 @@
 #include <unixio.h>
 #endif
 
-#if defined (__APPLE__)
-#include <crt_externs.h>
-#endif
-
 #if defined (__MINGW32__)
 #include <stdlib.h>
 #endif
 
-#if defined (__vxworks) && ! (defined (__RTP__) || defined (__COREOS__))
+#if defined (__vxworks) \
+  && ! (defined (__RTP__) || defined (__COREOS__) || defined (__VXWORKSMILS__))
 #include "envLib.h"
 extern char** ppGlobalEnviron;
 #endif
@@ -60,6 +64,10 @@ extern char** ppGlobalEnviron;
 #include "config.h"
 #include "system.h"
 #endif /* IN_RTS */
+
+#if defined (__APPLE__)
+#include <crt_externs.h>
+#endif
 
 #include "env.h"
 
@@ -166,7 +174,7 @@ __gnat_setenv (char *name, char *value)
       LIB$SIGNAL (status);
   }
 
-#elif defined (__vxworks) && defined (__RTP__)
+#elif (defined (__vxworks) && defined (__RTP__)) || defined (__APPLE__)
   setenv (name, value, 1);
 
 #else
@@ -177,11 +185,12 @@ __gnat_setenv (char *name, char *value)
 
   sprintf (expression, "%s=%s", name, value);
   putenv (expression);
-#if (defined (__FreeBSD__) && (__FreeBSD__ < 7)) || defined (__APPLE__) \
-   || defined (__MINGW32__) ||(defined (__vxworks) && ! defined (__RTP__))
-  /* On some systems like pre-7 FreeBSD, MacOS X and Windows, putenv is making
-     a copy of the expression string so we can free it after the call to
-     putenv */
+#if (defined (__FreeBSD__) && (__FreeBSD__ < 7)) \
+   || defined (__MINGW32__) \
+   ||(defined (__vxworks) && ! defined (__RTP__))
+  /* On some systems like FreeBSD 6.x and earlier, MacOS X and Windows,
+     putenv is making a copy of the expression string so we can free
+     it after the call to putenv */
   free (expression);
 #endif
 #endif
@@ -190,7 +199,8 @@ __gnat_setenv (char *name, char *value)
 char **
 __gnat_environ (void)
 {
-#if defined (VMS)
+#if defined (VMS) || defined (RTX) \
+   || (defined (VTHREADS) && ! defined (__VXWORKSMILS__))
   /* Not implemented */
   return NULL;
 #elif defined (__APPLE__)
@@ -202,9 +212,11 @@ __gnat_environ (void)
   extern char **_environ;
   return _environ;
 #else
-#if ! (defined (__vxworks) && ! (defined (__RTP__) || defined (__COREOS__)))
+#if ! (defined (__vxworks) \
+   && ! (defined (__RTP__) || defined (__COREOS__) \
+   || defined (__VXWORKSMILS__)))
   /* in VxWorks kernel mode environ is macro and not a variable */
-  /* same thing on 653 in the CoreOS */
+  /* same thing on 653 in the CoreOS and for VxWorks MILS vThreads */
   extern char **environ;
 #endif
   return environ;
@@ -289,7 +301,7 @@ void __gnat_clearenv (void) {
   }
 #elif defined (__MINGW32__) || defined (__FreeBSD__) || defined (__APPLE__) \
    || (defined (__vxworks) && defined (__RTP__)) || defined (__CYGWIN__) \
-   || defined (__NetBSD__)
+   || defined (__NetBSD__) || defined (__OpenBSD__) || defined (__rtems__)
   /* On Windows, FreeBSD and MacOS there is no function to clean all the
      environment but there is a "clean" way to unset a variable. So go
      through the environ table and call __gnat_unsetenv on all entries */

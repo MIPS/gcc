@@ -1,4 +1,4 @@
-#   Copyright (C) 2000, 2002, 2003, 2007 Free Software Foundation, Inc.
+# Copyright (C) 2000, 2002, 2003, 2007, 2008 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,6 +18,11 @@
 # g++-dg.exp.
 
 # Utility for scanning compiler result, invoked via dg-final.
+
+# Transform newline and similar characters into their escaped form.
+proc make_pattern_printable { pattern } {
+    return [string map {\t \\t \n \\n \r \\r \\ \\\\} $pattern]
+}
 
 # Scan the OUTPUT_FILE for a pattern.  If it is present and POSITIVE
 # is non-zero, or it is not present and POSITIVE is zero, the test
@@ -52,7 +57,7 @@ proc dg-scan { name positive testcase output_file orig_args } {
     close $fd
 
     set pattern [lindex $orig_args 0]
-    set printable_pattern [string map {\t \\t \n \\n \r \\r \\ \\\\} $pattern]
+    set printable_pattern [make_pattern_printable $pattern]
 
     set match [regexp -- $pattern $text]
     if { $match == $positive } {
@@ -67,6 +72,7 @@ proc dg-scan { name positive testcase output_file orig_args } {
 
 proc scan-assembler { args } {
     upvar 2 name testcase
+    set testcase [lindex $testcase 0]
     set output_file "[file rootname [file tail $testcase]].s"
 
     dg-scan "scan-assembler" 1 $testcase $output_file $args
@@ -77,6 +83,7 @@ proc scan-assembler { args } {
 
 proc scan-assembler-not { args } {
     upvar 2 name testcase
+    set testcase [lindex $testcase 0]
     set output_file "[file rootname [file tail $testcase]].s"
 
     dg-scan "scan-assembler-not" 0 $testcase $output_file $args
@@ -102,6 +109,7 @@ proc hidden-scan-for { symbol } {
 
 proc scan-hidden { args } {
     upvar 2 name testcase
+    set testcase [lindex $testcase 0]
     set output_file "[file rootname [file tail $testcase]].s"
 
     set symbol [lindex $args 0]
@@ -118,6 +126,7 @@ proc scan-hidden { args } {
 
 proc scan-not-hidden { args } {
     upvar 2 name testcase
+    set testcase [lindex $testcase 0]
     set output_file "[file rootname [file tail $testcase]].s"
 
     set symbol [lindex $args 0]
@@ -132,6 +141,7 @@ proc scan-not-hidden { args } {
 
 proc scan-file { output_file args } {
     upvar 2 name testcase
+    set testcase [lindex $testcase 0]
     dg-scan "scan-file" 1 $testcase $output_file $args
 }
 
@@ -140,6 +150,7 @@ proc scan-file { output_file args } {
 
 proc scan-file-not { output_file args } {
     upvar 2 name testcase
+    set testcase [lindex $testcase 0]
     dg-scan "scan-file-not" 0 $testcase $output_file $args
 }
 
@@ -166,6 +177,7 @@ proc scan-assembler-times { args } {
     # it still stores the filename of the testcase in a local variable "name".
     # A cleaner solution would require a new dejagnu release.
     upvar 2 name testcase
+    set testcase [lindex $testcase 0]
 
     # This must match the rule in gcc-dg.exp.
     set output_file "[file rootname [file tail $testcase]].s"
@@ -174,10 +186,12 @@ proc scan-assembler-times { args } {
     set text [read $fd]
     close $fd
 
-    if { [llength [regexp -inline -all -- [lindex $args 0] $text]] == [lindex $args 1]} {
-	pass "$testcase scan-assembler-times [lindex $args 0] [lindex $args 1]"
+    set pattern [lindex $args 0]
+    set pp_pattern [make_pattern_printable $pattern]
+    if { [llength [regexp -inline -all -- $pattern $text]] == [lindex $args 1]} {
+	pass "$testcase scan-assembler-times $pp_pattern [lindex $args 1]"
     } else {
-	fail "$testcase scan-assembler-times [lindex $args 0] [lindex $args 1]"
+	fail "$testcase scan-assembler-times $pp_pattern [lindex $args 1]"
     }
 }
 
@@ -215,15 +229,18 @@ proc scan-assembler-dem { args } {
     }
 
     upvar 2 name testcase
+    set testcase [lindex $testcase 0]
     set output_file "[file rootname [file tail $testcase]].s"
 
     set output [remote_exec host "$cxxfilt" "" "$output_file"]
     set text [lindex $output 1]
 
-    if [regexp -- [lindex $args 0] $text] {
-	pass "$testcase scan-assembler-dem [lindex $args 0]"
+    set pattern [lindex $args 0]
+    set pp_pattern [make_pattern_printable $pattern]
+    if [regexp -- $pattern $text] {
+	pass "$testcase scan-assembler-dem $pp_pattern"
     } else {
-	fail "$testcase scan-assembler-dem [lindex $args 0]"
+	fail "$testcase scan-assembler-dem $pp_pattern"
     }
 }
 
@@ -260,14 +277,17 @@ proc scan-assembler-dem-not { args } {
     }
 
     upvar 2 name testcase
+    set testcase [lindex $testcase 0]
     set output_file "[file rootname [file tail $testcase]].s"
 
     set output [remote_exec host "$cxxfilt" "" "$output_file"]
     set text [lindex $output 1]
 
-    if ![regexp -- [lindex $args 0] $text] {
-	pass "$testcase scan-assembler-dem-not [lindex $args 0]"
+    set pattern [lindex $args 0]
+    set pp_pattern [make_pattern_printable $pattern]
+    if ![regexp -- $pattern $text] {
+	pass "$testcase scan-assembler-dem-not $pp_pattern"
     } else {
-	fail "$testcase scan-assembler-dem-not [lindex $args 0]"
+	fail "$testcase scan-assembler-dem-not $pp_pattern"
     }
 }

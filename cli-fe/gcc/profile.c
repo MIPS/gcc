@@ -1,6 +1,6 @@
 /* Calculate branch probabilities, and basic block execution counts.
    Copyright (C) 1990, 1991, 1992, 1993, 1994, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004, 2005, 2007
+   2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by James E. Wilson, UC Berkeley/Cygnus Support;
    based on some ideas from Dain Samples of UC Berkeley.
@@ -68,22 +68,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "timevar.h"
 #include "cfgloop.h"
 #include "tree-pass.h"
-#include "splay-tree.h"
+
+#include "profile.h"
 
 /* Hooks for profiling.  */
 static struct profile_hooks* profile_hooks;
-
-/* Additional information about the edges we need.  */
-struct edge_info {
-  unsigned int count_valid : 1;
-
-  /* Is on the spanning tree.  */
-  unsigned int on_tree : 1;
-
-  /* Pretend this edge does not exist (it is abnormal and we've
-     inserted a fake to compensate).  */
-  unsigned int ignore : 1;
-};
 
 struct bb_info {
   unsigned int count_valid : 1;
@@ -93,8 +82,8 @@ struct bb_info {
   gcov_type pred_count;
 };
 
-#define EDGE_INFO(e)  ((struct edge_info *) (e)->aux)
 #define BB_INFO(b)  ((struct bb_info *) (b)->aux)
+
 
 /* Counter summary from the last set of coverage counts read.  */
 
@@ -111,7 +100,6 @@ static int total_num_blocks_created;
 static int total_num_passes;
 static int total_num_times_called;
 static int total_hist_br_prob[20];
-static int total_num_never_executed;
 static int total_num_branches;
 
 /* Forward declarations.  */
@@ -124,7 +112,6 @@ static gcov_type * get_exec_counts (void);
 static basic_block find_group (basic_block);
 static void union_groups (basic_block, basic_block);
 
-
 /* Add edge instrumentation code to the entire insn chain.
 
    F is the first insn of the chain.
@@ -278,312 +265,135 @@ get_exec_counts (void)
 
   return counts;
 }
-
 
-struct location_profile_info
+
+static bool
+is_edge_inconsistent (VEC(edge,gc) *edges)
 {
-  int exec_count;
-  splay_tree edges; /* destination:int -> count:int */
-};
-
-struct location_profile_info_file
-{
-  splay_tree locations; /* location:int -> location_profile_info */
-};
-
-static splay_tree location_profile_info_files = NULL; /* file_name : char* -> location_profile_info_file */
-
-static int
-splay_tree_compare_strings (splay_tree_key k1, splay_tree_key k2)
-{
-  int c = strcmp ((const char *) k1, (const char *) k2);
-  if (c < 0)
-    return -1;
-  else if (c > 0)
-    return 1;
-  else 
-    return 0;
-}
-
-void
-location_profile_info_init (void)
-{
-  if (!location_profile_info_files)
+  edge e;
+  edge_iterator ei;
+  FOR_EACH_EDGE (e, ei, edges)
     {
-      location_profile_info_files = splay_tree_new (splay_tree_compare_strings, NULL, NULL);
-    }
-}
-
-static struct location_profile_info_file *
-location_profile_info_get_file_info (const char *file)
-{
-  splay_tree_node node;
-  if (!location_profile_info_files)
-    {
-      return NULL;
-    }
-  node = splay_tree_lookup (location_profile_info_files, (splay_tree_key) file);
-  if (!node)
-    {
-      struct location_profile_info_file *ret = XNEW (struct location_profile_info_file);
-      char *key = xstrdup (file);
-      ret->locations = splay_tree_new (splay_tree_compare_ints, NULL, NULL);
-      node = splay_tree_insert (location_profile_info_files, (splay_tree_key) key, (splay_tree_value) ret);
-    }
-  return (struct location_profile_info_file *) node->value;
-}
-
-static struct location_profile_info *
-location_profile_info_file_get_location_info (struct location_profile_info_file *fi, int line)
-{
-  splay_tree_node node = splay_tree_lookup (fi->locations, (splay_tree_key) line);
-  if (!node)
-    {
-      struct location_profile_info *ret = XNEW (struct location_profile_info);
-      ret->exec_count = 0;
-      ret->edges = splay_tree_new (splay_tree_compare_ints, NULL, NULL);
-      node = splay_tree_insert (fi->locations, (splay_tree_key) line, (splay_tree_value) ret);
-    }
-  return (struct location_profile_info *) node->value;
-}
-
-static struct location_profile_info *
-location_profile_info_file_get_nearest_location_info (struct location_profile_info_file *fi, int line, int *used_line)
-{
-  splay_tree_node node = splay_tree_lookup (fi->locations, (splay_tree_key) line);
-  if (!node)
-    {
-      node = splay_tree_predecessor (fi->locations, (splay_tree_key) line);
-    }
-  if (!node)
-    {
-      if (used_line)
+      if (!EDGE_INFO (e)->ignore)
         {
-          *used_line = -1;
-        }
-      return NULL;
-    }
-  if (used_line)
-    {
-      *used_line = (int) node->key;
-    }
-  return (struct location_profile_info *) node->value;
-}
-
-static int
-location_profile_info_get_nearest_count_info (struct location_profile_info *li, int line, int *used_line)
-{
-  splay_tree_node node = splay_tree_lookup (li->edges, (splay_tree_key) line);
-  if (!node)
-    {
-      node = splay_tree_predecessor (li->edges, (splay_tree_key) line);
-    }
-  if (!node)
-    {
-      if (used_line)
-        {
-          *used_line = -1;
-        }
-      return 0;
-    }
-  if (used_line)
-    {
-      *used_line = (int) node->key;
-    }
-  return (int) node->value;
-}
-
-void
-location_profile_info_add_edge_count (const char *file, int src_line, int dst_line, int count)
-{
-  struct location_profile_info_file *file_info = location_profile_info_get_file_info (file);
-  if (file_info) 
-    {
-      struct location_profile_info *location_info = location_profile_info_file_get_location_info (file_info, src_line);
-      int current_count;
-      splay_tree_node node = splay_tree_lookup (location_info->edges, (splay_tree_key) dst_line);
-      if (node)
-        {
-          current_count = (int) node->value;
-        }
-      else
-        {
-          current_count = 0;
-        }
-      splay_tree_insert (location_info->edges, (splay_tree_key) dst_line, (splay_tree_value) (current_count + count));
-    }
-}
-
-void
-location_profile_info_add_bb_exec_count (const char *file, int bb_line, int count)
-{
-  struct location_profile_info_file *file_info = location_profile_info_get_file_info (file);
-  if (file_info)
-    {
-      struct location_profile_info *location_info = location_profile_info_file_get_location_info (file_info, bb_line);
-      int current_count = location_info->exec_count;
-      location_info->exec_count = current_count + count;
-    }
-}
-
-static int 
-location_profile_info_dump_edge (splay_tree_node n, void *d)
-{
-  FILE *f = d;
-  int v = (int) n->value;
-  fprintf (f, "-> %x: %d\n", (int) n->key, v);
-  return 0;
-}
-
-static int 
-location_profile_info_dump_location (splay_tree_node n, void *d)
-{
-  FILE *f = d;
-  struct location_profile_info *v = (struct location_profile_info *) n->value;
-  fprintf (f, "%x\n", (int) n->key);
-  splay_tree_foreach (v->edges, location_profile_info_dump_edge, f);  
-  return 0;
-}
-
-static int 
-location_profile_info_dump_file (splay_tree_node n, void *d)
-{
-  FILE *f = d;
-  struct location_profile_info_file *v = (struct location_profile_info_file *) n->value;
-  fprintf (f, "File: '%s'\n", (const char *) n->key);
-  splay_tree_foreach (v->locations, location_profile_info_dump_location, f);  
-  return 0;
-}
-
-void
-location_profile_info_dump (FILE *f)
-{
-  splay_tree_foreach (location_profile_info_files, location_profile_info_dump_file, f);
-}
-
-static location_t 
-basic_block_get_location (basic_block bb)
-{
-  while (bb)
-    {
-      if (bb_stmt_list (bb))
-        {
-          tree_stmt_iterator i = tsi_start (bb_stmt_list (bb));
-          while (!tsi_end_p (i))
-            {
-              if (EXPR_HAS_LOCATION (tsi_stmt (i)))
-                {
-                  return EXPR_LOCATION (tsi_stmt (i));
-                }
-              tsi_next (&i);
-            }
-        }
-      if (single_succ_p (bb))
-        {
-          bb = single_succ_edge (bb)->dest;
-        }
-      else
-        {
-          break;
+          if (e->count < 0
+	      && (!(e->flags & EDGE_FAKE)
+	          || !block_ends_with_call_p (e->src)))
+	    {
+	      if (dump_file)
+		{
+		  fprintf (dump_file,
+		  	   "Edge %i->%i is inconsistent, count"HOST_WIDEST_INT_PRINT_DEC,
+			   e->src->index, e->dest->index, e->count);
+		  dump_bb (e->src, dump_file, 0);
+		  dump_bb (e->dest, dump_file, 0);
+		}
+              return true;
+	    }
         }
     }
-  return UNKNOWN_LOCATION;
+  return false;
 }
-
-static gcov_type
-get_edge_count_from_location_profile (edge e)
-{
-  location_t srcl = basic_block_get_location (e->src);
-  location_t destl = basic_block_get_location (e->dest);
-  struct location_profile_info_file *fi = location_profile_info_get_file_info (LOCATION_FILE (srcl));
-  if (fi)
-    {
-      int src_near;
-      struct location_profile_info *li = location_profile_info_file_get_nearest_location_info (fi, LOCATION_LINE (srcl), &src_near);
-      if (li)
-        {
-          int dst_near;
-          int count = location_profile_info_get_nearest_count_info (li, LOCATION_LINE (destl), &dst_near);
-
-          if (count == 0 && dst_near == src_near)
-            {
-              /* this is an edge wich appears in GCC but not in the trace
-                 file, it is interior to a basic block. Hence, its count
-                 must be equal to the exec count of the BB. */
-              count = li->exec_count;
-            }
-          
-          verbatim ("%s:%x(%x) -> %s:%x(%x) = %d", LOCATION_FILE (srcl), LOCATION_LINE (srcl), src_near, LOCATION_FILE (destl), LOCATION_LINE (destl), dst_near, count);
-          
-          return count;
-        }
-      else
-        {
-          return 0;
-        }
-    }
-  else
-    {
-      return 0;
-    }
-}
-
-/* Compute the branch probabilities for the various branches.
-   Annotate them accordingly.  */
 
 static void
-compute_branch_probabilities (void)
+correct_negative_edge_counts (void)
 {
   basic_block bb;
-  int i;
-  int num_edges = 0;
-  int changes;
-  int passes;
-  int hist_br_prob[20];
-  int num_never_executed;
-  int num_branches;
-  gcov_type *exec_counts = get_exec_counts ();
-  int exec_counts_pos = 0;
+  edge e;
+  edge_iterator ei;
 
-  /* Very simple sanity checks so we catch bugs in our profiling code.  */
-  if (profile_info)
-    {
-      if (profile_info->run_max * profile_info->runs < profile_info->sum_max)
-	{
-	  error ("corrupted profile info: run_max * runs < sum_max");
-	  exec_counts = NULL;
-	}
-
-      if (profile_info->sum_all < profile_info->sum_max)
-	{
-	  error ("corrupted profile info: sum_all is smaller than sum_max");
-	  exec_counts = NULL;
-	}
-    }
-
-  /* Attach extra info block to each bb.  */
-
-  alloc_aux_for_blocks (sizeof (struct bb_info));
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
     {
-      edge e;
-      edge_iterator ei;
-
       FOR_EACH_EDGE (e, ei, bb->succs)
-	if (!EDGE_INFO (e)->ignore)
-	  BB_INFO (bb)->succ_count++;
-      FOR_EACH_EDGE (e, ei, bb->preds)
-	if (!EDGE_INFO (e)->ignore)
-	  BB_INFO (bb)->pred_count++;
+        {
+           if (e->count < 0)
+             e->count = 0;
+        }
+    }
+}
+
+/* Check consistency.
+   Return true if inconsistency is found.  */
+static bool
+is_inconsistent (void)
+{
+  basic_block bb;
+  bool inconsistent = false;
+  FOR_EACH_BB (bb)
+    {
+      inconsistent |= is_edge_inconsistent (bb->preds);
+      if (!dump_file && inconsistent)
+	return true;
+      inconsistent |= is_edge_inconsistent (bb->succs);
+      if (!dump_file && inconsistent)
+	return true;
+      if (bb->count < 0)
+        {
+	  if (dump_file)
+	    {
+	      fprintf (dump_file, "BB %i count is negative "
+		       HOST_WIDEST_INT_PRINT_DEC,
+		       bb->index,
+		       bb->count);
+	      dump_bb (bb, dump_file, 0);
+	    }
+	  inconsistent = true;
+	}
+      if (bb->count != sum_edge_counts (bb->preds))
+        {
+	  if (dump_file)
+	    {
+	      fprintf (dump_file, "BB %i count does not match sum of incoming edges "
+		       HOST_WIDEST_INT_PRINT_DEC" should be " HOST_WIDEST_INT_PRINT_DEC,
+		       bb->index,
+		       bb->count,
+		       sum_edge_counts (bb->preds));
+	      dump_bb (bb, dump_file, 0);
+	    }
+	  inconsistent = true;
+	}
+      if (bb->count != sum_edge_counts (bb->succs) &&
+          ! (find_edge (bb, EXIT_BLOCK_PTR) != NULL && block_ends_with_call_p (bb)))
+	{
+	  if (dump_file)
+	    {
+	      fprintf (dump_file, "BB %i count does not match sum of outgoing edges "
+		       HOST_WIDEST_INT_PRINT_DEC" should be " HOST_WIDEST_INT_PRINT_DEC,
+		       bb->index,
+		       bb->count,
+		       sum_edge_counts (bb->succs));
+	      dump_bb (bb, dump_file, 0);
+	    }
+	  inconsistent = true;
+	}
+      if (!dump_file && inconsistent)
+	return true;
     }
 
-  /* Avoid predicting entry on exit nodes.  */
-  BB_INFO (EXIT_BLOCK_PTR)->succ_count = 2;
-  BB_INFO (ENTRY_BLOCK_PTR)->pred_count = 2;
+  return inconsistent;
+}
 
+/* Set each basic block count to the sum of its outgoing edge counts */
+static void
+set_bb_counts (void)
+{
+  basic_block bb;
+  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
+    {
+      bb->count = sum_edge_counts (bb->succs);
+      gcc_assert (bb->count >= 0);
+    }
+}
+
+/* Reads profile data and returns total number of edge counts read */
+static int
+read_profile_edge_counts (gcov_type *exec_counts)
+{
+  basic_block bb;
+  int num_edges = 0;
+  int exec_counts_pos = 0;
   /* For each edge not on the spanning tree, set its execution count from
      the .da file.  */
-
   /* The first count in the .da file is the number of times that the function
      was entered.  This is the exec_count for block zero.  */
 
@@ -605,10 +415,6 @@ compute_branch_probabilities (void)
 			   bb->index, e->dest->index);
 		  }
 	      }
-            else if (location_profile_info_files)
-              {
-                e->count = get_edge_count_from_location_profile (e);
-              }
 	    else
 	      e->count = 0;
 
@@ -624,6 +430,61 @@ compute_branch_probabilities (void)
 	      }
 	  }
     }
+
+    return num_edges;
+}
+
+/* Compute the branch probabilities for the various branches.
+   Annotate them accordingly.  */
+
+static void
+compute_branch_probabilities (void)
+{
+  basic_block bb;
+  int i;
+  int num_edges = 0;
+  int changes;
+  int passes;
+  int hist_br_prob[20];
+  int num_branches;
+  gcov_type *exec_counts = get_exec_counts ();
+  int inconsistent = 0;
+
+  /* Very simple sanity checks so we catch bugs in our profiling code.  */
+  if (!profile_info)
+    return;
+  if (profile_info->run_max * profile_info->runs < profile_info->sum_max)
+    {
+      error ("corrupted profile info: run_max * runs < sum_max");
+      exec_counts = NULL;
+    }
+
+  if (profile_info->sum_all < profile_info->sum_max)
+    {
+      error ("corrupted profile info: sum_all is smaller than sum_max");
+      exec_counts = NULL;
+    }
+
+  /* Attach extra info block to each bb.  */
+  alloc_aux_for_blocks (sizeof (struct bb_info));
+  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
+    {
+      edge e;
+      edge_iterator ei;
+
+      FOR_EACH_EDGE (e, ei, bb->succs)
+	if (!EDGE_INFO (e)->ignore)
+	  BB_INFO (bb)->succ_count++;
+      FOR_EACH_EDGE (e, ei, bb->preds)
+	if (!EDGE_INFO (e)->ignore)
+	  BB_INFO (bb)->pred_count++;
+    }
+
+  /* Avoid predicting entry on exit nodes.  */
+  BB_INFO (EXIT_BLOCK_PTR)->succ_count = 2;
+  BB_INFO (ENTRY_BLOCK_PTR)->pred_count = 2;
+
+  num_edges = read_profile_edge_counts (exec_counts);
 
   if (dump_file)
     fprintf (dump_file, "\n%d edge counts read\n", num_edges);
@@ -694,7 +555,7 @@ compute_branch_probabilities (void)
 		  FOR_EACH_EDGE (e, ei, bb->succs)
 		    total += e->count;
 
-		  /* Seedgeh for the invalid edge, and set its count.  */
+		  /* Search for the invalid edge, and set its count.  */
 		  FOR_EACH_EDGE (e, ei, bb->succs)
 		    if (! EDGE_INFO (e)->count_valid && ! EDGE_INFO (e)->ignore)
 		      break;
@@ -754,12 +615,36 @@ compute_branch_probabilities (void)
       gcc_assert (!BB_INFO (bb)->succ_count && !BB_INFO (bb)->pred_count);
     }
 
+  /* Check for inconsistent basic block counts */
+  inconsistent = is_inconsistent ();
+
+  if (inconsistent)
+   {
+     if (flag_profile_correction)
+       {
+         /* Inconsistency detected. Make it flow-consistent. */
+         static int informed = 0;
+         if (informed == 0)
+           {
+             informed = 1;
+             inform (input_location, "correcting inconsistent profile data");
+           }
+         correct_negative_edge_counts ();
+         /* Set bb counts to the sum of the outgoing edge counts */
+         set_bb_counts ();
+         if (dump_file)
+           fprintf (dump_file, "\nCalling mcf_smooth_cfg\n");
+         mcf_smooth_cfg ();
+       }
+     else
+       error ("corrupted profile info: profile data is not flow-consistent");
+   }
+
   /* For every edge, calculate its branch probability and add a reg_note
      to the branch insn to indicate this.  */
 
   for (i = 0; i < 20; i++)
     hist_br_prob[i] = 0;
-  num_never_executed = 0;
   num_branches = 0;
 
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
@@ -853,16 +738,15 @@ compute_branch_probabilities (void)
 	  if (bb->index >= NUM_FIXED_BLOCKS
 	      && block_ends_with_condjump_p (bb)
 	      && EDGE_COUNT (bb->succs) >= 2)
-	    num_branches++, num_never_executed;
+	    num_branches++;
 	}
     }
   counts_to_freqs ();
+  profile_status = PROFILE_READ;
 
   if (dump_file)
     {
       fprintf (dump_file, "%d branches\n", num_branches);
-      fprintf (dump_file, "%d branches never executed\n",
-	       num_never_executed);
       if (num_branches)
 	for (i = 0; i < 10; i++)
 	  fprintf (dump_file, "%d%% branches in range %d-%d%%\n",
@@ -870,7 +754,6 @@ compute_branch_probabilities (void)
 		   5 * i, 5 * i + 5);
 
       total_num_branches += num_branches;
-      total_num_never_executed += num_never_executed;
       for (i = 0; i < 20; i++)
 	total_hist_br_prob[i] += hist_br_prob[i];
 
@@ -892,7 +775,7 @@ compute_value_histograms (histogram_values values)
   gcov_type *histogram_counts[GCOV_N_VALUE_COUNTERS];
   gcov_type *act_count[GCOV_N_VALUE_COUNTERS];
   gcov_type *aact_count;
- 
+
   for (t = 0; t < GCOV_N_VALUE_COUNTERS; t++)
     n_histogram_counters[t] = 0;
 
@@ -924,7 +807,7 @@ compute_value_histograms (histogram_values values)
   for (i = 0; i < VEC_length (histogram_value, values); i++)
     {
       histogram_value hist = VEC_index (histogram_value, values, i);
-      tree stmt = hist->hvalue.stmt;
+      gimple stmt = hist->hvalue.stmt;
 
       t = (int) hist->type;
 
@@ -1046,39 +929,37 @@ branch_prob (void)
 
       FOR_EACH_EDGE (e, ei, bb->succs)
 	{
-	  block_stmt_iterator bsi;
-	  tree last = NULL;
+	  gimple_stmt_iterator gsi;
+	  gimple last = NULL;
 
 	  /* It may happen that there are compiler generated statements
 	     without a locus at all.  Go through the basic block from the
 	     last to the first statement looking for a locus.  */
-	  for (bsi = bsi_last (bb); !bsi_end_p (bsi); bsi_prev (&bsi))
+	  for (gsi = gsi_last_bb (bb); !gsi_end_p (gsi); gsi_prev (&gsi))
 	    {
-	      last = bsi_stmt (bsi);
-	      if (EXPR_LOCUS (last))
+	      last = gsi_stmt (gsi);
+	      if (gimple_has_location (last))
 		break;
 	    }
 
 	  /* Edge with goto locus might get wrong coverage info unless
-	     it is the only edge out of BB.   
-	     Don't do that when the locuses match, so 
+	     it is the only edge out of BB.
+	     Don't do that when the locuses match, so
 	     if (blah) goto something;
 	     is not computed twice.  */
-	  if (last && EXPR_LOCUS (last)
-	      && e->goto_locus
+	  if (last
+	      && gimple_has_location (last)
+	      && e->goto_locus != UNKNOWN_LOCATION
 	      && !single_succ_p (bb)
-#ifdef USE_MAPPED_LOCATION
 	      && (LOCATION_FILE (e->goto_locus)
-	          != LOCATION_FILE (EXPR_LOCATION  (last))
+	          != LOCATION_FILE (gimple_location (last))
 		  || (LOCATION_LINE (e->goto_locus)
-		      != LOCATION_LINE (EXPR_LOCATION  (last)))))
-#else
-	      && (e->goto_locus->file != EXPR_LOCUS (last)->file
-		  || (e->goto_locus->line != EXPR_LOCUS (last)->line)))
-#endif
+		      != LOCATION_LINE (gimple_location (last)))))
 	    {
-	      basic_block new = split_edge (e);
-	      single_succ_edge (new)->goto_locus = e->goto_locus;
+	      basic_block new_bb = split_edge (e);
+	      edge ne = single_succ_edge (new_bb);
+	      ne->goto_locus = e->goto_locus;
+	      ne->goto_block = e->goto_block;
 	    }
 	  if ((e->flags & (EDGE_ABNORMAL | EDGE_ABNORMAL_CALL))
 	       && e->dest != EXIT_BLOCK_PTR)
@@ -1240,49 +1121,35 @@ branch_prob (void)
 
       FOR_EACH_BB (bb)
 	{
-	  block_stmt_iterator bsi;
+	  gimple_stmt_iterator gsi;
 
 	  offset = 0;
 
 	  if (bb == ENTRY_BLOCK_PTR->next_bb)
 	    {
-	      expanded_location curr_location = 
+	      expanded_location curr_location =
 		expand_location (DECL_SOURCE_LOCATION (current_function_decl));
 	      output_location (curr_location.file, curr_location.line,
 			       &offset, bb);
 	    }
 
-	  for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+	  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	    {
-	      tree stmt = bsi_stmt (bsi);
-	      if (EXPR_HAS_LOCATION (stmt))
-		output_location (EXPR_FILENAME (stmt), EXPR_LINENO (stmt),
-				 &offset, bb);
-	      /* Take into account modify statements nested in return
-		 produced by C++ NRV transformation.  */
-	      if (TREE_CODE (stmt) == RETURN_EXPR
-		  && TREE_OPERAND (stmt, 0)
-		  && TREE_CODE (TREE_OPERAND (stmt, 0)) == MODIFY_EXPR
-		  && EXPR_HAS_LOCATION (TREE_OPERAND (stmt, 0)))
-		output_location (EXPR_FILENAME (TREE_OPERAND (stmt, 0)),
-				 EXPR_LINENO (TREE_OPERAND (stmt, 0)),
+	      gimple stmt = gsi_stmt (gsi);
+	      if (gimple_has_location (stmt))
+		output_location (gimple_filename (stmt), gimple_lineno (stmt),
 				 &offset, bb);
 	    }
 
 	  /* Notice GOTO expressions we eliminated while constructing the
 	     CFG.  */
-	  if (single_succ_p (bb) && single_succ_edge (bb)->goto_locus)
+	  if (single_succ_p (bb)
+	      && single_succ_edge (bb)->goto_locus != UNKNOWN_LOCATION)
 	    {
-	      /* ??? source_locus type is marked deprecated in input.h.  */
-	      source_locus curr_location = single_succ_edge (bb)->goto_locus;
+	      location_t curr_location = single_succ_edge (bb)->goto_locus;
 	      /* ??? The FILE/LINE API is inconsistent for these cases.  */
-#ifdef USE_MAPPED_LOCATION 
 	      output_location (LOCATION_FILE (curr_location),
 			       LOCATION_LINE (curr_location), &offset, bb);
-#else
-	      output_location (curr_location->file, curr_location->line,
-			       &offset, bb);
-#endif
 	    }
 
 	  if (offset)
@@ -1327,15 +1194,13 @@ branch_prob (void)
 	instrument_values (values);
 
       /* Commit changes done by instrumentation.  */
-      bsi_commit_edge_inserts ();
+      gsi_commit_edge_inserts ();
     }
 
   free_aux_for_edges ();
 
   VEC_free (histogram_value, heap, values);
   free_edge_list (el);
-  if (flag_branch_probabilities)
-    profile_status = PROFILE_READ;
   coverage_end_function ();
 }
 
@@ -1462,7 +1327,6 @@ init_branch_prob (void)
   total_num_passes = 0;
   total_num_times_called = 0;
   total_num_branches = 0;
-  total_num_never_executed = 0;
   for (i = 0; i < 20; i++)
     total_hist_br_prob[i] = 0;
 }
@@ -1493,8 +1357,6 @@ end_branch_prob (void)
 		 / total_num_times_called);
       fprintf (dump_file, "Total number of branches: %d\n",
 	       total_num_branches);
-      fprintf (dump_file, "Total number of branches never executed: %d\n",
-	       total_num_never_executed);
       if (total_num_branches)
 	{
 	  int i;
@@ -1515,4 +1377,3 @@ tree_register_profile_hooks (void)
   gcc_assert (current_ir_type () == IR_GIMPLE);
   profile_hooks = &tree_profile_hooks;
 }
-

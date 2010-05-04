@@ -7,7 +7,7 @@
 --                                  S p e c                                 --
 --                                                                          --
 --             Copyright (C) 1991-1994, Florida State University            --
---             Copyright (C) 1995-2005, Free Software Foundation, Inc.      --
+--             Copyright (C) 1995-2005,2008 Free Software Foundation, Inc.  --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -188,6 +188,7 @@ package System.OS_Interface is
    SIG_IGN : constant := 1;
 
    SA_SIGINFO : constant := 16#0040#;
+   SA_ONSTACK : constant := 16#0001#;
 
    function sigaction
      (sig  : Signal;
@@ -207,23 +208,11 @@ package System.OS_Interface is
    function To_Timespec (D : Duration) return timespec;
    pragma Inline (To_Timespec);
 
-   type struct_timeval is private;
-
-   function To_Duration (TV : struct_timeval) return Duration;
-   pragma Inline (To_Duration);
-
-   function To_Timeval (D : Duration) return struct_timeval;
-   pragma Inline (To_Timeval);
-
-   function gettimeofday
-     (tv : access struct_timeval;
-      tz : System.Address := System.Null_Address) return int;
-   pragma Import (C, gettimeofday, "gettimeofday");
-
    function sysconf (name : int) return long;
    pragma Import (C, sysconf);
 
-   SC_CLK_TCK : constant := 2;
+   SC_CLK_TCK          : constant := 2;
+   SC_NPROCESSORS_ONLN : constant := 84;
 
    -------------------------
    -- Priority Scheduling --
@@ -255,6 +244,7 @@ package System.OS_Interface is
 
    type Thread_Body is access
      function (arg : System.Address) return System.Address;
+   pragma Convention (C, Thread_Body);
 
    function Thread_Body_Access is new
      Unchecked_Conversion (System.Address, Thread_Body);
@@ -277,6 +267,24 @@ package System.OS_Interface is
    -----------
    -- Stack --
    -----------
+
+   type stack_t is record
+      ss_sp    : System.Address;
+      ss_size  : size_t;
+      ss_flags : int;
+   end record;
+   pragma Convention (C, stack_t);
+
+   function sigaltstack
+     (ss  : not null access stack_t;
+      oss : access stack_t) return int;
+   pragma Import (C, sigaltstack, "sigaltstack");
+
+   Alternate_Stack : aliased System.Address;
+   --  This is a dummy definition, never used (Alternate_Stack_Size is null)
+
+   Alternate_Stack_Size : constant := 0;
+   --  No alternate signal stack is used on this platform
 
    function Get_Stack_Base (thread : pthread_t) return Address;
    pragma Inline (Get_Stack_Base);
@@ -438,11 +446,30 @@ package System.OS_Interface is
    pragma Import (C, pthread_getspecific, "pthread_getspecific");
 
    type destructor_pointer is access procedure (arg : System.Address);
+   pragma Convention (C, destructor_pointer);
 
    function pthread_key_create
      (key        : access pthread_key_t;
       destructor : destructor_pointer) return int;
    pragma Import (C, pthread_key_create, "pthread_key_create");
+
+   CPU_SETSIZE : constant := 1_024;
+
+   type bit_field is array (1 .. CPU_SETSIZE) of Boolean;
+   for bit_field'Size use CPU_SETSIZE;
+   pragma Pack (bit_field);
+   pragma Convention (C, bit_field);
+
+   type cpu_set_t is record
+      bits : bit_field;
+   end record;
+   pragma Convention (C, cpu_set_t);
+
+   function pthread_setaffinity_np
+     (thread     : pthread_t;
+      cpusetsize : size_t;
+      cpuset     : access cpu_set_t) return int;
+   pragma Import (C, pthread_setaffinity_np, "__gnat_pthread_setaffinity_np");
 
 private
 
@@ -470,12 +497,6 @@ private
       tv_nsec : long;
    end record;
    pragma Convention (C, timespec);
-
-   type struct_timeval is record
-      tv_sec  : time_t;
-      tv_usec : time_t;
-   end record;
-   pragma Convention (C, struct_timeval);
 
    type pthread_attr_t is record
       detachstate   : int;

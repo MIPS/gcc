@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2001-2007, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -23,7 +23,10 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
+with Osint;   use Osint;
 with Prj.Err;
+
+with Ada.Unchecked_Deallocation;
 
 package body Prj.Tree is
 
@@ -94,36 +97,37 @@ package body Prj.Tree is
 
    begin
       pragma Assert
-        (To /= Empty_Node
-          and then
-         In_Tree.Project_Nodes.Table (To).Kind /= N_Comment);
+        (Present (To)
+          and then In_Tree.Project_Nodes.Table (To).Kind /= N_Comment);
 
       Zone := In_Tree.Project_Nodes.Table (To).Comments;
 
-      if Zone = Empty_Node then
+      if No (Zone) then
 
          --  Create new N_Comment_Zones node
 
          Project_Node_Table.Increment_Last (In_Tree.Project_Nodes);
          In_Tree.Project_Nodes.Table
            (Project_Node_Table.Last (In_Tree.Project_Nodes)) :=
-           (Kind             => N_Comment_Zones,
-            Expr_Kind        => Undefined,
-            Location         => No_Location,
-            Directory        => No_Path,
-            Variables        => Empty_Node,
-            Packages         => Empty_Node,
-            Pkg_Id           => Empty_Package,
-            Name             => No_Name,
-            Src_Index        => 0,
-            Path_Name        => No_Path,
-            Value            => No_Name,
-            Field1           => Empty_Node,
-            Field2           => Empty_Node,
-            Field3           => Empty_Node,
-            Flag1            => False,
-            Flag2            => False,
-            Comments         => Empty_Node);
+           (Kind      => N_Comment_Zones,
+            Qualifier => Unspecified,
+            Expr_Kind => Undefined,
+            Location  => No_Location,
+            Directory => No_Path,
+            Variables => Empty_Node,
+            Packages  => Empty_Node,
+            Pkg_Id    => Empty_Package,
+            Name      => No_Name,
+            Src_Index => 0,
+            Path_Name => No_Path,
+            Value     => No_Name,
+            Field1    => Empty_Node,
+            Field2    => Empty_Node,
+            Field3    => Empty_Node,
+            Field4    => Empty_Node,
+            Flag1     => False,
+            Flag2     => False,
+            Comments  => Empty_Node);
 
          Zone := Project_Node_Table.Last (In_Tree.Project_Nodes);
          In_Tree.Project_Nodes.Table (To).Comments := Zone;
@@ -153,6 +157,7 @@ package body Prj.Tree is
             In_Tree.Project_Nodes.Table
               (Project_Node_Table.Last (In_Tree.Project_Nodes)) :=
               (Kind             => N_Comment,
+               Qualifier        => Unspecified,
                Expr_Kind        => Undefined,
                Flag1            => Comments.Table (J).Follows_Empty_Line,
                Flag2            =>
@@ -169,12 +174,13 @@ package body Prj.Tree is
                Field1           => Empty_Node,
                Field2           => Empty_Node,
                Field3           => Empty_Node,
+               Field4           => Empty_Node,
                Comments         => Empty_Node);
 
             --  If this is the first comment, put it in the right field of
             --  the node Zone.
 
-            if Previous = Empty_Node then
+            if No (Previous) then
                case Where is
                   when Before =>
                      In_Tree.Project_Nodes.Table (Zone).Field1 :=
@@ -226,7 +232,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             (In_Tree.Project_Nodes.Table (Node).Kind = N_Attribute_Declaration
                or else
@@ -244,7 +250,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
           (In_Tree.Project_Nodes.Table (Node).Kind = N_Attribute_Declaration));
       return In_Tree.Project_Nodes.Table (Node).Field3;
@@ -260,7 +266,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
           (In_Tree.Project_Nodes.Table (Node).Kind = N_Attribute_Declaration));
       return In_Tree.Project_Nodes.Table (Node).Field2;
@@ -275,7 +281,7 @@ package body Prj.Tree is
       In_Tree : Project_Node_Tree_Ref) return Boolean is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             (In_Tree.Project_Nodes.Table (Node).Kind = N_Attribute_Declaration
                or else
@@ -293,7 +299,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             In_Tree.Project_Nodes.Table (Node).Kind = N_Case_Construction);
       return In_Tree.Project_Nodes.Table (Node).Field1;
@@ -310,17 +316,18 @@ package body Prj.Tree is
       Zone : Project_Node_Id;
 
    begin
-      pragma Assert (Node /= Empty_Node);
+      pragma Assert (Present (Node));
       Zone := In_Tree.Project_Nodes.Table (Node).Comments;
 
       --  If there is not already an N_Comment_Zones associated, create a new
       --  one and associate it with node Node.
 
-      if Zone = Empty_Node then
+      if No (Zone) then
          Project_Node_Table.Increment_Last (In_Tree.Project_Nodes);
          Zone := Project_Node_Table.Last (In_Tree.Project_Nodes);
          In_Tree.Project_Nodes.Table (Zone) :=
         (Kind             => N_Comment_Zones,
+         Qualifier        => Unspecified,
          Location         => No_Location,
          Directory        => No_Path,
          Expr_Kind        => Undefined,
@@ -334,6 +341,7 @@ package body Prj.Tree is
          Field1           => Empty_Node,
          Field2           => Empty_Node,
          Field3           => Empty_Node,
+         Field4           => Empty_Node,
          Flag1            => False,
          Flag2            => False,
          Comments         => Empty_Node);
@@ -353,7 +361,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             In_Tree.Project_Nodes.Table (Node).Kind = N_Declarative_Item);
       return In_Tree.Project_Nodes.Table (Node).Field1;
@@ -369,7 +377,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             In_Tree.Project_Nodes.Table (Node).Kind = N_Term);
       return In_Tree.Project_Nodes.Table (Node).Field1;
@@ -395,6 +403,7 @@ package body Prj.Tree is
       In_Tree.Project_Nodes.Table
         (Project_Node_Table.Last (In_Tree.Project_Nodes)) :=
         (Kind             => Of_Kind,
+         Qualifier        => Unspecified,
          Location         => No_Location,
          Directory        => No_Path,
          Expr_Kind        => And_Expr_Kind,
@@ -408,6 +417,7 @@ package body Prj.Tree is
          Field1           => Empty_Node,
          Field2           => Empty_Node,
          Field3           => Empty_Node,
+         Field4           => Empty_Node,
          Flag1            => False,
          Flag2            => False,
          Comments         => Empty_Node);
@@ -429,6 +439,7 @@ package body Prj.Tree is
             In_Tree.Project_Nodes.Table
               (Project_Node_Table.Last (In_Tree.Project_Nodes)) :=
               (Kind             => N_Comment_Zones,
+               Qualifier        => Unspecified,
                Expr_Kind        => Undefined,
                Location         => No_Location,
                Directory        => No_Path,
@@ -442,6 +453,7 @@ package body Prj.Tree is
                Field1           => Empty_Node,
                Field2           => Empty_Node,
                Field3           => Empty_Node,
+               Field4           => Empty_Node,
                Flag1            => False,
                Flag2            => False,
                Comments         => Empty_Node);
@@ -458,6 +470,7 @@ package body Prj.Tree is
                In_Tree.Project_Nodes.Table
                  (Project_Node_Table.Last (In_Tree.Project_Nodes)) :=
                  (Kind             => N_Comment,
+                  Qualifier        => Unspecified,
                   Expr_Kind        => Undefined,
                   Flag1            => Comments.Table (J).Follows_Empty_Line,
                   Flag2            =>
@@ -474,12 +487,13 @@ package body Prj.Tree is
                   Field1           => Empty_Node,
                   Field2           => Empty_Node,
                   Field3           => Empty_Node,
+                  Field4           => Empty_Node,
                   Comments         => Empty_Node);
 
                --  Link it to the N_Comment_Zones node, if it is the first,
                --  otherwise to the previous one.
 
-               if Previous = Empty_Node then
+               if No (Previous) then
                   In_Tree.Project_Nodes.Table (Zone).Field1 :=
                     Project_Node_Table.Last (In_Tree.Project_Nodes);
 
@@ -512,7 +526,7 @@ package body Prj.Tree is
       In_Tree : Project_Node_Tree_Ref) return Path_Name_Type is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             In_Tree.Project_Nodes.Table (Node).Kind = N_Project);
       return In_Tree.Project_Nodes.Table (Node).Directory;
@@ -528,10 +542,10 @@ package body Prj.Tree is
       Zone : Project_Node_Id := Empty_Node;
 
    begin
-      pragma Assert (Node /= Empty_Node);
+      pragma Assert (Present (Node));
       Zone := In_Tree.Project_Nodes.Table (Node).Comments;
 
-      if Zone = Empty_Node then
+      if No (Zone) then
          return No_Name;
       else
          return In_Tree.Project_Nodes.Table (Zone).Value;
@@ -547,7 +561,7 @@ package body Prj.Tree is
       In_Tree : Project_Node_Tree_Ref) return Variable_Kind is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
            and then
              (In_Tree.Project_Nodes.Table (Node).Kind = N_Literal_String
                 or else
@@ -582,7 +596,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
            (In_Tree.Project_Nodes.Table (Node).Kind =
               N_Attribute_Declaration
@@ -606,7 +620,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             In_Tree.Project_Nodes.Table (Node).Kind = N_Project_Declaration);
       return In_Tree.Project_Nodes.Table (Node).Field2;
@@ -622,7 +636,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             In_Tree.Project_Nodes.Table (Node).Kind = N_Project);
       return Path_Name_Type (In_Tree.Project_Nodes.Table (Node).Value);
@@ -637,7 +651,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             In_Tree.Project_Nodes.Table (Node).Kind = N_Project_Declaration);
       return In_Tree.Project_Nodes.Table (Node).Field3;
@@ -653,7 +667,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             In_Tree.Project_Nodes.Table (Node).Kind = N_External_Value);
       return In_Tree.Project_Nodes.Table (Node).Field1;
@@ -670,7 +684,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             In_Tree.Project_Nodes.Table (Node).Kind = N_External_Value);
       return In_Tree.Project_Nodes.Table (Node).Field2;
@@ -686,7 +700,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             In_Tree.Project_Nodes.Table (Node).Kind = N_Case_Construction);
       return In_Tree.Project_Nodes.Table (Node).Field2;
@@ -703,7 +717,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             In_Tree.Project_Nodes.Table (Node).Kind = N_Case_Item);
       return In_Tree.Project_Nodes.Table (Node).Field1;
@@ -719,10 +733,10 @@ package body Prj.Tree is
    is
       Zone : Project_Node_Id := Empty_Node;
    begin
-      pragma Assert (Node /= Empty_Node);
+      pragma Assert (Present (Node));
       Zone := In_Tree.Project_Nodes.Table (Node).Comments;
 
-      if Zone = Empty_Node then
+      if No (Zone) then
          return Empty_Node;
 
       else
@@ -742,10 +756,10 @@ package body Prj.Tree is
       Zone : Project_Node_Id := Empty_Node;
 
    begin
-      pragma Assert (Node /= Empty_Node);
+      pragma Assert (Present (Node));
       Zone := In_Tree.Project_Nodes.Table (Node).Comments;
 
-      if Zone = Empty_Node then
+      if No (Zone) then
          return Empty_Node;
 
       else
@@ -764,10 +778,10 @@ package body Prj.Tree is
       Zone : Project_Node_Id := Empty_Node;
 
    begin
-      pragma Assert (Node /= Empty_Node);
+      pragma Assert (Present (Node));
       Zone := In_Tree.Project_Nodes.Table (Node).Comments;
 
-      if Zone = Empty_Node then
+      if No (Zone) then
          return Empty_Node;
 
       else
@@ -786,10 +800,10 @@ package body Prj.Tree is
       Zone : Project_Node_Id := Empty_Node;
 
    begin
-      pragma Assert (Node /= Empty_Node);
+      pragma Assert (Present (Node));
       Zone := In_Tree.Project_Nodes.Table (Node).Comments;
 
-      if Zone = Empty_Node then
+      if No (Zone) then
          return Empty_Node;
 
       else
@@ -807,7 +821,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             (In_Tree.Project_Nodes.Table (Node).Kind = N_Project_Declaration
                or else
@@ -832,7 +846,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             In_Tree.Project_Nodes.Table (Node).Kind = N_Literal_String_List);
       return In_Tree.Project_Nodes.Table (Node).Field1;
@@ -848,7 +862,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
          In_Tree.Project_Nodes.Table (Node).Kind =
            N_String_Type_Declaration);
@@ -865,7 +879,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             In_Tree.Project_Nodes.Table (Node).Kind = N_Project);
       return In_Tree.Project_Nodes.Table (Node).Packages;
@@ -881,7 +895,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             In_Tree.Project_Nodes.Table (Node).Kind = N_Project);
       return In_Tree.Project_Nodes.Table (Node).Field3;
@@ -897,7 +911,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             In_Tree.Project_Nodes.Table (Node).Kind = N_Expression);
       return In_Tree.Project_Nodes.Table (Node).Field1;
@@ -913,7 +927,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             (In_Tree.Project_Nodes.Table (Node).Kind = N_Project
                or else
@@ -932,7 +946,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             In_Tree.Project_Nodes.Table (Node).Kind = N_Project);
       return In_Tree.Project_Nodes.Table (Node).Field1;
@@ -947,7 +961,7 @@ package body Prj.Tree is
       In_Tree : Project_Node_Tree_Ref) return Boolean is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
          and then
          In_Tree.Project_Nodes.Table (Node).Kind = N_Comment);
       return In_Tree.Project_Nodes.Table (Node).Flag1;
@@ -970,7 +984,28 @@ package body Prj.Tree is
    begin
       Project_Node_Table.Init (Tree.Project_Nodes);
       Projects_Htable.Reset (Tree.Projects_HT);
+
+      --  Do not reset the external references, in case we are reloading a
+      --  project, since we want to preserve the current environment
+      --  Name_To_Name_HTable.Reset (Tree.External_References);
    end Initialize;
+
+   ----------
+   -- Free --
+   ----------
+
+   procedure Free (Proj : in out Project_Node_Tree_Ref) is
+      procedure Unchecked_Free is new Ada.Unchecked_Deallocation
+        (Project_Node_Tree_Data, Project_Node_Tree_Ref);
+   begin
+      if Proj /= null then
+         Project_Node_Table.Free (Proj.Project_Nodes);
+         Projects_Htable.Reset (Proj.Projects_HT);
+         Name_To_Name_HTable.Reset (Proj.External_References);
+         Free (Proj.Project_Path);
+         Unchecked_Free (Proj);
+      end if;
+   end Free;
 
    -------------------------------
    -- Is_Followed_By_Empty_Line --
@@ -982,7 +1017,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             In_Tree.Project_Nodes.Table (Node).Kind = N_Comment);
       return In_Tree.Project_Nodes.Table (Node).Flag2;
@@ -997,7 +1032,7 @@ package body Prj.Tree is
       In_Tree : Project_Node_Tree_Ref) return Boolean is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
            (In_Tree.Project_Nodes.Table (Node).Kind = N_Project
               or else
@@ -1014,7 +1049,7 @@ package body Prj.Tree is
       In_Tree : Project_Node_Tree_Ref) return Boolean is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             In_Tree.Project_Nodes.Table (Node).Kind = N_With_Clause);
       return In_Tree.Project_Nodes.Table (Node).Flag1;
@@ -1036,29 +1071,29 @@ package body Prj.Tree is
    begin
       --  First check all the imported projects
 
-      while With_Clause /= Empty_Node loop
+      while Present (With_Clause) loop
 
          --  Only non limited imported project may be used as prefix
          --  of variable or attributes.
 
          Result := Non_Limited_Project_Node_Of (With_Clause, In_Tree);
-         exit when Result /= Empty_Node
+         exit when Present (Result)
            and then Name_Of (Result, In_Tree) = With_Name;
          With_Clause := Next_With_Clause_Of (With_Clause, In_Tree);
       end loop;
 
-      --  If it is not an imported project, it might be the imported project
+      --  If it is not an imported project, it might be an extended project
 
-      if With_Clause = Empty_Node then
-         Result :=
-           Extended_Project_Of
-             (Project_Declaration_Of (Project, In_Tree), In_Tree);
+      if No (With_Clause) then
+         Result := Project;
+         loop
+            Result :=
+              Extended_Project_Of
+                (Project_Declaration_Of (Result, In_Tree), In_Tree);
 
-         if Result /= Empty_Node
-           and then Name_Of (Result, In_Tree) /= With_Name
-         then
-            Result := Empty_Node;
-         end if;
+            exit when No (Result)
+              or else Name_Of (Result, In_Tree) = With_Name;
+         end loop;
       end if;
 
       return Result;
@@ -1072,7 +1107,7 @@ package body Prj.Tree is
      (Node    : Project_Node_Id;
       In_Tree : Project_Node_Tree_Ref) return Project_Node_Kind is
    begin
-      pragma Assert (Node /= Empty_Node);
+      pragma Assert (Present (Node));
       return In_Tree.Project_Nodes.Table (Node).Kind;
    end Kind_Of;
 
@@ -1084,7 +1119,7 @@ package body Prj.Tree is
      (Node    : Project_Node_Id;
       In_Tree : Project_Node_Tree_Ref) return Source_Ptr is
    begin
-      pragma Assert (Node /= Empty_Node);
+      pragma Assert (Present (Node));
       return In_Tree.Project_Nodes.Table (Node).Location;
    end Location_Of;
 
@@ -1096,7 +1131,7 @@ package body Prj.Tree is
      (Node    : Project_Node_Id;
       In_Tree : Project_Node_Tree_Ref) return Name_Id is
    begin
-      pragma Assert (Node /= Empty_Node);
+      pragma Assert (Present (Node));
       return In_Tree.Project_Nodes.Table (Node).Name;
    end Name_Of;
 
@@ -1110,7 +1145,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             In_Tree.Project_Nodes.Table (Node).Kind = N_Case_Item);
       return In_Tree.Project_Nodes.Table (Node).Field3;
@@ -1125,7 +1160,7 @@ package body Prj.Tree is
       In_Tree : Project_Node_Tree_Ref) return Project_Node_Id is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             In_Tree.Project_Nodes.Table (Node).Kind = N_Comment);
       return In_Tree.Project_Nodes.Table (Node).Comments;
@@ -1141,7 +1176,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             In_Tree.Project_Nodes.Table (Node).Kind = N_Declarative_Item);
       return In_Tree.Project_Nodes.Table (Node).Field2;
@@ -1157,7 +1192,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             In_Tree.Project_Nodes.Table (Node).Kind = N_Expression);
       return In_Tree.Project_Nodes.Table (Node).Field2;
@@ -1174,7 +1209,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             In_Tree.Project_Nodes.Table (Node).Kind = N_Literal_String);
       return In_Tree.Project_Nodes.Table (Node).Field1;
@@ -1190,7 +1225,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             In_Tree.Project_Nodes.Table (Node).Kind = N_Package_Declaration);
       return In_Tree.Project_Nodes.Table (Node).Field3;
@@ -1207,7 +1242,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
          In_Tree.Project_Nodes.Table (Node).Kind =
            N_String_Type_Declaration);
@@ -1224,7 +1259,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             In_Tree.Project_Nodes.Table (Node).Kind = N_Term);
       return In_Tree.Project_Nodes.Table (Node).Field2;
@@ -1241,7 +1276,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
            (In_Tree.Project_Nodes.Table (Node).Kind =
               N_Typed_Variable_Declaration
@@ -1262,11 +1297,20 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             In_Tree.Project_Nodes.Table (Node).Kind = N_With_Clause);
       return In_Tree.Project_Nodes.Table (Node).Field2;
    end Next_With_Clause_Of;
+
+   --------
+   -- No --
+   --------
+
+   function No (Node : Project_Node_Id) return Boolean is
+   begin
+      return Node = Empty_Node;
+   end No;
 
    ---------------------------------
    -- Non_Limited_Project_Node_Of --
@@ -1278,7 +1322,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
            (In_Tree.Project_Nodes.Table (Node).Kind = N_With_Clause));
       return In_Tree.Project_Nodes.Table (Node).Field3;
@@ -1294,7 +1338,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             In_Tree.Project_Nodes.Table (Node).Kind = N_Package_Declaration);
       return In_Tree.Project_Nodes.Table (Node).Pkg_Id;
@@ -1310,7 +1354,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             (In_Tree.Project_Nodes.Table (Node).Kind = N_Variable_Reference
                or else
@@ -1328,13 +1372,22 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             (In_Tree.Project_Nodes.Table (Node).Kind = N_Project
                or else
              In_Tree.Project_Nodes.Table (Node).Kind = N_With_Clause));
       return In_Tree.Project_Nodes.Table (Node).Path_Name;
    end Path_Name_Of;
+
+   -------------
+   -- Present --
+   -------------
+
+   function Present (Node : Project_Node_Id) return Boolean is
+   begin
+      return Node /= Empty_Node;
+   end Present;
 
    ----------------------------
    -- Project_Declaration_Of --
@@ -1346,11 +1399,43 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             In_Tree.Project_Nodes.Table (Node).Kind = N_Project);
       return In_Tree.Project_Nodes.Table (Node).Field2;
    end Project_Declaration_Of;
+
+   --------------------------
+   -- Project_Qualifier_Of --
+   --------------------------
+
+   function Project_Qualifier_Of
+     (Node    : Project_Node_Id;
+      In_Tree : Project_Node_Tree_Ref) return Project_Qualifier
+   is
+   begin
+      pragma Assert
+        (Present (Node)
+          and then
+            In_Tree.Project_Nodes.Table (Node).Kind = N_Project);
+      return In_Tree.Project_Nodes.Table (Node).Qualifier;
+   end Project_Qualifier_Of;
+
+   -----------------------
+   -- Parent_Project_Of --
+   -----------------------
+
+   function Parent_Project_Of
+     (Node    : Project_Node_Id;
+      In_Tree : Project_Node_Tree_Ref) return Project_Node_Id
+   is
+   begin
+      pragma Assert
+        (Present (Node)
+          and then
+            In_Tree.Project_Nodes.Table (Node).Kind = N_Project);
+      return In_Tree.Project_Nodes.Table (Node).Field4;
+   end Parent_Project_Of;
 
    -------------------------------------------
    -- Project_File_Includes_Unkept_Comments --
@@ -1376,7 +1461,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
            (In_Tree.Project_Nodes.Table (Node).Kind = N_With_Clause
               or else
@@ -1396,7 +1481,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             In_Tree.Project_Nodes.Table (Node).Kind = N_Package_Declaration);
       return In_Tree.Project_Nodes.Table (Node).Field1;
@@ -1424,11 +1509,14 @@ package body Prj.Tree is
       Comments.Set_Last (0);
    end Reset_State;
 
-   -------------
-   -- Restore --
-   -------------
+   ----------------------
+   -- Restore_And_Free --
+   ----------------------
 
-   procedure Restore (S : Comment_State) is
+   procedure Restore_And_Free (S : in out Comment_State) is
+      procedure Unchecked_Free is new
+        Ada.Unchecked_Deallocation (Comment_Array, Comments_Ptr);
+
    begin
       End_Of_Line_Node   := S.End_Of_Line_Node;
       Previous_Line_Node := S.Previous_Line_Node;
@@ -1442,7 +1530,9 @@ package body Prj.Tree is
          Comments.Increment_Last;
          Comments.Table (Comments.Last) := S.Comments (J);
       end loop;
-   end Restore;
+
+      Unchecked_Free (S.Comments);
+   end Restore_And_Free;
 
    ----------
    -- Save --
@@ -1512,7 +1602,7 @@ package body Prj.Tree is
                --  an end of line node specified, associate the comment with
                --  this node.
 
-               elsif End_Of_Line_Node /= Empty_Node then
+               elsif Present (End_Of_Line_Node) then
                   declare
                      Zones : constant Project_Node_Id :=
                                Comment_Zones_Of (End_Of_Line_Node, In_Tree);
@@ -1537,13 +1627,13 @@ package body Prj.Tree is
 
                if Comments.Last > 0 and then
                  not Comments.Table (1).Follows_Empty_Line then
-                  if Previous_Line_Node /= Empty_Node then
+                  if Present (Previous_Line_Node) then
                      Add_Comments
                        (To      => Previous_Line_Node,
                         Where   => After,
                         In_Tree => In_Tree);
 
-                  elsif Previous_End_Node /= Empty_Node then
+                  elsif Present (Previous_End_Node) then
                      Add_Comments
                        (To      => Previous_End_Node,
                         Where   => After_End,
@@ -1595,7 +1685,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             (In_Tree.Project_Nodes.Table (Node).Kind = N_Attribute_Declaration
                or else
@@ -1614,7 +1704,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-         (Node /= Empty_Node
+         (Present (Node)
           and then
             In_Tree.Project_Nodes.Table (Node).Kind = N_Attribute_Declaration);
       In_Tree.Project_Nodes.Table (Node).Field3 := To;
@@ -1631,7 +1721,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
            (In_Tree.Project_Nodes.Table (Node).Kind =
               N_Attribute_Declaration));
@@ -1649,7 +1739,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
            (In_Tree.Project_Nodes.Table (Node).Kind = N_Attribute_Declaration
                or else
@@ -1668,7 +1758,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             In_Tree.Project_Nodes.Table (Node).Kind = N_Case_Construction);
       In_Tree.Project_Nodes.Table (Node).Field1 := To;
@@ -1685,7 +1775,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             In_Tree.Project_Nodes.Table (Node).Kind = N_Declarative_Item);
       In_Tree.Project_Nodes.Table (Node).Field1 := To;
@@ -1702,7 +1792,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             In_Tree.Project_Nodes.Table (Node).Kind = N_Term);
       In_Tree.Project_Nodes.Table (Node).Field1 := To;
@@ -1719,7 +1809,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             In_Tree.Project_Nodes.Table (Node).Kind = N_Project);
       In_Tree.Project_Nodes.Table (Node).Directory := To;
@@ -1745,7 +1835,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
            and then
              (In_Tree.Project_Nodes.Table (Node).Kind = N_Literal_String
                 or else
@@ -1780,7 +1870,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
            (In_Tree.Project_Nodes.Table (Node).Kind =
               N_Attribute_Declaration
@@ -1804,7 +1894,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             In_Tree.Project_Nodes.Table (Node).Kind = N_External_Value);
       In_Tree.Project_Nodes.Table (Node).Field1 := To;
@@ -1821,7 +1911,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             In_Tree.Project_Nodes.Table (Node).Kind = N_External_Value);
       In_Tree.Project_Nodes.Table (Node).Field2 := To;
@@ -1838,7 +1928,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             In_Tree.Project_Nodes.Table (Node).Kind = N_Case_Construction);
       In_Tree.Project_Nodes.Table (Node).Field2 := To;
@@ -1855,7 +1945,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             In_Tree.Project_Nodes.Table (Node).Kind = N_Case_Item);
       In_Tree.Project_Nodes.Table (Node).Field1 := To;
@@ -1929,7 +2019,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             In_Tree.Project_Nodes.Table (Node).Kind = N_Case_Item);
       In_Tree.Project_Nodes.Table (Node).Field3 := To;
@@ -1946,7 +2036,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             In_Tree.Project_Nodes.Table (Node).Kind = N_Comment);
       In_Tree.Project_Nodes.Table (Node).Comments := To;
@@ -1963,7 +2053,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             (In_Tree.Project_Nodes.Table (Node).Kind = N_Project_Declaration
                or else
@@ -1989,7 +2079,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             In_Tree.Project_Nodes.Table (Node).Kind = N_Literal_String_List);
       In_Tree.Project_Nodes.Table (Node).Field1 := To;
@@ -2006,7 +2096,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
          In_Tree.Project_Nodes.Table (Node).Kind =
            N_String_Type_Declaration);
@@ -2024,7 +2114,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             In_Tree.Project_Nodes.Table (Node).Kind = N_Project);
       In_Tree.Project_Nodes.Table (Node).Packages := To;
@@ -2041,7 +2131,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             In_Tree.Project_Nodes.Table (Node).Kind = N_Project);
       In_Tree.Project_Nodes.Table (Node).Field3 := To;
@@ -2058,7 +2148,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             In_Tree.Project_Nodes.Table (Node).Kind = N_Expression);
       In_Tree.Project_Nodes.Table (Node).Field1 := To;
@@ -2075,7 +2165,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             (In_Tree.Project_Nodes.Table (Node).Kind = N_Project
                or else
@@ -2094,7 +2184,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             In_Tree.Project_Nodes.Table (Node).Kind = N_Project);
       In_Tree.Project_Nodes.Table (Node).Field1 := To;
@@ -2110,7 +2200,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             (In_Tree.Project_Nodes.Table (Node).Kind = N_Project
                or else
@@ -2128,7 +2218,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
              In_Tree.Project_Nodes.Table (Node).Kind = N_With_Clause);
       In_Tree.Project_Nodes.Table (Node).Flag1 := True;
@@ -2144,7 +2234,7 @@ package body Prj.Tree is
       To      : Project_Node_Kind)
    is
    begin
-      pragma Assert (Node /= Empty_Node);
+      pragma Assert (Present (Node));
       In_Tree.Project_Nodes.Table (Node).Kind := To;
    end Set_Kind_Of;
 
@@ -2158,7 +2248,7 @@ package body Prj.Tree is
       To      : Source_Ptr)
    is
    begin
-      pragma Assert (Node /= Empty_Node);
+      pragma Assert (Present (Node));
       In_Tree.Project_Nodes.Table (Node).Location := To;
    end Set_Location_Of;
 
@@ -2173,7 +2263,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             In_Tree.Project_Nodes.Table (Node).Kind = N_Project_Declaration);
       In_Tree.Project_Nodes.Table (Node).Field2 := To;
@@ -2190,7 +2280,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             In_Tree.Project_Nodes.Table (Node).Kind = N_Project);
       In_Tree.Project_Nodes.Table (Node).Value := Name_Id (To);
@@ -2207,7 +2297,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             In_Tree.Project_Nodes.Table (Node).Kind = N_Project_Declaration);
       In_Tree.Project_Nodes.Table (Node).Field3 := To;
@@ -2223,7 +2313,7 @@ package body Prj.Tree is
       To      : Name_Id)
    is
    begin
-      pragma Assert (Node /= Empty_Node);
+      pragma Assert (Present (Node));
       In_Tree.Project_Nodes.Table (Node).Name := To;
    end Set_Name_Of;
 
@@ -2238,7 +2328,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             In_Tree.Project_Nodes.Table (Node).Kind = N_Declarative_Item);
       In_Tree.Project_Nodes.Table (Node).Field2 := To;
@@ -2265,7 +2355,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             In_Tree.Project_Nodes.Table (Node).Kind = N_Expression);
       In_Tree.Project_Nodes.Table (Node).Field2 := To;
@@ -2282,7 +2372,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             In_Tree.Project_Nodes.Table (Node).Kind = N_Literal_String);
       In_Tree.Project_Nodes.Table (Node).Field1 := To;
@@ -2299,7 +2389,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             In_Tree.Project_Nodes.Table (Node).Kind = N_Package_Declaration);
       In_Tree.Project_Nodes.Table (Node).Field3 := To;
@@ -2316,7 +2406,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
          In_Tree.Project_Nodes.Table (Node).Kind =
            N_String_Type_Declaration);
@@ -2334,7 +2424,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             In_Tree.Project_Nodes.Table (Node).Kind = N_Term);
       In_Tree.Project_Nodes.Table (Node).Field2 := To;
@@ -2351,7 +2441,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
            (In_Tree.Project_Nodes.Table (Node).Kind =
               N_Typed_Variable_Declaration
@@ -2372,7 +2462,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             In_Tree.Project_Nodes.Table (Node).Kind = N_With_Clause);
       In_Tree.Project_Nodes.Table (Node).Field2 := To;
@@ -2389,7 +2479,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             In_Tree.Project_Nodes.Table (Node).Kind = N_Package_Declaration);
       In_Tree.Project_Nodes.Table (Node).Pkg_Id := To;
@@ -2406,7 +2496,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             (In_Tree.Project_Nodes.Table (Node).Kind = N_Variable_Reference
                or else
@@ -2425,7 +2515,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             (In_Tree.Project_Nodes.Table (Node).Kind = N_Project
                or else
@@ -2461,11 +2551,43 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
          and then
            In_Tree.Project_Nodes.Table (Node).Kind = N_Project);
       In_Tree.Project_Nodes.Table (Node).Field2 := To;
    end Set_Project_Declaration_Of;
+
+   ------------------------------
+   -- Set_Project_Qualifier_Of --
+   ------------------------------
+
+   procedure Set_Project_Qualifier_Of
+     (Node    : Project_Node_Id;
+      In_Tree : Project_Node_Tree_Ref;
+      To      : Project_Qualifier)
+   is
+   begin
+      pragma Assert
+        (Present (Node)
+          and then In_Tree.Project_Nodes.Table (Node).Kind = N_Project);
+      In_Tree.Project_Nodes.Table (Node).Qualifier := To;
+   end Set_Project_Qualifier_Of;
+
+   ---------------------------
+   -- Set_Parent_Project_Of --
+   ---------------------------
+
+   procedure Set_Parent_Project_Of
+     (Node    : Project_Node_Id;
+      In_Tree : Project_Node_Tree_Ref;
+      To      : Project_Node_Id)
+   is
+   begin
+      pragma Assert
+        (Present (Node)
+          and then In_Tree.Project_Nodes.Table (Node).Kind = N_Project);
+      In_Tree.Project_Nodes.Table (Node).Field4 := To;
+   end Set_Parent_Project_Of;
 
    -----------------------------------------------
    -- Set_Project_File_Includes_Unkept_Comments --
@@ -2494,7 +2616,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             (In_Tree.Project_Nodes.Table (Node).Kind = N_With_Clause
                or else
@@ -2521,7 +2643,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             In_Tree.Project_Nodes.Table (Node).Kind = N_Package_Declaration);
       In_Tree.Project_Nodes.Table (Node).Field1 := To;
@@ -2538,7 +2660,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
            (In_Tree.Project_Nodes.Table (Node).Kind = N_Literal_String
             or else
@@ -2558,7 +2680,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
            (In_Tree.Project_Nodes.Table (Node).Kind =
               N_Variable_Reference
@@ -2586,7 +2708,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             (In_Tree.Project_Nodes.Table (Node).Kind = N_With_Clause
                or else
@@ -2606,7 +2728,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
             (In_Tree.Project_Nodes.Table (Node).Kind = N_Literal_String
               or else
@@ -2625,7 +2747,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
            (In_Tree.Project_Nodes.Table (Node).Kind =
               N_Variable_Reference
@@ -2650,7 +2772,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (Node /= Empty_Node
+        (Present (Node)
           and then
            (In_Tree.Project_Nodes.Table (Node).Kind = N_With_Clause
               or else
@@ -2671,7 +2793,7 @@ package body Prj.Tree is
    is
    begin
       pragma Assert
-        (For_Typed_Variable /= Empty_Node
+        (Present (For_Typed_Variable)
           and then
            (In_Tree.Project_Nodes.Table (For_Typed_Variable).Kind =
                                      N_Typed_Variable_Declaration));
@@ -2683,7 +2805,7 @@ package body Prj.Tree is
                                In_Tree);
 
       begin
-         while Current_String /= Empty_Node
+         while Present (Current_String)
            and then
              String_Value_Of (Current_String, In_Tree) /= Value
          loop
@@ -2691,7 +2813,7 @@ package body Prj.Tree is
               Next_Literal_String (Current_String, In_Tree);
          end loop;
 
-         return Current_String /= Empty_Node;
+         return Present (Current_String);
       end;
 
    end Value_Is_Valid;
@@ -2704,5 +2826,284 @@ package body Prj.Tree is
    begin
       return Unkept_Comments;
    end There_Are_Unkept_Comments;
+
+   --------------------
+   -- Create_Project --
+   --------------------
+
+   function Create_Project
+     (In_Tree        : Project_Node_Tree_Ref;
+      Name           : Name_Id;
+      Full_Path      : Path_Name_Type;
+      Is_Config_File : Boolean := False) return Project_Node_Id
+   is
+      Project   : Project_Node_Id;
+      Qualifier : Project_Qualifier := Unspecified;
+   begin
+      Project := Default_Project_Node (In_Tree, N_Project);
+      Set_Name_Of (Project, In_Tree, Name);
+      Set_Directory_Of
+        (Project, In_Tree,
+         Path_Name_Type (Get_Directory (File_Name_Type (Full_Path))));
+      Set_Path_Name_Of (Project, In_Tree, Full_Path);
+
+      Set_Project_Declaration_Of
+        (Project, In_Tree,
+         Default_Project_Node (In_Tree, N_Project_Declaration));
+
+      if Is_Config_File then
+         Qualifier := Configuration;
+      end if;
+
+      if not Is_Config_File then
+         Prj.Tree.Tree_Private_Part.Projects_Htable.Set
+           (In_Tree.Projects_HT,
+            Name,
+            Prj.Tree.Tree_Private_Part.Project_Name_And_Node'
+              (Name           => Name,
+               Display_Name   => Name,
+               Canonical_Path => No_Path,
+               Node           => Project,
+               Extended       => False,
+               Proj_Qualifier => Qualifier));
+      end if;
+
+      return Project;
+   end Create_Project;
+
+   ----------------
+   -- Add_At_End --
+   ----------------
+
+   procedure Add_At_End
+     (Tree                  : Project_Node_Tree_Ref;
+      Parent                : Project_Node_Id;
+      Expr                  : Project_Node_Id;
+      Add_Before_First_Pkg  : Boolean := False;
+      Add_Before_First_Case : Boolean := False)
+   is
+      Real_Parent          : Project_Node_Id;
+      New_Decl, Decl, Next : Project_Node_Id;
+      Last, L              : Project_Node_Id;
+
+   begin
+      if Kind_Of (Expr, Tree) /= N_Declarative_Item then
+         New_Decl := Default_Project_Node (Tree, N_Declarative_Item);
+         Set_Current_Item_Node (New_Decl, Tree, Expr);
+      else
+         New_Decl := Expr;
+      end if;
+
+      if Kind_Of (Parent, Tree) = N_Project then
+         Real_Parent := Project_Declaration_Of (Parent, Tree);
+      else
+         Real_Parent := Parent;
+      end if;
+
+      Decl := First_Declarative_Item_Of (Real_Parent, Tree);
+
+      if Decl = Empty_Node then
+         Set_First_Declarative_Item_Of (Real_Parent, Tree, New_Decl);
+      else
+         loop
+            Next := Next_Declarative_Item (Decl, Tree);
+            exit when Next = Empty_Node
+              or else
+               (Add_Before_First_Pkg
+                 and then Kind_Of (Current_Item_Node (Next, Tree), Tree) =
+                                                        N_Package_Declaration)
+              or else
+               (Add_Before_First_Case
+                 and then Kind_Of (Current_Item_Node (Next, Tree), Tree) =
+                                                        N_Case_Construction);
+            Decl := Next;
+         end loop;
+
+         --  In case Expr is in fact a range of declarative items
+
+         Last := New_Decl;
+         loop
+            L := Next_Declarative_Item (Last, Tree);
+            exit when L = Empty_Node;
+            Last := L;
+         end loop;
+
+         --  In case Expr is in fact a range of declarative items
+
+         Last := New_Decl;
+         loop
+            L := Next_Declarative_Item (Last, Tree);
+            exit when L = Empty_Node;
+            Last := L;
+         end loop;
+
+         Set_Next_Declarative_Item (Last, Tree, Next);
+         Set_Next_Declarative_Item (Decl, Tree, New_Decl);
+      end if;
+   end Add_At_End;
+
+   ---------------------------
+   -- Create_Literal_String --
+   ---------------------------
+
+   function Create_Literal_String
+     (Str  : Namet.Name_Id;
+      Tree : Project_Node_Tree_Ref) return Project_Node_Id
+   is
+      Node : Project_Node_Id;
+   begin
+      Node := Default_Project_Node (Tree, N_Literal_String, Prj.Single);
+      Set_Next_Literal_String (Node, Tree, Empty_Node);
+      Set_String_Value_Of (Node, Tree, Str);
+      return Node;
+   end Create_Literal_String;
+
+   ---------------------------
+   -- Enclose_In_Expression --
+   ---------------------------
+
+   function Enclose_In_Expression
+     (Node : Project_Node_Id;
+      Tree : Project_Node_Tree_Ref) return Project_Node_Id
+   is
+      Expr : Project_Node_Id;
+   begin
+      if Kind_Of (Node, Tree) /= N_Expression then
+         Expr := Default_Project_Node (Tree, N_Expression, Single);
+         Set_First_Term
+           (Expr, Tree, Default_Project_Node (Tree, N_Term, Single));
+         Set_Current_Term (First_Term (Expr, Tree), Tree, Node);
+         return Expr;
+      else
+         return Node;
+      end if;
+   end Enclose_In_Expression;
+
+   --------------------
+   -- Create_Package --
+   --------------------
+
+   function Create_Package
+     (Tree    : Project_Node_Tree_Ref;
+      Project : Project_Node_Id;
+      Pkg     : String) return Project_Node_Id
+   is
+      Pack : Project_Node_Id;
+      N    : Name_Id;
+
+   begin
+      Name_Len := Pkg'Length;
+      Name_Buffer (1 .. Name_Len) := Pkg;
+      N := Name_Find;
+
+      --  Check if the package already exists
+
+      Pack := First_Package_Of (Project, Tree);
+      while Pack /= Empty_Node loop
+         if Prj.Tree.Name_Of (Pack, Tree) = N then
+            return Pack;
+         end if;
+
+         Pack := Next_Package_In_Project (Pack, Tree);
+      end loop;
+
+      --  Create the package and add it to the declarative item
+
+      Pack := Default_Project_Node (Tree, N_Package_Declaration);
+      Set_Name_Of (Pack, Tree, N);
+
+      --  Find the correct package id to use
+
+      Set_Package_Id_Of (Pack, Tree, Package_Node_Id_Of (N));
+
+      --  Add it to the list of packages
+
+      Set_Next_Package_In_Project
+        (Pack, Tree, First_Package_Of (Project, Tree));
+      Set_First_Package_Of (Project, Tree, Pack);
+
+      Add_At_End (Tree, Project_Declaration_Of (Project, Tree), Pack);
+
+      return Pack;
+   end Create_Package;
+
+   ----------------------
+   -- Create_Attribute --
+   ----------------------
+
+   function Create_Attribute
+     (Tree       : Project_Node_Tree_Ref;
+      Prj_Or_Pkg : Project_Node_Id;
+      Name       : Name_Id;
+      Index_Name : Name_Id       := No_Name;
+      Kind       : Variable_Kind := List;
+      At_Index   : Integer       := 0;
+      Value      : Project_Node_Id := Empty_Node) return Project_Node_Id
+   is
+      Node : constant Project_Node_Id :=
+               Default_Project_Node (Tree, N_Attribute_Declaration, Kind);
+
+      Case_Insensitive : Boolean;
+
+      Pkg      : Package_Node_Id;
+      Start_At : Attribute_Node_Id;
+      Expr     : Project_Node_Id;
+
+   begin
+      Set_Name_Of (Node, Tree, Name);
+
+      if Index_Name /= No_Name then
+         Set_Associative_Array_Index_Of (Node, Tree, Index_Name);
+      end if;
+
+      if Prj_Or_Pkg /= Empty_Node then
+         Add_At_End (Tree, Prj_Or_Pkg, Node);
+      end if;
+
+      --  Find out the case sensitivity of the attribute
+
+      if Prj_Or_Pkg /= Empty_Node
+        and then Kind_Of (Prj_Or_Pkg, Tree) = N_Package_Declaration
+      then
+         Pkg      := Prj.Attr.Package_Node_Id_Of (Name_Of (Prj_Or_Pkg, Tree));
+         Start_At := First_Attribute_Of (Pkg);
+      else
+         Start_At := Attribute_First;
+      end if;
+
+      Start_At := Attribute_Node_Id_Of (Name, Start_At);
+      Case_Insensitive :=
+        Attribute_Kind_Of (Start_At) = Case_Insensitive_Associative_Array;
+      Tree.Project_Nodes.Table (Node).Flag1 := Case_Insensitive;
+
+      if At_Index /= 0 then
+         if Attribute_Kind_Of (Start_At) =
+              Optional_Index_Associative_Array
+           or else Attribute_Kind_Of (Start_At) =
+              Optional_Index_Case_Insensitive_Associative_Array
+         then
+            --  Results in:   for Name ("index" at index) use "value";
+            --  This is currently only used for executables.
+
+            Set_Source_Index_Of (Node, Tree, To => Int (At_Index));
+
+         else
+            --  Results in:   for Name ("index") use "value" at index;
+
+            --  ??? This limitation makes no sense, we should be able to
+            --  set the source index on an expression.
+
+            pragma Assert (Kind_Of (Value, Tree) = N_Literal_String);
+            Set_Source_Index_Of (Value, Tree, To => Int (At_Index));
+         end if;
+      end if;
+
+      if Value /= Empty_Node then
+         Expr := Enclose_In_Expression (Value, Tree);
+         Set_Expression_Of (Node, Tree, Expr);
+      end if;
+
+      return Node;
+   end Create_Attribute;
 
 end Prj.Tree;

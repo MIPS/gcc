@@ -1,6 +1,6 @@
 /* Definitions of various defaults for tm.h macros.
    Copyright (C) 1992, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
-   2005, 2007
+   2005, 2007, 2008, 2009, 2010
    Free Software Foundation, Inc.
    Contributed by Ron Guilmette (rfg@monkeys.com)
 
@@ -16,8 +16,13 @@ WARRANTY; without even the implied warranty of MERCHANTABILITY or
 FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
-You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING3.  If not see
+Under Section 7 of GPL version 3, you are granted additional
+permissions described in the GCC Runtime Library Exception, version
+3.1, as published by the Free Software Foundation.
+
+You should have received a copy of the GNU General Public License and
+a copy of the GCC Runtime Library Exception along with this program;
+see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 <http://www.gnu.org/licenses/>.  */
 
 #ifndef GCC_DEFAULTS_H
@@ -113,11 +118,15 @@ along with GCC; see the file COPYING3.  If not see
 #endif
 #endif
 
+#ifndef TLS_COMMON_ASM_OP
+#define TLS_COMMON_ASM_OP ".tls_common"
+#endif
+
 #if defined (HAVE_AS_TLS) && !defined (ASM_OUTPUT_TLS_COMMON)
 #define ASM_OUTPUT_TLS_COMMON(FILE, DECL, NAME, SIZE)			\
   do									\
     {									\
-      fprintf ((FILE), "\t.tls_common\t");				\
+      fprintf ((FILE), "\t%s\t", TLS_COMMON_ASM_OP);			\
       assemble_name ((FILE), (NAME));					\
       fprintf ((FILE), ","HOST_WIDE_INT_PRINT_UNSIGNED",%u\n",		\
 	       (SIZE), DECL_ALIGN (DECL) / BITS_PER_UNIT);		\
@@ -247,6 +256,16 @@ along with GCC; see the file COPYING3.  If not see
 #define SUPPORTS_WEAK 1
 #else
 #define SUPPORTS_WEAK 0
+#endif
+#endif
+
+/* This determines whether or not we support the discriminator
+   attribute in the .loc directive.  */
+#ifndef SUPPORTS_DISCRIMINATOR
+#ifdef HAVE_GAS_DISCRIMINATOR
+#define SUPPORTS_DISCRIMINATOR 1
+#else
+#define SUPPORTS_DISCRIMINATOR 0
 #endif
 #endif
 
@@ -445,11 +464,11 @@ along with GCC; see the file COPYING3.  If not see
 
 #ifndef DECIMAL32_TYPE_SIZE
 #define DECIMAL32_TYPE_SIZE 32
-#endif 
+#endif
 
-#ifndef DECIMAL64_TYPE_SIZE 
+#ifndef DECIMAL64_TYPE_SIZE
 #define DECIMAL64_TYPE_SIZE 64
-#endif 
+#endif
 
 #ifndef DECIMAL128_TYPE_SIZE
 #define DECIMAL128_TYPE_SIZE 128
@@ -485,6 +504,181 @@ along with GCC; see the file COPYING3.  If not see
 
 #ifndef LONG_LONG_ACCUM_TYPE_SIZE
 #define LONG_LONG_ACCUM_TYPE_SIZE (LONG_LONG_FRACT_TYPE_SIZE * 2)
+#endif
+
+/* We let tm.h override the types used here, to handle trivial differences
+   such as the choice of unsigned int or long unsigned int for size_t.
+   When machines start needing nontrivial differences in the size type,
+   it would be best to do something here to figure out automatically
+   from other information what type to use.  */
+
+#ifndef SIZE_TYPE
+#define SIZE_TYPE "long unsigned int"
+#endif
+
+#ifndef PID_TYPE
+#define PID_TYPE "int"
+#endif
+
+/* If GCC knows the exact uint_least16_t and uint_least32_t types from
+   <stdint.h>, use them for char16_t and char32_t.  Otherwise, use
+   these guesses; getting the wrong type of a given width will not
+   affect C++ name mangling because in C++ these are distinct types
+   not typedefs.  */
+
+#ifdef UINT_LEAST16_TYPE
+#define CHAR16_TYPE UINT_LEAST16_TYPE
+#else
+#define CHAR16_TYPE "short unsigned int"
+#endif
+
+#ifdef UINT_LEAST32_TYPE
+#define CHAR32_TYPE UINT_LEAST32_TYPE
+#else
+#define CHAR32_TYPE "unsigned int"
+#endif
+
+#ifndef WCHAR_TYPE
+#define WCHAR_TYPE "int"
+#endif
+
+/* WCHAR_TYPE gets overridden by -fshort-wchar.  */
+#define MODIFIED_WCHAR_TYPE \
+	(flag_short_wchar ? "short unsigned int" : WCHAR_TYPE)
+
+#ifndef PTRDIFF_TYPE
+#define PTRDIFF_TYPE "long int"
+#endif
+
+#ifndef WINT_TYPE
+#define WINT_TYPE "unsigned int"
+#endif
+
+#ifndef INTMAX_TYPE
+#define INTMAX_TYPE ((INT_TYPE_SIZE == LONG_LONG_TYPE_SIZE)	\
+		     ? "int"					\
+		     : ((LONG_TYPE_SIZE == LONG_LONG_TYPE_SIZE)	\
+			? "long int"				\
+			: "long long int"))
+#endif
+
+#ifndef UINTMAX_TYPE
+#define UINTMAX_TYPE ((INT_TYPE_SIZE == LONG_LONG_TYPE_SIZE)	\
+		     ? "unsigned int"				\
+		     : ((LONG_TYPE_SIZE == LONG_LONG_TYPE_SIZE)	\
+			? "long unsigned int"			\
+			: "long long unsigned int"))
+#endif
+
+
+/* There are no default definitions of these <stdint.h> types.  */
+
+#ifndef SIG_ATOMIC_TYPE
+#define SIG_ATOMIC_TYPE ((const char *) NULL)
+#endif
+
+#ifndef INT8_TYPE
+#define INT8_TYPE ((const char *) NULL)
+#endif
+
+#ifndef INT16_TYPE
+#define INT16_TYPE ((const char *) NULL)
+#endif
+
+#ifndef INT32_TYPE
+#define INT32_TYPE ((const char *) NULL)
+#endif
+
+#ifndef INT64_TYPE
+#define INT64_TYPE ((const char *) NULL)
+#endif
+
+#ifndef UINT8_TYPE
+#define UINT8_TYPE ((const char *) NULL)
+#endif
+
+#ifndef UINT16_TYPE
+#define UINT16_TYPE ((const char *) NULL)
+#endif
+
+#ifndef UINT32_TYPE
+#define UINT32_TYPE ((const char *) NULL)
+#endif
+
+#ifndef UINT64_TYPE
+#define UINT64_TYPE ((const char *) NULL)
+#endif
+
+#ifndef INT_LEAST8_TYPE
+#define INT_LEAST8_TYPE ((const char *) NULL)
+#endif
+
+#ifndef INT_LEAST16_TYPE
+#define INT_LEAST16_TYPE ((const char *) NULL)
+#endif
+
+#ifndef INT_LEAST32_TYPE
+#define INT_LEAST32_TYPE ((const char *) NULL)
+#endif
+
+#ifndef INT_LEAST64_TYPE
+#define INT_LEAST64_TYPE ((const char *) NULL)
+#endif
+
+#ifndef UINT_LEAST8_TYPE
+#define UINT_LEAST8_TYPE ((const char *) NULL)
+#endif
+
+#ifndef UINT_LEAST16_TYPE
+#define UINT_LEAST16_TYPE ((const char *) NULL)
+#endif
+
+#ifndef UINT_LEAST32_TYPE
+#define UINT_LEAST32_TYPE ((const char *) NULL)
+#endif
+
+#ifndef UINT_LEAST64_TYPE
+#define UINT_LEAST64_TYPE ((const char *) NULL)
+#endif
+
+#ifndef INT_FAST8_TYPE
+#define INT_FAST8_TYPE ((const char *) NULL)
+#endif
+
+#ifndef INT_FAST16_TYPE
+#define INT_FAST16_TYPE ((const char *) NULL)
+#endif
+
+#ifndef INT_FAST32_TYPE
+#define INT_FAST32_TYPE ((const char *) NULL)
+#endif
+
+#ifndef INT_FAST64_TYPE
+#define INT_FAST64_TYPE ((const char *) NULL)
+#endif
+
+#ifndef UINT_FAST8_TYPE
+#define UINT_FAST8_TYPE ((const char *) NULL)
+#endif
+
+#ifndef UINT_FAST16_TYPE
+#define UINT_FAST16_TYPE ((const char *) NULL)
+#endif
+
+#ifndef UINT_FAST32_TYPE
+#define UINT_FAST32_TYPE ((const char *) NULL)
+#endif
+
+#ifndef UINT_FAST64_TYPE
+#define UINT_FAST64_TYPE ((const char *) NULL)
+#endif
+
+#ifndef INTPTR_TYPE
+#define INTPTR_TYPE ((const char *) NULL)
+#endif
+
+#ifndef UINTPTR_TYPE
+#define UINTPTR_TYPE ((const char *) NULL)
 #endif
 
 /* Width in bits of a pointer.  Mind the value of the macro `Pmode'.  */
@@ -551,10 +745,22 @@ along with GCC; see the file COPYING3.  If not see
 #define PUSH_ARGS_REVERSED 0
 #endif
 
+/* Default value for the alignment (in bits) a C conformant malloc has to
+   provide. This default is intended to be safe and always correct.  */
+#ifndef MALLOC_ABI_ALIGNMENT
+#define MALLOC_ABI_ALIGNMENT BITS_PER_WORD
+#endif
+
 /* If PREFERRED_STACK_BOUNDARY is not defined, set it to STACK_BOUNDARY.
    STACK_BOUNDARY is required.  */
 #ifndef PREFERRED_STACK_BOUNDARY
 #define PREFERRED_STACK_BOUNDARY STACK_BOUNDARY
+#endif
+
+/* Set INCOMING_STACK_BOUNDARY to PREFERRED_STACK_BOUNDARY if it is not
+   defined.  */
+#ifndef INCOMING_STACK_BOUNDARY
+#define INCOMING_STACK_BOUNDARY PREFERRED_STACK_BOUNDARY
 #endif
 
 #ifndef TARGET_DEFAULT_PACK_STRUCT
@@ -651,49 +857,12 @@ along with GCC; see the file COPYING3.  If not see
 #define PREFERRED_DEBUGGING_TYPE NO_DEBUG
 #endif
 
-/* Define codes for all the float formats that we know of.  */
-#define UNKNOWN_FLOAT_FORMAT 0
-#define IEEE_FLOAT_FORMAT 1
-#define VAX_FLOAT_FORMAT 2
-#define C4X_FLOAT_FORMAT 3
-
-/* Default to IEEE float if not specified.  Nearly all machines use it.  */
-#ifndef TARGET_FLOAT_FORMAT
-#define	TARGET_FLOAT_FORMAT	IEEE_FLOAT_FORMAT
-#endif
-
 #ifndef LARGEST_EXPONENT_IS_NORMAL
 #define LARGEST_EXPONENT_IS_NORMAL(SIZE) 0
 #endif
 
 #ifndef ROUND_TOWARDS_ZERO
 #define ROUND_TOWARDS_ZERO 0
-#endif
-
-#ifndef MODE_HAS_NANS
-#define MODE_HAS_NANS(MODE)					\
-  (FLOAT_MODE_P (MODE)						\
-   && TARGET_FLOAT_FORMAT == IEEE_FLOAT_FORMAT			\
-   && !LARGEST_EXPONENT_IS_NORMAL (GET_MODE_BITSIZE (MODE)))
-#endif
-
-#ifndef MODE_HAS_INFINITIES
-#define MODE_HAS_INFINITIES(MODE)				\
-  (FLOAT_MODE_P (MODE)						\
-   && TARGET_FLOAT_FORMAT == IEEE_FLOAT_FORMAT			\
-   && !LARGEST_EXPONENT_IS_NORMAL (GET_MODE_BITSIZE (MODE)))
-#endif
-
-#ifndef MODE_HAS_SIGNED_ZEROS
-#define MODE_HAS_SIGNED_ZEROS(MODE) \
-  (FLOAT_MODE_P (MODE) && TARGET_FLOAT_FORMAT == IEEE_FLOAT_FORMAT)
-#endif
-
-#ifndef MODE_HAS_SIGN_DEPENDENT_ROUNDING
-#define MODE_HAS_SIGN_DEPENDENT_ROUNDING(MODE)			\
-  (FLOAT_MODE_P (MODE)						\
-   && TARGET_FLOAT_FORMAT == IEEE_FLOAT_FORMAT			\
-   && !ROUND_TOWARDS_ZERO)
 #endif
 
 #ifndef FLOAT_LIB_COMPARE_RETURNS_BOOL
@@ -713,8 +882,11 @@ along with GCC; see the file COPYING3.  If not see
 #define FLOAT_WORDS_BIG_ENDIAN WORDS_BIG_ENDIAN
 #endif
 
-#ifndef TARGET_FLT_EVAL_METHOD
+#ifdef TARGET_FLT_EVAL_METHOD
+#define TARGET_FLT_EVAL_METHOD_NON_DEFAULT 1
+#else
 #define TARGET_FLT_EVAL_METHOD 0
+#define TARGET_FLT_EVAL_METHOD_NON_DEFAULT 0
 #endif
 
 #ifndef TARGET_DEC_EVAL_METHOD
@@ -740,7 +912,7 @@ along with GCC; see the file COPYING3.  If not see
 /* By default, only attempt to parallelize bitwise operations, and
    possibly adds/subtracts using bit-twiddling.  */
 #ifndef UNITS_PER_SIMD_WORD
-#define UNITS_PER_SIMD_WORD UNITS_PER_WORD
+#define UNITS_PER_SIMD_WORD(MODE) UNITS_PER_WORD
 #endif
 
 /* Determine whether __cxa_atexit, rather than atexit, is used to
@@ -895,12 +1067,12 @@ along with GCC; see the file COPYING3.  If not see
 #define SHIFT_COUNT_TRUNCATED 0
 #endif
 
-#ifndef LEGITIMIZE_ADDRESS
-#define LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN)
-#endif
-
 #ifndef LEGITIMATE_PIC_OPERAND_P
 #define LEGITIMATE_PIC_OPERAND_P(X) 1
+#endif
+
+#ifndef TARGET_MEM_CONSTRAINT
+#define TARGET_MEM_CONSTRAINT 'm'
 #endif
 
 #ifndef REVERSIBLE_CC_MODE
@@ -918,7 +1090,8 @@ along with GCC; see the file COPYING3.  If not see
 
 /* On most machines, the CFA coincides with the first incoming parm.  */
 #ifndef ARG_POINTER_CFA_OFFSET
-#define ARG_POINTER_CFA_OFFSET(FNDECL) FIRST_PARM_OFFSET (FNDECL)
+#define ARG_POINTER_CFA_OFFSET(FNDECL) \
+  (FIRST_PARM_OFFSET (FNDECL) + crtl->args.pretend_args_size)
 #endif
 
 /* On most machines, we use the CFA as DW_AT_frame_base.  */
@@ -938,7 +1111,58 @@ along with GCC; see the file COPYING3.  If not see
 #endif
 
 #ifndef OUTGOING_REG_PARM_STACK_SPACE
-#define OUTGOING_REG_PARM_STACK_SPACE 0
+#define OUTGOING_REG_PARM_STACK_SPACE(FNTYPE) 0
+#endif
+
+/* MAX_STACK_ALIGNMENT is the maximum stack alignment guaranteed by
+   the backend.  MAX_SUPPORTED_STACK_ALIGNMENT is the maximum best
+   effort stack alignment supported by the backend.  If the backend
+   supports stack alignment, MAX_SUPPORTED_STACK_ALIGNMENT and
+   MAX_STACK_ALIGNMENT are the same.  Otherwise, the incoming stack
+   boundary will limit the maximum guaranteed stack alignment.  */
+#ifdef MAX_STACK_ALIGNMENT
+#define MAX_SUPPORTED_STACK_ALIGNMENT MAX_STACK_ALIGNMENT
+#else
+#define MAX_STACK_ALIGNMENT STACK_BOUNDARY
+#define MAX_SUPPORTED_STACK_ALIGNMENT PREFERRED_STACK_BOUNDARY
+#endif
+
+#define SUPPORTS_STACK_ALIGNMENT (MAX_STACK_ALIGNMENT > STACK_BOUNDARY)
+
+#ifndef LOCAL_ALIGNMENT
+#define LOCAL_ALIGNMENT(TYPE, ALIGNMENT) ALIGNMENT
+#endif
+
+#ifndef STACK_SLOT_ALIGNMENT
+#define STACK_SLOT_ALIGNMENT(TYPE,MODE,ALIGN) \
+  ((TYPE) ? LOCAL_ALIGNMENT ((TYPE), (ALIGN)) : (ALIGN))
+#endif
+
+#ifndef LOCAL_DECL_ALIGNMENT
+#define LOCAL_DECL_ALIGNMENT(DECL) \
+  LOCAL_ALIGNMENT (TREE_TYPE (DECL), DECL_ALIGN (DECL))
+#endif
+
+#ifndef MINIMUM_ALIGNMENT
+#define MINIMUM_ALIGNMENT(EXP,MODE,ALIGN) (ALIGN)
+#endif
+
+/* Alignment value for attribute ((aligned)).  */
+#ifndef ATTRIBUTE_ALIGNED_VALUE
+#define ATTRIBUTE_ALIGNED_VALUE BIGGEST_ALIGNMENT
+#endif
+
+/* Many ports have no mode-dependent addresses (except possibly autoincrement
+   and autodecrement addresses, which are handled by target-independent code
+   in recog.c).  */
+#ifndef GO_IF_MODE_DEPENDENT_ADDRESS
+#define GO_IF_MODE_DEPENDENT_ADDRESS(X, WIN)
+#endif
+
+/* For most ports anything that evaluates to a constant symbolic
+   or integer value is acceptable as a constant address.  */
+#ifndef CONSTANT_ADDRESS_P
+#define CONSTANT_ADDRESS_P(X)   (CONSTANT_P (X) && GET_CODE (X) != CONST_DOUBLE)
 #endif
 
 #endif  /* ! GCC_DEFAULTS_H */

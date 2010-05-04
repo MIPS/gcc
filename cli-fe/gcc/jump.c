@@ -1,6 +1,6 @@
 /* Optimize jump instructions, for GNU compiler.
    Copyright (C) 1987, 1988, 1989, 1991, 1992, 1993, 1994, 1995, 1996, 1997
-   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007
+   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008, 2009
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -68,6 +68,7 @@ along with GCC; see the file COPYING3.  If not see
 static void init_label_info (rtx);
 static void mark_all_labels (rtx);
 static void mark_jump_label_1 (rtx, rtx, bool, bool);
+static void mark_jump_label_asm (rtx, rtx);
 static void redirect_exp_1 (rtx *, rtx, rtx, rtx);
 static int invert_exp_1 (rtx, rtx);
 static int returnjump_p_1 (rtx *, void *);
@@ -113,6 +114,8 @@ cleanup_barriers (void)
       if (BARRIER_P (insn))
 	{
 	  prev = prev_nonnote_insn (insn);
+	  if (!prev)
+	    continue;
 	  if (BARRIER_P (prev))
 	    delete_insn (insn);
 	  else if (prev != PREV_INSN (insn))
@@ -122,21 +125,23 @@ cleanup_barriers (void)
   return 0;
 }
 
-struct tree_opt_pass pass_cleanup_barriers =
+struct rtl_opt_pass pass_cleanup_barriers =
 {
+ {
+  RTL_PASS,
   "barriers",                           /* name */
   NULL,                                 /* gate */
   cleanup_barriers,                     /* execute */
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
-  0,                                    /* tv_id */
+  TV_NONE,                              /* tv_id */
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_dump_func,                       /* todo_flags_finish */
-  0                                     /* letter */
+  TODO_dump_func                        /* todo_flags_finish */
+ }
 };
 
 
@@ -228,7 +233,7 @@ mark_all_labels (rtx f)
 			    && (rtx_equal_p (label_dest, XEXP (pc_src, 1))
 				|| rtx_equal_p (label_dest,
 						XEXP (pc_src, 2))))))
-				
+
 		  {
 		    /* The CODE_LABEL referred to in the note must be the
 		       CODE_LABEL in the LABEL_REF of the "set".  We can
@@ -349,7 +354,7 @@ reversed_comparison_code_parts (enum rtx_code code, const_rtx arg0,
 	return UNKNOWN;
 
       /* These CONST_CAST's are okay because prev_nonnote_insn just
-	 returns it's argument and we assign it to a const_rtx
+	 returns its argument and we assign it to a const_rtx
 	 variable.  */
       for (prev = prev_nonnote_insn (CONST_CAST_RTX(insn));
 	   prev != 0 && !LABEL_P (prev);
@@ -387,7 +392,7 @@ reversed_comparison_code_parts (enum rtx_code code, const_rtx arg0,
 
   /* Test for an integer condition, or a floating-point comparison
      in which NaNs can be ignored.  */
-  if (GET_CODE (arg0) == CONST_INT
+  if (CONST_INT_P (arg0)
       || (GET_MODE (arg0) != VOIDmode
 	  && GET_MODE_CLASS (mode) != MODE_CC
 	  && !HONOR_NANS (mode)))
@@ -867,9 +872,24 @@ returnjump_p_1 (rtx *loc, void *data ATTRIBUTE_UNUSED)
 {
   rtx x = *loc;
 
-  return x && (GET_CODE (x) == RETURN
-	       || (GET_CODE (x) == SET && SET_IS_RETURN_P (x)));
+  if (x == NULL)
+    return false;
+
+  switch (GET_CODE (x))
+    {
+    case RETURN:
+    case EH_RETURN:
+      return true;
+
+    case SET:
+      return SET_IS_RETURN_P (x);
+
+    default:
+      return false;
+    }
 }
+
+/* Return TRUE if INSN is a return jump.  */
 
 int
 returnjump_p (rtx insn)
@@ -877,6 +897,22 @@ returnjump_p (rtx insn)
   if (!JUMP_P (insn))
     return 0;
   return for_each_rtx (&PATTERN (insn), returnjump_p_1, NULL);
+}
+
+/* Return true if INSN is a (possibly conditional) return insn.  */
+
+static int
+eh_returnjump_p_1 (rtx *loc, void *data ATTRIBUTE_UNUSED)
+{
+  return *loc && GET_CODE (*loc) == EH_RETURN;
+}
+
+int
+eh_returnjump_p (rtx insn)
+{
+  if (!JUMP_P (insn))
+    return 0;
+  return for_each_rtx (&PATTERN (insn), eh_returnjump_p_1, NULL);
 }
 
 /* Return true if INSN is a jump that only transfers control and
@@ -971,8 +1007,12 @@ sets_cc0_p (const_rtx x)
 void
 mark_jump_label (rtx x, rtx insn, int in_mem)
 {
-  mark_jump_label_1 (x, insn, in_mem != 0,
-		     (insn != NULL && x == PATTERN (insn) && JUMP_P (insn)));
+  rtx asmop = extract_asm_operands (x);
+  if (asmop)
+    mark_jump_label_asm (asmop, insn);
+  else
+    mark_jump_label_1 (x, insn, in_mem != 0,
+		       (insn != NULL && x == PATTERN (insn) && JUMP_P (insn)));
 }
 
 /* Worker function for mark_jump_label.  IN_MEM is TRUE when X occurs
@@ -1066,8 +1106,7 @@ mark_jump_label_1 (rtx x, rtx insn, bool in_mem, bool is_target)
 		   a label, except for the primary target of a jump,
 		   must have such a note.  */
 		if (! find_reg_note (insn, kind, label))
-		  REG_NOTES (insn)
-		    = gen_rtx_INSN_LIST (kind, label, REG_NOTES (insn));
+		  add_reg_note (insn, kind, label);
 	      }
 	  }
 	return;
@@ -1111,6 +1150,22 @@ mark_jump_label_1 (rtx x, rtx insn, bool in_mem, bool is_target)
     }
 }
 
+/* Worker function for mark_jump_label.  Handle asm insns specially.
+   In particular, output operands need not be considered so we can
+   avoid re-scanning the replicated asm_operand.  Also, the asm_labels
+   need to be considered targets.  */
+
+static void
+mark_jump_label_asm (rtx asmop, rtx insn)
+{
+  int i;
+
+  for (i = ASM_OPERANDS_INPUT_LENGTH (asmop) - 1; i >= 0; --i)
+    mark_jump_label_1 (ASM_OPERANDS_INPUT (asmop, i), insn, false, false);
+
+  for (i = ASM_OPERANDS_LABEL_LENGTH (asmop) - 1; i >= 0; --i)
+    mark_jump_label_1 (ASM_OPERANDS_LABEL (asmop, i), insn, false, true);
+}
 
 /* Delete insn INSN from the chain of insns and update label ref counts
    and delete insns now unreachable.
@@ -1166,9 +1221,7 @@ delete_related_insns (rtx insn)
 
   /* Likewise if we're deleting a dispatch table.  */
 
-  if (JUMP_P (insn)
-      && (GET_CODE (PATTERN (insn)) == ADDR_VEC
-	  || GET_CODE (PATTERN (insn)) == ADDR_DIFF_VEC))
+  if (JUMP_TABLE_DATA_P (insn))
     {
       rtx pat = PATTERN (insn);
       int i, diff_vec_p = GET_CODE (pat) == ADDR_DIFF_VEC;
@@ -1202,9 +1255,7 @@ delete_related_insns (rtx insn)
 
   if (was_code_label
       && NEXT_INSN (insn) != 0
-      && JUMP_P (NEXT_INSN (insn))
-      && (GET_CODE (PATTERN (NEXT_INSN (insn))) == ADDR_VEC
-	  || GET_CODE (PATTERN (NEXT_INSN (insn))) == ADDR_DIFF_VEC))
+      && JUMP_TABLE_DATA_P (NEXT_INSN (insn)))
     next = delete_related_insns (NEXT_INSN (insn));
 
   /* If INSN was a label, delete insns following it if now unreachable.  */
@@ -1325,6 +1376,15 @@ redirect_exp_1 (rtx *loc, rtx olabel, rtx nlabel, rtx insn)
       return;
     }
 
+  if (code == IF_THEN_ELSE)
+    {
+      /* Skip the condition of an IF_THEN_ELSE.  We only want to
+         change jump destinations, not eventual label comparisons.  */
+      redirect_exp_1 (&XEXP (x, 1), olabel, nlabel, insn);
+      redirect_exp_1 (&XEXP (x, 2), olabel, nlabel, insn);
+      return;
+    }
+
   fmt = GET_RTX_FORMAT (code);
   for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
     {
@@ -1347,9 +1407,17 @@ int
 redirect_jump_1 (rtx jump, rtx nlabel)
 {
   int ochanges = num_validated_changes ();
-  rtx *loc;
+  rtx *loc, asmop;
 
-  if (GET_CODE (PATTERN (jump)) == PARALLEL)
+  asmop = extract_asm_operands (PATTERN (jump));
+  if (asmop)
+    {
+      if (nlabel == NULL)
+	return 0;
+      gcc_assert (ASM_OPERANDS_LABEL_LENGTH (asmop) == 1);
+      loc = &ASM_OPERANDS_LABEL (asmop, 0);
+    }
+  else if (GET_CODE (PATTERN (jump)) == PARALLEL)
     loc = &XVECEXP (PATTERN (jump), 0, 0);
   else
     loc = &PATTERN (jump);
@@ -1384,7 +1452,7 @@ redirect_jump (rtx jump, rtx nlabel, int delete_unused)
 }
 
 /* Fix up JUMP_LABEL and label ref counts after OLABEL has been replaced with
-   NLABEL in JUMP.  
+   NLABEL in JUMP.
    If DELETE_UNUSED is positive, delete related insn to OLABEL if its ref
    count has dropped to zero.  */
 void
@@ -1475,10 +1543,11 @@ invert_jump_1 (rtx jump, rtx nlabel)
   int ok;
 
   ochanges = num_validated_changes ();
-  gcc_assert (x);
+  if (x == NULL)
+    return 0;
   ok = invert_exp_1 (SET_SRC (x), jump);
   gcc_assert (ok);
-  
+
   if (num_validated_changes () == ochanges)
     return 0;
 
@@ -1526,6 +1595,7 @@ rtx_renumbered_equal_p (const_rtx x, const_rtx y)
     {
       int reg_x = -1, reg_y = -1;
       int byte_x = 0, byte_y = 0;
+      struct subreg_info info;
 
       if (GET_MODE (x) != GET_MODE (y))
 	return 0;
@@ -1542,10 +1612,12 @@ rtx_renumbered_equal_p (const_rtx x, const_rtx y)
 
 	  if (reg_renumber[reg_x] >= 0)
 	    {
-	      reg_x = subreg_regno_offset (reg_renumber[reg_x],
-					   GET_MODE (SUBREG_REG (x)),
-					   byte_x,
-					   GET_MODE (x));
+	      subreg_get_info (reg_renumber[reg_x],
+			       GET_MODE (SUBREG_REG (x)), byte_x,
+			       GET_MODE (x), &info);
+	      if (!info.representable_p)
+		return 0;
+	      reg_x = info.offset;
 	      byte_x = 0;
 	    }
 	}
@@ -1563,10 +1635,12 @@ rtx_renumbered_equal_p (const_rtx x, const_rtx y)
 
 	  if (reg_renumber[reg_y] >= 0)
 	    {
-	      reg_y = subreg_regno_offset (reg_renumber[reg_y],
-					   GET_MODE (SUBREG_REG (y)),
-					   byte_y,
-					   GET_MODE (y));
+	      subreg_get_info (reg_renumber[reg_y],
+			       GET_MODE (SUBREG_REG (y)), byte_y,
+			       GET_MODE (y), &info);
+	      if (!info.representable_p)
+		return 0;
+	      reg_y = info.offset;
 	      byte_y = 0;
 	    }
 	}
@@ -1619,6 +1693,10 @@ rtx_renumbered_equal_p (const_rtx x, const_rtx y)
   /* (MULT:SI x y) and (MULT:HI x y) are NOT equivalent.  */
 
   if (GET_MODE (x) != GET_MODE (y))
+    return 0;
+
+  /* MEMs refering to different address space are not equivalent.  */
+  if (code == MEM && MEM_ADDR_SPACE (x) != MEM_ADDR_SPACE (y))
     return 0;
 
   /* For commutative operations, the RTX match if the operand match in any
@@ -1708,13 +1786,17 @@ true_regnum (const_rtx x)
     {
       int base = true_regnum (SUBREG_REG (x));
       if (base >= 0
-	  && base < FIRST_PSEUDO_REGISTER
-	  && subreg_offset_representable_p (REGNO (SUBREG_REG (x)),
-					    GET_MODE (SUBREG_REG (x)),
-					    SUBREG_BYTE (x), GET_MODE (x)))
-	return base + subreg_regno_offset (REGNO (SUBREG_REG (x)),
-					   GET_MODE (SUBREG_REG (x)),
-					   SUBREG_BYTE (x), GET_MODE (x));
+	  && base < FIRST_PSEUDO_REGISTER)
+	{
+	  struct subreg_info info;
+
+	  subreg_get_info (REGNO (SUBREG_REG (x)),
+			   GET_MODE (SUBREG_REG (x)),
+			   SUBREG_BYTE (x), GET_MODE (x), &info);
+
+	  if (info.representable_p)
+	    return base + info.offset;
+	}
     }
   return -1;
 }

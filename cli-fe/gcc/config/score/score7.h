@@ -1,5 +1,5 @@
 /* score7.h for Sunplus S+CORE processor
-   Copyright (C) 2005, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2007, 2008 Free Software Foundation, Inc.
    Contributed by Sunnorth
 
    This file is part of GCC.
@@ -78,7 +78,7 @@ extern void score7_output_mi_thunk (FILE *file,
                                     HOST_WIDE_INT delta,
                                     HOST_WIDE_INT vcall_offset,
                                     tree function);
-extern int score7_legitimize_address (rtx *xloc);
+extern rtx score7_legitimize_address (rtx x);
 extern void
 score7_function_prologue (FILE *file,
                           HOST_WIDE_INT size ATTRIBUTE_UNUSED);
@@ -93,9 +93,9 @@ extern void score7_asm_file_end (void);
 extern void score7_override_options (void);
 extern int score7_reg_class (int regno);
 extern enum reg_class score7_preferred_reload_class (rtx x ATTRIBUTE_UNUSED,
-                                                     enum reg_class class);
+                                                     enum reg_class rclass);
 extern enum
-reg_class score7_secondary_reload_class (enum reg_class class,
+reg_class score7_secondary_reload_class (enum reg_class rclass,
                                          enum machine_mode mode ATTRIBUTE_UNUSED,
                                          rtx x);
 extern int score7_const_ok_for_letter_p (HOST_WIDE_INT value, char c);
@@ -120,13 +120,15 @@ extern rtx score7_function_arg (const CUMULATIVE_ARGS *cum,
 extern rtx score7_function_value (tree valtype,
                                   tree func ATTRIBUTE_UNUSED,
                                   enum machine_mode mode);
-extern void score7_initialize_trampoline (rtx ADDR, rtx FUNC, rtx CHAIN);
+extern void score7_asm_trampoline_template (FILE *);
+extern void score7_trampoline_init (rtx, tree, rtx);
 extern int score7_regno_mode_ok_for_base_p (int regno, int strict);
-extern int score7_address_p (enum machine_mode mode, rtx x, int strict);
+extern bool score7_legitimate_address_p (enum machine_mode mode, rtx x,
+					 bool strict);
 extern int score7_register_move_cost (enum machine_mode mode ATTRIBUTE_UNUSED,
                                       enum reg_class from,
                                       enum reg_class to);
-extern bool score7_rtx_costs (rtx x, int code, int outer_code, int *total);
+extern bool score7_rtx_costs (rtx x, int code, int outer_code, int *total, bool speed);
 extern int score7_address_cost (rtx addr);
 extern int score7_output_external (FILE *file ATTRIBUTE_UNUSED,
                                    tree decl,
@@ -139,7 +141,6 @@ extern enum machine_mode score7_select_cc_mode (enum rtx_code op,
                                                 rtx y);
 extern void score7_prologue (void);
 extern void score7_epilogue (int sibcall_p);
-extern void score7_gen_cmp (enum machine_mode mode);
 extern void score7_call (rtx *ops, bool sib);
 extern void score7_call_value (rtx *ops, bool sib);
 extern void score7_movsicc (rtx *ops);

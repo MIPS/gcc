@@ -1,5 +1,5 @@
 (* Auto-generate ARM Neon intrinsics header file.
-   Copyright (C) 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2006, 2007, 2009 Free Software Foundation, Inc.
    Contributed by CodeSourcery.
 
    This file is part of GCC.
@@ -122,6 +122,7 @@ let rec signed_ctype = function
   | T_uint16 | T_int16 -> T_intHI
   | T_uint32 | T_int32 -> T_intSI
   | T_uint64 | T_int64 -> T_intDI
+  | T_float32 -> T_floatSF
   | T_poly8 -> T_intQI
   | T_poly16 -> T_intHI
   | T_arrayof (n, elt) -> T_arrayof (n, signed_ctype elt)
@@ -320,7 +321,7 @@ let deftypes () =
     typeinfo;
   Format.print_newline ();
   (* Extra types not in <stdint.h>.  *)
-  Format.printf "typedef __builtin_neon_sf float32_t;\n";
+  Format.printf "typedef float float32_t;\n";
   Format.printf "typedef __builtin_neon_poly8 poly8_t;\n";
   Format.printf "typedef __builtin_neon_poly16 poly16_t;\n"
 
@@ -364,14 +365,14 @@ let _ =
 "/* ARM NEON intrinsics include file. This file is generated automatically";
 "   using neon-gen.ml.  Please do not edit manually.";
 "";
-"   Copyright (C) 2006, 2007 Free Software Foundation, Inc.";
+"   Copyright (C) 2006, 2007, 2009 Free Software Foundation, Inc.";
 "   Contributed by CodeSourcery.";
 "";
 "   This file is part of GCC.";
 "";
 "   GCC is free software; you can redistribute it and/or modify it";
 "   under the terms of the GNU General Public License as published";
-"   by the Free Software Foundation; either version 2, or (at your";
+"   by the Free Software Foundation; either version 3, or (at your";
 "   option) any later version.";
 "";
 "   GCC is distributed in the hope that it will be useful, but WITHOUT";
@@ -379,17 +380,14 @@ let _ =
 "   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public";
 "   License for more details.";
 "";
-"   You should have received a copy of the GNU General Public License";
-"   along with GCC; see the file COPYING.  If not, write to the";
-"   Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston,";
-"   MA 02110-1301, USA.  */";
+"   Under Section 7 of GPL version 3, you are granted additional";
+"   permissions described in the GCC Runtime Library Exception, version";
+"   3.1, as published by the Free Software Foundation.";
 "";
-"/* As a special exception, if you include this header file into source";
-"   files compiled by GCC, this header file does not by itself cause";
-"   the resulting executable to be covered by the GNU General Public";
-"   License.  This exception does not however invalidate any other";
-"   reasons why the executable file might be covered by the GNU General";
-"   Public License.  */";
+"   You should have received a copy of the GNU General Public License and";
+"   a copy of the GCC Runtime Library Exception along with this program;";
+"   see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see";
+"   <http://www.gnu.org/licenses/>.  */";
 "";
 "#ifndef _GCC_ARM_NEON_H";
 "#define _GCC_ARM_NEON_H 1";

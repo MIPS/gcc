@@ -2,7 +2,7 @@
    traversal of the loops after versioning.  */
 
 /* { dg-do compile } */
-/* { dg-options "-O2 -fmodulo-sched -dm" } */
+/* { dg-options "-O2 -fmodulo-sched -fdump-rtl-sms" } */
 
 
 void
@@ -33,4 +33,5 @@ fun (nb)
       }
 }
 
+/* { dg-final { scan-rtl-dump-times "SMS succeeded" 1 "sms" { target spu-*-* powerpc*-*-* } } } */
 /* { dg-final { cleanup-rtl-dump "sms" } } */

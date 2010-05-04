@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -31,6 +31,10 @@ with Sinfo.CN; use Sinfo.CN;
 
 separate (Par)
 
+---------
+-- Ch3 --
+---------
+
 package body Ch3 is
 
    -----------------------
@@ -54,6 +58,24 @@ package body Ch3 is
    function P_Modular_Type_Definition                      return Node_Id;
    function P_Variant                                      return Node_Id;
    function P_Variant_Part                                 return Node_Id;
+
+   procedure Check_Restricted_Expression (N : Node_Id);
+   --  Check that the expression N meets the Restricted_Expression syntax.
+   --  The syntax is as follows:
+   --
+   --    RESTRICTED_EXPRESSION ::=
+   --        RESTRICTED_RELATION {and RESTRICTED_RELATION}
+   --      | RESTRICTED_RELATION {and then RESTRICTED_RELATION}
+   --      | RESTRICTED_RELATION {or RESTRICTED_RELATION}
+   --      | RESTRICTED_RELATION {or else RESTRICTED_RELATION}
+   --      | RESTRICTED_RELATION {xor RESTRICTED_RELATION}
+   --
+   --    RESTRICTED_RELATION ::=
+   --       SIMPLE_EXPRESSION [RELATIONAL_OPERATOR SIMPLE_EXPRESSION]
+   --
+   --  This syntax is used for choices when extensions (and set notations)
+   --  are enabled, to remove the ambiguity of "when X in A | B". We consider
+   --  it very unlikely that this will ever arise in practice.
 
    procedure P_Declarative_Items
      (Decls   : List_Id;
@@ -88,6 +110,27 @@ package body Ch3 is
    --  Posts a "declaration expected" error messages at the start of the
    --  current token, and if this is the first such message issued, saves
    --  the message id in Missing_Begin_Msg, for possible later replacement.
+
+
+   ---------------------------------
+   -- Check_Restricted_Expression --
+   ---------------------------------
+
+   procedure Check_Restricted_Expression (N : Node_Id) is
+   begin
+      if Nkind_In (N, N_Op_And, N_Op_Or, N_Op_Xor, N_And_Then, N_Or_Else) then
+         Check_Restricted_Expression (Left_Opnd (N));
+         Check_Restricted_Expression (Right_Opnd (N));
+
+      elsif Nkind_In (N, N_In, N_Not_In)
+        and then Paren_Count (N) = 0
+      then
+         Error_Msg_N
+           ("|this expression must be parenthesized!", N);
+         Error_Msg_N
+           ("\|since extensions (and set notation) are allowed", N);
+      end if;
+   end Check_Restricted_Expression;
 
    -------------------
    -- Init_Expr_Opt --
@@ -174,7 +217,9 @@ package body Ch3 is
       if Token = Tok_Identifier then
 
          --  Ada 2005 (AI-284): Compiling in Ada95 mode we warn that INTERFACE,
-         --  OVERRIDING, and SYNCHRONIZED are new reserved words.
+         --  OVERRIDING, and SYNCHRONIZED are new reserved words. Note that
+         --  in the case where these keywords are misused in Ada 95 mode,
+         --  this routine will generally not be called at all.
 
          if Ada_Version = Ada_95
            and then Warn_On_Ada_2005_Compatibility
@@ -203,6 +248,18 @@ package body Ch3 is
 
       Ident_Node := Token_Node;
       Scan; -- past the reserved identifier
+
+      --  If we already have a defining identifier, clean it out and make
+      --  a new clean identifier. This situation arises in some error cases
+      --  and we need to fix it.
+
+      if Nkind (Ident_Node) = N_Defining_Identifier then
+         Ident_Node :=
+           Make_Identifier (Sloc (Ident_Node),
+             Chars => Chars (Ident_Node));
+      end if;
+
+      --  Change identifier to defining identifier if not in error
 
       if Ident_Node /= Error then
          Change_Identifier_To_Defining_Identifier (Ident_Node);
@@ -288,20 +345,12 @@ package body Ch3 is
          Scan; -- past TYPE
          Ident_Node := P_Defining_Identifier (C_Is);
 
-      --  Otherwise this is an error case, and we may already have converted
-      --  the current token to a defining identifier, so don't do it again!
+      --  Otherwise this is an error case
 
       else
          T_Type;
-
-         if Token = Tok_Identifier
-           and then Nkind (Token_Node) = N_Defining_Identifier
-         then
-            Ident_Node := Token_Node;
-            Scan; -- past defining identifier
-         else
-            Ident_Node := P_Defining_Identifier (C_Is);
-         end if;
+         Type_Token_Location := Type_Loc;
+         Ident_Node := P_Defining_Identifier (C_Is);
       end if;
 
       Discr_Sloc := Token_Ptr;
@@ -410,7 +459,7 @@ package body Ch3 is
          Scan; -- past ALIASED
       end if;
 
-      --  The following procesing deals with either a private type declaration
+      --  The following processing deals with either a private type declaration
       --  or a full type declaration. In the private type case, we build the
       --  N_Private_Type_Declaration node, setting its Tagged_Present and
       --  Limited_Present flags, on encountering the Private keyword, and
@@ -535,7 +584,8 @@ package body Ch3 is
                end if;
 
                if Token = Tok_Abstract then
-                  Error_Msg_SC ("ABSTRACT must come before TAGGED");
+                  Error_Msg_SC -- CODEFIX
+                    ("ABSTRACT must come before TAGGED");
                   Abstract_Present := True;
                   Abstract_Loc := Token_Ptr;
                   Scan; -- past ABSTRACT
@@ -600,11 +650,13 @@ package body Ch3 is
 
                loop
                   if Token = Tok_Tagged then
-                     Error_Msg_SC ("TAGGED must come before LIMITED");
+                     Error_Msg_SC -- CODEFIX
+                       ("TAGGED must come before LIMITED");
                      Scan; -- past TAGGED
 
                   elsif Token = Tok_Abstract then
-                     Error_Msg_SC ("ABSTRACT must come before LIMITED");
+                     Error_Msg_SC -- CODEFIX
+                       ("ABSTRACT must come before LIMITED");
                      Scan; -- past ABSTRACT
 
                   else
@@ -618,6 +670,14 @@ package body Ch3 is
                   if Ada_Version = Ada_83 then
                      Error_Msg_SP
                        ("(Ada 83) limited record declaration not allowed!");
+
+                  --  In Ada2005, "abstract limited" can appear before "new",
+                  --  but it cannot be part of an untagged record declaration.
+
+                  elsif Abstract_Present
+                    and then Prev_Token /= Tok_Tagged
+                  then
+                     Error_Msg_SP ("TAGGED expected");
                   end if;
 
                   Typedef_Node := P_Record_Definition;
@@ -749,7 +809,16 @@ package body Ch3 is
                      Typedef_Node := P_Derived_Type_Def_Or_Private_Ext_Decl;
 
                      if Saved_Token = Tok_Synchronized then
-                        Set_Synchronized_Present (Typedef_Node);
+                        if Nkind (Typedef_Node) =
+                          N_Derived_Type_Definition
+                        then
+                           Error_Msg_N
+                             ("SYNCHRONIZED not allowed for record extension",
+                              Typedef_Node);
+                        else
+                           Set_Synchronized_Present (Typedef_Node);
+                        end if;
+
                      else
                         Error_Msg_SC ("invalid kind of private extension");
                      end if;
@@ -757,6 +826,10 @@ package body Ch3 is
                   --  Interface
 
                   else
+                     if Token /= Tok_Interface then
+                        Error_Msg_SC ("NEW or INTERFACE expected");
+                     end if;
+
                      Typedef_Node :=
                        P_Interface_Type_Definition (Abstract_Present);
                      Abstract_Present := True;
@@ -1128,7 +1201,6 @@ package body Ch3 is
               Make_Attribute_Reference (Prev_Token_Ptr,
                 Prefix => Prefix,
                 Attribute_Name => Token_Name);
-            Delete_Node (Token_Node);
             Scan; -- past type attribute identifier
          end if;
 
@@ -1279,6 +1351,10 @@ package body Ch3 is
       --  returns True, otherwise returns False. Includes checking for some
       --  common error cases.
 
+      -------------
+      -- No_List --
+      -------------
+
       procedure No_List is
       begin
          if Num_Idents > 1 then
@@ -1288,6 +1364,10 @@ package body Ch3 is
 
          List_OK := False;
       end No_List;
+
+      ----------------------
+      -- Token_Is_Renames --
+      ----------------------
 
       function Token_Is_Renames return Boolean is
          At_Colon : Saved_Scan_State;
@@ -1299,7 +1379,7 @@ package body Ch3 is
             Check_Misspelling_Of (Tok_Renames);
 
             if Token = Tok_Renames then
-               Error_Msg_SP ("extra "":"" ignored");
+               Error_Msg_SP ("|extra "":"" ignored");
                Scan; -- past RENAMES
                return True;
             else
@@ -1335,7 +1415,6 @@ package body Ch3 is
       --  If we have a comma, then scan out the list of identifiers
 
       elsif Token = Tok_Comma then
-
          while Comma_Present loop
             Num_Idents := Num_Idents + 1;
             Idents (Num_Idents) := P_Defining_Identifier (C_Comma_Colon);
@@ -1493,7 +1572,8 @@ package body Ch3 is
                end if;
 
                if Token = Tok_Aliased then
-                  Error_Msg_SC ("ALIASED should be before CONSTANT");
+                  Error_Msg_SC -- CODEFIX
+                    ("ALIASED should be before CONSTANT");
                   Scan; -- past ALIASED
                   Set_Aliased_Present (Decl_Node, True);
                end if;
@@ -1855,7 +1935,8 @@ package body Ch3 is
       end if;
 
       if Token = Tok_Abstract then
-         Error_Msg_SC ("ABSTRACT must come before NEW, not after");
+         Error_Msg_SC -- CODEFIX
+           ("ABSTRACT must come before NEW, not after");
          Scan;
       end if;
 
@@ -1922,7 +2003,6 @@ package body Ch3 is
                 Abstract_Present    => Abstract_Present (Typedef_Node),
                 Interface_List      => Interface_List (Typedef_Node));
 
-            Delete_Node (Typedef_Node);
             return Typedecl_Node;
 
          --  Derived type definition with record extension part
@@ -2020,10 +2100,13 @@ package body Ch3 is
 
    --  Error recovery: cannot raise Error_Resync
 
-   function P_Range_Or_Subtype_Mark return Node_Id is
+   function P_Range_Or_Subtype_Mark
+     (Allow_Simple_Expression : Boolean := False) return Node_Id
+   is
       Expr_Node  : Node_Id;
       Range_Node : Node_Id;
       Save_Loc   : Source_Ptr;
+
 
    --  Start of processing for P_Range_Or_Subtype_Mark
 
@@ -2034,7 +2117,8 @@ package body Ch3 is
 
       --  Scan out either a simple expression or a range (this accepts more
       --  than is legal here, but as explained above, we like to allow more
-      --  with a proper diagnostic.
+      --  with a proper diagnostic, and in the case of a membership operation
+      --  where sets are allowed, a simple expression is permissible anyway.
 
       Expr_Node := P_Simple_Expression_Or_Range_Attribute;
 
@@ -2054,7 +2138,7 @@ package body Ch3 is
          return Range_Node;
 
       --  Case of subtype mark (optionally qualified simple name or an
-      --  attribute whose prefix is an optionally qualifed simple name)
+      --  attribute whose prefix is an optionally qualified simple name)
 
       elsif Expr_Form = EF_Simple_Name
         or else Nkind (Expr_Node) = N_Attribute_Reference
@@ -2274,7 +2358,8 @@ package body Ch3 is
       --  Handle decimal fixed-point defn with DIGITS/DELTA in wrong order
 
       if Token = Tok_Delta then
-         Error_Msg_SC ("DELTA must come before DIGITS");
+         Error_Msg_SC -- CODEFIX
+           ("|DELTA must come before DIGITS");
          Def_Node := New_Node (N_Decimal_Fixed_Point_Definition, Digits_Loc);
          Scan; -- past DELTA
          Set_Delta_Expression (Def_Node, P_Expression_No_Right_Paren);
@@ -2715,27 +2800,37 @@ package body Ch3 is
       Scan_State : Saved_Scan_State;
 
    begin
-      if Token /= Tok_Left_Paren then
+      --  If <> right now, then this is missing left paren
+
+      if Token = Tok_Box then
+         U_Left_Paren;
+
+      --  If not <> or left paren, then definitely no box
+
+      elsif Token /= Tok_Left_Paren then
          return False;
+
+      --  Left paren, so might be a box after it
 
       else
          Save_Scan_State (Scan_State);
          Scan; -- past the left paren
 
-         if Token = Tok_Box then
-            if Ada_Version = Ada_83 then
-               Error_Msg_SC ("(Ada 83) unknown discriminant not allowed!");
-            end if;
-
-            Scan; -- past the box
-            T_Right_Paren; -- must be followed by right paren
-            return True;
-
-         else
+         if Token /= Tok_Box then
             Restore_Scan_State (Scan_State);
             return False;
          end if;
       end if;
+
+      --  We are now pointing to the box
+
+      if Ada_Version = Ada_83 then
+         Error_Msg_SC ("(Ada 83) unknown discriminant not allowed!");
+      end if;
+
+      Scan; -- past the box
+      U_Right_Paren; -- must be followed by right paren
+      return True;
    end P_Unknown_Discriminant_Part_Opt;
 
    ----------------------------------
@@ -2857,7 +2952,7 @@ package body Ch3 is
    end P_Known_Discriminant_Part_Opt;
 
    -------------------------------------
-   -- 3.7  DIscriminant Specification --
+   -- 3.7  Discriminant Specification --
    -------------------------------------
 
    --  Parsed by P_Known_Discriminant_Part_Opt (3.7)
@@ -3081,6 +3176,12 @@ package body Ch3 is
          T_Record;
          Set_Null_Present (Rec_Node, True);
 
+      --  Catch incomplete declaration to prevent cascaded errors, see
+      --  ACATS B393002 for an example.
+
+      elsif Token = Tok_Semicolon then
+         Error_Msg_AP ("missing record definition");
+
       --  Case starting with RECORD keyword. Build scope stack entry. For the
       --  column, we use the first non-blank character on the line, to deal
       --  with situations such as:
@@ -3089,7 +3190,8 @@ package body Ch3 is
       --      ...
       --    end record;
 
-      --  which is not official RM indentation, but is not uncommon usage
+      --  which is not official RM indentation, but is not uncommon usage, and
+      --  in particular is standard GNAT coding style, so handle it nicely.
 
       else
          Push_Scope_Stack;
@@ -3395,7 +3497,6 @@ package body Ch3 is
       Variant_Part_Node : Node_Id;
       Variants_List     : List_Id;
       Case_Node         : Node_Id;
-      Ident_Token       : Token_Type;
 
    begin
       Variant_Part_Node := New_Node (N_Variant_Part, Token_Ptr);
@@ -3405,26 +3506,17 @@ package body Ch3 is
       Scope.Table (Scope.Last).Ecol := Start_Column;
 
       Scan; -- past CASE
-
-      --  A discriminant name between parentheses will be returned as
-      --  a N_Identifier although it is not allowed by RM 3.8.1. We
-      --  save the token type to check it later. However, in case of
-      --  a discriminant name with parentheses, we can continue the
-      --  analysis as if only the discriminant name had been given.
-
-      Ident_Token := Token;
       Case_Node := P_Expression;
+      Set_Name (Variant_Part_Node, Case_Node);
 
-      if Nkind (Case_Node) = N_Identifier then
-         Set_Name (Variant_Part_Node, Case_Node);
-      else
+      if Nkind (Case_Node) /= N_Identifier then
          Set_Name (Variant_Part_Node, Error);
-      end if;
-
-      if Nkind (Case_Node) /= N_Identifier
-        or else Ident_Token /= Tok_Identifier
-      then
          Error_Msg ("discriminant name expected", Sloc (Case_Node));
+
+      elsif Paren_Count (Case_Node) /= 0 then
+         Error_Msg ("|discriminant name may not be parenthesized",
+                    Sloc (Case_Node));
+         Set_Paren_Count (Case_Node, 0);
       end if;
 
       TF_Is;
@@ -3510,7 +3602,6 @@ package body Ch3 is
 
    begin
       Choices := New_List;
-
       loop
          if Token = Tok_Others then
             Append (New_Node (N_Others_Choice, Token_Ptr), Choices);
@@ -3518,8 +3609,10 @@ package body Ch3 is
 
          else
             begin
+               --  Scan out expression or range attribute
+
                Expr_Node := P_Expression_Or_Range_Attribute;
-               Check_No_Right_Paren;
+               Ignore (Tok_Right_Paren);
 
                if Token = Tok_Colon
                  and then Nkind (Expr_Node) = N_Identifier
@@ -3527,8 +3620,12 @@ package body Ch3 is
                   Error_Msg_SP ("label not permitted in this context");
                   Scan; -- past colon
 
+               --  Range attribute
+
                elsif Expr_Form = EF_Range_Attr then
                   Append (Expr_Node, Choices);
+
+               --  Explicit range
 
                elsif Token = Tok_Dot_Dot then
                   Check_Simple_Expression (Expr_Node);
@@ -3540,14 +3637,16 @@ package body Ch3 is
                   Set_High_Bound (Choice_Node, Expr_Node);
                   Append (Choice_Node, Choices);
 
+               --  Simple name, must be subtype, so range allowed
+
                elsif Expr_Form = EF_Simple_Name then
                   if Token = Tok_Range then
                      Append (P_Subtype_Indication (Expr_Node), Choices);
 
                   elsif Token in Token_Class_Consk then
                      Error_Msg_SC
-                        ("the only constraint allowed here " &
-                         "is a range constraint");
+                       ("the only constraint allowed here " &
+                        "is a range constraint");
                      Discard_Junk_Node (P_Constraint_Opt);
                      Append (Expr_Node, Choices);
 
@@ -3555,8 +3654,39 @@ package body Ch3 is
                      Append (Expr_Node, Choices);
                   end if;
 
+               --  Expression
+
                else
-                  Check_Simple_Expression_In_Ada_83 (Expr_Node);
+                  --  If extensions are permitted then the expression must be a
+                  --  simple expression. The resaon for this restriction (i.e.
+                  --  going back to the Ada 83 rule) is to avoid ambiguities
+                  --  when set membership operations are allowed, consider the
+                  --  following:
+
+                  --     when A in 1 .. 10 | 12 =>
+
+                  --  This is ambiguous without parentheses, so we require one
+                  --  of the following two parenthesized forms to disambuguate:
+
+                  --  one of the following:
+
+                  --     when (A in 1 .. 10 | 12) =>
+                  --     when (A in 1 .. 10) | 12 =>
+
+                  --  To solve this, if extensins are enabled, we disallow
+                  --  the use of membership operations in expressions in
+                  --  choices. Technically in the grammar, the expression
+                  --  must match the grammar for restricted expression.
+
+                  if Extensions_Allowed then
+                     Check_Restricted_Expression (Expr_Node);
+
+                  --  In Ada 83 mode, the syntax required a simple expression
+
+                  else
+                     Check_Simple_Expression_In_Ada_83 (Expr_Node);
+                  end if;
+
                   Append (Expr_Node, Choices);
                end if;
 
@@ -3634,7 +3764,7 @@ package body Ch3 is
 
       --  Ada 2005 (AI-251): In case of not-synchronized interfaces that have
       --  a list of interfaces we build a derived_type_definition node. This
-      --  simplifies the semantic analysis (and hence further mainteinance)
+      --  simplifies the semantic analysis (and hence further maintenance)
 
       else
          if Token /= Tok_And then
@@ -3752,7 +3882,8 @@ package body Ch3 is
          Scan; -- past PROTECTED
 
          if Token /= Tok_Procedure and then Token /= Tok_Function then
-            Error_Msg_SC ("FUNCTION or PROCEDURE expected");
+            Error_Msg_SC -- CODEFIX
+              ("FUNCTION or PROCEDURE expected");
          end if;
       end if;
 
@@ -3797,13 +3928,14 @@ package body Ch3 is
          else
             Result_Node := P_Subtype_Mark;
             No_Constraint;
-         end if;
 
-         --  Note: A null exclusion given on the result type needs to
-         --  be coded by a distinct flag, since Null_Exclusion_Present
-         --  on an access-to-function type pertains to a null exclusion
-         --  on the access type itself (as set above). ???
-         --  Set_Null_Exclusion_Present??? (Type_Def_Node, Result_Not_Null);
+            --  A null exclusion on the result type must be recorded in a flag
+            --  distinct from the one used for the access-to-subprogram type's
+            --  null exclusion.
+
+            Set_Null_Exclusion_In_Return_Present
+              (Type_Def_Node, Result_Not_Null);
+         end if;
 
          Set_Result_Definition (Type_Def_Node, Result_Node);
 
@@ -3904,8 +4036,7 @@ package body Ch3 is
          if Token = Tok_All then
             if Ada_Version < Ada_05 then
                Error_Msg_SP
-                 ("access-all in this context is an Ada 2005 extension");
-               Error_Msg_SP ("\unit should be compiled with -gnat05 switch");
+                 ("ALL is not permitted for anonymous access types");
             end if;
 
             Scan; -- past ALL
@@ -4039,11 +4170,28 @@ package body Ch3 is
 
          when Tok_Identifier =>
             Check_Bad_Layout;
-            P_Identifier_Declarations (Decls, Done, In_Spec);
+
+            --  Special check for misuse of overriding not in Ada 2005 mode
+
+            if Token_Name = Name_Overriding
+              and then not Next_Token_Is (Tok_Colon)
+            then
+               Error_Msg_SC ("overriding indicator is an Ada 2005 extension");
+               Error_Msg_SC ("\unit must be compiled with -gnat05 switch");
+
+               Token := Tok_Overriding;
+               Append (P_Subprogram (Pf_Decl_Gins_Pbod_Rnam_Stub), Decls);
+               Done := False;
+
+            --  Normal case, no overriding, or overriding followed by colon
+
+            else
+               P_Identifier_Declarations (Decls, Done, In_Spec);
+            end if;
 
          --  Ada2005: A subprogram declaration can start with "not" or
          --  "overriding". In older versions, "overriding" is handled
-         --  like an identifier, with the appropriate warning.
+         --  like an identifier, with the appropriate messages.
 
          when Tok_Not =>
             Check_Bad_Layout;
@@ -4136,7 +4284,7 @@ package body Ch3 is
                   --  Otherwise we saved the semicolon position, so complain
 
                   else
-                     Error_Msg (""";"" should be IS", SIS_Semicolon_Sloc);
+                     Error_Msg ("|"";"" should be IS", SIS_Semicolon_Sloc);
                   end if;
 
                   --  The next job is to fix up any declarations that occurred

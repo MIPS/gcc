@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -156,7 +156,7 @@ package body Sem_Ch11 is
          return False;
       end Others_Present;
 
-   --  Start processing for Analyze_Exception_Handlers
+   --  Start of processing for Analyze_Exception_Handlers
 
    begin
       Handler := First (L);
@@ -185,8 +185,7 @@ package body Sem_Ch11 is
             --  scope for visibility purposes. We create an entity to denote
             --  the whole exception part, and use it as the scope of all the
             --  choices, which may even have the same name without conflict.
-            --  This scope plays no other role in expansion or or code
-            --  generation.
+            --  This scope plays no other role in expansion or code generation.
 
             Choice := Choice_Parameter (Handler);
 
@@ -437,7 +436,6 @@ package body Sem_Ch11 is
       Exception_Id   : constant Node_Id := Name (N);
       Exception_Name : Entity_Id        := Empty;
       P              : Node_Id;
-      Nkind_P        : Node_Kind;
 
    begin
       Check_Unreachable_Code (N);
@@ -484,16 +482,13 @@ package body Sem_Ch11 is
 
       if No (Exception_Id) then
          P := Parent (N);
-         Nkind_P := Nkind (P);
-
-         while Nkind_P /= N_Exception_Handler
-           and then Nkind_P /= N_Subprogram_Body
-           and then Nkind_P /= N_Package_Body
-           and then Nkind_P /= N_Task_Body
-           and then Nkind_P /= N_Entry_Body
+         while not Nkind_In (P, N_Exception_Handler,
+                                N_Subprogram_Body,
+                                N_Package_Body,
+                                N_Task_Body,
+                                N_Entry_Body)
          loop
             P := Parent (P);
-            Nkind_P := Nkind (P);
          end loop;
 
          if Nkind (P) /= N_Exception_Handler then
@@ -506,7 +501,15 @@ package body Sem_Ch11 is
 
          else
             Set_Local_Raise_Not_OK (P);
-            Check_Restriction (No_Exception_Propagation, N);
+
+            --  Do not check the restriction if the reraise statement is part
+            --  of the code generated for an AT-END handler. That's because
+            --  if the restriction is actually active, we never generate this
+            --  raise anyway, so the apparent violation is bogus.
+
+            if not From_At_End (N) then
+               Check_Restriction (No_Exception_Propagation, N);
+            end if;
          end if;
 
       --  Normal case with exception id present
@@ -552,6 +555,46 @@ package body Sem_Ch11 is
    --  field if one is present.
 
    procedure Analyze_Raise_xxx_Error (N : Node_Id) is
+
+      function Same_Expression (C1, C2 : Node_Id) return Boolean;
+      --  It often occurs that two identical raise statements are generated in
+      --  succession (for example when dynamic elaboration checks take place on
+      --  separate expressions in a call). If the two statements are identical
+      --  according to the simple criterion that follows, the raise is
+      --  converted into a null statement.
+
+      ---------------------
+      -- Same_Expression --
+      ---------------------
+
+      function Same_Expression (C1, C2 : Node_Id) return Boolean is
+      begin
+         if No (C1) and then No (C2) then
+            return True;
+
+         elsif Is_Entity_Name (C1) and then Is_Entity_Name (C2) then
+            return Entity (C1) = Entity (C2);
+
+         elsif Nkind (C1) /= Nkind (C2) then
+            return False;
+
+         elsif Nkind (C1) in N_Unary_Op then
+            return Same_Expression (Right_Opnd (C1), Right_Opnd (C2));
+
+         elsif Nkind (C1) in N_Binary_Op then
+            return Same_Expression (Left_Opnd (C1), Left_Opnd (C2))
+              and then Same_Expression (Right_Opnd (C1), Right_Opnd (C2));
+
+         elsif Nkind (C1) = N_Null then
+            return True;
+
+         else
+            return False;
+         end if;
+      end Same_Expression;
+
+   --  Start of processing for Analyze_Raise_xxx_Error
+
    begin
       if No (Etype (N)) then
          Set_Etype (N, Standard_Void_Type);
@@ -570,6 +613,20 @@ package body Sem_Ch11 is
          elsif Entity (Condition (N)) = Standard_False then
             Rewrite (N, Make_Null_Statement (Sloc (N)));
          end if;
+      end if;
+
+      --  Remove duplicate raise statements. Note that the previous one may
+      --  already have been removed as well.
+
+      if not Comes_From_Source (N)
+        and then Nkind (N) /= N_Null_Statement
+        and then Is_List_Member (N)
+        and then Present (Prev (N))
+        and then Nkind (N) = Nkind (Original_Node (Prev (N)))
+        and then Same_Expression
+                   (Condition (N), Condition (Original_Node (Prev (N))))
+      then
+         Rewrite (N, Make_Null_Statement (Sloc (N)));
       end if;
    end Analyze_Raise_xxx_Error;
 

@@ -1,6 +1,4 @@
-/* { dg-do compile { target mips16_attribute } } */
-/* { dg-mips-options "-mcode-readable=no -mgp32" } */
-/* { dg-add-options mips16_attribute } */
+/* { dg-options "(-mips16) -mcode-readable=no -mgp32 addressing=absolute" } */
 
 MIPS16 int
 foo (int i)
@@ -27,10 +25,10 @@ bar (void)
 }
 
 /* { dg-final { scan-assembler-not "\tla\t" } } */
-/* { dg-final { scan-assembler-not "\t\.half\t" } } */
+/* { dg-final { scan-assembler-not "\t\\.half\t" } } */
 /* { dg-final { scan-assembler "%hi\\(\[^)\]*L" } } */
 /* { dg-final { scan-assembler "%lo\\(\[^)\]*L" } } */
 
-/* { dg-final { scan-assembler-not "\t\.word\tk\n" } } */
+/* { dg-final { scan-assembler-not "\t\\.word\tk\n" } } */
 /* { dg-final { scan-assembler "%hi\\(k\\)" } } */
 /* { dg-final { scan-assembler "%lo\\(k\\)" } } */

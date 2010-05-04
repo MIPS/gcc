@@ -1,6 +1,6 @@
 /* Compilation switch flag definitions for GCC.
    Copyright (C) 1987, 1988, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2002,
-   2003, 2004, 2005, 2006, 2007
+   2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -110,20 +110,20 @@ extern int optimize;
 
 extern int optimize_size;
 
-/* Do print extra warnings (such as for uninitialized variables).
-   -W/-Wextra.  */
+/* True if this is the LTO front end (lto1).  This is used to disable
+   gimple generation and lowering passes that are normally run on the
+   output of a front end.  These passes must be bypassed for lto since
+   they have already been done before the gimple was written.  */
 
-extern bool extra_warnings;
+extern bool in_lto_p;
 
-/* Nonzero to warn about unused variables, functions et.al.  Use
-   set_Wunused() to update the -Wunused-* flags that correspond to the
-   -Wunused option.  */
+/* Nonzero if we should write GIMPLE bytecode for link-time optimization.  */
 
-extern void set_Wunused (int setting);
+extern int flag_generate_lto;
 
-/* Used to set the level of -Wstrict-aliasing, when no level is specified.  
+/* Used to set the level of -Wstrict-aliasing, when no level is specified.
    The external way to set the default level is to use
-   -Wstrict-aliasing=level.  
+   -Wstrict-aliasing=level.
    ONOFF is assumed to take value 1 when -Wstrict-aliasing is specified,
    and 0 otherwise.  After calling this function, wstrict_aliasing will be
    set to the default value of -Wstrict_aliasing=level.  */
@@ -137,20 +137,11 @@ extern void set_Wstrict_aliasing (int onoff);
 extern bool warn_larger_than;
 extern HOST_WIDE_INT larger_than_size;
 
-/* Nonzero means warn about constructs which might not be strict
-   aliasing safe.  */
+/* Nonzero means warn about any function whose frame size is larger
+   than N bytes. */
 
-extern int warn_strict_aliasing;
-
-/* Nonzero means warn about optimizations which rely on undefined
-   signed overflow.  */
-
-extern int warn_strict_overflow;
-
-/* Temporarily suppress certain warnings.
-   This is set while reading code from a system header file.  */
-
-extern int in_system_header;
+extern bool warn_frame_larger_than;
+extern HOST_WIDE_INT frame_larger_than_size;
 
 /* Nonzero for -dp: annotate the assembly with a comment describing the
    pattern and alternative used.  */
@@ -178,11 +169,6 @@ extern int flag_pcc_struct_return;
 
 extern int flag_complex_method;
 
-/* Nonzero means that we don't want inlining by virtue of -fno-inline,
-   not just because the tree inliner turned us off.  */
-
-extern int flag_really_no_inline;
-
 /* Nonzero if we are only using compiler to check syntax errors.  */
 
 extern int rtl_dump_and_exit;
@@ -196,10 +182,18 @@ extern int flag_gen_aux_info;
 
 extern int flag_dump_unnumbered;
 
+/* True if printing into -fdump-final-insns= dump.  */
+
+extern bool final_insns_dump_p;
+
 /* Nonzero means change certain warnings into errors.
    Usually these are warnings about failure to conform to some standard.  */
 
 extern int flag_pedantic_errors;
+
+/* Nonzero means make permerror produce warnings instead of errors.  */
+
+extern int flag_permissive;
 
 /* Nonzero if we are compiling code for a shared library, zero for
    executable.  */
@@ -220,14 +214,45 @@ extern int flag_debug_asm;
 extern int flag_next_runtime;
 
 extern int flag_dump_rtl_in_asm;
+
+/* The algorithm used for the integrated register allocator (IRA).  */
+enum ira_algorithm
+{
+  IRA_ALGORITHM_CB,
+  IRA_ALGORITHM_PRIORITY
+};
+
+extern enum ira_algorithm flag_ira_algorithm;
+
+/* The regions used for the integrated register allocator (IRA).  */
+enum ira_region
+{
+  IRA_REGION_ONE,
+  IRA_REGION_ALL,
+  IRA_REGION_MIXED
+};
+
+extern enum ira_region flag_ira_region;
+
+extern unsigned int flag_ira_verbose;
+
+/* The options for excess precision.  */
+enum excess_precision
+{
+  EXCESS_PRECISION_DEFAULT,
+  EXCESS_PRECISION_FAST,
+  EXCESS_PRECISION_STANDARD
+};
+
+/* The excess precision specified on the command line, or defaulted by
+   the front end.  */
+extern enum excess_precision flag_excess_precision_cmdline;
+
+/* The excess precision currently in effect.  */
+extern enum excess_precision flag_excess_precision;
+
 
 /* Other basic status info about current function.  */
-
-/* Nonzero means current function must be given a frame pointer.
-   Set in stmt.c if anything is allocated on the stack there.
-   Set in reload1.c if anything is allocated on the stack there.  */
-
-extern int frame_pointer_needed;
 
 /* Nonzero if subexpressions must be evaluated from left-to-right.  */
 extern int flag_evaluation_order;
@@ -236,8 +261,14 @@ extern int flag_evaluation_order;
 extern unsigned HOST_WIDE_INT g_switch_value;
 extern bool g_switch_set;
 
-/* Values of the -falign-* flags: how much to align labels in code. 
-   0 means `use default', 1 means `don't align'.  
+/* Same for selective scheduling.  */
+extern bool sel_sched_switch_set;
+
+/* Whether to run the warn_unused_result attribute pass.  */
+extern bool flag_warn_unused_result;
+
+/* Values of the -falign-* flags: how much to align labels in code.
+   0 means `use default', 1 means `don't align'.
    For each variable, there is an _log variant which is the power
    of two not less than the variable, for .align output.  */
 
@@ -275,6 +306,27 @@ extern int flag_var_tracking;
    warning message in case flag was set by -fprofile-{generate,use}.  */
 extern bool flag_speculative_prefetching_set;
 
+/* Type of stack check.  */
+enum stack_check_type
+{
+  /* Do not check the stack.  */
+  NO_STACK_CHECK = 0,
+
+  /* Check the stack generically, i.e. assume no specific support
+     from the target configuration files.  */
+  GENERIC_STACK_CHECK,
+
+  /* Check the stack and rely on the target configuration files to
+     check the static frame of functions, i.e. use the generic
+     mechanism only for dynamic stack allocations.  */
+  STATIC_BUILTIN_STACK_CHECK,
+
+  /* Check the stack and entirely rely on the target configuration
+     files, i.e. do not use the generic mechanism at all.  */
+  FULL_BUILTIN_STACK_CHECK
+};
+extern enum stack_check_type flag_stack_check;
+
 /* Returns TRUE if generated code should match ABI version N or
    greater is in use.  */
 
@@ -284,32 +336,6 @@ extern bool flag_speculative_prefetching_set;
 /* Return whether the function should be excluded from
    instrumentation.  */
 extern bool flag_instrument_functions_exclude_p (tree fndecl);
-
-/* True if the given mode has a NaN representation and the treatment of
-   NaN operands is important.  Certain optimizations, such as folding
-   x * 0 into 0, are not correct for NaN operands, and are normally
-   disabled for modes with NaNs.  The user can ask for them to be
-   done anyway using the -funsafe-math-optimizations switch.  */
-#define HONOR_NANS(MODE) \
-  (MODE_HAS_NANS (MODE) && !flag_finite_math_only)
-
-/* Like HONOR_NANs, but true if we honor signaling NaNs (or sNaNs).  */
-#define HONOR_SNANS(MODE) (flag_signaling_nans && HONOR_NANS (MODE))
-
-/* As for HONOR_NANS, but true if the mode can represent infinity and
-   the treatment of infinite values is important.  */
-#define HONOR_INFINITIES(MODE) \
-  (MODE_HAS_INFINITIES (MODE) && !flag_finite_math_only)
-
-/* Like HONOR_NANS, but true if the given mode distinguishes between
-   positive and negative zero, and the sign of zero is important.  */
-#define HONOR_SIGNED_ZEROS(MODE) \
-  (MODE_HAS_SIGNED_ZEROS (MODE) && flag_signed_zeros)
-
-/* Like HONOR_NANS, but true if given mode supports sign-dependent rounding,
-   and the rounding mode is important.  */
-#define HONOR_SIGN_DEPENDENT_ROUNDING(MODE) \
-  (MODE_HAS_SIGN_DEPENDENT_ROUNDING (MODE) && flag_rounding_math)
 
 /* True if overflow wraps around for the given integral type.  That
    is, TYPE_MAX + 1 == TYPE_MIN.  */
@@ -331,6 +357,9 @@ extern bool flag_instrument_functions_exclude_p (tree fndecl);
    trap.  */
 #define TYPE_OVERFLOW_TRAPS(TYPE) \
   (!TYPE_UNSIGNED (TYPE) && flag_trapv)
+
+/* True if pointer types have undefined overflow.  */
+#define POINTER_TYPE_OVERFLOW_UNDEFINED (flag_strict_overflow)
 
 /* Names for the different levels of -Wstrict-overflow=N.  The numeric
    values here correspond to N.  */

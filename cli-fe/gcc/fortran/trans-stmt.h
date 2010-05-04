@@ -1,5 +1,6 @@
 /* Header for statement translation functions
-   Copyright (C) 2002, 2003, 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2006, 2007, 2008, 2010
+   Free Software Foundation, Inc.
    Contributed by Paul Brook
 
 This file is part of GCC.
@@ -22,12 +23,16 @@ along with GCC; see the file COPYING3.  If not see
    Calls gfc_trans_*.  */
 tree gfc_trans_code (gfc_code *);
 
+/* Wrapper function used to pass a check condition for implied DO loops.  */
+tree gfc_trans_code_cond (gfc_code *, tree);
+
 /* All other gfc_trans_* should only need be called by gfc_trans_code */
 
 /* trans-expr.c */
 tree gfc_trans_assign (gfc_code *);
 tree gfc_trans_pointer_assign (gfc_code *);
 tree gfc_trans_init_assign (gfc_code *);
+tree gfc_trans_class_assign (gfc_code *code);
 
 /* trans-stmt.c */
 tree gfc_trans_cycle (gfc_code *);
@@ -38,11 +43,12 @@ tree gfc_trans_goto (gfc_code *);
 tree gfc_trans_entry (gfc_code *);
 tree gfc_trans_pause (gfc_code *);
 tree gfc_trans_stop (gfc_code *);
-tree gfc_trans_call (gfc_code *, bool);
+tree gfc_trans_call (gfc_code *, bool, tree, tree, bool);
 tree gfc_trans_return (gfc_code *);
 tree gfc_trans_if (gfc_code *);
 tree gfc_trans_arithmetic_if (gfc_code *);
-tree gfc_trans_do (gfc_code *);
+tree gfc_trans_block_construct (gfc_code *);
+tree gfc_trans_do (gfc_code *, tree);
 tree gfc_trans_do_while (gfc_code *);
 tree gfc_trans_select (gfc_code *);
 tree gfc_trans_forall (gfc_code *);
@@ -68,3 +74,4 @@ tree gfc_trans_flush (gfc_code *);
 
 tree gfc_trans_transfer (gfc_code *);
 tree gfc_trans_dt_end (gfc_code *);
+tree gfc_trans_wait (gfc_code *);

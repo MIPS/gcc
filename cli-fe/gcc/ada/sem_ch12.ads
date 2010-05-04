@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -47,12 +47,14 @@ package Sem_Ch12 is
    procedure Check_Generic_Child_Unit
      (Gen_Id           : Node_Id;
       Parent_Installed : in out Boolean);
-   --  If the name of the generic unit in an instantiation or a renaming
-   --  is a selected component, then the prefix may be an instance and the
-   --  selector may  designate a child unit. Retrieve the parent generic
-   --  and search for the child unit that must be declared within. Similarly,
-   --  if this is the name of a generic child unit within an instantiation of
-   --  its own parent, retrieve the parent generic.
+   --  If the name of the generic unit in an instantiation or a renaming is a
+   --  selected component, then the prefix may be an instance and the selector
+   --  may designate a child unit. Retrieve the parent generic and search for
+   --  the child unit that must be declared within. Similarly, if this is the
+   --  name of a generic child unit within an instantiation of its own parent,
+   --  retrieve the parent generic. If the parent is installed as a result of
+   --  this call, then Parent_Installed is set True, otherwise Parent_Intalled
+   --  is unchanged by the call.
 
    function Copy_Generic_Node
      (N             : Node_Id;
@@ -100,9 +102,21 @@ package Sem_Ch12 is
    --  between the current procedure and Load_Parent_Of_Generic.
 
    procedure Instantiate_Subprogram_Body
-     (Body_Info : Pending_Body_Info);
+     (Body_Info     : Pending_Body_Info;
+      Body_Optional : Boolean := False);
    --  Called after semantic analysis, to complete the instantiation of
-   --  function and procedure instances.
+   --  function and procedure instances. The flag Body_Optional has the
+   --  same purpose as described for Instantiate_Package_Body.
+
+   function Need_Subprogram_Instance_Body
+     (N    : Node_Id;
+      Subp : Entity_Id) return Boolean;
+
+   --  If a subprogram instance is inlined, indicate that the body of it
+   --  must be created, to be used in inlined calls by the back-end. The
+   --  subprogram may be inlined because the generic itself carries the
+   --  pragma, or because a pragma appears for the instance in the scope.
+   --  of the instance.
 
    procedure Save_Global_References (N : Node_Id);
    --  Traverse the original generic unit, and capture all references to
@@ -128,7 +142,7 @@ package Sem_Ch12 is
    --  an inlined body (so that errout can distinguish cases for generating
    --  error messages, otherwise the treatment is identical). In this call
    --  N is the subprogram body and E is the defining identifier of the
-   --  subprogram in quiestion. The resulting Sloc adjustment factor is
+   --  subprogram in question. The resulting Sloc adjustment factor is
    --  saved as part of the internal state of the Sem_Ch12 package for use
    --  in subsequent calls to copy nodes.
 
