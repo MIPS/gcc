@@ -2092,7 +2092,7 @@ machines, define @code{REG_ALLOC_ORDER} to be an initializer that lists
 the highest numbered allocable register first.
 @end defmac
 
-@defmac ORDER_REGS_FOR_LOCAL_ALLOC
+@defmac ADJUST_REG_ALLOC_ORDER
 A C statement (sans semicolon) to choose the order in which to allocate
 hard registers for pseudo-registers local to a basic block.
 
@@ -2104,6 +2104,15 @@ The macro body should not assume anything about the contents of
 @code{reg_alloc_order} before execution of the macro.
 
 On most machines, it is not necessary to define this macro.
+@end defmac
+
+@defmac HONOR_REG_ALLOC_ORDER
+Normally, IRA tries to estimate the costs for saving a register in the
+prologue and restoring it in the epilogue.  This discourages it from
+using call-saved registers.  If a machine wants to ensure that IRA
+allocates registers in the order given by REG_ALLOC_ORDER even if some
+call-saved registers appear earlier than call-used ones, this macro
+should be defined.
 @end defmac
 
 @defmac IRA_HARD_REGNO_ADD_COST_MULTIPLIER (@var{regno})
@@ -4452,7 +4461,25 @@ suffices:
 If the machine has register windows, so that the caller and the called
 function use different registers for the return value, this macro
 should recognize only the caller's register numbers.
+
+This macro has been deprecated.  Use @code{TARGET_FUNCTION_VALUE_REGNO_P}
+for a new target instead.
 @end defmac
+
+@deftypefn {Target Hook} bool TARGET_FUNCTION_VALUE_REGNO_P (const unsigned int @var{regno})
+A target hook that return @code{true} if @var{regno} is the number of a hard
+register in which the values of called function may come back.
+
+A register whose use for returning values is limited to serving as the
+second of a pair (for a value of type @code{double}, say) need not be
+recognized by this target hook.
+
+If the machine has register windows, so that the caller and the called
+function use different registers for the return value, this target hook
+should recognize only the caller's register numbers.
+
+If this hook is not defined, then FUNCTION_VALUE_REGNO_P will be used.
+@end deftypefn
 
 @defmac TARGET_ENUM_VA_LIST (@var{idx}, @var{pname}, @var{ptype})
 This target macro is used in function @code{c_common_nodes_and_builtins}
