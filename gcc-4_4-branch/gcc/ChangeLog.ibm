@@ -1,3 +1,15 @@
+2010-05-04  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge from mainline:
+	2009-03-31  Alan Modra  <amodra@bigpond.net.au>
+	* configure.ac (HAVE_AS_TLS_MARKERS): Test for assembler support
+	(HAVE_AS_REF): Ditto.
+	* configure: Regenerate.
+	* config.in: Ditto.
+
+	* doc/invoke.texi (-mtls-markers): Document.
+	(-mno-tls-markers): Ditto.
+
 2010-04-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Backport from mainline (and deal movement of functions):
