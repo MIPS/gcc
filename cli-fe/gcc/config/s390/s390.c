@@ -8,7 +8,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -17,9 +17,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -1449,9 +1448,9 @@ override_options (void)
   if (TARGET_64BIT && !TARGET_ZARCH)
     error ("64-bit ABI not supported in ESA/390 mode");
 
-  if (TARGET_HARD_DFP && (!TARGET_CPU_DFP || !TARGET_ZARCH))
+  if (TARGET_HARD_DFP && !TARGET_DFP)
     {
-      if (target_flags_explicit & MASK_SOFT_DFP)
+      if (target_flags_explicit & MASK_HARD_DFP)
 	{
 	  if (!TARGET_CPU_DFP)
 	    error ("Hardware decimal floating point instructions"
@@ -1461,15 +1460,15 @@ override_options (void)
 		   " not available in ESA/390 mode");
 	}
       else
-	target_flags |= MASK_SOFT_DFP;
+	target_flags &= ~MASK_HARD_DFP;
     }
 
   if ((target_flags_explicit & MASK_SOFT_FLOAT) && TARGET_SOFT_FLOAT)
     {
-      if ((target_flags_explicit & MASK_SOFT_DFP) && TARGET_HARD_DFP)
+      if ((target_flags_explicit & MASK_HARD_DFP) && TARGET_HARD_DFP)
 	error ("-mhard-dfp can't be used in conjunction with -msoft-float");
 
-      target_flags |= MASK_SOFT_DFP;
+      target_flags &= ~MASK_HARD_DFP;
     }
 
   /* Set processor cost function.  */
@@ -2057,8 +2056,7 @@ s390_O_constraint_str (const char c, HOST_WIDE_INT value)
 	|| s390_single_part (GEN_INT (value), DImode, SImode, 0) == 1;
 
     case 'n':
-      return value == -1
-	|| s390_single_part (GEN_INT (value), DImode, SImode, -1) == 1;
+      return s390_single_part (GEN_INT (value - 1), DImode, SImode, -1) == 1;
 
     default:
       gcc_unreachable ();
@@ -3928,8 +3926,8 @@ s390_expand_addcc (enum rtx_code cmp_code, rtx cmp_op0, rtx cmp_op1,
 	  if (!register_operand (src, GET_MODE (dst)))
 	    src = force_reg (GET_MODE (dst), src);
 
-	  src = gen_rtx_PLUS (GET_MODE (dst), src, const0_rtx);
-	  op_res = gen_rtx_PLUS (GET_MODE (dst), src, op_res);
+	  op_res = gen_rtx_PLUS (GET_MODE (dst), op_res, src);
+	  op_res = gen_rtx_PLUS (GET_MODE (dst), op_res, const0_rtx);
 	}
 
       p = rtvec_alloc (2);
@@ -4371,7 +4369,7 @@ s390_output_dwarf_dtprel (FILE *file, int size, rtx x)
 /* Implement TARGET_MANGLE_TYPE.  */
 
 static const char *
-s390_mangle_type (tree type)
+s390_mangle_type (const_tree type)
 {
   if (TYPE_MAIN_VARIANT (type) == long_double_type_node
       && TARGET_LONG_DOUBLE_128)
@@ -5601,7 +5599,7 @@ s390_dump_pool (struct constant_pool *pool, bool remote_label)
     for (c = pool->constants[i]; c; c = c->next)
       {
 	/* Convert UNSPEC_LTREL_OFFSET unspecs to pool-relative references.  */
-	rtx value = c->value;
+	rtx value = copy_rtx (c->value);
 	if (GET_CODE (value) == CONST
 	    && GET_CODE (XEXP (value, 0)) == UNSPEC
 	    && XINT (XEXP (value, 0), 1) == UNSPEC_LTREL_OFFSET
@@ -6348,7 +6346,7 @@ find_unused_clobbered_reg (void)
    clobbered hard regs in SETREG.  */
 
 static void
-s390_reg_clobbered_rtx (rtx setreg, rtx set_insn ATTRIBUTE_UNUSED, void *data)
+s390_reg_clobbered_rtx (rtx setreg, const_rtx set_insn ATTRIBUTE_UNUSED, void *data)
 {
   int *regs_ever_clobbered = (int *)data;
   unsigned int i, regno;
@@ -7163,6 +7161,18 @@ s390_load_got (void)
   return insns;
 }
 
+/* This ties together stack memory (MEM with an alias set of frame_alias_set)
+   and the change to the stack pointer.  */
+
+static void
+s390_emit_stack_tie (void)
+{
+  rtx mem = gen_frame_mem (BLKmode,
+			   gen_rtx_REG (Pmode, STACK_POINTER_REGNUM));
+
+  emit_insn (gen_stack_tie (mem));
+}
+
 /* Expand the prologue into a bunch of separate insns.  */
 
 void
@@ -7391,6 +7401,11 @@ s390_emit_prologue (void)
 
   if (cfun_save_high_fprs_p && next_fpr)
     {
+      /* If the stack might be accessed through a different register
+	 we have to make sure that the stack pointer decrement is not
+	 moved below the use of the stack slots.  */
+      s390_emit_stack_tie ();
+
       insn = emit_insn (gen_add2_insn (temp_reg, 
 				       GEN_INT (cfun_frame_layout.f8_offset)));
 
@@ -7645,7 +7660,7 @@ s390_emit_epilogue (bool sibcall)
    MODE must be specified.  */
 
 static int
-s390_function_arg_size (enum machine_mode mode, tree type)
+s390_function_arg_size (enum machine_mode mode, const_tree type)
 {
   if (type)
     return int_size_in_bytes (type);
@@ -7743,7 +7758,7 @@ s390_function_arg_integer (enum machine_mode mode, tree type)
 
 static bool
 s390_pass_by_reference (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,
-			enum machine_mode mode, tree type,
+			enum machine_mode mode, const_tree type,
 			bool named ATTRIBUTE_UNUSED)
 {
   int size = s390_function_arg_size (mode, type);
@@ -7843,7 +7858,7 @@ s390_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode, tree type,
    hidden first argument.  */
 
 static bool
-s390_return_in_memory (tree type, tree fundecl ATTRIBUTE_UNUSED)
+s390_return_in_memory (const_tree type, const_tree fundecl ATTRIBUTE_UNUSED)
 {
   /* We accept small integral (and similar) types.  */
   if (INTEGRAL_TYPE_P (type)
@@ -7870,7 +7885,7 @@ s390_return_in_memory (tree type, tree fundecl ATTRIBUTE_UNUSED)
    value of mode MODE from a libcall.  */
 
 rtx
-s390_function_value (tree type, enum machine_mode mode)
+s390_function_value (const_tree type, enum machine_mode mode)
 {
   if (type)
     {
@@ -7962,7 +7977,7 @@ s390_build_builtin_va_list (void)
        holds the offset of the first anonymous stack argument
        (relative to the virtual arg pointer).  */
 
-void
+static void
 s390_va_start (tree valist, rtx nextarg ATTRIBUTE_UNUSED)
 {
   HOST_WIDE_INT n_gpr, n_fpr;
@@ -9291,7 +9306,7 @@ s390_reorg (void)
 #undef TARGET_ASM_OUTPUT_MI_THUNK
 #define TARGET_ASM_OUTPUT_MI_THUNK s390_output_mi_thunk
 #undef TARGET_ASM_CAN_OUTPUT_MI_THUNK
-#define TARGET_ASM_CAN_OUTPUT_MI_THUNK hook_bool_tree_hwi_hwi_tree_true
+#define TARGET_ASM_CAN_OUTPUT_MI_THUNK hook_bool_const_tree_hwi_hwi_const_tree_true
 
 #undef  TARGET_SCHED_ADJUST_PRIORITY
 #define TARGET_SCHED_ADJUST_PRIORITY s390_adjust_priority
@@ -9315,13 +9330,15 @@ s390_reorg (void)
 
 #undef TARGET_BUILD_BUILTIN_VA_LIST
 #define TARGET_BUILD_BUILTIN_VA_LIST s390_build_builtin_va_list
+#undef TARGET_EXPAND_BUILTIN_VA_START
+#define TARGET_EXPAND_BUILTIN_VA_START s390_va_start
 #undef TARGET_GIMPLIFY_VA_ARG_EXPR
 #define TARGET_GIMPLIFY_VA_ARG_EXPR s390_gimplify_va_arg
 
 #undef TARGET_PROMOTE_FUNCTION_ARGS
-#define TARGET_PROMOTE_FUNCTION_ARGS hook_bool_tree_true
+#define TARGET_PROMOTE_FUNCTION_ARGS hook_bool_const_tree_true
 #undef TARGET_PROMOTE_FUNCTION_RETURN
-#define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_tree_true
+#define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_const_tree_true
 #undef TARGET_PASS_BY_REFERENCE
 #define TARGET_PASS_BY_REFERENCE s390_pass_by_reference
 
@@ -9335,7 +9352,7 @@ s390_reorg (void)
 #define TARGET_CC_MODES_COMPATIBLE s390_cc_modes_compatible
 
 #undef TARGET_INVALID_WITHIN_DOLOOP
-#define TARGET_INVALID_WITHIN_DOLOOP hook_constcharptr_rtx_null
+#define TARGET_INVALID_WITHIN_DOLOOP hook_constcharptr_const_rtx_null
 
 #ifdef HAVE_AS_TLS
 #undef TARGET_ASM_OUTPUT_DWARF_DTPREL

@@ -1,12 +1,12 @@
 /* Subroutines for insn-output.c for NetWare.
    Contributed by Jan Beulich (jbeulich@novell.com)
-   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,9 +15,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -46,30 +45,36 @@ gen_stdcall_or_fastcall_decoration (tree decl, char prefix)
      of DECL_ASSEMBLER_NAME.  */
   const char *asmname = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
   char *newsym;
-  tree formal_type = TYPE_ARG_TYPES (TREE_TYPE (decl));
+  tree type = TREE_TYPE (decl);
+  tree arg;
+  function_args_iterator args_iter;
 
-  if (formal_type != NULL_TREE)
+  if (prototype_p (type))
     {
       /* These attributes are ignored for variadic functions in
 	 i386.c:ix86_return_pops_args. For compatibility with MS
 	 compiler do not add @0 suffix here.  */ 
-      if (TREE_VALUE (tree_last (formal_type)) != void_type_node)
+      if (stdarg_p (type))
 	return NULL_TREE;
 
       /* Quit if we hit an incomplete type.  Error is reported
 	 by convert_arguments in c-typeck.c or cp/typeck.c.  */
-      while (TREE_VALUE (formal_type) != void_type_node
-	     && COMPLETE_TYPE_P (TREE_VALUE (formal_type)))	
+      FOREACH_FUNCTION_ARGS(type, arg, args_iter)
 	{
-	  unsigned parm_size
-	    = TREE_INT_CST_LOW (TYPE_SIZE (TREE_VALUE (formal_type)));
+	  unsigned parm_size;
+
+	  if (! COMPLETE_TYPE_P (arg))
+	    break;
+
+	  parm_size = int_size_in_bytes (TYPE_SIZE (arg));
+	  if (parm_size < 0)
+	    break;
 
 	  /* Must round up to include padding.  This is done the same
 	     way as in store_one_arg.  */
 	  parm_size = ((parm_size + PARM_BOUNDARY - 1)
 		       / PARM_BOUNDARY * PARM_BOUNDARY);
 	  total += parm_size;
-	  formal_type = TREE_CHAIN (formal_type);
 	}
     }
 
@@ -94,28 +99,32 @@ gen_regparm_prefix (tree decl, unsigned nregs)
      of DECL_ASSEMBLER_NAME.  */
   const char *asmname = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
   char *newsym;
-  tree formal_type = TYPE_ARG_TYPES (TREE_TYPE (decl));
+  tree type = TREE_TYPE (decl);
+  tree arg;
+  function_args_iterator args_iter;
 
-  if (formal_type != NULL_TREE)
+  if (prototype_p (type))
     {
       /* This attribute is ignored for variadic functions.  */ 
-      if (TREE_VALUE (tree_last (formal_type)) != void_type_node)
+      if (stdarg_p (type))
 	return NULL_TREE;
 
       /* Quit if we hit an incomplete type.  Error is reported
 	 by convert_arguments in c-typeck.c or cp/typeck.c.  */
-      while (TREE_VALUE (formal_type) != void_type_node
-	     && COMPLETE_TYPE_P (TREE_VALUE (formal_type)))	
+      FOREACH_FUNCTION_ARGS(type, arg, args_iter)
 	{
-	  unsigned parm_size
-	    = TREE_INT_CST_LOW (TYPE_SIZE (TREE_VALUE (formal_type)));
+	  unsigned parm_size;
 
-	  /* Must round up to include padding.  This is done the same
-	     way as in store_one_arg.  */
+	  if (! COMPLETE_TYPE_P (arg))
+	    break;
+
+	  parm_size = int_size_in_bytes (arg);
+	  if (parm_size < 0)
+	    break;
+
 	  parm_size = ((parm_size + PARM_BOUNDARY - 1)
 		       / PARM_BOUNDARY * PARM_BOUNDARY);
 	  total += parm_size;
-	  formal_type = TREE_CHAIN (formal_type);
 	}
     }
 

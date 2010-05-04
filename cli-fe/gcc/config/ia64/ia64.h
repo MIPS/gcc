@@ -8,7 +8,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -17,9 +17,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* ??? Look at ABI group documents for list of preprocessor macros and
    other features required for ABI compliance.  */
@@ -679,7 +678,7 @@ while (0)
 #define MODES_TIEABLE_P(MODE1, MODE2)			\
   (GET_MODE_CLASS (MODE1) == GET_MODE_CLASS (MODE2)	\
    && ((((MODE1) == XFmode) || ((MODE1) == XCmode) || ((MODE1) == RFmode))	\
-       == (((MODE2) == XFmode) || ((MODE2) == XCmode) || ((MODE1) == RFmode)))	\
+       == (((MODE2) == XFmode) || ((MODE2) == XCmode) || ((MODE2) == RFmode)))	\
    && (((MODE1) == BImode) == ((MODE2) == BImode)))
 
 /* Specify the modes required to caller save a given hard regno.
@@ -888,12 +887,16 @@ enum reg_class
    : (((CLASS) == FR_REGS || (CLASS) == FP_REGS) && (MODE) == XCmode) ? 2 \
    : (GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
 
-/* In FP regs, we can't change FP values to integer values and vice versa,
+/* In BR regs, we can't change the DImode at all.
+   In FP regs, we can't change FP values to integer values and vice versa,
    but we can change e.g. DImode to SImode, and V2SFmode into DImode.  */
 
 #define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS) 		\
-  (SCALAR_FLOAT_MODE_P (FROM) != SCALAR_FLOAT_MODE_P (TO)	\
-   ? reg_classes_intersect_p (CLASS, FR_REGS) : 0)
+  (reg_classes_intersect_p (CLASS, BR_REGS)			\
+   ? (FROM) != (TO)						\
+   : (SCALAR_FLOAT_MODE_P (FROM) != SCALAR_FLOAT_MODE_P (TO)	\
+      ? reg_classes_intersect_p (CLASS, FR_REGS)		\
+      : 0))
 
 /* Basic Stack Layout */
 
@@ -936,18 +939,6 @@ enum reg_class
    or a `MEM' representing a location in the stack.  This enables DWARF2
    unwind info for C++ EH.  */
 #define INCOMING_RETURN_ADDR_RTX gen_rtx_REG (VOIDmode, BR_REG (0))
-
-/* ??? This is not defined because of three problems.
-   1) dwarf2out.c assumes that DWARF_FRAME_RETURN_COLUMN fits in one byte.
-   The default value is FIRST_PSEUDO_REGISTER which doesn't.  This can be
-   worked around by setting PC_REGNUM to FR_REG (0) which is an otherwise
-   unused register number.
-   2) dwarf2out_frame_debug core dumps while processing prologue insns.  We
-   need to refine which insns have RTX_FRAME_RELATED_P set and which don't.
-   3) It isn't possible to turn off EH frame info by defining DWARF2_UNIND_INFO
-   to zero, despite what the documentation implies, because it is tested in
-   a few places with #ifdef instead of #if.  */
-#undef INCOMING_RETURN_ADDR_RTX
 
 /* A C expression whose value is an integer giving the offset, in bytes, from
    the value of the stack pointer register to the top of the stack frame at the

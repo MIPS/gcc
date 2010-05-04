@@ -758,7 +758,12 @@ rewrite_trees (var_map map, tree *values)
 	  if (remove)
 	    bsi_remove (&si, true);
 	  else
-	    bsi_next (&si);
+	    {
+	      if (changed)
+		if (maybe_clean_or_replace_eh_stmt (stmt, stmt))
+		  tree_purge_dead_eh_edges (bb);
+	      bsi_next (&si);
+	    }
 	}
 
       phi = phi_nodes (bb);
@@ -795,7 +800,7 @@ same_stmt_list_p (edge e)
 /* Return TRUE if S1 and S2 are equivalent copies.  */
 
 static inline bool
-identical_copies_p (tree s1, tree s2)
+identical_copies_p (const_tree s1, const_tree s2)
 {
 #ifdef ENABLE_CHECKING
   gcc_assert (TREE_CODE (s1) == GIMPLE_MODIFY_STMT);
@@ -821,7 +826,7 @@ identical_copies_p (tree s1, tree s2)
    contain the same sequence of copies.  */
 
 static inline bool 
-identical_stmt_lists_p (edge e1, edge e2)
+identical_stmt_lists_p (const_edge e1, const_edge e2)
 {
   tree t1 = PENDING_STMT (e1);
   tree t2 = PENDING_STMT (e2);

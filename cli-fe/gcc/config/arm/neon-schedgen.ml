@@ -6,7 +6,7 @@
 
    GCC is free software; you can redistribute it and/or modify it under
    the terms of the GNU General Public License as published by the Free
-   Software Foundation; either version 2, or (at your option) any later
+   Software Foundation; either version 3, or (at your option) any later
    version.
 
    GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@
    for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-   02110-1301, USA.
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.
 *)
 
 (* This scheduling description generator works as follows.
@@ -63,7 +62,7 @@ type availability = Source of int
 
 type guard = Guard_none | Guard_only_m | Guard_only_n | Guard_only_d
 
-(* Reservation behaviours.  All but the last row here correspond to one
+(* Reservation behaviors.  All but the last row here correspond to one
    pipeline each.  Each constructor will correspond to one
    define_reservation.  *)
 type reservation =
@@ -78,7 +77,7 @@ type reservation =
 | Fmul_then_fadd | Fmul_then_fadd_2
 
 (* This table must be kept as short as possible by conflating
-   entries with the same availability behaviour.
+   entries with the same availability behavior.
 
    First components: instruction group names
    Second components: availability requirements, in the order in which

@@ -9,7 +9,7 @@
 
 ;; GCC is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
-;; the Free Software Foundation; either version 2, or (at your option)
+;; the Free Software Foundation; either version 3, or (at your option)
 ;; any later version.
 
 ;; GCC is distributed in the hope that it will be useful,
@@ -18,9 +18,8 @@
 ;; GNU General Public License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-;; Boston, MA 02110-1301, USA.
+;; along with GCC; see the file COPYING3.  If not see
+;; <http://www.gnu.org/licenses/>.
 
 ;; Special characters after '%':
 ;;  A  No effect (add 0).
@@ -2810,32 +2809,16 @@
   [(return)]
   "(reload_completed 
     && cfun->machine 
-    && !cfun->machine->is_main
     && !(cfun->machine->is_interrupt || cfun->machine->is_signal)
     && !cfun->machine->is_naked)"
   "ret"
   [(set_attr "cc" "none")
    (set_attr "length" "1")])
 
-(define_insn "return_from_main_epilogue"
-  [(return)]
-  "(reload_completed 
-    && cfun->machine 
-    && cfun->machine->is_main
-    && !cfun->machine->is_naked)"
-  "%~jmp exit"
-  [(set_attr_alternative "length"
-			 [(if_then_else (eq_attr "mcu_mega" "yes")
-					(const_int 2)
-					(const_int 1))])
-  (set_attr "cc" "none")
-  ])
-  
 (define_insn "return_from_interrupt_epilogue"
   [(return)]
   "(reload_completed 
     && cfun->machine 
-    && !cfun->machine->is_main
     && (cfun->machine->is_interrupt || cfun->machine->is_signal)
     && !cfun->machine->is_naked)"
   "reti"

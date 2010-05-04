@@ -5,7 +5,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -14,9 +14,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -158,18 +157,18 @@ static section *iq2000_select_rtx_section (enum machine_mode, rtx,
 					   unsigned HOST_WIDE_INT);
 static void iq2000_init_builtins      (void);
 static rtx  iq2000_expand_builtin     (tree, rtx, rtx, enum machine_mode, int);
-static bool iq2000_return_in_memory   (tree, tree);
+static bool iq2000_return_in_memory   (const_tree, const_tree);
 static void iq2000_setup_incoming_varargs (CUMULATIVE_ARGS *,
 					   enum machine_mode, tree, int *,
 					   int);
 static bool iq2000_rtx_costs          (rtx, int, int, int *);
 static int  iq2000_address_cost       (rtx);
 static section *iq2000_select_section (tree, int, unsigned HOST_WIDE_INT);
-static bool iq2000_return_in_memory   (tree, tree);
 static bool iq2000_pass_by_reference  (CUMULATIVE_ARGS *, enum machine_mode,
-				       tree, bool);
+				       const_tree, bool);
 static int  iq2000_arg_partial_bytes  (CUMULATIVE_ARGS *, enum machine_mode,
 				       tree, bool);
+static void iq2000_va_start	      (tree, rtx);
 
 #undef  TARGET_INIT_BUILTINS
 #define TARGET_INIT_BUILTINS 		iq2000_init_builtins
@@ -192,11 +191,11 @@ static int  iq2000_arg_partial_bytes  (CUMULATIVE_ARGS *, enum machine_mode,
 #define TARGET_HAVE_SWITCHABLE_BSS_SECTIONS false
 
 #undef  TARGET_PROMOTE_FUNCTION_ARGS
-#define TARGET_PROMOTE_FUNCTION_ARGS	hook_bool_tree_true
+#define TARGET_PROMOTE_FUNCTION_ARGS	hook_bool_const_tree_true
 #undef  TARGET_PROMOTE_FUNCTION_RETURN
-#define TARGET_PROMOTE_FUNCTION_RETURN	hook_bool_tree_true
+#define TARGET_PROMOTE_FUNCTION_RETURN	hook_bool_const_tree_true
 #undef  TARGET_PROMOTE_PROTOTYPES
-#define TARGET_PROMOTE_PROTOTYPES	hook_bool_tree_true
+#define TARGET_PROMOTE_PROTOTYPES	hook_bool_const_tree_true
 
 #undef  TARGET_RETURN_IN_MEMORY
 #define TARGET_RETURN_IN_MEMORY		iq2000_return_in_memory
@@ -211,6 +210,9 @@ static int  iq2000_arg_partial_bytes  (CUMULATIVE_ARGS *, enum machine_mode,
 #define TARGET_SETUP_INCOMING_VARARGS	iq2000_setup_incoming_varargs
 #undef  TARGET_STRICT_ARGUMENT_NAMING
 #define TARGET_STRICT_ARGUMENT_NAMING	hook_bool_CUMULATIVE_ARGS_true
+
+#undef	TARGET_EXPAND_BUILTIN_VA_START
+#define	TARGET_EXPAND_BUILTIN_VA_START	iq2000_va_start
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -1185,7 +1187,7 @@ function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode, tree type,
    and type TYPE in CUM, or 0 if the argument is to be passed on the stack.  */
 
 struct rtx_def *
-function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode, tree type,
+function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode, const_tree type,
 	      int named)
 {
   rtx ret;
@@ -1203,7 +1205,7 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode, tree type,
 	       "function_arg( {gp reg found = %d, arg # = %2d, words = %2d}, %4s, ",
 	       cum->gp_reg_found, cum->arg_number, cum->arg_words,
 	       GET_MODE_NAME (mode));
-      fprintf (stderr, "%p", (void *) type);
+      fprintf (stderr, "%p", (const void *) type);
       fprintf (stderr, ", %d ) = ", named);
     }
 
@@ -1359,7 +1361,7 @@ iq2000_arg_partial_bytes (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 
 /* Implement va_start.  */
 
-void
+static void
 iq2000_va_start (tree valist, rtx nextarg)
 {
   int int_arg_words;
@@ -2200,7 +2202,7 @@ iq2000_select_section (tree decl, int reloc ATTRIBUTE_UNUSED,
    FUNC.  */
 
 rtx
-iq2000_function_value (tree valtype, tree func ATTRIBUTE_UNUSED)
+iq2000_function_value (const_tree valtype, const_tree func ATTRIBUTE_UNUSED)
 {
   int reg = GP_RETURN;
   enum machine_mode mode = TYPE_MODE (valtype);
@@ -2217,7 +2219,7 @@ iq2000_function_value (tree valtype, tree func ATTRIBUTE_UNUSED)
 
 static bool
 iq2000_pass_by_reference (CUMULATIVE_ARGS *cum, enum machine_mode mode,
-			  tree type, bool named ATTRIBUTE_UNUSED)
+			  const_tree type, bool named ATTRIBUTE_UNUSED)
 {
   int size;
 
@@ -2826,7 +2828,7 @@ iq2000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 /* Worker function for TARGET_RETURN_IN_MEMORY.  */
 
 static bool
-iq2000_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
+iq2000_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 {
   return ((int_size_in_bytes (type) > (2 * UNITS_PER_WORD))
 	  || (int_size_in_bytes (type) == -1));

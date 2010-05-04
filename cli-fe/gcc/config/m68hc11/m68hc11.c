@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -16,9 +16,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.
 
 Note:
    A first 68HC11 port was made by Otto Lind (otto@coactive.com)
@@ -89,7 +88,7 @@ static int autoinc_mode (rtx);
 static int m68hc11_make_autoinc_notes (rtx *, void *);
 static void m68hc11_init_libfuncs (void);
 static rtx m68hc11_struct_value_rtx (tree, int);
-static bool m68hc11_return_in_memory (tree, tree);
+static bool m68hc11_return_in_memory (const_tree, const_tree);
 
 /* Must be set to 1 to produce debug messages.  */
 int debug_m6811 = 0;
@@ -1480,7 +1479,7 @@ m68hc11_function_arg (const CUMULATIVE_ARGS *cum, enum machine_mode mode,
 
    Structures are stored left shifted in their argument slot.  */
 int
-m68hc11_function_arg_padding (enum machine_mode mode, tree type)
+m68hc11_function_arg_padding (enum machine_mode mode, const_tree type)
 {
   if (type != 0 && AGGREGATE_TYPE_P (type))
     return upward;
@@ -5484,7 +5483,7 @@ m68hc11_struct_value_rtx (tree fntype ATTRIBUTE_UNUSED,
    in the register (D + X = 4).  */
 
 static bool
-m68hc11_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
+m68hc11_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 {
   if (TYPE_MODE (type) == BLKmode)
     {

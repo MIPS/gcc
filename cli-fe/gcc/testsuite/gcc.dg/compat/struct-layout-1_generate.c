@@ -1,12 +1,12 @@
 /* Structure layout test generator.
-   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2007 Free Software Foundation, Inc.
    Contributed by Jakub Jelinek <jakub@redhat.com>.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,9 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
+
 
 /* Compile with gcc -o struct-layout-1_generate{,.c} generate_random{,_r}.c */
 
@@ -763,7 +763,7 @@ switchfiles (int fields)
     }
   fprintf (outfile, "\
 /* { dg-options \"-I%s\" } */\n\
-/* { dg-options \"-I%s -fno-common\" { target hppa*-*-hpux* *-*-darwin* } } */\n\
+/* { dg-options \"-I%s -fno-common\" { target hppa*-*-hpux* *-*-darwin* *-*-mingw32* *-*-cygwin* } } */\n\
 /* { dg-options \"-I%s -mno-base-addresses\" { target mmix-*-* } } */\n\
 #include \"struct-layout-1.h\"\n\
 \n\
@@ -790,7 +790,7 @@ int main (void)\n\
     goto fail;
   fprintf (outfile, "\
 /* { dg-options \"-w -I%s\" } */\n\
-/* { dg-options \"-w -I%s -fno-common\" { target hppa*-*-hpux* *-*-darwin* } } */\n\
+/* { dg-options \"-w -I%s -fno-common\" { target hppa*-*-hpux* *-*-darwin* *-*-mingw32* *-*-cygwin* } } */\n\
 /* { dg-options \"-w -I%s -mno-base-addresses\" { target mmix-*-* } } */\n\
 #include \"struct-layout-1_x1.h\"\n\
 #include \"t%03d_test.h\"\n\
@@ -803,7 +803,7 @@ int main (void)\n\
     goto fail;
   fprintf (outfile, "\
 /* { dg-options \"-w -I%s\" } */\n\
-/* { dg-options \"-w -I%s -fno-common\" { target hppa*-*-hpux* *-*-darwin* } } */\n\
+/* { dg-options \"-w -I%s -fno-common\" { target hppa*-*-hpux* *-*-darwin* *-*-mingw32* *-*-cygwin* } } */\n\
 /* { dg-options \"-w -I%s -mno-base-addresses\" { target mmix-*-* } } */\n\
 #include \"struct-layout-1_y1.h\"\n\
 #include \"t%03d_test.h\"\n\

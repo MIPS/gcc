@@ -1,12 +1,12 @@
 /* Definitions of target machine for GNU compiler for IA-64.
-   Copyright (C) 1999, 2000, 2002, 2003, 2004, 2005
+   Copyright (C) 1999, 2000, 2002, 2003, 2004, 2005, 2007
    Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,9 +15,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* Variables defined in ia64.c.  */
 
@@ -78,7 +77,7 @@ extern rtx ia64_function_arg (CUMULATIVE_ARGS *, enum machine_mode,
 			      tree, int, int);
 extern rtx ia64_expand_builtin (tree, rtx, rtx, enum machine_mode, int);
 extern rtx ia64_va_arg (tree, tree);
-extern rtx ia64_function_value (tree, tree);
+extern rtx ia64_function_value (const_tree, const_tree);
 #endif /* RTX_CODE */
 
 extern void ia64_function_arg_advance (CUMULATIVE_ARGS *, enum machine_mode,
@@ -101,7 +100,7 @@ extern void ia64_split_return_addr_rtx (rtx);
 
 #ifdef ARGS_SIZE_RTX
 /* expr.h defines ARGS_SIZE_RTX and `enum direction'.  */
-extern enum direction ia64_hpux_function_arg_padding (enum machine_mode, tree);
+extern enum direction ia64_hpux_function_arg_padding (enum machine_mode, const_tree);
 #endif /* ARGS_SIZE_RTX */
 
 extern void ia64_hpux_handle_builtin_pragma (struct cpp_reader *);

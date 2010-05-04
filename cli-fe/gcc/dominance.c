@@ -922,7 +922,7 @@ nearest_common_dominator_for_set (enum cdi_direction dir, bitmap blocks)
 
 /* Return TRUE in case BB1 is dominated by BB2.  */
 bool
-dominated_by_p (enum cdi_direction dir, basic_block bb1, basic_block bb2)
+dominated_by_p (enum cdi_direction dir, const_basic_block bb1, const_basic_block bb2)
 { 
   unsigned int dir_index = dom_convert_dir_to_idx (dir);
   struct et_node *n1 = bb1->dom[dir_index], *n2 = bb2->dom[dir_index];
@@ -1448,7 +1448,7 @@ debug_dominance_info (enum cdi_direction dir)
 }
 
 /* Prints to stderr representation of the dominance tree (for direction DIR)
-   rooted in ROOT, indented by INDENT tabelators.  If INDENT_FIRST is false,
+   rooted in ROOT, indented by INDENT tabulators.  If INDENT_FIRST is false,
    the first line of the output is not indented.  */
 
 static void

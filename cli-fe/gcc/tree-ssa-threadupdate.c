@@ -442,10 +442,14 @@ redirect_edges (void **slot, void *data)
 	  remove_ctrl_stmt_and_useless_edges (local_info->bb,
 					      rd->outgoing_edge->dest);
 
-	  /* And fixup the flags on the single remaining edge.  */
+	  /* Fixup the flags on the single remaining edge.  */
 	  single_succ_edge (local_info->bb)->flags
 	    &= ~(EDGE_TRUE_VALUE | EDGE_FALSE_VALUE | EDGE_ABNORMAL);
 	  single_succ_edge (local_info->bb)->flags |= EDGE_FALLTHRU;
+
+	  /* And adjust count and frequency on BB.  */
+	  local_info->bb->count = e->count;
+	  local_info->bb->frequency = EDGE_FREQUENCY (e);
 	}
     }
 
@@ -671,9 +675,9 @@ thread_single_edge (edge e)
 
 static basic_block dbds_ce_stop;
 static bool
-dbds_continue_enumeration_p (basic_block bb, void *stop)
+dbds_continue_enumeration_p (const_basic_block bb, const void *stop)
 {
-  return (bb != (basic_block) stop
+  return (bb != (const_basic_block) stop
 	  && bb != dbds_ce_stop);
 }
 
@@ -1075,6 +1079,9 @@ thread_through_all_blocks (bool may_peel_loop_headers)
   threaded_blocks = NULL;
   VEC_free (edge, heap, threaded_edges);
   threaded_edges = NULL;
+
+  if (retval)
+    loops_state_set (LOOPS_NEED_FIXUP);
 
   return retval;
 }

@@ -1,13 +1,13 @@
 /* Definitions of target machine for GCC for IA-32.
    Copyright (C) 1988, 1992, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation,
-   Inc.
+   2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -16,9 +16,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* The purpose of this file is to define the characteristics of the i386,
    independent of assembler syntax or operating system.
@@ -48,6 +47,12 @@ Boston, MA 02110-1301, USA.  */
 #define TARGET_SSE4_1	OPTION_ISA_SSE4_1
 #define TARGET_SSE4_2	OPTION_ISA_SSE4_2
 #define TARGET_SSE4A	OPTION_ISA_SSE4A
+#define TARGET_SSE5	OPTION_ISA_SSE5
+#define TARGET_ROUND	OPTION_ISA_ROUND
+
+/* SSE5 and SSE4.1 define the same round instructions */
+#define	OPTION_MASK_ISA_ROUND	(OPTION_MASK_ISA_SSE4_1 | OPTION_MASK_ISA_SSE5)
+#define	OPTION_ISA_ROUND	((ix86_isa_flags & OPTION_MASK_ISA_ROUND) != 0)
 
 #include "config/vxworks-dummy.h"
 
@@ -70,9 +75,9 @@ enum stringop_alg
    When size is unknown, the UNKNOWN_SIZE alg is used.  When size is
    known at compile time or estimated via feedback, the SIZE array
    is walked in order until MAX is greater then the estimate (or -1
-   means infinity).  Corresponding ALG is used then.  
+   means infinity).  Corresponding ALG is used then.
    For example initializer:
-    {{256, loop}, {-1, rep_prefix_4_byte}}		
+    {{256, loop}, {-1, rep_prefix_4_byte}}
    will use loop for blocks smaller or equal to 256 bytes, rep prefix will
    be used otherwise.  */
 struct stringop_algs
@@ -124,6 +129,8 @@ struct processor_costs {
 				   in SImode, DImode and TImode*/
   const int mmxsse_to_integer;	/* cost of moving mmxsse register to
 				   integer and vice versa.  */
+  const int l1_cache_size;	/* size of l1 cache, in kilobytes.  */
+  const int l2_cache_size;	/* size of l2 cache, in kilobytes.  */
   const int prefetch_block;	/* bytes moved to cache for prefetch.  */
   const int simultaneous_prefetches; /* number of parallel prefetch
 				   operations.  */
@@ -137,6 +144,22 @@ struct processor_costs {
 				/* Specify what algorithm
 				   to use for stringops on unknown size.  */
   struct stringop_algs memcpy[2], memset[2];
+  const int scalar_stmt_cost;   /* Cost of any scalar operation, excluding
+				   load and store.  */
+  const int scalar_load_cost;   /* Cost of scalar load.  */
+  const int scalar_store_cost;  /* Cost of scalar store.  */
+  const int vec_stmt_cost;      /* Cost of any vector operation, excluding
+                                   load, store, vector-to-scalar and
+                                   scalar-to-vector operation.  */
+  const int vec_to_scalar_cost;    /* Cost of vect-to-scalar operation.  */
+  const int scalar_to_vec_cost;    /* Cost of scalar-to-vector operation.  */
+  const int vec_align_load_cost;   /* Cost of aligned vector load.  */
+  const int vec_unalign_load_cost; /* Cost of unaligned vector load.  */
+  const int vec_store_cost;        /* Cost of vector store.  */
+  const int cond_taken_branch_cost;    /* Cost of taken branch for vectorizer
+					  cost model.  */
+  const int cond_not_taken_branch_cost;/* Cost of not taken branch for
+					  vectorizer cost model.  */
 };
 
 extern const struct processor_costs *ix86_cost;
@@ -242,6 +265,7 @@ enum ix86_tune_indices {
   X86_TUNE_SHIFT1,
   X86_TUNE_USE_FFREEP,
   X86_TUNE_INTER_UNIT_MOVES,
+  X86_TUNE_INTER_UNIT_CONVERSIONS,
   X86_TUNE_FOUR_JUMP_LIMIT,
   X86_TUNE_SCHEDULE,
   X86_TUNE_USE_BT,
@@ -256,6 +280,7 @@ enum ix86_tune_indices {
   X86_TUNE_MOVE_M1_VIA_OR,
   X86_TUNE_NOT_UNPAIRABLE,
   X86_TUNE_NOT_VECTORMODE,
+  X86_TUNE_USE_VECTOR_CONVERTS,
 
   X86_TUNE_LAST
 };
@@ -318,6 +343,8 @@ extern unsigned int ix86_tune_features[X86_TUNE_LAST];
 #define TARGET_SHIFT1		ix86_tune_features[X86_TUNE_SHIFT1]
 #define TARGET_USE_FFREEP	ix86_tune_features[X86_TUNE_USE_FFREEP]
 #define TARGET_INTER_UNIT_MOVES	ix86_tune_features[X86_TUNE_INTER_UNIT_MOVES]
+#define TARGET_INTER_UNIT_CONVERSIONS\
+	ix86_tune_features[X86_TUNE_INTER_UNIT_CONVERSIONS]
 #define TARGET_FOUR_JUMP_LIMIT	ix86_tune_features[X86_TUNE_FOUR_JUMP_LIMIT]
 #define TARGET_SCHEDULE		ix86_tune_features[X86_TUNE_SCHEDULE]
 #define TARGET_USE_BT		ix86_tune_features[X86_TUNE_USE_BT]
@@ -336,6 +363,7 @@ extern unsigned int ix86_tune_features[X86_TUNE_LAST];
 #define	TARGET_MOVE_M1_VIA_OR	ix86_tune_features[X86_TUNE_MOVE_M1_VIA_OR]
 #define TARGET_NOT_UNPAIRABLE	ix86_tune_features[X86_TUNE_NOT_UNPAIRABLE]
 #define TARGET_NOT_VECTORMODE	ix86_tune_features[X86_TUNE_NOT_VECTORMODE]
+#define TARGET_USE_VECTOR_CONVERTS ix86_tune_features[X86_TUNE_USE_VECTOR_CONVERTS]
 
 /* Feature tests against the various architecture variations.  */
 enum ix86_arch_indices {
@@ -347,7 +375,7 @@ enum ix86_arch_indices {
 
   X86_ARCH_LAST
 };
-  
+
 extern unsigned int ix86_arch_features[X86_ARCH_LAST];
 
 #define TARGET_CMOVE		ix86_arch_features[X86_ARCH_CMOVE]
@@ -366,6 +394,7 @@ extern int x86_prefetch_sse;
 #define TARGET_PREFETCH_SSE	x86_prefetch_sse
 #define TARGET_SAHF		x86_sahf
 #define TARGET_RECIP		x86_recip
+#define TARGET_FUSED_MADD	x86_fused_muladd
 
 #define ASSEMBLER_DIALECT	(ix86_asm_dialect)
 
@@ -502,21 +531,90 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 	  builtin_define_std ("i386");				\
 	}							\
 								\
-      /* Built-ins based on -mtune= (or -march= if no		\
-	 -mtune= given).  */					\
-      if (TARGET_386)						\
-	builtin_define ("__tune_i386__");			\
-      else if (TARGET_486)					\
-	builtin_define ("__tune_i486__");			\
-      else if (TARGET_PENTIUM)					\
+      /* Built-ins based on -march=.  */			\
+      switch (ix86_arch)					\
 	{							\
+	case PROCESSOR_I386:					\
+	  break;						\
+	case PROCESSOR_I486:					\
+	  builtin_define ("__i486");				\
+	  builtin_define ("__i486__");				\
+	  break;						\
+	case PROCESSOR_PENTIUM:					\
+	  builtin_define ("__i586");				\
+	  builtin_define ("__i586__");				\
+	  builtin_define ("__pentium");				\
+	  builtin_define ("__pentium__");			\
+	  if (last_arch_char == 'x')				\
+	    builtin_define ("__pentium_mmx__");			\
+	  break;						\
+	case PROCESSOR_PENTIUMPRO:				\
+	  builtin_define ("__i686");				\
+	  builtin_define ("__i686__");				\
+	  builtin_define ("__pentiumpro");			\
+	  builtin_define ("__pentiumpro__");			\
+	  break;						\
+	case PROCESSOR_GEODE:					\
+	  builtin_define ("__geode");				\
+	  builtin_define ("__geode__");				\
+	  break;						\
+	case PROCESSOR_K6:					\
+	  builtin_define ("__k6");				\
+	  builtin_define ("__k6__");				\
+	  if (last_arch_char == '2')				\
+	    builtin_define ("__k6_2__");			\
+	  else if (last_arch_char == '3')			\
+	    builtin_define ("__k6_3__");			\
+	  break;						\
+	case PROCESSOR_ATHLON:					\
+	  builtin_define ("__athlon");				\
+	  builtin_define ("__athlon__");			\
+	  /* Only plain "athlon" lacks SSE.  */			\
+	  if (last_arch_char != 'n')				\
+	    builtin_define ("__athlon_sse__");			\
+	  break;						\
+	case PROCESSOR_K8:					\
+	  builtin_define ("__k8");				\
+	  builtin_define ("__k8__");				\
+	  break;						\
+	case PROCESSOR_AMDFAM10:				\
+	  builtin_define ("__amdfam10");			\
+	  builtin_define ("__amdfam10__");			\
+	  break;						\
+	case PROCESSOR_PENTIUM4:				\
+	  builtin_define ("__pentium4");			\
+	  builtin_define ("__pentium4__");			\
+	  break;						\
+	case PROCESSOR_NOCONA:					\
+	  builtin_define ("__nocona");				\
+	  builtin_define ("__nocona__");			\
+	  break;						\
+	case PROCESSOR_CORE2:					\
+	  builtin_define ("__core2");				\
+	  builtin_define ("__core2__");				\
+	  break;						\
+	case PROCESSOR_GENERIC32:				\
+	case PROCESSOR_GENERIC64:				\
+	case PROCESSOR_max:					\
+	  gcc_unreachable ();					\
+	}							\
+								\
+      /* Built-ins based on -mtune=.  */			\
+      switch (ix86_tune)					\
+	{							\
+	case PROCESSOR_I386:					\
+	  builtin_define ("__tune_i386__");			\
+	  break;						\
+	case PROCESSOR_I486:					\
+	  builtin_define ("__tune_i486__");			\
+	  break;						\
+	case PROCESSOR_PENTIUM:					\
 	  builtin_define ("__tune_i586__");			\
 	  builtin_define ("__tune_pentium__");			\
 	  if (last_tune_char == 'x')				\
 	    builtin_define ("__tune_pentium_mmx__");		\
-	}							\
-      else if (TARGET_PENTIUMPRO)				\
-	{							\
+	  break;						\
+	case PROCESSOR_PENTIUMPRO:				\
 	  builtin_define ("__tune_i686__");			\
 	  builtin_define ("__tune_pentiumpro__");		\
 	  switch (last_tune_char)				\
@@ -528,36 +626,44 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 	      builtin_define ("__tune_pentium2__");		\
 	      break;						\
 	    }							\
-	}							\
-      else if (TARGET_GEODE)					\
-	{							\
+	  break;						\
+	case PROCESSOR_GEODE:					\
 	  builtin_define ("__tune_geode__");			\
-	}							\
-      else if (TARGET_K6)					\
-	{							\
+	  break;						\
+	case PROCESSOR_K6:					\
 	  builtin_define ("__tune_k6__");			\
 	  if (last_tune_char == '2')				\
 	    builtin_define ("__tune_k6_2__");			\
 	  else if (last_tune_char == '3')			\
 	    builtin_define ("__tune_k6_3__");			\
-	}							\
-      else if (TARGET_ATHLON)					\
-	{							\
+	  break;						\
+	case PROCESSOR_ATHLON:					\
 	  builtin_define ("__tune_athlon__");			\
 	  /* Only plain "athlon" lacks SSE.  */			\
 	  if (last_tune_char != 'n')				\
 	    builtin_define ("__tune_athlon_sse__");		\
+	  break;						\
+	case PROCESSOR_K8:					\
+	  builtin_define ("__tune_k8__");			\
+	  break;						\
+	case PROCESSOR_AMDFAM10:				\
+	  builtin_define ("__tune_amdfam10__");			\
+	  break;						\
+	case PROCESSOR_PENTIUM4:				\
+	  builtin_define ("__tune_pentium4__");			\
+	  break;						\
+        case PROCESSOR_NOCONA:					\
+	  builtin_define ("__tune_nocona__");			\
+	  break;						\
+	case PROCESSOR_CORE2:					\
+	  builtin_define ("__tune_core2__");			\
+	  break;						\
+	case PROCESSOR_GENERIC32:				\
+	case PROCESSOR_GENERIC64:				\
+	  break;						\
+	case PROCESSOR_max:					\
+	  gcc_unreachable ();					\
 	}							\
-      else if (TARGET_K8)					\
-	builtin_define ("__tune_k8__");				\
-      else if (TARGET_AMDFAM10)					\
-	builtin_define ("__tune_amdfam10__");			\
-      else if (TARGET_PENTIUM4)					\
-	builtin_define ("__tune_pentium4__");			\
-      else if (TARGET_NOCONA)					\
-	builtin_define ("__tune_nocona__");			\
-      else if (TARGET_CORE2)					\
-	builtin_define ("__tune_core2__");			\
 								\
       if (TARGET_MMX)						\
 	builtin_define ("__MMX__");				\
@@ -579,112 +685,43 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 	builtin_define ("__SSE4_2__");				\
       if (TARGET_SSE4A)						\
  	builtin_define ("__SSE4A__");		                \
+      if (TARGET_SSE5)						\
+	builtin_define ("__SSE5__");				\
       if (TARGET_SSE_MATH && TARGET_SSE)			\
 	builtin_define ("__SSE_MATH__");			\
       if (TARGET_SSE_MATH && TARGET_SSE2)			\
 	builtin_define ("__SSE2_MATH__");			\
-								\
-      /* Built-ins based on -march=.  */			\
-      if (ix86_arch == PROCESSOR_I486)				\
-	{							\
-	  builtin_define ("__i486");				\
-	  builtin_define ("__i486__");				\
-	}							\
-      else if (ix86_arch == PROCESSOR_PENTIUM)			\
-	{							\
-	  builtin_define ("__i586");				\
-	  builtin_define ("__i586__");				\
-	  builtin_define ("__pentium");				\
-	  builtin_define ("__pentium__");			\
-	  if (last_arch_char == 'x')				\
-	    builtin_define ("__pentium_mmx__");			\
-	}							\
-      else if (ix86_arch == PROCESSOR_PENTIUMPRO)		\
-	{							\
-	  builtin_define ("__i686");				\
-	  builtin_define ("__i686__");				\
-	  builtin_define ("__pentiumpro");			\
-	  builtin_define ("__pentiumpro__");			\
-	}							\
-      else if (ix86_arch == PROCESSOR_GEODE)			\
-	{							\
-	  builtin_define ("__geode");				\
-	  builtin_define ("__geode__");				\
-	}							\
-      else if (ix86_arch == PROCESSOR_K6)			\
-	{							\
-								\
-	  builtin_define ("__k6");				\
-	  builtin_define ("__k6__");				\
-	  if (last_arch_char == '2')				\
-	    builtin_define ("__k6_2__");			\
-	  else if (last_arch_char == '3')			\
-	    builtin_define ("__k6_3__");			\
-	}							\
-      else if (ix86_arch == PROCESSOR_ATHLON)			\
-	{							\
-	  builtin_define ("__athlon");				\
-	  builtin_define ("__athlon__");			\
-	  /* Only plain "athlon" lacks SSE.  */			\
-	  if (last_arch_char != 'n')				\
-	    builtin_define ("__athlon_sse__");			\
-	}							\
-      else if (ix86_arch == PROCESSOR_K8)			\
-	{							\
-	  builtin_define ("__k8");				\
-	  builtin_define ("__k8__");				\
-	}							\
-      else if (ix86_arch == PROCESSOR_AMDFAM10)			\
-	{							\
-	  builtin_define ("__amdfam10");			\
-	  builtin_define ("__amdfam10__");			\
-	}							\
-      else if (ix86_arch == PROCESSOR_PENTIUM4)			\
-	{							\
-	  builtin_define ("__pentium4");			\
-	  builtin_define ("__pentium4__");			\
-	}							\
-      else if (ix86_arch == PROCESSOR_NOCONA)			\
-	{							\
-	  builtin_define ("__nocona");				\
-	  builtin_define ("__nocona__");			\
-	}							\
-      else if (ix86_arch == PROCESSOR_CORE2)			\
-	{							\
-	  builtin_define ("__core2");				\
-	  builtin_define ("__core2__");				\
-	}							\
     }								\
   while (0)
 
-#define TARGET_CPU_DEFAULT_i386 0
-#define TARGET_CPU_DEFAULT_i486 1
-#define TARGET_CPU_DEFAULT_pentium 2
-#define TARGET_CPU_DEFAULT_pentium_mmx 3
-#define TARGET_CPU_DEFAULT_pentiumpro 4
-#define TARGET_CPU_DEFAULT_pentium2 5
-#define TARGET_CPU_DEFAULT_pentium3 6
-#define TARGET_CPU_DEFAULT_pentium4 7
-#define TARGET_CPU_DEFAULT_geode 8
-#define TARGET_CPU_DEFAULT_k6 9
-#define TARGET_CPU_DEFAULT_k6_2 10
-#define TARGET_CPU_DEFAULT_k6_3 11
-#define TARGET_CPU_DEFAULT_athlon 12
-#define TARGET_CPU_DEFAULT_athlon_sse 13
-#define TARGET_CPU_DEFAULT_k8 14
-#define TARGET_CPU_DEFAULT_pentium_m 15
-#define TARGET_CPU_DEFAULT_prescott 16
-#define TARGET_CPU_DEFAULT_nocona 17
-#define TARGET_CPU_DEFAULT_core2 18
-#define TARGET_CPU_DEFAULT_generic 19
-#define TARGET_CPU_DEFAULT_amdfam10 20
+enum target_cpu_default
+{
+  TARGET_CPU_DEFAULT_generic = 0,
 
-#define TARGET_CPU_DEFAULT_NAMES {"i386", "i486", "pentium", "pentium-mmx",\
-				  "pentiumpro", "pentium2", "pentium3", \
-                                  "pentium4", "geode", "k6", "k6-2", "k6-3", \
-				  "athlon", "athlon-4", "k8", \
-				  "pentium-m", "prescott", "nocona", \
-				  "core2", "generic", "amdfam10"}
+  TARGET_CPU_DEFAULT_i386,
+  TARGET_CPU_DEFAULT_i486,
+  TARGET_CPU_DEFAULT_pentium,
+  TARGET_CPU_DEFAULT_pentium_mmx,
+  TARGET_CPU_DEFAULT_pentiumpro,
+  TARGET_CPU_DEFAULT_pentium2,
+  TARGET_CPU_DEFAULT_pentium3,
+  TARGET_CPU_DEFAULT_pentium4,
+  TARGET_CPU_DEFAULT_pentium_m,
+  TARGET_CPU_DEFAULT_prescott,
+  TARGET_CPU_DEFAULT_nocona,
+  TARGET_CPU_DEFAULT_core2,
+
+  TARGET_CPU_DEFAULT_geode,
+  TARGET_CPU_DEFAULT_k6,
+  TARGET_CPU_DEFAULT_k6_2,
+  TARGET_CPU_DEFAULT_k6_3,
+  TARGET_CPU_DEFAULT_athlon,
+  TARGET_CPU_DEFAULT_athlon_sse,
+  TARGET_CPU_DEFAULT_k8,
+  TARGET_CPU_DEFAULT_amdfam10,
+
+  TARGET_CPU_DEFAULT_max
+};
 
 #ifndef CC1_SPEC
 #define CC1_SPEC "%(cc1_cpu) "
@@ -1086,6 +1123,9 @@ do {									\
 /* ??? No autovectorization into MMX or 3DNOW until we can reliably
    place emms and femms instructions.  */
 #define UNITS_PER_SIMD_WORD (TARGET_SSE ? 16 : UNITS_PER_WORD)
+
+#define VALID_DFP_MODE_P(MODE)						\
+    ((MODE) == SDmode || (MODE) == DDmode || (MODE) == TDmode)
 
 #define VALID_FP_MODE_P(MODE)						\
     ((MODE) == SFmode || (MODE) == DFmode || (MODE) == XFmode		\
@@ -1670,10 +1710,6 @@ typedef struct ix86_args {
 #define FUNCTION_ARG(CUM, MODE, TYPE, NAMED) \
   function_arg (&(CUM), (MODE), (TYPE), (NAMED))
 
-/* Implement `va_start' for varargs and stdarg.  */
-#define EXPAND_BUILTIN_VA_START(VALIST, NEXTARG) \
-  ix86_va_start (VALIST, NEXTARG)
-
 #define TARGET_ASM_FILE_END ix86_file_end
 #define NEED_INDICATE_EXEC_STACK 0
 
@@ -2218,7 +2254,7 @@ do {									\
    print_operand function.  */
 
 #define PRINT_OPERAND_PUNCT_VALID_P(CODE) \
-  ((CODE) == '*' || (CODE) == '+' || (CODE) == '&')
+  ((CODE) == '*' || (CODE) == '+' || (CODE) == '&' || (CODE) == ';')
 
 #define PRINT_OPERAND(FILE, X, CODE)  \
   print_operand ((FILE), (X), (CODE))
@@ -2237,7 +2273,7 @@ do {						\
 
 enum processor_type
 {
-  PROCESSOR_I386,			/* 80386 */
+  PROCESSOR_I386 = 0,			/* 80386 */
   PROCESSOR_I486,			/* 80486DX, 80486SX, 80486DX[24] */
   PROCESSOR_PENTIUM,
   PROCESSOR_PENTIUMPRO,
@@ -2453,6 +2489,57 @@ struct machine_function GTY(())
 #define SYMBOL_FLAG_DLLEXPORT		(SYMBOL_FLAG_MACH_DEP << 2)
 #define SYMBOL_REF_DLLEXPORT_P(X) \
 	((SYMBOL_REF_FLAGS (X) & SYMBOL_FLAG_DLLEXPORT) != 0)
+
+/* Model costs for vectorizer.  */
+
+/* Cost of conditional branch.  */
+#undef TARG_COND_BRANCH_COST
+#define TARG_COND_BRANCH_COST           ix86_cost->branch_cost
+
+/* Cost of any scalar operation, excluding load and store.  */
+#undef TARG_SCALAR_STMT_COST
+#define TARG_SCALAR_STMT_COST           ix86_cost->scalar_stmt_cost
+
+/* Cost of scalar load.  */
+#undef TARG_SCALAR_LOAD_COST
+#define TARG_SCALAR_LOAD_COST           ix86_cost->scalar_load_cost
+
+/* Cost of scalar store.  */
+#undef TARG_SCALAR_STORE_COST
+#define TARG_SCALAR_STORE_COST          ix86_cost->scalar_store_cost
+
+/* Cost of any vector operation, excluding load, store or vector to scalar
+   operation.  */
+#undef TARG_VEC_STMT_COST
+#define TARG_VEC_STMT_COST              ix86_cost->vec_stmt_cost
+
+/* Cost of vector to scalar operation.  */
+#undef TARG_VEC_TO_SCALAR_COST
+#define TARG_VEC_TO_SCALAR_COST         ix86_cost->vec_to_scalar_cost
+
+/* Cost of scalar to vector operation.  */
+#undef TARG_SCALAR_TO_VEC_COST
+#define TARG_SCALAR_TO_VEC_COST         ix86_cost->scalar_to_vec_cost
+
+/* Cost of aligned vector load.  */
+#undef TARG_VEC_LOAD_COST
+#define TARG_VEC_LOAD_COST              ix86_cost->vec_align_load_cost
+
+/* Cost of misaligned vector load.  */
+#undef TARG_VEC_UNALIGNED_LOAD_COST
+#define TARG_VEC_UNALIGNED_LOAD_COST    ix86_cost->vec_unalign_load_cost
+
+/* Cost of vector store.  */
+#undef TARG_VEC_STORE_COST
+#define TARG_VEC_STORE_COST             ix86_cost->vec_store_cost
+
+/* Cost of conditional taken branch for vectorizer cost model.  */
+#undef TARG_COND_TAKEN_BRANCH_COST
+#define TARG_COND_TAKEN_BRANCH_COST     ix86_cost->cond_taken_branch_cost
+
+/* Cost of conditional not taken branch for vectorizer cost model.  */
+#undef TARG_COND_NOT_TAKEN_BRANCH_COST
+#define TARG_COND_NOT_TAKEN_BRANCH_COST ix86_cost->cond_not_taken_branch_cost
 
 /*
 Local variables:

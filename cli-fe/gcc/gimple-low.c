@@ -244,12 +244,15 @@ lower_stmt (tree_stmt_iterator *tsi, struct lower_data *data)
     case CHANGE_DYNAMIC_TYPE_EXPR:
     case OMP_FOR:
     case OMP_SECTIONS:
+    case OMP_SECTIONS_SWITCH:
     case OMP_SECTION:
     case OMP_SINGLE:
     case OMP_MASTER:
     case OMP_ORDERED:
     case OMP_CRITICAL:
     case OMP_RETURN:
+    case OMP_ATOMIC_LOAD:
+    case OMP_ATOMIC_STORE:
     case OMP_CONTINUE:
       break;
 
@@ -343,7 +346,7 @@ lower_bind_expr (tree_stmt_iterator *tsi, struct lower_data *data)
    This is a subroutine of block_may_fallthru.  */
 
 static bool
-try_catch_may_fallthru (tree stmt)
+try_catch_may_fallthru (const_tree stmt)
 {
   tree_stmt_iterator i;
 
@@ -393,9 +396,11 @@ try_catch_may_fallthru (tree stmt)
    If we're wrong, we'll just delete the extra code later.  */
 
 bool
-block_may_fallthru (tree block)
+block_may_fallthru (const_tree block)
 {
-  tree stmt = expr_last (block);
+  /* This CONST_CAST is okay because expr_last returns it's argument
+     unmodified and we assign it to a const_tree.  */
+  const_tree stmt = expr_last (CONST_CAST_TREE(block));
 
   switch (stmt ? TREE_CODE (stmt) : ERROR_MARK)
     {
@@ -715,10 +720,8 @@ lower_builtin_setjmp (tree_stmt_iterator *tsi)
 void
 record_vars_into (tree vars, tree fn)
 {
-  struct function *saved_cfun = cfun;
-
   if (fn != current_function_decl)
-    cfun = DECL_STRUCT_FUNCTION (fn);
+    push_cfun (DECL_STRUCT_FUNCTION (fn));
 
   for (; vars; vars = TREE_CHAIN (vars))
     {
@@ -739,7 +742,7 @@ record_vars_into (tree vars, tree fn)
     }
 
   if (fn != current_function_decl)
-    cfun = saved_cfun;
+    pop_cfun ();
 }
 
 

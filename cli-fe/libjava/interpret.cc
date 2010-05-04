@@ -43,8 +43,6 @@ details.  */
 #include <gnu/gcj/jvmti/Breakpoint.h>
 #include <gnu/gcj/jvmti/BreakpointManager.h>
 
-#ifdef INTERPRETER
-
 // Execution engine for interpreted code.
 _Jv_InterpreterEngine _Jv_soleInterpreterEngine;
 
@@ -348,7 +346,7 @@ get4 (unsigned char* loc)
 void
 _Jv_InterpMethod::run_normal (ffi_cif *,
 			      void *ret,
-			      ffi_raw *args,
+			      INTERP_FFI_RAW_TYPE *args,
 			      void *__this)
 {
   _Jv_InterpMethod *_this = (_Jv_InterpMethod *) __this;
@@ -358,7 +356,7 @@ _Jv_InterpMethod::run_normal (ffi_cif *,
 void
 _Jv_InterpMethod::run_normal_debug (ffi_cif *,
 				    void *ret,
-				    ffi_raw *args,
+				    INTERP_FFI_RAW_TYPE *args,
 				    void *__this)
 {
   _Jv_InterpMethod *_this = (_Jv_InterpMethod *) __this;
@@ -368,7 +366,7 @@ _Jv_InterpMethod::run_normal_debug (ffi_cif *,
 void
 _Jv_InterpMethod::run_synch_object (ffi_cif *,
 				    void *ret,
-				    ffi_raw *args,
+				    INTERP_FFI_RAW_TYPE *args,
 				    void *__this)
 {
   _Jv_InterpMethod *_this = (_Jv_InterpMethod *) __this;
@@ -382,7 +380,7 @@ _Jv_InterpMethod::run_synch_object (ffi_cif *,
 void
 _Jv_InterpMethod::run_synch_object_debug (ffi_cif *,
 					  void *ret,
-					  ffi_raw *args,
+					  INTERP_FFI_RAW_TYPE *args,
 					  void *__this)
 {
   _Jv_InterpMethod *_this = (_Jv_InterpMethod *) __this;
@@ -396,7 +394,7 @@ _Jv_InterpMethod::run_synch_object_debug (ffi_cif *,
 void
 _Jv_InterpMethod::run_class (ffi_cif *,
 			     void *ret,
-			     ffi_raw *args,
+			     INTERP_FFI_RAW_TYPE *args,
 			     void *__this)
 {
   _Jv_InterpMethod *_this = (_Jv_InterpMethod *) __this;
@@ -407,7 +405,7 @@ _Jv_InterpMethod::run_class (ffi_cif *,
 void
 _Jv_InterpMethod::run_class_debug (ffi_cif *,
 				   void *ret,
-				   ffi_raw *args,
+				   INTERP_FFI_RAW_TYPE *args,
 				   void *__this)
 {
   _Jv_InterpMethod *_this = (_Jv_InterpMethod *) __this;
@@ -418,7 +416,7 @@ _Jv_InterpMethod::run_class_debug (ffi_cif *,
 void
 _Jv_InterpMethod::run_synch_class (ffi_cif *,
 				   void *ret,
-				   ffi_raw *args,
+				   INTERP_FFI_RAW_TYPE *args,
 				   void *__this)
 {
   _Jv_InterpMethod *_this = (_Jv_InterpMethod *) __this;
@@ -433,7 +431,7 @@ _Jv_InterpMethod::run_synch_class (ffi_cif *,
 void
 _Jv_InterpMethod::run_synch_class_debug (ffi_cif *,
 					 void *ret,
-					 ffi_raw *args,
+					 INTERP_FFI_RAW_TYPE *args,
 					 void *__this)
 {
   _Jv_InterpMethod *_this = (_Jv_InterpMethod *) __this;
@@ -977,7 +975,8 @@ _Jv_InterpMethod::compile (const void * const *insn_targets)
 /* Run the given method.
    When args is NULL, don't run anything -- just compile it. */
 void
-_Jv_InterpMethod::run (void *retp, ffi_raw *args, _Jv_InterpMethod *meth)
+_Jv_InterpMethod::run (void *retp, INTERP_FFI_RAW_TYPE *args,
+		       _Jv_InterpMethod *meth)
 {
 #undef DEBUG
 #undef DEBUG_LOCALS_INSN
@@ -987,7 +986,8 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args, _Jv_InterpMethod *meth)
 }
 
 void
-_Jv_InterpMethod::run_debug (void *retp, ffi_raw *args, _Jv_InterpMethod *meth)
+_Jv_InterpMethod::run_debug (void *retp, INTERP_FFI_RAW_TYPE *args,
+			     _Jv_InterpMethod *meth)
 {
 #define DEBUG
 #undef DEBUG_LOCALS_INSN
@@ -1308,27 +1308,32 @@ _Jv_init_cif (_Jv_Utf8Const* signature,
   return item_count;
 }
 
-#if FFI_NATIVE_RAW_API
-#   define FFI_PREP_RAW_CLOSURE ffi_prep_raw_closure_loc
-#   define FFI_RAW_SIZE ffi_raw_size
-#else
-#   define FFI_PREP_RAW_CLOSURE ffi_prep_java_raw_closure_loc
-#   define FFI_RAW_SIZE ffi_java_raw_size
-#endif
-
 /* we put this one here, and not in interpret.cc because it
  * calls the utility routines _Jv_count_arguments 
  * which are static to this module.  The following struct defines the
  * layout we use for the stubs, it's only used in the ncode method. */
 
+#if FFI_NATIVE_RAW_API
+#   define FFI_PREP_RAW_CLOSURE ffi_prep_raw_closure_loc
+#   define FFI_RAW_SIZE ffi_raw_size
 typedef struct {
   ffi_raw_closure  closure;
   _Jv_ClosureList list;
   ffi_cif   cif;
   ffi_type *arg_types[0];
 } ncode_closure;
-
-typedef void (*ffi_closure_fun) (ffi_cif*,void*,ffi_raw*,void*);
+typedef void (*ffi_closure_fun) (ffi_cif*,void*,INTERP_FFI_RAW_TYPE*,void*);
+#else
+#   define FFI_PREP_RAW_CLOSURE ffi_prep_java_raw_closure_loc
+#   define FFI_RAW_SIZE ffi_java_raw_size
+typedef struct {
+  ffi_java_raw_closure  closure;
+  _Jv_ClosureList list;
+  ffi_cif   cif;
+  ffi_type *arg_types[0];
+} ncode_closure;
+typedef void (*ffi_closure_fun) (ffi_cif*,void*,ffi_java_raw*,void*);
+#endif
 
 void *
 _Jv_InterpMethod::ncode (jclass klass)
@@ -1932,5 +1937,3 @@ _Jv_CompileMethod (_Jv_InterpMethod* method)
     }
 }
 #endif // DIRECT_THREADED
-
-#endif // INTERPRETER

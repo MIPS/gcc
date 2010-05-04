@@ -10,7 +10,7 @@
 
    GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published
-   by the Free Software Foundation; either version 2, or (at your
+   by the Free Software Foundation; either version 3, or (at your
    option) any later version.
 
    GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -19,9 +19,8 @@
    License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston,
-   MA 02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 #ifndef GCC_ARM_H
 #define GCC_ARM_H
@@ -133,8 +132,8 @@ extern rtx pool_vector_label;
 /* Set to 1 when a return insn is output, this means that the epilogue
    is not needed.  */
 extern int return_used_this_function;
-/* Used to produce AOF syntax assembler.  */
-extern GTY(()) rtx aof_pic_label;
+/* Callback to output language specific object attributes.  */
+extern void (*arm_lang_output_object_attributes_hook)(void);
 
 /* Just in case configure has failed to define anything.  */
 #ifndef TARGET_CPU_DEFAULT
@@ -1651,8 +1650,7 @@ typedef struct
 
 
 /* If your target environment doesn't prefix user functions with an
-   underscore, you may wish to re-define this to prevent any conflicts.
-   e.g. AOF may prefix mcount with an underscore.  */
+   underscore, you may wish to re-define this to prevent any conflicts.  */
 #ifndef ARM_MCOUNT_NAME
 #define ARM_MCOUNT_NAME "*mcount"
 #endif
@@ -1923,21 +1921,11 @@ typedef struct
 
 /* Recognize any constant value that is a valid address.  */
 /* XXX We can address any constant, eventually...  */
-
-#ifdef AOF_ASSEMBLER
-
-#define CONSTANT_ADDRESS_P(X)		\
-  (GET_CODE (X) == SYMBOL_REF && CONSTANT_POOL_ADDRESS_P (X))
-
-#else
-
 /* ??? Should the TARGET_ARM here also apply to thumb2?  */
 #define CONSTANT_ADDRESS_P(X)  			\
   (GET_CODE (X) == SYMBOL_REF 			\
    && (CONSTANT_POOL_ADDRESS_P (X)		\
        || (TARGET_ARM && optimize > 0 && SYMBOL_REF_FLAG (X))))
-
-#endif /* AOF_ASSEMBLER */
 
 /* True if SYMBOL + OFFSET constants must refer to something within
    SYMBOL's section.  */
@@ -2301,10 +2289,12 @@ extern unsigned arm_pic_register;
 extern int making_const_table;
 
 /* Handle pragmas for compatibility with Intel's compilers.  */
+/* Also abuse this to register additional C specific EABI attributes.  */
 #define REGISTER_TARGET_PRAGMAS() do {					\
   c_register_pragma (0, "long_calls", arm_pr_long_calls);		\
   c_register_pragma (0, "no_long_calls", arm_pr_no_long_calls);		\
   c_register_pragma (0, "long_calls_off", arm_pr_long_calls_off);	\
+  arm_lang_object_attributes_init(); \
 } while (0)
 
 /* Condition code information.  */
@@ -2402,7 +2392,7 @@ extern int making_const_table;
            fprintf (STREAM, "\t.thumb\n\t.thumb_func\n") ;	\
         }						\
       if (TARGET_POKE_FUNCTION_NAME)			\
-        arm_poke_function_name (STREAM, (char *) NAME);	\
+        arm_poke_function_name (STREAM, (const char *) NAME);	\
     }							\
   while (0)
 

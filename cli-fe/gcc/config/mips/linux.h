@@ -1,12 +1,12 @@
 /* Definitions for MIPS running Linux-based GNU systems with ELF format.
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
-   Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006,
+   2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,26 +15,14 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #undef WCHAR_TYPE
 #define WCHAR_TYPE "int"
 
 #undef WCHAR_TYPE_SIZE
 #define WCHAR_TYPE_SIZE 32
-
-/* If defined, a C expression whose value is a string containing the
-   assembler operation to identify the following data as
-   uninitialized global data.  If not defined, and neither
-   `ASM_OUTPUT_BSS' nor `ASM_OUTPUT_ALIGNED_BSS' are defined,
-   uninitialized global data will be output in the data section if
-   `-fno-common' is passed, otherwise `ASM_OUTPUT_COMMON' will be
-   used.  */
-#define BSS_SECTION_ASM_OP	"\t.section\t.bss"
-
-#define ASM_OUTPUT_ALIGNED_BSS mips_output_aligned_bss
 
 #undef ASM_DECLARE_OBJECT_NAME
 #define ASM_DECLARE_OBJECT_NAME mips_declare_object_name
@@ -59,34 +47,6 @@ Boston, MA 02110-1301, USA.  */
     /* The GNU C++ standard library requires this.  */		\
     if (c_dialect_cxx ())					\
       builtin_define ("_GNU_SOURCE");				\
-    								\
-    if (mips_abi == ABI_N32)					\
-      {								\
-        builtin_define ("_ABIN32=2");				\
-        builtin_define ("_MIPS_SIM=_ABIN32");			\
-        builtin_define ("_MIPS_SZLONG=32");			\
-        builtin_define ("_MIPS_SZPTR=32");			\
-      }								\
-    else if (mips_abi == ABI_64)				\
-      {								\
-        builtin_define ("_ABI64=3");				\
-        builtin_define ("_MIPS_SIM=_ABI64");			\
-        builtin_define ("_MIPS_SZLONG=64");			\
-        builtin_define ("_MIPS_SZPTR=64");			\
-      }								\
-    else							\
-      {								\
-	builtin_define ("_ABIO32=1");				\
-	builtin_define ("_MIPS_SIM=_ABIO32");			\
-        builtin_define ("_MIPS_SZLONG=32");			\
-        builtin_define ("_MIPS_SZPTR=32");			\
-      }								\
-    if (TARGET_FLOAT64)						\
-      builtin_define ("_MIPS_FPSET=32");			\
-    else							\
-      builtin_define ("_MIPS_FPSET=16");			\
-    								\
-    builtin_define ("_MIPS_SZINT=32");				\
   } while (0)
 
 #undef SUBTARGET_CPP_SPEC

@@ -459,7 +459,7 @@ ac_includes_default="\
 #endif"
 
 ac_subdirs_all="$ac_subdirs_all classpath libltdl"
-ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS build build_cpu build_vendor build_os build_libsubdir build_subdir host_subdir target_subdir multi_basedir host host_cpu host_vendor host_os target target_cpu target_vendor target_os target_noncanonical LN_S mkinstalldirs JAVA_MAINTAINER_MODE_TRUE JAVA_MAINTAINER_MODE_FALSE CC ac_ct_CC EXEEXT OBJEXT CXX ac_ct_CXX CFLAGS CXXFLAGS LDFLAGS INSTALL_PROGRAM INSTALL_SCRIPT INSTALL_DATA CYGPATH_W PACKAGE VERSION ACLOCAL AUTOCONF AUTOMAKE AUTOHEADER MAKEINFO install_sh STRIP ac_ct_STRIP INSTALL_STRIP_PROGRAM mkdir_p AWK SET_MAKE am__leading_dot AMTAR am__tar am__untar DEPDIR am__include am__quote AMDEP_TRUE AMDEP_FALSE AMDEPBACKSLASH CCDEPMODE am__fastdepCC_TRUE am__fastdepCC_FALSE CXXDEPMODE am__fastdepCXX_TRUE am__fastdepCXX_FALSE AS ac_ct_AS LD ac_ct_LD AR ac_ct_AR RANLIB ac_ct_RANLIB JAR ZIP UNZIP MAINTAINER_MODE_TRUE MAINTAINER_MODE_FALSE MAINT LIBGCJ_CFLAGS LIBGCJ_CXXFLAGS LIBGCJ_JAVAFLAGS LIBGCJ_LD_SYMBOLIC LIBGCJ_LD_SYMBOLIC_FUNCTIONS LIBGCJDEBUG TOOLKIT XLIB_AWT_TRUE XLIB_AWT_FALSE X_AWT_TRUE X_AWT_FALSE GCJ_FOR_ECJX GCJH host_exeext INCLTDL LIBLTDL DIRLTDL LIBTOOL SED EGREP FGREP GREP DUMPBIN ac_ct_DUMPBIN NM lt_ECHO CPP CPPFLAGS CXXCPP GCJ GCJFLAGS GCJDEPMODE am__fastdepGCJ_TRUE am__fastdepGCJ_FALSE subdirs TESTSUBDIR_TRUE TESTSUBDIR_FALSE ECJ_BUILD_JAR ECJ_JAR BUILD_ECJ1_TRUE BUILD_ECJ1_FALSE INSTALL_ECJ_JAR_TRUE INSTALL_ECJ_JAR_FALSE JAVA_HOME_SET_TRUE JAVA_HOME_SET_FALSE JAVA_HOME INTERPRETER LIBFFI LIBFFIINCS PLATFORM USING_WIN32_PLATFORM_TRUE USING_WIN32_PLATFORM_FALSE USING_POSIX_PLATFORM_TRUE USING_POSIX_PLATFORM_FALSE USING_DARWIN_CRT_TRUE USING_DARWIN_CRT_FALSE SYSTEMSPEC LIBGCJTESTSPEC ZLIBSPEC ZLIBTESTSPEC X_CFLAGS X_PRE_LIBS X_LIBS X_EXTRA_LIBS extra_ldflags_libjava GCLIBS GCINCS GCDEPS GCSPEC JC1GCSPEC GCTESTSPEC USING_BOEHMGC_TRUE USING_BOEHMGC_FALSE USING_NOGC_TRUE USING_NOGC_FALSE THREADLIBS THREADINCS THREADDEPS THREADSPEC THREADSTARTFILESPEC THREADLDFLAGS THREADCXXFLAGS USING_POSIX_THREADS_TRUE USING_POSIX_THREADS_FALSE USING_WIN32_THREADS_TRUE USING_WIN32_THREADS_FALSE USING_NO_THREADS_TRUE USING_NO_THREADS_FALSE USE_LIBGCJ_BC_TRUE USE_LIBGCJ_BC_FALSE LIBGCJ_SPEC HASH_SYNC_SPEC USING_GCC_TRUE USING_GCC_FALSE LIBICONV LTLIBICONV PKG_CONFIG GTK_CFLAGS GTK_LIBS GLIB_CFLAGS GLIB_LIBS LIBART_CFLAGS LIBART_LIBS CLASSPATH_SEPARATOR ZLIBS SYS_ZLIBS ZINCS DIVIDESPEC CHECKREFSPEC EXCEPTIONSPEC BACKTRACESPEC IEEESPEC NATIVE_TRUE NATIVE_FALSE ENABLE_SHARED_TRUE ENABLE_SHARED_FALSE NEEDS_DATA_START_TRUE NEEDS_DATA_START_FALSE GCC_UNWIND_INCLUDE toolexecdir toolexecmainlibdir toolexeclibdir dbexecdir GCJVERSION gxx_include_dir libstdcxx_incdir PERL SYSDEP_SOURCES ANONVERSCRIPT_TRUE ANONVERSCRIPT_FALSE LD_START_STATIC_SPEC LD_FINISH_STATIC_SPEC here LIBOBJS LTLIBOBJS'
+ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS build build_cpu build_vendor build_os build_libsubdir build_subdir host_subdir target_subdir multi_basedir host host_cpu host_vendor host_os target target_cpu target_vendor target_os target_noncanonical LN_S mkinstalldirs JAVA_MAINTAINER_MODE_TRUE JAVA_MAINTAINER_MODE_FALSE CC ac_ct_CC EXEEXT OBJEXT CXX ac_ct_CXX CFLAGS CXXFLAGS LDFLAGS INSTALL_PROGRAM INSTALL_SCRIPT INSTALL_DATA CYGPATH_W PACKAGE VERSION ACLOCAL AUTOCONF AUTOMAKE AUTOHEADER MAKEINFO install_sh STRIP ac_ct_STRIP INSTALL_STRIP_PROGRAM mkdir_p AWK SET_MAKE am__leading_dot AMTAR am__tar am__untar DEPDIR am__include am__quote AMDEP_TRUE AMDEP_FALSE AMDEPBACKSLASH CCDEPMODE am__fastdepCC_TRUE am__fastdepCC_FALSE CXXDEPMODE am__fastdepCXX_TRUE am__fastdepCXX_FALSE AS ac_ct_AS LD ac_ct_LD AR ac_ct_AR RANLIB ac_ct_RANLIB JAR ZIP UNZIP MAINTAINER_MODE_TRUE MAINTAINER_MODE_FALSE MAINT LIBGCJ_CFLAGS LIBGCJ_CXXFLAGS LIBGCJ_JAVAFLAGS LIBGCJ_LD_SYMBOLIC LIBGCJ_LD_SYMBOLIC_FUNCTIONS LIBGCJDEBUG TOOLKIT XLIB_AWT_TRUE XLIB_AWT_FALSE X_AWT_TRUE X_AWT_FALSE GCJ_FOR_ECJX GCJH host_exeext INCLTDL LIBLTDL DIRLTDL LIBTOOL SED EGREP FGREP GREP DUMPBIN ac_ct_DUMPBIN NM lt_ECHO CPP CPPFLAGS CXXCPP GCJ GCJFLAGS GCJDEPMODE am__fastdepGCJ_TRUE am__fastdepGCJ_FALSE subdirs TESTSUBDIR_TRUE TESTSUBDIR_FALSE ECJ_BUILD_JAR ECJ_JAR BUILD_ECJ1_TRUE BUILD_ECJ1_FALSE INSTALL_ECJ_JAR_TRUE INSTALL_ECJ_JAR_FALSE JAVA_HOME_SET_TRUE JAVA_HOME_SET_FALSE JAVA_HOME INTERPRETER INTERPRETER_TRUE INTERPRETER_FALSE LIBFFI LIBFFIINCS PLATFORM USING_WIN32_PLATFORM_TRUE USING_WIN32_PLATFORM_FALSE USING_POSIX_PLATFORM_TRUE USING_POSIX_PLATFORM_FALSE USING_DARWIN_CRT_TRUE USING_DARWIN_CRT_FALSE SYSTEMSPEC ZLIBSPEC ZLIBTESTSPEC X_CFLAGS X_PRE_LIBS X_LIBS X_EXTRA_LIBS extra_ldflags_libjava extra_gij_ldflags extra_ldflags LIBSTDCXXSPEC LIBGCJTESTSPEC GCLIBS GCINCS GCDEPS GCSPEC JC1GCSPEC GCTESTSPEC USING_BOEHMGC_TRUE USING_BOEHMGC_FALSE USING_NOGC_TRUE USING_NOGC_FALSE THREADLIBS THREADINCS THREADDEPS THREADSPEC THREADSTARTFILESPEC THREADLDFLAGS THREADCXXFLAGS USING_POSIX_THREADS_TRUE USING_POSIX_THREADS_FALSE USING_WIN32_THREADS_TRUE USING_WIN32_THREADS_FALSE USING_NO_THREADS_TRUE USING_NO_THREADS_FALSE USE_LIBGCJ_BC_TRUE USE_LIBGCJ_BC_FALSE LIBGCJ_SPEC HASH_SYNC_SPEC USING_GCC_TRUE USING_GCC_FALSE LIBICONV LTLIBICONV PKG_CONFIG GTK_CFLAGS GTK_LIBS GLIB_CFLAGS GLIB_LIBS LIBART_CFLAGS LIBART_LIBS CLASSPATH_SEPARATOR ZLIBS SYS_ZLIBS ZINCS DIVIDESPEC CHECKREFSPEC EXCEPTIONSPEC BACKTRACESPEC IEEESPEC NATIVE_TRUE NATIVE_FALSE ENABLE_SHARED_TRUE ENABLE_SHARED_FALSE NEEDS_DATA_START_TRUE NEEDS_DATA_START_FALSE GCC_UNWIND_INCLUDE toolexecdir toolexecmainlibdir toolexeclibdir GCJVERSION dbexecdir gxx_include_dir libstdcxx_incdir PERL SYSDEP_SOURCES ANONVERSCRIPT_TRUE ANONVERSCRIPT_FALSE LD_START_STATIC_SPEC LD_FINISH_STATIC_SPEC here LIBOBJS LTLIBOBJS'
 ac_subst_files=''
 
 # Initialize some variables set by options.
@@ -18487,6 +18487,16 @@ fi
 INTERPRETER="$libgcj_interpreter"
 
 
+
+if test "$libgcj_interpreter" = yes; then
+  INTERPRETER_TRUE=
+  INTERPRETER_FALSE='#'
+else
+  INTERPRETER_TRUE='#'
+  INTERPRETER_FALSE=
+fi
+
+
 echo "$as_me:$LINENO: checking for exception model to use" >&5
 echo $ECHO_N "checking for exception model to use... $ECHO_C" >&6
 ac_ext=cc
@@ -18501,7 +18511,7 @@ if test "${enable_sjlj_exceptions+set}" = set; then
   :
 else
   cat > conftest.$ac_ext << EOF
-#line 18504 "configure"
+#line 18514 "configure"
 struct S { ~S(); };
 void bar();
 void foo()
@@ -18874,9 +18884,6 @@ case "${host}" in
       SYSTEMSPEC=
     ;;
 esac
-
-
-LIBGCJTESTSPEC="-L`${PWDCMD-pwd}`/.libs -rpath `${PWDCMD-pwd}`/.libs"
 
 
 
@@ -20362,6 +20369,9 @@ fi
 # FIXME: this should be _libs on some hosts.
 libsubdir=.libs
 
+LIBGCJTESTSPEC="-L`${PWDCMD-pwd}`/.libs -rpath `${PWDCMD-pwd}`/.libs"
+
+LIBSTDCXXSPEC=
 # extra LD Flags which are required for targets
 case "${host}" in
 *-*-darwin[0-7].*)
@@ -20370,7 +20380,23 @@ case "${host}" in
     # on Darwin -single_module speeds up loading of the dynamic libraries.
     extra_ldflags_libjava=-Wl,-single_module
     ;;
+*-*-darwin[9]*)
+    extra_gij_ldflags=-Wl,-allow_stack_execute
+    ;;
+arm*linux*eabi)
+    # Some of the ARM unwinder code is actually in libstdc++.  We
+    # could in principle replicate it in libgcj, but it's better to
+    # have a dependency on libstdc++.
+    extra_ldflags='-L$(here)/../libstdc++-v3/src/.libs -lstdc++'
+    LIBSTDCXXSPEC=-lstdc++
+    LIBGCJTESTSPEC="-L`${PWDCMD-pwd}`/.libs -L`${PWDCMD-pwd}`/../libstdc++-v3/src/.libs -rpath `${PWDCMD-pwd}`/.libs:`${PWDCMD-pwd}`/../libstdc++-v3/src/.libs -lstdc++"
+    ;;
 esac
+
+
+
+
+
 
 
 # Allow the GC to be disabled.  Can be useful when debugging.
@@ -26165,27 +26191,29 @@ esac
 
 
 
-# Determine where the standard .db file and GNU Classpath JNI
-# libraries are found.
-multi_os_directory=`$CC -print-multi-os-directory`
-case $multi_os_directory in
-  .)
-   dbexecdir='$(libdir)/gcj-$(gcc_version)' # Avoid /.
-   ;;
-  *)
-   dbexecdir='$(libdir)/'$multi_os_directory'/gcj-$(gcc_version)'
-   ;;
-esac
-
-
-# Determine gcj version number.
-gcjversion=`$GCJ -v 2>&1 | sed -n 's/^.*version \([^ ]*\).*$/\1/p'`
+# Determine gcj and libgcj version number.
+gcjversion=`cat "$srcdir/../gcc/BASE-VER"`
+libgcj_soversion=`awk -F: '/^[^#].*:/ { print $1 }' $srcdir/libtool-version`
 GCJVERSION=$gcjversion
 
 
 cat >>confdefs.h <<_ACEOF
 #define GCJVERSION "$GCJVERSION"
 _ACEOF
+
+
+# Determine where the standard .db file and GNU Classpath JNI
+# libraries are found.
+gcjsubdir=gcj-$gcjversion-$libgcj_soversion
+multi_os_directory=`$CC -print-multi-os-directory`
+case $multi_os_directory in
+  .)
+   dbexecdir='$(libdir)/'$gcjsubdir # Avoid /.
+   ;;
+  *)
+   dbexecdir='$(libdir)/'$multi_os_directory/$gcjsubdir
+   ;;
+esac
 
 
 
@@ -27241,7 +27269,10 @@ case "${host}" in
  mips*-*-linux*)
     SIGNAL_HANDLER=include/mips-signal.h
     ;;
- powerpc*-*-darwin*)
+ m68*-*-linux*)
+    SIGNAL_HANDLER=include/dwarf2-signal.h
+    ;;
+ powerpc*-*-darwin* | i?86-*-darwin9* | x86_64-*-darwin9*)
     SIGNAL_HANDLER=include/darwin-signal.h
     ;;
  *)
@@ -27289,7 +27320,7 @@ fi;
 
   echo "$as_me:$LINENO: checking whether the target supports thread-local storage" >&5
 echo $ECHO_N "checking whether the target supports thread-local storage... $ECHO_C" >&6
-if test "${have_tls+set}" = set; then
+if test "${gcc_cv_have_tls+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
 
@@ -27324,12 +27355,12 @@ if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
   ac_status=$?
   echo "$as_me:$LINENO: \$? = $ac_status" >&5
   (exit $ac_status); }; }; then
-  have_tls=yes
+  gcc_cv_have_tls=yes
 else
   echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
 
-have_tls=no
+gcc_cv_have_tls=no
 fi
 rm -f conftest.err conftest.$ac_objext \
       conftest$ac_exeext conftest.$ac_ext
@@ -27403,14 +27434,14 @@ if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
   ac_status=$?
   echo "$as_me:$LINENO: \$? = $ac_status" >&5
   (exit $ac_status); }; }; then
-  have_tls=yes
+  gcc_cv_have_tls=yes
 else
   echo "$as_me: program exited with status $ac_status" >&5
 echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
 
 ( exit $ac_status )
-have_tls=no
+gcc_cv_have_tls=no
 fi
 rm -f core *.core gmon.out bb.out conftest$ac_exeext conftest.$ac_objext conftest.$ac_ext
 fi
@@ -27418,12 +27449,12 @@ else
   echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
 
-have_tls=yes
+gcc_cv_have_tls=yes
 fi
 rm -f conftest.err conftest.$ac_objext \
       conftest$ac_exeext conftest.$ac_ext
       LDFLAGS="$chktls_save_LDFLAGS"
-      if test $have_tls = yes; then
+      if test $gcc_cv_have_tls = yes; then
 						chktls_save_CFLAGS="$CFLAGS"
 	thread_CFLAGS=failed
 	for flag in '' '-pthread' '-lpthread'; do
@@ -27536,14 +27567,14 @@ if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
   ac_status=$?
   echo "$as_me:$LINENO: \$? = $ac_status" >&5
   (exit $ac_status); }; }; then
-  have_tls=yes
+  gcc_cv_have_tls=yes
 else
   echo "$as_me: program exited with status $ac_status" >&5
 echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
 
 ( exit $ac_status )
-have_tls=no
+gcc_cv_have_tls=no
 fi
 rm -f core *.core gmon.out bb.out conftest$ac_exeext conftest.$ac_objext conftest.$ac_ext
 fi
@@ -27556,14 +27587,14 @@ echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
 
 ( exit $ac_status )
-have_tls=no
+gcc_cv_have_tls=no
 fi
 rm -f core *.core gmon.out bb.out conftest$ac_exeext conftest.$ac_objext conftest.$ac_ext
 fi
 fi
-echo "$as_me:$LINENO: result: $have_tls" >&5
-echo "${ECHO_T}$have_tls" >&6
-  if test "$enable_tls $have_tls" = "yes yes"; then
+echo "$as_me:$LINENO: result: $gcc_cv_have_tls" >&5
+echo "${ECHO_T}$gcc_cv_have_tls" >&6
+  if test "$enable_tls $gcc_cv_have_tls" = "yes yes"; then
 
 cat >>confdefs.h <<\_ACEOF
 #define HAVE_TLS 1
@@ -27758,11 +27789,13 @@ here=`${PWDCMD-pwd}`
                                                                       ac_config_files="$ac_config_files Makefile libgcj.pc libgcj.spec libgcj-test.spec gcj/Makefile include/Makefile testsuite/Makefile"
 
 
+if test ${multilib} = yes; then
+  multilib_arg="--enable-multilib"
+else
+  multilib_arg=
+fi
+
           ac_config_files="$ac_config_files scripts/jar"
-
-
-          ac_config_commands="$ac_config_commands default"
-
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
@@ -27943,6 +27976,13 @@ if test -z "${JAVA_HOME_SET_TRUE}" && test -z "${JAVA_HOME_SET_FALSE}"; then
   { { echo "$as_me:$LINENO: error: conditional \"JAVA_HOME_SET\" was never defined.
 Usually this means the macro was only invoked conditionally." >&5
 echo "$as_me: error: conditional \"JAVA_HOME_SET\" was never defined.
+Usually this means the macro was only invoked conditionally." >&2;}
+   { (exit 1); exit 1; }; }
+fi
+if test -z "${INTERPRETER_TRUE}" && test -z "${INTERPRETER_FALSE}"; then
+  { { echo "$as_me:$LINENO: error: conditional \"INTERPRETER\" was never defined.
+Usually this means the macro was only invoked conditionally." >&5
+echo "$as_me: error: conditional \"INTERPRETER\" was never defined.
 Usually this means the macro was only invoked conditionally." >&2;}
    { (exit 1); exit 1; }; }
 fi
@@ -28914,17 +28954,6 @@ fi
 
 
 
-srcdir=${srcdir}
-host=${host}
-target=${target}
-with_multisubdir=${with_multisubdir}
-ac_configure_args="${multilib_arg} ${ac_configure_args}"
-CONFIG_SHELL=${CONFIG_SHELL-/bin/sh}
-multi_basedir=${multi_basedir}
-CC="${CC}"
-CXX="${CXX}"
-ORIGINAL_LD_FOR_MULTILIBS="${ORIGINAL_LD_FOR_MULTILIBS}"
-
 
 _ACEOF
 
@@ -28963,7 +28992,6 @@ do
   "default-1" ) CONFIG_COMMANDS="$CONFIG_COMMANDS default-1" ;;
   "depfiles" ) CONFIG_COMMANDS="$CONFIG_COMMANDS depfiles" ;;
   "libtool" ) CONFIG_COMMANDS="$CONFIG_COMMANDS libtool" ;;
-  "default" ) CONFIG_COMMANDS="$CONFIG_COMMANDS default" ;;
   "include/config.h" ) CONFIG_HEADERS="$CONFIG_HEADERS include/config.h" ;;
   "gcj/libgcj-config.h" ) CONFIG_HEADERS="$CONFIG_HEADERS gcj/libgcj-config.h" ;;
   *) { { echo "$as_me:$LINENO: error: invalid argument: $ac_config_target" >&5
@@ -29178,6 +29206,8 @@ s,@JAVA_HOME_SET_TRUE@,$JAVA_HOME_SET_TRUE,;t t
 s,@JAVA_HOME_SET_FALSE@,$JAVA_HOME_SET_FALSE,;t t
 s,@JAVA_HOME@,$JAVA_HOME,;t t
 s,@INTERPRETER@,$INTERPRETER,;t t
+s,@INTERPRETER_TRUE@,$INTERPRETER_TRUE,;t t
+s,@INTERPRETER_FALSE@,$INTERPRETER_FALSE,;t t
 s,@LIBFFI@,$LIBFFI,;t t
 s,@LIBFFIINCS@,$LIBFFIINCS,;t t
 s,@PLATFORM@,$PLATFORM,;t t
@@ -29188,7 +29218,6 @@ s,@USING_POSIX_PLATFORM_FALSE@,$USING_POSIX_PLATFORM_FALSE,;t t
 s,@USING_DARWIN_CRT_TRUE@,$USING_DARWIN_CRT_TRUE,;t t
 s,@USING_DARWIN_CRT_FALSE@,$USING_DARWIN_CRT_FALSE,;t t
 s,@SYSTEMSPEC@,$SYSTEMSPEC,;t t
-s,@LIBGCJTESTSPEC@,$LIBGCJTESTSPEC,;t t
 s,@ZLIBSPEC@,$ZLIBSPEC,;t t
 s,@ZLIBTESTSPEC@,$ZLIBTESTSPEC,;t t
 s,@X_CFLAGS@,$X_CFLAGS,;t t
@@ -29196,6 +29225,10 @@ s,@X_PRE_LIBS@,$X_PRE_LIBS,;t t
 s,@X_LIBS@,$X_LIBS,;t t
 s,@X_EXTRA_LIBS@,$X_EXTRA_LIBS,;t t
 s,@extra_ldflags_libjava@,$extra_ldflags_libjava,;t t
+s,@extra_gij_ldflags@,$extra_gij_ldflags,;t t
+s,@extra_ldflags@,$extra_ldflags,;t t
+s,@LIBSTDCXXSPEC@,$LIBSTDCXXSPEC,;t t
+s,@LIBGCJTESTSPEC@,$LIBGCJTESTSPEC,;t t
 s,@GCLIBS@,$GCLIBS,;t t
 s,@GCINCS@,$GCINCS,;t t
 s,@GCDEPS@,$GCDEPS,;t t
@@ -29253,8 +29286,8 @@ s,@GCC_UNWIND_INCLUDE@,$GCC_UNWIND_INCLUDE,;t t
 s,@toolexecdir@,$toolexecdir,;t t
 s,@toolexecmainlibdir@,$toolexecmainlibdir,;t t
 s,@toolexeclibdir@,$toolexeclibdir,;t t
-s,@dbexecdir@,$dbexecdir,;t t
 s,@GCJVERSION@,$GCJVERSION,;t t
+s,@dbexecdir@,$dbexecdir,;t t
 s,@gxx_include_dir@,$gxx_include_dir,;t t
 s,@libstdcxx_incdir@,$libstdcxx_incdir,;t t
 s,@PERL@,$PERL,;t t
@@ -30957,20 +30990,6 @@ compiler_lib_search_path=$lt_compiler_lib_search_path_GCJ
 # ### END LIBTOOL TAG CONFIG: GCJ
 _LT_EOF
 
- ;;
-    default ) # Only add multilib support code if we just rebuilt top-level Makefile.
-case " $CONFIG_FILES " in
- *" Makefile "*)
-   LD="${ORIGINAL_LD_FOR_MULTILIBS}"
-   ac_file=Makefile . ${multi_basedir}/./libjava/../config-ml.in
-   ;;
-esac
-for ac_multi_file in $CONFIG_FILES; do
-  case $ac_multi_file in
-  */Makefile)
-    grep "^MULTI[^ ]* =" Makefile >> "$ac_multi_file" ;;
-  esac
-done
  ;;
   esac
 done

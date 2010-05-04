@@ -1,13 +1,13 @@
 /* Convert language-specific tree expression to rtl instructions,
    for GNU compiler.
    Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -16,9 +16,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 #include "config.h"
@@ -34,8 +33,7 @@ Boston, MA 02110-1301, USA.  */
 #include "except.h"
 #include "tm_p.h"
 
-/* Hook used by output_constant to expand language-specific
-   constants.  */
+/* Expand C++-specific constants.  Currently, this means PTRMEM_CST.  */
 
 tree
 cplus_expand_constant (tree cst)
@@ -83,47 +81,4 @@ cplus_expand_constant (tree cst)
     }
 
   return cst;
-}
-
-/* Hook used by expand_expr to expand language-specific tree codes.  */
-/* ??? The only thing that should be here are things needed to expand
-   constant initializers; everything else should be handled by the
-   gimplification routines.  Are EMPTY_CLASS_EXPR or BASELINK needed?  */
-
-rtx
-cxx_expand_expr (tree exp, rtx target, enum machine_mode tmode, int modifier,
-		 rtx *alt_rtl)
-{
-  tree type = TREE_TYPE (exp);
-  enum machine_mode mode = TYPE_MODE (type);
-  enum tree_code code = TREE_CODE (exp);
-
-  /* No sense saving up arithmetic to be done
-     if it's all in the wrong mode to form part of an address.
-     And force_operand won't know whether to sign-extend or zero-extend.  */
-
-  if (mode != Pmode && modifier == EXPAND_SUM)
-    modifier = EXPAND_NORMAL;
-
-  switch (code)
-    {
-    case PTRMEM_CST:
-      return expand_expr (cplus_expand_constant (exp),
-			  target, tmode, modifier);
-
-    case OFFSET_REF:
-      /* Offset refs should not make it through to here.  */
-      gcc_unreachable ();
-
-    case EMPTY_CLASS_EXPR:
-      /* We don't need to generate any code for an empty class.  */
-      return const0_rtx;
-
-    case BASELINK:
-      return expand_expr (BASELINK_FUNCTIONS (exp), target, tmode,
-			  modifier);
-
-    default:
-      return c_expand_expr (exp, target, tmode, modifier, alt_rtl);
-    }
 }

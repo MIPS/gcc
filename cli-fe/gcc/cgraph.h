@@ -288,7 +288,9 @@ extern GTY(()) int cgraph_order;
 
 /* In cgraph.c  */
 void dump_cgraph (FILE *);
+void debug_cgraph (void);
 void dump_cgraph_node (FILE *, struct cgraph_node *);
+void debug_cgraph_node (struct cgraph_node *);
 void cgraph_insert_node_to_hashtable (struct cgraph_node *node);
 void cgraph_remove_edge (struct cgraph_edge *);
 void cgraph_remove_node (struct cgraph_node *);
@@ -343,6 +345,9 @@ void cgraph_analyze_function (struct cgraph_node *);
 struct cgraph_node *save_inline_function_body (struct cgraph_node *);
 void record_references_in_initializer (tree);
 bool cgraph_process_new_functions (void);
+
+/* In cgraphbuild.c  */
+unsigned int rebuild_cgraph_edges (void);
 
 /* In ipa.c  */
 bool cgraph_remove_unreachable_nodes (bool, FILE *);

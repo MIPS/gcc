@@ -54,7 +54,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfgloop.h"
 #include "expr.h"
 #include "df.h"
-#include "dce.h"
 
 #define FORWARDER_BLOCK_P(BB) ((BB)->flags & BB_FORWARDER_BLOCK)
 
@@ -1700,8 +1699,6 @@ try_crossjump_to_edge (int mode, edge e1, edge e2)
 	     "Cross jumping from bb %i to bb %i; %i common insns\n",
 	     src1->index, src2->index, nmatch);
 
-  redirect_to->count += src1->count;
-  redirect_to->frequency += src1->frequency;
   /* We may have some registers visible through the block.  */
   df_set_bb_dirty (redirect_to);
 
@@ -1758,6 +1755,14 @@ try_crossjump_to_edge (int mode, edge e1, edge e2)
 	     / (redirect_to->frequency + src1->frequency));
     }
 
+  /* Adjust count and frequency for the block.  An earlier jump
+     threading pass may have left the profile in an inconsistent
+     state (see update_bb_profile_for_threading) so we must be
+     prepared for overflows.  */
+  redirect_to->count += src1->count;
+  redirect_to->frequency += src1->frequency;
+  if (redirect_to->frequency > BB_FREQ_MAX)
+    redirect_to->frequency = BB_FREQ_MAX;
   update_br_prob_note (redirect_to);
 
   /* Edit SRC1 to go to REDIRECT_TO at NEWPOS1.  */
@@ -2281,7 +2286,6 @@ struct tree_opt_pass pass_jump =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   TODO_ggc_collect,                     /* todo_flags_start */
-  TODO_dump_func |
   TODO_verify_flow,                     /* todo_flags_finish */
   'i'                                   /* letter */
 };
@@ -2312,7 +2316,7 @@ struct tree_opt_pass pass_jump2 =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   TODO_ggc_collect,                     /* todo_flags_start */
-  TODO_dump_func,                       /* todo_flags_finish */
+  TODO_dump_func | TODO_verify_rtl_sharing,/* todo_flags_finish */
   'j'                                   /* letter */
 };
 

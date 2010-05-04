@@ -1,13 +1,14 @@
 /* Separate lexical analyzer for GNU C++.
    Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007
+   Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -16,9 +17,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 /* This file is the lexical analyzer for GNU C++.  */
@@ -572,14 +572,14 @@ handle_pragma_implementation (cpp_reader* dfile ATTRIBUTE_UNUSED )
   else
     {
       filename = ggc_strdup (TREE_STRING_POINTER (fname));
-#if 0
+#ifdef USE_MAPPED_LOCATION
       /* We currently cannot give this diagnostic, as we reach this point
 	 only after cpplib has scanned the entire translation unit, so
 	 cpp_included always returns true.  A plausible fix is to compare
 	 the current source-location cookie with the first source-location
 	 cookie (if any) of the filename, but this requires completing the
 	 --enable-mapped-location project first.  See PR 17577.  */
-      if (cpp_included (parse_in, filename))
+      if (cpp_included_before (parse_in, filename, input_location))
 	warning (0, "#pragma implementation for %qs appears after "
 		 "file is included", filename);
 #endif
@@ -848,4 +848,19 @@ make_aggr_type (enum tree_code code)
     SET_IS_AGGR_TYPE (t, 1);
 
   return t;
+}
+
+/* Returns true if we are currently in the main source file, or in a
+   template instantiation started from the main source file.  */
+
+bool
+in_main_input_context (void)
+{
+  struct tinst_level *tl = outermost_tinst_level();
+
+  if (tl)
+    return strcmp (main_input_filename,
+                  LOCATION_FILE (tl->locus)) == 0;
+  else
+    return strcmp (main_input_filename, input_filename) == 0;
 }

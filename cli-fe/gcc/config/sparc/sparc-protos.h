@@ -1,5 +1,5 @@
 /* Prototypes of target machine for SPARC.
-   Copyright (C) 1999, 2000, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com).
    64-bit SPARC-V9 support by Michael Tiemann, Jim Wilson, and Doug Evans,
    at Cygnus Support.
@@ -8,7 +8,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -17,27 +17,25 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #ifndef __SPARC_PROTOS_H__
 #define __SPARC_PROTOS_H__
 
 #ifdef TREE_CODE
-extern struct rtx_def *function_value (tree, enum machine_mode, int);
+extern struct rtx_def *function_value (const_tree, enum machine_mode, int);
 extern void function_arg_advance (CUMULATIVE_ARGS *,
 				  enum machine_mode, tree, int);
 extern struct rtx_def *function_arg (const CUMULATIVE_ARGS *,
 				     enum machine_mode, tree, int, int);
 #ifdef RTX_CODE
 extern void init_cumulative_args (CUMULATIVE_ARGS *, tree, rtx, tree);
-extern void sparc_va_start (tree, rtx);
 #endif
 extern unsigned long sparc_type_code (tree);
 #ifdef ARGS_SIZE_RTX
 /* expr.h defines ARGS_SIZE_RTX and `enum direction' */
-extern enum direction function_arg_padding (enum machine_mode, tree);
+extern enum direction function_arg_padding (enum machine_mode, const_tree);
 #endif /* ARGS_SIZE_RTX */
 #endif /* TREE_CODE */
 

@@ -66,7 +66,7 @@
 #include <bits/stl_iterator_base_types.h>
 #include <bits/stl_iterator_base_funcs.h>
 
-_GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
+_GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
 
   /**
    *  @if maint
@@ -123,13 +123,14 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
 
       _Deque_iterator(_Tp* __x, _Map_pointer __y)
       : _M_cur(__x), _M_first(*__y),
-        _M_last(*__y + _S_buffer_size()), _M_node(__y) {}
+        _M_last(*__y + _S_buffer_size()), _M_node(__y) { }
 
-      _Deque_iterator() : _M_cur(0), _M_first(0), _M_last(0), _M_node(0) {}
+      _Deque_iterator()
+      : _M_cur(0), _M_first(0), _M_last(0), _M_node(0) { }
 
       _Deque_iterator(const iterator& __x)
       : _M_cur(__x._M_cur), _M_first(__x._M_first),
-        _M_last(__x._M_last), _M_node(__x._M_node) {}
+        _M_last(__x._M_last), _M_node(__x._M_node) { }
 
       reference
       operator*() const
@@ -380,6 +381,10 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
       typedef _Deque_iterator<_Tp, _Tp&, _Tp*>             iterator;
       typedef _Deque_iterator<_Tp, const _Tp&, const _Tp*> const_iterator;
 
+      _Deque_base()
+      : _M_impl()
+      { _M_initialize_map(0); }
+
       _Deque_base(const allocator_type& __a, size_t __num_elements)
       : _M_impl(__a)
       { _M_initialize_map(__num_elements); }
@@ -387,6 +392,21 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
       _Deque_base(const allocator_type& __a)
       : _M_impl(__a)
       { }
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      _Deque_base(_Deque_base&& __x)
+      : _M_impl(__x._M_get_Tp_allocator())
+      {
+	_M_initialize_map(0);
+	if (__x._M_impl._M_map)
+	  {
+	    std::swap(this->_M_impl._M_start, __x._M_impl._M_start);
+	    std::swap(this->_M_impl._M_finish, __x._M_impl._M_finish);
+	    std::swap(this->_M_impl._M_map, __x._M_impl._M_map);
+	    std::swap(this->_M_impl._M_map_size, __x._M_impl._M_map_size);
+	  }
+      }
+#endif
 
       ~_Deque_base();
 
@@ -405,6 +425,11 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
 	size_t _M_map_size;
 	iterator _M_start;
 	iterator _M_finish;
+
+	_Deque_impl()
+	: _Tp_alloc_type(), _M_map(0), _M_map_size(0),
+	  _M_start(), _M_finish()
+	{ }
 
 	_Deque_impl(const _Tp_alloc_type& __a)
 	: _Tp_alloc_type(__a), _M_map(0), _M_map_size(0),
@@ -679,14 +704,22 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
       /**
        *  @brief  Default constructor creates no elements.
        */
-      explicit
-      deque(const allocator_type& __a = allocator_type())
-      : _Base(__a, 0) {}
+      deque()
+      : _Base() { }
 
       /**
-       *  @brief  Create a %deque with copies of an exemplar element.
+       *  @brief  Creates a %deque with no elements.
+       *  @param  a  An allocator object.
+       */
+      explicit
+      deque(const allocator_type& __a)
+      : _Base(__a, 0) { }
+
+      /**
+       *  @brief  Creates a %deque with copies of an exemplar element.
        *  @param  n  The number of elements to initially create.
        *  @param  value  An element to copy.
+       *  @param  a  An allocator.
        *
        *  This constructor fills the %deque with @a n copies of @a value.
        */
@@ -709,10 +742,23 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
 				    this->_M_impl._M_start,
 				    _M_get_Tp_allocator()); }
 
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      /**
+       *  @brief  %Deque move constructor.
+       *  @param  x  A %deque of identical element and allocator types.
+       *
+       *  The newly-created %deque contains the exact contents of @a x.
+       *  The contents of @a x are a valid, but unspecified %deque.
+       */
+      deque(deque&&  __x)
+      : _Base(std::forward<_Base>(__x)) { }
+#endif
+
       /**
        *  @brief  Builds a %deque from a range.
        *  @param  first  An input iterator.
        *  @param  last  An input iterator.
+       *  @param  a  An allocator object.
        *
        *  Create a %deque consisting of copies of the elements from [first,
        *  last).
@@ -750,6 +796,24 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
        */
       deque&
       operator=(const deque& __x);
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      /**
+       *  @brief  %Deque move assignment operator.
+       *  @param  x  A %deque of identical element and allocator types.
+       *
+       *  The contents of @a x are moved into this deque (without copying).
+       *  @a x is a valid, but unspecified %deque.
+       */
+      deque&
+      operator=(deque&& __x)
+      {
+	// NB: DR 675.
+	this->clear();
+	this->swap(__x); 
+	return *this;
+      }
+#endif
 
       /**
        *  @brief  Assigns a given value to a %deque.
@@ -860,6 +924,43 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
       const_reverse_iterator
       rend() const
       { return const_reverse_iterator(this->_M_impl._M_start); }
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      /**
+       *  Returns a read-only (constant) iterator that points to the first
+       *  element in the %deque.  Iteration is done in ordinary element order.
+       */
+      const_iterator
+      cbegin() const
+      { return this->_M_impl._M_start; }
+
+      /**
+       *  Returns a read-only (constant) iterator that points one past
+       *  the last element in the %deque.  Iteration is done in
+       *  ordinary element order.
+       */
+      const_iterator
+      cend() const
+      { return this->_M_impl._M_finish; }
+
+      /**
+       *  Returns a read-only (constant) reverse iterator that points
+       *  to the last element in the %deque.  Iteration is done in
+       *  reverse element order.
+       */
+      const_reverse_iterator
+      crbegin() const
+      { return const_reverse_iterator(this->_M_impl._M_finish); }
+
+      /**
+       *  Returns a read-only (constant) reverse iterator that points
+       *  to one before the first element in the %deque.  Iteration is
+       *  done in reverse element order.
+       */
+      const_reverse_iterator
+      crend() const
+      { return const_reverse_iterator(this->_M_impl._M_start); }
+#endif
 
       // [23.2.1.2] capacity
       /**  Returns the number of elements in the %deque.  */
@@ -1028,6 +1129,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
        *  data to it.  Due to the nature of a %deque this operation
        *  can be done in constant time.
        */
+#ifndef __GXX_EXPERIMENTAL_CXX0X__
       void
       push_front(const value_type& __x)
       {
@@ -1039,6 +1141,21 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
 	else
 	  _M_push_front_aux(__x);
       }
+#else
+      template<typename... _Args>
+        void
+        push_front(_Args&&... __args)
+	{
+	  if (this->_M_impl._M_start._M_cur != this->_M_impl._M_start._M_first)
+	    {
+	      this->_M_impl.construct(this->_M_impl._M_start._M_cur - 1,
+				      std::forward<_Args>(__args)...);
+	      --this->_M_impl._M_start._M_cur;
+	    }
+	  else
+	    _M_push_front_aux(std::forward<_Args>(__args)...);
+	}
+#endif
 
       /**
        *  @brief  Add data to the end of the %deque.
@@ -1049,6 +1166,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
        *  to it.  Due to the nature of a %deque this operation can be
        *  done in constant time.
        */
+#ifndef __GXX_EXPERIMENTAL_CXX0X__
       void
       push_back(const value_type& __x)
       {
@@ -1061,6 +1179,22 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
 	else
 	  _M_push_back_aux(__x);
       }
+#else
+      template<typename... _Args>
+        void
+        push_back(_Args&&... __args)
+	{
+	  if (this->_M_impl._M_finish._M_cur
+	      != this->_M_impl._M_finish._M_last - 1)
+	    {
+	      this->_M_impl.construct(this->_M_impl._M_finish._M_cur,
+				      std::forward<_Args>(__args)...);
+	      ++this->_M_impl._M_finish._M_cur;
+	    }
+	  else
+	    _M_push_back_aux(std::forward<_Args>(__args)...);
+	}
+#endif
 
       /**
        *  @brief  Removes first element.
@@ -1104,6 +1238,21 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
 	  _M_pop_back_aux();
       }
 
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      /**
+       *  @brief  Inserts an object in %deque before specified iterator.
+       *  @param  position  An iterator into the %deque.
+       *  @param  args  Arguments.
+       *  @return  An iterator that points to the inserted data.
+       *
+       *  This function will insert an object of type T constructed
+       *  with T(std::forward<Args>(args)...) before the specified location.
+       */
+      template<typename... _Args>
+        iterator
+        emplace(iterator __position, _Args&&... __args);
+#endif
+
       /**
        *  @brief  Inserts given value into %deque before specified iterator.
        *  @param  position  An iterator into the %deque.
@@ -1115,6 +1264,21 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
        */
       iterator
       insert(iterator __position, const value_type& __x);
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      /**
+       *  @brief  Inserts given rvalue into %deque before specified iterator.
+       *  @param  position  An iterator into the %deque.
+       *  @param  x  Data to be inserted.
+       *  @return  An iterator that points to the inserted data.
+       *
+       *  This function will insert a copy of the given rvalue before the
+       *  specified location.
+       */
+      iterator
+      insert(iterator __position, value_type&& __x)
+      { return emplace(__position, std::move(__x)); }
+#endif
 
       /**
        *  @brief  Inserts a number of copies of given data into the %deque.
@@ -1194,7 +1358,11 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
        *  std::swap(d1,d2) will feed to this function.
        */
       void
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      swap(deque&& __x)
+#else
       swap(deque& __x)
+#endif
       {
 	std::swap(this->_M_impl._M_start, __x._M_impl._M_start);
 	std::swap(this->_M_impl._M_finish, __x._M_impl._M_finish);
@@ -1354,9 +1522,17 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
        *  @brief Helper functions for push_* and pop_*.
        *  @endif
        */
+#ifndef __GXX_EXPERIMENTAL_CXX0X__
       void _M_push_back_aux(const value_type&);
 
       void _M_push_front_aux(const value_type&);
+#else
+      template<typename... _Args>
+        void _M_push_back_aux(_Args&&... __args);
+
+      template<typename... _Args>
+        void _M_push_front_aux(_Args&&... __args);
+#endif
 
       void _M_pop_back_aux();
 
@@ -1407,8 +1583,14 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
       _M_fill_insert(iterator __pos, size_type __n, const value_type& __x);
 
       // called by insert(p,x)
+#ifndef __GXX_EXPERIMENTAL_CXX0X__
       iterator
       _M_insert_aux(iterator __pos, const value_type& __x);
+#else
+      template<typename... _Args>
+        iterator
+        _M_insert_aux(iterator __pos, _Args&&... __args);
+#endif
 
       // called by insert(p,n,x) via fill_insert
       void
@@ -1597,6 +1779,18 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
     inline void
     swap(deque<_Tp,_Alloc>& __x, deque<_Tp,_Alloc>& __y)
     { __x.swap(__y); }
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+  template<typename _Tp, typename _Alloc>
+    inline void
+    swap(deque<_Tp,_Alloc>&& __x, deque<_Tp,_Alloc>& __y)
+    { __x.swap(__y); }
+
+  template<typename _Tp, typename _Alloc>
+    inline void
+    swap(deque<_Tp,_Alloc>& __x, deque<_Tp,_Alloc>&& __y)
+    { __x.swap(__y); }
+#endif
 
 _GLIBCXX_END_NESTED_NAMESPACE
 

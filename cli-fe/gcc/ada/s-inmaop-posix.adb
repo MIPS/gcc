@@ -8,7 +8,7 @@
 --                                  B o d y                                 --
 --                                                                          --
 --             Copyright (C) 1991-1994, Florida State University            --
---                     Copyright (C) 1995-2006, AdaCore                     --
+--                     Copyright (C) 1995-2007, AdaCore                     --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -77,7 +77,7 @@ package body System.Interrupt_Management.Operations is
       pragma Assert (Result = 0);
       Result := sigaddset (Mask'Access, Signal (Interrupt));
       pragma Assert (Result = 0);
-      Result := pthread_sigmask (SIG_BLOCK, Mask'Unchecked_Access, null);
+      Result := pthread_sigmask (SIG_BLOCK, Mask'Access, null);
       pragma Assert (Result = 0);
    end Thread_Block_Interrupt;
 
@@ -95,7 +95,7 @@ package body System.Interrupt_Management.Operations is
       pragma Assert (Result = 0);
       Result := sigaddset (Mask'Access, Signal (Interrupt));
       pragma Assert (Result = 0);
-      Result := pthread_sigmask (SIG_UNBLOCK, Mask'Unchecked_Access, null);
+      Result := pthread_sigmask (SIG_UNBLOCK, Mask'Access, null);
       pragma Assert (Result = 0);
    end Thread_Unblock_Interrupt;
 
@@ -286,7 +286,7 @@ begin
 
       for Sig in 1 .. Signal'Last loop
          Result := sigaction
-           (Sig, null, Initial_Action (Sig)'Unchecked_Access);
+           (Sig, null, Initial_Action (Sig)'Access);
 
          --  ??? [assert 1]
          --  we can't check Result here since sigaction will fail on
@@ -316,12 +316,7 @@ begin
           (Storage_Elements.Integer_Address (SIG_IGN));
 
       for J in Interrupt_ID loop
-
-         --  We need to check whether J is in Keep_Unmasked because
-         --  the index type of the Keep_Unmasked array is not always
-         --  Interrupt_ID; it may be a subtype of Interrupt_ID.
-
-         if J in Keep_Unmasked'Range and then Keep_Unmasked (J) then
+         if Keep_Unmasked (J) then
             Result := sigaddset (mask'Access, Signal (J));
             pragma Assert (Result = 0);
             Result := sigdelset (allmask'Access, Signal (J));
@@ -331,12 +326,12 @@ begin
 
       --  The Keep_Unmasked signals should be unmasked for Environment task
 
-      Result := pthread_sigmask (SIG_UNBLOCK, mask'Unchecked_Access, null);
+      Result := pthread_sigmask (SIG_UNBLOCK, mask'Access, null);
       pragma Assert (Result = 0);
 
       --  Get the signal mask of the Environment Task
 
-      Result := pthread_sigmask (SIG_SETMASK, null, mask'Unchecked_Access);
+      Result := pthread_sigmask (SIG_SETMASK, null, mask'Access);
       pragma Assert (Result = 0);
 
       --  Setup the constants exported

@@ -8,7 +8,7 @@
 
    GCC is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
+   the Free Software Foundation; either version 3, or (at your option)
    any later version.
 
    GCC is distributed in the hope that it will be useful,
@@ -17,9 +17,8 @@
    GNU General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-   Boston, MA 02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 
 extern int function_arg_regno_p (int r);
@@ -44,7 +43,7 @@ extern void asm_output_external (FILE *file, tree decl, char *name);
 extern int avr_progmem_p (tree decl, tree attributes);
 
 #ifdef RTX_CODE /* inside TREE_CODE */
-extern rtx avr_function_value (tree type, tree func);
+extern rtx avr_function_value (const_tree type, const_tree func);
 extern void init_cumulative_args (CUMULATIVE_ARGS *cum, tree fntype,
 				  rtx libname, tree fndecl);
 extern rtx function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,

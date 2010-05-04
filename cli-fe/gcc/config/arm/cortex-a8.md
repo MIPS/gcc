@@ -4,15 +4,19 @@
 
 ;; This file is part of GCC.
 
+;; GCC is free software; you can redistribute it and/or modify it
+;; under the terms of the GNU General Public License as published
+;; by the Free Software Foundation; either version 3, or (at your
+;; option) any later version.
+
 ;; GCC is distributed in the hope that it will be useful, but WITHOUT
 ;; ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
 ;; or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
 ;; License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-;; Boston, MA 02110-1301, USA.
+;; along with GCC; see the file COPYING3.  If not see
+;; <http://www.gnu.org/licenses/>.
 
 (define_automaton "cortex_a8")
 
@@ -129,7 +133,7 @@
                "arm_no_early_alu_shift_value_dep")
 
 ;; Multiplication instructions.  These are categorized according to their
-;; reservation behaviour and the need below to distinguish certain
+;; reservation behavior and the need below to distinguish certain
 ;; varieties for bypasses.  Results are available at the E5 stage
 ;; (but some of these are multi-cycle instructions which explains the
 ;; latencies below).
@@ -245,7 +249,7 @@
 ;; reads the value to be stored at the start of E3 and the ALU insn
 ;; writes it at the end of E2.  Move instructions actually produce the
 ;; result at the end of E1, but since we don't have delay slots, the
-;; scheduling behaviour will be the same.
+;; scheduling behavior will be the same.
 (define_bypass 0 "cortex_a8_alu,cortex_a8_alu_shift,\
                   cortex_a8_alu_shift_reg,cortex_a8_mov"
                "cortex_a8_store1_2,cortex_a8_store3_4"

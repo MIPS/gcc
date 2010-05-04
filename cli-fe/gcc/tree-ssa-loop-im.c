@@ -204,6 +204,7 @@ for_each_index (tree *addr_p, bool (*cbck) (tree, tree *, void *), void *data)
 	case COMPLEX_CST:
 	case INTEGER_CST:
 	case REAL_CST:
+	case FIXED_CST:
 	  return true;
 
 	case TARGET_MEM_REF:
@@ -259,7 +260,8 @@ movement_possibility (tree stmt)
 
   rhs = GIMPLE_STMT_OPERAND (stmt, 1);
 
-  if (TREE_SIDE_EFFECTS (rhs))
+  if (TREE_SIDE_EFFECTS (rhs)
+      || tree_could_throw_p (rhs))
     return MOVE_IMPOSSIBLE;
 
   if (TREE_CODE (lhs) != SSA_NAME
@@ -1295,7 +1297,7 @@ memref_eq (const void *obj1, const void *obj2)
 {
   const struct mem_ref *const mem1 = (const struct mem_ref *) obj1;
 
-  return operand_equal_p (mem1->mem, (tree) obj2, 0);
+  return operand_equal_p (mem1->mem, (const_tree) obj2, 0);
 }
 
 /* Gathers memory references in statement STMT in LOOP, storing the

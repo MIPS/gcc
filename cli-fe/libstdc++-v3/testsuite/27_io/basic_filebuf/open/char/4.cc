@@ -1,6 +1,6 @@
 // 2006-10-01  Paolo Carlini  <pcarlini@suse.de>
 
-// Copyright (C) 2006 Free Software Foundation, Inc.
+// Copyright (C) 2006, 2007 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -18,11 +18,12 @@
 // Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
+// { dg-require-fileio "" }
+
 #include <fstream>
 #include <testsuite_hooks.h>
 
-// As an extension to Table 92, consistently with the C standards, we also
-// allow in|out|app and in|out|app|binary.
+// DR 596.
 void test01()
 {
   bool test __attribute__((unused)) = true;
@@ -30,14 +31,35 @@ void test01()
 
   std::fstream scratch_file;
 
+  scratch_file.open(name, std::ios_base::app);
+  VERIFY( scratch_file );
+  VERIFY( scratch_file.is_open() );
+  scratch_file.close();
+
   scratch_file.open(name, std::ios_base::in | std::ios_base::out
 		    | std::ios_base::app);
   VERIFY( scratch_file );
   VERIFY( scratch_file.is_open() );
   scratch_file.close();
 
+  scratch_file.open(name, std::ios_base::in | std::ios_base::app);
+  VERIFY( scratch_file );
+  VERIFY( scratch_file.is_open() );
+  scratch_file.close();
+
+  scratch_file.open(name, std::ios_base::app | std::ios_base::binary);
+  VERIFY( scratch_file );
+  VERIFY( scratch_file.is_open() );
+  scratch_file.close();
+
   scratch_file.open(name, std::ios_base::in | std::ios_base::out
 		    | std::ios_base::app | std::ios_base::binary);
+  VERIFY( scratch_file );
+  VERIFY( scratch_file.is_open() );  
+  scratch_file.close();
+
+  scratch_file.open(name, std::ios_base::in | std::ios_base::app
+		    | std::ios_base::binary);
   VERIFY( scratch_file );
   VERIFY( scratch_file.is_open() );  
   scratch_file.close();

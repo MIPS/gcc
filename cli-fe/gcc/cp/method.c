@@ -1,14 +1,15 @@
 /* Handle the hair of processing (but not expanding) inline functions.
    Also manage function and variable name overloading.
    Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007
+   Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -17,9 +18,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 /* Handle method declarations.  */
@@ -430,7 +430,7 @@ use_thunk (tree thunk_fndecl, bool emit_p)
       current_function_decl = thunk_fndecl;
       DECL_RESULT (thunk_fndecl)
 	= build_decl (RESULT_DECL, 0, integer_type_node);
-      fnname = XSTR (XEXP (DECL_RTL (thunk_fndecl), 0), 0);
+      fnname = IDENTIFIER_POINTER (DECL_NAME (thunk_fndecl));
       /* The back end expects DECL_INITIAL to contain a BLOCK, so we
 	 create one.  */
       fn_block = make_node (BLOCK);
@@ -446,7 +446,7 @@ use_thunk (tree thunk_fndecl, bool emit_p)
       assemble_end_function (thunk_fndecl, fnname);
       init_insn_lengths ();
       current_function_decl = 0;
-      cfun = 0;
+      set_cfun (NULL);
       TREE_ASM_WRITTEN (thunk_fndecl) = 1;
     }
   else
@@ -481,6 +481,7 @@ use_thunk (tree thunk_fndecl, bool emit_p)
 	argarray[i] = a;
       t = build_call_a (alias, i, argarray);
       CALL_FROM_THUNK_P (t) = 1;
+      CALL_CANNOT_INLINE_P (t) = 1;
 
       if (VOID_TYPE_P (TREE_TYPE (t)))
 	finish_expr_stmt (t);
@@ -523,7 +524,7 @@ use_thunk (tree thunk_fndecl, bool emit_p)
 
       thunk_fndecl = finish_function (0);
       tree_lowering_passes (thunk_fndecl);
-      expand_body (thunk_fndecl);
+      tree_rest_of_compilation (thunk_fndecl);
     }
 
   pop_from_top_level ();
@@ -1185,7 +1186,7 @@ lazily_declare_fn (special_function_kind sfk, tree type)
    as there are artificial parms in FN.  */
 
 tree
-skip_artificial_parms_for (tree fn, tree list)
+skip_artificial_parms_for (const_tree fn, tree list)
 {
   if (DECL_NONSTATIC_MEMBER_FUNCTION_P (fn))
     list = TREE_CHAIN (list);
@@ -1203,7 +1204,7 @@ skip_artificial_parms_for (tree fn, tree list)
    artificial parms in FN.  */
 
 int
-num_artificial_parms_for (tree fn)
+num_artificial_parms_for (const_tree fn)
 {
   int count = 0;
 

@@ -1,5 +1,5 @@
 /* Target macros for the FRV port of GCC.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007
    Free Software Foundation, Inc.
    Contributed by Red Hat Inc.
 
@@ -7,7 +7,7 @@
 
    GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published
-   by the Free Software Foundation; either version 2, or (at your
+   by the Free Software Foundation; either version 3, or (at your
    option) any later version.
 
    GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -16,9 +16,8 @@
    License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-   02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 #ifndef __FRV_H__
 #define __FRV_H__
@@ -1848,19 +1847,6 @@ typedef struct frv_stack {
 
 #define FUNCTION_PROFILER(FILE, LABELNO)
 
-
-/* Implementing the Varargs Macros.  */
-
-/* Implement the stdarg/varargs va_start macro.  STDARG_P is nonzero if this
-   is stdarg.h instead of varargs.h.  VALIST is the tree of the va_list
-   variable to initialize.  NEXTARG is the machine independent notion of the
-   'next' argument after the variable arguments.  If not defined, a standard
-   implementation will be defined that works for arguments passed on the stack.  */
-
-#define EXPAND_BUILTIN_VA_START(VALIST, NEXTARG)		\
-  (frv_expand_builtin_va_start(VALIST, NEXTARG))
-
-
 /* Trampolines for Nested Functions.  */
 
 /* A C expression for the size in bytes of the trampoline, as an integer.  */

@@ -30,10 +30,12 @@
 // Benjamin Kosnik  <bkoz@redhat.com>
 
 #include "testsuite_abi.h"
+#include <cstdlib>
 #include <sstream>
 #include <fstream>
 #include <iostream>
-#include <cstdlib>
+#include <vector>
+#include <algorithm>
 
 using namespace std;
 

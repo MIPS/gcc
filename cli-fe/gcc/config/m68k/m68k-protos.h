@@ -1,11 +1,11 @@
 /* Definitions of target machine for GNU compiler.  Sun 68000/68020 version.
-   Copyright (C) 2000, 2002, 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2002, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -14,9 +14,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* Define functions defined in aux-output.c and used in templates.  */
 
@@ -61,10 +60,21 @@ extern bool m68k_matches_u_p (rtx);
 extern rtx legitimize_pic_address (rtx, enum machine_mode, rtx);
 extern int valid_dbcc_comparison_p_2 (rtx, enum machine_mode);
 extern rtx m68k_libcall_value (enum machine_mode);
-extern rtx m68k_function_value (tree, tree);
+extern rtx m68k_function_value (const_tree, const_tree);
 extern int emit_move_sequence (rtx *, enum machine_mode, rtx);
 extern bool m68k_movem_pattern_p (rtx, rtx, HOST_WIDE_INT, bool);
 extern const char *m68k_output_movem (rtx *, rtx, HOST_WIDE_INT, bool);
+
+#ifdef HAVE_ATTR_cpu
+extern enum attr_cpu m68k_sched_cpu;
+
+extern enum attr_opx_type m68k_sched_attr_opx_type (rtx, int);
+extern enum attr_opy_type m68k_sched_attr_opy_type (rtx, int);
+extern int m68k_sched_attr_size (rtx);
+extern enum attr_op_mem m68k_sched_attr_op_mem (rtx);
+extern enum attr_type m68k_sched_branch_type (rtx);
+extern enum attr_type2 m68k_sched_attr_type2 (rtx);
+#endif /* HAVE_ATTR_cpu */
 
 #endif /* RTX_CODE */
 

@@ -51,6 +51,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-prop.h"
 #include "value-prof.h"
 #include "tree-pass.h"
+#include "target.h"
+#include "integrate.h"
 
 /* I'm not real happy about this, but we need to handle gimple and
    non-gimple trees.  */
@@ -271,23 +273,7 @@ remap_decl (tree decl, copy_body_data *id)
 static tree
 remap_type_1 (tree type, copy_body_data *id)
 {
-  tree *node;
   tree new, t;
-
-  if (type == NULL)
-    return type;
-
-  /* See if we have remapped this type.  */
-  node = (tree *) pointer_map_contains (id->decl_map, type);
-  if (node)
-    return *node;
-
-  /* The type only needs remapping if it's variably modified.  */
-  if (! variably_modified_type_p (type, id->src_fn))
-    {
-      insert_decl_map (id, type, type);
-      return type;
-    }
 
   /* We do need a copy.  build and register it now.  If this is a pointer or
      reference type, remap the designated type and make a new pointer or
@@ -320,7 +306,7 @@ remap_type_1 (tree type, copy_body_data *id)
     {
       t = remap_type (t, id);
       TYPE_MAIN_VARIANT (new) = t;
-      TYPE_NEXT_VARIANT (new) = TYPE_MAIN_VARIANT (t);
+      TYPE_NEXT_VARIANT (new) = TYPE_NEXT_VARIANT (t);
       TYPE_NEXT_VARIANT (t) = new;
     }
   else
@@ -340,6 +326,7 @@ remap_type_1 (tree type, copy_body_data *id)
     {
     case INTEGER_TYPE:
     case REAL_TYPE:
+    case FIXED_POINT_TYPE:
     case ENUMERAL_TYPE:
     case BOOLEAN_TYPE:
       t = TYPE_MIN_VALUE (new);
@@ -427,7 +414,7 @@ remap_decls (tree decls, copy_body_data *id)
       /* We can not chain the local static declarations into the unexpanded_var_list
          as we can't duplicate them or break one decl rule.  Go ahead and link
          them into unexpanded_var_list.  */
-      if (!lang_hooks.tree_inlining.auto_var_in_fn_p (old_var, id->src_fn)
+      if (!auto_var_in_fn_p (old_var, id->src_fn)
 	  && !DECL_EXTERNAL (old_var))
 	{
 	  cfun->unexpanded_var_list = tree_cons (NULL_TREE, old_var,
@@ -585,7 +572,7 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
      variables.  We don't want to copy static variables; there's only
      one of those, no matter how many times we inline the containing
      function.  Similarly for globals from an outer function.  */
-  else if (lang_hooks.tree_inlining.auto_var_in_fn_p (*tp, fn))
+  else if (auto_var_in_fn_p (*tp, fn))
     {
       tree new_decl;
 
@@ -640,8 +627,7 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 	 discarding.  */
       if (TREE_CODE (*tp) == GIMPLE_MODIFY_STMT
 	  && GIMPLE_STMT_OPERAND (*tp, 0) == GIMPLE_STMT_OPERAND (*tp, 1)
-	  && (lang_hooks.tree_inlining.auto_var_in_fn_p
-	      (GIMPLE_STMT_OPERAND (*tp, 0), fn)))
+	  && (auto_var_in_fn_p (GIMPLE_STMT_OPERAND (*tp, 0), fn)))
 	{
 	  /* Some assignments VAR = VAR; don't generate any rtl code
 	     and thus don't count as variable modification.  Avoid
@@ -746,6 +732,7 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 	 and friends are up-to-date.  */
       else if (TREE_CODE (*tp) == ADDR_EXPR)
 	{
+	  int invariant = TREE_INVARIANT (*tp);
 	  walk_tree (&TREE_OPERAND (*tp, 0), copy_body_r, id, NULL);
 	  /* Handle the case where we substituted an INDIRECT_REF
 	     into the operand of the ADDR_EXPR.  */
@@ -753,6 +740,10 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 	    *tp = TREE_OPERAND (TREE_OPERAND (*tp, 0), 0);
 	  else
 	    recompute_tree_invariant_for_addr_expr (*tp);
+	  /* If this used to be invariant, but is not any longer,
+	     then regimplification is probably needed.  */
+	  if (invariant && !TREE_INVARIANT (*tp))
+	    id->regimplify = true;
 	  *walk_subtrees = 0;
 	}
     }
@@ -790,6 +781,7 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale, int count_scal
       tree stmt = bsi_stmt (bsi);
       tree orig_stmt = stmt;
 
+      id->regimplify = false;
       walk_tree (&stmt, copy_body_r, id, NULL);
 
       /* RETURN_EXPR might be removed,
@@ -802,9 +794,10 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale, int count_scal
 
 	  /* With return slot optimization we can end up with
 	     non-gimple (foo *)&this->m, fix that here.  */
-	  if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT
-	      && TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 1)) == NOP_EXPR
-	      && !is_gimple_val (TREE_OPERAND (GIMPLE_STMT_OPERAND (stmt, 1), 0)))
+	  if ((TREE_CODE (stmt) == GIMPLE_MODIFY_STMT
+	       && TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 1)) == NOP_EXPR
+	       && !is_gimple_val (TREE_OPERAND (GIMPLE_STMT_OPERAND (stmt, 1), 0)))
+	      || id->regimplify)
 	    gimplify_stmt (&stmt);
 
           bsi_insert_after (&copy_bsi, stmt, BSI_NEW_STMT);
@@ -813,8 +806,94 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale, int count_scal
 	     into multiple statements, we need to process all of them.  */
 	  while (!bsi_end_p (copy_bsi))
 	    {
-	      stmt = bsi_stmt (copy_bsi);
+	      tree *stmtp = bsi_stmt_ptr (copy_bsi);
+	      tree stmt = *stmtp;
 	      call = get_call_expr_in (stmt);
+
+	      if (call && CALL_EXPR_VA_ARG_PACK (call) && id->call_expr)
+		{
+		  /* __builtin_va_arg_pack () should be replaced by
+		     all arguments corresponding to ... in the caller.  */
+		  tree p, *argarray, new_call, *call_ptr;
+		  int nargs = call_expr_nargs (id->call_expr);
+
+		  for (p = DECL_ARGUMENTS (id->src_fn); p; p = TREE_CHAIN (p))
+		    nargs--;
+
+		  argarray = (tree *) alloca ((nargs + call_expr_nargs (call))
+					      * sizeof (tree));
+
+		  memcpy (argarray, CALL_EXPR_ARGP (call),
+			  call_expr_nargs (call) * sizeof (*argarray));
+		  memcpy (argarray + call_expr_nargs (call),
+			  CALL_EXPR_ARGP (id->call_expr)
+			  + (call_expr_nargs (id->call_expr) - nargs),
+			  nargs * sizeof (*argarray));
+
+		  new_call = build_call_array (TREE_TYPE (call),
+					       CALL_EXPR_FN (call),
+					       nargs + call_expr_nargs (call),
+					       argarray);
+		  /* Copy all CALL_EXPR flags, locus and block, except
+		     CALL_EXPR_VA_ARG_PACK flag.  */
+		  CALL_EXPR_STATIC_CHAIN (new_call)
+		    = CALL_EXPR_STATIC_CHAIN (call);
+		  CALL_EXPR_TAILCALL (new_call) = CALL_EXPR_TAILCALL (call);
+		  CALL_EXPR_RETURN_SLOT_OPT (new_call)
+		    = CALL_EXPR_RETURN_SLOT_OPT (call);
+		  CALL_FROM_THUNK_P (new_call) = CALL_FROM_THUNK_P (call);
+		  CALL_CANNOT_INLINE_P (new_call)
+		    = CALL_CANNOT_INLINE_P (call);
+		  TREE_NOTHROW (new_call) = TREE_NOTHROW (call);
+		  SET_EXPR_LOCUS (new_call, EXPR_LOCUS (call));
+		  TREE_BLOCK (new_call) = TREE_BLOCK (call);
+
+		  call_ptr = stmtp;
+		  if (TREE_CODE (*call_ptr) == GIMPLE_MODIFY_STMT)
+		    call_ptr = &GIMPLE_STMT_OPERAND (*call_ptr, 1);
+		  if (TREE_CODE (*call_ptr) == WITH_SIZE_EXPR)
+		    call_ptr = &TREE_OPERAND (*call_ptr, 0);
+		  gcc_assert (*call_ptr == call);
+		  if (call_ptr == stmtp)
+		    {
+		      bsi_replace (&copy_bsi, new_call, true);
+		      stmtp = bsi_stmt_ptr (copy_bsi);
+		      stmt = *stmtp;
+		    }
+		  else
+		    {
+		      *call_ptr = new_call;
+		      stmt = *stmtp;
+		      update_stmt (stmt);
+		    }
+		}
+	      else if (call
+		       && id->call_expr
+		       && (decl = get_callee_fndecl (call))
+		       && DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL
+		       && DECL_FUNCTION_CODE (decl)
+			  == BUILT_IN_VA_ARG_PACK_LEN)
+		{
+		  /* __builtin_va_arg_pack_len () should be replaced by
+		     the number of anonymous arguments.  */
+		  int nargs = call_expr_nargs (id->call_expr);
+		  tree count, *call_ptr, p;
+
+		  for (p = DECL_ARGUMENTS (id->src_fn); p; p = TREE_CHAIN (p))
+		    nargs--;
+
+		  count = build_int_cst (integer_type_node, nargs);
+		  call_ptr = stmtp;
+		  if (TREE_CODE (*call_ptr) == GIMPLE_MODIFY_STMT)
+		    call_ptr = &GIMPLE_STMT_OPERAND (*call_ptr, 1);
+		  if (TREE_CODE (*call_ptr) == WITH_SIZE_EXPR)
+		    call_ptr = &TREE_OPERAND (*call_ptr, 0);
+		  gcc_assert (*call_ptr == call && call_ptr != stmtp);
+		  *call_ptr = count;
+		  stmt = *stmtp;
+		  update_stmt (stmt);
+		  call = NULL_TREE;
+		}
 
 	      /* Statements produced by inlining can be unfolded, especially
 		 when we constant propagated some operands.  We can't fold
@@ -930,16 +1009,19 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale, int count_scal
    across EH edges from basic block within inlined functions destinating
    to landing pads in function we inline into.
 
-   The function mark PHI_RESULT of such PHI nodes for renaming; it is
-   safe the EH edges are abnormal and SSA_NAME_OCCURS_IN_ABNORMAL_PHI
-   must be set.  This means, that there will be no overlapping live ranges
+   The function fills in PHI_RESULTs of such PHI nodes if they refer
+   to gimple regs.  Otherwise, the function mark PHI_RESULT of such
+   PHI nodes for renaming.  For non-gimple regs, renaming is safe: the
+   EH edges are abnormal and SSA_NAME_OCCURS_IN_ABNORMAL_PHI must be
+   set, and this means that there will be no overlapping live ranges
    for the underlying symbol.
 
    This might change in future if we allow redirecting of EH edges and
    we might want to change way build CFG pre-inlining to include
    all the possible edges then.  */
 static void
-update_ssa_across_eh_edges (basic_block bb)
+update_ssa_across_abnormal_edges (basic_block bb, basic_block ret_bb,
+				  bool can_throw, bool nonlocal_goto)
 {
   edge e;
   edge_iterator ei;
@@ -950,13 +1032,35 @@ update_ssa_across_eh_edges (basic_block bb)
       {
 	tree phi;
 
-	gcc_assert (e->flags & EDGE_EH);
+	gcc_assert (e->flags & EDGE_ABNORMAL);
+	if (!nonlocal_goto)
+	  gcc_assert (e->flags & EDGE_EH);
+	if (!can_throw)
+	  gcc_assert (!(e->flags & EDGE_EH));
 	for (phi = phi_nodes (e->dest); phi; phi = PHI_CHAIN (phi))
 	  {
+	    edge re;
+
+	    /* There shouldn't be any PHI nodes in the ENTRY_BLOCK.  */
+	    gcc_assert (!e->dest->aux);
+
 	    gcc_assert (SSA_NAME_OCCURS_IN_ABNORMAL_PHI
 			(PHI_RESULT (phi)));
-	    mark_sym_for_renaming
-	      (SSA_NAME_VAR (PHI_RESULT (phi)));
+
+	    if (!is_gimple_reg (PHI_RESULT (phi)))
+	      {
+		mark_sym_for_renaming
+		  (SSA_NAME_VAR (PHI_RESULT (phi)));
+		continue;
+	      }
+
+	    re = find_edge (ret_bb, e->dest);
+	    gcc_assert (re);
+	    gcc_assert ((re->flags & (EDGE_EH | EDGE_ABNORMAL))
+			== (e->flags & (EDGE_EH | EDGE_ABNORMAL)));
+
+	    SET_USE (PHI_ARG_DEF_PTR_FROM_EDGE (phi, e),
+		     USE_FROM_PTR (PHI_ARG_DEF_PTR_FROM_EDGE (phi, re)));
 	  }
       }
 }
@@ -965,7 +1069,7 @@ update_ssa_across_eh_edges (basic_block bb)
    accordingly.  Edges will be taken care of later.  Assume aux
    pointers to point to the copies of each BB.  */
 static void
-copy_edges_for_bb (basic_block bb, int count_scale)
+copy_edges_for_bb (basic_block bb, int count_scale, basic_block ret_bb)
 {
   basic_block new_bb = (basic_block) bb->aux;
   edge_iterator ei;
@@ -997,6 +1101,7 @@ copy_edges_for_bb (basic_block bb, int count_scale)
   for (bsi = bsi_start (new_bb); !bsi_end_p (bsi);)
     {
       tree copy_stmt;
+      bool can_throw, nonlocal_goto;
 
       copy_stmt = bsi_stmt (bsi);
       update_stmt (copy_stmt);
@@ -1017,7 +1122,10 @@ copy_edges_for_bb (basic_block bb, int count_scale)
          into a COMPONENT_REF which doesn't.  If the copy
          can throw, the original could also throw.  */
 
-      if (tree_can_throw_internal (copy_stmt))
+      can_throw = tree_can_throw_internal (copy_stmt);
+      nonlocal_goto = tree_can_make_abnormal_goto (copy_stmt);
+
+      if (can_throw || nonlocal_goto)
 	{
 	  if (!bsi_end_p (bsi))
 	    /* Note that bb's predecessor edges aren't necessarily
@@ -1029,12 +1137,18 @@ copy_edges_for_bb (basic_block bb, int count_scale)
 	      new_bb->aux = e->src->aux;
 	      bsi = bsi_start (new_bb);
 	    }
-
-           make_eh_edges (copy_stmt);
-
-	   if (gimple_in_ssa_p (cfun))
-	     update_ssa_across_eh_edges (bb_for_stmt (copy_stmt));
 	}
+
+      if (can_throw)
+	make_eh_edges (copy_stmt);
+
+      if (nonlocal_goto)
+	make_abnormal_goto_edges (bb_for_stmt (copy_stmt), true);
+
+      if ((can_throw || nonlocal_goto)
+	  && gimple_in_ssa_p (cfun))
+	update_ssa_across_abnormal_edges (bb_for_stmt (copy_stmt), ret_bb,
+					  can_throw, nonlocal_goto);
     }
 }
 
@@ -1070,6 +1184,17 @@ copy_phis_for_bb (basic_block bb, copy_body_data *id)
 
 	      walk_tree (&new_arg, copy_body_r, id, NULL);
 	      gcc_assert (new_arg);
+	      /* With return slot optimization we can end up with
+	         non-gimple (foo *)&this->m, fix that here.  */
+	      if (TREE_CODE (new_arg) != SSA_NAME
+		  && TREE_CODE (new_arg) != FUNCTION_DECL
+		  && !is_gimple_val (new_arg))
+		{
+		  tree stmts = NULL_TREE;
+		  new_arg = force_gimple_operand (new_arg, &stmts,
+						  true, NULL);
+		  bsi_insert_on_edge_immediate (new_edge, stmts);
+		}
 	      add_phi_arg (new_phi, new_arg, new_edge);
 	    }
 	}
@@ -1206,7 +1331,7 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency,
   last = last_basic_block;
   /* Now that we've duplicated the blocks, duplicate their edges.  */
   FOR_ALL_BB_FN (bb, cfun_to_copy)
-    copy_edges_for_bb (bb, count_scale);
+    copy_edges_for_bb (bb, count_scale, exit_block_map);
   if (gimple_in_ssa_p (cfun))
     FOR_ALL_BB_FN (bb, cfun_to_copy)
       copy_phis_for_bb (bb, id);
@@ -1267,7 +1392,7 @@ self_inlining_addr_expr (tree value, tree fn)
 
   var = get_base_address (TREE_OPERAND (value, 0));
 
-  return var && lang_hooks.tree_inlining.auto_var_in_fn_p (var, fn);
+  return var && auto_var_in_fn_p (var, fn);
 }
 
 static void
@@ -1380,6 +1505,14 @@ setup_one_parameter (copy_body_data *id, tree p, tree value, tree fn,
       && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (def))
     {
       insert_decl_map (id, def, rhs);
+      return;
+    }
+
+  /* If the value of argument is never used, don't care about initializing
+     it.  */
+  if (gimple_in_ssa_p (cfun) && !def && is_gimple_reg (p))
+    {
+      gcc_assert (!value || !TREE_SIDE_EFFECTS (value));
       return;
     }
 
@@ -1848,18 +1981,44 @@ static bool
 inlinable_function_p (tree fn)
 {
   bool inlinable = true;
+  bool do_warning;
+  tree always_inline;
 
   /* If we've already decided this function shouldn't be inlined,
      there's no need to check again.  */
   if (DECL_UNINLINABLE (fn))
     return false;
 
-  /* See if there is any language-specific reason it cannot be
-     inlined.  (It is important that this hook be called early because
-     in C++ it may result in template instantiation.)
-     If the function is not inlinable for language-specific reasons,
-     it is left up to the langhook to explain why.  */
-  inlinable = !lang_hooks.tree_inlining.cannot_inline_tree_fn (&fn);
+  /* We only warn for functions declared `inline' by the user.  */
+  do_warning = (warn_inline
+		&& DECL_INLINE (fn)
+		&& DECL_DECLARED_INLINE_P (fn)
+		&& !DECL_IN_SYSTEM_HEADER (fn));
+
+  always_inline = lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn));
+
+  if (flag_really_no_inline
+      && always_inline == NULL)
+    {
+      if (do_warning)
+        warning (OPT_Winline, "function %q+F can never be inlined because it "
+                 "is suppressed using -fno-inline", fn);
+      inlinable = false;
+    }
+
+  /* Don't auto-inline anything that might not be bound within
+     this unit of translation.  */
+  else if (!DECL_DECLARED_INLINE_P (fn)
+	   && DECL_REPLACEABLE_P (fn))
+    inlinable = false;
+
+  else if (!function_attribute_inlinable_p (fn))
+    {
+      if (do_warning)
+        warning (OPT_Winline, "function %q+F can never be inlined because it "
+                 "uses attributes conflicting with inlining", fn);
+      inlinable = false;
+    }
 
   /* If we don't have the function body available, we can't inline it.
      However, this should not be recorded since we also get here for
@@ -1893,14 +2052,8 @@ inlinable_function_p (tree fn)
 	 about functions that would for example call alloca.  But since
 	 this a property of the function, just one warning is enough.
 	 As a bonus we can now give more details about the reason why a
-	 function is not inlinable.
-	 We only warn for functions declared `inline' by the user.  */
-      bool do_warning = (warn_inline
-			 && DECL_INLINE (fn)
-			 && DECL_DECLARED_INLINE_P (fn)
-			 && !DECL_IN_SYSTEM_HEADER (fn));
-
-      if (lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)))
+	 function is not inlinable.  */
+      if (always_inline)
 	sorry (inline_forbidden_reason, fn);
       else if (do_warning)
 	warning (OPT_Winline, inline_forbidden_reason, fn);
@@ -2010,6 +2163,8 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case OMP_CLAUSE:
     case OMP_RETURN:
     case OMP_CONTINUE:
+    case OMP_SECTIONS_SWITCH:
+    case OMP_ATOMIC_STORE:
       break;
 
     /* We don't account constants for now.  Assume that the cost is amortized
@@ -2019,6 +2174,7 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case IDENTIFIER_NODE:
     case INTEGER_CST:
     case REAL_CST:
+    case FIXED_CST:
     case COMPLEX_CST:
     case VECTOR_CST:
     case STRING_CST:
@@ -2084,6 +2240,7 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case MINUS_EXPR:
     case MULT_EXPR:
 
+    case FIXED_CONVERT_EXPR:
     case FIX_TRUNC_EXPR:
 
     case NEGATE_EXPR:
@@ -2188,7 +2345,11 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
       {
 	tree decl = get_callee_fndecl (x);
 
-	cost = d->weights->call_cost;
+	if (decl && DECL_BUILT_IN_CLASS (decl) == BUILT_IN_MD)
+	  cost = d->weights->target_builtin_call_cost;
+	else
+	  cost = d->weights->call_cost;
+	
 	if (decl && DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL)
 	  switch (DECL_FUNCTION_CODE (decl))
 	    {
@@ -2234,6 +2395,7 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case OMP_ORDERED:
     case OMP_CRITICAL:
     case OMP_ATOMIC:
+    case OMP_ATOMIC_LOAD:
       /* OpenMP directives are generally very expensive.  */
       d->count += d->weights->omp_cost;
       break;
@@ -2289,11 +2451,13 @@ void
 init_inline_once (void)
 {
   eni_inlining_weights.call_cost = PARAM_VALUE (PARAM_INLINE_CALL_COST);
+  eni_inlining_weights.target_builtin_call_cost = 1;
   eni_inlining_weights.div_mod_cost = 10;
   eni_inlining_weights.switch_cost = 1;
   eni_inlining_weights.omp_cost = 40;
 
   eni_size_weights.call_cost = 1;
+  eni_size_weights.target_builtin_call_cost = 1;
   eni_size_weights.div_mod_cost = 1;
   eni_size_weights.switch_cost = 10;
   eni_size_weights.omp_cost = 40;
@@ -2303,30 +2467,10 @@ init_inline_once (void)
      underestimating the cost does less harm than overestimating it, so
      we choose a rather small value here.  */
   eni_time_weights.call_cost = 10;
+  eni_time_weights.target_builtin_call_cost = 10;
   eni_time_weights.div_mod_cost = 10;
   eni_time_weights.switch_cost = 4;
   eni_time_weights.omp_cost = 40;
-}
-
-typedef struct function *function_p;
-
-DEF_VEC_P(function_p);
-DEF_VEC_ALLOC_P(function_p,heap);
-
-/* Initialized with NOGC, making this poisonous to the garbage collector.  */
-static VEC(function_p,heap) *cfun_stack;
-
-void
-push_cfun (struct function *new_cfun)
-{
-  VEC_safe_push (function_p, heap, cfun_stack, cfun);
-  cfun = new_cfun;
-}
-
-void
-pop_cfun (void)
-{
-  cfun = VEC_pop (function_p, cfun_stack);
 }
 
 /* Install new lexical TREE_BLOCK underneath 'current_block'.  */
@@ -2338,7 +2482,7 @@ add_lexical_block (tree current_block, tree new_block)
   /* Walk to the last sub-block.  */
   for (blk_p = &BLOCK_SUBBLOCKS (current_block);
        *blk_p;
-       blk_p = &TREE_CHAIN (*blk_p))
+       blk_p = &BLOCK_CHAIN (*blk_p))
     ;
   *blk_p = new_block;
   BLOCK_SUPERCONTEXT (new_block) = current_block;
@@ -2514,6 +2658,9 @@ expand_call_inline (basic_block bb, tree stmt, tree *tp, void *data)
   id->src_fn = fn;
   id->src_node = cg_edge->callee;
   id->src_cfun = DECL_STRUCT_FUNCTION (fn);
+  id->call_expr = t;
+
+  gcc_assert (!id->src_cfun->after_inlining);
 
   initialize_inlined_parameters (id, t, fn, bb);
 
@@ -2714,60 +2861,6 @@ has_abnormal_outgoing_edge_p (basic_block bb)
   return false;
 }
 
-/* When a block from the inlined function contains a call with side-effects
-   in the middle gets inlined in a function with non-locals labels, the call
-   becomes a potential non-local goto so we need to add appropriate edge.  */
-
-static void
-make_nonlocal_label_edges (void)
-{
-  block_stmt_iterator bsi;
-  basic_block bb;
-
-  FOR_EACH_BB (bb)
-    {
-      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-	{
-	  tree stmt = bsi_stmt (bsi);
-	  if (tree_can_make_abnormal_goto (stmt))
-	    {
-	      if (stmt == bsi_stmt (bsi_last (bb)))
-		{
-		  if (!has_abnormal_outgoing_edge_p (bb))
-		    make_abnormal_goto_edges (bb, true);
-		}
-	      else
-		{
-		  edge e = split_block (bb, stmt);
-		  bb = e->src;
-		  make_abnormal_goto_edges (bb, true);
-		}
-	      break;
-	    }
-
-	  /* Update PHIs on nonlocal goto receivers we (possibly)
-	     just created new edges into.  */
-	  if (TREE_CODE (stmt) == LABEL_EXPR
-	      && gimple_in_ssa_p (cfun))
-	    {
-	      tree target = LABEL_EXPR_LABEL (stmt);
-	      if (DECL_NONLOCAL (target))
-		{
-		  tree phi;
-
-		  for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
-		    {
-		      gcc_assert (SSA_NAME_OCCURS_IN_ABNORMAL_PHI
-				  (PHI_RESULT (phi)));
-		      mark_sym_for_renaming
-			(SSA_NAME_VAR (PHI_RESULT (phi)));
-		    }
-		}
-	    }
-	}
-    }
-}
-
 /* Expand calls to inline functions in the body of FN.  */
 
 unsigned int
@@ -2819,10 +2912,6 @@ optimize_inline_calls (tree fn)
     gimple_expand_calls_inline (bb, &id);
 
   pop_gimplify_context (NULL);
-  /* Renumber the (code) basic_blocks consecutively.  */
-  compact_blocks ();
-  /* Renumber the lexical scoping (non-code) blocks consecutively.  */
-  number_blocks (fn);
 
 #ifdef ENABLE_CHECKING
     {
@@ -2835,16 +2924,21 @@ optimize_inline_calls (tree fn)
 	gcc_assert (e->inline_failed);
     }
 #endif
+  
+  /* Fold the statements before compacting/renumbering the basic blocks.  */
+  fold_marked_statements (last, id.statements_to_fold);
+  pointer_set_destroy (id.statements_to_fold);
+  
+  /* Renumber the (code) basic_blocks consecutively.  */
+  compact_blocks ();
+  /* Renumber the lexical scoping (non-code) blocks consecutively.  */
+  number_blocks (fn);
 
   /* We are not going to maintain the cgraph edges up to date.
      Kill it so it won't confuse us.  */
   cgraph_node_remove_callees (id.dst_node);
 
-  fold_marked_statements (last, id.statements_to_fold);
-  pointer_set_destroy (id.statements_to_fold);
   fold_cond_expr_cond ();
-  if (current_function_has_nonlocal_label)
-    make_nonlocal_label_edges ();
   /* It would be nice to check SSA/CFG/statement consistency here, but it is
      not possible yet - the IPA passes might make various functions to not
      throw and they don't care to proactively update local EH info.  This is
@@ -3493,6 +3587,7 @@ build_duplicate_type (tree type)
   id.dst_fn = current_function_decl;
   id.src_cfun = cfun;
   id.decl_map = pointer_map_create ();
+  id.copy_decl = copy_decl_no_change;
 
   type = remap_type_1 (type, &id);
 

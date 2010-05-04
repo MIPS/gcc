@@ -1,12 +1,12 @@
 /* Language hooks common to C++ and ObjC++ front ends.
-   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2007 Free Software Foundation, Inc.
    Contributed by Ziemowit Laski  <zlaski@apple.com>
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #ifndef GCC_CP_OBJCP_COMMON
 #define GCC_CP_OBJCP_COMMON
@@ -51,10 +50,8 @@ extern tree objcp_tsubst_copy_and_build (tree, tree, tsubst_flags_t,
 #define LANG_HOOKS_POST_OPTIONS c_common_post_options
 #undef LANG_HOOKS_GET_ALIAS_SET
 #define LANG_HOOKS_GET_ALIAS_SET cxx_get_alias_set
-#undef LANG_HOOKS_EXPAND_CONSTANT
-#define LANG_HOOKS_EXPAND_CONSTANT cplus_expand_constant
 #undef LANG_HOOKS_EXPAND_EXPR
-#define LANG_HOOKS_EXPAND_EXPR cxx_expand_expr
+#define LANG_HOOKS_EXPAND_EXPR c_expand_expr
 #undef LANG_HOOKS_EXPAND_DECL
 #define LANG_HOOKS_EXPAND_DECL c_expand_decl
 #undef LANG_HOOKS_PARSE_FILE
@@ -89,6 +86,8 @@ extern tree objcp_tsubst_copy_and_build (tree, tree, tsubst_flags_t,
 #define LANG_HOOKS_COMDAT_GROUP cxx_comdat_group
 #undef  LANG_HOOKS_BUILTIN_FUNCTION
 #define LANG_HOOKS_BUILTIN_FUNCTION cxx_builtin_function
+#undef	LANG_HOOKS_TYPE_HASH_EQ
+#define LANG_HOOKS_TYPE_HASH_EQ	cxx_type_hash_eq
 
 #undef LANG_HOOKS_FUNCTION_INIT
 #define LANG_HOOKS_FUNCTION_INIT cxx_push_function_context
@@ -105,15 +104,6 @@ extern tree objcp_tsubst_copy_and_build (tree, tree, tsubst_flags_t,
 #undef LANG_HOOKS_ATTRIBUTE_TABLE
 #define LANG_HOOKS_ATTRIBUTE_TABLE cxx_attribute_table
 
-#undef LANG_HOOKS_TREE_INLINING_WALK_SUBTREES
-#define LANG_HOOKS_TREE_INLINING_WALK_SUBTREES \
-  cp_walk_subtrees
-#undef LANG_HOOKS_TREE_INLINING_CANNOT_INLINE_TREE_FN
-#define LANG_HOOKS_TREE_INLINING_CANNOT_INLINE_TREE_FN \
-  cp_cannot_inline_tree_fn
-#undef LANG_HOOKS_TREE_INLINING_AUTO_VAR_IN_FN_P
-#define LANG_HOOKS_TREE_INLINING_AUTO_VAR_IN_FN_P \
-  cp_auto_var_in_fn_p
 #undef LANG_HOOKS_TREE_INLINING_VAR_MOD_TYPE_P
 #define LANG_HOOKS_TREE_INLINING_VAR_MOD_TYPE_P cp_var_mod_type_p
 #undef LANG_HOOKS_TREE_DUMP_DUMP_TREE_FN
@@ -125,8 +115,8 @@ extern tree objcp_tsubst_copy_and_build (tree, tree, tsubst_flags_t,
 
 #undef LANG_HOOKS_CALLGRAPH_ANALYZE_EXPR
 #define LANG_HOOKS_CALLGRAPH_ANALYZE_EXPR cxx_callgraph_analyze_expr
-#undef LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION
-#define LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION expand_body
+#undef LANG_HOOKS_CALLGRAPH_EMIT_ASSOCIATED_THUNKS
+#define LANG_HOOKS_CALLGRAPH_EMIT_ASSOCIATED_THUNKS emit_associated_thunks
 
 #undef LANG_HOOKS_MAKE_TYPE
 #define LANG_HOOKS_MAKE_TYPE cxx_make_type

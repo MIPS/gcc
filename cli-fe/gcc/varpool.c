@@ -57,8 +57,9 @@ struct varpool_node *varpool_nodes;
    The queue is maintained via mark_needed_node, linked via node->next_needed
    pointer. 
 
-   LAST_NNEDED_NODE points to the end of queue, so it can be maintained in forward
-   order.  QTY is needed to make it friendly to PCH.
+   LAST_NEEDED_NODE points to the end of queue, so it can be
+   maintained in forward order.  GTY is needed to make it friendly to
+   PCH.
  
    During unit-at-a-time compilation we construct the queue of needed variables
    twice: first time it is during cgraph construction, second time it is at the
@@ -158,7 +159,7 @@ dump_varpool (FILE *f)
   struct varpool_node *node;
 
   fprintf (f, "variable pool:\n\n");
-  for (node = varpool_nodes; node; node = node->next_needed)
+  for (node = varpool_nodes; node; node = node->next)
     dump_varpool_node (f, node);
 }
 

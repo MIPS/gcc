@@ -1,6 +1,6 @@
 ;;- Machine description for HP PA-RISC architecture for GCC compiler
 ;;   Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
-;;   2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+;;   2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 ;;   Contributed by the Center for Software Science at the University
 ;;   of Utah.
 
@@ -8,7 +8,7 @@
 
 ;; GCC is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
-;; the Free Software Foundation; either version 2, or (at your option)
+;; the Free Software Foundation; either version 3, or (at your option)
 ;; any later version.
 
 ;; GCC is distributed in the hope that it will be useful,
@@ -17,9 +17,8 @@
 ;; GNU General Public License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-;; Boston, MA 02110-1301, USA.
+;; along with GCC; see the file COPYING3.  If not see
+;; <http://www.gnu.org/licenses/>.
 
 ;; This gcc Version 2 machine description is inspired by sparc.md and
 ;; mips.md.
@@ -3184,60 +3183,11 @@
 
 (define_insn ""
   [(set (match_operand:HI 0 "move_dest_operand"
-	 		  "=r,r,r,r,r,Q,!*q,!r,!*f,?r,?*f")
-	(match_operand:HI 1 "move_src_operand"
-			  "r,J,N,K,RQ,rM,!rM,!*q,!*fM,*f,r"))]
-  "(register_operand (operands[0], HImode)
-    || reg_or_0_operand (operands[1], HImode))
-   && !TARGET_SOFT_FLOAT
-   && !TARGET_64BIT"
-  "@
-   copy %1,%0
-   ldi %1,%0
-   ldil L'%1,%0
-   {zdepi|depwi,z} %Z1,%0
-   ldh%M1 %1,%0
-   sth%M0 %r1,%0
-   mtsar %r1
-   {mfctl|mfctl,w} %sar,%0
-   fcpy,sgl %f1,%0
-   {fstws|fstw} %1,-16(%%sp)\n\t{ldws|ldw} -16(%%sp),%0
-   {stws|stw} %1,-16(%%sp)\n\t{fldws|fldw} -16(%%sp),%0"
-  [(set_attr "type" "move,move,move,shift,load,store,move,move,move,fpstore_load,store_fpload")
-   (set_attr "pa_combine_type" "addmove")
-   (set_attr "length" "4,4,4,4,4,4,4,4,4,8,8")])
-
-(define_insn ""
-  [(set (match_operand:HI 0 "move_dest_operand"
-	 		  "=r,r,r,r,r,Q,!*q,!r,!*f")
-	(match_operand:HI 1 "move_src_operand"
-			  "r,J,N,K,RQ,rM,!rM,!*q,!*fM"))]
-  "(register_operand (operands[0], HImode)
-    || reg_or_0_operand (operands[1], HImode))
-   && !TARGET_SOFT_FLOAT
-   && TARGET_64BIT"
-  "@
-   copy %1,%0
-   ldi %1,%0
-   ldil L'%1,%0
-   {zdepi|depwi,z} %Z1,%0
-   ldh%M1 %1,%0
-   sth%M0 %r1,%0
-   mtsar %r1
-   {mfctl|mfctl,w} %sar,%0
-   fcpy,sgl %f1,%0"
-  [(set_attr "type" "move,move,move,shift,load,store,move,move,move")
-   (set_attr "pa_combine_type" "addmove")
-   (set_attr "length" "4,4,4,4,4,4,4,4,4")])
-
-(define_insn ""
-  [(set (match_operand:HI 0 "move_dest_operand"
 	 		  "=r,r,r,r,r,Q,!*q,!r")
 	(match_operand:HI 1 "move_src_operand"
 			  "r,J,N,K,RQ,rM,!rM,!*q"))]
   "(register_operand (operands[0], HImode)
-    || reg_or_0_operand (operands[1], HImode))
-   && TARGET_SOFT_FLOAT"
+    || reg_or_0_operand (operands[1], HImode))"
   "@
    copy %1,%0
    ldi %1,%0
@@ -3357,60 +3307,11 @@
 
 (define_insn ""
   [(set (match_operand:QI 0 "move_dest_operand"
-			  "=r,r,r,r,r,Q,!*q,!r,!*f,?r,?*f")
-	(match_operand:QI 1 "move_src_operand"
-			  "r,J,N,K,RQ,rM,!rM,!*q,!*fM,*f,r"))]
-  "(register_operand (operands[0], QImode)
-    || reg_or_0_operand (operands[1], QImode))
-   && !TARGET_SOFT_FLOAT
-   && !TARGET_64BIT"
-  "@
-   copy %1,%0
-   ldi %1,%0
-   ldil L'%1,%0
-   {zdepi|depwi,z} %Z1,%0
-   ldb%M1 %1,%0
-   stb%M0 %r1,%0
-   mtsar %r1
-   {mfctl|mfctl,w} %%sar,%0
-   fcpy,sgl %f1,%0
-   {fstws|fstw} %1,-16(%%sp)\n\t{ldws|ldw} -16(%%sp),%0
-   {stws|stw} %1,-16(%%sp)\n\t{fldws|fldw} -16(%%sp),%0"
-  [(set_attr "type" "move,move,move,shift,load,store,move,move,move,fpstore_load,store_fpload")
-   (set_attr "pa_combine_type" "addmove")
-   (set_attr "length" "4,4,4,4,4,4,4,4,4,8,8")])
-
-(define_insn ""
-  [(set (match_operand:QI 0 "move_dest_operand"
-			  "=r,r,r,r,r,Q,!*q,!r,!*f")
-	(match_operand:QI 1 "move_src_operand"
-			  "r,J,N,K,RQ,rM,!rM,!*q,!*fM"))]
-  "(register_operand (operands[0], QImode)
-    || reg_or_0_operand (operands[1], QImode))
-   && !TARGET_SOFT_FLOAT
-   && TARGET_64BIT"
-  "@
-   copy %1,%0
-   ldi %1,%0
-   ldil L'%1,%0
-   {zdepi|depwi,z} %Z1,%0
-   ldb%M1 %1,%0
-   stb%M0 %r1,%0
-   mtsar %r1
-   {mfctl|mfctl,w} %%sar,%0
-   fcpy,sgl %f1,%0"
-  [(set_attr "type" "move,move,move,shift,load,store,move,move,move")
-   (set_attr "pa_combine_type" "addmove")
-   (set_attr "length" "4,4,4,4,4,4,4,4,4")])
-
-(define_insn ""
-  [(set (match_operand:QI 0 "move_dest_operand"
 			  "=r,r,r,r,r,Q,!*q,!r")
 	(match_operand:QI 1 "move_src_operand"
 			  "r,J,N,K,RQ,rM,!rM,!*q"))]
   "(register_operand (operands[0], QImode)
-    || reg_or_0_operand (operands[1], QImode))
-   && TARGET_SOFT_FLOAT"
+    || reg_or_0_operand (operands[1], QImode))"
   "@
    copy %1,%0
    ldi %1,%0
@@ -7626,27 +7527,11 @@
   if (TARGET_BIG_SWITCH)
     {
       if (TARGET_64BIT)
-	{
-          rtx tmp1 = gen_reg_rtx (DImode);
-          rtx tmp2 = gen_reg_rtx (DImode);
-
-          emit_jump_insn (gen_casesi64p (operands[0], operands[3],
-                                         tmp1, tmp2));
-	}
+	emit_jump_insn (gen_casesi64p (operands[0], operands[3]));
+      else if (flag_pic)
+	emit_jump_insn (gen_casesi32p (operands[0], operands[3]));
       else
-	{
-	  rtx tmp1 = gen_reg_rtx (SImode);
-
-	  if (flag_pic)
-	    {
-	      rtx tmp2 = gen_reg_rtx (SImode);
-
-	      emit_jump_insn (gen_casesi32p (operands[0], operands[3],
-					     tmp1, tmp2));
-	    }
-	  else
-	    emit_jump_insn (gen_casesi32 (operands[0], operands[3], tmp1));
-	}
+	emit_jump_insn (gen_casesi32 (operands[0], operands[3]));
     }
   else
     emit_jump_insn (gen_casesi0 (operands[0], operands[3]));
@@ -7673,8 +7558,8 @@
 		       (mult:SI (match_operand:SI 0 "register_operand" "r")
 				(const_int 4))
 		       (label_ref (match_operand 1 "" "")))))
-   (clobber (match_operand:SI 2 "register_operand" "=&r"))]
-  "!TARGET_64BIT && TARGET_BIG_SWITCH"
+   (clobber (match_scratch:SI 2 "=&r"))]
+  "!flag_pic"
   "ldil L'%l1,%2\;ldo R'%l1(%2),%2\;{ldwx|ldw},s %0(%2),%2\;bv,n %%r0(%2)"
   [(set_attr "type" "multi")
    (set_attr "length" "16")])
@@ -7685,9 +7570,9 @@
 		       (mult:SI (match_operand:SI 0 "register_operand" "r")
 				(const_int 4))
 		       (label_ref (match_operand 1 "" "")))))
-   (clobber (match_operand:SI 2 "register_operand" "=&a"))
-   (clobber (match_operand:SI 3 "register_operand" "=&r"))]
-  "!TARGET_64BIT && TARGET_BIG_SWITCH"
+   (clobber (match_scratch:SI 2 "=&r"))
+   (clobber (match_scratch:SI 3 "=&r"))]
+  "flag_pic"
   "{bl .+8,%2\;depi 0,31,2,%2|mfia %2}\;ldo {16|20}(%2),%2\;\
 {ldwx|ldw},s %0(%2),%3\;{addl|add,l} %2,%3,%3\;bv,n %%r0(%3)"
   [(set_attr "type" "multi")
@@ -7703,9 +7588,9 @@
 				  (match_operand:SI 0 "register_operand" "r"))
 				(const_int 8))
 		       (label_ref (match_operand 1 "" "")))))
-   (clobber (match_operand:DI 2 "register_operand" "=&r"))
-   (clobber (match_operand:DI 3 "register_operand" "=&r"))]
-  "TARGET_64BIT && TARGET_BIG_SWITCH"
+   (clobber (match_scratch:DI 2 "=&r"))
+   (clobber (match_scratch:DI 3 "=&r"))]
+  ""
   "mfia %2\;ldo 24(%2),%2\;ldw,s %0(%2),%3\;extrd,s %3,63,32,%3\;\
 add,l %2,%3,%3\;bv,n %%r0(%3)"
   [(set_attr "type" "multi")
