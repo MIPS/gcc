@@ -1,3 +1,11 @@
+2010-05-04  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Revert:
+
+	2009-05-08  Paolo Bonzini  <bonzini@gnu.org>
+
+	* opts.c (decode_options): Enable fwprop at -O1.
+
 2010-05-04  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge from mainline:
