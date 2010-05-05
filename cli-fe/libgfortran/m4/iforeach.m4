@@ -17,7 +17,7 @@ name`'rtype_qual`_'atype_code (rtype * const restrict retarray,
   index_type sstride[GFC_MAX_DIMENSIONS];
   index_type dstride;
   const atype_name *base;
-  rtype_name *dest;
+  rtype_name * restrict dest;
   index_type rank;
   index_type n;
 
@@ -27,28 +27,24 @@ name`'rtype_qual`_'atype_code (rtype * const restrict retarray,
 
   if (retarray->data == NULL)
     {
-      retarray->dim[0].lbound = 0;
-      retarray->dim[0].ubound = rank-1;
-      retarray->dim[0].stride = 1;
+      GFC_DIMENSION_SET(retarray->dim[0], 0, rank-1, 1);
       retarray->dtype = (retarray->dtype & ~GFC_DTYPE_RANK_MASK) | 1;
       retarray->offset = 0;
       retarray->data = internal_malloc_size (sizeof (rtype_name) * rank);
     }
   else
     {
-      if (GFC_DESCRIPTOR_RANK (retarray) != 1)
-	runtime_error ("rank of return array does not equal 1");
-
-      if (retarray->dim[0].ubound + 1 - retarray->dim[0].lbound != rank)
-        runtime_error ("dimension of return array incorrect");
+      if (unlikely (compile_options.bounds_check))
+	bounds_iforeach_return ((array_t *) retarray, (array_t *) array,
+				"u_name");
     }
 
-  dstride = retarray->dim[0].stride;
+  dstride = GFC_DESCRIPTOR_STRIDE(retarray,0);
   dest = retarray->data;
   for (n = 0; n < rank; n++)
     {
-      sstride[n] = array->dim[n].stride;
-      extent[n] = array->dim[n].ubound + 1 - array->dim[n].lbound;
+      sstride[n] = GFC_DESCRIPTOR_STRIDE(array,n);
+      extent[n] = GFC_DESCRIPTOR_EXTENT(array,n);
       count[n] = 0;
       if (extent[n] <= 0)
 	{
@@ -63,43 +59,45 @@ name`'rtype_qual`_'atype_code (rtype * const restrict retarray,
 
   /* Initialize the return value.  */
   for (n = 0; n < rank; n++)
-    dest[n * dstride] = 0;
+    dest[n * dstride] = 1;
   {
 ')dnl
 define(START_FOREACH_BLOCK,
 `  while (base)
     {
-      {
-        /* Implementation start.  */
+      do
+	{
+	  /* Implementation start.  */
 ')dnl
 define(FINISH_FOREACH_FUNCTION,
-`        /* Implementation end.  */
-      }
-      /* Advance to the next element.  */
-      count[0]++;
-      base += sstride[0];
+`	  /* Implementation end.  */
+	  /* Advance to the next element.  */
+	  base += sstride[0];
+	}
+      while (++count[0] != extent[0]);
       n = 0;
-      while (count[n] == extent[n])
-        {
-          /* When we get to the end of a dimension, reset it and increment
-             the next dimension.  */
-          count[n] = 0;
-          /* We could precalculate these products, but this is a less
-             frequently used path so probably not worth it.  */
-          base -= sstride[n] * extent[n];
-          n++;
-          if (n == rank)
-            {
-              /* Break out of the loop.  */
-              base = NULL;
-              break;
-            }
-          else
-            {
-              count[n]++;
-              base += sstride[n];
-            }
-        }
+      do
+	{
+	  /* When we get to the end of a dimension, reset it and increment
+	     the next dimension.  */
+	  count[n] = 0;
+	  /* We could precalculate these products, but this is a less
+	     frequently used path so probably not worth it.  */
+	  base -= sstride[n] * extent[n];
+	  n++;
+	  if (n == rank)
+	    {
+	      /* Break out of the loop.  */
+	      base = NULL;
+	      break;
+	    }
+	  else
+	    {
+	      count[n]++;
+	      base += sstride[n];
+	    }
+	}
+      while (count[n] == extent[n]);
     }
   }
 }')dnl
@@ -132,20 +130,21 @@ void
 
   if (retarray->data == NULL)
     {
-      retarray->dim[0].lbound = 0;
-      retarray->dim[0].ubound = rank-1;
-      retarray->dim[0].stride = 1;
+      GFC_DIMENSION_SET(retarray->dim[0], 0, rank - 1, 1);
       retarray->dtype = (retarray->dtype & ~GFC_DTYPE_RANK_MASK) | 1;
       retarray->offset = 0;
       retarray->data = internal_malloc_size (sizeof (rtype_name) * rank);
     }
   else
     {
-      if (GFC_DESCRIPTOR_RANK (retarray) != 1)
-	runtime_error ("rank of return array does not equal 1");
+      if (unlikely (compile_options.bounds_check))
+	{
 
-      if (retarray->dim[0].ubound + 1 - retarray->dim[0].lbound != rank)
-        runtime_error ("dimension of return array incorrect");
+	  bounds_iforeach_return ((array_t *) retarray, (array_t *) array,
+				  "u_name");
+	  bounds_equal_extents ((array_t *) mask, (array_t *) array,
+				  "MASK argument", "u_name");
+	}
     }
 
   mask_kind = GFC_DESCRIPTOR_SIZE (mask);
@@ -161,13 +160,13 @@ void
   else
     runtime_error ("Funny sized logical array");
 
-  dstride = retarray->dim[0].stride;
+  dstride = GFC_DESCRIPTOR_STRIDE(retarray,0);
   dest = retarray->data;
   for (n = 0; n < rank; n++)
     {
-      sstride[n] = array->dim[n].stride;
-      mstride[n] = mask->dim[n].stride * mask_kind;
-      extent[n] = array->dim[n].ubound + 1 - array->dim[n].lbound;
+      sstride[n] = GFC_DESCRIPTOR_STRIDE(array,n);
+      mstride[n] = GFC_DESCRIPTOR_STRIDE_BYTES(mask,n);
+      extent[n] = GFC_DESCRIPTOR_EXTENT(array,n);
       count[n] = 0;
       if (extent[n] <= 0)
 	{
@@ -187,36 +186,37 @@ void
 ')dnl
 define(START_MASKED_FOREACH_BLOCK, `START_FOREACH_BLOCK')dnl
 define(FINISH_MASKED_FOREACH_FUNCTION,
-`        /* Implementation end.  */
-      }
-      /* Advance to the next element.  */
-      count[0]++;
-      base += sstride[0];
-      mbase += mstride[0];
+`	  /* Implementation end.  */
+	  /* Advance to the next element.  */
+	  base += sstride[0];
+	  mbase += mstride[0];
+	}
+      while (++count[0] != extent[0]);
       n = 0;
-      while (count[n] == extent[n])
-        {
-          /* When we get to the end of a dimension, reset it and increment
-             the next dimension.  */
-          count[n] = 0;
-          /* We could precalculate these products, but this is a less
-             frequently used path so probably not worth it.  */
-          base -= sstride[n] * extent[n];
-          mbase -= mstride[n] * extent[n];
-          n++;
-          if (n == rank)
-            {
-              /* Break out of the loop.  */
-              base = NULL;
-              break;
-            }
-          else
-            {
-              count[n]++;
-              base += sstride[n];
-              mbase += mstride[n];
-            }
-        }
+      do
+	{
+	  /* When we get to the end of a dimension, reset it and increment
+	     the next dimension.  */
+	  count[n] = 0;
+	  /* We could precalculate these products, but this is a less
+	     frequently used path so probably not worth it.  */
+	  base -= sstride[n] * extent[n];
+	  mbase -= mstride[n] * extent[n];
+	  n++;
+	  if (n == rank)
+	    {
+	      /* Break out of the loop.  */
+	      base = NULL;
+	      break;
+	    }
+	  else
+	    {
+	      count[n]++;
+	      base += sstride[n];
+	      mbase += mstride[n];
+	    }
+	}
+      while (count[n] == extent[n]);
     }
   }
 }')dnl
@@ -261,23 +261,18 @@ void
 
   if (retarray->data == NULL)
     {
-      retarray->dim[0].lbound = 0;
-      retarray->dim[0].ubound = rank-1;
-      retarray->dim[0].stride = 1;
+      GFC_DIMENSION_SET(retarray->dim[0], 0, rank-1, 1);
       retarray->dtype = (retarray->dtype & ~GFC_DTYPE_RANK_MASK) | 1;
       retarray->offset = 0;
       retarray->data = internal_malloc_size (sizeof (rtype_name) * rank);
     }
-  else
+  else if (unlikely (compile_options.bounds_check))
     {
-      if (GFC_DESCRIPTOR_RANK (retarray) != 1)
-	runtime_error ("rank of return array does not equal 1");
-
-      if (retarray->dim[0].ubound + 1 - retarray->dim[0].lbound != rank)
-        runtime_error ("dimension of return array incorrect");
+       bounds_iforeach_return ((array_t *) retarray, (array_t *) array,
+			       "u_name");
     }
 
-  dstride = retarray->dim[0].stride;
+  dstride = GFC_DESCRIPTOR_STRIDE(retarray,0);
   dest = retarray->data;
   for (n = 0; n<rank; n++)
     dest[n * dstride] = $1 ;

@@ -150,7 +150,7 @@ public abstract class Activatable
    * constructor when the object itself is activated via its special
    * "activation" constructor with the two parameters ({@link ActivationID},
    * {@link MarshalledObject}). As a side effect, the object is exported and is
-   * available to accept incomming calls.
+   * available to accept incoming calls.
    * 
    * @param anId the activation id
    * @param port the port, on which the activatable will be listening
@@ -179,7 +179,7 @@ public abstract class Activatable
    * constructor when the object itself is activated via its special
    * "activation" constructor with the two parameters ({@link ActivationID},
    * {@link MarshalledObject}). As a side effect, the object is exported and is
-   * available to accept incomming calls.
+   * available to accept incoming calls.
    * 
    * @param anId the activation id
    * @param port the port, on which the activatable will be listening
@@ -412,7 +412,7 @@ public abstract class Activatable
 
   /**
    * Make the remote object unavailable for incoming calls. This method also
-   * unregisters the object, so it cannot be activated again by incomming call
+   * unregisters the object, so it cannot be activated again by incoming call
    * (unless registered).
    * 
    * @param obj the object to unexport
@@ -462,8 +462,8 @@ public abstract class Activatable
    *          means anonymous port.
    * @param serverSocketFactory the server socket factory
    */
-  public static Remote export(ActivationID id, Remote obj, int port,
-                              RMIServerSocketFactory serverSocketFactory)
+  private static Remote export(ActivationID id, Remote obj, int port,
+			       RMIServerSocketFactory serverSocketFactory)
       throws RemoteException
   {
     ActivatableServerRef sref = null;
@@ -479,7 +479,7 @@ public abstract class Activatable
    * 
    * @return the object id
    */
-  public static ObjID makeId(ActivationID aid)
+  private static ObjID makeId(ActivationID aid)
   {
     ObjID id = new ObjID(0);
     

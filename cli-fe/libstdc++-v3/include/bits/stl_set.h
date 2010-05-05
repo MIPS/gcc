@@ -1,12 +1,12 @@
 // Set implementation -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
+// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
 // terms of the GNU General Public License as published by the
-// Free Software Foundation; either version 2, or (at your option)
+// Free Software Foundation; either version 3, or (at your option)
 // any later version.
 
 // This library is distributed in the hope that it will be useful,
@@ -14,19 +14,14 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-// You should have received a copy of the GNU General Public License along
-// with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
-// USA.
+// Under Section 7 of GPL version 3, you are granted additional
+// permissions described in the GCC Runtime Library Exception, version
+// 3.1, as published by the Free Software Foundation.
 
-// As a special exception, you may use this file as part of a free software
-// library without restriction.  Specifically, if other files instantiate
-// templates or use macros or inline functions from this file, or you compile
-// this file and link it with other files to produce an executable, this
-// file does not by itself cause the resulting executable to be covered by
-// the GNU General Public License.  This exception does not however
-// invalidate any other reasons why the executable file might be covered by
-// the GNU General Public License.
+// You should have received a copy of the GNU General Public License and
+// a copy of the GCC Runtime Library Exception along with this program;
+// see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+// <http://www.gnu.org/licenses/>.
 
 /*
  *
@@ -63,6 +58,7 @@
 #define _STL_SET_H 1
 
 #include <bits/concept_check.h>
+#include <initializer_list>
 
 _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
 
@@ -70,8 +66,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
    *  @brief A standard container made up of unique keys, which can be
    *  retrieved in logarithmic time.
    *
-   *  @ingroup Containers
-   *  @ingroup Assoc_containers
+   *  @ingroup associative_containers
    *
    *  Meets the requirements of a <a href="tables.html#65">container</a>, a
    *  <a href="tables.html#66">reversible container</a>, and an
@@ -83,11 +78,9 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
    *  @param  Compare  Comparison function object type, defaults to less<Key>.
    *  @param  Alloc  Allocator type, defaults to allocator<Key>.
    *
-   *  @if maint
    *  The private tree data is declared exactly the same way for set and
    *  multiset; the distinction is made entirely in how the tree functions are
    *  called (*_unique versus *_equal, same as the standard).
-   *  @endif
   */
   template<typename _Key, typename _Compare = std::less<_Key>,
 	   typename _Alloc = std::allocator<_Key> >
@@ -116,7 +109,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
 
       typedef _Rb_tree<key_type, value_type, _Identity<value_type>,
 		       key_compare, _Key_alloc_type> _Rep_type;
-      _Rep_type _M_t;  // red-black tree representing set
+      _Rep_type _M_t;  // Red-black tree representing set.
 
     public:
       //@{
@@ -205,6 +198,22 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
        */
       set(set&& __x)
       : _M_t(std::forward<_Rep_type>(__x._M_t)) { }
+
+      /**
+       *  @brief  Builds a %set from an initializer_list.
+       *  @param  l  An initializer_list.
+       *  @param  comp  A comparison functor.
+       *  @param  a  An allocator object.
+       *
+       *  Create a %set consisting of copies of the elements in the list.
+       *  This is linear in N if the list is already sorted, and NlogN
+       *  otherwise (where N is @a l.size()).
+       */
+      set(initializer_list<value_type> __l,
+	  const _Compare& __comp = _Compare(),
+	  const allocator_type& __a = allocator_type())
+      : _M_t(__comp, __a)
+      { _M_t._M_insert_unique(__l.begin(), __l.end()); }
 #endif
 
       /**
@@ -232,9 +241,29 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
       set&
       operator=(set&& __x)
       {
+	// NB: DR 1204.
 	// NB: DR 675.
 	this->clear();
-	this->swap(__x); 
+	this->swap(__x);
+      	return *this;
+      }
+
+      /**
+       *  @brief  %Set list assignment operator.
+       *  @param  l  An initializer_list.
+       *
+       *  This function fills a %set with copies of the elements in the
+       *  initializer list @a l.
+       *
+       *  Note that the assignment completely changes the %set and
+       *  that the resulting %set's size is the same as the number
+       *  of elements assigned.  Old data may be lost.
+       */
+      set&
+      operator=(initializer_list<value_type> __l)
+      {
+	this->clear();
+	this->insert(__l.begin(), __l.end());
 	return *this;
       }
 #endif
@@ -355,11 +384,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
        *  std::swap(s1,s2) will feed to this function.
        */
       void
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
-      swap(set&& __x)
-#else
       swap(set& __x)	
-#endif
       { _M_t.swap(__x._M_t); }
 
       // insert/erase
@@ -398,9 +423,9 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
        *  potentially improve the performance of the insertion process.  A bad
        *  hint would cause no gains in efficiency.
        *
-       *  See http://gcc.gnu.org/onlinedocs/libstdc++/23_containers/howto.html#4
-       *  for more on "hinting".
-       *
+       *  For more on @a hinting, see:
+       *  http://gcc.gnu.org/onlinedocs/libstdc++/manual/bk01pt07ch17.html
+       *  
        *  Insertion requires logarithmic time (if the hint is not taken).
        */
       iterator
@@ -408,7 +433,8 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
       { return _M_t._M_insert_unique_(__position, __x); }
 
       /**
-       *  @brief A template function that attemps to insert a range of elements.
+       *  @brief A template function that attempts to insert a range
+       *  of elements.
        *  @param  first  Iterator pointing to the start of the range to be
        *                 inserted.
        *  @param  last  Iterator pointing to the end of the range.
@@ -420,6 +446,38 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
         insert(_InputIterator __first, _InputIterator __last)
         { _M_t._M_insert_unique(__first, __last); }
 
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      /**
+       *  @brief Attempts to insert a list of elements into the %set.
+       *  @param  list  A std::initializer_list<value_type> of elements
+       *                to be inserted.
+       *
+       *  Complexity similar to that of the range constructor.
+       */
+      void
+      insert(initializer_list<value_type> __l)
+      { this->insert(__l.begin(), __l.end()); }
+#endif
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // DR 130. Associative erase should return an iterator.
+      /**
+       *  @brief Erases an element from a %set.
+       *  @param  position  An iterator pointing to the element to be erased.
+       *  @return An iterator pointing to the element immediately following
+       *          @a position prior to the element being erased. If no such 
+       *          element exists, end() is returned.
+       *
+       *  This function erases an element, pointed to by the given iterator,
+       *  from a %set.  Note that this function only erases the element, and
+       *  that if the element is itself a pointer, the pointed-to memory is not
+       *  touched in any way.  Managing the pointer is the user's responsibility.
+       */
+      iterator
+      erase(iterator __position)
+      { return _M_t.erase(__position); }
+#else
       /**
        *  @brief Erases an element from a %set.
        *  @param  position  An iterator pointing to the element to be erased.
@@ -427,11 +485,12 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
        *  This function erases an element, pointed to by the given iterator,
        *  from a %set.  Note that this function only erases the element, and
        *  that if the element is itself a pointer, the pointed-to memory is not
-       *  touched in any way.  Managing the pointer is the user's responsibilty.
+       *  touched in any way.  Managing the pointer is the user's responsibility.
        */
       void
       erase(iterator __position)
       { _M_t.erase(__position); }
+#endif
 
       /**
        *  @brief Erases elements according to the provided key.
@@ -442,12 +501,31 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
        *  a %set.
        *  Note that this function only erases the element, and that if
        *  the element is itself a pointer, the pointed-to memory is not touched
-       *  in any way.  Managing the pointer is the user's responsibilty.
+       *  in any way.  Managing the pointer is the user's responsibility.
        */
       size_type
       erase(const key_type& __x)
       { return _M_t.erase(__x); }
 
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // DR 130. Associative erase should return an iterator.
+      /**
+       *  @brief Erases a [first,last) range of elements from a %set.
+       *  @param  first  Iterator pointing to the start of the range to be
+       *                 erased.
+       *  @param  last  Iterator pointing to the end of the range to be erased.
+       *  @return The iterator @a last.
+       *
+       *  This function erases a sequence of elements from a %set.
+       *  Note that this function only erases the element, and that if
+       *  the element is itself a pointer, the pointed-to memory is not touched
+       *  in any way.  Managing the pointer is the user's responsibility.
+       */
+      iterator
+      erase(iterator __first, iterator __last)
+      { return _M_t.erase(__first, __last); }
+#else
       /**
        *  @brief Erases a [first,last) range of elements from a %set.
        *  @param  first  Iterator pointing to the start of the range to be
@@ -457,17 +535,18 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
        *  This function erases a sequence of elements from a %set.
        *  Note that this function only erases the element, and that if
        *  the element is itself a pointer, the pointed-to memory is not touched
-       *  in any way.  Managing the pointer is the user's responsibilty.
+       *  in any way.  Managing the pointer is the user's responsibility.
        */
       void
       erase(iterator __first, iterator __last)
       { _M_t.erase(__first, __last); }
+#endif
 
       /**
        *  Erases all elements in a %set.  Note that this function only erases
        *  the elements, and that if the elements themselves are pointers, the
        *  pointed-to memory is not touched in any way.  Managing the pointer is
-       *  the user's responsibilty.
+       *  the user's responsibility.
        */
       void
       clear()
@@ -648,18 +727,6 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
     inline void
     swap(set<_Key, _Compare, _Alloc>& __x, set<_Key, _Compare, _Alloc>& __y)
     { __x.swap(__y); }
-
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
-  template<typename _Key, typename _Compare, typename _Alloc>
-    inline void
-    swap(set<_Key, _Compare, _Alloc>&& __x, set<_Key, _Compare, _Alloc>& __y)
-    { __x.swap(__y); }
-
-  template<typename _Key, typename _Compare, typename _Alloc>
-    inline void
-    swap(set<_Key, _Compare, _Alloc>& __x, set<_Key, _Compare, _Alloc>&& __y)
-    { __x.swap(__y); }
-#endif
 
 _GLIBCXX_END_NESTED_NAMESPACE
 

@@ -1,6 +1,6 @@
 ! { dg-do run }
-! { dg-options "-fopenmp -fcray-pointer -static-libgcc" { target *-*-darwin* } }
 ! { dg-options "-fopenmp -fcray-pointer" }
+! { dg-require-effective-target tls_runtime }
 
   use omp_lib
   integer :: a, b, c, d, p

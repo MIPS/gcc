@@ -689,9 +689,12 @@ void
 _Jv_ClosureList::registerClosure (jclass klass, void *ptr)
 {
   _Jv_ClosureList **closures = klass->engine->get_closure_list (klass);
-  this->ptr = ptr;
-  this->next = *closures;
-  *closures = this;
+  if (closures)
+    {
+      this->ptr = ptr;
+      this->next = *closures;
+      *closures = this;
+    }
 }
 #endif
 
@@ -1043,7 +1046,8 @@ java::lang::Class::getEnclosingClass()
   _Jv_word indexes;
   indexes.i = getEnclosingMethodData();
   if (indexes.i == 0)
-    return NULL;
+    // No enclosing method, but perhaps a member or anonymous class
+    return getDeclaringClass();
   _Jv_ushort class_index, method_index;
   _Jv_loadIndexes (&indexes, class_index, method_index);
   return _Jv_Linker::resolve_pool_entry (this, class_index).clazz;

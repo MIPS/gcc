@@ -1,11 +1,11 @@
 // auto_ptr implementation -*- C++ -*-
 
-// Copyright (C) 2007 Free Software Foundation, Inc.
+// Copyright (C) 2007, 2008, 2009, 2010 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
 // terms of the GNU General Public License as published by the
-// Free Software Foundation; either version 2, or (at your option)
+// Free Software Foundation; either version 3, or (at your option)
 // any later version.
 
 // This library is distributed in the hope that it will be useful,
@@ -13,27 +13,22 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-// You should have received a copy of the GNU General Public License
-// along with this library; see the file COPYING.  If not, write to
-// the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-// Boston, MA 02110-1301, USA.
+// Under Section 7 of GPL version 3, you are granted additional
+// permissions described in the GCC Runtime Library Exception, version
+// 3.1, as published by the Free Software Foundation.
 
-// As a special exception, you may use this file as part of a free software
-// library without restriction.  Specifically, if other files instantiate
-// templates or use macros or inline functions from this file, or you compile
-// this file and link it with other files to produce an executable, this
-// file does not by itself cause the resulting executable to be covered by
-// the GNU General Public License.  This exception does not however
-// invalidate any other reasons why the executable file might be covered by
-// the GNU General Public License.
+// You should have received a copy of the GNU General Public License and
+// a copy of the GCC Runtime Library Exception along with this program;
+// see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+// <http://www.gnu.org/licenses/>.
 
 /** @file backward/auto_ptr.h
  *  This is an internal header file, included by other library headers.
  *  You should not attempt to use it directly.
  */
 
-#ifndef _STL_AUTO_PTR_H
-#define _STL_AUTO_PTR_H 1
+#ifndef _BACKWARD_AUTO_PTR_H
+#define _BACKWARD_AUTO_PTR_H 1
 
 #include <bits/c++config.h>
 #include <debug/debug.h>
@@ -82,11 +77,9 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
    *  Good examples of what can and cannot be done with auto_ptr can
    *  be found in the libstdc++ testsuite.
    *
-   *  @if maint
    *  _GLIBCXX_RESOLVE_LIB_DEFECTS
    *  127.  auto_ptr<> conversion issues
    *  These resolutions have all been incorporated.
-   *  @endif
    */
   template<typename _Tp>
     class auto_ptr
@@ -112,7 +105,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
        *  @param  a  Another %auto_ptr of the same type.
        *
        *  This object now @e owns the object previously owned by @a a,
-       *  which has given up ownsership.
+       *  which has given up ownership.
        */
       auto_ptr(auto_ptr& __a) throw() : _M_ptr(__a.release()) { }
 
@@ -124,7 +117,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
        *  pointer-to-Tp/element_type.
        *
        *  This object now @e owns the object previously owned by @a a,
-       *  which has given up ownsership.
+       *  which has given up ownership.
        */
       template<typename _Tp1>
         auto_ptr(auto_ptr<_Tp1>& __a) throw() : _M_ptr(__a.release()) { }
@@ -134,7 +127,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
        *  @param  a  Another %auto_ptr of the same type.
        *
        *  This object now @e owns the object previously owned by @a a,
-       *  which has given up ownsership.  The object that this one @e
+       *  which has given up ownership.  The object that this one @e
        *  used to own and track has been deleted.
        */
       auto_ptr&
@@ -151,7 +144,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
        *  A pointer-to-Tp1 must be convertible to a pointer-to-Tp/element_type.
        *
        *  This object now @e owns the object previously owned by @a a,
-       *  which has given up ownsership.  The object that this one @e
+       *  which has given up ownership.  The object that this one @e
        *  used to own and track has been deleted.
        */
       template<typename _Tp1>
@@ -167,12 +160,10 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
        *  deleted.  If it no longer owns anything (i.e., @c get() is
        *  @c NULL), then this has no effect.
        *
-       *  @if maint
        *  The C++ standard says there is supposed to be an empty throw
        *  specification here, but omitting it is standard conforming.  Its
        *  presence can be detected only if _Tp::~_Tp() throws, but this is
        *  prohibited.  [17.4.3.6]/2
-       *  @endif
        */
       ~auto_ptr() { delete _M_ptr; }
       
@@ -180,8 +171,8 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
        *  @brief  Smart pointer dereferencing.
        *
        *  If this %auto_ptr no longer owns anything, then this
-       *  operation will crash.  (For a smart pointer, "no longer owns
-       *  anything" is the same as being a null pointer, and you know
+       *  operation will crash.  (For a smart pointer, <em>no longer owns
+       *  anything</em> is the same as being a null pointer, and you know
        *  what happens when you dereference one of those...)
        */
       element_type&
@@ -298,4 +289,4 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 
 _GLIBCXX_END_NAMESPACE
 
-#endif /* _STL_AUTO_PTR_H */
+#endif /* _BACKWARD_AUTO_PTR_H */

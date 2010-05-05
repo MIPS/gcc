@@ -1,13 +1,13 @@
 // Locale support -*- C++ -*-
 
 // Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005,
-// 2006, 2007
+// 2006, 2007, 2008, 2009, 2010
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
 // terms of the GNU General Public License as published by the
-// Free Software Foundation; either version 2, or (at your option)
+// Free Software Foundation; either version 3, or (at your option)
 // any later version.
 
 // This library is distributed in the hope that it will be useful,
@@ -15,19 +15,14 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-// You should have received a copy of the GNU General Public License along
-// with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
-// USA.
+// Under Section 7 of GPL version 3, you are granted additional
+// permissions described in the GCC Runtime Library Exception, version
+// 3.1, as published by the Free Software Foundation.
 
-// As a special exception, you may use this file as part of a free software
-// library without restriction.  Specifically, if other files instantiate
-// templates or use macros or inline functions from this file, or you compile
-// this file and link it with other files to produce an executable, this
-// file does not by itself cause the resulting executable to be covered by
-// the GNU General Public License.  This exception does not however
-// invalidate any other reasons why the executable file might be covered by
-// the GNU General Public License.
+// You should have received a copy of the GNU General Public License and
+// a copy of the GCC Runtime Library Exception along with this program;
+// see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+// <http://www.gnu.org/licenses/>.
 
 /** @file locale_classes.h
  *  This is an internal header file, included by other library headers.
@@ -52,6 +47,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   // 22.1.1 Class locale
   /**
    *  @brief  Container class for localization functionality.
+   *  @ingroup locales
    *
    *  The locale class is first a class wrapper for C library locales.  It is
    *  also an extensible container for user-defined localization.  A locale is
@@ -97,9 +93,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
      *  monetary, and messages.  They form a bitmask that supports union and
      *  intersection.  The category all is the union of these values.
      *
-     *  @if maint
      *  NB: Order must match _S_facet_categories definition in locale.cc
-     *  @endif
     */
     static const category none		= 0;
     static const category ctype		= 1L << 0;
@@ -118,7 +112,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
      *  @brief  Default constructor.
      *
      *  Constructs a copy of the global locale.  If no locale has been
-     *  explicitly set, this is the "C" locale.
+     *  explicitly set, this is the C locale.
     */
     locale() throw();
 
@@ -228,7 +222,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
      *		 copies, or have the same name.  False otherwise.
     */
     bool
-    operator==(const locale& __other) const throw ();
+    operator==(const locale& __other) const throw();
 
     /**
      *  @brief  Locale inequality.
@@ -237,7 +231,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
      *  @return  ! (*this == other)
     */
     bool
-    operator!=(const locale& __other) const throw ()
+    operator!=(const locale& __other) const throw()
     { return !(this->operator==(__other)); }
 
     /**
@@ -275,7 +269,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     global(const locale&);
 
     /**
-     *  @brief  Return reference to the "C" locale.
+     *  @brief  Return reference to the C locale.
     */
     static const locale&
     classic();
@@ -319,7 +313,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     _S_initialize();
 
     static void
-    _S_initialize_once();
+    _S_initialize_once() throw();
 
     static category
     _S_normalize_category(category);
@@ -332,6 +326,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   // 22.1.1.1.2  Class locale::facet
   /**
    *  @brief  Localization functionality base class.
+   *  @ingroup locales
    *
    *  The facet class is the base class for a localization feature, such as
    *  money, time, and number printing.  It provides common support for facets
@@ -383,18 +378,21 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 		       __c_locale __old = 0);
 
     static __c_locale
-    _S_clone_c_locale(__c_locale& __cloc);
+    _S_clone_c_locale(__c_locale& __cloc) throw();
 
     static void
     _S_destroy_c_locale(__c_locale& __cloc);
+
+    static __c_locale
+    _S_lc_ctype_c_locale(__c_locale __cloc, const char* __s);
 
     // Returns data from the underlying "C" library data for the
     // classic locale.
     static __c_locale
     _S_get_c_locale();
 
-    static const char*
-    _S_get_c_name();
+    _GLIBCXX_CONST static const char*
+    _S_get_c_name() throw();
 
   private:
     void
@@ -406,9 +404,9 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     {
       if (__gnu_cxx::__exchange_and_add_dispatch(&_M_refcount, -1) == 1)
 	{
-	  try
+	  __try
 	    { delete this; }
-	  catch(...)
+	  __catch(...)
 	    { }
 	}
     }
@@ -423,6 +421,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   // 22.1.1.1.3 Class locale::id
   /**
    *  @brief  Facet ID class.
+   *  @ingroup locales
    *
    *  The ID class provides facets with an index used to identify them.
    *  Every facet class must define a public static member locale::id, or be
@@ -442,7 +441,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 
     template<typename _Facet>
       friend bool
-      has_facet(const locale&) throw ();
+      has_facet(const locale&) throw();
 
     // NB: There is no accessor for _M_index because it may be used
     // before the constructor is run; the effect of calling a member
@@ -464,7 +463,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     id() { }
 
     size_t
-    _M_id() const;
+    _M_id() const throw();
   };
 
 
@@ -511,9 +510,9 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     {
       if (__gnu_cxx::__exchange_and_add_dispatch(&_M_refcount, -1) == 1)
 	{
-	  try
+	  __try
 	    { delete this; }
-	  catch(...)
+	  __catch(...)
 	    { }
 	}
     }
@@ -574,13 +573,8 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
    *  @return  true if locale contains a facet of type Facet, else false.
   */
   template<typename _Facet>
-    inline bool
-    has_facet(const locale& __loc) throw()
-    {
-      const size_t __i = _Facet::id._M_id();
-      const locale::facet** __facets = __loc._M_impl->_M_facets;
-      return (__i < __loc._M_impl->_M_facets_size && __facets[__i]);
-    }
+    bool
+    has_facet(const locale& __loc) throw();
 
   /**
    *  @brief  Return a facet.
@@ -596,15 +590,8 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
    *  @throw  std::bad_cast if locale doesn't contain a facet of type Facet.
   */
   template<typename _Facet>
-    inline const _Facet&
-    use_facet(const locale& __loc)
-    {
-      const size_t __i = _Facet::id._M_id();
-      const locale::facet** __facets = __loc._M_impl->_M_facets;
-      if (!(__i < __loc._M_impl->_M_facets_size && __facets[__i]))
-        __throw_bad_cast();
-      return static_cast<const _Facet&>(*__facets[__i]);
-    }
+    const _Facet&
+    use_facet(const locale& __loc);
 
 
   /**
@@ -657,7 +644,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
        *  This is a constructor for use by the library itself to set up new
        *  locales.
        *
-       *  @param cloc  The "C" locale.
+       *  @param cloc  The C locale.
        *  @param refs  Passed to the base facet class.
       */
       explicit
@@ -687,7 +674,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
        *
        *  This function is a wrapper for strxfrm functionality.  It takes the
        *  input string and returns a modified string that can be directly
-       *  compared to other transformed strings.  In the "C" locale, this
+       *  compared to other transformed strings.  In the C locale, this
        *  function just returns a copy of the input string.  In some other
        *  locales, it may replace two chars with one, change a char for
        *  another, etc.  It does so by returning collate::do_transform().
@@ -716,10 +703,10 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 
       // Used to abstract out _CharT bits in virtual member functions, below.
       int
-      _M_compare(const _CharT*, const _CharT*) const;
+      _M_compare(const _CharT*, const _CharT*) const throw();
 
       size_t
-      _M_transform(_CharT*, const _CharT*, size_t) const;
+      _M_transform(_CharT*, const _CharT*, size_t) const throw();
 
   protected:
       /// Destructor.
@@ -778,23 +765,23 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   // Specializations.
   template<>
     int
-    collate<char>::_M_compare(const char*, const char*) const;
+    collate<char>::_M_compare(const char*, const char*) const throw();
 
   template<>
     size_t
-    collate<char>::_M_transform(char*, const char*, size_t) const;
+    collate<char>::_M_transform(char*, const char*, size_t) const throw();
 
 #ifdef _GLIBCXX_USE_WCHAR_T
   template<>
     int
-    collate<wchar_t>::_M_compare(const wchar_t*, const wchar_t*) const;
+    collate<wchar_t>::_M_compare(const wchar_t*, const wchar_t*) const throw();
 
   template<>
     size_t
-    collate<wchar_t>::_M_transform(wchar_t*, const wchar_t*, size_t) const;
+    collate<wchar_t>::_M_transform(wchar_t*, const wchar_t*, size_t) const throw();
 #endif
 
-  /// @brief  class collate_byname [22.2.4.2].
+  /// class collate_byname [22.2.4.2].
   template<typename _CharT>
     class collate_byname : public collate<_CharT>
     {

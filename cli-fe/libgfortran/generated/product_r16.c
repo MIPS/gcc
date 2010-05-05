@@ -1,5 +1,5 @@
 /* Implementation of the PRODUCT intrinsic
-   Copyright 2002, 2007 Free Software Foundation, Inc.
+   Copyright 2002, 2007, 2009 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -7,26 +7,21 @@ This file is part of the GNU Fortran 95 runtime library (libgfortran).
 Libgfortran is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public
 License as published by the Free Software Foundation; either
-version 2 of the License, or (at your option) any later version.
-
-In addition to the permissions in the GNU General Public License, the
-Free Software Foundation gives you unlimited permission to link the
-compiled version of this file into combinations with other programs,
-and to distribute those combinations without any restriction coming
-from the use of this file.  (The General Public License restrictions
-do apply in other respects; for example, they cover modification of
-the file, and distribution when not linked into a combine
-executable.)
+version 3 of the License, or (at your option) any later version.
 
 Libgfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public
-License along with libgfortran; see the file COPYING.  If not,
-write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+Under Section 7 of GPL version 3, you are granted additional
+permissions described in the GCC Runtime Library Exception, version
+3.1, as published by the Free Software Foundation.
+
+You should have received a copy of the GNU General Public License and
+a copy of the GCC Runtime Library Exception along with this program;
+see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+<http://www.gnu.org/licenses/>.  */
 
 #include "libgfortran.h"
 #include <stdlib.h>
@@ -56,27 +51,29 @@ product_r16 (gfc_array_r16 * const restrict retarray,
   index_type len;
   index_type delta;
   index_type dim;
+  int continue_loop;
 
   /* Make dim zero based to avoid confusion.  */
   dim = (*pdim) - 1;
   rank = GFC_DESCRIPTOR_RANK (array) - 1;
 
-  len = array->dim[dim].ubound + 1 - array->dim[dim].lbound;
-  delta = array->dim[dim].stride;
+  len = GFC_DESCRIPTOR_EXTENT(array,dim);
+  if (len < 0)
+    len = 0;
+  delta = GFC_DESCRIPTOR_STRIDE(array,dim);
 
   for (n = 0; n < dim; n++)
     {
-      sstride[n] = array->dim[n].stride;
-      extent[n] = array->dim[n].ubound + 1 - array->dim[n].lbound;
+      sstride[n] = GFC_DESCRIPTOR_STRIDE(array,n);
+      extent[n] = GFC_DESCRIPTOR_EXTENT(array,n);
 
       if (extent[n] < 0)
 	extent[n] = 0;
     }
   for (n = dim; n < rank; n++)
     {
-      sstride[n] = array->dim[n + 1].stride;
-      extent[n] =
-        array->dim[n + 1].ubound + 1 - array->dim[n + 1].lbound;
+      sstride[n] = GFC_DESCRIPTOR_STRIDE(array, n + 1);
+      extent[n] = GFC_DESCRIPTOR_EXTENT(array, n + 1);
 
       if (extent[n] < 0)
 	extent[n] = 0;
@@ -84,30 +81,31 @@ product_r16 (gfc_array_r16 * const restrict retarray,
 
   if (retarray->data == NULL)
     {
-      size_t alloc_size;
+      size_t alloc_size, str;
 
       for (n = 0; n < rank; n++)
-        {
-          retarray->dim[n].lbound = 0;
-          retarray->dim[n].ubound = extent[n]-1;
-          if (n == 0)
-            retarray->dim[n].stride = 1;
-          else
-            retarray->dim[n].stride = retarray->dim[n-1].stride * extent[n-1];
-        }
+	{
+	  if (n == 0)
+	    str = 1;
+	  else
+	    str = GFC_DESCRIPTOR_STRIDE(retarray,n-1) * extent[n-1];
+
+	  GFC_DIMENSION_SET(retarray->dim[n], 0, extent[n] - 1, str);
+
+	}
 
       retarray->offset = 0;
       retarray->dtype = (array->dtype & ~GFC_DTYPE_RANK_MASK) | rank;
 
-      alloc_size = sizeof (GFC_REAL_16) * retarray->dim[rank-1].stride
+      alloc_size = sizeof (GFC_REAL_16) * GFC_DESCRIPTOR_STRIDE(retarray,rank-1)
     		   * extent[rank-1];
 
       if (alloc_size == 0)
 	{
 	  /* Make sure we have a zero-sized array.  */
-	  retarray->dim[0].lbound = 0;
-	  retarray->dim[0].ubound = -1;
+	  GFC_DIMENSION_SET(retarray->dim[0], 0, -1, 1);
 	  return;
+
 	}
       else
 	retarray->data = internal_malloc_size (alloc_size);
@@ -115,21 +113,29 @@ product_r16 (gfc_array_r16 * const restrict retarray,
   else
     {
       if (rank != GFC_DESCRIPTOR_RANK (retarray))
-	runtime_error ("rank of return array incorrect");
+	runtime_error ("rank of return array incorrect in"
+		       " PRODUCT intrinsic: is %ld, should be %ld",
+		       (long int) (GFC_DESCRIPTOR_RANK (retarray)),
+		       (long int) rank);
+
+      if (unlikely (compile_options.bounds_check))
+	bounds_ifunction_return ((array_t *) retarray, extent,
+				 "return value", "PRODUCT");
     }
 
   for (n = 0; n < rank; n++)
     {
       count[n] = 0;
-      dstride[n] = retarray->dim[n].stride;
+      dstride[n] = GFC_DESCRIPTOR_STRIDE(retarray,n);
       if (extent[n] <= 0)
-        len = 0;
+	len = 0;
     }
 
   base = array->data;
   dest = retarray->data;
 
-  while (base)
+  continue_loop = 1;
+  while (continue_loop)
     {
       const GFC_REAL_16 * restrict src;
       GFC_REAL_16 result;
@@ -137,7 +143,7 @@ product_r16 (gfc_array_r16 * const restrict retarray,
       {
 
   result = 1;
-        if (len <= 0)
+	if (len <= 0)
 	  *dest = 1;
 	else
 	  {
@@ -145,7 +151,7 @@ product_r16 (gfc_array_r16 * const restrict retarray,
 	      {
 
   result *= *src;
-          }
+	      }
 	    *dest = result;
 	  }
       }
@@ -155,28 +161,28 @@ product_r16 (gfc_array_r16 * const restrict retarray,
       dest += dstride[0];
       n = 0;
       while (count[n] == extent[n])
-        {
-          /* When we get to the end of a dimension, reset it and increment
-             the next dimension.  */
-          count[n] = 0;
-          /* We could precalculate these products, but this is a less
-             frequently used path so probably not worth it.  */
-          base -= sstride[n] * extent[n];
-          dest -= dstride[n] * extent[n];
-          n++;
-          if (n == rank)
-            {
-              /* Break out of the look.  */
-              base = NULL;
-              break;
-            }
-          else
-            {
-              count[n]++;
-              base += sstride[n];
-              dest += dstride[n];
-            }
-        }
+	{
+	  /* When we get to the end of a dimension, reset it and increment
+	     the next dimension.  */
+	  count[n] = 0;
+	  /* We could precalculate these products, but this is a less
+	     frequently used path so probably not worth it.  */
+	  base -= sstride[n] * extent[n];
+	  dest -= dstride[n] * extent[n];
+	  n++;
+	  if (n == rank)
+	    {
+	      /* Break out of the look.  */
+	      continue_loop = 0;
+	      break;
+	    }
+	  else
+	    {
+	      count[n]++;
+	      base += sstride[n];
+	      dest += dstride[n];
+	    }
+	}
     }
 }
 
@@ -211,7 +217,7 @@ mproduct_r16 (gfc_array_r16 * const restrict retarray,
   dim = (*pdim) - 1;
   rank = GFC_DESCRIPTOR_RANK (array) - 1;
 
-  len = array->dim[dim].ubound + 1 - array->dim[dim].lbound;
+  len = GFC_DESCRIPTOR_EXTENT(array,dim);
   if (len <= 0)
     return;
 
@@ -228,14 +234,14 @@ mproduct_r16 (gfc_array_r16 * const restrict retarray,
   else
     runtime_error ("Funny sized logical array");
 
-  delta = array->dim[dim].stride;
-  mdelta = mask->dim[dim].stride * mask_kind;
+  delta = GFC_DESCRIPTOR_STRIDE(array,dim);
+  mdelta = GFC_DESCRIPTOR_STRIDE_BYTES(mask,dim);
 
   for (n = 0; n < dim; n++)
     {
-      sstride[n] = array->dim[n].stride;
-      mstride[n] = mask->dim[n].stride * mask_kind;
-      extent[n] = array->dim[n].ubound + 1 - array->dim[n].lbound;
+      sstride[n] = GFC_DESCRIPTOR_STRIDE(array,n);
+      mstride[n] = GFC_DESCRIPTOR_STRIDE_BYTES(mask,n);
+      extent[n] = GFC_DESCRIPTOR_EXTENT(array,n);
 
       if (extent[n] < 0)
 	extent[n] = 0;
@@ -243,10 +249,9 @@ mproduct_r16 (gfc_array_r16 * const restrict retarray,
     }
   for (n = dim; n < rank; n++)
     {
-      sstride[n] = array->dim[n + 1].stride;
-      mstride[n] = mask->dim[n + 1].stride * mask_kind;
-      extent[n] =
-        array->dim[n + 1].ubound + 1 - array->dim[n + 1].lbound;
+      sstride[n] = GFC_DESCRIPTOR_STRIDE(array,n + 1);
+      mstride[n] = GFC_DESCRIPTOR_STRIDE_BYTES(mask, n + 1);
+      extent[n] = GFC_DESCRIPTOR_EXTENT(array, n + 1);
 
       if (extent[n] < 0)
 	extent[n] = 0;
@@ -254,19 +259,20 @@ mproduct_r16 (gfc_array_r16 * const restrict retarray,
 
   if (retarray->data == NULL)
     {
-      size_t alloc_size;
+      size_t alloc_size, str;
 
       for (n = 0; n < rank; n++)
-        {
-          retarray->dim[n].lbound = 0;
-          retarray->dim[n].ubound = extent[n]-1;
-          if (n == 0)
-            retarray->dim[n].stride = 1;
-          else
-            retarray->dim[n].stride = retarray->dim[n-1].stride * extent[n-1];
-        }
+	{
+	  if (n == 0)
+	    str = 1;
+	  else
+	    str= GFC_DESCRIPTOR_STRIDE(retarray,n-1) * extent[n-1];
 
-      alloc_size = sizeof (GFC_REAL_16) * retarray->dim[rank-1].stride
+	  GFC_DIMENSION_SET(retarray->dim[n], 0, extent[n] - 1, str);
+
+	}
+
+      alloc_size = sizeof (GFC_REAL_16) * GFC_DESCRIPTOR_STRIDE(retarray,rank-1)
     		   * extent[rank-1];
 
       retarray->offset = 0;
@@ -275,8 +281,7 @@ mproduct_r16 (gfc_array_r16 * const restrict retarray,
       if (alloc_size == 0)
 	{
 	  /* Make sure we have a zero-sized array.  */
-	  retarray->dim[0].lbound = 0;
-	  retarray->dim[0].ubound = -1;
+	  GFC_DIMENSION_SET(retarray->dim[0], 0, -1, 1);
 	  return;
 	}
       else
@@ -286,15 +291,23 @@ mproduct_r16 (gfc_array_r16 * const restrict retarray,
   else
     {
       if (rank != GFC_DESCRIPTOR_RANK (retarray))
-	runtime_error ("rank of return array incorrect");
+	runtime_error ("rank of return array incorrect in PRODUCT intrinsic");
+
+      if (unlikely (compile_options.bounds_check))
+	{
+	  bounds_ifunction_return ((array_t *) retarray, extent,
+				   "return value", "PRODUCT");
+	  bounds_equal_extents ((array_t *) mask, (array_t *) array,
+	  			"MASK argument", "PRODUCT");
+	}
     }
 
   for (n = 0; n < rank; n++)
     {
       count[n] = 0;
-      dstride[n] = retarray->dim[n].stride;
+      dstride[n] = GFC_DESCRIPTOR_STRIDE(retarray,n);
       if (extent[n] <= 0)
-        return;
+	return;
     }
 
   dest = retarray->data;
@@ -310,7 +323,7 @@ mproduct_r16 (gfc_array_r16 * const restrict retarray,
       {
 
   result = 1;
-        if (len <= 0)
+	if (len <= 0)
 	  *dest = 1;
 	else
 	  {
@@ -319,7 +332,7 @@ mproduct_r16 (gfc_array_r16 * const restrict retarray,
 
   if (*msrc)
     result *= *src;
-              }
+	      }
 	    *dest = result;
 	  }
       }
@@ -330,30 +343,30 @@ mproduct_r16 (gfc_array_r16 * const restrict retarray,
       dest += dstride[0];
       n = 0;
       while (count[n] == extent[n])
-        {
-          /* When we get to the end of a dimension, reset it and increment
-             the next dimension.  */
-          count[n] = 0;
-          /* We could precalculate these products, but this is a less
-             frequently used path so probably not worth it.  */
-          base -= sstride[n] * extent[n];
-          mbase -= mstride[n] * extent[n];
-          dest -= dstride[n] * extent[n];
-          n++;
-          if (n == rank)
-            {
-              /* Break out of the look.  */
-              base = NULL;
-              break;
-            }
-          else
-            {
-              count[n]++;
-              base += sstride[n];
-              mbase += mstride[n];
-              dest += dstride[n];
-            }
-        }
+	{
+	  /* When we get to the end of a dimension, reset it and increment
+	     the next dimension.  */
+	  count[n] = 0;
+	  /* We could precalculate these products, but this is a less
+	     frequently used path so probably not worth it.  */
+	  base -= sstride[n] * extent[n];
+	  mbase -= mstride[n] * extent[n];
+	  dest -= dstride[n] * extent[n];
+	  n++;
+	  if (n == rank)
+	    {
+	      /* Break out of the look.  */
+	      base = NULL;
+	      break;
+	    }
+	  else
+	    {
+	      count[n]++;
+	      base += sstride[n];
+	      mbase += mstride[n];
+	      dest += dstride[n];
+	    }
+	}
     }
 }
 
@@ -369,43 +382,127 @@ sproduct_r16 (gfc_array_r16 * const restrict retarray,
 	const index_type * const restrict pdim, 
 	GFC_LOGICAL_4 * mask)
 {
+  index_type count[GFC_MAX_DIMENSIONS];
+  index_type extent[GFC_MAX_DIMENSIONS];
+  index_type dstride[GFC_MAX_DIMENSIONS];
+  GFC_REAL_16 * restrict dest;
   index_type rank;
   index_type n;
-  index_type dstride;
-  GFC_REAL_16 *dest;
+  index_type dim;
+
 
   if (*mask)
     {
       product_r16 (retarray, array, pdim);
       return;
     }
-    rank = GFC_DESCRIPTOR_RANK (array);
-  if (rank <= 0)
-    runtime_error ("Rank of array needs to be > 0");
+  /* Make dim zero based to avoid confusion.  */
+  dim = (*pdim) - 1;
+  rank = GFC_DESCRIPTOR_RANK (array) - 1;
+
+  for (n = 0; n < dim; n++)
+    {
+      extent[n] = GFC_DESCRIPTOR_EXTENT(array,n);
+
+      if (extent[n] <= 0)
+	extent[n] = 0;
+    }
+
+  for (n = dim; n < rank; n++)
+    {
+      extent[n] =
+	GFC_DESCRIPTOR_EXTENT(array,n + 1);
+
+      if (extent[n] <= 0)
+	extent[n] = 0;
+    }
 
   if (retarray->data == NULL)
     {
-      retarray->dim[0].lbound = 0;
-      retarray->dim[0].ubound = rank-1;
-      retarray->dim[0].stride = 1;
-      retarray->dtype = (retarray->dtype & ~GFC_DTYPE_RANK_MASK) | 1;
+      size_t alloc_size, str;
+
+      for (n = 0; n < rank; n++)
+	{
+	  if (n == 0)
+	    str = 1;
+	  else
+	    str = GFC_DESCRIPTOR_STRIDE(retarray,n-1) * extent[n-1];
+
+	  GFC_DIMENSION_SET(retarray->dim[n], 0, extent[n] - 1, str);
+
+	}
+
       retarray->offset = 0;
-      retarray->data = internal_malloc_size (sizeof (GFC_REAL_16) * rank);
+      retarray->dtype = (array->dtype & ~GFC_DTYPE_RANK_MASK) | rank;
+
+      alloc_size = sizeof (GFC_REAL_16) * GFC_DESCRIPTOR_STRIDE(retarray,rank-1)
+    		   * extent[rank-1];
+
+      if (alloc_size == 0)
+	{
+	  /* Make sure we have a zero-sized array.  */
+	  GFC_DIMENSION_SET(retarray->dim[0], 0, -1, 1);
+	  return;
+	}
+      else
+	retarray->data = internal_malloc_size (alloc_size);
     }
   else
     {
-      if (GFC_DESCRIPTOR_RANK (retarray) != 1)
-	runtime_error ("rank of return array does not equal 1");
+      if (rank != GFC_DESCRIPTOR_RANK (retarray))
+	runtime_error ("rank of return array incorrect in"
+		       " PRODUCT intrinsic: is %ld, should be %ld",
+		       (long int) (GFC_DESCRIPTOR_RANK (retarray)),
+		       (long int) rank);
 
-      if (retarray->dim[0].ubound + 1 - retarray->dim[0].lbound != rank)
-        runtime_error ("dimension of return array incorrect");
+      if (unlikely (compile_options.bounds_check))
+	{
+	  for (n=0; n < rank; n++)
+	    {
+	      index_type ret_extent;
+
+	      ret_extent = GFC_DESCRIPTOR_EXTENT(retarray,n);
+	      if (extent[n] != ret_extent)
+		runtime_error ("Incorrect extent in return value of"
+			       " PRODUCT intrinsic in dimension %ld:"
+			       " is %ld, should be %ld", (long int) n + 1,
+			       (long int) ret_extent, (long int) extent[n]);
+	    }
+	}
     }
 
-    dstride = retarray->dim[0].stride;
-    dest = retarray->data;
+  for (n = 0; n < rank; n++)
+    {
+      count[n] = 0;
+      dstride[n] = GFC_DESCRIPTOR_STRIDE(retarray,n);
+    }
 
-    for (n = 0; n < rank; n++)
-      dest[n * dstride] = 1 ;
+  dest = retarray->data;
+
+  while(1)
+    {
+      *dest = 1;
+      count[0]++;
+      dest += dstride[0];
+      n = 0;
+      while (count[n] == extent[n])
+	{
+	  /* When we get to the end of a dimension, reset it and increment
+	     the next dimension.  */
+	  count[n] = 0;
+	  /* We could precalculate these products, but this is a less
+	     frequently used path so probably not worth it.  */
+	  dest -= dstride[n] * extent[n];
+	  n++;
+	  if (n == rank)
+	    return;
+	  else
+	    {
+	      count[n]++;
+	      dest += dstride[n];
+	    }
+      	}
+    }
 }
 
 #endif

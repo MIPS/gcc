@@ -1,12 +1,12 @@
 // Multimap implementation -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
+// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
 // terms of the GNU General Public License as published by the
-// Free Software Foundation; either version 2, or (at your option)
+// Free Software Foundation; either version 3, or (at your option)
 // any later version.
 
 // This library is distributed in the hope that it will be useful,
@@ -14,19 +14,14 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-// You should have received a copy of the GNU General Public License along
-// with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
-// USA.
+// Under Section 7 of GPL version 3, you are granted additional
+// permissions described in the GCC Runtime Library Exception, version
+// 3.1, as published by the Free Software Foundation.
 
-// As a special exception, you may use this file as part of a free software
-// library without restriction.  Specifically, if other files instantiate
-// templates or use macros or inline functions from this file, or you compile
-// this file and link it with other files to produce an executable, this
-// file does not by itself cause the resulting executable to be covered by
-// the GNU General Public License.  This exception does not however
-// invalidate any other reasons why the executable file might be covered by
-// the GNU General Public License.
+// You should have received a copy of the GNU General Public License and
+// a copy of the GCC Runtime Library Exception along with this program;
+// see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+// <http://www.gnu.org/licenses/>.
 
 /*
  *
@@ -63,6 +58,7 @@
 #define _STL_MULTIMAP_H 1
 
 #include <bits/concept_check.h>
+#include <initializer_list>
 
 _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
 
@@ -70,8 +66,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
    *  @brief A standard container made up of (key,value) pairs, which can be
    *  retrieved based on a key, in logarithmic time.
    *
-   *  @ingroup Containers
-   *  @ingroup Assoc_containers
+   *  @ingroup associative_containers
    *
    *  Meets the requirements of a <a href="tables.html#65">container</a>, a
    *  <a href="tables.html#66">reversible container</a>, and an
@@ -81,11 +76,9 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
    *
    *  Multimaps support bidirectional iterators.
    *
-   *  @if maint
    *  The private tree data is declared exactly the same way for map and
    *  multimap; the distinction is made entirely in how the tree functions are
    *  called (*_unique versus *_equal, same as the standard).
-   *  @endif
   */
   template <typename _Key, typename _Tp,
 	    typename _Compare = std::less<_Key>,
@@ -124,13 +117,13 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
       };
 
     private:
-      /// @if maint  This turns a red-black tree into a [multi]map.  @endif
+      /// This turns a red-black tree into a [multi]map.
       typedef typename _Alloc::template rebind<value_type>::other 
         _Pair_alloc_type;
 
       typedef _Rb_tree<key_type, value_type, _Select1st<value_type>,
 		       key_compare, _Pair_alloc_type> _Rep_type;
-      /// @if maint  The actual tree structure.  @endif
+      /// The actual tree structure.
       _Rep_type _M_t;
 
     public:
@@ -185,6 +178,22 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
        */
       multimap(multimap&& __x)
       : _M_t(std::forward<_Rep_type>(__x._M_t)) { }
+
+      /**
+       *  @brief  Builds a %multimap from an initializer_list.
+       *  @param  l  An initializer_list.
+       *  @param  comp  A comparison functor.
+       *  @param  a  An allocator object.
+       *
+       *  Create a %multimap consisting of copies of the elements from
+       *  the initializer_list.  This is linear in N if the list is already
+       *  sorted, and NlogN otherwise (where N is @a __l.size()).
+       */
+      multimap(initializer_list<value_type> __l,
+	       const _Compare& __comp = _Compare(),
+	       const allocator_type& __a = allocator_type())
+      : _M_t(__comp, __a)
+      { _M_t._M_insert_equal(__l.begin(), __l.end()); }
 #endif
 
       /**
@@ -199,7 +208,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
       template<typename _InputIterator>
         multimap(_InputIterator __first, _InputIterator __last)
 	: _M_t()
-        { _M_t._M_insert_unique(__first, __last); }
+        { _M_t._M_insert_equal(__first, __last); }
 
       /**
        *  @brief  Builds a %multimap from a range.
@@ -225,7 +234,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
       /**
        *  The dtor only erases the elements, and note that if the elements
        *  themselves are pointers, the pointed-to memory is not touched in any
-       *  way.  Managing the pointer is the user's responsibilty.
+       *  way.  Managing the pointer is the user's responsibility.
        */
 
       /**
@@ -253,9 +262,29 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
       multimap&
       operator=(multimap&& __x)
       {
+	// NB: DR 1204.
 	// NB: DR 675.
 	this->clear();
-	this->swap(__x); 
+	this->swap(__x);
+	return *this;
+      }
+
+      /**
+       *  @brief  %Multimap list assignment operator.
+       *  @param  l  An initializer_list.
+       *
+       *  This function fills a %multimap with copies of the elements
+       *  in the initializer list @a l.
+       *
+       *  Note that the assignment completely changes the %multimap and
+       *  that the resulting %multimap's size is the same as the number
+       *  of elements assigned.  Old data may be lost.
+       */
+      multimap&
+      operator=(initializer_list<value_type> __l)
+      {
+	this->clear();
+	this->insert(__l.begin(), __l.end());
 	return *this;
       }
 #endif
@@ -424,8 +453,8 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
        *  improve the performance of the insertion process.  A bad hint would
        *  cause no gains in efficiency.
        *
-       *  See http://gcc.gnu.org/onlinedocs/libstdc++/23_containers/howto.html#4
-       *  for more on "hinting".
+       *  For more on @a hinting, see:
+       *  http://gcc.gnu.org/onlinedocs/libstdc++/manual/bk01pt07ch17.html
        *
        *  Insertion requires logarithmic time (if the hint is not taken).
        */
@@ -434,7 +463,8 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
       { return _M_t._M_insert_equal_(__position, __x); }
 
       /**
-       *  @brief A template function that attemps to insert a range of elements.
+       *  @brief A template function that attempts to insert a range
+       *  of elements.
        *  @param  first  Iterator pointing to the start of the range to be
        *                 inserted.
        *  @param  last  Iterator pointing to the end of the range.
@@ -446,6 +476,39 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
         insert(_InputIterator __first, _InputIterator __last)
         { _M_t._M_insert_equal(__first, __last); }
 
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      /**
+       *  @brief Attempts to insert a list of std::pairs into the %multimap.
+       *  @param  list  A std::initializer_list<value_type> of pairs to be
+       *                inserted.
+       *
+       *  Complexity similar to that of the range constructor.
+       */
+      void
+      insert(initializer_list<value_type> __l)
+      { this->insert(__l.begin(), __l.end()); }
+#endif
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // DR 130. Associative erase should return an iterator.
+      /**
+       *  @brief Erases an element from a %multimap.
+       *  @param  position  An iterator pointing to the element to be erased.
+       *  @return An iterator pointing to the element immediately following
+       *          @a position prior to the element being erased. If no such 
+       *          element exists, end() is returned.
+       *
+       *  This function erases an element, pointed to by the given iterator,
+       *  from a %multimap.  Note that this function only erases the element,
+       *  and that if the element is itself a pointer, the pointed-to memory is
+       *  not touched in any way.  Managing the pointer is the user's
+       *  responsibility.
+       */
+      iterator
+      erase(iterator __position)
+      { return _M_t.erase(__position); }
+#else
       /**
        *  @brief Erases an element from a %multimap.
        *  @param  position  An iterator pointing to the element to be erased.
@@ -454,11 +517,12 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
        *  from a %multimap.  Note that this function only erases the element,
        *  and that if the element is itself a pointer, the pointed-to memory is
        *  not touched in any way.  Managing the pointer is the user's
-       *  responsibilty.
+       *  responsibility.
        */
       void
       erase(iterator __position)
       { _M_t.erase(__position); }
+#endif
 
       /**
        *  @brief Erases elements according to the provided key.
@@ -469,12 +533,33 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
        *  %multimap.
        *  Note that this function only erases the element, and that if
        *  the element is itself a pointer, the pointed-to memory is not touched
-       *  in any way.  Managing the pointer is the user's responsibilty.
+       *  in any way.  Managing the pointer is the user's responsibility.
        */
       size_type
       erase(const key_type& __x)
       { return _M_t.erase(__x); }
 
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // DR 130. Associative erase should return an iterator.
+      /**
+       *  @brief Erases a [first,last) range of elements from a %multimap.
+       *  @param  first  Iterator pointing to the start of the range to be
+       *                 erased.
+       *  @param  last  Iterator pointing to the end of the range to be erased.
+       *  @return The iterator @a last.
+       *
+       *  This function erases a sequence of elements from a %multimap.
+       *  Note that this function only erases the elements, and that if
+       *  the elements themselves are pointers, the pointed-to memory is not
+       *  touched in any way.  Managing the pointer is the user's responsibility.
+       */
+      iterator
+      erase(iterator __first, iterator __last)
+      { return _M_t.erase(__first, __last); }
+#else
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // DR 130. Associative erase should return an iterator.
       /**
        *  @brief Erases a [first,last) range of elements from a %multimap.
        *  @param  first  Iterator pointing to the start of the range to be
@@ -484,11 +569,12 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
        *  This function erases a sequence of elements from a %multimap.
        *  Note that this function only erases the elements, and that if
        *  the elements themselves are pointers, the pointed-to memory is not
-       *  touched in any way.  Managing the pointer is the user's responsibilty.
+       *  touched in any way.  Managing the pointer is the user's responsibility.
        */
       void
       erase(iterator __first, iterator __last)
       { _M_t.erase(__first, __last); }
+#endif
 
       /**
        *  @brief  Swaps data with another %multimap.
@@ -502,18 +588,14 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
        *  std::swap(m1,m2) will feed to this function.
        */
       void
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
-      swap(multimap&& __x)
-#else
       swap(multimap& __x)
-#endif
       { _M_t.swap(__x._M_t); }
 
       /**
        *  Erases all elements in a %multimap.  Note that this function only
        *  erases the elements, and that if the elements themselves are pointers,
        *  the pointed-to memory is not touched in any way.  Managing the pointer
-       *  is the user's responsibilty.
+       *  is the user's responsibility.
        */
       void
       clear()
@@ -738,20 +820,6 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
     swap(multimap<_Key, _Tp, _Compare, _Alloc>& __x,
          multimap<_Key, _Tp, _Compare, _Alloc>& __y)
     { __x.swap(__y); }
-
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
-  template<typename _Key, typename _Tp, typename _Compare, typename _Alloc>
-    inline void
-    swap(multimap<_Key, _Tp, _Compare, _Alloc>&& __x,
-         multimap<_Key, _Tp, _Compare, _Alloc>& __y)
-    { __x.swap(__y); }
-
-  template<typename _Key, typename _Tp, typename _Compare, typename _Alloc>
-    inline void
-    swap(multimap<_Key, _Tp, _Compare, _Alloc>& __x,
-         multimap<_Key, _Tp, _Compare, _Alloc>&& __y)
-    { __x.swap(__y); }
-#endif
 
 _GLIBCXX_END_NESTED_NAMESPACE
 

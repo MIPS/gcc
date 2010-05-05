@@ -1,6 +1,6 @@
 /* Part of CPP library.  File handling.
    Copyright (C) 1986, 1987, 1989, 1992, 1993, 1994, 1995, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Written by Per Bothner, 1994.
    Based on CCCP program by Paul Rubin, June 1986
@@ -10,7 +10,7 @@
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
+Free Software Foundation; either version 3, or (at your option) any
 later version.
 
 This program is distributed in the hope that it will be useful,
@@ -19,8 +19,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
+along with this program; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -74,6 +74,10 @@ struct _cpp_file
   /* The contents of NAME after calling read_file().  */
   const uchar *buffer;
 
+  /* Pointer to the real start of BUFFER.  read_file() might increment
+     BUFFER; when freeing, this this pointer must be used instead.  */
+  const uchar *buffer_start;
+
   /* The macro, if any, preventing re-inclusion.  */
   const cpp_hashnode *cmacro;
 
@@ -106,9 +110,6 @@ struct _cpp_file
 
   /* If BUFFER above contains the true contents of the file.  */
   bool buffer_valid;
-
-  /* File is a PCH (on return from find_include_file).  */
-  bool pch;
 };
 
 /* A singly-linked list for all searches for a given file name, with
@@ -287,6 +288,12 @@ pch_open_file (cpp_reader *pfile, _cpp_file *file, bool *invalid_pch)
   if (file->name[0] == '\0' || !pfile->cb.valid_pch)
     return false;
 
+  /* If the file is not included as first include from either the toplevel
+     file or the command-line it is not a valid use of PCH.  */
+  if (pfile->all_files
+      && pfile->all_files->next_file)
+    return false;
+
   flen = strlen (path);
   len = flen + sizeof (extension);
   pchname = XNEWVEC (char, len);
@@ -322,9 +329,7 @@ pch_open_file (cpp_reader *pfile, _cpp_file *file, bool *invalid_pch)
 	    }
 	  closedir (pchdir);
 	}
-      if (valid)
-	file->pch = true;
-      else
+      if (!valid)
 	*invalid_pch = true;
     }
 
@@ -382,8 +387,8 @@ find_file_in_dir (cpp_reader *pfile, _cpp_file *file, bool *invalid_pch)
       /* We copy the path name onto an obstack partly so that we don't
 	 leak the memory, but mostly so that we don't fragment the
 	 heap.  */
-      copy = obstack_copy0 (&pfile->nonexistent_file_ob, path,
-			    strlen (path));
+      copy = (char *) obstack_copy0 (&pfile->nonexistent_file_ob, path,
+				     strlen (path));
       free (path);
       pp = htab_find_slot_with_hash (pfile->nonexistent_file_hash,
 				     copy, hv, INSERT);
@@ -489,7 +494,6 @@ _cpp_find_file (cpp_reader *pfile, const char *fname, cpp_dir *start_dir, bool f
 	      return file;
 	    }
 
-	  open_file_failed (pfile, file, angle_brackets);
 	  if (invalid_pch)
 	    {
 	      cpp_error (pfile, CPP_DL_ERROR,
@@ -498,6 +502,7 @@ _cpp_find_file (cpp_reader *pfile, const char *fname, cpp_dir *start_dir, bool f
 		cpp_error (pfile, CPP_DL_ERROR,
 			   "use -Winvalid-pch for more information");
 	    }
+	  open_file_failed (pfile, file, angle_brackets);
 	  break;
 	}
 
@@ -640,8 +645,11 @@ read_file_guts (cpp_reader *pfile, _cpp_file *file)
     cpp_error (pfile, CPP_DL_WARNING,
 	       "%s is shorter than expected", file->path);
 
-  file->buffer = _cpp_convert_input (pfile, CPP_OPTION (pfile, input_charset),
-				     buf, size, total, &file->st.st_size);
+  file->buffer = _cpp_convert_input (pfile,
+				     CPP_OPTION (pfile, input_charset),
+				     buf, size, total,
+				     &file->buffer_start,
+				     &file->st.st_size);
   file->buffer_valid = true;
 
   return true;
@@ -703,11 +711,12 @@ should_stack_file (cpp_reader *pfile, _cpp_file *file, bool import)
     return false;
 
   /* Handle PCH files immediately; don't stack them.  */
-  if (file->pch)
+  if (file->pchname)
     {
       pfile->cb.read_pch (pfile, file->pchname, file->fd, file->path);
-      close (file->fd);
       file->fd = -1;
+      free ((void *) file->pchname);
+      file->pchname = NULL;
       return false;
     }
 
@@ -909,14 +918,15 @@ _cpp_stack_include (cpp_reader *pfile, const char *fname, int angle_brackets,
 
   file = _cpp_find_file (pfile, fname, dir, false, angle_brackets);
 
-  /* Compensate for the increment in linemap_add.  In the case of a
-     normal #include, we're currently at the start of the line
-     *following* the #include.  A separate source_location for this
-     location makes no sense (until we do the LC_LEAVE), and
-     complicates LAST_SOURCE_LINE_LOCATION.  This does not apply if we
-     found a PCH file (in which case linemap_add is not called) or we
-     were included from the command-line.  */
-  if (! file->pch && file->err_no == 0 && type != IT_CMDLINE)
+  /* Compensate for the increment in linemap_add that occurs in
+     _cpp_stack_file.  In the case of a normal #include, we're
+     currently at the start of the line *following* the #include.  A
+     separate source_location for this location makes no sense (until
+     we do the LC_LEAVE), and complicates LAST_SOURCE_LINE_LOCATION.
+     This does not apply if we found a PCH file (in which case
+     linemap_add is not called) or we were included from the
+     command-line.  */
+  if (file->pchname == NULL && file->err_no == 0 && type != IT_CMDLINE)
     pfile->line_table->highest_location--;
 
   return _cpp_stack_file (pfile, file, type == IT_IMPORT);
@@ -931,15 +941,28 @@ open_file_failed (cpp_reader *pfile, _cpp_file *file, int angle_brackets)
 
   errno = file->err_no;
   if (print_dep && CPP_OPTION (pfile, deps.missing_files) && errno == ENOENT)
-    deps_add_dep (pfile->deps, file->name);
+    {
+      deps_add_dep (pfile->deps, file->name);
+      /* If the preprocessor output (other than dependency information) is
+         being used, we must also flag an error.  */
+      if (CPP_OPTION (pfile, deps.need_preprocessor_output))
+	cpp_errno (pfile, CPP_DL_FATAL, file->path);
+    }
   else
     {
-      /* If we are outputting dependencies but not for this file then
-	 don't error because we can still produce correct output.  */
-      if (CPP_OPTION (pfile, deps.style) && ! print_dep)
-	cpp_errno (pfile, CPP_DL_WARNING, file->path);
+      /* If we are not outputting dependencies, or if we are and dependencies
+         were requested for this file, or if preprocessor output is needed
+         in addition to dependency information, this is an error.
+
+         Otherwise (outputting dependencies but not for this file, and not
+         using the preprocessor output), we can still produce correct output
+         so it's only a warning.  */
+      if (CPP_OPTION (pfile, deps.style) == DEPS_NONE
+          || print_dep
+          || CPP_OPTION (pfile, deps.need_preprocessor_output))
+	cpp_errno (pfile, CPP_DL_FATAL, file->path);
       else
-	cpp_errno (pfile, CPP_DL_ERROR, file->path);
+	cpp_errno (pfile, CPP_DL_WARNING, file->path);
     }
 }
 
@@ -973,8 +996,8 @@ make_cpp_file (cpp_reader *pfile, cpp_dir *dir, const char *fname)
 static void
 destroy_cpp_file (_cpp_file *file)
 {
-  if (file->buffer)
-    free ((void *) file->buffer);
+  if (file->buffer_start)
+    free ((void *) file->buffer_start);
   free ((void *) file->name);
   free (file);
 }
@@ -1140,7 +1163,7 @@ file_hash_eq (const void *p, const void *q)
 static int
 nonexistent_file_hash_eq (const void *p, const void *q)
 {
-  return strcmp (p, q) == 0;
+  return strcmp ((const char *) p, (const char *) q) == 0;
 }
 
 /* Initialize everything in this source file.  */
@@ -1218,12 +1241,19 @@ cpp_change_file (cpp_reader *pfile, enum lc_reason reason,
   _cpp_do_file_change (pfile, reason, new_name, 1, 0);
 }
 
+struct report_missing_guard_data
+{
+  const char **paths;
+  size_t count;
+};
+
 /* Callback function for htab_traverse.  */
 static int
-report_missing_guard (void **slot, void *b)
+report_missing_guard (void **slot, void *d)
 {
   struct file_hash_entry *entry = (struct file_hash_entry *) *slot;
-  int *bannerp = (int *) b;
+  struct report_missing_guard_data *data
+    = (struct report_missing_guard_data *) d;
 
   /* Skip directories.  */
   if (entry->start_dir != NULL)
@@ -1233,19 +1263,25 @@ report_missing_guard (void **slot, void *b)
       /* We don't want MI guard advice for the main file.  */
       if (file->cmacro == NULL && file->stack_count == 1 && !file->main_file)
 	{
-	  if (*bannerp == 0)
+	  if (data->paths == NULL)
 	    {
-	      fputs (_("Multiple include guards may be useful for:\n"),
-		     stderr);
-	      *bannerp = 1;
+	      data->paths = XCNEWVEC (const char *, data->count);
+	      data->count = 0;
 	    }
 
-	  fputs (entry->u.file->path, stderr);
-	  putc ('\n', stderr);
+	  data->paths[data->count++] = file->path;
 	}
     }
 
-  return 0;
+  /* Keep traversing the hash table.  */
+  return 1;
+}
+
+/* Comparison function for qsort.  */
+static int
+report_missing_guard_cmp (const void *p1, const void *p2)
+{
+  return strcmp (*(const char *const *) p1, *(const char *const *) p2);
 }
 
 /* Report on all files that might benefit from a multiple include guard.
@@ -1253,9 +1289,29 @@ report_missing_guard (void **slot, void *b)
 void
 _cpp_report_missing_guards (cpp_reader *pfile)
 {
-  int banner = 0;
+  struct report_missing_guard_data data;
 
-  htab_traverse (pfile->file_hash, report_missing_guard, &banner);
+  data.paths = NULL;
+  data.count = htab_elements (pfile->file_hash);
+  htab_traverse (pfile->file_hash, report_missing_guard, &data);
+
+  if (data.paths != NULL)
+    {
+      size_t i;
+
+      /* Sort the paths to avoid outputting them in hash table
+	 order.  */
+      qsort (data.paths, data.count, sizeof (const char *),
+	     report_missing_guard_cmp);
+      fputs (_("Multiple include guards may be useful for:\n"),
+	     stderr);
+      for (i = 0; i < data.count; i++)
+	{
+	  fputs (data.paths[i], stderr);
+	  putc ('\n', stderr);
+	}
+      free (data.paths);
+    }
 }
 
 /* Locate HEADER, and determine whether it is newer than the current
@@ -1306,9 +1362,10 @@ _cpp_pop_file_buffer (cpp_reader *pfile, _cpp_file *file)
   /* Invalidate control macros in the #including file.  */
   pfile->mi_valid = false;
 
-  if (file->buffer)
+  if (file->buffer_start)
     {
-      free ((void *) file->buffer);
+      free ((void *) file->buffer_start);
+      file->buffer_start = NULL;
       file->buffer = NULL;
       file->buffer_valid = false;
     }

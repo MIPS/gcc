@@ -5,6 +5,14 @@
 #include <ffi.h>
 #include "fficonfig.h"
 
+#if defined HAVE_STDINT_H
+#include <stdint.h>
+#endif
+
+#if defined HAVE_INTTYPES_H
+#include <inttypes.h>
+#endif
+
 #define MAX_ARGS 256
 
 #define CHECK(x) !(x) ? abort() : 0
@@ -41,6 +49,41 @@
 # endif
 # define USING_MMAP
 
+#endif
+
+/* MinGW kludge.  */
+#ifdef _WIN64
+#define PRIdLL "I64d"
+#define PRIuLL "I64u"
+#else
+#define PRIdLL "lld"
+#define PRIuLL "llu"
+#endif
+
+/* Tru64 UNIX kludge.  */
+#if defined(__alpha__) && defined(__osf__)
+/* Tru64 UNIX V4.0 doesn't support %lld/%lld, but long is 64-bit.  */
+#undef PRIdLL
+#define PRIdLL "ld"
+#undef PRIuLL
+#define PRIuLL "lu"
+#define PRId64 "ld"
+#define PRIu64 "lu"
+#define PRIuPTR "lu"
+#endif
+
+/* PA HP-UX kludge.  */
+#if defined(__hppa__) && defined(__hpux__) && !defined(PRIuPTR)
+#define PRIuPTR "lu"
+#endif
+
+/* Solaris < 10 kludge.  */
+#if defined(__sun__) && defined(__svr4__) && !defined(PRIuPTR)
+#if defined(__arch64__) || defined (__x86_64__)
+#define PRIuPTR "lu"
+#else
+#define PRIuPTR "u"
+#endif
 #endif
 
 #ifdef USING_MMAP

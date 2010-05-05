@@ -1,36 +1,36 @@
-/* Copyright (C) 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
+/* Copyright (C) 2002, 2003, 2004, 2005, 2007, 2008, 2009, 2010
+   Free Software Foundation, Inc.
    Contributed by Andy Vaught
    Namelist input contributed by Paul Thomas
+   F2003 I/O support contributed by Jerry DeLisle
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
 
 Libgfortran is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
-
-In addition to the permissions in the GNU General Public License, the
-Free Software Foundation gives you unlimited permission to link the
-compiled version of this file into combinations with other programs,
-and to distribute those combinations without any restriction coming
-from the use of this file.  (The General Public License restrictions
-do apply in other respects; for example, they cover modification of
-the file, and distribution when not linked into a combine
-executable.)
 
 Libgfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with Libgfortran; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+Under Section 7 of GPL version 3, you are granted additional
+permissions described in the GCC Runtime Library Exception, version
+3.1, as published by the Free Software Foundation.
+
+You should have received a copy of the GNU General Public License and
+a copy of the GCC Runtime Library Exception along with this program;
+see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+<http://www.gnu.org/licenses/>.  */
 
 
 #include "io.h"
+#include "fbuf.h"
+#include "unix.h"
 #include <string.h>
+#include <stdlib.h>
 #include <ctype.h>
 
 
@@ -52,17 +52,21 @@ Boston, MA 02110-1301, USA.  */
                       case '5': case '6': case '7': case '8': case '9'
 
 #define CASE_SEPARATORS  case ' ': case ',': case '/': case '\n': case '\t': \
-                         case '\r'
+                         case '\r': case ';'
 
 /* This macro assumes that we're operating on a variable.  */
 
 #define is_separator(c) (c == '/' ||  c == ',' || c == '\n' || c == ' ' \
-                         || c == '\t' || c == '\r')
+                         || c == '\t' || c == '\r' || c == ';')
 
 /* Maximum repeat count.  Less than ten times the maximum signed int32.  */
 
 #define MAX_REPEAT 200000000
 
+#ifndef HAVE_SNPRINTF
+# undef snprintf
+# define snprintf(str, size, ...) sprintf (str, __VA_ARGS__)
+#endif
 
 /* Save a character to a string buffer, enlarging it as necessary.  */
 
@@ -73,9 +77,8 @@ push_char (st_parameter_dt *dtp, char c)
 
   if (dtp->u.p.saved_string == NULL)
     {
-      if (dtp->u.p.scratch == NULL)
-	dtp->u.p.scratch = get_mem (SCRATCH_SIZE);
-      dtp->u.p.saved_string = dtp->u.p.scratch;
+      dtp->u.p.saved_string = get_mem (SCRATCH_SIZE);
+      // memset below should be commented out.
       memset (dtp->u.p.saved_string, 0, SCRATCH_SIZE);
       dtp->u.p.saved_length = SCRATCH_SIZE;
       dtp->u.p.saved_used = 0;
@@ -84,15 +87,15 @@ push_char (st_parameter_dt *dtp, char c)
   if (dtp->u.p.saved_used >= dtp->u.p.saved_length)
     {
       dtp->u.p.saved_length = 2 * dtp->u.p.saved_length;
-      new = get_mem (2 * dtp->u.p.saved_length);
-
-      memset (new, 0, 2 * dtp->u.p.saved_length);
-
-      memcpy (new, dtp->u.p.saved_string, dtp->u.p.saved_used);
-      if (dtp->u.p.saved_string != dtp->u.p.scratch)
-	free_mem (dtp->u.p.saved_string);
-
+      new = realloc (dtp->u.p.saved_string, dtp->u.p.saved_length);
+      if (new == NULL)
+	generate_error (&dtp->common, LIBERROR_OS, NULL);
       dtp->u.p.saved_string = new;
+      
+      // Also this should not be necessary.
+      memset (new + dtp->u.p.saved_used, 0, 
+	      dtp->u.p.saved_length - dtp->u.p.saved_used);
+
     }
 
   dtp->u.p.saved_string[dtp->u.p.saved_used++] = c;
@@ -107,8 +110,7 @@ free_saved (st_parameter_dt *dtp)
   if (dtp->u.p.saved_string == NULL)
     return;
 
-  if (dtp->u.p.saved_string != dtp->u.p.scratch)
-    free_mem (dtp->u.p.saved_string);
+  free_mem (dtp->u.p.saved_string);
 
   dtp->u.p.saved_string = NULL;
   dtp->u.p.saved_used = 0;
@@ -120,6 +122,9 @@ free_saved (st_parameter_dt *dtp)
 static void
 free_line (st_parameter_dt *dtp)
 {
+  dtp->u.p.item_count = 0;
+  dtp->u.p.line_buffer_enabled = 0;
+
   if (dtp->u.p.line_buffer == NULL)
     return;
 
@@ -131,9 +136,10 @@ free_line (st_parameter_dt *dtp)
 static char
 next_char (st_parameter_dt *dtp)
 {
-  int length;
+  ssize_t length;
   gfc_offset record;
-  char c, *p;
+  char c;
+  int cc;
 
   if (dtp->u.p.last_char != '\0')
     {
@@ -157,8 +163,8 @@ next_char (st_parameter_dt *dtp)
 	  goto done;
 	}
 
-        dtp->u.p.item_count = 0;
-	dtp->u.p.line_buffer_enabled = 0;
+      dtp->u.p.item_count = 0;
+      dtp->u.p.line_buffer_enabled = 0;
     }    
 
   /* Handle the end-of-record and end-of-file conditions for
@@ -171,18 +177,21 @@ next_char (st_parameter_dt *dtp)
       /* Check for "end-of-record" condition.  */
       if (dtp->u.p.current_unit->bytes_left == 0)
 	{
+	  int finished;
+
 	  c = '\n';
-	  record = next_array_record (dtp, dtp->u.p.current_unit->ls);
+	  record = next_array_record (dtp, dtp->u.p.current_unit->ls,
+				      &finished);
 
 	  /* Check for "end-of-file" condition.  */      
-	  if (record == 0)
+	  if (finished)
 	    {
 	      dtp->u.p.at_eof = 1;
 	      goto done;
 	    }
 
 	  record *= dtp->u.p.current_unit->recl;
-	  if (sseek (dtp->u.p.current_unit->s, record) == FAILURE)
+	  if (sseek (dtp->u.p.current_unit->s, record, SEEK_SET) < 0)
 	    longjmp (*dtp->u.p.eof_jump, 1);
 
 	  dtp->u.p.current_unit->bytes_left = dtp->u.p.current_unit->recl;
@@ -192,46 +201,41 @@ next_char (st_parameter_dt *dtp)
 
   /* Get the next character and handle end-of-record conditions.  */
 
-  length = 1;
-
-  p = salloc_r (dtp->u.p.current_unit->s, &length);
-  
-  if (is_stream_io (dtp))
-    dtp->u.p.current_unit->strm_pos++;
-
   if (is_internal_unit (dtp))
     {
-      if (is_array_io (dtp))
-	{
-	  /* End of record is handled in the next pass through, above.  The
-	     check for NULL here is cautionary.  */
-	  if (p == NULL)
-	    {
-	      generate_error (&dtp->common, LIBERROR_INTERNAL_UNIT, NULL);
-	      return '\0';
-	    }
-
-	  dtp->u.p.current_unit->bytes_left--;
-	  c = *p;
-	}
-      else
-	{
-	  if (p == NULL)
-	    longjmp (*dtp->u.p.eof_jump, 1);
-	  if (length == 0)
-	    c = '\n';
-	  else
-	    c = *p;
-	}
-    }
-  else
-    {
-      if (p == NULL)
+      length = sread (dtp->u.p.current_unit->s, &c, 1);
+      if (length < 0)
 	{
 	  generate_error (&dtp->common, LIBERROR_OS, NULL);
 	  return '\0';
 	}
-      if (length == 0)
+  
+      if (is_array_io (dtp))
+	{
+	  /* Check whether we hit EOF.  */ 
+	  if (length == 0)
+	    {
+	      generate_error (&dtp->common, LIBERROR_INTERNAL_UNIT, NULL);
+	      return '\0';
+	    } 
+	  dtp->u.p.current_unit->bytes_left--;
+	}
+      else
+	{
+	  if (dtp->u.p.at_eof) 
+	    longjmp (*dtp->u.p.eof_jump, 1);
+	  if (length == 0)
+	    {
+	      c = '\n';
+	      dtp->u.p.at_eof = 1;
+	    }
+	}
+    }
+  else
+    {
+      cc = fbuf_getc (dtp->u.p.current_unit);
+
+      if (cc == EOF)
 	{
 	  if (dtp->u.p.current_unit->endfile == AT_ENDFILE)
 	    longjmp (*dtp->u.p.eof_jump, 1);
@@ -239,7 +243,10 @@ next_char (st_parameter_dt *dtp)
 	  c = '\n';
 	}
       else
-	c = *p;
+	c = (char) cc;
+      if (is_stream_io (dtp) && cc != EOF)
+	dtp->u.p.current_unit->strm_pos++;
+
     }
 done:
   dtp->u.p.at_eol = (c == '\n' || c == '\r');
@@ -275,6 +282,20 @@ eat_spaces (st_parameter_dt *dtp)
 }
 
 
+/* This function reads characters through to the end of the current line and
+   just ignores them.  */
+
+static void
+eat_line (st_parameter_dt *dtp)
+{
+  char c;
+
+  do
+    c = next_char (dtp);
+  while (c != '\n');
+}
+
+
 /* Skip over a separator.  Technically, we don't always eat the whole
    separator.  This is because if we've processed the last input item,
    then a separator is unnecessary.  Plus the fact that operating
@@ -298,6 +319,13 @@ eat_separator (st_parameter_dt *dtp)
   switch (c)
     {
     case ',':
+      if (dtp->u.p.current_unit->decimal_status == DECIMAL_COMMA)
+	{
+	  unget_char (dtp, c);
+	  break;
+	}
+      /* Fall through.  */
+    case ';':
       dtp->u.p.comma_flag = 1;
       eat_spaces (dtp);
       break;
@@ -307,15 +335,35 @@ eat_separator (st_parameter_dt *dtp)
       break;
 
     case '\r':
+      dtp->u.p.at_eol = 1;
       n = next_char(dtp);
-      if (n == '\n')
-	dtp->u.p.at_eol = 1;
-      else
-	unget_char (dtp, n);
-      break;
-
+      if (n != '\n')
+	{
+	  unget_char (dtp, n);
+	  break;
+	}
+    /* Fall through.  */
     case '\n':
       dtp->u.p.at_eol = 1;
+      if (dtp->u.p.namelist_mode)
+	{
+	  do
+	    {
+	      c = next_char (dtp);
+	      if (c == '!')
+		{
+		  eat_line (dtp);
+		  c = next_char (dtp);
+		  if (c == '!')
+		    {
+		      eat_line (dtp);
+		      c = next_char (dtp);
+		    }
+		}
+	    }
+	  while (c == '\n' || c == '\r' || c == ' ' || c == '\t');
+	  unget_char (dtp, c);
+	}
       break;
 
     case '!':
@@ -388,20 +436,6 @@ finish_separator (st_parameter_dt *dtp)
       unget_char (dtp, c);
       break;
     }
-}
-
-
-/* This function reads characters through to the end of the current line and
-   just ignores them.  */
-
-static void
-eat_line (st_parameter_dt *dtp)
-{
-  char c;
-  if (!is_internal_unit (dtp))
-    do
-      c = next_char (dtp);
-    while (c != '\n');
 }
 
 
@@ -627,6 +661,7 @@ read_logical (st_parameter_dt *dtp, int length)
 
       unget_char (dtp, c);
       break;
+
     case '.':
       c = tolower (next_char (dtp));
       switch (c)
@@ -649,6 +684,9 @@ read_logical (st_parameter_dt *dtp, int length)
       return;			/* Null value.  */
 
     default:
+      /* Save the character in case it is the beginning
+	 of the next object name. */
+      unget_char (dtp, c);
       goto bad_logical;
     }
 
@@ -664,8 +702,6 @@ read_logical (st_parameter_dt *dtp, int length)
 
   unget_char (dtp, c);
   eat_separator (dtp);
-  dtp->u.p.item_count = 0;
-  dtp->u.p.line_buffer_enabled = 0;
   set_integer ((int *) dtp->u.p.value, v, length);
   free_line (dtp);
 
@@ -719,8 +755,6 @@ read_logical (st_parameter_dt *dtp, int length)
 
  logical_done:
 
-  dtp->u.p.item_count = 0;
-  dtp->u.p.line_buffer_enabled = 0;
   dtp->u.p.saved_type = BT_LOGICAL;
   dtp->u.p.saved_length = length;
   set_integer ((int *) dtp->u.p.value, v, length);
@@ -895,52 +929,8 @@ read_character (st_parameter_dt *dtp, int length __attribute__ ((unused)))
     default:
       if (dtp->u.p.namelist_mode)
 	{
-	  if (dtp->u.p.current_unit->flags.delim == DELIM_APOSTROPHE
-	      || dtp->u.p.current_unit->flags.delim == DELIM_QUOTE
-	      || c == '&' || c == '$' || c == '/')
-	    {
-	      unget_char (dtp, c);
-	      return;
-	    }
-
-	  /* Check to see if we are seeing a namelist object name by using the
-	     line buffer and looking ahead for an '=' or '('.  */
-	  l_push_char (dtp, c);
-
-	  int i;
-	  for(i = 0; i < 63; i++)
-	    {
-	      c = next_char (dtp);
-	      if (is_separator(c))
-		{
-		  unget_char (dtp, c);
-		  eat_separator (dtp);
-		  c = next_char (dtp);
-		  if (c != '=')
-		    {
-		      l_push_char (dtp, c);
-		      dtp->u.p.item_count = 0;
-		      dtp->u.p.line_buffer_enabled = 1;
-		      goto get_string;
-		    }
-		}
-
-	      l_push_char (dtp, c);
-
-	      if (c == '=' || c == '(')
-		{
-		  dtp->u.p.item_count = 0;
-		  dtp->u.p.nml_read_error = 1;
-		  dtp->u.p.line_buffer_enabled = 1;
-		  return;
-		}
-	    }
-
-	  /* The string is too long to be a valid object name so assume that it
-	     is a string to be read in as a value.  */
-	  dtp->u.p.item_count = 0;
-	  dtp->u.p.line_buffer_enabled = 1;
-	  goto get_string;
+	  unget_char (dtp, c);
+	  return;
 	}
 
       push_char (dtp, c);
@@ -1044,7 +1034,7 @@ read_character (st_parameter_dt *dtp, int length __attribute__ ((unused)))
      invalid.  */
  done:
   c = next_char (dtp);
-  if (is_separator (c))
+  if (is_separator (c) || c == '!')
     {
       unget_char (dtp, c);
       eat_separator (dtp);
@@ -1077,6 +1067,9 @@ parse_real (st_parameter_dt *dtp, void *buffer, int length)
       c = next_char (dtp);
     }
 
+  if (c == ',' && dtp->u.p.current_unit->decimal_status == DECIMAL_COMMA)
+    c = '.';
+  
   if (!isdigit (c) && c != '.')
     {
       if (c == 'i' || c == 'I' || c == 'n' || c == 'N')
@@ -1092,6 +1085,8 @@ parse_real (st_parameter_dt *dtp, void *buffer, int length)
   for (;;)
     {
       c = next_char (dtp);
+      if (c == ',' && dtp->u.p.current_unit->decimal_status == DECIMAL_COMMA)
+	c = '.';
       switch (c)
 	{
 	CASE_DIGITS:
@@ -1141,12 +1136,7 @@ parse_real (st_parameter_dt *dtp, void *buffer, int length)
 
  exp2:
   if (!isdigit (c))
-    {
-      if (c == 'i' || c == 'I' || c == 'n' || c == 'N')
-	goto inf_nan;
-      else
-	goto bad;
-    }
+    goto bad;
 
   push_char (dtp, c);
 
@@ -1231,7 +1221,7 @@ parse_real (st_parameter_dt *dtp, void *buffer, int length)
    what it is right away.  */
 
 static void
-read_complex (st_parameter_dt *dtp, int kind, size_t size)
+read_complex (st_parameter_dt *dtp, void * dest, int kind, size_t size)
 {
   char message[100];
   char c;
@@ -1255,7 +1245,7 @@ read_complex (st_parameter_dt *dtp, int kind, size_t size)
     }
 
   eat_spaces (dtp);
-  if (parse_real (dtp, dtp->u.p.value, kind))
+  if (parse_real (dtp, dest, kind))
     return;
 
 eol_1:
@@ -1266,7 +1256,8 @@ eol_1:
   else
     unget_char (dtp, c);
 
-  if (next_char (dtp) != ',')
+  if (next_char (dtp)
+      !=  (dtp->u.p.current_unit->decimal_status == DECIMAL_POINT ? ',' : ';'))
     goto bad_complex;
 
 eol_2:
@@ -1277,7 +1268,7 @@ eol_2:
   else
     unget_char (dtp, c);
 
-  if (parse_real (dtp, dtp->u.p.value + size / 2, kind))
+  if (parse_real (dtp, dest + size / 2, kind))
     return;
 
   eat_spaces (dtp);
@@ -1311,14 +1302,17 @@ eol_2:
 /* Parse a real number with a possible repeat count.  */
 
 static void
-read_real (st_parameter_dt *dtp, int length)
+read_real (st_parameter_dt *dtp, void * dest, int length)
 {
   char c, message[100];
   int seen_dp;
+  int is_inf;
 
   seen_dp = 0;
 
   c = next_char (dtp);
+  if (c == ',' && dtp->u.p.current_unit->decimal_status == DECIMAL_COMMA)
+    c = '.';
   switch (c)
     {
     CASE_DIGITS:
@@ -1354,6 +1348,8 @@ read_real (st_parameter_dt *dtp, int length)
   for (;;)
     {
       c = next_char (dtp);
+      if (c == ',' && dtp->u.p.current_unit->decimal_status == DECIMAL_COMMA)
+	c = '.';
       switch (c)
 	{
 	CASE_DIGITS:
@@ -1361,8 +1357,8 @@ read_real (st_parameter_dt *dtp, int length)
 	  break;
 
 	case '.':
-          if (seen_dp)
-            goto bad_real;
+	  if (seen_dp)
+	    goto bad_real;
 
 	  seen_dp = 1;
 	  push_char (dtp, c);
@@ -1386,7 +1382,7 @@ read_real (st_parameter_dt *dtp, int length)
 	  goto got_repeat;
 
 	CASE_SEPARATORS:
-          if (c != '\n' &&  c != ',' && c != '\r')
+          if (c != '\n' && c != ',' && c != '\r' && c != ';')
 	    unget_char (dtp, c);
 	  goto done;
 
@@ -1418,6 +1414,9 @@ read_real (st_parameter_dt *dtp, int length)
       c = next_char (dtp);
     }
 
+  if (c == ',' && dtp->u.p.current_unit->decimal_status == DECIMAL_COMMA)
+    c = '.';
+
   if (!isdigit (c) && c != '.')
     {
       if (c == 'i' || c == 'I' || c == 'n' || c == 'N')
@@ -1440,6 +1439,8 @@ read_real (st_parameter_dt *dtp, int length)
   for (;;)
     {
       c = next_char (dtp);
+      if (c == ',' && dtp->u.p.current_unit->decimal_status == DECIMAL_COMMA)
+	c = '.';
       switch (c)
 	{
 	CASE_DIGITS:
@@ -1514,7 +1515,7 @@ read_real (st_parameter_dt *dtp, int length)
   unget_char (dtp, c);
   eat_separator (dtp);
   push_char (dtp, '\0');
-  if (convert_real (dtp, dtp->u.p.value, dtp->u.p.saved_string, length))
+  if (convert_real (dtp, dest, dtp->u.p.saved_string, length))
     return;
 
   free_saved (dtp);
@@ -1522,34 +1523,102 @@ read_real (st_parameter_dt *dtp, int length)
   return;
 
  inf_nan:
+  l_push_char (dtp, c);
+  is_inf = 0;
+
   /* Match INF and Infinity.  */
-  if ((c == 'i' || c == 'I')
-      && ((c = next_char (dtp)) == 'n' || c == 'N')
-      && ((c = next_char (dtp)) == 'f' || c == 'F'))
+  if (c == 'i' || c == 'I')
     {
-	c = next_char (dtp);
-	if (is_separator (c)
-	    || ((c == 'i' || c == 'I')
-		&& ((c = next_char (dtp)) == 'n' || c == 'N')
-		&& ((c = next_char (dtp)) == 'i' || c == 'I')
-		&& ((c = next_char (dtp)) == 't' || c == 'T')
-		&& ((c = next_char (dtp)) == 'y' || c == 'Y')
-		&& (c = next_char (dtp)) && is_separator (c)))
-	  {
-	     push_char (dtp, 'i');
-	     push_char (dtp, 'n');
-	     push_char (dtp, 'f');
-	     goto done;
-	  }
+      c = next_char (dtp);
+      l_push_char (dtp, c);
+      if (c != 'n' && c != 'N')
+	goto unwind;
+      c = next_char (dtp);
+      l_push_char (dtp, c);
+      if (c != 'f' && c != 'F')
+	goto unwind;
+      c = next_char (dtp);
+      l_push_char (dtp, c);
+      if (!is_separator (c))
+	{
+	  if (c != 'i' && c != 'I')
+	    goto unwind;
+	  c = next_char (dtp);
+	  l_push_char (dtp, c);
+	  if (c != 'n' && c != 'N')
+	    goto unwind;
+	  c = next_char (dtp);
+	  l_push_char (dtp, c);
+	  if (c != 'i' && c != 'I')
+	    goto unwind;
+	  c = next_char (dtp);
+	  l_push_char (dtp, c);
+	  if (c != 't' && c != 'T')
+	    goto unwind;
+	  c = next_char (dtp);
+	  l_push_char (dtp, c);
+	  if (c != 'y' && c != 'Y')
+	    goto unwind;
+	  c = next_char (dtp);
+	  l_push_char (dtp, c);
+	}
+	is_inf = 1;
     } /* Match NaN.  */
-  else if (((c = next_char (dtp)) == 'a' || c == 'A')
-	   && ((c = next_char (dtp)) == 'n' || c == 'N')
-	   && (c = next_char (dtp)) && is_separator (c))
+  else
+    {
+      c = next_char (dtp);
+      l_push_char (dtp, c);
+      if (c != 'a' && c != 'A')
+	goto unwind;
+      c = next_char (dtp);
+      l_push_char (dtp, c);
+      if (c != 'n' && c != 'N')
+	goto unwind;
+      c = next_char (dtp);
+      l_push_char (dtp, c);
+    }
+
+  if (!is_separator (c))
+    goto unwind;
+
+  if (dtp->u.p.namelist_mode)
+    {	
+      if (c == ' ' || c =='\n' || c == '\r')
+	{
+	  do
+	    c = next_char (dtp);
+	  while (c == ' ' || c =='\n' || c == '\r');
+
+	  l_push_char (dtp, c);
+
+	  if (c == '=')
+	    goto unwind;
+	}
+    }
+
+  if (is_inf)
+    {
+      push_char (dtp, 'i');
+      push_char (dtp, 'n');
+      push_char (dtp, 'f');
+    }
+  else
     {
       push_char (dtp, 'n');
       push_char (dtp, 'a');
       push_char (dtp, 'n');
-      goto done;
+    }
+
+  free_line (dtp);
+  goto done;
+
+ unwind:
+  if (dtp->u.p.namelist_mode)
+    {
+      dtp->u.p.nml_read_error = 1;
+      dtp->u.p.line_buffer_enabled = 1;
+      dtp->u.p.item_count = 0;
+      return;
     }
 
  bad_real:
@@ -1606,11 +1675,12 @@ check_type (st_parameter_dt *dtp, bt type, int len)
    greater than one, we copy the data item multiple times.  */
 
 static void
-list_formatted_read_scalar (st_parameter_dt *dtp, bt type, void *p, int kind,
-			    size_t size)
+list_formatted_read_scalar (st_parameter_dt *dtp, volatile bt type, void *p,
+			    int kind, size_t size)
 {
   char c;
-  int m;
+  gfc_char4_t *q;
+  int i, m;
   jmp_buf eof_jump;
 
   dtp->u.p.namelist_mode = 0;
@@ -1619,6 +1689,11 @@ list_formatted_read_scalar (st_parameter_dt *dtp, bt type, void *p, int kind,
   if (setjmp (eof_jump))
     {
       generate_error (&dtp->common, LIBERROR_END, NULL);
+      if (!is_internal_unit (dtp))
+	{
+	  dtp->u.p.current_unit->endfile = AFTER_ENDFILE;
+	  dtp->u.p.current_unit->current_record = 0;
+	}
       goto cleanup;
     }
 
@@ -1628,7 +1703,7 @@ list_formatted_read_scalar (st_parameter_dt *dtp, bt type, void *p, int kind,
       dtp->u.p.input_complete = 0;
       dtp->u.p.repeat_count = 1;
       dtp->u.p.at_eol = 0;
-
+      
       c = eat_spaces (dtp);
       if (is_separator (c))
 	{
@@ -1650,15 +1725,15 @@ list_formatted_read_scalar (st_parameter_dt *dtp, bt type, void *p, int kind,
     }
   else
     {
-      if (dtp->u.p.input_complete)
-	goto cleanup;
-
       if (dtp->u.p.repeat_count > 0)
 	{
 	  if (check_type (dtp, type, kind))
 	    return;
 	  goto set_value;
 	}
+	
+      if (dtp->u.p.input_complete)
+	goto cleanup;
 
       if (dtp->u.p.at_eol)
 	finish_separator (dtp);
@@ -1686,10 +1761,16 @@ list_formatted_read_scalar (st_parameter_dt *dtp, bt type, void *p, int kind,
       read_character (dtp, kind);
       break;
     case BT_REAL:
-      read_real (dtp, kind);
+      read_real (dtp, p, kind);
+      /* Copy value back to temporary if needed.  */
+      if (dtp->u.p.repeat_count > 0)
+	memcpy (dtp->u.p.value, p, kind);
       break;
     case BT_COMPLEX:
-      read_complex (dtp, kind, size);
+      read_complex (dtp, p, kind, size);
+      /* Copy value back to temporary if needed.  */
+      if (dtp->u.p.repeat_count > 0)
+	memcpy (dtp->u.p.value, p, size);
       break;
     default:
       internal_error (&dtp->common, "Bad type for list read");
@@ -1705,25 +1786,45 @@ list_formatted_read_scalar (st_parameter_dt *dtp, bt type, void *p, int kind,
   switch (dtp->u.p.saved_type)
     {
     case BT_COMPLEX:
-    case BT_INTEGER:
     case BT_REAL:
+      if (dtp->u.p.repeat_count > 0)
+	memcpy (p, dtp->u.p.value, size);
+      break;
+
+    case BT_INTEGER:
     case BT_LOGICAL:
       memcpy (p, dtp->u.p.value, size);
       break;
 
     case BT_CHARACTER:
       if (dtp->u.p.saved_string)
-       {
+	{
 	  m = ((int) size < dtp->u.p.saved_used)
 	      ? (int) size : dtp->u.p.saved_used;
-	  memcpy (p, dtp->u.p.saved_string, m);
-       }
+	  if (kind == 1)
+	    memcpy (p, dtp->u.p.saved_string, m);
+	  else
+	    {
+	      q = (gfc_char4_t *) p;
+	      for (i = 0; i < m; i++)
+		q[i] = (unsigned char) dtp->u.p.saved_string[i];
+	    }
+	}
       else
 	/* Just delimiters encountered, nothing to copy but SPACE.  */
         m = 0;
 
       if (m < (int) size)
-	memset (((char *) p) + m, ' ', size - m);
+	{
+	  if (kind == 1)
+	    memset (((char *) p) + m, ' ', size - m);
+	  else
+	    {
+	      q = (gfc_char4_t *) p;
+	      for (i = m; i < (int) size; i++)
+		q[i] = (unsigned char) ' ';
+	    }
+	}
       break;
 
     case BT_NULL:
@@ -1744,6 +1845,8 @@ list_formatted_read (st_parameter_dt *dtp, bt type, void *p, int kind,
 {
   size_t elem;
   char *tmp;
+  size_t stride = type == BT_CHARACTER ?
+		  size * GFC_SIZE_OF_CHAR_KIND(kind) : size;
 
   tmp = (char *) p;
 
@@ -1751,7 +1854,7 @@ list_formatted_read (st_parameter_dt *dtp, bt type, void *p, int kind,
   for (elem = 0; elem < nelems; elem++)
     {
       dtp->u.p.item_count++;
-      list_formatted_read_scalar (dtp, type, tmp + size*elem, kind, size);
+      list_formatted_read_scalar (dtp, type, tmp + stride*elem, kind, size);
     }
 }
 
@@ -1765,6 +1868,8 @@ finish_list_read (st_parameter_dt *dtp)
 
   free_saved (dtp);
 
+  fbuf_flush (dtp->u.p.current_unit, dtp->u.p.mode);
+
   if (dtp->u.p.at_eol)
     {
       dtp->u.p.at_eol = 0;
@@ -1776,6 +1881,13 @@ finish_list_read (st_parameter_dt *dtp)
       c = next_char (dtp);
     }
   while (c != '\n');
+
+  if (dtp->u.p.current_unit->endfile != NO_ENDFILE)
+    {
+      generate_error (&dtp->common, LIBERROR_END, NULL);
+      dtp->u.p.current_unit->endfile = AFTER_ENDFILE;
+      dtp->u.p.current_unit->current_record = 0;
+    }
 }
 
 /*			NAMELIST INPUT
@@ -1785,7 +1897,7 @@ calls:
    static void nml_match_name (char *name, int len)
    static int nml_query (st_parameter_dt *dtp)
    static int nml_get_obj_data (st_parameter_dt *dtp,
-				namelist_info **prev_nl, char *)
+				namelist_info **prev_nl, char *, size_t)
 calls:
       static void nml_untouch_nodes (st_parameter_dt *dtp)
       static namelist_info * find_nml_node (st_parameter_dt *dtp,
@@ -1794,7 +1906,7 @@ calls:
 				     array_loop_spec * ls, int rank, char *)
       static void nml_touch_nodes (namelist_info * nl)
       static int nml_read_obj (namelist_info *nl, index_type offset,
-			       namelist_info **prev_nl, char *,
+			       namelist_info **prev_nl, char *, size_t,
 			       index_type clow, index_type chigh)
 calls:
       -itself-  */
@@ -1979,11 +2091,19 @@ nml_parse_qualifier (st_parameter_dt *dtp, descriptor_dimension *ad,
 	    }
 	}
 
+      if (is_array_section == 1 && dtp->u.p.expanded_read == 1)
+     	{
+	  int i;
+	  dtp->u.p.expanded_read = 0;
+	  for (i = 0; i < dim; i++)
+	    ls[i].end = ls[i].start;
+      	}
+
       /* Check the values of the triplet indices.  */
-      if ((ls[dim].start > (ssize_t)ad[dim].ubound)
-	  || (ls[dim].start < (ssize_t)ad[dim].lbound)
-	  || (ls[dim].end > (ssize_t)ad[dim].ubound)
-	  || (ls[dim].end < (ssize_t)ad[dim].lbound))
+      if ((ls[dim].start > (ssize_t) GFC_DIMENSION_UBOUND(ad[dim]))
+	   || (ls[dim].start < (ssize_t) GFC_DIMENSION_LBOUND(ad[dim]))
+	   || (ls[dim].end > (ssize_t) GFC_DIMENSION_UBOUND(ad[dim]))
+	   || (ls[dim].end < (ssize_t) GFC_DIMENSION_LBOUND(ad[dim])))
 	{
 	  if (is_char)
 	    sprintf (parse_err_msg, "Substring out of range");
@@ -2047,8 +2167,8 @@ nml_touch_nodes (namelist_info * nl)
 	  for (dim=0; dim < nl->var_rank; dim++)
 	    {
 	      nl->ls[dim].step = 1;
-	      nl->ls[dim].end = nl->dim[dim].ubound;
-	      nl->ls[dim].start = nl->dim[dim].lbound;
+	      nl->ls[dim].end = GFC_DESCRIPTOR_UBOUND(nl,dim);
+	      nl->ls[dim].start = GFC_DESCRIPTOR_LBOUND(nl,dim);
 	      nl->ls[dim].idx = nl->ls[dim].start;
 	    }
 	}
@@ -2103,6 +2223,15 @@ nml_query (st_parameter_dt *dtp, char c)
   namelist_info * nl;
   index_type len;
   char * p;
+#ifdef HAVE_CRLF
+  static const index_type endlen = 3;
+  static const char endl[] = "\r\n";
+  static const char nmlend[] = "&end\r\n";
+#else
+  static const index_type endlen = 2;
+  static const char endl[] = "\n";
+  static const char nmlend[] = "&end\n";
+#endif
 
   if (dtp->u.p.current_unit->unit_number != options.stdin_unit)
     return;
@@ -2129,60 +2258,36 @@ nml_query (st_parameter_dt *dtp, char c)
 	  /* "&namelist_name\n"  */
 
 	  len = dtp->namelist_name_len;
-#ifdef HAVE_CRLF
-	  p = write_block (dtp, len + 3);
-#else
-	  p = write_block (dtp, len + 2);
-#endif
-	  if (!p)
-	    goto query_return;
+	  p = write_block (dtp, len + endlen);
+          if (!p)
+            goto query_return;
 	  memcpy (p, "&", 1);
 	  memcpy ((char*)(p + 1), dtp->namelist_name, len);
-#ifdef HAVE_CRLF
-	  memcpy ((char*)(p + len + 1), "\r\n", 2);
-#else
-	  memcpy ((char*)(p + len + 1), "\n", 1);
-#endif
+	  memcpy ((char*)(p + len + 1), &endl, endlen - 1);
 	  for (nl = dtp->u.p.ionml; nl; nl = nl->next)
 	    {
 	      /* " var_name\n"  */
 
 	      len = strlen (nl->var_name);
-#ifdef HAVE_CRLF
-	      p = write_block (dtp, len + 3);
-#else
-	      p = write_block (dtp, len + 2);
-#endif
+              p = write_block (dtp, len + endlen);
 	      if (!p)
 		goto query_return;
 	      memcpy (p, " ", 1);
 	      memcpy ((char*)(p + 1), nl->var_name, len);
-#ifdef HAVE_CRLF
-	      memcpy ((char*)(p + len + 1), "\r\n", 2);
-#else
-	      memcpy ((char*)(p + len + 1), "\n", 1);
-#endif
+	      memcpy ((char*)(p + len + 1), &endl, endlen - 1);
 	    }
 
 	  /* "&end\n"  */
 
-#ifdef HAVE_CRLF
-	  p = write_block (dtp, 6);
-#else
-	  p = write_block (dtp, 5);
-#endif
-	  if (!p)
+          p = write_block (dtp, endlen + 3);
 	    goto query_return;
-#ifdef HAVE_CRLF
-	  memcpy (p, "&end\r\n", 6);
-#else
-	  memcpy (p, "&end\n", 5);
-#endif
+          memcpy (p, &nmlend, endlen + 3);
 	}
 
       /* Flush the stream to force immediate output.  */
 
-      flush (dtp->u.p.current_unit->s);
+      fbuf_flush (dtp->u.p.current_unit, WRITING);
+      sflush (dtp->u.p.current_unit->s);
       unlock_unit (dtp->u.p.current_unit);
     }
 
@@ -2208,7 +2313,7 @@ query_return:
 static try
 nml_read_obj (st_parameter_dt *dtp, namelist_info * nl, index_type offset,
 	      namelist_info **pprev_nl, char *nml_err_msg,
-	      index_type clow, index_type chigh)
+	      size_t nml_err_msg_size, index_type clow, index_type chigh)
 {
   namelist_info * cmp;
   char * obj_name;
@@ -2217,7 +2322,7 @@ nml_read_obj (st_parameter_dt *dtp, namelist_info * nl, index_type offset,
   int dim;
   index_type dlen;
   index_type m;
-  index_type obj_name_len;
+  size_t obj_name_len;
   void * pdata;
 
   /* This object not touched in name parsing.  */
@@ -2258,8 +2363,9 @@ nml_read_obj (st_parameter_dt *dtp, namelist_info * nl, index_type offset,
 
       pdata = (void*)(nl->mem_pos + offset);
       for (dim = 0; dim < nl->var_rank; dim++)
-	pdata = (void*)(pdata + (nl->ls[dim].idx - nl->dim[dim].lbound) *
-		 nl->dim[dim].stride * nl->size);
+	pdata = (void*)(pdata + (nl->ls[dim].idx
+				 - GFC_DESCRIPTOR_LBOUND(nl,dim))
+			* GFC_DESCRIPTOR_STRIDE(nl,dim) * nl->size);
 
       /* Reset the error flag and try to read next value, if
 	 dtp->u.p.repeat_count=0  */
@@ -2275,10 +2381,10 @@ nml_read_obj (st_parameter_dt *dtp, namelist_info * nl, index_type offset,
 	  if (dtp->u.p.input_complete)
 	    return SUCCESS;
 
-	  /* GFC_TYPE_UNKNOWN through for nulls and is detected
-	     after the switch block.  */
+	  /* BT_NULL (equivalent to GFC_DTYPE_UNKNOWN) falls through
+	     for nulls and is detected at default: of switch block.  */
 
-	  dtp->u.p.saved_type = GFC_DTYPE_UNKNOWN;
+	  dtp->u.p.saved_type = BT_NULL;
 	  free_saved (dtp);
 
           switch (nl->type)
@@ -2296,12 +2402,17 @@ nml_read_obj (st_parameter_dt *dtp, namelist_info * nl, index_type offset,
               break;
 
 	  case GFC_DTYPE_REAL:
-	      read_real (dtp, len);
-              break;
+	    /* Need to copy data back from the real location to the temp in order
+	       to handle nml reads into arrays.  */
+	    read_real (dtp, pdata, len);
+	    memcpy (dtp->u.p.value, pdata, dlen);
+	    break;
 
 	  case GFC_DTYPE_COMPLEX:
-              read_complex (dtp, len, dlen);
-              break;
+	    /* Same as for REAL, copy back to temp.  */
+	    read_complex (dtp, pdata, len, dlen);
+	    memcpy (dtp->u.p.value, pdata, dlen);
+	    break;
 
 	  case GFC_DTYPE_DERIVED:
 	    obj_name_len = strlen (nl->var_name) + 1;
@@ -2326,8 +2437,8 @@ nml_read_obj (st_parameter_dt *dtp, namelist_info * nl, index_type offset,
 	      {
 
 		if (nml_read_obj (dtp, cmp, (index_type)(pdata - nl->mem_pos),
-				  pprev_nl, nml_err_msg, clow, chigh)
-		    == FAILURE)
+				  pprev_nl, nml_err_msg, nml_err_msg_size,
+				  clow, chigh) == FAILURE)
 		  {
 		    free_mem (obj_name);
 		    return FAILURE;
@@ -2344,8 +2455,8 @@ nml_read_obj (st_parameter_dt *dtp, namelist_info * nl, index_type offset,
 	    goto incr_idx;
 
           default:
-	    sprintf (nml_err_msg, "Bad type for namelist object %s",
-			nl->var_name);
+	    snprintf (nml_err_msg, nml_err_msg_size,
+		      "Bad type for namelist object %s", nl->var_name);
 	    internal_error (&dtp->common, nml_err_msg);
 	    goto nml_err_ret;
           }
@@ -2363,7 +2474,7 @@ nml_read_obj (st_parameter_dt *dtp, namelist_info * nl, index_type offset,
 	  return SUCCESS;
 	}
 
-      if (dtp->u.p.saved_type == GFC_DTYPE_UNKNOWN)
+      if (dtp->u.p.saved_type == BT_NULL)
 	{
 	  dtp->u.p.expanded_read = 0;
 	  goto incr_idx;
@@ -2433,9 +2544,9 @@ incr_idx:
 
   if (dtp->u.p.repeat_count > 1)
     {
-       sprintf (nml_err_msg, "Repeat count too large for namelist object %s" ,
-		   nl->var_name );
-       goto nml_err_ret;
+      snprintf (nml_err_msg, nml_err_msg_size,
+		"Repeat count too large for namelist object %s", nl->var_name);
+      goto nml_err_ret;
     }
   return SUCCESS;
 
@@ -2453,15 +2564,14 @@ nml_err_ret:
 
 static try
 nml_get_obj_data (st_parameter_dt *dtp, namelist_info **pprev_nl,
-		  char *nml_err_msg)
+		  char *nml_err_msg, size_t nml_err_msg_size)
 {
   char c;
   namelist_info * nl;
   namelist_info * first_nl = NULL;
   namelist_info * root_nl = NULL;
   int dim, parsed_rank;
-  int component_flag;
-  char parse_err_msg[30];
+  int component_flag, qualifier_flag;
   index_type clow, chigh;
   int non_zero_rank_count;
 
@@ -2510,11 +2620,12 @@ nml_get_obj_data (st_parameter_dt *dtp, namelist_info **pprev_nl,
       break;
     }
 
-  /* Untouch all nodes of the namelist and reset the flag that is set for
+  /* Untouch all nodes of the namelist and reset the flags that are set for
      derived type components.  */
 
   nml_untouch_nodes (dtp);
   component_flag = 0;
+  qualifier_flag = 0;
   non_zero_rank_count = 0;
 
   /* Get the object name - should '!' and '\n' be permitted separators?  */
@@ -2525,7 +2636,8 @@ get_name:
 
   do
     {
-      push_char (dtp, tolower(c));
+      if (!is_separator (c))
+	push_char (dtp, tolower(c));
       c = next_char (dtp);
     } while (!( c=='=' || c==' ' || c=='\t' || c =='(' || c =='%' ));
 
@@ -2559,12 +2671,13 @@ get_name:
   if (nl == NULL)
     {
       if (dtp->u.p.nml_read_error && *pprev_nl)
-	sprintf (nml_err_msg, "Bad data for namelist object %s",
-		    (*pprev_nl)->var_name);
+	snprintf (nml_err_msg, nml_err_msg_size,
+		  "Bad data for namelist object %s", (*pprev_nl)->var_name);
 
       else
-	sprintf (nml_err_msg, "Cannot match namelist object name %s",
-		    dtp->u.p.saved_string);
+	snprintf (nml_err_msg, nml_err_msg_size,
+		  "Cannot match namelist object name %s",
+		  dtp->u.p.saved_string);
 
       goto nml_err_ret;
     }
@@ -2575,8 +2688,8 @@ get_name:
   for (dim=0; dim < nl->var_rank; dim++)
     {
       nl->ls[dim].step = 1;
-      nl->ls[dim].end = nl->dim[dim].ubound;
-      nl->ls[dim].start = nl->dim[dim].lbound;
+      nl->ls[dim].end = GFC_DESCRIPTOR_UBOUND(nl,dim);
+      nl->ls[dim].start = GFC_DESCRIPTOR_LBOUND(nl,dim);
       nl->ls[dim].idx = nl->ls[dim].start;
     }
 
@@ -2586,15 +2699,18 @@ get_name:
     {
       parsed_rank = 0;
       if (nml_parse_qualifier (dtp, nl->dim, nl->ls, nl->var_rank,
-			       parse_err_msg, &parsed_rank) == FAILURE)
+			       nml_err_msg, &parsed_rank) == FAILURE)
 	{
-	  sprintf (nml_err_msg, "%s for namelist variable %s",
-		      parse_err_msg, nl->var_name);
+	  char *nml_err_msg_end = strchr (nml_err_msg, '\0');
+	  snprintf (nml_err_msg_end,
+		    nml_err_msg_size - (nml_err_msg_end - nml_err_msg),
+		    " for namelist variable %s", nl->var_name);
 	  goto nml_err_ret;
 	}
-
       if (parsed_rank > 0)
 	non_zero_rank_count++;
+
+      qualifier_flag = 1;
 
       c = next_char (dtp);
       unget_char (dtp, c);
@@ -2610,8 +2726,8 @@ get_name:
     {
       if (nl->type != GFC_DTYPE_DERIVED)
 	{
-	  sprintf (nml_err_msg, "Attempt to get derived component for %s",
-		      nl->var_name);
+	  snprintf (nml_err_msg, nml_err_msg_size,
+		    "Attempt to get derived component for %s", nl->var_name);
 	  goto nml_err_ret;
 	}
 
@@ -2620,6 +2736,7 @@ get_name:
 
       root_nl = nl;
       component_flag = 1;
+
       c = next_char (dtp);
       goto get_name;
     }
@@ -2635,11 +2752,13 @@ get_name:
       descriptor_dimension chd[1] = { {1, clow, nl->string_length} };
       array_loop_spec ind[1] = { {1, clow, nl->string_length, 1} };
 
-      if (nml_parse_qualifier (dtp, chd, ind, -1, parse_err_msg, &parsed_rank)
+      if (nml_parse_qualifier (dtp, chd, ind, -1, nml_err_msg, &parsed_rank)
 	  == FAILURE)
 	{
-	  sprintf (nml_err_msg, "%s for namelist variable %s",
-		      parse_err_msg, nl->var_name);
+	  char *nml_err_msg_end = strchr (nml_err_msg, '\0');
+	  snprintf (nml_err_msg_end,
+		    nml_err_msg_size - (nml_err_msg_end - nml_err_msg),
+		    " for namelist variable %s", nl->var_name);
 	  goto nml_err_ret;
 	}
 
@@ -2648,9 +2767,9 @@ get_name:
 
       if (ind[0].step != 1)
 	{
-	  sprintf (nml_err_msg,
-		   "Step not allowed in substring qualifier"
-		   " for namelist object %s", nl->var_name);
+	  snprintf (nml_err_msg, nml_err_msg_size,
+		    "Step not allowed in substring qualifier"
+		    " for namelist object %s", nl->var_name);
 	  goto nml_err_ret;
 	}
 
@@ -2658,29 +2777,22 @@ get_name:
       unget_char (dtp, c);
     }
 
-  /* If a derived type touch its components and restore the root
-     namelist_info if we have parsed a qualified derived type
-     component.  */
-
-  if (nl->type == GFC_DTYPE_DERIVED)
-    nml_touch_nodes (nl);
-  if (component_flag)
-    nl = first_nl;
-
   /* Make sure no extraneous qualifiers are there.  */
 
   if (c == '(')
     {
-      sprintf (nml_err_msg, "Qualifier for a scalar or non-character"
-		  " namelist object %s", nl->var_name);
+      snprintf (nml_err_msg, nml_err_msg_size,
+		"Qualifier for a scalar or non-character namelist object %s",
+		nl->var_name);
       goto nml_err_ret;
     }
 
   /* Make sure there is no more than one non-zero rank object.  */
   if (non_zero_rank_count > 1)
     {
-      sprintf (nml_err_msg, "Multiple sub-objects with non-zero rank in"
-	       " namelist object %s", nl->var_name);
+      snprintf (nml_err_msg, nml_err_msg_size,
+		"Multiple sub-objects with non-zero rank in namelist object %s",
+		nl->var_name);
       non_zero_rank_count = 0;
       goto nml_err_ret;
     }
@@ -2704,12 +2816,31 @@ get_name:
 
   if (c != '=')
     {
-      sprintf (nml_err_msg, "Equal sign must follow namelist object name %s",
-		  nl->var_name);
+      snprintf (nml_err_msg, nml_err_msg_size,
+		"Equal sign must follow namelist object name %s",
+		nl->var_name);
       goto nml_err_ret;
     }
+  /* If a derived type, touch its components and restore the root
+     namelist_info if we have parsed a qualified derived type
+     component.  */
 
-  if (nml_read_obj (dtp, nl, 0, pprev_nl, nml_err_msg, clow, chigh) == FAILURE)
+  if (nl->type == GFC_DTYPE_DERIVED)
+    nml_touch_nodes (nl);
+
+  if (first_nl)
+    {
+      if (first_nl->var_rank == 0)
+	{
+	  if (component_flag && qualifier_flag)
+	    nl = first_nl;
+	}
+      else
+	nl = first_nl;
+    }
+
+  if (nml_read_obj (dtp, nl, 0, pprev_nl, nml_err_msg, nml_err_msg_size,
+		    clow, chigh) == FAILURE)
     goto nml_err_ret;
 
   return SUCCESS;
@@ -2728,7 +2859,7 @@ namelist_read (st_parameter_dt *dtp)
 {
   char c;
   jmp_buf eof_jump;
-  char nml_err_msg[100];
+  char nml_err_msg[200];
   /* Pointer to the previously read object, in case attempt is made to read
      new object name.  Should this fail, error message can give previous
      name.  */
@@ -2785,18 +2916,22 @@ find_nml_name:
 
   /* A trailing space is required, we give a little lattitude here, 10.9.1.  */ 
   c = next_char (dtp);
-  if (!is_separator(c))
+  if (!is_separator(c) && c != '!')
     {
       unget_char (dtp, c);
       goto find_nml_name;
     }
+
+  unget_char (dtp, c);
+  eat_separator (dtp);
 
   /* Ready to read namelist objects.  If there is an error in input
      from stdin, output the error message and continue.  */
 
   while (!dtp->u.p.input_complete)
     {
-      if (nml_get_obj_data (dtp, &prev_nl, nml_err_msg) == FAILURE)
+      if (nml_get_obj_data (dtp, &prev_nl, nml_err_msg, sizeof nml_err_msg)
+			    == FAILURE)
 	{
 	  gfc_unit *u;
 
@@ -2807,7 +2942,7 @@ find_nml_name:
 	  st_printf ("%s\n", nml_err_msg);
 	  if (u != NULL)
 	    {
-	      flush (u->s);
+	      sflush (u->s);
 	      unlock_unit (u);
 	    }
         }

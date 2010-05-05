@@ -1,7 +1,7 @@
 # Process this file with autoconf to produce a configure script, like so:
 # aclocal -I ../config && autoconf && autoheader && automake
 
-AC_PREREQ(2.59)
+AC_PREREQ(2.64)
 AC_INIT([GNU OpenMP Runtime Library], 1.0,,[libgomp])
 AC_CONFIG_HEADER(config.h)
 
@@ -14,12 +14,6 @@ LIBGOMP_ENABLE(version-specific-runtime-libs, no, ,
    [Specify that runtime libraries should be installed in a compiler-specific directory],
    permit yes|no)
 AC_MSG_RESULT($enable_version_specific_runtime_libs)
-
-AC_MSG_CHECKING([for --enable-linux-futex])
-LIBGOMP_ENABLE(linux-futex, default, ,
-  [Use the Linux futex system call],
-  permit yes|no|default)
-AC_MSG_RESULT($enable_linux_futex)
 
 # We would like our source tree to be readonly. However when releases or
 # pre-releases are generated, the flex/bison generated files as well as the
@@ -109,7 +103,7 @@ AC_SUBST(toolexeclibdir)
 m4_rename([_AC_ARG_VAR_PRECIOUS],[real_PRECIOUS])
 m4_define([_AC_ARG_VAR_PRECIOUS],[])
 AC_PROG_CC
-m4_rename([real_PRECIOUS],[_AC_ARG_VAR_PRECIOUS])
+m4_rename_force([real_PRECIOUS],[_AC_ARG_VAR_PRECIOUS])
 
 AC_SUBST(CFLAGS)
 
@@ -148,7 +142,17 @@ AM_MAINTAINER_MODE
 # We need gfortran to compile parts of the library
 # We can't use AC_PROG_FC because it expects a fully working gfortran.
 #AC_PROG_FC(gfortran)
-FC="$GFORTRAN"
+case `echo $GFORTRAN` in
+  -* | no* )
+    FC=no ;;
+  *)
+    set dummy $GFORTRAN; ac_word=$2
+    if test -x "$ac_word"; then
+      FC="$GFORTRAN"
+    else
+      FC=no
+    fi ;;
+esac
 AC_PROG_FC(gfortran)
 FCFLAGS="$FCFLAGS -Wall"
 
@@ -159,7 +163,8 @@ AC_SUBST(libtool_VERSION)
 # Check header files.
 AC_STDC_HEADERS
 AC_HEADER_TIME
-AC_CHECK_HEADERS(unistd.h semaphore.h sys/loadavg.h sys/time.h)
+ACX_HEADER_STRING
+AC_CHECK_HEADERS(unistd.h semaphore.h sys/loadavg.h sys/time.h sys/time.h)
 
 GCC_HEADER_STDINT(gstdint.h)
 
@@ -183,7 +188,7 @@ AC_LINK_IFELSE(
    [AC_MSG_ERROR([Pthreads are required to build libgomp])])])
 
 # Check for functions needed.
-AC_CHECK_FUNCS(getloadavg clock_gettime)
+AC_CHECK_FUNCS(getloadavg clock_gettime strtoull)
 
 # Check for broken semaphore implementation on darwin.
 # sem_init returns: sem_init error: Function not implemented.
@@ -192,49 +197,9 @@ case "$host" in
     AC_DEFINE(HAVE_BROKEN_POSIX_SEMAPHORES, 1,
 	Define if the POSIX Semaphores do not work on your system.)
     ;;
-  *-linux*)
-    case "$enable_linux_futex" in
-      default)
-	# If headers don't have gettid/futex syscalls definition, then
-	# default to no, otherwise there will be compile time failures.
-	# Otherwise, default to yes.  If we don't detect we are
-	# compiled/linked against NPTL and not cross-compiling, check
-	# if programs are run by default against NPTL and if not, issue
-	# a warning.
-	enable_linux_futex=no
-	AC_LINK_IFELSE(
-	 [AC_LANG_PROGRAM(
-	  [#include <sys/syscall.h>
-	   int lk;],
-	  [syscall (SYS_gettid); syscall (SYS_futex, &lk, 0, 0, 0);])],
-	  [AC_LINK_IFELSE(
-	   [AC_LANG_PROGRAM(
-	    [#ifndef _GNU_SOURCE
-	     #define _GNU_SOURCE 1
-	     #endif
-	     #include <pthread.h>
-	     pthread_t th; void *status;],
-	    [pthread_tryjoin_np (th, &status);])],[enable_linux_futex=yes],
-	    [if test x$cross_compiling = xno; then
-	       if getconf GNU_LIBPTHREAD_VERSION 2>/dev/null \
-		  | LC_ALL=C grep -i NPTL > /dev/null 2>/dev/null; then
-		 AC_MSG_WARN([The kernel might not support futex or gettid syscalls.
-If so, please configure with --disable-linux-futex])
-	       fi
-	     fi
-	     enable_linux_futex=yes])])
-	;;
-      yes)
-	AC_LINK_IFELSE(
-	 [AC_LANG_PROGRAM(
-	  [#include <sys/syscall.h>
-	   int lk;],
-	  [syscall (SYS_gettid); syscall (SYS_futex, &lk, 0, 0, 0);])],[],
-	  [AC_MSG_ERROR([SYS_gettid and SYS_futex required for --enable-linux-futex])])
-	;;
-    esac
-    ;;
 esac
+
+GCC_LINUX_FUTEX(:)
 
 # Check for pthread_{,attr_}[sg]etaffinity_np.
 AC_LINK_IFELSE(
@@ -272,6 +237,11 @@ LIBGOMP_CHECK_ATTRIBUTE_VISIBILITY
 LIBGOMP_CHECK_ATTRIBUTE_DLLEXPORT
 LIBGOMP_CHECK_ATTRIBUTE_ALIAS
 LIBGOMP_ENABLE_SYMVERS
+
+if test $enable_symvers = gnu; then
+  AC_DEFINE(LIBGOMP_GNU_SYMBOL_VERSIONING, 1,
+	    [Define to 1 if GNU symbol versioning is used for libgomp.])
+fi
 
 # Get target configury.
 . ${srcdir}/configure.tgt
@@ -317,7 +287,7 @@ AM_CONDITIONAL([USE_FORTRAN], [test "$ac_cv_fc_compiler_gnu" = yes])
 save_CFLAGS="$CFLAGS"
 for i in $config_path; do
   if test -f $srcdir/config/$i/omp-lock.h; then
-    CFLAGS="$CFLAGS -include $srcdir/config/$i/omp-lock.h"
+    CFLAGS="$CFLAGS -include confdefs.h -include $srcdir/config/$i/omp-lock.h"
     break
   fi
 done
@@ -327,6 +297,11 @@ _AC_COMPUTE_INT([sizeof (omp_lock_t)], [OMP_LOCK_SIZE],,
 _AC_COMPUTE_INT([__alignof (omp_lock_t)], [OMP_LOCK_ALIGN])
 _AC_COMPUTE_INT([sizeof (omp_nest_lock_t)], [OMP_NEST_LOCK_SIZE])
 _AC_COMPUTE_INT([__alignof (omp_nest_lock_t)], [OMP_NEST_LOCK_ALIGN])
+_AC_COMPUTE_INT([sizeof (omp_lock_25_t)], [OMP_LOCK_25_SIZE],,
+  [AC_MSG_ERROR([unsupported system, cannot find sizeof (omp_lock_25_t)])])
+_AC_COMPUTE_INT([__alignof (omp_lock_25_t)], [OMP_LOCK_25_ALIGN])
+_AC_COMPUTE_INT([sizeof (omp_nest_lock_25_t)], [OMP_NEST_LOCK_25_SIZE])
+_AC_COMPUTE_INT([__alignof (omp_nest_lock_25_t)], [OMP_NEST_LOCK_25_ALIGN])
 
 # If the lock fits in an integer, then arrange for Fortran to use that
 # integer.  If it doesn't, then arrange for Fortran to use a pointer.
@@ -341,6 +316,14 @@ fi
 if test $OMP_NEST_LOCK_SIZE -gt 8 || test $OMP_NEST_LOCK_ALIGN -gt $OMP_NEST_LOCK_SIZE; then
   OMP_NEST_LOCK_KIND=8
 fi
+OMP_LOCK_25_KIND=$OMP_LOCK_25_SIZE
+OMP_NEST_LOCK_25_KIND=$OMP_NEST_LOCK_25_SIZE
+if test $OMP_LOCK_25_SIZE -gt 8 || test $OMP_LOCK_25_ALIGN -gt $OMP_LOCK_25_SIZE; then
+  OMP_LOCK_25_KIND=8
+fi
+if test $OMP_NEST_LOCK_25_SIZE -gt 8 || test $OMP_NEST_LOCK_25_ALIGN -gt $OMP_NEST_LOCK_25_SIZE; then
+  OMP_NEST_LOCK_25_KIND=8
+fi
 
 AC_SUBST(OMP_LOCK_SIZE)
 AC_SUBST(OMP_LOCK_ALIGN)
@@ -348,6 +331,12 @@ AC_SUBST(OMP_NEST_LOCK_SIZE)
 AC_SUBST(OMP_NEST_LOCK_ALIGN)
 AC_SUBST(OMP_LOCK_KIND)
 AC_SUBST(OMP_NEST_LOCK_KIND)
+AC_SUBST(OMP_LOCK_25_SIZE)
+AC_SUBST(OMP_LOCK_25_ALIGN)
+AC_SUBST(OMP_NEST_LOCK_25_SIZE)
+AC_SUBST(OMP_NEST_LOCK_25_ALIGN)
+AC_SUBST(OMP_LOCK_25_KIND)
+AC_SUBST(OMP_NEST_LOCK_25_KIND)
 CFLAGS="$save_CFLAGS"
 
 AC_CONFIG_FILES(omp.h omp_lib.h omp_lib.f90 libgomp_f.h)

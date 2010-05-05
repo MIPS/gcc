@@ -1,12 +1,12 @@
 // -*- C++ -*-
 // Testing utilities for the tr1 testsuite.
 //
-// Copyright (C) 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005, 2006, 2007, 2009 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
 // terms of the GNU General Public License as published by the
-// Free Software Foundation; either version 2, or (at your option)
+// Free Software Foundation; either version 3, or (at your option)
 // any later version.
 //
 // This library is distributed in the hope that it will be useful,
@@ -15,18 +15,9 @@
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License along
-// with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
-// USA.
+// with this library; see the file COPYING3.  If not see
+// <http://www.gnu.org/licenses/>.
 //
-// As a special exception, you may use this file as part of a free software
-// library without restriction.  Specifically, if other files instantiate
-// templates or use macros or inline functions from this file, or you compile
-// this file and link it with other files to produce an executable, this
-// file does not by itself cause the resulting executable to be covered by
-// the GNU General Public License.  This exception does not however
-// invalidate any other reasons why the executable file might be covered by
-// the GNU General Public License.
 
 #ifndef _GLIBCXX_TESTSUITE_TR1_H
 #define _GLIBCXX_TESTSUITE_TR1_H
@@ -65,8 +56,7 @@ namespace __gnu_test
   // For testing tr1/type_traits/extent, which has a second template
   // parameter.
   template<template<typename, unsigned> class Property,
-           typename Type,
-	   unsigned Uint>
+           typename Type, unsigned Uint>
     bool
     test_property(typename Property<Type, Uint>::value_type value)
     {
@@ -75,6 +65,18 @@ namespace __gnu_test
       ret &= Property<Type, Uint>::type::value == value;
       return ret;
     }
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+  template<template<typename...> class Property, typename... Types>
+    bool
+    test_property(typename Property<Types...>::value_type value)
+    {
+      bool ret = true;
+      ret &= Property<Types...>::value == value;
+      ret &= Property<Types...>::type::value == value;
+      return ret;
+    }
+#endif
 
   template<template<typename, typename> class Relationship,
            typename Type1, typename Type2>
@@ -120,6 +122,39 @@ namespace __gnu_test
   union UnionType { };
 
   class IncompleteClass;
+
+  struct ExplicitClass
+  {
+    ExplicitClass(double&);
+    explicit ExplicitClass(int&);
+  };
+
+  struct NType   // neither trivial nor standard-layout
+  {
+    int i;
+    int j;
+    virtual ~NType();
+  };
+
+  struct TType   // trivial but not standard-layout
+  {
+    int i;
+  private:
+    int j;
+  };
+
+  struct SLType  // standard-layout but not trivial
+  {
+    int i;
+    int j;
+    ~SLType();
+  };
+
+  struct PODType // both trivial and standard-layout
+  {
+    int i;
+    int j;
+  };
 
   int truncate_float(float x) { return (int)x; }
   long truncate_double(double x) { return (long)x; }

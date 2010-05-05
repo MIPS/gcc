@@ -1,12 +1,12 @@
 // vector<bool> specialization -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
+// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
 // terms of the GNU General Public License as published by the
-// Free Software Foundation; either version 2, or (at your option)
+// Free Software Foundation; either version 3, or (at your option)
 // any later version.
 
 // This library is distributed in the hope that it will be useful,
@@ -14,19 +14,14 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-// You should have received a copy of the GNU General Public License along
-// with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
-// USA.
+// Under Section 7 of GPL version 3, you are granted additional
+// permissions described in the GCC Runtime Library Exception, version
+// 3.1, as published by the Free Software Foundation.
 
-// As a special exception, you may use this file as part of a free software
-// library without restriction.  Specifically, if other files instantiate
-// templates or use macros or inline functions from this file, or you compile
-// this file and link it with other files to produce an executable, this
-// file does not by itself cause the resulting executable to be covered by
-// the GNU General Public License.  This exception does not however
-// invalidate any other reasons why the executable file might be covered by
-// the GNU General Public License.
+// You should have received a copy of the GNU General Public License and
+// a copy of the GCC Runtime Library Exception along with this program;
+// see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+// <http://www.gnu.org/licenses/>.
 
 /*
  *
@@ -61,6 +56,8 @@
 
 #ifndef _STL_BVECTOR_H
 #define _STL_BVECTOR_H 1
+
+#include <initializer_list>
 
 _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
 
@@ -465,8 +462,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
    *  really references and pointers to bool.  See DR96 for details.  @see
    *  vector for function documentation.
    *
-   *  @ingroup Containers
-   *  @ingroup Sequences
+   *  @ingroup sequences
    *
    *  In some terminology a %vector can be described as a dynamic
    *  C-style array, it offers fast and efficient access to individual
@@ -478,6 +474,10 @@ template<typename _Alloc>
   class vector<bool, _Alloc> : protected _Bvector_base<_Alloc>
   {
     typedef _Bvector_base<_Alloc>			 _Base;
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+    template<typename> friend class hash;
+#endif
 
   public:
     typedef bool                                         value_type;
@@ -529,6 +529,14 @@ template<typename _Alloc>
 #ifdef __GXX_EXPERIMENTAL_CXX0X__
     vector(vector&& __x)
     : _Base(std::forward<_Base>(__x)) { }
+
+    vector(initializer_list<bool> __l,
+	   const allocator_type& __a = allocator_type())
+    : _Base(__a)
+    {
+      _M_initialize_range(__l.begin(), __l.end(),
+			  random_access_iterator_tag());
+    }
 #endif
 
     template<typename _InputIterator>
@@ -561,9 +569,17 @@ template<typename _Alloc>
     vector&
     operator=(vector&& __x)
     {
+      // NB: DR 1204.
       // NB: DR 675.
       this->clear();
       this->swap(__x); 
+      return *this;
+    }
+
+    vector&
+    operator=(initializer_list<bool> __l)
+    {
+      this->assign (__l.begin(), __l.end());
       return *this;
     }
 #endif
@@ -583,6 +599,12 @@ template<typename _Alloc>
 	typedef typename std::__is_integer<_InputIterator>::__type _Integral;
 	_M_assign_dispatch(__first, __last, _Integral());
       }
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+    void
+    assign(initializer_list<bool> __l)
+    { this->assign(__l.begin(), __l.end()); }
+#endif
 
     iterator
     begin()
@@ -726,11 +748,7 @@ template<typename _Alloc>
     }
 
     void
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
-    swap(vector&& __x)
-#else
     swap(vector& __x)
-#endif
     {
       std::swap(this->_M_impl._M_start, __x._M_impl._M_start);
       std::swap(this->_M_impl._M_finish, __x._M_impl._M_finish);
@@ -777,6 +795,11 @@ template<typename _Alloc>
     insert(iterator __position, size_type __n, const bool& __x)
     { _M_fill_insert(__position, __n, __x); }
 
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+    void insert(iterator __p, initializer_list<bool> __l)
+    { this->insert(__p, __l.begin(), __l.end()); }
+#endif
+
     void
     pop_back()
     { --this->_M_impl._M_finish; }
@@ -805,6 +828,12 @@ template<typename _Alloc>
       else
         insert(end(), __new_size - size(), __x);
     }
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+    void
+    shrink_to_fit()
+    { std::__shrink_to_fit<vector>::_S_do_it(*this); }
+#endif
 
     void
     flip()
@@ -998,5 +1027,25 @@ template<typename _Alloc>
   };
 
 _GLIBCXX_END_NESTED_NAMESPACE
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+
+#include <bits/functional_hash.h>
+
+_GLIBCXX_BEGIN_NAMESPACE(std)
+
+  // DR 1182.
+  /// std::hash specialization for vector<bool>.
+  template<typename _Alloc>
+    struct hash<_GLIBCXX_STD_D::vector<bool, _Alloc>>
+    : public std::unary_function<_GLIBCXX_STD_D::vector<bool, _Alloc>, size_t>
+    {
+      size_t
+      operator()(const _GLIBCXX_STD_D::vector<bool, _Alloc>& __b) const;
+    };
+
+_GLIBCXX_END_NAMESPACE
+
+#endif // __GXX_EXPERIMENTAL_CXX0X__
 
 #endif

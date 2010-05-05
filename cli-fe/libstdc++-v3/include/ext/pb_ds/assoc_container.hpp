@@ -1,11 +1,11 @@
 // -*- C++ -*-
 
-// Copyright (C) 2005, 2006 Free Software Foundation, Inc.
+// Copyright (C) 2005, 2006, 2009, 2010 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the terms
 // of the GNU General Public License as published by the Free Software
-// Foundation; either version 2, or (at your option) any later
+// Foundation; either version 3, or (at your option) any later
 // version.
 
 // This library is distributed in the hope that it will be useful, but
@@ -13,20 +13,14 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 // General Public License for more details.
 
-// You should have received a copy of the GNU General Public License
-// along with this library; see the file COPYING.  If not, write to
-// the Free Software Foundation, 59 Temple Place - Suite 330, Boston,
-// MA 02111-1307, USA.
+// Under Section 7 of GPL version 3, you are granted additional
+// permissions described in the GCC Runtime Library Exception, version
+// 3.1, as published by the Free Software Foundation.
 
-// As a special exception, you may use this file as part of a free
-// software library without restriction.  Specifically, if other files
-// instantiate templates or use macros or inline functions from this
-// file, or you compile this file and link it with other files to
-// produce an executable, this file does not by itself cause the
-// resulting executable to be covered by the GNU General Public
-// License.  This exception does not however invalidate any other
-// reasons why the executable file might be covered by the GNU General
-// Public License.
+// You should have received a copy of the GNU General Public License and
+// a copy of the GCC Runtime Library Exception along with this program;
+// see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+// <http://www.gnu.org/licenses/>.
 
 // Copyright (C) 2004 Ami Tavory and Vladimir Dreizin, IBM-HRL.
 
@@ -55,10 +49,25 @@
 
 namespace __gnu_pbds
 {
+  /** @defgroup pbds Policy-Based Data Structures
+   *  @ingroup extensions
+   *
+   *  This is a library of policy-based elementary data structures:
+   *  associative containers and priority queues. It is designed for
+   *  high-performance, flexibility, semantic safety, and conformance
+   *  to the corresponding containers in std (except for some points
+   *  where it differs by design).
+   *
+   *  For details, see: 
+   *  http://gcc.gnu.org/onlinedocs/libstdc++/ext/pb_ds/index.html
+   *
+   *  @{
+   */
+ 
 #define PB_DS_BASE_C_DEC \
   detail::container_base_dispatch<Key, Mapped, Tag, Policy_Tl, Allocator>::type
 
-  // An abstract basic associative container.
+  /// An abstract basic associative container.
   template<typename Key, 
 	   typename Mapped, 
 	   typename Tag, 
@@ -71,13 +80,13 @@ namespace __gnu_pbds
 
   public:
     typedef Tag 					container_category;
-    typedef Allocator 					allocator;
-    typedef typename allocator::size_type 		size_type;
-    typedef typename allocator::difference_type 	difference_type;
+    typedef Allocator 					allocator_type;
+    typedef typename allocator_type::size_type 		size_type;
+    typedef typename allocator_type::difference_type 	difference_type;
 
     // key_type
-    typedef typename allocator::template rebind<Key>::other::value_type key_type;
-    typedef typename allocator::template rebind<key_type>::other key_rebind;
+    typedef typename allocator_type::template rebind<Key>::other::value_type key_type;
+    typedef typename allocator_type::template rebind<key_type>::other key_rebind;
     typedef typename key_rebind::reference 		key_reference;
     typedef typename key_rebind::const_reference 	const_key_reference;
     typedef typename key_rebind::pointer 		key_pointer;
@@ -85,7 +94,7 @@ namespace __gnu_pbds
 
     // mapped_type
     typedef Mapped 					mapped_type;
-    typedef typename allocator::template rebind<mapped_type>::other mapped_rebind;
+    typedef typename allocator_type::template rebind<mapped_type>::other mapped_rebind;
     typedef typename mapped_rebind::reference 		mapped_reference;
     typedef typename mapped_rebind::const_reference	const_mapped_reference;
     typedef typename mapped_rebind::pointer 		mapped_pointer;
@@ -93,7 +102,7 @@ namespace __gnu_pbds
 
     // value_type
     typedef typename base_type::value_type 		value_type;
-    typedef typename allocator::template rebind<value_type>::other value_rebind;
+    typedef typename allocator_type::template rebind<value_type>::other value_rebind;
     typedef typename value_rebind::reference		reference;
     typedef typename value_rebind::const_reference 	const_reference;
     typedef typename value_rebind::pointer 		pointer;
@@ -121,7 +130,7 @@ namespace __gnu_pbds
   container_base<Key, Mapped, Tag, typename __gnu_cxx::typelist::append< \
   typename __gnu_cxx::typelist::create4<Hash_Fn, Eq_Fn, Resize_Policy, detail::integral_constant<int, Store_Hash> >::type, Policy_TL>::type, Allocator>
 
-  // An abstract basic hash-based associative container.
+  /// An abstract basic hash-based associative container.
   template<typename Key,
 	   typename Mapped,
 	   typename Hash_Fn,
@@ -158,7 +167,7 @@ namespace __gnu_pbds
 		   cc_hash_tag,	\
 	  typename __gnu_cxx::typelist::create1<Comb_Hash_Fn>::type, Allocator>
 
-  // A concrete collision-chaining hash-based associative container.
+  /// A concrete collision-chaining hash-based associative container.
   template<typename Key,
 	   typename Mapped,
 	   typename Hash_Fn = typename detail::default_hash_fn<Key>::type,
@@ -295,7 +304,7 @@ namespace __gnu_pbds
 		   gp_hash_tag, \
 		   typename __gnu_cxx::typelist::create2<Comb_Probe_Fn, Probe_Fn>::type, Allocator>
 
-  // A concrete general-probing hash-based associative container.
+  /// A concrete general-probing hash-based associative container.
   template<typename Key,
 	   typename Mapped,
 	   typename Hash_Fn = typename detail::default_hash_fn<Key>::type,
@@ -461,7 +470,7 @@ namespace __gnu_pbds
 #define PB_DS_BASE_C_DEC \
   container_base<Key, Mapped, Tag, Policy_Tl, Allocator>
 
-  // An abstract basic tree-like (tree, trie) associative container.
+  /// An abstract basic tree-like (tree, trie) associative container.
   template<typename Key, typename Mapped, typename Tag, 
 	   typename Node_Update, typename Policy_Tl, typename Allocator>
   class basic_tree : public PB_DS_BASE_C_DEC
@@ -491,7 +500,7 @@ namespace __gnu_pbds
   basic_tree<Key,Mapped,Tag,typename PB_DS_TREE_NODE_AND_IT_TRAITS_C_DEC::node_update, \
 	     typename __gnu_cxx::typelist::create2<Cmp_Fn, PB_DS_TREE_NODE_AND_IT_TRAITS_C_DEC >::type, Allocator>
 
-  // A concrete basic tree-based associative container.
+  /// A concrete basic tree-based associative container.
   template<typename Key, typename Mapped, typename Cmp_Fn = std::less<Key>,
 	   typename Tag = rb_tree_tag,
 	   template<typename Const_Node_Iterator, typename Node_Iterator, typename Cmp_Fn_, typename Allocator_>
@@ -562,7 +571,7 @@ namespace __gnu_pbds
   basic_tree<Key,Mapped,Tag, typename PB_DS_TRIE_NODE_AND_ITS_TRAITS::node_update, \
 	     typename __gnu_cxx::typelist::create2<E_Access_Traits, PB_DS_TRIE_NODE_AND_ITS_TRAITS >::type, Allocator>
 
-  // A concrete basic trie-based associative container.
+  /// A concrete basic trie-based associative container.
   template<typename Key,
 	   typename Mapped,
 	   typename E_Access_Traits = typename detail::default_trie_e_access_traits<Key>::type,
@@ -635,7 +644,7 @@ namespace __gnu_pbds
   container_base<Key, Mapped, list_update_tag, \
 		 typename __gnu_cxx::typelist::create2<Eq_Fn, Update_Policy>::type, Allocator>
 
-  // A list-update based associative container.
+  /// A list-update based associative container.
   template<typename Key,
 	   typename Mapped,
 	   class Eq_Fn = typename detail::default_eq_fn<Key>::type,
@@ -684,6 +693,7 @@ namespace __gnu_pbds
 
 #undef PB_DS_BASE_C_DEC
 
+  // @} group pbds
 } // namespace __gnu_pbds
 
 #endif 

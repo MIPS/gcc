@@ -1,12 +1,12 @@
 // Deque implementation -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
+// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
 // terms of the GNU General Public License as published by the
-// Free Software Foundation; either version 2, or (at your option)
+// Free Software Foundation; either version 3, or (at your option)
 // any later version.
 
 // This library is distributed in the hope that it will be useful,
@@ -14,19 +14,14 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-// You should have received a copy of the GNU General Public License along
-// with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
-// USA.
+// Under Section 7 of GPL version 3, you are granted additional
+// permissions described in the GCC Runtime Library Exception, version
+// 3.1, as published by the Free Software Foundation.
 
-// As a special exception, you may use this file as part of a free software
-// library without restriction.  Specifically, if other files instantiate
-// templates or use macros or inline functions from this file, or you compile
-// this file and link it with other files to produce an executable, this
-// file does not by itself cause the resulting executable to be covered by
-// the GNU General Public License.  This exception does not however
-// invalidate any other reasons why the executable file might be covered by
-// the GNU General Public License.
+// You should have received a copy of the GNU General Public License and
+// a copy of the GCC Runtime Library Exception along with this program;
+// see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+// <http://www.gnu.org/licenses/>.
 
 /*
  *
@@ -65,24 +60,32 @@
 #include <bits/concept_check.h>
 #include <bits/stl_iterator_base_types.h>
 #include <bits/stl_iterator_base_funcs.h>
+#include <initializer_list>
 
 _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
 
   /**
-   *  @if maint
    *  @brief This function controls the size of memory nodes.
    *  @param  size  The size of an element.
    *  @return   The number (not byte size) of elements per node.
    *
-   *  This function started off as a compiler kludge from SGI, but seems to
-   *  be a useful wrapper around a repeated constant expression.  The '512' is
-   *  tuneable (and no other code needs to change), but no investigation has
-   *  been done since inheriting the SGI code.
-   *  @endif
+   *  This function started off as a compiler kludge from SGI, but
+   *  seems to be a useful wrapper around a repeated constant
+   *  expression.  The @b 512 is tunable (and no other code needs to
+   *  change), but no investigation has been done since inheriting the
+   *  SGI code.  Touch _GLIBCXX_DEQUE_BUF_SIZE only if you know what
+   *  you are doing, however: changing it breaks the binary
+   *  compatibility!!
   */
+
+#ifndef _GLIBCXX_DEQUE_BUF_SIZE
+#define _GLIBCXX_DEQUE_BUF_SIZE 512
+#endif
+
   inline size_t
   __deque_buf_size(size_t __size)
-  { return __size < 512 ? size_t(512 / __size) : size_t(1); }
+  { return (__size < _GLIBCXX_DEQUE_BUF_SIZE
+	    ? size_t(_GLIBCXX_DEQUE_BUF_SIZE / __size) : size_t(1)); }
 
 
   /**
@@ -94,9 +97,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
    *  elements is done as offsets of either of those two, relying on
    *  operator overloading in this class.
    *
-   *  @if maint
    *  All the functions are op overloads except for _M_set_node.
-   *  @endif
   */
   template<typename _Tp, typename _Ref, typename _Ptr>
     struct _Deque_iterator
@@ -221,11 +222,10 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
       operator[](difference_type __n) const
       { return *(*this + __n); }
 
-      /** @if maint
+      /** 
        *  Prepares to traverse new_node.  Sets everything except
        *  _M_cur, which should therefore be set by the caller
        *  immediately afterwards, based on _M_first and _M_last.
-       *  @endif
        */
       void
       _M_set_node(_Map_pointer __new_node)
@@ -353,11 +353,76 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
 
   template<typename _Tp>
     void
-    fill(const _Deque_iterator<_Tp, _Tp&, _Tp*>& __first,
-	 const _Deque_iterator<_Tp, _Tp&, _Tp*>& __last, const _Tp& __value);
+    fill(const _Deque_iterator<_Tp, _Tp&, _Tp*>&,
+	 const _Deque_iterator<_Tp, _Tp&, _Tp*>&, const _Tp&);
+
+  template<typename _Tp>
+    _Deque_iterator<_Tp, _Tp&, _Tp*>
+    copy(_Deque_iterator<_Tp, const _Tp&, const _Tp*>,
+	 _Deque_iterator<_Tp, const _Tp&, const _Tp*>,
+	 _Deque_iterator<_Tp, _Tp&, _Tp*>);
+
+  template<typename _Tp>
+    inline _Deque_iterator<_Tp, _Tp&, _Tp*>
+    copy(_Deque_iterator<_Tp, _Tp&, _Tp*> __first,
+	 _Deque_iterator<_Tp, _Tp&, _Tp*> __last,
+	 _Deque_iterator<_Tp, _Tp&, _Tp*> __result)
+    { return std::copy(_Deque_iterator<_Tp, const _Tp&, const _Tp*>(__first),
+		       _Deque_iterator<_Tp, const _Tp&, const _Tp*>(__last),
+		       __result); }
+
+  template<typename _Tp>
+    _Deque_iterator<_Tp, _Tp&, _Tp*>
+    copy_backward(_Deque_iterator<_Tp, const _Tp&, const _Tp*>,
+		  _Deque_iterator<_Tp, const _Tp&, const _Tp*>,
+		  _Deque_iterator<_Tp, _Tp&, _Tp*>);
+
+  template<typename _Tp>
+    inline _Deque_iterator<_Tp, _Tp&, _Tp*>
+    copy_backward(_Deque_iterator<_Tp, _Tp&, _Tp*> __first,
+		  _Deque_iterator<_Tp, _Tp&, _Tp*> __last,
+		  _Deque_iterator<_Tp, _Tp&, _Tp*> __result)
+    { return std::copy_backward(_Deque_iterator<_Tp,
+				const _Tp&, const _Tp*>(__first),
+				_Deque_iterator<_Tp,
+				const _Tp&, const _Tp*>(__last),
+				__result); }
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+  template<typename _Tp>
+    _Deque_iterator<_Tp, _Tp&, _Tp*>
+    move(_Deque_iterator<_Tp, const _Tp&, const _Tp*>,
+	 _Deque_iterator<_Tp, const _Tp&, const _Tp*>,
+	 _Deque_iterator<_Tp, _Tp&, _Tp*>);
+
+  template<typename _Tp>
+    inline _Deque_iterator<_Tp, _Tp&, _Tp*>
+    move(_Deque_iterator<_Tp, _Tp&, _Tp*> __first,
+	 _Deque_iterator<_Tp, _Tp&, _Tp*> __last,
+	 _Deque_iterator<_Tp, _Tp&, _Tp*> __result)
+    { return std::move(_Deque_iterator<_Tp, const _Tp&, const _Tp*>(__first),
+		       _Deque_iterator<_Tp, const _Tp&, const _Tp*>(__last),
+		       __result); }
+
+  template<typename _Tp>
+    _Deque_iterator<_Tp, _Tp&, _Tp*>
+    move_backward(_Deque_iterator<_Tp, const _Tp&, const _Tp*>,
+		  _Deque_iterator<_Tp, const _Tp&, const _Tp*>,
+		  _Deque_iterator<_Tp, _Tp&, _Tp*>);
+
+  template<typename _Tp>
+    inline _Deque_iterator<_Tp, _Tp&, _Tp*>
+    move_backward(_Deque_iterator<_Tp, _Tp&, _Tp*> __first,
+		  _Deque_iterator<_Tp, _Tp&, _Tp*> __last,
+		  _Deque_iterator<_Tp, _Tp&, _Tp*> __result)
+    { return std::move_backward(_Deque_iterator<_Tp,
+				const _Tp&, const _Tp*>(__first),
+				_Deque_iterator<_Tp,
+				const _Tp&, const _Tp*>(__last),
+				__result); }
+#endif
 
   /**
-   *  @if maint
    *  Deque base class.  This class provides the unified face for %deque's
    *  allocation.  This class's constructor and destructor allocate and
    *  deallocate (but do not initialize) storage.  This makes %exception
@@ -366,7 +431,6 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
    *  Nothing in this class ever constructs or destroys an actual Tp element.
    *  (Deque handles that itself.)  Only/All memory management is performed
    *  here.
-   *  @endif
   */
   template<typename _Tp, typename _Alloc>
     class _Deque_base
@@ -491,14 +555,12 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
     }
 
   /**
-   *  @if maint
    *  @brief Layout storage.
    *  @param  num_elements  The count of T's for which to allocate space
    *                        at first.
    *  @return   Nothing.
    *
    *  The initial underlying memory layout is a bit complicated...
-   *  @endif
   */
   template<typename _Tp, typename _Alloc>
     void
@@ -521,9 +583,9 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
 			+ (this->_M_impl._M_map_size - __num_nodes) / 2);
       _Tp** __nfinish = __nstart + __num_nodes;
 
-      try
+      __try
 	{ _M_create_nodes(__nstart, __nfinish); }
-      catch(...)
+      __catch(...)
 	{
 	  _M_deallocate_map(this->_M_impl._M_map, this->_M_impl._M_map_size);
 	  this->_M_impl._M_map = 0;
@@ -545,12 +607,12 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
     _M_create_nodes(_Tp** __nstart, _Tp** __nfinish)
     {
       _Tp** __cur;
-      try
+      __try
 	{
 	  for (__cur = __nstart; __cur < __nfinish; ++__cur)
 	    *__cur = this->_M_allocate_node();
 	}
-      catch(...)
+      __catch(...)
 	{
 	  _M_destroy_nodes(__nstart, __cur);
 	  __throw_exception_again;
@@ -570,8 +632,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
    *  @brief  A standard container using fixed-size memory allocation and
    *  constant-time manipulation of elements at either end.
    *
-   *  @ingroup Containers
-   *  @ingroup Sequences
+   *  @ingroup sequences
    *
    *  Meets the requirements of a <a href="tables.html#65">container</a>, a
    *  <a href="tables.html#66">reversible container</a>, and a
@@ -583,7 +644,6 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
    *  out to violate the C++ standard (it can be detected using template
    *  template parameters), and it was removed.
    *
-   *  @if maint
    *  Here's how a deque<Tp> manages memory.  Each deque has 4 members:
    *
    *  - Tp**        _M_map
@@ -591,14 +651,14 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
    *  - iterator    _M_start, _M_finish
    *
    *  map_size is at least 8.  %map is an array of map_size
-   *  pointers-to-"nodes".  (The name %map has nothing to do with the
-   *  std::map class, and "nodes" should not be confused with
-   *  std::list's usage of "node".)
+   *  pointers-to-@anodes.  (The name %map has nothing to do with the
+   *  std::map class, and @b nodes should not be confused with
+   *  std::list's usage of @a node.)
    *
-   *  A "node" has no specific type name as such, but it is referred
-   *  to as "node" in this file.  It is a simple array-of-Tp.  If Tp
+   *  A @a node has no specific type name as such, but it is referred
+   *  to as @a node in this file.  It is a simple array-of-Tp.  If Tp
    *  is very large, there will be one Tp element per node (i.e., an
-   *  "array" of one).  For non-huge Tp's, node size is inversely
+   *  @a array of one).  For non-huge Tp's, node size is inversely
    *  related to Tp size: the larger the Tp, the fewer Tp's will fit
    *  in a node.  The goal here is to keep the total size of a node
    *  relatively small and constant over different Tp's, to improve
@@ -610,7 +670,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
    *  will be unused.  This same situation will arise as the %map
    *  grows: available %map pointers, if any, will be on the ends.  As
    *  new nodes are created, only a subset of the %map's pointers need
-   *  to be copied "outward".
+   *  to be copied @a outward.
    *
    *  Class invariants:
    * - For any nonsingular iterator i:
@@ -640,15 +700,14 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
    *   node if and only if the pointer is in the range
    *   [start.node, finish.node].
    *
-   *  Here's the magic:  nothing in deque is "aware" of the discontiguous
+   *  Here's the magic:  nothing in deque is @b aware of the discontiguous
    *  storage!
    *
    *  The memory setup and layout occurs in the parent, _Base, and the iterator
-   *  class is entirely responsible for "leaping" from one node to the next.
+   *  class is entirely responsible for @a leaping from one node to the next.
    *  All the implementation routines for deque itself work only through the
    *  start and finish iterators.  This keeps the routines simple and sane,
    *  and we can use other standard algorithms as well.
-   *  @endif
   */
   template<typename _Tp, typename _Alloc = std::allocator<_Tp> >
     class deque : protected _Deque_base<_Tp, _Alloc>
@@ -691,10 +750,9 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
       using _Base::_M_deallocate_map;
       using _Base::_M_get_Tp_allocator;
 
-      /** @if maint
-       *  A total of four data members accumulated down the heirarchy.
+      /** 
+       *  A total of four data members accumulated down the hierarchy.
        *  May be accessed via _M_impl.*
-       *  @endif
        */
       using _Base::_M_impl;
 
@@ -752,6 +810,25 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
        */
       deque(deque&&  __x)
       : _Base(std::forward<_Base>(__x)) { }
+
+      /**
+       *  @brief  Builds a %deque from an initializer list.
+       *  @param  l  An initializer_list.
+       *  @param  a  An allocator object.
+       *
+       *  Create a %deque consisting of copies of the elements in the
+       *  initializer_list @a l.
+       *
+       *  This will call the element type's copy constructor N times
+       *  (where N is l.size()) and do no memory reallocation.
+       */
+      deque(initializer_list<value_type> __l,
+	    const allocator_type& __a = allocator_type())
+	: _Base(__a)
+        {
+	  _M_range_initialize(__l.begin(), __l.end(),
+			      random_access_iterator_tag());
+	}
 #endif
 
       /**
@@ -782,7 +859,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
       /**
        *  The dtor only erases the elements, and note that if the elements
        *  themselves are pointers, the pointed-to memory is not touched in any
-       *  way.  Managing the pointer is the user's responsibilty.
+       *  way.  Managing the pointer is the user's responsibility.
        */
       ~deque()
       { _M_destroy_data(begin(), end(), _M_get_Tp_allocator()); }
@@ -808,9 +885,28 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
       deque&
       operator=(deque&& __x)
       {
+	// NB: DR 1204.
 	// NB: DR 675.
 	this->clear();
-	this->swap(__x); 
+	this->swap(__x);
+	return *this;
+      }
+
+      /**
+       *  @brief  Assigns an initializer list to a %deque.
+       *  @param  l  An initializer_list.
+       *
+       *  This function fills a %deque with copies of the elements in the
+       *  initializer_list @a l.
+       *
+       *  Note that the assignment completely changes the %deque and that the
+       *  resulting %deque's size is the same as the number of elements
+       *  assigned.  Old data may be lost.
+       */
+      deque&
+      operator=(initializer_list<value_type> __l)
+      {
+	this->assign(__l.begin(), __l.end());
 	return *this;
       }
 #endif
@@ -848,6 +944,23 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
 	  typedef typename std::__is_integer<_InputIterator>::__type _Integral;
 	  _M_assign_dispatch(__first, __last, _Integral());
 	}
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      /**
+       *  @brief  Assigns an initializer list to a %deque.
+       *  @param  l  An initializer_list.
+       *
+       *  This function fills a %deque with copies of the elements in the
+       *  initializer_list @a l.
+       *
+       *  Note that the assignment completely changes the %deque and that the
+       *  resulting %deque's size is the same as the number of elements
+       *  assigned.  Old data may be lost.
+       */
+      void
+      assign(initializer_list<value_type> __l)
+      { this->assign(__l.begin(), __l.end()); }
+#endif
 
       /// Get a copy of the memory allocation object.
       allocator_type
@@ -994,6 +1107,13 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
 	  insert(this->_M_impl._M_finish, __new_size - __len, __x);
       }
 
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      /**  A non-binding request to reduce memory use.  */
+      void
+      shrink_to_fit()
+      { std::__shrink_to_fit<deque>::_S_do_it(*this); }
+#endif
+
       /**
        *  Returns true if the %deque is empty.  (Thus begin() would
        *  equal end().)
@@ -1034,7 +1154,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
       { return this->_M_impl._M_start[difference_type(__n)]; }
 
     protected:
-      /// @if maint Safety check used only from at().  @endif
+      /// Safety check used only from at().
       void
       _M_range_check(size_type __n) const
       {
@@ -1129,7 +1249,6 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
        *  data to it.  Due to the nature of a %deque this operation
        *  can be done in constant time.
        */
-#ifndef __GXX_EXPERIMENTAL_CXX0X__
       void
       push_front(const value_type& __x)
       {
@@ -1141,20 +1260,15 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
 	else
 	  _M_push_front_aux(__x);
       }
-#else
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      void
+      push_front(value_type&& __x)
+      { emplace_front(std::move(__x)); }
+
       template<typename... _Args>
         void
-        push_front(_Args&&... __args)
-	{
-	  if (this->_M_impl._M_start._M_cur != this->_M_impl._M_start._M_first)
-	    {
-	      this->_M_impl.construct(this->_M_impl._M_start._M_cur - 1,
-				      std::forward<_Args>(__args)...);
-	      --this->_M_impl._M_start._M_cur;
-	    }
-	  else
-	    _M_push_front_aux(std::forward<_Args>(__args)...);
-	}
+        emplace_front(_Args&&... __args);
 #endif
 
       /**
@@ -1166,7 +1280,6 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
        *  to it.  Due to the nature of a %deque this operation can be
        *  done in constant time.
        */
-#ifndef __GXX_EXPERIMENTAL_CXX0X__
       void
       push_back(const value_type& __x)
       {
@@ -1179,21 +1292,15 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
 	else
 	  _M_push_back_aux(__x);
       }
-#else
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      void
+      push_back(value_type&& __x)
+      { emplace_back(std::move(__x)); }
+
       template<typename... _Args>
         void
-        push_back(_Args&&... __args)
-	{
-	  if (this->_M_impl._M_finish._M_cur
-	      != this->_M_impl._M_finish._M_last - 1)
-	    {
-	      this->_M_impl.construct(this->_M_impl._M_finish._M_cur,
-				      std::forward<_Args>(__args)...);
-	      ++this->_M_impl._M_finish._M_cur;
-	    }
-	  else
-	    _M_push_back_aux(std::forward<_Args>(__args)...);
-	}
+        emplace_back(_Args&&... __args);
 #endif
 
       /**
@@ -1278,6 +1385,19 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
       iterator
       insert(iterator __position, value_type&& __x)
       { return emplace(__position, std::move(__x)); }
+
+      /**
+       *  @brief  Inserts an initializer list into the %deque.
+       *  @param  p  An iterator into the %deque.
+       *  @param  l  An initializer_list.
+       *
+       *  This function will insert copies of the data in the
+       *  initializer_list @a l into the %deque before the location
+       *  specified by @a p.  This is known as <em>list insert</em>.
+       */
+      void
+      insert(iterator __p, initializer_list<value_type> __l)
+      { this->insert(__p, __l.begin(), __l.end()); }
 #endif
 
       /**
@@ -1301,7 +1421,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
        *
        *  This function will insert copies of the data in the range
        *  [first,last) into the %deque before the location specified
-       *  by @a pos.  This is known as "range insert."
+       *  by @a pos.  This is known as <em>range insert</em>.
        */
       template<typename _InputIterator>
         void
@@ -1324,7 +1444,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
        *  The user is cautioned that
        *  this function only erases the element, and that if the element is
        *  itself a pointer, the pointed-to memory is not touched in any way.
-       *  Managing the pointer is the user's responsibilty.
+       *  Managing the pointer is the user's responsibility.
        */
       iterator
       erase(iterator __position);
@@ -1343,7 +1463,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
        *  The user is cautioned that
        *  this function only erases the elements, and that if the elements
        *  themselves are pointers, the pointed-to memory is not touched in any
-       *  way.  Managing the pointer is the user's responsibilty.
+       *  way.  Managing the pointer is the user's responsibility.
        */
       iterator
       erase(iterator __first, iterator __last);
@@ -1358,11 +1478,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
        *  std::swap(d1,d2) will feed to this function.
        */
       void
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
-      swap(deque&& __x)
-#else
       swap(deque& __x)
-#endif
       {
 	std::swap(this->_M_impl._M_start, __x._M_impl._M_start);
 	std::swap(this->_M_impl._M_finish, __x._M_impl._M_finish);
@@ -1379,7 +1495,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
        *  Erases all the elements.  Note that this function only erases the
        *  elements, and that if the elements themselves are pointers, the
        *  pointed-to memory is not touched in any way.  Managing the pointer is
-       *  the user's responsibilty.
+       *  the user's responsibility.
        */
       void
       clear()
@@ -1414,7 +1530,6 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
       // called by the second initialize_dispatch above
       //@{
       /**
-       *  @if maint
        *  @brief Fills the deque with whatever is in [first,last).
        *  @param  first  An input iterator.
        *  @param  last  An input iterator.
@@ -1423,7 +1538,6 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
        *  If the iterators are actually forward iterators (or better), then the
        *  memory layout can be done all at once.  Else we move forward using
        *  push_back on each value from the iterator.
-       *  @endif
        */
       template<typename _InputIterator>
         void
@@ -1438,7 +1552,6 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
       //@}
 
       /**
-       *  @if maint
        *  @brief Fills the %deque with copies of value.
        *  @param  value  Initial value.
        *  @return   Nothing.
@@ -1447,7 +1560,6 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
        *
        *  This function is called only when the user provides an explicit size
        *  (with or without an explicit exemplar value).
-       *  @endif
        */
       void
       _M_fill_initialize(const value_type& __value);
@@ -1517,11 +1629,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
       }
 
       //@{
-      /**
-       *  @if maint
-       *  @brief Helper functions for push_* and pop_*.
-       *  @endif
-       */
+      /// Helper functions for push_* and pop_*.
 #ifndef __GXX_EXPERIMENTAL_CXX0X__
       void _M_push_back_aux(const value_type&);
 
@@ -1645,12 +1753,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
       }
 
       //@{
-      /**
-       *  @if maint
-       *  @brief Memory-handling helpers for the previous internal insert
-       *         functions.
-       *  @endif
-       */
+      /// Memory-handling helpers for the previous internal insert functions.
       iterator
       _M_reserve_elements_at_front(size_type __n)
       {
@@ -1681,13 +1784,11 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
 
       //@{
       /**
-       *  @if maint
        *  @brief Memory-handling helpers for the major %map.
        *
        *  Makes sure the _M_map has space for new nodes.  Does not
        *  actually add the nodes.  Can invalidate _M_map pointers.
        *  (And consequently, %deque iterators.)
-       *  @endif
        */
       void
       _M_reserve_map_at_back(size_type __nodes_to_add = 1)
@@ -1780,17 +1881,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
     swap(deque<_Tp,_Alloc>& __x, deque<_Tp,_Alloc>& __y)
     { __x.swap(__y); }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
-  template<typename _Tp, typename _Alloc>
-    inline void
-    swap(deque<_Tp,_Alloc>&& __x, deque<_Tp,_Alloc>& __y)
-    { __x.swap(__y); }
-
-  template<typename _Tp, typename _Alloc>
-    inline void
-    swap(deque<_Tp,_Alloc>& __x, deque<_Tp,_Alloc>&& __y)
-    { __x.swap(__y); }
-#endif
+#undef _GLIBCXX_DEQUE_BUF_SIZE
 
 _GLIBCXX_END_NESTED_NAMESPACE
 

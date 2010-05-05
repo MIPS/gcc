@@ -1,6 +1,7 @@
 ## Makefile for the src subdirectory of the GNU C++ Standard library.
 ##
-## Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2005
+## Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+## 2006, 2007, 2008, 2009, 2010
 ## Free Software Foundation, Inc.
 ##
 ## This file is part of the libstdc++ version 3 distribution.
@@ -9,7 +10,7 @@
 ## This file is part of the GNU ISO C++ Library.  This library is free
 ## software; you can redistribute it and/or modify it under the
 ## terms of the GNU General Public License as published by the
-## Free Software Foundation; either version 2, or (at your option)
+## Free Software Foundation; either version 3, or (at your option)
 ## any later version.
 
 ## This library is distributed in the hope that it will be useful,
@@ -18,9 +19,8 @@
 ## GNU General Public License for more details.
 
 ## You should have received a copy of the GNU General Public License along
-## with this library; see the file COPYING.  If not, write to the Free
-## Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
-## USA.
+## with this library; see the file COPYING3.  If not see
+## <http://www.gnu.org/licenses/>.
 
 include $(top_srcdir)/fragment.am
 
@@ -121,7 +121,8 @@ basic_file.cc: ${glibcxx_srcdir}/$(BASIC_FILE_CC)
 	$(LN_S) ${glibcxx_srcdir}/$(BASIC_FILE_CC) ./$@ || true
 
 if ENABLE_PARALLEL
-parallel_sources = parallel_list.cc 
+parallel_sources = parallel_list.cc parallel_settings.cc \
+	           compatibility-parallel_list.cc
 else
 parallel_sources =
 endif
@@ -134,20 +135,24 @@ endif
 
 # Sources present in the src directory.
 sources = \
+	atomic.cc \
 	bitmap_allocator.cc \
 	pool_allocator.cc \
 	mt_allocator.cc \
 	codecvt.cc \
 	compatibility.cc \
+	compatibility-c++0x.cc \
+	compatibility-debug_list.cc \
+	compatibility-list.cc \
 	complex_io.cc \
 	ctype.cc \
 	debug.cc \
 	functexcept.cc \
-	hash.cc \
-	hash_c++0x.cc \
 	globals_io.cc \
-	hashtable.cc \
-	hashtable_c++0x.cc \	
+	hash_c++0x.cc \
+	hash_tr1.cc \
+	hashtable_c++0x.cc \
+	hashtable_tr1.cc \
 	ios.cc \
 	ios_failure.cc \
 	ios_init.cc \
@@ -159,6 +164,8 @@ sources = \
 	locale_init.cc \
 	locale_facets.cc \
 	localename.cc \
+	math_stubs_float.cc \
+	math_stubs_long_double.cc \
 	stdexcept.cc \
 	strstream.cc \
 	system_error.cc \
@@ -181,6 +188,11 @@ sources = \
 	valarray-inst.cc \
 	wlocale-inst.cc \
 	wstring-inst.cc \
+	mutex.cc \
+	condition_variable.cc \
+	chrono.cc \
+	thread.cc \
+	future.cc \
 	${host_sources} \
 	${host_sources_extra} 
 
@@ -190,13 +202,17 @@ vpath % $(top_srcdir)
 libstdc___la_SOURCES = $(sources)
 
 libstdc___la_LIBADD = \
-	$(top_builddir)/libmath/libmath.la \
+	$(GLIBCXX_LIBS) \
 	$(top_builddir)/libsupc++/libsupc++convenience.la
 
-libstdc___la_DEPENDENCIES = ${version_dep} $(libstdc___la_LIBADD)
+libstdc___la_DEPENDENCIES = \
+	${version_dep} \
+	$(top_builddir)/libsupc++/libsupc++convenience.la
 
 libstdc___la_LDFLAGS = \
 	-version-info $(libtool_VERSION) ${version_arg} -lm 
+
+libstdc___la_LINK = $(CXXLINK) $(libstdc___la_LDFLAGS)
 
 # Use special rules for the deprecated source files so that they find
 # deprecated include files.
@@ -214,16 +230,47 @@ concept-inst.lo: concept-inst.cc
 concept-inst.o: concept-inst.cc
 	$(CXXCOMPILE) -D_GLIBCXX_CONCEPT_CHECKS -fimplicit-templates -c $<
 
-# Use special rules for parallel_list.cc compile.
+# Use special rules for parallel mode compilation.
+PARALLEL_FLAGS = -fopenmp -D_GLIBCXX_PARALLEL -I$(glibcxx_builddir)/../libgomp
 parallel_list.lo: parallel_list.cc
-	$(LTCXXCOMPILE) -I$(glibcxx_builddir)/../libgomp -c $<
+	$(LTCXXCOMPILE) $(PARALLEL_FLAGS) -c $<
 parallel_list.o: parallel_list.cc
-	$(CXXCOMPILE) -I$(glibcxx_builddir)/../libgomp -c $<
+	$(CXXCOMPILE) $(PARALLEL_FLAGS) -c $<
+
+parallel_settings.lo: parallel_settings.cc
+	$(LTCXXCOMPILE) $(PARALLEL_FLAGS) -c $<
+parallel_settings.o: parallel_settings.cc
+	$(CXXCOMPILE) $(PARALLEL_FLAGS) -c $<
+
+compatibility-parallel_list.lo: compatibility-parallel_list.cc
+	$(LTCXXCOMPILE) $(PARALLEL_FLAGS) -c $<
+compatibility-parallel_list.o: compatibility-parallel_list.cc
+	$(CXXCOMPILE) $(PARALLEL_FLAGS) -c $<
 
 # Use special rules for the C++0x sources so that the proper flags are passed.
+functexcept.lo: functexcept.cc
+	$(LTCXXCOMPILE) -std=gnu++0x -c $<
+functexcept.o: functexcept.cc
+	$(CXXCOMPILE) -std=gnu++0x -c $<
+
 system_error.lo: system_error.cc
 	$(LTCXXCOMPILE) -std=gnu++0x -c $<
 system_error.o: system_error.cc
+	$(CXXCOMPILE) -std=gnu++0x -c $<
+
+mutex.lo: mutex.cc
+	$(LTCXXCOMPILE) -std=gnu++0x -c $<
+mutex.o: mutex.cc
+	$(CXXCOMPILE) -std=gnu++0x -c $<
+
+condition_variable.lo: condition_variable.cc
+	$(LTCXXCOMPILE) -std=gnu++0x -c $<
+condition_variable.o: condition_variable.cc
+	$(CXXCOMPILE) -std=gnu++0x -c $<
+
+compatibility-c++0x.lo: compatibility-c++0x.cc
+	$(LTCXXCOMPILE) -std=gnu++0x -c $<
+compatibility-c++0x.o: compatibility-c++0x.cc
 	$(CXXCOMPILE) -std=gnu++0x -c $<
 
 hash_c++0x.lo: hash_c++0x.cc
@@ -234,6 +281,46 @@ hash_c++0x.o: hash_c++0x.cc
 hashtable_c++0x.lo: hashtable_c++0x.cc
 	$(LTCXXCOMPILE) -std=gnu++0x -c $<
 hashtable_c++0x.o: hashtable_c++0x.cc
+	$(CXXCOMPILE) -std=gnu++0x -c $<
+
+limits.lo: limits.cc
+	$(LTCXXCOMPILE) -std=gnu++0x -c $<
+limits.o: limits.cc
+	$(CXXCOMPILE) -std=gnu++0x -c $<
+
+atomic.lo: atomic.cc
+	$(LTCXXCOMPILE) -std=gnu++0x -c $<
+atomic.o: atomic.cc
+	$(CXXCOMPILE) -std=gnu++0x -c $<
+
+fstream-inst.lo: fstream-inst.cc
+	$(LTCXXCOMPILE) -std=gnu++0x -c $<
+fstream-inst.o: fstream-inst.cc
+	$(CXXCOMPILE) -std=gnu++0x -c $<
+
+string-inst.lo: string-inst.cc
+	$(LTCXXCOMPILE) -std=gnu++0x -c $<
+string-inst.o: string-inst.cc
+	$(CXXCOMPILE) -std=gnu++0x -c $<
+
+wstring-inst.lo: wstring-inst.cc
+	$(LTCXXCOMPILE) -std=gnu++0x -c $<
+wstring-inst.o: wstring-inst.cc
+	$(CXXCOMPILE) -std=gnu++0x -c $<
+
+chrono.lo: chrono.cc
+	$(LTCXXCOMPILE) -std=gnu++0x -c $<
+chrono.o: chrono.cc
+	$(CXXCOMPILE) -std=gnu++0x -c $<
+
+thread.lo: thread.cc
+	$(LTCXXCOMPILE) -std=gnu++0x -c $<
+thread.o: thread.cc
+	$(CXXCOMPILE) -std=gnu++0x -c $<
+
+future.lo: future.cc
+	$(LTCXXCOMPILE) -std=gnu++0x -c $<
+future.o: future.cc
 	$(CXXCOMPILE) -std=gnu++0x -c $<
 
 if GLIBCXX_LDBL_COMPAT
@@ -275,8 +362,8 @@ AM_CXXFLAGS = \
 # correct solution is to add `--tag CXX' to LTCXXCOMPILE and maybe
 # CXXLINK, just after $(LIBTOOL), so that libtool doesn't have to
 # attempt to infer which configuration to use
-LTCXXCOMPILE = $(LIBTOOL) --tag CXX --mode=compile $(CXX) $(INCLUDES) \
-	       $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) 
+LTCXXCOMPILE = $(LIBTOOL) --tag CXX $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile \
+	       $(CXX) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS)
 
 LTLDFLAGS = $(shell $(SHELL) $(top_srcdir)/../libtool-ldflags $(LDFLAGS))
 
@@ -286,8 +373,8 @@ LTLDFLAGS = $(shell $(SHELL) $(top_srcdir)/../libtool-ldflags $(LDFLAGS))
 # course is problematic at this point.  So, we get the top-level
 # directory to configure libstdc++-v3 to use gcc as the C++
 # compilation driver.
-CXXLINK = $(LIBTOOL) --tag CXX --mode=link $(CXX) \
-	  $(OPT_LDFLAGS) $(SECTION_LDFLAGS) $(AM_CXXFLAGS) $(LTLDFLAGS) -o $@
+CXXLINK = $(LIBTOOL) --tag CXX $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=link \
+	  $(CXX) $(OPT_LDFLAGS) $(SECTION_LDFLAGS) $(AM_CXXFLAGS) $(LTLDFLAGS) -o $@
 
 
 # Added bits to build debug library.

@@ -84,7 +84,7 @@ static pid_t pex_win32_exec_child (struct pex_obj *, int, const char *,
                                   int, int, int, int,
 				  const char **, int *);
 static int pex_win32_close (struct pex_obj *, int);
-static int pex_win32_wait (struct pex_obj *, pid_t, int *,
+static pid_t pex_win32_wait (struct pex_obj *, pid_t, int *,
 			   struct pex_time *, int, const char **, int *);
 static int pex_win32_pipe (struct pex_obj *, int *, int);
 static FILE *pex_win32_fdopenr (struct pex_obj *, int, int);
@@ -321,6 +321,18 @@ msys_rootify (const char *executable)
 }
 #endif
 
+/* Return the number of arguments in an argv array, not including the null
+   terminating argument. */
+
+static int
+argv_to_argc (char *const *argv)
+{
+  char *const *i = argv;
+  while (*i)
+    i++;
+  return i - argv;
+}
+
 /* Return a Windows command-line from ARGV.  It is the caller's
    responsibility to free the string returned.  */
 
@@ -522,6 +534,9 @@ env_compare (const void *a_ptr, const void *b_ptr)
   return c1 - c2;
 }
 
+/* Execute a Windows executable as a child process.  This will fail if the
+ * target is not actually an executable, such as if it is a shell script. */
+
 static pid_t
 win32_spawn (const char *executable,
 	     BOOL search,
@@ -619,6 +634,9 @@ win32_spawn (const char *executable,
   return (pid_t) -1;
 }
 
+/* Spawn a script.  This simulates the Unix script execution mechanism.
+   This function is called as a fallback if win32_spawn fails. */
+
 static pid_t
 spawn_script (const char *executable, char *const *argv,
               char* const *env,
@@ -630,6 +648,8 @@ spawn_script (const char *executable, char *const *argv,
   int save_errno = errno;
   int fd = _open (executable, _O_RDONLY);
 
+  /* Try to open script, check header format, extract interpreter path,
+     and spawn script using that interpretter. */
   if (fd >= 0)
     {
       char buf[MAX_PATH + 5];
@@ -642,16 +662,28 @@ spawn_script (const char *executable, char *const *argv,
 	  eol = strchr (buf, '\n');
 	  if (eol && strncmp (buf, "#!", 2) == 0)
 	    {
+            
+	      /* Header format is OK. */
 	      char *executable1;
-	      const char ** avhere = (const char **) --argv;
+              int new_argc;
+              const char **avhere;
+
+	      /* Extract interpreter path. */
 	      do
 		*eol = '\0';
 	      while (*--eol == '\r' || *eol == ' ' || *eol == '\t');
 	      for (executable1 = buf + 2; *executable1 == ' ' || *executable1 == '\t'; executable1++)
 		continue;
-
 	      backslashify (executable1);
+
+	      /* Duplicate argv, prepending the interpreter path. */
+	      new_argc = argv_to_argc (argv) + 1;
+	      avhere = XNEWVEC (const char *, new_argc + 1);
 	      *avhere = executable1;
+	      memcpy (avhere + 1, argv, new_argc * sizeof(*argv));
+	      argv = (char *const *)avhere;
+
+	      /* Spawn the child. */
 #ifndef USE_MINGW_MSYS
 	      executable = strrchr (executable1, '\\') + 1;
 	      if (!executable)
@@ -673,7 +705,7 @@ spawn_script (const char *executable, char *const *argv,
 				     dwCreationFlags, si, pi);
 		  if (executable1 != newex)
 		    free ((char *) newex);
-		  if ((long) pid < 0)
+		  if (pid == (pid_t) -1)
 		    {
 		      newex = msys_rootify (executable1);
 		      if (newex != executable1)
@@ -686,10 +718,11 @@ spawn_script (const char *executable, char *const *argv,
 		    }
 		}
 #endif
+	      free (avhere);
 	    }
 	}
     }
-  if ((long) pid < 0)
+  if (pid == (pid_t) -1)
     errno = save_errno;
   return pid;
 }
@@ -713,6 +746,28 @@ pex_win32_exec_child (struct pex_obj *obj ATTRIBUTE_UNUSED, int flags,
   OSVERSIONINFO version_info;
   STARTUPINFO si;
   PROCESS_INFORMATION pi;
+  int orig_out, orig_in, orig_err;
+  BOOL separate_stderr = !(flags & PEX_STDERR_TO_STDOUT);
+
+  /* Ensure we have inheritable descriptors to pass to the child, and close the
+     original descriptors.  */
+  orig_in = in;
+  in = _dup (orig_in);
+  if (orig_in != STDIN_FILENO)
+    _close (orig_in);
+  
+  orig_out = out;
+  out = _dup (orig_out);
+  if (orig_out != STDOUT_FILENO)
+    _close (orig_out);
+  
+  if (separate_stderr)
+    {
+      orig_err = errdes;
+      errdes = _dup (orig_err);
+      if (orig_err != STDERR_FILENO)
+	_close (orig_err);
+    }
 
   stdin_handle = INVALID_HANDLE_VALUE;
   stdout_handle = INVALID_HANDLE_VALUE;
@@ -720,7 +775,7 @@ pex_win32_exec_child (struct pex_obj *obj ATTRIBUTE_UNUSED, int flags,
 
   stdin_handle = (HANDLE) _get_osfhandle (in);
   stdout_handle = (HANDLE) _get_osfhandle (out);
-  if (!(flags & PEX_STDERR_TO_STDOUT))
+  if (separate_stderr)
     stderr_handle = (HANDLE) _get_osfhandle (errdes);
   else
     stderr_handle = stdout_handle;
@@ -789,12 +844,13 @@ pex_win32_exec_child (struct pex_obj *obj ATTRIBUTE_UNUSED, int flags,
       *errmsg = "CreateProcess";
     }
 
-  /* Close the standard output and standard error handles in the
-     parent.  */ 
-  if (out != STDOUT_FILENO)
-    obj->funcs->close (obj, out);
-  if (errdes != STDERR_FILENO)
-    obj->funcs->close (obj, errdes);
+  /* Close the standard input, standard output and standard error handles
+     in the parent.  */ 
+
+  _close (in);
+  _close (out);
+  if (separate_stderr)
+    _close (errdes);
 
   return pid;
 }
@@ -807,7 +863,7 @@ pex_win32_exec_child (struct pex_obj *obj ATTRIBUTE_UNUSED, int flags,
    status == 3.  We fix the status code to conform to the usual WIF*
    macros.  Note that WIFSIGNALED will never be true under CRTDLL. */
 
-static int
+static pid_t
 pex_win32_wait (struct pex_obj *obj ATTRIBUTE_UNUSED, pid_t pid,
 		int *status, struct pex_time *time, int done ATTRIBUTE_UNUSED,
 		const char **errmsg, int *err)
@@ -850,7 +906,7 @@ static int
 pex_win32_pipe (struct pex_obj *obj ATTRIBUTE_UNUSED, int *p,
 		int binary)
 {
-  return _pipe (p, 256, binary ? _O_BINARY : _O_TEXT);
+  return _pipe (p, 256, (binary ? _O_BINARY : _O_TEXT) | _O_NOINHERIT);
 }
 
 /* Get a FILE pointer to read from a file descriptor.  */
@@ -859,6 +915,11 @@ static FILE *
 pex_win32_fdopenr (struct pex_obj *obj ATTRIBUTE_UNUSED, int fd,
 		   int binary)
 {
+  HANDLE h = (HANDLE) _get_osfhandle (fd);
+  if (h == INVALID_HANDLE_VALUE)
+    return NULL;
+  if (! SetHandleInformation (h, HANDLE_FLAG_INHERIT, 0))
+    return NULL;
   return fdopen (fd, binary ? "rb" : "r");
 }
 

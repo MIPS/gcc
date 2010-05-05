@@ -1,12 +1,12 @@
 // Debugging map implementation -*- C++ -*-
 
-// Copyright (C) 2003, 2004, 2005, 2006, 2007
+// Copyright (C) 2003, 2004, 2005, 2006, 2007, 2009, 2010
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
 // terms of the GNU General Public License as published by the
-// Free Software Foundation; either version 2, or (at your option)
+// Free Software Foundation; either version 3, or (at your option)
 // any later version.
 
 // This library is distributed in the hope that it will be useful,
@@ -14,19 +14,14 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-// You should have received a copy of the GNU General Public License along
-// with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
-// USA.
+// Under Section 7 of GPL version 3, you are granted additional
+// permissions described in the GCC Runtime Library Exception, version
+// 3.1, as published by the Free Software Foundation.
 
-// As a special exception, you may use this file as part of a free software
-// library without restriction.  Specifically, if other files instantiate
-// templates or use macros or inline functions from this file, or you compile
-// this file and link it with other files to produce an executable, this
-// file does not by itself cause the resulting executable to be covered by
-// the GNU General Public License.  This exception does not however
-// invalidate any other reasons why the executable file might be covered by
-// the GNU General Public License.
+// You should have received a copy of the GNU General Public License and
+// a copy of the GCC Runtime Library Exception along with this program;
+// see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+// <http://www.gnu.org/licenses/>.
 
 /** @file debug/map.h
  *  This file is a GNU debug extension to the Standard C++ Library.
@@ -43,6 +38,7 @@ namespace std
 {
 namespace __debug
 {
+  /// Class std::map with safety/checking/debug instrumentation.
   template<typename _Key, typename _Tp, typename _Compare = std::less<_Key>,
 	   typename _Allocator = std::allocator<std::pair<const _Key, _Tp> > >
     class map
@@ -98,6 +94,11 @@ namespace __debug
       map(map&& __x)
       : _Base(std::forward<map>(__x)), _Safe_base()
       { this->_M_swap(__x); }
+
+      map(initializer_list<value_type> __l,
+	  const _Compare& __c = _Compare(),
+	  const allocator_type& __a = allocator_type())
+      : _Base(__l, __c, __a), _Safe_base() { }
 #endif
 
       ~map() { }
@@ -114,9 +115,18 @@ namespace __debug
       map&
       operator=(map&& __x)
       {
-        // NB: DR 675.
+	// NB: DR 1204.
+	// NB: DR 675.
 	clear();
 	swap(__x);
+	return *this;
+      }
+
+      map&
+      operator=(initializer_list<value_type> __l)
+      {
+	this->clear();
+	this->insert(__l);
 	return *this;
       }
 #endif
@@ -198,6 +208,12 @@ namespace __debug
 					 __res.second);
       }
 
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      void
+      insert(std::initializer_list<value_type> __list)
+      { _Base::insert(__list); }
+#endif
+
       iterator
       insert(iterator __position, const value_type& __x)
       {
@@ -213,6 +229,15 @@ namespace __debug
 	  _Base::insert(__first, __last);
 	}
 
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      iterator
+      erase(iterator __position)
+      {
+	__glibcxx_check_erase(__position);
+	__position._M_invalidate();
+	return iterator(_Base::erase(__position.base()), this);
+      }
+#else
       void
       erase(iterator __position)
       {
@@ -220,6 +245,7 @@ namespace __debug
 	__position._M_invalidate();
 	_Base::erase(__position.base());
       }
+#endif
 
       size_type
       erase(const key_type& __x)
@@ -235,6 +261,18 @@ namespace __debug
 	}
       }
 
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      iterator
+      erase(iterator __first, iterator __last)
+      {
+	// _GLIBCXX_RESOLVE_LIB_DEFECTS
+	// 151. can't currently clear() empty container
+	__glibcxx_check_erase_range(__first, __last);
+	while (__first != __last)
+	  this->erase(__first++);
+	return __last;
+      }
+#else
       void
       erase(iterator __first, iterator __last)
       {
@@ -244,13 +282,10 @@ namespace __debug
 	while (__first != __last)
 	  this->erase(__first++);
       }
+#endif
 
       void
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
-      swap(map&& __x)
-#else
       swap(map& __x)
-#endif
       {
 	_Base::swap(__x);
 	this->_M_swap(__x);
@@ -375,22 +410,6 @@ namespace __debug
     swap(map<_Key, _Tp, _Compare, _Allocator>& __lhs,
 	 map<_Key, _Tp, _Compare, _Allocator>& __rhs)
     { __lhs.swap(__rhs); }
-
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
-  template<typename _Key, typename _Tp,
-	   typename _Compare, typename _Allocator>
-    inline void
-    swap(map<_Key, _Tp, _Compare, _Allocator>&& __lhs,
-	 map<_Key, _Tp, _Compare, _Allocator>& __rhs)
-    { __lhs.swap(__rhs); }
-
-  template<typename _Key, typename _Tp,
-	   typename _Compare, typename _Allocator>
-    inline void
-    swap(map<_Key, _Tp, _Compare, _Allocator>& __lhs,
-	 map<_Key, _Tp, _Compare, _Allocator>&& __rhs)
-    { __lhs.swap(__rhs); }
-#endif
 
 } // namespace __debug
 } // namespace std

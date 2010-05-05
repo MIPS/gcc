@@ -217,7 +217,18 @@ public class ClassWrapper
         MethodNode m = (MethodNode) i.next();
         String desc = MethodHelper.getBridgeTarget(m);
         if (desc != null)
-          bridgeTargets.add(m.name + desc);
+	  {
+	    String sum = m.name + desc;
+	    boolean newTarget = bridgeTargets.add(sum);
+	    if (newTarget)
+	      {
+		// Bridge target that is new in this class.
+		String cname = this.name;
+		int index = cname.lastIndexOf('/');
+		cname = cname.substring(index + 1);
+		methodNameMap.put(sum, cname + "$" + m.name);
+	      }
+	  }
       }
   }
 
@@ -247,20 +258,9 @@ public class ClassWrapper
 	String nameToUse;
 	String sum = m.name + m.desc;
 	if (bridgeTargets.contains(sum))
-	  {
-	    if (methodNameMap.containsKey(sum))
-	      nameToUse = (String) methodNameMap.get(sum);
-	    else
-	      {
-		// Bridge target that is new in this class.
-		String cname = this.name;
-		int index = cname.lastIndexOf('/');
-		cname = cname.substring(index + 1);
-		nameToUse = cname + "$" + m.name;
-	      }
-	  }
+	  nameToUse = (String) methodNameMap.get(sum);
 	else
-	  nameToUse = Keywords.getCxxName(m.name);
+	  nameToUse = m.name;
 	methodNameMap.put(sum, nameToUse);
         MethodHelper.print(out, m, this, nameToUse);
       }
@@ -291,7 +291,8 @@ public class ClassWrapper
 
   public void print(CniPrintStream out)
   {
-    out.print("::" + name.replaceAll("/", "::"));
+    out.print("::");
+    out.printName(name);
   }
 
   // This prints the body of a class to a CxxPrintStream.
@@ -303,7 +304,7 @@ public class ClassWrapper
 
     out.print("class ");
     // Don't use our print() -- we don't want the leading "::".
-    out.print(name.replaceAll("/", "::"));
+    out.printName(name);
     if (superClass != null)
       {
         out.print(" : public ");

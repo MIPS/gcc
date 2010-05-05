@@ -1,13 +1,13 @@
 // -*- C++ -*- C forwarding header.
 
 // Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005,
-// 2006, 2007
+// 2006, 2007, 2008, 2009, 2010
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
 // terms of the GNU General Public License as published by the
-// Free Software Foundation; either version 2, or (at your option)
+// Free Software Foundation; either version 3, or (at your option)
 // any later version.
 
 // This library is distributed in the hope that it will be useful,
@@ -15,23 +15,18 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-// You should have received a copy of the GNU General Public License
-// along with this library; see the file COPYING.  If not, write to
-// the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-// Boston, MA 02110-1301, USA.
+// Under Section 7 of GPL version 3, you are granted additional
+// permissions described in the GCC Runtime Library Exception, version
+// 3.1, as published by the Free Software Foundation.
 
-// As a special exception, you may use this file as part of a free software
-// library without restriction.  Specifically, if other files instantiate
-// templates or use macros or inline functions from this file, or you compile
-// this file and link it with other files to produce an executable, this
-// file does not by itself cause the resulting executable to be covered by
-// the GNU General Public License.  This exception does not however
-// invalidate any other reasons why the executable file might be covered by
-// the GNU General Public License.
+// You should have received a copy of the GNU General Public License and
+// a copy of the GCC Runtime Library Exception along with this program;
+// see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+// <http://www.gnu.org/licenses/>.
 
 /** @file include/cmath
- *  This is a Standard C++ Library file.  You should @c #include this file
- *  in your programs, rather than any of the "*.h" implementation files.
+ *  This is a Standard C++ Library file.  You should @c \#include this file
+ *  in your programs, rather than any of the @a *.h implementation files.
  *
  *  This is the C++ version of the Standard C Library header @c math.h,
  *  and its contents are (mostly) the same as that header, but are all
@@ -48,7 +43,7 @@
 #include <bits/c++config.h>
 #include <bits/cpp_type_traits.h>
 #include <ext/type_traits.h>
-#include_next <math.h>
+#include <math.h>
 
 #ifndef _GLIBCXX_CMATH
 #define _GLIBCXX_CMATH 1
@@ -106,6 +101,12 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   inline long double
   abs(long double __x)
   { return __builtin_fabsl(__x); }
+
+  template<typename _Tp>
+    inline typename __gnu_cxx::__enable_if<__is_integer<_Tp>::__value, 
+					   double>::__type
+    abs(_Tp __x)
+    { return __builtin_fabs(__x); }
 
   using ::acos;
 
@@ -367,7 +368,9 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   pow(long double __x, long double __y)
   { return __builtin_powl(__x, __y); }
 
-  // DR 550.
+#ifndef __GXX_EXPERIMENTAL_CXX0X__
+  // _GLIBCXX_RESOLVE_LIB_DEFECTS
+  // DR 550. What should the return type of pow(float,int) be?
   inline double
   pow(double __x, int __i)
   { return __builtin_powi(__x, __i); }
@@ -379,6 +382,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   inline long double
   pow(long double __x, int __n)
   { return __builtin_powil(__x, __n); }
+#endif
 
   template<typename _Tp, typename _Up>
     inline
@@ -476,19 +480,8 @@ _GLIBCXX_END_NAMESPACE
 
 #if _GLIBCXX_USE_C99_MATH
 #if !_GLIBCXX_USE_C99_FP_MACROS_DYNAMIC
-// These are possible macros imported from C99-land. For strict
-// conformance, remove possible C99-injected names from the global
-// namespace, and sequester them in the __gnu_cxx extension namespace.
 
-_GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
-
-  template<typename _Tp>
-    inline int
-    __capture_fpclassify(_Tp __f) { return fpclassify(__f); }
-
-_GLIBCXX_END_NAMESPACE
-
-// Only undefine the C99 FP macros, if actually captured for namespace movement
+// These are possible macros imported from C99-land.
 #undef fpclassify
 #undef isfinite
 #undef isinf
@@ -510,7 +503,8 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     fpclassify(_Tp __f)
     {
       typedef typename __gnu_cxx::__promote<_Tp>::__type __type;
-      return ::__gnu_cxx::__capture_fpclassify(__type(__f));
+      return __builtin_fpclassify(FP_NAN, FP_INFINITE, FP_NORMAL,
+				  FP_SUBNORMAL, FP_ZERO, __type(__f));
     }
 
   template<typename _Tp>

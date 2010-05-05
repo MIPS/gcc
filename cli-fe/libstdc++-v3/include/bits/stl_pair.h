@@ -1,12 +1,12 @@
 // Pair implementation -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
+// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
 // terms of the GNU General Public License as published by the
-// Free Software Foundation; either version 2, or (at your option)
+// Free Software Foundation; either version 3, or (at your option)
 // any later version.
 
 // This library is distributed in the hope that it will be useful,
@@ -14,19 +14,14 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-// You should have received a copy of the GNU General Public License along
-// with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
-// USA.
+// Under Section 7 of GPL version 3, you are granted additional
+// permissions described in the GCC Runtime Library Exception, version
+// 3.1, as published by the Free Software Foundation.
 
-// As a special exception, you may use this file as part of a free software
-// library without restriction.  Specifically, if other files instantiate
-// templates or use macros or inline functions from this file, or you compile
-// this file and link it with other files to produce an executable, this
-// file does not by itself cause the resulting executable to be covered by
-// the GNU General Public License.  This exception does not however
-// invalidate any other reasons why the executable file might be covered by
-// the GNU General Public License.
+// You should have received a copy of the GNU General Public License and
+// a copy of the GCC Runtime Library Exception along with this program;
+// see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+// <http://www.gnu.org/licenses/>.
 
 /*
  *
@@ -62,8 +57,12 @@
 #ifndef _STL_PAIR_H
 #define _STL_PAIR_H 1
 
-#include <bits/stl_move.h> // for std::move / std::forward, std::decay, and
-                           // std::swap
+#include <bits/move.h> // for std::move / std::forward, std::decay, and
+                       // std::swap
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#include <type_traits>
+#endif
 
 _GLIBCXX_BEGIN_NAMESPACE(std)
 
@@ -89,7 +88,22 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       : first(__a), second(__b) { }
 
 #ifdef __GXX_EXPERIMENTAL_CXX0X__
-      template<class _U1, class _U2>
+      // DR 811.
+      template<class _U1, class = typename
+	       std::enable_if<std::is_convertible<_U1, _T1>::value>::type>
+        pair(_U1&& __x, const _T2& __y)
+	: first(std::forward<_U1>(__x)),
+	  second(__y) { }
+
+      template<class _U2, class = typename
+	       std::enable_if<std::is_convertible<_U2, _T2>::value>::type>
+        pair(const _T1& __x, _U2&& __y)
+	: first(__x),
+	  second(std::forward<_U2>(__y)) { }
+
+      template<class _U1, class _U2, class = typename
+	       std::enable_if<std::is_convertible<_U1, _T1>::value
+			      && std::is_convertible<_U2, _T2>::value>::type>
         pair(_U1&& __x, _U2&& __y)
 	: first(std::forward<_U1>(__x)),
 	  second(std::forward<_U2>(__y)) { }
@@ -111,13 +125,6 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	: first(std::move(__p.first)),
 	  second(std::move(__p.second)) { }
 
-      // http://gcc.gnu.org/ml/libstdc++/2007-08/msg00052.html
-      template<class _U1, class _Arg0, class... _Args>
-        pair(_U1&& __x, _Arg0&& __arg0, _Args&&... __args)
-	: first(std::forward<_U1>(__x)),
-	  second(std::forward<_Arg0>(__arg0),
-		 std::forward<_Args>(__args)...) { }
-
       pair&
       operator=(pair&& __p)
       { 
@@ -136,7 +143,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	}
 
       void
-      swap(pair&& __p)
+      swap(pair& __p)
       {
 	using std::swap;
 	swap(first, __p.first);
@@ -151,7 +158,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     operator==(const pair<_T1, _T2>& __x, const pair<_T1, _T2>& __y)
     { return __x.first == __y.first && __x.second == __y.second; }
 
-  /// <http://gcc.gnu.org/onlinedocs/libstdc++/20_util/howto.html#pairlt>
+  /// <http://gcc.gnu.org/onlinedocs/libstdc++/manual/utilities.html>
   template<class _T1, class _T2>
     inline bool
     operator<(const pair<_T1, _T2>& __x, const pair<_T1, _T2>& __y)
@@ -184,19 +191,11 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 
 #ifdef __GXX_EXPERIMENTAL_CXX0X__
   /// See std::pair::swap().
+  // Note:  no std::swap overloads in C++03 mode, this has performance
+  //        implications, see, eg, libstdc++/38466.
   template<class _T1, class _T2>
     inline void
     swap(pair<_T1, _T2>& __x, pair<_T1, _T2>& __y)
-    { __x.swap(__y); }
-
-  template<class _T1, class _T2>
-    inline void
-    swap(pair<_T1, _T2>&& __x, pair<_T1, _T2>& __y)
-    { __x.swap(__y); }
-
-  template<class _T1, class _T2>
-    inline void
-    swap(pair<_T1, _T2>& __x, pair<_T1, _T2>&& __y)
     { __x.swap(__y); }
 #endif
 

@@ -55,12 +55,12 @@ AR_FLAGS = rc
 
 CC = @CC@
 CFLAGS = @CFLAGS@
-LIBCFLAGS = $(CFLAGS)
+CPPFLAGS = @CPPFLAGS@
 RANLIB = @RANLIB@
 MAKEINFO = @MAKEINFO@
 PERL = @PERL@
 
-PICFLAG =
+PICFLAG = @PICFLAG@
 
 MAKEOVERRIDES =
 
@@ -79,8 +79,8 @@ FLAGS_TO_PASS = \
 	"AR_FLAGS=$(AR_FLAGS)" \
 	"CC=$(CC)" \
 	"CFLAGS=$(CFLAGS)" \
+	"CPPFLAGS=$(CPPFLAGS)" \
 	"DESTDIR=$(DESTDIR)" \
-	"LIBCFLAGS=$(LIBCFLAGS)" \
 	"EXTRA_OFILES=$(EXTRA_OFILES)" \
 	"HDEFINES=$(HDEFINES)" \
 	"INSTALL=$(INSTALL)" \
@@ -100,8 +100,8 @@ FLAGS_TO_PASS = \
 SUBDIRS = testsuite
 
 # FIXME: add @BUILD_INFO@ once we're sure it works for everyone.
-all: stamp-picdir $(TARGETLIB) needed-list required-list all-subdir
-	@: $(MAKE) ; exec $(MULTIDO) $(FLAGS_TO_PASS) multi-do DO=all
+all: stamp-picdir $(TARGETLIB) required-list all-subdir
+	@: $(MAKE) ; $(MULTIDO) $(FLAGS_TO_PASS) multi-do DO=all
 
 .PHONY: check installcheck
 check: check-subdir
@@ -111,7 +111,7 @@ installcheck: installcheck-subdir
 
 INCDIR=$(srcdir)/$(MULTISRCTOP)../include
 
-COMPILE.c = $(CC) -c @DEFS@ $(LIBCFLAGS) -I. -I$(INCDIR) $(HDEFINES) @ac_libiberty_warn_cflags@
+COMPILE.c = $(CC) -c @DEFS@ $(CFLAGS) $(CPPFLAGS) -I. -I$(INCDIR) $(HDEFINES) @ac_libiberty_warn_cflags@
 
 # Just to make sure we don't use a built-in rule with VPATH
 .c.o:
@@ -124,7 +124,7 @@ COMPILE.c = $(CC) -c @DEFS@ $(LIBCFLAGS) -I. -I$(INCDIR) $(HDEFINES) @ac_libiber
 CFILES = alloca.c argv.c asprintf.c atexit.c				\
 	basename.c bcmp.c bcopy.c bsearch.c bzero.c			\
 	calloc.c choose-temp.c clock.c concat.c cp-demangle.c		\
-	 cp-demint.c cplus-dem.c					\
+	 cp-demint.c cplus-dem.c crc32.c				\
 	dyn-string.c							\
 	fdmatch.c ffs.c fibheap.c filename_cmp.c floatformat.c		\
 	fnmatch.c fopen_unlocked.c					\
@@ -135,18 +135,19 @@ CFILES = alloca.c argv.c asprintf.c atexit.c				\
 	lbasename.c							\
 	lrealpath.c							\
 	make-relative-prefix.c						\
-	make-temp-file.c md5.c memchr.c memcmp.c memcpy.c memmove.c	\
-	 mempcpy.c memset.c mkstemps.c					\
+	make-temp-file.c md5.c memchr.c memcmp.c memcpy.c memmem.c	\
+	 memmove.c mempcpy.c memset.c mkstemps.c			\
 	objalloc.c obstack.c						\
 	partition.c pexecute.c						\
 	 pex-common.c pex-djgpp.c pex-msdos.c pex-one.c			\
 	 pex-unix.c pex-win32.c						\
          physmem.c putenv.c						\
 	random.c regex.c rename.c rindex.c				\
-	safe-ctype.c setenv.c sigsetmask.c snprintf.c sort.c spaces.c	\
-	 splay-tree.c stpcpy.c stpncpy.c strcasecmp.c strchr.c strdup.c	\
-	 strerror.c strncasecmp.c strncmp.c strrchr.c strsignal.c	\
-	 strstr.c strtod.c strtol.c strtoul.c strndup.c	strverscmp.c	\
+	safe-ctype.c setenv.c sha1.c sigsetmask.c snprintf.c sort.c	\
+	 spaces.c splay-tree.c stpcpy.c stpncpy.c strcasecmp.c		\
+	 strchr.c strdup.c strerror.c strncasecmp.c strncmp.c		\
+	 strrchr.c strsignal.c strstr.c strtod.c strtol.c strtoul.c	\
+	 strndup.c strverscmp.c						\
 	tmpnam.c							\
 	unlink-if-ordinary.c						\
 	vasprintf.c vfork.c vfprintf.c vprintf.c vsnprintf.c vsprintf.c	\
@@ -156,9 +157,10 @@ CFILES = alloca.c argv.c asprintf.c atexit.c				\
 
 # These are always included in the library.  The first four are listed
 # first and by compile time to optimize parallel builds.
-REQUIRED_OFILES = ./regex.o ./cplus-dem.o ./cp-demangle.o ./md5.o	\
+REQUIRED_OFILES =							\
+	./regex.o ./cplus-dem.o ./cp-demangle.o ./md5.o ./sha1.o	\
 	./alloca.o ./argv.o						\
-	./choose-temp.o ./concat.o ./cp-demint.o			\
+	./choose-temp.o ./concat.o ./cp-demint.o ./crc32.o		\
 	./dyn-string.o							\
 	./fdmatch.o ./fibheap.o ./filename_cmp.o ./floatformat.o	\
 	./fnmatch.o ./fopen_unlocked.o					\
@@ -185,8 +187,8 @@ CONFIGURED_OFILES = ./asprintf.o ./atexit.o				\
 	./ffs.o								\
 	./getcwd.o ./getpagesize.o ./gettimeofday.o			\
 	./index.o ./insque.o						\
-	./memchr.o ./memcmp.o ./memcpy.o ./memmove.o ./mempcpy.o	\
-	 ./memset.o ./mkstemps.o					\
+	./memchr.o ./memcmp.o ./memcpy.o ./memmem.o ./memmove.o		\
+	 ./mempcpy.o ./memset.o ./mkstemps.o				\
 	./pex-djgpp.o ./pex-msdos.o					\
 	 ./pex-unix.o ./pex-win32.o					\
 	 ./putenv.o							\
@@ -262,14 +264,14 @@ HTMLS = libiberty.html
 
 html: $(HTMLS)
 
-.PHONY: install-html install-html-am install-html-recursive
+.PHONY: install-html install-html-am
 
 NORMAL_INSTALL = :
 mkdir_p = mkdir -p --
  
 html__strip_dir = `echo $$p | sed -e 's|^.*/||'`;
 
-install-html: install-html-recursive  install-html-am
+install-html: install-html-am
 
 install-html-am: $(HTMLS)
 	@$(NORMAL_INSTALL)
@@ -287,31 +289,6 @@ install-html-am: $(HTMLS)
 	    $(INSTALL_DATA) "$$d$$p" "$(DESTDIR)$(htmldir)/$$f"; \
 	  fi; \
 	done
-
-install-html-recursive:
-	@failcom='exit 1'; \
-	for f in x $$MAKEFLAGS; do \
-	  case $$f in \
-	    *=* | --[!k]*);; \
-	    *k*) failcom='fail=yes';; \
-	  esac; \
-	done; \
-	dot_seen=no; \
-	target=`echo $@ | sed s/-recursive//`; \
-	list='$(SUBDIRS)'; for subdir in $$list; do \
-	  echo "Making $$target in $$subdir"; \
-	  if test "$$subdir" = "."; then \
-	    dot_seen=yes; \
-	    local_target="$$target-am"; \
-	  else \
-	    local_target="$$target"; \
-	  fi; \
-	  (cd $$subdir && $(MAKE) $(AM_MAKEFLAGS) $$local_target) \
-	  || eval $$failcom; \
-	done; \
-	if test "$$dot_seen" = "no"; then \
-	  $(MAKE) $(AM_MAKEFLAGS) "$$target-am" || exit 1; \
-	fi; test -z "$$fail"
 
 TEXISRC = \
 	$(srcdir)/libiberty.texi \
@@ -348,9 +325,9 @@ install: install_to_$(INSTALL_DEST) install-subdir
 
 # This is tricky.  Even though CC in the Makefile contains
 # multilib-specific flags, it's overridden by FLAGS_TO_PASS from the
-# default multilib, so we have to take LIBCFLAGS into account as well,
+# default multilib, so we have to take CFLAGS into account as well,
 # since it will be passed the multilib flags.
-MULTIOSDIR = `$(CC) $(LIBCFLAGS) -print-multi-os-directory`
+MULTIOSDIR = `$(CC) $(CFLAGS) -print-multi-os-directory`
 install_to_libdir: all
 	${mkinstalldirs} $(DESTDIR)$(libdir)/$(MULTIOSDIR)
 	$(INSTALL_DATA) $(TARGETLIB) $(DESTDIR)$(libdir)/$(MULTIOSDIR)/$(TARGETLIB)n
@@ -375,22 +352,6 @@ install_to_tooldir: all
 	mv -f $(DESTDIR)$(tooldir)/lib/$(MULTIOSDIR)/$(TARGETLIB)n $(DESTDIR)$(tooldir)/lib/$(MULTIOSDIR)/$(TARGETLIB)
 	@$(MULTIDO) $(FLAGS_TO_PASS) multi-do DO=install
 
-# needed-list is used by libstdc++.  NEEDED is the list of functions
-# to include there.  Do not add anything LGPL to this list; libstdc++
-# can't use anything encumbering.
-NEEDED = atexit calloc memchr memcmp memcpy memmove memset rename strchr \
-	 strerror strncmp strrchr strstr strtol strtoul tmpnam vfprintf vprintf \
-	 vfork waitpid bcmp bcopy bzero
-needed-list: Makefile
-	rm -f needed-list; touch needed-list; \
-	for f in $(NEEDED); do \
-	  for g in $(LIBOBJS) $(EXTRA_OFILES); do \
-	    case "$$g" in \
-	      *$$f*) echo $$g >> needed-list ;; \
-	    esac; \
-	  done; \
-	done
-
 # required-list was used when building a shared bfd/opcodes/libiberty
 # library.  I don't know if it used by anything currently.
 required-list: Makefile
@@ -410,10 +371,12 @@ TAGS: $(CFILES)
 	etags `for i in $(CFILES); do echo $(srcdir)/$$i ; done`
 
 # The standalone demangler (c++filt) has been moved to binutils.
-demangle:
+# But make this target work anyway for demangler hacking.
+demangle: $(ALL) $(srcdir)/cp-demangle.c
 	@echo "The standalone demangler, now named c++filt, is now"
 	@echo "a part of binutils."
-	@false
+	$(CC) @DEFS@ $(CFLAGS) $(CPPFLAGS) -I. -I$(INCDIR) $(HDEFINES) \
+	  $(srcdir)/cp-demangle.c -DSTANDALONE_DEMANGLER $(TARGETLIB) -o $@
 
 ls:
 	@echo Makefile $(CFILES)
@@ -438,8 +401,8 @@ maint-deps :
 # multiple times, hence our explicit recursion with an empty SUBDIRS.
 mostlyclean: mostlyclean-subdir
 	-rm -rf *.o pic core errs \#* *.E a.out
-	-rm -f needed.awk needed2.awk errors dummy needed-list config.h stamp-*
-	-rm -f $(CONFIG_H) $(NEEDED_LIST) stamp-picdir
+	-rm -f errors dummy config.h stamp-*
+	-rm -f $(CONFIG_H) stamp-picdir
 	-rm -f libiberty.aux libiberty.cp libiberty.cps libiberty.fn libiberty.ky
 	-rm -f libiberty.log libiberty.tmp libiberty.tps libiberty.pg
 	-rm -f libiberty.pgs libiberty.toc libiberty.tp libiberty.tpl libiberty.vr
@@ -473,13 +436,23 @@ stamp-h: $(srcdir)/config.in config.status Makefile
 config.status: $(srcdir)/configure
 	$(SHELL) ./config.status --recheck
 
-# Depending on stamp-h makes sure that config.status has been re-run
+AUTOCONF = autoconf
+configure_deps = $(srcdir)/aclocal.m4 \
+	$(srcdir)/../config/acx.m4 \
+	$(srcdir)/../config/no-executables.m4 \
+	$(srcdir)/../config/override.m4 \
+	$(srcdir)/../config/warnings.m4 \
+
+$(srcdir)/configure: @MAINT@ $(srcdir)/configure.ac $(configure_deps)
+	cd $(srcdir) && $(AUTOCONF)
+
+# Depending on config.h makes sure that config.status has been re-run
 # if needed.  This prevents problems with parallel builds, in case
 # subdirectories need to run config.status also.
 all-subdir check-subdir installcheck-subdir info-subdir	\
 install-info-subdir clean-info-subdir dvi-subdir pdf-subdir install-subdir	\
 etags-subdir mostlyclean-subdir clean-subdir distclean-subdir \
-maintainer-clean-subdir: stamp-h
+maintainer-clean-subdir: config.h
 	@subdirs='$(SUBDIRS)'; \
 	target=`echo $@ | sed -e 's/-subdir//'`; \
 	for dir in $$subdirs ; do \
@@ -496,40 +469,41 @@ $(CONFIGURED_OFILES): stamp-picdir
 # The dependencies in the remainder of this file are automatically
 # generated by "make maint-deps".  Manual edits will be lost.
 
-./_doprnt.o: $(srcdir)/_doprnt.c stamp-h $(INCDIR)/ansidecl.h \
+./_doprnt.o: $(srcdir)/_doprnt.c config.h $(INCDIR)/ansidecl.h \
 	$(INCDIR)/safe-ctype.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/_doprnt.c -o pic/$@; \
 	else true; fi
 	$(COMPILE.c) $(srcdir)/_doprnt.c $(OUTPUT_OPTION)
 
-./alloca.o: $(srcdir)/alloca.c stamp-h $(INCDIR)/ansidecl.h $(INCDIR)/libiberty.h
+./alloca.o: $(srcdir)/alloca.c config.h $(INCDIR)/ansidecl.h \
+	$(INCDIR)/libiberty.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/alloca.c -o pic/$@; \
 	else true; fi
 	$(COMPILE.c) $(srcdir)/alloca.c $(OUTPUT_OPTION)
 
-./argv.o: $(srcdir)/argv.c stamp-h $(INCDIR)/ansidecl.h $(INCDIR)/libiberty.h \
+./argv.o: $(srcdir)/argv.c config.h $(INCDIR)/ansidecl.h $(INCDIR)/libiberty.h \
 	$(INCDIR)/safe-ctype.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/argv.c -o pic/$@; \
 	else true; fi
 	$(COMPILE.c) $(srcdir)/argv.c $(OUTPUT_OPTION)
 
-./asprintf.o: $(srcdir)/asprintf.c stamp-h $(INCDIR)/ansidecl.h \
+./asprintf.o: $(srcdir)/asprintf.c config.h $(INCDIR)/ansidecl.h \
 	$(INCDIR)/libiberty.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/asprintf.c -o pic/$@; \
 	else true; fi
 	$(COMPILE.c) $(srcdir)/asprintf.c $(OUTPUT_OPTION)
 
-./atexit.o: $(srcdir)/atexit.c stamp-h
+./atexit.o: $(srcdir)/atexit.c config.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/atexit.c -o pic/$@; \
 	else true; fi
 	$(COMPILE.c) $(srcdir)/atexit.c $(OUTPUT_OPTION)
 
-./basename.o: $(srcdir)/basename.c stamp-h $(INCDIR)/ansidecl.h \
+./basename.o: $(srcdir)/basename.c config.h $(INCDIR)/ansidecl.h \
 	$(INCDIR)/libiberty.h $(INCDIR)/safe-ctype.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/basename.c -o pic/$@; \
@@ -548,7 +522,7 @@ $(CONFIGURED_OFILES): stamp-picdir
 	else true; fi
 	$(COMPILE.c) $(srcdir)/bcopy.c $(OUTPUT_OPTION)
 
-./bsearch.o: $(srcdir)/bsearch.c stamp-h $(INCDIR)/ansidecl.h
+./bsearch.o: $(srcdir)/bsearch.c config.h $(INCDIR)/ansidecl.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/bsearch.c -o pic/$@; \
 	else true; fi
@@ -566,20 +540,21 @@ $(CONFIGURED_OFILES): stamp-picdir
 	else true; fi
 	$(COMPILE.c) $(srcdir)/calloc.c $(OUTPUT_OPTION)
 
-./choose-temp.o: $(srcdir)/choose-temp.c stamp-h $(INCDIR)/ansidecl.h \
+./choose-temp.o: $(srcdir)/choose-temp.c config.h $(INCDIR)/ansidecl.h \
 	$(INCDIR)/libiberty.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/choose-temp.c -o pic/$@; \
 	else true; fi
 	$(COMPILE.c) $(srcdir)/choose-temp.c $(OUTPUT_OPTION)
 
-./clock.o: $(srcdir)/clock.c stamp-h
+./clock.o: $(srcdir)/clock.c config.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/clock.c -o pic/$@; \
 	else true; fi
 	$(COMPILE.c) $(srcdir)/clock.c $(OUTPUT_OPTION)
 
-./concat.o: $(srcdir)/concat.c stamp-h $(INCDIR)/ansidecl.h $(INCDIR)/libiberty.h
+./concat.o: $(srcdir)/concat.c config.h $(INCDIR)/ansidecl.h \
+	$(INCDIR)/libiberty.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/concat.c -o pic/$@; \
 	else true; fi
@@ -591,7 +566,7 @@ $(CONFIGURED_OFILES): stamp-picdir
 	else true; fi
 	$(COMPILE.c) $(srcdir)/copysign.c $(OUTPUT_OPTION)
 
-./cp-demangle.o: $(srcdir)/cp-demangle.c stamp-h $(INCDIR)/ansidecl.h \
+./cp-demangle.o: $(srcdir)/cp-demangle.c config.h $(INCDIR)/ansidecl.h \
 	$(srcdir)/cp-demangle.h $(INCDIR)/demangle.h \
 	$(INCDIR)/dyn-string.h $(INCDIR)/getopt.h $(INCDIR)/libiberty.h
 	if [ x"$(PICFLAG)" != x ]; then \
@@ -599,7 +574,7 @@ $(CONFIGURED_OFILES): stamp-picdir
 	else true; fi
 	$(COMPILE.c) $(srcdir)/cp-demangle.c $(OUTPUT_OPTION)
 
-./cp-demint.o: $(srcdir)/cp-demint.c stamp-h $(INCDIR)/ansidecl.h \
+./cp-demint.o: $(srcdir)/cp-demint.c config.h $(INCDIR)/ansidecl.h \
 	$(srcdir)/cp-demangle.h $(INCDIR)/demangle.h \
 	$(INCDIR)/libiberty.h
 	if [ x"$(PICFLAG)" != x ]; then \
@@ -607,7 +582,7 @@ $(CONFIGURED_OFILES): stamp-picdir
 	else true; fi
 	$(COMPILE.c) $(srcdir)/cp-demint.c $(OUTPUT_OPTION)
 
-./cplus-dem.o: $(srcdir)/cplus-dem.c stamp-h $(INCDIR)/ansidecl.h \
+./cplus-dem.o: $(srcdir)/cplus-dem.c config.h $(INCDIR)/ansidecl.h \
 	$(INCDIR)/demangle.h $(INCDIR)/libiberty.h \
 	$(INCDIR)/safe-ctype.h
 	if [ x"$(PICFLAG)" != x ]; then \
@@ -615,14 +590,20 @@ $(CONFIGURED_OFILES): stamp-picdir
 	else true; fi
 	$(COMPILE.c) $(srcdir)/cplus-dem.c $(OUTPUT_OPTION)
 
-./dyn-string.o: $(srcdir)/dyn-string.c stamp-h $(INCDIR)/ansidecl.h \
+./crc32.o: $(srcdir)/crc32.c config.h $(INCDIR)/ansidecl.h $(INCDIR)/libiberty.h
+	if [ x"$(PICFLAG)" != x ]; then \
+	  $(COMPILE.c) $(PICFLAG) $(srcdir)/crc32.c -o pic/$@; \
+	else true; fi
+	$(COMPILE.c) $(srcdir)/crc32.c $(OUTPUT_OPTION)
+
+./dyn-string.o: $(srcdir)/dyn-string.c config.h $(INCDIR)/ansidecl.h \
 	$(INCDIR)/dyn-string.h $(INCDIR)/libiberty.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/dyn-string.c -o pic/$@; \
 	else true; fi
 	$(COMPILE.c) $(srcdir)/dyn-string.c $(OUTPUT_OPTION)
 
-./fdmatch.o: $(srcdir)/fdmatch.c stamp-h $(INCDIR)/ansidecl.h \
+./fdmatch.o: $(srcdir)/fdmatch.c config.h $(INCDIR)/ansidecl.h \
 	$(INCDIR)/libiberty.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/fdmatch.c -o pic/$@; \
@@ -635,93 +616,94 @@ $(CONFIGURED_OFILES): stamp-picdir
 	else true; fi
 	$(COMPILE.c) $(srcdir)/ffs.c $(OUTPUT_OPTION)
 
-./fibheap.o: $(srcdir)/fibheap.c stamp-h $(INCDIR)/ansidecl.h $(INCDIR)/fibheap.h \
-	$(INCDIR)/libiberty.h
+./fibheap.o: $(srcdir)/fibheap.c config.h $(INCDIR)/ansidecl.h \
+	$(INCDIR)/fibheap.h $(INCDIR)/libiberty.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/fibheap.c -o pic/$@; \
 	else true; fi
 	$(COMPILE.c) $(srcdir)/fibheap.c $(OUTPUT_OPTION)
 
-./filename_cmp.o: $(srcdir)/filename_cmp.c stamp-h $(INCDIR)/filenames.h \
+./filename_cmp.o: $(srcdir)/filename_cmp.c config.h $(INCDIR)/filenames.h \
 	$(INCDIR)/safe-ctype.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/filename_cmp.c -o pic/$@; \
 	else true; fi
 	$(COMPILE.c) $(srcdir)/filename_cmp.c $(OUTPUT_OPTION)
 
-./floatformat.o: $(srcdir)/floatformat.c stamp-h $(INCDIR)/ansidecl.h \
+./floatformat.o: $(srcdir)/floatformat.c config.h $(INCDIR)/ansidecl.h \
 	$(INCDIR)/floatformat.h $(INCDIR)/libiberty.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/floatformat.c -o pic/$@; \
 	else true; fi
 	$(COMPILE.c) $(srcdir)/floatformat.c $(OUTPUT_OPTION)
 
-./fnmatch.o: $(srcdir)/fnmatch.c stamp-h $(INCDIR)/fnmatch.h \
+./fnmatch.o: $(srcdir)/fnmatch.c config.h $(INCDIR)/fnmatch.h \
 	$(INCDIR)/safe-ctype.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/fnmatch.c -o pic/$@; \
 	else true; fi
 	$(COMPILE.c) $(srcdir)/fnmatch.c $(OUTPUT_OPTION)
 
-./fopen_unlocked.o: $(srcdir)/fopen_unlocked.c stamp-h $(INCDIR)/ansidecl.h \
+./fopen_unlocked.o: $(srcdir)/fopen_unlocked.c config.h $(INCDIR)/ansidecl.h \
 	$(INCDIR)/libiberty.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/fopen_unlocked.c -o pic/$@; \
 	else true; fi
 	$(COMPILE.c) $(srcdir)/fopen_unlocked.c $(OUTPUT_OPTION)
 
-./getcwd.o: $(srcdir)/getcwd.c stamp-h
+./getcwd.o: $(srcdir)/getcwd.c config.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/getcwd.c -o pic/$@; \
 	else true; fi
 	$(COMPILE.c) $(srcdir)/getcwd.c $(OUTPUT_OPTION)
 
-./getopt.o: $(srcdir)/getopt.c stamp-h $(INCDIR)/ansidecl.h $(INCDIR)/getopt.h
+./getopt.o: $(srcdir)/getopt.c config.h $(INCDIR)/ansidecl.h $(INCDIR)/getopt.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/getopt.c -o pic/$@; \
 	else true; fi
 	$(COMPILE.c) $(srcdir)/getopt.c $(OUTPUT_OPTION)
 
-./getopt1.o: $(srcdir)/getopt1.c stamp-h $(INCDIR)/getopt.h
+./getopt1.o: $(srcdir)/getopt1.c config.h $(INCDIR)/getopt.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/getopt1.c -o pic/$@; \
 	else true; fi
 	$(COMPILE.c) $(srcdir)/getopt1.c $(OUTPUT_OPTION)
 
-./getpagesize.o: $(srcdir)/getpagesize.c stamp-h
+./getpagesize.o: $(srcdir)/getpagesize.c config.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/getpagesize.c -o pic/$@; \
 	else true; fi
 	$(COMPILE.c) $(srcdir)/getpagesize.c $(OUTPUT_OPTION)
 
-./getpwd.o: $(srcdir)/getpwd.c stamp-h $(INCDIR)/ansidecl.h $(INCDIR)/libiberty.h
+./getpwd.o: $(srcdir)/getpwd.c config.h $(INCDIR)/ansidecl.h \
+	$(INCDIR)/libiberty.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/getpwd.c -o pic/$@; \
 	else true; fi
 	$(COMPILE.c) $(srcdir)/getpwd.c $(OUTPUT_OPTION)
 
-./getruntime.o: $(srcdir)/getruntime.c stamp-h $(INCDIR)/ansidecl.h \
+./getruntime.o: $(srcdir)/getruntime.c config.h $(INCDIR)/ansidecl.h \
 	$(INCDIR)/libiberty.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/getruntime.c -o pic/$@; \
 	else true; fi
 	$(COMPILE.c) $(srcdir)/getruntime.c $(OUTPUT_OPTION)
 
-./gettimeofday.o: $(srcdir)/gettimeofday.c stamp-h $(INCDIR)/ansidecl.h \
+./gettimeofday.o: $(srcdir)/gettimeofday.c config.h $(INCDIR)/ansidecl.h \
 	$(INCDIR)/libiberty.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/gettimeofday.c -o pic/$@; \
 	else true; fi
 	$(COMPILE.c) $(srcdir)/gettimeofday.c $(OUTPUT_OPTION)
 
-./hashtab.o: $(srcdir)/hashtab.c stamp-h $(INCDIR)/ansidecl.h $(INCDIR)/hashtab.h \
-	$(INCDIR)/libiberty.h
+./hashtab.o: $(srcdir)/hashtab.c config.h $(INCDIR)/ansidecl.h \
+	$(INCDIR)/hashtab.h $(INCDIR)/libiberty.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/hashtab.c -o pic/$@; \
 	else true; fi
 	$(COMPILE.c) $(srcdir)/hashtab.c $(OUTPUT_OPTION)
 
-./hex.o: $(srcdir)/hex.c stamp-h $(INCDIR)/ansidecl.h $(INCDIR)/libiberty.h \
+./hex.o: $(srcdir)/hex.c config.h $(INCDIR)/ansidecl.h $(INCDIR)/libiberty.h \
 	$(INCDIR)/safe-ctype.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/hex.c -o pic/$@; \
@@ -740,7 +722,7 @@ $(CONFIGURED_OFILES): stamp-picdir
 	else true; fi
 	$(COMPILE.c) $(srcdir)/insque.c $(OUTPUT_OPTION)
 
-./lbasename.o: $(srcdir)/lbasename.c stamp-h $(INCDIR)/ansidecl.h \
+./lbasename.o: $(srcdir)/lbasename.c config.h $(INCDIR)/ansidecl.h \
 	$(INCDIR)/filenames.h $(INCDIR)/libiberty.h \
 	$(INCDIR)/safe-ctype.h
 	if [ x"$(PICFLAG)" != x ]; then \
@@ -748,28 +730,28 @@ $(CONFIGURED_OFILES): stamp-picdir
 	else true; fi
 	$(COMPILE.c) $(srcdir)/lbasename.c $(OUTPUT_OPTION)
 
-./lrealpath.o: $(srcdir)/lrealpath.c stamp-h $(INCDIR)/ansidecl.h \
+./lrealpath.o: $(srcdir)/lrealpath.c config.h $(INCDIR)/ansidecl.h \
 	$(INCDIR)/libiberty.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/lrealpath.c -o pic/$@; \
 	else true; fi
 	$(COMPILE.c) $(srcdir)/lrealpath.c $(OUTPUT_OPTION)
 
-./make-relative-prefix.o: $(srcdir)/make-relative-prefix.c stamp-h \
+./make-relative-prefix.o: $(srcdir)/make-relative-prefix.c config.h \
 	$(INCDIR)/ansidecl.h $(INCDIR)/libiberty.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/make-relative-prefix.c -o pic/$@; \
 	else true; fi
 	$(COMPILE.c) $(srcdir)/make-relative-prefix.c $(OUTPUT_OPTION)
 
-./make-temp-file.o: $(srcdir)/make-temp-file.c stamp-h $(INCDIR)/ansidecl.h \
+./make-temp-file.o: $(srcdir)/make-temp-file.c config.h $(INCDIR)/ansidecl.h \
 	$(INCDIR)/libiberty.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/make-temp-file.c -o pic/$@; \
 	else true; fi
 	$(COMPILE.c) $(srcdir)/make-temp-file.c $(OUTPUT_OPTION)
 
-./md5.o: $(srcdir)/md5.c stamp-h $(INCDIR)/ansidecl.h $(INCDIR)/md5.h
+./md5.o: $(srcdir)/md5.c config.h $(INCDIR)/ansidecl.h $(INCDIR)/md5.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/md5.c -o pic/$@; \
 	else true; fi
@@ -793,6 +775,12 @@ $(CONFIGURED_OFILES): stamp-picdir
 	else true; fi
 	$(COMPILE.c) $(srcdir)/memcpy.c $(OUTPUT_OPTION)
 
+./memmem.o: $(srcdir)/memmem.c config.h
+	if [ x"$(PICFLAG)" != x ]; then \
+	  $(COMPILE.c) $(PICFLAG) $(srcdir)/memmem.c -o pic/$@; \
+	else true; fi
+	$(COMPILE.c) $(srcdir)/memmem.c $(OUTPUT_OPTION)
+
 ./memmove.o: $(srcdir)/memmove.c $(INCDIR)/ansidecl.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/memmove.c -o pic/$@; \
@@ -811,7 +799,7 @@ $(CONFIGURED_OFILES): stamp-picdir
 	else true; fi
 	$(COMPILE.c) $(srcdir)/memset.c $(OUTPUT_OPTION)
 
-./mkstemps.o: $(srcdir)/mkstemps.c stamp-h $(INCDIR)/ansidecl.h
+./mkstemps.o: $(srcdir)/mkstemps.c config.h $(INCDIR)/ansidecl.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/mkstemps.c -o pic/$@; \
 	else true; fi
@@ -823,41 +811,41 @@ $(CONFIGURED_OFILES): stamp-picdir
 	else true; fi
 	$(COMPILE.c) $(srcdir)/msdos.c $(OUTPUT_OPTION)
 
-./objalloc.o: $(srcdir)/objalloc.c stamp-h $(INCDIR)/ansidecl.h \
+./objalloc.o: $(srcdir)/objalloc.c config.h $(INCDIR)/ansidecl.h \
 	$(INCDIR)/objalloc.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/objalloc.c -o pic/$@; \
 	else true; fi
 	$(COMPILE.c) $(srcdir)/objalloc.c $(OUTPUT_OPTION)
 
-./obstack.o: $(srcdir)/obstack.c stamp-h $(INCDIR)/obstack.h
+./obstack.o: $(srcdir)/obstack.c config.h $(INCDIR)/obstack.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/obstack.c -o pic/$@; \
 	else true; fi
 	$(COMPILE.c) $(srcdir)/obstack.c $(OUTPUT_OPTION)
 
-./partition.o: $(srcdir)/partition.c stamp-h $(INCDIR)/ansidecl.h \
+./partition.o: $(srcdir)/partition.c config.h $(INCDIR)/ansidecl.h \
 	$(INCDIR)/libiberty.h $(INCDIR)/partition.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/partition.c -o pic/$@; \
 	else true; fi
 	$(COMPILE.c) $(srcdir)/partition.c $(OUTPUT_OPTION)
 
-./pex-common.o: $(srcdir)/pex-common.c stamp-h $(INCDIR)/ansidecl.h \
+./pex-common.o: $(srcdir)/pex-common.c config.h $(INCDIR)/ansidecl.h \
 	$(INCDIR)/libiberty.h $(srcdir)/pex-common.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/pex-common.c -o pic/$@; \
 	else true; fi
 	$(COMPILE.c) $(srcdir)/pex-common.c $(OUTPUT_OPTION)
 
-./pex-djgpp.o: $(srcdir)/pex-djgpp.c stamp-h $(INCDIR)/ansidecl.h \
+./pex-djgpp.o: $(srcdir)/pex-djgpp.c config.h $(INCDIR)/ansidecl.h \
 	$(INCDIR)/libiberty.h $(srcdir)/pex-common.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/pex-djgpp.c -o pic/$@; \
 	else true; fi
 	$(COMPILE.c) $(srcdir)/pex-djgpp.c $(OUTPUT_OPTION)
 
-./pex-msdos.o: $(srcdir)/pex-msdos.c stamp-h $(INCDIR)/ansidecl.h \
+./pex-msdos.o: $(srcdir)/pex-msdos.c config.h $(INCDIR)/ansidecl.h \
 	$(INCDIR)/libiberty.h $(srcdir)/pex-common.h \
 	$(INCDIR)/safe-ctype.h
 	if [ x"$(PICFLAG)" != x ]; then \
@@ -865,42 +853,42 @@ $(CONFIGURED_OFILES): stamp-picdir
 	else true; fi
 	$(COMPILE.c) $(srcdir)/pex-msdos.c $(OUTPUT_OPTION)
 
-./pex-one.o: $(srcdir)/pex-one.c stamp-h $(INCDIR)/ansidecl.h \
+./pex-one.o: $(srcdir)/pex-one.c config.h $(INCDIR)/ansidecl.h \
 	$(INCDIR)/libiberty.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/pex-one.c -o pic/$@; \
 	else true; fi
 	$(COMPILE.c) $(srcdir)/pex-one.c $(OUTPUT_OPTION)
 
-./pex-unix.o: $(srcdir)/pex-unix.c stamp-h $(INCDIR)/ansidecl.h \
+./pex-unix.o: $(srcdir)/pex-unix.c config.h $(INCDIR)/ansidecl.h \
 	$(INCDIR)/libiberty.h $(srcdir)/pex-common.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/pex-unix.c -o pic/$@; \
 	else true; fi
 	$(COMPILE.c) $(srcdir)/pex-unix.c $(OUTPUT_OPTION)
 
-./pex-win32.o: $(srcdir)/pex-win32.c stamp-h $(INCDIR)/ansidecl.h \
+./pex-win32.o: $(srcdir)/pex-win32.c config.h $(INCDIR)/ansidecl.h \
 	$(INCDIR)/libiberty.h $(srcdir)/pex-common.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/pex-win32.c -o pic/$@; \
 	else true; fi
 	$(COMPILE.c) $(srcdir)/pex-win32.c $(OUTPUT_OPTION)
 
-./pexecute.o: $(srcdir)/pexecute.c stamp-h $(INCDIR)/ansidecl.h \
+./pexecute.o: $(srcdir)/pexecute.c config.h $(INCDIR)/ansidecl.h \
 	$(INCDIR)/libiberty.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/pexecute.c -o pic/$@; \
 	else true; fi
 	$(COMPILE.c) $(srcdir)/pexecute.c $(OUTPUT_OPTION)
 
-./physmem.o: $(srcdir)/physmem.c stamp-h $(INCDIR)/ansidecl.h \
+./physmem.o: $(srcdir)/physmem.c config.h $(INCDIR)/ansidecl.h \
 	$(INCDIR)/libiberty.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/physmem.c -o pic/$@; \
 	else true; fi
 	$(COMPILE.c) $(srcdir)/physmem.c $(OUTPUT_OPTION)
 
-./putenv.o: $(srcdir)/putenv.c stamp-h $(INCDIR)/ansidecl.h
+./putenv.o: $(srcdir)/putenv.c config.h $(INCDIR)/ansidecl.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/putenv.c -o pic/$@; \
 	else true; fi
@@ -912,14 +900,14 @@ $(CONFIGURED_OFILES): stamp-picdir
 	else true; fi
 	$(COMPILE.c) $(srcdir)/random.c $(OUTPUT_OPTION)
 
-./regex.o: $(srcdir)/regex.c stamp-h $(INCDIR)/ansidecl.h $(INCDIR)/xregex.h \
+./regex.o: $(srcdir)/regex.c config.h $(INCDIR)/ansidecl.h $(INCDIR)/xregex.h \
 	$(INCDIR)/xregex2.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/regex.c -o pic/$@; \
 	else true; fi
 	$(COMPILE.c) $(srcdir)/regex.c $(OUTPUT_OPTION)
 
-./rename.o: $(srcdir)/rename.c stamp-h $(INCDIR)/ansidecl.h
+./rename.o: $(srcdir)/rename.c config.h $(INCDIR)/ansidecl.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/rename.c -o pic/$@; \
 	else true; fi
@@ -938,11 +926,17 @@ $(CONFIGURED_OFILES): stamp-picdir
 	else true; fi
 	$(COMPILE.c) $(srcdir)/safe-ctype.c $(OUTPUT_OPTION)
 
-./setenv.o: $(srcdir)/setenv.c stamp-h $(INCDIR)/ansidecl.h
+./setenv.o: $(srcdir)/setenv.c config.h $(INCDIR)/ansidecl.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/setenv.c -o pic/$@; \
 	else true; fi
 	$(COMPILE.c) $(srcdir)/setenv.c $(OUTPUT_OPTION)
+
+./sha1.o: $(srcdir)/sha1.c config.h $(INCDIR)/ansidecl.h $(INCDIR)/sha1.h
+	if [ x"$(PICFLAG)" != x ]; then \
+	  $(COMPILE.c) $(PICFLAG) $(srcdir)/sha1.c -o pic/$@; \
+	else true; fi
+	$(COMPILE.c) $(srcdir)/sha1.c $(OUTPUT_OPTION)
 
 ./sigsetmask.o: $(srcdir)/sigsetmask.c $(INCDIR)/ansidecl.h
 	if [ x"$(PICFLAG)" != x ]; then \
@@ -956,20 +950,21 @@ $(CONFIGURED_OFILES): stamp-picdir
 	else true; fi
 	$(COMPILE.c) $(srcdir)/snprintf.c $(OUTPUT_OPTION)
 
-./sort.o: $(srcdir)/sort.c stamp-h $(INCDIR)/ansidecl.h $(INCDIR)/libiberty.h \
+./sort.o: $(srcdir)/sort.c config.h $(INCDIR)/ansidecl.h $(INCDIR)/libiberty.h \
 	$(INCDIR)/sort.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/sort.c -o pic/$@; \
 	else true; fi
 	$(COMPILE.c) $(srcdir)/sort.c $(OUTPUT_OPTION)
 
-./spaces.o: $(srcdir)/spaces.c stamp-h $(INCDIR)/ansidecl.h $(INCDIR)/libiberty.h
+./spaces.o: $(srcdir)/spaces.c config.h $(INCDIR)/ansidecl.h \
+	$(INCDIR)/libiberty.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/spaces.c -o pic/$@; \
 	else true; fi
 	$(COMPILE.c) $(srcdir)/spaces.c $(OUTPUT_OPTION)
 
-./splay-tree.o: $(srcdir)/splay-tree.c stamp-h $(INCDIR)/ansidecl.h \
+./splay-tree.o: $(srcdir)/splay-tree.c config.h $(INCDIR)/ansidecl.h \
 	$(INCDIR)/libiberty.h $(INCDIR)/splay-tree.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/splay-tree.c -o pic/$@; \
@@ -1006,7 +1001,7 @@ $(CONFIGURED_OFILES): stamp-picdir
 	else true; fi
 	$(COMPILE.c) $(srcdir)/strdup.c $(OUTPUT_OPTION)
 
-./strerror.o: $(srcdir)/strerror.c stamp-h $(INCDIR)/ansidecl.h \
+./strerror.o: $(srcdir)/strerror.c config.h $(INCDIR)/ansidecl.h \
 	$(INCDIR)/libiberty.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/strerror.c -o pic/$@; \
@@ -1037,7 +1032,7 @@ $(CONFIGURED_OFILES): stamp-picdir
 	else true; fi
 	$(COMPILE.c) $(srcdir)/strrchr.c $(OUTPUT_OPTION)
 
-./strsignal.o: $(srcdir)/strsignal.c stamp-h $(INCDIR)/ansidecl.h \
+./strsignal.o: $(srcdir)/strsignal.c config.h $(INCDIR)/ansidecl.h \
 	$(INCDIR)/libiberty.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/strsignal.c -o pic/$@; \
@@ -1056,13 +1051,13 @@ $(CONFIGURED_OFILES): stamp-picdir
 	else true; fi
 	$(COMPILE.c) $(srcdir)/strtod.c $(OUTPUT_OPTION)
 
-./strtol.o: $(srcdir)/strtol.c stamp-h $(INCDIR)/safe-ctype.h
+./strtol.o: $(srcdir)/strtol.c config.h $(INCDIR)/safe-ctype.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/strtol.c -o pic/$@; \
 	else true; fi
 	$(COMPILE.c) $(srcdir)/strtol.c $(OUTPUT_OPTION)
 
-./strtoul.o: $(srcdir)/strtoul.c stamp-h $(INCDIR)/ansidecl.h \
+./strtoul.o: $(srcdir)/strtoul.c config.h $(INCDIR)/ansidecl.h \
 	$(INCDIR)/safe-ctype.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/strtoul.c -o pic/$@; \
@@ -1082,14 +1077,14 @@ $(CONFIGURED_OFILES): stamp-picdir
 	else true; fi
 	$(COMPILE.c) $(srcdir)/tmpnam.c $(OUTPUT_OPTION)
 
-./unlink-if-ordinary.o: $(srcdir)/unlink-if-ordinary.c stamp-h \
+./unlink-if-ordinary.o: $(srcdir)/unlink-if-ordinary.c config.h \
 	$(INCDIR)/ansidecl.h $(INCDIR)/libiberty.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/unlink-if-ordinary.c -o pic/$@; \
 	else true; fi
 	$(COMPILE.c) $(srcdir)/unlink-if-ordinary.c $(OUTPUT_OPTION)
 
-./vasprintf.o: $(srcdir)/vasprintf.c stamp-h $(INCDIR)/ansidecl.h \
+./vasprintf.o: $(srcdir)/vasprintf.c config.h $(INCDIR)/ansidecl.h \
 	$(INCDIR)/libiberty.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/vasprintf.c -o pic/$@; \
@@ -1114,7 +1109,7 @@ $(CONFIGURED_OFILES): stamp-picdir
 	else true; fi
 	$(COMPILE.c) $(srcdir)/vprintf.c $(OUTPUT_OPTION)
 
-./vsnprintf.o: $(srcdir)/vsnprintf.c stamp-h $(INCDIR)/ansidecl.h \
+./vsnprintf.o: $(srcdir)/vsnprintf.c config.h $(INCDIR)/ansidecl.h \
 	$(INCDIR)/libiberty.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/vsnprintf.c -o pic/$@; \
@@ -1127,54 +1122,54 @@ $(CONFIGURED_OFILES): stamp-picdir
 	else true; fi
 	$(COMPILE.c) $(srcdir)/vsprintf.c $(OUTPUT_OPTION)
 
-./waitpid.o: $(srcdir)/waitpid.c stamp-h $(INCDIR)/ansidecl.h
+./waitpid.o: $(srcdir)/waitpid.c config.h $(INCDIR)/ansidecl.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/waitpid.c -o pic/$@; \
 	else true; fi
 	$(COMPILE.c) $(srcdir)/waitpid.c $(OUTPUT_OPTION)
 
-./xatexit.o: $(srcdir)/xatexit.c stamp-h $(INCDIR)/ansidecl.h \
+./xatexit.o: $(srcdir)/xatexit.c config.h $(INCDIR)/ansidecl.h \
 	$(INCDIR)/libiberty.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/xatexit.c -o pic/$@; \
 	else true; fi
 	$(COMPILE.c) $(srcdir)/xatexit.c $(OUTPUT_OPTION)
 
-./xexit.o: $(srcdir)/xexit.c stamp-h $(INCDIR)/ansidecl.h $(INCDIR)/libiberty.h
+./xexit.o: $(srcdir)/xexit.c config.h $(INCDIR)/ansidecl.h $(INCDIR)/libiberty.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/xexit.c -o pic/$@; \
 	else true; fi
 	$(COMPILE.c) $(srcdir)/xexit.c $(OUTPUT_OPTION)
 
-./xmalloc.o: $(srcdir)/xmalloc.c stamp-h $(INCDIR)/ansidecl.h \
+./xmalloc.o: $(srcdir)/xmalloc.c config.h $(INCDIR)/ansidecl.h \
 	$(INCDIR)/libiberty.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/xmalloc.c -o pic/$@; \
 	else true; fi
 	$(COMPILE.c) $(srcdir)/xmalloc.c $(OUTPUT_OPTION)
 
-./xmemdup.o: $(srcdir)/xmemdup.c stamp-h $(INCDIR)/ansidecl.h \
+./xmemdup.o: $(srcdir)/xmemdup.c config.h $(INCDIR)/ansidecl.h \
 	$(INCDIR)/libiberty.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/xmemdup.c -o pic/$@; \
 	else true; fi
 	$(COMPILE.c) $(srcdir)/xmemdup.c $(OUTPUT_OPTION)
 
-./xstrdup.o: $(srcdir)/xstrdup.c stamp-h $(INCDIR)/ansidecl.h \
+./xstrdup.o: $(srcdir)/xstrdup.c config.h $(INCDIR)/ansidecl.h \
 	$(INCDIR)/libiberty.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/xstrdup.c -o pic/$@; \
 	else true; fi
 	$(COMPILE.c) $(srcdir)/xstrdup.c $(OUTPUT_OPTION)
 
-./xstrerror.o: $(srcdir)/xstrerror.c stamp-h $(INCDIR)/ansidecl.h \
+./xstrerror.o: $(srcdir)/xstrerror.c config.h $(INCDIR)/ansidecl.h \
 	$(INCDIR)/libiberty.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/xstrerror.c -o pic/$@; \
 	else true; fi
 	$(COMPILE.c) $(srcdir)/xstrerror.c $(OUTPUT_OPTION)
 
-./xstrndup.o: $(srcdir)/xstrndup.c stamp-h $(INCDIR)/ansidecl.h \
+./xstrndup.o: $(srcdir)/xstrndup.c config.h $(INCDIR)/ansidecl.h \
 	$(INCDIR)/libiberty.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/xstrndup.c -o pic/$@; \

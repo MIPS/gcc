@@ -1,12 +1,12 @@
 // Stream buffer classes -*- C++ -*-
 
 // Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005,
-// 2006, 2007 Free Software Foundation, Inc.
+// 2006, 2007, 2008, 2009, 2010 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
 // terms of the GNU General Public License as published by the
-// Free Software Foundation; either version 2, or (at your option)
+// Free Software Foundation; either version 3, or (at your option)
 // any later version.
 
 // This library is distributed in the hope that it will be useful,
@@ -14,19 +14,14 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-// You should have received a copy of the GNU General Public License
-// along with this library; see the file COPYING.  If not, write to
-// the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-// Boston, MA 02110-1301, USA.
+// Under Section 7 of GPL version 3, you are granted additional
+// permissions described in the GCC Runtime Library Exception, version
+// 3.1, as published by the Free Software Foundation.
 
-// As a special exception, you may use this file as part of a free software
-// library without restriction.  Specifically, if other files instantiate
-// templates or use macros or inline functions from this file, or you compile
-// this file and link it with other files to produce an executable, this
-// file does not by itself cause the resulting executable to be covered by
-// the GNU General Public License.  This exception does not however
-// invalidate any other reasons why the executable file might be covered by
-// the GNU General Public License.
+// You should have received a copy of the GNU General Public License and
+// a copy of the GCC Runtime Library Exception along with this program;
+// see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+// <http://www.gnu.org/licenses/>.
 
 /** @file streambuf
  *  This is a Standard C++ Library header.
@@ -50,11 +45,6 @@
 
 _GLIBCXX_BEGIN_NAMESPACE(std)
 
-  /**
-   *  @if maint
-   *  Does stuff.
-   *  @endif
-  */
   template<typename _CharT, typename _Traits>
     streamsize
     __copy_streambufs_eof(basic_streambuf<_CharT, _Traits>*,
@@ -62,6 +52,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 
   /**
    *  @brief  The actual work of input and output (interface).
+   *  @ingroup io
    *
    *  This is a base class.  Derived stream buffers each control a
    *  pair of character sequences:  one for input, and one for output.
@@ -89,7 +80,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
    *     represents, at any moment, a (sub)sequence of characters from the
    *     sequence.  Operations performed on a sequence alter the values
    *     stored in these pointers, perform reads and writes directly to or
-   *     from associated sequences, and alter "the stream position" and
+   *     from associated sequences, and alter <em>the stream position</em> and
    *     conversion state as needed to maintain this subsequence relationship.
    *     The three pointers are:
    *     - the <em>beginning pointer</em>, or lowest element address in the
@@ -138,11 +129,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       //@}
 
       //@{
-      /**
-       *  @if maint
-       *  This is a non-standard type.
-       *  @endif
-      */
+      /// This is a non-standard type.
       typedef basic_streambuf<char_type, traits_type>  	__streambuf_type;
       //@}
       
@@ -184,13 +171,11 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     protected:
       //@{
       /**
-       *  @if maint
        *  This is based on _IO_FILE, just reordered to be more consistent,
        *  and is intended to be the most minimal abstraction for an
        *  internal buffer.
        *  -  get == input == read
        *  -  put == output == write
-       *  @endif
       */
       char_type* 		_M_in_beg;     // Start of get area. 
       char_type* 		_M_in_cur;     // Current read area. 
@@ -199,11 +184,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       char_type* 		_M_out_cur;    // Current put area. 
       char_type* 		_M_out_end;    // End of put area.
 
-      /**
-       *  @if maint
-       *  Current locale setting.
-       *  @endif
-      */
+      /// Current locale setting.
       locale 			_M_buf_locale;	
 
   public:
@@ -360,9 +341,10 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
        *  @param  c  The character to push back.
        *  @return  The previous character, if possible.
        *
-       *  Similar to sungetc(), but @a c is pushed onto the stream instead
-       *  of "the previous character".  If successful, the next character
-       *  fetched from the input stream will be @a c.
+       *  Similar to sungetc(), but @a c is pushed onto the stream
+       *  instead of <em>the previous character.</em> If successful,
+       *  the next character fetched from the input stream will be @a
+       *  c.
       */
       int_type 
       sputbackc(char_type __c)
@@ -384,10 +366,10 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
        *  @brief  Moving backwards in the input stream.
        *  @return  The previous character, if possible.
        *
-       *  If a putback position is available, this function decrements the
-       *  input pointer and returns that character.  Otherwise, calls and
-       *  returns pbackfail().  The effect is to "unget" the last character
-       *  "gotten".
+       *  If a putback position is available, this function decrements
+       *  the input pointer and returns that character.  Otherwise,
+       *  calls and returns pbackfail().  The effect is to @a unget
+       *  the last character @a gotten.
       */
       int_type 
       sungetc()
@@ -560,11 +542,11 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
        *  @brief  Changes translations.
        *  @param  loc  A new locale.
        *
-       *  Translations done during I/O which depend on the current locale
-       *  are changed by this call.  The standard adds, "Between invocations
-       *  of this function a class derived from streambuf can safely cache
-       *  results of calls to locale functions and to members of facets
-       *  so obtained."
+       *  Translations done during I/O which depend on the current
+       *  locale are changed by this call.  The standard adds,
+       *  <em>Between invocations of this function a class derived
+       *  from streambuf can safely cache results of calls to locale
+       *  functions and to members of facets so obtained.</em>
        *
        *  @note  Base class version does nothing.
       */
@@ -574,12 +556,12 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 
       // [27.5.2.4.2] buffer management and positioning
       /**
-       *  @brief  Maniuplates the buffer.
+       *  @brief  Manipulates the buffer.
        *
        *  Each derived class provides its own appropriate behavior.  See
        *  the next-to-last paragraph of 
-       *  http://gcc.gnu.org/onlinedocs/libstdc++/27_io/howto.html#2 for
-       *  more on this function.
+       *  http://gcc.gnu.org/onlinedocs/libstdc++/manual/bk01pt11ch25s02.html
+       *  for more on this function.
        *
        *  @note  Base class version does nothing, returns @c this.
       */
@@ -616,7 +598,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
        *  @return  -1 on failure.
        *
        *  Each derived class provides its own appropriate behavior,
-       *  including the definition of "failure".
+       *  including the definition of @a failure.
        *  @note  Base class version does nothing, returns zero.
       */
       virtual int 
@@ -628,18 +610,18 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
        *  @return  An estimate of the number of characters available in the
        *           input sequence, or -1.
        *
-       *  "If it returns a positive value, then successive calls to
-       *  @c underflow() will not return @c traits::eof() until at least that
-       *  number of characters have been supplied.  If @c showmanyc()
-       *  returns -1, then calls to @c underflow() or @c uflow() will fail."
-       *  [27.5.2.4.3]/1
+       *  <em>If it returns a positive value, then successive calls to
+       *  @c underflow() will not return @c traits::eof() until at
+       *  least that number of characters have been supplied.  If @c
+       *  showmanyc() returns -1, then calls to @c underflow() or @c
+       *  uflow() will fail.</em> [27.5.2.4.3]/1
        *
        *  @note  Base class version does nothing, returns zero.
-       *  @note  The standard adds that "the intention is not only that the
+       *  @note  The standard adds that <em>the intention is not only that the
        *         calls [to underflow or uflow] will not return @c eof() but
-       *         that they will return "immediately".
-       *  @note  The standard adds that "the morphemes of @c showmanyc are
-       *         "es-how-many-see", not "show-manic".
+       *         that they will return immediately.</em>
+       *  @note  The standard adds that <em>the morphemes of @c showmanyc are
+       *         @b es-how-many-see, not @b show-manic.</em>
       */
       virtual streamsize 
       showmanyc() { return 0; }
@@ -666,16 +648,16 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
        *
        *  Informally, this function is called when the input buffer is
        *  exhausted (or does not exist, as buffering need not actually be
-       *  done).  If a buffer exists, it is "refilled".  In either case, the
+       *  done).  If a buffer exists, it is @a refilled.  In either case, the
        *  next available character is returned, or @c traits::eof() to
        *  indicate a null pending sequence.
        *
-       *  For a formal definiton of the pending sequence, see a good text
+       *  For a formal definition of the pending sequence, see a good text
        *  such as Langer & Kreft, or [27.5.2.4.3]/7-14.
        *
        *  A functioning input streambuf can be created by overriding only
        *  this function (no buffer area will be used).  For an example, see
-       *  http://gcc.gnu.org/onlinedocs/libstdc++/27_io/howto.html#6
+       *  http://gcc.gnu.org/onlinedocs/libstdc++/manual/bk01pt11ch25.html
        *
        *  @note  Base class version does nothing, returns eof().
       */
@@ -710,7 +692,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       /**
        *  @brief  Tries to back up the input sequence.
        *  @param  c  The character to be inserted back into the sequence.
-       *  @return  eof() on failure, "some other value" on success
+       *  @return  eof() on failure, <em>some other value</em> on success
        *  @post  The constraints of @c gptr(), @c eback(), and @c pptr()
        *         are the same as for @c underflow().
        *
@@ -744,14 +726,15 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
        *  @return  eof() to indicate failure, something else (usually
        *           @a c, or not_eof())
        *
-       *  Informally, this function is called when the output buffer is full
-       *  (or does not exist, as buffering need not actually be done).  If a
-       *  buffer exists, it is "consumed", with "some effect" on the
-       *  controlled sequence.  (Typically, the buffer is written out to the
-       *  sequence verbatim.)  In either case, the character @a c is also
+       *  Informally, this function is called when the output buffer
+       *  is full (or does not exist, as buffering need not actually
+       *  be done).  If a buffer exists, it is @a consumed, with
+       *  <em>some effect</em> on the controlled sequence.
+       *  (Typically, the buffer is written out to the sequence
+       *  verbatim.)  In either case, the character @a c is also
        *  written out, if @a c is not @c eof().
        *
-       *  For a formal definiton of this function, see a good text
+       *  For a formal definition of this function, see a good text
        *  such as Langer & Kreft, or [27.5.2.4.5]/3-7.
        *
        *  A functioning output streambuf can be created by overriding only

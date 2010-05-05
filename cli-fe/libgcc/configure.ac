@@ -4,8 +4,9 @@ sinclude(../config/enable.m4)
 sinclude(../config/tls.m4)
 sinclude(../config/acx.m4)
 sinclude(../config/no-executables.m4)
+sinclude(../config/override.m4)
 
-AC_PREREQ(2.59)
+AC_PREREQ(2.64)
 AC_INIT([GNU C Runtime Library], 1.0,,[libgcc])
 AC_CONFIG_SRCDIR([static-object.mk])
 
@@ -76,6 +77,21 @@ else
   slibdir='$(libdir)'
 fi)
 AC_SUBST(slibdir)
+
+# Command-line options.
+# Very limited version of AC_MAINTAINER_MODE.
+AC_ARG_ENABLE([maintainer-mode],
+  [AC_HELP_STRING([--enable-maintainer-mode],
+                 [enable make rules and dependencies not useful (and
+                  sometimes confusing) to the casual installer])],
+  [case ${enable_maintainer_mode} in
+     yes) MAINT='' ;;
+     no) MAINT='#' ;;
+     *) AC_MSG_ERROR([--enable-maintainer-mode must be yes or no]) ;;
+   esac
+   maintainer_mode=${enableval}],
+  [MAINT='#'])
+AC_SUBST([MAINT])dnl
 
 AC_PROG_INSTALL
 
@@ -152,8 +168,43 @@ AC_CACHE_CHECK([whether fixed-point is supported], [libgcc_cv_fixed_point],
 fixed_point=$libgcc_cv_fixed_point
 AC_SUBST(fixed_point)
 
+# Check 32bit or 64bit for x86.
+case ${host} in
+i?86*-*-* | x86_64*-*-*)
+  cat > conftest.c <<EOF
+#ifdef __x86_64__
+host_address=64
+#else
+host_address=32
+#endif
+EOF
+    eval `${CC-cc} -E conftest.c | grep host_address=`
+    rm -f conftest.c
+    ;;
+esac
+
 # Collect host-machine-specific information.
 . ${srcdir}/config.host
+
+# Check if Solaris/x86 linker supports ZERO terminator unwind entries.
+# This is after config.host so we can augment tmake_file.
+# Link with -nostartfiles -nodefaultlibs since neither are present while
+# building libgcc.
+case ${host} in
+i?86-*-solaris2.1[[0-9]]*)
+  cat > conftest.s <<EOF
+	.section	.eh_frame,"a",@unwind
+	.zero	4
+	.section	.jcr,"aw",@progbits
+	.zero	8
+EOF
+  if AC_TRY_COMMAND(${CC-cc} -shared -nostartfiles -nodefaultlibs -o conftest.so conftest.s 1>&AS_MESSAGE_LOG_FD); then
+      # configure expects config files in libgcc/config, so need a relative
+      # path here.
+      tmake_file="${tmake_file} ../../gcc/config/i386/t-crtstuff"
+  fi
+  ;;
+esac
 
 # Check for visibility support.  This is after config.host so that
 # we can check for asm_hidden_op.
@@ -186,6 +237,14 @@ if test "$enable_tls $gcc_cv_have_cc_tls" = "yes yes"; then
   set_have_cc_tls="-DHAVE_CC_TLS"
 fi
 AC_SUBST(set_have_cc_tls)
+
+# See if we have emulated thread-local storage.
+GCC_CHECK_EMUTLS
+set_use_emutls=
+if test "$enable_tls $gcc_cv_use_emutls" = "yes yes"; then
+  set_use_emutls="-DUSE_EMUTLS"
+fi
+AC_SUBST(set_use_emutls)
 
 # Conditionalize the makefile for this target machine.
 tmake_file_=
