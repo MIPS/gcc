@@ -40,14 +40,30 @@ typedef enum
     CIL_STYPE_INT32,  /* CIL_STACK_TYPE_INT32           */
     CIL_STYPE_INT64,  /* CIL_STACK_TYPE_INT64           */
     CIL_STYPE_NINT,   /* CIL_STACK_TYPE_NATIVE_INT      */
-    CIL_STYPE_F,      /* CIL_STACK_TYPE_FLOAT           */
+    CIL_STYPE_REAL32,      /* CIL_STACK_TYPE_REAL32           */
+    CIL_STYPE_REAL64,      /* CIL_STACK_TYPE_REAL64           */
     CIL_STYPE_MP,     /* CIL_STACK_TYPE_MANAGED_POINTER */
     CIL_STYPE_OBJECT, /* CIL_STACK_TYPE_OBJECT          */
+    CIL_STYPE_VECTOR2D,
+    CIL_STYPE_VECTOR4F,
+    CIL_STYPE_VECTOR2L,
+    CIL_STYPE_VECTOR2UL,
+    CIL_STYPE_VECTOR4I,
+    CIL_STYPE_VECTOR4UI,
+    CIL_STYPE_VECTOR8S,
+    CIL_STYPE_VECTOR8US,
+    CIL_STYPE_VECTOR16SB,
+    CIL_STYPE_VECTOR16B,
     CIL_STYPE_ERROR   /* CIL_STACK_TYPE_ERROR           */
   }
 CilStackType;
 
+#define NUM_OF_CIL_STYPE (CIL_STYPE_ERROR+1)
+
+tree build_cil_stack_cst (CilStackType ct, int x);
 tree cil_stack_get_tree_type_for_cil_stack_type (CilStackType ct);
+CilStackType get_cil_stack_type_for_tree (tree t);
+int cil_stack_type_to_nuints (CilStackType ct);
 
 void cil_stack_init (void);
 void cil_stack_push (tree item, CilStackType type);
@@ -57,5 +73,7 @@ tree cil_stack_peek (unsigned int depth, CilStackType *type);
 bool cil_stack_is_empty (void);
 
 void cil_stack_debug_dump (void);
+
+CilStackType get_cil_stack_type_for_mono_simd_class (const char * );
 
 #endif /* GCC_CIL_STACK_H */

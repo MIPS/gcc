@@ -38,6 +38,10 @@
 #include "tree.h"
 #include "ggc.h"
 
+tree get_vector_type_for_mono_simd_class (const char * called_klass_name);
+enum tree_code get_treecode_for_mono_simd_function (const char * called_name);
+
+
 void parser_parse_file (const char *filename);
 
 #endif /* GCC_CIL_EMIT_H */

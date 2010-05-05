@@ -693,6 +693,8 @@ extra_mpc_gmp_configure_flags
 extra_mpfr_configure_flags
 gmpinc
 gmplibs
+monoinc
+monolibs
 do_compare
 GNATMAKE
 GNATBIND
@@ -1528,6 +1530,7 @@ Optional Packages:
                           plus --with-gmp-lib=PATH/lib
   --with-gmp-include=PATH specify directory for installed GMP include files
   --with-gmp-lib=PATH     specify directory for the installed GMP library
+  --with-mono=PATH        specify directory for installed MONO library
   --with-host-libstdcxx=L Use linker arguments L to link with libstdc++
                           when linking with PPL
   --with-stage1-ldflags=FLAGS Linker flags for stage1
@@ -2925,7 +2928,8 @@ target_libraries="target-libgcc \
 		target-boehm-gc \
 		${libgcj} \
 		target-libobjc \
-		target-libada"
+		target-libada \
+		target-libcilsupport"
 
 # these tools are built using the target libraries, and are intended to
 # run only in the target environment
@@ -6613,6 +6617,87 @@ to specify its location." "$LINENO" 5
 
 
 fi
+
+# Check for MONO
+monolibs=
+monoinc=
+have_mono=yes
+
+
+# Check whether --with-mono or --without-mono was given.
+if test "${with_mono+set}" = set; then
+  withval="$with_mono"
+
+fi;
+
+if test "x$with_mono" != x; then
+  monolibs="-L$with_mono/lib -Wl,--export-dynamic -pthread -lmono -lpthread -lm -lgmodule-2.0 -ldl -lgthread-2.0 -lglib-2.0"
+  monoinc="-I$with_mono/include/mono-1.0 -D_REENTRANT -pthread -I/usr/include/glib-2.0 -I/usr/lib/glib-2.0/include"
+else
+  monoinc="$(pkg-config --cflags mono)"
+  monolibs="$(pkg-config --libs mono)"
+fi
+
+saved_CFLAGS="$CFLAGS"
+CFLAGS="$CFLAGS $monoinc"
+saved_LIBS="$LIBS"
+LIBS="$LIBS $monolibs"
+echo "$as_me:$LINENO: checking for correct version of mono.h" >&5
+echo $ECHO_N "checking for correct version of mono.h... $ECHO_C" >&6
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#include "mono/jit/jit.h"
+int
+main ()
+{
+
+mono_jit_init ("foo");
+
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  echo "$as_me:$LINENO: result: yes" >&5
+echo "${ECHO_T}yes" >&6
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+echo "$as_me:$LINENO: result: no" >&5
+echo "${ECHO_T}no" >&6; have_mono=no
+fi
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
+CFLAGS="$saved_CFLAGS"
+LIBS="$saved_LIBS"
+
+# Flags needed for both MONO
 
 
 # By default, C is the only stage 1 language.

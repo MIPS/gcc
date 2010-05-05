@@ -51,8 +51,6 @@
 #include "cil-tree.h"
 #include "parser.h"
 
-static void cil_read_vm_profile_info (const char *fname);
-
 /* Language for usage for messages.  */
 const char *const language_string = "CIL front end for GCC ";
 
@@ -64,98 +62,7 @@ cil_init_options (unsigned int argc ATTRIBUTE_UNUSED,
   return CL_CIL;
 }
 
-/* Process a switch - called by opts.c.  */
-int
-cil_handle_option (size_t scode, const char *arg, int value)
-{
-  enum opt_code code = (enum opt_code) scode;
-  switch (code)
-    {
-    case OPT_fcompile_only_reachable:
-      flag_parse_only_reachable = true;
-      break;
-    case OPT_ferror_unsupported:
-      flag_unsupported_method_behavior = UMB_ERROR;
-      break;
-    case OPT_fvm_profile_info:
-      cil_read_vm_profile_info (arg);
-      break;
-    case OPT_fcbuiltin:
-      flag_no_cbuiltin = !value;
-      break;
-    default:
-      gcc_unreachable ();
-    }
-  return 1;
-}
-
-/* Language dependent parser setup.  */
-
-bool
-cil_init (void)
-{
-#ifndef USE_MAPPED_LOCATION
-  input_filename = main_input_filename;
-#else
-  linemap_add (&line_table, LC_ENTER, false, main_input_filename, 1);
-#endif
-
-  /* This error will not happen from GCC as it will always create a
-     fake input file.  */
-  if (!input_filename || input_filename[0] == ' ' || !input_filename[0])
-    {
-      fprintf (stderr, "No input file specified, try --help for help\n");
-      exit (1);
-      return false;
-    }
-
-#ifdef USE_MAPPED_LOCATION
-  linemap_add (&line_table, LC_RENAME, false, "<built-in>", 1);
-  linemap_line_start (&line_table, 0, 1);
-#endif
-
-  /* Disable strict aliasing rules. CIL semantics require that
-     pointers of any type can alias pointer of any other types (unlike
-     C), or at least that's our current understanding. Hence, strict
-     aliasing is useless (and produces worng code). */
-  flag_strict_aliasing = 0;
-
-  /* Init decls, etc.  */
-  cil_init_decl_processing ();
-
-  return true;
-}
-
-/* Language dependent wrapup.  */
-
-void
-cil_finish (void)
-{
-}
-
-/* Parse a file.  Debug flag doesn't seem to work. */
-
-void
-cil_parse_file (int debug_flag ATTRIBUTE_UNUSED)
-{
-#ifdef USE_MAPPED_LOCATION
-  source_location s;
-  linemap_add (&line_table, LC_RENAME, false, main_input_filename, 1);
-  s = linemap_line_start (&line_table, 1, 80);
-  input_location = s;
-#else
-  input_line = 1;
-#endif
-
-  parser_parse_file (input_filename);
-
-  cgraph_finalize_compilation_unit ();
-#ifdef USE_MAPPED_LOCATION
-  linemap_add (&line_table, LC_LEAVE, false, NULL, 0);
-#endif
-  cgraph_optimize ();
-}
-
+/*
 static void
 cil_read_vm_profile_info (const char *fname)
 {
@@ -178,8 +85,7 @@ cil_read_vm_profile_info (const char *fname)
                   size_t len = strchr (p, '\n') ? (size_t) (strchr (p, '\n') - p) : strlen (p);
                   free (current_assembly);
                   current_assembly = xstrndup (p, len);
-
-                  /* HACK: add .exe if it is not there */
+                  // HACK: add .exe if it is not there //
                   if (!strstr (current_assembly, ".exe"))
                     {
                       char *s = xmalloc (strlen (current_assembly) + strlen (".exe") + 1);
@@ -244,6 +150,87 @@ cil_read_vm_profile_info (const char *fname)
     {
       error ("Could not open %<%s%>", fname);
     }
+}
+*/
+
+/* Process a switch - called by opts.c.  */
+int
+cil_handle_option (size_t scode, const char *arg, int value)
+{
+  enum opt_code code = (enum opt_code) scode;
+  switch (code)
+    {
+    case OPT_fcompile_only_reachable:
+      flag_parse_only_reachable = true;
+      break;
+    case OPT_ferror_unsupported:
+      flag_unsupported_method_behavior = UMB_ERROR;
+      break;
+    case OPT_fvm_profile_info:
+//      cil_read_vm_profile_info (arg);
+      error("OPT_fvm_profile_info cil_read_vm_profile_info deprecated in 4.5-avx ");
+      gcc_unreachable();
+      break;
+    case OPT_fcbuiltin:
+      flag_no_cbuiltin = !value;
+      break;
+    default:
+      gcc_unreachable ();
+    }
+  return 1;
+}
+
+/* Language dependent parser setup.  */
+
+bool
+cil_init (void)
+{
+  /*
+#ifndef USE_MAPPED_LOCATION
+  input_filename = main_input_filename;
+#else
+  linemap_add (&line_table, LC_ENTER, false, main_input_filename, 1);
+#endif
+
+  // This error will not happen from GCC as it will always create a fake input file.  //
+  if (!input_filename || input_filename[0] == ' ' || !input_filename[0])
+    {
+      fprintf (stderr, "No input file specified, try --help for help\n");
+      exit (1);
+      return false;
+    }
+#ifdef USE_MAPPED_LOCATION
+  linemap_add (&line_table, LC_RENAME, false, "<built-in>", 1);
+  linemap_line_start (&line_table, 0, 1);
+#endif
+  */
+  /* Disable strict aliasing rules. CIL semantics require that
+     pointers of any type can alias pointer of any other types (unlike
+     C), or at least that's our current understanding. Hence, strict
+     aliasing is useless (and produces worng code). */
+  flag_strict_aliasing = 0;
+
+  /* Init decls, etc.  */
+  cil_init_decl_processing ();
+
+  return true;
+}
+
+/* Language dependent wrapup.  */
+
+void
+cil_finish (void)
+{
+}
+
+/* Parse a file.  Debug flag doesn't seem to work. */
+
+void
+cil_parse_file (int debug_flag ATTRIBUTE_UNUSED)
+{
+  parser_parse_file (main_input_filename);
+  cgraph_finalize_compilation_unit ();
+  cgraph_optimize ();
 }
 
 #include "debug.h" /* for debug_hooks */

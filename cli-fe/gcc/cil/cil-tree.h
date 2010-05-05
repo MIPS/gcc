@@ -36,22 +36,22 @@
 #ifndef GCC_CIL_TREE_H
 #define GCC_CIL_TREE_H
 
-struct lang_identifier GTY(())
+struct GTY(()) lang_identifier
 {
   struct tree_identifier common;
 };
 
-struct lang_decl GTY(())
+struct GTY(()) lang_decl
 {
     char dummy;
 };
 
-struct lang_type GTY(())
+struct GTY(()) lang_type
 {
     char dummy;
 };
 
-struct language_function GTY(())
+struct GTY(()) language_function
 {
     char dummy;
 };
@@ -60,8 +60,7 @@ enum cil_tree_node_structure_enum {
   TS_CIL_GENERIC
 };
 
-union lang_tree_node
-  GTY((desc ("TREE_CODE (&%h.generic) == IDENTIFIER_NODE")))
+union GTY((desc ("TREE_CODE (&%h.generic) == IDENTIFIER_NODE"))) lang_tree_node
 {
   union tree_node GTY ((tag ("0"),
                         desc ("tree_node_structure (&%h)")))

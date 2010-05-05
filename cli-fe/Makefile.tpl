@@ -225,6 +225,8 @@ HOST_EXPORTS = \
 	CLOOGINC="$(HOST_CLOOGINC)"; export CLOOGINC; \
 	LIBELFLIBS="$(HOST_LIBELFLIBS)" ; export LIBELFLIBS; \
 	LIBELFINC="$(HOST_LIBELFINC)" ; export LIBELFINC; \
+	MONOLIBS="$(HOST_MONOLIBS)"; export MONOLIBS; \
+	MONOINC="$(HOST_MONOINC)"; export MONOINC; \
 @if gcc-bootstrap
 	$(RPATH_ENVVAR)=`echo "$(TARGET_LIB_PATH)$$$(RPATH_ENVVAR)" | sed 's,::*,:,g;s,^:*,,;s,:*$$,,'`; export $(RPATH_ENVVAR); \
 @endif gcc-bootstrap
@@ -315,6 +317,10 @@ HOST_CLOOGINC = @clooginc@
 # Where to find libelf
 HOST_LIBELFLIBS = @libelflibs@
 HOST_LIBELFINC = @libelfinc@
+
+#Where to find Mono
+HOST_MONOLIBS = @monolibs@
+HOST_MONOINC = @monoinc@
 
 # ----------------------------------------------
 # Programs producing files for the BUILD machine
