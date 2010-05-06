@@ -1510,8 +1510,6 @@ execute_all_ipa_transforms (void)
 bool
 execute_one_pass (struct opt_pass *pass)
 {
-  printf("%s\n",pass->name); fflush(stdout);
-  
   bool initializing_dump;
   unsigned int todo_after = 0;
 
