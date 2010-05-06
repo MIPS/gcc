@@ -1,3 +1,21 @@
+2010-05-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/43950
+	* dwarf2out.c (gen_compile_unit_die): Add DW_AT_identifier_case
+	DW_ID_down_case for Fortran compilation units.
+
+2010-05-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* var-tracking.c (var_debug_decl): Save DECL_DEBUG_EXPR value
+	in a temporary instead of invoking the macro multiple times.
+	(track_expr_p): Likewise.
+
+2010-05-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/43981
+	* c-parser.c (c_parser_direct_declarator_inner): Call mark_exp_read
+	on dimen.
+
 2010-05-02  Uros Bizjak  <ubizjak@gmail.com>
 
 	* config/i386/i386.c (ix86_target_string): Output 'flags', not 'isa',
