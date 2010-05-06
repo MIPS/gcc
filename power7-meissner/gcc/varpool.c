@@ -141,6 +141,7 @@ varpool_node (tree decl)
   node->decl = decl;
   node->order = cgraph_order++;
   node->next = varpool_nodes;
+  ipa_empty_ref_list (&node->ref_list);
   if (varpool_nodes)
     varpool_nodes->prev = node;
   varpool_nodes = node;
@@ -157,14 +158,25 @@ varpool_remove_node (struct varpool_node *node)
   gcc_assert (*slot == node);
   htab_clear_slot (varpool_hash, slot);
   gcc_assert (!varpool_assembled_nodes_queue);
+  if (!node->alias)
+    while (node->extra_name)
+      varpool_remove_node (node->extra_name);
   if (node->next)
     node->next->prev = node->prev;
   if (node->prev)
     node->prev->next = node->next;
-  else if (node->next)
+  else
     {
-      gcc_assert (varpool_nodes == node);
-      varpool_nodes = node->next;
+      if (node->alias)
+	{
+          gcc_assert (node->extra_name->extra_name == node);
+	  node->extra_name->extra_name = node->next;
+	}
+      else
+	{
+          gcc_assert (varpool_nodes == node);
+          varpool_nodes = node->next;
+	}
     }
   if (varpool_first_unanalyzed_node == node)
     varpool_first_unanalyzed_node = node->next_needed;
@@ -182,7 +194,11 @@ varpool_remove_node (struct varpool_node *node)
       gcc_assert (varpool_nodes_queue == node);
       varpool_nodes_queue = node->next_needed;
     }
-  node->decl = NULL;
+  ipa_remove_all_references (&node->ref_list);
+  ipa_remove_all_refering (&node->ref_list);
+  if (DECL_INITIAL (node->decl))
+    DECL_INITIAL (node->decl) = error_mark_node;
+  ggc_free (node);
 }
 
 /* Dump given cgraph node.  */
@@ -215,6 +231,10 @@ dump_varpool_node (FILE *f, struct varpool_node *node)
   else if (node->used_from_other_partition)
     fprintf (f, " used_from_other_partition");
   fprintf (f, "\n");
+  fprintf (f, "  References: ");
+  ipa_dump_references (f, &node->ref_list);
+  fprintf (f, "  Refering this var: ");
+  ipa_dump_refering (f, &node->ref_list);
 }
 
 /* Dump the variable pool.  */
@@ -620,6 +640,7 @@ varpool_extra_name_alias (tree alias, tree decl)
   alias_node->alias = 1;
   alias_node->extra_name = decl_node;
   alias_node->next = decl_node->extra_name;
+  ipa_empty_ref_list (&alias_node->ref_list);
   if (decl_node->extra_name)
     decl_node->extra_name->prev = alias_node;
   decl_node->extra_name = alias_node;

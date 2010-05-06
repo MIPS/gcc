@@ -4888,6 +4888,8 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	tree convfn = cand->fn;
 	unsigned i;
 
+	expr = mark_rvalue_use (expr);
+
 	/* When converting from an init list we consider explicit
 	   constructors, but actually trying to call one is an error.  */
 	if (DECL_NONCONVERTING_P (convfn) && DECL_CONSTRUCTOR_P (convfn))
@@ -4920,6 +4922,7 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	return expr;
       }
     case ck_identity:
+      expr = mark_rvalue_use (expr);
       if (BRACE_ENCLOSED_INITIALIZER_P (expr))
 	{
 	  int nelts = CONSTRUCTOR_NELTS (expr);
@@ -5229,6 +5232,8 @@ build_x_va_arg (tree expr, tree type)
 
   if (expr == error_mark_node || !type)
     return error_mark_node;
+
+  expr = mark_lvalue_use (expr);
 
   if (type_has_nontrivial_copy_init (type)
       || TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type)
@@ -5698,7 +5703,8 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
     {
       tree a = VEC_index (tree, args, arg_index);
       if (magic_varargs_p (fn))
-	/* Do no conversions for magic varargs.  */;
+	/* Do no conversions for magic varargs.  */
+	a = mark_type_use (a);
       else
 	a = convert_arg_to_ellipsis (a);
       argarray[j++] = a;
@@ -5778,20 +5784,8 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
 	{
 	  tree to = stabilize_reference (cp_build_indirect_ref (fa, RO_NULL,
 								complain));
-	  tree type = TREE_TYPE (to);
 
-	  if (TREE_CODE (arg) != TARGET_EXPR
-	      && TREE_CODE (arg) != AGGR_INIT_EXPR
-	      && is_really_empty_class (type))
-	    {
-	      /* Avoid copying empty classes.  */
-	      val = build2 (COMPOUND_EXPR, void_type_node, to, arg);
-	      TREE_NO_WARNING (val) = 1;
-	      val = build2 (COMPOUND_EXPR, type, val, to);
-	      TREE_NO_WARNING (val) = 1;
-	    }
-	  else
-	    val = build2 (INIT_EXPR, DECL_CONTEXT (fn), to, arg);
+	  val = build2 (INIT_EXPR, DECL_CONTEXT (fn), to, arg);
 	  return val;
 	}
     }
@@ -6219,7 +6213,7 @@ build_new_method_call (tree instance, tree fns, VEC(tree,gc) **args,
     *fn_p = NULL_TREE;
 
   if (error_operand_p (instance)
-      || error_operand_p (fns))
+      || !fns || error_operand_p (fns))
     return error_mark_node;
 
   if (!BASELINK_P (fns))
