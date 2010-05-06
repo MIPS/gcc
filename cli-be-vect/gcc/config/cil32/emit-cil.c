@@ -1,6 +1,6 @@
 /* Dump of CIL code into assembly.
 
-   Copyright (C) 2006-2009 Free Software Foundation, Inc.
+   Copyright (C) 2006-2010 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -521,33 +521,41 @@ dump_vector_type (FILE *file, cil_type_t cil_type)
 
   else  /* Generic SIMD */
     {
-      /* Generic SIMD is based on 64-bit vectors (from machine model). */
-      /* if not??? */
+      /* Generic SIMD vectors can have various sizes (from cil32.h). */
       const char* suffix;
       switch (cil_type)
         {
-        case CIL_V2HI:
         case CIL_V4HI:
         case CIL_V8HI:
+        case CIL_V16HI:
+        case CIL_V32HI:
           suffix = "HI";
           break;
         case CIL_V4QI:
         case CIL_V8QI:
         case CIL_V16QI:
+        case CIL_V32QI:
+        case CIL_V64QI:
           suffix = "QQQI";
           break;
         case CIL_V2SI:
         case CIL_V4SI:
+        case CIL_V8SI:
+        case CIL_V16SI:
           suffix = "SI";
           break;
         case CIL_V2SF:
         case CIL_V4SF:
+        case CIL_V8SF:
+        case CIL_V16SF:
           suffix = "SF";
           break;
         case CIL_V2DI:
+        case CIL_V4DI:
           suffix = "DI";
           break;
         case CIL_V2DF:
+        case CIL_V4DF:
           suffix = "DF";
           break;
 

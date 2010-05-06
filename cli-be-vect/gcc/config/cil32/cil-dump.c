@@ -1,6 +1,6 @@
 /* CIL IR dump.
 
-   Copyright (C) 2009 Free Software Foundation, Inc.
+   Copyright (C) 2009-2010 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -59,7 +59,7 @@ static const char* const cil_names[] = {
 #undef CIL_INSTRDEF
 };
 
-static const char* const cil_type_names[] = {
+const char* const cil_type_names[] = {
 #define CIL_TYPEDEF(A,B) B,
 #include "cil-types.def"
 #undef CIL_TYPEDEF

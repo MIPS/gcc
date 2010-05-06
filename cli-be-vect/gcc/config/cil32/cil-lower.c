@@ -54,6 +54,8 @@ Erven Rohou             <erven.rohou@inria.fr>
 
 enum simd_backend simd_type = UNDEF_SIMD;
 
+extern const char* const cil_type_names[];
+
 /******************************************************************************
  * Local function prototypes                                                  *
  ******************************************************************************/
@@ -109,7 +111,8 @@ lower_cil_vector_ctor (const_cil_stmt ctor)
             case CIL_V8QI: builtin = CIL32_GCC_V8QI_CTOR_U; break;
             case CIL_V2SF: builtin = CIL32_GCC_V2SF_CTOR_U; break;
             default:
-              internal_error ("Vector type expected, seen %d", cil_type);
+              internal_error ("Vector type expected, seen %s",
+                              cil_type_names [cil_type]);
             }
         }
       else
@@ -178,23 +181,37 @@ lower_cil_vector_ctor (const_cil_stmt ctor)
         {
         case CIL_V2SI:
 	case CIL_V4SI:
+        case CIL_V8SI:
+        case CIL_V16SI:
           builtin = CIL32_GEN_VSI_CTOR;
           break;
         case CIL_V4HI:
 	case CIL_V8HI:
+        case CIL_V16HI:
+	case CIL_V32HI:
           builtin = CIL32_GEN_VHI_CTOR;
           break;
         case CIL_V8QI:
 	case CIL_V16QI:
+        case CIL_V32QI:
+	case CIL_V64QI:
           builtin = CIL32_GEN_VQI_CTOR;
           break;
         case CIL_V2SF:
 	case CIL_V4SF:
+	case CIL_V8SF:
+	case CIL_V16SF:
           builtin = CIL32_GEN_VSF_CTOR;
           break;
 
+        case CIL_V2DF:
+        case CIL_V4DF:
+          builtin = CIL32_GEN_VDF_CTOR;
+          break;
+
 	default:
-	  internal_error ("Vector type expected, seen %d", cil_type);
+	  internal_error ("Vector type expected, seen %s",
+                          cil_type_names [cil_type]);
 	}
 
       return cil_build_newobj (cil32_builtins[builtin]);
@@ -233,11 +250,41 @@ lower_cil_ldvec (const_cil_stmt stmt)
     {
       switch (cil_type)
         {
-        case CIL_V2SF: builtin = CIL32_GEN_VSF_LOAD_ALIGNED; break;
-        case CIL_V2SI: builtin = CIL32_GEN_VSI_LOAD_ALIGNED; break;
-        case CIL_V4HI: builtin = CIL32_GEN_VHI_LOAD_ALIGNED; break;
-        case CIL_V8QI: builtin = CIL32_GEN_VQI_LOAD_ALIGNED; break;
+        case CIL_V2SF:
+        case CIL_V4SF:
+        case CIL_V8SF:
+        case CIL_V16SF:
+          builtin = CIL32_GEN_VSF_LOAD_ALIGNED;
+          break;
+
+        case CIL_V2DF:
+        case CIL_V4DF:
+          builtin = CIL32_GEN_VDF_LOAD_ALIGNED;
+          break;
+
+        case CIL_V2SI:
+        case CIL_V4SI:
+        case CIL_V8SI:
+        case CIL_V16SI:
+          builtin = CIL32_GEN_VSI_LOAD_ALIGNED;
+          break;
+
+        case CIL_V4HI:
+        case CIL_V8HI:
+        case CIL_V16HI:
+        case CIL_V32HI:
+          builtin = CIL32_GEN_VHI_LOAD_ALIGNED;
+          break;
+
+        case CIL_V8QI:
+        case CIL_V16QI:
+        case CIL_V32QI:
+        case CIL_V64QI:
+          builtin = CIL32_GEN_VQI_LOAD_ALIGNED;
+          break;
+
         default:
+          fprintf (stderr, "In lower_cil_ldvec: %s\n", cil_type_names [cil_type]);
           gcc_unreachable ();
         }
 
@@ -263,35 +310,46 @@ lower_cil_aldvec (const_cil_stmt stmt)
 
   switch (cil_type)
     {
-    /* case CIL_V2DF: */
-    /*   builtin = CIL32_GEN_VDF_ALOAD; */
-    /*   break; */
+    case CIL_V2DF:
+    case CIL_V4DF:
+      builtin = CIL32_GEN_VDF_ALOAD;
+      break;
 
     case CIL_V2SF:
     case CIL_V4SF:
+    case CIL_V8SF:
+    case CIL_V16SF:
       builtin = CIL32_GEN_VSF_ALOAD;
       break;
 
-    /* case CIL_V2DI: */
-    /*   builtin = CIL32_GEN_VDI_ALOAD; */
-    /*   break; */
+    case CIL_V2DI:
+    case CIL_V4DI:
+      builtin = CIL32_GEN_VDI_ALOAD;
+      break;
 
     case CIL_V2SI:
     case CIL_V4SI:
+    case CIL_V8SI:
+    case CIL_V16SI:
       builtin = CIL32_GEN_VSI_ALOAD;
       break;
 
     case CIL_V4HI:
     case CIL_V8HI:
+    case CIL_V16HI:
+    case CIL_V32HI:
       builtin = CIL32_GEN_VHI_ALOAD;
       break;
 
     case CIL_V8QI:
     case CIL_V16QI:
+    case CIL_V32QI:
+    case CIL_V64QI:
       builtin = CIL32_GEN_VQI_ALOAD;
       break;
 
     default:
+      fprintf (stderr, "In lower_cil_aldvec: %s\n", cil_type_names [cil_type]);
       gcc_unreachable ();
     }
 
@@ -330,11 +388,42 @@ lower_cil_stvec (const_cil_stmt stmt)
     {
       switch (cil_type)
 	{
-	case CIL_V2SF: builtin = CIL32_GEN_VSF_STORE_ALIGNED; break;
-	case CIL_V2SI: builtin = CIL32_GEN_VSI_STORE_ALIGNED; break;
-	case CIL_V4HI: builtin = CIL32_GEN_VHI_STORE_ALIGNED; break;
-	case CIL_V8QI: builtin = CIL32_GEN_VQI_STORE_ALIGNED; break;
+	case CIL_V2DF:
+        case CIL_V4DF:
+          builtin = CIL32_GEN_VDF_STORE_ALIGNED;
+          break;
+
+	case CIL_V2SF:
+        case CIL_V4SF:
+        case CIL_V8SF:
+        case CIL_V16SF:
+          builtin = CIL32_GEN_VSF_STORE_ALIGNED;
+          break;
+
+	case CIL_V2SI:
+        case CIL_V4SI:
+        case CIL_V8SI:
+        case CIL_V16SI:
+          builtin = CIL32_GEN_VSI_STORE_ALIGNED;
+          break;
+
+	case CIL_V4HI:
+	case CIL_V8HI:
+	case CIL_V16HI:
+	case CIL_V32HI:
+          builtin = CIL32_GEN_VHI_STORE_ALIGNED;
+          break;
+
+	case CIL_V8QI:
+	case CIL_V16QI:
+	case CIL_V32QI:
+	case CIL_V64QI:
+          builtin = CIL32_GEN_VQI_STORE_ALIGNED;
+          break;
+
 	default:
+          fprintf (stderr, "In lower_cil_stvec: %s\n",
+                   cil_type_names [cil_type]);
 	  gcc_unreachable ();
 	}
 
@@ -387,19 +476,29 @@ lower_cil_vector_add (cil_type_t type)
   else  /* simd_type == GENERIC_SIMD */
     switch (type)
       {
-        /* 64-bit vectors */
+        /* 64-bit */
       case CIL_V2SF: builtin = CIL32_GEN_VSF_ADD; break;
       case CIL_V2SI: builtin = CIL32_GEN_VSI_ADD; break;
       case CIL_V4HI: builtin = CIL32_GEN_VHI_ADD; break;
       case CIL_V8QI: builtin = CIL32_GEN_VQI_ADD; break;
 
-        /* if in 128-bit mode */
+        /* 128-bit */
       case CIL_V4SI: builtin = CIL32_GEN_VSI_ADD; break;
       case CIL_V8HI: builtin = CIL32_GEN_VHI_ADD; break;
       case CIL_V16QI: builtin = CIL32_GEN_VQI_ADD; break;
       case CIL_V4SF: builtin = CIL32_GEN_VSF_ADD; break;
+      case CIL_V2DF: builtin = CIL32_GEN_VDF_ADD; break;
+
+        /* 256-bit */
+      case CIL_V8SI: builtin = CIL32_GEN_VSI_ADD; break;
+      case CIL_V16HI: builtin = CIL32_GEN_VHI_ADD; break;
+      case CIL_V32QI: builtin = CIL32_GEN_VQI_ADD; break;
+      case CIL_V8SF: builtin = CIL32_GEN_VSF_ADD; break;
+      case CIL_V4DF: builtin = CIL32_GEN_VDF_ADD; break;
 
       default:
+        fprintf (stderr, "In lower_cil_vector_add: %s\n",
+                 cil_type_names [type]);
         gcc_unreachable ();
       }
 
@@ -449,18 +548,29 @@ lower_cil_vector_sub (cil_type_t type)
   else  /* simd_type == GENERIC_SIMD */
     switch (type)
       {
-        /* 64-bit vectors */
+        /* 64-bit */
       case CIL_V2SF: builtin = CIL32_GEN_VSF_SUB; break;
       case CIL_V2SI: builtin = CIL32_GEN_VSI_SUB; break;
       case CIL_V4HI: builtin = CIL32_GEN_VHI_SUB; break;
       case CIL_V8QI: builtin = CIL32_GEN_VQI_SUB; break;
 
-        /* if in 128-bit mode */
+        /* 128-bit */
       case CIL_V4SI: builtin = CIL32_GEN_VSI_SUB; break;
       case CIL_V8HI: builtin = CIL32_GEN_VHI_SUB; break;
       case CIL_V16QI: builtin = CIL32_GEN_VQI_SUB; break;
       case CIL_V4SF: builtin = CIL32_GEN_VSF_SUB; break;
+      case CIL_V2DF: builtin = CIL32_GEN_VDF_SUB; break;
+
+        /* 256-bit */
+      case CIL_V8SI: builtin = CIL32_GEN_VSI_SUB; break;
+      case CIL_V16HI: builtin = CIL32_GEN_VHI_SUB; break;
+      case CIL_V32QI: builtin = CIL32_GEN_VQI_SUB; break;
+      case CIL_V8SF: builtin = CIL32_GEN_VSF_SUB; break;
+      case CIL_V4DF: builtin = CIL32_GEN_VDF_SUB; break;
+
       default:
+        fprintf (stderr, "In lower_cil_vector_sub: %s\n",
+                 cil_type_names [type]);
         gcc_unreachable ();
       }
 
@@ -510,18 +620,29 @@ lower_cil_vector_mul (cil_type_t type)
   else  /* simd_type == GENERIC_SIMD */
     switch (type)
       {
-        /* 64-bit vectors */
+        /* 64-bit */
       case CIL_V2SF: builtin = CIL32_GEN_VSF_MUL; break;
       case CIL_V2SI: builtin = CIL32_GEN_VSI_MUL; break;
       case CIL_V4HI: builtin = CIL32_GEN_VHI_MUL; break;
       case CIL_V8QI: builtin = CIL32_GEN_VQI_MUL; break;
 
-        /* if in 128-bit mode */
+        /* 128-bit */
       case CIL_V4SI: builtin = CIL32_GEN_VSI_MUL; break;
       case CIL_V8HI: builtin = CIL32_GEN_VHI_MUL; break;
       case CIL_V16QI: builtin = CIL32_GEN_VQI_MUL; break;
       case CIL_V4SF: builtin = CIL32_GEN_VSF_MUL; break;
+      case CIL_V2DF: builtin = CIL32_GEN_VDF_MUL; break;
+
+        /* 256-bit */
+      case CIL_V8SI: builtin = CIL32_GEN_VSI_MUL; break;
+      case CIL_V16HI: builtin = CIL32_GEN_VHI_MUL; break;
+      case CIL_V32QI: builtin = CIL32_GEN_VQI_MUL; break;
+      case CIL_V8SF: builtin = CIL32_GEN_VSF_MUL; break;
+      case CIL_V4DF: builtin = CIL32_GEN_VDF_MUL; break;
+
       default:
+        fprintf (stderr, "In lower_cil_vector_mul: %s\n",
+                 cil_type_names [type]);
         gcc_unreachable ();
       }
 
@@ -564,7 +685,10 @@ lower_cil_vector_and (cil_type_t type)
         gcc_unreachable ();
       }
   else
-    internal_error ("AND operator not defined yet\n");
+    {
+      fprintf (stderr, "In lower_cil_vector_and: %s\n", cil_type_names [type]);
+      internal_error ("AND operator not defined yet\n");
+    }
 
   return cil_build_call (cil32_builtins[builtin]);
 }
@@ -605,7 +729,10 @@ lower_cil_vector_or (cil_type_t type)
         gcc_unreachable ();
       }
   else
-    internal_error ("OR operator not defined yet\n");
+    {
+      fprintf (stderr, "In lower_cil_vector_or: %s\n", cil_type_names [type]);
+      internal_error ("OR operator not defined yet\n");
+    }
 
   return cil_build_call (cil32_builtins[builtin]);
 }
@@ -646,7 +773,10 @@ lower_cil_vector_xor (cil_type_t type)
         gcc_unreachable ();
       }
   else
-    internal_error ("XOR operator not defined yet\n");
+    {
+      fprintf (stderr, "In lower_cil_vector_xor: %s\n", cil_type_names [type]);
+      internal_error ("XOR operator not defined yet\n");
+    }
 
   return cil_build_call (cil32_builtins[builtin]);
 }

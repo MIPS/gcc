@@ -2707,6 +2707,9 @@ gen_minmax_expr (cil_stmt_iterator *csi, tree node)
       switch (cil_type)
         {
         case CIL_V8QI:
+        case CIL_V16QI:
+        case CIL_V32QI:
+        case CIL_V64QI:
           if (max)
             builtin = CIL32_GEN_VQI_MAX;
           else
@@ -2714,6 +2717,9 @@ gen_minmax_expr (cil_stmt_iterator *csi, tree node)
           break;
 
         case CIL_V4HI:
+        case CIL_V8HI:
+        case CIL_V16HI:
+        case CIL_V32HI:
           if (max)
             builtin = CIL32_GEN_VHI_MAX;
           else
@@ -2721,6 +2727,9 @@ gen_minmax_expr (cil_stmt_iterator *csi, tree node)
           break;
 
         case CIL_V2SI:
+        case CIL_V4SI:
+        case CIL_V8SI:
+        case CIL_V16SI:
           if (max)
             builtin = CIL32_GEN_VSI_MAX;
           else
@@ -2728,6 +2737,9 @@ gen_minmax_expr (cil_stmt_iterator *csi, tree node)
           break;
 
         case CIL_V2SF:
+        case CIL_V4SF:
+        case CIL_V8SF:
+        case CIL_V16SF:
           if (max)
             builtin = CIL32_GEN_VSF_MAX;
           else
@@ -3910,6 +3922,8 @@ gimple_to_cil_node (cil_stmt_iterator *csi, tree node)
         cil_type_t cil_type;
         enum cil32_builtin builtin = 0;
 
+  fprintf (stderr, "REALIGN_LOAD_EXPR\n");
+
         op0 = TREE_OPERAND (node, 0);
         op1 = TREE_OPERAND (node, 1);
         op2 = TREE_OPERAND (node, 2);
@@ -4364,6 +4378,8 @@ gimple_to_cil (void)
 
   /* Add the initializers to the entry block */
   process_initializers ();
+
+  /* dump_cil (); */
 
   return 0;
 }

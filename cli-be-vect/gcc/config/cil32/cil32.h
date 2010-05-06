@@ -1,6 +1,6 @@
 /* Definitions for GCC.  Part of the machine description for cil32.
 
-   Copyright (C) 2006-2009 Free Software Foundation, Inc.
+   Copyright (C) 2006-2010 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -93,7 +93,13 @@ extern int target_flags;
 #define WORDS_BIG_ENDIAN 0
 
 #define UNITS_PER_WORD 4
-#define UNITS_PER_SIMD_WORD(mode) 8
+
+
+/* When changing UNITS_PER_SIMD_WORD, need to change the defines in
+   cil-builtins.c accordingly. */
+#define UNITS_PER_SIMD_WORD(mode) 32  /* 256-bit vectors */
+
+
 
 /* Unused by cil32 machine */
 #define PARM_BOUNDARY 32

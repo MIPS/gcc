@@ -1,6 +1,6 @@
 /*
 
-   Copyright (C) 2006-2009 Free Software Foundation, Inc.
+   Copyright (C) 2006-2010 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -39,6 +39,47 @@ Erven Rohou             <erven.rohou@inria.fr>
 
 #include "cil-builtins.h"
 #include "cil-refs.h"
+
+
+/* When changing UNITS_PER_SIMD_WORD, need to change the following
+   accordingly. */
+#if 0
+/* This is for 64-bit vectors */
+#define VQI_type_node intQI8_type_node
+#define VHI_type_node intHI4_type_node
+#define VSI_type_node intSI2_type_node
+#define VDI_type_node intDI2_type_node  /* FIXME */
+
+#define VSF_type_node float2_type_node
+#define VDF_type_node double2_type_node  /* FIXME */
+
+#define VQI_ptr_type_node V8QI_ptr_type_node
+#define VHI_ptr_type_node V4HI_ptr_type_node
+#define VSI_ptr_type_node V2SI_ptr_type_node
+#define VDI_ptr_type_node V2DI_ptr_type_node  /* FIXME */
+
+#define VSF_ptr_type_node V2SF_ptr_type_node
+#define VDF_ptr_type_node V2DF_ptr_type_node  /* FIXME */
+
+#else
+/* This is for 256-bit vectors */
+#define VQI_type_node intQI32_type_node
+#define VHI_type_node intHI16_type_node
+#define VSI_type_node intSI8_type_node
+#define VDI_type_node intDI4_type_node
+
+#define VSF_type_node float8_type_node
+#define VDF_type_node double4_type_node
+
+#define VQI_ptr_type_node V32QI_ptr_type_node
+#define VHI_ptr_type_node V16HI_ptr_type_node
+#define VSI_ptr_type_node V8SI_ptr_type_node
+#define VDI_ptr_type_node V4DI_ptr_type_node
+
+#define VSF_ptr_type_node V8SF_ptr_type_node
+#define VDF_ptr_type_node V4DF_ptr_type_node
+
+#endif
 
 tree cil32_builtins[CIL32_MAX_BUILT_IN] = {NULL_TREE};
 
@@ -95,27 +136,51 @@ cil_init_builtins (void)
   /* Vector types */
   tree float2_type_node = build_vector_type (float_type_node, 2);
   tree float4_type_node = build_vector_type (float_type_node, 4);
+  tree float8_type_node = build_vector_type (float_type_node, 8);
+
   tree double2_type_node = build_vector_type (double_type_node, 2);
-  tree intDI2_type_node = build_vector_type (intDI_type_node, 2);
-  tree intQI4_type_node = build_vector_type (intQI_type_node, 4);
+  tree double4_type_node = build_vector_type (double_type_node, 4);
+
   tree intHI2_type_node = build_vector_type (intHI_type_node, 2);
-  tree intQI8_type_node = build_vector_type (intQI_type_node, 8);
   tree intHI4_type_node = build_vector_type (intHI_type_node, 4);
+  tree intHI8_type_node = build_vector_type (intHI_type_node, 8);
+  tree intHI16_type_node = build_vector_type (intHI_type_node, 16);
+
+  tree intQI4_type_node = build_vector_type (intQI_type_node, 4);
+  tree intQI8_type_node = build_vector_type (intQI_type_node, 8);
+  tree intQI16_type_node = build_vector_type (intQI_type_node, 16);
+  tree intQI32_type_node = build_vector_type (intQI_type_node, 32);
+
   tree intSI2_type_node = build_vector_type (intSI_type_node, 2);
   tree intSI4_type_node = build_vector_type (intSI_type_node, 4);
-  tree intHI8_type_node = build_vector_type (intHI_type_node, 8);
-  tree intQI16_type_node = build_vector_type (intQI_type_node, 16);
+  tree intSI8_type_node = build_vector_type (intSI_type_node, 8);
 
+  tree intDI2_type_node = build_vector_type (intDI_type_node, 2);
+  tree intDI4_type_node = build_vector_type (intDI_type_node, 4);
+
+  /* Pointers to vectors */
   tree V2DF_ptr_type_node = build_pointer_type (double2_type_node);
+  tree V4DF_ptr_type_node = build_pointer_type (double4_type_node);
+
   tree V2SF_ptr_type_node = build_pointer_type (float2_type_node);
   tree V4SF_ptr_type_node = build_pointer_type (float4_type_node);
+  tree V8SF_ptr_type_node = build_pointer_type (float8_type_node);
+
   tree V2DI_ptr_type_node = build_pointer_type (intDI2_type_node);
+  tree V4DI_ptr_type_node = build_pointer_type (intDI4_type_node);
+
   tree V2SI_ptr_type_node = build_pointer_type (intSI2_type_node);
   tree V4SI_ptr_type_node = build_pointer_type (intSI4_type_node);
+  tree V8SI_ptr_type_node = build_pointer_type (intSI8_type_node);
+
   tree V4HI_ptr_type_node = build_pointer_type (intHI4_type_node);
   tree V8HI_ptr_type_node = build_pointer_type (intHI8_type_node);
+  tree V16HI_ptr_type_node = build_pointer_type (intHI16_type_node);
+
+  tree V4QI_ptr_type_node = build_pointer_type (intQI4_type_node);
   tree V8QI_ptr_type_node = build_pointer_type (intQI8_type_node);
   tree V16QI_ptr_type_node = build_pointer_type (intQI16_type_node);
+  tree V32QI_ptr_type_node = build_pointer_type (intQI32_type_node);
 
   /* Complex types */
   tree complex_char_type_node = build_complex_type (char_type_node);

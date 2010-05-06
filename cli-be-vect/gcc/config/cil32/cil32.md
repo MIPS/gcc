@@ -43,8 +43,10 @@
 (define_mode_iterator ALLEVALMODES [SI DI SF DF])
 (define_mode_iterator ALLINTEVALMODES [SI DI])
 
-(define_mode_iterator VECMODES [V16QI V8HI V4SI V2DI V4SF V2DF 
-                                 V8QI V4HI V2SI V2SF])
+(define_mode_iterator VECMODES [ V64QI V32HI V16SI V8DI V16SF V8DF
+                                 V32QI V16HI V8SI  V4DI V8SF  V4DF
+                                 V16QI V8HI  V4SI  V2DI V4SF  V2DF 
+                                 V8QI  V4HI  V2SI  V2SF])
 
 ;; NOP
 

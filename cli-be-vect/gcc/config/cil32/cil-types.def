@@ -1,6 +1,6 @@
 /*
 
-   Copyright (C) 2006-2009 Free Software Foundation, Inc.
+   Copyright (C) 2006-2010 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -83,6 +83,22 @@ CIL_TYPEDEF(CIL_V8HI,"V8HI")    /* Vector of 8 16-bit integers */
 CIL_TYPEDEF(CIL_V16QI,"V16QI")  /* Vector of 16 8-bit integers */
 CIL_TYPEDEF(CIL_V2DF,"V2DF")    /* Vector of 2 64-bit double precision floats */
 CIL_TYPEDEF(CIL_V4SF,"V4SF")    /* Vector of 4 32-bit single precision floats */
+
+/* 32-byte vector types */
+CIL_TYPEDEF(CIL_V4DI,"V4DI")    /* Vector of 4 64-bit integers */
+CIL_TYPEDEF(CIL_V8SI,"V8SI")    /* Vector of 8 32-bit integers */
+CIL_TYPEDEF(CIL_V16HI,"V16HI")  /* Vector of 16 16-bit integers */
+CIL_TYPEDEF(CIL_V32QI,"V32QI")  /* Vector of 32 8-bit integers */
+CIL_TYPEDEF(CIL_V4DF,"V4DF")    /* Vector of 4 64-bit double precision floats */
+CIL_TYPEDEF(CIL_V8SF,"V8SF")    /* Vector of 8 32-bit single precision floats */
+
+/* 64-byte vector types */
+CIL_TYPEDEF(CIL_V8DI,"V8DI")    /* Vector of 8 64-bit integers */
+CIL_TYPEDEF(CIL_V16SI,"V16SI")  /* Vector of 16 32-bit integers */
+CIL_TYPEDEF(CIL_V32HI,"V32HI")  /* Vector of 32 16-bit integers */
+CIL_TYPEDEF(CIL_V64QI,"V64QI")  /* Vector of 64 8-bit integers */
+CIL_TYPEDEF(CIL_V8DF,"V8DF")    /* Vector of 8 64-bit double precision floats */
+CIL_TYPEDEF(CIL_V16SF,"V16SF")  /* Vector of 16 32-bit single precision floats */
 
 /* Integer Complex Types*/
 /* Complex of Signed 8-bit integer */

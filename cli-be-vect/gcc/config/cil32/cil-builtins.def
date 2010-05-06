@@ -992,16 +992,21 @@ DEF_CILBUILTIN(GCC_V2SI_TO_DI, "[gcc4net]gcc4net.V2SI::V2SI_to_di", ATTR_NULL, \
 	       1, intSI2_type_node)
 
 /* Split vectorization.  */
+DEF_CILBUILTIN(GCC_GET_STRIDE_VDF, "[genvec_support]genvec_support.VDF::stride", \
+               ATTR_CONST_NOTHROW_LIST,          \
+               unsigned_type_node, \
+               0)
+
 DEF_CILBUILTIN(GCC_GET_STRIDE_VSF, "[genvec_support]genvec_support.VSF::stride", \
                ATTR_CONST_NOTHROW_LIST, \
                unsigned_type_node,     \
                0)
-#if 0
+
 DEF_CILBUILTIN(GCC_GET_STRIDE_VDI, "[genvec_support]genvec_support.VDI::stride", \
                ATTR_CONST_NOTHROW_LIST,          \
                unsigned_type_node, \
                0)
-#endif
+
 DEF_CILBUILTIN(GCC_GET_STRIDE_VSI, "[genvec_support]genvec_support.VSI::stride", \
                ATTR_CONST_NOTHROW_LIST, \
                unsigned_type_node,     \
@@ -1018,91 +1023,77 @@ DEF_CILBUILTIN(GCC_GET_STRIDE_VQI, "[genvec_support]genvec_support.VQI::stride",
                0)
 
 /* uniform */
-#if 0
 DEF_CILBUILTIN(GCC_BUILD_UNIFORM_VEC_VDF, "[genvec_support]genvec_support.VDF::VDF_uniform_vec", \
                ATTR_CONST_NOTHROW_LIST,        \
-               double2_type_node, \
+               VDF_type_node, \
                1, \
                double_type_node)
 
 DEF_CILBUILTIN(GCC_BUILD_UNIFORM_VEC_VSF, "[genvec_support]genvec_support.VSF::VSF_uniform_vec", \
                ATTR_CONST_NOTHROW_LIST,        \
-               float4_type_node, \
+               VSF_type_node, \
                1, \
                float_type_node)
-#endif
-DEF_CILBUILTIN(GCC_BUILD_UNIFORM_VEC_VSF, "[genvec_support]genvec_support.VSF::VSF_uniform_vec", \
-               ATTR_CONST_NOTHROW_LIST,        \
-               float2_type_node, \
-               1, \
-               float_type_node)
-#if 0
+
 DEF_CILBUILTIN(GCC_BUILD_UNIFORM_VEC_VDI, "[genvec_support]genvec_support.VDI::VDI_uniform_vec", \
                ATTR_CONST_NOTHROW_LIST,        \
-               intDI2_type_node, \
+               VDI_type_node, \
                1, \
                intDI_type_node)
-#endif
+
 DEF_CILBUILTIN(GCC_BUILD_UNIFORM_VEC_VSI, "[genvec_support]genvec_support.VSI::VSI_uniform_vec", \
                ATTR_CONST_NOTHROW_LIST,        \
-               intSI2_type_node, \
+               VSI_type_node, \
                1, \
                intSI_type_node)
 
 DEF_CILBUILTIN(GCC_BUILD_UNIFORM_VEC_VHI, "[genvec_support]genvec_support.VHI::VHI_uniform_vec", \
                ATTR_CONST_NOTHROW_LIST,        \
-               intHI4_type_node, \
+               VHI_type_node, \
                1, \
                intHI_type_node)
 
 DEF_CILBUILTIN(GCC_BUILD_UNIFORM_VEC_VQI, "[genvec_support]genvec_support.VQI::VQI_uniform_vec", \
                ATTR_CONST_NOTHROW_LIST,         \
-               intQI8_type_node, \
+               VQI_type_node, \
                1, \
                intQI_type_node)
 
 
 /* affine */
-#if 0
 DEF_CILBUILTIN(GCC_BUILD_AFFINE_VEC_VDF, "[genvec_support]genvec_support.VDF::VDF_affine_vec", \
                ATTR_CONST_NOTHROW_LIST, \
-               double2_type_node, \
+               VDF_type_node, \
                2, \
                double_type_node, double_type_node)
 
 DEF_CILBUILTIN(GCC_BUILD_AFFINE_VEC_VSF, "[genvec_support]genvec_support.VSF::VSF_affine_vec", \
                ATTR_CONST_NOTHROW_LIST, \
-               float4_type_node, \
+               VSF_type_node, \
                2, \
                float_type_node, float_type_node)
-#endif
-DEF_CILBUILTIN(GCC_BUILD_AFFINE_VEC_VSF, "[genvec_support]genvec_support.VSF::VSF_affine_vec", \
-               ATTR_CONST_NOTHROW_LIST, \
-               float2_type_node, \
-               2, \
-               float_type_node, float_type_node)
-#if 0
+
 DEF_CILBUILTIN(GCC_BUILD_AFFINE_VEC_VDI, "[genvec_support]genvec_support.VDI::VDI_affine_vec", \
                ATTR_CONST_NOTHROW_LIST,        \
-               intDI2_type_node, \
+               VDI_type_node, \
                2, \
                intDI_type_node, integer_type_node)
-#endif
+
 DEF_CILBUILTIN(GCC_BUILD_AFFINE_VEC_VSI, "[genvec_support]genvec_support.VSI::VSI_affine_vec", \
                ATTR_CONST_NOTHROW_LIST, \
-               intSI2_type_node, \
+               VSI_type_node, \
                2, \
                intSI_type_node, integer_type_node)
 
 DEF_CILBUILTIN(GCC_BUILD_AFFINE_VEC_VHI, "[genvec_support]genvec_support.VHI::VHI_affine_vec", \
                ATTR_CONST_NOTHROW_LIST,        \
-               intHI4_type_node, \
+               VHI_type_node, \
                2, \
                intHI_type_node, integer_type_node)
 
 DEF_CILBUILTIN(GCC_BUILD_AFFINE_VEC_VQI, "[genvec_support]genvec_support.VQI::VQI_affine_vec", \
                ATTR_CONST_NOTHROW_LIST,         \
-               intQI8_type_node, \
+               VQI_type_node, \
                2, \
                intQI_type_node, integer_type_node)
 
@@ -1114,7 +1105,17 @@ DEF_CILBUILTIN(GCC_GET_STEP, "[genvec_support]genvec_support.VQI::get_vec_size",
                0)
 
 /* align */
+DEF_CILBUILTIN(GCC_GET_ALIGN_VDF, "[genvec_support]genvec_support.VDF::VDF_align", \
+               ATTR_CONST_NOTHROW_LIST,          \
+               unsigned_type_node, \
+               0)
+
 DEF_CILBUILTIN(GCC_GET_ALIGN_VSF, "[genvec_support]genvec_support.VSF::VSF_align", \
+               ATTR_CONST_NOTHROW_LIST,          \
+               unsigned_type_node, \
+               0)
+
+DEF_CILBUILTIN(GCC_GET_ALIGN_VDI, "[genvec_support]genvec_support.VDI::VDI_align", \
                ATTR_CONST_NOTHROW_LIST,          \
                unsigned_type_node, \
                0)
@@ -1135,77 +1136,95 @@ DEF_CILBUILTIN(GCC_GET_ALIGN_VQI, "[genvec_support]genvec_support.VQI::VQI_align
                0)
 
 /* epilogues */
+DEF_CILBUILTIN(GCC_BUILD_REDUC_MAX_EPILOGUE_VDF, "[genvec_support]genvec_support.VDF::VDF_reduc_max_epilogue", \
+               ATTR_CONST_NOTHROW_LIST,          \
+               VDF_type_node, \
+               1,
+               VDF_type_node)
+
+DEF_CILBUILTIN(GCC_BUILD_REDUC_MIN_EPILOGUE_VDF, "[genvec_support]genvec_support.VDF::VDF_reduc_min_epilogue", \
+               ATTR_CONST_NOTHROW_LIST,          \
+               VDF_type_node, \
+               1,
+               VDF_type_node)
+
+DEF_CILBUILTIN(GCC_BUILD_REDUC_PLUS_EPILOGUE_VDF, "[genvec_support]genvec_support.VDF::VDF_reduc_plus_epilogue", \
+               ATTR_CONST_NOTHROW_LIST,          \
+               VDF_type_node, \
+               1,
+               VDF_type_node)
+
 DEF_CILBUILTIN(GCC_BUILD_REDUC_MAX_EPILOGUE_VSF, "[genvec_support]genvec_support.VSF::VSF_reduc_max_epilogue", \
                ATTR_CONST_NOTHROW_LIST,          \
-               float2_type_node, \
+               VSF_type_node, \
                1,
-               float2_type_node)
+               VSF_type_node)
 
 DEF_CILBUILTIN(GCC_BUILD_REDUC_MIN_EPILOGUE_VSF, "[genvec_support]genvec_support.VSF::VSF_reduc_min_epilogue", \
                ATTR_CONST_NOTHROW_LIST,          \
-               float2_type_node, \
+               VSF_type_node, \
                1,
-               float2_type_node)
+               VSF_type_node)
 
 DEF_CILBUILTIN(GCC_BUILD_REDUC_PLUS_EPILOGUE_VSF, "[genvec_support]genvec_support.VSF::VSF_reduc_plus_epilogue", \
                ATTR_CONST_NOTHROW_LIST,          \
-               float2_type_node, \
+               VSF_type_node, \
                1,
-               float2_type_node)
-#if 0
+               VSF_type_node)
+
 DEF_CILBUILTIN(GCC_BUILD_REDUC_MAX_EPILOGUE_VDI, "[genvec_support]genvec_support.VDI::VDI_reduc_max_epilogue", \
                ATTR_CONST_NOTHROW_LIST,          \
-               intDI2_type_node, \
+               VDI_type_node, \
                1,
-               intDI2_type_node)
+               VDI_type_node)
 
 DEF_CILBUILTIN(GCC_BUILD_REDUC_MIN_EPILOGUE_VDI, "[genvec_support]genvec_support.VDI::VDI_reduc_min_epilogue", \
                ATTR_CONST_NOTHROW_LIST,          \
-               intDI2_type_node, \
+               VDI_type_node, \
                1,
-               intDI2_type_node)
+               VDI_type_node)
 
 DEF_CILBUILTIN(GCC_BUILD_REDUC_PLUS_EPILOGUE_VDI, "[genvec_support]genvec_support.VDI::VDI_reduc_plus_epilogue", \
                ATTR_CONST_NOTHROW_LIST,          \
-               intDI2_type_node, \
+               VDI_type_node, \
                1,
-               intDI2_type_node)
-#endif
+               VDI_type_node)
+
 DEF_CILBUILTIN(GCC_BUILD_REDUC_MAX_EPILOGUE_VSI, "[genvec_support]genvec_support.VSI::VSI_reduc_max_epilogue", \
                ATTR_CONST_NOTHROW_LIST,          \
-               intSI2_type_node, \
+               VSI_type_node, \
                1,
-               intSI2_type_node)
+               VSI_type_node)
 
 DEF_CILBUILTIN(GCC_BUILD_REDUC_MIN_EPILOGUE_VSI, "[genvec_support]genvec_support.VSI::VSI_reduc_min_epilogue", \
                ATTR_CONST_NOTHROW_LIST,          \
-               intSI2_type_node, \
+               VSI_type_node, \
                1,
-               intSI2_type_node)
+               VSI_type_node)
 
 DEF_CILBUILTIN(GCC_BUILD_REDUC_PLUS_EPILOGUE_VSI, "[genvec_support]genvec_support.VSI::VSI_reduc_plus_epilogue", \
                ATTR_CONST_NOTHROW_LIST,          \
-               intSI2_type_node, \
+               VSI_type_node, \
                1,
-               intSI2_type_node)
+               VSI_type_node)
 
 DEF_CILBUILTIN(GCC_BUILD_REDUC_MAX_EPILOGUE_VHI, "[genvec_support]genvec_support.VHI::VHI_reduc_max_epilogue", \
                ATTR_CONST_NOTHROW_LIST,          \
-               intHI4_type_node, \
+               VHI_type_node, \
                1,
-               intHI4_type_node)
+               VHI_type_node)
 
 DEF_CILBUILTIN(GCC_BUILD_REDUC_MIN_EPILOGUE_VHI, "[genvec_support]genvec_support.VHI::VHI_reduc_min_epilogue", \
                ATTR_CONST_NOTHROW_LIST,          \
-               intHI4_type_node, \
+               VHI_type_node, \
                1,
-               intHI4_type_node)
+               VHI_type_node)
 
 DEF_CILBUILTIN(GCC_BUILD_REDUC_PLUS_EPILOGUE_VHI, "[genvec_support]genvec_support.VHI::VHI_reduc_plus_epilogue", \
                ATTR_CONST_NOTHROW_LIST,          \
-               intHI4_type_node, \
+               VHI_type_node, \
                1,
-               intHI4_type_node)
+               VHI_type_node)
 
 DEF_CILBUILTIN(GCC_BUILD_REDUC_MAX_EPILOGUE_VQI, "[genvec_support]genvec_support.VQI::VQI_reduc_max_epilogue", \
                ATTR_CONST_NOTHROW_LIST,          \
@@ -1228,12 +1247,22 @@ DEF_CILBUILTIN(GCC_BUILD_REDUC_PLUS_EPILOGUE_VQI, "[genvec_support]genvec_suppor
 /* mask */
 DEF_CILBUILTIN(GCC_MASK_FOR_LOAD, "[genvec_support]genvec_support.VQI::VQI_mask_for_load", \
                ATTR_CONST_NOTHROW_LIST,          \
-               intQI16_type_node, \
+               VQI_type_node, \
                3,
-               V16QI_ptr_type_node, integer_type_node, integer_type_node)
+               VQI_ptr_type_node, integer_type_node, integer_type_node)
 
 /* realign offset */
+DEF_CILBUILTIN(GCC_REALIGN_OFFSET_VDF, "[genvec_support]genvec_support.VDF::VDF_realign_offset", \
+               ATTR_CONST_NOTHROW_LIST,          \
+               unsigned_type_node, \
+               0)
+
 DEF_CILBUILTIN(GCC_REALIGN_OFFSET_VSF, "[genvec_support]genvec_support.VSF::VSF_realign_offset", \
+               ATTR_CONST_NOTHROW_LIST,          \
+               unsigned_type_node, \
+               0)
+
+DEF_CILBUILTIN(GCC_REALIGN_OFFSET_VDI, "[genvec_support]genvec_support.VDI::VDI_realign_offset", \
                ATTR_CONST_NOTHROW_LIST,          \
                unsigned_type_node, \
                0)
@@ -1264,9 +1293,9 @@ DEF_CILBUILTIN(GCC_GET_LOOP_NITERS, "[genvec_support]genvec_support.VQI::VI_get_
 
 DEF_CILBUILTIN(GEN_DOT_PRODUCT_VSI, "[genvec_support]genvec_support.VSI::VSI_dot_product", \
                ATTR_CONST_NOTHROW_LIST,          \
-               intSI4_type_node, \
+               VSI_type_node, \
                3,
-               intHI8_type_node, intHI8_type_node, intSI4_type_node)
+               VHI_type_node, VHI_type_node, VSI_type_node)
 
 DEF_CILBUILTIN(GEN_DOT_PRODUCT_VHI, "[genvec_support]genvec_support.VHI::VHI_dot_product", \
                ATTR_CONST_NOTHROW_LIST,          \
@@ -1275,320 +1304,405 @@ DEF_CILBUILTIN(GEN_DOT_PRODUCT_VHI, "[genvec_support]genvec_support.VHI::VHI_dot
                intQI16_type_node, intQI16_type_node, intHI8_type_node)
 
 /* init */
+DEF_CILBUILTIN(GCC_BUILD_INIT_VEC_VDF, "[genvec_support]genvec_support.VDF::VDF_init_vec", \
+               ATTR_CONST_NOTHROW_LIST,        \
+               VDF_type_node, \
+               2, \
+               double_type_node, double_type_node)
+
 DEF_CILBUILTIN(GCC_BUILD_INIT_VEC_VSF, "[genvec_support]genvec_support.VSF::VSF_init_vec", \
                ATTR_CONST_NOTHROW_LIST,        \
-               float2_type_node, \
+               VSF_type_node, \
                2, \
                float_type_node, float_type_node)
 
+DEF_CILBUILTIN(GCC_BUILD_INIT_VEC_VDI, "[genvec_support]genvec_support.VDI::VDI_init_vec", \
+               ATTR_CONST_NOTHROW_LIST,        \
+               VDI_type_node, \
+               2, \
+               intDI_type_node, intDI_type_node)
+
 DEF_CILBUILTIN(GCC_BUILD_INIT_VEC_VSI, "[genvec_support]genvec_support.VSI::VSI_init_vec", \
                ATTR_CONST_NOTHROW_LIST,        \
-               intSI2_type_node, \
+               VSI_type_node, \
                2, \
                intSI_type_node, intSI_type_node)
 
 DEF_CILBUILTIN(GCC_BUILD_INIT_VEC_VHI, "[genvec_support]genvec_support.VHI::VHI_init_vec", \
                ATTR_CONST_NOTHROW_LIST,        \
-               intHI4_type_node, \
+               VHI_type_node, \
                2, \
                intHI_type_node, intHI_type_node)
 
 DEF_CILBUILTIN(GCC_BUILD_INIT_VEC_VQI, "[genvec_support]genvec_support.VQI::VQI_init_vec", \
                ATTR_CONST_NOTHROW_LIST,         \
-               intQI8_type_node, \
+               VQI_type_node, \
                2, \
                intQI_type_node, intQI_type_node)
+
+/* V DF */
+DEF_CILBUILTIN(GEN_VDF_CTOR, "[Xxxx.Simd]Xxxx.Simd.VecGenDF::.ctor", \
+               ATTR_CONST_NOTHROW_LIST, \
+	       VDF_type_node,   \
+	       1, double_type_node)
+
+DEF_CILBUILTIN(GEN_VDF_LOAD_ALIGNED, \
+	       "[Xxxx.Simd]Xxxx.Simd.VecGenDF::LoadAligned", \
+               ATTR_NULL,        \
+	       VDF_type_node, \
+	       1, \
+	       VDF_ptr_type_node)
+
+DEF_CILBUILTIN(GEN_VDF_REALIGN_LOAD, \
+	       "[genvec_support]genvec_support.VDF::RealignLoad", \
+               ATTR_NULL,        \
+	       VDF_type_node, \
+	       6, \
+	       VDF_type_node, VDF_type_node, VDF_type_node, VDF_ptr_type_node, integer_type_node, integer_type_node)
+
+DEF_CILBUILTIN(GEN_VDF_STORE_ALIGNED,
+	       "[Xxxx.Simd]Xxxx.Simd.VecGenDF::StoreAligned", \
+               ATTR_NULL,      \
+	       void_type_node, \
+	       2, \
+	       VDF_ptr_type_node, VDF_type_node)
+
+DEF_CILBUILTIN(GEN_VDF_ALOAD, \
+	       "[genvec_support]genvec_support.VDF::ALoad", \
+               ATTR_NULL,        \
+	       VDF_type_node, \
+	       1, \
+	       VDF_ptr_type_node)
+
+DEF_CILBUILTIN(GEN_VDF_ADD, "[Xxxx.Simd]Xxxx.Simd.VecGenDF::op_Addition", \
+               ATTR_NULL,        \
+	       VDF_type_node, \
+	       2, \
+	       VDF_type_node, VDF_type_node)
+
+DEF_CILBUILTIN(GEN_VDF_SUB, "[Xxxx.Simd]Xxxx.Simd.VecGenDF::op_Subtraction", \
+               ATTR_NULL,        \
+	       VDF_type_node, \
+	       2, \
+	       VDF_type_node, VDF_type_node)
+
+DEF_CILBUILTIN(GEN_VDF_MUL, "[Xxxx.Simd]Xxxx.Simd.VecGenDF::op_Multiply", \
+               ATTR_NULL,        \
+	       VDF_type_node, \
+	       2, \
+	       VDF_type_node, VDF_type_node)
 
 
 /* V SF */
 DEF_CILBUILTIN(GEN_VSF_CTOR, "[Xxxx.Simd]Xxxx.Simd.VecGenSF::.ctor", \
                ATTR_CONST_NOTHROW_LIST, \
-	       float2_type_node,   \
+	       VSF_type_node,   \
 	       1, float_type_node)
 
 DEF_CILBUILTIN(GEN_VSF_LOAD_ALIGNED, \
 	       "[Xxxx.Simd]Xxxx.Simd.VecGenSF::LoadAligned", \
                ATTR_NULL,        \
-	       float2_type_node, \
+	       VSF_type_node, \
 	       1, \
-	       V2SF_ptr_type_node)
+	       VSF_ptr_type_node)
 
 DEF_CILBUILTIN(GEN_VSF_ALOAD, \
 	       "[genvec_support]genvec_support.VSF::ALoad", \
                ATTR_NULL,        \
-	       float2_type_node, \
+	       VSF_type_node, \
 	       1, \
-	       V2SF_ptr_type_node)
+	       VSF_ptr_type_node)
 
 DEF_CILBUILTIN(GEN_VSF_REALIGN_LOAD, \
 	       "[genvec_support]genvec_support.VSF::RealignLoad", \
                ATTR_NULL,        \
-	       float2_type_node, \
+	       VSF_type_node, \
 	       6, \
-	       float2_type_node, float2_type_node, float2_type_node, V2SF_ptr_type_node, integer_type_node, integer_type_node)
+	       VSF_type_node, VSF_type_node, VSF_type_node, VSF_ptr_type_node, integer_type_node, integer_type_node)
 
 DEF_CILBUILTIN(GEN_VSF_STORE_ALIGNED,
 	       "[Xxxx.Simd]Xxxx.Simd.VecGenSF::StoreAligned", \
                ATTR_NULL,      \
 	       void_type_node, \
 	       2, \
-	       V2SF_ptr_type_node, float2_type_node)
+	       VSF_ptr_type_node, VSF_type_node)
 
 DEF_CILBUILTIN(GEN_VSF_ADD, "[Xxxx.Simd]Xxxx.Simd.VecGenSF::op_Addition", \
                ATTR_NULL,        \
-	       float2_type_node, \
+	       VSF_type_node, \
 	       2, \
-	       float2_type_node, float2_type_node)
+	       VSF_type_node, VSF_type_node)
 
 DEF_CILBUILTIN(GEN_VSF_SUB, "[Xxxx.Simd]Xxxx.Simd.VecGenSF::op_Subtraction", \
                ATTR_NULL,        \
-	       float2_type_node, \
+	       VSF_type_node, \
 	       2, \
-	       float2_type_node, float2_type_node)
+	       VSF_type_node, VSF_type_node)
 DEF_CILBUILTIN(GEN_VSF_MUL, "[Xxxx.Simd]Xxxx.Simd.VecGenSF::op_Multiply", \
                ATTR_NULL,        \
-	       float2_type_node, \
+	       VSF_type_node, \
 	       2, \
-	       float2_type_node, float2_type_node)
+	       VSF_type_node, VSF_type_node)
 
 DEF_CILBUILTIN(GEN_VSF_MIN, "[Xxxx.Simd]Xxxx.Simd.VectorOperations::Min", \
                ATTR_NULL,                                               \
-               float2_type_node,                                        \
-               2, float2_type_node, float2_type_node)
+               VSF_type_node,                                        \
+               2, VSF_type_node, VSF_type_node)
 
 DEF_CILBUILTIN(GEN_VSF_MAX, "[Xxxx.Simd]Xxxx.Simd.VectorOperations::Max", \
                ATTR_NULL,                                               \
-               float2_type_node,                                        \
-               2, float2_type_node, float2_type_node)
+               VSF_type_node,                                        \
+               2, VSF_type_node, VSF_type_node)
+
+/* V DI */
+DEF_CILBUILTIN(GEN_VDI_CTOR, "[Xxxx.Simd]Xxxx.Simd.VecGenDI::.ctor", \
+               ATTR_NULL,        \
+	       VDI_type_node, \
+	       1, intDI_type_node)
+
+DEF_CILBUILTIN(GEN_VDI_LOAD_ALIGNED, \
+	       "[Xxxx.Simd]Xxxx.Simd.VecGenDI::LoadAligned", \
+               ATTR_NULL,        \
+	       VDI_type_node, \
+	       1, \
+	       VDI_ptr_type_node)
+
+DEF_CILBUILTIN(GEN_VDI_ALOAD, \
+	       "[genvec_support]genvec_support.VDI::ALoad", \
+               ATTR_NULL,        \
+	       VDI_type_node, \
+	       1, \
+	       VDI_ptr_type_node)
+
 
 /* V SI */
 DEF_CILBUILTIN(GEN_VSI_CTOR, "[Xxxx.Simd]Xxxx.Simd.VecGenSI::.ctor", \
                ATTR_NULL,        \
-	       intSI2_type_node, \
+	       VSI_type_node, \
 	       1, intSI_type_node)
 
 DEF_CILBUILTIN(GEN_VSI_LOAD_ALIGNED, \
 	       "[Xxxx.Simd]Xxxx.Simd.VecGenSI::LoadAligned", \
                ATTR_NULL,        \
-	       intSI2_type_node, \
+	       VSI_type_node, \
 	       1, \
-	       V2SI_ptr_type_node)
+	       VSI_ptr_type_node)
 
 DEF_CILBUILTIN(GEN_VSI_ALOAD, \
 	       "[genvec_support]genvec_support.VSI::ALoad", \
                ATTR_NULL,        \
-	       intSI2_type_node, \
+	       VSI_type_node, \
 	       1, \
-	       V2SI_ptr_type_node)
+	       VSI_ptr_type_node)
 
 DEF_CILBUILTIN(GEN_VSI_REALIGN_LOAD, \
 	       "[genvec_support]genvec_support.VSI::RealignLoad", \
                ATTR_NULL,        \
-	       intSI2_type_node, \
+	       VSI_type_node, \
 	       6, \
-	       intSI2_type_node, intSI2_type_node, intSI2_type_node, V2SI_ptr_type_node, integer_type_node, integer_type_node)
+	       VSI_type_node, VSI_type_node, VSI_type_node, VSI_ptr_type_node, integer_type_node, integer_type_node)
 
 DEF_CILBUILTIN(GEN_VSI_STORE_ALIGNED,
 	       "[Xxxx.Simd]Xxxx.Simd.VecGenSI::StoreAligned", \
                ATTR_NULL,      \
 	       void_type_node, \
 	       2, \
-	       V2SI_ptr_type_node, intSI2_type_node)
+	       VSI_ptr_type_node, VSI_type_node)
 
 DEF_CILBUILTIN(GEN_VSI_ADD, "[Xxxx.Simd]Xxxx.Simd.VecGenSI::op_Addition", \
                ATTR_NULL,        \
-	       intSI2_type_node, \
+	       VSI_type_node, \
 	       2, \
-	       intSI2_type_node, intSI2_type_node)
+	       VSI_type_node, VSI_type_node)
 
 DEF_CILBUILTIN(GEN_VSI_SUB, "[Xxxx.Simd]Xxxx.Simd.VecGenSI::op_Subtraction", \
                ATTR_NULL,        \
-	       intSI2_type_node, \
+	       VSI_type_node, \
 	       2, \
-	       intSI2_type_node, intSI2_type_node)
+	       VSI_type_node, VSI_type_node)
 
 DEF_CILBUILTIN(GEN_VSI_MUL, "[Xxxx.Simd]Xxxx.Simd.VecGenSI::op_Multiply", \
                ATTR_NULL,        \
-	       intSI2_type_node, \
+	       VSI_type_node, \
 	       2, \
-	       intSI2_type_node, intSI2_type_node)
+	       VSI_type_node, VSI_type_node)
 
 DEF_CILBUILTIN(GEN_VSI_AND, "[Xxxx.Simd]Xxxx.Simd.VecGenSI::op_BitwiseAnd", \
                ATTR_NULL,        \
-	       intSI2_type_node, \
+	       VSI_type_node, \
 	       2, \
-	       intSI2_type_node, intSI2_type_node)
+	       VSI_type_node, VSI_type_node)
 
 DEF_CILBUILTIN(GEN_VSI_OR, "[Xxxx.Simd]Xxxx.Simd.VecGenSI::op_BitwiseOr", \
                ATTR_NULL,        \
-	       intSI2_type_node, \
+	       VSI_type_node, \
 	       2, \
-	       intSI2_type_node, intSI2_type_node)
+	       VSI_type_node, VSI_type_node)
 
 DEF_CILBUILTIN(GEN_VSI_XOR, "[Xxxx.Simd]Xxxx.Simd.VecGenSI::op_ExclusiveOr", \
                ATTR_NULL,        \
-	       intSI2_type_node, \
+	       VSI_type_node, \
 	       2, \
-	       intSI2_type_node, intSI2_type_node)
+	       VSI_type_node, VSI_type_node)
 
 DEF_CILBUILTIN(GEN_VSI_MIN, "[Xxxx.Simd]Xxxx.Simd.VectorOperations::Min ", \
                ATTR_NULL,                                               \
-               intSI2_type_node,                                        \
-               2, intSI2_type_node, intSI2_type_node)
+               VSI_type_node,                                        \
+               2, VSI_type_node, VSI_type_node)
 
 DEF_CILBUILTIN(GEN_VSI_MAX, "[Xxxx.Simd]Xxxx.Simd.VectorOperations::Max ", \
                ATTR_NULL,                                               \
-               intSI2_type_node,                                        \
-               2, intSI2_type_node, intSI2_type_node)
+               VSI_type_node,                                        \
+               2, VSI_type_node, VSI_type_node)
 
 /* V HI */
 DEF_CILBUILTIN(GEN_VHI_CTOR, "[Xxxx.Simd]Xxxx.Simd.VecGenHI::.ctor", \
                ATTR_NULL,        \
-	       intHI4_type_node, \
+	       VHI_type_node, \
 	       1, intHI_type_node)
 
 DEF_CILBUILTIN(GEN_VHI_LOAD_ALIGNED, "[Xxxx.Simd]Xxxx.Simd.VecGenHI::LoadAligned", \
                ATTR_NULL,        \
-	       intHI4_type_node, \
+	       VHI_type_node, \
 	       1, \
-	       V4HI_ptr_type_node)
+	       VHI_ptr_type_node)
 
 DEF_CILBUILTIN(GEN_VHI_ALOAD, "[genvec_support]genvec_support.VHI::ALoad", \
                ATTR_NULL,        \
-	       intHI4_type_node, \
+	       VHI_type_node, \
 	       1, \
-	       V4HI_ptr_type_node)
+	       VHI_ptr_type_node)
 
 DEF_CILBUILTIN(GEN_VHI_REALIGN_LOAD, \
 	       "[genvec_support]genvec_support.VHI::RealignLoad", \
                ATTR_NULL,        \
-	       intHI4_type_node, \
+	       VHI_type_node, \
 	       6, \
-	       intHI4_type_node, intHI4_type_node, intHI4_type_node, V4HI_ptr_type_node, integer_type_node, integer_type_node)
+	       VHI_type_node, VHI_type_node, VHI_type_node, VHI_ptr_type_node, integer_type_node, integer_type_node)
 
 DEF_CILBUILTIN(GEN_VHI_STORE_ALIGNED, "[Xxxx.Simd]Xxxx.Simd.VecGenHI::StoreAligned", \
                ATTR_NULL,      \
 	       void_type_node, \
 	       2, \
-	       V4HI_ptr_type_node, intHI4_type_node)
+	       VHI_ptr_type_node, VHI_type_node)
 
 DEF_CILBUILTIN(GEN_VHI_ADD, "[Xxxx.Simd]Xxxx.Simd.VecGenHI::op_Addition", \
                ATTR_NULL,        \
-	       intHI4_type_node, \
+	       VHI_type_node, \
 	       2, \
-	       intHI4_type_node, intHI4_type_node)
+	       VHI_type_node, VHI_type_node)
 
 DEF_CILBUILTIN(GEN_VHI_SUB, "[Xxxx.Simd]Xxxx.Simd.VecGenHI::op_Subtraction", \
                ATTR_NULL,        \
-	       intHI4_type_node, \
+	       VHI_type_node, \
 	       2, \
-	       intHI4_type_node, intHI4_type_node)
+	       VHI_type_node, VHI_type_node)
 
 DEF_CILBUILTIN(GEN_VHI_MUL, "[Xxxx.Simd]Xxxx.Simd.VecGenHI::op_Multiply",\
                ATTR_NULL,        \
-	       intHI4_type_node, \
+	       VHI_type_node, \
 	       2, \
-	       intHI4_type_node, intHI4_type_node)
+	       VHI_type_node, VHI_type_node)
 
 DEF_CILBUILTIN(GEN_VHI_AND, "[Xxxx.Simd]Xxxx.Simd.VecGenHI::op_BitwiseAnd",\
                ATTR_NULL,        \
-	       intHI4_type_node, \
+	       VHI_type_node, \
 	       2, \
-	       intHI4_type_node, intHI4_type_node)
+	       VHI_type_node, VHI_type_node)
 
 DEF_CILBUILTIN(GEN_VHI_OR, "[Xxxx.Simd]Xxxx.Simd.VecGenHI::op_BitwiseOr", \
                ATTR_NULL,        \
-	       intHI4_type_node, \
+	       VHI_type_node, \
 	       2, \
-	       intHI4_type_node, intHI4_type_node)
+	       VHI_type_node, VHI_type_node)
 
 DEF_CILBUILTIN(GEN_VHI_XOR, "[Xxxx.Simd]Xxxx.Simd.VecGenHI::op_ExclusiveOr", \
                ATTR_NULL,        \
-	       intHI4_type_node, \
+	       VHI_type_node, \
 	       2, \
-	       intHI4_type_node, intHI4_type_node)
+	       VHI_type_node, VHI_type_node)
 
 DEF_CILBUILTIN(GEN_VHI_MIN, "[Xxxx.Simd]Xxxx.Simd.VectorOperations::Min  ", \
                ATTR_NULL,                                               \
-               intHI4_type_node,                                        \
-               2, intHI4_type_node, intHI4_type_node)
+               VHI_type_node,                                        \
+               2, VHI_type_node, VHI_type_node)
 
 DEF_CILBUILTIN(GEN_VHI_MAX, "[Xxxx.Simd]Xxxx.Simd.VectorOperations::Max  ", \
                ATTR_NULL,                                               \
-               intHI4_type_node,                                        \
-               2, intHI4_type_node, intHI4_type_node)
+               VHI_type_node,                                        \
+               2, VHI_type_node, VHI_type_node)
 
 /* V QI */
 DEF_CILBUILTIN(GEN_VQI_CTOR, "[Xxxx.Simd]Xxxx.Simd.VecGenQQQI::.ctor", \
                ATTR_NULL,        \
-	       intQI8_type_node, \
+	       VQI_type_node, \
 	       1, intQI_type_node)
 
 DEF_CILBUILTIN(GEN_VQI_LOAD_ALIGNED, "[Xxxx.Simd]Xxxx.Simd.VecGenQQQI::LoadAligned", \
                ATTR_NULL,        \
-	       intQI8_type_node, \
-	       1, V8QI_ptr_type_node)
+	       VQI_type_node, \
+	       1, VQI_ptr_type_node)
 
 DEF_CILBUILTIN(GEN_VQI_ALOAD, "[genvec_support]genvec_support.VQI::ALoad", \
                ATTR_NULL,        \
-	       intQI8_type_node, \
-	       1, V8QI_ptr_type_node)
+	       VQI_type_node, \
+	       1, VQI_ptr_type_node)
 
 DEF_CILBUILTIN(GEN_VQI_REALIGN_LOAD, \
 	       "[genvec_support]genvec_support.VQI::RealignLoad", \
                ATTR_NULL,        \
-	       intQI8_type_node, \
+	       VQI_type_node, \
 	       6, \
-	       intQI8_type_node, intQI8_type_node, intQI8_type_node, V8QI_ptr_type_node, integer_type_node, integer_type_node)
+	       VQI_type_node, VQI_type_node, VQI_type_node, VQI_ptr_type_node, integer_type_node, integer_type_node)
 
 DEF_CILBUILTIN(GEN_VQI_STORE_ALIGNED, "[Xxxx.Simd]Xxxx.Simd.VecGenQQQI::StoreAligned", \
                ATTR_NULL,      \
 	       void_type_node, \
 	       2, \
-	       V8QI_ptr_type_node, intQI8_type_node)
+	       VQI_ptr_type_node, VQI_type_node)
 
 DEF_CILBUILTIN(GEN_VQI_ADD, "[Xxxx.Simd]Xxxx.Simd.VecGenQQQI::op_Addition", \
                ATTR_NULL,        \
-	       intQI8_type_node, \
+	       VQI_type_node, \
 	       2, \
-	       intQI8_type_node, intQI8_type_node)
+	       VQI_type_node, VQI_type_node)
 
 DEF_CILBUILTIN(GEN_VQI_SUB, "[Xxxx.Simd]Xxxx.Simd.VecGenQQQI::op_Subtraction", \
                ATTR_NULL,        \
-	       intQI8_type_node, \
+	       VQI_type_node, \
 	       2, \
-	       intQI8_type_node, intQI8_type_node)
+	       VQI_type_node, VQI_type_node)
 
 DEF_CILBUILTIN(GEN_VQI_MUL, "[Xxxx.Simd]Xxxx.Simd.VecGenQQQI::op_Multiply",\
                ATTR_NULL,        \
-	       intQI8_type_node, \
+	       VQI_type_node, \
 	       2, \
-	       intQI8_type_node, intQI8_type_node)
+	       VQI_type_node, VQI_type_node)
 
 DEF_CILBUILTIN(GEN_VQI_AND, "[Xxxx.Simd]Xxxx.Simd.VecGenQQQI::op_BitwiseAnd",\
                ATTR_NULL,        \
-	       intQI8_type_node, \
+	       VQI_type_node, \
 	       2, \
-	       intQI8_type_node, intQI8_type_node)
+	       VQI_type_node, VQI_type_node)
 
 DEF_CILBUILTIN(GEN_VQI_OR, "[Xxxx.Simd]Xxxx.Simd.VecGenQQQI::op_BitwiseOr", \
                ATTR_NULL,        \
-	       intQI8_type_node, \
+	       VQI_type_node, \
 	       2, \
-	       intQI8_type_node, intQI8_type_node)
+	       VQI_type_node, VQI_type_node)
 
 DEF_CILBUILTIN(GEN_VQI_XOR, "[Xxxx.Simd]Xxxx.Simd.VecGenQQQI::op_ExclusiveOr", \
                ATTR_NULL,        \
-	       intQI8_type_node, \
+	       VQI_type_node, \
 	       2, \
-	       intQI8_type_node, intQI8_type_node)
+	       VQI_type_node, VQI_type_node)
 
 DEF_CILBUILTIN(GEN_VQI_MIN, "[Xxxx.Simd]Xxxx.Simd.VectorOperations::Min   ", \
                ATTR_NULL,                                               \
-               intQI8_type_node,                                        \
-               2, intQI8_type_node, intQI8_type_node)
+               VQI_type_node,                                        \
+               2, VQI_type_node, VQI_type_node)
 
 DEF_CILBUILTIN(GEN_VQI_MAX, "[Xxxx.Simd]Xxxx.Simd.VectorOperations::Max   ", \
                ATTR_NULL,                                               \
-               intQI8_type_node,                                        \
-               2, intQI8_type_node, intQI8_type_node)
+               VQI_type_node,                                        \
+               2, VQI_type_node, VQI_type_node)

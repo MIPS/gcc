@@ -1,6 +1,6 @@
 /* Implementation of the stack information functionality.
 
-   Copyright (C) 2006-2009 Free Software Foundation, Inc.
+   Copyright (C) 2006-2010 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -505,16 +505,32 @@ cil_vector_p (cil_type_t type)
 {
   switch (type)
     {
+      /* 8-byte */
     case CIL_V2SI:
     case CIL_V4HI:
     case CIL_V8QI:
     case CIL_V2SF:
+      /* 16-byte */
     case CIL_V2DI:
     case CIL_V4SI:
     case CIL_V8HI:
     case CIL_V16QI:
     case CIL_V4SF:
     case CIL_V2DF:
+      /* 32-byte */
+    case CIL_V4DI:
+    case CIL_V8SI:
+    case CIL_V16HI:
+    case CIL_V32QI:
+    case CIL_V8SF:
+    case CIL_V4DF:
+      /* 64-byte */
+    case CIL_V8DI:
+    case CIL_V16SI:
+    case CIL_V32HI:
+    case CIL_V64QI:
+    case CIL_V16SF:
+    case CIL_V8DF:
       return true;
 
     default:
@@ -695,40 +711,63 @@ vector_to_cil (const_tree type)
   if ((TREE_CODE (innertype) == INTEGER_TYPE) ||
       (TREE_CODE (innertype) == POINTER_TYPE))
     {
-      if (vec_size == 128)  /* 16-byte vectors */
-	{
-	  switch (innersize)
-	    {
-	    case  8: ret = CIL_V16QI; break;
-	    case 16: ret = CIL_V8HI;  break;
-	    case 32: ret = CIL_V4SI;  break;
-	    case 64: ret = CIL_V2DI;  break;
-	    default: break;
-	    }
-	}
-      else if (vec_size == 64)  /* 8-byte vectors */
-	{
-	  switch (innersize)
-	    {
-	    case  8: ret = CIL_V8QI; break;
-	    case 16: ret = CIL_V4HI;  break;
-	    case 32: ret = CIL_V2SI;  break;
-	    default: break;
-	    }
-	}
-      else if (vec_size == 32)  /* 4-byte vectors */
-	{
-	  switch (innersize)
-	    {
-	    case  8: ret = CIL_V4QI; break;
-	    case 16: ret = CIL_V2HI;  break;
-	    default: break;
-	    }
-	}
+      switch (vec_size)
+        {
+        case 256:  /* 32-byte vectors */
+          switch (innersize)
+            {
+            case  8: ret = CIL_V32QI; break;
+            case 16: ret = CIL_V16HI; break;
+            case 32: ret = CIL_V8SI;  break;
+            case 64: ret = CIL_V4DI;  break;
+            default: break;
+            }
+          break;
+
+        case 128:  /* 16-byte vectors */
+          switch (innersize)
+            {
+            case  8: ret = CIL_V16QI; break;
+            case 16: ret = CIL_V8HI;  break;
+            case 32: ret = CIL_V4SI;  break;
+            case 64: ret = CIL_V2DI;  break;
+            default: break;
+            }
+          break;
+
+        case 64:  /* 8-byte vectors */
+          switch (innersize)
+            {
+            case  8: ret = CIL_V8QI; break;
+            case 16: ret = CIL_V4HI; break;
+            case 32: ret = CIL_V2SI; break;
+            default: break;
+            }
+          break;
+
+        case 32:  /* 4-byte vectors */
+          switch (innersize)
+            {
+            case  8: ret = CIL_V4QI; break;
+            case 16: ret = CIL_V2HI; break;
+            default: break;
+            }
+          break;
+
+        default:
+          break;
+        }
     }
   else if (TREE_CODE (innertype) == REAL_TYPE)
     {
-      if (vec_size == 128)
+      if (vec_size == 256)
+        {
+	  if (innersize == 32)
+	    ret = CIL_V8SF;
+	  else if (innersize == 64)
+	    ret = CIL_V4DF;
+        }
+      else if (vec_size == 128)
 	{
 	  if (innersize == 32)
 	    ret = CIL_V4SF;
