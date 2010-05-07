@@ -75,7 +75,7 @@
    (UNSPEC_VCTSXS       154)
    (UNSPEC_VLOGEFP      155)
    (UNSPEC_VEXPTEFP     156)
-   (UNSPEC_VRSQRTEFP    157)
+   ;; 157 deleted
    (UNSPEC_VREFP        158)
    ;; 159-162 deleted
    (UNSPEC_VLSDOI       163)
@@ -1444,11 +1444,11 @@
   "vexptefp %0,%1"
   [(set_attr "type" "vecfloat")])
 
-(define_insn "altivec_vrsqrtefp"
+(define_insn "*altivec_vrsqrtefp"
   [(set (match_operand:V4SF 0 "register_operand" "=v")
         (unspec:V4SF [(match_operand:V4SF 1 "register_operand" "v")]
-		     UNSPEC_VRSQRTEFP))]
-  "TARGET_ALTIVEC"
+		     UNSPEC_RSQRT))]
+  "VECTOR_UNIT_ALTIVEC_P (V4SFmode)"
   "vrsqrtefp %0,%1"
   [(set_attr "type" "vecfloat")])
 

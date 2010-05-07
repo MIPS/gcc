@@ -2010,8 +2010,9 @@ rs6000_init_hard_regno_mode_ok (void)
       rs6000_constraints[RS6000_CONSTRAINT_wa] = VSX_REGS;
       rs6000_constraints[RS6000_CONSTRAINT_wf] = VSX_REGS;
       rs6000_constraints[RS6000_CONSTRAINT_wd] = VSX_REGS;
-      if (TARGET_VSX_SCALAR_DOUBLE)
-	rs6000_constraints[RS6000_CONSTRAINT_ws] = VSX_REGS;
+      rs6000_constraints[RS6000_CONSTRAINT_ws] = (TARGET_VSX_SCALAR_MEMORY
+						  ? VSX_REGS
+						  : FLOAT_REGS);
     }
 
   if (TARGET_ALTIVEC)
@@ -2091,6 +2092,38 @@ rs6000_init_hard_regno_mode_ok (void)
 
   if (TARGET_DEBUG_REG)
     rs6000_debug_reg_global ();
+
+  if (TARGET_DEBUG_COST || TARGET_DEBUG_REG)
+    fprintf (stderr,
+	     "SImode variable mult cost       = %d\n"
+	     "SImode constant mult cost       = %d\n"
+	     "SImode short constant mult cost = %d\n"
+	     "DImode multipliciation cost     = %d\n"
+	     "SImode division cost            = %d\n"
+	     "DImode division cost            = %d\n"
+	     "Simple fp operation cost        = %d\n"
+	     "DFmode multiplication cost      = %d\n"
+	     "SFmode division cost            = %d\n"
+	     "DFmode division cost            = %d\n"
+	     "cache line size                 = %d\n"
+	     "l1 cache size                   = %d\n"
+	     "l2 cache size                   = %d\n"
+	     "simultaneous prefetches         = %d\n"
+	     "\n",
+	     rs6000_cost->mulsi,
+	     rs6000_cost->mulsi_const,
+	     rs6000_cost->mulsi_const9,
+	     rs6000_cost->muldi,
+	     rs6000_cost->divsi,
+	     rs6000_cost->divdi,
+	     rs6000_cost->fp,
+	     rs6000_cost->dmul,
+	     rs6000_cost->sdiv,
+	     rs6000_cost->ddiv,
+	     rs6000_cost->cache_line_size,
+	     rs6000_cost->l1_cache_size,
+	     rs6000_cost->l2_cache_size,
+	     rs6000_cost->simultaneous_prefetches);
 }
 
 #if TARGET_MACHO
@@ -2267,15 +2300,16 @@ rs6000_override_options (const char *default_cpu)
 	  | MASK_MFCRF | MASK_POPCNTB | MASK_FPRND},
  	 {"power6", PROCESSOR_POWER6,
 	  POWERPC_BASE_MASK | MASK_POWERPC64 | MASK_PPC_GPOPT | MASK_PPC_GFXOPT
-	  | MASK_MFCRF | MASK_POPCNTB | MASK_FPRND | MASK_CMPB | MASK_DFP},
+	  | MASK_MFCRF | MASK_POPCNTB | MASK_FPRND | MASK_CMPB | MASK_DFP
+	  | MASK_RECIP_PRECISION},
 	 {"power6x", PROCESSOR_POWER6,
 	  POWERPC_BASE_MASK | MASK_POWERPC64 | MASK_PPC_GPOPT | MASK_PPC_GFXOPT
 	  | MASK_MFCRF | MASK_POPCNTB | MASK_FPRND | MASK_CMPB | MASK_DFP
-	  | MASK_MFPGPR},
+	  | MASK_MFPGPR | MASK_RECIP_PRECISION},
 	 {"power7", PROCESSOR_POWER7,
 	  POWERPC_7400_MASK | MASK_POWERPC64 | MASK_PPC_GPOPT | MASK_MFCRF
 	  | MASK_POPCNTB | MASK_FPRND | MASK_CMPB | MASK_DFP | MASK_POPCNTD
-	  | MASK_VSX},		/* Don't add MASK_ISEL by default */
+	  | MASK_VSX| MASK_RECIP_PRECISION},	/* Don't add MASK_ISEL by default */
 	 {"powerpc", PROCESSOR_POWERPC, POWERPC_BASE_MASK},
 	 {"powerpc64", PROCESSOR_POWERPC64,
 	  POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_POWERPC64},
@@ -2303,7 +2337,8 @@ rs6000_override_options (const char *default_cpu)
 		     | MASK_PPC_GFXOPT | MASK_POWERPC64 | MASK_ALTIVEC
 		     | MASK_MFCRF | MASK_POPCNTB | MASK_FPRND | MASK_MULHW
 		     | MASK_DLMZB | MASK_CMPB | MASK_MFPGPR | MASK_DFP
-		     | MASK_POPCNTD | MASK_VSX | MASK_ISEL | MASK_NO_UPDATE)
+		     | MASK_POPCNTD | MASK_VSX | MASK_ISEL | MASK_NO_UPDATE
+		     | MASK_RECIP_PRECISION)
   };
 
   /* Numerous experiment shows that IRA based loop pressure
@@ -2871,6 +2906,13 @@ rs6000_override_options (const char *default_cpu)
      the DERAT mispredict penalty.  */
     TARGET_AVOID_XFORM = (rs6000_cpu == PROCESSOR_POWER6 && TARGET_CMPB);
 
+  /* If -mrecip was not passed, only set it to true at high optimization levels
+     with -ffast-math and if machine supports a high precision rsqrte instruction.  */
+  if (TARGET_RECIP < 0)
+    TARGET_RECIP = (optimize >= 3 && TARGET_HARD_FLOAT && TARGET_PPC_GFXOPT
+		    && !optimize_size && flag_finite_math_only
+		    && !flag_trapping_math && flag_reciprocal_math);
+
   rs6000_init_hard_regno_mode_ok ();
 }
 
@@ -3187,12 +3229,10 @@ rs6000_builtin_vectorized_function (tree fndecl, tree type_out,
 {
   enum machine_mode in_mode, out_mode;
   int in_n, out_n;
-  enum built_in_function fn = DECL_FUNCTION_CODE (fndecl);
 
   if (TREE_CODE (type_out) != VECTOR_TYPE
       || TREE_CODE (type_in) != VECTOR_TYPE
-      || !TARGET_VECTORIZE_BUILTINS
-      || DECL_BUILT_IN_CLASS (fndecl) != BUILT_IN_NORMAL)
+      || !TARGET_VECTORIZE_BUILTINS)
     return NULL_TREE;
 
   out_mode = TYPE_MODE (TREE_TYPE (type_out));
@@ -3200,111 +3240,139 @@ rs6000_builtin_vectorized_function (tree fndecl, tree type_out,
   in_mode = TYPE_MODE (TREE_TYPE (type_in));
   in_n = TYPE_VECTOR_SUBPARTS (type_in);
 
-  switch (fn)
+  if (DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL)
     {
-    case BUILT_IN_COPYSIGN:
-      if (VECTOR_UNIT_VSX_P (V2DFmode)
-	  && out_mode == DFmode && out_n == 2
-	  && in_mode == DFmode && in_n == 2)
-	return rs6000_builtin_decls[VSX_BUILTIN_CPSGNDP];
-      break;
-    case BUILT_IN_COPYSIGNF:
-      if (out_mode != SFmode || out_n != 4
-	  || in_mode != SFmode || in_n != 4)
-	break;
-      if (VECTOR_UNIT_VSX_P (V4SFmode))
-	return rs6000_builtin_decls[VSX_BUILTIN_CPSGNSP];
-      if (VECTOR_UNIT_ALTIVEC_P (V4SFmode))
-	return rs6000_builtin_decls[ALTIVEC_BUILTIN_COPYSIGN_V4SF];
-      break;
-    case BUILT_IN_SQRT:
-      if (VECTOR_UNIT_VSX_P (V2DFmode)
-	  && out_mode == DFmode && out_n == 2
-	  && in_mode == DFmode && in_n == 2)
-	return rs6000_builtin_decls[VSX_BUILTIN_XVSQRTDP];
-      break;
-    case BUILT_IN_SQRTF:
-      if (VECTOR_UNIT_VSX_P (V4SFmode)
-	  && out_mode == SFmode && out_n == 4
-	  && in_mode == SFmode && in_n == 4)
-	return rs6000_builtin_decls[VSX_BUILTIN_XVSQRTSP];
-      break;
-    case BUILT_IN_CEIL:
-      if (VECTOR_UNIT_VSX_P (V2DFmode)
-	  && out_mode == DFmode && out_n == 2
-	  && in_mode == DFmode && in_n == 2)
-	return rs6000_builtin_decls[VSX_BUILTIN_XVRDPIP];
-      break;
-    case BUILT_IN_CEILF:
-      if (out_mode != SFmode || out_n != 4
-	  || in_mode != SFmode || in_n != 4)
-	break;
-      if (VECTOR_UNIT_VSX_P (V4SFmode))
-	return rs6000_builtin_decls[VSX_BUILTIN_XVRSPIP];
-      if (VECTOR_UNIT_ALTIVEC_P (V4SFmode))
-	return rs6000_builtin_decls[ALTIVEC_BUILTIN_VRFIP];
-      break;
-    case BUILT_IN_FLOOR:
-      if (VECTOR_UNIT_VSX_P (V2DFmode)
-	  && out_mode == DFmode && out_n == 2
-	  && in_mode == DFmode && in_n == 2)
-	return rs6000_builtin_decls[VSX_BUILTIN_XVRDPIM];
-      break;
-    case BUILT_IN_FLOORF:
-      if (out_mode != SFmode || out_n != 4
-	  || in_mode != SFmode || in_n != 4)
-	break;
-      if (VECTOR_UNIT_VSX_P (V4SFmode))
-	return rs6000_builtin_decls[VSX_BUILTIN_XVRSPIM];
-      if (VECTOR_UNIT_ALTIVEC_P (V4SFmode))
-	return rs6000_builtin_decls[ALTIVEC_BUILTIN_VRFIM];
-      break;
-    case BUILT_IN_TRUNC:
-      if (VECTOR_UNIT_VSX_P (V2DFmode)
-	  && out_mode == DFmode && out_n == 2
-	  && in_mode == DFmode && in_n == 2)
-	return rs6000_builtin_decls[VSX_BUILTIN_XVRDPIZ];
-      break;
-    case BUILT_IN_TRUNCF:
-      if (out_mode != SFmode || out_n != 4
-	  || in_mode != SFmode || in_n != 4)
-	break;
-      if (VECTOR_UNIT_VSX_P (V4SFmode))
-	return rs6000_builtin_decls[VSX_BUILTIN_XVRSPIZ];
-      if (VECTOR_UNIT_ALTIVEC_P (V4SFmode))
-	return rs6000_builtin_decls[ALTIVEC_BUILTIN_VRFIZ];
-      break;
-    case BUILT_IN_NEARBYINT:
-      if (VECTOR_UNIT_VSX_P (V2DFmode)
-	  && flag_unsafe_math_optimizations
-	  && out_mode == DFmode && out_n == 2
-	  && in_mode == DFmode && in_n == 2)
-	return rs6000_builtin_decls[VSX_BUILTIN_XVRDPI];
-      break;
-    case BUILT_IN_NEARBYINTF:
-      if (VECTOR_UNIT_VSX_P (V4SFmode)
-	  && flag_unsafe_math_optimizations
-	  && out_mode == SFmode && out_n == 4
-	  && in_mode == SFmode && in_n == 4)
-	return rs6000_builtin_decls[VSX_BUILTIN_XVRSPI];
-      break;
-    case BUILT_IN_RINT:
-      if (VECTOR_UNIT_VSX_P (V2DFmode)
-	  && !flag_trapping_math
-          && out_mode == DFmode && out_n == 2
-          && in_mode == DFmode && in_n == 2)
-        return rs6000_builtin_decls[VSX_BUILTIN_XVRDPIC];
-      break;
-    case BUILT_IN_RINTF:
-      if (VECTOR_UNIT_VSX_P (V4SFmode)
-	  && !flag_trapping_math
-          && out_mode == SFmode && out_n == 4
-          && in_mode == SFmode && in_n == 4)
-        return rs6000_builtin_decls[VSX_BUILTIN_XVRSPIC];
-      break;
-    default:
-      break;
+      enum built_in_function fn = DECL_FUNCTION_CODE (fndecl);
+      switch (fn)
+	{
+	case BUILT_IN_COPYSIGN:
+	  if (VECTOR_UNIT_VSX_P (V2DFmode)
+	      && out_mode == DFmode && out_n == 2
+	      && in_mode == DFmode && in_n == 2)
+	    return rs6000_builtin_decls[VSX_BUILTIN_CPSGNDP];
+	  break;
+	case BUILT_IN_COPYSIGNF:
+	  if (out_mode != SFmode || out_n != 4
+	      || in_mode != SFmode || in_n != 4)
+	    break;
+	  if (VECTOR_UNIT_VSX_P (V4SFmode))
+	    return rs6000_builtin_decls[VSX_BUILTIN_CPSGNSP];
+	  if (VECTOR_UNIT_ALTIVEC_P (V4SFmode))
+	    return rs6000_builtin_decls[ALTIVEC_BUILTIN_COPYSIGN_V4SF];
+	  break;
+	case BUILT_IN_SQRT:
+	  if (VECTOR_UNIT_VSX_P (V2DFmode)
+	      && out_mode == DFmode && out_n == 2
+	      && in_mode == DFmode && in_n == 2)
+	    return rs6000_builtin_decls[VSX_BUILTIN_XVSQRTDP];
+	  break;
+	case BUILT_IN_SQRTF:
+	  if (VECTOR_UNIT_VSX_P (V4SFmode)
+	      && out_mode == SFmode && out_n == 4
+	      && in_mode == SFmode && in_n == 4)
+	    return rs6000_builtin_decls[VSX_BUILTIN_XVSQRTSP];
+	  break;
+	case BUILT_IN_CEIL:
+	  if (VECTOR_UNIT_VSX_P (V2DFmode)
+	      && out_mode == DFmode && out_n == 2
+	      && in_mode == DFmode && in_n == 2)
+	    return rs6000_builtin_decls[VSX_BUILTIN_XVRDPIP];
+	  break;
+	case BUILT_IN_CEILF:
+	  if (out_mode != SFmode || out_n != 4
+	      || in_mode != SFmode || in_n != 4)
+	    break;
+	  if (VECTOR_UNIT_VSX_P (V4SFmode))
+	    return rs6000_builtin_decls[VSX_BUILTIN_XVRSPIP];
+	  if (VECTOR_UNIT_ALTIVEC_P (V4SFmode))
+	    return rs6000_builtin_decls[ALTIVEC_BUILTIN_VRFIP];
+	  break;
+	case BUILT_IN_FLOOR:
+	  if (VECTOR_UNIT_VSX_P (V2DFmode)
+	      && out_mode == DFmode && out_n == 2
+	      && in_mode == DFmode && in_n == 2)
+	    return rs6000_builtin_decls[VSX_BUILTIN_XVRDPIM];
+	  break;
+	case BUILT_IN_FLOORF:
+	  if (out_mode != SFmode || out_n != 4
+	      || in_mode != SFmode || in_n != 4)
+	    break;
+	  if (VECTOR_UNIT_VSX_P (V4SFmode))
+	    return rs6000_builtin_decls[VSX_BUILTIN_XVRSPIM];
+	  if (VECTOR_UNIT_ALTIVEC_P (V4SFmode))
+	    return rs6000_builtin_decls[ALTIVEC_BUILTIN_VRFIM];
+	  break;
+	case BUILT_IN_TRUNC:
+	  if (VECTOR_UNIT_VSX_P (V2DFmode)
+	      && out_mode == DFmode && out_n == 2
+	      && in_mode == DFmode && in_n == 2)
+	    return rs6000_builtin_decls[VSX_BUILTIN_XVRDPIZ];
+	  break;
+	case BUILT_IN_TRUNCF:
+	  if (out_mode != SFmode || out_n != 4
+	      || in_mode != SFmode || in_n != 4)
+	    break;
+	  if (VECTOR_UNIT_VSX_P (V4SFmode))
+	    return rs6000_builtin_decls[VSX_BUILTIN_XVRSPIZ];
+	  if (VECTOR_UNIT_ALTIVEC_P (V4SFmode))
+	    return rs6000_builtin_decls[ALTIVEC_BUILTIN_VRFIZ];
+	  break;
+	case BUILT_IN_NEARBYINT:
+	  if (VECTOR_UNIT_VSX_P (V2DFmode)
+	      && flag_unsafe_math_optimizations
+	      && out_mode == DFmode && out_n == 2
+	      && in_mode == DFmode && in_n == 2)
+	    return rs6000_builtin_decls[VSX_BUILTIN_XVRDPI];
+	  break;
+	case BUILT_IN_NEARBYINTF:
+	  if (VECTOR_UNIT_VSX_P (V4SFmode)
+	      && flag_unsafe_math_optimizations
+	      && out_mode == SFmode && out_n == 4
+	      && in_mode == SFmode && in_n == 4)
+	    return rs6000_builtin_decls[VSX_BUILTIN_XVRSPI];
+	  break;
+	case BUILT_IN_RINT:
+	  if (VECTOR_UNIT_VSX_P (V2DFmode)
+	      && !flag_trapping_math
+	      && out_mode == DFmode && out_n == 2
+	      && in_mode == DFmode && in_n == 2)
+	    return rs6000_builtin_decls[VSX_BUILTIN_XVRDPIC];
+	  break;
+	case BUILT_IN_RINTF:
+	  if (VECTOR_UNIT_VSX_P (V4SFmode)
+	      && !flag_trapping_math
+	      && out_mode == SFmode && out_n == 4
+	      && in_mode == SFmode && in_n == 4)
+	    return rs6000_builtin_decls[VSX_BUILTIN_XVRSPIC];
+	  break;
+	default:
+	  break;
+	}
     }
+
+  else if (DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD)
+    {
+      enum rs6000_builtins fn
+	= (enum rs6000_builtins)DECL_FUNCTION_CODE (fndecl);
+      switch (fn)
+	{
+	case RS6000_BUILTIN_RSQRTF:
+	  if (VECTOR_UNIT_ALTIVEC_OR_VSX_P (V4SFmode)
+	      && out_mode == SFmode && out_n == 4
+	      && in_mode == SFmode && in_n == 4)
+	    return rs6000_builtin_decls[ALTIVEC_BUILTIN_VRSQRTFP];
+	  break;
+	case RS6000_BUILTIN_RSQRT:
+	  if (VECTOR_UNIT_VSX_P (V2DFmode)
+	      && out_mode == DFmode && out_n == 2
+	      && in_mode == DFmode && in_n == 2)
+	    return rs6000_builtin_decls[VSX_BUILTIN_VEC_RSQRT_V2DF];
+	  break;
+	default:
+	  break;
+	}
+    }
+
   return NULL_TREE;
 }
 
@@ -9366,7 +9434,8 @@ static struct builtin_description bdesc_1arg[] =
   { MASK_ALTIVEC, CODE_FOR_altivec_vrfin, "__builtin_altivec_vrfin", ALTIVEC_BUILTIN_VRFIN },
   { MASK_ALTIVEC, CODE_FOR_vector_ceilv4sf2, "__builtin_altivec_vrfip", ALTIVEC_BUILTIN_VRFIP },
   { MASK_ALTIVEC, CODE_FOR_vector_btruncv4sf2, "__builtin_altivec_vrfiz", ALTIVEC_BUILTIN_VRFIZ },
-  { MASK_ALTIVEC, CODE_FOR_altivec_vrsqrtefp, "__builtin_altivec_vrsqrtefp", ALTIVEC_BUILTIN_VRSQRTEFP },
+  { MASK_ALTIVEC, CODE_FOR_rsqrtv4sf2, "__builtin_altivec_vrsqrtfp", ALTIVEC_BUILTIN_VRSQRTFP },
+  { MASK_ALTIVEC, CODE_FOR_rsqrtev4sf2, "__builtin_altivec_vrsqrtefp", ALTIVEC_BUILTIN_VRSQRTEFP },
   { MASK_ALTIVEC, CODE_FOR_altivec_vspltisb, "__builtin_altivec_vspltisb", ALTIVEC_BUILTIN_VSPLTISB },
   { MASK_ALTIVEC, CODE_FOR_altivec_vspltish, "__builtin_altivec_vspltish", ALTIVEC_BUILTIN_VSPLTISH },
   { MASK_ALTIVEC, CODE_FOR_altivec_vspltisw, "__builtin_altivec_vspltisw", ALTIVEC_BUILTIN_VSPLTISW },
@@ -9379,14 +9448,16 @@ static struct builtin_description bdesc_1arg[] =
 
   { MASK_VSX, CODE_FOR_negv2df2, "__builtin_vsx_xvnegdp", VSX_BUILTIN_XVNEGDP },
   { MASK_VSX, CODE_FOR_sqrtv2df2, "__builtin_vsx_xvsqrtdp", VSX_BUILTIN_XVSQRTDP },
-  { MASK_VSX, CODE_FOR_vsx_rsqrtev2df2, "__builtin_vsx_xvrsqrtedp", VSX_BUILTIN_XVRSQRTEDP },
+  { MASK_VSX, CODE_FOR_rsqrtv2df2, "__builtin_vsx_xvrsqrtdp", VSX_BUILTIN_VEC_RSQRT_V2DF },
+  { MASK_VSX, CODE_FOR_rsqrtev2df2, "__builtin_vsx_xvrsqrtedp", VSX_BUILTIN_XVRSQRTEDP },
   { MASK_VSX, CODE_FOR_vsx_tsqrtv2df2_fe, "__builtin_vsx_xvtsqrtdp_fe", VSX_BUILTIN_XVTSQRTDP_FE },
   { MASK_VSX, CODE_FOR_vsx_tsqrtv2df2_fg, "__builtin_vsx_xvtsqrtdp_fg", VSX_BUILTIN_XVTSQRTDP_FG },
   { MASK_VSX, CODE_FOR_vsx_frev2df2, "__builtin_vsx_xvredp", VSX_BUILTIN_XVREDP },
 
   { MASK_VSX, CODE_FOR_negv4sf2, "__builtin_vsx_xvnegsp", VSX_BUILTIN_XVNEGSP },
   { MASK_VSX, CODE_FOR_sqrtv4sf2, "__builtin_vsx_xvsqrtsp", VSX_BUILTIN_XVSQRTSP },
-  { MASK_VSX, CODE_FOR_vsx_rsqrtev4sf2, "__builtin_vsx_xvrsqrtesp", VSX_BUILTIN_XVRSQRTESP },
+  { MASK_VSX, CODE_FOR_rsqrtv4sf2, "__builtin_vsx_xvrsqrtsp", VSX_BUILTIN_VEC_RSQRT_V4SF },
+  { MASK_VSX, CODE_FOR_rsqrtev4sf2, "__builtin_vsx_xvrsqrtesp", VSX_BUILTIN_XVRSQRTESP },
   { MASK_VSX, CODE_FOR_vsx_tsqrtv4sf2_fe, "__builtin_vsx_xvtsqrtsp_fe", VSX_BUILTIN_XVTSQRTSP_FE },
   { MASK_VSX, CODE_FOR_vsx_tsqrtv4sf2_fg, "__builtin_vsx_xvtsqrtsp_fg", VSX_BUILTIN_XVTSQRTSP_FG },
   { MASK_VSX, CODE_FOR_vsx_frev4sf2, "__builtin_vsx_xvresp", VSX_BUILTIN_XVRESP },
@@ -9445,6 +9516,7 @@ static struct builtin_description bdesc_1arg[] =
   { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_mtvscr", ALTIVEC_BUILTIN_VEC_MTVSCR },
   { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_re", ALTIVEC_BUILTIN_VEC_RE },
   { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_round", ALTIVEC_BUILTIN_VEC_ROUND },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_rsqrt", ALTIVEC_BUILTIN_VEC_RSQRT },
   { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_rsqrte", ALTIVEC_BUILTIN_VEC_RSQRTE },
   { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_trunc", ALTIVEC_BUILTIN_VEC_TRUNC },
   { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_unpackh", ALTIVEC_BUILTIN_VEC_UNPACKH },
@@ -10969,6 +11041,9 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
   if (fcode == RS6000_BUILTIN_RSQRTF)
       return rs6000_expand_unop_builtin (CODE_FOR_rsqrtsf2, exp, target);
 
+  if (fcode == RS6000_BUILTIN_RSQRT)
+      return rs6000_expand_unop_builtin (CODE_FOR_rsqrtdf2, exp, target);
+
   if (fcode == RS6000_BUILTIN_BSWAP_HI)
     return rs6000_expand_unop_builtin (CODE_FOR_bswaphi2, exp, target);
 
@@ -11275,20 +11350,23 @@ rs6000_init_builtins (void)
       def_builtin (MASK_PPC_GFXOPT, "__builtin_recipdivf", ftype,
 		   RS6000_BUILTIN_RECIPF);
 
+      ftype = builtin_function_type (DFmode, DFmode, DFmode, VOIDmode,
+				     RS6000_BUILTIN_RECIP,
+				     "__builtin_recipdiv");
+      def_builtin (MASK_POPCNTB, "__builtin_recipdiv", ftype,
+		   RS6000_BUILTIN_RECIP);
+
       ftype = builtin_function_type (SFmode, SFmode, VOIDmode, VOIDmode,
 				     RS6000_BUILTIN_RSQRTF,
 				     "__builtin_rsqrtf");
       def_builtin (MASK_PPC_GFXOPT, "__builtin_rsqrtf", ftype,
 		   RS6000_BUILTIN_RSQRTF);
-    }
-  if (TARGET_POPCNTB)
-    {
-      tree ftype = builtin_function_type (DFmode, DFmode, DFmode, VOIDmode,
-					  RS6000_BUILTIN_RECIP,
-					  "__builtin_recipdiv");
-      def_builtin (MASK_POPCNTB, "__builtin_recipdiv", ftype,
-		   RS6000_BUILTIN_RECIP);
 
+      ftype = builtin_function_type (DFmode, DFmode, VOIDmode, VOIDmode,
+				     RS6000_BUILTIN_RSQRT,
+					  "__builtin_rsqrt");
+      def_builtin (MASK_PPC_GFXOPT, "__builtin_rsqrt", ftype,
+		   RS6000_BUILTIN_RSQRT);
     }
   if (TARGET_POPCNTD)
     {
@@ -13797,30 +13875,16 @@ rs6000_preferred_reload_class (rtx x, enum reg_class rclass)
   if (GET_MODE_CLASS (mode) == MODE_INT && rclass == NON_SPECIAL_REGS)
     return GENERAL_REGS;
 
-  /* For VSX, prefer the traditional registers for DF if the address is of the
-     form reg+offset because we can use the non-VSX loads.  Prefer the Altivec
-     registers if Altivec is handling the vector operations (i.e. V16QI, V8HI,
-     and V4SI).  */
-  if (rclass == VSX_REGS && VECTOR_MEM_VSX_P (mode))
+  /* For VSX, prefer the traditional registers for 64-bit values because we can
+     use the non-VSX loads.  Prefer the Altivec registers if Altivec is
+     handling the vector operations (i.e. V16QI, V8HI, and V4SI), or if we
+     prefer Altivec loads..  */
+  if (rclass == VSX_REGS)
     {
-      if (mode == DFmode && GET_CODE (x) == MEM)
-	{
-	  rtx addr = XEXP (x, 0);
+      if (GET_MODE_SIZE (mode) <= 8)
+	return FLOAT_REGS;
 
-	  if (legitimate_indirect_address_p (addr, false))	/* reg */
-	    return VSX_REGS;
-
-	  if (legitimate_indexed_address_p (addr, false))	/* reg+reg */
-	    return VSX_REGS;
-
-	  if (GET_CODE (addr) == PRE_MODIFY
-	      && legitimate_indexed_address_p (XEXP (addr, 0), false))
-	    return VSX_REGS;
-
-	  return FLOAT_REGS;
-	}
-
-      if (VECTOR_UNIT_ALTIVEC_P (mode))
+      if (VECTOR_UNIT_ALTIVEC_P (mode) || VECTOR_MEM_ALTIVEC_P (mode))
 	return ALTIVEC_REGS;
 
       return rclass;
@@ -25074,16 +25138,34 @@ static tree
 rs6000_builtin_reciprocal (unsigned int fn, bool md_fn,
 			   bool sqrt ATTRIBUTE_UNUSED)
 {
-  if (! (TARGET_RECIP && TARGET_PPC_GFXOPT && !optimize_size
-	 && flag_finite_math_only && !flag_trapping_math
-	 && flag_unsafe_math_optimizations))
+  if (! (TARGET_RECIP && TARGET_PPC_GFXOPT && TARGET_FUSED_MADD
+	 && !optimize_size && flag_finite_math_only && !flag_trapping_math
+	 && flag_reciprocal_math && flag_unsafe_math_optimizations))
     return NULL_TREE;
 
   if (md_fn)
-    return NULL_TREE;
+    switch (fn)
+      {
+      case VSX_BUILTIN_XVSQRTDP:
+	return rs6000_builtin_decls[VSX_BUILTIN_VEC_RSQRT_V2DF];
+
+      case VSX_BUILTIN_XVSQRTSP:
+	return rs6000_builtin_decls[VSX_BUILTIN_VEC_RSQRT_V4SF];
+
+      default:
+	return NULL_TREE;
+      }
+
   else
     switch (fn)
       {
+      case BUILT_IN_SQRT:
+	/* The older machines double precision reciprocal sqrt estimate just
+	   was not accurate enough.  */
+	return ((TARGET_RECIP_PRECISION)
+		? rs6000_builtin_decls[RS6000_BUILTIN_RSQRT]
+		: NULL_TREE);
+
       case BUILT_IN_SQRTF:
 	return rs6000_builtin_decls[RS6000_BUILTIN_RSQRTF];
 
@@ -25148,10 +25230,8 @@ rs6000_emit_swdivdf (rtx dst, rtx n, rtx d)
   x0 = gen_reg_rtx (DFmode);
   e0 = gen_reg_rtx (DFmode);
   e1 = gen_reg_rtx (DFmode);
-  e2 = gen_reg_rtx (DFmode);
   y1 = gen_reg_rtx (DFmode);
   y2 = gen_reg_rtx (DFmode);
-  y3 = gen_reg_rtx (DFmode);
   u0 = gen_reg_rtx (DFmode);
   v0 = gen_reg_rtx (DFmode);
   one = force_reg (DFmode, CONST_DOUBLE_FROM_REAL_VALUE (dconst1, DFmode));
@@ -25163,7 +25243,7 @@ rs6000_emit_swdivdf (rtx dst, rtx n, rtx d)
   /* e0 = 1. - d * x0 */
   emit_insn (gen_rtx_SET (VOIDmode, e0,
 			  gen_rtx_MINUS (DFmode, one,
-					 gen_rtx_MULT (SFmode, d, x0))));
+					 gen_rtx_MULT (DFmode, d, x0))));
   /* y1 = x0 + e0 * x0 */
   emit_insn (gen_rtx_SET (VOIDmode, y1,
 			  gen_rtx_PLUS (DFmode,
@@ -25175,13 +25255,26 @@ rs6000_emit_swdivdf (rtx dst, rtx n, rtx d)
   emit_insn (gen_rtx_SET (VOIDmode, y2,
 			  gen_rtx_PLUS (DFmode,
 					gen_rtx_MULT (DFmode, e1, y1), y1)));
-  /* e2 = e1 * e1 */
-  emit_insn (gen_rtx_SET (VOIDmode, e2,
-			  gen_rtx_MULT (DFmode, e1, e1)));
-  /* y3 = y2 + e2 * y2 */
-  emit_insn (gen_rtx_SET (VOIDmode, y3,
-			  gen_rtx_PLUS (DFmode,
-					gen_rtx_MULT (DFmode, e2, y2), y2)));
+
+  /* Newer machines have higher precision estimate instructions, so reduce the
+     number of Newton-Raphson passes used.  */
+  if (TARGET_RECIP_PRECISION)
+    y3 = y2;
+  else
+    {
+      e2 = gen_reg_rtx (DFmode);
+      y3 = gen_reg_rtx (DFmode);
+
+      /* e2 = e1 * e1 */
+      emit_insn (gen_rtx_SET (VOIDmode, e2,
+			      gen_rtx_MULT (DFmode, e1, e1)));
+      /* y3 = y2 + e2 * y2 */
+      emit_insn (gen_rtx_SET (VOIDmode, y3,
+			      gen_rtx_PLUS (DFmode,
+					    gen_rtx_MULT (DFmode, e2, y2),
+					    y2)));
+    }
+
   /* u0 = n * y3 */
   emit_insn (gen_rtx_SET (VOIDmode, u0,
 			  gen_rtx_MULT (DFmode, n, y3)));
@@ -25195,89 +25288,84 @@ rs6000_emit_swdivdf (rtx dst, rtx n, rtx d)
 					gen_rtx_MULT (DFmode, v0, y3), u0)));
 }
 
-
-/* Newton-Raphson approximation of single-precision floating point rsqrt.
-   Assumes no trapping math and finite arguments.  */
+/* Newton-Raphson approximation of single/double-precision floating point
+   rsqrt.  Assumes no trapping math and finite arguments.  */
 
 void
-rs6000_emit_swrsqrtsf (rtx dst, rtx src)
+rs6000_emit_swrsqrt (rtx dst, rtx src)
 {
-  rtx x0, x1, x2, y1, u0, u1, u2, v0, v1, v2, t0,
-    half, one, halfthree, c1, cond, label;
+  enum machine_mode mode = GET_MODE (src);
+  rtx x0 = gen_reg_rtx (mode);
+  rtx y = gen_reg_rtx (mode);
+  int passes = (TARGET_RECIP_PRECISION) ? 2 : 3;
+  REAL_VALUE_TYPE dconst3_2;
+  int i;
+  rtx halfthree;
+  rtx m;
 
-  x0 = gen_reg_rtx (SFmode);
-  x1 = gen_reg_rtx (SFmode);
-  x2 = gen_reg_rtx (SFmode);
-  y1 = gen_reg_rtx (SFmode);
-  u0 = gen_reg_rtx (SFmode);
-  u1 = gen_reg_rtx (SFmode);
-  u2 = gen_reg_rtx (SFmode);
-  v0 = gen_reg_rtx (SFmode);
-  v1 = gen_reg_rtx (SFmode);
-  v2 = gen_reg_rtx (SFmode);
-  t0 = gen_reg_rtx (SFmode);
-  halfthree = gen_reg_rtx (SFmode);
-  cond = gen_rtx_REG (CCFPmode, CR1_REGNO);
-  label = gen_rtx_LABEL_REF (VOIDmode, gen_label_rtx ());
+  gcc_assert (TARGET_FUSED_MADD);
 
-  /* check 0.0, 1.0, NaN, Inf by testing src * src = src */
-  emit_insn (gen_rtx_SET (VOIDmode, t0,
-			  gen_rtx_MULT (SFmode, src, src)));
+  /* Load up the constant 1.5 either as a scalar, or as a vector.  */
+  real_from_integer (&dconst3_2, VOIDmode, 3, 0, 0);
+  SET_REAL_EXP (&dconst3_2, REAL_EXP (&dconst3_2) - 1);
 
-  emit_insn (gen_rtx_SET (VOIDmode, cond,
-			  gen_rtx_COMPARE (CCFPmode, t0, src)));
-  c1 = gen_rtx_EQ (VOIDmode, cond, const0_rtx);
-  emit_unlikely_jump (c1, label);
-
-  half = force_reg (SFmode, CONST_DOUBLE_FROM_REAL_VALUE (dconsthalf, SFmode));
-  one = force_reg (SFmode, CONST_DOUBLE_FROM_REAL_VALUE (dconst1, SFmode));
-
-  /* halfthree = 1.5 = 1.0 + 0.5 */
-  emit_insn (gen_rtx_SET (VOIDmode, halfthree,
-			  gen_rtx_PLUS (SFmode, one, half)));
+  if (mode == SFmode || mode == DFmode)
+    {
+      rtx d = CONST_DOUBLE_FROM_REAL_VALUE (dconst3_2, mode);
+      halfthree = force_reg (mode, d);
+    }
+  else if (VECTOR_MODE_P (mode))
+    {
+      enum machine_mode inner = GET_MODE_INNER (mode);
+      int n_element = (int) (GET_MODE_SIZE (mode) / GET_MODE_SIZE (inner));
+      rtx d = CONST_DOUBLE_FROM_REAL_VALUE (dconst3_2, inner);
+      rtvec v = rtvec_alloc (n_element);
+      for (i = 0; i < n_element; i++)
+	RTVEC_ELT (v, i) = d;
+      halfthree = gen_reg_rtx (mode);
+      rs6000_expand_vector_init (halfthree, gen_rtx_PARALLEL (mode, v));
+    }
+  else
+    gcc_unreachable ();
 
   /* x0 = rsqrt estimate */
   emit_insn (gen_rtx_SET (VOIDmode, x0,
-			  gen_rtx_UNSPEC (SFmode, gen_rtvec (1, src),
+			  gen_rtx_UNSPEC (mode, gen_rtvec (1, src),
 					  UNSPEC_RSQRT)));
 
-  /* y1 = 0.5 * src = 1.5 * src - src -> fewer constants */
-  emit_insn (gen_rtx_SET (VOIDmode, y1,
-			  gen_rtx_MINUS (SFmode,
-					 gen_rtx_MULT (SFmode, src, halfthree),
+  /* y = 0.5 * src = 1.5 * src - src -> fewer constants */
+  emit_insn (gen_rtx_SET (VOIDmode, y,
+			  gen_rtx_MINUS (mode,
+					 gen_rtx_MULT (mode, src, halfthree),
 					 src)));
 
-  /* x1 = x0 * (1.5 - y1 * (x0 * x0)) */
-  emit_insn (gen_rtx_SET (VOIDmode, u0,
-			  gen_rtx_MULT (SFmode, x0, x0)));
-  emit_insn (gen_rtx_SET (VOIDmode, v0,
-			  gen_rtx_MINUS (SFmode,
-					 halfthree,
-					 gen_rtx_MULT (SFmode, y1, u0))));
-  emit_insn (gen_rtx_SET (VOIDmode, x1,
-			  gen_rtx_MULT (SFmode, x0, v0)));
+  for (i = 0; i < passes; i++)
+    {
+      rtx x1 = gen_reg_rtx (mode);
+      rtx u = gen_reg_rtx (mode);
+      rtx v = gen_reg_rtx (mode);
 
-  /* x2 = x1 * (1.5 - y1 * (x1 * x1)) */
-  emit_insn (gen_rtx_SET (VOIDmode, u1,
-			  gen_rtx_MULT (SFmode, x1, x1)));
-  emit_insn (gen_rtx_SET (VOIDmode, v1,
-			  gen_rtx_MINUS (SFmode,
-					 halfthree,
-					 gen_rtx_MULT (SFmode, y1, u1))));
-  emit_insn (gen_rtx_SET (VOIDmode, x2,
-			  gen_rtx_MULT (SFmode, x1, v1)));
+      /* x1 = x0 * (1.5 - y * (x0 * x0)) */
+      emit_insn (gen_rtx_SET (VOIDmode, u,
+			      gen_rtx_MULT (mode, x0, x0)));
 
-  /* dst = x2 * (1.5 - y1 * (x2 * x2)) */
-  emit_insn (gen_rtx_SET (VOIDmode, u2,
-			  gen_rtx_MULT (SFmode, x2, x2)));
-  emit_insn (gen_rtx_SET (VOIDmode, v2,
-			  gen_rtx_MINUS (SFmode,
-					 halfthree,
-					 gen_rtx_MULT (SFmode, y1, u2))));
-  emit_insn (gen_rtx_SET (VOIDmode, dst,
-			  gen_rtx_MULT (SFmode, x2, v2)));
+      m = gen_rtx_MULT (mode, y, u);
+      if (!HONOR_SIGNED_ZEROS (mode))
+	emit_insn (gen_rtx_SET (VOIDmode, v,
+				gen_rtx_MINUS (mode, halfthree, m)));
+      else
+	emit_insn (gen_rtx_SET (VOIDmode, v,
+				gen_rtx_NEG (mode,
+					     gen_rtx_MINUS (mode, m,
+							    halfthree))));
 
-  emit_label (XEXP (label, 0));
+      emit_insn (gen_rtx_SET (VOIDmode, x1,
+			      gen_rtx_MULT (mode, x0, v)));
+      x0 = x1;
+    }
+
+  emit_move_insn (dst, x0);
+  return;
 }
 
 /* Emit popcount intrinsic on TARGET_POPCNTB (Power5) and TARGET_POPCNTD

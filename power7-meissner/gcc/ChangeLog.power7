@@ -1,0 +1,75 @@
+2010-05-07  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vector.md (rsqrt<mode>2): Add expander.
+	(rsqrte<mode>2): Ditto.
+
+	* config/rs6000/rs6000-builtins.def  (RS6000_BUILTIN_RSQRT):
+	Add new builtin.
+	(ALTIVEC_BUILTIN_VRSQRTFP): Ditto.
+	(ALTIVEC_BUILTIN_VEC_RSQRT): Ditto.
+	(VSX_BUILTIN_VEC_RSQRT_V4SF): Ditto.
+	(VSX_BUILTIN_VEC_RSQRT_V2DF): Ditto.
+	(ALTIVEC_BUILTIN_VEC_RSQRTE): Change classification to FP_PURE.
+
+	* config/rs6000/rs6000-c.c (rs6000_cpu_cpp_builtins): Define
+	__RECIP__ and __RECIP_PRECISION__ based on the -mrecip and
+	-mrecip-precision switches.
+	(altivec_overloaded_builtins): Add VSX double reciprocal estimate
+	sqrt.  Add Altivec/VSX reciprocal sqrt that uses the reciprocal
+	estimate instructions.
+
+	* config/rs6000/rs6000.c (rs6000_init_hard_regno_mode_ok): Set ws
+	constraint to FLOAT_REGS unless we are using VSX scalar loads by
+	default.  Print cost information if -mdebug=cost or -mdebug=reg.
+	(rs6000_override_options): Default -mrecip-precision on power6 and
+	power7.  Default -mrecip on if -O3, -ffast-math, and
+	-mrecip-precision.
+	(rs6000_builtin_vectorized_function): Add support for vectorizing
+	__builtin_rsqrt and __builtin_rsqrtf.
+	(bdesc_1arg): Add support for vectorized reciprocal sqrt estimate
+	builtins.
+	(rs6000_expand_builtin): Add support for __builtin_rsqrt.
+	(rs6000_init_builtins): Ditto.  Also, change __builtin_recipdiv to
+	be based on -mrecip.
+	(rs6000_preferred_reload_class): Simplify to prefer FLOAT_REGS for
+	scalars, and ALTIVEC_REGS for vector integer types.
+	(rs6000_builtin_reciprocal): Add support for DF, V4SF, and V2DF
+	reciprocal sqrt.
+	(rs6000_emit_swdivdf): Fix thinko using wrong type.  Generate
+	fewer passes for -mrecip-precision.
+	(rs6000_emit_swrsqrt): Rename from rs6000_emit_swrsqrtsf.
+	Suppress nan/infinity test if -ffast-math.  Generate fewer passes
+	for -mrecip-precision.
+
+	* config/rs6000/vsx.md (UNSPEC_VSX_RSQRTE): Delete.
+	(vsx_rsqrte<mode>2): Use UNSPEC_RSQRT, not UNSPEC_VSX_RSQRTE.
+
+	* config/rs6000/altivec.md (UNSPEC_VRSQRTEFP): Delete.
+	(altivec_vrsqrtefp): Gen function no longer needed.  Use
+	UNSPEC_RSQRT like scalar, VSX, vector.
+
+	* config/rs6000/rs6000.md (FP2): New iterator.
+	(rsqrt<mode>2): Rename from rsqrtsf2, handle DF as well as SF.
+	(rsqrtsf_internal1): Rename from rsqrt_internal1.  Allow rsqrtf to
+	be used even if the user did not use -mrecip.
+	(rsqrtdf_internal1): Add double rsqrt support.
+
+	* config/rs6000/altivec.h (vec_rsqrt): New macro.
+
+	* config/rs6000/rs6000.opt (-mrecip): Initialize to -1 so we can
+	tell if the user used it explicitly.
+	(-mrecip-precision): New switch, says that the machine has the
+	higher precision estimate instructions.
+
+	* config/rs6000/rs6000-protos.h (rs6000_emit_swrsqrt): Rename from
+	rs6000_emit_swrsqrtsf.
+
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Add documentation
+	for -mrecip, -mrecip-precision.
+
+	* doc/extend.texi (PowerPC AltiVec/VSX Built-in Functions):
+	Document new reciprocal sqrt builtins.
+
+	Copy from mainline 159119.
+	* REVISION: New file.
+
