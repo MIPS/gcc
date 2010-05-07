@@ -1,5 +1,23 @@
 2010-05-07  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/vector.md (rsqrt<mode>2): Drop extra's USE's.
+	(re<mode>2): Add expander.
+
+	* config/rs6000/rs6000-c.c (altivec_overloaded_builtins): Add
+	reciprocal estimate builtins.
+
+	* config/rs6000/rs6000.c (bdesc_arg1): Change
+	__builtin_altivec_vrefp to use rev4sf2 insn so xvresp can be
+	generated under VSX.
+	(rs6000_emit_swrsqrt): Deal with altivec not having a full suite
+	of multiply/add operations.
+
+	* config/rs6000/altivec.md (UNSPEC_VREFP): Delete.
+	(UNSPEC_VNMSUBFP): New unspec constant.
+	(altivec_vnmsubfp): Clone code from rs6000.md/vsx.md to be
+	consistant for -ffast-math and -mno-fused-madd.
+	(altivec_vrefp): Only match the insn if altivec and not VSX.
+
 	* config/rs6000/vector.md (rsqrt<mode>2): Add expander.
 	(rsqrte<mode>2): Ditto.
 

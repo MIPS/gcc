@@ -9429,7 +9429,7 @@ static struct builtin_description bdesc_1arg[] =
 {
   { MASK_ALTIVEC, CODE_FOR_altivec_vexptefp, "__builtin_altivec_vexptefp", ALTIVEC_BUILTIN_VEXPTEFP },
   { MASK_ALTIVEC, CODE_FOR_altivec_vlogefp, "__builtin_altivec_vlogefp", ALTIVEC_BUILTIN_VLOGEFP },
-  { MASK_ALTIVEC, CODE_FOR_altivec_vrefp, "__builtin_altivec_vrefp", ALTIVEC_BUILTIN_VREFP },
+  { MASK_ALTIVEC, CODE_FOR_rev4sf2, "__builtin_altivec_vrefp", ALTIVEC_BUILTIN_VREFP },
   { MASK_ALTIVEC, CODE_FOR_vector_floorv4sf2, "__builtin_altivec_vrfim", ALTIVEC_BUILTIN_VRFIM },
   { MASK_ALTIVEC, CODE_FOR_altivec_vrfin, "__builtin_altivec_vrfin", ALTIVEC_BUILTIN_VRFIN },
   { MASK_ALTIVEC, CODE_FOR_vector_ceilv4sf2, "__builtin_altivec_vrfip", ALTIVEC_BUILTIN_VRFIP },
@@ -25302,8 +25302,12 @@ rs6000_emit_swrsqrt (rtx dst, rtx src)
   int i;
   rtx halfthree;
   rtx m;
+  typedef rtx (*gen_mul_fn) (rtx, rtx, rtx);
+  enum insn_code code = optab_handler (smul_optab, mode)->insn_code;
+  gen_mul_fn gen_mul = (gen_mul_fn) GEN_FCN (code);
 
   gcc_assert (TARGET_FUSED_MADD);
+  gcc_assert (code != CODE_FOR_nothing);
 
   /* Load up the constant 1.5 either as a scalar, or as a vector.  */
   real_from_integer (&dconst3_2, VOIDmode, 3, 0, 0);
@@ -25334,10 +25338,18 @@ rs6000_emit_swrsqrt (rtx dst, rtx src)
 					  UNSPEC_RSQRT)));
 
   /* y = 0.5 * src = 1.5 * src - src -> fewer constants */
-  emit_insn (gen_rtx_SET (VOIDmode, y,
-			  gen_rtx_MINUS (mode,
-					 gen_rtx_MULT (mode, src, halfthree),
-					 src)));
+  if (mode != V4SFmode || !VECTOR_UNIT_ALTIVEC_P (mode))
+    emit_insn (gen_rtx_SET (VOIDmode, y,
+			    gen_rtx_MINUS (mode, gen_rtx_MULT (mode, src,
+							       halfthree),
+					   src)));
+  else
+    {
+      /* Work around altivec not having a vmsubfp instruction.  */
+      rtx m2 = gen_reg_rtx (mode);
+      emit_insn (gen_altivec_mulv4sf3 (m2, src, halfthree));
+      emit_insn (gen_rtx_SET (VOIDmode, y, gen_rtx_MINUS (mode, m2, src)));
+    }
 
   for (i = 0; i < passes; i++)
     {
@@ -25346,8 +25358,7 @@ rs6000_emit_swrsqrt (rtx dst, rtx src)
       rtx v = gen_reg_rtx (mode);
 
       /* x1 = x0 * (1.5 - y * (x0 * x0)) */
-      emit_insn (gen_rtx_SET (VOIDmode, u,
-			      gen_rtx_MULT (mode, x0, x0)));
+      emit_insn (gen_mul (u, x0, x0));
 
       m = gen_rtx_MULT (mode, y, u);
       if (!HONOR_SIGNED_ZEROS (mode))
@@ -25359,8 +25370,7 @@ rs6000_emit_swrsqrt (rtx dst, rtx src)
 					     gen_rtx_MINUS (mode, m,
 							    halfthree))));
 
-      emit_insn (gen_rtx_SET (VOIDmode, x1,
-			      gen_rtx_MULT (mode, x0, v)));
+      emit_insn (gen_mul (x1, x0, v));
       x0 = x1;
     }
 
