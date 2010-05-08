@@ -1,3 +1,24 @@
+2010-05-07  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	PR documentation/44016
+	* doc/standards.texi (Standards): Link to unversioned
+	cxx0x_status.html page.
+
+2010-05-05  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	Backport from mainline:
+	2010-04-22  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/43744
+	* config/sh/sh.c (find_barrier): Don't emit a constant pool
+	in the middle of insns for casesi_worker_2.
+
+2010-05-05  Jason Merrill  <jason@redhat.com>
+
+	PR debug/43370
+	* c-common.c (handle_aligned_attribute): Respect
+	ATTR_FLAG_TYPE_IN_PLACE.
+
 2010-05-04  H.J. Lu  <hongjiu.lu@intel.com>
 
 	Backport from mainline
