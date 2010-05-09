@@ -387,10 +387,9 @@ cil32_builtin_get_vec_stride (tree type)
     {
       switch (element_size)
         {
-#if 0
         case 8:
           return cil32_builtins[CIL32_GCC_GET_STRIDE_VDI];
-#endif
+
         case 4:
           return cil32_builtins[CIL32_GCC_GET_STRIDE_VSI];
 
@@ -408,10 +407,8 @@ cil32_builtin_get_vec_stride (tree type)
     {
       switch (element_size)
         {
-#if 0
         case 8:
           return cil32_builtins[CIL32_GCC_GET_STRIDE_VDF];
-#endif
         case 4:
           return cil32_builtins[CIL32_GCC_GET_STRIDE_VSF];
 
@@ -431,10 +428,8 @@ cil32_builtin_get_vec_align (tree type)
     {
       switch (element_size)
         {
-#if 0
         case 8:
           return cil32_builtins[CIL32_GCC_GET_ALIGN_VDI];
-#endif
         case 4:
           return cil32_builtins[CIL32_GCC_GET_ALIGN_VSI];
 
@@ -452,10 +447,9 @@ cil32_builtin_get_vec_align (tree type)
     {
       switch (element_size)
         {
-#if 0
         case 8:
           return cil32_builtins[CIL32_GCC_GET_ALIGN_VDF];
-#endif
+
         case 4:
           return cil32_builtins[CIL32_GCC_GET_ALIGN_VSF];
 
@@ -474,10 +468,9 @@ static tree cil32_builtin_build_uniform_vec (tree type)
     {
       switch (element_size)
         {
-#if 0
         case 8:
           return cil32_builtins[CIL32_GCC_BUILD_UNIFORM_VEC_VDI];
-#endif
+
         case 4:
           return cil32_builtins[CIL32_GCC_BUILD_UNIFORM_VEC_VSI];
 
@@ -495,10 +488,9 @@ static tree cil32_builtin_build_uniform_vec (tree type)
     {
       switch (element_size)
         {
-#if 0
         case 8:
           return cil32_builtins[CIL32_GCC_BUILD_UNIFORM_VEC_VDF];
-#endif
+
         case 4:
           return cil32_builtins[CIL32_GCC_BUILD_UNIFORM_VEC_VSF];
 
@@ -517,10 +509,9 @@ static tree cil32_builtin_build_affine_vec (tree type)
     {
       switch (element_size)
         {
-#if 0
         case 8:
           return cil32_builtins[CIL32_GCC_BUILD_AFFINE_VEC_VDI];
-#endif
+
         case 4:
           return cil32_builtins[CIL32_GCC_BUILD_AFFINE_VEC_VSI];
 
@@ -538,10 +529,9 @@ static tree cil32_builtin_build_affine_vec (tree type)
     {
       switch (element_size)
         {
-#if 0
         case 8:
           return cil32_builtins[CIL32_GCC_BUILD_AFFINE_VEC_VDF];
-#endif
+
         case 4:
           return cil32_builtins[CIL32_GCC_BUILD_AFFINE_VEC_VSF];
 
@@ -562,7 +552,6 @@ static tree cil32_builtin_build_reduc_epilogue (enum tree_code reduc_code,
     {
       switch (element_size)
         {
-#if 0
         case 8:
           switch (reduc_code)
             {
@@ -578,7 +567,7 @@ static tree cil32_builtin_build_reduc_epilogue (enum tree_code reduc_code,
             default:
               return NULL_TREE;
             }
-#endif
+
         case 4:
           switch (reduc_code)
             {
@@ -636,7 +625,6 @@ static tree cil32_builtin_build_reduc_epilogue (enum tree_code reduc_code,
     {
       switch (element_size)
         {
-#if 0
         case 8:
           switch (reduc_code)
             {
@@ -652,7 +640,6 @@ static tree cil32_builtin_build_reduc_epilogue (enum tree_code reduc_code,
             default:
               return NULL_TREE;
             }
-#endif
 
         case 4:
           switch (reduc_code)
