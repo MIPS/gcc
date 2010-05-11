@@ -23,6 +23,7 @@
    what you give them.   Help stamp out software-hoarding!
 
    Authors:
+     Kevin Williams <kevin.williams@inria.fr>	
      Ricardo Fernandez Pascual <ricardof@um.es>
      Andrea C. Ornstein <andrea.ornstein@st.com>
 
@@ -79,4 +80,16 @@ gcc4net_Crt___EndianSelect_System_Void__System_Void__System_Void_ (void* a1, voi
       return a1;
   else
       return a2;
+}
+
+int
+gcc4net_Crt___selectsi4_System_Int32_System_Int32_System_Int32_System_Int32(int a, int b, int c)
+{
+	return (a != 0) ? b : c;
+}
+
+double
+gcc4net_Crt___selectdf4_System_Int32_System_Double_System_Double_System_Double(int a, double b, double c)
+{
+	return (a != 0) ? b : c;
 }

@@ -58,7 +58,12 @@ typedef enum
   }
 CilStackType;
 
+#define NUM_OF_CIL_STYPE (CIL_STYPE_ERROR+1)
+
+tree build_cil_stack_cst (CilStackType ct, int x);
 tree cil_stack_get_tree_type_for_cil_stack_type (CilStackType ct);
+CilStackType get_cil_stack_type_for_tree (tree t);
+int cil_stack_type_to_nuints (CilStackType ct);
 
 void cil_stack_init (void);
 void cil_stack_push (tree item, CilStackType type);

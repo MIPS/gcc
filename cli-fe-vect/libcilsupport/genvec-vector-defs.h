@@ -1,5 +1,4 @@
-/* This includes all of the vector modes that are recognized by
-   c_common_type_for_mode.  */
+/* This includes all of the vector modes that are recognized by c_common_type_for_mode.  */
 
 typedef int __attribute__((mode(QI))) qi;
 typedef int __attribute__((mode(HI))) hi;
@@ -11,8 +10,6 @@ typedef float __attribute__((mode(DF))) df;
 #else
 typedef float __attribute__((mode(SF))) df;
 #endif
-
-#if __GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 5)
 
 typedef qi __attribute__((vector_size (8))) v8qi;
 typedef qi __attribute__((vector_size (16))) v16qi;
@@ -32,29 +29,6 @@ typedef sf __attribute__((vector_size (16))) v4sf;
 typedef sf __attribute__((vector_size (64))) v16sf;
 
 typedef df __attribute__((vector_size (16))) v2df;
-
-#else
-
-typedef int __attribute__((mode(V8QI))) v8qi;
-typedef int __attribute__((mode(V16QI))) v16qi;
-
-typedef int __attribute__((mode(V2HI))) v2hi;
-typedef int __attribute__((mode(V4HI))) v4hi;
-typedef int __attribute__((mode(V8HI))) v8hi;
-
-typedef int __attribute__((mode(V2SI))) v2si;
-typedef int __attribute__((mode(V4SI))) v4si;
-
-typedef int __attribute__((mode(V1DI))) v1di;
-typedef int __attribute__((mode(V2DI))) v2di;
-
-typedef float __attribute__((mode(V2SF))) v2sf;
-typedef float __attribute__((mode(V4SF))) v4sf;
-typedef float __attribute__((mode(V16SF))) v16sf;
-
-typedef float __attribute__((mode(V2DF))) v2df;
-
-#endif
 
 typedef qi __attribute__((vector_size (32))) v32qi;
 typedef hi __attribute__((vector_size (32))) v16hi;

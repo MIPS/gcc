@@ -22,6 +22,7 @@
    what you give them.   Help stamp out software-hoarding!
 
    Author:
+     Kevin Williams <kevin.williams@inria.fr>
      Ricardo Fernandez Pascual <ricardof@um.es>
 
    Contact information at STMicroelectronics:
@@ -256,6 +257,85 @@ cil_stack_get_tree_type_for_cil_stack_type (CilStackType ct)
     }
 }
 
+tree
+build_cil_stack_cst (CilStackType ct, int x)
+{
+  switch (ct)
+  {
+  case CIL_STYPE_VECTOR2D:
+    gcc_unreachable ();
+    return double_type_node;
+  case CIL_STYPE_VECTOR4F:
+    gcc_unreachable ();
+    return float_type_node;
+  case CIL_STYPE_VECTOR2L:
+    gcc_unreachable ();
+    return long_integer_type_node;
+  case CIL_STYPE_VECTOR2UL:
+    gcc_unreachable ();
+    return long_unsigned_type_node;
+  case CIL_STYPE_VECTOR4I:
+    return build_int_cst(integer_type_node,x);
+  case CIL_STYPE_VECTOR4UI:
+    gcc_unreachable ();
+    return unsigned_type_node;
+  case CIL_STYPE_VECTOR8S:
+    gcc_unreachable ();
+    return build_int_cst(short_integer_type_node,x);
+  case CIL_STYPE_VECTOR8US:
+    gcc_unreachable ();
+    return short_unsigned_type_node;
+  case CIL_STYPE_VECTOR16SB:
+    return build_int_cst(intQI_type_node,x);
+  case CIL_STYPE_VECTOR16B:
+    gcc_unreachable ();
+    return unsigned_intQI_type_node;
+  default:
+    gcc_unreachable ();
+    return NULL;
+  }
+}
+
+int
+cil_stack_type_to_nuints (CilStackType ct)
+{
+  switch (ct)
+    {
+    case CIL_STYPE_VECTOR2D:
+      return 2;
+    case CIL_STYPE_VECTOR4F:
+      return 4;
+    case CIL_STYPE_VECTOR2L:
+      return 2;
+    case CIL_STYPE_VECTOR2UL:
+      return 2;
+    case CIL_STYPE_VECTOR4I:
+      return 4;
+    case CIL_STYPE_VECTOR4UI:
+      return 4;
+    case CIL_STYPE_VECTOR8S:
+      return 8;
+    case CIL_STYPE_VECTOR8US:
+      return 8;
+    case CIL_STYPE_VECTOR16SB:
+      return 16;
+    case CIL_STYPE_VECTOR16B:
+      return 16;
+    case CIL_STYPE_INT32:
+    case CIL_STYPE_INT64:
+    case CIL_STYPE_NINT:
+    case CIL_STYPE_REAL32:
+    case CIL_STYPE_REAL64:
+    case CIL_STYPE_MP:
+    case CIL_STYPE_OBJECT:
+      gcc_unreachable (); /* TODO */
+    case CIL_STYPE_ERROR:
+      return error_mark_node;
+    default:
+      gcc_unreachable ();
+    }
+}
+
 CilStackType
 get_cil_stack_type_for_mono_simd_class (const char * called_klass_name)
 {
@@ -284,6 +364,61 @@ get_cil_stack_type_for_mono_simd_class (const char * called_klass_name)
     gcc_unreachable ();
     return CIL_STYPE_ERROR;
   }
+}
+
+CilStackType
+get_cil_stack_type_for_tree (tree t)
+{
+  if (TREE_CODE (t) == VECTOR_TYPE){
+    switch (GET_MODE_NUNITS (TYPE_MODE (t)))
+    {
+    case 2:
+      switch(TREE_CODE (TREE_TYPE(t)))
+      {
+        case REAL_TYPE:
+          return CIL_STYPE_VECTOR2D;
+        case INTEGER_TYPE:
+          if(TYPE_UNSIGNED (TREE_TYPE(t)))
+            return CIL_STYPE_VECTOR2UL;
+          else
+            return CIL_STYPE_VECTOR2L;
+        default:
+          gcc_unreachable ();
+      }
+      break;
+    case 4:
+      switch(TREE_CODE (TREE_TYPE(t)))
+      {
+        case REAL_TYPE:
+          return CIL_STYPE_VECTOR4F;
+        case INTEGER_TYPE:
+          if(TYPE_UNSIGNED (TREE_TYPE(t)))
+            return CIL_STYPE_VECTOR4UI;
+          else
+            return CIL_STYPE_VECTOR4I;
+        default:
+          gcc_unreachable ();
+      }
+      break;
+    case 8:
+      if(TYPE_UNSIGNED (TREE_TYPE(t)))
+        return CIL_STYPE_VECTOR8US;
+      else
+        return CIL_STYPE_VECTOR8S;
+      break;
+    case 16:
+      if(TYPE_UNSIGNED (TREE_TYPE(t)))
+        return CIL_STYPE_VECTOR16B;
+      else
+        return CIL_STYPE_VECTOR16SB;
+      break;
+    }
+  }
+  error("no stack type for tree: ");
+  print_generic_expr(stderr,t,0);
+  fprintf(stderr,"\n");
+  gcc_unreachable ();
+  return CIL_STYPE_ERROR;
 }
 
 #include "debug.h"

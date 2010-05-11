@@ -22,6 +22,7 @@
    what you give them.   Help stamp out software-hoarding!
 
    Author:
+     Kevin Williams <kevin.williams@inria.fr>
      Ricardo Fernandez Pascual <ricardof@um.es>
      Andrea C. Ornstein <andrea.ornstein@st.com>
 
@@ -55,6 +56,7 @@
 #include "opts.h"
 #include "options.h"
 #include "real.h"
+
 #include "gimple.h"
 #include "tree-dump.h"
 
@@ -89,7 +91,7 @@ cil_labels_set_get_label (CILLabelsMap *labels, const unsigned char *ip)
     {
       char label_name[128];
       snprintf (label_name, sizeof(label_name), "IL%p", ip);
-      label_decl_tree = build_decl (LABEL_DECL, get_identifier (label_name), void_type_node);
+      label_decl_tree = build_decl (UNKNOWN_LOCATION,  LABEL_DECL, get_identifier (label_name), void_type_node);
       DECL_CONTEXT (label_decl_tree) = current_function_decl;
       g_hash_table_insert (labels, (void *) ip, label_decl_tree);
     }
@@ -163,7 +165,7 @@ parser_get_class_record_or_union_tree (MonoClass *klass)
     }
   else
     {
-      gcc_assert (TREE_CODE (ret) == UNION_TYPE || TREE_CODE (ret) == VECTOR_TYPE || TREE_CODE (ret) == VECTOR_CST);
+    gcc_assert (TREE_CODE (ret) == UNION_TYPE || TREE_CODE (ret) == VECTOR_TYPE || TREE_CODE (ret) == VECTOR_CST);
     }
   gcc_assert (ret);
   return ret;
@@ -241,8 +243,8 @@ parser_get_type_tree (MonoType *type)
       break;
     case MONO_TYPE_CLASS:
       {
-	MonoClass *klass = mono_type_get_class (type);
-	ret = build_pointer_type (parser_get_class_record_tree (klass));
+        MonoClass *klass = mono_type_get_class (type);
+        ret = build_pointer_type (parser_get_class_record_tree (klass));
       }
       break;
     case MONO_TYPE_VALUETYPE:
@@ -320,19 +322,19 @@ parser_get_method_is_gcc4netstdlib (MonoMethod *method)
   MonoImage *method_image = mono_class_get_image(method_klass);
   // return (strcmp ("libstd", mono_image_get_name(method_image)) == 0);
 
-  
-    const char *image_name = mono_image_get_name(method_image);
+
+  const char *image_name = mono_image_get_name(method_image);
   if (strcmp ("libstd",image_name) == 0)
-  {
-    const char *method_name = mono_method_get_name(method);
-    if ( (strcmp (".init",method_name) == 0) || (strcmp (".fini",method_name) == 0))
     {
+      const char *method_name = mono_method_get_name(method);
+    if ( (strcmp (".init",method_name) == 0) || (strcmp (".fini",method_name) == 0))
+        {
+          return 0;
+        }
+      return 1;
+    }else{
       return 0;
     }
-    return 1;
-  }else{
-    return 0;
-  }
 }
 
 static GCCCilMethodMode
@@ -456,7 +458,7 @@ parser_get_binary_numeric_operations_type (enum cil_bin_op bin_op, CilStackType 
     {
       gcc_assert (opA_type < CIL_STYPE_ERROR);
       gcc_assert (opB_type < CIL_STYPE_ERROR);
-      const CilStackType table[7][7] = {
+    const CilStackType table[7][7] = {
         { CIL_STYPE_INT32, CIL_STYPE_ERROR, CIL_STYPE_NINT,  CIL_STYPE_ERROR, CIL_STYPE_ERROR, CIL_STYPE_MP,    CIL_STYPE_ERROR },
         { CIL_STYPE_ERROR, CIL_STYPE_INT64, CIL_STYPE_ERROR, CIL_STYPE_ERROR, CIL_STYPE_ERROR, CIL_STYPE_ERROR, CIL_STYPE_ERROR },
         { CIL_STYPE_NINT,  CIL_STYPE_ERROR, CIL_STYPE_NINT,  CIL_STYPE_ERROR, CIL_STYPE_ERROR, CIL_STYPE_MP,    CIL_STYPE_ERROR },
@@ -575,7 +577,7 @@ parser_emit_binary_numeric_operation(enum cil_bin_op bin_op,
   CilStackType result_stack_type = parser_get_binary_numeric_operations_type (bin_op, opA_type, opB_type);
   if (result_stack_type == CIL_STYPE_ERROR)
     {
-      error ("1 Wrong operand types for %s\n", opname);
+    error ("1 Wrong operand types for %s\n", opname);
     }
   int pA = POINTER_TYPE_P (TREE_TYPE(opA));
   int pB = POINTER_TYPE_P (TREE_TYPE(opB));
@@ -583,13 +585,13 @@ parser_emit_binary_numeric_operation(enum cil_bin_op bin_op,
   switch (result_stack_type)
     {
     case CIL_STYPE_INT32:
-    case CIL_STYPE_INT64:
+  case CIL_STYPE_INT64:
       gcc_assert( !pA && !pB);
       exp = build2 (opcode_i,  TREE_TYPE (opA), opA, opB);
       break;
 
-    case CIL_STYPE_REAL32:
-    case CIL_STYPE_REAL64:
+  case CIL_STYPE_REAL32:
+  case CIL_STYPE_REAL64:
       gcc_assert( !pA && !pB);
       exp = build2 (opcode_f,  TREE_TYPE (opA), opA, opB);
       break;
@@ -719,15 +721,15 @@ static void \
 parser_emit_##name (void) \
 { \
   CilStackType opB_type; \
-  gcc_assert(cil_stack_is_empty () == 0); \
+	gcc_assert(cil_stack_is_empty () == 0); \
   tree opB = cil_stack_pop (&opB_type); \
   CilStackType opA_type; \
-  gcc_assert(cil_stack_is_empty () == 0); \
+	gcc_assert(cil_stack_is_empty () == 0); \
   tree opA = cil_stack_pop (&opA_type); \
   CilStackType result_type = parser_get_integer_operations_type_tree (opA_type, opB_type); \
   if (result_type == CIL_STYPE_ERROR) \
     { \
-      error ("2 Wrong operand types for "#name); \
+		error ("2 Wrong operand types for "#name); \
     } \
   CONVERT (opA) \
   CONVERT (opB) \
@@ -790,7 +792,7 @@ parser_emit_ret (MonoMethod *method)
       tree return_type_tree = parser_get_type_tree (return_type);
       gcc_assert (TREE_TYPE (TREE_TYPE (current_function_decl)) == return_type_tree);
       gcc_assert (TREE_TYPE (DECL_RESULT (current_function_decl)) == return_type_tree);
-      gcc_assert(cil_stack_is_empty () == 0);
+    gcc_assert(cil_stack_is_empty () == 0);
       tree op = cil_stack_pop (NULL);
       tree converted_op = convert (return_type_tree, op);
       tree setret = build2 (MODIFY_EXPR, return_type_tree, DECL_RESULT (current_function_decl), converted_op);
@@ -875,10 +877,10 @@ parser_find_field_in_record (tree record, tree field_name)
   tree field_decl;
   for (field_decl = TYPE_FIELDS (record); field_decl; field_decl = TREE_CHAIN (field_decl))
     {
-      if (DECL_NAME (field_decl) == field_name)
-        {
-          return field_decl;
-        }
+    if (DECL_NAME (field_decl) == field_name)
+      {
+      return field_decl;
+      }
     }
   gcc_unreachable ();
 }
@@ -890,15 +892,15 @@ parser_get_field_decl_tree (MonoClassField *field)
   MonoClass *klass = mono_field_get_parent (field);
   if (mono_field_get_flags (field) & MONO_FIELD_ATTR_STATIC)
     {
-      tree storage_record = parser_get_class_static_record_tree (klass);
-      tree field_decl = parser_find_field_in_record (storage_record, field_name_tree);
-      return field_decl;
+    tree storage_record = parser_get_class_static_record_tree (klass);
+    tree field_decl = parser_find_field_in_record (storage_record, field_name_tree);
+    return field_decl;
     }
   else
     {
-      tree storage_record = parser_get_class_record_tree (klass);
-      tree field_decl = parser_find_field_in_record (storage_record, field_name_tree);
-      return field_decl;
+    tree storage_record = parser_get_class_record_tree (klass);
+    tree field_decl = parser_find_field_in_record (storage_record, field_name_tree);
+    return field_decl;
     }
 }
 
@@ -991,89 +993,254 @@ get_treecode_for_mono_simd_function (const char * called_name)
 static void
 parser_emit_mono_simd_call (MonoMethod *caller, guint32 token)
 {
-	MonoImage *image = mono_class_get_image (mono_method_get_class (caller));
-	MonoMethod *called = mono_get_method (image, token, NULL);
-	MonoClass *called_klass = mono_method_get_class (called);
+  MonoImage *image = mono_class_get_image (mono_method_get_class (caller));
+  MonoMethod *called = mono_get_method (image, token, NULL);
+  MonoClass *called_klass = mono_method_get_class (called);
 
-	const char *called_klass_name = mono_class_get_name (called_klass);
-	const char *called_namespace_name = mono_class_get_namespace (called_klass);
-	const char *called_name = mono_method_get_name (called);
+  const char *called_klass_name = mono_class_get_name (called_klass);
+  const char *called_namespace_name = mono_class_get_namespace (called_klass);
+      const char *called_name = mono_method_get_name (called);
 
-//	MonoMethodSignature *called_signature = mono_method_get_signature_full (called, image, token, NULL);
-//	guint16 param_count = mono_signature_get_param_count(called_signature);
-//	printf ("parser_emit_mono_simd_call : '%s'.%s::%s\n\tparam_count = %d\n",called_namespace_name,called_klass_name,called_name,param_count); fflush(stdout); fflush(stderr);
+  //	MonoMethodSignature *called_signature = mono_method_get_signature_full (called, image, token, NULL);
+  //	guint16 param_count = mono_signature_get_param_count(called_signature);
+  //	printf ("parser_emit_mono_simd_call : '%s'.%s::%s\n\tparam_count = %d\n",called_namespace_name,called_klass_name,called_name,param_count); fflush(stdout); fflush(stderr);
 
-	enum tree_code code = get_treecode_for_mono_simd_function (called_name);
-	switch(code)
-	{
-		case PLUS_EXPR: // op_Add
-		case MINUS_EXPR: // op_Subtract
-		case MULT_EXPR: // op_Multiply
-		case RDIV_EXPR: // op_Divide
-		{
-			tree type_tree = get_vector_type_for_mono_simd_class (called_klass_name);
-			gcc_assert(cil_stack_is_empty () == 0);
-			tree opB = cil_stack_pop (NULL);
-			gcc_assert(cil_stack_is_empty () == 0);
-			tree opA = cil_stack_pop (NULL);
-			tree exp = fold_build2 (code, type_tree, opA, opB);
-			cil_stack_push (exp, get_cil_stack_type_for_mono_simd_class (called_klass_name) );
-			break;
-		}
-		case MAX_EXPR:
-		{
-			gcc_assert(cil_stack_is_empty () == 0);
-			tree opB = cil_stack_pop (NULL);
-			gcc_assert(cil_stack_is_empty () == 0);
-			tree opA = cil_stack_pop (NULL);
-			tree type_tree = TREE_TYPE(opA);
-			tree exp = fold_build2 (code, type_tree, opA, opB);
-			cil_stack_push (exp, CIL_STYPE_VECTOR8S );
-			break;
-		}
-		case ALIGN_INDIRECT_REF: // StoreAligned
-		{
-			tree type_tree = get_vector_type_for_mono_simd_class (called_klass_name);
-			gcc_assert(cil_stack_is_empty () == 0);
-			tree value_tree = cil_stack_pop (NULL);
+  enum tree_code code = get_treecode_for_mono_simd_function (called_name);
+  switch(code)
+        {
+  case PLUS_EXPR: // op_Add
+  case MINUS_EXPR: // op_Subtract
+  case MULT_EXPR: // op_Multiply
+  case RDIV_EXPR: // op_Divide
+    {
+      tree type_tree = get_vector_type_for_mono_simd_class (called_klass_name);
+      gcc_assert(cil_stack_is_empty () == 0);
+      tree opB = cil_stack_pop (NULL);
+      gcc_assert(cil_stack_is_empty () == 0);
+      tree opA = cil_stack_pop (NULL);
+      tree exp = fold_build2 (code, type_tree, opA, opB);
+      cil_stack_push (exp, get_cil_stack_type_for_mono_simd_class (called_klass_name) );
+      break;
+        }
+  case MAX_EXPR:
+          {
+      gcc_assert(cil_stack_is_empty () == 0);
+      tree opB = cil_stack_pop (NULL);
+      gcc_assert(cil_stack_is_empty () == 0);
+      tree opA = cil_stack_pop (NULL);
+      tree type_tree = TREE_TYPE(opA);
+      tree exp = fold_build2 (code, type_tree, opA, opB);
+      cil_stack_push (exp, get_cil_stack_type_for_tree (type_tree) );
+      break;
+          }
+  case ALIGN_INDIRECT_REF: // StoreAligned
+          {
+      tree type_tree = get_vector_type_for_mono_simd_class (called_klass_name);
+      gcc_assert(cil_stack_is_empty () == 0);
+      tree value_tree = cil_stack_pop (NULL);
 
-			gcc_assert(cil_stack_is_empty () == 0);
-			tree dest_ptr_tree = cil_stack_pop (NULL);
+      gcc_assert(cil_stack_is_empty () == 0);
+      tree dest_ptr_tree = cil_stack_pop (NULL);
 
-			tree converted_dest_ptr_tree = convert (build_pointer_type (type_tree), dest_ptr_tree);
+      tree converted_dest_ptr_tree = convert (build_pointer_type (type_tree), dest_ptr_tree);
 
-			tree dest_tree = build1 (ALIGN_INDIRECT_REF, type_tree, converted_dest_ptr_tree);
-			if (parser_current_prefix.bolatile)
-			{
-				dest_tree = parser_build_volatile_reference_tree (dest_tree);
-			}
-			tree setexp = fold_build2 (MODIFY_EXPR, type_tree, dest_tree, value_tree);
-			TREE_SIDE_EFFECTS (setexp) = 1;
-			TREE_USED (setexp) = 1;
-			cil_bindings_output_statements (setexp);
-			break;
-		}
-		case INDIRECT_REF: // LoadAligned
-		{
-			tree type_tree = get_vector_type_for_mono_simd_class (called_klass_name);
-			gcc_assert(cil_stack_is_empty () == 0);
-			tree src_tree = cil_stack_pop (NULL);
-			tree converted_src_tree = convert (build_pointer_type (type_tree), src_tree);
-			tree value_tree = build1 (INDIRECT_REF, type_tree, converted_src_tree);
-			if (parser_current_prefix.bolatile)
-			{
-				value_tree = parser_build_volatile_reference_tree (value_tree);
-			}
-			cil_stack_push (cil_bindings_output_statements_and_create_temp (value_tree), get_cil_stack_type_for_mono_simd_class (called_klass_name) );
-			break;
-		}
-		default:
-		{
-			error("unsupported Mono.Simd call : '%s'.%s::%s\n",called_namespace_name,called_klass_name,called_name);
-			gcc_unreachable ();
-			break;
-		}
-	}
+      tree dest_tree = build1 (ALIGN_INDIRECT_REF, type_tree, converted_dest_ptr_tree);
+      if (parser_current_prefix.bolatile)
+        {
+        dest_tree = parser_build_volatile_reference_tree (dest_tree);
+        }
+      tree setexp = fold_build2 (MODIFY_EXPR, type_tree, dest_tree, value_tree);
+      TREE_SIDE_EFFECTS (setexp) = 1;
+      TREE_USED (setexp) = 1;
+      cil_bindings_output_statements (setexp);
+      break;
+    }
+  case INDIRECT_REF: // LoadAligned
+    {
+      tree type_tree = get_vector_type_for_mono_simd_class (called_klass_name);
+      gcc_assert(cil_stack_is_empty () == 0);
+      tree src_tree = cil_stack_pop (NULL);
+      tree converted_src_tree = convert (build_pointer_type (type_tree), src_tree);
+      tree value_tree = build1 (INDIRECT_REF, type_tree, converted_src_tree);
+      if (parser_current_prefix.bolatile)
+        {
+        value_tree = parser_build_volatile_reference_tree (value_tree);
+        }
+      cil_stack_push (cil_bindings_output_statements_and_create_temp (value_tree), get_cil_stack_type_for_mono_simd_class (called_klass_name) );
+      break;
+    }
+  default:
+    {
+      error("unsupported Mono.Simd call : '%s'.%s::%s\n",called_namespace_name,called_klass_name,called_name);
+      gcc_unreachable ();
+      break;
+    }
+  }
+}
+
+static void
+parser_emit_genvec_uniform_vec (CilStackType type)
+{
+  int i;
+  int nunits = cil_stack_type_to_nuints(type);
+  tree vector_type = cil_stack_get_tree_type_for_cil_stack_type (type);
+  gcc_assert(cil_stack_is_empty () == 0);
+  tree arg = cil_stack_pop (NULL);
+
+  tree t = NULL_TREE;
+  for (i = 0; i < nunits; i++)
+    t = tree_cons (NULL_TREE, arg, t);
+  tree ctor_vec = build_constructor_from_list (vector_type, t);
+
+  if (parser_current_prefix.bolatile)
+    {
+    ctor_vec = parser_build_volatile_reference_tree (ctor_vec);
+          }
+  cil_bindings_output_statements (ctor_vec);
+  cil_stack_push (ctor_vec, type );
+}
+
+static void
+parser_emit_genvec_dot_product (CilStackType type)
+{
+  tree vector_type = cil_stack_get_tree_type_for_cil_stack_type (type);
+  gcc_assert(cil_stack_is_empty () == 0);
+  tree acc = cil_stack_pop (NULL);
+  gcc_assert(cil_stack_is_empty () == 0);
+  tree vb = cil_stack_pop (NULL);
+  gcc_assert(cil_stack_is_empty () == 0);
+  tree va = cil_stack_pop (NULL);
+  tree ctor_vec = build3 (DOT_PROD_EXPR, vector_type, va, vb, acc);
+  cil_stack_push (ctor_vec, type );
+}
+
+static void
+parser_emit_genvec_epilogue (CilStackType type, enum tree_code epilogue_code)
+{
+  tree vector_type = cil_stack_get_tree_type_for_cil_stack_type (type);
+  gcc_assert(cil_stack_is_empty () == 0);
+  tree arg = cil_stack_pop (NULL);
+  tree epi = build1 (epilogue_code, vector_type, arg);
+  cil_stack_push (epi, type );
+    }
+
+static void
+parser_emit_genvec_get_loop_niters ()
+{
+  gcc_assert(cil_stack_is_empty () == 0);
+  tree b = cil_stack_pop (NULL);
+
+  gcc_assert(cil_stack_is_empty () == 0);
+  // tree a =
+  cil_stack_pop (NULL);
+
+  if (parser_current_prefix.bolatile)
+    {
+    b = parser_build_volatile_reference_tree (b);
+    }
+  cil_bindings_output_statements (b);
+  cil_stack_push (b, CIL_STYPE_INT32);
+}
+
+static void
+parser_emit_genvec_call (MonoMethod *caller, guint32 token)
+{
+  MonoImage *image = mono_class_get_image (mono_method_get_class (caller));
+  MonoMethod *called = mono_get_method (image, token, NULL);
+  MonoClass *called_klass = mono_method_get_class (called);
+
+  const char *called_klass_name = mono_class_get_name (called_klass);
+  const char *called_namespace_name = mono_class_get_namespace (called_klass);
+  const char *called_name = mono_method_get_name (called);
+
+  MonoMethodSignature *called_signature = mono_method_get_signature_full (called, image, token, NULL);
+  guint16 param_count = mono_signature_get_param_count(called_signature);
+  //printf ("genvec function : '%s'.%s::%s\t%d\n",called_namespace_name,called_klass_name,called_name,param_count); fflush(stdout);
+  if(strcmp(called_klass_name,"VHI") == 0){
+    if(strcmp(called_name,"stride") == 0){
+      return parser_emit_ldc_i4 (8);
+    }else if(strcmp(called_name,"get_vec_size") == 0){
+      return parser_emit_ldc_i4 (16);
+    }else if(strcmp(called_name,"VHI_align") == 0){
+      return parser_emit_ldc_i4 (16);
+    }else if(strcmp(called_name,"VHI_uniform_vec") == 0){
+      return parser_emit_genvec_uniform_vec (CIL_STYPE_VECTOR8S);
+    }else if(strcmp(called_name,"VHI_dot_product") == 0){
+      return parser_emit_genvec_dot_product (CIL_STYPE_VECTOR8S);
+    }else if(strcmp(called_name,"VHI_reduc_plus_epilogue") == 0){
+      return parser_emit_genvec_epilogue (CIL_STYPE_VECTOR8S,REDUC_PLUS_EXPR);
+    }else if(strcmp(called_name,"VHI_reduc_max_epilogue") == 0){
+      return parser_emit_genvec_epilogue (CIL_STYPE_VECTOR8S,REDUC_MAX_EXPR);
+    }else if(strcmp(called_name,"VHI_reduc_min_epilogue") == 0){
+      return parser_emit_genvec_epilogue (CIL_STYPE_VECTOR8S,REDUC_MIN_EXPR);
+    }else{
+      error ("unsupported genvec function : '%s'.%s::%s\n",called_namespace_name,called_klass_name,called_name);
+    }
+  }else if(strcmp(called_klass_name,"VQI") == 0){
+    if(strcmp(called_name,"stride") == 0){
+      return parser_emit_ldc_i4 (16);
+    }else if(strcmp(called_name,"get_vec_size") == 0){
+      return parser_emit_ldc_i4 (16);
+    }else if(strcmp(called_name,"VQI_align") == 0){
+      return parser_emit_ldc_i4 (16);
+    }else if(strcmp(called_name,"VQI_uniform_vec") == 0){
+      return parser_emit_genvec_uniform_vec (CIL_STYPE_VECTOR16SB);
+    }else if(strcmp(called_name,"VQI_dot_product") == 0){
+      return parser_emit_genvec_dot_product (CIL_STYPE_VECTOR16SB);
+    }else if(strcmp(called_name,"VQI_reduc_plus_epilogue") == 0){
+      return parser_emit_genvec_epilogue (CIL_STYPE_VECTOR16SB,REDUC_PLUS_EXPR);
+    }else if(strcmp(called_name,"VQI_reduc_max_epilogue") == 0){
+      return parser_emit_genvec_epilogue (CIL_STYPE_VECTOR16SB,REDUC_MAX_EXPR);
+    }else if(strcmp(called_name,"VQI_reduc_min_epilogue") == 0){
+      return parser_emit_genvec_epilogue (CIL_STYPE_VECTOR16SB,REDUC_MIN_EXPR);
+    }else if(strcmp(called_name,"VI_get_loop_niters") == 0){
+      return parser_emit_genvec_get_loop_niters ();
+    }else{
+      error ("unsupported genvec function : '%s'.%s::%s\n",called_namespace_name,called_klass_name,called_name);
+    }
+  }else if(strcmp(called_klass_name,"VSI") == 0){
+    if(strcmp(called_name,"stride") == 0){
+      return parser_emit_ldc_i4 (4);
+    }else if(strcmp(called_name,"get_vec_size") == 0){
+      return parser_emit_ldc_i4 (16);
+    }else if(strcmp(called_name,"VSI_align") == 0){
+      return parser_emit_ldc_i4 (16);
+    }else if(strcmp(called_name,"VSI_uniform_vec") == 0){
+      return parser_emit_genvec_uniform_vec (CIL_STYPE_VECTOR4I);
+    }else if(strcmp(called_name,"VSI_dot_product") == 0){
+      return parser_emit_genvec_dot_product (CIL_STYPE_VECTOR4I);
+    }else if(strcmp(called_name,"VSI_reduc_plus_epilogue") == 0){
+      return parser_emit_genvec_epilogue (CIL_STYPE_VECTOR4I,REDUC_PLUS_EXPR);
+    }else if(strcmp(called_name,"VSI_reduc_max_epilogue") == 0){
+      return parser_emit_genvec_epilogue (CIL_STYPE_VECTOR4I,REDUC_MAX_EXPR);
+    }else if(strcmp(called_name,"VSI_reduc_min_epilogue") == 0){
+      return parser_emit_genvec_epilogue (CIL_STYPE_VECTOR4I,REDUC_MIN_EXPR);
+    }else{
+      error ("unsupported genvec function : '%s'.%s::%s\n",called_namespace_name,called_klass_name,called_name);
+    }
+  }else if(strcmp(called_klass_name,"VSF") == 0){
+    if(strcmp(called_name,"stride") == 0){
+      return parser_emit_ldc_i4 (4);
+    }else if(strcmp(called_name,"get_vec_size") == 0){
+      return parser_emit_ldc_i4 (16);
+    }else if(strcmp(called_name,"VSF_align") == 0){
+      return parser_emit_ldc_i4 (16);
+    }else if(strcmp(called_name,"VSF_uniform_vec") == 0){
+      return parser_emit_genvec_uniform_vec (CIL_STYPE_VECTOR4F);
+    }else if(strcmp(called_name,"VSF_dot_product") == 0){
+      return parser_emit_genvec_dot_product (CIL_STYPE_VECTOR4F);
+    }else if(strcmp(called_name,"VSF_reduc_plus_epilogue") == 0){
+      return parser_emit_genvec_epilogue (CIL_STYPE_VECTOR4F,REDUC_PLUS_EXPR);
+    }else if(strcmp(called_name,"VSF_reduc_max_epilogue") == 0){
+      return parser_emit_genvec_epilogue (CIL_STYPE_VECTOR4F,REDUC_MAX_EXPR);
+    }else if(strcmp(called_name,"VSF_reduc_min_epilogue") == 0){
+      return parser_emit_genvec_epilogue (CIL_STYPE_VECTOR4F,REDUC_MIN_EXPR);
+    }else{
+      error ("unsupported genvec function : '%s'.%s::%s\n",called_namespace_name,called_klass_name,called_name);
+    }
+  }else{
+    error ("unsupported genvec class : '%s'.%s::%s\n",called_namespace_name,called_klass_name,called_name);
+  }
 }
 
 static void
@@ -1086,11 +1253,11 @@ parser_emit_call (MonoMethod *caller, guint32 token)
 
   const char *called_klass_name = mono_class_get_name (called_klass);
   const char *called_namespace_name = mono_class_get_namespace (called_klass);
-  
-//    printf ("emit_call : '%s'.%s::%s\n",called_namespace_name,called_klass_name,mono_method_get_name(called)); fflush(stdout); fflush(stderr);
+
+   //printf ("emit_call : '%s'.%s::%s\n",called_namespace_name,called_klass_name,mono_method_get_name(called)); fflush(stdout); fflush(stderr);
 
   if(strcmp ("Crt", called_klass_name) == 0 && strcmp ("gcc4net", called_namespace_name) == 0)
-  {
+    {
     const char *called_name = mono_method_get_name (called);
     if (strncmp ("__abs", called_name, 5) == 0) {
       return parser_emit_abs();
@@ -1099,10 +1266,41 @@ parser_emit_call (MonoMethod *caller, guint32 token)
     } else if (   strncmp ("__max", called_name, 5) == 0 || strncmp ("__umax", called_name, 6) == 0) {
       return parser_emit_max();
     }
-  }else if(strcmp ("Mono.Simd", called_namespace_name) == 0){
-    return parser_emit_mono_simd_call (caller, token);
-  }
-
+    }else if(strcmp ("Mono.Simd", called_namespace_name) == 0){
+      return parser_emit_mono_simd_call (caller, token);
+    }
+  /*
+    else if(strcmp ("genvec_support", called_namespace_name) == 0){
+      const char *called_name = mono_method_get_name (called);
+      if(
+          1
+          //strcmp(called_name,"VI_get_loop_niters") != 0
+          //&&
+          //strcmp(called_name,"stride") != 0
+          //&&
+          //strcmp(called_name,"get_vec_size") != 0
+          //&&
+          //strcmp(called_name,"VHI_align") != 0
+          //&&
+          //strcmp(called_name,"VSI_uniform_vec") != 0
+          //&&
+          //strcmp(called_name,"VSF_reduc_plus_epilogue") != 0
+          //&&
+          //strcmp(called_name,"VHI_reduc_max_epilogue") != 0
+          //&&
+          //strcmp(called_name,"VHI_reduc_plus_epilogue") != 0
+          //&&
+          //strcmp(called_name,"VQI_reduc_max_epilogue") != 0
+          //&&
+          //strcmp(called_name,"VQI_reduc_plus_epilogue") != 0
+          //&&
+          //strcmp(called_name,"VSI_reduc_plus_epilogue") != 0
+          //&&
+          //strcmp(called_name,"VSI_dot_product") != 0
+      ) //skip these
+        return parser_emit_genvec_call (caller, token);
+    }
+*/
   tree called_tree = parser_get_method_tree (called);
   tree arglist = NULL_TREE;
   /* TODO: check types (to show errors) */
@@ -1111,16 +1309,16 @@ parser_emit_call (MonoMethod *caller, guint32 token)
   for (i = mono_signature_get_param_count (called_signature); i > 0; --i)
     {
       tree arg_type_tree = TREE_VALUE (args_type_list);
-      gcc_assert(cil_stack_is_empty () == 0);
+    gcc_assert(cil_stack_is_empty () == 0);
       tree arg = convert (arg_type_tree, cil_stack_pop (NULL));
       arglist = tree_cons (NULL_TREE, arg, arglist);
       args_type_list = TREE_CHAIN (args_type_list);
     }
-    
+
   if (mono_signature_is_instance (called_signature) && !mono_signature_explicit_this (called_signature))
     {
       tree arg_type_tree = TREE_VALUE (args_type_list);
-      gcc_assert(cil_stack_is_empty () == 0);
+    gcc_assert(cil_stack_is_empty () == 0);
       tree arg = convert (arg_type_tree, cil_stack_pop (NULL));
       arglist = tree_cons (NULL_TREE, arg, arglist);
       args_type_list = TREE_CHAIN (args_type_list);
@@ -1135,7 +1333,7 @@ parser_emit_call (MonoMethod *caller, guint32 token)
   else
     {
       /* the tree is the function declaration */
-      exp = build_function_call_expr (called_tree, arglist);
+      exp = build_function_call_expr (UNKNOWN_LOCATION,called_tree, arglist);
     }
   if (mono_type_get_type (mono_signature_get_return_type (called_signature)) == MONO_TYPE_VOID)
     {
@@ -1162,12 +1360,12 @@ parser_emit_calli (MonoMethod *caller, guint32 token)
   MonoClass *called_klass = mono_method_get_class (caller);
   MonoImage *image = mono_class_get_image (called_klass);
   MonoMethodSignature *signature = mono_metadata_parse_signature (image, token);
-  
-//  const char *called_name = mono_method_get_name (caller);
-//  const char *called_klass_name = mono_class_get_name (called_klass);
-//  const char *called_namespace_name = mono_class_get_namespace (called_klass);
-//  printf ("parser_emit_calli: '%s'.%s::%s\n",called_namespace_name,called_klass_name,called_name);
-  
+
+  //  const char *called_name = mono_method_get_name (caller);
+  //  const char *called_klass_name = mono_class_get_name (called_klass);
+  //  const char *called_namespace_name = mono_class_get_namespace (called_klass);
+  //  printf ("parser_emit_calli: '%s'.%s::%s\n",called_namespace_name,called_klass_name,called_name);
+
   gcc_assert(cil_stack_is_empty () == 0);
   tree ftn_tree = cil_stack_pop (NULL);
   tree signature_type_tree = parser_signature_tree (signature, NULL);
@@ -1180,7 +1378,7 @@ parser_emit_calli (MonoMethod *caller, guint32 token)
   for (i = mono_signature_get_param_count (signature); i > 0; --i)
     {
       tree arg_type_tree = TREE_VALUE (args_type_list);
-      gcc_assert(cil_stack_is_empty () == 0);
+    gcc_assert(cil_stack_is_empty () == 0);
       tree arg = convert (arg_type_tree, cil_stack_pop (NULL));
       arglist = tree_cons (NULL_TREE, arg, arglist);
       args_type_list = TREE_CHAIN (args_type_list);
@@ -1188,7 +1386,7 @@ parser_emit_calli (MonoMethod *caller, guint32 token)
   if (mono_signature_is_instance (signature) && !mono_signature_explicit_this (signature))
     {
       tree arg_type_tree = TREE_VALUE (args_type_list);
-      gcc_assert(cil_stack_is_empty () == 0);
+    gcc_assert(cil_stack_is_empty () == 0);
       tree arg = convert (arg_type_tree, cil_stack_pop (NULL));
       arglist = tree_cons (NULL_TREE, arg, arglist);
       args_type_list = TREE_CHAIN (args_type_list);
@@ -1350,7 +1548,7 @@ parser_emit_ldobj (MonoMethod *method, guint32 token)
   MonoImage *image = mono_class_get_image (mono_method_get_class (method));
   MonoClass *klass = mono_class_get (image, token);
   MonoType *type = mono_class_get_type (klass);
-  
+
   tree type_tree = parser_get_type_tree (type);
 
   gcc_assert(cil_stack_is_empty () == 0);
@@ -1384,7 +1582,7 @@ parser_emit_stobj (MonoMethod *method, guint32 token)
 
   gcc_assert(cil_stack_is_empty () == 0);
   tree value_tree = cil_stack_pop (NULL);
-  
+
   gcc_assert(cil_stack_is_empty () == 0);
   tree dest_ptr_tree = cil_stack_pop (NULL);
 
@@ -1413,14 +1611,14 @@ static void
 parser_emit_stloc (guint16 local)
 {
   tree local_decl = cil_bindings_get_local (local);
- 
+
   gcc_assert(cil_stack_is_empty () == 0);
   tree value = cil_stack_pop (NULL);
 
   tree converted_value = convert (TREE_TYPE (local_decl), value);
 
   tree setexp = fold_build2 (MODIFY_EXPR, TREE_TYPE (local_decl), local_decl, converted_value);
-  
+
   TREE_SIDE_EFFECTS (setexp) = 1;
   TREE_USED (setexp) = 1;
   cil_bindings_output_statements (setexp);
@@ -1440,69 +1638,68 @@ parser_emit_newobj (MonoMethod *caller, guint32 token)
   const char *called_namespace_name = mono_class_get_namespace (called_klass);
 
   if(strcmp(called_name,".ctor")==1)
-  {
+    {
     error ("newobj function must be a constructor. invalid constructor: '%s'.%s::%s\n\n",called_namespace_name,called_klass_name,called_name); fflush(stdout);
     gcc_unreachable ();
     return;
-  }
+    }
   if(strcmp(called_namespace_name,"Mono.Simd")==1)
-  {
+    {
     error ("unsupported namespace in newobj: '%s'.%s::%s\n\n",called_namespace_name,called_klass_name,called_name); fflush(stdout);
     gcc_unreachable ();
     return;
-  }
+    }
 
   guint16 param_count = mono_signature_get_param_count(called_signature);
 
-//  printf ("parser_emit_newobj: '%s'.%s::%s\n\tparam_count = %d\n",called_namespace_name,called_klass_name,called_name,param_count); fflush(stdout);
-  
+  //  printf ("parser_emit_newobj: '%s'.%s::%s\n\tparam_count = %d\n",called_namespace_name,called_klass_name,called_name,param_count); fflush(stdout);
+
   tree ctor_vec = NULL_TREE;
   guint16 i;
   int nunits = atoi(called_klass_name+6);
   tree vector_type = get_vector_type_for_mono_simd_class (called_klass_name);
 
   if(param_count == 1)
-  {
+    {
     gcc_assert(cil_stack_is_empty () == 0);
     tree arg = cil_stack_pop (NULL);
     tree t = NULL_TREE;
     for (i = 0; i < nunits; i++)
-    {
+      {
       t = tree_cons (NULL_TREE, arg, t);
-    }
-//    tree vector_type = build_vector_type( TREE_TYPE (arg) , nunits);
+      }
+    // TODO: if arg is a constant then use build_vector(vector_type, t); to build ctor_vec
     ctor_vec = build_constructor_from_list (vector_type, t);
-  }else if(param_count == nunits) {
-    tree t = NULL_TREE;
-    tree t_type = NULL_TREE;
-    for (i = 0; i < nunits; i++)
-    {
-      gcc_assert(cil_stack_is_empty () == 0);
-      tree arg = cil_stack_pop (NULL);
-      t_type = TREE_TYPE (arg);
-      t = tree_cons (NULL_TREE, arg, t);
+    }else if(param_count == nunits) {
+      tree t = NULL_TREE;
+      tree t_type = NULL_TREE;
+      for (i = 0; i < nunits; i++)
+        {
+        gcc_assert(cil_stack_is_empty () == 0);
+        tree arg = cil_stack_pop (NULL);
+        t_type = TREE_TYPE (arg);
+        t = tree_cons (NULL_TREE, arg, t);
+        }
+      ctor_vec = build_constructor_from_list (vector_type, t);
+    }else{
+      error ("unsupported vector construction from %d parameters in newobj : '%s'.%s::%s\n\n",param_count,called_namespace_name,called_klass_name,called_name); fflush(stdout);
+      gcc_unreachable ();
     }
-//    tree vector_type = build_vector_type( t_type , nunits);
-    ctor_vec = build_constructor_from_list (vector_type, t);
-  }else{
-    error ("unsupported vector construction from %d parameters in newobj : '%s'.%s::%s\n\n",param_count,called_namespace_name,called_klass_name,called_name); fflush(stdout);
-    gcc_unreachable ();
-  }
 
   /* push value onto the stack, like in ldobj */
   if (parser_current_prefix.bolatile)
-  {
+    {
     ctor_vec = parser_build_volatile_reference_tree (ctor_vec);
-  }
+    }
   cil_bindings_output_statements (ctor_vec);
-  cil_stack_push (ctor_vec, CIL_STYPE_OBJECT);
+  cil_stack_push (ctor_vec, get_cil_stack_type_for_mono_simd_class (called_klass_name) );
 }
 
 #define TEMPLATE_PARSER_EMIT_CONV(name, type_tree, stack_type) \
 static void \
 parser_emit_conv_##name (void) \
 { \
-  gcc_assert(cil_stack_is_empty () == 0); \
+	gcc_assert(cil_stack_is_empty () == 0); \
   tree exp = cil_stack_pop (NULL); \
   tree converted_exp = convert (type_tree, exp); \
   cil_stack_push (converted_exp, stack_type); \
@@ -1536,7 +1733,7 @@ parser_emit_ldind_##name (void) \
 { \
   gcc_assert (!parser_current_prefix.unaligned);  /* TODO: handle unaligned prefix  */ \
   tree ptr_type_tree = build_pointer_type (elem_type_tree); \
-  gcc_assert(cil_stack_is_empty () == 0); \
+		gcc_assert(cil_stack_is_empty () == 0); \
   tree ptr_tree = convert (ptr_type_tree, cil_stack_pop (NULL)); \
   tree value_tree = build1 (INDIRECT_REF, elem_type_tree, ptr_tree); \
   if (parser_current_prefix.bolatile) \
@@ -1563,10 +1760,10 @@ static void \
 parser_emit_stind_##name (void) \
 { \
   gcc_assert (!parser_current_prefix.unaligned);  /* TODO: handle unaligned prefix  */ \
-  gcc_assert(cil_stack_is_empty () == 0); \
+		gcc_assert(cil_stack_is_empty () == 0); \
   tree value_tree = convert (value_type_tree, cil_stack_pop (NULL)); \
   tree ptr_type_tree = build_pointer_type (value_type_tree); \
-  gcc_assert(cil_stack_is_empty () == 0); \
+		gcc_assert(cil_stack_is_empty () == 0); \
   tree ptr_tree = convert (ptr_type_tree, cil_stack_pop (NULL)); \
   tree dest_tree = build1 (INDIRECT_REF, value_type_tree, ptr_tree); \
   if (parser_current_prefix.bolatile) \
@@ -1629,15 +1826,15 @@ static void \
 parser_emit_##name (void) \
 { \
   CilStackType opB_type; \
-  gcc_assert(cil_stack_is_empty () == 0); \
+	gcc_assert(cil_stack_is_empty () == 0); \
   tree opB = cil_stack_pop (&opB_type); \
   CilStackType opA_type; \
-  gcc_assert(cil_stack_is_empty () == 0); \
+	gcc_assert(cil_stack_is_empty () == 0); \
   tree opA = cil_stack_pop (&opA_type); \
   CilStackType result_type = parser_get_binary_numeric_comparisons_type (opA_type, opB_type); \
   if (result_type == CIL_STYPE_ERROR) \
     { \
-      error ("3 Wrong operand types for "#name); \
+		error ("3 Wrong operand types for "#name); \
     } \
   tree result_type_tree = cil_stack_get_tree_type_for_cil_stack_type (result_type); \
   if (TREE_TYPE (opA) != TREE_TYPE (opB)) \
@@ -1647,9 +1844,9 @@ parser_emit_##name (void) \
       if (!iA && iB) opA = convert(TREE_TYPE (opB), opA); \
       opB = convert(TREE_TYPE (opA), opB); \
     } \
-  if (opA_type == CIL_STYPE_REAL32 || opA_type == CIL_STYPE_REAL64) \
+	if (opA_type == CIL_STYPE_REAL32 || opA_type == CIL_STYPE_REAL64) \
     { \
-      gcc_assert (opA_type == opB_type); \
+		gcc_assert (opA_type == opB_type); \
       tree exp = build2 (tree_code_float, result_type_tree, opA, opB); \
       cil_stack_push (exp, CIL_STYPE_INT32); \
     } \
@@ -1685,7 +1882,7 @@ parser_emit_brfalse (const unsigned char *ip, gint32 offset, CILLabelsMap *label
   tree expr_tree = cil_stack_pop (NULL);
   tree condition_value_tree = build2 (EQ_EXPR, integer_type_node, expr_tree, convert (TREE_TYPE (expr_tree), integer_zero_node));
   tree goto_expr_tree = build1 (GOTO_EXPR, void_type_node, cil_labels_set_get_label (labels, target_ip));
-  tree cond_expr_tree = build3 (COND_EXPR, void_type_node, condition_value_tree, goto_expr_tree, build_empty_stmt ());
+  tree cond_expr_tree = build3 (COND_EXPR, void_type_node, condition_value_tree, goto_expr_tree, build_empty_stmt (UNKNOWN_LOCATION));
   cil_bindings_output_statements (cond_expr_tree);
 }
 
@@ -1697,7 +1894,7 @@ parser_emit_brtrue (const unsigned char *ip, gint32 offset, CILLabelsMap *labels
   tree expr_tree = cil_stack_pop (NULL);
   tree condition_value_tree = build2 (NE_EXPR, integer_type_node, expr_tree, convert (TREE_TYPE (expr_tree), integer_zero_node));
   tree goto_expr_tree = build1 (GOTO_EXPR, void_type_node, cil_labels_set_get_label (labels, target_ip));
-  tree cond_expr_tree = build3 (COND_EXPR, void_type_node, condition_value_tree, goto_expr_tree, build_empty_stmt ());
+  tree cond_expr_tree = build3 (COND_EXPR, void_type_node, condition_value_tree, goto_expr_tree, build_empty_stmt (UNKNOWN_LOCATION));
   cil_bindings_output_statements (cond_expr_tree);
 }
 
@@ -1731,7 +1928,7 @@ parser_emit_bge (const unsigned char *ip, gint32 offset, CILLabelsMap *labels)
   cil_stack_peek (1, &opA_type);
   if (opA_type == CIL_STYPE_REAL32 || opB_type == CIL_STYPE_REAL64)
     {
-      gcc_assert (opA_type == opB_type);
+    gcc_assert (opA_type == opB_type);
       parser_emit_clt_un ();
       parser_emit_brfalse (ip, offset, labels);
     }
@@ -1751,7 +1948,7 @@ parser_emit_bge_un (const unsigned char *ip, gint32 offset, CILLabelsMap *labels
   cil_stack_peek (1, &opA_type);
   if (opA_type == CIL_STYPE_REAL32 || opB_type == CIL_STYPE_REAL64)
     {
-      gcc_assert (opA_type == opB_type);
+    gcc_assert (opA_type == opB_type);
       parser_emit_clt ();
       parser_emit_brfalse (ip, offset, labels);
     }
@@ -1771,7 +1968,7 @@ parser_emit_ble (const unsigned char *ip, gint32 offset, CILLabelsMap *labels)
   cil_stack_peek (1, &opA_type);
   if (opA_type == CIL_STYPE_REAL32 || opB_type == CIL_STYPE_REAL64)
     {
-      gcc_assert (opA_type == opB_type);
+    gcc_assert (opA_type == opB_type);
       parser_emit_cgt_un ();
       parser_emit_brfalse (ip, offset, labels);
     }
@@ -1791,7 +1988,7 @@ parser_emit_ble_un (const unsigned char *ip, gint32 offset, CILLabelsMap *labels
   cil_stack_peek (1, &opA_type);
   if (opA_type == CIL_STYPE_REAL32 || opB_type == CIL_STYPE_REAL64)
     {
-      gcc_assert (opA_type == opB_type);
+    gcc_assert (opA_type == opB_type);
       parser_emit_cgt ();
       parser_emit_brfalse (ip, offset, labels);
     }
@@ -1863,7 +2060,7 @@ parser_emit_initblk (void)
   tree memset_arglist = tree_cons (NULL_TREE, size_tree, NULL_TREE);
   memset_arglist = tree_cons (NULL_TREE, value_tree, memset_arglist);
   memset_arglist = tree_cons (NULL_TREE, addr_tree, memset_arglist);
-  tree call_memset_tree = build_function_call_expr (built_in_decls[BUILT_IN_MEMSET], memset_arglist);
+  tree call_memset_tree = build_function_call_expr (UNKNOWN_LOCATION,built_in_decls[BUILT_IN_MEMSET], memset_arglist);
   cil_bindings_output_statements (call_memset_tree);
 }
 
@@ -1887,7 +2084,7 @@ parser_emit_cpblk (void)
   tree memcpy_arglist = tree_cons (NULL_TREE, size_tree, NULL_TREE);
   memcpy_arglist = tree_cons (NULL_TREE, srcaddr_tree, memcpy_arglist);
   memcpy_arglist = tree_cons (NULL_TREE, destaddr_tree, memcpy_arglist);
-  tree call_memcpy_tree = build_function_call_expr (built_in_decls[BUILT_IN_MEMCPY], memcpy_arglist);
+  tree call_memcpy_tree = build_function_call_expr (UNKNOWN_LOCATION,built_in_decls[BUILT_IN_MEMCPY], memcpy_arglist);
   cil_bindings_output_statements (call_memcpy_tree);
 }
 
@@ -1897,7 +2094,7 @@ parser_emit_localloc (void)
   gcc_assert(cil_stack_is_empty () == 0);
   tree size_tree = convert (cil_type_for_size (32, true), cil_stack_pop (NULL));
   tree alloca_arglist = tree_cons (NULL_TREE, size_tree, NULL_TREE);
-  tree call_alloca_tree = build_function_call_expr (built_in_decls[BUILT_IN_ALLOCA], alloca_arglist);
+  tree call_alloca_tree = build_function_call_expr (UNKNOWN_LOCATION,built_in_decls[BUILT_IN_ALLOCA], alloca_arglist);
   cil_stack_push (cil_bindings_output_statements_and_create_temp (call_alloca_tree), CIL_STYPE_NINT);
 }
 
@@ -1929,15 +2126,15 @@ static void \
 parser_emit_##name (void) \
 { \
   CilStackType shiftamount_type; \
-  gcc_assert(cil_stack_is_empty () == 0); \
+	gcc_assert(cil_stack_is_empty () == 0); \
   tree shiftamount_tree = cil_stack_pop (&shiftamount_type); \
   CilStackType value_type; \
-  gcc_assert(cil_stack_is_empty () == 0); \
+	gcc_assert(cil_stack_is_empty () == 0); \
   tree value_tree = cil_stack_pop (&value_type); \
   CilStackType result_type = parser_get_shift_operations_type (value_type, shiftamount_type); \
   if (result_type == CIL_STYPE_ERROR) \
     { \
-      error ("4 Wrong operand types for "#name); \
+		error ("4 Wrong operand types for "#name); \
     } \
   tree result_type_tree = cil_stack_get_tree_type_for_cil_stack_type (result_type); \
   tree op_type_tree = unsignedp ? cil_unsigned_type (TREE_TYPE (value_tree)) : cil_signed_type (TREE_TYPE (value_tree)); \
@@ -1949,22 +2146,6 @@ parser_emit_##name (void) \
 TEMPLATE_PARSER_EMIT_SHIFT_OPERATION(shl, LSHIFT_EXPR, true)
 TEMPLATE_PARSER_EMIT_SHIFT_OPERATION(shr_un, RSHIFT_EXPR, true)
 TEMPLATE_PARSER_EMIT_SHIFT_OPERATION(shr, RSHIFT_EXPR, false)
-
-static void
-parser_set_location_from_ip (MonoMethod *m, const unsigned char *ip)
-{
-  unsigned int offset = ip - mono_method_header_get_code (mono_method_get_header (m), NULL, NULL);
-  guint32 token = mono_method_get_token (m);
-  /*
-  unsigned int fake_line = (token << 16) + (offset & 0xffff);
-#ifdef USE_MAPPED_LOCATION
-  input_location = fake_line;
-#else
-  input_line = fake_line;
-#endif
-  */
-}
-
 
 static CILLabelsMap *
 preparse_method_labels(unsigned const char *code, unsigned const char *code_end, CILLabelsMap *labels)
@@ -2072,8 +2253,6 @@ parse_method_code (MonoMethod *method)
 
   while (ip < code_end)
     {
-      parser_set_location_from_ip (method, ip);
-
       tree label_decl_tree = cil_labels_get_label (labels, ip);
       if (label_decl_tree)
 	{
@@ -2092,7 +2271,7 @@ parse_method_code (MonoMethod *method)
       guint8 arg_uint8;
       guint32 arg_token;
 #define read_arg(a) a = *((typeof (a) *) ip); ip += sizeof (a); /* TODO: endiannes */
-//fflush(stdout); fflush(stderr); printf("::%s\n",mono_opcode_name(opcode)); fflush(stdout);
+    //fflush(stdout); fflush(stderr); printf("::%s\n",mono_opcode_name(opcode)); fflush(stdout);
       switch (opcode) {
       case MONO_CEE_UNALIGNED_:
         read_arg (arg_uint8);
@@ -2304,10 +2483,10 @@ parse_method_code (MonoMethod *method)
         read_arg (arg_token);
         parser_emit_stobj (method, arg_token);
         break;
-      case MONO_CEE_NEWOBJ:
-	read_arg (arg_token);
-        parser_emit_newobj (method, arg_token);
-        break;
+    case MONO_CEE_NEWOBJ:
+      read_arg (arg_token);
+      parser_emit_newobj (method, arg_token);
+      break;
       case MONO_CEE_CONV_I:
         parser_emit_conv_i ();
         break;
@@ -2857,8 +3036,8 @@ parser_preparse_method (MonoMethod *method, GSList **called_methods, GSList **re
         *referenced_types = g_slist_prepend (*referenced_types, mono_field_get_type (field));
       }
         break;
-      case MONO_CEE_NEWOBJ:
-        break;
+    case MONO_CEE_NEWOBJ:
+      break;
       case MONO_CEE_STOBJ:
       case MONO_CEE_LDOBJ: {
         MonoClass *klass = mono_class_get (image, arg_token);
@@ -3017,7 +3196,7 @@ parse_method_decl (MonoMethod *method)
       identifier = get_identifier (method_pointer_mangled_name);
       free (method_pointer_mangled_name);
       free (method_mangled_name);
-      method_decl = build_decl (VAR_DECL, identifier, build_pointer_type (method_type_tree));
+      method_decl = build_decl (UNKNOWN_LOCATION,  VAR_DECL, identifier, build_pointer_type (method_type_tree));
       TREE_STATIC (method_decl) = 1; /* TODO: check if it is really necessary here, or could be moved to parse_method_impl */
     }
   else
@@ -3029,7 +3208,7 @@ parse_method_decl (MonoMethod *method)
 
   if (method_decl == NULL_TREE)
     {
-      method_decl = build_decl (FUNCTION_DECL, identifier, method_type_tree);
+      method_decl = build_decl (UNKNOWN_LOCATION,  FUNCTION_DECL, identifier, method_type_tree);
       DECL_CONTEXT (method_decl) = NULL_TREE; /* not nested */
       if (gcc_cil_method_mode_is_external (method_mode))
         {
@@ -3195,7 +3374,7 @@ get_from_blob(guchar* ptr, MonoType *monotype, guchar** rptr)
   return node;
 
 }
-*/
+ */
 static tree
 convert_cil_attributes(MonoCustomAttrInfo *custom_attr)
 {
@@ -3311,7 +3490,7 @@ parse_method_impl (MonoMethod *method)
           char argname[128];
           snprintf (argname, sizeof (argname), "arg%d", argnum);
           tree param_type_tree = parser_get_type_tree (mono_class_get_type (mono_method_get_class (method)));
-          tree parm_decl = build_decl (PARM_DECL, get_identifier (argname), param_type_tree);
+          tree parm_decl = build_decl (UNKNOWN_LOCATION,  PARM_DECL, get_identifier (argname), param_type_tree);
           DECL_ARG_TYPE (parm_decl) = TREE_TYPE (parm_decl); /* Some languages have different nominal and real types.  */
           DECL_CONTEXT (parm_decl) = method_decl;
           cil_bindings_push_decl_arg (argnum, parm_decl);
@@ -3324,8 +3503,8 @@ parse_method_impl (MonoMethod *method)
         {
           char argname[128];
           snprintf (argname, sizeof (argname), "arg%d", argnum);
-	  tree param_type_tree = parser_get_type_tree (param_type);
-          tree parm_decl = build_decl (PARM_DECL, get_identifier (argname), param_type_tree);
+          tree param_type_tree = parser_get_type_tree (param_type);
+          tree parm_decl = build_decl (UNKNOWN_LOCATION,  PARM_DECL, get_identifier (argname), param_type_tree);
           DECL_ARG_TYPE (parm_decl) = TREE_TYPE (parm_decl); /* Some languages have different nominal and real types.  */
           DECL_CONTEXT (parm_decl) = method_decl;
           cil_bindings_push_decl_arg (argnum, parm_decl);
@@ -3336,7 +3515,7 @@ parse_method_impl (MonoMethod *method)
       DECL_ARGUMENTS (method_decl) = args_decl_list;
 
       /* Create a DECL for the functions result. (FIXME: is this needed for ->void functions?) */
-      tree result_decl = build_decl (RESULT_DECL, NULL_TREE, TREE_TYPE (TREE_TYPE (method_decl)));
+      tree result_decl = build_decl (UNKNOWN_LOCATION,  RESULT_DECL, NULL_TREE, TREE_TYPE (TREE_TYPE (method_decl)));
       DECL_CONTEXT (result_decl) = method_decl;
       DECL_ARTIFICIAL (result_decl) = 1;
       DECL_IGNORED_P (result_decl) = 1;
@@ -3361,7 +3540,7 @@ parse_method_impl (MonoMethod *method)
           char localname[128];
           snprintf (localname, sizeof (localname), "local%d", i);
           tree local_type_tree = parser_get_type_tree (locals[i]);
-          tree local_decl = build_decl (VAR_DECL, get_identifier (localname), local_type_tree);
+          tree local_decl = build_decl (UNKNOWN_LOCATION,  VAR_DECL, get_identifier (localname), local_type_tree);
           DECL_CONTEXT (local_decl) = method_decl;
           if (init_locals)
             {
@@ -3374,8 +3553,8 @@ parse_method_impl (MonoMethod *method)
                   DECL_INITIAL (local_decl) = convert (TREE_TYPE (local_decl), integer_zero_node);
                   break;
                 default:
-//                  warning (0, "Should have initialized local %d, but didn't", i);
-                  break;
+          //                  warning (0, "Should have initialized local %d, but didn't", i);
+          break;
                 }
             }
           cil_bindings_push_decl_local (i, local_decl);
@@ -3387,7 +3566,7 @@ parse_method_impl (MonoMethod *method)
 
       DECL_SAVED_TREE (method_decl) = cil_bindings_pop_level ();
 
-      allocate_struct_function (method_decl, false);
+    allocate_struct_function (method_decl, false);
 
       /* Dump the original tree to a file. */
       dump_function (TDI_original, method_decl);
@@ -3399,7 +3578,7 @@ parse_method_impl (MonoMethod *method)
 
       /* We are not inside of any scope now.  */
       current_function_decl = NULL_TREE;
-      set_cfun(NULL); // cfun = NULL;
+    set_cfun(NULL); // cfun = NULL;
 
       /* Pass the current function off to the middle end.  */
       cgraph_finalize_function (method_decl, false);
@@ -3460,7 +3639,7 @@ parse_instance_field (MonoClassField *field)
       break;
     }
 
-  tree field_decl_tree = build_decl (FIELD_DECL, get_identifier (mono_field_get_name (field)), field_type_tree);
+  tree field_decl_tree = build_decl (UNKNOWN_LOCATION,  FIELD_DECL, get_identifier (mono_field_get_name (field)), field_type_tree);
   tree record_type_tree = parser_get_class_record_tree (klass);
 
   bool explicit_layout = (mono_class_get_flags (klass) & MONO_TYPE_ATTR_LAYOUT_MASK) == MONO_TYPE_ATTR_EXPLICIT_LAYOUT;
@@ -3527,7 +3706,7 @@ finish_record_type (MonoClass *klass)
   if (explicit_layout)
     {
       TYPE_ALIGN (class_record_tree) = MAX (BITS_PER_UNIT, TYPE_ALIGN (class_record_tree));
-      SET_TYPE_MODE (class_record_tree,BLKmode);
+    SET_TYPE_MODE (class_record_tree,BLKmode);
 
       if (!had_size_unit)
         {
@@ -3602,7 +3781,7 @@ parse_class_instance_fields (MonoClass *klass)
     {
       return;
     }
-  
+
   MonoClass *parent = mono_class_get_parent (klass);
   if (parent)
     {
@@ -3622,17 +3801,17 @@ parse_class_instance_fields (MonoClass *klass)
         {
           /* emit parent fields, includes grandparents' and object headers */
           tree parent_record_tree = parser_get_class_record_tree (parent);
-          tree parent_field_tree = build_decl (FIELD_DECL, get_identifier ("___parent"), parent_record_tree);
+          tree parent_field_tree = build_decl (UNKNOWN_LOCATION,  FIELD_DECL, get_identifier ("___parent"), parent_record_tree);
           DECL_CONTEXT (parent_field_tree) = class_record_tree;
           TYPE_FIELDS (class_record_tree) = chainon (TYPE_FIELDS (class_record_tree), parent_field_tree);
         }
       else
         {
           /* emit object header */
-          tree vtable_tree = build_decl (FIELD_DECL, get_identifier ("___vtable"), build_pointer_type (void_type_node));
+          tree vtable_tree = build_decl (UNKNOWN_LOCATION,  FIELD_DECL, get_identifier ("___vtable"), build_pointer_type (void_type_node));
           DECL_CONTEXT (vtable_tree) = class_record_tree;
           TYPE_FIELDS (class_record_tree) = chainon (TYPE_FIELDS (class_record_tree), vtable_tree);
-          tree sync_tree = build_decl (FIELD_DECL, get_identifier ("___synchronisation"), build_pointer_type (void_type_node));
+          tree sync_tree = build_decl (UNKNOWN_LOCATION,  FIELD_DECL, get_identifier ("___synchronisation"), build_pointer_type (void_type_node));
           DECL_CONTEXT (sync_tree) = class_record_tree;
           TYPE_FIELDS (class_record_tree) = chainon (TYPE_FIELDS (class_record_tree), sync_tree);
         }
@@ -3668,26 +3847,26 @@ parse_class_instance_fields (MonoClass *klass)
       gcc_assert (mono_class_is_valuetype (klass)); /* this can be removed once the parent size is considered too */
 
       tree union_type_tree = make_node (UNION_TYPE);
-      tree record_decl_tree  = build_decl (FIELD_DECL, get_identifier ("__class_record"), class_record_tree);
+      tree record_decl_tree  = build_decl (UNKNOWN_LOCATION,  FIELD_DECL, get_identifier ("__class_record"), class_record_tree);
       DECL_CONTEXT (record_decl_tree) = union_type_tree;
       TYPE_FIELDS (union_type_tree) = chainon (TYPE_FIELDS (union_type_tree), record_decl_tree);
 
       tree index_type_tree = build_index_type (build_int_cst (sizetype, real_size - 1));
       tree array_type_tree = build_array_type (cil_type_for_size (8, true), index_type_tree);
-      tree array_field_decl_tree  = build_decl (FIELD_DECL, get_identifier ("__padding_array"), array_type_tree);
+      tree array_field_decl_tree  = build_decl (UNKNOWN_LOCATION,  FIELD_DECL, get_identifier ("__padding_array"), array_type_tree);
       DECL_CONTEXT (array_field_decl_tree) = union_type_tree;
       TYPE_FIELDS (union_type_tree) = chainon (TYPE_FIELDS (union_type_tree), array_field_decl_tree);
 
       layout_type (union_type_tree);
       gcc_assert (TYPE_SIZE (union_type_tree) != NULL_TREE);
-      /* THIS MAPPING SHOULD MAP MONO.SIMD TO VECTORS NOT UNIONS */
-      if(strcmp(mono_class_get_namespace(klass),"Mono.Simd")==0){
-	const char *called_klass_name = mono_class_get_name (klass);
-	tree vector_type = get_vector_type_for_mono_simd_class (called_klass_name);
-	g_hash_table_insert (parsed_classes_unions, klass, vector_type);
-      }else{
-	g_hash_table_insert (parsed_classes_unions, klass, union_type_tree);
-      }
+    /* THIS MAPPING SHOULD MAP MONO.SIMD TO VECTORS NOT UNIONS */
+    if(strcmp(mono_class_get_namespace(klass),"Mono.Simd")==0){
+      const char *called_klass_name = mono_class_get_name (klass);
+      tree vector_type = get_vector_type_for_mono_simd_class (called_klass_name);
+      g_hash_table_insert (parsed_classes_unions, klass, vector_type);
+    }else{
+      g_hash_table_insert (parsed_classes_unions, klass, union_type_tree);
+    }
 
       char *union_type_name = parser_get_class_mangled_name (klass, "_union");
       cil_bindings_push_type_decl (union_type_name, union_type_tree); /* ensures that the type is not garbage collected */
@@ -3721,7 +3900,7 @@ parse_class_static_fields (MonoClass *klass)
             {
               tree field_name_tree = get_identifier (mono_field_get_name (field));
               tree field_type_tree = parser_get_type_tree (type);
-              tree field_tree = build_decl (FIELD_DECL, field_name_tree, field_type_tree);
+              tree field_tree = build_decl (UNKNOWN_LOCATION,  FIELD_DECL, field_name_tree, field_type_tree);
 
               DECL_CONTEXT (field_tree) = class_static_record;
               DECL_FCONTEXT (field_tree) = class_static_record;
@@ -3741,7 +3920,7 @@ parse_class_static_fields (MonoClass *klass)
   if (emit_static_storage && class_mode == GCC_CIL_CLASS_MODE_COMPILE)
     {
       char *ss_identifier = parser_get_class_static_storage_mangled_name (klass);
-      tree ss_decl = build_decl (VAR_DECL, get_identifier (ss_identifier), class_static_record);
+      tree ss_decl = build_decl (UNKNOWN_LOCATION,  VAR_DECL, get_identifier (ss_identifier), class_static_record);
       free (ss_identifier);
       TREE_STATIC (ss_decl) = 1;
       cil_bindings_push_decl (ss_decl);  /* Ensures that the declaration is not GCed */
@@ -3934,7 +4113,7 @@ parser_build_string_literal (const char *str)
   tree type = build_array_type (elem, index);
   TREE_TYPE (t) = type;
   TREE_CONSTANT (t) = 1;
-//  TREE_INVARIANT (t) = 1;
+  //  TREE_INVARIANT (t) = 1;
   TREE_READONLY (t) = 1;
   TREE_STATIC (t) = 1;
 
@@ -3956,7 +4135,7 @@ parser_get_lookup_pinvoke_builtin_tree (void)
       tree args_type_list = tree_cons (NULL_TREE, build_pointer_type (char_type_node), NULL_TREE);
       args_type_list = tree_cons (NULL_TREE, build_pointer_type (char_type_node), args_type_list);
       tree type_tree = build_function_type (build_pointer_type (void_type_node), args_type_list);
-      lookup_pinvoke_builtin_tree = build_decl (FUNCTION_DECL, get_identifier ("___lookup_pinvoke"), type_tree);
+      lookup_pinvoke_builtin_tree = build_decl (UNKNOWN_LOCATION,  FUNCTION_DECL, get_identifier ("___lookup_pinvoke"), type_tree);
     }
   return lookup_pinvoke_builtin_tree;
 }
@@ -3978,7 +4157,7 @@ parser_emit_pinvoke_initialization (void)
       tree functionname_str_tree = parser_build_string_literal (functionname);
       tree arglist = tree_cons (NULL_TREE, functionname_str_tree, NULL_TREE);
       arglist = tree_cons (NULL_TREE, libname_str_tree, arglist);
-      tree lookup_call_tree = build_function_call_expr (parser_get_lookup_pinvoke_builtin_tree (), arglist);
+      tree lookup_call_tree = build_function_call_expr (UNKNOWN_LOCATION,parser_get_lookup_pinvoke_builtin_tree (), arglist);
       tree modify_expr_tree = build2 (MODIFY_EXPR, void_type_node, parser_get_method_tree (m), lookup_call_tree);
       append_to_statement_list_force (modify_expr_tree, &body);
     }
@@ -4012,7 +4191,7 @@ parser_emit_initialization (MonoImage *img)
           var_name = g_string_append (var_name, "__init_bytes__");
           var_name = g_string_append (var_name, mono_field_get_name (field));
           parser_cleanup_asm_identifier (var_name->str);
-          tree bytes_var_decl = build_decl (VAR_DECL, get_identifier (var_name->str), array_type);
+          tree bytes_var_decl = build_decl (UNKNOWN_LOCATION,  VAR_DECL, get_identifier (var_name->str), array_type);
           g_string_free (var_name, true);
           free (ss_identifier);
           TREE_STATIC (bytes_var_decl) = 1;
@@ -4028,7 +4207,7 @@ parser_emit_initialization (MonoImage *img)
           tree memcpy_arglist = tree_cons (NULL_TREE, build_int_cst (integer_type_node, size), NULL_TREE);
           memcpy_arglist = tree_cons (NULL_TREE, build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (bytes_var_decl)), bytes_var_decl), memcpy_arglist);
           memcpy_arglist = tree_cons (NULL_TREE, parser_build_static_field_address_tree (field), memcpy_arglist);
-          tree call_memcpy = build_function_call_expr (built_in_decls[BUILT_IN_MEMCPY], memcpy_arglist);
+          tree call_memcpy = build_function_call_expr (UNKNOWN_LOCATION,built_in_decls[BUILT_IN_MEMCPY], memcpy_arglist);
           append_to_statement_list_force (call_memcpy, &body);
         }
       else
@@ -4050,7 +4229,7 @@ parser_emit_initialization (MonoImage *img)
       parse_class_decl (mono_method_get_class (method));
       tree method_tree = parser_get_method_tree (method);
       /* TODO: arguments? these methods should not have them */
-      tree call_tree = build_function_call_expr (method_tree, NULL_TREE);
+      tree call_tree = build_function_call_expr (UNKNOWN_LOCATION,method_tree, NULL_TREE);
       append_to_statement_list_force (call_tree, &body);
     }
   g_slist_free (init_methods);
@@ -4065,11 +4244,11 @@ static void
 parser_emit_main_function (MonoMethod *entry_point_method)
 {
   /* emit __gcc4net_argc and __gcc4net_argv */
-  tree __gcc4net_argc_decl = build_decl (VAR_DECL, get_identifier ("__gcc4net_argc"), integer_type_node);
+  tree __gcc4net_argc_decl = build_decl (UNKNOWN_LOCATION,  VAR_DECL, get_identifier ("__gcc4net_argc"), integer_type_node);
   TREE_STATIC (__gcc4net_argc_decl) = 1;
   TREE_PUBLIC (__gcc4net_argc_decl) = 1;
   cil_bindings_push_decl (__gcc4net_argc_decl);
-  tree __gcc4net_argv_decl = build_decl (VAR_DECL, get_identifier ("__gcc4net_argv"), build_pointer_type (build_pointer_type (char_type_node)));
+  tree __gcc4net_argv_decl = build_decl (UNKNOWN_LOCATION,  VAR_DECL, get_identifier ("__gcc4net_argv"), build_pointer_type (build_pointer_type (char_type_node)));
   TREE_STATIC (__gcc4net_argv_decl) = 1;
   TREE_PUBLIC (__gcc4net_argv_decl) = 1;
   cil_bindings_push_decl (__gcc4net_argv_decl);
@@ -4088,7 +4267,7 @@ parser_emit_main_function (MonoMethod *entry_point_method)
   tree fn_type = build_function_type (integer_type_node, args_type_list);
 
   tree identifier = get_identifier ("main");
-  tree fn_decl = build_decl (FUNCTION_DECL, identifier, fn_type);
+  tree fn_decl = build_decl (UNKNOWN_LOCATION,  FUNCTION_DECL, identifier, fn_type);
   DECL_CONTEXT (fn_decl) = NULL_TREE; /* not nested */
   TREE_PUBLIC (fn_decl) = 1;
   DECL_EXTERNAL (fn_decl) = 0;
@@ -4097,12 +4276,12 @@ parser_emit_main_function (MonoMethod *entry_point_method)
   /* build argument variable decls.  */
   tree args_decl_list = NULL_TREE;
   /* argc */
-  tree argc_parm_decl = build_decl (PARM_DECL, get_identifier ("argc"), integer_type_node);
+  tree argc_parm_decl = build_decl (UNKNOWN_LOCATION,  PARM_DECL, get_identifier ("argc"), integer_type_node);
   DECL_ARG_TYPE (argc_parm_decl) = TREE_TYPE (argc_parm_decl); /* Some languages have different nominal and real types.  */
   DECL_CONTEXT (argc_parm_decl) = fn_decl;
   args_decl_list = chainon (argc_parm_decl, args_decl_list);
   /* argv */
-  tree argv_parm_decl = build_decl (PARM_DECL, get_identifier ("argv"), build_pointer_type (build_pointer_type (char_type_node)));
+  tree argv_parm_decl = build_decl (UNKNOWN_LOCATION,  PARM_DECL, get_identifier ("argv"), build_pointer_type (build_pointer_type (char_type_node)));
   DECL_ARG_TYPE (argv_parm_decl) = TREE_TYPE (argv_parm_decl); /* Some languages have different nominal and real types.  */
   DECL_CONTEXT (argv_parm_decl) = fn_decl;
   args_decl_list = chainon (argv_parm_decl, args_decl_list);
@@ -4125,7 +4304,7 @@ parser_emit_main_function (MonoMethod *entry_point_method)
   DECL_INITIAL (fn_decl) = error_mark_node; /* TODO: debug */
 
   /* Create a DECL for the functions result.  */
-  tree resultdecl = build_decl (RESULT_DECL, NULL_TREE, TREE_TYPE (TREE_TYPE (fn_decl)));
+  tree resultdecl = build_decl (UNKNOWN_LOCATION,  RESULT_DECL, NULL_TREE, TREE_TYPE (TREE_TYPE (fn_decl)));
   DECL_CONTEXT (resultdecl) = fn_decl;
   DECL_ARTIFICIAL (resultdecl) = 1;
   DECL_IGNORED_P (resultdecl) = 1;
@@ -4147,7 +4326,7 @@ parser_emit_main_function (MonoMethod *entry_point_method)
     /* emit: call entry point */
     gcc_assert (current_function_decl == fn_decl);
     tree entry_point_method_tree = parser_get_method_tree (entry_point_method);
-    tree exp = build_function_call_expr (entry_point_method_tree, NULL_TREE); /* FIXME: argslist */
+    tree exp = build_function_call_expr (UNKNOWN_LOCATION,entry_point_method_tree, NULL_TREE); /* FIXME: argslist */
     if (VOID_TYPE_P (TREE_TYPE (exp)))
       {
         cil_bindings_output_statements (exp);
@@ -4176,7 +4355,7 @@ parser_emit_main_function (MonoMethod *entry_point_method)
   /* We are not inside of any scope now.  */
   current_function_decl = NULL_TREE;
   set_cfun(NULL); //cfun = NULL;
-  
+
   /* Pass the current function off to the middle end.  */
   cgraph_finalize_function (fn_decl, false);
 }
@@ -4232,7 +4411,7 @@ parser_parse_file (const char *filename)
       methods_to_parse_impl = g_slist_remove (methods_to_parse_impl, m);
       if (g_hash_table_lookup (parsed_methods_impl, m) == NULL)
         {
-          MonoOpcodeEnum reason = MONO_CEE_LAST;
+      MonoOpcodeEnum reason = MONO_CEE_LAST;
           GSList *called_methods = NULL;
           GSList *referenced_types = NULL;
           parse_class_decl (mono_method_get_class (m));

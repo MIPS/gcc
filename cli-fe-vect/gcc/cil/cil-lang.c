@@ -264,6 +264,9 @@ cil_type_for_mode (enum machine_mode mode, int unsigned_p)
   if (mode == DImode)
     return unsigned_p ? unsigned_intDI_type_node : intDI_type_node;
 
+  if (mode == TImode)
+    return unsigned_p ? unsigned_intTI_type_node : intTI_type_node;
+
 #if HOST_BITS_PER_WIDE_INT >= 64
   if (mode == TYPE_MODE (intTI_type_node))
     return unsigned_p ? unsigned_intTI_type_node : intTI_type_node;
@@ -299,8 +302,7 @@ cil_type_for_mode (enum machine_mode mode, int unsigned_p)
   if (COMPLEX_MODE_P (mode) || VECTOR_MODE_P (mode))
       return NULL_TREE;
 
-    warning(0,"cil_type_for_mode does not generate a tree for mode %d\n",mode);
-//  gcc_unreachable ();
+  gcc_unreachable ();
   return NULL_TREE;
 }
 
@@ -338,7 +340,7 @@ cil_register_builtin_type (tree type, const char* name)
 {
   tree decl;
 
-  decl = build_decl (TYPE_DECL, get_identifier (name), type);
+  decl = build_decl (UNKNOWN_LOCATION, TYPE_DECL, get_identifier (name), type);
   DECL_ARTIFICIAL (decl) = 1;
   if (!TYPE_NAME (type))
     TYPE_NAME (type) = decl;
@@ -513,7 +515,7 @@ cil_get_alias_set (tree t)
 #undef LANG_HOOKS_HANDLE_OPTION
 #define LANG_HOOKS_HANDLE_OPTION cil_handle_option
 
-const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
+struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
 
 /* Language hooks that are not part of lang_hooks.  */
 

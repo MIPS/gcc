@@ -229,8 +229,8 @@ void
 cil_parse_file (int debug_flag ATTRIBUTE_UNUSED)
 {
   parser_parse_file (main_input_filename);
-  cgraph_finalize_compilation_unit ();
-  cgraph_optimize ();
+//  cgraph_finalize_compilation_unit ();
+//  cgraph_optimize ();
 }
 
 #include "debug.h" /* for debug_hooks */

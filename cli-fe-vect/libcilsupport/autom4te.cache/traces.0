@@ -307,13 +307,13 @@ m4trace:configure.ac:42: -1- AC_SUBST([am__fastdepCC_FALSE])
 m4trace:configure.ac:42: -1- AC_SUBST_TRACE([am__fastdepCC_FALSE])
 m4trace:configure.ac:42: -1- m4_pattern_allow([^am__fastdepCC_FALSE$])
 m4trace:configure.ac:45: -1- _m4_warn([obsolete], [The macro `AM_PROG_LIBTOOL' is obsolete.
-You should run autoupdate.], [../libtool.m4:103: AM_PROG_LIBTOOL is expanded from...
+You should run autoupdate.], [../libtool.m4:106: AM_PROG_LIBTOOL is expanded from...
 configure.ac:45: the top level])
 m4trace:configure.ac:45: -1- LT_INIT
 m4trace:configure.ac:45: -1- m4_pattern_forbid([^_?LT_[A-Z_]+$])
 m4trace:configure.ac:45: -1- m4_pattern_allow([^(_LT_EOF|LT_DLGLOBAL|LT_DLLAZY_OR_NOW|LT_MULTI_MODULE)$])
 m4trace:configure.ac:45: -1- _m4_warn([syntax], [LTOBSOLETE_VERSION is m4_require'd but not m4_defun'd], [../libtool.m4:67: LT_INIT is expanded from...
-../libtool.m4:103: AM_PROG_LIBTOOL is expanded from...
+../libtool.m4:106: AM_PROG_LIBTOOL is expanded from...
 configure.ac:45: the top level])
 m4trace:configure.ac:45: -1- AC_REQUIRE_AUX_FILE([ltmain.sh])
 m4trace:configure.ac:45: -1- AC_SUBST([LIBTOOL])
@@ -401,9 +401,6 @@ m4trace:configure.ac:45: -1- m4_pattern_allow([^LT_OBJDIR$])
 m4trace:configure.ac:45: -1- AH_OUTPUT([LT_OBJDIR], [/* Define to the sub-directory in which libtool stores uninstalled libraries.
    */
 #undef LT_OBJDIR])
-m4trace:configure.ac:45: -1- AC_SUBST([lt_ECHO])
-m4trace:configure.ac:45: -1- AC_SUBST_TRACE([lt_ECHO])
-m4trace:configure.ac:45: -1- m4_pattern_allow([^lt_ECHO$])
 m4trace:configure.ac:45: -1- LT_SUPPORTED_TAG([CC])
 m4trace:configure.ac:45: -1- AC_SUBST([DSYMUTIL])
 m4trace:configure.ac:45: -1- AC_SUBST_TRACE([DSYMUTIL])

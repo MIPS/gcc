@@ -221,7 +221,7 @@ void
 cil_bindings_push_type_decl (const char *name, tree type_node)
 {
   tree id = (name==NULL) ? NULL_TREE : get_identifier (name);
-  tree decl = build_decl (TYPE_DECL, id, type_node);
+  tree decl = build_decl (UNKNOWN_LOCATION, TYPE_DECL, id, type_node);
   TYPE_NAME (type_node) = id;
   cil_bindings_push_decl (decl);
 }
@@ -257,7 +257,7 @@ cil_bindings_output_statements_and_create_temp (tree expresion)
   char localname[128];
   snprintf (localname, sizeof (localname), "temp%u", tempcounter);
   ++tempcounter;
-  tree local_decl = build_decl (VAR_DECL, get_identifier (localname), TREE_TYPE (expresion));
+  tree local_decl = build_decl (UNKNOWN_LOCATION, VAR_DECL, get_identifier (localname), TREE_TYPE (expresion));
   DECL_CONTEXT (local_decl) = current_function_decl;
   cil_bindings_push_decl (local_decl);
   tree stetement =   fold_build2 (MODIFY_EXPR, TREE_TYPE (local_decl), local_decl, expresion);
