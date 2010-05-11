@@ -1,6 +1,6 @@
 // <system_error> -*- C++ -*-
 
-// Copyright (C) 2007, 2008, 2009 Free Software Foundation, Inc.
+// Copyright (C) 2007, 2008, 2009, 2010 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -32,7 +32,7 @@
 #pragma GCC system_header
 
 #ifndef __GXX_EXPERIMENTAL_CXX0X__
-# include <c++0x_warning.h>
+# include <bits/c++0x_warning.h>
 #else
 
 #include <bits/c++config.h>
@@ -51,10 +51,6 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   template<typename _Tp>
     struct is_error_code_enum : public false_type { };
 
-  template<> 
-    struct is_error_code_enum<errc>
-    : public true_type { };
-
   /// is_error_condition_enum
   template<typename _Tp>
     struct is_error_condition_enum : public false_type { };
@@ -68,7 +64,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   class error_category
   {
   protected:
-    error_category() = default;
+    error_category();
 
   public:
     virtual ~error_category() { }
@@ -104,16 +100,23 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     { return this != &__other; }
   };
 
+  inline error_category::error_category() = default;
+
   // DR 890.
-  _GLIBCXX_CONST const error_category& system_category() throw ();
-  _GLIBCXX_CONST const error_category& generic_category() throw ();
+  _GLIBCXX_CONST const error_category& system_category() throw();
+  _GLIBCXX_CONST const error_category& generic_category() throw();
+
+  error_code make_error_code(errc);
+
+  template<typename _Tp>
+    struct hash;
 
   /// error_code
   // Implementation-specific error identification
   struct error_code
   {
     error_code()
-      : _M_value(0), _M_cat(&system_category()) { }
+    : _M_value(0), _M_cat(&system_category()) { }
 
     error_code(int __v, const error_category& __cat)
     : _M_value(__v), _M_cat(&__cat) { }
@@ -121,8 +124,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     template<typename _ErrorCodeEnum>
       error_code(_ErrorCodeEnum __e,
       typename enable_if<is_error_code_enum<_ErrorCodeEnum>::value>::type* = 0)
-      : _M_value(static_cast<int>(__e)), _M_cat(&generic_category())
-      { }
+      { *this = make_error_code(__e); }
 
     void 
     assign(int __v, const error_category& __cat)
@@ -140,10 +142,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       typename enable_if<is_error_code_enum<_ErrorCodeEnum>::value,
 			 error_code&>::type
       operator=(_ErrorCodeEnum __e)
-      {
-	assign(static_cast<int>(__e), generic_category());
-	return *this;
-      }
+      { return *this = make_error_code(__e); }
 
     int
     value() const { return _M_value; }
@@ -158,18 +157,13 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     message() const
     { return category().message(value()); }
 
-    // Safe bool idiom.
-    // explicit operator bool() const throw()
-    // { return _M_value != 0; }
-    typedef void (*__bool_type)();
-
-    static void __not_bool_type() { }
-
-    operator __bool_type() const
-    { return _M_value != 0 ? &__not_bool_type : false; }
+    explicit operator bool() const
+    { return _M_value != 0 ? true : false; }
 
     // DR 804.
   private:
+    friend class hash<error_code>;
+
     int            		_M_value;
     const error_category* 	_M_cat;
   };
@@ -192,12 +186,14 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     operator<<(basic_ostream<_CharT, _Traits>& __os, const error_code& __e)
     { return (__os << __e.category().name() << ':' << __e.value()); }
 
+  error_condition make_error_condition(errc);
 
   /// error_condition
   // Portable error identification
   struct error_condition 
   {
-    error_condition() : _M_value(0), _M_cat(&generic_category()) { }
+    error_condition()
+    : _M_value(0), _M_cat(&generic_category()) { }
 
     error_condition(int __v, const error_category& __cat)     
     : _M_value(__v), _M_cat(&__cat) { }
@@ -206,7 +202,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       error_condition(_ErrorConditionEnum __e,
 		      typename enable_if<is_error_condition_enum
 		                      <_ErrorConditionEnum>::value>::type* = 0)
-	: _M_value(static_cast<int>(__e)), _M_cat(&generic_category()) { }
+      { *this = make_error_condition(__e); }
 
     void
     assign(int __v, const error_category& __cat)
@@ -220,10 +216,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       typename enable_if<is_error_condition_enum
 			 <_ErrorConditionEnum>::value, error_condition&>::type
       operator=(_ErrorConditionEnum __e)
-      {
-	assign(static_cast<int>(__e), generic_category());
-	return *this;
-      }
+      { return *this = make_error_condition(__e); }
 
     void 
     clear()
@@ -240,15 +233,8 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     message() const
     { return category().message(value()); }
 
-    // Safe bool idiom.
-    // explicit operator bool() const throw()
-    // { return _M_value != 0; }
-    typedef void (*__bool_type)();
-
-    static void __not_bool_type() { }
-
-    operator __bool_type() const
-    { return _M_value != 0 ? &__not_bool_type : false; }
+    explicit operator bool() const
+    { return _M_value != 0 ? true : false; }
 
     // DR 804.
   private:
@@ -353,6 +339,30 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   };
 
 _GLIBCXX_END_NAMESPACE
+
+#ifndef _GLIBCXX_COMPATIBILITY_CXX0X
+
+#include <bits/functional_hash.h>
+
+_GLIBCXX_BEGIN_NAMESPACE(std)
+
+  // DR 1182.
+  /// std::hash specialization for error_code.
+  template<>
+    struct hash<error_code>
+    : public std::unary_function<error_code, size_t>
+    {
+      size_t
+      operator()(const error_code& __e) const
+      {
+	const size_t __tmp = std::_Fnv_hash::hash(__e._M_value);
+	return std::_Fnv_hash::__hash_combine(__e._M_cat, __tmp);
+      }
+    };
+
+_GLIBCXX_END_NAMESPACE
+
+#endif // _GLIBCXX_COMPATIBILITY_CXX0X
 
 #endif // __GXX_EXPERIMENTAL_CXX0X__
 

@@ -19,7 +19,7 @@
 #along with GCC; see the file COPYING3.  If not see
 #<http://www.gnu.org/licenses/>.
 
-AC_PREREQ(2.59)
+AC_PREREQ(2.64)
 AC_INIT(package-unused, version-unused,, libobjc)
 AC_CONFIG_SRCDIR([objc/objc.h])
 GCC_TOPLEV_SUBDIRS
@@ -153,13 +153,17 @@ GCC_NO_EXECUTABLES
 m4_rename([_AC_ARG_VAR_PRECIOUS],[real_PRECIOUS])
 m4_define([_AC_ARG_VAR_PRECIOUS],[])
 AC_PROG_CC
-m4_rename([real_PRECIOUS],[_AC_ARG_VAR_PRECIOUS])
+m4_rename_force([real_PRECIOUS],[_AC_ARG_VAR_PRECIOUS])
 
 # extra LD Flags which are required for targets
 case "${host}" in
   *-darwin*)
     # Darwin needs -single_module when linking libobjc
     extra_ldflags_libobjc=-Wl,-single_module
+    ;;
+  *-cygwin*|*-mingw*)
+    # Tell libtool to build DLLs on Windows
+    extra_ldflags_libobjc='-no-undefined -bindir $(bindir)'
     ;;
 esac
 AC_SUBST(extra_ldflags_libobjc)

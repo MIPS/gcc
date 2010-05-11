@@ -60,7 +60,7 @@ static void builtin_define_type_max (const char *, tree);
 static void builtin_define_type_minmax (const char *, const char *, tree);
 static void builtin_define_type_precision (const char *, tree);
 static void builtin_define_type_sizeof (const char *, tree);
-static void builtin_define_float_constants (const char *, 
+static void builtin_define_float_constants (const char *,
 					    const char *,
 					    const char *,
 					    tree);
@@ -84,9 +84,9 @@ builtin_define_type_sizeof (const char *name, tree type)
 /* Define the float.h constants for TYPE using NAME_PREFIX, FP_SUFFIX,
    and FP_CAST. */
 static void
-builtin_define_float_constants (const char *name_prefix, 
-		                const char *fp_suffix, 
-				const char *fp_cast, 
+builtin_define_float_constants (const char *name_prefix,
+		                const char *fp_suffix,
+				const char *fp_cast,
 				tree type)
 {
   /* Used to convert radix-based values to base 10 values in several cases.
@@ -205,7 +205,7 @@ builtin_define_float_constants (const char *name_prefix,
      construct the following numbers directly as a hexadecimal
      constants.  */
   get_max_float (fmt, buf, sizeof (buf));
-  
+
   sprintf (name, "__%s_MAX__", name_prefix);
   builtin_define_with_hex_fp_value (name, type, decimal_dig, buf, fp_suffix, fp_cast);
 
@@ -260,8 +260,8 @@ builtin_define_float_constants (const char *name_prefix,
 
 /* Define __DECx__ constants for TYPE using NAME_PREFIX and SUFFIX. */
 static void
-builtin_define_decimal_float_constants (const char *name_prefix, 
-					const char *suffix, 
+builtin_define_decimal_float_constants (const char *name_prefix,
+					const char *suffix,
 					tree type)
 {
   const struct real_format *fmt;
@@ -286,7 +286,7 @@ builtin_define_decimal_float_constants (const char *name_prefix,
   /* Compute the minimum representable value.  */
   sprintf (name, "__%s_MIN__", name_prefix);
   sprintf (buf, "1E%d%s", fmt->emin - 1, suffix);
-  builtin_define_with_value (name, buf, 0); 
+  builtin_define_with_value (name, buf, 0);
 
   /* Compute the maximum representable value.  */
   sprintf (name, "__%s_MAX__", name_prefix);
@@ -300,7 +300,7 @@ builtin_define_decimal_float_constants (const char *name_prefix,
   *p = 0;
   /* fmt->p plus 1, to account for the decimal point and fmt->emax
      minus 1 because the digits are nines, not 1.0.  */
-  sprintf (&buf[fmt->p + 1], "E%d%s", fmt->emax - 1, suffix); 
+  sprintf (&buf[fmt->p + 1], "E%d%s", fmt->emax - 1, suffix);
   builtin_define_with_value (name, buf, 0);
 
   /* Compute epsilon (the difference between 1 and least value greater
@@ -319,7 +319,7 @@ builtin_define_decimal_float_constants (const char *name_prefix,
 	*p++ = '.';
     }
   *p = 0;
-  sprintf (&buf[fmt->p], "1E%d%s", fmt->emin - 1, suffix); 
+  sprintf (&buf[fmt->p], "1E%d%s", fmt->emin - 1, suffix);
   builtin_define_with_value (name, buf, 0);
 }
 
@@ -619,14 +619,11 @@ c_cpp_builtins (cpp_reader *pfile)
                                  TARGET_DEC_EVAL_METHOD);
 
   builtin_define_float_constants ("FLT", "F", "%s", float_type_node);
-  /* Cast the double precision constants when single precision constants are
-     specified. The correct result is computed by the compiler when using 
-     macros that include a cast. This has the side-effect of making the value 
-     unusable in const expressions. */
-  if (flag_single_precision_constant)
-    builtin_define_float_constants ("DBL", "L", "((double)%s)", double_type_node);
-  else
-    builtin_define_float_constants ("DBL", "", "%s", double_type_node);
+  /* Cast the double precision constants.  This is needed when single
+     precision constants are specified or when pragma FLOAT_CONST_DECIMAL64
+     is used.  The correct result is computed by the compiler when using
+     macros that include a cast.  */
+  builtin_define_float_constants ("DBL", "L", "((double)%s)", double_type_node);
   builtin_define_float_constants ("LDBL", "L", "%s", long_double_type_node);
 
   /* For decfloat.h.  */
@@ -785,8 +782,7 @@ c_cpp_builtins (cpp_reader *pfile)
     cpp_define (pfile, "__NEXT_RUNTIME__");
 
   /* Show the availability of some target pragmas.  */
-  if (flag_mudflap || targetm.handle_pragma_redefine_extname)
-    cpp_define (pfile, "__PRAGMA_REDEFINE_EXTNAME");
+  cpp_define (pfile, "__PRAGMA_REDEFINE_EXTNAME");
 
   if (targetm.handle_pragma_extern_prefix)
     cpp_define (pfile, "__PRAGMA_EXTERN_PREFIX");
@@ -939,7 +935,7 @@ builtin_define_with_int_value (const char *macro, HOST_WIDE_INT value)
 static void
 builtin_define_with_hex_fp_value (const char *macro,
 				  tree type, int digits,
-				  const char *hex_str, 
+				  const char *hex_str,
 				  const char *fp_suffix,
 				  const char *fp_cast)
 {
@@ -965,7 +961,7 @@ builtin_define_with_hex_fp_value (const char *macro,
   sprintf (buf1, "%s%s", dec_str, fp_suffix);
   sprintf (buf2, fp_cast, buf1);
   sprintf (buf1, "%s=%s", macro, buf2);
-  
+
   cpp_define (parse_in, buf1);
 }
 

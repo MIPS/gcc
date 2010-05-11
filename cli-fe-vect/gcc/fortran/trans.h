@@ -1,5 +1,5 @@
 /* Header for code translation functions
-   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
    Free Software Foundation, Inc.
    Contributed by Paul Brook
 
@@ -71,7 +71,7 @@ typedef struct gfc_se
      are NULL.  Used by intrinsic size.  */
   unsigned data_not_needed:1;
 
-  /* If set, gfc_conv_function_call does not put byref calls into se->pre.  */
+  /* If set, gfc_conv_procedure_call does not put byref calls into se->pre.  */
   unsigned no_function_call:1;
 
   /* Scalarization parameters.  */
@@ -310,14 +310,12 @@ void gfc_conv_intrinsic_function (gfc_se *, gfc_expr *);
 /* Does an intrinsic map directly to an external library call.  */
 int gfc_is_intrinsic_libcall (gfc_expr *);
 
-/* Used to call the elemental subroutines used in operator assignments.  */
-tree gfc_conv_operator_assign (gfc_se *, gfc_se *, gfc_symbol *);
+/* Used to call ordinary functions/subroutines
+   and procedure pointer components.  */
+int gfc_conv_procedure_call (gfc_se *, gfc_symbol *, gfc_actual_arglist *,
+			    gfc_expr *, tree);
 
-/* Also used to CALL subroutines.  */
-int gfc_conv_function_call (gfc_se *, gfc_symbol *, gfc_actual_arglist *,
-			    tree);
-
-void gfc_conv_subref_array_arg (gfc_se *, gfc_expr *, int, sym_intent);
+void gfc_conv_subref_array_arg (gfc_se *, gfc_expr *, int, sym_intent, bool);
 
 /* gfc_trans_* shouldn't call push/poplevel, use gfc_push/pop_scope */
 
@@ -411,6 +409,10 @@ void gfc_shadow_sym (gfc_symbol *, tree, gfc_saved_var *);
 /* Restore the original variable.  */
 void gfc_restore_sym (gfc_symbol *, gfc_saved_var *);
 
+/* Setting a decl assembler name, mangling it according to target rules
+   (like Windows @NN decorations).  */
+void gfc_set_decl_assembler_name (tree, tree);
+
 /* Returns true if a variable of specified size should go on the stack.  */
 int gfc_can_put_var_on_stack (tree);
 
@@ -495,6 +497,12 @@ void gfc_trans_io_runtime_check (tree, tree, int, const char *, stmtblock_t *);
 void gfc_build_io_library_fndecls (void);
 /* Build a function decl for a library function.  */
 tree gfc_build_library_function_decl (tree, tree, int, ...);
+
+/* Process the local variable decls of a block construct.  */
+void gfc_process_block_locals (gfc_namespace*);
+
+/* Output initialization/clean-up code that was deferred.  */
+tree gfc_trans_deferred_vars (gfc_symbol*, tree);
 
 /* somewhere! */
 tree pushdecl (tree);
@@ -592,6 +600,8 @@ extern GTY(()) tree gfor_fndecl_convert_char4_to_char1;
 extern GTY(()) tree gfor_fndecl_size0;
 extern GTY(()) tree gfor_fndecl_size1;
 extern GTY(()) tree gfor_fndecl_iargc;
+extern GTY(()) tree gfor_fndecl_clz128;
+extern GTY(()) tree gfor_fndecl_ctz128;
 
 /* Implemented in Fortran.  */
 extern GTY(()) tree gfor_fndecl_sc_kind;
@@ -624,6 +634,7 @@ struct GTY(())	lang_type	 {
   tree dtype;
   tree dataptr_type;
   tree span;
+  tree base_decl[2];
 };
 
 struct GTY(()) lang_decl {
@@ -676,6 +687,8 @@ struct GTY(()) lang_decl {
 #define GFC_TYPE_ARRAY_DATAPTR_TYPE(node) \
   (TYPE_LANG_SPECIFIC(node)->dataptr_type)
 #define GFC_TYPE_ARRAY_SPAN(node) (TYPE_LANG_SPECIFIC(node)->span)
+#define GFC_TYPE_ARRAY_BASE_DECL(node, internal) \
+  (TYPE_LANG_SPECIFIC(node)->base_decl[(internal)])
 
 /* Build an expression with void type.  */
 #define build1_v(code, arg) fold_build1(code, void_type_node, arg)

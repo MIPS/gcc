@@ -44,17 +44,18 @@
 namespace __atomic2
 {
   /// atomic_flag
-  struct atomic_flag : private __atomic_flag_base
+  struct atomic_flag : public __atomic_flag_base
   {
     atomic_flag() = default;
     ~atomic_flag() = default;
     atomic_flag(const atomic_flag&) = delete;
-    atomic_flag& operator=(const atomic_flag&) = delete;
+    atomic_flag& operator=(const atomic_flag&) volatile = delete;
 
-    atomic_flag(bool __i) { _M_i = __i; } // XXX deleted copy ctor != agg
+    // Conversion to ATOMIC_FLAG_INIT.
+    atomic_flag(bool __i): __atomic_flag_base({ __i }) { }
 
     bool
-    test_and_set(memory_order __m = memory_order_seq_cst) volatile
+    test_and_set(memory_order __m = memory_order_seq_cst)
     {
       // Redundant synchronize if built-in for lock is a full barrier.
       if (__m != memory_order_acquire && __m != memory_order_acq_rel)
@@ -63,8 +64,12 @@ namespace __atomic2
     }
 
     void
-    clear(memory_order __m = memory_order_seq_cst) volatile
+    clear(memory_order __m = memory_order_seq_cst)
     {
+      __glibcxx_assert(__m != memory_order_consume);
+      __glibcxx_assert(__m != memory_order_acquire);
+      __glibcxx_assert(__m != memory_order_acq_rel);
+
       __sync_lock_release(&_M_i);
       if (__m != memory_order_acquire && __m != memory_order_acq_rel)
 	__sync_synchronize();
@@ -82,20 +87,20 @@ namespace __atomic2
     atomic_address() = default;
     ~atomic_address() = default;
     atomic_address(const atomic_address&) = delete;
-    atomic_address& operator=(const atomic_address&) = delete;
+    atomic_address& operator=(const atomic_address&) volatile = delete;
 
     atomic_address(void* __v) { _M_i = __v; }
 
     bool
-    is_lock_free() const volatile
+    is_lock_free() const
     { return true; }
 
     void
-    store(void* __v, memory_order __m = memory_order_seq_cst) volatile
+    store(void* __v, memory_order __m = memory_order_seq_cst)
     {
-      __glibcxx_assert(__m == memory_order_acquire);
-      __glibcxx_assert(__m == memory_order_acq_rel);
-      __glibcxx_assert(__m == memory_order_consume);
+      __glibcxx_assert(__m != memory_order_acquire);
+      __glibcxx_assert(__m != memory_order_acq_rel);
+      __glibcxx_assert(__m != memory_order_consume);
 
       if (__m == memory_order_relaxed)
 	_M_i = __v;
@@ -103,16 +108,16 @@ namespace __atomic2
 	{
 	  // write_mem_barrier();
 	  _M_i = __v;
-	  if (__m = memory_order_seq_cst)
+	  if (__m == memory_order_seq_cst)
 	    __sync_synchronize();
 	}
     }
 
     void*
-    load(memory_order __m = memory_order_seq_cst) const volatile
+    load(memory_order __m = memory_order_seq_cst) const
     {
-      __glibcxx_assert(__m == memory_order_release);
-      __glibcxx_assert(__m == memory_order_acq_rel);
+      __glibcxx_assert(__m != memory_order_release);
+      __glibcxx_assert(__m != memory_order_acq_rel);
 
       __sync_synchronize();
       void* __ret = _M_i;
@@ -121,7 +126,7 @@ namespace __atomic2
     }
 
     void*
-    exchange(void* __v, memory_order __m = memory_order_seq_cst) volatile
+    exchange(void* __v, memory_order __m = memory_order_seq_cst)
     {
       // XXX built-in assumes memory_order_acquire.
       return __sync_lock_test_and_set(&_M_i, __v);
@@ -129,12 +134,12 @@ namespace __atomic2
 
     bool
     compare_exchange_weak(void*& __v1, void* __v2, memory_order __m1,
-			  memory_order __m2) volatile
+			  memory_order __m2)
     { return compare_exchange_strong(__v1, __v2, __m1, __m2); }
 
     bool
     compare_exchange_weak(void*& __v1, void* __v2,
-			  memory_order __m = memory_order_seq_cst) volatile
+			  memory_order __m = memory_order_seq_cst)
     {
       return compare_exchange_weak(__v1, __v2, __m,
 				   __calculate_memory_order(__m));
@@ -142,10 +147,10 @@ namespace __atomic2
 
     bool
     compare_exchange_strong(void*& __v1, void* __v2, memory_order __m1,
-			    memory_order __m2) volatile
+			    memory_order __m2)
     {
-      __glibcxx_assert(__m2 == memory_order_release);
-      __glibcxx_assert(__m2 == memory_order_acq_rel);
+      __glibcxx_assert(__m2 != memory_order_release);
+      __glibcxx_assert(__m2 != memory_order_acq_rel);
       __glibcxx_assert(__m2 <= __m1);
 
       void* __v1o = __v1;
@@ -158,36 +163,36 @@ namespace __atomic2
 
     bool
     compare_exchange_strong(void*& __v1, void* __v2,
-			  memory_order __m = memory_order_seq_cst) volatile
+			  memory_order __m = memory_order_seq_cst)
     {
       return compare_exchange_strong(__v1, __v2, __m,
 				     __calculate_memory_order(__m));
     }
 
     void*
-    fetch_add(ptrdiff_t __d, memory_order __m = memory_order_seq_cst) volatile
+    fetch_add(ptrdiff_t __d, memory_order __m = memory_order_seq_cst)
     { return __sync_fetch_and_add(&_M_i, __d); }
 
     void*
-    fetch_sub(ptrdiff_t __d, memory_order __m = memory_order_seq_cst) volatile
+    fetch_sub(ptrdiff_t __d, memory_order __m = memory_order_seq_cst)
     { return __sync_fetch_and_sub(&_M_i, __d); }
 
-    operator void*() const volatile
+    operator void*() const
     { return load(); }
 
     void*
-    operator=(void* __v) // XXX volatile
+    operator=(void* __v)
     {
       store(__v);
       return __v;
     }
 
     void*
-    operator+=(ptrdiff_t __d) volatile
+    operator+=(ptrdiff_t __d)
     { return __sync_add_and_fetch(&_M_i, __d); }
 
     void*
-    operator-=(ptrdiff_t __d) volatile
+    operator-=(ptrdiff_t __d)
     { return __sync_sub_and_fetch(&_M_i, __d); }
   };
 
@@ -225,68 +230,67 @@ namespace __atomic2
       __atomic_base() = default;
       ~__atomic_base() = default;
       __atomic_base(const __atomic_base&) = delete;
-      __atomic_base& operator=(const __atomic_base&) = delete;
+      __atomic_base& operator=(const __atomic_base&) volatile = delete;
 
       // Requires __integral_type convertible to _M_base._M_i.
       __atomic_base(__integral_type __i) { _M_i = __i; }
 
-      operator __integral_type() const volatile
+      operator __integral_type() const
       { return load(); }
 
       __integral_type
-      operator=(__integral_type __i) // XXX volatile
+      operator=(__integral_type __i)
       {
 	store(__i);
 	return __i;
       }
 
       __integral_type
-      operator++(int) volatile
+      operator++(int)
       { return fetch_add(1); }
 
       __integral_type
-      operator--(int) volatile
+      operator--(int)
       { return fetch_sub(1); }
 
       __integral_type
-      operator++() volatile
+      operator++()
       { return __sync_add_and_fetch(&_M_i, 1); }
 
       __integral_type
-      operator--() volatile
+      operator--()
       { return __sync_sub_and_fetch(&_M_i, 1); }
 
       __integral_type
-      operator+=(__integral_type __i) volatile
+      operator+=(__integral_type __i)
       { return __sync_add_and_fetch(&_M_i, __i); }
 
       __integral_type
-      operator-=(__integral_type __i) volatile
+      operator-=(__integral_type __i)
       { return __sync_sub_and_fetch(&_M_i, __i); }
 
       __integral_type
-      operator&=(__integral_type __i) volatile
+      operator&=(__integral_type __i)
       { return __sync_and_and_fetch(&_M_i, __i); }
 
       __integral_type
-      operator|=(__integral_type __i) volatile
+      operator|=(__integral_type __i)
       { return __sync_or_and_fetch(&_M_i, __i); }
 
       __integral_type
-      operator^=(__integral_type __i) volatile
+      operator^=(__integral_type __i)
       { return __sync_xor_and_fetch(&_M_i, __i); }
 
       bool
-      is_lock_free() const volatile
+      is_lock_free() const
       { return true; }
 
       void
-      store(__integral_type __i,
-	    memory_order __m = memory_order_seq_cst) volatile
+      store(__integral_type __i, memory_order __m = memory_order_seq_cst)
       {
-	__glibcxx_assert(__m == memory_order_acquire);
-	__glibcxx_assert(__m == memory_order_acq_rel);
-	__glibcxx_assert(__m == memory_order_consume);
+	__glibcxx_assert(__m != memory_order_acquire);
+	__glibcxx_assert(__m != memory_order_acq_rel);
+	__glibcxx_assert(__m != memory_order_consume);
 
 	if (__m == memory_order_relaxed)
 	  _M_i = __i;
@@ -294,16 +298,16 @@ namespace __atomic2
 	  {
 	    // write_mem_barrier();
 	    _M_i = __i;
-	    if (__m = memory_order_seq_cst)
+	    if (__m == memory_order_seq_cst)
 	      __sync_synchronize();
 	  }
       }
 
       __integral_type
-      load(memory_order __m = memory_order_seq_cst) const volatile
+      load(memory_order __m = memory_order_seq_cst) const 
       {
-	__glibcxx_assert(__m == memory_order_release);
-	__glibcxx_assert(__m == memory_order_acq_rel);
+	__glibcxx_assert(__m != memory_order_release);
+	__glibcxx_assert(__m != memory_order_acq_rel);
 
 	__sync_synchronize();
 	__integral_type __ret = _M_i;
@@ -312,8 +316,7 @@ namespace __atomic2
       }
 
       __integral_type
-      exchange(__integral_type __i,
-	       memory_order __m = memory_order_seq_cst) volatile
+      exchange(__integral_type __i, memory_order __m = memory_order_seq_cst)
       {
 	// XXX built-in assumes memory_order_acquire.
 	return __sync_lock_test_and_set(&_M_i, __i);
@@ -321,12 +324,12 @@ namespace __atomic2
 
       bool
       compare_exchange_weak(__integral_type& __i1, __integral_type __i2,
-			    memory_order __m1, memory_order __m2) volatile
+			    memory_order __m1, memory_order __m2)
       { return compare_exchange_strong(__i1, __i2, __m1, __m2); }
 
       bool
       compare_exchange_weak(__integral_type& __i1, __integral_type __i2,
-			    memory_order __m = memory_order_seq_cst) volatile
+			    memory_order __m = memory_order_seq_cst)
       {
 	return compare_exchange_weak(__i1, __i2, __m,
 				     __calculate_memory_order(__m));
@@ -334,10 +337,10 @@ namespace __atomic2
 
       bool
       compare_exchange_strong(__integral_type& __i1, __integral_type __i2,
-			      memory_order __m1, memory_order __m2) volatile
+			      memory_order __m1, memory_order __m2) 
       {
-	__glibcxx_assert(__m2 == memory_order_release);
-	__glibcxx_assert(__m2 == memory_order_acq_rel);
+	__glibcxx_assert(__m2 != memory_order_release);
+	__glibcxx_assert(__m2 != memory_order_acq_rel);
 	__glibcxx_assert(__m2 <= __m1);
 
 	__integral_type __i1o = __i1;
@@ -350,7 +353,7 @@ namespace __atomic2
 
       bool
       compare_exchange_strong(__integral_type& __i1, __integral_type __i2,
-			      memory_order __m = memory_order_seq_cst) volatile
+			      memory_order __m = memory_order_seq_cst)
       {
 	return compare_exchange_strong(__i1, __i2, __m,
 				       __calculate_memory_order(__m));
@@ -358,27 +361,27 @@ namespace __atomic2
 
       __integral_type
       fetch_add(__integral_type __i,
-		memory_order __m = memory_order_seq_cst) volatile
+		memory_order __m = memory_order_seq_cst)
       { return __sync_fetch_and_add(&_M_i, __i); }
 
       __integral_type
       fetch_sub(__integral_type __i,
-		memory_order __m = memory_order_seq_cst) volatile
+		memory_order __m = memory_order_seq_cst) 
       { return __sync_fetch_and_sub(&_M_i, __i); }
 
       __integral_type
       fetch_and(__integral_type __i,
-		memory_order __m = memory_order_seq_cst) volatile
+		memory_order __m = memory_order_seq_cst) 
       { return __sync_fetch_and_and(&_M_i, __i); }
 
       __integral_type
       fetch_or(__integral_type __i,
-	       memory_order __m = memory_order_seq_cst) volatile
+	       memory_order __m = memory_order_seq_cst) 
       { return __sync_fetch_and_or(&_M_i, __i); }
 
       __integral_type
       fetch_xor(__integral_type __i,
-		memory_order __m = memory_order_seq_cst) volatile
+		memory_order __m = memory_order_seq_cst)
       { return __sync_fetch_and_xor(&_M_i, __i); }
     };
 
@@ -394,52 +397,52 @@ namespace __atomic2
     atomic_bool() = default;
     ~atomic_bool() = default;
     atomic_bool(const atomic_bool&) = delete;
-    atomic_bool& operator=(const atomic_bool&) = delete;
+    atomic_bool& operator=(const atomic_bool&) volatile = delete;
 
     atomic_bool(bool __i) : _M_base(__i) { }
 
     bool
-    operator=(bool __i) // XXX volatile
+    operator=(bool __i)
     { return _M_base.operator=(__i); }
 
-    operator bool() const volatile
+    operator bool() const 
     { return _M_base.load(); }
 
     bool
-    is_lock_free() const volatile
+    is_lock_free() const
     { return _M_base.is_lock_free(); }
 
     void
-    store(bool __i, memory_order __m = memory_order_seq_cst) volatile
+    store(bool __i, memory_order __m = memory_order_seq_cst)
     { _M_base.store(__i, __m); }
 
     bool
-    load(memory_order __m = memory_order_seq_cst) const volatile
+    load(memory_order __m = memory_order_seq_cst) const
     { return _M_base.load(__m); }
 
     bool
-    exchange(bool __i, memory_order __m = memory_order_seq_cst) volatile
+    exchange(bool __i, memory_order __m = memory_order_seq_cst)
     { return _M_base.exchange(__i, __m); }
 
     bool
     compare_exchange_weak(bool& __i1, bool __i2, memory_order __m1,
-			  memory_order __m2) volatile
+			  memory_order __m2)
     { return _M_base.compare_exchange_weak(__i1, __i2, __m1, __m2); }
 
     bool
     compare_exchange_weak(bool& __i1, bool __i2,
-			  memory_order __m = memory_order_seq_cst) volatile
+			  memory_order __m = memory_order_seq_cst)
     { return _M_base.compare_exchange_weak(__i1, __i2, __m); }
 
     bool
     compare_exchange_strong(bool& __i1, bool __i2, memory_order __m1,
-			    memory_order __m2) volatile
+			    memory_order __m2)
     { return _M_base.compare_exchange_strong(__i1, __i2, __m1, __m2); }
 
 
     bool
     compare_exchange_strong(bool& __i1, bool __i2,
-			    memory_order __m = memory_order_seq_cst) volatile
+			    memory_order __m = memory_order_seq_cst)
     { return _M_base.compare_exchange_strong(__i1, __i2, __m); }
   };
 } // namespace __atomic2

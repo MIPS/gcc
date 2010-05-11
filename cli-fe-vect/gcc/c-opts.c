@@ -1,5 +1,5 @@
 /* C/ObjC/C++ command line option handling.
-   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
    Free Software Foundation, Inc.
    Contributed by Neil Booth.
 
@@ -232,6 +232,7 @@ c_common_init_options (unsigned int argc, const char **argv)
   flag_exceptions = c_dialect_cxx ();
   warn_pointer_arith = c_dialect_cxx ();
   warn_write_strings = c_dialect_cxx();
+  flag_warn_unused_result = true;
 
   /* By default, C99-like requirements for complex multiply and divide.  */
   flag_complex_method = 2;
@@ -269,7 +270,7 @@ c_common_handle_option (size_t scode, const char *arg, int value)
   /* Prevent resetting the language standard to a C dialect when the driver
      has already determined that we're looking at assembler input.  */
   bool preprocessing_asm_p = (cpp_get_options (parse_in)->lang == CLK_ASM);
- 
+
   switch (code)
     {
     default:
@@ -342,6 +343,7 @@ c_common_handle_option (size_t scode, const char *arg, int value)
     case OPT_MD:
     case OPT_MMD:
       cpp_opts->deps.style = (code == OPT_MD ? DEPS_SYSTEM: DEPS_USER);
+      cpp_opts->deps.need_preprocessor_output = true;
       deps_file = arg;
       break;
 
@@ -400,11 +402,7 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 	 headers.  */
       warn_unknown_pragmas = value;
 
-      /* We save the value of warn_uninitialized, since if they put
-	 -Wuninitialized on the command line, we need to generate a
-	 warning about not using it without also specifying -O.  */
-      if (warn_uninitialized != 1)
-	warn_uninitialized = (value ? 2 : 0);
+      warn_uninitialized = value;
 
       if (!c_dialect_cxx ())
 	{
@@ -449,6 +447,11 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 	 implies -Wenum-compare.  */
       if (warn_enum_compare == -1 && value)
 	warn_enum_compare = value;
+      /* Because C++ always warns about a goto which misses an
+	 initialization, -Wc++-compat turns on -Wjump-misses-init.  */
+      if (warn_jump_misses_init == -1 && value)
+	warn_jump_misses_init = value;
+      cpp_opts->warn_cxx_operator_names = value;
       break;
 
     case OPT_Wdeprecated:
@@ -463,10 +466,10 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       global_dc->warning_as_error_requested = value;
       break;
 
-    case OPT_Werror_implicit_function_declaration: 
+    case OPT_Werror_implicit_function_declaration:
       /* For backward compatibility, this is the same as
 	 -Werror=implicit-function-declaration.  */
-      enable_warning_as_error ("implicit-function-declaration", value, CL_C | CL_ObjC); 
+      enable_warning_as_error ("implicit-function-declaration", value, CL_C | CL_ObjC);
       break;
 
     case OPT_Wformat:
@@ -798,6 +801,8 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       break;
 
     case OPT_ftemplate_depth_:
+      /* Kept for backwards compatibility.  */
+    case OPT_ftemplate_depth_eq:
       max_tinst_depth = value;
       break;
 
@@ -947,6 +952,7 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       break;
 
     case OPT_std_c89:
+    case OPT_std_c90:
     case OPT_std_iso9899_1990:
     case OPT_std_iso9899_199409:
       if (!preprocessing_asm_p)
@@ -954,6 +960,7 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       break;
 
     case OPT_std_gnu89:
+    case OPT_std_gnu90:
       if (!preprocessing_asm_p)
 	set_std_c89 (false /* c94 */, false /* ISO */);
       break;
@@ -1057,11 +1064,8 @@ c_common_post_options (const char **pfilename)
   if (flag_objc_exceptions && !flag_objc_sjlj_exceptions)
     flag_exceptions = 1;
 
-  /* -Wextra implies -Wtype-limits, -Wclobbered, 
-     -Wempty-body, -Wsign-compare, 
-     -Wmissing-field-initializers, -Wmissing-parameter-type
-     -Wold-style-declaration, -Woverride-init and -Wignored-qualifiers
-     but not if explicitly overridden.  */
+  /* -Wextra implies the following flags
+     unless explicitly overridden.  */
   if (warn_type_limits == -1)
     warn_type_limits = extra_warnings;
   if (warn_clobbered == -1)
@@ -1080,8 +1084,6 @@ c_common_post_options (const char **pfilename)
     warn_override_init = extra_warnings;
   if (warn_ignored_qualifiers == -1)
     warn_ignored_qualifiers = extra_warnings;
-  if (warn_logical_op == -1)
-    warn_logical_op = extra_warnings;
 
   /* -Wpointer-sign is disabled by default, but it is enabled if any
      of -Wall or -pedantic are given.  */
@@ -1092,6 +1094,8 @@ c_common_post_options (const char **pfilename)
     warn_strict_aliasing = 0;
   if (warn_strict_overflow == -1)
     warn_strict_overflow = 0;
+  if (warn_jump_misses_init == -1)
+    warn_jump_misses_init = 0;
 
   /* -Woverlength-strings is off by default, but is enabled by -pedantic.
      It is never enabled in C++, as the minimum limit is not normative
@@ -1145,7 +1149,7 @@ c_common_post_options (const char **pfilename)
     }
 
   /* -Wimplicit-function-declaration is enabled by default for C99.  */
-  if (warn_implicit_function_declaration == -1) 
+  if (warn_implicit_function_declaration == -1)
     warn_implicit_function_declaration = flag_isoc99;
 
   /* If we're allowing C++0x constructs, don't warn about C++0x
@@ -1435,7 +1439,7 @@ sanitize_cpp_opts (void)
 
   /* Wlong-long is disabled by default. It is enabled by:
       [-pedantic | -Wtraditional] -std=[gnu|c]++98 ; or
-      [-pedantic | -Wtraditional] -std=non-c99 . 
+      [-pedantic | -Wtraditional] -std=non-c99 .
 
       Either -Wlong-long or -Wno-long-long override any other settings.  */
   if (warn_long_long == -1)

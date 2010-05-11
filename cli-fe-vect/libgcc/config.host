@@ -1,6 +1,6 @@
 # libgcc host-specific configuration file.
 # Copyright 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,
-# 2008, 2009 Free Software Foundation, Inc.
+# 2008, 2009, 2010 Free Software Foundation, Inc.
 
 #This file is part of GCC.
 
@@ -84,6 +84,8 @@ fido-*-*)
 	;;
 frv*)	cpu_type=frv
 	;;
+moxie*)	cpu_type=moxie
+	;;
 i[34567]86-*-*)
 	cpu_type=i386
 	;;
@@ -95,10 +97,15 @@ ia64-*-*)
 hppa*-*-*)
 	cpu_type=pa
 	;;
+lm32*-*-*)
+	cpu_type=lm32
+	;;
 m32r*-*-*)
         cpu_type=m32r
         ;;
 m68k-*-*)
+	;;
+mep*-*-*)
 	;;
 mips*-*-*)
 	cpu_type=mips
@@ -185,8 +192,10 @@ alpha*-*-openbsd*)
 alpha*-dec-osf[45]*)
 	;;
 alpha64-dec-*vms*)
+	tmake_file="vms/t-vms vms/t-vms64 alpha/t-vms"
 	;;
 alpha*-dec-*vms*)
+	tmake_file="vms/t-vms alpha/t-vms"
 	;;
 arc-*-elf*)
 	;;
@@ -343,8 +352,19 @@ ia64*-*-linux*)
 	;;
 ia64*-*-hpux*)
 	;;
+ia64-hp-*vms*)
+	tmake_file="vms/t-vms vms/t-vms64 ia64/t-vms"
+	;;
 iq2000*-*-elf*)
         ;;
+lm32-*-elf*|lm32-*-rtems*)
+        extra_parts="crtbegin.o crtend.o crti.o crtn.o"
+        tmake_file="lm32/t-lm32 lm32/t-elf t-softfp"
+	;;
+lm32-*-uclinux*)
+        extra_parts="crtbegin.o crtend.o crtbeginS.o crtendS.o crtbeginT.o"
+        tmake_file="lm32/t-lm32 lm32/t-uclinux t-softfp"
+	;;	
 m32r-*-elf*|m32r-*-rtems*)
  	;;
 m32rle-*-elf*)
@@ -412,8 +432,14 @@ mips-wrs-vxworks)
 mipstx39-*-elf* | mipstx39el-*-elf*)
 	;;
 mmix-knuth-mmixware)
+	extra_parts="crti.o crtn.o crtbegin.o crtend.o"
+	tmake_file="${tmake_file} ${cpu_type}/t-${cpu_type}"
 	;;
 mn10300-*-*)
+	;;
+moxie-*-*)
+	tmake_file="moxie/t-moxie moxie/t-moxie-softfp"
+	extra_parts="crtbegin.o crtend.o crti.o crtn.o"
 	;;
 pdp11-*-*)
 	;;
@@ -469,11 +495,18 @@ rs6000-ibm-aix5.1.* | powerpc-ibm-aix5.1.*)
 	;;
 rs6000-ibm-aix[56789].* | powerpc-ibm-aix[56789].*)
 	;;
+rx-*-elf)
+	extra_parts="crtbegin.o crtend.o"
+	tmake_file="rx/t-rx"
+	;;
 s390-*-linux*)
+	tmake_file="${tmake_file} s390/t-crtstuff s390/t-linux s390/32/t-floattodi"
 	;;
 s390x-*-linux*)
+	tmake_file="${tmake_file} s390/t-crtstuff s390/t-linux"
 	;;
 s390x-ibm-tpf*)
+	tmake_file="${tmake_file} s390/t-crtstuff s390/t-tpf"
 	;;
 score-*-elf)
         ;;
@@ -528,6 +561,8 @@ v850e-*-*)
 	;;
 v850-*-*)
 	;;
+vax-*-linux*)
+	;;
 vax-*-netbsdelf*)
 	;;
 vax-*-netbsd*)
@@ -545,6 +580,8 @@ am33_2.0-*-linux*)
 	;;
 m32c-*-elf*|m32c-*-rtems*)
  	;;
+mep*-*-*)
+	;;
 *)
 	echo "*** Configuration ${host} not supported" 1>&2
 	exit 1
@@ -562,7 +599,9 @@ esac
 case ${host} in
 i[34567]86-*-darwin* | x86_64-*-darwin* | \
   i[34567]86-*-kfreebsd*-gnu | x86_64-*-kfreebsd*-gnu | \
-  i[34567]86-*-linux* | x86_64-*-linux*)
+  i[34567]86-*-linux* | x86_64-*-linux* | \
+  i[34567]86-*-solaris2* | \
+  i[34567]86-*-cygwin* | i[34567]86-*-mingw* | x86_64-*-mingw*)
 	if test "${host_address}" = 32; then
 		tmake_file="${tmake_file} t-softfp i386/${host_address}/t-fprules-softfp"
 	fi

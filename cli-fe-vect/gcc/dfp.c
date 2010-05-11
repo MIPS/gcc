@@ -133,14 +133,16 @@ encode_decimal32 (const struct real_format *fmt ATTRIBUTE_UNUSED,
   decNumber dn;
   decimal32 d32;
   decContext set;
+  int32_t image;
 
   decContextDefault (&set, DEC_INIT_DECIMAL128);
   set.traps = 0;
 
-  decimal_to_decnumber (r, &dn); 
+  decimal_to_decnumber (r, &dn);
   decimal32FromNumber (&d32, &dn, &set);
 
-  memcpy (&buf[0], d32.bytes, sizeof (uint32_t));
+  memcpy (&image, d32.bytes, sizeof (int32_t));
+  buf[0] = image;
 }
 
 /* Decode an IEEE 754 decimal32 type into a real.  */
@@ -152,14 +154,16 @@ decode_decimal32 (const struct real_format *fmt ATTRIBUTE_UNUSED,
   decNumber dn;
   decimal32 d32;
   decContext set;
+  int32_t image;
 
   decContextDefault (&set, DEC_INIT_DECIMAL128);
   set.traps = 0;
 
-  memcpy (&d32.bytes, &buf[0], sizeof (uint32_t));
+  image = buf[0];
+  memcpy (&d32.bytes, &image, sizeof (int32_t));
 
   decimal32ToNumber (&d32, &dn);
-  decimal_from_decnumber (r, &dn, &set); 
+  decimal_from_decnumber (r, &dn, &set);
 }
 
 /* Encode a real into an IEEE 754 decimal64 type.  */
@@ -171,6 +175,7 @@ encode_decimal64 (const struct real_format *fmt ATTRIBUTE_UNUSED,
   decNumber dn;
   decimal64 d64;
   decContext set;
+  int32_t image;
 
   decContextDefault (&set, DEC_INIT_DECIMAL128);
   set.traps = 0;
@@ -180,13 +185,17 @@ encode_decimal64 (const struct real_format *fmt ATTRIBUTE_UNUSED,
 
   if (WORDS_BIGENDIAN == FLOAT_WORDS_BIG_ENDIAN)
     {
-      memcpy (&buf[0], &d64.bytes[0], sizeof (uint32_t));
-      memcpy (&buf[1], &d64.bytes[4], sizeof (uint32_t));
+      memcpy (&image, &d64.bytes[0], sizeof (int32_t));
+      buf[0] = image;
+      memcpy (&image, &d64.bytes[4], sizeof (int32_t));
+      buf[1] = image;
     }
   else
     {
-      memcpy (&buf[0], &d64.bytes[4], sizeof (uint32_t));
-      memcpy (&buf[1], &d64.bytes[0], sizeof (uint32_t));
+      memcpy (&image, &d64.bytes[4], sizeof (int32_t));
+      buf[0] = image;
+      memcpy (&image, &d64.bytes[0], sizeof (int32_t));
+      buf[1] = image;
     }
 }
 
@@ -195,27 +204,32 @@ encode_decimal64 (const struct real_format *fmt ATTRIBUTE_UNUSED,
 void
 decode_decimal64 (const struct real_format *fmt ATTRIBUTE_UNUSED,
 		  REAL_VALUE_TYPE *r, const long *buf)
-{ 
+{
   decNumber dn;
   decimal64 d64;
   decContext set;
+  int32_t image;
 
   decContextDefault (&set, DEC_INIT_DECIMAL128);
   set.traps = 0;
 
   if (WORDS_BIGENDIAN == FLOAT_WORDS_BIG_ENDIAN)
     {
-      memcpy (&d64.bytes[0], &buf[0], sizeof (uint32_t));
-      memcpy (&d64.bytes[4], &buf[1], sizeof (uint32_t));
+      image = buf[0];
+      memcpy (&d64.bytes[0], &image, sizeof (int32_t));
+      image = buf[1];
+      memcpy (&d64.bytes[4], &image, sizeof (int32_t));
     }
   else
     {
-      memcpy (&d64.bytes[0], &buf[1], sizeof (uint32_t));
-      memcpy (&d64.bytes[4], &buf[0], sizeof (uint32_t));
+      image = buf[1];
+      memcpy (&d64.bytes[0], &image, sizeof (int32_t));
+      image = buf[0];
+      memcpy (&d64.bytes[4], &image, sizeof (int32_t));
     }
 
   decimal64ToNumber (&d64, &dn);
-  decimal_from_decnumber (r, &dn, &set); 
+  decimal_from_decnumber (r, &dn, &set);
 }
 
 /* Encode a real into an IEEE 754 decimal128 type.  */
@@ -227,6 +241,7 @@ encode_decimal128 (const struct real_format *fmt ATTRIBUTE_UNUSED,
   decNumber dn;
   decContext set;
   decimal128 d128;
+  int32_t image;
 
   decContextDefault (&set, DEC_INIT_DECIMAL128);
   set.traps = 0;
@@ -236,17 +251,25 @@ encode_decimal128 (const struct real_format *fmt ATTRIBUTE_UNUSED,
 
   if (WORDS_BIGENDIAN == FLOAT_WORDS_BIG_ENDIAN)
     {
-      memcpy (&buf[0], &d128.bytes[0], sizeof (uint32_t));
-      memcpy (&buf[1], &d128.bytes[4], sizeof (uint32_t));
-      memcpy (&buf[2], &d128.bytes[8], sizeof (uint32_t));
-      memcpy (&buf[3], &d128.bytes[12], sizeof (uint32_t));
+      memcpy (&image, &d128.bytes[0], sizeof (int32_t));
+      buf[0] = image;
+      memcpy (&image, &d128.bytes[4], sizeof (int32_t));
+      buf[1] = image;
+      memcpy (&image, &d128.bytes[8], sizeof (int32_t));
+      buf[2] = image;
+      memcpy (&image, &d128.bytes[12], sizeof (int32_t));
+      buf[3] = image;
     }
   else
     {
-      memcpy (&buf[0], &d128.bytes[12], sizeof (uint32_t));
-      memcpy (&buf[1], &d128.bytes[8], sizeof (uint32_t));
-      memcpy (&buf[2], &d128.bytes[4], sizeof (uint32_t));
-      memcpy (&buf[3], &d128.bytes[0], sizeof (uint32_t));
+      memcpy (&image, &d128.bytes[12], sizeof (int32_t));
+      buf[0] = image;
+      memcpy (&image, &d128.bytes[8], sizeof (int32_t));
+      buf[1] = image;
+      memcpy (&image, &d128.bytes[4], sizeof (int32_t));
+      buf[2] = image;
+      memcpy (&image, &d128.bytes[0], sizeof (int32_t));
+      buf[3] = image;
     }
 }
 
@@ -259,27 +282,36 @@ decode_decimal128 (const struct real_format *fmt ATTRIBUTE_UNUSED,
   decNumber dn;
   decimal128 d128;
   decContext set;
+  int32_t image;
 
   decContextDefault (&set, DEC_INIT_DECIMAL128);
   set.traps = 0;
 
   if (WORDS_BIGENDIAN == FLOAT_WORDS_BIG_ENDIAN)
     {
-      memcpy (&d128.bytes[0],  &buf[0], sizeof (uint32_t));
-      memcpy (&d128.bytes[4],  &buf[1], sizeof (uint32_t));
-      memcpy (&d128.bytes[8],  &buf[2], sizeof (uint32_t));
-      memcpy (&d128.bytes[12], &buf[3], sizeof (uint32_t));
+      image = buf[0];
+      memcpy (&d128.bytes[0],  &image, sizeof (int32_t));
+      image = buf[1];
+      memcpy (&d128.bytes[4],  &image, sizeof (int32_t));
+      image = buf[2];
+      memcpy (&d128.bytes[8],  &image, sizeof (int32_t));
+      image = buf[3];
+      memcpy (&d128.bytes[12], &image, sizeof (int32_t));
     }
   else
     {
-      memcpy (&d128.bytes[0],  &buf[3], sizeof (uint32_t));
-      memcpy (&d128.bytes[4],  &buf[2], sizeof (uint32_t));
-      memcpy (&d128.bytes[8],  &buf[1], sizeof (uint32_t));
-      memcpy (&d128.bytes[12], &buf[0], sizeof (uint32_t));
+      image = buf[3];
+      memcpy (&d128.bytes[0],  &image, sizeof (int32_t));
+      image = buf[2];
+      memcpy (&d128.bytes[4],  &image, sizeof (int32_t));
+      image = buf[1];
+      memcpy (&d128.bytes[8],  &image, sizeof (int32_t));
+      image = buf[0];
+      memcpy (&d128.bytes[12], &image, sizeof (int32_t));
     }
 
   decimal128ToNumber (&d128, &dn);
-  decimal_from_decnumber (r, &dn, &set); 
+  decimal_from_decnumber (r, &dn, &set);
 }
 
 /* Helper function to convert from a binary real internal
@@ -333,10 +365,10 @@ decimal_do_compare (const REAL_VALUE_TYPE *a, const REAL_VALUE_TYPE *b,
       decimal_from_binary (&b1, b);
       b = &b1;
     }
-    
+
   /* Convert into decNumber form for comparison operation.  */
   decContextDefault (&set, DEC_INIT_DECIMAL128);
-  set.traps = 0;  
+  set.traps = 0;
   decimal128ToNumber ((const decimal128 *) a->sig, &dn2);
   decimal128ToNumber ((const decimal128 *) b->sig, &dn3);
 
@@ -350,7 +382,7 @@ decimal_do_compare (const REAL_VALUE_TYPE *a, const REAL_VALUE_TYPE *b,
     return 0;
   else if (decNumberIsNegative (&dn))
     return -1;
-  else 
+  else
     return 1;
 }
 
@@ -403,7 +435,7 @@ decimal_round_for_format (const struct real_format *fmt, REAL_VALUE_TYPE *r)
    binary and decimal types.  */
 
 void
-decimal_real_convert (REAL_VALUE_TYPE *r, enum machine_mode mode, 
+decimal_real_convert (REAL_VALUE_TYPE *r, enum machine_mode mode,
 		      const REAL_VALUE_TYPE *a)
 {
   const struct real_format *fmt = REAL_MODE_FORMAT (mode);
@@ -452,7 +484,7 @@ decimal_do_add (REAL_VALUE_TYPE *r, const REAL_VALUE_TYPE *op0,
 
   if (subtract_p)
     decNumberSubtract (&dn, &dn2, &dn3, &set);
-  else 
+  else
     decNumberAdd (&dn, &dn2, &dn3, &set);
 
   decimal_from_decnumber (r, &dn, &set);
@@ -665,7 +697,7 @@ decimal_real_arithmetic (REAL_VALUE_TYPE *r, enum tree_code code,
 
 void
 decimal_real_maxval (REAL_VALUE_TYPE *r, int sign, enum machine_mode mode)
-{ 
+{
   const char *max;
 
   switch (mode)

@@ -1,4 +1,4 @@
-/* Copyright (C) 2006, 2007, 2008, 2009 Free Software Foundation, Inc.
+/* Copyright (C) 2006, 2007, 2008, 2009, 2010 Free Software Foundation, Inc.
 
    This file is free software; you can redistribute it and/or modify it under
    the terms of the GNU General Public License as published by the Free
@@ -42,7 +42,7 @@ spu_categorize_keyword (const cpp_token *tok)
 {
   if (tok->type == CPP_NAME)
     {
-      cpp_hashnode *ident = tok->val.node;
+      cpp_hashnode *ident = tok->val.node.node;
 
       if (ident == C_CPP_HASHNODE (vector_keyword)
 	  || ident == C_CPP_HASHNODE (__vector_keyword))
@@ -60,7 +60,7 @@ spu_categorize_keyword (const cpp_token *tok)
 static cpp_hashnode *
 spu_macro_to_expand (cpp_reader *pfile, const cpp_token *tok)
 {
-  cpp_hashnode *expand_this = tok->val.node;
+  cpp_hashnode *expand_this = tok->val.node.node;
   cpp_hashnode *ident;
 
   ident = spu_categorize_keyword (tok);
@@ -94,7 +94,7 @@ spu_macro_to_expand (cpp_reader *pfile, const cpp_token *tok)
 /* target hook for resolve_overloaded_builtin(). Returns a function call
    RTX if we can resolve the overloaded builtin */
 tree
-spu_resolve_overloaded_builtin (tree fndecl, void *passed_args)
+spu_resolve_overloaded_builtin (location_t loc, tree fndecl, void *passed_args)
 {
 #define SCALAR_TYPE_P(t) (INTEGRAL_TYPE_P (t) \
 			  || SCALAR_FLOAT_TYPE_P (t) \
@@ -162,8 +162,7 @@ spu_resolve_overloaded_builtin (tree fndecl, void *passed_args)
 	  if ((!SCALAR_TYPE_P (param_type)
 	       || !SCALAR_TYPE_P (arg_type)
 	       || (all_scalar && p == 0))
-	      && !comptypes (TYPE_MAIN_VARIANT (param_type),
-			     TYPE_MAIN_VARIANT (arg_type)))
+	      && !lang_hooks.types_compatible_p (param_type, arg_type))
 	    break;
 	}
       if (param == void_list_node)
@@ -187,7 +186,7 @@ spu_resolve_overloaded_builtin (tree fndecl, void *passed_args)
       return error_mark_node;
     }
 
-  return build_function_call_vec (match, fnargs, NULL);
+  return build_function_call_vec (loc, match, fnargs, NULL);
 #undef SCALAR_TYPE_P
 }
 
@@ -201,6 +200,17 @@ spu_cpu_cpp_builtins (struct cpp_reader *pfile)
   if (spu_arch == PROCESSOR_CELLEDP)
     builtin_define_std ("__SPU_EDP__");
   builtin_define_std ("__vector=__attribute__((__spu_vector__))");
+  switch (spu_ea_model)
+    {
+    case 32:
+      builtin_define_std ("__EA32__");
+      break;
+    case 64:
+      builtin_define_std ("__EA64__");
+      break;
+    default:
+       gcc_unreachable ();
+    }
 
   if (!flag_iso)
     {

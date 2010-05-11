@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -48,9 +48,7 @@ with Sem_Eval; use Sem_Eval;
 with Sem_Type; use Sem_Type;
 with Sem_Util; use Sem_Util;
 with Snames;   use Snames;
-with Stand;    use Stand;
 with Sinfo;    use Sinfo;
-with Targparm; use Targparm;
 with Tbuild;   use Tbuild;
 with Uintp;    use Uintp;
 
@@ -106,15 +104,13 @@ package body Sem_Disp is
 
    begin
       Formal := First_Formal (Subp);
-
       while Present (Formal) loop
          Ctrl_Type := Check_Controlling_Type (Etype (Formal), Subp);
 
          if Present (Ctrl_Type) then
 
-            --  When the controlling type is concurrent and declared within a
-            --  generic or inside an instance, use its corresponding record
-            --  type.
+            --  When controlling type is concurrent and declared within a
+            --  generic or inside an instance use corresponding record type.
 
             if Is_Concurrent_Type (Ctrl_Type)
               and then Present (Corresponding_Record_Type (Ctrl_Type))
@@ -125,7 +121,7 @@ package body Sem_Disp is
             if Ctrl_Type = Typ then
                Set_Is_Controlling_Formal (Formal);
 
-               --  Ada 2005 (AI-231): Anonymous access types used in
+               --  Ada 2005 (AI-231): Anonymous access types that are used in
                --  controlling parameters exclude null because it is necessary
                --  to read the tag to dispatch, and null has no tag.
 
@@ -179,7 +175,10 @@ package body Sem_Disp is
          Next_Formal (Formal);
       end loop;
 
-      if Present (Etype (Subp)) then
+      if Ekind (Subp) = E_Function
+           or else
+         Ekind (Subp) = E_Generic_Function
+      then
          Ctrl_Type := Check_Controlling_Type (Etype (Subp), Subp);
 
          if Present (Ctrl_Type) then
@@ -302,10 +301,106 @@ package body Sem_Disp is
       --  If a controlling formal has a statically tagged actual, the tag of
       --  this actual is to be used for any tag-indeterminate actual.
 
+      procedure Check_Direct_Call;
+      --  In the case when the controlling actual is a class-wide type whose
+      --  root type's completion is a task or protected type, the call is in
+      --  fact direct. This routine detects the above case and modifies the
+      --  call accordingly.
+
       procedure Check_Dispatching_Context;
       --  If the call is tag-indeterminate and the entity being called is
       --  abstract, verify that the context is a call that will eventually
       --  provide a tag for dispatching, or has provided one already.
+
+      -----------------------
+      -- Check_Direct_Call --
+      -----------------------
+
+      procedure Check_Direct_Call is
+         Typ : Entity_Id := Etype (Control);
+
+         function Is_User_Defined_Equality (Id : Entity_Id) return Boolean;
+         --  Determine whether an entity denotes a user-defined equality
+
+         ------------------------------
+         -- Is_User_Defined_Equality --
+         ------------------------------
+
+         function Is_User_Defined_Equality (Id : Entity_Id) return Boolean is
+         begin
+            return
+              Ekind (Id) = E_Function
+                and then Chars (Id) = Name_Op_Eq
+                and then Comes_From_Source (Id)
+
+               --  Internally generated equalities have a full type declaration
+               --  as their parent.
+
+                and then Nkind (Parent (Id)) = N_Function_Specification;
+         end Is_User_Defined_Equality;
+
+      --  Start of processing for Check_Direct_Call
+
+      begin
+         --  Predefined primitives do not receive wrappers since they are built
+         --  from scratch for the corresponding record of synchronized types.
+         --  Equality is in general predefined, but is excluded from the check
+         --  when it is user-defined.
+
+         if Is_Predefined_Dispatching_Operation (Subp_Entity)
+           and then not Is_User_Defined_Equality (Subp_Entity)
+         then
+            return;
+         end if;
+
+         if Is_Class_Wide_Type (Typ) then
+            Typ := Root_Type (Typ);
+         end if;
+
+         if Is_Private_Type (Typ) and then Present (Full_View (Typ)) then
+            Typ := Full_View (Typ);
+         end if;
+
+         if Is_Concurrent_Type (Typ)
+              and then
+            Present (Corresponding_Record_Type (Typ))
+         then
+            Typ := Corresponding_Record_Type (Typ);
+
+            --  The concurrent record's list of primitives should contain a
+            --  wrapper for the entity of the call, retrieve it.
+
+            declare
+               Prim          : Entity_Id;
+               Prim_Elmt     : Elmt_Id;
+               Wrapper_Found : Boolean := False;
+
+            begin
+               Prim_Elmt := First_Elmt (Primitive_Operations (Typ));
+               while Present (Prim_Elmt) loop
+                  Prim := Node (Prim_Elmt);
+
+                  if Is_Primitive_Wrapper (Prim)
+                    and then Wrapped_Entity (Prim) = Subp_Entity
+                  then
+                     Wrapper_Found := True;
+                     exit;
+                  end if;
+
+                  Next_Elmt (Prim_Elmt);
+               end loop;
+
+               --  A primitive declared between two views should have a
+               --  corresponding wrapper.
+
+               pragma Assert (Wrapper_Found);
+
+               --  Modify the call by setting the proper entity
+
+               Set_Entity (Name (N), Prim);
+            end;
+         end if;
+      end Check_Direct_Call;
 
       -------------------------------
       -- Check_Dispatching_Context --
@@ -331,14 +426,12 @@ package body Sem_Disp is
 
             else
                Par := Parent (N);
-
                while Present (Par) loop
-
-                  if (Nkind (Par) = N_Function_Call            or else
-                      Nkind (Par) = N_Procedure_Call_Statement or else
-                      Nkind (Par) = N_Assignment_Statement     or else
-                      Nkind (Par) = N_Op_Eq                    or else
-                      Nkind (Par) = N_Op_Ne)
+                  if Nkind_In (Par, N_Function_Call,
+                                    N_Procedure_Call_Statement,
+                                    N_Assignment_Statement,
+                                    N_Op_Eq,
+                                    N_Op_Ne)
                     and then Is_Tagged_Type (Etype (Subp))
                   then
                      return;
@@ -376,11 +469,10 @@ package body Sem_Disp is
       --  Find a controlling argument, if any
 
       if Present (Parameter_Associations (N)) then
-         Actual := First_Actual (N);
-
          Subp_Entity := Entity (Name (N));
-         Formal := First_Formal (Subp_Entity);
 
+         Actual := First_Actual (N);
+         Formal := First_Formal (Subp_Entity);
          while Present (Actual) loop
             Control := Find_Controlling_Arg (Actual);
             exit when Present (Control);
@@ -449,7 +541,6 @@ package body Sem_Disp is
             end if;
 
             Actual := First_Actual (N);
-
             while Present (Actual) loop
                if Actual /= Control then
 
@@ -484,6 +575,11 @@ package body Sem_Disp is
 
             Set_Controlling_Argument (N, Control);
             Check_Restriction (No_Dispatching_Calls, N);
+
+            --  The dispatching call may need to be converted into a direct
+            --  call in certain cases.
+
+            Check_Direct_Call;
 
          --  If there is a statically tagged actual and a tag-indeterminate
          --  call to a function of the ancestor (such as that provided by a
@@ -576,27 +672,6 @@ package body Sem_Disp is
       Has_Dispatching_Parent : Boolean := False;
       Body_Is_Last_Primitive : Boolean := False;
 
-      function Is_Visibly_Controlled (T : Entity_Id) return Boolean;
-      --  Check whether T is derived from a visibly controlled type.
-      --  This is true if the root type is declared in Ada.Finalization.
-      --  If T is derived instead from a private type whose full view
-      --  is controlled, an explicit Initialize/Adjust/Finalize subprogram
-      --  does not override the inherited one.
-
-      ---------------------------
-      -- Is_Visibly_Controlled --
-      ---------------------------
-
-      function Is_Visibly_Controlled (T : Entity_Id) return Boolean is
-         Root : constant Entity_Id := Root_Type (T);
-      begin
-         return Chars (Scope (Root)) = Name_Finalization
-           and then Chars (Scope (Scope (Root))) = Name_Ada
-           and then Scope (Scope (Scope (Root))) = Standard_Standard;
-      end Is_Visibly_Controlled;
-
-   --  Start of processing for Check_Dispatching_Operation
-
    begin
       if Ekind (Subp) /= E_Procedure and then Ekind (Subp) /= E_Function then
          return;
@@ -658,7 +733,7 @@ package body Sem_Disp is
             E := First_Entity (Subp);
             while Present (E) loop
 
-               --  For an access parameter, check designated type.
+               --  For an access parameter, check designated type
 
                if Ekind (Etype (E)) = E_Anonymous_Access_Type then
                   Typ := Designated_Type (Etype (E));
@@ -766,7 +841,7 @@ package body Sem_Disp is
          --  If the type is already frozen, the overriding is not allowed
          --  except when Old_Subp is not a dispatching operation (which can
          --  occur when Old_Subp was inherited by an untagged type). However,
-         --  a body with no previous spec freezes the type "after" its
+         --  a body with no previous spec freezes the type *after* its
          --  declaration, and therefore is a legal overriding (unless the type
          --  has already been frozen). Only the first such body is legal.
 
@@ -780,7 +855,7 @@ package body Sem_Disp is
             then
                declare
                   Subp_Body : constant Node_Id := Unit_Declaration_Node (Subp);
-                  Decl_Item : Node_Id          := Next (Parent (Tagged_Type));
+                  Decl_Item : Node_Id;
 
                begin
                   --  ??? The checks here for whether the type has been
@@ -799,6 +874,7 @@ package body Sem_Disp is
                   --  then the type has been frozen already so the overriding
                   --  primitive is illegal.
 
+                  Decl_Item := Next (Parent (Tagged_Type));
                   while Present (Decl_Item)
                     and then (Decl_Item /= Subp_Body)
                   loop
@@ -865,7 +941,14 @@ package body Sem_Disp is
                                 Prim    => Subp));
                            end if;
 
-                           Generate_Reference (Tagged_Type, Subp, 'p', False);
+                           --  Indicate that this is an overriding operation,
+                           --  and replace the overriden entry in the list of
+                           --  primitive operations, which is used for xref
+                           --  generation subsequently.
+
+                           Generate_Reference (Tagged_Type, Subp, 'P', False);
+                           Override_Dispatching_Operation
+                             (Tagged_Type, Old_Subp, Subp);
                         end if;
                      end if;
                   end if;
@@ -925,8 +1008,25 @@ package body Sem_Disp is
            and then not Is_Visibly_Controlled (Tagged_Type)
          then
             Set_Is_Overriding_Operation (Subp, False);
-            Error_Msg_NE
-              ("operation does not override inherited&?", Subp, Subp);
+
+            --  If the subprogram specification carries an overriding
+            --  indicator, no need for the warning: it is either redundant,
+            --  or else an error will be reported.
+
+            if Nkind (Parent (Subp)) = N_Procedure_Specification
+              and then
+                (Must_Override (Parent (Subp))
+                  or else Must_Not_Override (Parent (Subp)))
+            then
+               null;
+
+            --  Here we need the warning
+
+            else
+               Error_Msg_NE
+                 ("operation does not override inherited&?", Subp, Subp);
+            end if;
+
          else
             Override_Dispatching_Operation (Tagged_Type, Old_Subp, Subp);
             Set_Is_Overriding_Operation (Subp);
@@ -1059,8 +1159,10 @@ package body Sem_Disp is
       elsif Has_Controlled_Component (Tagged_Type)
         and then
          (Chars (Subp) = Name_Initialize
-           or else Chars (Subp) = Name_Adjust
-           or else Chars (Subp) = Name_Finalize)
+            or else
+          Chars (Subp) = Name_Adjust
+            or else
+          Chars (Subp) = Name_Finalize)
       then
          declare
             F_Node   : constant Node_Id := Freeze_Node (Tagged_Type);
@@ -1080,13 +1182,13 @@ package body Sem_Disp is
                          TSS_Deep_Finalize);
 
          begin
-            --  Remove previous controlled function, which was constructed
-            --  and analyzed when the type was frozen. This requires
-            --  removing the body of the redefined primitive, as well as
-            --  its specification if needed (there is no spec created for
-            --  Deep_Initialize, see exp_ch3.adb). We must also dismantle
-            --  the exception information that may have been generated for
-            --  it when front end zero-cost tables are enabled.
+            --  Remove previous controlled function which was constructed and
+            --  analyzed when the type was frozen. This requires removing the
+            --  body of the redefined primitive, as well as its specification
+            --  if needed (there is no spec created for Deep_Initialize, see
+            --  exp_ch3.adb). We must also dismantle the exception information
+            --  that may have been generated for it when front end zero-cost
+            --  tables are enabled.
 
             for J in D_Names'Range loop
                Old_P := TSS (Tagged_Type, D_Names (J));
@@ -1110,9 +1212,9 @@ package body Sem_Disp is
 
             Build_Late_Proc (Tagged_Type, Chars (Subp));
 
-            --  The new operation is added to the actions of the freeze
-            --  node for the type, but this node has already been analyzed,
-            --  so we must retrieve and analyze explicitly the new body.
+            --  The new operation is added to the actions of the freeze node
+            --  for the type, but this node has already been analyzed, so we
+            --  must retrieve and analyze explicitly the new body.
 
             if Present (F_Node)
               and then Present (Actions (F_Node))
@@ -1157,14 +1259,10 @@ package body Sem_Disp is
 
          F1 := First_Formal (Proc);
          F2 := First_Formal (Subp);
-
          while Present (F1) and then Present (F2) loop
-
             if Ekind (Etype (F1)) = E_Anonymous_Access_Type then
-
                if Ekind (Etype (F2)) /= E_Anonymous_Access_Type then
                   return False;
-
                elsif Designated_Type (Etype (F1)) = Parent_Typ
                  and then Designated_Type (Etype (F2)) /= Full
                then
@@ -1197,11 +1295,8 @@ package body Sem_Disp is
 
       Op1 := First_Elmt (Old_Prim);
       Op2 := First_Elmt (New_Prim);
-
       while Present (Op1) and then Present (Op2) loop
-
          if Derives_From (Node (Op1)) then
-
             if No (Prev) then
 
                --  Avoid adding it to the list of primitives if already there!
@@ -1239,7 +1334,7 @@ package body Sem_Disp is
          Set_Scope (Subp, Current_Scope);
          Tagged_Type := Find_Dispatching_Type (Subp);
 
-         --  Add Old_Subp to primitive operations if not already present.
+         --  Add Old_Subp to primitive operations if not already present
 
          if Present (Tagged_Type) and then Is_Tagged_Type (Tagged_Type) then
             Append_Unique_Elmt (Old_Subp, Primitive_Operations (Tagged_Type));
@@ -1264,6 +1359,7 @@ package body Sem_Disp is
                then
                   declare
                      Formal : Entity_Id;
+
                   begin
                      Formal := First_Formal (Old_Subp);
                      while Present (Formal) loop
@@ -1290,8 +1386,8 @@ package body Sem_Disp is
             --  Otherwise, update its alias and other attributes.
 
             if Present (Alias (Old_Subp))
-              and then Nkind (Unit_Declaration_Node (Old_Subp))
-                /= N_Subprogram_Renaming_Declaration
+              and then Nkind (Unit_Declaration_Node (Old_Subp)) /=
+                                        N_Subprogram_Renaming_Declaration
             then
                Set_Alias (Old_Subp, Alias (Subp));
 
@@ -1354,24 +1450,22 @@ package body Sem_Disp is
          Typ := Etype (N);
 
          if Is_Access_Type (Typ) then
-            --  In the case of an Access attribute, use the type of
-            --  the prefix, since in the case of an actual for an
-            --  access parameter, the attribute's type may be of a
-            --  specific designated type, even though the prefix
-            --  type is class-wide.
+
+            --  In the case of an Access attribute, use the type of the prefix,
+            --  since in the case of an actual for an access parameter, the
+            --  attribute's type may be of a specific designated type, even
+            --  though the prefix type is class-wide.
 
             if Nkind (N) = N_Attribute_Reference then
                Typ := Etype (Prefix (N));
 
-            --  An allocator is dispatching if the type of qualified
-            --  expression is class_wide, in which case this is the
-            --  controlling type.
+            --  An allocator is dispatching if the type of qualified expression
+            --  is class_wide, in which case this is the controlling type.
 
             elsif Nkind (Orig_Node) = N_Allocator
                and then Nkind (Expression (Orig_Node)) = N_Qualified_Expression
             then
                Typ := Etype (Expression (Orig_Node));
-
             else
                Typ := Designated_Type (Typ);
             end if;
@@ -1453,6 +1547,7 @@ package body Sem_Disp is
          end if;
       end if;
 
+      pragma Assert (not Is_Dispatching_Operation (Subp));
       return Empty;
    end Find_Dispatching_Type;
 
@@ -1668,10 +1763,12 @@ package body Sem_Disp is
          --  even if non-dispatching, and a call from inside calls the
          --  overriding operation because it hides the implicit one. To
          --  indicate that the body of Prev_Op is never called, set its
-         --  dispatch table entity to Empty.
+         --  dispatch table entity to Empty. If the overridden operation
+         --  has a dispatching result, so does the overriding one.
 
          Set_Alias (Prev_Op, New_Op);
          Set_DTC_Entity (Prev_Op, Empty);
+         Set_Has_Controlling_Result (New_Op, Has_Controlling_Result (Prev_Op));
          return;
       end if;
    end Override_Dispatching_Operation;
@@ -1691,9 +1788,9 @@ package body Sem_Disp is
       elsif Nkind (Actual) = N_Identifier
         and then Nkind (Original_Node (Actual)) = N_Function_Call
       then
-         --  Call rewritten as object declaration when stack-checking
-         --  is enabled. Propagate tag to expression in declaration, which
-         --  is original call.
+         --  Call rewritten as object declaration when stack-checking is
+         --  enabled. Propagate tag to expression in declaration, which is
+         --  original call.
 
          Call_Node := Expression (Parent (Entity (Actual)));
 
@@ -1714,8 +1811,8 @@ package body Sem_Disp is
          Call_Node := Expression (Actual);
       end if;
 
-      --  Do not set the Controlling_Argument if already set. This happens
-      --  in the special case of _Input (see Exp_Attr, case Input).
+      --  Do not set the Controlling_Argument if already set. This happens in
+      --  the special case of _Input (see Exp_Attr, case Input).
 
       if No (Controlling_Argument (Call_Node)) then
          Set_Controlling_Argument (Call_Node, Control);
@@ -1732,10 +1829,10 @@ package body Sem_Disp is
       end loop;
 
       --  Expansion of dispatching calls is suppressed when VM_Target, because
-      --  the VM back-ends directly handle the generation of dispatching
-      --  calls and would have to undo any expansion to an indirect call.
+      --  the VM back-ends directly handle the generation of dispatching calls
+      --  and would have to undo any expansion to an indirect call.
 
-      if VM_Target = No_VM then
+      if Tagged_Type_Expansion then
          Expand_Dispatching_Call (Call_Node);
 
       --  Expansion of a dispatching call results in an indirect call, which in

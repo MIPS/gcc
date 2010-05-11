@@ -48,40 +48,28 @@ namespace std
    * @addtogroup exceptions
    * @{
    */
-
-  // Hide the free operators from other types
   namespace __exception_ptr
   {
-    /**
-     * @brief An opaque pointer to an arbitrary exception.
-     */
     class exception_ptr;
   }
 
   using __exception_ptr::exception_ptr;
 
-  /** Obtain an %exception_ptr to the currently handled exception. If there
+  /** Obtain an exception_ptr to the currently handled exception. If there
    *  is none, or the currently handled exception is foreign, return the null
    *  value.
    */
   exception_ptr current_exception() throw();
 
-  /// Throw the object pointed to by the %exception_ptr.
+  /// Throw the object pointed to by the exception_ptr.
   void rethrow_exception(exception_ptr) __attribute__ ((__noreturn__));
-
-  /// Obtain an %exception_ptr pointing to a copy of the supplied object.
-  template<typename _Ex>
-    exception_ptr 
-    copy_exception(_Ex __ex) throw();
 
   namespace __exception_ptr
   {
-    bool 
-    operator==(const exception_ptr&, const exception_ptr&) throw() __attribute__ ((__pure__));
-
-    bool 
-    operator!=(const exception_ptr&, const exception_ptr&) throw() __attribute__ ((__pure__));
-
+    /**
+     *  @brief An opaque pointer to an arbitrary exception.
+     *  @ingroup exceptions
+     */
     class exception_ptr
     {
       void* _M_exception_object;
@@ -121,7 +109,7 @@ namespace std
       exception_ptr& 
       operator=(exception_ptr&& __o) throw()
       {
-        exception_ptr(__o).swap(*this);
+        exception_ptr(static_cast<exception_ptr&&>(__o)).swap(*this);
         return *this;
       }
 #endif
@@ -131,40 +119,44 @@ namespace std
       void 
       swap(exception_ptr&) throw();
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
-      void 
-      swap(exception_ptr &&__o) throw()
-      {
-        void *__tmp = _M_exception_object;
-        _M_exception_object = __o._M_exception_object;
-        __o._M_exception_object = __tmp;
-      }
-#endif
-
+#ifdef _GLIBCXX_EH_PTR_COMPAT
+      // Retained for compatibility with CXXABI_1.3.
       bool operator!() const throw() __attribute__ ((__pure__));
       operator __safe_bool() const throw();
+#endif
 
       friend bool 
-      operator==(const exception_ptr&, const exception_ptr&) throw() __attribute__ ((__pure__));
+      operator==(const exception_ptr&, const exception_ptr&) throw() 
+      __attribute__ ((__pure__));
 
       const type_info*
       __cxa_exception_type() const throw() __attribute__ ((__pure__));
     };
 
+    bool 
+    operator==(const exception_ptr&, const exception_ptr&) throw() 
+    __attribute__ ((__pure__));
+
+    bool 
+    operator!=(const exception_ptr&, const exception_ptr&) throw() 
+    __attribute__ ((__pure__));
   } // namespace __exception_ptr
 
 
+  /// Obtain an exception_ptr pointing to a copy of the supplied object.
   template<typename _Ex>
     exception_ptr 
     copy_exception(_Ex __ex) throw()
     {
       __try
 	{
+#ifdef __EXCEPTIONS
 	  throw __ex;
+#endif
 	}
       __catch(...)
 	{
-	  return current_exception ();
+	  return current_exception();
 	}
     }
 

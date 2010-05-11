@@ -1,5 +1,5 @@
 /* Array things
-   Copyright (C) 2000, 2001, 2002, 2004, 2005, 2006, 2007, 2008
+   Copyright (C) 2000, 2001, 2002, 2004, 2005, 2006, 2007, 2008, 2009, 2010
    Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
@@ -607,7 +607,8 @@ gfc_append_constructor (gfc_expr *base, gfc_expr *new_expr)
 
   c->expr = new_expr;
 
-  if (new_expr->ts.type != base->ts.type || new_expr->ts.kind != base->ts.kind)
+  if (new_expr
+      && (new_expr->ts.type != base->ts.type || new_expr->ts.kind != base->ts.kind))
     gfc_internal_error ("gfc_append_constructor(): New node has wrong kind");
 }
 
@@ -906,7 +907,7 @@ gfc_match_array_constructor (gfc_expr **result)
   seen_ts = false;
 
   /* Try to match an optional "type-spec ::"  */
-  if (gfc_match_type_spec (&ts, 0) == MATCH_YES)
+  if (gfc_match_decl_type_spec (&ts, 0) == MATCH_YES)
     {
       seen_ts = (gfc_match (" ::") == MATCH_YES);
 
@@ -967,8 +968,8 @@ done:
   else
     expr->ts.type = BT_UNKNOWN;
   
-  if (expr->ts.cl)
-    expr->ts.cl->length_from_typespec = seen_ts;
+  if (expr->ts.u.cl)
+    expr->ts.u.cl->length_from_typespec = seen_ts;
 
   expr->where = where;
   expr->rank = 1;
@@ -1236,7 +1237,6 @@ count_elements (gfc_expr *e)
 static gfc_try
 extract_element (gfc_expr *e)
 {
-
   if (e->rank != 0)
     {				/* Something unextractable */
       gfc_free_expr (e);
@@ -1249,6 +1249,7 @@ extract_element (gfc_expr *e)
     gfc_free_expr (e);
 
   current_expand.extract_count++;
+  
   return SUCCESS;
 }
 
@@ -1494,7 +1495,7 @@ done:
    FAILURE if not so.  */
 
 static gfc_try
-constant_element (gfc_expr *e)
+is_constant_element (gfc_expr *e)
 {
   int rv;
 
@@ -1516,14 +1517,37 @@ gfc_constant_ac (gfc_expr *e)
 {
   expand_info expand_save;
   gfc_try rc;
+  gfc_constructor * con;
+  
+  rc = SUCCESS;
 
-  iter_stack = NULL;
-  expand_save = current_expand;
-  current_expand.expand_work_function = constant_element;
+  if (e->value.constructor
+      && e->value.constructor->expr->expr_type == EXPR_ARRAY)
+    {
+      /* Expand the constructor.  */
+      iter_stack = NULL;
+      expand_save = current_expand;
+      current_expand.expand_work_function = is_constant_element;
 
-  rc = expand_constructor (e->value.constructor);
+      rc = expand_constructor (e->value.constructor);
 
-  current_expand = expand_save;
+      current_expand = expand_save;
+    }
+  else
+    {
+      /* No need to expand this further.  */
+      for (con = e->value.constructor; con; con = con->next)
+	{
+	  if (con->expr->expr_type == EXPR_CONSTANT)
+	    continue;
+	  else
+	    {
+	      if (!gfc_is_constant_expr (con->expr))
+		rc = FAILURE;
+	    }
+	}
+    }
+
   if (rc == FAILURE)
     return 0;
 
@@ -1587,27 +1611,25 @@ gfc_resolve_character_array_constructor (gfc_expr *expr)
   gcc_assert (expr->expr_type == EXPR_ARRAY);
   gcc_assert (expr->ts.type == BT_CHARACTER);
 
-  if (expr->ts.cl == NULL)
+  if (expr->ts.u.cl == NULL)
     {
       for (p = expr->value.constructor; p; p = p->next)
-	if (p->expr->ts.cl != NULL)
+	if (p->expr->ts.u.cl != NULL)
 	  {
 	    /* Ensure that if there is a char_len around that it is
 	       used; otherwise the middle-end confuses them!  */
-	    expr->ts.cl = p->expr->ts.cl;
+	    expr->ts.u.cl = p->expr->ts.u.cl;
 	    goto got_charlen;
 	  }
 
-      expr->ts.cl = gfc_get_charlen ();
-      expr->ts.cl->next = gfc_current_ns->cl_list;
-      gfc_current_ns->cl_list = expr->ts.cl;
+      expr->ts.u.cl = gfc_new_charlen (gfc_current_ns, NULL);
     }
 
 got_charlen:
 
   found_length = -1;
 
-  if (expr->ts.cl->length == NULL)
+  if (expr->ts.u.cl->length == NULL)
     {
       /* Check that all constant string elements have the same length until
 	 we reach the end or find a variable-length one.  */
@@ -1631,11 +1653,11 @@ got_charlen:
 		- mpz_get_ui (ref->u.ss.start->value.integer) + 1;
 	      current_length = (int) j;
 	    }
-	  else if (p->expr->ts.cl && p->expr->ts.cl->length
-		   && p->expr->ts.cl->length->expr_type == EXPR_CONSTANT)
+	  else if (p->expr->ts.u.cl && p->expr->ts.u.cl->length
+		   && p->expr->ts.u.cl->length->expr_type == EXPR_CONSTANT)
 	    {
 	      long j;
-	      j = mpz_get_si (p->expr->ts.cl->length->value.integer);
+	      j = mpz_get_si (p->expr->ts.u.cl->length->value.integer);
 	      current_length = (int) j;
 	    }
 	  else
@@ -1659,18 +1681,18 @@ got_charlen:
       gcc_assert (found_length != -1);
 
       /* Update the character length of the array constructor.  */
-      expr->ts.cl->length = gfc_int_expr (found_length);
+      expr->ts.u.cl->length = gfc_int_expr (found_length);
     }
   else 
     {
       /* We've got a character length specified.  It should be an integer,
 	 otherwise an error is signalled elsewhere.  */
-      gcc_assert (expr->ts.cl->length);
+      gcc_assert (expr->ts.u.cl->length);
 
       /* If we've got a constant character length, pad according to this.
 	 gfc_extract_int does check for BT_INTEGER and EXPR_CONSTANT and sets
 	 max_length only if they pass.  */
-      gfc_extract_int (expr->ts.cl->length, &found_length);
+      gfc_extract_int (expr->ts.u.cl->length, &found_length);
 
       /* Now pad/truncate the elements accordingly to the specified character
 	 length.  This is ok inside this conditional, as in the case above
@@ -1684,16 +1706,16 @@ got_charlen:
 	      int current_length = -1;
 	      bool has_ts;
 
-	      if (p->expr->ts.cl && p->expr->ts.cl->length)
+	      if (p->expr->ts.u.cl && p->expr->ts.u.cl->length)
 	      {
-		cl = p->expr->ts.cl->length;
+		cl = p->expr->ts.u.cl->length;
 		gfc_extract_int (cl, &current_length);
 	      }
 
 	      /* If gfc_extract_int above set current_length, we implicitly
 		 know the type is BT_INTEGER and it's EXPR_CONSTANT.  */
 
-	      has_ts = (expr->ts.cl && expr->ts.cl->length_from_typespec);
+	      has_ts = (expr->ts.u.cl && expr->ts.u.cl->length_from_typespec);
 
 	      if (! cl
 		  || (current_length != -1 && current_length < found_length))
@@ -2030,7 +2052,15 @@ gfc_array_dimen_size (gfc_expr *array, int dimen, mpz_t *result)
 	  return SUCCESS;
 	}
 
-      if (spec_dimen_size (array->symtree->n.sym->as, dimen, result) == FAILURE)
+      if (array->symtree->n.sym->attr.generic
+	  && array->value.function.esym != NULL)
+	{
+	  if (spec_dimen_size (array->value.function.esym->as, dimen, result)
+	      == FAILURE)
+	    return FAILURE;
+	}
+      else if (spec_dimen_size (array->symtree->n.sym->as, dimen, result)
+	       == FAILURE)
 	return FAILURE;
 
       break;

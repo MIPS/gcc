@@ -25,7 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 
 /* If plugin support is not enabled, do not try to execute any code
    that may reference libdl.  The generic code is still compiled in to
-   avoid including to many conditional compilation paths in the rest
+   avoid including too many conditional compilation paths in the rest
    of the compiler.  */
 #ifdef ENABLE_PLUGIN
 #include <dlfcn.h>
@@ -38,31 +38,36 @@ along with GCC; see the file COPYING3.  If not see
 #include "intl.h"
 #include "plugin.h"
 #include "timevar.h"
+#include "ggc.h"
+
+#ifdef ENABLE_PLUGIN
+#include "plugin-version.h"
+#endif
+
+#define GCC_PLUGIN_STRINGIFY0(X) #X
+#define GCC_PLUGIN_STRINGIFY1(X) GCC_PLUGIN_STRINGIFY0 (X)
 
 /* Event names as strings.  Keep in sync with enum plugin_event.  */
-const char *plugin_event_name[] =
+static const char *plugin_event_name_init[] =
 {
-  "PLUGIN_PASS_MANAGER_SETUP",
-  "PLUGIN_FINISH_TYPE",
-  "PLUGIN_FINISH_UNIT",
-  "PLUGIN_CXX_CP_PRE_GENERICIZE",
-  "PLUGIN_FINISH",
-  "PLUGIN_INFO",
-  "PLUGIN_EVENT_LAST"
+# define DEFEVENT(NAME) GCC_PLUGIN_STRINGIFY1 (NAME),
+# include "plugin.def"
+# undef DEFEVENT
 };
 
-/* Object that keeps track of the plugin name and its arguments
-   when parsing the command-line options -fplugin=/path/to/NAME.so and
-   -fplugin-arg-NAME-<key>[=<value>].  */
-struct plugin_name_args
-{
-  char *base_name;
-  const char *full_name;
-  int argc;
-  struct plugin_argument *argv;
-  const char *version;
-  const char *help;
-};
+/* A printf format large enough for the largest event above.  */
+#define FMT_FOR_PLUGIN_EVENT "%-32s"
+
+const char **plugin_event_name = plugin_event_name_init;
+
+/* A hash table to map event names to the position of the names in the
+   plugin_event_name table.  */
+static htab_t event_tab;
+
+/* Keep track of the limit of allocated events and space ready for
+   allocating events.  */
+static int event_last = PLUGIN_EVENT_FIRST_DYNAMIC;
+static int event_horizon = PLUGIN_EVENT_FIRST_DYNAMIC;
 
 /* Hash table for the plugin_name_args objects created during command-line
    parsing.  */
@@ -78,28 +83,18 @@ struct callback_info
 };
 
 /* An array of lists of 'callback_info' objects indexed by the event id.  */
-static struct callback_info *plugin_callbacks[PLUGIN_EVENT_LAST] = { NULL };
+static struct callback_info *plugin_callbacks_init[PLUGIN_EVENT_FIRST_DYNAMIC];
+static struct callback_info **plugin_callbacks = plugin_callbacks_init;
 
-/* List node for an inserted pass instance. We need to keep track of all
-   the newly-added pass instances (with 'added_pass_nodes' defined below)
-   so that we can register their dump files after pass-positioning is finished.
-   Registering dumping files needs to be post-processed or the
-   static_pass_number of the opt_pass object would be modified and mess up
-   the dump file names of future pass instances to be added.  */
-struct pass_list_node
-{
-  struct opt_pass *pass;
-  struct pass_list_node *next;
-};
-
-static struct pass_list_node *added_pass_nodes = NULL;
-static struct pass_list_node *prev_added_pass_node;
 
 #ifdef ENABLE_PLUGIN
 /* Each plugin should define an initialization function with exactly
    this name.  */
 static const char *str_plugin_init_func_name = "plugin_init";
-static const char *str_plugin_gcc_version_name = "plugin_gcc_version";
+
+/* Each plugin should define this symbol to assert that it is
+   distributed under a GPL-compatible license.  */
+static const char *str_license = "plugin_is_GPL_compatible";
 #endif
 
 /* Helper function for the hash table that compares the base_name of the
@@ -140,7 +135,7 @@ add_new_plugin (const char* plugin_name)
   void **slot;
   char *base_name = get_plugin_base_name (plugin_name);
 
-  /* If this is the first -fplugin= option we encounter, create 
+  /* If this is the first -fplugin= option we encounter, create
      'plugin_name_args_tab' hash table.  */
   if (!plugin_name_args_tab)
     plugin_name_args_tab = htab_create (10, htab_hash_string, htab_str_eq,
@@ -286,174 +281,6 @@ parse_plugin_arg_opt (const char *arg)
   XDELETEVEC (name);
 }
 
-
-/* Insert the plugin pass at the proper position. Return true if the pass 
-   is successfully added.
-
-   PLUGIN_PASS_INFO - new pass to be inserted
-   PASS_LIST        - root of the pass list to insert the new pass to  */
-
-static bool
-position_pass (struct plugin_pass *plugin_pass_info,
-               struct opt_pass **pass_list)
-{
-  struct opt_pass *pass = *pass_list, *prev_pass = NULL;
-  bool success = false;
-
-  for ( ; pass; prev_pass = pass, pass = pass->next)
-    {
-      /* Check if the current pass is of the same type as the new pass and
-         matches the name and the instance number of the reference pass.  */
-      if (pass->type == plugin_pass_info->pass->type
-          && pass->name
-          && !strcmp (pass->name, plugin_pass_info->reference_pass_name)
-          && ((plugin_pass_info->ref_pass_instance_number == 0)
-              || (plugin_pass_info->ref_pass_instance_number ==
-                  pass->static_pass_number)
-              || (plugin_pass_info->ref_pass_instance_number == 1
-                  && pass->todo_flags_start & TODO_mark_first_instance)))
-        {
-          struct opt_pass *new_pass = plugin_pass_info->pass;
-          struct pass_list_node *new_pass_node;
-
-          /* The following code (if-statement) is adopted from next_pass_1.  */
-          if (new_pass->static_pass_number)
-            {
-              new_pass = XNEW (struct opt_pass);
-              memcpy (new_pass, plugin_pass_info->pass, sizeof (*new_pass));
-              new_pass->next = NULL;
-
-              new_pass->todo_flags_start &= ~TODO_mark_first_instance;
-
-              plugin_pass_info->pass->static_pass_number -= 1;
-              new_pass->static_pass_number =
-                  -plugin_pass_info->pass->static_pass_number;
-            }
-          else
-            {
-              new_pass->todo_flags_start |= TODO_mark_first_instance;
-              new_pass->static_pass_number = -1;
-            }
-
-          /* Insert the new pass instance based on the positioning op.  */
-          switch (plugin_pass_info->pos_op)
-            {
-              case PASS_POS_INSERT_AFTER:
-                new_pass->next = pass->next;
-                pass->next = new_pass;
-                break;
-              case PASS_POS_INSERT_BEFORE:
-                new_pass->next = pass;
-                if (prev_pass)
-                  prev_pass->next = new_pass;
-                else
-                  *pass_list = new_pass;
-                break;
-              case PASS_POS_REPLACE:
-                new_pass->next = pass->next;
-                if (prev_pass)
-                  prev_pass->next = new_pass;
-                else
-                  *pass_list = new_pass;
-                new_pass->sub = pass->sub;
-                new_pass->tv_id = pass->tv_id;
-                pass = new_pass;
-                break;
-              default:
-                error ("Invalid pass positioning operation");
-                return false;
-            }
-
-          /* Save the newly added pass (instance) in the added_pass_nodes
-             list so that we can register its dump file later. Note that
-             we cannot register the dump file now because doing so will modify
-             the static_pass_number of the opt_pass object and therefore
-             mess up the dump file name of future instances.  */
-          new_pass_node = XCNEW (struct pass_list_node);
-          new_pass_node->pass = new_pass;
-          if (!added_pass_nodes)
-            added_pass_nodes = new_pass_node;
-          else
-            prev_added_pass_node->next = new_pass_node;
-          prev_added_pass_node = new_pass_node;
-
-          success = true;
-        }
-
-      if (pass->sub && position_pass (plugin_pass_info, &pass->sub))
-        success = true;
-    }
-
-  return success;
-}
-
-
-/* Hook into the pass lists (trees) a new pass registered by a plugin.
-
-   PLUGIN_NAME - display name for the plugin
-   PASS_INFO   - plugin pass information that specifies the opt_pass object,
-                 reference pass, instance number, and how to position
-                 the pass  */
-
-static void
-register_pass (const char *plugin_name, struct plugin_pass *pass_info)
-{
-  if (!pass_info->pass)
-    {
-      error ("No pass specified when registering a new pass in plugin %s",
-             plugin_name);
-      return;
-    }
-
-  if (!pass_info->reference_pass_name)
-    {
-      error ("No reference pass specified for positioning the pass "
-             " from plugin %s", plugin_name);
-      return;
-    }
-
-  /* Try to insert the new pass to the pass lists. We need to check all
-     three lists as the reference pass could be in one (or all) of them.  */
-  if (!position_pass (pass_info, &all_lowering_passes)
-      && !position_pass (pass_info, &all_ipa_passes)
-      && !position_pass (pass_info, &all_passes))
-    error ("Failed to position pass %s registered by plugin %s. "
-           "Cannot find the (specified instance of) reference pass %s",
-           pass_info->pass->name, plugin_name, pass_info->reference_pass_name);
-  else
-    {
-      /* OK, we have successfully inserted the new pass. We need to register
-         the dump files for the newly added pass and its duplicates (if any).
-         Because the registration of plugin passes happens after the
-         command-line options are parsed, the options that specify single
-         pass dumping (e.g. -fdump-tree-PASSNAME) cannot be used for new
-         plugin passes. Therefore we currently can only enable dumping of
-         new plugin passes when the 'dump-all' flags (e.g. -fdump-tree-all)
-         are specified. While doing so, we also delete the pass_list_node
-         objects created during pass positioning.  */
-      while (added_pass_nodes)
-        {
-          struct pass_list_node *next_node = added_pass_nodes->next;
-          enum tree_dump_index tdi;
-          register_one_dump_file (added_pass_nodes->pass);
-          if (added_pass_nodes->pass->type == SIMPLE_IPA_PASS
-              || added_pass_nodes->pass->type == IPA_PASS)
-            tdi = TDI_ipa_all;
-          else if (added_pass_nodes->pass->type == GIMPLE_PASS)
-            tdi = TDI_tree_all;
-          else
-            tdi = TDI_rtl_all;
-          /* Check if dump-all flag is specified.  */
-          if (get_dump_file_info (tdi)->state)
-            get_dump_file_info (added_pass_nodes->pass->static_pass_number)
-                ->state = get_dump_file_info (tdi)->state;
-          XDELETE (added_pass_nodes);
-          added_pass_nodes = next_node;
-        }
-    }
-}
-
-
 /* Register additional plugin information. NAME is the name passed to
    plugin_init. INFO is the information that should be registered. */
 
@@ -466,6 +293,71 @@ register_plugin_info (const char* name, struct plugin_info *info)
   plugin->help = info->help;
 }
 
+/* Helper function for the event hash table that compares the name of an
+   existing entry (E1) with the given string (S2).  */
+
+static int
+htab_event_eq (const void *e1, const void *s2)
+{
+  const char *s1= *(const char * const *) e1;
+  return !strcmp (s1, (const char *) s2);
+}
+
+/* Look up the event id for NAME.  If the name is not found, return -1
+   if INSERT is NO_INSERT.  */
+
+int
+get_named_event_id (const char *name, enum insert_option insert)
+{
+  void **slot;
+
+  if (!event_tab)
+    {
+      int i;
+
+      event_tab = htab_create (150, htab_hash_string, htab_event_eq, NULL);
+      for (i = 0; i < event_last; i++)
+	{
+	  slot = htab_find_slot (event_tab, plugin_event_name[i], INSERT);
+	  gcc_assert (*slot == HTAB_EMPTY_ENTRY);
+	  *slot = &plugin_event_name[i];
+	}
+    }
+  slot = htab_find_slot (event_tab, name, insert);
+  if (slot == NULL)
+    return -1;
+  if (*slot != HTAB_EMPTY_ENTRY)
+    return (const char **) *slot - &plugin_event_name[0];
+
+  if (event_last >= event_horizon)
+    {
+      event_horizon = event_last * 2;
+      if (plugin_event_name == plugin_event_name_init)
+	{
+	  plugin_event_name = XNEWVEC (const char *, event_horizon);
+	  memcpy (plugin_event_name, plugin_event_name_init,
+		  sizeof plugin_event_name_init);
+	  plugin_callbacks = XNEWVEC (struct callback_info *, event_horizon);
+	  memcpy (plugin_callbacks, plugin_callbacks_init,
+		  sizeof plugin_callbacks_init);
+	}
+      else
+	{
+	  plugin_event_name
+	    = XRESIZEVEC (const char *, plugin_event_name, event_horizon);
+	  plugin_callbacks = XRESIZEVEC (struct callback_info *,
+					 plugin_callbacks, event_horizon);
+	}
+      /* All the pointers in the hash table will need to be updated.  */
+      htab_delete (event_tab);
+      event_tab = NULL;
+    }
+  else
+    *slot = &plugin_event_name[event_last];
+  plugin_event_name[event_last] = name;
+  return event_last++;
+}
+
 /* Called from the plugin's initialization code. Register a single callback.
    This function can be called multiple times.
 
@@ -476,22 +368,56 @@ register_plugin_info (const char* name, struct plugin_info *info)
 
 void
 register_callback (const char *plugin_name,
-                   enum plugin_event event,
+		   int event,
                    plugin_callback_func callback,
                    void *user_data)
 {
   switch (event)
     {
       case PLUGIN_PASS_MANAGER_SETUP:
-        register_pass (plugin_name, (struct plugin_pass *) user_data);
+	gcc_assert (!callback);
+        register_pass ((struct register_pass_info *) user_data);
         break;
       case PLUGIN_INFO:
+	gcc_assert (!callback);
 	register_plugin_info (plugin_name, (struct plugin_info *) user_data);
 	break;
+      case PLUGIN_REGISTER_GGC_ROOTS:
+	gcc_assert (!callback);
+        ggc_register_root_tab ((const struct ggc_root_tab*) user_data);
+	break;
+      case PLUGIN_REGISTER_GGC_CACHES:
+	gcc_assert (!callback);
+        ggc_register_cache_tab ((const struct ggc_cache_tab*) user_data);
+	break;
+      case PLUGIN_EVENT_FIRST_DYNAMIC:
+      default:
+	if (event < PLUGIN_EVENT_FIRST_DYNAMIC || event >= event_last)
+	  {
+	    error ("Unknown callback event registered by plugin %s",
+		   plugin_name);
+	    return;
+	  }
+      /* Fall through.  */
       case PLUGIN_FINISH_TYPE:
+      case PLUGIN_START_UNIT:
       case PLUGIN_FINISH_UNIT:
-      case PLUGIN_CXX_CP_PRE_GENERICIZE:
+      case PLUGIN_PRE_GENERICIZE:
+      case PLUGIN_GGC_START:
+      case PLUGIN_GGC_MARKING:
+      case PLUGIN_GGC_END:
+      case PLUGIN_ATTRIBUTES:
+      case PLUGIN_PRAGMAS:
       case PLUGIN_FINISH:
+      case PLUGIN_ALL_PASSES_START:
+      case PLUGIN_ALL_PASSES_END:
+      case PLUGIN_ALL_IPA_PASSES_START:
+      case PLUGIN_ALL_IPA_PASSES_END:
+      case PLUGIN_OVERRIDE_GATE:
+      case PLUGIN_PASS_EXECUTION:
+      case PLUGIN_EARLY_GIMPLE_PASSES_START:
+      case PLUGIN_EARLY_GIMPLE_PASSES_END:
+      case PLUGIN_NEW_PASS:
         {
           struct callback_info *new_callback;
           if (!callback)
@@ -508,47 +434,91 @@ register_callback (const char *plugin_name,
           plugin_callbacks[event] = new_callback;
         }
         break;
-      case PLUGIN_EVENT_LAST:
-      default:
-        error ("Unkown callback event registered by plugin %s",
-               plugin_name);
     }
 }
 
+/* Remove a callback for EVENT which has been registered with for a plugin
+   PLUGIN_NAME.  Return PLUGEVT_SUCCESS if a matching callback was
+   found & removed, PLUGEVT_NO_CALLBACK if the event does not have a matching
+   callback, and PLUGEVT_NO_SUCH_EVENT if EVENT is invalid.  */
+int
+unregister_callback (const char *plugin_name, int event)
+{
+  struct callback_info *callback, **cbp;
+
+  if (event >= event_last)
+    return PLUGEVT_NO_SUCH_EVENT;
+
+  for (cbp = &plugin_callbacks[event]; (callback = *cbp); cbp = &callback->next)
+    if (strcmp (callback->plugin_name, plugin_name) == 0)
+      {
+	*cbp = callback->next;
+	return PLUGEVT_SUCCESS;
+      }
+  return PLUGEVT_NO_CALLBACK;
+}
 
 /* Called from inside GCC.  Invoke all plug-in callbacks registered with
    the specified event.
+   Return PLUGEVT_SUCCESS if at least one callback was called,
+   PLUGEVT_NO_CALLBACK if there was no callback.
 
    EVENT    - the event identifier
    GCC_DATA - event-specific data provided by the compiler  */
 
-void
-invoke_plugin_callbacks (enum plugin_event event, void *gcc_data)
+int
+invoke_plugin_callbacks (int event, void *gcc_data)
 {
+  int retval = PLUGEVT_SUCCESS;
+
   timevar_push (TV_PLUGIN_RUN);
 
   switch (event)
     {
+      case PLUGIN_EVENT_FIRST_DYNAMIC:
+      default:
+	gcc_assert (event >= PLUGIN_EVENT_FIRST_DYNAMIC);
+	gcc_assert (event < event_last);
+      /* Fall through.  */
       case PLUGIN_FINISH_TYPE:
+      case PLUGIN_START_UNIT:
       case PLUGIN_FINISH_UNIT:
-      case PLUGIN_CXX_CP_PRE_GENERICIZE:
+      case PLUGIN_PRE_GENERICIZE:
+      case PLUGIN_ATTRIBUTES:
+      case PLUGIN_PRAGMAS:
       case PLUGIN_FINISH:
+      case PLUGIN_GGC_START:
+      case PLUGIN_GGC_MARKING:
+      case PLUGIN_GGC_END:
+      case PLUGIN_ALL_PASSES_START:
+      case PLUGIN_ALL_PASSES_END:
+      case PLUGIN_ALL_IPA_PASSES_START:
+      case PLUGIN_ALL_IPA_PASSES_END:
+      case PLUGIN_OVERRIDE_GATE:
+      case PLUGIN_PASS_EXECUTION:
+      case PLUGIN_EARLY_GIMPLE_PASSES_START:
+      case PLUGIN_EARLY_GIMPLE_PASSES_END:
+      case PLUGIN_NEW_PASS:
         {
           /* Iterate over every callback registered with this event and
              call it.  */
           struct callback_info *callback = plugin_callbacks[event];
+
+	  if (!callback)
+	    retval = PLUGEVT_NO_CALLBACK;
           for ( ; callback; callback = callback->next)
             (*callback->func) (gcc_data, callback->user_data);
         }
         break;
 
       case PLUGIN_PASS_MANAGER_SETUP:
-      case PLUGIN_EVENT_LAST:
-      default:
+      case PLUGIN_REGISTER_GGC_ROOTS:
+      case PLUGIN_REGISTER_GGC_CACHES:
         gcc_assert (false);
     }
 
   timevar_pop (TV_PLUGIN_RUN);
+  return retval;
 }
 
 #ifdef ENABLE_PLUGIN
@@ -567,12 +537,14 @@ try_init_one_plugin (struct plugin_name_args *plugin)
 {
   void *dl_handle;
   plugin_init_func plugin_init;
-  struct plugin_gcc_version *version;
-  char *err;
+  const char *err;
   PTR_UNION_TYPE (plugin_init_func) plugin_init_union;
-  PTR_UNION_TYPE (struct plugin_gcc_version*) version_union;
 
-  dl_handle = dlopen (plugin->full_name, RTLD_NOW);
+  /* We use RTLD_NOW to accelerate binding and detect any mismatch
+     between the API expected by the plugin and the GCC API; we use
+     RTLD_GLOBAL which is useful to plugins which themselves call
+     dlopen.  */
+  dl_handle = dlopen (plugin->full_name, RTLD_NOW | RTLD_GLOBAL);
   if (!dl_handle)
     {
       error ("Cannot load plugin %s\n%s", plugin->full_name, dlerror ());
@@ -581,6 +553,11 @@ try_init_one_plugin (struct plugin_name_args *plugin)
 
   /* Clear any existing error.  */
   dlerror ();
+
+  /* Check the plugin license.  */
+  if (dlsym (dl_handle, str_license) == NULL)
+    fatal_error ("plugin %s is not licensed under a GPL-compatible license\n"
+		 "%s", plugin->full_name, dlerror ());
 
   PTR_UNION_AS_VOID_PTR (plugin_init_union) =
       dlsym (dl_handle, str_plugin_init_func_name);
@@ -593,12 +570,8 @@ try_init_one_plugin (struct plugin_name_args *plugin)
       return false;
     }
 
-  PTR_UNION_AS_VOID_PTR (version_union) =
-      dlsym (dl_handle, str_plugin_gcc_version_name);
-  version = PTR_UNION_AS_CAST_PTR (version_union);
-
   /* Call the plugin-provided initialization routine with the arguments.  */
-  if ((*plugin_init) (plugin->base_name, version, plugin->argc, plugin->argv))
+  if ((*plugin_init) (plugin, &gcc_version))
     {
       error ("Fail to initialize plugin %s", plugin->full_name);
       return false;
@@ -642,7 +615,7 @@ initialize_plugins (void)
     return;
 
   timevar_push (TV_PLUGIN_INIT);
- 
+
 #ifdef ENABLE_PLUGIN
   /* Traverse and initialize each plugin specified in the command-line.  */
   htab_traverse_noresize (plugin_name_args_tab, init_one_plugin, NULL);
@@ -768,9 +741,9 @@ print_plugins_help (FILE *file, const char *indent)
 bool
 plugins_active_p (void)
 {
-  enum plugin_event event;
+  int event;
 
-  for (event = PLUGIN_PASS_MANAGER_SETUP; event < PLUGIN_EVENT_LAST; event++)
+  for (event = PLUGIN_PASS_MANAGER_SETUP; event < event_last; event++)
     if (plugin_callbacks[event])
       return true;
 
@@ -784,23 +757,23 @@ plugins_active_p (void)
 void
 dump_active_plugins (FILE *file)
 {
-  enum plugin_event event;
+  int event;
 
   if (!plugins_active_p ())
     return;
 
-  fprintf (stderr, "Event\t\t\tPlugins\n");
-  for (event = PLUGIN_PASS_MANAGER_SETUP; event < PLUGIN_EVENT_LAST; event++)
+  fprintf (file, FMT_FOR_PLUGIN_EVENT " | %s\n", _("Event"), _("Plugins"));
+  for (event = PLUGIN_PASS_MANAGER_SETUP; event < event_last; event++)
     if (plugin_callbacks[event])
       {
 	struct callback_info *ci;
 
-	fprintf (file, "%s\t", plugin_event_name[event]);
+	fprintf (file, FMT_FOR_PLUGIN_EVENT " |", plugin_event_name[event]);
 
 	for (ci = plugin_callbacks[event]; ci; ci = ci->next)
-	  fprintf (file, "%s ", ci->plugin_name);
+	  fprintf (file, " %s", ci->plugin_name);
 
-	fprintf (file, "\n");
+	putc('\n', file);
       }
 }
 
@@ -816,22 +789,32 @@ debug_active_plugins (void)
 /* The default version check. Compares every field in VERSION. */
 
 bool
-plugin_default_version_check(struct plugin_gcc_version *version)
+plugin_default_version_check (struct plugin_gcc_version *gcc_version,
+			      struct plugin_gcc_version *plugin_version)
 {
-  /* version is NULL if the plugin was not linked with plugin-version.o */
-  if (!version)
+  if (!gcc_version || !plugin_version)
     return false;
 
-  if (strcmp (version->basever, plugin_gcc_version.basever))
+  if (strcmp (gcc_version->basever, plugin_version->basever))
     return false;
-  if (strcmp (version->datestamp, plugin_gcc_version.datestamp))
+  if (strcmp (gcc_version->datestamp, plugin_version->datestamp))
     return false;
-  if (strcmp (version->devphase, plugin_gcc_version.devphase))
+  if (strcmp (gcc_version->devphase, plugin_version->devphase))
     return false;
-  if (strcmp (version->revision, plugin_gcc_version.revision))
+  if (strcmp (gcc_version->revision, plugin_version->revision))
     return false;
-  if (strcmp (version->configuration_arguments,
-	      plugin_gcc_version.configuration_arguments))
+  if (strcmp (gcc_version->configuration_arguments,
+	      plugin_version->configuration_arguments))
     return false;
   return true;
+}
+
+/* Return the current value of event_last, so that plugins which provide
+   additional functionality for events for the benefit of high-level plugins
+   know how many valid entries plugin_event_name holds.  */
+
+int
+get_event_last (void)
+{
+  return event_last;
 }

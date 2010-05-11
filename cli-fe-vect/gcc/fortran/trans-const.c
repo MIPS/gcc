@@ -307,9 +307,9 @@ gfc_conv_constant_to_tree (gfc_expr * expr)
 						    expr->representation.string));
       else
 	{
-	  tree real = gfc_conv_mpfr_to_tree (expr->value.complex.r,
+	  tree real = gfc_conv_mpfr_to_tree (mpc_realref (expr->value.complex),
 					  expr->ts.kind, expr->is_snan);
-	  tree imag = gfc_conv_mpfr_to_tree (expr->value.complex.i,
+	  tree imag = gfc_conv_mpfr_to_tree (mpc_imagref (expr->value.complex),
 					  expr->ts.kind, expr->is_snan);
 
 	  return build_complex (gfc_typenode_for_spec (&expr->ts),
@@ -340,10 +340,10 @@ void
 gfc_conv_constant (gfc_se * se, gfc_expr * expr)
 {
   /* We may be receiving an expression for C_NULL_PTR or C_NULL_FUNPTR.  If
-     so, they expr_type will not yet be an EXPR_CONSTANT.  We need to make
+     so, the expr_type will not yet be an EXPR_CONSTANT.  We need to make
      it so here.  */
-  if (expr->ts.type == BT_DERIVED && expr->ts.derived
-      && expr->ts.derived->attr.is_iso_c)
+  if (expr->ts.type == BT_DERIVED && expr->ts.u.derived
+      && expr->ts.u.derived->attr.is_iso_c)
     {
       if (expr->symtree->n.sym->intmod_sym_id == ISOCBINDING_NULL_PTR 
           || expr->symtree->n.sym->intmod_sym_id == ISOCBINDING_NULL_FUNPTR)
@@ -353,7 +353,12 @@ gfc_conv_constant (gfc_se * se, gfc_expr * expr)
         }
     }
 
-  gcc_assert (expr->expr_type == EXPR_CONSTANT);
+  if (expr->expr_type != EXPR_CONSTANT)
+    {
+      gfc_error ("non-constant initialization expression at %L", &expr->where);
+      se->expr = gfc_conv_constant_to_tree (gfc_int_expr (0));
+      return;
+    }
 
   if (se->ss != NULL)
     {

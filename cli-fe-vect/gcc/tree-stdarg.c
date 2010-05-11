@@ -496,6 +496,9 @@ check_all_va_list_escapes (struct stdarg_info *si)
 	  tree use;
 	  ssa_op_iter iter;
 
+	  if (is_gimple_debug (stmt))
+	    continue;
+
 	  FOR_EACH_SSA_TREE_OPERAND (use, stmt, iter, SSA_OP_ALL_USES)
 	    {
 	      if (! bitmap_bit_p (si->va_list_escape_vars,
@@ -837,6 +840,8 @@ execute_optimize_stdarg (void)
 		    continue;
 		}
 	    }
+	  else if (is_gimple_debug (stmt))
+	    continue;
 
 	  /* All other uses of va_list are either va_copy (that is not handled
 	     in this optimization), taking address of va_list variable or
@@ -906,7 +911,7 @@ struct gimple_opt_pass pass_stdarg =
   NULL,					/* next */
   0,					/* static_pass_number */
   TV_NONE,				/* tv_id */
-  PROP_cfg | PROP_ssa | PROP_alias,	/* properties_required */
+  PROP_cfg | PROP_ssa,			/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */

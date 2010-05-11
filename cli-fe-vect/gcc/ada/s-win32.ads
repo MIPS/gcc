@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---            Copyright (C) 2009, Free Software Foundation, Inc.            --
+--         Copyright (C) 2008-2009, Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -52,9 +52,10 @@ package System.Win32 is
 
    subtype PVOID is Address;
 
-   type HANDLE is new Interfaces.C.long;
+   type HANDLE is new Interfaces.C.ptrdiff_t;
 
    INVALID_HANDLE_VALUE : constant HANDLE := -1;
+   INVALID_FILE_SIZE    : constant := 16#FFFFFFFF#;
 
    type DWORD  is new Interfaces.C.unsigned_long;
    type WORD   is new Interfaces.C.unsigned_short;
@@ -83,6 +84,7 @@ package System.Win32 is
    -----------
 
    CP_UTF8                            : constant := 65001;
+   CP_ACP                             : constant := 0;
 
    GENERIC_READ                       : constant := 16#80000000#;
    GENERIC_WRITE                      : constant := 16#40000000#;
@@ -238,7 +240,7 @@ package System.Win32 is
       lpMultiByteStr : System.Address;
       cchMultiByte   : WORD;
       lpWideCharStr  : System.Address;
-      cchWideChar    : WORD) return BOOL;
+      cchWideChar    : WORD) return WORD;
    pragma Import (Stdcall, MultiByteToWideChar, "MultiByteToWideChar");
 
    ------------------------

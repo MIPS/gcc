@@ -396,7 +396,7 @@ package body Lib.Load is
                begin
                   while Nkind (Par) = N_Selected_Component
                     and then Chars (Selector_Name (Par)) /=
-                      Chars (Cunit_Entity (Unump))
+                             Chars (Cunit_Entity (Unump))
                   loop
                      Par := Prefix (Par);
                   end loop;
@@ -694,6 +694,9 @@ package body Lib.Load is
             --  Remove load stack entry and return the entry in the file table
 
             Load_Stack.Decrement_Last;
+
+            --  All done, return unit number
+
             return Unum;
 
          --  Case of file not found
@@ -724,7 +727,7 @@ package body Lib.Load is
                   Check_Restricted_Unit (Load_Name, Error_Node);
 
                   Error_Msg_Unit_1 := Uname_Actual;
-                  Error_Msg
+                  Error_Msg -- CODEFIX
                     ("$$ is not a predefined library unit", Load_Msg_Sloc);
 
                else
@@ -812,16 +815,7 @@ package body Lib.Load is
          --  units table when first loaded as a declaration.
 
          Units.Table (Units.Last) := Units.Table (Get_Cunit_Unit_Number (N));
-
-         --  The correct Cunit is the spec -- Library_Unit (N). But that causes
-         --  gnatmake to fail in certain cases, so this is under control of
-         --  Inspector_Mode for now. ???
-
-         if Inspector_Mode then
-            Units.Table (Units.Last).Cunit := Library_Unit (N);
-         else
-            Units.Table (Units.Last).Cunit := N;
-         end if;
+         Units.Table (Units.Last).Cunit := Library_Unit (N);
       end if;
    end Make_Instance_Unit;
 

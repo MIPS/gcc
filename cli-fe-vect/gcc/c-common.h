@@ -63,6 +63,10 @@ enum rid
   /* ObjC */
   RID_IN, RID_OUT, RID_INOUT, RID_BYCOPY, RID_BYREF, RID_ONEWAY,
 
+  /* C (reserved and imaginary types not implemented, so any use is a
+     syntax error) */
+  RID_IMAGINARY,
+
   /* C */
   RID_INT,     RID_CHAR,   RID_FLOAT,    RID_DOUBLE, RID_VOID,
   RID_ENUM,    RID_STRUCT, RID_UNION,    RID_IF,     RID_ELSE,
@@ -106,10 +110,11 @@ enum rid
   RID_IS_CONVERTIBLE_TO,       RID_IS_CLASS,
   RID_IS_EMPTY,                RID_IS_ENUM,
   RID_IS_POD,                  RID_IS_POLYMORPHIC,
+  RID_IS_STD_LAYOUT,           RID_IS_TRIVIAL,
   RID_IS_UNION,
 
   /* C++0x */
-  RID_STATIC_ASSERT, RID_DECLTYPE,
+  RID_STATIC_ASSERT, RID_CONSTEXPR, RID_DECLTYPE,
 
   /* Objective-C */
   RID_AT_ENCODE,   RID_AT_END,
@@ -120,6 +125,30 @@ enum rid
   RID_AT_FINALLY,  RID_AT_SYNCHRONIZED,
   RID_AT_INTERFACE,
   RID_AT_IMPLEMENTATION,
+
+  /* Named address support, mapping the keyword to a particular named address
+     number.  Named address space 0 is reserved for the generic address.  If
+     there are more than 254 named addresses, the addr_space_t type will need
+     to be grown from an unsigned char to unsigned short.  */
+  RID_ADDR_SPACE_0,		/* generic address */
+  RID_ADDR_SPACE_1,
+  RID_ADDR_SPACE_2,
+  RID_ADDR_SPACE_3,
+  RID_ADDR_SPACE_4,
+  RID_ADDR_SPACE_5,
+  RID_ADDR_SPACE_6,
+  RID_ADDR_SPACE_7,
+  RID_ADDR_SPACE_8,
+  RID_ADDR_SPACE_9,
+  RID_ADDR_SPACE_10,
+  RID_ADDR_SPACE_11,
+  RID_ADDR_SPACE_12,
+  RID_ADDR_SPACE_13,
+  RID_ADDR_SPACE_14,
+  RID_ADDR_SPACE_15,
+
+  RID_FIRST_ADDR_SPACE = RID_ADDR_SPACE_0,
+  RID_LAST_ADDR_SPACE = RID_ADDR_SPACE_15,
 
   RID_MAX,
 
@@ -258,6 +287,10 @@ struct c_common_resword
 #define D_CXX_OBJC	0x100	/* In Objective C, and C++, but not C.  */
 #define D_CXXWARN	0x200	/* In C warn with -Wcxx-compat.  */
 
+/* Macro for backends to define named address keywords.  */
+#define ADDR_SPACE_KEYWORD(STRING, VALUE) \
+  { STRING, RID_FIRST_ADDR_SPACE + (VALUE), D_CONLY | D_EXT }
+
 /* The reserved keyword table.  */
 extern const struct c_common_resword c_common_reswords[];
 
@@ -355,8 +388,22 @@ c_language_kind;
    front end.  For "ObjC features" or "not C++" use the macros.  */
 extern c_language_kind c_language;
 
-#define c_dialect_cxx()		(c_language & clk_cxx)
-#define c_dialect_objc()	(c_language & clk_objc)
+#define c_dialect_cxx()		((c_language & clk_cxx) != 0)
+#define c_dialect_objc()	((c_language & clk_objc) != 0)
+
+/* The various name of operator that appears in error messages. */
+typedef enum ref_operator {
+  /* NULL */
+  RO_NULL,
+  /* array indexing */
+  RO_ARRAY_INDEXING,
+  /* unary * */
+  RO_UNARY_STAR,
+  /* -> */
+  RO_ARROW,
+  /* implicit conversion */
+  RO_IMPLICIT_CONVERSION
+} ref_operator;
 
 /* Information about a statement tree.  */
 
@@ -413,8 +460,9 @@ extern tree add_stmt (tree);
 extern void push_cleanup (tree, tree, bool);
 extern tree pushdecl_top_level (tree);
 extern tree pushdecl (tree);
-extern tree build_modify_expr (location_t, tree, enum tree_code, tree, tree);
-extern tree build_indirect_ref (location_t, tree, const char *);
+extern tree build_modify_expr (location_t, tree, tree, enum tree_code,
+			       location_t, tree, tree);
+extern tree build_indirect_ref (location_t, tree, ref_operator);
 
 extern int c_expand_decl (tree);
 
@@ -714,10 +762,13 @@ extern int warn_strict_null_sentinel;
 
 extern int max_tinst_depth;
 
-/* Nonzero means the expression being parsed will never be evaluated.
-   This is a count, since unevaluated expressions can nest.  */
+/* Nonzero means that we should not issue warnings about problems that
+   occur when the code is executed, because the code being processed
+   is not expected to be executed.  This is set during parsing.  This
+   is used for cases like sizeof() and "0 ? a : b".  This is a count,
+   not a bool, because unexecuted expressions can nest.  */
 
-extern int skip_evaluation;
+extern int c_inhibit_evaluation_warnings;
 
 /* Whether lexing has been completed, so subsequent preprocessor
    errors should use the compiler's input_location.  */
@@ -749,8 +800,9 @@ extern const struct attribute_spec c_common_format_attribute_table[];
    TYPE_DEP indicates whether it depends on type of the function or not
    (i.e. __PRETTY_FUNCTION__).  */
 
-extern tree (*make_fname_decl) (tree, int);
+extern tree (*make_fname_decl) (location_t, tree, int);
 
+extern const char *c_addr_space_name (addr_space_t as);
 extern tree identifier_global_value (tree);
 extern void record_builtin_type (enum rid, const char *, tree);
 extern tree build_void_list_node (void);
@@ -783,11 +835,12 @@ extern tree c_build_bitfield_integer_type (unsigned HOST_WIDE_INT, int);
 extern bool decl_with_nonnull_addr_p (const_tree);
 extern tree c_fully_fold (tree, bool, bool *);
 extern tree decl_constant_value_for_optimization (tree);
+extern tree c_wrap_maybe_const (tree, bool);
 extern tree c_save_expr (tree);
 extern tree c_common_truthvalue_conversion (location_t, tree);
 extern void c_apply_type_quals_to_decl (int, tree);
-extern tree c_sizeof_or_alignof_type (tree, bool, int);
-extern tree c_alignof_expr (tree);
+extern tree c_sizeof_or_alignof_type (location_t, tree, bool, int);
+extern tree c_alignof_expr (location_t, tree);
 /* Print an error message for invalid operands to arith operation CODE.
    NOP_EXPR is used as a special case (see truthvalue_conversion).  */
 extern void binary_op_error (location_t, enum tree_code, tree, tree);
@@ -798,15 +851,20 @@ extern void constant_expression_error (tree);
 extern bool strict_aliasing_warning (tree, tree, tree);
 extern void warnings_for_convert_and_check (tree, tree, tree);
 extern tree convert_and_check (tree, tree);
-extern void overflow_warning (tree);
-extern void warn_logical_operator (location_t, enum tree_code,
+extern void overflow_warning (location_t, tree);
+extern void warn_logical_operator (location_t, enum tree_code, tree,
 				   enum tree_code, tree, enum tree_code, tree);
 extern void check_main_parameter_types (tree decl);
 extern bool c_determine_visibility (tree);
 extern bool same_scalar_type_ignoring_signedness (tree, tree);
+extern void mark_valid_location_for_stdc_pragma (bool);
+extern bool valid_location_for_stdc_pragma_p (void);
+extern void set_float_const_decimal64 (void);
+extern void clear_float_const_decimal64 (void);
+extern bool float_const_decimal64_p (void);
 
-#define c_sizeof(T)  c_sizeof_or_alignof_type (T, true, 1)
-#define c_alignof(T) c_sizeof_or_alignof_type (T, false, 1)
+#define c_sizeof(LOC, T)  c_sizeof_or_alignof_type (LOC, T, true, 1)
+#define c_alignof(LOC, T) c_sizeof_or_alignof_type (LOC, T, false, 1)
 
 /* Subroutine of build_binary_op, used for certain operations.  */
 extern tree shorten_binary_op (tree result_type, tree op0, tree op1, bool bitwise);
@@ -825,13 +883,11 @@ extern tree c_build_qualified_type (tree, int);
    frontends.  */
 extern void c_common_nodes_and_builtins (void);
 
-extern void set_builtin_user_assembler_name (tree decl, const char *asmspec);
-
 extern void disable_builtin_function (const char *);
 
 extern void set_compound_literal_name (tree decl);
 
-extern tree build_va_arg (tree, tree);
+extern tree build_va_arg (location_t, tree, tree);
 
 extern unsigned int c_common_init_options (unsigned int, const char **);
 extern bool c_common_post_options (const char **);
@@ -886,9 +942,9 @@ extern void finish_file	(void);
 #define CLEAR_DECL_C_BIT_FIELD(NODE) \
   (DECL_LANG_FLAG_4 (FIELD_DECL_CHECK (NODE)) = 0)
 
-extern tree do_case (tree, tree);
-extern tree build_stmt (enum tree_code, ...);
-extern tree build_case_label (tree, tree, tree);
+extern tree do_case (location_t, tree, tree);
+extern tree build_stmt (location_t, enum tree_code, ...);
+extern tree build_case_label (location_t, tree, tree, tree);
 
 /* These functions must be defined by each front-end which implements
    a variant of the C language.  They are used in c-common.c.  */
@@ -914,15 +970,16 @@ extern tree boolean_increment (enum tree_code, tree);
 
 extern int case_compare (splay_tree_key, splay_tree_key);
 
-extern tree c_add_case_label (splay_tree, tree, tree, tree, tree);
+extern tree c_add_case_label (location_t, splay_tree, tree, tree, tree, tree);
 
 extern void c_do_switch_warnings (splay_tree, location_t, tree, tree);
 
-extern tree build_function_call (tree, tree);
+extern tree build_function_call (location_t, tree, tree);
 
-extern tree build_function_call_vec (tree, VEC(tree,gc) *, VEC(tree,gc) *);
+extern tree build_function_call_vec (location_t, tree,
+    				     VEC(tree,gc) *, VEC(tree,gc) *);
 
-extern tree resolve_overloaded_builtin (tree, VEC(tree,gc) *);
+extern tree resolve_overloaded_builtin (location_t, tree, VEC(tree,gc) *);
 
 extern tree finish_label_address_expr (tree, location_t);
 
@@ -967,8 +1024,6 @@ extern void dump_time_statistics (void);
 
 extern bool c_dump_tree (void *, tree);
 
-extern void c_warn_unused_result (gimple_seq);
-
 extern void verify_sequence_points (tree);
 
 extern tree fold_offsetof (tree, tree);
@@ -997,17 +1052,21 @@ extern void warn_about_parentheses (enum tree_code,
 extern void warn_for_unused_label (tree label);
 extern void warn_for_div_by_zero (location_t, tree divisor);
 extern void warn_for_sign_compare (location_t,
-				   tree orig_op0, tree orig_op1, 
-				   tree op0, tree op1, 
-				   tree result_type, 
+				   tree orig_op0, tree orig_op1,
+				   tree op0, tree op1,
+				   tree result_type,
 				   enum tree_code resultcode);
 extern void set_underlying_type (tree x);
 extern bool is_typedef_decl (tree x);
+extern VEC(tree,gc) *make_tree_vector (void);
+extern void release_tree_vector (VEC(tree,gc) *);
+extern VEC(tree,gc) *make_tree_vector_single (tree);
+extern VEC(tree,gc) *make_tree_vector_copy (const VEC(tree,gc) *);
 
 /* In c-gimplify.c  */
 extern void c_genericize (tree);
 extern int c_gimplify_expr (tree *, gimple_seq *, gimple_seq *);
-extern tree c_build_bind_expr (tree, tree);
+extern tree c_build_bind_expr (location_t, tree, tree);
 
 /* In c-pch.c  */
 extern void pch_init (void);
@@ -1051,7 +1110,7 @@ extern void objc_declare_class (tree);
 extern void objc_declare_protocols (tree);
 extern tree objc_build_message_expr (tree);
 extern tree objc_finish_message_expr (tree, tree, tree);
-extern tree objc_build_selector_expr (tree);
+extern tree objc_build_selector_expr (location_t, tree);
 extern tree objc_build_protocol_expr (tree);
 extern tree objc_build_encode_expr (tree);
 extern tree objc_build_string_object (tree);
@@ -1075,7 +1134,7 @@ extern void objc_start_method_definition (tree);
 extern void objc_finish_method_definition (tree);
 extern void objc_add_instance_variable (tree);
 extern tree objc_build_keyword_decl (tree, tree, tree);
-extern tree objc_build_throw_stmt (tree);
+extern tree objc_build_throw_stmt (location_t, tree);
 extern void objc_begin_try_stmt (location_t, tree);
 extern tree objc_finish_try_stmt (void);
 extern void objc_begin_catch_clause (tree);
@@ -1099,20 +1158,21 @@ extern void pp_dir_change (cpp_reader *, const char *);
 extern bool check_missing_format_attribute (tree, tree);
 
 /* In c-omp.c  */
-extern tree c_finish_omp_master (tree);
-extern tree c_finish_omp_critical (tree, tree);
-extern tree c_finish_omp_ordered (tree);
-extern void c_finish_omp_barrier (void);
-extern tree c_finish_omp_atomic (enum tree_code, tree, tree);
-extern void c_finish_omp_flush (void);
-extern void c_finish_omp_taskwait (void);
+extern tree c_finish_omp_master (location_t, tree);
+extern tree c_finish_omp_critical (location_t, tree, tree);
+extern tree c_finish_omp_ordered (location_t, tree);
+extern void c_finish_omp_barrier (location_t);
+extern tree c_finish_omp_atomic (location_t, enum tree_code, tree, tree);
+extern void c_finish_omp_flush (location_t);
+extern void c_finish_omp_taskwait (location_t);
 extern tree c_finish_omp_for (location_t, tree, tree, tree, tree, tree, tree);
-extern void c_split_parallel_clauses (tree, tree *, tree *);
+extern void c_split_parallel_clauses (location_t, tree, tree *, tree *);
 extern enum omp_clause_default_kind c_omp_predetermined_sharing (tree);
 
 /* Not in c-omp.c; provided by the front end.  */
 extern bool c_omp_sharing_predetermined (tree);
 extern tree c_omp_remap_decl (tree, bool);
+extern void record_types_used_by_current_var_decl (tree);
 
 /* In order for the format checking to accept the C frontend
    diagnostic framework extensions, you must include this file before

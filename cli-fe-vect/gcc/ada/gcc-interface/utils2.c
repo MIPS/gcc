@@ -31,6 +31,7 @@
 #include "ggc.h"
 #include "flags.h"
 #include "output.h"
+#include "tree-inline.h"
 
 #include "ada.h"
 #include "types.h"
@@ -53,63 +54,6 @@ static tree contains_null_expr (tree);
 static tree compare_arrays (tree, tree, tree);
 static tree nonbinary_modular_operation (enum tree_code, tree, tree, tree);
 static tree build_simple_component_ref (tree, tree, tree, bool);
-
-/* Prepare expr to be an argument of a TRUTH_NOT_EXPR or other logical
-   operation.
-
-   This preparation consists of taking the ordinary representation of
-   an expression expr and producing a valid tree boolean expression
-   describing whether expr is nonzero. We could simply always do
-
-      build_binary_op (NE_EXPR, expr, integer_zero_node, 1),
-
-   but we optimize comparisons, &&, ||, and !.
-
-   The resulting type should always be the same as the input type.
-   This function is simpler than the corresponding C version since
-   the only possible operands will be things of Boolean type.  */
-
-tree
-gnat_truthvalue_conversion (tree expr)
-{
-  tree type = TREE_TYPE (expr);
-
-  switch (TREE_CODE (expr))
-    {
-    case EQ_EXPR:  case NE_EXPR: case LE_EXPR: case GE_EXPR:
-    case LT_EXPR:  case GT_EXPR:
-    case TRUTH_ANDIF_EXPR:
-    case TRUTH_ORIF_EXPR:
-    case TRUTH_AND_EXPR:
-    case TRUTH_OR_EXPR:
-    case TRUTH_XOR_EXPR:
-    case ERROR_MARK:
-      return expr;
-
-    case INTEGER_CST:
-      return (integer_zerop (expr)
-	      ? build_int_cst (type, 0)
-	      : build_int_cst (type, 1));
-
-    case REAL_CST:
-      return (real_zerop (expr)
-	      ? fold_convert (type, integer_zero_node)
-	      : fold_convert (type, integer_one_node));
-
-    case COND_EXPR:
-      /* Distribute the conversion into the arms of a COND_EXPR.  */
-      {
-	tree arg1 = gnat_truthvalue_conversion (TREE_OPERAND (expr, 1));
-	tree arg2 = gnat_truthvalue_conversion (TREE_OPERAND (expr, 2));
-	return fold_build3 (COND_EXPR, type, TREE_OPERAND (expr, 0),
-			    arg1, arg2);
-      }
-
-    default:
-      return build_binary_op (NE_EXPR, type, expr,
-			      fold_convert (type, integer_zero_node));
-    }
-}
 
 /* Return the base type of TYPE.  */
 
@@ -214,6 +158,15 @@ known_alignment (tree exp)
     case ADDR_EXPR:
       this_alignment = expr_align (TREE_OPERAND (exp, 0));
       break;
+
+    case CALL_EXPR:
+      {
+	tree t = maybe_inline_call_in_expr (exp);
+	if (t)
+	  return known_alignment (t);
+      }
+
+      /* Fall through... */
 
     default:
       /* For other pointer expressions, we assume that the pointed-to object
@@ -697,21 +650,21 @@ build_binary_op (enum tree_code op_code, tree result_type,
 
       /* If we are copying between padded objects with compatible types, use
 	 the padded view of the objects, this is very likely more efficient.
-	 Likewise for a padded that is assigned a constructor, in order to
-	 avoid putting a VIEW_CONVERT_EXPR on the LHS.  But don't do this if
-	 we wouldn't have actually copied anything.  */
-      else if (TREE_CODE (left_type) == RECORD_TYPE
-	       && TYPE_IS_PADDING_P (left_type)
+	 Likewise for a padded object that is assigned a constructor, if we
+	 can convert the constructor to the inner type, to avoid putting a
+	 VIEW_CONVERT_EXPR on the LHS.  But don't do so if we wouldn't have
+	 actually copied anything.  */
+      else if (TYPE_IS_PADDING_P (left_type)
 	       && TREE_CONSTANT (TYPE_SIZE (left_type))
 	       && ((TREE_CODE (right_operand) == COMPONENT_REF
-		    && TREE_CODE (TREE_TYPE (TREE_OPERAND (right_operand, 0)))
-		       == RECORD_TYPE
 		    && TYPE_IS_PADDING_P
 		       (TREE_TYPE (TREE_OPERAND (right_operand, 0)))
 		    && gnat_types_compatible_p
-			(left_type,
-			 TREE_TYPE (TREE_OPERAND (right_operand, 0))))
-		   || TREE_CODE (right_operand) == CONSTRUCTOR)
+		       (left_type,
+			TREE_TYPE (TREE_OPERAND (right_operand, 0))))
+		   || (TREE_CODE (right_operand) == CONSTRUCTOR
+		       && !CONTAINS_PLACEHOLDER_P
+			   (DECL_SIZE (TYPE_FIELDS (left_type)))))
 	       && !integer_zerop (TYPE_SIZE (right_type)))
 	operation_type = left_type;
 
@@ -802,11 +755,16 @@ build_binary_op (enum tree_code op_code, tree result_type,
 	  left_type = TREE_TYPE (left_operand);
 	}
 
-      /* Then convert the right operand to its base type.  This will
-	 prevent unneeded signedness conversions when sizetype is wider than
-	 integer.  */
+      /* For a range, make sure the element type is consistent.  */
+      if (op_code == ARRAY_RANGE_REF
+	  && TREE_TYPE (operation_type) != TREE_TYPE (left_type))
+	operation_type = build_array_type (TREE_TYPE (left_type),
+					   TYPE_DOMAIN (operation_type));
+
+      /* Then convert the right operand to its base type.  This will prevent
+	 unneeded sign conversions when sizetype is wider than integer.  */
       right_operand = convert (right_base_type, right_operand);
-      right_operand = convert (TYPE_DOMAIN (left_type), right_operand);
+      right_operand = convert (sizetype, right_operand);
 
       if (!TREE_CONSTANT (right_operand)
 	  || !TREE_CONSTANT (TYPE_MIN_VALUE (right_type)))
@@ -876,26 +834,28 @@ build_binary_op (enum tree_code op_code, tree result_type,
 	  return result;
 	}
 
-      /* Otherwise, the base types must be the same unless the objects are
-	 fat pointers or records.  If we have records, use the best type and
-	 convert both operands to that type.  */
+      /* Otherwise, the base types must be the same, unless they are both fat
+	 pointer types or record types.  In the latter case, use the best type
+	 and convert both operands to that type.  */
       if (left_base_type != right_base_type)
 	{
-	  if (TYPE_FAT_POINTER_P (left_base_type)
-	      && TYPE_FAT_POINTER_P (right_base_type)
-	      && TYPE_MAIN_VARIANT (left_base_type)
-		 == TYPE_MAIN_VARIANT (right_base_type))
-	    best_type = left_base_type;
+	  if (TYPE_IS_FAT_POINTER_P (left_base_type)
+	      && TYPE_IS_FAT_POINTER_P (right_base_type))
+	    {
+	      gcc_assert (TYPE_MAIN_VARIANT (left_base_type)
+			  == TYPE_MAIN_VARIANT (right_base_type));
+	      best_type = left_base_type;
+	    }
+
 	  else if (TREE_CODE (left_base_type) == RECORD_TYPE
 		   && TREE_CODE (right_base_type) == RECORD_TYPE)
 	    {
-	      /* The only way these are permitted to be the same is if both
-		 types have the same name.  In that case, one of them must
-		 not be self-referential.  Use that one as the best type.
-		 Even better is if one is of fixed size.  */
+	      /* The only way this is permitted is if both types have the same
+		 name.  In that case, one of them must not be self-referential.
+		 Use it as the best type.  Even better with a fixed size.  */
 	      gcc_assert (TYPE_NAME (left_base_type)
-			  && (TYPE_NAME (left_base_type)
-			      == TYPE_NAME (right_base_type)));
+			  && TYPE_NAME (left_base_type)
+			     == TYPE_NAME (right_base_type));
 
 	      if (TREE_CONSTANT (TYPE_SIZE (left_base_type)))
 		best_type = left_base_type;
@@ -908,32 +868,32 @@ build_binary_op (enum tree_code op_code, tree result_type,
 	      else
 		gcc_unreachable ();
 	    }
+
 	  else
 	    gcc_unreachable ();
 
 	  left_operand = convert (best_type, left_operand);
 	  right_operand = convert (best_type, right_operand);
 	}
-
-      /* If we are comparing a fat pointer against zero, we need to
-	 just compare the data pointer.  */
-      else if (TYPE_FAT_POINTER_P (left_base_type)
-	       && TREE_CODE (right_operand) == CONSTRUCTOR
-	       && integer_zerop (VEC_index (constructor_elt,
-					    CONSTRUCTOR_ELTS (right_operand),
-					    0)
-				 ->value))
-	{
-	  right_operand = build_component_ref (left_operand, NULL_TREE,
-					       TYPE_FIELDS (left_base_type),
-					       false);
-	  left_operand = convert (TREE_TYPE (right_operand),
-				  integer_zero_node);
-	}
       else
 	{
 	  left_operand = convert (left_base_type, left_operand);
 	  right_operand = convert (right_base_type, right_operand);
+	}
+
+      /* If we are comparing a fat pointer against zero, we just need to
+	 compare the data pointer.  */
+      if (TYPE_IS_FAT_POINTER_P (left_base_type)
+	  && TREE_CODE (right_operand) == CONSTRUCTOR
+	  && integer_zerop (VEC_index (constructor_elt,
+				       CONSTRUCTOR_ELTS (right_operand),
+				       0)->value))
+	{
+	  left_operand
+	    = build_component_ref (left_operand, NULL_TREE,
+				   TYPE_FIELDS (left_base_type), false);
+	  right_operand
+	    = convert (TREE_TYPE (left_operand), integer_zero_node);
 	}
 
       modulus = NULL_TREE;
@@ -957,15 +917,6 @@ build_binary_op (enum tree_code op_code, tree result_type,
       modulus = NULL_TREE;
       left_operand = convert (operation_type, left_operand);
       break;
-
-    case TRUTH_ANDIF_EXPR:
-    case TRUTH_ORIF_EXPR:
-    case TRUTH_AND_EXPR:
-    case TRUTH_OR_EXPR:
-    case TRUTH_XOR_EXPR:
-      left_operand = gnat_truthvalue_conversion (left_operand);
-      right_operand = gnat_truthvalue_conversion (right_operand);
-      goto common;
 
     case BIT_AND_EXPR:
     case BIT_IOR_EXPR:
@@ -1108,7 +1059,7 @@ build_unary_op (enum tree_code op_code, tree result_type, tree operand)
 
     case TRUTH_NOT_EXPR:
       gcc_assert (result_type == base_type);
-      result = invert_truthvalue (gnat_truthvalue_conversion (operand));
+      result = invert_truthvalue (operand);
       break;
 
     case ATTR_ADDR_EXPR:
@@ -1171,11 +1122,10 @@ build_unary_op (enum tree_code op_code, tree result_type, tree operand)
 	      /* If INNER is a padding type whose field has a self-referential
 		 size, convert to that inner type.  We know the offset is zero
 		 and we need to have that type visible.  */
-	      if (TREE_CODE (TREE_TYPE (inner)) == RECORD_TYPE
-		  && TYPE_IS_PADDING_P (TREE_TYPE (inner))
-		  && (CONTAINS_PLACEHOLDER_P
-		      (TYPE_SIZE (TREE_TYPE (TYPE_FIELDS
-					     (TREE_TYPE (inner)))))))
+	      if (TYPE_IS_PADDING_P (TREE_TYPE (inner))
+		  && CONTAINS_PLACEHOLDER_P
+		     (TYPE_SIZE (TREE_TYPE (TYPE_FIELDS
+					    (TREE_TYPE (inner))))))
 		inner = convert (TREE_TYPE (TYPE_FIELDS (TREE_TYPE (inner))),
 				 inner);
 
@@ -1208,13 +1158,11 @@ build_unary_op (enum tree_code op_code, tree result_type, tree operand)
 	  /* If this is just a constructor for a padded record, we can
 	     just take the address of the single field and convert it to
 	     a pointer to our type.  */
-	  if (TREE_CODE (type) == RECORD_TYPE && TYPE_IS_PADDING_P (type))
+	  if (TYPE_IS_PADDING_P (type))
 	    {
-	      result = (VEC_index (constructor_elt,
-				   CONSTRUCTOR_ELTS (operand),
-				   0)
-			->value);
-
+	      result = VEC_index (constructor_elt,
+				  CONSTRUCTOR_ELTS (operand),
+				  0)->value;
 	      result = convert (build_pointer_type (TREE_TYPE (operand)),
 				build_unary_op (ADDR_EXPR, NULL_TREE, result));
 	      break;
@@ -1256,8 +1204,7 @@ build_unary_op (enum tree_code op_code, tree result_type, tree operand)
 
 	  /* If we are taking the address of a padded record whose field is
 	     contains a template, take the address of the template.  */
-	  if (TREE_CODE (type) == RECORD_TYPE
-	      && TYPE_IS_PADDING_P (type)
+	  if (TYPE_IS_PADDING_P (type)
 	      && TREE_CODE (TREE_TYPE (TYPE_FIELDS (type))) == RECORD_TYPE
 	      && TYPE_CONTAINS_TEMPLATE_P (TREE_TYPE (TYPE_FIELDS (type))))
 	    {
@@ -1280,7 +1227,7 @@ build_unary_op (enum tree_code op_code, tree result_type, tree operand)
 	 make up an expression to do so.  This will never survive to
 	 the backend.  If TYPE is a thin pointer, first convert the
 	 operand to a fat pointer.  */
-      if (TYPE_THIN_POINTER_P (type)
+      if (TYPE_IS_THIN_POINTER_P (type)
 	  && TYPE_UNCONSTRAINED_ARRAY (TREE_TYPE (type)))
 	{
 	  operand
@@ -1289,7 +1236,7 @@ build_unary_op (enum tree_code op_code, tree result_type, tree operand)
 	  type = TREE_TYPE (operand);
 	}
 
-      if (TYPE_FAT_POINTER_P (type))
+      if (TYPE_IS_FAT_POINTER_P (type))
 	{
 	  result = build1 (UNCONSTRAINED_ARRAY_REF,
 			   TYPE_UNCONSTRAINED_ARRAY (type), operand);
@@ -1306,7 +1253,7 @@ build_unary_op (enum tree_code op_code, tree result_type, tree operand)
 	}
 
       side_effects
-	=  (!TYPE_FAT_POINTER_P (type) && TYPE_VOLATILE (TREE_TYPE (type)));
+	= (!TYPE_IS_FAT_POINTER_P (type) && TYPE_VOLATILE (TREE_TYPE (type)));
       break;
 
     case NEGATE_EXPR:
@@ -1624,34 +1571,35 @@ compare_elmt_bitpos (const PTR rt1, const PTR rt2)
 tree
 gnat_build_constructor (tree type, tree list)
 {
-  tree elmt;
-  int n_elmts;
   bool allconstant = (TREE_CODE (TYPE_SIZE (type)) == INTEGER_CST);
   bool side_effects = false;
-  tree result;
+  tree elmt, result;
+  int n_elmts;
 
   /* Scan the elements to see if they are all constant or if any has side
      effects, to let us set global flags on the resulting constructor.  Count
      the elements along the way for possible sorting purposes below.  */
   for (n_elmts = 0, elmt = list; elmt; elmt = TREE_CHAIN (elmt), n_elmts ++)
     {
-      if (!TREE_CONSTANT (TREE_VALUE (elmt))
+      tree obj = TREE_PURPOSE (elmt);
+      tree val = TREE_VALUE (elmt);
+
+      /* The predicate must be in keeping with output_constructor.  */
+      if (!TREE_CONSTANT (val)
 	  || (TREE_CODE (type) == RECORD_TYPE
-	      && DECL_BIT_FIELD (TREE_PURPOSE (elmt))
-	      && TREE_CODE (TREE_VALUE (elmt)) != INTEGER_CST)
-	  || !initializer_constant_valid_p (TREE_VALUE (elmt),
-					    TREE_TYPE (TREE_VALUE (elmt))))
+	      && CONSTRUCTOR_BITFIELD_P (obj)
+	      && !initializer_constant_valid_for_bitfield_p (val))
+	  || !initializer_constant_valid_p (val, TREE_TYPE (val)))
 	allconstant = false;
 
-      if (TREE_SIDE_EFFECTS (TREE_VALUE (elmt)))
+      if (TREE_SIDE_EFFECTS (val))
 	side_effects = true;
 
       /* Propagate an NULL_EXPR from the size of the type.  We won't ever
 	 be executing the code we generate here in that case, but handle it
 	 specially to avoid the compiler blowing up.  */
       if (TREE_CODE (type) == RECORD_TYPE
-	  && (0 != (result
-		    = contains_null_expr (DECL_SIZE (TREE_PURPOSE (elmt))))))
+	  && (result = contains_null_expr (DECL_SIZE (obj))) != NULL_TREE)
 	return build1 (NULL_EXPR, type, TREE_OPERAND (result, 0));
     }
 
@@ -1830,95 +1778,99 @@ build_component_ref (tree record_variable, tree component,
 				   N_Raise_Constraint_Error));
 }
 
-/* Build a GCC tree to call an allocation or deallocation function.
-   If GNU_OBJ is nonzero, it is an object to deallocate.  Otherwise,
-   generate an allocator.
+/* Helper for build_call_alloc_dealloc, with arguments to be interpreted
+   identically.  Process the case where a GNAT_PROC to call is provided.  */
 
-   GNU_SIZE is the size of the object in bytes and ALIGN is the alignment
-   in bits.  GNAT_PROC, if present, is a procedure to call and GNAT_POOL
-   is the storage pool to use.  If not present, malloc and free are used.
-   GNAT_NODE is used to provide an error location for restriction violation
-   messages.  */
-
-tree
-build_call_alloc_dealloc (tree gnu_obj, tree gnu_size, unsigned align,
-                          Entity_Id gnat_proc, Entity_Id gnat_pool,
-                          Node_Id gnat_node)
+static inline tree
+build_call_alloc_dealloc_proc (tree gnu_obj, tree gnu_size, tree gnu_type,
+			       Entity_Id gnat_proc, Entity_Id gnat_pool)
 {
-  tree gnu_align = size_int (align / BITS_PER_UNIT);
+  tree gnu_proc = gnat_to_gnu (gnat_proc);
+  tree gnu_proc_addr = build_unary_op (ADDR_EXPR, NULL_TREE, gnu_proc);
+  tree gnu_call;
 
-  gnu_size = SUBSTITUTE_PLACEHOLDER_IN_EXPR (gnu_size, gnu_obj);
-
-  if (Present (gnat_proc))
+  /* The storage pools are obviously always tagged types, but the
+     secondary stack uses the same mechanism and is not tagged.  */
+  if (Is_Tagged_Type (Etype (gnat_pool)))
     {
-      /* The storage pools are obviously always tagged types, but the
-	 secondary stack uses the same mechanism and is not tagged.  */
-      if (Is_Tagged_Type (Etype (gnat_pool)))
-	{
-	  /* The size is the third parameter; the alignment is the
-             same type.  */
-	  Entity_Id gnat_size_type
-	    = Etype (Next_Formal (Next_Formal (First_Formal (gnat_proc))));
-	  tree gnu_size_type = gnat_to_gnu_type (gnat_size_type);
-	  tree gnu_proc = gnat_to_gnu (gnat_proc);
-	  tree gnu_proc_addr = build_unary_op (ADDR_EXPR, NULL_TREE, gnu_proc);
-	  tree gnu_pool = gnat_to_gnu (gnat_pool);
-	  tree gnu_pool_addr = build_unary_op (ADDR_EXPR, NULL_TREE, gnu_pool);
-	  tree gnu_call;
+      /* The size is the third parameter; the alignment is the
+	 same type.  */
+      Entity_Id gnat_size_type
+	= Etype (Next_Formal (Next_Formal (First_Formal (gnat_proc))));
+      tree gnu_size_type = gnat_to_gnu_type (gnat_size_type);
 
-	  gnu_size = convert (gnu_size_type, gnu_size);
-	  gnu_align = convert (gnu_size_type, gnu_align);
+      tree gnu_pool = gnat_to_gnu (gnat_pool);
+      tree gnu_pool_addr = build_unary_op (ADDR_EXPR, NULL_TREE, gnu_pool);
+      tree gnu_align = size_int (TYPE_ALIGN (gnu_type) / BITS_PER_UNIT);
 
-	  /* The first arg is always the address of the storage pool; next
-	     comes the address of the object, for a deallocator, then the
-	     size and alignment.  */
-	  if (gnu_obj)
-	    gnu_call = build_call_nary (TREE_TYPE (TREE_TYPE (gnu_proc)),
-					gnu_proc_addr, 4, gnu_pool_addr,
-					gnu_obj, gnu_size, gnu_align);
-	  else
-	    gnu_call = build_call_nary (TREE_TYPE (TREE_TYPE (gnu_proc)),
-					gnu_proc_addr, 3, gnu_pool_addr,
-					gnu_size, gnu_align);
-	  TREE_SIDE_EFFECTS (gnu_call) = 1;
-	  return gnu_call;
-	}
+      gnu_size = convert (gnu_size_type, gnu_size);
+      gnu_align = convert (gnu_size_type, gnu_align);
 
-      /* Secondary stack case.  */
+      /* The first arg is always the address of the storage pool; next
+	 comes the address of the object, for a deallocator, then the
+	 size and alignment.  */
+      if (gnu_obj)
+	gnu_call = build_call_nary (TREE_TYPE (TREE_TYPE (gnu_proc)),
+				    gnu_proc_addr, 4, gnu_pool_addr,
+				    gnu_obj, gnu_size, gnu_align);
       else
-	{
-	  /* The size is the second parameter.  */
-	  Entity_Id gnat_size_type
-	    = Etype (Next_Formal (First_Formal (gnat_proc)));
-	  tree gnu_size_type = gnat_to_gnu_type (gnat_size_type);
-	  tree gnu_proc = gnat_to_gnu (gnat_proc);
-	  tree gnu_proc_addr = build_unary_op (ADDR_EXPR, NULL_TREE, gnu_proc);
-	  tree gnu_call;
-
-	  gnu_size = convert (gnu_size_type, gnu_size);
-
-	  /* The first arg is the address of the object, for a deallocator,
-	     then the size.  */
-	  if (gnu_obj)
-	    gnu_call = build_call_nary (TREE_TYPE (TREE_TYPE (gnu_proc)),
-					gnu_proc_addr, 2, gnu_obj, gnu_size);
-	  else
-	    gnu_call = build_call_nary (TREE_TYPE (TREE_TYPE (gnu_proc)),
-					gnu_proc_addr, 1, gnu_size);
-	  TREE_SIDE_EFFECTS (gnu_call) = 1;
-	  return gnu_call;
-	}
+	gnu_call = build_call_nary (TREE_TYPE (TREE_TYPE (gnu_proc)),
+				    gnu_proc_addr, 3, gnu_pool_addr,
+				    gnu_size, gnu_align);
     }
 
-  if (gnu_obj)
-    return build_call_1_expr (free_decl, gnu_obj);
+  /* Secondary stack case.  */
+  else
+    {
+      /* The size is the second parameter.  */
+      Entity_Id gnat_size_type
+	= Etype (Next_Formal (First_Formal (gnat_proc)));
+      tree gnu_size_type = gnat_to_gnu_type (gnat_size_type);
 
-  /* Assert that we no longer can be called with this special pool.  */
-  gcc_assert (gnat_pool != -1);
+      gnu_size = convert (gnu_size_type, gnu_size);
 
-  /* Check that we aren't violating the associated restriction.  */
-  if (!(Nkind (gnat_node) == N_Allocator && Comes_From_Source (gnat_node)))
-    Check_No_Implicit_Heap_Alloc (gnat_node);
+      /* The first arg is the address of the object, for a deallocator,
+	 then the size.  */
+      if (gnu_obj)
+	gnu_call = build_call_nary (TREE_TYPE (TREE_TYPE (gnu_proc)),
+				    gnu_proc_addr, 2, gnu_obj, gnu_size);
+      else
+	gnu_call = build_call_nary (TREE_TYPE (TREE_TYPE (gnu_proc)),
+				    gnu_proc_addr, 1, gnu_size);
+    }
+
+  TREE_SIDE_EFFECTS (gnu_call) = 1;
+  return gnu_call;
+}
+
+/* Helper for build_call_alloc_dealloc, to build and return an allocator for
+   DATA_SIZE bytes aimed at containing a DATA_TYPE object, using the default
+   __gnat_malloc allocator.  Honor DATA_TYPE alignments greater than what the
+   latter offers.  */
+
+static inline tree
+maybe_wrap_malloc (tree data_size, tree data_type, Node_Id gnat_node)
+{
+  /* When the DATA_TYPE alignment is stricter than what malloc offers
+     (super-aligned case), we allocate an "aligning" wrapper type and return
+     the address of its single data field with the malloc's return value
+     stored just in front.  */
+
+  unsigned int data_align = TYPE_ALIGN (data_type);
+  unsigned int default_allocator_alignment
+      = get_target_default_allocator_alignment () * BITS_PER_UNIT;
+
+  tree aligning_type
+    = ((data_align > default_allocator_alignment)
+       ? make_aligning_type (data_type, data_align, data_size,
+			     default_allocator_alignment,
+			     POINTER_SIZE / BITS_PER_UNIT)
+       : NULL_TREE);
+
+  tree size_to_malloc
+    = aligning_type ? TYPE_SIZE_UNIT (aligning_type) : data_size;
+
+  tree malloc_ptr;
 
   /* On VMS, if 64-bit memory is disabled or pointers are 64-bit and the
      allocator size is 32-bit or Convention C, allocate 32-bit memory.  */
@@ -1927,9 +1879,128 @@ build_call_alloc_dealloc (tree gnu_obj, tree gnu_size, unsigned align,
 	  || (POINTER_SIZE == 64
 	      && (UI_To_Int (Esize (Etype (gnat_node))) == 32
 		  || Convention (Etype (gnat_node)) == Convention_C))))
-    return build_call_1_expr (malloc32_decl, gnu_size);
+    malloc_ptr = build_call_1_expr (malloc32_decl, size_to_malloc);
+  else
+    malloc_ptr = build_call_1_expr (malloc_decl, size_to_malloc);
 
-  return build_call_1_expr (malloc_decl, gnu_size);
+  if (aligning_type)
+    {
+      /* Latch malloc's return value and get a pointer to the aligning field
+	 first.  */
+      tree storage_ptr = save_expr (malloc_ptr);
+
+      tree aligning_record_addr
+	= convert (build_pointer_type (aligning_type), storage_ptr);
+
+      tree aligning_record
+	= build_unary_op (INDIRECT_REF, NULL_TREE, aligning_record_addr);
+
+      tree aligning_field
+	= build_component_ref (aligning_record, NULL_TREE,
+			       TYPE_FIELDS (aligning_type), 0);
+
+      tree aligning_field_addr
+        = build_unary_op (ADDR_EXPR, NULL_TREE, aligning_field);
+
+      /* Then arrange to store the allocator's return value ahead
+	 and return.  */
+      tree storage_ptr_slot_addr
+	= build_binary_op (POINTER_PLUS_EXPR, ptr_void_type_node,
+			   convert (ptr_void_type_node, aligning_field_addr),
+			   size_int (-(HOST_WIDE_INT) POINTER_SIZE
+				     / BITS_PER_UNIT));
+
+      tree storage_ptr_slot
+	= build_unary_op (INDIRECT_REF, NULL_TREE,
+			  convert (build_pointer_type (ptr_void_type_node),
+				   storage_ptr_slot_addr));
+
+      return
+	build2 (COMPOUND_EXPR, TREE_TYPE (aligning_field_addr),
+		build_binary_op (MODIFY_EXPR, NULL_TREE,
+				 storage_ptr_slot, storage_ptr),
+		aligning_field_addr);
+    }
+  else
+    return malloc_ptr;
+}
+
+/* Helper for build_call_alloc_dealloc, to release a DATA_TYPE object
+   designated by DATA_PTR using the __gnat_free entry point.  */
+
+static inline tree
+maybe_wrap_free (tree data_ptr, tree data_type)
+{
+  /* In the regular alignment case, we pass the data pointer straight to free.
+     In the superaligned case, we need to retrieve the initial allocator
+     return value, stored in front of the data block at allocation time.  */
+
+  unsigned int data_align = TYPE_ALIGN (data_type);
+  unsigned int default_allocator_alignment
+      = get_target_default_allocator_alignment () * BITS_PER_UNIT;
+
+  tree free_ptr;
+
+  if (data_align > default_allocator_alignment)
+    {
+      /* DATA_FRONT_PTR (void *)
+	 = (void *)DATA_PTR - (void *)sizeof (void *))  */
+      tree data_front_ptr
+	= build_binary_op
+	  (POINTER_PLUS_EXPR, ptr_void_type_node,
+	   convert (ptr_void_type_node, data_ptr),
+	   size_int (-(HOST_WIDE_INT) POINTER_SIZE / BITS_PER_UNIT));
+
+      /* FREE_PTR (void *) = *(void **)DATA_FRONT_PTR  */
+      free_ptr
+	= build_unary_op
+	  (INDIRECT_REF, NULL_TREE,
+	   convert (build_pointer_type (ptr_void_type_node), data_front_ptr));
+    }
+  else
+    free_ptr = data_ptr;
+
+  return build_call_1_expr (free_decl, free_ptr);
+}
+
+/* Build a GCC tree to call an allocation or deallocation function.
+   If GNU_OBJ is nonzero, it is an object to deallocate.  Otherwise,
+   generate an allocator.
+
+   GNU_SIZE is the number of bytes to allocate and GNU_TYPE is the contained
+   object type, used to determine the to-be-honored address alignment.
+   GNAT_PROC, if present, is a procedure to call and GNAT_POOL is the storage
+   pool to use.  If not present, malloc and free are used.  GNAT_NODE is used
+   to provide an error location for restriction violation messages.  */
+
+tree
+build_call_alloc_dealloc (tree gnu_obj, tree gnu_size, tree gnu_type,
+                          Entity_Id gnat_proc, Entity_Id gnat_pool,
+                          Node_Id gnat_node)
+{
+  gnu_size = SUBSTITUTE_PLACEHOLDER_IN_EXPR (gnu_size, gnu_obj);
+
+  /* Explicit proc to call ?  This one is assumed to deal with the type
+     alignment constraints.  */
+  if (Present (gnat_proc))
+    return build_call_alloc_dealloc_proc (gnu_obj, gnu_size, gnu_type,
+					  gnat_proc, gnat_pool);
+
+  /* Otherwise, object to "free" or "malloc" with possible special processing
+     for alignments stricter than what the default allocator honors.  */
+  else if (gnu_obj)
+    return maybe_wrap_free (gnu_obj, gnu_type);
+  else
+    {
+      /* Assert that we no longer can be called with this special pool.  */
+      gcc_assert (gnat_pool != -1);
+
+      /* Check that we aren't violating the associated restriction.  */
+      if (!(Nkind (gnat_node) == N_Allocator && Comes_From_Source (gnat_node)))
+	Check_No_Implicit_Heap_Alloc (gnat_node);
+
+      return maybe_wrap_malloc (gnu_size, gnu_type, gnat_node);
+    }
 }
 
 /* Build a GCC tree to correspond to allocating an object of TYPE whose
@@ -1949,8 +2020,6 @@ build_allocator (tree type, tree init, tree result_type, Entity_Id gnat_proc,
 {
   tree size = TYPE_SIZE_UNIT (type);
   tree result;
-  unsigned int default_allocator_alignment
-    = get_target_default_allocator_alignment () * BITS_PER_UNIT;
 
   /* If the initializer, if present, is a NULL_EXPR, just return a new one.  */
   if (init && TREE_CODE (init) == NULL_EXPR)
@@ -1959,7 +2028,7 @@ build_allocator (tree type, tree init, tree result_type, Entity_Id gnat_proc,
   /* If RESULT_TYPE is a fat or thin pointer, set SIZE to be the sum of the
      sizes of the object and its template.  Allocate the whole thing and
      fill in the parts that are known.  */
-  else if (TYPE_FAT_OR_THIN_POINTER_P (result_type))
+  else if (TYPE_IS_FAT_OR_THIN_POINTER_P (result_type))
     {
       tree storage_type
 	= build_unc_object_type_from_ptr (result_type, type,
@@ -1977,15 +2046,13 @@ build_allocator (tree type, tree init, tree result_type, Entity_Id gnat_proc,
       if (TREE_CODE (size) == INTEGER_CST && TREE_OVERFLOW (size))
 	size = ssize_int (-1);
 
-      storage = build_call_alloc_dealloc (NULL_TREE, size,
-					  TYPE_ALIGN (storage_type),
+      storage = build_call_alloc_dealloc (NULL_TREE, size, storage_type,
 					  gnat_proc, gnat_pool, gnat_node);
       storage = convert (storage_ptr_type, protect_multiple_eval (storage));
 
-      if (TREE_CODE (type) == RECORD_TYPE && TYPE_IS_PADDING_P (type))
+      if (TYPE_IS_PADDING_P (type))
 	{
 	  type = TREE_TYPE (TYPE_FIELDS (type));
-
 	  if (init)
 	    init = convert (type, init);
 	}
@@ -2050,70 +2117,10 @@ build_allocator (tree type, tree init, tree result_type, Entity_Id gnat_proc,
   if (TREE_CODE (size) == INTEGER_CST && TREE_OVERFLOW (size))
     size = ssize_int (-1);
 
-  /* If this is in the default storage pool and the type alignment is larger
-     than what the default allocator supports, make an "aligning" record type
-     with room to store a pointer before the field, allocate an object of that
-     type, store the system's allocator return value just in front of the
-     field and return the field's address.  */
-
-  if (No (gnat_proc) && TYPE_ALIGN (type) > default_allocator_alignment)
-    {
-      /* Construct the aligning type with enough room for a pointer ahead
-	 of the field, then allocate.  */
-      tree record_type
-	= make_aligning_type (type, TYPE_ALIGN (type), size,
-			      default_allocator_alignment,
-			      POINTER_SIZE / BITS_PER_UNIT);
-
-      tree record, record_addr;
-
-      record_addr
-	= build_call_alloc_dealloc (NULL_TREE, TYPE_SIZE_UNIT (record_type),
-				    default_allocator_alignment, Empty, Empty,
-				    gnat_node);
-
-      record_addr
-	= convert (build_pointer_type (record_type),
-		   save_expr (record_addr));
-
-      record = build_unary_op (INDIRECT_REF, NULL_TREE, record_addr);
-
-      /* Our RESULT (the Ada allocator's value) is the super-aligned address
-	 of the internal record field ... */
-      result
-	= build_unary_op (ADDR_EXPR, NULL_TREE,
-			  build_component_ref
-			  (record, NULL_TREE, TYPE_FIELDS (record_type), 0));
-      result = convert (result_type, result);
-
-      /* ... with the system allocator's return value stored just in
-	 front.  */
-      {
-	tree ptr_addr
-	  = build_binary_op (POINTER_PLUS_EXPR, ptr_void_type_node,
-			     convert (ptr_void_type_node, result),
-			     size_int (-POINTER_SIZE/BITS_PER_UNIT));
-
-	tree ptr_ref
-	  = convert (build_pointer_type (ptr_void_type_node), ptr_addr);
-
-	result
-	  = build2 (COMPOUND_EXPR, TREE_TYPE (result),
-		    build_binary_op (MODIFY_EXPR, NULL_TREE,
-				     build_unary_op (INDIRECT_REF, NULL_TREE,
-						     ptr_ref),
-				     convert (ptr_void_type_node,
-					      record_addr)),
-		    result);
-      }
-    }
-  else
-    result = convert (result_type,
-		      build_call_alloc_dealloc (NULL_TREE, size,
-						TYPE_ALIGN (type),
-						gnat_proc,
-						gnat_pool,
-						gnat_node));
+  result = convert (result_type,
+		    build_call_alloc_dealloc (NULL_TREE, size, type,
+					      gnat_proc, gnat_pool,
+					      gnat_node));
 
   /* If we have an initial value, put the new address into a SAVE_EXPR, assign
      the value, and return the address.  Do this with a COMPOUND_EXPR.  */

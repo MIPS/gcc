@@ -1,5 +1,5 @@
 /* SSA operands management for trees.
-   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008
+   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -35,40 +35,40 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "ipa-reference.h"
 
-/* This file contains the code required to manage the operands cache of the 
-   SSA optimizer.  For every stmt, we maintain an operand cache in the stmt 
-   annotation.  This cache contains operands that will be of interest to 
-   optimizers and other passes wishing to manipulate the IL. 
+/* This file contains the code required to manage the operands cache of the
+   SSA optimizer.  For every stmt, we maintain an operand cache in the stmt
+   annotation.  This cache contains operands that will be of interest to
+   optimizers and other passes wishing to manipulate the IL.
 
-   The operand type are broken up into REAL and VIRTUAL operands.  The real 
-   operands are represented as pointers into the stmt's operand tree.  Thus 
+   The operand type are broken up into REAL and VIRTUAL operands.  The real
+   operands are represented as pointers into the stmt's operand tree.  Thus
    any manipulation of the real operands will be reflected in the actual tree.
-   Virtual operands are represented solely in the cache, although the base 
-   variable for the SSA_NAME may, or may not occur in the stmt's tree.  
+   Virtual operands are represented solely in the cache, although the base
+   variable for the SSA_NAME may, or may not occur in the stmt's tree.
    Manipulation of the virtual operands will not be reflected in the stmt tree.
 
-   The routines in this file are concerned with creating this operand cache 
+   The routines in this file are concerned with creating this operand cache
    from a stmt tree.
 
-   The operand tree is the parsed by the various get_* routines which look 
-   through the stmt tree for the occurrence of operands which may be of 
-   interest, and calls are made to the append_* routines whenever one is 
-   found.  There are 4 of these routines, each representing one of the 
+   The operand tree is the parsed by the various get_* routines which look
+   through the stmt tree for the occurrence of operands which may be of
+   interest, and calls are made to the append_* routines whenever one is
+   found.  There are 4 of these routines, each representing one of the
    4 types of operands. Defs, Uses, Virtual Uses, and Virtual May Defs.
 
-   The append_* routines check for duplication, and simply keep a list of 
+   The append_* routines check for duplication, and simply keep a list of
    unique objects for each operand type in the build_* extendable vectors.
 
-   Once the stmt tree is completely parsed, the finalize_ssa_operands() 
-   routine is called, which proceeds to perform the finalization routine 
+   Once the stmt tree is completely parsed, the finalize_ssa_operands()
+   routine is called, which proceeds to perform the finalization routine
    on each of the 4 operand vectors which have been built up.
 
-   If the stmt had a previous operand cache, the finalization routines 
-   attempt to match up the new operands with the old ones.  If it's a perfect 
-   match, the old vector is simply reused.  If it isn't a perfect match, then 
-   a new vector is created and the new operands are placed there.  For 
-   virtual operands, if the previous cache had SSA_NAME version of a 
-   variable, and that same variable occurs in the same operands cache, then 
+   If the stmt had a previous operand cache, the finalization routines
+   attempt to match up the new operands with the old ones.  If it's a perfect
+   match, the old vector is simply reused.  If it isn't a perfect match, then
+   a new vector is created and the new operands are placed there.  For
+   virtual operands, if the previous cache had SSA_NAME version of a
+   variable, and that same variable occurs in the same operands cache, then
    the new cache vector will also get the same SSA_NAME.
 
    i.e., if a stmt had a VUSE of 'a_5', and 'a' occurs in the new
@@ -78,7 +78,7 @@ along with GCC; see the file COPYING3.  If not see
 /* Structure storing statistics on how many call clobbers we have, and
    how many where avoided.  */
 
-static struct 
+static struct
 {
   /* Number of call-clobbered ops we attempt to add to calls in
      add_call_clobbered_mem_symbols.  */
@@ -90,7 +90,7 @@ static struct
 
   /* Number of reads (VUSEs) avoided by using not_read information.  */
   unsigned int static_read_clobbers_avoided;
-  
+
   /* Number of write-clobbers avoided because the variable can't escape to
      this call.  */
   unsigned int unescapable_clobbers_avoided;
@@ -109,7 +109,7 @@ static struct
 /* By default, operands are loaded.  */
 #define opf_use		0
 
-/* Operand is the target of an assignment expression or a 
+/* Operand is the target of an assignment expression or a
    call-clobbered variable.  */
 #define opf_def 	(1 << 0)
 
@@ -138,7 +138,7 @@ static tree build_vdef;
 /* The built VUSE operand.  */
 static tree build_vuse;
 
-/* Bitmap obstack for our datastructures that needs to survive across	
+/* Bitmap obstack for our datastructures that needs to survive across
    compilations of multiple functions.  */
 static bitmap_obstack operands_bitmap_obstack;
 
@@ -146,12 +146,6 @@ static void get_expr_operands (gimple, tree *, int);
 
 /* Number of functions with initialized ssa_operands.  */
 static int n_initialized = 0;
-
-/* Stack of statements to change.  Every call to
-   push_stmt_changes pushes the stmt onto the stack.  Calls to
-   pop_stmt_changes pop a stmt off of the stack and compute the set
-   of changes for the popped statement.  */
-static VEC(gimple_p,heap) *scb_stack;
 
 /* Return the DECL_UID of the base variable of T.  */
 
@@ -180,7 +174,7 @@ ssa_operands_active (void)
   return cfun->gimple_df && gimple_ssa_operands (cfun)->ops_active;
 }
 
- 
+
 /* Create the VOP variable, an artificial global variable to act as a
    representative of all of the virtual operands FUD chain.  */
 
@@ -191,7 +185,8 @@ create_vop_var (void)
 
   gcc_assert (cfun->gimple_df->vop == NULL_TREE);
 
-  global_var = build_decl (VAR_DECL, get_identifier (".MEM"),
+  global_var = build_decl (BUILTINS_LOCATION, VAR_DECL,
+			   get_identifier (".MEM"),
 			   void_type_node);
   DECL_ARTIFICIAL (global_var) = 1;
   TREE_READONLY (global_var) = 0;
@@ -213,7 +208,7 @@ create_vop_var (void)
    In 1k we can fit 25 use operands (or 63 def operands) on a host with
    8 byte pointers, that would be 10 statements each with 1 def and 2
    uses.  */
-  
+
 #define OP_SIZE_INIT	0
 #define OP_SIZE_1	(1024 - sizeof (void *))
 #define OP_SIZE_2	(1024 * 4 - sizeof (void *))
@@ -231,7 +226,6 @@ init_ssa_operands (void)
       build_vuse = NULL_TREE;
       build_vdef = NULL_TREE;
       bitmap_obstack_initialize (&operands_bitmap_obstack);
-      scb_stack = VEC_alloc (gimple_p, heap, 20);
     }
 
   gcc_assert (gimple_ssa_operands (cfun)->operand_memory == NULL);
@@ -257,11 +251,6 @@ fini_ssa_operands (void)
       VEC_free (tree, heap, build_uses);
       build_vdef = NULL_TREE;
       build_vuse = NULL_TREE;
-
-      /* The change buffer stack had better be empty.  */
-      gcc_assert (VEC_length (gimple_p, scb_stack) == 0);
-      VEC_free (gimple_p, heap, scb_stack);
-      scb_stack = NULL;
     }
 
   gimple_ssa_operands (cfun)->free_defs = NULL;
@@ -300,7 +289,7 @@ fini_ssa_operands (void)
 
 
 /* Return memory for an operand of size SIZE.  */
-                                                                              
+
 static inline void *
 ssa_operand_alloc (unsigned size)
 {
@@ -330,7 +319,7 @@ ssa_operand_alloc (unsigned size)
 	  gcc_unreachable ();
 	}
 
-      ptr = (struct ssa_operand_memory_d *) 
+      ptr = (struct ssa_operand_memory_d *)
 	      ggc_alloc (sizeof (void *)
 			 + gimple_ssa_operands (cfun)->ssa_operand_mem_size);
       ptr->next = gimple_ssa_operands (cfun)->operand_memory;
@@ -385,7 +374,7 @@ alloc_use (void)
 
 /* Adds OP to the list of defs after LAST.  */
 
-static inline def_optype_p 
+static inline def_optype_p
 add_def_op (tree *op, def_optype_p last)
 {
   def_optype_p new_def;
@@ -540,8 +529,8 @@ finalize_ssa_uses (gimple stmt)
 
   /* Now create nodes for all the new nodes.  */
   for (new_i = 0; new_i < VEC_length (tree, build_uses); new_i++)
-    last = add_use_op (stmt, 
-		       (tree *) VEC_index (tree, build_uses, new_i), 
+    last = add_use_op (stmt,
+		       (tree *) VEC_index (tree, build_uses, new_i),
 		       last);
 
   /* Now set the stmt's operands.  */
@@ -563,7 +552,7 @@ cleanup_build_arrays (void)
 
 
 /* Finalize all the build vectors, fill the new ones into INFO.  */
-                                                                              
+
 static inline void
 finalize_ssa_stmt_operands (gimple stmt)
 {
@@ -646,6 +635,8 @@ add_virtual_operand (gimple stmt ATTRIBUTE_UNUSED, int flags)
   if (flags & opf_no_vops)
     return;
 
+  gcc_assert (!is_gimple_debug (stmt));
+
   if (flags & opf_def)
     append_vdef (gimple_vop (cfun));
   else
@@ -662,13 +653,11 @@ static void
 add_stmt_operand (tree *var_p, gimple stmt, int flags)
 {
   tree var, sym;
-  var_ann_t v_ann;
 
   gcc_assert (SSA_VAR_P (*var_p));
 
   var = *var_p;
   sym = (TREE_CODE (var) == SSA_NAME ? SSA_NAME_VAR (var) : var);
-  v_ann = var_ann (sym);
 
   /* Mark statements with volatile operands.  */
   if (TREE_THIS_VOLATILE (sym))
@@ -708,11 +697,11 @@ mark_address_taken (tree ref)
 
 
 /* A subroutine of get_expr_operands to handle INDIRECT_REF,
-   ALIGN_INDIRECT_REF and MISALIGNED_INDIRECT_REF.  
+   ALIGN_INDIRECT_REF and MISALIGNED_INDIRECT_REF.
 
    STMT is the statement being processed, EXPR is the INDIRECT_REF
       that got us here.
-   
+
    FLAGS is as in get_expr_operands.
 
    RECURSE_ON_BASE should be set to true if we want to continue
@@ -733,7 +722,8 @@ get_indirect_ref_operands (gimple stmt, tree expr, int flags,
 
   /* If requested, add a USE operand for the base pointer.  */
   if (recurse_on_base)
-    get_expr_operands (stmt, pptr, opf_use);
+    get_expr_operands (stmt, pptr,
+		       opf_use | (flags & opf_no_vops));
 }
 
 
@@ -742,9 +732,12 @@ get_indirect_ref_operands (gimple stmt, tree expr, int flags,
 static void
 get_tmr_operands (gimple stmt, tree expr, int flags)
 {
+  if (TREE_THIS_VOLATILE (expr))
+    gimple_set_has_volatile_ops (stmt, true);
+
   /* First record the real operands.  */
-  get_expr_operands (stmt, &TMR_BASE (expr), opf_use);
-  get_expr_operands (stmt, &TMR_INDEX (expr), opf_use);
+  get_expr_operands (stmt, &TMR_BASE (expr), opf_use | (flags & opf_no_vops));
+  get_expr_operands (stmt, &TMR_INDEX (expr), opf_use | (flags & opf_no_vops));
 
   if (TMR_SYMBOL (expr))
     mark_address_taken (TMR_SYMBOL (expr));
@@ -766,9 +759,9 @@ maybe_add_call_vops (gimple stmt)
      call-clobbered.  */
   if (!(call_flags & ECF_NOVOPS))
     {
-      /* A 'pure' or a 'const' function never call-clobbers anything. 
-	 A 'noreturn' function might, but since we don't return anyway 
-	 there is no point in recording that.  */ 
+      /* A 'pure' or a 'const' function never call-clobbers anything.
+	 A 'noreturn' function might, but since we don't return anyway
+	 there is no point in recording that.  */
       if (!(call_flags & (ECF_PURE | ECF_CONST | ECF_NORETURN)))
 	add_virtual_operand (stmt, opf_def);
       else if (!(call_flags & ECF_CONST))
@@ -857,9 +850,13 @@ get_expr_operands (gimple stmt, tree *expr_p, int flags)
   enum tree_code code;
   enum tree_code_class codeclass;
   tree expr = *expr_p;
+  int uflags = opf_use;
 
   if (expr == NULL)
     return;
+
+  if (is_gimple_debug (stmt))
+    uflags |= (flags & opf_no_vops);
 
   code = TREE_CODE (expr);
   codeclass = TREE_CODE_CLASS (code);
@@ -871,7 +868,8 @@ get_expr_operands (gimple stmt, tree *expr_p, int flags)
 	 reference to it, but the fact that the statement takes its
 	 address will be of interest to some passes (e.g. alias
 	 resolution).  */
-      mark_address_taken (TREE_OPERAND (expr, 0));
+      if (!is_gimple_debug (stmt))
+	mark_address_taken (TREE_OPERAND (expr, 0));
 
       /* If the address is invariant, there may be no interesting
 	 variable references inside.  */
@@ -897,6 +895,10 @@ get_expr_operands (gimple stmt, tree *expr_p, int flags)
       add_stmt_operand (expr_p, stmt, flags);
       return;
 
+    case DEBUG_EXPR_DECL:
+      gcc_assert (gimple_debug_bind_p (stmt));
+      return;
+
     case MISALIGNED_INDIRECT_REF:
       get_expr_operands (stmt, &TREE_OPERAND (expr, 1), flags);
       /* fall through */
@@ -916,32 +918,22 @@ get_expr_operands (gimple stmt, tree *expr_p, int flags)
     case REALPART_EXPR:
     case IMAGPART_EXPR:
       {
-	tree ref;
-	HOST_WIDE_INT offset, size, maxsize;
-
 	if (TREE_THIS_VOLATILE (expr))
 	  gimple_set_has_volatile_ops (stmt, true);
 
-	ref = get_ref_base_and_extent (expr, &offset, &size, &maxsize);
-	if (TREE_CODE (ref) == INDIRECT_REF)
-	  {
-	    get_indirect_ref_operands (stmt, ref, flags, false);
-	    flags |= opf_no_vops;
-	  }
-
 	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags);
-	
+
 	if (code == COMPONENT_REF)
 	  {
 	    if (TREE_THIS_VOLATILE (TREE_OPERAND (expr, 1)))
 	      gimple_set_has_volatile_ops (stmt, true);
-	    get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_use);
+	    get_expr_operands (stmt, &TREE_OPERAND (expr, 2), uflags);
 	  }
 	else if (code == ARRAY_REF || code == ARRAY_RANGE_REF)
 	  {
-            get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_use);
-            get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_use);
-            get_expr_operands (stmt, &TREE_OPERAND (expr, 3), opf_use);
+            get_expr_operands (stmt, &TREE_OPERAND (expr, 1), uflags);
+            get_expr_operands (stmt, &TREE_OPERAND (expr, 2), uflags);
+            get_expr_operands (stmt, &TREE_OPERAND (expr, 3), uflags);
 	  }
 
 	return;
@@ -950,15 +942,15 @@ get_expr_operands (gimple stmt, tree *expr_p, int flags)
     case WITH_SIZE_EXPR:
       /* WITH_SIZE_EXPR is a pass-through reference to its first argument,
 	 and an rvalue reference to its second argument.  */
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_use);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), uflags);
       get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags);
       return;
 
     case COND_EXPR:
     case VEC_COND_EXPR:
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 0), opf_use);
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_use);
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_use);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 0), uflags);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), uflags);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 2), uflags);
       return;
 
     case CONSTRUCTOR:
@@ -971,7 +963,7 @@ get_expr_operands (gimple stmt, tree *expr_p, int flags)
 	for (idx = 0;
 	     VEC_iterate (constructor_elt, CONSTRUCTOR_ELTS (expr), idx, ce);
 	     idx++)
-	  get_expr_operands (stmt, &ce->value, opf_use);
+	  get_expr_operands (stmt, &ce->value, uflags);
 
 	return;
       }
@@ -1009,15 +1001,10 @@ get_expr_operands (gimple stmt, tree *expr_p, int flags)
         return;
       }
 
-    case CHANGE_DYNAMIC_TYPE_EXPR:
-      gcc_unreachable ();
-
     case FUNCTION_DECL:
     case LABEL_DECL:
     case CONST_DECL:
     case CASE_LABEL_EXPR:
-    case FILTER_EXPR:
-    case EXC_PTR_EXPR:
       /* Expressions that make no memory references.  */
       return;
 
@@ -1050,6 +1037,13 @@ parse_ssa_operands (gimple stmt)
 
   if (code == GIMPLE_ASM)
     get_asm_expr_operands (stmt);
+  else if (is_gimple_debug (stmt))
+    {
+      if (gimple_debug_bind_p (stmt)
+	  && gimple_debug_bind_has_value_p (stmt))
+	get_expr_operands (stmt, gimple_debug_bind_get_value_ptr (stmt),
+			   opf_use | opf_no_vops);
+    }
   else
     {
       size_t i, start = 0;
@@ -1215,7 +1209,7 @@ verify_imm_links (FILE *f, tree var)
     {
       if (prev != ptr->prev)
 	goto error;
-      
+
       if (ptr->use == NULL)
 	goto error; /* 2 roots, or SAFE guard node.  */
       else if (*(ptr->use) != var)
@@ -1253,7 +1247,7 @@ verify_imm_links (FILE *f, tree var)
       fprintf (f, " STMT MODIFIED. - <%p> ", (void *)ptr->loc.stmt);
       print_gimple_stmt (f, ptr->loc.stmt, 0, TDF_SLIM);
     }
-  fprintf (f, " IMM ERROR : (use_p : tree - %p:%p)", (void *)ptr, 
+  fprintf (f, " IMM ERROR : (use_p : tree - %p:%p)", (void *)ptr,
 	   (void *)ptr->use);
   print_generic_expr (f, USE_FROM_PTR (ptr), TDF_SLIM);
   fprintf(f, "\n");
@@ -1331,62 +1325,6 @@ debug_immediate_uses_for (tree var)
   dump_immediate_uses_for (stderr, var);
 }
 
-
-/* Push *STMT_P on the SCB_STACK.  This function is deprecated, do not
-   introduce new uses of it.  */
-
-void
-push_stmt_changes (gimple *stmt_p)
-{
-  gimple stmt = *stmt_p;
-
-  /* It makes no sense to keep track of PHI nodes.  */
-  if (gimple_code (stmt) == GIMPLE_PHI)
-    return;
-
-  VEC_safe_push (gimple_p, heap, scb_stack, stmt_p);
-}
-
-/* Pop the top stmt from SCB_STACK and act on the differences between
-   what was recorded by push_stmt_changes and the current state of
-   the statement.  This function is deprecated, do not introduce
-   new uses of it.  */
-
-void
-pop_stmt_changes (gimple *stmt_p)
-{
-  gimple *stmt2_p, stmt = *stmt_p;
-
-  /* It makes no sense to keep track of PHI nodes.  */
-  if (gimple_code (stmt) == GIMPLE_PHI)
-    return;
-
-  stmt2_p = VEC_pop (gimple_p, scb_stack);
-  gcc_assert (stmt_p == stmt2_p);
-
-  /* Force an operand re-scan on the statement and mark any newly
-     exposed variables.  This also will mark the virtual operand
-     for renaming if necessary.  */
-  update_stmt (stmt);
-}
-
-/* Discard the topmost stmt from SCB_STACK.  This is useful
-   when the caller realized that it did not actually modified the
-   statement.  It avoids the expensive operand re-scan.
-   This function is deprecated, do not introduce new uses of it.  */
-
-void
-discard_stmt_changes (gimple *stmt_p)
-{
-  gimple *stmt2_p, stmt = *stmt_p;
-  
-  /* It makes no sense to keep track of PHI nodes.  */
-  if (gimple_code (stmt) == GIMPLE_PHI)
-    return;
-
-  stmt2_p = VEC_pop (gimple_p, scb_stack);
-  gcc_assert (stmt_p == stmt2_p);
-}
 
 /* Unlink STMTs virtual definition from the IL by propagating its use.  */
 

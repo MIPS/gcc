@@ -1,5 +1,3 @@
-/* { dg-options "-O2 -fgraphite -fdump-tree-graphite-all" } */
-
 int foo (void);
 void bar (void);
 
@@ -19,6 +17,6 @@ int toto()
   /* End scop 1. */
 }
 
-/* { dg-final { scan-tree-dump-times "number of SCoPs: 1" 1 "graphite"} } */ 
+/* { dg-final { scan-tree-dump-times "number of SCoPs: 1" 1 "graphite"} } */
 /* { dg-final { cleanup-tree-dump "graphite" } } */
 

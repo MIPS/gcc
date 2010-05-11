@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---            Copyright (C) 2008, Free Software Foundation, Inc.            --
+--          Copyright (C) 2008-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -59,12 +59,12 @@ procedure XOSCons is
    -- Information retrieved from assembly listing --
    -------------------------------------------------
 
-   --  We need to deal with integer values that can be signed or unsigned,
-   --  so we need to cater for the maximum range of both cases.
-
    type String_Access is access all String;
    --  Note: we can't use GNAT.Strings for this definition, since that unit
    --  is not available in older base compilers.
+
+   --  We need to deal with integer values that can be signed or unsigned, so
+   --  we need to accomodate the maximum range of both cases.
 
    type Int_Value_Type is record
       Positive  : Boolean;
@@ -72,11 +72,14 @@ procedure XOSCons is
    end record;
 
    type Asm_Info_Kind is
-     (CND,     --  Constant (decimal)
-      CNS,     --  Constant (freeform string)
+     (CND,     --  Named number (decimal)
+      CNS,     --  Named number (freeform text)
+      C,       --  Constant object
       TXT);    --  Literal text
-   --  Recognized markers found in assembly file. These markers are produced
-   --  by the same-named macros from the C template.
+   --  Recognized markers found in assembly file. These markers are produced by
+   --  the same-named macros from the C template.
+
+   subtype Named_Number is Asm_Info_Kind range CND .. CNS;
 
    type Asm_Info (Kind : Asm_Info_Kind := TXT) is record
       Line_Number   : Integer;
@@ -85,11 +88,14 @@ procedure XOSCons is
       Constant_Name : String_Access;
       --  Name of constant to be defined
 
+      Constant_Type : String_Access;
+      --  Type of constant (case of Kind = C)
+
       Value_Len     : Natural := 0;
       --  Length of text representation of constant's value
 
       Text_Value    : String_Access;
-      --  Value for CNS constant
+      --  Value for CNS / C constant
 
       Int_Value     : Int_Value_Type;
       --  Value for CND constant
@@ -98,16 +104,17 @@ procedure XOSCons is
       --  Additional descriptive comment for constant, or free-form text (TXT)
    end record;
 
-   package Asm_Infos is new GNAT.Table (
-      Table_Component_Type => Asm_Info,
+   package Asm_Infos is new GNAT.Table
+     (Table_Component_Type => Asm_Info,
       Table_Index_Type     => Integer,
       Table_Low_Bound      => 1,
       Table_Initial        => 100,
       Table_Increment      => 10);
 
-   Max_Const_Name_Len  : Natural := 0;
+   Max_Constant_Name_Len  : Natural := 0;
    Max_Constant_Value_Len : Natural := 0;
-   --  Longest name and longest value lengths
+   Max_Constant_Type_Len  : Natural := 0;
+   --  Lengths of longest name and longest value
 
    type Language is (Lang_Ada, Lang_C);
 
@@ -152,6 +159,7 @@ procedure XOSCons is
       Info : Asm_Info renames Asm_Infos.Table (Info_Index);
 
       procedure Put (S : String);
+      --  Write S to OFile
 
       ---------
       -- Put --
@@ -169,13 +177,22 @@ procedure XOSCons is
          case Lang is
             when Lang_Ada =>
                Put ("   " & Info.Constant_Name.all);
-               Put (Spaces (Max_Const_Name_Len - Info.Constant_Name'Length));
+               Put (Spaces (Max_Constant_Name_Len
+                              - Info.Constant_Name'Length));
 
-               Put (" : constant := ");
+               if Info.Kind in Named_Number then
+                  Put (" : constant := ");
+               else
+                  Put (" : constant " & Info.Constant_Type.all);
+                  Put (Spaces (Max_Constant_Type_Len
+                                 - Info.Constant_Type'Length));
+                  Put (" := ");
+               end if;
 
             when Lang_C =>
                Put ("#define " & Info.Constant_Name.all & " ");
-               Put (Spaces (Max_Const_Name_Len - Info.Constant_Name'Length));
+               Put (Spaces (Max_Constant_Name_Len
+                              - Info.Constant_Name'Length));
          end case;
 
          if Info.Kind = CND then
@@ -184,7 +201,19 @@ procedure XOSCons is
             end if;
             Put (Trim (Info.Int_Value.Abs_Value'Img, Side => Left));
          else
-            Put (Info.Text_Value.all);
+            declare
+               Is_String : constant Boolean :=
+                             Info.Kind = C
+                               and then Info.Constant_Type.all = "String";
+            begin
+               if Is_String then
+                  Put ("""");
+               end if;
+               Put (Info.Text_Value.all);
+               if Is_String then
+                  Put ("""");
+               end if;
+            end;
          end if;
 
          if Lang = Lang_Ada then
@@ -253,9 +282,7 @@ procedure XOSCons is
          --  On some platforms, immediate integer values are prefixed with
          --  a $ or # character in assembly output.
 
-         if S (First) = '$'
-           or else S (First) = '#'
-         then
+         if S (First) = '$' or else S (First) = '#' then
             First := First + 1;
          end if;
 
@@ -291,21 +318,32 @@ procedure XOSCons is
            Integer (Parse_Int (Line (Index1 .. Index2 - 1)).Abs_Value);
 
          case Info.Kind is
-            when CND | CNS =>
+            when CND | CNS | C =>
                Index1 := Index2 + 1;
                Find_Colon (Index2);
 
                Info.Constant_Name := Field_Alloc;
-               if Info.Constant_Name'Length > Max_Const_Name_Len then
-                  Max_Const_Name_Len := Info.Constant_Name'Length;
+               if Info.Constant_Name'Length > Max_Constant_Name_Len then
+                  Max_Constant_Name_Len := Info.Constant_Name'Length;
                end if;
 
                Index1 := Index2 + 1;
                Find_Colon (Index2);
 
+               if Info.Kind = C then
+                  Info.Constant_Type := Field_Alloc;
+                  if Info.Constant_Type'Length > Max_Constant_Type_Len then
+                     Max_Constant_Type_Len := Info.Constant_Type'Length;
+                  end if;
+
+                  Index1 := Index2 + 1;
+                  Find_Colon (Index2);
+               end if;
+
                if Info.Kind = CND then
                   Info.Int_Value := Parse_Int (Line (Index1 .. Index2 - 1));
                   Info.Value_Len := Index2 - Index1 - 1;
+
                else
                   Info.Text_Value := Field_Alloc;
                   Info.Value_Len  := Info.Text_Value'Length;
@@ -322,8 +360,8 @@ procedure XOSCons is
          if Info.Kind = TXT then
             Info.Text_Value := Info.Comment;
 
-         --  Update Max_Constant_Value_Len, but only if this constant has
-         --  a comment (else the value is allowed to be longer).
+         --  Update Max_Constant_Value_Len, but only if this constant has a
+         --  comment (else the value is allowed to be longer).
 
          elsif Info.Comment'Length > 0 then
             if Info.Value_Len > Max_Constant_Value_Len then
@@ -398,7 +436,7 @@ begin
 
    --  Load C template and output definitions
 
-   Open (Tmpl_File, In_File, Tmpl_File_Name);
+   Open   (Tmpl_File, In_File,  Tmpl_File_Name);
    Create (Ada_OFile, Out_File, Ada_File_Name);
    Create (C_OFile,   Out_File, C_File_Name);
 
@@ -446,6 +484,7 @@ begin
             Output_Info (Lang_C,   C_OFile,   Current_Info);
             Current_Info := Current_Info + 1;
          end if;
+
          Current_Line := Current_Line + 1;
       end if;
    end loop;

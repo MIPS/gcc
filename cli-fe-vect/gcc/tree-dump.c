@@ -511,6 +511,10 @@ dequeue_and_dump (dump_info_p di)
       dump_child ("cnst", DECL_INITIAL (t));
       break;
 
+    case DEBUG_EXPR_DECL:
+      dump_int (di, "-uid", DEBUG_TEMP_UID (t));
+      /* Fall through.  */
+
     case VAR_DECL:
     case PARM_DECL:
     case FIELD_DECL:
@@ -803,6 +807,7 @@ struct dump_option_value_info
 static const struct dump_option_value_info dump_options[] =
 {
   {"address", TDF_ADDRESS},
+  {"asmname", TDF_ASMNAME},
   {"slim", TDF_SLIM},
   {"raw", TDF_RAW},
   {"graph", TDF_GRAPH},
@@ -815,9 +820,11 @@ static const struct dump_option_value_info dump_options[] =
   {"stmtaddr", TDF_STMTADDR},
   {"memsyms", TDF_MEMSYMS},
   {"verbose", TDF_VERBOSE},
-  {"all", ~(TDF_RAW | TDF_SLIM | TDF_LINENO | TDF_TREE | TDF_RTL | TDF_IPA 
+  {"eh", TDF_EH},
+  {"nouid", TDF_NOUID},
+  {"all", ~(TDF_RAW | TDF_SLIM | TDF_LINENO | TDF_TREE | TDF_RTL | TDF_IPA
 	    | TDF_STMTADDR | TDF_GRAPH | TDF_DIAGNOSTIC | TDF_VERBOSE
-	    | TDF_RHS_ONLY)},
+	    | TDF_RHS_ONLY | TDF_NOUID)},
   {NULL, 0}
 };
 
@@ -1019,7 +1026,7 @@ dump_switch_p_1 (const char *arg, struct dump_file_info *dfi, bool doglob)
   const char *option_value;
   const char *ptr;
   int flags;
-  
+
   if (doglob && !dfi->glob)
     return 0;
 
@@ -1086,7 +1093,7 @@ dump_switch_p (const char *arg)
 
   for (i = 0; i < extra_dump_files_in_use; i++)
     any |= dump_switch_p_1 (arg, &extra_dump_files[i], false);
-  
+
   if (!any)
     for (i = 0; i < extra_dump_files_in_use; i++)
       any |= dump_switch_p_1 (arg, &extra_dump_files[i], true);

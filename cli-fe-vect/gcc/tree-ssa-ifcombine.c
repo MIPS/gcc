@@ -151,7 +151,7 @@ get_name_for_bit_test (tree candidate)
     {
       gimple def_stmt = SSA_NAME_DEF_STMT (candidate);
       if (is_gimple_assign (def_stmt)
-	  && gimple_assign_cast_p (def_stmt))
+	  && CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (def_stmt)))
 	{
 	  if (TYPE_PRECISION (TREE_TYPE (candidate))
 	      <= TYPE_PRECISION (TREE_TYPE (gimple_assign_rhs1 (def_stmt))))
@@ -160,21 +160,6 @@ get_name_for_bit_test (tree candidate)
     }
 
   return candidate;
-}
-
-/* Helpers for recognize_single_bit_test defined mainly for source code
-   formating.  */
-
-static int
-operand_precision (tree t)
-{
-  return TYPE_PRECISION (TREE_TYPE (t));
-}
-
-static bool
-integral_operand_p (tree t)
-{
-  return INTEGRAL_TYPE_P (TREE_TYPE (t));
 }
 
 /* Recognize a single bit test pattern in GIMPLE_COND and its defining
@@ -212,15 +197,11 @@ recognize_single_bit_test (gimple cond, tree *name, tree *bit)
       stmt = SSA_NAME_DEF_STMT (orig_name);
 
       while (is_gimple_assign (stmt)
-	     && (gimple_assign_ssa_name_copy_p (stmt)
-		 || (gimple_assign_cast_p (stmt)
-		     && integral_operand_p (gimple_assign_lhs (stmt))
-		     && integral_operand_p (gimple_assign_rhs1 (stmt))
-		     && (operand_precision (gimple_assign_lhs (stmt))
-			 <= operand_precision (gimple_assign_rhs1 (stmt))))))
-	{
-	  stmt = SSA_NAME_DEF_STMT (gimple_assign_rhs1 (stmt));
-	}
+	     && ((CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (stmt))
+		  && (TYPE_PRECISION (TREE_TYPE (gimple_assign_lhs (stmt)))
+		      <= TYPE_PRECISION (TREE_TYPE (gimple_assign_rhs1 (stmt)))))
+		 || gimple_assign_ssa_name_copy_p (stmt)))
+	stmt = SSA_NAME_DEF_STMT (gimple_assign_rhs1 (stmt));
 
       /* If we found such, decompose it.  */
       if (is_gimple_assign (stmt)
@@ -359,6 +340,9 @@ ifcombine_ifandif (basic_block inner_cond_bb, basic_block outer_cond_bb)
       t2 = force_gimple_operand_gsi (&gsi, t2, true, NULL_TREE,
 				     true, GSI_SAME_STMT);
       t = fold_build2 (EQ_EXPR, boolean_type_node, t2, t);
+      t = canonicalize_cond_expr_cond (t);
+      if (!t)
+	return false;
       gimple_cond_set_condition_from_tree (inner_cond, t);
       update_stmt (inner_cond);
 
@@ -392,7 +376,8 @@ ifcombine_ifandif (basic_block inner_cond_bb, basic_block outer_cond_bb)
       enum tree_code code2 = gimple_cond_code (outer_cond);
       tree t;
 
-      if (!(t = combine_comparisons (TRUTH_ANDIF_EXPR, code1, code2,
+      if (!(t = combine_comparisons (UNKNOWN_LOCATION,
+	      			     TRUTH_ANDIF_EXPR, code1, code2,
 				     boolean_type_node,
 				     gimple_cond_lhs (outer_cond),
 				     gimple_cond_rhs (outer_cond))))
@@ -506,6 +491,9 @@ ifcombine_iforif (basic_block inner_cond_bb, basic_block outer_cond_bb)
 				    true, GSI_SAME_STMT);
       t = fold_build2 (NE_EXPR, boolean_type_node, t,
 		       build_int_cst (TREE_TYPE (t), 0));
+      t = canonicalize_cond_expr_cond (t);
+      if (!t)
+	return false;
       gimple_cond_set_condition_from_tree (inner_cond, t);
       update_stmt (inner_cond);
 
@@ -541,7 +529,8 @@ ifcombine_iforif (basic_block inner_cond_bb, basic_block outer_cond_bb)
       enum tree_code code2 = gimple_cond_code (outer_cond);
       tree t;
 
-      if (!(t = combine_comparisons (TRUTH_ORIF_EXPR, code1, code2,
+      if (!(t = combine_comparisons (UNKNOWN_LOCATION,
+	      			     TRUTH_ORIF_EXPR, code1, code2,
 				     boolean_type_node,
 				     gimple_cond_lhs (outer_cond),
 				     gimple_cond_rhs (outer_cond))))
@@ -668,7 +657,7 @@ gate_ifcombine (void)
   return 1;
 }
 
-struct gimple_opt_pass pass_tree_ifcombine = 
+struct gimple_opt_pass pass_tree_ifcombine =
 {
  {
   GIMPLE_PASS,

@@ -1,6 +1,6 @@
 /* Top level of GCC compilers (cc1, cc1plus, etc.)
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -152,6 +152,10 @@ struct line_maps *line_table;
 
 const char *dump_base_name;
 
+/* Directory used for dump output files.  */
+
+const char *dump_dir_name;
+
 /* Name to use as a base for auxiliary output files.  */
 
 const char *aux_base_name;
@@ -197,6 +201,17 @@ int optimize = 0;
    bloating optimizations are disabled.  */
 
 int optimize_size = 0;
+
+/* True if this is the lto front end.  This is used to disable
+   gimple generation and lowering passes that are normally run on the
+   output of a front end.  These passes must be bypassed for lto since
+   they have already been done before the gimple was written.  */
+
+bool in_lto_p = false;
+
+/* Nonzero if we should write GIMPLE bytecode for link-time optimization.  */
+
+int flag_generate_lto;
 
 /* The FUNCTION_DECL for the function currently being compiled,
    or 0 if between functions.  */
@@ -319,10 +334,22 @@ int flag_dump_rtl_in_asm = 0;
    the support provided depends on the backend.  */
 rtx stack_limit_rtx;
 
-/* Nonzero if we should track variables.  When
-   flag_var_tracking == AUTODETECT_VALUE it will be set according
-   to optimize, debug_info_level and debug_hooks in process_options ().  */
+/* Positive if we should track variables, negative if we should run
+   the var-tracking pass only to discard debug annotations, zero if
+   we're not to run it.  When flag_var_tracking == AUTODETECT_VALUE it
+   will be set according to optimize, debug_info_level and debug_hooks
+   in process_options ().  */
 int flag_var_tracking = AUTODETECT_VALUE;
+
+/* Positive if we should track variables at assignments, negative if
+   we should run the var-tracking pass only to discard debug
+   annotations.  When flag_var_tracking_assignments ==
+   AUTODETECT_VALUE it will be set according to flag_var_tracking.  */
+int flag_var_tracking_assignments = AUTODETECT_VALUE;
+
+/* Nonzero if we should toggle flag_var_tracking_assignments after
+   processing options and computing its default.  */
+int flag_var_tracking_assignments_toggle = 0;
 
 /* Type of stack check.  */
 enum stack_check_type flag_stack_check = NO_STACK_CHECK;
@@ -427,9 +454,11 @@ announce_function (tree decl)
   if (!quiet_flag)
     {
       if (rtl_dump_and_exit)
-	fprintf (stderr, "%s ", IDENTIFIER_POINTER (DECL_NAME (decl)));
+	fprintf (stderr, "%s ",
+		 identifier_to_locale (IDENTIFIER_POINTER (DECL_NAME (decl))));
       else
-	fprintf (stderr, " %s", lang_hooks.decl_printable_name (decl, 2));
+	fprintf (stderr, " %s",
+		 identifier_to_locale (lang_hooks.decl_printable_name (decl, 2)));
       fflush (stderr);
       pp_needs_newline (global_dc->printer) = true;
       diagnostic_set_last_function (global_dc, (diagnostic_info *) NULL);
@@ -530,11 +559,11 @@ read_integral_parameter (const char *p, const char *pname, const int  defval)
   return atoi (p);
 }
 
-/* When compiling with a recent enough GCC, we use the GNU C "extern inline"
-   for floor_log2 and exact_log2; see toplev.h.  That construct, however,
-   conflicts with the ISO C++ One Definition Rule.   */
+#if GCC_VERSION < 3004
 
-#if GCC_VERSION < 3004 || !defined (__cplusplus)
+/* The functions floor_log2 and exact_log2 are defined as inline
+   functions in toplev.h if GCC_VERSION >= 3004.  The definitions here
+   are used for older versions of gcc.  */
 
 /* Given X, an unsigned number, return the largest int Y such that 2**Y <= X.
    If X is 0, return -1.  */
@@ -547,9 +576,6 @@ floor_log2 (unsigned HOST_WIDE_INT x)
   if (x == 0)
     return -1;
 
-#ifdef CLZ_HWI
-  t = HOST_BITS_PER_WIDE_INT - 1 - (int) CLZ_HWI (x);
-#else
   if (HOST_BITS_PER_WIDE_INT > 64)
     if (x >= (unsigned HOST_WIDE_INT) 1 << (t + 64))
       t += 64;
@@ -566,7 +592,6 @@ floor_log2 (unsigned HOST_WIDE_INT x)
     t += 2;
   if (x >= ((unsigned HOST_WIDE_INT) 1) << (t + 1))
     t += 1;
-#endif
 
   return t;
 }
@@ -579,14 +604,10 @@ exact_log2 (unsigned HOST_WIDE_INT x)
 {
   if (x != (x & -x))
     return -1;
-#ifdef CTZ_HWI
-  return x ? CTZ_HWI (x) : -1;
-#else
   return floor_log2 (x);
-#endif
 }
 
-#endif /*  GCC_VERSION < 3004 || !defined (__cplusplus)  */
+#endif /* GCC_VERSION < 3004 */
 
 /* Handler for fatal signals, such as SIGSEGV.  These are transformed
    into ICE messages, which is much more user friendly.  In case the
@@ -705,7 +726,7 @@ output_file_directive (FILE *asm_file, const char *input_name)
 #else
   fprintf (asm_file, "\t.file\t");
   output_quoted_string (asm_file, na);
-  fputc ('\n', asm_file);
+  putc ('\n', asm_file);
 #endif
 }
 
@@ -869,9 +890,9 @@ check_global_declaration_1 (tree decl)
       && ! (TREE_CODE (decl) == VAR_DECL && DECL_REGISTER (decl))
       /* Otherwise, ask the language.  */
       && lang_hooks.decls.warn_unused_global (decl))
-    warning ((TREE_CODE (decl) == FUNCTION_DECL) 
-	     ? OPT_Wunused_function 
-             : OPT_Wunused_variable, 
+    warning ((TREE_CODE (decl) == FUNCTION_DECL)
+	     ? OPT_Wunused_function
+             : OPT_Wunused_variable,
 	     "%q+D defined but not used", decl);
 }
 
@@ -906,30 +927,58 @@ emit_debug_global_declarations (tree *vec, int len)
 
 /* Warn about a use of an identifier which was marked deprecated.  */
 void
-warn_deprecated_use (tree node)
+warn_deprecated_use (tree node, tree attr)
 {
+  const char *msg;
+
   if (node == 0 || !warn_deprecated_decl)
     return;
+
+  if (!attr)
+    {
+      if (DECL_P (node))
+	attr = DECL_ATTRIBUTES (node);
+      else if (TYPE_P (node))
+	{
+	  tree decl = TYPE_STUB_DECL (node);
+	  if (decl)
+	    attr = lookup_attribute ("deprecated",
+				     TYPE_ATTRIBUTES (TREE_TYPE (decl)));
+	}
+    }
+
+  if (attr)
+    attr = lookup_attribute ("deprecated", attr);
+
+  if (attr)
+    msg = TREE_STRING_POINTER (TREE_VALUE (TREE_VALUE (attr)));
+  else
+    msg = NULL;
 
   if (DECL_P (node))
     {
       expanded_location xloc = expand_location (DECL_SOURCE_LOCATION (node));
-      warning (OPT_Wdeprecated_declarations,
-	       "%qD is deprecated (declared at %s:%d)",
-	       node, xloc.file, xloc.line);
+      if (msg)
+	warning (OPT_Wdeprecated_declarations,
+		 "%qD is deprecated (declared at %s:%d): %s",
+		 node, xloc.file, xloc.line, msg);
+      else
+	warning (OPT_Wdeprecated_declarations,
+		 "%qD is deprecated (declared at %s:%d)",
+		 node, xloc.file, xloc.line);
     }
   else if (TYPE_P (node))
     {
-      const char *what = NULL;
+      tree what = NULL_TREE;
       tree decl = TYPE_STUB_DECL (node);
 
       if (TYPE_NAME (node))
 	{
 	  if (TREE_CODE (TYPE_NAME (node)) == IDENTIFIER_NODE)
-	    what = IDENTIFIER_POINTER (TYPE_NAME (node));
+	    what = TYPE_NAME (node);
 	  else if (TREE_CODE (TYPE_NAME (node)) == TYPE_DECL
 		   && DECL_NAME (TYPE_NAME (node)))
-	    what = IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (node)));
+	    what = DECL_NAME (TYPE_NAME (node));
 	}
 
       if (decl)
@@ -937,20 +986,46 @@ warn_deprecated_use (tree node)
 	  expanded_location xloc
 	    = expand_location (DECL_SOURCE_LOCATION (decl));
 	  if (what)
-	    warning (OPT_Wdeprecated_declarations,
-		     "%qs is deprecated (declared at %s:%d)", what,
-		     xloc.file, xloc.line);
+	    {
+	      if (msg)
+		warning (OPT_Wdeprecated_declarations,
+			 "%qE is deprecated (declared at %s:%d): %s",
+			 what, xloc.file, xloc.line, msg);
+	      else
+		warning (OPT_Wdeprecated_declarations,
+			 "%qE is deprecated (declared at %s:%d)", what,
+			 xloc.file, xloc.line);
+	    }
 	  else
-	    warning (OPT_Wdeprecated_declarations,
-		     "type is deprecated (declared at %s:%d)",
-		     xloc.file, xloc.line);
+	    {
+	      if (msg)
+		warning (OPT_Wdeprecated_declarations,
+			 "type is deprecated (declared at %s:%d): %s",
+			 xloc.file, xloc.line, msg);
+	      else
+		warning (OPT_Wdeprecated_declarations,
+			 "type is deprecated (declared at %s:%d)",
+			 xloc.file, xloc.line);
+	    }
 	}
       else
 	{
 	  if (what)
-	    warning (OPT_Wdeprecated_declarations, "%qs is deprecated", what);
+	    {
+	      if (msg)
+		warning (OPT_Wdeprecated_declarations, "%qE is deprecated: %s",
+			 what, msg);
+	      else
+		warning (OPT_Wdeprecated_declarations, "%qE is deprecated", what);
+	    }
 	  else
-	    warning (OPT_Wdeprecated_declarations, "type is deprecated");
+	    {
+	      if (msg)
+		warning (OPT_Wdeprecated_declarations, "type is deprecated: %s",
+			 msg);
+	      else
+		warning (OPT_Wdeprecated_declarations, "type is deprecated");
+	    }
 	}
     }
 }
@@ -969,6 +1044,7 @@ compile_file (void)
   init_final (main_input_filename);
   coverage_init (aux_base_name);
   statistics_init ();
+  invoke_plugin_callbacks (PLUGIN_START_UNIT, NULL);
 
   timevar_push (TV_PARSE);
 
@@ -985,6 +1061,7 @@ compile_file (void)
 
   ggc_protect_identifiers = false;
 
+  /* This must also call cgraph_finalize_compilation_unit.  */
   lang_hooks.decls.final_write_globals ();
 
   if (errorcount || sorrycount)
@@ -1007,6 +1084,10 @@ compile_file (void)
   /* Write out any pending weak symbol declarations.  */
   weak_finish ();
 
+  /* This must be at the end before unwind and debug info.
+     Some target ports emit PIC setup thunks here.  */
+  targetm.asm_out.code_end ();
+
   /* Do dbx symbols.  */
   timevar_push (TV_SYMOUT);
 
@@ -1025,6 +1106,27 @@ compile_file (void)
   /* Flush any pending external directives.  */
   process_pending_assemble_externals ();
 
+  /* Emit LTO marker if LTO info has been previously emitted.  This is
+     used by collect2 to determine whether an object file contains IL.
+     We used to emit an undefined reference here, but this produces
+     link errors if an object file with IL is stored into a shared
+     library without invoking lto1.  */
+  if (flag_generate_lto)
+    {
+#if defined ASM_OUTPUT_ALIGNED_DECL_COMMON
+      ASM_OUTPUT_ALIGNED_DECL_COMMON (asm_out_file, NULL_TREE,
+				      "__gnu_lto_v1",
+				      (unsigned HOST_WIDE_INT) 1, 8);
+#elif defined ASM_OUTPUT_ALIGNED_COMMON
+      ASM_OUTPUT_ALIGNED_COMMON (asm_out_file, "__gnu_lto_v1",
+				 (unsigned HOST_WIDE_INT) 1, 8);
+#else
+      ASM_OUTPUT_COMMON (asm_out_file, "__gnu_lto_v1",
+			 (unsigned HOST_WIDE_INT) 1,
+			 (unsigned HOST_WIDE_INT) 1);
+#endif
+    }
+
   /* Attach a special .ident directive to the end of the file to identify
      the version of GCC which compiled this code.  The format of the .ident
      string is patterned after the ones produced by native SVR4 compilers.  */
@@ -1039,6 +1141,9 @@ compile_file (void)
 	       IDENT_ASM_OP, pkg_version, version_string);
     }
 #endif
+
+  /* Invoke registered plugin callbacks.  */
+  invoke_plugin_callbacks (PLUGIN_FINISH_UNIT, NULL);
 
   /* This must be at the end.  Some target ports emit end of file directives
      into the assembly file here, and hence we can not output anything to the
@@ -1115,7 +1220,7 @@ print_version (FILE *file, const char *indent)
 #endif
     ;
   static const char fmt2[] =
-    N_("GMP version %s, MPFR version %s.\n");
+    N_("GMP version %s, MPFR version %s, MPC version %s\n");
   static const char fmt3[] =
     N_("%s%swarning: %s header version %s differs from library version %s.\n");
   static const char fmt4[] =
@@ -1130,10 +1235,14 @@ print_version (FILE *file, const char *indent)
 	   indent, __VERSION__);
 
   /* We need to stringify the GMP macro values.  Ugh, gmp_version has
-     two string formats, "i.j.k" and "i.j" when k is zero.  */
+     two string formats, "i.j.k" and "i.j" when k is zero.  As of
+     gmp-4.3.0, GMP always uses the 3 number format.  */
 #define GCC_GMP_STRINGIFY_VERSION3(X) #X
 #define GCC_GMP_STRINGIFY_VERSION2(X) GCC_GMP_STRINGIFY_VERSION3(X)
-#if __GNU_MP_VERSION_PATCHLEVEL == 0
+#define GCC_GMP_VERSION_NUM(X,Y,Z) (((X) << 16L) | ((Y) << 8) | (Z))
+#define GCC_GMP_VERSION \
+  GCC_GMP_VERSION_NUM(__GNU_MP_VERSION, __GNU_MP_VERSION_MINOR, __GNU_MP_VERSION_PATCHLEVEL)
+#if GCC_GMP_VERSION < GCC_GMP_VERSION_NUM(4,3,0) && __GNU_MP_VERSION_PATCHLEVEL == 0
 #define GCC_GMP_STRINGIFY_VERSION GCC_GMP_STRINGIFY_VERSION2(__GNU_MP_VERSION) "." \
   GCC_GMP_STRINGIFY_VERSION2(__GNU_MP_VERSION_MINOR)
 #else
@@ -1143,7 +1252,7 @@ print_version (FILE *file, const char *indent)
 #endif
   fprintf (file,
 	   file == stderr ? _(fmt2) : fmt2,
-	   GCC_GMP_STRINGIFY_VERSION, MPFR_VERSION_STRING);
+	   GCC_GMP_STRINGIFY_VERSION, MPFR_VERSION_STRING, MPC_VERSION_STRING);
   if (strcmp (GCC_GMP_STRINGIFY_VERSION, gmp_version))
     fprintf (file,
 	     file == stderr ? _(fmt3) : fmt3,
@@ -1154,6 +1263,11 @@ print_version (FILE *file, const char *indent)
 	     file == stderr ? _(fmt3) : fmt3,
 	     indent, *indent != 0 ? " " : "",
 	     "MPFR", MPFR_VERSION_STRING, mpfr_get_version ());
+  if (strcmp (MPC_VERSION_STRING, mpc_get_version ()))
+    fprintf (file,
+	     file == stderr ? _(fmt3) : fmt3,
+	     indent, *indent != 0 ? " " : "",
+	     "MPC", MPC_VERSION_STRING, mpc_get_version ());
   fprintf (file,
 	   file == stderr ? _(fmt4) : fmt4,
 	   indent, *indent != 0 ? " " : "",
@@ -1186,7 +1300,7 @@ print_to_asm_out_file (print_switch_type type, const char * text)
     case SWITCH_TYPE_ENABLED:
       if (prepend_sep)
 	fputc (' ', asm_out_file);
-      fprintf (asm_out_file, text);
+      fputs (text, asm_out_file);
       /* No need to return the length here as
 	 print_single_switch has already done it.  */
       return 0;
@@ -1208,14 +1322,14 @@ print_to_stderr (print_switch_type type, const char * text)
 
     case SWITCH_TYPE_LINE_START:
       return 0;
-      
+
     case SWITCH_TYPE_PASSED:
     case SWITCH_TYPE_ENABLED:
       fputc (' ', stderr);
       /* Drop through.  */
 
     case SWITCH_TYPE_DESCRIPTIVE:
-      fprintf (stderr, text);
+      fputs (text, stderr);
       /* No need to return the length here as
 	 print_single_switch has already done it.  */
       return 0;
@@ -1282,6 +1396,7 @@ print_switch_values (print_switch_fn_type print_fn)
 	  /* Ignore these.  */
 	  if (strcmp (*p, "-o") == 0
 	      || strcmp (*p, "-dumpbase") == 0
+	      || strcmp (*p, "-dumpdir") == 0
 	      || strcmp (*p, "-auxbase") == 0)
 	    {
 	      if (p[1] != NULL)
@@ -1375,7 +1490,7 @@ init_asm_output (const char *name)
 	     into the assembler file as comments.  */
 	  print_version (asm_out_file, ASM_COMMENT_START);
 	  print_switch_values (print_to_asm_out_file);
-	  fprintf (asm_out_file, "\n");
+	  putc ('\n', asm_out_file);
 	}
 #endif
     }
@@ -1401,20 +1516,20 @@ option_affects_pch_p (int option, struct cl_option_state *state)
    most targets, but completely right for very few.  */
 
 void *
-default_get_pch_validity (size_t *len)
+default_get_pch_validity (size_t *sz)
 {
   struct cl_option_state state;
   size_t i;
   char *result, *r;
 
-  *len = 2;
+  *sz = 2;
   if (targetm.check_pch_target_flags)
-    *len += sizeof (target_flags);
+    *sz += sizeof (target_flags);
   for (i = 0; i < cl_options_count; i++)
     if (option_affects_pch_p (i, &state))
-      *len += state.size;
+      *sz += state.size;
 
-  result = r = XNEWVEC (char, *len);
+  result = r = XNEWVEC (char, *sz);
   r[0] = flag_pic;
   r[1] = flag_pie;
   r += 2;
@@ -1491,8 +1606,8 @@ default_pch_valid_p (const void *data_p, size_t len)
 }
 
 /* Default tree printer.   Handles declarations only.  */
-static bool
-default_tree_printer (pretty_printer * pp, text_info *text, const char *spec,
+bool
+default_tree_printer (pretty_printer *pp, text_info *text, const char *spec,
 		      int precision, bool wide, bool set_locus, bool hash)
 {
   tree t;
@@ -1507,7 +1622,7 @@ default_tree_printer (pretty_printer * pp, text_info *text, const char *spec,
       t = va_arg (*text->args_ptr, tree);
       if (TREE_CODE (t) == IDENTIFIER_NODE)
 	{
-	  pp_string (pp, IDENTIFIER_POINTER (t));
+	  pp_identifier (pp, IDENTIFIER_POINTER (t));
 	  return true;
 	}
       break;
@@ -1533,8 +1648,8 @@ default_tree_printer (pretty_printer * pp, text_info *text, const char *spec,
   if (DECL_P (t))
     {
       const char *n = DECL_NAME (t)
-        ? lang_hooks.decl_printable_name (t, 2)
-        : "<anonymous>";
+        ? identifier_to_locale (lang_hooks.decl_printable_name (t, 2))
+        : _("<anonymous>");
       pp_string (pp, n);
     }
   else
@@ -1684,6 +1799,10 @@ process_options (void)
   if (warn_unused_value == -1)
     warn_unused_value = warn_unused;
 
+  /* This replaces set_Wextra.  */
+  if (warn_uninitialized == -1)
+    warn_uninitialized = extra_warnings;
+
   /* Allow the front end to perform consistency checks and do further
      initialization based on the command line options.  This hook also
      sets the original filename if appropriate (e.g. foo.i -> foo.c)
@@ -1694,6 +1813,10 @@ process_options (void)
   /* Some machines may reject certain combinations of options.  */
   OVERRIDE_OPTIONS;
 #endif
+
+  /* Avoid any informative notes in the second run of -fcompare-debug.  */
+  if (flag_compare_debug) 
+    diagnostic_inhibit_notes (global_dc);
 
   if (flag_section_anchors && !target_supports_section_anchors_p ())
     {
@@ -1723,7 +1846,8 @@ process_options (void)
       || flag_loop_block
       || flag_loop_interchange
       || flag_loop_strip_mine
-      || flag_graphite_identity)
+      || flag_graphite_identity
+      || flag_loop_parallelize_all)
     sorry ("Graphite loop optimizations cannot be used");
 #endif
 
@@ -1734,11 +1858,12 @@ process_options (void)
 
   /* The loop unrolling code assumes that cse will be run after loop.
      web and rename-registers also help when run after loop unrolling.  */
-
   if (flag_rerun_cse_after_loop == AUTODETECT_VALUE)
     flag_rerun_cse_after_loop = flag_unroll_loops || flag_peel_loops;
+
   if (flag_web == AUTODETECT_VALUE)
     flag_web = flag_unroll_loops || flag_peel_loops;
+
   if (flag_rename_registers == AUTODETECT_VALUE)
     flag_rename_registers = flag_unroll_loops || flag_peel_loops;
 
@@ -1789,6 +1914,41 @@ process_options (void)
       write_symbols = NO_DEBUG;
       profile_flag = 0;
     }
+
+  if (flag_gtoggle)
+    {
+      if (debug_info_level == DINFO_LEVEL_NONE)
+	{
+	  debug_info_level = DINFO_LEVEL_NORMAL;
+
+	  if (write_symbols == NO_DEBUG)
+	    write_symbols = PREFERRED_DEBUGGING_TYPE;
+	}
+      else
+	debug_info_level = DINFO_LEVEL_NONE;
+    }
+
+  if (flag_dump_final_insns && !flag_syntax_only && !no_backend)
+    {
+      FILE *final_output = fopen (flag_dump_final_insns, "w");
+      if (!final_output)
+	{
+	  error ("could not open final insn dump file %qs: %s",
+		 flag_dump_final_insns, strerror (errno));
+	  flag_dump_final_insns = NULL;
+	}
+      else if (fclose (final_output))
+	{
+	  error ("could not close zeroed insn dump file %qs: %s",
+		 flag_dump_final_insns, strerror (errno));
+	  flag_dump_final_insns = NULL;
+	}
+    }
+
+  /* Unless over-ridden for the target, assume that all DWARF levels
+     may be emitted, if DWARF2_DEBUG is selected.  */
+  if (dwarf_strict < 0)
+    dwarf_strict = 0;
 
   /* A lot of code assumes write_symbols == NO_DEBUG if the debugging
      level is 0.  */
@@ -1847,9 +2007,8 @@ process_options (void)
     error ("target system does not support the \"%s\" debug format",
 	   debug_type_names[write_symbols]);
 
-  /* Now we know which debug output will be used so we can set
-     flag_var_tracking, flag_rename_registers if the user has
-     not specified them.  */
+  /* We know which debug output will be used so we can set flag_var_tracking
+     and flag_var_tracking_uninit if the user has not specified them.  */
   if (debug_info_level < DINFO_LEVEL_NORMAL
       || debug_hooks->var_location == do_nothing_debug_hooks.var_location)
     {
@@ -1867,12 +2026,28 @@ process_options (void)
       flag_var_tracking_uninit = 0;
     }
 
-  if (flag_rename_registers == AUTODETECT_VALUE)
-    flag_rename_registers = default_debug_hooks->var_location
-	    		    != do_nothing_debug_hooks.var_location;
+  /* If the user specifically requested variable tracking with tagging
+     uninitialized variables, we need to turn on variable tracking.
+     (We already determined above that variable tracking is feasible.)  */
+  if (flag_var_tracking_uninit)
+    flag_var_tracking = 1;
 
   if (flag_var_tracking == AUTODETECT_VALUE)
     flag_var_tracking = optimize >= 1;
+
+  if (flag_var_tracking_assignments == AUTODETECT_VALUE)
+    flag_var_tracking_assignments = flag_var_tracking
+      && !(flag_selective_scheduling || flag_selective_scheduling2);
+
+  if (flag_var_tracking_assignments_toggle)
+    flag_var_tracking_assignments = !flag_var_tracking_assignments;
+
+  if (flag_var_tracking_assignments && !flag_var_tracking)
+    flag_var_tracking = flag_var_tracking_assignments = -1;
+
+  if (flag_var_tracking_assignments
+      && (flag_selective_scheduling || flag_selective_scheduling2))
+    warning (0, "var-tracking-assignments changes selective scheduling");
 
   if (flag_tree_cselim == AUTODETECT_VALUE)
 #ifdef HAVE_conditional_move
@@ -1880,12 +2055,6 @@ process_options (void)
 #else
     flag_tree_cselim = 0;
 #endif
-
-  /* If the user specifically requested variable tracking with tagging
-     uninitialized variables, we need to turn on variable tracking.
-     (We already determined above that variable tracking is feasible.)  */
-  if (flag_var_tracking_uninit)
-    flag_var_tracking = 1;
 
   /* If auxiliary info generation is desired, open the output file.
      This goes in the same directory as the source file--unlike
@@ -1943,7 +2112,7 @@ process_options (void)
   if (flag_signaling_nans)
     flag_trapping_math = 1;
 
-  /* We cannot reassociate if we want traps or signed zeros.  */
+  /* We cannot reassociate if we want traps or signed zeros.  */
   if (flag_associative_math && (flag_trapping_math || flag_signed_zeros))
     {
       warning (0, "-fassociative-math disabled; other options take precedence");
@@ -1979,6 +2148,10 @@ process_options (void)
 	       "for correctness");
       flag_omit_frame_pointer = 0;
     }
+
+  /* Save the current optimization options.  */
+  optimization_default_node = build_optimization_node ();
+  optimization_current_node = optimization_default_node;
 }
 
 /* This function can be called multiple times to reinitialize the compiler
@@ -2018,8 +2191,8 @@ backend_init_target (void)
 
   /* We may need to recompute regno_save_code[] and regno_restore_code[]
      after a mode change as well.  */
-  if (flag_caller_saves)
-    init_caller_save ();
+  caller_save_initialized_p = false;
+
   expand_dummy_function_end ();
 }
 
@@ -2028,13 +2201,7 @@ backend_init_target (void)
 static void
 backend_init (void)
 {
-  init_emit_once (debug_info_level == DINFO_LEVEL_NORMAL
-		  || debug_info_level == DINFO_LEVEL_VERBOSE
-#ifdef VMS_DEBUGGING_INFO
-		    /* Enable line number info for traceback.  */
-		    || debug_info_level > DINFO_LEVEL_NONE
-#endif
-		    || flag_test_coverage);
+  init_emit_once ();
 
   init_rtlanal ();
   init_inline_once ();
@@ -2205,6 +2372,8 @@ finalize (void)
 	fatal_error ("error writing to %s: %m", asm_file_name);
       if (fclose (asm_out_file) != 0)
 	fatal_error ("error closing %s: %m", asm_file_name);
+      if (flag_wpa)
+	unlink_if_ordinary (asm_file_name);
     }
 
   statistics_fini ();
@@ -2248,9 +2417,6 @@ do_compile (void)
 	compile_file ();
 
       finalize ();
-
-      /* Invoke registered plugin callbacks.  */
-      invoke_plugin_callbacks (PLUGIN_FINISH_UNIT, NULL);
     }
 
   /* Stop timing and print the times.  */
@@ -2269,14 +2435,14 @@ toplev_main (int argc, char **argv)
 {
   expandargv (&argc, &argv);
 
-  save_argv = (const char **) argv;
+  save_argv = CONST_CAST2 (const char **, char **, argv);
 
   /* Initialization of GCC's environment, and diagnostics.  */
   general_init (argv[0]);
 
   /* Parse the options and do minimal processing; basically just
      enough to default flags appropriately.  */
-  decode_options (argc, (const char **) argv);
+  decode_options (argc, CONST_CAST2 (const char **, char **, argv));
 
   init_local_tick ();
 
@@ -2292,7 +2458,7 @@ toplev_main (int argc, char **argv)
   if (!exit_after_options)
     do_compile ();
 
-  if (warningcount || errorcount) 
+  if (warningcount || errorcount)
     print_ignored_options ();
 
   /* Invoke registered plugin callbacks if any.  */

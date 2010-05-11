@@ -1,4 +1,4 @@
-/* Copyright (C) 2002, 2003, 2004, 2005, 2007, 2008, 2009
+/* Copyright (C) 2002, 2003, 2004, 2005, 2007, 2008, 2009, 2010
    Free Software Foundation, Inc.
    Contributed by Andy Vaught
    Namelist input contributed by Paul Thomas
@@ -27,6 +27,8 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 
 
 #include "io.h"
+#include "fbuf.h"
+#include "unix.h"
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
@@ -287,10 +289,10 @@ static void
 eat_line (st_parameter_dt *dtp)
 {
   char c;
-  if (!is_internal_unit (dtp))
-    do
-      c = next_char (dtp);
-    while (c != '\n');
+
+  do
+    c = next_char (dtp);
+  while (c != '\n');
 }
 
 
@@ -1687,6 +1689,11 @@ list_formatted_read_scalar (st_parameter_dt *dtp, volatile bt type, void *p,
   if (setjmp (eof_jump))
     {
       generate_error (&dtp->common, LIBERROR_END, NULL);
+      if (!is_internal_unit (dtp))
+	{
+	  dtp->u.p.current_unit->endfile = AFTER_ENDFILE;
+	  dtp->u.p.current_unit->current_record = 0;
+	}
       goto cleanup;
     }
 
@@ -1725,9 +1732,6 @@ list_formatted_read_scalar (st_parameter_dt *dtp, volatile bt type, void *p,
 	  goto set_value;
 	}
 	
-      if (dtp->u.p.input_complete)
-	goto cleanup;
-
       if (dtp->u.p.input_complete)
 	goto cleanup;
 
@@ -2087,11 +2091,19 @@ nml_parse_qualifier (st_parameter_dt *dtp, descriptor_dimension *ad,
 	    }
 	}
 
+      if (is_array_section == 1 && dtp->u.p.expanded_read == 1)
+     	{
+	  int i;
+	  dtp->u.p.expanded_read = 0;
+	  for (i = 0; i < dim; i++)
+	    ls[i].end = ls[i].start;
+      	}
+
       /* Check the values of the triplet indices.  */
-      if ((ls[dim].start > (ssize_t)ad[dim].ubound)
-	  || (ls[dim].start < (ssize_t)ad[dim].lbound)
-	  || (ls[dim].end > (ssize_t)ad[dim].ubound)
-	  || (ls[dim].end < (ssize_t)ad[dim].lbound))
+      if ((ls[dim].start > (ssize_t) GFC_DIMENSION_UBOUND(ad[dim]))
+	   || (ls[dim].start < (ssize_t) GFC_DIMENSION_LBOUND(ad[dim]))
+	   || (ls[dim].end > (ssize_t) GFC_DIMENSION_UBOUND(ad[dim]))
+	   || (ls[dim].end < (ssize_t) GFC_DIMENSION_LBOUND(ad[dim])))
 	{
 	  if (is_char)
 	    sprintf (parse_err_msg, "Substring out of range");
@@ -2155,8 +2167,8 @@ nml_touch_nodes (namelist_info * nl)
 	  for (dim=0; dim < nl->var_rank; dim++)
 	    {
 	      nl->ls[dim].step = 1;
-	      nl->ls[dim].end = nl->dim[dim].ubound;
-	      nl->ls[dim].start = nl->dim[dim].lbound;
+	      nl->ls[dim].end = GFC_DESCRIPTOR_UBOUND(nl,dim);
+	      nl->ls[dim].start = GFC_DESCRIPTOR_LBOUND(nl,dim);
 	      nl->ls[dim].idx = nl->ls[dim].start;
 	    }
 	}
@@ -2351,8 +2363,9 @@ nml_read_obj (st_parameter_dt *dtp, namelist_info * nl, index_type offset,
 
       pdata = (void*)(nl->mem_pos + offset);
       for (dim = 0; dim < nl->var_rank; dim++)
-	pdata = (void*)(pdata + (nl->ls[dim].idx - nl->dim[dim].lbound) *
-		 nl->dim[dim].stride * nl->size);
+	pdata = (void*)(pdata + (nl->ls[dim].idx
+				 - GFC_DESCRIPTOR_LBOUND(nl,dim))
+			* GFC_DESCRIPTOR_STRIDE(nl,dim) * nl->size);
 
       /* Reset the error flag and try to read next value, if
 	 dtp->u.p.repeat_count=0  */
@@ -2368,10 +2381,10 @@ nml_read_obj (st_parameter_dt *dtp, namelist_info * nl, index_type offset,
 	  if (dtp->u.p.input_complete)
 	    return SUCCESS;
 
-	  /* GFC_TYPE_UNKNOWN through for nulls and is detected
-	     after the switch block.  */
+	  /* BT_NULL (equivalent to GFC_DTYPE_UNKNOWN) falls through
+	     for nulls and is detected at default: of switch block.  */
 
-	  dtp->u.p.saved_type = GFC_DTYPE_UNKNOWN;
+	  dtp->u.p.saved_type = BT_NULL;
 	  free_saved (dtp);
 
           switch (nl->type)
@@ -2461,7 +2474,7 @@ nml_read_obj (st_parameter_dt *dtp, namelist_info * nl, index_type offset,
 	  return SUCCESS;
 	}
 
-      if (dtp->u.p.saved_type == GFC_DTYPE_UNKNOWN)
+      if (dtp->u.p.saved_type == BT_NULL)
 	{
 	  dtp->u.p.expanded_read = 0;
 	  goto incr_idx;
@@ -2558,7 +2571,7 @@ nml_get_obj_data (st_parameter_dt *dtp, namelist_info **pprev_nl,
   namelist_info * first_nl = NULL;
   namelist_info * root_nl = NULL;
   int dim, parsed_rank;
-  int component_flag;
+  int component_flag, qualifier_flag;
   index_type clow, chigh;
   int non_zero_rank_count;
 
@@ -2607,11 +2620,12 @@ nml_get_obj_data (st_parameter_dt *dtp, namelist_info **pprev_nl,
       break;
     }
 
-  /* Untouch all nodes of the namelist and reset the flag that is set for
+  /* Untouch all nodes of the namelist and reset the flags that are set for
      derived type components.  */
 
   nml_untouch_nodes (dtp);
   component_flag = 0;
+  qualifier_flag = 0;
   non_zero_rank_count = 0;
 
   /* Get the object name - should '!' and '\n' be permitted separators?  */
@@ -2674,8 +2688,8 @@ get_name:
   for (dim=0; dim < nl->var_rank; dim++)
     {
       nl->ls[dim].step = 1;
-      nl->ls[dim].end = nl->dim[dim].ubound;
-      nl->ls[dim].start = nl->dim[dim].lbound;
+      nl->ls[dim].end = GFC_DESCRIPTOR_UBOUND(nl,dim);
+      nl->ls[dim].start = GFC_DESCRIPTOR_LBOUND(nl,dim);
       nl->ls[dim].idx = nl->ls[dim].start;
     }
 
@@ -2693,9 +2707,10 @@ get_name:
 		    " for namelist variable %s", nl->var_name);
 	  goto nml_err_ret;
 	}
-
       if (parsed_rank > 0)
 	non_zero_rank_count++;
+
+      qualifier_flag = 1;
 
       c = next_char (dtp);
       unget_char (dtp, c);
@@ -2721,6 +2736,7 @@ get_name:
 
       root_nl = nl;
       component_flag = 1;
+
       c = next_char (dtp);
       goto get_name;
     }
@@ -2760,15 +2776,6 @@ get_name:
       c = next_char (dtp);
       unget_char (dtp, c);
     }
-
-  /* If a derived type touch its components and restore the root
-     namelist_info if we have parsed a qualified derived type
-     component.  */
-
-  if (nl->type == GFC_DTYPE_DERIVED)
-    nml_touch_nodes (nl);
-  if (component_flag && nl->var_rank > 0)
-    nl = first_nl;
 
   /* Make sure no extraneous qualifiers are there.  */
 
@@ -2814,10 +2821,24 @@ get_name:
 		nl->var_name);
       goto nml_err_ret;
     }
+  /* If a derived type, touch its components and restore the root
+     namelist_info if we have parsed a qualified derived type
+     component.  */
 
-  if (first_nl != NULL && first_nl->var_rank > 0)
-    nl = first_nl;
-  
+  if (nl->type == GFC_DTYPE_DERIVED)
+    nml_touch_nodes (nl);
+
+  if (first_nl)
+    {
+      if (first_nl->var_rank == 0)
+	{
+	  if (component_flag && qualifier_flag)
+	    nl = first_nl;
+	}
+      else
+	nl = first_nl;
+    }
+
   if (nml_read_obj (dtp, nl, 0, pprev_nl, nml_err_msg, nml_err_msg_size,
 		    clow, chigh) == FAILURE)
     goto nml_err_ret;

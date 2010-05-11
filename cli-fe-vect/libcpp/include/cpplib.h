@@ -28,10 +28,6 @@ along with this program; see the file COPYING3.  If not see
 #include "symtab.h"
 #include "line-map.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 typedef struct cpp_reader cpp_reader;
 typedef struct cpp_buffer cpp_buffer;
 typedef struct cpp_options cpp_options;
@@ -131,6 +127,7 @@ struct _cpp_file;
   TK(WSTRING,		LITERAL) /* L"string" */			\
   TK(STRING16,		LITERAL) /* u"string" */			\
   TK(STRING32,		LITERAL) /* U"string" */			\
+  TK(UTF8STRING,	LITERAL) /* u8"string" */			\
   TK(OBJC_STRING,	LITERAL) /* @"string" - Objective-C */		\
   TK(HEADER_NAME,	LITERAL) /* <stdio.h> in #include */		\
 									\
@@ -189,8 +186,25 @@ enum cpp_token_fld_kind {
   CPP_TOKEN_FLD_SOURCE,
   CPP_TOKEN_FLD_STR,
   CPP_TOKEN_FLD_ARG_NO,
+  CPP_TOKEN_FLD_TOKEN_NO,
   CPP_TOKEN_FLD_PRAGMA,
   CPP_TOKEN_FLD_NONE
+};
+
+/* A macro argument in the cpp_token union.  */
+struct GTY(()) cpp_macro_arg {
+  /* Argument number.  */
+  unsigned int arg_no;
+};
+
+/* An identifier in the cpp_token union.  */
+struct GTY(()) cpp_identifier {
+  /* The canonical (UTF-8) spelling of the identifier.  */
+  cpp_hashnode *
+    GTY ((nested_ptr (union tree_node,
+		"%h ? CPP_HASHNODE (GCC_IDENT_TO_HT_IDENT (%h)) : NULL",
+			"%h ? HT_IDENT_TO_GCC_IDENT (HT_NODE (%h)) : NULL")))
+       node;
 };
 
 /* A preprocessing token.  This has been carefully packed and should
@@ -203,12 +217,7 @@ struct GTY(()) cpp_token {
   union cpp_token_u
   {
     /* An identifier.  */
-    cpp_hashnode *
-      GTY ((nested_ptr (union tree_node,
-		"%h ? CPP_HASHNODE (GCC_IDENT_TO_HT_IDENT (%h)) : NULL",
-			"%h ? HT_IDENT_TO_GCC_IDENT (HT_NODE (%h)) : NULL"),
-	    tag ("CPP_TOKEN_FLD_NODE")))
-	 node;
+    struct cpp_identifier GTY ((tag ("CPP_TOKEN_FLD_NODE"))) node;
 	 
     /* Inherit padding from this token.  */
     cpp_token * GTY ((tag ("CPP_TOKEN_FLD_SOURCE"))) source;
@@ -217,7 +226,11 @@ struct GTY(()) cpp_token {
     struct cpp_string GTY ((tag ("CPP_TOKEN_FLD_STR"))) str;
 
     /* Argument no. for a CPP_MACRO_ARG.  */
-    unsigned int GTY ((tag ("CPP_TOKEN_FLD_ARG_NO"))) arg_no;
+    struct cpp_macro_arg GTY ((tag ("CPP_TOKEN_FLD_ARG_NO"))) macro_arg;
+
+    /* Original token no. for a CPP_PASTE (from a sequence of
+       consecutive paste tokens in a macro expansion).  */
+    unsigned int GTY ((tag ("CPP_TOKEN_FLD_TOKEN_NO"))) token_no;
 
     /* Caller-supplied identifier for a CPP_PRAGMA.  */
     unsigned int GTY ((tag ("CPP_TOKEN_FLD_PRAGMA"))) pragma;
@@ -381,6 +394,9 @@ struct cpp_options
   /* Nonzero means handle C++ alternate operator names.  */
   unsigned char operator_names;
 
+  /* Nonzero means warn about use of C++ alternate operator names.  */
+  unsigned char warn_cxx_operator_names;
+
   /* True for traditional preprocessing.  */
   unsigned char traditional;
 
@@ -418,6 +434,10 @@ struct cpp_options
 
     /* If true, no dependency is generated on the main file.  */
     bool ignore_main_file;
+
+    /* If true, intend to use the preprocessor output (e.g., for compilation)
+       in addition to the dependency info.  */
+    bool need_preprocessor_output;
   } deps;
 
   /* Target-specific features set by the front end or client.  */
@@ -488,7 +508,16 @@ struct cpp_callbacks
   /* Called before #define and #undef or other macro definition
      changes are processed.  */
   void (*before_define) (cpp_reader *);
+  /* Called whenever a macro is expanded or tested.
+     Second argument is the location of the start of the current expansion.  */
+  void (*used) (cpp_reader *, source_location, cpp_hashnode *);
 };
+
+#ifdef VMS
+#define INO_T_CPP ino_t ino[3]
+#else
+#define INO_T_CPP ino_t ino
+#endif
 
 /* Chain of directories to look for include files in.  */
 struct cpp_dir
@@ -523,12 +552,9 @@ struct cpp_dir
 
   /* The C front end uses these to recognize duplicated
      directories in the search path.  */
-  ino_t ino;
+  INO_T_CPP;
   dev_t dev;
 };
-
-/* Name under which this program was invoked.  */
-extern const char *progname;
 
 /* The structure of a node in the hash table.  The hash table has
    entries for all identifiers: either macros defined by #define
@@ -539,7 +565,8 @@ extern const char *progname;
    identifier that behaves like an operator such as "xor".
    NODE_DIAGNOSTIC is for speed in lex_token: it indicates a
    diagnostic may be required for this node.  Currently this only
-   applies to __VA_ARGS__ and poisoned identifiers.  */
+   applies to __VA_ARGS__, poisoned identifiers, and -Wc++-compat
+   warnings about NODE_OPERATOR.  */
 
 /* Hash node flags.  */
 #define NODE_OPERATOR	(1 << 0)	/* C++ named operator.  */
@@ -551,6 +578,7 @@ extern const char *progname;
 #define NODE_MACRO_ARG	(1 << 6)	/* Used during #define processing.  */
 #define NODE_USED	(1 << 7)	/* Dumped with -dU.  */
 #define NODE_CONDITIONAL (1 << 8)	/* Conditional macro */
+#define NODE_WARN_OPERATOR (1 << 9)	/* Warn about C++ named operator.  */
 
 /* Different flavors of hash node.  */
 enum node_type
@@ -562,7 +590,7 @@ enum node_type
 
 /* Different flavors of builtin macro.  _Pragma is an operator, but we
    handle it with the builtin code for efficiency reasons.  */
-enum builtin_type
+enum cpp_builtin_type
 {
   BT_SPECLINE = 0,		/* `__LINE__' */
   BT_DATE,			/* `__DATE__' */
@@ -608,7 +636,7 @@ union GTY(()) _cpp_hashnode_value {
   /* Answers to an assertion.  */
   struct answer * GTY ((tag ("NTV_ANSWER"))) answers;
   /* Code for a builtin macro.  */
-  enum builtin_type GTY ((tag ("NTV_BUILTIN"))) builtin;
+  enum cpp_builtin_type GTY ((tag ("NTV_BUILTIN"))) builtin;
   /* Macro argument index.  */
   unsigned short GTY ((tag ("NTV_ARGUMENT"))) arg_index;
 };
@@ -620,8 +648,8 @@ struct GTY(()) cpp_hashnode {
 					   then index into directive table.
 					   Otherwise, a NODE_OPERATOR.  */
   unsigned char rid_code;		/* Rid code - for front ends.  */
-  ENUM_BITFIELD(node_type) type : 7;	/* CPP node type.  */
-  unsigned int flags : 9;		/* CPP flags.  */
+  ENUM_BITFIELD(node_type) type : 6;	/* CPP node type.  */
+  unsigned int flags : 10;		/* CPP flags.  */
 
   union _cpp_hashnode_value GTY ((desc ("CPP_HASHNODE_VALUE_IDX (%1)"))) value;
 };
@@ -704,10 +732,10 @@ extern const unsigned char *cpp_macro_definition (cpp_reader *,
 extern void _cpp_backup_tokens (cpp_reader *, unsigned int);
 extern const cpp_token *cpp_peek_token (cpp_reader *, int);
 
-/* Evaluate a CPP_CHAR or CPP_WCHAR token.  */
+/* Evaluate a CPP_*CHAR* token.  */
 extern cppchar_t cpp_interpret_charconst (cpp_reader *, const cpp_token *,
 					  unsigned int *, int *);
-/* Evaluate a vector of CPP_STRING or CPP_WSTRING tokens.  */
+/* Evaluate a vector of CPP_*STRING* tokens.  */
 extern bool cpp_interpret_string (cpp_reader *,
 				  const cpp_string *, size_t,
 				  cpp_string *, enum cpp_ttype);
@@ -914,9 +942,5 @@ extern int cpp_valid_state (cpp_reader *, const char *, int);
 extern void cpp_prepare_state (cpp_reader *, struct save_macro_data **);
 extern int cpp_read_state (cpp_reader *, const char *, FILE *,
 			   struct save_macro_data *);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif /* ! LIBCPP_CPPLIB_H */

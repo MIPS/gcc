@@ -33,6 +33,7 @@ with Lib;      use Lib;
 with Namet;    use Namet;
 with Nlists;   use Nlists;
 with Opt;      use Opt;
+with Par_SCO;  use Par_SCO;
 with Rtsfind;  use Rtsfind;
 with Sem;      use Sem;
 with Sem_Ch8;  use Sem_Ch8;
@@ -475,7 +476,7 @@ package body Sem_Warn is
            and then Present (Entity (N))
            and then Entity (N) = Var
          then
-            --  If this is an Lvalue, then definitely abandon, since
+            --  If this is an lvalue, then definitely abandon, since
             --  this could be a direct modification of the variable.
 
             if May_Be_Lvalue (N) then
@@ -954,8 +955,8 @@ package body Sem_Warn is
                   --  here (note that the dereference may not be explicit in
                   --  the source, for example in the case of a dispatching call
                   --  with an anonymous access controlling formal, or of an
-                  --  assignment of a pointer involving discriminant check
-                  --  on the designated object).
+                  --  assignment of a pointer involving discriminant check on
+                  --  the designated object).
 
                   if not Warnings_Off_E1 then
                      Error_Msg_NE ("?& may be null!", UR, E1);
@@ -1005,7 +1006,7 @@ package body Sem_Warn is
                           and then not Has_Pragma_Unmodified_Check_Spec (E1)
                         then
                            if not Warnings_Off_E1 then
-                              Error_Msg_N
+                              Error_Msg_N -- CODEFIX
                                 ("?& is not modified, "
                                  & "could be declared constant!",
                                  E1);
@@ -1107,6 +1108,15 @@ package body Sem_Warn is
                      then
                         null;
 
+                     --  Suppress warning on formals of an entry body. All
+                     --  references are attached to the formal in the entry
+                     --  declaration, which are marked Is_Entry_Formal.
+
+                     elsif Ekind (Scope (E1)) = E_Entry
+                       and then not Is_Entry_Formal (E1)
+                     then
+                        null;
+
                      --  OK, looks like warning for an IN OUT parameter that
                      --  could be IN makes sense, but we delay the output of
                      --  the warning, pending possibly finding out later on
@@ -1155,7 +1165,7 @@ package body Sem_Warn is
                      elsif not Has_Unreferenced (E1)
                        and then not Warnings_Off_E1
                      then
-                        Output_Reference_Error
+                        Output_Reference_Error -- CODEFIX
                           ("?variable& is never read and never assigned!");
                      end if;
 
@@ -2342,7 +2352,7 @@ package body Sem_Warn is
                            end if;
 
                            if not Is_Visible_Renaming then
-                              Error_Msg_N
+                              Error_Msg_N -- CODEFIX
                                 ("\?with clause might be moved to body!",
                                  Name (Item));
                            end if;
@@ -2370,7 +2380,7 @@ package body Sem_Warn is
                      if Unit = Spec_Unit then
                         Set_Unreferenced_In_Spec (Item);
                      else
-                        Error_Msg_N
+                        Error_Msg_N -- CODEFIX
                           ("?unit& is never instantiated!", Name (Item));
                      end if;
 
@@ -2381,7 +2391,7 @@ package body Sem_Warn is
                   elsif Unreferenced_In_Spec (Item) then
                      Error_Msg_N
                        ("?unit& is not instantiated in spec!", Name (Item));
-                     Error_Msg_N
+                     Error_Msg_N -- CODEFIX
                        ("\?with clause can be moved to body!", Name (Item));
                   end if;
                end if;
@@ -2593,7 +2603,7 @@ package body Sem_Warn is
    -- Output_Non_Modified_In_Out_Warnings --
    -----------------------------------------
 
-   procedure Output_Non_Modifed_In_Out_Warnings is
+   procedure Output_Non_Modified_In_Out_Warnings is
 
       function No_Warn_On_In_Out (E : Entity_Id) return Boolean;
       --  Given a formal parameter entity E, determines if there is a reason to
@@ -2690,7 +2700,7 @@ package body Sem_Warn is
             end if;
          end;
       end loop;
-   end Output_Non_Modifed_In_Out_Warnings;
+   end Output_Non_Modified_In_Out_Warnings;
 
    ----------------------------------------
    -- Output_Obsolescent_Entity_Warnings --
@@ -2981,12 +2991,30 @@ package body Sem_Warn is
             Warn_On_Non_Local_Exception         := True;
             Warn_On_Object_Renames_Function     := True;
             Warn_On_Obsolescent_Feature         := True;
+            Warn_On_Overlap                     := True;
+            Warn_On_Parameter_Order             := True;
             Warn_On_Questionable_Missing_Parens := True;
             Warn_On_Redundant_Constructs        := True;
+            Warn_On_Reverse_Bit_Order           := True;
             Warn_On_Unchecked_Conversion        := True;
             Warn_On_Unrecognized_Pragma         := True;
             Warn_On_Unrepped_Components         := True;
             Warn_On_Warnings_Off                := True;
+
+         when 'g' =>
+            Set_GNAT_Mode_Warnings;
+
+         when 'i' =>
+            Warn_On_Overlap                     := True;
+
+         when 'I' =>
+            Warn_On_Overlap                     := False;
+
+         when 'm' =>
+            Warn_On_Suspicious_Modulus_Value    := True;
+
+         when 'M' =>
+            Warn_On_Suspicious_Modulus_Value    := False;
 
          when 'o' =>
             Warn_On_All_Unread_Out_Parameters   := True;
@@ -3005,6 +3033,12 @@ package body Sem_Warn is
 
          when 'R' =>
             Warn_On_Object_Renames_Function     := False;
+
+         when 'v' =>
+            Warn_On_Reverse_Bit_Order           := True;
+
+         when 'V' =>
+            Warn_On_Reverse_Bit_Order           := False;
 
          when 'w' =>
             Warn_On_Warnings_Off                := True;
@@ -3025,6 +3059,46 @@ package body Sem_Warn is
 
       return True;
    end Set_Dot_Warning_Switch;
+
+   ----------------------------
+   -- Set_GNAT_Mode_Warnings --
+   ----------------------------
+
+   procedure Set_GNAT_Mode_Warnings is
+   begin
+      Address_Clause_Overlay_Warnings     := True;
+      Check_Unreferenced                  := True;
+      Check_Unreferenced_Formals          := True;
+      Check_Withs                         := True;
+      Constant_Condition_Warnings         := True;
+      Elab_Warnings                       := False;
+      Implementation_Unit_Warnings        := False;
+      Ineffective_Inline_Warnings         := True;
+      Warn_On_Ada_2005_Compatibility      := True;
+      Warn_On_All_Unread_Out_Parameters   := False;
+      Warn_On_Assertion_Failure           := True;
+      Warn_On_Assumed_Low_Bound           := True;
+      Warn_On_Bad_Fixed_Value             := True;
+      Warn_On_Biased_Representation       := True;
+      Warn_On_Constant                    := True;
+      Warn_On_Deleted_Code                := False;
+      Warn_On_Dereference                 := False;
+      Warn_On_Export_Import               := True;
+      Warn_On_Hiding                      := False;
+      Warn_On_Modified_Unread             := True;
+      Warn_On_No_Value_Assigned           := True;
+      Warn_On_Non_Local_Exception         := False;
+      Warn_On_Object_Renames_Function     := False;
+      Warn_On_Obsolescent_Feature         := True;
+      Warn_On_Questionable_Missing_Parens := True;
+      Warn_On_Redundant_Constructs        := True;
+      Warn_On_Reverse_Bit_Order           := False;
+      Warn_On_Object_Renames_Function     := True;
+      Warn_On_Unchecked_Conversion        := True;
+      Warn_On_Unrecognized_Pragma         := True;
+      Warn_On_Unrepped_Components         := False;
+      Warn_On_Warnings_Off                := False;
+   end Set_GNAT_Mode_Warnings;
 
    ------------------------
    -- Set_Warning_Switch --
@@ -3055,11 +3129,13 @@ package body Sem_Warn is
             Warn_On_Parameter_Order             := True;
             Warn_On_Questionable_Missing_Parens := True;
             Warn_On_Redundant_Constructs        := True;
+            Warn_On_Reverse_Bit_Order           := True;
             Warn_On_Unchecked_Conversion        := True;
             Warn_On_Unrecognized_Pragma         := True;
             Warn_On_Unrepped_Components         := True;
 
          when 'A' =>
+            Address_Clause_Overlay_Warnings     := False;
             Check_Unreferenced                  := False;
             Check_Unreferenced_Formals          := False;
             Check_Withs                         := False;
@@ -3068,6 +3144,7 @@ package body Sem_Warn is
             Implementation_Unit_Warnings        := False;
             Ineffective_Inline_Warnings         := False;
             Warn_On_Ada_2005_Compatibility      := False;
+            Warn_On_All_Unread_Out_Parameters   := False;
             Warn_On_Assertion_Failure           := False;
             Warn_On_Assumed_Low_Bound           := False;
             Warn_On_Bad_Fixed_Value             := False;
@@ -3080,12 +3157,13 @@ package body Sem_Warn is
             Warn_On_Modified_Unread             := False;
             Warn_On_No_Value_Assigned           := False;
             Warn_On_Non_Local_Exception         := False;
+            Warn_On_Object_Renames_Function     := False;
             Warn_On_Obsolescent_Feature         := False;
-            Warn_On_All_Unread_Out_Parameters   := False;
+            Warn_On_Overlap                     := False;
             Warn_On_Parameter_Order             := False;
             Warn_On_Questionable_Missing_Parens := False;
             Warn_On_Redundant_Constructs        := False;
-            Warn_On_Object_Renames_Function     := False;
+            Warn_On_Reverse_Bit_Order           := False;
             Warn_On_Unchecked_Conversion        := False;
             Warn_On_Unrecognized_Pragma         := False;
             Warn_On_Unrepped_Components         := False;
@@ -3250,13 +3328,52 @@ package body Sem_Warn is
    -----------------------------
 
    procedure Warn_On_Known_Condition (C : Node_Id) is
-      P : Node_Id;
+      P           : Node_Id;
+      Orig        : constant Node_Id := Original_Node (C);
+      Test_Result : Boolean;
+
+      function Is_Known_Branch return Boolean;
+      --  If the type of the condition is Boolean, the constant value of the
+      --  condition is a boolean literal. If the type is a derived boolean
+      --  type, the constant is wrapped in a type conversion of the derived
+      --  literal. If the value of the condition is not a literal, no warnings
+      --  can be produced. This function returns True if the result can be
+      --  determined, and Test_Result is set True/False accordingly. Otherwise
+      --  False is returned, and Test_Result is unchanged.
 
       procedure Track (N : Node_Id; Loc : Node_Id);
       --  Adds continuation warning(s) pointing to reason (assignment or test)
       --  for the operand of the conditional having a known value (or at least
       --  enough is known about the value to issue the warning). N is the node
       --  which is judged to have a known value. Loc is the warning location.
+
+      ---------------------
+      -- Is_Known_Branch --
+      ---------------------
+
+      function Is_Known_Branch return Boolean is
+      begin
+         if Etype (C) = Standard_Boolean
+           and then Is_Entity_Name (C)
+           and then
+             (Entity (C) = Standard_False or else Entity (C) = Standard_True)
+         then
+            Test_Result := Entity (C) = Standard_True;
+            return True;
+
+         elsif Is_Boolean_Type (Etype (C))
+           and then Nkind (C) = N_Unchecked_Type_Conversion
+           and then Is_Entity_Name (Expression (C))
+           and then Ekind (Entity (Expression (C))) = E_Enumeration_Literal
+         then
+            Test_Result :=
+              Chars (Entity (Expression (C))) = Chars (Standard_True);
+            return True;
+
+         else
+            return False;
+         end if;
+      end Is_Known_Branch;
 
       -----------
       -- Track --
@@ -3299,17 +3416,47 @@ package body Sem_Warn is
    --  Start of processing for Warn_On_Known_Condition
 
    begin
-      --   Argument replacement in an inlined body can make conditions static.
-      --   Do not emit warnings in this case.
+      --  Adjust SCO condition if from source
+
+      if Generate_SCO
+        and then Comes_From_Source (Orig)
+        and then Is_Known_Branch
+      then
+         declare
+            Start : Source_Ptr;
+            Dummy : Source_Ptr;
+            Typ   : Character;
+            Atrue : Boolean;
+
+         begin
+            Sloc_Range (Orig, Start, Dummy);
+            Atrue := Test_Result;
+
+            if Present (Parent (C))
+              and then Nkind (Parent (C)) = N_Op_Not
+            then
+               Atrue := not Atrue;
+            end if;
+
+            if Atrue then
+               Typ := 't';
+            else
+               Typ := 'f';
+            end if;
+
+            Set_SCO_Condition (Start, Typ);
+         end;
+      end if;
+
+      --  Argument replacement in an inlined body can make conditions static.
+      --  Do not emit warnings in this case.
 
       if In_Inlined_Body then
          return;
       end if;
 
       if Constant_Condition_Warnings
-        and then Nkind (C) = N_Identifier
-        and then
-          (Entity (C) = Standard_False or else Entity (C) = Standard_True)
+        and then Is_Known_Branch
         and then Comes_From_Source (Original_Node (C))
         and then not In_Instance
       then
@@ -3364,7 +3511,7 @@ package body Sem_Warn is
 
          if not Operand_Has_Warnings_Suppressed (C) then
             declare
-               True_Branch : Boolean := Entity (C) = Standard_True;
+               True_Branch : Boolean := Test_Result;
                Cond        : Node_Id := C;
 
             begin
@@ -3407,6 +3554,136 @@ package body Sem_Warn is
         (Warn_On_Modified_Unread and then Is_Only_Out_Parameter (E))
            or else Warn_On_All_Unread_Out_Parameters;
    end Warn_On_Modified_As_Out_Parameter;
+
+   ---------------------------------
+   -- Warn_On_Overlapping_Actuals --
+   ---------------------------------
+
+   procedure Warn_On_Overlapping_Actuals (Subp : Entity_Id; N : Node_Id) is
+      Act1, Act2   : Node_Id;
+      Form1, Form2 : Entity_Id;
+
+   begin
+      if not Warn_On_Overlap then
+         return;
+      end if;
+
+      --  Exclude calls rewritten as enumeration literals
+
+      if not Nkind_In (N, N_Function_Call, N_Procedure_Call_Statement) then
+         return;
+      end if;
+
+      --  Exclude calls to library subprograms. Container operations specify
+      --  safe behavior when source and target coincide.
+
+      if Is_Predefined_File_Name
+           (Unit_File_Name (Get_Source_Unit (Sloc (Subp))))
+      then
+         return;
+      end if;
+
+      Form1 := First_Formal (Subp);
+      Act1  := First_Actual (N);
+      while Present (Form1) and then Present (Act1) loop
+         if Ekind (Form1) = E_In_Out_Parameter then
+            Form2 := First_Formal (Subp);
+            Act2  := First_Actual (N);
+            while Present (Form2) and then Present (Act2) loop
+               if Form1 /= Form2
+                 and then Ekind (Form2) /= E_Out_Parameter
+                 and then
+                   (Denotes_Same_Object (Act1, Act2)
+                      or else
+                    Denotes_Same_Prefix (Act1, Act2))
+               then
+                  --  Exclude generic types and guard against previous errors.
+
+                  if Error_Posted (N)
+                    or else No (Etype (Act1))
+                    or else No (Etype (Act2))
+                  then
+                     null;
+
+                  elsif Is_Generic_Type (Etype (Act1))
+                          or else
+                        Is_Generic_Type (Etype (Act2))
+                  then
+                     null;
+
+                     --  If the actual is a function call in prefix notation,
+                     --  there is no real overlap.
+
+                  elsif Nkind (Act2) = N_Function_Call then
+                     null;
+
+                  --  If either type is elementary the aliasing is harmless.
+
+                  elsif Is_Elementary_Type (Underlying_Type (Etype (Form1)))
+                          or else
+                        Is_Elementary_Type (Underlying_Type (Etype (Form2)))
+                  then
+                     null;
+
+                  else
+                     declare
+                        Act  : Node_Id;
+                        Form : Entity_Id;
+
+                     begin
+                        --  Find matching actual
+
+                        Act  := First_Actual (N);
+                        Form := First_Formal (Subp);
+                        while Act /= Act2 loop
+                           Next_Formal (Form);
+                           Next_Actual (Act);
+                        end loop;
+
+                        --  If the call was written in prefix notation, and
+                        --  thus its prefix before rewriting was a selected
+                        --  component, count only visible actuals in the call.
+
+                        if Is_Entity_Name (First_Actual (N))
+                          and then Nkind (Original_Node (N)) = Nkind (N)
+                          and then Nkind (Name (Original_Node (N))) =
+                                                         N_Selected_Component
+                          and then
+                            Is_Entity_Name (Prefix (Name (Original_Node (N))))
+                          and then
+                            Entity (Prefix (Name (Original_Node (N)))) =
+                              Entity (First_Actual (N))
+                        then
+                           if Act1 = First_Actual (N) then
+                              Error_Msg_FE
+                                ("`IN OUT` prefix overlaps with actual for&?",
+                                 Act1, Form);
+                           else
+                              Error_Msg_FE
+                                ("writable actual overlaps with actual for&?",
+                                 Act1, Form);
+                           end if;
+
+                        else
+                           Error_Msg_FE
+                             ("writable actual overlaps with actual for&?",
+                              Act1, Form);
+                        end if;
+                     end;
+                  end if;
+
+                  return;
+               end if;
+
+               Next_Formal (Form2);
+               Next_Actual (Act2);
+            end loop;
+         end if;
+
+         Next_Formal (Form1);
+         Next_Actual (Act1);
+      end loop;
+   end Warn_On_Overlapping_Actuals;
 
    ------------------------------
    -- Warn_On_Suspicious_Index --
@@ -3523,11 +3800,11 @@ package body Sem_Warn is
 
             if Nkind (Original_Node (X)) = N_Integer_Literal then
                if Intval (X) = Low_Bound then
-                  Error_Msg_FE
+                  Error_Msg_FE --  CODEFIX
                     ("\suggested replacement: `&''First`", X, Ent);
                else
                   Error_Msg_Uint_1 := Intval (X) - Low_Bound;
-                  Error_Msg_FE
+                  Error_Msg_FE --  CODEFIX
                     ("\suggested replacement: `&''First + ^`", X, Ent);
 
                end if;
@@ -3633,7 +3910,7 @@ package body Sem_Warn is
 
                --  Replacement subscript is now in string buffer
 
-               Error_Msg_FE
+               Error_Msg_FE --  CODEFIX
                  ("\suggested replacement: `&~`", Original_Node (X), Ent);
             end if;
 
@@ -3777,12 +4054,11 @@ package body Sem_Warn is
                then
                   if Warn_On_Modified_Unread
                     and then not Is_Imported (E)
-                    and then not Is_Return_Object (E)
                     and then not Is_Aliased (E)
                     and then No (Renamed_Object (E))
                   then
                      if not Has_Pragma_Unmodified_Check_Spec (E) then
-                        Error_Msg_N
+                        Error_Msg_N -- CODEFIX
                           ("?variable & is assigned but never read!", E);
                      end if;
 
@@ -3840,7 +4116,7 @@ package body Sem_Warn is
 
                   if Ekind (E) = E_In_Parameter
                     or else not Referenced_As_LHS_Check_Spec (E)
-                    or else Is_Scalar_Type (E)
+                    or else Is_Scalar_Type (Etype (E))
                   then
                      if Present (Body_E) then
                         E := Body_E;
@@ -3854,31 +4130,46 @@ package body Sem_Warn is
                   end if;
                end if;
 
-            when E_Out_Parameter    =>
+            when E_Out_Parameter =>
                null;
 
-            when E_Named_Integer    |
-                 E_Named_Real       =>
+            when E_Discriminant =>
+               Error_Msg_N ("?discriminant & is not referenced!", E);
+
+            when E_Named_Integer |
+                 E_Named_Real    =>
                Error_Msg_N ("?named number & is not referenced!", E);
+
+            when Formal_Object_Kind =>
+               Error_Msg_N ("?formal object & is not referenced!", E);
 
             when E_Enumeration_Literal =>
                Error_Msg_N ("?literal & is not referenced!", E);
 
-            when E_Function         =>
+            when E_Function =>
                Error_Msg_N ("?function & is not referenced!", E);
 
-            when E_Procedure         =>
+            when E_Procedure =>
                Error_Msg_N ("?procedure & is not referenced!", E);
 
+            when E_Package =>
+               Error_Msg_N ("?package & is not referenced!", E);
+
+            when E_Exception =>
+               Error_Msg_N ("?exception & is not referenced!", E);
+
+            when E_Label =>
+               Error_Msg_N ("?label & is not referenced!", E);
+
             when E_Generic_Procedure =>
-               Error_Msg_N
+               Error_Msg_N -- CODEFIX
                  ("?generic procedure & is never instantiated!", E);
 
-            when E_Generic_Function  =>
-               Error_Msg_N
+            when E_Generic_Function =>
+               Error_Msg_N -- CODEFIX
                  ("?generic function & is never instantiated!", E);
 
-            when Type_Kind          =>
+            when Type_Kind =>
                Error_Msg_N ("?type & is not referenced!", E);
 
             when others =>
@@ -3903,8 +4194,8 @@ package body Sem_Warn is
       X    : Node_Id;
 
       function Check_Ref (N : Node_Id) return Traverse_Result;
-      --  Used to instantiate Traverse_Func. Returns Abandon if
-      --  a reference to the entity in question is found.
+      --  Used to instantiate Traverse_Func. Returns Abandon if a reference to
+      --  the entity in question is found.
 
       function Test_No_Refs is new Traverse_Func (Check_Ref);
 
@@ -3935,7 +4226,7 @@ package body Sem_Warn is
       --  variable with the last assignment field set, with warnings enabled,
       --  and which is not imported or exported. We also check that it is OK
       --  to capture the value. We are not going to capture any value, but
-      --  the warning messages depends on the same kind of conditions.
+      --  the warning message depends on the same kind of conditions.
 
       if Is_Assignable (Ent)
         and then not Is_Return_Object (Ent)
@@ -4027,18 +4318,27 @@ package body Sem_Warn is
 
                      --  Otherwise we are at the outer level. An exception
                      --  handler is significant only if it references the
-                     --  variable in question.
+                     --  variable in question, or if the entity in question
+                     --  is an OUT or IN OUT parameter, which which case
+                     --  the caller can reference it after the exception
+                     --  hanlder completes
 
                   else
-                     X := First (Exception_Handlers (P));
-                     while Present (X) loop
-                        if Test_No_Refs (X) = Abandon then
-                           Set_Last_Assignment (Ent, Empty);
-                           return;
-                        end if;
+                     if Is_Formal (Ent) then
+                        Set_Last_Assignment (Ent, Empty);
+                        return;
 
-                        X := Next (X);
-                     end loop;
+                     else
+                        X := First (Exception_Handlers (P));
+                        while Present (X) loop
+                           if Test_No_Refs (X) = Abandon then
+                              Set_Last_Assignment (Ent, Empty);
+                              return;
+                           end if;
+
+                           X := Next (X);
+                        end loop;
+                     end if;
                   end if;
                end if;
             end if;

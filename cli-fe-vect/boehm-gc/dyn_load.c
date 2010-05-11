@@ -49,10 +49,13 @@
 #   undef GC_must_restore_redefined_dlopen
 # endif
 
-#if (defined(DYNAMIC_LOADING) || defined(MSWIN32) || defined(MSWINCE)) \
+#if (defined(DYNAMIC_LOADING) \
+	|| defined(MSWIN32)   \
+	|| defined(MSWINCE)   \
+	|| defined(CYGWIN32)) \
     && !defined(PCR)
 #if !defined(SUNOS4) && !defined(SUNOS5DL) && !defined(IRIX5) && \
-    !defined(MSWIN32) && !defined(MSWINCE) && \
+    !defined(MSWIN32) && !defined(MSWINCE) && !defined(CYGWIN32) && \
     !(defined(ALPHA) && defined(OSF1)) && \
     !defined(HPUX) && !(defined(LINUX) && defined(__ELF__)) && \
     !defined(RS6000) && !defined(SCO_ELF) && !defined(DGUX) && \
@@ -400,6 +403,16 @@ GC_bool GC_register_main_static_data()
 /* It may still not be available in the library on the target system.   */
 /* Thus we also treat it as a weak symbol.				*/
 #define HAVE_DL_ITERATE_PHDR
+#pragma weak dl_iterate_phdr
+#endif
+
+# if (defined(FREEBSD) && __FreeBSD__ >= 7)
+/* On the FreeBSD system, any target system at major version 7 shall    */
+/* have dl_iterate_phdr; therefore, we need not make it weak as above.  */
+#define HAVE_DL_ITERATE_PHDR
+#endif
+
+#if defined(HAVE_DL_ITERATE_PHDR)
 
 static int GC_register_dynlib_callback(info, size, ptr)
      struct dl_phdr_info * info;
@@ -440,8 +453,6 @@ static int GC_register_dynlib_callback(info, size, ptr)
 }     
 
 /* Return TRUE if we succeed, FALSE if dl_iterate_phdr wasn't there. */
-
-#pragma weak dl_iterate_phdr
 
 GC_bool GC_register_dynamic_libraries_dl_iterate_phdr()
 {
@@ -709,7 +720,7 @@ void GC_register_dynamic_libraries()
 
 # endif /* USE_PROC || IRIX5 */
 
-# if defined(MSWIN32) || defined(MSWINCE)
+# if defined(MSWIN32) || defined(MSWINCE) || defined(CYGWIN32)
 
 # define WIN32_LEAN_AND_MEAN
 # define NOSERVICE
@@ -753,7 +764,7 @@ void GC_register_dynamic_libraries()
     }
 # endif
 
-# ifdef MSWINCE
+# if defined(MSWINCE) || defined(CYGWIN32)
   /* Do we need to separately register the main static data segment? */
   GC_bool GC_register_main_static_data()
   {
@@ -860,8 +871,12 @@ void GC_register_dynamic_libraries()
   }
 # endif /* DEBUG_VIRTUALQUERY */
 
-  extern GC_bool GC_wnt;  /* Is Windows NT derivative.		*/
-  			  /* Defined and set in os_dep.c.	*/
+# ifdef CYGWIN32
+#   define GC_wnt (TRUE)
+# else
+    extern GC_bool GC_wnt;  /* Is Windows NT derivative.	*/
+  			    /* Defined and set in os_dep.c.	*/
+# endif
 
   void GC_register_dynamic_libraries()
   {
@@ -926,7 +941,7 @@ void GC_register_dynamic_libraries()
     GC_cond_add_roots(base, limit);
   }
 
-#endif /* MSWIN32 || MSWINCE */
+#endif /* MSWIN32 || MSWINCE || CYGWIN32 */
   
 #if defined(ALPHA) && defined(OSF1)
 

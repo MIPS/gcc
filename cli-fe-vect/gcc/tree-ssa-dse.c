@@ -1,5 +1,5 @@
 /* Dead store elimination
-   Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009
+   Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -45,7 +45,7 @@ along with GCC; see the file COPYING3.  If not see
    In our SSA + virtual operand world we use immediate uses of virtual
    operands to detect dead stores.  If a store's virtual definition
    is used precisely once by a later store to the same location which
-   post dominates the first store, then the first store is dead. 
+   post dominates the first store, then the first store is dead.
 
    The single use of the store's virtual definition ensures that
    there are no intervening aliased loads and the requirement that
@@ -56,7 +56,7 @@ along with GCC; see the file COPYING3.  If not see
    It may help to think of this as first moving the earlier store to
    the point immediately before the later store.  Again, the single
    use of the virtual definition and the post-dominance relationship
-   ensure that such movement would be safe.  Clearly if there are 
+   ensure that such movement would be safe.  Clearly if there are
    back to back stores, then the second is redundant.
 
    Reviewing section 10.7.2 in Morgan's "Building an Optimizing Compiler"
@@ -77,7 +77,7 @@ struct dse_global_data
 };
 
 /* We allocate a bitmap-per-block for stores which are encountered
-   during the scan of that block.  This allows us to restore the 
+   during the scan of that block.  This allows us to restore the
    global bitmap of stores when we finish processing a block.  */
 struct dse_block_local_data
 {
@@ -89,11 +89,8 @@ static unsigned int tree_ssa_dse (void);
 static void dse_initialize_block_local_data (struct dom_walk_data *,
 					     basic_block,
 					     bool);
-static void dse_optimize_stmt (struct dom_walk_data *,
-			       basic_block,
-			       gimple_stmt_iterator);
-static void dse_record_phis (struct dom_walk_data *, basic_block);
-static void dse_finalize_block (struct dom_walk_data *, basic_block);
+static void dse_enter_block (struct dom_walk_data *, basic_block);
+static void dse_leave_block (struct dom_walk_data *, basic_block);
 static void record_voperand_set (bitmap, bitmap *, unsigned int);
 
 /* Returns uid of statement STMT.  */
@@ -164,7 +161,7 @@ dse_possible_dead_store_p (gimple stmt, gimple *use_stmt)
   temp = stmt;
   do
     {
-      gimple prev, use_stmt;
+      gimple use_stmt;
       imm_use_iterator ui;
       bool fail = false;
       tree defvar;
@@ -178,28 +175,33 @@ dse_possible_dead_store_p (gimple stmt, gimple *use_stmt)
 	defvar = PHI_RESULT (temp);
       else
 	defvar = gimple_vdef (temp);
-      prev = temp;
       temp = NULL;
       FOR_EACH_IMM_USE_STMT (use_stmt, ui, defvar)
 	{
 	  cnt++;
 
+	  /* If we ever reach our DSE candidate stmt again fail.  We
+	     cannot handle dead stores in loops.  */
+	  if (use_stmt == stmt)
+	    {
+	      fail = true;
+	      BREAK_FROM_IMM_USE_STMT (ui);
+	    }
 	  /* In simple cases we can look through PHI nodes, but we
 	     have to be careful with loops and with memory references
 	     containing operands that are also operands of PHI nodes.
 	     See gcc.c-torture/execute/20051110-*.c.  */
-	  if (gimple_code (use_stmt) == GIMPLE_PHI)
+	  else if (gimple_code (use_stmt) == GIMPLE_PHI)
 	    {
 	      if (temp
-		  /* We can look through PHIs to post-dominated regions
-		     without worrying if the use not also dominates prev
-		     (in which case it would be a loop PHI with the use
-		     in a latch block).  */
-		  || gimple_bb (prev) == gimple_bb (use_stmt)
-		  || !dominated_by_p (CDI_POST_DOMINATORS,
-				      gimple_bb (prev), gimple_bb (use_stmt))
+		  /* Make sure we are not in a loop latch block.  */
+		  || gimple_bb (stmt) == gimple_bb (use_stmt)
 		  || dominated_by_p (CDI_DOMINATORS,
-				     gimple_bb (prev), gimple_bb (use_stmt)))
+				     gimple_bb (stmt), gimple_bb (use_stmt))
+		  /* We can look through PHIs to regions post-dominating
+		     the DSE candidate stmt.  */
+		  || !dominated_by_p (CDI_POST_DOMINATORS,
+				      gimple_bb (stmt), gimple_bb (use_stmt)))
 		{
 		  fail = true;
 		  BREAK_FROM_IMM_USE_STMT (ui);
@@ -267,15 +269,10 @@ dse_possible_dead_store_p (gimple stmt, gimple *use_stmt)
    post dominates the first store, then the first store is dead.  */
 
 static void
-dse_optimize_stmt (struct dom_walk_data *walk_data,
-		   basic_block bb ATTRIBUTE_UNUSED,
+dse_optimize_stmt (struct dse_global_data *dse_gd,
+		   struct dse_block_local_data *bd,
 		   gimple_stmt_iterator gsi)
 {
-  struct dse_block_local_data *bd
-    = (struct dse_block_local_data *)
-	VEC_last (void_p, walk_data->block_data_stack);
-  struct dse_global_data *dse_gd
-    = (struct dse_global_data *) walk_data->global_data;
   gimple stmt = gsi_stmt (gsi);
 
   /* If this statement has no virtual defs, then there is nothing
@@ -351,27 +348,33 @@ dse_optimize_stmt (struct dom_walk_data *walk_data,
 /* Record that we have seen the PHIs at the start of BB which correspond
    to virtual operands.  */
 static void
-dse_record_phis (struct dom_walk_data *walk_data, basic_block bb)
+dse_record_phi (struct dse_global_data *dse_gd,
+		struct dse_block_local_data *bd,
+		gimple phi)
+{
+  if (!is_gimple_reg (gimple_phi_result (phi)))
+    record_voperand_set (dse_gd->stores, &bd->stores, get_stmt_uid (phi));
+}
+
+static void
+dse_enter_block (struct dom_walk_data *walk_data, basic_block bb)
 {
   struct dse_block_local_data *bd
     = (struct dse_block_local_data *)
 	VEC_last (void_p, walk_data->block_data_stack);
   struct dse_global_data *dse_gd
     = (struct dse_global_data *) walk_data->global_data;
-  gimple phi;
   gimple_stmt_iterator gsi;
 
+  for (gsi = gsi_last (bb_seq (bb)); !gsi_end_p (gsi); gsi_prev (&gsi))
+    dse_optimize_stmt (dse_gd, bd, gsi);
   for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
-    {
-      phi = gsi_stmt (gsi);
-      if (!is_gimple_reg (gimple_phi_result (phi)))
-	record_voperand_set (dse_gd->stores, &bd->stores, get_stmt_uid (phi));
-    }
+    dse_record_phi (dse_gd, bd, gsi_stmt (gsi));
 }
 
 static void
-dse_finalize_block (struct dom_walk_data *walk_data,
-		    basic_block bb ATTRIBUTE_UNUSED)
+dse_leave_block (struct dom_walk_data *walk_data,
+		 basic_block bb ATTRIBUTE_UNUSED)
 {
   struct dse_block_local_data *bd
     = (struct dse_block_local_data *)
@@ -409,16 +412,10 @@ tree_ssa_dse (void)
 
   /* Dead store elimination is fundamentally a walk of the post-dominator
      tree and a backwards walk of statements within each block.  */
-  walk_data.walk_stmts_backward = true;
   walk_data.dom_direction = CDI_POST_DOMINATORS;
   walk_data.initialize_block_local_data = dse_initialize_block_local_data;
-  walk_data.before_dom_children_before_stmts = NULL;
-  walk_data.before_dom_children_walk_stmts = dse_optimize_stmt;
-  walk_data.before_dom_children_after_stmts = dse_record_phis;
-  walk_data.after_dom_children_before_stmts = NULL;
-  walk_data.after_dom_children_walk_stmts = NULL;
-  walk_data.after_dom_children_after_stmts = dse_finalize_block;
-  walk_data.interesting_blocks = NULL;
+  walk_data.before_dom_children = dse_enter_block;
+  walk_data.after_dom_children = dse_leave_block;
 
   walk_data.block_local_data_size = sizeof (struct dse_block_local_data);
 
@@ -449,7 +446,7 @@ gate_dse (void)
   return flag_tree_dse != 0;
 }
 
-struct gimple_opt_pass pass_dse = 
+struct gimple_opt_pass pass_dse =
 {
  {
   GIMPLE_PASS,
@@ -460,9 +457,7 @@ struct gimple_opt_pass pass_dse =
   NULL,				/* next */
   0,				/* static_pass_number */
   TV_TREE_DSE,			/* tv_id */
-  PROP_cfg
-    | PROP_ssa
-    | PROP_alias,		/* properties_required */
+  PROP_cfg | PROP_ssa,		/* properties_required */
   0,				/* properties_provided */
   0,				/* properties_destroyed */
   0,				/* todo_flags_start */

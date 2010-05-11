@@ -1,6 +1,6 @@
 /* Target definitions for GCC for Intel 80386 running Solaris 2
    Copyright (C) 1993, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003,
-   2004, 2007, 2008 Free Software Foundation, Inc.
+   2004, 2007, 2008, 2009, 2010 Free Software Foundation, Inc.
    Contributed by Fred Fish (fnf@cygnus.com).
 
 This file is part of GCC.
@@ -91,6 +91,52 @@ along with GCC; see the file COPYING3.  If not see
       }							\
   } while (0)
 
+/* Follow Sun requirements for TLS code sequences and use Sun assembler TLS
+   syntax.  */
+#undef TARGET_SUN_TLS
+#define TARGET_SUN_TLS 1
+
+/* Follow Sun requirements for TLS code sequences and use Sun assembler TLS
+   syntax.  */
+#undef TARGET_SUN_TLS
+#define TARGET_SUN_TLS 1
+
+/* The Sun assembler uses .tcomm for TLS common sections.  */
+#define TLS_COMMON_ASM_OP ".tcomm"
+
+/* Similar to the Sun assembler on SPARC, the native assembler requires
+   TLS objects to be declared as @tls_obj (not @tls_object).  Unlike SPARC,
+   gas doesn't understand this variant.  */
+#ifndef USE_GAS
+#undef  ASM_DECLARE_OBJECT_NAME
+#define ASM_DECLARE_OBJECT_NAME(FILE, NAME, DECL)		\
+  do								\
+    {								\
+      HOST_WIDE_INT size;					\
+								\
+      if (targetm.have_tls && DECL_THREAD_LOCAL_P (DECL))	\
+	ASM_OUTPUT_TYPE_DIRECTIVE (FILE, NAME, "tls_obj");	\
+      else							\
+	ASM_OUTPUT_TYPE_DIRECTIVE (FILE, NAME, "object");	\
+								\
+      size_directive_output = 0;				\
+      if (!flag_inhibit_size_directive				\
+	  && (DECL) && DECL_SIZE (DECL))			\
+	{							\
+	  size_directive_output = 1;				\
+	  size = int_size_in_bytes (TREE_TYPE (DECL));		\
+	  ASM_OUTPUT_SIZE_DIRECTIVE (FILE, NAME, size);		\
+	}							\
+								\
+      ASM_OUTPUT_LABEL (FILE, NAME);				\
+    }								\
+  while (0)
+#endif
+
+/* The Solaris assembler cannot grok .stabd directives.  */
+#undef NO_DBX_BNSYM_ENSYM
+#define NO_DBX_BNSYM_ENSYM 1
+
 /* Solaris-specific #pragmas are implemented on top of attributes.  Hook in
    the bits from config/sol2.c.  */
 #define SUBTARGET_INSERT_ATTRIBUTES solaris_insert_attributes
@@ -112,3 +158,17 @@ along with GCC; see the file COPYING3.  If not see
 /* We do not need NT_VERSION notes.  */
 #undef X86_FILE_START_VERSION_DIRECTIVE
 #define X86_FILE_START_VERSION_DIRECTIVE false
+
+/* Only recent versions of Solaris 11 ld properly support hidden .gnu.linkonce
+   sections, so don't use them.  */
+#ifndef TARGET_GNU_LD
+#define USE_HIDDEN_LINKONCE 0
+#endif
+
+/* Put all *tf routines in libgcc.  */
+#undef LIBGCC2_HAS_TF_MODE
+#define LIBGCC2_HAS_TF_MODE 1
+#define LIBGCC2_TF_CEXT q
+#define TF_SIZE 113
+
+#define MD_UNWIND_SUPPORT "config/i386/sol2-unwind.h"

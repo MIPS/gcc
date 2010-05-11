@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -27,6 +27,7 @@
 --  building specific types of tree nodes.
 
 with Namet; use Namet;
+with Sinfo; use Sinfo;
 with Types; use Types;
 
 package Tbuild is
@@ -175,6 +176,15 @@ package Tbuild is
    --  A convenient form of Make_String_Literal, where the string value
    --  is given as a normal string instead of a String_Id value.
 
+   function Make_Temporary
+     (Loc          : Source_Ptr;
+      Id           : Character;
+      Related_Node : Node_Id := Empty) return Node_Id;
+   --  Create a defining identifier to capture the value of an expression
+   --  or aggregate, and link it to the expression that it replaces, in
+   --  order to provide better CodePeer reports. The defining identifier
+   --  name is obtained by Make_Internal_Name (Id).
+
    function Make_Unsuppress_Block
      (Loc   : Source_Ptr;
       Check : Name_Id;
@@ -186,6 +196,12 @@ package Tbuild is
    --  This function builds a tree corresponding to the Ada statement
    --  "raise Constraint_Error" and returns the root of this tree,
    --  the N_Raise_Statement node.
+
+   function New_Op_Node
+     (New_Node_Kind : Node_Kind;
+      New_Sloc      : Source_Ptr) return Node_Id;
+   --  Create node using New_Node and, if its kind is in N_Op, set its Chars
+   --  field accordingly.
 
    function New_External_Name
      (Related_Id   : Name_Id;

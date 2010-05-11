@@ -85,7 +85,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
-#include "c-common.h"
 #include "flags.h"
 #include "timevar.h"
 #include "varray.h"
@@ -240,11 +239,20 @@ tree_if_convert_stmt (struct loop *  loop, gimple t, tree cond,
     case GIMPLE_LABEL:
       break;
 
+    case GIMPLE_DEBUG:
+      /* ??? Should there be conditional GIMPLE_DEBUG_BINDs?  */
+      if (gimple_debug_bind_p (gsi_stmt (*gsi)))
+	{
+	  gimple_debug_bind_reset_value (gsi_stmt (*gsi));
+	  update_stmt (gsi_stmt (*gsi));
+	}
+      break;
+
     case GIMPLE_ASSIGN:
       /* This GIMPLE_ASSIGN is killing previous value of LHS. Appropriate
 	 value will be selected by PHI node based on condition. It is possible
 	 that before this transformation, PHI nodes was selecting default
-	 value and now it will use this new value. This is OK because it does 
+	 value and now it will use this new value. This is OK because it does
 	 not change validity the program.  */
       break;
 
@@ -272,10 +280,11 @@ tree_if_convert_cond_stmt (struct loop *loop, gimple stmt, tree cond,
 {
   tree c, c2;
   edge true_edge, false_edge;
+  location_t loc = gimple_location (stmt);
 
   gcc_assert (gimple_code (stmt) == GIMPLE_COND);
 
-  c = fold_build2 (gimple_cond_code (stmt), boolean_type_node,
+  c = fold_build2_loc (loc, gimple_cond_code (stmt), boolean_type_node,
 		   gimple_cond_lhs (stmt), gimple_cond_rhs (stmt));
 
   extract_true_false_edges_from_block (gimple_bb (stmt),
@@ -287,7 +296,7 @@ tree_if_convert_cond_stmt (struct loop *loop, gimple stmt, tree cond,
   add_to_dst_predicate_list (loop, true_edge, cond, c, gsi);
 
   /* If 'c' is false then FALSE_EDGE is taken.  */
-  c2 = invert_truthvalue (unshare_expr (c));
+  c2 = invert_truthvalue_loc (loc, unshare_expr (c));
   add_to_dst_predicate_list (loop, false_edge, cond, c2, gsi);
 
   /* Now this conditional statement is redundant. Remove it.
@@ -423,8 +432,10 @@ if_convertible_stmt_p (struct loop *loop, basic_block bb, gimple stmt)
     case GIMPLE_LABEL:
       break;
 
-    case GIMPLE_ASSIGN:
+    case GIMPLE_DEBUG:
+      break;
 
+    case GIMPLE_ASSIGN:
       if (!if_convertible_gimple_assign_stmt_p (loop, bb, stmt))
 	return false;
       break;
@@ -478,7 +489,7 @@ if_convertible_bb_p (struct loop *loop, basic_block bb, basic_block exit_bb)
 	    fprintf (dump_file, "non empty basic block after exit bb\n");
 	  return false;
 	}
-      else if (bb == loop->latch 
+      else if (bb == loop->latch
 	       && bb != exit_bb
 	       && !dominated_by_p (CDI_DOMINATORS, bb, exit_bb))
 	  {
@@ -616,7 +627,8 @@ add_to_predicate_list (basic_block bb, tree new_cond)
   tree cond = (tree) bb->aux;
 
   if (cond)
-    cond = fold_build2 (TRUTH_OR_EXPR, boolean_type_node,
+    cond = fold_build2_loc (EXPR_LOCATION (cond),
+			TRUTH_OR_EXPR, boolean_type_node,
 			unshare_expr (cond), new_cond);
   else
     cond = new_cond;
@@ -694,7 +706,7 @@ clean_predicate_lists (struct loop *loop)
    whose phi arguments are selected when cond is true.  */
 
 static basic_block
-find_phi_replacement_condition (struct loop *loop, 
+find_phi_replacement_condition (struct loop *loop,
 				basic_block bb, tree *cond,
                                 gimple_stmt_iterator *gsi)
 {
@@ -712,7 +724,7 @@ find_phi_replacement_condition (struct loop *loop,
        S2: x = c ? b : a;
 
        S2 is preferred over S1. Make 'b' first_bb and use its condition.
-       
+
      2) Do not make loop header first_bb.
 
      3)
@@ -723,7 +735,7 @@ find_phi_replacement_condition (struct loop *loop,
 
        S3: x = (c == d) ? b : a;
 
-       S3 is preferred over S1 and S2*, Make 'b' first_bb and use 
+       S3 is preferred over S1 and S2*, Make 'b' first_bb and use
        its condition.
 
      4) If  pred B is dominated by pred A then use pred B's condition.
@@ -820,7 +832,7 @@ replace_phi_with_cond_gimple_assign_stmt (gimple phi, tree cond,
   tree arg_0, arg_1;
 
   gcc_assert (gimple_code (phi) == GIMPLE_PHI);
-  
+
   /* If this is not filtered earlier, then now it is too late.  */
   gcc_assert (gimple_phi_num_args (phi) == 2);
 
@@ -1164,7 +1176,7 @@ struct gimple_opt_pass pass_if_conversion =
   NULL,					/* next */
   0,					/* static_pass_number */
   TV_NONE,				/* tv_id */
-  PROP_cfg | PROP_ssa | PROP_alias,	/* properties_required */
+  PROP_cfg | PROP_ssa,			/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */

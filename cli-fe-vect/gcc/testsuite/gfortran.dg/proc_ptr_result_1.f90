@@ -9,7 +9,7 @@ contains
 
   function j()
     implicit none
-    procedure(),pointer :: j
+    procedure(integer),pointer :: j
     intrinsic iabs
     j => iabs
   end function
@@ -36,12 +36,20 @@ p => b()
 if (p(-2)/=2) call abort()
 p => c()
 if (p(-3)/=3) call abort()
-p => d()
-if (p(-4)/=4) call abort()
+
+ps => d()
+x = 4
+call ps(x)
+if (x/=16) call abort()
+
 p => dd()
 if (p(-4)/=4) call abort()
-p => e(iabs)
-if (p(-5)/=5) call abort()
+
+ps => e(sub)
+x = 5
+call ps(x)
+if (x/=25) call abort()
+
 p => ee()
 if (p(-5)/=5) call abort()
 p => f()
@@ -87,7 +95,7 @@ contains
   function d()
     pointer :: d
     external d
-    d => iabs
+    d => sub
   end function
 
   function dd()
@@ -114,7 +122,7 @@ contains
     pointer :: f
     interface
       integer function f(x)
-        integer :: x
+        integer,intent(in) :: x
       end function
     end interface
     f => iabs
@@ -123,7 +131,7 @@ contains
   function g()
     interface
       integer function g(x)
-        integer :: x
+        integer,intent(in) :: x
       end function g
     end interface
     pointer :: g
@@ -133,13 +141,13 @@ contains
   function h(arg)
     interface
       subroutine arg(b)
-        integer :: b
+        integer,intent(inout) :: b
       end subroutine arg
     end interface
     pointer :: h
     interface
       subroutine h(a)
-        integer :: a
+        integer,intent(inout) :: a
       end subroutine h
     end interface
     h => arg
@@ -150,13 +158,14 @@ contains
     interface
       function i(x)
         integer :: i,x
+        intent(in) :: x
       end function i
     end interface
     i => iabs
   end function
 
   function k(arg)
-    procedure(),pointer :: k,arg
+    procedure(integer),pointer :: k,arg
     k => iabs
     arg => k
   end function

@@ -1,4 +1,4 @@
-/* Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
+/* Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
    Free Software Foundation, Inc.
    Contributed by Andy Vaught
    Namelist transfer functions contributed by Paul Thomas
@@ -29,6 +29,9 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 /* transfer.c -- Top level handling of data transfer statements.  */
 
 #include "io.h"
+#include "fbuf.h"
+#include "format.h"
+#include "unix.h"
 #include <string.h>
 #include <assert.h>
 #include <stdlib.h>
@@ -101,6 +104,16 @@ static const st_option decimal_opt[] = {
   {NULL, 0}
 };
 
+static const st_option round_opt[] = {
+  {"up", ROUND_UP},
+  {"down", ROUND_DOWN},
+  {"zero", ROUND_ZERO},
+  {"nearest", ROUND_NEAREST},
+  {"compatible", ROUND_COMPATIBLE},
+  {"processor_defined", ROUND_PROCDEFINED},
+  {NULL, 0}
+};
+
 
 static const st_option sign_opt[] = {
   {"plus", SIGN_SP},
@@ -162,9 +175,7 @@ current_mode (st_parameter_dt *dtp)
 }
 
 
-/* Mid level data transfer statements.  These subroutines do reading
-   and writing in the style of salloc_r()/salloc_w() within the
-   current record.  */
+/* Mid level data transfer statements.  */
 
 /* When reading sequential formatted records we have a problem.  We
    don't know how long the line is until we read the trailing newline,
@@ -177,23 +188,20 @@ current_mode (st_parameter_dt *dtp)
    we hit the newline.  For small allocations, we use a static buffer.
    For larger allocations, we are forced to allocate memory on the
    heap.  Hopefully this won't happen very often.  */
+   
+/* Read sequential file - internal unit  */
 
-char *
-read_sf (st_parameter_dt *dtp, int * length, int no_error)
+static char *
+read_sf_internal (st_parameter_dt *dtp, int * length)
 {
   static char *empty_string[0];
-  char *base, *p, q;
-  int n, lorig, memread, seen_comma;
+  char *base;
+  int lorig;
 
-  /* If we hit EOF previously with the no_error flag set (i.e. X, T,
-     TR edit descriptors), and we now try to read again, this time
-     without setting no_error.  */
-  if (!no_error && dtp->u.p.at_eof)
-    {
-      *length = 0;
-      hit_eof (dtp);
-      return NULL;
-    }
+  /* Zero size array gives internal unit len of 0.  Nothing to read. */
+  if (dtp->internal_unit_len == 0
+      && dtp->u.p.current_unit->pad_status == PAD_NO)
+    hit_eof (dtp);
 
   /* If we have seen an eor previously, return a length of 0.  The
      caller is responsible for correctly padding the input field.  */
@@ -205,17 +213,40 @@ read_sf (st_parameter_dt *dtp, int * length, int no_error)
       return (char*) empty_string;
     }
 
-  if (is_internal_unit (dtp))
+  lorig = *length;
+  base = mem_alloc_r (dtp->u.p.current_unit->s, length);
+  if (unlikely (lorig > *length))
     {
-      memread = *length;
-      base = mem_alloc_r (dtp->u.p.current_unit->s, length);
-      if (unlikely (memread > *length))
-	{
-          hit_eof (dtp);
-	  return NULL;
-	}
-      n = *length;
-      goto done;
+      hit_eof (dtp);
+      return NULL;
+    }
+
+  dtp->u.p.current_unit->bytes_left -= *length;
+
+  if ((dtp->common.flags & IOPARM_DT_HAS_SIZE) != 0)
+    dtp->u.p.size_used += (GFC_IO_INT) *length;
+
+  return base;
+
+}
+
+/* Read sequential file - external unit */
+
+static char *
+read_sf (st_parameter_dt *dtp, int * length)
+{
+  static char *empty_string[0];
+  char *base, *p, q;
+  int n, lorig, seen_comma;
+
+  /* If we have seen an eor previously, return a length of 0.  The
+     caller is responsible for correctly padding the input field.  */
+  if (dtp->u.p.sf_seen_eor)
+    {
+      *length = 0;
+      /* Just return something that isn't a NULL pointer, otherwise the
+         caller thinks an error occured.  */
+      return (char*) empty_string;
     }
 
   n = seen_comma = 0;
@@ -232,35 +263,40 @@ read_sf (st_parameter_dt *dtp, int * length, int no_error)
 
       if (q == '\n' || q == '\r')
 	{
-	  /* Unexpected end of line.  */
+	  /* Unexpected end of line. Set the position.  */
+	  fbuf_seek (dtp->u.p.current_unit, n + 1 ,SEEK_CUR);
+	  dtp->u.p.sf_seen_eor = 1;
 
 	  /* If we see an EOR during non-advancing I/O, we need to skip
 	     the rest of the I/O statement.  Set the corresponding flag.  */
 	  if (dtp->u.p.advance_status == ADVANCE_NO || dtp->u.p.seen_dollar)
 	    dtp->u.p.eor_condition = 1;
-
+	    
 	  /* If we encounter a CR, it might be a CRLF.  */
 	  if (q == '\r') /* Probably a CRLF */
 	    {
-	      if (n < *length && *(p + 1) == '\n')
-		dtp->u.p.sf_seen_eor = 2;
+	      /* See if there is an LF. Use fbuf_read rather then fbuf_getc so
+		 the position is not advanced unless it really is an LF.  */
+	      int readlen = 1;
+	      p = fbuf_read (dtp->u.p.current_unit, &readlen);
+	      if (*p == '\n' && readlen == 1)
+	        {
+		  dtp->u.p.sf_seen_eor = 2;
+		  fbuf_seek (dtp->u.p.current_unit, 1 ,SEEK_CUR);
+		}
 	    }
-          else
-            dtp->u.p.sf_seen_eor = 1;
 
 	  /* Without padding, terminate the I/O statement without assigning
 	     the value.  With padding, the value still needs to be assigned,
 	     so we can just continue with a short read.  */
 	  if (dtp->u.p.current_unit->pad_status == PAD_NO)
 	    {
-	      if (likely (no_error))
-		break;
 	      generate_error (&dtp->common, LIBERROR_EOR, NULL);
 	      return NULL;
 	    }
 
 	  *length = n;
-	  break;
+	  goto done;
 	}
       /*  Short circuit the read if a comma is found during numeric input.
 	  The flag is set to zero during character reads so that commas in
@@ -274,25 +310,39 @@ read_sf (st_parameter_dt *dtp, int * length, int no_error)
 	    *length = n;
 	    break;
 	  }
-
       n++;
       p++;
     } 
 
-  fbuf_seek (dtp->u.p.current_unit, n + dtp->u.p.sf_seen_eor + seen_comma, 
-             SEEK_CUR);
+  fbuf_seek (dtp->u.p.current_unit, n + seen_comma, SEEK_CUR);
 
   /* A short read implies we hit EOF, unless we hit EOR, a comma, or
      some other stuff. Set the relevant flags.  */
   if (lorig > *length && !dtp->u.p.sf_seen_eor && !seen_comma)
     {
-      if (no_error)
-        dtp->u.p.at_eof = 1;
-      else
+      if (n > 0)
         {
-          hit_eof (dtp);
-          return NULL;
-        }
+	  if (dtp->u.p.advance_status == ADVANCE_NO)
+	    {
+	      if (dtp->u.p.current_unit->pad_status == PAD_NO)
+	        {
+		  hit_eof (dtp);
+		  return NULL;
+		}
+	      else
+		dtp->u.p.eor_condition = 1;
+	    }
+	  else
+	    dtp->u.p.at_eof = 1;
+	}
+      else if (dtp->u.p.advance_status == ADVANCE_NO
+	       || dtp->u.p.current_unit->pad_status == PAD_NO
+	       || dtp->u.p.current_unit->bytes_left
+		    == dtp->u.p.current_unit->recl)
+	{
+	  hit_eof (dtp);
+	  return NULL;
+	}
     }
 
  done:
@@ -333,7 +383,8 @@ read_block_form (st_parameter_dt *dtp, int * nbytes)
             dtp->u.p.current_unit->bytes_left = dtp->u.p.current_unit->recl;
 	  else
 	    {
-	      if (unlikely (dtp->u.p.current_unit->pad_status == PAD_NO))
+	      if (unlikely (dtp->u.p.current_unit->pad_status == PAD_NO)
+		  && !is_internal_unit (dtp))
 		{
 		  /* Not enough data left.  */
 		  generate_error (&dtp->common, LIBERROR_EOR, NULL);
@@ -341,9 +392,10 @@ read_block_form (st_parameter_dt *dtp, int * nbytes)
 		}
 	    }
 
-	  if (unlikely (dtp->u.p.current_unit->bytes_left == 0))
+	  if (unlikely (dtp->u.p.current_unit->bytes_left == 0
+	      && !is_internal_unit(dtp)))
 	    {
-              hit_eof (dtp);
+	      hit_eof (dtp);
 	      return NULL;
 	    }
 
@@ -355,7 +407,11 @@ read_block_form (st_parameter_dt *dtp, int * nbytes)
       (dtp->u.p.current_unit->flags.access == ACCESS_SEQUENTIAL ||
        dtp->u.p.current_unit->flags.access == ACCESS_STREAM))
     {
-      source = read_sf (dtp, nbytes, 0);
+      if (is_internal_unit (dtp))
+	source = read_sf_internal (dtp, nbytes);
+      else
+	source = read_sf (dtp, nbytes);
+
       dtp->u.p.current_unit->strm_pos +=
 	(gfc_offset) (*nbytes + dtp->u.p.sf_seen_eor);
       return source;
@@ -465,7 +521,7 @@ read_block_direct (st_parameter_dt *dtp, void *buf, size_t nbytes)
   /* Check whether we exceed the total record length.  */
 
   if (dtp->u.p.current_unit->flags.has_recl
-      && (nbytes > dtp->u.p.current_unit->bytes_left))
+      && ((gfc_offset) nbytes > dtp->u.p.current_unit->bytes_left))
     {
       to_read_record = dtp->u.p.current_unit->bytes_left;
       short_record = 1;
@@ -894,8 +950,9 @@ require_type (st_parameter_dt *dtp, bt expected, bt actual, const fnode *f)
   if (actual == expected)
     return 0;
 
+  /* Adjust item_count before emitting error message.  */
   sprintf (buffer, "Expected %s for item %d in formatted transfer, got %s",
-	   type_name (expected), dtp->u.p.item_count, type_name (actual));
+	   type_name (expected), dtp->u.p.item_count - 1, type_name (actual));
 
   format_error (dtp, f, buffer);
   return 1;
@@ -1196,6 +1253,36 @@ formatted_transfer_scalar_read (st_parameter_dt *dtp, bt type, void *p, int kind
 	case FMT_DP:
 	  consume_data_flag = 0;
 	  dtp->u.p.current_unit->decimal_status = DECIMAL_POINT;
+	  break;
+	
+	case FMT_RC:
+	  consume_data_flag = 0;
+	  dtp->u.p.current_unit->round_status = ROUND_COMPATIBLE;
+	  break;
+
+	case FMT_RD:
+	  consume_data_flag = 0;
+	  dtp->u.p.current_unit->round_status = ROUND_DOWN;
+	  break;
+
+	case FMT_RN:
+	  consume_data_flag = 0;
+	  dtp->u.p.current_unit->round_status = ROUND_NEAREST;
+	  break;
+
+	case FMT_RP:
+	  consume_data_flag = 0;
+	  dtp->u.p.current_unit->round_status = ROUND_PROCDEFINED;
+	  break;
+
+	case FMT_RU:
+	  consume_data_flag = 0;
+	  dtp->u.p.current_unit->round_status = ROUND_UP;
+	  break;
+
+	case FMT_RZ:
+	  consume_data_flag = 0;
+	  dtp->u.p.current_unit->round_status = ROUND_ZERO;
 	  break;
 
 	case FMT_P:
@@ -1561,6 +1648,36 @@ formatted_transfer_scalar_write (st_parameter_dt *dtp, bt type, void *p, int kin
 	  dtp->u.p.current_unit->decimal_status = DECIMAL_POINT;
 	  break;
 
+	case FMT_RC:
+	  consume_data_flag = 0;
+	  dtp->u.p.current_unit->round_status = ROUND_COMPATIBLE;
+	  break;
+
+	case FMT_RD:
+	  consume_data_flag = 0;
+	  dtp->u.p.current_unit->round_status = ROUND_DOWN;
+	  break;
+
+	case FMT_RN:
+	  consume_data_flag = 0;
+	  dtp->u.p.current_unit->round_status = ROUND_NEAREST;
+	  break;
+
+	case FMT_RP:
+	  consume_data_flag = 0;
+	  dtp->u.p.current_unit->round_status = ROUND_PROCDEFINED;
+	  break;
+
+	case FMT_RU:
+	  consume_data_flag = 0;
+	  dtp->u.p.current_unit->round_status = ROUND_UP;
+	  break;
+
+	case FMT_RZ:
+	  consume_data_flag = 0;
+	  dtp->u.p.current_unit->round_status = ROUND_ZERO;
+	  break;
+
 	case FMT_P:
 	  consume_data_flag = 0;
 	  dtp->u.p.scale_factor = f->u.k;
@@ -1612,6 +1729,12 @@ formatted_transfer_scalar_write (st_parameter_dt *dtp, bt type, void *p, int kin
   unget_format (dtp, f);
 }
 
+  /* This function is first called from data_init_transfer to initiate the loop
+     over each item in the format, transferring data as required.  Subsequent
+     calls to this function occur for each data item foound in the READ/WRITE
+     statement.  The item_count is incremented for each call.  Since the first
+     call is from data_transfer_init, the item_count is always one greater than
+     the actual count number of the item being transferred.  */
 
 static void
 formatted_transfer (st_parameter_dt *dtp, bt type, void *p, int kind,
@@ -1778,10 +1901,8 @@ transfer_array (st_parameter_dt *dtp, gfc_array_char *desc, int kind,
   for (n = 0; n < rank; n++)
     {
       count[n] = 0;
-      stride[n] = iotype == BT_CHARACTER ?
-		  desc->dim[n].stride * GFC_SIZE_OF_CHAR_KIND(kind) :
-		  desc->dim[n].stride;
-      extent[n] = desc->dim[n].ubound + 1 - desc->dim[n].lbound;
+      stride[n] = GFC_DESCRIPTOR_STRIDE_BYTES(desc,n);
+      extent[n] = GFC_DESCRIPTOR_EXTENT(desc,n);
 
       /* If the extent of even one dimension is zero, then the entire
 	 array section contains zero elements, so we return after writing
@@ -1797,9 +1918,9 @@ transfer_array (st_parameter_dt *dtp, gfc_array_char *desc, int kind,
 
   stride0 = stride[0];
 
-  /* If the innermost dimension has stride 1, we can do the transfer
+  /* If the innermost dimension has a stride of 1, we can do the transfer
      in contiguous chunks.  */
-  if (stride0 == 1)
+  if (stride0 == size)
     tsize = extent[0];
   else
     tsize = 1;
@@ -1809,13 +1930,13 @@ transfer_array (st_parameter_dt *dtp, gfc_array_char *desc, int kind,
   while (data)
     {
       dtp->u.p.transfer (dtp, iotype, data, kind, size, tsize);
-      data += stride0 * size * tsize;
+      data += stride0 * tsize;
       count[0] += tsize;
       n = 0;
       while (count[n] == extent[n])
 	{
 	  count[n] = 0;
-	  data -= stride[n] * extent[n] * size;
+	  data -= stride[n] * extent[n];
 	  n++;
 	  if (n == rank)
 	    {
@@ -1825,7 +1946,7 @@ transfer_array (st_parameter_dt *dtp, gfc_array_char *desc, int kind,
 	  else
 	    {
 	      count[n]++;
-	      data += stride[n] * size;
+	      data += stride[n];
 	    }
 	}
     }
@@ -2020,7 +2141,7 @@ data_transfer_init (st_parameter_dt *dtp, int read_flag)
 	close_unit (dtp->u.p.current_unit);
 	dtp->u.p.current_unit = NULL;
 	generate_error (&dtp->common, LIBERROR_BAD_OPTION,
-			"Bad unit number in OPEN statement");
+			"Bad unit number in statement");
 	return;
       }
     memset (&u_flags, '\0', sizeof (u_flags));
@@ -2248,6 +2369,16 @@ data_transfer_init (st_parameter_dt *dtp, int read_flag)
 
   if (dtp->u.p.current_unit->decimal_status == DECIMAL_UNSPECIFIED)
 	dtp->u.p.current_unit->decimal_status = dtp->u.p.current_unit->flags.decimal;
+
+  /* Check the round mode.  */
+  dtp->u.p.current_unit->round_status
+	= !(cf & IOPARM_DT_HAS_ROUND) ? ROUND_UNSPECIFIED :
+	  find_option (&dtp->common, dtp->round, dtp->round_len,
+			round_opt, "Bad ROUND parameter in data transfer "
+			"statement");
+
+  if (dtp->u.p.current_unit->round_status == ROUND_UNSPECIFIED)
+	dtp->u.p.current_unit->round_status = dtp->u.p.current_unit->flags.round;
 
   /* Check the sign mode. */
   dtp->u.p.sign_status
@@ -2490,23 +2621,24 @@ init_loop_spec (gfc_array_char *desc, array_loop_spec *ls,
 
   for (i=0; i<rank; i++)
     {
-      ls[i].idx = desc->dim[i].lbound;
-      ls[i].start = desc->dim[i].lbound;
-      ls[i].end = desc->dim[i].ubound;
-      ls[i].step = desc->dim[i].stride;
-      empty = empty || (desc->dim[i].ubound < desc->dim[i].lbound);
+      ls[i].idx = GFC_DESCRIPTOR_LBOUND(desc,i);
+      ls[i].start = GFC_DESCRIPTOR_LBOUND(desc,i);
+      ls[i].end = GFC_DESCRIPTOR_UBOUND(desc,i);
+      ls[i].step = GFC_DESCRIPTOR_STRIDE(desc,i);
+      empty = empty || (GFC_DESCRIPTOR_UBOUND(desc,i) 
+			< GFC_DESCRIPTOR_LBOUND(desc,i));
 
-      if (desc->dim[i].stride > 0)
+      if (GFC_DESCRIPTOR_STRIDE(desc,i) > 0)
 	{
-	  index += (desc->dim[i].ubound - desc->dim[i].lbound)
-	    * desc->dim[i].stride;
+	  index += (GFC_DESCRIPTOR_EXTENT(desc,i) - 1)
+	    * GFC_DESCRIPTOR_STRIDE(desc,i);
 	}
       else
 	{
-	  index -= (desc->dim[i].ubound - desc->dim[i].lbound)
-	    * desc->dim[i].stride;
-	  *start_record -= (desc->dim[i].ubound - desc->dim[i].lbound)
-	    * desc->dim[i].stride;
+	  index -= (GFC_DESCRIPTOR_EXTENT(desc,i) - 1)
+	    * GFC_DESCRIPTOR_STRIDE(desc,i);
+	  *start_record -= (GFC_DESCRIPTOR_EXTENT(desc,i) - 1)
+	    * GFC_DESCRIPTOR_STRIDE(desc,i);
 	}
     }
 
@@ -2574,6 +2706,8 @@ skip_record (st_parameter_dt *dtp, ssize_t bytes)
       if (sseek (dtp->u.p.current_unit->s, 
 		 dtp->u.p.current_unit->bytes_left_subrecord, SEEK_CUR) < 0)
 	generate_error (&dtp->common, LIBERROR_OS, NULL);
+
+      dtp->u.p.current_unit->bytes_left_subrecord = 0;
     }
   else
     {			/* Seek by reading data.  */
@@ -2634,7 +2768,7 @@ min_off (gfc_offset a, gfc_offset b)
 /* Space to the next record for read mode.  */
 
 static void
-next_record_r (st_parameter_dt *dtp)
+next_record_r (st_parameter_dt *dtp, int done)
 {
   gfc_offset record;
   int bytes_left;
@@ -2654,17 +2788,16 @@ next_record_r (st_parameter_dt *dtp)
 
     case FORMATTED_DIRECT:
     case UNFORMATTED_DIRECT:
-      skip_record (dtp, 0);
+      skip_record (dtp, dtp->u.p.current_unit->bytes_left);
       break;
 
     case FORMATTED_STREAM:
     case FORMATTED_SEQUENTIAL:
       /* read_sf has already terminated input because of an '\n', or
          we have hit EOF.  */
-      if (dtp->u.p.sf_seen_eor || dtp->u.p.at_eof)
+      if (dtp->u.p.sf_seen_eor)
 	{
 	  dtp->u.p.sf_seen_eor = 0;
-          dtp->u.p.at_eof = 0;
 	  break;
 	}
 
@@ -2676,6 +2809,8 @@ next_record_r (st_parameter_dt *dtp)
 
 	      record = next_array_record (dtp, dtp->u.p.current_unit->ls,
 					  &finished);
+	      if (!done && finished)
+		hit_eof (dtp);
 
 	      /* Now seek to this record.  */
 	      record = record * dtp->u.p.current_unit->recl;
@@ -2713,8 +2848,14 @@ next_record_r (st_parameter_dt *dtp)
 		{
                   if (errno != 0)
                     generate_error (&dtp->common, LIBERROR_OS, NULL);
-                  else
-                    hit_eof (dtp);
+		  else
+		    {
+		      if (is_stream_io (dtp)
+			  || dtp->u.p.current_unit->pad_status == PAD_NO
+			  || dtp->u.p.current_unit->bytes_left
+			     == dtp->u.p.current_unit->recl)
+			hit_eof (dtp);
+		    }
 		  break;
                 }
 	      
@@ -2868,7 +3009,7 @@ sset (stream * s, int c, ssize_t nbyte)
     {
       trans = (bytes_left < WRITE_CHUNK) ? bytes_left : WRITE_CHUNK;
       trans = swrite (s, p, trans);
-      if (trans < 0)
+      if (trans <= 0)
 	return trans;
       bytes_left -= trans;
     }
@@ -3054,7 +3195,7 @@ next_record (st_parameter_dt *dtp, int done)
   dtp->u.p.current_unit->read_bad = 0;
 
   if (dtp->u.p.mode == READING)
-    next_record_r (dtp);
+    next_record_r (dtp, done);
   else
     next_record_w (dtp, done);
 
@@ -3104,7 +3245,11 @@ finalize_transfer (st_parameter_dt *dtp)
     }
 
   if ((dtp->common.flags & IOPARM_LIBRETURN_MASK) != IOPARM_LIBRETURN_OK)
-    return;
+    {
+      if (dtp->u.p.current_unit && current_mode (dtp) == UNFORMATTED_SEQUENTIAL)
+	dtp->u.p.current_unit->current_record = 0;
+      return;
+    }
 
   if ((dtp->u.p.ionml != NULL)
       && (cf & IOPARM_DT_HAS_NAMELIST_NAME) != 0)
@@ -3252,7 +3397,7 @@ void
 st_read_done (st_parameter_dt *dtp)
 {
   finalize_transfer (dtp);
-  if (is_internal_unit (dtp))
+  if (is_internal_unit (dtp) || dtp->u.p.format_not_saved)
     free_format_data (dtp->u.p.fmt);
   free_ionml (dtp);
   if (dtp->u.p.current_unit != NULL)
@@ -3304,7 +3449,7 @@ st_write_done (st_parameter_dt *dtp)
 	break;
       }
 
-  if (is_internal_unit (dtp))
+  if (is_internal_unit (dtp) || dtp->u.p.format_not_saved)
     free_format_data (dtp->u.p.fmt);
   free_ionml (dtp);
   if (dtp->u.p.current_unit != NULL)
@@ -3400,9 +3545,7 @@ st_set_nml_var_dim (st_parameter_dt *dtp, GFC_INTEGER_4 n_dim,
 
   for (nml = dtp->u.p.ionml; nml->next; nml = nml->next);
 
-  nml->dim[n].stride = stride;
-  nml->dim[n].lbound = lbound;
-  nml->dim[n].ubound = ubound;
+  GFC_DIMENSION_SET(nml->dim[n],lbound,ubound,stride);
 }
 
 /* Reverse memcpy - used for byte swapping.  */

@@ -1,5 +1,6 @@
 // { dg-do compile }
 // { dg-options "-std=c++0x" }
+// { dg-require-cstdint "" }
 //
 // 2008-11-24  Edward M. Smith-Rowland <3dw4rd@verizon.net>
 //
@@ -30,7 +31,7 @@ test01()
 {
   typedef std::discard_block_engine
     <
-    std::subtract_with_carry_engine<long, 24, 10, 24>,
+    std::subtract_with_carry_engine<unsigned long, 24, 10, 24>,
     389, 24
     > test_type;
 

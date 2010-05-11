@@ -1,7 +1,7 @@
 /* Operating system specific defines to be used when targeting GCC for
    hosting on Windows32, using GNU tools and the Windows32 API Library.
    Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2007, 2008,
-   2009 Free Software Foundation, Inc.
+   2009, 2010 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -50,11 +50,7 @@ along with GCC; see the file COPYING3.  If not see
 /* Override the standard choice of /usr/include as the default prefix
    to try when searching for header files.  */
 #undef STANDARD_INCLUDE_DIR
-#if TARGET_64BIT_DEFAULT
-#define STANDARD_INCLUDE_DIR "/mingw/include64"
-#else
 #define STANDARD_INCLUDE_DIR "/mingw/include"
-#endif
 #undef STANDARD_INCLUDE_COMPONENT
 #define STANDARD_INCLUDE_COMPONENT "MINGW"
 
@@ -113,15 +109,19 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Override startfile prefix defaults.  */
 #ifndef STANDARD_STARTFILE_PREFIX_1
-#if TARGET_64BIT_DEFAULT
-#define STANDARD_STARTFILE_PREFIX_1 "/mingw/lib64/"
-#else
 #define STANDARD_STARTFILE_PREFIX_1 "/mingw/lib/"
-#endif
 #endif
 #ifndef STANDARD_STARTFILE_PREFIX_2
 #define STANDARD_STARTFILE_PREFIX_2 ""
 #endif
+
+/* Put all *tf routines in libgcc.  */
+#undef LIBGCC2_HAS_TF_MODE
+#define LIBGCC2_HAS_TF_MODE 1
+#undef LIBGCC2_TF_CEXT
+#define LIBGCC2_TF_CEXT q
+#undef TF_SIZE
+#define TF_SIZE 113
 
 /* Output STRING, a string representing a filename, to FILE.
    We canonicalize it to be in Unix format (backslashes are replaced
@@ -202,12 +202,16 @@ __enable_execute_stack (void *addr)					\
 
 #undef ENABLE_EXECUTE_STACK
 #define ENABLE_EXECUTE_STACK MINGW_ENABLE_EXECUTE_STACK
+#undef  CHECK_EXECUTE_STACK_ENABLED
+#define CHECK_EXECUTE_STACK_ENABLED flag_setstackexecutable
 
 #ifdef IN_LIBGCC2
 #include <windows.h>
 #endif
 
-#if !TARGET_64BIT
+/* For 64-bit Windows we can't use DW2 unwind info. Also for multilib
+   builds we can't use it, too.  */
+#if !TARGET_64BIT && !defined (TARGET_BI_ARCH)
 #define MD_UNWIND_SUPPORT "config/i386/w32-unwind.h"
 #endif
 
@@ -219,3 +223,7 @@ __enable_execute_stack (void *addr)					\
 #define LIBGCC_EH_EXTN "_sjlj"
 #endif
 #define LIBGCC_SONAME "libgcc_s" LIBGCC_EH_EXTN "-1.dll"
+
+/* We should find a way to not have to update this manually.  */
+#define LIBGCJ_SONAME "libgcj" /*LIBGCC_EH_EXTN*/ "-11.dll"
+

@@ -1,7 +1,7 @@
 /* Definitions of target machine for GNU compiler,
    for 64 bit PowerPC linux.
    Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008,
-   2009  Free Software Foundation, Inc.
+   2009, 2010  Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -61,6 +61,8 @@ extern int dot_symbols;
 #define DOT_SYMBOLS dot_symbols
 #endif
 
+#define TARGET_PROFILE_KERNEL profile_kernel
+
 #undef  PROCESSOR_DEFAULT
 #define PROCESSOR_DEFAULT PROCESSOR_POWER6
 #undef  PROCESSOR_DEFAULT64
@@ -119,7 +121,7 @@ extern int dot_symbols;
 	    error (INVALID_32BIT, "32");			\
 	  if (TARGET_PROFILE_KERNEL)				\
 	    {							\
-	      target_flags &= ~MASK_PROFILE_KERNEL;		\
+	      TARGET_PROFILE_KERNEL = 0;			\
 	      error (INVALID_32BIT, "profile-kernel");		\
 	    }							\
 	}							\
@@ -437,11 +439,11 @@ extern int dot_symbols;
 #undef  SAVE_FP_PREFIX
 #define SAVE_FP_PREFIX (TARGET_64BIT ? "._savef" : "_savefpr_")
 #undef  SAVE_FP_SUFFIX
-#define SAVE_FP_SUFFIX (TARGET_64BIT ? "" : "_l")
+#define SAVE_FP_SUFFIX ""
 #undef  RESTORE_FP_PREFIX
 #define RESTORE_FP_PREFIX (TARGET_64BIT ? "._restf" : "_restfpr_")
 #undef  RESTORE_FP_SUFFIX
-#define RESTORE_FP_SUFFIX (TARGET_64BIT ? "" : "_l")
+#define RESTORE_FP_SUFFIX ""
 
 /* Dwarf2 debugging.  */
 #undef  PREFERRED_DEBUGGING_TYPE
@@ -471,9 +473,8 @@ extern int dot_symbols;
    we also do this for floating-point constants.  We actually can only
    do this if the FP formats of the target and host machines are the
    same, but we can't check that since not every file that uses
-   GO_IF_LEGITIMATE_ADDRESS_P includes real.h.  We also do this when
-   we can write the entry into the TOC and the entry is not larger
-   than a TOC entry.  */
+   the macros includes real.h.  We also do this when we can write the
+   entry into the TOC and the entry is not larger than a TOC entry.  */
 
 #undef  ASM_OUTPUT_SPECIAL_POOL_ENTRY_P
 #define ASM_OUTPUT_SPECIAL_POOL_ENTRY_P(X, MODE)			\

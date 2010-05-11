@@ -1,6 +1,6 @@
 /* Define control and data flow tables, and regsets.
    Copyright (C) 1987, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
-   2005, 2006, 2007, 2008 Free Software Foundation, Inc.
+   2005, 2006, 2007, 2008, 2009, 2010 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -147,8 +147,6 @@ struct GTY(()) edge_def {
 				   in profile.c  */
 };
 
-typedef struct edge_def *edge;
-typedef const struct edge_def *const_edge;
 DEF_VEC_P(edge);
 DEF_VEC_ALLOC_P(edge,gc);
 DEF_VEC_ALLOC_P(edge,heap);
@@ -251,6 +249,9 @@ struct GTY((chain_next ("%h.next_bb"), chain_prev ("%h.prev_bb"))) basic_block_d
   /* Expected frequency.  Normalized to be in range 0 to BB_FREQ_MAX.  */
   int frequency;
 
+  /* The discriminator for this block.  */
+  int discriminator;
+
   /* Various flags.  See BB_* below.  */
   int flags;
 };
@@ -276,9 +277,6 @@ struct GTY(()) gimple_bb_info {
   /* PHI nodes for this block.  */
   gimple_seq phi_nodes;
 };
-
-typedef struct basic_block_def *basic_block;
-typedef const struct basic_block_def *const_basic_block;
 
 DEF_VEC_P(basic_block);
 DEF_VEC_ALLOC_P(basic_block,gc);
@@ -361,6 +359,14 @@ enum dom_state
   DOM_OK		/* Everything is ok.  */
 };
 
+/* What sort of profiling information we have.  */
+enum profile_status_d
+{
+  PROFILE_ABSENT,
+  PROFILE_GUESSED,
+  PROFILE_READ
+};
+
 /* A structure to group all the per-function control flow graph data.
    The x_* prefixing is necessary because otherwise references to the
    fields of this struct are interpreted as the defines for backward
@@ -387,11 +393,7 @@ struct GTY(()) control_flow_graph {
      only used for the gimple CFG.  */
   VEC(basic_block,gc) *x_label_to_block_map;
 
-  enum profile_status {
-    PROFILE_ABSENT,
-    PROFILE_GUESSED,
-    PROFILE_READ
-  } x_profile_status;
+  enum profile_status_d x_profile_status;
 
   /* Whether the dominators and the postdominators are available.  */
   enum dom_state x_dom_computed[2];
@@ -461,7 +463,7 @@ struct GTY(()) control_flow_graph {
   for ((INSN) = BB_HEAD (BB), (CURR) = (INSN) ? NEXT_INSN ((INSN)): NULL;	\
        (INSN) && (INSN) != NEXT_INSN (BB_END (BB));	\
        (INSN) = (CURR), (CURR) = (INSN) ? NEXT_INSN ((INSN)) : NULL)
-       
+
 #define FOR_BB_INSNS_REVERSE(BB, INSN)		\
   for ((INSN) = BB_END (BB);			\
        (INSN) && (INSN) != PREV_INSN (BB_HEAD (BB));	\
@@ -489,15 +491,14 @@ extern bitmap_obstack reg_obstack;
 #define BB_HEAD(B)      (B)->il.rtl->head_
 #define BB_END(B)       (B)->il.rtl->end_
 
-/* Special block numbers [markers] for entry and exit.  */
+/* Special block numbers [markers] for entry and exit.
+   Neither of them is supposed to hold actual statements.  */
 #define ENTRY_BLOCK (0)
 #define EXIT_BLOCK (1)
 
 /* The two blocks that are always in the cfg.  */
 #define NUM_FIXED_BLOCKS (2)
 
-
-#define BLOCK_NUM(INSN)	      (BLOCK_FOR_INSN (INSN)->index + 0)
 #define set_block_for_insn(INSN, BB)  (BLOCK_FOR_INSN (INSN) = BB)
 
 extern void compute_bb_for_insn (void);
@@ -507,6 +508,7 @@ extern void update_bb_for_insn (basic_block);
 extern void insert_insn_on_edge (rtx, edge);
 basic_block split_edge_and_insert (edge, rtx);
 
+extern void commit_one_edge_insertion (edge e);
 extern void commit_edge_insertions (void);
 
 extern void remove_fake_edges (void);
@@ -853,8 +855,6 @@ extern bool br_prob_note_reliable_p (const_rtx);
 extern bool predictable_edge_p (edge);
 
 /* In cfg.c  */
-extern void dump_regset (regset, FILE *);
-extern void debug_regset (regset);
 extern void init_flow (struct function *);
 extern void debug_bb (basic_block);
 extern basic_block debug_bb_n (int);

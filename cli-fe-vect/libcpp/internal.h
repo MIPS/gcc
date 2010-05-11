@@ -33,6 +33,10 @@ along with this program; see the file COPYING3.  If not see
 typedef int iconv_t;  /* dummy */
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct directive;		/* Deliberately incomplete.  */
 struct pending_option;
 struct op;
@@ -236,7 +240,8 @@ struct _cpp_line_note
 
   /* Type of note.  The 9 'from' trigraph characters represent those
      trigraphs, '\\' an escaped newline, ' ' an escaped newline with
-     intervening space, and anything else is invalid.  */
+     intervening space, 0 represents a note that has already been handled,
+     and anything else is invalid.  */
   unsigned int type;
 };
 
@@ -299,6 +304,16 @@ struct cpp_buffer
   /* Descriptor for converting from the input character set to the
      source character set.  */
   struct cset_converter input_cset_desc;
+};
+
+/* The list of saved macros by push_macro pragma.  */
+struct def_pragma_macro {
+  /* Chain element to previous saved macro.  */
+  struct def_pragma_macro *next;
+  /* Name of the macro.  */
+  char *name;
+  /* The stored macro content.  */
+  cpp_macro *value;
 };
 
 /* A cpp_reader encapsulates the "state" of a pre-processor run.
@@ -393,6 +408,10 @@ struct cpp_reader
   struct cset_converter narrow_cset_desc;
 
   /* Descriptor for converting from the source character set to the
+     UTF-8 execution character set.  */
+  struct cset_converter utf8_cset_desc;
+
+  /* Descriptor for converting from the source character set to the
      UTF-16 execution character set.  */
   struct cset_converter char16_cset_desc;
 
@@ -467,6 +486,9 @@ struct cpp_reader
 
   /* Table of comments, when state.save_comments is true.  */
   cpp_comment_table comments;
+
+  /* List of saved macros by push_macro.  */
+  struct def_pragma_macro *pushed_macros;
 };
 
 /* Character classes.  Based on the more primitive macros in safe-ctype.h.
@@ -567,6 +589,7 @@ extern const cpp_token *_cpp_lex_token (cpp_reader *);
 extern cpp_token *_cpp_lex_direct (cpp_reader *);
 extern int _cpp_equiv_tokens (const cpp_token *, const cpp_token *);
 extern void _cpp_init_tokenrun (tokenrun *, unsigned int);
+extern cpp_hashnode *_cpp_lex_identifier (cpp_reader *, const char *);
 
 /* In init.c.  */
 extern void _cpp_maybe_push_include_file (cpp_reader *);
@@ -701,5 +724,9 @@ ufputs (const unsigned char *s, FILE *f)
 {
   return fputs ((const char *)s, f);
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* ! LIBCPP_INTERNAL_H */

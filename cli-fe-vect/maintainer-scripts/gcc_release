@@ -9,7 +9,7 @@
 # Contents:
 #   Script to create a GCC release.
 #
-# Copyright (c) 2001, 2002, 2006, 2009 Free Software Foundation.
+# Copyright (c) 2001, 2002, 2006, 2009, 2010 Free Software Foundation.
 #
 # This file is part of GCC.
 #
@@ -276,8 +276,8 @@ build_tarfiles() {
   # The GNU Coding Standards specify that all files should
   # world readable.
   chmod -R a+r ${SOURCE_DIRECTORY}
-  # And that all directories have mode 777.
-  find ${SOURCE_DIRECTORY} -type d -exec chmod 777 {} \;
+  # And that all directories have mode 755.
+  find ${SOURCE_DIRECTORY} -type d -exec chmod 755 {} \;
  
   # Build one huge tarfile for the entire distribution.
   build_tarfile gcc-${RELEASE} `basename ${SOURCE_DIRECTORY}`
@@ -547,7 +547,7 @@ SOURCE_DIRECTORY=""
 ADA_DIRS="gcc/ada libada gnattools"
 CPLUSPLUS_DIRS="gcc/cp libstdc++-v3"
 FORTRAN95_DIRS="gcc/fortran libgfortran"
-JAVA_DIRS="gcc/java libjava libffi zlib boehm-gc"
+JAVA_DIRS="gcc/java libjava libffi boehm-gc"
 OBJECTIVEC_DIRS="gcc/objc gcc/objcp libobjc"
 TESTSUITE_DIRS="gcc/testsuite"
 

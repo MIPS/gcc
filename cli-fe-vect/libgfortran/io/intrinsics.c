@@ -1,8 +1,8 @@
 /* Implementation of the FGET, FGETC, FPUT, FPUTC, FLUSH 
    FTELL, TTYNAM and ISATTY intrinsics.
-   Copyright (C) 2005, 2007, 2009 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2007, 2009, 2010 Free Software Foundation, Inc.
 
-This file is part of the GNU Fortran 95 runtime library (libgfortran).
+This file is part of the GNU Fortran runtime library (libgfortran).
 
 Libgfortran is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public
@@ -24,6 +24,8 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 <http://www.gnu.org/licenses/>.  */
 
 #include "io.h"
+#include "fbuf.h"
+#include "unix.h"
 
 #ifdef HAVE_STDLIB_H
 #include <stdlib.h>
@@ -45,6 +47,13 @@ PREFIX(fgetc) (const int * unit, char * c, gfc_charlen_type c_len)
 
   if (u == NULL)
     return -1;
+
+  fbuf_reset (u);
+  if (u->mode == WRITING)
+    {
+      sflush (u->s);
+      u->mode = READING;
+    }
 
   memset (c, ' ', c_len);
   ret = sread (u->s, c, 1);
@@ -117,6 +126,13 @@ PREFIX(fputc) (const int * unit, char * c,
 
   if (u == NULL)
     return -1;
+
+  fbuf_reset (u);
+  if (u->mode == READING)
+    {
+      sflush (u->s);
+      u->mode = WRITING;
+    }
 
   s = swrite (u->s, c, 1);
   unlock_unit (u);
@@ -244,19 +260,27 @@ fseek_sub (int * unit, GFC_IO_INT * offset, int * whence, int * status)
 
 /* FTELL intrinsic */
 
+static gfc_offset
+gf_ftell (int unit)
+{
+  gfc_unit * u = find_unit (unit);
+  if (u == NULL)
+    return -1;
+  int pos = fbuf_reset (u);
+  if (pos != 0)
+    sseek (u->s, pos, SEEK_CUR);
+  gfc_offset ret = stell (u->s);
+  unlock_unit (u);
+  return ret;
+}
+
 extern size_t PREFIX(ftell) (int *);
 export_proto_np(PREFIX(ftell));
 
 size_t
 PREFIX(ftell) (int * unit)
 {
-  gfc_unit * u = find_unit (*unit);
-  size_t ret;
-  if (u == NULL)
-    return ((size_t) -1);
-  ret = (size_t) stell (u->s);
-  unlock_unit (u);
-  return ret;
+  return gf_ftell (*unit);
 }
 
 #define FTELL_SUB(kind) \
@@ -265,14 +289,7 @@ PREFIX(ftell) (int * unit)
   void \
   ftell_i ## kind ## _sub (int * unit, GFC_INTEGER_ ## kind * offset) \
   { \
-    gfc_unit * u = find_unit (*unit); \
-    if (u == NULL) \
-      *offset = -1; \
-    else \
-      { \
-	*offset = stell (u->s); \
-	unlock_unit (u); \
-      } \
+    *offset = gf_ftell (*unit);			\
   }
 
 FTELL_SUB(1)

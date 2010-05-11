@@ -1,7 +1,7 @@
 /* CPP Library.
    Copyright (C) 1986, 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
    1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008,
-   2009 Free Software Foundation, Inc.
+   2009, 2010 Free Software Foundation, Inc.
    Contributed by Per Bothner, 1994-95.
    Based on CCCP program by Paul Rubin, June 1986
    Adapted to ANSI C, Richard Stallman, Jan 1987
@@ -28,7 +28,7 @@ along with this program; see the file COPYING3.  If not see
 #include "localedir.h"
 
 static void init_library (void);
-static void mark_named_operators (cpp_reader *);
+static void mark_named_operators (cpp_reader *, int);
 static void read_original_filename (cpp_reader *);
 static void read_original_directory (cpp_reader *);
 static void post_options (cpp_reader *);
@@ -216,6 +216,9 @@ cpp_create_reader (enum c_lang lang, hash_table *table,
   pfile->a_buff = _cpp_get_buff (pfile, 0);
   pfile->u_buff = _cpp_get_buff (pfile, 0);
 
+  /* Initialize table for push_macro/pop_macro.  */
+  pfile->pushed_macros = 0;
+
   /* The expression parser stack.  */
   _cpp_expand_op_stack (pfile);
 
@@ -245,6 +248,7 @@ void
 cpp_destroy (cpp_reader *pfile)
 {
   cpp_context *context, *contextn;
+  struct def_pragma_macro *pmacro;
   tokenrun *run, *runn;
   int i;
 
@@ -295,6 +299,17 @@ cpp_destroy (cpp_reader *pfile)
 	free (pfile->comments.entries[i].comment);
 
       free (pfile->comments.entries);
+    }
+  if (pfile->pushed_macros)
+    {
+      do
+	{
+	  pmacro = pfile->pushed_macros;
+	  pfile->pushed_macros = pmacro->next;
+	  free (pmacro->name);
+	  free (pmacro);
+	}
+      while (pfile->pushed_macros);
     }
 
   free (pfile);
@@ -366,7 +381,7 @@ static const struct builtin_operator operator_array[] =
 
 /* Mark the C++ named operators in the hash table.  */
 static void
-mark_named_operators (cpp_reader *pfile)
+mark_named_operators (cpp_reader *pfile, int flags)
 {
   const struct builtin_operator *b;
 
@@ -375,7 +390,7 @@ mark_named_operators (cpp_reader *pfile)
        b++)
     {
       cpp_hashnode *hp = cpp_lookup (pfile, b->name, b->len);
-      hp->flags |= NODE_OPERATOR;
+      hp->flags |= flags;
       hp->is_directive = 0;
       hp->directive_index = b->value;
     }
@@ -419,7 +434,7 @@ cpp_init_special_builtins (cpp_reader *pfile)
       if (b->always_warn_if_redefined
           || CPP_OPTION (pfile, warn_builtin_macro_redefined))
 	hp->flags |= NODE_WARN;
-      hp->value.builtin = (enum builtin_type) b->value;
+      hp->value.builtin = (enum cpp_builtin_type) b->value;
     }
 }
 
@@ -512,13 +527,20 @@ static void sanity_checks (cpp_reader *pfile)
 void
 cpp_post_options (cpp_reader *pfile)
 {
+  int flags;
+
   sanity_checks (pfile);
 
   post_options (pfile);
 
   /* Mark named operators before handling command line macros.  */
+  flags = 0;
   if (CPP_OPTION (pfile, cplusplus) && CPP_OPTION (pfile, operator_names))
-    mark_named_operators (pfile);
+    flags |= NODE_OPERATOR;
+  if (CPP_OPTION (pfile, warn_cxx_operator_names))
+    flags |= NODE_DIAGNOSTIC | NODE_WARN_OPERATOR;
+  if (flags != 0)
+    mark_named_operators (pfile, flags);
 }
 
 /* Setup for processing input from the file named FNAME, or stdin if
@@ -573,9 +595,9 @@ read_original_filename (cpp_reader *pfile)
       pfile->state.in_directive = 0;
 
       /* If it's a #line directive, handle it.  */
-      if (token1->type == CPP_NUMBER)
+      if (token1->type == CPP_NUMBER
+	  && _cpp_handle_directive (pfile, token->flags & PREV_WHITE))
 	{
-	  _cpp_handle_directive (pfile, token->flags & PREV_WHITE);
 	  read_original_directory (pfile);
 	  return;
 	}

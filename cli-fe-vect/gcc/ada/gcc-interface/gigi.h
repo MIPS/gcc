@@ -75,10 +75,19 @@ extern void set_block_for_group (tree);
    Get SLOC from GNAT_ENTITY.  */
 extern void add_decl_expr (tree gnu_decl, Entity_Id gnat_entity);
 
-/* Mark nodes rooted at *TP with TREE_VISITED and types as having their
+/* Mark nodes rooted at T with TREE_VISITED and types as having their
    sized gimplified.  We use this to indicate all variable sizes and
    positions in global types may not be shared by any subprogram.  */
-extern void mark_visited (tree *tp);
+extern void mark_visited (tree t);
+
+/* This macro calls the above function but short-circuits the common
+   case of a constant to save time and also checks for NULL.  */
+
+#define MARK_VISITED(EXP)		\
+do {					\
+  if((EXP) && !TREE_CONSTANT (EXP))	\
+    mark_visited (EXP);			\
+} while (0)
 
 /* Finalize any From_With_Type incomplete types.  We do this after processing
    our compilation unit and after processing its spec, if this is a body.  */
@@ -115,25 +124,27 @@ extern tree make_aligning_type (tree type, unsigned int align, tree size,
 
 /* Ensure that TYPE has SIZE and ALIGN.  Make and return a new padded type
    if needed.  We have already verified that SIZE and TYPE are large enough.
-
-   GNAT_ENTITY and NAME_TRAILER are used to name the resulting record and
-   to issue a warning.
-
-   IS_USER_TYPE is true if we must be sure we complete the original type.
-
-   DEFINITION is true if this type is being defined.
-
-   SAME_RM_SIZE is true if the RM_Size of the resulting type is to be
-   set to its TYPE_SIZE; otherwise, it's set to the RM_Size of the original
-   type.  */
+   GNAT_ENTITY is used to name the resulting record and to issue a warning.
+   IS_COMPONENT_TYPE is true if this is being done for the component type
+   of an array.  IS_USER_TYPE is true if we must complete the original type.
+   DEFINITION is true if this type is being defined.  SAME_RM_SIZE is true
+   if the RM size of the resulting type is to be set to SIZE too; otherwise,
+   it's set to the RM size of the original type.  */
 extern tree maybe_pad_type (tree type, tree size, unsigned int align,
-                            Entity_Id gnat_entity, const char *name_trailer,
+			    Entity_Id gnat_entity, bool is_component_type,
 			    bool is_user_type, bool definition,
-                            bool same_rm_size);
+			    bool same_rm_size);
 
 /* Given a GNU tree and a GNAT list of choices, generate an expression to test
    the value passed against the list of choices.  */
 extern tree choices_to_gnu (tree operand, Node_Id choices);
+
+/* Given GNAT_ENTITY, an object (constant, variable, parameter, exception)
+   and GNU_TYPE, its corresponding GCC type, set Esize and Alignment to the
+   size and alignment used by Gigi.  Prefer SIZE over TYPE_SIZE if non-null.
+   BY_REF is true if the object is used by reference.  */
+extern void annotate_object (Entity_Id gnat_entity, tree gnu_type, tree size,
+			     bool by_ref);
 
 /* Given a type T, a FIELD_DECL F, and a replacement value R, return a new
    type with all size expressions that contain F updated by replacing F
@@ -511,22 +522,21 @@ extern tree make_dummy_type (Entity_Id gnat_type);
 /* Record TYPE as a builtin type for Ada.  NAME is the name of the type.  */
 extern void record_builtin_type (const char *name, tree type);
 
-/* Given a record type RECORD_TYPE and a chain of FIELD_DECL nodes FIELDLIST,
+/* Given a record type RECORD_TYPE and a list of FIELD_DECL nodes FIELD_LIST,
    finish constructing the record or union type.  If REP_LEVEL is zero, this
    record has no representation clause and so will be entirely laid out here.
    If REP_LEVEL is one, this record has a representation clause and has been
    laid out already; only set the sizes and alignment.  If REP_LEVEL is two,
    this record is derived from a parent record and thus inherits its layout;
-   only make a pass on the fields to finalize them.  If DO_NOT_FINALIZE is
-   true, the record type is expected to be modified afterwards so it will
-   not be sent to the back-end for finalization.  */
-extern void finish_record_type (tree record_type, tree fieldlist,
-                                int rep_level, bool do_not_finalize);
+   only make a pass on the fields to finalize them.  DEBUG_INFO_P is true if
+   we need to write debug information about this type.  */
+extern void finish_record_type (tree record_type, tree field_list,
+				int rep_level, bool debug_info_p);
 
-/* Wrap up compilation of RECORD_TYPE, i.e. most notably output all
-   the debug information associated with it.  It need not be invoked
-   directly in most cases since finish_record_type takes care of doing
-   so, unless explicitly requested not to through DO_NOT_FINALIZE.  */
+/* Wrap up compilation of RECORD_TYPE, i.e. output all the debug information
+   associated with it.  It need not be invoked directly in most cases since
+   finish_record_type takes care of doing so, but this can be necessary if
+   a parallel type is to be attached to the record type.  */
 extern void rest_of_record_type_compilation (tree record_type);
 
 /* Append PARALLEL_TYPE on the chain of parallel types for decl.  */
@@ -557,6 +567,10 @@ extern tree copy_type (tree type);
    of the associated TYPE_DECL.  */
 extern tree create_index_type (tree min, tree max, tree index,
 			       Node_Id gnat_node);
+
+/* Return a subtype of TYPE with range MIN to MAX.  If TYPE is NULL,
+   sizetype is used.  */
+extern tree create_range_type (tree type, tree min, tree max);
 
 /* Return a TYPE_DECL node suitable for the TYPE_STUB_DECL field of a type.
    TYPE_NAME gives the name of the type and TYPE is a ..._TYPE node giving
@@ -628,12 +642,13 @@ extern void record_global_renaming_pointer (tree decl);
 /* Invalidate the global renaming pointers.  */
 extern void invalidate_global_renaming_pointers (void);
 
-/* Returns a FIELD_DECL node. FIELD_NAME the field name, FIELD_TYPE is its
-   type, and RECORD_TYPE is the type of the parent.  PACKED is nonzero if
-   this field is in a record type with a "pragma pack".  If SIZE is nonzero
-   it is the specified size for this field.  If POS is nonzero, it is the bit
-   position.  If ADDRESSABLE is nonzero, it means we are allowed to take
-   the address of this field for aliasing purposes.  */
+/* Return a FIELD_DECL node.  FIELD_NAME is the field's name, FIELD_TYPE is
+   its type and RECORD_TYPE is the type of the enclosing record.  PACKED is
+   1 if the enclosing record is packed, -1 if it has Component_Alignment of
+   Storage_Unit.  If SIZE is nonzero, it is the specified size of the field.
+   If POS is nonzero, it is the bit position.  If ADDRESSABLE is nonzero, it
+   means we are allowed to take the address of the field; if it is negative,
+   we should not make a bitfield, which is used by make_aligning_type.  */
 extern tree create_field_decl (tree field_name, tree field_type,
                                tree record_type, int packed, tree size,
                                tree pos, int addressable);
@@ -666,10 +681,8 @@ extern tree create_label_decl (tree label_name);
    appearing in the subprogram.  */
 extern void begin_subprog_body (tree subprog_decl);
 
-/* Finish the definition of the current subprogram BODY and compile it all the
-   way to assembler language output.  ELAB_P tells if this is called for an
-   elaboration routine, to be entirely discarded if empty.  */
-extern void end_subprog_body (tree body, bool elab_p);
+/* Finish the definition of the current subprogram BODY and finalize it.  */
+extern void end_subprog_body (tree body);
 
 /* Build a template of type TEMPLATE_TYPE from the array bounds of ARRAY_TYPE.
    EXPR is an expression that we can use to locate any PLACEHOLDER_EXPRs.
@@ -732,6 +745,10 @@ extern tree remove_conversions (tree exp, bool true_address);
    likewise return an expression pointing to the underlying array.  */
 extern tree maybe_unconstrained_array (tree exp);
 
+/* If EXP's type is a VECTOR_TYPE, return EXP converted to the associated
+   TYPE_REPRESENTATIVE_ARRAY.  */
+extern tree maybe_vector_array (tree exp);
+
 /* Return an expression that does an unchecked conversion of EXPR to TYPE.
    If NOTRUNC_P is true, truncation operations should be suppressed.  */
 extern tree unchecked_convert (tree type, tree expr, bool notrunc_p);
@@ -757,20 +774,6 @@ extern bool is_double_scalar_or_array (Entity_Id gnat_type,
 /* Return true if GNU_TYPE is suitable as the type of a non-aliased
    component of an aggregate type.  */
 extern bool type_for_nonaliased_component_p (tree gnu_type);
-
-/* Prepare expr to be an argument of a TRUTH_NOT_EXPR or other logical
-   operation.
-
-   This preparation consists of taking the ordinary
-   representation of an expression EXPR and producing a valid tree
-   boolean expression describing whether EXPR is nonzero.  We could
-   simply always do build_binary_op (NE_EXPR, expr, integer_zero_node, 1),
-   but we optimize comparisons, &&, ||, and !.
-
-   The resulting type should always be the same as the input type.
-   This function is simpler than the corresponding C version since
-   the only possible operands will be things of Boolean type.  */
-extern tree gnat_truthvalue_conversion (tree expr);
 
 /* Return the base type of TYPE.  */
 extern tree get_base_type (tree type);
@@ -839,13 +842,13 @@ extern tree build_component_ref (tree record_variable, tree component,
    If GNU_OBJ is nonzero, it is an object to deallocate.  Otherwise,
    generate an allocator.
 
-   GNU_SIZE is the size of the object in bytes and ALIGN is the alignment
-   in bits.  GNAT_PROC, if present, is a procedure to call and GNAT_POOL
-   is the storage pool to use.  If not present, malloc and free are used.
-   GNAT_NODE is used to provide an error location for restriction violation
-   messages.  */
+   GNU_SIZE is the number of bytes to allocate and GNU_TYPE is the contained
+   object type, used to determine the to-be-honored address alignment.
+   GNAT_PROC, if present, is a procedure to call and GNAT_POOL is the storage
+   pool to use.  If not present, malloc and free are used.  GNAT_NODE is used
+   to provide an error location for restriction violation messages.  */
 extern tree build_call_alloc_dealloc (tree gnu_obj, tree gnu_size,
-                                      unsigned align, Entity_Id gnat_proc,
+                                      tree gnu_type, Entity_Id gnat_proc,
 				      Entity_Id gnat_pool, Node_Id gnat_node);
 
 /* Build a GCC tree to correspond to allocating an object of TYPE whose
@@ -947,3 +950,6 @@ extern Nat get_target_double_scalar_alignment (void);
 #ifndef TARGET_MALLOC64
 #define TARGET_MALLOC64 0
 #endif
+
+/* Convenient shortcuts.  */
+#define VECTOR_TYPE_P(TYPE) (TREE_CODE (TYPE) == VECTOR_TYPE)

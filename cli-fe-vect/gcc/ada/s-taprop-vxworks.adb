@@ -52,6 +52,7 @@ with System.Soft_Links;
 --  on. For example when using the restricted run time, it is replaced by
 --  System.Tasking.Restricted.Stages.
 
+with System.Task_Info;
 with System.VxWorks.Ext;
 
 package body System.Task_Primitives.Operations is
@@ -429,12 +430,10 @@ package body System.Task_Primitives.Operations is
 
       --  Release the mutex before sleeping
 
-      if Single_Lock then
-         Result := semGive (Single_RTS_Lock.Mutex);
-      else
-         Result := semGive (Self_ID.Common.LL.L.Mutex);
-      end if;
-
+      Result :=
+        semGive (if Single_Lock
+                 then Single_RTS_Lock.Mutex
+                 else Self_ID.Common.LL.L.Mutex);
       pragma Assert (Result = 0);
 
       --  Perform a blocking operation to take the CV semaphore. Note that a
@@ -447,12 +446,10 @@ package body System.Task_Primitives.Operations is
 
       --  Take the mutex back
 
-      if Single_Lock then
-         Result := semTake (Single_RTS_Lock.Mutex, WAIT_FOREVER);
-      else
-         Result := semTake (Self_ID.Common.LL.L.Mutex, WAIT_FOREVER);
-      end if;
-
+      Result :=
+        semTake ((if Single_Lock
+                  then Single_RTS_Lock.Mutex
+                  else Self_ID.Common.LL.L.Mutex), WAIT_FOREVER);
       pragma Assert (Result = 0);
    end Sleep;
 
@@ -505,12 +502,10 @@ package body System.Task_Primitives.Operations is
          loop
             --  Release the mutex before sleeping
 
-            if Single_Lock then
-               Result := semGive (Single_RTS_Lock.Mutex);
-            else
-               Result := semGive (Self_ID.Common.LL.L.Mutex);
-            end if;
-
+            Result :=
+              semGive (if Single_Lock
+                       then Single_RTS_Lock.Mutex
+                       else Self_ID.Common.LL.L.Mutex);
             pragma Assert (Result = 0);
 
             --  Perform a blocking operation to take the CV semaphore. Note
@@ -550,12 +545,10 @@ package body System.Task_Primitives.Operations is
 
             --  Take the mutex back
 
-            if Single_Lock then
-               Result := semTake (Single_RTS_Lock.Mutex, WAIT_FOREVER);
-            else
-               Result := semTake (Self_ID.Common.LL.L.Mutex, WAIT_FOREVER);
-            end if;
-
+            Result :=
+              semTake ((if Single_Lock
+                        then Single_RTS_Lock.Mutex
+                        else Self_ID.Common.LL.L.Mutex), WAIT_FOREVER);
             pragma Assert (Result = 0);
 
             exit when Timedout or Wakeup;
@@ -622,11 +615,10 @@ package body System.Task_Primitives.Operations is
 
          --  Modifying State, locking the TCB
 
-         if Single_Lock then
-            Result := semTake (Single_RTS_Lock.Mutex, WAIT_FOREVER);
-         else
-            Result := semTake (Self_ID.Common.LL.L.Mutex, WAIT_FOREVER);
-         end if;
+         Result :=
+           semTake ((if Single_Lock
+                     then Single_RTS_Lock.Mutex
+                     else Self_ID.Common.LL.L.Mutex), WAIT_FOREVER);
 
          pragma Assert (Result = 0);
 
@@ -638,11 +630,10 @@ package body System.Task_Primitives.Operations is
 
             --  Release the TCB before sleeping
 
-            if Single_Lock then
-               Result := semGive (Single_RTS_Lock.Mutex);
-            else
-               Result := semGive (Self_ID.Common.LL.L.Mutex);
-            end if;
+            Result :=
+              semGive (if Single_Lock
+                       then Single_RTS_Lock.Mutex
+                       else Self_ID.Common.LL.L.Mutex);
             pragma Assert (Result = 0);
 
             exit when Aborted;
@@ -669,11 +660,11 @@ package body System.Task_Primitives.Operations is
             --  Take back the lock after having slept, to protect further
             --  access to Self_ID.
 
-            if Single_Lock then
-               Result := semTake (Single_RTS_Lock.Mutex, WAIT_FOREVER);
-            else
-               Result := semTake (Self_ID.Common.LL.L.Mutex, WAIT_FOREVER);
-            end if;
+            Result :=
+              semTake
+                ((if Single_Lock
+                  then Single_RTS_Lock.Mutex
+                  else Self_ID.Common.LL.L.Mutex), WAIT_FOREVER);
 
             pragma Assert (Result = 0);
 
@@ -682,11 +673,11 @@ package body System.Task_Primitives.Operations is
 
          Self_ID.Common.State := Runnable;
 
-         if Single_Lock then
-            Result := semGive (Single_RTS_Lock.Mutex);
-         else
-            Result := semGive (Self_ID.Common.LL.L.Mutex);
-         end if;
+         Result :=
+           semGive
+             (if Single_Lock
+              then Single_RTS_Lock.Mutex
+              else Self_ID.Common.LL.L.Mutex);
 
       else
          taskDelay (0);
@@ -901,6 +892,10 @@ package body System.Task_Primitives.Operations is
       Succeeded  : out Boolean)
    is
       Adjusted_Stack_Size : size_t;
+      Result : int;
+
+      use System.Task_Info;
+
    begin
       --  Ask for four extra bytes of stack space so that the ATCB pointer can
       --  be stored below the stack limit, plus extra space for the frame of
@@ -962,6 +957,18 @@ package body System.Task_Primitives.Operations is
               Wrapper,
               To_Address (T));
       end;
+
+      --  Set processor affinity
+
+      if T.Common.Task_Info /= Unspecified_Task_Info then
+         Result :=
+           taskCpuAffinitySet (T.Common.LL.Thread, T.Common.Task_Info);
+
+         if Result = -1 then
+            taskDelete (T.Common.LL.Thread);
+            T.Common.LL.Thread := -1;
+         end if;
+      end if;
 
       if T.Common.LL.Thread = -1 then
          Succeeded := False;

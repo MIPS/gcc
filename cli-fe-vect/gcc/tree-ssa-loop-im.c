@@ -1,19 +1,19 @@
 /* Loop invariant motion.
-   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008 Free Software
-   Foundation, Inc.
-   
+   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2010
+   Free Software Foundation, Inc.
+
 This file is part of GCC.
-   
+
 GCC is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
 Free Software Foundation; either version 3, or (at your option) any
 later version.
-   
+
 GCC is distributed in the hope that it will be useful, but WITHOUT
 ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
 FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
-   
+
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
@@ -251,13 +251,13 @@ clear_lim_data (gimple stmt)
 /* Calls CBCK for each index in memory reference ADDR_P.  There are two
    kinds situations handled; in each of these cases, the memory reference
    and DATA are passed to the callback:
-   
+
    Access to an array: ARRAY_{RANGE_}REF (base, index).  In this case we also
    pass the pointer to the index to the callback.
 
    Pointer dereference: INDIRECT_REF (addr).  In this case we also pass the
    pointer to addr to the callback.
-   
+
    If the callback returns false, the whole search stops and false is returned.
    Otherwise the function returns true after traversing through the whole
    reference *ADDR_P.  */
@@ -452,14 +452,14 @@ outermost_invariant_loop (tree def, struct loop *loop)
 
 /* DATA is a structure containing information associated with a statement
    inside LOOP.  DEF is one of the operands of this statement.
-   
+
    Find the outermost loop enclosing LOOP in that value of DEF is invariant
    and record this in DATA->max_loop field.  If DEF itself is defined inside
    this loop as well (i.e. we need to hoist it out of the loop if we want
    to hoist the statement represented by DATA), record the statement in that
    DEF is defined to the DATA->depends list.  Additionally if ADD_COST is true,
    add the cost of the computation of DEF to the DATA->cost.
-   
+
    If DEF is not invariant in LOOP, return false.  Otherwise return TRUE.  */
 
 static bool
@@ -657,7 +657,7 @@ mem_ref_in_stmt (gimple stmt)
    If MUST_PRESERVE_EXEC is true, additionally choose such a loop that
    we preserve the fact whether STMT is executed.  It also fills other related
    information to LIM_DATA (STMT).
-   
+
    The function returns false if STMT cannot be hoisted outside of the loop it
    is defined in, and true otherwise.  */
 
@@ -670,7 +670,7 @@ determine_max_movement (gimple stmt, bool must_preserve_exec)
   struct lim_aux_data *lim_data = get_lim_data (stmt);
   tree val;
   ssa_op_iter iter;
-  
+
   if (must_preserve_exec)
     level = ALWAYS_EXECUTED_IN (bb);
   else
@@ -764,6 +764,7 @@ rewrite_reciprocal (gimple_stmt_iterator *bsi)
   gimple stmt, stmt1, stmt2;
   tree var, name, lhs, type;
   tree real_one;
+  gimple_stmt_iterator gsi;
 
   stmt = gsi_stmt (*bsi);
   lhs = gimple_assign_lhs (stmt);
@@ -798,8 +799,9 @@ rewrite_reciprocal (gimple_stmt_iterator *bsi)
   /* Replace division stmt with reciprocal and multiply stmts.
      The multiply stmt is not invariant, so update iterator
      and avoid rescanning.  */
-  gsi_replace (bsi, stmt1, true);
-  gsi_insert_after (bsi, stmt2, GSI_NEW_STMT);
+  gsi = *bsi;
+  gsi_insert_before (bsi, stmt1, GSI_NEW_STMT);
+  gsi_replace (&gsi, stmt2, true);
 
   /* Continue processing with invariant reciprocal statement.  */
   return stmt1;
@@ -858,6 +860,8 @@ rewrite_bittest (gimple_stmt_iterator *bsi)
   if (outermost_invariant_loop (b, loop_containing_stmt (stmt1)) != NULL
       && outermost_invariant_loop (a, loop_containing_stmt (stmt1)) == NULL)
     {
+      gimple_stmt_iterator rsi;
+
       /* 1 << B */
       var = create_tmp_var (TREE_TYPE (a), "shifttmp");
       add_referenced_var (var);
@@ -878,8 +882,14 @@ rewrite_bittest (gimple_stmt_iterator *bsi)
       SET_USE (use, name);
       gimple_cond_set_rhs (use_stmt, build_int_cst_type (TREE_TYPE (name), 0));
 
-      gsi_insert_before (bsi, stmt1, GSI_SAME_STMT);
-      gsi_replace (bsi, stmt2, true);
+      /* Don't use gsi_replace here, none of the new assignments sets
+	 the variable originally set in stmt.  Move bsi to stmt1, and
+	 then remove the original stmt, so that we get a chance to
+	 retain debug info for it.  */
+      rsi = *bsi;
+      gsi_insert_before (bsi, stmt1, GSI_NEW_STMT);
+      gsi_insert_before (&rsi, stmt2, GSI_SAME_STMT);
+      gsi_remove (&rsi, true);
 
       return stmt1;
     }
@@ -999,7 +1009,7 @@ determine_invariantness (void)
 
   memset (&walk_data, 0, sizeof (struct dom_walk_data));
   walk_data.dom_direction = CDI_DOMINATORS;
-  walk_data.before_dom_children_before_stmts = determine_invariantness_stmt;
+  walk_data.before_dom_children = determine_invariantness_stmt;
 
   init_walk_dominator_tree (&walk_data);
   walk_dominator_tree (&walk_data, ENTRY_BLOCK_PTR);
@@ -1073,7 +1083,7 @@ move_computations (void)
 
   memset (&walk_data, 0, sizeof (struct dom_walk_data));
   walk_data.dom_direction = CDI_DOMINATORS;
-  walk_data.before_dom_children_before_stmts = move_computations_stmt;
+  walk_data.before_dom_children = move_computations_stmt;
 
   init_walk_dominator_tree (&walk_data);
   walk_dominator_tree (&walk_data, ENTRY_BLOCK_PTR);
@@ -1128,7 +1138,7 @@ force_move_till_op (tree op, struct loop *orig_loop, struct loop *loop)
     return;
 
   gcc_assert (TREE_CODE (op) == SSA_NAME);
-      
+
   stmt = SSA_NAME_DEF_STMT (op);
   if (gimple_nop_p (stmt))
     return;
@@ -1754,7 +1764,7 @@ gen_lsm_tmp_name (tree ref)
       gen_lsm_tmp_name (TREE_OPERAND (ref, 0));
       lsm_tmp_name_add ("_RE");
       break;
-      
+
     case IMAGPART_EXPR:
       gen_lsm_tmp_name (TREE_OPERAND (ref, 0));
       lsm_tmp_name_add ("_IM");
@@ -1766,8 +1776,8 @@ gen_lsm_tmp_name (tree ref)
       name = get_name (TREE_OPERAND (ref, 1));
       if (!name)
 	name = "F";
-      lsm_tmp_name_add ("_");
       lsm_tmp_name_add (name);
+      break;
 
     case ARRAY_REF:
       gen_lsm_tmp_name (TREE_OPERAND (ref, 0));
@@ -1792,6 +1802,10 @@ gen_lsm_tmp_name (tree ref)
 
     case RESULT_DECL:
       lsm_tmp_name_add ("R");
+      break;
+
+    case INTEGER_CST:
+      /* Nothing.  */
       break;
 
     default:
@@ -1886,22 +1900,44 @@ hoist_memory_references (struct loop *loop, bitmap mem_refs,
     }
 }
 
-/* Returns true if REF is always accessed in LOOP.  */
+/* Returns true if REF is always accessed in LOOP.  If STORED_P is true
+   make sure REF is always stored to in LOOP.  */
 
 static bool
-ref_always_accessed_p (struct loop *loop, mem_ref_p ref)
+ref_always_accessed_p (struct loop *loop, mem_ref_p ref, bool stored_p)
 {
   VEC (mem_ref_loc_p, heap) *locs = NULL;
   unsigned i;
   mem_ref_loc_p loc;
   bool ret = false;
   struct loop *must_exec;
+  tree base;
+
+  base = get_base_address (ref->mem);
+  if (INDIRECT_REF_P (base))
+    base = TREE_OPERAND (base, 0);
 
   get_all_locs_in_loop (loop, ref, &locs);
   for (i = 0; VEC_iterate (mem_ref_loc_p, locs, i, loc); i++)
     {
       if (!get_lim_data (loc->stmt))
 	continue;
+
+      /* If we require an always executed store make sure the statement
+         stores to the reference.  */
+      if (stored_p)
+	{
+	  tree lhs;
+	  if (!gimple_get_lhs (loc->stmt))
+	    continue;
+	  lhs = get_base_address (gimple_get_lhs (loc->stmt));
+	  if (!lhs)
+	    continue;
+	  if (INDIRECT_REF_P (lhs))
+	    lhs = TREE_OPERAND (lhs, 0);
+	  if (lhs != base)
+	    continue;
+	}
 
       must_exec = get_lim_data (loc->stmt)->always_executed_in;
       if (!must_exec)
@@ -2040,6 +2076,8 @@ ref_indep_loop_p (struct loop *loop, mem_ref_p ref)
 static bool
 can_sm_ref_p (struct loop *loop, mem_ref_p ref)
 {
+  tree base;
+
   /* Unless the reference is stored in the loop, there is nothing to do.  */
   if (!bitmap_bit_p (ref->stored, loop->num))
     return false;
@@ -2050,9 +2088,14 @@ can_sm_ref_p (struct loop *loop, mem_ref_p ref)
       || !for_each_index (&ref->mem, may_move_till, loop))
     return false;
 
-  /* If it can trap, it must be always executed in LOOP.  */
-  if (tree_could_trap_p (ref->mem)
-      && !ref_always_accessed_p (loop, ref))
+  /* If it can trap, it must be always executed in LOOP.
+     Readonly memory locations may trap when storing to them, but
+     tree_could_trap_p is a predicate for rvalues, so check that
+     explicitly.  */
+  base = get_base_address (ref->mem);
+  if ((tree_could_trap_p (ref->mem)
+       || (DECL_P (base) && TREE_READONLY (base)))
+      && !ref_always_accessed_p (loop, ref, true))
     return false;
 
   /* And it must be independent on all other memory references

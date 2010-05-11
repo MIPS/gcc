@@ -940,11 +940,7 @@ package body Ada.Calendar is
 
          --  Step 3: Handle leap second occurrences
 
-         if Leap_Sec then
-            tm_sec := 60;
-         else
-            tm_sec := Second;
-         end if;
+         tm_sec := (if Leap_Sec then 60 else Second);
       end To_Struct_Tm;
 
       ------------------
@@ -1014,11 +1010,8 @@ package body Ada.Calendar is
          --  the input. Guard against very large delay values such as the end
          --  of time since the computation will overflow.
 
-         if Res_N > Safe_Ada_High then
-            Res_N := Safe_Ada_High;
-         else
-            Res_N := Res_N + Epoch_Offset;
-         end if;
+         Res_N := (if Res_N > Safe_Ada_High then Safe_Ada_High
+                                            else Res_N + Epoch_Offset);
 
          return Time_Rep_To_Duration (Res_N);
       end To_Duration;
@@ -1036,63 +1029,40 @@ package body Ada.Calendar is
       -----------------
 
       function Day_Of_Week (Date : Time) return Integer is
-         Y  : Year_Number;
-         Mo : Month_Number;
-         D  : Day_Number;
-         Ds : Day_Duration;
-         H  : Integer;
-         Mi : Integer;
-         Se : Integer;
-         Su : Duration;
-         Le : Boolean;
+         Date_N    : constant Time_Rep := Time_Rep (Date);
+         Time_Zone : constant Long_Integer :=
+                       Time_Zones_Operations.UTC_Time_Offset (Date);
 
-         pragma Unreferenced (Ds, H, Mi, Se, Su, Le);
-
+         Ada_Low_N : Time_Rep;
          Day_Count : Long_Integer;
-         Res_Dur   : Time_Dur;
-         Res_N     : Time_Rep;
+         Day_Dur   : Time_Dur;
+         High_N    : Time_Rep;
+         Low_N     : Time_Rep;
 
       begin
-         Formatting_Operations.Split
-           (Date      => Date,
-            Year      => Y,
-            Month     => Mo,
-            Day       => D,
-            Day_Secs  => Ds,
-            Hour      => H,
-            Minute    => Mi,
-            Second    => Se,
-            Sub_Sec   => Su,
-            Leap_Sec  => Le,
-            Is_Ada_05 => True,
-            Time_Zone => 0);
+         --  As declared, the Ada Epoch is set in UTC. For this calculation to
+         --  work properly, both the Epoch and the input date must be in the
+         --  same time zone. The following places the Epoch in the input date's
+         --  time zone.
 
-         --  Build a time value in the middle of the same day
+         Ada_Low_N := Ada_Low - Time_Rep (Time_Zone) * Nano;
 
-         Res_N :=
-           Time_Rep
-             (Formatting_Operations.Time_Of
-               (Year         => Y,
-                Month        => Mo,
-                Day          => D,
-                Day_Secs     => 0.0,
-                Hour         => 12,
-                Minute       => 0,
-                Second       => 0,
-                Sub_Sec      => 0.0,
-                Leap_Sec     => False,
-                Use_Day_Secs => False,
-                Is_Ada_05    => True,
-                Time_Zone    => 0));
+         if Date_N > Ada_Low_N then
+            High_N := Date_N;
+            Low_N  := Ada_Low_N;
+         else
+            High_N := Ada_Low_N;
+            Low_N  := Date_N;
+         end if;
 
          --  Determine the elapsed seconds since the start of Ada time
 
-         Res_Dur := Time_Dur (Res_N / Nano - Ada_Low / Nano);
+         Day_Dur := Time_Dur (High_N / Nano - Low_N / Nano);
 
-         --  Count the number of days since the start of Ada time. 1901-1-1
+         --  Count the number of days since the start of Ada time. 1901-01-01
          --  GMT was a Tuesday.
 
-         Day_Count := Long_Integer (Res_Dur / Secs_In_Day) + 1;
+         Day_Count := Long_Integer (Day_Dur / Secs_In_Day) + 1;
 
          return Integer (Day_Count mod 7);
       end Day_Of_Week;
@@ -1364,8 +1334,8 @@ package body Ada.Calendar is
             Res_N := Res_N + Duration_To_Time_Rep (Day_Secs);
 
          else
-            Res_N := Res_N +
-              Time_Rep (Hour * 3_600 + Minute * 60 + Second) * Nano;
+            Res_N :=
+              Res_N + Time_Rep (Hour * 3_600 + Minute * 60 + Second) * Nano;
 
             if Sub_Sec = 1.0 then
                Res_N := Res_N + Time_Rep (1) * Nano;
@@ -1478,7 +1448,9 @@ package body Ada.Calendar is
       subtype long is Long_Integer;
       type long_Pointer is access all long;
 
-      subtype time_t is long;
+      type time_t is
+        range -(2 ** (Standard'Address_Size - Integer'(1))) ..
+              +(2 ** (Standard'Address_Size - Integer'(1)) - 1);
       type time_t_Pointer is access all time_t;
 
       procedure localtime_tzoff
@@ -1495,7 +1467,7 @@ package body Ada.Calendar is
       ---------------------
 
       function UTC_Time_Offset (Date : Time) return Long_Integer is
-         Adj_Cent : Integer := 0;
+         Adj_Cent : Integer;
          Date_N   : Time_Rep;
          Offset   : aliased long;
          Secs_T   : aliased time_t;
@@ -1507,18 +1479,11 @@ package body Ada.Calendar is
          --  saving and so on. Non-leap centennial years violate this rule by
          --  one day and as a consequence, special adjustment is needed.
 
-         if Date_N > T_2100_2_28 then
-            if Date_N > T_2200_2_28 then
-               if Date_N > T_2300_2_28 then
-                  Adj_Cent := 3;
-               else
-                  Adj_Cent := 2;
-               end if;
-
-            else
-               Adj_Cent := 1;
-            end if;
-         end if;
+         Adj_Cent :=
+           (if    Date_N <= T_2100_2_28 then 0
+            elsif Date_N <= T_2200_2_28 then 1
+            elsif Date_N <= T_2300_2_28 then 2
+            else                             3);
 
          if Adj_Cent > 0 then
             Date_N := Date_N - Time_Rep (Adj_Cent) * Nanos_In_Day;

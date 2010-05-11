@@ -1,6 +1,6 @@
 /* Language-independent diagnostic subroutines for the GNU Compiler Collection
    Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008,
-   2009 Free Software Foundation, Inc.
+   2009, 2010 Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@codesourcery.com>
 
 This file is part of GCC.
@@ -47,11 +47,6 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Prototypes.  */
 static char *build_message_string (const char *, ...) ATTRIBUTE_PRINTF_1;
-
-static void default_diagnostic_starter (diagnostic_context *,
-					diagnostic_info *);
-static void default_diagnostic_finalizer (diagnostic_context *,
-					  diagnostic_info *);
 
 static void error_recursion (diagnostic_context *) ATTRIBUTE_NORETURN;
 
@@ -114,6 +109,7 @@ diagnostic_initialize (diagnostic_context *context)
   context->last_module = 0;
   context->last_function = NULL;
   context->lock = 0;
+  context->inhibit_notes_p = false;
 }
 
 /* Initialize DIAGNOSTIC, where the message MSG has already been
@@ -162,7 +158,7 @@ diagnostic_build_prefix (diagnostic_info *diagnostic)
   return
     (s.file == NULL
      ? build_message_string ("%s: %s", progname, text)
-     : flag_show_column && s.column != 0
+     : flag_show_column
      ? build_message_string ("%s:%d:%d: %s", s.file, s.line, s.column, text)
      : build_message_string ("%s:%d: %s", s.file, s.line, text));
 }
@@ -244,9 +240,15 @@ diagnostic_report_current_module (diagnostic_context *context)
       if (! MAIN_FILE_P (map))
 	{
 	  map = INCLUDED_FROM (line_table, map);
-	  pp_verbatim (context->printer,
-		       "In file included from %s:%d",
-		       map->to_file, LAST_SOURCE_LINE (map));
+	  if (flag_show_column)
+	    pp_verbatim (context->printer,
+			 "In file included from %s:%d:%d",
+			 map->to_file,
+			 LAST_SOURCE_LINE (map), LAST_SOURCE_COLUMN (map));
+	  else
+	    pp_verbatim (context->printer,
+			 "In file included from %s:%d",
+			 map->to_file, LAST_SOURCE_LINE (map));
 	  while (! MAIN_FILE_P (map))
 	    {
 	      map = INCLUDED_FROM (line_table, map);
@@ -260,7 +262,7 @@ diagnostic_report_current_module (diagnostic_context *context)
     }
 }
 
-static void
+void
 default_diagnostic_starter (diagnostic_context *context,
 			    diagnostic_info *diagnostic)
 {
@@ -268,7 +270,7 @@ default_diagnostic_starter (diagnostic_context *context,
   pp_set_prefix (context->printer, diagnostic_build_prefix (diagnostic));
 }
 
-static void
+void
 default_diagnostic_finalizer (diagnostic_context *context,
 			      diagnostic_info *diagnostic ATTRIBUTE_UNUSED)
 {
@@ -299,7 +301,7 @@ diagnostic_classify_diagnostic (diagnostic_context *context,
    DC.  This function is *the* subroutine in terms of which front-ends
    should implement their specific diagnostic handling modules.  The
    front-end independent format specifiers are exactly those described
-   in the documentation of output_format.  
+   in the documentation of output_format.
    Return true if a diagnostic was printed, false otherwise.  */
 
 bool
@@ -316,9 +318,12 @@ diagnostic_report_diagnostic (diagnostic_context *context,
       && !diagnostic_report_warnings_p (location))
     return false;
 
-  if (diagnostic->kind == DK_PEDWARN) 
+  if (diagnostic->kind == DK_PEDWARN)
     diagnostic->kind = pedantic_warning_kind ();
-  
+ 
+  if (diagnostic->kind == DK_NOTE && context->inhibit_notes_p)
+    return false;
+
   if (context->lock > 0)
     {
       /* If we're reporting an ICE in the middle of some other error,
@@ -340,7 +345,7 @@ diagnostic_report_diagnostic (diagnostic_context *context,
       diagnostic->kind = DK_ERROR;
       maybe_print_warnings_as_errors_message = true;
     }
-  
+
   if (diagnostic->option_index)
     {
       /* This tests if the user provided the appropriate -Wfoo or
@@ -380,7 +385,7 @@ diagnostic_report_diagnostic (diagnostic_context *context,
       dump_active_plugins (stderr);
     }
 
-  if (diagnostic->kind == DK_ICE) 
+  if (diagnostic->kind == DK_ICE)
     {
 #ifndef ENABLE_CHECKING
       /* When not checking, ICEs are converted to fatal errors when an
@@ -401,13 +406,13 @@ diagnostic_report_diagnostic (diagnostic_context *context,
 				    diagnostic->message.args_ptr);
     }
   ++diagnostic_kind_count (context, diagnostic->kind);
-  
+
   saved_format_spec = diagnostic->message.format_spec;
   if (context->show_option_requested && diagnostic->option_index)
     diagnostic->message.format_spec
       = ACONCAT ((diagnostic->message.format_spec,
                   " [", cl_options[diagnostic->option_index].opt_text, "]", NULL));
-  
+
   diagnostic->message.locus = &diagnostic->location;
   diagnostic->message.abstract_origin = &diagnostic->abstract_origin;
   diagnostic->abstract_origin = NULL;
@@ -478,7 +483,7 @@ verbatim (const char *gmsgid, ...)
 }
 
 bool
-emit_diagnostic (diagnostic_t kind, location_t location, int opt, 
+emit_diagnostic (diagnostic_t kind, location_t location, int opt,
 		 const char *gmsgid, ...)
 {
   diagnostic_info diagnostic;
@@ -515,8 +520,25 @@ inform (location_t location, const char *gmsgid, ...)
   va_end (ap);
 }
 
+/* An informative note at LOCATION.  Use this for additional details on an
+   error message.  */
+void
+inform_n (location_t location, int n, const char *singular_gmsgid,
+          const char *plural_gmsgid, ...)
+{
+  diagnostic_info diagnostic;
+  va_list ap;
+
+  va_start (ap, plural_gmsgid);
+  diagnostic_set_info_translated (&diagnostic,
+                                  ngettext (singular_gmsgid, plural_gmsgid, n),
+                                  &ap, location, DK_NOTE);
+  report_diagnostic (&diagnostic);
+  va_end (ap);
+}
+
 /* A warning at INPUT_LOCATION.  Use this for code which is correct according
-   to the relevant language specification but is likely to be buggy anyway.  
+   to the relevant language specification but is likely to be buggy anyway.
    Returns true if the warning was printed, false if it was inhibited.  */
 bool
 warning (int opt, const char *gmsgid, ...)
@@ -606,6 +628,23 @@ error (const char *gmsgid, ...)
 
   va_start (ap, gmsgid);
   diagnostic_set_info (&diagnostic, gmsgid, &ap, input_location, DK_ERROR);
+  report_diagnostic (&diagnostic);
+  va_end (ap);
+}
+
+/* A hard error: the code is definitely ill-formed, and an object file
+   will not be produced.  */
+void
+error_n (location_t location, int n, const char *singular_gmsgid,
+         const char *plural_gmsgid, ...)
+{
+  diagnostic_info diagnostic;
+  va_list ap;
+
+  va_start (ap, plural_gmsgid);
+  diagnostic_set_info_translated (&diagnostic,
+                                  ngettext (singular_gmsgid, plural_gmsgid, n),
+                                  &ap, location, DK_ERROR);
   report_diagnostic (&diagnostic);
   va_end (ap);
 }

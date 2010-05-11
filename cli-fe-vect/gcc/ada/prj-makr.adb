@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2001-2008, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -39,8 +39,9 @@ with Table;    use Table;
 with Ada.Characters.Handling;   use Ada.Characters.Handling;
 with GNAT.Directory_Operations; use GNAT.Directory_Operations;
 
-with System.Case_Util;          use System.Case_Util;
+with System.Case_Util; use System.Case_Util;
 with System.CRTL;
+with System.HTable;
 
 package body Prj.Makr is
 
@@ -169,6 +170,16 @@ package body Prj.Makr is
    --  The list of Ada sources found, with their unit name and kind, to be put
    --  in the source attribute and package Naming of the project file, or in
    --  the pragmas Source_File_Name in the configuration pragmas file.
+
+   package Source_Files is new System.HTable.Simple_HTable
+     (Header_Num => Prj.Header_Num,
+      Element    => Boolean,
+      No_Element => False,
+      Key        => Name_Id,
+      Hash       => Prj.Hash,
+      Equal      => "=");
+   --  Hash table to keep track of source file names, to avoid putting several
+   --  times the same file name in case of multi-unit files.
 
    ---------
    -- Dup --
@@ -602,15 +613,20 @@ package body Prj.Makr is
                                 In_Tree       => Tree);
 
             begin
-               --  Add source file name to the source list file
+               --  Add source file name to the source list file if it is not
+               --  already there.
 
-               Get_Name_String (Current_Source.File_Name);
-               Add_Char_To_Name_Buffer (ASCII.LF);
-               if Write (Source_List_FD,
-                         Name_Buffer (1)'Address,
-                         Name_Len) /= Name_Len
-               then
-                  Prj.Com.Fail ("disk full");
+               if not Source_Files.Get (Current_Source.File_Name) then
+                  Source_Files.Set (Current_Source.File_Name, True);
+                  Get_Name_String (Current_Source.File_Name);
+                  Add_Char_To_Name_Buffer (ASCII.LF);
+
+                  if Write (Source_List_FD,
+                            Name_Buffer (1)'Address,
+                            Name_Len) /= Name_Len
+                  then
+                     Prj.Com.Fail ("disk full");
+                  end if;
                end if;
 
                --  For an Ada source, add entry in package Naming
@@ -766,7 +782,8 @@ package body Prj.Makr is
      (File_Path         : String;
       Project_File      : Boolean;
       Preproc_Switches  : Argument_List;
-      Very_Verbose      : Boolean)
+      Very_Verbose      : Boolean;
+      Flags             : Processing_Flags)
    is
    begin
       Makr.Very_Verbose := Initialize.Very_Verbose;
@@ -845,13 +862,15 @@ package body Prj.Makr is
                Project_File_Name      => Output_Name.all,
                Always_Errout_Finalize => False,
                Store_Comments         => True,
+               Is_Config_File         => False,
+               Flags                  => Flags,
                Current_Directory      => Get_Current_Dir,
                Packages_To_Check      => Packages_To_Check_By_Gnatname);
 
             --  Fail if parsing was not successful
 
             if No (Project_Node) then
-               Fail ("parsing of existing project file failed");
+               Prj.Com.Fail ("parsing of existing project file failed");
 
             else
                --  If parsing was successful, remove the components that are

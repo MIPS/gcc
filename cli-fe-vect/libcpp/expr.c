@@ -1,6 +1,6 @@
 /* Parse C expressions for cpplib.
    Copyright (C) 1987, 1992, 1994, 1995, 1997, 1998, 1999, 2000, 2001,
-   2002, 2004, 2008, 2009 Free Software Foundation.
+   2002, 2004, 2008, 2009, 2010 Free Software Foundation.
    Contributed by Per Bothner, 1994.
 
 This program is free software; you can redistribute it and/or modify it
@@ -52,7 +52,8 @@ static cpp_num num_inequality_op (cpp_reader *, cpp_num, cpp_num,
 static cpp_num num_equality_op (cpp_reader *, cpp_num, cpp_num,
 				enum cpp_ttype);
 static cpp_num num_mul (cpp_reader *, cpp_num, cpp_num);
-static cpp_num num_div_op (cpp_reader *, cpp_num, cpp_num, enum cpp_ttype);
+static cpp_num num_div_op (cpp_reader *, cpp_num, cpp_num, enum cpp_ttype,
+			   source_location);
 static cpp_num num_lshift (cpp_num, size_t, size_t);
 static cpp_num num_rshift (cpp_num, size_t, size_t);
 
@@ -228,6 +229,7 @@ cpp_classify_number (cpp_reader *pfile, const cpp_token *token)
   const uchar *limit;
   unsigned int max_digit, result, radix;
   enum {NOT_FLOAT = 0, AFTER_POINT, AFTER_EXPON} float_flag;
+  bool seen_digit;
 
   /* If the lexer has done its job, length one can only be a single
      digit.  Fast-path this very common case.  */
@@ -238,6 +240,7 @@ cpp_classify_number (cpp_reader *pfile, const cpp_token *token)
   float_flag = NOT_FLOAT;
   max_digit = 0;
   radix = 10;
+  seen_digit = false;
 
   /* First, interpret the radix.  */
   if (*str == '0')
@@ -266,6 +269,7 @@ cpp_classify_number (cpp_reader *pfile, const cpp_token *token)
 
       if (ISDIGIT (c) || (ISXDIGIT (c) && radix == 16))
 	{
+	  seen_digit = true;
 	  c = hex_value (c);
 	  if (c > max_digit)
 	    max_digit = c;
@@ -330,6 +334,9 @@ cpp_classify_number (cpp_reader *pfile, const cpp_token *token)
 		     "invalid prefix \"0b\" for floating constant");
 	  return CPP_N_INVALID;
 	}
+
+      if (radix == 16 && !seen_digit)
+	SYNTAX_ERROR ("no digits in hexadecimal floating constant");
 
       if (radix == 16 && CPP_PEDANTIC (pfile) && !CPP_OPTION (pfile, c99))
 	cpp_error (pfile, CPP_DL_PEDWARN,
@@ -538,8 +545,27 @@ cpp_interpret_integer (cpp_reader *pfile, const cpp_token *token,
 		    && pfile->state.in_directive)
 	       && !num_positive (result, precision))
 	{
+	  /* This is for constants within the range of uintmax_t but
+	     not that of intmax_t.  For such decimal constants, a
+	     diagnostic is required for C99 as the selected type must
+	     be signed and not having a type is a constraint violation
+	     (DR#298, TC3), so this must be a pedwarn.  For C90,
+	     unsigned long is specified to be used for a constant that
+	     does not fit in signed long; if uintmax_t has the same
+	     range as unsigned long this means only a warning is
+	     appropriate here.  C90 permits the preprocessor to use a
+	     wider range than unsigned long in the compiler, so if
+	     uintmax_t is wider than unsigned long no diagnostic is
+	     required for such constants in preprocessor #if
+	     expressions and the compiler will pedwarn for such
+	     constants outside the range of unsigned long that reach
+	     the compiler so a diagnostic is not required there
+	     either; thus, pedwarn for C99 but use a plain warning for
+	     C90.  */
 	  if (base == 10)
-	    cpp_error (pfile, CPP_DL_WARNING,
+	    cpp_error (pfile, (CPP_OPTION (pfile, c99)
+			       ? CPP_DL_PEDWARN
+			       : CPP_DL_WARNING),
 		       "integer constant is so large that it is unsigned");
 	  result.unsignedp = true;
 	}
@@ -632,7 +658,7 @@ parse_defined (cpp_reader *pfile)
 
   if (token->type == CPP_NAME)
     {
-      node = token->val.node;
+      node = token->val.node.node;
       if (paren && cpp_get_token (pfile)->type != CPP_CLOSE_PAREN)
 	{
 	  cpp_error (pfile, CPP_DL_ERROR, "missing ')' after \"defined\"");
@@ -752,14 +778,14 @@ eval_token (cpp_reader *pfile, const cpp_token *token)
       break;
 
     case CPP_NAME:
-      if (token->val.node == pfile->spec_nodes.n_defined)
+      if (token->val.node.node == pfile->spec_nodes.n_defined)
 	return parse_defined (pfile);
       else if (CPP_OPTION (pfile, cplusplus)
-	       && (token->val.node == pfile->spec_nodes.n_true
-		   || token->val.node == pfile->spec_nodes.n_false))
+	       && (token->val.node.node == pfile->spec_nodes.n_true
+		   || token->val.node.node == pfile->spec_nodes.n_false))
 	{
 	  result.high = 0;
-	  result.low = (token->val.node == pfile->spec_nodes.n_true);
+	  result.low = (token->val.node.node == pfile->spec_nodes.n_true);
 	}
       else
 	{
@@ -767,7 +793,7 @@ eval_token (cpp_reader *pfile, const cpp_token *token)
 	  result.low = 0;
 	  if (CPP_OPTION (pfile, warn_undef) && !pfile->state.skip_eval)
 	    cpp_error (pfile, CPP_DL_WARNING, "\"%s\" is not defined",
-		       NODE_NAME (token->val.node));
+		       NODE_NAME (token->val.node.node));
 	}
       break;
 
@@ -1104,7 +1130,7 @@ reduce (cpp_reader *pfile, struct op *top, enum cpp_ttype op)
 	case CPP_DIV:
 	case CPP_MOD:
 	  top[-1].value = num_div_op (pfile, top[-1].value,
-				      top->value, top->op);
+				      top->value, top->op, top->loc);
 	  top[-1].loc = top->loc;
 	  break;
 
@@ -1649,10 +1675,13 @@ num_mul (cpp_reader *pfile, cpp_num lhs, cpp_num rhs)
   return result;
 }
 
-/* Divide two preprocessing numbers, returning the answer or the
-   remainder depending upon OP.  */
+/* Divide two preprocessing numbers, LHS and RHS, returning the answer
+   or the remainder depending upon OP. LOCATION is the source location
+   of this operator (for diagnostics).  */
+
 static cpp_num
-num_div_op (cpp_reader *pfile, cpp_num lhs, cpp_num rhs, enum cpp_ttype op)
+num_div_op (cpp_reader *pfile, cpp_num lhs, cpp_num rhs, enum cpp_ttype op,
+	    source_location location)
 {
   cpp_num result, sub;
   cpp_num_part mask;
@@ -1692,7 +1721,8 @@ num_div_op (cpp_reader *pfile, cpp_num lhs, cpp_num rhs, enum cpp_ttype op)
   else
     {
       if (!pfile->state.skip_eval)
-	cpp_error (pfile, CPP_DL_ERROR, "division by zero in #if");
+	cpp_error_with_line (pfile, CPP_DL_ERROR, location, 0,
+			     "division by zero in #if");
       return lhs;
     }
 

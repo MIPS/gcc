@@ -26,6 +26,8 @@
 
 #ifdef _GLIBCXX_ATOMIC_BUILTINS_4
 
+#define _GLIBCXX_EH_PTR_COMPAT
+
 #include <exception>
 #include <exception_ptr.h>
 #include "unwind-cxx.h"
@@ -33,41 +35,30 @@
 using namespace __cxxabiv1;
 
 std::__exception_ptr::exception_ptr::exception_ptr() throw()
-  : _M_exception_object(0)
-{
-}
+: _M_exception_object(0) { }
 
 
 std::__exception_ptr::exception_ptr::exception_ptr(void* obj) throw()
-  : _M_exception_object(obj)
-{
-  _M_addref();
-}
+: _M_exception_object(obj)  { _M_addref(); }
 
 
 std::__exception_ptr::exception_ptr::exception_ptr(__safe_bool) throw()
-  : _M_exception_object(0)
-{
-}
+: _M_exception_object(0) { }
 
 
-std::__exception_ptr::exception_ptr::exception_ptr(
-                        const exception_ptr& other) throw()
-  : _M_exception_object(other._M_exception_object)
-{
-  _M_addref();
-}
+std::__exception_ptr::
+exception_ptr::exception_ptr(const exception_ptr& other) throw()
+: _M_exception_object(other._M_exception_object)
+{ _M_addref(); }
 
 
 std::__exception_ptr::exception_ptr::~exception_ptr() throw()
-{
-  _M_release();
-}
+{ _M_release(); }
 
 
 std::__exception_ptr::exception_ptr&
-std::__exception_ptr::exception_ptr::operator=(
-                    const exception_ptr& other) throw()
+std::__exception_ptr::
+exception_ptr::operator=(const exception_ptr& other) throw()
 {
   exception_ptr(other).swap(*this);
   return *this;
@@ -107,15 +98,11 @@ std::__exception_ptr::exception_ptr::_M_release() throw()
 
 void*
 std::__exception_ptr::exception_ptr::_M_get() const throw()
-{
-  return _M_exception_object;
-}
+{ return _M_exception_object; }
 
 
 void
-std::__exception_ptr::exception_ptr::_M_safe_bool_dummy() throw ()
-{
-}
+std::__exception_ptr::exception_ptr::_M_safe_bool_dummy() throw () { }
 
 
 void
@@ -127,13 +114,13 @@ std::__exception_ptr::exception_ptr::swap(exception_ptr &other) throw()
 }
 
 
+// Retained for compatibility with CXXABI_1.3.
 bool
 std::__exception_ptr::exception_ptr::operator!() const throw()
-{
-  return _M_exception_object == 0;
-}
+{ return _M_exception_object == 0; }
 
 
+// Retained for compatibility with CXXABI_1.3.
 std::__exception_ptr::exception_ptr::operator __safe_bool() const throw()
 {
   return _M_exception_object ? &exception_ptr::_M_safe_bool_dummy : 0;
@@ -149,17 +136,13 @@ std::__exception_ptr::exception_ptr::__cxa_exception_type() const throw()
 
 
 bool std::__exception_ptr::operator==(const exception_ptr& lhs,
-                                      const exception_ptr& rhs) throw()
-{
-  return lhs._M_exception_object == rhs._M_exception_object;
-}
+				      const exception_ptr& rhs) throw()
+{ return lhs._M_exception_object == rhs._M_exception_object; }
 
 
 bool std::__exception_ptr::operator!=(const exception_ptr& lhs,
-                                      const exception_ptr& rhs) throw()
-{
-  return !(lhs == rhs);
-}
+				      const exception_ptr& rhs) throw()
+{ return !(lhs == rhs);}
 
 
 std::exception_ptr
@@ -181,8 +164,8 @@ std::current_exception() throw()
 
 
 static void
-__gxx_dependent_exception_cleanup (_Unwind_Reason_Code code,
-                                   _Unwind_Exception *exc)
+__gxx_dependent_exception_cleanup(_Unwind_Reason_Code code,
+				  _Unwind_Exception *exc)
 {
   // This cleanup is set only for dependents.
   __cxa_dependent_exception *dep = __get_dependent_exception_from_ue (exc);
@@ -232,7 +215,9 @@ std::rethrow_exception(std::exception_ptr ep)
 
   // Some sort of unwinding error.  Note that terminate is a handler.
   __cxa_begin_catch (&dep->unwindHeader);
-  std::terminate ();
+  std::terminate();
 }
+
+#undef _GLIBCXX_EH_PTR_COMPAT
 
 #endif

@@ -22,9 +22,11 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "gcc-plugin.h"
 
+struct attribute_spec;
+
 extern void add_new_plugin (const char *);
 extern void parse_plugin_arg_opt (const char *);
-extern void invoke_plugin_callbacks (enum plugin_event, void *);
+extern int invoke_plugin_callbacks (int, void *);
 extern void initialize_plugins (void);
 extern bool plugins_active_p (void);
 extern void dump_active_plugins (FILE *);
@@ -32,5 +34,9 @@ extern void debug_active_plugins (void);
 extern void print_plugins_versions (FILE *file, const char *indent);
 extern void print_plugins_help (FILE *file, const char *indent);
 extern void finalize_plugins (void);
+
+/* In attribs.c.  */
+
+extern void register_attribute (const struct attribute_spec *attr);
 
 #endif /* PLUGIN_H */

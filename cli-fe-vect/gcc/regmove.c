@@ -44,15 +44,23 @@ along with GCC; see the file COPYING3.  If not see
 #include "timevar.h"
 #include "tree-pass.h"
 #include "df.h"
+#include "ira.h"
 
 static int optimize_reg_copy_1 (rtx, rtx, rtx);
 static void optimize_reg_copy_2 (rtx, rtx, rtx);
 static void optimize_reg_copy_3 (rtx, rtx, rtx);
 static void copy_src_to_dest (rtx, rtx, rtx);
 
+enum match_use
+{
+  READ,
+  WRITE,
+  READWRITE
+};
+
 struct match {
   int with[MAX_RECOG_OPERANDS];
-  enum { READ, WRITE, READWRITE } use[MAX_RECOG_OPERANDS];
+  enum match_use use[MAX_RECOG_OPERANDS];
   int commutative[MAX_RECOG_OPERANDS];
   int early_clobber[MAX_RECOG_OPERANDS];
 };
@@ -98,7 +106,7 @@ find_use_as_address (rtx x, rtx reg, HOST_WIDE_INT plusconst)
 
   if (code == MEM && GET_CODE (XEXP (x, 0)) == PLUS
       && XEXP (XEXP (x, 0), 0) == reg
-      && GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT
+      && CONST_INT_P (XEXP (XEXP (x, 0), 1))
       && INTVAL (XEXP (XEXP (x, 0), 1)) == plusconst)
     return x;
 
@@ -177,7 +185,9 @@ try_auto_increment (rtx insn, rtx inc_insn, rtx inc_insn_set, rtx reg,
 		   &SET_SRC (inc_insn_set),
 		   XEXP (SET_SRC (inc_insn_set), 0), 1);
 	      validate_change (insn, &XEXP (use, 0),
-			       gen_rtx_fmt_e (inc_code, Pmode, reg), 1);
+			       gen_rtx_fmt_e (inc_code,
+					      GET_MODE (XEXP (use, 0)), reg),
+			       1);
 	      if (apply_change_group ())
 		{
 		  /* If there is a REG_DEAD note on this insn, we must
@@ -188,7 +198,7 @@ try_auto_increment (rtx insn, rtx inc_insn, rtx inc_insn_set, rtx reg,
 		     changed.  */
 		  rtx note = find_reg_note (insn, REG_DEAD, reg);
 		  if (note)
-		    PUT_MODE (note, REG_UNUSED);
+		    PUT_REG_NOTE_KIND (note, REG_UNUSED);
 
 		  add_reg_note (insn, REG_INC, reg);
 
@@ -296,7 +306,7 @@ optimize_reg_copy_1 (rtx insn, rtx dest, rtx src)
 		  if (sregno < FIRST_PSEUDO_REGISTER
 		      && reg_mentioned_p (dest, PATTERN (q)))
 		    failed = 1;
-		  
+
 		  /* Attempt to replace all uses.  */
 		  else if (!validate_replace_rtx (src, dest, q))
 		    failed = 1;
@@ -314,9 +324,12 @@ optimize_reg_copy_1 (rtx insn, rtx dest, rtx src)
 	      /* For SREGNO, count the total number of insns scanned.
 		 For DREGNO, count the total number of insns scanned after
 		 passing the death note for DREGNO.  */
-	      s_length++;
-	      if (dest_death)
-		d_length++;
+	      if (!DEBUG_INSN_P (p))
+		{
+		  s_length++;
+		  if (dest_death)
+		    d_length++;
+		}
 
 	      /* If the insn in which SRC dies is a CALL_INSN, don't count it
 		 as a call that has been crossed.  Otherwise, count it.  */
@@ -514,7 +527,7 @@ optimize_reg_copy_3 (rtx insn, rtx dest, rtx src)
   for (p = PREV_INSN (insn); p && ! reg_set_p (src_reg, p); p = PREV_INSN (p))
     if (INSN_P (p) && BLOCK_FOR_INSN (p) != bb)
       break;
-  
+
   if (! p || BLOCK_FOR_INSN (p) != bb)
     return;
 
@@ -592,8 +605,6 @@ copy_src_to_dest (rtx insn, rtx src, rtx dest)
   rtx *p_move_notes;
   int src_regno;
   int dest_regno;
-  int insn_uid;
-  int move_uid;
 
   /* A REG_LIVE_LENGTH of -1 indicates the register is equivalent to a constant
      or memory location and is used infrequently; a REG_LIVE_LENGTH of -2 is
@@ -648,9 +659,6 @@ copy_src_to_dest (rtx insn, rtx src, rtx dest)
 
       *p_move_notes = NULL_RTX;
       *p_insn_notes = NULL_RTX;
-
-      insn_uid = INSN_UID (insn);
-      move_uid = INSN_UID (move_insn);
 
       /* Update the various register tables.  */
       dest_regno = REGNO (dest);
@@ -760,14 +768,14 @@ fixup_match_2 (rtx insn, rtx dst, rtx src, rtx offset)
 
       if (find_regno_note (p, REG_DEAD, REGNO (dst)))
 	dst_death = p;
-      if (! dst_death)
+      if (! dst_death && !DEBUG_INSN_P (p))
 	length++;
 
       pset = single_set (p);
       if (pset && SET_DEST (pset) == dst
 	  && GET_CODE (SET_SRC (pset)) == PLUS
 	  && XEXP (SET_SRC (pset), 0) == src
-	  && GET_CODE (XEXP (SET_SRC (pset), 1)) == CONST_INT)
+	  && CONST_INT_P (XEXP (SET_SRC (pset), 1)))
 	{
 	  HOST_WIDE_INT newconst
 	    = INTVAL (offset) - INTVAL (XEXP (SET_SRC (pset), 1));
@@ -920,7 +928,7 @@ regmove_backward_pass (void)
   FOR_EACH_BB_REVERSE (bb)
     {
       /* ??? Use the safe iterator because fixup_match_2 can remove
-	     insns via try_auto_increment.  */ 
+	     insns via try_auto_increment.  */
       FOR_BB_INSNS_REVERSE_SAFE (bb, insn, prev)
 	{
 	  struct match match;
@@ -1008,7 +1016,7 @@ regmove_backward_pass (void)
 	      if (REGNO (src) < FIRST_PSEUDO_REGISTER)
 		{
 		  if (GET_CODE (SET_SRC (set)) == PLUS
-		      && GET_CODE (XEXP (SET_SRC (set), 1)) == CONST_INT
+		      && CONST_INT_P (XEXP (SET_SRC (set), 1))
 		      && XEXP (SET_SRC (set), 0) == src
 		      && fixup_match_2 (insn, dst, src,
 					XEXP (SET_SRC (set), 1)))
@@ -1088,7 +1096,8 @@ regmove_backward_pass (void)
 		  if (BLOCK_FOR_INSN (p) != bb)
 		    break;
 
-		  length++;
+		  if (!DEBUG_INSN_P (p))
+		    length++;
 
 		  /* ??? See if all of SRC is set in P.  This test is much
 		     more conservative than it needs to be.  */
@@ -1096,35 +1105,41 @@ regmove_backward_pass (void)
 		  if (pset && SET_DEST (pset) == src)
 		    {
 		      /* We use validate_replace_rtx, in case there
-			 are multiple identical source operands.  All of
-			 them have to be changed at the same time.  */
+			 are multiple identical source operands.  All
+			 of them have to be changed at the same time:
+			 when validate_replace_rtx() calls
+			 apply_change_group().  */
+		      validate_change (p, &SET_DEST (pset), dst, 1);
 		      if (validate_replace_rtx (src, dst, insn))
-			{
-			  if (validate_change (p, &SET_DEST (pset),
-					       dst, 0))
-			    success = 1;
-			  else
-			    {
-			      /* Change all source operands back.
-				 This modifies the dst as a side-effect.  */
-			      validate_replace_rtx (dst, src, insn);
-			      /* Now make sure the dst is right.  */
-			      validate_change (insn,
-					       recog_data.operand_loc[match_no],
-					       dst, 0);
-			    }
-			}
+			success = 1;
 		      break;
 		    }
 
-		  /* We can't make this change if SRC is read or
+		  /* We can't make this change if DST is mentioned at
+		     all in P, since we are going to change its value.
+		     We can't make this change if SRC is read or
 		     partially written in P, since we are going to
-		     eliminate SRC. We can't make this change 
-		     if DST is mentioned at all in P,
-		     since we are going to change its value.  */
-		  if (reg_overlap_mentioned_p (src, PATTERN (p))
-		      || reg_mentioned_p (dst, PATTERN (p)))
-		    break;
+		     eliminate SRC.  However, if it's a debug insn, we
+		     can't refrain from making the change, for this
+		     would cause codegen differences, so instead we
+		     invalidate debug expressions that reference DST,
+		     and adjust references to SRC in them so that they
+		     become references to DST.  */
+		  if (reg_mentioned_p (dst, PATTERN (p)))
+		    {
+		      if (DEBUG_INSN_P (p))
+			validate_change (p, &INSN_VAR_LOCATION_LOC (p),
+					 gen_rtx_UNKNOWN_VAR_LOC (), 1);
+		      else
+			break;
+		    }
+		  if (reg_overlap_mentioned_p (src, PATTERN (p)))
+		    {
+		      if (DEBUG_INSN_P (p))
+			validate_replace_rtx_group (src, dst, p);
+		      else
+			break;
+		    }
 
 		  /* If we have passed a call instruction, and the
 		     pseudo-reg DST is not already live across a call,
@@ -1186,6 +1201,8 @@ regmove_backward_pass (void)
 
 		  break;
 		}
+	      else if (num_changes_pending () > 0)
+		cancel_changes (0);
 	    }
 
 	  /* If we weren't able to replace any of the alternatives, try an
@@ -1206,6 +1223,9 @@ regmove_optimize (void)
 
   df_note_add_problem ();
   df_analyze ();
+
+  if (flag_ira_loop_pressure)
+    ira_set_pseudo_classes (dump_file);
 
   regstat_init_n_sets_and_refs ();
   regstat_compute_ri ();
@@ -1229,6 +1249,8 @@ regmove_optimize (void)
     }
   regstat_free_n_sets_and_refs ();
   regstat_free_ri ();
+  if (flag_ira_loop_pressure)
+    free_reg_info ();
   return 0;
 }
 

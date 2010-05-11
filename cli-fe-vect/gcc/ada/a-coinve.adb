@@ -1121,21 +1121,45 @@ package body Ada.Containers.Indefinite_Vectors is
 
                   Index : constant Index_Type := Index_Type (Index_As_Int);
 
-                  J : Index_Type'Base := Before;
+                  J : Index_Type'Base;
 
                begin
+                  --  The new items are being inserted in the middle of the
+                  --  array, in the range [Before, Index). Copy the existing
+                  --  elements to the end of the array, to make room for the
+                  --  new items.
+
                   E (Index .. New_Last) := E (Before .. Container.Last);
                   Container.Last := New_Last;
 
-                  while J < Index loop
-                     E (J) := new Element_Type'(New_Item);
-                     J := J + 1;
-                  end loop;
+                  --  We have copied the existing items up to the end of the
+                  --  array, to make room for the new items in the middle of
+                  --  the array.  Now we actually allocate the new items.
 
-               exception
-                  when others =>
-                     E (J .. Index - 1) := (others => null);
-                     raise;
+                  --  Note: initialize J outside loop to make it clear that
+                  --  J always has a value if the exception handler triggers.
+
+                  J := Before;
+                  begin
+                     while J < Index loop
+                        E (J) := new Element_Type'(New_Item);
+                        J := J + 1;
+                     end loop;
+
+                  exception
+                     when others =>
+
+                        --  Values in the range [Before, J) were successfully
+                        --  allocated, but values in the range [J, Index) are
+                        --  stale (these array positions contain copies of the
+                        --  old items, that did not get assigned a new item,
+                        --  because the allocation failed). We must finish what
+                        --  we started by clearing out all of the stale values,
+                        --  leaving a "hole" in the middle of the array.
+
+                        E (J .. Index - 1) := (others => null);
+                        raise;
+                  end;
                end;
 
             else
@@ -1148,6 +1172,9 @@ package body Ada.Containers.Indefinite_Vectors is
 
          return;
       end if;
+
+      --  There follows LOTS of code completely devoid of comments ???
+      --  This is not our general style ???
 
       declare
          C, CC : UInt;
@@ -1171,7 +1198,6 @@ package body Ada.Containers.Indefinite_Vectors is
            and then Index_Type'Last >= 0
          then
             CC := UInt (Index_Type'Last) + UInt (-Index_Type'First) + 1;
-
          else
             CC := UInt (Int (Index_Type'Last) - First + 1);
          end if;
@@ -1610,7 +1636,6 @@ package body Ada.Containers.Indefinite_Vectors is
            and then Index_Type'Last >= 0
          then
             CC := UInt (Index_Type'Last) + UInt (-Index_Type'First) + 1;
-
          else
             CC := UInt (Int (Index_Type'Last) - First + 1);
          end if;
@@ -2283,15 +2308,9 @@ package body Ada.Containers.Indefinite_Vectors is
       Item      : Element_Type;
       Index     : Index_Type := Index_Type'Last) return Extended_Index
    is
-      Last : Index_Type'Base;
-
+      Last : constant Index_Type'Base :=
+               (if Index > Container.Last then Container.Last else Index);
    begin
-      if Index > Container.Last then
-         Last := Container.Last;
-      else
-         Last := Index;
-      end if;
-
       for Indx in reverse Index_Type'First .. Last loop
          if Container.Elements.EA (Indx) /= null
            and then Container.Elements.EA (Indx).all = Item

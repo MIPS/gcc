@@ -205,7 +205,8 @@ begin
 
          begin
             Error_Msg_Unit_1 := Expect_Name;
-            Error_Msg ("$$ is not a predefined library unit!", Loc);
+            Error_Msg -- CODEFIX
+              ("$$ is not a predefined library unit!", Loc);
 
             --  In the predefined file case, we know the user did not
             --  construct their own package, but we got the wrong one.
@@ -229,7 +230,8 @@ begin
               (Name_Id (Expect_Name), Name_Id (Actual_Name))
             then
                Error_Msg_Unit_1 := Actual_Name;
-               Error_Msg ("possible misspelling of $$!", Loc);
+               Error_Msg -- CODEFIX
+                 ("possible misspelling of $$!", Loc);
             end if;
          end;
 
@@ -276,9 +278,14 @@ begin
 
          --  If this is a separate spec for the main unit, then we reset
          --  Main_Unit_Entity to point to the entity for this separate spec
+         --  and this is also where we generate the SCO's for this spec.
 
          if Cur_Unum = Main_Unit then
             Main_Unit_Entity := Cunit_Entity (Unum);
+
+            if Generate_SCO then
+               SCO_Record (Unum);
+            end if;
          end if;
 
       --  If we don't find the spec, then if we have a subprogram body, we

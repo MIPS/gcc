@@ -264,8 +264,8 @@ cb_def_pragma (cpp_reader *pfile, source_location loc)
 	    name = cpp_token_as_text (pfile, s);
 	}
 
-      warning (OPT_Wunknown_pragmas, "%Hignoring #pragma %s %s",
-	       &fe_loc, space, name);
+      warning_at (fe_loc, OPT_Wunknown_pragmas, "ignoring #pragma %s %s",
+		  space, name);
     }
 }
 
@@ -313,7 +313,7 @@ c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags,
       goto retry;
 
     case CPP_NAME:
-      *value = HT_IDENT_TO_GCC_IDENT (HT_NODE (tok->val.node));
+      *value = HT_IDENT_TO_GCC_IDENT (HT_NODE (tok->val.node.node));
       break;
 
     case CPP_NUMBER:
@@ -365,11 +365,12 @@ c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags,
 	    case CPP_WSTRING:
 	    case CPP_STRING16:
 	    case CPP_STRING32:
+	    case CPP_UTF8STRING:
 	      type = lex_string (tok, value, true, true);
 	      break;
 
 	    case CPP_NAME:
-	      *value = HT_IDENT_TO_GCC_IDENT (HT_NODE (tok->val.node));
+	      *value = HT_IDENT_TO_GCC_IDENT (HT_NODE (tok->val.node.node));
 	      if (objc_is_reserved_word (*value))
 		{
 		  type = CPP_AT_NAME;
@@ -379,7 +380,7 @@ c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags,
 
 	    default:
 	      /* ... or not.  */
-	      error ("%Hstray %<@%> in program", &atloc);
+	      error_at (atloc, "stray %<@%> in program");
 	      *loc = newloc;
 	      goto retry_after_at;
 	    }
@@ -390,7 +391,7 @@ c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags,
     case CPP_HASH:
     case CPP_PASTE:
       {
-	unsigned char name[4];
+	unsigned char name[8];
 
 	*cpp_spell_token (parse_in, tok, name, true) = 0;
 
@@ -423,7 +424,8 @@ c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags,
     case CPP_WSTRING:
     case CPP_STRING16:
     case CPP_STRING32:
-      if ((lex_flags & C_LEX_RAW_STRINGS) == 0)
+    case CPP_UTF8STRING:
+      if ((lex_flags & C_LEX_STRING_NO_JOIN) == 0)
 	{
 	  type = lex_string (tok, value, false,
 			     (lex_flags & C_LEX_STRING_NO_TRANSLATE) == 0);
@@ -431,7 +433,7 @@ c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags,
 	}
       *value = build_string (tok->val.str.len, (const char *) tok->val.str.text);
       break;
-      
+
     case CPP_PRAGMA:
       *value = build_int_cst (NULL, tok->val.pragma);
       break;
@@ -586,11 +588,11 @@ interpret_integer (const cpp_token *token, unsigned int flags)
       type = integer_types[itk];
       if (itk > itk_unsigned_long
 	  && (flags & CPP_N_WIDTH) != CPP_N_LARGE)
-	emit_diagnostic 
+	emit_diagnostic
 	  ((c_dialect_cxx () ? cxx_dialect == cxx98 : !flag_isoc99)
 	   ? DK_PEDWARN : DK_WARNING,
 	   input_location, OPT_Wlong_long,
-	   (flags & CPP_N_UNSIGNED) 
+	   (flags & CPP_N_UNSIGNED)
 	   ? "integer constant is too large for %<unsigned long%> type"
 	   : "integer constant is too large for %<long%> type");
     }
@@ -617,11 +619,21 @@ interpret_float (const cpp_token *token, unsigned int flags)
   char *copy;
   size_t copylen;
 
-  /* Default (no suffix) is double.  */
+  /* Default (no suffix) depends on whether the FLOAT_CONST_DECIMAL64
+     pragma has been used and is either double or _Decimal64.  Types
+     that are not allowed with decimal float default to double.  */
   if (flags & CPP_N_DEFAULT)
     {
       flags ^= CPP_N_DEFAULT;
       flags |= CPP_N_MEDIUM;
+
+      if (((flags & CPP_N_HEX) == 0) && ((flags & CPP_N_IMAGINARY) == 0))
+	{
+	  warning (OPT_Wunsuffixed_float_constants,
+		   "unsuffixed float constant");
+	  if (float_const_decimal64_p ())
+	    flags |= CPP_N_DFLOAT;
+	}
     }
 
   /* Decode _Fract and _Accum.  */
@@ -677,9 +689,9 @@ interpret_float (const cpp_token *token, unsigned int flags)
      has any suffixes, cut them off; REAL_VALUE_ATOF/ REAL_VALUE_HTOF
      can't handle them.  */
   copylen = token->val.str.len;
-  if (flags & CPP_N_DFLOAT) 
+  if (flags & CPP_N_DFLOAT)
     copylen -= 2;
-  else 
+  else
     {
       if ((flags & CPP_N_WIDTH) != CPP_N_MEDIUM)
 	/* Must be an F or L or machine defined suffix.  */
@@ -720,7 +732,7 @@ interpret_float (const cpp_token *token, unsigned int flags)
     {
       REAL_VALUE_TYPE realvoidmode;
       int overflow = real_from_string (&realvoidmode, copy);
-      if (overflow < 0 || !REAL_VALUES_EQUAL (realvoidmode, dconst0)) 
+      if (overflow < 0 || !REAL_VALUES_EQUAL (realvoidmode, dconst0))
 	warning (OPT_Woverflow, "floating constant truncated to zero");
     }
 
@@ -861,12 +873,13 @@ interpret_fixed (const cpp_token *token, unsigned int flags)
   return value;
 }
 
-/* Convert a series of STRING, WSTRING, STRING16 and/or STRING32 tokens
-   into a tree, performing string constant concatenation.  TOK is the
-   first of these.  VALP is the location to write the string into.
-   OBJC_STRING indicates whether an '@' token preceded the incoming token.
+/* Convert a series of STRING, WSTRING, STRING16, STRING32 and/or
+   UTF8STRING tokens into a tree, performing string constant
+   concatenation.  TOK is the first of these.  VALP is the location
+   to write the string into. OBJC_STRING indicates whether an '@' token
+   preceded the incoming token.
    Returns the CPP token type of the result (CPP_STRING, CPP_WSTRING,
-   CPP_STRING32, CPP_STRING16, or CPP_OBJC_STRING).
+   CPP_STRING32, CPP_STRING16, CPP_UTF8STRING, or CPP_OBJC_STRING).
 
    This is unfortunately more work than it should be.  If any of the
    strings in the series has an L prefix, the result is a wide string
@@ -911,6 +924,7 @@ lex_string (const cpp_token *tok, tree *valp, bool objc_string, bool translate)
     case CPP_WSTRING:
     case CPP_STRING16:
     case CPP_STRING32:
+    case CPP_UTF8STRING:
       if (type != tok->type)
 	{
 	  if (type == CPP_STRING)
@@ -956,6 +970,7 @@ lex_string (const cpp_token *tok, tree *valp, bool objc_string, bool translate)
 	{
 	default:
 	case CPP_STRING:
+	case CPP_UTF8STRING:
 	  value = build_string (1, "");
 	  break;
 	case CPP_STRING16:
@@ -981,6 +996,7 @@ lex_string (const cpp_token *tok, tree *valp, bool objc_string, bool translate)
     {
     default:
     case CPP_STRING:
+    case CPP_UTF8STRING:
       TREE_TYPE (value) = char_array_type_node;
       break;
     case CPP_STRING16:

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -46,12 +46,14 @@ with Prep;
 with Prepcomp;
 with Restrict; use Restrict;
 with Rident;   use Rident;
-with Rtsfind;
+with Rtsfind;  use Rtsfind;
+with Snames;   use Snames;
 with Sprint;
 with Scn;      use Scn;
 with Sem;      use Sem;
 with Sem_Aux;
 with Sem_Ch8;  use Sem_Ch8;
+with Sem_SCIL;
 with Sem_Elab; use Sem_Elab;
 with Sem_Prag; use Sem_Prag;
 with Sem_Warn; use Sem_Warn;
@@ -308,7 +310,7 @@ begin
          --  incorporate subunits at a lower level.
 
          if Operating_Mode = Generate_Code
-            and then Nkind (Unit (Cunit (Main_Unit))) = N_Subunit
+           and then Nkind (Unit (Cunit (Main_Unit))) = N_Subunit
          then
             Operating_Mode := Check_Semantics;
          end if;
@@ -321,8 +323,8 @@ begin
          --  Cleanup processing after completing main analysis
 
          if Operating_Mode = Generate_Code
-            or else (Operating_Mode = Check_Semantics
-                      and then ASIS_Mode)
+           or else (Operating_Mode = Check_Semantics
+                     and then ASIS_Mode)
          then
             Instantiate_Bodies;
          end if;
@@ -350,7 +352,7 @@ begin
 
          --  Output waiting warning messages
 
-         Sem_Warn.Output_Non_Modifed_In_Out_Warnings;
+         Sem_Warn.Output_Non_Modified_In_Out_Warnings;
          Sem_Warn.Output_Unreferenced_Messages;
          Sem_Warn.Check_Unused_Withs;
          Sem_Warn.Output_Unused_Warnings_Off_Warnings;
@@ -366,11 +368,42 @@ begin
       Exp_Dbug.Qualify_All_Entity_Names;
    end if;
 
+   --  SCIL backend requirement. Check that SCIL nodes associated with
+   --  dispatching calls reference subprogram calls.
+
+   if Generate_SCIL then
+      pragma Debug (Sem_SCIL.Check_SCIL_Nodes (Cunit (Main_Unit)));
+      null;
+   end if;
+
    --  Dump the source now. Note that we do this as soon as the analysis
    --  of the tree is complete, because it is not just a dump in the case
    --  of -gnatD, where it rewrites all source locations in the tree.
 
    Sprint.Source_Dump;
+
+   --  Check again for configuration pragmas that appear in the context of
+   --  the main unit. These pragmas only affect the main unit, and the
+   --  corresponding flag is reset after each call to Semantics, but they
+   --  may affect the generated ali for the unit, and therefore the flag
+   --  must be set properly after compilation. Currently we only check for
+   --  Initialize_Scalars, but others should be checked: as well???
+
+   declare
+      Item  : Node_Id;
+
+   begin
+      Item := First (Context_Items (Cunit (Main_Unit)));
+      while Present (Item) loop
+         if Nkind (Item) = N_Pragma
+           and then Pragma_Name (Item) = Name_Initialize_Scalars
+         then
+            Initialize_Scalars := True;
+         end if;
+
+         Next (Item);
+      end loop;
+   end;
 
    --  If a mapping file has been specified by a -gnatem switch, update
    --  it if there has been some sources that were not in the mappings.

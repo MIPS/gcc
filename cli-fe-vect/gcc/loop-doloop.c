@@ -1,6 +1,6 @@
 /* Perform doloop optimizations
-   Copyright (C) 2004, 2005, 2006, 2007, 2008 Free Software Foundation,
-   Inc.
+   Copyright (C) 2004, 2005, 2006, 2007, 2008, 2010
+   Free Software Foundation, Inc.
    Based on code by Michael P. Hayes (m.hayes@elec.canterbury.ac.nz)
 
 This file is part of GCC.
@@ -291,7 +291,8 @@ add_test (rtx cond, edge *e, basic_block dest)
   op0 = force_operand (op0, NULL_RTX);
   op1 = force_operand (op1, NULL_RTX);
   label = block_label (dest);
-  do_compare_rtx_and_jump (op0, op1, code, 0, mode, NULL_RTX, NULL_RTX, label);
+  do_compare_rtx_and_jump (op0, op1, code, 0, mode, NULL_RTX,
+			   NULL_RTX, label, -1);
 
   jump = get_last_insn ();
   if (!jump || !JUMP_P (jump))
@@ -317,7 +318,7 @@ add_test (rtx cond, edge *e, basic_block dest)
       redirect_edge_and_branch_force (*e, dest);
       return false;
     }
-      
+
   JUMP_LABEL (jump) = label;
 
   /* The jump is supposed to handle an unlikely special case.  */
@@ -462,7 +463,7 @@ doloop_modify (struct loop *loop, struct niter_desc *desc,
 	  set_zero->count = preheader->count;
 	  set_zero->frequency = preheader->frequency;
 	}
- 
+
       if (EDGE_COUNT (set_zero->preds) == 0)
 	{
 	  /* All the conditions were simplified to false, remove the
@@ -477,7 +478,7 @@ doloop_modify (struct loop *loop, struct niter_desc *desc,
 	  sequence = get_insns ();
 	  end_sequence ();
 	  emit_insn_after (sequence, BB_END (set_zero));
-      
+
 	  set_immediate_dominator (CDI_DOMINATORS, set_zero,
 				   recompute_dominator (CDI_DOMINATORS,
 							set_zero));
@@ -530,7 +531,7 @@ doloop_modify (struct loop *loop, struct niter_desc *desc,
   if (true_prob_val)
     {
       /* Seems safer to use the branch probability.  */
-      add_reg_note (jump_insn, REG_BR_PROB, 
+      add_reg_note (jump_insn, REG_BR_PROB,
 		    GEN_INT (desc->in_edge->probability));
     }
 }

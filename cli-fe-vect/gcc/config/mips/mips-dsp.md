@@ -1066,7 +1066,7 @@
 
 (define_insn "mips_lhx_<mode>"
   [(set (match_operand:SI 0 "register_operand" "=d")
-	(zero_extend:SI
+	(sign_extend:SI
 	  (mem:HI (plus:P (match_operand:P 1 "register_operand" "d")
 			  (match_operand:P 2 "register_operand" "d")))))]
   "ISA_HAS_DSP"
@@ -1102,11 +1102,10 @@
 (define_insn "mips_bposge"
   [(set (pc)
 	(if_then_else (ge (reg:CCDSP CCDSP_PO_REGNUM)
-			  (match_operand:SI 0 "immediate_operand" "I"))
-		      (label_ref (match_operand 1 "" ""))
+			  (match_operand:SI 1 "immediate_operand" "I"))
+		      (label_ref (match_operand 0 "" ""))
 		      (pc)))]
   "ISA_HAS_DSP"
-  "%*bposge%0\t%1%/"
-  [(set_attr "type"	"branch")
-   (set_attr "mode"	"none")])
+  "%*bposge%1\t%0%/"
+  [(set_attr "type"	"branch")])
 

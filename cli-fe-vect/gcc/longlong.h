@@ -982,7 +982,7 @@ UDItype __umulsidi3 (USItype, USItype);
 "	or r1,%0"							\
 	: "=r" (q), "=&z" (r)						\
 	: "1" (n1), "r" (n0), "rm" (d), "r" (&__udiv_qrnnd_16)		\
-	: "r1", "r2", "r4", "r5", "r6", "pr");				\
+	: "r1", "r2", "r4", "r5", "r6", "pr", "t");			\
   } while (0)
 
 #define UDIV_TIME 80
@@ -990,7 +990,7 @@ UDItype __umulsidi3 (USItype, USItype);
 #define sub_ddmmss(sh, sl, ah, al, bh, bl)				\
   __asm__ ("clrt;subc %5,%1; subc %4,%0"				\
 	   : "=r" (sh), "=r" (sl)					\
-	   : "0" (ah), "1" (al), "r" (bh), "r" (bl))
+	   : "0" (ah), "1" (al), "r" (bh), "r" (bl) : "t")
 
 #endif /* __sh__ */
 
@@ -1323,6 +1323,28 @@ UDItype __umulsidi3 (USItype, USItype);
 #define count_leading_zeros(COUNT, X)	((COUNT) = __builtin_clz (X))
 #define count_trailing_zeros(COUNT, X)	((COUNT) = __builtin_ctz (X))
 #endif /* __xtensa__ */
+
+#if defined xstormy16
+extern UHItype __stormy16_count_leading_zeros (UHItype);
+#define count_leading_zeros(count, x)					\
+  do									\
+    {									\
+      UHItype size;							\
+									\
+      /* We assume that W_TYPE_SIZE is a multiple of 16...  */		\
+      for ((count) = 0, size = W_TYPE_SIZE; size; size -= 16)		\
+	{								\
+	  UHItype c;							\
+									\
+	  c = __clzhi2 ((x) >> (size - 16));				\
+	  (count) += c;							\
+	  if (c != 16)							\
+	    break;							\
+	}								\
+    }									\
+  while (0)
+#define COUNT_LEADING_ZEROS_0 W_TYPE_SIZE
+#endif
 
 #if defined (__z8000__) && W_TYPE_SIZE == 16
 #define add_ssaaaa(sh, sl, ah, al, bh, bl) \

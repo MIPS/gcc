@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -54,6 +54,7 @@ with Sem_Ch3;  use Sem_Ch3;
 with Sem_Ch7;  use Sem_Ch7;
 with Sem_Ch8;  use Sem_Ch8;
 with Sem_Res;  use Sem_Res;
+with Sem_SCIL; use Sem_SCIL;
 with Sem_Type; use Sem_Type;
 with Sem_Util; use Sem_Util;
 with Snames;   use Snames;
@@ -442,17 +443,32 @@ package body Exp_Ch7 is
             New_Reference_To
               (RTE (RE_List_Controller), Loc));
 
+      --  If the type is declared in a package declaration and designates a
+      --  Taft amendment type that requires finalization, place declaration
+      --  of finalization list in the body, because no client of the package
+      --  can create objects of the type and thus make use of this list. This
+      --  ensures the tree for the spec is identical whenever it is compiled.
+
+      if Has_Completion_In_Body (Directly_Designated_Type (Typ))
+        and then In_Package_Body (Current_Scope)
+        and then Nkind (Unit (Cunit (Current_Sem_Unit))) = N_Package_Body
+        and then
+          Nkind (Parent (Declaration_Node (Typ))) = N_Package_Specification
+      then
+         Insert_Action (Parent (Designated_Type (Typ)), Decl);
+
       --  The type may have been frozen already, and this is a late freezing
       --  action, in which case the declaration must be elaborated at once.
       --  If the call is for an allocator, the chain must also be created now,
       --  because the freezing of the type does not build one. Otherwise, the
       --  declaration is one of the freezing actions for a user-defined type.
 
-      if Is_Frozen (Typ)
+      elsif Is_Frozen (Typ)
         or else (Nkind (N) = N_Allocator
                   and then Ekind (Etype (N)) = E_Anonymous_Access_Type)
       then
          Insert_Action (N, Decl);
+
       else
          Append_Freeze_Action (Typ, Decl);
       end if;
@@ -3271,16 +3287,29 @@ package body Exp_Ch7 is
    --  Start of processing for Needs_Finalization
 
    begin
-      --  Class-wide types must be treated as controlled because they may
-      --  contain an extension that has controlled components
+      return
 
-      --  We can skip this if finalization is not available
+        --  Class-wide types must be treated as controlled and therefore
+        --  requiring finalization (because they may be extended with an
+        --  extension that has controlled components.
 
-      return (Is_Class_Wide_Type (T)
-                and then not In_Finalization_Root (T)
-                and then not Restriction_Active (No_Finalization))
+        (Is_Class_Wide_Type (T)
+
+          --  However, avoid treating class-wide types as controlled if
+          --  finalization is not available and in particular CIL value
+          --  types never have finalization).
+
+          and then not In_Finalization_Root (T)
+          and then not Restriction_Active (No_Finalization)
+          and then not Is_Value_Type (Etype (T)))
+
+        --  Controlled types always need finalization
+
         or else Is_Controlled (T)
         or else Has_Some_Controlled_Component (T)
+
+        --  For concurrent types, test the corresponding record type
+
         or else (Is_Concurrent_Type (T)
                   and then Present (Corresponding_Record_Type (T))
                   and then Needs_Finalization (Corresponding_Record_Type (T)));
@@ -3536,11 +3565,20 @@ package body Exp_Ch7 is
 
    procedure Wrap_Transient_Expression (N : Node_Id) is
       Loc  : constant Source_Ptr := Sloc (N);
-      E    : constant Entity_Id :=
-               Make_Defining_Identifier (Loc, New_Internal_Name ('E'));
-      Etyp : constant Entity_Id := Etype (N);
+      E    : constant Entity_Id  := Make_Temporary (Loc, 'E', N);
+      Etyp : constant Entity_Id  := Etype (N);
+      Expr : constant Node_Id    := Relocate_Node (N);
 
    begin
+      --  If the relocated node is a function call then check if some SCIL
+      --  node references it and needs readjustment.
+
+      if Generate_SCIL
+        and then Nkind (N) = N_Function_Call
+      then
+         Adjust_SCIL_Node (N, Expr);
+      end if;
+
       Insert_Actions (N, New_List (
         Make_Object_Declaration (Loc,
           Defining_Identifier => E,
@@ -3550,7 +3588,7 @@ package body Exp_Ch7 is
           Action =>
             Make_Assignment_Statement (Loc,
               Name       => New_Reference_To (E, Loc),
-              Expression => Relocate_Node (N)))));
+              Expression => Expr))));
 
       Rewrite (N, New_Reference_To (E, Loc));
       Analyze_And_Resolve (N, Etyp);
@@ -3588,6 +3626,15 @@ package body Exp_Ch7 is
       New_Statement : constant Node_Id := Relocate_Node (N);
 
    begin
+      --  If the relocated node is a procedure call then check if some SCIL
+      --  node references it and needs readjustment.
+
+      if Generate_SCIL
+        and then Nkind (New_Statement) = N_Procedure_Call_Statement
+      then
+         Adjust_SCIL_Node (N, New_Statement);
+      end if;
+
       Rewrite (N, Make_Transient_Block (Loc, New_Statement));
 
       --  With the scope stack back to normal, we can call analyze on the

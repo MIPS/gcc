@@ -21,21 +21,15 @@ along with GCC; see the file COPYING3.  If not see
 #undef TARGET_VERSION
 #define TARGET_VERSION fprintf (stderr, " (VAX GNU/Linux with ELF)");
 
-#define TARGET_OS_CPP_BUILTINS()		\
-  do						\
-    {						\
-	LINUX_TARGET_OS_CPP_BUILTINS();		\
-	if (flag_pic)				\
-	  {					\
-	    builtin_define ("__PIC__");		\
-	    builtin_define ("__pic__");		\
-	  }					\
-    }						\
-  while (0)
+#define TARGET_OS_CPP_BUILTINS() LINUX_TARGET_OS_CPP_BUILTINS()
 
 /* We use GAS, G-float double and want new DI patterns.  */
 #undef TARGET_DEFAULT
 #define TARGET_DEFAULT (MASK_QMATH | MASK_G_FLOAT)
+
+/* Use standard names for udiv and umod libgcc calls.  */
+#undef TARGET_BSD_DIVMOD
+#define TARGET_BSD_DIVMOD 0
 
 #undef CPP_SPEC
 #define CPP_SPEC "%{posix:-D_POSIX_SOURCE} %{pthread:-D_REENTRANT}"

@@ -1,7 +1,7 @@
 /* Operating system specific defines to be used when targeting GCC for
    hosting on Windows32, using a Unix style C library and tools.
    Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003,
-   2004, 2005, 2007, 2008, 2009
+   2004, 2005, 2007, 2008, 2009, 2010
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -49,8 +49,9 @@ along with GCC; see the file COPYING3.  If not see
    target, always use the svr4_dbx_register_map for DWARF .eh_frame
    even if we don't use DWARF .debug_frame. */
 #undef DWARF_FRAME_REGNUM
-#define DWARF_FRAME_REGNUM(n) TARGET_64BIT \
-	? dbx64_register_map[(n)] : svr4_dbx_register_map[(n)] 
+#define DWARF_FRAME_REGNUM(n)				\
+  (TARGET_64BIT ? dbx64_register_map[(n)]		\
+		: svr4_dbx_register_map[(n)])
 
 #ifdef HAVE_GAS_PE_SECREL32_RELOC
 /* Use section relative relocations for debugging offsets.  Unlike
@@ -73,7 +74,8 @@ along with GCC; see the file COPYING3.  If not see
 #define TARGET_OS_CPP_BUILTINS()					\
   do									\
     {									\
-	builtin_define ("_X86_=1");					\
+	if (!TARGET_64BIT)						\
+	  builtin_define ("_X86_=1");					\
 	builtin_assert ("system=winnt");				\
 	builtin_define ("__stdcall=__attribute__((__stdcall__))");	\
 	builtin_define ("__fastcall=__attribute__((__fastcall__))");	\
@@ -125,8 +127,6 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Enable parsing of #pragma pack(push,<n>) and #pragma pack(pop).  */
 #define HANDLE_PRAGMA_PACK_PUSH_POP 1
-/* Enable push_macro & pop_macro */
-#define HANDLE_PRAGMA_PUSH_POP_MACRO 1
 
 union tree_node;
 #define TREE union tree_node *
@@ -286,6 +286,10 @@ do {						\
 /* The logic of this #if must be kept synchronised with the logic
    for selecting the tmake_eh_file fragment in config.gcc.  */
 #define DWARF2_UNWIND_INFO 1
+/* If multilib is selected break build as sjlj is required.  */
+#if defined (TARGET_BI_ARCH)
+#error For 64-bit windows and 32-bit based multilib version of gcc just SJLJ exceptions are supported.
+#endif
 #else
 #define DWARF2_UNWIND_INFO 0
 #endif
@@ -357,6 +361,7 @@ do {						\
     {									\
       const char *alias							\
 	= IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (DECL));		\
+      i386_pe_maybe_record_exported_symbol (DECL, alias, 0);		\
       if (TREE_CODE (DECL) == FUNCTION_DECL)				\
 	i386_pe_declare_function_type (STREAM, alias,			\
 				       TREE_PUBLIC (DECL));		\
@@ -378,7 +383,7 @@ do {						\
 /* FIXME: SUPPORTS_WEAK && TARGET_HAVE_NAMED_SECTIONS is true,
    but for .jcr section to work we also need crtbegin and crtend
    objects.  */
-#define TARGET_USE_JCR_SECTION 0
+#define TARGET_USE_JCR_SECTION 1
 
 /* Decide whether it is safe to use a local alias for a virtual function
    when constructing thunks.  */

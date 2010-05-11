@@ -1947,7 +1947,7 @@ check_pool_index (int index)
 static type
 check_class_constant (int index)
 {
-  type t = { 0, 0, 0 };
+  type t = { (type_val) 0, 0, 0 };
   vfy_constants *pool;
 
   check_pool_index (index);
@@ -1964,7 +1964,7 @@ check_class_constant (int index)
 static type
 check_constant (int index)
 {
-  type t = { 0, 0, 0 };
+  type t = { (type_val) 0, 0, 0 };
   vfy_constants *pool;
 
   check_pool_index (index);
@@ -1988,7 +1988,7 @@ check_constant (int index)
 static type
 check_wide_constant (int index)
 {
-  type t = { 0, 0, 0 };
+  type t = { (type_val) 0, 0, 0 };
   vfy_constants *pool;
 
   check_pool_index (index);
@@ -2035,7 +2035,6 @@ check_field_constant (int index, type *class_type, bool putfield)
 {
   vfy_string name, field_type;
   const char *typec;
-  int len;
   type t;
 
   type ct = handle_field_or_method (index,
@@ -2044,7 +2043,6 @@ check_field_constant (int index, type *class_type, bool putfield)
   if (class_type)
     *class_type = ct;
   typec = vfy_string_bytes (field_type);
-  len = vfy_string_length (field_type);
   if (typec[0] == '[' || typec[0] == 'L')
     init_type_from_string (&t, field_type);
   else

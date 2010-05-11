@@ -1,3 +1,4 @@
+! { dg-timeout-factor 4.0 }
 program mymatmul
   implicit none
   integer, parameter :: kp = 4
@@ -17,5 +18,5 @@ program mymatmul
 
 end program mymatmul
 
-! { dg-final { scan-tree-dump "vectorized 1 loops" "vect" } }
+! { dg-final { scan-tree-dump "vectorized 1 loops" "vect"  { xfail { ia64-*-* sparc*-*-* } } } }
 ! { dg-final { cleanup-tree-dump "vect" } }

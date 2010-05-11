@@ -46,6 +46,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "target-def.h"
 
+static bool vax_legitimate_address_p (enum machine_mode, rtx, bool);
 static void vax_output_function_prologue (FILE *, HOST_WIDE_INT);
 static void vax_file_start (void);
 static void vax_init_libfuncs (void);
@@ -56,6 +57,8 @@ static int vax_address_cost (rtx, bool);
 static bool vax_rtx_costs (rtx, int, int, int *, bool);
 static rtx vax_struct_value_rtx (tree, int);
 static rtx vax_builtin_setjmp_frame_value (void);
+static void vax_asm_trampoline_template (FILE *);
+static void vax_trampoline_init (rtx, tree, rtx);
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ASM_ALIGNED_HI_OP
@@ -94,6 +97,17 @@ static rtx vax_builtin_setjmp_frame_value (void);
 #undef TARGET_BUILTIN_SETJMP_FRAME_VALUE
 #define TARGET_BUILTIN_SETJMP_FRAME_VALUE vax_builtin_setjmp_frame_value
 
+#undef TARGET_LEGITIMATE_ADDRESS_P
+#define TARGET_LEGITIMATE_ADDRESS_P vax_legitimate_address_p
+
+#undef TARGET_FRAME_POINTER_REQUIRED
+#define TARGET_FRAME_POINTER_REQUIRED hook_bool_void_true
+
+#undef TARGET_ASM_TRAMPOLINE_TEMPLATE
+#define TARGET_ASM_TRAMPOLINE_TEMPLATE vax_asm_trampoline_template
+#undef TARGET_TRAMPOLINE_INIT
+#define TARGET_TRAMPOLINE_INIT vax_trampoline_init
+
 struct gcc_target targetm = TARGET_INITIALIZER;
 
 /* Set global variables as needed for the options enabled.  */
@@ -129,7 +143,7 @@ vax_output_function_prologue (FILE * file, HOST_WIDE_INT size)
 
   if (dwarf2out_do_frame ())
     {
-      const char *label = dwarf2out_cfi_label ();
+      const char *label = dwarf2out_cfi_label (false);
       int offset = 0;
 
       for (regno = FIRST_PSEUDO_REGISTER-1; regno >= 0; --regno)
@@ -168,8 +182,11 @@ vax_file_start (void)
 static void
 vax_init_libfuncs (void)
 {
-  set_optab_libfunc (udiv_optab, SImode, TARGET_ELF ? "*__udiv" : "*udiv");
-  set_optab_libfunc (umod_optab, SImode, TARGET_ELF ? "*__urem" : "*urem");
+  if (TARGET_BSD_DIVMOD)
+    {
+      set_optab_libfunc (udiv_optab, SImode, TARGET_ELF ? "*__udiv" : "*udiv");
+      set_optab_libfunc (umod_optab, SImode, TARGET_ELF ? "*__urem" : "*urem");
+    }
 }
 
 /* This is like nonimmediate_operand with a restriction on the type of MEM.  */
@@ -428,6 +445,8 @@ print_operand (FILE *file, rtx x, int code)
     fputc (ASM_DOUBLE_CHAR, file);
   else if (code == '|')
     fputs (REGISTER_PREFIX, file);
+  else if (code == 'c')
+    fputs (cond_name (x), file);
   else if (code == 'C')
     fputs (rev_cond_name (x), file);
   else if (code == 'D' && CONST_INT_P (x) && INTVAL (x) < 0)
@@ -479,6 +498,37 @@ print_operand (FILE *file, rtx x, int code)
     }
 }
 
+const char *
+cond_name (rtx op)
+{
+  switch (GET_CODE (op))
+    {
+    case NE:
+      return "neq";
+    case EQ:
+      return "eql";
+    case GE:
+      return "geq";
+    case GT:
+      return "gtr";
+    case LE:
+      return "leq";
+    case LT:
+      return "lss";
+    case GEU:
+      return "gequ";
+    case GTU:
+      return "gtru";
+    case LEU:
+      return "lequ";
+    case LTU:
+      return "lssu";
+
+    default:
+      gcc_unreachable ();
+    }
+}
+
 const char *
 rev_cond_name (rtx op)
 {
@@ -1516,27 +1566,6 @@ vax_output_int_subtract (rtx insn, rtx *operands, enum machine_mode mode)
   }
 }
 
-/* Output a conditional branch.  */
-const char *
-vax_output_conditional_branch (enum rtx_code code)
-{
-  switch (code)
-    {
-      case EQ:  return "jeql %l0";
-      case NE:  return "jneq %l0";
-      case GT:  return "jgtr %l0";
-      case LT:  return "jlss %l0";
-      case GTU: return "jgtru %l0";
-      case LTU: return "jlssu %l0";
-      case GE:  return "jgeq %l0";
-      case LE:  return "jleq %l0";
-      case GEU: return "jgequ %l0";
-      case LEU: return "jlequ %l0";
-      default:
-	gcc_unreachable ();
-    }
-}
-
 /* True if X is an rtx for a constant that is a valid address.  */
 
 bool
@@ -1719,7 +1748,7 @@ indexable_address_p (rtx xfoo0, rtx xfoo1, enum machine_mode mode, bool strict)
    The MODE argument is the machine mode for the MEM expression
    that wants to use this address.  */
 bool
-legitimate_address_p (enum machine_mode mode, rtx x, bool strict)
+vax_legitimate_address_p (enum machine_mode mode, rtx x, bool strict)
 {
   rtx xfoo0, xfoo1;
 
@@ -1998,3 +2027,45 @@ adjacent_operands_p (rtx lo, rtx hi, enum machine_mode mode)
   return rtx_equal_p (lo, hi)
 	 && hi_offset - lo_offset == GET_MODE_SIZE (mode);
 }
+
+/* Output assembler code for a block containing the constant parts
+   of a trampoline, leaving space for the variable parts.  */
+
+/* On the VAX, the trampoline contains an entry mask and two instructions:
+     .word NN
+     movl $STATIC,r0   (store the functions static chain)
+     jmp  *$FUNCTION   (jump to function code at address FUNCTION)  */
+
+static void
+vax_asm_trampoline_template (FILE *f ATTRIBUTE_UNUSED)
+{
+  assemble_aligned_integer (2, const0_rtx);
+  assemble_aligned_integer (2, GEN_INT (0x8fd0));
+  assemble_aligned_integer (4, const0_rtx);
+  assemble_aligned_integer (1, GEN_INT (0x50 + STATIC_CHAIN_REGNUM));
+  assemble_aligned_integer (2, GEN_INT (0x9f17));
+  assemble_aligned_integer (4, const0_rtx);
+}
+
+/* We copy the register-mask from the function's pure code
+   to the start of the trampoline.  */
+
+static void
+vax_trampoline_init (rtx m_tramp, tree fndecl, rtx cxt)
+{
+  rtx fnaddr = XEXP (DECL_RTL (fndecl), 0);
+  rtx mem;
+
+  emit_block_move (m_tramp, assemble_trampoline_template (),
+		   GEN_INT (TRAMPOLINE_SIZE), BLOCK_OP_NORMAL);
+
+  mem = adjust_address (m_tramp, HImode, 0);
+  emit_move_insn (mem, gen_const_mem (HImode, fnaddr));
+
+  mem = adjust_address (m_tramp, SImode, 4);
+  emit_move_insn (mem, cxt);
+  mem = adjust_address (m_tramp, SImode, 11);
+  emit_move_insn (mem, plus_constant (fnaddr, 2));
+  emit_insn (gen_sync_istream ());
+}
+

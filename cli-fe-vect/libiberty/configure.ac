@@ -1,6 +1,6 @@
 dnl Process this file with autoconf to produce a configure script
 
-AC_PREREQ(2.59)
+AC_PREREQ(2.64)
 AC_INIT
 AC_CONFIG_SRCDIR([xmalloc.c])
 
@@ -217,6 +217,7 @@ if [[ "${shared}" = "yes" ]]; then
 			  * ) PICFLAG=-fPIC ;;
 			esac ;;
     s390*-*-*)		PICFLAG=-fpic ;;
+    sh*-*-*)		PICFLAG=-fPIC ;;
   esac
 fi
 AC_SUBST(PICFLAG)
@@ -254,8 +255,6 @@ libiberty_AC_DECLARE_ERRNO
 # Determine the size of an int for struct fibnode.
 AC_CHECK_SIZEOF([int])
 
-AC_CHECK_TYPE(uintptr_t, unsigned long)
-
 # Look for a 64-bit type.
 AC_MSG_CHECKING([for a 64-bit type])
 AC_CACHE_VAL(liberty_cv_uint64,
@@ -288,6 +287,9 @@ if test "$liberty_cv_uint64" != none; then
   AC_DEFINE_UNQUOTED(UNSIGNED_64BIT_TYPE, $liberty_cv_uint64,
                      [Define to an unsigned 64-bit type available in the compiler.])
 fi
+
+AC_TYPE_INTPTR_T
+AC_TYPE_UINTPTR_T
 
 # Given the above check, we always have uintptr_t or a fallback
 # definition.  So define HAVE_UINTPTR_T in case any imported code
@@ -361,15 +363,22 @@ checkfuncs="$checkfuncs getsysinfo table sysctl wait3 wait4 __fsetlocking"
 # These are neither executed nor required, but they help keep
 # autoheader happy without adding a bunch of text to acconfig.h.
 if test "x" = "y"; then
-  AC_CHECK_FUNCS(asprintf atexit basename bcmp bcopy bsearch bzero calloc clock \
-  getcwd getpagesize gettimeofday index insque mkstemps memchr memcmp memcpy \
-  memmem memmove mempcpy memset putenv random rename rindex sigsetmask \
-  strcasecmp setenv stpcpy stpncpy strchr strdup strncasecmp strndup strrchr strstr \
-  strtod strtol strtoul strverscmp tmpnam vasprintf vfprintf vprintf \
-  vsprintf waitpid getrusage on_exit psignal strerror strsignal \
-  sysconf times sbrk gettimeofday ffs snprintf vsnprintf \
-  pstat_getstatic pstat_getdynamic sysmp getsysinfo table sysctl wait3 wait4 \
-  realpath canonicalize_file_name __fsetlocking)
+  AC_CHECK_FUNCS(asprintf atexit \
+    basename bcmp bcopy bsearch bzero \
+    calloc canonicalize_file_name clock \
+    ffs __fsetlocking \
+    getcwd getpagesize getrusage getsysinfo gettimeofday \
+    index insque \
+    memchr memcmp memcpy memmem memmove memset mkstemps \
+    on_exit \
+    psignal pstat_getdynamic pstat_getstatic putenv \
+    random realpath rename rindex \
+    sbrk setenv sigsetmask snprintf stpcpy stpncpy strcasecmp strchr strdup \
+     strerror strncasecmp strndup strrchr strsignal strstr strtod strtol \
+     strtoul strverscmp sysconf sysctl sysmp \
+    table times tmpnam \
+    vasprintf vfprintf vprintf vsprintf \
+    wait3 wait4 waitpid)
   AC_CHECK_DECLS([basename, ffs, asprintf, vasprintf, snprintf, vsnprintf])
   AC_DEFINE(HAVE_SYS_ERRLIST, 1, [Define if you have the sys_errlist variable.])
   AC_DEFINE(HAVE_SYS_NERR,    1, [Define if you have the sys_nerr variable.])

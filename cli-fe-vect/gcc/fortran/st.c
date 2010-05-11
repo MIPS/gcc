@@ -80,8 +80,8 @@ gfc_append_code (gfc_code *tail, gfc_code *new_code)
 void
 gfc_free_statement (gfc_code *p)
 {
-  if (p->expr)
-    gfc_free_expr (p->expr);
+  if (p->expr1)
+    gfc_free_expr (p->expr1);
   if (p->expr2)
     gfc_free_expr (p->expr2);
 
@@ -94,6 +94,7 @@ gfc_free_statement (gfc_code *p)
     case EXEC_GOTO:
     case EXEC_CYCLE:
     case EXEC_RETURN:
+    case EXEC_END_PROCEDURE:
     case EXEC_IF:
     case EXEC_PAUSE:
     case EXEC_STOP:
@@ -109,13 +110,19 @@ gfc_free_statement (gfc_code *p)
     case EXEC_ARITHMETIC_IF:
       break;
 
+    case EXEC_BLOCK:
+      gfc_free_namespace (p->ext.ns);
+      break;
+
     case EXEC_COMPCALL:
+    case EXEC_CALL_PPC:
     case EXEC_CALL:
     case EXEC_ASSIGN_CALL:
       gfc_free_actual_arglist (p->ext.actual);
       break;
 
     case EXEC_SELECT:
+    case EXEC_SELECT_TYPE:
       if (p->ext.case_list)
 	gfc_free_case_list (p->ext.case_list);
       break;
@@ -126,7 +133,7 @@ gfc_free_statement (gfc_code *p)
 
     case EXEC_ALLOCATE:
     case EXEC_DEALLOCATE:
-      gfc_free_alloc_list (p->ext.alloc_list);
+      gfc_free_alloc_list (p->ext.alloc.list);
       break;
 
     case EXEC_OPEN:

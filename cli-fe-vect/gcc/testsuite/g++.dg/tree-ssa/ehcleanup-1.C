@@ -1,4 +1,4 @@
-// { dg-options "-O2 -fdump-tree-ehcleanup1" }
+// { dg-options "-O2 -fdump-tree-ehcleanup1-details" }
 extern void can_throw ();
 class a
 {
@@ -19,6 +19,6 @@ t (void)
 // { dg-final { scan-tree-dump-times "Empty EH handler" 1 "ehcleanup1" } }
 //
 // And as a result also contained control flow.
-// { dg-final { scan-tree-dump-times "Removing unreachable" 1 "ehcleanup1" } }
+// { dg-final { scan-tree-dump-times "Removing unreachable" 2 "ehcleanup1" } }
 //
 // { dg-final { cleanup-tree-dump "ehcleanup1" } }

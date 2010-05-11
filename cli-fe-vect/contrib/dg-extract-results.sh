@@ -6,7 +6,7 @@
 # The resulting file can be used with test result comparison scripts for
 # results from tests that were run in parallel.  See usage() below.
 
-# Copyright (C) 2008 Free Software Foundation
+# Copyright (C) 2008, 2009, 2010 Free Software Foundation
 # Contributed by Janis Johnson <janis187@us.ibm.com>
 #
 # This file is part of GCC.
@@ -148,26 +148,28 @@ if [ "$TOOL" = acats ]; then
   ACATS_AWK=${TMP}/acats.awk
   cat <<EOF > $ACATS_AWK
 BEGIN {
-  print_prologue=1; chapter=""; insummary=0
+  print_prologue=1; curfile=""; insummary=0
   passcnt=0; failcnt=0; unsupcnt=0; failures=""
 }
-/=== acats configuration ===/ {
+/^[ \t]*=== acats configuration ===/ {
   insummary=0
   if (print_prologue) print
   next
 }
-/=== acats tests ===/ {
+/^[ \t]*=== acats tests ===/ {
   if (print_prologue) print
   print_prologue=0
   next
 }
 /^Running chapter / {
-  chapter=\$3
-  print > "${TMP}/chapter-"chapter
+  if (curfile) close (curfile)
+  curfile="${TMP}/chapter-"\$3
+  print >> curfile
   next
 }
-/=== acats Summary ===/ {
-  chapter=""
+/^[ \t]*=== acats Summary ===/ {
+  if (curfile) close (curfile)
+  curfile=""
   insummary=1
   next
 }
@@ -182,7 +184,7 @@ BEGIN {
 }
 {
   if (print_prologue) { print; next }
-  if (chapter) print > "${TMP}/chapter-"chapter
+  if (curfile) print >> curfile
 }
 END {
   system ("cat ${TMP}/chapter-*")
@@ -194,6 +196,7 @@ END {
 }
 EOF
 
+  rm -f ${TMP}/chapter-*
   $AWK -f $ACATS_AWK $SUM_FILES
   exit 0
 fi
@@ -270,6 +273,7 @@ BEGIN {
   expfileno=1
   cnt=0
   print_using=0
+  need_close=0
 }
 /^EXPFILE: / {
   expfiles[expfileno] = \$2
@@ -287,13 +291,15 @@ BEGIN {
 /^Running / {
   print_using=0
   if (variant == curvar) {
+    if (need_close) close(curfile)
     curfile="${TMP}/list"expfilesr[\$2]
     expfileseen[\$2]=expfileseen[\$2] + 1
+    need_close=0
     testname="00"
     next
   }
 }
-/\===/ { curvar = ""; next }
+/^\t\t=== .* ===$/ { curvar = ""; next }
 /^(PASS|XPASS|FAIL|XFAIL|UNRESOLVED|WARNING|ERROR|UNSUPPORTED|UNTESTED|KFAIL):/ {
   testname=\$2
   # Ugly hack for gfortran.dg/dg.exp
@@ -303,11 +309,12 @@ BEGIN {
 /^$/ { if ("$MODE" == "sum") next }
 { if (variant == curvar && curfile) {
     if ("$MODE" == "sum") {
-      printf "%s %08d|", testname, cnt > curfile
+      printf "%s %08d|", testname, cnt >> curfile
       cnt = cnt + 1
     }
     filewritten[curfile]=1
-    print > curfile
+    need_close=1
+    print >> curfile
   } else
     next
 }
@@ -358,8 +365,8 @@ BEGIN {
 END {
   printf ("\t\t=== %s Summary for %s ===\n\n", tool, variant)
   if (passcnt != 0) printf ("# of expected passes\t\t%d\n", passcnt)
-  if (xpasscnt != 0) printf ("# of unexpected successes\t%d\n", xpasscnt)
   if (failcnt != 0) printf ("# of unexpected failures\t%d\n", failcnt)
+  if (xpasscnt != 0) printf ("# of unexpected successes\t%d\n", xpasscnt)
   if (xfailcnt != 0) printf ("# of expected failures\t\t%d\n", xfailcnt)
   if (untstcnt != 0) printf ("# of untested testcases\t\t%d\n", untstcnt)
   if (unrescnt != 0) printf ("# of unresolved testcases\t%d\n", unrescnt)
@@ -411,6 +418,6 @@ cat ${TMP}/var-* | $AWK -f $TOTAL_AWK
 # This is ugly, but if there's version output from the compiler under test
 # at the end of the file, we want it.  The other thing that might be there
 # is the final summary counts.
-tail -n 2 $FIRST_SUM | grep -q '^#' || tail -n 2 $FIRST_SUM
+tail -2 $FIRST_SUM | grep -q '^#' || tail -2 $FIRST_SUM
 
 exit 0

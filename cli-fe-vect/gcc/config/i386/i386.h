@@ -1,6 +1,6 @@
 /* Definitions of target machine for GCC for IA-32.
    Copyright (C) 1988, 1992, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
+   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -54,18 +54,22 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define TARGET_AVX	OPTION_ISA_AVX
 #define TARGET_FMA	OPTION_ISA_FMA
 #define TARGET_SSE4A	OPTION_ISA_SSE4A
-#define TARGET_SSE5	OPTION_ISA_SSE5
+#define TARGET_FMA4	OPTION_ISA_FMA4
+#define TARGET_XOP	OPTION_ISA_XOP
+#define TARGET_LWP	OPTION_ISA_LWP
 #define TARGET_ROUND	OPTION_ISA_ROUND
 #define TARGET_ABM	OPTION_ISA_ABM
 #define TARGET_POPCNT	OPTION_ISA_POPCNT
 #define TARGET_SAHF	OPTION_ISA_SAHF
+#define TARGET_MOVBE	OPTION_ISA_MOVBE
+#define TARGET_CRC32	OPTION_ISA_CRC32
 #define TARGET_AES	OPTION_ISA_AES
 #define TARGET_PCLMUL	OPTION_ISA_PCLMUL
 #define TARGET_CMPXCHG16B OPTION_ISA_CX16
 
 
-/* SSE5 and SSE4.1 define the same round instructions */
-#define	OPTION_MASK_ISA_ROUND	(OPTION_MASK_ISA_SSE4_1 | OPTION_MASK_ISA_SSE5)
+/* SSE4.1 defines round instructions */
+#define	OPTION_MASK_ISA_ROUND	OPTION_MASK_ISA_SSE4_1
 #define	OPTION_ISA_ROUND	((ix86_isa_flags & OPTION_MASK_ISA_ROUND) != 0)
 
 #include "config/vxworks-dummy.h"
@@ -425,7 +429,7 @@ extern int x86_prefetch_sse;
 #define TARGET_GNU_TLS		(ix86_tls_dialect == TLS_DIALECT_GNU)
 #define TARGET_GNU2_TLS		(ix86_tls_dialect == TLS_DIALECT_GNU2)
 #define TARGET_ANY_GNU_TLS	(TARGET_GNU_TLS || TARGET_GNU2_TLS)
-#define TARGET_SUN_TLS		(ix86_tls_dialect == TLS_DIALECT_SUN)
+#define TARGET_SUN_TLS		0
 
 extern int ix86_isa_flags;
 
@@ -540,6 +544,8 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 %<mcpu=* \
 %{mintel-syntax:-masm=intel \
 %n`-mintel-syntax' is deprecated. Use `-masm=intel' instead.\n} \
+%{msse5:-mavx \
+%n'-msse5' was removed.\n} \
 %{mno-intel-syntax:-masm=att \
 %n`-mno-intel-syntax' is deprecated. Use `-masm=att' instead.\n}"
 
@@ -700,9 +706,7 @@ enum target_cpu_default
    generate an alternate prologue and epilogue that realigns the
    runtime stack if nessary.  This supports mixing codes that keep a
    4-byte aligned stack, as specified by i386 psABI, with codes that
-   need a 16-byte aligned stack, as required by SSE instructions.  If
-   STACK_REALIGN_DEFAULT is 1 and PREFERRED_STACK_BOUNDARY_DEFAULT is
-   128, stacks for all functions may be realigned.  */
+   need a 16-byte aligned stack, as required by SSE instructions.  */
 #define STACK_REALIGN_DEFAULT 0
 
 /* Boundary (in *bits*) on which the incoming stack is aligned.  */
@@ -829,6 +833,15 @@ enum target_cpu_default
 #define LOCAL_DECL_ALIGNMENT(DECL) \
   ix86_local_alignment ((DECL), VOIDmode, DECL_ALIGN (DECL))
 
+/* If defined, a C expression to compute the minimum required alignment
+   for dynamic stack realignment purposes for EXP (a TYPE or DECL),
+   MODE, assuming normal alignment ALIGN.
+
+   If this macro is not defined, then (ALIGN) will be used.  */
+
+#define MINIMUM_ALIGNMENT(EXP, MODE, ALIGN) \
+  ix86_minimum_alignment (EXP, MODE, ALIGN)
+
 
 /* If defined, a C expression that gives the alignment boundary, in
    bits, of an argument with the specified mode and type.  If it is
@@ -857,6 +870,9 @@ enum target_cpu_default
   (((MODE) == SFmode && (!TARGET_SSE || !TARGET_SSE_MATH))	\
    || ((MODE) == DFmode && (!TARGET_SSE2 || !TARGET_SSE_MATH))  \
    || (MODE) == XFmode)
+
+/* Cover class containing the stack registers.  */
+#define STACK_REG_COVER_CLASS FLOAT_REGS
 
 /* Number of actual hardware registers.
    The hardware registers are assigned numbers for the compiler
@@ -958,52 +974,7 @@ enum target_cpu_default
 #define OVERRIDE_ABI_FORMAT(FNDECL) ix86_call_abi_override (FNDECL)
 
 /* Macro to conditionally modify fixed_regs/call_used_regs.  */
-#define CONDITIONAL_REGISTER_USAGE					\
-do {									\
-    int i;								\
-    unsigned int j;							\
-    for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)				\
-      {									\
-	if (fixed_regs[i] > 1)						\
-	  fixed_regs[i] = (fixed_regs[i] == (TARGET_64BIT ? 3 : 2));	\
-	if (call_used_regs[i] > 1)					\
-	  call_used_regs[i] = (call_used_regs[i]			\
-			       == (TARGET_64BIT ? 3 : 2));		\
-      }									\
-    j = PIC_OFFSET_TABLE_REGNUM;					\
-    if (j != INVALID_REGNUM)						\
-      fixed_regs[j] = call_used_regs[j] = 1;				\
-    if (TARGET_64BIT							\
-	&& ((cfun && cfun->machine->call_abi == MS_ABI)			\
-	    || (!cfun && ix86_abi == MS_ABI)))				\
-      {									\
-	call_used_regs[SI_REG] = 0;					\
-	call_used_regs[DI_REG] = 0;					\
-	call_used_regs[XMM6_REG] = 0;					\
-	call_used_regs[XMM7_REG] = 0;					\
-	for (i = FIRST_REX_SSE_REG; i <= LAST_REX_SSE_REG; i++)		\
-	  call_used_regs[i] = 0;					\
-      }									\
-    if (! TARGET_MMX)							\
-      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)			\
-	if (TEST_HARD_REG_BIT (reg_class_contents[(int)MMX_REGS], i))	\
-	  fixed_regs[i] = call_used_regs[i] = 1, reg_names[i] = "";	\
-    if (! TARGET_SSE)							\
-      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)			\
-	if (TEST_HARD_REG_BIT (reg_class_contents[(int)SSE_REGS], i))	\
-	  fixed_regs[i] = call_used_regs[i] = 1, reg_names[i] = "";	\
-    if (! (TARGET_80387 || TARGET_FLOAT_RETURNS_IN_80387))		\
-      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)			\
-	if (TEST_HARD_REG_BIT (reg_class_contents[(int)FLOAT_REGS], i))	\
-	  fixed_regs[i] = call_used_regs[i] = 1, reg_names[i] = "";	\
-    if (! TARGET_64BIT)							\
-      {									\
-	for (i = FIRST_REX_INT_REG; i <= LAST_REX_INT_REG; i++)		\
-	  reg_names[i] = "";						\
-	for (i = FIRST_REX_SSE_REG; i <= LAST_REX_SSE_REG; i++)		\
-	  reg_names[i] = "";						\
-      }									\
-  } while (0)
+#define CONDITIONAL_REGISTER_USAGE  ix86_conditional_register_usage ()
 
 /* Return number of consecutive hard regs needed starting at reg REGNO
    to hold something of mode MODE.
@@ -1042,7 +1013,8 @@ do {									\
    || (MODE) == V2DImode || (MODE) == DFmode)
 
 #define VALID_SSE_REG_MODE(MODE)					\
-  ((MODE) == TImode || (MODE) == V4SFmode || (MODE) == V4SImode		\
+  ((MODE) == V1TImode || (MODE) == TImode				\
+   || (MODE) == V4SFmode || (MODE) == V4SImode				\
    || (MODE) == SFmode || (MODE) == TFmode)
 
 #define VALID_MMX_REG_MODE_3DNOW(MODE) \
@@ -1080,11 +1052,11 @@ do {									\
 
 /* Return true for modes passed in SSE registers.  */
 #define SSE_REG_MODE_P(MODE)						\
-  ((MODE) == TImode || (MODE) == V16QImode || (MODE) == TFmode		\
-   || (MODE) == V8HImode || (MODE) == V2DFmode || (MODE) == V2DImode	\
-   || (MODE) == V4SFmode || (MODE) == V4SImode || (MODE) == V32QImode	\
-   || (MODE) == V16HImode || (MODE) == V8SImode || (MODE) == V4DImode	\
-   || (MODE) == V8SFmode || (MODE) == V4DFmode)
+  ((MODE) == V1TImode || (MODE) == TImode || (MODE) == V16QImode	\
+   || (MODE) == TFmode || (MODE) == V8HImode || (MODE) == V2DFmode	\
+   || (MODE) == V2DImode || (MODE) == V4SFmode || (MODE) == V4SImode	\
+   || (MODE) == V32QImode || (MODE) == V16HImode || (MODE) == V8SImode	\
+   || (MODE) == V4DImode || (MODE) == V8SFmode || (MODE) == V4DFmode)
 
 /* Value is 1 if hard register REGNO can hold a value of machine-mode MODE.  */
 
@@ -1150,12 +1122,6 @@ do {									\
 #define FIRST_REX_SSE_REG  (LAST_REX_INT_REG + 1)
 #define LAST_REX_SSE_REG   (FIRST_REX_SSE_REG + 7)
 
-/* Value should be nonzero if functions must have frame pointers.
-   Zero means the frame pointer need not be set up (and parms
-   may be accessed via the stack pointer) in functions that seem suitable.
-   This is computed in `reload', in reload1.c.  */
-#define FRAME_POINTER_REQUIRED  ix86_frame_pointer_required ()
-
 /* Override this in other tm.h files to cope with various OS lossage
    requiring a frame pointer.  */
 #ifndef SUBTARGET_FRAME_POINTER_REQUIRED
@@ -1167,11 +1133,6 @@ do {									\
 
 /* Base register for access to arguments of the function.  */
 #define ARG_POINTER_REGNUM 16
-
-/* Register in which static-chain is passed to a function.
-   We do use ECX as static chain register for 32 bit ABI.  On the
-   64bit ABI, ECX is an argument register, so we use R10 instead.  */
-#define STATIC_CHAIN_REGNUM (TARGET_64BIT ? R10_REG : CX_REG)
 
 /* Register to hold the addressing base for position independent
    code access to data items.  We don't use PIC pointer for 64bit
@@ -1229,6 +1190,7 @@ enum reg_class
   NO_REGS,
   AREG, DREG, CREG, BREG, SIREG, DIREG,
   AD_REGS,			/* %eax/%edx for DImode */
+  CLOBBERED_REGS,		/* call-clobbered integers */
   Q_REGS,			/* %eax %ebx %ecx %edx */
   NON_Q_REGS,			/* %esi %edi %ebp %esp */
   INDEX_REGS,			/* %eax %ebx %ecx %edx %esi %edi %ebp */
@@ -1277,6 +1239,7 @@ enum reg_class
    "AREG", "DREG", "CREG", "BREG",	\
    "SIREG", "DIREG",			\
    "AD_REGS",				\
+   "CLOBBERED_REGS",			\
    "Q_REGS", "NON_Q_REGS",		\
    "INDEX_REGS",			\
    "LEGACY_REGS",			\
@@ -1294,9 +1257,11 @@ enum reg_class
    "FLOAT_INT_SSE_REGS",		\
    "ALL_REGS" }
 
-/* Define which registers fit in which classes.
-   This is an initializer for a vector of HARD_REG_SET
-   of length N_REG_CLASSES.  */
+/* Define which registers fit in which classes.  This is an initializer
+   for a vector of HARD_REG_SET of length N_REG_CLASSES.
+
+   Note that the default setting of CLOBBERED_REGS is for 32-bit; this
+   is adjusted by CONDITIONAL_REGISTER_USAGE for the 64-bit ABI in effect.  */
 
 #define REG_CLASS_CONTENTS						\
 {     { 0x00,     0x0 },						\
@@ -1304,6 +1269,7 @@ enum reg_class
       { 0x04,     0x0 }, { 0x08, 0x0 },	/* CREG, BREG */		\
       { 0x10,     0x0 }, { 0x20, 0x0 },	/* SIREG, DIREG */		\
       { 0x03,     0x0 },		/* AD_REGS */			\
+      { 0x07,     0x0 },		/* CLOBBERED_REGS */		\
       { 0x0f,     0x0 },		/* Q_REGS */			\
   { 0x1100f0,  0x1fe0 },		/* NON_Q_REGS */		\
       { 0x7f,  0x1fe0 },		/* INDEX_REGS */		\
@@ -1321,19 +1287,6 @@ enum reg_class
 { 0x1fe100ff,0x1fffe0 },		/* INT_SSE_REGS */		\
 { 0x1fe1ffff,0x1fffe0 },		/* FLOAT_INT_SSE_REGS */	\
 { 0xffffffff,0x1fffff }							\
-}
-
-/* The following macro defines cover classes for Integrated Register
-   Allocator.  Cover classes is a set of non-intersected register
-   classes covering all hard registers used for register allocation
-   purpose.  Any move between two registers of a cover class should be
-   cheaper than load or store of the registers.  The macro value is
-   array of register classes with LIM_REG_CLASSES used as the end
-   marker.  */
-
-#define IRA_COVER_CLASSES						     \
-{									     \
-  GENERAL_REGS, FLOAT_REGS, MMX_REGS, SSE_REGS, LIM_REG_CLASSES		     \
 }
 
 /* The same information, inverted:
@@ -1399,6 +1352,10 @@ enum reg_class
 
 #define AVX_VEC_FLOAT_MODE_P(MODE) \
   (TARGET_AVX && ((MODE) == V4SFmode || (MODE) == V2DFmode \
+		  || (MODE) == V8SFmode || (MODE) == V4DFmode))
+
+#define FMA4_VEC_FLOAT_MODE_P(MODE) \
+  (TARGET_FMA4 && ((MODE) == V4SFmode || (MODE) == V2DFmode \
 		  || (MODE) == V8SFmode || (MODE) == V4DFmode))
 
 #define MMX_REG_P(XOP) (REG_P (XOP) && MMX_REGNO_P (REGNO (XOP)))
@@ -1496,6 +1453,7 @@ enum reg_class
    || ((CLASS) == AD_REGS)						\
    || ((CLASS) == SIREG)						\
    || ((CLASS) == DIREG)						\
+   || ((CLASS) == SSE_FIRST_REG)					\
    || ((CLASS) == FP_TOP_REG)						\
    || ((CLASS) == FP_SECOND_REG))
 
@@ -1669,9 +1627,6 @@ typedef struct ix86_args {
 #define FUNCTION_ARG(CUM, MODE, TYPE, NAMED) \
   function_arg (&(CUM), (MODE), (TYPE), (NAMED))
 
-#define TARGET_ASM_FILE_END ix86_file_end
-#define NEED_INDICATE_EXEC_STACK 0
-
 /* Output assembler code to FILE to increment profiler label # LABELNO
    for profiling a function entry.  */
 
@@ -1703,14 +1658,7 @@ typedef struct ix86_args {
 
 /* Length in units of the trampoline for entering a nested function.  */
 
-#define TRAMPOLINE_SIZE (TARGET_64BIT ? 23 : 10)
-
-/* Emit RTL insns to initialize the variable parts of a trampoline.
-   FNADDR is an RTX for the address of the function's pure code.
-   CXT is an RTX for the static chain value for the function.  */
-
-#define INITIALIZE_TRAMPOLINE(TRAMP, FNADDR, CXT) \
-  x86_initialize_trampoline ((TRAMP), (FNADDR), (CXT))
+#define TRAMPOLINE_SIZE (TARGET_64BIT ? 24 : 10)
 
 /* Definitions for register eliminations.
 
@@ -1730,11 +1678,6 @@ typedef struct ix86_args {
  { ARG_POINTER_REGNUM, HARD_FRAME_POINTER_REGNUM},	\
  { FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM},		\
  { FRAME_POINTER_REGNUM, HARD_FRAME_POINTER_REGNUM}}	\
-
-/* Given FROM and TO register numbers, say whether this elimination is
-   allowed.   */
-
-#define CAN_ELIMINATE(FROM, TO) ix86_can_eliminate ((FROM), (TO))
 
 /* Define the offset between two registers, one to be eliminated, and the other
    its replacement, at the start of a routine.  */
@@ -1803,12 +1746,12 @@ typedef struct ix86_args {
 #define REG_OK_FOR_BASE_P(X)   REG_OK_FOR_BASE_STRICT_P (X)
 #endif
 
-/* GO_IF_LEGITIMATE_ADDRESS recognizes an RTL expression
+/* TARGET_LEGITIMATE_ADDRESS_P recognizes an RTL expression
    that is a valid memory address for an instruction.
    The MODE argument is the machine mode for the MEM expression
    that wants to use this address.
 
-   The other macros defined here are used only in GO_IF_LEGITIMATE_ADDRESS,
+   The other macros defined here are used only in TARGET_LEGITIMATE_ADDRESS_P,
    except for CONSTANT_ADDRESS_P which is usually machine-independent.
 
    See legitimize_pic_address in i386.c for details as to what
@@ -1823,22 +1766,6 @@ typedef struct ix86_args {
 
 #define LEGITIMATE_CONSTANT_P(X)  legitimate_constant_p (X)
 
-#ifdef REG_OK_STRICT
-#define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)				\
-do {									\
-  if (legitimate_address_p ((MODE), (X), 1))				\
-    goto ADDR;								\
-} while (0)
-
-#else
-#define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)				\
-do {									\
-  if (legitimate_address_p ((MODE), (X), 0))				\
-    goto ADDR;								\
-} while (0)
-
-#endif
-
 /* If defined, a C expression to determine the base term of address X.
    This macro is used in only one place: `find_base_term' in alias.c.
 
@@ -1849,34 +1776,6 @@ do {									\
    a label_ref or symbol_ref within an UNSPEC.  */
 
 #define FIND_BASE_TERM(X) ix86_find_base_term (X)
-
-/* Try machine-dependent ways of modifying an illegitimate address
-   to be legitimate.  If we find one, return the new, valid address.
-   This macro is used in only one place: `memory_address' in explow.c.
-
-   OLDX is the address as it was before break_out_memory_refs was called.
-   In some cases it is useful to look at this to decide what needs to be done.
-
-   MODE and WIN are passed so that this macro can use
-   GO_IF_LEGITIMATE_ADDRESS.
-
-   It is always safe for this macro to do nothing.  It exists to recognize
-   opportunities to optimize the output.
-
-   For the 80386, we handle X+REG by loading X into a register R and
-   using R+REG.  R will go in a general reg and indexing will be used.
-   However, if REG is a broken-out memory address or multiplication,
-   nothing needs to be done because REG can certainly go in a general reg.
-
-   When -fpic is used, special handling is needed for symbolic references.
-   See comments by legitimize_pic_address in i386.c for details.  */
-
-#define LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN)				\
-do {									\
-  (X) = legitimize_address ((X), (OLDX), (MODE));			\
-  if (memory_address_p ((MODE), (X)))					\
-    goto WIN;								\
-} while (0)
 
 /* Nonzero if the constant value X is a legitimate general operand
    when generating PIC code.  It is given that flag_pic is on and
@@ -1896,20 +1795,22 @@ do {									\
 
 /* Abi specific values for REGPARM_MAX and SSE_REGPARM_MAX */
 #define X86_64_REGPARM_MAX 6
-#define X64_REGPARM_MAX 4
+#define X86_64_MS_REGPARM_MAX 4
+
 #define X86_32_REGPARM_MAX 3
 
-#define X86_64_SSE_REGPARM_MAX 8
-#define X64_SSE_REGPARM_MAX 4
-#define X86_32_SSE_REGPARM_MAX (TARGET_SSE ? 3 : 0)
-
 #define REGPARM_MAX							\
-  (TARGET_64BIT ? (TARGET_64BIT_MS_ABI ? X64_REGPARM_MAX		\
+  (TARGET_64BIT ? (TARGET_64BIT_MS_ABI ? X86_64_MS_REGPARM_MAX		\
 		   : X86_64_REGPARM_MAX)				\
    : X86_32_REGPARM_MAX)
 
+#define X86_64_SSE_REGPARM_MAX 8
+#define X86_64_MS_SSE_REGPARM_MAX 4
+
+#define X86_32_SSE_REGPARM_MAX (TARGET_SSE ? (TARGET_MACHO ? 4 : 3) : 0)
+
 #define SSE_REGPARM_MAX							\
-  (TARGET_64BIT ? (TARGET_64BIT_MS_ABI ? X64_SSE_REGPARM_MAX		\
+  (TARGET_64BIT ? (TARGET_64BIT_MS_ABI ? X86_64_MS_SSE_REGPARM_MAX	\
 		   : X86_64_SSE_REGPARM_MAX)				\
    : X86_32_SSE_REGPARM_MAX)
 
@@ -2219,6 +2120,22 @@ do {									\
 #define ASM_OUTPUT_OPCODE(STREAM, PTR) \
   ASM_OUTPUT_AVX_PREFIX ((STREAM), (PTR))
 
+/* A C statement to output to the stdio stream FILE an assembler
+   command to pad the location counter to a multiple of 1<<LOG
+   bytes if it is within MAX_SKIP bytes.  */
+
+#ifdef HAVE_GAS_MAX_SKIP_P2ALIGN
+#undef  ASM_OUTPUT_MAX_SKIP_PAD
+#define ASM_OUTPUT_MAX_SKIP_PAD(FILE, LOG, MAX_SKIP)			\
+  if ((LOG) != 0)							\
+    {									\
+      if ((MAX_SKIP) == 0)						\
+        fprintf ((FILE), "\t.p2align %d\n", (LOG));			\
+      else								\
+        fprintf ((FILE), "\t.p2align %d,,%d\n", (LOG), (MAX_SKIP));	\
+    }
+#endif
+
 /* Under some conditions we need jump tables in the text section,
    because the assembler cannot handle label differences between
    sections.  This is the case for x86_64 on Mach-O for example.  */
@@ -2331,6 +2248,12 @@ extern enum reg_class const regclass_map[FIRST_PSEUDO_REGISTER];
 
 extern rtx ix86_compare_op0;	/* operand 0 for comparisons */
 extern rtx ix86_compare_op1;	/* operand 1 for comparisons */
+
+enum ix86_fpcmp_strategy {
+  IX86_FPCMP_SAHF,
+  IX86_FPCMP_COMI,
+  IX86_FPCMP_ARITH
+};
 
 /* To properly truncate FP values into integers, we need to set i387 control
    word.  We can't emit proper mode switching code before reload, as spills
@@ -2420,20 +2343,43 @@ enum ix86_stack_slot
 
 #define FASTCALL_PREFIX '@'
 
+/* Machine specific CFA tracking during prologue/epilogue generation.  */
+
+#ifndef USED_FOR_TARGET
+struct GTY(()) machine_cfa_state
+{
+  rtx reg;
+  HOST_WIDE_INT offset;
+};
+
 struct GTY(()) machine_function {
   struct stack_local_entry *stack_locals;
   const char *some_ld_name;
   int varargs_gpr_size;
   int varargs_fpr_size;
-  int accesses_prev_frame;
   int optimize_mode_switching[MAX_386_ENTITIES];
-  int needs_cld;
+
+  /* Number of saved registers USE_FAST_PROLOGUE_EPILOGUE
+     has been computed for.  */
+  int use_fast_prologue_epilogue_nregs;
+
+  /* The CFA state at the end of the prologue.  */
+  struct machine_cfa_state cfa;
+
+  /* This value is used for amd64 targets and specifies the current abi
+     to be used. MS_ABI means ms abi. Otherwise SYSV_ABI means sysv abi.  */
+  enum calling_abi call_abi;
+
+  /* Nonzero if the function accesses a previous frame.  */
+  BOOL_BITFIELD accesses_prev_frame : 1;
+
+  /* Nonzero if the function requires a CLD in the prologue.  */
+  BOOL_BITFIELD needs_cld : 1;
+
   /* Set by ix86_compute_frame_layout and used by prologue/epilogue
      expander to determine the style used.  */
-  int use_fast_prologue_epilogue;
-  /* Number of saved registers USE_FAST_PROLOGUE_EPILOGUE has been computed
-     for.  */
-  int use_fast_prologue_epilogue_nregs;
+  BOOL_BITFIELD use_fast_prologue_epilogue : 1;
+
   /* If true, the current function needs the default PIC register, not
      an alternate register (on x86) and must not use the red zone (on
      x86_64), even if it's a leaf function.  We don't want the
@@ -2443,11 +2389,13 @@ struct GTY(()) machine_function {
      if all such instructions are optimized away.  Use the
      ix86_current_function_calls_tls_descriptor macro for a better
      approximation.  */
-  int tls_descriptor_call_expanded_p;
-  /* This value is used for amd64 targets and specifies the current abi
-     to be used. MS_ABI means ms abi. Otherwise SYSV_ABI means sysv abi.  */
-   enum calling_abi call_abi;
+  BOOL_BITFIELD tls_descriptor_call_expanded_p : 1;
+
+  /* If true, the current function has a STATIC_CHAIN is placed on the
+     stack below the return address.  */
+  BOOL_BITFIELD static_chain_on_stack : 1;
 };
+#endif
 
 #define ix86_stack_locals (cfun->machine->stack_locals)
 #define ix86_varargs_gpr_size (cfun->machine->varargs_gpr_size)
@@ -2463,6 +2411,8 @@ struct GTY(()) machine_function {
    REG_SP is live.  */
 #define ix86_current_function_calls_tls_descriptor \
   (ix86_tls_descriptor_calls_expanded_in_cfun && df_regs_ever_live_p (SP_REG))
+#define ix86_cfa_state (&cfun->machine->cfa)
+#define ix86_static_chain_on_stack (cfun->machine->static_chain_on_stack)
 
 /* Control behavior of x86_file_start.  */
 #define X86_FILE_START_VERSION_DIRECTIVE false

@@ -24,7 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "tree.h"
 #include "hashtab.h"
-#include "varray.h"
+#include "vecprim.h"
 
 /* Stack of pending (incomplete) sequences saved by `start_sequence'.
    Each element describes one pending sequence.
@@ -64,6 +64,10 @@ struct GTY(()) emit_status {
      Reset to 1 for each function compiled.  */
   int x_cur_insn_uid;
 
+  /* INSN_UID for next debug insn emitted.  Only used if
+     --param min-nondebug-insn-uid=<value> is given with nonzero value.  */
+  int x_cur_debug_insn_uid;
+
   /* Location the last line-number NOTE emitted.
      This is used to avoid generating duplicates.  */
   location_t x_last_location;
@@ -82,7 +86,7 @@ struct GTY(()) emit_status {
 
 
 /* Indexed by pseudo register number, gives the rtx for that pseudo.
-   Allocated in parallel with regno_pointer_align.  
+   Allocated in parallel with regno_pointer_align.
    FIXME: We could put it into emit_status struct, but gengtype is not able to deal
    with length attribute nested in top level structures.  */
 
@@ -134,17 +138,12 @@ struct GTY(()) expr_status {
   rtx x_forced_labels;
 };
 
-typedef struct call_site_record *call_site_record;
+typedef struct call_site_record_d *call_site_record;
 DEF_VEC_P(call_site_record);
 DEF_VEC_ALLOC_P(call_site_record, gc);
 
 /* RTL representation of exception handling.  */
 struct GTY(()) rtl_eh {
-  rtx filter;
-  rtx exc_ptr;
-
-  int built_landing_pads;
-
   rtx ehr_stackadj;
   rtx ehr_handler;
   rtx ehr_label;
@@ -152,11 +151,9 @@ struct GTY(()) rtl_eh {
   rtx sjlj_fc;
   rtx sjlj_exit_after;
 
-  VEC(tree,gc) *ttype_data;
-  varray_type ehspec_data;
-  varray_type action_record_data;
+  VEC(uchar,gc) *action_record_data;
 
-  VEC(call_site_record,gc) *call_site_record;
+  VEC(call_site_record,gc) *call_site_record[2];
 };
 
 #define pending_stack_adjust (crtl->expr.x_pending_stack_adjust)
@@ -169,12 +166,12 @@ struct GTY(()) rtl_eh {
 struct gimple_df;
 struct temp_slot;
 typedef struct temp_slot *temp_slot_p;
-struct call_site_record;
+struct call_site_record_d;
 
 DEF_VEC_P(temp_slot_p);
 DEF_VEC_ALLOC_P(temp_slot_p,gc);
-struct ipa_opt_pass;
-typedef struct ipa_opt_pass *ipa_opt_pass;
+struct ipa_opt_pass_d;
+typedef struct ipa_opt_pass_d *ipa_opt_pass;
 
 DEF_VEC_P(ipa_opt_pass);
 DEF_VEC_ALLOC_P(ipa_opt_pass,heap);
@@ -338,7 +335,7 @@ struct GTY(()) rtl_data {
   /* The stack alignment estimated before reload, with consideration of
      following factors:
      1. Alignment of local stack variables (max_used_stack_slot_alignment)
-     2. Alignment requirement to call other functions 
+     2. Alignment requirement to call other functions
         (preferred_stack_boundary)
      3. Alignment of non-local stack variables but might be spilled in
         local stack.  */
@@ -364,7 +361,7 @@ struct GTY(()) rtl_data {
   /* Nonzero if function being compiled has nonlocal gotos to parent
      function.  */
   bool has_nonlocal_goto;
-  
+
   /* Nonzero if function being compiled has an asm statement.  */
   bool has_asm_statement;
 
@@ -491,7 +488,7 @@ struct GTY(()) function {
   tree static_chain_decl;
 
   /* An expression that contains the non-local goto save area.  The first
-     word is the saved frame pointer and the second is the saved stack 
+     word is the saved frame pointer and the second is the saved stack
      pointer.  */
   tree nonlocal_goto_save_area;
 
@@ -524,10 +521,11 @@ struct GTY(()) function {
   /* Properties used by the pass manager.  */
   unsigned int curr_properties;
   unsigned int last_verified;
-  /* Interprocedural passes scheduled to have their transform functions
-     applied next time we execute local pass on them.  We maintain it
-     per-function in order to allow IPA passes to introduce new functions.  */
-  VEC(ipa_opt_pass,heap) * GTY((skip)) ipa_transforms_to_apply;
+
+  /* Non-null if the function does something that would prevent it from
+     being copied; this applies to both versioning and inlining.  Set to
+     a string describing the reason for failure.  */
+  const char * GTY((skip)) cannot_be_copied_reason;
 
   /* Collected bit flags.  */
 
@@ -539,7 +537,6 @@ struct GTY(()) function {
   /* Number of units of floating point registers that need saving in stdarg
      function.  */
   unsigned int va_list_fpr_size : 8;
-
 
   /* How commonly executed the function is.  Initialized during branch
      probabilities pass.  */
@@ -555,6 +552,11 @@ struct GTY(()) function {
   /* Nonzero if function being compiled receives nonlocal gotos
      from nested functions.  */
   unsigned int has_nonlocal_label : 1;
+
+  /* Nonzero if we've set cannot_be_copied_reason.  I.e. if
+     (cannot_be_copied_set && !cannot_be_copied_reason), the function
+     can in fact be copied.  */
+  unsigned int cannot_be_copied_set : 1;
 
   /* Nonzero if current function uses stdarg.h or equivalent.  */
   unsigned int stdarg : 1;
@@ -614,6 +616,28 @@ extern int virtuals_instantiated;
 
 /* Nonzero if at least one trampoline has been created.  */
 extern int trampolines_created;
+
+struct GTY(()) types_used_by_vars_entry {
+  tree type;
+  tree var_decl;
+};
+
+/* Hash table making the relationship between a global variable
+   and the types it references in its initializer. The key of the
+   entry is a referenced type, and the value is the DECL of the global
+   variable. types_use_by_vars_do_hash and types_used_by_vars_eq below are
+   the hash and equality functions to use for this hash table.  */
+extern GTY((param_is (struct types_used_by_vars_entry))) htab_t
+  types_used_by_vars_hash;
+
+hashval_t types_used_by_vars_do_hash (const void*);
+int types_used_by_vars_eq (const void *, const void *);
+void types_used_by_var_decl_insert (tree type, tree var_decl);
+
+/* During parsing of a global variable, this linked list points to
+   the list of types referenced by the global variable.  */
+extern GTY(()) tree types_used_by_cur_var_decl;
+
 
 /* cfun shouldn't be set directly; use one of these functions instead.  */
 extern void set_cfun (struct function *new_cfun);
