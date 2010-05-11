@@ -1,3 +1,38 @@
+2010-05-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_override_options): Delete
+	setting default TARGET_RECIP.
+	(rs6000_expand_builtin): Use a switch statement rather than
+	repeated ifs.
+	(rs6000_init_builtins): Be more detailed on which platforms
+	support fre, fres, frsqrte, frsqrtes instrucitons to enable the
+	builtins.
+	(rs6000_builtin_reciprocal): Use TARGET_OPT_ESTIMATE instead of
+	separate tests.
+
+	* config/rs6000/vsx.md (vsx_copysignsf3): New insn to optimize
+	scalar copysignf on VSX.
+
+	* config/rs6000/rs6000.h (TARGET_FRES): New macro to specify which
+	targets support the various reciprocal estimate instructions.
+	(TARGET_FRE): Ditto.
+	(TARGET_RSQRTF): Ditto.
+	(TARGET_RSQRT): Ditto.
+	(TARGET_OPT_ESTIMATE): New macro to say when we want to
+	automatically use the reciprocal estimate instructions.
+
+	* config/rs6000/rs6000.md (FP2): Delete, no longer used.
+	(recipsf3): Use new TARGET_* macros for condition.
+	(fres): Ditto.
+	(rsqrtsf_internal1): Ditto.
+	(rsqrtdf_internal1): Ditto.
+	(fred_fpr): Ditto.
+	(rsqrt<mode>2): Delete.
+	(rsqrtsf2): New define expand for reciprocal sqrt.
+	(rsqrtdf2): Ditto.
+	(copysignsf3): If we are on VSX, know that we can use xscpgndp.
+	(fred): Delete unused expander.
+
 2010-05-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Recreate branch from subversion id 159235.

@@ -543,6 +543,32 @@ extern int rs6000_vector_align[];
 /* E500 processors only support plain "sync", not lwsync.  */
 #define TARGET_NO_LWSYNC TARGET_E500
 
+/* Which machine supports the various reciprocal estimate instructions.  */
+#define TARGET_FRES	(TARGET_HARD_FLOAT && TARGET_PPC_GFXOPT \
+			 && TARGET_FPRS && TARGET_SINGLE_FLOAT)
+
+#define TARGET_FRE	(TARGET_HARD_FLOAT && TARGET_POPCNTB \
+			 && TARGET_FPRS && TARGET_DOUBLE_FLOAT)
+
+#define TARGET_RSQRTF	(TARGET_HARD_FLOAT && TARGET_POPCNTB \
+			 && TARGET_FPRS && TARGET_SINGLE_FLOAT)
+
+#define TARGET_RSQRT	(TARGET_HARD_FLOAT && TARGET_PPC_GFXOPT \
+			 && TARGET_FPRS && TARGET_DOUBLE_FLOAT)
+
+/* Whether we should automatically use the reciprocal estimate instructions.
+   TARGET_RECIP is -1 if the user did not specify -mrecip or -mno-recip.  On
+   older machines, RSQRT seems to not generate an accurate enough estimate that
+   even 3 passes won't give an accurate value within 2 bits of precision.  */
+#define TARGET_OPT_ESTIMATE	((TARGET_RECIP > 0			\
+				  || (TARGET_RECIP < 0			\
+				      && optimize >= 3))		\
+				 && TARGET_FUSED_MADD			\
+				 && !optimize_insn_for_size_p ()	\
+				 && flag_finite_math_only		\
+				 && !flag_trapping_math			\
+				 && flag_reciprocal_math)
+
 /* Sometimes certain combinations of command options do not make sense
    on a particular target machine.  You can define a macro
    `OVERRIDE_OPTIONS' to take account of this.  This macro, if

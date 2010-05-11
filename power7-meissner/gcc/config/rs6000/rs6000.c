@@ -2906,13 +2906,6 @@ rs6000_override_options (const char *default_cpu)
      the DERAT mispredict penalty.  */
     TARGET_AVOID_XFORM = (rs6000_cpu == PROCESSOR_POWER6 && TARGET_CMPB);
 
-  /* If -mrecip was not passed, only set it to true at high optimization levels
-     with -ffast-math and if machine supports a high precision rsqrte instruction.  */
-  if (TARGET_RECIP < 0)
-    TARGET_RECIP = (optimize >= 3 && TARGET_HARD_FLOAT && TARGET_PPC_GFXOPT
-		    && !optimize_size && flag_finite_math_only
-		    && !flag_trapping_math && flag_reciprocal_math);
-
   rs6000_init_hard_regno_mode_ok ();
 }
 
@@ -11032,76 +11025,85 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
   rtx ret;
   bool success;
 
-  if (fcode == RS6000_BUILTIN_RECIP)
+  switch (fcode)
+    {
+    case RS6000_BUILTIN_RECIP:
       return rs6000_expand_binop_builtin (CODE_FOR_recipdf3, exp, target);
 
-  if (fcode == RS6000_BUILTIN_RECIPF)
+    case RS6000_BUILTIN_RECIPF:
       return rs6000_expand_binop_builtin (CODE_FOR_recipsf3, exp, target);
 
-  if (fcode == RS6000_BUILTIN_RSQRTF)
+    case RS6000_BUILTIN_RSQRTF:
       return rs6000_expand_unop_builtin (CODE_FOR_rsqrtsf2, exp, target);
 
-  if (fcode == RS6000_BUILTIN_RSQRT)
+    case RS6000_BUILTIN_RSQRT:
       return rs6000_expand_unop_builtin (CODE_FOR_rsqrtdf2, exp, target);
 
-  if (fcode == RS6000_BUILTIN_BSWAP_HI)
-    return rs6000_expand_unop_builtin (CODE_FOR_bswaphi2, exp, target);
+    case RS6000_BUILTIN_BSWAP_HI:
+      return rs6000_expand_unop_builtin (CODE_FOR_bswaphi2, exp, target);
 
-  if (fcode == POWER7_BUILTIN_BPERMD)
-    return rs6000_expand_binop_builtin (((TARGET_64BIT)
-					 ? CODE_FOR_bpermd_di
-					 : CODE_FOR_bpermd_si), exp, target);
+    case POWER7_BUILTIN_BPERMD:
+      return rs6000_expand_binop_builtin (((TARGET_64BIT)
+					   ? CODE_FOR_bpermd_di
+					   : CODE_FOR_bpermd_si), exp, target);
 
-  if (fcode == ALTIVEC_BUILTIN_MASK_FOR_LOAD
-      || fcode == ALTIVEC_BUILTIN_MASK_FOR_STORE)
-    {
-      int icode = (int) CODE_FOR_altivec_lvsr;
-      enum machine_mode tmode = insn_data[icode].operand[0].mode;
-      enum machine_mode mode = insn_data[icode].operand[1].mode;
-      tree arg;
-      rtx op, addr, pat;
+    case ALTIVEC_BUILTIN_MASK_FOR_LOAD:
+    case ALTIVEC_BUILTIN_MASK_FOR_STORE:
+      {
+	int icode = (int) CODE_FOR_altivec_lvsr;
+	enum machine_mode tmode = insn_data[icode].operand[0].mode;
+	enum machine_mode mode = insn_data[icode].operand[1].mode;
+	tree arg;
+	rtx op, addr, pat;
 
-      gcc_assert (TARGET_ALTIVEC);
+	gcc_assert (TARGET_ALTIVEC);
 
-      arg = CALL_EXPR_ARG (exp, 0);
-      gcc_assert (TREE_CODE (TREE_TYPE (arg)) == POINTER_TYPE);
-      op = expand_expr (arg, NULL_RTX, Pmode, EXPAND_NORMAL);
-      addr = memory_address (mode, op);
-      if (fcode == ALTIVEC_BUILTIN_MASK_FOR_STORE)
-	op = addr;
-      else
-	{
-	  /* For the load case need to negate the address.  */
-	  op = gen_reg_rtx (GET_MODE (addr));
-	  emit_insn (gen_rtx_SET (VOIDmode, op,
-			 gen_rtx_NEG (GET_MODE (addr), addr)));
-	}
-      op = gen_rtx_MEM (mode, op);
+	arg = CALL_EXPR_ARG (exp, 0);
+	gcc_assert (TREE_CODE (TREE_TYPE (arg)) == POINTER_TYPE);
+	op = expand_expr (arg, NULL_RTX, Pmode, EXPAND_NORMAL);
+	addr = memory_address (mode, op);
+	if (fcode == ALTIVEC_BUILTIN_MASK_FOR_STORE)
+	  op = addr;
+	else
+	  {
+	    /* For the load case need to negate the address.  */
+	    op = gen_reg_rtx (GET_MODE (addr));
+	    emit_insn (gen_rtx_SET (VOIDmode, op,
+				    gen_rtx_NEG (GET_MODE (addr), addr)));
+	  }
+	op = gen_rtx_MEM (mode, op);
 
-      if (target == 0
-	  || GET_MODE (target) != tmode
-	  || ! (*insn_data[icode].operand[0].predicate) (target, tmode))
-	target = gen_reg_rtx (tmode);
+	if (target == 0
+	    || GET_MODE (target) != tmode
+	    || ! (*insn_data[icode].operand[0].predicate) (target, tmode))
+	  target = gen_reg_rtx (tmode);
 
-      /*pat = gen_altivec_lvsr (target, op);*/
-      pat = GEN_FCN (icode) (target, op);
-      if (!pat)
-	return 0;
-      emit_insn (pat);
+	/*pat = gen_altivec_lvsr (target, op);*/
+	pat = GEN_FCN (icode) (target, op);
+	if (!pat)
+	  return 0;
+	emit_insn (pat);
 
-      return target;
-    }
+	return target;
+      }
 
+    case ALTIVEC_BUILTIN_VCFUX:
+    case ALTIVEC_BUILTIN_VCFSX:
+    case ALTIVEC_BUILTIN_VCTUXS:
+    case ALTIVEC_BUILTIN_VCTSXS:
   /* FIXME: There's got to be a nicer way to handle this case than
      constructing a new CALL_EXPR.  */
-  if (fcode == ALTIVEC_BUILTIN_VCFUX
-      || fcode == ALTIVEC_BUILTIN_VCFSX
-      || fcode == ALTIVEC_BUILTIN_VCTUXS
-      || fcode == ALTIVEC_BUILTIN_VCTSXS)
-    {
       if (call_expr_nargs (exp) == 1)
-	exp = build_call_nary (TREE_TYPE (exp), CALL_EXPR_FN (exp),
-			       2, CALL_EXPR_ARG (exp, 0), integer_zero_node);
+	{
+	  exp = build_call_nary (TREE_TYPE (exp), CALL_EXPR_FN (exp),
+				 2, CALL_EXPR_ARG (exp, 0), integer_zero_node);
+	  break;
+	}
+      else
+	gcc_unreachable ();
+
+    default:
+      break;
     }
 
   if (TARGET_ALTIVEC)
@@ -11153,6 +11155,7 @@ static void
 rs6000_init_builtins (void)
 {
   tree tdecl;
+  tree ftype;
 
   V2SI_type_node = build_vector_type (intSI_type_node, 2);
   V2SF_type_node = build_vector_type (float_type_node, 2);
@@ -11342,31 +11345,37 @@ rs6000_init_builtins (void)
     altivec_init_builtins ();
   if (TARGET_ALTIVEC || TARGET_SPE || TARGET_PAIRED_FLOAT || TARGET_VSX)
     rs6000_common_init_builtins ();
-  if (TARGET_PPC_GFXOPT)
+  if (TARGET_FRE)
     {
-      tree ftype = builtin_function_type (SFmode, SFmode, SFmode, VOIDmode,
-					  RS6000_BUILTIN_RECIPF,
-					  "__builtin_recipdivf");
-      def_builtin (MASK_PPC_GFXOPT, "__builtin_recipdivf", ftype,
-		   RS6000_BUILTIN_RECIPF);
-
       ftype = builtin_function_type (DFmode, DFmode, DFmode, VOIDmode,
 				     RS6000_BUILTIN_RECIP,
 				     "__builtin_recipdiv");
       def_builtin (MASK_POPCNTB, "__builtin_recipdiv", ftype,
 		   RS6000_BUILTIN_RECIP);
-
+    }
+  if (TARGET_FRES)
+    {
+      ftype = builtin_function_type (SFmode, SFmode, SFmode, VOIDmode,
+				     RS6000_BUILTIN_RECIPF,
+				     "__builtin_recipdivf");
+      def_builtin (MASK_PPC_GFXOPT, "__builtin_recipdivf", ftype,
+		   RS6000_BUILTIN_RECIPF);
+    }
+  if (TARGET_RSQRT)
+    {
+      ftype = builtin_function_type (DFmode, DFmode, VOIDmode, VOIDmode,
+				     RS6000_BUILTIN_RSQRT,
+				     "__builtin_rsqrt");
+      def_builtin (MASK_PPC_GFXOPT, "__builtin_rsqrt", ftype,
+		   RS6000_BUILTIN_RSQRT);
+    }
+  if (TARGET_RSQRTF)
+    {
       ftype = builtin_function_type (SFmode, SFmode, VOIDmode, VOIDmode,
 				     RS6000_BUILTIN_RSQRTF,
 				     "__builtin_rsqrtf");
       def_builtin (MASK_PPC_GFXOPT, "__builtin_rsqrtf", ftype,
 		   RS6000_BUILTIN_RSQRTF);
-
-      ftype = builtin_function_type (DFmode, DFmode, VOIDmode, VOIDmode,
-				     RS6000_BUILTIN_RSQRT,
-					  "__builtin_rsqrt");
-      def_builtin (MASK_PPC_GFXOPT, "__builtin_rsqrt", ftype,
-		   RS6000_BUILTIN_RSQRT);
     }
   if (TARGET_POPCNTD)
     {
@@ -25138,9 +25147,7 @@ static tree
 rs6000_builtin_reciprocal (unsigned int fn, bool md_fn,
 			   bool sqrt ATTRIBUTE_UNUSED)
 {
-  if (! (TARGET_RECIP && TARGET_PPC_GFXOPT && TARGET_FUSED_MADD
-	 && !optimize_size && flag_finite_math_only && !flag_trapping_math
-	 && flag_reciprocal_math && flag_unsafe_math_optimizations))
+  if (!TARGET_OPT_ESTIMATE)
     return NULL_TREE;
 
   if (md_fn)
@@ -25162,9 +25169,10 @@ rs6000_builtin_reciprocal (unsigned int fn, bool md_fn,
       case BUILT_IN_SQRT:
 	/* The older machines double precision reciprocal sqrt estimate just
 	   was not accurate enough.  */
-	return ((TARGET_RECIP_PRECISION)
-		? rs6000_builtin_decls[RS6000_BUILTIN_RSQRT]
-		: NULL_TREE);
+	if (!TARGET_RECIP_PRECISION)
+	  return NULL_TREE;
+
+	return rs6000_builtin_decls[RS6000_BUILTIN_RSQRT];
 
       case BUILT_IN_SQRTF:
 	return rs6000_builtin_decls[RS6000_BUILTIN_RSQRTF];
