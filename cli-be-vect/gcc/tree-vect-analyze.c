@@ -1518,9 +1518,18 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
   base = build_fold_indirect_ref (base_addr);
   alignment = ssize_int (TYPE_ALIGN (vectype)/BITS_PER_UNIT);
 
+  if (vect_print_dump_info (REPORT_ALIGNMENT))
+    {
+      if (LOOP_VINFO_ALIGN_SCHEME (loop_vinfo) == unknown_alignment)
+        fprintf (vect_dump, "alignment scheme: unknown_alignment");
+      else
+        fprintf (vect_dump, "alignment scheme: no forced scheme");
+    }
+
   if ((aligned_to && tree_int_cst_compare (aligned_to, alignment) < 0)
       || !misalign 
-      || LOOP_VINFO_ALIGN_SCHEME (loop_vinfo) == unknown_alignment)
+      || (LOOP_VINFO_ALIGN_SCHEME (loop_vinfo) == unknown_alignment
+          && !flag_bases_aligned))
     {
       if (vect_print_dump_info (REPORT_ALIGNMENT))
 	{
@@ -1528,7 +1537,7 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
 	  print_generic_expr (vect_dump, base, TDF_SLIM);
 	}
 
-      if (!LOOP_VINFO_ALIGN_SCHEME (loop_vinfo))
+      if (!LOOP_VINFO_ALIGN_SCHEME (loop_vinfo) && !flag_bases_aligned)
         {
           VEC_safe_push (data_reference_p, heap, 
                          LOOP_VINFO_DRS_FOR_ALIGN_CHECKS (loop_vinfo), dr);
@@ -1550,7 +1559,8 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
     base_aligned = false;   
 
   if (targetm.vectorize.builtin_can_force_alignment
-      && !targetm.vectorize.builtin_can_force_alignment ())
+      && !targetm.vectorize.builtin_can_force_alignment ()
+      && !flag_bases_aligned)
     {
       base_aligned = false;
       cannot_force_alignment = true;
@@ -1569,7 +1579,7 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
 	      print_generic_expr (vect_dump, ref, TDF_SLIM);
 	    }
 
-          if (!LOOP_VINFO_ALIGN_SCHEME (loop_vinfo))
+          if (!LOOP_VINFO_ALIGN_SCHEME (loop_vinfo) && !flag_bases_aligned)
             {
               VEC_safe_push (data_reference_p, heap,
                              LOOP_VINFO_DRS_FOR_ALIGN_CHECKS (loop_vinfo), dr);

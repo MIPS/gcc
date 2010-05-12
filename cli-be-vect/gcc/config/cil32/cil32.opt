@@ -85,3 +85,8 @@ Enable misaligned loads and stores in the bytecode
 malways-realign
 Target Mask(ALWAYS_REALIGN)
 Always generate software pipeline realignment
+
+mbases-aligned
+Common Report Var(flag_bases_aligned) Optimization
+Assume that all the data ref bases are aligned
+

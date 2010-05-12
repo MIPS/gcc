@@ -9094,7 +9094,7 @@ vect_transform_loop (loop_vec_info loop_vinfo)
     fprintf (vect_dump, "=== vec_transform_loop ===");
 
   if (VEC_length (data_reference_p, LOOP_VINFO_DRS_FOR_ALIGN_CHECKS (loop_vinfo))
-      && !LOOP_VINFO_ALIGN_SCHEME (loop_vinfo))
+      && !LOOP_VINFO_ALIGN_SCHEME (loop_vinfo) && !flag_bases_aligned)
     {
       struct loop *new_loop = vect_loop_versioning (loop_vinfo);
       loop_vec_info new_loop_vinfo = vect_analyze_loop (new_loop, true);

@@ -714,7 +714,7 @@ static tree cil32_builtin_realign_load (tree type)
 
 static bool cil32_builtin_can_force_alignment (void)
 {
-  return false;
+  return flag_bases_aligned;
 }
 
 
