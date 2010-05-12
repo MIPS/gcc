@@ -434,19 +434,29 @@ remove_forwarder_block (basic_block bb)
 	}
     }
 
-  if (seen_abnormal_edge)
+  /* Move nonlocal labels and computed goto targets as well as user
+     defined labels and labels with an EH landing pad number to the
+     new block, so that the redirection of the abnormal edges works,
+     jump targets end up in a sane place and debug information for
+     labels is retained.  */
+  gsi_to = gsi_start_bb (dest);
+  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); )
     {
-      /* Move the labels to the new block, so that the redirection of
-	 the abnormal edges works.  */
-      gsi_to = gsi_start_bb (dest);
-      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); )
+      tree decl;
+      label = gsi_stmt (gsi);
+      if (is_gimple_debug (label))
+	break;
+      decl = gimple_label_label (label);
+      if (seen_abnormal_edge
+	  || DECL_NONLOCAL (decl)
+	  || FORCED_LABEL (decl)
+	  || !DECL_ARTIFICIAL (decl))
 	{
-	  label = gsi_stmt (gsi);
-	  gcc_assert (gimple_code (label) == GIMPLE_LABEL
-		      || is_gimple_debug (label));
 	  gsi_remove (&gsi, false);
 	  gsi_insert_before (&gsi_to, label, GSI_SAME_STMT);
 	}
+      else
+	gsi_next (&gsi);
     }
 
   /* Move debug statements if the destination has just a single

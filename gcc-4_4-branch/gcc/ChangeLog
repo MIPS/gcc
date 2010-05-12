@@ -1,3 +1,9 @@
+2010-01-15  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/42739
+	* tree-cfgcleanup.c (remove_forwarder_block): Move destination
+	labels of computed or non-local gotos to the destination.
+
 2010-05-09  H.J. Lu  <hongjiu.lu@intel.com>
 
 	PR target/44046
