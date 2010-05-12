@@ -1,5 +1,49 @@
 2010-05-12  Jakub Jelinek  <jakub@redhat.com>
 
+	PR middle-end/44085
+	* gimplify.c (enum omp_region_type): Add ORT_UNTIED_TASK,
+	change value of ORT_TASK.
+	(new_omp_context): Handle ORT_UNTIED_TASK like ORT_TASK.
+	(omp_notice_threadprivate_variable): New function.
+	(omp_notice_variable): Call it for threadprivate variables.
+	If enclosing ctx is a task, print enclosing task rather than
+	enclosing parallel.  Handle ORT_UNTIED_TASK like ORT_TASK.
+	(gimplify_omp_task): Pass ORT_UNTIED_TASK instead of ORT_TASK
+	if task has untied clause.
+
+2010-05-07  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	PR documentation/44016
+	* doc/standards.texi (Standards): Link to unversioned
+	cxx0x_status.html page.
+
+2010-05-05  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	Backport from mainline:
+	2010-04-22  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/43744
+	* config/sh/sh.c (find_barrier): Don't emit a constant pool
+	in the middle of insns for casesi_worker_2.
+
+2010-05-05  Jason Merrill  <jason@redhat.com>
+
+	PR debug/43370
+	* c-common.c (handle_aligned_attribute): Respect
+	ATTR_FLAG_TYPE_IN_PLACE.
+
+2010-05-04  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2010-05-04  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR middle-end/43671
+	* alias.c (true_dependence): Handle the same VALUE in x and mem.
+	(canon_true_dependence): Likewise.
+	(write_dependence_p): Likewise.
+
+2010-05-12  Jakub Jelinek  <jakub@redhat.com>
+
 	PR debug/42278
 	* dwarf2out.c (base_type_die): Don't add name attribute here.
 	(modified_type_die): Instead of sizetype use
