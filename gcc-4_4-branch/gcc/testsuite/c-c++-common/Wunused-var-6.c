@@ -1,6 +1,6 @@
 /* PR c/43981 */
 /* { dg-do compile } */
-/* { dg-options "-Wunused" } */
+/* { dg-options "-Wunused -Wunused-but-set-variable" } */
 
 void g (char *);
 

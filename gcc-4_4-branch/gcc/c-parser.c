@@ -5785,7 +5785,13 @@ c_parser_expression (c_parser *parser)
   while (c_parser_next_token_is (parser, CPP_COMMA))
     {
       struct c_expr next;
+      tree lhsval;
       c_parser_consume_token (parser);
+      lhsval = expr.value;
+      while (TREE_CODE (lhsval) == COMPOUND_EXPR)
+	lhsval = TREE_OPERAND (lhsval, 1);
+      if (DECL_P (lhsval) || handled_component_p (lhsval))
+	mark_exp_read (lhsval);
       next = c_parser_expr_no_commas (parser, NULL);
       next = default_function_array_conversion (next);
       expr.value = build_compound_expr (expr.value, next.value);

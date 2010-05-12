@@ -4462,6 +4462,10 @@ extern tree eh_type_info			(tree);
 
 /* in expr.c */
 extern tree cplus_expand_constant		(tree);
+extern tree mark_rvalue_use			(tree);
+extern tree mark_lvalue_use			(tree);
+extern tree mark_type_use			(tree);
+extern void mark_exp_read			(tree);
 
 /* friend.c */
 extern int is_friend				(tree, tree);
