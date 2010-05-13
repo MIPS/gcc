@@ -1,5 +1,9 @@
 2010-05-13  Jakub Jelinek  <jakub@redhat.com>
 
+	PR debug/44104
+	* dwarf2out.c (modified_type_die): Don't dereference mod_type_die
+	if it is NULL.
+
 	PR debug/43983
 	* var-tracking.c (track_expr_p): Allow tracking of variables optimized
 	by SRA.
