@@ -2083,6 +2083,9 @@ vect_can_force_dr_alignment_p (const_tree decl, unsigned int alignment)
   if (TREE_ASM_WRITTEN (decl))
     return false;
 
+  if (flag_bases_aligned)
+    return true;
+
   if (TREE_STATIC (decl))
     return (alignment <= MAX_OFILE_ALIGNMENT);
   else
