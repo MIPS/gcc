@@ -361,12 +361,23 @@ enum rs6000_recip_mask {
   RECIP_VECTOR		= (RECIP_V4SF_DIV | RECIP_V2DF_DIV | RECIP_V4SF_RSQRT
 			   | RECIP_V2DF_RSQRT),
 
+  /* V2DF_DIV seems to be slower than doing the divide, so don't enable it
+     by default.  */
+  RECIP_PRECISION	= (RECIP_SF_DIV | RECIP_DF_DIV | RECIP_V4SF_DIV
+			   /* | RECIP_V2DF_DIV */ | RECIP_SF_RSQRT
+			   | RECIP_DF_RSQRT | RECIP_V4SF_RSQRT
+			   | RECIP_V2DF_RSQRT),
+
+  /* Don't enable divide by default, since there are some 1 bit errors.  */
   RECIP_DEFAULT		= (RECIP_SF_RSQRT | RECIP_DF_RSQRT | RECIP_V4SF_RSQRT
 			   | RECIP_V2DF_RSQRT)
 };
 
 unsigned int rs6000_recip_control;
 static bool rs6000_recip_set_p		= false;
+
+/* 2 argument gen function typedef.  */
+typedef rtx (*gen_2arg_fn_t) (rtx, rtx, rtx);
 
 
 /* Target cpu costs.  */
@@ -3878,7 +3889,12 @@ rs6000_handle_option (size_t code, const char *arg, int value)
 
     case OPT_mrecip:
       rs6000_recip_set_p = true;
-      rs6000_recip_control = (value) ? RECIP_DEFAULT : 0;
+      if (!value)
+	rs6000_recip_control = 0;
+      else if (TARGET_RECIP_PRECISION)
+	rs6000_recip_control = RECIP_PRECISION;
+      else
+	rs6000_recip_control = RECIP_DEFAULT;
       break;
 
     case OPT_mrecip_:
@@ -25403,20 +25419,157 @@ rs6000_builtin_reciprocal (unsigned int fn, bool md_fn,
       }
 }
 
-/* Newton-Raphson approximation of single-precision floating point divide n/d.
-   Support both scalar and vector divide.  Assumes no trapping math and finite
-   arguments.  */
+/* Load up a constant.  If the mode is a vector mode, splat the value across
+   all of the vector elements.  */
 
-void
-rs6000_emit_swdivsf (rtx dst, rtx n, rtx d)
+static rtx
+rs6000_load_constant_and_splat (enum machine_mode mode, REAL_VALUE_TYPE dconst)
+{
+  rtx reg;
+
+  if (SCALAR_FLOAT_MODE_P (mode))
+    {
+      rtx d = CONST_DOUBLE_FROM_REAL_VALUE (dconst, mode);
+      reg = force_reg (mode, d);
+    }
+  else if (VECTOR_MODE_P (mode))
+    {
+      enum machine_mode inner = GET_MODE_INNER (mode);
+      int n_element = (int) (GET_MODE_SIZE (mode) / GET_MODE_SIZE (inner));
+      rtx d = CONST_DOUBLE_FROM_REAL_VALUE (dconst, inner);
+      rtvec v = rtvec_alloc (n_element);
+      int i;
+
+      for (i = 0; i < n_element; i++)
+	RTVEC_ELT (v, i) = d;
+      reg = gen_reg_rtx (mode);
+      rs6000_expand_vector_init (reg, gen_rtx_PARALLEL (mode, v));
+    }
+
+  return reg;
+}
+
+/* Generate a FMADD instruction:
+	dst = (m1 * m2) + a
+
+   generating different RTL based on the fused multiply/add switch.  */
+
+static void
+rs6000_emit_madd (rtx dst, rtx m1, rtx m2, rtx a)
 {
   enum machine_mode mode = GET_MODE (dst);
-  rtx x0, e0, e1, y1, u0, v0, one, m;
-  typedef rtx (*gen_mul_fn) (rtx, rtx, rtx);
-  enum insn_code code = optab_handler (smul_optab, mode)->insn_code;
-  gen_mul_fn gen_mul = (gen_mul_fn) GEN_FCN (code);
 
-  gcc_assert (TARGET_FUSED_MADD);
+  if (!TARGET_FUSED_MADD)
+    {
+      /* For the simple ops, use the generator function, rather than assuming
+	 that the RTL is standard.  */
+      enum insn_code mcode = optab_handler (smul_optab, mode)->insn_code;
+      enum insn_code acode = optab_handler (add_optab, mode)->insn_code;
+      gen_2arg_fn_t gen_mul = (gen_2arg_fn_t) GEN_FCN (mcode);
+      gen_2arg_fn_t gen_add = (gen_2arg_fn_t) GEN_FCN (acode);
+      rtx mreg = gen_reg_rtx (mode);
+
+      gcc_assert (mcode != CODE_FOR_nothing && acode != CODE_FOR_nothing);
+      emit_insn (gen_mul (mreg, m1, m2));
+      emit_insn (gen_add (dst, mreg, a));
+    }
+
+  else
+    emit_insn (gen_rtx_SET (VOIDmode, dst,
+			    gen_rtx_PLUS (mode,
+					  gen_rtx_MULT (mode, m1, m2),
+					  a)));
+}
+
+/* Generate a FMSUB instruction:
+	dst = (m1 * m2) - a
+
+   generating different RTL based on the fused multiply/add switch.  */
+
+static void
+rs6000_emit_msub (rtx dst, rtx m1, rtx m2, rtx a)
+{
+  enum machine_mode mode = GET_MODE (dst);
+
+  if (!TARGET_FUSED_MADD
+      || (mode == V4SFmode && VECTOR_UNIT_ALTIVEC_P (V4SFmode)))
+    {
+      /* For the simple ops, use the generator function, rather than assuming
+	 that the RTL is standard.  */
+      enum insn_code mcode = optab_handler (smul_optab, mode)->insn_code;
+      enum insn_code scode = optab_handler (add_optab, mode)->insn_code;
+      gen_2arg_fn_t gen_mul = (gen_2arg_fn_t) GEN_FCN (mcode);
+      gen_2arg_fn_t gen_sub = (gen_2arg_fn_t) GEN_FCN (scode);
+      rtx mreg = gen_reg_rtx (mode);
+
+      gcc_assert (mcode != CODE_FOR_nothing && scode != CODE_FOR_nothing);
+      emit_insn (gen_mul (mreg, m1, m2));
+      emit_insn (gen_sub (dst, mreg, a));
+    }
+
+  else
+    emit_insn (gen_rtx_SET (VOIDmode, dst,
+			    gen_rtx_MINUS (mode,
+					   gen_rtx_MULT (mode, m1, m2),
+					   a)));
+}
+
+/* Generate a FNMSUB instruction:
+	dst = - ((m1 * m2) - a)
+
+   Which is equivalent to (except in the prescence of -0.0):
+	dst = a - (m1 * m2)
+
+   generating different RTL based on the fast-math and fused multiply/add
+   switches.  */
+
+static void
+rs6000_emit_nmsub (rtx dst, rtx m1, rtx m2, rtx a)
+{
+  enum machine_mode mode = GET_MODE (dst);
+
+  if (!TARGET_FUSED_MADD)
+    {
+      /* For the simple ops, use the generator function, rather than assuming
+	 that the RTL is standard.  */
+      enum insn_code mcode = optab_handler (smul_optab, mode)->insn_code;
+      enum insn_code scode = optab_handler (sub_optab, mode)->insn_code;
+      gen_2arg_fn_t gen_mul = (gen_2arg_fn_t) GEN_FCN (mcode);
+      gen_2arg_fn_t gen_sub = (gen_2arg_fn_t) GEN_FCN (scode);
+      rtx mreg = gen_reg_rtx (mode);
+
+      gcc_assert (mcode != CODE_FOR_nothing && scode != CODE_FOR_nothing);
+      emit_insn (gen_mul (mreg, m1, m2));
+      emit_insn (gen_sub (dst, a, mreg));
+    }
+
+  else
+    {
+      rtx m = gen_rtx_MULT (mode, m1, m2);
+
+      if (!HONOR_SIGNED_ZEROS (mode))
+	emit_insn (gen_rtx_SET (VOIDmode, dst, gen_rtx_MINUS (mode, a, m)));
+
+      else
+	emit_insn (gen_rtx_SET (VOIDmode, dst,
+				gen_rtx_NEG (mode,
+					     gen_rtx_MINUS (mode, m, a))));
+    }
+}
+
+/* Newton-Raphson approximation of floating point divide with just 2 passes
+   (either single precision floating point, or newer machines with higher
+   accuracy estimates).  Support both scalar and vector divide.  Assumes no
+   trapping math and finite arguments.  */
+
+static void
+rs6000_emit_swdiv_high_precision (rtx dst, rtx n, rtx d)
+{
+  enum machine_mode mode = GET_MODE (dst);
+  rtx x0, e0, e1, y1, u0, v0, one;
+  enum insn_code code = optab_handler (smul_optab, mode)->insn_code;
+  gen_2arg_fn_t gen_mul = (gen_2arg_fn_t) GEN_FCN (code);
+
   gcc_assert (code != CODE_FOR_nothing);
 
   x0 = gen_reg_rtx (mode);
@@ -25425,148 +25578,74 @@ rs6000_emit_swdivsf (rtx dst, rtx n, rtx d)
   y1 = gen_reg_rtx (mode);
   u0 = gen_reg_rtx (mode);
   v0 = gen_reg_rtx (mode);
-
-  if (mode == SFmode)
-    one = force_reg (mode, CONST_DOUBLE_FROM_REAL_VALUE (dconst1, mode));
-  else if (mode == V4SFmode)
-    {
-      rtx scalar_one = CONST_DOUBLE_FROM_REAL_VALUE (dconst1, SFmode);
-      rtvec v = rtvec_alloc (4);
-      int i;
-      for (i = 0; i < 4; i++)
-	RTVEC_ELT (v, i) = scalar_one;
-      one = gen_reg_rtx (mode);
-      rs6000_expand_vector_init (one, gen_rtx_PARALLEL (mode, v));
-    }
-  else
-    gcc_unreachable ();
+  one = rs6000_load_constant_and_splat (mode, dconst1);
 
   /* x0 = 1./d estimate */
   emit_insn (gen_rtx_SET (VOIDmode, x0,
 			  gen_rtx_UNSPEC (mode, gen_rtvec (1, d),
 					  UNSPEC_FRES)));
-  /* e0 = 1. - d * x0 */
-  m = gen_rtx_MULT (mode, d, x0);
-  if (!HONOR_SIGNED_ZEROS (mode))
-    emit_insn (gen_rtx_SET (VOIDmode, e0, gen_rtx_MINUS (mode, one, m)));
-  else
-    emit_insn (gen_rtx_SET (VOIDmode, e0,
-			    gen_rtx_NEG (mode,
-					 gen_rtx_MINUS (mode, m, one))));
-  /* e1 = e0 + e0 * e0 */
-  emit_insn (gen_rtx_SET (VOIDmode, e1,
-			  gen_rtx_PLUS (mode,
-					gen_rtx_MULT (mode, e0, e0), e0)));
-  /* y1 = x0 + e1 * x0 */
-  emit_insn (gen_rtx_SET (VOIDmode, y1,
-			  gen_rtx_PLUS (mode,
-					gen_rtx_MULT (mode, e1, x0), x0)));
-  /* u0 = n * y1 */
-  gen_mul (u0, n, y1);
 
-  /* v0 = n - d * u0 */
-  m = gen_rtx_MULT (mode, d, u0);
-  if (!HONOR_SIGNED_ZEROS (mode))
-    emit_insn (gen_rtx_SET (VOIDmode, v0, gen_rtx_MINUS (mode, n, m)));
-  else
-    emit_insn (gen_rtx_SET (VOIDmode, v0,
-			    gen_rtx_NEG (mode,
-					 gen_rtx_MINUS (mode, m, n))));
-  /* dst = u0 + v0 * y1 */
-  emit_insn (gen_rtx_SET (VOIDmode, dst,
-			  gen_rtx_PLUS (mode,
-					gen_rtx_MULT (mode, v0, y1), u0)));
+  rs6000_emit_nmsub (e0, d, x0, one);		/* e0 = 1. - (d * x0) */
+  rs6000_emit_madd (e1, e0, e0, e0);		/* e1 = (e0 * e0) + e0 */
+  rs6000_emit_madd (y1, e1, x0, x0);		/* y1 = (e1 * x0) + x0 */
+  emit_insn (gen_mul (u0, n, y1));		/* u0 = n * y1 */
+  rs6000_emit_nmsub (v0, d, u0, n);		/* v0 = n - (d * u0) */
+  rs6000_emit_madd (dst, v0, y1, u0);		/* dst = (v0 * y1) + u0 */
 }
 
-/* Newton-Raphson approximation of double-precision floating point divide n/d.
-   Assumes no trapping math and finite arguments.  */
+/* Newton-Raphson approximation of floating point divide that has a low
+   precision estimate.  Assumes no trapping math and finite arguments.  */
 
-void
-rs6000_emit_swdivdf (rtx dst, rtx n, rtx d)
+static void
+rs6000_emit_swdiv_low_precision (rtx dst, rtx n, rtx d)
 {
   enum machine_mode mode = GET_MODE (dst);
-  rtx x0, e0, e1, e2, y1, y2, y3, u0, v0, one, m;
+  rtx x0, e0, e1, e2, y1, y2, y3, u0, v0, one;
+  enum insn_code code = optab_handler (smul_optab, mode)->insn_code;
+  gen_2arg_fn_t gen_mul = (gen_2arg_fn_t) GEN_FCN (code);
+
+  gcc_assert (code != CODE_FOR_nothing);
 
   x0 = gen_reg_rtx (mode);
   e0 = gen_reg_rtx (mode);
   e1 = gen_reg_rtx (mode);
   y1 = gen_reg_rtx (mode);
   y2 = gen_reg_rtx (mode);
+  e2 = gen_reg_rtx (mode);
+  y3 = gen_reg_rtx (mode);
   u0 = gen_reg_rtx (mode);
   v0 = gen_reg_rtx (mode);
-
-  if (mode == DFmode)
-    one = force_reg (mode, CONST_DOUBLE_FROM_REAL_VALUE (dconst1, mode));
-  else if (mode == V2DFmode)
-    {
-      rtx scalar_one = CONST_DOUBLE_FROM_REAL_VALUE (dconst1, DFmode);
-      rtvec v = rtvec_alloc (2);
-      RTVEC_ELT (v, 0) = scalar_one;
-      RTVEC_ELT (v, 1) = scalar_one;
-      one = gen_reg_rtx (mode);
-      rs6000_expand_vector_init (one, gen_rtx_PARALLEL (mode, v));
-    }
-  else
-    gcc_unreachable ();
+  one = rs6000_load_constant_and_splat (mode, dconst1);
 
   /* x0 = 1./d estimate */
   emit_insn (gen_rtx_SET (VOIDmode, x0,
 			  gen_rtx_UNSPEC (mode, gen_rtvec (1, d),
 					  UNSPEC_FRES)));
-  /* e0 = 1. - d * x0 */
-  m = gen_rtx_MULT (mode, d, x0);
-  if (!HONOR_SIGNED_ZEROS (mode))
-    emit_insn (gen_rtx_SET (VOIDmode, e0, gen_rtx_MINUS (mode, one, m)));
-  else
-    emit_insn (gen_rtx_SET (VOIDmode, e0,
-			    gen_rtx_NEG (mode,
-					 gen_rtx_MINUS (mode, m, one))));
-  /* y1 = x0 + e0 * x0 */
-  emit_insn (gen_rtx_SET (VOIDmode, y1,
-			  gen_rtx_PLUS (mode,
-					gen_rtx_MULT (mode, e0, x0), x0)));
-  /* e1 = e0 * e0 */
-  emit_insn (gen_rtx_SET (VOIDmode, e1,
-			  gen_rtx_MULT (mode, e0, e0)));
-  /* y2 = y1 + e1 * y1 */
-  emit_insn (gen_rtx_SET (VOIDmode, y2,
-			  gen_rtx_PLUS (mode,
-					gen_rtx_MULT (mode, e1, y1), y1)));
 
-  /* Newer machines have higher precision estimate instructions, so reduce the
-     number of Newton-Raphson passes used.  */
-  if (TARGET_RECIP_PRECISION)
-    y3 = y2;
-  else
-    {
-      e2 = gen_reg_rtx (mode);
-      y3 = gen_reg_rtx (mode);
+  rs6000_emit_nmsub (e0, d, x0, one);		/* e0 = 1. - d * x0 */
+  rs6000_emit_madd (y1, e0, x0, x0);		/* y1 = x0 + e0 * x0 */
+  emit_insn (gen_mul (e1, e0, e0));		/* e1 = e0 * e0 */
+  rs6000_emit_madd (y2, e1, y1, y1);		/* y2 = y1 + e1 * y1 */
+  emit_insn (gen_mul (e2, e1, e1));		/* e2 = e1 * e1 */
+  rs6000_emit_madd (y3, e2, y2, y2);		/* y3 = y2 + e2 * y2 */
+  emit_insn (gen_mul (u0, n, y3));		/* u0 = n * y3 */
+  rs6000_emit_nmsub (v0, d, u0, n);		/* v0 = n - d * u0 */
+  rs6000_emit_madd (dst, v0, y3, u0);		/* dst = u0 + v0 * y3 */
+}
 
-      /* e2 = e1 * e1 */
-      emit_insn (gen_rtx_SET (VOIDmode, e2,
-			      gen_rtx_MULT (mode, e1, e1)));
-      /* y3 = y2 + e2 * y2 */
-      emit_insn (gen_rtx_SET (VOIDmode, y3,
-			      gen_rtx_PLUS (mode,
-					    gen_rtx_MULT (mode, e2, y2),
-					    y2)));
-    }
+/* Newton-Raphson approximation of floating point divide n/d.  Support both
+   scalar and vector divide.  Assumes no trapping math and finite
+   arguments.  */
 
-  /* u0 = n * y3 */
-  emit_insn (gen_rtx_SET (VOIDmode, u0,
-			  gen_rtx_MULT (mode, n, y3)));
-  /* v0 = n - d * u0 */
-  m = gen_rtx_MULT (mode, d, u0);
-  if (!HONOR_SIGNED_ZEROS (mode))
-    emit_insn (gen_rtx_SET (VOIDmode, e0, gen_rtx_MINUS (mode, n, m)));
+void
+rs6000_emit_swdiv (rtx dst, rtx n, rtx d)
+{
+  enum machine_mode mode = GET_MODE (dst);
+
+  if (mode == SFmode || mode == V4SFmode || TARGET_RECIP_PRECISION)
+    rs6000_emit_swdiv_high_precision (dst, n, d);
   else
-    emit_insn (gen_rtx_SET (VOIDmode, e0,
-			    gen_rtx_NEG (mode,
-					 gen_rtx_MINUS (mode, m, n))));
-  /* dst = u0 + v0 * y3 */
-  emit_insn (gen_rtx_SET (VOIDmode, dst,
-			  gen_rtx_PLUS (mode,
-					gen_rtx_MULT (mode, v0, y3), u0)));
+    rs6000_emit_swdiv_low_precision (dst, n, d);
 }
 
 /* Newton-Raphson approximation of single/double-precision floating point
@@ -25582,36 +25661,16 @@ rs6000_emit_swrsqrt (rtx dst, rtx src)
   REAL_VALUE_TYPE dconst3_2;
   int i;
   rtx halfthree;
-  rtx m;
-  typedef rtx (*gen_mul_fn) (rtx, rtx, rtx);
   enum insn_code code = optab_handler (smul_optab, mode)->insn_code;
-  gen_mul_fn gen_mul = (gen_mul_fn) GEN_FCN (code);
+  gen_2arg_fn_t gen_mul = (gen_2arg_fn_t) GEN_FCN (code);
 
-  gcc_assert (TARGET_FUSED_MADD);
   gcc_assert (code != CODE_FOR_nothing);
 
   /* Load up the constant 1.5 either as a scalar, or as a vector.  */
   real_from_integer (&dconst3_2, VOIDmode, 3, 0, 0);
   SET_REAL_EXP (&dconst3_2, REAL_EXP (&dconst3_2) - 1);
 
-  if (mode == SFmode || mode == DFmode)
-    {
-      rtx d = CONST_DOUBLE_FROM_REAL_VALUE (dconst3_2, mode);
-      halfthree = force_reg (mode, d);
-    }
-  else if (VECTOR_MODE_P (mode))
-    {
-      enum machine_mode inner = GET_MODE_INNER (mode);
-      int n_element = (int) (GET_MODE_SIZE (mode) / GET_MODE_SIZE (inner));
-      rtx d = CONST_DOUBLE_FROM_REAL_VALUE (dconst3_2, inner);
-      rtvec v = rtvec_alloc (n_element);
-      for (i = 0; i < n_element; i++)
-	RTVEC_ELT (v, i) = d;
-      halfthree = gen_reg_rtx (mode);
-      rs6000_expand_vector_init (halfthree, gen_rtx_PARALLEL (mode, v));
-    }
-  else
-    gcc_unreachable ();
+  halfthree = rs6000_load_constant_and_splat (mode, dconst3_2);
 
   /* x0 = rsqrt estimate */
   emit_insn (gen_rtx_SET (VOIDmode, x0,
@@ -25619,18 +25678,7 @@ rs6000_emit_swrsqrt (rtx dst, rtx src)
 					  UNSPEC_RSQRT)));
 
   /* y = 0.5 * src = 1.5 * src - src -> fewer constants */
-  if (mode != V4SFmode || !VECTOR_UNIT_ALTIVEC_P (mode))
-    emit_insn (gen_rtx_SET (VOIDmode, y,
-			    gen_rtx_MINUS (mode, gen_rtx_MULT (mode, src,
-							       halfthree),
-					   src)));
-  else
-    {
-      /* Work around altivec not having a vmsubfp instruction.  */
-      rtx m2 = gen_reg_rtx (mode);
-      emit_insn (gen_altivec_mulv4sf3 (m2, src, halfthree));
-      emit_insn (gen_rtx_SET (VOIDmode, y, gen_rtx_MINUS (mode, m2, src)));
-    }
+  rs6000_emit_msub (y, src, halfthree, src);
 
   for (i = 0; i < passes; i++)
     {
@@ -25640,17 +25688,7 @@ rs6000_emit_swrsqrt (rtx dst, rtx src)
 
       /* x1 = x0 * (1.5 - y * (x0 * x0)) */
       emit_insn (gen_mul (u, x0, x0));
-
-      m = gen_rtx_MULT (mode, y, u);
-      if (!HONOR_SIGNED_ZEROS (mode))
-	emit_insn (gen_rtx_SET (VOIDmode, v,
-				gen_rtx_MINUS (mode, halfthree, m)));
-      else
-	emit_insn (gen_rtx_SET (VOIDmode, v,
-				gen_rtx_NEG (mode,
-					     gen_rtx_MINUS (mode, m,
-							    halfthree))));
-
+      rs6000_emit_nmsub (v, y, u, halfthree);
       emit_insn (gen_mul (x1, x0, v));
       x0 = x1;
     }

@@ -1,3 +1,34 @@
+2010-05-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vector.md (recip<mode>3): Use rs6000_emit_swdiv.
+
+	* config/rs6000/rs6000-protos.h (rs6000_emit_swdivsf): Delete.
+	(rs6000_emit_swdivdf): Ditto.
+	(rs6000_emit_swdiv): New combined function.
+
+	* config/rs6000/rs6000.c (rs6000_handle_option): Use different
+	defaults for -mrecip, based on whether the machine has a high
+	precision estimate or not.  Disable generating VSX vector xvredp
+	by default.
+	(rs6000_load_constant_and_splat): New helper function to load a
+	scalar constant into a register, possibly splating it across the
+	vector type.
+	(rs6000_emit_madd): New helper function to emit FMADD.
+	(rs6000_emit_msub): New helper function to emit FMSUB.
+	(rs6000_emit_nmsub): New helper function to emit FNMSUB.
+	(rs6000_emit_swdiv_high_precision): Rename from
+	rs6000_emit_swdivsf, and generalize for all types.  Use new helper
+	functions.
+	(rs6000_emit_swdiv_low_precision): Rename from
+	rs6000_emit_swdivdf, and generalize for all types.  Use new helper
+	functions.
+	(rs6000_emit_swdiv): New combined function for generating
+	reciprocal division based on the precision.
+	(rs6000_emit_swrsqrt): Use new helper functions.
+
+	* config/rs6000/rs6000.md (recipsf3): Use rs6000_emit_swdiv.
+	(recipdf3): Ditto.
+
 2010-05-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* doc/invoke.texi (RS/6000 and PowerPC Options): Add documentation

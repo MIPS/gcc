@@ -301,18 +301,8 @@
    (match_operand:VEC_F 2 "vfloat_operand" "")]
   "VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode)"
 {
-  if (<MODE>mode == V4SFmode)
-    {
-      rs6000_emit_swdivsf (operands[0], operands[1], operands[2]);
-      DONE;
-    }
-  else if (<MODE>mode == V2DFmode)
-    {
-      rs6000_emit_swdivdf (operands[0], operands[1], operands[2]);
-      DONE;
-    }
-  else
-    FAIL;
+  rs6000_emit_swdiv (operands[0], operands[1], operands[2]);
+  DONE;
 })
 
 (define_expand "re<mode>2"
