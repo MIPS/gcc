@@ -10982,6 +10982,8 @@ vector unsigned char vec_vrlb (vector unsigned char,
 
 vector float vec_round (vector float);
 
+vector float vec_recip (vector float, vector float);
+
 vector float vec_rsqrt (vector float);
 
 vector float vec_rsqrte (vector float);
@@ -11913,6 +11915,7 @@ vector double vec_perm (vector double,
                         vector double,
                         vector unsigned char);
 vector double vec_rint (vector double);
+vector double vec_recip (vector double, vector double);
 vector double vec_rsqrt (vector double);
 vector double vec_rsqrte (vector double);
 vector double vec_sel (vector double, vector double, vector bool long);

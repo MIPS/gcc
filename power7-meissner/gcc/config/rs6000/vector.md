@@ -217,8 +217,20 @@
   [(set (match_operand:VEC_F 0 "vfloat_operand" "")
 	(div:VEC_F (match_operand:VEC_F 1 "vfloat_operand" "")
 		   (match_operand:VEC_F 2 "vfloat_operand" "")))]
-  "VECTOR_UNIT_VSX_P (<MODE>mode)"
-  "")
+  "VECTOR_UNIT_VSX_P (<MODE>mode)
+   || (<MODE>mode == V4SFmode
+       && VECTOR_UNIT_ALTIVEC_P (<MODE>mode)
+       && rs6000_recip_div_p[<MODE>mode]
+       && !optimize_insn_for_size_p ())"
+  "
+{
+  /* Use reciprocal estimate if desired rather than normal division.  */
+  if (rs6000_recip_div_p[<MODE>mode] && !optimize_insn_for_size_p ())
+    {
+      emit_insn (gen_recip<mode>3 (operands[0], operands[1], operands[2]));
+      DONE;
+    }
+}")
 
 (define_expand "neg<mode>2"
   [(set (match_operand:VEC_F 0 "vfloat_operand" "")
@@ -282,6 +294,26 @@
 		      UNSPEC_RSQRT))]
   "VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode)"
   "")
+
+(define_expand "recip<mode>3"
+  [(match_operand:VEC_F 0 "vfloat_operand" "")
+   (match_operand:VEC_F 1 "vfloat_operand" "")
+   (match_operand:VEC_F 2 "vfloat_operand" "")]
+  "VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode)"
+{
+  if (<MODE>mode == V4SFmode)
+    {
+      rs6000_emit_swdivsf (operands[0], operands[1], operands[2]);
+      DONE;
+    }
+  else if (<MODE>mode == V2DFmode)
+    {
+      rs6000_emit_swdivdf (operands[0], operands[1], operands[2]);
+      DONE;
+    }
+  else
+    FAIL;
+})
 
 (define_expand "re<mode>2"
   [(set (match_operand:VEC_F 0 "vfloat_operand" "")

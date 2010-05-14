@@ -1,3 +1,64 @@
+2010-05-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Add documentation
+	for -mrecip=, update documentation for -mrecip.  Delete obsolete
+	-mswdiv documentation.
+
+	* doc/extend.texi (PowerPC AltiVec Built-in Functions): Document
+	vec_recipdiv.
+
+	* config/rs6000/vector.md (div<mode>3): Add support for using the
+	reciprocal estimate instructions if -mrecip.
+	(recip<mode>3): New pattern for doing vector division via
+	reciprocal approximation.
+
+	* config/rs6000/rs6000-builtin.def (ALTIVEC_BUILTIN_VRECIPFP): New
+	builtin.
+	(ALTIVEC_BUILTIN_VEC_RECIP): Ditto.
+	(VSX_BUILTIN_RECIP_V4SF): Ditto.
+	(VSX_BUILTIN_RECIP_V2DF): Ditto.
+
+	* config/rs6000/rs6000-c.c (rs6000_cpu_cpp_builtins): Change test
+	for defining __RECIP__.
+	(altivec_overloaded_builtins): Add support for division using
+	reciprocal approximation builtins.
+
+	* config/rs6000/rs6000.opt (-mrecip): Delete Var, Init fields.
+	(-mrecip=): New switch.
+
+	* config/rs6000/rs6000.c (rs6000_recip_div_p): New global lookup
+	table for -mrecip.
+	(rs6000_recip_rsqrt_p): Ditto.
+	(enum rs6000_recip_mask): New enum for reciprocal approximation.
+	(rs6000_recip_control): New global for -mrecip.
+	(rs6000_debug_reg_global): Print information about which
+	reciprocal estimate instructions will be generated.
+	(rs6000_init_hard_regno_mode_ok): Enable the various reciprocal
+	estimate instructions based on -mrecip switches used.
+	(rs6000_override_options): If -mvsx, -mdfp, or -maltivec, set
+	other flags for older options.
+	(rs6000_builtin_vectorized_function): Add support for vectorizing
+	division using reciprocal estimation.
+	(rs6000_handle_option): Add support for -mrecip, -mrecip=.
+	(bdesc_arg_2): Add reciprocal estimate builtins.
+	(rs6000_expand_builtin): Fix thinko.
+	(rs6000_builtin_reciprocal): Update for new -mrecip
+	infrastructure.
+	(rs6000_emit_swdivsf): Add support for vector reciprocal
+	estimate.
+	(rs6000_emit_swdivdf): Ditto.
+
+	* config/rs6000/rs6000.h (TARGET_OPT_ESTIMATE): Delete.
+	(rs6000_recip_div_p): New global for -mrecip support.
+	(rs6000_recip_rsqrt_p): Ditto.
+	(rs6000_recip_control): Ditto.
+
+	* config/rs6000/rs6000.md (divsf3): If -mrecip, replace division
+	with reciprocal estimate and fixup.
+	(divdf3): Ditto.
+
+	* config/rs6000/altivec.h (vec_recipdiv): Define.
+
 2010-05-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.c (rs6000_override_options): Delete
@@ -5,7 +66,7 @@
 	(rs6000_expand_builtin): Use a switch statement rather than
 	repeated ifs.
 	(rs6000_init_builtins): Be more detailed on which platforms
-	support fre, fres, frsqrte, frsqrtes instrucitons to enable the
+	support fre, fres, frsqrte, frsqrtes instructions to enable the
 	builtins.
 	(rs6000_builtin_reciprocal): Use TARGET_OPT_ESTIMATE instead of
 	separate tests.

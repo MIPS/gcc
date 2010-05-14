@@ -782,7 +782,7 @@ See RS/6000 and PowerPC Options.
 -mprototype  -mno-prototype @gol
 -msim  -mmvme  -mads  -myellowknife  -memb  -msdata @gol
 -msdata=@var{opt}  -mvxworks  -G @var{num}  -pthread @gol
--mrecip -mno-recip -mrecip-precision -mno-recip-precision}
+-mrecip -mrecip=@var{opt} -mno-recip -mrecip-precision -mno-recip-precision}
 
 @emph{RX Options}
 @gccoptlist{-m64bit-doubles  -m32bit-doubles  -fpu  -nofpu@gol
@@ -14919,17 +14919,6 @@ values for @var{cpu_type} are used for @option{-mtune} as for
 architecture, registers, and mnemonics set by @option{-mcpu}, but the
 scheduling parameters set by @option{-mtune}.
 
-@item -mswdiv
-@itemx -mno-swdiv
-@opindex mswdiv
-@opindex mno-swdiv
-Generate code to compute division as reciprocal estimate and iterative
-refinement, creating opportunities for increased throughput.  This
-feature requires: optional PowerPC Graphics instruction set for single
-precision and FRE instruction for double precision, assuming divides
-cannot generate user-visible traps, and the domain values not include
-Infinities, denormals or zero denominator.
-
 @item -maltivec
 @itemx -mno-altivec
 @opindex maltivec
@@ -15588,16 +15577,39 @@ This option sets flags for both the preprocessor and linker.
 @item -mrecip
 @itemx -mno-recip
 @opindex mrecip
-This option will enable GCC to use FRSQRTE instruction for reciprocal
-square root with an additional Newton-Raphson step to increase
-precision instead of FSQRTS/FDIVS for single precision floating point
-arguments.  These instructions are generated only when
-@option{-funsafe-math-optimizations} is enabled together with
-@option{-finite-math-only} and @option{-fno-trapping-math}.  Note that
-while the throughput of the sequence is generally higher than the
-throughput of the non-reciprocal instruction, the precision of the
-sequence can be decreased by up to 2 ulp (i.e. the inverse of 1.0
-equals 0.99999994).
+This option will enable GCC to use the reciprocal estimate and
+reciprocal square root estimate instructions with additional
+Newton-Raphson steps to increase precision instead of doing a divide or
+square root and divide for floating point arguments.  You should use
+the @option{-ffast-math} option when using @option{-mrecip} (or at
+least @option{-funsafe-math-optimizations},
+@option{-finite-math-only}, @option{-freciprocal-math} and
+@option{-fno-trapping-math}).  Note that while the throughput of the
+sequence is generally higher than the throughput of the non-reciprocal
+instruction, the precision of the sequence can be decreased by up to 2
+ulp (i.e. the inverse of 1.0 equals 0.99999994) for reciprocal square
+roots, and 1 ulp for division.
+
+@item -mrecip=@var{opt}
+@opindex mrecip=opt
+This option allows to control which reciprocal estimate instructions
+may be used.  @var{opt} is a comma separated list of options, that may
+be preceeded by a @code{!} to invert the option:
+@var{all}: enable all estimate instructions,
+@var{default}: enable the default instructions, equvalent to @option{-mrecip},
+@var{none}: disable all estimate instructions, equivalent to @option{-mno-recip};
+@var{div}: enable the reciprocal approximation instructions;
+@var{rsqrt}: enable the reciprocal square root approximation instructions;
+@var{float}: enable the single precision estimate instrucitons;
+@var{double}: enable the double precision estimate instructions;
+@var{scalar}: enable the scalar estimate instructions;
+@var{vector}: enable the vector estimate instructions.
+
+So for example, @option{-mrecip=rsqrt,!double} would enable the
+reciprocal square root estimate instructions (@code{FRSQRTES},
+@code{VRSQRTE}, and @code{XVRSQRTESP}) for single precision floating
+point, but not generate any double precision esitimate instructions,
+or the reciprocal divide estimate instructions (@code{FRES}).
 
 @item -mrecip-precision
 @itemx -mno-recip-precision
