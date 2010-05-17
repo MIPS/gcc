@@ -334,47 +334,49 @@ enum rs6000_recip_mask {
   RECIP_V4SF_RSQRT	= 0x040,
   RECIP_V2DF_RSQRT	= 0x080,
 
-  RECIP_LOW_PRECISION	= 0x100,	/* Allow rsqrt to be generated even
-					   on machines with low precision.  */
-
   /* Various combination of flags for -mrecip=xxx.  */
   RECIP_NONE		= 0,
   RECIP_ALL		= (RECIP_SF_DIV | RECIP_DF_DIV | RECIP_V4SF_DIV
 			   | RECIP_V2DF_DIV | RECIP_SF_RSQRT | RECIP_DF_RSQRT
 			   | RECIP_V4SF_RSQRT | RECIP_V2DF_RSQRT),
 
-  RECIP_DIV		= (RECIP_SF_DIV | RECIP_DF_DIV | RECIP_V4SF_DIV
-			   | RECIP_V2DF_DIV),
+  RECIP_HIGH_PRECISION	= RECIP_ALL,
 
-  RECIP_RSQRT		= (RECIP_SF_RSQRT | RECIP_DF_RSQRT | RECIP_V4SF_RSQRT
-			   | RECIP_V2DF_RSQRT),
-
-  RECIP_FLOAT		= (RECIP_SF_DIV | RECIP_V4SF_DIV | RECIP_SF_RSQRT
-			   | RECIP_V4SF_RSQRT),
-
-  RECIP_DOUBLE		= (RECIP_DF_DIV | RECIP_V2DF_DIV | RECIP_DF_RSQRT
-			   | RECIP_V2DF_RSQRT),
-
-  RECIP_SCALAR		= (RECIP_SF_DIV | RECIP_DF_DIV | RECIP_SF_RSQRT
-			   | RECIP_DF_RSQRT),
-
-  RECIP_VECTOR		= (RECIP_V4SF_DIV | RECIP_V2DF_DIV | RECIP_V4SF_RSQRT
-			   | RECIP_V2DF_RSQRT),
-
-  /* V2DF_DIV seems to be slower than doing the divide, so don't enable it
-     by default.  */
-  RECIP_PRECISION	= (RECIP_SF_DIV | RECIP_DF_DIV | RECIP_V4SF_DIV
-			   /* | RECIP_V2DF_DIV */ | RECIP_SF_RSQRT
-			   | RECIP_DF_RSQRT | RECIP_V4SF_RSQRT
-			   | RECIP_V2DF_RSQRT),
-
-  /* Don't enable divide by default, since there are some 1 bit errors.  */
-  RECIP_DEFAULT		= (RECIP_SF_RSQRT | RECIP_DF_RSQRT | RECIP_V4SF_RSQRT
+  /* On low precision machines like the power5, don't enable divide by default,
+     since there are some 1 bit errors.  */
+  RECIP_LOW_PRECISION	= (RECIP_SF_RSQRT | RECIP_DF_RSQRT | RECIP_V4SF_RSQRT
 			   | RECIP_V2DF_RSQRT)
 };
 
 unsigned int rs6000_recip_control;
-static bool rs6000_recip_set_p		= false;
+static const char *rs6000_recip_name;
+
+/* -mrecip options.  */
+static struct
+{
+  const char *string;		/* option name */
+  unsigned int mask;		/* mask bits to set */
+} recip_options[] = {
+  { "all",	 RECIP_ALL },
+  { "none",	 RECIP_NONE },
+  { "fdiv",	 RECIP_SF_DIV | RECIP_V4SF_DIV },
+  { "ddiv",	 RECIP_DF_DIV | RECIP_V2DF_DIV },
+  { "frsqrt",	 RECIP_SF_RSQRT | RECIP_V4SF_RSQRT },
+  { "drsqrt",	 RECIP_DF_RSQRT | RECIP_V2DF_RSQRT },
+  { "fres",	 RECIP_SF_DIV },
+  { "fre",	 RECIP_DF_DIV },
+  { "xsredp",	 RECIP_DF_DIV },
+  { "vredp",	 RECIP_V4SF_DIV },
+  { "xvresp",	 RECIP_V4SF_DIV },
+  { "xvresp",	 RECIP_V4SF_DIV },
+  { "xvredp",	 RECIP_V2DF_DIV },
+  { "frsqrtes",	 RECIP_SF_RSQRT },
+  { "frsqrte",	 RECIP_DF_RSQRT },
+  { "xsrsqrtdp", RECIP_DF_RSQRT },
+  { "vrsqrtfp",	 RECIP_V4SF_RSQRT },
+  { "xvrsqrtsp", RECIP_V4SF_RSQRT },
+  { "xvrsqrtdp", RECIP_V2DF_RSQRT },
+};
 
 /* 2 argument gen function typedef.  */
 typedef rtx (*gen_2arg_fn_t) (rtx, rtx, rtx);
@@ -3055,6 +3057,54 @@ rs6000_override_options (const char *default_cpu)
      the DERAT mispredict penalty.  */
     TARGET_AVOID_XFORM = (rs6000_cpu == PROCESSOR_POWER6 && TARGET_CMPB);
 
+  /* Set the -mrecip options.  */
+  if (rs6000_recip_name)
+    {
+      char *p = ASTRDUP (rs6000_recip_name);
+      char *q;
+      unsigned int mask, i;
+      bool invert;
+
+      while ((q = strtok (p, ",")) != NULL)
+	{
+	  p = NULL;
+	  if (*q == '!')
+	    {
+	      invert = true;
+	      q++;
+	    }
+	  else
+	    invert = false;
+
+	  if (*q >= '0' && *q <= '9')
+	    mask = ((unsigned int) strtoul (q, (char **)0, 0)) & RECIP_ALL;
+	  if (!strcmp (q, "default"))
+	    mask = ((TARGET_RECIP_PRECISION)
+		    ? RECIP_HIGH_PRECISION : RECIP_LOW_PRECISION);
+	  else
+	    {
+	      for (i = 0; i < ARRAY_SIZE (recip_options); i++)
+		if (!strcmp (q, recip_options[i].string))
+		  {
+		    mask = recip_options[i].mask;
+		    break;
+		  }
+
+	      if (i == ARRAY_SIZE (recip_options))
+		{
+		  error ("Unknown option for -mrecip=%s", q);
+		  invert = false;
+		  mask = 0;
+		}
+	    }
+
+	  if (invert)
+	    rs6000_recip_control &= ~mask;
+	  else
+	    rs6000_recip_control |= mask;
+	}
+    }
+
   rs6000_init_hard_regno_mode_ok ();
 }
 
@@ -3888,72 +3938,12 @@ rs6000_handle_option (size_t code, const char *arg, int value)
       }
 
     case OPT_mrecip:
-      rs6000_recip_set_p = true;
-      if (!value)
-	rs6000_recip_control = 0;
-      else if (TARGET_RECIP_PRECISION)
-	rs6000_recip_control = RECIP_PRECISION;
-      else
-	rs6000_recip_control = RECIP_DEFAULT;
+      rs6000_recip_name = (value) ? "default" : "none";
       break;
 
     case OPT_mrecip_:
-      {
-	char *p = ASTRDUP (arg);
-	char *q;
-	unsigned int mask;
-	bool invert;
-
-	while ((q = strtok (p, ",")) != NULL)
-	  {
-	    p = NULL;
-	    if (*q == '!')
-	      {
-		if (!rs6000_recip_set_p)
-		  rs6000_recip_control = RECIP_DEFAULT;
-		invert = true;
-		q++;
-	      }
-	    else
-	      invert = false;
-
-	    if (*q >= '0' && *q <= '9')
-	      mask = ((unsigned int) strtoul (q, (char **)0, 0)) & RECIP_ALL;
-	    else if (!strcmp (q, "all"))
-	      mask = RECIP_ALL;
-	    else if (!strcmp (q, "none"))
-	      mask = RECIP_NONE;
-	    else if (!strcmp (q, "default"))
-	      mask = RECIP_DEFAULT;
-	    else if (!strcmp (q, "div"))
-	      mask = RECIP_DIV;
-	    else if (!strcmp (q, "rsqrt"))
-	      mask = RECIP_RSQRT;
-	    else if (!strcmp (q, "float"))
-	      mask = RECIP_FLOAT;
-	    else if (!strcmp (q, "double"))
-	      mask = RECIP_DOUBLE;
-	    else if (!strcmp (q, "vector"))
-	      mask = RECIP_VECTOR;
-	    else if (!strcmp (q, "scalar"))
-	      mask = RECIP_SCALAR;
-	    else if (!strcmp (q, "low_precision"))
-	      mask = RECIP_LOW_PRECISION;
-	    else
-	      {
-		error ("Unknown option for -mrecip=%s", q);
-		invert = false;
-		mask = 0;
-	      }
-
-	    rs6000_recip_set_p = true;
-	    if (invert)
-	      rs6000_recip_control &= ~mask;
-	    else
-	      rs6000_recip_control |= mask;
-	}
-	break;
-      }
+      rs6000_recip_name = arg;
+      break;
     }
   return true;
 }
@@ -25445,6 +25435,8 @@ rs6000_load_constant_and_splat (enum machine_mode mode, REAL_VALUE_TYPE dconst)
       reg = gen_reg_rtx (mode);
       rs6000_expand_vector_init (reg, gen_rtx_PARALLEL (mode, v));
     }
+  else
+    gcc_unreachable ();
 
   return reg;
 }

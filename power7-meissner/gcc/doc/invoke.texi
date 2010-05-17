@@ -15588,28 +15588,28 @@ least @option{-funsafe-math-optimizations},
 sequence is generally higher than the throughput of the non-reciprocal
 instruction, the precision of the sequence can be decreased by up to 2
 ulp (i.e. the inverse of 1.0 equals 0.99999994) for reciprocal square
-roots, and 1 ulp for division.
+roots.
 
 @item -mrecip=@var{opt}
 @opindex mrecip=opt
 This option allows to control which reciprocal estimate instructions
 may be used.  @var{opt} is a comma separated list of options, that may
 be preceeded by a @code{!} to invert the option:
-@var{all}: enable all estimate instructions,
-@var{default}: enable the default instructions, equvalent to @option{-mrecip},
-@var{none}: disable all estimate instructions, equivalent to @option{-mno-recip};
-@var{div}: enable the reciprocal approximation instructions;
-@var{rsqrt}: enable the reciprocal square root approximation instructions;
-@var{float}: enable the single precision estimate instrucitons;
-@var{double}: enable the double precision estimate instructions;
-@var{scalar}: enable the scalar estimate instructions;
-@var{vector}: enable the vector estimate instructions.
+@code{all}: enable all estimate instructions,
+@code{default}: enable the default instructions, equvalent to @option{-mrecip},
+@code{none}: disable all estimate instructions, equivalent to @option{-mno-recip};
+@code{fdiv}: enable the single precision reciprocal approximation instructions;
+@code{ddiv}: enable the double precision reciprocal approximation instructions;
+@code{frsqrt}: enable the single precision reciprocal square root approximation instructions;
+@code{drsqrt}: enable the double precision reciprocal square root approximation instructions;
+@var{instruction}: enable the use of a particular estimate instruction
+such as @code{FRES}, @code{XVREDP}, etc.
 
-So for example, @option{-mrecip=rsqrt,!double} would enable the
+So for example, @option{-mrecip=rsqrt,!xvrsqrtedp} would enable the
 reciprocal square root estimate instructions (@code{FRSQRTES},
-@code{VRSQRTE}, and @code{XVRSQRTESP}) for single precision floating
-point, but not generate any double precision esitimate instructions,
-or the reciprocal divide estimate instructions (@code{FRES}).
+@code{FRSQRTE}, @code{VRSQRTE}, and @code{XVRSQRTESP}), but not the
+the double precision vector reciprocal square root estimate
+instruction (@code{XVRSQRTEDP}).
 
 @item -mrecip-precision
 @itemx -mno-recip-precision
