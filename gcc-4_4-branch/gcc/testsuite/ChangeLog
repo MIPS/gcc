@@ -1,3 +1,14 @@
+2010-05-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/44148
+	* g++.dg/torture/pr44148.C: New test.
+
+2010-05-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/44112
+	* gcc.dg/debug/dwarf2/const-1.c: Remove.
+	* g++.dg/debug/dwarf2/const1.C: Remove.
+
 2009-04-26  Michael Matz  <matz@suse.de>
 
 	* gcc.dg/tree-ssa/pr18134.c: Modified.

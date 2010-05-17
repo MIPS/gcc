@@ -9378,7 +9378,7 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	      }
 	    else
 	      /* TEMPLATE_TEMPLATE_PARM or TEMPLATE_PARM_INDEX.  */
-	      return arg;
+	      return unshare_expr (arg);
 	  }
 
 	if (level == 1)
