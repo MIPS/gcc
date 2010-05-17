@@ -688,7 +688,7 @@ copy_bind_expr (tree *tp, int *walk_subtrees, copy_body_data *id)
 /* Create a new gimple_seq by remapping all the statements in BODY
    using the inlining information in ID.  */
 
-gimple_seq
+static gimple_seq
 remap_gimple_seq (gimple_seq body, copy_body_data *id)
 {
   gimple_stmt_iterator si;
@@ -1711,6 +1711,7 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
 		     other cases we hit a bug (incorrect node sharing is the
 		     most common reason for missing edges).  */
 		  gcc_assert (dest->needed || !dest->analyzed
+			      || dest->address_taken
 		  	      || !id->src_node->analyzed);
 		  if (id->transform_call_graph_edges == CB_CGE_MOVE_CLONES)
 		    cgraph_create_edge_including_clones
@@ -5037,6 +5038,8 @@ tree_function_versioning (tree old_decl, tree new_decl,
   pointer_set_destroy (id.statements_to_fold);
   fold_cond_expr_cond ();
   delete_unreachable_blocks_update_callgraph (&id);
+  if (id.dst_node->analyzed)
+    cgraph_rebuild_references ();
   update_ssa (TODO_update_ssa);
   free_dominance_info (CDI_DOMINATORS);
   free_dominance_info (CDI_POST_DOMINATORS);

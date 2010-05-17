@@ -2537,8 +2537,8 @@ void gfc_free_finalizer (gfc_finalizer *el); /* Needed in resolve.c, too  */
 
 gfc_try gfc_check_symbol_typed (gfc_symbol*, gfc_namespace*, bool, locus);
 
-/* intrinsic.c */
-extern int gfc_init_expr;
+/* intrinsic.c -- true if working in an init-expr, false otherwise.  */
+extern bool gfc_init_expr_flag;
 
 /* Given a symbol that we have decided is intrinsic, mark it as such
    by placing it into a special module that is otherwise impossible to
@@ -2630,6 +2630,7 @@ gfc_try gfc_check_pointer_assign (gfc_expr *, gfc_expr *);
 gfc_try gfc_check_assign_symbol (gfc_symbol *, gfc_expr *);
 
 gfc_expr *gfc_default_initializer (gfc_typespec *);
+gfc_expr *gfc_class_null_initializer (gfc_typespec *);
 gfc_expr *gfc_get_variable_expr (gfc_symtree *);
 
 gfc_array_spec *gfc_get_full_arrayspec_from_expr (gfc_expr *expr);

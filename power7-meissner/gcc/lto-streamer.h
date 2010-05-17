@@ -354,7 +354,7 @@ struct lto_streamer_cache_d
   unsigned next_slot;
 
   /* The nodes pickled so far.  */
-  VEC(tree,gc) *nodes;
+  VEC(tree,heap) *nodes;
 
   /* Offset into the stream where the nodes have been written.  */
   VEC(unsigned,heap) *offsets;
@@ -467,9 +467,21 @@ struct lto_cgraph_encoder_d
 
   /* Map reference number to node. */
   VEC(cgraph_node_ptr,heap) *nodes;
+
+  /* Map of nodes where we want to output body.  */
+  struct pointer_set_t *body;
 };
 
 typedef struct lto_cgraph_encoder_d *lto_cgraph_encoder_t;
+
+/* Return number of encoded nodes in ENCODER.  */
+
+static inline int
+lto_cgraph_encoder_size (lto_cgraph_encoder_t encoder)
+{
+  return VEC_length (cgraph_node_ptr, encoder->nodes);
+}
+
 
 /* Encoder data structure used to stream callgraph nodes.  */
 struct lto_varpool_encoder_d
@@ -851,6 +863,11 @@ int lto_cgraph_encoder_lookup (lto_cgraph_encoder_t, struct cgraph_node *);
 lto_cgraph_encoder_t lto_cgraph_encoder_new (void);
 int lto_cgraph_encoder_encode (lto_cgraph_encoder_t, struct cgraph_node *);
 void lto_cgraph_encoder_delete (lto_cgraph_encoder_t);
+bool lto_cgraph_encoder_encode_body_p (lto_cgraph_encoder_t,
+				       struct cgraph_node *);
+
+bool lto_varpool_encoder_encode_body_p (lto_varpool_encoder_t,
+				        struct varpool_node *);
 struct varpool_node *lto_varpool_encoder_deref (lto_varpool_encoder_t, int);
 int lto_varpool_encoder_lookup (lto_varpool_encoder_t, struct varpool_node *);
 lto_varpool_encoder_t lto_varpool_encoder_new (void);
@@ -863,6 +880,15 @@ void input_cgraph (void);
 bool referenced_from_other_partition_p (struct ipa_ref_list *,
 				        cgraph_node_set,
 				        varpool_node_set vset);
+bool reachable_from_other_partition_p (struct cgraph_node *,
+				       cgraph_node_set);
+bool referenced_from_this_partition_p (struct ipa_ref_list *,
+				        cgraph_node_set,
+				        varpool_node_set vset);
+bool reachable_from_this_partition_p (struct cgraph_node *,
+				       cgraph_node_set);
+void compute_ltrans_boundary (struct lto_out_decl_state *state,
+			      cgraph_node_set, varpool_node_set);
 
 
 /* In lto-symtab.c.  */
@@ -872,6 +898,7 @@ extern void lto_symtab_merge_decls (void);
 extern void lto_symtab_merge_cgraph_nodes (void);
 extern tree lto_symtab_prevailing_decl (tree decl);
 extern enum ld_plugin_symbol_resolution lto_symtab_get_resolution (tree decl);
+extern void lto_symtab_free (void);
 
 
 /* In lto-opts.c.  */

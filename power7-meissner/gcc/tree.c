@@ -1332,8 +1332,22 @@ tree
 build_constructor (tree type, VEC(constructor_elt,gc) *vals)
 {
   tree c = make_node (CONSTRUCTOR);
+  unsigned int i;
+  constructor_elt *elt;
+  bool constant_p = true;
+
   TREE_TYPE (c) = type;
   CONSTRUCTOR_ELTS (c) = vals;
+
+  for (i = 0; VEC_iterate (constructor_elt, vals, i, elt); i++)
+    if (!TREE_CONSTANT (elt->value))
+      {
+	constant_p = false;
+	break;
+      }
+
+  TREE_CONSTANT (c) = constant_p;
+
   return c;
 }
 
@@ -1344,16 +1358,13 @@ build_constructor_single (tree type, tree index, tree value)
 {
   VEC(constructor_elt,gc) *v;
   constructor_elt *elt;
-  tree t;
 
   v = VEC_alloc (constructor_elt, gc, 1);
   elt = VEC_quick_push (constructor_elt, v, NULL);
   elt->index = index;
   elt->value = value;
 
-  t = build_constructor (type, v);
-  TREE_CONSTANT (t) = TREE_CONSTANT (value);
-  return t;
+  return build_constructor (type, v);
 }
 
 
@@ -1362,27 +1373,17 @@ build_constructor_single (tree type, tree index, tree value)
 tree
 build_constructor_from_list (tree type, tree vals)
 {
-  tree t, val;
+  tree t;
   VEC(constructor_elt,gc) *v = NULL;
-  bool constant_p = true;
 
   if (vals)
     {
       v = VEC_alloc (constructor_elt, gc, list_length (vals));
       for (t = vals; t; t = TREE_CHAIN (t))
-	{
-	  constructor_elt *elt = VEC_quick_push (constructor_elt, v, NULL);
-	  val = TREE_VALUE (t);
-	  elt->index = TREE_PURPOSE (t);
-	  elt->value = val;
-	  if (!TREE_CONSTANT (val))
-	    constant_p = false;
-	}
+	CONSTRUCTOR_APPEND_ELT (v, TREE_PURPOSE (t), TREE_VALUE (t));
     }
 
-  t = build_constructor (type, v);
-  TREE_CONSTANT (t) = constant_p;
-  return t;
+  return build_constructor (type, v);
 }
 
 /* Return a new FIXED_CST node whose type is TYPE and value is F.  */
@@ -2121,25 +2122,6 @@ tree_cons_stat (tree purpose, tree value, tree chain MEM_STAT_DECL)
   TREE_PURPOSE (node) = purpose;
   TREE_VALUE (node) = value;
   return node;
-}
-
-/* Return the elements of a CONSTRUCTOR as a TREE_LIST.  */
-
-tree
-ctor_to_list (tree ctor)
-{
-  tree list = NULL_TREE;
-  tree *p = &list;
-  unsigned ix;
-  tree purpose, val;
-
-  FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (ctor), ix, purpose, val)
-    {
-      *p = build_tree_list (purpose, val);
-      p = &TREE_CHAIN (*p);
-    }
-
-  return list;
 }
 
 /* Return the values of the elements of a CONSTRUCTOR as a vector of
@@ -5038,7 +5020,6 @@ free_lang_data (void)
   lang_hooks.dwarf_name = lhd_dwarf_name;
   lang_hooks.decl_printable_name = gimple_decl_printable_name;
   lang_hooks.set_decl_assembler_name = lhd_set_decl_assembler_name;
-  lang_hooks.fold_obj_type_ref = gimple_fold_obj_type_ref;
 
   /* Reset diagnostic machinery.  */
   diagnostic_starter (global_dc) = default_diagnostic_starter;
@@ -7349,7 +7330,7 @@ build_function_type_list_1 (bool vaargs, tree return_type, va_list argp)
       last = args;
       if (args != NULL_TREE)
 	args = nreverse (args);
-      gcc_assert (args != NULL_TREE && last != void_list_node);
+      gcc_assert (last != void_list_node);
     }
   else if (args == NULL_TREE)
     args = void_list_node;
@@ -9102,9 +9083,12 @@ build_common_builtin_nodes (void)
       tmp = tree_cons (NULL_TREE, size_type_node, void_list_node);
       ftype = build_function_type (ptr_type_node, tmp);
       local_define_builtin ("__builtin_alloca", ftype, BUILT_IN_ALLOCA,
-			    "alloca",
-			    ECF_MALLOC | (flag_stack_check ? 0 : ECF_NOTHROW));
+			    "alloca", ECF_MALLOC | ECF_NOTHROW);
     }
+
+  /* If we're checking the stack, `alloca' can throw.  */
+  if (flag_stack_check)
+    TREE_NOTHROW (built_in_decls[BUILT_IN_ALLOCA]) = 0;
 
   tmp = tree_cons (NULL_TREE, ptr_type_node, void_list_node);
   tmp = tree_cons (NULL_TREE, ptr_type_node, tmp);

@@ -27,6 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "input.h"
 #include "statistics.h"
 #include "vec.h"
+#include "vecir.h"
 #include "double-int.h"
 #include "alias.h"
 #include "options.h"
@@ -177,11 +178,6 @@ extern const unsigned char tree_code_length[];
 /* Names of tree components.  */
 
 extern const char *const tree_code_name[];
-
-/* A vectors of trees.  */
-DEF_VEC_P(tree);
-DEF_VEC_ALLOC_P(tree,gc);
-DEF_VEC_ALLOC_P(tree,heap);
 
 /* We have to be able to tell cgraph about the needed-ness of the target
    of an alias.  This requires that the decl have been defined.  Aliases
@@ -411,8 +407,7 @@ struct GTY(()) tree_common {
    addressable_flag:
 
        TREE_ADDRESSABLE in
-           VAR_DECL, PARM_DECL, RESULT_DECL, FUNCTION_DECL, FIELD_DECL
-           LABEL_DECL
+           VAR_DECL, PARM_DECL, RESULT_DECL, FUNCTION_DECL, LABEL_DECL
            all types
            CONSTRUCTOR, IDENTIFIER_NODE
            STMT_EXPR, it means we want the result of the enclosed expression
@@ -1111,9 +1106,6 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
    of this is needed.  So it cannot be in a register.
    In a FUNCTION_DECL, nonzero means its address is needed.
    So it must be compiled even if it is an inline function.
-   In a FIELD_DECL node, it means that the programmer is permitted to
-   construct the address of this field.  This is used for aliasing
-   purposes: see record_component_aliases.
    In CONSTRUCTOR nodes, it means object constructed must be in memory.
    In LABEL_DECL nodes, it means a goto for this label has been seen
    from a place outside all binding contours that restore stack levels.
@@ -4479,10 +4471,6 @@ extern tree first_field (const_tree);
 
 extern bool initializer_zerop (const_tree);
 
-/* Given a CONSTRUCTOR CTOR, return the elements as a TREE_LIST.  */
-
-extern tree ctor_to_list (tree);
-
 /* Given a CONSTRUCTOR CTOR, return the element values as a vector.  */
 
 extern VEC(tree,gc) *ctor_to_vec (tree);
@@ -5426,9 +5414,6 @@ extern tree build_personality_function (const char *);
 /* In tree-inline.c.  */
 
 void init_inline_once (void);
-
-/* In ipa-reference.c.  Used for parsing attributes of asm code.  */
-extern GTY(()) tree memory_identifier_string;
 
 /* Compute the number of operands in an expression node NODE.  For
    tcc_vl_exp nodes like CALL_EXPRs, this is stored in the node itself,
