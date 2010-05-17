@@ -1,3 +1,7 @@
+2009-04-26  Michael Matz  <matz@suse.de>
+
+	* gcc.dg/tree-ssa/pr18134.c: Modified.
+
 2010-05-13  Jakub Jelinek  <jakub@redhat.com>
 
 	PR fortran/44036
