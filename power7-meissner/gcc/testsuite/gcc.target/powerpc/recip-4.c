@@ -1,5 +1,5 @@
 /* { dg-do compile { target { powerpc*-*-* } } } */
-/* { dg-options "-O3 -ftree-vectorize -mrecip -mrecip-precision -ffast-math -mcpu=power7 -fno-unroll-loops" } */
+/* { dg-options "-O3 -ftree-vectorize -mrecip -ffast-math -mcpu=power7 -fno-unroll-loops" } */
 /* { dg-final { scan-assembler-times "xvrsqrtedp" 1 } } */
 /* { dg-final { scan-assembler-times "xvmsub.dp" 1 } } */
 /* { dg-final { scan-assembler-times "xvmuldp" 4 } } */
@@ -14,7 +14,8 @@
 extern double a_d[SIZE] __attribute__((__aligned__(32)));
 extern double b_d[SIZE] __attribute__((__aligned__(32)));
 
-void vectorize_rsqrt_d (void)
+void
+vectorize_rsqrt_d (void)
 {
   int i;
 
@@ -25,7 +26,8 @@ void vectorize_rsqrt_d (void)
 extern float a_f[SIZE] __attribute__((__aligned__(32)));
 extern float b_f[SIZE] __attribute__((__aligned__(32)));
 
-void vectorize_rsqrt_f (void)
+void
+vectorize_rsqrt_f (void)
 {
   int i;
 

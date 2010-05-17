@@ -342,10 +342,9 @@ enum rs6000_recip_mask {
 
   RECIP_HIGH_PRECISION	= RECIP_ALL,
 
-  /* On low precision machines like the power5, don't enable divide by default,
-     since there are some 1 bit errors.  */
-  RECIP_LOW_PRECISION	= (RECIP_SF_RSQRT | RECIP_DF_RSQRT | RECIP_V4SF_RSQRT
-			   | RECIP_V2DF_RSQRT)
+  /* On low precision machines like the power5, don't enable double precision
+     reciprocal square root estimate, since it isn't accurate enough.  */
+  RECIP_LOW_PRECISION	= (RECIP_ALL & ~(RECIP_DF_RSQRT | RECIP_V2DF_RSQRT))
 };
 
 unsigned int rs6000_recip_control;

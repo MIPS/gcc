@@ -4,7 +4,8 @@
 	-mrecip=, -mrecip-precision documentation.
 
 	* config/rs6000/rs6000.c (recip_options): New table for the
-	-mrecip= options.
+	-mrecip= options.  By default don't enable double precision
+	reciprocal square root estimate on low precision machines.
 	(rs6000_handle_option): Just save -mrecip, -mrecip= switches.
 	(rs6000_override_options): Move -mrecip handling here.
 	(rs6000_load_constant_and_splat): Add gcc_unreachable call to
