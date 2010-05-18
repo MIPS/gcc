@@ -1,3 +1,33 @@
+2010-04-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR other/43620
+	* configure.ac (AM_INIT_AUTOMAKE): Add no-dist option.
+	* Makefile.in: Regenerated.
+
+2010-04-29  Release Manager
+
+	* GCC 4.4.4 released.
+
+2010-04-19  Andrew Haley  <aph@redhat.com>
+
+	PR libgcj/40860
+	* configure.ac: Handle --no-merge-exidx-entries.
+
+2010-04-08  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	Backport:
+	2009-12-09  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* include/pa-signal.h: Do not include ucontext.h.
+	(SIGNAL_HANDLER): Add __attribute__ ((unused)) to signal handler
+	arguments.
+	(MAKE_THROW_FRAME): Do not adjust program counter.
+	* include/hppa-signal.h: Do not include sys/types.h, sys/syscall.h and
+	unistd.h.
+	(MAKE_THROW_FRAME): Do not adjust program counter.
+	(HANDLE_FPE): Define.
+	(INIT_SEGV, INIT_FPE): Revise indentation.
+
 2010-01-21  Release Manager
 
 	* GCC 4.4.3 released.

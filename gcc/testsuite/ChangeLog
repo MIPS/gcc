@@ -1,3 +1,123 @@
+2010-05-14  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/44135
+	* gfortran.dg/actual_array_interface_2.f90: New test.
+
+2010-05-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/44036
+	* gfortran.dg/gomp/pr44036-1.f90: New test.
+	* gfortran.dg/gomp/pr44036-2.f90: New test.
+	* gfortran.dg/gomp/pr44036-3.f90: New test.
+
+	PR middle-end/44085
+	* gcc.dg/gomp/pr44085.c: New test.
+	* gfortran.dg/gomp/pr44085.f90: New test.
+
+2010-05-05  Jason Merrill  <jason@redhat.com>
+
+	PR debug/43370
+	* g++.dg/ext/attrib39.C: New.
+
+2010-05-04  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2010-05-04  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR middle-end/43671
+	* gcc.target/i386/pr43671.c: New.
+
+2010-05-03  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* ada/acats/run_acats (which): New function.
+	(host_gnatchop, host_gnatmake): Use it.
+
+2010-04-30  DJ Delorie  <dj@redhat.com>
+
+	* gcc.c-torture/execute/20100430-1.c: New test.
+
+2010-04-29  Release Manager
+
+	* GCC 4.4.4 released.
+
+2010-04-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/43836
+	* gfortran.dg/gomp/pr43836.f90: New test.
+
+2010-04-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/43339
+	* gfortran.dg/gomp/sharing-2.f90: Adjust for iteration vars
+	of sequential loops being private only in the innermost containing
+	task region.
+
+	PR middle-end/43337
+	* gfortran.dg/gomp/pr43337.f90: New test.
+
+2010-04-19  Jie Zhang  <jie@codesourcery.com>
+
+	PR target/43662
+	* gcc.target/i386/pr43662.c: New test.
+
+2010-04-19 Ira Rosen <irar@il.ibm.com>
+
+	PR tree-optimization/43771
+	* g++.dg/vect/pr43771.cc: New test.
+
+2010-04-18  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/rep_clause5.ad[sb]: New test.
+	* gnat.dg/rep_clause5_pkg.ads: New helper.
+
+2010-04-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/43560
+	* gcc.c-torture/execute/pr43560.c: New test.
+
+2010-04-10  Jie Zhang  <jie@codesourcery.com>
+
+	PR target/43417
+	* gcc.target/sh/pr43417.c: New test.
+
+2010-04-08  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR target/43643
+	* gcc.dg/pr43643.c: New test.
+
+2010-04-08  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/42956
+	* gcc.c-torture/compile/pr42956.c: New testcase.
+
+2010-04-08  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline:
+	2010-03-29  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/43560
+	* gcc.dg/torture/pr43560.c: New testcase.
+
+	2010-04-01  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/43614
+	* gcc.c-torture/compile/pr43614.c: New testcase.
+
+2010-04-08  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/43186
+	* gcc.c-torture/compile/pr43186.c: New testcase.
+
+2010-04-07  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/43668
+	* gcc.target/i386/pr43668.c: New.
+
+2010-04-07  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/43629
+	* gcc.c-torture/execute/pr43629.c: New testcase.
+
 2010-04-06  Jakub Jelinek  <jakub@redhat.com>
 
 	* gcc.target/s390/stackcheck1.c: Add dg-warning.
@@ -6,7 +126,7 @@
 	* gcc.target/i386/pr43638.c: New test.
 
 2010-04-01  Janne Blomqvist  <jb@gcc.gnu.org>
-            Dominique d'Humieres  <dominiq@lps.ens.fr>
+	    Dominique d'Humieres  <dominiq@lps.ens.fr>
 
 	PR libfortran/43605
 	* gfortran.dg/ftell_3.f90: Enhance test case by reading more.
