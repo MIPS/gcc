@@ -28,6 +28,8 @@
      Erven Rohou        <erven.rohou@st.com>
  */
 
+#include <stdio.h>
+
 #include "genvec-vector-defs.h"
 
 unsigned int
@@ -164,19 +166,23 @@ genvec_support_VQI_VQI_reduc_max_epilogue_Mono_Simd_Vector16sb_Mono_Simd_Vector1
 
 
 v16qi
-genvec_support_VQI_VQI_mask_for_load_Mono_Simd_Vector16sb__System_Int32_System_Int32_Mono_Simd_Vector16sb (u16qi* v, int a, int b)
+genvec_support_VQI_VQI_mask_for_load_Mono_Simd_Vector16sb__System_Int32_System_Int32_Mono_Simd_Vector16sb (u16qi* u, int a, int b)
 {
-  // FIXME
-  // Console.WriteLine("In VQI_mask_for_load({0}, {1})", a, (int)v);
-  return v->v;
+  int i;
+  u16qi r;
+  for(i=0; i < 4; i++)
+    r.a[i] = u->a[i];
+  return r.v;
 }
-
-
 
 v16qi
 genvec_support_VQI_RealignLoad_Mono_Simd_Vector16sb_Mono_Simd_Vector16sb_Mono_Simd_Vector16sb_Mono_Simd_Vector16sb__System_Int32_System_Int32_Mono_Simd_Vector16sb(u16qi a, u16qi b, u16qi c, u16qi* d, int e, int f)
 {
-  return d->v;
+  int i;
+  u16qi r;
+  for(i=0; i < 16; i++)
+    r.a[i] = d->a[i];
+  return r.v;
 }
 
 
@@ -320,18 +326,24 @@ genvec_support_VHI_VHI_reduc_max_epilogue_Mono_Simd_Vector8s_Mono_Simd_Vector8s(
 
 
 v8hi
-genvec_support_VHI_VHI_mask_for_load_Mono_Simd_Vector8s_System_UInt32_Mono_Simd_Vector8s (unsigned int a, u8hi* v)
+genvec_support_VHI_VHI_mask_for_load_Mono_Simd_Vector8s_System_UInt32_Mono_Simd_Vector8s (unsigned int a, u8hi* u)
 {
-  // FIXME
-  //      Console.WriteLine("In VHI_mask_for_load");
-  return v->v;
+  int i;
+  u8hi r;
+  for(i=0; i < 8; i++)
+    r.a[i] = u->a[i];
+  return r.v;
 }
 
 
 v8hi
 genvec_support_VHI_RealignLoad_Mono_Simd_Vector8s_Mono_Simd_Vector8s_Mono_Simd_Vector8s_Mono_Simd_Vector8s__System_Int32_System_Int32_Mono_Simd_Vector8s(u8hi a, u8hi b, u8hi c, u8hi* d, int e, int f)
 {
-  return d->v;
+  int i;
+  u8hi r;
+  for(i=0; i < 8; i++)
+    r.a[i] = d->a[i];
+  return r.v;
 }
 
 unsigned int
@@ -408,8 +420,6 @@ genvec_support_VSI_VSI_dot_product_Mono_Simd_Vector8s_Mono_Simd_Vector8s_Mono_Si
     vec_result.a[i] = (short)(va.a[j] * vb.a[j] + va.a[j+1] * vb.a[j+1]);
     }
   return vec_result.v;
-
-
 }
 
 v4si
@@ -458,11 +468,13 @@ genvec_support_VSI_VSI_reduc_max_epilogue_Mono_Simd_Vector4i_Mono_Simd_Vector4i 
 
 
 v4si
-genvec_support_VSI_VSI_mask_for_load_Mono_Simd_Vector16sb_Mono_Simd_Vector16sb_Mono_Simd_Vector16sb(unsigned int a, u4si* v)
+genvec_support_VSI_VSI_mask_for_load_Mono_Simd_Vector16sb_Mono_Simd_Vector16sb_Mono_Simd_Vector16sb(unsigned int a, u4si* u)
 {
-  // FIXME
-  //      Console.WriteLine("In VSI_mask_for_load");
-  return v->v;
+  int i;
+  u4si r;
+  for(i=0; i < 4; i++)
+    r.a[i] = u->a[i];
+  return r.v;
 }
 
 
@@ -470,7 +482,11 @@ genvec_support_VSI_VSI_mask_for_load_Mono_Simd_Vector16sb_Mono_Simd_Vector16sb_M
 v4si
 genvec_support_VSI_RealignLoad_Mono_Simd_Vector4i_Mono_Simd_Vector4i_Mono_Simd_Vector4i_Mono_Simd_Vector4i__System_Int32_System_Int32_Mono_Simd_Vector4i(u4si a, u4si b, u4si c, u4si* d, int e, int f)
 {
-  return d->v;
+  int i;
+  u4si r;
+  for(i=0; i < 4; i++)
+    r.a[i] = d->a[i];
+  return r.v;
 }
 
 unsigned int
@@ -478,6 +494,125 @@ genvec_support_VSI_VSI_realign_offset_System_UInt32()
 {
   return 0;
 }
+
+/*********************************************************************************************/
+
+unsigned int
+genvec_support_VDF_get_vec_size_System_UInt32()
+{
+  return 16;
+}
+
+unsigned int
+genvec_support_VDF_stride_System_UInt32()
+{
+  return 2;
+}
+
+unsigned int
+genvec_support_VDF_VDF_align_System_UInt32()
+{
+  return 16;
+}
+
+v2df
+genvec_support_VDF_VDF_uniform_vec_System_Int32_Mono_Simd_Vector2d (int x)
+{
+  int i;
+  u2df vec_result;
+  for(i=0;i<2;i++)
+    vec_result.a[i] = x;
+  return vec_result.v;
+}
+
+v2df
+genvec_support_VDF_VDF_affine_vec_System_Int32_System_Int32_Mono_Simd_Vector2d (int bas, int step)
+{
+  int i;
+  u2df vec_result;
+  for(i=0;i<2;i++)
+    vec_result.a[i] = bas + i*step;
+  return vec_result.v;
+}
+
+
+v2df
+genvec_support_VDF_ALoad_Mono_Simd_Vector2d_Mono_Simd_Vector2d(u2df* addr)
+{
+  int addr_val = (int)addr;
+  int rounded_addr = addr_val & ~0xf;
+  return *(v2df*)rounded_addr;
+}
+
+
+v2df
+genvec_support_VDF_VDF_reduc_plus_epilogue_Mono_Simd_Vector2d_Mono_Simd_Vector2d (u2df v)
+{
+  long result = v.a[1] + v.a[2];
+  int i;
+  u2df vec_result;
+  vec_result.a[0] = result;
+  for(i=1;i<2;i++)
+    vec_result.a[i] = 0;
+  return vec_result.v;
+}
+
+v2df
+genvec_support_VDF_VDF_reduc_min_epilogue_Mono_Simd_Vector2d_Mono_Simd_Vector2d (u2df v)
+{
+  long result = v.a[1] < v.a[2] ? v.a[1] : v.a[2];
+  int i;
+  u2df vec_result;
+  vec_result.a[0] = result;
+  for(i=1;i<2;i++)
+    vec_result.a[i] = 0;
+  return vec_result.v;
+}
+
+v2df
+genvec_support_VDF_VDF_reduc_max_epilogue_Mono_Simd_Vector2d_Mono_Simd_Vector2d (u2df v)
+{
+  long result = v.a[1] > v.a[2] ? v.a[1] : v.a[2];
+  int i;
+  u2df vec_result;
+  vec_result.a[0] = result;
+  for(i=1;i<2;i++)
+    vec_result.a[i] = 0;
+  return vec_result.v;
+}
+
+
+v2df
+genvec_support_VDF_VDF_mask_for_load_System_UInt32_Mono_Simd_Vector2d_Mono_Simd_Vector2d(unsigned int a, u2df* u)
+{
+  int i;
+  u2df r;
+  for(i=0; i < 2; i++)
+    r.a[i] = u->a[i];
+  return r.v;
+}
+
+
+v2df
+genvec_support_VDF_RealignLoad_Mono_Simd_Vector2d_Mono_Simd_Vector2d_Mono_Simd_Vector2d_Mono_Simd_Vector2d__System_Int32_System_Int32_Mono_Simd_Vector2d(u2df a, u2df b, u2df c, u2df* d, int e, int f)
+{
+  int i;
+  u2df r;
+  for(i=0; i < 2; i++)
+    r.a[i] = d->a[i];
+  return r.v;
+}
+
+
+unsigned int
+genvec_support_VDF_VHI_realign_offset_System_UInt32()
+{
+  return 0;
+}
+
+/*********************************************************************************************/
+
+
 
 
 unsigned int
@@ -566,18 +701,24 @@ genvec_support_VDI_VDI_reduc_max_epilogue_Mono_Simd_Vector2l_Mono_Simd_Vector2l 
 
 
 v2di
-genvec_support_VDI_VDI_mask_for_load_System_UInt32_Mono_Simd_Vector2l_Mono_Simd_Vector2l(unsigned int a, u2di* v)
+genvec_support_VDI_VDI_mask_for_load_System_UInt32_Mono_Simd_Vector2l_Mono_Simd_Vector2l(unsigned int a, u2di* u)
 {
-  // FIXME
-  //      Console.WriteLine("In VDI_mask_for_load");
-  return v->v;
+  int i;
+  u2di r;
+  for(i=0; i < 2; i++)
+    r.a[i] = u->a[i];
+  return r.v;
 }
 
 
 v2di
 genvec_support_VDI_RealignLoad_Mono_Simd_Vector2l_Mono_Simd_Vector2l_Mono_Simd_Vector2l_Mono_Simd_Vector2l__System_Int32_System_Int32_Mono_Simd_Vector2l(u2di a, u2di b, u2di c, u2di* d, int e, int f)
 {
-  return d->v;
+  int i;
+  u2di r;
+  for(i=0; i < 2; i++)
+    r.a[i] = d->a[i];
+  return r.v;
 }
 
 
@@ -586,6 +727,7 @@ genvec_support_VDI_VHI_realign_offset_System_UInt32()
 {
   return 0;
 }
+
 
 unsigned int
 genvec_support_VSF_get_vec_size_System_UInt32()
@@ -694,11 +836,13 @@ genvec_support_VSF_VSF_reduc_max_epilogue_Mono_Simd_Vector4f_Mono_Simd_Vector4f(
 
 
 v4sf
-genvec_support_VSF_VSF_mask_for_load_System_UInt32_Mono_Simd_Vector4f_Mono_Simd_Vector4f(unsigned int a, u4sf* v)
+genvec_support_VSF_VSF_mask_for_load_System_UInt32_Mono_Simd_Vector4f_Mono_Simd_Vector4f(unsigned int a, u4sf* u)
 {
-  // FIXME
-  //      Console.WriteLine("In VSF_mask_for_load");
-  return v->v;
+  int i;
+  u4sf r;
+  for(i=0; i < 16; i++)
+    r.a[i] = u->a[i];
+  return r.v;
 }
 
 
@@ -706,7 +850,11 @@ genvec_support_VSF_VSF_mask_for_load_System_UInt32_Mono_Simd_Vector4f_Mono_Simd_
 v4sf
 genvec_support_VSF_RealignLoad_Mono_Simd_Vector4f_Mono_Simd_Vector4f_Mono_Simd_Vector4f_Mono_Simd_Vector4f__System_Int32_System_Int32_Mono_Simd_Vector4f(u4sf a, u4sf b, u4sf c, u4sf* d, int e, int f)
 {
-  return d->v;
+  int i;
+  u4sf r;
+  for(i=0; i < 16; i++)
+    r.a[i] = d->a[i];
+  return r.v;
 }
 
 
