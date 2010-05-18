@@ -82,7 +82,7 @@ genvec_support_VQI_VQI_affine_vec_System_SByte_System_SByte_Mono_Simd_Vector16sb
 }
 
 v16qi
-genvec_support_VQI_ALoad_Mono_Simd_Vector16sb_Mono_Simd_Vector16sb (u16qi* addr)
+genvec_support_VQI_ALoad_Mono_Simd_Vector16sb__Mono_Simd_Vector16sb (u16qi* addr)
 {
   int addr_val = (int)addr;
   int rounded_addr = addr_val & ~0xf;
@@ -249,7 +249,7 @@ genvec_support_VHI_VHI_affine_vec_System_Int16_System_Int16_Mono_Simd_Vector8s (
 
 
 v8hi
-genvec_support_VHI_ALoad_Mono_Simd_Vector8s_Mono_Simd_Vector8s(u8hi* addr)
+genvec_support_VHI_ALoad_Mono_Simd_Vector8s__Mono_Simd_Vector8s(u8hi* addr)
 {
   int addr_val = (int)addr;
   int rounded_addr = addr_val & ~0xf;
@@ -516,7 +516,7 @@ genvec_support_VDF_VDF_align_System_UInt32()
 }
 
 v2df
-genvec_support_VDF_VDF_uniform_vec_System_Int32_Mono_Simd_Vector2d (int x)
+genvec_support_VDF_VDF_uniform_vec_System_Double_Mono_Simd_Vector2d (double x)
 {
   int i;
   u2df vec_result;
@@ -537,7 +537,7 @@ genvec_support_VDF_VDF_affine_vec_System_Int32_System_Int32_Mono_Simd_Vector2d (
 
 
 v2df
-genvec_support_VDF_ALoad_Mono_Simd_Vector2d_Mono_Simd_Vector2d(u2df* addr)
+genvec_support_VDF_ALoad_Mono_Simd_Vector2d__Mono_Simd_Vector2d(u2df* addr)
 {
   int addr_val = (int)addr;
   int rounded_addr = addr_val & ~0xf;
@@ -655,7 +655,7 @@ genvec_support_VDI_VDI_affine_vec_System_Int32_System_Int32_Mono_Simd_Vector2l (
 
 
 v2di
-genvec_support_VDI_ALoad_Mono_Simd_Vector2l_Mono_Simd_Vector2l(u2di* addr)
+genvec_support_VDI_ALoad_Mono_Simd_Vector2l__Mono_Simd_Vector2l(u2di* addr)
 {
   int addr_val = (int)addr;
   int rounded_addr = addr_val & ~0xf;

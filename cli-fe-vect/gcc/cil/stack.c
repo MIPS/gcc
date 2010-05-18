@@ -365,7 +365,7 @@ get_cil_stack_type_for_mono_simd_class (const char * called_klass_name)
     return CIL_STYPE_ERROR;
   }
 }
-
+/*
 CilStackType
 get_cil_stack_type_for_tree (tree t)
 {
@@ -416,10 +416,12 @@ get_cil_stack_type_for_tree (tree t)
   }
   error("no stack type for tree: ");
   print_generic_expr(stderr,t,0);
+  fprintf(stderr,"\t%d",GET_MODE_NUNITS (TYPE_MODE (t)));
   fprintf(stderr,"\n");
   gcc_unreachable ();
   return CIL_STYPE_ERROR;
 }
+*/
 
 #include "debug.h"
 #include "gt-cil-stack.h"
