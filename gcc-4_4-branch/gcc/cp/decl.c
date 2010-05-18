@@ -609,6 +609,7 @@ poplevel (int keep, int reverse, int functionbody)
 	    warning (OPT_Wunused_variable, "unused variable %q+D", decl);
 	  else if (DECL_CONTEXT (decl) == current_function_decl
 		   && TREE_TYPE (decl) != error_mark_node
+		   && !DECL_INTEGRAL_CONSTANT_VAR_P (decl)
 		   && TREE_CODE (TREE_TYPE (decl)) != REFERENCE_TYPE
 		   && errorcount == unused_but_set_errorcount
 		   && (!CLASS_TYPE_P (TREE_TYPE (decl))
