@@ -15606,11 +15606,13 @@ be preceeded by a @code{!} to invert the option:
 @code{all}: enable all estimate instructions,
 @code{default}: enable the default instructions, equvalent to @option{-mrecip},
 @code{none}: disable all estimate instructions, equivalent to @option{-mno-recip};
+@code{div}: enable the reciprocal approximation instructions for both single and double precision;
 @code{fdiv}: enable the single precision reciprocal approximation instructions;
 @code{ddiv}: enable the double precision reciprocal approximation instructions;
+@code{rsqrt}: enable the reciprocal square root approximation instructions for both single and double precision;
 @code{frsqrt}: enable the single precision reciprocal square root approximation instructions;
 @code{drsqrt}: enable the double precision reciprocal square root approximation instructions;
-@var{instruction}: enable the use of a particular estimate instruction
+@code{instruction}: enable the use of a particular estimate instruction
 such as @code{FRES}, @code{XVREDP}, etc.
 
 So for example, @option{-mrecip=rsqrt,!xvrsqrtedp} would enable the

@@ -360,10 +360,14 @@ static struct
 } recip_options[] = {
   { "all",	 RECIP_ALL },
   { "none",	 RECIP_NONE },
-  { "fdiv",	 RECIP_SF_DIV | RECIP_V4SF_DIV },
-  { "ddiv",	 RECIP_DF_DIV | RECIP_V2DF_DIV },
-  { "frsqrt",	 RECIP_SF_RSQRT | RECIP_V4SF_RSQRT },
-  { "drsqrt",	 RECIP_DF_RSQRT | RECIP_V2DF_RSQRT },
+  { "div",	 (RECIP_SF_DIV | RECIP_DF_DIV | RECIP_V4SF_DIV
+		  | RECIP_V2DF_DIV) },
+  { "fdiv",	 (RECIP_SF_DIV | RECIP_V4SF_DIV) },
+  { "ddiv",	 (RECIP_DF_DIV | RECIP_V2DF_DIV) },
+  { "rsqrt",	 (RECIP_SF_RSQRT | RECIP_DF_RSQRT | RECIP_V4SF_RSQRT
+		  | RECIP_V2DF_RSQRT) },
+  { "frsqrt",	 (RECIP_SF_RSQRT | RECIP_V4SF_RSQRT) },
+  { "drsqrt",	 (RECIP_DF_RSQRT | RECIP_V2DF_RSQRT) },
   { "fres",	 RECIP_SF_DIV },
   { "fre",	 RECIP_DF_DIV },
   { "xsredp",	 RECIP_DF_DIV },
