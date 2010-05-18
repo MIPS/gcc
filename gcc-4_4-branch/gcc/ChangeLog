@@ -1,3 +1,26 @@
+2010-05-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/41371
+	* var-tracking.c (find_loc_in_1pdv): Add a few checks from
+	rtx_equal_p inline.
+
+2010-05-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/42347
+	* cfglayout.c (fixup_reorder_chain): Allow returnjump_p
+	to have no fallthru edge.
+
+	PR middle-end/44102
+	* cfgcleanup.c (try_optimize_cfg): When removing trivially empty
+	bb with no successors, move footer whenever in IR_RTL_CFGLAYOUT
+	mode, not just when CLEANUP_CFGLAYOUT, and when in IR_RTL_CFGRTL
+	add BARRIER after previous bb if needed.
+
+2009-09-17  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* cfglayout.c (fixup_reorder_chain): Accept conditional jumps
+	without a fallthrough edge.
+
 2010-05-14  Jakub Jelinek  <jakub@redhat.com>
 
 	PR debug/44112
