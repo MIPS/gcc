@@ -771,19 +771,34 @@ gfc_build_qualified_array (tree decl, gfc_symbol * sym)
 
       for (dim = sym->as->rank - 1; dim >= 0; dim--)
 	{
-	  rtype = build_range_type (gfc_array_index_type,
-				    GFC_TYPE_ARRAY_LBOUND (type, dim),
-				    GFC_TYPE_ARRAY_UBOUND (type, dim));
+	  tree lbound, ubound;
+	  lbound = GFC_TYPE_ARRAY_LBOUND (type, dim);
+	  ubound = GFC_TYPE_ARRAY_UBOUND (type, dim);
+	  rtype = build_range_type (gfc_array_index_type, lbound, ubound);
 	  gtype = build_array_type (gtype, rtype);
 	  /* Ensure the bound variables aren't optimized out at -O0.
 	     For -O1 and above they often will be optimized out, but
-	     can be tracked by VTA.  */
-	  if (GFC_TYPE_ARRAY_LBOUND (type, dim)
-	      && TREE_CODE (GFC_TYPE_ARRAY_LBOUND (type, dim)) == VAR_DECL)
-	    DECL_IGNORED_P (GFC_TYPE_ARRAY_LBOUND (type, dim)) = 0;
-	  if (GFC_TYPE_ARRAY_UBOUND (type, dim)
-	      && TREE_CODE (GFC_TYPE_ARRAY_UBOUND (type, dim)) == VAR_DECL)
-	    DECL_IGNORED_P (GFC_TYPE_ARRAY_UBOUND (type, dim)) = 0;
+	     can be tracked by VTA.  Also clear the artificial
+	     lbound.N or ubound.N DECL_NAME, so that it doesn't end up
+	     in debug info.  */
+	  if (lbound && TREE_CODE (lbound) == VAR_DECL
+	      && DECL_ARTIFICIAL (lbound) && DECL_IGNORED_P (lbound))
+	    {
+	      if (DECL_NAME (lbound)
+		  && strstr (IDENTIFIER_POINTER (DECL_NAME (lbound)),
+			     "lbound") != 0)
+		DECL_NAME (lbound) = NULL_TREE;
+	      DECL_IGNORED_P (lbound) = 0;
+	    }
+	  if (ubound && TREE_CODE (ubound) == VAR_DECL
+	      && DECL_ARTIFICIAL (ubound) && DECL_IGNORED_P (ubound))
+	    {
+	      if (DECL_NAME (ubound)
+		  && strstr (IDENTIFIER_POINTER (DECL_NAME (ubound)),
+			     "ubound") != 0)
+		DECL_NAME (ubound) = NULL_TREE;
+	      DECL_IGNORED_P (ubound) = 0;
+	    }
 	}
       TYPE_NAME (type) = type_decl = build_decl (input_location,
 						 TYPE_DECL, NULL, gtype);
@@ -1054,6 +1069,15 @@ gfc_get_symbol_decl (gfc_symbol * sym)
     byref = gfc_return_by_reference (sym->ns->proc_name);
   else
     byref = 0;
+
+  /* Make sure that the vtab for the declared type is completed.  */
+  if (sym->ts.type == BT_CLASS)
+    {
+      gfc_component *c = gfc_find_component (sym->ts.u.derived,
+					     "$data", true, true);
+      if (!c->ts.u.derived->backend_decl)
+	gfc_find_derived_vtab (c->ts.u.derived, true);
+    }
 
   if ((sym->attr.dummy && ! sym->attr.function) || (sym->attr.result && byref))
     {
@@ -2259,11 +2283,11 @@ gfc_get_fake_result_decl (gfc_symbol * sym, int parent_flag)
 	       IDENTIFIER_POINTER (DECL_NAME (this_function_decl)));
 
       if (!sym->attr.mixed_entry_master && sym->attr.function)
-	decl = build_decl (input_location,
+	decl = build_decl (DECL_SOURCE_LOCATION (this_function_decl),
 			   VAR_DECL, get_identifier (name),
 			   gfc_sym_type (sym));
       else
-	decl = build_decl (input_location,
+	decl = build_decl (DECL_SOURCE_LOCATION (this_function_decl),
 			   VAR_DECL, get_identifier (name),
 			   TREE_TYPE (TREE_TYPE (this_function_decl)));
       DECL_ARTIFICIAL (decl) = 1;
@@ -2293,21 +2317,18 @@ gfc_get_fake_result_decl (gfc_symbol * sym, int parent_flag)
 /* Builds a function decl.  The remaining parameters are the types of the
    function arguments.  Negative nargs indicates a varargs function.  */
 
-tree
-gfc_build_library_function_decl (tree name, tree rettype, int nargs, ...)
+static tree
+build_library_function_decl_1 (tree name, const char *spec,
+			       tree rettype, int nargs, va_list p)
 {
   tree arglist;
   tree argtype;
   tree fntype;
   tree fndecl;
-  va_list p;
   int n;
 
   /* Library functions must be declared with global scope.  */
   gcc_assert (current_function_decl == NULL_TREE);
-
-  va_start (p, nargs);
-
 
   /* Create a list of the argument types.  */
   for (arglist = NULL_TREE, n = abs (nargs); n > 0; n--)
@@ -2324,6 +2345,14 @@ gfc_build_library_function_decl (tree name, tree rettype, int nargs, ...)
 
   /* Build the function type and decl.  */
   fntype = build_function_type (rettype, arglist);
+  if (spec)
+    {
+      tree attr_args = build_tree_list (NULL_TREE,
+					build_string (strlen (spec), spec));
+      tree attrs = tree_cons (get_identifier ("fn spec"),
+			      attr_args, TYPE_ATTRIBUTES (fntype));
+      fntype = build_type_attribute_variant (fntype, attrs);
+    }
   fndecl = build_decl (input_location,
 		       FUNCTION_DECL, name, fntype);
 
@@ -2331,13 +2360,42 @@ gfc_build_library_function_decl (tree name, tree rettype, int nargs, ...)
   DECL_EXTERNAL (fndecl) = 1;
   TREE_PUBLIC (fndecl) = 1;
 
-  va_end (p);
-
   pushdecl (fndecl);
 
   rest_of_decl_compilation (fndecl, 1, 0);
 
   return fndecl;
+}
+
+/* Builds a function decl.  The remaining parameters are the types of the
+   function arguments.  Negative nargs indicates a varargs function.  */
+
+tree
+gfc_build_library_function_decl (tree name, tree rettype, int nargs, ...)
+{
+  tree ret;
+  va_list args;
+  va_start (args, nargs);
+  ret = build_library_function_decl_1 (name, NULL, rettype, nargs, args);
+  va_end (args);
+  return ret;
+}
+
+/* Builds a function decl.  The remaining parameters are the types of the
+   function arguments.  Negative nargs indicates a varargs function.
+   The SPEC parameter specifies the function argument and return type
+   specification according to the fnspec function type attribute.  */
+
+static tree
+gfc_build_library_function_decl_with_spec (tree name, const char *spec,
+					   tree rettype, int nargs, ...)
+{
+  tree ret;
+  va_list args;
+  va_start (args, nargs);
+  ret = build_library_function_decl_1 (name, spec, rettype, nargs, args);
+  va_end (args);
+  return ret;
 }
 
 static void
@@ -2797,12 +2855,12 @@ gfc_build_builtin_function_decls (void)
     gfc_build_library_function_decl (get_identifier (PREFIX("set_max_subrecord_length")),
 				     void_type_node, 1, integer_type_node);
 
-  gfor_fndecl_in_pack = gfc_build_library_function_decl (
-        get_identifier (PREFIX("internal_pack")),
+  gfor_fndecl_in_pack = gfc_build_library_function_decl_with_spec (
+        get_identifier (PREFIX("internal_pack")), ".r",
         pvoid_type_node, 1, pvoid_type_node);
 
-  gfor_fndecl_in_unpack = gfc_build_library_function_decl (
-        get_identifier (PREFIX("internal_unpack")),
+  gfor_fndecl_in_unpack = gfc_build_library_function_decl_with_spec (
+        get_identifier (PREFIX("internal_unpack")), ".wR",
         void_type_node, 2, pvoid_type_node, pvoid_type_node);
 
   gfor_fndecl_associated =
@@ -3201,8 +3259,6 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, tree fnbody)
 	  if (sym_has_alloc_comp && !seen_trans_deferred_array)
 	    fnbody = gfc_trans_deferred_array (sym, fnbody);
 	}
-      else if (sym_has_alloc_comp)
-	fnbody = gfc_trans_deferred_array (sym, fnbody);
       else if (sym->attr.allocatable
 	       || (sym->ts.type == BT_CLASS
 		   && sym->ts.u.derived->components->attr.allocatable))
@@ -3240,6 +3296,8 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, tree fnbody)
 	      fnbody = gfc_finish_block (&block);
 	    }
 	}
+      else if (sym_has_alloc_comp)
+	fnbody = gfc_trans_deferred_array (sym, fnbody);
       else if (sym->ts.type == BT_CHARACTER)
 	{
 	  gfc_get_backend_locus (&loc);
@@ -3462,7 +3520,8 @@ gfc_create_module_variable (gfc_symbol * sym)
       tree length;
 
       length = sym->ts.u.cl->backend_decl;
-      if (!INTEGER_CST_P (length))
+      gcc_assert (length || sym->attr.proc_pointer);
+      if (length && !INTEGER_CST_P (length))
         {
           pushdecl (length);
           rest_of_decl_compilation (length, 1, 0);
@@ -4137,6 +4196,7 @@ create_main_function (tree fndecl)
      language standard parameters.  */
   {
     tree array_type, array, var;
+    VEC(constructor_elt,gc) *v = NULL;
 
     /* Passing a new option to the library requires four modifications:
      + add it to the tree_cons list below
@@ -4145,28 +4205,34 @@ create_main_function (tree fndecl)
             gfor_fndecl_set_options
           + modify the library (runtime/compile_options.c)!  */
 
-    array = tree_cons (NULL_TREE, build_int_cst (integer_type_node,
-		       gfc_option.warn_std), NULL_TREE);
-    array = tree_cons (NULL_TREE, build_int_cst (integer_type_node,
-		       gfc_option.allow_std), array);
-    array = tree_cons (NULL_TREE, build_int_cst (integer_type_node, pedantic),
-		       array);
-    array = tree_cons (NULL_TREE, build_int_cst (integer_type_node,
-		       gfc_option.flag_dump_core), array);
-    array = tree_cons (NULL_TREE, build_int_cst (integer_type_node,
-		       gfc_option.flag_backtrace), array);
-    array = tree_cons (NULL_TREE, build_int_cst (integer_type_node,
-		       gfc_option.flag_sign_zero), array);
-
-    array = tree_cons (NULL_TREE, build_int_cst (integer_type_node,
-		       (gfc_option.rtcheck & GFC_RTCHECK_BOUNDS)), array);
-
-    array = tree_cons (NULL_TREE, build_int_cst (integer_type_node,
-		       gfc_option.flag_range_check), array);
+    CONSTRUCTOR_APPEND_ELT (v, NULL_TREE,
+                            build_int_cst (integer_type_node,
+                                           gfc_option.warn_std));
+    CONSTRUCTOR_APPEND_ELT (v, NULL_TREE,
+                            build_int_cst (integer_type_node,
+                                           gfc_option.allow_std));
+    CONSTRUCTOR_APPEND_ELT (v, NULL_TREE,
+                            build_int_cst (integer_type_node, pedantic));
+    CONSTRUCTOR_APPEND_ELT (v, NULL_TREE,
+                            build_int_cst (integer_type_node,
+                                           gfc_option.flag_dump_core));
+    CONSTRUCTOR_APPEND_ELT (v, NULL_TREE,
+                            build_int_cst (integer_type_node,
+                                           gfc_option.flag_backtrace));
+    CONSTRUCTOR_APPEND_ELT (v, NULL_TREE,
+                            build_int_cst (integer_type_node,
+                                           gfc_option.flag_sign_zero));
+    CONSTRUCTOR_APPEND_ELT (v, NULL_TREE,
+                            build_int_cst (integer_type_node,
+                                           (gfc_option.rtcheck
+                                            & GFC_RTCHECK_BOUNDS)));
+    CONSTRUCTOR_APPEND_ELT (v, NULL_TREE,
+                            build_int_cst (integer_type_node,
+                                           gfc_option.flag_range_check));
 
     array_type = build_array_type (integer_type_node,
 		       build_index_type (build_int_cst (NULL_TREE, 7)));
-    array = build_constructor_from_list (array_type, nreverse (array));
+    array = build_constructor (array_type, v);
     TREE_CONSTANT (array) = 1;
     TREE_STATIC (array) = 1;
 
@@ -4567,8 +4633,7 @@ gfc_generate_constructors (void)
     return;
 
   fnname = get_file_function_name ("I");
-  type = build_function_type (void_type_node,
-			      gfc_chainon_list (NULL_TREE, void_type_node));
+  type = build_function_type_list (void_type_node, NULL_TREE);
 
   fndecl = build_decl (input_location,
 		       FUNCTION_DECL, fnname, type);

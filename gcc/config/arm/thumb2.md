@@ -223,9 +223,14 @@
    (set_attr "neg_pool_range" "*,*,*,0,*")]
 )
 
+;; We have two alternatives here for memory loads (and similarly for stores)
+;; to reflect the fact that the permissible constant pool ranges differ
+;; between ldr instructions taking low regs and ldr instructions taking high
+;; regs.  The high register alternatives are not taken into account when
+;; choosing register preferences in order to reflect their expense.
 (define_insn "*thumb2_movsi_insn"
-  [(set (match_operand:SI 0 "nonimmediate_operand" "=rk,r,r,r,rk,m")
-	(match_operand:SI 1 "general_operand"	   "rk ,I,K,j,mi,rk"))]
+  [(set (match_operand:SI 0 "nonimmediate_operand" "=rk,r,r,r,l ,*hk,m,*m")
+	(match_operand:SI 1 "general_operand"	   "rk ,I,K,j,mi,*mi,l,*hk"))]
   "TARGET_THUMB2 && ! TARGET_IWMMXT
    && !(TARGET_HARD_FLOAT && TARGET_VFP)
    && (   register_operand (operands[0], SImode)
@@ -236,11 +241,13 @@
    mvn%?\\t%0, #%B1
    movw%?\\t%0, %1
    ldr%?\\t%0, %1
+   ldr%?\\t%0, %1
+   str%?\\t%1, %0
    str%?\\t%1, %0"
-  [(set_attr "type" "*,*,*,*,load1,store1")
+  [(set_attr "type" "*,*,*,*,load1,load1,store1,store1")
    (set_attr "predicable" "yes")
-   (set_attr "pool_range" "*,*,*,*,4096,*")
-   (set_attr "neg_pool_range" "*,*,*,*,0,*")]
+   (set_attr "pool_range" "*,*,*,*,1020,4096,*,*")
+   (set_attr "neg_pool_range" "*,*,*,*,0,0,*,*")]
 )
 
 (define_insn "tls_load_dot_plus_four"
@@ -1434,4 +1441,78 @@
   "
   [(set_attr "length" "4,4,16")
    (set_attr "predicable" "yes")]
+)
+
+(define_insn "*thumb2_tlobits_cbranch"
+  [(set (pc)
+	(if_then_else
+	 (match_operator 0 "equality_operator"
+	  [(zero_extract:SI (match_operand:SI 1 "s_register_operand" "l,?h")
+			    (match_operand:SI 2 "const_int_operand" "i,i")
+			    (const_int 0))
+	   (const_int 0)])
+	 (label_ref (match_operand 3 "" ""))
+	 (pc)))
+   (clobber (match_scratch:SI 4 "=l,X"))]
+  "TARGET_THUMB2"
+  "*
+  {
+  if (which_alternative == 0)
+    {
+      rtx op[3];
+      op[0] = operands[4];
+      op[1] = operands[1];
+      op[2] = GEN_INT (32 - INTVAL (operands[2]));
+
+      output_asm_insn (\"lsls\\t%0, %1, %2\", op);
+      switch (get_attr_length (insn))
+	{
+	  case 4:  return \"b%d0\\t%l3\";
+	  case 6:  return \"b%D0\\t.LCB%=\;b\\t%l3\\t%@long jump\\n.LCB%=:\";
+	  default: return \"b%D0\\t.LCB%=\;bl\\t%l3\\t%@far jump\\n.LCB%=:\";
+	}
+    }
+  else
+    {
+      rtx op[2];
+      op[0] = operands[1];
+      op[1] = GEN_INT ((1 << INTVAL (operands[2])) - 1);
+
+      output_asm_insn (\"tst\\t%0, %1\", op);
+      switch (get_attr_length (insn))
+	{
+	  case 6:  return \"b%d0\\t%l3\";
+	  case 8:  return \"b%D0\\t.LCB%=\;b\\t%l3\\t%@long jump\\n.LCB%=:\";
+	  default: return \"b%D0\\t.LCB%=\;bl\\t%l3\\t%@far jump\\n.LCB%=:\";
+	}
+    }
+  }"
+  [(set (attr "far_jump")
+	(if_then_else
+	    (and (ge (minus (match_dup 3) (pc)) (const_int -2040))
+		 (le (minus (match_dup 3) (pc)) (const_int 2048)))
+	    (const_string "no")
+	    (const_string "yes")))
+   (set (attr "length")
+	(if_then_else
+	  (eq (symbol_ref ("which_alternative"))
+			  (const_int 0))
+	  (if_then_else
+	    (and (ge (minus (match_dup 3) (pc)) (const_int -250))
+		 (le (minus (match_dup 3) (pc)) (const_int 256)))
+	    (const_int 4)
+	    (if_then_else
+		(and (ge (minus (match_dup 3) (pc)) (const_int -2040))
+		     (le (minus (match_dup 3) (pc)) (const_int 2048)))
+		(const_int 6)
+		(const_int 8)))
+	  (if_then_else
+	    (and (ge (minus (match_dup 3) (pc)) (const_int -250))
+		 (le (minus (match_dup 3) (pc)) (const_int 256)))
+	    (const_int 6)
+	    (if_then_else
+		(and (ge (minus (match_dup 3) (pc)) (const_int -2040))
+		     (le (minus (match_dup 3) (pc)) (const_int 2048)))
+		(const_int 8)
+		(const_int 10)))))]
 )

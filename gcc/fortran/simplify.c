@@ -2936,6 +2936,13 @@ simplify_cobound (gfc_expr *array, gfc_expr *dim, gfc_expr *kind, int upper)
 	  switch (ref->u.ar.type)
 	    {
 	    case AR_ELEMENT:
+	      if (ref->next == NULL)
+		{
+		  gcc_assert (ref->u.ar.as->corank > 0
+			      && ref->u.ar.as->rank == 0);
+		  as = ref->u.ar.as;
+		  goto done;
+		}
 	      as = NULL;
 	      continue;
 
@@ -5173,7 +5180,7 @@ gfc_simplify_transfer (gfc_expr *source, gfc_expr *mold, gfc_expr *size)
   unsigned char *buffer;
 
   if (!gfc_is_constant_expr (source)
-	|| (gfc_init_expr && !gfc_is_constant_expr (mold))
+	|| (gfc_init_expr_flag && !gfc_is_constant_expr (mold))
 	|| !gfc_is_constant_expr (size))
     return NULL;
 

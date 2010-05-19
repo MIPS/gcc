@@ -268,7 +268,8 @@ cgraph_clone_inlined_nodes (struct cgraph_edge *e, bool duplicate,
       else
 	{
 	  struct cgraph_node *n;
-	  n = cgraph_clone_node (e->callee, e->count, e->frequency, e->loop_nest,
+	  n = cgraph_clone_node (e->callee, e->callee->decl,
+				 e->count, e->frequency, e->loop_nest,
 				 update_original, NULL);
 	  cgraph_redirect_edge_callee (e, n);
 	}
@@ -285,6 +286,7 @@ cgraph_clone_inlined_nodes (struct cgraph_edge *e, bool duplicate,
       + inline_summary (e->callee)->estimated_self_stack_size;
   if (e->callee->global.inlined_to->global.estimated_stack_size < peak)
     e->callee->global.inlined_to->global.estimated_stack_size = peak;
+  cgraph_propagate_frequency (e->callee);
 
   /* Recursively clone all bodies.  */
   for (e = e->callee->callees; e; e = e->next_callee)
@@ -309,10 +311,7 @@ cgraph_mark_inline_edge (struct cgraph_edge *e, bool update_original,
 
   gcc_assert (e->inline_failed);
   e->inline_failed = CIF_OK;
-
-  if (!e->callee->global.inlined)
-    DECL_POSSIBLY_INLINED (e->callee->decl) = true;
-  e->callee->global.inlined = true;
+  DECL_POSSIBLY_INLINED (e->callee->decl) = true;
 
   cgraph_clone_inlined_nodes (e, true, update_original);
 
@@ -543,6 +542,9 @@ cgraph_edge_badness (struct cgraph_edge *edge, bool dump)
     (cgraph_estimate_size_after_inlining (1, edge->caller, edge->callee)
      - edge->caller->global.size);
 
+  if (edge->callee->local.disregard_inline_limits)
+    return INT_MIN;
+
   if (dump)
     {
       fprintf (dump_file, "    Badness calculcation for %s -> %s\n",
@@ -666,7 +668,7 @@ update_caller_keys (fibheap_t heap, struct cgraph_node *node,
   struct cgraph_edge *edge;
   cgraph_inline_failed_t failed_reason;
 
-  if (!node->local.inlinable || node->local.disregard_inline_limits
+  if (!node->local.inlinable
       || node->global.inlined_to)
     return;
   if (bitmap_bit_p (updated_nodes, node->uid))
@@ -807,7 +809,8 @@ cgraph_decide_recursive_inlining (struct cgraph_node *node,
 	     cgraph_node_name (node));
 
   /* We need original clone to copy around.  */
-  master_clone = cgraph_clone_node (node, node->count, CGRAPH_FREQ_BASE, 1,
+  master_clone = cgraph_clone_node (node, node->decl,
+				    node->count, CGRAPH_FREQ_BASE, 1,
   				    false, NULL);
   master_clone->needed = true;
   for (e = master_clone->callees; e; e = e->next_callee)
@@ -1024,8 +1027,9 @@ cgraph_decide_inlining_of_small_functions (void)
 		   " Estimated growth after inlined into all callees is %+i insns.\n"
 		   " Estimated badness is %i, frequency %.2f.\n",
 		   cgraph_node_name (edge->caller),
-		   gimple_filename ((const_gimple) edge->call_stmt),
-		   gimple_lineno ((const_gimple) edge->call_stmt),
+		   flag_wpa ? "unknown"
+		   : gimple_filename ((const_gimple) edge->call_stmt),
+		   flag_wpa ? -1 : gimple_lineno ((const_gimple) edge->call_stmt),
 		   cgraph_estimate_growth (edge->callee),
 		   badness,
 		   edge->frequency / (double)CGRAPH_FREQ_BASE);
@@ -1069,12 +1073,14 @@ cgraph_decide_inlining_of_small_functions (void)
 	    }
 	}
 
-      if (!cgraph_maybe_hot_edge_p (edge))
+      if (edge->callee->local.disregard_inline_limits)
+	;
+      else if (!cgraph_maybe_hot_edge_p (edge))
  	not_good = CIF_UNLIKELY_CALL;
-      if (!flag_inline_functions
+      else if (!flag_inline_functions
 	  && !DECL_DECLARED_INLINE_P (edge->callee->decl))
  	not_good = CIF_NOT_DECLARED_INLINED;
-      if (optimize_function_for_size_p (DECL_STRUCT_FUNCTION(edge->caller->decl)))
+      else if (optimize_function_for_size_p (DECL_STRUCT_FUNCTION(edge->caller->decl)))
  	not_good = CIF_OPTIMIZING_FOR_SIZE;
       if (not_good && growth > 0 && cgraph_estimate_growth (edge->callee) > 0)
 	{
@@ -1200,8 +1206,9 @@ cgraph_decide_inlining_of_small_functions (void)
 		   " Estimated growth after inlined into all callees is %+i insns.\n"
 		   " Estimated badness is %i, frequency %.2f.\n",
 		   cgraph_node_name (edge->caller),
-		   gimple_filename ((const_gimple) edge->call_stmt),
-		   gimple_lineno ((const_gimple) edge->call_stmt),
+		   flag_wpa ? "unknown"
+		   : gimple_filename ((const_gimple) edge->call_stmt),
+		   flag_wpa ? -1 : gimple_lineno ((const_gimple) edge->call_stmt),
 		   cgraph_estimate_growth (edge->callee),
 		   badness,
 		   edge->frequency / (double)CGRAPH_FREQ_BASE);
@@ -1319,6 +1326,8 @@ cgraph_decide_inlining (void)
   cgraph_remove_function_insertion_hook (function_insertion_hook_holder);
   if (in_lto_p && flag_indirect_inlining)
     ipa_update_after_lto_read ();
+  if (flag_indirect_inlining)
+    ipa_create_all_structures_for_iinln ();
 
   max_count = 0;
   max_benefit = 0;
@@ -1416,13 +1425,14 @@ cgraph_decide_inlining (void)
 	      if (cgraph_check_inline_limits (node->callers->caller, node,
 					      &reason, false))
 		{
+		  struct cgraph_node *caller = node->callers->caller;
 		  cgraph_mark_inline (node->callers);
 		  if (dump_file)
 		    fprintf (dump_file,
 			     " Inlined into %s which now has %i size"
 			     " for a net change of %+i size.\n",
-			     cgraph_node_name (node->callers->caller),
-			     node->callers->caller->global.size,
+			     cgraph_node_name (caller),
+			     caller->global.size,
 			     overall_size - old_size);
 		}
 	      else
@@ -1438,7 +1448,7 @@ cgraph_decide_inlining (void)
 
   /* Free ipa-prop structures if they are no longer needed.  */
   if (flag_indirect_inlining)
-    free_all_ipa_structures_after_iinln ();
+    ipa_free_all_structures_after_iinln ();
 
   if (dump_file)
     fprintf (dump_file,
@@ -1667,6 +1677,17 @@ cgraph_early_inlining (void)
     }
   else
     {
+      if (lookup_attribute ("flatten",
+			    DECL_ATTRIBUTES (node->decl)) != NULL)
+	{
+	  if (dump_file)
+	    fprintf (dump_file,
+		     "Flattening %s\n", cgraph_node_name (node));
+	  cgraph_flatten (node);
+	  timevar_push (TV_INTEGRATION);
+	  todo |= optimize_inline_calls (current_function_decl);
+	  timevar_pop (TV_INTEGRATION);
+	}
       /* We iterate incremental inlining to get trivial cases of indirect
 	 inlining.  */
       while (iterations < PARAM_VALUE (PARAM_EARLY_INLINER_MAX_ITERATIONS)
@@ -1819,14 +1840,6 @@ estimate_function_body_sizes (struct cgraph_node *node)
   int freq;
   tree funtype = TREE_TYPE (node->decl);
 
-  if (node->local.disregard_inline_limits)
-    {
-      inline_summary (node)->self_time = 0;
-      inline_summary (node)->self_size = 0;
-      inline_summary (node)->time_inlining_benefit = 0;
-      inline_summary (node)->size_inlining_benefit = 0;
-    }
-
   if (dump_file)
     fprintf (dump_file, "Analyzing function body size: %s\n",
 	     cgraph_node_name (node));
@@ -1958,21 +1971,10 @@ struct gimple_opt_pass pass_inline_parameters =
 static void
 inline_indirect_intraprocedural_analysis (struct cgraph_node *node)
 {
-  struct cgraph_edge *cs;
-
-  if (!flag_ipa_cp)
-    {
-      ipa_initialize_node_params (node);
-      ipa_detect_param_modifications (node);
-    }
+  ipa_initialize_node_params (node);
+  ipa_detect_param_modifications (node);
   ipa_analyze_params_uses (node);
-
-  if (!flag_ipa_cp)
-    for (cs = node->callees; cs; cs = cs->next_callee)
-      {
-	ipa_count_arguments (cs);
-	ipa_compute_jump_functions (cs);
-      }
+  ipa_compute_jump_functions (node);
 
   if (dump_file)
     {
@@ -2080,7 +2082,8 @@ inline_read_summary (void)
    active, we don't need to write them twice.  */
 
 static void
-inline_write_summary (cgraph_node_set set)
+inline_write_summary (cgraph_node_set set,
+		      varpool_node_set vset ATTRIBUTE_UNUSED)
 {
   if (flag_indirect_inlining && !flag_ipa_cp)
     ipa_prop_write_jump_functions (set);
@@ -2116,13 +2119,14 @@ struct ipa_opt_pass_d pass_ipa_inline =
   0,					/* properties_destroyed */
   TODO_remove_functions,		/* todo_flags_finish */
   TODO_dump_cgraph | TODO_dump_func
-  | TODO_remove_functions		/* todo_flags_finish */
+  | TODO_remove_functions | TODO_ggc_collect	/* todo_flags_finish */
  },
  inline_generate_summary,		/* generate_summary */
  inline_write_summary,			/* write_summary */
  inline_read_summary,			/* read_summary */
- NULL,					/* function_read_summary */
- lto_ipa_fixup_call_notes,		/* stmt_fixup */
+ NULL,					/* write_optimization_summary */
+ NULL,					/* read_optimization_summary */
+ NULL,					/* stmt_fixup */
  0,					/* TODOs */
  inline_transform,			/* function_transform */
  NULL,					/* variable_transform */

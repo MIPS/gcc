@@ -27,6 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "input.h"
 #include "real.h"
 #include "vec.h"
+#include "vecir.h"
 #include "fixed-value.h"
 #include "alias.h"
 
@@ -196,10 +197,6 @@ struct GTY(()) block_symbol {
      if the symbol has not yet been assigned an offset.  */
   HOST_WIDE_INT offset;
 };
-
-DEF_VEC_P(rtx);
-DEF_VEC_ALLOC_P(rtx,heap);
-DEF_VEC_ALLOC_P(rtx,gc);
 
 /* Describes a group of objects that are to be placed together in such
    a way that their relative positions are known.  */
@@ -374,6 +371,10 @@ struct GTY(()) rtvec_def {
 
 /* Predicate yielding nonzero iff X is an rtx for a constant integer.  */
 #define CONST_INT_P(X) (GET_CODE (X) == CONST_INT)
+
+/* Predicate yielding true iff X is an rtx for a double-int
+   or floating point constant.  */
+#define CONST_DOUBLE_P(X) (GET_CODE (X) == CONST_DOUBLE)
 
 /* Predicate yielding nonzero iff X is a label insn.  */
 #define LABEL_P(X) (GET_CODE (X) == CODE_LABEL)
@@ -1627,6 +1628,8 @@ extern void start_sequence (void);
 extern void push_to_sequence (rtx);
 extern void push_to_sequence2 (rtx, rtx);
 extern void end_sequence (void);
+extern double_int rtx_to_double_int (const_rtx);
+extern rtx immed_double_int_const (double_int, enum machine_mode);
 extern rtx immed_double_const (HOST_WIDE_INT, HOST_WIDE_INT,
 			       enum machine_mode);
 
@@ -2375,6 +2378,8 @@ extern rtx emit_library_call_value (rtx, rtx, enum libcall_type,
 /* In varasm.c */
 extern void init_varasm_once (void);
 extern enum tls_model decl_default_tls_model (const_tree);
+
+extern rtx make_debug_expr_from_rtl (const_rtx);
 
 /* In rtl.c */
 extern void traverse_md_constants (int (*) (void **, void *), void *);

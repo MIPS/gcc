@@ -1,6 +1,7 @@
 /* Emit RTL for the GCC expander.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,
+   2010
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -515,6 +516,36 @@ const_fixed_from_fixed_value (FIXED_VALUE_TYPE value, enum machine_mode mode)
   fixed->u.fv = value;
 
   return lookup_const_fixed (fixed);
+}
+
+/* Constructs double_int from rtx CST.  */
+
+double_int
+rtx_to_double_int (const_rtx cst)
+{
+  double_int r;
+
+  if (CONST_INT_P (cst))
+      r = shwi_to_double_int (INTVAL (cst));
+  else if (CONST_DOUBLE_P (cst) && GET_MODE (cst) == VOIDmode)
+    {
+      r.low = CONST_DOUBLE_LOW (cst);
+      r.high = CONST_DOUBLE_HIGH (cst);
+    }
+  else
+    gcc_unreachable ();
+  
+  return r;
+}
+
+
+/* Return a CONST_DOUBLE or CONST_INT for a value specified as
+   a double_int.  */
+
+rtx
+immed_double_int_const (double_int i, enum machine_mode mode)
+{
+  return immed_double_const (i.low, i.high, mode);
 }
 
 /* Return a CONST_DOUBLE or CONST_INT for a value specified as a pair

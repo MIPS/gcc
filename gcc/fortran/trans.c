@@ -47,7 +47,6 @@ along with GCC; see the file COPYING3.  If not see
 
 static gfc_file *gfc_current_backend_file;
 
-const char gfc_msg_bounds[] = N_("Array bound mismatch");
 const char gfc_msg_fault[] = N_("Array reference out of bounds");
 const char gfc_msg_wrong_return[] = N_("Incorrect function return value");
 
@@ -705,7 +704,7 @@ gfc_allocate_with_status (stmtblock_t * block, tree size, tree status)
 	  return mem;
 	}
 	else
-	  runtime_error ("Attempting to allocate already allocated array");
+	  runtime_error ("Attempting to allocate already allocated variable");
       }
     }
     
@@ -744,13 +743,13 @@ gfc_allocate_array_with_status (stmtblock_t * block, tree mem, tree size,
 
       error = gfc_trans_runtime_error (true, &expr->where,
 				       "Attempting to allocate already"
-				       " allocated array '%s'",
+				       " allocated variable '%s'",
 				       varname);
     }
   else
     error = gfc_trans_runtime_error (true, NULL,
 				     "Attempting to allocate already allocated"
-				     "array");
+				     "variable");
 
   if (status != NULL_TREE && !integer_zerop (status))
     {
@@ -1067,6 +1066,8 @@ trans_code (gfc_code * code, tree cond)
 	  res = gfc_trans_label_here (code);
 	  gfc_add_expr_to_block (&block, res);
 	}
+
+      gfc_set_backend_locus (&code->loc);
 
       switch (code->op)
 	{

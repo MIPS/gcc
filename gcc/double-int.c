@@ -842,18 +842,6 @@ double_int_sext (double_int cst, unsigned prec)
   return r;
 }
 
-/* Constructs long integer from tree CST.  The extra bits over the precision of
-   the number are filled with sign bit if CST is signed, and with zeros if it
-   is unsigned.  */
-
-double_int
-tree_to_double_int (const_tree cst)
-{
-  /* We do not need to call double_int_restrict here to ensure the semantics as
-     described, as this is the default one for trees.  */
-  return TREE_INT_CST (cst);
-}
-
 /* Returns true if CST fits in unsigned HOST_WIDE_INT.  */
 
 bool
@@ -1025,6 +1013,18 @@ double_int_umod (double_int a, double_int b, unsigned code)
   return double_int_mod (a, b, true, code);
 }
 
+/* Set BITPOS bit in A.  */
+double_int
+double_int_setbit (double_int a, unsigned bitpos)
+{
+  if (bitpos < HOST_BITS_PER_WIDE_INT)
+    a.low |= (unsigned HOST_WIDE_INT) 1 << bitpos;
+  else
+    a.high |= (HOST_WIDE_INT) 1 <<  (bitpos - HOST_BITS_PER_WIDE_INT);
+ 
+  return a;
+}
+
 /* Shift A left by COUNT places keeping only PREC bits of result.  Shift
    right if COUNT is negative.  ARITH true specifies arithmetic shifting;
    otherwise use logical shift.  */
@@ -1047,30 +1047,6 @@ double_int_rshift (double_int a, HOST_WIDE_INT count, unsigned int prec, bool ar
   double_int ret;
   rshift_double (a.low, a.high, count, prec, &ret.low, &ret.high, arith);
   return ret;
-}
-
-/* Constructs tree in type TYPE from with value given by CST.  Signedness of CST
-   is assumed to be the same as the signedness of TYPE.  */
-
-tree
-double_int_to_tree (tree type, double_int cst)
-{
-  cst = double_int_ext (cst, TYPE_PRECISION (type), TYPE_UNSIGNED (type));
-
-  return build_int_cst_wide (type, cst.low, cst.high);
-}
-
-/* Returns true if CST fits into range of TYPE.  Signedness of CST is assumed
-   to be the same as the signedness of TYPE.  */
-
-bool
-double_int_fits_to_tree_p (const_tree type, double_int cst)
-{
-  double_int ext = double_int_ext (cst,
-				   TYPE_PRECISION (type),
-				   TYPE_UNSIGNED (type));
-
-  return double_int_equal_p (cst, ext);
 }
 
 /* Returns -1 if A < B, 0 if A == B and 1 if A > B.  Signedness of the

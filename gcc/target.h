@@ -238,6 +238,14 @@ struct gcc_target
        translation unit.  */
     void (*file_end) (void);
 
+    /* Output any boilerplate text needed at the beginning of an
+       LTO output stream.  */
+    void (*lto_start) (void);
+
+    /* Output any boilerplate text needed at the end of an
+       LTO output stream.  */
+    void (*lto_end) (void);
+
     /* Output any boilerplace text needed at the end of a
        translation unit before debug and unwind info is emitted.  */
     void (*code_end) (void);
@@ -549,6 +557,10 @@ struct gcc_target
      Ignored if NULL.  */
   const struct attribute_spec *attribute_table;
 
+  /* Return true iff attribute NAME expects a plain identifier as its first
+     argument.  */
+  bool (*attribute_takes_identifier_p) (const_tree name);
+
   /* Return zero if the attributes on TYPE1 and TYPE2 are incompatible,
      one if they are compatible and two if they are nearly compatible
      (which causes a warning to be generated).  */
@@ -651,6 +663,10 @@ struct gcc_target
 
   /* True if X is considered to be commutative.  */
   bool (* commutative_p) (const_rtx, int);
+  
+  /* True if ADDR is an address-expression whose effect depends
+     on the mode of the memory reference it is used in.  */
+  bool (* mode_dependent_address_p) (const_rtx addr);
 
   /* Given an invalid address X for a given machine mode, try machine-specific
      ways to make it legitimate.  Return X or an invalid address on failure.  */
@@ -761,6 +777,12 @@ struct gcc_target
      least some operations are supported; need to check optabs or builtins
      for further details.  */
   bool (* vector_mode_supported_p) (enum machine_mode mode);
+
+  /* True for MODE if the target expects that registers in this mode will
+     be allocated to registers in a small register class.  The compiler is
+     allowed to use registers explicitly used in the rtl as spill registers
+     but it should prevent extending the lifetime of these registers.  */
+  bool (* small_register_classes_for_mode_p) (enum machine_mode mode);
 
   /* Compute a (partial) cost for rtx X.  Return true if the complete
      cost has been computed, and false if subexpressions should be
@@ -967,6 +989,10 @@ struct gcc_target
     /* Return the rtx for the result of a libcall of mode MODE,
        calling the function FN_NAME.  */
     rtx (*libcall_value) (enum machine_mode, const_rtx);
+
+    /* Return true if REGNO is a possible register number for
+       a function value as seen by the caller.  */
+    bool (*function_value_regno_p) (const unsigned int);
 
     /* Return an rtx for the argument pointer incoming to the
        current function.  */

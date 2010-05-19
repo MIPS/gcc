@@ -1041,14 +1041,6 @@ build_int_cst (tree type, HOST_WIDE_INT low)
   return build_int_cst_wide (type, low, low < 0 ? -1 : 0);
 }
 
-/* Create an INT_CST node with a LOW value zero extended.  */
-
-tree
-build_int_cstu (tree type, unsigned HOST_WIDE_INT low)
-{
-  return build_int_cst_wide (type, low, 0);
-}
-
 /* Create an INT_CST node with a LOW value in TYPE.  The value is sign extended
    if it is negative.  This function is similar to build_int_cst, but
    the extra bits outside of the type precision are cleared.  Constants
@@ -1080,6 +1072,39 @@ build_int_cst_wide_type (tree type,
 {
   fit_double_type (low, high, &low, &high, type);
   return build_int_cst_wide (type, low, high);
+}
+
+/* Constructs tree in type TYPE from with value given by CST.  Signedness
+   of CST is assumed to be the same as the signedness of TYPE.  */
+
+tree
+double_int_to_tree (tree type, double_int cst)
+{
+  /* Size types *are* sign extended.  */
+  bool sign_extended_type = (!TYPE_UNSIGNED (type)
+			     || (TREE_CODE (type) == INTEGER_TYPE
+				 && TYPE_IS_SIZETYPE (type)));
+
+  cst = double_int_ext (cst, TYPE_PRECISION (type), !sign_extended_type);
+
+  return build_int_cst_wide (type, cst.low, cst.high);
+}
+
+/* Returns true if CST fits into range of TYPE.  Signedness of CST is assumed
+   to be the same as the signedness of TYPE.  */
+
+bool
+double_int_fits_to_tree_p (const_tree type, double_int cst)
+{
+  /* Size types *are* sign extended.  */
+  bool sign_extended_type = (!TYPE_UNSIGNED (type)
+			     || (TREE_CODE (type) == INTEGER_TYPE
+				 && TYPE_IS_SIZETYPE (type)));
+
+  double_int ext
+    = double_int_ext (cst, TYPE_PRECISION (type), !sign_extended_type);
+
+  return double_int_equal_p (cst, ext);
 }
 
 /* These are the hash table functions for the hash table of INTEGER_CST
@@ -1308,8 +1333,22 @@ tree
 build_constructor (tree type, VEC(constructor_elt,gc) *vals)
 {
   tree c = make_node (CONSTRUCTOR);
+  unsigned int i;
+  constructor_elt *elt;
+  bool constant_p = true;
+
   TREE_TYPE (c) = type;
   CONSTRUCTOR_ELTS (c) = vals;
+
+  for (i = 0; VEC_iterate (constructor_elt, vals, i, elt); i++)
+    if (!TREE_CONSTANT (elt->value))
+      {
+	constant_p = false;
+	break;
+      }
+
+  TREE_CONSTANT (c) = constant_p;
+
   return c;
 }
 
@@ -1320,16 +1359,13 @@ build_constructor_single (tree type, tree index, tree value)
 {
   VEC(constructor_elt,gc) *v;
   constructor_elt *elt;
-  tree t;
 
   v = VEC_alloc (constructor_elt, gc, 1);
   elt = VEC_quick_push (constructor_elt, v, NULL);
   elt->index = index;
   elt->value = value;
 
-  t = build_constructor (type, v);
-  TREE_CONSTANT (t) = TREE_CONSTANT (value);
-  return t;
+  return build_constructor (type, v);
 }
 
 
@@ -1338,27 +1374,17 @@ build_constructor_single (tree type, tree index, tree value)
 tree
 build_constructor_from_list (tree type, tree vals)
 {
-  tree t, val;
+  tree t;
   VEC(constructor_elt,gc) *v = NULL;
-  bool constant_p = true;
 
   if (vals)
     {
       v = VEC_alloc (constructor_elt, gc, list_length (vals));
       for (t = vals; t; t = TREE_CHAIN (t))
-	{
-	  constructor_elt *elt = VEC_quick_push (constructor_elt, v, NULL);
-	  val = TREE_VALUE (t);
-	  elt->index = TREE_PURPOSE (t);
-	  elt->value = val;
-	  if (!TREE_CONSTANT (val))
-	    constant_p = false;
-	}
+	CONSTRUCTOR_APPEND_ELT (v, TREE_PURPOSE (t), TREE_VALUE (t));
     }
 
-  t = build_constructor (type, v);
-  TREE_CONSTANT (t) = constant_p;
-  return t;
+  return build_constructor (type, v);
 }
 
 /* Return a new FIXED_CST node whose type is TYPE and value is F.  */
@@ -2097,25 +2123,6 @@ tree_cons_stat (tree purpose, tree value, tree chain MEM_STAT_DECL)
   TREE_PURPOSE (node) = purpose;
   TREE_VALUE (node) = value;
   return node;
-}
-
-/* Return the elements of a CONSTRUCTOR as a TREE_LIST.  */
-
-tree
-ctor_to_list (tree ctor)
-{
-  tree list = NULL_TREE;
-  tree *p = &list;
-  unsigned ix;
-  tree purpose, val;
-
-  FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (ctor), ix, purpose, val)
-    {
-      *p = build_tree_list (purpose, val);
-      p = &TREE_CHAIN (*p);
-    }
-
-  return list;
 }
 
 /* Return the values of the elements of a CONSTRUCTOR as a vector of
@@ -4188,6 +4195,26 @@ build_type_attribute_variant (tree ttype, tree attribute)
 }
 
 
+/* Reset the expression *EXPR_P, a size or position.
+
+   ??? We could reset all non-constant sizes or positions.  But it's cheap
+   enough to not do so and refrain from adding workarounds to dwarf2out.c.
+
+   We need to reset self-referential sizes or positions because they cannot
+   be gimplified and thus can contain a CALL_EXPR after the gimplification
+   is finished, which will run afoul of LTO streaming.  And they need to be
+   reset to something essentially dummy but not constant, so as to preserve
+   the properties of the object they are attached to.  */
+
+static inline void
+free_lang_data_in_one_sizepos (tree *expr_p)
+{
+  tree expr = *expr_p;
+  if (CONTAINS_PLACEHOLDER_P (expr))
+    *expr_p = build0 (PLACEHOLDER_EXPR, TREE_TYPE (expr));
+}
+
+
 /* Reset all the fields in a binfo node BINFO.  We only keep
    BINFO_VIRTUALS, which is used by gimple_fold_obj_type_ref.  */
 
@@ -4294,9 +4321,25 @@ free_lang_data_in_type (tree type)
       /* For non-aggregate types, clear out the language slot (which
 	 overloads TYPE_BINFO).  */
       TYPE_LANG_SLOT_1 (type) = NULL_TREE;
+
+      if (INTEGRAL_TYPE_P (type)
+	  || SCALAR_FLOAT_TYPE_P (type)
+	  || FIXED_POINT_TYPE_P (type))
+	{
+	  free_lang_data_in_one_sizepos (&TYPE_MIN_VALUE (type));
+	  free_lang_data_in_one_sizepos (&TYPE_MAX_VALUE (type));
+	}
     }
 
-  TYPE_CONTEXT (type) = NULL_TREE;
+  free_lang_data_in_one_sizepos (&TYPE_SIZE (type));
+  free_lang_data_in_one_sizepos (&TYPE_SIZE_UNIT (type));
+
+  if (debug_info_level < DINFO_LEVEL_TERSE
+      || (TYPE_CONTEXT (type)
+	  && TREE_CODE (TYPE_CONTEXT (type)) != FUNCTION_DECL
+	  && TREE_CODE (TYPE_CONTEXT (type)) != NAMESPACE_DECL))
+    TYPE_CONTEXT (type) = NULL_TREE;
+
   if (debug_info_level < DINFO_LEVEL_TERSE)
     TYPE_STUB_DECL (type) = NULL_TREE;
 }
@@ -4399,7 +4442,8 @@ free_lang_data_in_decl (tree decl)
 
   /* Ignore any intervening types, because we are going to clear their
      TYPE_CONTEXT fields.  */
-  if (TREE_CODE (decl) != FIELD_DECL)
+  if (TREE_CODE (decl) != FIELD_DECL
+      && TREE_CODE (decl) != FUNCTION_DECL)
     DECL_CONTEXT (decl) = decl_function_context (decl);
 
   if (DECL_CONTEXT (decl)
@@ -4425,9 +4469,10 @@ free_lang_data_in_decl (tree decl)
        }
    }
 
- /* ???  We could free non-constant DECL_SIZE, DECL_SIZE_UNIT
-    and DECL_FIELD_OFFSET.  But it's cheap enough to not do
-    that and refrain from adding workarounds to dwarf2out.c  */
+  free_lang_data_in_one_sizepos (&DECL_SIZE (decl));
+  free_lang_data_in_one_sizepos (&DECL_SIZE_UNIT (decl));
+  if (TREE_CODE (decl) == FIELD_DECL)
+    free_lang_data_in_one_sizepos (&DECL_FIELD_OFFSET (decl));
 
  /* DECL_FCONTEXT is only used for debug info generation.  */
  if (TREE_CODE (decl) == FIELD_DECL
@@ -4640,6 +4685,10 @@ find_decls_types_r (tree *tp, int *ws, void *data)
 	  fld_worklist_push (DECL_SECTION_NAME (t), fld);
 	  fld_worklist_push (DECL_COMDAT_GROUP (t), fld);
 	}
+
+      if ((TREE_CODE (t) == VAR_DECL || TREE_CODE (t) == PARM_DECL)
+	  && DECL_HAS_VALUE_EXPR_P (t))
+	fld_worklist_push (DECL_VALUE_EXPR (t), fld);
 
       if (TREE_CODE (t) != FIELD_DECL)
 	fld_worklist_push (TREE_CHAIN (t), fld);
@@ -5010,7 +5059,6 @@ free_lang_data (void)
   lang_hooks.dwarf_name = lhd_dwarf_name;
   lang_hooks.decl_printable_name = gimple_decl_printable_name;
   lang_hooks.set_decl_assembler_name = lhd_set_decl_assembler_name;
-  lang_hooks.fold_obj_type_ref = gimple_fold_obj_type_ref;
 
   /* Reset diagnostic machinery.  */
   diagnostic_starter (global_dc) = default_diagnostic_starter;
@@ -6599,11 +6647,12 @@ iterative_hash_expr (const_tree t, hashval_t val)
       return iterative_hash_expr (TREE_IMAGPART (t), val);
     case VECTOR_CST:
       return iterative_hash_expr (TREE_VECTOR_CST_ELTS (t), val);
-
     case SSA_NAME:
-      /* we can just compare by pointer.  */
+      /* We can just compare by pointer.  */
       return iterative_hash_host_wide_int (SSA_NAME_VERSION (t), val);
-
+    case PLACEHOLDER_EXPR:
+      /* The node itself doesn't matter.  */
+      return val;
     case TREE_LIST:
       /* A list of expressions, for a CALL_EXPR or as the elements of a
 	 VECTOR_CST.  */
@@ -7320,7 +7369,7 @@ build_function_type_list_1 (bool vaargs, tree return_type, va_list argp)
       last = args;
       if (args != NULL_TREE)
 	args = nreverse (args);
-      gcc_assert (args != NULL_TREE && last != void_list_node);
+      gcc_assert (last != void_list_node);
     }
   else if (args == NULL_TREE)
     args = void_list_node;
@@ -7968,7 +8017,8 @@ bool
 auto_var_in_fn_p (const_tree var, const_tree fn)
 {
   return (DECL_P (var) && DECL_CONTEXT (var) == fn
-	  && (((TREE_CODE (var) == VAR_DECL || TREE_CODE (var) == PARM_DECL)
+	  && ((((TREE_CODE (var) == VAR_DECL && ! DECL_EXTERNAL (var))
+		|| TREE_CODE (var) == PARM_DECL)
 	       && ! TREE_STATIC (var))
 	      || TREE_CODE (var) == LABEL_DECL
 	      || TREE_CODE (var) == RESULT_DECL));
@@ -8785,12 +8835,12 @@ make_or_reuse_accum_type (unsigned size, int unsignedp, int satp)
    this function to select one of the types as sizetype.  */
 
 void
-build_common_tree_nodes (bool signed_char, bool signed_sizetype)
+build_common_tree_nodes (bool signed_char)
 {
   error_mark_node = make_node (ERROR_MARK);
   TREE_TYPE (error_mark_node) = error_mark_node;
 
-  initialize_sizetypes (signed_sizetype);
+  initialize_sizetypes ();
 
   /* Define both `signed char' and `unsigned char'.  */
   signed_char_type_node = make_signed_type (CHAR_TYPE_SIZE);
@@ -9072,9 +9122,12 @@ build_common_builtin_nodes (void)
       tmp = tree_cons (NULL_TREE, size_type_node, void_list_node);
       ftype = build_function_type (ptr_type_node, tmp);
       local_define_builtin ("__builtin_alloca", ftype, BUILT_IN_ALLOCA,
-			    "alloca",
-			    ECF_MALLOC | (flag_stack_check ? 0 : ECF_NOTHROW));
+			    "alloca", ECF_MALLOC | ECF_NOTHROW);
     }
+
+  /* If we're checking the stack, `alloca' can throw.  */
+  if (flag_stack_check)
+    TREE_NOTHROW (built_in_decls[BUILT_IN_ALLOCA]) = 0;
 
   tmp = tree_cons (NULL_TREE, ptr_type_node, void_list_node);
   tmp = tree_cons (NULL_TREE, ptr_type_node, tmp);
@@ -9381,6 +9434,19 @@ initializer_zerop (const_tree init)
 	FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (init), idx, elt)
 	  if (!initializer_zerop (elt))
 	    return false;
+	return true;
+      }
+
+    case STRING_CST:
+      {
+	int i;
+
+	/* We need to loop through all elements to handle cases like
+	   "\0" and "\0foobar".  */
+	for (i = 0; i < TREE_STRING_LENGTH (init); ++i)
+	  if (TREE_STRING_POINTER (init)[i] != '\0')
+	    return false;
+
 	return true;
       }
 
@@ -10349,22 +10415,6 @@ tree_block (tree t)
   return NULL;
 }
 
-/* Build and return a TREE_LIST of arguments in the CALL_EXPR exp.
-   FIXME: don't use this function.  It exists for compatibility with
-   the old representation of CALL_EXPRs where a list was used to hold the
-   arguments.  Places that currently extract the arglist from a CALL_EXPR
-   ought to be rewritten to use the CALL_EXPR itself.  */
-tree
-call_expr_arglist (tree exp)
-{
-  tree arglist = NULL_TREE;
-  int i;
-  for (i = call_expr_nargs (exp) - 1; i >= 0; i--)
-    arglist = tree_cons (NULL_TREE, CALL_EXPR_ARG (exp, i), arglist);
-  return arglist;
-}
-
-
 /* Create a nameless artificial label and put it in the current
    function context.  The label has a location of LOC.  Returns the
    newly created label.  */
@@ -10766,6 +10816,62 @@ lhd_gcc_personality (void)
 				    : "__gcc_personality_v0");
 
   return gcc_eh_personality_decl;
+}
+
+/* Try to find a base info of BINFO that would have its field decl at offset
+   OFFSET within the BINFO type and which is of EXPECTED_TYPE.  If it can be
+   found, return, otherwise return NULL_TREE.  */
+
+tree
+get_binfo_at_offset (tree binfo, HOST_WIDE_INT offset, tree expected_type)
+{
+  tree type;
+
+  if (offset == 0)
+    return binfo;
+
+  type = TREE_TYPE (binfo);
+  while (offset > 0)
+    {
+      tree base_binfo, found_binfo;
+      HOST_WIDE_INT pos, size;
+      tree fld;
+      int i;
+
+      if (TREE_CODE (type) != RECORD_TYPE)
+	return NULL_TREE;
+
+      for (fld = TYPE_FIELDS (type); fld; fld = TREE_CHAIN (fld))
+	{
+	  if (TREE_CODE (fld) != FIELD_DECL)
+	    continue;
+
+	  pos = int_bit_position (fld);
+	  size = tree_low_cst (DECL_SIZE (fld), 1);
+	  if (pos <= offset && (pos + size) > offset)
+	    break;
+	}
+      if (!fld)
+	return NULL_TREE;
+
+      found_binfo = NULL_TREE;
+      for (i = 0; BINFO_BASE_ITERATE (binfo, i, base_binfo); i++)
+	if (TREE_TYPE (base_binfo) == TREE_TYPE (fld))
+	  {
+	    found_binfo = base_binfo;
+	    break;
+	  }
+
+      if (!found_binfo)
+	return NULL_TREE;
+
+      type = TREE_TYPE (fld);
+      binfo = found_binfo;
+      offset -= pos;
+    }
+  if (type != expected_type)
+    return NULL_TREE;
+  return binfo;
 }
 
 #include "gt-tree.h"

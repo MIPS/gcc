@@ -27,7 +27,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "tree.h"
 #include "rtl.h"
-#include "varray.h"
 #include "gimple.h"
 #include "tree-iterator.h"
 #include "tree-inline.h"
@@ -75,9 +74,10 @@ enum gimplify_omp_var_data
 enum omp_region_type
 {
   ORT_WORKSHARE = 0,
-  ORT_TASK = 1,
   ORT_PARALLEL = 2,
-  ORT_COMBINED_PARALLEL = 3
+  ORT_COMBINED_PARALLEL = 3,
+  ORT_TASK = 4,
+  ORT_UNTIED_TASK = 5
 };
 
 struct gimplify_omp_ctx
@@ -161,7 +161,7 @@ gimple_tree_eq (const void *p1, const void *p2)
    During gimplification, we need to manipulate statement sequences
    before the def/use vectors have been constructed.  */
 
-static void
+void
 gimplify_seq_add_stmt (gimple_seq *seq_p, gimple gs)
 {
   gimple_stmt_iterator si;
@@ -322,7 +322,7 @@ new_omp_context (enum omp_region_type region_type)
   c->privatized_types = pointer_set_create ();
   c->location = input_location;
   c->region_type = region_type;
-  if (region_type != ORT_TASK)
+  if ((region_type & ORT_TASK) == 0)
     c->default_kind = OMP_CLAUSE_DEFAULT_SHARED;
   else
     c->default_kind = OMP_CLAUSE_DEFAULT_UNSPECIFIED;
@@ -342,47 +342,6 @@ delete_omp_context (struct gimplify_omp_ctx *c)
 
 static void omp_add_variable (struct gimplify_omp_ctx *, tree, unsigned int);
 static bool omp_notice_variable (struct gimplify_omp_ctx *, tree, bool);
-
-/* A subroutine of append_to_statement_list{,_force}.  T is not NULL.  */
-
-static void
-append_to_statement_list_1 (tree t, tree *list_p)
-{
-  tree list = *list_p;
-  tree_stmt_iterator i;
-
-  if (!list)
-    {
-      if (t && TREE_CODE (t) == STATEMENT_LIST)
-	{
-	  *list_p = t;
-	  return;
-	}
-      *list_p = list = alloc_stmt_list ();
-    }
-
-  i = tsi_last (list);
-  tsi_link_after (&i, t, TSI_CONTINUE_LINKING);
-}
-
-/* Add T to the end of the list container pointed to by LIST_P.
-   If T is an expression with no effects, it is ignored.  */
-
-void
-append_to_statement_list (tree t, tree *list_p)
-{
-  if (t && TREE_SIDE_EFFECTS (t))
-    append_to_statement_list_1 (t, list_p);
-}
-
-/* Similar, but the statement is always added, regardless of side effects.  */
-
-void
-append_to_statement_list_force (tree t, tree *list_p)
-{
-  if (t != NULL_TREE)
-    append_to_statement_list_1 (t, list_p);
-}
 
 /* Both gimplify the statement T and append it to *SEQ_P.  This function
    behaves exactly as gimplify_stmt, but you don't have to pass T as a
@@ -509,6 +468,23 @@ create_tmp_var (tree type, const char *prefix)
   tmp_var = create_tmp_var_raw (type, prefix);
   gimple_add_tmp_var (tmp_var);
   return tmp_var;
+}
+
+/* Create a new temporary variable declaration of type TYPE by calling
+   create_tmp_var and if TYPE is a vector or a complex number, mark the new
+   temporary as gimple register.  */
+
+tree
+create_tmp_reg (tree type, const char *prefix)
+{
+  tree tmp;
+
+  tmp = create_tmp_var (type, prefix);
+  if (TREE_CODE (type) == COMPLEX_TYPE
+      || TREE_CODE (type) == VECTOR_TYPE)
+    DECL_GIMPLE_REG_P (tmp) = 1;
+
+  return tmp;
 }
 
 /* Create a temporary with a name derived from VAL.  Subroutine of
@@ -1215,17 +1191,27 @@ gimplify_return_expr (tree stmt, gimple_seq *pre_p)
      hard_function_value generates a PARALLEL, we'll die during normal
      expansion of structure assignments; there's special code in expand_return
      to handle this case that does not exist in expand_expr.  */
-  if (!result_decl
-      || aggregate_value_p (result_decl, TREE_TYPE (current_function_decl)))
-    result = result_decl;
+  if (!result_decl)
+    result = NULL_TREE;
+  else if (aggregate_value_p (result_decl, TREE_TYPE (current_function_decl)))
+    {
+      if (TREE_CODE (DECL_SIZE (result_decl)) != INTEGER_CST)
+	{
+	  if (!TYPE_SIZES_GIMPLIFIED (TREE_TYPE (result_decl)))
+	    gimplify_type_sizes (TREE_TYPE (result_decl), pre_p);
+	  /* Note that we don't use gimplify_vla_decl because the RESULT_DECL
+	     should be effectively allocated by the caller, i.e. all calls to
+	     this function must be subject to the Return Slot Optimization.  */
+	  gimplify_one_sizepos (&DECL_SIZE (result_decl), pre_p);
+	  gimplify_one_sizepos (&DECL_SIZE_UNIT (result_decl), pre_p);
+	}
+      result = result_decl;
+    }
   else if (gimplify_ctxp->return_temp)
     result = gimplify_ctxp->return_temp;
   else
     {
-      result = create_tmp_var (TREE_TYPE (result_decl), NULL);
-      if (TREE_CODE (TREE_TYPE (result)) == COMPLEX_TYPE
-          || TREE_CODE (TREE_TYPE (result)) == VECTOR_TYPE)
-        DECL_GIMPLE_REG_P (result) = 1;
+      result = create_tmp_reg (TREE_TYPE (result_decl), NULL);
 
       /* ??? With complex control flow (usually involving abnormal edges),
 	 we can wind up warning about an uninitialized value for this.  Due
@@ -1891,9 +1877,10 @@ gimplify_compound_lval (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 {
   tree *p;
   VEC(tree,heap) *stack;
-  enum gimplify_status ret = GS_OK, tret;
+  enum gimplify_status ret = GS_ALL_DONE, tret;
   int i;
   location_t loc = EXPR_LOCATION (*expr_p);
+  tree expr = *expr_p;
 
   /* Create a stack of the subexpressions so later we can walk them in
      order from inner to outer.  */
@@ -2047,10 +2034,11 @@ gimplify_compound_lval (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
   if ((fallback & fb_rvalue) && TREE_CODE (*expr_p) == COMPONENT_REF)
     {
       canonicalize_component_ref (expr_p);
-      ret = MIN (ret, GS_OK);
     }
 
   VEC_free (tree, heap, stack);
+
+  gcc_assert (*expr_p == expr || ret != GS_ALL_DONE);
 
   return ret;
 }
@@ -2856,71 +2844,67 @@ static enum gimplify_status
 gimplify_cond_expr (tree *expr_p, gimple_seq *pre_p, fallback_t fallback)
 {
   tree expr = *expr_p;
-  tree tmp, type, arm1, arm2;
+  tree type = TREE_TYPE (expr);
+  location_t loc = EXPR_LOCATION (expr);
+  tree tmp, arm1, arm2;
   enum gimplify_status ret;
   tree label_true, label_false, label_cont;
   bool have_then_clause_p, have_else_clause_p;
   gimple gimple_cond;
   enum tree_code pred_code;
   gimple_seq seq = NULL;
-  location_t loc = EXPR_LOCATION (*expr_p);
-
-  type = TREE_TYPE (expr);
 
   /* If this COND_EXPR has a value, copy the values into a temporary within
      the arms.  */
-  if (! VOID_TYPE_P (type))
+  if (!VOID_TYPE_P (type))
     {
+      tree then_ = TREE_OPERAND (expr, 1), else_ = TREE_OPERAND (expr, 2);
       tree result;
 
-      /* If an rvalue is ok or we do not require an lvalue, avoid creating
-	 an addressable temporary.  */
-      if (((fallback & fb_rvalue)
-	   || !(fallback & fb_lvalue))
+      /* If either an rvalue is ok or we do not require an lvalue, create the
+	 temporary.  But we cannot do that if the type is addressable.  */
+      if (((fallback & fb_rvalue) || !(fallback & fb_lvalue))
 	  && !TREE_ADDRESSABLE (type))
 	{
 	  if (gimplify_ctxp->allow_rhs_cond_expr
 	      /* If either branch has side effects or could trap, it can't be
 		 evaluated unconditionally.  */
-	      && !TREE_SIDE_EFFECTS (TREE_OPERAND (*expr_p, 1))
-	      && !generic_expr_could_trap_p (TREE_OPERAND (*expr_p, 1))
-	      && !TREE_SIDE_EFFECTS (TREE_OPERAND (*expr_p, 2))
-	      && !generic_expr_could_trap_p (TREE_OPERAND (*expr_p, 2)))
+	      && !TREE_SIDE_EFFECTS (then_)
+	      && !generic_expr_could_trap_p (then_)
+	      && !TREE_SIDE_EFFECTS (else_)
+	      && !generic_expr_could_trap_p (else_))
 	    return gimplify_pure_cond_expr (expr_p, pre_p);
 
-	  result = tmp = create_tmp_var (TREE_TYPE (expr), "iftmp");
-	  ret = GS_ALL_DONE;
+	  tmp = create_tmp_var (type, "iftmp");
+	  result = tmp;
 	}
+
+      /* Otherwise, only create and copy references to the values.  */
       else
 	{
-	  tree type = build_pointer_type (TREE_TYPE (expr));
+	  type = build_pointer_type (type);
 
-	  if (TREE_TYPE (TREE_OPERAND (expr, 1)) != void_type_node)
-	    TREE_OPERAND (expr, 1) =
-	      build_fold_addr_expr_loc (loc, TREE_OPERAND (expr, 1));
+	  if (!VOID_TYPE_P (TREE_TYPE (then_)))
+	    then_ = build_fold_addr_expr_loc (loc, then_);
 
-	  if (TREE_TYPE (TREE_OPERAND (expr, 2)) != void_type_node)
-	    TREE_OPERAND (expr, 2) =
-	      build_fold_addr_expr_loc (loc, TREE_OPERAND (expr, 2));
+	  if (!VOID_TYPE_P (TREE_TYPE (else_)))
+	    else_ = build_fold_addr_expr_loc (loc, else_);
+ 
+	  expr
+	    = build3 (COND_EXPR, type, TREE_OPERAND (expr, 0), then_, else_);
 
 	  tmp = create_tmp_var (type, "iftmp");
-
-	  expr = build3 (COND_EXPR, void_type_node, TREE_OPERAND (expr, 0),
-			 TREE_OPERAND (expr, 1), TREE_OPERAND (expr, 2));
-
 	  result = build_fold_indirect_ref_loc (loc, tmp);
 	}
 
-      /* Build the then clause, 't1 = a;'.  But don't build an assignment
-	 if this branch is void; in C++ it can be, if it's a throw.  */
-      if (TREE_TYPE (TREE_OPERAND (expr, 1)) != void_type_node)
-	TREE_OPERAND (expr, 1)
-	  = build2 (MODIFY_EXPR, TREE_TYPE (tmp), tmp, TREE_OPERAND (expr, 1));
+      /* Build the new then clause, `tmp = then_;'.  But don't build the
+	 assignment if the value is void; in C++ it can be if it's a throw.  */
+      if (!VOID_TYPE_P (TREE_TYPE (then_)))
+	TREE_OPERAND (expr, 1) = build2 (MODIFY_EXPR, type, tmp, then_);
 
-      /* Build the else clause, 't1 = b;'.  */
-      if (TREE_TYPE (TREE_OPERAND (expr, 2)) != void_type_node)
-	TREE_OPERAND (expr, 2)
-	  = build2 (MODIFY_EXPR, TREE_TYPE (tmp), tmp, TREE_OPERAND (expr, 2));
+      /* Similarly, build the new else clause, `tmp = else_;'.  */
+      if (!VOID_TYPE_P (TREE_TYPE (else_)))
+	TREE_OPERAND (expr, 2) = build2 (MODIFY_EXPR, type, tmp, else_);
 
       TREE_TYPE (expr) = void_type_node;
       recalculate_side_effects (expr);
@@ -3754,25 +3738,11 @@ gimplify_init_constructor (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 		&& num_nonzero_elements > 1
 		&& !can_move_by_pieces (size, align))
 	      {
-		tree new_tree;
-
 		if (notify_temp_creation)
 		  return GS_ERROR;
 
-		new_tree = create_tmp_var_raw (type, "C");
-
-		gimple_add_tmp_var (new_tree);
-		TREE_STATIC (new_tree) = 1;
-		TREE_READONLY (new_tree) = 1;
-		DECL_INITIAL (new_tree) = ctor;
-		if (align > DECL_ALIGN (new_tree))
-		  {
-		    DECL_ALIGN (new_tree) = align;
-		    DECL_USER_ALIGN (new_tree) = 1;
-		  }
-	        walk_tree (&DECL_INITIAL (new_tree), force_labels_r, NULL, NULL);
-
-		TREE_OPERAND (*expr_p, 1) = new_tree;
+	        walk_tree (&ctor, force_labels_r, NULL, NULL);
+		TREE_OPERAND (*expr_p, 1) = tree_output_constant_def (ctor);
 
 		/* This is no longer an assignment of a CONSTRUCTOR, but
 		   we still may have processing to do on the LHS.  So
@@ -4101,253 +4071,255 @@ gimplify_modify_expr_rhs (tree *expr_p, tree *from_p, tree *to_p,
 			  gimple_seq *pre_p, gimple_seq *post_p,
 			  bool want_value)
 {
-  enum gimplify_status ret = GS_OK;
+  enum gimplify_status ret = GS_UNHANDLED;
+  bool changed;
 
-  while (ret != GS_UNHANDLED)
-    switch (TREE_CODE (*from_p))
-      {
-      case VAR_DECL:
-	/* If we're assigning from a read-only variable initialized with
-	   a constructor, do the direct assignment from the constructor,
-	   but only if neither source nor target are volatile since this
-	   latter assignment might end up being done on a per-field basis.  */
-	if (DECL_INITIAL (*from_p)
-	    && TREE_READONLY (*from_p)
-	    && !TREE_THIS_VOLATILE (*from_p)
-	    && !TREE_THIS_VOLATILE (*to_p)
-	    && TREE_CODE (DECL_INITIAL (*from_p)) == CONSTRUCTOR)
-	  {
-	    tree old_from = *from_p;
-
-	    /* Move the constructor into the RHS.  */
-	    *from_p = unshare_expr (DECL_INITIAL (*from_p));
-
-	    /* Let's see if gimplify_init_constructor will need to put
-	       it in memory.  If so, revert the change.  */
-	    ret = gimplify_init_constructor (expr_p, NULL, NULL, false, true);
-	    if (ret == GS_ERROR)
-	      {
-		*from_p = old_from;
-		/* Fall through.  */
-	      }
-	    else
-	      {
-		ret = GS_OK;
-		break;
-	      }
-	  }
-	ret = GS_UNHANDLED;
-	break;
-      case INDIRECT_REF:
+  do
+    {
+      changed = false;
+      switch (TREE_CODE (*from_p))
 	{
-	  /* If we have code like
+	case VAR_DECL:
+	  /* If we're assigning from a read-only variable initialized with
+	     a constructor, do the direct assignment from the constructor,
+	     but only if neither source nor target are volatile since this
+	     latter assignment might end up being done on a per-field basis.  */
+	  if (DECL_INITIAL (*from_p)
+	      && TREE_READONLY (*from_p)
+	      && !TREE_THIS_VOLATILE (*from_p)
+	      && !TREE_THIS_VOLATILE (*to_p)
+	      && TREE_CODE (DECL_INITIAL (*from_p)) == CONSTRUCTOR)
+	    {
+	      tree old_from = *from_p;
+	      enum gimplify_status subret;
 
-	        *(const A*)(A*)&x
+	      /* Move the constructor into the RHS.  */
+	      *from_p = unshare_expr (DECL_INITIAL (*from_p));
+
+	      /* Let's see if gimplify_init_constructor will need to put
+		 it in memory.  */
+	      subret = gimplify_init_constructor (expr_p, NULL, NULL,
+						  false, true);
+	      if (subret == GS_ERROR)
+		{
+		  /* If so, revert the change.  */
+		  *from_p = old_from;
+		}
+	      else
+		{
+		  ret = GS_OK;
+		  changed = true;
+		}
+	    }
+	  break;
+	case INDIRECT_REF:
+	  {
+	    /* If we have code like
+
+	     *(const A*)(A*)&x
 
 	     where the type of "x" is a (possibly cv-qualified variant
 	     of "A"), treat the entire expression as identical to "x".
 	     This kind of code arises in C++ when an object is bound
 	     to a const reference, and if "x" is a TARGET_EXPR we want
 	     to take advantage of the optimization below.  */
-	  tree t = gimple_fold_indirect_ref_rhs (TREE_OPERAND (*from_p, 0));
-	  if (t)
-	    {
-	      *from_p = t;
-	      ret = GS_OK;
-	    }
-	  else
-	    ret = GS_UNHANDLED;
-	  break;
-	}
+	    tree t = gimple_fold_indirect_ref_rhs (TREE_OPERAND (*from_p, 0));
+	    if (t)
+	      {
+		*from_p = t;
+		ret = GS_OK;
+		changed = true;
+	      }
+	    break;
+	  }
 
-      case TARGET_EXPR:
-	{
-	  /* If we are initializing something from a TARGET_EXPR, strip the
-	     TARGET_EXPR and initialize it directly, if possible.  This can't
-	     be done if the initializer is void, since that implies that the
-	     temporary is set in some non-trivial way.
-
-	     ??? What about code that pulls out the temp and uses it
-	     elsewhere? I think that such code never uses the TARGET_EXPR as
-	     an initializer.  If I'm wrong, we'll die because the temp won't
-	     have any RTL.  In that case, I guess we'll need to replace
-	     references somehow.  */
-	  tree init = TARGET_EXPR_INITIAL (*from_p);
-
-	  if (init
-	      && !VOID_TYPE_P (TREE_TYPE (init)))
-	    {
-	      *from_p = init;
-	      ret = GS_OK;
-	    }
-	  else
-	    ret = GS_UNHANDLED;
-	}
-	break;
-
-      case COMPOUND_EXPR:
-	/* Remove any COMPOUND_EXPR in the RHS so the following cases will be
-	   caught.  */
-	gimplify_compound_expr (from_p, pre_p, true);
-	ret = GS_OK;
-	break;
-
-      case CONSTRUCTOR:
-	/* If we're initializing from a CONSTRUCTOR, break this into
-	   individual MODIFY_EXPRs.  */
-	return gimplify_init_constructor (expr_p, pre_p, post_p, want_value,
-					  false);
-
-      case COND_EXPR:
-	/* If we're assigning to a non-register type, push the assignment
-	   down into the branches.  This is mandatory for ADDRESSABLE types,
-	   since we cannot generate temporaries for such, but it saves a
-	   copy in other cases as well.  */
-	if (!is_gimple_reg_type (TREE_TYPE (*from_p)))
+	case TARGET_EXPR:
 	  {
-	    /* This code should mirror the code in gimplify_cond_expr. */
-	    enum tree_code code = TREE_CODE (*expr_p);
-	    tree cond = *from_p;
-	    tree result = *to_p;
+	    /* If we are initializing something from a TARGET_EXPR, strip the
+	       TARGET_EXPR and initialize it directly, if possible.  This can't
+	       be done if the initializer is void, since that implies that the
+	       temporary is set in some non-trivial way.
 
-	    ret = gimplify_expr (&result, pre_p, post_p,
-				 is_gimple_lvalue, fb_lvalue);
+	       ??? What about code that pulls out the temp and uses it
+	       elsewhere? I think that such code never uses the TARGET_EXPR as
+	       an initializer.  If I'm wrong, we'll die because the temp won't
+	       have any RTL.  In that case, I guess we'll need to replace
+	       references somehow.  */
+	    tree init = TARGET_EXPR_INITIAL (*from_p);
+
+	    if (init
+		&& !VOID_TYPE_P (TREE_TYPE (init)))
+	      {
+		*from_p = init;
+		ret = GS_OK;
+		changed = true;
+	      }
+	  }
+	  break;
+
+	case COMPOUND_EXPR:
+	  /* Remove any COMPOUND_EXPR in the RHS so the following cases will be
+	     caught.  */
+	  gimplify_compound_expr (from_p, pre_p, true);
+	  ret = GS_OK;
+	  changed = true;
+	  break;
+
+	case CONSTRUCTOR:
+	  /* If we're initializing from a CONSTRUCTOR, break this into
+	     individual MODIFY_EXPRs.  */
+	  return gimplify_init_constructor (expr_p, pre_p, post_p, want_value,
+					    false);
+
+	case COND_EXPR:
+	  /* If we're assigning to a non-register type, push the assignment
+	     down into the branches.  This is mandatory for ADDRESSABLE types,
+	     since we cannot generate temporaries for such, but it saves a
+	     copy in other cases as well.  */
+	  if (!is_gimple_reg_type (TREE_TYPE (*from_p)))
+	    {
+	      /* This code should mirror the code in gimplify_cond_expr. */
+	      enum tree_code code = TREE_CODE (*expr_p);
+	      tree cond = *from_p;
+	      tree result = *to_p;
+
+	      ret = gimplify_expr (&result, pre_p, post_p,
+				   is_gimple_lvalue, fb_lvalue);
+	      if (ret != GS_ERROR)
+		ret = GS_OK;
+
+	      if (TREE_TYPE (TREE_OPERAND (cond, 1)) != void_type_node)
+		TREE_OPERAND (cond, 1)
+		  = build2 (code, void_type_node, result,
+			    TREE_OPERAND (cond, 1));
+	      if (TREE_TYPE (TREE_OPERAND (cond, 2)) != void_type_node)
+		TREE_OPERAND (cond, 2)
+		  = build2 (code, void_type_node, unshare_expr (result),
+			    TREE_OPERAND (cond, 2));
+
+	      TREE_TYPE (cond) = void_type_node;
+	      recalculate_side_effects (cond);
+
+	      if (want_value)
+		{
+		  gimplify_and_add (cond, pre_p);
+		  *expr_p = unshare_expr (result);
+		}
+	      else
+		*expr_p = cond;
+	      return ret;
+	    }
+	  break;
+
+	case CALL_EXPR:
+	  /* For calls that return in memory, give *to_p as the CALL_EXPR's
+	     return slot so that we don't generate a temporary.  */
+	  if (!CALL_EXPR_RETURN_SLOT_OPT (*from_p)
+	      && aggregate_value_p (*from_p, *from_p))
+	    {
+	      bool use_target;
+
+	      if (!(rhs_predicate_for (*to_p))(*from_p))
+		/* If we need a temporary, *to_p isn't accurate.  */
+		use_target = false;
+	      else if (TREE_CODE (*to_p) == RESULT_DECL
+		       && DECL_NAME (*to_p) == NULL_TREE
+		       && needs_to_live_in_memory (*to_p))
+		/* It's OK to use the return slot directly unless it's an NRV. */
+		use_target = true;
+	      else if (is_gimple_reg_type (TREE_TYPE (*to_p))
+		       || (DECL_P (*to_p) && DECL_REGISTER (*to_p)))
+		/* Don't force regs into memory.  */
+		use_target = false;
+	      else if (TREE_CODE (*expr_p) == INIT_EXPR)
+		/* It's OK to use the target directly if it's being
+		   initialized. */
+		use_target = true;
+	      else if (!is_gimple_non_addressable (*to_p))
+		/* Don't use the original target if it's already addressable;
+		   if its address escapes, and the called function uses the
+		   NRV optimization, a conforming program could see *to_p
+		   change before the called function returns; see c++/19317.
+		   When optimizing, the return_slot pass marks more functions
+		   as safe after we have escape info.  */
+		use_target = false;
+	      else
+		use_target = true;
+
+	      if (use_target)
+		{
+		  CALL_EXPR_RETURN_SLOT_OPT (*from_p) = 1;
+		  mark_addressable (*to_p);
+		}
+	    }
+	  break;
+
+	case WITH_SIZE_EXPR:
+	  /* Likewise for calls that return an aggregate of non-constant size,
+	     since we would not be able to generate a temporary at all.  */
+	  if (TREE_CODE (TREE_OPERAND (*from_p, 0)) == CALL_EXPR)
+	    {
+	      *from_p = TREE_OPERAND (*from_p, 0);
+	      /* We don't change ret in this case because the
+		 WITH_SIZE_EXPR might have been added in
+		 gimplify_modify_expr, so returning GS_OK would lead to an
+		 infinite loop.  */
+	      changed = true;
+	    }
+	  break;
+
+	  /* If we're initializing from a container, push the initialization
+	     inside it.  */
+	case CLEANUP_POINT_EXPR:
+	case BIND_EXPR:
+	case STATEMENT_LIST:
+	  {
+	    tree wrap = *from_p;
+	    tree t;
+
+	    ret = gimplify_expr (to_p, pre_p, post_p, is_gimple_min_lval,
+				 fb_lvalue);
 	    if (ret != GS_ERROR)
 	      ret = GS_OK;
 
-	    if (TREE_TYPE (TREE_OPERAND (cond, 1)) != void_type_node)
-	      TREE_OPERAND (cond, 1)
-		= build2 (code, void_type_node, result,
-			  TREE_OPERAND (cond, 1));
-	    if (TREE_TYPE (TREE_OPERAND (cond, 2)) != void_type_node)
-	      TREE_OPERAND (cond, 2)
-		= build2 (code, void_type_node, unshare_expr (result),
-			  TREE_OPERAND (cond, 2));
-
-	    TREE_TYPE (cond) = void_type_node;
-	    recalculate_side_effects (cond);
+	    t = voidify_wrapper_expr (wrap, *expr_p);
+	    gcc_assert (t == *expr_p);
 
 	    if (want_value)
 	      {
-		gimplify_and_add (cond, pre_p);
-		*expr_p = unshare_expr (result);
+		gimplify_and_add (wrap, pre_p);
+		*expr_p = unshare_expr (*to_p);
 	      }
 	    else
-	      *expr_p = cond;
-	    return ret;
+	      *expr_p = wrap;
+	    return GS_OK;
 	  }
-	else
-	  ret = GS_UNHANDLED;
-	break;
 
-      case CALL_EXPR:
-	/* For calls that return in memory, give *to_p as the CALL_EXPR's
-	   return slot so that we don't generate a temporary.  */
-	if (!CALL_EXPR_RETURN_SLOT_OPT (*from_p)
-	    && aggregate_value_p (*from_p, *from_p))
+	case COMPOUND_LITERAL_EXPR:
 	  {
-	    bool use_target;
+	    tree complit = TREE_OPERAND (*expr_p, 1);
+	    tree decl_s = COMPOUND_LITERAL_EXPR_DECL_EXPR (complit);
+	    tree decl = DECL_EXPR_DECL (decl_s);
+	    tree init = DECL_INITIAL (decl);
 
-	    if (!(rhs_predicate_for (*to_p))(*from_p))
-	      /* If we need a temporary, *to_p isn't accurate.  */
-	      use_target = false;
-	    else if (TREE_CODE (*to_p) == RESULT_DECL
-		     && DECL_NAME (*to_p) == NULL_TREE
-		     && needs_to_live_in_memory (*to_p))
-	      /* It's OK to use the return slot directly unless it's an NRV. */
-	      use_target = true;
-	    else if (is_gimple_reg_type (TREE_TYPE (*to_p))
-		     || (DECL_P (*to_p) && DECL_REGISTER (*to_p)))
-	      /* Don't force regs into memory.  */
-	      use_target = false;
-	    else if (TREE_CODE (*expr_p) == INIT_EXPR)
-	      /* It's OK to use the target directly if it's being
-		 initialized. */
-	      use_target = true;
-	    else if (!is_gimple_non_addressable (*to_p))
-	      /* Don't use the original target if it's already addressable;
-		 if its address escapes, and the called function uses the
-		 NRV optimization, a conforming program could see *to_p
-		 change before the called function returns; see c++/19317.
-		 When optimizing, the return_slot pass marks more functions
-		 as safe after we have escape info.  */
-	      use_target = false;
-	    else
-	      use_target = true;
-
-	    if (use_target)
+	    /* struct T x = (struct T) { 0, 1, 2 } can be optimized
+	       into struct T x = { 0, 1, 2 } if the address of the
+	       compound literal has never been taken.  */
+	    if (!TREE_ADDRESSABLE (complit)
+		&& !TREE_ADDRESSABLE (decl)
+		&& init)
 	      {
-		CALL_EXPR_RETURN_SLOT_OPT (*from_p) = 1;
-		mark_addressable (*to_p);
+		*expr_p = copy_node (*expr_p);
+		TREE_OPERAND (*expr_p, 1) = init;
+		return GS_OK;
 	      }
 	  }
 
-	ret = GS_UNHANDLED;
-	break;
-
-      case WITH_SIZE_EXPR:
-	/* Likewise for calls that return an aggregate of non-constant size,
-	   since we would not be able to generate a temporary at all.  */
-	if (TREE_CODE (TREE_OPERAND (*from_p, 0)) == CALL_EXPR)
-	  {
-	    *from_p = TREE_OPERAND (*from_p, 0);
-	    ret = GS_OK;
-	  }
-	else
-	  ret = GS_UNHANDLED;
-	break;
-
-	/* If we're initializing from a container, push the initialization
-	   inside it.  */
-      case CLEANUP_POINT_EXPR:
-      case BIND_EXPR:
-      case STATEMENT_LIST:
-	{
-	  tree wrap = *from_p;
-	  tree t;
-
-	  ret = gimplify_expr (to_p, pre_p, post_p, is_gimple_min_lval,
-			       fb_lvalue);
-	  if (ret != GS_ERROR)
-	    ret = GS_OK;
-
-	  t = voidify_wrapper_expr (wrap, *expr_p);
-	  gcc_assert (t == *expr_p);
-
-	  if (want_value)
-	    {
-	      gimplify_and_add (wrap, pre_p);
-	      *expr_p = unshare_expr (*to_p);
-	    }
-	  else
-	    *expr_p = wrap;
-	  return GS_OK;
+	default:
+	  break;
 	}
-
-      case COMPOUND_LITERAL_EXPR:
-	{
-	  tree complit = TREE_OPERAND (*expr_p, 1);
-	  tree decl_s = COMPOUND_LITERAL_EXPR_DECL_EXPR (complit);
-	  tree decl = DECL_EXPR_DECL (decl_s);
-	  tree init = DECL_INITIAL (decl);
-
-	  /* struct T x = (struct T) { 0, 1, 2 } can be optimized
-	     into struct T x = { 0, 1, 2 } if the address of the
-	     compound literal has never been taken.  */
-	  if (!TREE_ADDRESSABLE (complit)
-	      && !TREE_ADDRESSABLE (decl)
-	      && init)
-	    {
-	      *expr_p = copy_node (*expr_p);
-	      TREE_OPERAND (*expr_p, 1) = init;
-	      return GS_OK;
-	    }
-	}
-
-      default:
-	ret = GS_UNHANDLED;
-	break;
-      }
+    }
+  while (changed);
 
   return ret;
 }
@@ -5465,6 +5437,31 @@ omp_add_variable (struct gimplify_omp_ctx *ctx, tree decl, unsigned int flags)
   splay_tree_insert (ctx->variables, (splay_tree_key)decl, flags);
 }
 
+/* Notice a threadprivate variable DECL used in OpenMP context CTX.
+   This just prints out diagnostics about threadprivate variable uses
+   in untied tasks.  If DECL2 is non-NULL, prevent this warning
+   on that variable.  */
+
+static bool
+omp_notice_threadprivate_variable (struct gimplify_omp_ctx *ctx, tree decl,
+				   tree decl2)
+{
+  splay_tree_node n;
+
+  if (ctx->region_type != ORT_UNTIED_TASK)
+    return false;
+  n = splay_tree_lookup (ctx->variables, (splay_tree_key)decl);
+  if (n == NULL)
+    {
+      error ("threadprivate variable %qE used in untied task", DECL_NAME (decl));
+      error_at (ctx->location, "enclosing task");
+      splay_tree_insert (ctx->variables, (splay_tree_key)decl, 0);
+    }
+  if (decl2)
+    splay_tree_insert (ctx->variables, (splay_tree_key)decl2, 0);
+  return false;
+}
+
 /* Record the fact that DECL was used within the OpenMP context CTX.
    IN_CODE is true when real code uses DECL, and false when we should
    merely emit default(none) errors.  Return true if DECL is going to
@@ -5485,14 +5482,14 @@ omp_notice_variable (struct gimplify_omp_ctx *ctx, tree decl, bool in_code)
   if (is_global_var (decl))
     {
       if (DECL_THREAD_LOCAL_P (decl))
-	return false;
+	return omp_notice_threadprivate_variable (ctx, decl, NULL_TREE);
 
       if (DECL_HAS_VALUE_EXPR_P (decl))
 	{
 	  tree value = get_base_address (DECL_VALUE_EXPR (decl));
 
 	  if (value && DECL_P (value) && DECL_THREAD_LOCAL_P (value))
-	    return false;
+	    return omp_notice_threadprivate_variable (ctx, decl, value);
 	}
     }
 
@@ -5518,7 +5515,10 @@ omp_notice_variable (struct gimplify_omp_ctx *ctx, tree decl, bool in_code)
 	case OMP_CLAUSE_DEFAULT_NONE:
 	  error ("%qE not specified in enclosing parallel",
 		 DECL_NAME (decl));
-	  error_at (ctx->location, "enclosing parallel");
+	  if ((ctx->region_type & ORT_TASK) != 0)
+	    error_at (ctx->location, "enclosing task");
+	  else
+	    error_at (ctx->location, "enclosing parallel");
 	  /* FALLTHRU */
 	case OMP_CLAUSE_DEFAULT_SHARED:
 	  flags |= GOVD_SHARED;
@@ -5531,7 +5531,7 @@ omp_notice_variable (struct gimplify_omp_ctx *ctx, tree decl, bool in_code)
 	  break;
 	case OMP_CLAUSE_DEFAULT_UNSPECIFIED:
 	  /* decl will be either GOVD_FIRSTPRIVATE or GOVD_SHARED.  */
-	  gcc_assert (ctx->region_type == ORT_TASK);
+	  gcc_assert ((ctx->region_type & ORT_TASK) != 0);
 	  if (ctx->outer_context)
 	    omp_notice_variable (ctx->outer_context, decl, in_code);
 	  for (octx = ctx->outer_context; octx; octx = octx->outer_context)
@@ -6034,7 +6034,10 @@ gimplify_omp_task (tree *expr_p, gimple_seq *pre_p)
   gimple_seq body = NULL;
   struct gimplify_ctx gctx;
 
-  gimplify_scan_omp_clauses (&OMP_TASK_CLAUSES (expr), pre_p, ORT_TASK);
+  gimplify_scan_omp_clauses (&OMP_TASK_CLAUSES (expr), pre_p,
+			     find_omp_clause (OMP_TASK_CLAUSES (expr),
+					      OMP_CLAUSE_UNTIED)
+			     ? ORT_UNTIED_TASK : ORT_TASK);
 
   push_gimplify_context (&gctx);
 
@@ -6358,9 +6361,7 @@ gimplify_omp_atomic (tree *expr_p, gimple_seq *pre_p)
   tree type = TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (addr)));
   tree tmp_load;
 
-   tmp_load = create_tmp_var (type, NULL);
-   if (TREE_CODE (type) == COMPLEX_TYPE || TREE_CODE (type) == VECTOR_TYPE)
-     DECL_GIMPLE_REG_P (tmp_load) = 1;
+   tmp_load = create_tmp_reg (type, NULL);
    if (goa_stabilize_expr (&rhs, pre_p, addr, tmp_load) < 0)
      return GS_ERROR;
 
@@ -6566,7 +6567,8 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
       else if (ret != GS_UNHANDLED)
 	break;
 
-      ret = GS_OK;
+      /* Make sure that all the cases set 'ret' appropriately.  */
+      ret = GS_UNHANDLED;
       switch (TREE_CODE (*expr_p))
 	{
 	  /* First deal with the special cases.  */
@@ -6600,6 +6602,7 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	    {
 	      *expr_p = get_initialized_tmp_var (*expr_p, pre_p, post_p);
 	      mark_addressable (*expr_p);
+	      ret = GS_OK;
 	    }
 	  break;
 
@@ -6614,6 +6617,7 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	    {
 	      *expr_p = get_initialized_tmp_var (*expr_p, pre_p, post_p);
 	      mark_addressable (*expr_p);
+	      ret = GS_OK;
 	    }
 	  break;
 
@@ -6675,6 +6679,7 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	      /* Just strip a conversion to void (or in void context) and
 		 try again.  */
 	      *expr_p = TREE_OPERAND (*expr_p, 0);
+	      ret = GS_OK;
 	      break;
 	    }
 
@@ -6714,7 +6719,10 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 				       TREE_OPERAND (*expr_p, 0),
 				       build_int_cst (saved_ptr_type, 0));
 	    TREE_THIS_VOLATILE (*expr_p) = volatilep;
-	    break;
+	    {
+	      ret = GS_OK;
+	      break;
+	    }
 	  }
 
 	case MEM_REF:
@@ -6723,6 +6731,7 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 			     TREE_OPERAND (*expr_p, 1));
 	  if (tmp)
 	    *expr_p = tmp;
+	  ret = GS_ALL_DONE;
 	  if (TREE_CODE (TREE_OPERAND (*expr_p, 0)) != ADDR_EXPR
 	      || (!CONSTANT_CLASS_P (TREE_OPERAND (TREE_OPERAND (*expr_p, 0), 0))
 		  && !decl_address_invariant_p (TREE_OPERAND (TREE_OPERAND (*expr_p, 0), 0))))
@@ -6749,7 +6758,10 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	  if (fallback & fb_lvalue)
 	    ret = GS_ALL_DONE;
 	  else
-	    *expr_p = DECL_INITIAL (*expr_p);
+	    {
+	      *expr_p = DECL_INITIAL (*expr_p);
+	      ret = GS_OK;
+	    }
 	  break;
 
 	case DECL_EXPR:
@@ -6784,6 +6796,7 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	    }
 	  gimplify_seq_add_stmt (pre_p,
 			  gimple_build_goto (GOTO_DESTINATION (*expr_p)));
+	  ret = GS_ALL_DONE;
 	  break;
 
 	case PREDICT_EXPR:
@@ -6826,7 +6839,7 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 		  append_to_statement_list (ce->value, &temp);
 
 	      *expr_p = temp;
-	      ret = GS_OK;
+	      ret = temp ? GS_OK : GS_ALL_DONE;
 	    }
 	  /* C99 code may assign to an array in a constructed
 	     structure or union, and this has undefined behavior only
@@ -6836,6 +6849,7 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	    {
 	      *expr_p = get_initialized_tmp_var (*expr_p, pre_p, post_p);
 	      mark_addressable (*expr_p);
+	      ret = GS_OK;
 	    }
 	  else
 	    ret = GS_ALL_DONE;
@@ -6983,6 +6997,7 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 			   gimple_test_f, fallback);
 	    gimplify_expr (&TREE_OPERAND (*expr_p, 1), pre_p, post_p,
 			   is_gimple_val, fb_rvalue);
+	    ret = GS_ALL_DONE;
 	  }
 	  break;
 
@@ -7070,6 +7085,7 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 		   TREE_TYPE (*expr_p))))
 	    {
 	      *expr_p = tmp;
+	      ret = GS_OK;
 	      break;
 	    }
 	  /* Convert (void *)&a + 4 into (void *)&a[1].  */
@@ -7085,6 +7101,7 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 					    0)))))
 	     {
                *expr_p = fold_convert (TREE_TYPE (*expr_p), tmp);
+	       ret = GS_OK;
 	       break;
 	     }
           /* FALLTHRU */
@@ -7154,9 +7171,7 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	  break;
 	}
 
-      /* If we replaced *expr_p, gimplify again.  */
-      if (ret == GS_OK && (*expr_p == NULL || *expr_p == save_expr))
-	ret = GS_ALL_DONE;
+      gcc_assert (*expr_p || ret != GS_OK);
     }
   while (ret == GS_OK);
 
@@ -7862,11 +7877,8 @@ gimple_regimplify_operands (gimple stmt, gimple_stmt_iterator *gsi_p)
 	    }
 	  if (need_temp)
 	    {
-	      tree temp = create_tmp_var (TREE_TYPE (lhs), NULL);
+	      tree temp = create_tmp_reg (TREE_TYPE (lhs), NULL);
 
-	      if (TREE_CODE (TREE_TYPE (lhs)) == COMPLEX_TYPE
-		  || TREE_CODE (TREE_TYPE (lhs)) == VECTOR_TYPE)
-		DECL_GIMPLE_REG_P (temp) = 1;
 	      if (TREE_CODE (orig_lhs) == SSA_NAME)
 		orig_lhs = SSA_NAME_VAR (orig_lhs);
 

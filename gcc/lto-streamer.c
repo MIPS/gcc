@@ -160,6 +160,12 @@ lto_get_section_name (int section_type, const char *name)
     case LTO_section_cgraph:
       return concat (LTO_SECTION_NAME_PREFIX, ".cgraph", NULL);
 
+    case LTO_section_varpool:
+      return concat (LTO_SECTION_NAME_PREFIX, ".vars", NULL);
+
+    case LTO_section_refs:
+      return concat (LTO_SECTION_NAME_PREFIX, ".refs", NULL);
+
     case LTO_section_jump_functions:
       return concat (LTO_SECTION_NAME_PREFIX, ".jmpfuncs", NULL);
 
@@ -169,11 +175,11 @@ lto_get_section_name (int section_type, const char *name)
     case LTO_section_ipa_reference:
       return concat (LTO_SECTION_NAME_PREFIX, ".reference", NULL);
 
-    case LTO_section_wpa_fixup:
-      return concat (LTO_SECTION_NAME_PREFIX, ".wpa_fixup", NULL);
-
     case LTO_section_opts:
       return concat (LTO_SECTION_NAME_PREFIX, ".opts", NULL);
+
+    case LTO_section_cgraph_opt_sum:
+      return concat (LTO_SECTION_NAME_PREFIX, ".cgraphopt", NULL);
 
     default:
       internal_error ("bytecode stream: unexpected LTO section %s", name);
@@ -455,7 +461,7 @@ lto_streamer_cache_add_to_node_array (struct lto_streamer_cache_d *cache,
   if (ix >= (int) VEC_length (tree, cache->nodes))
     {
       size_t sz = ix + (20 + ix) / 4;
-      VEC_safe_grow_cleared (tree, gc, cache->nodes, sz);
+      VEC_safe_grow_cleared (tree, heap, cache->nodes, sz);
       VEC_safe_grow_cleared (unsigned, heap, cache->offsets, sz);
     }
 
@@ -497,7 +503,7 @@ lto_streamer_cache_insert_1 (struct lto_streamer_cache_d *cache,
       else
 	ix = *ix_p;
 
-      entry = XCNEW (struct tree_int_map);
+      entry = (struct tree_int_map *)pool_alloc (cache->node_map_entries);
       entry->base.from = t;
       entry->to = (unsigned) ix;
       *slot = entry;
@@ -759,6 +765,10 @@ lto_streamer_cache_create (void)
 
   cache->node_map = htab_create (101, tree_int_map_hash, tree_int_map_eq, NULL);
 
+  cache->node_map_entries = create_alloc_pool ("node map",
+					       sizeof (struct tree_int_map),
+					       100);
+
   /* Load all the well-known tree nodes that are always created by
      the compiler on startup.  This prevents writing them out
      unnecessarily.  */
@@ -782,11 +792,37 @@ lto_streamer_cache_delete (struct lto_streamer_cache_d *c)
     return;
 
   htab_delete (c->node_map);
-  VEC_free (tree, gc, c->nodes);
+  free_alloc_pool (c->node_map_entries);
+  VEC_free (tree, heap, c->nodes);
   VEC_free (unsigned, heap, c->offsets);
   free (c);
 }
 
+
+#ifdef LTO_STREAMER_DEBUG
+static htab_t tree_htab;
+
+struct tree_hash_entry
+{
+  tree key;
+  intptr_t value;
+};
+
+static hashval_t
+hash_tree (const void *p)
+{
+  const struct tree_hash_entry *e = (const struct tree_hash_entry *) p;
+  return htab_hash_pointer (e->key);
+}
+
+static int
+eq_tree (const void *p1, const void *p2)
+{
+  const struct tree_hash_entry *e1 = (const struct tree_hash_entry *) p1;
+  const struct tree_hash_entry *e2 = (const struct tree_hash_entry *) p2;
+  return (e1->key == e2->key);
+}
+#endif
 
 /* Initialization common to the LTO reader and writer.  */
 
@@ -798,6 +834,10 @@ lto_streamer_init (void)
      new TS_* astructure is added, the streamer should be updated to
      handle it.  */
   check_handled_ts_structures ();
+
+#ifdef LTO_STREAMER_DEBUG
+  tree_htab = htab_create (31, hash_tree, eq_tree, NULL);
+#endif
 }
 
 
@@ -826,10 +866,16 @@ gate_lto_out (void)
 void
 lto_orig_address_map (tree t, intptr_t orig_t)
 {
-  /* FIXME lto.  Using the annotation field is quite hacky as it relies
-     on the GC not running while T is being rematerialized.  It would
-     be cleaner to use a hash table here.  */
-  t->base.ann = (union tree_ann_d *) orig_t;
+  struct tree_hash_entry ent;
+  struct tree_hash_entry **slot;
+
+  ent.key = t;
+  ent.value = orig_t;
+  slot
+    = (struct tree_hash_entry **) htab_find_slot (tree_htab, &ent, INSERT);
+  gcc_assert (!*slot);
+  *slot = XNEW (struct tree_hash_entry);
+  **slot = ent;
 }
 
 
@@ -839,7 +885,13 @@ lto_orig_address_map (tree t, intptr_t orig_t)
 intptr_t
 lto_orig_address_get (tree t)
 {
-  return (intptr_t) t->base.ann;
+  struct tree_hash_entry ent;
+  struct tree_hash_entry **slot;
+
+  ent.key = t;
+  slot
+    = (struct tree_hash_entry **) htab_find_slot (tree_htab, &ent, NO_INSERT);
+  return (slot ? (*slot)->value : 0);
 }
 
 
@@ -848,7 +900,15 @@ lto_orig_address_get (tree t)
 void
 lto_orig_address_remove (tree t)
 {
-  t->base.ann = NULL;
+  struct tree_hash_entry ent;
+  struct tree_hash_entry **slot;
+
+  ent.key = t;
+  slot
+    = (struct tree_hash_entry **) htab_find_slot (tree_htab, &ent, NO_INSERT);
+  gcc_assert (slot);
+  free (*slot);
+  htab_clear_slot (tree_htab, (PTR *)slot);
 }
 #endif
 

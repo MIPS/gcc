@@ -1475,6 +1475,9 @@ optimization_options (int level ATTRIBUTE_UNUSED, int size ATTRIBUTE_UNUSED)
      without maintaining a stack frame back-chain.  */
   flag_asynchronous_unwind_tables = 1;
 
+  if (HAVE_prefetch || optimize >= 3)
+      flag_prefetch_loop_arrays = 1;
+
   /* Use MVCLE instructions to decrease code size if requested.  */
   if (size != 0)
     target_flags |= MASK_MVCLE;
@@ -1661,6 +1664,19 @@ override_options (void)
     }
 
   set_param_value ("max-pending-list-length", 256);
+  /* values for loop prefetching */
+  set_param_value ("l1-cache-line-size", 256);
+  if (!PARAM_SET_P (PARAM_L1_CACHE_SIZE))
+    set_param_value ("l1-cache-size", 128);
+  /* s390 has more than 2 levels and the size is much larger.  Since
+     we are always running virtualized assume that we only get a small
+     part of the caches above l1.  */
+  if (!PARAM_SET_P (PARAM_L2_CACHE_SIZE))
+    set_param_value ("l2-cache-size", 1500);
+  if (!PARAM_SET_P (PARAM_PREFETCH_MIN_INSN_TO_MEM_RATIO))
+    set_param_value ("prefetch-min-insn-to-mem-ratio", 2);
+  if (!PARAM_SET_P (PARAM_SIMULTANEOUS_PREFETCHES))
+    set_param_value ("simultaneous-prefetches", 6);
 }
 
 /* Map for smallest class containing reg regno.  */
@@ -9449,17 +9465,9 @@ s390_call_saved_register_used (tree call_expr)
 
        if (REG_P (parm_rtx))
   	 {
-	   int n_regs;
-
-	   /* Only integer registers (r6) are call saved and used for
-	      parameter passing.  */
-	   if (REGNO_REG_CLASS (REGNO (parm_rtx)) == FP_REGS)
-	     continue;
-
-	   n_regs = ((GET_MODE_SIZE (GET_MODE (parm_rtx)) + UNITS_PER_LONG - 1)
-		     / UNITS_PER_LONG);
-
-	   for (reg = 0; reg < n_regs; reg++)
+	   for (reg = 0;
+		reg < HARD_REGNO_NREGS (REGNO (parm_rtx), GET_MODE (parm_rtx));
+		reg++)
 	     if (!call_used_regs[reg + REGNO (parm_rtx)])
  	       return true;
 	 }
@@ -9467,22 +9475,16 @@ s390_call_saved_register_used (tree call_expr)
        if (GET_CODE (parm_rtx) == PARALLEL)
 	 {
 	   int i;
+
 	   for (i = 0; i < XVECLEN (parm_rtx, 0); i++)
 	     {
 	       rtx r = XEXP (XVECEXP (parm_rtx, 0, i), 0);
-	       int n_regs;
 
 	       gcc_assert (REG_P (r));
 
-	       /* Only integer registers (r6) are call saved and used
-		  for parameter passing.  */
-	       if (REGNO_REG_CLASS (REGNO (r)) == FP_REGS)
-		 continue;
-
-	       n_regs = ((GET_MODE_SIZE (GET_MODE (r)) + UNITS_PER_LONG - 1)
-			 / UNITS_PER_LONG);
-
-	       for (reg = 0; reg < n_regs; reg++)
+	       for (reg = 0;
+		    reg < HARD_REGNO_NREGS (REGNO (r), GET_MODE (r));
+		    reg++)
 		 if (!call_used_regs[reg + REGNO (r)])
 		   return true;
 	     }
@@ -9553,11 +9555,25 @@ s390_emit_call (rtx addr_location, rtx tls_call, rtx result_reg,
          replace the symbol itself with the PLT stub.  */
       if (flag_pic && !SYMBOL_REF_LOCAL_P (addr_location))
         {
-	  addr_location = gen_rtx_UNSPEC (Pmode,
-					  gen_rtvec (1, addr_location),
-					  UNSPEC_PLT);
-	  addr_location = gen_rtx_CONST (Pmode, addr_location);
-	  plt_call = true;
+	  if (retaddr_reg != NULL_RTX)
+	    {
+	      addr_location = gen_rtx_UNSPEC (Pmode,
+					      gen_rtvec (1, addr_location),
+					      UNSPEC_PLT);
+	      addr_location = gen_rtx_CONST (Pmode, addr_location);
+	      plt_call = true;
+	    }
+	  else
+	    /* For -fpic code the PLT entries might use r12 which is
+	       call-saved.  Therefore we cannot do a sibcall when
+	       calling directly using a symbol ref.  When reaching
+	       this point we decided (in s390_function_ok_for_sibcall)
+	       to do a sibcall for a function pointer but one of the
+	       optimizers was able to get rid of the function pointer
+	       by propagating the symbol ref into the call.  This
+	       optimization is illegal for S/390 so we turn the direct
+	       call into a indirect call again.  */
+	    addr_location = force_reg (Pmode, addr_location);
         }
 
       /* Unless we can use the bras(l) insn, force the

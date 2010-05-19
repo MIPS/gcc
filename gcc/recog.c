@@ -1978,7 +1978,7 @@ offsettable_address_addr_space_p (int strictp, enum machine_mode mode, rtx y,
    Autoincrement addressing is a typical example of mode-dependence
    because the amount of the increment depends on the mode.  */
 
-int
+bool
 mode_dependent_address_p (rtx addr)
 {
   /* Auto-increment addressing with anything other than post_modify
@@ -1988,13 +1988,9 @@ mode_dependent_address_p (rtx addr)
       || GET_CODE (addr) == POST_INC
       || GET_CODE (addr) == PRE_DEC
       || GET_CODE (addr) == POST_DEC)
-    return 1;
+    return true;
 
-  GO_IF_MODE_DEPENDENT_ADDRESS (addr, win);
-  return 0;
-  /* Label `win' might (not) be used via GO_IF_MODE_DEPENDENT_ADDRESS.  */
- win: ATTRIBUTE_UNUSED_LABEL
-  return 1;
+  return targetm.mode_dependent_address_p (addr);
 }
 
 /* Like extract_insn, but save insn extracted and don't extract again, when
@@ -2082,6 +2078,7 @@ extract_insn (rtx insn)
 			       recog_data.operand_loc,
 			       recog_data.constraints,
 			       recog_data.operand_mode, NULL);
+	  memset (recog_data.is_operator, 0, sizeof recog_data.is_operator);
 	  if (noperands > 0)
 	    {
 	      const char *p =  recog_data.constraints[0];
@@ -2111,6 +2108,7 @@ extract_insn (rtx insn)
       for (i = 0; i < noperands; i++)
 	{
 	  recog_data.constraints[i] = insn_data[icode].operand[i].constraint;
+	  recog_data.is_operator[i] = insn_data[icode].operand[i].is_operator;
 	  recog_data.operand_mode[i] = insn_data[icode].operand[i].mode;
 	  /* VOIDmode match_operands gets mode from their real operand.  */
 	  if (recog_data.operand_mode[i] == VOIDmode)

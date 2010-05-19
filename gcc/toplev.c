@@ -139,7 +139,7 @@ static const char **save_argv;
 const char *main_input_filename;
 
 /* Used to enable -fvar-tracking, -fweb and -frename-registers according
-   to optimize and default_debug_hooks in process_options ().  */
+   to optimize in process_options ().  */
 #define AUTODETECT_VALUE 2
 
 /* Current position in real source file.  */
@@ -171,10 +171,6 @@ int target_flags_explicit;
 /* Debug hooks - dependent upon command line options.  */
 
 const struct gcc_debug_hooks *debug_hooks;
-
-/* Debug hooks - target default.  */
-
-static const struct gcc_debug_hooks *default_debug_hooks;
 
 /* Other flags saying which kinds of debugging dump have been requested.  */
 
@@ -1056,7 +1052,7 @@ compile_file (void)
      what's left of the symbol table output.  */
   timevar_pop (TV_PARSE);
 
-  if (flag_syntax_only)
+  if (flag_syntax_only || flag_wpa)
     return;
 
   ggc_protect_identifiers = false;
@@ -1694,6 +1690,7 @@ general_init (const char *argv0)
   /* Set a default printer.  Language specific initializations will
      override it later.  */
   pp_format_decoder (global_dc->printer) = &default_tree_printer;
+  global_dc->show_option_requested = flag_diagnostics_show_option;
 
   /* Trap fatal signals, e.g. SIGSEGV, and convert them to ICE messages.  */
 #ifdef SIGSEGV
@@ -1960,32 +1957,6 @@ process_options (void)
      level is 0.  */
   if (debug_info_level == DINFO_LEVEL_NONE)
     write_symbols = NO_DEBUG;
-
-  /* Now we know write_symbols, set up the debug hooks based on it.
-     By default we do nothing for debug output.  */
-  if (PREFERRED_DEBUGGING_TYPE == NO_DEBUG)
-    default_debug_hooks = &do_nothing_debug_hooks;
-#if defined(DBX_DEBUGGING_INFO)
-  else if (PREFERRED_DEBUGGING_TYPE == DBX_DEBUG)
-    default_debug_hooks = &dbx_debug_hooks;
-#endif
-#if defined(XCOFF_DEBUGGING_INFO)
-  else if (PREFERRED_DEBUGGING_TYPE == XCOFF_DEBUG)
-    default_debug_hooks = &xcoff_debug_hooks;
-#endif
-#ifdef SDB_DEBUGGING_INFO
-  else if (PREFERRED_DEBUGGING_TYPE == SDB_DEBUG)
-    default_debug_hooks = &sdb_debug_hooks;
-#endif
-#ifdef DWARF2_DEBUGGING_INFO
-  else if (PREFERRED_DEBUGGING_TYPE == DWARF2_DEBUG)
-    default_debug_hooks = &dwarf2_debug_hooks;
-#endif
-#ifdef VMS_DEBUGGING_INFO
-  else if (PREFERRED_DEBUGGING_TYPE == VMS_DEBUG
-	   || PREFERRED_DEBUGGING_TYPE == VMS_AND_DWARF2_DEBUG)
-    default_debug_hooks = &vmsdbg_debug_hooks;
-#endif
 
   if (write_symbols == NO_DEBUG)
     ;
@@ -2346,7 +2317,6 @@ dump_memory_report (bool final)
   dump_tree_statistics ();
   dump_gimple_statistics ();
   dump_rtx_statistics ();
-  dump_varray_statistics ();
   dump_alloc_pool_statistics ();
   dump_bitmap_statistics ();
   dump_vec_loc_statistics ();

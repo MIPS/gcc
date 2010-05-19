@@ -27,6 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "input.h"
 #include "statistics.h"
 #include "vec.h"
+#include "vecir.h"
 #include "double-int.h"
 #include "alias.h"
 #include "options.h"
@@ -177,11 +178,6 @@ extern const unsigned char tree_code_length[];
 /* Names of tree components.  */
 
 extern const char *const tree_code_name[];
-
-/* A vectors of trees.  */
-DEF_VEC_P(tree);
-DEF_VEC_ALLOC_P(tree,gc);
-DEF_VEC_ALLOC_P(tree,heap);
 
 /* We have to be able to tell cgraph about the needed-ness of the target
    of an alias.  This requires that the decl have been defined.  Aliases
@@ -411,7 +407,7 @@ struct GTY(()) tree_common {
    addressable_flag:
 
        TREE_ADDRESSABLE in
-           VAR_DECL, FUNCTION_DECL, FIELD_DECL, LABEL_DECL
+           VAR_DECL, PARM_DECL, RESULT_DECL, FUNCTION_DECL, LABEL_DECL
            all types
            CONSTRUCTOR, IDENTIFIER_NODE
            STMT_EXPR, it means we want the result of the enclosed expression
@@ -457,6 +453,9 @@ struct GTY(()) tree_common {
 
        CALL_CANNOT_INLINE_P in
            CALL_EXPR
+ 
+       ENUM_IS_SCOPED in
+	   ENUMERAL_TYPE
 
    public_flag:
 
@@ -500,6 +499,9 @@ struct GTY(()) tree_common {
            OMP_PARALLEL
        OMP_CLAUSE_PRIVATE_OUTER_REF in
 	   OMP_CLAUSE_PRIVATE
+
+       TYPE_REF_IS_RVALUE in
+	   REFERENCE_TYPE
 
    protected_flag:
 
@@ -1100,13 +1102,10 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 
 /* Define many boolean fields that all tree nodes have.  */
 
-/* In VAR_DECL nodes, nonzero means address of this is needed.
-   So it cannot be in a register.
+/* In VAR_DECL, PARM_DECL and RESULT_DECL nodes, nonzero means address
+   of this is needed.  So it cannot be in a register.
    In a FUNCTION_DECL, nonzero means its address is needed.
    So it must be compiled even if it is an inline function.
-   In a FIELD_DECL node, it means that the programmer is permitted to
-   construct the address of this field.  This is used for aliasing
-   purposes: see record_component_aliases.
    In CONSTRUCTOR nodes, it means object constructed must be in memory.
    In LABEL_DECL nodes, it means a goto for this label has been seen
    from a place outside all binding contours that restore stack levels.
@@ -1161,6 +1160,9 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 
 /* Used to mark a CALL_EXPR as not suitable for inlining.  */
 #define CALL_CANNOT_INLINE_P(NODE) (CALL_EXPR_CHECK (NODE)->base.static_flag)
+
+/* Used to mark scoped enums.  */
+#define ENUM_IS_SCOPED(NODE) (ENUMERAL_TYPE_CHECK (NODE)->base.static_flag)
 
 /* In an expr node (usually a conversion) this means the node was made
    implicitly and should not lead to any sort of warning.  In a decl node,
@@ -1341,6 +1343,10 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 /* Used in classes in C++. */
 #define TREE_PROTECTED(NODE) ((NODE)->base.protected_flag)
 
+/* True if reference type NODE is a C++ rvalue reference.  */
+#define TYPE_REF_IS_RVALUE(NODE) \
+  (REFERENCE_TYPE_CHECK (NODE)->base.private_flag)
+
 /* Nonzero in a _DECL if the use of the name is defined as a
    deprecated feature by __attribute__((deprecated)).  */
 #define TREE_DEPRECATED(NODE) \
@@ -1406,7 +1412,8 @@ struct GTY(()) tree_real_cst {
 /* In a FIXED_CST node.  */
 struct fixed_value;
 
-#define TREE_FIXED_CST_PTR(NODE) (FIXED_CST_CHECK (NODE)->fixed_cst.fixed_cst_ptr)
+#define TREE_FIXED_CST_PTR(NODE) \
+  (FIXED_CST_CHECK (NODE)->fixed_cst.fixed_cst_ptr)
 #define TREE_FIXED_CST(NODE) (*TREE_FIXED_CST_PTR (NODE))
 
 struct GTY(()) tree_fixed_cst {
@@ -1493,7 +1500,8 @@ struct GTY(()) tree_vec {
 #define CONSTRUCTOR_ELTS(NODE) (CONSTRUCTOR_CHECK (NODE)->constructor.elts)
 #define CONSTRUCTOR_ELT(NODE,IDX) \
   (VEC_index (constructor_elt, CONSTRUCTOR_ELTS (NODE), IDX))
-#define CONSTRUCTOR_NELTS(NODE) (VEC_length (constructor_elt, CONSTRUCTOR_ELTS (NODE)))
+#define CONSTRUCTOR_NELTS(NODE) \
+  (VEC_length (constructor_elt, CONSTRUCTOR_ELTS (NODE)))
 
 /* Iterate through the vector V of CONSTRUCTOR_ELT elements, yielding the
    value of each element (stored within VAL). IX must be a scratch variable
@@ -1574,7 +1582,8 @@ struct GTY(()) tree_constructor {
 /* The source location of this expression.  Non-tree_exp nodes such as
    decls and constants can be shared among multiple locations, so
    return nothing.  */
-#define EXPR_LOCATION(NODE) (EXPR_P ((NODE)) ? (NODE)->exp.locus : UNKNOWN_LOCATION)
+#define EXPR_LOCATION(NODE) \
+  (EXPR_P ((NODE)) ? (NODE)->exp.locus : UNKNOWN_LOCATION)
 #define SET_EXPR_LOCATION(NODE, LOCUS) EXPR_CHECK ((NODE))->exp.locus = (LOCUS)
 #define EXPR_HAS_LOCATION(NODE) (EXPR_LOCATION (NODE) != UNKNOWN_LOCATION)
 #define EXPR_FILENAME(NODE) LOCATION_FILE (EXPR_CHECK ((NODE))->exp.locus)
@@ -1686,7 +1695,6 @@ extern void protected_set_expr_location (tree, location_t);
  */
 #define CALL_EXPR_FN(NODE) TREE_OPERAND (CALL_EXPR_CHECK (NODE), 1)
 #define CALL_EXPR_STATIC_CHAIN(NODE) TREE_OPERAND (CALL_EXPR_CHECK (NODE), 2)
-#define CALL_EXPR_ARGS(NODE) call_expr_arglist (NODE)
 #define CALL_EXPR_ARG(NODE, I) TREE_OPERAND (CALL_EXPR_CHECK (NODE), (I) + 3)
 #define call_expr_nargs(NODE) (VL_EXP_OPERAND_LENGTH(NODE) - 3)
 
@@ -1869,7 +1877,7 @@ struct GTY(()) tree_exp {
    the very first reference to S in the function is a read operation.
    Default definitions are always created by an empty statement and
    belong to no basic block.  */
-#define SSA_NAME_IS_DEFAULT_DEF(NODE)	\
+#define SSA_NAME_IS_DEFAULT_DEF(NODE) \
     SSA_NAME_CHECK (NODE)->base.default_def_flag
 
 /* Attributes for SSA_NAMEs for pointer-type variables.  */
@@ -1958,13 +1966,14 @@ struct GTY(()) tree_omp_clause {
 };
 
 
-struct varray_head_tag;
-
 /* In a BLOCK node.  */
 #define BLOCK_VARS(NODE) (BLOCK_CHECK (NODE)->block.vars)
-#define BLOCK_NONLOCALIZED_VARS(NODE) (BLOCK_CHECK (NODE)->block.nonlocalized_vars)
-#define BLOCK_NUM_NONLOCALIZED_VARS(NODE) VEC_length (tree, BLOCK_NONLOCALIZED_VARS (NODE))
-#define BLOCK_NONLOCALIZED_VAR(NODE,N) VEC_index (tree, BLOCK_NONLOCALIZED_VARS (NODE), N)
+#define BLOCK_NONLOCALIZED_VARS(NODE) \
+  (BLOCK_CHECK (NODE)->block.nonlocalized_vars)
+#define BLOCK_NUM_NONLOCALIZED_VARS(NODE) \
+  VEC_length (tree, BLOCK_NONLOCALIZED_VARS (NODE))
+#define BLOCK_NONLOCALIZED_VAR(NODE,N) \
+  VEC_index (tree, BLOCK_NONLOCALIZED_VARS (NODE), N)
 #define BLOCK_SUBBLOCKS(NODE) (BLOCK_CHECK (NODE)->block.subblocks)
 #define BLOCK_SUPERCONTEXT(NODE) (BLOCK_CHECK (NODE)->block.supercontext)
 /* Note: when changing this, make sure to find the places
@@ -2105,7 +2114,8 @@ extern enum machine_mode vector_type_mode (const_tree);
 /* For a VECTOR_TYPE node, this describes a different type which is emitted
    in the debugging output.  We use this to describe a vector as a
    structure containing an array.  */
-#define TYPE_DEBUG_REPRESENTATION_TYPE(NODE) (VECTOR_TYPE_CHECK (NODE)->type.values)
+#define TYPE_DEBUG_REPRESENTATION_TYPE(NODE) \
+  (VECTOR_TYPE_CHECK (NODE)->type.values)
 
 /* For record and union types, information about this type, as a base type
    for itself.  */
@@ -2491,18 +2501,23 @@ struct function;
 
 /* Every ..._DECL node gets a unique number that stays the same even
    when the decl is copied by the inliner once it is set.  */
-#define DECL_PT_UID(NODE) (DECL_MINIMAL_CHECK (NODE)->decl_minimal.pt_uid == -1u ? (NODE)->decl_minimal.uid : (NODE)->decl_minimal.pt_uid)
+#define DECL_PT_UID(NODE) \
+  (DECL_COMMON_CHECK (NODE)->decl_common.pt_uid == -1u \
+   ? (NODE)->decl_minimal.uid : (NODE)->decl_common.pt_uid)
 /* Initialize the ..._DECL node pt-uid to the decls uid.  */
-#define SET_DECL_PT_UID(NODE, UID) (DECL_MINIMAL_CHECK (NODE)->decl_minimal.pt_uid = (UID))
+#define SET_DECL_PT_UID(NODE, UID) \
+  (DECL_COMMON_CHECK (NODE)->decl_common.pt_uid = (UID))
 /* Whether the ..._DECL node pt-uid has been initialized and thus needs to
    be preserved when copyin the decl.  */
-#define DECL_PT_UID_SET_P(NODE) (DECL_MINIMAL_CHECK (NODE)->decl_minimal.pt_uid != -1u)
+#define DECL_PT_UID_SET_P(NODE) \
+  (DECL_COMMON_CHECK (NODE)->decl_common.pt_uid != -1u)
 
 /* These two fields describe where in the source code the declaration
    was.  If the declaration appears in several places (as for a C
    function that is declared first and then defined later), this
    information should refer to the definition.  */
-#define DECL_SOURCE_LOCATION(NODE) (DECL_MINIMAL_CHECK (NODE)->decl_minimal.locus)
+#define DECL_SOURCE_LOCATION(NODE) \
+  (DECL_MINIMAL_CHECK (NODE)->decl_minimal.locus)
 #define DECL_SOURCE_FILE(NODE) LOCATION_FILE (DECL_SOURCE_LOCATION (NODE))
 #define DECL_SOURCE_LINE(NODE) LOCATION_LINE (DECL_SOURCE_LOCATION (NODE))
 #define DECL_IS_BUILTIN(DECL) \
@@ -2516,12 +2531,12 @@ struct function;
     NULL_TREE or a TRANSLATION_UNIT_DECL if the given decl has "file
     scope".  */
 #define DECL_CONTEXT(NODE) (DECL_MINIMAL_CHECK (NODE)->decl_minimal.context)
-#define DECL_FIELD_CONTEXT(NODE) (FIELD_DECL_CHECK (NODE)->decl_minimal.context)
+#define DECL_FIELD_CONTEXT(NODE) \
+  (FIELD_DECL_CHECK (NODE)->decl_minimal.context)
 struct GTY(()) tree_decl_minimal {
   struct tree_common common;
   location_t locus;
   unsigned int uid;
-  unsigned int pt_uid;
   tree name;
   tree context;
 };
@@ -2533,7 +2548,8 @@ struct GTY(()) tree_decl_minimal {
 
    The C front-end also uses this in a nested declaration of an inline
    function, to point back to the definition.  */
-#define DECL_ABSTRACT_ORIGIN(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.abstract_origin)
+#define DECL_ABSTRACT_ORIGIN(NODE) \
+  (DECL_COMMON_CHECK (NODE)->decl_common.abstract_origin)
 
 /* Like DECL_ABSTRACT_ORIGIN, but returns NODE if there's no abstract
    origin.  This is useful when setting the DECL_ABSTRACT_ORIGIN.  */
@@ -2544,11 +2560,13 @@ struct GTY(()) tree_decl_minimal {
    inline instance of some original (abstract) decl from an inline function;
    suppress any warnings about shadowing some other variable.  FUNCTION_DECL
    nodes can also have their abstract origin set to themselves.  */
-#define DECL_FROM_INLINE(NODE) (DECL_ABSTRACT_ORIGIN (NODE) != NULL_TREE \
-				&& DECL_ABSTRACT_ORIGIN (NODE) != (NODE))
+#define DECL_FROM_INLINE(NODE) \
+  (DECL_ABSTRACT_ORIGIN (NODE) != NULL_TREE \
+   && DECL_ABSTRACT_ORIGIN (NODE) != (NODE))
 
 /* In a DECL this is the field where attributes are stored.  */
-#define DECL_ATTRIBUTES(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.attributes)
+#define DECL_ATTRIBUTES(NODE) \
+  (DECL_COMMON_CHECK (NODE)->decl_common.attributes)
 
 /* For a FUNCTION_DECL, holds the tree of BINDINGs.
    For a TRANSLATION_UNIT_DECL, holds the namespace's BLOCK.
@@ -2573,7 +2591,8 @@ struct GTY(()) tree_decl_minimal {
 #define DECL_ALIGN_UNIT(NODE) (DECL_ALIGN (NODE) / BITS_PER_UNIT)
 /* Set if the alignment of this DECL has been set by the user, for
    example with an 'aligned' attribute.  */
-#define DECL_USER_ALIGN(NODE) (DECL_COMMON_CHECK (NODE)->common.base.user_align)
+#define DECL_USER_ALIGN(NODE) \
+  (DECL_COMMON_CHECK (NODE)->common.base.user_align)
 /* Holds the machine mode corresponding to the declaration of a variable or
    field.  Always equal to TYPE_MODE (TREE_TYPE (decl)) except for a
    FIELD_DECL.  */
@@ -2594,7 +2613,8 @@ struct GTY(()) tree_decl_minimal {
 /* Nonzero for a given ..._DECL node means that the name of this node should
    be ignored for symbolic debug purposes.  Moreover, for a FUNCTION_DECL,
    the body of the function should also be ignored.  */
-#define DECL_IGNORED_P(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.ignored_flag)
+#define DECL_IGNORED_P(NODE) \
+  (DECL_COMMON_CHECK (NODE)->decl_common.ignored_flag)
 
 /* Nonzero for a given ..._DECL node means that this node represents an
    "abstract instance" of the given declaration (e.g. in the original
@@ -2602,10 +2622,12 @@ struct GTY(()) tree_decl_minimal {
    information, we mustn't try to generate any address information for nodes
    marked as "abstract instances" because we don't actually generate
    any code or allocate any data space for such instances.  */
-#define DECL_ABSTRACT(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.abstract_flag)
+#define DECL_ABSTRACT(NODE) \
+  (DECL_COMMON_CHECK (NODE)->decl_common.abstract_flag)
 
 /* Language-specific decl information.  */
-#define DECL_LANG_SPECIFIC(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.lang_specific)
+#define DECL_LANG_SPECIFIC(NODE) \
+  (DECL_COMMON_CHECK (NODE)->decl_common.lang_specific)
 
 /* In a VAR_DECL or FUNCTION_DECL, nonzero means external reference:
    do not allocate storage, and refer to a definition elsewhere.  Note that
@@ -2623,26 +2645,38 @@ struct GTY(()) tree_decl_minimal {
 
    Also set in some languages for variables, etc., outside the normal
    lexical scope, such as class instance variables.  */
-#define DECL_NONLOCAL(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.nonlocal_flag)
+#define DECL_NONLOCAL(NODE) \
+  (DECL_COMMON_CHECK (NODE)->decl_common.nonlocal_flag)
 
 /* Used in VAR_DECLs to indicate that the variable is a vtable.
    Used in FIELD_DECLs for vtable pointers.
    Used in FUNCTION_DECLs to indicate that the function is virtual.  */
-#define DECL_VIRTUAL_P(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.virtual_flag)
+#define DECL_VIRTUAL_P(NODE) \
+  (DECL_COMMON_CHECK (NODE)->decl_common.virtual_flag)
 
 /* Used to indicate that this DECL represents a compiler-generated entity.  */
-#define DECL_ARTIFICIAL(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.artificial_flag)
+#define DECL_ARTIFICIAL(NODE) \
+  (DECL_COMMON_CHECK (NODE)->decl_common.artificial_flag)
 
 /* Additional flags for language-specific uses.  */
-#define DECL_LANG_FLAG_0(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.lang_flag_0)
-#define DECL_LANG_FLAG_1(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.lang_flag_1)
-#define DECL_LANG_FLAG_2(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.lang_flag_2)
-#define DECL_LANG_FLAG_3(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.lang_flag_3)
-#define DECL_LANG_FLAG_4(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.lang_flag_4)
-#define DECL_LANG_FLAG_5(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.lang_flag_5)
-#define DECL_LANG_FLAG_6(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.lang_flag_6)
-#define DECL_LANG_FLAG_7(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.lang_flag_7)
-#define DECL_LANG_FLAG_8(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.lang_flag_8)
+#define DECL_LANG_FLAG_0(NODE) \
+  (DECL_COMMON_CHECK (NODE)->decl_common.lang_flag_0)
+#define DECL_LANG_FLAG_1(NODE) \
+  (DECL_COMMON_CHECK (NODE)->decl_common.lang_flag_1)
+#define DECL_LANG_FLAG_2(NODE) \
+  (DECL_COMMON_CHECK (NODE)->decl_common.lang_flag_2)
+#define DECL_LANG_FLAG_3(NODE) \
+  (DECL_COMMON_CHECK (NODE)->decl_common.lang_flag_3)
+#define DECL_LANG_FLAG_4(NODE) \
+  (DECL_COMMON_CHECK (NODE)->decl_common.lang_flag_4)
+#define DECL_LANG_FLAG_5(NODE) \
+  (DECL_COMMON_CHECK (NODE)->decl_common.lang_flag_5)
+#define DECL_LANG_FLAG_6(NODE) \
+  (DECL_COMMON_CHECK (NODE)->decl_common.lang_flag_6)
+#define DECL_LANG_FLAG_7(NODE) \
+  (DECL_COMMON_CHECK (NODE)->decl_common.lang_flag_7)
+#define DECL_LANG_FLAG_8(NODE) \
+  (DECL_COMMON_CHECK (NODE)->decl_common.lang_flag_8)
 
 /* Nonzero for a decl which is at file scope.  */
 #define DECL_FILE_SCOPE_P(EXP) 					\
@@ -2720,6 +2754,9 @@ struct GTY(()) tree_decl_common {
   /* DECL_ALIGN.  It should have the same size as TYPE_ALIGN.  */
   unsigned int align;
 
+  /* UID for points-to sets, stable over copying from inlining.  */
+  unsigned int pt_uid;
+
   tree size_unit;
   tree initial;
   tree attributes;
@@ -2740,7 +2777,7 @@ extern void decl_value_expr_insert (tree, tree);
   (TREE_CHECK2 (NODE, VAR_DECL, PARM_DECL)->decl_common.decl_flag_2)
 #define DECL_VALUE_EXPR(NODE) \
   (decl_value_expr_lookup (DECL_WRTL_CHECK (NODE)))
-#define SET_DECL_VALUE_EXPR(NODE, VAL)			\
+#define SET_DECL_VALUE_EXPR(NODE, VAL) \
   (decl_value_expr_insert (DECL_WRTL_CHECK (NODE), VAL))
 
 /* Holds the RTL expression for the value of a variable or function.
@@ -2758,12 +2795,14 @@ extern void decl_value_expr_insert (tree, tree);
 #define HAS_RTL_P(NODE) (CODE_CONTAINS_STRUCT (TREE_CODE (NODE), TS_DECL_WRTL))
 
 /* Returns nonzero if the DECL_RTL for NODE has already been set.  */
-#define DECL_RTL_SET_P(NODE)  (HAS_RTL_P (NODE) && DECL_WRTL_CHECK (NODE)->decl_with_rtl.rtl != NULL)
+#define DECL_RTL_SET_P(NODE) \
+  (HAS_RTL_P (NODE) && DECL_WRTL_CHECK (NODE)->decl_with_rtl.rtl != NULL)
 
 /* Copy the RTL from NODE1 to NODE2.  If the RTL was not set for
    NODE1, it will not be set for NODE2; this is a lazy copy.  */
 #define COPY_DECL_RTL(NODE1, NODE2) \
-  (DECL_WRTL_CHECK (NODE2)->decl_with_rtl.rtl = DECL_WRTL_CHECK (NODE1)->decl_with_rtl.rtl)
+  (DECL_WRTL_CHECK (NODE2)->decl_with_rtl.rtl \
+   = DECL_WRTL_CHECK (NODE1)->decl_with_rtl.rtl)
 
 /* The DECL_RTL for NODE, if it is set, or NULL, if it is not set.  */
 #define DECL_RTL_IF_SET(NODE) (DECL_RTL_SET_P (NODE) ? DECL_RTL (NODE) : NULL)
@@ -2785,12 +2824,14 @@ struct GTY(()) tree_decl_with_rtl {
    field from DECL_FIELD_OFFSET.  This field may be nonzero even for fields
    that are not bit fields (since DECL_OFFSET_ALIGN may be larger than the
    natural alignment of the field's type).  */
-#define DECL_FIELD_BIT_OFFSET(NODE) (FIELD_DECL_CHECK (NODE)->field_decl.bit_offset)
+#define DECL_FIELD_BIT_OFFSET(NODE) \
+  (FIELD_DECL_CHECK (NODE)->field_decl.bit_offset)
 
 /* In a FIELD_DECL, this indicates whether the field was a bit-field and
    if so, the type that was originally specified for it.
    TREE_TYPE may have been modified (in finish_struct).  */
-#define DECL_BIT_FIELD_TYPE(NODE) (FIELD_DECL_CHECK (NODE)->field_decl.bit_field_type)
+#define DECL_BIT_FIELD_TYPE(NODE) \
+  (FIELD_DECL_CHECK (NODE)->field_decl.bit_field_type)
 
 /* For a FIELD_DECL in a QUAL_UNION_TYPE, records the expression, which
    if nonzero, indicates that the field occupies the type.  */
@@ -2887,7 +2928,8 @@ struct GTY(()) tree_const_decl {
 
 /* For PARM_DECL, holds an RTL for the stack slot or register
    where the data was actually passed.  */
-#define DECL_INCOMING_RTL(NODE) (PARM_DECL_CHECK (NODE)->parm_decl.incoming_rtl)
+#define DECL_INCOMING_RTL(NODE) \
+  (PARM_DECL_CHECK (NODE)->parm_decl.incoming_rtl)
 
 struct GTY(()) tree_parm_decl {
   struct tree_decl_with_rtl common;
@@ -2896,25 +2938,43 @@ struct GTY(()) tree_parm_decl {
 };
 
 
-/* Nonzero in a decl means that the gimplifier has seen (or placed)
-   this variable in a BIND_EXPR.  */
-#define DECL_SEEN_IN_BIND_EXPR_P(NODE) \
-  (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.seen_in_bind_expr)
-
-/* Used to indicate that the linkage status of this DECL is not yet known,
-   so it should not be output now.  */
-#define DECL_DEFER_OUTPUT(NODE) (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.defer_output)
-
 /* Nonzero for a given ..._DECL node means that no warnings should be
    generated just because this node is unused.  */
 #define DECL_IN_SYSTEM_HEADER(NODE) \
   (in_system_header_at (DECL_SOURCE_LOCATION (NODE)))
 
+/* Used to indicate that the linkage status of this DECL is not yet known,
+   so it should not be output now.  */
+#define DECL_DEFER_OUTPUT(NODE) \
+  (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.defer_output)
+
+/* In a VAR_DECL that's static,
+   nonzero if the space is in the text section.  */
+#define DECL_IN_TEXT_SECTION(NODE) \
+  (VAR_DECL_CHECK (NODE)->decl_with_vis.in_text_section)
+
+/* In a VAR_DECL that's static,
+   nonzero if it belongs to the global constant pool.  */
+#define DECL_IN_CONSTANT_POOL(NODE) \
+  (VAR_DECL_CHECK (NODE)->decl_with_vis.in_constant_pool)
+
+/* Nonzero for a given ..._DECL node means that this node should be
+   put in .common, if possible.  If a DECL_INITIAL is given, and it
+   is not error_mark_node, then the decl cannot be put in .common.  */
+#define DECL_COMMON(NODE) \
+  (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.common_flag)
+
+/* In a VAR_DECL, nonzero if the decl is a register variable with
+   an explicit asm specification.  */
+#define DECL_HARD_REGISTER(NODE)  \
+  (VAR_DECL_CHECK (NODE)->decl_with_vis.hard_register)
+
   /* Used to indicate that this DECL has weak linkage.  */
 #define DECL_WEAK(NODE) (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.weak_flag)
 
 /* Used to indicate that the DECL is a dllimport.  */
-#define DECL_DLLIMPORT_P(NODE) (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.dllimport_flag)
+#define DECL_DLLIMPORT_P(NODE) \
+  (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.dllimport_flag)
 
 /* Used in a DECL to indicate that, even if it TREE_PUBLIC, it need
    not be put out unless it is needed in this translation unit.
@@ -2925,9 +2985,15 @@ struct GTY(()) tree_parm_decl {
    back-end; it is up to front-ends which set this flag to ensure
    that there will never be any harm, other than bloat, in putting out
    something which is DECL_COMDAT.  */
-#define DECL_COMDAT(NODE) (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.comdat_flag)
+#define DECL_COMDAT(NODE) \
+  (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.comdat_flag)
 
-#define DECL_COMDAT_GROUP(NODE) (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.comdat_group)
+#define DECL_COMDAT_GROUP(NODE) \
+  (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.comdat_group)
+
+/* Used in TREE_PUBLIC decls to indicate that copies of this DECL in
+   multiple translation units should be merged.  */
+#define DECL_ONE_ONLY(NODE) (DECL_COMDAT_GROUP (NODE) != NULL_TREE)
 
 /* A replaceable function is one which may be replaced at link-time
    with an entirely different definition, provided that the
@@ -2963,7 +3029,8 @@ struct GTY(()) tree_parm_decl {
    the NODE might still have a DECL_ASSEMBLER_NAME -- it just hasn't been set
    yet.  */
 #define DECL_ASSEMBLER_NAME_SET_P(NODE) \
-  (HAS_DECL_ASSEMBLER_NAME_P (NODE) &&  DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.assembler_name != NULL_TREE)
+  (HAS_DECL_ASSEMBLER_NAME_P (NODE) \
+   && DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.assembler_name != NULL_TREE)
 
 /* Set the DECL_ASSEMBLER_NAME for NODE to NAME.  */
 #define SET_DECL_ASSEMBLER_NAME(NODE, NAME) \
@@ -2986,18 +3053,37 @@ struct GTY(()) tree_parm_decl {
 
 /* Records the section name in a section attribute.  Used to pass
    the name from decl_attributes to make_function_rtl and make_decl_rtl.  */
-#define DECL_SECTION_NAME(NODE) (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.section_name)
+#define DECL_SECTION_NAME(NODE) \
+  (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.section_name)
+
+/* Nonzero in a decl means that the gimplifier has seen (or placed)
+   this variable in a BIND_EXPR.  */
+#define DECL_SEEN_IN_BIND_EXPR_P(NODE) \
+  (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.seen_in_bind_expr)
 
 /* Value of the decls's visibility attribute */
-#define DECL_VISIBILITY(NODE) (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.visibility)
+#define DECL_VISIBILITY(NODE) \
+  (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.visibility)
 
 /* Nonzero means that the decl had its visibility specified rather than
    being inferred.  */
-#define DECL_VISIBILITY_SPECIFIED(NODE) (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.visibility_specified)
+#define DECL_VISIBILITY_SPECIFIED(NODE) \
+  (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.visibility_specified)
 
-/* Used in TREE_PUBLIC decls to indicate that copies of this DECL in
-   multiple translation units should be merged.  */
-#define DECL_ONE_ONLY(NODE) (DECL_COMDAT_GROUP (NODE) != NULL_TREE)
+/* In a VAR_DECL, the model to use if the data should be allocated from
+   thread-local storage.  */
+#define DECL_TLS_MODEL(NODE) (VAR_DECL_CHECK (NODE)->decl_with_vis.tls_model)
+
+/* In a VAR_DECL, nonzero if the data should be allocated from
+   thread-local storage.  */
+#define DECL_THREAD_LOCAL_P(NODE) \
+  (VAR_DECL_CHECK (NODE)->decl_with_vis.tls_model >= TLS_MODEL_REAL)
+
+/* In a non-local VAR_DECL with static storage duration, true if the
+   variable has an initialization priority.  If false, the variable
+   will be initialized at the DEFAULT_INIT_PRIORITY.  */
+#define DECL_HAS_INIT_PRIORITY_P(NODE) \
+  (VAR_DECL_CHECK (NODE)->decl_with_vis.init_priority_p)
 
 struct GTY(()) tree_decl_with_vis {
  struct tree_decl_with_rtl common;
@@ -3011,9 +3097,8 @@ struct GTY(()) tree_decl_with_vis {
  unsigned thread_local : 1;
  unsigned common_flag : 1;
  unsigned in_text_section : 1;
+ unsigned in_constant_pool : 1;
  unsigned dllimport_flag : 1;
- /* Used by C++.  Might become a generic decl flag.  */
- unsigned shadowed_for_var_p : 1;
  /* Don't belong to VAR_DECL exclusively.  */
  unsigned weak_flag : 1;
 
@@ -3026,21 +3111,10 @@ struct GTY(()) tree_decl_with_vis {
 
  /* Belong to FUNCTION_DECL exclusively.  */
  unsigned init_priority_p : 1;
- /* 15 unused bits. */
+ /* Used by C++ only.  Might become a generic decl flag.  */
+ unsigned shadowed_for_var_p : 1;
+ /* 14 unused bits. */
 };
-
-/* In a VAR_DECL that's static,
-   nonzero if the space is in the text section.  */
-#define DECL_IN_TEXT_SECTION(NODE) (VAR_DECL_CHECK (NODE)->decl_with_vis.in_text_section)
-
-/* Nonzero for a given ..._DECL node means that this node should be
-   put in .common, if possible.  If a DECL_INITIAL is given, and it
-   is not error_mark_node, then the decl cannot be put in .common.  */
-#define DECL_COMMON(NODE) (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.common_flag)
-
-/* In a VAR_DECL, nonzero if the decl is a register variable with
-   an explicit asm specification.  */
-#define DECL_HARD_REGISTER(NODE)  (VAR_DECL_CHECK (NODE)->decl_with_vis.hard_register)
 
 extern tree decl_debug_expr_lookup (tree);
 extern void decl_debug_expr_insert (tree, tree);
@@ -3060,12 +3134,6 @@ extern priority_type decl_init_priority_lookup (tree);
 extern priority_type decl_fini_priority_lookup (tree);
 extern void decl_init_priority_insert (tree, priority_type);
 extern void decl_fini_priority_insert (tree, priority_type);
-
-/* In a non-local VAR_DECL with static storage duration, true if the
-   variable has an initialization priority.  If false, the variable
-   will be initialized at the DEFAULT_INIT_PRIORITY.  */
-#define DECL_HAS_INIT_PRIORITY_P(NODE) \
-  (VAR_DECL_CHECK (NODE)->decl_with_vis.init_priority_p)
 
 /* For a VAR_DECL or FUNCTION_DECL the initialization priority of
    NODE.  */
@@ -3093,15 +3161,6 @@ extern void decl_fini_priority_insert (tree, priority_type);
    libraries.  */
 #define MAX_RESERVED_INIT_PRIORITY 100
 
-/* In a VAR_DECL, the model to use if the data should be allocated from
-   thread-local storage.  */
-#define DECL_TLS_MODEL(NODE) (VAR_DECL_CHECK (NODE)->decl_with_vis.tls_model)
-
-/* In a VAR_DECL, nonzero if the data should be allocated from
-   thread-local storage.  */
-#define DECL_THREAD_LOCAL_P(NODE) \
-  (VAR_DECL_CHECK (NODE)->decl_with_vis.tls_model >= TLS_MODEL_REAL)
-
 #define DECL_VAR_ANN_PTR(NODE) \
   (TREE_CODE (NODE) == VAR_DECL ? &(NODE)->var_decl.ann \
    : TREE_CODE (NODE) == PARM_DECL ? &(NODE)->parm_decl.ann \
@@ -3116,7 +3175,8 @@ struct GTY(()) tree_var_decl {
 
 /* This field is used to reference anything in decl.result and is meant only
    for use by the garbage collector.  */
-#define DECL_RESULT_FLD(NODE) (DECL_NON_COMMON_CHECK (NODE)->decl_non_common.result)
+#define DECL_RESULT_FLD(NODE) \
+  (DECL_NON_COMMON_CHECK (NODE)->decl_non_common.result)
 
 /* The DECL_VINDEX is used for FUNCTION_DECLS in two different ways.
    Before the struct containing the FUNCTION_DECL is laid out,
@@ -3126,7 +3186,8 @@ struct GTY(()) tree_var_decl {
    to an INTEGER_CST node which is suitable for use as an index
    into the virtual function table.
    C++ also uses this field in namespaces, hence the DECL_NON_COMMON_CHECK.  */
-#define DECL_VINDEX(NODE) (DECL_NON_COMMON_CHECK (NODE)->decl_non_common.vindex)
+#define DECL_VINDEX(NODE) \
+  (DECL_NON_COMMON_CHECK (NODE)->decl_non_common.vindex)
 
 struct GTY(())
  tree_decl_non_common {
@@ -3145,16 +3206,19 @@ struct GTY(())
 #define DECL_RESULT(NODE) (FUNCTION_DECL_CHECK (NODE)->decl_non_common.result)
 
 /* In a FUNCTION_DECL, nonzero if the function cannot be inlined.  */
-#define DECL_UNINLINABLE(NODE) (FUNCTION_DECL_CHECK (NODE)->function_decl.uninlinable)
+#define DECL_UNINLINABLE(NODE) \
+  (FUNCTION_DECL_CHECK (NODE)->function_decl.uninlinable)
 
 /* In a FUNCTION_DECL, the saved representation of the body of the
    entire function.  */
-#define DECL_SAVED_TREE(NODE) (FUNCTION_DECL_CHECK (NODE)->decl_non_common.saved_tree)
+#define DECL_SAVED_TREE(NODE) \
+  (FUNCTION_DECL_CHECK (NODE)->decl_non_common.saved_tree)
 
 /* Nonzero in a FUNCTION_DECL means this function should be treated
    as if it were a malloc, meaning it returns a pointer that is
    not an alias.  */
-#define DECL_IS_MALLOC(NODE) (FUNCTION_DECL_CHECK (NODE)->function_decl.malloc_flag)
+#define DECL_IS_MALLOC(NODE) \
+  (FUNCTION_DECL_CHECK (NODE)->function_decl.malloc_flag)
 
 /* Nonzero in a FUNCTION_DECL means this function should be treated as
    C++ operator new, meaning that it returns a pointer for which we
@@ -3183,7 +3247,8 @@ struct GTY(())
 /* Nonzero in a FUNCTION_DECL means this function should be treated
    as "novops" function (function that does not read global memory,
    but may have arbitrary side effects).  */
-#define DECL_IS_NOVOPS(NODE) (FUNCTION_DECL_CHECK (NODE)->function_decl.novops_flag)
+#define DECL_IS_NOVOPS(NODE) \
+  (FUNCTION_DECL_CHECK (NODE)->function_decl.novops_flag)
 
 /* Used in FUNCTION_DECLs to indicate that they should be run automatically
    at the beginning or end of execution.  */
@@ -3233,7 +3298,8 @@ struct GTY(())
 
 /* For FUNCTION_DECL, this holds a pointer to a structure ("struct function")
    that describes the status of this function.  */
-#define DECL_STRUCT_FUNCTION(NODE) (FUNCTION_DECL_CHECK (NODE)->function_decl.f)
+#define DECL_STRUCT_FUNCTION(NODE) \
+  (FUNCTION_DECL_CHECK (NODE)->function_decl.f)
 
 /* In a FUNCTION_DECL, nonzero means a built in function.  */
 #define DECL_BUILT_IN(NODE) (DECL_BUILT_IN_CLASS (NODE) != NOT_BUILT_IN)
@@ -3245,8 +3311,10 @@ struct GTY(())
 /* In FUNCTION_DECL, a chain of ..._DECL nodes.
    VAR_DECL and PARM_DECL reserve the arguments slot for language-specific
    uses.  */
-#define DECL_ARGUMENTS(NODE) (FUNCTION_DECL_CHECK (NODE)->decl_non_common.arguments)
-#define DECL_ARGUMENT_FLD(NODE) (DECL_NON_COMMON_CHECK (NODE)->decl_non_common.arguments)
+#define DECL_ARGUMENTS(NODE) \
+  (FUNCTION_DECL_CHECK (NODE)->decl_non_common.arguments)
+#define DECL_ARGUMENT_FLD(NODE) \
+  (DECL_NON_COMMON_CHECK (NODE)->decl_non_common.arguments)
 
 /* In FUNCTION_DECL, the function specific target options to use when compiling
    this function.  */
@@ -3306,7 +3374,8 @@ struct GTY(()) tree_function_decl {
 };
 
 /* For a TYPE_DECL, holds the "original" type.  (TREE_TYPE has the copy.) */
-#define DECL_ORIGINAL_TYPE(NODE) (TYPE_DECL_CHECK (NODE)->decl_non_common.result)
+#define DECL_ORIGINAL_TYPE(NODE) \
+  (TYPE_DECL_CHECK (NODE)->decl_non_common.result)
 
 /* In a TYPE_DECL nonzero means the detail info about this type is not dumped
    into stabs.  Instead it will generate cross reference ('x') of names.
@@ -3740,7 +3809,8 @@ extern GTY(()) tree global_trees[TI_MAX];
 #define void_list_node                  global_trees[TI_VOID_LIST_NODE]
 
 #define main_identifier_node		global_trees[TI_MAIN_IDENTIFIER]
-#define MAIN_NAME_P(NODE) (IDENTIFIER_NODE_CHECK (NODE) == main_identifier_node)
+#define MAIN_NAME_P(NODE) \
+  (IDENTIFIER_NODE_CHECK (NODE) == main_identifier_node)
 
 /* Optimization options (OPTIMIZATION_NODE) to use for default and current
    functions.  */
@@ -3920,9 +3990,27 @@ extern tree build_var_debug_value_stat (tree, tree MEM_STAT_DECL);
 #define build_var_debug_value(t1,t2) \
   build_var_debug_value_stat (t1,t2 MEM_STAT_INFO)
 
+/* Constructs double_int from tree CST.  */
+
+static inline double_int
+tree_to_double_int (const_tree cst)
+{
+  return TREE_INT_CST (cst);
+}
+
+extern tree double_int_to_tree (tree, double_int);
+extern bool double_int_fits_to_tree_p (const_tree, double_int);
+
+/* Create an INT_CST node with a CST value zero extended.  */
+
+static inline tree
+build_int_cstu (tree type, unsigned HOST_WIDE_INT cst)
+{
+  return double_int_to_tree (type, uhwi_to_double_int (cst));
+}
+
 extern tree build_int_cst (tree, HOST_WIDE_INT);
 extern tree build_int_cst_type (tree, HOST_WIDE_INT);
-extern tree build_int_cstu (tree, unsigned HOST_WIDE_INT);
 extern tree build_int_cst_wide (tree, unsigned HOST_WIDE_INT, HOST_WIDE_INT);
 extern tree build_int_cst_wide_type (tree,
 				     unsigned HOST_WIDE_INT, HOST_WIDE_INT);
@@ -3965,7 +4053,7 @@ extern tree make_unsigned_type (int);
 extern tree signed_or_unsigned_type_for (int, tree);
 extern tree signed_type_for (tree);
 extern tree unsigned_type_for (tree);
-extern void initialize_sizetypes (bool);
+extern void initialize_sizetypes (void);
 extern void set_sizetype (tree);
 extern void fixup_unsigned_type (tree);
 extern tree build_pointer_type_for_mode (tree, enum machine_mode, bool);
@@ -4335,9 +4423,9 @@ extern tree size_diffop_loc (location_t, tree, tree);
 extern tree round_up_loc (location_t, tree, int);
 #define round_down(T,N) round_down_loc (UNKNOWN_LOCATION, T, N)
 extern tree round_down_loc (location_t, tree, int);
-extern tree get_pending_sizes (void);
+extern VEC(tree,gc) *get_pending_sizes (void);
 extern void put_pending_size (tree);
-extern void put_pending_sizes (tree);
+extern void put_pending_sizes (VEC(tree,gc) *);
 extern void finalize_size_functions (void);
 
 /* Type for sizes of data-type.  */
@@ -4388,10 +4476,6 @@ extern tree first_field (const_tree);
    aggregate of zeros.  Otherwise return FALSE.  */
 
 extern bool initializer_zerop (const_tree);
-
-/* Given a CONSTRUCTOR CTOR, return the elements as a TREE_LIST.  */
-
-extern tree ctor_to_list (tree);
 
 /* Given a CONSTRUCTOR CTOR, return the element values as a vector.  */
 
@@ -4728,7 +4812,6 @@ extern tree lower_bound_in_type (tree, tree);
 extern int operand_equal_for_phi_arg_p (const_tree, const_tree);
 extern tree call_expr_arg (tree, int);
 extern tree *call_expr_argp (tree, int);
-extern tree call_expr_arglist (tree);
 extern tree create_artificial_label (location_t);
 extern const char *get_name (tree);
 extern bool stdarg_p (tree);
@@ -4983,7 +5066,7 @@ extern int real_onep (const_tree);
 extern int real_twop (const_tree);
 extern int real_minus_onep (const_tree);
 extern void init_ttree (void);
-extern void build_common_tree_nodes (bool, bool);
+extern void build_common_tree_nodes (bool);
 extern void build_common_tree_nodes_2 (int);
 extern void build_common_builtin_nodes (void);
 extern tree build_nonstandard_integer_type (unsigned HOST_WIDE_INT, int);
@@ -5000,6 +5083,8 @@ extern location_t *block_nonartificial_location (tree);
 extern location_t tree_nonartificial_location (tree);
 
 extern tree block_ultimate_origin (const_tree);
+
+extern tree get_binfo_at_offset (tree, HOST_WIDE_INT, tree);
 
 /* In tree-nested.c */
 extern tree build_addr (tree, tree);
@@ -5083,6 +5168,30 @@ extern tree build_duplicate_type (tree);
 extern int flags_from_decl_or_type (const_tree);
 extern int call_expr_flags (const_tree);
 
+/* Call argument flags.  */
+
+/* Nonzero if the argument is not dereferenced recursively, thus only
+   directly reachable memory is read or written.  */
+#define EAF_DIRECT		(1 << 0)
+/* Nonzero if memory reached by the argument is not clobbered.  */
+#define EAF_NOCLOBBER		(1 << 1)
+/* Nonzero if the argument does not escape.  */
+#define EAF_NOESCAPE		(1 << 2)
+/* Nonzero if the argument is not used by the function.  */
+#define EAF_UNUSED		(1 << 3)
+
+/* Call return flags.  */
+
+/* Mask for the argument number that is returned.  Lower two bits of
+   the return flags, encodes argument slots zero to three.  */
+#define ERF_RETURN_ARG_MASK	(3)
+/* Nonzero if the return value is equal to the argument number
+   flags & ERF_RETURN_ARG_MASK.  */
+#define ERF_RETURNS_ARG		(1 << 2)
+/* Nonzero if the return value does not alias with anything.  Functions
+   with the malloc attribute have this set on their return value.  */
+#define ERF_NOALIAS		(1 << 3)
+
 extern int setjmp_call_p (const_tree);
 extern bool gimple_alloca_call_p (const_gimple);
 extern bool alloca_call_p (const_tree);
@@ -5114,6 +5223,7 @@ extern void internal_reference_types (void);
 extern unsigned int update_alignment_for_field (record_layout_info, tree,
                                                 unsigned int);
 /* varasm.c */
+extern tree tree_output_constant_def (tree);
 extern void make_decl_rtl (tree);
 extern rtx make_decl_rtl_for_debug (tree);
 extern void make_decl_one_only (tree, tree);
@@ -5315,9 +5425,6 @@ extern tree build_personality_function (const char *);
 /* In tree-inline.c.  */
 
 void init_inline_once (void);
-
-/* In ipa-reference.c.  Used for parsing attributes of asm code.  */
-extern GTY(()) tree memory_identifier_string;
 
 /* Compute the number of operands in an expression node NODE.  For
    tcc_vl_exp nodes like CALL_EXPRs, this is stored in the node itself,

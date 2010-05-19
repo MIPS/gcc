@@ -1134,7 +1134,7 @@ vect_get_vec_defs (tree op0, tree op1, gimple stmt,
 		   slp_tree slp_node)
 {
   if (slp_node)
-    vect_get_slp_defs (slp_node, vec_oprnds0, vec_oprnds1);
+    vect_get_slp_defs (slp_node, vec_oprnds0, vec_oprnds1, -1);
   else
     {
       tree vec_oprnd;
@@ -1304,6 +1304,18 @@ vectorizable_call (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt)
      the same size as the output vector type.  */
   if (!vectype_in)
     vectype_in = get_same_sized_vectype (rhs_type, vectype_out);
+  if (vec_stmt)
+    gcc_assert (vectype_in);
+  if (!vectype_in)
+    {
+      if (vect_print_dump_info (REPORT_DETAILS))
+        {
+          fprintf (vect_dump, "no vectype for scalar type ");
+          print_generic_expr (vect_dump, rhs_type, TDF_SLIM);
+        }
+
+      return false;
+    }
 
   /* FORNOW */
   nunits_in = TYPE_VECTOR_SUBPARTS (vectype_in);
@@ -1606,6 +1618,18 @@ vectorizable_conversion (gimple stmt, gimple_stmt_iterator *gsi,
      the same size as the output vector type.  */
   if (!vectype_in)
     vectype_in = get_same_sized_vectype (rhs_type, vectype_out);
+  if (vec_stmt)
+    gcc_assert (vectype_in);
+  if (!vectype_in)
+    {
+      if (vect_print_dump_info (REPORT_DETAILS))
+        {
+          fprintf (vect_dump, "no vectype for scalar type ");
+          print_generic_expr (vect_dump, rhs_type, TDF_SLIM);
+        }
+
+      return false;
+    }
 
   /* FORNOW */
   nunits_in = TYPE_VECTOR_SUBPARTS (vectype_in);
@@ -1986,7 +2010,18 @@ vectorizable_operation (gimple stmt, gimple_stmt_iterator *gsi,
      the same size as the output vector type.  */
   if (!vectype)
     vectype = get_same_sized_vectype (TREE_TYPE (op0), vectype_out);
-  gcc_assert (vectype);
+  if (vec_stmt)
+    gcc_assert (vectype);
+  if (!vectype)
+    {
+      if (vect_print_dump_info (REPORT_DETAILS))
+        {
+          fprintf (vect_dump, "no vectype for scalar type ");
+          print_generic_expr (vect_dump, TREE_TYPE (op0), TDF_SLIM);
+        }
+
+      return false;
+    }
 
   nunits_out = TYPE_VECTOR_SUBPARTS (vectype_out);
   nunits_in = TYPE_VECTOR_SUBPARTS (vectype);
@@ -2449,8 +2484,18 @@ vectorizable_type_demotion (gimple stmt, gimple_stmt_iterator *gsi,
      same size as the output vector type if possible.  */
   if (!vectype_in)
     vectype_in = get_same_sized_vectype (TREE_TYPE (op0), vectype_out);
+  if (vec_stmt)
+    gcc_assert (vectype_in);
   if (!vectype_in)
-    return false;
+    {
+      if (vect_print_dump_info (REPORT_DETAILS))
+        {
+          fprintf (vect_dump, "no vectype for scalar type ");
+          print_generic_expr (vect_dump, TREE_TYPE (op0), TDF_SLIM);
+        }
+
+      return false;
+    }
 
   nunits_in = TYPE_VECTOR_SUBPARTS (vectype_in);
   nunits_out = TYPE_VECTOR_SUBPARTS (vectype_out);
@@ -2519,7 +2564,7 @@ vectorizable_type_demotion (gimple stmt, gimple_stmt_iterator *gsi,
     {
       /* Handle uses.  */
       if (slp_node)
-        vect_get_slp_defs (slp_node, &vec_oprnds0, NULL);
+        vect_get_slp_defs (slp_node, &vec_oprnds0, NULL, -1);
       else
         {
           VEC_free (tree, heap, vec_oprnds0);
@@ -2718,8 +2763,18 @@ vectorizable_type_promotion (gimple stmt, gimple_stmt_iterator *gsi,
      the same size as the output vector type.  */
   if (!vectype_in)
     vectype_in = get_same_sized_vectype (TREE_TYPE (op0), vectype_out);
+  if (vec_stmt)
+    gcc_assert (vectype_in);
   if (!vectype_in)
-    return false;
+    {
+      if (vect_print_dump_info (REPORT_DETAILS))
+        {
+          fprintf (vect_dump, "no vectype for scalar type ");
+          print_generic_expr (vect_dump, TREE_TYPE (op0), TDF_SLIM);
+        }
+
+      return false;
+    }
 
   nunits_in = TYPE_VECTOR_SUBPARTS (vectype_in);
   nunits_out = TYPE_VECTOR_SUBPARTS (vectype_out);
@@ -2819,7 +2874,7 @@ vectorizable_type_promotion (gimple stmt, gimple_stmt_iterator *gsi,
       if (j == 0)
         {
           if (slp_node)
-              vect_get_slp_defs (slp_node, &vec_oprnds0, &vec_oprnds1);
+              vect_get_slp_defs (slp_node, &vec_oprnds0, &vec_oprnds1, -1);
           else
             {
               vec_oprnd0 = vect_get_vec_def_for_operand (op0, stmt, NULL);
@@ -3032,12 +3087,17 @@ vectorizable_store (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
 	}
 
       if (slp)
-	strided_store = false;
-
-      /* VEC_NUM is the number of vect stmts to be created for this group.  */
-      if (slp)
-	vec_num = SLP_TREE_NUMBER_OF_VEC_STMTS (slp_node);
+        {
+          strided_store = false;
+          /* VEC_NUM is the number of vect stmts to be created for this 
+             group.  */
+          vec_num = SLP_TREE_NUMBER_OF_VEC_STMTS (slp_node);
+          first_stmt = VEC_index (gimple, SLP_TREE_SCALAR_STMTS (slp_node), 0); 
+          first_dr = STMT_VINFO_DATA_REF (vinfo_for_stmt (first_stmt));
+        } 
       else
+        /* VEC_NUM is the number of vect stmts to be created for this 
+           group.  */
 	vec_num = group_size;
     }
   else
@@ -3106,7 +3166,7 @@ vectorizable_store (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
           if (slp)
             {
 	      /* Get vectorized arguments for SLP_NODE.  */
-              vect_get_slp_defs (slp_node, &vec_oprnds, NULL);
+              vect_get_slp_defs (slp_node, &vec_oprnds, NULL, -1);
 
               vec_oprnd = VEC_index (tree, vec_oprnds, 0);
             }
@@ -4051,7 +4111,7 @@ vect_analyze_stmt (gimple stmt, bool *need_to_vectorize, slp_tree node)
             || vectorizable_load (stmt, NULL, NULL, NULL, NULL)
             || vectorizable_call (stmt, NULL, NULL)
             || vectorizable_store (stmt, NULL, NULL, NULL)
-            || vectorizable_reduction (stmt, NULL, NULL)
+            || vectorizable_reduction (stmt, NULL, NULL, NULL)
             || vectorizable_condition (stmt, NULL, NULL, NULL, 0));
     else
       {
@@ -4203,8 +4263,7 @@ vect_transform_stmt (gimple stmt, gimple_stmt_iterator *gsi,
       break;
 
     case reduc_vec_info_type:
-      gcc_assert (!slp_node);
-      done = vectorizable_reduction (stmt, gsi, &vec_stmt);
+      done = vectorizable_reduction (stmt, gsi, &vec_stmt, slp_node);
       gcc_assert (done);
       break;
 
@@ -4330,6 +4389,7 @@ new_stmt_vec_info (gimple stmt, loop_vec_info loop_vinfo,
   STMT_VINFO_LIVE_P (res) = false;
   STMT_VINFO_VECTYPE (res) = NULL;
   STMT_VINFO_VEC_STMT (res) = NULL;
+  STMT_VINFO_VECTORIZABLE (res) = true;
   STMT_VINFO_IN_PATTERN_P (res) = false;
   STMT_VINFO_RELATED_STMT (res) = NULL;
   STMT_VINFO_DATA_REF (res) = NULL;

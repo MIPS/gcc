@@ -22,14 +22,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
 #include "tree.h"
 #include "c-common.h"
 #include "c-pragma.h"
 #include "flags.h"
 #include "toplev.h"
 #include "langhooks.h"
-#include "tree-inline.h"
 #include "diagnostic.h"
 #include "intl.h"
 #include "cppdefault.h"
@@ -38,8 +36,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "opts.h"
 #include "options.h"
 #include "mkdeps.h"
-#include "target.h"
-#include "tm_p.h"
+#include "target.h"		/* For gcc_targetcm.  */
 #include "c-tree.h"		/* For c_cpp_error.  */
 
 #ifndef DOLLARS_IN_IDENTIFIERS
@@ -106,12 +103,12 @@ static size_t deferred_count;
 /* Number of deferred options scanned for -include.  */
 static size_t include_cursor;
 
-static void set_Wimplicit (int);
 static void handle_OPT_d (const char *);
 static void set_std_cxx98 (int);
 static void set_std_cxx0x (int);
 static void set_std_c89 (int, int);
 static void set_std_c99 (int);
+static void set_std_c1x (int);
 static void check_deps_environment_vars (void);
 static void handle_deferred_opts (void);
 static void sanitize_cpp_opts (void);
@@ -133,6 +130,10 @@ static struct deferred_opt
   enum opt_code code;
   const char *arg;
 } *deferred_opts;
+
+
+static const unsigned int 
+c_family_lang_mask = (CL_C | CL_CXX | CL_ObjC | CL_ObjCXX);
 
 /* Complain that switch CODE expects an argument but none was
    provided.  OPT was the command-line option.  Return FALSE to get
@@ -348,7 +349,8 @@ c_common_init_options (unsigned int argc, const char **argv)
    invalid, a negative number to prevent language-independent
    processing in toplev.c (a hack necessary for the short-term).  */
 int
-c_common_handle_option (size_t scode, const char *arg, int value)
+c_common_handle_option (size_t scode, const char *arg, int value,
+			int kind)
 {
   const struct cl_option *option = &cl_options[scode];
   enum opt_code code = (enum opt_code) scode;
@@ -361,7 +363,7 @@ c_common_handle_option (size_t scode, const char *arg, int value)
   switch (code)
     {
     default:
-      if (cl_options[code].flags & (CL_C | CL_CXX | CL_ObjC | CL_ObjCXX))
+      if (cl_options[code].flags & c_family_lang_mask)
 	{
 	  if ((option->flags & CL_TARGET)
 	      && ! targetcm.handle_c_option (scode, arg, value))
@@ -470,7 +472,7 @@ c_common_handle_option (size_t scode, const char *arg, int value)
     case OPT_Wall:
       warn_unused = value;
       set_Wformat (value);
-      set_Wimplicit (value);
+      handle_option (OPT_Wimplicit, value, NULL, c_family_lang_mask, kind);
       warn_char_subscripts = value;
       warn_missing_braces = value;
       warn_parentheses = value;
@@ -568,7 +570,13 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       break;
 
     case OPT_Wimplicit:
-      set_Wimplicit (value);
+      gcc_assert (value == 0 || value == 1);
+      if (warn_implicit_int == -1)
+	handle_option (OPT_Wimplicit_int, value, NULL,
+		       c_family_lang_mask, kind);
+      if (warn_implicit_function_declaration == -1)
+	handle_option (OPT_Wimplicit_function_declaration, value, NULL,
+		       c_family_lang_mask, kind);
       break;
 
     case OPT_Wimport:
@@ -1066,6 +1074,16 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 	set_std_c99 (false /* ISO */);
       break;
 
+    case OPT_std_c1x:
+      if (!preprocessing_asm_p)
+	set_std_c1x (true /* ISO */);
+      break;
+
+    case OPT_std_gnu1x:
+      if (!preprocessing_asm_p)
+	set_std_c1x (false /* ISO */);
+      break;
+
     case OPT_trigraphs:
       cpp_opts->trigraphs = 1;
       break;
@@ -1235,6 +1253,12 @@ c_common_post_options (const char **pfilename)
 	       "-Wformat-security ignored without -Wformat");
     }
 
+  if (warn_implicit == -1)
+    warn_implicit = 0;
+      
+  if (warn_implicit_int == -1)
+    warn_implicit_int = 0;
+
   /* -Wimplicit-function-declaration is enabled by default for C99.  */
   if (warn_implicit_function_declaration == -1)
     warn_implicit_function_declaration = flag_isoc99;
@@ -1361,9 +1385,6 @@ c_common_parse_file (int set_yydebug)
   i = 0;
   for (;;)
     {
-      /* Start the main input file, if the debug writer wants it. */
-      if (debug_hooks->start_end_main_source_file)
-	(*debug_hooks->start_source_file) (0, this_input_filename);
       finish_options ();
       pch_init ();
       push_file_scope ();
@@ -1622,6 +1643,11 @@ finish_options (void)
 	    }
 	}
 
+      /* Start the main input file, if the debug writer wants it. */
+      if (debug_hooks->start_end_main_source_file
+	  && !flag_preprocess_only)
+	(*debug_hooks->start_source_file) (0, this_input_filename);
+
       /* Handle -imacros after -D and -U.  */
       for (i = 0; i < deferred_count; i++)
 	{
@@ -1636,8 +1662,16 @@ finish_options (void)
 	    }
 	}
     }
-  else if (cpp_opts->directives_only)
-    cpp_init_special_builtins (parse_in);
+  else
+    {
+      if (cpp_opts->directives_only)
+	cpp_init_special_builtins (parse_in);
+
+      /* Start the main input file, if the debug writer wants it. */
+      if (debug_hooks->start_end_main_source_file
+	  && !flag_preprocess_only)
+	(*debug_hooks->start_source_file) (0, this_input_filename);
+    }
 
   include_cursor = 0;
   push_command_line_include ();
@@ -1704,6 +1738,7 @@ set_std_c89 (int c94, int iso)
   flag_no_nonansi_builtin = iso;
   flag_isoc94 = c94;
   flag_isoc99 = 0;
+  flag_isoc1x = 0;
 }
 
 /* Set the C 99 standard (without GNU extensions if ISO).  */
@@ -1714,6 +1749,20 @@ set_std_c99 (int iso)
   flag_no_asm = iso;
   flag_no_nonansi_builtin = iso;
   flag_iso = iso;
+  flag_isoc1x = 0;
+  flag_isoc99 = 1;
+  flag_isoc94 = 1;
+}
+
+/* Set the C 1X standard draft (without GNU extensions if ISO).  */
+static void
+set_std_c1x (int iso)
+{
+  cpp_set_lang (parse_in, iso ? CLK_STDC1X: CLK_GNUC1X);
+  flag_no_asm = iso;
+  flag_no_nonansi_builtin = iso;
+  flag_iso = iso;
+  flag_isoc1x = 1;
   flag_isoc99 = 1;
   flag_isoc94 = 1;
 }
@@ -1738,15 +1787,6 @@ set_std_cxx0x (int iso)
   flag_no_nonansi_builtin = iso;
   flag_iso = iso;
   cxx_dialect = cxx0x;
-}
-
-/* Handle setting implicit to ON.  */
-static void
-set_Wimplicit (int on)
-{
-  warn_implicit = on;
-  warn_implicit_int = on;
-  warn_implicit_function_declaration = on;
 }
 
 /* Args to -d specify what to dump.  Silently ignore

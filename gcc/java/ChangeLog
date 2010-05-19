@@ -1,3 +1,60 @@
+2010-05-18  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* expr.c (pop_arguments): Fix use of undeclared variable.
+
+2010-05-18  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* expr.c (expand_java_multianewarray): Use build_call_vec instead of
+	build_call_list.
+	(pop_arguments): Return a VEC instead of a tree.  Take a method type
+	rather than a list of argument types.
+	(rewrite_rule): Change signature. of rewrite_arglist member.
+	(rewrite_arglist_getcaller): Update signature.
+	(rewrite_arglist_getclass): Likewise.
+	(maybe_rewrite_invocation): Update for rewrite_arglist change.
+	(build_known_method_ref): Take a VEC instead of a tree.
+	(invoke_build_dtable): Likewise.
+	(expand_invoke): Update calls to pop_arguments.  Use build_call_vec
+	instead of build_call_list.
+	(build_jni_stub): Use build_call_vec instead of build_call_list.
+	* java-tree.h (maybe_rewrite_invocation): Update declaration.
+	(build_known_method_ref): Likewise.
+	(invoke_build_dtable): Likewise.
+
+2010-05-14  Nathan Froyd  <froydnj@codesourcery.com>
+
+	PR 44103
+	* java-tree.h (START_RECORD_CONSTRUCTOR): Change first argument to a
+	vector.  Move call to build_constructor...
+	(FINISH_RECORD_CONSTRUCTOR): ...here.  Add necessary arguments.  Clear
+	TREE_CONSTANT on the constructor.
+	(PUSH_SUPER_VALUE): Change first argument to a vector.
+	(PUSH_FIELD_VALUE): Likewise.
+	* resource.c (compile_resource_data): Update calls to above macros.
+	* constants.c (build_constants_constructor): Likewise.
+	* class.c (build_utf8_ref): Likewise.
+	(make_field_value): Likewise.
+	(make_method_value): Likewise.
+	(add_table_and_syms): New function.
+	(make_class_data): Call it.  Update calls to above macros.
+	(build_symbol_table_entry): New function.
+	(build_symbol_entry): Call it.  Update calls to above macros.
+	(emit_symbol_table): Likewise.
+	(make_catch_class_record): Update calls to above macros.
+	(build_assertion_table_entry): New function.
+	(add_assertion_table_entry): Call it.
+	(emit_assertion_table): Likewise.
+
+2010-05-06  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR 40989
+	* lang.c (java_handle_option): Add argument kind.
+
+2010-04-18  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* decl.c (java_init_decl_processing): Remove argument in call to
+	initialize_sizetypes
+
 2010-04-07  Jakub Jelinek  <jakub@redhat.com>
 
 	* exception.cc (_Jv_Throw): Avoid set but not used warning.

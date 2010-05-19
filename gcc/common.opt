@@ -180,6 +180,14 @@ Wstrict-overflow=
 Common Joined UInteger Var(warn_strict_overflow) Init(-1) Warning
 Warn about optimizations that assume that signed overflow is undefined
 
+Wsuggest-attribute=const
+Common Var(warn_suggest_attribute_const) Warning
+Warn about functions which might be candidates for __attribute__((const))
+
+Wsuggest-attribute=pure
+Common Var(warn_suggest_attribute_pure) Warning
+Warn about functions which might be candidates for __attribute__((pure))
+
 Wswitch
 Common Var(warn_switch) Warning
 Warn about enumerated switches, with no default, missing a case
@@ -241,8 +249,8 @@ Common Var(warn_unused_variable) Init(-1) Warning
 Warn when a variable is unused
 
 Wcoverage-mismatch
-Common RejectNegative Var(warn_coverage_mismatch) Warning
-Warn instead of error in case profiles in -fprofile-use do not match
+Common Var(warn_coverage_mismatch) Init(1) Warning
+Warn in case profiles in -fprofile-use do not match
 
 aux-info
 Common Separate
@@ -465,7 +473,7 @@ Common Joined RejectNegative
 -fdiagnostics-show-location=[once|every-line]	How often to emit source location at the beginning of line-wrapped diagnostics
 
 fdiagnostics-show-option
-Common
+Common Var(flag_diagnostics_show_option) Init(1)
 Amend appropriate diagnostic messages with the command line option that controls them
 
 fdump-
@@ -693,21 +701,21 @@ fipa-cp-clone
 Common Report Var(flag_ipa_cp_clone) Optimization
 Perform cloning to make Interprocedural constant propagation stronger
 
-fipa-pure-const
-Common Report Var(flag_ipa_pure_const) Init(0) Optimization
-Discover pure and const functions
+fipa-profile
+Common Report Var(flag_ipa_profile) Init(0) Optimization
+Perform interprocedural profile propagation
 
 fipa-pta
 Common Report Var(flag_ipa_pta) Init(0) Optimization
 Perform interprocedural points-to analysis
 
+fipa-pure-const
+Common Report Var(flag_ipa_pure_const) Init(0) Optimization
+Discover pure and const functions
+
 fipa-reference
 Common Report Var(flag_ipa_reference) Init(0) Optimization
 Discover readonly and non addressable static variables
-
-fipa-type-escape
-Common Report Var(flag_ipa_type_escape) Init(0) Optimization
-Type based escape and alias analysis
 
 fipa-matrix-reorg
 Common Report Var(flag_ipa_matrix_reorg) Optimization
@@ -1134,6 +1142,10 @@ Access data in the same section from shared anchor points
 fsee
 Common
 Does nothing.  Preserved for backward compatibility.
+
+fzee
+Common Report Var(flag_zee) Init(0)
+Eliminate redundant zero extensions on targets that support implicit extensions.
 
 fshow-column
 Common C ObjC C++ ObjC++ Report Var(flag_show_column) Init(1)

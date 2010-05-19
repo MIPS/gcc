@@ -730,6 +730,7 @@ forward_propagate_addr_expr_1 (tree name, tree def_rhs,
   gimple use_stmt = gsi_stmt (*use_stmt_gsi);
   enum tree_code rhs_code;
   bool res = true;
+  bool addr_p = false;
 
   gcc_assert (TREE_CODE (def_rhs) == ADDR_EXPR);
 
@@ -881,8 +882,12 @@ forward_propagate_addr_expr_1 (tree name, tree def_rhs,
   /* Strip away any outer COMPONENT_REF, ARRAY_REF or ADDR_EXPR
      nodes from the RHS.  */
   rhsp = gimple_assign_rhs1_ptr (use_stmt);
-  while (handled_component_p (*rhsp)
-	 || TREE_CODE (*rhsp) == ADDR_EXPR)
+  if (TREE_CODE (*rhsp) == ADDR_EXPR)
+    {
+      rhsp = &TREE_OPERAND (*rhsp, 0);
+      addr_p = true;
+    }
+  while (handled_component_p (*rhsp))
     rhsp = &TREE_OPERAND (*rhsp, 0);
   rhs = *rhsp;
 

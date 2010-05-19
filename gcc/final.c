@@ -3529,10 +3529,7 @@ output_addr_const (FILE *file, rtx x)
 
     case SYMBOL_REF:
       if (SYMBOL_REF_DECL (x))
-	{
-	  mark_decl_referenced (SYMBOL_REF_DECL (x));
-	  assemble_external (SYMBOL_REF_DECL (x));
-	}
+	assemble_external (SYMBOL_REF_DECL (x));
 #ifdef ASM_OUTPUT_SYMBOL_REF
       ASM_OUTPUT_SYMBOL_REF (file, x);
 #else
@@ -4374,14 +4371,17 @@ rest_of_clean_state (void)
       else
 	{
 	  const char *aname;
+	  struct cgraph_node *node = cgraph_node (current_function_decl);
 
 	  aname = (IDENTIFIER_POINTER
 		   (DECL_ASSEMBLER_NAME (current_function_decl)));
 	  fprintf (final_output, "\n;; Function (%s) %s\n\n", aname,
-	     cfun->function_frequency == FUNCTION_FREQUENCY_HOT
+	     node->frequency == NODE_FREQUENCY_HOT
 	     ? " (hot)"
-	     : cfun->function_frequency == FUNCTION_FREQUENCY_UNLIKELY_EXECUTED
+	     : node->frequency == NODE_FREQUENCY_UNLIKELY_EXECUTED
 	     ? " (unlikely executed)"
+	     : node->frequency == NODE_FREQUENCY_EXECUTED_ONCE
+	     ? " (executed once)"
 	     : "");
 
 	  flag_dump_noaddr = flag_dump_unnumbered = 1;

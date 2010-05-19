@@ -257,6 +257,7 @@ Objective-C and Objective-C++ Dialects}.
 -Wsign-compare  -Wsign-conversion  -Wstack-protector @gol
 -Wstrict-aliasing -Wstrict-aliasing=n @gol
 -Wstrict-overflow -Wstrict-overflow=@var{n} @gol
+-Wsuggest-attribute=@r{[}const@r{|}pure@r{]} @gol
 -Wswitch  -Wswitch-default  -Wswitch-enum -Wsync-nand @gol
 -Wsystem-headers  -Wtrigraphs  -Wtype-limits  -Wundef  -Wuninitialized @gol
 -Wunknown-pragmas  -Wno-pragmas @gol
@@ -344,8 +345,8 @@ Objective-C and Objective-C++ Dialects}.
 -fgcse-sm -fif-conversion -fif-conversion2 -findirect-inlining @gol
 -finline-functions -finline-functions-called-once -finline-limit=@var{n} @gol
 -finline-small-functions -fipa-cp -fipa-cp-clone -fipa-matrix-reorg -fipa-pta @gol
--fipa-pure-const -fipa-reference -fipa-struct-reorg @gol
--fipa-type-escape -fira-algorithm=@var{algorithm} @gol
+-fipa-profile -fipa-pure-const -fipa-reference -fipa-struct-reorg @gol
+-fira-algorithm=@var{algorithm} @gol
 -fira-region=@var{region} -fira-coalesce @gol
 -fira-loop-pressure -fno-ira-share-save-slots @gol
 -fno-ira-share-spill-slots -fira-verbose=@var{n} @gol
@@ -826,7 +827,7 @@ See RS/6000 and PowerPC Options.
 -mprefergot  -musermode -multcost=@var{number} -mdiv=@var{strategy} @gol
 -mdivsi3_libfunc=@var{name} -mfixed-range=@var{register-range} @gol
 -madjust-unroll -mindexed-addressing -mgettrcost=@var{number} -mpt-fixed @gol
--minvalid-symbols}
+-maccumulate-outgoing-args -minvalid-symbols}
 
 @emph{SPARC Options}
 @gccoptlist{-mcpu=@var{cpu-type} @gol
@@ -1171,9 +1172,9 @@ program and of the preprocessor and the compiler proper.
 
 @item -###
 @opindex ###
-Like @option{-v} except the commands are not executed and all command
-arguments are quoted.  This is useful for shell scripts to capture the
-driver-generated command lines.
+Like @option{-v} except the commands are not executed and arguments
+are quoted unless they contain only alphanumeric characters or @code{./-_}.
+This is useful for shell scripts to capture the driver-generated command lines.
 
 @item -pipe
 @opindex pipe
@@ -1500,6 +1501,12 @@ ISO C99.  Note that this standard is not yet fully supported; see
 @w{@uref{http://gcc.gnu.org/c99status.html}} for more information.  The
 names @samp{c9x} and @samp{iso9899:199x} are deprecated.
 
+@item c1x
+ISO C1X, the draft of the next revision of the ISO C standard.
+Support is limited and experimental and features enabled by this
+option may be changed or removed if changed in or removed from the
+standard draft.
+
 @item gnu90
 @itemx gnu89
 GNU dialect of ISO C90 (including some C99 features). This
@@ -1509,6 +1516,11 @@ is the default for C code.
 @itemx gnu9x
 GNU dialect of ISO C99.  When ISO C99 is fully implemented in GCC,
 this will become the default.  The name @samp{gnu9x} is deprecated.
+
+@item gnu1x
+GNU dialect of ISO C1X.  Support is limited and experimental and
+features enabled by this option may be changed or removed if changed
+in or removed from the standard draft.
 
 @item c++98
 The 1998 ISO C++ standard plus amendments. Same as @option{-ansi} for
@@ -1917,6 +1929,15 @@ Disable built-in declarations of functions that are not mandated by
 ANSI/ISO C@.  These include @code{ffs}, @code{alloca}, @code{_exit},
 @code{index}, @code{bzero}, @code{conjf}, and other related functions.
 
+@item -fnothrow-opt
+@opindex fnothrow-opt
+Treat a @code{throw()} exception specification as though it were a
+@code{noexcept} specification to reduce or eliminate the text size
+overhead relative to a function with no exception specification.  The
+semantic effect is that an exception thrown out of a function with
+such an exception specification will result in a call to
+@code{terminate} rather than @code{unexpected}.
+
 @item -fno-operator-names
 @opindex fno-operator-names
 Do not treat the operator name keywords @code{and}, @code{bitand},
@@ -1969,6 +1990,15 @@ unambiguous base classes.
 @opindex fstats
 Emit statistics about front-end processing at the end of the compilation.
 This information is generally only useful to the G++ development team.
+
+@item -fstrict-enums
+@opindex fstrict-enums
+Allow the compiler to optimize using the assumption that a value of
+enumeration type can only be one of the values of the enumeration (as
+defined in the C++ standard; basically, a value which can be
+represented in the minimum number of bits needed to represent all the
+enumerators).  This assumption may not be valid if the program uses a
+cast to convert an arbitrary integer value to the enumeration type.
 
 @item -ftemplate-depth=@var{n}
 @opindex ftemplate-depth
@@ -2734,12 +2764,13 @@ Warn if feedback profiles do not match when using the
 If a source file was changed between @option{-fprofile-gen} and
 @option{-fprofile-use}, the files with the profile feedback can fail
 to match the source file and GCC can not use the profile feedback
-information.  By default, GCC emits an error message in this case.
-The option @option{-Wcoverage-mismatch} emits a warning instead of an
-error.  GCC does not use appropriate feedback profiles, so using this
-option can result in poorly optimized code.  This option is useful
-only in the case of very minor changes such as bug fixes to an
-existing code-base.
+information.  By default, this warning is enabled and is treated as an
+error.  @option{-Wno-coverage-mismatch} can be used to disable the
+warning or @option{-Wno-error=coverage-mismatch} can be used to
+disable the error.  Disable the error for this warning can result in
+poorly optimized code, so disabling the error is useful only in the
+case of very minor changes such as bug fixes to an existing code-base.
+Completely disabling the warning is not recommended.
 
 @end table
 
@@ -2807,6 +2838,15 @@ two forms, whichever is not the default.  For further,
 language-specific options also refer to @ref{C++ Dialect Options} and
 @ref{Objective-C and Objective-C++ Dialect Options}.
 
+When an unrecognized warning label is requested (e.g.,
+@option{-Wunknown-warning}), GCC will emit a diagnostic stating
+that the option is not recognized.  However, if the @samp{-Wno-} form
+is used, the behavior is slightly different: No diagnostic will be
+produced for @option{-Wno-unknown-warning} unless other diagnostics
+are being produced.  This allows the use of new @option{-Wno-} options
+with old compilers, but if something goes wrong, the compiler will
+warn that an unrecognized option was used.
+
 @table @gcctabopt
 @item -pedantic
 @opindex pedantic
@@ -2870,8 +2910,8 @@ Options} and @ref{Objective-C and Objective-C++ Dialect Options}.
 -Wc++0x-compat  @gol
 -Wchar-subscripts  @gol
 -Wenum-compare @r{(in C/Objc; this is on by default in C++)} @gol
--Wimplicit-int  @gol
--Wimplicit-function-declaration  @gol
+-Wimplicit-int @r{(C and Objective-C only)} @gol
+-Wimplicit-function-declaration @r{(C and Objective-C only)} @gol
 -Wcomment  @gol
 -Wformat   @gol
 -Wmain @r{(only for C/ObjC and unless} @option{-ffreestanding}@r{)}  @gol
@@ -3114,7 +3154,7 @@ enabled by default and it is made into an error by
 @option{-pedantic-errors}. This warning is also enabled by
 @option{-Wall}.
 
-@item -Wimplicit
+@item -Wimplicit @r{(C and Objective-C only)}
 @opindex Wimplicit
 @opindex Wno-implicit
 Same as @option{-Wimplicit-int} and @option{-Wimplicit-function-declaration}.
@@ -3601,11 +3641,36 @@ comparisons, so this warning level will give a very large number of
 false positives.
 @end table
 
+@item -Wsuggest-attribute=@r{[}const@r{|}pure@r{]}
+@opindex Wsuggest-attribute=
+@opindex Wno-suggest-attribute=
+Warn for cases where adding an attribute may be beneficial. The
+attributes currently supported are listed below.
+
+@table @gcctabopt
+@item -Wsuggest-attribute=pure
+@itemx -Wsuggest-attribute=const
+@opindex Wsuggest-attribute=pure
+@opindex Wno-suggest-attribute=pure
+@opindex Wsuggest-attribute=const
+@opindex Wno-suggest-attribute=const
+
+Warn about functions which might be candidates for attributes
+@code{pure} or @code{const}.  The compiler only warns for functions
+visible in other compilation units or if it cannot prove that the
+function returns normally. A function returns normally if it doesn't
+contain an infinite loop nor returns abnormally by throwing, calling
+@code{abort()} or trapping.  This analysis requires option
+@option{-fipa-pure-const}, which is enabled by default at @option{-O}
+and higher.  Higher optimization levels improve the accuracy of the
+analysis.
+@end table
+
 @item -Warray-bounds
 @opindex Wno-array-bounds
 @opindex Warray-bounds
 This option is only active when @option{-ftree-vrp} is active
-(default for -O2 and above). It warns about subscripts to arrays
+(default for @option{-O2} and above). It warns about subscripts to arrays
 that are always out of bounds. This warning is enabled by @option{-Wall}.
 
 @item -Wno-div-by-zero
@@ -5742,6 +5807,7 @@ compilation time.
 -fif-conversion2 @gol
 -fif-conversion @gol
 -fipa-pure-const @gol
+-fipa-profile @gol
 -fipa-reference @gol
 -fmerge-constants
 -fsplit-wide-types @gol
@@ -6567,8 +6633,7 @@ Perform structure reorganization optimization, that change C-like structures
 layout in order to better utilize spatial locality.  This transformation is
 affective for programs containing arrays of structures.  Available in two
 compilation modes: profile-based (enabled with @option{-fprofile-generate})
-or static (which uses built-in heuristics).  Require @option{-fipa-type-escape}
-to provide the safety of this transformation.  It works only in whole program
+or static (which uses built-in heuristics).  It works only in whole program
 mode, so it requires @option{-fwhole-program} and @option{-combine} to be
 enabled.  Structures considered @samp{cold} by this transformation are not
 affected (see @option{--param struct-reorg-cold-struct-ratio=@var{value}}).
@@ -6581,6 +6646,15 @@ Perform interprocedural pointer analysis and interprocedural modification
 and reference analysis.  This option can cause excessive memory and
 compile-time usage on large compilation units.  It is not enabled by
 default at any optimization level.
+
+@item -fipa-profile
+@opindex fipa-profile
+Perform interprocedural profile propagation.  The functions called only from
+cold functions are marked as cold. Also functions executed once (such as
+@code{cold}, @code{noreturn}, static constructors or destructors) are identified. Cold
+functions and loop less parts of functions executed once are then optimized for
+size.
+Enabled by default at @option{-O} and higher.
 
 @item -fipa-cp
 @opindex fipa-cp
@@ -7381,8 +7455,6 @@ that otherwise would not fit in memory.  This option enables
 @option{-fwpa} and @option{-fltrans} automatically.
 
 Disabled by default.
-
-This option is experimental.
 
 @item -fwpa
 @opindex fwpa
@@ -8444,8 +8516,7 @@ The size of L2 cache, in kilobytes.
 
 @item min-insn-to-prefetch-ratio
 The minimum ratio between the number of instructions and the
-number of prefetches to enable prefetching in a loop with an
-unknown trip count.
+number of prefetches to enable prefetching in a loop.
 
 @item prefetch-min-insn-to-mem-ratio
 The minimum ratio between the number of instructions and the
@@ -9676,13 +9747,6 @@ Put functions, data, and readonly data in @var{text-section},
 by default.  This can be overridden with the @code{section} attribute.
 @xref{Variable Attributes}.
 
-@item -mfix-cortex-m3-ldrd
-@opindex mfix-cortex-m3-ldrd
-Some Cortex-M3 cores can cause data corruption when @code{ldrd} instructions
-with overlapping destination and base registers are used.  This option avoids
-generating these instructions.  This option is enabled by default when
-@option{-mcpu=cortex-m3} is specified.
-
 @end table
 
 @node ARM Options
@@ -10028,6 +10092,13 @@ Only generate absolute relocations on word sized values (i.e. R_ARM_ABS32).
 This is enabled by default on targets (uClinux, SymbianOS) where the runtime
 loader imposes this restriction, and when @option{-fpic} or @option{-fPIC}
 is specified.
+
+@item -mfix-cortex-m3-ldrd
+@opindex mfix-cortex-m3-ldrd
+Some Cortex-M3 cores can cause data corruption when @code{ldrd} instructions
+with overlapping destination and base registers are used.  This option avoids
+generating these instructions.  This option is enabled by default when
+@option{-mcpu=cortex-m3} is specified.
 
 @end table
 
@@ -16136,6 +16207,12 @@ up division where the dividend fits into 20 bits (plus sign where applicable),
 by inserting a test to skip a number of operations in this case; this test
 slows down the case of larger dividends.  inv20u assumes the case of a such
 a small dividend to be unlikely, and inv20l assumes it to be likely.
+
+@item -maccumulate-outgoing-args
+@opindex maccumulate-outgoing-args
+Reserve space once for outgoing arguments in the function prologue rather 
+than around each call.  Generally beneficial for performance and size.  Also
+needed for unwinding to avoid changing the stack frame around conditional code.
 
 @item -mdivsi3_libfunc=@var{name}
 @opindex mdivsi3_libfunc=@var{name}

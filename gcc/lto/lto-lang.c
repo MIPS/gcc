@@ -616,14 +616,15 @@ lto_init_options (unsigned int argc ATTRIBUTE_UNUSED,
 
 const char *resolution_file_name;
 static int
-lto_handle_option (size_t scode, const char *arg, int value ATTRIBUTE_UNUSED)
+lto_handle_option (size_t scode, const char *arg,
+		   int value ATTRIBUTE_UNUSED, int kind ATTRIBUTE_UNUSED)
 {
   enum opt_code code = (enum opt_code) scode;
   int result = 1;
 
   switch (code)
     {
-    case OPT_fresolution:
+    case OPT_fresolution_:
       resolution_file_name = arg;
       result = 1;
       break;
@@ -1018,6 +1019,12 @@ lto_build_c_type_nodes (void)
       uintmax_type_node = long_unsigned_type_node;
       signed_size_type_node = long_integer_type_node;
     }
+  else if (strcmp (SIZE_TYPE, "long long unsigned int") == 0)
+    {
+      intmax_type_node = long_long_integer_type_node;
+      uintmax_type_node = long_long_unsigned_type_node;
+      signed_size_type_node = long_long_integer_type_node;
+    }
   else
     gcc_unreachable ();
 
@@ -1039,7 +1046,7 @@ lto_init (void)
   linemap_add (line_table, LC_RENAME, 0, NULL, 0);
 
   /* Create the basic integer types.  */
-  build_common_tree_nodes (flag_signed_char, /*signed_sizetype=*/false);
+  build_common_tree_nodes (flag_signed_char);
 
   /* Share char_type_node with whatever would be the default for the target.
      char_type_node will be used for internal types such as
@@ -1060,6 +1067,11 @@ lto_init (void)
     {
       set_sizetype (long_unsigned_type_node);
       size_type_node = long_unsigned_type_node;
+    }
+  else if (strcmp (SIZE_TYPE, "long long unsigned int") == 0)
+    {
+      set_sizetype (long_long_unsigned_type_node);
+      size_type_node = long_long_unsigned_type_node;
     }
   else
     gcc_unreachable ();
@@ -1158,11 +1170,11 @@ static void lto_init_ts (void)
 #define LANG_HOOKS_FORMAT_ATTRIBUTE_TABLE lto_format_attribute_table
 
 #undef LANG_HOOKS_BEGIN_SECTION
-#define LANG_HOOKS_BEGIN_SECTION lto_elf_begin_section
+#define LANG_HOOKS_BEGIN_SECTION lto_obj_begin_section
 #undef LANG_HOOKS_APPEND_DATA
-#define LANG_HOOKS_APPEND_DATA lto_elf_append_data
+#define LANG_HOOKS_APPEND_DATA lto_obj_append_data
 #undef LANG_HOOKS_END_SECTION
-#define LANG_HOOKS_END_SECTION lto_elf_end_section
+#define LANG_HOOKS_END_SECTION lto_obj_end_section
 
 #undef LANG_HOOKS_INIT_TS
 #define LANG_HOOKS_INIT_TS lto_init_ts

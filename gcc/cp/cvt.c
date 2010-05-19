@@ -1,6 +1,6 @@
 /* Language-level data type conversion for GNU C++.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
    Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
@@ -610,6 +610,8 @@ ocp_convert (tree type, tree expr, int convtype, int flags)
     }
 
   e = integral_constant_value (e);
+  if (error_operand_p (e))
+    return error_mark_node;
 
   if (MAYBE_CLASS_TYPE_P (type) && (convtype & CONV_FORCE_TEMP))
     /* We need a new temporary; don't take this shortcut.  */;
@@ -680,7 +682,8 @@ ocp_convert (tree type, tree expr, int convtype, int flags)
 	     the original value is within the range of the enumeration
 	     values. Otherwise, the resulting enumeration value is
 	     unspecified.  */
-	  if (TREE_CODE (expr) == INTEGER_CST && !int_fits_type_p (expr, type))
+	  if (TREE_CODE (expr) == INTEGER_CST
+	      && !int_fits_type_p (expr, ENUM_UNDERLYING_TYPE (type)))
 	    warning (OPT_Wconversion, 
 		     "the result of the conversion is unspecified because "
 		     "%qE is outside the range of type %qT",
@@ -701,6 +704,8 @@ ocp_convert (tree type, tree expr, int convtype, int flags)
 
       return fold_if_not_in_template (convert_to_integer (type, e));
     }
+  if (NULLPTR_TYPE_P (type) && e && null_ptr_cst_p (e))
+    return nullptr_node;
   if (POINTER_TYPE_P (type) || TYPE_PTR_TO_MEMBER_P (type))
     return fold_if_not_in_template (cp_convert_to_pointer (type, e));
   if (code == VECTOR_TYPE)
@@ -817,9 +822,23 @@ ocp_convert (tree type, tree expr, int convtype, int flags)
 tree
 convert_to_void (tree expr, const char *implicit, tsubst_flags_t complain)
 {
+  tree exprv;
+
   if (expr == error_mark_node
       || TREE_TYPE (expr) == error_mark_node)
     return error_mark_node;
+
+  exprv = expr;
+  while (TREE_CODE (exprv) == COMPOUND_EXPR)
+    exprv = TREE_OPERAND (exprv, 1);
+  if (DECL_P (exprv) || handled_component_p (exprv))
+    /* Expr is not being 'used' here, otherwise we whould have
+       called mark_{rl}value_use use here, which would have in turn
+       called mark_exp_read.  Rather, we call mark_exp_read directly
+       to avoid some warnings when
+       -Wunused-but-set-{variable,parameter} is in effect.  */
+    mark_exp_read (exprv);
+
   if (!TREE_TYPE (expr))
     return expr;
   if (invalid_nonstatic_memfn_p (expr, complain))
@@ -1309,6 +1328,8 @@ type_promotes_to (tree type)
       int precision = MAX (TYPE_PRECISION (type),
 			   TYPE_PRECISION (integer_type_node));
       tree totype = c_common_type_for_size (precision, 0);
+      if (TREE_CODE (type) == ENUMERAL_TYPE)
+	type = ENUM_UNDERLYING_TYPE (type);
       if (TYPE_UNSIGNED (type)
 	  && ! int_fits_type_p (TYPE_MAX_VALUE (type), totype))
 	type = c_common_type_for_size (precision, 1);
