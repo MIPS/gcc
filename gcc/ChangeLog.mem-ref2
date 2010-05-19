@@ -1,5 +1,10 @@
 2010-05-19  Richard Guenther  <rguenther@suse.de>
 
+	* tree-ssa-forwprop.c (forward_propagate_addr_expr_1): Fix
+	another merge glitch.
+
+2010-05-19  Richard Guenther  <rguenther@suse.de>
+
 	* gimplify.c (gimplify_expr): Fix merge glitch.
 
 2010-05-19  Richard Guenther  <rguenther@suse.de>
