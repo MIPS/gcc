@@ -1,5 +1,9 @@
 2010-05-19  Richard Guenther  <rguenther@suse.de>
 
+	* gimplify.c (gimplify_expr): Fix merge glitch.
+
+2010-05-19  Richard Guenther  <rguenther@suse.de>
+
 	Merge from trunk r159559.
 
 2010-04-15  Richard Guenther  <rguenther@suse.de>

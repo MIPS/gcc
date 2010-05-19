@@ -6708,7 +6708,10 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 
 	    *expr_p = fold_indirect_ref_loc (input_location, *expr_p);
 	    if (*expr_p != save_expr)
-	      break;
+	      {
+		ret = GS_OK;
+		break;
+	      }
 
 	    ret = gimplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
 				 is_gimple_reg, fb_rvalue);
@@ -6719,10 +6722,8 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 				       TREE_OPERAND (*expr_p, 0),
 				       build_int_cst (saved_ptr_type, 0));
 	    TREE_THIS_VOLATILE (*expr_p) = volatilep;
-	    {
-	      ret = GS_OK;
-	      break;
-	    }
+	    ret = GS_OK;
+	    break;
 	  }
 
 	case MEM_REF:
