@@ -4566,7 +4566,11 @@ find_func_clobbers (gimple origt)
 	tem = TREE_OPERAND (tem, 0);
       if ((DECL_P (tem)
 	   && !auto_var_in_fn_p (tem, cfun->decl))
-	  || INDIRECT_REF_P (tem))
+	  || INDIRECT_REF_P (tem)
+	  || (TREE_CODE (tem) == MEM_REF
+	      && !(TREE_CODE (TREE_OPERAND (tem, 0)) == ADDR_EXPR
+		   && auto_var_in_fn_p
+		        (TREE_OPERAND (TREE_OPERAND (tem, 0), 0), cfun->decl))))
 	{
 	  struct constraint_expr lhsc, *rhsp;
 	  unsigned i;
@@ -4590,7 +4594,11 @@ find_func_clobbers (gimple origt)
 	tem = TREE_OPERAND (tem, 0);
       if ((DECL_P (tem)
 	   && !auto_var_in_fn_p (tem, cfun->decl))
-	  || INDIRECT_REF_P (tem))
+	  || INDIRECT_REF_P (tem)
+	  || (TREE_CODE (tem) == MEM_REF
+	      && !(TREE_CODE (TREE_OPERAND (tem, 0)) == ADDR_EXPR
+		   && auto_var_in_fn_p
+		        (TREE_OPERAND (TREE_OPERAND (tem, 0), 0), cfun->decl))))
 	{
 	  struct constraint_expr lhs, *rhsp;
 	  unsigned i;

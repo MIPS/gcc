@@ -2780,6 +2780,13 @@ print_call_name (pretty_printer *buffer, tree node, int flags)
 	dump_generic_node (buffer, op0, 0, flags, false);
       break;
 
+    case MEM_REF:
+      if (integer_zerop (TREE_OPERAND (op0, 1)))
+	{
+	  op0 = TREE_OPERAND (op0, 0);
+	  goto again;
+	}
+      /* Fallthru.  */
     case COMPONENT_REF:
     case SSA_NAME:
     case OBJ_TYPE_REF:

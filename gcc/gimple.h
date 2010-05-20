@@ -1975,7 +1975,18 @@ gimple_call_fndecl (const_gimple gs)
 {
   tree addr = gimple_call_fn (gs);
   if (TREE_CODE (addr) == ADDR_EXPR)
-    return TREE_OPERAND (addr, 0);
+    {
+      tree fndecl = TREE_OPERAND (addr, 0);
+      if (TREE_CODE (fndecl) == MEM_REF)
+	{
+	  if (TREE_CODE (TREE_OPERAND (fndecl, 0)) == ADDR_EXPR
+	      && integer_zerop (TREE_OPERAND (fndecl, 1)))
+	    return TREE_OPERAND (TREE_OPERAND (fndecl, 0), 0);
+	  else
+	    return NULL_TREE;
+	}
+      return TREE_OPERAND (addr, 0);
+    }
   return NULL_TREE;
 }
 

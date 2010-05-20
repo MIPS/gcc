@@ -1,3 +1,12 @@
+2010-05-20  Richard Guenther  <rguenther@suse.de>
+
+	* cgraphbuild.c (mark_load): Properly check for NULL result
+	from get_base_address.
+	(mark_store): Likewise.
+	* tree-pretty-print.c (print_call_name): Handle MEM_REF.
+	* tree-ssa-structalias.c (find_func_clobbers): Likewise.
+	* gimple.h (gimple_call_fndecl): Likewise.
+
 2010-05-19  Richard Guenther  <rguenther@suse.de>
 
 	* tree-ssa-forwprop.c (forward_propagate_addr_expr_1): Fix
