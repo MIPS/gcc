@@ -676,36 +676,6 @@ gfc_has_vector_index (gfc_expr *e)
 }
 
 
-/* Insert a reference to the component of the given name.
-   Only to be used with CLASS containers.  */
-
-void
-gfc_add_component_ref (gfc_expr *e, const char *name)
-{
-  gfc_ref **tail = &(e->ref);
-  gfc_ref *next = NULL;
-  gfc_symbol *derived = e->symtree->n.sym->ts.u.derived;
-  while (*tail != NULL)
-    {
-      if ((*tail)->type == REF_COMPONENT)
-	derived = (*tail)->u.c.component->ts.u.derived;
-      if ((*tail)->type == REF_ARRAY && (*tail)->next == NULL)
-	break;
-      tail = &((*tail)->next);
-    }
-  if (*tail != NULL && strcmp (name, "$data") == 0)
-    next = *tail;
-  (*tail) = gfc_get_ref();
-  (*tail)->next = next;
-  (*tail)->type = REF_COMPONENT;
-  (*tail)->u.c.sym = derived;
-  (*tail)->u.c.component = gfc_find_component (derived, name, true, true);
-  gcc_assert((*tail)->u.c.component);
-  if (!next)
-    e->ts = (*tail)->u.c.component->ts;
-}
-
-
 /* Copy a shape array.  */
 
 mpz_t *
@@ -3587,6 +3557,31 @@ gfc_check_assign_symbol (gfc_symbol *sym, gfc_expr *rvalue)
 }
 
 
+/* Check for default initializer; sym->value is not enough
+   as it is also set for EXPR_NULL of allocatables.  */
+
+bool
+gfc_has_default_initializer (gfc_symbol *der)
+{
+  gfc_component *c;
+
+  gcc_assert (der->attr.flavor == FL_DERIVED);
+  for (c = der->components; c; c = c->next)
+    if (c->ts.type == BT_DERIVED)
+      {
+        if (!c->attr.pointer
+	     && gfc_has_default_initializer (c->ts.u.derived))
+	  return true;
+      }
+    else
+      {
+        if (c->initializer)
+	  return true;
+      }
+
+  return false;
+}
+
 /* Get an expression for a default initializer.  */
 
 gfc_expr *
@@ -3595,7 +3590,8 @@ gfc_default_initializer (gfc_typespec *ts)
   gfc_expr *init;
   gfc_component *comp;
 
-  /* See if we have a default initializer.  */
+  /* See if we have a default initializer in this, but not in nested
+     types (otherwise we could use gfc_has_default_initializer()).  */
   for (comp = ts->u.derived->components; comp; comp = comp->next)
     if (comp->initializer || comp->attr.allocatable)
       break;
@@ -3621,32 +3617,6 @@ gfc_default_initializer (gfc_typespec *ts)
 	  ctor->expr->ts = comp->ts;
 	}
 
-      gfc_constructor_append (&init->value.constructor, ctor);
-    }
-
-  return init;
-}
-
-
-/* Build a NULL initializer for CLASS pointers,
-   initializing the $data and $vptr components to zero.  */
-
-gfc_expr *
-gfc_class_null_initializer (gfc_typespec *ts)
-{
-  gfc_expr *init;
-  gfc_component *comp;
-  
-  init = gfc_get_structure_constructor_expr (ts->type, ts->kind,
-					     &ts->u.derived->declared_at);
-  init->ts = *ts;
-  
-  for (comp = ts->u.derived->components; comp; comp = comp->next)
-    {
-      gfc_constructor *ctor = gfc_constructor_get();
-      ctor->expr = gfc_get_expr ();
-      ctor->expr->expr_type = EXPR_NULL;
-      ctor->expr->ts = comp->ts;
       gfc_constructor_append (&init->value.constructor, ctor);
     }
 

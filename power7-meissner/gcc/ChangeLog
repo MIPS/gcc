@@ -1,3 +1,447 @@
+2009-09-14  Vladimir Makarov <vmakarov@redhat.com>
+
+	* ira.c (ira_non_ordered_class_hard_regs): Define.
+        (setup_class_hard_regs): Initialize ira_non_ordered_class_hard_regs.
+	* ira-int.h (ira_non_ordered_class_hard_regs): Declare.
+	* ira-costs.c (ira_tune_allocno_costs_and_cover_classes): Increase
+	cost of unaligned hard regs when allocating multi-reg pseudos.
+
+2010-05-20  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* config.gcc (mips*-sde-elf*): Don't use sdemtk.opt.
+	* config/mips/mips.h (TARGET_CPU_CPP_BUILTINS): Define __mips_no_float
+	for TARGET_NO_FLOAT.
+	* config/mips/mips.c (mips_file_start): Expand conditional expression
+	into "if" statements.  Use .gnu_attribute 4,0 for TARGET_NO_FLOAT.
+	(mips_override_options): Move -mno-float override -msoft-float and
+	-mhard-float.
+	* config/mips/mips.opt (mno-float): Move from sdemtk.opt, but add
+	Condition(TARGET_SUPPORTS_NO_FLOAT).
+	* config/mips/sdemtk.h (TARGET_OS_CPP_BUILTINS): Don't set
+	__mips_no_float here.
+	(SUBTARGET_OVERRIDE_OPTIONS): Delete.
+	(TARGET_SUPPORTS_NO_FLOAT): Define.
+	* config/mips/sdemtk.opt: Delete.
+
+2010-05-20  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* ipa-prop.c (compute_complex_ancestor_jump_func): Bail
+	out if !cond.
+
+2010-05-20  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/43733
+	* configure.ac (gcc_cv_as_ix86_sahf): Switch to 64bit mode.
+	* configure: Regenerate.
+	* config.in: Regenerate.
+	* config/i386/i386.md (x86_sahf_1): Conditionally output 0x9e
+	instead of sahf only for 64bit targets.
+
+2010-05-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/44178
+	* haifa-sched.c (initiate_bb_reg_pressure_info): Do not call
+	setup_ref_regs for DEBUG_INSNs.
+
+2010-05-20  Jan Hubicka  <jh@suse.cz>
+
+	PR middle-end/44197
+	* varpool.c (varpool_remove_node): Handle in-varpool aliases.
+
+2010-05-20  Kenneth Zadeck  <zadeck@naturalbridge.com>
+
+	PR bootstrap/43870
+	* df-scan.c (df_ref_compare): Stabilize sort.
+
+2010-05-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (new_loc_descr_op_bit_piece): Add offset
+	argument.  Don't use DW_OP_piece if offset is non-zero,
+	put offset into second DW_OP_bit_piece argument.
+	(dw_sra_loc_expr): Adjust callers.  For memory expressions
+	compute offset.
+
+2010-05-20  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR target/44202
+	* config/cris/cris.md ("*addsi3_v32"): Correct "cc"
+	settings for 16-bit-constant "addo" alternative.
+
+2010-05-19  James E. Wilson  <wilson@codesourcery.com>
+
+	* config/mips/mips-dsp.md (add<DSPV:mode>3,
+	mips_add<DSP:dspfmt1>_s_<DSP:dspfmt2>): Add ISA_HAS_DSP condition.
+
+	PR target/43764
+	* mips.c (mips_call_expr_from_insn): New arg second_call.  Set it.
+	(mips_annotate_pic_calls): Pass new arg to mips_call_expr_from_insn.
+	Use it.
+
+2010-05-19  Joseph Myers  <joseph@codesourcery.com>
+
+	* diagnostic.c (FLOAT, FFS): Don't undefine.
+	* passes.c, pretty-print.c, rtl-error.c, toplev.c: Likewise.
+	* cse.c, regmove.c: Remove comments about stdio.h and rtl.h
+	include ordering.
+
+2010-05-19  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* combine.c (propagate_for_debug): Call make_compound_operation
+	on the source value.
+	(try_combine): When implementing a split chosen by find_split_point,
+	either copy i2src or set it to null.  Assert that i2src is not null
+	before substituting into CALL_INSN_FUNCTION_USAGE.
+
+2010-05-19  Anatoly Sokolov  <aesok@post.ru>
+
+	* double-int.h (double_int_ior): New function.
+	* tree.h (build_int_cst_wide_type): Remove.
+	* tree.c (build_int_cst_wide_type): Remove.
+	* fold-const.c (native_interpret_int): Use double_int_to_tree instead
+	of build_int_cst_wide_type.
+	* stor-layout.c (set_sizetype): (Ditto.).
+	* dojump.c (do_jump): Use build_int_cstu instead of
+	build_int_cst_wide_type.
+
+2010-05-19  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* langhooks.h (struct lang_hooks): Add new field deep_unsharing.
+	* langhooks-def.h (LANG_HOOKS_DEEP_UNSHARING): New macro.
+	(LANG_HOOKS_INITIALIZER): Add LANG_HOOKS_DEEP_UNSHARING.
+	* gimplify.c: (mostly_copy_tree_r): Copy trees under SAVE_EXPR and
+	TARGET_EXPR nodes, but only once, if instructed to do so.  Do not
+	propagate the 'data' argument to copy_tree_r.
+	(copy_if_shared_r): Remove bogus ATTRIBUTE_UNUSED marker.
+	Propagate 'data' argument to walk_tree.
+	(copy_if_shared): New function.
+	(unmark_visited_r): Remove bogus ATTRIBUTE_UNUSED marker.
+	(unmark_visited): New function.
+	(unshare_body): Call copy_if_shared instead of doing it manually.
+	(unvisit_body): Call unmark_visited instead of doing it manually.
+
+2010-05-19  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* hooks.h (hook_tree_tree_tree_bool_null): Rename to...
+	(hook_tree_tree_int_treep_bool_null): ...this.  Update signature.
+	* hooks.c: Likewise.
+	* target-def.h (TARGET_FOLD_BUILTIN): Define to
+	hook_tree_tree_int_treep_bool_null.
+	* target.h: (struct gcc_target): Update signature of fold_builtin
+	field.
+	* doc/tm.texi (TARGET_FOLD_BUILTIN): Update description and signature.
+	* builtins.c (fold_call_expr): Pass call_expr_nargs and CALL_EXPR_ARGP
+	instead of the call expression.
+	(fold_builtin_call_array): Pass n and argarray directly.
+	(fold_call_stmt): Pass nargs and gimple_call_arg_ptr instead of
+	consing a list.
+	* config/alpha/alpha.c (alpha_fold_builtin): Update signature.  Lift
+	MAX_ARGS check out of the loop.  Delete declaration of `arity', declare
+	`i' and use it in place of `arity'.
+	* config/sparc/sparc.c (sparc_fold_builtin): Update signature.
+	Dereference `args' directly.
+	* config/xtensa/xtensa (xtensa_fold_builtin): Likewise.
+
+2010-05-19  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* doc/sourcebuild.texi (Effective-Target Keywords): Document
+	3dnow, sse3, sse2.
+	(Directives): Document optional	dg-require-effective-target
+	selector.
+
+2010-05-19  Richard Guenther  <rguenther@suse.de>
+
+	PR lto/44196
+	* tree.c (find_decls_types_r): Walk BLOCKs and its vars.
+
+2010-05-19  Richard Guenther  <rguenther@suse.de>
+
+	* doc/invoke.texi (-fwhopr): Document new optional jobs argument.
+	* common.opt (fwhopr=): New.
+	* opts.c (common_handle_option): Handle OPT_fwhopr.
+	* gcc.c (LINK_COMMAND_SPEC): Pass fwhopr*.
+	* collect2.c (main): Match -fwhopr*.
+	* lto-wrapper.c (run_gcc): Handle jobs argument of -fwhopr.
+	Execute ltrans stage in parallel when jobs is bigger than 1.
+
+2010-05-19  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* config.gcc (i[34567]86-*-solaris2*): Default with_arch_32 to
+	pentiumpro on Solaris 8/x86 with Sun as.
+	* configure.ac (gcc_cv_as_hidden): Check for Solaris 9/x86 as
+	hidden alias bug.
+	(gcc_cv_as_ix86_quad): Check for .quad directive.
+	* configure: Regenerate.
+	* config.in: Regenerate.
+	* config/i386/sol2.h (ASM_QUAD): Change guard to !HAVE_AS_IX86_QUAD.
+
+2010-05-19  Martin Jambor  <mjambor@suse.cz>
+
+	* ipa-prop.c (ipa_print_node_jump_functions): Print jump functions
+	also for indirect edges.  Actual printing moved...
+	(ipa_print_node_jump_functions_for_edge): ...here.
+	(ipa_compute_jump_functions): Renamed to
+	ipa_compute_jump_functions_for_edge and made static.
+	(ipa_compute_jump_functions): New function.
+	(make_edge_direct_to_target): Check if the number of arguments on
+	the newly direct edge is the same as the number of parametrs of
+	the callee.
+	* ipa-cp.c (ipcp_init_stage): Most functionality moved to new
+	ipa_compute_jump_functions.  Call ipa_analyze_params_uses.
+	* ipa-inline.c (inline_indirect_intraprocedural_analysis): Call
+	analysis functions unconditionally, call the new
+	ipa_analyze_params_uses on the node instead of every edge.
+
+2010-05-19  Christian Borntraeger  <borntraeger@de.ibm.com>
+
+	* tree-ssa-loop-prefetch.c (mem_ref_group, ar_data): Change step
+	to tree.
+	(dump_mem_ref): Adopt debug code to handle a tree as step.  This
+	also checks for a constant int vs.  non-constant but
+	loop-invariant steps.
+	(find_or_create_group): Change the sort algorithm to only consider
+	steps that are constant ints.
+	(idx_analyze_ref): Adopt code to handle a tree instead of a
+	HOST_WIDE_INT for step.
+	(gather_memory_references_ref): Handle tree instead of int and be
+	prepared to see a NULL_TREE.
+	(prune_ref_by_self_reuse, prune_ref_by_group_reuse): Do not prune
+	prefetches if the step cannot be calculated at compile time.
+	(issue_prefetch_ref): Issue prefetches for non-constant but
+	loop-invariant steps.
+
+2010-05-18  Nathan Froyd  <froydnj@codesourcery.com>
+
+	Revert:
+	2010-05-18  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* tree.h (build_call_list): Remove.
+	* tree.c (build_call_list): Remove.
+
+2010-05-18  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* tree.h (build_call_list): Remove.
+	* tree.c (build_call_list): Remove.
+
+2010-05-18  Jan Hubicka  <jh@suse.cz>
+
+	* ipa-reference.c (propagate): Walk all nodes in the cleanup stage.
+
+2010-05-18  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/43332
+	* haifa-sched.c (setup_insn_max_reg_pressure): Check barrier.
+
+2010-05-18  Anatoly Sokolov  <aesok@post.ru>
+
+	* tree.h (build_int_cstu): Implement as static inline.
+	* tree.c (build_int_cstu): Remove function.
+	(double_int_to_tree, double_int_fits_to_tree_p): Handle size types as
+	sign extended.
+
+2010-05-18  Richard Guenther  <rguenther@suse.de>
+
+	PR lto/44143
+	* lto-wrapper.c (verbose): New variable.  Initialize from -v.
+	(debug): Initialize from -save-temps.
+	(collect_execute): Print command-line when verbose.
+	(run_gcc): Always use COLLECT_GCC_OPTIONS.  Use fork_execute
+	for ltrans invocation.  Produce -dumpbase flag again.
+	(process_args): Remove.
+	(main): Simplify.
+	* collect2.c (maybe_run_lto_and_relink): Only pass object
+	files to lto-wrapper.
+	* gcc.c (LINK_COMMAND_SPEC): Likewise.
+
+2010-05-18  Jan Hubicka  <jh@suse.cz>
+
+	* opts.c (decode_options): Do not disable whopr at ipa_cp.
+	* ipa-prop.c (ipa_detect_param_modifications): Walk PHI nodes too.
+
+2010-05-18  Steven Bosscher  <steven@gcc.gnu.org>
+
+	PR lto/44184
+	* lto-streamer-out.c (output_gimple_stmt): Output number of labels
+	in a GIMPLE_ASM.
+	* lto-streamer-in.c (input_gimple_stmt): Read number of labels
+	in a GIMPLE_ASM.
+
+2010-05-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/41371
+	* var-tracking.c (find_loc_in_1pdv): Add a few checks from
+	rtx_equal_p inline.
+
+2010-05-18  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* config.gcc (powerpc-*-darwin*, powerpc64-*-darwin*): Add
+	lto-macho as lto_binary_reader.
+
+	* darwin.c (darwin_asm_named_section): Do not add assembler comment
+	after .section directive; just print it before the directive instead.
+
+2010-05-17  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.c (cgraph_create_virtual_clone): Only check
+	versionable_function_p when not in wpa and checking is enabled.
+	* cgraphunit.c (cgraph_materialize_all_clones): Stabilize after
+	there are no more functions to materialize.
+
+2010-05-17  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.h (struct ipa_replace_map): Add parm_num parameter.
+	* lto-cgraph.c (output_cgraph_opt_summary, input_cgraph_opt_summary):
+	New functions.
+	(output_cgraph): Call output_cgraph_opt_summary.
+	(input_cgrpah): Call input_cgraph_opt_summary.
+	(output_cgraph_opt_summary_p, output_node_opt_summary,
+	input_node_opt_summary, input_cgraph_opt_section): New functions.
+	* lto-section-in.c (lto_section_name): Add cgraphopt.
+	* tree-inline.c (tree_function_versioning): Handle parm_num.
+	* lto-streamer.c (lto_get_section_name): Handle cgraphopt.
+	* lto-streamer.h (lto_section_type): Add LTO_section_cgraph_opt_sum.
+
+2010-05-17  Changpeng Fang  <changpeng.fang@amd.com>
+
+	* doc/invoke.texi: Update documentation for min-insn-to-prefetch-ratio.
+	* tree-ssa-loop-prefetch.c (is_loop_prefetching_profitable): Also apply
+	the insn to prefetch ratio heuristic to loops with known trip count.
+
+2010-05-17  Changpeng Fang  <changpeng.fang@amd.com>
+
+	* tree-ssa-loop-prefetch.c (PREFETCH_MOD_TO_UNROLL_FACTOR_RATIO): New.
+	(schedule_prefetches): Do not generate a prefetch if the unroll factor
+	is far from what is required by the prefetch.
+
+2010-05-17  Jan Hubicka  <jh@suse.cz>
+
+	* ipa-cp.c (ipcp_update_callgraph): Use ipa_is_param_used.
+	(ipcp_estimate_growth): Likewise.
+	(ipcp_const_param_count): Likewise.
+	(ipcp_insert_stage): Likewise.
+	* ipa-prop.c (visit_load_for_mod_analysis): New function.
+	(visit_store_addr_for_mod_analysis): Set used flag.
+	(ipa_detect_param_modifications): Set used flag for SSE params;
+	update use of walk_stmt_load_store_addr_ops.
+	(ipa_print_node_params): Print used flag.
+	(ipa_write_node_info): Stream used flag.
+	(ipa_read_node_info): Likewise.
+	* ipa-prop.h (struct ipa_param_descriptor): Add used field.
+	(ipa_is_param_used): New function.
+	(lto_ipa_fixup_call_notes): Remove unused declaration.
+
+2010-05-17  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR target/44074
+	* configure.ac (HAVE_AS_IX86_REP_LOCK_PREFIX): New test.
+	* configure: Regenerate.
+	* config.in: Regenerate.
+	* config/i386/i386.c (print_operand) <case ;>: Also print ";" if
+	!HAVE_AS_IX86_REP_LOCK_PREFIX.
+	Don't emit whitespace.
+	* config/i386/i386.md (*rep_movdi_rex64): Use {%;} after rep.
+	(*rep_movsi): Likewise.
+	(*rep_movsi_rex64): Likewise.
+	(*rep_movqi): Likewise.
+	(*rep_movqi_rex64): Likewise.
+	(*rep_stosdi_rex64): Likewise.
+	(*rep_stossi): Likewise.
+	(*rep_stossi_rex64): Likewise.
+	(*rep_stosqi): Likewise.
+	(*rep_stosqi_rex64): Likewise.
+	(*cmpstrnqi_nz_1): Use {%;} after repz.
+	(*cmpstrnqi_nz_rex_1): Likewise.
+	(*cmpstrnqi_1): Likewise.
+	(*cmpstrnqi_rex_1): Likewise.
+	(*strlenqi_1): Use {%;} after repnz.
+	(*strlenqi_rex_1): Likewise.
+	* config/i386/sync.md (memory_barrier_nosse): Replace {%;| } by {%;} .
+	(*sync_compare_and_swap<mode>): Likewise.
+	(sync_double_compare_and_swap<mode>): Likewise.
+	(*sync_double_compare_and_swapdi_pic): Likewise.
+	(sync_old_add<mode>): Likewise.
+	(sync_add<mode>): Likewise.
+	(sync_sub<mode>): Likewise.
+	(sync_<code><mode>): Likewise.
+
+2010-05-17  Martin Jambor  <mjambor@suse.cz>
+
+	* cgraph.h (cgraph_indirect_call_info): New fields anc_offset,
+	otr_token and polymorphic.
+	* cgraph.c (cgraph_create_indirect_edge): Inilialize the above fields.
+	(cgraph_clone_edge): Copy the above fields.
+	* tree.c (get_binfo_at_offset): New function.
+	* tree.h (get_binfo_at_offset): Declare.
+	* ipa-prop.h (enum jump_func_type): Added known_type jump function
+	type, reordered items, updated comments.
+	(union jump_func_value): Added base_type field, reordered fields.
+	(enum ipa_lattice_type): Moved down in the file.
+	(struct ipa_param_descriptor): New field polymorphic.
+	(ipa_is_param_polymorphic): New function.
+	* ipa-prop.c: Include gimple.h and gimple-fold.h.
+	(ipa_print_node_jump_functions): Print known type jump functions.
+	(compute_complex_pass_through): Renamed to...
+	(compute_complex_assign_jump_func): this.
+	(compute_complex_ancestor_jump_func): New function.
+	(compute_known_type_jump_func): Likewise.
+	(compute_scalar_jump_functions): Create known type and complex ancestor
+	jump functions.
+	(ipa_note_param_call): New parameter polymorphic, set the corresponding
+	flag in the call note accordingly.
+	(ipa_analyze_call_uses): Renamed to...
+	(ipa_analyze_indirect_call_uses): this.  New parameter target, define
+	variable var only in the block where it is used.
+	(ipa_analyze_virtual_call_uses): New function.
+	(ipa_analyze_call_uses): Likewise.
+	(combine_known_type_and_ancestor_jfs): Likewise.
+	(update_jump_functions_after_inlining): Implemented handling of a
+	number of new jump function types combination.
+	(print_edge_addition_message): Removed.
+	(make_edge_direct_to_target): New function.
+	(try_make_edge_direct_simple_call): Likewise.
+	(try_make_edge_direct_virtual_call): Likewise.
+	(update_call_notes_after_inlining): Renamed to...
+	(update_indirect_edges_after_inlining): this.  Moved edge creation for
+	indirect calls to try_make_edge_direct_simple_call, also calls
+	try_make_edge_direct_virtual_call for virtual calls.
+	(ipa_print_node_params): Changed the header message.
+	(ipa_write_jump_function): Stream also known type jump functions.
+	(ipa_read_jump_function): Likewise.
+	(ipa_write_indirect_edge_info): Stream new fields in
+	cgraph_indirect_call_info.
+	(ipa_read_indirect_edge_info): Likewise.
+	* Makefile.in (ipa-prop.o): Add dependency to GIMPLE_H and
+	GIMPLE_FOLD_H.
+
+2010-05-17  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* config/i386/sol2.h (TARGET_SUN_TLS): Remove duplicate definition.
+
+2010-05-17  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* tree.h (CALL_EXPR_ARGS): Delete.
+	(call_expr_arglist): Delete.
+	* tree.c (call_expr_arglist): Delete.
+	* builtins.c (fold_call_expr): Pass the whole CALL_EXPR to
+	targetm.fold_builtin.
+	* config/alpha/alpha.c (alpha_fold_builtin): Rename arglist parameter.
+	Rewrite iteration to work on call_expr_nargs rather than TREE_CHAIN.
+	* config/picochip/picochip.c (picochip_expand_builtin_2op): Rename
+	arglist parameter.  Use CALL_EXPR_ARG.
+	(picochip_expand_builtin_3op): Likewise.
+	(picochip_expand_builtin_2opvoid): Likewise.
+	(picochip_expand_array_get): Likewise.
+	(picochip_expand_array_put): Likewise.
+	(picochip_expand_array_testport): Likewise.
+	(picochip_expand_builtin): Don't call CALL_EXPR_ARGS.  Pass exp
+	rather than arglist.
+	* config/rx/rx.c (rx_expand_builtin): Call call_expr_nargs instead of
+	CALL_EXPR_ARGS.
+	* config/sparc/sparc.c (sparc_fold_builtin): Use CALL_EXPR_ARG rather
+	than TREE_VALUE and TREE_CHAIN.
+	* config/xtensa/xtensa.c (xtensa_fold_builtin): Likewise.
+	* doc/tm.texi (TARGET_FOLD_BUILTIN): Pass CALL_EXPR tree instead of
+	the arglist.
+
 2010-05-17  Jakub Jelinek  <jakub@redhat.com>
 
 	PR bootstrap/42347
@@ -11,9 +455,9 @@
 	add BARRIER after previous bb if needed.
 
 2010-05-17  Nathan Froyd  <froydnj@codesourcery.com>
- 
+
 	* tree.c (build_function_type_list_1): Remove bogus assert condition.
- 
+
 2010-05-17  Alan Modra  <amodra@gmail.com>
 
 	* config/rs6000/rs6000.c (rs6000_emit_allocate_stack): Delete
@@ -49,9 +493,9 @@
 
 2010-05-17  Christian Borntraeger  <borntraeger@de.ibm.com>
 
-        * config/s390/s390.c: Define sane prefetch settings and activate
-        flag_prefetch_loop_arrays on -O3.
-        * config/s390/s390.h: Declare that read can use write prefetch.
+	* config/s390/s390.c: Define sane prefetch settings and activate
+	flag_prefetch_loop_arrays on -O3.
+	* config/s390/s390.h: Declare that read can use write prefetch.
 
 2010-05-17  Jakub Jelinek  <jakub@redhat.com>
 

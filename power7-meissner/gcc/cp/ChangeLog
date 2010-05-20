@@ -1,3 +1,89 @@
+2010-05-20  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/30298
+	* decl.c (xref_basetypes): Return false in case of ill-formed
+	redefinition.
+
+2010-05-19  Jason Merrill  <jason@redhat.com>
+
+	* call.c (reference_binding): Use cp_build_qualified_type_real
+	and cp_type_quals consistently.
+	(add_function_candidate): Likewise.
+	(build_conditional_expr): Likewise.
+	(convert_like_real): Likewise.
+	(type_passed_as): Likewise.
+	* class.c (add_method): Likewise.
+	(same_signature_p): Likewise.
+	(layout_class_type): Likewise.
+	* decl.c (cxx_init_decl_processing): Likewise.
+	(cp_fname_init): Likewise.
+	(grokdeclarator): Likewise.
+	* decl2.c (cp_reconstruct_complex_type): Likewise.
+	* init.c (build_new_1): Likewise.
+	* method.c (do_build_copy_constructor): Likewise.
+	(implicitly_declare_fn): Likewise.
+	* pt.c (tsubst_aggr_type): Likewise.
+	(tsubst): Likewise.
+	* rtti.c (init_rtti_processing): Likewise.
+	(build_headof): Likewise.
+	(build_dynamic_cast_1): Likewise.
+	(tinfo_base_init): Likewise.
+	(emit_support_tinfos): Likewise.
+	* semantics.c (capture_decltype): Likewise.
+	* tree.c (cv_unqualified): Likewise.
+	* typeck.c (composite_pointer_type): Likewise.
+	(string_conv_p): Likewise.
+
+	* mangle.c (write_CV_qualifiers_for_type): Tweak.
+
+	* call.c (initialize_reference): Use CP_TYPE_CONST_P.
+	* decl.c (start_decl): Likewise.
+	* semantics.c (finish_compound_literal): Likewise.
+	* typeck.c (check_return_expr): Use CP_TYPE_VOLATILE_P.
+	(cp_type_readonly): Remove.
+	* cp-tree.h: Remove declaration.
+
+	* typeck.c (merge_types): Preserve memfn quals.
+
+	* decl.c (grokdeclarator): Don't check quals on fn type.
+	* typeck.c (cp_apply_type_quals_to_decl): Likewise.
+	* tree.c (cp_build_qualified_type_real): Simplify qualifier checking.
+
+	PR c++/44193
+	* typeck.c (type_memfn_quals): New fn.
+	(apply_memfn_quals): New fn.
+	(cp_type_quals): Return TYPE_UNQUALIFIED for FUNCTION_TYPE.
+	(cp_type_readonly): Use cp_type_quals.
+	* cp-tree.h: Add declarations.
+	* tree.c (cp_build_qualified_type_real): Don't set, but do
+	preserve, quals on FUNCTION_TYPE.
+	(strip_typedefs): Use apply_memfn_quals and type_memfn_quals.
+	* decl.c (build_ptrmem_type): Likewise.
+	(grokdeclarator): Likewise.
+	(static_fn_type): Likewise.
+	* decl2.c (change_return_type): Likewise.
+	(cp_reconstruct_complex_type): Likewise.
+	* pt.c (tsubst_function_type): Likewise.
+	(unify): Likewise.
+	(tsubst): Likewise.  Drop special FUNCTION_TYPE substitution code.
+
+2010-05-18  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* tree.c (build_min_non_dep_call_vec): Update comment.
+
+2010-05-17  Jason Merrill  <jason@redhat.com>
+
+	* call.c (struct z_candidate): Add explicit_targs field.
+	(add_template_candidate_real): Set it.
+	(build_over_call): Use it to control init-list warning.
+
+	PR c++/44157
+	* call.c (build_over_call): Limit init-list deduction warning to
+	cases where the argument is actually an init-list.
+
+	PR c++/44158
+	* call.c (build_over_call): Don't do bitwise copy for move ctor.
+
 2010-05-17  Dodji Seketeli  <dodji@redhat.com>
 	    Jason Merrill  <jason@redhat.com>
 

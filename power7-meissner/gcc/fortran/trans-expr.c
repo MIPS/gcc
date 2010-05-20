@@ -26,11 +26,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
-#include "convert.h"
-#include "ggc.h"
 #include "toplev.h"
-#include "real.h"
-#include "gimple.h"
 #include "langhooks.h"
 #include "flags.h"
 #include "gfortran.h"
@@ -1114,8 +1110,6 @@ gfc_conv_string_tmp (gfc_se * se, tree type, tree len)
 {
   tree var;
   tree tmp;
-
-  gcc_assert (types_compatible_p (TREE_TYPE (len), gfc_charlen_type_node));
 
   if (gfc_can_put_var_on_stack (len))
     {
@@ -4337,20 +4331,7 @@ gfc_conv_structure (gfc_se * se, gfc_expr * expr, int init)
       if (!c->expr || cm->attr.allocatable)
         continue;
 
-      if (cm->ts.type == BT_CLASS && !cm->attr.proc_pointer)
-	{
-	  gfc_component *data;
-	  data = gfc_find_component (cm->ts.u.derived, "$data", true, true);
-	  if (!data->backend_decl)
-	    gfc_get_derived_type (cm->ts.u.derived);
-	  val = gfc_conv_initializer (c->expr, &cm->ts,
-				      TREE_TYPE (data->backend_decl),
-				      data->attr.dimension,
-				      data->attr.pointer);
-
-	  CONSTRUCTOR_APPEND_ELT (v, data->backend_decl, val);
-	}
-      else if (strcmp (cm->name, "$size") == 0)
+      if (strcmp (cm->name, "$size") == 0)
 	{
 	  val = TYPE_SIZE_UNIT (gfc_get_derived_type (cm->ts.u.derived));
 	  CONSTRUCTOR_APPEND_ELT (v, cm->backend_decl, val);

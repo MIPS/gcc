@@ -1041,14 +1041,6 @@ build_int_cst (tree type, HOST_WIDE_INT low)
   return build_int_cst_wide (type, low, low < 0 ? -1 : 0);
 }
 
-/* Create an INT_CST node with a LOW value zero extended.  */
-
-tree
-build_int_cstu (tree type, unsigned HOST_WIDE_INT low)
-{
-  return build_int_cst_wide (type, low, 0);
-}
-
 /* Create an INT_CST node with a LOW value in TYPE.  The value is sign extended
    if it is negative.  This function is similar to build_int_cst, but
    the extra bits outside of the type precision are cleared.  Constants
@@ -1071,24 +1063,18 @@ build_int_cst_type (tree type, HOST_WIDE_INT low)
   return build_int_cst_wide (type, low1, hi);
 }
 
-/* Create an INT_CST node of TYPE and value HI:LOW.  The value is truncated
-   and sign extended according to the value range of TYPE.  */
-
-tree
-build_int_cst_wide_type (tree type,
-			 unsigned HOST_WIDE_INT low, HOST_WIDE_INT high)
-{
-  fit_double_type (low, high, &low, &high, type);
-  return build_int_cst_wide (type, low, high);
-}
-
 /* Constructs tree in type TYPE from with value given by CST.  Signedness
    of CST is assumed to be the same as the signedness of TYPE.  */
 
 tree
 double_int_to_tree (tree type, double_int cst)
 {
-  cst = double_int_ext (cst, TYPE_PRECISION (type), TYPE_UNSIGNED (type));
+  /* Size types *are* sign extended.  */
+  bool sign_extended_type = (!TYPE_UNSIGNED (type)
+			     || (TREE_CODE (type) == INTEGER_TYPE
+				 && TYPE_IS_SIZETYPE (type)));
+
+  cst = double_int_ext (cst, TYPE_PRECISION (type), !sign_extended_type);
 
   return build_int_cst_wide (type, cst.low, cst.high);
 }
@@ -1099,9 +1085,13 @@ double_int_to_tree (tree type, double_int cst)
 bool
 double_int_fits_to_tree_p (const_tree type, double_int cst)
 {
-  double_int ext = double_int_ext (cst,
-				   TYPE_PRECISION (type),
-				   TYPE_UNSIGNED (type));
+  /* Size types *are* sign extended.  */
+  bool sign_extended_type = (!TYPE_UNSIGNED (type)
+			     || (TREE_CODE (type) == INTEGER_TYPE
+				 && TYPE_IS_SIZETYPE (type)));
+
+  double_int ext
+    = double_int_ext (cst, TYPE_PRECISION (type), !sign_extended_type);
 
   return double_int_equal_p (cst, ext);
 }
@@ -4711,6 +4701,15 @@ find_decls_types_r (tree *tp, int *ws, void *data)
 
       fld_worklist_push (TREE_CHAIN (t), fld);
       *ws = 0;
+    }
+  else if (TREE_CODE (t) == BLOCK)
+    {
+      tree tem;
+      for (tem = BLOCK_VARS (t); tem; tem = TREE_CHAIN (tem))
+	fld_worklist_push (tem, fld);
+      for (tem = BLOCK_SUBBLOCKS (t); tem; tem = BLOCK_CHAIN (tem))
+	fld_worklist_push (tem, fld);
+      fld_worklist_push (BLOCK_ABSTRACT_ORIGIN (t), fld);
     }
 
   fld_worklist_push (TREE_TYPE (t), fld);
@@ -10376,22 +10375,6 @@ tree_block (tree t)
   return NULL;
 }
 
-/* Build and return a TREE_LIST of arguments in the CALL_EXPR exp.
-   FIXME: don't use this function.  It exists for compatibility with
-   the old representation of CALL_EXPRs where a list was used to hold the
-   arguments.  Places that currently extract the arglist from a CALL_EXPR
-   ought to be rewritten to use the CALL_EXPR itself.  */
-tree
-call_expr_arglist (tree exp)
-{
-  tree arglist = NULL_TREE;
-  int i;
-  for (i = call_expr_nargs (exp) - 1; i >= 0; i--)
-    arglist = tree_cons (NULL_TREE, CALL_EXPR_ARG (exp, i), arglist);
-  return arglist;
-}
-
-
 /* Create a nameless artificial label and put it in the current
    function context.  The label has a location of LOC.  Returns the
    newly created label.  */
@@ -10793,6 +10776,62 @@ lhd_gcc_personality (void)
 				    : "__gcc_personality_v0");
 
   return gcc_eh_personality_decl;
+}
+
+/* Try to find a base info of BINFO that would have its field decl at offset
+   OFFSET within the BINFO type and which is of EXPECTED_TYPE.  If it can be
+   found, return, otherwise return NULL_TREE.  */
+
+tree
+get_binfo_at_offset (tree binfo, HOST_WIDE_INT offset, tree expected_type)
+{
+  tree type;
+
+  if (offset == 0)
+    return binfo;
+
+  type = TREE_TYPE (binfo);
+  while (offset > 0)
+    {
+      tree base_binfo, found_binfo;
+      HOST_WIDE_INT pos, size;
+      tree fld;
+      int i;
+
+      if (TREE_CODE (type) != RECORD_TYPE)
+	return NULL_TREE;
+
+      for (fld = TYPE_FIELDS (type); fld; fld = TREE_CHAIN (fld))
+	{
+	  if (TREE_CODE (fld) != FIELD_DECL)
+	    continue;
+
+	  pos = int_bit_position (fld);
+	  size = tree_low_cst (DECL_SIZE (fld), 1);
+	  if (pos <= offset && (pos + size) > offset)
+	    break;
+	}
+      if (!fld)
+	return NULL_TREE;
+
+      found_binfo = NULL_TREE;
+      for (i = 0; BINFO_BASE_ITERATE (binfo, i, base_binfo); i++)
+	if (TREE_TYPE (base_binfo) == TREE_TYPE (fld))
+	  {
+	    found_binfo = base_binfo;
+	    break;
+	  }
+
+      if (!found_binfo)
+	return NULL_TREE;
+
+      type = TREE_TYPE (fld);
+      binfo = found_binfo;
+      offset -= pos;
+    }
+  if (type != expected_type)
+    return NULL_TREE;
+  return binfo;
 }
 
 #include "gt-tree.h"

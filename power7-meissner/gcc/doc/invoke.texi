@@ -391,7 +391,7 @@ Objective-C and Objective-C++ Dialects}.
 -funit-at-a-time -funroll-all-loops -funroll-loops @gol
 -funsafe-loop-optimizations -funsafe-math-optimizations -funswitch-loops @gol
 -fvariable-expansion-in-unroller -fvect-cost-model -fvpt -fweb @gol
--fwhole-program -fwhopr -fwpa -fuse-linker-plugin @gol
+-fwhole-program -fwhopr[=@var{n}] -fwpa -fuse-linker-plugin @gol
 --param @var{name}=@var{value}
 -O  -O0  -O1  -O2  -O3  -Os}
 
@@ -7443,7 +7443,7 @@ information.  Combining @option{-flto} or @option{-fwhopr} with
 
 This option is disabled by default.
 
-@item -fwhopr
+@item -fwhopr[=@var{n}]
 @opindex fwhopr
 This option is identical in functionality to @option{-flto} but it
 differs in how the final link stage is executed.  Instead of loading
@@ -7455,9 +7455,11 @@ LTRANS)@.  This process allows optimizations on very large programs
 that otherwise would not fit in memory.  This option enables
 @option{-fwpa} and @option{-fltrans} automatically.
 
-Disabled by default.
+If you specify the optional @var{n} the link stage is executed in
+parallel using @var{n} parallel jobs by utilizing an installed
+@code{make} program.
 
-This option is experimental.
+Disabled by default.
 
 @item -fwpa
 @opindex fwpa
@@ -8519,8 +8521,7 @@ The size of L2 cache, in kilobytes.
 
 @item min-insn-to-prefetch-ratio
 The minimum ratio between the number of instructions and the
-number of prefetches to enable prefetching in a loop with an
-unknown trip count.
+number of prefetches to enable prefetching in a loop.
 
 @item prefetch-min-insn-to-mem-ratio
 The minimum ratio between the number of instructions and the

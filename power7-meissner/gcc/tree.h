@@ -1695,7 +1695,6 @@ extern void protected_set_expr_location (tree, location_t);
  */
 #define CALL_EXPR_FN(NODE) TREE_OPERAND (CALL_EXPR_CHECK (NODE), 1)
 #define CALL_EXPR_STATIC_CHAIN(NODE) TREE_OPERAND (CALL_EXPR_CHECK (NODE), 2)
-#define CALL_EXPR_ARGS(NODE) call_expr_arglist (NODE)
 #define CALL_EXPR_ARG(NODE, I) TREE_OPERAND (CALL_EXPR_CHECK (NODE), (I) + 3)
 #define call_expr_nargs(NODE) (VL_EXP_OPERAND_LENGTH(NODE) - 3)
 
@@ -4002,12 +4001,17 @@ tree_to_double_int (const_tree cst)
 extern tree double_int_to_tree (tree, double_int);
 extern bool double_int_fits_to_tree_p (const_tree, double_int);
 
+/* Create an INT_CST node with a CST value zero extended.  */
+
+static inline tree
+build_int_cstu (tree type, unsigned HOST_WIDE_INT cst)
+{
+  return double_int_to_tree (type, uhwi_to_double_int (cst));
+}
+
 extern tree build_int_cst (tree, HOST_WIDE_INT);
 extern tree build_int_cst_type (tree, HOST_WIDE_INT);
-extern tree build_int_cstu (tree, unsigned HOST_WIDE_INT);
 extern tree build_int_cst_wide (tree, unsigned HOST_WIDE_INT, HOST_WIDE_INT);
-extern tree build_int_cst_wide_type (tree,
-				     unsigned HOST_WIDE_INT, HOST_WIDE_INT);
 extern tree build_vector (tree, tree);
 extern tree build_vector_from_ctor (tree, VEC(constructor_elt,gc) *);
 extern tree build_constructor (tree, VEC(constructor_elt,gc) *);
@@ -4806,7 +4810,6 @@ extern tree lower_bound_in_type (tree, tree);
 extern int operand_equal_for_phi_arg_p (const_tree, const_tree);
 extern tree call_expr_arg (tree, int);
 extern tree *call_expr_argp (tree, int);
-extern tree call_expr_arglist (tree);
 extern tree create_artificial_label (location_t);
 extern const char *get_name (tree);
 extern bool stdarg_p (tree);
@@ -5074,6 +5077,8 @@ extern location_t *block_nonartificial_location (tree);
 extern location_t tree_nonartificial_location (tree);
 
 extern tree block_ultimate_origin (const_tree);
+
+extern tree get_binfo_at_offset (tree, HOST_WIDE_INT, tree);
 
 /* In tree-nested.c */
 extern tree build_addr (tree, tree);

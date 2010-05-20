@@ -614,7 +614,6 @@ static void
 ipcp_init_stage (void)
 {
   struct cgraph_node *node;
-  struct cgraph_edge *cs;
 
   for (node = cgraph_nodes; node; node = node->next)
     if (node->analyzed)
@@ -623,19 +622,10 @@ ipcp_init_stage (void)
     {
       if (!node->analyzed)
 	continue;
+
+      ipa_analyze_params_uses (node);
       /* building jump functions  */
-      for (cs = node->callees; cs; cs = cs->next_callee)
-	{
-	  /* We do not need to bother analyzing calls to unknown
-	     functions unless they may become known during lto/whopr.  */
-	  if (!cs->callee->analyzed && !flag_lto && !flag_whopr)
-	    continue;
-	  ipa_count_arguments (cs);
-	  if (ipa_get_cs_argument_count (IPA_EDGE_REF (cs))
-	      != ipa_get_param_count (IPA_NODE_REF (cs->callee)))
-	    ipa_set_called_with_variable_arg (IPA_NODE_REF (cs->callee));
-	  ipa_compute_jump_functions (cs);
-	}
+      ipa_compute_jump_functions (node);
     }
 }
 
@@ -917,12 +907,9 @@ ipcp_update_callgraph (void)
 	for (i = 0; i < count; i++)
 	  {
 	    struct ipcp_lattice *lat = ipcp_get_lattice (info, i);
-	    tree parm_tree = ipa_get_param (info, i);
 
 	    /* We can proactively remove obviously unused arguments.  */
-	    if (is_gimple_reg (parm_tree)
-		&& !gimple_default_def (DECL_STRUCT_FUNCTION (orig_node->decl),
-					parm_tree))
+	    if (!ipa_is_param_used (info, i))
 	      {
 		bitmap_set_bit (args_to_skip, i);
 		continue;
@@ -995,12 +982,9 @@ ipcp_estimate_growth (struct cgraph_node *node)
   for (i = 0; i < count; i++)
     {
       struct ipcp_lattice *lat = ipcp_get_lattice (info, i);
-      tree parm_tree = ipa_get_param (info, i);
 
       /* We can proactively remove obviously unused arguments.  */
-      if (is_gimple_reg (parm_tree)
-	  && !gimple_default_def (DECL_STRUCT_FUNCTION (node->decl),
-				  parm_tree))
+      if (!ipa_is_param_used (info, i))
 	removable_args++;
 
       if (lat->type == IPA_CONST_VALUE)
@@ -1068,12 +1052,9 @@ ipcp_const_param_count (struct cgraph_node *node)
   for (i = 0; i < count; i++)
     {
       struct ipcp_lattice *lat = ipcp_get_lattice (info, i);
-      tree parm_tree = ipa_get_param (info, i);
       if (ipcp_lat_is_insertable (lat)
 	  /* Do not count obviously unused arguments.  */
-	  && (!is_gimple_reg (parm_tree)
-	      || gimple_default_def (DECL_STRUCT_FUNCTION (node->decl),
-				     parm_tree)))
+          && ipa_is_param_used (info, i))
 	const_param++;
     }
   return const_param;
@@ -1177,9 +1158,7 @@ ipcp_insert_stage (void)
 	  parm_tree = ipa_get_param (info, i);
 
 	  /* We can proactively remove obviously unused arguments.  */
-	  if (is_gimple_reg (parm_tree)
-	      && !gimple_default_def (DECL_STRUCT_FUNCTION (node->decl),
-				      parm_tree))
+          if (!ipa_is_param_used (info, i))
 	    {
 	      bitmap_set_bit (args_to_skip, i);
 	      continue;

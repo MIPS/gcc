@@ -718,7 +718,7 @@ initiate_bb_reg_pressure_info (basic_block bb)
 
   if (current_nr_blocks > 1)
     FOR_BB_INSNS (bb, insn)
-      if (INSN_P (insn))
+      if (NONDEBUG_INSN_P (insn))
 	setup_ref_regs (PATTERN (insn));
   initiate_reg_pressure_info (df_get_live_in (bb));
 #ifdef EH_RETURN_DATA_REGNO
@@ -1586,7 +1586,8 @@ setup_insn_max_reg_pressure (rtx after, bool update_p)
     max_reg_pressure[ira_reg_class_cover[i]]
       = curr_reg_pressure[ira_reg_class_cover[i]];
   for (insn = NEXT_INSN (after);
-       insn != NULL_RTX && BLOCK_FOR_INSN (insn) == BLOCK_FOR_INSN (after);
+       insn != NULL_RTX && ! BARRIER_P (insn)
+	 && BLOCK_FOR_INSN (insn) == BLOCK_FOR_INSN (after);
        insn = NEXT_INSN (insn))
     if (NONDEBUG_INSN_P (insn))
       {

@@ -1,5 +1,8 @@
 2010-05-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to mainline, subversion id 159645.
+	* REVISION: Update subversion id.
+
 	* config/rs6000/vector.md (div<mode>3): Use new reciprocal
 	estimate interface.
 	(rsqrt<mode>2): Move to rs6000.md.
