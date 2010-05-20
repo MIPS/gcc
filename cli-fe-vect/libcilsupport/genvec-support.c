@@ -170,7 +170,7 @@ genvec_support_VQI_VQI_mask_for_load_Mono_Simd_Vector16sb__System_Int32_System_I
 {
   int i;
   u16qi r;
-  for(i=0; i < 4; i++)
+  for(i=0; i < 16; i++)
     r.a[i] = u->a[i];
   return r.v;
 }
