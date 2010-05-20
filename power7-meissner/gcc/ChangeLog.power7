@@ -1,3 +1,50 @@
+2010-05-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vector.md (div<mode>3): Use new reciprocal
+	estimate interface.
+	(rsqrt<mode>2): Move to rs6000.md.
+	(recip<mode>3): Ditto.
+
+	* config/rs6000/rs6000-c.c (rs6000_cpu_cpp_builtins): Define
+	__RECIP__, __RECIPF__, __RSQRT__, __RSQRTF__ on whether the
+	machine supports the various reciprocal estimate instructions.
+	Define __RECIP_PRECISION__ if the machine has high precision
+	reciprocal estimate instructions.
+
+	* config/rs6000/rs6000.c (rs6000_recip_bits): New global, combine
+	rs6000_recip_div_p, rs6000_recip_rsqrt_p.
+	(rs6000_recip_div_p): Delete.
+	(rs6000_recip_rsqrt_p): Ditto.
+	(rs6000_recip_control): Make static.
+	(rs6000_debug_reg_global): Use new RS6000_RECIP_*_P macros.
+	(rs6000_init_hard_regno_mode_ok): Initialize rs6000_recip_bits
+	instead of rs6000_recip_div_p and rs6000_recip_rsqrt_p.
+	(rs6000_builtin_reciprocal): Use RS6000_RECIP_AUTO_RSQRTE_P macro
+	instead of rs6000_recip_rsqrt_p.
+	(rs6000_load_constant_and_splat): Reorganize code.
+	(rs6000_emit_swdiv_high_precision): Ditto.
+	(rs6000_emit_swdiv_low_precision): Ditto.
+
+	* config/rs6000/rs6000.h (TARGET_FRE): Also allow -mvsx.
+	(TARGET_RSQRT): Ditto.
+	(rs6000_recip_div_p): Delete.
+	(rs6000_recip_rsqrt_p): Ditto.
+	(rs6000_recip_control): Ditto.
+	(rs6000_recip_bits): Combine rs6000_recip_{div,rsqrt}_p.
+	(RS600_RECIP_*_P): New macros for whether RE/RSQRTE exist and
+	whether the compiler should automatically use them.
+
+	* config/rs6000/rs6000.md (RECIPF): New iterator for reciprocal
+	estimate instructions.
+	(divsf): Adjust using reciprocal estimate instruction.
+	(divdf): Ditto.
+	(recip<mode>3): Create common defintion, combining old defs.
+	(rsqrt<mode>2): Ditto.
+	(recipsf3): Delete.
+	(rsqrtsf2): Ditto.
+	(recipdf3): Ditto.
+	(rsqrtdf2): Ditto.
+
 2010-05-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* doc/invoke.texi (RS/6000 and PowerPC Options): Document

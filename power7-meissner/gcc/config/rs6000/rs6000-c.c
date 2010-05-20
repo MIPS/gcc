@@ -363,8 +363,14 @@ rs6000_cpu_cpp_builtins (cpp_reader *pfile)
       builtin_define ("__builtin_vsx_xvnmsubasp=__builtin_vsx_xvnmsubsp");
       builtin_define ("__builtin_vsx_xvnmsubmsp=__builtin_vsx_xvnmsubsp");
     }
-  if (rs6000_recip_control)
+  if (RS6000_RECIP_HAVE_RE_P (DFmode))
     builtin_define ("__RECIP__");
+  if (RS6000_RECIP_HAVE_RE_P (SFmode))
+    builtin_define ("__RECIPF__");
+  if (RS6000_RECIP_HAVE_RSQRTE_P (DFmode))
+    builtin_define ("__RSQRTE__");
+  if (RS6000_RECIP_HAVE_RSQRTE_P (SFmode))
+    builtin_define ("__RSQRTEF__");
   if (TARGET_RECIP_PRECISION)
     builtin_define ("__RECIP_PRECISION__");
 

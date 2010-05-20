@@ -320,8 +320,7 @@ static GTY(()) tree builtin_mode_to_type[MAX_MACHINE_MODE][2];
 
 /* What modes to automatically generate reciprocal divide estimate (fre) and
    reciprocal sqrt (frsqrte) for.  */
-unsigned char rs6000_recip_div_p[MAX_MACHINE_MODE];
-unsigned char rs6000_recip_rsqrt_p[MAX_MACHINE_MODE];
+unsigned char rs6000_recip_bits[MAX_MACHINE_MODE];
 
 /* Masks to determine which reciprocal esitmate instructions to generate
    automatically.  */
@@ -349,7 +348,7 @@ enum rs6000_recip_mask {
   RECIP_LOW_PRECISION	= (RECIP_ALL & ~(RECIP_DF_RSQRT | RECIP_V2DF_RSQRT))
 };
 
-unsigned int rs6000_recip_control;
+static unsigned int rs6000_recip_control;
 static const char *rs6000_recip_name;
 
 /* -mrecip options.  */
@@ -1878,13 +1877,17 @@ rs6000_debug_reg_global (void)
       fprintf (stderr, "\nReciprocal mask = 0x%x\n", rs6000_recip_control);
 
       for (m = 0; m < NUM_MACHINE_MODES; ++m)
-	if (rs6000_recip_div_p[m] || rs6000_recip_rsqrt_p[m])
+	if (rs6000_recip_bits[m])
 	  {
 	    fprintf (stderr,
 		     "Reciprocal estimate mode: %-5s divide: %s rsqrt: %s\n",
 		     GET_MODE_NAME (m),
-		     rs6000_recip_div_p[m] ? "yes," : "no, ",
-		     rs6000_recip_rsqrt_p[m] ? "yes" : "no");
+		     (RS6000_RECIP_AUTO_RE_P (m)
+		      ? "auto"
+		      : (RS6000_RECIP_HAVE_RE_P (m) ? "have" : "none")),
+		     (RS6000_RECIP_AUTO_RSQRTE_P (m)
+		      ? "auto"
+		      : (RS6000_RECIP_HAVE_RSQRTE_P (m) ? "have" : "none")));
 	  }
 
       fputs ("\n", stderr);
@@ -2182,8 +2185,24 @@ rs6000_init_hard_regno_mode_ok (void)
      automatically generate the instructions even if the user did not specify
      -mrecip.  The older machines double precision reciprocal sqrt estimate is
      not accurate enough.  */
-  memset (rs6000_recip_div_p, 0, sizeof (rs6000_recip_div_p));
-  memset (rs6000_recip_rsqrt_p, 0, sizeof (rs6000_recip_rsqrt_p));
+  memset (rs6000_recip_bits, 0, sizeof (rs6000_recip_bits));
+  if (TARGET_FRES)
+    rs6000_recip_bits[SFmode] = RS6000_RECIP_MASK_HAVE_RE;
+  if (TARGET_FRE)
+    rs6000_recip_bits[DFmode] = RS6000_RECIP_MASK_HAVE_RE;
+  if (VECTOR_UNIT_ALTIVEC_OR_VSX_P (V4SFmode))
+    rs6000_recip_bits[V4SFmode] = RS6000_RECIP_MASK_HAVE_RE;
+  if (VECTOR_UNIT_VSX_P (V2DFmode))
+    rs6000_recip_bits[V2DFmode] = RS6000_RECIP_MASK_HAVE_RE;
+
+  if (TARGET_RSQRTF)
+    rs6000_recip_bits[SFmode] |= RS6000_RECIP_MASK_HAVE_RSQRTE;
+  if (TARGET_RSQRT)
+    rs6000_recip_bits[DFmode] |= RS6000_RECIP_MASK_HAVE_RSQRTE;
+  if (VECTOR_UNIT_ALTIVEC_OR_VSX_P (V4SFmode))
+    rs6000_recip_bits[V4SFmode] |= RS6000_RECIP_MASK_HAVE_RSQRTE;
+  if (VECTOR_UNIT_VSX_P (V2DFmode))
+    rs6000_recip_bits[V2DFmode] |= RS6000_RECIP_MASK_HAVE_RSQRTE;
 
   if (rs6000_recip_control)
     {
@@ -2195,31 +2214,38 @@ rs6000_init_hard_regno_mode_ok (void)
 	      || !flag_reciprocal_math)
 	    warning (0, "-ffast-math is suggested with -mrecip");
 
-	  if (TARGET_FRES && (rs6000_recip_control & RECIP_SF_DIV) != 0)
-	    rs6000_recip_div_p[SFmode] = 1;
+	  if (RS6000_RECIP_HAVE_RE_P (SFmode)
+	      && (rs6000_recip_control & RECIP_SF_DIV) != 0)
+	    rs6000_recip_bits[SFmode] |= RS6000_RECIP_MASK_AUTO_RE;
 
-	  if (TARGET_FRE && (rs6000_recip_control & RECIP_DF_DIV) != 0)
-	    rs6000_recip_div_p[DFmode] = 1;
+	  if (RS6000_RECIP_HAVE_RE_P (DFmode)
+	      && (rs6000_recip_control & RECIP_DF_DIV) != 0)
+	    rs6000_recip_bits[DFmode] |= RS6000_RECIP_MASK_AUTO_RE;
 
-	  if (TARGET_ALTIVEC && (rs6000_recip_control & RECIP_V4SF_DIV) != 0)
-	    rs6000_recip_div_p[V4SFmode] = 1;
+	  if (RS6000_RECIP_HAVE_RE_P (V4SFmode)
+	      && (rs6000_recip_control & RECIP_V4SF_DIV) != 0)
+	    rs6000_recip_bits[V4SFmode] |= RS6000_RECIP_MASK_AUTO_RE;
 
-	  if (TARGET_VSX && (rs6000_recip_control & RECIP_V2DF_DIV) != 0)
-	    rs6000_recip_div_p[V2DFmode] = 1;
+	  if (RS6000_RECIP_HAVE_RE_P (V2DFmode)
+	      && (rs6000_recip_control & RECIP_V2DF_DIV) != 0)
+	    rs6000_recip_bits[V2DFmode] |= RS6000_RECIP_MASK_AUTO_RE;
 
-	  if (TARGET_RSQRTF && (rs6000_recip_control & RECIP_SF_RSQRT) != 0)
-	    rs6000_recip_rsqrt_p[SFmode] = 1;
+	  if (RS6000_RECIP_HAVE_RSQRTE_P (SFmode)
+	      && (rs6000_recip_control & RECIP_SF_RSQRT) != 0)
+	    rs6000_recip_bits[SFmode] |= RS6000_RECIP_MASK_AUTO_RSQRTE;
 
-	  if (TARGET_RSQRT && (rs6000_recip_control & RECIP_DF_RSQRT) != 0
-	      && (TARGET_RECIP_PRECISION
-		  || (rs6000_recip_control & RECIP_LOW_PRECISION) != 0))
-	    rs6000_recip_rsqrt_p[DFmode] = 1;
+	  if (RS6000_RECIP_HAVE_RSQRTE_P (DFmode)
+	      && (rs6000_recip_control & RECIP_DF_RSQRT) != 0
+	      && TARGET_RECIP_PRECISION)
+	    rs6000_recip_bits[DFmode] |= RS6000_RECIP_MASK_AUTO_RSQRTE;
 
-	  if (TARGET_ALTIVEC && (rs6000_recip_control & RECIP_V4SF_RSQRT) != 0)
-	    rs6000_recip_rsqrt_p[V4SFmode] = 1;
+	  if (RS6000_RECIP_HAVE_RSQRTE_P (V4SFmode)
+	      && (rs6000_recip_control & RECIP_V4SF_RSQRT) != 0)
+	    rs6000_recip_bits[V4SFmode] |= RS6000_RECIP_MASK_AUTO_RSQRTE;
 
-	  if (TARGET_VSX && (rs6000_recip_control & RECIP_V2DF_RSQRT) != 0)
-	    rs6000_recip_rsqrt_p[V2DFmode] = 1;
+	  if (RS6000_RECIP_HAVE_RSQRTE_P (V2DFmode)
+	      && (rs6000_recip_control & RECIP_V2DF_RSQRT) != 0)
+	    rs6000_recip_bits[V2DFmode] |= RS6000_RECIP_MASK_AUTO_RSQRTE;
 	}
     }
 
@@ -25398,13 +25424,13 @@ rs6000_builtin_reciprocal (unsigned int fn, bool md_fn,
     switch (fn)
       {
       case VSX_BUILTIN_XVSQRTDP:
-	if (!rs6000_recip_rsqrt_p[V2DFmode])
+	if (!RS6000_RECIP_AUTO_RSQRTE_P (V2DFmode))
 	  return NULL_TREE;
 
 	return rs6000_builtin_decls[VSX_BUILTIN_VEC_RSQRT_V2DF];
 
       case VSX_BUILTIN_XVSQRTSP:
-	if (!rs6000_recip_rsqrt_p[V4SFmode])
+	if (!RS6000_RECIP_AUTO_RSQRTE_P (V4SFmode))
 	  return NULL_TREE;
 
 	return rs6000_builtin_decls[VSX_BUILTIN_VEC_RSQRT_V4SF];
@@ -25417,13 +25443,13 @@ rs6000_builtin_reciprocal (unsigned int fn, bool md_fn,
     switch (fn)
       {
       case BUILT_IN_SQRT:
-	if (!rs6000_recip_rsqrt_p[DFmode])
+	if (!RS6000_RECIP_AUTO_RSQRTE_P (DFmode))
 	  return NULL_TREE;
 
 	return rs6000_builtin_decls[RS6000_BUILTIN_RSQRT];
 
       case BUILT_IN_SQRTF:
-	if (!rs6000_recip_rsqrt_p[SFmode])
+	if (!RS6000_RECIP_AUTO_RSQRTE_P (SFmode))
 	  return NULL_TREE;
 
 	return rs6000_builtin_decls[RS6000_BUILTIN_RSQRTF];
@@ -25441,21 +25467,22 @@ rs6000_load_constant_and_splat (enum machine_mode mode, REAL_VALUE_TYPE dconst)
 {
   rtx reg;
 
-  if (SCALAR_FLOAT_MODE_P (mode))
+  if (mode == SFmode || mode == DFmode)
     {
       rtx d = CONST_DOUBLE_FROM_REAL_VALUE (dconst, mode);
       reg = force_reg (mode, d);
     }
-  else if (VECTOR_MODE_P (mode))
+  else if (mode == V4SFmode)
     {
-      enum machine_mode inner = GET_MODE_INNER (mode);
-      int n_element = (int) (GET_MODE_SIZE (mode) / GET_MODE_SIZE (inner));
-      rtx d = CONST_DOUBLE_FROM_REAL_VALUE (dconst, inner);
-      rtvec v = rtvec_alloc (n_element);
-      int i;
-
-      for (i = 0; i < n_element; i++)
-	RTVEC_ELT (v, i) = d;
+      rtx d = CONST_DOUBLE_FROM_REAL_VALUE (dconst, SFmode);
+      rtvec v = gen_rtvec (4, d, d, d, d);
+      reg = gen_reg_rtx (mode);
+      rs6000_expand_vector_init (reg, gen_rtx_PARALLEL (mode, v));
+    }
+  else if (mode == V2DFmode)
+    {
+      rtx d = CONST_DOUBLE_FROM_REAL_VALUE (dconst, DFmode);
+      rtvec v = gen_rtvec (2, d, d);
       reg = gen_reg_rtx (mode);
       rs6000_expand_vector_init (reg, gen_rtx_PARALLEL (mode, v));
     }
@@ -25582,30 +25609,34 @@ static void
 rs6000_emit_swdiv_high_precision (rtx dst, rtx n, rtx d)
 {
   enum machine_mode mode = GET_MODE (dst);
-  rtx x0, e0, e1, y1, u0, v0, one;
+  rtx x0, e0, e1, y1, u0, v0;
   enum insn_code code = optab_handler (smul_optab, mode)->insn_code;
   gen_2arg_fn_t gen_mul = (gen_2arg_fn_t) GEN_FCN (code);
+  rtx one = rs6000_load_constant_and_splat (mode, dconst1);
 
   gcc_assert (code != CODE_FOR_nothing);
 
-  x0 = gen_reg_rtx (mode);
-  e0 = gen_reg_rtx (mode);
-  e1 = gen_reg_rtx (mode);
-  y1 = gen_reg_rtx (mode);
-  u0 = gen_reg_rtx (mode);
-  v0 = gen_reg_rtx (mode);
-  one = rs6000_load_constant_and_splat (mode, dconst1);
-
   /* x0 = 1./d estimate */
+  x0 = gen_reg_rtx (mode);
   emit_insn (gen_rtx_SET (VOIDmode, x0,
 			  gen_rtx_UNSPEC (mode, gen_rtvec (1, d),
 					  UNSPEC_FRES)));
 
+  e0 = gen_reg_rtx (mode);
   rs6000_emit_nmsub (e0, d, x0, one);		/* e0 = 1. - (d * x0) */
+
+  e1 = gen_reg_rtx (mode);
   rs6000_emit_madd (e1, e0, e0, e0);		/* e1 = (e0 * e0) + e0 */
+
+  y1 = gen_reg_rtx (mode);
   rs6000_emit_madd (y1, e1, x0, x0);		/* y1 = (e1 * x0) + x0 */
+
+  u0 = gen_reg_rtx (mode);
   emit_insn (gen_mul (u0, n, y1));		/* u0 = n * y1 */
+
+  v0 = gen_reg_rtx (mode);
   rs6000_emit_nmsub (v0, d, u0, n);		/* v0 = n - (d * u0) */
+
   rs6000_emit_madd (dst, v0, y1, u0);		/* dst = (v0 * y1) + u0 */
 }
 
@@ -25622,30 +25653,38 @@ rs6000_emit_swdiv_low_precision (rtx dst, rtx n, rtx d)
 
   gcc_assert (code != CODE_FOR_nothing);
 
-  x0 = gen_reg_rtx (mode);
-  e0 = gen_reg_rtx (mode);
-  e1 = gen_reg_rtx (mode);
-  y1 = gen_reg_rtx (mode);
-  y2 = gen_reg_rtx (mode);
-  e2 = gen_reg_rtx (mode);
-  y3 = gen_reg_rtx (mode);
-  u0 = gen_reg_rtx (mode);
-  v0 = gen_reg_rtx (mode);
   one = rs6000_load_constant_and_splat (mode, dconst1);
 
   /* x0 = 1./d estimate */
+  x0 = gen_reg_rtx (mode);
   emit_insn (gen_rtx_SET (VOIDmode, x0,
 			  gen_rtx_UNSPEC (mode, gen_rtvec (1, d),
 					  UNSPEC_FRES)));
 
+  e0 = gen_reg_rtx (mode);
   rs6000_emit_nmsub (e0, d, x0, one);		/* e0 = 1. - d * x0 */
+
+  y1 = gen_reg_rtx (mode);
   rs6000_emit_madd (y1, e0, x0, x0);		/* y1 = x0 + e0 * x0 */
+
+  e1 = gen_reg_rtx (mode);
   emit_insn (gen_mul (e1, e0, e0));		/* e1 = e0 * e0 */
+
+  y2 = gen_reg_rtx (mode);
   rs6000_emit_madd (y2, e1, y1, y1);		/* y2 = y1 + e1 * y1 */
+
+  e2 = gen_reg_rtx (mode);
   emit_insn (gen_mul (e2, e1, e1));		/* e2 = e1 * e1 */
+
+  y3 = gen_reg_rtx (mode);
   rs6000_emit_madd (y3, e2, y2, y2);		/* y3 = y2 + e2 * y2 */
+
+  u0 = gen_reg_rtx (mode);
   emit_insn (gen_mul (u0, n, y3));		/* u0 = n * y3 */
+
+  v0 = gen_reg_rtx (mode);
   rs6000_emit_nmsub (v0, d, u0, n);		/* v0 = n - d * u0 */
+
   rs6000_emit_madd (dst, v0, y3, u0);		/* dst = u0 + v0 * y3 */
 }
 
@@ -25658,7 +25697,7 @@ rs6000_emit_swdiv (rtx dst, rtx n, rtx d)
 {
   enum machine_mode mode = GET_MODE (dst);
 
-  if (mode == SFmode || mode == V4SFmode || TARGET_RECIP_PRECISION)
+  if (RS6000_RECIP_HIGH_PRECISION_P (mode))
     rs6000_emit_swdiv_high_precision (dst, n, d);
   else
     rs6000_emit_swdiv_low_precision (dst, n, d);
