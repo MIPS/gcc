@@ -281,6 +281,7 @@ gimple_build_call_from_tree (tree t)
   gimple_call_set_return_slot_opt (call, CALL_EXPR_RETURN_SLOT_OPT (t));
   gimple_call_set_from_thunk (call, CALL_FROM_THUNK_P (t));
   gimple_call_set_va_arg_pack (call, CALL_EXPR_VA_ARG_PACK (t));
+  gimple_call_set_nothrow (call, TREE_NOTHROW (t));
   gimple_set_no_warning (call, TREE_NO_WARNING (t));
 
   return call;
@@ -620,7 +621,7 @@ gimple_build_eh_filter (tree types, gimple_seq failure)
 gimple
 gimple_build_eh_must_not_throw (tree decl)
 {
-  gimple p = gimple_alloc (GIMPLE_EH_MUST_NOT_THROW, 1);
+  gimple p = gimple_alloc (GIMPLE_EH_MUST_NOT_THROW, 0);
 
   gcc_assert (TREE_CODE (decl) == FUNCTION_DECL);
   gcc_assert (flags_from_decl_or_type (decl) & ECF_NORETURN);
@@ -1732,6 +1733,9 @@ gimple_call_flags (const_gimple stmt)
       else
 	flags = 0;
     }
+
+  if (stmt->gsbase.subcode & GF_CALL_NOTHROW)
+    flags |= ECF_NOTHROW;
 
   return flags;
 }
@@ -4559,7 +4563,8 @@ gimple_ior_addresses_taken (bitmap addresses_taken, gimple stmt)
 const char *
 gimple_decl_printable_name (tree decl, int verbosity)
 {
-  gcc_assert (decl && DECL_NAME (decl));
+  if (!DECL_NAME (decl))
+    return NULL;
 
   if (DECL_ASSEMBLER_NAME_SET_P (decl))
     {

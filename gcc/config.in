@@ -309,6 +309,18 @@
 #endif
 
 
+/* Define if your assembler supports the .quad directive. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_IX86_QUAD
+#endif
+
+
+/* Define true if the assembler supports 'rep <insn>, lock <insn>'. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_IX86_REP_LOCK_PREFIX
+#endif
+
+
 /* Define if your assembler supports the sahf mnemonic. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_AS_IX86_SAHF
@@ -1658,6 +1670,12 @@
    still efficiently supported by the host hardware. */
 #ifndef USED_FOR_TARGET
 #undef USE_LONG_LONG_FOR_WIDEST_FAST_INT
+#endif
+
+
+/* Define if we should use leading underscore on 64 bit mingw targets */
+#ifndef USED_FOR_TARGET
+#undef USE_MINGW64_LEADING_UNDERSCORES
 #endif
 
 

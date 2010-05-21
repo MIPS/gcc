@@ -1565,6 +1565,12 @@ iterative_hash_template_arg (tree arg, hashval_t val)
       val = iterative_hash_template_arg (TREE_TYPE (arg), val);
       return iterative_hash_template_arg (TYPE_DOMAIN (arg), val);
 
+    case LAMBDA_EXPR:
+      /* A lambda can't appear in a template arg, but don't crash on
+	 erroneous input.  */
+      gcc_assert (errorcount > 0);
+      return val;
+
     default:
       switch (tclass)
 	{
@@ -3722,15 +3728,17 @@ maybe_update_decl_type (tree orig_type, tree scope)
 	 TYPENAME_TYPEs and SCOPE_REFs that were previously dependent.  */
       tree args = current_template_args ();
       tree auto_node = type_uses_auto (type);
+      tree pushed;
       if (auto_node)
 	{
 	  tree auto_vec = make_tree_vec (1);
 	  TREE_VEC_ELT (auto_vec, 0) = auto_node;
 	  args = add_to_template_args (args, auto_vec);
 	}
-      push_scope (scope);
+      pushed = push_scope (scope);
       type = tsubst (type, args, tf_warning_or_error, NULL_TREE);
-      pop_scope (scope);
+      if (pushed)
+	pop_scope (scope);
     }
 
   if (type == error_mark_node)
@@ -10462,6 +10470,7 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 				     in_decl, /*entering_scope=*/1);
 	tree f = tsubst_copy (TYPENAME_TYPE_FULLNAME (t), args,
 			      complain, in_decl);
+	int quals;
 
 	if (ctx == error_mark_node || f == error_mark_node)
 	  return error_mark_node;
@@ -10512,8 +10521,15 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 		     t, f);
 	  }
 
-	return cp_build_qualified_type_real
-	  (f, cp_type_quals (f) | cp_type_quals (t), complain);
+	/* cv-quals from the template are discarded when
+	   substituting in a function or reference type.  */
+	if (TREE_CODE (f) == FUNCTION_TYPE
+	    || TREE_CODE (f) == METHOD_TYPE
+	    || TREE_CODE (f) == REFERENCE_TYPE)
+	  quals = cp_type_quals (f);
+	else
+	  quals = cp_type_quals (f) | cp_type_quals (t);
+	return cp_build_qualified_type_real (f, quals, complain);
       }
 
     case UNBOUND_CLASS_TEMPLATE:
@@ -15925,11 +15941,12 @@ most_specialized_class (tree type, tree tmpl)
       tree parms = TREE_VALUE (t);
 
       partial_spec_args = CLASSTYPE_TI_ARGS (TREE_TYPE (t));
+
+      ++processing_template_decl;
+
       if (outer_args)
 	{
 	  int i;
-
-	  ++processing_template_decl;
 
 	  /* Discard the outer levels of args, and then substitute in the
 	     template args from the enclosing class.  */
@@ -15947,7 +15964,6 @@ most_specialized_class (tree type, tree tmpl)
 	    TREE_VEC_ELT (parms, i) =
 	      tsubst (TREE_VEC_ELT (parms, i), outer_args, tf_none, NULL_TREE);
 
-	  --processing_template_decl;
 	}
 
       partial_spec_args =
@@ -15957,6 +15973,8 @@ most_specialized_class (tree type, tree tmpl)
 				 tmpl, tf_none,
 				 /*require_all_args=*/true,
 				 /*use_default_args=*/true);
+
+      --processing_template_decl;
 
       if (partial_spec_args == error_mark_node)
 	return error_mark_node;

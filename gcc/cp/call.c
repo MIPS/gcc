@@ -447,6 +447,7 @@ struct z_candidate {
      indicated by the CONVERSION_PATH.  */
   tree conversion_path;
   tree template_decl;
+  tree explicit_targs;
   candidate_warning *warnings;
   z_candidate *next;
 };
@@ -2586,6 +2587,7 @@ add_template_candidate_real (struct z_candidate **candidates, tree tmpl,
     cand->template_decl = build_template_info (tmpl, targs);
   else
     cand->template_decl = DECL_TEMPLATE_INFO (fn);
+  cand->explicit_targs = explicit_targs;
 
   return cand;
 }
@@ -5638,6 +5640,7 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
        parm = TREE_CHAIN (parm), ++arg_index, ++i)
     {
       tree type = TREE_VALUE (parm);
+      tree arg = VEC_index (tree, args, arg_index);
 
       conv = convs[i];
 
@@ -5652,7 +5655,8 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
       if (cxx_dialect > cxx98
 	  && flag_deduce_init_list
 	  && cand->template_decl
-	  && is_std_init_list (non_reference (type)))
+	  && is_std_init_list (non_reference (type))
+	  && BRACE_ENCLOSED_INITIALIZER_P (arg))
 	{
 	  tree tmpl = TI_TEMPLATE (cand->template_decl);
 	  tree realparm = chain_index (j, DECL_ARGUMENTS (cand->fn));
@@ -5662,7 +5666,10 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
 	    pattype = PACK_EXPANSION_PATTERN (pattype);
 	  pattype = non_reference (pattype);
 
-	  if (!is_std_init_list (pattype))
+	  if (TREE_CODE (pattype) == TEMPLATE_TYPE_PARM
+	      && (cand->explicit_targs == NULL_TREE
+		  || (TREE_VEC_LENGTH (cand->explicit_targs)
+		      <= TEMPLATE_TYPE_IDX (pattype))))
 	    {
 	      pedwarn (input_location, 0, "deducing %qT as %qT",
 		       non_reference (TREE_TYPE (patparm)),
@@ -5673,9 +5680,7 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
 	    }
 	}
 
-      val = convert_like_with_context
-	(conv, VEC_index (tree, args, arg_index), fn, i - is_method,
-	 complain);
+      val = convert_like_with_context (conv, arg, fn, i-is_method, complain);
 
       val = convert_for_arg_passing (type, val);
       if (val == error_mark_node)
@@ -5747,7 +5752,8 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
 	}
       /* [class.copy]: the copy constructor is implicitly defined even if
 	 the implementation elided its use.  */
-      else if (TYPE_HAS_COMPLEX_INIT_REF (DECL_CONTEXT (fn)))
+      else if (TYPE_HAS_COMPLEX_INIT_REF (DECL_CONTEXT (fn))
+	       || move_fn_p (fn))
 	{
 	  mark_used (fn);
 	  already_used = true;
@@ -5765,7 +5771,8 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
 	{
 	  if (TREE_CODE (arg) == TARGET_EXPR)
 	    return arg;
-	  else if (TYPE_HAS_TRIVIAL_INIT_REF (DECL_CONTEXT (fn)))
+	  else if (TYPE_HAS_TRIVIAL_INIT_REF (DECL_CONTEXT (fn))
+		   && !move_fn_p (fn))
 	    return build_target_expr_with_type (arg, DECL_CONTEXT (fn));
 	}
       else if (TREE_CODE (arg) == TARGET_EXPR
@@ -5774,20 +5781,8 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
 	{
 	  tree to = stabilize_reference (cp_build_indirect_ref (fa, RO_NULL,
 								complain));
-	  tree type = TREE_TYPE (to);
 
-	  if (TREE_CODE (arg) != TARGET_EXPR
-	      && TREE_CODE (arg) != AGGR_INIT_EXPR
-	      && is_really_empty_class (type))
-	    {
-	      /* Avoid copying empty classes.  */
-	      val = build2 (COMPOUND_EXPR, void_type_node, to, arg);
-	      TREE_NO_WARNING (val) = 1;
-	      val = build2 (COMPOUND_EXPR, type, val, to);
-	      TREE_NO_WARNING (val) = 1;
-	    }
-	  else
-	    val = build2 (INIT_EXPR, DECL_CONTEXT (fn), to, arg);
+	  val = build2 (INIT_EXPR, DECL_CONTEXT (fn), to, arg);
 	  return val;
 	}
     }

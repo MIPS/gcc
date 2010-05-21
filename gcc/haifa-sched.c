@@ -718,7 +718,7 @@ initiate_bb_reg_pressure_info (basic_block bb)
 
   if (current_nr_blocks > 1)
     FOR_BB_INSNS (bb, insn)
-      if (INSN_P (insn))
+      if (NONDEBUG_INSN_P (insn))
 	setup_ref_regs (PATTERN (insn));
   initiate_reg_pressure_info (df_get_live_in (bb));
 #ifdef EH_RETURN_DATA_REGNO
@@ -1695,6 +1695,7 @@ schedule_insn (rtx insn)
 	 sd_iterator_cond (&sd_it, &dep);)
       {
 	rtx dbg = DEP_PRO (dep);
+	struct reg_use_data *use, *next;
 
 	gcc_assert (DEBUG_INSN_P (dbg));
 
@@ -1715,6 +1716,14 @@ schedule_insn (rtx insn)
 	   temps introduced won't survive the schedule change.  */
 	INSN_VAR_LOCATION_LOC (dbg) = gen_rtx_UNKNOWN_VAR_LOC ();
 	df_insn_rescan (dbg);
+
+	/* Unknown location doesn't use any registers.  */
+	for (use = INSN_REG_USE_LIST (dbg); use != NULL; use = next)
+	  {
+	    next = use->next_insn_use;
+	    free (use);
+	  }
+	INSN_REG_USE_LIST (dbg) = NULL;
 
 	/* We delete rather than resolve these deps, otherwise we
 	   crash in sched_free_deps(), because forward deps are

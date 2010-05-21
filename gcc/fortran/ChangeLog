@@ -1,3 +1,106 @@
+2010-05-19  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/43591
+	* expr.c (gfc_is_constant_expr, gfc_traverse_expr): Handle
+	proc-pointers and type-bound procedures.
+	(gfc_specification_expr): Check proc-pointers for pureness.
+
+2010-05-14  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/44135
+	* fortran/interface.c (get_sym_storage_size): Use signed instead of
+	unsigned mpz_get_?i routines.
+
+2010-05-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/44036
+	* openmp.c (resolve_omp_clauses): Allow procedure pointers in clause
+	variable lists.
+	* trans-openmp.c (gfc_omp_privatize_by_reference): Don't privatize
+	by reference dummy procedures or non-dummy procedure pointers.
+	(gfc_omp_predetermined_sharing): Return
+	OMP_CLAUSE_DEFAULT_FIRSTPRIVATE for dummy procedures.
+
+2010-05-12  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/40728
+	* intrinc.c (gfc_is_intrinsic): Do not prematurely mark symbol
+	as external.
+
+2010-05-06  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/43985
+	* trans-types.c (gfc_sym_type): Mark Cray pointees as
+	GFC_POINTER_TYPE_P.
+
+2010-05-05  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/43592
+	* fortran/parse.c (parse_interface): Do not dereference a NULL pointer.
+
+2010-04-25  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR fortran/40539
+	* gcc/fortran/gfortran.texi: Add section about representation of
+	LOGICAL variables.
+
+2010-04-24  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/30073
+	PR fortran/43793
+	* trans-array.c (gfc_trans_array_bound_check): Use TREE_CODE instead
+	of mucking with a tree directly.
+
+2010-04-24  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/43227
+	* resolve.c (resolve_fl_derived): If a component character
+	length has not been resolved, do so now.
+	(resolve_symbol): The same as above for a symbol character
+	length.
+	* trans-decl.c (gfc_create_module_variable): A 'length' decl is
+	not needed for a character valued, procedure pointer.
+
+	PR fortran/43266
+	* resolve.c (ensure_not_abstract_walker): If 'overriding' is
+	not found, return FAILURE rather than ICEing.
+
+2010-04-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/43836
+	* f95-lang.c (gfc_define_builtin): Set TREE_NOTHROW on
+	the decl.
+
+2010-04-20  Harald Anlauf  <anlauf@gmx.de>
+
+	* intrinsic.c (sort_actual): Remove 'is' in error message.
+
+2010-04-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/43339
+	* openmp.c (gfc_resolve_do_iterator): Only make iteration vars for
+	sequential loops private in the innermost containing task region.
+
+2010-04-17  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/31538
+	* fortran/trans-array.c (gfc_conv_ss_startstride): Remove the use of
+	gfc_msg_bounds by using 'Array bound mismatch' directly.
+	(gfc_trans_dummy_array_bias):  Remove the use of gfc_msg_bounds.  Reword
+	error message to include the mismatch in the extent of array bound.
+	* fortran/trans.c: Remove gfc_msg_bounds.  It is only used in one place.
+	* fortran/trans.h: Remove extern definition of gfc_msg_bounds.
+
+2010-04-16  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/30073
+	* trans-array.c (gfc_trans_array_bound_check): Eliminate a redundant
+	block of code.  Set name to the variable associated with the descriptor.
+
+2010-04-14  Release Manager
+
+	* GCC 4.5.0 released.
+
 2010-03-31  Paul Thomas  <pault@gcc.gnu.org>
 
 	* ioparm.def : Update copyright.
