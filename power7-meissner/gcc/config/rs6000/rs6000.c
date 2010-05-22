@@ -361,25 +361,12 @@ static struct
   { "none",	 RECIP_NONE },
   { "div",	 (RECIP_SF_DIV | RECIP_DF_DIV | RECIP_V4SF_DIV
 		  | RECIP_V2DF_DIV) },
-  { "fdiv",	 (RECIP_SF_DIV | RECIP_V4SF_DIV) },
-  { "ddiv",	 (RECIP_DF_DIV | RECIP_V2DF_DIV) },
+  { "divf",	 (RECIP_SF_DIV | RECIP_V4SF_DIV) },
+  { "divd",	 (RECIP_DF_DIV | RECIP_V2DF_DIV) },
   { "rsqrt",	 (RECIP_SF_RSQRT | RECIP_DF_RSQRT | RECIP_V4SF_RSQRT
 		  | RECIP_V2DF_RSQRT) },
-  { "frsqrt",	 (RECIP_SF_RSQRT | RECIP_V4SF_RSQRT) },
-  { "drsqrt",	 (RECIP_DF_RSQRT | RECIP_V2DF_RSQRT) },
-  { "fres",	 RECIP_SF_DIV },
-  { "fre",	 RECIP_DF_DIV },
-  { "xsredp",	 RECIP_DF_DIV },
-  { "vredp",	 RECIP_V4SF_DIV },
-  { "xvresp",	 RECIP_V4SF_DIV },
-  { "xvresp",	 RECIP_V4SF_DIV },
-  { "xvredp",	 RECIP_V2DF_DIV },
-  { "frsqrtes",	 RECIP_SF_RSQRT },
-  { "frsqrte",	 RECIP_DF_RSQRT },
-  { "xsrsqrtdp", RECIP_DF_RSQRT },
-  { "vrsqrtfp",	 RECIP_V4SF_RSQRT },
-  { "xvrsqrtsp", RECIP_V4SF_RSQRT },
-  { "xvrsqrtdp", RECIP_V2DF_RSQRT },
+  { "rsqrtf",	 (RECIP_SF_RSQRT | RECIP_V4SF_RSQRT) },
+  { "rsqrtd",	 (RECIP_DF_RSQRT | RECIP_V2DF_RSQRT) },
 };
 
 /* 2 argument gen function typedef.  */
@@ -2207,13 +2194,16 @@ rs6000_init_hard_regno_mode_ok (void)
   if (rs6000_recip_control)
     {
       if (!TARGET_FUSED_MADD)
-	error ("-mrecip requires -mfused-madd");
-      else
+	warning (0, "-mrecip requires -mfused-madd");
+      if (!flag_finite_math_only)
+	warning (0, "-mrecip requires -ffinite-math or -ffast-math");
+      if (flag_trapping_math)
+	warning (0, "-mrecip requires -fno-trapping-math or -ffast-math");
+      if (!flag_reciprocal_math)
+	warning (0, "-mrecip requires -freciprocal-math or -ffast-math");
+      if (TARGET_FUSED_MADD && flag_finite_math_only && !flag_trapping_math
+	  && flag_reciprocal_math)
 	{
-	  if (!flag_finite_math_only || flag_trapping_math
-	      || !flag_reciprocal_math)
-	    warning (0, "-ffast-math is suggested with -mrecip");
-
 	  if (RS6000_RECIP_HAVE_RE_P (SFmode)
 	      && (rs6000_recip_control & RECIP_SF_DIV) != 0)
 	    rs6000_recip_bits[SFmode] |= RS6000_RECIP_MASK_AUTO_RE;
@@ -25688,12 +25678,12 @@ rs6000_emit_swdiv_low_precision (rtx dst, rtx n, rtx d)
   rs6000_emit_madd (dst, v0, y3, u0);		/* dst = u0 + v0 * y3 */
 }
 
-/* Newton-Raphson approximation of floating point divide n/d.  Support both
-   scalar and vector divide.  Assumes no trapping math and finite
-   arguments.  */
+/* Newton-Raphson approximation of floating point divide DST = N/D.  If NOTE_P,
+   add a reg_note saying that this was a division.  Support both scalar and
+   vector divide.  Assumes no trapping math and finite arguments.  */
 
 void
-rs6000_emit_swdiv (rtx dst, rtx n, rtx d)
+rs6000_emit_swdiv (rtx dst, rtx n, rtx d, bool note_p)
 {
   enum machine_mode mode = GET_MODE (dst);
 
@@ -25701,6 +25691,9 @@ rs6000_emit_swdiv (rtx dst, rtx n, rtx d)
     rs6000_emit_swdiv_high_precision (dst, n, d);
   else
     rs6000_emit_swdiv_low_precision (dst, n, d);
+
+  if (note_p)
+    add_reg_note (get_last_insn (), REG_EQUAL, gen_rtx_DIV (mode, n, d));
 }
 
 /* Newton-Raphson approximation of single/double-precision floating point

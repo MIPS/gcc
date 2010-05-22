@@ -4,7 +4,7 @@
 /* { dg-final { scan-assembler-times "xsmsub.dp" 1 } } */
 /* { dg-final { scan-assembler-times "xsmuldp" 4 } } */
 /* { dg-final { scan-assembler-times "xsnmsub.dp" 2 } } */
-/* { dg-final { scan-assembler-times "fres" 1 } } */
+/* { dg-final { scan-assembler-times "frsqrtes" 1 } } */
 /* { dg-final { scan-assembler-times "fmsubs" 1 } } */
 /* { dg-final { scan-assembler-times "fmuls" 4 } } */
 /* { dg-final { scan-assembler-times "fnmsubs" 2 } } */

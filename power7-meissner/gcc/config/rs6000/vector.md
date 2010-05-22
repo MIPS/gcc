@@ -220,19 +220,8 @@
   "VECTOR_UNIT_VSX_P (<MODE>mode)
    || (<MODE>mode == V4SFmode
        && VECTOR_UNIT_ALTIVEC_P (<MODE>mode)
-       && RS6000_RECIP_AUTO_RE_P (<MODE>mode)
-       && !optimize_insn_for_size_p ())"
-  "
-{
-  /* Possibly use reciprocal estimate if desired rather than normal
-     division.  */
-  if (can_create_pseudo_p () && RS6000_RECIP_AUTO_RE_P (<MODE>mode)
-      && !optimize_insn_for_size_p ())
-    {
-      rs6000_emit_swdiv (operands[0], operands[1], operands[2]);
-      DONE;
-    }
-}")
+       && RS6000_RECIP_AUTO_RE_P (<MODE>mode))"
+  "")
 
 (define_expand "neg<mode>2"
   [(set (match_operand:VEC_F 0 "vfloat_operand" "")
