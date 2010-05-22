@@ -20,6 +20,9 @@
 	(rs6000_emit_swdiv): Add argument to say whether to add REG_EQUAL
 	note.  Update callers.
 
+	* config/rs6000/rs6000-protos.h (rs6000_emit_swdiv): Add bool
+	argument.
+
 2010-05-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to mainline, subversion id 159645.
