@@ -2013,7 +2013,7 @@ gfc_match_stopcode (gfc_statement st)
 
   if (gfc_match_eos () != MATCH_YES)
     {
-      m = gfc_match_expr (&e);
+      m = gfc_match_init_expr (&e);
       if (m == MATCH_ERROR)
 	goto cleanup;
       if (m == MATCH_NO)
@@ -2033,7 +2033,7 @@ gfc_match_stopcode (gfc_statement st)
   if (st == ST_STOP && gfc_find_state (COMP_CRITICAL) == SUCCESS)
     {
       gfc_error ("Image control statement STOP at %C in CRITICAL block");
-      return MATCH_ERROR;
+      goto cleanup;
     }
 
   if (e != NULL)
@@ -2042,7 +2042,14 @@ gfc_match_stopcode (gfc_statement st)
 	{
 	  gfc_error ("STOP code at %L must be either INTEGER or CHARACTER type",
 		     &e->where);
-	  return MATCH_ERROR;
+	  goto cleanup;
+	}
+
+      if (e->rank != 0)
+	{
+	  gfc_error ("STOP code at %L must be scalar",
+		     &e->where);
+	  goto cleanup;
 	}
 
       if (e->ts.type == BT_CHARACTER
@@ -2050,14 +2057,15 @@ gfc_match_stopcode (gfc_statement st)
 	{
 	  gfc_error ("STOP code at %L must be default character KIND=%d",
 		     &e->where, (int) gfc_default_character_kind);
-	  return MATCH_ERROR;
+	  goto cleanup;
 	}
 
-      if (e->expr_type != EXPR_CONSTANT)
+      if (e->ts.type == BT_INTEGER
+	  && e->ts.kind != gfc_default_integer_kind)
 	{
-	  gfc_error ("STOP code at %L must be a constant expression",
-		     &e->where);
-	  return MATCH_ERROR;
+	  gfc_error ("STOP code at %L must be default integer KIND=%d",
+		     &e->where, (int) gfc_default_integer_kind);
+	  goto cleanup;
 	}
     }
 
@@ -4319,7 +4327,10 @@ gfc_match_select_type (void)
       expr1 = gfc_get_expr();
       expr1->expr_type = EXPR_VARIABLE;
       if (gfc_get_sym_tree (name, NULL, &expr1->symtree, false))
-	return MATCH_ERROR;
+	{
+	  m = MATCH_ERROR;
+	  goto cleanup;
+	}
       if (expr2->ts.type == BT_UNKNOWN)
 	expr1->symtree->n.sym->attr.untyped = 1;
       else
@@ -4331,19 +4342,20 @@ gfc_match_select_type (void)
     {
       m = gfc_match (" %e ", &expr1);
       if (m != MATCH_YES)
-	return m;
+	goto cleanup;
     }
 
   m = gfc_match (" )%t");
   if (m != MATCH_YES)
-    return m;
+    goto cleanup;
 
   /* Check for F03:C811.  */
   if (!expr2 && (expr1->expr_type != EXPR_VARIABLE || expr1->ref != NULL))
     {
       gfc_error ("Selector in SELECT TYPE at %C is not a named variable; "
 		 "use associate-name=>");
-      return MATCH_ERROR;
+      m = MATCH_ERROR;
+      goto cleanup;
     }
 
   new_st.op = EXEC_SELECT_TYPE;
@@ -4354,6 +4366,10 @@ gfc_match_select_type (void)
   select_type_push (expr1->symtree->n.sym);
 
   return MATCH_YES;
+  
+cleanup:
+  gfc_current_ns = gfc_current_ns->parent;
+  return m;
 }
 
 

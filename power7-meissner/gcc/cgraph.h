@@ -21,9 +21,12 @@ along with GCC; see the file COPYING3.  If not see
 
 #ifndef GCC_CGRAPH_H
 #define GCC_CGRAPH_H
+
+#include "vec.h"
 #include "tree.h"
 #include "basic-block.h"
-#include "ipa-ref.h"
+#include "function.h"
+#include "ipa-ref.h"	/* FIXME: inappropriate dependency of cgraph on IPA.  */
 
 enum availability
 {
@@ -457,6 +460,8 @@ struct GTY((chain_next ("%h.next"), chain_prev ("%h.prev"))) varpool_node {
   /* For normal nodes a pointer to the first extra name alias.  For alias
      nodes a pointer to the normal node.  */
   struct varpool_node *extra_name;
+  /* Circular list of nodes in the same comdat group if non-NULL.  */
+  struct varpool_node *same_comdat_group;
   struct ipa_ref_list ref_list;
   PTR GTY ((skip)) aux;
   /* Ordering of all cgraph nodes.  */
@@ -912,6 +917,7 @@ varpool_all_refs_explicit_p (struct varpool_node *vnode)
 /* Constant pool accessor function.  */
 htab_t constant_pool_htab (void);
 
+/* FIXME: inappropriate dependency of cgraph on IPA.  */
 #include "ipa-ref-inline.h"
 
 #endif  /* GCC_CGRAPH_H  */

@@ -24,9 +24,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "machmode.h"
-#include "real.h"
 #include "rtl.h"
 #include "tree.h"
+#include "realmpfr.h"
 #include "gimple.h"
 #include "flags.h"
 #include "regs.h"
@@ -13699,7 +13699,9 @@ fold_call_stmt (gimple stmt, bool ignore)
       if (DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD)
         {
 	  return targetm.fold_builtin (fndecl, nargs,
-				       gimple_call_arg_ptr (stmt, 0), ignore);
+				       (nargs > 0
+					? gimple_call_arg_ptr (stmt, 0)
+					: &error_mark_node), ignore);
         }
       else
 	{

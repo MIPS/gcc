@@ -10541,7 +10541,10 @@ ensure_not_abstract (gfc_symbol* sub, gfc_symbol* ancestor)
      This is not the most efficient way to do this, but it should be ok and is
      clearer than something sophisticated.  */
 
-  gcc_assert (ancestor && ancestor->attr.abstract && !sub->attr.abstract);
+  gcc_assert (ancestor && !sub->attr.abstract);
+  
+  if (!ancestor->attr.abstract)
+    return SUCCESS;
 
   /* Walk bindings of this ancestor.  */
   if (ancestor->f2k_derived)
@@ -10574,6 +10577,22 @@ resolve_fl_derived (gfc_symbol *sym)
   int i;
 
   super_type = gfc_get_derived_super_type (sym);
+  
+  if (sym->attr.is_class && sym->ts.u.derived == NULL)
+    {
+      /* Fix up incomplete CLASS symbols.  */
+      gfc_component *data;
+      gfc_component *vptr;
+      gfc_symbol *vtab;
+      data = gfc_find_component (sym, "$data", true, true);
+      vptr = gfc_find_component (sym, "$vptr", true, true);
+      if (vptr->ts.u.derived == NULL)
+	{
+	  vtab = gfc_find_derived_vtab (data->ts.u.derived, false);
+	  gcc_assert (vtab);
+	  vptr->ts.u.derived = vtab->ts.u.derived;
+	}
+    }
 
   /* F2008, C432. */
   if (super_type && sym->attr.coarray_comp && !super_type->attr.coarray_comp)

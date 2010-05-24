@@ -1,3 +1,62 @@
+2010-05-24  Paul Brook  <paul@codesourcery.com>
+
+	* gcc.target/arm/frame-pointer-1.c: New test.
+	* gcc.target/i386/pr9771-1.c: Move code out of main to allow frame
+	pointer elimination.
+
+2010-05-23  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/44245
+	* gcc.target/i386/crc32-3.c: New.
+	* gcc.target/i386/crc32-4.c: Likewise.
+
+2010-05-23  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/c1x-typedef-1.c, gcc.dg/c1x-typedef-2.c,
+	gcc.dg/c90-typedef-1.c, gcc.dg/c99-typedef-1.c: New tests.
+	* gcc.dg/decl-8.c: Use -std=gnu89 -pedantic-errors.
+
+2010-05-23  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.c-target/pr43869.c: Move "dg-do run" before lp64.
+
+2010-05-23  Naarten Lankhorst  <mlankhorst@codeweavers.com>
+
+	PR target/43869
+	* gcc.c-target/pr43869.c: New test.
+
+2010-05-22  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/44212
+	* gfortran.dg/class_22.f03: New.
+
+2010-05-22  Iain Sandoe  <iains@gcc.gnu.org>
+
+	PR lto/44238
+	* gcc.dg/lto/20090914-2_0.c: XFAIL *-*-darwin*.
+
+2010-05-22  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/44213
+	* gfortran.dg/abstract_type_7.f03: New.
+
+2010-05-21  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/eh/spec11.C: Test cleanup optimization.
+
+2010-05-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/44223
+	* gcc.target/i386/pr44223.c: New test.
+
+2010-05-21  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc.target/i386/pr25993.c: Use @function as type specifier.
+
+2010-05-21  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* g++.dg/other/const3.C: New test.
+
 2010-05-20  Daniel Franke  <franke.daniel@gmail.com>
 
         PR fortran/38407
