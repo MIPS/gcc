@@ -1,3 +1,110 @@
+2010-05-24  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2010-05-20  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/43733
+	* configure.ac (gcc_cv_as_ix86_sahf): Switch to 64bit mode.
+	* configure: Regenerate.
+	* config.in: Regenerate.
+	* config/i386/i386.md (x86_sahf_1): Conditionally output 0x9e
+	instead of sahf only for 64bit targets.
+
+2010-05-23  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2010-05-23  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/44245
+	* config/i386/i386.c (def_builtin): Properly check
+	OPTION_MASK_ISA_64BIT.
+
+2010-05-21  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/s390.c (override_options): Increase the default
+	of max-completely-peel-times.
+
+2010-05-21  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/43845
+	* tree-ssa-pre.c (create_component_ref_by_pieces_1): Properly
+	lookup the CALL_EXPR function and arguments.
+
+2010-05-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/44205
+	* tree-cfgcleanup.c (tree_forwarder_block_p): Return false if
+	at -O0 goto_locus of any of the incoming edges differs from
+	goto_locus of outgoing edge, or gimple_location of any of the
+	labels differs.
+
+2010-05-19  Kenneth Zadeck  <zadeck@naturalbridge.com>
+
+	PR bootstrap/43870
+	* df-scan.c (df_ref_compare): Stabilize sort.
+
+2010-05-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/44074
+	* configure: Regenerate.
+
+2010-05-20  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR target/44202
+	* config/cris/cris.md ("*addsi3_v32"): Correct "cc"
+	settings for 16-bit-constant "addo" alternative.
+
+2010-05-19  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2010-05-17  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR target/44074
+	* configure.ac (HAVE_AS_IX86_REP_LOCK_PREFIX): New test.
+	* configure: Regenerate.
+	* config.in: Regenerate.
+	* config/i386/i386.c (print_operand) <case ;>: Also print ; if
+	!HAVE_AS_IX86_REP_LOCK_PREFIX.
+	Don't emit whitespace.
+	* config/i386/i386.md (*rep_movdi_rex64): Use {%;} after rep.
+	(*rep_movsi): Likewise.
+	(*rep_movsi_rex64): Likewise.
+	(*rep_movqi): Likewise.
+	(*rep_movqi_rex64): Likewise.
+	(*rep_stosdi_rex64): Likewise.
+	(*rep_stossi): Likewise.
+	(*rep_stossi_rex64): Likewise.
+	(*rep_stosqi): Likewise.
+	(*rep_stosqi_rex64): Likewise.
+	(*cmpstrnqi_nz_1): Use {%;} after repz.
+	(*cmpstrnqi_nz_rex_1): Likewise.
+	(*cmpstrnqi_1): Likewise.
+	(*cmpstrnqi_rex_1): Likewise.
+	(*strlenqi_1): Use {%;} after repnz.
+	(*strlenqi_rex_1): Likewise.
+	* config/i386/sync.md (memory_barrier_nosse): Replace {%;| } by {%;} .
+	(*sync_compare_and_swap<mode>): Likewise.
+	(sync_double_compare_and_swap<mode>): Likewise.
+	(*sync_double_compare_and_swapdi_pic): Likewise.
+	(sync_old_add<mode>): Likewise.
+	(sync_add<mode>): Likewise.
+	(sync_sub<mode>): Likewise.
+	(sync_<code><mode>): Likewise.
+
+2010-05-19  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* doc/sourcebuild.texi (Directives): Document optional
+	dg-require-effective-target selector.
+
+2010-05-19  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* configure.ac (gcc_cv_as_hidden): Check for Solaris 9/x86 as
+	hidden alias bug.
+	(gcc_cv_as_ix86_quad): Check for .quad directive.
+	* configure: Regenerate.
+	* config.in: Regenerate.
+	* config/i386/sol2.h (ASM_QUAD): Change guard to !HAVE_AS_IX86_QUAD.
+
 2010-05-17  Alan Modra  <amodra@gmail.com>
 
 	* config/rs6000/rs6000.c (rs6000_emit_allocate_stack): Delete
@@ -576,8 +683,8 @@
 2010-04-08  Wolfgang Gellerich  <gellerich@de.ibm.com>
 
 	* config/s390/s390.c (override_options): Adjust the z10
-          defaults for max-unroll-times, max-completely-peeled-insns
-          and max-completely-peel-times.
+	defaults for max-unroll-times, max-completely-peeled-insns
+	and max-completely-peel-times.
 
 2010-04-08  Wolfgang Gellerich  <gellerich@de.ibm.com>
 

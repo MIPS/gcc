@@ -11918,10 +11918,8 @@ print_operand (FILE *file, rtx x, int code)
 	  return;
 
 	case ';':
-#if TARGET_MACHO
-	  fputs (" ; ", file);
-#else
-	  fputc (' ', file);
+#if TARGET_MACHO || !HAVE_AS_IX86_REP_LOCK_PREFIX
+	  fputs (";", file);
 #endif
 	  return;
 
@@ -21431,6 +21429,7 @@ def_builtin (int mask, const char *name, tree type, enum ix86_builtins code)
     {
       ix86_builtins_isa[(int) code].isa = mask;
 
+      mask &= ~OPTION_MASK_ISA_64BIT;
       if ((mask & ix86_isa_flags) != 0
 	  || (lang_hooks.builtin_function
 	      == lang_hooks.builtin_function_ext_scope))

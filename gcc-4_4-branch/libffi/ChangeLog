@@ -1,3 +1,28 @@
+2010-05-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* configure: Regenerate.
+
+2010-05-19  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* configure.ac (libffi_cv_as_x86_pcrel): Check for illegal in as
+	output, too.
+	(libffi_cv_as_ascii_pseudo_op): Check for .ascii.
+	(libffi_cv_as_string_pseudo_op): Check for .string.
+	* configure: Regenerate.
+	* fficonfig.h.in: Regenerate.
+	* src/x86/sysv.S (.eh_frame): Use .ascii, .string or error.
+
+2010-05-19  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2010-03-15  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* configure.ac (libffi_cv_as_x86_64_unwind_section_type): New test.
+	* configure: Regenerate.
+	* fficonfig.h.in: Regenerate.
+	* libffi/src/x86/unix64.S (.eh_frame)
+	[HAVE_AS_X86_64_UNWIND_SECTION_TYPE]: Use @unwind section type.
+
 2010-04-29  Jakub Jelinek  <jakub@redhat.com>
 
 	PR other/43620
