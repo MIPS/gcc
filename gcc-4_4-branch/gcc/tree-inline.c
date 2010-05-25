@@ -570,6 +570,19 @@ remap_decls (tree decls, VEC(tree,gc) **nonlocalized_list, copy_body_data *id)
 	  gcc_assert (DECL_P (new_var));
 	  TREE_CHAIN (new_var) = new_decls;
 	  new_decls = new_var;
+ 
+	  /* Also copy value-expressions.  */
+	  if (TREE_CODE (new_var) == VAR_DECL
+	      && DECL_HAS_VALUE_EXPR_P (new_var))
+	    {
+	      tree tem = DECL_VALUE_EXPR (new_var);
+	      bool old_regimplify = id->regimplify;
+	      id->remapping_type_depth++;
+	      walk_tree (&tem, copy_tree_body_r, id, NULL);
+	      id->remapping_type_depth--;
+	      id->regimplify = old_regimplify;
+	      SET_DECL_VALUE_EXPR (new_var, tem);
+	    }
 	}
     }
 
@@ -1082,8 +1095,9 @@ copy_tree_body_r (tree *tp, int *walk_subtrees, void *data)
 	      tree *n;
 	      n = (tree *) pointer_map_contains (id->decl_map,
 						 TREE_BLOCK (*tp));
-	      gcc_assert (n);
-	      new_block = *n;
+	      gcc_assert (n || id->remapping_type_depth != 0);
+	      if (n)
+		new_block = *n;
 	    }
 	  TREE_BLOCK (*tp) = new_block;
 	}

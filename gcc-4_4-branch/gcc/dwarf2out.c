@@ -4602,8 +4602,8 @@ loc_descr_plus_const (dw_loc_descr_ref *list_head, HOST_WIDE_INT offset)
 
   else
     {
-      loc->dw_loc_next = int_loc_descriptor (offset);
-      add_loc_descr (&loc->dw_loc_next, new_loc_descr (DW_OP_plus, 0, 0));
+      loc->dw_loc_next = int_loc_descriptor (-offset);
+      add_loc_descr (&loc->dw_loc_next, new_loc_descr (DW_OP_minus, 0, 0));
     }
 }
 
@@ -12499,12 +12499,12 @@ dw_loc_list_1 (tree loc, rtx varloc, int want_address,
    if it is not possible.  */
 
 static dw_loc_descr_ref
-new_loc_descr_op_bit_piece (HOST_WIDE_INT bitsize)
+new_loc_descr_op_bit_piece (HOST_WIDE_INT bitsize, HOST_WIDE_INT offset)
 {
-  if ((bitsize % BITS_PER_UNIT) == 0)
+  if ((bitsize % BITS_PER_UNIT) == 0 && offset == 0)
     return new_loc_descr (DW_OP_piece, bitsize / BITS_PER_UNIT, 0);
   else if (dwarf_version >= 3 || !dwarf_strict)
-    return new_loc_descr (DW_OP_bit_piece, bitsize, 0);
+    return new_loc_descr (DW_OP_bit_piece, bitsize, offset);
   else
     return NULL;
 }
@@ -12583,7 +12583,7 @@ dw_sra_loc_expr (tree decl, rtx loc)
 	  if (padsize > decl_size)
 	    return NULL;
 	  decl_size -= padsize;
-	  *descr_tail = new_loc_descr_op_bit_piece (padsize);
+	  *descr_tail = new_loc_descr_op_bit_piece (padsize, 0);
 	  if (*descr_tail == NULL)
 	    return NULL;
 	  descr_tail = &(*descr_tail)->dw_loc_next;
@@ -12596,7 +12596,47 @@ dw_sra_loc_expr (tree decl, rtx loc)
       decl_size -= bitsize;
       if (last == NULL)
 	{
-	  *descr_tail = new_loc_descr_op_bit_piece (bitsize);
+	  HOST_WIDE_INT offset = 0;
+	  if (GET_CODE (varloc) == VAR_LOCATION
+	      && GET_CODE (PAT_VAR_LOCATION_LOC (varloc)) != PARALLEL)
+	    {
+	      varloc = PAT_VAR_LOCATION_LOC (varloc);
+	      if (GET_CODE (varloc) == EXPR_LIST)
+		varloc = XEXP (varloc, 0);
+	    }
+	  do 
+	    {
+	      if (GET_CODE (varloc) == CONST
+		  || GET_CODE (varloc) == SIGN_EXTEND
+		  || GET_CODE (varloc) == ZERO_EXTEND)
+		varloc = XEXP (varloc, 0);
+	      else if (GET_CODE (varloc) == SUBREG)
+		varloc = SUBREG_REG (varloc);
+	      else
+		break;
+	    }
+	  while (1);
+	  /* DW_OP_bit_size offset should be zero for register
+	     or implicit location descriptions and empty location
+	     descriptions, but for memory addresses needs big endian
+	     adjustment.  */
+	  if (MEM_P (varloc))
+	    {
+	      unsigned HOST_WIDE_INT memsize
+		= INTVAL (MEM_SIZE (varloc)) * BITS_PER_UNIT;
+	      if (memsize != bitsize)
+		{
+		  if (BYTES_BIG_ENDIAN != WORDS_BIG_ENDIAN
+		      && (memsize > BITS_PER_WORD || bitsize > BITS_PER_WORD))
+		    return NULL;
+		  if (memsize < bitsize)
+		    return NULL;
+		  if (BITS_BIG_ENDIAN)
+		    offset = memsize - bitsize;
+		}
+	    }
+
+	  *descr_tail = new_loc_descr_op_bit_piece (bitsize, offset);
 	  if (*descr_tail == NULL)
 	    return NULL;
 	  descr_tail = &(*descr_tail)->dw_loc_next;
@@ -12607,7 +12647,7 @@ dw_sra_loc_expr (tree decl, rtx loc)
      the decl.  */
   if (descr != NULL && decl_size != 0)
     {
-      *descr_tail = new_loc_descr_op_bit_piece (decl_size);
+      *descr_tail = new_loc_descr_op_bit_piece (decl_size, 0);
       if (*descr_tail == NULL)
 	return NULL;
     }
@@ -13229,8 +13269,7 @@ loc_list_from_tree (tree loc, int want_address)
 
     case POINTER_PLUS_EXPR:
     case PLUS_EXPR:
-      if (TREE_CODE (TREE_OPERAND (loc, 1)) == INTEGER_CST
-	  && host_integerp (TREE_OPERAND (loc, 1), 0))
+      if (host_integerp (TREE_OPERAND (loc, 1), 0))
 	{
 	  list_ret = loc_list_from_tree (TREE_OPERAND (loc, 0), 0);
 	  if (list_ret == 0)
@@ -15943,20 +15982,25 @@ gen_formal_parameter_die (tree node, tree origin, dw_die_ref context_die)
       if (origin != NULL)
 	add_abstract_origin_attribute (parm_die, origin);
       else
+	add_name_and_src_coords_attributes (parm_die, node);
+      if (origin == NULL
+	  || (! DECL_ABSTRACT (node_or_origin)
+	      && variably_modified_type_p (TREE_TYPE (node_or_origin),
+					   decl_function_context
+							    (node_or_origin))))
 	{
-	  tree type = TREE_TYPE (node);
-	  add_name_and_src_coords_attributes (parm_die, node);
-	  if (decl_by_reference_p (node))
+	  tree type = TREE_TYPE (node_or_origin);
+	  if (decl_by_reference_p (node_or_origin))
 	    add_type_attribute (parm_die, TREE_TYPE (type), 0, 0,
 				context_die);
 	  else
 	    add_type_attribute (parm_die, type,
-				TREE_READONLY (node),
-				TREE_THIS_VOLATILE (node),
+				TREE_READONLY (node_or_origin),
+				TREE_THIS_VOLATILE (node_or_origin),
 				context_die);
-	  if (DECL_ARTIFICIAL (node))
-	    add_AT_flag (parm_die, DW_AT_artificial, 1);
 	}
+      if (origin == NULL && DECL_ARTIFICIAL (node))
+	add_AT_flag (parm_die, DW_AT_artificial, 1);
 
       if (node && node != origin)
         equate_decl_number_to_die (node, parm_die);
@@ -16607,6 +16651,7 @@ gen_variable_die (tree decl, tree origin, dw_die_ref context_die)
 			 && DECL_COMDAT (decl_or_origin)
 			 && !TREE_ASM_WRITTEN (decl_or_origin))
 		     || class_or_namespace_scope_p (context_die));
+  bool specialization_p = false;
 
   ultimate_origin = decl_ultimate_origin (decl_or_origin);
   if (decl || ultimate_origin)
@@ -16753,6 +16798,7 @@ gen_variable_die (tree decl, tree origin, dw_die_ref context_die)
     {
       /* This is a definition of a C++ class level static.  */
       add_AT_specification (var_die, old_die);
+      specialization_p = true;
       if (DECL_NAME (decl))
 	{
 	  expanded_location s = expand_location (DECL_SOURCE_LOCATION (decl));
@@ -16766,16 +16812,26 @@ gen_variable_die (tree decl, tree origin, dw_die_ref context_die)
 	}
     }
   else
-    {
-      tree type = TREE_TYPE (decl);
+    add_name_and_src_coords_attributes (var_die, decl);
 
-      add_name_and_src_coords_attributes (var_die, decl);
-      if (decl_by_reference_p (decl))
+  if ((origin == NULL && !specialization_p)
+      || (origin != NULL
+	  && !DECL_ABSTRACT (decl_or_origin)
+	  && variably_modified_type_p (TREE_TYPE (decl_or_origin),
+				       decl_function_context
+							(decl_or_origin))))
+    {
+      tree type = TREE_TYPE (decl_or_origin);
+
+      if (decl_by_reference_p (decl_or_origin))
 	add_type_attribute (var_die, TREE_TYPE (type), 0, 0, context_die);
       else
-	add_type_attribute (var_die, type, TREE_READONLY (decl),
-			    TREE_THIS_VOLATILE (decl), context_die);
+	add_type_attribute (var_die, type, TREE_READONLY (decl_or_origin),
+			    TREE_THIS_VOLATILE (decl_or_origin), context_die);
+    }
 
+  if (origin == NULL && !specialization_p)
+    {
       if (TREE_PUBLIC (decl))
 	add_AT_flag (var_die, DW_AT_external, 1);
 
