@@ -1,3 +1,7 @@
+2010-05-25 Jan HUbicka  <jh@suse.cz>
+
+	* Merge from mainline.
+
 2010-04-19 Jan Hubicka  <jh@suse.cz> 
 
 	* cgraph.c (cgraph_create_node): Set node frequency to normal.

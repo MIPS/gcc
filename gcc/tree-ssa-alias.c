@@ -24,9 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
-#include "rtl.h"
 #include "tm_p.h"
-#include "hard-reg-set.h"
 #include "basic-block.h"
 #include "timevar.h"
 #include "expr.h"
@@ -35,6 +33,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "function.h"
 #include "diagnostic.h"
+#include "tree-pretty-print.h"
 #include "tree-dump.h"
 #include "gimple.h"
 #include "tree-flow.h"
@@ -1061,8 +1060,7 @@ ref_maybe_used_by_call_p_1 (gimple call, ao_ref *ref)
   /* Check if base is a global static variable that is not read
      by the function.  */
   if (TREE_CODE (base) == VAR_DECL
-      && TREE_STATIC (base)
-      && !TREE_PUBLIC (base))
+      && TREE_STATIC (base))
     {
       bitmap not_read;
 
@@ -1097,6 +1095,10 @@ process_args:
   for (i = 0; i < gimple_call_num_args (call); ++i)
     {
       tree op = gimple_call_arg (call, i);
+      int flags = gimple_call_arg_flags (call, i);
+
+      if (flags & EAF_UNUSED)
+	continue;
 
       if (TREE_CODE (op) == WITH_SIZE_EXPR)
 	op = TREE_OPERAND (op, 0);
@@ -1312,8 +1314,7 @@ call_may_clobber_ref_p_1 (gimple call, ao_ref *ref)
      by the function.  */
   if (callee != NULL_TREE
       && TREE_CODE (base) == VAR_DECL
-      && TREE_STATIC (base)
-      && !TREE_PUBLIC (base))
+      && TREE_STATIC (base))
     {
       bitmap not_written;
 

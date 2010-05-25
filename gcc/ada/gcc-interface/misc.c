@@ -48,6 +48,7 @@
 #include "opts.h"
 #include "options.h"
 #include "tree-inline.h"
+#include "plugin.h"
 
 #include "ada.h"
 #include "adadecode.h"
@@ -66,7 +67,7 @@
 
 static bool gnat_init			(void);
 static unsigned int gnat_init_options	(unsigned int, const char **);
-static int gnat_handle_option		(size_t, const char *, int);
+static int gnat_handle_option		(size_t, const char *, int, int);
 static bool gnat_post_options		(const char **);
 static alias_set_type gnat_get_alias_set (tree);
 static void gnat_print_decl		(FILE *, tree, int);
@@ -75,7 +76,8 @@ static const char *gnat_printable_name	(tree, int);
 static const char *gnat_dwarf_name	(tree, int);
 static tree gnat_return_tree		(tree);
 static void gnat_parse_file		(int);
-static void internal_error_function	(const char *, va_list *);
+static void internal_error_function	(diagnostic_context *,
+					 const char *, va_list *);
 static tree gnat_type_max_size		(const_tree);
 static void gnat_get_subrange_bounds	(const_tree, tree *, tree *);
 static tree gnat_eh_personality		(void);
@@ -132,6 +134,8 @@ static tree gnat_eh_personality		(void);
 #define LANG_HOOKS_BUILTIN_FUNCTION	gnat_builtin_function
 #undef  LANG_HOOKS_EH_PERSONALITY
 #define LANG_HOOKS_EH_PERSONALITY	gnat_eh_personality
+#undef  LANG_HOOKS_DEEP_UNSHARING
+#define LANG_HOOKS_DEEP_UNSHARING	true
 
 struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
 
@@ -184,7 +188,8 @@ gnat_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
    that have been successfully decoded or 0 on failure.  */
 
 static int
-gnat_handle_option (size_t scode, const char *arg, int value)
+gnat_handle_option (size_t scode, const char *arg, int value,
+		    int kind ATTRIBUTE_UNUSED)
 {
   const struct cl_option *option = &cl_options[scode];
   enum opt_code code = (enum opt_code) scode;
@@ -208,12 +213,7 @@ gnat_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_Wall:
       warn_unused = value;
-
-      /* We save the value of warn_uninitialized, since if they put
-	 -Wuninitialized on the command line, we need to generate a
-	 warning about not using it without also specifying -O.  */
-      if (warn_uninitialized != 1)
-	warn_uninitialized = (value ? 2 : 0);
+      warn_uninitialized = value;
       break;
 
       /* These are used in the GCC Makefile.  */
@@ -336,7 +336,8 @@ gnat_post_options (const char **pfilename ATTRIBUTE_UNUSED)
 /* Here is the function to handle the compiler error processing in GCC.  */
 
 static void
-internal_error_function (const char *msgid, va_list *ap)
+internal_error_function (diagnostic_context *context,
+			 const char *msgid, va_list *ap)
 {
   text_info tinfo;
   char *buffer, *p, *loc;
@@ -344,17 +345,20 @@ internal_error_function (const char *msgid, va_list *ap)
   Fat_Pointer fp, fp_loc;
   expanded_location s;
 
+  /* Warn if plugins present.  */
+  warn_if_plugins ();
+
   /* Reset the pretty-printer.  */
-  pp_clear_output_area (global_dc->printer);
+  pp_clear_output_area (context->printer);
 
   /* Format the message into the pretty-printer.  */
   tinfo.format_spec = msgid;
   tinfo.args_ptr = ap;
   tinfo.err_no = errno;
-  pp_format_verbatim (global_dc->printer, &tinfo);
+  pp_format_verbatim (context->printer, &tinfo);
 
   /* Extract a (writable) pointer to the formatted text.  */
-  buffer = xstrdup (pp_formatted_text (global_dc->printer));
+  buffer = xstrdup (pp_formatted_text (context->printer));
 
   /* Go up to the first newline.  */
   for (p = buffer; *p; p++)
@@ -370,7 +374,7 @@ internal_error_function (const char *msgid, va_list *ap)
   fp.Array = buffer;
 
   s = expand_location (input_location);
-  if (flag_show_column && s.column != 0)
+  if (context->show_column && s.column != 0)
     asprintf (&loc, "%s:%d:%d", s.file, s.line, s.column);
   else
     asprintf (&loc, "%s:%d", s.file, s.line);

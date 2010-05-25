@@ -1267,11 +1267,12 @@ enum reg_class
    instead of BASE_REGS.  */
 #define MODE_BASE_REG_REG_CLASS(MODE) BASE_REG_CLASS
 
-/* When SMALL_REGISTER_CLASSES is nonzero, the compiler allows
+/* When this hook returns true for MODE, the compiler allows
    registers explicitly used in the rtl to be used as spill registers
    but prevents the compiler from extending the lifetime of these
    registers.  */
-#define SMALL_REGISTER_CLASSES   TARGET_THUMB1
+#define TARGET_SMALL_REGISTER_CLASSES_FOR_MODE_P \
+  arm_small_register_classes_for_mode_p 
 
 /* Given an rtx X being reloaded into a reg required to be
    in class CLASS, return the class of reg to actually use.
@@ -1813,10 +1814,8 @@ typedef struct
 
 /* Determine if the epilogue should be output as RTL.
    You should override this if you define FUNCTION_EXTRA_EPILOGUE.  */
-/* This is disabled for Thumb-2 because it will confuse the
-   conditional insn counter.  */
 #define USE_RETURN_INSN(ISCOND)				\
-  (TARGET_ARM ? use_return_insn (ISCOND, NULL) : 0)
+  (TARGET_32BIT ? use_return_insn (ISCOND, NULL) : 0)
 
 /* Definitions for register eliminations.
 
@@ -2767,5 +2766,9 @@ enum arm_builtins
 #ifndef NEED_INDICATE_EXEC_STACK
 #define NEED_INDICATE_EXEC_STACK	0
 #endif
+
+/* The maximum number of parallel loads or stores we support in an ldm/stm
+   instruction.  */
+#define MAX_LDM_STM_OPS 4
 
 #endif /* ! GCC_ARM_H */

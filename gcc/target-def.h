@@ -204,6 +204,14 @@
 #define TARGET_ASM_FILE_END hook_void_void
 #endif
 
+#ifndef TARGET_ASM_LTO_START
+#define TARGET_ASM_LTO_START hook_void_void
+#endif
+
+#ifndef TARGET_ASM_LTO_END
+#define TARGET_ASM_LTO_END hook_void_void
+#endif
+
 #ifndef TARGET_ASM_CODE_END
 #define TARGET_ASM_CODE_END hook_void_void
 #endif
@@ -296,6 +304,8 @@
                         TARGET_ASM_CAN_OUTPUT_MI_THUNK,         \
                         TARGET_ASM_FILE_START,                  \
                         TARGET_ASM_FILE_END,			\
+                        TARGET_ASM_LTO_START,			\
+                        TARGET_ASM_LTO_END,			\
                         TARGET_ASM_CODE_END,			\
 			TARGET_ASM_EXTERNAL_LIBCALL,            \
                         TARGET_ASM_MARK_DECL_PRESERVED,		\
@@ -421,6 +431,7 @@
 #define TARGET_OVERRIDE_OPTIONS_AFTER_CHANGE hook_void_void
 
 #define TARGET_HANDLE_OPTION hook_bool_size_t_constcharptr_int_true
+#define TARGET_HANDLE_OFAST hook_void_void
 #define TARGET_HELP NULL
 
 /* In except.c */
@@ -446,7 +457,7 @@
 #define TARGET_INIT_BUILTINS hook_void_void
 #define TARGET_EXPAND_BUILTIN default_expand_builtin
 #define TARGET_RESOLVE_OVERLOADED_BUILTIN NULL
-#define TARGET_FOLD_BUILTIN hook_tree_tree_tree_bool_null
+#define TARGET_FOLD_BUILTIN hook_tree_tree_int_treep_bool_null
 #define TARGET_BUILTIN_DECL NULL
 
 /* In tree-ssa-math-opts.c  */
@@ -539,6 +550,10 @@
 #define TARGET_VECTOR_MODE_SUPPORTED_P hook_bool_mode_false
 #endif
 
+#ifndef TARGET_SMALL_REGISTER_CLASSES_FOR_MODE_P
+#define TARGET_SMALL_REGISTER_CLASSES_FOR_MODE_P hook_bool_mode_false
+#endif
+
 /* In hooks.c.  */
 #define TARGET_CANNOT_MODIFY_JUMPS_P hook_bool_void_false
 #define TARGET_BRANCH_TARGET_REGISTER_CLASS \
@@ -557,6 +572,7 @@
 #define TARGET_MAX_ANCHOR_OFFSET 0
 #define TARGET_USE_ANCHORS_FOR_SYMBOL_P default_use_anchors_for_symbol_p
 #define TARGET_FUNCTION_OK_FOR_SIBCALL hook_bool_tree_tree_false
+#define TARGET_ATTRIBUTE_TAKES_IDENTIFIER_P hook_bool_const_tree_false
 #define TARGET_COMP_TYPE_ATTRIBUTES hook_int_const_tree_const_tree_1
 #ifndef TARGET_SET_DEFAULT_TYPE_ATTRIBUTES
 #define TARGET_SET_DEFAULT_TYPE_ATTRIBUTES hook_void_tree
@@ -582,6 +598,10 @@
 
 #ifndef TARGET_IN_SMALL_DATA_P
 #define TARGET_IN_SMALL_DATA_P hook_bool_const_tree_false
+#endif
+
+#ifndef TARGET_MODE_DEPENDENT_ADDRESS_P
+#define TARGET_MODE_DEPENDENT_ADDRESS_P default_mode_dependent_address_p
 #endif
 
 #ifndef TARGET_MANGLE_DECL_ASSEMBLER_NAME
@@ -920,6 +940,7 @@
   TARGET_DEFAULT_TARGET_FLAGS,			\
   TARGET_OVERRIDE_OPTIONS_AFTER_CHANGE,		\
   TARGET_HANDLE_OPTION,				\
+  TARGET_HANDLE_OFAST,				\
   TARGET_HELP,					\
   TARGET_EH_RETURN_FILTER_MODE,			\
   TARGET_LIBGCC_CMP_RETURN_MODE,                \
@@ -928,6 +949,7 @@
   TARGET_MERGE_DECL_ATTRIBUTES,			\
   TARGET_MERGE_TYPE_ATTRIBUTES,			\
   TARGET_ATTRIBUTE_TABLE,			\
+  TARGET_ATTRIBUTE_TAKES_IDENTIFIER_P,		\
   TARGET_COMP_TYPE_ATTRIBUTES,			\
   TARGET_SET_DEFAULT_TYPE_ATTRIBUTES,		\
   TARGET_INSERT_ATTRIBUTES,			\
@@ -954,6 +976,7 @@
   TARGET_CANNOT_FORCE_CONST_MEM,		\
   TARGET_CANNOT_COPY_INSN_P,			\
   TARGET_COMMUTATIVE_P,				\
+  TARGET_MODE_DEPENDENT_ADDRESS_P,		\
   TARGET_LEGITIMIZE_ADDRESS,			\
   TARGET_DELEGITIMIZE_ADDRESS,			\
   TARGET_LEGITIMATE_ADDRESS_P,			\
@@ -975,6 +998,7 @@
   TARGET_ADDR_SPACE_HOOKS,			\
   TARGET_SCALAR_MODE_SUPPORTED_P,		\
   TARGET_VECTOR_MODE_SUPPORTED_P,               \
+  TARGET_SMALL_REGISTER_CLASSES_FOR_MODE_P,	\
   TARGET_RTX_COSTS,				\
   TARGET_ADDRESS_COST,				\
   TARGET_ALLOCATE_INITIAL_VALUE,		\
@@ -986,7 +1010,7 @@
   TARGET_MACHINE_DEPENDENT_REORG,		\
   TARGET_BUILD_BUILTIN_VA_LIST,			\
   TARGET_FN_ABI_VA_LIST,			\
-  TARGET_CANONICAL_VA_LIST_TYPE,			\
+  TARGET_CANONICAL_VA_LIST_TYPE,		\
   TARGET_EXPAND_BUILTIN_VA_START,		\
   TARGET_GIMPLIFY_VA_ARG_EXPR,			\
   TARGET_GET_PCH_VALIDITY,			\

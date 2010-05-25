@@ -61,13 +61,6 @@ typedef struct
 
 /* Constructors and conversions.  */
 
-tree double_int_to_tree (tree, double_int);
-bool double_int_fits_to_tree_p (const_tree, double_int);
-
-/* Constructs double_int from tree CST.  */
-
-#define tree_to_double_int(cst) (TREE_INT_CST (cst))
-
 /* Constructs double_int from integer CST.  The bits over the precision of
    HOST_WIDE_INT are filled with the sign bit.  */
 
@@ -133,11 +126,24 @@ double_int double_int_udivmod (double_int, double_int, unsigned, double_int *);
 double_int double_int_setbit (double_int, unsigned);
 
 /* Logical operations.  */
+
+/* Returns ~A.  */
+
 static inline double_int
 double_int_not (double_int a)
 {
   a.low = ~a.low;
   a.high = ~ a.high;
+  return a;
+}
+
+/* Returns A | B.  */
+
+static inline double_int
+double_int_ior (double_int a, double_int b)
+{
+  a.low |= b.low;
+  a.high |= b.high;
   return a;
 }
 
