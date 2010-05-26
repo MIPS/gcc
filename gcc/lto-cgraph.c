@@ -1495,13 +1495,14 @@ output_node_opt_summary (struct output_block *ob,
       int parm_num;
       tree parm;
 
+      gcc_assert (node->clone_of->decl != node->decl);
+      gcc_assert (!node->clone_of->clone.args_to_skip);
       for (parm_num = 0, parm = DECL_ARGUMENTS (node->decl); parm;
 	   parm = TREE_CHAIN (parm), parm_num++)
 	if (map->old_tree == parm)
 	  break;
       /* At the moment we assume all old trees to be PARM_DECLs, because we have no
          mechanism to store function local declarations into summaries.  */
-      gcc_assert (parm);
       lto_output_uleb128_stream (ob->main_stream, parm_num);
       lto_output_tree (ob, map->new_tree, true);
       bp = bitpack_create ();
@@ -1575,14 +1576,9 @@ input_node_opt_summary (struct cgraph_node *node,
   count = lto_input_uleb128 (ib_main);
   for (i = 0; i < count; i++)
     {
-      int parm_num;
-      tree parm;
       struct ipa_replace_map *map = GGC_NEW (struct ipa_replace_map);
 
       VEC_safe_push (ipa_replace_map_p, gc, node->clone.tree_map, map);
-      for (parm_num = 0, parm = DECL_ARGUMENTS (node->decl); parm_num;
-	   parm = TREE_CHAIN (parm))
-	parm_num --;
       map->parm_num = lto_input_uleb128 (ib_main);
       map->old_tree = NULL;
       map->new_tree = lto_input_tree (ib_main, data_in);

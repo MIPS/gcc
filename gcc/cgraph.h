@@ -583,12 +583,14 @@ const char* cgraph_inline_failed_string (cgraph_inline_failed_t);
 struct cgraph_node * cgraph_create_virtual_clone (struct cgraph_node *old_node,
 			                          VEC(cgraph_edge_p,heap)*,
 			                          VEC(ipa_replace_map_p,gc)* tree_map,
-			                          bitmap args_to_skip);
+			                          bitmap args_to_skip,
+						  const char *clone_name);
 
 void cgraph_set_nothrow_flag (struct cgraph_node *, bool);
 void cgraph_set_readonly_flag (struct cgraph_node *, bool);
 void cgraph_set_pure_flag (struct cgraph_node *, bool);
 void cgraph_set_looping_const_or_pure_flag (struct cgraph_node *, bool);
+tree clone_function_name (tree decl, const char *);
 
 /* In cgraphunit.c  */
 void cgraph_finalize_function (tree, bool);
@@ -608,8 +610,10 @@ void init_cgraph (void);
 struct cgraph_node *cgraph_function_versioning (struct cgraph_node *,
 						VEC(cgraph_edge_p,heap)*,
 						VEC(ipa_replace_map_p,gc)*,
-						bitmap);
-void tree_function_versioning (tree, tree, VEC (ipa_replace_map_p,gc)*, bool, bitmap);
+						bitmap, bitmap, basic_block,
+						const char *);
+void tree_function_versioning (tree, tree, VEC (ipa_replace_map_p,gc)*, bool, bitmap,
+			       bitmap, basic_block);
 struct cgraph_node *save_inline_function_body (struct cgraph_node *);
 void record_references_in_initializer (tree, bool);
 bool cgraph_process_new_functions (void);

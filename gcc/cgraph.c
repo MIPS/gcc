@@ -2147,16 +2147,16 @@ cgraph_clone_node (struct cgraph_node *n, tree decl, gcov_type count, int freq,
 
 static GTY(()) unsigned int clone_fn_id_num;
 
-static tree
-clone_function_name (tree decl)
+tree
+clone_function_name (tree decl, const char *add_name)
 {
   tree name = DECL_ASSEMBLER_NAME (decl);
   size_t len = IDENTIFIER_LENGTH (name);
   char *tmp_name, *prefix;
 
-  prefix = XALLOCAVEC (char, len + strlen ("_clone") + 1);
+  prefix = XALLOCAVEC (char, len + strlen (add_name) + 1);
   memcpy (prefix, IDENTIFIER_POINTER (name), len);
-  strcpy (prefix + len, "_clone");
+  strcpy (prefix + len, add_name);
 #ifndef NO_DOT_IN_LABEL
   prefix[len] = '.';
 #elif !defined NO_DOLLAR_IN_LABEL
@@ -2176,7 +2176,8 @@ struct cgraph_node *
 cgraph_create_virtual_clone (struct cgraph_node *old_node,
 			     VEC(cgraph_edge_p,heap) *redirect_callers,
 			     VEC(ipa_replace_map_p,gc) *tree_map,
-			     bitmap args_to_skip)
+			     bitmap args_to_skip,
+			     const char * clone_name)
 {
   tree old_decl = old_node->decl;
   struct cgraph_node *new_node = NULL;
@@ -2197,7 +2198,7 @@ cgraph_create_virtual_clone (struct cgraph_node *old_node,
   DECL_STRUCT_FUNCTION (new_decl) = NULL;
 
   /* Generate a new name for the new version. */
-  DECL_NAME (new_decl) = clone_function_name (old_decl);
+  DECL_NAME (new_decl) = clone_function_name (old_decl, clone_name);
   SET_DECL_ASSEMBLER_NAME (new_decl, DECL_NAME (new_decl));
   SET_DECL_RTL (new_decl, NULL);
 

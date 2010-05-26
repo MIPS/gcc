@@ -361,7 +361,7 @@ Objective-C and Objective-C++ Dialects}.
 -fno-sched-interblock -fno-sched-spec -fno-signed-zeros @gol
 -fno-toplevel-reorder -fno-trapping-math -fno-zero-initialized-in-bss @gol
 -fomit-frame-pointer -foptimize-register-move -foptimize-sibling-calls @gol
--fpeel-loops -fpredictive-commoning -fprefetch-loop-arrays @gol
+-fpartial-inlining -fpeel-loops -fpredictive-commoning -fprefetch-loop-arrays @gol
 -fprofile-correction -fprofile-dir=@var{path} -fprofile-generate @gol
 -fprofile-generate=@var{path} @gol
 -fprofile-use -fprofile-use=@var{path} -fprofile-values @gol
@@ -5854,6 +5854,7 @@ also turns on the following optimization flags:
 -findirect-inlining @gol
 -fipa-sra @gol
 -foptimize-sibling-calls @gol
+-fpartial-inlining @gol
 -fpeephole2 @gol
 -fregmove @gol
 -freorder-blocks  -freorder-functions @gol
@@ -7011,6 +7012,14 @@ This optimization is enabled by default.
 @opindex fvariable-expansion-in-unroller
 With this option, the compiler will create multiple copies of some
 local variables when unrolling a loop which can result in superior code.
+
+@item -fpartial-inlining
+@opindex fpartial-inlining
+Inline parts of functions.  This option has any effect only
+when inlining itself is turned on by the @option{-finline-functions}
+or @option{-finline-small-functions} options.
+
+Enabled at level @option{-O2}.
 
 @item -fpredictive-commoning
 @opindex fpredictive-commoning
@@ -8187,6 +8196,13 @@ inlining for code having large abstraction penalty.  The default value is 8.
 Limit of iterations of early inliner.  This basically bounds number of nested
 indirect calls early inliner can resolve.  Deeper chains are still handled by
 late inlining.
+
+@item partial-inlining-entry-probability
+@itemx partial-inlining-entry-probability
+Partial inlining splits function body and inline part of function.  This
+parameter limits the splitting by probability of the entry block of the split
+part of function.  Probability is set in percents and is relative to entry
+entry of function. Default value is 70.
 
 @item min-vect-loop-bound
 The minimum number of iterations under which a loop will not get vectorized

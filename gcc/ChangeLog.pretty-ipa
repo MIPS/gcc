@@ -1,4 +1,30 @@
-2010-05-25 Jan HUbicka  <jh@suse.cz>
+2010-05-26 Jan Hubicka  <jh@suse.cz>
+
+	* doc/invoke.texi (-fpartial-inlining): Document.
+	(partial-inlining-entry-probability): Document.
+	* cgraph.c (clone_function_name): Export; add add_name argument.
+	(cgraph_create_virtual_clone): Add clone_name argument.
+	* cgraph.h (cgraph_create_virtual_clone): Update prototype.
+	(cgraph_create_virtual_clone): Likewise.
+	(clone_function_name): Declare.
+	(tree_function_versioning): Update prototype.
+	* tree-pass.h (pass_split_functions): New pass.
+	* ipa-cp.c (ipcp_insert_stage): Update call of cgraph_create_virtual_clone.
+	* builtins.c (fold_call_stmt): Fix case with 0 args.
+	* cgraphunit.c (cgraph_copy_node_for_versioning): Fix and bring into sync
+	with cgraph_create_virtual_clone.
+	(save_inline_function_body): Update use of tree_function_versioning.
+	(cgraph_materialize_clone): Likewise.
+	* opts.c (decode_options): Enable flag_partial_inlining at -O2.
+	* timevar.def (TV_IPA_FNSPLIT): New.
+	* ipa-split.c: New file.
+	* common.opt (fpartial-inlining): New.
+	* tree-inline.c (copy_bb): Expect partial inlinng.
+	* Makefile.in (ipa-split.o): New file.
+	* passes.c (init_optimization_passes): Add pass_split_functions.
+	* params.def (PARAM_PARTIAL_INLINING_ENTRY_PROBABILITY): New.
+
+2010-05-25 Jan Hubicka  <jh@suse.cz>
 
 	* Merge from mainline.
 

@@ -795,6 +795,7 @@ init_optimization_passes (void)
           NEXT_PASS (pass_cleanup_eh);
           NEXT_PASS (pass_profile);
           NEXT_PASS (pass_local_pure_const);
+          NEXT_PASS (pass_split_functions);
 	}
       NEXT_PASS (pass_release_ssa_names);
       NEXT_PASS (pass_rebuild_cgraph_edges);
