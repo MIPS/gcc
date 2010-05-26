@@ -24,7 +24,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "machmode.h"
-#include "real.h"
 #include "rtl.h"
 #include "tree.h"
 #include "flags.h"
@@ -6098,17 +6097,12 @@ get_inner_reference (tree exp, HOST_WIDE_INT *pbitsize,
 	      tree off = TREE_OPERAND (exp, 1);
 	      if (!integer_zerop (off))
 		{
-		  double_int coff = mem_ref_offset (exp);
-		  unsigned HOST_WIDE_INT boffl;
-		  HOST_WIDE_INT boffh;
-		  lshift_double (coff.low, coff.high,
-				 exact_log2 (BITS_PER_UNIT),
-				 2 * HOST_BITS_PER_WIDE_INT,
-				 &boffl, &boffh, 1);
+		  double_int boff, coff = mem_ref_offset (exp);
+		  boff = double_int_lshift (coff, exact_log2 (BITS_PER_UNIT),
+					    2 * HOST_BITS_PER_WIDE_INT, 1);
 		  bit_offset
 		    = size_binop (PLUS_EXPR, bit_offset,
-				  build_int_cst_wide_type (bitsizetype,
-							   boffl, boffh));
+				  double_int_to_tree (bitsizetype, boff));
 		}
 	      exp = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
 	    }
@@ -8462,6 +8456,19 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
     expand_decl_rtl:
       gcc_assert (decl_rtl);
       decl_rtl = copy_rtx (decl_rtl);
+      /* Record writes to register variables.  */
+      if (modifier == EXPAND_WRITE && REG_P (decl_rtl)
+	  && REGNO (decl_rtl) < FIRST_PSEUDO_REGISTER)
+	{
+	    int i = REGNO (decl_rtl);
+	    int nregs = hard_regno_nregs[i][GET_MODE (decl_rtl)];
+	    while (nregs)
+	      {
+		SET_HARD_REG_BIT (crtl->asm_clobbers, i);
+		i++;
+		nregs--;
+	      }
+	}
 
       /* Ensure variable marked as used even if it doesn't go through
 	 a parser.  If it hasn't be used yet, write out an external
@@ -8778,9 +8785,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	  {
 	    tree offset = TREE_OPERAND (exp, 1);
 	    base = TREE_OPERAND (base, 0);
-	    offset = build_int_cst_wide_type (bitsizetype,
-					      TREE_INT_CST_LOW (offset),
-					      TREE_INT_CST_HIGH (offset));
+	    offset = fold_convert (bitsizetype, offset);
 	    offset = size_binop (MULT_EXPR,
 				 offset, bitsize_int (BITS_PER_UNIT));
 	    if (!DECL_P (base))

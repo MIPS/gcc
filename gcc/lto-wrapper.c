@@ -60,6 +60,10 @@ static enum lto_mode_d lto_mode = LTO_MODE_NONE;
 static char *ltrans_output_file;
 static char *flto_out;
 static char *args_name;
+static unsigned int nr;
+static char **input_names;
+static char **output_names;
+static char *makefile;
 
 static void maybe_unlink_file (const char *);
 
@@ -71,6 +75,8 @@ lto_wrapper_exit (int status)
   static bool cleanup_done = false;
   if (!cleanup_done)
     {
+      unsigned int i;
+
       /* Setting cleanup_done prevents an infinite loop if one of the
          calls to maybe_unlink_file fails. */
       cleanup_done = true;
@@ -81,6 +87,14 @@ lto_wrapper_exit (int status)
         maybe_unlink_file (flto_out);
       if (args_name)
         maybe_unlink_file (args_name);
+      if (makefile)
+	maybe_unlink_file (makefile);
+      for (i = 0; i < nr; ++i)
+	{
+	  maybe_unlink_file (input_names[i]);
+	  if (output_names[i])
+	    maybe_unlink_file (output_names[i]);
+	}
     }
   exit (status);
 }
@@ -148,7 +162,10 @@ collect_execute (char **argv)
   if (pex == NULL)
     fatal_perror ("pex_init failed");
 
-  errmsg = pex_run (pex, PEX_LAST | PEX_SEARCH, argv[0], argv, NULL,
+  /* Do not use PEX_LAST here, we use our stdout for communicating with
+     collect2 or the linker-plugin.  Any output from the sub-process
+     will confuse that.  */
+  errmsg = pex_run (pex, PEX_SEARCH, argv[0], argv, NULL,
 		    NULL, &err);
   if (errmsg != NULL)
     {
@@ -264,6 +281,7 @@ run_gcc (unsigned argc, char *argv[])
   const char *collect_gcc_options, *collect_gcc;
   struct obstack env_obstack;
   bool seen_o = false;
+  int parallel = 0;
 
   /* Get the driver and options.  */
   collect_gcc = getenv ("COLLECT_GCC");
@@ -329,8 +347,16 @@ run_gcc (unsigned argc, char *argv[])
 	/* We've handled these LTO options, do not pass them on.  */
 	if (strcmp (option, "-flto") == 0)
 	  lto_mode = LTO_MODE_LTO;
-	else if (strcmp (option, "-fwhopr") == 0)
-	  lto_mode = LTO_MODE_WHOPR;
+	else if (strncmp (option, "-fwhopr", 7) == 0)
+	  {
+	    lto_mode = LTO_MODE_WHOPR;
+	    if (option[7] == '=')
+	      {
+		parallel = atoi (option+8);
+		if (parallel <= 1)
+		  parallel = 0;
+	      }
+	  }
 	else
 	  *argv_ptr++ = option;
       }
@@ -416,17 +442,17 @@ run_gcc (unsigned argc, char *argv[])
   else if (lto_mode == LTO_MODE_WHOPR)
     {
       FILE *stream = fopen (ltrans_output_file, "r");
-      int nr = 0;
+      FILE *mstream = NULL;
 
       if (!stream)
 	fatal_perror ("fopen: %s", ltrans_output_file);
 
-      argv_ptr[1] = "-fltrans";
-
+      /* Parse the list of LTRANS inputs from the WPA stage.  */
+      nr = 0;
       for (;;)
 	{
 	  const unsigned piece = 32;
-	  char *output_name;
+	  char *output_name = NULL;
 	  char *buf, *input_name = (char *)xmalloc (piece);
 	  size_t len;
 
@@ -444,48 +470,106 @@ cont:
 	  input_name[len - 1] = '\0';
 
 	  if (input_name[0] == '*')
-	    {
-	      continue;
-	      output_name = &input_name[1];
-	    }
-	  else
-	    {
-	      /* Otherwise, add FILES[I] to lto_execute_ltrans command line
-		 and add the resulting file to LTRANS output list.  */
+	    output_name = &input_name[1];
 
-	      /* Replace the .o suffix with a .ltrans.o suffix and write
-		 the resulting name to the LTRANS output list.  */
-	      obstack_init (&env_obstack);
-	      obstack_grow (&env_obstack, input_name, strlen (input_name) - 2);
-	      obstack_grow (&env_obstack, ".ltrans.o", sizeof (".ltrans.o"));
-	      output_name = XOBFINISH (&env_obstack, char *);
-
-	      if (linker_output)
-		{
-		  char *dumpbase
-		    = (char *) xmalloc (strlen (linker_output)
-					+ sizeof(DUMPBASE_SUFFIX) + 1);
-		  snprintf (dumpbase,
-			    strlen (linker_output) + sizeof(DUMPBASE_SUFFIX),
-			    "%s.ltrans%d", linker_output, nr++);
-		  argv_ptr[0] = dumpbase;
-		}
-
-	      argv_ptr[2] = "-o";
-	      argv_ptr[3] = output_name;
-	      argv_ptr[4] = input_name;
-	      argv_ptr[5] = NULL;
-
-	      fork_execute (CONST_CAST (char **, new_argv));
-
-	      maybe_unlink_file (input_name);
-	    }
-
-	  fputs (output_name, stdout);
-	  putc ('\n', stdout);
+	  nr++;
+	  input_names = (char **)xrealloc (input_names, nr * sizeof (char *));
+	  output_names = (char **)xrealloc (output_names, nr * sizeof (char *));
+	  input_names[nr-1] = input_name;
+	  output_names[nr-1] = output_name;
 	}
       fclose (stream);
       maybe_unlink_file (ltrans_output_file);
+      ltrans_output_file = NULL;
+
+      if (parallel)
+	{
+	  makefile = make_temp_file (".mk");
+	  mstream = fopen (makefile, "w");
+	}
+
+      /* Execute the LTRANS stage for each input file (or prepare a
+	 makefile to invoke this in parallel).  */
+      for (i = 0; i < nr; ++i)
+	{
+	  char *output_name;
+	  char *input_name = input_names[i];
+	  /* If it's a pass-through file do nothing.  */
+	  if (output_names[i])
+	    continue;
+
+	  /* Replace the .o suffix with a .ltrans.o suffix and write
+	     the resulting name to the LTRANS output list.  */
+	  obstack_init (&env_obstack);
+	  obstack_grow (&env_obstack, input_name, strlen (input_name) - 2);
+	  obstack_grow (&env_obstack, ".ltrans.o", sizeof (".ltrans.o"));
+	  output_name = XOBFINISH (&env_obstack, char *);
+
+	  /* Adjust the dumpbase if the linker output file was seen.  */
+	  if (linker_output)
+	    {
+	      char *dumpbase
+		  = (char *) xmalloc (strlen (linker_output)
+				      + sizeof(DUMPBASE_SUFFIX) + 1);
+	      snprintf (dumpbase,
+			strlen (linker_output) + sizeof(DUMPBASE_SUFFIX),
+			"%s.ltrans%u", linker_output, nr);
+	      argv_ptr[0] = dumpbase;
+	    }
+
+	  argv_ptr[1] = "-fltrans";
+	  argv_ptr[2] = "-o";
+	  argv_ptr[3] = output_name;
+	  argv_ptr[4] = input_name;
+	  argv_ptr[5] = NULL;
+	  if (parallel)
+	    {
+	      fprintf (mstream, "%s:\n\t@%s ", output_name, new_argv[0]);
+	      for (j = 1; new_argv[j] != NULL; ++j)
+		fprintf (mstream, " '%s'", new_argv[j]);
+	      fprintf (mstream, "\n");
+	    }
+	  else
+	    fork_execute (CONST_CAST (char **, new_argv));
+
+	  output_names[i] = output_name;
+	}
+      if (parallel)
+	{
+	  struct pex_obj *pex;
+	  char jobs[32];
+	  fprintf (mstream, "all:");
+	  for (i = 0; i < nr; ++i)
+	    fprintf (mstream, " \\\n\t%s", output_names[i]);
+	  fprintf (mstream, "\n");
+	  fclose (mstream);
+	  /* Avoid passing --jobserver-fd= and similar flags.  */
+	  putenv (xstrdup ("MAKEFLAGS="));
+	  putenv (xstrdup ("MFLAGS="));
+	  new_argv[0] = getenv ("MAKE");
+	  if (!new_argv[0])
+	    new_argv[0] = "make";
+	  new_argv[1] = "-f";
+	  new_argv[2] = makefile;
+	  snprintf (jobs, 31, "-j%d", parallel);
+	  new_argv[3] = jobs;
+	  new_argv[4] = "all";
+	  new_argv[5] = NULL;
+	  pex = collect_execute (CONST_CAST (char **, new_argv));
+	  collect_wait (new_argv[0], pex);
+	  maybe_unlink_file (makefile);
+	  makefile = NULL;
+	}
+      for (i = 0; i < nr; ++i)
+	{
+	  fputs (output_names[i], stdout);
+	  putc ('\n', stdout);
+	  maybe_unlink_file (input_names[i]);
+	  free (input_names[i]);
+	}
+      nr = 0;
+      free (output_names);
+      free (input_names);
       free (list_option_full);
     }
   else

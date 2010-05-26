@@ -191,14 +191,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "tree.h"
 #include "flags.h"
-#include "rtl.h"
 #include "tm_p.h"
-#include "ggc.h"
 #include "basic-block.h"
 #include "output.h"
 #include "expr.h"
 #include "function.h"
 #include "diagnostic.h"
+#include "tree-pretty-print.h"
+#include "gimple-pretty-print.h"
 #include "timevar.h"
 #include "tree-dump.h"
 #include "tree-flow.h"
@@ -1038,9 +1038,7 @@ ccp_fold (gimple stmt)
 		  && TREE_CODE (op0) == ADDR_EXPR
 		  && TREE_CODE (op1) == INTEGER_CST)
 		{
-		  tree off = build_int_cst_wide_type (ptr_type_node,
-						      TREE_INT_CST_LOW (op1),
-						      TREE_INT_CST_HIGH (op1));
+		  tree off = fold_convert (ptr_type_node, op1);
 		  return build_fold_addr_expr
 			   (fold_build2 (MEM_REF,
 					 TREE_TYPE (TREE_TYPE (op0)),

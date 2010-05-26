@@ -25,8 +25,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hard-reg-set.h"
-#include "rtl.h"
 #include "tree.h"
 #include "tm_p.h"
 #include "basic-block.h"
@@ -874,9 +872,7 @@ mf_xform_derefs_1 (gimple_stmt_iterator *iter, tree *tp,
     case MEM_REF:
       addr = build2 (POINTER_PLUS_EXPR, TREE_TYPE (TREE_OPERAND (t, 1)),
 		     TREE_OPERAND (t, 0),
-		     build_int_cst_wide_type (sizetype,
-					      TREE_INT_CST_LOW (TREE_OPERAND (t, 1)),
-					      TREE_INT_CST_HIGH (TREE_OPERAND (t, 1))));
+		     fold_convert (sizetype, TREE_OPERAND (t, 1)));
       base = addr;
       limit = fold_build2_loc (location, POINTER_PLUS_EXPR, ptr_type_node,
 			   fold_build2_loc (location,

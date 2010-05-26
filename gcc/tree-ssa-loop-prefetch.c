@@ -1,5 +1,5 @@
 /* Array prefetching.
-   Copyright (C) 2005, 2007, 2008 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2007, 2008, 2009, 2010 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -22,19 +22,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
-#include "rtl.h"
 #include "tm_p.h"
-#include "hard-reg-set.h"
 #include "basic-block.h"
 #include "output.h"
 #include "diagnostic.h"
+#include "tree-pretty-print.h"
 #include "tree-flow.h"
 #include "tree-dump.h"
 #include "timevar.h"
 #include "cfgloop.h"
 #include "expr.h"
 #include "tree-pass.h"
-#include "ggc.h"
 #include "insn-config.h"
 #include "recog.h"
 #include "hashtab.h"
@@ -425,25 +423,24 @@ idx_analyze_ref (tree base, tree *index, void *data)
       ibase = build_int_cst (TREE_TYPE (ibase), 0);
     }
 
-  if (*ar_data->step == NULL_TREE)
-    *ar_data->step = step;
-  else
-    *ar_data->step = fold_build2 (PLUS_EXPR, sizetype,
-				  fold_convert (sizetype, *ar_data->step),
-				  fold_convert (sizetype, step));
   if (TREE_CODE (base) == ARRAY_REF)
     {
       stepsize = array_ref_element_size (base);
       if (!cst_and_fits_in_hwi (stepsize))
 	return false;
       imult = int_cst_value (stepsize);
-
-      *ar_data->step = fold_build2 (MULT_EXPR, sizetype,
-				    fold_convert (sizetype, *ar_data->step),
-				    fold_convert (sizetype, step));
+      step = fold_build2 (MULT_EXPR, sizetype,
+			  fold_convert (sizetype, step),
+			  fold_convert (sizetype, stepsize));
       idelta *= imult;
     }
 
+  if (*ar_data->step == NULL_TREE)
+    *ar_data->step = step;
+  else
+    *ar_data->step = fold_build2 (PLUS_EXPR, sizetype,
+				  fold_convert (sizetype, *ar_data->step),
+				  fold_convert (sizetype, step));
   *ar_data->delta += idelta;
   *index = ibase;
 

@@ -1,3 +1,7 @@
+2010-05-26  Richard Guenther  <rguenther@suse.de>
+
+	Merge from trunk r159869.
+
 2010-05-20  Richard Guenther  <rguenther@suse.de>
 
 	* cgraphbuild.c (mark_load): Properly check for NULL result
