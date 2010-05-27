@@ -1,3 +1,15 @@
+2010-05-26  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Backport from mainline:
+
+	2010-05-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/44199
+	* config/rs6000/rs6000.c (rs6000_emit_epilogue): If cfun->calls_alloca
+	or total_size is larger than red zone size for non-V4 ABI, emit a
+	stack_tie resp. frame_tie insn before stack pointer restore.
+	* config/rs6000/rs6000.md (frame_tie): New insn.
+
 2010-05-17  Peter Bergner  <bergner@vnet.ibm.com>
 
 	Backport from mainline:
