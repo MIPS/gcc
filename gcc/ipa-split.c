@@ -196,7 +196,6 @@ consider_split (struct split_point *current, bitmap non_ssa_vars,
       {
 	if (dump_file)
 	  fprintf (dump_file, "  Refused: EH landing pad\n");
-	gcc_unreachable ();
 	return;
       }
 
@@ -281,6 +280,8 @@ consider_split (struct split_point *current, bitmap non_ssa_vars,
 	    gimple_stmt_iterator bsi;
 	    for (bsi = gsi_start_bb (bb); !gsi_end_p (bsi); gsi_next (&bsi))
 	      {
+		if (is_gimple_debug (gsi_stmt (bsi)))
+		  continue;
 		if (walk_stmt_load_store_addr_ops
 		    (gsi_stmt (bsi), non_ssa_vars, test_nonssa_use,
 		     test_nonssa_use, test_nonssa_use))
@@ -293,6 +294,8 @@ consider_split (struct split_point *current, bitmap non_ssa_vars,
 	      }
 	    for (bsi = gsi_start_phis (bb); !gsi_end_p (bsi); gsi_next (&bsi))
 	      {
+		if (is_gimple_debug (gsi_stmt (bsi)))
+		  continue;
 		if (walk_stmt_load_store_addr_ops
 		    (gsi_stmt (bsi), non_ssa_vars, test_nonssa_use,
 		     test_nonssa_use, test_nonssa_use))
