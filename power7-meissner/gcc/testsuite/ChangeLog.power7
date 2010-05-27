@@ -1,3 +1,16 @@
+2010-05-27  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/recip-6.c: New file for -mrecip tests.
+	* gcc.target/powerpc/recip-7.c: Ditto.
+	* gcc.target/powerpc/recip-test.h: Ditto.
+	* gcc.target/powerpc/recip-test2.h: Ditto.
+
+	* lib/target-supports.exp (check_ppc_recip_hw_available): New
+	function to see if the machine supports all 4 of the standard
+	reciprocal estimate instructions.
+	(is-effective-target): Add VSX and pcc-recip support.
+	(is-effective-target-keyword): Ditto.
+
 2010-05-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* gcc.target/powerpc/recip-5.c: New file to test -mrecip=all.

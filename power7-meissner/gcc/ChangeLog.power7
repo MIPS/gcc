@@ -1,3 +1,10 @@
+2010-05-25  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vector.md (div<mode>3): Disable doing V4SFmode
+	divide on altivec because we can't guarantee that we we will do
+	the expansion using vector reciprocal estimate, and we don't have
+	a hard division to fall back upon.
+
 2010-05-24  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 159782.

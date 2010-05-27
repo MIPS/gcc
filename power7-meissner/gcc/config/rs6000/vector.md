@@ -217,10 +217,7 @@
   [(set (match_operand:VEC_F 0 "vfloat_operand" "")
 	(div:VEC_F (match_operand:VEC_F 1 "vfloat_operand" "")
 		   (match_operand:VEC_F 2 "vfloat_operand" "")))]
-  "VECTOR_UNIT_VSX_P (<MODE>mode)
-   || (<MODE>mode == V4SFmode
-       && VECTOR_UNIT_ALTIVEC_P (<MODE>mode)
-       && RS6000_RECIP_AUTO_RE_P (<MODE>mode))"
+  "VECTOR_UNIT_VSX_P (<MODE>mode)"
   "")
 
 (define_expand "neg<mode>2"
