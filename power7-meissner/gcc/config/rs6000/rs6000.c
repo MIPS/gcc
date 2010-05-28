@@ -2228,8 +2228,7 @@ rs6000_init_hard_regno_mode_ok (void)
 	    rs6000_recip_bits[SFmode] |= RS6000_RECIP_MASK_AUTO_RSQRTE;
 
 	  if (RS6000_RECIP_HAVE_RSQRTE_P (DFmode)
-	      && (rs6000_recip_control & RECIP_DF_RSQRT) != 0
-	      && TARGET_RECIP_PRECISION)
+	      && (rs6000_recip_control & RECIP_DF_RSQRT) != 0)
 	    rs6000_recip_bits[DFmode] |= RS6000_RECIP_MASK_AUTO_RSQRTE;
 
 	  if (RS6000_RECIP_HAVE_RSQRTE_P (V4SFmode)
@@ -2500,11 +2499,12 @@ rs6000_override_options (const char *default_cpu)
 
     /* For ISA 2.05, do not add MFPGPR, since it isn't in ISA 2.06, and
        don't add ALTIVEC, since in general it isn't a win on power6.  */
-    ISA_2_5_MASKS = (ISA_2_2_MASKS | MASK_CMPB | MASK_RECIP_PRECISION),
+    ISA_2_5_MASKS = (ISA_2_2_MASKS | MASK_CMPB | MASK_RECIP_PRECISION
+		     | MASK_DFP),
 
     /* For ISA 2.06, don't add ISEL, since in general it isn't a win, but
        altivec is a win so enable it.  */
-    ISA_2_6_MASKS = (ISA_2_5_MASKS | MASK_ALTIVEC | MASK_DFP | MASK_POPCNTD
+    ISA_2_6_MASKS = (ISA_2_5_MASKS | MASK_ALTIVEC | MASK_POPCNTD
 		     | MASK_VSX | MASK_RECIP_PRECISION)
   };
 
@@ -3099,8 +3099,6 @@ rs6000_override_options (const char *default_cpu)
 	  else
 	    invert = false;
 
-	  if (*q >= '0' && *q <= '9')
-	    mask = ((unsigned int) strtoul (q, (char **)0, 0)) & RECIP_ALL;
 	  if (!strcmp (q, "default"))
 	    mask = ((TARGET_RECIP_PRECISION)
 		    ? RECIP_HIGH_PRECISION : RECIP_LOW_PRECISION);
