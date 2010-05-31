@@ -409,7 +409,8 @@ initiate_allocnos (void)
     = VEC_alloc (ira_allocno_t, heap, max_reg_num () * 2);
   ira_conflict_id_allocno_map = NULL;
   ira_regno_allocno_map
-    = (ira_allocno_t *) ira_allocate (max_reg_num () * sizeof (ira_allocno_t));
+    = (ira_allocno_t *) ira_allocate (max_reg_num ()
+				      * sizeof (ira_allocno_t));
   memset (ira_regno_allocno_map, 0, max_reg_num () * sizeof (ira_allocno_t));
 }
 
@@ -417,7 +418,8 @@ initiate_allocnos (void)
    LOOP_TREE_NODE.  Add the allocno to the list of allocnos with the
    same regno if CAP_P is FALSE.  */
 ira_allocno_t
-ira_create_allocno (int regno, bool cap_p, ira_loop_tree_node_t loop_tree_node)
+ira_create_allocno (int regno, bool cap_p,
+		    ira_loop_tree_node_t loop_tree_node)
 {
   ira_allocno_t a;
 
@@ -451,16 +453,9 @@ ira_create_allocno (int regno, bool cap_p, ira_loop_tree_node_t loop_tree_node)
   ALLOCNO_NO_STACK_REG_P (a) = false;
   ALLOCNO_TOTAL_NO_STACK_REG_P (a) = false;
 #endif
-  ALLOCNO_MEM_OPTIMIZED_DEST (a) = NULL;
-  ALLOCNO_MEM_OPTIMIZED_DEST_P (a) = false;
-  ALLOCNO_SOMEWHERE_RENAMED_P (a) = false;
-  ALLOCNO_CHILD_RENAMED_P (a) = false;
   ALLOCNO_DONT_REASSIGN_P (a) = false;
   ALLOCNO_BAD_SPILL_P (a) = false;
-  ALLOCNO_IN_GRAPH_P (a) = false;
   ALLOCNO_ASSIGNED_P (a) = false;
-  ALLOCNO_MAY_BE_SPILLED_P (a) = false;
-  ALLOCNO_SPLAY_REMOVED_P (a) = false;
   ALLOCNO_CONFLICT_VEC_P (a) = false;
   ALLOCNO_MODE (a) = (regno < 0 ? VOIDmode : PSEUDO_REGNO_MODE (regno));
   ALLOCNO_COPIES (a) = NULL;
@@ -468,21 +463,17 @@ ira_create_allocno (int regno, bool cap_p, ira_loop_tree_node_t loop_tree_node)
   ALLOCNO_CONFLICT_HARD_REG_COSTS (a) = NULL;
   ALLOCNO_UPDATED_HARD_REG_COSTS (a) = NULL;
   ALLOCNO_UPDATED_CONFLICT_HARD_REG_COSTS (a) = NULL;
-  ALLOCNO_LEFT_CONFLICTS_SIZE (a) = -1;
-  ALLOCNO_COVER_CLASS (a) = NO_REGS;
-  ALLOCNO_UPDATED_COVER_CLASS_COST (a) = 0;
-  ALLOCNO_COVER_CLASS_COST (a) = 0;
+  ALLOCNO_CLASS (a) = NO_REGS;
+  ALLOCNO_UPDATED_CLASS_COST (a) = 0;
+  ALLOCNO_CLASS_COST (a) = 0;
   ALLOCNO_MEMORY_COST (a) = 0;
   ALLOCNO_UPDATED_MEMORY_COST (a) = 0;
   ALLOCNO_EXCESS_PRESSURE_POINTS_NUM (a) = 0;
-  ALLOCNO_NEXT_BUCKET_ALLOCNO (a) = NULL;
-  ALLOCNO_PREV_BUCKET_ALLOCNO (a) = NULL;
-  ALLOCNO_FIRST_COALESCED_ALLOCNO (a) = a;
-  ALLOCNO_NEXT_COALESCED_ALLOCNO (a) = a;
   ALLOCNO_LIVE_RANGES (a) = NULL;
   ALLOCNO_MIN (a) = INT_MAX;
   ALLOCNO_MAX (a) = -1;
   ALLOCNO_CONFLICT_ID (a) = ira_allocnos_num;
+  ALLOCNO_ADD_DATA (a) = NULL;
   VEC_safe_push (ira_allocno_t, heap, allocno_vec, a);
   ira_allocnos = VEC_address (ira_allocno_t, allocno_vec);
   ira_allocnos_num = VEC_length (ira_allocno_t, allocno_vec);
@@ -492,15 +483,16 @@ ira_create_allocno (int regno, bool cap_p, ira_loop_tree_node_t loop_tree_node)
   return a;
 }
 
-/* Set up cover class for A and update its conflict hard registers.  */
+/* Set up register class for A and update its conflict hard
+   registers.  */
 void
-ira_set_allocno_cover_class (ira_allocno_t a, enum reg_class cover_class)
+ira_set_allocno_class (ira_allocno_t a, enum reg_class aclass)
 {
-  ALLOCNO_COVER_CLASS (a) = cover_class;
+  ALLOCNO_CLASS (a) = aclass;
   IOR_COMPL_HARD_REG_SET (ALLOCNO_CONFLICT_HARD_REGS (a),
-			  reg_class_contents[cover_class]);
+			  reg_class_contents[aclass]);
   IOR_COMPL_HARD_REG_SET (ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a),
-			  reg_class_contents[cover_class]);
+			  reg_class_contents[aclass]);
 }
 
 /* Return TRUE if the conflict vector with NUM elements is more
@@ -757,24 +749,21 @@ create_cap_allocno (ira_allocno_t a)
 {
   ira_allocno_t cap;
   ira_loop_tree_node_t parent;
-  enum reg_class cover_class;
+  enum reg_class aclass;
 
-  ira_assert (ALLOCNO_FIRST_COALESCED_ALLOCNO (a) == a
-	      && ALLOCNO_NEXT_COALESCED_ALLOCNO (a) == a);
   parent = ALLOCNO_LOOP_TREE_NODE (a)->parent;
   cap = ira_create_allocno (ALLOCNO_REGNO (a), true, parent);
   ALLOCNO_MODE (cap) = ALLOCNO_MODE (a);
-  cover_class = ALLOCNO_COVER_CLASS (a);
-  ira_set_allocno_cover_class (cap, cover_class);
-  ALLOCNO_AVAILABLE_REGS_NUM (cap) = ALLOCNO_AVAILABLE_REGS_NUM (a);
+  aclass = ALLOCNO_CLASS (a);
+  ira_set_allocno_class (cap, aclass);
   ALLOCNO_CAP_MEMBER (cap) = a;
   ALLOCNO_CAP (a) = cap;
-  ALLOCNO_COVER_CLASS_COST (cap) = ALLOCNO_COVER_CLASS_COST (a);
+  ALLOCNO_CLASS_COST (cap) = ALLOCNO_CLASS_COST (a);
   ALLOCNO_MEMORY_COST (cap) = ALLOCNO_MEMORY_COST (a);
   ira_allocate_and_copy_costs
-    (&ALLOCNO_HARD_REG_COSTS (cap), cover_class, ALLOCNO_HARD_REG_COSTS (a));
+    (&ALLOCNO_HARD_REG_COSTS (cap), aclass, ALLOCNO_HARD_REG_COSTS (a));
   ira_allocate_and_copy_costs
-    (&ALLOCNO_CONFLICT_HARD_REG_COSTS (cap), cover_class,
+    (&ALLOCNO_CONFLICT_HARD_REG_COSTS (cap), aclass,
      ALLOCNO_CONFLICT_HARD_REG_COSTS (a));
   ALLOCNO_BAD_SPILL_P (cap) = ALLOCNO_BAD_SPILL_P (a);
   ALLOCNO_NREFS (cap) = ALLOCNO_NREFS (a);
@@ -966,15 +955,37 @@ ira_finish_allocno_live_range_list (allocno_live_range_t r)
 void
 ira_free_allocno_updated_costs (ira_allocno_t a)
 {
-  enum reg_class cover_class;
+  enum reg_class aclass;
 
-  cover_class = ALLOCNO_COVER_CLASS (a);
+  aclass = ALLOCNO_CLASS (a);
   if (ALLOCNO_UPDATED_HARD_REG_COSTS (a) != NULL)
-    ira_free_cost_vector (ALLOCNO_UPDATED_HARD_REG_COSTS (a), cover_class);
+    ira_free_cost_vector (ALLOCNO_UPDATED_HARD_REG_COSTS (a), aclass);
   ALLOCNO_UPDATED_HARD_REG_COSTS (a) = NULL;
   if (ALLOCNO_UPDATED_CONFLICT_HARD_REG_COSTS (a) != NULL)
     ira_free_cost_vector (ALLOCNO_UPDATED_CONFLICT_HARD_REG_COSTS (a),
-			  cover_class);
+			  aclass);
+  ALLOCNO_UPDATED_CONFLICT_HARD_REG_COSTS (a) = NULL;
+}
+
+/* Free and nullify all cost vectors allocated earlier for allocno
+   A.  */
+static void
+ira_free_allocno_costs (ira_allocno_t a)
+{
+  enum reg_class aclass = ALLOCNO_CLASS (a);
+
+  if (ALLOCNO_HARD_REG_COSTS (a) != NULL)
+    ira_free_cost_vector (ALLOCNO_HARD_REG_COSTS (a), aclass);
+  if (ALLOCNO_CONFLICT_HARD_REG_COSTS (a) != NULL)
+    ira_free_cost_vector (ALLOCNO_CONFLICT_HARD_REG_COSTS (a), aclass);
+  if (ALLOCNO_UPDATED_HARD_REG_COSTS (a) != NULL)
+    ira_free_cost_vector (ALLOCNO_UPDATED_HARD_REG_COSTS (a), aclass);
+  if (ALLOCNO_UPDATED_CONFLICT_HARD_REG_COSTS (a) != NULL)
+    ira_free_cost_vector (ALLOCNO_UPDATED_CONFLICT_HARD_REG_COSTS (a),
+			  aclass);
+  ALLOCNO_HARD_REG_COSTS (a) = NULL;
+  ALLOCNO_CONFLICT_HARD_REG_COSTS (a) = NULL;
+  ALLOCNO_UPDATED_HARD_REG_COSTS (a) = NULL;
   ALLOCNO_UPDATED_CONFLICT_HARD_REG_COSTS (a) = NULL;
 }
 
@@ -982,21 +993,11 @@ ira_free_allocno_updated_costs (ira_allocno_t a)
 static void
 finish_allocno (ira_allocno_t a)
 {
-  enum reg_class cover_class = ALLOCNO_COVER_CLASS (a);
-
   ira_allocnos[ALLOCNO_NUM (a)] = NULL;
   ira_conflict_id_allocno_map[ALLOCNO_CONFLICT_ID (a)] = NULL;
   if (ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a) != NULL)
     ira_free (ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a));
-  if (ALLOCNO_HARD_REG_COSTS (a) != NULL)
-    ira_free_cost_vector (ALLOCNO_HARD_REG_COSTS (a), cover_class);
-  if (ALLOCNO_CONFLICT_HARD_REG_COSTS (a) != NULL)
-    ira_free_cost_vector (ALLOCNO_CONFLICT_HARD_REG_COSTS (a), cover_class);
-  if (ALLOCNO_UPDATED_HARD_REG_COSTS (a) != NULL)
-    ira_free_cost_vector (ALLOCNO_UPDATED_HARD_REG_COSTS (a), cover_class);
-  if (ALLOCNO_UPDATED_CONFLICT_HARD_REG_COSTS (a) != NULL)
-    ira_free_cost_vector (ALLOCNO_UPDATED_CONFLICT_HARD_REG_COSTS (a),
-			  cover_class);
+  ira_free_allocno_costs (a);
   ira_finish_allocno_live_range_list (ALLOCNO_LIVE_RANGES (a));
   pool_free (allocno_pool, a);
 }
@@ -1116,48 +1117,6 @@ ira_add_allocno_copy_to_list (ira_copy_t cp)
     }
   ALLOCNO_COPIES (first) = cp;
   ALLOCNO_COPIES (second) = cp;
-}
-
-/* Detach a copy CP from allocnos involved into the copy.  */
-void
-ira_remove_allocno_copy_from_list (ira_copy_t cp)
-{
-  ira_allocno_t first = cp->first, second = cp->second;
-  ira_copy_t prev, next;
-
-  next = cp->next_first_allocno_copy;
-  prev = cp->prev_first_allocno_copy;
-  if (prev == NULL)
-    ALLOCNO_COPIES (first) = next;
-  else if (prev->first == first)
-    prev->next_first_allocno_copy = next;
-  else
-    prev->next_second_allocno_copy = next;
-  if (next != NULL)
-    {
-      if (next->first == first)
-	next->prev_first_allocno_copy = prev;
-      else
-	next->prev_second_allocno_copy = prev;
-    }
-  cp->prev_first_allocno_copy = cp->next_first_allocno_copy = NULL;
-
-  next = cp->next_second_allocno_copy;
-  prev = cp->prev_second_allocno_copy;
-  if (prev == NULL)
-    ALLOCNO_COPIES (second) = next;
-  else if (prev->second == second)
-    prev->next_second_allocno_copy = next;
-  else
-    prev->next_first_allocno_copy = next;
-  if (next != NULL)
-    {
-      if (next->second == second)
-	next->prev_second_allocno_copy = prev;
-      else
-	next->prev_first_allocno_copy = prev;
-    }
-  cp->prev_second_allocno_copy = cp->next_second_allocno_copy = NULL;
 }
 
 /* Make a copy CP a canonical copy where number of the
@@ -1302,55 +1261,54 @@ finish_copies (void)
 
 
 
-/* Pools for cost vectors.  It is defined only for cover classes.  */
+/* Pools for cost vectors.  It is defined only for allocno classes.  */
 static alloc_pool cost_vector_pool[N_REG_CLASSES];
 
 /* The function initiates work with hard register cost vectors.  It
-   creates allocation pool for each cover class.  */
+   creates allocation pool for each allocno class.  */
 static void
 initiate_cost_vectors (void)
 {
   int i;
-  enum reg_class cover_class;
+  enum reg_class aclass;
 
-  for (i = 0; i < ira_reg_class_cover_size; i++)
+  for (i = 0; i < ira_allocno_classes_num; i++)
     {
-      cover_class = ira_reg_class_cover[i];
-      cost_vector_pool[cover_class]
+      aclass = ira_allocno_classes[i];
+      cost_vector_pool[aclass]
 	= create_alloc_pool ("cost vectors",
-			     sizeof (int)
-			     * ira_class_hard_regs_num[cover_class],
+			     sizeof (int) * ira_class_hard_regs_num[aclass],
 			     100);
     }
 }
 
-/* Allocate and return a cost vector VEC for COVER_CLASS.  */
+/* Allocate and return a cost vector VEC for ACLASS.  */
 int *
-ira_allocate_cost_vector (enum reg_class cover_class)
+ira_allocate_cost_vector (enum reg_class aclass)
 {
-  return (int *) pool_alloc (cost_vector_pool[cover_class]);
+  return (int *) pool_alloc (cost_vector_pool[aclass]);
 }
 
-/* Free a cost vector VEC for COVER_CLASS.  */
+/* Free a cost vector VEC for ACLASS.  */
 void
-ira_free_cost_vector (int *vec, enum reg_class cover_class)
+ira_free_cost_vector (int *vec, enum reg_class aclass)
 {
   ira_assert (vec != NULL);
-  pool_free (cost_vector_pool[cover_class], vec);
+  pool_free (cost_vector_pool[aclass], vec);
 }
 
 /* Finish work with hard register cost vectors.  Release allocation
-   pool for each cover class.  */
+   pool for each allocno class.  */
 static void
 finish_cost_vectors (void)
 {
   int i;
-  enum reg_class cover_class;
+  enum reg_class aclass;
 
-  for (i = 0; i < ira_reg_class_cover_size; i++)
+  for (i = 0; i < ira_allocno_classes_num; i++)
     {
-      cover_class = ira_reg_class_cover[i];
-      free_alloc_pool (cost_vector_pool[cover_class]);
+      aclass = ira_allocno_classes[i];
+      free_alloc_pool (cost_vector_pool[aclass]);
     }
 }
 
@@ -1581,7 +1539,7 @@ propagate_allocno_info (void)
   int i;
   ira_allocno_t a, parent_a;
   ira_loop_tree_node_t parent;
-  enum reg_class cover_class;
+  enum reg_class aclass;
 
   if (flag_ira_region != IRA_REGION_ALL
       && flag_ira_region != IRA_REGION_MIXED)
@@ -1612,17 +1570,17 @@ propagate_allocno_info (void)
 	    += ALLOCNO_CALLS_CROSSED_NUM (a);
 	  ALLOCNO_EXCESS_PRESSURE_POINTS_NUM (parent_a)
 	    += ALLOCNO_EXCESS_PRESSURE_POINTS_NUM (a);
-	  cover_class = ALLOCNO_COVER_CLASS (a);
-	  ira_assert (cover_class == ALLOCNO_COVER_CLASS (parent_a));
+	  aclass = ALLOCNO_CLASS (a);
+	  ira_assert (aclass == ALLOCNO_CLASS (parent_a));
 	  ira_allocate_and_accumulate_costs
-	    (&ALLOCNO_HARD_REG_COSTS (parent_a), cover_class,
+	    (&ALLOCNO_HARD_REG_COSTS (parent_a), aclass,
 	     ALLOCNO_HARD_REG_COSTS (a));
 	  ira_allocate_and_accumulate_costs
 	    (&ALLOCNO_CONFLICT_HARD_REG_COSTS (parent_a),
-	     cover_class,
+	     aclass,
 	     ALLOCNO_CONFLICT_HARD_REG_COSTS (a));
-	  ALLOCNO_COVER_CLASS_COST (parent_a)
-	    += ALLOCNO_COVER_CLASS_COST (a);
+	  ALLOCNO_CLASS_COST (parent_a)
+	    += ALLOCNO_CLASS_COST (a);
 	  ALLOCNO_MEMORY_COST (parent_a) += ALLOCNO_MEMORY_COST (a);
 	}
 }
@@ -1662,16 +1620,16 @@ static bool
 low_pressure_loop_node_p (ira_loop_tree_node_t node)
 {
   int i;
-  enum reg_class cover_class;
+  enum reg_class pclass;
 
   if (node->bb != NULL)
     return false;
 
-  for (i = 0; i < ira_reg_class_cover_size; i++)
+  for (i = 0; i < ira_pressure_classes_num; i++)
     {
-      cover_class = ira_reg_class_cover[i];
-      if (node->reg_pressure[cover_class]
-	  > ira_available_class_regs[cover_class])
+      pclass = ira_pressure_classes[i];
+      if (node->reg_pressure[pclass] > ira_available_class_regs[pclass]
+	  && ira_available_class_regs[pclass] > 1)
 	return false;
     }
   return true;
@@ -1887,7 +1845,7 @@ ira_rebuild_regno_allocno_list (int regno)
 static void
 propagate_some_info_from_allocno (ira_allocno_t a, ira_allocno_t from_a)
 {
-  enum reg_class cover_class;
+  enum reg_class aclass;
 
   IOR_HARD_REG_SET (ALLOCNO_CONFLICT_HARD_REGS (a),
 		    ALLOCNO_CONFLICT_HARD_REGS (from_a));
@@ -1909,14 +1867,14 @@ propagate_some_info_from_allocno (ira_allocno_t a, ira_allocno_t from_a)
   if (ALLOCNO_TOTAL_NO_STACK_REG_P (from_a))
     ALLOCNO_TOTAL_NO_STACK_REG_P (a) = true;
 #endif
-  cover_class = ALLOCNO_COVER_CLASS (from_a);
-  ira_assert (cover_class == ALLOCNO_COVER_CLASS (a));
-  ira_allocate_and_accumulate_costs (&ALLOCNO_HARD_REG_COSTS (a), cover_class,
+  aclass = ALLOCNO_CLASS (from_a);
+  ira_assert (aclass == ALLOCNO_CLASS (a));
+  ira_allocate_and_accumulate_costs (&ALLOCNO_HARD_REG_COSTS (a), aclass,
 				     ALLOCNO_HARD_REG_COSTS (from_a));
   ira_allocate_and_accumulate_costs (&ALLOCNO_CONFLICT_HARD_REG_COSTS (a),
-				     cover_class,
+				     aclass,
 				     ALLOCNO_CONFLICT_HARD_REG_COSTS (from_a));
-  ALLOCNO_COVER_CLASS_COST (a) += ALLOCNO_COVER_CLASS_COST (from_a);
+  ALLOCNO_CLASS_COST (a) += ALLOCNO_CLASS_COST (from_a);
   ALLOCNO_MEMORY_COST (a) += ALLOCNO_MEMORY_COST (from_a);
 }
 
@@ -2075,8 +2033,8 @@ remove_low_level_allocnos (void)
 /* Remove loops from consideration.  We remove all loops except for
    root if ALL_P or loops for which a separate allocation will not
    improve the result.  We have to do this after allocno creation and
-   their costs and cover class evaluation because only after that the
-   register pressure can be known and is calculated.  */
+   their costs and allocno class evaluation because only after that
+   the register pressure can be known and is calculated.  */
 static void
 remove_unnecessary_regions (bool all_p)
 {
@@ -2123,33 +2081,33 @@ update_bad_spill_attribute (void)
   ira_allocno_t a;
   ira_allocno_iterator ai;
   allocno_live_range_t r;
-  enum reg_class cover_class;
+  enum reg_class aclass;
   bitmap_head dead_points[N_REG_CLASSES];
 
-  for (i = 0; i < ira_reg_class_cover_size; i++)
+  for (i = 0; i < ira_allocno_classes_num; i++)
     {
-      cover_class = ira_reg_class_cover[i];
-      bitmap_initialize (&dead_points[cover_class], &reg_obstack);
+      aclass = ira_allocno_classes[i];
+      bitmap_initialize (&dead_points[aclass], &reg_obstack);
     }
   FOR_EACH_ALLOCNO (a, ai)
     {
-      cover_class = ALLOCNO_COVER_CLASS (a);
-      if (cover_class == NO_REGS)
+      aclass = ALLOCNO_CLASS (a);
+      if (aclass == NO_REGS)
 	continue;
       for (r = ALLOCNO_LIVE_RANGES (a); r != NULL; r = r->next)
-	bitmap_set_bit (&dead_points[cover_class], r->finish);
+	bitmap_set_bit (&dead_points[aclass], r->finish);
     }
   FOR_EACH_ALLOCNO (a, ai)
     {
-      cover_class = ALLOCNO_COVER_CLASS (a);
-      if (cover_class == NO_REGS)
+      aclass = ALLOCNO_CLASS (a);
+      if (aclass == NO_REGS)
 	continue;
       if (! ALLOCNO_BAD_SPILL_P (a))
 	continue;
       for (r = ALLOCNO_LIVE_RANGES (a); r != NULL; r = r->next)
 	{
 	  for (i = r->start + 1; i < r->finish; i++)
-	    if (bitmap_bit_p (&dead_points[cover_class], i))
+	    if (bitmap_bit_p (&dead_points[aclass], i))
 	      break;
 	  if (i < r->finish)
 	    break;
@@ -2157,10 +2115,10 @@ update_bad_spill_attribute (void)
       if (r != NULL)
 	ALLOCNO_BAD_SPILL_P (a) = false;
     }
-  for (i = 0; i < ira_reg_class_cover_size; i++)
+  for (i = 0; i < ira_allocno_classes_num; i++)
     {
-      cover_class = ira_reg_class_cover[i];
-      bitmap_clear (&dead_points[cover_class]);
+      aclass = ira_allocno_classes[i];
+      bitmap_clear (&dead_points[aclass]);
     }
 }
 
@@ -2226,10 +2184,10 @@ setup_min_max_allocno_live_range_point (void)
 }
 
 /* Sort allocnos according to their live ranges.  Allocnos with
-   smaller cover class are put first unless we use priority coloring.
-   Allocnos with the same cove class are ordered according their start
-   (min).  Allocnos with the same start are ordered according their
-   finish (max).  */
+   smaller allocno class are put first unless we use priority
+   coloring.  Allocnos with the same cove class are ordered according
+   their start (min).  Allocnos with the same start are ordered
+   according their finish (max).  */
 static int
 allocno_range_compare_func (const void *v1p, const void *v2p)
 {
@@ -2237,9 +2195,6 @@ allocno_range_compare_func (const void *v1p, const void *v2p)
   ira_allocno_t a1 = *(const ira_allocno_t *) v1p;
   ira_allocno_t a2 = *(const ira_allocno_t *) v2p;
 
-  if (flag_ira_algorithm != IRA_ALGORITHM_PRIORITY
-      && (diff = ALLOCNO_COVER_CLASS (a1) - ALLOCNO_COVER_CLASS (a2)) != 0)
-    return diff;
   if ((diff = ALLOCNO_MIN (a1) - ALLOCNO_MIN (a2)) != 0)
     return diff;
   if ((diff = ALLOCNO_MAX (a1) - ALLOCNO_MAX (a2)) != 0)
@@ -2273,24 +2228,22 @@ sort_conflict_id_allocno_map (void)
 static void
 setup_min_max_conflict_allocno_ids (void)
 {
-  int cover_class;
+  int aclass;
   int i, j, min, max, start, finish, first_not_finished, filled_area_start;
   int *live_range_min, *last_lived;
   ira_allocno_t a;
 
   live_range_min = (int *) ira_allocate (sizeof (int) * ira_allocnos_num);
-  cover_class = -1;
+  aclass = -1;
   first_not_finished = -1;
   for (i = 0; i < ira_allocnos_num; i++)
     {
       a = ira_conflict_id_allocno_map[i];
       if (a == NULL)
 	continue;
-      if (cover_class < 0
-	  || (flag_ira_algorithm != IRA_ALGORITHM_PRIORITY
-	      && cover_class != (int) ALLOCNO_COVER_CLASS (a)))
+      if (aclass < 0)
 	{
-	  cover_class = ALLOCNO_COVER_CLASS (a);
+	  aclass = ALLOCNO_CLASS (a);
 	  min = i;
 	  first_not_finished = i;
 	}
@@ -2315,18 +2268,16 @@ setup_min_max_conflict_allocno_ids (void)
       ALLOCNO_MIN (a) = min;
     }
   last_lived = (int *) ira_allocate (sizeof (int) * ira_max_point);
-  cover_class = -1;
+  aclass = -1;
   filled_area_start = -1;
   for (i = ira_allocnos_num - 1; i >= 0; i--)
     {
       a = ira_conflict_id_allocno_map[i];
       if (a == NULL)
 	continue;
-      if (cover_class < 0
-	  || (flag_ira_algorithm != IRA_ALGORITHM_PRIORITY
-	      && cover_class != (int) ALLOCNO_COVER_CLASS (a)))
+      if (aclass < 0)
 	{
-	  cover_class = ALLOCNO_COVER_CLASS (a);
+	  aclass = ALLOCNO_CLASS (a);
 	  for (j = 0; j < ira_max_point; j++)
 	    last_lived[j] = -1;
 	  filled_area_start = ira_max_point;
@@ -2409,7 +2360,7 @@ copy_info_to_removed_store_destinations (int regno)
        a != NULL;
        a = ALLOCNO_NEXT_REGNO_ALLOCNO (a))
     {
-      if (a != regno_top_level_allocno_map[REGNO (ALLOCNO_REG (a))])
+      if (a != regno_top_level_allocno_map[REGNO (ALLOCNO_EMIT_DATA (a)->reg)])
 	/* This allocno will be removed.  */
 	continue;
       /* Caps will be removed.  */
@@ -2418,9 +2369,10 @@ copy_info_to_removed_store_destinations (int regno)
 	   parent != NULL;
 	   parent = parent->parent)
 	if ((parent_a = parent->regno_allocno_map[regno]) == NULL
-	    || (parent_a == regno_top_level_allocno_map[REGNO (ALLOCNO_REG
-							       (parent_a))]
-		&& ALLOCNO_MEM_OPTIMIZED_DEST_P (parent_a)))
+	    || (parent_a == regno_top_level_allocno_map[REGNO
+							(ALLOCNO_EMIT_DATA
+							 (parent_a)->reg)]
+		&& ALLOCNO_EMIT_DATA (parent_a)->mem_optimized_dest_p))
 	  break;
       if (parent == NULL || parent_a == NULL)
 	continue;
@@ -2429,8 +2381,9 @@ copy_info_to_removed_store_destinations (int regno)
 	  fprintf
 	    (ira_dump_file,
 	     "      Coping ranges of a%dr%d to a%dr%d: ",
-	     ALLOCNO_NUM (a), REGNO (ALLOCNO_REG (a)),
-	     ALLOCNO_NUM (parent_a), REGNO (ALLOCNO_REG (parent_a)));
+	     ALLOCNO_NUM (a), REGNO (ALLOCNO_EMIT_DATA (a)->reg),
+	     ALLOCNO_NUM (parent_a),
+	     REGNO (ALLOCNO_EMIT_DATA (parent_a)->reg));
 	  ira_print_live_range_list (ira_dump_file,
 				     ALLOCNO_LIVE_RANGES (a));
 	}
@@ -2468,7 +2421,7 @@ ira_flattening (int max_regno_before_emit, int ira_max_point_before_emit)
   int hard_regs_num;
   bool new_pseudos_p, merged_p, mem_dest_p;
   unsigned int n;
-  enum reg_class cover_class;
+  enum reg_class aclass;
   ira_allocno_t a, parent_a, first, second, node_first, node_second;
   ira_copy_t cp;
   ira_loop_tree_node_t parent, node;
@@ -2478,7 +2431,8 @@ ira_flattening (int max_regno_before_emit, int ira_max_point_before_emit)
   sparseset allocnos_live;
 
   regno_top_level_allocno_map
-    = (ira_allocno_t *) ira_allocate (max_reg_num () * sizeof (ira_allocno_t));
+    = (ira_allocno_t *) ira_allocate (max_reg_num ()
+				      * sizeof (ira_allocno_t));
   memset (regno_top_level_allocno_map, 0,
 	  max_reg_num () * sizeof (ira_allocno_t));
   new_pseudos_p = merged_p = false;
@@ -2503,8 +2457,10 @@ ira_flattening (int max_regno_before_emit, int ira_max_point_before_emit)
 	   a != NULL;
 	   a = ALLOCNO_NEXT_REGNO_ALLOCNO (a))
 	{
+	  ira_emit_data_t parent_data, data = ALLOCNO_EMIT_DATA (a);
+
 	  ira_assert (ALLOCNO_CAP_MEMBER (a) == NULL);
-	  if (ALLOCNO_SOMEWHERE_RENAMED_P (a))
+	  if (data->somewhere_renamed_p)
 	    new_pseudos_p = true;
 	  if (ALLOCNO_CAP (a) != NULL
 	      || (parent = ALLOCNO_LOOP_TREE_NODE (a)->parent) == NULL
@@ -2512,14 +2468,15 @@ ira_flattening (int max_regno_before_emit, int ira_max_point_before_emit)
 		  == NULL))
 	    {
 	      ALLOCNO_COPIES (a) = NULL;
-	      regno_top_level_allocno_map[REGNO (ALLOCNO_REG (a))] = a;
+	      regno_top_level_allocno_map[REGNO (data->reg)] = a;
 	      continue;
 	    }
 	  ira_assert (ALLOCNO_CAP_MEMBER (parent_a) == NULL);
 
-	  if (ALLOCNO_MEM_OPTIMIZED_DEST (a) != NULL)
+	  if (data->mem_optimized_dest != NULL)
 	    mem_dest_p = true;
-	  if (REGNO (ALLOCNO_REG (a)) == REGNO (ALLOCNO_REG (parent_a)))
+	  parent_data = ALLOCNO_EMIT_DATA (parent_a);
+	  if (REGNO (data->reg) == REGNO (parent_data->reg))
 	    {
 	      IOR_HARD_REG_SET (ALLOCNO_TOTAL_CONFLICT_HARD_REGS (parent_a),
 				ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a));
@@ -2531,9 +2488,8 @@ ira_flattening (int max_regno_before_emit, int ira_max_point_before_emit)
 		{
 		  fprintf (ira_dump_file,
 			   "      Moving ranges of a%dr%d to a%dr%d: ",
-			   ALLOCNO_NUM (a), REGNO (ALLOCNO_REG (a)),
-			   ALLOCNO_NUM (parent_a),
-			   REGNO (ALLOCNO_REG (parent_a)));
+			   ALLOCNO_NUM (a), REGNO (data->reg),
+			   ALLOCNO_NUM (parent_a), REGNO (parent_data->reg));
 		  ira_print_live_range_list (ira_dump_file,
 					     ALLOCNO_LIVE_RANGES (a));
 		}
@@ -2543,9 +2499,9 @@ ira_flattening (int max_regno_before_emit, int ira_max_point_before_emit)
 		  (ALLOCNO_LIVE_RANGES (a), ALLOCNO_LIVE_RANGES (parent_a));
 	      merged_p = true;
 	      ALLOCNO_LIVE_RANGES (a) = NULL;
-	      ALLOCNO_MEM_OPTIMIZED_DEST_P (parent_a)
-		= (ALLOCNO_MEM_OPTIMIZED_DEST_P (parent_a)
-		   || ALLOCNO_MEM_OPTIMIZED_DEST_P (a));
+	      parent_data->mem_optimized_dest_p
+		= (parent_data->mem_optimized_dest_p
+		   || data->mem_optimized_dest_p);
 	      continue;
 	    }
 	  new_pseudos_p = true;
@@ -2561,8 +2517,8 @@ ira_flattening (int max_regno_before_emit, int ira_max_point_before_emit)
 	      ira_assert (ALLOCNO_CALLS_CROSSED_NUM (parent_a) >= 0
 			  && ALLOCNO_NREFS (parent_a) >= 0
 			  && ALLOCNO_FREQ (parent_a) >= 0);
-	      cover_class = ALLOCNO_COVER_CLASS (parent_a);
-	      hard_regs_num = ira_class_hard_regs_num[cover_class];
+	      aclass = ALLOCNO_CLASS (parent_a);
+	      hard_regs_num = ira_class_hard_regs_num[aclass];
 	      if (ALLOCNO_HARD_REG_COSTS (a) != NULL
 		  && ALLOCNO_HARD_REG_COSTS (parent_a) != NULL)
 		for (j = 0; j < hard_regs_num; j++)
@@ -2573,8 +2529,8 @@ ira_flattening (int max_regno_before_emit, int ira_max_point_before_emit)
 		for (j = 0; j < hard_regs_num; j++)
 		  ALLOCNO_CONFLICT_HARD_REG_COSTS (parent_a)[j]
 		    -= ALLOCNO_CONFLICT_HARD_REG_COSTS (a)[j];
-	      ALLOCNO_COVER_CLASS_COST (parent_a)
-		-= ALLOCNO_COVER_CLASS_COST (a);
+	      ALLOCNO_CLASS_COST (parent_a)
+		-= ALLOCNO_CLASS_COST (a);
 	      ALLOCNO_MEMORY_COST (parent_a) -= ALLOCNO_MEMORY_COST (a);
 	      if (ALLOCNO_CAP (parent_a) != NULL
 		  || (parent
@@ -2584,7 +2540,7 @@ ira_flattening (int max_regno_before_emit, int ira_max_point_before_emit)
 		break;
 	    }
 	  ALLOCNO_COPIES (a) = NULL;
-	  regno_top_level_allocno_map[REGNO (ALLOCNO_REG (a))] = a;
+	  regno_top_level_allocno_map[REGNO (data->reg)] = a;
 	}
       if (mem_dest_p && copy_info_to_removed_store_destinations (i))
 	merged_p = true;
@@ -2597,7 +2553,8 @@ ira_flattening (int max_regno_before_emit, int ira_max_point_before_emit)
       /* Rebuild conflicts.  */
       FOR_EACH_ALLOCNO (a, ai)
 	{
-	  if (a != regno_top_level_allocno_map[REGNO (ALLOCNO_REG (a))]
+	  if (a != regno_top_level_allocno_map[REGNO
+					       (ALLOCNO_EMIT_DATA (a)->reg)]
 	      || ALLOCNO_CAP_MEMBER (a) != NULL)
 	    continue;
 	  for (r = ALLOCNO_LIVE_RANGES (a); r != NULL; r = r->next)
@@ -2610,18 +2567,19 @@ ira_flattening (int max_regno_before_emit, int ira_max_point_before_emit)
 	  for (r = ira_start_point_ranges[i]; r != NULL; r = r->start_next)
 	    {
 	      a = r->allocno;
-	      if (a != regno_top_level_allocno_map[REGNO (ALLOCNO_REG (a))]
+	      if (a != regno_top_level_allocno_map[REGNO
+						   (ALLOCNO_EMIT_DATA (a)->reg)]
 		  || ALLOCNO_CAP_MEMBER (a) != NULL)
 		continue;
 	      num = ALLOCNO_NUM (a);
-	      cover_class = ALLOCNO_COVER_CLASS (a);
+	      aclass = ALLOCNO_CLASS (a);
 	      sparseset_set_bit (allocnos_live, num);
 	      EXECUTE_IF_SET_IN_SPARSESET (allocnos_live, n)
 		{
 		  ira_allocno_t live_a = ira_allocnos[n];
 
 		  if (ira_reg_classes_intersect_p
-		      [cover_class][ALLOCNO_COVER_CLASS (live_a)]
+		      [aclass][ALLOCNO_CLASS (live_a)]
 		      /* Don't set up conflict for the allocno with itself.  */
 		      && num != (int) n)
 		    ira_add_allocno_conflict (a, live_a);
@@ -2645,14 +2603,18 @@ ira_flattening (int max_regno_before_emit, int ira_max_point_before_emit)
 	    fprintf
 	      (ira_dump_file, "      Remove cp%d:%c%dr%d-%c%dr%d\n",
 	       cp->num, ALLOCNO_CAP_MEMBER (cp->first) != NULL ? 'c' : 'a',
-	       ALLOCNO_NUM (cp->first), REGNO (ALLOCNO_REG (cp->first)),
+	       ALLOCNO_NUM (cp->first),
+	       REGNO (ALLOCNO_EMIT_DATA (cp->first)->reg),
 	       ALLOCNO_CAP_MEMBER (cp->second) != NULL ? 'c' : 'a',
-	       ALLOCNO_NUM (cp->second), REGNO (ALLOCNO_REG (cp->second)));
+	       ALLOCNO_NUM (cp->second),
+	       REGNO (ALLOCNO_EMIT_DATA (cp->second)->reg));
 	  cp->loop_tree_node = NULL;
 	  continue;
 	}
-      first = regno_top_level_allocno_map[REGNO (ALLOCNO_REG (cp->first))];
-      second = regno_top_level_allocno_map[REGNO (ALLOCNO_REG (cp->second))];
+      first = regno_top_level_allocno_map[REGNO (ALLOCNO_EMIT_DATA
+						 (cp->first)->reg)];
+      second = regno_top_level_allocno_map[REGNO (ALLOCNO_EMIT_DATA
+						  (cp->second)->reg)];
       node = cp->loop_tree_node;
       if (node == NULL)
 	keep_p = true; /* It copy generated in ira-emit.c.  */
@@ -2662,10 +2624,10 @@ ira_flattening (int max_regno_before_emit, int ira_max_point_before_emit)
 	     which we will have different pseudos.  */
 	  node_first = node->regno_allocno_map[ALLOCNO_REGNO (cp->first)];
 	  node_second = node->regno_allocno_map[ALLOCNO_REGNO (cp->second)];
-	  keep_p = ((REGNO (ALLOCNO_REG (first))
-		     == REGNO (ALLOCNO_REG (node_first)))
-		     && (REGNO (ALLOCNO_REG (second))
-			 == REGNO (ALLOCNO_REG (node_second))));
+	  keep_p = ((REGNO (ALLOCNO_EMIT_DATA (first)->reg)
+		     == REGNO (ALLOCNO_EMIT_DATA (node_first)->reg))
+		     && (REGNO (ALLOCNO_EMIT_DATA (second)->reg)
+			 == REGNO (ALLOCNO_EMIT_DATA (node_second)->reg)));
 	}
       if (keep_p)
 	{
@@ -2679,28 +2641,29 @@ ira_flattening (int max_regno_before_emit, int ira_max_point_before_emit)
 	  if (internal_flag_ira_verbose > 4 && ira_dump_file != NULL)
 	    fprintf (ira_dump_file, "      Remove cp%d:a%dr%d-a%dr%d\n",
 		     cp->num, ALLOCNO_NUM (cp->first),
-		     REGNO (ALLOCNO_REG (cp->first)), ALLOCNO_NUM (cp->second),
-		     REGNO (ALLOCNO_REG (cp->second)));
+		     REGNO (ALLOCNO_EMIT_DATA (cp->first)->reg),
+		     ALLOCNO_NUM (cp->second),
+		     REGNO (ALLOCNO_EMIT_DATA (cp->second)->reg));
 	}
     }
   /* Remove unnecessary allocnos on lower levels of the loop tree.  */
   FOR_EACH_ALLOCNO (a, ai)
     {
-      if (a != regno_top_level_allocno_map[REGNO (ALLOCNO_REG (a))]
+      if (a != regno_top_level_allocno_map[REGNO (ALLOCNO_EMIT_DATA (a)->reg)]
 	  || ALLOCNO_CAP_MEMBER (a) != NULL)
 	{
 	  if (internal_flag_ira_verbose > 4 && ira_dump_file != NULL)
 	    fprintf (ira_dump_file, "      Remove a%dr%d\n",
-		     ALLOCNO_NUM (a), REGNO (ALLOCNO_REG (a)));
+		     ALLOCNO_NUM (a), REGNO (ALLOCNO_EMIT_DATA (a)->reg));
 	  finish_allocno (a);
 	  continue;
 	}
       ALLOCNO_LOOP_TREE_NODE (a) = ira_loop_tree_root;
-      ALLOCNO_REGNO (a) = REGNO (ALLOCNO_REG (a));
+      ALLOCNO_REGNO (a) = REGNO (ALLOCNO_EMIT_DATA (a)->reg);
       ALLOCNO_CAP (a) = NULL;
       /* Restore updated costs for assignments from reload.  */
       ALLOCNO_UPDATED_MEMORY_COST (a) = ALLOCNO_MEMORY_COST (a);
-      ALLOCNO_UPDATED_COVER_CLASS_COST (a) = ALLOCNO_COVER_CLASS_COST (a);
+      ALLOCNO_UPDATED_CLASS_COST (a) = ALLOCNO_CLASS_COST (a);
       if (! ALLOCNO_ASSIGNED_P (a))
 	ira_free_allocno_updated_costs (a);
       ira_assert (ALLOCNO_UPDATED_HARD_REG_COSTS (a) == NULL);
@@ -2769,29 +2732,28 @@ update_conflict_hard_reg_costs (void)
 
   FOR_EACH_ALLOCNO (a, ai)
     {
-      enum reg_class cover_class = ALLOCNO_COVER_CLASS (a);
+      enum reg_class aclass = ALLOCNO_CLASS (a);
       enum reg_class pref = reg_preferred_class (ALLOCNO_REGNO (a));
 
       if (reg_class_size[pref] != 1)
 	continue;
-      index = (ira_class_hard_reg_index[cover_class]
-	       [ira_class_hard_regs[pref][0]]);
+      index = ira_class_hard_reg_index[aclass][ira_class_hard_regs[pref][0]];
       if (index < 0)
 	continue;
       if (ALLOCNO_CONFLICT_HARD_REG_COSTS (a) == NULL
 	  || ALLOCNO_HARD_REG_COSTS (a) == NULL)
 	continue;
       min = INT_MAX;
-      for (i = ira_class_hard_regs_num[cover_class] - 1; i >= 0; i--)
-	if (ALLOCNO_HARD_REG_COSTS (a)[i] > ALLOCNO_COVER_CLASS_COST (a)
+      for (i = ira_class_hard_regs_num[aclass] - 1; i >= 0; i--)
+	if (ALLOCNO_HARD_REG_COSTS (a)[i] > ALLOCNO_CLASS_COST (a)
 	    && min > ALLOCNO_HARD_REG_COSTS (a)[i])
 	  min = ALLOCNO_HARD_REG_COSTS (a)[i];
       if (min == INT_MAX)
 	continue;
       ira_allocate_and_set_costs (&ALLOCNO_CONFLICT_HARD_REG_COSTS (a),
-				  cover_class, 0);
+				  aclass, 0);
       ALLOCNO_CONFLICT_HARD_REG_COSTS (a)[index]
-	-= min - ALLOCNO_COVER_CLASS_COST (a);
+	-= min - ALLOCNO_CLASS_COST (a);
     }
 }
 
@@ -2826,7 +2788,7 @@ ira_build (bool loops_p)
       propagate_allocno_info ();
       create_caps ();
     }
-  ira_tune_allocno_costs_and_cover_classes ();
+  ira_tune_allocno_costs ();
 #ifdef ENABLE_IRA_CHECKING
   check_allocno_creation ();
 #endif

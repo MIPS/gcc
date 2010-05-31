@@ -1057,9 +1057,6 @@ struct gcc_target
      the standard conversion rules.  */
   tree (*convert_to_type) (tree type, tree expr);
 
-  /* Return the array of IRA cover classes for the current target.  */
-  const enum reg_class *(*ira_cover_classes) (void);
-
   /* Return the class for a secondary reload, and fill in extra information.  */
   enum reg_class (*secondary_reload) (bool, rtx, enum reg_class,
 				      enum machine_mode,

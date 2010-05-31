@@ -1,6 +1,6 @@
 /* Communication between the Integrated Register Allocator (IRA) and
    the rest of the compiler.
-   Copyright (C) 2006, 2007, 2008, 2009
+   Copyright (C) 2006, 2007, 2008, 2009, 2010
    Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
@@ -24,31 +24,46 @@ along with GCC; see the file COPYING3.  If not see
    allocation for given classes.  */
 extern int ira_available_class_regs[N_REG_CLASSES];
 
-/* Map: hard register number -> cover class it belongs to.  If the
+/* Map: hard register number -> allocno class it belongs to.  If the
    corresponding class is NO_REGS, the hard register is not available
    for allocation.  */
-extern enum reg_class ira_hard_regno_cover_class[FIRST_PSEUDO_REGISTER];
+extern enum reg_class ira_hard_regno_allocno_class[FIRST_PSEUDO_REGISTER];
 
-/* Number of cover classes.  Cover classes is non-intersected register
-   classes containing all hard-registers available for the
-   allocation.  */
-extern int ira_reg_class_cover_size;
+/* Number of allocno classes.  Allocno classes are register classes
+   which can be used for allocations of allocnos.  */
+extern int ira_allocno_classes_num;
 
-/* The array containing cover classes (see also comments for macro
-   IRA_COVER_CLASSES).  Only first IRA_REG_CLASS_COVER_SIZE elements are
-   used for this.  */
-extern enum reg_class ira_reg_class_cover[N_REG_CLASSES];
+/* The array containing allocno classes.  Only first
+   IRA_ALLOCNO_CLASSES_NUM elements are used for this.  */
+extern enum reg_class ira_allocno_classes[N_REG_CLASSES];
 
-/* Map of all register classes to corresponding cover class containing
-   the given class.  If given class is not a subset of a cover class,
-   we translate it into the cheapest cover class.  */
-extern enum reg_class ira_class_translate[N_REG_CLASSES];
+/* Map of all register classes to corresponding allocno classes
+   containing the given class.  If given class is not a subset of an
+   allocno class, we translate it into the cheapest allocno class.  */
+extern enum reg_class ira_allocno_class_translate[N_REG_CLASSES];
 
-/* Map: register class x machine mode -> number of hard registers of
-   given class needed to store value of given mode.  If the number for
-   some hard-registers of the register class is different, the size
-   will be negative.  */
-extern int ira_reg_class_nregs[N_REG_CLASSES][MAX_MACHINE_MODE];
+/* Number of pressure classes.  Pressure classes are register classes
+   for which we calculate register pressure.  */
+extern int ira_pressure_classes_num;
+
+/* The array containing pressure classes.  Only first
+   IRA_PRESSURE_CLASSES_NUM elements are used for this.  */
+extern enum reg_class ira_pressure_classes[N_REG_CLASSES];
+
+/* Map of all register classes to corresponding pressure classes
+   containing the given class.  If given class is not a subset of an
+   pressure class, we translate it into the cheapest pressure class.  */
+extern enum reg_class ira_pressure_class_translate[N_REG_CLASSES];
+
+/* Bigest pressure register class containing stack registers.  NO_REGS
+   if there are no stack registers.  */
+extern enum reg_class ira_stack_reg_pressure_class;
+
+/* Maps: register class x machine mode -> maximal/minimal number of
+   hard registers of given class needed to store value of given
+   mode.  */
+extern int ira_reg_class_max_nregs[N_REG_CLASSES][MAX_MACHINE_MODE];
+extern int ira_reg_class_min_nregs[N_REG_CLASSES][MAX_MACHINE_MODE];
 
 /* Function specific hard registers can not be used for the register
    allocation.  */

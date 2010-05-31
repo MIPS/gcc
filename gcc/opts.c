@@ -870,11 +870,6 @@ decode_options (unsigned int argc, const char **argv)
 	}
     }
 
-  /* Use priority coloring if cover classes is not defined for the
-     target.  */
-  if (targetm.ira_cover_classes == NULL)
-    flag_ira_algorithm = IRA_ALGORITHM_PRIORITY;
-
   /* -O1 optimizations.  */
   opt1 = (optimize >= 1);
   flag_defer_pop = opt1;
@@ -1154,14 +1149,6 @@ decode_options (unsigned int argc, const char **argv)
      capabilities are requested.  */
   if (!flag_sel_sched_pipelining)
     flag_sel_sched_pipelining_outer_loops = 0;
-
-  if (!targetm.ira_cover_classes
-      && flag_ira_algorithm == IRA_ALGORITHM_CB)
-    {
-      inform (input_location,
-	      "-fira-algorithm=CB does not work on this architecture");
-      flag_ira_algorithm = IRA_ALGORITHM_PRIORITY;
-    }
 
   if (flag_conserve_stack)
     {
