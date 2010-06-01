@@ -2185,9 +2185,9 @@ rs6000_init_hard_regno_mode_ok (void)
   if (VECTOR_UNIT_VSX_P (V2DFmode))
     rs6000_recip_bits[V2DFmode] = RS6000_RECIP_MASK_HAVE_RE;
 
-  if (TARGET_RSQRTF)
+  if (TARGET_FRSQRTES)
     rs6000_recip_bits[SFmode] |= RS6000_RECIP_MASK_HAVE_RSQRTE;
-  if (TARGET_RSQRT)
+  if (TARGET_FRSQRTE)
     rs6000_recip_bits[DFmode] |= RS6000_RECIP_MASK_HAVE_RSQRTE;
   if (VECTOR_UNIT_ALTIVEC_OR_VSX_P (V4SFmode))
     rs6000_recip_bits[V4SFmode] |= RS6000_RECIP_MASK_HAVE_RSQRTE;
@@ -11601,7 +11601,7 @@ rs6000_init_builtins (void)
       def_builtin (MASK_PPC_GFXOPT, "__builtin_recipdivf", ftype,
 		   RS6000_BUILTIN_RECIPF);
     }
-  if (TARGET_RSQRT)
+  if (TARGET_FRSQRTE)
     {
       ftype = builtin_function_type (DFmode, DFmode, VOIDmode, VOIDmode,
 				     RS6000_BUILTIN_RSQRT,
@@ -11609,7 +11609,7 @@ rs6000_init_builtins (void)
       def_builtin (MASK_PPC_GFXOPT, "__builtin_rsqrt", ftype,
 		   RS6000_BUILTIN_RSQRT);
     }
-  if (TARGET_RSQRTF)
+  if (TARGET_FRSQRTES)
     {
       ftype = builtin_function_type (SFmode, SFmode, VOIDmode, VOIDmode,
 				     RS6000_BUILTIN_RSQRTF,
