@@ -1,3 +1,7 @@
+2010-06-01 Jan Hubicka  <jh@suse.cz>
+
+	* Merge from mainline.
+
 2010-05-26 Jan Hubicka  <jh@suse.cz>
 
 	* doc/invoke.texi (-fpartial-inlining): Document.

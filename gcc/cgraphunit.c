@@ -145,7 +145,7 @@ static void cgraph_expand_function (struct cgraph_node *);
 static void cgraph_output_pending_asms (void);
 static void cgraph_analyze_function (struct cgraph_node *);
 
-static FILE *cgraph_dump_file;
+FILE *cgraph_dump_file;
 
 /* A vector of FUNCTION_DECLs declared as static constructors.  */
 static GTY (()) VEC(tree, gc) *static_ctors;
@@ -352,13 +352,15 @@ cgraph_decide_is_function_needed (struct cgraph_node *node, tree decl)
 
      When not optimizing, also output the static functions. (see
      PR24561), but don't do so for always_inline functions, functions
-     declared inline and nested functions.  These was optimized out
+     declared inline and nested functions.  These were optimized out
      in the original implementation and it is unclear whether we want
      to change the behavior here.  */
   if (((TREE_PUBLIC (decl)
-	|| (!optimize && !node->local.disregard_inline_limits
+	|| (!optimize
+	    && !node->local.disregard_inline_limits
 	    && !DECL_DECLARED_INLINE_P (decl)
-	    && !node->origin))
+	    && !(DECL_CONTEXT (decl)
+		 && TREE_CODE (DECL_CONTEXT (decl)) == FUNCTION_DECL)))
        && !flag_whole_program
        && !flag_lto
        && !flag_whopr)
@@ -557,6 +559,7 @@ cgraph_mark_if_needed (tree decl)
     cgraph_mark_needed_node (node);
 }
 
+#ifdef ENABLE_CHECKING
 /* Return TRUE if NODE2 is equivalent to NODE or its clone.  */
 static bool
 clone_of_p (struct cgraph_node *node, struct cgraph_node *node2)
@@ -565,9 +568,10 @@ clone_of_p (struct cgraph_node *node, struct cgraph_node *node2)
     node2 = node2->clone_of;
   return node2 != NULL;
 }
+#endif
 
 /* Verify cgraph nodes of given cgraph node.  */
-void
+DEBUG_FUNCTION void
 verify_cgraph_node (struct cgraph_node *node)
 {
   struct cgraph_edge *e;
@@ -577,7 +581,7 @@ verify_cgraph_node (struct cgraph_node *node)
   gimple_stmt_iterator gsi;
   bool error_found = false;
 
-  if (errorcount || sorrycount)
+  if (seen_error ())
     return;
 
   timevar_push (TV_CGRAPH_VERIFY);
@@ -801,9 +805,12 @@ verify_cgraph_node (struct cgraph_node *node)
 				debug_tree (e->callee->decl);
 				error_found = true;
 			      }
-			    else if (!node->global.inlined_to
-				     && !e->callee->global.inlined_to
+#ifdef ENABLE_CHECKING
+			    else if (!e->callee->global.inlined_to
 				     && decl
+				     && cgraph_get_node (decl)
+				     && (e->callee->former_clone_of
+					 != cgraph_get_node (decl)->decl)
 				     && !clone_of_p (cgraph_node (decl),
 						     e->callee))
 			      {
@@ -813,6 +820,7 @@ verify_cgraph_node (struct cgraph_node *node)
 				debug_tree (decl);
 				error_found = true;
 			      }
+#endif
 			  }
 			else if (decl)
 			  {
@@ -872,12 +880,12 @@ verify_cgraph_node (struct cgraph_node *node)
 }
 
 /* Verify whole cgraph structure.  */
-void
+DEBUG_FUNCTION void
 verify_cgraph (void)
 {
   struct cgraph_node *node;
 
-  if (sorrycount || errorcount)
+  if (seen_error ())
     return;
 
   for (node = cgraph_nodes; node; node = node->next)
@@ -891,7 +899,7 @@ cgraph_output_pending_asms (void)
 {
   struct cgraph_asm_node *can;
 
-  if (errorcount || sorrycount)
+  if (seen_error ())
     return;
 
   for (can = cgraph_asm_nodes; can; can = can->next)
@@ -1889,7 +1897,7 @@ ipa_passes (void)
 void
 cgraph_optimize (void)
 {
-  if (errorcount || sorrycount)
+  if (seen_error ())
     return;
 
 #ifdef ENABLE_CHECKING
@@ -1911,11 +1919,11 @@ cgraph_optimize (void)
   cgraph_state = CGRAPH_STATE_IPA;
 
   /* Don't run the IPA passes if there was any error or sorry messages.  */
-  if (errorcount == 0 && sorrycount == 0)
+  if (!seen_error ())
     ipa_passes ();
 
   /* Do nothing else if any IPA pass found errors.  */
-  if (errorcount || sorrycount)
+  if (seen_error ())
     {
       timevar_pop (TV_CGRAPHOPT);
       return;
@@ -1973,7 +1981,7 @@ cgraph_optimize (void)
   verify_cgraph ();
   /* Double check that all inline clones are gone and that all
      function bodies have been released from memory.  */
-  if (!(sorrycount || errorcount))
+  if (!seen_error ())
     {
       struct cgraph_node *node;
       bool error_found = false;
@@ -2094,7 +2102,11 @@ update_call_expr (struct cgraph_node *new_version)
    edges which should be redirected to point to
    NEW_VERSION.  ALL the callees edges of OLD_VERSION
    are cloned to the new version node.  Return the new
-   version node.  */
+   version node. 
+
+   If non-NULL BLOCK_TO_COPY determine what basic blocks 
+   was copied to prevent duplications of calls that are dead
+   in the clone.  */
 
 static struct cgraph_node *
 cgraph_copy_node_for_versioning (struct cgraph_node *old_version,
@@ -2156,8 +2168,10 @@ cgraph_copy_node_for_versioning (struct cgraph_node *old_version,
     new ones (according to results of prior analysis).
     OLD_VERSION_NODE is the node that is versioned.
     It returns the new version's cgraph node.
-    ARGS_TO_SKIP lists arguments to be omitted from functions
-    */
+    If non-NULL ARGS_TO_SKIP determine function parameters to remove
+    from new version.
+    If non-NULL BLOCK_TO_COPY determine what basic blocks to copy.
+    If non_NULL NEW_ENTRY determine new entry BB of the clone.  */
 
 struct cgraph_node *
 cgraph_function_versioning (struct cgraph_node *old_version_node,
@@ -2289,6 +2303,11 @@ static void
 cgraph_materialize_clone (struct cgraph_node *node)
 {
   bitmap_obstack_initialize (NULL);
+#ifdef ENABLE_CHECKING
+  node->former_clone_of = node->clone_of->decl;
+  if (node->clone_of->former_clone_of)
+    node->former_clone_of = node->clone_of->former_clone_of;
+#endif
   /* Copy the OLD_VERSION_NODE function tree to the new version.  */
   tree_function_versioning (node->clone_of->decl, node->decl,
   			    node->clone.tree_map, true,
@@ -2309,7 +2328,11 @@ cgraph_materialize_clone (struct cgraph_node *node)
   node->next_sibling_clone = NULL;
   node->prev_sibling_clone = NULL;
   if (!node->clone_of->analyzed && !node->clone_of->clones)
-    cgraph_remove_node (node->clone_of);
+    {
+      cgraph_release_function_body (node->clone_of);
+      cgraph_node_remove_callees (node->clone_of);
+      ipa_remove_all_references (&node->clone_of->ref_list);
+    }
   node->clone_of = NULL;
   bitmap_obstack_release (NULL);
 }
@@ -2329,12 +2352,19 @@ cgraph_redirect_edge_call_stmt_to_callee (struct cgraph_edge *e)
       || cgraph_get_node (decl) == cgraph_get_node (e->callee->decl))
     return e->call_stmt;
 
+  gcc_assert (!cgraph_node (decl)->clone.combined_args_to_skip);
+
   if (cgraph_dump_file)
     {
       fprintf (cgraph_dump_file, "updating call of %s/%i -> %s/%i: ",
 	       cgraph_node_name (e->caller), e->caller->uid,
 	       cgraph_node_name (e->callee), e->callee->uid);
       print_gimple_stmt (cgraph_dump_file, e->call_stmt, 0, dump_flags);
+      if (e->callee->clone.combined_args_to_skip)
+        {
+          fprintf (cgraph_dump_file, " combined args to skip: ");
+          dump_bitmap (cgraph_dump_file, e->callee->clone.combined_args_to_skip);
+	}
     }
 
   if (e->callee->clone.combined_args_to_skip)
@@ -2441,31 +2471,7 @@ cgraph_materialize_all_clones (void)
     if (!node->analyzed && node->callees)
       cgraph_node_remove_callees (node);
   if (cgraph_dump_file)
-    fprintf (cgraph_dump_file, "Updating call sites\n");
-  for (node = cgraph_nodes; node; node = node->next)
-    if (node->analyzed && !node->clone_of
-	&& gimple_has_body_p (node->decl))
-      {
-        struct cgraph_edge *e;
-
-	current_function_decl = node->decl;
-        push_cfun (DECL_STRUCT_FUNCTION (node->decl));
-	for (e = node->callees; e; e = e->next_callee)
-	  cgraph_redirect_edge_call_stmt_to_callee (e);
-	gcc_assert (!need_ssa_update_p (cfun));
-	pop_cfun ();
-	current_function_decl = NULL;
-#ifdef ENABLE_CHECKING
-        verify_cgraph_node (node);
-#endif
-      }
-  if (cgraph_dump_file)
     fprintf (cgraph_dump_file, "Materialization Call site updates done.\n");
-  /* All changes to parameters have been performed.  In order not to
-     incorrectly repeat them, we simply dispose of the bitmaps that drive the
-     changes. */
-  for (node = cgraph_nodes; node; node = node->next)
-    node->clone.combined_args_to_skip = NULL;
 #ifdef ENABLE_CHECKING
   verify_cgraph ();
 #endif
