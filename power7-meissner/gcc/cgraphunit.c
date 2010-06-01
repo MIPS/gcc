@@ -145,7 +145,7 @@ static void cgraph_expand_function (struct cgraph_node *);
 static void cgraph_output_pending_asms (void);
 static void cgraph_analyze_function (struct cgraph_node *);
 
-static FILE *cgraph_dump_file;
+FILE *cgraph_dump_file;
 
 /* A vector of FUNCTION_DECLs declared as static constructors.  */
 static GTY (()) VEC(tree, gc) *static_ctors;
@@ -352,13 +352,15 @@ cgraph_decide_is_function_needed (struct cgraph_node *node, tree decl)
 
      When not optimizing, also output the static functions. (see
      PR24561), but don't do so for always_inline functions, functions
-     declared inline and nested functions.  These was optimized out
+     declared inline and nested functions.  These were optimized out
      in the original implementation and it is unclear whether we want
      to change the behavior here.  */
   if (((TREE_PUBLIC (decl)
-	|| (!optimize && !node->local.disregard_inline_limits
+	|| (!optimize
+	    && !node->local.disregard_inline_limits
 	    && !DECL_DECLARED_INLINE_P (decl)
-	    && !node->origin))
+	    && !(DECL_CONTEXT (decl)
+		 && TREE_CODE (DECL_CONTEXT (decl)) == FUNCTION_DECL)))
        && !flag_whole_program
        && !flag_lto
        && !flag_whopr)
@@ -569,7 +571,7 @@ clone_of_p (struct cgraph_node *node, struct cgraph_node *node2)
 #endif
 
 /* Verify cgraph nodes of given cgraph node.  */
-void
+DEBUG_FUNCTION void
 verify_cgraph_node (struct cgraph_node *node)
 {
   struct cgraph_edge *e;
@@ -878,7 +880,7 @@ verify_cgraph_node (struct cgraph_node *node)
 }
 
 /* Verify whole cgraph structure.  */
-void
+DEBUG_FUNCTION void
 verify_cgraph (void)
 {
   struct cgraph_node *node;
@@ -2106,10 +2108,9 @@ static struct cgraph_node *
 cgraph_copy_node_for_versioning (struct cgraph_node *old_version,
 				 tree new_decl,
 				 VEC(cgraph_edge_p,heap) *redirect_callers)
- {
+{
    struct cgraph_node *new_version;
    struct cgraph_edge *e;
-   struct cgraph_edge *next_callee;
    unsigned i;
 
    gcc_assert (old_version);
@@ -2118,34 +2119,24 @@ cgraph_copy_node_for_versioning (struct cgraph_node *old_version,
 
    new_version->analyzed = true;
    new_version->local = old_version->local;
+   new_version->local.externally_visible = false;
+   new_version->local.local = true;
+   new_version->local.vtable_method = false;
    new_version->global = old_version->global;
    new_version->rtl = new_version->rtl;
    new_version->reachable = true;
    new_version->count = old_version->count;
 
-   /* Clone the old node callees.  Recursive calls are
-      also cloned.  */
-   for (e = old_version->callees;e; e=e->next_callee)
-     {
-       cgraph_clone_edge (e, new_version, e->call_stmt,
-			  e->lto_stmt_uid, REG_BR_PROB_BASE,
-			  CGRAPH_FREQ_BASE,
-			  e->loop_nest, true);
-     }
-   /* Fix recursive calls.
-      If OLD_VERSION has a recursive call after the
-      previous edge cloning, the new version will have an edge
-      pointing to the old version, which is wrong;
-      Redirect it to point to the new version. */
-   for (e = new_version->callees ; e; e = next_callee)
-     {
-       next_callee = e->next_callee;
-       if (e->callee == old_version)
-	 cgraph_redirect_edge_callee (e, new_version);
-
-       if (!next_callee)
-	 break;
-     }
+   for (e = old_version->callees; e; e=e->next_callee)
+     cgraph_clone_edge (e, new_version, e->call_stmt,
+			e->lto_stmt_uid, REG_BR_PROB_BASE,
+			CGRAPH_FREQ_BASE,
+			e->loop_nest, true);
+   for (e = old_version->indirect_calls; e; e=e->next_callee)
+     cgraph_clone_edge (e, new_version, e->call_stmt,
+			e->lto_stmt_uid, REG_BR_PROB_BASE,
+			CGRAPH_FREQ_BASE,
+			e->loop_nest, true);
    for (i = 0; VEC_iterate (cgraph_edge_p, redirect_callers, i, e); i++)
      {
        /* Redirect calls to the old version node to point to its new
@@ -2175,7 +2166,8 @@ struct cgraph_node *
 cgraph_function_versioning (struct cgraph_node *old_version_node,
 			    VEC(cgraph_edge_p,heap) *redirect_callers,
 			    VEC (ipa_replace_map_p,gc)* tree_map,
-			    bitmap args_to_skip)
+			    bitmap args_to_skip,
+			    const char *clone_name)
 {
   tree old_decl = old_version_node->decl;
   struct cgraph_node *new_version_node = NULL;
@@ -2190,6 +2182,12 @@ cgraph_function_versioning (struct cgraph_node *old_version_node,
     new_decl = copy_node (old_decl);
   else
     new_decl = build_function_decl_skip_args (old_decl, args_to_skip);
+
+  cgraph_make_decl_local (new_decl);
+  /* Generate a new name for the new version. */
+  DECL_NAME (new_decl) = clone_function_name (old_decl, clone_name);
+  SET_DECL_ASSEMBLER_NAME (new_decl, DECL_NAME (new_decl));
+  SET_DECL_RTL (new_decl, NULL);
 
   /* Create the new version's call-graph node.
      and update the edges of the new node. */
@@ -2315,7 +2313,11 @@ cgraph_materialize_clone (struct cgraph_node *node)
   node->next_sibling_clone = NULL;
   node->prev_sibling_clone = NULL;
   if (!node->clone_of->analyzed && !node->clone_of->clones)
-    cgraph_remove_node (node->clone_of);
+    {
+      cgraph_release_function_body (node->clone_of);
+      cgraph_node_remove_callees (node->clone_of);
+      ipa_remove_all_references (&node->clone_of->ref_list);
+    }
   node->clone_of = NULL;
   bitmap_obstack_release (NULL);
 }
