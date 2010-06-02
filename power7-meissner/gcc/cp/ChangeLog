@@ -1,3 +1,42 @@
+2010-06-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* cp-objcp-common.c (shadowed_var_for_decl): Change into
+	tree_decl_map hashtab from tree_map.
+	(decl_shadowed_for_var_lookup, decl_shadowed_for_var_insert): Adjust.
+	(init_shadowed_var_for_decl): Adjust initialization.
+
+2010-06-02  Jason Merrill  <jason@redhat.com>
+
+	* error.c (dump_type): Improve typedef handling.
+
+	PR c++/9726
+	PR c++/23594
+	PR c++/44333
+	* name-lookup.c (same_entity_p): New.
+	(ambiguous_decl): Multiple declarations of the same entity
+	are not ambiguous.
+
+2010-06-01  Jason Merrill  <jason@redhat.com>
+
+	DR 990
+	* call.c (add_list_candidates): Prefer the default constructor.
+	(build_aggr_conv): Treat missing initializers like { }.
+	* typeck2.c (process_init_constructor_record): Likewise.
+	* init.c (expand_default_init): Use digest_init for
+	direct aggregate initialization, too.
+
+	* call.c (add_list_candidates): Split out...
+	(build_user_type_conversion_1): ...from here.
+	(build_new_method_call): And here.
+	(implicit_conversion): Propagate LOOKUP_NO_NARROWING.
+
+	PR c++/44358
+	* call.c (build_list_conv): Set list-initialization flags properly.
+
+2010-06-01  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* typeck2.c (build_x_arrow): Make types_memoized a VEC.
+
 2010-06-01  Arnaud Charlet  <charlet@adacore.com>
 	    Matthew Gingell  <gingell@adacore.com>
 

@@ -3971,7 +3971,6 @@ extern tree maybe_get_identifier (const char *);
 /* Construct various types of nodes.  */
 
 extern tree build_nt (enum tree_code, ...);
-extern tree build_nt_call_list (tree, tree);
 extern tree build_nt_call_vec (tree, VEC(tree,gc) *);
 
 extern tree build0_stat (enum tree_code, tree MEM_STAT_DECL);
@@ -5381,6 +5380,17 @@ struct GTY(()) tree_map {
 #define tree_map_eq tree_map_base_eq
 extern unsigned int tree_map_hash (const void *);
 #define tree_map_marked_p tree_map_base_marked_p
+
+/* Map from a decl tree to another tree.  */
+
+struct GTY(()) tree_decl_map {
+  struct tree_map_base base;
+  tree to;
+};
+
+#define tree_decl_map_eq tree_map_base_eq
+extern unsigned int tree_decl_map_hash (const void *);
+#define tree_decl_map_marked_p tree_map_base_marked_p
 
 /* Map from a tree to an int.  */
 

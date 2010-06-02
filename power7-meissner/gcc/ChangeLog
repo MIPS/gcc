@@ -1,3 +1,272 @@
+2010-06-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree.h (struct tree_decl_map): New type.
+	(tree_decl_map_eq, tree_decl_map_marked_p): Define.
+	(tree_decl_map_hash): New prototype.
+	(debug_expr_for_decl, value_expr_for_decl): Change into
+	tree_decl_map hashtab from tree_map.
+	(init_ttree): Adjust initialization.
+	(tree_decl_map_hash): New function.
+	(decl_debug_expr_lookup, decl_debug_expr_insert,
+	decl_value_expr_lookup, decl_value_expr_insert): Adjust.
+
+2010-06-02  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* configure.ac (gcc_cv_ld_sol2_emulation): Test for GNU ld *_sol2
+	linker emulations.
+	* configure: Regenerate.
+	* config.in: Regenerate.
+
+	* config/i386/sol2-10.h [TARGET_GNU_LD] (I386_EMULATION): Define.
+	(X86_64_EMULATION): Define.
+	(TARGET_LD_EMULATION): Use them.
+
+	* config/sparc/sol2-gld-bi.h (SPARC32_EMULATION): Define.
+	(SPARC64_EMULATION): Define.
+	(LINK_ARCH_SPEC): Use them.
+
+2010-06-02  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* graphite-clast-to-gimple.c (gcc_type_for_interval): Use
+	smallest_mode_for_size for computing the precision types of new
+	graphite IVs.  Do not call lang_hooks.types.type_for_size.
+
+2010-06-02  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* tree-if-conv.c (predicate_bbs): Do not reset the GIMPLE_DEBUG
+	information.
+	(remove_conditions_and_labels): Reset the GIMPLE_DEBUG information.
+
+2010-06-02  Sebastian Pop  <sebastian.pop@amd.com>
+
+	PR middle-end/44363
+	* tree-if-conv.c (predicate_bbs): Do not call gcc_unreachable,
+	return false instead.
+
+2010-06-02  Jan Hubicka  <jh@suse.cz>
+
+	PR middle-end/44295
+	* cgraphunit.c (cgraph_redirect_edge_call_stmt_to_callee): Do not
+	create new cgraph node to check callee.
+
+2010-06-02  Richard Guenther  <rguenther@suse.de>
+
+	* lto-streamer-in.c (input_gimple_stmt): Fix typo.
+
+2010-06-02  Richard Guenther  <rguenther@suse.de>
+
+	* lto-wrapper.c (lto_wrapper_exit): Rename to ...
+	(lto_wrapper_cleanup): ... this.  Do not exit.
+	(fatal): Adjust.  Exit here.
+	(fatal_perror): Likewise.
+	(fatal_signal): New function.
+	(main): Set up signal handlers to cleanup temporary files.
+	* Makefile.in (lto-wrapper.o): Adjust dependencies.
+
+2010-06-02  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/44377
+	* tree-ssa-structalias.c (find_func_aliases): Fix typo.
+
+2010-06-02  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/2097.md (z10_fhex): Remove insn reservation.
+	* config/s390/s390.md (UNSPEC_COPYSIGN): Remove unused constant.
+	(*mov<mode>_64 TD_TF, *mov<mode>_31 TD_TF, *mov<mode>_64dfp DD_DF,
+	*mov<mode>_64 DD_DF, *mov<mode>_31, mov<mode>): Remove load zero
+	instruction.
+	* config/s390/s390.c: Don't accept fp zeros as valid constants
+	anymore.
+
+2010-06-02  Jan Hubicka  <jh@suse.cz>
+
+	* bitmap.c (bitmap_descriptor): Add search_iter.
+	(bitmap_find_bit): Increment it.
+	(print_statistics): Print it.
+
+2010-06-02  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* tree-vect-slp.c (vect_create_mask_and_perm): Use gimple_build_call
+	instead of gimple_build_call_vec.  Delete unnecessary local variable.
+
+2010-06-02  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* gimplify.c (gimplify_body): Revert "Do not initialize RTL profiling"
+	change from yesterday.
+
+2010-06-02  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* c-ada-spec.c: Clean up redundant includes.
+
+2010-06-01  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* gimplify.c: Do not include except.h and optabs.h.
+	(gimplify_body): Do not initialize RTL profiling.
+	* gimple-low.c: Do not include rtl.h, diagnostic.h, langhooks.h,
+	langhooks-def.h, timevar.h, except.h, hashtab.h, and expr.h.
+	* gimple-fold.c: Do not include rtl.h, tm_p.h, ggc.h, basic-block.h,
+	output.h, expr.h, diagnostic.h, timevar.h, value-prof.h, and
+	langhooks.h.
+
+	* tree-pretty-print.h: Include pretty-print.h.
+	* gimple-pretty-print.h: Include pretty-print.h.
+
+	* tree-pretty-print.c: Do not include diagnostic.h.
+	* tree-vrp.c: Likewise.
+	* tree-tailcall.c: Likewise
+	* tree-scalar-evolution.c: Likewise
+	* tree-ssa-dse.c: Likewise
+	* tree-chrec.c: Likewise
+	* tree-ssa-sccvn.c: Likewise
+	* tree-ssa-copyrename.c: Likewise
+	* tree-nomudflap.c: Likewise
+	* tree-call-cdce.c: Likewise
+	* tree-stdarg.c: Likewise
+	* tree-ssa-math-opts.c: Likewise
+	* tree-nrv.c: Likewise
+	* tree-ssa-sink.c: Likewise
+	* tree-browser.c: Likewise
+	* tree-ssa-loop-ivcanon.c: Likewise
+	* tree-ssa-loop.c: Likewise
+	* tree-parloops.c: Likewise
+	* tree-ssa-address.c: Likewise
+	* tree-ssa-ifcombine.c: Likewise
+	* tree-if-conv.c: Likewise
+	* tree-data-ref.c: Likewise
+	* tree-affine.c: Likewise
+	* tree-ssa-phiopt.c: Likewise
+	* tree-ssa-coalesce.c: Likewise
+	* tree-ssa-pre.c: Likewise
+	* tree-ssa-live.c: Likewise
+	* tree-predcom.c: Likewise
+	* tree-ssa-forwprop.c: Likewise
+	* tree-ssa-dce.c: Likewise
+	* tree-ssa-ter.c: Likewise
+	* tree-ssa-loop-prefetch.c: Likewise
+	* tree-optimize.c: Likewise
+	* tree-ssa-phiprop.c: Likewise
+	* tree-object-size.c: Likewise
+	* tree-outof-ssa.c: Likewise
+	* tree-ssa-structalias.c: Likewise
+	* tree-switch-conversion.c: Likewise
+	* tree-ssa-reassoc.c: Likewise
+	* tree-ssa-operands.c: Likewise
+	* tree-vectorizer.c: Likewise
+	* tree-vect-data-refs.c: Likewise
+	* tree-vect-generic.c: Likewise
+	* tree-vect-stmts.c: Likewise
+	* tree-vect-patterns.c: Likewise
+	* tree-vect-slp.c: Likewise
+	* tree-vect-loop.c: Likewise
+	* tree-ssa-loop-ivopts.c: Likewise
+	* tree-ssa-loop-im.c: Likewise
+	* tree-ssa-loop-niter.c: Likewise
+	* tree-ssa-loop-unswitch.c: Likewise
+	* tree-ssa-loop-manip.c: Likewise
+	* tree-ssa-loop-ch.c: Likewise
+	* tree-dump.c: Likewise
+	* tree-complex.c: Likewise
+
+	* tree-into-ssa.c: Do not include diagnostic.h and expr.h.
+	* tree-ssa-uninit.c: Likewise
+	* tree-ssa-threadupdate.c: Likewise
+	* tree-ssa-uncprop.c: Likewise
+	* tree-ssa-ccp.c: Likewise
+	* tree-ssa-dom.c: Likewise
+	* tree-ssa-propagate.c: Likewise
+	* tree-ssa-alias.c: Likewise
+	* tree-dfa.c: Likewise
+	* tree-cfgcleanup.c: Likewise
+	* tree-sra.c: Likewise
+	* tree-ssa-copy.c: Likewise
+	* tree-ssa.c: Likewise
+	* tree-profile.c: Likewise
+	* tree-cfg.c: Likewise
+	* tree-ssa-threadedge.c: Likewise
+	* tree-vect-loop-manip.c: Likewise
+
+	* tree-inline.c: Do not include diagnostic.h and expr.h.
+	Include rtl.h.
+	(copy_decl_for_dup_finish): Do not use NULL_RTX.
+
+	* tree-loop-linear.c: Do not include diagnostic.h, expr.h,
+	and optabs.h.
+	* tree-loop-distribution.c: Likewise.
+
+2010-06-01  Jan Hubicka  <jh@suse.cz>
+
+	* ipa-pure-const.c (local_pure_const): Do NORETURN discovery.
+
+2010-06-01  Jan Hubicka  <jh@suse.cz>
+
+	* tree-cfgcleanup.c (fixup_noreturn_call): Break out from ...;
+	remove return value.
+	(split_bbs_on_noreturn_calls) .... here.
+	* tree-optimize.c (execute_fixup_cfg): Fixup noreturn calls too.
+	* tree-flow.h (fixup_noreturn_call): New.
+
+2010-06-01  Jan Hubicka  <jh@suse.cz>
+
+	* emit-rtl.c (remove_insn): Fix thinko in prevoius patch.
+
+2010-06-01  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* tree.h (build_nt_call_list): Delete.
+	* tree.c (build_nt_call_list): Delete.
+
+2010-06-01  Jan Hubicka  <jh@suse.cz>
+
+	* fwprop.c: Make emit-rtl.h include last.
+	* rtlanal.c: Include emit-rtl.h.
+	* genautomata.c: Output emit-rtl include into insn-automata.c
+	* df-scan.c: Include emit-rtl.h.
+	* haifa-sched.c: Indlude emit-rtl.h.
+	* mode-switching.c: Indlude emit-rtl.h.
+	* graph.c: Indlude emit-rtl.h.
+	* sel-sched.c: Include emit-rtl.h.
+	* sel-sched-ir.c: Include emit-rtl.h.
+	* ira-build.c: Include emit-rtl.h.
+	* emit-rtl.c: (first_insn, last_insn): Remove defines.
+	(get_insns, set_first_insn, get_last_insn, set_last_insn, get_max_uid):
+	Move to emit-rtl.h.
+	(set_new_first_and_last_insn, get_last_insn_anywhere, get_first_nonnote_insn,
+	get_last_nonnote_insn, try_split, make_call_insn_raw, add_insn_after,
+	add_insn_before, remove_insn, delete_insns_since, reorder_insns_nobb,
+	emit_insn_after_1, emit_debug_insn_before, emit_insn, start_sequence,
+	push_to_sequence, push_to_sequence2, push_topmost_sequence, end_sequence,
+	copy_insn): Use accessor functions.
+	* emit-rtl.h (gen_blockage, gen_rtvec, copy_insn_1, copy_insn,
+	 gen_int_mode, emit_copy_of_insn_after, set_reg_attrs_from_value,
+	set_reg_attrs_for_parm, set_reg_attrs_for_decl_rtl, adjust_reg_mode,
+	mem_expr_equal_p): Move here from rtl.h
+	(get_insns, set_first-insn, get_last_insn, set_last_insn, get_max_uid):
+	Move here from emit-rtl.c; make inline.
+	* cfglayout.h: Include emit-rtl.h
+	* rtl.h (gen_blockage, gen_rtvec, copy_insn_1, copy_insn,
+	 gen_int_mode, emit_copy_of_insn_after, set_reg_attrs_from_value,
+	set_reg_attrs_for_parm, set_reg_attrs_for_decl_rtl, adjust_reg_mode,
+	mem_expr_equal_p, get_insns, set_first-insn, get_last_insn, set_last_insn,
+	get_max_uid): Move to emit-rtl.h.
+	* reg-stack.c: Include emit-rtl.h
+	* dce.c: Likewise.
+
+2010-06-01  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.h (tree_function_versioning): Update prototype.
+	(cgraph_function_versioning): Update prototype.
+	* cgraphunit.c (cgraph_copy_node_for_versioning): Accept bbs_to_copy
+	bitmap.
+	(cgraph_function_versioning): Accept new_entry_block and bbs_to_copy. 
+	(cgraph_materialize_clone, save_inline_function_body): Update use of
+	tree_function_versioning.
+	* tree-inline.c (copy_bb): Look for previous copied block to link after;
+	fix debug output.
+	(copy_cfg_body): Accept new_entry_block and bbs_to_copy.
+	(copy_body): Likewise.
+	(expand_call_inline): Update use of copy_body.
+	(tree_function_versioning): Update use of copy body; accept
+	blocks_to_copy and new_entry.
+
 2010-06-01  Jan Hubicka  <jh@suse.cz>
 
 	* gegenrtl.c: Remove unnecesary prototypes.
