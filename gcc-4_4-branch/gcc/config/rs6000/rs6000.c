@@ -5239,20 +5239,16 @@ rs6000_legitimize_tls_address (rtx addr, enum tls_model model)
 		rs6000_emit_move (got, gsym, Pmode);
 	      else
 		{
-		  rtx tmp3, mem;
-		  rtx first, last;
+		  rtx mem, lab, last;
 
 		  tmp1 = gen_reg_rtx (Pmode);
 		  tmp2 = gen_reg_rtx (Pmode);
-		  tmp3 = gen_reg_rtx (Pmode);
 		  mem = gen_const_mem (Pmode, tmp1);
-
-		  first = emit_insn (gen_load_toc_v4_PIC_1b (gsym));
-		  emit_move_insn (tmp1,
-				  gen_rtx_REG (Pmode, LR_REGNO));
+		  lab = gen_label_rtx ();
+		  emit_insn (gen_load_toc_v4_PIC_1b (gsym, lab));
+		  emit_move_insn (tmp1, gen_rtx_REG (Pmode, LR_REGNO));
 		  emit_move_insn (tmp2, mem);
-		  emit_insn (gen_addsi3 (tmp3, tmp1, tmp2));
-		  last = emit_move_insn (got, tmp3);
+		  last = emit_insn (gen_addsi3 (got, tmp1, tmp2));
 		  set_unique_reg_note (last, REG_EQUAL, gsym);
 		}
 	    }
@@ -17529,12 +17525,12 @@ rs6000_emit_load_toc_table (int fromprolog)
 	}
       else
 	{
-	  rtx tocsym;
+	  rtx tocsym, lab;
 
 	  tocsym = gen_rtx_SYMBOL_REF (Pmode, toc_label_name);
-	  emit_insn (gen_load_toc_v4_PIC_1b (tocsym));
-	  emit_move_insn (dest,
-			  gen_rtx_REG (Pmode, LR_REGNO));
+	  lab = gen_label_rtx ();
+	  emit_insn (gen_load_toc_v4_PIC_1b (tocsym, lab));
+	  emit_move_insn (dest, gen_rtx_REG (Pmode, LR_REGNO));
 	  emit_move_insn (temp0, gen_rtx_MEM (Pmode, dest));
 	}
       emit_insn (gen_addsi3 (dest, temp0, dest));
@@ -19474,6 +19470,16 @@ rs6000_emit_epilogue (int sibcall)
       frame_reg_rtx = sp_reg_rtx;
       if (DEFAULT_ABI == ABI_V4)
 	frame_reg_rtx = gen_rtx_REG (Pmode, 11);
+      /* Prevent reordering memory accesses against stack pointer restore.  */
+      else if (cfun->calls_alloca
+	       || offset_below_red_zone_p (-info->total_size))
+	{
+	  rtx mem1 = gen_rtx_MEM (BLKmode, hard_frame_pointer_rtx);
+	  rtx mem2 = gen_rtx_MEM (BLKmode, sp_reg_rtx);
+	  MEM_NOTRAP_P (mem1) = 1;
+	  MEM_NOTRAP_P (mem2) = 1;
+	  emit_insn (gen_frame_tie (mem1, mem2));
+	}
 
       insn = emit_insn (gen_add3_insn (frame_reg_rtx, hard_frame_pointer_rtx,
 				       GEN_INT (info->total_size)));
@@ -19483,6 +19489,14 @@ rs6000_emit_epilogue (int sibcall)
 	   && DEFAULT_ABI != ABI_V4
 	   && !crtl->calls_eh_return)
     {
+      /* Prevent reordering memory accesses against stack pointer restore.  */
+      if (cfun->calls_alloca
+	  || offset_below_red_zone_p (-info->total_size))
+	{
+	  rtx mem = gen_rtx_MEM (BLKmode, sp_reg_rtx);
+	  MEM_NOTRAP_P (mem) = 1;
+	  emit_insn (gen_stack_tie (mem));
+	}
       insn = emit_insn (gen_add3_insn (sp_reg_rtx, sp_reg_rtx,
 				       GEN_INT (info->total_size)));
       sp_offset = 0;

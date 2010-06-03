@@ -1,3 +1,99 @@
+2010-06-03  Alan Modra  <amodra@gmail.com>
+
+	PR target/44169
+	* config/rs6000/rs6000.md (load_toc_v4_PIC_1b): Add label operand.
+	* config/rs6000/rs6000.c (rs6000_legitimize_tls_address): Pass label
+	rtx to gen_load_toc_v4_PIC_1b.  Tidy.
+	(rs6000_emit_load_toc_table): Likewise.
+
+2010-06-02  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2010-03-31  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* config/sparc/sysv4.h (PUSHSECTION_FORMAT): Remove undef.
+	(PUSHSECTION_ASM_OP): Remove.
+	(POPSECTION_ASM_OP): Remove.
+	(PUSHSECTION_FORMAT): Remove.
+	* config/sol2.h (PUSHSECTION_FORMAT): Define.
+	* config/sparc/sol2.h [!USE_GAS] (PUSHSECTION_FORMAT): Redefine.
+	* config/sol2.c (solaris_output_init_fini): Use it.
+
+	2010-03-24  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* config.gcc (sparc*-*-solaris2*) [$gas=yes]: Add usegas.h to tm_file.
+
+2010-06-02  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2010-04-09  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* config/sparc/sol2-gld.h: Remove SPARC reference.  Rename ...
+	* config/sol2-gld.h: ... here.
+	* config.gcc (sparc*-*-solaris2*): Reflect this.
+	(i[34567]86-*-solaris2*): Use it.
+
+2010-06-02  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2010-03-01  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR pch/14940
+	* config/host-solaris.c (HOST_HOOKS_GT_PCH_GET_ADDRESS): Redefine
+	to sol_gt_pch_get_address.
+	(TRY_EMPTY_VM_SPACE): Define for all combinations of 32 and
+	64-bit, SPARC and x86.
+	(sol_gt_pch_get_address): New function.
+
+2010-06-02  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2010-02-24  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* config/i386/sol2.h (NO_DBX_BNSYM_ENSYM): Define.
+	* config/i386/sol2-gas.h: New file.
+	* config.gcc (i[34567]86-*-solaris2*): Use it.
+
+2010-06-02  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2010-03-01  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* configure.ac (gcc_cv_as_cfi_directive) [i?86-*-solaris*]:
+	Disable cfi directives unless GCC and gas agree on using read-only
+	.eh_frame sections for 64-bit.
+	* configure: Regenerate.
+
+2010-06-02  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/2097.md (z10_fhex): Remove insn reservation.
+	* config/s390/s390.md (UNSPEC_COPYSIGN): Remove unused constant.
+	(*mov<mode>_64 TD_TF, *mov<mode>_31 TD_TF, *mov<mode>_64dfp DD_DF,
+	*mov<mode>_64 DD_DF, *mov<mode>_31, mov<mode>): Remove load zero
+	instruction.
+	* config/s390/s390.c: Don't accept fp zeros as valid constants
+	anymore.
+
+2010-05-28  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/s390.md (movqi): Fix typo ('*' -> '#').
+
+2010-05-27  Matthias Klose  <doko@ubuntu.com>
+
+	Backport from mainline:
+	2009-04-22  Andrey Belevantsev  <abel@ispras.ru>
+
+	PR rtl-optimization/39580
+	* sel-sched-ir.c (insert_in_history_vect): Remove incorrect gcc_assert.
+
+2010-05-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/44199
+	* config/rs6000/rs6000.c (rs6000_emit_epilogue): If cfun->calls_alloca
+	or total_size is larger than red zone size for non-V4 ABI, emit a
+	stack_tie resp. frame_tie insn before stack pointer restore.
+	* config/rs6000/rs6000.md (frame_tie): New insn.
+
 2010-05-25  Jakub Jelinek  <jakub@redhat.com>
 
 	PR debug/41371
