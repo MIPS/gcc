@@ -91,6 +91,9 @@ struct _dep;
 /* This is defined in ddg.h .  */
 struct ddg;
 
+/* This is defined in cfgloop.h .  */
+struct loop;
+
 struct gcc_target
 {
   /* Functions that output assembler for the target.  */
@@ -593,6 +596,9 @@ struct gcc_target
      function.  AFTER_PE_GEN is true if prologues and epilogues have
      already been generated.  */
   bool (* branch_target_register_callee_saved) (bool after_pe_gen);
+
+  /* Return a new value for loop unroll size.  */
+  unsigned (* loop_unroll_adjust) (unsigned nunroll, struct loop *loop);
 
   /* True if the constant X cannot be placed in the constant pool.  */
   bool (* cannot_force_const_mem) (rtx);
