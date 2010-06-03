@@ -1,3 +1,48 @@
+2010-06-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/44375
+	* tree-cfg.c (gimple_can_merge_blocks_p): For -O0
+	return false if merging the bbs would lead to goto_locus
+	location being lost from the IL.
+
+2010-06-03  Jan Hubicka  <jh@suse.cz>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	* var-tracking.c (dataflow_set_equiv_regs): Shortcut the loop if                                                                        
+	set->regs[i] is NULL or has just one entry.
+
+2010-06-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree.h (struct tree_decl_map): New type.
+	(tree_decl_map_eq, tree_decl_map_marked_p): Define.
+	(tree_decl_map_hash): New prototype.
+	(debug_expr_for_decl, value_expr_for_decl): Change into
+	tree_decl_map hashtab from tree_map.
+	(init_ttree): Adjust initialization.
+	(tree_decl_map_hash): New function.
+	(decl_debug_expr_lookup, decl_debug_expr_insert,
+	decl_value_expr_lookup, decl_value_expr_insert): Adjust.
+
+2010-05-31  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/44338
+	* config/i386/sse.md (fma4i_fmadd<mode>4256, fma4i_fmsub<mode>4256,
+	fma4i_fnmadd<mode>4256, fma4i_fnmsub<mode>4256, fma4i_fmadd<mode>4,
+	fma4i_fmsub<mode>4, fma4i_fnmadd<mode>4, fma4i_fnmsub<mode>4,
+	fma4i_vmfmadd<mode>4, fma4i_vmfmsub<mode>4, fma4i_vmfnmadd<mode>4,
+	fma4i_vmfnmsub<mode>4, fma4i_fmaddsubv8sf4, fma4i_fmaddsubv4df4,
+	fma4i_fmaddsubv4sf4, fma4i_fmaddsubv2df4, fma4i_fmsubaddv8sf4,
+	fma4i_fmsubaddv4df4, fma4i_fmsubaddv4sf4, fma4i_fmsubaddv2df4):
+	Guard only with TARGET_FMA4 instead of TARGET_FMA4 &&
+	TARGET_FUSED_MADD.
+
+	PR tree-optimization/44182
+	* tree-inline.c (copy_edges_for_bb): Don't split bb if a stmt that
+	newly needs to end a bb is followed by debug stmts, instead return
+	true from the function at the end.
+	(maybe_move_debug_stmts_to_successors): New function.
+	(copy_cfg_body): Call it if copy_edges_for_bb returned true.
+
 2010-06-03  Alan Modra  <amodra@gmail.com>
 
 	PR target/44169
