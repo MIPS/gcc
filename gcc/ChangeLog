@@ -1,7 +1,7 @@
 2010-06-04  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* ira-color.c (update_copy_costs): Remove assert.  Skip cost
-	update if the hard regno don't belong the class.
+	update if the hard reg does not belong the class.
 
 2010-05-31  Vladimir Makarov  <vmakarov@redhat.com>
 
