@@ -1218,7 +1218,8 @@ update_copy_costs (ira_allocno_t allocno, bool decr_p)
 	    (&ALLOCNO_UPDATED_CONFLICT_HARD_REG_COSTS (another_allocno),
 	     aclass, 0, ALLOCNO_CONFLICT_HARD_REG_COSTS (another_allocno));
 	  i = ira_class_hard_reg_index[aclass][hard_regno];
-	  ira_assert (i >= 0);
+	  if (i < 0)
+	    continue;
 	  ALLOCNO_UPDATED_HARD_REG_COSTS (another_allocno)[i] += update_cost;
 	  ALLOCNO_UPDATED_CONFLICT_HARD_REG_COSTS (another_allocno)[i]
 	    += update_cost;
