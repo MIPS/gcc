@@ -1,3 +1,9 @@
+2010-06-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/44361
+	* c-parser.c (c_parser_postfix_expression): Call mark_exp_read on
+	statement expression.
+
 2010-06-04  Alexandre Oliva  <aoliva@redhat.com>
 
 	PR rtl-optimization/44013

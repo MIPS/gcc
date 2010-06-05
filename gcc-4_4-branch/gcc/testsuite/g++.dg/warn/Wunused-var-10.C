@@ -1,6 +1,6 @@
 // PR c++/44412
 // { dg-do compile }
-// { dg-options "-Wunused" }
+// { dg-options "-Wunused -Wunused-but-set-variable" }
 
 struct S
 {

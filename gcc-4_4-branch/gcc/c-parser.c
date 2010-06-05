@@ -5294,6 +5294,7 @@ c_parser_postfix_expression (c_parser *parser)
 		   "ISO C forbids braced-groups within expressions");
 	  expr.value = c_finish_stmt_expr (stmt);
 	  expr.original_code = ERROR_MARK;
+	  mark_exp_read (expr.value);
 	}
       else if (c_token_starts_typename (c_parser_peek_2nd_token (parser)))
 	{
