@@ -1,5 +1,5 @@
 /* Process source files and output type information.
-   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
    Free Software Foundation, Inc.
 
    This file is part of GCC.
@@ -392,7 +392,7 @@ read_input_list (const char *listname)
 {
   FILE *list = fopen (listname, "r");
   if (!list)
-    fatal ("cannot open %s: %s", listname, strerror (errno));
+    fatal ("cannot open %s: %s", listname, xstrerror (errno));
   else
     {
       struct fileloc epos;
@@ -508,7 +508,7 @@ read_input_list (const char *listname)
   }
 
   if (ferror (list))
-    fatal ("error reading %s: %s", listname, strerror (errno));
+    fatal ("error reading %s: %s", listname, xstrerror (errno));
 
   fclose (list);
 }
@@ -1657,13 +1657,21 @@ get_file_langdir (const char *f)
 
   int lang_index;
   const char * srcdir_relative_path = get_file_srcdir_relative_path (f);
+  const char * r;
 
   if (!srcdir_relative_path)
     return NULL;
 
   lang_index = get_prefix_langdir_index (srcdir_relative_path);
+  if (lang_index < 0
+      && strncmp (srcdir_relative_path, "c-family", 8) == 0)
+    r = "c-family";
+  else if (lang_index >= 0)
+    r = lang_dir_names [lang_index];
+  else
+    r = NULL;
 
-  return (lang_index >= 0) ? lang_dir_names [lang_index] : NULL;
+  return r;
 }
 
 /* The gt- output file name for F.  */
@@ -1743,8 +1751,10 @@ get_output_file_with_visibility (const char *input_file)
      (and gengtype doesn't know how to direct spewage into multiple
      gtype-<lang>.h headers at this time).  Instead, we pair up these
      headers with source files (and their special purpose gt-*.h headers).  */
-  else if (strcmp (basename, "c-common.h") == 0)
-    output_name = "gt-c-common.h", for_name = "c-common.c";
+  else if (strncmp (basename, "c-family", 8) == 0
+	   && IS_DIR_SEPARATOR (basename[8])
+	   && strcmp (basename + 9, "c-common.h") == 0)
+    output_name = "gt-c-family-c-common.h", for_name = "c-family/c-common.c";
   else if (strcmp (basename, "c-lang.h") == 0)
     output_name = "gt-c-decl.h", for_name = "c-decl.c";
   else if (strcmp (basename, "c-tree.h") == 0)
@@ -1838,11 +1848,11 @@ close_output_files (void)
       {
         FILE *newfile = fopen (of->name, "w");
         if (newfile == NULL)
-          fatal ("opening output file %s: %s", of->name, strerror (errno));
+          fatal ("opening output file %s: %s", of->name, xstrerror (errno));
         if (fwrite (of->buf, 1, of->bufused, newfile) != of->bufused)
-          fatal ("writing output file %s: %s", of->name, strerror (errno));
+          fatal ("writing output file %s: %s", of->name, xstrerror (errno));
         if (fclose (newfile) != 0)
-          fatal ("closing output file %s: %s", of->name, strerror (errno));
+          fatal ("closing output file %s: %s", of->name, xstrerror (errno));
       }
       free(of->buf);
       of->buf = NULL;

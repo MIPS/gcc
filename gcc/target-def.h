@@ -261,6 +261,18 @@
 
 #define TARGET_ASM_TRAMPOLINE_TEMPLATE NULL
 
+#ifndef TARGET_PRINT_OPERAND
+#define TARGET_PRINT_OPERAND default_print_operand
+#endif
+
+#ifndef TARGET_PRINT_OPERAND_ADDRESS
+#define TARGET_PRINT_OPERAND_ADDRESS default_print_operand_address
+#endif
+
+#ifndef TARGET_PRINT_OPERAND_PUNCT_VALID_P
+#define TARGET_PRINT_OPERAND_PUNCT_VALID_P default_print_operand_punct_valid_p
+#endif
+
 #define TARGET_ASM_ALIGNED_INT_OP				\
 		       {TARGET_ASM_ALIGNED_HI_OP,		\
 			TARGET_ASM_ALIGNED_SI_OP,		\
@@ -314,7 +326,10 @@
 			TARGET_ASM_OUTPUT_ANCHOR,		\
 			TARGET_ASM_OUTPUT_DWARF_DTPREL,		\
 			TARGET_ASM_FINAL_POSTSCAN_INSN,		\
-			TARGET_ASM_TRAMPOLINE_TEMPLATE }
+			TARGET_ASM_TRAMPOLINE_TEMPLATE,		\
+			TARGET_PRINT_OPERAND,			\
+			TARGET_PRINT_OPERAND_ADDRESS,		\
+			TARGET_PRINT_OPERAND_PUNCT_VALID_P }
 
 /* Scheduler hooks.  All of these default to null pointers, which
    haifa-sched.c looks for and handles.  */
@@ -453,6 +468,10 @@
 #define TARGET_ADDRESS_COST default_address_cost
 #define TARGET_CONST_ANCHOR 0
 
+#ifndef TARGET_MEMORY_MOVE_COST
+#define TARGET_MEMORY_MOVE_COST default_memory_move_cost
+#endif
+
 /* In builtins.c.  */
 #define TARGET_INIT_BUILTINS hook_void_void
 #define TARGET_EXPAND_BUILTIN default_expand_builtin
@@ -536,6 +555,10 @@
 
 #ifndef TARGET_SCALAR_MODE_SUPPORTED_P
 #define TARGET_SCALAR_MODE_SUPPORTED_P default_scalar_mode_supported_p
+#endif
+
+#ifndef TARGET_ENUM_VA_LIST_P
+#define TARGET_ENUM_VA_LIST_P NULL
 #endif
 
 #ifndef TARGET_DECIMAL_FLOAT_SUPPORTED_P
@@ -998,6 +1021,7 @@
   TARGET_ADDR_SPACE_HOOKS,			\
   TARGET_SCALAR_MODE_SUPPORTED_P,		\
   TARGET_VECTOR_MODE_SUPPORTED_P,               \
+  TARGET_MEMORY_MOVE_COST, 			\
   TARGET_SMALL_REGISTER_CLASSES_FOR_MODE_P,	\
   TARGET_RTX_COSTS,				\
   TARGET_ADDRESS_COST,				\
@@ -1009,6 +1033,7 @@
   TARGET_CC_MODES_COMPATIBLE,			\
   TARGET_MACHINE_DEPENDENT_REORG,		\
   TARGET_BUILD_BUILTIN_VA_LIST,			\
+  TARGET_ENUM_VA_LIST_P,			\
   TARGET_FN_ABI_VA_LIST,			\
   TARGET_CANONICAL_VA_LIST_TYPE,		\
   TARGET_EXPAND_BUILTIN_VA_START,		\

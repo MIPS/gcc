@@ -303,6 +303,9 @@ struct GTY(()) control_flow_graph {
   /* The first free basic block number.  */
   int x_last_basic_block;
 
+  /* UIDs for LABEL_DECLs.  */
+  int last_label_uid;
+
   /* Mapping of labels to their associated blocks.  At present
      only used for the gimple CFG.  */
   VEC(basic_block,gc) *x_label_to_block_map;
@@ -318,9 +321,6 @@ struct GTY(()) control_flow_graph {
   /* Maximal number of entities in the single jumptable.  Used to estimate
      final flowgraph size.  */
   int max_jumptable_ents;
-
-  /* UIDs for LABEL_DECLs.  */
-  int last_label_uid;
 };
 
 /* Defines for accessing the fields of the CFG structure for function FN.  */
@@ -443,8 +443,8 @@ extern int pre_and_rev_post_order_compute (int *, int *, bool);
 extern int dfs_enumerate_from (basic_block, int,
 			       bool (*)(const_basic_block, const void *),
 			       basic_block *, int, const void *);
-extern void compute_dominance_frontiers (bitmap *);
-extern bitmap compute_idf (bitmap, bitmap *);
+extern void compute_dominance_frontiers (struct bitmap_head_def *);
+extern bitmap compute_idf (bitmap, struct bitmap_head_def *);
 extern void dump_bb_info (basic_block, bool, bool, int, const char *, FILE *);
 extern void dump_edge_info (FILE *, edge, int);
 extern void brief_dump_cfg (FILE *);

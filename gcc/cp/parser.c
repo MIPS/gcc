@@ -27,15 +27,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "cp-tree.h"
 #include "intl.h"
-#include "c-pragma.h"
+#include "c-family/c-pragma.h"
 #include "decl.h"
 #include "flags.h"
-#include "diagnostic.h"
+#include "diagnostic-core.h"
 #include "toplev.h"
 #include "output.h"
 #include "target.h"
 #include "cgraph.h"
-#include "c-common.h"
+#include "c-family/c-common.h"
 #include "plugin.h"
 
 
@@ -682,6 +682,7 @@ cp_lexer_next_token_is_decl_specifier_keyword (cp_lexer *lexer)
     case RID_SHORT:
     case RID_INT:
     case RID_LONG:
+    case RID_INT128:
     case RID_SIGNED:
     case RID_UNSIGNED:
     case RID_FLOAT:
@@ -5840,6 +5841,51 @@ cp_parser_unary_expression (cp_parser *parser, bool address_p, bool cast_p,
 	  }
 	  break;
 
+	case RID_NOEXCEPT:
+	  {
+	    tree expr;
+	    const char *saved_message;
+	    bool saved_integral_constant_expression_p;
+	    bool saved_non_integral_constant_expression_p;
+	    bool saved_greater_than_is_operator_p;
+
+	    cp_lexer_consume_token (parser->lexer);
+	    cp_parser_require (parser, CPP_OPEN_PAREN, RT_OPEN_PAREN);
+
+	    saved_message = parser->type_definition_forbidden_message;
+	    parser->type_definition_forbidden_message
+	      = G_("types may not be defined in %<noexcept%> expressions");
+
+	    saved_integral_constant_expression_p
+	      = parser->integral_constant_expression_p;
+	    saved_non_integral_constant_expression_p
+	      = parser->non_integral_constant_expression_p;
+	    parser->integral_constant_expression_p = false;
+
+	    saved_greater_than_is_operator_p
+	      = parser->greater_than_is_operator_p;
+	    parser->greater_than_is_operator_p = true;
+
+	    ++cp_unevaluated_operand;
+	    ++c_inhibit_evaluation_warnings;
+	    expr = cp_parser_expression (parser, false, NULL);
+	    --c_inhibit_evaluation_warnings;
+	    --cp_unevaluated_operand;
+
+	    parser->greater_than_is_operator_p
+	      = saved_greater_than_is_operator_p;
+
+	    parser->integral_constant_expression_p
+	      = saved_integral_constant_expression_p;
+	    parser->non_integral_constant_expression_p
+	      = saved_non_integral_constant_expression_p;
+
+	    parser->type_definition_forbidden_message = saved_message;
+
+	    cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN);
+	    return finish_noexcept_expr (expr);
+	  }
+
 	default:
 	  break;
 	}
@@ -10135,7 +10181,7 @@ cp_parser_mem_initializer_list (cp_parser* parser)
      mem-initializer-list.  */
   if (!DECL_CONSTRUCTOR_P (current_function_decl))
     error_at (token->location,
-	      "only constructors take base initializers");
+	      "only constructors take member initializers");
 
   /* Loop through the list.  */
   while (true)
@@ -12164,6 +12210,7 @@ cp_parser_type_specifier (cp_parser* parser,
    GNU Extension:
 
    simple-type-specifier:
+     __int128
      __typeof__ unary-expression
      __typeof__ ( type-id )
 
@@ -12210,6 +12257,13 @@ cp_parser_simple_type_specifier (cp_parser* parser,
       if (decl_specs)
 	decl_specs->explicit_int_p = true;
       type = integer_type_node;
+      break;
+    case RID_INT128:
+      if (!int128_integer_type_node)
+	break;
+      if (decl_specs)
+        decl_specs->explicit_int128_p = true;
+      type = int128_integer_type_node;
       break;
     case RID_LONG:
       if (decl_specs)
@@ -17480,12 +17534,49 @@ cp_parser_exception_specification_opt (cp_parser* parser)
 {
   cp_token *token;
   tree type_id_list;
+  const char *saved_message;
 
   /* Peek at the next token.  */
   token = cp_lexer_peek_token (parser->lexer);
+
+  /* Is it a noexcept-specification?  */
+  if (cp_parser_is_keyword (token, RID_NOEXCEPT))
+    {
+      tree expr;
+      cp_lexer_consume_token (parser->lexer);
+
+      if (cp_lexer_peek_token (parser->lexer)->type == CPP_OPEN_PAREN)
+	{
+	  cp_lexer_consume_token (parser->lexer);
+
+	  /* Types may not be defined in an exception-specification.  */
+	  saved_message = parser->type_definition_forbidden_message;
+	  parser->type_definition_forbidden_message
+	    = G_("types may not be defined in an exception-specification");
+
+	  expr = cp_parser_constant_expression (parser, false, NULL);
+
+	  /* Restore the saved message.  */
+	  parser->type_definition_forbidden_message = saved_message;
+
+	  cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN);
+	}
+      else
+	expr = boolean_true_node;
+
+      return build_noexcept_spec (expr, tf_warning_or_error);
+    }
+
   /* If it's not `throw', then there's no exception-specification.  */
   if (!cp_parser_is_keyword (token, RID_THROW))
     return NULL_TREE;
+
+#if 0
+  /* Enable this once a lot of code has transitioned to noexcept?  */
+  if (cxx_dialect == cxx0x && !in_system_header)
+    warning (OPT_Wdeprecated, "dynamic exception specifications are "
+	     "deprecated in C++0x; use %<noexcept%> instead.");
+#endif
 
   /* Consume the `throw'.  */
   cp_lexer_consume_token (parser->lexer);
@@ -17498,8 +17589,6 @@ cp_parser_exception_specification_opt (cp_parser* parser)
   /* If it's not a `)', then there is a type-id-list.  */
   if (token->type != CPP_CLOSE_PAREN)
     {
-      const char *saved_message;
-
       /* Types may not be defined in an exception-specification.  */
       saved_message = parser->type_definition_forbidden_message;
       parser->type_definition_forbidden_message

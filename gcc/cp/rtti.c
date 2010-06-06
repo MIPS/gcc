@@ -33,7 +33,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "toplev.h"
 #include "convert.h"
 #include "target.h"
-#include "c-pragma.h"
+#include "c-family/c-pragma.h"
 
 /* C++ returns type information to the user in struct type_info
    objects. We also use type information to implement dynamic_cast and
@@ -1476,6 +1476,7 @@ emit_support_tinfos (void)
     &integer_type_node, &unsigned_type_node,
     &long_integer_type_node, &long_unsigned_type_node,
     &long_long_integer_type_node, &long_long_unsigned_type_node,
+    &int128_integer_type_node, &int128_unsigned_type_node,
     &float_type_node, &double_type_node, &long_double_type_node,
     &dfloat32_type_node, &dfloat64_type_node, &dfloat128_type_node,
     &nullptr_type_node,
@@ -1501,6 +1502,8 @@ emit_support_tinfos (void)
       tree types[3];
       int i;
 
+      if (bltn == NULL_TREE)
+	continue;
       types[0] = bltn;
       types[1] = build_pointer_type (bltn);
       types[2] = build_pointer_type (cp_build_qualified_type (bltn,

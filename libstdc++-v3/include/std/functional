@@ -1384,13 +1384,6 @@ namespace std
   class bad_function_call : public std::exception { };
 
   /**
-   *  The integral constant expression 0 can be converted into a
-   *  pointer to this type. It is used by the function template to
-   *  accept NULL pointers.
-   */
-  struct _M_clear_type;
-
-  /**
    *  Trait identifying "location-invariant" types, meaning that the
    *  address of the object (or any of its members) will not escape.
    *  Also implies a trivial copy constructor and assignment operator.
@@ -1797,10 +1790,10 @@ namespace std
       function() : _Function_base() { }
       
       /**
-       *  @brief Default construct creates an empty function call wrapper.
+       *  @brief Creates an empty function call wrapper.
        *  @post @c !(bool)*this
        */
-      function(_M_clear_type*) : _Function_base() { }
+      function(nullptr_t) : _Function_base() { }
       
       /**
        *  @brief %Function copy constructor.
@@ -1893,7 +1886,7 @@ namespace std
        *  The target of @c *this is deallocated, leaving it empty.
        */
       function&
-      operator=(_M_clear_type*)
+      operator=(nullptr_t)
       {
         if (_M_manager)
 	  {
@@ -1948,16 +1941,9 @@ namespace std
        */
       void swap(function& __x)
       {
-	/* We cannot perform direct assignments of the _M_functor
-	   parts as they are of type _Any_data and have a different
-	   dynamic type.  Doing so would violate type-based aliasing
-	   rules and lead to spurious miscompilations.
-	   Instead perform a bytewise exchange of the memory of
-	   both POD objects.
-	   ???  A wordwise exchange honoring alignment of _M_functor
-	   would be more efficient.  See PR42845.  */
-	for (unsigned i = 0; i < sizeof (_M_functor._M_pod_data); ++i)
-	  std::swap (_M_functor._M_pod_data[i], __x._M_functor._M_pod_data[i]);
+	_Any_data __old_functor = _M_functor;
+	_M_functor = __x._M_functor;
+	__x._M_functor = __old_functor;
 	_Manager_type __old_manager = _M_manager;
 	_M_manager = __x._M_manager;
 	__x._M_manager = __old_manager;
@@ -2146,13 +2132,13 @@ namespace std
    */
   template<typename _Res, typename... _Args>
     inline bool
-    operator==(const function<_Res(_Args...)>& __f, _M_clear_type*)
+    operator==(const function<_Res(_Args...)>& __f, nullptr_t)
     { return !static_cast<bool>(__f); }
 
   /// @overload
   template<typename _Res, typename... _Args>
     inline bool
-    operator==(_M_clear_type*, const function<_Res(_Args...)>& __f)
+    operator==(nullptr_t, const function<_Res(_Args...)>& __f)
     { return !static_cast<bool>(__f); }
 
   /**
@@ -2164,13 +2150,13 @@ namespace std
    */
   template<typename _Res, typename... _Args>
     inline bool
-    operator!=(const function<_Res(_Args...)>& __f, _M_clear_type*)
+    operator!=(const function<_Res(_Args...)>& __f, nullptr_t)
     { return static_cast<bool>(__f); }
 
   /// @overload
   template<typename _Res, typename... _Args>
     inline bool
-    operator!=(_M_clear_type*, const function<_Res(_Args...)>& __f)
+    operator!=(nullptr_t, const function<_Res(_Args...)>& __f)
     { return static_cast<bool>(__f); }
 
   // [20.7.15.2.7] specialized algorithms

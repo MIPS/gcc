@@ -46,13 +46,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "input.h"
 #include "cpplib.h"
 #include "timevar.h"
-#include "c-pragma.h"
+#include "c-family/c-pragma.h"
 #include "c-tree.h"
 #include "flags.h"
 #include "output.h"
 #include "toplev.h"
 #include "ggc.h"
-#include "c-common.h"
+#include "c-family/c-common.h"
 #include "vec.h"
 #include "target.h"
 #include "cgraph.h"
@@ -378,6 +378,7 @@ c_token_starts_typename (c_token *token)
 	{
 	case RID_UNSIGNED:
 	case RID_LONG:
+	case RID_INT128:
 	case RID_SHORT:
 	case RID_SIGNED:
 	case RID_COMPLEX:
@@ -457,6 +458,7 @@ c_token_starts_declspecs (c_token *token)
 	case RID_THREAD:
 	case RID_UNSIGNED:
 	case RID_LONG:
+	case RID_INT128:
 	case RID_SHORT:
 	case RID_SIGNED:
 	case RID_COMPLEX:
@@ -1574,6 +1576,7 @@ c_parser_static_assert_declaration_no_semi (c_parser *parser)
 
    type-specifier:
      typeof-specifier
+     __int128
      _Decimal32
      _Decimal64
      _Decimal128
@@ -1691,6 +1694,7 @@ c_parser_declspecs (c_parser *parser, struct c_declspecs *specs,
 	  break;
 	case RID_UNSIGNED:
 	case RID_LONG:
+	case RID_INT128:
 	case RID_SHORT:
 	case RID_SIGNED:
 	case RID_COMPLEX:
@@ -3005,6 +3009,7 @@ c_parser_attributes (c_parser *parser)
 		case RID_STATIC:
 		case RID_UNSIGNED:
 		case RID_LONG:
+		case RID_INT128:
 		case RID_CONST:
 		case RID_EXTERN:
 		case RID_REGISTER:
@@ -5596,6 +5601,7 @@ c_parser_postfix_expression (c_parser *parser)
 	  pedwarn (loc, OPT_pedantic,
 		   "ISO C forbids braced-groups within expressions");
 	  expr.value = c_finish_stmt_expr (brace_loc, stmt);
+	  mark_exp_read (expr.value);
 	}
       else if (c_token_starts_typename (c_parser_peek_2nd_token (parser)))
 	{
@@ -6987,6 +6993,7 @@ c_parser_objc_selector (c_parser *parser)
     case RID_ALIGNOF:
     case RID_UNSIGNED:
     case RID_LONG:
+    case RID_INT128:
     case RID_CONST:
     case RID_SHORT:
     case RID_VOLATILE:

@@ -4298,6 +4298,20 @@ This hook returns a type node for @code{va_list} for the target.
 The default version of the hook returns @code{void*}.
 @end deftypefn
 
+@deftypefn {Target Hook} int TARGET_ENUM_VA_LIST_P (int @var{idx}, const char ** @var{pname}, tree @var{ptype})
+This target hook is used in function @code{c_common_nodes_and_builtins}
+to iterate through the target specific builtin types for va_list. The
+variable @var{idx} is used as iterator. @var{pname} has to be a pointer
+to a @code{const char *} and @var{ptype} a pointer to a @code{tree} typed
+variable.
+The arguments @var{pname} and @var{ptype} are used to store the result of
+this macro and are set to the name of the va_list builtin type and its
+internal type.
+If the return value of this macro is zero, then there is no more element.
+Otherwise the @var{IDX} should be increased for the next call of this
+macro to iterate through all types.
+@end deftypefn
+
 @deftypefn {Target Hook} tree TARGET_FN_ABI_VA_LIST (tree @var{fndecl})
 This hook returns the va_list type of the calling convention specified by
 @var{fndecl}.
@@ -4493,20 +4507,6 @@ should recognize only the caller's register numbers.
 
 If this hook is not defined, then FUNCTION_VALUE_REGNO_P will be used.
 @end deftypefn
-
-@defmac TARGET_ENUM_VA_LIST (@var{idx}, @var{pname}, @var{ptype})
-This target macro is used in function @code{c_common_nodes_and_builtins}
-to iterate through the target specific builtin types for va_list. The
-variable @var{idx} is used as iterator. @var{pname} has to be a pointer
-to a @code{const char *} and @var{ptype} a pointer to a @code{tree} typed
-variable.
-The arguments @var{pname} and @var{ptype} are used to store the result of
-this macro and are set to the name of the va_list builtin type and its
-internal type.
-If the return value of this macro is zero, then there is no more element.
-Otherwise the @var{IDX} should be increased for the next call of this
-macro to iterate through all types.
-@end defmac
 
 @defmac APPLY_RESULT_SIZE
 Define this macro if @samp{untyped_call} and @samp{untyped_return}
@@ -6178,7 +6178,34 @@ secondary register in the conventional way but the default base value of
 4 is not correct for your machine, define this macro to add some other
 value to the result of that function.  The arguments to that function
 are the same as to this macro.
+
+These macros are obsolete, new ports should use the target hook
+@code{TARGET_MEMORY_MOVE_COST} instead.
 @end defmac
+
+@deftypefn {Target Hook} int TARGET_MEMORY_MOVE_COST (enum machine_mode @var{mode}, enum reg_class @var{regclass}, bool @var{in})
+This target hook should return the cost of moving data of mode @var{mode}
+between a register of class @var{class} and memory; @var{in} is @code{false}
+if the value is to be written to memory, @code{true} if it is to be read in.
+This cost is relative to those in @code{REGISTER_MOVE_COST}.  If moving
+between registers and memory is more expensive than between two registers,
+you should add this target hook to express the relative cost.
+
+If you do not add this target hook, GCC uses a default cost of 4 plus
+the cost of copying via a secondary reload register, if one is
+needed.  If your machine requires a secondary reload register to copy
+between memory and a register of @var{class} but the reload mechanism is
+more complex than copying via an intermediate, use this target hook to
+reflect the actual cost of the move.
+
+GCC defines the function @code{memory_move_secondary_cost} if
+secondary reloads are needed.  It computes the costs due to copying via
+a secondary register.  If your machine copies from memory using a
+secondary register in the conventional way but the default base value of
+4 is not correct for your machine, use this target hook to add some other
+value to the result of that function.  The arguments to that function
+are the same as to this target hook.
+@end deftypefn
 
 @defmac BRANCH_COST (@var{speed_p}, @var{predictable_p})
 A C expression for the cost of a branch instruction.  A value of 1 is the
@@ -9966,17 +9993,14 @@ Internally, address spaces are represented as a small integer in the
 range 0 to 15 with address space 0 being reserved for the generic
 address space.
 
-@defmac TARGET_ADDR_SPACE_KEYWORDS
-A list of @code{ADDR_SPACE_KEYWORD} macros to define each named
-address keyword.  The @code{ADDR_SPACE_KEYWORD} macro takes two
-arguments, the keyword string and the number of the named address
-space.  For example, the SPU port uses the following to declare
-@code{__ea} as the keyword for named address space #1:
+To register a named address space qualifier keyword with the C front end,
+the target may call the @code{c_register_addr_space} routine.  For example,
+the SPU port uses the following to declare @code{__ea} as the keyword for
+named address space #1:
 @smallexample
 #define ADDR_SPACE_EA 1
-#define TARGET_ADDR_SPACE_KEYWORDS ADDR_SPACE_KEYWORD ("__ea", ADDR_SPACE_EA)
+c_register_addr_space ("__ea", ADDR_SPACE_EA);
 @end smallexample
-@end defmac
 
 @deftypefn {Target Hook} {enum machine_mode} TARGET_ADDR_SPACE_POINTER_MODE (addr_space_t @var{address_space})
 Define this to return the machine mode to use for pointers to

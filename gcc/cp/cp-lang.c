@@ -1,5 +1,6 @@
 /* Language-dependent hooks for C++.
-   Copyright 2001, 2002, 2004, 2007, 2008, 2009 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2004, 2007, 2008, 2009, 2010
+   Free Software Foundation, Inc.
    Contributed by Alexandre Oliva  <aoliva@redhat.com>
 
 This file is part of GCC.
@@ -24,11 +25,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "tree.h"
 #include "cp-tree.h"
-#include "c-common.h"
+#include "c-family/c-common.h"
 #include "toplev.h"
 #include "langhooks.h"
 #include "langhooks-def.h"
-#include "diagnostic.h"
 #include "debug.h"
 #include "cp-objcp-common.h"
 #include "hashtab.h"
