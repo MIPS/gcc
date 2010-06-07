@@ -1,5 +1,12 @@
 2010-06-07  Richard Guenther  <rguenther@suse.de>
 
+	* ipa-struct-reorg.c (reorg_structs_drive): Disable.
+
+	testsuite/
+	* gcc.dg/struct: XFAIL all testcases.
+
+2010-06-07  Richard Guenther  <rguenther@suse.de>
+
 	* matrix-reorg.c (may_flatten_matrices_1): Sanitize.
 	(ssa_accessed_in_tree): Handle MEM_REF.
 	(ssa_accessed_in_assign_rhs): Likewise.

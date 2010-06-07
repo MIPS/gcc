@@ -4033,7 +4033,9 @@ reorg_structs (void)
 static unsigned int
 reorg_structs_drive (void)
 {
-  reorg_structs ();
+  /* IPA struct-reorg is completely broken - its analysis phase is
+     non-conservative (which is not the only reason it is broken).  */
+  /* reorg_structs (); */
   return 0;
 }
 
