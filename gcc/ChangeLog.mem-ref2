@@ -1,5 +1,9 @@
 2010-06-07  Richard Guenther  <rguenther@suse.de>
 
+	* ipa-struct-reorg.c (reorg_structs_drive): Fixup last commit.
+
+2010-06-07  Richard Guenther  <rguenther@suse.de>
+
 	* ipa-struct-reorg.c (reorg_structs_drive): Disable.
 
 	testsuite/
