@@ -2191,7 +2191,6 @@ transform_allocation_sites (void **slot, void *data ATTRIBUTE_UNUSED)
   for (i = 1; i < mi->min_indirect_level_escape; i++)
     {
       gimple_stmt_iterator gsi;
-      gimple use_stmt1 = NULL;
 
       gimple call_stmt = mi->malloc_for_level[i];
       gcc_assert (is_gimple_call (call_stmt));

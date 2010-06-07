@@ -1,5 +1,9 @@
 2010-06-07  Richard Guenther  <rguenther@suse.de>
 
+	* matrix-reorg.c (transform_allocation_sites): Remove unused var.
+
+2010-06-07  Richard Guenther  <rguenther@suse.de>
+
 	* builtins.c (stabilize_va_list_loc): Use the function ABI
 	valist type if we couldn't canonicalize the argument type.
 	Always dereference with the canonical va-list type.
