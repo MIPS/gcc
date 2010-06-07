@@ -1,5 +1,16 @@
 2010-06-07  Richard Guenther  <rguenther@suse.de>
 
+	* matrix-reorg.c (may_flatten_matrices_1): Sanitize.
+	(ssa_accessed_in_tree): Handle MEM_REF.
+	(ssa_accessed_in_assign_rhs): Likewise.
+	(update_type_size): Likewise.
+	(analyze_accesses_for_call_stmt): Likewise.
+	(analyze_accesses_for_assign_stmt): Likewise.
+	(transform_access_sites): Likewise.
+	(transform_allocation_sites): Likewise.
+
+2010-06-07  Richard Guenther  <rguenther@suse.de>
+
 	* gimplify.c (gimplify_cond_expr): Make sure to build MEM_REFs when
 	returning GS_ALL_DONE.
 	(gimplify_cleanup_point_expr): For empty body and EH-only cleanup
