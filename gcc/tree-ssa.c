@@ -1273,19 +1273,6 @@ useless_type_conversion_p (tree outer_type, tree inner_type)
   else if (POINTER_TYPE_P (inner_type)
 	   && POINTER_TYPE_P (outer_type))
     {
-      /* Don't lose casts between pointers to volatile and non-volatile
-	 qualified types.  Doing so would result in changing the semantics
-	 of later accesses.  For function types the volatile qualifier
-	 is used to indicate noreturn functions.  */
-      if (TREE_CODE (TREE_TYPE (outer_type)) != FUNCTION_TYPE
-	  && TREE_CODE (TREE_TYPE (outer_type)) != METHOD_TYPE
-	  && TREE_CODE (TREE_TYPE (inner_type)) != FUNCTION_TYPE
-	  && TREE_CODE (TREE_TYPE (inner_type)) != METHOD_TYPE
-	  && (TYPE_VOLATILE (TREE_TYPE (outer_type))
-	      != TYPE_VOLATILE (TREE_TYPE (inner_type)))
-	  && TYPE_VOLATILE (TREE_TYPE (outer_type)))
-	return false;
-
       /* Do not lose casts to function pointer types.  */
       if ((TREE_CODE (TREE_TYPE (outer_type)) == FUNCTION_TYPE
 	   || TREE_CODE (TREE_TYPE (outer_type)) == METHOD_TYPE)

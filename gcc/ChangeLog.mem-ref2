@@ -1,3 +1,20 @@
+2010-06-07  Richard Guenther  <rguenther@suse.de>
+
+	* gimplify.c (gimplify_cond_expr): Make sure to build MEM_REFs when
+	returning GS_ALL_DONE.
+	(gimplify_cleanup_point_expr): For empty body and EH-only cleanup
+	drop the cleanup instead of inserting it unconditionally.
+	* tree-ssa.c (useless_type_conversion_p): Also drop pointer conversions
+	with differing pointed-to volatile qualifiers.
+
+	cp/
+	* cp-gimplify.c (cp_gimplify_expr): Open-code the rhs
+	predicate we are looking for, allow non-gimplified
+	INDIRECT_REFs.
+
+	testsuite/
+	* gcc.dg/volatile2.c: Adjust.
+
 2010-06-06  Richard Guenther  <rguenther@suse.de>
 
 	Merge from trunk r160345.
