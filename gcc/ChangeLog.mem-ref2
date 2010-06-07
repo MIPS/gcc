@@ -1,5 +1,11 @@
 2010-06-07  Richard Guenther  <rguenther@suse.de>
 
+	* builtins.c (stabilize_va_list_loc): Use the function ABI
+	valist type if we couldn't canonicalize the argument type.
+	Always dereference with the canonical va-list type.
+
+2010-06-07  Richard Guenther  <rguenther@suse.de>
+
 	* ipa-struct-reorg.c (reorg_structs_drive): Fixup last commit.
 
 2010-06-07  Richard Guenther  <rguenther@suse.de>

@@ -4452,13 +4452,9 @@ stabilize_va_list_loc (location_t loc, tree valist, int needs_lvalue)
   tree vatype = targetm.canonical_va_list_type (TREE_TYPE (valist));
 
   /* The current way of determining the type of valist is completely
-     bogus.  We should have the information on the current function
-     declaration instead.  */
-#if 0
-  gcc_assert (vatype != NULL_TREE);
-#endif
+     bogus.  We should have the information on the va builtin instead.  */
   if (!vatype)
-    vatype = va_list_type_node;
+    vatype = targetm.fn_abi_va_list (cfun->decl);
 
   if (TREE_CODE (vatype) == ARRAY_TYPE)
     {
@@ -4477,21 +4473,21 @@ stabilize_va_list_loc (location_t loc, tree valist, int needs_lvalue)
     }
   else
     {
-      tree pt;
+      tree pt = build_pointer_type (vatype);
 
       if (! needs_lvalue)
 	{
 	  if (! TREE_SIDE_EFFECTS (valist))
 	    return valist;
 
-	  pt = build_pointer_type (vatype);
 	  valist = fold_build1_loc (loc, ADDR_EXPR, pt, valist);
 	  TREE_SIDE_EFFECTS (valist) = 1;
 	}
 
       if (TREE_SIDE_EFFECTS (valist))
 	valist = save_expr (valist);
-      valist = build_fold_indirect_ref_loc (loc, valist);
+      valist = fold_build2_loc (loc, MEM_REF,
+				vatype, valist, build_int_cst (pt, 0));
     }
 
   return valist;
