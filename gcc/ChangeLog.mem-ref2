@@ -1,5 +1,10 @@
 2010-06-08  Richard Guenther  <rguenther@suse.de>
 
+	* tree.c (build_simple_mem_ref_loc): Handle all addresses
+	that can be trivially decomposed.
+
+2010-06-08  Richard Guenther  <rguenther@suse.de>
+
 	* gimple.c (get_base_address): Restore INDIRECT_REF_P handing
 	for {MIS,}ALIGN{ED,}_INDIRECT_REF.
 	(get_base_loadstore): Likewise.

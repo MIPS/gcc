@@ -3829,17 +3829,17 @@ build_simple_mem_ref_loc (location_t loc, tree ptr)
   HOST_WIDE_INT offset = 0;
   tree ptype = TREE_TYPE (ptr);
   tree tem;
-  /* For convenience allow invariant addresses with component-refs.  */
+  /* For convenience allow addresses that collapse to a simple base
+     and offset.  */
   if (TREE_CODE (ptr) == ADDR_EXPR
-      && handled_component_p (TREE_OPERAND (ptr, 0)))
+      && (handled_component_p (TREE_OPERAND (ptr, 0))
+	  || TREE_CODE (TREE_OPERAND (ptr, 0)) == MEM_REF))
     {
-      HOST_WIDE_INT size, max_size;
-      gcc_assert (is_gimple_min_invariant (ptr));
-      ptr = get_ref_base_and_extent (TREE_OPERAND (ptr, 0), &offset,
-				     &size, &max_size);
-      gcc_assert (SSA_VAR_P (ptr) && offset % BITS_PER_UNIT == 0);
+      ptr = get_addr_base_and_offset (TREE_OPERAND (ptr, 0), &offset);
+      gcc_assert (offset % BITS_PER_UNIT == 0);
       offset = offset / BITS_PER_UNIT;
       ptr = build_fold_addr_expr (ptr);
+      gcc_assert (is_gimple_reg (ptr) || is_gimple_min_invariant (ptr));
     }
   tem = build2 (MEM_REF, TREE_TYPE (ptype),
 		ptr, build_int_cst (ptype, offset));
