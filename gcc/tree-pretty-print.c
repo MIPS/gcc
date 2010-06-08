@@ -796,16 +796,23 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 
     case MEM_REF:
       {
-	if (TREE_CODE (TREE_OPERAND (node, 0)) != ADDR_EXPR
-	    && integer_zerop (TREE_OPERAND (node, 1))
+	if (integer_zerop (TREE_OPERAND (node, 1))
 	    && (TREE_TYPE (TREE_OPERAND (node, 0))
 		== TREE_TYPE (TREE_OPERAND (node, 1)))
 	    && (TYPE_MAIN_VARIANT (TREE_TYPE (node))
-		== TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (TREE_OPERAND (node, 1))))))
+		== TYPE_MAIN_VARIANT
+		    (TREE_TYPE (TREE_TYPE (TREE_OPERAND (node, 1))))))
 	  {
-	    pp_string (buffer, "*");
-	    dump_generic_node (buffer, TREE_OPERAND (node, 0),
-			       spc, flags, false);
+	    if (TREE_CODE (TREE_OPERAND (node, 0)) != ADDR_EXPR)
+	      {
+		pp_string (buffer, "*");
+		dump_generic_node (buffer, TREE_OPERAND (node, 0),
+				   spc, flags, false);
+	      }
+	    else
+	      dump_generic_node (buffer,
+				 TREE_OPERAND (TREE_OPERAND (node, 0), 0),
+				 spc, flags, false);
 	  }
 	else
 	  {
@@ -814,7 +821,8 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	    dump_generic_node (buffer, TREE_TYPE (TREE_OPERAND (node, 1)),
 			       spc, flags, false);
 	    pp_string (buffer, ")");
-	    dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
+	    dump_generic_node (buffer, TREE_OPERAND (node, 0),
+			       spc, flags, false);
 	    if (!integer_zerop (TREE_OPERAND (node, 1)))
 	      {
 		pp_string (buffer, " + ");
@@ -1140,7 +1148,8 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 		  && (TREE_TYPE (TREE_OPERAND (op0, 0))
 		      == TREE_TYPE (TREE_OPERAND (op0, 1)))
 		  && (TYPE_MAIN_VARIANT (TREE_TYPE (op0))
-		      == TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (TREE_OPERAND (op0, 1))))))))
+		      == TYPE_MAIN_VARIANT
+		          (TREE_TYPE (TREE_TYPE (TREE_OPERAND (op0, 1))))))))
 	{
 	  op0 = TREE_OPERAND (op0, 0);
 	  str = "->";

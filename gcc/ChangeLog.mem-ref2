@@ -1,5 +1,10 @@
 2010-06-08  Richard Guenther  <rguenther@suse.de>
 
+	* tree-pretty-print.c (dump_generic_node): Print MEM[&a] in
+	the usual fancy way.
+
+2010-06-08  Richard Guenther  <rguenther@suse.de>
+
 	testsuite/
 	PR tree-optimization/44468
 	* gcc.c-torture/execute/pr44468.c: New testcase.
