@@ -1,3 +1,22 @@
+2010-06-07  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc.dg/torture/fp-int-convert-float128-timode.c: Skip on
+	i?86-*-solaris2*.
+	* gcc.dg/torture/fp-int-convert-float128.c: Likewise.
+
+2010-06-04  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2010-05-18  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc.target/i386/20011009-1.c (COMMENT): Define.
+	(main): Use it.
+	* gcc.target/i386/pr25993.c [__sun__]: Use .globl.
+
+	2010-05-21  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc.target/i386/pr25993.c: Use @function as type specifier.
+
 2010-06-07  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/44444
