@@ -2972,6 +2972,7 @@ get_base_address (tree t)
   if (SSA_VAR_P (t)
       || TREE_CODE (t) == STRING_CST
       || TREE_CODE (t) == CONSTRUCTOR
+      || INDIRECT_REF_P (t)
       || TREE_CODE (t) == MEM_REF)
     return t;
   else
@@ -4487,6 +4488,7 @@ get_base_loadstore (tree op)
   while (handled_component_p (op))
     op = TREE_OPERAND (op, 0);
   if (DECL_P (op)
+      || INDIRECT_REF_P (op)
       || TREE_CODE (op) == MEM_REF
       || TREE_CODE (op) == TARGET_MEM_REF)
     return op;

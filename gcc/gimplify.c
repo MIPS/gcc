@@ -6778,7 +6778,12 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 
 	case ALIGN_INDIRECT_REF:
 	case MISALIGNED_INDIRECT_REF:
-	  gcc_unreachable ();
+	  /* We can only reach this through re-gimplification from
+	     tree optimizers.  */
+	  ret = gimplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
+			       is_gimple_reg, fb_rvalue);
+	  recalculate_side_effects (*expr_p);
+	  break;
 
 	case INDIRECT_REF:
 	  {

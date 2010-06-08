@@ -1,5 +1,12 @@
 2010-06-08  Richard Guenther  <rguenther@suse.de>
 
+	* gimple.c (get_base_address): Restore INDIRECT_REF_P handing
+	for {MIS,}ALIGN{ED,}_INDIRECT_REF.
+	(get_base_loadstore): Likewise.
+	* gimplify.c (gimplify_expr): Likewise.
+
+2010-06-08  Richard Guenther  <rguenther@suse.de>
+
 	* tree-pretty-print.c (dump_generic_node): Print MEM[&a] in
 	the usual fancy way.
 
