@@ -1,3 +1,13 @@
+2010-06-08  Richard Guenther  <rguenther@suse.de>
+
+	* tree-scalar-evolution.c (follow_ssa_edge_expr): Handle
+	&MEM[ptr + CST] similar to POINTER_PLUS_EXPR.
+	* tree-data-ref.c (dr_analyze_innermost): Handle MEM_REF.
+	(dr_analyze_indices): Canonicalize MEM_REF bases and zero-offset
+	component references.
+	(dr_analyze_alias): Handle MEM_REF.
+	(object_address_invariant_in_loop_p): Likewise.
+
 2010-06-07  Richard Guenther  <rguenther@suse.de>
 
 	* matrix-reorg.c (transform_allocation_sites): Remove unused var.
