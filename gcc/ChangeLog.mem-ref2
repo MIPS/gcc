@@ -1,5 +1,11 @@
 2010-06-08  Richard Guenther  <rguenther@suse.de>
 
+	testsuite/
+	PR tree-optimization/44468
+	* gcc.c-torture/execute/pr44468.c: New testcase.
+
+2010-06-08  Richard Guenther  <rguenther@suse.de>
+
 	Merge from trunk r160431.
 
 2010-06-08  Richard Guenther  <rguenther@suse.de>
