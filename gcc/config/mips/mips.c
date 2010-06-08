@@ -548,7 +548,7 @@ bool mips_hard_regno_mode_ok[(int) MAX_MACHINE_MODE][FIRST_PSEUDO_REGISTER];
 
 /* Index C is true if character C is a valid PRINT_OPERAND punctation
    character.  */
-bool mips_print_operand_punct[256];
+static bool mips_print_operand_punct[256];
 
 static GTY (()) int mips_output_filename_first_time = 1;
 
@@ -1217,7 +1217,7 @@ mflip_mips16_use_mips16_p (tree decl)
   if (!entry)
     {
       mips16_flipper = !mips16_flipper;
-      entry = GGC_NEW (struct mflip_mips16_entry);
+      entry = ggc_alloc_mflip_mips16_entry ();
       entry->name = name;
       entry->mips16_p = mips16_flipper ? !mips_base_mips16 : mips_base_mips16;
       *slot = entry;
@@ -5851,7 +5851,7 @@ mips16_local_alias (rtx func)
       SYMBOL_REF_FLAGS (local) = SYMBOL_REF_FLAGS (func) | SYMBOL_FLAG_LOCAL;
 
       /* Create a new structure to represent the mapping.  */
-      alias = GGC_NEW (struct mips16_local_alias);
+      alias = ggc_alloc_mips16_local_alias ();
       alias->func = func;
       alias->local = local;
       *slot = alias;
@@ -7446,7 +7446,15 @@ mips_print_float_branch_condition (FILE *file, enum rtx_code code, int letter)
     }
 }
 
-/* Implement the PRINT_OPERAND macro.  The MIPS-specific operand codes are:
+/* Implement TARGET_PRINT_OPERAND_PUNCT_VALID_P.  */
+
+static bool
+mips_print_operand_punct_valid_p (unsigned char code)
+{
+  return mips_print_operand_punct[code];
+}
+
+/* Implement TARGET_PRINT_OPERAND.  The MIPS-specific operand codes are:
 
    'X'	Print CONST_INT OP in hexadecimal format.
    'x'	Print the low 16 bits of CONST_INT OP in hexadecimal format.
@@ -7470,12 +7478,12 @@ mips_print_float_branch_condition (FILE *file, enum rtx_code code, int letter)
    'M'	Print high-order register in a double-word register operand.
    'z'	Print $0 if OP is zero, otherwise print OP normally.  */
 
-void
+static void
 mips_print_operand (FILE *file, rtx op, int letter)
 {
   enum rtx_code code;
 
-  if (PRINT_OPERAND_PUNCT_VALID_P (letter))
+  if (mips_print_operand_punct_valid_p (letter))
     {
       mips_print_operand_punctuation (file, letter);
       return;
@@ -7617,9 +7625,9 @@ mips_print_operand (FILE *file, rtx op, int letter)
     }
 }
 
-/* Output address operand X to FILE.  */
+/* Implement TARGET_PRINT_OPERAND_ADDRESS.  */
 
-void
+static void
 mips_print_operand_address (FILE *file, rtx x)
 {
   struct mips_address_info addr;
@@ -15213,8 +15221,7 @@ mips_set_current_function (tree fndecl)
 static struct machine_function *
 mips_init_machine_status (void)
 {
-  return ((struct machine_function *)
-	  ggc_alloc_cleared (sizeof (struct machine_function)));
+  return ggc_alloc_cleared_machine_function ();
 }
 
 /* Return the processor associated with the given ISA level, or null
@@ -16376,6 +16383,13 @@ void mips_function_profiler (FILE *file)
 #define TARGET_ASM_OUTPUT_MI_THUNK mips_output_mi_thunk
 #undef TARGET_ASM_CAN_OUTPUT_MI_THUNK
 #define TARGET_ASM_CAN_OUTPUT_MI_THUNK hook_bool_const_tree_hwi_hwi_const_tree_true
+
+#undef TARGET_PRINT_OPERAND
+#define TARGET_PRINT_OPERAND mips_print_operand
+#undef TARGET_PRINT_OPERAND_ADDRESS
+#define TARGET_PRINT_OPERAND_ADDRESS mips_print_operand_address
+#undef TARGET_PRINT_OPERAND_PUNCT_VALID_P
+#define TARGET_PRINT_OPERAND_PUNCT_VALID_P mips_print_operand_punct_valid_p
 
 #undef TARGET_SETUP_INCOMING_VARARGS
 #define TARGET_SETUP_INCOMING_VARARGS mips_setup_incoming_varargs

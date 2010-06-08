@@ -3777,7 +3777,7 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
 	  && cgraph_global_info_ready)
 	{
 	  sorry ("inlining failed in call to %q+F: %s", fn,
-		 cgraph_inline_failed_string (reason));
+		 _(cgraph_inline_failed_string (reason)));
 	  sorry ("called from here");
 	}
       else if (warn_inline && DECL_DECLARED_INLINE_P (fn)
@@ -3788,7 +3788,7 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
 	       && cgraph_global_info_ready)
 	{
 	  warning (OPT_Winline, "inlining failed in call to %q+F: %s",
-		   fn, cgraph_inline_failed_string (reason));
+		   fn, _(cgraph_inline_failed_string (reason)));
 	  warning (OPT_Winline, "called from here");
 	}
       goto egress;

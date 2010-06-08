@@ -2891,6 +2891,8 @@ override_options (bool main_args_p)
      in case they weren't overwritten by command line options.  */
   if (TARGET_64BIT)
     {
+      if (flag_zee == 2)
+        flag_zee = 1;
       /* Mach-O doesn't support omitting the frame pointer for now.  */
       if (flag_omit_frame_pointer == 2)
 	flag_omit_frame_pointer = (TARGET_MACHO ? 0 : 1);
@@ -2901,6 +2903,8 @@ override_options (bool main_args_p)
     }
   else
     {
+      if (flag_zee == 2)
+        flag_zee = 0;
       if (flag_omit_frame_pointer == 2)
 	flag_omit_frame_pointer = 0;
       if (flag_asynchronous_unwind_tables == 2)
@@ -4390,10 +4394,6 @@ optimization_options (int level, int size ATTRIBUTE_UNUSED)
     flag_schedule_insns = 0;
 #endif
 
-  /* For -O2 and beyond, turn on -fzee for x86_64 target. */
-  if (level > 1 && TARGET_64BIT)
-    flag_zee = 1;
-
   if (TARGET_MACHO)
     /* The Darwin libraries never set errno, so we might as well
        avoid calling them when that's the only reason we would.  */
@@ -4405,6 +4405,11 @@ optimization_options (int level, int size ATTRIBUTE_UNUSED)
      specifying them, we will set the defaults in override_options.  */
   if (optimize >= 1)
     flag_omit_frame_pointer = 2;
+
+  /* For -O2 and beyond, turn on -fzee for x86_64 target. */
+  if (level > 1)
+    flag_zee = 2;
+
   flag_pcc_struct_return = 2;
   flag_asynchronous_unwind_tables = 2;
   flag_vect_cost_model = 1;
@@ -9357,10 +9362,11 @@ ix86_expand_epilogue (int style)
       if (!call_used_regs[REGNO (crtl->drap_reg)])
 	param_ptr_offset += UNITS_PER_WORD;
 
-      insn = emit_insn ((*ix86_gen_add3) (stack_pointer_rtx,
-					  crtl->drap_reg,
-					  GEN_INT (-param_ptr_offset)));
-
+      insn = emit_insn (gen_rtx_SET
+			(VOIDmode, stack_pointer_rtx,
+			 gen_rtx_PLUS (Pmode,
+				       crtl->drap_reg,
+				       GEN_INT (-param_ptr_offset))));
       ix86_cfa_state->reg = stack_pointer_rtx;
       ix86_cfa_state->offset = param_ptr_offset;
 
@@ -10641,7 +10647,7 @@ get_dllimport_decl (tree decl)
   if (h)
     return h->to;
 
-  *loc = h = GGC_NEW (struct tree_map);
+  *loc = h = ggc_alloc_tree_map ();
   h->hash = in.hash;
   h->base.from = decl;
   h->to = to = build_decl (DECL_SOURCE_LOCATION (decl),
@@ -19504,7 +19510,7 @@ ix86_init_machine_status (void)
 {
   struct machine_function *f;
 
-  f = GGC_CNEW (struct machine_function);
+  f = ggc_alloc_cleared_machine_function ();
   f->use_fast_prologue_epilogue_nregs = -1;
   f->tls_descriptor_call_expanded_p = 0;
   f->call_abi = ix86_abi;
@@ -19532,8 +19538,7 @@ assign_386_stack_local (enum machine_mode mode, enum ix86_stack_slot n)
     if (s->mode == mode && s->n == n)
       return copy_rtx (s->rtl);
 
-  s = (struct stack_local_entry *)
-    ggc_alloc (sizeof (struct stack_local_entry));
+  s = ggc_alloc_stack_local_entry ();
   s->n = n;
   s->mode = mode;
   s->rtl = assign_stack_local (mode, GET_MODE_SIZE (mode), 0);
@@ -29297,27 +29302,51 @@ static const struct attribute_spec ix86_attribute_table[] =
 
 /* Implement targetm.vectorize.builtin_vectorization_cost.  */
 static int
-ix86_builtin_vectorization_cost (bool runtime_test)
+ix86_builtin_vectorization_cost (enum vect_cost_for_stmt type_of_cost)
 {
-  /* If the branch of the runtime test is taken - i.e. - the vectorized
-     version is skipped - this incurs a misprediction cost (because the
-     vectorized version is expected to be the fall-through).  So we subtract
-     the latency of a mispredicted branch from the costs that are incured
-     when the vectorized version is executed.
-
-     TODO: The values in individual target tables have to be tuned or new
-     fields may be needed. For eg. on K8, the default branch path is the
-     not-taken path. If the taken path is predicted correctly, the minimum
-     penalty of going down the taken-path is 1 cycle. If the taken-path is
-     not predicted correctly, then the minimum penalty is 10 cycles.  */
-
-  if (runtime_test)
+  switch (type_of_cost)
     {
-      return (-(ix86_cost->cond_taken_branch_cost));
+      case scalar_stmt:
+        return ix86_cost->scalar_stmt_cost;
+
+      case scalar_load:
+        return ix86_cost->scalar_load_cost;
+
+      case scalar_store:
+        return ix86_cost->scalar_store_cost;
+
+      case vector_stmt:
+        return ix86_cost->vec_stmt_cost;
+
+      case vector_load:
+        return ix86_cost->vec_align_load_cost;
+
+      case vector_store:
+        return ix86_cost->vec_store_cost;
+
+      case vec_to_scalar:
+        return ix86_cost->vec_to_scalar_cost;
+
+      case scalar_to_vec:
+        return ix86_cost->scalar_to_vec_cost;
+
+      case unaligned_load:
+        return ix86_cost->vec_unalign_load_cost;
+
+      case cond_branch_taken:
+        return ix86_cost->cond_taken_branch_cost;
+
+      case cond_branch_not_taken:
+        return ix86_cost->cond_not_taken_branch_cost;
+
+      case vec_perm:
+        return 1;
+
+      default:
+        gcc_unreachable ();
     }
-  else
-    return 0;
 }
+
 
 /* Implement targetm.vectorize.builtin_vec_perm.  */
 

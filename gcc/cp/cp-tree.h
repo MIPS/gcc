@@ -1333,7 +1333,7 @@ struct GTY(()) lang_type_ptrmem {
   tree record;
 };
 
-struct GTY(()) lang_type {
+struct GTY((variable_size)) lang_type {
   union lang_type_u
   {
     struct lang_type_header GTY((skip (""))) h;
@@ -1432,6 +1432,11 @@ struct GTY(()) lang_type {
 /* Nonzero means that this type is being defined.  I.e., the left brace
    starting the definition of this type has been seen.  */
 #define TYPE_BEING_DEFINED(NODE) (LANG_TYPE_CLASS_CHECK (NODE)->being_defined)
+
+/* Nonzero means that this type is either complete or being defined, so we
+   can do lookup in it.  */
+#define COMPLETE_OR_OPEN_TYPE_P(NODE) \
+  (COMPLETE_TYPE_P (NODE) || (CLASS_TYPE_P (NODE) && TYPE_BEING_DEFINED (NODE)))
 
 /* Mark bits for repeated base checks.  */
 #define TYPE_MARKED_P(NODE) TREE_LANG_FLAG_6 (TYPE_CHECK (NODE))
@@ -1879,7 +1884,7 @@ struct GTY(()) lang_decl_parm {
    union rather than a struct containing a union as its only field, but
    tree.h declares it as a struct.  */
 
-struct GTY(()) lang_decl {
+struct GTY((variable_size)) lang_decl {
   union GTY((desc ("%h.base.selector"))) lang_decl_u {
     struct lang_decl_base GTY ((default)) base;
     struct lang_decl_min GTY((tag ("0"))) min;
@@ -3266,8 +3271,8 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
   do {									\
     if (TYPE_LANG_SPECIFIC (NODE) == NULL)				\
       {									\
-	TYPE_LANG_SPECIFIC (NODE) = GGC_CNEWVAR				\
-	 (struct lang_type, sizeof (struct lang_type_ptrmem));		\
+	TYPE_LANG_SPECIFIC (NODE) = ggc_alloc_cleared_lang_type		\
+	 (sizeof (struct lang_type_ptrmem));				\
 	TYPE_LANG_SPECIFIC (NODE)->u.ptrmem.h.is_lang_type_class = 0;	\
       }									\
     TYPE_LANG_SPECIFIC (NODE)->u.ptrmem.record = (VALUE);		\
@@ -5261,7 +5266,6 @@ extern bool type_has_nontrivial_copy_init	(const_tree);
 extern bool class_tmpl_impl_spec_p		(const_tree);
 extern int zero_init_p				(const_tree);
 extern tree strip_typedefs			(tree);
-extern bool typedef_variant_p			(tree);
 extern void cp_set_underlying_type		(tree);
 extern tree copy_binfo				(tree, tree, tree,
 						 tree *, int);

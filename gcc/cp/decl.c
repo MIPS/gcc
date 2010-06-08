@@ -90,6 +90,7 @@ static void check_function_type (tree, tree);
 static void finish_constructor_body (void);
 static void begin_destructor_body (void);
 static void finish_destructor_body (void);
+static void record_key_method_defined (tree);
 static tree create_array_type_for_decl (tree, tree, tree);
 static tree get_atexit_node (void);
 static tree get_dso_handle_node (void);
@@ -2449,7 +2450,7 @@ make_label_decl (tree id, int local_p)
   /* Record this label on the list of labels used in this function.
      We do this before calling make_label_decl so that we get the
      IDENTIFIER_LABEL_VALUE before the new label is declared.  */
-  ent = GGC_CNEW (struct named_label_entry);
+  ent = ggc_alloc_cleared_named_label_entry ();
   ent->label_decl = decl;
 
   slot = htab_find_slot (named_labels, ent, INSERT);
@@ -2669,7 +2670,7 @@ check_goto (tree decl)
 	  && ent->uses->names_in_scope == current_binding_level->names)
 	return;
 
-      new_use = GGC_NEW (struct named_label_use_entry);
+      new_use = ggc_alloc_named_label_use_entry ();
       new_use->binding_level = current_binding_level;
       new_use->names_in_scope = current_binding_level->names;
       new_use->o_goto_locus = input_location;
@@ -4129,6 +4130,7 @@ start_decl (const cp_declarator *declarator,
   tree context;
   bool was_public;
   int flags;
+  bool alias;
 
   *pushed_scope_p = NULL_TREE;
 
@@ -4190,6 +4192,10 @@ start_decl (const cp_declarator *declarator,
       if (toplevel_bindings_p ())
 	TREE_STATIC (decl) = 1;
     }
+  alias = lookup_attribute ("alias", DECL_ATTRIBUTES (decl)) != 0;
+  
+  if (alias && TREE_CODE (decl) == FUNCTION_DECL)
+    record_key_method_defined (decl);
 
   /* If this is a typedef that names the class for linkage purposes
      (7.1.3p8), apply any attributes directly to the type.  */
@@ -4292,7 +4298,9 @@ start_decl (const cp_declarator *declarator,
 	    DECL_EXTERNAL (decl) = 1;
 	}
 
-      if (DECL_EXTERNAL (decl) && ! DECL_TEMPLATE_SPECIALIZATION (decl))
+      if (DECL_EXTERNAL (decl) && ! DECL_TEMPLATE_SPECIALIZATION (decl)
+	  /* Aliases are definitions. */
+	  && !alias)
 	permerror (input_location, "declaration of %q#D outside of class is not definition",
 		   decl);
 
@@ -5508,6 +5516,8 @@ initialize_local_var (tree decl, tree init)
 
   /* Compute and store the initial value.  */
   already_used = TREE_USED (decl) || TREE_USED (type);
+  if (TREE_USED (type))
+    DECL_READ_P (decl) = 1;
 
   /* Generate a cleanup, if necessary.  */
   cleanup = cxx_maybe_build_cleanup (decl);
@@ -9088,10 +9098,12 @@ grokdeclarator (const cp_declarator *declarator,
 	  for (t = TYPE_MAIN_VARIANT (type); t; t = TYPE_NEXT_VARIANT (t))
 	    {
 	      if (ANON_AGGRNAME_P (TYPE_IDENTIFIER (t)))
-		{
-		  debug_hooks->set_name (t, decl);
-		  TYPE_NAME (t) = decl;
-		}
+		/* We do not rename the debug info representing the
+		   anonymous tagged type because the standard says in
+		   [dcl.typedef] that the naming applies only for
+		   linkage purposes.  */
+		/*debug_hooks->set_name (t, decl);*/
+		TYPE_NAME (t) = decl;
   	    }
 
 	  if (TYPE_LANG_SPECIFIC (type))
@@ -12012,7 +12024,7 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
 
   /* Initialize the language data structures.  Whenever we start
      a new function, we destroy temporaries in the usual way.  */
-  cfun->language = GGC_CNEW (struct language_function);
+  cfun->language = ggc_alloc_cleared_language_function ();
   current_stmt_tree ()->stmts_are_full_exprs_p = 1;
   current_binding_level = bl;
 
@@ -12313,7 +12325,7 @@ save_function_data (tree decl)
   gcc_assert (!DECL_PENDING_INLINE_P (decl));
 
   /* Make a copy.  */
-  f = GGC_NEW (struct language_function);
+  f = ggc_alloc_language_function ();
   memcpy (f, cp_function_chain, sizeof (struct language_function));
   DECL_SAVED_FUNCTION_DATA (decl) = f;
 
@@ -12498,6 +12510,22 @@ outer_curly_brace_block (tree fndecl)
   return block;
 }
 
+/* If FNDECL is a class's key method, add the class to the list of
+   keyed classes that should be emitted.  */
+
+static void
+record_key_method_defined (tree fndecl)
+{
+  if (DECL_NONSTATIC_MEMBER_FUNCTION_P (fndecl)
+      && DECL_VIRTUAL_P (fndecl)
+      && !processing_template_decl)
+    {
+      tree fnclass = DECL_CONTEXT (fndecl);
+      if (fndecl == CLASSTYPE_KEY_METHOD (fnclass))
+	keyed_classes = tree_cons (NULL_TREE, fnclass, keyed_classes);
+    }
+}
+
 /* Finish up a function declaration and compile that function
    all the way to assembler language output.  The free the storage
    for the function definition.
@@ -12524,14 +12552,7 @@ finish_function (int flags)
   gcc_assert (!defer_mark_used_calls);
   defer_mark_used_calls = true;
 
-  if (DECL_NONSTATIC_MEMBER_FUNCTION_P (fndecl)
-      && DECL_VIRTUAL_P (fndecl)
-      && !processing_template_decl)
-    {
-      tree fnclass = DECL_CONTEXT (fndecl);
-      if (fndecl == CLASSTYPE_KEY_METHOD (fnclass))
-	keyed_classes = tree_cons (NULL_TREE, fnclass, keyed_classes);
-    }
+  record_key_method_defined (fndecl);
 
   nested = function_depth > 1;
   fntype = TREE_TYPE (fndecl);

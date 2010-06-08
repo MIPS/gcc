@@ -1,3 +1,15 @@
+2010-06-08  Laurynas Biveinis  <laurynas.biveinis@gmail.com>
+
+	* lto.c (lto_read_in_decl_state): Use typed GC allocation.
+	(lto_file_read): Likewise.
+	(new_partition): Likewise.
+	(read_cgraph_and_symbols): Likewise.
+
+2010-06-07  Joseph Myers  <joseph@codesourcery.com>
+
+	* lto-lang.c (flag_no_builtin, flag_no_nonansi_builtin): Remove.
+	(lto_handle_option): Don't set flag_signed_char here.
+
 2010-06-04  Richard Guenther  <rguenther@suse.de>
 
 	PR lto/41584

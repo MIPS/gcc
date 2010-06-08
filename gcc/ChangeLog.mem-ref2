@@ -1,5 +1,9 @@
 2010-06-08  Richard Guenther  <rguenther@suse.de>
 
+	Merge from trunk r160431.
+
+2010-06-08  Richard Guenther  <rguenther@suse.de>
+
 	* tree-scalar-evolution.c (follow_ssa_edge_expr): Handle
 	&MEM[ptr + CST] similar to POINTER_PLUS_EXPR.
 	* tree-data-ref.c (dr_analyze_innermost): Handle MEM_REF.

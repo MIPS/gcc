@@ -734,6 +734,8 @@ struct df_lr_problem_data
 {
   bitmap_head *in;
   bitmap_head *out;
+  /* An obstack for the bitmaps we need for this problem.  */
+  bitmap_obstack lr_bitmaps;
 };
 
 
@@ -775,12 +777,24 @@ df_lr_alloc (bitmap all_blocks ATTRIBUTE_UNUSED)
 {
   unsigned int bb_index;
   bitmap_iterator bi;
+  struct df_lr_problem_data *problem_data;
 
   if (!df_lr->block_pool)
     df_lr->block_pool = create_alloc_pool ("df_lr_block pool",
 					   sizeof (struct df_lr_bb_info), 50);
 
   df_grow_bb_info (df_lr);
+  if (df_lr->problem_data)
+    problem_data = (struct df_lr_problem_data *) df_lr->problem_data;
+  else
+    {
+      problem_data = XNEW (struct df_lr_problem_data);
+      df_lr->problem_data = problem_data;
+
+      problem_data->out = NULL;
+      problem_data->in = NULL;
+      bitmap_obstack_initialize (&problem_data->lr_bitmaps);
+    }
 
   EXECUTE_IF_SET_IN_BITMAP (df_lr->out_of_date_transfer_functions, 0, bb_index, bi)
     {
@@ -794,10 +808,10 @@ df_lr_alloc (bitmap all_blocks ATTRIBUTE_UNUSED)
 	{
 	  bb_info = (struct df_lr_bb_info *) pool_alloc (df_lr->block_pool);
 	  df_lr_set_bb_info (bb_index, bb_info);
-	  bitmap_initialize (&bb_info->use, &bitmap_default_obstack);
-	  bitmap_initialize (&bb_info->def, &bitmap_default_obstack);
-	  bitmap_initialize (&bb_info->in, &bitmap_default_obstack);
-	  bitmap_initialize (&bb_info->out, &bitmap_default_obstack);
+	  bitmap_initialize (&bb_info->use, &problem_data->lr_bitmaps);
+	  bitmap_initialize (&bb_info->def, &problem_data->lr_bitmaps);
+	  bitmap_initialize (&bb_info->in, &problem_data->lr_bitmaps);
+	  bitmap_initialize (&bb_info->out, &problem_data->lr_bitmaps);
 	}
     }
 
@@ -925,10 +939,10 @@ df_lr_local_compute (bitmap all_blocks ATTRIBUTE_UNUSED)
   unsigned int bb_index;
   bitmap_iterator bi;
 
-  bitmap_clear (df->hardware_regs_used);
+  bitmap_clear (&df->hardware_regs_used);
 
   /* The all-important stack pointer must always be live.  */
-  bitmap_set_bit (df->hardware_regs_used, STACK_POINTER_REGNUM);
+  bitmap_set_bit (&df->hardware_regs_used, STACK_POINTER_REGNUM);
 
   /* Before reload, there are a few registers that must be forced
      live everywhere -- which might not already be the case for
@@ -937,20 +951,20 @@ df_lr_local_compute (bitmap all_blocks ATTRIBUTE_UNUSED)
     {
       /* Any reference to any pseudo before reload is a potential
 	 reference of the frame pointer.  */
-      bitmap_set_bit (df->hardware_regs_used, FRAME_POINTER_REGNUM);
+      bitmap_set_bit (&df->hardware_regs_used, FRAME_POINTER_REGNUM);
 
 #if FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
       /* Pseudos with argument area equivalences may require
 	 reloading via the argument pointer.  */
       if (fixed_regs[ARG_POINTER_REGNUM])
-	bitmap_set_bit (df->hardware_regs_used, ARG_POINTER_REGNUM);
+	bitmap_set_bit (&df->hardware_regs_used, ARG_POINTER_REGNUM);
 #endif
 
       /* Any constant, or pseudo with constant equivalences, may
 	 require reloading from memory using the pic register.  */
       if ((unsigned) PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM
 	  && fixed_regs[PIC_OFFSET_TABLE_REGNUM])
-	bitmap_set_bit (df->hardware_regs_used, PIC_OFFSET_TABLE_REGNUM);
+	bitmap_set_bit (&df->hardware_regs_used, PIC_OFFSET_TABLE_REGNUM);
     }
 
   EXECUTE_IF_SET_IN_BITMAP (df_lr->out_of_date_transfer_functions, 0, bb_index, bi)
@@ -995,7 +1009,7 @@ df_lr_confluence_0 (basic_block bb)
 {
   bitmap op1 = &df_lr_get_bb_info (bb->index)->out;
   if (bb != EXIT_BLOCK_PTR)
-    bitmap_copy (op1, df->hardware_regs_used);
+    bitmap_copy (op1, &df->hardware_regs_used);
 }
 
 
@@ -1015,7 +1029,7 @@ df_lr_confluence_n (edge e)
   else
     bitmap_ior_into (op1, op2);
 
-  bitmap_ior_into (op1, df->hardware_regs_used);
+  bitmap_ior_into (op1, &df->hardware_regs_used);
 }
 
 
@@ -1073,24 +1087,17 @@ df_lr_finalize (bitmap all_blocks)
 static void
 df_lr_free (void)
 {
+  struct df_lr_problem_data *problem_data
+    = (struct df_lr_problem_data *) df_lr->problem_data;
   if (df_lr->block_info)
     {
-      unsigned int i;
-      for (i = 0; i < df_lr->block_info_size; i++)
-	{
-	  struct df_lr_bb_info *bb_info = df_lr_get_bb_info (i);
-	  if (bb_info)
-	    {
-	      bitmap_clear (&bb_info->use);
-	      bitmap_clear (&bb_info->def);
-	      bitmap_clear (&bb_info->in);
-	      bitmap_clear (&bb_info->out);
-	    }
-	}
       free_alloc_pool (df_lr->block_pool);
 
       df_lr->block_info_size = 0;
       free (df_lr->block_info);
+      bitmap_obstack_release (&problem_data->lr_bitmaps);
+      free (df_lr->problem_data);
+      df_lr->problem_data = NULL;
     }
 
   BITMAP_FREE (df_lr->out_of_date_transfer_functions);
@@ -1113,8 +1120,11 @@ df_lr_top_dump (basic_block bb, FILE *file)
   if (df_lr->problem_data)
     {
       problem_data = (struct df_lr_problem_data *)df_lr->problem_data;
-      fprintf (file, ";;  old in  \t");
-      df_print_regset (file, &problem_data->in[bb->index]);
+      if (problem_data->in)
+	{
+      	  fprintf (file, ";;  old in  \t");
+      	  df_print_regset (file, &problem_data->in[bb->index]);
+	}
     }
   fprintf (file, ";; lr  use \t");
   df_print_regset (file, &bb_info->use);
@@ -1138,8 +1148,11 @@ df_lr_bottom_dump (basic_block bb, FILE *file)
   if (df_lr->problem_data)
     {
       problem_data = (struct df_lr_problem_data *)df_lr->problem_data;
-      fprintf (file, ";;  old out  \t");
-      df_print_regset (file, &problem_data->out[bb->index]);
+      if (problem_data->out)
+	{
+          fprintf (file, ";;  old out  \t");
+          df_print_regset (file, &problem_data->out[bb->index]);
+	}
     }
 }
 
@@ -1153,23 +1166,19 @@ df_lr_verify_solution_start (void)
   basic_block bb;
   struct df_lr_problem_data *problem_data;
   if (df_lr->solutions_dirty)
-    {
-      df_lr->problem_data = NULL;
-      return;
-    }
+    return;
 
   /* Set it true so that the solution is recomputed.  */
   df_lr->solutions_dirty = true;
 
-  problem_data = XNEW (struct df_lr_problem_data);
-  df_lr->problem_data = problem_data;
+  problem_data = (struct df_lr_problem_data *)df_lr->problem_data;
   problem_data->in = XNEWVEC (bitmap_head, last_basic_block);
   problem_data->out = XNEWVEC (bitmap_head, last_basic_block);
 
   FOR_ALL_BB (bb)
     {
-      bitmap_initialize (&problem_data->in[bb->index], &bitmap_default_obstack);
-      bitmap_initialize (&problem_data->out[bb->index], &bitmap_default_obstack);
+      bitmap_initialize (&problem_data->in[bb->index], &problem_data->lr_bitmaps);
+      bitmap_initialize (&problem_data->out[bb->index], &problem_data->lr_bitmaps);
       bitmap_copy (&problem_data->in[bb->index], DF_LR_IN (bb));
       bitmap_copy (&problem_data->out[bb->index], DF_LR_OUT (bb));
     }
@@ -1185,10 +1194,10 @@ df_lr_verify_solution_end (void)
   struct df_lr_problem_data *problem_data;
   basic_block bb;
 
-  if (df_lr->problem_data == NULL)
-    return;
-
   problem_data = (struct df_lr_problem_data *)df_lr->problem_data;
+
+  if (!problem_data->out)
+    return;
 
   if (df_lr->solutions_dirty)
     /* Do not check if the solution is still dirty.  See the comment
@@ -1215,8 +1224,8 @@ df_lr_verify_solution_end (void)
 
   free (problem_data->in);
   free (problem_data->out);
-  free (problem_data);
-  df_lr->problem_data = NULL;
+  problem_data->in = NULL;
+  problem_data->out = NULL;
 }
 
 
@@ -2547,7 +2556,7 @@ df_byte_lr_alloc (bitmap all_blocks ATTRIBUTE_UNUSED)
     }
 
   df_byte_lr_expand_bitmap (&problem_data->hardware_regs_used,
-			    df->hardware_regs_used);
+			    &df->hardware_regs_used);
   df_byte_lr_expand_bitmap (&problem_data->invalidated_by_call,
 			    regs_invalidated_by_call_regset);
 
@@ -3979,9 +3988,9 @@ df_simulate_fixup_sets (basic_block bb, bitmap live)
   /* These regs are considered always live so if they end up dying
      because of some def, we need to bring the back again.  */
   if (bb_has_eh_pred (bb))
-    bitmap_ior_into (live, df->eh_block_artificial_uses);
+    bitmap_ior_into (live, &df->eh_block_artificial_uses);
   else
-    bitmap_ior_into (live, df->regular_block_artificial_uses);
+    bitmap_ior_into (live, &df->regular_block_artificial_uses);
 }
 
 

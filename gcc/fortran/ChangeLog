@@ -1,3 +1,37 @@
+2010-06-08  Laurynas Biveinis  <laurynas.biveinis@gmail.com>
+
+	* trans-types.c (gfc_get_nodesc_array_type): Use typed GC
+	allocation.
+	(gfc_get_array_type_bounds): Likewise.
+
+	* trans-decl.c (gfc_allocate_lang_decl): Likewise.
+	(gfc_find_module): Likewise.
+
+	* f95-lang.c (pushlevel): Likewise.
+
+	* trans.h (struct lang_type): Add variable_size GTY option.
+	(struct lang_decl): Likewise.
+
+2010-06-08  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/44446
+	* symbol.c (check_conflict): Move protected--external/procedure check ...
+	* resolve.c (resolve_select_type): ... to the resolution stage.
+
+2010-06-07  Tobias Burnus  <burnus@net-b.de>
+
+	* options.c (gfc_handle_option): Fix -fno-recursive.
+
+2010-06-07  Tobias Burnus  <burnus@net-b.de>
+
+	* gfc-internals.texi (copyrights-gfortran): Fix copyright year format.
+	* gfortran.texi (copyrights-gfortran): Ditto.
+
+2010-06-07  Joseph Myers  <joseph@codesourcery.com>
+
+	* lang.opt (fshort-enums): Define using Var and VarExists.
+	* options.c (gfc_handle_option): Don't set flag_short_enums here.
+
 2010-06-05  Paul Thomas  <pault@gcc.gnu.org>
 	    Janus Weil  <janus@gcc.gnu.org>
 
