@@ -1,5 +1,10 @@
 2010-06-09  Richard Guenther  <rguenther@suse.de>
 
+	* tree-pretty-print.c (dump_generic_node): Ignore pointer
+	vs. reference type when doing fancy MEM_REF dumping.
+
+2010-06-09  Richard Guenther  <rguenther@suse.de>
+
 	* tree-ssa-loop-niter.c (simplify_replace_tree): Do not
 	replace constants.
 

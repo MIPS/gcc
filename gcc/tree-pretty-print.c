@@ -797,8 +797,17 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
     case MEM_REF:
       {
 	if (integer_zerop (TREE_OPERAND (node, 1))
-	    && (TREE_TYPE (TREE_OPERAND (node, 0))
-		== TREE_TYPE (TREE_OPERAND (node, 1)))
+	    /* Same pointer types, but ignoring POINTER_TYPE vs.
+	       REFERENCE_TYPE.  */
+	    && (TREE_TYPE (TREE_TYPE (TREE_OPERAND (node, 0)))
+		== TREE_TYPE (TREE_TYPE (TREE_OPERAND (node, 1))))
+	    && (TYPE_MODE (TREE_TYPE (TREE_OPERAND (node, 0)))
+		== TYPE_MODE (TREE_TYPE (TREE_OPERAND (node, 1))))
+	    && (TYPE_REF_CAN_ALIAS_ALL (TREE_TYPE (TREE_OPERAND (node, 0)))
+		== TYPE_REF_CAN_ALIAS_ALL (TREE_TYPE (TREE_OPERAND (node, 1))))
+	    && (TYPE_QUALS (TREE_TYPE (TREE_OPERAND (node, 0)))
+		== TYPE_QUALS (TREE_TYPE (TREE_OPERAND (node, 1))))
+	    /* Same value types ignoring qualifiers.  */
 	    && (TYPE_MAIN_VARIANT (TREE_TYPE (node))
 		== TYPE_MAIN_VARIANT
 		    (TREE_TYPE (TREE_TYPE (TREE_OPERAND (node, 1))))))
@@ -1145,8 +1154,17 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	      || (TREE_CODE (op0) == MEM_REF
 		  && TREE_CODE (TREE_OPERAND (op0, 0)) != ADDR_EXPR
 		  && integer_zerop (TREE_OPERAND (op0, 1))
-		  && (TREE_TYPE (TREE_OPERAND (op0, 0))
-		      == TREE_TYPE (TREE_OPERAND (op0, 1)))
+		  /* Same pointer types, but ignoring POINTER_TYPE vs.
+		     REFERENCE_TYPE.  */
+		  && (TREE_TYPE (TREE_TYPE (TREE_OPERAND (op0, 0)))
+		      == TREE_TYPE (TREE_TYPE (TREE_OPERAND (op0, 1))))
+		  && (TYPE_MODE (TREE_TYPE (TREE_OPERAND (op0, 0)))
+		      == TYPE_MODE (TREE_TYPE (TREE_OPERAND (op0, 1))))
+		  && (TYPE_REF_CAN_ALIAS_ALL (TREE_TYPE (TREE_OPERAND (op0, 0)))
+		      == TYPE_REF_CAN_ALIAS_ALL (TREE_TYPE (TREE_OPERAND (op0, 1))))
+		  && (TYPE_QUALS (TREE_TYPE (TREE_OPERAND (op0, 0)))
+		      == TYPE_QUALS (TREE_TYPE (TREE_OPERAND (op0, 1))))
+		  /* Same value types ignoring qualifiers.  */
 		  && (TYPE_MAIN_VARIANT (TREE_TYPE (op0))
 		      == TYPE_MAIN_VARIANT
 		          (TREE_TYPE (TREE_TYPE (TREE_OPERAND (op0, 1))))))))
