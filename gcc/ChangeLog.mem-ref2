@@ -1,5 +1,10 @@
 2010-06-09  Richard Guenther  <rguenther@suse.de>
 
+	* tree-ssa-loop-niter.c (simplify_replace_tree): Do not
+	replace constants.
+
+2010-06-09  Richard Guenther  <rguenther@suse.de>
+
 	* tree-inline.c (remap_gimple_op_r): Handle substitutions
 	into MEM_REFs.
 
