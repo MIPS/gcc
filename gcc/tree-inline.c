@@ -810,48 +810,21 @@ remap_gimple_op_r (tree *tp, int *walk_subtrees, void *data)
     {
       /* Otherwise, just copy the node.  Note that copy_tree_r already
 	 knows not to copy VAR_DECLs, etc., so this is safe.  */
-      if (TREE_CODE (*tp) == INDIRECT_REF)
+      if (TREE_CODE (*tp) == MEM_REF)
 	{
-	  /* Get rid of *& from inline substitutions that can happen when a
-	     pointer argument is an ADDR_EXPR.  */
+	  /* We need to re-canonicalize MEM_REFs from inline substitutions
+	     that can happen when a pointer argument is an ADDR_EXPR.  */
 	  tree decl = TREE_OPERAND (*tp, 0);
 	  tree *n;
 
 	  n = (tree *) pointer_map_contains (id->decl_map, decl);
 	  if (n)
 	    {
-	      tree type, new_tree, old;
-
-	      /* If we happen to get an ADDR_EXPR in n->value, strip
-		 it manually here as we'll eventually get ADDR_EXPRs
-		 which lie about their types pointed to.  In this case
-		 build_fold_indirect_ref wouldn't strip the
-		 INDIRECT_REF, but we absolutely rely on that.  As
-		 fold_indirect_ref does other useful transformations,
-		 try that first, though.  */
-	      type = TREE_TYPE (TREE_TYPE (*n));
-	      new_tree = unshare_expr (*n);
-	      old = *tp;
-	      *tp = gimple_fold_indirect_ref (new_tree);
-	      if (!*tp)
-	        {
-		  if (TREE_CODE (new_tree) == ADDR_EXPR)
-		    {
-		      *tp = fold_indirect_ref_1 (EXPR_LOCATION (new_tree),
-						 type, new_tree);
-		      /* ???  We should either assert here or build
-			 a VIEW_CONVERT_EXPR instead of blindly leaking
-			 incompatible types to our IL.  */
-		      if (! *tp)
-			*tp = TREE_OPERAND (new_tree, 0);
-		    }
-	          else
-		    {
-	              *tp = build1 (INDIRECT_REF, type, new_tree);
-		      TREE_THIS_VOLATILE (*tp) = TREE_THIS_VOLATILE (old);
-		      TREE_NO_WARNING (*tp) = TREE_NO_WARNING (old);
-		    }
-		}
+	      tree old = *tp;
+	      *tp = fold_build2 (MEM_REF, TREE_TYPE (*tp),
+				 unshare_expr (*n), TREE_OPERAND (*tp, 1));
+	      TREE_THIS_VOLATILE (*tp) = TREE_THIS_VOLATILE (old);
+	      TREE_NO_WARNING (*tp) = TREE_NO_WARNING (old);
 	      *walk_subtrees = 0;
 	      return NULL;
 	    }

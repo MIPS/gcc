@@ -1,3 +1,8 @@
+2010-06-09  Richard Guenther  <rguenther@suse.de>
+
+	* tree-inline.c (remap_gimple_op_r): Handle substitutions
+	into MEM_REFs.
+
 2010-06-08  Richard Guenther  <rguenther@suse.de>
 
 	* tree.c (build_simple_mem_ref_loc): Handle all addresses
