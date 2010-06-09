@@ -1,5 +1,10 @@
 2010-06-09  Richard Guenther  <rguenther@suse.de>
 
+	* ipa-inline.c (likely_eliminated_by_inlining_p): Handle
+	MEM_REF.
+
+2010-06-09  Richard Guenther  <rguenther@suse.de>
+
 	* tree-ssa-forwprop.c (forward_propagate_addr_expr_1): Properly
 	handle required conversions.
 
