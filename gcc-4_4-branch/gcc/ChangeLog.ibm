@@ -1,3 +1,13 @@
+2010-06-09  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Backport from mainline:
+
+	2010-06-09  Edmar Wienskoski  <edmar@freescale.com>
+
+	PR target/44067
+	* config/rs6000/rs6000.md (DIFD): Do not split dpfp values for
+	e500v2 target.
+
 2010-06-02  Peter Bergner  <bergner@vnet.ibm.com>
 
 	Backport from GCC 4.4:
