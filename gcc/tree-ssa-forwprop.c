@@ -795,8 +795,14 @@ forward_propagate_addr_expr_1 (tree name, tree def_rhs,
 	  && forward_propagate_addr_expr (lhs, new_def_rhs))
 	return true;
 
-      gimple_assign_set_rhs_with_ops (use_stmt_gsi, TREE_CODE (new_def_rhs),
-				      new_def_rhs, NULL_TREE);
+      if (useless_type_conversion_p (TREE_TYPE (lhs), TREE_TYPE (new_def_rhs)))
+	gimple_assign_set_rhs_with_ops (use_stmt_gsi, TREE_CODE (new_def_rhs),
+					new_def_rhs, NULL_TREE);
+      else if (is_gimple_min_invariant (new_def_rhs))
+	gimple_assign_set_rhs_with_ops (use_stmt_gsi, NOP_EXPR,
+					new_def_rhs, NULL_TREE);
+      else
+	return false;
       gcc_assert (gsi_stmt (*use_stmt_gsi) == use_stmt);
       update_stmt (use_stmt);
       return true;

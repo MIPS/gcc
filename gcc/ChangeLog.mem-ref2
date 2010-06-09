@@ -1,5 +1,13 @@
 2010-06-09  Richard Guenther  <rguenther@suse.de>
 
+	* tree-ssa-forwprop.c (forward_propagate_addr_expr_1): Properly
+	handle required conversions.
+
+	testsuite/
+	* gcc.c-torture/compile/20100609-1.c: New testcase.
+
+2010-06-09  Richard Guenther  <rguenther@suse.de>
+
 	* tree-pretty-print.c (dump_generic_node): Ignore pointer
 	vs. reference type when doing fancy MEM_REF dumping.
 
