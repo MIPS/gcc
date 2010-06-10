@@ -1,3 +1,8 @@
+2010-06-10  Richard Guenther  <rguenther@suse.de>
+
+	* fold-const.c (fold_unary_loc): Fold
+	VIEW_CONVERT_EXPR <T1, MEM_REF <T2, ...>> to MEM_REF <T1, ...>.
+
 2010-06-09  Richard Guenther  <rguenther@suse.de>
 
 	* ipa-inline.c (likely_eliminated_by_inlining_p): Handle

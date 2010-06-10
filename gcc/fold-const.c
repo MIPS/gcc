@@ -8048,6 +8048,9 @@ fold_unary_loc (location_t loc, enum tree_code code, tree type, tree op0)
       if (TREE_CODE (op0) == VIEW_CONVERT_EXPR)
 	return fold_build1_loc (loc, VIEW_CONVERT_EXPR,
 			    type, TREE_OPERAND (op0, 0));
+      if (TREE_CODE (op0) == MEM_REF)
+	return fold_build2_loc (loc, MEM_REF, type,
+				TREE_OPERAND (op0, 0), TREE_OPERAND (op0, 1));
 
       /* For integral conversions with the same precision or pointer
 	 conversions use a NOP_EXPR instead.  */
