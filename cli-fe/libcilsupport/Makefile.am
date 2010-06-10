@@ -33,7 +33,12 @@ gcc_version := $(shell cat $(top_srcdir)/../gcc/BASE-VER)
 toolexeclib_LTLIBRARIES = libcilsupport.la
 
 libcilsupport_la_SOURCES = \
-	gcc4net-support.c \
+	complex.c \
+	cqualifier.c \
+	crt.c \
+	jitsupport.c \
+	runtime.c \
+	vector.c \
 	libstd-support.c \
 	runtime-support.c
 

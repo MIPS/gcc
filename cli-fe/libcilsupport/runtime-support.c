@@ -46,3 +46,9 @@ ___lookup_pinvoke (const char *libname, const char *functionname)
   return ret;
 }
 
+void
+System_Environment_Exit_System_Int32_System_Void(int n)
+{
+  exit(n);
+}
+
