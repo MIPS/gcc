@@ -618,7 +618,6 @@ PACKAGE_VERSION='0.1'
 PACKAGE_STRING='clisupport 0.1'
 PACKAGE_BUGREPORT=''
 
-ac_unique_file="gcc4net-support.c"
 # Factoring default headers for most tests.
 ac_includes_default="\
 #include <stdio.h>
