@@ -1,5 +1,11 @@
 2010-06-10  Richard Guenther  <rguenther@suse.de>
 
+	testsuite/
+	* gcc.dg/plugin/selfassign.c: Fixup for MEM_REF.
+	* g++.dg/plugin/selfassign.c: Likewise.
+
+2010-06-10  Richard Guenther  <rguenther@suse.de>
+
 	* tree-sra.c (disqualify_base_of_expr): Fix MEM_REF handling.
 	(build_access_from_expr_1): Properly handle MEM_REF for
 	non IPA-SRA.
