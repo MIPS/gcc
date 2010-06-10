@@ -1,5 +1,17 @@
 2010-06-10  Richard Guenther  <rguenther@suse.de>
 
+	* tree-sra.c (disqualify_base_of_expr): Fix MEM_REF handling.
+	(build_access_from_expr_1): Properly handle MEM_REF for
+	non IPA-SRA.
+	(make_fancy_name_1): Add support for MEM_REF.
+	(ptr_parm_has_direct_uses): Fix type check.
+
+	testsuite/
+	* gcc.dg/tree-ssa/pta-ptrarith-1.c: Scan early alias dump.
+	* gcc.dg/tree-ssa/pta-ptrarith-2.c: Likewise.
+
+2010-06-10  Richard Guenther  <rguenther@suse.de>
+
 	* fold-const.c (fold_unary_loc): Fold
 	VIEW_CONVERT_EXPR <T1, MEM_REF <T2, ...>> to MEM_REF <T1, ...>.
 

@@ -884,15 +884,10 @@ completely_scalarize_record (tree base, tree decl, HOST_WIDE_INT offset)
 static void
 disqualify_base_of_expr (tree t, const char *reason)
 {
-  while (handled_component_p (t))
-    t = TREE_OPERAND (t, 0);
-
-  if (sra_mode == SRA_MODE_EARLY_IPA)
-    {
-      if (TREE_CODE (t) == MEM_REF)
-	t = TREE_OPERAND (t, 0);
-      t = get_ssa_base_param (t);
-    }
+  t = get_base_address (t);
+  if (sra_mode == SRA_MODE_EARLY_IPA
+      && TREE_CODE (t) == MEM_REF)
+    t = get_ssa_base_param (t);
 
   if (t && DECL_P (t))
     disqualify_candidate (t, reason);
@@ -935,7 +930,8 @@ build_access_from_expr_1 (tree expr, gimple stmt, bool write)
   switch (TREE_CODE (expr))
     {
     case MEM_REF:
-      if (sra_mode != SRA_MODE_EARLY_IPA)
+      if (TREE_CODE (TREE_OPERAND (expr, 0)) != ADDR_EXPR
+	  && sra_mode != SRA_MODE_EARLY_IPA)
 	return NULL;
       /* fall through */
     case VAR_DECL:
@@ -1284,7 +1280,21 @@ make_fancy_name_1 (tree expr)
 	break;
       sprintf (buffer, HOST_WIDE_INT_PRINT_DEC, TREE_INT_CST_LOW (index));
       obstack_grow (&name_obstack, buffer, strlen (buffer));
+      break;
 
+    case ADDR_EXPR:
+      make_fancy_name_1 (TREE_OPERAND (expr, 0));
+      break;
+
+    case MEM_REF:
+      make_fancy_name_1 (TREE_OPERAND (expr, 0));
+      if (!integer_zerop (TREE_OPERAND (expr, 1)))
+	{
+	  obstack_1grow (&name_obstack, '$');
+	  sprintf (buffer, HOST_WIDE_INT_PRINT_DEC,
+		   TREE_INT_CST_LOW (TREE_OPERAND (expr, 1)));
+	  obstack_grow (&name_obstack, buffer, strlen (buffer));
+	}
       break;
 
     case BIT_FIELD_REF:
@@ -3020,7 +3030,8 @@ ptr_parm_has_direct_uses (tree parm)
 	  if (TREE_CODE (lhs) == MEM_REF
 	      && TREE_OPERAND (lhs, 0) == name
 	      && integer_zerop (TREE_OPERAND (lhs, 1))
-	      && types_compatible_p (TREE_TYPE (lhs), TREE_TYPE (name)))
+	      && types_compatible_p (TREE_TYPE (lhs),
+				     TREE_TYPE (TREE_TYPE (name))))
 	    uses_ok++;
 	}
       if (gimple_assign_single_p (stmt))
@@ -3031,7 +3042,8 @@ ptr_parm_has_direct_uses (tree parm)
 	  if (TREE_CODE (rhs) == MEM_REF
 	      && TREE_OPERAND (rhs, 0) == name
 	      && integer_zerop (TREE_OPERAND (rhs, 1))
-	      && types_compatible_p (TREE_TYPE (rhs), TREE_TYPE (name)))
+	      && types_compatible_p (TREE_TYPE (rhs),
+				     TREE_TYPE (TREE_TYPE (name))))
 	    uses_ok++;
 	}
       else if (is_gimple_call (stmt))
@@ -3045,7 +3057,8 @@ ptr_parm_has_direct_uses (tree parm)
 	      if (TREE_CODE (arg) == MEM_REF
 		  && TREE_OPERAND (arg, 0) == name
 		  && integer_zerop (TREE_OPERAND (arg, 1))
-		  && types_compatible_p (TREE_TYPE (arg), TREE_TYPE (name)))
+		  && types_compatible_p (TREE_TYPE (arg),
+					 TREE_TYPE (TREE_TYPE (name))))
 		uses_ok++;
 	    }
 	}
