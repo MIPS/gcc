@@ -1,3 +1,223 @@
+2010-06-10  Jan Hubicka  <jh@suse.cz>
+
+	PR rtl-optimization/44460
+	* emit-rtl.c (set_mem_attributes_minus_bitpos): Remove TYPE_NEEDS_CONSTRUCTING
+	sanity check.
+
+2010-06-10  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/include/fdl.texi: Move to GFDL version 1.3.
+
+	* doc/cpp.texi: Move to GFDL version 1.3.
+	* doc/gcc.texi: Move to GFDL version 1.3.  Fix copyright years.
+	* doc/gccint.texi: Move to GFDL version 1.3.
+	* doc/gcov.texi: Move to GFDL version 1.3.  Update copyright years.
+	* doc/install.texi: Move to GFDL version 1.3.  Fix copyright years.
+	* doc/invoke.texi: Move to GFDL version 1.3.
+
+2010-06-09  Jan Hubicka  <jh@suse.cz>
+
+	* ipa-pure-const.c (propagate_pure_const, propagate_noreturn):
+	Break out from ...
+	(propagate) ... here; swap the order.
+
+2010-06-09  Jan Hubicka  <jh@suse.cz>
+
+	* bitmap.c (bitmap_elt_insert_after, bitmap_first_set_bit,
+	bitmap_first_set_bit, bitmap_last_set_bit, bitmap_last_set_bit,
+	bitmap_and_into, bitmap_and_compl_into, bitmap_set_range,
+	bitmap_compl_and_into, bitmap_elt_ior): Use checking asserts.
+
+2010-06-09  Changpeng Fang  <changpeng.fang@amd.com>
+
+	* tree-ssa-loop-prefetch.c (gather_memory_references_ref):
+	Do not the gather memory reference in the outer loop if the step
+	is not a constant.
+
+2010-06-09  Changpeng Fang  <changpeng.fang@amd.com>
+
+        * tree-ssa-loop-prefetch.c (PREFETCH_MOD_TO_UNROLL_FACTOR_RATIO) :
+        Change the PREFETCH_MOD_TO_UNROLL_FACTOR_RATIO threshold value from
+        8 to 4.  Minor change of the related comments.
+
+2010-06-09  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* tree-scalar-evolution.c (instantiate_scev_name): Do not fail
+	the scev analysis when the variable is not used outside the loop
+	in a close phi node: call compute_overall_effect_of_inner_loop.
+
+2010-06-09  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* graphite-sese-to-poly.c (single_pred_cond): Renamed
+	single_pred_cond_non_loop_exit.  Return NULL for loop exit edges.
+	(build_sese_conditions_before): Renamed call to single_pred_cond.
+	(build_sese_conditions_after): Same.
+
+2010-06-09  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* graphite-poly.h: Fix comments and indentation.
+	* graphite-sese-to-poly.c: Same.
+	(build_sese_conditions_before): Compute stmt and gbb only when needed.
+	* tree-chrec.c: Fix comments and indentation.
+	(tree-ssa-loop-niter.c): Same.
+
+2010-06-09  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR rtl-optimization/42461
+	* dce.c (deletable_insn_p): Return true for const or pure calls again.
+	* except.c (insn_could_throw_p): Return false if !flag_exceptions.
+
+2010-06-09  Jan Hubicka  <jh@suse.cz>
+
+	* bitmap.c (bitmap_and): Walk array forward.
+	(bitmap_and_compl_into): Likewise.
+	(bitmap_xor): Likewise.
+	(bitmap_xor_into):  Likewise.
+	(bitmap_equal_p): Likewise.
+	(bitmap_intersect_p): Likewise.
+	(bitmap_intersect_compl_p): Likewise.
+	(bitmap_ior_and_into): Likewise.
+	(bitmap_elt_copy): Likewise.
+	(bitmap_and_compl): Likewise.
+	(bitmap_elt_ior): Likewise.
+
+2010-06-09  Dave Korn  <dave.korn.cygwin@gmail.com>
+
+	* opts-common.c (prune_options): Ensure replacement argv array
+	is correctly terminated by a NULL entry.
+
+2010-06-09  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.h (varpool_first_static_initializer,
+	varpool_next_static_initializer): Make checking only when
+	checking enabled.
+	* tree-vectorizer.h (vinfo_for_stmt): Remove check.
+	(set_vinfo_for_stmt, get_earlier_stmt, is_loop_header_bb_p): Change
+	gcc_assert to gcc_checking_assert.
+	* tree-flow-inline.h (gimple_vop, get_var_ann, relink_imm_use, phi_nodes
+	set_phi_nodes, phi_arg_index_from_use, op_iter_next_use,
+	op_iter_next_def, op_iter_next_tree, op_iter_init, op_iter_init_use,
+	op_iter_init_phiuse, op_iter_init_phidef, array_ref_contains_indirect_ref,
+	ref_contains_array_ref): Use gcc_checking_assert.
+	* emit-rtl.h (set_first_insn, set_last_insn): Likewise.
+	* tree-ssa-live.h (var_to_partition, var_to_partition_to_var,
+	partition_is_global, live_on_entry, live_on_exit,
+	live_merge_and_clear): Likewise.
+	* system.h (gcc_checking_assert): New macro.
+	* gimple.h (set_bb_seq): Use gcc_checking_assert.
+
+2010-06-09  Jason Merrill  <jason@redhat.com>
+
+	* Makefile.in (TAGS): Collect tags info from c-family.
+
+2010-06-09  Jan Hubicka  <jh@suse.cz>
+
+	* gimple.h (gcc_gimple_checking_assert): New macro.
+ 	(gimple_set_def_ops, gimple_set_use_ops,
+ 	gimple_set_vuse, gimple_set_vdef,
+ 	gimple_omp_subcode, gimple_omp_set_subcode, gimple_ops, gimple_op,
+ 	gimple_op_ptr, gimple_op_ptr, gimple_set_op, gimple_bind_set_block,
+ 	gimple_asm_input_op, gimple_asm_input_op_ptr, gimple_asm_set_input_op,
+ 	gimple_asm_output_op, gimple_asm_output_op_ptr,
+ 	gimple_asm_set_output_op, gimple_asm_clobber_op, 
+ 	gimple_asm_set_clobber_op, gimple_asm_label_op,
+ 	gimple_asm_set_label_op, gimple_try_set_kind, gimple_try_catch_is_cleanup
+ 	gimple_try_set_catch_is_cleanup, gimple_phi_arg, 
+ 	gimple_switch_num_labels, gimple_switch_set_index, gimple_switch_label,
+ 	gimple_switch_set_label, gimple_omp_for_index, gimple_omp_for_index_ptr,
+ 	gimple_omp_for_set_index, gimple_omp_for_initial, gimple_omp_for_initial_ptr,
+ 	gimple_omp_for_set_initial, gimple_omp_for_final, gimple_omp_for_final_ptr,
+ 	gimple_omp_for_set_final, gimple_omp_for_incr, gimple_omp_for_incr_ptr,
+ 	gimple_omp_for_set_incr, gimple_omp_for_set_cond, gimple_omp_for_cond): Make
+ 	checking conditional with ENABLE_GIMPLE_CHECKING.
+ 	(gimple_phi_set_arg): Likewise; replace memcpy by assignment.
+
+2010-06-09  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* tree-ssa-loop-ivopts.c (adjust_setup_cost): New function.
+	(get_computation_cost_at): Use it.
+	(determine_use_iv_cost_condition): Likewise.
+	(determine_iv_cost): Likewise.
+
+2010-06-09  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-loop-niter.c (simplify_replace_tree): Do not
+	replace constants.
+
+2010-06-09  Kai Tietz  <kai.tietz@onevision.com>
+
+	* c-objc-common.c (c_tree_printer): Pre-intialize t by NULL_TREE.
+
+2010-06-09  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/44423
+	* tree-sra.c (dump_access): Dump also grp_assignment_read.
+	(analyze_access_subtree): Pass negative allow_replacements to children
+	if the current type is scalar.
+
+2010-06-09  Joern Rennecke  <amylaar@spamcop.net>
+
+	PR testsuite/42843
+	* gcc-plugin.h (int plugin_is_GPL_compatible): Declare as extern "C".
+	* doc/plugins.texi (Plugin license check): Update information
+	on type of plugin_is_GPL_compatible.
+	* Makefile.in (PLUGINCC): Define as $(COMPILER).
+	(PLUGINCFLAGS): Define as $(COMPILER_FLAGS).
+
+2010-06-09  Bernd Schmidt  <bernds@codesourcery.com>
+
+	* config/arm/arm.c (thumb2_reorg): New function.
+	(arm_reorg): Call it.
+	* config/arm/thumb2.md (define_peephole2 for flag clobbering
+	arithmetic operations): Delete.
+
+2010-06-09  Edmar Wienskoski  <edmar@freescale.com>
+
+	PR target/44067
+	* config/rs6000/rs6000.md (DIFD): Do not split dpfp values for
+	e500v2 target.
+
+2010-06-09  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	PR plugins/44459
+	* gcc-plugin.h: Encapsulate all declarations in extern "C".
+
+2010-06-08  Jan Hubicka  <jh@suse.cz>
+
+	* basic-block.h (single_succ_edge, single_pred_edge, ei_container,
+	ei_next, ei_prev): Do sanity checking with ENABLE_CHECKING only.
+
+2010-06-08  Sandra Loosemore  <sandra@codesourcery.com>
+
+	PR tree-optimization/39874
+	PR middle-end/28685
+	* gimple.h (maybe_fold_and_comparisons, maybe_fold_or_comparisons):
+	Declare.
+	* gimple-fold.c (canonicalize_bool, same_bool_comparison_p,
+	same_bool_result_p): New.
+	(and_var_with_comparison, and_var_with_comparison_1,
+	and_comparisons_1, and_comparisons, maybe_fold_and_comparisons): New.
+	(or_var_with_comparison, or_var_with_comparison_1,
+	or_comparisons_1, or_comparisons, maybe_fold_or_comparisons): New.
+	* tree-ssa-reassoc.c (eliminate_redundant_comparison): Use
+	maybe_fold_and_comparisons or maybe_fold_or_comparisons instead
+	of combine_comparisons.
+	* tree-ssa-ifcombine.c (ifcombine_ifandif, ifcombine_iforif): Likewise.
+
+2010-06-08  Anatoly Sokolov  <aesok@post.ru>
+
+	* config/pdp11/pdp11.h (FUNCTION_VALUE, FUNCTION_OUTGOING_VALUE,
+	LIBCALL_VALUE, FUNCTION_VALUE_REGNO_P): Remove macros.
+	* config/pdp11/pdp11.c (pdp11_function_value, pdp11_libcall_value,
+	pdp11_function_value_regno_p): New functions.
+	(TARGET_FUNCTION_VALUE, TARGET_LIBCALL_VALUE,
+	TARGET_FUNCTION_VALUE_REGNO_P): Define.
+
+2010-06-08  Kazu Hirata  <kazu@codesourcery.com>
+
+	* config/arm/arm.c (arm_rtx_costs_1): Don't special case for
+	Thumb-2 in the MINUS case.
+
 2010-06-08  Laurynas Biveinis  <laurynas.biveinis@gmail.com>
 
 	* doc/tm.texi (Per-Function Data): Do not reference ggc_alloc.
@@ -691,6 +911,9 @@
 	(propagate_necessity): Likewise.
 
 2010-06-05  Jan Hubicka  <jh@suse.cz>
+
+	* basic-block.h (compute_dominance_frontiers): Updated.
+	(compute_idf): Likewise.
 
 	* tree-into-ssa.c (insert_phi_nodes): Use bitmap heads
 	for dominance frontiers.

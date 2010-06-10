@@ -1,3 +1,84 @@
+2010-06-10  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/44487
+	* include/bits/stl_pair.h (pair(pair&&)): Remove.
+	(pair(pair<_U1, _U2>&&): Use forward, consistently with Bullet 5
+	of LWG 1326.
+	* include/std/tuple (tuple(pair<_U1, _U2>&&)): Likewise.
+	* testsuite/20_util/pair/44487.cc: Add.
+	* testsuite/20_util/tuple/cons/44487.cc: Likewise.
+	* testsuite/20_util/weak_ptr/comparison/cmp_neg.cc: Adjust dg-warning
+	line numbers.
+
+2010-06-09  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/std/type_traits (is_nothrow_constructible): Add.
+	(declval): Add noexcept specification.
+	* testsuite/util/testsuite_tr1.h (struct NothrowExplicitClass,
+	ThrowExplicitClass, NoexceptExplicitClass, ExceptExplicitClass):
+	Add.
+	* testsuite/20_util/is_nothrow_constructible/value.cc: New.
+	* testsuite/20_util/is_nothrow_constructible/requirements/
+	typedefs.cc: Likewise.
+	* testsuite/20_util/is_nothrow_constructible/requirements/
+	explicit_instantiation.cc: Likewise.
+	* testsuite/20_util/make_signed/requirements/typedefs_neg.cc:
+	Adjust dg-error line numbers.
+	* testsuite/20_util/make_unsigned/requirements/typedefs_neg.cc:
+	Likewise.
+	* testsuite/20_util/declval/requirements/1_neg.cc: Likewise.
+
+2010-06-09  Khem Raj  <raj.khem@gmail.com>
+
+	PR libstdc++/44461
+	* libsupc++/eh_arm.cc (__cxa_end_cleanup): Use .pushsection/.popsection
+	to emit inline assembly into .text section.
+
+2010-06-09  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	Revert:
+	2010-06-09  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/44413
+	* include/ext/vstring_util.h (__vstring_utility<>::_S_compare):
+	Simplify, just return -1, 0, 1.
+
+2010-06-09  Iain Sandoe  <iains@gcc.gnu.org>
+
+	PR bootstrap/43170
+	* configure: Regenerate.
+
+2010-06-09  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/44413
+	* include/ext/vstring_util.h (__vstring_utility<>::_S_compare):
+	Simplify, just return -1, 0, 1.
+
+2010-06-08  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/std/type_traits (has_nothrow_assign): Rename to
+	has_nothrow_copy_assign.
+	(has_trivial_assign): Rename to has_trivial_copy_assign.
+	* testsuite/20_util/has_nothrow_copy_assign/value.cc: New.
+	* testsuite/20_util/has_nothrow_copy_assign/requirements/
+	typedefs.cc: Likewise.
+	* testsuite/20_util/has_nothrow_copy_assign/requirements/
+	explicit_instantiation.cc: Likewise.
+	* testsuite/20_util/has_trivial_copy_assign/value.cc: Likewise.
+	* testsuite/20_util/has_trivial_copy_assign/requirements/
+	typedefs.cc: Likewise.
+	* testsuite/20_util/has_trivial_copy_assign/requirements/
+	explicit_instantiation.cc: Likewise.
+
+2010-06-08  Johannes Singler  <singler@kit.edu>
+
+        * include/parallel/find.h
+        (__find_template(.., growing_blocks_tag)): Make block size
+        proportional to current position.
+        * include/parallel/settings.h (_Settings): Introduce new tuning
+        parameter find_scale_factor to the end of the struct, defaults to
+        0.01f.
+
 2010-06-08  Johannes Singler  <singler@kit.edu>
 
         * include/parallel/partial_sum.h

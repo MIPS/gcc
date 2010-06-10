@@ -1,3 +1,69 @@
+2010-06-10  Kai Tietz  <kai.tietz@onevision.com>
+
+	* error.c (error_print): Pre-initialize loc by NULL.
+	* openmp.c (resolve_omp_clauses): Add explicit
+	braces to avoid ambigous else.
+	* array.c (match_subscript): Pre-initialize m to MATCH_ERROR.
+
+2010-06-10  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* gfc-internals.texi: Move to GFDL 1.3.
+	* gfortran.texi: Ditto.
+	* intrinsic.texi: Ditto.
+	* invoke.texi: Ditto.
+
+2010-06-09  Daniel Franke  <franke.daniel@gmail.com>
+
+        PR fortran/44347
+        * check.c (gfc_check_selected_real_kind): Verify that the
+        actual arguments are scalar.
+
+2010-06-09  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/44359
+	* intrinsic.c (gfc_convert_type_warn): Further improve -Wconversion.
+
+2010-06-09  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/44430
+	* dump-parse-tree.c (show_symbol): Avoid infinite loop.
+
+2010-06-09  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	* fortran/symbol.c (check_conflict):  Remove an invalid conflict check.
+
+2010-06-09  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	* fortran/intrinsic.c (add_functions): Change gfc_check_btest,
+	gfc_check_ibclr, and gfc_check_ibset to gfc_check_bitfcn.
+	* fortran/intrinsic.h: Remove prototypes for gfc_check_btest,
+	gfc_check_ibclr, and gfc_check_ibset.  Add prototype for
+	gfc_check_bitfcn.
+	* fortran/check.c (nonnegative_check, less_than_bitsize1, 
+	less_than_bitsize2): New functions.
+	(gfc_check_btest): Renamed to gfc_check_bitfcn.  Use
+	nonnegative_check and less_than_bitsize1.
+	(gfc_check_ibclr, gfc_check_ibset): Removed.
+	(gfc_check_ibits,gfc_check_mvbits): Use nonnegative_check and
+	less_than_bitsize1.
+
+2010-06-09  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/44211
+	* resolve.c (resolve_typebound_function,resolve_typebound_subroutine):
+	Resolve references.
+
+2010-06-09  Kai Tietz  <kai.tietz@onevision.com>
+
+	* resolve.c (resolve_deallocate_expr): Avoid warning
+	about possible use of iunitialized sym.
+	(resolve_allocate_expr): Pre-initialize sym by NULL.
+
+2010-06-09  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/43040
+	* f95-lang.c (gfc_init_builtin_functions): Remove comment.
+
 2010-06-08  Laurynas Biveinis  <laurynas.biveinis@gmail.com>
 
 	* trans-types.c (gfc_get_nodesc_array_type): Use typed GC

@@ -1,3 +1,77 @@
+2010-06-10  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	* gfortran.dg/selected_char_kind_4.f90: New test.
+
+2010-06-09  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/pr42461.c: New test.
+
+2010-06-09  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/44347
+	* gfortran.dg/selected_real_kind_1.f90: New.
+
+2010-06-09  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/44359
+	* gfortran.dg/warn_conversion.f90: Removed check for redundant
+	warning.
+	* gfortran.dg/warn_conversion_2.f90: Use non-constant expression to
+	check for warning.
+
+2010-06-09  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	* gfortran.dg/data_namelist_conflict.f90: New test.
+
+2010-06-09  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* g++.old-deja/g++.oliva/dwarf2.C: Don't xfail on i386-pc-solaris*.
+	* g++.old-deja/g++.oliva/dwarf3.C: Likewise.
+	* g++.old-deja/g++.other/init19.C: Don't xfail on *-*-solaris2*.
+
+2010-06-09  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	* testsuite/gfortran.dg/mvbits_9.f90: New test.
+	* testsuite/gfortran.dg/ibset_1.f90: Ditto.
+	* testsuite/gfortran.dg/ibits_1.f90: Ditto.
+	* testsuite/gfortran.dg/btest_1.f90: Ditto.
+	* testsuite/gfortran.dg/ibclr_1.f90: Ditto.
+
+2010-06-09  Jason Merrill  <jason@redhat.com>
+
+	PR c++/44366
+	* g++.dg/cpp0x/decltype23.C: Move to...
+	* g++.dg/diagnostic/parm1.C: ...here, and remove decltype.
+
+2010-06-09  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/44211
+	* gfortran.dg/typebound_call_14.f03: New test.
+
+2010-06-09  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/44423
+	* gcc.dg/tree-ssa/pr44423.c: New test.
+
+2010-06-09  Joern Rennecke  <amylaar@spamcop.net>
+
+	PR testsuite/42843
+	* gcc.dg/plugin/selfassign.c (pass_warn_self_assign): Use enumerator
+	TV_NONE to initialize tv_id field.
+	* g++.dg/plugin/selfassign.c (pass_warn_self_assign): Likewise.
+	* gcc.dg/plugin/one_time_plugin.c (one_pass): Likewise.
+	* g++.dg/plugin/dumb_plugin.c (pass_dumb_plugin_example): Likewise.
+	Include toplev.h .
+	* gcc.dg/plugin/finish_unit_plugin.c: Include cgraph.h.
+	* g++.dg/plugin/attribute_plugin.c: Include toplev.h and plugin.h .
+	* g++.dg/plugin/pragma_plugin.c: Include toplev.h .
+
+2010-06-08  Sandra Loosemore  <sandra@codesourcery.com>
+
+	PR tree-optimization/39874
+	PR middle-end/28685
+	* gcc.dg/pr39874.c: New file.
+
 2010-06-08  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* g++.dg/ext/attr-alias-1.C: New.
