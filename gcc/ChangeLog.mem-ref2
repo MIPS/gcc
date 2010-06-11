@@ -1,5 +1,10 @@
 2010-06-11  Richard Guenther  <rguenther@suse.de>
 
+	* tree-nested.c (convert_local_reference_op): Re-fold MEM_REFs
+	after converting its first operand.
+
+2010-06-11  Richard Guenther  <rguenther@suse.de>
+
 	* tree-ssa-forwprop.c (tree_ssa_forward_propagate_single_use_vars):
 	Fold the temporary MEM_REF we build.
 

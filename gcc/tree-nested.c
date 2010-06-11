@@ -1498,6 +1498,24 @@ convert_local_reference_op (tree *tp, int *walk_subtrees, void *data)
       wi->val_only = save_val_only;
       break;
 
+    case MEM_REF:
+      {
+	tree tem;
+	save_val_only = wi->val_only;
+	wi->val_only = true;
+	wi->is_lhs = false;
+	walk_tree (&TREE_OPERAND (t, 0), convert_local_reference_op,
+		   wi, NULL);
+	/* We need to re-fold the MEM_REF as component references as
+	   part of a ADDR_EXPR address are not allowed.  */
+	if (TREE_CODE (TREE_OPERAND (t, 0)) == ADDR_EXPR
+	    && (tem = fold_binary (MEM_REF, TREE_TYPE (t),
+				   TREE_OPERAND (t, 0), TREE_OPERAND (t, 1))))
+	  *tp = tem;
+	wi->val_only = save_val_only;
+	break;
+      }
+
     case VIEW_CONVERT_EXPR:
       /* Just request to look at the subtrees, leaving val_only and lhs
 	 untouched.  This might actually be for !val_only + lhs, in which
