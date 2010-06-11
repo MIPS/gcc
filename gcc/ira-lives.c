@@ -36,6 +36,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "toplev.h"
 #include "params.h"
 #include "df.h"
+#include "sbitmap.h"
 #include "sparseset.h"
 #include "ira-int.h"
 
@@ -888,11 +889,11 @@ process_single_reg_class_operands (bool in_p, int freq)
 	      && reg_class_size[cl] <= (unsigned) CLASS_MAX_NREGS (cl, mode))
 	    {
 	      int i, size;
-	      cost
-		= (freq
-		   * (in_p
-		      ? ira_get_register_move_cost (mode, aclass, cl)
-		      : ira_get_register_move_cost (mode, cl, aclass)));
+
+	      ira_init_register_move_cost_if_necessary (mode);
+	      cost = freq * (in_p
+			     ? ira_register_move_cost[mode][aclass][cl]
+			     : ira_register_move_cost[mode][cl][aclass]);
 	      ira_allocate_and_set_costs
 		(&ALLOCNO_CONFLICT_HARD_REG_COSTS (operand_a), aclass, 0);
 	      size = ira_reg_class_max_nregs[aclass][mode];
@@ -1269,26 +1270,44 @@ remove_some_program_points_and_update_live_ranges (void)
   ira_allocno_t a;
   ira_allocno_iterator ai;
   allocno_live_range_t r;
-  bitmap born_or_died;
-  bitmap_iterator bi;
+  sbitmap born_or_dead, born, dead;
+  sbitmap_iterator sbi;
+  bool born_p, dead_p, prev_born_p, prev_dead_p;
 
-  born_or_died = ira_allocate_bitmap ();
+  born = sbitmap_alloc (ira_max_point);
+  dead = sbitmap_alloc (ira_max_point);
+  sbitmap_zero (born);
+  sbitmap_zero (dead);
   FOR_EACH_ALLOCNO (a, ai)
     {
       for (r = ALLOCNO_LIVE_RANGES (a); r != NULL; r = r->next)
 	{
 	  ira_assert (r->start <= r->finish);
-	  bitmap_set_bit (born_or_died, r->start);
-	  bitmap_set_bit (born_or_died, r->finish);
+	  SET_BIT (born, r->start);
+	  SET_BIT (dead, r->finish);
 	}
     }
+  born_or_dead = sbitmap_alloc (ira_max_point);
+  sbitmap_a_or_b (born_or_dead, born, dead);
   map = (int *) ira_allocate (sizeof (int) * ira_max_point);
-  n = 0;
-  EXECUTE_IF_SET_IN_BITMAP(born_or_died, 0, i, bi)
+  n = -1;
+  prev_born_p = prev_dead_p = false;
+  EXECUTE_IF_SET_IN_SBITMAP (born_or_dead, 0, i, sbi)
     {
-      map[i] = n++;
+      born_p = TEST_BIT (born, i);
+      dead_p = TEST_BIT (dead, i);
+      if ((prev_born_p && ! prev_dead_p && born_p && ! dead_p)
+	  || (prev_dead_p && ! prev_born_p && dead_p && ! born_p))
+	map[i] = n;
+      else
+	map[i] = ++n;
+      prev_born_p = born_p;
+      prev_dead_p = dead_p;
     }
-  ira_free_bitmap (born_or_died);
+  sbitmap_free (born_or_dead);
+  sbitmap_free (born);
+  sbitmap_free (dead);
+  n++;
   if (internal_flag_ira_verbose > 1 && ira_dump_file != NULL)
     fprintf (ira_dump_file, "Compressing live ranges: from %d to %d - %d%%\n",
 	     ira_max_point, n, 100 * n / ira_max_point);

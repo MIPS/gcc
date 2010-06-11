@@ -68,6 +68,7 @@ static bool
 build_conflict_bit_table (void)
 {
   int i, num, id, allocated_words_num, conflict_bit_vec_words_num;
+  int a_min, a_max;
   unsigned int j;
   enum reg_class aclass;
   ira_allocno_t allocno, live_a;
@@ -75,6 +76,7 @@ build_conflict_bit_table (void)
   ira_allocno_iterator ai;
   sparseset allocnos_live;
   int allocno_set_words;
+  IRA_INT_TYPE *a_conflicts;
 
   allocno_set_words = (ira_allocnos_num + IRA_INT_BITS - 1) / IRA_INT_BITS;
   allocated_words_num = 0;
@@ -132,6 +134,9 @@ build_conflict_bit_table (void)
 	  allocno = r->allocno;
 	  num = ALLOCNO_NUM (allocno);
 	  id = ALLOCNO_CONFLICT_ID (allocno);
+	  a_min = ALLOCNO_MIN (allocno);
+	  a_max = ALLOCNO_MAX (allocno);
+	  a_conflicts = conflicts[num];
 	  aclass = ALLOCNO_CLASS (allocno);
 	  sparseset_set_bit (allocnos_live, num);
 	  EXECUTE_IF_SET_IN_SPARSESET (allocnos_live, j)
@@ -142,10 +147,9 @@ build_conflict_bit_table (void)
 		  /* Don't set up conflict for the allocno with itself.  */
 		  && num != (int) j)
 		{
-		  SET_ALLOCNO_SET_BIT (conflicts[num],
+		  SET_ALLOCNO_SET_BIT (a_conflicts,
 				       ALLOCNO_CONFLICT_ID (live_a),
-				       ALLOCNO_MIN (allocno),
-				       ALLOCNO_MAX (allocno));
+				       a_min, a_max);
 		  SET_ALLOCNO_SET_BIT (conflicts[j], id,
 				       ALLOCNO_MIN (live_a),
 				       ALLOCNO_MAX (live_a));
@@ -394,10 +398,11 @@ process_regs_for_copy (rtx reg1, rtx reg2, bool constraint_p,
   if (index < 0)
     /* Can not be tied.  It is not in the allocno class.  */
     return false;
+  ira_init_register_move_cost_if_necessary (mode);
   if (HARD_REGISTER_P (reg1))
-    cost = ira_get_register_move_cost (mode, aclass, rclass) * freq;
+    cost = ira_register_move_cost[mode][aclass][rclass] * freq;
   else
-    cost = ira_get_register_move_cost (mode, rclass, aclass) * freq;
+    cost = ira_register_move_cost[mode][rclass][aclass] * freq;
   for (;;)
     {
       ira_allocate_and_set_costs
@@ -565,13 +570,15 @@ static ira_allocno_t *collected_conflict_allocnos;
 static void
 build_allocno_conflicts (ira_allocno_t a)
 {
-  int i, px, parent_num;
+  int i, px;
   int conflict_bit_vec_words_num;
   ira_loop_tree_node_t parent;
   ira_allocno_t parent_a, another_a, another_parent_a;
   ira_allocno_t *vec;
-  IRA_INT_TYPE *allocno_conflicts;
+  IRA_INT_TYPE *allocno_conflicts, *parent_conflicts;
   ira_allocno_set_iterator asi;
+  int parent_min, parent_max;
+  ira_allocno_t *parent_regno_allocno_map;
 
   allocno_conflicts = conflicts[ALLOCNO_NUM (a)];
   px = 0;
@@ -611,7 +618,10 @@ build_allocno_conflicts (ira_allocno_t a)
     return;
   ira_assert (parent != NULL);
   ira_assert (ALLOCNO_CLASS (a) == ALLOCNO_CLASS (parent_a));
-  parent_num = ALLOCNO_NUM (parent_a);
+  parent_conflicts = conflicts[ALLOCNO_NUM (parent_a)];
+  parent_min = ALLOCNO_MIN (parent_a);
+  parent_max = ALLOCNO_MAX (parent_a);
+  parent_regno_allocno_map = parent->regno_allocno_map;
   FOR_EACH_ALLOCNO_IN_SET (allocno_conflicts,
 			   ALLOCNO_MIN (a), ALLOCNO_MAX (a), i, asi)
     {
@@ -619,16 +629,15 @@ build_allocno_conflicts (ira_allocno_t a)
       ira_assert (ira_reg_classes_intersect_p
 		  [ALLOCNO_CLASS (a)][ALLOCNO_CLASS (another_a)]);
       if ((another_parent_a = ALLOCNO_CAP (another_a)) == NULL
-	  && (another_parent_a = (parent->regno_allocno_map
+	  && (another_parent_a = (parent_regno_allocno_map
 				  [ALLOCNO_REGNO (another_a)])) == NULL)
 	continue;
       ira_assert (ALLOCNO_NUM (another_parent_a) >= 0);
       ira_assert (ALLOCNO_CLASS (another_a)
 		  == ALLOCNO_CLASS (another_parent_a));
-      SET_ALLOCNO_SET_BIT (conflicts[parent_num],
+      SET_ALLOCNO_SET_BIT (parent_conflicts,
 			   ALLOCNO_CONFLICT_ID (another_parent_a),
-			   ALLOCNO_MIN (parent_a),
-			   ALLOCNO_MAX (parent_a));
+			   parent_min, parent_max);
     }
 }
 

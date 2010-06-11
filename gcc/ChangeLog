@@ -1,3 +1,72 @@
+2010-06-11  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* ira-int.h (ira_max_memory_move_cost, ira_max_may_move_in_cost,
+	ira_max_may_move_out_cost, ira_get_register_move_cost,
+	ira_get_may_move_cost, ira_get_max_may_move_cost): Remove.
+	(ira_init_register_move_cost_if_necessary): New.
+	
+	* ira-conflicts.c (build_conflict_bit_table): Optimize.
+	(process_regs_for_copy): Call
+	ira_init_register_move_cost_if_necessary.  Use
+	ira_register_move_cost instead of ira_get_register_move_cost.
+	(build_allocno_conflicts): Optimize.
+
+	* ira-color.c (update_copy_costs, move_spill_restore,
+	update_curr_costs): Call ira_init_register_move_cost_if_necessary.
+	Use ira_register_move_cost instead of ira_get_register_move_cost.
+	(get_allocno_hard_regs_subnodes_num): Remove last parameter.
+	(form_allocno_hard_regs_nodes_forest): Do't pass profitable
+	registers to get_allocno_hard_regs_subnodes_num.
+	(improve_allocation): Don't cycle when register is out of range.
+
+	* ira-live.c: Include sbitmap.h.
+	(process_single_reg_class_operands): Call
+	ira_init_register_move_cost_if_necessary.  Use
+	ira_register_move_cost instead of ira_get_register_move_cost.
+	(remove_some_program_points_and_update_live_ranges): Use sbitmaps.
+	Compress live ranges even more.
+
+	* ira-emit.c (emit_move_list): Call
+	ira_init_register_move_cost_if_necessary.  Use
+	ira_register_move_cost instead of ira_get_register_move_cost.
+
+	* ira.c (ira_max_memory_move_cost, ira_max_may_move_in_cost,
+	ira_max_may_move_out_cost): Make static.
+	(setup_pressure_classes): Call
+	ira_init_register_move_cost_if_necessary.  Use
+	ira_register_move_cost instead of ira_get_register_move_cost.
+	(comp_reg_classes_func): Use original classes at the end.
+
+	* ira-costs.c (cost_classes, cost_classes_num): Remove.
+	(struct cost_classes, cost_classes_t, const_cost_classes_t,
+	regno_cost_classes, cost_classes_hash, cost_classes_eq,
+	cost_classes_del, cost_classes_htab, cost_classes_mode_cache,
+	initiate_regno_cost_classes, setup_regno_cost_classes_by_aclass,
+	setup_regno_cost_classes_by_mode, finish_regno_cost_classes): New.
+	(record_reg_classes): Optimize.  Call
+	ira_init_register_move_cost_if_necessary.  Use
+	ira_register_move_cost, ira_may_move_in_cost, and
+	ira_may_move_out_cost instead of ira_get_register_move_cost and
+	ira_get_may_move_cost.  Use regno_cost_classes instead of
+	cost_classes.  Use right regno for digital constraint.
+	(record_address_regs): Ditto.
+	(scan_one_insn): Optimize.  Use regno_cost_classes instead of
+	cost_classes.  Check added costs for overflow.
+	(print_allocno_costs, print_pseudo_costs): Use regno_cost_classes
+	instead of cost_classes.
+	(find_costs_and_classes): Optimize.  Set up cost classes for each
+	registers.  Use also their mode for this.  Use regno_cost_classes
+	instead of cost_classes.  Call
+	ira_init_register_move_cost_if_necessary.  Use
+	ira_register_move_cost instead of ira_get_register_move_cost.
+	Check added costs for overflow.
+	(setup_allocno_class_and_costs): Use regno_cost_classes instead of
+	cost_classes.
+	(ira_tune_allocno_costs): Check added costs for overflow.
+	(free_ira_costs, ira_init_costs): Don't use cost_classes.
+	(ira_costs, ira_set_pseudo_classes): Call
+	initiate_regno_cost_classes and finish_regno_cost_classes.
+	
 2010-06-04  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* ira-color.c (update_copy_costs): Remove assert.  Skip cost

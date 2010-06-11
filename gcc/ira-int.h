@@ -713,15 +713,6 @@ extern move_table *ira_may_move_in_cost[MAX_MACHINE_MODE];
    ira_get_may_move_cost instead.  */
 extern move_table *ira_may_move_out_cost[MAX_MACHINE_MODE];
 
-/* Similar to ira_memory_move_cost but it returns maximal cost.  */
-extern short ira_max_memory_move_cost[MAX_MACHINE_MODE][N_REG_CLASSES][2];
-
-/* Similar to ira_may_move_in_cost and ira_may_move_out_cost but they
-   return maximal cost.  Don't use them directly.  Use function of
-   ira_get_max_may_move_cost instead.  */
-extern move_table *ira_max_may_move_in_cost[MAX_MACHINE_MODE];
-extern move_table *ira_max_may_move_out_cost[MAX_MACHINE_MODE];
-
 /* Register class subset relation: TRUE if the first class is a subset
    of the second one considering only hard registers available for the
    allocation.  */
@@ -900,45 +891,12 @@ extern void ira_emit (bool);
 
 
 
-/* Return cost of moving value of MODE from register of class FROM to
-   register of class TO.  */
-static inline int
-ira_get_register_move_cost (enum machine_mode mode,
-			    enum reg_class from, enum reg_class to)
+/* Initialize register costs for MODE if necessary.  */
+static inline void
+ira_init_register_move_cost_if_necessary (enum machine_mode mode)
 {
   if (ira_register_move_cost[mode] == NULL)
     ira_init_register_move_cost (mode);
-  return ira_register_move_cost[mode][from][to];
-}
-
-/* Return cost of moving value of MODE from register of class FROM to
-   register of class TO.  Return zero if IN_P is true and FROM is
-   subset of TO or if IN_P is false and FROM is superset of TO.  */
-static inline int
-ira_get_may_move_cost (enum machine_mode mode,
-		       enum reg_class from, enum reg_class to,
-		       bool in_p)
-{
-  if (ira_register_move_cost[mode] == NULL)
-    ira_init_register_move_cost (mode);
-  return (in_p
-	  ? ira_may_move_in_cost[mode][from][to]
-	  : ira_may_move_out_cost[mode][from][to]);
-}
-
-/* Return maximal cost of moving value of MODE from register of class FROM to
-   register of class TO.  Return zero if IN_P is true and FROM is
-   subset of TO or if IN_P is false and FROM is superset of TO.  */
-static inline int
-ira_get_max_may_move_cost (enum machine_mode mode,
-		       enum reg_class from, enum reg_class to,
-		       bool in_p)
-{
-  if (ira_register_move_cost[mode] == NULL)
-    ira_init_register_move_cost (mode);
-  return (in_p
-	  ? ira_max_may_move_in_cost[mode][from][to]
-	  : ira_max_may_move_out_cost[mode][from][to]);
 }
 
 

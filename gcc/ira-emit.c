@@ -884,8 +884,8 @@ emit_move_list (move_t list, int freq)
 	}
       else
 	{
-	  cost = (ira_get_register_move_cost (mode, aclass, aclass)
-		  * freq);
+	  ira_init_register_move_cost_if_necessary (mode);
+	  cost = ira_register_move_cost[mode][aclass][aclass] * freq;
 	  ira_shuffle_cost += cost;
 	}
       ira_overall_cost += cost;

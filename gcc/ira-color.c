@@ -629,18 +629,14 @@ setup_allocno_hard_regs_subnode_index (allocno_hard_regs_node_t first)
     }
 }
 
-/* Count all allocno hard registers nodes in tree ROOT which contain
-   hard registers from SET.  It is assumed that ROOT contains a hard
-   register from SET.  */
+/* Count all allocno hard registers nodes in tree ROOT.  */
 static int
-get_allocno_hard_regs_subnodes_num (allocno_hard_regs_node_t root,
-				    HARD_REG_SET set)
+get_allocno_hard_regs_subnodes_num (allocno_hard_regs_node_t root)
 {
   int len = 1;
 
   for (root = root->first; root != NULL; root = root->next)
-    if (hard_reg_set_intersect_p (set, root->hard_regs->set))
-      len += get_allocno_hard_regs_subnodes_num (root, set);
+    len += get_allocno_hard_regs_subnodes_num (root);
   return len;
 }
 
@@ -742,8 +738,7 @@ form_allocno_hard_regs_nodes_forest (void)
       data = ALLOCNO_COLOR_DATA (a);
       if (hard_reg_set_empty_p (data->profitable_hard_regs))
 	continue;
-      len = (get_allocno_hard_regs_subnodes_num
-	     (data->hard_regs_node, data->profitable_hard_regs));
+      len = get_allocno_hard_regs_subnodes_num (data->hard_regs_node);
       data->hard_regs_subnodes_start = start;
       data->hard_regs_subnodes_num = len;
       start += len;
@@ -1180,6 +1175,7 @@ update_copy_costs (ira_allocno_t allocno, bool decr_p)
   do
     {
       mode = ALLOCNO_MODE (allocno);
+      ira_init_register_move_cost_if_necessary (mode);
       for (cp = ALLOCNO_COPIES (allocno); cp != NULL; cp = next_cp)
 	{
 	  if (cp->first == allocno)
@@ -1201,8 +1197,8 @@ update_copy_costs (ira_allocno_t allocno, bool decr_p)
 	    continue;
 
 	  cost = (cp->second == allocno
-		  ? ira_get_register_move_cost (mode, rclass, aclass)
-		  : ira_get_register_move_cost (mode, aclass, rclass));
+		  ? ira_register_move_cost[mode][rclass][aclass]
+		  : ira_register_move_cost[mode][aclass][rclass]);
 	  if (decr_p)
 	    cost = -cost;
 
@@ -1820,13 +1816,16 @@ calculate_allocno_spill_cost (ira_allocno_t a)
 	     + ira_memory_move_cost[mode][rclass][1]
 	     * ira_loop_edge_freq (loop_node, regno, false));
   else
-    cost += ((ira_memory_move_cost[mode][rclass][1]
-	      * ira_loop_edge_freq (loop_node, regno, true)
-	      + ira_memory_move_cost[mode][rclass][0]
-	      * ira_loop_edge_freq (loop_node, regno, false))
-	     - (ira_get_register_move_cost (mode, rclass, rclass)
-		* (ira_loop_edge_freq (loop_node, regno, false)
-		   + ira_loop_edge_freq (loop_node, regno, true))));
+    {
+      ira_init_register_move_cost_if_necessary (mode);
+      cost += ((ira_memory_move_cost[mode][rclass][1]
+		* ira_loop_edge_freq (loop_node, regno, true)
+		+ ira_memory_move_cost[mode][rclass][0]
+		* ira_loop_edge_freq (loop_node, regno, false))
+	       - (ira_register_move_cost[mode][rclass][rclass]
+		  * (ira_loop_edge_freq (loop_node, regno, false)
+		     + ira_loop_edge_freq (loop_node, regno, true))));
+    }
   return cost;
 }
 
@@ -2114,10 +2113,11 @@ improve_allocation (void)
 	    spill_cost -= ALLOCNO_UPDATED_CLASS_COST (conflict_a);
 	  conflict_nregs
 	    = hard_regno_nregs[conflict_hard_regno][ALLOCNO_MODE (conflict_a)];
-	  for (r = conflict_hard_regno; r >= 0; r--)
+	  for (r = conflict_hard_regno;
+	       r >= 0 && r + hard_regno_nregs[r][mode] > conflict_hard_regno;
+	       r--)
 	    if (TEST_HARD_REG_BIT
 		(ALLOCNO_COLOR_DATA (a)->profitable_hard_regs, r)
-		&& r + hard_regno_nregs[r][mode] > conflict_hard_regno
 		&& ira_hard_reg_not_in_set_p (r, mode, conflict_hard_regs))
 	      costs[r] += spill_cost;
 	  for (r = conflict_hard_regno + 1;
@@ -2522,7 +2522,8 @@ color_pass (ira_loop_tree_node_t loop_tree_node)
 	  else
 	    {
 	      aclass = ALLOCNO_CLASS (subloop_allocno);
-	      cost = (ira_get_register_move_cost (mode, rclass, rclass)
+	      ira_init_register_move_cost_if_necessary (mode);
+	      cost = (ira_register_move_cost[mode][rclass][rclass]
 		      * (exit_freq + enter_freq));
 	      ira_allocate_and_set_or_copy_costs
 		(&ALLOCNO_UPDATED_HARD_REG_COSTS (subloop_allocno), aclass,
@@ -2617,6 +2618,7 @@ move_spill_restore (void)
 		  - (ALLOCNO_HARD_REG_COSTS (a) == NULL
 		     ? ALLOCNO_CLASS_COST (a)
 		     : ALLOCNO_HARD_REG_COSTS (a)[index]));
+	  ira_init_register_move_cost_if_necessary (mode);
 	  for (subloop_node = loop_node->subloops;
 	       subloop_node != NULL;
 	       subloop_node = subloop_node->subloop_next)
@@ -2644,7 +2646,7 @@ move_spill_restore (void)
 		    += (ira_memory_move_cost[mode][rclass][0] * exit_freq
 			+ ira_memory_move_cost[mode][rclass][1] * enter_freq);
 		  if (hard_regno2 != hard_regno)
-		    cost -= (ira_get_register_move_cost (mode, rclass, rclass)
+		    cost -= (ira_register_move_cost[mode][rclass][rclass]
 			     * (exit_freq + enter_freq));
 		}
 	    }
@@ -2663,7 +2665,7 @@ move_spill_restore (void)
 		    += (ira_memory_move_cost[mode][rclass][1] * exit_freq
 			+ ira_memory_move_cost[mode][rclass][0] * enter_freq);
 		  if (hard_regno2 != hard_regno)
-		    cost -= (ira_get_register_move_cost (mode, rclass, rclass)
+		    cost -= (ira_register_move_cost[mode][rclass][rclass]
 			     * (exit_freq + enter_freq));
 		}
 	    }
@@ -2706,6 +2708,7 @@ update_curr_costs (ira_allocno_t a)
   if (aclass == NO_REGS)
     return;
   mode = ALLOCNO_MODE (a);
+  ira_init_register_move_cost_if_necessary (mode);
   for (cp = ALLOCNO_COPIES (a); cp != NULL; cp = next_cp)
     {
       if (cp->first == a)
@@ -2729,8 +2732,8 @@ update_curr_costs (ira_allocno_t a)
       if (i < 0)
 	continue;
       cost = (cp->first == a
-	      ? ira_get_register_move_cost (mode, rclass, aclass)
-	      : ira_get_register_move_cost (mode, aclass, rclass));
+	      ? ira_register_move_cost[mode][rclass][aclass]
+	      : ira_register_move_cost[mode][aclass][rclass]);
       ira_allocate_and_set_or_copy_costs
 	(&ALLOCNO_UPDATED_HARD_REG_COSTS (a), aclass, ALLOCNO_CLASS_COST (a),
 	 ALLOCNO_HARD_REG_COSTS (a));

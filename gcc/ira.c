@@ -398,7 +398,7 @@ move_table *ira_register_move_cost[MAX_MACHINE_MODE];
 /* The following two variables are array analogs of the macros
    MEMORY_MOVE_COST and REGISTER_MOVE_COST but they contain maximumal
    cost not minimumal as the previous two ones do.  */
-short int ira_max_memory_move_cost[MAX_MACHINE_MODE][N_REG_CLASSES][2];
+static short int ira_max_memory_move_cost[MAX_MACHINE_MODE][N_REG_CLASSES][2];
 static move_table *ira_max_register_move_cost[MAX_MACHINE_MODE];
 
 /* Similar to may_move_in_cost but it is calculated in IRA instead of
@@ -415,8 +415,8 @@ move_table *ira_may_move_out_cost[MAX_MACHINE_MODE];
 
 /* Similar to ira_may_move_in_cost and ira_may_move_out_cost but they
    return maximal cost.  */
-move_table *ira_max_may_move_in_cost[MAX_MACHINE_MODE];
-move_table *ira_max_may_move_out_cost[MAX_MACHINE_MODE];
+static move_table *ira_max_may_move_in_cost[MAX_MACHINE_MODE];
+static move_table *ira_max_may_move_out_cost[MAX_MACHINE_MODE];
 
 /* Register class subset relation: TRUE if the first class is a subset
    of the second one considering only hard registers available for the
@@ -868,9 +868,8 @@ setup_pressure_classes (void)
 				  ira_prohibited_class_mode_regs[cl][m]);
 	  if (hard_reg_set_empty_p (temp_hard_regset))
 	    continue;
-	  cost = ira_get_register_move_cost ((enum machine_mode) m,
-					     (enum reg_class) cl,
-					     (enum reg_class) cl);
+	  ira_init_register_move_cost_if_necessary ((enum machine_mode) m);
+	  cost = ira_register_move_cost[m][cl][cl];
 	  if (cost <= ira_max_memory_move_cost[m][cl][1]
 	      || cost <= ira_max_memory_move_cost[m][cl][0])
 	    break;
@@ -1103,12 +1102,13 @@ comp_reg_classes_func (const void *v1p, const void *v2p)
 {
   enum reg_class cl1 = *(const enum reg_class *) v1p;
   enum reg_class cl2 = *(const enum reg_class *) v2p;
+  enum reg_class tcl1, tcl2;
   int diff;
 
-  cl1 = ira_allocno_class_translate[cl1];
-  cl2 = ira_allocno_class_translate[cl2];
-  if (cl1 != NO_REGS && cl2 != NO_REGS
-      && (diff = allocno_class_order[cl1] - allocno_class_order[cl2]) != 0)
+  tcl1 = ira_allocno_class_translate[cl1];
+  tcl2 = ira_allocno_class_translate[cl2];
+  if (tcl1 != NO_REGS && tcl2 != NO_REGS
+      && (diff = allocno_class_order[tcl1] - allocno_class_order[tcl2]) != 0)
     return diff;
   return (int) cl1 - (int) cl2;
 }
