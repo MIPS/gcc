@@ -1,3 +1,8 @@
+2010-06-11  Jakub Jelinek  <jakub@redhat.com>
+
+	* decl2.c (grokfield): Set underlying type for typedefs in classes,
+	unless processing_template_decl.
+
 2010-06-07  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/44444

@@ -827,6 +827,21 @@ grokfield (const cp_declarator *declarator,
 	  cplus_decl_attributes (&value, attrlist, attrflags);
 	}
 
+      if (declspecs->specs[(int)ds_typedef]
+	  && !processing_template_decl
+	  && DECL_ORIGINAL_TYPE (value) == NULL_TREE
+	  && TREE_TYPE (value) != error_mark_node
+	  && TYPE_NAME (TYPE_MAIN_VARIANT (TREE_TYPE (value))) != value)
+	{
+	  tree oldt = TREE_TYPE (value);
+	  tree newt = build_variant_type_copy (oldt);
+	  DECL_ORIGINAL_TYPE (value) = oldt;
+	  TYPE_STUB_DECL (newt) = TYPE_STUB_DECL (oldt);
+	  TREE_TYPE (value) = newt;
+	  TYPE_NAME (newt) = value;
+	  TREE_USED (newt) = TREE_USED (value);
+	}
+
       return value;
     }
 
