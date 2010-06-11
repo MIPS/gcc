@@ -5847,7 +5847,15 @@ store_field (rtx target, HOST_WIDE_INT bitsize, HOST_WIDE_INT bitpos,
 	 operations.  */
       || (bitsize >= 0
 	  && TREE_CODE (TYPE_SIZE (TREE_TYPE (exp))) == INTEGER_CST
-	  && compare_tree_int (TYPE_SIZE (TREE_TYPE (exp)), bitsize) != 0))
+	  && compare_tree_int (TYPE_SIZE (TREE_TYPE (exp)), bitsize) != 0)
+      /* If we are expanding a MEM_REF of a non-BLKmode non-addressable
+         decl we must use bitfield operations.  */
+      || (bitsize >= 0
+	  && TREE_CODE (exp) == MEM_REF
+	  && TREE_CODE (TREE_OPERAND (exp, 0)) == ADDR_EXPR
+	  && DECL_P (TREE_OPERAND (TREE_OPERAND (exp, 0), 0))
+	  && !TREE_ADDRESSABLE (TREE_OPERAND (TREE_OPERAND (exp, 0),0 ))
+	  && DECL_MODE (TREE_OPERAND (TREE_OPERAND (exp, 0), 0)) != BLKmode))
     {
       rtx temp;
       gimple nop_def;
@@ -8806,24 +8814,30 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 		gcc_assert (base);
 		offset = size_binop (PLUS_EXPR, offset, bitsize_int (off));
 	      }
+	    /* If we are expanding a MEM_REF of a non-BLKmode non-addressable
+	       decl we must use bitfield operations.  */
 	    if (DECL_P (base)
 		&& !TREE_ADDRESSABLE (base)
-		&& integer_zerop (offset)
-		&& DECL_MODE (base) != BLKmode
-		&& host_integerp (TYPE_SIZE (TREE_TYPE (exp)), 1)
-		&& (GET_MODE_BITSIZE (DECL_MODE (base))
-		    == TREE_INT_CST_LOW (TYPE_SIZE (TREE_TYPE (exp)))))
-	      return expand_expr (build1 (VIEW_CONVERT_EXPR,
-					  TREE_TYPE (exp), base),
-				  target, tmode, modifier);
-	    if (DECL_P (base)
-		&& !TREE_ADDRESSABLE (base)
-		&& TYPE_MODE (TREE_TYPE (exp)) != BLKmode)
-	      return expand_expr (build3 (BIT_FIELD_REF, TREE_TYPE (exp),
-					  base,
-					  bitsize_int (GET_MODE_BITSIZE (TYPE_MODE (TREE_TYPE (exp)))),
-					  offset),
-				  target, tmode, modifier);
+		&& DECL_MODE (base) != BLKmode)
+	      {
+		tree bftype;
+		if (integer_zerop (offset)
+		    && host_integerp (TYPE_SIZE (TREE_TYPE (exp)), 1)
+		    && (GET_MODE_BITSIZE (DECL_MODE (base))
+			== TREE_INT_CST_LOW (TYPE_SIZE (TREE_TYPE (exp)))))
+		  return expand_expr (build1 (VIEW_CONVERT_EXPR,
+					      TREE_TYPE (exp), base),
+				      target, tmode, modifier);
+		gcc_assert (!DECL_RTL_SET_P (base) || REG_P (DECL_RTL (base)));
+		bftype = TREE_TYPE (base);
+		if (TYPE_MODE (TREE_TYPE (exp)) != BLKmode)
+		  bftype = TREE_TYPE (exp);
+		return expand_expr (build3 (BIT_FIELD_REF, bftype,
+					    base,
+					    TYPE_SIZE (TREE_TYPE (exp)),
+					    offset),
+				    target, tmode, modifier);
+	      }
 	  }
 	address_mode = targetm.addr_space.address_mode (as);
 	op0 = expand_expr (TREE_OPERAND (exp, 0), NULL_RTX, address_mode,

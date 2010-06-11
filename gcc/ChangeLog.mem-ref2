@@ -1,5 +1,15 @@
 2010-06-11  Richard Guenther  <rguenther@suse.de>
 
+	* expr.c (store_field): If expanding a MEM_REF of a non-addressable
+	decl use bitfield operations.
+	(expand_expr_real_1): More properly deal with the register base
+	case.
+
+	testsuite/
+	* gcc.dg/torture/20100610-1.c: New testcase.
+
+2010-06-11  Richard Guenther  <rguenther@suse.de>
+
 	* tree-ssa.c (execute_update_addresses_taken): Fix MEM_REF
 	partial use/def check.
 
