@@ -1,3 +1,8 @@
+2010-06-11  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa.c (execute_update_addresses_taken): Fix MEM_REF
+	partial use/def check.
+
 2010-06-10  Richard Guenther  <rguenther@suse.de>
 
 	* builtins.c (fold_builtin_memory_op): Simplify and handle

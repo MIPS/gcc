@@ -1839,10 +1839,15 @@ execute_update_addresses_taken (bool do_optimize)
                   if (DECL_P (lhs))
                     bitmap_set_bit (not_reg_needs, DECL_UID (lhs));
 		  else if (TREE_CODE (lhs) == MEM_REF
-			   && TREE_CODE (TREE_OPERAND (lhs, 0)) == ADDR_EXPR
-			   && DECL_P (TREE_OPERAND (TREE_OPERAND (lhs, 0), 0))
-			   && !integer_zerop (TREE_OPERAND (lhs, 1)))
-		    bitmap_set_bit (not_reg_needs, DECL_UID (TREE_OPERAND (TREE_OPERAND (lhs, 0), 0)));
+			   && TREE_CODE (TREE_OPERAND (lhs, 0)) == ADDR_EXPR)
+		    {
+		      tree decl = TREE_OPERAND (TREE_OPERAND (lhs, 0), 0);
+		      if (DECL_P (decl)
+			  && (!integer_zerop (TREE_OPERAND (lhs, 1))
+			      || (DECL_SIZE (decl)
+				  != TYPE_SIZE (TREE_TYPE (lhs)))))
+			bitmap_set_bit (not_reg_needs, DECL_UID (decl));
+		    }
                 }
 	    }
 
@@ -1858,10 +1863,15 @@ execute_update_addresses_taken (bool do_optimize)
 
 		  if (rhs
 		      && TREE_CODE (rhs) == MEM_REF
-		      && TREE_CODE (TREE_OPERAND (rhs, 0)) == ADDR_EXPR
-		      && DECL_P (TREE_OPERAND (TREE_OPERAND (rhs, 0), 0))
-		      && !integer_zerop (TREE_OPERAND (rhs, 1)))
-		    bitmap_set_bit (not_reg_needs, DECL_UID (TREE_OPERAND (TREE_OPERAND (rhs, 0), 0)));
+		      && TREE_CODE (TREE_OPERAND (rhs, 0)) == ADDR_EXPR)
+		    {
+		      tree decl = TREE_OPERAND (TREE_OPERAND (rhs, 0), 0);
+		      if (DECL_P (decl)
+			  && (!integer_zerop (TREE_OPERAND (rhs, 1))
+			      || (DECL_SIZE (decl)
+				  != TYPE_SIZE (TREE_TYPE (rhs)))))
+			bitmap_set_bit (not_reg_needs, DECL_UID (decl));
+		    }
                 }
 	    }
 	}
