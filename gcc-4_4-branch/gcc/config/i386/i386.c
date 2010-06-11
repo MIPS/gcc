@@ -9248,10 +9248,12 @@ ix86_expand_epilogue (int style)
 
       gcc_assert (stack_realign_drap);
 
-      insn = emit_insn ((*ix86_gen_add3) (stack_pointer_rtx,
-					  crtl->drap_reg,
-					  GEN_INT (-(UNITS_PER_WORD
-						     + param_ptr_offset))));
+      insn = emit_insn (gen_rtx_SET
+			(VOIDmode, stack_pointer_rtx,
+			 gen_rtx_PLUS (Pmode,
+				       crtl->drap_reg,
+				       GEN_INT (-(UNITS_PER_WORD
+						  + param_ptr_offset)))));
 
       ix86_cfa_state->reg = stack_pointer_rtx;
       ix86_cfa_state->offset = UNITS_PER_WORD + param_ptr_offset;
