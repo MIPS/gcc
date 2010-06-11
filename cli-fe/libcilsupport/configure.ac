@@ -31,7 +31,7 @@
 
 AC_PREREQ(2.59)
 AC_INIT(clisupport, 0.1)
-AC_CONFIG_SRCDIR(gcc4net-support.c)
+AC_CONFIG_SRCDIR(runtime-support.c)
 
 AM_INIT_AUTOMAKE([1.9.5 foreign])
 
