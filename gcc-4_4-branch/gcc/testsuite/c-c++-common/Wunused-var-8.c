@@ -1,5 +1,5 @@
 /* Origin: PR c++/44108 */
-/* { dg-options "-Wunused" } */
+/* { dg-options "-Wunused -Wunused-but-set-variable" } */
 /* { dg-do compile } */
 
 int
