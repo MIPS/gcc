@@ -1,5 +1,10 @@
 2010-06-11  Richard Guenther  <rguenther@suse.de>
 
+	* tree-ssa-forwprop.c (tree_ssa_forward_propagate_single_use_vars):
+	Fold the temporary MEM_REF we build.
+
+2010-06-11  Richard Guenther  <rguenther@suse.de>
+
 	* expr.c (store_field): If expanding a MEM_REF of a non-addressable
 	decl use bitfield operations.
 	(expand_expr_real_1): More properly deal with the register base

@@ -1377,13 +1377,16 @@ tree_ssa_forward_propagate_single_use_vars (void)
 		  if (TREE_CODE (gimple_assign_rhs2 (stmt)) == INTEGER_CST
 		      /* ???  Better adjust the interface to that function
 			 instead of building new trees here.  */
-		      && forward_propagate_addr_expr (lhs,
-						      build1 (ADDR_EXPR,
-							      TREE_TYPE (rhs),
-							      build2 (MEM_REF,
-								      TREE_TYPE (TREE_TYPE (rhs)),
-								      rhs,
-								      fold_convert (ptr_type_node, gimple_assign_rhs2 (stmt))))))
+		      && forward_propagate_addr_expr
+		           (lhs,
+			    build1 (ADDR_EXPR,
+				    TREE_TYPE (rhs),
+				    fold_build2 (MEM_REF,
+						 TREE_TYPE (TREE_TYPE (rhs)),
+						 rhs,
+						 fold_convert
+						   (ptr_type_node,
+						    gimple_assign_rhs2 (stmt))))))
 		    {
 		      release_defs (stmt);
 		      todoflags |= TODO_remove_unused_locals;
