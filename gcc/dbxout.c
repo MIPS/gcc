@@ -90,6 +90,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "obstack.h"
 #include "expr.h"
+#include "multi-target.h"
 
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"
@@ -176,6 +177,8 @@ struct GTY(()) typeinfo {
   int file_number;
   int type_number;
 };
+
+START_TARGET_SPECIFIC
 
 /* Vector recording information about C data types.
    When we first notice a data type (a tree node),
@@ -3713,3 +3716,5 @@ dbxout_begin_function (tree decl)
 #endif /* DBX_DEBUGGING_INFO || XCOFF_DEBUGGING_INFO */
 
 #include "gt-dbxout.h"
+
+END_TARGET_SPECIFIC

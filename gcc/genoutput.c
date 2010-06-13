@@ -22,7 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 /* This program reads the machine description for the compiler target machine
    and produces a file containing these things:
 
-   1. An array of `struct insn_data', which is indexed by insn code number,
+   1. An array of `struct insn_data_d', which is indexed by insn code number,
    which contains:
 
      a. `name' is the name for that pattern.  Nameless patterns are
@@ -243,7 +243,10 @@ output_prologue (void)
   printf ("#include \"toplev.h\"\n");
   printf ("#include \"output.h\"\n");
   printf ("#include \"target.h\"\n");
-  printf ("#include \"tm-constrs.h\"\n");
+  printf ("#include \"multi-target.h\"\n");
+  printf ("#include \"tm-constrs.h\"\n\n");
+
+  printf ("START_TARGET_SPECIFIC\n");
 }
 
 static void
@@ -293,7 +296,7 @@ output_insn_data (void)
       }
 
   printf ("#if GCC_VERSION >= 2007\n__extension__\n#endif\n");
-  printf ("\nconst struct insn_data insn_data[] = \n{\n");
+  printf ("\nconst struct insn_data_d insn_data[] = \n{\n");
 
   for (d = idata; d; d = d->next)
     {
@@ -1057,6 +1060,8 @@ main (int argc, char **argv)
   output_operand_data ();
   output_insn_data ();
   output_get_insn_name ();
+
+  printf ("\nEND_TARGET_SPECIFIC\n");
 
   fflush (stdout);
   return (ferror (stdout) != 0 || have_error

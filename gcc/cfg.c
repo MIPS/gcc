@@ -68,6 +68,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "df.h"
 #include "cfgloop.h"
 #include "tree-flow.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 /* The obstack on which the flow graph components are allocated.  */
 
@@ -1298,3 +1301,5 @@ get_loop_copy (struct loop *loop)
   else
     return NULL;
 }
+
+END_TARGET_SPECIFIC

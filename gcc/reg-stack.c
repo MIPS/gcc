@@ -176,6 +176,9 @@
 #include "df.h"
 #include "vecprim.h"
 #include "emit-rtl.h"  /* FIXME: Can go away once crtl is moved to rtl.h.  */
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 #ifdef STACK_REGS
 
@@ -3322,3 +3325,5 @@ struct rtl_opt_pass pass_stack_regs_run =
   TODO_ggc_collect                      /* todo_flags_finish */
  }
 };
+
+END_TARGET_SPECIFIC

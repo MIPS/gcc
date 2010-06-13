@@ -46,6 +46,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "df.h"
 #include "tree-pass.h"
 #include "emit-rtl.h"  /* FIXME: Can go away once crtl is moved to rtl.h.  */
+#include "multi-target.h"
 
 DEF_VEC_P(df_ref);
 DEF_VEC_ALLOC_P_STACK(df_ref);
@@ -59,6 +60,8 @@ DEF_VEC_ALLOC_P_STACK(df_mw_hardreg_ptr);
 
 #define VEC_df_mw_hardreg_ptr_stack_alloc(alloc) \
   VEC_stack_alloc (df_mw_hardreg_ptr, alloc)
+
+START_TARGET_SPECIFIC
 
 #ifndef HAVE_epilogue
 #define HAVE_epilogue 0
@@ -4659,3 +4662,5 @@ df_scan_verify (void)
       df_reg_chain_verify_unmarked (DF_REG_EQ_USE_CHAIN (i));
     }
 }
+
+END_TARGET_SPECIFIC

@@ -92,6 +92,7 @@
 #include "tm.h"
 #include "rtl.h"
 #include "tree.h"
+#include "tm_p.h"
 #include "hard-reg-set.h"
 #include "basic-block.h"
 #include "flags.h"
@@ -115,6 +116,7 @@
 #include "tree-pretty-print.h"
 #include "pointer-set.h"
 #include "recog.h"
+#include "multi-target.h"
 
 /* var-tracking.c assumes that tree code with the same value as VALUE rtx code
    has no chance to appear in REG_EXPR/MEM_EXPRs and isn't a decl.
@@ -365,6 +367,8 @@ typedef const struct value_chain_def *const_value_chain;
 
 /* Macro to access MEM_OFFSET as an HOST_WIDE_INT.  Evaluates MEM twice.  */
 #define INT_MEM_OFFSET(mem) (MEM_OFFSET (mem) ? INTVAL (MEM_OFFSET (mem)) : 0)
+
+START_TARGET_SPECIFIC
 
 /* Alloc pool for struct attrs_def.  */
 static alloc_pool attrs_pool;
@@ -8577,3 +8581,5 @@ struct rtl_opt_pass pass_variable_tracking =
   TODO_dump_func | TODO_verify_rtl_sharing/* todo_flags_finish */
  }
 };
+
+END_TARGET_SPECIFIC

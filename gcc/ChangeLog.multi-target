@@ -1,0 +1,784 @@
+2010-02-18  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* tree-ssa-address.c (create_mem_ref): Fix EXTRA_TARGETS_DECL type.
+
+	* config/spu/t-spu-elf (spu-cxx.o): Fix merge pasto.
+
+	* Makefile.in (THIS-TARGET/config.status): Add --enable-build-with-cxx
+	to configure options.
+
+	* passes.c (register_one_dump_file): Make dependent on !EXTRA_TARGET.
+	(register_dump_files_1, register_dump_files): Likewise.
+	* Makefile (EXTRA_TARGET_RULES <MAKE_THIS_TARGET>: Also pass
+	NUM_TARGETS to $(MAKE).
+	* optabs.h (optab_for_tree_code): Make code that uses
+	optab_for_tree_code_array dependent on !EXTRA_TARGET.
+
+	* regcprop.c: Include multi-target.h.  Make code target specific.
+
+	* config/rs6000/rs6000.c (rs6000_secondary_reload): Adjust return
+	and argument types to match hook.
+	(rs6000_ira_cover_classes): Adjust return type to match hook.
+
+	* targhooks.c (default_branch_target_register_class): Provide
+	separate definitions for all targets.
+
+	* cfgloop.h (verify_loop_structure): Not target specific.
+
+	* gcse.c (flag_rerun_cse_after_global_opts): Only define for
+	!EXTRA_TARGET.
+
+	* toplev.c (flag_excess_precision_cmdline, flag_excess_precision):
+	Don't define for EXTRA_TARGET.
+	(flag_pedantic_errors, flag_permissive): Likewise.
+
+2010-02-16  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* tree-vectorizer.c (vectorize_loops): Avoid extra vect_analyze_loop
+	call when last analysis is still current.
+
+2010-02-15  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* tree-vect-data-refs.c (vect_create_data_ref_ptr): Allow pe to be
+	NULL in loop_vinfo == NULL case.
+
+2010-02-11  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* tree-vect-data-refs.c (vect_create_addr_base_for_vector_ref):
+	Remove ptr_alias_set argument.  Changed all callers.
+	* tree-vectorizer.h (vect_create_addr_base_for_vector_ref): Update
+	prototype.
+
+	* cfgloop.h (const_param_array): New typedef.
+	* tree-vect-data-refs.c (param_array_hash): Use const_param_array.
+	(param_array_eq): Likewise.
+
+	* Makefile.in ($(TA)$(out_object_file)): Fix -DTARGET_NAME typo.
+
+	* config/i386/i386.h (ix86_cfa_state): Use MACHINE_FUNCTION.
+	(ix86_cfa_state): Likewise.
+
+	* config/i386/i386.c (i386_ira_cover_classes): Adjust return type to
+	match hook return type.
+
+	* Makefile.in (options.c): Remove rtl.h from header_names.
+
+	* genmodes.c (drop_mode): Rename 'new' parameter to 'new_m'.
+	(emit_mode_adjustments): Use strcmp for comparisons with
+	output_target.
+
+	* c-common.c (handle_target_arch_attribute): Use error_at instead of
+	%J.
+	(handle_caller_arch_attribute): Likewise.
+
+	* optabs.c: Remove tailing semicolon from EXTRA_TARGETS_DECL use.
+	* toplev.c, expr.c, tree-ssa-address.c, function.c: Likewise.
+	* stor-layout.c, reginfo.c: Likewise.
+
+	* toplev.c (lang_dependent_init_target): Make static.
+
+	* function.c (lookup_attr_target): Mark fndecl as ATTRIBUTE_UNUSED.
+
+	* tree-ssa-address.c (tree_addr_for_mem_ref): #if 0.
+
+	* omp-low.c (expand_parallel_call): Separate decalrations and code.
+
+	* tree-parloops.c (separate_decls_in_region): Avoid spurious
+	uninitalized error for copy_base.
+
+	* tree-vect-data-refs.c (vect_create_data_ref_ptr): Defer uses of
+	loop till after it is set from loop_vinfo.
+	In !numa case, use build_pointer_type (vectype) rather than
+	build_pointer_type_for_mode (vectype, tptrmode, false).
+
+2010-02-10  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* tree-ssa-loop-manip.c: Include target.h and multi-target.h.
+	* tree-pass.h (rtl_dispatch_pass): Always define, but make
+	target_variants fiel dependent on NUM_TARGETS > 1.
+	* toplev.c: Remove tailing semicolon from EXTRA_TARGETS_DECL use.
+	(process_options): Not static.
+	(backend_init_target): Make static.
+	* opts.c: Remove tailing semicolon from EXTRA_TARGETS_DECL use.
+	Fix unterminated comment.
+	* tree-parloops.c (separate_decls_in_region_name): Use
+	addr_space.pointer_mode hook.
+	* cfgexpand.c (pass_expand): Don't initialize target_variants field
+	if it's not present.
+	* passes.c: Remove tailing semicolon from EXTRA_TARGETS_DECL use.
+	(execute_pass_list): Don't use target_variants field if it's not
+	present.
+
+2009-09-08  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* toplev.c (lang_dependent_init): Move EXTRA_TARGETS_CALL of
+	lang_dependent_init after the initialization of the asm output file.
+
+2009-09-04  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* targhooks.c (default_task_ok_for_target): New function.
+	* targhooks.h (default_task_ok_for_target): Declare.
+	* target.h (enum task_type): New enum.
+	(struct gcc_target): New member task_ok_for_target.
+	* tree-vectorizer.c (vectorize_loops): Check task_ok_for_target hook.
+	* target-def.h (TARGET_TASK_OK_FOR_TARGET): Define.
+	(TARGET_INITIALIZER): Include it.
+
+2009-08-19  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* tree-parloops.c (create_loads_and_stores_for_name): Only expect
+	POINTER_TYPE names correspond to an entry in param_arrays.
+
+2009-08-18  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* tree-vect-transform.c (vectorizable_store):
+	Use &targetm.optab_table[OTI_mov].
+
+	* emit-rtl.c (label_num): No longer target specific.
+
+	* tree-parloops.c (separate_decls_in_region): Copy input parameter
+	struct to callee target only after initializing reduction fields.
+
+2009-08-10  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* tree-ssa-pre.c (next_expression_id): Initialize to 1.
+	(eliminate): Check that lhsexpr has id > 0.
+
+	* tree-parloops.c (separate_reduction_decl_data): New struct.
+	(separate_reduction_decl): New function.
+	(remove_reduction_decl_from_name_htab): Likewise.
+	(separate_decls_in_region): Call separate_reduction_decl and
+	remove_reduction_decl_from_name_htab via htab_traverse.
+	(separate_decls_in_region_stmt): Handle copy != name.
+
+	* passes.c <!EXTRA_TARGETS>:
+	Do an EXTRA_TARGETS_CALL of df_finish_pass.
+	(execute_todo): Dispatch to target-specific df_finish_pass function.
+
+	* tree-ssa-parloops.c (struct clsn_data): New member numa.
+	(create_call_for_reduction_1): Don't generate atomic accesses if
+	numa is set.
+	(gen_parallel_loop): Set numa field.
+
+	* tree-parloops.c (separate_decls_in_region): Call copy_from_target
+	hook for reduction results.
+
+	* tree.c (build2_stat): Allow POINTER_PLUS_EXPR to match sizetype
+	of cfun instead of current sizetype.
+
+2009-08-09  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* tree-pretty-print.c (dump_omp_clause):
+	Handle OMP_CLAUSE_SCHEDULE_MASTER.
+
+	* tree-parloops.c (create_call_for_reduction_1):
+	Handle case where clsn_data->load_bb has statements.
+	Make sure store of reduction value is insterted after its
+	calculation, rather than inside.
+
+	* tree-parloops.c (create_call_for_reduction_1): If the reduction
+	is for a vector type, set the DECL_GIMPLE_REG_P of tmp_load.
+
+	* tree-parloops.c (compute_reduction_results): Create empty block
+	for reduction loads.
+
+	* tree-vect-transform.c (vect_create_addr_base_for_vector_ref):
+	New parameter ins_target.  Changed call callers.
+
+	* tree-vect-generic.c (expand_reduction_piecewise): New function.
+	(expand_vector_operation): Use it.
+
+2009-08-07  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* tree-parloops.c (struct reduction_info): New member keep_res_name.
+	(create_loads_for_reductions): If keep_res is not set,
+	use keep_res_name instead.
+	(compute_reduction_results): New function.
+	(gen_parallel_loop): Use it.
+
+2009-08-04  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* Makefile.in (tree-ssa-address.o): Change to:
+	$(TA)tree-ssa-address.o.
+
+2009-07-29  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* tree.c (build_rep_vector): New function.
+	* tree.h (VECTOR_INT_TYPE_P): Define.
+	(build_rep_vector): Declare.
+	* omp-low.c (omp_reduction_init) <MAX_EXPR>: Handle VECTOR_INT_TYPE_P.
+
+	* tree-parloops.c (add_size_for_param_array): Round up sizes_addr[1]
+	to multiple of stride.
+
+2009-07-29  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* tree-phinodes.c (reserve_phi_args_for_duplication): New function.
+	* tree-parloops.c (loop_parallel_p): Call it.
+	* tree-flow.h (reserve_phi_args_for_duplication): Declare.
+
+2009-07-27  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* target.h (struct gcc_target): New member optab_table.
+	* tree-parloops.c (parallelize_loops): Also call loop_parallel_p
+	in loop_has_vector_phi_nodes case.
+	* target-def.h (TARGET_INITIALIZER): Add initializer for optab_table.
+	* tree-vect-transform.c (vect_create_addr_base_for_vector_ref):
+	Use targetm.sizetype.
+	(vectorizable_load): Use &targetm.optab_table[OTI_mov].
+
+2009-07-22  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* doc/tm.texi (TARGET_VALID_OPTION_ATTRIBUTE_P): Change to:
+	(TARGET_OPTION_VALID_ATTRIBUTE_P).
+
+	* targhooks.c (default_target_option_valid_attribute_p):
+	Indicate the target for which the target attribute is not implemented.
+	* c-common.c (handle_target_attribute):
+	Call hook on appropriate target.
+	* Makefile.in (EXTRA_TARGET_RULES):
+	Move up definitionto be before OBJS-common.
+
+2009-07-20  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* target.h (alloc_task_on_target): New hook.
+	* omp-low.c (expand_parallel_call): Look for caller_arch attribute
+	instead of target_arch attribute.  Pass value of that attribute to
+	call_on_target hook.
+	* tree-parloops.c (separate_decls_in_region):
+	Use alloc_task_on_target hook, and return its result.
+	(create_loop_fn): Replace target_arch with fn_attrib hook.
+	Changed caller.
+	(gen_parallel_loop): Set caller_arch attribute on loop_fn.
+	* target-def.h (TARGET_ALLOC_TASK_ON_TARGET): Define.
+	(TARGET_INITIALIZER): Initialize new member.
+	* c-common.c (handle_caller_arch_attribute): New function.
+	(c_common_attribute_table): Add caller_arch entry.
+
+2009-07-17  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* targhooks.c (default_common_data_with_target): New function.
+	* targhooks.h (default_common_data_with_target): Declare.
+	* tree.c (build2_stat): Use targetm.sizetype.
+	(get_get_name_decl): New function.
+	* tree.h (enum omp_clause_schedule_kind): New value
+	OMP_CLAUSE_SCHEDULE_MASTER.
+	(tree sizetype_tab): Now target specific.
+	(get_get_name_decl): Declare.
+	(lookup_attr_target): Declare.
+	* target.h (struct gimple_stmt_iterator_d): Forward delcaration.
+	(struct gcc_target): New members sizetype_tab,
+	common_data_with_target, copy_to_target, copy_from_target,
+	build_call_on_target.
+	* omp-low.c (expand_parallel_call): If child function has target_arch
+	attribute, use targetm.build_call_on_target hook.
+	(expand_omp_taskreg): Also check for
+	gimple_omp_taskreg_data_arg (entry_stmt) being an INDIRECT_REF.
+	(expand_numa_for_static_nochunk): New function.
+	(expand_omp_for): Check for OMP_CLAUSE_SCHEDULE_MASTER.
+	* toplev.c (lang_dependent_init) [!EXTRA_TARGET]:
+	Do an EXTRA_TARGETS_CALL of initialize_sizetypes.
+	(lang_dependent_init) [EXTRA_TARGET]: Fix up size_type_node.
+	* tree-ssa-loop-ivopts.c (computation_cost): Use tree_expand_expr.
+	(force_expr_to_var_cost): Use targetm.sizetype.
+	(rewrite_use_address ): Use tree_create_mem_ref.
+	* expr.c [!EXTRA_TARGET] (tree_expand_expr): New function.
+	expr.h (tree_expand_expr): Declare.
+	* tree-parloops.c (separate_decls_in_region_name): New parameter
+	new_target.  Changed all callers.
+	(separate_decls_in_region_stmt): Likewise.
+	(add_size_for_param_array): New function.
+	(struct clsn_data): New members result_seq and loop.
+	(create_loads_and_stores_for_name): If array contents have to be
+	copied, insert statements to copy to/from the callee target.
+	(separate_decls_in_region): Likewise.  Emit statements to allocate 
+	parameter array area for this purpose.
+	Change last parameter from usinged to loop.  Changed caller.
+	(canonicalize_loop_ivs): Use sizetype for the callee target.
+	(create_parallel_loop): If target has data memory separate from
+	caller, use OMP_CLAUSE_SCHEDULE_MASTER.
+	(gen_parallel_loop): Set targetm_pnt to the callee target during
+	the canonicalize_loop_ivs call.
+	* tree-ssa-address.c [!EXTRA_TARGET] (tree_mem_ref_addr): New function.
+	[!EXTRA_TARGET] (tree_create_mem_ref): Likewise.
+	* function.c (lookup_attr_target): New function, broken out of:
+	(allocate_struct_function).
+	* tree-affine.c (target.h): Include.
+	(add_elt_to_tree): Use targetm.sizetype.
+	(aff_combination_to_tree): Likewise.
+	* target-def.h (TARGET_COMMON_DATA_WITH_TARGET): Define.
+	(TARGET_COPY_TO_TARGET): Likewise.
+	(TARGET_COPY_FROM_TARGET, TARGET_BUILD_CALL_ON_TARGET): Likewise.
+	(TARGET_INITIALIZER): Initialize new members.
+	* tree-vect-transform.c (vect_decompose_addr_base_for_vector_ref):
+	New function.
+	(param_array_hash, param_array_eq): Likewise.
+	(vect_create_data_ref_ptr): If target has data memory separate from
+	caller, create hash table of parameter arrays with information on
+	accesses.
+	* cfgloop.h (struct tree_range, struct param_array_d): New struct.
+	(param_array): New typedef.
+	(struct loop): New members param_arrays, vect_vars.
+	* tree-flow.h (tree_create_mem_ref): Declare.
+	* gimple.h (struct gimple_stmt_iterator_d): New struct tag.
+	* Makefile.in (tree-affine.o): Depend on $(TARGET_H).
+
+2009-06-27  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* Makefile.in [!EXTRA_TARGETS] (target-types.h target-gtypes.h)
+	<machine_function_u>: Add missing * for _mf member.
+
+2009-06-15  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* doc/multi-target.texi: New file.
+	* tree-ssa-loop.c (pass_vectorize): Undo last change.
+	* tree-parloops.c (gen_parallel_loop): When parallelizing loop
+	for different target architecture, force parallelization, and don't
+	use transform_to_exit_first_loop.
+	* tree-vect-transform.c (vect_create_data_ref_ptr): Use ptr_mode for
+	loop target architecture.
+	* tree-vect-generic.c: Include cfgloop.h.
+	(expand_vector_operations): Don't operate on bbs in loops for a
+	different target architecture.
+	* Makefilein (tree-vect-generic.o): Depend on $(CFGLOOP_H).
+
+2009-06-04  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* tree-parloops.c (parallelize_loops): Don't check for vector phi
+	nodes when processing a loop that should be executed on a different
+	target than CFUN.
+	* tree-vectorizer.c (vectorize_loops): Also analyze and vectorize
+	loops for different targets than CFUN.
+	* tree-vect-transform.c (vect_transform_loop): If the loop is for a
+	different target than CFUN, don't do alignment peeling.  Switch
+	to loop target during transformation and back afterwards.
+
+	* cfgloop.c (alloc_loop): Initialize target_arch member from CFUN.
+
+	* tree-ssa-loop.c (pass_vectorize): Add TODO_rebuild_alias to
+	todo_flags_finish.
+	* tree-vect-transform.c (vect_create_addr_base_for_vector_ref): New
+	parameter ptr_alias_set.  Changed all callers.
+
+2009-06-01  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* target.h (struct gcc_target): Add member ptr_mode.
+	* target-def.h (TARGET_INITIALIZER): Add initializer for ptr_mode.
+	* tree-ssa-loop.c (gate_tree_parallelize_loops): Also enable if a
+	loop is to be executed on another target.
+	* tree-parloop.c (separate_decls_in_region): New parameter new_target.
+	Changed caller.
+	(create loop_fn): New parameter target_arch.  Changed caller.
+	(parallelize_loops): Also enable for loops that are to be executed
+	on another target.
+	* tree-vectorizer.c (vectorize_loops): If a loop is to be vectorized
+	for a different target, only set the target_arch filed in loop and
+	ignore the lop for now.  Use cfun->target_arch to restore target.
+	* tree-vectorizer.h (struct _loop_vec_info): Remove target_arch member.
+	* cfgloop.h (struct loop): Add target_arch member.
+
+2009-05-23  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* doc/tm.texi: Adjust struct machine_function documentation.
+	* gengtype.c (open_base_files): Don't emit START_TARGET_SPECIFIC.
+	(finish_root_table): Emit END_TARGET_SPECIFIC.
+	(write_roots): Don't return early for EXTRA_TARGET.
+	Emit START_TARGET_SPECIFIC for each root.
+	(main): Don't emit END_TARGET_SPECIFIC.
+	* gengtype.h (pp_nest, no_extra_nest): Declare.
+	* gengtype-lex.l (pp_nest, no_extra_nest): New variables.
+	(TARGET_SCOPE/{EOID}): New pattern.
+	(^{HWS}"#"{HWS}ifndef{HWS}EXTRA_TARGET[[:alnum:]_][^\n]*): Likewise.
+	(^{HWS}"#"{HWS}ifndef{HWS}EXTRA_TARGET[^\n]*): Likewise.
+	(^{HWS}"#"{HWS}if[^\n]*, ^{HWS}"#"{HWS}endif[^\n]*): Likewise.
+	* function.c (free_after_compilation): Use MACHINE_FUNCTION.
+	(allocate_struct_function_1): Likewise.
+	* function.h (MACHINE_FUNCTION): Define.
+	(struct function): Use machine_function_u for member machine.
+	* gengtype-parse.c (token) [EXTRA_TARGET]: Loop till !no_extra_nest.
+	* gentargtype.cc (u): Remove.
+	(main): Use sizeof (cumulative_args_u).
+	Emit definition for efine machine_function_u.
+	* ggc.h (gt_pch_note_object): No longer target specific.
+	* genmodes.c (struct mode_adjust): New member target.
+	(new_adjust): Set target member.
+	(emit_mode_adjustments): Skip adjustments for other targets.
+	* Makefile.in (EXTRA_TARGET_RULES) <THIS-TARGET/target-gtypes.h>:
+	Set _mf too.
+	(target-types.h): Also emit machine_function_u definition.
+	* config/i386/i386.h (CONDITIONAL_REGISTER_USAGE):
+	Use MACHINE_FUNCTION.
+	(ix86_stack_locals, ix86_varargs_gpr_size): Likewise.
+	(ix86_varargs_fpr_size, ix86_optimize_mode_switching): Likewise.
+	(ix86_current_function_needs_cld: Likewise.
+	* config/i386/i386.c (ix86_cfun_abi, ix86_call_abi_override): Likewise.
+	(ix86_maybe_switch_abi, ix86_frame_pointer_required): Likewise.
+	(ix86_compute_frame_layout, ix86_expand_prologue): Likewise.
+	(ix86_expand_epilogue, get_some_local_dynamic_name_1): Likewise.
+	(x86_output_mi_thunk): Likewise.
+	* config/sh/sh.c (calc_live_regs): Use INCOMING_ARGS_INFO.
+	(sh_expand_prologue, sh_expand_epilogue): Likewise.
+	(sh_builtin_saveregs, sh_va_start): Likewise.
+	(initial_elimination_offset, sh_allocate_initial_value): Likewise.
+	(sh_function_ok_for_sibcall): Likewise.
+	* config/sh/sh.md (return, return_i): Likewise.
+	(shcompact_return_tramp, shcompact_return_tramp_i): Likewise.
+	* config/rs6000/rs6000.c (rs6000_emit_move): Use MACHINE_FUNCTION.
+	(rs6000_emit_move, setup_incoming_varargs, rs6000_va_start): Likewise.
+	(rs6000_secondary_memory_needed_rtx): Likewise.
+	(rs6000_alloc_sdmode_stack_slot, rs6000_instantiate_decls): Likewise.
+	(rs6000_get_some_local_dynamic_name, rs6000_stack_info): Likewise.
+	(rs6000_savres_strategy): Likewise.
+
+2009-05-22  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* config/i386/i386.c (ix86_va_start): Use INCOMING_ARGS_INFO.
+	(ix86_secondary_reload): Make signature agree with target.h
+
+2009-05-20  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* tree-ssa-address.c: Include multi-target.h .  Add
+	START_TARGET_SPECIFIC and END_TARGET_SPECIFIC markers and
+	#ifndef EXTRA_TARGET / #endif directives.
+	* varasm.c (default_target_new_arch) [EXTRA_TARGET]:
+	Don't forward the call, nor suppress output last_arch is 0.
+	* TDEP-SOURCES: Add tree-ssa-address.c .
+	* tree-flow.h: Incude multi-target.h
+	(create_mem_ref, addr_for_mem_ref, maybe_fold_tmr): Mark as target
+	specific.
+	Makefile.in (OBJS-common): Move tree-ssa-address.o from here...
+	(OBJS-rtl): ... to here.
+	* config/spu/spu-protos.h (spu_override_options): Don't declare.
+	* config/spu/spu.c (spu_override_options): Now static.  Change
+	signature to fit target hook.
+	(TARGET_OVERRIDE_OPTIONS): Redefine.
+	* config/spu/spu.h: Include multi-target.h.
+	Add START_TARGET_SPECIFIC / END_TARGET_SPECIFIC markers.
+
+	* config/rs6000/rs6000.c (rs6000_va_start): Use INCOMING_ARGS_INFO.
+	(compute_vrsave_mask): Likewise.
+
+	* config/spu/spu.c: Include multi-target.h.
+	Add START_TARGET_SPECIFIC / END_TARGET_SPECIFIC markers.
+
+2009-05-19  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* optabs.c (optab_for_tree_code_array): New array.
+	(optab_for_tree_code): Rename to...
+	(optab_for_tree_code_1) ... this.
+	* optabs.h: Include target.h.  Make types at start of file
+	non-target- specific.
+	(enum optab_subtype): No longer target specific.
+	(optab_for_tree_code_1, optab_for_tree_code_array): Declare.
+	(optab_for_tree_code): New a static inline function.
+	* target.h (struct gcc_target): New member target_arch.
+	* tree-vectorizer.c (vectorize_loops): Use actually selected target
+	architecture.
+	* stor-layout.c (vector_type_mode_array): Declare.
+	(vector_type_mode): Dispatch through vector_type_mode_array.
+	[!EXTRA_TARGET]: (vector_type_mode_array): Define.
+	* target-def.h (TARGET_INITIALIZER): Add TARGET_NUM.
+	* Makefile.in (OPTABS_H): Add $(TARGET_H).
+
+	* targhooks.c: Include diagnostic.h and tree-pass.h.
+	(default_vectype_for_scalar_type): New function.
+	* targhooks.h (default_vectype_for_scalar_type): Declare.
+	* target.h (struct vectorize): New member vectype_for_scalar_type.
+	toplev.c (backend_init): Set targetm_pnt at function start and after
+	EXTRA_TARGETS_CALL.
+	(lang_dependent_init): Likewise.
+	* function.c (init_emit_array): Declare.
+	[!EXTRA_TARGET] (init_emit_array): Define and initialize.
+	(prepare_function_start): Call the init_emit function for
+	cfun->target_arch.
+	(init_dummy_function_start): Don't call init_emit.
+	* tree-vectorizer.c (get_vectype_from_scalar_type): Remove.
+	(vectorize_loops): Call vect_analyze_loops for all targets.
+	Set loop_vinfo->target_arch to the selected target.
+	* tree-vectorizer.h: Include target.h
+	(struct loop_vec_info): New member target_arch.
+	(get_vectype_for_scalar_type): Now a static incline function.
+	* tree-vect-analyze.c (vect_analyze_loop): Show for which target
+	we are doing the analysis.
+	* emit-rtl.c (gen_reg_rtx): Add assert.
+	* cfgexpand.c (gimple_expand_cfg): Don't call init_emit.
+	* target-def.h (TARGET_VECTORIZE_VECTYPE_FOR_SCALAR_TYPE): Define.
+	(TARGET_VECTORIZE): Add TARGET_VECTORIZE_VECTYPE_FOR_SCALAR_TYPE.
+	* tree-flow.h (get_vectype_for_scalar_type): Don't declare.
+	* Makefile.in (TREE_VECTORIZER_H): Set.  Use it to replace
+	tree-vectorizer.h in dependencies.
+
+2009-05-13  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* function.h (struct incoming_args): Base info GTY description on
+	cfun->target_arch.
+	* gentargtype.cc (cumulative_args_u): Use TARGET_NUM for tag.
+	Add an align_dummy member.
+	* Makefile.in [EXTRA_TARGET] (target-types.h): Likewise.
+	[!EXTRA_TARGET] (target-types.h target-gtypes.h): 
+	Use TARGET_NUM for tag.
+
+	* Makefile.in [!EXTRA_TARGET] (target-types.h):
+	Fix rule to provide GTY information.
+	[!EXTRA_TARGET] (target-gtypes.h): Share rule with target-types.h .
+
+	* Makefile.in (target-types.h): Remove extra semicolon.
+	(build/gentargtype.o): Use -fno-exceptions.
+
+	* Makefile.in (out_file, out_object_file, md_file, tm_file_list,
+	tm_include_list, tm_defines, tm_p_file_list, tm_p_include_list,
+	EXTRA_TARGETS, NUM_TARGETS): Move from here...
+	* T-extra ... to here.
+	* Makefile.in (xout.o): Replace with $(<target>-out_object_file).
+	(GTFILES): Add target-gtypes.h.
+	(COMMON_ABI): Chaneg to target-types.h target-gtypes.h.
+	(EXTRA_TARGET_RULES): Copy / sed target-types.g / target-gtypes.h to
+	extra targets directories.
+	[!TA] [EXTRA_TARGETS] (target-types.h, target-gtypes.h): New rules.
+	(build/gentargtype.o, build/gentargtype$(build_exeext)): Likewise.
+	* gentargtype.cc: New file.
+	* regstat.c (setjmp_crosses): No longer target specific.
+	(regstat_n_sets_and_refs): Likewise.
+	(regstat_init_n_sets_and_refs, regstat_free_n_sets_and_refs): Likewise.
+	(reg_info_p, reg_info_p_size): Likewise.
+	(regstat_free_ri, regstat_get_setjmp_crosses): Likewise.
+	(regstat_bb_compute_calls_crossed): Likewise.
+	(regstat_compute_calls_crossed, regstat_free_calls_crossed): Likewise.
+	* regs.h (REG_N_REFS, REG_N_SETS): Likewise.
+	(regstat_init_n_sets_and_refs, regstat_free_n_sets_and_refs): Likewise.
+	(regstat_free_ri, regstat_get_setjmp_crosses): Likewise.
+	(regstat_compute_calls_crossed, regstat_free_calls_crossed): Likewise.
+	* machmode.h (class_narrowest_mode): Target specific.
+	(byte_mode, word_mode, ptr_mode, init_adjust_machine_modes): Likewise.
+	* flags.h (align_loops_log, align_loops_max_skip): Likewise.
+	(align_jumps_log, align_jumps_max_skip, align_labels_log): Likewise.
+	(align_labels_max_skip, align_functions_log): Likewise.
+	* df-core.c (df_bitmap_obstack): Likewise.
+	(struct df): Rename to:
+	(struct df_d).
+	* dse.h (struct df): Don't declare.
+	* function.c (assign_parms): Use INCOMING_ARGS_INFO.
+	(prepare_function_start): Don't call init_emit.
+	(init_dummy_function_start): Call init_emit.
+	* function.h: Include target-types / target-gtypes.h.
+	(incoming_args): Use cumulative_args_u for info member.
+	(INCOMING_ARGS_INFO): Define.
+	(regno_reg_rtx, struct incoming_args): No longer target specific.
+	(struct rtl_data, x_rtl): Likewise.
+	* df.h (struct df): Rename to:
+	(struct df_d).
+	(df_bitmap_obstack, df): No longer target specific.
+	* emit-rtl.c (x_rtl, regno_reg_rtx): Likewise.
+	* reginfo.c (max_regno): Likewise.
+	* cfgexpand.c (gimple_expand_cfg): Call init_emit.
+	
+2009-05-12  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* dce.h : Include multi-target.h.  Add START_TARGET_SPECIFIC and
+	END_TARGET_SPECIFC markers.
+
+	* target.h (this_targetm): Remove semicolon after EXTRA_TARGETS_DECL.
+	* Makefile.in (opts.o): Change to:
+	$(TA)opts.o.
+
+	* rtl.h (global_rtl_index, global_rtl): Mark as target specific.
+	* Makefile.in (extra_modes.h) [TA]: Disable.
+
+2009-05-11  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* T-extra.in: New file, broken out of:
+	* Makefile.in.
+	* T-extra.in: Use $(CURRENT_TARGET) prefix for names of variables
+	that are set.
+	* targhooks.c (stack_chk_fail_decl): Declare extern and non-target
+	specific.
+	* multi-target.h (TARGET_SCOPE): Define.
+	* target.h (struct asm_out): Add new member new_arch.
+	* configure.ac (all_outputs): Add T-extra.in.
+	* configure: Regenerate.
+	* varasm.c [!EXTRA_TARGET] (last_arch): Don't initialize.
+	(default_target_new_arch): New function.
+	(assemble_start_function): Use asm_out.new_arch hook.
+	* target-def.h (TARGET_ASM_OUT): Add TARGET_ASM_NEW_ARCH.
+	* output.h (default_target_new_arch): Declare.
+	* cfgloop.h (add_loop): Not target specific.
+	* Makefile.in: Include T-extra both from main dir and from any
+	extra targets directories.
+	(cs-tm.h): Define TARGET_SCOPE_ in generated header file.
+	(options.c): place rtl.h in front of insn-attr.h for header list.
+	(extra-modes.h): Rework rules to work with T-extra to avoid
+	recursive make.
+	(EXTRA_OBJS): Include files from extra targets, and add dependencies /
+	rules to build them.
+
+2009-05-11  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* genmodes.c (drop_mode): handle !old_contained.
+
+	* genmodes.c (find_mode): Set target field for to-be searched mode.
+	(eq_mode): Also consider target.
+	(drop_mode): New function.
+	(fixup_target_modes): Implement commoning of equivalent modes.
+	Mangle mode names for other-target modes.
+	(make_complex_modes): When processing target-specific input, don't
+	make modes for other targets.
+	(make_complex_modes, make_vector_modes): Tag new modes with the same
+	target field as the modes that they are made from.
+	(make_partial_integer_mode): Make error message clearer.
+	(emit_insn_modes_h): Remove mangling of mode name.
+	* Makefile.in (extra-modes.h): Use *-extra-modes.h instead of
+	extra_modes_blurb.
+	(extra_modes_blurb): Remove rule.
+	[!TA] (%-extra-modes.h): New rule.
+
+2009-05-08  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* doc/extend.texi (target_arch): Document new attribute.
+	* targhooks.c (STRINGIFY1, STRINGIFY): Delete.
+	(default_override_options): Use this_targetm.name for error message.
+	* flags.h (multi-target.h): Include.
+	(flag_ira_algorithm): Mark as target specific.
+	* multi-target.h (EXTRA_TARGETS_EXPAND_COMMA): Add trailing comma.
+	* tree.h (expand_function_end): Mark as target specific.
+	(expand_function_start, stack_protect_prologue): Likewise.
+	(stack_protect_epilogue): Likewise.
+	(allocate_struct_function): Mark as not target specific.
+	* target.h (struct gcc_target): Add new member name.
+	* toplev.c (targetm_array): Add zero delimiter.
+	(asm_out_file): Don't define for EXTRA_TARGET.
+	(process_options): Always initialize debug_hooks.
+	* regs.h (regstat_n_sets_and_refs): Mark as target specific.
+	(REG_N_REFS, REG_N_SETS, regstat_init_n_sets_and_refs): Likewise.
+	(regstat_free_n_sets_and_refs, regstat_compute_ri): Likewise.
+	(regstat_free_ri, regstat_get_setjmp_crosses): Likewise.
+	(regstat_compute_calls_crossed, regstat_free_calls_crossed): Likewise.
+	(reg_renumber, have_regs_of_mode, reg_raw_mode): Likewise.
+	* opts.c: Include multi-target.h.  Add START_TARGET_SPECIFIC and
+	END_TARGET_SPECIFC markers.  Add #ifndef EXTRA_TARGET / #endif
+	directives.
+	(decode_options): Use this_targetm for target-specific processing.
+	Do an EXTRA_TARGETS_CALL of self.
+	* function.c (allocate_struct_function_1): New function, broken out of:
+	(allocate_struct_function).
+	(set_cfun): Update target_pnt.
+	[!EXTRA_TARGET] (allocate_struct_function_1_array): New const array.
+	[EXTRA_TARGET] (allocate_struct_function): Don't define.
+	(allocate_struct_function): Initialize cfun->target_arch and set
+	targetm_pnt.
+	* varasm.c (last_arch): New variable.
+	(assemble_start_function): Emit .arch directive when targetm changed
+	since the last function was emitted, and update last_arch.
+	* ira.c (setup_cover_and_important_classes): Use this_targetm.
+	* ira.h (ira_init_once, ira_init): Mark as target specific.
+	(ira_finish_once, ira_eliminate_regs): Likewise.
+	(ira_sort_regnos_for_alter_reg, ira_mark_allocation_change): Likewise.
+	(ira_mark_memory_move_deletion, ira_reuse_stack_slot): Likewise.
+	(ira_mark_new_stack_slot, ira_better_spill_reload_regno_p: Likewise.
+	* target-def.h (TARGET_INITIALIZER): Add TARGET_NAME.
+	* rtl.h (insn_locators_alloc): Mark as target specific.
+	(insn_locators_free, insn_locators_finalize): Likewise.
+	(set_curr_insn_source_location, set_curr_insn_block): Likewise.
+	(curr_insn_locator): Likewise.
+	* output.h (asm_out_file): Don't mark as target specific.
+	* c-common.c (handle_target_arch_attribute): New function.
+	(c_common_attribute_table): Add target_arch attribute entry.
+	* Makefile.in (OBJS-common): Move opts.o from here...
+	(OBJS-rtl):  ... to here.
+	($(out_object_file)): Add -DTARGET_NAME=\"$(target_noncanonical)\"
+	to rule.
+	* passes.c (execute_one_pass): Move dispatch code from here...
+	(execute_pass_list): ... to here.
+
+2009-05-06  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* targhooks.c (default_override_options): New function.
+	(STRINGIFY1, STRINGIFY): New macros.
+	* targhooks.h (default_override_options): Declare.
+	* tree-pass.h: Include multi-target.h.
+	Mark rtl passes and pass_rest_of_compilation as target specific.
+	* target.h: Include multi-target.h.
+	(struct target_option_hooks): Add override member.
+	(targetm): change into a #define.
+	(targetm_pnt, targetm_array): Declare.
+	(this_targetm): Declare.
+	* toplev.c [EXTRA_TARGET] (general_init, do_compile): Don't declare.
+	(process_options): No longer static.
+	[!EXTRA_TARGET] (targetm_array, targetm_pnt): Define and inititialize.
+	(general_init): Add ATTRIBUTE_UNUSED to argv0.
+	(process_options): Guard general code with #ifndef EXTRA_TARGET.
+	Use this_targetm.target_option.override instead of OVERRIDE_OPTIONS.
+	(do_compile): Do an EXTRA_TARGETS_CALL of process_options.
+	(opth-gen.awk): Also make variables target specific that are for
+	options named AllTarget.
+	* common.opt (align_functions, align_jumps): Mark with AllTarget.
+	(align_loops, flag_data_sections, flag_delayed_branch): Likewise.
+	(flag_no_function_cse, flag_function_sections): Likewise.
+	(flag_leading_underscore, flag_omit_frame_pointer): Likewise.
+	(flag_rename_registers, flag_schedule_insns): Likewise.
+	(flag_schedule_insns_after_reload): Likewise.
+	* target-def.h [!TARGET_OVERRIDE_OPTIONS] (TARGET_OVERRIDE_OPTIONS):
+	Define.
+	(TARGET_OPTION_HOOKS): Include TARGET_OVERRIDE_OPTIONS.
+	* reg-stack.c: Include multi-target.h and mark code as target specific.
+	* reginfo.c (init_reg_sets): Make EXTRA_TARGETS_CALL of self.
+	* Makefile.in ($(out_object_file)): Add -Dtargetm=this_targetm.
+	* passes.c (gate_rest_of_compilation): Make target specific.
+	(pass_rest_of_compilation): Likewise.
+	* config/sh/sh.h (OVERRIDE_OPTIONS): Delete.
+	* config/sh/sh.c (sh_override_options): Change type to match hook.
+	Make manipulation of global flags dependent on main_target.
+	(TARGET_OVERRIDE_OPTIONS): Redefine.
+
+2009-05-01  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* regrename.c: Include "multi-target.h" and add START_TARGET_SPECIFIC
+	and END_TARGET_SPECIFC markers.
+	* loop-unswitch.c, sched-ebb.c, fwprop.c, dwarf2asm.c: Likewise.
+	* dwarf2asm.h, ira-conflicts.c, targhooks.c, targhooks.h: Likewise.
+	* regstat.c, see.c, machmode.h, rtlhooks.c, optabs.c: Likewise.
+	* postreload-gcse.c, optabs.h, postreload.c, reload.c: Likewise.
+	* tree.h, reload.h, rtlanal.c, ddg.c, final.c, builtins.c: Likewise.
+	* cfghooks.c, cfghooks.h, cfgloopanal.c, cfg.c: Likewise.
+	* auto-inc-dec.c, toplev.c, toplev.h, reorg.c, regs.h: Likewise.
+	* df-scan.c, haifa-sched.c, dojump.c, dbxout.c, df-core.c: Likewise.
+	* mode-switching.c, modulo-sched.c, caller-save.ci, graph.c: Likewise.
+	* ira-int.h, cse.c, web.c, ira-color.c, sel-sched.c: Likewise.
+	* loop-init.c, cfganal.c, ifcvt.c, jump.c, dwarf2out.c: Likewise.
+	* expr.c, cfgbuild.c, hard-reg-set.h, predict.c, predict.h: Likewise.
+	* recog.c, recog.h, dse.c, sel-sched-ir.c, sel-sched-ir.h: Likewise.
+	* ira-lives.c, regmove.c, sel-sched-dump.c: Likewise.
+	* sel-sched-dump.h, function.c, function.h, print-rtl.c: Likewise.
+	* df.h, sdbout.c, stor-layout.c, rtlhooks-def.h, ira-emit.c: Likewise.
+	* df-byte-scan.c, gcse.c, alias.c, alias.h, init-regs.c: Likewise.
+	* ira-build.c, loop-unroll.c, ggc.h, insn-addr.h, calls.c: Likewise.
+	* loop-doloop.c, rtl-factoring.c, lower-subreg.c, expmed.c: Likewise.
+	* bt-load.c, except.c, except.h, emit-rtl.c, cfgexpand.c: Likewise.
+	* cselib.c, cfgcleanup.c, simplify-rtx.c, explow.c: Likewise.
+	* loop-invariant.c, loop-iv.c, cfglayout.c, varasm.c, ira.c: Likewise.
+	* sched-deps.c, ira.h, rtl.c, ira-costs.c, rtl.h: Likewise.
+	* integrate.c, sched-int.h, output.h, combine.c: Likewise.
+	* fixed-value.h, addresses.h, bb-reorder.c, stack-ptr-mod.c: Likewise.
+	* resource.c, var-tracking.c, resource.h, cfgloop.h: Likewise.
+	* df-problems.c, reginfo.c, sched-rgn.c, basic-block.h: Likewise.
+	* sched-vis.c, passes.c, config/sh/sh-protos.h: Likewise.
+	* config/sh/sh.c, config/sh/sh.h, Likewise.
+	* combine-stack-adj.c, cfgrtl.c, stmt.c: Likewise.
+	* dce.c, reload1.c: Likewise.
+	* targhooks.c: Add #ifndef EXTRA_TARGET / #endif directives.
+	* cfghooks.c, toplev.c, expr.c, calls.c, emit-rtl.c: Likewise.
+	* explow.c, passes.c: Likewise.
+	* targhooks.h: (default_branch_target_register_class): Return int
+	instead of enum reg_class.
+	(default_secondary_reload): Likewise.
+	* config/sh/sh-protos.h (sh_secondary_reload): Likewise.
+	* config/sh/sh.c (sh_secondary_reload): Likewise.
+	* targhooks.h: (default_ira_cover_classes): Return const int *
+	instead of const enum reg_class *.
+	* targhooks.c (default_ira_cover_classes): Likewise.
+	* genrecog.c (write_header, main): Make generated file include
+	"multi-target.h" and have START_TARGET_SPECIFIC and END_TARGET_SPECIFC
+	markers.
+	* genopinit.c (main): Likewise.
+	* genoutput.c (output_prologue, main): Likewise.
+	* genextract.c (print_header, main): Likewise.
+	* genautomata.c (main): Likewise.

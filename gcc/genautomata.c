@@ -9559,10 +9559,14 @@ main (int argc, char **argv)
 		"#include \"toplev.h\"\n"
 		"#include \"flags.h\"\n"
 		"#include \"function.h\"\n"
-		"#include \"emit-rtl.h\"\n");
+		"#include \"emit-rtl.h\"\n"
 	         /* FIXME: emit-rtl.h can go away once crtl is in rtl.h.  */
+		"#include \"multi-target.h\"\n"
+		"\n"
+		"START_TARGET_SPECIFIC\n");
 
 	  write_automata ();
+	  puts ("END_TARGET_SPECIFIC");
 	}
     }
 

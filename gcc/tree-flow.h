@@ -31,6 +31,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cgraph.h"
 #include "ipa-reference.h"
 #include "tree-ssa-alias.h"
+#include "multi-target.h"
 
 
 /* Gimple dataflow datastructure. All publicly available fields shall have
@@ -524,6 +525,7 @@ extern void find_referenced_vars_in (gimple);
 
 /* In tree-phinodes.c  */
 extern void reserve_phi_args_for_new_edge (basic_block);
+extern void reserve_phi_args_for_duplication (basic_block);
 extern void add_phi_node_to_bb (gimple phi, basic_block bb);
 extern gimple make_phi_node (tree var, int len);
 extern gimple create_phi_node (tree, basic_block);
@@ -862,11 +864,15 @@ struct mem_address
 };
 
 struct affine_tree_combination;
+START_TARGET_SPECIFIC
 tree create_mem_ref (gimple_stmt_iterator *, tree,
 		     struct affine_tree_combination *, tree, bool);
 rtx addr_for_mem_ref (struct mem_address *, addr_space_t, bool);
-void get_address_description (tree, struct mem_address *);
 tree maybe_fold_tmr (tree);
+END_TARGET_SPECIFIC
+tree tree_create_mem_ref (gimple_stmt_iterator *, tree, 
+			  struct affine_tree_combination *, tree, bool);
+void get_address_description (tree, struct mem_address *);
 
 unsigned int execute_free_datastructures (void);
 unsigned int execute_fixup_cfg (void);

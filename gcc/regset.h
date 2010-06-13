@@ -33,6 +33,7 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "bitmap.h"		/* For bitmap_iterator.  */
 #include "hard-reg-set.h"
+#include "multi-target.h"
 
 /* Head of register set linked list.  */
 typedef bitmap_head regset_head;
@@ -83,6 +84,7 @@ typedef bitmap regset;
 /* Return true if a register is set in a register set.  */
 #define REGNO_REG_SET_P(TO, REG) bitmap_bit_p (TO, REG)
 
+START_TARGET_SPECIFIC
 /* Copy the hard registers in a register set to the hard register set.  */
 extern void reg_set_to_hard_reg_set (HARD_REG_SET *, const_bitmap);
 #define REG_SET_TO_HARD_REG_SET(TO, FROM)				\
@@ -90,6 +92,7 @@ do {									\
   CLEAR_HARD_REG_SET (TO);						\
   reg_set_to_hard_reg_set (&TO, FROM);					\
 } while (0)
+END_TARGET_SPECIFIC
 
 typedef bitmap_iterator reg_set_iterator;
 

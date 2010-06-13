@@ -252,7 +252,7 @@ set_bb_seq (basic_block bb, gimple_seq seq)
 
 /* Iterator object for GIMPLE statement sequences.  */
 
-typedef struct
+typedef struct gimple_stmt_iterator_d
 {
   /* Sequence node holding the current statement.  */
   gimple_seq_node ptr;
@@ -1060,11 +1060,17 @@ extern void insert_field_into_struct (tree, tree);
 /* In gimplify.c.  */
 extern void gimplify_function_tree (tree);
 
+#ifdef EXTRA_TARGET
+namespace EXTRA_TARGET {
+#endif
 /* In cfgexpand.c.  */
 extern tree gimple_assign_rhs_to_tree (gimple);
 
 /* In builtins.c  */
 extern bool validate_gimple_arglist (const_gimple, ...);
+#ifdef EXTRA_TARGET
+} /* Close EXTRA_TARGET namespace.  */
+#endif
 
 /* In tree-ssa.c  */
 extern bool tree_ssa_useless_type_conversion (tree);

@@ -30,6 +30,8 @@
    rather than the .c file, then we need to wrap the default
    definition in a #ifndef, since files include tm.h before this one.  */
 
+/* TARGET_NAME is defined by the Makefile.  */
+
 /* Assembler output.  */
 #ifndef TARGET_ASM_OPEN_PAREN
 #define TARGET_ASM_OPEN_PAREN "("
@@ -92,6 +94,7 @@
 #define TARGET_ASM_ASSEMBLE_VISIBILITY default_assemble_visibility
 #endif
 
+#define TARGET_ASM_NEW_ARCH default_target_new_arch
 #define TARGET_ASM_FUNCTION_PROLOGUE default_function_pro_epilogue
 #define TARGET_ASM_FUNCTION_EPILOGUE default_function_pro_epilogue
 #define TARGET_ASM_FUNCTION_END_PROLOGUE no_asm_to_stream
@@ -299,6 +302,7 @@
 			TARGET_ASM_INTERNAL_LABEL,		\
 			TARGET_ASM_TTYPE,			\
 			TARGET_ASM_ASSEMBLE_VISIBILITY,		\
+			TARGET_ASM_NEW_ARCH,			\
 			TARGET_ASM_FUNCTION_PROLOGUE,		\
 			TARGET_ASM_FUNCTION_END_PROLOGUE,	\
 			TARGET_ASM_FUNCTION_BEGIN_EPILOGUE,	\
@@ -410,6 +414,8 @@
    TARGET_SCHED_SKIP_RTX_P,					\
    TARGET_SCHED_SMS_RES_MII}
 
+#define TARGET_VECTORIZE_VECTYPE_FOR_SCALAR_TYPE \
+  default_vectype_for_scalar_type
 #define TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD 0
 #define TARGET_VECTORIZE_BUILTIN_VECTORIZED_FUNCTION \
   default_builtin_vectorized_function
@@ -430,6 +436,7 @@
 
 #define TARGET_VECTORIZE                                                \
   {									\
+    TARGET_VECTORIZE_VECTYPE_FOR_SCALAR_TYPE,				\
     TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD,				\
     TARGET_VECTORIZE_BUILTIN_VECTORIZED_FUNCTION,			\
     TARGET_VECTORIZE_BUILTIN_CONVERSION,				\
@@ -490,6 +497,30 @@
 
 #ifndef TARGET_STRIP_NAME_ENCODING
 #define TARGET_STRIP_NAME_ENCODING default_strip_name_encoding
+#endif
+
+#ifndef TARGET_TASK_OK_FOR_TARGET
+#define TARGET_TASK_OK_FOR_TARGET default_task_ok_for_target
+#endif
+
+#ifndef TARGET_COMMON_DATA_WITH_TARGET
+#define TARGET_COMMON_DATA_WITH_TARGET default_common_data_with_target
+#endif
+
+#ifndef TARGET_COPY_TO_TARGET
+#define TARGET_COPY_TO_TARGET 0
+#endif
+
+#ifndef TARGET_COPY_FROM_TARGET
+#define TARGET_COPY_FROM_TARGET 0
+#endif
+
+#ifndef TARGET_ALLOC_TASK_ON_TARGET
+#define TARGET_ALLOC_TASK_ON_TARGET 0
+#endif
+
+#ifndef TARGET_BUILD_CALL_ON_TARGET
+#define TARGET_BUILD_CALL_ON_TARGET 0
 #endif
 
 #ifndef TARGET_BINDS_LOCAL_P
@@ -945,6 +976,10 @@
 #define TARGET_CAN_INLINE_P default_target_can_inline_p
 #endif
 
+#ifndef TARGET_OVERRIDE_OPTIONS
+#define TARGET_OVERRIDE_OPTIONS default_override_options
+#endif
+
 #define TARGET_OPTION_HOOKS			\
   {						\
     TARGET_OPTION_VALID_ATTRIBUTE_P,		\
@@ -953,11 +988,16 @@
     TARGET_OPTION_PRINT,			\
     TARGET_OPTION_PRAGMA_PARSE,			\
     TARGET_CAN_INLINE_P,			\
+    TARGET_OVERRIDE_OPTIONS,			\
   }
 
 /* The whole shebang.  */
 #define TARGET_INITIALIZER			\
 {						\
+  TARGET_NAME,					\
+  TARGET_NUM,					\
+  &sizetype_tab[0],				\
+  &optab_table[0],				\
   TARGET_ASM_OUT,				\
   TARGET_SCHED,					\
   TARGET_VECTORIZE,				\
@@ -1015,6 +1055,12 @@
   TARGET_MANGLE_DECL_ASSEMBLER_NAME,		\
   TARGET_ENCODE_SECTION_INFO,			\
   TARGET_STRIP_NAME_ENCODING,			\
+  TARGET_TASK_OK_FOR_TARGET,			\
+  TARGET_COMMON_DATA_WITH_TARGET,		\
+  TARGET_COPY_TO_TARGET,			\
+  TARGET_COPY_FROM_TARGET,			\
+  TARGET_ALLOC_TASK_ON_TARGET,			\
+  TARGET_BUILD_CALL_ON_TARGET,			\
   TARGET_SHIFT_TRUNCATION_MASK,			\
   TARGET_MIN_DIVISIONS_FOR_RECIP_MUL,		\
   TARGET_MODE_REP_EXTENDED,			\

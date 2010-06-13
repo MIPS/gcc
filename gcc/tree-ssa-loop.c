@@ -553,7 +553,15 @@ struct gimple_opt_pass pass_complete_unrolli =
 static bool
 gate_tree_parallelize_loops (void)
 {
-  return flag_tree_parallelize_loops > 1;
+  struct loop *loop;
+  loop_iterator li;
+
+  if (flag_tree_parallelize_loops > 1)
+    return true;
+  FOR_EACH_LOOP (li, loop, 0)
+    if (loop->target_arch != cfun->target_arch)
+      return true;
+  return false;
 }
 
 static unsigned

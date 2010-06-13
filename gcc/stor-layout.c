@@ -41,6 +41,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-inline.h"
 #include "tree-dump.h"
 #include "gimple.h"
+#include "multi-target.h"
+
+extern enum machine_mode (*vector_type_mode_array[]) (const_tree);
+
+START_TARGET_SPECIFIC
 
 /* Data type for the expressions representing sizes of data types.
    It is the first integer type laid out.  */
@@ -2103,6 +2108,9 @@ vector_type_mode (const_tree t)
 {
   enum machine_mode mode;
 
+  if (&targetm != &this_targetm)
+    return (*vector_type_mode_array[targetm.target_arch]) (t);
+
   gcc_assert (TREE_CODE (t) == VECTOR_TYPE);
 
   mode = t->type.mode;
@@ -2127,6 +2135,12 @@ vector_type_mode (const_tree t)
 
   return mode;
 }
+
+#ifndef EXTRA_TARGET
+EXTRA_TARGETS_DECL (enum machine_mode vector_type_mode (const_tree))
+enum machine_mode (*vector_type_mode_array[]) (const_tree)
+  = { &vector_type_mode, EXTRA_TARGETS_EXPAND_COMMA (&, vector_type_mode) };
+#endif /* !EXTRA_TARGET */
 
 /* Create and return a type for signed integers of PRECISION bits.  */
 
@@ -2498,3 +2512,5 @@ get_mode_bounds (enum machine_mode mode, int sign,
 }
 
 #include "gt-stor-layout.h"
+
+END_TARGET_SPECIFIC

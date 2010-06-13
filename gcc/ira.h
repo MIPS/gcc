@@ -20,6 +20,10 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
+
 /* Number of given class hard registers available for the register
    allocation for given classes.  */
 extern int ira_available_class_regs[N_REG_CLASSES];
@@ -89,3 +93,4 @@ extern bool ira_better_spill_reload_regno_p (int *, int *, rtx, rtx, rtx);
 extern bool ira_bad_reload_regno (int, rtx, rtx);
 
 extern void ira_adjust_equiv_reg_cost (unsigned, int);
+END_TARGET_SPECIFIC

@@ -43,6 +43,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "ggc.h"
 #include "basic-block.h"
 #include "target.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 /* Each optab contains info on how this target machine
    can perform a particular operation
@@ -311,13 +314,21 @@ widen_operand (rtx op, enum machine_mode mode, enum machine_mode oldmode,
   return result;
 }
 
+#ifndef EXTRA_TARGET
+EXTRA_TARGETS_DECL (optab optab_for_tree_code_1 (enum tree_code, const_tree,
+						 enum optab_subtype))
+optab
+  (*optab_for_tree_code_array[]) (enum tree_code, const_tree, enum optab_subtype)
+    = { optab_for_tree_code_1,
+	EXTRA_TARGETS_EXPAND_COMMA (&, optab_for_tree_code_1) };
+#endif
 /* Return the optab used for computing the operation given by the tree code,
    CODE and the tree EXP.  This function is not always usable (for example, it
    cannot give complete results for multiplication or division) but probably
    ought to be relied on more widely throughout the expander.  */
 optab
-optab_for_tree_code (enum tree_code code, const_tree type,
-		     enum optab_subtype subtype)
+optab_for_tree_code_1 (enum tree_code code, const_tree type,
+		       enum optab_subtype subtype)
 {
   bool trapv;
   switch (code)
@@ -545,7 +556,7 @@ expand_widen_pattern_expr (sepops ops, rtx op0, rtx op1, rtx wide_op,
   oprnd0 = ops->op0;
   tmode0 = TYPE_MODE (TREE_TYPE (oprnd0));
   widen_pattern_optab =
-    optab_for_tree_code (ops->code, TREE_TYPE (oprnd0), optab_default);
+    optab_for_tree_code_1 (ops->code, TREE_TYPE (oprnd0), optab_default);
   icode = (int) optab_handler (widen_pattern_optab, tmode0)->insn_code;
   gcc_assert (icode != CODE_FOR_nothing);
   xmode0 = insn_data[icode].operand[1].mode;
@@ -7432,3 +7443,5 @@ expand_sync_lock_test_and_set (rtx mem, rtx val, rtx target)
 }
 
 #include "gt-optabs.h"
+
+END_TARGET_SPECIFIC

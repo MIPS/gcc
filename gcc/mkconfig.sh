@@ -56,13 +56,18 @@ fi
 
 # Provide defines for other macros set in config.gcc for this file.
 for def in $DEFINES; do
-    echo "#ifndef $def" | sed 's/=.*//' >> ${output}T
+    echo "#ifndef $def" | sed 's/[=(].*//' >> ${output}T
     echo "# define $def" | sed 's/=/ /' >> ${output}T
     echo "#endif" >> ${output}T
 done
 
 # The first entry in HEADERS may be auto-FOO.h ;
 # it wants to be included even when not -DIN_GCC.
+# We wrap FOO/FOO-protos.h in START_TARGET_SPECIFIC / END_TARGET_SPECIFIC
+# so that we don't need to do this manually for every target.
+# For this, we make use of the fact that configure.ac puts tm-preds.h at the
+# end of tm_p_file, and the cs-tm_p.h in Makefile.in prepends
+# "multi-target.h to $(tm_p_include_list) in HEADERS.
 # Postpone including defaults.h until after the insn-*
 # headers, so that the HAVE_* flags are available
 # when defaults.h gets included.
@@ -80,9 +85,20 @@ if [ -n "$HEADERS" ]; then
 	    if test x"$file" = x"defaults.h"; then
 		postpone_defaults_h="yes"
 	    else
+		if test x"$file" = x"tm-preds.h"; then
+		    echo 'END_TARGET_SPECIFIC' >> ${output}T
+		    in_namespace=no
+		fi
 		echo "# include \"$file\"" >> ${output}T
+		if test x"$file" = x"multi-target.h"; then
+		    echo 'START_TARGET_SPECIFIC' >> ${output}T
+		    in_namespace=yes
+		fi
 	    fi
 	done
+	if test x"$in_namespace" = x"yes"; then
+	    echo 'END_TARGET_SPECIFIC' >> ${output}T
+	fi
 	echo '#endif' >> ${output}T
     fi
 fi

@@ -36,6 +36,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "tree-inline.h"
 #include "langhooks.h"
+#include "target.h"
+#include "multi-target.h"
 
 /* Creates an induction variable with value BASE + STEP * iteration in LOOP.
    It is expected that neither BASE nor STEP are shared with other expressions
@@ -1138,7 +1140,8 @@ rewrite_phi_with_iv (loop_p loop,
   remove_phi_node (psi, false);
 
   atype = TREE_TYPE (res);
-  mtype = POINTER_TYPE_P (atype) ? sizetype : atype;
+  mtype = (POINTER_TYPE_P (atype)
+	   ? targetm_array[loop->target_arch]->sizetype_tab[SIZETYPE] : atype);
   val = fold_build2 (MULT_EXPR, mtype, unshare_expr (iv.step),
 		     fold_convert (mtype, main_iv));
   val = fold_build2 (POINTER_TYPE_P (atype)

@@ -1,0 +1,5 @@
+2010-02-18  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* configure.ac: When --with-extra-target-list is given, ensure
+	--enable-build-with-cxx is active.
+	* configure: Regenerate.

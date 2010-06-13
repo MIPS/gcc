@@ -22,6 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_GGC_H
 #define GCC_GGC_H
 #include "statistics.h"
+#include "multi-target.h"
 
 /* Symbols are marked with `ggc' for `gcc gc' so as not to interfere with
    an external gc library that might be linked in.  */
@@ -147,8 +148,10 @@ extern void *ggc_internal_alloc_stat (size_t MEM_STAT_DECL);
 
 #define ggc_internal_alloc(s) ggc_internal_alloc_stat (s MEM_STAT_INFO)
 
+START_TARGET_SPECIFIC
 /* Allocate an object of the specified type and size.  */
 extern void *ggc_alloc_typed_stat (enum gt_types_enum, size_t MEM_STAT_DECL);
+END_TARGET_SPECIFIC
 
 #define ggc_alloc_typed(s, z) ggc_alloc_typed_stat (s, z MEM_STAT_INFO)
 
@@ -354,4 +357,4 @@ ggc_alloc_cleared_gimple_statement_d_stat (size_t s MEM_STAT_DECL)
     ggc_internal_cleared_alloc_stat (s PASS_MEM_STAT);
 }
 
-#endif
+#endif /* GCC_GGC_H */

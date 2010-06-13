@@ -44,6 +44,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "hashtab.h"
 #include "df.h"
 #include "dbgcnt.h"
+#include "multi-target.h"
 
 /* This pass implements downward store motion.
    As of May 1, 2009, the pass is not enabled by default on any target,
@@ -88,6 +89,8 @@ struct st_expr
      LAST_AVAIL_CHECK_FAILURE below.  */
   rtx reaching_reg;
 };
+
+START_TARGET_SPECIFIC
 
 /* Head of the list of load/store memory refs.  */
 static struct st_expr * store_motion_mems = NULL;
@@ -1262,3 +1265,4 @@ struct rtl_opt_pass pass_rtl_store_motion =
  }
 };
 
+END_TARGET_SPECIFIC

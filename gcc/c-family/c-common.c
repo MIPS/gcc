@@ -330,6 +330,8 @@ static tree handle_transparent_union_attribute (tree *, tree, tree,
 static tree handle_constructor_attribute (tree *, tree, tree, int, bool *);
 static tree handle_destructor_attribute (tree *, tree, tree, int, bool *);
 static tree handle_mode_attribute (tree *, tree, tree, int, bool *);
+static tree handle_target_arch_attribute (tree *, tree, tree, int, bool *);
+static tree handle_caller_arch_attribute (tree *, tree, tree, int, bool *);
 static tree handle_section_attribute (tree *, tree, tree, int, bool *);
 static tree handle_aligned_attribute (tree *, tree, tree, int, bool *);
 static tree handle_weak_attribute (tree *, tree, tree, int, bool *) ;
@@ -599,6 +601,12 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_destructor_attribute },
   { "mode",                   1, 1, false,  true, false,
 			      handle_mode_attribute },
+  { "target_arch",            1, 1, true,  false, false,
+			      handle_target_arch_attribute },
+  /* FIXME: caller_arch is needed by the tree optimizers and should
+     therefore be in a language and target independent table.  */
+  { "caller_arch",            1, 1, true,  false, false,
+			      handle_caller_arch_attribute },
   { "section",                1, 1, true,  false, false,
 			      handle_section_attribute },
   { "aligned",                0, 1, false, false, false,
@@ -6450,6 +6458,46 @@ handle_mode_attribute (tree *node, tree name, tree args,
   return NULL_TREE;
 }
 
+/* Handle a "target" attribute; arguments as in
+   struct attribute_spec.handler.  */
+static tree
+handle_target_arch_attribute (tree *node, tree ARG_UNUSED (name), tree args,
+			      int ARG_UNUSED (flags), bool *no_add_attrs)
+{
+  int i;
+
+  for (i = 0; targetm_array[i]; i++)
+    if (strcmp (targetm_array[i]->name,
+		TREE_STRING_POINTER (TREE_VALUE (args))) == 0)
+      {
+	return NULL_TREE;
+      }
+  error_at (DECL_SOURCE_LOCATION (*node),
+	    "target attribute for non-configured target");
+  *no_add_attrs = true;
+  return NULL_TREE;
+}
+
+/* Handle a "caller_arch" attribute; arguments as in
+   struct attribute_spec.handler.  */
+static tree
+handle_caller_arch_attribute (tree *node, tree ARG_UNUSED (name), tree args,
+			      int ARG_UNUSED (flags), bool *no_add_attrs)
+{
+  int i;
+
+  for (i = 0; targetm_array[i]; i++)
+    if (strcmp (targetm_array[i]->name,
+		TREE_STRING_POINTER (TREE_PURPOSE (args))) == 0)
+      {
+	return NULL_TREE;
+      }
+  error_at (DECL_SOURCE_LOCATION (*node),
+	    "caller_arch attribute for non-configured target");
+  *no_add_attrs = true;
+  return NULL_TREE;
+}
+
 /* Handle a "section" attribute; arguments as in
    struct attribute_spec.handler.  */
 
@@ -7614,10 +7662,13 @@ handle_target_attribute (tree *node, tree name, tree args, int flags,
       warning (OPT_Wattributes, "%qE attribute ignored", name);
       *no_add_attrs = true;
     }
-  else if (! targetm.target_option.valid_attribute_p (*node, name, args,
-						      flags))
-    *no_add_attrs = true;
+  else
+    {
+      struct gcc_target *tgtp = targetm_array[lookup_attr_target (*node)];
 
+      if (! tgtp->target_option.valid_attribute_p (*node, name, args, flags))
+	*no_add_attrs = true;
+    }
   return NULL_TREE;
 }
 

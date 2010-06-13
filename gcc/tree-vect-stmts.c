@@ -3050,7 +3050,8 @@ vectorizable_store (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
   vec_mode = TYPE_MODE (vectype);
   /* FORNOW. In some cases can vectorize even if data-type not supported
      (e.g. - array initialization with 0).  */
-  if (optab_handler (mov_optab, (int)vec_mode)->insn_code == CODE_FOR_nothing)
+  if (optab_handler (&targetm.optab_table[OTI_mov], (int)vec_mode)->insn_code
+      == CODE_FOR_nothing)
     return false;
 
   if (!STMT_VINFO_DATA_REF (stmt_info))
@@ -3432,7 +3433,8 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
 
   /* FORNOW. In some cases can vectorize even if data-type not supported
     (e.g. - data copies).  */
-  if (optab_handler (mov_optab, mode)->insn_code == CODE_FOR_nothing)
+  if (optab_handler (&targetm.optab_table[OTI_mov], mode)->insn_code
+      == CODE_FOR_nothing)
     {
       if (vect_print_dump_info (REPORT_DETAILS))
 	fprintf (vect_dump, "Aligned load, but unsupported type.");
@@ -4482,67 +4484,6 @@ free_stmt_vec_info (gimple stmt)
   VEC_free (dr_p, heap, STMT_VINFO_SAME_ALIGN_REFS (stmt_info));
   set_vinfo_for_stmt (stmt, NULL);
   free (stmt_info);
-}
-
-
-/* Function get_vectype_for_scalar_type.
-
-   Returns the vector type corresponding to SCALAR_TYPE as supported
-   by the target.  */
-
-tree
-get_vectype_for_scalar_type (tree scalar_type)
-{
-  enum machine_mode inner_mode = TYPE_MODE (scalar_type);
-  unsigned int nbytes = GET_MODE_SIZE (inner_mode);
-  int nunits;
-  tree vectype;
-
-  if (nbytes == 0 || nbytes >= UNITS_PER_SIMD_WORD (inner_mode))
-    return NULL_TREE;
-
-  /* We can't build a vector type of elements with alignment bigger than
-     their size.  */
-  if (nbytes < TYPE_ALIGN_UNIT (scalar_type))
-    return NULL_TREE;
-
-  /* If we'd build a vector type of elements whose mode precision doesn't
-     match their types precision we'll get mismatched types on vector
-     extracts via BIT_FIELD_REFs.  This effectively means we disable
-     vectorization of bool and/or enum types in some languages.  */
-  if (INTEGRAL_TYPE_P (scalar_type)
-      && GET_MODE_BITSIZE (inner_mode) != TYPE_PRECISION (scalar_type))
-    return NULL_TREE;
-
-  /* FORNOW: Only a single vector size per mode (UNITS_PER_SIMD_WORD)
-     is expected.  */
-  nunits = UNITS_PER_SIMD_WORD (inner_mode) / nbytes;
-
-  vectype = build_vector_type (scalar_type, nunits);
-  if (vect_print_dump_info (REPORT_DETAILS))
-    {
-      fprintf (vect_dump, "get vectype with %d units of type ", nunits);
-      print_generic_expr (vect_dump, scalar_type, TDF_SLIM);
-    }
-
-  if (!vectype)
-    return NULL_TREE;
-
-  if (vect_print_dump_info (REPORT_DETAILS))
-    {
-      fprintf (vect_dump, "vectype: ");
-      print_generic_expr (vect_dump, vectype, TDF_SLIM);
-    }
-
-  if (!VECTOR_MODE_P (TYPE_MODE (vectype))
-      && !INTEGRAL_MODE_P (TYPE_MODE (vectype)))
-    {
-      if (vect_print_dump_info (REPORT_DETAILS))
-        fprintf (vect_dump, "mode not supported by target.");
-      return NULL_TREE;
-    }
-
-  return vectype;
 }
 
 /* Function get_same_sized_vectype

@@ -37,6 +37,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "bitmap.h"
 #include "sbitmap.h"
 #include "timevar.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 /* Store the data structures necessary for depth-first search.  */
 struct depth_first_search_dsS {
@@ -1356,4 +1359,4 @@ compute_idf (bitmap def_blocks, bitmap_head *dfs)
   return phi_insertion_points;
 }
 
-
+END_TARGET_SPECIFIC

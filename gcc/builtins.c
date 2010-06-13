@@ -50,6 +50,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-flow.h"
 #include "value-prof.h"
 #include "diagnostic-core.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 #ifndef SLOW_UNALIGNED_ACCESS
 #define SLOW_UNALIGNED_ACCESS(MODE, ALIGN) STRICT_ALIGNMENT
@@ -3553,7 +3556,7 @@ expand_movstr (tree dest, tree src, rtx target, int endp)
   rtx dest_mem;
   rtx src_mem;
   rtx insn;
-  const struct insn_data * data;
+  const struct insn_data_d * data;
 
   if (!HAVE_movstr)
     return NULL_RTX;
@@ -13784,3 +13787,5 @@ set_builtin_user_assembler_name (tree decl, const char *asmspec)
       break;
     }
 }
+
+END_TARGET_SPECIFIC

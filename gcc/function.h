@@ -27,6 +27,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "vecprim.h"
 #include "tm.h"		/* For CUMULATIVE_ARGS.  */
 #include "hard-reg-set.h"
+#include "multi-target.h"
+#ifdef GENERATOR_FILE
+#include "target-gtypes.h"
+#elif 1
+/* ??? We still have clashes of target-defines with enum tags, e.g. mxp
+   insn-constants.h defines FP_REG, which is an enum tag in arc.h that
+   gets copied into the arc namespace of target-types.h.
+   Using target-gtypes.h is not standards conformant, because the same type
+   has different definitions in different files (albeit all the same size).  */
+#include "target-gtypes.h"
+#else
+#include "target-types.h"
+#endif
 
 /* Stack of pending (incomplete) sequences saved by `start_sequence'.
    Each element describes one pending sequence.
@@ -85,7 +98,6 @@ struct GTY(()) emit_status {
      Allocated in parallel with x_regno_reg_rtx.  */
   unsigned char * GTY((skip)) regno_pointer_align;
 };
-
 
 /* Indexed by pseudo register number, gives the rtx for that pseudo.
    Allocated in parallel with regno_pointer_align.
@@ -210,11 +222,23 @@ struct GTY(()) incoming_args {
 
   /* Quantities of various kinds of registers
      used for the current function's args.  */
-  CUMULATIVE_ARGS info;
+  cumulative_args_u GTY ((desc ("cfun ? cfun->target_arch : -1"))) info;
 
   /* The arg pointer hard register, or the pseudo into which it was copied.  */
   rtx internal_arg_pointer;
 };
+
+#ifdef EXTRA_TARGET
+#define CONCAT_(A,B) A##B
+#define CONCAT(A,B) CONCAT_(A,B)
+#define INCOMING_ARGS_INFO(INCOMING_ARGS) \
+  ((INCOMING_ARGS).info.CONCAT(EXTRA_TARGET,_ca))
+#define MACHINE_FUNCTION(FUNCTION) \
+  ((FUNCTION).machine.CONCAT(EXTRA_TARGET,_mf))
+#else
+#define INCOMING_ARGS_INFO(INCOMING_ARGS) ((INCOMING_ARGS).info._ca)
+#define MACHINE_FUNCTION(FUNCTION) ((FUNCTION).machine._mf)
+#endif
 
 /* Data for function partitioning.  */
 struct GTY(()) function_subsections {
@@ -243,6 +267,8 @@ struct GTY(()) frame_space
   HOST_WIDE_INT start;
   HOST_WIDE_INT length;
 };
+
+struct initial_value_struct;
 
 /* Datastructures maintained for currently processed function in RTL form.  */
 struct GTY(()) rtl_data {
@@ -509,7 +535,7 @@ struct GTY(()) function {
   /* For md files.  */
 
   /* tm.h can use this to store whatever it likes.  */
-  struct machine_function * GTY ((maybe_undef)) machine;
+  machine_function_u GTY ((desc ("%0.target_arch"))) machine;
 
   /* Language-specific code can use this to store whatever it likes.  */
   struct language_function * language;
@@ -607,6 +633,9 @@ struct GTY(()) function {
      adjusts one of its arguments and forwards to another
      function.  */
   unsigned int is_thunk : 1;
+
+  /* Target architecture to compile this function for.  */
+  unsigned int target_arch : 8;
 };
 
 /* If va_list_[gf]pr_size is set to this, it means we don't know how
@@ -622,6 +651,7 @@ extern GTY(()) struct function *cfun;
    push_cfun or set_cfun.  */
 #define cfun (cfun + 0)
 
+START_TARGET_SPECIFIC
 /* Nonzero if we've already converted virtual regs to hard regs.  */
 extern int virtuals_instantiated;
 
@@ -719,4 +749,5 @@ extern int get_next_funcdef_no (void);
 extern bool optimize_function_for_size_p (struct function *);
 extern bool optimize_function_for_speed_p (struct function *);
 
+END_TARGET_SPECIFIC
 #endif  /* GCC_FUNCTION_H */

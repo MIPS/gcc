@@ -323,7 +323,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "integrate.h"
 #include "ggc.h"
 #include "ira-int.h"
+#include "multi-target.h"
 
+START_TARGET_SPECIFIC
 
 /* A modified value of flag `-fira-verbose' used internally.  */
 int internal_flag_ira_verbose;
@@ -743,14 +745,14 @@ setup_cover_and_important_classes (void)
 {
   int i, j, n, cl;
   bool set_p;
-  const enum reg_class *cover_classes;
+  const int /*enum reg_class*/ *cover_classes;
   HARD_REG_SET temp_hard_regset2;
   static enum reg_class classes[LIM_REG_CLASSES + 1];
 
-  if (targetm.ira_cover_classes == NULL)
+  if (this_targetm.ira_cover_classes == NULL)
     cover_classes = NULL;
   else
-    cover_classes = targetm.ira_cover_classes ();
+    cover_classes = this_targetm.ira_cover_classes ();
   if (cover_classes == NULL)
     ira_assert (flag_ira_algorithm == IRA_ALGORITHM_PRIORITY);
   else
@@ -3460,3 +3462,5 @@ struct rtl_opt_pass pass_ira =
   TODO_ggc_collect                      /* todo_flags_finish */
  }
 };
+
+END_TARGET_SPECIFIC

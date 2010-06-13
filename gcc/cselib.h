@@ -72,6 +72,10 @@ enum cselib_record_what
   CSELIB_PRESERVE_CONSTANTS = 2
 };
 
+#ifdef EXTRA_TARGET
+namespace EXTRA_TARGET {
+#endif
+
 extern void (*cselib_discard_hook) (cselib_val *);
 extern void (*cselib_record_sets_hook) (rtx insn, struct cselib_set *sets,
 					int n_sets);
@@ -102,3 +106,7 @@ extern void cselib_preserve_only_values (void);
 extern void cselib_preserve_cfa_base_value (cselib_val *);
 
 extern void dump_cselib_table (FILE *);
+
+#ifdef EXTRA_TARGET
+} /* Close EXTRA_TARGET namespace.  */
+#endif

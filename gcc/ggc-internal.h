@@ -51,12 +51,14 @@ struct ggc_pch_data;
 /* Return a new ggc_pch_data structure.  */
 extern struct ggc_pch_data *init_ggc_pch (void);
 
+START_TARGET_SPECIFIC
 /* The second parameter and third parameters give the address and size
    of an object.  Update the ggc_pch_data structure with as much of
    that information as is necessary. The bool argument should be true
    if the object is a string.  */
 extern void ggc_pch_count_object (struct ggc_pch_data *, void *, size_t, bool,
 				  enum gt_types_enum);
+END_TARGET_SPECIFIC
 
 /* Return the total size of the data to be written to hold all
    the objects previously passed to ggc_pch_count_object.  */
@@ -66,11 +68,13 @@ extern size_t ggc_pch_total_size (struct ggc_pch_data *);
    in the second parameter.  */
 extern void ggc_pch_this_base (struct ggc_pch_data *, void *);
 
+START_TARGET_SPECIFIC
 /* Assuming that the objects really do end up at the address
    passed to ggc_pch_this_base, return the address of this object.
    The bool argument should be true if the object is a string.  */
 extern char *ggc_pch_alloc_object (struct ggc_pch_data *, void *, size_t, bool,
 				   enum gt_types_enum);
+END_TARGET_SPECIFIC
 
 /* Write out any initial information required.  */
 extern void ggc_pch_prepare_write (struct ggc_pch_data *, FILE *);

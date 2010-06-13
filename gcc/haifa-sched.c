@@ -149,6 +149,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfgloop.h"
 #include "ira.h"
 #include "emit-rtl.h"  /* FIXME: Can go away once crtl is moved to rtl.h.  */
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 #ifdef INSN_SCHEDULING
 
@@ -5563,3 +5566,5 @@ sched_emit_insn (rtx pat)
 }
 
 #endif /* INSN_SCHEDULING */
+
+END_TARGET_SPECIFIC

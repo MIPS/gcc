@@ -22,6 +22,8 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_CFGHOOKS_H
 #define GCC_CFGHOOKS_H
 
+#include "multi-target.h"
+
 struct cfg_hooks
 {
   /* Name of the corresponding ir.  */
@@ -138,6 +140,8 @@ struct cfg_hooks
   void (*flush_pending_stmts) (edge);
 };
 
+START_TARGET_SPECIFIC
+
 extern void verify_flow_info (void);
 extern void dump_bb (basic_block, FILE *, int);
 extern edge redirect_edge_and_branch (edge, basic_block);
@@ -182,7 +186,9 @@ extern void lv_add_condition_to_bb (basic_block, basic_block, basic_block,
 				    void *);
 
 /* Hooks containers.  */
+END_TARGET_SPECIFIC
 extern struct cfg_hooks gimple_cfg_hooks;
+START_TARGET_SPECIFIC
 extern struct cfg_hooks rtl_cfg_hooks;
 extern struct cfg_hooks cfg_layout_rtl_cfg_hooks;
 
@@ -193,5 +199,7 @@ extern void cfg_layout_rtl_register_cfg_hooks (void);
 extern void gimple_register_cfg_hooks (void);
 extern struct cfg_hooks get_cfg_hooks (void);
 extern void set_cfg_hooks (struct cfg_hooks);
+
+END_TARGET_SPECIFIC
 
 #endif  /* GCC_CFGHOOKS_H */
