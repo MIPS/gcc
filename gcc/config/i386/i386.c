@@ -8122,7 +8122,7 @@ ix86_compute_frame_layout (struct ix86_frame *frame)
      expect the decision to change within single iteration.  */
   if (!optimize_function_for_size_p (cfun)
       && (MACHINE_FUNCTION (*cfun)->use_fast_prologue_epilogue_nregs
-	  != frame->nregs)
+	  != frame->nregs))
     {
       int count = frame->nregs;
       struct cgraph_node *node = cgraph_node (current_function_decl);

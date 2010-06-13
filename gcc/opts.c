@@ -707,7 +707,7 @@ EXTRA_TARGETS_DECL (void decode_options (unsigned int argc, const char **argv))
    options processing.  */
 void
 decode_options (unsigned int argc ATTRIBUTE_UNUSED,
-		const char **argv ATTRIBUTE_UNUSE)
+		const char **argv ATTRIBUTE_UNUSED)
 {
   static bool first_time_p = true;
 #ifndef EXTRA_TARGET

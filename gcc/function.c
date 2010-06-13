@@ -4233,6 +4233,7 @@ lookup_attr_target (tree fndecl ATTRIBUTE_UNUSED)
 
 void
 allocate_struct_function (tree fndecl, bool abstract_p)
+{
   int i = lookup_attr_target (fndecl);
   cfun = ggc_alloc_cleared_function ();
   cfun->target_arch = i;
@@ -4245,8 +4246,6 @@ allocate_struct_function (tree fndecl, bool abstract_p)
 
 void
 allocate_struct_function_1 (tree fndecl, bool abstract_p)
-{
-
 {
   tree result;
   tree fntype = fndecl ? TREE_TYPE (fndecl) : NULL_TREE;

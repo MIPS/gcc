@@ -217,7 +217,7 @@ enum insn_merge_code
   MERGE_SUCCESS
 };
 
-START_TARGET_SPECFIC
+START_TARGET_SPECIFIC
 
 /* This says if a INSN UID or its definition has already been merged
    with a zero-extend or not.  */
