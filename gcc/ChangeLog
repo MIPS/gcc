@@ -1,3 +1,9 @@
+2010-06-13  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	PR bootstrap/44512
+	* genenums.c (main): Output include of insn-constants.h
+	* Makefile.in (insn-enums.o): Depend on insn-constants.h.
+
 2010-06-12  Jan Hubicka  <jh@suse.cz>
 
 	* cse.c (cse_extended_basic_block): Move optimize_bb_for_speed_p
@@ -916,7 +922,7 @@
 	(analyze_access_subtree): Pass negative allow_replacements to children
 	if the current type is scalar.
 
-2010-06-09  Joern Rennecke  <amylaar@spamcop.net>
+2010-06-09  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	PR testsuite/42843
 	* gcc-plugin.h (int plugin_is_GPL_compatible): Declare as extern "C".

@@ -3588,7 +3588,7 @@ $(TA)insn-emit.o : $(TA)insn-emit.c $(CONFIG_H) $(SYSTEM_H) coretypes.h	\
   dfp.h $(FLAGS_H) output.h insn-config.h hard-reg-set.h $(RECOG_H)	\
   $(RESOURCE_H) reload.h $(TOPLEV_H) $(REGS_H) tm-constrs.h $(GGC_H)	\
   $(BASIC_BLOCK_H) $(INTEGRATE_H)
-$(TA)insn-enums.o : $(TA)insn-enums.c $(CONFIG_H) $(SYSTEM_H)
+$(TA)insn-enums.o : $(TA)insn-enums.c $(CONFIG_H) $(SYSTEM_H) insn-constants.h
 $(TA)insn-extract.o : $(TA)insn-extract.c $(CONFIG_H) $(SYSTEM_H)	\
   coretypes.h $(TM_H) $(RTL_H) $(TOPLEV_H) insn-config.h $(RECOG_H)
 $(TA)insn-modes.o : $(TA)insn-modes.c $(CONFIG_H) $(SYSTEM_H)		\
