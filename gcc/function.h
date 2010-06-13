@@ -235,9 +235,11 @@ struct GTY(()) incoming_args {
   ((INCOMING_ARGS).info.CONCAT(EXTRA_TARGET,_ca))
 #define MACHINE_FUNCTION(FUNCTION) \
   ((FUNCTION).machine.CONCAT(EXTRA_TARGET,_mf))
+#define CRTL_ASM_CLOBBERS (crtl->asm_clobbers.CONCAT(EXTRA_TARGET,_hrs))
 #else
 #define INCOMING_ARGS_INFO(INCOMING_ARGS) ((INCOMING_ARGS).info._ca)
 #define MACHINE_FUNCTION(FUNCTION) ((FUNCTION).machine._mf)
+#define CRTL_ASM_CLOBBERS (crtl->asm_clobbers._hrs)
 #endif
 
 /* Data for function partitioning.  */
@@ -469,7 +471,7 @@ struct GTY(()) rtl_data {
      asm.  Unlike regs_ever_live, elements of this array corresponding
      to eliminable regs (like the frame pointer) are set if an asm
      sets them.  */
-  HARD_REG_SET asm_clobbers;
+  hard_reg_set_u GTY ((desc ("cfun ? cfun->target_arch : -1"))) asm_clobbers;
 };
 
 #define return_label (crtl->x_return_label)

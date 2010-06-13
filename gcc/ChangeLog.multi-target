@@ -3,6 +3,17 @@
 	* targhooks.c: Include tree-pretty-print.h.
 	Makefile.in (targhooks.o): Depend on tree-pretty-print.h.
 
+	* gengenrtl.c: Make body of genrtl.h target specific.
+
+	* Makefile.in (THIS-TARGET/target-gtypes.h): Amend _hrs field name.
+	(target-types.h): Emit definition for hard_reg_set_u.
+	* gentargtype.cc (main): Output definition for hard_reg_set_u.
+	* function.h (CRTL_ASM_CLOBBERS): Define.
+	(rtl_data): Define asm_clobbers as hard_reg_set_u.
+	* expr.c (expand_expr_real_1): Use CRTL_ASM_CLOBBERS.
+	* ira.c (compute_regs_asm_clobbered): Likewise.
+	(ira_setup_eliminable_regset): Likewise.
+
 2010-02-18  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* tree-ssa-address.c (create_mem_ref): Fix EXTRA_TARGETS_DECL type.

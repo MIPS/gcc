@@ -25,5 +25,13 @@ main (void)
 	  (int) sizeof (machine_function_u));
   printf ("    void *(*GTY ((skip)) align_dummy)[1];\n"
 	  "  } machine_function_u;\n");
+  printf ("\n"
+	  "typedef union GTY (())\n"
+          "  {\n"
+	  "    TARGET_SCOPE HARD_REG_SET GTY ((tag (\"TARGET_NUM\"))) _hrs;\n");
+  printf ("    char GTY ((default)) dummy[%d];\n",
+	  (int) sizeof (hard_reg_set_u));
+  printf ("    void *GTY ((skip)) align_dummy[1];\n"
+	  "  } hard_reg_set_u;\n");
   return 0;
 }
