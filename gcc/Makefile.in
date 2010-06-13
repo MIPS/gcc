@@ -3316,7 +3316,7 @@ $(TA)reload1.o : reload1.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(BASIC_BLOCK_H) $(RECOG_H) output.h $(FUNCTION_H) $(TOPLEV_H) $(TM_P_H) \
    addresses.h $(EXCEPT_H) $(TREE_H) $(FLAGS_H) $(MACHMODE_H) \
    $(OBSTACK_H) $(DF_H) $(TARGET_H) $(EMIT_RTL_H) ira.h
-$(TA)rtlhooks.o :  rtlhooks.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H)
+$(TA)rtlhooks.o :  rtlhooks.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(RTL_H) rtlhooks-def.h $(EXPR_H) $(RECOG_H)
 $(TA)postreload.o : postreload.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(RTL_H) $(FLAGS_H) $(EXPR_H) $(OPTABS_H) reload.h $(REGS_H) \
@@ -3438,7 +3438,7 @@ $(TA)sel-sched-dump.o : sel-sched-dump.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(SEL_SCHED_DUMP_H) $(GGC_H) $(TREE_H) $(LANGHOOKS_DEF_H) $(SEL_SCHED_IR_H) \
    output.h $(BASIC_BLOCK_H) cselib.h
 $(TA)sel-sched-ir.o : sel-sched-ir.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
-   $(TM_H) \ $(RTL_H) $(REGS_H) hard-reg-set.h $(FLAGS_H) insn-config.h \
+   $(TM_H) $(RTL_H) $(REGS_H) hard-reg-set.h $(FLAGS_H) insn-config.h \
    $(FUNCTION_H) $(INSN_ATTR_H) $(TOPLEV_H) $(RECOG_H) $(EXCEPT_H) $(PARAMS_H) \
    $(TM_P_H) $(TARGET_H) $(TIMEVAR_H) $(TREE_PASS_H) $(SCHED_INT_H) $(GGC_H) \
    $(TREE_H) langhooks.h rtlhooks-def.h $(SEL_SCHED_IR_H) $(SEL_SCHED_DUMP_H) \
