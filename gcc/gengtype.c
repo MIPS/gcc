@@ -2555,9 +2555,6 @@ get_output_file_for_structure (const_type_p s, type_p *param)
   const char * fn = s->u.s.line.file;
   int i;
 
-#ifdef EXTRA_TARGET /* FIXME */
-  return;
-#endif
   /* This is a hack, and not the good kind either.  */
   for (i = NUM_PARAM - 1; i >= 0; i--)
     if (param && param[i] && param[i]->kind == TYPE_POINTER
@@ -2586,6 +2583,9 @@ write_func_for_structure (type_p orig_s, type_p s, type_p *param,
   options_p opt;
   struct walk_type_data d;
 
+#ifdef EXTRA_TARGET /* FIXME */
+  return;
+#endif
   memset (&d, 0, sizeof (d));
   d.of = get_output_file_for_structure (s, param);
 
