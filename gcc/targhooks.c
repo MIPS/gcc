@@ -68,6 +68,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "recog.h"
 #include "diagnostic.h"
 #include "tree-pass.h"
+#include "tree-pretty-print.h"
 #include "multi-target.h"
 
 extern GTY(()) tree stack_chk_fail_decl;
