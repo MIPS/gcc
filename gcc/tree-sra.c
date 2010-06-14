@@ -887,7 +887,7 @@ disqualify_base_of_expr (tree t, const char *reason)
   t = get_base_address (t);
   if (sra_mode == SRA_MODE_EARLY_IPA
       && TREE_CODE (t) == MEM_REF)
-    t = get_ssa_base_param (t);
+    t = get_ssa_base_param (TREE_OPERAND (t, 0));
 
   if (t && DECL_P (t))
     disqualify_candidate (t, reason);
@@ -3952,13 +3952,7 @@ sra_ipa_modify_expr (tree *expr, bool convert,
     return false;
 
   if (cand->by_ref)
-    {
-      tree folded;
-      src = build_simple_mem_ref (cand->reduction);
-      folded = gimple_fold_indirect_ref (src);
-      if (folded)
-        src = folded;
-    }
+    src = build_simple_mem_ref (cand->reduction);
   else
     src = cand->reduction;
 
