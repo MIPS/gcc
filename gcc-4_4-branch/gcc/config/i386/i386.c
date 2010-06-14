@@ -8830,10 +8830,12 @@ ix86_expand_epilogue (int style)
       int param_ptr_offset = (call_used_regs[REGNO (crtl->drap_reg)]
 			      ? 0 : UNITS_PER_WORD);
       gcc_assert (stack_realign_drap);
-      emit_insn ((*ix86_gen_add3) (stack_pointer_rtx,
-				   crtl->drap_reg,
-				   GEN_INT (-(UNITS_PER_WORD
-					      + param_ptr_offset))));
+      emit_insn (gen_rtx_SET
+		 (VOIDmode, stack_pointer_rtx,
+		  gen_rtx_PLUS (Pmode,
+				crtl->drap_reg,
+				GEN_INT (-(UNITS_PER_WORD
+					   + param_ptr_offset)))));
       if (!call_used_regs[REGNO (crtl->drap_reg)])
 	emit_insn ((*ix86_gen_pop1) (crtl->drap_reg));
       
@@ -11431,10 +11433,8 @@ print_operand (FILE *file, rtx x, int code)
 	  return;
 
 	case ';':
-#if TARGET_MACHO
-	  fputs (" ; ", file);
-#else
-	  fputc (' ', file);
+#if TARGET_MACHO || !HAVE_AS_IX86_REP_LOCK_PREFIX
+	  fputs (";", file);
 #endif
 	  return;
 
@@ -21077,6 +21077,7 @@ def_builtin (int mask, const char *name, tree type, enum ix86_builtins code)
     {
       ix86_builtins_isa[(int) code].isa = mask;
 
+      mask &= ~OPTION_MASK_ISA_64BIT;
       if ((mask & ix86_isa_flags) != 0
 	  || (lang_hooks.builtin_function
 	      == lang_hooks.builtin_function_ext_scope))

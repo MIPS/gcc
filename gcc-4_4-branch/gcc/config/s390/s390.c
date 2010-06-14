@@ -1657,7 +1657,7 @@ override_options (void)
       if (!PARAM_SET_P (PARAM_MAX_UNROLL_TIMES))
 	set_param_value ("max-unroll-times", 32);
       if (!PARAM_SET_P (PARAM_MAX_COMPLETELY_PEELED_INSNS))
-	set_param_value ("max-completely-peeled-insns", 800);
+	set_param_value ("max-completely-peeled-insns", 2000);
       if (!PARAM_SET_P (PARAM_MAX_COMPLETELY_PEEL_TIMES))
 	set_param_value ("max-completely-peel-times", 64);
     }
@@ -2792,11 +2792,6 @@ legitimate_reload_constant_p (rtx op)
   /* Accept larl operands.  */
   if (TARGET_CPU_ZARCH
       && larl_operand (op, VOIDmode))
-    return true;
-
-  /* Accept lzXX operands.  */
-  if (GET_CODE (op) == CONST_DOUBLE
-      && CONST_DOUBLE_OK_FOR_CONSTRAINT_P (op, 'G', "G"))
     return true;
 
   /* Accept double-word operands that can be split.  */
