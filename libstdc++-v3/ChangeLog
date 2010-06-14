@@ -1,3 +1,46 @@
+2010-06-13  Paolo Carlini <paolo.carlini@oracle.com>
+
+	* include/parallel/base.h (min, max): Mark inline.
+	* include/parallel/set_operations.h (__parallel_set_operation):
+	Uglify the Operation template parameter.
+
+2010-06-11  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/bits/shared_ptr.h (hash<shared_ptr>): Add.
+	* include/bits/shared_ptr_base.h (hash<__shared_ptr>): Likewise.
+	* include/bits/unique_ptr.h (hash<unique_ptr>): Likewise.
+	* testsuite/20_util/shared_ptr/hash/1.cc: New.
+	* testsuite/20_util/unique_ptr/hash/1.cc: Likewise.
+
+2010-06-11  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* doc/xml/manual/appendix_contributing.xml: Indent code examples
+	to match original C++STYLE document. Fix typos and syntax errors.
+	Add some basic docbook markup.
+	* doc/html/*: Regenerate.
+
+2010-06-11  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	PR libstdc++/44268
+	* doc/xml/manual/abi.xml: Fix libgcc version for hppa-linux.
+
+2010-06-11  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* include/std/tuple (_Swallow_assign::operator=): Add const.
+	(ignore): Replace anonymous namespace member with const instance.
+
+2010-06-10  Suresh Gumpula  <suresh.gumpula@amd.com>
+
+	PR libstdc++/43918
+	* config/os/djgpp/error_constants.h: New.
+	* configure.host: Use it.
+
+2010-06-10  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/std/tuple (tuple(const tuple&)): Define explicitly-defaulted.
+	* testsuite/20_util/weak_ptr/comparison/cmp_neg.cc: Tweak dg-warning
+	line number.
+
 2010-06-10  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	PR libstdc++/44487

@@ -3621,12 +3621,6 @@ gimple_types_compatible_p (tree t1, tree t2)
       {
 	tree f1, f2;
 
-	/* If one type requires structural equality checks and the
-	   other doesn't, do not merge the types.  */
-	if (TYPE_STRUCTURAL_EQUALITY_P (t1)
-	    != TYPE_STRUCTURAL_EQUALITY_P (t2))
-	  goto different_types;
-
 	/* The struct tags shall compare equal.  */
 	if (!compare_type_names_p (TYPE_MAIN_VARIANT (t1),
 				   TYPE_MAIN_VARIANT (t2), false))
@@ -3983,6 +3977,11 @@ gimple_register_type (tree t)
 
   gcc_assert (TYPE_P (t));
 
+  /* In TYPE_CANONICAL we cache the result of gimple_register_type.
+     It is initially set to NULL during LTO streaming.  */
+  if (TYPE_CANONICAL (t))
+    return TYPE_CANONICAL (t);
+
   /* Always register the main variant first.  This is important so we
      pick up the non-typedef variants as canonical, otherwise we'll end
      up taking typedef ids for structure tags during comparison.  */
@@ -4046,10 +4045,14 @@ gimple_register_type (tree t)
 	  TYPE_NEXT_REF_TO (t) = NULL_TREE;
 	}
 
+      TYPE_CANONICAL (t) = new_type;
       t = new_type;
     }
   else
-    *slot = (void *) t;
+    {
+      TYPE_CANONICAL (t) = t;
+      *slot = (void *) t;
+    }
 
   return t;
 }

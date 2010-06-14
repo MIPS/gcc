@@ -1,5 +1,9 @@
 2010-06-14  Richard Guenther  <rguenther@suse.de>
 
+	Merge from trunk r160751.
+
+2010-06-14  Richard Guenther  <rguenther@suse.de>
+
 	* gimple.c (is_gimple_mem_ref_addr): New predicate.
 	* gimple.h (is_gimple_mem_ref_addr): Declare.
 	* gimplify.c (gimplify_expr): Use it when gimplifying MEM_REFs.
