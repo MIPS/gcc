@@ -3976,6 +3976,12 @@ target-types.h target-gtypes.h: Makefile
 	echo '  {' >> $@
 	echo '    CUMULATIVE_ARGS GTY ((tag ("TARGET_NUM"))) _ca;' >> $@
 	echo '  } cumulative_args_u;' >> $@
+	mf_def=` \
+	  cat $(tm_include_list) $(filter-out [%], $(GTFILES)) \
+	  | sed '/struct[ 	]*GTY[() 	]*machine_function/!d'`;\
+	if test "x$${mf_def}" = x; then \
+	  echo 'struct GTY (()) machine_function { int dummy; };' >> $@; \
+	fi
 	echo 'typedef union GTY (())' >> $@
 	echo '  {' >> $@
 	echo '    struct machine_function *GTY ((tag ("TARGET_NUM"))) _mf;' \
