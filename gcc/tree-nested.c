@@ -84,6 +84,7 @@ struct nesting_info
 
   struct pointer_map_t *field_map;
   struct pointer_map_t *var_map;
+  struct pointer_set_t *mem_refs;
   bitmap suppress_expansion;
 
   tree context;
@@ -717,6 +718,7 @@ create_nesting_tree (struct cgraph_node *cgn)
   struct nesting_info *info = XCNEW (struct nesting_info);
   info->field_map = pointer_map_create ();
   info->var_map = pointer_map_create ();
+  info->mem_refs = pointer_set_create ();
   info->suppress_expansion = BITMAP_ALLOC (&nesting_info_bitmap_obstack);
   info->context = cgn->decl;
 
@@ -1499,22 +1501,19 @@ convert_local_reference_op (tree *tp, int *walk_subtrees, void *data)
       break;
 
     case MEM_REF:
-      {
-	tree tem;
-	save_val_only = wi->val_only;
-	wi->val_only = true;
-	wi->is_lhs = false;
-	walk_tree (&TREE_OPERAND (t, 0), convert_local_reference_op,
-		   wi, NULL);
-	/* We need to re-fold the MEM_REF as component references as
-	   part of a ADDR_EXPR address are not allowed.  */
-	if (TREE_CODE (TREE_OPERAND (t, 0)) == ADDR_EXPR
-	    && (tem = fold_binary (MEM_REF, TREE_TYPE (t),
-				   TREE_OPERAND (t, 0), TREE_OPERAND (t, 1))))
-	  *tp = tem;
-	wi->val_only = save_val_only;
-	break;
-      }
+      save_val_only = wi->val_only;
+      wi->val_only = true;
+      wi->is_lhs = false;
+      walk_tree (&TREE_OPERAND (t, 0), convert_local_reference_op,
+		 wi, NULL);
+      /* We need to re-fold the MEM_REF as component references as
+	 part of a ADDR_EXPR address are not allowed.  But we cannot
+	 fold here, as the chain record type is not yet finalized.  */
+      if (TREE_CODE (TREE_OPERAND (t, 0)) == ADDR_EXPR
+	  && !DECL_P (TREE_OPERAND (TREE_OPERAND (t, 0), 0)))
+	pointer_set_insert (info->mem_refs, tp);
+      wi->val_only = save_val_only;
+      break;
 
     case VIEW_CONVERT_EXPR:
       /* Just request to look at the subtrees, leaving val_only and lhs
@@ -2265,6 +2264,15 @@ remap_vla_decls (tree block, struct nesting_info *root)
   pointer_map_destroy (id.cb.decl_map);
 }
 
+/* Fold the MEM_REF *E.  */
+static bool
+fold_mem_refs (const void *e, void *data ATTRIBUTE_UNUSED)
+{
+  tree *ref_p = CONST_CAST2(tree *, const tree *, (const tree *)e);
+  *ref_p = fold (*ref_p);
+  return true;
+}
+
 /* Do "everything else" to clean up or complete state collected by the
    various walking passes -- lay out the types and decls, generate code
    to initialize the frame decl, store critical expressions in the
@@ -2479,6 +2487,9 @@ finalize_nesting_tree_1 (struct nesting_info *root)
 		     root->debug_var_chain);
     }
 
+  /* Fold the rewritten MEM_REF trees.  */
+  pointer_set_traverse (root->mem_refs, fold_mem_refs, NULL);
+
   /* Dump the translated tree function.  */
   if (dump_file)
     {
@@ -2532,6 +2543,7 @@ free_nesting_tree (struct nesting_info *root)
       next = iter_nestinfo_next (node);
       pointer_map_destroy (node->var_map);
       pointer_map_destroy (node->field_map);
+      pointer_set_destroy (node->mem_refs);
       free (node);
       node = next;
     }
