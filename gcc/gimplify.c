@@ -6570,7 +6570,8 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
            || gimple_test_f == is_gimple_mem_rhs_or_call
            || gimple_test_f == is_gimple_reg_rhs
            || gimple_test_f == is_gimple_reg_rhs_or_call
-           || gimple_test_f == is_gimple_asm_val)
+           || gimple_test_f == is_gimple_asm_val
+	   || gimple_test_f == is_gimple_mem_ref_addr)
     gcc_assert (fallback & fb_rvalue);
   else if (gimple_test_f == is_gimple_min_lval
 	   || gimple_test_f == is_gimple_lvalue)
@@ -6810,19 +6811,23 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	    break;
 	  }
 
+	/* We arrive here through the various re-gimplifcation paths.  */
 	case MEM_REF:
+	  /* First try re-folding the whole thing.  */
 	  tmp = fold_binary (MEM_REF, TREE_TYPE (*expr_p),
 			     TREE_OPERAND (*expr_p, 0),
 			     TREE_OPERAND (*expr_p, 1));
 	  if (tmp)
-	    *expr_p = tmp;
-	  ret = GS_ALL_DONE;
-	  if (TREE_CODE (TREE_OPERAND (*expr_p, 0)) != ADDR_EXPR
-	      || (!CONSTANT_CLASS_P (TREE_OPERAND (TREE_OPERAND (*expr_p, 0), 0))
-		  && !decl_address_invariant_p (TREE_OPERAND (TREE_OPERAND (*expr_p, 0), 0))))
-	    ret = gimplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
-				 is_gimple_reg, fb_rvalue);
+	    {
+	      *expr_p = tmp;
+	      recalculate_side_effects (*expr_p);
+	      ret = GS_OK;
+	      break;
+	    }
+	  ret = gimplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
+			       is_gimple_mem_ref_addr, fb_rvalue);
 	  recalculate_side_effects (*expr_p);
+	  ret = GS_ALL_DONE;
 	  break;
 
 	  /* Constants need not be gimplified.  */

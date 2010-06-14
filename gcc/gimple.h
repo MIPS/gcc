@@ -926,6 +926,8 @@ extern bool is_gimple_ip_invariant (const_tree);
 extern bool is_gimple_val (tree);
 /* Returns true iff T is a GIMPLE asm statement input.  */
 extern bool is_gimple_asm_val (tree);
+/* Returns true iff T is a valid address operand of a MEM_REF.  */
+bool is_gimple_mem_ref_addr (tree);
 /* Returns true iff T is a valid rhs for a MODIFY_EXPR where the LHS is a
    GIMPLE temporary, a renamed user variable, or something else,
    respectively.  */

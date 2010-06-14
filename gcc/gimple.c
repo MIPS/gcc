@@ -2934,6 +2934,18 @@ is_gimple_call_addr (tree t)
   return (TREE_CODE (t) == OBJ_TYPE_REF || is_gimple_val (t));
 }
 
+/* Return true if T is a valid address operand of a MEM_REF.  */
+
+bool
+is_gimple_mem_ref_addr (tree t)
+{
+  return (is_gimple_reg (t)
+	  || TREE_CODE (t) == INTEGER_CST
+	  || (TREE_CODE (t) == ADDR_EXPR
+	      && (CONSTANT_CLASS_P (TREE_OPERAND (t, 0))
+		  || decl_address_invariant_p (TREE_OPERAND (t, 0)))));
+}
+
 /* If T makes a function call, return the corresponding CALL_EXPR operand.
    Otherwise, return NULL_TREE.  */
 
