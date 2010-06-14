@@ -18040,8 +18040,8 @@ rs6000_ra_ever_killed (void)
   if (cfun->is_thunk)
     return 0;
 
-  if (cfun->machine->lr_save_state)
-    return cfun->machine->lr_save_state - 1;
+  if (MACHINE_FUNCTION (*cfun)->lr_save_state)
+    return MACHINE_FUNCTION (*cfun)->lr_save_state - 1;
 
   /* regs_ever_live has LR marked as used if any sibcalls are present,
      but this should not force saving and restoring in the
@@ -18217,7 +18217,7 @@ rs6000_emit_eh_reg_restore (rtx source, rtx scratch)
      state of lr_save_p so any change from here on would be a bug.  In
      particular, stop rs6000_ra_ever_killed from considering the SET
      of lr we may have added just above.  */ 
-  cfun->machine->lr_save_state = info->lr_save_p + 1;
+  MACHINE_FUNCTION (*cfun)->lr_save_state = info->lr_save_p + 1;
 }
 
 static GTY(()) alias_set_type set = -1;
