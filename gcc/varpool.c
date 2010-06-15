@@ -219,7 +219,7 @@ varpool_mark_needed_node (struct varpool_node *node)
 }
 
 /* Reset the queue of needed nodes.  */
-static void
+void
 varpool_reset_queue (void)
 {
   varpool_last_needed_node = NULL;
