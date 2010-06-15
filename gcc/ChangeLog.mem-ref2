@@ -1,3 +1,8 @@
+2010-06-15  Richard Guenther  <rguenther@suse.de>
+
+	* alias.c (get_alias_set): Handle non-converting MEM_REFs
+	like regular references.
+
 2010-06-14  Richard Guenther  <rguenther@suse.de>
 
 	Merge from trunk r160751.

@@ -676,7 +676,15 @@ get_alias_set (tree t)
 	    return set;
 	}
       else if (TREE_CODE (inner) == MEM_REF)
-	return get_deref_alias_set (TREE_OPERAND (inner, 1));
+	{
+	  /* If this is a converting MEM_REF then the type of the reference
+	     chain is not valid for alias-set queries.  */
+	  tree ptrtype = TREE_TYPE (TREE_OPERAND (inner, 1));
+	  if (TYPE_REF_CAN_ALIAS_ALL (ptrtype)
+	      || (TYPE_MAIN_VARIANT (TREE_TYPE (inner))
+		  != TYPE_MAIN_VARIANT (TREE_TYPE (ptrtype))))
+	    return get_deref_alias_set (ptrtype);
+	}
 
       /* Otherwise, pick up the outermost object that we could have a pointer
 	 to, processing conversions as above.  */
