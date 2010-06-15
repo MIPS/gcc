@@ -1,4 +1,180 @@
+2010-06-15  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-pre.c (eliminate): Handle PHI elimination to constants.
+
+2010-06-15  Paul Brook  <paul@codesourcery.com>
+ 
+	* config/arm/arm.c (use_vfp_abi): Add sorry() for Thumb-1
+	hard-float ABI.
+
+2010-06-15  Alexandre Oliva  <aoliva@redhat.com>
+
+	* tree-vect-patterns.c (vect_pattern_recog_1): Bail out if we
+	don't get a vector type for output.
+
+2010-06-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/44536
+	* langhooks.h (struct lang_hooks_for_decls): Add omp_report_decl.
+	* langhooks-def.h (LANG_HOOKS_OMP_REPORT_DECL): Define.
+	(LANG_HOOKS_DECLS): Add it.
+	* gimplify.c (omp_notice_variable): Call
+	lang_hooks.decls.omp_report_decl.
+
+2010-06-15  Martin Jambor  <mjambor@suse.cz>
+
+	PR lto/44464
+	* tree-sra.c (replace_removed_params_ssa_names): Call release_ssa_name
+	on the newly dead SSA name.
+
+2010-06-15  Alan Modra  <amodra@gmail.com>
+
+	* doc/invoke.texi: Add mcmodel to powerpc options.
+	* configure.ac: Add HAVE_LD_LARGE_TOC test.
+	* configure: Regenerate.
+	* config.in: Regenerate.
+	* config/rs6000/linux64.opt (mcmodel): New.
+	* config/rs6000/linux64.h (TARGET_USES_LINUX64_OPT): Define.
+	(TARGET_CMODEL): Define.
+	(SUBSUBTARGET_OVERRIDE_OPTIONS): Check user -mcmodel choice,
+	select CMODEL_MEDIUM default.
+	* config/rs6000/rs6000.h (enum rs6000_cmodel): New.
+	(TARGET_CMODEL): Define default.
+	* config/rs6000/rs6000.c (cmodel): New variable.
+	(rs6000_explicit_options): Add cmodel field.
+	(rs6000_handle_option): Handle -mcmodel.
+	(create_TOC_reference): Add largetoc_reg param.  Generate high,
+	lo_sum rtl for CMODEL_MEDIUM and CMODEL_LARGE.  Update all callers.
+	(rs6000_delegitimize_address): Recognise new toc reference rtl
+	and minimal-toc rtl.
+	(rs6000_legitimize_reload_address): Handle new toc references.
+	(print_operand_address): Handle legitimate_constant_pool_address_p
+	match before lo_sum.
+	(rs6000_eliminate_indexed_memrefs): Tidy.
+	(rs6000_emit_move): Tweak threshold for inlining constants.
+	Keep rs6000_emit_allocate_stack large stack frame offsets
+	loaded into r0 inline.
+	(rs6000_generate_compare <cmptf_internal2>): One more clobber.
+	(tocrel_base, tocrel_offset): New variables.
+	(toc_relative_expr_p): Set them here.
+	(print_operand_address): Skip over any offset on constant pool
+	address.
+	(rs6000_output_addr_const_extra): Print tocrel_offset before @toc.
+	(rs6000_mode_dependent_address <LO_SUM>): False for new toc refs.
+	(offsettable_ok_by_alignment): New function.
+	(rs6000_emit_move): Address suitably aligned local symbol_refs
+	relative to the toc pointer for -mcmodel=medium.
+	(legitimate_constant_pool_address_p): Make param const_rtx.  Add
+	strict param.  Allow lo_sum version of addressing.  Verify reg
+	used for -mminimal-toc and -mcmodel != small.  Update all callers.
+	* config/rs6000/constraints.md: Update for above change.
+	* config/rs6000/predicates.md: Likewise.
+	* config/rs6000/rs6000.md (tls_gd_aix): Generate -mcmodel=medium/large
+	code.
+	(tls_gd): Split for -mcmodel=medium/large.
+	(tls_gd_high, tls_gd_low): New.
+	(tls_ld_aix, tls_ld, tls_ld_high, tls_ld_low): Similarly.
+	(tls_got_dtprel, tls_got_dtprel_high, tls_got_dtprel_low): Similarly.
+	(tls_got_tprel, tls_got_tprel_high, tls_got_tprel_low): Similarly.
+	(largetoc_high, largetoc_low): New.
+	(cmptf_internal2): Add clobber.
+	* config/rs6000/rs6000-protos.h: Update.
+
+2010-06-14  Changpeng Fang  <changpeng.fang@amd.com>
+
+	* tree-ssa-loop-prefetch.c (nothing_to_prefetch_p): New.  Return
+	true if no prefetch is going to be generated for a given group.
+	(estimate_prefetch_count): Use prefetch_mod and unroll_factor to
+	estimate the prefetch_count.
+	(loop_prefetch_arrays): Call nothing_to_prefetch_p; estimate the
+	prefetch count by considering the unroll_factor and prefetch_mod
+	for is_loop_prefetching_profitable.
+
+2010-06-14  Andreas Schwab  <schwab@linux-m68k.org>
+
+	* config/m68k/m68k.c (m68k_delegitimize_address): Don't do
+	anything if the argument is not a MEM.
+
+2010-06-14  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/43650
+	PR debug/44181
+	PR debug/44247
+	* tree-ssa-loop-manip.c (tree_transform_and_unroll_loop): Skip
+	debug stmts.
+	(canonicalize_loop_ivs): Likewise.
+
+2010-06-14  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/43656
+	* haifa-sched.c (setup_insn_reg_pressure_info,
+	update_register_pressure): Reject debug insns.
+	(ready_sort): Don't setup reg pressure for debug insns.
+	(schedule_insn): Don't update reg pressure for debug insns.
+
+2010-06-14  Richard Guenther  <rguenther@suse.de>
+
+	* lto-streamer.c (cached_bp): Remove.
+	(bitpack_delete): Likewise.
+	(bitpack_create): Likewise.
+	(bp_get_next_word): Likewise.
+	(bp_pack_value, bp_unpack_value): Move ...
+	* lto-streamer.h (bp_pack_value, bp_unpack_value): ... here.
+	Re-implement.
+	(struct bitpack_d): Likewise.
+	(bitpack_create, lto_output_bitpack, lto_input_bitpack):
+	New inline functions.
+	* lto-streamer-out.c (lto_output_bitpack): Remove.
+	(pack_ts_base_value_fields): Adjust.  Avoid conditional
+	bitpacking.
+	(pack_value_fields): Adjust.
+	(lto_write_tree): Likewise.
+	(output_gimple_stmt): Likewise.
+	(output_function): Likewise.
+	* lto-streamer-in.c (input_gimple_stmt): Adjust.
+	(input_function): Likewise.
+	(unpack_ts_base_value_fields): Adjust.  Avoid conditional
+	bitpacking.
+	(lto_input_bitpack): Remove.
+	(lto_materialize_tree): Adjust.
+	* Makefile.in (ipa-prop.o): Add $(LTO_STREAMER_H) dependency.
+	* lto-cgraph.c (lto_output_edge): Adjust.
+	(lto_output_node): Likewise.
+	(lto_output_varpool_node): Likewise.
+	(lto_output_ref): Likewise.
+	(input_node): Likewise.
+	(input_varpool_node): Likewise.
+	(input_ref): Likewise.
+	(input_edge): Likewise.
+	(output_node_opt_summary): Likewise.
+	(input_node_opt_summary): Likewise.
+	* ipa-pure-const.c (pure_const_write_summary): Likewise.
+	(pure_const_read_summary): Likewise.
+	* ipa-prop.c (ipa_write_indirect_edge_info): Likewise.
+	(ipa_read_indirect_edge_info): Likewise.
+	(ipa_write_node_info): Likewise.
+	(ipa_read_node_info): Likewise.
+
+2010-06-14  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/44534
+	* config/i386/sse.md (vec_extract_lo_<mode>): Replace 0x1 with
+	0x0.
+	(vec_extract_lo_v16hi): Likewise.
+	(vec_extract_lo_v32qi): Likewise.
+
 2010-06-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/44426
+	* tree.h (build_call_expr): Don't define as vararg macro, instead
+	add a prototype.
+	* builtins.c (build_call_nofold): Remove.
+	(expand_builtin_int_roundingfn, expand_builtin_pow,
+	expand_builtin_mempcpy_args, expand_builtin_stpcpy,
+	expand_builtin_memset_args, expand_builtin_strcmp,
+	expand_builtin_strncmp, expand_builtin_memory_chk): Use
+	build_call_nofold_loc instead of build_call_nofold.
+	(build_call_expr): New function.
 
 	PR tree-optimization/44508
 	* tree-ssa-propagate.h (substitute_and_fold): Add DO_DCE
