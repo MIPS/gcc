@@ -1,3 +1,12 @@
+2010-06-14  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/43650
+	PR debug/44181
+	PR debug/44247
+	* tree-ssa-loop-manip.c (tree_transform_and_unroll_loop): Skip
+	debug stmts.
+	* tree-parloops.c (canonicalize_loop_ivs): Likewise.
+
 2010-06-08  Uros Bizjak  <ubizjak@gmail.com>
 
 	* config/i386/i386.md (*movsi_1) <TYPE_LEA>: Use %a modifier

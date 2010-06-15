@@ -1067,7 +1067,7 @@ tree_transform_and_unroll_loop (struct loop *loop, unsigned factor,
 
   /* Finally create the new counter for number of iterations and add the new
      exit instruction.  */
-  bsi = gsi_last_bb (exit_bb);
+  bsi = gsi_last_nondebug_bb (exit_bb);
   exit_if = gsi_stmt (bsi);
   create_iv (exit_base, exit_step, NULL_TREE, loop,
 	     &bsi, false, &ctr_before, &ctr_after);
