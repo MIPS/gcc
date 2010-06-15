@@ -1,5 +1,12 @@
 2010-06-15  Richard Guenther  <rguenther@suse.de>
 
+	* tree-ssa-forwprop.c (forward_propagate_addr_expr_1): Simplify
+	propagating into lhs/rhs MEM_REFs and handle all cases.
+	* expr.c (expand_expr_real_1): Also allow CONCAT on non-MEM
+	DECL_RTL when expanding MEM_REF.
+
+2010-06-15  Richard Guenther  <rguenther@suse.de>
+
 	* alias.c (get_alias_set): Handle non-converting MEM_REFs
 	like regular references.
 
