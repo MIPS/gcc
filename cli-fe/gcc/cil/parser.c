@@ -820,6 +820,7 @@ parser_emit_ldloca (guint16 local)
 {
   tree local_decl = cil_bindings_get_local (local);
   tree exp_addr = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (local_decl)), local_decl);
+  TREE_ADDRESSABLE (local_decl) = 1;
   cil_stack_push (cil_bindings_output_statements_and_create_temp (exp_addr), CIL_STYPE_MP);
 }
 
