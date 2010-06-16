@@ -1,5 +1,13 @@
 2010-06-16  Richard Guenther  <rguenther@suse.de>
 
+	* gimple-fold.c (gimple_get_relevant_ref_binfo): Handle
+	MEM_REF.
+	* ipa-prop.c (compute_complex_assign_jump_func): Likewise.
+	(compute_complex_ancestor_jump_func): Likewise.
+	(ipa_analyze_virtual_call_uses): Likewise.
+
+2010-06-16  Richard Guenther  <rguenther@suse.de>
+
 	testsuite/
 	* gcc.dg/tree-ssa/forwprop-8.c: Adjust.
 	* gcc.dg/tree-ssa/ssa-ccp-21.c: Likewise.

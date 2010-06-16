@@ -1525,7 +1525,7 @@ gimple_get_relevant_ref_binfo (tree ref, tree known_binfo)
 	return TYPE_BINFO (TREE_TYPE (ref));
       else if (known_binfo
 	       && (TREE_CODE (ref) == SSA_NAME
-		   || TREE_CODE (ref) == INDIRECT_REF))
+		   || TREE_CODE (ref) == MEM_REF))
 	return known_binfo;
       else
 	return NULL_TREE;
