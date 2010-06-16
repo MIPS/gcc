@@ -1,5 +1,20 @@
 2010-06-16  Richard Guenther  <rguenther@suse.de>
 
+	testsuite/
+	* gcc.dg/tree-ssa/pr17141-1.c: Adjust.
+	* gcc.dg/tree-ssa/ssa-fre-13.c: Likewise
+	* gcc.dg/tree-ssa/ssa-fre-14.c: Likewise
+	* gcc.dg/tree-ssa/ssa-fre-1.c: Likewise
+	* gcc.dg/tree-ssa/struct-aliasing-1.c: Likewise
+	* gcc.dg/tree-ssa/ssa-pre-26.c: Likewise
+	* gcc.dg/tree-ssa/struct-aliasing-2.c: Likewise
+	* gcc.dg/tree-ssa/ssa-sccvn-4.c: Likewise
+	* gcc.dg/tree-ssa/ssa-pre-7.c: Likewise
+	* gcc.dg/tree-ssa/forwprop-5.c: Likewise
+	* g++.dg/tree-ssa/copyprop-1.C: Likewise
+
+2010-06-16  Richard Guenther  <rguenther@suse.de>
+
 	* tree-ssa-sccvn.h (struct vn_reference_op_struct): Add
 	a field to store the constant offset this op applies.
 	* tree-ssa-sscvn.c (vn_reference_compute_hash): Hash
