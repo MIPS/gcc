@@ -1,3 +1,19 @@
+2010-06-16  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-sccvn.h (struct vn_reference_op_struct): Add
+	a field to store the constant offset this op applies.
+	* tree-ssa-sscvn.c (vn_reference_compute_hash): Hash
+	fields that only adjust the offset by a constant by
+	aggregating them and hashing the offset.  Do not hash
+	*& combinations.
+	(vn_reference_eq): Adjust comparison accordingly.  Make sure
+	accesses are of the same size first.
+	(copy_reference_ops_from_ref): Compute and remember constant
+	offsets.
+	(copy_reference_ops_from_call): Likewise.
+	* tree-ssa-pre.c (insert_into_preds_of_block): Properly
+	initialize avail.
+
 2010-06-15  Richard Guenther  <rguenther@suse.de>
 
 	Merge from trunk r160795.

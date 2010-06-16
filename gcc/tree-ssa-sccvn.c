@@ -431,9 +431,41 @@ vn_reference_compute_hash (const vn_reference_t vr1)
   hashval_t result = 0;
   int i;
   vn_reference_op_t vro;
+  HOST_WIDE_INT off = -1;
+  bool deref = false;
 
   for (i = 0; VEC_iterate (vn_reference_op_s, vr1->operands, i, vro); i++)
-    result = vn_reference_op_compute_hash (vro, result);
+    {
+      if (vro->opcode == MEM_REF)
+	deref = true;
+      else if (vro->opcode != ADDR_EXPR)
+	deref = false;
+      if (vro->off != -1)
+	{
+	  if (off == -1)
+	    off = 0;
+	  off += vro->off;
+	}
+      else
+	{
+	  if (off != -1
+	      && off != 0)
+	    result = iterative_hash_hashval_t (off, result);
+	  off = -1;
+	  if (deref
+	      && vro->opcode == ADDR_EXPR)
+	    {
+	      if (vro->op0)
+		{
+		  tree op = TREE_OPERAND (vro->op0, 0);
+		  result = iterative_hash_hashval_t (TREE_CODE (op), result);
+		  result = iterative_hash_expr (op, result);
+		}
+	    }
+	  else
+	    result = vn_reference_op_compute_hash (vro, result);
+	}
+    }
   if (vr1->vuse)
     result += SSA_NAME_VERSION (vr1->vuse);
 
@@ -446,8 +478,7 @@ vn_reference_compute_hash (const vn_reference_t vr1)
 int
 vn_reference_eq (const void *p1, const void *p2)
 {
-  int i;
-  vn_reference_op_t vro;
+  unsigned i, j;
 
   const_vn_reference_t const vr1 = (const_vn_reference_t) p1;
   const_vn_reference_t const vr2 = (const_vn_reference_t) p2;
@@ -466,17 +497,58 @@ vn_reference_eq (const void *p1, const void *p2)
   if (vr1->operands == vr2->operands)
     return true;
 
-  /* We require that address operands be canonicalized in a way that
-     two memory references will have the same operands if they are
-     equivalent.  */
-  if (VEC_length (vn_reference_op_s, vr1->operands)
-      != VEC_length (vn_reference_op_s, vr2->operands))
+  if (!expressions_equal_p (TYPE_SIZE (vr1->type), TYPE_SIZE (vr2->type)))
     return false;
 
-  for (i = 0; VEC_iterate (vn_reference_op_s, vr1->operands, i, vro); i++)
-    if (!vn_reference_op_eq (VEC_index (vn_reference_op_s, vr2->operands, i),
-			     vro))
-      return false;
+  i = 0;
+  j = 0;
+  do
+    {
+      HOST_WIDE_INT off1 = 0, off2 = 0;
+      vn_reference_op_t vro1, vro2;
+      vn_reference_op_s tem1, tem2;
+      bool deref1 = false, deref2 = false;
+      for (; VEC_iterate (vn_reference_op_s, vr1->operands, i, vro1); i++)
+	{
+	  if (vro1->opcode == MEM_REF)
+	    deref1 = true;
+	  if (vro1->off == -1)
+	    break;
+	  off1 += vro1->off;
+	}
+      for (; VEC_iterate (vn_reference_op_s, vr2->operands, j, vro2); j++)
+	{
+	  if (vro2->opcode == MEM_REF)
+	    deref2 = true;
+	  if (vro2->off == -1)
+	    break;
+	  off2 += vro2->off;
+	}
+      if (off1 != off2)
+	return false;
+      if (deref1 && vro1->opcode == ADDR_EXPR)
+	{
+	  memset (&tem1, 0, sizeof (tem1));
+	  tem1.op0 = TREE_OPERAND (vro1->op0, 0);
+	  tem1.type = TREE_TYPE (tem1.op0);
+	  tem1.opcode = TREE_CODE (tem1.op0);
+	  vro1 = &tem1;
+	}
+      if (deref2 && vro2->opcode == ADDR_EXPR)
+	{
+	  memset (&tem2, 0, sizeof (tem2));
+	  tem2.op0 = TREE_OPERAND (vro2->op0, 0);
+	  tem2.type = TREE_TYPE (tem2.op0);
+	  tem2.opcode = TREE_CODE (tem2.op0);
+	  vro2 = &tem2;
+	}
+      if (!vn_reference_op_eq (vro1, vro2))
+	return false;
+      ++j;
+      ++i;
+    }
+  while (VEC_length (vn_reference_op_s, vr1->operands) != i
+	 || VEC_length (vn_reference_op_s, vr2->operands) != j);
 
   return true;
 }
@@ -503,6 +575,7 @@ copy_reference_ops_from_ref (tree ref, VEC(vn_reference_op_s, heap) **result)
       temp.op0 = TMR_INDEX (ref);
       temp.op1 = TMR_STEP (ref);
       temp.op2 = TMR_OFFSET (ref);
+      temp.off = -1;
       VEC_safe_push (vn_reference_op_s, heap, *result, &temp);
 
       memset (&temp, 0, sizeof (temp));
@@ -510,6 +583,7 @@ copy_reference_ops_from_ref (tree ref, VEC(vn_reference_op_s, heap) **result)
       temp.opcode = TREE_CODE (base);
       temp.op0 = base;
       temp.op1 = TMR_ORIGINAL (ref);
+      temp.off = -1;
       VEC_safe_push (vn_reference_op_s, heap, *result, &temp);
       return;
     }
@@ -524,19 +598,23 @@ copy_reference_ops_from_ref (tree ref, VEC(vn_reference_op_s, heap) **result)
       /* We do not care for spurious type qualifications.  */
       temp.type = TYPE_MAIN_VARIANT (TREE_TYPE (ref));
       temp.opcode = TREE_CODE (ref);
+      temp.off = -1;
 
       switch (temp.opcode)
 	{
 	case ALIGN_INDIRECT_REF:
 	  /* The only operand is the address, which gets its own
 	     vn_reference_op_s structure.  */
-	    break;
+	  break;
 	case MISALIGNED_INDIRECT_REF:
 	  temp.op0 = TREE_OPERAND (ref, 1);
+	  temp.off = 0;
 	  break;
 	case MEM_REF:
 	  /* The base address gets its own vn_reference_op_s structure.  */
 	  temp.op0 = TREE_OPERAND (ref, 1);
+	  if (host_integerp (TREE_OPERAND (ref, 1), 0))
+	    temp.off = TREE_INT_CST_LOW (TREE_OPERAND (ref, 1));
 	  break;
 	case BIT_FIELD_REF:
 	  /* Record bits and position.  */
@@ -561,6 +639,25 @@ copy_reference_ops_from_ref (tree ref, VEC(vn_reference_op_s, heap) **result)
 	      && integer_zerop (DECL_FIELD_BIT_OFFSET (temp.op0))
 	      && host_integerp (DECL_SIZE (temp.op0), 0))
 	    temp.op0 = DECL_SIZE (temp.op0);
+	  {
+	    tree this_offset = component_ref_field_offset (ref);
+	    if (this_offset
+		&& TREE_CODE (this_offset) == INTEGER_CST)
+	      {
+		tree bit_offset = DECL_FIELD_BIT_OFFSET (TREE_OPERAND (ref, 1));
+		if (TREE_INT_CST_LOW (bit_offset) % BITS_PER_UNIT == 0)
+		  {
+		    double_int off
+		      = double_int_add (tree_to_double_int (this_offset),
+					double_int_sdiv
+					  (tree_to_double_int (bit_offset),
+					   uhwi_to_double_int (BITS_PER_UNIT),
+					   TRUNC_DIV_EXPR));
+		    if (double_int_fits_in_shwi_p (off))
+		      temp.off = off.low;
+		  }
+	      }
+	  }
 	  break;
 	case ARRAY_RANGE_REF:
 	case ARRAY_REF:
@@ -569,6 +666,18 @@ copy_reference_ops_from_ref (tree ref, VEC(vn_reference_op_s, heap) **result)
 	  /* Always record lower bounds and element size.  */
 	  temp.op1 = array_ref_low_bound (ref);
 	  temp.op2 = array_ref_element_size (ref);
+	  if (TREE_CODE (temp.op0) == INTEGER_CST
+	      && TREE_CODE (temp.op1) == INTEGER_CST
+	      && TREE_CODE (temp.op2) == INTEGER_CST)
+	    {
+	      double_int off = tree_to_double_int (temp.op0);
+	      off = double_int_add (off,
+				    double_int_neg
+				      (tree_to_double_int (temp.op1)));
+	      off = double_int_mul (off, tree_to_double_int (temp.op2));
+	      if (double_int_fits_in_shwi_p (off))
+		temp.off = off.low;
+	    }
 	  break;
 	case STRING_CST:
 	case INTEGER_CST:
@@ -595,9 +704,13 @@ copy_reference_ops_from_ref (tree ref, VEC(vn_reference_op_s, heap) **result)
 	     ref in the chain of references (IE they require an
 	     operand), so we don't have to put anything
 	     for op* as it will be handled by the iteration  */
-	case IMAGPART_EXPR:
 	case REALPART_EXPR:
 	case VIEW_CONVERT_EXPR:
+	  temp.off = 0;
+	  break;
+	case IMAGPART_EXPR:
+	  /* This is only interesting for its constant offset.  */
+	  temp.off = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (TREE_TYPE (ref)));
 	  break;
 	default:
 	  gcc_unreachable ();
@@ -798,6 +911,7 @@ copy_reference_ops_from_call (gimple call,
   temp.opcode = CALL_EXPR;
   temp.op0 = gimple_call_fn (call);
   temp.op1 = gimple_call_chain (call);
+  temp.off = -1;
   VEC_safe_push (vn_reference_op_s, heap, *result, &temp);
 
   /* Copy the call arguments.  As they can be references as well,

@@ -3332,6 +3332,8 @@ insert_into_preds_of_block (basic_block block, unsigned int exprnum,
 		      avail[bprime->index] = get_or_alloc_expr_for_name (forcedexpr);
 		    }
 		}
+	      else
+		avail[bprime->index] = get_or_alloc_expr_for_constant (builtexpr);
 	    }
 	}
       else if (eprime->kind == NAME)
