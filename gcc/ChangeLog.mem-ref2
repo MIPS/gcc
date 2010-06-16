@@ -1,5 +1,15 @@
 2010-06-16  Richard Guenther  <rguenther@suse.de>
 
+	* tree-vrp.c (check_array_ref): Handle MEM_REF.
+	(search_for_addr_array): Likewise.
+	(check_array_bounds): Likewise.
+
+2010-06-16  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa.c (warn_uninitialized_var): Handle MEM_REF.
+
+2010-06-16  Richard Guenther  <rguenther@suse.de>
+
 	* gimple-fold.c (gimple_get_relevant_ref_binfo): Handle
 	MEM_REF.
 	* ipa-prop.c (compute_complex_assign_jump_func): Likewise.

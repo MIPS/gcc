@@ -1650,8 +1650,9 @@ warn_uninitialized_var (tree *tp, int *walk_subtrees, void *data_)
   /* We do not care about LHS.  */
   if (wi->is_lhs)
     {
-      /* Except for operands of INDIRECT_REF.  */
-      if (!INDIRECT_REF_P (t))
+      /* Except for operands of dereferences.  */
+      if (!INDIRECT_REF_P (t)
+	  && TREE_CODE (t) != MEM_REF)
 	return NULL_TREE;
       t = TREE_OPERAND (t, 0);
     }
