@@ -820,6 +820,7 @@ parser_emit_ldloca (guint16 local)
 {
   tree local_decl = cil_bindings_get_local (local);
   tree exp_addr = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (local_decl)), local_decl);
+  TREE_ADDRESSABLE (local_decl) = 1;
   cil_stack_push (cil_bindings_output_statements_and_create_temp (exp_addr), CIL_STYPE_MP);
 }
 
@@ -1032,8 +1033,6 @@ parser_emit_mono_simd_call (MonoMethod *caller, guint32 token)
       tree opB = cil_stack_pop (&typeB);
       gcc_assert(cil_stack_is_empty () == 0);
       tree opA = cil_stack_pop (&typeA);
-      printf("%d == %d\n",typeA, typeB);
-//      gcc_assert(typeA == typeB);
       tree type_tree = TREE_TYPE(opA);
       tree exp = fold_build2 (code, type_tree, opA, opB);
       cil_stack_push (exp, typeA );
