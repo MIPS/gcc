@@ -649,8 +649,8 @@ get_alias_set (tree t)
     {
       tree inner;
 
-      /* Remove any nops, then give the language a chance to do
-	 something with this tree before we look at it.  */
+      /* Give the language a chance to do something with this tree
+	 before we look at it.  */
       STRIP_NOPS (t);
       set = lang_hooks.get_alias_set (t);
       if (set != -1)
@@ -660,31 +660,36 @@ get_alias_set (tree t)
       if (TREE_CODE (t) == TARGET_MEM_REF)
 	t = TMR_ORIGINAL (t);
 
-      /* First see if the actual object referenced is an INDIRECT_REF from a
-	 restrict-qualified pointer or a "void *".  */
+      /* Get the base object of the reference.  */
       inner = t;
       while (handled_component_p (inner))
 	{
+	  /* If there is a VIEW_CONVERT_EXPR in the chain we cannot use
+	     the type of any component references that wrap it to
+	     determine the alias-set.  */
+	  if (TREE_CODE (inner) == VIEW_CONVERT_EXPR)
+	    t = TREE_OPERAND (inner, 0);
 	  inner = TREE_OPERAND (inner, 0);
-	  STRIP_NOPS (inner);
 	}
 
-      if (INDIRECT_REF_P (inner))
+      /* Handle pointer dereferences here, they can override the
+	 alias-set.  */
+      if (INDIRECT_REF_P (inner)
+	  || TREE_CODE (inner) == MEM_REF)
 	{
 	  set = get_deref_alias_set_1 (TREE_OPERAND (inner, 0));
 	  if (set != -1)
 	    return set;
 	}
-      else if (TREE_CODE (inner) == MEM_REF)
-	{
-	  /* If this is a converting MEM_REF then the type of the reference
-	     chain is not valid for alias-set queries.  */
-	  tree ptrtype = TREE_TYPE (TREE_OPERAND (inner, 1));
-	  if (TYPE_REF_CAN_ALIAS_ALL (ptrtype)
-	      || (TYPE_MAIN_VARIANT (TREE_TYPE (inner))
-		  != TYPE_MAIN_VARIANT (TREE_TYPE (ptrtype))))
-	    return get_deref_alias_set (ptrtype);
-	}
+
+      /* If the innermost reference is a MEM_REF that has a
+	 conversion embedded treat it like a VIEW_CONVERT_EXPR above,
+	 using the memory access type for determining the alias-set.  */
+     if (TREE_CODE (inner) == MEM_REF
+	 && (TYPE_MAIN_VARIANT (TREE_TYPE (inner))
+	     != TYPE_MAIN_VARIANT
+	          (TREE_TYPE (TREE_TYPE (TREE_OPERAND (inner, 1))))))
+       return get_deref_alias_set (TREE_OPERAND (inner, 1));
 
       /* Otherwise, pick up the outermost object that we could have a pointer
 	 to, processing conversions as above.  */

@@ -1,5 +1,9 @@
 2010-06-16  Richard Guenther  <rguenther@suse.de>
 
+	* alias.c (get_alias_set): Properly handle VIEW_CONVERT_EXPRs.
+
+2010-06-16  Richard Guenther  <rguenther@suse.de>
+
 	testsuite/
 	* gcc.dg/tree-ssa/pr17141-1.c: Adjust.
 	* gcc.dg/tree-ssa/ssa-fre-13.c: Likewise
