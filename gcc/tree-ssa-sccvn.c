@@ -953,62 +953,27 @@ void
 vn_reference_fold_indirect (VEC (vn_reference_op_s, heap) **ops,
 			    unsigned int *i_p)
 {
-  VEC(vn_reference_op_s, heap) *mem = NULL;
-  vn_reference_op_t op;
   unsigned int i = *i_p;
-  unsigned int j;
+  vn_reference_op_t op = VEC_index (vn_reference_op_s, *ops, i);
+  vn_reference_op_t mem_op = VEC_index (vn_reference_op_s, *ops, i - 1);
+  tree addr_base;
+  HOST_WIDE_INT addr_offset;
 
-  /* Get ops for the addressed object.  */
-  op = VEC_index (vn_reference_op_s, *ops, i);
-  /* ???  If this is our usual typeof &ARRAY vs. &ARRAY[0] problem, work
-     around it to avoid later ICEs.  */
-  if (TREE_CODE (TREE_TYPE (TREE_OPERAND (op->op0, 0))) == ARRAY_TYPE
-      && TREE_CODE (TREE_TYPE (TREE_TYPE (op->op0))) != ARRAY_TYPE)
+  /* The only thing we have to do is from &OBJ.foo.bar add the offset
+     from .foo.bar to the preceeding MEM_REF offset and replace the
+     address with &OBJ.  */
+  addr_base = get_addr_base_and_offset (TREE_OPERAND (op->op0, 0),
+					&addr_offset);
+  gcc_checking_assert (addr_base && TREE_CODE (addr_base) != MEM_REF);
+  if (addr_base != op->op0)
     {
-      vn_reference_op_s aref;
-      tree dom;
-      aref.type = TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (op->op0)));
-      aref.opcode = ARRAY_REF;
-      aref.op0 = integer_zero_node;
-      if ((dom = TYPE_DOMAIN (TREE_TYPE (TREE_OPERAND (op->op0, 0))))
-	  && TYPE_MIN_VALUE (dom))
-	aref.op0 = TYPE_MIN_VALUE (dom);
-      aref.op1 = aref.op0;
-      aref.op2 = TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (op->op0)));
-      VEC_safe_push (vn_reference_op_s, heap, mem, &aref);
+      double_int off = tree_to_double_int (mem_op->op0);
+      off = double_int_sext (off, TYPE_PRECISION (TREE_TYPE (mem_op->op0)));
+      off = double_int_add (off, shwi_to_double_int (addr_offset
+						     / BITS_PER_UNIT));
+      mem_op->op0 = double_int_to_tree (TREE_TYPE (mem_op->op0), off);
+      op->op0 = build_fold_addr_expr (addr_base);
     }
-  copy_reference_ops_from_ref (TREE_OPERAND (op->op0, 0), &mem);
-
-  /* Do the replacement - we should have at least one op in mem now.  */
-  if (VEC_length (vn_reference_op_s, mem) == 1)
-    {
-      VEC_replace (vn_reference_op_s, *ops, i - 1,
-		   VEC_index (vn_reference_op_s, mem, 0));
-      VEC_ordered_remove (vn_reference_op_s, *ops, i);
-      i--;
-    }
-  else if (VEC_length (vn_reference_op_s, mem) == 2)
-    {
-      VEC_replace (vn_reference_op_s, *ops, i - 1,
-		   VEC_index (vn_reference_op_s, mem, 0));
-      VEC_replace (vn_reference_op_s, *ops, i,
-		   VEC_index (vn_reference_op_s, mem, 1));
-    }
-  else if (VEC_length (vn_reference_op_s, mem) > 2)
-    {
-      VEC_replace (vn_reference_op_s, *ops, i - 1,
-		   VEC_index (vn_reference_op_s, mem, 0));
-      VEC_replace (vn_reference_op_s, *ops, i,
-		   VEC_index (vn_reference_op_s, mem, 1));
-      /* ???  There is no VEC_splice.  */
-      for (j = 2; VEC_iterate (vn_reference_op_s, mem, j, op); j++)
-	VEC_safe_insert (vn_reference_op_s, heap, *ops, ++i, op);
-    }
-  else
-    gcc_unreachable ();
-
-  VEC_free (vn_reference_op_s, heap, mem);
-  *i_p = i;
 }
 
 /* Optimize the reference REF to a constant if possible or return
@@ -1105,7 +1070,7 @@ valueize_refs (VEC (vn_reference_op_s, heap) *orig)
 	     a preceding indirect reference.  */
 	  if (i > 0 && TREE_CODE (vro->op0) == ADDR_EXPR
 	      && VEC_index (vn_reference_op_s,
-			    orig, i - 1)->opcode == INDIRECT_REF)
+			    orig, i - 1)->opcode == MEM_REF)
 	    {
 	      vn_reference_fold_indirect (&orig, &i);
 	      continue;
