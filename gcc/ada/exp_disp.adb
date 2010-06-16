@@ -922,6 +922,15 @@ package body Exp_Disp is
          --  we generate: x.tag = y.tag and then x = y
 
          if Subp = Eq_Prim_Op then
+
+            --  Adjust the node referenced by the SCIL node to skip the tags
+            --  comparison because it is the information needed by the SCIL
+            --  backend to process this dispatching call
+
+            if Generate_SCIL then
+               Set_SCIL_Related_Node (SCIL_Node, New_Call);
+            end if;
+
             Param := First_Actual (Call_Node);
             New_Call :=
               Make_And_Then (Loc,
@@ -1528,17 +1537,16 @@ package body Exp_Disp is
       Formal        := First (Formals);
       while Present (Formal) loop
 
-         --  Handle concurrent types.
+         --  Handle concurrent types
 
          if Ekind (Target_Formal) = E_In_Parameter
            and then Ekind (Etype (Target_Formal)) = E_Anonymous_Access_Type
          then
             Ftyp := Directly_Designated_Type (Etype (Target_Formal));
          else
-
-            --  if the parent is a constrained discriminated type. the
+            --  If the parent is a constrained discriminated type, then the
             --  primitive operation will have been defined on a first subtype.
-            --  for proper matching with controlling type, use base type.
+            --  For proper matching with controlling type, use base type.
 
             Ftyp := Base_Type (Etype (Target_Formal));
          end if;

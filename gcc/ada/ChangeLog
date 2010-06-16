@@ -1,3 +1,73 @@
+2010-06-16  Arnaud Charlet  <charlet@adacore.com>
+
+	* get_scos.adb, par_sco.adb, par_sco.ads, put_scos.adb, scos.adb,
+	scos.ads, exp_ch4.adb, sem_warn.adb: Code clean up, update
+	documentation.
+
+2010-06-16  Javier Miranda  <miranda@adacore.com>
+
+	* exp_disp.adb (Expand_Dispatching_Call): Adjust the decoration of the
+	node referenced by the SCIL node of dispatching "=" to skip the tags
+	comparison.
+
+2010-06-16  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch5.adb (Analyze_Exit_Statement): Return if no enclosing loop,
+	to prevent cascaded errors and compilation aborts.
+
+2010-06-16  Robert Dewar  <dewar@adacore.com>
+
+	* back_end.adb (Switch_Subsequently_Cancelled): New function
+	Move declarations to package body level to support this change
+	* back_end.ads (Switch_Subsequently_Cancelled): New function
+	* gnat_ugn.texi: Document -gnat-p switch
+	* switch-c.adb (Scan_Front_End_Switches): Implement -gnat-p switch
+	* ug_words: Add entry for -gnat-p (UNSUPPRESS_ALL)
+	* usage.adb: Add line for -gnat-p switch
+	* vms_data.ads: Add entry for UNSUPPRESS_ALL (-gnat-p)
+
+2010-06-16  Robert Dewar  <dewar@adacore.com>
+
+	* sem_warn.adb (Check_Infinite_Loop_Warning): Declaration counts as
+	modification.
+
+2010-06-16  Robert Dewar  <dewar@adacore.com>
+
+	* exp_disp.adb: Minor reformatting
+
+2010-06-16  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch3.adb (Complete_Private_Subtype): Inherit class_wide type from
+	base type only if it was not previously created for the partial view.
+
+2010-06-16  Thomas Quinot  <quinot@adacore.com>
+
+	* tbuild.ads: Minor comment fix
+
+2010-06-15  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* gcc-interface/trans.c (gnu_stack_free_list): Delete.
+	(gnu_except_ptr_stack): Change type to VEC.  Update comment.
+	(gnu_elab_proc_stack): Likewise.
+	(gnu_return_label_stack): Likewise.
+	(gnu_loop_label_stack): Likewise.
+	(gnu_switch_label_stack): Likewise.
+	(gnu_constraint_label_stack): Likewise.
+	(gnu_storage_error_label_stack): Likewise.
+	(gnu_program_error_label_stack): Likewise.
+	(push_exception_label_stack): Take a VEC ** instead of a tree *.
+	(push_stack): Likewise.  Remove unused second parameter.  Update
+	callers.
+	(pop_stack): Take a VEC * instead of a tree *.  Update callers.
+	(gigi): Initialize stacks as VECs.
+	(Identifier_to_gnu): Use VEC_last instead of TREE_VALUE.
+	(Case_Statement_to_gnu): Likewise.
+	(Subprogram_Body_to_gnu): Likewise.
+	(call_to_gnu): Likewise.
+	(Exception_Handler_to_gnu_sjlj): Likewise.
+	(gnat_to_gnu): Likewise.
+	(get_exception_label): Likewise.
+
 2010-06-14  Ed Schonberg  <schonberg@adacore.com>
 
 	* sem_ch3.adb (Build_Derived_Record_Type): if derived type is an
@@ -56,7 +126,7 @@
 
 2010-06-14  Robert Dewar  <dewar@adacore.com>
 
-	* atree.ads, atree.adb (Ekind_In): New functions
+	* atree.ads, atree.adb (Ekind_In): New functions.
 
 2010-06-14  Robert Dewar  <dewar@adacore.com>
 
@@ -154,7 +224,7 @@
 
 2010-06-14  Robert Dewar  <dewar@adacore.com>
 
-	* g-socket.adb, gnatcmd.adb: Minor reformatting
+	* g-socket.adb, gnatcmd.adb: Minor reformatting.
 
 2010-06-14  Pascal Obry  <obry@adacore.com>
 
@@ -215,7 +285,7 @@
 2010-06-14  Arnaud Charlet  <charlet@adacore.com>
 
 	* ali.adb: Fix typo.
-	* s-auxdec-vms-alpha.adb, scng.ads: Minor reformatting
+	* s-auxdec-vms-alpha.adb, scng.ads: Minor reformatting.
 
 2010-06-14  Ed Schonberg  <schonberg@adacore.com>
 
@@ -254,7 +324,7 @@
 
 2010-06-14  Ed Falis  <falis@adacore.com>
 
-	* sysdep.c: Fix 653 build against vThreads headers
+	* sysdep.c: Fix 653 build against vThreads headers.
 
 2010-06-14  Robert Dewar  <dewar@adacore.com>
 
@@ -317,7 +387,7 @@
 
 2010-06-14  Robert Dewar  <dewar@adacore.com>
 
-	* sem_res.adb: Minor reformatting
+	* sem_res.adb: Minor reformatting.
 
 2010-06-14  Ed Schonberg  <schonberg@adacore.com>
 
@@ -376,10 +446,11 @@
 
 2010-06-14  Thomas Quinot  <quinot@adacore.com>
 
-	* exp_attr.adb: Minor reformatting
+	* exp_attr.adb: Minor reformatting.
+
 2010-06-14  Gary Dismukes  <dismukes@adacore.com>
 
-	* gnat_ugn.texi: Minor typo fixes and wording changes
+	* gnat_ugn.texi: Minor typo fixes and wording changes.
 
 2010-06-14  Ed Schonberg  <schonberg@adacore.com>
 
@@ -409,7 +480,7 @@
 
 2010-06-14  Robert Dewar  <dewar@adacore.com>
 
-	* a-convec.adb, sem_prag.adb, checks.adb: Minor reformatting
+	* a-convec.adb, sem_prag.adb, checks.adb: Minor reformatting.
 
 2010-06-14  Eric Botcazou  <ebotcazou@adacore.com>
 

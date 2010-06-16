@@ -1,9 +1,170 @@
+2010-06-16  Richard Guenther  <rguenther@suse.de>
+
+	* tree-inline.c (remap_gimple_op_r): Recurse using
+	remap_gimple_op_r.
+
+2010-06-16  Douglas B Rupp  <rupp@gnat.com>
+
+	* config/ia64/vms.h (ASM_OUTPUT_DWARF_DELTA_UNITS): Remove.
+	(ASM_OUTPUT_DWARF_VMS_DELTA: Define new macro.
+	* dbxout.c (gcc_debug_hooks): New entry begin_epilogue.
+	* debug.c: Likewise.
+	* sdbout.c: Likewise.
+	* vmsdbgout.c: Likewise.
+	* debug.h: Likewise. (dwarf2out_vms_{begin,end}_prologue): Declare.
+	* doc/tm.texi (ASM_OUTPUT_DWARF_VMS_DELTA): Document.
+	* dwarf2asm.c (dw2_asm_output_vms_delta): New function.
+	(ASM_OUTPUT_DWARF_VMS_DELTA): Call it.
+	* dwarf2asm.h (dw2_asm_output_vms_delta): Declare.
+	* dwarf2out.c (dw_fde_struct): New fields
+	dw_fde_vms_{end,begin}_prologue.
+	(PROLOGUE_END_LABEL, EPILOGUE_BEGIN_LABEL): New macros.
+	(dwarf2out_begin_prologue): Set dw_fde_struct defaults for above.
+	(dwarf2out_vms_end_prologue): New function.
+	(dwarf2out_vms_begin_epilogue): New function.
+	(dw_val_struct): New value dw_val_class_vms_delta.
+	(gcc_debug_hooks): New entry begin_epilogue. Set end_prologue,
+	begin_epilogue for VMS.
+	(AT_vms_delta1, AT_vms_delta2, add_AT_vms_delta): Declare
+	new static functions.
+	(dwarf_attr_name): New cases DW_AT_HP_{prologue,epilogue}.
+	(AT_vms_delta1, AT_vms_delta2, add_AT_vms_delta): New 
+	static functions.
+	(print_die): New case dw_val_class_vms_delta.
+	(attr_checksum): Likewise.
+	(same_dw_val_p: Likewise.
+	(size_of_die): Likewise.
+	(value_format): Likewise.
+	(output_die): Likewise.
+	(gen_subprogram_die): Call add_AT_vms_delta on VMS.
+	(dwarf2out_begin_epilogue): Rename to dwarf2out_cfi_begin_epilogue
+	* dwarf2out.h (dwarf2out_begin_epilogue): Rename to
+	dwarf2out_cfi_begin_epilogue
+	* final.c (final_scan_insn): Likewise. Call begin_epilogue.
+
+2010-06-16  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* config/cris/cris-protos.h (cris_print_operand): Delete.
+	(cris_print_operand_address): Delete.
+	* config/cris/cris.h (PRINT_OPERAND): Delete.
+	(PRINT_OPERAND_PUNCT_VALID_P): Delete.
+	(PRINT_OPERAND_ADDRESS): Delete.
+	* config/cris/cris.c (cris_print_operand_address): Make static.
+	(cris_print_operand): Make static.
+	(cris_print_operand_punct_valid_p): New function.
+	(TARGET_PRINT_OPERAND, TARGET_PRINT_OPERAND_ADDRESS):
+	(TARGET_PRINT_OPERAND_ADDRESS): Define.
+
+2010-06-16  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* config/arm/arm-protos.h (arm_print_operand): Delete.
+	(arm_print_operand_address): Delete.
+	* config/arm/arm.h (PRINT_OPERAND): Delete.
+	(PRINT_OPERAND_PUNCT_VALID_P): Delete.
+	(PRINT_OPERAND_ADDRESS, ARM_PRINT_OPERAND_ADDRESS):
+	(THUMB_PRINT_OPERAND_ADDRESS): Delete and move code to...
+	* config/arm/arm.c (arm_print_operand_address): ...here.  New
+	function.
+	(arm_print_operand): Make static.
+	(arm_print_operand_punct_valid_p): New function.
+	(TARGET_PRINT_OPERAND, TARGET_PRINT_OPERAND_ADDRESS):
+	(TARGET_PRINT_OPERAND_ADDRESS): Define.
+
+2010-06-16  Nick Clifton  <nickc@redhat.com>
+
+	* config/rx/constraints.md (NEGint4): New constraint.
+	* config/rx/rx.md (attr cc): Add set_zsc.
+	(cbranchsf4): Only test for -fnon-call-exceptions if cfun has been
+	initialised.
+	(cmpsf): Likewise.
+	(call_internal): Clobber the cc0 register.
+	(call_value_internal): Likewise.
+	(cstoresi4): Likewise.
+	(movsieq): Likewise.
+	(movsine): Likewise.
+	(addsi3): Add alternative to handle small negative constants.
+	(sunsi3): Likewise.
+	(addsi3): Do not set the O bit in the cc0 register.
+	(adddi3): Likewise.
+	(subsi3): Likewise.
+	(subdi3): Likewise.
+	(andsi3): Reorder alternatives to prefer shorter forms.
+	(mulsi3): Likewise.
+	(iorsi3): Likewise.
+	(negsi2): Note that the cc0 flags are set.
+	(rotlsi3): Note that only the Z and S bits are set in cc0.
+	(lshrsi3): Likewise.
+	(ashlsi3): Likewise.
+	(subsf3): Use %Q for the MEM operand.
+	(fix_truncsfsi2): Likewise.
+	(floatsisf2): Likewise.
+	(bitset): Remove early clobber from destination.
+	(bitset_in_memory): Likewise.
+	(lrintsf2): Clobber the cc0 register.
+	* config/rx/rx.c (rx_notice_update_cc):
+	Handle CC_SET_ZSC.
+	(rx_print_operand): Handle %N.
+
+2010-06-16  Jan Hubicka  <jh@suse.cz>
+
+	* df-core.c (df_compact_blocks): Free problem_temps vector.
+
+2010-06-16  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/43905
+	* tree-sra.c: Include tree-inline.h.
+	(create_abstract_origin): Removed.
+	(modify_function): Version the call graph node instead of creating
+	abstract origins and dealing with same_body aliases.
+	* tree-sra.c (ipa_sra_preliminary_function_checks): Check whether the
+	function is versionable.
+	* Makefile.in (tree-sra.o): Add TREE_INLINE_H to dependencies.
+
+2010-06-16  Maxim Kuvyrkov  <maxim@codesourcery.com>
+
+	* config/mips/linux64.h (BIONIC_DYNAMIC_LINKERN32): Define.
+	(CHOOSE_DYNAMIC_LINKER): Update.
+
+2010-06-15  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (*prefetch_sse_<mode>):  Macroize insn from
+	*prefetch_sse and *prefetch_sse_rex using P mode iterator.
+	(*prefetch_3dnow_<mode>): Ditto from *prefetch_3dnow and
+	*prefetch_3dnow_rex.
+
+2010-06-15  Anatoly Sokolov  <aesok@post.ru>
+
+	* target.h (struct asm_out):Add declare_constant_name field.
+	* target-def.h (TARGET_ASM_DECLARE_CONSTANT_NAME): Define.
+	(TARGET_INITIALIZER): Use TARGET_ASM_DECLARE_CONSTANT_NAME.
+	* output.h (default_asm_declare_constant_name): Declare.
+	(assemble_label): Update prototype.
+	* varasm.c (assemble_constant_contents): Use
+	targetm.asm_out.declare_constant_name target hook.
+	(assemble_label): Add 'file' argument.
+	(default_asm_declare_constant_name): New function.
+	* system.h (ASM_DECLARE_CONSTANT_NAME): Poison.
+	* doc/tm.texi (ASM_DECLARE_CONSTANT_NAME): Remove.
+	(TARGET_ASM_DECLARE_CONSTANT_NAME): Document it.
+
+	* config/darwin-protos.h (darwin_asm_declare_constant_name): Declare.
+	* config/darwin.c (darwin_asm_declare_constant_name): New function.
+	(machopic_output_indirection): Update assemble_label argument list.
+	* config/darwin.h (ASM_DECLARE_CONSTANT_NAME): Remove.
+	(TARGET_ASM_DECLARE_CONSTANT_NAME): Define.
+
+2010-06-15  Sebastian Pop  <sebastian.pop@amd.com>
+
+	PR middle-end/44391
+	* graphite-clast-to-gimple.c (graphite_create_new_loop_guard): Use
+	size_one_node for pointer types.  Do not call gmp_cst_to_tree.
+
 2010-06-15  Richard Guenther  <rguenther@suse.de>
 
 	* tree-ssa-pre.c (eliminate): Handle PHI elimination to constants.
 
 2010-06-15  Paul Brook  <paul@codesourcery.com>
- 
+
 	* config/arm/arm.c (use_vfp_abi): Add sorry() for Thumb-1
 	hard-float ABI.
 
@@ -57,8 +218,7 @@
 	(rs6000_generate_compare <cmptf_internal2>): One more clobber.
 	(tocrel_base, tocrel_offset): New variables.
 	(toc_relative_expr_p): Set them here.
-	(print_operand_address): Skip over any offset on constant pool
-	address.
+	(print_operand_address): Skip over any offset on constant pool address.
 	(rs6000_output_addr_const_extra): Print tocrel_offset before @toc.
 	(rs6000_mode_dependent_address <LO_SUM>): False for new toc refs.
 	(offsettable_ok_by_alignment): New function.
@@ -125,16 +285,14 @@
 	(bitpack_create, lto_output_bitpack, lto_input_bitpack):
 	New inline functions.
 	* lto-streamer-out.c (lto_output_bitpack): Remove.
-	(pack_ts_base_value_fields): Adjust.  Avoid conditional
-	bitpacking.
+	(pack_ts_base_value_fields): Adjust.  Avoid conditional bitpacking.
 	(pack_value_fields): Adjust.
 	(lto_write_tree): Likewise.
 	(output_gimple_stmt): Likewise.
 	(output_function): Likewise.
 	* lto-streamer-in.c (input_gimple_stmt): Adjust.
 	(input_function): Likewise.
-	(unpack_ts_base_value_fields): Adjust.  Avoid conditional
-	bitpacking.
+	(unpack_ts_base_value_fields): Adjust.  Avoid conditional bitpacking.
 	(lto_input_bitpack): Remove.
 	(lto_materialize_tree): Adjust.
 	* Makefile.in (ipa-prop.o): Add $(LTO_STREAMER_H) dependency.
@@ -158,8 +316,7 @@
 2010-06-14  H.J. Lu  <hongjiu.lu@intel.com>
 
 	PR target/44534
-	* config/i386/sse.md (vec_extract_lo_<mode>): Replace 0x1 with
-	0x0.
+	* config/i386/sse.md (vec_extract_lo_<mode>): Replace 0x1 with 0x0.
 	(vec_extract_lo_v16hi): Likewise.
 	(vec_extract_lo_v32qi): Likewise.
 
@@ -177,8 +334,7 @@
 	(build_call_expr): New function.
 
 	PR tree-optimization/44508
-	* tree-ssa-propagate.h (substitute_and_fold): Add DO_DCE
-	argument.
+	* tree-ssa-propagate.h (substitute_and_fold): Add DO_DCE argument.
 	* tree-ssa-propagate.c (substitute_and_fold): If !DO_DCE,
 	don't eliminate trivially dead stmts.
 	* tree-vrp.c (vrp_finalize): Pass false as last argument
@@ -196,7 +352,7 @@
 
 2010-06-14  Ira Rosen  <irar@il.ibm.com>
 
-	PR tree-optimization/44507 
+	PR tree-optimization/44507
 	* tree-vect-loop.c (get_initial_def_for_reduction): Use -1
 	to build initial vector for BIT_AND_EXPR.
 	* tree-vect-slp.c (vect_get_constant_vectors): Likewise.
@@ -327,8 +483,8 @@
 
 2010-06-12  Kazu Hirata  <kazu@codesourcery.com>
 
-	* config.gcc (mips64*-*-linux*, mipsisa64*-*-linux*,
-	mips*-*-linux*): Add crtfastmath.o to extra_parts.
+	* config.gcc (mips64*-*-linux*, mipsisa64*-*-linux*, mips*-*-linux*):
+	Add crtfastmath.o to extra_parts.
 	* config/mips/crtfastmath.c: New.
 	* config/mips/linux.h (ENDFILE_SPEC): New.
 
@@ -343,8 +499,7 @@
 2010-06-11  Joseph Myers  <joseph@codesourcery.com>
 
 	* common.opt (Wstrict-aliasing=, Wstrict-overflow=, fabi-version=,
-	flto-compression-level=, ftree-parallelize-loops=): Add
-	RejectNegative.
+	flto-compression-level=, ftree-parallelize-loops=): Add RejectNegative.
 
 2010-06-11  Joseph Myers  <joseph@codesourcery.com>
 
@@ -362,7 +517,7 @@
 
 	PR target/44481
 	* config/i386/i386.md (UNSPEC_PARITY): New unspec.
-	(paritydi2_cmp): Use UNSPEC_PARITY unspec insted of parity RTX.
+	(paritydi2_cmp): Use UNSPEC_PARITY unspec instead of parity RTX.
 	(partiysi2_cmp): Ditto.
 	(*partiyhi2_cmp): Ditto.
 	(*parityqi2_cmp): Remove.
@@ -373,7 +528,7 @@
 	(bmp_iter_set, bmp_iter_and, bmp_iter_and_compl): Use it.
 
 2010-06-11  Sandra Loosemore  <sandra@codesourcery.com>
-            Eric Botcazou  <ebotcazou@adacore.com>
+	    Eric Botcazou  <ebotcazou@adacore.com>
 
 	* tree-ssa-loop-ivopts.c (get_computation_cost_at): Return again the
 	computed cost.

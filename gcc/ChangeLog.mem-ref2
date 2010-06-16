@@ -1,5 +1,9 @@
 2010-06-16  Richard Guenther  <rguenther@suse.de>
 
+	Merge from trunk r160861.
+
+2010-06-16  Richard Guenther  <rguenther@suse.de>
+
 	* tree-vrp.c (check_array_ref): Handle MEM_REF.
 	(search_for_addr_array): Likewise.
 	(check_array_bounds): Likewise.
