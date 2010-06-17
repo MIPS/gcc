@@ -251,25 +251,25 @@ moxie_compute_frame (void)
   int regno;
 
   /* Padding needed for each element of the frame.  */
-  cfun->machine->local_vars_size = get_frame_size ();
+  MACHINE_FUNCTION (*cfun)->local_vars_size = get_frame_size ();
 
   /* Align to the stack alignment.  */
-  padding_locals = cfun->machine->local_vars_size % stack_alignment;
+  padding_locals = MACHINE_FUNCTION (*cfun)->local_vars_size % stack_alignment;
   if (padding_locals)
     padding_locals = stack_alignment - padding_locals;
 
-  cfun->machine->local_vars_size += padding_locals;
+  MACHINE_FUNCTION (*cfun)->local_vars_size += padding_locals;
 
-  cfun->machine->callee_saved_reg_size = 0;
+  MACHINE_FUNCTION (*cfun)->callee_saved_reg_size = 0;
 
   /* Save callee-saved registers.  */
   for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
     if (df_regs_ever_live_p (regno) && (! call_used_regs[regno]))
-      cfun->machine->callee_saved_reg_size += 4;
+      MACHINE_FUNCTION (*cfun)->callee_saved_reg_size += 4;
 
-  cfun->machine->size_for_adjusting_sp = 
+  MACHINE_FUNCTION (*cfun)->size_for_adjusting_sp = 
     crtl->args.pretend_args_size
-    + cfun->machine->local_vars_size 
+    + MACHINE_FUNCTION (*cfun)->local_vars_size 
     + (ACCUMULATE_OUTGOING_ARGS ? crtl->outgoing_args_size : 0);
 }
 
@@ -291,9 +291,9 @@ moxie_expand_prologue (void)
 	}
     }
 
-  if (cfun->machine->size_for_adjusting_sp > 0)
+  if (MACHINE_FUNCTION (*cfun)->size_for_adjusting_sp > 0)
     {
-      int i = cfun->machine->size_for_adjusting_sp;
+      int i = MACHINE_FUNCTION (*cfun)->size_for_adjusting_sp;
       while (i > 255)
 	{
 	  insn = emit_insn (gen_subsi3 (stack_pointer_rtx, 
@@ -318,20 +318,22 @@ moxie_expand_epilogue (void)
   int regno;
   rtx insn, reg, cfa_restores = NULL;
 
-  if (cfun->machine->callee_saved_reg_size != 0)
+  if (MACHINE_FUNCTION (*cfun)->callee_saved_reg_size != 0)
     {
       reg = gen_rtx_REG (Pmode, MOXIE_R5);
-      if (cfun->machine->callee_saved_reg_size <= 255)
+      if (MACHINE_FUNCTION (*cfun)->callee_saved_reg_size <= 255)
 	{
 	  emit_move_insn (reg, hard_frame_pointer_rtx);
 	  emit_insn (gen_subsi3 
 		     (reg, reg, 
-		      GEN_INT (cfun->machine->callee_saved_reg_size)));
+		      (GEN_INT
+		       (MACHINE_FUNCTION (*cfun)->callee_saved_reg_size))));
 	}
       else
 	{
 	  emit_move_insn (reg,
-			  GEN_INT (-cfun->machine->callee_saved_reg_size));
+			  (GEN_INT
+			   (-MACHINE_FUNCTION (*cfun)->callee_saved_reg_size)));
 	  emit_insn (gen_addsi3 (reg, reg, hard_frame_pointer_rtx));
 	}
       for (regno = FIRST_PSEUDO_REGISTER; regno-- > 0; )
@@ -355,9 +357,10 @@ moxie_initial_elimination_offset (int from, int to)
   
   if ((from) == FRAME_POINTER_REGNUM && (to) == HARD_FRAME_POINTER_REGNUM)
     {
-      /* Compute this since we need to use cfun->machine->local_vars_size.  */
+      /* Compute this since we need to use
+	 MACHINE_FUNCTION (*cfun)->local_vars_size.  */
       moxie_compute_frame ();
-      ret = -cfun->machine->callee_saved_reg_size;
+      ret = -MACHINE_FUNCTION (*cfun)->callee_saved_reg_size;
     }
   else if ((from) == ARG_POINTER_REGNUM && (to) == HARD_FRAME_POINTER_REGNUM)
     ret = 0x00;

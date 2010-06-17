@@ -10661,7 +10661,7 @@
   "TARGET_EITHER"
   "
   {
-    cfun->machine->eh_epilogue_sp_ofs = operands[1];
+    MACHINE_FUNCTION (*cfun)->eh_epilogue_sp_ofs = operands[1];
     if (GET_CODE (operands[2]) != REG || REGNO (operands[2]) != 2)
       {
 	rtx ra = gen_rtx_REG (Pmode, 2);
@@ -10671,7 +10671,7 @@
       }
     /* This is a hack -- we may have crystalized the function type too
        early.  */
-    cfun->machine->func_type = 0;
+    MACHINE_FUNCTION (*cfun)->func_type = 0;
   }"
 )
 

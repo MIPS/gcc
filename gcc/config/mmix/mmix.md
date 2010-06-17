@@ -1130,7 +1130,7 @@ DIVU %1,%1,%2\;GET %0,:rR\;NEGU %2,0,%0\;CSNN %0,$255,%2")
 				     MMIX_INCOMING_RETURN_ADDRESS_REGNUM);
 
   /* Mark this function as containing a landing-pad.  */
-  cfun->machine->has_landing_pad = 1;
+  MACHINE_FUNCTION (*cfun)->has_landing_pad = 1;
 }")
 
 ;; GCC can insist on using saved registers to keep the slot address in

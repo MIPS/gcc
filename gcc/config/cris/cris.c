@@ -1169,7 +1169,7 @@ cris_print_operand_address (FILE *file, rtx x)
 rtx
 cris_return_addr_rtx (int count, rtx frameaddr ATTRIBUTE_UNUSED)
 {
-  cfun->machine->needs_return_address_on_stack = 1;
+  MACHINE_FUNCTION (*cfun)->needs_return_address_on_stack = 1;
 
   /* The return-address is stored just above the saved frame-pointer (if
      present).  Apparently we can't eliminate from the frame-pointer in
@@ -1179,23 +1179,23 @@ cris_return_addr_rtx (int count, rtx frameaddr ATTRIBUTE_UNUSED)
     : NULL_RTX;
 }
 
-/* Accessor used in cris.md:return because cfun->machine isn't available
-   there.  */
+/* Accessor used in cris.md:return because
+   MACHINE_FUNCTION (*cfun) isn't available there.  */
 
 bool
 cris_return_address_on_stack (void)
 {
   return df_regs_ever_live_p (CRIS_SRP_REGNUM)
-    || cfun->machine->needs_return_address_on_stack;
+    || MACHINE_FUNCTION (*cfun)->needs_return_address_on_stack;
 }
 
-/* Accessor used in cris.md:return because cfun->machine isn't available
-   there.  */
+/* Accessor used in cris.md:return because
+   MACHINE_FUNCTION (*cfun) isn't available there.  */
 
 bool
 cris_return_address_on_stack_for_return (void)
 {
-  return cfun->machine->return_type == CRIS_RETINSN_RET ? false
+  return MACHINE_FUNCTION (*cfun)->return_type == CRIS_RETINSN_RET ? false
     : cris_return_address_on_stack ();
 }
 
@@ -1772,10 +1772,12 @@ cris_expand_return (bool on_stack)
      to check that it doesn't change half-way through.  */
   emit_jump_insn (gen_rtx_RETURN (VOIDmode));
 
-  CRIS_ASSERT (cfun->machine->return_type != CRIS_RETINSN_RET || !on_stack);
-  CRIS_ASSERT (cfun->machine->return_type != CRIS_RETINSN_JUMP || on_stack);
+  CRIS_ASSERT (MACHINE_FUNCTION (*cfun)->return_type != CRIS_RETINSN_RET
+	       || !on_stack);
+  CRIS_ASSERT (MACHINE_FUNCTION (*cfun)->return_type != CRIS_RETINSN_JUMP
+	       || on_stack);
 
-  cfun->machine->return_type
+  MACHINE_FUNCTION (*cfun)->return_type
     = on_stack ? CRIS_RETINSN_JUMP : CRIS_RETINSN_RET;
 }
 
@@ -2819,14 +2821,14 @@ cris_expand_prologue (void)
   if (pretend)
     {
       /* See also cris_setup_incoming_varargs where
-	 cfun->machine->stdarg_regs is set.  There are other setters of
-	 crtl->args.pretend_args_size than stdarg handling, like
+	 MACHINE_FUNCTION (*cfun)->stdarg_regs is set.  There are other
+	 setters of crtl->args.pretend_args_size than stdarg handling, like
 	 for an argument passed with parts in R13 and stack.  We must
 	 not store R13 into the pretend-area for that case, as GCC does
 	 that itself.  "Our" store would be marked as redundant and GCC
 	 will attempt to remove it, which will then be flagged as an
 	 internal error; trying to remove a frame-related insn.  */
-      int stdarg_regs = cfun->machine->stdarg_regs;
+      int stdarg_regs = MACHINE_FUNCTION (*cfun)->stdarg_regs;
 
       framesize += pretend;
 
@@ -3750,7 +3752,7 @@ cris_setup_incoming_varargs (CUMULATIVE_ARGS *ca,
   if (ca->regs < CRIS_MAX_ARGS_IN_REGS)
     {
       int stdarg_regs = CRIS_MAX_ARGS_IN_REGS - ca->regs;
-      cfun->machine->stdarg_regs = stdarg_regs;
+      MACHINE_FUNCTION (*cfun)->stdarg_regs = stdarg_regs;
       *pretend_arg_size = stdarg_regs * 4;
     }
 

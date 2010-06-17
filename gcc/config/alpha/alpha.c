@@ -4849,7 +4849,7 @@ alpha_expand_builtin_establish_vms_condition_handler (rtx target, rtx handler)
      slot is needed.  In addition to reserving the slot space, this will force
      the procedure kind to PT_STACK so ensure that the hard_frame_pointer_rtx
      use above is correct.  */
-  cfun->machine->uses_condition_handler = true;
+  MACHINE_FUNCTION (*cfun)->uses_condition_handler = true;
 }
 
 /* Expand code to store the current VMS condition handler into TARGET and
@@ -4885,7 +4885,7 @@ alpha_return_addr (int count, rtx frame ATTRIBUTE_UNUSED)
 rtx
 alpha_gp_save_rtx (void)
 {
-  rtx seq, m = cfun->machine->gp_save_rtx;
+  rtx seq, m = MACHINE_FUNCTION (*cfun)->gp_save_rtx;
 
   if (m == NULL)
     {
@@ -4906,7 +4906,7 @@ alpha_gp_save_rtx (void)
 	 will call commit_edge_insertions thanks to a kludge.  */
       insert_insn_on_edge (seq, single_succ_edge (ENTRY_BLOCK_PTR));
 
-      cfun->machine->gp_save_rtx = m;
+      MACHINE_FUNCTION (*cfun)->gp_save_rtx = m;
     }
 
   return m;
@@ -5051,7 +5051,7 @@ get_some_local_dynamic_name_1 (rtx *px, void *data ATTRIBUTE_UNUSED)
   if (GET_CODE (x) == SYMBOL_REF
       && SYMBOL_REF_TLS_MODEL (x) == TLS_MODEL_LOCAL_DYNAMIC)
     {
-      cfun->machine->some_ld_name = XSTR (x, 0);
+      MACHINE_FUNCTION (*cfun)->some_ld_name = XSTR (x, 0);
       return 1;
     }
 
@@ -5063,13 +5063,13 @@ get_some_local_dynamic_name (void)
 {
   rtx insn;
 
-  if (cfun->machine->some_ld_name)
-    return cfun->machine->some_ld_name;
+  if (MACHINE_FUNCTION (*cfun)->some_ld_name)
+    return MACHINE_FUNCTION (*cfun)->some_ld_name;
 
   for (insn = get_insns (); insn ; insn = NEXT_INSN (insn))
     if (INSN_P (insn)
 	&& for_each_rtx (&PATTERN (insn), get_some_local_dynamic_name_1, 0))
-      return cfun->machine->some_ld_name;
+      return MACHINE_FUNCTION (*cfun)->some_ld_name;
 
   gcc_unreachable ();
 }
@@ -7429,7 +7429,7 @@ alpha_sa_size (void)
       /* A VMS condition handler requires a stack procedure in our
 	 implementation. (not required by the calling standard).  */
       if ((vms_save_fp_regno == -1 && alpha_procedure_type == PT_REGISTER)
-	  || cfun->machine->uses_condition_handler)
+	  || MACHINE_FUNCTION (*cfun)->uses_condition_handler)
 	vms_base_regno = REG_PV, alpha_procedure_type = PT_STACK;
       else if (alpha_procedure_type == PT_NULL)
 	vms_base_regno = REG_PV;
@@ -7441,7 +7441,7 @@ alpha_sa_size (void)
       /* If this is a stack procedure, allow space for saving FP, RA and
 	 a condition handler slot if needed.  */
       if (alpha_procedure_type == PT_STACK)
-	sa_size += 2 + cfun->machine->uses_condition_handler;
+	sa_size += 2 + MACHINE_FUNCTION (*cfun)->uses_condition_handler;
     }
   else
     {
@@ -7804,7 +7804,7 @@ alpha_expand_prologue (void)
 				 + crtl->args.pretend_args_size));
 
   if (TARGET_ABI_OPEN_VMS)
-    reg_offset = 8 + 8 * cfun->machine->uses_condition_handler;
+    reg_offset = 8 + 8 * MACHINE_FUNCTION (*cfun)->uses_condition_handler;
   else
     reg_offset = ALPHA_ROUND (crtl->outgoing_args_size);
 
@@ -8142,7 +8142,7 @@ alpha_start_function (FILE *file, const char *fnname,
 				 + crtl->args.pretend_args_size));
 
   if (TARGET_ABI_OPEN_VMS)
-    reg_offset = 8 + 8 * cfun->machine->uses_condition_handler;
+    reg_offset = 8 + 8 * MACHINE_FUNCTION (*cfun)->uses_condition_handler;
   else
     reg_offset = ALPHA_ROUND (crtl->outgoing_args_size);
 
@@ -8285,7 +8285,7 @@ alpha_start_function (FILE *file, const char *fnname,
      the procedure descriptor bits to point the Condition Handling Facility
      at the indirection wrapper, and state the fp offset at which the user
      handler may be found.  */
-  if (cfun->machine->uses_condition_handler)
+  if (MACHINE_FUNCTION (*cfun)->uses_condition_handler)
     {
       fprintf (file, "\t.handler __gcc_shell_handler\n");
       fprintf (file, "\t.handler_data %d\n", VMS_COND_HANDLER_FP_OFFSET);
@@ -8362,7 +8362,7 @@ alpha_expand_epilogue (void)
   if (TARGET_ABI_OPEN_VMS)
     {
        if (alpha_procedure_type == PT_STACK)
-          reg_offset = 8 + 8 * cfun->machine->uses_condition_handler;
+          reg_offset = 8 + 8 * MACHINE_FUNCTION (*cfun)->uses_condition_handler;
        else
           reg_offset = 0;
     }
@@ -10427,7 +10427,7 @@ unicosmk_output_align (FILE *file, int align)
 void
 unicosmk_defer_case_vector (rtx lab, rtx vec)
 {
-  struct machine_function *machine = cfun->machine;
+  struct machine_function *machine = MACHINE_FUNCTION (*cfun);
 
   vec = gen_rtx_EXPR_LIST (VOIDmode, lab, vec);
   machine->addr_list = gen_rtx_EXPR_LIST (VOIDmode, vec,
@@ -10458,7 +10458,7 @@ unicosmk_output_addr_vec (FILE *file, rtx vec)
 static void
 unicosmk_output_deferred_case_vectors (FILE *file)
 {
-  struct machine_function *machine = cfun->machine;
+  struct machine_function *machine = MACHINE_FUNCTION (*cfun);
   rtx t;
 
   if (machine->addr_list == NULL_RTX)
@@ -10578,7 +10578,7 @@ unicosmk_output_ssib (FILE *file, const char *fnname)
   int i;
   rtx x;
   rtx ciw;
-  struct machine_function *machine = cfun->machine;
+  struct machine_function *machine = MACHINE_FUNCTION (*cfun);
 
   in_section = NULL;
   fprintf (file, "\t.endp\n\n\t.psect\t%s%s,data\n", user_label_prefix,
@@ -10637,7 +10637,7 @@ rtx
 unicosmk_add_call_info_word (rtx x)
 {
   rtx node;
-  struct machine_function *machine = cfun->machine;
+  struct machine_function *machine = MACHINE_FUNCTION (*cfun);
 
   node = gen_rtx_EXPR_LIST (VOIDmode, x, NULL_RTX);
   if (machine->first_ciw == NULL_RTX)

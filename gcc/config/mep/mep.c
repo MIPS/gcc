@@ -1477,7 +1477,7 @@ mep_expand_mov (rtx *operands, enum machine_mode mode)
       rtx r;
 
       if (GET_CODE (operands[0]) == REG && REGNO (operands[0]) == TP_REGNO)
-	cfun->machine->reload_changes_tp = true;
+	MACHINE_FUNCTION (*cfun)->reload_changes_tp = true;
 
       if (tag[0] == 't' || tag[1] == 't')
 	{
@@ -1491,7 +1491,7 @@ mep_expand_mov (rtx *operands, enum machine_mode mode)
 	  if (!r || GET_CODE (r) != REG || REGNO (r) != TP_REGNO)
 	    post_reload = 1;
 	}
-      if (cfun->machine->reload_changes_tp == true)
+      if (MACHINE_FUNCTION (*cfun)->reload_changes_tp == true)
 	post_reload = 1;
     }
 
@@ -2390,13 +2390,14 @@ mep_allocate_initial_value (rtx reg)
     if (mep_interrupt_p ())
       return NULL_RTX;
 
-  if (! cfun->machine->reg_save_slot[REGNO(reg)])
+  if (! MACHINE_FUNCTION (*cfun)->reg_save_slot[REGNO(reg)])
     {
-      cfun->machine->reg_save_size += 4;
-      cfun->machine->reg_save_slot[REGNO(reg)] = cfun->machine->reg_save_size;
+      MACHINE_FUNCTION (*cfun)->reg_save_size += 4;
+      MACHINE_FUNCTION (*cfun)->reg_save_slot[REGNO(reg)]
+	= MACHINE_FUNCTION (*cfun)->reg_save_size;
     }
 
-  rss = cfun->machine->reg_save_slot[REGNO(reg)];
+  rss = MACHINE_FUNCTION (*cfun)->reg_save_slot[REGNO(reg)];
   return gen_rtx_MEM (SImode, plus_constant (arg_pointer_rtx, -rss));
 }
 
@@ -2424,29 +2425,29 @@ mep_gp_rtx (void)
 static bool
 mep_interrupt_p (void)
 {
-  if (cfun->machine->interrupt_handler == 0)
+  if (MACHINE_FUNCTION (*cfun)->interrupt_handler == 0)
     {
       int interrupt_handler
 	= (lookup_attribute ("interrupt",
 			     DECL_ATTRIBUTES (current_function_decl))
 	   != NULL_TREE);
-      cfun->machine->interrupt_handler = interrupt_handler ? 2 : 1;
+      MACHINE_FUNCTION (*cfun)->interrupt_handler = interrupt_handler ? 2 : 1;
     }
-  return cfun->machine->interrupt_handler == 2;
+  return MACHINE_FUNCTION (*cfun)->interrupt_handler == 2;
 }
 
 static bool
 mep_disinterrupt_p (void)
 {
-  if (cfun->machine->disable_interrupts == 0)
+  if (MACHINE_FUNCTION (*cfun)->disable_interrupts == 0)
     {
       int disable_interrupts
 	= (lookup_attribute ("disinterrupt",
 			     DECL_ATTRIBUTES (current_function_decl))
 	   != NULL_TREE);
-      cfun->machine->disable_interrupts = disable_interrupts ? 2 : 1;
+      MACHINE_FUNCTION (*cfun)->disable_interrupts = disable_interrupts ? 2 : 1;
     }
-  return cfun->machine->disable_interrupts == 2;
+  return MACHINE_FUNCTION (*cfun)->disable_interrupts == 2;
 }
 
 
@@ -2507,7 +2508,7 @@ mep_reg_set_in_function (int regno)
 static bool
 mep_asm_without_operands_p (void)
 {
-  if (cfun->machine->asms_without_operands == 0)
+  if (MACHINE_FUNCTION (*cfun)->asms_without_operands == 0)
     {
       rtx insn;
 
@@ -2515,20 +2516,20 @@ mep_asm_without_operands_p (void)
       insn = get_insns ();
       pop_topmost_sequence ();
 
-      cfun->machine->asms_without_operands = 1;
+      MACHINE_FUNCTION (*cfun)->asms_without_operands = 1;
       while (insn)
 	{
 	  if (INSN_P (insn)
 	      && GET_CODE (PATTERN (insn)) == ASM_INPUT)
 	    {
-	      cfun->machine->asms_without_operands = 2;
+	      MACHINE_FUNCTION (*cfun)->asms_without_operands = 2;
 	      break;
 	    }
 	  insn = NEXT_INSN (insn);
 	}
 
     }
-  return cfun->machine->asms_without_operands == 2;
+  return MACHINE_FUNCTION (*cfun)->asms_without_operands == 2;
 }
 
 /* Interrupt functions save/restore every call-preserved register, and
@@ -2558,7 +2559,7 @@ mep_interrupt_saved_reg (int r)
     /* Function calls mean we need to save $lp.  */
     if (r == LP_REGNO || IVC2_ISAVED_REG (r))
       return true;
-  if (!current_function_is_leaf || cfun->machine->doloop_tags > 0)
+  if (!current_function_is_leaf || MACHINE_FUNCTION (*cfun)->doloop_tags > 0)
     /* The interrupt handler might use these registers for repeat blocks,
        or it might call a function that does so.  */
     if (r == RPB_REGNO || r == RPE_REGNO || r == RPC_REGNO)
@@ -2578,11 +2579,11 @@ mep_interrupt_saved_reg (int r)
 static bool
 mep_call_saves_register (int r)
 {
-  if (! cfun->machine->frame_locked)
+  if (! MACHINE_FUNCTION (*cfun)->frame_locked)
     {
       int rv = MEP_SAVES_NO;
 
-      if (cfun->machine->reg_save_slot[r])
+      if (MACHINE_FUNCTION (*cfun)->reg_save_slot[r])
   	rv = MEP_SAVES_YES;
       else if (r == LP_REGNO && (profile_arc_flag > 0 || profile_flag > 0))
 	rv = MEP_SAVES_YES;
@@ -2596,9 +2597,9 @@ mep_call_saves_register (int r)
 	rv = MEP_SAVES_YES;
       else if (mep_interrupt_saved_reg (r))
 	rv = MEP_SAVES_YES;
-      cfun->machine->reg_saved[r] = rv;
+      MACHINE_FUNCTION (*cfun)->reg_saved[r] = rv;
     }
-  return cfun->machine->reg_saved[r] == MEP_SAVES_YES;
+  return MACHINE_FUNCTION (*cfun)->reg_saved[r] == MEP_SAVES_YES;
 }
 
 /* Return true if epilogue uses register REGNO.  */
@@ -2643,8 +2644,9 @@ mep_elimination_offset (int from, int to)
   int frame_size = get_frame_size () + crtl->outgoing_args_size;
   int total_size;
 
-  if (!cfun->machine->frame_locked)
-    memset (cfun->machine->reg_saved, 0, sizeof (cfun->machine->reg_saved));
+  if (!MACHINE_FUNCTION (*cfun)->frame_locked)
+    memset (MACHINE_FUNCTION (*cfun)->reg_saved, 0,
+	    sizeof (MACHINE_FUNCTION (*cfun)->reg_saved));
 
   /* We don't count arg_regs_to_save in the arg pointer offset, because
      gcc thinks the arg pointer has moved along with the saved regs.
@@ -2655,27 +2657,29 @@ mep_elimination_offset (int from, int to)
       reg_save_size += mep_reg_size (i);
 
   if (reg_save_size % 8)
-    cfun->machine->regsave_filler = 8 - (reg_save_size % 8);
+    MACHINE_FUNCTION (*cfun)->regsave_filler = 8 - (reg_save_size % 8);
   else
-    cfun->machine->regsave_filler = 0;
+    MACHINE_FUNCTION (*cfun)->regsave_filler = 0;
 
   /* This is what our total stack adjustment looks like.  */
-  total_size = (reg_save_size + frame_size + cfun->machine->regsave_filler);
+  total_size = (reg_save_size + frame_size
+		+ MACHINE_FUNCTION (*cfun)->regsave_filler);
 
   if (total_size % 8)
-    cfun->machine->frame_filler = 8 - (total_size % 8);
+    MACHINE_FUNCTION (*cfun)->frame_filler = 8 - (total_size % 8);
   else
-    cfun->machine->frame_filler = 0;
+    MACHINE_FUNCTION (*cfun)->frame_filler = 0;
 
 
   if (from == ARG_POINTER_REGNUM && to == FRAME_POINTER_REGNUM)
-    return reg_save_size + cfun->machine->regsave_filler;
+    return reg_save_size + MACHINE_FUNCTION (*cfun)->regsave_filler;
 
   if (from == FRAME_POINTER_REGNUM && to == STACK_POINTER_REGNUM)
-    return cfun->machine->frame_filler + frame_size;
+    return MACHINE_FUNCTION (*cfun)->frame_filler + frame_size;
 
   if (from == ARG_POINTER_REGNUM && to == STACK_POINTER_REGNUM)
-    return reg_save_size + cfun->machine->regsave_filler + cfun->machine->frame_filler + frame_size;
+    return (reg_save_size + MACHINE_FUNCTION (*cfun)->regsave_filler
+	    + MACHINE_FUNCTION (*cfun)->frame_filler + frame_size);
 
   gcc_unreachable ();
 }
@@ -2803,21 +2807,23 @@ mep_assign_save_slots (int reg_save_size)
 	    || mep_reg_set_in_function (i))
 	  really_need_stack_frame = true;
 
-	if (cfun->machine->reg_save_slot[i])
+	if (MACHINE_FUNCTION (*cfun)->reg_save_slot[i])
 	  continue;
 
 	if (regsize < 8)
 	  {
-	    cfun->machine->reg_save_size += regsize;
-	    cfun->machine->reg_save_slot[i] = cfun->machine->reg_save_size;
+	    MACHINE_FUNCTION (*cfun)->reg_save_size += regsize;
+	    MACHINE_FUNCTION (*cfun)->reg_save_slot[i]
+	      = MACHINE_FUNCTION (*cfun)->reg_save_size;
 	  }
 	else
 	  {
-	    cfun->machine->reg_save_slot[i] = reg_save_size - di_ofs;
+	    MACHINE_FUNCTION (*cfun)->reg_save_slot[i]
+	      = reg_save_size - di_ofs;
 	    di_ofs += 8;
 	  }
       }
-  cfun->machine->frame_locked = 1;
+  MACHINE_FUNCTION (*cfun)->frame_locked = 1;
   return really_need_stack_frame;
 }
 
@@ -2837,7 +2843,7 @@ mep_expand_prologue (void)
   if (mep_disinterrupt_p ())
     emit_insn (gen_mep_disable_int ());
 
-  cfun->machine->mep_frame_pointer_needed = frame_pointer_needed;
+  MACHINE_FUNCTION (*cfun)->mep_frame_pointer_needed = frame_pointer_needed;
 
   reg_save_size = mep_elimination_offset (ARG_POINTER_REGNUM, FRAME_POINTER_REGNUM);
   frame_size = mep_elimination_offset (FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM);
@@ -2858,7 +2864,7 @@ mep_expand_prologue (void)
 	bool maybe_dead_p;
 	enum machine_mode rmode;
 
-	rss = cfun->machine->reg_save_slot[i];
+	rss = MACHINE_FUNCTION (*cfun)->reg_save_slot[i];
 
   	if ((i == TP_REGNO || i == GP_REGNO || i == LP_REGNO)
 	    && (!mep_reg_set_in_function (i)
@@ -2962,9 +2968,9 @@ mep_start_function (FILE *file, HOST_WIDE_INT hwi_local)
   frame_size = mep_elimination_offset (FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM);
   sp_offset = reg_save_size + frame_size;
 
-  ffill = cfun->machine->frame_filler;
+  ffill = MACHINE_FUNCTION (*cfun)->frame_filler;
 
-  if (cfun->machine->mep_frame_pointer_needed)
+  if (MACHINE_FUNCTION (*cfun)->mep_frame_pointer_needed)
     reg_names[FP_REGNO] = "$fp";
   else
     reg_names[FP_REGNO] = "$8";
@@ -2996,8 +3002,8 @@ mep_start_function (FILE *file, HOST_WIDE_INT hwi_local)
     slot_map[si] = si;
   for (si=0; si<FIRST_PSEUDO_REGISTER-1; si++)
     for (sj=si+1; sj<FIRST_PSEUDO_REGISTER; sj++)
-      if (cfun->machine->reg_save_slot[slot_map[si]]
-	  > cfun->machine->reg_save_slot[slot_map[sj]])
+      if (MACHINE_FUNCTION (*cfun)->reg_save_slot[slot_map[si]]
+	  > MACHINE_FUNCTION (*cfun)->reg_save_slot[slot_map[sj]])
 	{
 	  int t = slot_map[si];
 	  slot_map[si] = slot_map[sj];
@@ -3009,7 +3015,7 @@ mep_start_function (FILE *file, HOST_WIDE_INT hwi_local)
     {
       int rsize;
       int r = slot_map[i];
-      int rss = cfun->machine->reg_save_slot[r];
+      int rss = MACHINE_FUNCTION (*cfun)->reg_save_slot[r];
 
       if (!mep_call_saves_register (r))
 	continue;
@@ -3094,7 +3100,7 @@ mep_expand_epilogue (void)
     if (mep_call_saves_register (i))
       {
 	enum machine_mode rmode;
-	int rss = cfun->machine->reg_save_slot[i];
+	int rss = MACHINE_FUNCTION (*cfun)->reg_save_slot[i];
 
 	if (mep_reg_size (i) == 8)
 	  rmode = DImode;
@@ -3151,7 +3157,7 @@ mep_expand_epilogue (void)
   if (crtl->calls_eh_return && mep_prevent_lp_restore)
     emit_insn (gen_addsi3 (gen_rtx_REG (SImode, SP_REGNO),
 			   gen_rtx_REG (SImode, SP_REGNO),
-			   cfun->machine->eh_stack_adjust));
+			   MACHINE_FUNCTION (*cfun)->eh_stack_adjust));
 
   if (mep_sibcall_epilogue)
     return;
@@ -3186,7 +3192,7 @@ mep_expand_eh_return (rtx *operands)
 void
 mep_emit_eh_epilogue (rtx *operands ATTRIBUTE_UNUSED)
 {
-  cfun->machine->eh_stack_adjust = gen_rtx_REG (Pmode, 0);
+  MACHINE_FUNCTION (*cfun)->eh_stack_adjust = gen_rtx_REG (Pmode, 0);
   mep_prevent_lp_restore = 1;
   mep_expand_epilogue ();
   mep_prevent_lp_restore = 0;
@@ -3533,7 +3539,7 @@ mep_setup_incoming_varargs (CUMULATIVE_ARGS *cum,
   int nsave = 4 - (cum->nregs + 1);
 
   if (nsave > 0)
-    cfun->machine->arg_regs_to_save = nsave;
+    MACHINE_FUNCTION (*cfun)->arg_regs_to_save = nsave;
   *pretend_size = nsave * 4;
 }
 
@@ -3551,7 +3557,7 @@ mep_expand_builtin_saveregs (void)
   int bufsize, i, ns;
   rtx regbuf;
 
-  ns = cfun->machine->arg_regs_to_save;
+  ns = MACHINE_FUNCTION (*cfun)->arg_regs_to_save;
   if (TARGET_IVC2)
     {
       bufsize = 8 * ((ns + 1) / 2) + 8 * ns;
@@ -3627,7 +3633,7 @@ mep_expand_va_start (tree valist, rtx nextarg)
   tree t, u;
   int ns;
 
-  ns = cfun->machine->arg_regs_to_save;
+  ns = MACHINE_FUNCTION (*cfun)->arg_regs_to_save;
 
   f_next_gp = TYPE_FIELDS (va_list_type_node);
   f_next_gp_limit = TREE_CHAIN (f_next_gp);
@@ -5216,14 +5222,14 @@ mep_emit_doloop (rtx *operands, int is_end)
 {
   rtx tag;
 
-  if (cfun->machine->doloop_tags == 0
-      || cfun->machine->doloop_tag_from_end == is_end)
+  if (MACHINE_FUNCTION (*cfun)->doloop_tags == 0
+      || MACHINE_FUNCTION (*cfun)->doloop_tag_from_end == is_end)
     {
-      cfun->machine->doloop_tags++;
-      cfun->machine->doloop_tag_from_end = is_end;
+      MACHINE_FUNCTION (*cfun)->doloop_tags++;
+      MACHINE_FUNCTION (*cfun)->doloop_tag_from_end = is_end;
     }
 
-  tag = GEN_INT (cfun->machine->doloop_tags - 1);
+  tag = GEN_INT (MACHINE_FUNCTION (*cfun)->doloop_tags - 1);
   if (is_end)
     emit_jump_insn (gen_doloop_end_internal (operands[0], operands[4], tag));
   else
@@ -5403,12 +5409,14 @@ mep_reorg_repeat (rtx insns)
   struct mep_doloop_end *end;
 
   /* Quick exit if we haven't created any loops.  */
-  if (cfun->machine->doloop_tags == 0)
+  if (MACHINE_FUNCTION (*cfun)->doloop_tags == 0)
     return;
 
   /* Create an array of mep_doloop structures.  */
-  loops = (struct mep_doloop *) alloca (sizeof (loops[0]) * cfun->machine->doloop_tags);
-  memset (loops, 0, sizeof (loops[0]) * cfun->machine->doloop_tags);
+  loops
+    = (struct mep_doloop *) alloca (sizeof (loops[0])
+				    * MACHINE_FUNCTION (*cfun)->doloop_tags);
+  memset (loops, 0, sizeof (loops[0]) * MACHINE_FUNCTION (*cfun)->doloop_tags);
 
   /* Search the function for do-while insns and group them by loop tag.  */
   for (insn = insns; insn; insn = NEXT_INSN (insn))
@@ -5454,7 +5462,8 @@ mep_reorg_repeat (rtx insns)
 	}
 
   /* Convert the insns for each loop in turn.  */
-  for (loop = loops; loop < loops + cfun->machine->doloop_tags; loop++)
+  for (loop = loops; loop < loops + MACHINE_FUNCTION (*cfun)->doloop_tags;
+       loop++)
     if (mep_repeat_loop_p (loop))
       {
 	/* Case (1) or (2).  */

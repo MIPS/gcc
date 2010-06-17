@@ -4054,7 +4054,7 @@ pa_output_function_epilogue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 	 debug information.  Forget that we are in this subspace to ensure
 	 that the next function is output in its own subspace.  */
       in_section = NULL;
-      cfun->machine->in_nsubspa = 2;
+      MACHINE_FUNCTION (*cfun)->in_nsubspa = 2;
     }
 
   if (INSN_ADDRESSES_SET_P ())
@@ -8233,7 +8233,7 @@ pa_asm_output_mi_thunk (FILE *file, tree thunk_fndecl, HOST_WIDE_INT delta,
 	 debug information.  Forget that we are in this subspace to ensure
 	 that the next function is output in its own subspace.  */
       in_section = NULL;
-      cfun->machine->in_nsubspa = 2;
+      MACHINE_FUNCTION (*cfun)->in_nsubspa = 2;
     }
 
   if (TARGET_SOM && flag_pic && TREE_PUBLIC (function))
@@ -9526,11 +9526,12 @@ som_output_text_section_asm_op (const void *data ATTRIBUTE_UNUSED)
   gcc_assert (TARGET_SOM);
   if (TARGET_GAS)
     {
-      if (cfun && cfun->machine && !cfun->machine->in_nsubspa)
+      if (cfun && MACHINE_FUNCTION (*cfun)
+	  && !MACHINE_FUNCTION (*cfun)->in_nsubspa)
 	{
 	  /* We only want to emit a .nsubspa directive once at the
 	     start of the function.  */
-	  cfun->machine->in_nsubspa = 1;
+	  MACHINE_FUNCTION (*cfun)->in_nsubspa = 1;
 
 	  /* Create a new subspace for the text.  This provides
 	     better stub placement and one-only functions.  */
@@ -9551,8 +9552,8 @@ som_output_text_section_asm_op (const void *data ATTRIBUTE_UNUSED)
 	     text section to output debugging information.  Thus, we
 	     need to forget that we are in the text section so that
 	     varasm.c will call us when text_section is selected again.  */
-	  gcc_assert (!cfun || !cfun->machine
-		      || cfun->machine->in_nsubspa == 2);
+	  gcc_assert (!cfun || !MACHINE_FUNCTION (*cfun)
+		      || MACHINE_FUNCTION (*cfun)->in_nsubspa == 2);
 	  in_section = NULL;
 	}
       output_section_asm_op ("\t.SPACE $TEXT$\n\t.NSUBSPA $CODE$");

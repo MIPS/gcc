@@ -1221,7 +1221,7 @@ frv_stack_info (void)
 	  if (df_regs_ever_live_p (LR_REGNO)
               || profile_flag
 	      /* This is set for __builtin_return_address, etc.  */
-	      || cfun->machine->frame_needed
+	      || MACHINE_FUNCTION (*cfun)->frame_needed
               || (TARGET_LINKED_FP && frame_pointer_needed)
               || (!TARGET_FDPIC && flag_pic
 		  && crtl->uses_pic_offset_table))
@@ -2154,7 +2154,7 @@ frv_frame_pointer_required (void)
   if (profile_flag)
     return true;
 
-  if (cfun->machine->frame_needed)
+  if (MACHINE_FUNCTION (*cfun)->frame_needed)
     return true;
 
   return false;
@@ -2518,7 +2518,7 @@ frv_final_prescan_insn (rtx insn, rtx *opvec,
 rtx
 frv_dynamic_chain_address (rtx frame)
 {
-  cfun->machine->frame_needed = 1;
+  MACHINE_FUNCTION (*cfun)->frame_needed = 1;
   return frame;
 }
 
@@ -2538,7 +2538,7 @@ frv_return_addr_rtx (int count, rtx frame)
 {
   if (count != 0)
     return const0_rtx;
-  cfun->machine->frame_needed = 1;
+  MACHINE_FUNCTION (*cfun)->frame_needed = 1;
   return gen_rtx_MEM (Pmode, plus_constant (frame, 8));
 }
 
@@ -8237,7 +8237,8 @@ frv_register_nop (rtx nop)
 static void
 frv_reorg (void)
 {
-  if (optimize > 0 && TARGET_OPTIMIZE_MEMBAR && cfun->machine->has_membar_p)
+  if (optimize > 0 && TARGET_OPTIMIZE_MEMBAR
+      && MACHINE_FUNCTION (*cfun)->has_membar_p)
     frv_optimize_membar ();
 
   frv_num_nops = 0;
@@ -9163,7 +9164,7 @@ frv_expand_load_builtin (enum insn_code icode, enum machine_mode target_mode,
   op0 = frv_volatile_memref (insn_data[icode].operand[0].mode, op0);
   convert_move (target, op0, 1);
   emit_insn (GEN_FCN (icode) (copy_rtx (op0), cookie, GEN_INT (FRV_IO_READ)));
-  cfun->machine->has_membar_p = 1;
+  MACHINE_FUNCTION (*cfun)->has_membar_p = 1;
   return target;
 }
 
@@ -9179,7 +9180,7 @@ frv_expand_store_builtin (enum insn_code icode, tree call)
   op0 = frv_volatile_memref (insn_data[icode].operand[0].mode, op0);
   convert_move (op0, force_reg (insn_data[icode].operand[0].mode, op1), 1);
   emit_insn (GEN_FCN (icode) (copy_rtx (op0), cookie, GEN_INT (FRV_IO_WRITE)));
-  cfun->machine->has_membar_p = 1;
+  MACHINE_FUNCTION (*cfun)->has_membar_p = 1;
   return NULL_RTX;
 }
 

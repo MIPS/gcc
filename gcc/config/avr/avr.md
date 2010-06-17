@@ -3203,9 +3203,10 @@
 (define_insn "return_from_epilogue"
   [(return)]
   "(reload_completed 
-    && cfun->machine 
-    && !(cfun->machine->is_interrupt || cfun->machine->is_signal)
-    && !cfun->machine->is_naked)"
+    && MACHINE_FUNCTION (*cfun) 
+    && !(MACHINE_FUNCTION (*cfun)->is_interrupt
+	 || MACHINE_FUNCTION (*cfun)->is_signal)
+    && !MACHINE_FUNCTION (*cfun)->is_naked)"
   "ret"
   [(set_attr "cc" "none")
    (set_attr "length" "1")])
@@ -3213,9 +3214,10 @@
 (define_insn "return_from_interrupt_epilogue"
   [(return)]
   "(reload_completed 
-    && cfun->machine 
-    && (cfun->machine->is_interrupt || cfun->machine->is_signal)
-    && !cfun->machine->is_naked)"
+    && MACHINE_FUNCTION (*cfun) 
+    && (MACHINE_FUNCTION (*cfun)->is_interrupt
+	|| MACHINE_FUNCTION (*cfun)->is_signal)
+    && !MACHINE_FUNCTION (*cfun)->is_naked)"
   "reti"
   [(set_attr "cc" "none")
    (set_attr "length" "1")])
@@ -3223,8 +3225,8 @@
 (define_insn "return_from_naked_epilogue"
   [(return)]
   "(reload_completed 
-    && cfun->machine 
-    && cfun->machine->is_naked)"
+    && MACHINE_FUNCTION (*cfun) 
+    && MACHINE_FUNCTION (*cfun)->is_naked)"
   ""
   [(set_attr "cc" "none")
    (set_attr "length" "0")])

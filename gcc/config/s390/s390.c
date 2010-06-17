@@ -318,16 +318,17 @@ struct GTY(()) machine_function
   bool has_landing_pad_p;
 };
 
-/* Few accessor macros for struct cfun->machine->s390_frame_layout.  */
+/* Few accessor macros for struct MACHINE_FUNCTION (*cfun)->s390_frame_layout.
+ */
 
-#define cfun_frame_layout (cfun->machine->frame_layout)
+#define cfun_frame_layout (MACHINE_FUNCTION (*cfun)->frame_layout)
 #define cfun_save_high_fprs_p (!!cfun_frame_layout.high_fprs)
 #define cfun_gprs_save_area_size ((cfun_frame_layout.last_save_gpr_slot -           \
   cfun_frame_layout.first_save_gpr_slot + 1) * UNITS_PER_LONG)
-#define cfun_set_fpr_bit(BITNUM) (cfun->machine->frame_layout.fpr_bitmap |=    \
-  (1 << (BITNUM)))
-#define cfun_fpr_bit_p(BITNUM) (!!(cfun->machine->frame_layout.fpr_bitmap &    \
-  (1 << (BITNUM))))
+#define cfun_set_fpr_bit(BITNUM) \
+  (MACHINE_FUNCTION (*cfun)->frame_layout.fpr_bitmap |= (1 << (BITNUM)))
+#define cfun_fpr_bit_p(BITNUM) \
+  (!!(MACHINE_FUNCTION (*cfun)->frame_layout.fpr_bitmap & (1 << (BITNUM))))
 
 /* Number of GPRs and FPRs used for argument passing.  */
 #define GP_ARG_NUM_REG 5
@@ -390,7 +391,7 @@ s390_scalar_mode_supported_p (enum machine_mode mode)
 void
 s390_set_has_landing_pad_p (bool value)
 {
-  cfun->machine->has_landing_pad_p = value;
+  MACHINE_FUNCTION (*cfun)->has_landing_pad_p = value;
 }
 
 /* If two condition code modes are compatible, return a condition code
@@ -1896,7 +1897,7 @@ s390_decompose_address (rtx addr, struct s390_address *out)
         pointer = base_ptr = true;
 
       if ((reload_completed || reload_in_progress)
-	  && base == cfun->machine->base_reg)
+	  && base == MACHINE_FUNCTION (*cfun)->base_reg)
         pointer = base_ptr = literal_pool = true;
     }
 
@@ -1944,7 +1945,7 @@ s390_decompose_address (rtx addr, struct s390_address *out)
         pointer = indx_ptr = true;
 
       if ((reload_completed || reload_in_progress)
-	  && indx == cfun->machine->base_reg)
+	  && indx == MACHINE_FUNCTION (*cfun)->base_reg)
         pointer = indx_ptr = literal_pool = true;
     }
 
@@ -4915,7 +4916,7 @@ get_some_local_dynamic_name_1 (rtx *px, void *data ATTRIBUTE_UNUSED)
   if (GET_CODE (x) == SYMBOL_REF
       && tls_symbolic_operand (x) == TLS_MODEL_LOCAL_DYNAMIC)
     {
-      cfun->machine->some_ld_name = XSTR (x, 0);
+      MACHINE_FUNCTION (*cfun)->some_ld_name = XSTR (x, 0);
       return 1;
     }
 
@@ -4930,13 +4931,13 @@ get_some_local_dynamic_name (void)
 {
   rtx insn;
 
-  if (cfun->machine->some_ld_name)
-    return cfun->machine->some_ld_name;
+  if (MACHINE_FUNCTION (*cfun)->some_ld_name)
+    return MACHINE_FUNCTION (*cfun)->some_ld_name;
 
   for (insn = get_insns (); insn ; insn = NEXT_INSN (insn))
     if (INSN_P (insn)
         && for_each_rtx (&PATTERN (insn), get_some_local_dynamic_name_1, 0))
-      return cfun->machine->some_ld_name;
+      return MACHINE_FUNCTION (*cfun)->some_ld_name;
 
   gcc_unreachable ();
 }
@@ -5454,7 +5455,7 @@ annotate_constant_pool_refs (rtx *x)
       if (GET_CODE (memref) == SYMBOL_REF
 	  && CONSTANT_POOL_ADDRESS_P (memref))
 	{
-	  rtx base = cfun->machine->base_reg;
+	  rtx base = MACHINE_FUNCTION (*cfun)->base_reg;
 	  rtx addr = gen_rtx_UNSPEC (Pmode, gen_rtvec (2, memref, base),
 				     UNSPEC_LTREF);
 
@@ -5470,7 +5471,7 @@ annotate_constant_pool_refs (rtx *x)
 	{
 	  HOST_WIDE_INT off = INTVAL (XEXP (XEXP (memref, 0), 1));
 	  rtx sym = XEXP (XEXP (memref, 0), 0);
-	  rtx base = cfun->machine->base_reg;
+	  rtx base = MACHINE_FUNCTION (*cfun)->base_reg;
 	  rtx addr = gen_rtx_UNSPEC (Pmode, gen_rtvec (2, sym, base),
 				     UNSPEC_LTREF);
 
@@ -5487,7 +5488,7 @@ annotate_constant_pool_refs (rtx *x)
       if (GET_CODE (addrref) == SYMBOL_REF
 	  && CONSTANT_POOL_ADDRESS_P (addrref))
 	{
-	  rtx base = cfun->machine->base_reg;
+	  rtx base = MACHINE_FUNCTION (*cfun)->base_reg;
 	  rtx addr = gen_rtx_UNSPEC (Pmode, gen_rtvec (2, addrref, base),
 				     UNSPEC_LTREF);
 
@@ -5503,7 +5504,7 @@ annotate_constant_pool_refs (rtx *x)
 	{
 	  HOST_WIDE_INT off = INTVAL (XEXP (XEXP (addrref, 0), 1));
 	  rtx sym = XEXP (XEXP (addrref, 0), 0);
-	  rtx base = cfun->machine->base_reg;
+	  rtx base = MACHINE_FUNCTION (*cfun)->base_reg;
 	  rtx addr = gen_rtx_UNSPEC (Pmode, gen_rtvec (2, sym, base),
 				     UNSPEC_LTREF);
 
@@ -5516,7 +5517,7 @@ annotate_constant_pool_refs (rtx *x)
   if (GET_CODE (*x) == UNSPEC
       && XINT (*x, 1) == UNSPEC_LTREL_BASE)
     {
-      rtx base = cfun->machine->base_reg;
+      rtx base = MACHINE_FUNCTION (*cfun)->base_reg;
       *x = gen_rtx_UNSPEC (Pmode, gen_rtvec (2, XVECEXP (*x, 0, 0), base),
 				  UNSPEC_LTREL_BASE);
       return;
@@ -5609,9 +5610,11 @@ s390_split_branches (void)
 	  INSN_ADDRESSES_NEW (tmp, -1);
 	  annotate_constant_pool_refs (&PATTERN (tmp));
 
-          target = gen_rtx_UNSPEC (Pmode, gen_rtvec (2, XEXP (target, 0),
-							cfun->machine->base_reg),
-				   UNSPEC_LTREL_BASE);
+          target
+	    = gen_rtx_UNSPEC (Pmode,
+			      gen_rtvec (2, XEXP (target, 0),
+					 MACHINE_FUNCTION (*cfun)->base_reg),
+			      UNSPEC_LTREL_BASE);
 	  target = gen_rtx_PLUS (Pmode, temp_reg, target);
 	}
 
@@ -6245,14 +6248,14 @@ s390_mainpool_start (void)
 static void
 s390_mainpool_finish (struct constant_pool *pool)
 {
-  rtx base_reg = cfun->machine->base_reg;
+  rtx base_reg = MACHINE_FUNCTION (*cfun)->base_reg;
   rtx insn;
 
   /* If the pool is empty, we're done.  */
   if (pool->size == 0)
     {
       /* We don't actually need a base register after all.  */
-      cfun->machine->base_reg = NULL_RTX;
+      MACHINE_FUNCTION (*cfun)->base_reg = NULL_RTX;
 
       if (pool->pool_insn)
 	remove_insn (pool->pool_insn);
@@ -6623,7 +6626,7 @@ s390_chunkify_start (void)
 
   for (curr_pool = pool_list; curr_pool; curr_pool = curr_pool->next)
     {
-      rtx new_insn = gen_reload_base (cfun->machine->base_reg,
+      rtx new_insn = gen_reload_base (MACHINE_FUNCTION (*cfun)->base_reg,
 				      curr_pool->label);
       rtx insn = curr_pool->first_insn;
       INSN_ADDRESSES_NEW (emit_insn_before (new_insn, insn), -1);
@@ -6638,7 +6641,7 @@ s390_chunkify_start (void)
 	struct constant_pool *pool = s390_find_pool (pool_list, insn);
 	if (pool)
 	  {
-	    rtx new_insn = gen_reload_base (cfun->machine->base_reg,
+	    rtx new_insn = gen_reload_base (MACHINE_FUNCTION (*cfun)->base_reg,
 					    pool->label);
 	    INSN_ADDRESSES_NEW (emit_insn_after (new_insn, insn), -1);
 	  }
@@ -6931,10 +6934,10 @@ s390_regs_ever_clobbered (int *regs_ever_clobbered)
      may use the eh registers, but the code which sets these registers is not
      contained in that function.  Hence s390_regs_ever_clobbered is not able to
      deal with this automatically.  */
-  if (crtl->calls_eh_return || cfun->machine->has_landing_pad_p)
+  if (crtl->calls_eh_return || MACHINE_FUNCTION (*cfun)->has_landing_pad_p)
     for (i = 0; EH_RETURN_DATA_REGNO (i) != INVALID_REGNUM ; i++)
       if (crtl->calls_eh_return
-	  || (cfun->machine->has_landing_pad_p
+	  || (MACHINE_FUNCTION (*cfun)->has_landing_pad_p
 	      && df_regs_ever_live_p (EH_RETURN_DATA_REGNO (i))))
 	regs_ever_clobbered[EH_RETURN_DATA_REGNO (i)] = 1;
 
@@ -7001,7 +7004,8 @@ s390_frame_area (int *area_bottom, int *area_top)
   *area_top = t;
 }
 
-/* Fill cfun->machine with info about register usage of current function.
+/* Fill MACHINE_FUNCTION (*cfun) with info about register usage of
+   current function.
    Return in CLOBBERED_REGS which GPRs are currently considered set.  */
 
 static void
@@ -7039,13 +7043,13 @@ s390_register_info (int clobbered_regs[])
       |= df_regs_ever_live_p (PIC_OFFSET_TABLE_REGNUM);
 
   clobbered_regs[BASE_REGNUM]
-    |= (cfun->machine->base_reg
-        && REGNO (cfun->machine->base_reg) == BASE_REGNUM);
+    |= (MACHINE_FUNCTION (*cfun)->base_reg
+        && REGNO (MACHINE_FUNCTION (*cfun)->base_reg) == BASE_REGNUM);
 
   clobbered_regs[RETURN_REGNUM]
     |= (!current_function_is_leaf
 	|| TARGET_TPF_PROFILING
-	|| cfun->machine->split_branches_pending_p
+	|| MACHINE_FUNCTION (*cfun)->split_branches_pending_p
 	|| cfun_frame_layout.save_return_addr_p
 	|| crtl->calls_eh_return
 	|| cfun->stdarg);
@@ -7160,7 +7164,7 @@ s390_register_info (int clobbered_regs[])
 	cfun_set_fpr_bit (i);
 }
 
-/* Fill cfun->machine with info about frame of current function.  */
+/* Fill MACHINE_FUNCTION (*cfun) with info about frame of current function.  */
 
 static void
 s390_frame_info (void)
@@ -7270,8 +7274,8 @@ s390_frame_info (void)
 }
 
 /* Generate frame layout.  Fills in register and frame data for the current
-   function in cfun->machine.  This routine can be called multiple times;
-   it will re-do the complete frame layout every time.  */
+   function in MACHINE_FUNCTION (*cfun).  This routine can be called multiple
+   times; it will re-do the complete frame layout every time.  */
 
 static void
 s390_init_frame_layout (void)
@@ -7285,14 +7289,14 @@ s390_init_frame_layout (void)
      choice but to assume we're going to need them until right at the
      end of the machine dependent reorg phase.  */
   if (!TARGET_CPU_ZARCH)
-    cfun->machine->split_branches_pending_p = true;
+    MACHINE_FUNCTION (*cfun)->split_branches_pending_p = true;
 
   do
     {
       frame_size = cfun_frame_layout.frame_size;
 
       /* Try to predict whether we'll need the base register.  */
-      base_used = cfun->machine->split_branches_pending_p
+      base_used = MACHINE_FUNCTION (*cfun)->split_branches_pending_p
 		  || crtl->uses_const_pool
 		  || (!DISP_IN_RANGE (frame_size)
 		      && !CONST_OK_FOR_K (frame_size));
@@ -7301,11 +7305,11 @@ s390_init_frame_layout (void)
 	 leaf functions, try to use an unused call-clobbered register
 	 as base register to avoid save/restore overhead.  */
       if (!base_used)
-	cfun->machine->base_reg = NULL_RTX;
+	MACHINE_FUNCTION (*cfun)->base_reg = NULL_RTX;
       else if (current_function_is_leaf && !df_regs_ever_live_p (5))
-	cfun->machine->base_reg = gen_rtx_REG (Pmode, 5);
+	MACHINE_FUNCTION (*cfun)->base_reg = gen_rtx_REG (Pmode, 5);
       else
-	cfun->machine->base_reg = gen_rtx_REG (Pmode, BASE_REGNUM);
+	MACHINE_FUNCTION (*cfun)->base_reg = gen_rtx_REG (Pmode, BASE_REGNUM);
 
       s390_register_info (clobbered_regs);
       s390_frame_info ();
@@ -7332,8 +7336,8 @@ s390_update_frame_layout (void)
   df_set_regs_ever_live (STACK_POINTER_REGNUM,
 			 clobbered_regs[STACK_POINTER_REGNUM] ? true : false);
 
-  if (cfun->machine->base_reg)
-    df_set_regs_ever_live (REGNO (cfun->machine->base_reg), true);
+  if (MACHINE_FUNCTION (*cfun)->base_reg)
+    df_set_regs_ever_live (REGNO (MACHINE_FUNCTION (*cfun)->base_reg), true);
 }
 
 /* Return true if it is legal to put a value with MODE into REGNO.  */
@@ -7391,9 +7395,9 @@ s390_hard_regno_rename_ok (unsigned int old_reg, unsigned int new_reg)
 {
    /* Once we've decided upon a register to use as base register, it must
       no longer be used for any other purpose.  */
-  if (cfun->machine->base_reg)
-    if (REGNO (cfun->machine->base_reg) == old_reg
-	|| REGNO (cfun->machine->base_reg) == new_reg)
+  if (MACHINE_FUNCTION (*cfun)->base_reg)
+    if (REGNO (MACHINE_FUNCTION (*cfun)->base_reg) == old_reg
+	|| REGNO (MACHINE_FUNCTION (*cfun)->base_reg) == new_reg)
       return false;
 
   return true;
@@ -7438,7 +7442,7 @@ s390_can_eliminate (const int from, const int to)
       if (TARGET_CPU_ZARCH)
 	{
 	  s390_init_frame_layout ();
-	  return cfun->machine->base_reg == NULL_RTX;
+	  return MACHINE_FUNCTION (*cfun)->base_reg == NULL_RTX;
 	}
 
       return false;
@@ -7786,8 +7790,8 @@ s390_emit_prologue (void)
 
   /* Dummy insn to mark literal pool slot.  */
 
-  if (cfun->machine->base_reg)
-    emit_insn (gen_main_pool (cfun->machine->base_reg));
+  if (MACHINE_FUNCTION (*cfun)->base_reg)
+    emit_insn (gen_main_pool (MACHINE_FUNCTION (*cfun)->base_reg));
 
   offset = cfun_frame_layout.f0_offset;
 
@@ -10150,7 +10154,7 @@ s390_reorg (void)
 	s390_mainpool_finish (pool);
 
       /* We're done splitting branches.  */
-      cfun->machine->split_branches_pending_p = false;
+      MACHINE_FUNCTION (*cfun)->split_branches_pending_p = false;
       break;
     }
 

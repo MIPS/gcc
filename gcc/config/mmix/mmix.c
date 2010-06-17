@@ -50,7 +50,8 @@ along with GCC; see the file COPYING3.  If not see
 /* We'd need a current_function_has_landing_pad.  It's marked as such when
    a nonlocal_goto_receiver is expanded.  Not just a C++ thing, but
    mostly.  */
-#define MMIX_CFUN_HAS_LANDING_PAD (cfun->machine->has_landing_pad != 0)
+#define MMIX_CFUN_HAS_LANDING_PAD \
+  (MACHINE_FUNCTION (*cfun)->has_landing_pad != 0)
 
 /* We have no means to tell DWARF 2 about the register stack, so we need
    to store the return address on the stack if an exception can get into
@@ -87,10 +88,10 @@ along with GCC; see the file COPYING3.  If not see
   || (int) (N) < MMIX_RETURN_VALUE_REGNUM			\
   || (int) (N) > MMIX_LAST_STACK_REGISTER_REGNUM		\
   || cfun == NULL 						\
-  || cfun->machine == NULL 					\
-  || cfun->machine->in_prologue					\
+  || MACHINE_FUNCTION (*cfun) == NULL 				\
+  || MACHINE_FUNCTION (*cfun)->in_prologue			\
   ? (N) : ((N) - MMIX_RETURN_VALUE_REGNUM			\
-	   + cfun->machine->highest_saved_stack_register + 1))
+	   + MACHINE_FUNCTION (*cfun)->highest_saved_stack_register + 1))
 
 /* The %d in "POP %d,0".  */
 #define MMIX_POP_ARGUMENT()						\
@@ -793,7 +794,7 @@ static void
 mmix_target_asm_function_prologue (FILE *stream ATTRIBUTE_UNUSED,
 				   HOST_WIDE_INT framesize ATTRIBUTE_UNUSED)
 {
-  cfun->machine->in_prologue = 1;
+  MACHINE_FUNCTION (*cfun)->in_prologue = 1;
 }
 
 /* Make a note that we've seen the end of the prologue.  */
@@ -801,7 +802,7 @@ mmix_target_asm_function_prologue (FILE *stream ATTRIBUTE_UNUSED,
 static void
 mmix_target_asm_function_end_prologue (FILE *stream ATTRIBUTE_UNUSED)
 {
-  cfun->machine->in_prologue = 0;
+  MACHINE_FUNCTION (*cfun)->in_prologue = 0;
 }
 
 /* Implement TARGET_MACHINE_DEPENDENT_REORG.  No actual rearrangements
@@ -843,7 +844,7 @@ mmix_reorg (void)
 	regno = MMIX_RETURN_VALUE_REGNUM - 1;
     }
 
-  cfun->machine->highest_saved_stack_register = regno;
+  MACHINE_FUNCTION (*cfun)->highest_saved_stack_register = regno;
 }
 
 /* TARGET_ASM_FUNCTION_EPILOGUE.  */
@@ -1606,7 +1607,7 @@ mmix_print_operand (FILE *stream, rtx x, int code)
 	 registers to pass, but we don't use it currently.  Anyway, we
 	 need to output the number of saved registers here.  */
       fprintf (stream, "%d",
-	       cfun->machine->highest_saved_stack_register + 1);
+	       MACHINE_FUNCTION (*cfun)->highest_saved_stack_register + 1);
       return;
 
     case 'r':

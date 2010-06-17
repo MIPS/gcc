@@ -1470,9 +1470,9 @@ iq2000_debugger_offset (rtx addr, HOST_WIDE_INT offset)
   if (reg == stack_pointer_rtx || reg == frame_pointer_rtx
       || reg == hard_frame_pointer_rtx)
     {
-      HOST_WIDE_INT frame_size = (!cfun->machine->initialized)
+      HOST_WIDE_INT frame_size = (!MACHINE_FUNCTION (*cfun)->initialized)
 				  ? compute_frame_size (get_frame_size ())
-				  : cfun->machine->total_size;
+				  : MACHINE_FUNCTION (*cfun)->total_size;
 
       offset = offset - frame_size;
     }
@@ -1657,15 +1657,15 @@ compute_frame_size (HOST_WIDE_INT size)
   total_size += IQ2000_STACK_ALIGN (crtl->args.pretend_args_size);
 
   /* Save other computed information.  */
-  cfun->machine->total_size = total_size;
-  cfun->machine->var_size = var_size;
-  cfun->machine->args_size = args_size;
-  cfun->machine->extra_size = extra_size;
-  cfun->machine->gp_reg_size = gp_reg_size;
-  cfun->machine->fp_reg_size = fp_reg_size;
-  cfun->machine->mask = mask;
-  cfun->machine->initialized = reload_completed;
-  cfun->machine->num_gp = gp_reg_size / UNITS_PER_WORD;
+  MACHINE_FUNCTION (*cfun)->total_size = total_size;
+  MACHINE_FUNCTION (*cfun)->var_size = var_size;
+  MACHINE_FUNCTION (*cfun)->args_size = args_size;
+  MACHINE_FUNCTION (*cfun)->extra_size = extra_size;
+  MACHINE_FUNCTION (*cfun)->gp_reg_size = gp_reg_size;
+  MACHINE_FUNCTION (*cfun)->fp_reg_size = fp_reg_size;
+  MACHINE_FUNCTION (*cfun)->mask = mask;
+  MACHINE_FUNCTION (*cfun)->initialized = reload_completed;
+  MACHINE_FUNCTION (*cfun)->num_gp = gp_reg_size / UNITS_PER_WORD;
 
   if (mask)
     {
@@ -1674,17 +1674,17 @@ compute_frame_size (HOST_WIDE_INT size)
       offset = (args_size + extra_size + var_size
 		+ gp_reg_size - GET_MODE_SIZE (gpr_mode));
 
-      cfun->machine->gp_sp_offset = offset;
-      cfun->machine->gp_save_offset = offset - total_size;
+      MACHINE_FUNCTION (*cfun)->gp_sp_offset = offset;
+      MACHINE_FUNCTION (*cfun)->gp_save_offset = offset - total_size;
     }
   else
     {
-      cfun->machine->gp_sp_offset = 0;
-      cfun->machine->gp_save_offset = 0;
+      MACHINE_FUNCTION (*cfun)->gp_sp_offset = 0;
+      MACHINE_FUNCTION (*cfun)->gp_save_offset = 0;
     }
 
-  cfun->machine->fp_sp_offset = 0;
-  cfun->machine->fp_save_offset = 0;
+  MACHINE_FUNCTION (*cfun)->fp_sp_offset = 0;
+  MACHINE_FUNCTION (*cfun)->fp_save_offset = 0;
 
   /* Ok, we're done.  */
   return total_size;
@@ -1719,12 +1719,12 @@ iq2000_initial_elimination_offset (int from, int to ATTRIBUTE_UNUSED)
   if ((from) == FRAME_POINTER_REGNUM) 
     (offset) = 0; 
   else if ((from) == ARG_POINTER_REGNUM) 
-    (offset) = (cfun->machine->total_size); 
+    (offset) = (MACHINE_FUNCTION (*cfun)->total_size); 
   else if ((from) == RETURN_ADDRESS_POINTER_REGNUM) 
     {
       if (leaf_function_p ()) 
 	(offset) = 0; 
-      else (offset) = cfun->machine->gp_sp_offset 
+      else (offset) = MACHINE_FUNCTION (*cfun)->gp_sp_offset 
 	     + ((UNITS_PER_WORD - (POINTER_SIZE / BITS_PER_UNIT)) 
 		* (BYTES_BIG_ENDIAN != 0)); 
     }
@@ -1788,7 +1788,7 @@ iq2000_emit_frame_related_store (rtx mem, rtx reg, HOST_WIDE_INT offset)
 static void
 save_restore_insns (int store_p)
 {
-  long mask = cfun->machine->mask;
+  long mask = MACHINE_FUNCTION (*cfun)->mask;
   int regno;
   rtx base_reg_rtx;
   HOST_WIDE_INT base_offset;
@@ -1816,9 +1816,9 @@ save_restore_insns (int store_p)
      the constant created in the prologue/epilogue to adjust the stack
      frame.  */
 
-  gp_offset = cfun->machine->gp_sp_offset;
+  gp_offset = MACHINE_FUNCTION (*cfun)->gp_sp_offset;
   end_offset
-    = gp_offset - (cfun->machine->gp_reg_size
+    = gp_offset - (MACHINE_FUNCTION (*cfun)->gp_reg_size
 		   - GET_MODE_SIZE (gpr_mode));
 
   if (gp_offset < 0 || end_offset < 0)
@@ -2047,7 +2047,7 @@ iq2000_expand_prologue (void)
 void
 iq2000_expand_epilogue (void)
 {
-  HOST_WIDE_INT tsize = cfun->machine->total_size;
+  HOST_WIDE_INT tsize = MACHINE_FUNCTION (*cfun)->total_size;
   rtx tsize_rtx = GEN_INT (tsize);
   rtx tmp_rtx = (rtx)0;
 
@@ -2107,7 +2107,7 @@ iq2000_expand_epilogue (void)
 void
 iq2000_expand_eh_return (rtx address)
 {
-  HOST_WIDE_INT gp_offset = cfun->machine->gp_sp_offset;
+  HOST_WIDE_INT gp_offset = MACHINE_FUNCTION (*cfun)->gp_sp_offset;
   rtx scratch;
 
   scratch = plus_constant (stack_pointer_rtx, gp_offset);
@@ -2127,8 +2127,8 @@ iq2000_can_use_return_insn (void)
   if (df_regs_ever_live_p (31) || profile_flag)
     return 0;
 
-  if (cfun->machine->initialized)
-    return cfun->machine->total_size == 0;
+  if (MACHINE_FUNCTION (*cfun)->initialized)
+    return MACHINE_FUNCTION (*cfun)->total_size == 0;
 
   return compute_frame_size (get_frame_size ()) == 0;
 }

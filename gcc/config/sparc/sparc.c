@@ -332,8 +332,9 @@ struct GTY(()) machine_function
   bool prologue_data_valid_p;
 };
 
-#define sparc_leaf_function_p  cfun->machine->leaf_function_p
-#define sparc_prologue_data_valid_p  cfun->machine->prologue_data_valid_p
+#define sparc_leaf_function_p  MACHINE_FUNCTION (*cfun)->leaf_function_p
+#define sparc_prologue_data_valid_p \
+  MACHINE_FUNCTION (*cfun)->prologue_data_valid_p
 
 /* Register we pretend to think the frame pointer is allocated to.
    Normally, this is %fp, but if we are in a leaf procedure, this
@@ -9043,13 +9044,13 @@ get_some_local_dynamic_name (void)
 {
   rtx insn;
 
-  if (cfun->machine->some_ld_name)
-    return cfun->machine->some_ld_name;
+  if (MACHINE_FUNCTION (*cfun)->some_ld_name)
+    return MACHINE_FUNCTION (*cfun)->some_ld_name;
 
   for (insn = get_insns (); insn ; insn = NEXT_INSN (insn))
     if (INSN_P (insn)
 	&& for_each_rtx (&PATTERN (insn), get_some_local_dynamic_name_1, 0))
-      return cfun->machine->some_ld_name;
+      return MACHINE_FUNCTION (*cfun)->some_ld_name;
 
   gcc_unreachable ();
 }
@@ -9063,7 +9064,7 @@ get_some_local_dynamic_name_1 (rtx *px, void *data ATTRIBUTE_UNUSED)
       && GET_CODE (x) == SYMBOL_REF
       && SYMBOL_REF_TLS_MODEL (x) == TLS_MODEL_LOCAL_DYNAMIC)
     {
-      cfun->machine->some_ld_name = XSTR (x, 0);
+      MACHINE_FUNCTION (*cfun)->some_ld_name = XSTR (x, 0);
       return 1;
     }
 

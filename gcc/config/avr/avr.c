@@ -342,8 +342,8 @@ avr_regs_to_save (HARD_REG_SET *set)
   /* No need to save any registers if the function never returns or 
      is have "OS_task" or "OS_main" attribute.  */
   if (TREE_THIS_VOLATILE (current_function_decl)
-      || cfun->machine->is_OS_task
-      || cfun->machine->is_OS_main)
+      || MACHINE_FUNCTION (*cfun)->is_OS_task
+      || MACHINE_FUNCTION (*cfun)->is_OS_main)
     return 0;
 
   for (reg = 0; reg < 32; reg++)
@@ -524,16 +524,21 @@ expand_prologue (void)
                   gen_rtx_POST_DEC (HImode, stack_pointer_rtx));
   rtx insn;
   
-  /* Init cfun->machine.  */
-  cfun->machine->is_naked = avr_naked_function_p (current_function_decl);
-  cfun->machine->is_interrupt = interrupt_function_p (current_function_decl);
-  cfun->machine->is_signal = signal_function_p (current_function_decl);
-  cfun->machine->is_OS_task = avr_OS_task_function_p (current_function_decl);
-  cfun->machine->is_OS_main = avr_OS_main_function_p (current_function_decl);
-  cfun->machine->stack_usage = 0;
+  /* Init MACHINE_FUNCTION (*cfun).  */
+  MACHINE_FUNCTION (*cfun)->is_naked
+    = avr_naked_function_p (current_function_decl);
+  MACHINE_FUNCTION (*cfun)->is_interrupt
+    = interrupt_function_p (current_function_decl);
+  MACHINE_FUNCTION (*cfun)->is_signal
+    = signal_function_p (current_function_decl);
+  MACHINE_FUNCTION (*cfun)->is_OS_task
+    = avr_OS_task_function_p (current_function_decl);
+  MACHINE_FUNCTION (*cfun)->is_OS_main
+    = avr_OS_main_function_p (current_function_decl);
+  MACHINE_FUNCTION (*cfun)->stack_usage = 0;
   
   /* Prologue: naked.  */
-  if (cfun->machine->is_naked)
+  if (MACHINE_FUNCTION (*cfun)->is_naked)
     {
       return;
     }
@@ -541,15 +546,16 @@ expand_prologue (void)
   avr_regs_to_save (&set);
   live_seq = sequent_regs_live ();
   minimize = (TARGET_CALL_PROLOGUES
-	      && !cfun->machine->is_interrupt
-	      && !cfun->machine->is_signal
-	      && !cfun->machine->is_OS_task
-	      && !cfun->machine->is_OS_main
+	      && !MACHINE_FUNCTION (*cfun)->is_interrupt
+	      && !MACHINE_FUNCTION (*cfun)->is_signal
+	      && !MACHINE_FUNCTION (*cfun)->is_OS_task
+	      && !MACHINE_FUNCTION (*cfun)->is_OS_main
 	      && live_seq);
 
-  if (cfun->machine->is_interrupt || cfun->machine->is_signal)
+  if (MACHINE_FUNCTION (*cfun)->is_interrupt
+      || MACHINE_FUNCTION (*cfun)->is_signal)
     {
-      if (cfun->machine->is_interrupt)
+      if (MACHINE_FUNCTION (*cfun)->is_interrupt)
         {
           /* Enable interrupts.  */
           insn = emit_insn (gen_enable_interrupt ());
@@ -559,12 +565,12 @@ expand_prologue (void)
       /* Push zero reg.  */
       insn = emit_move_insn (pushbyte, zero_reg_rtx);
       RTX_FRAME_RELATED_P (insn) = 1;
-      cfun->machine->stack_usage++;
+      MACHINE_FUNCTION (*cfun)->stack_usage++;
 
       /* Push tmp reg.  */
       insn = emit_move_insn (pushbyte, tmp_reg_rtx);
       RTX_FRAME_RELATED_P (insn) = 1;
-      cfun->machine->stack_usage++;
+      MACHINE_FUNCTION (*cfun)->stack_usage++;
 
       /* Push SREG.  */
       insn = emit_move_insn (tmp_reg_rtx, 
@@ -572,7 +578,7 @@ expand_prologue (void)
       RTX_FRAME_RELATED_P (insn) = 1;
       insn = emit_move_insn (pushbyte, tmp_reg_rtx);
       RTX_FRAME_RELATED_P (insn) = 1;
-      cfun->machine->stack_usage++;
+      MACHINE_FUNCTION (*cfun)->stack_usage++;
 
       /* Push RAMPZ.  */
       if(AVR_HAVE_RAMPZ 
@@ -583,7 +589,7 @@ expand_prologue (void)
           RTX_FRAME_RELATED_P (insn) = 1;
           insn = emit_move_insn (pushbyte, tmp_reg_rtx);
           RTX_FRAME_RELATED_P (insn) = 1;
-          cfun->machine->stack_usage++;
+          MACHINE_FUNCTION (*cfun)->stack_usage++;
         }
 	
       /* Clear zero reg.  */
@@ -605,7 +611,7 @@ expand_prologue (void)
         emit_insn (gen_call_prologue_saves (gen_int_mode (live_seq, HImode),
 					    gen_int_mode (size + live_seq, HImode)));
       RTX_FRAME_RELATED_P (insn) = 1;
-      cfun->machine->stack_usage += size + live_seq;
+      MACHINE_FUNCTION (*cfun)->stack_usage += size + live_seq;
     }
   else
     {
@@ -617,17 +623,18 @@ expand_prologue (void)
               /* Emit push of register to save.  */
               insn=emit_move_insn (pushbyte, gen_rtx_REG (QImode, reg));
               RTX_FRAME_RELATED_P (insn) = 1;
-              cfun->machine->stack_usage++;
+              MACHINE_FUNCTION (*cfun)->stack_usage++;
             }
         }
       if (frame_pointer_needed)
         {
-	  if (!(cfun->machine->is_OS_task || cfun->machine->is_OS_main))
+	  if (!(MACHINE_FUNCTION (*cfun)->is_OS_task
+	      || MACHINE_FUNCTION (*cfun)->is_OS_main))
 	    {
               /* Push frame pointer.  */
 	      insn = emit_move_insn (pushword, frame_pointer_rtx);
               RTX_FRAME_RELATED_P (insn) = 1;
-	      cfun->machine->stack_usage += 2;
+	      MACHINE_FUNCTION (*cfun)->stack_usage += 2;
 	    }
 
           if (!size)
@@ -684,15 +691,15 @@ expand_prologue (void)
 		  RTX_FRAME_RELATED_P (insn) = 1;
 		}
 	      else if (TARGET_NO_INTERRUPTS 
-		       || cfun->machine->is_signal
-		       || cfun->machine->is_OS_main)
+		       || MACHINE_FUNCTION (*cfun)->is_signal
+		       || MACHINE_FUNCTION (*cfun)->is_OS_main)
 		{
 		  insn = 
 		    emit_insn (gen_movhi_sp_r_irq_off (stack_pointer_rtx, 
 						       frame_pointer_rtx));
 		  RTX_FRAME_RELATED_P (insn) = 1;		
 		}
-	      else if (cfun->machine->is_interrupt)
+	      else if (MACHINE_FUNCTION (*cfun)->is_interrupt)
 		{
 		  insn = emit_insn (gen_movhi_sp_r_irq_on (stack_pointer_rtx, 
 							   frame_pointer_rtx));
@@ -734,7 +741,7 @@ expand_prologue (void)
 		emit_insn (sp_plus_insns);
               else
 		emit_insn (fp_plus_insns);
-	      cfun->machine->stack_usage += size;
+	      MACHINE_FUNCTION (*cfun)->stack_usage += size;
             }
         }
     }
@@ -745,17 +752,17 @@ expand_prologue (void)
 static void
 avr_asm_function_end_prologue (FILE *file)
 {
-  if (cfun->machine->is_naked)
+  if (MACHINE_FUNCTION (*cfun)->is_naked)
     {
       fputs ("/* prologue: naked */\n", file);
     }
   else
     {
-      if (cfun->machine->is_interrupt)
+      if (MACHINE_FUNCTION (*cfun)->is_interrupt)
         {
           fputs ("/* prologue: Interrupt */\n", file);
         }
-      else if (cfun->machine->is_signal)
+      else if (MACHINE_FUNCTION (*cfun)->is_signal)
         {
           fputs ("/* prologue: Signal */\n", file);
         }
@@ -765,10 +772,11 @@ avr_asm_function_end_prologue (FILE *file)
   fprintf (file, "/* frame size = " HOST_WIDE_INT_PRINT_DEC " */\n",
                  get_frame_size());
   fprintf (file, "/* stack size = %d */\n",
-                 cfun->machine->stack_usage);
+                 MACHINE_FUNCTION (*cfun)->stack_usage);
   /* Create symbol stack offset here so all functions have it. Add 1 to stack
      usage for offset so that SP + .L__stack_offset = return address.  */
-  fprintf (file, ".L__stack_usage = %d\n", cfun->machine->stack_usage);
+  fprintf (file, ".L__stack_usage = %d\n",
+	   MACHINE_FUNCTION (*cfun)->stack_usage);
 }
 
 
@@ -778,8 +786,9 @@ int
 avr_epilogue_uses (int regno ATTRIBUTE_UNUSED)
 {
   if (reload_completed 
-      && cfun->machine
-      && (cfun->machine->is_interrupt || cfun->machine->is_signal))
+      && MACHINE_FUNCTION (*cfun)
+      && (MACHINE_FUNCTION (*cfun)->is_interrupt
+	  || MACHINE_FUNCTION (*cfun)->is_signal))
     return 1;
   return 0;
 }
@@ -796,7 +805,7 @@ expand_epilogue (void)
   HOST_WIDE_INT size = get_frame_size();
   
   /* epilogue: naked  */
-  if (cfun->machine->is_naked)
+  if (MACHINE_FUNCTION (*cfun)->is_naked)
     {
       emit_jump_insn (gen_return ());
       return;
@@ -805,10 +814,10 @@ expand_epilogue (void)
   avr_regs_to_save (&set);
   live_seq = sequent_regs_live ();
   minimize = (TARGET_CALL_PROLOGUES
-	      && !cfun->machine->is_interrupt
-	      && !cfun->machine->is_signal
-	      && !cfun->machine->is_OS_task
-	      && !cfun->machine->is_OS_main
+	      && !MACHINE_FUNCTION (*cfun)->is_interrupt
+	      && !MACHINE_FUNCTION (*cfun)->is_signal
+	      && !MACHINE_FUNCTION (*cfun)->is_OS_task
+	      && !MACHINE_FUNCTION (*cfun)->is_OS_main
 	      && live_seq);
   
   if (minimize && (frame_pointer_needed || live_seq > 4))
@@ -864,12 +873,12 @@ expand_epilogue (void)
 		  emit_move_insn (stack_pointer_rtx, frame_pointer_rtx);
 		}
 	      else if (TARGET_NO_INTERRUPTS 
-		       || cfun->machine->is_signal)
+		       || MACHINE_FUNCTION (*cfun)->is_signal)
 		{
 		  emit_insn (gen_movhi_sp_r_irq_off (stack_pointer_rtx, 
 						     frame_pointer_rtx));
 		}
-	      else if (cfun->machine->is_interrupt)
+	      else if (MACHINE_FUNCTION (*cfun)->is_interrupt)
 		{
 		  emit_insn (gen_movhi_sp_r_irq_on (stack_pointer_rtx, 
 						    frame_pointer_rtx));
@@ -903,7 +912,8 @@ expand_epilogue (void)
               else
 		emit_insn (fp_plus_insns);
             }
-	  if (!(cfun->machine->is_OS_task || cfun->machine->is_OS_main))
+	  if (!(MACHINE_FUNCTION (*cfun)->is_OS_task
+		|| MACHINE_FUNCTION (*cfun)->is_OS_main))
 	    {
               /* Restore previous frame_pointer.  */
 	      emit_insn (gen_pophi (frame_pointer_rtx));
@@ -915,7 +925,8 @@ expand_epilogue (void)
           if (TEST_HARD_REG_BIT (set, reg))
               emit_insn (gen_popqi (gen_rtx_REG (QImode, reg)));
         }
-      if (cfun->machine->is_interrupt || cfun->machine->is_signal)
+      if (MACHINE_FUNCTION (*cfun)->is_interrupt
+	  || MACHINE_FUNCTION (*cfun)->is_signal)
         {
           /* Restore RAMPZ using tmp reg as scratch.  */
 	  if(AVR_HAVE_RAMPZ 
@@ -4642,7 +4653,7 @@ avr_asm_declare_function_name (FILE *file, const char *name, tree decl)
      make sure that the name of the function is "__vector_NN" so as to
      catch when the user misspells the interrupt vector name.  */
 
-  if (cfun->machine->is_interrupt)
+  if (MACHINE_FUNCTION (*cfun)->is_interrupt)
     {
       if (strncmp (name, "__vector", strlen ("__vector")) != 0)
         {
@@ -4651,7 +4662,7 @@ avr_asm_declare_function_name (FILE *file, const char *name, tree decl)
                       name);
         }
     }
-  else if (cfun->machine->is_signal)
+  else if (MACHINE_FUNCTION (*cfun)->is_signal)
     {
       if (strncmp (name, "__vector", strlen ("__vector")) != 0)
         {
@@ -6011,7 +6022,8 @@ avr_hard_regno_scratch_ok (unsigned int regno)
   /* Interrupt functions can only use registers that have already been saved
      by the prologue, even if they would normally be call-clobbered.  */
 
-  if ((cfun->machine->is_interrupt || cfun->machine->is_signal)
+  if ((MACHINE_FUNCTION (*cfun)->is_interrupt
+       || MACHINE_FUNCTION (*cfun)->is_signal)
       && !df_regs_ever_live_p (regno))
     return false;
 
@@ -6028,7 +6040,8 @@ avr_hard_regno_rename_ok (unsigned int old_reg ATTRIBUTE_UNUSED,
      saved by the prologue, even if they would normally be
      call-clobbered.  */
 
-  if ((cfun->machine->is_interrupt || cfun->machine->is_signal)
+  if ((MACHINE_FUNCTION (*cfun)->is_interrupt
+       || MACHINE_FUNCTION (*cfun)->is_signal)
       && !df_regs_ever_live_p (new_reg))
     return 0;
 

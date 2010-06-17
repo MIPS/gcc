@@ -35,6 +35,33 @@
 	(options.o): Change to:
 	$(TA)options.o.
 
+	* config/alpha/alpha.c (entire file): Replace cfun->machine with
+	MACHINE_FUNCTION (*cfun).
+	* config/frv/frv.c: Likewise.
+	* config/s390/s390.c: Likewise.
+	* config/m32c/m32c.c: Likewise.
+	* config/sparc/sparc.c: Likewise.
+	* config/mep/mep.c: Likewise.
+	* config/i386/cygming.h: Likewise.
+	* config/avr/avr.md: Likewise.
+	* config/avr/avr.c: Likewise.
+	* config/xtensa/xtensa.c: Likewise.
+	* config/moxie/moxie.c: Likewise.
+	* config/cris/cris.c: Likewise.
+	* config/iq2000/iq2000.c: Likewise.
+	* config/ia64/ia64.c: Likewise.
+	* config/ia64/ia64.md: Likewise.
+	* config/arm/arm.c: Likewise.
+	* config/arm/arm.h: Likewise.
+	* config/arm/arm.md: Likewise.
+	* config/pa/pa.c: Likewise.
+	* config/mips/sde.h: Likewise.
+	* config/mips/mips.c: Likewise.
+	* config/mips/mips.h: Likewise.
+	* config/mmix/mmix.md: Likewise.
+	* config/mmix/mmix.c: Likewise.
+	* config/bfin/bfin.c: Likewise.
+
 2010-06-14  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* config/rs6000/rs6000.c (rs6000_ra_ever_killed): Use MACHINE_FUNCTION.
