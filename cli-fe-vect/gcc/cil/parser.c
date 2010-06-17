@@ -200,6 +200,8 @@ parser_get_type_tree (MonoType *type)
 {
   tree ret = NULL_TREE;
   int typetype = mono_type_get_type (type);
+  /* fprintf (stderr, "parser_get_type_tree(%d (by %s)- %s)", typetype, 
+      mono_type_is_byref (type)? "byref" : "value", mono_type_full_name (type)); */
   switch (typetype)
     {
     case MONO_TYPE_VOID:
@@ -297,6 +299,12 @@ parser_get_type_tree (MonoType *type)
       gcc_unreachable ();
     }
   gcc_assert (ret);
+
+  /* byref types have the same code than their pointed values,
+     but we must handle them as pointers */
+  if (mono_type_is_byref (type))
+    ret = build_pointer_type (ret);
+
   return ret;
 }
 
@@ -1314,7 +1322,7 @@ parser_emit_call (MonoMethod *caller, guint32 token)
   for (i = mono_signature_get_param_count (called_signature); i > 0; --i)
     {
       tree arg_type_tree = TREE_VALUE (args_type_list);
-    gcc_assert(cil_stack_is_empty () == 0);
+      gcc_assert(cil_stack_is_empty () == 0);
       tree arg = convert (arg_type_tree, cil_stack_pop (NULL));
       arglist = tree_cons (NULL_TREE, arg, arglist);
       args_type_list = TREE_CHAIN (args_type_list);
