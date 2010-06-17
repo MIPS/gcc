@@ -297,6 +297,12 @@ parser_get_type_tree (MonoType *type)
       gcc_unreachable ();
     }
   gcc_assert (ret);
+
+  /* byref types have the same code than their pointed values,
+     but we must handle them as pointers */
+  if (mono_type_is_byref (type))
+    ret = build_pointer_type (ret);
+
   return ret;
 }
 
@@ -994,6 +1000,7 @@ get_treecode_for_mono_simd_function (const char * called_name)
 static void
 parser_emit_mono_simd_call (MonoMethod *caller, guint32 token)
 {
+
   MonoImage *image = mono_class_get_image (mono_method_get_class (caller));
   MonoMethod *called = mono_get_method (image, token, NULL);
   MonoClass *called_klass = mono_method_get_class (called);
@@ -1006,6 +1013,9 @@ parser_emit_mono_simd_call (MonoMethod *caller, guint32 token)
   //	guint16 param_count = mono_signature_get_param_count(called_signature);
   //	printf ("parser_emit_mono_simd_call : '%s'.%s::%s\n\tparam_count = %d\n",called_namespace_name,called_klass_name,called_name,param_count); fflush(stdout); fflush(stderr);
 
+  CilStackType typeA;
+  CilStackType typeB;
+  
   enum tree_code code = get_treecode_for_mono_simd_function (called_name);
   switch(code)
         {
@@ -1026,12 +1036,12 @@ parser_emit_mono_simd_call (MonoMethod *caller, guint32 token)
   case MAX_EXPR:
           {
       gcc_assert(cil_stack_is_empty () == 0);
-      tree opB = cil_stack_pop (NULL);
+      tree opB = cil_stack_pop (&typeB);
       gcc_assert(cil_stack_is_empty () == 0);
-      tree opA = cil_stack_pop (NULL);
+      tree opA = cil_stack_pop (&typeA);
       tree type_tree = TREE_TYPE(opA);
       tree exp = fold_build2 (code, type_tree, opA, opB);
-      cil_stack_push (exp, get_cil_stack_type_for_tree (type_tree) );
+      cil_stack_push (exp, typeA );
       break;
           }
   case ALIGN_INDIRECT_REF: // StoreAligned
@@ -1310,7 +1320,7 @@ parser_emit_call (MonoMethod *caller, guint32 token)
   for (i = mono_signature_get_param_count (called_signature); i > 0; --i)
     {
       tree arg_type_tree = TREE_VALUE (args_type_list);
-    gcc_assert(cil_stack_is_empty () == 0);
+      gcc_assert(cil_stack_is_empty () == 0);
       tree arg = convert (arg_type_tree, cil_stack_pop (NULL));
       arglist = tree_cons (NULL_TREE, arg, arglist);
       args_type_list = TREE_CHAIN (args_type_list);
