@@ -51,6 +51,7 @@ extern rtx replace_equiv_address (rtx, rtx);
 /* Likewise, but the reference is not required to be valid.  */
 extern rtx replace_equiv_address_nv (rtx, rtx);
 
+START_TARGET_SPECIFIC
 extern rtx gen_blockage (void);
 extern rtvec gen_rtvec (int, ...);
 extern rtx copy_insn_1 (rtx);
@@ -62,6 +63,7 @@ extern void set_reg_attrs_for_parm (rtx, rtx);
 extern void set_reg_attrs_for_decl_rtl (tree t, rtx x);
 extern void adjust_reg_mode (rtx, enum machine_mode);
 extern int mem_expr_equal_p (const_tree, const_tree);
+END_TARGET_SPECIFIC
 
 /* Return the first insn of the current sequence or current function.  */
 

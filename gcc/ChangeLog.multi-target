@@ -6,6 +6,14 @@
 
 	* regset.h (dump_regset, debug_regset): Make target specific.
 
+	* dwarf2out.h: Include multi-target.h.  Make all function
+	declarations target specific.
+	* emit-rtl.h (gen_blockage, gen_rtvec): Make target specific.
+	(copy_insn_1, copy_insn, gen_int_mode): Likewise.
+	(emit_copy_of_insn_after, set_reg_attrs_from_value): Likewise.
+	(set_reg_attrs_for_parm, set_reg_attrs_for_decl_rtl): Likewise.
+	(adjust_reg_mode, mem_expr_equal_p): Likewise.
+
 2010-06-14  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* config/rs6000/rs6000.c (rs6000_ra_ever_killed): Use MACHINE_FUNCTION.
