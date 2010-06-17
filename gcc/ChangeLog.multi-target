@@ -62,6 +62,8 @@
 	* config/mmix/mmix.c: Likewise.
 	* config/bfin/bfin.c: Likewise.
 
+	* multi-target.h: Remove duplicate old text at end.
+
 2010-06-14  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* config/rs6000/rs6000.c (rs6000_ra_ever_killed): Use MACHINE_FUNCTION.
