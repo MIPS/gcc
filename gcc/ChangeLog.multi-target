@@ -64,6 +64,10 @@
 
 	* multi-target.h: Remove duplicate old text at end.
 
+	* dwarf2asm.h: Include multi-target.h; use START_TARGET_SPECIFIC /
+	END_TARGET_SPECIFIC.
+	* ddg.h, dbxout.h, expr.h, cselib.h, cfglayout.h, gimple.h: Likewise.
+
 2010-06-14  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* config/rs6000/rs6000.c (rs6000_ra_ever_killed): Use MACHINE_FUNCTION.

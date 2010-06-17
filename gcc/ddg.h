@@ -27,6 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 /* For basic_block.  */
 #include "basic-block.h"
 #include "df.h"
+#include "multi-target.h"
 
 typedef struct ddg_node *ddg_node_ptr;
 typedef struct ddg_edge *ddg_edge_ptr;
@@ -167,9 +168,7 @@ struct ddg_all_sccs
 };
 
 
-#ifdef EXTRA_TARGET
-namespace EXTRA_TARGET {
-#endif
+START_TARGET_SPECIFIC
 
 ddg_ptr create_ddg (basic_block, int closing_branch_deps);
 void free_ddg (ddg_ptr);
@@ -190,8 +189,6 @@ void free_ddg_all_sccs (ddg_all_sccs_ptr);
 int find_nodes_on_paths (sbitmap result, ddg_ptr, sbitmap from, sbitmap to);
 int longest_simple_path (ddg_ptr, int from, int to, sbitmap via);
 
-#ifdef EXTRA_TARGET
-} /* Close EXTRA_TARGET namespace.  */
-#endif
+END_TARGET_SPECIFIC
 
 #endif /* GCC_DDG_H */

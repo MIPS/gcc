@@ -33,6 +33,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 /* For GET_MODE_BITSIZE, word_mode */
 #include "machmode.h"
+#include "multi-target.h"
 
 /* This is the 4th arg to `expand_expr'.
    EXPAND_STACK_PARM means we are possibly expanding a call param onto
@@ -161,9 +162,7 @@ enum optab_methods
   OPTAB_MUST_WIDEN
 };
 
-#ifdef EXTRA_TARGET
-namespace EXTRA_TARGET {
-#endif
+START_TARGET_SPECIFIC
 
 /* Generate code for a simple binary or unary operation.  "Simple" in
    this case means "can be unambiguously described by a (mode, code)
@@ -205,15 +204,11 @@ extern void emit_indirect_jump (rtx);
 /* Generate a conditional trap instruction.  */
 extern rtx gen_cond_trap (enum rtx_code, rtx, rtx, rtx);
 
-#ifdef EXTRA_TARGET
-} /* Close EXTRA_TARGET namespace.  */
-#endif
+END_TARGET_SPECIFIC
 
 #include "insn-config.h"
 
-#ifdef EXTRA_TARGET
-namespace EXTRA_TARGET {
-#endif
+START_TARGET_SPECIFIC
 
 #ifdef HAVE_conditional_move
 /* Emit a conditional move operation.  */
@@ -283,9 +278,7 @@ extern rtx convert_to_mode (enum machine_mode, rtx, int);
 /* Convert an rtx to MODE from OLDMODE and return the result.  */
 extern rtx convert_modes (enum machine_mode, enum machine_mode, rtx, int);
 
-#ifdef EXTRA_TARGET
-} /* Close EXTRA_TARGET namespace.  */
-#endif
+END_TARGET_SPECIFIC
 
 /* Emit code to move a block Y to a block X.  */
 
@@ -298,9 +291,7 @@ enum block_op_methods
   BLOCK_OP_TAILCALL
 };
 
-#ifdef EXTRA_TARGET
-namespace EXTRA_TARGET {
-#endif
+START_TARGET_SPECIFIC
 
 extern GTY(()) tree block_clear_fn;
 extern void init_block_move_fn (const char *);
@@ -489,18 +480,14 @@ extern void do_compare_rtx_and_jump (rtx, rtx, enum rtx_code, int,
 extern int try_casesi (tree, tree, tree, tree, rtx, rtx, rtx);
 extern int try_tablejump (tree, tree, tree, tree, rtx, rtx);
 
-#ifdef EXTRA_TARGET
-} /* Close EXTRA_TARGET namespace.  */
-#endif
+END_TARGET_SPECIFIC
 
 /* Functions from alias.c */
 #include "alias.h"
 
 
 /* rtl.h and tree.h were included.  */
-#ifdef EXTRA_TARGET
-namespace EXTRA_TARGET {
-#endif
+START_TARGET_SPECIFIC
 /* Functions from explow.c */
 /* Return an rtx for the size in bytes of the value of an expr.  */
 extern rtx expr_size (tree);
@@ -590,16 +577,12 @@ extern rtx adjust_automodify_address_1 (rtx, enum machine_mode, rtx,
    known to be in OFFSET (possibly 1).  */
 extern rtx offset_address (rtx, rtx, unsigned HOST_WIDE_INT);
 
-#ifdef EXTRA_TARGET
-} /* Close EXTRA_TARGET namespace.  */
-#endif
+END_TARGET_SPECIFIC
 
 /* Definitions from emit-rtl.c */
 #include "emit-rtl.h"
 
-#ifdef EXTRA_TARGET
-namespace EXTRA_TARGET {
-#endif
+START_TARGET_SPECIFIC
 
 /* Return a memory reference like MEMREF, but with its mode widened to
    MODE and adjusted by OFFSET.  */
@@ -669,18 +652,14 @@ extern void anti_adjust_stack (rtx);
 /* Add some bytes to the stack while probing it.  An rtx says how many. */
 extern void anti_adjust_stack_and_probe (rtx, bool);
 
-#ifdef EXTRA_TARGET
-} /* Close EXTRA_TARGET namespace.  */
-#endif
+END_TARGET_SPECIFIC
 
 /* This enum is used for the following two functions.  */
 enum save_level {SAVE_BLOCK, SAVE_FUNCTION, SAVE_NONLOCAL};
 
 enum extraction_pattern { EP_insv, EP_extv, EP_extzv };
 
-#ifdef EXTRA_TARGET
-namespace EXTRA_TARGET {
-#endif
+START_TARGET_SPECIFIC
 
 /* Save the stack pointer at the specified level.  */
 extern void emit_stack_save (enum save_level, rtx *, rtx);
@@ -743,8 +722,6 @@ rtx get_personality_function (tree);
 
 extern int vector_mode_valid_p (enum machine_mode);
 
-#ifdef EXTRA_TARGET
-} /* Close EXTRA_TARGET namespace.  */
-#endif
+END_TARGET_SPECIFIC
 
 #endif /* GCC_EXPR_H */

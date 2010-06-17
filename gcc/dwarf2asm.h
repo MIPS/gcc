@@ -17,9 +17,9 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
-#ifdef EXTRA_TARGET
-namespace EXTRA_TARGET {
-#endif
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 extern void dw2_assemble_integer (int, rtx);
 
@@ -86,6 +86,4 @@ extern void dw2_asm_output_delta_sleb128 (const char *, const char *,
      ATTRIBUTE_NULL_PRINTF_3;
 #endif
 
-#ifdef EXTRA_TARGET
-} /* Close EXTRA_TARGET namespace.  */
-#endif
+END_TARGET_SPECIFIC
