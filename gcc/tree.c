@@ -3835,9 +3835,8 @@ build_simple_mem_ref_loc (location_t loc, tree ptr)
       && (handled_component_p (TREE_OPERAND (ptr, 0))
 	  || TREE_CODE (TREE_OPERAND (ptr, 0)) == MEM_REF))
     {
-      ptr = get_addr_base_and_offset (TREE_OPERAND (ptr, 0), &offset);
-      gcc_assert (offset % BITS_PER_UNIT == 0);
-      offset = offset / BITS_PER_UNIT;
+      ptr = get_addr_base_and_unit_offset (TREE_OPERAND (ptr, 0), &offset);
+      gcc_assert (ptr);
       ptr = build_fold_addr_expr (ptr);
       gcc_assert (is_gimple_reg (ptr) || is_gimple_min_invariant (ptr));
     }

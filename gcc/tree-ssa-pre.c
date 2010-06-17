@@ -2686,11 +2686,12 @@ create_component_ref_by_pieces_1 (basic_block block, vn_reference_t ref,
 	  {
 	    HOST_WIDE_INT off;
 	    tree base;
-	    base = get_addr_base_and_offset (TREE_OPERAND (baseop, 0), &off);
-	    gcc_assert (base && off % BITS_PER_UNIT == 0);
+	    base = get_addr_base_and_unit_offset (TREE_OPERAND (baseop, 0),
+						  &off);
+	    gcc_assert (base);
 	    offset = int_const_binop (PLUS_EXPR, offset,
 				      build_int_cst (TREE_TYPE (offset),
-						     off / BITS_PER_UNIT), 0);
+						     off), 0);
 	    baseop = build_fold_addr_expr (base);
 	  }
 	return fold_build2 (MEM_REF, currop->type, baseop, offset);

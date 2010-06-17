@@ -1,5 +1,21 @@
 2010-06-17  Richard Guenther  <rguenther@suse.de>
 
+	* tree-flow.h (get_addr_base_and_offset): Rename to ...
+	(get_addr_base_and_unit_offset): ... this.
+	* tree-dfa.c (get_addr_base_and_offset): Rename to ...
+	(get_addr_base_and_unit_offset): ... this.  Rewrite.
+	* tree.c (build_simple_mem_ref_loc): Adjust.
+	* fold-const.c: Include tree-flow.h.
+	(fold_binary_loc): Adjust.
+	* tree-ssa-sccvn.c (vn_reference_fold_indirect): Adjust.
+	* expr.c (expand_expr_real_1): Adjust.
+	* tree-ssa-pre.c (create_component_ref_by_pieces_1): Adjust.
+	* tree-ssa-forwprop.c (forward_propagate_addr_expr_1): Adjust.
+	* Makefile.in (tree-dfa.o): Add $(TOPLEV_H).
+	(fold-const.o): Add $(TREE_FLOW_H).
+
+2010-06-17  Richard Guenther  <rguenther@suse.de>
+
 	* tree-ssa-loop-im.c (ref_always_accessed_p): Handle MEM_REF.
 
 2010-06-16  Richard Guenther  <rguenther@suse.de>

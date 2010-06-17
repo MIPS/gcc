@@ -65,6 +65,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "md5.h"
 #include "gimple.h"
+#include "tree-flow.h"
 
 /* Nonzero if we are folding constants inside an initializer; zero
    otherwise.  */
@@ -9596,27 +9597,15 @@ fold_binary_loc (location_t loc,
 	  && handled_component_p (TREE_OPERAND (arg0, 0)))
 	{
 	  tree base;
-	  HOST_WIDE_INT size, coffset;
-	  tree ncoffset;
-	  enum machine_mode mode;
-	  int dummy;
-
-	  base = get_inner_reference (TREE_OPERAND (arg0, 0), &size,
-				      &coffset, &ncoffset,
-				      &mode, &dummy, &dummy, false);
-	  if (coffset % BITS_PER_UNIT != 0
-	      || (ncoffset != NULL_TREE
-		  && TREE_CODE (ncoffset) != INTEGER_CST))
+	  HOST_WIDE_INT coffset;
+	  base = get_addr_base_and_unit_offset (TREE_OPERAND (arg0, 0),
+						&coffset);
+	  if (!base)
 	    return NULL_TREE;
-	  if (!ncoffset)
-	    ncoffset = size_int (coffset / BITS_PER_UNIT);
-	  else
-	    ncoffset = int_const_binop (PLUS_EXPR, ncoffset,
-					size_int (coffset / BITS_PER_UNIT), 0);
-
 	  return fold_build2 (MEM_REF, type,
 			      build_fold_addr_expr (base),
-			      int_const_binop (PLUS_EXPR, arg1, ncoffset, 0));
+			      int_const_binop (PLUS_EXPR, arg1,
+					       size_int (coffset), 0));
 	}
 
       return NULL_TREE;

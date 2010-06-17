@@ -820,14 +820,13 @@ forward_propagate_addr_expr_1 (tree name, tree def_rhs,
     {
       tree def_rhs_base;
       HOST_WIDE_INT def_rhs_offset;
-      if ((def_rhs_base = get_addr_base_and_offset (TREE_OPERAND (def_rhs, 0),
-						    &def_rhs_offset)))
+      if ((def_rhs_base = get_addr_base_and_unit_offset (TREE_OPERAND (def_rhs, 0),
+							 &def_rhs_offset)))
 	{
 	  double_int off = mem_ref_offset (lhs);
 	  tree new_ptr;
 	  off = double_int_add (off,
-				shwi_to_double_int (def_rhs_offset
-						    / BITS_PER_UNIT));
+				shwi_to_double_int (def_rhs_offset));
 	  if (TREE_CODE (def_rhs_base) == MEM_REF)
 	    {
 	      off = double_int_add (off, mem_ref_offset (def_rhs_base));
@@ -866,14 +865,13 @@ forward_propagate_addr_expr_1 (tree name, tree def_rhs,
     {
       tree def_rhs_base;
       HOST_WIDE_INT def_rhs_offset;
-      if ((def_rhs_base = get_addr_base_and_offset (TREE_OPERAND (def_rhs, 0),
-						    &def_rhs_offset)))
+      if ((def_rhs_base = get_addr_base_and_unit_offset (TREE_OPERAND (def_rhs, 0),
+							 &def_rhs_offset)))
 	{
 	  double_int off = mem_ref_offset (rhs);
 	  tree new_ptr;
 	  off = double_int_add (off,
-				shwi_to_double_int (def_rhs_offset
-						    / BITS_PER_UNIT));
+				shwi_to_double_int (def_rhs_offset));
 	  if (TREE_CODE (def_rhs_base) == MEM_REF)
 	    {
 	      off = double_int_add (off, mem_ref_offset (def_rhs_base));

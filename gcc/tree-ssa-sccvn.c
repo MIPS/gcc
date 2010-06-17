@@ -962,15 +962,14 @@ vn_reference_fold_indirect (VEC (vn_reference_op_s, heap) **ops,
   /* The only thing we have to do is from &OBJ.foo.bar add the offset
      from .foo.bar to the preceeding MEM_REF offset and replace the
      address with &OBJ.  */
-  addr_base = get_addr_base_and_offset (TREE_OPERAND (op->op0, 0),
-					&addr_offset);
+  addr_base = get_addr_base_and_unit_offset (TREE_OPERAND (op->op0, 0),
+					     &addr_offset);
   gcc_checking_assert (addr_base && TREE_CODE (addr_base) != MEM_REF);
   if (addr_base != op->op0)
     {
       double_int off = tree_to_double_int (mem_op->op0);
       off = double_int_sext (off, TYPE_PRECISION (TREE_TYPE (mem_op->op0)));
-      off = double_int_add (off, shwi_to_double_int (addr_offset
-						     / BITS_PER_UNIT));
+      off = double_int_add (off, shwi_to_double_int (addr_offset));
       mem_op->op0 = double_int_to_tree (TREE_TYPE (mem_op->op0), off);
       op->op0 = build_fold_addr_expr (addr_base);
     }

@@ -8802,17 +8802,15 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	   might end up in a register.  */
 	if (TREE_CODE (base) == ADDR_EXPR)
 	  {
-	    tree offset = TREE_OPERAND (exp, 1);
+	    HOST_WIDE_INT offset = mem_ref_offset (exp).low;
+	    tree bit_offset;
 	    base = TREE_OPERAND (base, 0);
-	    offset = fold_convert (bitsizetype, offset);
-	    offset = size_binop (MULT_EXPR,
-				 offset, bitsize_int (BITS_PER_UNIT));
 	    if (!DECL_P (base))
 	      {
 		HOST_WIDE_INT off;
-		base = get_addr_base_and_offset (base, &off);
+		base = get_addr_base_and_unit_offset (base, &off);
 		gcc_assert (base);
-		offset = size_binop (PLUS_EXPR, offset, bitsize_int (off));
+		offset += off;
 	      }
 	    /* If we are expanding a MEM_REF of a non-BLKmode non-addressable
 	       decl we must use bitfield operations.  */
@@ -8821,7 +8819,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 		&& DECL_MODE (base) != BLKmode)
 	      {
 		tree bftype;
-		if (integer_zerop (offset)
+		if (offset == 0
 		    && host_integerp (TYPE_SIZE (TREE_TYPE (exp)), 1)
 		    && (GET_MODE_BITSIZE (DECL_MODE (base))
 			== TREE_INT_CST_LOW (TYPE_SIZE (TREE_TYPE (exp)))))
@@ -8831,13 +8829,14 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 		gcc_assert (!DECL_RTL_SET_P (base)
 			    || REG_P (DECL_RTL (base))
 			    || GET_CODE (DECL_RTL (base)) == CONCAT);
+		bit_offset = bitsize_int (offset * BITS_PER_UNIT);
 		bftype = TREE_TYPE (base);
 		if (TYPE_MODE (TREE_TYPE (exp)) != BLKmode)
 		  bftype = TREE_TYPE (exp);
 		return expand_expr (build3 (BIT_FIELD_REF, bftype,
 					    base,
 					    TYPE_SIZE (TREE_TYPE (exp)),
-					    offset),
+					    bit_offset),
 				    target, tmode, modifier);
 	      }
 	  }
@@ -8847,9 +8846,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	if (!integer_zerop (TREE_OPERAND (exp, 1)))
 	  {
 	    rtx off;
-	    off = immed_double_const (TREE_INT_CST_LOW (TREE_OPERAND (exp, 1)),
-				      TREE_INT_CST_HIGH (TREE_OPERAND (exp, 1)),
-				      address_mode);
+	    off = immed_double_int_const (mem_ref_offset (exp), address_mode);
 	    op0 = simplify_gen_binary (PLUS, address_mode, op0, off);
 	  }
 	op0 = memory_address_addr_space (mode, op0, as);

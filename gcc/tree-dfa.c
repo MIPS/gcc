@@ -23,6 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "toplev.h"
 #include "hashtab.h"
 #include "pointer-set.h"
 #include "tree.h"
@@ -931,25 +932,102 @@ get_ref_base_and_extent (tree exp, HOST_WIDE_INT *poffset,
   return exp;
 }
 
-/* Returns the base object and a constant offset in *POFFSET that
+/* Returns the base object and a constant BITS_PER_UNIT offset in *POFFSET that
    denotes the starting address of the memory access EXP.
-   Returns NULL_TREE if the offset is not constant.  */
+   Returns NULL_TREE if the offset is not constant or any component
+   is not BITS_PER_UNIT-aligned.  */
 
 tree
-get_addr_base_and_offset (tree exp, HOST_WIDE_INT *poffset)
+get_addr_base_and_unit_offset (tree exp, HOST_WIDE_INT *poffset)
 {
-  tree base;
-  HOST_WIDE_INT size;
-  tree ncoffset;
-  enum machine_mode mode;
-  int dummy;
+  HOST_WIDE_INT byte_offset = 0;
 
-  base = get_inner_reference (exp, &size, poffset, &ncoffset,
-			      &mode, &dummy, &dummy, false);
-  if (ncoffset != NULL_TREE)
-    return NULL_TREE;
+  /* Compute cumulative byte-offset for nested component-refs and array-refs,
+     and find the ultimate containing object.  */
+  while (1)
+    {
+      switch (TREE_CODE (exp))
+	{
+	case BIT_FIELD_REF:
+	  return NULL_TREE;
 
-  return base;
+	case COMPONENT_REF:
+	  {
+	    tree field = TREE_OPERAND (exp, 1);
+	    tree this_offset = component_ref_field_offset (exp);
+	    HOST_WIDE_INT hthis_offset;
+
+	    if (!this_offset
+		|| TREE_CODE (this_offset) != INTEGER_CST
+		|| (TREE_INT_CST_LOW (DECL_FIELD_BIT_OFFSET (field))
+		    % BITS_PER_UNIT))
+	      return NULL_TREE;
+
+	    hthis_offset = TREE_INT_CST_LOW (this_offset);
+	    hthis_offset += (TREE_INT_CST_LOW (DECL_FIELD_BIT_OFFSET (field))
+			     / BITS_PER_UNIT);
+	    byte_offset += hthis_offset;
+	  }
+	  break;
+
+	case ARRAY_REF:
+	case ARRAY_RANGE_REF:
+	  {
+	    tree index = TREE_OPERAND (exp, 1);
+	    tree low_bound, unit_size;
+
+	    /* If the resulting bit-offset is constant, track it.  */
+	    if (TREE_CODE (index) == INTEGER_CST
+		&& (low_bound = array_ref_low_bound (exp),
+		    TREE_CODE (low_bound) == INTEGER_CST)
+		&& (unit_size = array_ref_element_size (exp),
+		    TREE_CODE (unit_size) == INTEGER_CST))
+	      {
+		HOST_WIDE_INT hindex = TREE_INT_CST_LOW (index);
+
+		hindex -= TREE_INT_CST_LOW (low_bound);
+		hindex *= TREE_INT_CST_LOW (unit_size);
+		byte_offset += hindex;
+	      }
+	    else
+	      return NULL_TREE;
+	  }
+	  break;
+
+	case REALPART_EXPR:
+	  break;
+
+	case IMAGPART_EXPR:
+	  byte_offset += TREE_INT_CST_LOW (TYPE_SIZE_UNIT (TREE_TYPE (exp)));
+	  break;
+
+	case VIEW_CONVERT_EXPR:
+	  break;
+
+	case MEM_REF:
+	  /* Hand back the decl for MEM[&decl, off].  */
+	  if (TREE_CODE (TREE_OPERAND (exp, 0)) == ADDR_EXPR)
+	    {
+	      if (!integer_zerop (TREE_OPERAND (exp, 1)))
+		{
+		  double_int off = mem_ref_offset (exp);
+		  gcc_assert (off.high == -1 || off.high == 0);
+		  byte_offset += double_int_to_shwi (off);
+		}
+	      exp = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
+	    }
+	  goto done;
+
+	default:
+	  goto done;
+	}
+
+      exp = TREE_OPERAND (exp, 0);
+    }
+done:
+
+  *poffset = byte_offset;
+  return exp;
 }
 
 /* Returns true if STMT references an SSA_NAME that has
