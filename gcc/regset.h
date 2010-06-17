@@ -122,7 +122,9 @@ extern regset regs_invalidated_by_call_regset;
 extern bitmap_obstack reg_obstack;
 
 /* In cfg.c  */
+START_TARGET_SPECIFIC
 extern void dump_regset (regset, FILE *);
 extern void debug_regset (regset);
+END_TARGET_SPECIFIC
 
 #endif /* GCC_REGSET_H */

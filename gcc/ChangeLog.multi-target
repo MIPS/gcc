@@ -4,6 +4,8 @@
 	pattern rules for simple_generated_c / simple_rtl_generated_c to
 	depend on $(MD_DEPS) / insn-conditions.md.
 
+	* regset.h (dump_regset, debug_regset): Make target specific.
+
 2010-06-14  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* config/rs6000/rs6000.c (rs6000_ra_ever_killed): Use MACHINE_FUNCTION.
