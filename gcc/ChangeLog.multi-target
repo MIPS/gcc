@@ -30,6 +30,11 @@
 
 	* Makefile.in (target-types.h): Use $(INCLUDES).
 
+	* Makefile.in (regcprop.o): Change to:
+	$(TA)regcprop.
+	(options.o): Change to:
+	$(TA)options.o.
+
 2010-06-14  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* config/rs6000/rs6000.c (rs6000_ra_ever_killed): Use MACHINE_FUNCTION.

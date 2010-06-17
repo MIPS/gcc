@@ -2255,8 +2255,8 @@ s-options-h: optionlist $(srcdir)/opt-functions.awk $(srcdir)/opth-gen.awk
 	$(SHELL) $(srcdir)/../move-if-change tmp-options.h options.h
 	$(STAMP) $@
 
-options.o: options.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TARGET_H) $(FLAGS_H) \
-	$(TM_H) opts.h intl.h
+$(TA)options.o: options.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TARGET_H) 
+	$(FLAGS_H) $(TM_H) opts.h intl.h
 
 gcc-options.o: options.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) opts.h intl.h
 	$(COMPILER) -c $(ALL_COMPILERFLAGS) $(ALL_CPPFLAGS) $(OUTPUT_OPTION) \
@@ -3484,7 +3484,7 @@ $(TA)cfglayout.o : cfglayout.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(DF_H) $(EMIT_RTL_H)
 timevar.o : timevar.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TIMEVAR_H) $(FLAGS_H) intl.h $(TOPLEV_H) $(RTL_H) timevar.def
-regcprop.o : regcprop.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
+$(TA)regcprop.o : regcprop.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(RTL_H) insn-config.h $(BASIC_BLOCK_H) $(REGS_H) hard-reg-set.h \
    output.h $(RECOG_H) $(FUNCTION_H) $(OBSTACK_H) $(FLAGS_H) $(TM_P_H) \
    addresses.h reload.h $(TOPLEV_H) $(TIMEVAR_H) $(TREE_PASS_H) $(DF_H)
