@@ -3632,10 +3632,10 @@ simple_generated_h	= $(simple_rtl_generated_h) insn-constants.h
 simple_generated_c	= $(simple_rtl_generated_c) $(TA)insn-enums.c
 
 $(simple_generated_h:insn-%.h=s-%) \
-$(simple_generated_c:insn-%.c=s-%): s-%: $(MD_DEPS)
+$(simple_generated_c:$(TA)insn-%.c=s-%): s-%: $(MD_DEPS)
 
 $(simple_rtl_generated_h:insn-%.h=s-%) \
-$(simple_rtl_generated_c:insn-%.c=s-%): s-%: insn-conditions.md
+$(simple_rtl_generated_c:$(TA)insn-%.c=s-%): s-%: insn-conditions.md
 
 $(simple_generated_h): insn-%.h: s-%; @true
 
