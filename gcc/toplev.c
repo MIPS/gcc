@@ -2300,14 +2300,13 @@ lang_dependent_init_target (void)
 }
 
 EXTRA_TARGETS_DECL (int lang_dependent_init (const char *))
-EXTRA_TARGETS_DECL (int initialize_sizetypes (bool))
+EXTRA_TARGETS_DECL (int initialize_sizetypes (void))
 
 /* Language-dependent initialization.  Returns nonzero on success.  */
 int
 lang_dependent_init (const char *name)
 {
   location_t save_loc ATTRIBUTE_UNUSED;
-  bool signed_sizetype ATTRIBUTE_UNUSED;
 
   targetm_pnt = &this_targetm;
 #ifndef EXTRA_TARGET
@@ -2320,8 +2319,7 @@ lang_dependent_init (const char *name)
   if (lang_hooks.init () == 0)
     return 0;
   input_location = save_loc;
-  signed_sizetype = !TYPE_UNSIGNED (sizetype);
-  EXTRA_TARGETS_CALL (initialize_sizetypes (signed_sizetype));
+  EXTRA_TARGETS_CALL (initialize_sizetypes ());
 
   init_asm_output (name);
 
