@@ -2154,7 +2154,8 @@ ref_always_accessed_p (struct loop *loop, mem_ref_p ref, bool stored_p)
   tree base;
 
   base = get_base_address (ref->mem);
-  if (INDIRECT_REF_P (base))
+  if (INDIRECT_REF_P (base)
+      || TREE_CODE (base) == MEM_REF)
     base = TREE_OPERAND (base, 0);
 
   get_all_locs_in_loop (loop, ref, &locs);
@@ -2173,7 +2174,8 @@ ref_always_accessed_p (struct loop *loop, mem_ref_p ref, bool stored_p)
 	  lhs = get_base_address (gimple_get_lhs (loc->stmt));
 	  if (!lhs)
 	    continue;
-	  if (INDIRECT_REF_P (lhs))
+	  if (INDIRECT_REF_P (lhs)
+	      || TREE_CODE (lhs) == MEM_REF)
 	    lhs = TREE_OPERAND (lhs, 0);
 	  if (lhs != base)
 	    continue;

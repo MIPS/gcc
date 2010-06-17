@@ -1,3 +1,7 @@
+2010-06-17  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-loop-im.c (ref_always_accessed_p): Handle MEM_REF.
+
 2010-06-16  Richard Guenther  <rguenther@suse.de>
 
 	Merge from trunk r160861.
