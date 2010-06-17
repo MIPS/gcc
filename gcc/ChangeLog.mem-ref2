@@ -1,5 +1,10 @@
 2010-06-17  Richard Guenther  <rguenther@suse.de>
 
+	* tree-inline.c (remap_gimple_op_r): Simplify ADDR_EXPR case.
+	(copy_tree_body_r): Handle MEM_REF.
+
+2010-06-17  Richard Guenther  <rguenther@suse.de>
+
 	* tree-flow.h (get_addr_base_and_offset): Rename to ...
 	(get_addr_base_and_unit_offset): ... this.
 	* tree-dfa.c (get_addr_base_and_offset): Rename to ...

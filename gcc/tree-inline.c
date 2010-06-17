@@ -859,7 +859,7 @@ remap_gimple_op_r (tree *tp, int *walk_subtrees, void *data)
       else if (TREE_CODE (*tp) == ADDR_EXPR)
 	{
 	  /* Variable substitution need not be simple.  In particular,
-	     the INDIRECT_REF substitution above.  Make sure that
+	     the MEM_REF substitution above.  Make sure that
 	     TREE_CONSTANT and friends are up-to-date.  But make sure
 	     to not improperly set TREE_BLOCK on some sub-expressions.  */
 	  int invariant = is_gimple_min_invariant (*tp);
@@ -867,13 +867,7 @@ remap_gimple_op_r (tree *tp, int *walk_subtrees, void *data)
 	  id->block = NULL_TREE;
 	  walk_tree (&TREE_OPERAND (*tp, 0), remap_gimple_op_r, data, NULL);
 	  id->block = block;
-
-	  /* Handle the case where we substituted an INDIRECT_REF
-	     into the operand of the ADDR_EXPR.  */
-	  if (TREE_CODE (TREE_OPERAND (*tp, 0)) == INDIRECT_REF)
-	    *tp = TREE_OPERAND (TREE_OPERAND (*tp, 0), 0);
-	  else
-	    recompute_tree_invariant_for_addr_expr (*tp);
+	  recompute_tree_invariant_for_addr_expr (*tp);
 
 	  /* If this used to be invariant, but is not any longer,
 	     then regimplification is probably needed.  */
@@ -1060,6 +1054,25 @@ copy_tree_body_r (tree *tp, int *walk_subtrees, void *data)
 		      TREE_SIDE_EFFECTS (*tp) = TREE_SIDE_EFFECTS (old);
 		    }
 		}
+	      *walk_subtrees = 0;
+	      return NULL;
+	    }
+	}
+      else if (TREE_CODE (*tp) == MEM_REF)
+	{
+	  /* We need to re-canonicalize MEM_REFs from inline substitutions
+	     that can happen when a pointer argument is an ADDR_EXPR.  */
+	  tree decl = TREE_OPERAND (*tp, 0);
+	  tree *n;
+
+	  n = (tree *) pointer_map_contains (id->decl_map, decl);
+	  if (n)
+	    {
+	      tree old = *tp;
+	      *tp = fold_build2 (MEM_REF, TREE_TYPE (*tp),
+				 unshare_expr (*n), TREE_OPERAND (*tp, 1));
+	      TREE_THIS_VOLATILE (*tp) = TREE_THIS_VOLATILE (old);
+	      TREE_NO_WARNING (*tp) = TREE_NO_WARNING (old);
 	      *walk_subtrees = 0;
 	      return NULL;
 	    }
