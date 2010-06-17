@@ -1,3 +1,18 @@
+2010-06-16  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* ira.c (ira_class_hard_regs_num): Fix the comment.
+
+	* ira-costs.c (struct cost_classes): New member hard_regno_index.
+	(setup_cost_classes): New.
+	(setup_regno_cost_classes_by_aclass): Call setup_cost_classes.
+	(setup_regno_cost_classes_by_mode): Ditto.
+	(record_address_regs): Fix overflow code.
+	(scan_one_insn): Ditto.
+	(find_costs_and_classes): Ditto.  Move setting cost classes to the
+	loop start.
+	(setup_allocno_class_and_costs): Use member hard_regno_index.
+	(ira_tune_allocno_costs): Fix overflow code.
+	
 2010-06-11  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* ira-int.h (ira_max_memory_move_cost, ira_max_may_move_in_cost,

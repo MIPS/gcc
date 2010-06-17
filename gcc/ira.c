@@ -461,7 +461,7 @@ short ira_class_hard_regs[N_REG_CLASSES][FIRST_PSEUDO_REGISTER];
    the hard register numbers.  */
 short ira_non_ordered_class_hard_regs[N_REG_CLASSES][FIRST_PSEUDO_REGISTER];
 
-/* The number of elements of the above array for given register
+/* The number of elements of the two above arrays for given register
    class.  */
 int ira_class_hard_regs_num[N_REG_CLASSES];
 
