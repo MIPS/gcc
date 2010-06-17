@@ -820,6 +820,7 @@ forward_propagate_addr_expr_1 (tree name, tree def_rhs,
     {
       tree def_rhs_base;
       HOST_WIDE_INT def_rhs_offset;
+      /* If the address is invariant we can always fold it.  */
       if ((def_rhs_base = get_addr_base_and_unit_offset (TREE_OPERAND (def_rhs, 0),
 							 &def_rhs_offset)))
 	{
@@ -837,9 +838,44 @@ forward_propagate_addr_expr_1 (tree name, tree def_rhs,
 	  TREE_OPERAND (lhs, 0) = new_ptr;
 	  TREE_OPERAND (lhs, 1)
 	    = double_int_to_tree (TREE_TYPE (TREE_OPERAND (lhs, 1)), off);
-	  fold_stmt_inplace (use_stmt);
 	  tidy_after_forward_propagate_addr (use_stmt);
 	  /* Continue propagating into the RHS if this was not the only use.  */
+	  if (single_use_p)
+	    return true;
+	}
+      /* If the LHS is a plain dereference and the value type is the same as
+         that of the pointed-to type of the address we can put the
+	 dereferenced address on the LHS preserving the original alias-type.  */
+      else if (gimple_assign_lhs (use_stmt) == lhs
+	       && useless_type_conversion_p
+	            (TREE_TYPE (TREE_OPERAND (def_rhs, 0)),
+		     TREE_TYPE (gimple_assign_rhs1 (use_stmt))))
+	{
+	  tree *def_rhs_basep = &TREE_OPERAND (def_rhs, 0);
+	  tree new_offset, new_base, saved;
+	  while (handled_component_p (*def_rhs_basep))
+	    def_rhs_basep = &TREE_OPERAND (*def_rhs_basep, 0);
+	  saved = *def_rhs_basep;
+	  if (TREE_CODE (*def_rhs_basep) == MEM_REF)
+	    {
+	      new_base = TREE_OPERAND (*def_rhs_basep, 0);
+	      new_offset
+		= int_const_binop (PLUS_EXPR, TREE_OPERAND (lhs, 1),
+				   TREE_OPERAND (*def_rhs_basep, 1), 0);
+	    }
+	  else
+	    {
+	      new_base = build_fold_addr_expr (*def_rhs_basep);
+	      new_offset = TREE_OPERAND (lhs, 1);
+	    }
+	  *def_rhs_basep = build2 (MEM_REF, TREE_TYPE (*def_rhs_basep),
+				   new_base, new_offset);
+	  gimple_assign_set_lhs (use_stmt,
+				 unshare_expr (TREE_OPERAND (def_rhs, 0)));
+	  *def_rhs_basep = saved;
+	  tidy_after_forward_propagate_addr (use_stmt);
+	  /* Continue propagating into the RHS if this was not the
+	     only use.  */
 	  if (single_use_p)
 	    return true;
 	}
@@ -882,6 +918,40 @@ forward_propagate_addr_expr_1 (tree name, tree def_rhs,
 	  TREE_OPERAND (rhs, 0) = new_ptr;
 	  TREE_OPERAND (rhs, 1)
 	    = double_int_to_tree (TREE_TYPE (TREE_OPERAND (rhs, 1)), off);
+	  fold_stmt_inplace (use_stmt);
+	  tidy_after_forward_propagate_addr (use_stmt);
+	  return res;
+	}
+      /* If the LHS is a plain dereference and the value type is the same as
+         that of the pointed-to type of the address we can put the
+	 dereferenced address on the LHS preserving the original alias-type.  */
+      else if (gimple_assign_rhs1 (use_stmt) == rhs
+	       && useless_type_conversion_p
+		    (TREE_TYPE (gimple_assign_lhs (use_stmt)),
+		     TREE_TYPE (TREE_OPERAND (def_rhs, 0))))
+	{
+	  tree *def_rhs_basep = &TREE_OPERAND (def_rhs, 0);
+	  tree new_offset, new_base, saved;
+	  while (handled_component_p (*def_rhs_basep))
+	    def_rhs_basep = &TREE_OPERAND (*def_rhs_basep, 0);
+	  saved = *def_rhs_basep;
+	  if (TREE_CODE (*def_rhs_basep) == MEM_REF)
+	    {
+	      new_base = TREE_OPERAND (*def_rhs_basep, 0);
+	      new_offset
+		= int_const_binop (PLUS_EXPR, TREE_OPERAND (rhs, 1),
+				   TREE_OPERAND (*def_rhs_basep, 1), 0);
+	    }
+	  else
+	    {
+	      new_base = build_fold_addr_expr (*def_rhs_basep);
+	      new_offset = TREE_OPERAND (rhs, 1);
+	    }
+	  *def_rhs_basep = build2 (MEM_REF, TREE_TYPE (*def_rhs_basep),
+				   new_base, new_offset);
+	  gimple_assign_set_rhs1 (use_stmt,
+				  unshare_expr (TREE_OPERAND (def_rhs, 0)));
+	  *def_rhs_basep = saved;
 	  fold_stmt_inplace (use_stmt);
 	  tidy_after_forward_propagate_addr (use_stmt);
 	  return res;

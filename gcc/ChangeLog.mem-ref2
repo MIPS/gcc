@@ -1,5 +1,10 @@
 2010-06-17  Richard Guenther  <rguenther@suse.de>
 
+	* tree-ssa-forwprop.c (forward_propagate_addr_expr_1): Also
+	forward-propagate into plain MEM_REFs.
+
+2010-06-17  Richard Guenther  <rguenther@suse.de>
+
 	* tree-inline.c (remap_gimple_op_r): Simplify ADDR_EXPR case.
 	(copy_tree_body_r): Handle MEM_REF.
 
