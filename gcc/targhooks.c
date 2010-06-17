@@ -354,6 +354,8 @@ default_unwind_emit (FILE * stream ATTRIBUTE_UNUSED,
   gcc_unreachable ();
 }
 
+#endif /* !EXTRA_TARGET */
+
 /* Emit to STREAM the assembler syntax for insn operand X.  */
 
 void
@@ -393,8 +395,6 @@ default_print_operand_punct_valid_p (unsigned char code ATTRIBUTE_UNUSED)
   return false;
 #endif
 }
-
-#endif /* !EXTRA_TARGET */
 
 /* True if MODE is valid for the target.  By "valid", we mean able to
    be manipulated in non-trivial ways.  In particular, this means all

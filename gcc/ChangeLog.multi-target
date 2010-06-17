@@ -14,6 +14,10 @@
 	(set_reg_attrs_for_parm, set_reg_attrs_for_decl_rtl): Likewise.
 	(adjust_reg_mode, mem_expr_equal_p): Likewise.
 
+	* targhooks.c (default_print_operand, default_print_operand_address):
+	Move out of #ifndef EXTRA_TARGET block.
+	(default_print_operand_punct_valid_p): Likewise.
+
 2010-06-14  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* config/rs6000/rs6000.c (rs6000_ra_ever_killed): Use MACHINE_FUNCTION.
