@@ -2255,7 +2255,7 @@ s-options-h: optionlist $(srcdir)/opt-functions.awk $(srcdir)/opth-gen.awk
 	$(SHELL) $(srcdir)/../move-if-change tmp-options.h options.h
 	$(STAMP) $@
 
-$(TA)options.o: options.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TARGET_H) 
+$(TA)options.o: options.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TARGET_H) \
 	$(FLAGS_H) $(TM_H) opts.h intl.h
 
 gcc-options.o: options.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) opts.h intl.h
