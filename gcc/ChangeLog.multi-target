@@ -28,6 +28,8 @@
 	* doc/extend.texi (target_arch): Comment out caveat for unimplemented
 	feature.
 
+	* Makefile.in (target-types.h): Use $(INCLUDES).
+
 2010-06-14  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* config/rs6000/rs6000.c (rs6000_ra_ever_killed): Use MACHINE_FUNCTION.

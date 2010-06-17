@@ -3931,7 +3931,7 @@ target-types.h: Makefile T-extra $(foreach ta,$(EXTRA_TARGETS),$(ta)/T-extra $($
 	  echo 'namespace $(subst -,_,$(ta)) {' >> $@;\
 	  ( $(foreach file,$($(ta:%_=%)tm_include_list),\
 	      echo '#include "$(file)"';))\
-	  | cpp -I $(srcdir) | sed 'sX^#X// &X' >> $@;\
+	  | cpp -I $(INCLUDES) | sed 'sX^#X// &X' >> $@;\
 	  ( $(foreach file,config.h system.h $($(ta:%_=%)tm_include_list) hard-reg-set.h,\
               echo '#include "$(file)"';)\
 	    echo 'typedef CUMULATIVE_ARGS $(subst -,_,$(ta))cumulative_args;';\
@@ -3941,7 +3941,7 @@ target-types.h: Makefile T-extra $(foreach ta,$(EXTRA_TARGETS),$(ta)/T-extra $($
 	    echo 'using $(subst -,_,$(ta)::$(ta))cumulative_args;'; \
 	    echo 'using $(subst -,_,$(ta)::$(ta))machine_function;'; \
 	    echo 'using $(subst -,_,$(ta)::$(ta))hard_reg_set;') \
-	  | cpp -I $(srcdir) | sed -e 'sX^#X// &X' -e '/hard-reg-set.h/,/using.*hard_reg_set;/p' -e d >> $@;)
+	  | cpp -I $(INCLUDES) | sed -e 'sX^#X// &X' -e '/hard-reg-set.h/,/using.*hard_reg_set;/p' -e d >> $@;)
 	echo '' >> $@
 	echo 'typedef union {' >> $@
 	$(foreach num,$(call enumerate,_ $(EXTRA_TARGETS)),\
