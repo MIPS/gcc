@@ -323,9 +323,6 @@
 
 2009-07-22  J"orn Rennecke  <joern.rennecke@arc.com>
 
-	* doc/tm.texi (TARGET_VALID_OPTION_ATTRIBUTE_P): Change to:
-	(TARGET_OPTION_VALID_ATTRIBUTE_P).
-
 	* targhooks.c (default_target_option_valid_attribute_p):
 	Indicate the target for which the target attribute is not implemented.
 	* c-common.c (handle_target_attribute):
