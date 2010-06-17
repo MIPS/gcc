@@ -51,9 +51,11 @@ along with GCC; see the file COPYING3.  If not see
 
 START_TARGET_SPECIFIC
 
+#ifndef EXTRA_TARGET
 /* This variable holds information helping the rewriting of SSA trees
    into RTL.  */
 struct ssaexpand SA;
+#endif /* !EXTRA_TARGET */
 
 /* This variable holds the currently expanded gimple statement for purposes
    of comminucating the profile info to the builtin expanders.  */
