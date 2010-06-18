@@ -971,7 +971,9 @@ execute_function_todo (void *data)
 
   if ((flags & TODO_dump_func) && dump_file && current_function_decl)
     {
-      if (cfun->curr_properties & PROP_trees)
+      if (cfun->curr_properties & PROP_cil)
+        dump_cil_function_to_file (current_function_decl, dump_file, dump_flags);
+      else if (cfun->curr_properties & PROP_trees)
         dump_function_to_file (current_function_decl, dump_file, dump_flags);
       else
 	{
