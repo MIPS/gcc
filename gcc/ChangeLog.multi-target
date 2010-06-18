@@ -1,3 +1,8 @@
+2010-06-18  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* targhooks.c (stack_chk_guard_decl): Back out GTY removal.
+	(stack_chk_fail_decl): Add GTY.
+
 2010-06-17  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* Makefile.in: Also use $(TA) in variabe substitution to construct

@@ -597,7 +597,7 @@ hook_invalid_arg_for_unprototyped_fn (
 /* Initialize the stack protection decls.  */
 
 /* Stack protection related decls living in libgcc.  */
-tree stack_chk_guard_decl; /* FIXME: GTY.  */
+GTY(()) tree stack_chk_guard_decl;
 
 tree
 default_stack_protect_guard (void)
@@ -630,7 +630,7 @@ default_stack_protect_guard (void)
   return t;
 }
 
-tree stack_chk_fail_decl; /* FIXME: GTY.  */
+GTY(()) tree stack_chk_fail_decl;
 
 tree
 default_external_stack_protect_fail (void)
