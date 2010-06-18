@@ -869,20 +869,25 @@ get_ref_base_and_extent (tree exp, HOST_WIDE_INT *poffset,
 	  break;
 
 	case MEM_REF:
-	  /* ???  We should avoid doing this when doing so hides 
-	     the effective alias set.  */
-	  if (TREE_CODE (TREE_OPERAND (exp, 0)) == ADDR_EXPR
-	      /* We do need to handle large offsets here, for example
-	         from gcc.c-torture/compile/pr28489.c.  Thus the whole
-		 function should probably be audited for overflowing
-		 bit_offset ...
-		 Also we need to treat the pointer constants as
-		 sign-extending.  */
-	      && (TREE_INT_CST_HIGH (TREE_OPERAND (exp, 1)) == -1
-		  || host_integerp (TREE_OPERAND (exp, 1), 0)))
+	  /* Hand back the decl for MEM[&decl, off].  */
+	  if (TREE_CODE (TREE_OPERAND (exp, 0)) == ADDR_EXPR)
 	    {
-	      bit_offset += mem_ref_offset (exp).low * BITS_PER_UNIT;
-	      exp = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
+	      if (integer_zerop (TREE_OPERAND (exp, 1)))
+		exp = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
+	      else
+		{
+		  double_int off = mem_ref_offset (exp);
+		  off = double_int_lshift (off,
+					   BITS_PER_UNIT == 8
+					   ? 3 : exact_log2 (BITS_PER_UNIT),
+					   HOST_BITS_PER_DOUBLE_INT, true);
+		  off = double_int_add (off, shwi_to_double_int (bit_offset));
+		  if (double_int_fits_in_shwi_p (off))
+		    {
+		      bit_offset = double_int_to_shwi (off);
+		      exp = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
+		    }
+		}
 	    }
 	  goto done;
 

@@ -6109,16 +6109,17 @@ get_inner_reference (tree exp, HOST_WIDE_INT *pbitsize,
 	  break;
 
 	case MEM_REF:
-	  /* ???  We should avoid doing this when doing so hides
-	     the effective alias set.  */
+	  /* Hand back the decl for MEM[&decl, off].  */
 	  if (TREE_CODE (TREE_OPERAND (exp, 0)) == ADDR_EXPR)
 	    {
 	      tree off = TREE_OPERAND (exp, 1);
 	      if (!integer_zerop (off))
 		{
 		  double_int boff, coff = mem_ref_offset (exp);
-		  boff = double_int_lshift (coff, exact_log2 (BITS_PER_UNIT),
-					    2 * HOST_BITS_PER_WIDE_INT, 1);
+		  boff = double_int_lshift (coff,
+					    BITS_PER_UNIT == 8
+					    ? 3 : exact_log2 (BITS_PER_UNIT),
+					    HOST_BITS_PER_DOUBLE_INT, true);
 		  bit_offset
 		    = size_binop (PLUS_EXPR, bit_offset,
 				  double_int_to_tree (bitsizetype, boff));

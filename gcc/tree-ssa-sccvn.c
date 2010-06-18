@@ -789,7 +789,6 @@ ao_ref_init_from_vn_reference (ao_ref *ref,
 
 	/* Record the base objects.  */
 	case ALIGN_INDIRECT_REF:
-	case INDIRECT_REF:
 	  *op0_p = build1 (op->opcode, op->type, NULL_TREE);
 	  op0_p = &TREE_OPERAND (*op0_p, 0);
 	  break;
