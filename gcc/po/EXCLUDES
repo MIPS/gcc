@@ -82,6 +82,7 @@ genpreds.c
 genrecog.c
 gensupport.c
 gensupport.h
+gentargtype.cc
 
 #   These files are not yet internationalized, because they contain
 #   many strings that require a lot of analysis, and are little-used.
