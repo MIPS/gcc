@@ -251,7 +251,7 @@ setup_regno_cost_classes_by_aclass (int regno, enum reg_class aclass)
 	  classes_ptr = setup_cost_classes (&classes);
 	  *slot = classes_ptr;
 	}
-      cost_classes_aclass_cache[aclass] = (cost_classes_t) *slot;
+      classes_ptr = cost_classes_aclass_cache[aclass] = (cost_classes_t) *slot;
     }
   regno_cost_classes[regno] = classes_ptr;
 }
@@ -1472,7 +1472,7 @@ find_costs_and_classes (FILE *dump_file)
       max_cost_classes_num = ira_important_classes_num;
       for (i = max_reg_num () - 1; i >= FIRST_PSEUDO_REGISTER; i--)
 	if (regno_reg_rtx[i] != NULL_RTX)
-	  setup_regno_cost_classes_by_mode (i, PSEUDO_REGNO_MODE (i));
+ 	  setup_regno_cost_classes_by_mode (i, PSEUDO_REGNO_MODE (i));
 	else
 	  setup_regno_cost_classes_by_aclass (i, ALL_REGS);
       start = 0;
