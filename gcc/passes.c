@@ -102,6 +102,9 @@ along with GCC; see the file COPYING3.  If not see
 				   declarations for e.g. AIX 4.x.  */
 #endif
 
+/* Shared across targets.  */
+extern void register_dump_files (struct opt_pass *pass,int properties);
+
 #ifndef EXTRA_TARGET
 /* This is used for debugging.  It allows the current pass to printed
    from anywhere in compilation.
@@ -454,7 +457,7 @@ register_dump_files_1 (struct opt_pass *pass, int properties)
    PROPERTIES reflects the properties that are guaranteed to be available at
    the beginning of the pipeline.  */
 
-static void
+void
 register_dump_files (struct opt_pass *pass,int properties)
 {
   pass->properties_required |= properties;
@@ -1097,7 +1100,11 @@ init_optimization_passes (void)
   register_dump_files (all_passes,
 		       PROP_gimple_any | PROP_gimple_lcf | PROP_gimple_leh
 		       | PROP_cfg);
-#endif /* !EXTRA_TARGET */
+#else /* EXTRA_TARGET */
+  register_dump_files (pass_expand.target_variants[TARGET_NUM-1],
+		       PROP_gimple_any | PROP_gimple_lcf | PROP_gimple_leh
+		       | PROP_cfg);
+#endif /* EXTRA_TARGET */
 }
 
 #ifndef EXTRA_TARGET

@@ -1670,13 +1670,13 @@ alloc_for_identifier_to_locale (size_t len)
   return ggc_alloc_atomic (len);
 }
 
+#ifndef EXTRA_TARGET
 /* Initialization of the front end environment, before command line
    options are parsed.  Signal handlers, internationalization etc.
    ARGV0 is main's argv[0].  */
 static void
 general_init (const char *argv0 ATTRIBUTE_UNUSED)
 {
-#ifndef EXTRA_TARGET
   const char *p;
 
   p = argv0 + strlen (argv0);
@@ -1740,7 +1740,6 @@ general_init (const char *argv0 ATTRIBUTE_UNUSED)
   linemap_init (line_table);
   line_table->reallocator = realloc_for_line_map;
   init_ttree ();
-#endif /* !EXTRA_TARGET */
 
   /* Initialize register usage now so switches may override.  */
   init_reg_sets ();
@@ -1753,6 +1752,7 @@ general_init (const char *argv0 ATTRIBUTE_UNUSED)
   init_optimization_passes ();
   statistics_early_init ();
 }
+#endif /* !EXTRA_TARGET */
 
 /* Return true if the current target supports -fsection-anchors.  */
 
