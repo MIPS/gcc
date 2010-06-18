@@ -1859,18 +1859,20 @@ execute_update_addresses_taken (bool do_optimize)
               /* A plain decl does not need it set.  */
               if (!DECL_P (rhs))
 		{
-		  if (handled_component_p (rhs))
-		    rhs = get_base_address (rhs);
+		  tree base = rhs;
+		  while (handled_component_p (base))
+		    base = TREE_OPERAND (base, 0);
 
-		  if (rhs
-		      && TREE_CODE (rhs) == MEM_REF
-		      && TREE_CODE (TREE_OPERAND (rhs, 0)) == ADDR_EXPR)
+		  /* But watch out for MEM_REFs we cannot lower to a
+		     VIEW_CONVERT_EXPR.  */
+		  if (TREE_CODE (base) == MEM_REF
+		      && TREE_CODE (TREE_OPERAND (base, 0)) == ADDR_EXPR)
 		    {
-		      tree decl = TREE_OPERAND (TREE_OPERAND (rhs, 0), 0);
+		      tree decl = TREE_OPERAND (TREE_OPERAND (base, 0), 0);
 		      if (DECL_P (decl)
-			  && (!integer_zerop (TREE_OPERAND (rhs, 1))
+			  && (!integer_zerop (TREE_OPERAND (base, 1))
 			      || (DECL_SIZE (decl)
-				  != TYPE_SIZE (TREE_TYPE (rhs)))))
+				  != TYPE_SIZE (TREE_TYPE (base)))))
 			bitmap_set_bit (not_reg_needs, DECL_UID (decl));
 		    }
                 }

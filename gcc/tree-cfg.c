@@ -2950,6 +2950,13 @@ verify_types_in_gimple_reference (tree expr, bool require_lvalue)
 	      debug_generic_stmt (expr);
 	      return true;
 	    }
+	  else if (TREE_CODE (op) == SSA_NAME
+		   && TYPE_SIZE (TREE_TYPE (expr)) != TYPE_SIZE (TREE_TYPE (op)))
+	    {
+	      error ("Conversion of register to a different size.");
+	      debug_generic_stmt (expr);
+	      return true;
+	    }
 	  else if (!handled_component_p (op))
 	    return false;
 	}

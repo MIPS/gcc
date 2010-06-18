@@ -1,5 +1,12 @@
 2010-06-18  Richard Guenther  <rguenther@suse.de>
 
+	* tree-ssa.c (execute_update_addresses_taken): Fixup test
+	for partial accesses on the RHS.
+	* tree-cfg.c (verify_types_in_gimple_reference): Verify
+	that VIEW_CONVERT_EXPR of registers have matching size.
+
+2010-06-18  Richard Guenther  <rguenther@suse.de>
+
 	* tree-ssa-loop-niter.c (array_at_struct_end_p): Handle MEM_REF.
 	* tree-ssa-sccvn.c (ao_ref_init_from_vn_reference): Do not
 	handle INDIRECT_REF.
