@@ -11,6 +11,9 @@
 	(init_optimization_passes) [EXTRA_TARGET]: Call register_dump_files
 	for pass_expand.target_variants[TARGET_NUM-1].
 
+	* doc/install.texi (Target specification): Document
+	--with-extra-target-list.
+
 2010-06-17  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* Makefile.in: Also use $(TA) in variabe substitution to construct
