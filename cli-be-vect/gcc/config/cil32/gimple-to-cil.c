@@ -4406,10 +4406,10 @@ struct gimple_opt_pass pass_gimple_to_cil =
   0,                                    /* static_pass_number */
   TV_GIMPLE_TO_CIL,                     /* tv_id */
   PROP_cfg,                             /* properties_required */
-  0,                                    /* properties_provided */
+  PROP_cil,                             /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_ggc_collect                      /* todo_flags_finish */
+  TODO_ggc_collect|TODO_dump_func       /* todo_flags_finish */
  }
 };
 

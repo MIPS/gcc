@@ -555,6 +555,9 @@ extern struct gimple_opt_pass pass_lower_cil;
 extern struct gimple_opt_pass pass_emit_cil_vcg;
 extern struct gimple_opt_pass pass_emit_cil;
 
+/* In cil-dump.c: */
+extern void dump_cil_function_to_file (tree, FILE *, int);
+
 /*
  * Local variables:
  * eval: (c-set-style "gnu")

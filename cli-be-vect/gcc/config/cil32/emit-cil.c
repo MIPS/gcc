@@ -2058,11 +2058,11 @@ struct gimple_opt_pass pass_emit_cil =
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
   TV_EMIT_CIL,                          /* tv_id */
-  PROP_cfg,                             /* properties_required */
+  PROP_cfg|PROP_cil,                    /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  0                                    /* todo_flags_finish */
+  TODO_dump_func                        /* todo_flags_finish */
  }
 };
 
@@ -2166,11 +2166,11 @@ struct gimple_opt_pass pass_emit_cil_vcg =
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
   TV_EMIT_CIL_VCG,                      /* tv_id */
-  PROP_cfg,                             /* properties_required */
+  PROP_cfg|PROP_cil,                    /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  0                                     /* todo_flags_finish */
+  TODO_dump_func                        /* todo_flags_finish */
  }
 };
 
