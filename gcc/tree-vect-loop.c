@@ -1375,13 +1375,7 @@ vect_analyze_loop (struct loop *loop)
   int min_vf = 2;
 
   if (vect_print_dump_info (REPORT_DETAILS))
-    {
-      if (targetm_pnt == &this_targetm)
-	fprintf (vect_dump, "===== analyze_loop_nest =====");
-      else
-	fprintf (vect_dump, "===== analyze_loop_nest for target %s =====",
-		 targetm.name);
-    }
+    fprintf (vect_dump, "===== analyze_loop_nest =====");
 
   if (loop_outer (loop)
       && loop_vec_info_for_loop (loop_outer (loop))
@@ -4514,7 +4508,6 @@ vect_transform_loop (loop_vec_info loop_vinfo)
   tree cond_expr = NULL_TREE;
   gimple_seq cond_expr_stmt_list = NULL;
   bool do_peeling_for_loop_bound;
-  bool arch_change = loop->target_arch != cfun->target_arch;
 
   if (vect_print_dump_info (REPORT_DETAILS))
     fprintf (vect_dump, "=== vec_transform_loop ===");
@@ -4522,7 +4515,7 @@ vect_transform_loop (loop_vec_info loop_vinfo)
   /* Peel the loop if there are data refs with unknown alignment.
      Only one data ref with unknown store is allowed.  */
 
-  if (!arch_change && LOOP_PEELING_FOR_ALIGNMENT (loop_vinfo))
+  if (LOOP_PEELING_FOR_ALIGNMENT (loop_vinfo))
     vect_do_peeling_for_alignment (loop_vinfo);
 
   do_peeling_for_loop_bound
@@ -4557,8 +4550,6 @@ vect_transform_loop (loop_vec_info loop_vinfo)
   gcc_assert (EDGE_COUNT (loop->header->preds) == 2);
 
   split_edge (loop_preheader_edge (loop));
-
-  targetm_pnt = targetm_array[loop->target_arch];
 
   /* FORNOW: the vectorizer supports only loops which body consist
      of one basic block (header + empty latch). When the vectorizer will
@@ -4702,8 +4693,6 @@ vect_transform_loop (loop_vec_info loop_vinfo)
      have their SSA forms updated.  FIXME, why can't this be delayed
      until all the loops have been transformed?  */
   update_ssa (TODO_update_ssa);
-
-  targetm_pnt = targetm_array[cfun->target_arch];
 
   if (vect_print_dump_info (REPORT_VECTORIZED_LOCATIONS))
     fprintf (vect_dump, "LOOP VECTORIZED.");

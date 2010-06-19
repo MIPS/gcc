@@ -340,7 +340,6 @@ alloc_loop (void)
   loop->exits->next = loop->exits->prev = loop->exits;
   loop->can_be_parallel = false;
   loop->single_iv = NULL_TREE;
-  loop->target_arch = cfun->target_arch;
 
   return loop;
 }

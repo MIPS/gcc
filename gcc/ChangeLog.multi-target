@@ -1,3 +1,14 @@
+2010-06-20  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* tree-pretty-print.c: Back out cross-target autoparallelization /
+	vectorization to facilitate the merge of the basic multi-target
+	infrastructure.
+	* (tree-ssa-loop-manip.c, tree.h, omp-low.c: Likewise.
+	* tree-vect-loop-manip.c, tree-ssa-loop.c, tree-parloops.c: Likewise.
+	* tree-vectorizer.c, tree-vectorizer.h, tree-vect-loop.c: Likewise.
+	* tree-vect-data-refs.c, cfgloop.c, cfgloop.h: Likewise.
+	* tree-vect-generic.c: Likewise.
+
 2010-06-19  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* targhooks.c (stack_chk_fail_decl): Remove extern declaration.

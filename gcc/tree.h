@@ -1830,9 +1830,7 @@ enum omp_clause_schedule_kind
   OMP_CLAUSE_SCHEDULE_DYNAMIC,
   OMP_CLAUSE_SCHEDULE_GUIDED,
   OMP_CLAUSE_SCHEDULE_AUTO,
-  OMP_CLAUSE_SCHEDULE_RUNTIME,
-  /* Used internally for NUMA targets to schedule on the main processor.  */
-  OMP_CLAUSE_SCHEDULE_MASTER
+  OMP_CLAUSE_SCHEDULE_RUNTIME
 };
 
 #define OMP_CLAUSE_SCHEDULE_KIND(NODE) \

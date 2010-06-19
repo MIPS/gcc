@@ -776,8 +776,7 @@ extern bool vect_transform_strided_load (gimple, VEC(tree,heap) *, int,
 extern int vect_get_place_in_interleaving_chain (gimple, gimple);
 extern tree vect_get_new_vect_var (tree, enum vect_var_kind, const char *);
 extern tree vect_create_addr_base_for_vector_ref (gimple, gimple_seq *,
-                                                  tree, struct loop *,
-						  struct gcc_target *);
+                                                  tree, struct loop *);
 
 /* In tree-vect-loop.c.  */
 /* FORNOW: Used in tree-parloops.c.  */
