@@ -22,9 +22,8 @@
 	* passes.c (df_finish_pass_array): Likewise.
 	* tree-chrec.h (build_polynomial_chrec): Make dependent on
 	!EXTRA_TARGET.
-	* gengtype-lex.l: Use stack option.
+	* gengtype-lex.l: Use extra options stack and noyy_top_state.
 	Allow to skip #ifndef EXTRA_TARGET sections.
-	(coretypes.h, tree.h, tm.h): Include.
 	(in_struct_comment): Remove state.
 	(start_pp_directive, in_pp_directive, pp_scanning): New states.
 	* gengtype-parse.c (token): Back out EXTRA_TARGET patches.
@@ -48,7 +47,6 @@
 	(GTFILES-RAW): New makefile variable.  Use it to compute...
 	(GTFILES) so that extra targets don't see *.c files the object files
 	of which are not in $(OBJS-extra-target).
-	(build/gengtype-lex.o): Depend on coretypes.h, $(TREE_H) and $(GTM_H).
 	* passes.c [!EXTRA_TARGET] (gt-passes.h): Include in this case, too.
 
 2010-06-18  Joern Rennecke  <joern.rennecke@embecosm.com>

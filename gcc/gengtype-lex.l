@@ -19,7 +19,7 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
-%option noinput stack
+%option noinput stack noyy_top_state
 
 %{
 #include "bconfig.h"
@@ -29,9 +29,6 @@ along with GCC; see the file COPYING3.  If not see
 #define realloc xrealloc
 
 #include "gengtype.h"
-#include "coretypes.h"
-#include "tree.h" /* rs6000.h (from tm.h) needs tree.h.  */
-#include "tm.h"
 
 #define YY_DECL int yylex (const char **yylval)
 #define yyterminate() return EOF_TOKEN
