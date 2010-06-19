@@ -1,5 +1,13 @@
 2010-06-19  Richard Guenther  <rguenther@suse.de>
 
+	* gimple-fold.c (maybe_fold_offset_to_array_ref): Do not
+	require type compatibility here.
+	(maybe_fold_offset_to_reference): But check it here.
+	(maybe_fold_offset_to_address): And here.
+	(maybe_fold_stmt_addition): And here.
+
+2010-06-19  Richard Guenther  <rguenther@suse.de>
+
 	* gimple.h (maybe_fold_offset_to_reference): Remove.
 	* gimple-fold.c (maybe_fold_offset_to_component_ref): Remove.
 	(maybe_fold_offset_to_reference): Simplify.

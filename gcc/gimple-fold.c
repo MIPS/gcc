@@ -108,14 +108,12 @@ may_propagate_address_into_dereference (tree addr, tree deref)
 
 
 /* A subroutine of fold_stmt.  Attempts to fold *(A+O) to A[X].
-   BASE is an array type.  OFFSET is a byte displacement.  ORIG_TYPE
-   is the desired result type.
+   BASE is an array type.  OFFSET is a byte displacement.
 
    LOC is the location of the original expression.  */
 
 static tree
 maybe_fold_offset_to_array_ref (location_t loc, tree base, tree offset,
-				tree orig_type,
 				bool allow_negative_idx)
 {
   tree min_idx, idx, idx_type, elt_offset = integer_zero_node;
@@ -145,8 +143,6 @@ maybe_fold_offset_to_array_ref (location_t loc, tree base, tree offset,
   if (TREE_CODE (array_type) != ARRAY_TYPE)
     return NULL_TREE;
   elt_type = TREE_TYPE (array_type);
-  if (!useless_type_conversion_p (orig_type, elt_type))
-    return NULL_TREE;
 
   /* Use signed size type for intermediate computation on the index.  */
   idx_type = ssizetype;
@@ -256,18 +252,17 @@ maybe_fold_offset_to_array_ref (location_t loc, tree base, tree offset,
 }
 
 
-/* Attempt to express (ORIG_TYPE)BASE+OFFSET as BASE->field_of_orig_type
-   or BASE[index] or by combination of those.
-
+/* Attempt to express (ORIG_TYPE)BASE+OFFSET as BASE[index].
    LOC is the location of original expression.
 
-   Before attempting the conversion strip off existing ADDR_EXPRs and
-   handled component refs.  */
+   Before attempting the conversion strip off existing ADDR_EXPRs.  */
 
 static tree
 maybe_fold_offset_to_reference (location_t loc, tree base, tree offset,
 				tree orig_type)
 {
+  tree ret;
+
   STRIP_NOPS (base);
   if (TREE_CODE (base) != ADDR_EXPR)
     return NULL_TREE;
@@ -277,37 +272,35 @@ maybe_fold_offset_to_reference (location_t loc, tree base, tree offset,
       && integer_zerop (offset))
     return base;
 
-  return maybe_fold_offset_to_array_ref (loc, base, offset, orig_type, true);
+  ret = maybe_fold_offset_to_array_ref (loc, base, offset, true);
+  if (ret && useless_type_conversion_p (orig_type, TREE_TYPE (ret)))
+    return ret;
+  return NULL_TREE;
 }
 
-/* Attempt to express (ORIG_TYPE)&BASE+OFFSET as &BASE->field_of_orig_type
-   or &BASE[index] or by combination of those.
-
-   LOC is the location of the original expression.
-
-   Before attempting the conversion strip off existing component refs.  */
+/* Attempt to express (ORIG_TYPE)ADDR+OFFSET as (*ADDR)[index].
+   LOC is the location of the original expression.  */
 
 tree
 maybe_fold_offset_to_address (location_t loc, tree addr, tree offset,
 			      tree orig_type)
 {
-  tree t;
+  tree base, ret;
 
-  gcc_assert (POINTER_TYPE_P (TREE_TYPE (addr))
-	      && POINTER_TYPE_P (orig_type));
-
-  t = maybe_fold_offset_to_reference (loc, addr, offset,
-				      TREE_TYPE (orig_type));
-  if (t != NULL_TREE)
+  STRIP_NOPS (addr);
+  if (TREE_CODE (addr) != ADDR_EXPR)
+    return NULL_TREE;
+  base = TREE_OPERAND (addr, 0);
+  ret = maybe_fold_offset_to_array_ref (loc, base, offset, true);
+  if (ret)
     {
-      tree ptr_type;
-      ptr_type = build_pointer_type (TREE_TYPE (t));
-      if (!useless_type_conversion_p (orig_type, ptr_type))
+      ret = build_fold_addr_expr (ret);
+      if (!useless_type_conversion_p (orig_type, TREE_TYPE (ret)))
 	return NULL_TREE;
-      return build_fold_addr_expr_with_type_loc (loc, t, ptr_type);
+      SET_EXPR_LOCATION (ret, loc);
     }
 
-  return NULL_TREE;
+  return ret;
 }
 
 /* A subroutine of fold_stmt.  Attempt to simplify *(BASE+OFFSET).
@@ -536,10 +529,12 @@ maybe_fold_stmt_addition (location_t loc, tree res_type, tree op0, tree op1)
     ptd_type = TREE_TYPE (TREE_TYPE (op0));
 
   /* At which point we can try some of the same things as for indirects.  */
-  t = maybe_fold_offset_to_array_ref (loc, op0, op1, ptd_type, true);
+  t = maybe_fold_offset_to_array_ref (loc, op0, op1, true);
   if (t)
     {
-      t = build1 (ADDR_EXPR, res_type, t);
+      t = build_fold_addr_expr (t);
+      if (!useless_type_conversion_p (res_type, TREE_TYPE (t)))
+	return NULL_TREE;
       SET_EXPR_LOCATION (t, loc);
     }
 
