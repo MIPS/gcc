@@ -1,5 +1,16 @@
 2010-06-19  Richard Guenther  <rguenther@suse.de>
 
+	* gimple.h (maybe_fold_offset_to_reference): Remove.
+	* gimple-fold.c (maybe_fold_offset_to_component_ref): Remove.
+	(maybe_fold_offset_to_reference): Simplify.
+	(maybe_fold_offset_to_address): Likewise.
+	(maybe_fold_stmt_indirect): Adjust comments.
+	(maybe_fold_stmt_addition): Simplify.
+	* tree-sra.c (build_ref_for_offset, build_ref_for_offset_1):
+	Adjust comments.
+
+2010-06-19  Richard Guenther  <rguenther@suse.de>
+
 	* doc/gimple.texi (is_gimple_mem_ref_addr): Document.
 
 2010-06-19  Richard Guenther  <rguenther@suse.de>

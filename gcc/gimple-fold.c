@@ -256,124 +256,6 @@ maybe_fold_offset_to_array_ref (location_t loc, tree base, tree offset,
 }
 
 
-/* Attempt to fold *(S+O) to S.X.
-   BASE is a record type.  OFFSET is a byte displacement.  ORIG_TYPE
-   is the desired result type.
-
-   LOC is the location of the original expression.  */
-
-static tree
-maybe_fold_offset_to_component_ref (location_t loc, tree record_type,
-				    tree base, tree offset, tree orig_type)
-{
-  tree f, t, field_type, tail_array_field, field_offset;
-  tree ret;
-  tree new_base;
-
-  if (TREE_CODE (record_type) != RECORD_TYPE
-      && TREE_CODE (record_type) != UNION_TYPE
-      && TREE_CODE (record_type) != QUAL_UNION_TYPE)
-    return NULL_TREE;
-
-  /* Short-circuit silly cases.  */
-  if (useless_type_conversion_p (record_type, orig_type))
-    return NULL_TREE;
-
-  tail_array_field = NULL_TREE;
-  for (f = TYPE_FIELDS (record_type); f ; f = TREE_CHAIN (f))
-    {
-      int cmp;
-
-      if (TREE_CODE (f) != FIELD_DECL)
-	continue;
-      if (DECL_BIT_FIELD (f))
-	continue;
-
-      if (!DECL_FIELD_OFFSET (f))
-	continue;
-      field_offset = byte_position (f);
-      if (TREE_CODE (field_offset) != INTEGER_CST)
-	continue;
-
-      /* ??? Java creates "interesting" fields for representing base classes.
-	 They have no name, and have no context.  With no context, we get into
-	 trouble with nonoverlapping_component_refs_p.  Skip them.  */
-      if (!DECL_FIELD_CONTEXT (f))
-	continue;
-
-      /* The previous array field isn't at the end.  */
-      tail_array_field = NULL_TREE;
-
-      /* Check to see if this offset overlaps with the field.  */
-      cmp = tree_int_cst_compare (field_offset, offset);
-      if (cmp > 0)
-	continue;
-
-      field_type = TREE_TYPE (f);
-
-      /* Here we exactly match the offset being checked.  If the types match,
-	 then we can return that field.  */
-      if (cmp == 0
-	  && useless_type_conversion_p (orig_type, field_type))
-	{
-	  t = fold_build3 (COMPONENT_REF, field_type, base, f, NULL_TREE);
-	  return t;
-	}
-
-      /* Don't care about offsets into the middle of scalars.  */
-      if (!AGGREGATE_TYPE_P (field_type))
-	continue;
-
-      /* Check for array at the end of the struct.  This is often
-	 used as for flexible array members.  We should be able to
-	 turn this into an array access anyway.  */
-      if (TREE_CODE (field_type) == ARRAY_TYPE)
-	tail_array_field = f;
-
-      /* Check the end of the field against the offset.  */
-      if (!DECL_SIZE_UNIT (f)
-	  || TREE_CODE (DECL_SIZE_UNIT (f)) != INTEGER_CST)
-	continue;
-      t = int_const_binop (MINUS_EXPR, offset, field_offset, 1);
-      if (!tree_int_cst_lt (t, DECL_SIZE_UNIT (f)))
-	continue;
-
-      /* If we matched, then set offset to the displacement into
-	 this field.  */
-      new_base = fold_build3 (COMPONENT_REF, field_type, base, f, NULL_TREE);
-      SET_EXPR_LOCATION (new_base, loc);
-
-      /* Recurse to possibly find the match.  */
-      ret = maybe_fold_offset_to_array_ref (loc, new_base, t, orig_type,
-					    f == TYPE_FIELDS (record_type));
-      if (ret)
-	return ret;
-      ret = maybe_fold_offset_to_component_ref (loc, field_type, new_base, t,
-						orig_type);
-      if (ret)
-	return ret;
-    }
-
-  if (!tail_array_field)
-    return NULL_TREE;
-
-  f = tail_array_field;
-  field_type = TREE_TYPE (f);
-  offset = int_const_binop (MINUS_EXPR, offset, byte_position (f), 1);
-
-  /* If we get here, we've got an aggregate field, and a possibly
-     nonzero offset into them.  Recurse and hope for a valid match.  */
-  base = fold_build3 (COMPONENT_REF, field_type, base, f, NULL_TREE);
-  SET_EXPR_LOCATION (base, loc);
-
-  t = maybe_fold_offset_to_array_ref (loc, base, offset, orig_type,
-				      f == TYPE_FIELDS (record_type));
-  if (t)
-    return t;
-  return maybe_fold_offset_to_component_ref (loc, field_type, base, offset,
-					     orig_type);
-}
-
 /* Attempt to express (ORIG_TYPE)BASE+OFFSET as BASE->field_of_orig_type
    or BASE[index] or by combination of those.
 
@@ -382,51 +264,20 @@ maybe_fold_offset_to_component_ref (location_t loc, tree record_type,
    Before attempting the conversion strip off existing ADDR_EXPRs and
    handled component refs.  */
 
-tree
+static tree
 maybe_fold_offset_to_reference (location_t loc, tree base, tree offset,
 				tree orig_type)
 {
-  tree ret;
-  tree type;
-
   STRIP_NOPS (base);
   if (TREE_CODE (base) != ADDR_EXPR)
     return NULL_TREE;
 
   base = TREE_OPERAND (base, 0);
-
-  /* Handle case where existing COMPONENT_REF pick e.g. wrong field of union,
-     so it needs to be removed and new COMPONENT_REF constructed.
-     The wrong COMPONENT_REF are often constructed by folding the
-     (type *)&object within the expression (type *)&object+offset  */
-  if (handled_component_p (base))
-    {
-      HOST_WIDE_INT sub_offset, size, maxsize;
-      tree newbase;
-      newbase = get_ref_base_and_extent (base, &sub_offset,
-					 &size, &maxsize);
-      gcc_assert (newbase);
-      if (size == maxsize
-	  && size != -1
-	  && !(sub_offset & (BITS_PER_UNIT - 1)))
-	{
-	  base = newbase;
-	  if (sub_offset)
-	    offset = int_const_binop (PLUS_EXPR, offset,
-				      build_int_cst (TREE_TYPE (offset),
-						     sub_offset / BITS_PER_UNIT), 1);
-	}
-    }
   if (useless_type_conversion_p (orig_type, TREE_TYPE (base))
       && integer_zerop (offset))
     return base;
-  type = TREE_TYPE (base);
 
-  ret = maybe_fold_offset_to_component_ref (loc, type, base, offset, orig_type);
-  if (!ret)
-    ret = maybe_fold_offset_to_array_ref (loc, base, offset, orig_type, true);
-
-  return ret;
+  return maybe_fold_offset_to_array_ref (loc, base, offset, orig_type, true);
 }
 
 /* Attempt to express (ORIG_TYPE)&BASE+OFFSET as &BASE->field_of_orig_type
@@ -449,37 +300,7 @@ maybe_fold_offset_to_address (location_t loc, tree addr, tree offset,
 				      TREE_TYPE (orig_type));
   if (t != NULL_TREE)
     {
-      tree orig = addr;
       tree ptr_type;
-
-      /* For __builtin_object_size to function correctly we need to
-         make sure not to fold address arithmetic so that we change
-	 reference from one array to another.  This would happen for
-	 example for
-
-	   struct X { char s1[10]; char s2[10] } s;
-	   char *foo (void) { return &s.s2[-4]; }
-
-	 where we need to avoid generating &s.s1[6].  As the C and
-	 C++ frontends create different initial trees
-	 (char *) &s.s1 + -4  vs.  &s.s1[-4]  we have to do some
-	 sophisticated comparisons here.  Note that checking for the
-	 condition after the fact is easier than trying to avoid doing
-	 the folding.  */
-      STRIP_NOPS (orig);
-      if (TREE_CODE (orig) == ADDR_EXPR)
-	orig = TREE_OPERAND (orig, 0);
-      if ((TREE_CODE (orig) == ARRAY_REF
-	   || (TREE_CODE (orig) == COMPONENT_REF
-	       && TREE_CODE (TREE_TYPE (TREE_OPERAND (orig, 1))) == ARRAY_TYPE))
-	  && (TREE_CODE (t) == ARRAY_REF
-	      || TREE_CODE (t) == COMPONENT_REF)
-	  && !operand_equal_p (TREE_CODE (orig) == ARRAY_REF
-			       ? TREE_OPERAND (orig, 0) : orig,
-			       TREE_CODE (t) == ARRAY_REF
-			       ? TREE_OPERAND (t, 0) : t, 0))
-	return NULL_TREE;
-
       ptr_type = build_pointer_type (TREE_TYPE (t));
       if (!useless_type_conversion_p (orig_type, ptr_type))
 	return NULL_TREE;
@@ -541,7 +362,7 @@ maybe_fold_stmt_indirect (tree expr, tree base, tree offset)
       if (integer_zerop (offset))
 	return base;
 
-      /* Try folding *(&B+O) to B.X.  */
+      /* Try folding *(&B+O) to B[X].  */
       t = maybe_fold_offset_to_reference (loc, base_addr, offset,
 					  TREE_TYPE (expr));
       if (t)
@@ -578,7 +399,7 @@ maybe_fold_stmt_indirect (tree expr, tree base, tree offset)
 	  return integer_zero_node;
 	}
 
-      /* Try folding *(B+O) to B->X.  Still an improvement.  */
+      /* Try folding *(B+O) to (*B)[X].  Still an improvement.  */
       if (POINTER_TYPE_P (TREE_TYPE (base)))
 	{
           t = maybe_fold_offset_to_reference (loc, base, offset,
@@ -716,9 +537,6 @@ maybe_fold_stmt_addition (location_t loc, tree res_type, tree op0, tree op1)
 
   /* At which point we can try some of the same things as for indirects.  */
   t = maybe_fold_offset_to_array_ref (loc, op0, op1, ptd_type, true);
-  if (!t)
-    t = maybe_fold_offset_to_component_ref (loc, TREE_TYPE (op0), op0, op1,
-					    ptd_type);
   if (t)
     {
       t = build1 (ADDR_EXPR, res_type, t);

@@ -1319,7 +1319,11 @@ make_fancy_name (tree expr)
   return XOBFINISH (&name_obstack, char *);
 }
 
-/* Helper function for build_ref_for_offset.  */
+/* Helper function for build_ref_for_offset.
+
+   FIXME: Eventually this should be rewritten to either re-use the
+   original access expression unshared (which is good for alias
+   analysis) or to build a MEM_REF expression.  */
 
 static bool
 build_ref_for_offset_1 (tree *res, tree type, HOST_WIDE_INT offset,
@@ -1417,12 +1421,7 @@ build_ref_for_offset_1 (tree *res, tree type, HOST_WIDE_INT offset,
    type TYPE at the given OFFSET of the type EXP_TYPE.  If EXPR is NULL, the
    function only determines whether it can build such a reference without
    actually doing it, otherwise, the tree it points to is unshared first and
-   then used as a base for furhter sub-references.
-
-   FIXME: Eventually this should be replaced with
-   maybe_fold_offset_to_reference() from tree-ssa-ccp.c but that requires a
-   minor rewrite of fold_stmt.
- */
+   then used as a base for furhter sub-references.  */
 
 bool
 build_ref_for_offset (tree *expr, tree type, HOST_WIDE_INT offset,
