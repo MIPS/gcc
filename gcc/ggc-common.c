@@ -178,7 +178,7 @@ ggc_mark_roots (void)
   const_ggc_cache_tab_t ctp;
   size_t i;
 
-  for (rtppp = gt_ggc_deletable_rtabs; *rtppp; *rtppp++)
+  for (rtppp = gt_ggc_deletable_rtabs; *rtppp; rtppp++)
     for (rt = *rtppp; *rt; rt++)
       for (rti = *rt; rti->base != NULL; rti++)
 	memset (rti->base, 0, rti->stride);
