@@ -8817,7 +8817,9 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	       decl we must use bitfield operations.  */
 	    if (DECL_P (base)
 		&& !TREE_ADDRESSABLE (base)
-		&& DECL_MODE (base) != BLKmode)
+		&& DECL_MODE (base) != BLKmode
+		&& DECL_RTL_SET_P (base)
+		&& !MEM_P (DECL_RTL (base)))
 	      {
 		tree bftype;
 		if (offset == 0
@@ -8827,9 +8829,6 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 		  return expand_expr (build1 (VIEW_CONVERT_EXPR,
 					      TREE_TYPE (exp), base),
 				      target, tmode, modifier);
-		gcc_assert (!DECL_RTL_SET_P (base)
-			    || REG_P (DECL_RTL (base))
-			    || GET_CODE (DECL_RTL (base)) == CONCAT);
 		bit_offset = bitsize_int (offset * BITS_PER_UNIT);
 		bftype = TREE_TYPE (base);
 		if (TYPE_MODE (TREE_TYPE (exp)) != BLKmode)

@@ -1,3 +1,8 @@
+2010-06-19  Richard Guenther  <rguenther@suse.de>
+
+	* expr.c (expand_expr_real_1): Expand all non-MEM MEM_REFs
+	via the bitfield path.
+
 2010-06-18  Richard Guenther  <rguenther@suse.de>
 
 	* tree-ssa.c (execute_update_addresses_taken): Fixup test
