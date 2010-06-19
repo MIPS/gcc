@@ -9684,7 +9684,7 @@ tree_expand_expr (tree exp, rtx target, enum machine_mode mode,
 
   rtx (*expand_expr_array[]) (tree, rtx, enum machine_mode,
                                     enum expand_modifier, rtx *)
-    = { &expand_expr_real, EXTRA_TARGETS_EXPAND_COMMA (&,expand_expr_real) };
+    = { ALL_TARGETS_EXPAND_COMMA (&,expand_expr_real) };
 
   return ((*expand_expr_array[targetm.target_arch])
 	  (exp, target, mode, modifier, NULL));

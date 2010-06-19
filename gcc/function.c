@@ -4193,9 +4193,7 @@ get_next_funcdef_no (void)
 
 #ifndef EXTRA_TARGET
 static void (* const allocate_struct_function_1_array[]) (tree, bool)
-  = { &allocate_struct_function_1,
-      EXTRA_TARGETS_EXPAND_COMMA (&,allocate_struct_function_1)
-    };
+  = { ALL_TARGETS_EXPAND_COMMA (&,allocate_struct_function_1) };
 
 /* If FNDECL has a target _arch attribute, return the index of that target
    architecture in targetm_array; otherwise, return 0.  */
@@ -4311,7 +4309,7 @@ START_TARGET_SPECIFIC
 EXTRA_TARGETS_DECL (void init_emit (void))
 
 void (*init_emit_array[]) (void)
-  = { &init_emit, EXTRA_TARGETS_EXPAND_COMMA (&,init_emit) };
+  = { ALL_TARGETS_EXPAND_COMMA (&,init_emit) };
 
 #endif /* !EXTRA_TARGET */
 

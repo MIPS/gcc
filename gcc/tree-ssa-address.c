@@ -272,7 +272,7 @@ rtx
 tree_addr_for_mem_ref (struct mem_address *addr, bool really_expand)
 {
   rtx (*addr_for_mem_ref_array[]) (struct mem_address *, bool)
-    = { &addr_for_mem_ref, EXTRA_TARGETS_EXPAND_COMMA (&,addr_for_mem_ref) };
+    = { ALL_TARGETS_EXPAND_COMMA (&,addr_for_mem_ref) };
 
   return (*addr_for_mem_ref_array[targetm.target_arch]) (addr, really_expand);
 }
@@ -780,7 +780,7 @@ tree_create_mem_ref (gimple_stmt_iterator *gsi, tree type, aff_tree *addr,
 {
   tree (*create_mem_ref_array[]) (gimple_stmt_iterator *, tree, aff_tree *,
 				  tree, bool)
-    = { &create_mem_ref, EXTRA_TARGETS_EXPAND_COMMA (&,create_mem_ref) };
+    = { ALL_TARGETS_EXPAND_COMMA (&,create_mem_ref) };
 
   return ((*create_mem_ref_array[targetm.target_arch])
 	   (gsi, type, addr, base_hint, speed));

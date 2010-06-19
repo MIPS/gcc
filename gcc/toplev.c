@@ -164,7 +164,7 @@ const char *profile_data_prefix;
 #ifndef EXTRA_TARGET
 /* An array of target vector pointers for all configured targets.  */
 struct gcc_target *targetm_array[NUM_TARGETS + 1]
-  = { &this_targetm, EXTRA_TARGETS_EXPAND_COMMA (&,this_targetm) 0};
+  = { ALL_TARGETS_EXPAND_COMMA (&,this_targetm) 0};
 
 /* A pointer to the current target vector.  */
 struct gcc_target *targetm_pnt = &this_targetm;

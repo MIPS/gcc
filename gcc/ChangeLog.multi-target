@@ -1,3 +1,56 @@
+2010-06-19  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* targhooks.c (stack_chk_fail_decl): Remove extern declaration.
+	(default_stack_protect_guard, default_external_stack_protect_fail):
+	No longer depends on !EXTRA_TARGET.
+	(tree stack_chk_guard_decl, tree stack_chk_fail_decl): Likewise.
+	change back to static.
+	* gengtype.c (write_rtx_next, open_base_files): Emit
+	START_TARGET_SPECIFIC / END_TARGET_SPECIFIC for gtype_desc_c.
+	(finish_root_table): Don't emit END_TARGET_SPECIFIC.
+	(write_roots): Don't emit START_TARGET_SPECIFIC.
+	* multi-target.h (ALL_TARGETS_EXPAND_COMMA): Define.
+	* gengtype.h (get_output_file_name): Declare.
+	* optabs.c (optab_for_tree_code_array): Use ALL_TARGETS_EXPAND_COMMA.
+	* toplev.c (targetm_array): Likewise.
+	* expr.c (expand_expr_array): Likewise.
+	* tree-ssa-address.c (addr_for_mem_ref_array): Likewise.
+	(create_mem_ref_array): Likewise.
+	* function.c (allocate_struct_function_1_array): Likewise.
+	(init_emit_array): Likewise.
+	* stor-layout.c (tor_type_mode_array: Likewise.
+	* passes.c (df_finish_pass_array): Likewise.
+	* tree-chrec.h (build_polynomial_chrec): Make dependent on
+	!EXTRA_TARGET.
+	* gengtype-lex.l: Use stack option.
+	Allow to skip #ifndef EXTRA_TARGET sections.
+	(coretypes.h, tree.h, tm.h): Include.
+	(in_struct_comment): Remove state.
+	(start_pp_directive, in_pp_directive, pp_scanning): New states.
+	* gengtype-parse.c (token): Back out EXTRA_TARGET patches.
+	* ggc-common.c (itm.h): Include.
+	(gt_ggc_rtab, gt_ggc_deletable_rtab): Apply EXTRA_TARGETS_DECL.
+	(gt_pch_cache_rtab, gt_pch_scalar_rtab): Likewise.
+	(gt_ggc_cache_rtab): Likewise.
+	(gt_ggc_rtabs, gt_ggc_deletable_rtabs): New arrays.
+	(gt_pch_cache_rtabs, gt_pch_scalar_rtabs): Likewise.
+	(gt_ggc_cache_rtabs): Likewise.
+	(ggc_mark_roots, gt_pch_save): Iterate through new arrays.
+	(gt_pch_restore): Likewise.
+	* any-lang.c: New file.
+	* Makefile.in (OBJS-extra-target): New makefile variable.
+	Use it to replace OBJS-rtl to specify object files that are
+	specifically compiled for all extra targets.
+	($(TA)any-lang.o): New Dependency list.
+	(gtype-desc.o): Replace this depednency list with...
+	($(TA)gtype-desc.o): This one.
+	(ggc-common.o): Depend on $(TM_H).
+	(GTFILES-RAW): New makefile variable.  Use it to compute...
+	(GTFILES) so that extra targets don't see *.c files the object files
+	of which are not in $(OBJS-extra-target).
+	(build/gengtype-lex.o): Depend on coretypes.h, $(TREE_H) and $(GTM_H).
+	* passes.c [!EXTRA_TARGET] (gt-passes.h): Include in this case, too.
+
 2010-06-18  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* targhooks.c (stack_chk_guard_decl): Back out GTY removal.

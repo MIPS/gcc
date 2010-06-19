@@ -46,14 +46,7 @@ token (void)
 {
   if (!T.valid)
     {
-      do
-	{
-	  T.code = yylex (&T.value);
-#ifndef EXTRA_TARGET
-	  break;
-#endif
-	}
-      while (no_extra_nest);
+      T.code = yylex (&T.value);
       T.valid = true;
     }
   return T.code;

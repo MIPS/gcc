@@ -1233,6 +1233,8 @@ OBJS-rtl = \
 	vmsdbgout.o \
 	web.o
 
+OBJS-extra-target = $(OBJS-rtl) any-lang.o gtype-desc.o
+
 # EXTRA_TARGET_RULES includes the extra target's T-extra(s), which is/are
 # needed for OBJS-common.  OTOH we need OBJS-rtl to be defined beforehand.
 
@@ -1257,7 +1259,7 @@ THIS-TARGET/Makefile: THIS-TARGET/config.status Makefile
 # when individual files are deleted manually or due interrupts / error
 # conditions.  Just say that each file is up-to-date if we have used
 # a recursive make to update it.
-$(addprefix THIS-TARGET/THIS-TARGET-,$(OBJS-rtl) $(THIS-TARGET-out_object_file)) \
+$(addprefix THIS-TARGET/THIS-TARGET-,$(OBJS-extra-target) $(THIS-TARGET-out_object_file)) \
 $(addprefix THIS-TARGET/,$(THIS-TARGET-EXTRA_OBJS)) : make-THIS-TARGET ;
 
 # Use a single recursive make invokation to update all files of THIS-TARGET.
@@ -1283,7 +1285,7 @@ endef
 # EXTRA_TARGET_RULES
 
 .PHONY: make-OBJS-rtl
-make-OBJS-rtl: $(addprefix $(TA),$(OBJS-rtl) $(out_object_file)) $(EXTRA_OBJS);
+make-OBJS-rtl: $(addprefix $(TA),$(OBJS-extra-target) $(out_object_file)) $(EXTRA_OBJS);
 
 enumerate=$(if $(1),$(call enumerate,$(wordlist 2,999,$(1))) $(words $(1)))
 
@@ -1296,7 +1298,7 @@ endif
 
 OBJS-common = \
 	$(OBJS-rtl) \
-	$(foreach TA,$(EXTRA_TARGETS),$(addprefix $(TA)/$(TA)-,$(OBJS-rtl) $($(TA)-out_object_file))) \
+	$(foreach TA,$(EXTRA_TARGETS),$(addprefix $(TA)/$(TA)-,$(OBJS-extra-target) $($(TA)-out_object_file))) \
 	$(GGC) \
 	alloc-pool.o \
 	bitmap.o \
@@ -2039,6 +2041,9 @@ c-decl.o : c-decl.c c-lang.h $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
 c-errors.o: c-errors.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
 	$(C_TREE_H) $(FLAGS_H) $(DIAGNOSTIC_H) $(TM_P_H)
 
+$(TA)any-lang.o: any-lang.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
+	$(TREE_H) multi-target.h
+
 c-lang.o : c-lang.c c-objc-common.h \
 	$(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
 	$(C_TREE_H) $(DIAGNOSTIC_CORE_H) \
@@ -2275,7 +2280,7 @@ endif
 	-DDEVPHASE=$(DEVPHASE_s) -DPKGVERSION=$(PKGVERSION_s) \
 	-DBUGURL=$(BUGURL_s) -c $(srcdir)/version.c $(OUTPUT_OPTION)
 
-gtype-desc.o: gtype-desc.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
+$(TA)gtype-desc.o: gtype-desc.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
 	$(HASHTAB_H) $(SPLAY_TREE_H) $(OBSTACK_H) $(BITMAP_H) \
 	$(INPUT_H) $(TREE_H) $(RTL_H) $(FUNCTION_H) insn-config.h $(EXPR_H) \
 	hard-reg-set.h $(BASIC_BLOCK_H) cselib.h $(INSN_ADDR_H) $(OPTABS_H) \
@@ -2283,7 +2288,7 @@ gtype-desc.o: gtype-desc.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
 	$(CPP_ID_DATA_H) tree-chrec.h $(CFGLAYOUT_H) $(EXCEPT_H) output.h \
 	$(CFGLOOP_H) $(TARGET_H)
 
-ggc-common.o: ggc-common.c $(CONFIG_H) $(SYSTEM_H) coretypes.h		\
+ggc-common.o: ggc-common.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H)	\
 	$(GGC_H) $(HASHTAB_H) $(TOPLEV_H) $(PARAMS_H) hosthooks.h	\
 	$(HOSTHOOKS_DEF_H) $(VEC_H) $(PLUGIN_H) $(GGC_INTERNAL_H) $(TIMEVAR_H)
 
@@ -3722,7 +3727,7 @@ s-constrs-h: $(MD_DEPS) build/genpreds$(build_exeext)
 	$(SHELL) $(srcdir)/../move-if-change tmp-constrs.h tm-constrs.h
 	$(STAMP) s-constrs-h
 
-GTFILES = $(CPP_ID_DATA_H) $(srcdir)/input.h $(srcdir)/coretypes.h \
+GTFILES-RAW = $(CPP_ID_DATA_H) $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/vecprim.h $(srcdir)/vecir.h \
   $(host_xm_file_list) target-gtypes.h \
   $(tm_file_list) $(HASHTAB_H) $(SPLAY_TREE_H) $(srcdir)/bitmap.h \
@@ -3768,6 +3773,12 @@ GTFILES = $(CPP_ID_DATA_H) $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/ipa-prop.h \
   $(srcdir)/lto-streamer.h \
   @all_gtfiles@
+
+ifdef EXTRA_TARGET
+$(eval GTFILES = $(filter-out $(filter-out $(OBJS-extra-target:%.o=\%/%.c),$(filter %.c,$(value GTFILES-RAW))),$(value GTFILES-RAW)) [extra_target])
+else
+GTFILES = $(GTFILES-RAW)
+endif
 
 # Compute the list of GT header files from the corresponding C sources,
 # possibly nested within config or language subdirectories.  Match gengtype's
@@ -3881,7 +3892,8 @@ build/genextract.o : genextract.c $(RTL_BASE_H) $(BCONFIG_H)		\
 build/genflags.o : genflags.c $(RTL_BASE_H) $(OBSTACK_H) $(BCONFIG_H)	\
   $(SYSTEM_H) coretypes.h $(GTM_H) errors.h $(READ_MD_H) gensupport.h
 build/gengenrtl.o : gengenrtl.c $(BCONFIG_H) $(SYSTEM_H) rtl.def
-build/gengtype-lex.o : gengtype-lex.c gengtype.h $(BCONFIG_H) $(SYSTEM_H)
+build/gengtype-lex.o : gengtype-lex.c gengtype.h $(BCONFIG_H) \
+  $(SYSTEM_H) coretypes.h $(TREE_H) $(GTM_H)
 build/gengtype-parse.o : gengtype-parse.c gengtype.h $(BCONFIG_H)	\
   $(SYSTEM_H)
 build/gengtype.o : gengtype.c $(BCONFIG_H) $(SYSTEM_H) gengtype.h 	\

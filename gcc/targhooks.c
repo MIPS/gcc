@@ -71,8 +71,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pretty-print.h"
 #include "multi-target.h"
 
-extern GTY(()) tree stack_chk_fail_decl;
-
 START_TARGET_SPECIFIC
 
 bool
@@ -593,11 +591,12 @@ hook_invalid_arg_for_unprototyped_fn (
 {
   return NULL;
 }
+#endif /* !EXTRA_TARGET */
 
 /* Initialize the stack protection decls.  */
 
 /* Stack protection related decls living in libgcc.  */
-GTY(()) tree stack_chk_guard_decl;
+static GTY(()) tree stack_chk_guard_decl;
 
 tree
 default_stack_protect_guard (void)
@@ -630,7 +629,7 @@ default_stack_protect_guard (void)
   return t;
 }
 
-GTY(()) tree stack_chk_fail_decl;
+static GTY(()) tree stack_chk_fail_decl;
 
 tree
 default_external_stack_protect_fail (void)
@@ -658,8 +657,6 @@ default_external_stack_protect_fail (void)
 
   return build_call_expr (t, 0);
 }
-
-#endif /* !EXTRA_TARGET */
 
 tree
 default_hidden_stack_protect_fail (void)

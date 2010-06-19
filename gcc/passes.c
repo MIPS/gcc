@@ -1342,7 +1342,7 @@ execute_todo (unsigned int flags)
   if (flags & TODO_df_finish)
     {
       void (*df_finish_pass_array[]) (bool)
-	= { &df_finish_pass, EXTRA_TARGETS_EXPAND_COMMA (&,df_finish_pass) };
+	= { ALL_TARGETS_EXPAND_COMMA (&,df_finish_pass) };
 
       (*df_finish_pass_array[targetm.target_arch])
 	((flags & TODO_df_verify) != 0);
@@ -2091,8 +2091,8 @@ function_called_by_processed_nodes_p (void)
     }
   return e != NULL;
 }
+#endif /* !EXTRA_TARGET */
 
 #include "gt-passes.h"
 
-#endif /* !EXTRA_TARGET */
 END_TARGET_SPECIFIC

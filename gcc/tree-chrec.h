@@ -121,6 +121,7 @@ no_evolution_in_loop_p (tree chrec, unsigned loop_num, bool *res)
   return true;
 }
 
+#ifndef EXTRA_TARGET
 /* Build a polynomial chain of recurrence.  */
 
 static inline tree
@@ -154,6 +155,7 @@ build_polynomial_chrec (unsigned loop_num,
   return build3 (POLYNOMIAL_CHREC, TREE_TYPE (left),
 		 build_int_cst (NULL_TREE, loop_num), left, right);
 }
+#endif /* EXTRA_TARGET */
 
 /* Determines whether the expression CHREC is a constant.  */
 

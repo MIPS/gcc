@@ -995,6 +995,7 @@ write_rtx_next (void)
 	       "  RTX_HDR_SIZE + %d * sizeof (rtunion),\n",
 	       rtx_next_new[i]);
   oprintf (f, "};\n");
+  oprintf (f, "END_TARGET_SPECIFIC\n");
 }
 
 /* Handle `special("rtx_def")'.  This is a special case for field
@@ -1584,6 +1585,7 @@ open_base_files (void)
     /* Make sure we handle "cfun" specially.  */
     oprintf (gtype_desc_c, "\n/* See definition in function.h.  */\n");
     oprintf (gtype_desc_c, "#undef cfun\n");
+    oprintf (gtype_desc_c, "START_TARGET_SPECIFIC\n");
   }
 }
 
@@ -3157,7 +3159,6 @@ finish_root_table (struct flist *flp, const char *pfx, const char *lastname,
 	lang_bitmap bitmap = get_lang_bitmap (fli2->name);
 	int fnum;
 
-	oprintf (fli2->f, "END_TARGET_SPECIFIC\n");
 	fli2->started_p = 0;
 
 	for (fnum = 0; base_files && bitmap != 0; fnum++, bitmap >>= 1)
@@ -3492,7 +3493,6 @@ write_roots (pair_p variables, bool emit_pch)
 	{
 	  fli->started_p = 1;
 
-	  oprintf (f, "START_TARGET_SPECIFIC\n");
 	  oprintf (f, "EXPORTED_CONST struct ggc_root_tab gt_ggc_r_");
 	  put_mangled_filename (f, v->line.file);
 	  oprintf (f, "[] = {\n");
@@ -3527,7 +3527,6 @@ write_roots (pair_p variables, bool emit_pch)
 	{
 	  fli->started_p = 1;
 
-	  oprintf (f, "START_TARGET_SPECIFIC\n");
 	  oprintf (f, "EXPORTED_CONST struct ggc_root_tab gt_ggc_rd_");
 	  put_mangled_filename (f, v->line.file);
 	  oprintf (f, "[] = {\n");
@@ -3572,7 +3571,6 @@ write_roots (pair_p variables, bool emit_pch)
 	{
 	  fli->started_p = 1;
 
-	  oprintf (f, "START_TARGET_SPECIFIC\n");
 	  oprintf (f, "EXPORTED_CONST struct ggc_cache_tab gt_ggc_rc_");
 	  put_mangled_filename (f, v->line.file);
 	  oprintf (f, "[] = {\n");
@@ -3612,7 +3610,6 @@ write_roots (pair_p variables, bool emit_pch)
 	{
 	  fli->started_p = 1;
 
-	  oprintf (f, "START_TARGET_SPECIFIC\n");
 	  oprintf (f, "EXPORTED_CONST struct ggc_root_tab gt_pch_rc_");
 	  put_mangled_filename (f, v->line.file);
 	  oprintf (f, "[] = {\n");
@@ -3649,7 +3646,6 @@ write_roots (pair_p variables, bool emit_pch)
 	{
 	  fli->started_p = 1;
 
-	  oprintf (f, "START_TARGET_SPECIFIC\n");
 	  oprintf (f, "EXPORTED_CONST struct ggc_root_tab gt_pch_rs_");
 	  put_mangled_filename (f, v->line.file);
 	  oprintf (f, "[] = {\n");

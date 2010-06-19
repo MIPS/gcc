@@ -34,6 +34,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "plugin.h"
 #include "vec.h"
 #include "timevar.h"
+#include "tm.h"
 
 #ifdef HAVE_SYS_RESOURCE_H
 # include <sys/resource.h>
@@ -71,6 +72,23 @@ static int compare_ptr_data (const void *, const void *);
 static void relocate_ptrs (void *, void *);
 static void write_pch_globals (const struct ggc_root_tab * const *tab,
 			       struct traversal_state *state);
+
+EXTRA_TARGETS_DECL (const struct ggc_root_tab * const gt_ggc_rtab[])
+EXTRA_TARGETS_DECL (const struct ggc_root_tab * const gt_ggc_deletable_rtab[])
+EXTRA_TARGETS_DECL (const struct ggc_root_tab * const gt_pch_cache_rtab[])
+EXTRA_TARGETS_DECL (const struct ggc_root_tab * const gt_pch_scalar_rtab[])
+EXTRA_TARGETS_DECL (const struct ggc_cache_tab * const gt_ggc_cache_rtab[])
+
+static const struct ggc_root_tab * const * const gt_ggc_rtabs[]
+  = { ALL_TARGETS_EXPAND_COMMA (&,gt_ggc_rtab[0]) 0 };
+static const struct ggc_root_tab * const * const gt_ggc_deletable_rtabs[]
+  = { ALL_TARGETS_EXPAND_COMMA (&, gt_ggc_deletable_rtab[0]) 0 };
+static const struct ggc_root_tab * const * const gt_pch_cache_rtabs[]
+  = { ALL_TARGETS_EXPAND_COMMA (&, gt_pch_cache_rtab[0]) 0 };
+static const struct ggc_root_tab * const * const gt_pch_scalar_rtabs[]
+  = { ALL_TARGETS_EXPAND_COMMA (&, gt_pch_scalar_rtab[0]) 0 };
+static const struct ggc_cache_tab * const * const gt_ggc_cache_rtabs[]
+  = { ALL_TARGETS_EXPAND_COMMA (&, gt_ggc_cache_rtab[0]) 0 };
 
 /* Maintain global roots that are preserved during GC.  */
 
@@ -151,21 +169,25 @@ ggc_scan_cache_tab (const_ggc_cache_tab_t ctp)
 void
 ggc_mark_roots (void)
 {
+  const struct ggc_root_tab *const *const *rtppp;
   const struct ggc_root_tab *const *rt;
   const struct ggc_root_tab *rti;
   const_ggc_root_tab_t rtp;
+  const struct ggc_cache_tab *const *const *ctppp;
   const struct ggc_cache_tab *const *ct;
   const_ggc_cache_tab_t ctp;
   size_t i;
 
-  for (rt = gt_ggc_deletable_rtab; *rt; rt++)
-    for (rti = *rt; rti->base != NULL; rti++)
-      memset (rti->base, 0, rti->stride);
+  for (rtppp = gt_ggc_deletable_rtabs; *rtppp; *rtppp++)
+    for (rt = *rtppp; *rt; rt++)
+      for (rti = *rt; rti->base != NULL; rti++)
+	memset (rti->base, 0, rti->stride);
 
-  for (rt = gt_ggc_rtab; *rt; rt++)
-    for (rti = *rt; rti->base != NULL; rti++)
-      for (i = 0; i < rti->nelt; i++)
-	(*rti->cb) (*(void **)((char *)rti->base + rti->stride * i));
+  for (rtppp = gt_ggc_rtabs; *rtppp; rtppp++)
+    for (rt = *rtppp; *rt; rt++)
+      for (rti = *rt; rti->base != NULL; rti++)
+	for (i = 0; i < rti->nelt; i++)
+	  (*rti->cb) (*(void **)((char *)rti->base + rti->stride * i));
 
   for (i = 0; VEC_iterate (const_ggc_root_tab_t, extra_root_vec, i, rtp); i++)
     {
@@ -179,8 +201,9 @@ ggc_mark_roots (void)
 
   /* Now scan all hash tables that have objects which are to be deleted if
      they are not already marked.  */
-  for (ct = gt_ggc_cache_rtab; *ct; ct++)
-    ggc_scan_cache_tab (*ct);
+  for (ctppp = gt_ggc_cache_rtabs; *ctppp; ctppp++)
+    for (ct = *ctppp; *ct; ct++)
+      ggc_scan_cache_tab (*ct);
 
   for (i = 0; VEC_iterate (const_ggc_cache_tab_t, extra_cache_vec, i, ctp); i++)
     ggc_scan_cache_tab (ctp);
@@ -502,6 +525,7 @@ struct mmap_info
 void
 gt_pch_save (FILE *f)
 {
+  const struct ggc_root_tab *const *const *rtp;
   const struct ggc_root_tab *const *rt;
   const struct ggc_root_tab *rti;
   size_t i;
@@ -516,15 +540,17 @@ gt_pch_save (FILE *f)
   timevar_push (TV_PCH_PTR_REALLOC);
   saving_htab = htab_create (50000, saving_htab_hash, saving_htab_eq, free);
 
-  for (rt = gt_ggc_rtab; *rt; rt++)
-    for (rti = *rt; rti->base != NULL; rti++)
-      for (i = 0; i < rti->nelt; i++)
-	(*rti->pchw)(*(void **)((char *)rti->base + rti->stride * i));
+  for (rtp = gt_ggc_rtabs; *rtp; rtp++)
+    for (rt = *rtp; *rt; rt++)
+      for (rti = *rt; rti->base != NULL; rti++)
+	for (i = 0; i < rti->nelt; i++)
+	  (*rti->pchw)(*(void **)((char *)rti->base + rti->stride * i));
 
-  for (rt = gt_pch_cache_rtab; *rt; rt++)
-    for (rti = *rt; rti->base != NULL; rti++)
-      for (i = 0; i < rti->nelt; i++)
-	(*rti->pchw)(*(void **)((char *)rti->base + rti->stride * i));
+  for (rtp = gt_pch_cache_rtabs; *rtp; rtp++)
+    for (rt = gt_pch_cache_rtab; *rt; rt++)
+      for (rti = *rt; rti->base != NULL; rti++)
+	for (i = 0; i < rti->nelt; i++)
+	  (*rti->pchw)(*(void **)((char *)rti->base + rti->stride * i));
 
   /* Prepare the objects for writing, determine addresses and such.  */
   state.f = f;
@@ -554,14 +580,17 @@ gt_pch_save (FILE *f)
   timevar_pop (TV_PCH_PTR_SORT);
 
   /* Write out all the scalar variables.  */
-  for (rt = gt_pch_scalar_rtab; *rt; rt++)
-    for (rti = *rt; rti->base != NULL; rti++)
-      if (fwrite (rti->base, rti->stride, 1, f) != 1)
-	fatal_error ("can't write PCH file: %m");
+  for (rtp = gt_pch_scalar_rtabs; *rtp; rtp++)
+    for (rt = gt_pch_scalar_rtab; *rt; rt++)
+      for (rti = *rt; rti->base != NULL; rti++)
+	if (fwrite (rti->base, rti->stride, 1, f) != 1)
+	  fatal_error ("can't write PCH file: %m");
 
   /* Write out all the global pointers, after translation.  */
-  write_pch_globals (gt_ggc_rtab, &state);
-  write_pch_globals (gt_pch_cache_rtab, &state);
+  for (rtp = gt_ggc_rtabs; *rtp; rtp++)
+    write_pch_globals (*rtp, &state);
+  for (rtp = gt_pch_cache_rtabs; *rtp; rtp++)
+    write_pch_globals (*rtp, &state);
 
   /* Pad the PCH file so that the mmapped area starts on an allocation
      granularity (usually page) boundary.  */
@@ -617,6 +646,7 @@ gt_pch_save (FILE *f)
 void
 gt_pch_restore (FILE *f)
 {
+  const struct ggc_root_tab *const *const *rtppp;
   const struct ggc_root_tab *const *rt;
   const struct ggc_root_tab *rti;
   size_t i;
@@ -626,30 +656,34 @@ gt_pch_restore (FILE *f)
   /* Delete any deletable objects.  This makes ggc_pch_read much
      faster, as it can be sure that no GCable objects remain other
      than the ones just read in.  */
-  for (rt = gt_ggc_deletable_rtab; *rt; rt++)
-    for (rti = *rt; rti->base != NULL; rti++)
-      memset (rti->base, 0, rti->stride);
+  for (rtppp = gt_ggc_deletable_rtabs; *rtppp; rtppp++)
+    for (rt = *rtppp; *rt; rt++)
+      for (rti = *rt; rti->base != NULL; rti++)
+	memset (rti->base, 0, rti->stride);
 
   /* Read in all the scalar variables.  */
-  for (rt = gt_pch_scalar_rtab; *rt; rt++)
-    for (rti = *rt; rti->base != NULL; rti++)
-      if (fread (rti->base, rti->stride, 1, f) != 1)
-	fatal_error ("can't read PCH file: %m");
+  for (rtppp = gt_pch_scalar_rtabs; *rtppp; rtppp++)
+    for (rt = *rtppp; *rt; rt++)
+      for (rti = *rt; rti->base != NULL; rti++)
+	if (fread (rti->base, rti->stride, 1, f) != 1)
+	  fatal_error ("can't read PCH file: %m");
 
   /* Read in all the global pointers, in 6 easy loops.  */
-  for (rt = gt_ggc_rtab; *rt; rt++)
-    for (rti = *rt; rti->base != NULL; rti++)
-      for (i = 0; i < rti->nelt; i++)
-	if (fread ((char *)rti->base + rti->stride * i,
-		   sizeof (void *), 1, f) != 1)
-	  fatal_error ("can't read PCH file: %m");
+  for (rtppp = gt_ggc_rtabs; *rtppp; rtppp++)
+    for (rt = *rtppp; *rt; rt++)
+      for (rti = *rt; rti->base != NULL; rti++)
+	for (i = 0; i < rti->nelt; i++)
+	  if (fread ((char *)rti->base + rti->stride * i,
+		     sizeof (void *), 1, f) != 1)
+	    fatal_error ("can't read PCH file: %m");
 
-  for (rt = gt_pch_cache_rtab; *rt; rt++)
-    for (rti = *rt; rti->base != NULL; rti++)
-      for (i = 0; i < rti->nelt; i++)
-	if (fread ((char *)rti->base + rti->stride * i,
-		   sizeof (void *), 1, f) != 1)
-	  fatal_error ("can't read PCH file: %m");
+  for (rtppp = gt_pch_cache_rtabs; *rtppp; rtppp++)
+    for (rt = *rtppp; *rt; rt++)
+      for (rti = *rt; rti->base != NULL; rti++)
+	for (i = 0; i < rti->nelt; i++)
+	  if (fread ((char *)rti->base + rti->stride * i,
+		     sizeof (void *), 1, f) != 1)
+	    fatal_error ("can't read PCH file: %m");
 
   if (fread (&mmi, sizeof (mmi), 1, f) != 1)
     fatal_error ("can't read PCH file: %m");

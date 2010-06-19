@@ -319,8 +319,7 @@ EXTRA_TARGETS_DECL (optab optab_for_tree_code_1 (enum tree_code, const_tree,
 						 enum optab_subtype))
 optab
   (*optab_for_tree_code_array[]) (enum tree_code, const_tree, enum optab_subtype)
-    = { optab_for_tree_code_1,
-	EXTRA_TARGETS_EXPAND_COMMA (&, optab_for_tree_code_1) };
+    = { ALL_TARGETS_EXPAND_COMMA (&, optab_for_tree_code_1) };
 #endif
 /* Return the optab used for computing the operation given by the tree code,
    CODE and the tree EXP.  This function is not always usable (for example, it
