@@ -1,5 +1,9 @@
 2010-06-19  Richard Guenther  <rguenther@suse.de>
 
+	* doc/gimple.texi (is_gimple_mem_ref_addr): Document.
+
+2010-06-19  Richard Guenther  <rguenther@suse.de>
+
 	* expr.c (expand_expr_real_1): Expand all non-MEM MEM_REFs
 	via the bitfield path.
 
