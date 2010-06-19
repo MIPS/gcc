@@ -113,8 +113,7 @@ may_propagate_address_into_dereference (tree addr, tree deref)
    LOC is the location of the original expression.  */
 
 static tree
-maybe_fold_offset_to_array_ref (location_t loc, tree base, tree offset,
-				bool allow_negative_idx)
+maybe_fold_offset_to_array_ref (location_t loc, tree base, tree offset)
 {
   tree min_idx, idx, idx_type, elt_offset = integer_zero_node;
   tree array_type, elt_type, elt_size;
@@ -215,34 +214,22 @@ maybe_fold_offset_to_array_ref (location_t loc, tree base, tree offset,
        char *(c[4]);
        c[3][2];
      should not be simplified into (*c)[14] or tree-vrp will
-     give false warnings.  The same is true for
-       struct A { long x; char d[0]; } *a;
-       (char *)a - 4;
-     which should be not folded to &a->d[-8].  */
-  if (domain_type
-      && TYPE_MAX_VALUE (domain_type)
-      && TREE_CODE (TYPE_MAX_VALUE (domain_type)) == INTEGER_CST)
+     give false warnings.
+     This is only an issue for multi-dimensional arrays.  */
+  if (TREE_CODE (elt_type) == ARRAY_TYPE
+      && domain_type)
     {
-      tree up_bound = TYPE_MAX_VALUE (domain_type);
-
-      if (tree_int_cst_lt (up_bound, idx)
-	  /* Accesses after the end of arrays of size 0 (gcc
-	     extension) and 1 are likely intentional ("struct
-	     hack").  */
-	  && compare_tree_int (up_bound, 1) > 0)
+      if (TYPE_MAX_VALUE (domain_type)
+	  && TREE_CODE (TYPE_MAX_VALUE (domain_type)) == INTEGER_CST
+	  && tree_int_cst_lt (TYPE_MAX_VALUE (domain_type), idx))
+	return NULL_TREE;
+      else if (TYPE_MIN_VALUE (domain_type)
+	       && TREE_CODE (TYPE_MIN_VALUE (domain_type)) == INTEGER_CST
+	       && tree_int_cst_lt (idx, TYPE_MIN_VALUE (domain_type)))
+	return NULL_TREE;
+      else if (compare_tree_int (idx, 0) < 0)
 	return NULL_TREE;
     }
-  if (domain_type
-      && TYPE_MIN_VALUE (domain_type))
-    {
-      if (!allow_negative_idx
-	  && TREE_CODE (TYPE_MIN_VALUE (domain_type)) == INTEGER_CST
-	  && tree_int_cst_lt (idx, TYPE_MIN_VALUE (domain_type)))
-	return NULL_TREE;
-    }
-  else if (!allow_negative_idx
-	   && compare_tree_int (idx, 0) < 0)
-    return NULL_TREE;
 
   {
     tree t = build4 (ARRAY_REF, elt_type, base, idx, NULL_TREE, NULL_TREE);
@@ -272,7 +259,7 @@ maybe_fold_offset_to_reference (location_t loc, tree base, tree offset,
       && integer_zerop (offset))
     return base;
 
-  ret = maybe_fold_offset_to_array_ref (loc, base, offset, true);
+  ret = maybe_fold_offset_to_array_ref (loc, base, offset);
   if (ret && useless_type_conversion_p (orig_type, TREE_TYPE (ret)))
     return ret;
   return NULL_TREE;
@@ -291,7 +278,7 @@ maybe_fold_offset_to_address (location_t loc, tree addr, tree offset,
   if (TREE_CODE (addr) != ADDR_EXPR)
     return NULL_TREE;
   base = TREE_OPERAND (addr, 0);
-  ret = maybe_fold_offset_to_array_ref (loc, base, offset, true);
+  ret = maybe_fold_offset_to_array_ref (loc, base, offset);
   if (ret)
     {
       ret = build_fold_addr_expr (ret);
@@ -529,7 +516,7 @@ maybe_fold_stmt_addition (location_t loc, tree res_type, tree op0, tree op1)
     ptd_type = TREE_TYPE (TREE_TYPE (op0));
 
   /* At which point we can try some of the same things as for indirects.  */
-  t = maybe_fold_offset_to_array_ref (loc, op0, op1, true);
+  t = maybe_fold_offset_to_array_ref (loc, op0, op1);
   if (t)
     {
       t = build_fold_addr_expr (t);

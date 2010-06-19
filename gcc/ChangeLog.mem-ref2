@@ -1,5 +1,17 @@
 2010-06-19  Richard Guenther  <rguenther@suse.de>
 
+	* gimple-fold.c (maybe_fold_offset_to_array_ref): Allow
+	possibly out-of bounds accesses if the array has just
+	one dimension.  Remove always true parameter.
+	(maybe_fold_offset_to_reference): Update caller.
+	(maybe_fold_offset_to_address): Likewise.
+	(maybe_fold_stmt_addition): Likewise.
+	* tree-object-size.c (plus_stmt_object_size): Handle MEM_REF.
+	(collect_object_sizes_for): Dispatch to plus_stmt_object_size
+	for &MEM_REF.
+
+2010-06-19  Richard Guenther  <rguenther@suse.de>
+
 	* gimple-fold.c (maybe_fold_offset_to_array_ref): Do not
 	require type compatibility here.
 	(maybe_fold_offset_to_reference): But check it here.
