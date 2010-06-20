@@ -294,10 +294,7 @@ ao_ref_from_mem (ao_ref *ref, const_rtx mem)
       void *namep;
       namep = pointer_map_contains (cfun->gimple_df->decls_to_pointers, base);
       if (namep)
-	{
-	  ref->base_alias_set = get_alias_set (base);
-	  ref->base = build_simple_mem_ref (*(tree *)namep);
-	}
+	ref->base = build_simple_mem_ref (*(tree *)namep);
     }
 
   ref->ref_alias_set = MEM_ALIAS_SET (mem);
@@ -674,10 +671,15 @@ get_alias_set (tree t)
 
       /* Handle pointer dereferences here, they can override the
 	 alias-set.  */
-      if (INDIRECT_REF_P (inner)
-	  || TREE_CODE (inner) == MEM_REF)
+      if (INDIRECT_REF_P (inner))
 	{
 	  set = get_deref_alias_set_1 (TREE_OPERAND (inner, 0));
+	  if (set != -1)
+	    return set;
+	}
+      else if (TREE_CODE (inner) == MEM_REF)
+	{
+	  set = get_deref_alias_set_1 (TREE_OPERAND (inner, 1));
 	  if (set != -1)
 	    return set;
 	}

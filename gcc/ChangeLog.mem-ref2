@@ -1,5 +1,19 @@
 2010-06-20  Richard Guenther  <rguenther@suse.de>
 
+	* tree-ssa-alias.c (ao_ref_base_alias_set): Properly differentiate
+	base object for offset and TBAA.
+	(indirect_ref_may_alias_decl_p): Add tbaa_p parameter and test it.
+	(indirect_refs_may_alias_p): Likewise.
+	(refs_may_alias_p_1): Use ao_ref_base_alias_set for the
+	pointer-vs-decl case.
+	* alias.c (ao_ref_from_mem): Do not set base_alias_set here.
+	(get_alias_set): Split MEM_REF and INDIRECT_REF case again
+	and fix MEM_REF case.
+	* tree-ssa-sccvn.c (ao_ref_init_from_vn_reference): Init
+	base_alias_set.
+
+2010-06-20  Richard Guenther  <rguenther@suse.de>
+
 	* tree-ssa-sccvn.c (vn_reference_fold_indirect): Adjust
 	constant offset.
 	* tree-data-ref.c (dr_analyze_innermost): Fix typo.

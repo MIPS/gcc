@@ -889,7 +889,7 @@ ao_ref_init_from_vn_reference (ao_ref *ref,
   ref->size = size;
   ref->max_size = max_size;
   ref->ref_alias_set = set;
-  ref->base_alias_set = -1;
+  ref->base_alias_set = get_alias_set (base);
 
   return true;
 }

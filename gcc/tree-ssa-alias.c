@@ -474,12 +474,18 @@ ao_ref_base (ao_ref *ref)
 
 /* Returns the base object alias set of the memory reference *REF.  */
 
-static alias_set_type ATTRIBUTE_UNUSED
+static alias_set_type
 ao_ref_base_alias_set (ao_ref *ref)
 {
+  tree base_ref;
   if (ref->base_alias_set != -1)
     return ref->base_alias_set;
-  ref->base_alias_set = get_alias_set (ao_ref_base (ref));
+  if (!ref->ref)
+    return 0;
+  base_ref = ref->ref;
+  while (handled_component_p (base_ref))
+    base_ref = TREE_OPERAND (base_ref, 0);
+  ref->base_alias_set = get_alias_set (base_ref);
   return ref->base_alias_set;
 }
 
@@ -678,7 +684,7 @@ indirect_ref_may_alias_decl_p (tree ref1 ATTRIBUTE_UNUSED, tree base1,
 			       tree ref2 ATTRIBUTE_UNUSED, tree base2,
 			       HOST_WIDE_INT offset2, HOST_WIDE_INT max_size2,
 			       alias_set_type ref2_alias_set,
-			       alias_set_type base2_alias_set)
+			       alias_set_type base2_alias_set, bool tbaa_p)
 {
   tree ptr1 = TREE_OPERAND (base1, 0);
   tree ptrtype1;
@@ -698,7 +704,7 @@ indirect_ref_may_alias_decl_p (tree ref1 ATTRIBUTE_UNUSED, tree base1,
     return false;
 
   /* Disambiguations that rely on strict aliasing rules follow.  */
-  if (!flag_strict_aliasing)
+  if (!flag_strict_aliasing || !tbaa_p)
     return true;
 
   if (TREE_CODE (base1) == MEM_REF)
@@ -763,7 +769,7 @@ indirect_refs_may_alias_p (tree ref1 ATTRIBUTE_UNUSED, tree base1,
 			   tree ref2 ATTRIBUTE_UNUSED, tree base2,
 			   HOST_WIDE_INT offset2, HOST_WIDE_INT max_size2,
 			   alias_set_type ref2_alias_set,
-			   alias_set_type base2_alias_set)
+			   alias_set_type base2_alias_set, bool tbaa_p)
 {
   tree ptr1 = TREE_OPERAND (base1, 0);
   tree ptr2 = TREE_OPERAND (base2, 0);
@@ -784,7 +790,7 @@ indirect_refs_may_alias_p (tree ref1 ATTRIBUTE_UNUSED, tree base1,
     return false;
 
   /* Disambiguations that rely on strict aliasing rules follow.  */
-  if (!flag_strict_aliasing)
+  if (!flag_strict_aliasing || !tbaa_p)
     return true;
 
   if (TREE_CODE (base1) == MEM_REF)
@@ -849,7 +855,6 @@ refs_may_alias_p_1 (ao_ref *ref1, ao_ref *ref2, bool tbaa_p)
   HOST_WIDE_INT offset1 = 0, offset2 = 0;
   HOST_WIDE_INT max_size1 = -1, max_size2 = -1;
   bool var1_p, var2_p, ind1_p, ind2_p;
-  alias_set_type set;
 
   gcc_assert ((!ref1->ref
 	       || SSA_VAR_P (ref1->ref)
@@ -935,21 +940,23 @@ refs_may_alias_p_1 (ao_ref *ref1, ao_ref *ref2, bool tbaa_p)
     return true;
 
   /* Dispatch to the pointer-vs-decl or pointer-vs-pointer disambiguators.  */
-  set = tbaa_p ? -1 : 0;
   if (var1_p && ind2_p)
     return indirect_ref_may_alias_decl_p (ref2->ref, base2,
 					  offset2, max_size2,
-					  ao_ref_alias_set (ref2), set,
+					  ao_ref_alias_set (ref2), -1,
 					  ref1->ref, base1,
 					  offset1, max_size1,
-					  ao_ref_alias_set (ref1), set);
+					  ao_ref_alias_set (ref1),
+					  ao_ref_base_alias_set (ref1),
+					  tbaa_p);
   else if (ind1_p && ind2_p)
     return indirect_refs_may_alias_p (ref1->ref, base1,
 				      offset1, max_size1,
-				      ao_ref_alias_set (ref1), set,
+				      ao_ref_alias_set (ref1), -1,
 				      ref2->ref, base2,
 				      offset2, max_size2,
-				      ao_ref_alias_set (ref2), set);
+				      ao_ref_alias_set (ref2), -1,
+				      tbaa_p);
 
   gcc_unreachable ();
 }
