@@ -971,6 +971,10 @@ vn_reference_fold_indirect (VEC (vn_reference_op_s, heap) **ops,
       off = double_int_add (off, shwi_to_double_int (addr_offset));
       mem_op->op0 = double_int_to_tree (TREE_TYPE (mem_op->op0), off);
       op->op0 = build_fold_addr_expr (addr_base);
+      if (host_integerp (mem_op->op0, 0))
+	mem_op->off = TREE_INT_CST_LOW (mem_op->op0);
+      else
+	mem_op->off = -1;
     }
 }
 

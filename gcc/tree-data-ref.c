@@ -756,7 +756,7 @@ dr_analyze_innermost (struct data_reference *dr)
 	      poffset = double_int_to_tree (sizetype, moff);
 	    }
 	  else
-	    size_binop (PLUS_EXPR, poffset, TREE_OPERAND (base, 1));
+	    poffset = size_binop (PLUS_EXPR, poffset, TREE_OPERAND (base, 1));
 	}
       base = TREE_OPERAND (base, 0);
     }

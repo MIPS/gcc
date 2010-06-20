@@ -1,3 +1,9 @@
+2010-06-20  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-sccvn.c (vn_reference_fold_indirect): Adjust
+	constant offset.
+	* tree-data-ref.c (dr_analyze_innermost): Fix typo.
+
 2010-06-19  Richard Guenther  <rguenther@suse.de>
 
 	* gimple-fold.c (maybe_fold_offset_to_array_ref): Allow
