@@ -3,6 +3,7 @@
 	* tree.c, tree.h: Back out cross-target autoparallelization /
 	vectorization code to facilitate the merge of the basic multi-target
 	infrastructure.
+	* tree-phinodes.c, tree-flow.h: Likewise.
 
 	* gengtype.c (IS_EXTRA_TARGET): Define.
 	(struct type): Move potentially narrow enums together.
