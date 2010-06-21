@@ -1,3 +1,56 @@
+2010-06-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/44426
+	* sel-sched-dump.h (sel_prepare_string_for_dot_label): Remove
+	prototype.
+	(sel_print_to_dot): Remove macro.
+	(sel_print): Likewise.  New prototype.
+	* sel-sched-dump.c (sel_prepare_string_for_dot_label): Make static.
+	(sel_print): New function.
+
+2010-06-20  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	Backport from mainline:
+	2009-09-11  Loren J. Rittle  <ljrittle@acm.org>
+
+	* configure.ac (*-*-freebsd*): Enable check for __stack_chk_fail.
+	* configure: Regenerate.
+
+2010-06-19  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	Backport from mainline
+	2010-05-29  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/44261
+	config/pa/pa.md (negdf2_slow, negsf2_slow): New patterns.
+	(negdf2): Adjust expander pattern and use negdf2_slow.
+	(negsf2): Likewise.
+
+2010-06-17  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/43740
+	config/pa/pa.c (emit_move_sequence): Don't infer REG_POINTER flag for
+	SET source operand from SET destination operand.
+
+2010-06-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/44544
+	Backport from mainline
+	2009-09-13  Richard Guenther  <rguenther@suse.de>
+		    Rafael Avila de Espindola  <espindola@google.com>
+
+	* langhooks-def.h (lhd_pass_through_t): Declare.
+	* langhooks.c (lhd_pass_through_t): New function.
+
+2010-06-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/44536
+	* langhooks.h (struct lang_hooks_for_decls): Add omp_report_decl.
+	* langhooks-def.h (LANG_HOOKS_OMP_REPORT_DECL): Define.
+	(LANG_HOOKS_DECLS): Add it.
+	* gimplify.c (omp_notice_variable): Call
+	lang_hooks.decls.omp_report_decl.
+
 2010-06-14  H.J. Lu  <hongjiu.lu@intel.com>
 
 	Backport from mainline
