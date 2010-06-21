@@ -62,6 +62,7 @@
 #if TARGET_MACHO
 #include "gstab.h"  /* for N_SLINE */
 #endif
+#include "multi-target.h"
 
 #ifndef TARGET_NO_PROTOTYPE
 #define TARGET_NO_PROTOTYPE 0
@@ -69,6 +70,8 @@
 
 #define min(A,B)	((A) < (B) ? (A) : (B))
 #define max(A,B)	((A) > (B) ? (A) : (B))
+
+START_TARGET_SPECIFIC
 
 /* Structure used to define the rs6000 stack */
 typedef struct rs6000_stack {
@@ -26282,3 +26285,5 @@ rs6000_final_prescan_insn (rtx insn, rtx *operand ATTRIBUTE_UNUSED,
 }
 
 #include "gt-rs6000.h"
+
+END_TARGET_SPECIFIC

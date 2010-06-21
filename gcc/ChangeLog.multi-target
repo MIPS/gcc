@@ -1,3 +1,13 @@
+2010-06-21  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* gengtype.c (open_base_files): Don't include multi-target.h in
+	gtype-desc.h.
+
+	* gengtype.c (struct type): Move potentially narrow enums together.
+	Add type_specific field.
+	(string_type, scalar_nonchar, scalar_char): Update initializers.
+	(new_structure, find_structure): Initialize target_specific field.
+
 2010-06-20  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* tree-pretty-print.c: Back out cross-target autoparallelization /

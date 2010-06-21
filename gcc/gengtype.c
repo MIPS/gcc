@@ -25,6 +25,12 @@
 #include "double-int.h"
 #include "hashtab.h"
 
+#ifdef EXTRA_TARGET
+#define IS_EXTRA_TARGET 1
+#else
+#define IS_EXTRA_TARGET 0
+#endif
+
 /* Data types, macros, etc. used only in this file.  */
 
 /* Kinds of types we can understand.  */
@@ -85,9 +91,10 @@ enum gc_used_enum
 struct type
 {
   enum typekind kind;
+  enum gc_used_enum gc_used;
+  bool target_specific;
   type_p next;
   type_p pointer_to;
-  enum gc_used_enum gc_used;
   union {
     type_p p;
     struct {
@@ -155,6 +162,9 @@ static outf_p plugin_output;
 /* The output header file that is included into pretty much every
    source file.  */
 static outf_p header_file;
+
+/* The gt_types_enum tags file used by header_file.  */
+static outf_p ttags_file;
 
 /* Source directory.  */
 static const char *srcdir;
@@ -405,7 +415,7 @@ read_input_list (const char *listname)
       bool is_language;
       size_t langno = 0;
       size_t nfiles = 0;
-      lang_bitmap curlangs = (1 << num_lang_dirs) - 1;
+      lang_bitmap curlangs = (1 << num_lang_dirs) - 1 - IS_EXTRA_TARGET;
 
       epos.file = listname;
       epos.line = 0;
@@ -425,6 +435,7 @@ read_input_list (const char *listname)
 	  else if (is_language)
 	    {
 	      size_t i;
+
 	      gcc_assert (langno <= num_lang_dirs);
 	      for (i = 0; i < langno; i++)
 		if (strcmp (lang_dir_names[i], line) == 0)
@@ -435,7 +446,16 @@ read_input_list (const char *listname)
 		    goto next_line;
 		  }
 
-	      curlangs = 1 << langno;
+	      if (strcmp (line, "target_files") == 0)
+		{
+		  gcc_assert (IS_EXTRA_TARGET && langno == 0);
+		  curlangs = (1 << num_lang_dirs) - 1;
+		}
+	      else
+		{
+		  gcc_assert (!IS_EXTRA_TARGET || langno != 0);
+	          curlangs = 1 << langno;
+		}
 	      lang_dir_names[langno++] = line;
 	    }
 	  else
@@ -518,17 +538,17 @@ read_input_list (const char *listname)
 /* The one and only TYPE_STRING.  */
 
 static struct type string_type = {
-  TYPE_STRING, 0, 0, GC_USED, {0}
+  TYPE_STRING, GC_USED, false, 0, 0, {0}
 };
 
 /* The two and only TYPE_SCALARs.  Their u.scalar_is_char flags are
    set to appropriate values at the beginning of main.  */
 
 static struct type scalar_nonchar = {
-  TYPE_SCALAR, 0, 0, GC_USED, {0}
+  TYPE_SCALAR, GC_USED, false, 0, 0, {0}
 };
 static struct type scalar_char = {
-  TYPE_SCALAR, 0, 0, GC_USED, {0}
+  TYPE_SCALAR, GC_USED, false, 0, 0, {0}
 };
 
 /* Lists of various things.  */
@@ -672,6 +692,8 @@ new_structure (const char *name, int isunion, struct fileloc *pos,
     }
 
   s->kind = isunion ? TYPE_UNION : TYPE_STRUCT;
+      
+  s->target_specific = (target_specific || (IS_EXTRA_TARGET && (bitmap & 1)));
   s->u.s.tag = name;
   s->u.s.line = *pos;
   s->u.s.fields = fields;
@@ -716,6 +738,7 @@ find_structure (const char *name, int isunion)
   s->next = structures;
   structures = s;
   s->kind = isunion ? TYPE_UNION : TYPE_STRUCT;
+  s->target_specific = target_specific;
   s->u.s.tag = name;
   structures = s;
   return s;
@@ -1468,7 +1491,7 @@ static outf_p
 create_file (const char *name, const char *oname)
 {
   static const char *const hdr[] = {
-    "   Copyright (C) 2004, 2007, 2009 Free Software Foundation, Inc.\n",
+    "   Copyright (C) 2004, 2007, 2009, 2010 Free Software Foundation, Inc.\n",
     "\n",
     "This file is part of GCC.\n",
     "\n",
@@ -1553,8 +1576,9 @@ open_base_files (void)
   if (nb_plugin_files > 0 && plugin_files)
     return;
 
-  header_file = create_file ("GCC", "gtype-desc.h");
-  oprintf (header_file, "\n#include \"multi-target.h\"\n");
+  ttags_file = header_file = create_file ("GCC", "gtype-desc.h");
+  if (IS_EXTRA_TARGET)
+    ttags_file = create_file ("GCC", "gtype-ttags.h");
 
   base_files = XNEWVEC (outf_p, num_lang_dirs);
 
@@ -2460,6 +2484,28 @@ walk_type (type_p t, struct walk_type_data *d)
     }
 }
 
+/* Return true if we should output code regarding T using parameters PARAM.  */
+static bool
+relevant_type_p (const_type_p t, struct type * const * param)
+{
+  int i;
+
+  if (!IS_EXTRA_TARGET || t->target_specific)
+    return true;
+  if (t->kind == TYPE_POINTER && t->u.p->target_specific)
+    return true;
+  if (t->kind == TYPE_PARAM_STRUCT)
+    {
+      gcc_assert (!param);
+      return relevant_type_p (t->u.param_struct.stru, t->u.param_struct.param);
+    }
+
+  for (i = NUM_PARAM - 1; i >= 0; i--)
+    if (param && param[i] && relevant_type_p (param[i], 0))
+      return true;
+  return false;
+}
+
 /* process_field routine for marking routines.  */
 
 static void
@@ -2488,13 +2534,15 @@ write_types_process_field (type_p f, const struct walk_type_data *d)
 	  if (f->u.p->kind == TYPE_PARAM_STRUCT
 	      && f->u.p->u.s.line.file != NULL)
 	    {
-	      oprintf (d->of, ", gt_e_");
+	      oprintf (d->of, ", gt_e_%s",
+		       relevant_type_p (f, 0) ? EXTRA_TARGET_STRING  : "");
 	      output_mangled_typename (d->of, f);
 	    }
 	  else if (UNION_OR_STRUCT_P (f)
 		   && f->u.p->u.s.line.file != NULL)
 	    {
-	      oprintf (d->of, ", gt_ggc_e_");
+	      oprintf (d->of, ", gt_ggc_e_%s",
+		f->target_specific ? EXTRA_TARGET_STRING  : "");
 	      output_mangled_typename (d->of, f);
 	    }
 	  else
@@ -2536,12 +2584,14 @@ output_type_enum (outf_p of, type_p s)
 {
   if (s->kind == TYPE_PARAM_STRUCT && s->u.s.line.file != NULL)
     {
-      oprintf (of, ", gt_e_");
+      oprintf (of, ", gt_e_%s",
+	       relevant_type_p (s, 0) ? EXTRA_TARGET_STRING  : "");
       output_mangled_typename (of, s);
     }
   else if (UNION_OR_STRUCT_P (s) && s->u.s.line.file != NULL)
     {
-      oprintf (of, ", gt_ggc_e_");
+      oprintf (of, ", gt_ggc_e_%s",
+	       s->target_specific ? EXTRA_TARGET_STRING  : "");
       output_mangled_typename (of, s);
     }
   else
@@ -2585,11 +2635,14 @@ write_func_for_structure (type_p orig_s, type_p s, type_p *param,
   options_p opt;
   struct walk_type_data d;
 
-#ifdef EXTRA_TARGET /* FIXME */
-  return;
-#endif
   memset (&d, 0, sizeof (d));
   d.of = get_output_file_for_structure (s, param);
+
+  /* Do this check after get_output_file_for_structure, because we need the
+     side effect of creating a mostly empty file for sources where there
+     are only EXTRA_TARGET GTY'ed variables, like for integrate.c.  */
+  if (!relevant_type_p (s, param))
+    return;
 
   for (opt = s->u.s.opt; opt; opt = opt->next)
     if (strcmp (opt->name, "chain_next") == 0)
@@ -2759,6 +2812,8 @@ write_types (outf_p output_header, type_p structures, type_p param_structs,
 	if (s->gc_used == GC_MAYBE_POINTED_TO
 	    && s->u.s.line.file == NULL)
 	  continue;
+	if (IS_EXTRA_TARGET && !s->target_specific)
+	  continue;
 
 	oprintf (output_header, "#define gt_%s_", wtd->prefix);
 	output_mangled_typename (output_header, s);
@@ -2801,7 +2856,8 @@ write_types (outf_p output_header, type_p structures, type_p param_structs,
       }
 
   for (s = param_structs; s; s = s->next)
-    if (s->gc_used == GC_POINTED_TO)
+    if (s->gc_used == GC_POINTED_TO
+	&& (!IS_EXTRA_TARGET || s->target_specific))
       {
 	type_p stru = s->u.param_struct.stru;
 
@@ -2962,6 +3018,8 @@ write_local (outf_p output_header, type_p structures, type_p param_structs)
       {
 	options_p opt;
 
+	if (IS_EXTRA_TARGET && !s->target_specific)
+	  continue;
 	if (s->u.s.line.file == NULL)
 	  continue;
 
@@ -3008,6 +3066,9 @@ write_local (outf_p output_header, type_p structures, type_p param_structs)
       {
 	type_p * param = s->u.param_struct.param;
 	type_p stru = s->u.param_struct.stru;
+
+	if (!relevant_type_p (stru, param))
+	  continue;
 
 	/* Declare the marker procedure.  */
 	oprintf (output_header, "extern void gt_pch_p_");
@@ -3056,24 +3117,38 @@ write_enum_defn (type_p structures, type_p param_structs)
 
   if (!header_file)
     return;
-  oprintf (header_file, "\n/* Enumeration of types known.  */\n");
-  oprintf (header_file, "enum gt_types_enum {\n");
+  if (IS_EXTRA_TARGET)
+    {
+      oprintf (header_file, "#include \"multi-target.h\"\n");
+      oprintf (header_file, "#include \"../gtype-desc.h\"\n");
+    }
+  else
+    {
+      oprintf (header_file, "\n/* Enumeration of types known.  */\n");
+      oprintf (header_file, "enum gt_types_enum {\n");
+    }
   for (s = structures; s; s = s->next)
-    if (USED_BY_TYPED_GC_P (s))
+    if (USED_BY_TYPED_GC_P (s)
+	&& (!IS_EXTRA_TARGET || s->target_specific))
       {
-	oprintf (header_file, " gt_ggc_e_");
-	output_mangled_typename (header_file, s);
-	oprintf (header_file, ",\n");
+	oprintf (ttags_file, " gt_ggc_e_" EXTRA_TARGET_STRING);
+	output_mangled_typename (ttags_file, s);
+	oprintf (ttags_file, ",\n");
       }
   for (s = param_structs; s; s = s->next)
-    if (s->gc_used == GC_POINTED_TO)
+    if (s->gc_used == GC_POINTED_TO && relevant_type_p (s, 0))
       {
-	oprintf (header_file, " gt_e_");
-	output_mangled_typename (header_file, s);
-	oprintf (header_file, ",\n");
+	oprintf (ttags_file, " gt_e_" EXTRA_TARGET_STRING);
+	output_mangled_typename (ttags_file, s);
+	oprintf (ttags_file, ",\n");
       }
-  oprintf (header_file, " gt_types_enum_last\n");
-  oprintf (header_file, "};\n");
+  oprintf (header_file,
+	   EXTRA_TARGETS_FILES ("#include \"", "/gtype-ttags.h\"", "\n") "\n");
+  if (!IS_EXTRA_TARGET)
+    {
+      oprintf (header_file, " gt_types_enum_last\n");
+      oprintf (header_file, "};\n");
+    }
 }
 
 /* Might T contain any non-pointer elements?  */
@@ -3899,7 +3974,7 @@ write_splay_tree_allocator_def (const_type_p s)
   oprintf (of, " (int sz, void * nl)\n");
   oprintf (of, "{\n");
   oprintf (of, "  return ggc_splay_alloc (");
-  oprintf (of, "gt_e_");
+  oprintf (of, " gt_e_" EXTRA_TARGET_STRING);
   output_mangled_typename (of, s);
   oprintf (of, ", sz, nl);\n");
   oprintf (of, "}\n\n");
@@ -3915,7 +3990,7 @@ write_splay_tree_allocators (const_type_p param_structs)
 
   oprintf (header_file, "\n/* Splay tree callback allocators.  */\n");
   for (s = param_structs; s; s = s->next)
-    if (s->gc_used == GC_POINTED_TO)
+    if (s->gc_used == GC_POINTED_TO && relevant_type_p (s, 0))
       {
 	oprintf (header_file, "extern void * ggc_alloc_splay_tree_");
 	output_typename (header_file, s);
@@ -4246,13 +4321,21 @@ main (int argc, char **argv)
   write_enum_defn (structures, param_structs);
   write_typed_alloc_defns (structures, typedefs);
   output_header = plugin_output ? plugin_output : header_file;
+  if (IS_EXTRA_TARGET)
+    oprintf (output_header, "START_TARGET_SPECIFIC\n");
   write_types (output_header, structures, param_structs, &ggc_wtd);
+  if (IS_EXTRA_TARGET)
+    oprintf (output_header, "END_TARGET_SPECIFIC\n");
+  if (IS_EXTRA_TARGET)
+    oprintf (header_file, "START_TARGET_SPECIFIC\n");
   if (plugin_files == NULL)
     {
       write_types (header_file, structures, param_structs, &pch_wtd);
       write_local (header_file, structures, param_structs);
     }
   write_splay_tree_allocators (param_structs);
+  if (IS_EXTRA_TARGET)
+    oprintf (header_file, "END_TARGET_SPECIFIC\n");
   write_roots (variables, plugin_files == NULL);
   write_rtx_next ();
   close_output_files ();

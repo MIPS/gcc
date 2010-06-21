@@ -36,6 +36,7 @@ along with GCC; see the file COPYING3.  If not see
 struct fileloc lexer_line;
 int lexer_toplevel_done;
 int pp_nest, no_extra_nest;
+bool target_specific;
 
 static void 
 update_lineno (const char *l, size_t len)
@@ -72,6 +73,14 @@ EOID	[^[:alnum:]_]
 
   /* Things we look for in skipping mode: */
 <INITIAL>{
+^{HWS}START_TARGET_SPECIFIC/{EOID} {
+  gcc_assert (!target_specific);
+  target_specific = true;
+}
+^{HWS}END_TARGET_SPECIFIC/{EOID} {
+  gcc_assert (target_specific);
+  target_specific = false;
+}
 ^{HWS}typedef/{EOID} {
   BEGIN(in_struct);
   return TYPEDEF;

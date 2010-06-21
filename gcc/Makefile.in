@@ -871,7 +871,7 @@ DF_H = df.h $(BITMAP_H) $(REGSET_H) sbitmap.h $(BASIC_BLOCK_H) \
 RESOURCE_H = resource.h hard-reg-set.h $(DF_H)
 DDG_H = ddg.h sbitmap.h $(DF_H)
 GCC_H = gcc.h version.h $(DIAGNOSTIC_CORE_H)
-GGC_H = ggc.h gtype-desc.h statistics.h
+GGC_H = ggc.h gtype-desc.h statistics.h s-extra-gty
 GGC_INTERNAL_H = ggc-internal.h $(GGC_H)
 TIMEVAR_H = timevar.h timevar.def
 INSN_ATTR_H = insn-attr.h $(INSN_ADDR_H)
@@ -1014,8 +1014,7 @@ INCLUDES = -I. -I$(@D) -I$(srcdir) -I$(srcdir)/$(@D) \
 .c.o:
 	$(COMPILER) -c $(ALL_COMPILERFLAGS) $(ALL_CPPFLAGS) $< $(OUTPUT_OPTION)
 ifdef EXTRA_TARGET
-  ALL_COMPILERFLAGS \
-    += -DEXTRA_TARGET=$(EXTRA_TARGET) -DEXTRA_TARGET_$(EXTRA_TARGET)
+  ALL_COMPILERFLAGS += -DEXTRA_TARGET=$(EXTRA_TARGET)
 $(TA)%.o : %.c
 	$(COMPILER) -c $(ALL_COMPILERFLAGS) $(ALL_CPPFLAGS) $< $(OUTPUT_OPTION)
 endif
@@ -1235,6 +1234,9 @@ OBJS-rtl = \
 
 OBJS-extra-target = $(OBJS-rtl) any-lang.o gtype-desc.o
 
+s-extra-gty: gtype-desc.h
+	$(STAMP) s-extra-gty
+
 # EXTRA_TARGET_RULES includes the extra target's T-extra(s), which is/are
 # needed for OBJS-common.  OTOH we need OBJS-rtl to be defined beforehand.
 
@@ -1268,14 +1270,20 @@ $(addprefix THIS-TARGET/,$(THIS-TARGET-EXTRA_OBJS)) : make-THIS-TARGET ;
 XTGT_COPY_FILES=\
   $(addprefix THIS-TARGET/,extra-modes.h target-types.h)
 .PHONY: make-THIS-TARGET
-make-THIS-TARGET : THIS-TARGET/Makefile $(XTGT_COPY_FILES) \
-  THIS-TARGET/target-gtypes.h $(COMMON_ABI)
-	$(MAKE) -C THIS-TARGET make-OBJS-rtl \
+s-extra-gty: THIS-TARGET/gtype-ttags.h
+EXTRA-MAKE-VARS=\
 	EXTRA_TARGET='THIS_TARGET' TA='THIS-TARGET-' \
 	TARGET_NUM=THIS-TARGET-NUM \
 	NUM_TARGETS=$(NUM_TARGETS) \
 	toplevel_builddir='$(toplevel_builddir:.%=../.%)' \
 	GMPLIBS='$(GMPLIBS)' GMPINC='$(GMPINC)'
+THIS-TARGET/gtype-ttags.h: THIS-TARGET/s-gtype ; @true
+THIS-TARGET/s-gtype : THIS-TARGET/Makefile $(XTGT_COPY_FILES) \
+  THIS-TARGET/target-gtypes.h $(COMMON_ABI) \
+  gengtype.c gengtype-lex.l gengtype-parse.c gengtype.h
+	$(MAKE) -C THIS-TARGET s-gtype $(EXTRA-MAKE-VARS)
+make-THIS-TARGET : s-extra-gty
+	$(MAKE) -C THIS-TARGET make-OBJS-rtl $(EXTRA-MAKE-VARS)
 $(XTGT_COPY_FILES): THIS-TARGET/% : %
 	cp $< $@
 THIS-TARGET/target-gtypes.h: target-gtypes.h
@@ -3764,7 +3772,8 @@ GTFILES-RAW = $(CPP_ID_DATA_H) $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/varpool.c \
   $(srcdir)/tree-parloops.c \
   $(srcdir)/omp-low.c \
-  $(srcdir)/targhooks.c $(out_file) $(srcdir)/passes.c $(srcdir)/cgraphunit.c \
+  $(srcdir)/targhooks.c \
+  $(srcdir)/passes.c $(srcdir)/cgraphunit.c \
   $(srcdir)/tree-ssa-propagate.c \
   $(srcdir)/tree-phinodes.c \
   $(srcdir)/tree-ssa-structalias.c \
@@ -3772,10 +3781,11 @@ GTFILES-RAW = $(CPP_ID_DATA_H) $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/tree-ssa-alias.h \
   $(srcdir)/ipa-prop.h \
   $(srcdir)/lto-streamer.h \
+  $(out_file) \
   @all_gtfiles@
 
 ifdef EXTRA_TARGET
-$(eval GTFILES = $(filter-out $(filter-out $(OBJS-extra-target:%.o=\%/%.c),$(filter %.c,$(value GTFILES-RAW))),$(value GTFILES-RAW)) [extra_target])
+$(eval GTFILES = $(filter-out $(filter-out $(OBJS-extra-target:%.o=\%/%.c),$(filter %.c,$(value GTFILES-RAW))),$(subst $$(out_file), [target_files] $(out_file) [extra_target],$(value GTFILES-RAW))))
 else
 GTFILES = $(GTFILES-RAW)
 endif
@@ -3799,7 +3809,7 @@ ALL_GTFILES_H := $(sort $(GTFILES_H) $(GTFILES_LANG_H))
 # write it out to a file (taking care not to do that in a way that
 # overflows a command line!) and then have gengtype read the file in.
 
-$(ALL_GTFILES_H) gtype-desc.c gtype-desc.h : s-gtype ; @true
+$(ALL_GTFILES_H) gtype-desc.c gtype-desc.h gtype-ttags.h: s-gtype ; @true
 
 gtyp-input.list: s-gtyp-input ; @true
 s-gtyp-input: Makefile
@@ -3895,6 +3905,7 @@ build/gengenrtl.o : gengenrtl.c $(BCONFIG_H) $(SYSTEM_H) rtl.def
 build/gengtype-lex.o : gengtype-lex.c gengtype.h $(BCONFIG_H) $(SYSTEM_H)
 build/gengtype-parse.o : gengtype-parse.c gengtype.h $(BCONFIG_H)	\
   $(SYSTEM_H)
+build/gengtype.o : BUILD_CPPFLAGS += '-DEXTRA_TARGETS_FILES(PREFIX,FILE,DELIM)=$(subst $(space),/**/DELIM/**/,$(foreach TA,$(EXTRA_TARGETS),PREFIX/**/"$(TA)"/**/FILE))' -DEXTRA_TARGET_STRING='"$(filter-out _,$(EXTRA_TARGET)_)"'
 build/gengtype.o : gengtype.c $(BCONFIG_H) $(SYSTEM_H) gengtype.h 	\
   rtl.def insn-notes.def errors.h double-int.h $(HASHTAB_H)
 build/genmddeps.o: genmddeps.c $(BCONFIG_H) $(SYSTEM_H) coretypes.h	\

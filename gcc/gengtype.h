@@ -37,6 +37,7 @@ typedef struct options *options_p;
 extern int lexer_toplevel_done;
 extern struct fileloc lexer_line;
 extern int pp_nest, no_extra_nest;
+extern bool target_specific;
 
 /* This function has the side effect of forcing the creation of the
    output file.  Needed when the lexer conditionally skips a GTY.  */
