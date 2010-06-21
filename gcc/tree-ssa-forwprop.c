@@ -628,9 +628,14 @@ forward_propagate_addr_into_variable_array_index (tree offset,
 {
   tree index, tunit;
   gimple offset_def, use_stmt = gsi_stmt (*use_stmt_gsi);
-  tree tmp;
+  tree new_rhs, tmp;
 
-  tunit = TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (def_rhs)));
+  if (TREE_CODE (TREE_OPERAND (def_rhs, 0)) == ARRAY_REF)
+    tunit = TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (def_rhs)));
+  else if (TREE_CODE (TREE_TYPE (TREE_OPERAND (def_rhs, 0))) == ARRAY_TYPE)
+    tunit = TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (TREE_TYPE (def_rhs))));
+  else
+    return false;
   if (!host_integerp (tunit, 1))
     return false;
 
@@ -697,10 +702,28 @@ forward_propagate_addr_into_variable_array_index (tree offset,
   /* Replace the pointer addition with array indexing.  */
   index = force_gimple_operand_gsi (use_stmt_gsi, index, true, NULL_TREE,
 				    true, GSI_SAME_STMT);
-  gimple_assign_set_rhs_from_tree (use_stmt_gsi, unshare_expr (def_rhs));
+  if (TREE_CODE (TREE_OPERAND (def_rhs, 0)) == ARRAY_REF)
+    {
+      new_rhs = unshare_expr (def_rhs);
+      TREE_OPERAND (TREE_OPERAND (new_rhs, 0), 1) = index;
+    }
+  else
+    {
+      new_rhs = build4 (ARRAY_REF, TREE_TYPE (TREE_TYPE (TREE_TYPE (def_rhs))),
+			unshare_expr (TREE_OPERAND (def_rhs, 0)),
+			index, integer_zero_node, NULL_TREE);
+      new_rhs = build_fold_addr_expr (new_rhs);
+      if (!useless_type_conversion_p (TREE_TYPE (gimple_assign_lhs (use_stmt)),
+				      TREE_TYPE (new_rhs)))
+	{
+	  new_rhs = force_gimple_operand_gsi (use_stmt_gsi, new_rhs, true,
+					      NULL_TREE, true, GSI_SAME_STMT);
+	  new_rhs = fold_convert (TREE_TYPE (gimple_assign_lhs (use_stmt)),
+				  new_rhs);
+	}
+    }
+  gimple_assign_set_rhs_from_tree (use_stmt_gsi, new_rhs);
   use_stmt = gsi_stmt (*use_stmt_gsi);
-  TREE_OPERAND (TREE_OPERAND (gimple_assign_rhs1 (use_stmt), 0), 1)
-    = index;
 
   /* That should have created gimple, so there is no need to
      record information to undo the propagation.  */
@@ -969,9 +992,10 @@ forward_propagate_addr_expr_1 (tree name, tree def_rhs,
      element zero in an array.  If that is not the case then there
      is nothing to do.  */
   array_ref = TREE_OPERAND (def_rhs, 0);
-  if (TREE_CODE (array_ref) != ARRAY_REF
-      || TREE_CODE (TREE_TYPE (TREE_OPERAND (array_ref, 0))) != ARRAY_TYPE
-      || TREE_CODE (TREE_OPERAND (array_ref, 1)) != INTEGER_CST)
+  if ((TREE_CODE (array_ref) != ARRAY_REF
+       || TREE_CODE (TREE_TYPE (TREE_OPERAND (array_ref, 0))) != ARRAY_TYPE
+       || TREE_CODE (TREE_OPERAND (array_ref, 1)) != INTEGER_CST)
+      && TREE_CODE (TREE_TYPE (array_ref)) != ARRAY_TYPE)
     return false;
 
   rhs2 = gimple_assign_rhs2 (use_stmt);
@@ -1007,7 +1031,8 @@ forward_propagate_addr_expr_1 (tree name, tree def_rhs,
      array elements, then the result is converted into the proper
      type for the arithmetic.  */
   if (TREE_CODE (rhs2) == SSA_NAME
-      && integer_zerop (TREE_OPERAND (array_ref, 1))
+      && (TREE_CODE (array_ref) != ARRAY_REF
+	  || integer_zerop (TREE_OPERAND (array_ref, 1)))
       && useless_type_conversion_p (TREE_TYPE (name), TREE_TYPE (def_rhs))
       /* Avoid problems with IVopts creating PLUS_EXPRs with a
 	 different type than their operands.  */

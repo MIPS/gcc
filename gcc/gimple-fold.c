@@ -423,18 +423,17 @@ maybe_fold_stmt_addition (location_t loc, tree res_type, tree op0, tree op1)
       /* Or op0 should now be A[0] and the non-constant offset defined
 	 via a multiplication by the array element size.  */
       if (TREE_CODE (op0) == ARRAY_REF
-	  && integer_zerop (TREE_OPERAND (op0, 1))
-	  && TREE_CODE (op1) == SSA_NAME
-	  && host_integerp (TYPE_SIZE_UNIT (TREE_TYPE (op0)), 1))
-	{
-	  gimple offset_def = SSA_NAME_DEF_STMT (op1);
-	  if (!is_gimple_assign (offset_def))
-	    return NULL_TREE;
-
 	  /* As we will end up creating a variable index array access
 	     in the outermost array dimension make sure there isn't
 	     a more inner array that the index could overflow to.  */
-	  if (TREE_CODE (TREE_OPERAND (op0, 0)) == ARRAY_REF)
+	  && TREE_CODE (TREE_OPERAND (op0, 0)) != ARRAY_REF
+	  && integer_zerop (TREE_OPERAND (op0, 1))
+	  && TREE_CODE (op1) == SSA_NAME)
+	{
+	  gimple offset_def = SSA_NAME_DEF_STMT (op1);
+	  tree elsz = TYPE_SIZE_UNIT (TREE_TYPE (op0));
+	  if (!host_integerp (elsz, 1)
+	      || !is_gimple_assign (offset_def))
 	    return NULL_TREE;
 
 	  /* Do not build array references of something that we can't
@@ -445,15 +444,14 @@ maybe_fold_stmt_addition (location_t loc, tree res_type, tree op0, tree op1)
 
 	  if (gimple_assign_rhs_code (offset_def) == MULT_EXPR
 	      && TREE_CODE (gimple_assign_rhs2 (offset_def)) == INTEGER_CST
-	      && tree_int_cst_equal (gimple_assign_rhs2 (offset_def),
-				     TYPE_SIZE_UNIT (TREE_TYPE (op0))))
+	      && tree_int_cst_equal (gimple_assign_rhs2 (offset_def), elsz))
 	    return build_fold_addr_expr
 			  (build4 (ARRAY_REF, TREE_TYPE (op0),
 				   TREE_OPERAND (op0, 0),
 				   gimple_assign_rhs1 (offset_def),
 				   TREE_OPERAND (op0, 2),
 				   TREE_OPERAND (op0, 3)));
-	  else if (integer_onep (TYPE_SIZE_UNIT (TREE_TYPE (op0)))
+	  else if (integer_onep (elsz)
 		   && gimple_assign_rhs_code (offset_def) != MULT_EXPR)
 	    return build_fold_addr_expr
 			  (build4 (ARRAY_REF, TREE_TYPE (op0),
@@ -462,6 +460,38 @@ maybe_fold_stmt_addition (location_t loc, tree res_type, tree op0, tree op1)
 				   TREE_OPERAND (op0, 2),
 				   TREE_OPERAND (op0, 3)));
 	}
+      else if (TREE_CODE (TREE_TYPE (op0)) == ARRAY_TYPE
+	       /* Dto.  */
+	       && TREE_CODE (TREE_TYPE (TREE_TYPE (op0))) != ARRAY_TYPE
+	       && TREE_CODE (op1) == SSA_NAME)
+	{
+	  gimple offset_def = SSA_NAME_DEF_STMT (op1);
+	  tree elsz = TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (op0)));
+	  if (!host_integerp (elsz, 1)
+	      || !is_gimple_assign (offset_def))
+	    return NULL_TREE;
+
+	  /* Do not build array references of something that we can't
+	     see the true number of array dimensions for.  */
+	  if (!DECL_P (op0)
+	      && !handled_component_p (op0))
+	    return NULL_TREE;
+
+	  if (gimple_assign_rhs_code (offset_def) == MULT_EXPR
+	      && TREE_CODE (gimple_assign_rhs2 (offset_def)) == INTEGER_CST
+	      && tree_int_cst_equal (gimple_assign_rhs2 (offset_def), elsz))
+	    return build_fold_addr_expr
+			  (build4 (ARRAY_REF, TREE_TYPE (TREE_TYPE (op0)),
+				   op0, gimple_assign_rhs1 (offset_def),
+				   integer_zero_node, NULL_TREE));
+	  else if (integer_onep (elsz)
+		   && gimple_assign_rhs_code (offset_def) != MULT_EXPR)
+	    return build_fold_addr_expr
+			  (build4 (ARRAY_REF, TREE_TYPE (TREE_TYPE (op0)),
+				   op0, op1,
+				   integer_zero_node, NULL_TREE));
+	}
+
       return NULL_TREE;
     }
 

@@ -1,5 +1,17 @@
 2010-06-21  Richard Guenther  <rguenther@suse.de>
 
+	* gimple-fold.c (maybe_fold_stmt_addition): Also handle
+	&ARRAY + I in addition to &ARRAY[0] + I.
+	* tree-ssa-forwprop.c
+	(forward_propagate_addr_into_variable_array_index): Likewise.
+
+	testsuite/
+	* gcc.dg/tree-ssa/forwprop-1.c: Adjust.
+	* gcc.dg/tree-ssa/forwprop-2.c: Likewise.
+	* g++.dg/tree-ssa/pr31146.C: Likewise.
+
+2010-06-21  Richard Guenther  <rguenther@suse.de>
+
 	PR middle-end/42834
 	* builtins.c (fold_builtin_memory_op): Use ref-all types
 	for all memcpy foldings.
