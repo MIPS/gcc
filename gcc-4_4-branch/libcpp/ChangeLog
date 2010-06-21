@@ -1,3 +1,8 @@
+2009-10-09  Neil Vachharajani <nvachhar@google.com>
+
+	* directives.c (DIRECTIVE_TABLE): Remove DEPRECATED from ident and
+	sccs.
+
 2010-04-29  Release Manager
 
 	* GCC 4.4.4 released.
