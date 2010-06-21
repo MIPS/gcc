@@ -1,5 +1,10 @@
 2010-06-21  Richard Guenther  <rguenther@suse.de>
 
+	testsuite/
+	* gcc.dg/tree-ssa/ssa-ccp-23.c: Adjust.
+
+2010-06-21  Richard Guenther  <rguenther@suse.de>
+
 	Merge from trunk r161070.
 
 2010-06-21  Richard Guenther  <rguenther@suse.de>
