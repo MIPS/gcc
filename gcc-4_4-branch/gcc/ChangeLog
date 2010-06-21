@@ -1,3 +1,7 @@
+2010-06-21  Jan Kratochvil  <jan.kratochvil@redhat.com>
+
+	* Makefile.in (POD2MAN): Provide --date from $(DATESTAMP).
+
 2009-10-09  Neil Vachharajani <nvachhar@google.com>
 
 	* doc/cpp.texi (Other Directives): Do not list #ident and #sccs as
