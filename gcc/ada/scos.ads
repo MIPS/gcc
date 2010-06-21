@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---             Copyright (C) 2009, Free Software Foundation, Inc.           --
+--          Copyright (C) 2009-2010, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -161,9 +161,9 @@ package SCOs is
 
    --    and is omitted for all other cases.
 
-   --  Note: up to 6 entries can appear on a single CS line. If more than 6
-   --  entries appear in one logical statement sequence, continuation lines are
-   --  marked by Cs and appear immediately after the CS line they continue.
+   --    Note: up to 6 entries can appear on a single CS line. If more than 6
+   --    entries appear in one logical statement sequence, continuation lines
+   --    are marked by Cs and appear immediately after the CS line.
 
    --  Decisions
 
@@ -272,6 +272,23 @@ package SCOs is
    --    enclosing statement. The SCO line for a nested decision always occurs
    --    after the line for the enclosing decision.
 
+   --  Case Expressions
+
+   --    For case statements, we rely on statement coverage to make sure that
+   --    all branches of a case statement are covered, but that does not work
+   --    for case expressions, since the entire expression is contained in a
+   --    single statement. However, for complete coverage we really should be
+   --    able to check that every branch of the case statement is covered, so
+   --    we generate a SCO of the form:
+
+   --      CC sloc-range sloc-range ...
+
+   --    where sloc-range covers the range of the case expression.
+
+   --    Note: up to 6 entries can appear on a single CC line. If more than 6
+   --    entries appear in one logical statement sequence, continuation lines
+   --    are marked by Cc and appear immediately after the CC line.
+
    ---------------------------------------------------------------------
    -- Internal table used to store Source Coverage Obligations (SCOs) --
    ---------------------------------------------------------------------
@@ -286,7 +303,6 @@ package SCOs is
    type SCO_Table_Entry is record
       From : Source_Location;
       To   : Source_Location;
-      Node : Node_Id;
       C1   : Character;
       C2   : Character;
       Last : Boolean;
@@ -306,7 +322,6 @@ package SCOs is
    --      C2   = statement type code to appear on CS line (or ' ' if none)
    --      From = starting source location
    --      To   = ending source location
-   --      Node = Empty
    --      Last = False for all but the last entry, True for last entry
 
    --    Note: successive statements (possibly interspersed with entries of
@@ -321,32 +336,32 @@ package SCOs is
    --      C2   = ' '
    --      From = IF/EXIT/WHILE token
    --      To   = No_Source_Location
-   --      Node = Empty
    --      Last = unused
 
    --    Decision (PRAGMA)
    --      C1   = 'P'
-   --      C2   = ' '
+   --      C2   = 'e'/'d' for enabled/disabled
    --      From = PRAGMA token
    --      To   = No_Source_Location
-   --      Node = N_Pragma node or Empty when reading SCO data (see below)
    --      Last = unused
 
    --      Note: when the parse tree is first scanned, we unconditionally build
    --      a pragma decision entry for any decision in a pragma (here as always
-   --      in SCO contexts, the only relevant pragmas are Assert, Check,
-   --      Precondition and Postcondition). Then when we output the SCO info
-   --      to the ALI file, we use the Node field to check the Pragma_Enabled
-   --      flag, and if it is False, we suppress output of the pragma decision
-   --      line. On reading back SCO data from an ALI file, the Node field is
-   --      always set to Empty.
+   --      in SCO contexts, the only pragmas with decisions are Assert, Check,
+   --      Precondition and Postcondition), and we mark the pragma as disabled.
+   --
+   --      During analysis, if the pragma is enabled, Set_SCO_Pragma_Enabled to
+   --      mark the SCO decision table entry as enabled (C2 set to 'e'). Then
+   --      in Put_SCOs, we only output the decision for a pragma if C2 is 'e'.
+   --
+   --      When we read SCOs from an ALI file (in Get_SCOs), we always set C2
+   --      to 'e', since clearly the pragma is enabled if it was written out.
 
    --    Decision (Expression)
    --      C1   = 'X'
    --      C2   = ' '
    --      From = No_Source_Location
    --      To   = No_Source_Location
-   --      Node = Empty
    --      Last = unused
 
    --    Operator
@@ -354,7 +369,6 @@ package SCOs is
    --      C2   = ' '
    --      From = location of NOT/AND/OR token
    --      To   = No_Source_Location
-   --      Node = Empty
    --      Last = False
 
    --    Element (condition)
@@ -362,7 +376,6 @@ package SCOs is
    --      C2   = 'c', 't', or 'f' (condition/true/false)
    --      From = starting source location
    --      To   = ending source location
-   --      Node = Empty
    --      Last = False for all but the last entry, True for last entry
 
    --    Note: the sequence starting with a decision, and continuing with
@@ -415,7 +428,6 @@ package SCOs is
       To   : Source_Location := No_Source_Location;
       C1   : Character       := ' ';
       C2   : Character       := ' ';
-      Node : Node_Id         := Empty;
       Last : Boolean         := False);
    --  Adds one entry to SCO table with given field values
 

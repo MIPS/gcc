@@ -3597,6 +3597,13 @@ package VMS_Data is
    --      HIGH         A great number of messages are output, most of them not
    --                   being useful for the user.
 
+   S_Elim_Nodisp : aliased constant S := "/NO_DISPATCH "                   &
+                                          "--no-elim-dispatch";
+   --        /NONO_DISPATCH (D)
+   --        /NO_DISPATCH
+   --
+   --   Do not generate pragmas for dispatching operations.
+
    S_Elim_Project : aliased constant S := "/PROJECT_FILE=<"                &
                                              "-P>";
    --        /PROJECT_FILE=filename
@@ -3630,14 +3637,14 @@ package VMS_Data is
    --
    --   Duplicate all the output sent to Stderr into a default log file.
 
-   S_Elim_Logfile : aliased constant S := "/LOGFILE=@ "                    &
+   S_Elim_Logfile : aliased constant S := "/LOGFILE=@"                     &
                                           "-l@";
 
    --      /LOGFILE=logfilename
    --
    --   Duplicate all the output sent to Stderr into a specified log file.
 
-   S_Elim_Main    : aliased constant S := "/MAIN=@ "                       &
+   S_Elim_Main    : aliased constant S := "/MAIN=@"                        &
                                           "-main=@";
 
    --      /MAIN=filename
@@ -3709,6 +3716,7 @@ package VMS_Data is
                       S_Elim_Logfile 'Access,
                       S_Elim_Main    'Access,
                       S_Elim_Mess    'Access,
+                      S_Elim_Nodisp  'Access,
                       S_Elim_Out     'Access,
                       S_Elim_Project 'Access,
                       S_Elim_Quiet   'Access,

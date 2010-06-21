@@ -1,3 +1,19 @@
+2010-06-20  Joseph Myers  <joseph@codesourcery.com>
+
+	* c-common.c (parse_optimize_options): Update call to
+	decode_options.
+
+2010-06-18  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* c-common.c (record_types_used_by_current_var_decl): Adjust for
+	new type of types_used_by_cur_var_decl.
+
+2010-06-17  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	PR bootstrap/44512
+	* c-cppbuiltin.c (builtin_define_with_hex_fp_value): Add cast
+	for C++ standard compliance.
+
 2010-06-16  Jason Merrill  <jason@redhat.com>
 
 	* c.opt: Add -Wnoexcept.

@@ -1,7 +1,330 @@
+2010-06-21  Nick Clifton  <nickc@redhat.com>
+
+	* config/rx/rx.h (PTRDIFF_TYPE): Define.
+	(SMALL_REGISTER_CLASS): Define (to zero).
+	(PRINT_OPERAND): Delete.
+	(PRINT_OPERAND_ADDRESS): Delete.
+	* config/rx/rx-protos.h (rx_print_operand): Delete prototype.
+	(rx_print_operand_address): Delete prototype.
+	* config/rx/rx.c (rx_print_operand): Make static.
+	Allow %H and %L to handle CONST_DOUBLEs.
+	(rx_print_operand_address): Make static.
+	(rx_gen_move_template): Rename local variable 'template' to
+	out_template.
+	(rx_function_arg): Do not pass unknown sized objects in
+	registers.
+	(TARGET_PRINT_OPERAND): Define.
+	(TARGET_PRINT_OPERAND_ADDRESS): Define.
+
+2010-06-21  Jan Kratochvil  <jan.kratochvil@redhat.com>
+
+	* Makefile.in (POD2MAN): Provide --date from $(DATESTAMP).
+
+2010-06-21  Kai Tietz  <kai.tietz@onevision.com>
+
+	* config/i386/i386.c (ix86_compute_frame_layout): Avoid
+	stack-alignment for simple leaf-functions.
+
+2010-06-20  Alexandre Oliva  <aoliva@redhat.com>
+
+	* doc/install.texi: Document bootstrap-lto.
+
+2010-06-20  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/44248
+	* lto-streamer-in.c (input_bb): Leave debug stmts alone.
+	(input_function): Drop them here, if VTA is disabled.
+
+2010-06-20  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/44546
+	* config/i386/predicates.md (ix86_swapped_fp_comparsion_operator):
+	New predicate.
+	* config/i386/i386.md (*fp_jcc_8<mode>_387): Use
+	ix86_swapped_fp_comparsion_operator instead of
+	ix86_fp_comparison_operator.
+
+	(*fp_jcc_1_387): Rename from *fp_jcc_3_387.
+	(*fp_jcc_1r_387): Rename from *fp_jcc_4_387.
+	(*fp_jcc_2_387): Rename from *fp_jcc_5_387.
+	(*fp_jcc_2r_387): Rename from *fp_jcc_6_387.
+	(*fp_jcc_3_387): Rename from *fp_jcc_7_387.
+	(*fp_jcc_4_<mode>_387): Rename from *fp_jcc_8<mode>_387.
+
+2010-06-20  Joseph Myers  <joseph@codesourcery.com>
+
+	PR other/32998
+	* opth-gen.awk: Generate definitions of OPT_SPECIAL_unknown,
+	OPT_SPECIAL_program_name and OPT_SPECIAL_input_file.
+	* opts-common.c (find_opt): Return OPT_SPECIAL_unknown on failure.
+	(decode_cmdline_option): Update for this return value.  Set
+	orig_option_with_args_text field.  Set arg field for unknown
+	options.  Make static.
+	(decode_cmdline_options_to_array): New.
+	(prune_options): Update handling of find_opt return value.
+	* opts.c (read_cmdline_option): Take decoded option.  Return void.
+	(read_cmdline_options): Take decoded options.
+	(decode_options): Add parameters for decoded options.  Use
+	decode_cmdline_options_to_array.  Use decoded options for -O
+	scan.  Use integral_argument for -O parameters.  Update call to
+	read_cmdline_options.
+	(enable_warning_as_error): Update handling of find_opt return value.
+	* opts.h: Update comment on unknown options.
+	(struct cl_decoded_option): Update comments on opt_index and arg.
+	Add orig_option_with_args_text.
+	(decode_cmdline_option): Remove.
+	(decode_cmdline_options_to_array): Declare.
+	(decode_options): Update prototype.
+	* toplev.c (save_argv): Remove.
+	(save_decoded_options, save_decoded_options_count): New.
+	(read_integral_parameter): Remove.
+	(print_switch_values): Use decoded options.
+	(toplev_main): Don't set save_argv.  Update call to decode_options.
+	* toplev.h (read_integral_parameter): Remove.
+	* varasm.c (elf_record_gcc_switches): Don't handle holding back names.
+
+2010-06-19  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR target/44072
+	* arm.md (cmpsi2_addneg): Prefer emitting adds to subs with a negative
+	immediate.
+	* constraints.md (Pw, Px): New constraints.
+	* thumb2.md (cmpsi2_addneg peephole2): New peepholes.
+
+2010-06-19  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/sse.md (fma4modesuffixf4): Removed.
+	(ssemodesuffixf2s): Likewise.
+	(ssemodesuffixf4): Likewise.
+	(ssemodesuffixf2c): Likewise.
+	(ssescalarmodesuffix2s): Likewise.
+	(avxmodesuffixf2c): Likewise.
+	(ssemodesuffix): New.
+	(ssescalarmodesuffix): Likewise.
+	Update patterns with ssemodesuffix and ssescalarmodesuffix.
+
+2010-06-19  Philip Herron  <herron.philip@googlemail.com>
+
+	* c-decl.c (c_write_global_declarations): Don't check
+	flag_syntax_only.
+
+2010-06-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* stor-layout.c (debug_rli): Remove unused local variables.
+
+2010-06-18  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR rtl-optimization/40900
+	* expr.c (expand_expr_real_1) <SSA_NAME>: Fix long line.  Save the
+	original expression for later reuse.
+	<expand_decl_rtl>: Use promote_function_mode to compute the signedness
+	of the promoted RTL for a SSA_NAME on the LHS of a call statement.
+
+2010-06-18  Anatoly Sokolov  <aesok@post.ru>
+
+	* double-int.h (double_int_to_shwi, double_int_to_uhwi,
+	double_int_fits_in_uhwi_p): Implement as static inline.
+	(double_int_xor): New inline function.
+	(double_int_lrotate, double_int_rrotate, double_int_max,
+	double_int_umax, double_int_smax, double_int_min, double_int_umin,
+	double_int_smin): Declare.
+	(lrotate_double, rrotate_double): Remove declaration.
+	* double-int.c (double_int_fits_in_uhwi_p, double_int_to_shwi,
+	double_int_to_uhwi, lrotate_double, rrotate_double): Remove function.
+	(double_int_lrotate, double_int_rrotate, double_int_max,
+	double_int_umax, double_int_smax, double_int_min, double_int_umin,
+	double_int_smin): New function.
+	* fold-const.c (int_const_binop): Clean up, use double_int_*
+	functions.
+	* simplify-rtx.c (simplify_const_binary_operation): Clean up, use
+	double_int_* and immed_double_int_const functions.
+
+2010-06-18  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* function.h (types_used_by_cur_var_decl): Change type to a VEC.
+	* function.c (types_used_by_cur_var_decl): Likewise.
+	(used_types_insert): Adjust for new type of
+	types_used_by_cur_var_decl.
+
+2010-06-18  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* tree.h (record_layout_info): Change type of pending_statics field
+	to a VEC.
+	* stor-layout.c (start_record_layout): Store NULL into
+	pending_statics.
+	(debug_rli): Call debug_vec_tree instead of debug_tree.
+	(place_field): Likewise.
+	(finish_record_layout): Likewise.
+
+2010-06-18  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/linux64.h (SET_CMODEL): Don't expand to empty.
+
+2010-06-17  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/43740
+	* config/pa/pa.c (emit_move_sequence): Don't infer REG_POINTER flag
+	for SET source operand from SET destination operand.
+
+2010-06-17  Bernd Schmidt  <bernds@codesourcery.com>
+
+	PR rtl-optimization/39871
+	* reload1.c (init_eliminable_invariants): For flag_pic, disable
+	equivalences only for constants that aren't LEGITIMATE_PIC_OPERAND_P.
+	(function_invariant_p): Rule out a plus of frame or arg pointer with
+	a SYMBOL_REF.
+	* ira.c (find_reg_equiv_invariant_const): Likewise.
+
+2010-06-17  Gunther Nikl  <gnikl@users.sourceforge.net>
+
+	* config/rs6000/rs6000.c (print_operand) <'K'>: Also use
+	print_operand_address and puts to output the operand for CONST.
+
+2010-06-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/44572
+	* dwarf2out.c (dwarf2out_debug_hooks): Add entry for begin_epilogue
+	hook.
+
+2010-06-17  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* v850-protos.h (print_operand): Delete.
+	(print_operand_address): Delete.
+	* v850.h (PRINT_OPERAND): Delete.
+	(PRINT_OPERAND_PUNCT_VALID_P): Delete.
+	(PRINT_OPERAND_ADDRESS): Delete.
+	* v850.c (print_operand_address): Rename to...
+	(v850_print_operand_address): ...this.  Make static. Call
+	v850_print_operand.
+	(print_operand): Rename to...
+	(v850_print_operand): ...this.  Make static.  Call
+	v850_print_operand_address.
+	(v850_print_operand_punct_valid_p): New function.
+	(TARGET_PRINT_OPERAND, TARGET_PRINT_OPERAND_ADDRESS): Define.
+	(TARGET_PRINT_OPERAND_PUNCT_VALID_P): Define.
+
+2010-06-17  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* config/sh/sh-protos.h (print_operand): Delete.
+	(print_operand_address): Delete.
+	* config/sh/sh.h (PRINT_OPERAND): Delete.
+	(PRINT_OPERAND_PUNCT_VALID_P): Delete.
+	(PRINT_OPERAND_ADDRESS): Delete.
+	* config/sh/sh.c (sh_print_operand_address): Make static.
+	(sh_print_operand): Make static.  Call sh_print_operand_address
+	and sh_print_operand.
+	(sh_print_operand_punct_valid_p): New function.
+	(TARGET_PRINT_OPERAND, TARGET_PRINT_OPERAND_ADDRESS): Define.
+	(TARGET_PRINT_OPERAND_PUNCT_VALID_P): Define.
+
+2010-06-17  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* config/mcore/mcore-protos.h (mcore_print_operand): Delete.
+	(mcore_print_operand_address): Delete.
+	* config/mcore/mcore.h (PRINT_OPERAND): Delete.
+	(PRINT_OPERAND_PUNCT_VALID_P): Delete.
+	(PRINT_OPERAND_ADDRESS): Delete.
+	* config/mcore/mcore.c (mcore_print_operand_address): Make static.
+	(mcore_print_operand): Make static.
+	(mcore_print_operand_punct_valid_p): New function.
+	(TARGET_PRINT_OPERAND, TARGET_PRINT_OPERAND_ADDRESS): Define
+	(TARGET_PRINT_OPERAND_PUNCT_VALID_P): Define.
+
+2010-06-17  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* config/m68hc11/m68hc11-protos.h (print_operand): Delete.
+	(print_operand_address): Delete.
+	* config/m68hc11/m68hc11.h (PRINT_OPERAND): Delete.
+	(PRINT_OPERAND_ADDRESS): Delete.
+	* config/m68hc11/m68hc11.c (m68hc11_print_operand_address): Make
+	static.
+	(m68hc11_print_operand): Make static.
+	(TARGET_PRINT_OPERAND, TARGET_PRINT_OPERAND_ADDRESS): Define.
+
+2010-06-17  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* config/m32r/m32r-protos.h (m32r_print_operand): Delete.
+	(m32r_print_operand_address): Delete.
+	* config/m32r/m32r.h (m32r_punct_chars): Delete.
+	(PRINT_OPERAND): Delete.
+	(PRINT_OPERAND_PUNCT_VALID_P): Delete.
+	(PRINT_OPERAND_ADDRESS): Delete.
+	* config/m32r/m32r.c (m32r_punct_chars): Make static.
+	(m32r_print_operand_address): Make static.
+	(m32r_print_operand): Make static.
+	(m32r_print_operand_punct_valid_p): New function.
+	(TARGET_PRINT_OPERAND, TARGET_PRINT_OPERAND_ADDRESS):
+	(TARGET_PRINT_OPERAND_ADDRESS): Define.
+
+2010-06-17  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* config/iq2000/iq2000-protos.h (print_operand): Delete.
+	(print_operand_address): Delete.
+	* config/iq2000/iq2000.h (PRINT_OPERAND): Delete.
+	(PRINT_OPERAND_PUNCT_VALID_P): Delete.
+	(PRINT_OPERAND_ADDRESS): Delete.
+	(iq2000_print_operand_punct): Delete.
+	* config/iq2000/iq2000.c (iq2000_print_operand_punct): Make static.
+	(iq2000_print_operand_address): Make static.
+	(iq2000_print_operand): Make static.
+	(iq2000_print_operand_punct_valid_p): New function.
+	(TARGET_PRINT_OPERAND, TARGET_PRINT_OPERAND_ADDRESS):
+	(TARGET_PRINT_OPERAND_ADDRESS): Define.
+
+2010-06-17  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* config/frv/frv-protos.h (frv_print_operand): Delete.
+	(frv_print_operand_address): Delete.
+	* config/frv/frv.h (PRINT_OPERAND): Delete.
+	(PRINT_OPERAND_PUNCT_VALID_P): Delete.
+	(PRINT_OPERAND_ADDRESS): Delete.
+	* config/frv/frv.c (frv_print_operand_address): Make static.
+	(frv_print_operand): Make static.
+	(frv_print_operand_punct_valid_p): New function.
+	(TARGET_PRINT_OPERAND, TARGET_PRINT_OPERAND_ADDRESS):
+	(TARGET_PRINT_OPERAND_ADDRESS): Define.
+
+2010-06-17  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* tree.h (vec_member): Declare.
+	* tree.c (vec_member): Define.
+
+2010-06-17  Richard Guenther  <rguenther@suse.de>
+
+	* tree-flow-inline.h (array_ref_contains_indirect_ref): Remove.
+	* tree-flow.h (array_ref_contains_indirect_ref): Likewise.
+
+2010-06-17  Richard Guenther  <rguenther@suse.de>
+
+	* tree-inline.c (declare_return_variable): Remove bogus code.
+
+2010-06-17  Richard Guenther  <rguenther@suse.de>
+
+	* gimplify.c (gimplify_bind_expr): Always promote complex
+	and vector variables to registers if possible.
+
+2010-06-17  Richard Guenther  <rguenther@suse.de>
+
+	* expr.c (get_inner_reference): Use double_int for bit_offset
+	calculation.
+
+2010-06-16  DJ Delorie  <dj@redhat.com>
+
+	* common.opt (-fstrict-volatile-bitfields): new.
+	* doc/invoke.texi: Document it.
+	* fold-const.c (optimize_bit_field_compare): For volatile
+	bitfields, use the field's type to determine the mode, not the
+	field's size.
+	* expr.c (expand_assignment): Likewise.
+	(get_inner_reference): Likewise.
+	(expand_expr_real_1): Likewise.
+	* expmed.c (store_fixed_bit_field): Likewise.
+	(extract_bit_field_1): Likewise.
+	(extract_fixed_bit_field): Likewise.
+
 2010-06-16  Richard Guenther  <rguenther@suse.de>
 
-	* tree-inline.c (remap_gimple_op_r): Recurse using
-	remap_gimple_op_r.
+	* tree-inline.c (remap_gimple_op_r): Recurse using remap_gimple_op_r.
 
 2010-06-16  Douglas B Rupp  <rupp@gnat.com>
 
@@ -28,7 +351,7 @@
 	(AT_vms_delta1, AT_vms_delta2, add_AT_vms_delta): Declare
 	new static functions.
 	(dwarf_attr_name): New cases DW_AT_HP_{prologue,epilogue}.
-	(AT_vms_delta1, AT_vms_delta2, add_AT_vms_delta): New 
+	(AT_vms_delta1, AT_vms_delta2, add_AT_vms_delta): New
 	static functions.
 	(print_die): New case dw_val_class_vms_delta.
 	(attr_checksum): Likewise.
@@ -101,8 +424,7 @@
 	(bitset): Remove early clobber from destination.
 	(bitset_in_memory): Likewise.
 	(lrintsf2): Clobber the cc0 register.
-	* config/rx/rx.c (rx_notice_update_cc):
-	Handle CC_SET_ZSC.
+	* config/rx/rx.c (rx_notice_update_cc): Handle CC_SET_ZSC.
 	(rx_print_operand): Handle %N.
 
 2010-06-16  Jan Hubicka  <jh@suse.cz>
@@ -196,7 +518,7 @@
 	* config.in: Regenerate.
 	* config/rs6000/linux64.opt (mcmodel): New.
 	* config/rs6000/linux64.h (TARGET_USES_LINUX64_OPT): Define.
-	(TARGET_CMODEL): Define.
+	(TARGET_CMODEL, SET_CMODEL): Define.
 	(SUBSUBTARGET_OVERRIDE_OPTIONS): Check user -mcmodel choice,
 	select CMODEL_MEDIUM default.
 	* config/rs6000/rs6000.h (enum rs6000_cmodel): New.
@@ -3341,8 +3663,7 @@
 2010-05-29  Jan Hubicka  <jh@suse.cz>
 
 	* cgraphunit.c (cgraph_materialize_clone): Only remove calles,
-	refs and body; not the whole node for masters of materialized
-	clones.
+	refs and body; not the whole node for masters of materialized clones.
 
 2010-05-29  Mike Stump  <mikestump@comcast.net>
 
@@ -3482,8 +3803,7 @@
 	* gcc.c (inform, warning, inform): New functions.
 	(fatal_ice): Rename to internal_error; change cmsgid parameter to
 	gmsgid.  All callers changed.
-	(notice): Rename to fnotice; add parameter fp.  All callers
-	changed.
+	(notice): Rename to fnotice; add parameter fp.  All callers changed.
 	(fatal_error): Rename to fatal_signal.  All users changed.
 	(fatal): Rename to fatal_error; change cmsgid parameter to
 	gmsgid.  All callers changed.
@@ -3498,8 +3818,7 @@
 	(warning): Declare.
 	* config/darwin-driver.c (darwin_default_min_version): Use warning
 	instead of fprintf for warnings.
-	* cppspec.c (lang_specific_driver): Use fatal_error instead of
-	fatal.
+	* cppspec.c (lang_specific_driver): Use fatal_error instead of fatal.
 
 2010-05-28  Julian Brown  <julian@codesourcery.com>
 

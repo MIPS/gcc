@@ -23,7 +23,6 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Back_End; use Back_End;
 with Debug;    use Debug;
 with Lib;      use Lib;
 with Osint;    use Osint;
@@ -33,8 +32,7 @@ with Validsw;  use Validsw;
 with Sem_Warn; use Sem_Warn;
 with Stylesw;  use Stylesw;
 
-with System.OS_Lib; use System.OS_Lib;
-
+with System.Strings;
 with System.WCh_Con; use System.WCh_Con;
 
 package body Switch.C is
@@ -42,11 +40,25 @@ package body Switch.C is
    RTS_Specified : String_Access := null;
    --  Used to detect multiple use of --RTS= flag
 
+   function Switch_Subsequently_Cancelled
+     (C        : String;
+      Args     : Argument_List;
+      Arg_Rank : Positive) return Boolean;
+   --  This function is called from Scan_Front_End_Switches. It determines if
+   --  the switch currently being scanned is followed by a switch of the form
+   --  "-gnat-" & C, where C is the argument. If so, then True is returned,
+   --  and Scan_Front_End_Switches will cancel the effect of the switch. If
+   --  no such switch is found, False is returned.
+
    -----------------------------
    -- Scan_Front_End_Switches --
    -----------------------------
 
-   procedure Scan_Front_End_Switches (Switch_Chars : String) is
+   procedure Scan_Front_End_Switches
+     (Switch_Chars : String;
+      Args         : Argument_List;
+      Arg_Rank     : Positive)
+   is
       First_Switch : Boolean := True;
       --  False for all but first switch
 
@@ -665,7 +677,7 @@ package body Switch.C is
 
                --  Skip processing if cancelled by subsequent -gnat-p
 
-               if Switch_Subsequently_Cancelled ("p") then
+               if Switch_Subsequently_Cancelled ("p", Args, Arg_Rank) then
                   Store_Switch := False;
 
                else
@@ -1077,5 +1089,30 @@ package body Switch.C is
          end loop;
       end if;
    end Scan_Front_End_Switches;
+
+   -----------------------------------
+   -- Switch_Subsequently_Cancelled --
+   -----------------------------------
+
+   function Switch_Subsequently_Cancelled
+     (C        : String;
+      Args     : Argument_List;
+      Arg_Rank : Positive) return Boolean
+   is
+      use type System.Strings.String_Access;
+
+   begin
+      --  Loop through arguments following the current one
+
+      for Arg in Arg_Rank + 1 .. Args'Last loop
+         if Args (Arg).all = "-gnat-" & C then
+            return True;
+         end if;
+      end loop;
+
+      --  No match found, not cancelled
+
+      return False;
+   end Switch_Subsequently_Cancelled;
 
 end Switch.C;

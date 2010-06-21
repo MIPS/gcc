@@ -1,5 +1,9 @@
 2010-06-21  Richard Guenther  <rguenther@suse.de>
 
+	Merge from trunk r161070.
+
+2010-06-21  Richard Guenther  <rguenther@suse.de>
+
 	* gimple-fold.c (maybe_fold_stmt_addition): Also handle
 	&ARRAY + I in addition to &ARRAY[0] + I.
 	* tree-ssa-forwprop.c

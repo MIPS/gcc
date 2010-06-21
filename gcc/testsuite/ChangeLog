@@ -1,3 +1,73 @@
+2010-06-21  Kai Tietz  <kai.tietz@onevision.com>
+
+	* gcc.target/x86_64/abi/callabi/leaf-1.c: New.
+	* gcc.target/x86_64/abi/callabi/leaf-2.c: New.
+
+2010-06-20  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/44546
+	* gcc.target/i386/pr44546.c: New test.
+
+2010-06-20  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/opts-2.c: New test.
+
+2010-06-19  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/44584
+	* gfortran.dg/typebound_proc_15.f03: Modified.
+
+2010-06-19  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR target/44072
+	* gcc.target/arm/thumb2-cmpneg2add-1.c: New test.
+	* gcc.target/arm/thumb2-cmpneg2add-2.c: New test.
+
+2010-06-19  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* g++.dg/ext/label13.C: Fix typo in last change.
+
+2010-06-18  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/44477
+	* gfortran.dg/eof_3.f90
+	* gfortran.dg/endfile_2.f90
+	* gfortran.dg/endfile_4.f90
+	* gfortran.dg/endfile_3.f90
+
+2010-06-18  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR c++/41090
+	* g++.dg/ext/label13.C: xfail on 32-bit hppa*-*-hpux*.
+
+2010-06-18  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/44556
+	* gfortran.dg/allocate_alloc_opt_11.f90: New.
+
+2010-06-18  Bernd Schmidt  <bernds@codesourcery.com>
+
+	* gcc.target/arm/pr40900.c: New test.
+
+2010-06-18  Arnaud Charlet  <charlet@adacore.com>
+
+	* gnat.dg/class_wide2.adb: Remove bogus message, no longer generated.
+
+2010-06-17  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/44558
+	* gfortran.dg/typebound_call_15.f03: New.
+
+2010-06-17  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR c++/44486
+	* g++.dg/pr44486.C: New.
+
+2010-06-16  DJ Delorie  <dj@redhat.com>
+
+	* gcc.target/i386/volatile-bitfields-1.c: New.
+	* gcc.target/i386/volatile-bitfields-2.c: New.
+
 2010-06-16  Jason Merrill  <jason@redhat.com>
 
 	* g++.dg/cpp0x/noexcept03.C: Test -Wnoexcept.
@@ -121,7 +191,7 @@
 
 2010-06-12  Daniel Franke  <franke.daniel@gmail.com>
 
-        * gfortran.dg/whole_file_20.f03: New.
+	* gfortran.dg/whole_file_20.f03: New.
 
 2010-06-12  Jan Hubicka  <jh@suse.cz>
 

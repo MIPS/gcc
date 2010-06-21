@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2009, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2010, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -323,10 +323,8 @@ package body Exp_Ch4 is
          if Nkind (Op1) = N_Op_Not then
             if Kind = N_Op_And then
                Proc_Name := RTE (RE_Vector_Nor);
-
             elsif Kind = N_Op_Or then
                Proc_Name := RTE (RE_Vector_Nand);
-
             else
                Proc_Name := RTE (RE_Vector_Xor);
             end if;
@@ -334,14 +332,11 @@ package body Exp_Ch4 is
          else
             if Kind = N_Op_And then
                Proc_Name := RTE (RE_Vector_And);
-
             elsif Kind = N_Op_Or then
                Proc_Name := RTE (RE_Vector_Or);
-
             elsif Nkind (Op2) = N_Op_Not then
                Proc_Name := RTE (RE_Vector_Nxor);
                Arg2 := Right_Opnd (Op2);
-
             else
                Proc_Name := RTE (RE_Vector_Xor);
             end if;
@@ -352,15 +347,15 @@ package body Exp_Ch4 is
              Name => New_Occurrence_Of (Proc_Name, Loc),
              Parameter_Associations => New_List (
                Target,
-                  Make_Attribute_Reference (Loc,
-                    Prefix => Arg1,
-                    Attribute_Name => Name_Address),
-                  Make_Attribute_Reference (Loc,
-                    Prefix => Arg2,
-                    Attribute_Name => Name_Address),
-                 Make_Attribute_Reference (Loc,
-                   Prefix => Op1,
-                    Attribute_Name => Name_Length)));
+               Make_Attribute_Reference (Loc,
+                 Prefix         => Arg1,
+                 Attribute_Name => Name_Address),
+               Make_Attribute_Reference (Loc,
+                 Prefix         => Arg2,
+                 Attribute_Name => Name_Address),
+               Make_Attribute_Reference (Loc,
+                 Prefix         => Op1,
+                 Attribute_Name => Name_Length)));
       end if;
 
       Rewrite (N, Call_Node);
@@ -595,7 +590,7 @@ package body Exp_Ch4 is
 
             Set_Analyzed (Node);
 
-            Temp := Make_Defining_Identifier (Loc, New_Internal_Name ('P'));
+            Temp := Make_Temporary (Loc, 'P', Node);
 
             Insert_Action (N,
               Make_Object_Declaration (Loc,
@@ -664,8 +659,7 @@ package body Exp_Ch4 is
             Remove_Side_Effects (Exp);
          end if;
 
-         Temp :=
-           Make_Defining_Identifier (Loc, New_Internal_Name ('P'));
+         Temp := Make_Temporary (Loc, 'P');
 
          --  For a class wide allocation generate the following code:
 
@@ -755,9 +749,7 @@ package body Exp_Ch4 is
 
          else
             declare
-               Def_Id   : constant Entity_Id :=
-                            Make_Defining_Identifier (Loc,
-                              New_Internal_Name ('T'));
+               Def_Id   : constant Entity_Id := Make_Temporary (Loc, 'T');
                New_Decl : Node_Id;
 
             begin
@@ -834,8 +826,7 @@ package body Exp_Ch4 is
 
                New_Decl :=
                  Make_Object_Declaration (Loc,
-                   Defining_Identifier => Make_Defining_Identifier (Loc,
-                                             New_Internal_Name ('P')),
+                   Defining_Identifier => Make_Temporary (Loc, 'P'),
                    Object_Definition   => New_Reference_To (PtrT, Loc),
                    Expression          => Unchecked_Convert_To (PtrT,
                                             New_Reference_To (Temp, Loc)));
@@ -916,16 +907,13 @@ package body Exp_Ch4 is
 
                if Is_RTE (Apool, RE_SS_Pool) then
                   declare
-                     F : constant Entity_Id :=
-                           Make_Defining_Identifier (Loc,
-                             New_Internal_Name ('F'));
+                     F : constant Entity_Id := Make_Temporary (Loc, 'F');
                   begin
                      Insert_Action (N,
                        Make_Object_Declaration (Loc,
                          Defining_Identifier => F,
-                         Object_Definition   => New_Reference_To (RTE
-                          (RE_Finalizable_Ptr), Loc)));
-
+                         Object_Definition   =>
+                           New_Reference_To (RTE (RE_Finalizable_Ptr), Loc)));
                      Flist := New_Reference_To (F, Loc);
                      Attach :=  Make_Integer_Literal (Loc, 1);
                   end;
@@ -991,8 +979,7 @@ package body Exp_Ch4 is
          end if;
 
       elsif Aggr_In_Place then
-         Temp :=
-           Make_Defining_Identifier (Loc, New_Internal_Name ('P'));
+         Temp := Make_Temporary (Loc, 'P');
          Tmp_Node :=
            Make_Object_Declaration (Loc,
              Defining_Identifier => Temp,
@@ -1076,9 +1063,7 @@ package body Exp_Ch4 is
            and then Is_Packed (T)
          then
             declare
-               ConstrT      : constant Entity_Id :=
-                                Make_Defining_Identifier (Loc,
-                                  Chars => New_Internal_Name ('A'));
+               ConstrT      : constant Entity_Id := Make_Temporary (Loc, 'A');
                Internal_Exp : constant Node_Id   := Relocate_Node (Exp);
             begin
                Insert_Action (Exp,
@@ -1598,8 +1583,7 @@ package body Exp_Ch4 is
          --  constrained types, then we can use the same index for both
          --  of the arrays.
 
-         An : constant Entity_Id := Make_Defining_Identifier (Loc,
-                                      Chars => New_Internal_Name ('A'));
+         An : constant Entity_Id := Make_Temporary (Loc, 'A');
 
          Bn       : Entity_Id;
          Index_T  : Entity_Id;
@@ -1616,9 +1600,7 @@ package body Exp_Ch4 is
          Index_T := Base_Type (Etype (Index));
 
          if Need_Separate_Indexes then
-            Bn :=
-              Make_Defining_Identifier (Loc,
-                Chars => New_Internal_Name ('B'));
+            Bn := Make_Temporary (Loc, 'B');
          else
             Bn := An;
          end if;
@@ -1805,7 +1787,7 @@ package body Exp_Ch4 is
           Defining_Identifier => B,
           Parameter_Type      => New_Reference_To (Rtyp, Loc)));
 
-      Func_Name := Make_Defining_Identifier (Loc,  New_Internal_Name ('E'));
+      Func_Name := Make_Temporary (Loc, 'E');
 
       --  Build statement sequence for function
 
@@ -2625,9 +2607,7 @@ package body Exp_Ch4 is
                Operands (NN) := Opnd;
                Is_Fixed_Length (NN) := False;
 
-               Var_Length (NN) :=
-                 Make_Defining_Identifier (Loc,
-                   Chars => New_Internal_Name ('L'));
+               Var_Length (NN) := Make_Temporary (Loc, 'L');
 
                Append_To (Actions,
                  Make_Object_Declaration (Loc,
@@ -2674,9 +2654,7 @@ package body Exp_Ch4 is
          --  create an entity initialized to this length.
 
          else
-            Ent :=
-              Make_Defining_Identifier (Loc,
-                Chars => New_Internal_Name ('L'));
+            Ent := Make_Temporary (Loc, 'L');
 
             if Is_Fixed_Length (NN) then
                Clen := Make_Integer_Literal (Loc, Fixed_Length (NN));
@@ -2794,8 +2772,7 @@ package body Exp_Ch4 is
             end Get_Known_Bound;
 
          begin
-            Ent :=
-              Make_Defining_Identifier (Loc, Chars => New_Internal_Name ('L'));
+            Ent := Make_Temporary (Loc, 'L');
 
             Append_To (Actions,
               Make_Object_Declaration (Loc,
@@ -2851,9 +2828,7 @@ package body Exp_Ch4 is
 
       --  Now we construct an array object with appropriate bounds
 
-      Ent :=
-        Make_Defining_Identifier (Loc,
-          Chars => New_Internal_Name ('S'));
+      Ent := Make_Temporary (Loc, 'S');
 
       --  If the bound is statically known to be out of range, we do not want
       --  to abort, we want a warning and a runtime constraint error. Note that
@@ -3277,9 +3252,7 @@ package body Exp_Ch4 is
       -------------------------
 
       procedure Rewrite_Coextension (N : Node_Id) is
-         Temp : constant Node_Id :=
-                  Make_Defining_Identifier (Loc,
-                    New_Internal_Name ('C'));
+         Temp : constant Node_Id := Make_Temporary (Loc, 'C');
 
          --  Generate:
          --    Cnn : aliased Etyp;
@@ -3432,9 +3405,7 @@ package body Exp_Ch4 is
          --  and replace the allocator by Tnn'Unrestricted_Access. Tnn is
          --  marked as requiring static allocation.
 
-         Temp :=
-           Make_Defining_Identifier (Loc, New_Internal_Name ('T'));
-
+         Temp := Make_Temporary (Loc, 'T', Expression (Expression (N)));
          Desig := Subtype_Mark (Expression (N));
 
          --  If context is constrained, use constrained subtype directly,
@@ -3597,7 +3568,7 @@ package body Exp_Ch4 is
             if not Restriction_Active (No_Default_Initialization) then
                Init := Base_Init_Proc (T);
                Nod  := N;
-               Temp := Make_Defining_Identifier (Loc, New_Internal_Name ('P'));
+               Temp := Make_Temporary (Loc, 'P');
 
                --  Construct argument list for the initialization routine call
 
@@ -3907,11 +3878,142 @@ package body Exp_Ch4 is
    procedure Expand_N_And_Then (N : Node_Id)
      renames Expand_Short_Circuit_Operator;
 
+   ------------------------------
+   -- Expand_N_Case_Expression --
+   ------------------------------
+
+   procedure Expand_N_Case_Expression (N : Node_Id) is
+      Loc     : constant Source_Ptr := Sloc (N);
+      Typ     : constant Entity_Id  := Etype (N);
+      Cstmt   : Node_Id;
+      Tnn     : Entity_Id;
+      Pnn     : Entity_Id;
+      Actions : List_Id;
+      Ttyp    : Entity_Id;
+      Alt     : Node_Id;
+      Fexp    : Node_Id;
+
+   begin
+      --  We expand
+
+      --    case X is when A => AX, when B => BX ...
+
+      --  to
+
+      --    do
+      --       Tnn : typ;
+      --       case X is
+      --          when A =>
+      --             Tnn := AX;
+      --          when B =>
+      --             Tnn := BX;
+      --          ...
+      --       end case;
+      --    in Tnn end;
+
+      --  However, this expansion is wrong for limited types, and also
+      --  wrong for unconstrained types (since the bounds may not be the
+      --  same in all branches). Furthermore it involves an extra copy
+      --  for large objects. So we take care of this by using the following
+      --  modified expansion for non-scalar types:
+
+      --    do
+      --       type Pnn is access all typ;
+      --       Tnn : Pnn;
+      --       case X is
+      --          when A =>
+      --             T := AX'Unrestricted_Access;
+      --          when B =>
+      --             T := BX'Unrestricted_Access;
+      --          ...
+      --       end case;
+      --    in Tnn.all end;
+
+      Cstmt :=
+        Make_Case_Statement (Loc,
+          Expression   => Expression (N),
+          Alternatives => New_List);
+
+      Actions := New_List;
+
+      --  Scalar case
+
+      if Is_Scalar_Type (Typ) then
+         Ttyp := Typ;
+
+      else
+         Pnn := Make_Temporary (Loc, 'P');
+         Append_To (Actions,
+           Make_Full_Type_Declaration (Loc,
+             Defining_Identifier => Pnn,
+             Type_Definition =>
+               Make_Access_To_Object_Definition (Loc,
+                 All_Present => True,
+                 Subtype_Indication =>
+                   New_Reference_To (Typ, Loc))));
+         Ttyp := Pnn;
+      end if;
+
+      Tnn := Make_Temporary (Loc, 'T');
+      Append_To (Actions,
+        Make_Object_Declaration (Loc,
+          Defining_Identifier => Tnn,
+          Object_Definition   => New_Occurrence_Of (Ttyp, Loc)));
+
+      --  Now process the alternatives
+
+      Alt := First (Alternatives (N));
+      while Present (Alt) loop
+         declare
+            Aexp : Node_Id             := Expression (Alt);
+            Aloc : constant Source_Ptr := Sloc (Aexp);
+
+         begin
+            if not Is_Scalar_Type (Typ) then
+               Aexp :=
+                 Make_Attribute_Reference (Aloc,
+                   Prefix         => Relocate_Node (Aexp),
+                   Attribute_Name => Name_Unrestricted_Access);
+            end if;
+
+            Append_To
+              (Alternatives (Cstmt),
+               Make_Case_Statement_Alternative (Sloc (Alt),
+                 Discrete_Choices => Discrete_Choices (Alt),
+                 Statements       => New_List (
+                   Make_Assignment_Statement (Aloc,
+                     Name       => New_Occurrence_Of (Tnn, Loc),
+                     Expression => Aexp))));
+         end;
+
+         Next (Alt);
+      end loop;
+
+      Append_To (Actions, Cstmt);
+
+      --  Construct and return final expression with actions
+
+      if Is_Scalar_Type (Typ) then
+         Fexp := New_Occurrence_Of (Tnn, Loc);
+      else
+         Fexp :=
+           Make_Explicit_Dereference (Loc,
+             Prefix => New_Occurrence_Of (Tnn, Loc));
+      end if;
+
+      Rewrite (N,
+        Make_Expression_With_Actions (Loc,
+          Expression => Fexp,
+          Actions    => Actions));
+
+      Analyze_And_Resolve (N, Typ);
+   end Expand_N_Case_Expression;
+
    -------------------------------------
    -- Expand_N_Conditional_Expression --
    -------------------------------------
 
-   --  Expand into expression actions if then/else actions present
+   --  Deal with limited types and expression actions
 
    procedure Expand_N_Conditional_Expression (N : Node_Id) is
       Loc    : constant Source_Ptr := Sloc (N);
@@ -3927,26 +4029,11 @@ package body Exp_Ch4 is
       P_Decl : Node_Id;
 
    begin
-      --  If either then or else actions are present, then given:
+      --  If the type is limited or unconstrained, we expand as follows to
+      --  avoid any possibility of improper copies.
 
-      --     if cond then then-expr else else-expr end
-
-      --  we insert the following sequence of actions (using Insert_Actions):
-
-      --      Cnn : typ;
-      --      if cond then
-      --         <<then actions>>
-      --         Cnn := then-expr;
-      --      else
-      --         <<else actions>>
-      --         Cnn := else-expr
-      --      end if;
-
-      --  and replace the conditional expression by a reference to Cnn
-
-      --  If the type is limited or unconstrained, the above expansion is
-      --  not legal, because it involves either an uninitialized object
-      --  or an illegal assignment. Instead, we generate:
+      --  Note: it may be possible to avoid this special processing if the
+      --  back end uses its own mechanisms for handling by-reference types ???
 
       --      type Ptr is access all Typ;
       --      Cnn : Ptr;
@@ -3960,13 +4047,17 @@ package body Exp_Ch4 is
 
       --  and replace the conditional expresion by a reference to Cnn.all.
 
-      if Is_By_Reference_Type (Typ) then
+      --  This special case can be skipped if the back end handles limited
+      --  types properly and ensures that no incorrect copies are made.
+
+      if Is_By_Reference_Type (Typ)
+        and then not Back_End_Handles_Limited_Types
+      then
          Cnn := Make_Temporary (Loc, 'C', N);
 
          P_Decl :=
            Make_Full_Type_Declaration (Loc,
-             Defining_Identifier =>
-               Make_Defining_Identifier (Loc, New_Internal_Name ('A')),
+             Defining_Identifier => Make_Temporary (Loc, 'A'),
              Type_Definition =>
                Make_Access_To_Object_Definition (Loc,
                  All_Present => True,
@@ -4009,40 +4100,84 @@ package body Exp_Ch4 is
       --  associated with either branch.
 
       elsif Present (Then_Actions (N)) or else Present (Else_Actions (N)) then
-         Cnn := Make_Temporary (Loc, 'C', N);
 
-         Decl :=
-           Make_Object_Declaration (Loc,
-             Defining_Identifier => Cnn,
-             Object_Definition   => New_Occurrence_Of (Typ, Loc));
+         --  We have two approaches to handling this. If we are allowed to use
+         --  N_Expression_With_Actions, then we can just wrap the actions into
+         --  the appropriate expression.
 
-         New_If :=
-           Make_Implicit_If_Statement (N,
-             Condition => Relocate_Node (Cond),
+         if Use_Expression_With_Actions then
+            if Present (Then_Actions (N)) then
+               Rewrite (Thenx,
+                 Make_Expression_With_Actions (Sloc (Thenx),
+                   Actions    => Then_Actions (N),
+                   Expression => Relocate_Node (Thenx)));
+               Set_Then_Actions (N, No_List);
+               Analyze_And_Resolve (Thenx, Typ);
+            end if;
 
-             Then_Statements => New_List (
-               Make_Assignment_Statement (Sloc (Thenx),
-                 Name       => New_Occurrence_Of (Cnn, Sloc (Thenx)),
-                 Expression => Relocate_Node (Thenx))),
+            if Present (Else_Actions (N)) then
+               Rewrite (Elsex,
+                 Make_Expression_With_Actions (Sloc (Elsex),
+                   Actions    => Else_Actions (N),
+                   Expression => Relocate_Node (Elsex)));
+               Set_Else_Actions (N, No_List);
+               Analyze_And_Resolve (Elsex, Typ);
+            end if;
 
-             Else_Statements => New_List (
-               Make_Assignment_Statement (Sloc (Elsex),
-                 Name       => New_Occurrence_Of (Cnn, Sloc (Elsex)),
-                 Expression => Relocate_Node (Elsex))));
+            return;
 
-         Set_Assignment_OK (Name (First (Then_Statements (New_If))));
-         Set_Assignment_OK (Name (First (Else_Statements (New_If))));
+            --  if we can't use N_Expression_With_Actions nodes, then we insert
+            --  the following sequence of actions (using Insert_Actions):
 
-         New_N := New_Occurrence_Of (Cnn, Loc);
+            --      Cnn : typ;
+            --      if cond then
+            --         <<then actions>>
+            --         Cnn := then-expr;
+            --      else
+            --         <<else actions>>
+            --         Cnn := else-expr
+            --      end if;
+
+            --  and replace the conditional expression by a reference to Cnn
+
+         else
+            Cnn := Make_Temporary (Loc, 'C', N);
+
+            Decl :=
+              Make_Object_Declaration (Loc,
+                Defining_Identifier => Cnn,
+                Object_Definition   => New_Occurrence_Of (Typ, Loc));
+
+            New_If :=
+              Make_Implicit_If_Statement (N,
+                Condition       => Relocate_Node (Cond),
+
+                Then_Statements => New_List (
+                  Make_Assignment_Statement (Sloc (Thenx),
+                    Name       => New_Occurrence_Of (Cnn, Sloc (Thenx)),
+                    Expression => Relocate_Node (Thenx))),
+
+                Else_Statements => New_List (
+                  Make_Assignment_Statement (Sloc (Elsex),
+                    Name       => New_Occurrence_Of (Cnn, Sloc (Elsex)),
+                    Expression => Relocate_Node (Elsex))));
+
+            Set_Assignment_OK (Name (First (Then_Statements (New_If))));
+            Set_Assignment_OK (Name (First (Else_Statements (New_If))));
+
+            New_N := New_Occurrence_Of (Cnn, Loc);
+         end if;
+
+         --  If no actions then no expansion needed, gigi will handle it using
+         --  the same approach as a C conditional expression.
 
       else
-         --  No expansion needed, gigi handles it like a C conditional
-         --  expression.
-
          return;
       end if;
 
-      --  Move the SLOC of the parent If statement to the newly created one and
+      --  Fall through here for either the limited expansion, or the case of
+      --  inserting actions for non-limited types. In both these cases, we must
+      --  move the SLOC of the parent If statement to the newly created one and
       --  change it to the SLOC of the expression which, after expansion, will
       --  correspond to what is being evaluated.
 
@@ -4173,7 +4308,8 @@ package body Exp_Ch4 is
          Analyze_And_Resolve (N, Rtyp);
 
          Error_Msg_N ("?explicit membership test may be optimized away", N);
-         Error_Msg_N ("\?use ''Valid attribute instead", N);
+         Error_Msg_N -- CODEFIX
+           ("\?use ''Valid attribute instead", N);
          return;
       end Substitute_Valid_Check;
 
@@ -5882,8 +6018,7 @@ package body Exp_Ch4 is
             --    En * En
 
             else -- Expv = 4
-               Temp :=
-                 Make_Defining_Identifier (Loc, New_Internal_Name ('E'));
+               Temp := Make_Temporary (Loc, 'E', Base);
 
                Insert_Actions (N, New_List (
                  Make_Object_Declaration (Loc,
@@ -6657,7 +6792,7 @@ package body Exp_Ch4 is
    ---------------------
 
    --  If the argument is other than a Boolean array type, there is no special
-   --  expansion required.
+   --  expansion required, except for VMS operations on signed integers.
 
    --  For the packed case, we call the special routine in Exp_Pakd, except
    --  that if the component size is greater than one, we use the standard
@@ -6705,6 +6840,22 @@ package body Exp_Ch4 is
          Set_Etype (N, Standard_Boolean);
          Adjust_Result_Type (N, Typ);
          return;
+      end if;
+
+      --  For the VMS "not" on signed integer types, use conversion to and
+      --  from a predefined modular type.
+
+      if Is_VMS_Operator (Entity (N)) then
+         declare
+            LI : constant Entity_Id := RTE (RE_Unsigned_64);
+         begin
+            Rewrite (N,
+              Unchecked_Convert_To (Typ,
+                (Make_Op_Not (Loc,
+                   Right_Opnd => Unchecked_Convert_To (LI, Right_Opnd (N))))));
+            Analyze_And_Resolve (N, Typ);
+            return;
+         end;
       end if;
 
       --  Only array types need any other processing
@@ -6811,7 +6962,7 @@ package body Exp_Ch4 is
               Name       => B_J,
               Expression => Make_Op_Not (Loc, A_J))));
 
-      Func_Name := Make_Defining_Identifier (Loc, New_Internal_Name ('N'));
+      Func_Name := Make_Temporary (Loc, 'N');
       Set_Is_Inlined (Func_Name);
 
       Insert_Action (N,
@@ -7646,7 +7797,7 @@ package body Exp_Ch4 is
                        Constraints => Cons));
             end if;
 
-            Temp := Make_Defining_Identifier (Loc, New_Internal_Name ('C'));
+            Temp := Make_Temporary (Loc, 'C');
             Decl :=
               Make_Object_Declaration (Loc,
                 Defining_Identifier => Temp,
@@ -7808,9 +7959,7 @@ package body Exp_Ch4 is
             Enable_Overflow_Check (Conv);
          end if;
 
-         Tnn :=
-           Make_Defining_Identifier (Loc,
-             Chars => New_Internal_Name ('T'));
+         Tnn := Make_Temporary (Loc, 'T', Conv);
 
          Insert_Actions (N, New_List (
            Make_Object_Declaration (Loc,
@@ -8041,15 +8190,13 @@ package body Exp_Ch4 is
          --  renaming, since this is an error situation which will be caught by
          --  Sem_Ch8, and the expansion can interfere with this error check.
 
-         if Is_Access_Type (Target_Type)
-           and then Is_Renamed_Object (N)
-         then
+         if Is_Access_Type (Target_Type) and then Is_Renamed_Object (N) then
             return;
          end if;
 
          --  Otherwise, proceed with processing tagged conversion
 
-         declare
+         Tagged_Conversion : declare
             Actual_Op_Typ   : Entity_Id;
             Actual_Targ_Typ : Entity_Id;
             Make_Conversion : Boolean := False;
@@ -8104,7 +8251,7 @@ package body Exp_Ch4 is
                    Reason    => CE_Tag_Check_Failed));
             end Make_Tag_Check;
 
-         --  Start of processing
+         --  Start of processing for Tagged_Conversion
 
          begin
             if Is_Access_Type (Target_Type) then
@@ -8201,7 +8348,7 @@ package body Exp_Ch4 is
                   end;
                end if;
             end if;
-         end;
+         end Tagged_Conversion;
 
       --  Case of other access type conversions
 
@@ -8238,9 +8385,9 @@ package body Exp_Ch4 is
          end if;
 
          --  Otherwise do correct fixed-conversion, but skip these if the
-         --  Conversion_OK flag is set, because from a semantic point of
-         --  view these are simple integer conversions needing no further
-         --  processing (the backend will simply treat them as integers)
+         --  Conversion_OK flag is set, because from a semantic point of view
+         --  these are simple integer conversions needing no further processing
+         --  (the backend will simply treat them as integers).
 
          if not Conversion_OK (N) then
             if Is_Fixed_Point_Type (Etype (N)) then
@@ -8294,7 +8441,7 @@ package body Exp_Ch4 is
          --  with the end-point. But that can lose precision in some cases, and
          --  give a wrong result. Converting the operand to Universal_Real is
          --  helpful, but still does not catch all cases with 64-bit integers
-         --  on targets with only 64-bit floats
+         --  on targets with only 64-bit floats.
 
          --  The above comment seems obsoleted by Apply_Float_Conversion_Check
          --  Can this code be removed ???
@@ -8377,7 +8524,7 @@ package body Exp_Ch4 is
       elsif Is_Enumeration_Type (Target_Type) then
 
          --  Special processing is required if there is a change of
-         --  representation (from enumeration representation clauses)
+         --  representation (from enumeration representation clauses).
 
          if not Same_Representation (Target_Type, Operand_Type) then
 
@@ -8403,9 +8550,8 @@ package body Exp_Ch4 is
       end if;
 
       --  At this stage, either the conversion node has been transformed into
-      --  some other equivalent expression, or left as a conversion that can
-      --  be handled by Gigi. The conversions that Gigi can handle are the
-      --  following:
+      --  some other equivalent expression, or left as a conversion that can be
+      --  handled by Gigi, in the following cases:
 
       --    Conversions with no change of representation or type
 
@@ -8458,7 +8604,7 @@ package body Exp_Ch4 is
                end if;
 
                --  Reset overflow flag, since the range check will include
-               --  dealing with possible overflow, and generate the check If
+               --  dealing with possible overflow, and generate the check. If
                --  Address is either a source type or target type, suppress
                --  range check to avoid typing anomalies when it is a visible
                --  integer type.
@@ -8489,16 +8635,16 @@ package body Exp_Ch4 is
    -- Expand_N_Unchecked_Expression --
    -----------------------------------
 
-   --  Remove the unchecked expression node from the tree. It's job was simply
+   --  Remove the unchecked expression node from the tree. Its job was simply
    --  to make sure that its constituent expression was handled with checks
    --  off, and now that that is done, we can remove it from the tree, and
-   --  indeed must, since gigi does not expect to see these nodes.
+   --  indeed must, since Gigi does not expect to see these nodes.
 
    procedure Expand_N_Unchecked_Expression (N : Node_Id) is
       Exp : constant Node_Id := Expression (N);
 
    begin
-      Set_Assignment_OK (Exp, Assignment_OK (N) or Assignment_OK (Exp));
+      Set_Assignment_OK (Exp, Assignment_OK (N) or else Assignment_OK (Exp));
       Rewrite (N, Exp);
    end Expand_N_Unchecked_Expression;
 
@@ -8517,9 +8663,11 @@ package body Exp_Ch4 is
    begin
       --  Nothing at all to do if conversion is to the identical type so remove
       --  the conversion completely, it is useless, except that it may carry
-      --  an Assignment_OK indication which must be proprgated to the operand.
+      --  an Assignment_OK indication which must be propagated to the operand.
 
       if Operand_Type = Target_Type then
+         --  Code duplicates Expand_N_Unchecked_Expression above, factor???
+
          if Assignment_OK (N) then
             Set_Assignment_OK (Operand);
          end if;
@@ -8730,8 +8878,9 @@ package body Exp_Ch4 is
    -- Expand_Short_Circuit_Operator --
    -----------------------------------
 
-   --  Expand into conditional expression if Actions present, and also deal
-   --  with optimizing case of arguments being True or False.
+   --  Deal with special expansion if actions are present for the right operand
+   --  and deal with optimizing case of arguments being True or False. We also
+   --  deal with the special case of non-standard boolean values.
 
    procedure Expand_Short_Circuit_Operator (N : Node_Id) is
       Loc     : constant Source_Ptr := Sloc (N);
@@ -8739,6 +8888,7 @@ package body Exp_Ch4 is
       Kind    : constant Node_Kind  := Nkind (N);
       Left    : constant Node_Id    := Left_Opnd (N);
       Right   : constant Node_Id    := Right_Opnd (N);
+      LocR    : constant Source_Ptr := Sloc (Right);
       Actlist : List_Id;
 
       Shortcut_Value : constant Boolean := Nkind (N) = N_Or_Else;
@@ -8812,63 +8962,89 @@ package body Exp_Ch4 is
          return;
       end if;
 
-      --  If Actions are present, we expand
+      --  If Actions are present for the right operand, we have to do some
+      --  special processing. We can't just let these actions filter back into
+      --  code preceding the short circuit (which is what would have happened
+      --  if we had not trapped them in the short-circuit form), since they
+      --  must only be executed if the right operand of the short circuit is
+      --  executed and not otherwise.
 
-      --     left AND THEN right
-
-      --  into
-
-      --     C : Boolean := False;
-      --     IF left THEN
-      --        Actions;
-      --        IF right THEN
-      --           C := True;
-      --        END IF;
-      --     END IF;
-
-      --  and finally rewrite the operator into a reference to C. Similarly
-      --  for left OR ELSE right, with negated values. Note that this rewriting
-      --  preserves two invariants that traces-based coverage analysis depends
-      --  upon:
-
-      --    - there is exactly one conditional jump for each operand;
-
-      --    - for each possible values of the expression, there is exactly
-      --      one location in the generated code that is branched to
-      --      (the inner assignment in one case, the point just past the
-      --      outer END IF; in the other case).
+      --  the temporary variable C.
 
       if Present (Actions (N)) then
          Actlist := Actions (N);
 
-         Op_Var := Make_Temporary (Loc, 'C', Related_Node => N);
+         --  The old approach is to expand:
 
-         Insert_Action (N,
-           Make_Object_Declaration (Loc,
-             Defining_Identifier =>
-               Op_Var,
-             Object_Definition =>
-               New_Occurrence_Of (Standard_Boolean, Loc),
-             Expression =>
-               New_Occurrence_Of (Shortcut_Ent, Loc)));
+         --     left AND THEN right
 
-         Append_To (Actlist,
-           Make_Implicit_If_Statement (Right,
-             Condition       => Make_Test_Expr (Right),
-             Then_Statements => New_List (
-               Make_Assignment_Statement (Sloc (Right),
-                 Name =>
-                   New_Occurrence_Of (Op_Var, Sloc (Right)),
-                 Expression =>
-                   New_Occurrence_Of
-                     (Boolean_Literals (not Shortcut_Value), Sloc (Right))))));
+         --  into
 
-         Insert_Action (N,
-           Make_Implicit_If_Statement (Left,
-             Condition       => Make_Test_Expr (Left),
-             Then_Statements => Actlist));
+         --     C : Boolean := False;
+         --     IF left THEN
+         --        Actions;
+         --        IF right THEN
+         --           C := True;
+         --        END IF;
+         --     END IF;
 
-         Rewrite (N, New_Occurrence_Of (Op_Var, Loc));
+         --  and finally rewrite the operator into a reference to C. Similarly
+         --  for left OR ELSE right, with negated values. Note that this
+         --  rewrite causes some difficulties for coverage analysis because
+         --  of the introduction of the new variable C, which obscures the
+         --  structure of the test.
+
+         --  We use this "old approach" if use of N_Expression_With_Actions
+         --  is False (see description in Opt of when this is or is not set).
+
+         if not Use_Expression_With_Actions then
+            Op_Var := Make_Temporary (Loc, 'C', Related_Node => N);
+
+            Insert_Action (N,
+              Make_Object_Declaration (Loc,
+                Defining_Identifier =>
+                  Op_Var,
+                Object_Definition   =>
+                  New_Occurrence_Of (Standard_Boolean, Loc),
+                Expression          =>
+                  New_Occurrence_Of (Shortcut_Ent, Loc)));
+
+            Append_To (Actlist,
+              Make_Implicit_If_Statement (Right,
+                Condition       => Make_Test_Expr (Right),
+                Then_Statements => New_List (
+                  Make_Assignment_Statement (LocR,
+                    Name       => New_Occurrence_Of (Op_Var, LocR),
+                    Expression =>
+                      New_Occurrence_Of
+                        (Boolean_Literals (not Shortcut_Value), LocR)))));
+
+            Insert_Action (N,
+              Make_Implicit_If_Statement (Left,
+                Condition       => Make_Test_Expr (Left),
+                Then_Statements => Actlist));
+
+            Rewrite (N, New_Occurrence_Of (Op_Var, Loc));
+            Analyze_And_Resolve (N, Standard_Boolean);
+
+         --  The new approach, activated for now by the use of debug flag
+         --  -gnatd.X is to use the new Expression_With_Actions node for the
+         --  right operand of the short-circuit form. This should solve the
+         --  traceability problems for coverage analysis.
+
+         else
+            Rewrite (Right,
+              Make_Expression_With_Actions (LocR,
+                Expression => Relocate_Node (Right),
+                Actions    => Actlist));
+            Set_Actions (N, No_List);
+            Analyze_And_Resolve (Right, Standard_Boolean);
+         end if;
+
+         --  Special processing necessary for SCIL generation for AND THEN
+         --  with a function call as the right operand.
+
+         --  What is this about, and is it needed for both cases above???
 
          if Generate_SCIL
            and then Kind = N_And_Then
@@ -8877,7 +9053,6 @@ package body Exp_Ch4 is
             Adjust_SCIL_Node (N, Right);
          end if;
 
-         Analyze_And_Resolve (N, Standard_Boolean);
          Adjust_Result_Type (N, Typ);
          return;
       end if;
@@ -8978,7 +9153,7 @@ package body Exp_Ch4 is
              PtrT /=
                Etype (Defining_Unit_Name (Associated_Node_For_Itype (PtrT)))
          then
-            Owner := Make_Defining_Identifier (Loc, New_Internal_Name ('J'));
+            Owner := Make_Temporary (Loc, 'J');
             Insert_Action (N,
               Make_Full_Type_Declaration (Loc,
                 Defining_Identifier => Owner,
@@ -9002,7 +9177,7 @@ package body Exp_Ch4 is
          then
             Owner := Scope (Return_Applies_To (Scope (PtrT)));
 
-         --  Case of an access discriminant, or (Ada 2005), of an anonymous
+         --  Case of an access discriminant, or (Ada 2005) of an anonymous
          --  access component or anonymous access function result: find the
          --  final list associated with the scope of the type. (In the
          --  anonymous access component kind, a list controller will have
@@ -9469,7 +9644,7 @@ package body Exp_Ch4 is
       --    if ... end if;
       --  end Gnnn;
 
-      Func_Name := Make_Defining_Identifier (Loc, New_Internal_Name ('G'));
+      Func_Name := Make_Temporary (Loc, 'G');
 
       Func_Body :=
         Make_Subprogram_Body (Loc,
@@ -9597,8 +9772,7 @@ package body Exp_Ch4 is
           Defining_Identifier => B,
           Parameter_Type      => New_Reference_To (Typ, Loc)));
 
-      Func_Name :=
-        Make_Defining_Identifier (Loc, New_Internal_Name ('A'));
+      Func_Name := Make_Temporary (Loc, 'A');
       Set_Is_Inlined (Func_Name);
 
       Func_Body :=
@@ -9650,7 +9824,7 @@ package body Exp_Ch4 is
       --  in the call to Compile_Time_Compare. If this call results in a
       --  clear result of always True or Always False, that's decisive and
       --  we are done. Otherwise we repeat the processing with Assume_Valid
-      --  set to True to generate additional warnings. We can stil that step
+      --  set to True to generate additional warnings. We can skip that step
       --  if Constant_Condition_Warnings is False.
 
       for AV in False .. True loop
@@ -9739,9 +9913,9 @@ package body Exp_Ch4 is
                end if;
 
             --  If this is the second iteration (AV = True), and the original
-            --  node comes from source and we are not in an instance, then
-            --  give a warning if we know result would be True or False. Note
-            --  we know Constant_Condition_Warnings is set if we get here.
+            --  node comes from source and we are not in an instance, then give
+            --  a warning if we know result would be True or False. Note: we
+            --  know Constant_Condition_Warnings is set if we get here.
 
             elsif Comes_From_Source (Original_Node (N))
               and then not In_Instance
@@ -9759,9 +9933,9 @@ package body Exp_Ch4 is
          end;
 
          --  Skip second iteration if not warning on constant conditions or
-         --  if the first iteration already generated a warning of some kind
-         --  or if we are in any case assuming all values are valid (so that
-         --  the first iteration took care of the valid case).
+         --  if the first iteration already generated a warning of some kind or
+         --  if we are in any case assuming all values are valid (so that the
+         --  first iteration took care of the valid case).
 
          exit when not Constant_Condition_Warnings;
          exit when Warning_Generated;
@@ -9828,7 +10002,7 @@ package body Exp_Ch4 is
          end if;
       end Is_Safe_Operand;
 
-      --  Start of processing for Is_Safe_In_Place_Array_Op
+   --  Start of processing for Is_Safe_In_Place_Array_Op
 
    begin
       --  Skip this processing if the component size is different from system
@@ -9849,12 +10023,10 @@ package body Exp_Ch4 is
 
       elsif not Is_Unaliased (Lhs) then
          return False;
+
       else
          Target := Entity (Lhs);
-
-         return
-           Is_Safe_Operand (Op1)
-             and then Is_Safe_Operand (Op2);
+         return Is_Safe_Operand (Op1) and then Is_Safe_Operand (Op2);
       end if;
    end Safe_In_Place_Array_Op;
 

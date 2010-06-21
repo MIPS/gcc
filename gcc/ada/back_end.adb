@@ -40,27 +40,25 @@ with Switch.C;  use Switch.C;
 with System;    use System;
 with Types;     use Types;
 
+with System.OS_Lib; use System.OS_Lib;
+
 package body Back_End is
 
    type Arg_Array is array (Nat) of Big_String_Ptr;
    type Arg_Array_Ptr is access Arg_Array;
    --  Types to access compiler arguments
 
-   Next_Arg : Pos := 1;
-   --  Next argument to be scanned by Scan_Compiler_Arguments. We make this
-   --  global so that it can be accessed by Switch_Subsequently_Cancelled.
-
    flag_stack_check : Int;
    pragma Import (C, flag_stack_check);
-   --  Indicates if stack checking is enabled, imported from toplev.c
+   --  Indicates if stack checking is enabled, imported from decl.c
 
    save_argc : Nat;
    pragma Import (C, save_argc);
-   --  Saved value of argc (number of arguments), imported from toplev.c
+   --  Saved value of argc (number of arguments), imported from misc.c
 
    save_argv : Arg_Array_Ptr;
    pragma Import (C, save_argv);
-   --  Saved value of argv (argument pointers), imported from toplev.c
+   --  Saved value of argv (argument pointers), imported from misc.c
 
    function Len_Arg (Arg : Pos) return Nat;
    --  Determine length of argument number Arg on original gnat1 command line
@@ -166,6 +164,9 @@ package body Back_End is
 
    procedure Scan_Compiler_Arguments is
 
+      Next_Arg : Positive;
+      --  Next argument to be scanned
+
       Output_File_Name_Seen : Boolean := False;
       --  Set to True after having scanned file_name for switch "-gnatO file"
 
@@ -223,6 +224,11 @@ package body Back_End is
          end if;
       end Scan_Back_End_Switches;
 
+      --  Local variables
+
+      Arg_Count : constant Natural := Natural (save_argc - 1);
+      Args : Argument_List (1 .. Arg_Count);
+
    --  Start of processing for Scan_Compiler_Arguments
 
    begin
@@ -230,14 +236,25 @@ package body Back_End is
 
       Opt.Stack_Checking_Enabled := (flag_stack_check /= 0);
 
-      --  Loop through command line arguments, storing them for later access
+      --  Put the arguments in Args
 
-      while Next_Arg < save_argc loop
-         Look_At_Arg : declare
-            Argv_Ptr : constant Big_String_Ptr := save_argv (Next_Arg);
-            Argv_Len : constant Nat            := Len_Arg (Next_Arg);
+      for Arg in Pos range 1 .. save_argc - 1 loop
+         declare
+            Argv_Ptr : constant Big_String_Ptr := save_argv (Arg);
+            Argv_Len : constant Nat            := Len_Arg (Arg);
             Argv     : constant String         :=
                          Argv_Ptr (1 .. Natural (Argv_Len));
+         begin
+            Args (Positive (Arg)) := new String'(Argv);
+         end;
+      end loop;
+
+      --  Loop through command line arguments, storing them for later access
+
+      Next_Arg := 1;
+      while Next_Arg <= Args'Last loop
+         Look_At_Arg : declare
+            Argv     : constant String := Args (Next_Arg).all;
 
          begin
             --  If the previous switch has set the Output_File_Name_Present
@@ -284,7 +301,7 @@ package body Back_End is
                Opt.No_Stdlib := True;
 
             elsif Is_Front_End_Switch (Argv) then
-               Scan_Front_End_Switches (Argv);
+               Scan_Front_End_Switches (Argv, Args, Next_Arg);
 
             --  All non-front-end switches are back-end switches
 
@@ -296,32 +313,4 @@ package body Back_End is
          Next_Arg := Next_Arg + 1;
       end loop;
    end Scan_Compiler_Arguments;
-
-   -----------------------------------
-   -- Switch_Subsequently_Cancelled --
-   -----------------------------------
-
-   function Switch_Subsequently_Cancelled (C : String) return Boolean is
-      Arg : Pos;
-
-   begin
-      Arg := Next_Arg + 1;
-      while Arg < save_argc loop
-         declare
-            Argv_Ptr : constant Big_String_Ptr := save_argv (Arg);
-            Argv_Len : constant Nat            := Len_Arg (Arg);
-            Argv     : constant String         :=
-                         Argv_Ptr (1 .. Natural (Argv_Len));
-         begin
-            if Argv = "-gnat-" & C then
-               return True;
-            end if;
-         end;
-
-         Arg := Arg + 1;
-      end loop;
-
-      return False;
-   end Switch_Subsequently_Cancelled;
-
 end Back_End;

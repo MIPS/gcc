@@ -5498,7 +5498,8 @@ resolve_typebound_function (gfc_expr* e)
 
   /* Treat the call as if it is a typebound procedure, in order to roll
      out the correct name for the specific function.  */
-  resolve_compcall (e, &name);
+  if (resolve_compcall (e, &name) == FAILURE)
+    return FAILURE;
   ts = e->ts;
 
   /* Then convert the expression to a procedure pointer component call.  */
@@ -5571,7 +5572,8 @@ resolve_typebound_subroutine (gfc_code *code)
   if (code->expr1->value.compcall.tbp->is_generic)
     genname = code->expr1->value.compcall.name;
 
-  resolve_typebound_call (code, &name);
+  if (resolve_typebound_call (code, &name) == FAILURE)
+    return FAILURE;
   ts = code->expr1->ts;
 
   /* Then convert the expression to a procedure pointer component call.  */
@@ -6589,8 +6591,29 @@ resolve_allocate_deallocate (gfc_code *code, const char *fcn)
 
       for (p = code->ext.alloc.list; p; p = p->next)
 	if (p->expr->symtree->n.sym->name == stat->symtree->n.sym->name)
-	  gfc_error ("Stat-variable at %L shall not be %sd within "
-		     "the same %s statement", &stat->where, fcn, fcn);
+	  {
+	    gfc_ref *ref1, *ref2;
+	    bool found = true;
+
+	    for (ref1 = p->expr->ref, ref2 = stat->ref; ref1 && ref2;
+		 ref1 = ref1->next, ref2 = ref2->next)
+	      {
+		if (ref1->type != REF_COMPONENT || ref2->type != REF_COMPONENT)
+		  continue;
+		if (ref1->u.c.component->name != ref2->u.c.component->name)
+		  {
+		    found = false;
+		    break;
+		  }
+	      }
+
+	    if (found)
+	      {
+		gfc_error ("Stat-variable at %L shall not be %sd within "
+			   "the same %s statement", &stat->where, fcn, fcn);
+		break;
+	      }
+	  }
     }
 
   /* Check the errmsg variable.  */
@@ -6618,8 +6641,29 @@ resolve_allocate_deallocate (gfc_code *code, const char *fcn)
 
       for (p = code->ext.alloc.list; p; p = p->next)
 	if (p->expr->symtree->n.sym->name == errmsg->symtree->n.sym->name)
-	  gfc_error ("Errmsg-variable at %L shall not be %sd within "
-		     "the same %s statement", &errmsg->where, fcn, fcn);
+	  {
+	    gfc_ref *ref1, *ref2;
+	    bool found = true;
+
+	    for (ref1 = p->expr->ref, ref2 = errmsg->ref; ref1 && ref2;
+		 ref1 = ref1->next, ref2 = ref2->next)
+	      {
+		if (ref1->type != REF_COMPONENT || ref2->type != REF_COMPONENT)
+		  continue;
+		if (ref1->u.c.component->name != ref2->u.c.component->name)
+		  {
+		    found = false;
+		    break;
+		  }
+	      }
+
+	    if (found)
+	      {
+		gfc_error ("Errmsg-variable at %L shall not be %sd within "
+			   "the same %s statement", &errmsg->where, fcn, fcn);
+		break;
+	      }
+	  }
     }
 
   /* Check that an allocate-object appears only once in the statement.  
@@ -10848,7 +10892,7 @@ resolve_fl_derived (gfc_symbol *sym)
 		  c->ts.u.cl = cl;
 		}
 	    }
-	  else if (c->ts.interface->name[0] != '\0' && !sym->attr.vtype)
+	  else if (!sym->attr.vtype && c->ts.interface->name[0] != '\0')
 	    {
 	      gfc_error ("Interface '%s' of procedure pointer component "
 			 "'%s' at %L must be explicit", c->ts.interface->name,
