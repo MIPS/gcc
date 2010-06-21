@@ -1,3 +1,16 @@
+2010-06-21  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/42834
+	* builtins.c (fold_builtin_memory_op): Use ref-all types
+	for all memcpy foldings.
+	* expr.c (store_expr): Handle MEM_REFs from STRING_CSTs.
+
+	testsuite/
+	* c-c++-common/torture/pr42834.c: New testcase.
+	* gcc.dg/tree-prof/stringop-1.c: Adjust.
+	* gfortran.dg/array_memcpy_3.f90: Likewise.
+	* gfortran.dg/array_memcpy_4.f90: Likewise.
+
 2010-06-20  Richard Guenther  <rguenther@suse.de>
 
 	* tree-ssa-alias.c (ao_ref_base_alias_set): Properly differentiate
