@@ -10482,6 +10482,20 @@ base_type_die (tree type)
   switch (TREE_CODE (type))
     {
     case INTEGER_TYPE:
+      if ((dwarf_version >= 4 || !dwarf_strict)
+	  && TYPE_NAME (type)
+	  && TREE_CODE (TYPE_NAME (type)) == TYPE_DECL
+	  && DECL_IS_BUILTIN (TYPE_NAME (type))
+	  && DECL_NAME (TYPE_NAME (type)))
+	{
+	  const char *name = IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (type)));
+	  if (strcmp (name, "char16_t") == 0
+	      || strcmp (name, "char32_t") == 0)
+	    {
+	      encoding = DW_ATE_UTF;
+	      break;
+	    }
+	}
       if (TYPE_STRING_FLAG (type))
 	{
 	  if (TYPE_UNSIGNED (type))
@@ -15236,6 +15250,34 @@ add_src_coords_attributes (dw_die_ref die, tree decl)
   add_AT_unsigned (die, DW_AT_decl_line, s.line);
 }
 
+/* Add DW_AT_{,MIPS_}linkage_name attribute for the given decl.  */
+
+static void
+add_linkage_name (dw_die_ref die, tree decl)
+{
+  if ((TREE_CODE (decl) == FUNCTION_DECL || TREE_CODE (decl) == VAR_DECL)
+       && TREE_PUBLIC (decl)
+       && !DECL_ABSTRACT (decl)
+       && !(TREE_CODE (decl) == VAR_DECL && DECL_REGISTER (decl))
+       && die->die_tag != DW_TAG_member)
+    {
+      /* Defer until we have an assembler name set.  */
+      if (!DECL_ASSEMBLER_NAME_SET_P (decl))
+	{
+	  limbo_die_node *asm_name;
+
+	  asm_name = GGC_CNEW (limbo_die_node);
+	  asm_name->die = die;
+	  asm_name->created_for = decl;
+	  asm_name->next = deferred_asm_name;
+	  deferred_asm_name = asm_name;
+	}
+      else if (DECL_ASSEMBLER_NAME (decl) != DECL_NAME (decl))
+	add_AT_string (die, AT_linkage_name,
+		       IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)));
+    }
+}
+
 /* Add a DW_AT_name attribute and source coordinate attribute for the
    given decl, but only if it actually has a name.  */
 
@@ -15253,26 +15295,7 @@ add_name_and_src_coords_attributes (dw_die_ref die, tree decl)
       if (! DECL_ARTIFICIAL (decl))
 	add_src_coords_attributes (die, decl);
 
-      if ((TREE_CODE (decl) == FUNCTION_DECL || TREE_CODE (decl) == VAR_DECL)
-	  && TREE_PUBLIC (decl)
-	  && !DECL_ABSTRACT (decl)
-	  && !(TREE_CODE (decl) == VAR_DECL && DECL_REGISTER (decl)))
-	{
-	  /* Defer until we have an assembler name set.  */
-	  if (!DECL_ASSEMBLER_NAME_SET_P (decl))
-	    {
-	      limbo_die_node *asm_name;
-
-	      asm_name = GGC_CNEW (limbo_die_node);
-	      asm_name->die = die;
-	      asm_name->created_for = decl;
-	      asm_name->next = deferred_asm_name;
-	      deferred_asm_name = asm_name;
-	    }
-	  else if (DECL_ASSEMBLER_NAME (decl) != DECL_NAME (decl))
-	    add_AT_string (die, AT_linkage_name,
-			   IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)));
-	}
+      add_linkage_name (die, decl);
     }
 
 #ifdef VMS_DEBUGGING_INFO
@@ -16809,6 +16832,9 @@ gen_variable_die (tree decl, tree origin, dw_die_ref context_die)
 
 	  if (get_AT_unsigned (old_die, DW_AT_decl_line) != (unsigned) s.line)
 	    add_AT_unsigned (var_die, DW_AT_decl_line, s.line);
+
+	  if (old_die->die_tag == DW_TAG_member)
+	    add_linkage_name (var_die, decl);
 	}
     }
   else
