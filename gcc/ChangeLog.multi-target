@@ -1,12 +1,51 @@
 2010-06-21  Joern Rennecke  <joern.rennecke@embecosm.com>
 
-	* gengtype.c (open_base_files): Don't include multi-target.h in
-	gtype-desc.h.
-
-	* gengtype.c (struct type): Move potentially narrow enums together.
+	* gengtype.c (IS_EXTRA_TARGET): Define.
+	(struct type): Move potentially narrow enums together.
 	Add type_specific field.
 	(string_type, scalar_nonchar, scalar_char): Update initializers.
+	(ttags_file): New file-scope static variable.
+	(read_input_list): For IS_EXTRA_TARGET, anticipate a [target_files]
+	delimiter, to put all the target-specific files into 'language' 0.
 	(new_structure, find_structure): Initialize target_specific field.
+	(create_file): Update copyright notice.
+	(open_base_files): Don't include multi-target.h in
+	gtype-desc.h, but of IS_EXTRA_TARGET, include gtype-ttags.h.
+	(relevant_type_p): New function.
+	(write_types_process_field, output_type_enum): For IS_EXTRA_TARGET,
+	augment mangling with target name.
+	(write_enum_defn, write_splay_tree_allocator_def): Likewise.
+	(write_types, write_local): Only perform output for relevant types.
+	(write_enum_defn, write_splay_tree_allocators): Likewise.
+	(write_func_for_structure): Likewise.  Remove FIXME kludge.
+	(write_enum_defn): For IS_EXTRA_TARGET, place enumerators into
+	separate file ttags_file, and include multi-target.h and
+	../gtype-desc.h in header_file.
+	(main): For IS_EXTRA_TARGET, wrap declarations / defintions in
+	START_TARGET_SPECIFIC / END_TARGET_SPECIFIC.
+	* gengtype.h (target_specific): Declare.
+	* target.h: Add comment on problem with CUMULATIVE_ARGS.
+	* gengtype-lex.l (target_specific): New variable.
+	(INITIAL): Recognize START_TARGET_SPECIFIC / END_TARGET_SPECIFIC
+	to turn target_specific on and off.
+	* Makefile.in (GGC_H): Add s-extra-gty.
+	[EXTRA_TARGET] (ALL_COMPILERFLAGS): Don't add
+	DEXTRA_TARGET_$(EXTRA_TARGET).
+	(s-extra-gty): New rule and dependencies.
+	<EXTRA_TARGET_RULES> (EXTRA-MAKE-VARS): New variable.
+	<EXTRA_TARGET_RULES> (THIS-TARGET/gtype-ttags.h): New rule.
+	<EXTRA_TARGET_RULES> (THIS-TARGET/s-gtype): Likewise.
+	<EXTRA_TARGET_RULES> (make-THIS-TARGET): Just depend on s-extra-gty;
+	Use EXTRA-MAKE-VARS.
+	(GTFILES-RAW): Put $(out_file) at end.
+	[EXTRA_TARGET] (GTFILES): bracket $(out_file) between [target_files]
+	and [extra_target].
+	(gtype-ttags.h): Depend on s-gtype.
+	(build/gengtype.o): Add EXTRA_TARGETS_FILES and EXTRA_TARGET_STRING
+	to BUILD_CPPFLAGS.
+	* config/rs6000/rs6000.c: Include "multi-target.h" and add
+	START_TARGET_SPECIFIC and END_TARGET_SPECIFC markers.
+	* config/rs6000/rs6000.h: Likewise.
 
 2010-06-20  Joern Rennecke  <joern.rennecke@embecosm.com>
 
