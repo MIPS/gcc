@@ -1,5 +1,9 @@
 2010-06-21  Joern Rennecke  <joern.rennecke@embecosm.com>
 
+	* tree.c, tree.h: Back out cross-target autoparallelization /
+	vectorization code to facilitate the merge of the basic multi-target
+	infrastructure.
+
 	* gengtype.c (IS_EXTRA_TARGET): Define.
 	(struct type): Move potentially narrow enums together.
 	Add type_specific field.
