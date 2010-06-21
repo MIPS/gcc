@@ -770,6 +770,7 @@ struct df_d
 
 extern bitmap_obstack df_bitmap_obstack;
 
+
 /* One of these structures is allocated for every basic block.  */
 struct df_scan_bb_info
 {
@@ -870,6 +871,7 @@ struct df_byte_lr_bb_info
   bitmap_head in;    /* Just before the block itself. */
   bitmap_head out;   /* At the bottom of the block.  */
 };
+
 
 /* This is used for debugging and for the dumpers to find the latest
    instance so that the df info can be added to the dumps.  This
