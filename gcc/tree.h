@@ -1049,12 +1049,6 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
   (TREE_CODE (TYPE) == COMPLEX_TYPE	\
    && TREE_CODE (TREE_TYPE (TYPE)) == REAL_TYPE)
 
-/* Nonzero if TYPE represents a integer floating-point type.  */
-
-#define VECTOR_INT_TYPE_P(TYPE)	\
-  (TREE_CODE (TYPE) == VECTOR_TYPE	\
-   && TREE_CODE (TREE_TYPE (TYPE)) == INTEGER_TYPE)
-
 /* Nonzero if TYPE represents a vector floating-point type.  */
 
 #define VECTOR_FLOAT_TYPE_P(TYPE)	\
