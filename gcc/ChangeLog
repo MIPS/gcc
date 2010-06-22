@@ -1,3 +1,9 @@
+2010-06-22  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	PR bootstrap/44512
+	* genenums.c (main): Output include of insn-constants.h
+	* Makefile.in (insn-enums.o): Depend on insn-constants.h.
+
 2010-06-22  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* config/i386/i386.md (unit): Also check sseishft1.
