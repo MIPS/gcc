@@ -1,5 +1,23 @@
 2010-06-22  Richard Guenther  <rguenther@suse.de>
 
+	* tree-ssa-sccvn.c (may_insert): Remove.
+	(copy_reference_ops_from_ref): Do not set constant offset
+	for MISALIGNED_INDIRECT_REF.  Remove old union trick.
+	(ao_ref_init_from_vn_reference): Likewise.  Properly handle
+	type-based aliasing for MEM_REFs and handle ADDR_EXPR operands
+	for MEM_REFs.
+	(valueize_refs): Re-evaluate constant offset for ARRAY_REFs.
+	(visit_reference_op_load): Do not test may_insert.
+	(run_scc_vn): Remove parameter, do not fiddle with may_insert.
+	* tree-ssa-pre.c (phi_translate_1): Re-evaluate constant offset
+	for ARRAY_REFs.  Properly handle reference lookups that
+	require a bit re-interpretation.
+	(create_expression_by_pieces): Do not test in_fre but
+	availability of the NEW set.
+	(execute_pre): Adjust for changed run_scc_vn signature.
+
+2010-06-22  Richard Guenther  <rguenther@suse.de>
+
 	* gimple.h (maybe_fold_offset_to_reference): Re-export.
 	* gimple-fold.c (maybe_fold_offset_to_reference): Re-export.
 	Use types_compatible_p for type comparison.
