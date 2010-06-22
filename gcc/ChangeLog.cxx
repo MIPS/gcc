@@ -1,3 +1,9 @@
+2010-06-22  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* config/mep/mep.c (mep_expand_builtin): Update to take new
+	struct tag 'insn_data_d' into account.
+	(mep_emit_intrinsic): Likewise.
+
 2010-02-18  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* config/spu/spu.c (ea_load_store_inline): Use add_reg_note.
