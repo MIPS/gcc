@@ -9,6 +9,8 @@
 	* genmodes.c (emit_insn_modes_h): Allow search for maximum mode to
 	progress past other target's modes.
 
+	* var-tracking.c: Back out inclusion of tm_p.h.
+
 2010-06-21  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* tree.c, tree.h: Back out cross-target autoparallelization /
