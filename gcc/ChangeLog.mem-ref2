@@ -1,3 +1,13 @@
+2010-06-22  Richard Guenther  <rguenther@suse.de>
+
+	* gimple.h (maybe_fold_offset_to_reference): Re-export.
+	* gimple-fold.c (maybe_fold_offset_to_reference): Re-export.
+	Use types_compatible_p for type comparison.
+	* tree-inline.c (remap_gimple_op_r): Try to recover array-refs.
+
+	testsuite/
+	* gcc.dg/pr36902.c: Adjust.
+
 2010-06-21  Richard Guenther  <rguenther@suse.de>
 
 	testsuite/

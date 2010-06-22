@@ -244,7 +244,7 @@ maybe_fold_offset_to_array_ref (location_t loc, tree base, tree offset)
 
    Before attempting the conversion strip off existing ADDR_EXPRs.  */
 
-static tree
+tree
 maybe_fold_offset_to_reference (location_t loc, tree base, tree offset,
 				tree orig_type)
 {
@@ -255,12 +255,12 @@ maybe_fold_offset_to_reference (location_t loc, tree base, tree offset,
     return NULL_TREE;
 
   base = TREE_OPERAND (base, 0);
-  if (useless_type_conversion_p (orig_type, TREE_TYPE (base))
+  if (types_compatible_p (orig_type, TREE_TYPE (base))
       && integer_zerop (offset))
     return base;
 
   ret = maybe_fold_offset_to_array_ref (loc, base, offset);
-  if (ret && useless_type_conversion_p (orig_type, TREE_TYPE (ret)))
+  if (ret && types_compatible_p (orig_type, TREE_TYPE (ret)))
     return ret;
   return NULL_TREE;
 }

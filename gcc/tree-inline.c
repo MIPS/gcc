@@ -821,9 +821,37 @@ remap_gimple_op_r (tree *tp, int *walk_subtrees, void *data)
 	  if (n)
 	    {
 	      tree old = *tp;
-	      *tp = fold_build2 (MEM_REF, TREE_TYPE (*tp),
-				 unshare_expr (*n), TREE_OPERAND (*tp, 1));
-	      TREE_THIS_VOLATILE (*tp) = TREE_THIS_VOLATILE (old);
+	      tree ptr = unshare_expr (*n);
+	      tree tem;
+	      if ((tem = maybe_fold_offset_to_reference (EXPR_LOCATION (*tp),
+							 ptr,
+							 TREE_OPERAND (*tp, 1),
+							 TREE_TYPE (*tp)))
+		  && TREE_THIS_VOLATILE (tem) == TREE_THIS_VOLATILE (old))
+		{
+		  tree *tem_basep = &tem;
+		  while (handled_component_p (*tem_basep))
+		    tem_basep = &TREE_OPERAND (*tem_basep, 0);
+		  if (TREE_CODE (*tem_basep) == MEM_REF)
+		    *tem_basep
+		      = build2 (MEM_REF, TREE_TYPE (*tem_basep),
+				TREE_OPERAND (*tem_basep, 0),
+				fold_convert (TREE_TYPE (TREE_OPERAND (*tp, 1)),
+					      TREE_OPERAND (*tem_basep, 1)));
+		  else
+		    *tem_basep
+		      = build2 (MEM_REF, TREE_TYPE (*tem_basep),
+				build_fold_addr_expr (*tem_basep),
+				build_int_cst
+				  (TREE_TYPE (TREE_OPERAND (*tp, 1)), 0));
+		  *tp = tem;
+		}
+	      else
+		{
+		  *tp = fold_build2 (MEM_REF, TREE_TYPE (*tp),
+				     ptr, TREE_OPERAND (*tp, 1));
+		  TREE_THIS_VOLATILE (*tp) = TREE_THIS_VOLATILE (old);
+		}
 	      TREE_NO_WARNING (*tp) = TREE_NO_WARNING (old);
 	      *walk_subtrees = 0;
 	      return NULL;

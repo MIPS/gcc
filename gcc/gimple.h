@@ -4806,6 +4806,7 @@ tree gimple_fold_builtin (gimple);
 bool fold_stmt (gimple_stmt_iterator *);
 bool fold_stmt_inplace (gimple);
 tree maybe_fold_offset_to_address (location_t, tree, tree, tree);
+tree maybe_fold_offset_to_reference (location_t, tree, tree, tree);
 tree maybe_fold_stmt_addition (location_t, tree, tree, tree);
 tree get_symbol_constant_value (tree);
 bool may_propagate_address_into_dereference (tree, tree);
