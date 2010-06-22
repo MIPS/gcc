@@ -1,3 +1,11 @@
+2010-06-22  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2010-06-21  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/44615
+	* gcc.target/i386/sse2-vec-2a.c: New.
+
 2009-10-31  H.J. Lu  <hongjiu.lu@intel.com>
 
 	Backport from mainline:
