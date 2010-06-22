@@ -8,28 +8,33 @@ Unfortunately, virtual static member functions are not supported by the C++
 language.  And even if they were, it would require lots of code changes to
 use them throughout.
 
-The target vector has to be broken up into a target ABI part,
+The target vector can be considered to be comprised of a target ABI part,
 a target architecture part - or a set of target architecture parts,
 and a target architectures heuristics part;
 the latter guides tree optimizations depending on the set of target
 architectures, e.g. the tree vectorizer wants a notion of UNITS_PER_WORD
 and the set of vector modes supported, even though these are really a
 function of the target architecture.
+Each target architecture has its own target vector; the one of the main target
+generally defines what the semantics of the program are (e.g type sizes),
+and when doing automatic cross-target optimizations, the other target
+vectors should be inspected to determine what transformations are valid.
 
 Targets are expected to be uniform with respect to targetm.have_ctors_dtors.
 (Otherwise cgraphunit would need to be target architecture specific.)
 
-The passes have to be broken up into a set of tree passes and a set of
+The passes are broadly divided into a set of tree passes and a set of
 rtl passes.  rtl passes are target architecture specific, and use a target
 architecture pass manager in the target architecture namespace.
+There are exceptions to that rule, though - target - dependent code that
+handles trees, and target-independent code that handles rtl.
 
-For each extra target architecture, there is a constructor which adds a target
-architecture vector with an architecture specific pass list (starting with
-rtl expansion) to a list of target architectures.
+The expand pass dispatches to different pass lists for each target
+architecture.
 
-x_rtl (crtl) is target architecture specific because state has to be saved
-across functions of the same architecture in order to support constant
-pools shared across functions.
+There is a case to be made to make x_rtl (crtl) target architecture specific
+because state has to be saved across functions of the same architecture in
+order to support constant pools shared across functions.
 
 Some parameters will need to be able to hold different values for different
 target architectures, e.g. PARAM_PREDICTABLE_BRANCH_OUTCOME (which requires
