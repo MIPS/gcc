@@ -228,6 +228,9 @@ pre_expr_hash (const void *p1)
 
 
 /* Next global expression id number.  */
+/* By reserving the id number 0, we can catch some ininitialized data
+   issues that can happen when optimizer components of different target
+   architectures get mixed up.  */
 static unsigned int next_expression_id = 1;
 
 /* Mapping from expression to id number we can use in bitmap sets.  */
