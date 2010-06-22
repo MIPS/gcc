@@ -23,11 +23,20 @@ vectors should be inspected to determine what transformations are valid.
 Targets are expected to be uniform with respect to targetm.have_ctors_dtors.
 (Otherwise cgraphunit would need to be target architecture specific.)
 
+BITS_PER_UNIT must also be unchanging; otherwise we'd have to redefine trees
+size meansures to be independent of BITS_PER_UNIT.
+
 The passes are broadly divided into a set of tree passes and a set of
 rtl passes.  rtl passes are target architecture specific, and use a target
 architecture pass manager in the target architecture namespace.
 There are exceptions to that rule, though - target - dependent code that
 handles trees, and target-independent code that handles rtl.
+
+Generally, passes that work on rtl are included without checking for
+evidence that they actually depend on the target architecture, since they
+could reasonably depend on it, and changing the dependencies and build
+system all the time for what should be implementation choices seems to
+promote too much churn.
 
 The expand pass dispatches to different pass lists for each target
 architecture.
