@@ -6,6 +6,9 @@
 	* function.h: Likewise.  Remove forward declaration of struct
 	initial_value_struct.
 
+	* genmodes.c (emit_insn_modes_h): Allow search for maximum mode to
+	progress past other target's modes.
+
 2010-06-21  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* tree.c, tree.h: Back out cross-target autoparallelization /

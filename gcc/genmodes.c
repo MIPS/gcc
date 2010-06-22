@@ -1032,8 +1032,9 @@ enum machine_mode\n{");
     {
       first = modes[c];
       last = 0;
-      for (m = first; m && !m->target; last = m, m = m->next)
-	;
+      for (m = first; m; m = m->next)
+	if (!m->target)
+	  last = m;
 
       /* Don't use BImode for MIN_MODE_INT, since otherwise the middle
 	 end will try to use it for bitfields in structures and the
