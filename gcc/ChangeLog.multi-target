@@ -1,3 +1,7 @@
+2010-06-22  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* genmodes.c: Remove print_maybe_const_decl cleanup.
+
 2010-06-21  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* tree.c, tree.h: Back out cross-target autoparallelization /

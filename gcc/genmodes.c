@@ -995,10 +995,8 @@ calc_wider_mode (void)
   puts ("\nconst " TYPE " " NAME "[" ASIZE "] =\n{");
 
 #define print_maybe_const_decl(TYPE, NAME, ASIZE, CATEGORY)	\
-  printf ("\n%s" TYPE " " NAME "[" ASIZE "] = \n{\n",		\
-	  (adj_##CATEGORY \
-	   ? "" \
-	   : "extern const " TYPE " " NAME "[" ASIZE "];\nconst "));
+  printf ("\n" TYPE " " NAME "[" ASIZE "] = \n{\n",		\
+	  adj_##CATEGORY ? "" : "const ")
 
 #define print_closer() puts ("};")
 
@@ -1161,7 +1159,7 @@ emit_mode_size (void)
   int c;
   struct mode_data *m;
 
-  print_maybe_const_decl ("unsigned char", "mode_size",
+  print_maybe_const_decl ("%sunsigned char", "mode_size",
 			  "NUM_MACHINE_MODES", bytesize);
 
   for_all_modes (c, m)
@@ -1281,7 +1279,7 @@ emit_mode_base_align (void)
   int c;
   struct mode_data *m;
 
-  print_maybe_const_decl ("unsigned char",
+  print_maybe_const_decl ("%sunsigned char",
 			  "mode_base_align", "NUM_MACHINE_MODES",
 			  alignment);
 
@@ -1489,7 +1487,7 @@ emit_mode_ibit (void)
   int c;
   struct mode_data *m;
 
-  print_maybe_const_decl ("unsigned char",
+  print_maybe_const_decl ("%sunsigned char",
 			  "mode_ibit", "NUM_MACHINE_MODES",
 			  ibit);
 
@@ -1507,7 +1505,7 @@ emit_mode_fbit (void)
   int c;
   struct mode_data *m;
 
-  print_maybe_const_decl ("unsigned char",
+  print_maybe_const_decl ("%sunsigned char",
 			  "mode_fbit", "NUM_MACHINE_MODES",
 			  fbit);
 
