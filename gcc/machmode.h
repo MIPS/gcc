@@ -27,6 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-modes.h"
 
 /* Get the name of mode MODE as a string.  */
+
 extern const char * const mode_name[NUM_MACHINE_MODES];
 #define GET_MODE_NAME(MODE)  mode_name[MODE]
 

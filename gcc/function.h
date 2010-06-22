@@ -99,6 +99,7 @@ struct GTY(()) emit_status {
   unsigned char * GTY((skip)) regno_pointer_align;
 };
 
+
 /* Indexed by pseudo register number, gives the rtx for that pseudo.
    Allocated in parallel with regno_pointer_align.
    FIXME: We could put it into emit_status struct, but gengtype is not able to deal
@@ -269,8 +270,6 @@ struct GTY(()) frame_space
   HOST_WIDE_INT start;
   HOST_WIDE_INT length;
 };
-
-struct initial_value_struct;
 
 /* Datastructures maintained for currently processed function in RTL form.  */
 struct GTY(()) rtl_data {

@@ -2,6 +2,10 @@
 
 	* genmodes.c: Remove print_maybe_const_decl cleanup.
 
+	* targhooks.h, machmode.h, gengtype.c: Remove whitespace change.
+	* function.h: Likewise.  Remove forward declaration of struct
+	initial_value_struct.
+
 2010-06-21  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* tree.c, tree.h: Back out cross-target autoparallelization /

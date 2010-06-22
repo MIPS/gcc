@@ -435,7 +435,6 @@ read_input_list (const char *listname)
 	  else if (is_language)
 	    {
 	      size_t i;
-
 	      gcc_assert (langno <= num_lang_dirs);
 	      for (i = 0; i < langno; i++)
 		if (strcmp (lang_dir_names[i], line) == 0)

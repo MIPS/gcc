@@ -27,7 +27,6 @@ extern bool default_legitimate_address_p (enum machine_mode, rtx, bool);
 extern void default_external_libcall (rtx);
 
 extern int default_unspec_may_trap_p (const_rtx, unsigned);
-
 extern enum machine_mode default_promote_function_mode (const_tree, enum machine_mode,
 							int *, const_tree, int);
 extern enum machine_mode default_promote_function_mode_always_promote
