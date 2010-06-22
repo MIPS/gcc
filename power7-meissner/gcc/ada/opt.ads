@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2009, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2010, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -41,8 +41,11 @@
 with Hostparm; use Hostparm;
 with Types;    use Types;
 
+pragma Warnings (Off);
+--  This package is used also by gnatcoll
 with System.Strings; use System.Strings;
 with System.WCh_Con; use System.WCh_Con;
+pragma Warnings (On);
 
 package Opt is
 
@@ -172,6 +175,15 @@ package Opt is
    --  also set true if certain Unchecked_Conversion instantiations require
    --  checking based on annotated values.
 
+   Back_End_Handles_Limited_Types : Boolean;
+   --  This flag is set true if the back end can properly handle limited or
+   --  other by reference types, and avoid copies. If this flag is False, then
+   --  the front end does special expansion for conditional expressions to make
+   --  sure that no copy occurs. If the flag is True, then the expansion for
+   --  conditional expressions relies on the back end properly handling things.
+   --  Currently the default is False for all cases (set in gnat1drv). The
+   --  default can be modified using -gnatd.L (sets the flag True).
+
    Bind_Alternate_Main_Name : Boolean := False;
    --  GNATBIND
    --  True if main should be called Alternate_Main_Name.all.
@@ -183,8 +195,8 @@ package Opt is
 
    Bind_For_Library : Boolean := False;
    --  GNATBIND
-   --  Set to True if the binder needs to generate a file designed for
-   --  building a library. May be set to True by Gnatbind.Scan_Bind_Arg.
+   --  Set to True if the binder needs to generate a file designed for building
+   --  a library. May be set to True by Gnatbind.Scan_Bind_Arg.
 
    Bind_Only : Boolean := False;
    --  GNATMAKE, GPRMAKE, GPRBUILD
@@ -224,7 +236,10 @@ package Opt is
    --  GNAT
    --  This points to the list of N_Pragma nodes for Check_Policy pragmas
    --  that are linked through the Next_Pragma fields, with the list being
-   --  terminated by Empty. The order is most recently processed first.
+   --  terminated by Empty. The order is most recently processed first. Note
+   --  that Push_Scope and Pop_Scope in Sem_Ch8 save and restore the value
+   --  of this variable, implementing the required scope control for pragmas
+   --  appearing a declarative part.
 
    Check_Readonly_Files : Boolean := False;
    --  GNATMAKE
@@ -450,8 +465,8 @@ package Opt is
                            Front_End_Setjmp_Longjmp_Exceptions;
    --  GNAT
    --  Set to the appropriate value depending on the default as given in
-   --  system.ads (ZCX_By_Default, GCC_ZCX_Support).
-   --  The C convention is there to make this variable accessible to gigi.
+   --  system.ads (ZCX_By_Default, GCC_ZCX_Support). The C convention is there
+   --  to make this variable accessible to gigi.
 
    Exception_Tracebacks : Boolean := False;
    --  GNATBIND
@@ -939,9 +954,17 @@ package Opt is
    --  GNATBIND
    --  True if output of list of linker options is requested (-K switch set)
 
-   Output_Object_List : Boolean := False;
+   Output_ALI_List   : Boolean := False;
+   ALI_List_Filename : String_Ptr;
    --  GNATBIND
-   --  True if output of list of objects is requested (-O switch set)
+   --  True if output of list of ALIs is requested (-A switch set). List is
+   --  output under the given filename, or standard output if not specified.
+
+   Output_Object_List   : Boolean := False;
+   Object_List_Filename : String_Ptr;
+   --  GNATBIND
+   --  True if output of list of objects is requested (-O switch set). List is
+   --  output under the given filename, or standard output if not specified.
 
    Overflow_Checks_Unsuppressed : Boolean := False;
    --  GNAT
@@ -1226,10 +1249,22 @@ package Opt is
    --  set True, and upper half characters in the source indicate the start of
    --  a wide character sequence. Set by -gnatW or -W switches.
 
+   Use_Include_Path_File : Boolean := False;
+   --  GNATMAKE, GPRBUILD
+   --  When True, create a source search path file, even when a mapping file
+   --  is used.
+
    Usage_Requested : Boolean := False;
    --  GNAT, GNATBIND, GNATMAKE
    --  Set to True if -h (-gnath for the compiler) switch encountered
    --  requesting usage information
+
+   Use_Expression_With_Actions : Boolean;
+   --  The N_Expression_With_Actions node has been introduced relatively
+   --  recently, and not all back ends are prepared to handle it yet. So
+   --  we use this flag to suppress its use during a transitional period.
+   --  Currently the default is False for all cases (set in gnat1drv).
+   --  The default can be modified using -gnatd.X/-gnatd.Y.
 
    Use_Pragma_Linker_Constructor : Boolean := False;
    --  GNATBIND

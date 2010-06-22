@@ -892,7 +892,7 @@ remap_gimple_op_r (tree *tp, int *walk_subtrees, void *data)
 	  int invariant = is_gimple_min_invariant (*tp);
 	  tree block = id->block;
 	  id->block = NULL_TREE;
-	  walk_tree (&TREE_OPERAND (*tp, 0), copy_tree_body_r, id, NULL);
+	  walk_tree (&TREE_OPERAND (*tp, 0), remap_gimple_op_r, data, NULL);
 	  id->block = block;
 
 	  /* Handle the case where we substituted an INDIRECT_REF
@@ -2701,25 +2701,6 @@ declare_return_variable (copy_body_data *id, tree return_slot, tree modify_dest)
 	     via return slot optimization are not believed to have address
 	     taken by alias analysis.  */
 	  gcc_assert (TREE_CODE (return_slot) != SSA_NAME);
-	  if (gimple_in_ssa_p (cfun))
-	    {
-	      HOST_WIDE_INT bitsize;
-	      HOST_WIDE_INT bitpos;
-	      tree offset;
-	      enum machine_mode mode;
-	      int unsignedp;
-	      int volatilep;
-	      tree base;
-	      base = get_inner_reference (return_slot, &bitsize, &bitpos,
-					  &offset,
-					  &mode, &unsignedp, &volatilep,
-					  false);
-	      if (TREE_CODE (base) == INDIRECT_REF)
-		base = TREE_OPERAND (base, 0);
-	      if (TREE_CODE (base) == SSA_NAME)
-		base = SSA_NAME_VAR (base);
-	      mark_sym_for_renaming (base);
-	    }
 	  var = return_slot_addr;
 	}
       else
@@ -3774,7 +3755,7 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
 	  && cgraph_global_info_ready)
 	{
 	  sorry ("inlining failed in call to %q+F: %s", fn,
-		 cgraph_inline_failed_string (reason));
+		 _(cgraph_inline_failed_string (reason)));
 	  sorry ("called from here");
 	}
       else if (warn_inline && DECL_DECLARED_INLINE_P (fn)
@@ -3785,7 +3766,7 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
 	       && cgraph_global_info_ready)
 	{
 	  warning (OPT_Winline, "inlining failed in call to %q+F: %s",
-		   fn, cgraph_inline_failed_string (reason));
+		   fn, _(cgraph_inline_failed_string (reason)));
 	  warning (OPT_Winline, "called from here");
 	}
       goto egress;

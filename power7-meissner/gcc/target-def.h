@@ -84,6 +84,10 @@
 #define TARGET_ASM_INTERNAL_LABEL default_internal_label
 #endif
 
+#ifndef TARGET_ASM_DECLARE_CONSTANT_NAME
+#define TARGET_ASM_DECLARE_CONSTANT_NAME default_asm_declare_constant_name
+#endif
+
 #ifndef TARGET_ASM_TTYPE
 #define TARGET_ASM_TTYPE hook_bool_rtx_false
 #endif
@@ -297,6 +301,7 @@
 			TARGET_ASM_EMIT_EXCEPT_TABLE_LABEL,	\
 			TARGET_UNWIND_EMIT,			\
 			TARGET_ASM_INTERNAL_LABEL,		\
+			TARGET_ASM_DECLARE_CONSTANT_NAME,	\
 			TARGET_ASM_TTYPE,			\
 			TARGET_ASM_ASSEMBLE_VISIBILITY,		\
 			TARGET_ASM_FUNCTION_PROLOGUE,		\
@@ -417,7 +422,8 @@
   default_builtin_vectorized_conversion
 #define TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_EVEN 0
 #define TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_ODD 0
-#define TARGET_VECTORIZE_BUILTIN_VECTORIZATION_COST 0
+#define TARGET_VECTORIZE_BUILTIN_VECTORIZATION_COST \
+  default_builtin_vectorization_cost
 #define TARGET_VECTOR_ALIGNMENT_REACHABLE \
   default_builtin_vector_alignment_reachable
 #define TARGET_VECTORIZE_BUILTIN_VEC_PERM 0
@@ -467,6 +473,10 @@
 /* In cse.c.  */
 #define TARGET_ADDRESS_COST default_address_cost
 #define TARGET_CONST_ANCHOR 0
+
+#ifndef TARGET_MEMORY_MOVE_COST
+#define TARGET_MEMORY_MOVE_COST default_memory_move_cost
+#endif
 
 /* In builtins.c.  */
 #define TARGET_INIT_BUILTINS hook_void_void
@@ -1017,6 +1027,7 @@
   TARGET_ADDR_SPACE_HOOKS,			\
   TARGET_SCALAR_MODE_SUPPORTED_P,		\
   TARGET_VECTOR_MODE_SUPPORTED_P,               \
+  TARGET_MEMORY_MOVE_COST, 			\
   TARGET_SMALL_REGISTER_CLASSES_FOR_MODE_P,	\
   TARGET_RTX_COSTS,				\
   TARGET_ADDRESS_COST,				\

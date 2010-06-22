@@ -476,6 +476,36 @@ default_builtin_vectorized_conversion (unsigned int code ATTRIBUTE_UNUSED,
   return NULL_TREE;
 }
 
+/* Default vectorizer cost model values.  */
+
+int
+default_builtin_vectorization_cost (enum vect_cost_for_stmt type_of_cost)
+{
+  switch (type_of_cost)
+    {
+      case scalar_stmt:
+      case scalar_load:
+      case scalar_store:
+      case vector_stmt:
+      case vector_load:
+      case vector_store:
+      case vec_to_scalar:
+      case scalar_to_vec:
+      case cond_branch_not_taken:
+      case vec_perm:
+        return 1;
+
+      case unaligned_load:
+        return 2;
+
+      case cond_branch_taken:
+        return 3;
+
+      default:
+        gcc_unreachable ();
+    }
+}
+
 /* Reciprocal.  */
 
 tree
@@ -642,11 +672,6 @@ default_function_value (const_tree ret_type ATTRIBUTE_UNUSED,
   if (fn_decl_or_type
       && !DECL_P (fn_decl_or_type))
     fn_decl_or_type = NULL;
-
-#ifdef FUNCTION_OUTGOING_VALUE
-  if (outgoing)
-    return FUNCTION_OUTGOING_VALUE (ret_type, fn_decl_or_type);
-#endif
 
 #ifdef FUNCTION_VALUE
   return FUNCTION_VALUE (ret_type, fn_decl_or_type);
@@ -1085,6 +1110,20 @@ default_have_conditional_execution (void)
   return HAVE_conditional_execution;
 #else
   return false;
+#endif
+}
+
+/* Compute cost of moving registers to/from memory.  */
+
+int
+default_memory_move_cost (enum machine_mode mode ATTRIBUTE_UNUSED,
+			  enum reg_class rclass ATTRIBUTE_UNUSED,
+			  bool in ATTRIBUTE_UNUSED)
+{
+#ifndef MEMORY_MOVE_COST
+    return (4 + memory_move_secondary_cost (mode, rclass, in));
+#else
+    return MEMORY_MOVE_COST (mode, rclass, in);
 #endif
 }
 

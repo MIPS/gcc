@@ -512,8 +512,9 @@ cgraph_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 
    FIXME: This can not be done in between gimplify and omp_expand since
    readonly flag plays role on what is shared and what is not.  Currently we do
-   this transformation as part of ipa-reference pass, but it would make sense
-   to do it before early optimizations.  */
+   this transformation as part of whole program visibility and re-do at
+   ipa-reference pass (to take into account clonning), but it would
+   make sense to do it before early optimizations.  */
 
 void
 ipa_discover_readonly_nonaddressable_vars (void)
@@ -825,6 +826,8 @@ whole_program_function_and_variable_visibility (void)
 	  fprintf (dump_file, " %s", varpool_node_name (vnode));
       fprintf (dump_file, "\n\n");
     }
+  if (optimize)
+    ipa_discover_readonly_nonaddressable_vars ();
   return 0;
 }
 
@@ -884,7 +887,7 @@ cgraph_node_set_new (void)
 {
   cgraph_node_set new_node_set;
 
-  new_node_set = GGC_NEW (struct cgraph_node_set_def);
+  new_node_set = ggc_alloc_cgraph_node_set_def ();
   new_node_set->hashtab = htab_create_ggc (10,
 					   hash_cgraph_node_set_element,
 					   eq_cgraph_node_set_element,
@@ -915,8 +918,7 @@ cgraph_node_set_add (cgraph_node_set set, struct cgraph_node *node)
     }
 
   /* Insert node into hash table.  */
-  element =
-    (cgraph_node_set_element) GGC_NEW (struct cgraph_node_set_element_def);
+  element = ggc_alloc_cgraph_node_set_element_def ();
   element->node = node;
   element->index = VEC_length (cgraph_node_ptr, set->nodes);
   *slot = element;
@@ -1042,7 +1044,7 @@ varpool_node_set_new (void)
 {
   varpool_node_set new_node_set;
 
-  new_node_set = GGC_NEW (struct varpool_node_set_def);
+  new_node_set = ggc_alloc_varpool_node_set_def ();
   new_node_set->hashtab = htab_create_ggc (10,
 					   hash_varpool_node_set_element,
 					   eq_varpool_node_set_element,
@@ -1073,8 +1075,7 @@ varpool_node_set_add (varpool_node_set set, struct varpool_node *node)
     }
 
   /* Insert node into hash table.  */
-  element =
-    (varpool_node_set_element) GGC_NEW (struct varpool_node_set_element_def);
+  element = ggc_alloc_varpool_node_set_element_def ();
   element->node = node;
   element->index = VEC_length (varpool_node_ptr, set->nodes);
   *slot = element;

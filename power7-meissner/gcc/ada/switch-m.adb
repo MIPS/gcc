@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2001-2009, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2010, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -215,10 +215,10 @@ package body Switch.M is
 
                   --  One-letter switches
 
-                  when 'a' | 'A' | 'b' | 'c' | 'D' | 'E' | 'f' |
-                    'F' | 'g' | 'h' | 'H' | 'k' | 'l' | 'L' | 'n' | 'N' |
-                    'o' | 'O' | 'p' | 'P' | 'q' | 'Q' | 'r' | 's' | 't' |
-                    'u' | 'U' | 'v' | 'x' | 'X' | 'Z' =>
+                  when 'a' | 'A' | 'b' | 'c' | 'D' | 'E' | 'f' | 'F' |
+                       'g' | 'h' | 'H' | 'l' | 'L' | 'n' | 'N' | 'o' |
+                       'O' | 'p' | 'P' | 'q' | 'Q' | 'r' | 's' | 't' |
+                       'u' | 'U' | 'v' | 'x' | 'X' | 'Z' =>
                      Storing (First_Stored) := C;
                      Add_Switch_Component
                        (Storing (Storing'First .. First_Stored));
@@ -226,7 +226,7 @@ package body Switch.M is
 
                   --  One-letter switches followed by a positive number
 
-                  when 'm' | 'T' =>
+                  when 'k' | 'm' | 'T' =>
                      Storing (First_Stored) := C;
                      Last_Stored := First_Stored;
 
@@ -584,6 +584,9 @@ package body Switch.M is
                   (Switch_Chars'First + Subdirs_Option'Length ..
                    Switch_Chars'Last));
 
+         elsif Switch_Chars = Makeutl.Unchecked_Shared_Lib_Imports then
+            Opt.Unchecked_Shared_Lib_Imports := True;
+
          elsif Switch_Chars (Ptr) = '-' then
             Bad_Switch (Switch_Chars);
 
@@ -839,6 +842,7 @@ package body Switch.M is
 
                when 'x' =>
                   External_Unit_Compilation_Allowed := True;
+                  Use_Include_Path_File := True;
 
                   --  Processing for z switch
 

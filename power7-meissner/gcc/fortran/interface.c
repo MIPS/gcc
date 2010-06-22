@@ -1435,6 +1435,16 @@ compare_parameter (gfc_symbol *formal, gfc_expr *actual,
       return 1;
     }
 
+  /* F2008, C1241.  */
+  if (formal->attr.pointer && formal->attr.contiguous
+      && !gfc_is_simply_contiguous (actual, true))
+    {
+      if (where)
+	gfc_error ("Actual argument to contiguous pointer dummy '%s' at %L "
+		   "must be simply contigous", formal->name, &actual->where);
+      return 0;
+    }
+
   if ((actual->expr_type != EXPR_NULL || actual->ts.type != BT_UNKNOWN)
       && !gfc_compare_types (&formal->ts, &actual->ts))
     {
@@ -1502,6 +1512,34 @@ compare_parameter (gfc_symbol *formal, gfc_expr *actual,
 			: actual->symtree->n.sym->as->corank);
 	  return 0;
 	}
+
+      /* F2008, 12.5.2.8.  */
+      if (formal->attr.dimension
+	  && (formal->attr.contiguous || formal->as->type != AS_ASSUMED_SHAPE)
+	  && !gfc_is_simply_contiguous (actual, true))
+	{
+	  if (where)
+	    gfc_error ("Actual argument to '%s' at %L must be simply "
+		       "contiguous", formal->name, &actual->where);
+	  return 0;
+	}
+    }
+
+  /* F2008, C1239/C1240.  */
+  if (actual->expr_type == EXPR_VARIABLE
+      && (actual->symtree->n.sym->attr.asynchronous
+         || actual->symtree->n.sym->attr.volatile_)
+      &&  (formal->attr.asynchronous || formal->attr.volatile_)
+      && actual->rank && !gfc_is_simply_contiguous (actual, true)
+      && ((formal->as->type != AS_ASSUMED_SHAPE && !formal->attr.pointer)
+	  || formal->attr.contiguous))
+    {
+      if (where)
+	gfc_error ("Dummy argument '%s' has to be a pointer or assumed-shape "
+		   "array without CONTIGUOUS attribute - as actual argument at"
+		   " %L is not simply contiguous and both are ASYNCHRONOUS "
+		   "or VOLATILE", formal->name, &actual->where);
+      return 0;
     }
 
   if (symbol_rank (formal) == actual->rank)
@@ -1821,8 +1859,8 @@ get_expr_storage_size (gfc_expr *e)
    which has a vector subscript. If it has, one is returned,
    otherwise zero.  */
 
-static int
-has_vector_subscript (gfc_expr *e)
+int
+gfc_has_vector_subscript (gfc_expr *e)
 {
   int i;
   gfc_ref *ref;
@@ -2133,13 +2171,15 @@ compare_actual_formal (gfc_actual_arglist **ap, gfc_formal_arglist *formal,
 
       if ((f->sym->attr.intent == INTENT_OUT
 	   || f->sym->attr.intent == INTENT_INOUT
-	   || f->sym->attr.volatile_)
-          && has_vector_subscript (a->expr))
+	   || f->sym->attr.volatile_
+	   || f->sym->attr.asynchronous)
+	  && gfc_has_vector_subscript (a->expr))
 	{
 	  if (where)
-	    gfc_error ("Array-section actual argument with vector subscripts "
-		       "at %L is incompatible with INTENT(OUT), INTENT(INOUT) "
-		       "or VOLATILE attribute of the dummy argument '%s'",
+	    gfc_error ("Array-section actual argument with vector "
+		       "subscripts at %L is incompatible with INTENT(OUT), "
+		       "INTENT(INOUT), VOLATILE or ASYNCHRONOUS attribute "
+		       "of the dummy argument '%s'",
 		       &a->expr->where, f->sym->name);
 	  return 0;
 	}

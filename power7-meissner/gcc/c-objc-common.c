@@ -24,7 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "c-tree.h"
 #include "intl.h"
-#include "c-pretty-print.h"
+#include "c-family/c-pretty-print.h"
 #include "flags.h"
 #include "diagnostic.h"
 #include "tree-pretty-print.h"
@@ -89,7 +89,7 @@ static bool
 c_tree_printer (pretty_printer *pp, text_info *text, const char *spec,
 		int precision, bool wide, bool set_locus, bool hash)
 {
-  tree t;
+  tree t = NULL_TREE;
   tree name;
   c_pretty_printer *cpp = (c_pretty_printer *) pp;
   pp->padding = pp_none;

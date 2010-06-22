@@ -30,7 +30,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "tree.h"
 #include "cp-tree.h"
-#include "c-common.h"
+#include "c-family/c-common.h"
 #include "tree-inline.h"
 #include "tree-mudflap.h"
 #include "except.h"
@@ -1219,7 +1219,7 @@ finish_asm_stmt (int volatile_p, tree string, tree output_operands,
       tree operand;
       int i;
 
-      oconstraints = (const char **) alloca (noutputs * sizeof (char *));
+      oconstraints = XALLOCAVEC (const char *, noutputs);
 
       string = resolve_asm_operand_names (string, output_operands,
 					  input_operands, labels);
@@ -3255,6 +3255,7 @@ simplify_aggr_init_expr (tree *tp)
 				    fn,
 				    aggr_init_expr_nargs (aggr_init_expr),
 				    AGGR_INIT_EXPR_ARGP (aggr_init_expr));
+  TREE_NOTHROW (call_expr) = TREE_NOTHROW (aggr_init_expr);
 
   if (style == ctor)
     {
@@ -5151,7 +5152,8 @@ check_trait_type (tree type)
   if (COMPLETE_TYPE_P (type))
     return true;
 
-  if (TREE_CODE (type) == ARRAY_TYPE && !TYPE_DOMAIN (type))
+  if (TREE_CODE (type) == ARRAY_TYPE && !TYPE_DOMAIN (type)
+      && COMPLETE_TYPE_P (TREE_TYPE (type)))
     return true;
 
   if (VOID_TYPE_P (type))

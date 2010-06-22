@@ -598,6 +598,8 @@ show_attr (symbol_attribute *attr)
     fputs (" CODIMENSION", dumpfile);
   if (attr->dimension)
     fputs (" DIMENSION", dumpfile);
+  if (attr->contiguous)
+    fputs (" CONTIGUOUS", dumpfile);
   if (attr->external)
     fputs (" EXTERNAL", dumpfile);
   if (attr->intrinsic)
@@ -853,7 +855,7 @@ show_symbol (gfc_symbol *sym)
 	}
     }
 
-  if (sym->formal_ns)
+  if (sym->formal_ns && (sym->formal_ns->proc_name != sym))
     {
       show_indent ();
       fputs ("Formal namespace", dumpfile);

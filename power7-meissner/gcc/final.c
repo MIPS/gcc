@@ -220,7 +220,6 @@ static void output_asm_name (void);
 static void output_alternate_entry_point (FILE *, rtx);
 static tree get_mem_expr_from_op (rtx, int *);
 static void output_asm_operand_names (rtx *, int *, int);
-static void output_operand (rtx, int);
 #ifdef LEAF_REGISTERS
 static void leaf_renumber_regs (rtx);
 #endif
@@ -1897,8 +1896,9 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	case NOTE_INSN_EPILOGUE_BEG:
 #if defined (DWARF2_UNWIND_INFO) && defined (HAVE_epilogue)
 	  if (dwarf2out_do_frame ())
-	    dwarf2out_begin_epilogue (insn);
+	    dwarf2out_cfi_begin_epilogue (insn);
 #endif
+	  (*debug_hooks->begin_epilogue) (last_linenum, last_filename);
 	  targetm.asm_out.function_begin_epilogue (file);
 	  break;
 
@@ -3478,7 +3478,7 @@ mark_symbol_refs_as_used (rtx x)
    The meanings of the letters are machine-dependent and controlled
    by TARGET_PRINT_OPERAND.  */
 
-static void
+void
 output_operand (rtx x, int code ATTRIBUTE_UNUSED)
 {
   if (x && GET_CODE (x) == SUBREG)

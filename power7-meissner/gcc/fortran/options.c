@@ -541,10 +541,6 @@ gfc_handle_option (size_t scode, const char *arg, int value,
   int result = 1;
   enum opt_code code = (enum opt_code) scode;
 
-  /* Ignore file names.  */
-  if (code == N_OPTS)
-    return 1;
-
   if (gfc_cpp_handle_option (scode, arg, value) == 1)
     return 1;
 
@@ -902,7 +898,7 @@ gfc_handle_option (size_t scode, const char *arg, int value,
       break;
 
     case OPT_fshort_enums:
-      flag_short_enums = 1;
+      /* Handled in language-independent code.  */
       break;
 
     case OPT_fconvert_little_endian:
@@ -938,7 +934,7 @@ gfc_handle_option (size_t scode, const char *arg, int value,
       break;
 
     case OPT_frecursive:
-      gfc_option.flag_recursive = 1;
+      gfc_option.flag_recursive = value;
       break;
 
     case OPT_falign_commons:

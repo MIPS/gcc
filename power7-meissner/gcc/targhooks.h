@@ -77,6 +77,8 @@ extern tree default_builtin_vectorized_function (tree, tree, tree);
 
 extern tree default_builtin_vectorized_conversion (unsigned int, tree, tree);
 
+extern int default_builtin_vectorization_cost (enum vect_cost_for_stmt);
+
 extern tree default_builtin_reciprocal (unsigned int, bool, bool);
 
 extern bool default_builtin_vector_alignment_reachable (const_tree, bool);
@@ -137,3 +139,4 @@ extern bool default_addr_space_subset_p (addr_space_t, addr_space_t);
 extern rtx default_addr_space_convert (rtx, tree, tree);
 extern unsigned int default_case_values_threshold (void);
 extern bool default_have_conditional_execution (void);
+extern int default_memory_move_cost (enum machine_mode, enum reg_class, bool);

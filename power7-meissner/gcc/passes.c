@@ -1120,7 +1120,7 @@ do_per_function (void (*callback) (void *data), void *data)
    keep the array visible to garbage collector to avoid reading collected
    out nodes.  */
 static int nnodes;
-static GTY ((length ("nnodes"))) struct cgraph_node **order;
+static GTY ((length ("nnodes"))) cgraph_node_ptr *order;
 
 /* If we are in IPA mode (i.e., current_function_decl is NULL), call
    function CALLBACK for every function in the call graph.  Otherwise,
@@ -1136,7 +1136,7 @@ do_per_function_toporder (void (*callback) (void *data), void *data)
   else
     {
       gcc_assert (!order);
-      order = GGC_NEWVEC (struct cgraph_node *, cgraph_n_nodes);
+      order = ggc_alloc_vec_cgraph_node_ptr (cgraph_n_nodes);
       nnodes = cgraph_postorder (order);
       for (i = nnodes - 1; i >= 0; i--)
         order[i]->process = 1;
@@ -1174,8 +1174,6 @@ execute_function_todo (void *data)
   flags &= ~cfun->last_verified;
   if (!flags)
     return;
-
-  statistics_fini_pass ();
 
   /* Always cleanup the CFG before trying to update SSA.  */
   if (flags & TODO_cleanup_cfg)
@@ -1287,6 +1285,8 @@ execute_todo (unsigned int flags)
 
   /* Inform the pass whether it is the first time it is run.  */
   first_pass_instance = (flags & TODO_mark_first_instance) != 0;
+
+  statistics_fini_pass ();
 
   do_per_function (execute_function_todo, (void *)(size_t) flags);
 

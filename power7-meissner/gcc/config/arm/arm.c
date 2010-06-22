@@ -45,7 +45,7 @@
 #include "cgraph.h"
 #include "ggc.h"
 #include "except.h"
-#include "c-pragma.h"
+#include "c-family/c-pragma.h"	/* ??? */
 #include "integrate.h"
 #include "tm_p.h"
 #include "target.h"
@@ -83,6 +83,9 @@ static int const_ok_for_op (HOST_WIDE_INT, enum rtx_code);
 static rtx emit_sfm (int, int);
 static unsigned arm_size_return_regs (void);
 static bool arm_assemble_integer (rtx, unsigned int, int);
+static void arm_print_operand (FILE *, rtx, int);
+static void arm_print_operand_address (FILE *, rtx);
+static bool arm_print_operand_punct_valid_p (unsigned char code);
 static const char *fp_const_from_val (REAL_VALUE_TYPE *);
 static arm_cc get_arm_condition_code (rtx);
 static HOST_WIDE_INT int_log2 (HOST_WIDE_INT);
@@ -284,6 +287,13 @@ static const struct attribute_spec arm_attribute_table[] =
 #define TARGET_ASM_ALIGNED_SI_OP NULL
 #undef  TARGET_ASM_INTEGER
 #define TARGET_ASM_INTEGER arm_assemble_integer
+
+#undef TARGET_PRINT_OPERAND
+#define TARGET_PRINT_OPERAND arm_print_operand
+#undef TARGET_PRINT_OPERAND_ADDRESS
+#define TARGET_PRINT_OPERAND_ADDRESS arm_print_operand_address
+#undef TARGET_PRINT_OPERAND_PUNCT_VALID_P
+#define TARGET_PRINT_OPERAND_PUNCT_VALID_P arm_print_operand_punct_valid_p
 
 #undef  TARGET_ASM_FUNCTION_PROLOGUE
 #define TARGET_ASM_FUNCTION_PROLOGUE arm_output_function_prologue
@@ -688,9 +698,9 @@ int arm_arch_thumb2;
 /* Nonzero if chip supports integer division instruction.  */
 int arm_arch_hwdiv;
 
-/* In case of a PRE_INC, POST_INC, PRE_DEC, POST_DEC memory reference, we
-   must report the mode of the memory reference from PRINT_OPERAND to
-   PRINT_OPERAND_ADDRESS.  */
+/* In case of a PRE_INC, POST_INC, PRE_DEC, POST_DEC memory reference,
+   we must report the mode of the memory reference from
+   TARGET_PRINT_OPERAND to TARGET_PRINT_OPERAND_ADDRESS.  */
 enum machine_mode output_memory_reference_mode;
 
 /* The register number to be used for the PIC offset register.  */
@@ -806,7 +816,7 @@ static const struct processors all_architectures[] =
   {"armv7-a", cortexa8,	  "7A",	 FL_CO_PROC |		  FL_FOR_ARCH7A, NULL},
   {"armv7-r", cortexr4,	  "7R",	 FL_CO_PROC |		  FL_FOR_ARCH7R, NULL},
   {"armv7-m", cortexm3,	  "7M",	 FL_CO_PROC |		  FL_FOR_ARCH7M, NULL},
-  {"armv7e-m",   cortexm3, "7EM", FL_CO_PROC |		  FL_FOR_ARCH7EM, NULL},
+  {"armv7e-m", cortexm4,  "7EM", FL_CO_PROC |		  FL_FOR_ARCH7EM, NULL},
   {"ep9312",  ep9312,     "4T",  FL_LDSCHED | FL_CIRRUS | FL_FOR_ARCH4, NULL},
   {"iwmmxt",  iwmmxt,     "5TE", FL_LDSCHED | FL_STRONG | FL_FOR_ARCH5TE | FL_XSCALE | FL_IWMMXT , NULL},
   {"iwmmxt2", iwmmxt2,     "5TE", FL_LDSCHED | FL_STRONG | FL_FOR_ARCH5TE | FL_XSCALE | FL_IWMMXT , NULL},
@@ -3821,7 +3831,18 @@ static bool
 use_vfp_abi (enum arm_pcs pcs_variant, bool is_double)
 {
   if (pcs_variant == ARM_PCS_AAPCS_VFP)
-    return true;
+    {
+      static bool seen_thumb1_vfp = false;
+
+      if (TARGET_THUMB1 && !seen_thumb1_vfp)
+	{
+	  sorry ("Thumb-1 hard-float VFP ABI");
+	  /* sorry() is not immediately fatal, so only display this once.  */
+	  seen_thumb1_vfp = true;
+	}
+
+      return true;
+    }
 
   if (pcs_variant != ARM_PCS_AAPCS_LOCAL)
     return false;
@@ -6377,23 +6398,6 @@ arm_rtx_costs_1 (rtx x, enum rtx_code outer, int* total, bool speed)
       return true;
 
     case MINUS:
-      if (TARGET_THUMB2)
-	{
-	  if (GET_MODE_CLASS (mode) == MODE_FLOAT)
-	    {
-	      if (TARGET_HARD_FLOAT && (mode == SFmode || mode == DFmode))
-		*total = COSTS_N_INSNS (1);
-	      else
-		*total = COSTS_N_INSNS (20);
-	    }
-	  else
-	    *total = COSTS_N_INSNS (ARM_NUM_REGS (mode));
-	  /* Thumb2 does not have RSB, so all arguments must be
-	     registers (subtracting a constant is canonicalized as
-	     addition of the negated constant).  */
-	  return false;
-	}
-
       if (mode == DImode)
 	{
 	  *total = COSTS_N_INSNS (ARM_NUM_REGS (mode));
@@ -11438,6 +11442,60 @@ note_invalid_constants (rtx insn, HOST_WIDE_INT address, int do_pushes)
   return result;
 }
 
+/* Convert instructions to their cc-clobbering variant if possible, since
+   that allows us to use smaller encodings.  */
+
+static void
+thumb2_reorg (void)
+{
+  basic_block bb;
+  regset_head live;
+
+  INIT_REG_SET (&live);
+
+  /* We are freeing block_for_insn in the toplev to keep compatibility
+     with old MDEP_REORGS that are not CFG based.  Recompute it now.  */
+  compute_bb_for_insn ();
+  df_analyze ();
+
+  FOR_EACH_BB (bb)
+    {
+      rtx insn;
+      COPY_REG_SET (&live, DF_LR_OUT (bb));
+      df_simulate_initialize_backwards (bb, &live);
+      FOR_BB_INSNS_REVERSE (bb, insn)
+	{
+	  if (NONJUMP_INSN_P (insn)
+	      && !REGNO_REG_SET_P (&live, CC_REGNUM))
+	    {
+	      rtx pat = PATTERN (insn);
+	      if (GET_CODE (pat) == SET
+		  && low_register_operand (XEXP (pat, 0), SImode)
+		  && thumb_16bit_operator (XEXP (pat, 1), SImode)
+		  && low_register_operand (XEXP (XEXP (pat, 1), 0), SImode)
+		  && low_register_operand (XEXP (XEXP (pat, 1), 1), SImode))
+		{
+		  rtx dst = XEXP (pat, 0);
+		  rtx src = XEXP (pat, 1);
+		  rtx op0 = XEXP (src, 0);
+		  if (rtx_equal_p (dst, op0)
+		      || GET_CODE (src) == PLUS || GET_CODE (src) == MINUS)
+		    {
+		      rtx ccreg = gen_rtx_REG (CCmode, CC_REGNUM);
+		      rtx clobber = gen_rtx_CLOBBER (VOIDmode, ccreg);
+		      rtvec vec = gen_rtvec (2, pat, clobber);
+		      PATTERN (insn) = gen_rtx_PARALLEL (VOIDmode, vec);
+		      INSN_CODE (insn) = -1;
+		    }
+		}
+	    }
+	  if (NONDEBUG_INSN_P (insn))
+	    df_simulate_one_insn_backwards (bb, insn, &live);
+	}
+    }
+  CLEAR_REG_SET (&live);
+}
+
 /* Gcc puts the pool in the wrong place for ARM, since we can only
    load addresses a limited distance around the pc.  We do some
    special munging to move the constant pool values to the correct
@@ -11449,6 +11507,9 @@ arm_reorg (void)
   HOST_WIDE_INT address = 0;
   Mfix * fix;
 
+  if (TARGET_THUMB2)
+    thumb2_reorg ();
+  
   minipool_fix_head = minipool_fix_tail = NULL;
 
   /* The first insn must always be a note, or the code below won't
@@ -15031,7 +15092,7 @@ arm_print_condition (FILE *stream)
    before output.
    If CODE is 'B' then output a bitwise inverted value of X (a const int).
    If X is a REG and CODE is `M', output a ldm/stm style multi-reg.  */
-void
+static void
 arm_print_operand (FILE *stream, rtx x, int code)
 {
   switch (code)
@@ -15648,6 +15709,140 @@ arm_print_operand (FILE *stream, rtx x, int code)
 	  break;
 	}
     }
+}
+
+/* Target hook for printing a memory address.  */
+static void
+arm_print_operand_address (FILE *stream, rtx x)
+{
+  if (TARGET_32BIT)
+    {
+      int is_minus = GET_CODE (x) == MINUS;
+
+      if (GET_CODE (x) == REG)
+	asm_fprintf (stream, "[%r, #0]", REGNO (x));
+      else if (GET_CODE (x) == PLUS || is_minus)
+	{
+	  rtx base = XEXP (x, 0);
+	  rtx index = XEXP (x, 1);
+	  HOST_WIDE_INT offset = 0;
+	  if (GET_CODE (base) != REG
+	      || (GET_CODE (index) == REG && REGNO (index) == SP_REGNUM))
+	    {
+	      /* Ensure that BASE is a register.  */
+	      /* (one of them must be).  */
+	      /* Also ensure the SP is not used as in index register.  */
+	      rtx temp = base;
+	      base = index;
+	      index = temp;
+	    }
+	  switch (GET_CODE (index))
+	    {
+	    case CONST_INT:
+	      offset = INTVAL (index);
+	      if (is_minus)
+		offset = -offset;
+	      asm_fprintf (stream, "[%r, #%wd]",
+			   REGNO (base), offset);
+	      break;
+
+	    case REG:
+	      asm_fprintf (stream, "[%r, %s%r]",
+			   REGNO (base), is_minus ? "-" : "",
+			   REGNO (index));
+	      break;
+
+	    case MULT:
+	    case ASHIFTRT:
+	    case LSHIFTRT:
+	    case ASHIFT:
+	    case ROTATERT:
+	      {
+		asm_fprintf (stream, "[%r, %s%r",
+			     REGNO (base), is_minus ? "-" : "",
+			     REGNO (XEXP (index, 0)));
+		arm_print_operand (stream, index, 'S');
+		fputs ("]", stream);
+		break;
+	      }
+
+	    default:
+	      gcc_unreachable ();
+	    }
+	}
+      else if (GET_CODE (x) == PRE_INC || GET_CODE (x) == POST_INC
+	       || GET_CODE (x) == PRE_DEC || GET_CODE (x) == POST_DEC)
+	{
+	  extern enum machine_mode output_memory_reference_mode;
+
+	  gcc_assert (GET_CODE (XEXP (x, 0)) == REG);
+
+	  if (GET_CODE (x) == PRE_DEC || GET_CODE (x) == PRE_INC)
+	    asm_fprintf (stream, "[%r, #%s%d]!",
+			 REGNO (XEXP (x, 0)),
+			 GET_CODE (x) == PRE_DEC ? "-" : "",
+			 GET_MODE_SIZE (output_memory_reference_mode));
+	  else
+	    asm_fprintf (stream, "[%r], #%s%d",
+			 REGNO (XEXP (x, 0)),
+			 GET_CODE (x) == POST_DEC ? "-" : "",
+			 GET_MODE_SIZE (output_memory_reference_mode));
+	}
+      else if (GET_CODE (x) == PRE_MODIFY)
+	{
+	  asm_fprintf (stream, "[%r, ", REGNO (XEXP (x, 0)));
+	  if (GET_CODE (XEXP (XEXP (x, 1), 1)) == CONST_INT)
+	    asm_fprintf (stream, "#%wd]!",
+			 INTVAL (XEXP (XEXP (x, 1), 1)));
+	  else
+	    asm_fprintf (stream, "%r]!",
+			 REGNO (XEXP (XEXP (x, 1), 1)));
+	}
+      else if (GET_CODE (x) == POST_MODIFY)
+	{
+	  asm_fprintf (stream, "[%r], ", REGNO (XEXP (x, 0)));
+	  if (GET_CODE (XEXP (XEXP (x, 1), 1)) == CONST_INT)
+	    asm_fprintf (stream, "#%wd",
+			 INTVAL (XEXP (XEXP (x, 1), 1)));
+	  else
+	    asm_fprintf (stream, "%r",
+			 REGNO (XEXP (XEXP (x, 1), 1)));
+	}
+      else output_addr_const (stream, x);
+    }
+  else
+    {
+      if (GET_CODE (x) == REG)
+	asm_fprintf (stream, "[%r]", REGNO (x));
+      else if (GET_CODE (x) == POST_INC)
+	asm_fprintf (stream, "%r!", REGNO (XEXP (x, 0)));
+      else if (GET_CODE (x) == PLUS)
+	{
+	  gcc_assert (GET_CODE (XEXP (x, 0)) == REG);
+	  if (GET_CODE (XEXP (x, 1)) == CONST_INT)
+	    asm_fprintf (stream, "[%r, #%wd]",
+			 REGNO (XEXP (x, 0)),
+			 INTVAL (XEXP (x, 1)));
+	  else
+	    asm_fprintf (stream, "[%r, %r]",
+			 REGNO (XEXP (x, 0)),
+			 REGNO (XEXP (x, 1)));
+	}
+      else
+	output_addr_const (stream, x);
+    }
+}
+
+/* Target hook for indicating whether a punctuation character for
+   TARGET_PRINT_OPERAND is valid.  */
+static bool
+arm_print_operand_punct_valid_p (unsigned char code)
+{
+  return (code == '@' || code == '|' || code == '.'
+	  || code == '(' || code == ')' || code == '#'
+	  || (TARGET_32BIT && (code == '?'))
+	  || (TARGET_THUMB2 && (code == '!'))
+	  || (TARGET_THUMB && (code == '_')));
 }
 
 /* Target hook for assembling integer objects.  The ARM version needs to
@@ -19280,7 +19475,7 @@ static struct machine_function *
 arm_init_machine_status (void)
 {
   struct machine_function *machine;
-  machine = (machine_function *) ggc_alloc_cleared (sizeof (machine_function));
+  machine = ggc_alloc_cleared_machine_function ();
 
 #if ARM_FT_UNKNOWN != 0
   machine->func_type = ARM_FT_UNKNOWN;

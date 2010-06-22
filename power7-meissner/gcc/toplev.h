@@ -31,7 +31,6 @@ along with GCC; see the file COPYING3.  If not see
    (strncmp (whole, part, strlen (part)) ? NULL : whole + strlen (part))
 
 extern int toplev_main (int, char **);
-extern int read_integral_parameter (const char *, const char *, const int);
 extern void strip_off_ending (char *, int);
 extern void _fatal_insn_not_found (const_rtx, const char *, int, const char *)
      ATTRIBUTE_NORETURN;
@@ -94,25 +93,7 @@ extern bool exit_after_options;
 extern bool user_defined_section_attribute;
 
 /* See toplev.c.  */
-extern int flag_crossjumping;
-extern int flag_if_conversion;
-extern int flag_if_conversion2;
-extern int flag_keep_static_consts;
-extern int flag_peel_loops;
 extern int flag_rerun_cse_after_global_opts;
-extern int flag_rerun_cse_after_loop;
-extern int flag_thread_jumps;
-extern int flag_tracer;
-extern int flag_unroll_loops;
-extern int flag_unroll_all_loops;
-extern int flag_unswitch_loops;
-extern int flag_cprop_registers;
-extern int time_report;
-extern int flag_ira_loop_pressure;
-extern int flag_ira_coalesce;
-extern int flag_ira_move_spills;
-extern int flag_ira_share_save_slots;
-extern int flag_ira_share_spill_slots;
 
 /* Things to do with target switches.  */
 extern void print_version (FILE *, const char *);
