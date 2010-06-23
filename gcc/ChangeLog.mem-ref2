@@ -1,3 +1,12 @@
+2010-06-23  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-ter.c (find_replaceable_in_bb): Avoid TER if that
+	creates assignments with overlap.
+	* tree-ssa.c (maybe_rewrite_mem_ref_base): New function
+	split out from ...
+	(execute_update_addresses_taken): ... here.  Also rewrite
+	MEM_REFs in asm operands.
+
 2010-06-22  Richard Guenther  <rguenther@suse.de>
 
 	* tree-ssa-sccvn.c (may_insert): Remove.

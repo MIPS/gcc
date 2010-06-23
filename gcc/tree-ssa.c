@@ -1800,6 +1800,34 @@ struct gimple_opt_pass pass_early_warn_uninitialized =
  }
 };
 
+
+/* If necessary, rewrite the base of the reference tree *TP from
+   a MEM_REF to a plain or converted symbol.  */
+
+static void
+maybe_rewrite_mem_ref_base (tree *tp)
+{
+  tree sym;
+
+  while (handled_component_p (*tp))
+    tp = &TREE_OPERAND (*tp, 0);
+  if (TREE_CODE (*tp) == MEM_REF
+      && TREE_CODE (TREE_OPERAND (*tp, 0)) == ADDR_EXPR
+      && integer_zerop (TREE_OPERAND (*tp, 1))
+      && (sym = TREE_OPERAND (TREE_OPERAND (*tp, 0), 0))
+      && DECL_P (sym)
+      && !TREE_ADDRESSABLE (sym)
+      && symbol_marked_for_renaming (sym))
+    {
+      if (!useless_type_conversion_p (TREE_TYPE (*tp),
+				      TREE_TYPE (sym)))
+	*tp = build1 (VIEW_CONVERT_EXPR,
+			TREE_TYPE (*tp), sym);
+      else
+	*tp = sym;
+    }
+}
+
 /* Compute TREE_ADDRESSABLE and DECL_GIMPLE_REG_P for local variables.  */
 
 void
@@ -1948,74 +1976,73 @@ execute_update_addresses_taken (bool do_optimize)
   if (update_vops)
     {
       FOR_EACH_BB (bb)
-	  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
-	    {
-	      gimple stmt = gsi_stmt (gsi);
+	for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+	  {
+	    gimple stmt = gsi_stmt (gsi);
 
-	      /* Re-write TARGET_MEM_REFs of symbols we want to
-		 rewrite into SSA form.  */
-	      if (gimple_assign_single_p (stmt))
-		{
-		  tree lhs = gimple_assign_lhs (stmt);
-		  tree rhs, *rhsp = gimple_assign_rhs1_ptr (stmt);
-		  tree sym;
+	    /* Re-write TARGET_MEM_REFs of symbols we want to
+	       rewrite into SSA form.  */
+	    if (gimple_assign_single_p (stmt))
+	      {
+		tree lhs = gimple_assign_lhs (stmt);
+		tree rhs, *rhsp = gimple_assign_rhs1_ptr (stmt);
+		tree sym;
 
-		  /* We shouldn't have any fancy wrapping of
-		     component-refs on the LHS, but look through
-		     VIEW_CONVERT_EXPRs as that is easy.  */
-		  while (TREE_CODE (lhs) == VIEW_CONVERT_EXPR)
-		    lhs = TREE_OPERAND (lhs, 0);
-		  if (TREE_CODE (lhs) == MEM_REF
-		      && TREE_CODE (TREE_OPERAND (lhs, 0)) == ADDR_EXPR
-		      && integer_zerop (TREE_OPERAND (lhs, 1))
-		      && (sym = TREE_OPERAND (TREE_OPERAND (lhs, 0), 0))
-		      && DECL_P (sym)
-		      && !TREE_ADDRESSABLE (sym)
-		      && symbol_marked_for_renaming (sym))
-		    lhs = sym;
-		  else
-		    lhs = gimple_assign_lhs (stmt);
+		/* We shouldn't have any fancy wrapping of
+		   component-refs on the LHS, but look through
+		   VIEW_CONVERT_EXPRs as that is easy.  */
+		while (TREE_CODE (lhs) == VIEW_CONVERT_EXPR)
+		  lhs = TREE_OPERAND (lhs, 0);
+		if (TREE_CODE (lhs) == MEM_REF
+		    && TREE_CODE (TREE_OPERAND (lhs, 0)) == ADDR_EXPR
+		    && integer_zerop (TREE_OPERAND (lhs, 1))
+		    && (sym = TREE_OPERAND (TREE_OPERAND (lhs, 0), 0))
+		    && DECL_P (sym)
+		    && !TREE_ADDRESSABLE (sym)
+		    && symbol_marked_for_renaming (sym))
+		  lhs = sym;
+		else
+		  lhs = gimple_assign_lhs (stmt);
 
-		  /* We can have fancy wrappings on the RHS though.  */
-		  while (handled_component_p (*rhsp))
-		    rhsp = &TREE_OPERAND (*rhsp, 0);
-		  if (TREE_CODE (*rhsp) == MEM_REF
-		      && TREE_CODE (TREE_OPERAND (*rhsp, 0)) == ADDR_EXPR
-		      && integer_zerop (TREE_OPERAND (*rhsp, 1))
-		      && (sym = TREE_OPERAND (TREE_OPERAND (*rhsp, 0), 0))
-		      && DECL_P (sym)
-		      && !TREE_ADDRESSABLE (sym)
-		      && symbol_marked_for_renaming (sym))
-		    {
-		      if (!useless_type_conversion_p (TREE_TYPE (*rhsp),
-						      TREE_TYPE (sym)))
-			*rhsp = build1 (VIEW_CONVERT_EXPR,
-					TREE_TYPE (*rhsp), sym);
-		      else
-			*rhsp = sym;
-		    }
+		/* Rewrite the RHS and make sure the resulting assignment
+		   is validly typed.  */
+		maybe_rewrite_mem_ref_base (rhsp);
+		rhs = gimple_assign_rhs1 (stmt);
+		if (gimple_assign_lhs (stmt) != lhs
+		    && !useless_type_conversion_p (TREE_TYPE (lhs),
+						   TREE_TYPE (rhs)))
+		  rhs = fold_build1 (VIEW_CONVERT_EXPR,
+				     TREE_TYPE (lhs), rhs);
 
-		  rhs = gimple_assign_rhs1 (stmt);
-		  if (gimple_assign_lhs (stmt) != lhs
-		      && !useless_type_conversion_p (TREE_TYPE (lhs),
-						     TREE_TYPE (rhs)))
-		    rhs = fold_build1 (VIEW_CONVERT_EXPR,
-				       TREE_TYPE (lhs), rhs);
+		if (gimple_assign_lhs (stmt) != lhs)
+		  gimple_assign_set_lhs (stmt, lhs);
 
-		  if (gimple_assign_lhs (stmt) != lhs)
-		    gimple_assign_set_lhs (stmt, lhs);
+		if (gimple_assign_rhs1 (stmt) != rhs)
+		  {
+		    gimple_stmt_iterator gsi = gsi_for_stmt (stmt);
+		    gimple_assign_set_rhs_from_tree (&gsi, rhs);
+		  }
+	      }
 
-		  if (gimple_assign_rhs1 (stmt) != rhs)
-		    {
-		      gimple_stmt_iterator gsi = gsi_for_stmt (stmt);
-		      gimple_assign_set_rhs_from_tree (&gsi, rhs);
-		    }
-		}
+	    if (gimple_code (stmt) == GIMPLE_ASM)
+	      {
+		unsigned i;
+		for (i = 0; i < gimple_asm_noutputs (stmt); ++i)
+		  {
+		    tree link = gimple_asm_output_op (stmt, i);
+		    maybe_rewrite_mem_ref_base (&TREE_VALUE (link));
+		  }
+		for (i = 0; i < gimple_asm_ninputs (stmt); ++i)
+		  {
+		    tree link = gimple_asm_input_op (stmt, i);
+		    maybe_rewrite_mem_ref_base (&TREE_VALUE (link));
+		  }
+	      }
 
-	      if (gimple_references_memory_p (stmt)
-		  || is_gimple_debug (stmt))
-		update_stmt (stmt);
-	    }
+	    if (gimple_references_memory_p (stmt)
+		|| is_gimple_debug (stmt))
+	      update_stmt (stmt);
+	  }
 
       /* Update SSA form here, we are called as non-pass as well.  */
       update_ssa (TODO_update_ssa);
