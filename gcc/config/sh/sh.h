@@ -2570,19 +2570,6 @@ START_TARGET_SPECIFIC
 extern struct rtx_def *sh_compare_op0;
 extern struct rtx_def *sh_compare_op1;
 
-/* The SH machine description uses "sh_cpu_attr" to find the cpu variant
-   that is being compiled for for use in attributes.  For target compilation
-   performance reasons, this should be a direct variable access.
-   The type of that variable would naturally be enum attr_cpu, alas, that
-   is not possible, because there is no target-controlled headerfile
-   that is guaranteed to be only included after insn-attr.h, hence we
-   can't declare such a variable to be visible inside insn-attrtab.c .
-   If statements expressions were allowed, we could solve this by having
-   an 'extern enum attr_cpu sh_cpu' declaration inside a statement expression
-   to be used inside the sh_attr_cpu definition.
-   But as we have to do without statement expressions, we have to use a
-   different type for the sh_cpu variable.  */
-
 /* Which processor to schedule for.  The elements of the enumeration must
    match exactly the cpu attribute in the sh.md file.  */
 
