@@ -6661,6 +6661,8 @@ sh_media_register_for_return (void)
    -  add 1 entry for a delimiter.  */
 #define MAX_SAVED_REGS (62+32+8)
 
+/* In a multi-target configuration, a narrow type like unsigned char might
+   not be enough to hold a machine mode.  */
 typedef struct save_entry_s
 {
   unsigned char reg;
