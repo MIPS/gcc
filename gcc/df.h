@@ -35,7 +35,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "multi-target.h"
 
 struct dataflow;
-struct df_d;
+struct df;
 struct df_problem;
 struct df_link;
 struct df_insn_info;
@@ -526,7 +526,7 @@ struct df_reg_info
    used by owners of the problem.
 ----------------------------------------------------------------------------*/
 
-struct df_d
+struct df
 {
 
   /* The set of problems to be solved is stored in two arrays.  In
@@ -876,7 +876,7 @@ struct df_byte_lr_bb_info
 /* This is used for debugging and for the dumpers to find the latest
    instance so that the df info can be added to the dumps.  This
    should not be used by regular code.  */
-extern struct df_d *df;
+extern struct df *df;
 #define df_scan    (df->problems_by_index[DF_SCAN])
 #define df_rd      (df->problems_by_index[DF_RD])
 #define df_lr      (df->problems_by_index[DF_LR])

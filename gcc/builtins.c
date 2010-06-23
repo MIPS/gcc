@@ -3556,7 +3556,7 @@ expand_movstr (tree dest, tree src, rtx target, int endp)
   rtx dest_mem;
   rtx src_mem;
   rtx insn;
-  const struct insn_data_d * data;
+  const struct insn_data * data;
 
   if (!HAVE_movstr)
     return NULL_RTX;

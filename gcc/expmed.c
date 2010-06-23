@@ -304,7 +304,7 @@ negate_rtx (enum machine_mode mode, rtx x)
 enum machine_mode
 mode_for_extraction (enum extraction_pattern pattern, int opno)
 {
-  const struct insn_data_d *data;
+  const struct insn_data *data;
 
   switch (pattern)
     {

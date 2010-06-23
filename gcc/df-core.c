@@ -421,7 +421,7 @@ bitmap_obstack df_bitmap_obstack;
 ----------------------------------------------------------------------------*/
 
 #ifndef EXTRA_TARGET
-struct df_d *df;
+struct df *df;
 #endif /* !EXTRA_TARGET */
 
 /* Add PROBLEM (and any dependent problems) to the DF instance.  */
@@ -711,7 +711,7 @@ static unsigned int
 rest_of_handle_df_initialize (void)
 {
   gcc_assert (!df);
-  df = XCNEW (struct df_d);
+  df = XCNEW (struct df);
   df->changeable_flags = 0;
 
   bitmap_obstack_initialize (&df_bitmap_obstack);
