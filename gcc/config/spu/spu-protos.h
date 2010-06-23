@@ -18,7 +18,6 @@
 #ifndef _SPU_PROTOS_
 #define _SPU_PROTOS_
 
-struct cpp_reader;
 extern void spu_cpu_cpp_builtins (struct cpp_reader * pfile);
 extern void builtin_define_std (const char *);
 extern void spu_optimization_options (int level, int size);
