@@ -52,24 +52,34 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfglayout.h"
 #include "basic-block.h"
 #include "tree-iterator.h"
+#include "multi-target.h"
 
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"		/* Needed for external data
 				   declarations for e.g. AIX 4.x.  */
 #endif
 
+START_TARGET_SPECIFIC
 /* The (assembler) name of the first globally-visible object output.  */
 extern GTY(()) const char *first_global_object_name;
 extern GTY(()) const char *weak_global_object_name;
 
 const char *first_global_object_name;
 const char *weak_global_object_name;
+END_TARGET_SPECIFIC
 
 struct addr_const;
 struct constant_descriptor_rtx;
 struct rtx_constant_pool;
 
 #define n_deferred_constants (crtl->varasm.deferred_constants)
+
+extern struct gcc_target *last_arch;
+#ifndef EXTRA_TARGET
+struct gcc_target *last_arch;
+#endif /* !EXTRA_TARGET */
+
+START_TARGET_SPECIFIC
 
 /* Number for making the label on the next
    constant that is stored in memory.  */
@@ -1724,6 +1734,20 @@ notice_global_symbol (tree decl)
     }
 }
 
+void
+default_target_new_arch (FILE *out_file,
+			 struct gcc_target *last_arch,
+			 struct gcc_target *new_arch)
+{
+#ifndef EXTRA_TARGET
+  if (&targetm != &this_targetm)
+    targetm.asm_out.new_arch (out_file, last_arch, new_arch);
+  else if (last_arch)
+#endif
+    if (last_arch != new_arch)
+      fprintf (out_file, "\t.arch\t\"%s\"\n", new_arch->name);
+}
+
 /* Output assembler code for the constant pool of a function and associated
    with defining the name of the function.  DECL describes the function.
    NAME is the function's name.  For the constant pool, we use the current
@@ -1735,6 +1759,10 @@ assemble_start_function (tree decl, const char *fnname)
   int align;
   char tmp_label[100];
   bool hot_label_written = false;
+
+  /* Give the main target ultimate control how to handle a target change.  */
+  targetm_array[0]->asm_out.new_arch (asm_out_file, last_arch, &targetm);
+  last_arch = &targetm;
 
   crtl->subsections.unlikely_text_section_name = NULL;
 
@@ -3562,6 +3590,7 @@ tree_output_constant_def (tree exp)
   return decl;
 }
 
+END_TARGET_SPECIFIC
 /* Used in the hash tables to avoid outputting the same constant
    twice.  Unlike 'struct constant_descriptor_tree', RTX constants
    are output once per function, not once per file.  */
@@ -3597,6 +3626,7 @@ struct GTY((chain_next ("%h.next"))) constant_descriptor_rtx {
   int labelno;
   int mark;
 };
+START_TARGET_SPECIFIC
 
 /* Hash and compare functions for const_rtx_htab.  */
 
@@ -7280,3 +7310,5 @@ make_debug_expr_from_rtl (const_rtx exp)
 }
 
 #include "gt-varasm.h"
+
+END_TARGET_SPECIFIC

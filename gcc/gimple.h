@@ -32,6 +32,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "tree-ssa-operands.h"
 #include "tree-ssa-alias.h"
+#include "multi-target.h"
 
 /* For each block, the PHI nodes that need to be rewritten are stored into
    these vectors.  */
@@ -252,7 +253,7 @@ set_bb_seq (basic_block bb, gimple_seq seq)
 
 /* Iterator object for GIMPLE statement sequences.  */
 
-typedef struct
+typedef struct gimple_stmt_iterator_d
 {
   /* Sequence node holding the current statement.  */
   gimple_seq_node ptr;
@@ -1060,11 +1061,13 @@ extern void insert_field_into_struct (tree, tree);
 /* In gimplify.c.  */
 extern void gimplify_function_tree (tree);
 
+START_TARGET_SPECIFIC
 /* In cfgexpand.c.  */
 extern tree gimple_assign_rhs_to_tree (gimple);
 
 /* In builtins.c  */
 extern bool validate_gimple_arglist (const_gimple, ...);
+END_TARGET_SPECIFIC
 
 /* In tree-ssa.c  */
 extern bool tree_ssa_useless_type_conversion (tree);

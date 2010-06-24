@@ -618,8 +618,8 @@ expand_prologue_reg_save (rtx spreg, int saveall, bool is_inthandler)
       RTX_FRAME_RELATED_P (insn) = 1;
       for (dregno = REG_LT0; dregno <= REG_LB1; dregno++)
 	if (! current_function_is_leaf
-	    || cfun->machine->has_hardware_loops
-	    || cfun->machine->has_loopreg_clobber
+	    || MACHINE_FUNCTION (*cfun)->has_hardware_loops
+	    || MACHINE_FUNCTION (*cfun)->has_loopreg_clobber
 	    || (ENABLE_WA_05000257
 		&& (dregno == REG_LC0 || dregno == REG_LC1)))
 	  {
@@ -798,8 +798,8 @@ expand_epilogue_reg_restore (rtx spreg, bool saveall, bool is_inthandler)
     {
       for (regno = REG_LB1; regno >= REG_LT0; regno--)
 	if (! current_function_is_leaf
-	    || cfun->machine->has_hardware_loops
-	    || cfun->machine->has_loopreg_clobber
+	    || MACHINE_FUNCTION (*cfun)->has_hardware_loops
+	    || MACHINE_FUNCTION (*cfun)->has_loopreg_clobber
 	    || (ENABLE_WA_05000257 && (regno == REG_LC0 || regno == REG_LC1)))
 	  emit_move_insn (gen_rtx_REG (SImode, regno), postinc);
 
@@ -906,8 +906,8 @@ n_regs_saved_by_prologue (void)
       /* Increment once for ASTAT.  */
       n++;
       if (! current_function_is_leaf
-	  || cfun->machine->has_hardware_loops
-	  || cfun->machine->has_loopreg_clobber)
+	  || MACHINE_FUNCTION (*cfun)->has_hardware_loops
+	  || MACHINE_FUNCTION (*cfun)->has_loopreg_clobber)
 	{
 	  n += 6;
 	}
@@ -3550,7 +3550,7 @@ bfin_expand_movmem (rtx dst, rtx src, rtx count_exp, rtx align_exp)
 	      countreg = copy_to_mode_reg (Pmode, GEN_INT (new_count));
 
 	      emit_insn (gen_rep_movsi (destreg, srcreg, countreg, destreg, srcreg));
-	      cfun->machine->has_loopreg_clobber = true;
+	      MACHINE_FUNCTION (*cfun)->has_loopreg_clobber = true;
 	    }
 	  if (count & 2)
 	    {
@@ -3571,7 +3571,7 @@ bfin_expand_movmem (rtx dst, rtx src, rtx count_exp, rtx align_exp)
 	      countreg = copy_to_mode_reg (Pmode, GEN_INT (new_count));
 
 	      emit_insn (gen_rep_movhi (destreg, srcreg, countreg, destreg, srcreg));
-	      cfun->machine->has_loopreg_clobber = true;
+	      MACHINE_FUNCTION (*cfun)->has_loopreg_clobber = true;
 	    }
 	}
       if (count & 1)
@@ -3680,7 +3680,7 @@ find_prev_insn_start (rtx insn)
 void
 bfin_hardware_loop (void)
 {
-  cfun->machine->has_hardware_loops++;
+  MACHINE_FUNCTION (*cfun)->has_hardware_loops++;
 }
 
 /* Maximum loop nesting depth.  */
@@ -5510,7 +5510,7 @@ bfin_reorg (void)
   df_analyze ();
 
   /* Doloop optimization */
-  if (cfun->machine->has_hardware_loops)
+  if (MACHINE_FUNCTION (*cfun)->has_hardware_loops)
     bfin_reorg_loops (dump_file);
 
   workaround_speculation ();

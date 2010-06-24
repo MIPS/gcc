@@ -27,6 +27,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "df.h"
 #include "output.h"
 #include "dbgcnt.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 /* The following suite of functions provides bytewise modeling of REFs
    which are struct df_ref.  START_BYTE and LAST_BYTE are returned.
@@ -338,3 +341,4 @@ df_compute_accessed_bytes (df_ref ref, enum df_mm mm,
   return true;
 }
 
+END_TARGET_SPECIFIC

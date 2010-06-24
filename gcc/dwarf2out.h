@@ -18,15 +18,21 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 extern void dwarf2out_decl (tree);
 extern void dwarf2out_frame_debug (rtx, bool);
 extern void dwarf2out_cfi_begin_epilogue (rtx);
 extern void dwarf2out_frame_debug_restore_state (void);
 
 extern void debug_dwarf (void);
+END_TARGET_SPECIFIC
 struct die_struct;
+START_TARGET_SPECIFIC
 extern void debug_dwarf_die (struct die_struct *);
 extern void dwarf2out_set_demangle_name_func (const char *(*) (const char *));
+END_TARGET_SPECIFIC
 
 struct array_descr_info
 {

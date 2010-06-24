@@ -25,6 +25,9 @@ along with GCC; see the file COPYING3.  If not see
 #define GCC_SH_H
 
 #include "config/vxworks-dummy.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 #define TARGET_VERSION \
   fputs (" (Hitachi SH)", stderr);
@@ -506,8 +509,6 @@ extern enum sh_divide_strategy_e sh_div_strategy;
 #define SUBTARGET_OVERRIDE_OPTIONS (void) 0
 
 extern const char *sh_fixed_range_str;
-
-#define OVERRIDE_OPTIONS sh_override_options ()
 
 
 /* Target machine storage layout.  */
@@ -1487,6 +1488,7 @@ extern enum reg_class regno_reg_class[FIRST_PSEUDO_REGISTER];
    Thus NARGREGS or more means all following args should go on the stack.  */
 
 enum sh_arg_class { SH_ARG_INT = 0, SH_ARG_FLOAT = 1 };
+END_TARGET_SPECIFIC
 struct sh_args {
     int arg_count[2];
     int force_mem;
@@ -1576,6 +1578,7 @@ struct sh_args {
      even without the -mrenesas option.  */
     int renesas_abi;
 };
+START_TARGET_SPECIFIC
 
 #define CALL_COOKIE_RET_TRAMP_SHIFT 0
 #define CALL_COOKIE_RET_TRAMP(VAL) ((VAL) << CALL_COOKIE_RET_TRAMP_SHIFT)
@@ -2721,5 +2724,7 @@ extern int current_function_interrupt;
 
 /* FIXME: middle-end support for highpart optimizations is missing.  */
 #define high_life_started reload_in_progress
+
+END_TARGET_SPECIFIC
 
 #endif /* ! GCC_SH_H */

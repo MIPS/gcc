@@ -39,6 +39,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "addresses.h"
 #include "output.h"
 #include "ggc.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 /* True if caller-save has been initialized.  */
 bool caller_save_initialized_p;
@@ -1432,3 +1435,5 @@ insert_one_insn (struct insn_chain *chain, int before_p, int code, rtx pat)
   return new_chain;
 }
 #include "gt-caller-save.h"
+
+END_TARGET_SPECIFIC

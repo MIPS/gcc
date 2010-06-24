@@ -21,7 +21,9 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_OPTABS_H
 #define GCC_OPTABS_H
 
+#include "multi-target.h"
 #include "insn-codes.h"
+#include "target.h"
 
 /* Optabs are tables saying how to generate insn bodies
    for various machine modes and numbers of operands.
@@ -372,6 +374,8 @@ enum optab_index
   OTI_MAX
 };
 
+START_TARGET_SPECIFIC
+
 extern struct optab_d optab_table[OTI_MAX];
 
 #define ssadd_optab (&optab_table[OTI_ssadd])
@@ -717,6 +721,7 @@ extern rtx expand_copysign (rtx, rtx, rtx);
 extern void emit_unop_insn (int, rtx, rtx, enum rtx_code);
 extern bool maybe_emit_unop_insn (int, rtx, rtx, enum rtx_code);
 
+END_TARGET_SPECIFIC
 /* An extra flag to control optab_for_tree_code's behavior.  This is needed to
    distinguish between machines with a vector shift that takes a scalar for the
    shift amount vs. machines that take a vector for the shift amount.  */
@@ -726,11 +731,26 @@ enum optab_subtype
   optab_scalar,
   optab_vector
 };
+START_TARGET_SPECIFIC
 
 /* Return the optab used for computing the given operation on the type given by
    the second argument.  The third argument distinguishes between the types of
    vector shifts and rotates */
-extern optab optab_for_tree_code (enum tree_code, const_tree, enum optab_subtype);
+extern optab optab_for_tree_code_1 (enum tree_code, const_tree,
+				    enum optab_subtype);
+extern optab (*optab_for_tree_code_array[]) (enum tree_code, const_tree,
+					       enum optab_subtype);
+static inline optab
+optab_for_tree_code (enum tree_code code, const_tree type,
+                     enum optab_subtype subtype)
+{
+#if NUM_TARGETS > 1 && !defined(EXTRA_TARGET)
+  return (*optab_for_tree_code_array[targetm.target_arch]) (code, type,
+							    subtype);
+#else
+  return optab_for_tree_code_1 (code, type, subtype);
+#endif
+}
 
 /* The various uses that a comparison can have; used by can_compare_p:
    jumps, conditional moves, store flag operations.  */
@@ -789,4 +809,6 @@ extern rtx expand_vec_shift_expr (sepops, rtx);
 extern rtx optab_libfunc (optab optab, enum machine_mode mode);
 extern rtx convert_optab_libfunc (convert_optab optab, enum machine_mode mode1,
 			          enum machine_mode mode2);
+END_TARGET_SPECIFIC
+
 #endif /* GCC_OPTABS_H */

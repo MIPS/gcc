@@ -56,7 +56,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfgloop.h"
 #include "alloc-pool.h"
 #include "tm-constrs.h"
+#include "multi-target.h"
 
+START_TARGET_SPECIFIC
 
 int code_for_indirect_jump_scratch = CODE_FOR_indirect_jump_scratch;
 
@@ -168,6 +170,7 @@ int assembler_dialect;
 static bool shmedia_space_reserved_for_target_registers;
 
 static bool sh_handle_option (size_t, const char *, int);
+static bool sh_override_options (bool);
 static void split_branches (rtx);
 static int branch_dest (rtx);
 static void force_into (rtx, rtx);
@@ -354,6 +357,9 @@ static const struct attribute_spec sh_attribute_table[] =
 #define TARGET_DEFAULT_TARGET_FLAGS TARGET_DEFAULT
 #undef TARGET_HANDLE_OPTION
 #define TARGET_HANDLE_OPTION sh_handle_option
+
+#undef TARGET_OVERRIDE_OPTIONS
+#define TARGET_OVERRIDE_OPTIONS sh_override_options
 
 #undef TARGET_INSERT_ATTRIBUTES
 #define TARGET_INSERT_ATTRIBUTES sh_insert_attributes
@@ -712,17 +718,20 @@ sh_optimization_options (int level ATTRIBUTE_UNUSED, int size ATTRIBUTE_UNUSED)
   set_param_value ("simultaneous-prefetches", 2);
 }
 
-/* Implement OVERRIDE_OPTIONS macro.  Validate and override various
+/* Implement OVERRIDE_OPTIONS hook.  Validate and override various
    options, and do some machine dependent initialization.  */
-void
-sh_override_options (void)
+static bool
+sh_override_options (bool main_target)
 {
   int regno;
 
   SUBTARGET_OVERRIDE_OPTIONS;
-  if (flag_finite_math_only == 2)
-    flag_finite_math_only
-      = !flag_signaling_nans && TARGET_SH2E && ! TARGET_IEEE;
+  if (main_target)
+    {
+      if (flag_finite_math_only == 2)
+      flag_finite_math_only
+	= !flag_signaling_nans && TARGET_SH2E && ! TARGET_IEEE;
+    }
   if (TARGET_SH2E && !flag_finite_math_only)
     target_flags |= MASK_IEEE;
   sh_cpu = PROCESSOR_SH1;
@@ -921,7 +930,7 @@ sh_override_options (void)
   /* Unwinding with -freorder-blocks-and-partition does not work on this
      architecture, because it requires far jumps to label crossing between
      hot/cold sections which are rejected on this architecture.  */
-  if (flag_reorder_blocks_and_partition)
+  if (main_target && flag_reorder_blocks_and_partition)
     {
       if (flag_exceptions)
 	{
@@ -972,6 +981,7 @@ sh_override_options (void)
 
   if (sh_fixed_range_str)
     sh_fix_range (sh_fixed_range_str);
+  return true;
 }
 
 /* Print the operand address in x to the stream.  */
@@ -6519,7 +6529,7 @@ calc_live_regs (HARD_REG_SET *live_regs_mask)
   /* Force PR to be live if the prologue has to call the SHmedia
      argument decoder or register saver.  */
   if (TARGET_SHCOMPACT
-      && ((crtl->args.info.call_cookie
+      && ((INCOMING_ARGS_INFO (crtl->args).call_cookie
 	   & ~ CALL_COOKIE_RET_TRAMP (1))
 	  || crtl->saves_all_registers))
     pr_live = 1;
@@ -6546,7 +6556,7 @@ calc_live_regs (HARD_REG_SET *live_regs_mask)
 	  : (/* Only push those regs which are used and need to be saved.  */
 	     (TARGET_SHCOMPACT
 	      && flag_pic
-	      && crtl->args.info.call_cookie
+	      && INCOMING_ARGS_INFO (crtl->args).call_cookie
 	      && reg == PIC_OFFSET_TABLE_REGNUM)
 	     || (df_regs_ever_live_p (reg)
 		 && ((!call_really_used_regs[reg]
@@ -6668,11 +6678,13 @@ sh_media_register_for_return (void)
    -  add 1 entry for a delimiter.  */
 #define MAX_SAVED_REGS (62+32+8)
 
+/* In a multi-target configuration, a narrow type like unsigned char might
+   not be enough to hold a machine mode.  */
 typedef struct save_entry_s
 {
   unsigned char reg;
-  unsigned char mode;
   short offset;
+  int mode;
 } save_entry;
 
 #define MAX_TEMPS 4
@@ -6802,14 +6814,15 @@ sh_expand_prologue (void)
   pretend_args = crtl->args.pretend_args_size;
   if (TARGET_VARARGS_PRETEND_ARGS (current_function_decl)
       && (NPARM_REGS(SImode)
-	  > crtl->args.info.arg_count[(int) SH_ARG_INT]))
+	  > INCOMING_ARGS_INFO (crtl->args).arg_count[(int) SH_ARG_INT]))
     pretend_args = 0;
   /* Dwarf2 module doesn't expect frame related insns here.  */
   output_stack_adjust (-pretend_args
-		       - crtl->args.info.stack_regs * 8,
+		       - INCOMING_ARGS_INFO (crtl->args).stack_regs * 8,
 		       stack_pointer_rtx, 0, NULL, false);
 
-  if (TARGET_SHCOMPACT && flag_pic && crtl->args.info.call_cookie)
+  if (TARGET_SHCOMPACT && flag_pic
+      && INCOMING_ARGS_INFO (crtl->args).call_cookie)
     /* We're going to use the PIC register to load the address of the
        incoming-argument decoder and/or of the return trampoline from
        the GOT, so make sure the PIC register is preserved and
@@ -6817,7 +6830,8 @@ sh_expand_prologue (void)
     df_set_regs_ever_live (PIC_OFFSET_TABLE_REGNUM, true);
 
   if (TARGET_SHCOMPACT
-      && (crtl->args.info.call_cookie & ~ CALL_COOKIE_RET_TRAMP(1)))
+      && (INCOMING_ARGS_INFO (crtl->args).call_cookie
+	  & ~ CALL_COOKIE_RET_TRAMP(1)))
     {
       int reg;
 
@@ -6825,20 +6839,20 @@ sh_expand_prologue (void)
 	 be pushed onto the stack live, so that register renaming
 	 doesn't overwrite them.  */
       for (reg = 0; reg < NPARM_REGS (SImode); reg++)
-	if (CALL_COOKIE_STACKSEQ_GET (crtl->args.info.call_cookie)
+	if (CALL_COOKIE_STACKSEQ_GET (INCOMING_ARGS_INFO (crtl->args).call_cookie)
 	    >= NPARM_REGS (SImode) - reg)
 	  for (; reg < NPARM_REGS (SImode); reg++)
 	    emit_insn (gen_shcompact_preserve_incoming_args
 		       (gen_rtx_REG (SImode, FIRST_PARM_REG + reg)));
 	else if (CALL_COOKIE_INT_REG_GET
-		 (crtl->args.info.call_cookie, reg) == 1)
+		 (INCOMING_ARGS_INFO (crtl->args).call_cookie, reg) == 1)
 	  emit_insn (gen_shcompact_preserve_incoming_args
 		     (gen_rtx_REG (SImode, FIRST_PARM_REG + reg)));
 
       emit_move_insn (gen_rtx_REG (Pmode, MACL_REG),
 		      stack_pointer_rtx);
       emit_move_insn (gen_rtx_REG (SImode, R0_REG),
-		      GEN_INT (crtl->args.info.call_cookie));
+		      GEN_INT (INCOMING_ARGS_INFO (crtl->args).call_cookie));
       emit_move_insn (gen_rtx_REG (SImode, MACH_REG),
 		      gen_rtx_REG (SImode, R0_REG));
     }
@@ -6863,7 +6877,7 @@ sh_expand_prologue (void)
 	      rtx insn;
 
 	      if (i >= (NPARM_REGS(SImode)
-			- crtl->args.info.arg_count[(int) SH_ARG_INT]
+			- INCOMING_ARGS_INFO (crtl->args).arg_count[(int) SH_ARG_INT]
 			))
 		break;
 	      insn = push (rn);
@@ -7119,7 +7133,8 @@ sh_expand_prologue (void)
     frame_insn (GEN_MOV (hard_frame_pointer_rtx, stack_pointer_rtx));
 
   if (TARGET_SHCOMPACT
-      && (crtl->args.info.call_cookie & ~ CALL_COOKIE_RET_TRAMP(1)))
+      && (INCOMING_ARGS_INFO (crtl->args).call_cookie
+	  & ~ CALL_COOKIE_RET_TRAMP(1)))
     {
       /* This must NOT go through the PLT, otherwise mach and macl
 	 may be clobbered.  */
@@ -7381,7 +7396,7 @@ sh_expand_epilogue (bool sibcall_p)
 
   output_stack_adjust (crtl->args.pretend_args_size
 		       + save_size + d_rounding
-		       + crtl->args.info.stack_regs * 8,
+		       + INCOMING_ARGS_INFO (crtl->args).stack_regs * 8,
 		       stack_pointer_rtx, e, NULL, false);
 
   if (crtl->calls_eh_return)
@@ -7504,11 +7519,13 @@ static rtx
 sh_builtin_saveregs (void)
 {
   /* First unnamed integer register.  */
-  int first_intreg = crtl->args.info.arg_count[(int) SH_ARG_INT];
+  int first_intreg
+    = INCOMING_ARGS_INFO (crtl->args).arg_count[(int) SH_ARG_INT];
   /* Number of integer registers we need to save.  */
   int n_intregs = MAX (0, NPARM_REGS (SImode) - first_intreg);
   /* First unnamed SFmode float reg */
-  int first_floatreg = crtl->args.info.arg_count[(int) SH_ARG_FLOAT];
+  int first_floatreg
+    = INCOMING_ARGS_INFO (crtl->args).arg_count[(int) SH_ARG_FLOAT];
   /* Number of SFmode float regs to save.  */
   int n_floatregs = MAX (0, NPARM_REGS (SFmode) - first_floatreg);
   rtx regbuf, fpregs;
@@ -7523,22 +7540,22 @@ sh_builtin_saveregs (void)
 
 	  while (pushregs < NPARM_REGS (SImode) - 1
 		 && (CALL_COOKIE_INT_REG_GET
-			(crtl->args.info.call_cookie,
+			(INCOMING_ARGS_INFO (crtl->args).call_cookie,
 			 NPARM_REGS (SImode) - pushregs)
 		     == 1))
 	    {
-	      crtl->args.info.call_cookie
+	      INCOMING_ARGS_INFO (crtl->args).call_cookie
 		&= ~ CALL_COOKIE_INT_REG (NPARM_REGS (SImode)
 					  - pushregs, 1);
 	      pushregs++;
 	    }
 
 	  if (pushregs == NPARM_REGS (SImode))
-	    crtl->args.info.call_cookie
+	    INCOMING_ARGS_INFO (crtl->args).call_cookie
 	      |= (CALL_COOKIE_INT_REG (0, 1)
 		  | CALL_COOKIE_STACKSEQ (pushregs - 1));
 	  else
-	    crtl->args.info.call_cookie
+	    INCOMING_ARGS_INFO (crtl->args).call_cookie
 	      |= CALL_COOKIE_STACKSEQ (pushregs);
 
 	  crtl->args.pretend_args_size += 8 * n_intregs;
@@ -7748,7 +7765,7 @@ sh_va_start (tree valist, rtx nextarg)
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
-  nfp = crtl->args.info.arg_count[SH_ARG_FLOAT];
+  nfp = INCOMING_ARGS_INFO (crtl->args).arg_count[SH_ARG_FLOAT];
   if (nfp < 8)
     nfp = 8 - nfp;
   else
@@ -7763,7 +7780,7 @@ sh_va_start (tree valist, rtx nextarg)
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
-  nint = crtl->args.info.arg_count[SH_ARG_INT];
+  nint = INCOMING_ARGS_INFO (crtl->args).arg_count[SH_ARG_INT];
   if (nint < 4)
     nint = 4 - nint;
   else
@@ -8550,11 +8567,11 @@ initial_elimination_offset (int from, int to)
 
   if (from == ARG_POINTER_REGNUM && to == HARD_FRAME_POINTER_REGNUM)
     return total_saved_regs_space + total_auto_space
-      + crtl->args.info.byref_regs * 8;
+      + INCOMING_ARGS_INFO (crtl->args).byref_regs * 8;
 
   if (from == ARG_POINTER_REGNUM && to == STACK_POINTER_REGNUM)
     return total_saved_regs_space + total_auto_space
-      + crtl->args.info.byref_regs * 8;
+      + INCOMING_ARGS_INFO (crtl->args).byref_regs * 8;
 
   /* Initial gap between fp and sp is 0.  */
   if (from == HARD_FRAME_POINTER_REGNUM && to == STACK_POINTER_REGNUM)
@@ -10126,7 +10143,7 @@ sh_allocate_initial_value (rtx hard_reg)
       if (current_function_is_leaf
 	  && ! sh_pr_n_sets ()
 	  && ! (TARGET_SHCOMPACT
-		&& ((crtl->args.info.call_cookie
+		&& ((INCOMING_ARGS_INFO (crtl->args).call_cookie
 		     & ~ CALL_COOKIE_RET_TRAMP (1))
 		    || crtl->saves_all_registers)))
 	x = hard_reg;
@@ -10736,7 +10753,7 @@ sh_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
 {
   return (1
 	  && (! TARGET_SHCOMPACT
-	      || crtl->args.info.stack_regs == 0)
+	      || INCOMING_ARGS_INFO (crtl->args).stack_regs == 0)
 	  && ! sh_cfun_interrupt_handler_p ()
 	  && (! flag_pic
 	      || (decl && ! TREE_PUBLIC (decl))
@@ -11651,7 +11668,7 @@ sh_get_pr_initial_val (void)
      PR register on SHcompact, because it might be clobbered by the prologue.
      We check first if that is known to be the case.  */
   if (TARGET_SHCOMPACT
-      && ((crtl->args.info.call_cookie
+      && ((INCOMING_ARGS_INFO (crtl->args).call_cookie
 	   & ~ CALL_COOKIE_RET_TRAMP (1))
 	  || crtl->saves_all_registers))
     return gen_frame_mem (SImode, return_address_pointer_rtx);
@@ -12158,8 +12175,8 @@ shmedia_prepare_call_address (rtx fnaddr, int is_sibcall)
   return fnaddr;
 }
 
-enum reg_class
-sh_secondary_reload (bool in_p, rtx x, enum reg_class rclass,
+int /*enum reg_class*/
+sh_secondary_reload (bool in_p, rtx x, int /*enum reg_class*/ rclass,
 		     enum machine_mode mode, secondary_reload_info *sri)
 {
   if (in_p)
@@ -12263,3 +12280,5 @@ sh_secondary_reload (bool in_p, rtx x, enum reg_class rclass,
 enum sh_divide_strategy_e sh_div_strategy = SH_DIV_STRATEGY_DEFAULT;
 
 #include "gt-sh.h"
+
+END_TARGET_SPECIFIC

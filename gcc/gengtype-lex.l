@@ -19,7 +19,7 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
-%option noinput
+%option noinput stack noyy_top_state
 
 %{
 #include "bconfig.h"
@@ -35,6 +35,8 @@ along with GCC; see the file COPYING3.  If not see
 
 struct fileloc lexer_line;
 int lexer_toplevel_done;
+int pp_nest, no_extra_nest;
+bool target_specific;
 
 static void 
 update_lineno (const char *l, size_t len)
@@ -53,7 +55,7 @@ IWORD	short|long|(un)?signed|char|int|HOST_WIDE_INT|HOST_WIDEST_INT|bool|size_t|
 ITYPE	{IWORD}({WS}{IWORD})*
 EOID	[^[:alnum:]_]
 
-%x in_struct in_struct_comment in_comment
+%x in_struct in_comment start_pp_directive in_pp_directive pp_scanning
 %option warn noyywrap nounput nodefault perf-report
 %option 8bit never-interactive
 %%
@@ -65,8 +67,20 @@ EOID	[^[:alnum:]_]
       lexer_toplevel_done = 0;
     }
 
+
+<INITIAL,in_struct,in_comment>^{HWS}"#"	{ yy_push_state (start_pp_directive); }
+<pp_scanning>^{HWS}"#"			{ BEGIN (start_pp_directive); }
+
   /* Things we look for in skipping mode: */
 <INITIAL>{
+^{HWS}START_TARGET_SPECIFIC/{EOID} {
+  gcc_assert (!target_specific);
+  target_specific = true;
+}
+^{HWS}END_TARGET_SPECIFIC/{EOID} {
+  gcc_assert (target_specific);
+  target_specific = false;
+}
 ^{HWS}typedef/{EOID} {
   BEGIN(in_struct);
   return TYPEDEF;
@@ -102,13 +116,15 @@ EOID	[^[:alnum:]_]
 }
 }
 
+<*>\\\n				{ lexer_line.line++; }
+
 <in_struct>{
 
-"/*"				{ BEGIN(in_struct_comment); }
+"/*"				{ yy_push_state (in_comment); }
 
 {WS}				{ update_lineno (yytext, yyleng); }
-\\\n				{ lexer_line.line++; }
 
+TARGET_SCOPE/{EOID}		/* don't care */
 "const"/{EOID}			/* don't care */
 "GTY"/{EOID}			{ return GTY_TOKEN; }
 "VEC"/{EOID}			{ return VEC_TOKEN; }
@@ -158,38 +174,64 @@ EOID	[^[:alnum:]_]
 "..."				{ return ELLIPSIS; }
 [(){},*:<>;=%|-]		{ return yytext[0]; }
 
-   /* ignore pp-directives */
-^{HWS}"#"{HWS}[a-z_]+[^\n]*\n   {lexer_line.line++;}
-
 .				{
   error_at_line (&lexer_line, "unexpected character `%s'", yytext);
 }
 }
 
-"/*"			{ BEGIN(in_comment); }
-\n			{ lexer_line.line++; }
-{ID}			|
-"'"("\\".|[^\\])"'"	|
-[^"/\n]			/* do nothing */
-\"([^"\\]|\\.|\\\n)*\"	{ update_lineno (yytext, yyleng); }
-"/"/[^*]		/* do nothing */
+<pp_scanning>"GTY"/{EOID}	{
+  gcc_assert (get_output_file_name (lexer_line.file)); }
 
-<in_comment,in_struct_comment>{
-\n		{ lexer_line.line++; }
+{ID}			/* do nothing */
+<INITIAL,in_struct,in_comment,pp_scanning>\n	{ lexer_line.line++; }
+<INITIAL,start_pp_directive,in_pp_directive,pp_scanning>{
+"/*"			{ yy_push_state (in_comment);}
+"'"("\\".|[^\\])"'"	/* Skip character literal.  */
+\"([^"\\]|\\.|\\\n)*\"	{ update_lineno (yytext, yyleng); /* String.  */}
+"/"/[^*]		/* Do nothing for ordinary slash.  */
+[^"/\n]			/* Do nothing.  */
+}
+
+<in_comment>{
 [^*\n]{16}	|
 [^*\n]		/* do nothing */
 "*"/[^/]	/* do nothing */
+"*/"		{ yy_pop_state (); } 
 }
-<in_comment>"*/"	{ BEGIN(INITIAL); } 
-<in_struct_comment>"*/"	{ BEGIN(in_struct); }
 
-["/]    		|
-<in_struct_comment,in_comment>"*"	{
+<INITIAL,start_pp_directive,in_pp_directive,pp_scanning>["/] |
+<in_comment>"*"	{
   error_at_line (&lexer_line, 
 		 "unterminated comment or string; unexpected EOF");
 }
 
-^{HWS}"#"{HWS}"define"{WS}"GTY(" /* do nothing */
+<start_pp_directive>{
+{HWS}ifndef{HWS}EXTRA_TARGET[[:alnum:]_][^/"'\\\n]* {
+  pp_nest++; BEGIN (in_pp_directive);
+}
+{HWS}ifndef{HWS}EXTRA_TARGET[^/"'\\\n]* {
+  pp_nest++; BEGIN (in_pp_directive);
+#ifdef EXTRA_TARGET
+  no_extra_nest = pp_nest;
+#endif
+}
+{HWS}if[^/"'\\\n]*	{ pp_nest++; BEGIN (in_pp_directive); }
+{HWS}endif[^/"'\\\n]*	{
+  if (pp_nest-- == no_extra_nest)
+    no_extra_nest = 0;
+  BEGIN (in_pp_directive);
+}
+{HWS}[^/"'\\\n]*	{ BEGIN (in_pp_directive); }
+\n			{ lexer_line.line++; yy_pop_state (); }
+}
+
+<in_pp_directive>\n	{
+  lexer_line.line++;
+    if (no_extra_nest)
+      BEGIN (pp_scanning);
+    else
+      yy_pop_state ();
+} 
 
 %%
 

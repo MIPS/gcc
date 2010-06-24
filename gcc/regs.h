@@ -24,6 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "machmode.h"
 #include "hard-reg-set.h"
+#include "multi-target.h"
 
 #define REG_BYTES(R) mode_size[(int) GET_MODE (R)]
 
@@ -94,7 +95,11 @@ REG_N_SETS (int regno)
 /* Functions defined in reg-stat.c.  */
 extern void regstat_init_n_sets_and_refs (void);
 extern void regstat_free_n_sets_and_refs (void);
+START_TARGET_SPECIFIC
+/* This one uses FIRST_PSEUDO_REGISTER, and hookifying that would at least
+   increase register pressure.  */
 extern void regstat_compute_ri (void);
+END_TARGET_SPECIFIC
 extern void regstat_free_ri (void);
 extern bitmap regstat_get_setjmp_crosses (void);
 extern void regstat_compute_calls_crossed (void);
@@ -205,6 +210,7 @@ extern size_t reg_info_p_size;
 
 #define REG_BASIC_BLOCK(N) (reg_info_p[N].basic_block)
 
+START_TARGET_SPECIFIC
 /* Vector of substitutions of register numbers,
    used to map pseudo regs into hardware regs.
 
@@ -224,6 +230,7 @@ extern bool have_regs_of_mode [MAX_MACHINE_MODE];
    register.  */
 
 extern enum machine_mode reg_raw_mode[FIRST_PSEUDO_REGISTER];
+END_TARGET_SPECIFIC
 
 /* Flag set by local-alloc or global-alloc if they decide to allocate
    something in a call-clobbered register.  */
@@ -256,6 +263,7 @@ extern int caller_save_needed;
 #define HARD_REGNO_CALL_PART_CLOBBERED(REGNO, MODE) 0
 #endif
 
+START_TARGET_SPECIFIC
 /* 1 if the corresponding class does contain register of given
    mode.  */
 extern char contains_reg_of_mode [N_REG_CLASSES] [MAX_MACHINE_MODE];
@@ -360,5 +368,6 @@ overlaps_hard_reg_set_p (const HARD_REG_SET regs, enum machine_mode mode,
 
   return false;
 }
+END_TARGET_SPECIFIC
 
 #endif /* GCC_REGS_H */

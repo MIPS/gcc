@@ -1131,8 +1131,8 @@ extern int arm_structure_size_boundary;
    saved by the prologue, even if they would normally be
    call-clobbered.  */
 #define HARD_REGNO_RENAME_OK(SRC, DST)					\
-	(! IS_INTERRUPT (cfun->machine->func_type) ||			\
-	 df_regs_ever_live_p (DST))
+	(! IS_INTERRUPT (MACHINE_FUNCTION (*cfun)->func_type)		\
+	 || df_regs_ever_live_p (DST))
 
 /* Register and constant classes.  */
 

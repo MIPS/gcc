@@ -28,6 +28,10 @@
 /* Note that some other tm.h files include this one and then override
    many of the definitions.  */
 
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
+
 /* Definitions for the object file format.  These are set at
    compile-time.  */
 
@@ -754,6 +758,8 @@ extern unsigned char rs6000_recip_bits[];
 extern unsigned rs6000_pointer_size;
 #define POINTER_SIZE rs6000_pointer_size
 
+END_TARGET_SPECIFIC
+
 /* Allocation boundary (in *bits*) for storing arguments in argument list.  */
 #define PARM_BOUNDARY (TARGET_32BIT ? 32 : 64)
 
@@ -1376,6 +1382,8 @@ enum reg_class
   CR_REGS, CA_REGS, LIM_REG_CLASSES					     \
 }
 
+START_TARGET_SPECIFIC
+
 /* The same information, inverted:
    Return the class number of the smallest class containing
    reg number REGNO.  This could be a conditional expression
@@ -1482,6 +1490,8 @@ enum rs6000_abi {
 };
 
 extern enum rs6000_abi rs6000_current_abi;	/* available for use by subtarget */
+
+END_TARGET_SPECIFIC
 
 /* Define this if pushing a word on the stack
    makes the stack pointer a smaller address.  */
@@ -1694,6 +1704,8 @@ typedef struct rs6000_args
   int use_stack;		/* any part of struct on stack (darwin64) */
   int named;			/* false for varargs params */
 } CUMULATIVE_ARGS;
+
+START_TARGET_SPECIFIC
 
 /* Initialize a variable CUM of type CUMULATIVE_ARGS
    for a call to a function whose data type is FNTYPE.
@@ -2596,3 +2608,4 @@ enum rs6000_builtin_type_index
 extern GTY(()) tree rs6000_builtin_types[RS6000_BTI_MAX];
 extern GTY(()) tree rs6000_builtin_decls[RS6000_BUILTIN_COUNT];
 
+END_TARGET_SPECIFIC

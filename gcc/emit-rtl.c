@@ -59,14 +59,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "df.h"
 #include "params.h"
 #include "target.h"
+#include "multi-target.h"
 
+START_TARGET_SPECIFIC
 /* Commonly used modes.  */
 
 enum machine_mode byte_mode;	/* Mode whose width is BITS_PER_UNIT.  */
 enum machine_mode word_mode;	/* Mode whose width is BITS_PER_WORD.  */
 enum machine_mode double_mode;	/* Mode whose width is DOUBLE_TYPE_SIZE.  */
 enum machine_mode ptr_mode;	/* Mode whose width is POINTER_SIZE.  */
+END_TARGET_SPECIFIC
 
+extern GTY(()) int label_num;
+
+#ifndef EXTRA_TARGET
 /* Datastructures maintained for currently processed function in RTL form.  */
 
 struct rtl_data x_rtl;
@@ -81,7 +87,11 @@ rtx * regno_reg_rtx;
 /* This is *not* reset after each function.  It gives each CODE_LABEL
    in the entire compilation a unique label number.  */
 
-static GTY(()) int label_num = 1;
+int label_num = 1;
+
+#endif /* !EXTRA_TARGET */
+
+START_TARGET_SPECIFIC
 
 /* Commonly used rtx's, so that we only need space for one copy.
    These are initialized once for the entire compilation.
@@ -138,6 +148,16 @@ rtx pic_offset_table_rtx;	/* (REG:Pmode PIC_OFFSET_TABLE_REGNUM) */
    See for instance the MIPS port.  */
 rtx return_address_pointer_rtx;	/* (REG:Pmode RETURN_ADDRESS_POINTER_REGNUM) */
 
+END_TARGET_SPECIFIC
+
+extern GTY ((if_marked ("ggc_marked_p"), param_is (struct rtx_def)))
+     htab_t const_int_htab;
+extern GTY ((if_marked ("ggc_marked_p"), param_is (struct rtx_def)))
+     htab_t const_double_htab;
+
+START_TARGET_SPECIFIC
+
+#ifndef EXTRA_TARGET
 /* We make one copy of (const_int C) where C is in
    [- MAX_SAVED_CONST_INT, MAX_SAVED_CONST_INT]
    to save space during the compilation and simplify comparisons of
@@ -148,8 +168,12 @@ rtx const_int_rtx[MAX_SAVED_CONST_INT * 2 + 1];
 /* A hash table storing CONST_INTs whose absolute value is greater
    than MAX_SAVED_CONST_INT.  */
 
-static GTY ((if_marked ("ggc_marked_p"), param_is (struct rtx_def)))
-     htab_t const_int_htab;
+htab_t const_int_htab;
+
+/* A hash table storing all CONST_DOUBLEs.  */
+htab_t const_double_htab;
+
+#endif /* !EXTRA_TARGET */
 
 /* A hash table storing memory attribute structures.  */
 static GTY ((if_marked ("ggc_marked_p"), param_is (struct mem_attrs)))
@@ -158,10 +182,6 @@ static GTY ((if_marked ("ggc_marked_p"), param_is (struct mem_attrs)))
 /* A hash table storing register attribute structures.  */
 static GTY ((if_marked ("ggc_marked_p"), param_is (struct reg_attrs)))
      htab_t reg_attrs_htab;
-
-/* A hash table storing all CONST_DOUBLEs.  */
-static GTY ((if_marked ("ggc_marked_p"), param_is (struct rtx_def)))
-     htab_t const_double_htab;
 
 /* A hash table storing all CONST_FIXEDs.  */
 static GTY ((if_marked ("ggc_marked_p"), param_is (struct rtx_def)))
@@ -412,6 +432,7 @@ gen_blockage (void)
 #endif
 
 
+#ifndef EXTRA_TARGET
 /* Generate a new REG rtx.  Make sure ORIGINAL_REGNO is set properly, and
    don't attempt to share with the various global pieces of rtl (such as
    frame_pointer_rtx).  */
@@ -423,6 +444,7 @@ gen_raw_REG (enum machine_mode mode, int regno)
   ORIGINAL_REGNO (x) = regno;
   return x;
 }
+#endif /* EXTRA_TARGET */
 
 /* There are some RTL codes that require special attention; the generation
    functions do the raw handling.  If you add to this list, modify
@@ -473,6 +495,7 @@ lookup_const_double (rtx real)
   return (rtx) *slot;
 }
 
+#ifndef EXTRA_TARGET
 /* Return a CONST_DOUBLE rtx for a floating-point value specified by
    VALUE in mode MODE.  */
 rtx
@@ -485,6 +508,7 @@ const_double_from_real_value (REAL_VALUE_TYPE value, enum machine_mode mode)
 
   return lookup_const_double (real);
 }
+#endif /* EXTRA_TARGET */
 
 /* Determine whether FIXED, a CONST_FIXED, already exists in the
    hash table.  If so, return its counterpart; otherwise add it
@@ -661,6 +685,7 @@ gen_rtx_REG (enum machine_mode mode, unsigned int regno)
   return gen_raw_REG (mode, regno);
 }
 
+#ifndef EXTRA_TARGET
 rtx
 gen_rtx_MEM (enum machine_mode mode, rtx addr)
 {
@@ -683,6 +708,7 @@ gen_const_mem (enum machine_mode mode, rtx addr)
   MEM_NOTRAP_P (mem) = 1;
   return mem;
 }
+#endif /* !EXTRA_TARGET */
 
 /* Generate a MEM referring to fixed portions of the frame, e.g., register
    save areas.  */
@@ -937,6 +963,8 @@ gen_reg_rtx (enum machine_mode mode)
 
       crtl->emit.regno_pointer_align_length = old_size * 2;
     }
+  else
+    gcc_assert (reg_rtx_no < crtl->emit.regno_pointer_align_length);
 
   val = gen_raw_REG (mode, reg_rtx_no);
   regno_reg_rtx[reg_rtx_no++] = val;
@@ -5619,6 +5647,8 @@ gen_const_vector (enum machine_mode mode, int constant)
   return tem;
 }
 
+#ifndef EXTRA_TARGET
+
 /* Generate a vector like gen_rtx_raw_CONST_VEC, but use the zero vector when
    all elements are zero, and the one vector when all elements are one.  */
 rtx
@@ -5647,6 +5677,8 @@ gen_rtx_CONST_VECTOR (enum machine_mode mode, rtvec v)
 
   return gen_rtx_raw_CONST_VECTOR (mode, v);
 }
+
+#endif /* !EXTRA_TARGET */
 
 /* Initialise global register information required by all functions.  */
 
@@ -5705,11 +5737,13 @@ init_emit_once (void)
 
   /* Initialize the CONST_INT, CONST_DOUBLE, CONST_FIXED, and memory attribute
      hash tables.  */
+#ifndef EXTRA_TARGET
   const_int_htab = htab_create_ggc (37, const_int_htab_hash,
 				    const_int_htab_eq, NULL);
 
   const_double_htab = htab_create_ggc (37, const_double_htab_hash,
 				       const_double_htab_eq, NULL);
+#endif /* EXTRA_TARGET */
 
   const_fixed_htab = htab_create_ggc (37, const_fixed_htab_hash,
 				      const_fixed_htab_eq, NULL);
@@ -6027,3 +6061,5 @@ gen_hard_reg_clobber (enum machine_mode mode, unsigned int regno)
 }
 
 #include "gt-emit-rtl.h"
+
+END_TARGET_SPECIFIC

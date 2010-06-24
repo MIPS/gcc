@@ -43,6 +43,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "alloc-pool.h"
 #include "target.h"
 #include "bitmap.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 static bool cselib_record_memory;
 static bool cselib_preserve_constants;
@@ -2370,3 +2373,5 @@ dump_cselib_table (FILE *out)
 }
 
 #include "gt-cselib.h"
+
+END_TARGET_SPECIFIC

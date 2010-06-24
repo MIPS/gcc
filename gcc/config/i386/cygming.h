@@ -34,7 +34,9 @@ along with GCC; see the file COPYING3.  If not see
 #endif
 
 #undef TARGET_64BIT_MS_ABI
-#define TARGET_64BIT_MS_ABI (!cfun ? ix86_abi == MS_ABI : TARGET_64BIT && cfun->machine->call_abi == MS_ABI)
+#define TARGET_64BIT_MS_ABI \
+  (!cfun ? ix86_abi == MS_ABI \
+   : TARGET_64BIT && MACHINE_FUNCTION (*cfun)->call_abi == MS_ABI)
 
 #undef DEFAULT_ABI
 #define DEFAULT_ABI (TARGET_64BIT ? MS_ABI : SYSV_ABI)

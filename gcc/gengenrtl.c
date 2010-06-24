@@ -263,6 +263,8 @@ genheader (void)
   puts ("#ifndef GCC_GENRTL_H");
   puts ("#define GCC_GENRTL_H\n");
   puts ("#include \"statistics.h\"\n");
+  puts ("#include \"multi-target.h\"\n");
+  puts ("\nSTART_TARGET_SPECIFIC\n");
 
   for (fmt = formats; *fmt; ++fmt)
     gendef (*fmt);
@@ -273,6 +275,7 @@ genheader (void)
     if (! special_format (defs[i].format))
       genmacro (i);
 
+  puts ("\nEND_TARGET_SPECIFIC");
   puts ("\n#endif /* GCC_GENRTL_H */");
 }
 

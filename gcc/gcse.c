@@ -169,6 +169,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "df.h"
 #include "dbgcnt.h"
 #include "target.h"
+#include "multi-target.h"
 
 /* We support GCSE via Partial Redundancy Elimination.  PRE optimizations
    are a superset of those done by classic GCSE.
@@ -262,8 +263,12 @@ along with GCC; see the file COPYING3.  If not see
 
 /* GCSE global vars.  */
 
+#ifndef EXTRA_TARGET
 /* Set to non-zero if CSE should run after all GCSE optimizations are done.  */
 int flag_rerun_cse_after_global_opts;
+#endif
+
+START_TARGET_SPECIFIC
 
 /* An obstack for our working variables.  */
 static struct obstack gcse_obstack;
@@ -5168,3 +5173,5 @@ struct rtl_opt_pass pass_rtl_hoist =
 };
 
 #include "gt-gcse.h"
+
+END_TARGET_SPECIFIC

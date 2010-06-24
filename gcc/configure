@@ -610,6 +610,7 @@ PPLINC
 PPLLIBS
 GMPINC
 GMPLIBS
+with_extra_target_list
 target_cpu_default
 fortran_target_objs
 cxx_target_objs
@@ -17107,7 +17108,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 17110 "configure"
+#line 17111 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -17213,7 +17214,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 17216 "configure"
+#line 17217 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -25190,7 +25191,7 @@ lang_tree_files=
 # `language' must be a single word so is spelled singularly.
 all_languages=
 all_compilers=
-all_outputs='Makefile gccbug'
+all_outputs='Makefile T-extra gccbug'
 # List of language makefile fragments.
 all_lang_makefrags=
 # Additional files for gengtype
@@ -25391,6 +25392,7 @@ fi
 
 
 # Substitute configuration variables
+
 
 
 

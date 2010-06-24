@@ -1989,10 +1989,10 @@ arm_compute_func_type (void)
 unsigned long
 arm_current_func_type (void)
 {
-  if (ARM_FUNC_TYPE (cfun->machine->func_type) == ARM_FT_UNKNOWN)
-    cfun->machine->func_type = arm_compute_func_type ();
+  if (ARM_FUNC_TYPE (MACHINE_FUNCTION (*cfun)->func_type) == ARM_FT_UNKNOWN)
+    MACHINE_FUNCTION (*cfun)->func_type = arm_compute_func_type ();
 
-  return cfun->machine->func_type;
+  return MACHINE_FUNCTION (*cfun)->func_type;
 }
 
 bool
@@ -2115,7 +2115,7 @@ use_return_insn (int iscond, rtx sibling)
 
   /* As do variadic functions.  */
   if (crtl->args.pretend_args_size
-      || cfun->machine->uses_anonymous_args
+      || MACHINE_FUNCTION (*cfun)->uses_anonymous_args
       /* Or if the function calls __builtin_eh_return () */
       || crtl->calls_eh_return
       /* Or if the function calls alloca */
@@ -4778,7 +4778,7 @@ arm_function_ok_for_sibcall (tree decl, tree exp)
 {
   unsigned long func_type;
 
-  if (cfun->machine->sibcall_blocked)
+  if (MACHINE_FUNCTION (*cfun)->sibcall_blocked)
     return false;
 
   /* Never tailcall something for which we have no decl, or if we
@@ -4848,7 +4848,7 @@ legitimate_pic_operand_p (rtx x)
 }
 
 /* Record that the current function needs a PIC register.  Initialize
-   cfun->machine->pic_reg if we have not already done so.  */
+   MACHINE_FUNCTION (*cfun)->pic_reg if we have not already done so.  */
 
 static void
 require_pic_register (void)
@@ -4863,8 +4863,9 @@ require_pic_register (void)
       gcc_assert (can_create_pseudo_p ());
       if (arm_pic_register != INVALID_REGNUM)
 	{
-	  if (!cfun->machine->pic_reg)
-	    cfun->machine->pic_reg = gen_rtx_REG (Pmode, arm_pic_register);
+	  if (!MACHINE_FUNCTION (*cfun)->pic_reg)
+	    MACHINE_FUNCTION (*cfun)->pic_reg
+	      = gen_rtx_REG (Pmode, arm_pic_register);
 
 	  /* Play games to avoid marking the function as needing pic
 	     if we are being called as part of the cost-estimation
@@ -4876,8 +4877,8 @@ require_pic_register (void)
 	{
 	  rtx seq;
 
-	  if (!cfun->machine->pic_reg)
-	    cfun->machine->pic_reg = gen_reg_rtx (Pmode);
+	  if (!MACHINE_FUNCTION (*cfun)->pic_reg)
+	    MACHINE_FUNCTION (*cfun)->pic_reg = gen_reg_rtx (Pmode);
 
 	  /* Play games to avoid marking the function as needing pic
 	     if we are being called as part of the cost-estimation
@@ -4941,9 +4942,11 @@ legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 	  else /* TARGET_THUMB1 */
 	    emit_insn (gen_pic_load_addr_thumb1 (address, orig));
 
-	  pic_ref = gen_const_mem (Pmode,
-				   gen_rtx_PLUS (Pmode, cfun->machine->pic_reg,
-					         address));
+	  pic_ref
+	    = gen_const_mem (Pmode,
+			     gen_rtx_PLUS (Pmode,
+					   MACHINE_FUNCTION (*cfun)->pic_reg,
+					   address));
 	  insn = emit_move_insn (reg, pic_ref);
 	}
 
@@ -4958,7 +4961,7 @@ legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
       rtx base, offset;
 
       if (GET_CODE (XEXP (orig, 0)) == PLUS
-	  && XEXP (XEXP (orig, 0), 0) == cfun->machine->pic_reg)
+	  && XEXP (XEXP (orig, 0), 0) == MACHINE_FUNCTION (*cfun)->pic_reg)
 	return orig;
 
       /* Handle the case where we have: const (UNSPEC_TLS).  */
@@ -5040,7 +5043,7 @@ thumb_find_work_register (unsigned long pushed_regs_mask)
      pushed right at the start of the function.  Hence it will be available
      for the rest of the prologue.
      (*): ie crtl->args.pretend_args_size is greater than 0.  */
-  if (cfun->machine->uses_anonymous_args
+  if (MACHINE_FUNCTION (*cfun)->uses_anonymous_args
       && crtl->args.pretend_args_size > 0)
     return LAST_ARG_REGNUM;
 
@@ -5056,7 +5059,7 @@ thumb_find_work_register (unsigned long pushed_regs_mask)
      function but which are not used.  Hence we could miss an opportunity
      when a function has an unused argument in r3.  But it is better to be
      safe than to be sorry.  */
-  if (! cfun->machine->uses_anonymous_args
+  if (! MACHINE_FUNCTION (*cfun)->uses_anonymous_args
       && crtl->args.size >= 0
       && crtl->args.size <= (LAST_ARG_REGNUM * UNITS_PER_WORD)
       && crtl->args.info.nregs < 4)
@@ -5094,7 +5097,7 @@ arm_load_pic_register (unsigned long saved_regs ATTRIBUTE_UNUSED)
 
   gcc_assert (flag_pic);
 
-  pic_reg = cfun->machine->pic_reg;
+  pic_reg = MACHINE_FUNCTION (*cfun)->pic_reg;
   if (TARGET_VXWORKS_RTP)
     {
       pic_rtx = gen_rtx_SYMBOL_REF (Pmode, VXWORKS_GOTT_BASE);
@@ -11916,7 +11919,8 @@ arm_emit_call_insn (rtx pat, rtx addr)
 	  : !SYMBOL_REF_LOCAL_P (addr)))
     {
       require_pic_register ();
-      use_reg (&CALL_INSN_FUNCTION_USAGE (insn), cfun->machine->pic_reg);
+      use_reg (&CALL_INSN_FUNCTION_USAGE (insn),
+	       MACHINE_FUNCTION (*cfun)->pic_reg);
     }
 }
 
@@ -13122,7 +13126,7 @@ arm_compute_save_reg_mask (void)
 	  && !crtl->calls_eh_return))
     save_reg_mask |= 1 << LR_REGNUM;
 
-  if (cfun->machine->lr_save_eliminated)
+  if (MACHINE_FUNCTION (*cfun)->lr_save_eliminated)
     save_reg_mask &= ~ (1 << LR_REGNUM);
 
   if (TARGET_REALLY_IWMMXT
@@ -13148,7 +13152,7 @@ arm_compute_save_reg_mask (void)
 	save_reg_mask |= (1 << reg);
       else
 	{
-	  cfun->machine->sibcall_blocked = 1;
+	  MACHINE_FUNCTION (*cfun)->sibcall_blocked = 1;
 	  save_reg_mask |= (1 << 3);
 	}
     }
@@ -13322,7 +13326,7 @@ output_return_instruction (rtx operand, int really_return, int reverse)
 
   sprintf (conditional, "%%?%%%c0", reverse ? 'D' : 'd');
 
-  cfun->machine->return_used_this_function = 1;
+  MACHINE_FUNCTION (*cfun)->return_used_this_function = 1;
 
   offsets = arm_get_frame_offsets ();
   live_regs_mask = offsets->saved_regs_mask;
@@ -13589,9 +13593,9 @@ arm_output_function_prologue (FILE *f, HOST_WIDE_INT frame_size)
 
   asm_fprintf (f, "\t%@ frame_needed = %d, uses_anonymous_args = %d\n",
 	       frame_pointer_needed,
-	       cfun->machine->uses_anonymous_args);
+	       MACHINE_FUNCTION (*cfun)->uses_anonymous_args);
 
-  if (cfun->machine->lr_save_eliminated)
+  if (MACHINE_FUNCTION (*cfun)->lr_save_eliminated)
     asm_fprintf (f, "\t%@ link register save eliminated.\n");
 
   if (crtl->calls_eh_return)
@@ -13618,7 +13622,7 @@ arm_output_epilogue (rtx sibling)
   /* If we have already generated the return instruction
      then it is futile to generate anything else.  */
   if (use_return_insn (FALSE, sibling) && 
-      (cfun->machine->return_used_this_function != 0))
+      (MACHINE_FUNCTION (*cfun)->return_used_this_function != 0))
     return "";
 
   func_type = arm_current_func_type ();
@@ -14056,7 +14060,7 @@ arm_output_function_epilogue (FILE *file ATTRIBUTE_UNUSED,
 	 of call_reg and call_value_reg type insns.  */
       for (regno = 0; regno < LR_REGNUM; regno++)
 	{
-	  rtx label = cfun->machine->call_via[regno];
+	  rtx label = MACHINE_FUNCTION (*cfun)->call_via[regno];
 
 	  if (label != NULL)
 	    {
@@ -14070,7 +14074,7 @@ arm_output_function_epilogue (FILE *file ATTRIBUTE_UNUSED,
       /* ??? Probably not safe to set this here, since it assumes that a
 	 function will be emitted as assembly immediately after we generate
 	 RTL for it.  This does not happen for inline functions.  */
-      cfun->machine->return_used_this_function = 0;
+      MACHINE_FUNCTION (*cfun)->return_used_this_function = 0;
     }
   else /* TARGET_32BIT */
     {
@@ -14078,7 +14082,7 @@ arm_output_function_epilogue (FILE *file ATTRIBUTE_UNUSED,
       offsets = arm_get_frame_offsets ();
 
       gcc_assert (!use_return_insn (FALSE, NULL)
-		  || (cfun->machine->return_used_this_function != 0)
+		  || (MACHINE_FUNCTION (*cfun)->return_used_this_function != 0)
 		  || offsets->saved_regs == offsets->outgoing_args
 		  || frame_pointer_needed);
 
@@ -14307,7 +14311,7 @@ emit_sfm (int base_reg, int count)
 static bool
 thumb_force_lr_save (void)
 {
-  return !cfun->machine->lr_save_eliminated
+  return !MACHINE_FUNCTION (*cfun)->lr_save_eliminated
 	 && (!leaf_function_p ()
 	     || thumb_far_jump_used_p ()
 	     || df_regs_ever_live_p (LR_REGNUM));
@@ -14378,7 +14382,7 @@ arm_get_frame_offsets (void)
   HOST_WIDE_INT frame_size;
   int i;
 
-  offsets = &cfun->machine->stack_offsets;
+  offsets = &MACHINE_FUNCTION (*cfun)->stack_offsets;
 
   /* We need to know if we are a leaf function.  Unfortunately, it
      is possible to be called after start_sequence has been called,
@@ -14870,7 +14874,7 @@ arm_expand_prologue (void)
 	  else
 	    {
 	      /* Store the args on the stack.  */
-	      if (cfun->machine->uses_anonymous_args)
+	      if (MACHINE_FUNCTION (*cfun)->uses_anonymous_args)
 		insn = emit_multi_reg_push
 		  ((0xf0 >> (args_to_push / 4)) & 0xf);
 	      else
@@ -14897,7 +14901,7 @@ arm_expand_prologue (void)
   if (args_to_push)
     {
       /* Push the argument registers, or reserve space for them.  */
-      if (cfun->machine->uses_anonymous_args)
+      if (MACHINE_FUNCTION (*cfun)->uses_anonymous_args)
 	insn = emit_multi_reg_push
 	  ((0xf0 >> (args_to_push / 4)) & 0xf);
       else
@@ -15039,7 +15043,7 @@ arm_expand_prologue (void)
   /* If the link register is being kept alive, with the return address in it,
      then make sure that it does not get reused by the ce2 pass.  */
   if ((live_regs_mask & (1 << LR_REGNUM)) == 0)
-    cfun->machine->lr_save_eliminated = 1;
+    MACHINE_FUNCTION (*cfun)->lr_save_eliminated = 1;
 }
 
 /* Print condition code to STREAM.  Helper function for arm_print_operand.  */
@@ -19236,7 +19240,7 @@ thumb_far_jump_used_p (void)
      it turns out that they are not being used.  Once we have made
      the decision that far jumps are present (and that hence the link
      register will be pushed onto the stack) we cannot go back on it.  */
-  if (cfun->machine->far_jump_used)
+  if (MACHINE_FUNCTION (*cfun)->far_jump_used)
     return 1;
 
   /* If this function is not being called from the prologue/epilogue
@@ -19266,8 +19270,8 @@ thumb_far_jump_used_p (void)
 	 If we need doubleword stack alignment this could affect the other
 	 elimination offsets so we can't risk getting it wrong.  */
       if (df_regs_ever_live_p (ARG_POINTER_REGNUM))
-	cfun->machine->arg_pointer_live = 1;
-      else if (!cfun->machine->arg_pointer_live)
+	MACHINE_FUNCTION (*cfun)->arg_pointer_live = 1;
+      else if (!MACHINE_FUNCTION (*cfun)->arg_pointer_live)
 	return 0;
     }
 
@@ -19284,7 +19288,7 @@ thumb_far_jump_used_p (void)
 	{
 	  /* Record the fact that we have decided that
 	     the function does use far jumps.  */
-	  cfun->machine->far_jump_used = 1;
+	  MACHINE_FUNCTION (*cfun)->far_jump_used = 1;
 	  return 1;
 	}
     }
@@ -19320,7 +19324,7 @@ thumb_unexpanded_epilogue (void)
   int had_to_push_lr;
   int size;
 
-  if (cfun->machine->return_used_this_function != 0)
+  if (MACHINE_FUNCTION (*cfun)->return_used_this_function != 0)
     return "";
 
   if (IS_NAKED (arm_current_func_type ()))
@@ -19706,9 +19710,9 @@ thumb1_expand_prologue (void)
       || (ARM_EABI_UNWIND_TABLES && cfun->can_throw_non_call_exceptions))
     emit_insn (gen_blockage ());
 
-  cfun->machine->lr_save_eliminated = !thumb_force_lr_save ();
+  MACHINE_FUNCTION (*cfun)->lr_save_eliminated = !thumb_force_lr_save ();
   if (live_regs_mask & 0xff)
-    cfun->machine->lr_save_eliminated = 0;
+    MACHINE_FUNCTION (*cfun)->lr_save_eliminated = 0;
 }
 
 
@@ -19819,7 +19823,7 @@ thumb1_output_function_prologue (FILE *f, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 	fprintf (f, "\t.pad #%d\n",
 		 crtl->args.pretend_args_size);
 
-      if (cfun->machine->uses_anonymous_args)
+      if (MACHINE_FUNCTION (*cfun)->uses_anonymous_args)
 	{
 	  int num_pushes;
 
@@ -20199,9 +20203,9 @@ thumb_call_via_reg (rtx reg)
     }
   else
     {
-      if (cfun->machine->call_via[regno] == NULL)
-	cfun->machine->call_via[regno] = gen_label_rtx ();
-      labelp = cfun->machine->call_via + regno;
+      if (MACHINE_FUNCTION (*cfun)->call_via[regno] == NULL)
+	MACHINE_FUNCTION (*cfun)->call_via[regno] = gen_label_rtx ();
+      labelp = MACHINE_FUNCTION (*cfun)->call_via + regno;
     }
 
   output_asm_insn ("bl\t%a0", labelp);
@@ -20690,7 +20694,7 @@ arm_setup_incoming_varargs (CUMULATIVE_ARGS *pcum,
 {
   int nregs;
   
-  cfun->machine->uses_anonymous_args = 1;
+  MACHINE_FUNCTION (*cfun)->uses_anonymous_args = 1;
   if (pcum->pcs_variant <= ARM_PCS_AAPCS_LOCAL)
     {
       nregs = pcum->aapcs_ncrn;

@@ -24,6 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "input.h"
 #include "bversion.h"
 #include "diagnostic-core.h"
+#include "multi-target.h"
 
 /* If non-NULL, return one past-the-end of the matching SUBPART of
    the WHOLE string.  */
@@ -56,10 +57,12 @@ extern void warning_for_asm (const_rtx, const char *, ...) ATTRIBUTE_GCC_DIAG(2,
 extern void warn_deprecated_use (tree, tree);
 extern bool parse_optimize_options (tree, bool);
 
+START_TARGET_SPECIFIC
 #ifdef BUFSIZ
 extern void output_quoted_string	(FILE *, const char *);
 extern void output_file_directive	(FILE *, const char *);
 #endif
+END_TARGET_SPECIFIC
 
 extern void wrapup_global_declaration_1 (tree);
 extern bool wrapup_global_declaration_2 (tree);
@@ -161,6 +164,7 @@ extern bool set_src_pwd		       (const char *);
 
 /* Functions used to manipulate the random seed.  */
 
+extern void init_random_seed (void);
 extern const char *get_random_seed (bool);
 extern const char *set_random_seed (const char *);
 

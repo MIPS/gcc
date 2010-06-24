@@ -396,6 +396,9 @@ are write-only operations.
 #include "df.h"
 #include "tree-pass.h"
 #include "params.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 static void *df_get_bb_info (struct dataflow *, unsigned int);
 static void df_set_bb_info (struct dataflow *, unsigned int, void *);
@@ -404,18 +407,22 @@ static void df_clear_bb_info (struct dataflow *, unsigned int);
 static void df_set_clean_cfg (void);
 #endif
 
+#ifndef EXTRA_TARGET
 /* An obstack for bitmap not related to specific dataflow problems.
    This obstack should e.g. be used for bitmaps with a short life time
    such as temporary bitmaps.  */
 
 bitmap_obstack df_bitmap_obstack;
+#endif /* !EXTRA_TARGET */
 
 
 /*----------------------------------------------------------------------------
   Functions to create, destroy and manipulate an instance of df.
 ----------------------------------------------------------------------------*/
 
+#ifndef EXTRA_TARGET
 struct df_d *df;
+#endif /* !EXTRA_TARGET */
 
 /* Add PROBLEM (and any dependent problems) to the DF instance.  */
 
@@ -2297,3 +2304,5 @@ debug_df_chain (struct df_link *link)
   df_chain_dump (link, stderr);
   fputc ('\n', stderr);
 }
+
+END_TARGET_SPECIFIC

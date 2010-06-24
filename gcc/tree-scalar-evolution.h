@@ -39,6 +39,7 @@ extern bool expression_expensive_p (tree);
 extern bool simple_iv (struct loop *, struct loop *, tree, affine_iv *, bool);
 extern tree compute_overall_effect_of_inner_loop (struct loop *, tree);
 
+#ifndef EXTRA_TARGET
 /* Returns the basic block preceding LOOP or ENTRY_BLOCK_PTR when the
    loop is function's body.  */
 
@@ -66,5 +67,6 @@ get_chrec_loop (const_tree chrec)
 {
   return get_loop (CHREC_VARIABLE (chrec));
 }
+#endif /* !EXTRA_TARGET */
 
 #endif  /* GCC_TREE_SCALAR_EVOLUTION_H  */

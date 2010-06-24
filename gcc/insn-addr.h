@@ -21,6 +21,9 @@ along with GCC; see the file COPYING3.  If not see
 #define GCC_INSN_ADDR_H
 
 #include "vecprim.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 extern VEC(int,heap) *insn_addresses_;
 extern int insn_current_address;
@@ -61,5 +64,7 @@ insn_addresses_new (rtx insn, int insn_addr)
 
 #define INSN_ADDRESSES_NEW(insn, addr)		\
   (insn_addresses_new (insn, addr))
+
+END_TARGET_SPECIFIC
 
 #endif /* ! GCC_INSN_ADDR_H */

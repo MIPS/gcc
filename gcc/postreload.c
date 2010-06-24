@@ -47,6 +47,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "df.h"
 #include "dbgcnt.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 static int reload_cse_noop_set_p (rtx);
 static void reload_cse_simplify (rtx, rtx);
@@ -1615,3 +1618,5 @@ struct rtl_opt_pass pass_postreload_cse =
   TODO_dump_func                        /* todo_flags_finish */
  }
 };
+
+END_TARGET_SPECIFIC

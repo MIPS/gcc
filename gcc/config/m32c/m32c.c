@@ -1154,14 +1154,14 @@ m32c_eh_return_data_regno (int n)
 rtx
 m32c_eh_return_stackadj_rtx (void)
 {
-  if (!cfun->machine->eh_stack_adjust)
+  if (!MACHINE_FUNCTION (*cfun)->eh_stack_adjust)
     {
       rtx sa;
 
       sa = gen_rtx_REG (Pmode, R0_REGNO);
-      cfun->machine->eh_stack_adjust = sa;
+      MACHINE_FUNCTION (*cfun)->eh_stack_adjust = sa;
     }
-  return cfun->machine->eh_stack_adjust;
+  return MACHINE_FUNCTION (*cfun)->eh_stack_adjust;
 }
 
 /* Registers That Address the Stack Frame */
@@ -1261,14 +1261,14 @@ need_to_save (int regno)
     return 1;
   if (regno == FP_REGNO)
     return 0;
-  if (cfun->machine->is_interrupt
-      && (!cfun->machine->is_leaf
+  if (MACHINE_FUNCTION (*cfun)->is_interrupt
+      && (!MACHINE_FUNCTION (*cfun)->is_leaf
 	  || (regno == A0_REGNO
 	      && m32c_function_needs_enter ())
 	  ))
     return 1;
   if (df_regs_ever_live_p (regno)
-      && (!call_used_regs[regno] || cfun->machine->is_interrupt))
+      && (!call_used_regs[regno] || MACHINE_FUNCTION (*cfun)->is_interrupt))
     return 1;
   return 0;
 }
@@ -1292,7 +1292,7 @@ m32c_pushm_popm (Push_Pop_Type ppt)
 
   if (crtl->return_rtx
       && GET_CODE (crtl->return_rtx) == PARALLEL
-      && !(crtl->calls_eh_return || cfun->machine->is_interrupt))
+      && !(crtl->calls_eh_return || MACHINE_FUNCTION (*cfun)->is_interrupt))
     {
       rtx exp = XVECEXP (crtl->return_rtx, 0, 0);
       rtx rv = XEXP (exp, 0);
@@ -1342,19 +1342,19 @@ m32c_pushm_popm (Push_Pop_Type ppt)
       byte_count += bytes;
     }
 
-  if (cfun->machine->is_interrupt)
+  if (MACHINE_FUNCTION (*cfun)->is_interrupt)
     {
-      cfun->machine->intr_pushm = reg_mask & 0xfe;
+      MACHINE_FUNCTION (*cfun)->intr_pushm = reg_mask & 0xfe;
       reg_mask = 0;
       byte_count = 0;
     }
 
-  if (cfun->machine->is_interrupt)
+  if (MACHINE_FUNCTION (*cfun)->is_interrupt)
     for (i = MEM0_REGNO; i <= MEM7_REGNO; i++)
       if (need_to_save (i))
 	{
 	  byte_count += 2;
-	  cfun->machine->intr_pushmem[i - MEM0_REGNO] = 1;
+	  MACHINE_FUNCTION (*cfun)->intr_pushmem[i - MEM0_REGNO] = 1;
 	}
 
   if (ppt == PP_pushm && byte_count)
@@ -1381,9 +1381,9 @@ m32c_pushm_popm (Push_Pop_Type ppt)
 						 REG_NOTES (pushm));
 	}
 
-      if (cfun->machine->is_interrupt)
+      if (MACHINE_FUNCTION (*cfun)->is_interrupt)
 	for (i = MEM0_REGNO; i <= MEM7_REGNO; i++)
-	  if (cfun->machine->intr_pushmem[i - MEM0_REGNO])
+	  if (MACHINE_FUNCTION (*cfun)->intr_pushmem[i - MEM0_REGNO])
 	    {
 	      if (TARGET_A16)
 		pushm = emit_insn (gen_pushhi_16 (gen_rtx_REG (HImode, i)));
@@ -1394,9 +1394,9 @@ m32c_pushm_popm (Push_Pop_Type ppt)
     }
   if (ppt == PP_popm && byte_count)
     {
-      if (cfun->machine->is_interrupt)
+      if (MACHINE_FUNCTION (*cfun)->is_interrupt)
 	for (i = MEM7_REGNO; i >= MEM0_REGNO; i--)
-	  if (cfun->machine->intr_pushmem[i - MEM0_REGNO])
+	  if (MACHINE_FUNCTION (*cfun)->intr_pushmem[i - MEM0_REGNO])
 	    {
 	      if (TARGET_A16)
 		emit_insn (gen_pophi_16 (gen_rtx_REG (HImode, i)));
@@ -1694,7 +1694,7 @@ m32c_struct_value_rtx (tree fndecl ATTRIBUTE_UNUSED,
 int
 m32c_epilogue_uses (int regno ATTRIBUTE_UNUSED)
 {
-  if (cfun->machine->is_interrupt)
+  if (MACHINE_FUNCTION (*cfun)->is_interrupt)
     return 1;
   return 0;
 }
@@ -3985,10 +3985,10 @@ m32c_emit_prologue (void)
   int frame_size, extra_frame_size = 0, reg_save_size;
   int complex_prologue = 0;
 
-  cfun->machine->is_leaf = m32c_leaf_function_p ();
+  MACHINE_FUNCTION (*cfun)->is_leaf = m32c_leaf_function_p ();
   if (interrupt_p (cfun->decl))
     {
-      cfun->machine->is_interrupt = 1;
+      MACHINE_FUNCTION (*cfun)->is_interrupt = 1;
       complex_prologue = 1;
     }
   else if (bank_switch_p (cfun->decl))
@@ -4001,22 +4001,22 @@ m32c_emit_prologue (void)
     {
       if (bank_switch_p (cfun->decl))
 	emit_insn (gen_fset_b ());
-      else if (cfun->machine->intr_pushm)
-	emit_insn (gen_pushm (GEN_INT (cfun->machine->intr_pushm)));
+      else if (MACHINE_FUNCTION (*cfun)->intr_pushm)
+	emit_insn (gen_pushm (GEN_INT (MACHINE_FUNCTION (*cfun)->intr_pushm)));
     }
 
   frame_size =
     m32c_initial_elimination_offset (FB_REGNO, SP_REGNO) - reg_save_size;
   if (frame_size == 0
       && !m32c_function_needs_enter ())
-    cfun->machine->use_rts = 1;
+    MACHINE_FUNCTION (*cfun)->use_rts = 1;
 
   if (frame_size > 254)
     {
       extra_frame_size = frame_size - 254;
       frame_size = 254;
     }
-  if (cfun->machine->use_rts == 0)
+  if (MACHINE_FUNCTION (*cfun)->use_rts == 0)
     F (emit_insn (m32c_all_frame_related
 		  (TARGET_A16
 		   ? gen_prologue_enter_16 (GEN_INT (frame_size + 2))
@@ -4049,19 +4049,20 @@ void
 m32c_emit_epilogue (void)
 {
   /* This just emits a comment into the .s file for debugging.  */
-  if (m32c_pushm_popm (PP_justcount) > 0 || cfun->machine->is_interrupt)
+  if (m32c_pushm_popm (PP_justcount) > 0
+      || MACHINE_FUNCTION (*cfun)->is_interrupt)
     emit_insn (gen_epilogue_start ());
 
   m32c_pushm_popm (PP_popm);
 
-  if (cfun->machine->is_interrupt)
+  if (MACHINE_FUNCTION (*cfun)->is_interrupt)
     {
       enum machine_mode spmode = TARGET_A16 ? HImode : PSImode;
 
       /* REIT clears B flag and restores $fp for us, but we still
 	 have to fix up the stack.  USE_RTS just means we didn't
 	 emit ENTER.  */
-      if (!cfun->machine->use_rts)
+      if (!MACHINE_FUNCTION (*cfun)->use_rts)
 	{
 	  emit_move_insn (gen_rtx_REG (spmode, A0_REGNO),
 			  gen_rtx_REG (spmode, FP_REGNO));
@@ -4075,8 +4076,8 @@ m32c_emit_epilogue (void)
 	  else
 	    emit_insn (gen_poppsi (gen_rtx_REG (PSImode, FP_REGNO)));
 	}
-      if (!bank_switch_p (cfun->decl) && cfun->machine->intr_pushm)
-	emit_insn (gen_popm (GEN_INT (cfun->machine->intr_pushm)));
+      if (!bank_switch_p (cfun->decl) && MACHINE_FUNCTION (*cfun)->intr_pushm)
+	emit_insn (gen_popm (GEN_INT (MACHINE_FUNCTION (*cfun)->intr_pushm)));
 
       /* The FREIT (Fast REturn from InTerrupt) instruction should be
          generated only for M32C/M32CM targets (generate the REIT
@@ -4103,7 +4104,7 @@ m32c_emit_epilogue (void)
       else
 	emit_jump_insn (gen_epilogue_reit_24 ());
     }
-  else if (cfun->machine->use_rts)
+  else if (MACHINE_FUNCTION (*cfun)->use_rts)
     emit_jump_insn (gen_epilogue_rts ());
   else if (TARGET_A16)
     emit_jump_insn (gen_epilogue_exitd_16 ());
@@ -4119,7 +4120,8 @@ m32c_emit_eh_epilogue (rtx ret_addr)
      return to.  We have to fudge the stack, pop everything, pop SP
      (fudged), and return (fudged).  This is actually easier to do in
      assembler, so punt to libgcc.  */
-  emit_jump_insn (gen_eh_epilogue (ret_addr, cfun->machine->eh_stack_adjust));
+  emit_jump_insn (gen_eh_epilogue (ret_addr,
+				   MACHINE_FUNCTION (*cfun)->eh_stack_adjust));
   /*  emit_clobber (gen_rtx_REG (HImode, R0L_REGNO)); */
   emit_barrier ();
 }
