@@ -972,9 +972,10 @@ DEFTREECODE (TARGET_MEM_REF, "target_mem_ref", tcc_reference, 6)
 
 /* Memory addressing.  Operands are a pointer and a tree constant integer
    byte offset of the pointer type that when dereferenced yields the
-   type of the base object the pointer points to and which is used for
+   type of the base object the pointer points into and which is used for
    TBAA purposes.
-   The type of the MEM_REF is the type of the value load from memory.
+   The type of the MEM_REF is the type the bytes at the memory location
+   are interpreted as.
    MEM_REF <p, c> is equivalent to ((typeof(c))p)->x... where x... is a
    chain of component references offsetting p by c.  */
 DEFTREECODE (MEM_REF, "mem_ref", tcc_reference, 2)

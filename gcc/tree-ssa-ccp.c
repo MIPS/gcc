@@ -984,16 +984,10 @@ ccp_fold (gimple stmt)
 		 allowed places.  */
 	      if (CONVERT_EXPR_CODE_P (subcode)
 		  && POINTER_TYPE_P (TREE_TYPE (lhs))
-		  && POINTER_TYPE_P (TREE_TYPE (op0))
-		  /* Do not allow differences in volatile qualification
-		     as this might get us confused as to whether a
-		     propagation destination statement is volatile
-		     or not.  See PR36988.  */
-		  && (TYPE_VOLATILE (TREE_TYPE (TREE_TYPE (lhs)))
-		      == TYPE_VOLATILE (TREE_TYPE (TREE_TYPE (op0)))))
+		  && POINTER_TYPE_P (TREE_TYPE (op0)))
 		{
 		  tree tem;
-		  /* Still try to generate a constant of correct type.  */
+		  /* Try to re-construct array references on-the-fly.  */
 		  if (!useless_type_conversion_p (TREE_TYPE (lhs),
 						  TREE_TYPE (op0))
 		      && ((tem = maybe_fold_offset_to_address

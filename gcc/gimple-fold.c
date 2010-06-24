@@ -290,109 +290,6 @@ maybe_fold_offset_to_address (location_t loc, tree addr, tree offset,
   return ret;
 }
 
-/* A subroutine of fold_stmt.  Attempt to simplify *(BASE+OFFSET).
-   Return the simplified expression, or NULL if nothing could be done.  */
-
-static tree
-maybe_fold_stmt_indirect (tree expr, tree base, tree offset)
-{
-  tree t;
-  bool volatile_p = TREE_THIS_VOLATILE (expr);
-  location_t loc = EXPR_LOCATION (expr);
-
-  /* We may well have constructed a double-nested PLUS_EXPR via multiple
-     substitutions.  Fold that down to one.  Remove NON_LVALUE_EXPRs that
-     are sometimes added.  */
-  base = fold (base);
-  STRIP_TYPE_NOPS (base);
-  TREE_OPERAND (expr, 0) = base;
-
-  /* One possibility is that the address reduces to a string constant.  */
-  t = fold_read_from_constant_string (expr);
-  if (t)
-    return t;
-
-  /* Add in any offset from a POINTER_PLUS_EXPR.  */
-  if (TREE_CODE (base) == POINTER_PLUS_EXPR)
-    {
-      tree offset2;
-
-      offset2 = TREE_OPERAND (base, 1);
-      if (TREE_CODE (offset2) != INTEGER_CST)
-	return NULL_TREE;
-      base = TREE_OPERAND (base, 0);
-
-      offset = fold_convert (sizetype,
-			     int_const_binop (PLUS_EXPR, offset, offset2, 1));
-    }
-
-  if (TREE_CODE (base) == ADDR_EXPR)
-    {
-      tree base_addr = base;
-
-      /* Strip the ADDR_EXPR.  */
-      base = TREE_OPERAND (base, 0);
-
-      /* Fold away CONST_DECL to its value, if the type is scalar.  */
-      if (TREE_CODE (base) == CONST_DECL
-	  && is_gimple_min_invariant (DECL_INITIAL (base)))
-	return DECL_INITIAL (base);
-
-      /* If there is no offset involved simply return the folded base.  */
-      if (integer_zerop (offset))
-	return base;
-
-      /* Try folding *(&B+O) to B[X].  */
-      t = maybe_fold_offset_to_reference (loc, base_addr, offset,
-					  TREE_TYPE (expr));
-      if (t)
-	{
-	  /* Preserve volatileness of the original expression.
-	     We can end up with a plain decl here which is shared
-	     and we shouldn't mess with its flags.  */
-	  if (!SSA_VAR_P (t))
-	    TREE_THIS_VOLATILE (t) = volatile_p;
-	  return t;
-	}
-    }
-  else
-    {
-      /* We can get here for out-of-range string constant accesses,
-	 such as "_"[3].  Bail out of the entire substitution search
-	 and arrange for the entire statement to be replaced by a
-	 call to __builtin_trap.  In all likelihood this will all be
-	 constant-folded away, but in the meantime we can't leave with
-	 something that get_expr_operands can't understand.  */
-
-      t = base;
-      STRIP_NOPS (t);
-      if (TREE_CODE (t) == ADDR_EXPR
-	  && TREE_CODE (TREE_OPERAND (t, 0)) == STRING_CST)
-	{
-	  /* FIXME: Except that this causes problems elsewhere with dead
-	     code not being deleted, and we die in the rtl expanders
-	     because we failed to remove some ssa_name.  In the meantime,
-	     just return zero.  */
-	  /* FIXME2: This condition should be signaled by
-	     fold_read_from_constant_string directly, rather than
-	     re-checking for it here.  */
-	  return integer_zero_node;
-	}
-
-      /* Try folding *(B+O) to (*B)[X].  Still an improvement.  */
-      if (POINTER_TYPE_P (TREE_TYPE (base)))
-	{
-          t = maybe_fold_offset_to_reference (loc, base, offset,
-				              TREE_TYPE (expr));
-	  if (t)
-	    return t;
-	}
-    }
-
-  /* Otherwise we had an offset that we could not simplify.  */
-  return NULL_TREE;
-}
-
 
 /* A quaint feature extant in our address arithmetic is that there
    can be hidden type changes here.  The type of the result need
@@ -589,42 +486,22 @@ maybe_fold_reference (tree expr, bool is_lhs)
   while (handled_component_p (*t))
     t = &TREE_OPERAND (*t, 0);
 
-  if (TREE_CODE (*t) == INDIRECT_REF)
-    {
-      tree tem = maybe_fold_stmt_indirect (*t, TREE_OPERAND (*t, 0),
-					   integer_zero_node);
-      /* Avoid folding *"abc" = 5 into 'a' = 5.  */
-      if (is_lhs && tem && CONSTANT_CLASS_P (tem))
-	tem = NULL_TREE;
-      if (!tem
-	  && TREE_CODE (TREE_OPERAND (*t, 0)) == ADDR_EXPR)
-	/* If we had a good reason for propagating the address here,
-	   make sure we end up with valid gimple.  See PR34989.  */
-	tem = TREE_OPERAND (TREE_OPERAND (*t, 0), 0);
-
-      if (tem)
-	{
-	  *t = tem;
-	  tem = maybe_fold_reference (expr, is_lhs);
-	  if (tem)
-	    return tem;
-	  return expr;
-	}
-    }
   /* Fold back MEM_REFs to reference trees.  */
-  else if (TREE_CODE (*t) == MEM_REF
-	   && TREE_CODE (TREE_OPERAND (*t, 0)) == ADDR_EXPR
-	   && integer_zerop (TREE_OPERAND (*t, 1))
-	   && (TREE_THIS_VOLATILE (*t)
-	       == TREE_THIS_VOLATILE (TREE_OPERAND (TREE_OPERAND (*t, 0), 0)))
-	   && (get_alias_set (*t)
-	       == get_alias_set (TREE_OPERAND (TREE_OPERAND (*t, 0), 0)))
-	   /* We have to look out here to not drop a required conversion
-	      from the rhs to the lhs if is_lhs, but we don't have the
-	      rhs here to verify that.  Thus require strict type
-	      compatibility.  */
-	   && types_compatible_p (TREE_TYPE (*t),
-				  TREE_TYPE (TREE_OPERAND (TREE_OPERAND (*t, 0), 0))))
+  if (TREE_CODE (*t) == MEM_REF
+      && TREE_CODE (TREE_OPERAND (*t, 0)) == ADDR_EXPR
+      && integer_zerop (TREE_OPERAND (*t, 1))
+      && (TREE_THIS_VOLATILE (*t)
+	  == TREE_THIS_VOLATILE (TREE_OPERAND (TREE_OPERAND (*t, 0), 0)))
+      && !TYPE_REF_CAN_ALIAS_ALL (TREE_TYPE (TREE_OPERAND (*t, 1)))
+      && (TYPE_MAIN_VARIANT (TREE_TYPE (*t))
+	  == TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (TREE_OPERAND (*t, 1)))))
+      /* We have to look out here to not drop a required conversion
+	 from the rhs to the lhs if is_lhs, but we don't have the
+	 rhs here to verify that.  Thus require strict type
+	 compatibility.  */
+      && types_compatible_p (TREE_TYPE (*t),
+			     TREE_TYPE (TREE_OPERAND
+					  (TREE_OPERAND (*t, 0), 0))))
     {
       tree tem;
       *t = TREE_OPERAND (TREE_OPERAND (*t, 0), 0);

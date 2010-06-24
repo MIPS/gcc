@@ -1,3 +1,16 @@
+2010-06-24  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-ccp.c (ccp_fold): Do not bother about volatile
+	qualifiers of pointers.
+	* tree.def (MEM_REF): Clarify.
+	* gimple-fold.c (maybe_fold_stmt_indirect): Remove.
+	(maybe_fold_reference): Remove INDIRECT_REF handling.
+	Constrain folding back to non-MEM_REF properly.
+
+	testsuite/
+	* gcc.dg/tree-ssa/ssa-ccp-25.c: Adjust.
+	* gcc.dg/tree-ssa/ssa-ccp-26.c: Likewise.
+
 2010-06-23  Richard Guenther  <rguenther@suse.de>
 
 	* tree-ssa-ter.c (find_replaceable_in_bb): Avoid TER if that
