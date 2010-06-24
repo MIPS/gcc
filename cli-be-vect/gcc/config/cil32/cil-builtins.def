@@ -1466,6 +1466,20 @@ DEF_CILBUILTIN(GEN_VQI_EXTRACT_ODD, "[genvec_support]genvec_support.VQI::VQI_ext
                2, \
                VQI_type_node, VQI_type_node)
 
+/* pack */
+DEF_CILBUILTIN(GEN_VHI_PACK, "[genvec_support]genvec_support.VHI::VHI_pack", \
+               ATTR_CONST_NOTHROW_LIST,         \
+               VHI_type_node, \
+               2, \
+               VSI_type_node, VSI_type_node)
+
+DEF_CILBUILTIN(GEN_VQI_PACK, "[genvec_support]genvec_support.VQI::VQI_pack", \
+               ATTR_CONST_NOTHROW_LIST,         \
+               VQI_type_node, \
+               2, \
+               VHI_type_node, VHI_type_node)
+
+
 /* V DF */
 DEF_CILBUILTIN(GEN_VDF_CTOR, "[Xxxx.Simd]Xxxx.Simd.VecGenDF::.ctor", \
                ATTR_CONST_NOTHROW_LIST, \

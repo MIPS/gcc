@@ -2659,6 +2659,15 @@ supportable_narrowing_operation (enum tree_code code,
 
     default:
       gcc_unreachable ();
+    }    
+
+  if (c1 == VEC_PACK_TRUNC_EXPR 
+      && targetm.vectorize.builtin_pack
+      && targetm.vectorize.builtin_pack (c1, vectype))
+    {
+      *code1 = CALL_EXPR;
+      *multi_step_cvt = 0;
+      return true;
     }
 
   if (code == FIX_TRUNC_EXPR)

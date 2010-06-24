@@ -4872,7 +4872,8 @@ vect_create_vectorized_demotion_stmts (VEC (tree, heap) **vec_oprnds,
                                        VEC (tree, heap) *vec_dsts,
                                        gimple_stmt_iterator *gsi,
                                        slp_tree slp_node, enum tree_code code,
-                                       stmt_vec_info *prev_stmt_info)
+                                       stmt_vec_info *prev_stmt_info, 
+                                       tree vectype)
 {
   unsigned int i;
   tree vop0, vop1, new_tmp, vec_dest;
@@ -4886,9 +4887,20 @@ vect_create_vectorized_demotion_stmts (VEC (tree, heap) **vec_oprnds,
       /* Create demotion operation.  */
       vop0 = VEC_index (tree, *vec_oprnds, i);
       vop1 = VEC_index (tree, *vec_oprnds, i + 1);
-      new_stmt = gimple_build_assign_with_ops (code, vec_dest, vop0, vop1);
-      new_tmp = make_ssa_name (vec_dest, new_stmt);
-      gimple_assign_set_lhs (new_stmt, new_tmp);
+      if (code == CALL_EXPR)
+        {
+          tree builtin_decl = targetm.vectorize.builtin_pack (
+                                        VEC_PACK_TRUNC_EXPR, vectype); 
+          new_stmt = gimple_build_call (builtin_decl, 2, vop0, vop1);
+          new_tmp = make_ssa_name (vec_dest, new_stmt);
+          gimple_call_set_lhs (new_stmt, new_tmp);
+        }
+      else
+        {
+          new_stmt = gimple_build_assign_with_ops (code, vec_dest, vop0, vop1);
+          new_tmp = make_ssa_name (vec_dest, new_stmt);
+          gimple_assign_set_lhs (new_stmt, new_tmp);
+        }
       vect_finish_stmt_generation (stmt, new_stmt, gsi);
 
       if (multi_step_cvt)
@@ -4924,7 +4936,7 @@ vect_create_vectorized_demotion_stmts (VEC (tree, heap) **vec_oprnds,
       VEC_truncate (tree, *vec_oprnds, (i+1)/2);
       vect_create_vectorized_demotion_stmts (vec_oprnds, multi_step_cvt - 1, 
                                              stmt, vec_dsts, gsi, slp_node,
-                                             code, prev_stmt_info);
+                                             code, prev_stmt_info, vectype);
     }
 }
 
@@ -5088,7 +5100,7 @@ vectorizable_type_demotion (gimple stmt, gimple_stmt_iterator *gsi,
       vect_create_vectorized_demotion_stmts (&vec_oprnds0,  
                                              multi_step_cvt, stmt, tmp_vec_dsts,
                                              gsi, slp_node, code1, 
-                                             &prev_stmt_info);
+                                             &prev_stmt_info, vectype_in);
     }
 
   VEC_free (tree, heap, vec_oprnds0);

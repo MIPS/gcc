@@ -100,6 +100,7 @@ static tree cil32_builtin_build_init_vec (tree);
 static tree cil32_builtin_conversion (enum tree_code, tree);
 static tree cil32_builtin_interleave_high_low (enum tree_code, tree);
 static tree cil32_builtin_extract_even_odd (enum tree_code, tree);
+static tree cil32_builtin_pack (enum tree_code, tree);
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ATTRIBUTE_TABLE
@@ -196,6 +197,10 @@ static tree cil32_builtin_extract_even_odd (enum tree_code, tree);
 #undef TARGET_VECTORIZE_BUILTIN_EXTRACT_EVEN_ODD
 #define TARGET_VECTORIZE_BUILTIN_EXTRACT_EVEN_ODD \
   cil32_builtin_extract_even_odd
+
+#undef TARGET_VECTORIZE_BUILTIN_PACK
+#define TARGET_VECTORIZE_BUILTIN_PACK \
+  cil32_builtin_pack
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -993,4 +998,29 @@ cil32_builtin_extract_even_odd (enum tree_code code, tree type)
 }
 
 
+static tree
+cil32_builtin_pack (enum tree_code code, tree type)
+{
+  tree elem_type = TREE_TYPE (type);
+  unsigned element_size = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (elem_type));
+
+  switch (code)
+    {
+    case VEC_PACK_TRUNC_EXPR:
+      switch (element_size)
+        {
+        case 4:
+          return cil32_builtins[CIL32_GEN_VHI_PACK];
+
+        case 2:
+          return cil32_builtins[CIL32_GEN_VQI_PACK];
+
+        default:
+          return NULL_TREE;
+        }
+
+    default:
+      return NULL_TREE;
+    }
+}
  

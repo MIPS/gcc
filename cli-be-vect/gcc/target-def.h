@@ -399,7 +399,7 @@
 #define TARGET_VECTORIZE_BUILTIN_REALIGN_OFFSET 0
 #define TARGET_VECTORIZE_BUILTIN_BUILD_INIT_VEC 0
 #define TARGET_VECTORIZE_BUILTIN_EXTRACT_EVEN_ODD 0
-#define TARGET_VECTORIZE_BUILTIN_INTERLEAVE_HIGH_LOW 0
+#define TARGET_VECTORIZE_BUILTIN_PACK 0
 
 #define TARGET_VECTORIZE                                                \
   {									\
@@ -426,7 +426,8 @@
     TARGET_VECTORIZE_BUILTIN_REALIGN_OFFSET,                            \
     TARGET_VECTORIZE_BUILTIN_BUILD_INIT_VEC,                            \
     TARGET_VECTORIZE_BUILTIN_EXTRACT_EVEN_ODD,                          \
-    TARGET_VECTORIZE_BUILTIN_INTERLEAVE_HIGH_LOW                        \
+    TARGET_VECTORIZE_BUILTIN_INTERLEAVE_HIGH_LOW,                       \
+    TARGET_VECTORIZE_BUILTIN_PACK                                       \
   }
 
 #define TARGET_DEFAULT_TARGET_FLAGS 0
