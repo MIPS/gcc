@@ -732,10 +732,33 @@ indirect_ref_may_alias_decl_p (tree ref1 ATTRIBUTE_UNUSED, tree base1,
       && same_type_for_tbaa (TREE_TYPE (ptrtype1), TREE_TYPE (base2)) == 1)
     return ranges_overlap_p (offset1, max_size1, offset2, max_size2);
 
-  /* The only way to access a variable is through a pointer dereference
-     of the same alias set or a subset of it.  */
+  /* When we are trying to disambiguate an access with a pointer dereference
+     as base versus one with a decl as base we can use both the size
+     of the decl and its dynamic type for extra disambiguation.
+     ???  We do not know anything about the dynamic type of the decl
+     other than that its alias-set contains base2_alias_set as a subset
+     which does not help us here.  */
+  /* As we know nothing useful about the dynamic type of the decl just
+     use the usual conflict check rather than a subset test.
+     ???  We could introduce -fvery-strict-aliasing when the language
+     does not allow decls to have a dynamic type that differs from their
+     static type.  Then we can check 
+     !alias_set_subset_of (base1_alias_set, base2_alias_set) instead.  */
   if (base1_alias_set != base2_alias_set
-      && !alias_set_subset_of (base1_alias_set, base2_alias_set))
+      && !alias_sets_conflict_p (base1_alias_set, base2_alias_set))
+    return false;
+  /* If the size of the access relevant for TBAA through the pointer
+     is bigger than the size of the decl we can't possibly access the
+     decl via that pointer.  */
+  if (DECL_SIZE (base2) && COMPLETE_TYPE_P (TREE_TYPE (ptrtype1))
+      && TREE_CODE (DECL_SIZE (base2)) == INTEGER_CST
+      && TREE_CODE (TYPE_SIZE (TREE_TYPE (ptrtype1))) == INTEGER_CST
+      /* ???  This in turn may run afoul when a decl of type T which is
+	 a member of union type U is accessed through a pointer to
+	 type U and sizeof T is smaller than sizeof U.  */
+      && TREE_CODE (TREE_TYPE (ptrtype1)) != UNION_TYPE
+      && TREE_CODE (TREE_TYPE (ptrtype1)) != QUAL_UNION_TYPE
+      && tree_int_cst_lt (DECL_SIZE (base2), TYPE_SIZE (TREE_TYPE (ptrtype1))))
     return false;
 
   /* Do access-path based disambiguation.  */
