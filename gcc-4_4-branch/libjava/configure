@@ -459,6 +459,7 @@ ac_includes_default="\
 #endif"
 
 ac_subdirs_all="$ac_subdirs_all classpath libltdl"
+ac_c_werror_flag=
 ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS build build_cpu build_vendor build_os build_libsubdir build_subdir host_subdir target_subdir multi_basedir host host_cpu host_vendor host_os target target_cpu target_vendor target_os target_noncanonical LN_S mkinstalldirs ANTLR_JAR CREATE_GJDOC_TRUE CREATE_GJDOC_FALSE JAVA_MAINTAINER_MODE_TRUE JAVA_MAINTAINER_MODE_FALSE CC ac_ct_CC EXEEXT OBJEXT CXX ac_ct_CXX CFLAGS CXXFLAGS LDFLAGS INSTALL_PROGRAM INSTALL_SCRIPT INSTALL_DATA CYGPATH_W PACKAGE VERSION ACLOCAL AUTOCONF AUTOMAKE AUTOHEADER MAKEINFO install_sh STRIP ac_ct_STRIP INSTALL_STRIP_PROGRAM mkdir_p AWK SET_MAKE am__leading_dot AMTAR am__tar am__untar DEPDIR am__include am__quote AMDEP_TRUE AMDEP_FALSE AMDEPBACKSLASH CCDEPMODE am__fastdepCC_TRUE am__fastdepCC_FALSE CXXDEPMODE am__fastdepCXX_TRUE am__fastdepCXX_FALSE AS ac_ct_AS LD ac_ct_LD AR ac_ct_AR RANLIB ac_ct_RANLIB JAR ZIP UNZIP MAINTAINER_MODE_TRUE MAINTAINER_MODE_FALSE MAINT LIBGCJ_CFLAGS LIBGCJ_CXXFLAGS LIBGCJ_JAVAFLAGS LIBGCJ_LD_SYMBOLIC LIBGCJ_LD_SYMBOLIC_FUNCTIONS LIBGCJDEBUG TOOLKIT XLIB_AWT_TRUE XLIB_AWT_FALSE X_AWT_TRUE X_AWT_FALSE GCJ_FOR_ECJX GCJH host_exeext INCLTDL LIBLTDL DIRLTDL LIBTOOL SED EGREP FGREP GREP DUMPBIN ac_ct_DUMPBIN NM OBJDUMP ac_ct_OBJDUMP lt_ECHO DSYMUTIL ac_ct_DSYMUTIL NMEDIT ac_ct_NMEDIT LIPO ac_ct_LIPO OTOOL ac_ct_OTOOL OTOOL64 ac_ct_OTOOL64 CPP CPPFLAGS CXXCPP GCJ GCJFLAGS GCJDEPMODE am__fastdepGCJ_TRUE am__fastdepGCJ_FALSE subdirs TESTSUBDIR_TRUE TESTSUBDIR_FALSE ECJ_BUILD_JAR ECJ_JAR BUILD_ECJ1_TRUE BUILD_ECJ1_FALSE INSTALL_ECJ_JAR_TRUE INSTALL_ECJ_JAR_FALSE JAVA_HOME_SET_TRUE JAVA_HOME_SET_FALSE JAVA_HOME SUPPRESS_LIBGCJ_BC_TRUE SUPPRESS_LIBGCJ_BC_FALSE BUILD_LIBGCJ_REDUCED_REFLECTION_TRUE BUILD_LIBGCJ_REDUCED_REFLECTION_FALSE INTERPRETER INTERPRETER_TRUE INTERPRETER_FALSE LIBFFI LIBFFIINCS PLATFORM USING_WIN32_PLATFORM_TRUE USING_WIN32_PLATFORM_FALSE USING_POSIX_PLATFORM_TRUE USING_POSIX_PLATFORM_FALSE USING_DARWIN_CRT_TRUE USING_DARWIN_CRT_FALSE SYSTEMSPEC ZLIBSPEC ZLIBTESTSPEC X_CFLAGS X_PRE_LIBS X_LIBS X_EXTRA_LIBS extra_ldflags_libjava extra_ldflags LIBSTDCXXSPEC LIBGCJTESTSPEC GCLIBS GCINCS GCDEPS GCSPEC JC1GCSPEC GCTESTSPEC USING_BOEHMGC_TRUE USING_BOEHMGC_FALSE USING_NOGC_TRUE USING_NOGC_FALSE THREADLIBS THREADINCS THREADDEPS THREADSPEC THREADSTARTFILESPEC THREADLDFLAGS THREADCXXFLAGS USING_POSIX_THREADS_TRUE USING_POSIX_THREADS_FALSE USING_WIN32_THREADS_TRUE USING_WIN32_THREADS_FALSE USING_NO_THREADS_TRUE USING_NO_THREADS_FALSE USE_LIBGCJ_BC_TRUE USE_LIBGCJ_BC_FALSE LIBGCJ_SPEC HASH_SYNC_SPEC USING_GCC_TRUE USING_GCC_FALSE LIBICONV LTLIBICONV PKG_CONFIG GTK_CFLAGS GTK_LIBS GLIB_CFLAGS GLIB_LIBS LIBART_CFLAGS LIBART_LIBS CLASSPATH_SEPARATOR ZLIBS SYS_ZLIBS ZINCS DIVIDESPEC CHECKREFSPEC EXCEPTIONSPEC BACKTRACESPEC IEEESPEC NATIVE_TRUE NATIVE_FALSE ENABLE_SHARED_TRUE ENABLE_SHARED_FALSE NEEDS_DATA_START_TRUE NEEDS_DATA_START_FALSE INSTALL_BINARIES_TRUE INSTALL_BINARIES_FALSE GCC_UNWIND_INCLUDE toolexecdir toolexecmainlibdir toolexeclibdir GCJVERSION dbexecdir gcjsubdir gxx_include_dir libstdcxx_incdir PERL SYSDEP_SOURCES ANONVERSCRIPT_TRUE ANONVERSCRIPT_FALSE LD_START_STATIC_SPEC LD_FINISH_STATIC_SPEC here python_mod_dir python_mod_dir_expanded MAKE INSTALL_AOT_RPM_TRUE INSTALL_AOT_RPM_FALSE CREATE_JAVA_HOME_TRUE CREATE_JAVA_HOME_FALSE gcc_suffix JAVA_VERSION BUILD_VERSION JVM_ROOT_DIR JVM_JAR_ROOT_DIR JVM_JAR_DIR JRE_DIR JRE_LNK SDK_LNK SDK_BIN_DIR SDK_LIB_DIR SDK_INCLUDE_DIR JRE_BIN_DIR JRE_LIB_DIR GCJ_BIN_DIR CPU OS LIBDIR LIBOBJS LTLIBOBJS'
 ac_subst_files=''
 ac_pwd=`pwd`
@@ -6013,13 +6014,13 @@ if test "${lt_cv_nm_interface+set}" = set; then
 else
   lt_cv_nm_interface="BSD nm"
   echo "int some_variable = 0;" > conftest.$ac_ext
-  (eval echo "\"\$as_me:6016: $ac_compile\"" >&5)
+  (eval echo "\"\$as_me:6017: $ac_compile\"" >&5)
   (eval "$ac_compile" 2>conftest.err)
   cat conftest.err >&5
-  (eval echo "\"\$as_me:6019: $NM \\\"conftest.$ac_objext\\\"\"" >&5)
+  (eval echo "\"\$as_me:6020: $NM \\\"conftest.$ac_objext\\\"\"" >&5)
   (eval "$NM \"conftest.$ac_objext\"" 2>conftest.err > conftest.out)
   cat conftest.err >&5
-  (eval echo "\"\$as_me:6022: output\"" >&5)
+  (eval echo "\"\$as_me:6023: output\"" >&5)
   cat conftest.out >&5
   if $GREP 'External.*some_variable' conftest.out > /dev/null; then
     lt_cv_nm_interface="MS dumpbin"
@@ -7166,7 +7167,7 @@ ia64-*-hpux*)
   ;;
 *-*-irix6*)
   # Find out which ABI we are using.
-  echo '#line 7169 "configure"' > conftest.$ac_ext
+  echo '#line 7170 "configure"' > conftest.$ac_ext
   if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
   (eval $ac_compile) 2>&5
   ac_status=$?
@@ -9549,11 +9550,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:9552: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:9553: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>conftest.err)
    ac_status=$?
    cat conftest.err >&5
-   echo "$as_me:9556: \$? = $ac_status" >&5
+   echo "$as_me:9557: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s "$ac_outfile"; then
      # The compiler can only warn and ignore the option if not recognized
      # So say no if there are warnings other than the usual output.
@@ -9888,11 +9889,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:9891: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:9892: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>conftest.err)
    ac_status=$?
    cat conftest.err >&5
-   echo "$as_me:9895: \$? = $ac_status" >&5
+   echo "$as_me:9896: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s "$ac_outfile"; then
      # The compiler can only warn and ignore the option if not recognized
      # So say no if there are warnings other than the usual output.
@@ -9993,11 +9994,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:9996: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:9997: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>out/conftest.err)
    ac_status=$?
    cat out/conftest.err >&5
-   echo "$as_me:10000: \$? = $ac_status" >&5
+   echo "$as_me:10001: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s out/conftest2.$ac_objext
    then
      # The compiler can only warn and ignore the option if not recognized
@@ -10048,11 +10049,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:10051: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:10052: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>out/conftest.err)
    ac_status=$?
    cat out/conftest.err >&5
-   echo "$as_me:10055: \$? = $ac_status" >&5
+   echo "$as_me:10056: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s out/conftest2.$ac_objext
    then
      # The compiler can only warn and ignore the option if not recognized
@@ -12915,7 +12916,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 12918 "configure"
+#line 12919 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -13011,7 +13012,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 13014 "configure"
+#line 13015 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -15037,11 +15038,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:15040: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:15041: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>conftest.err)
    ac_status=$?
    cat conftest.err >&5
-   echo "$as_me:15044: \$? = $ac_status" >&5
+   echo "$as_me:15045: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s "$ac_outfile"; then
      # The compiler can only warn and ignore the option if not recognized
      # So say no if there are warnings other than the usual output.
@@ -15136,11 +15137,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:15139: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:15140: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>out/conftest.err)
    ac_status=$?
    cat out/conftest.err >&5
-   echo "$as_me:15143: \$? = $ac_status" >&5
+   echo "$as_me:15144: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s out/conftest2.$ac_objext
    then
      # The compiler can only warn and ignore the option if not recognized
@@ -15188,11 +15189,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:15191: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:15192: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>out/conftest.err)
    ac_status=$?
    cat out/conftest.err >&5
-   echo "$as_me:15195: \$? = $ac_status" >&5
+   echo "$as_me:15196: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s out/conftest2.$ac_objext
    then
      # The compiler can only warn and ignore the option if not recognized
@@ -16605,11 +16606,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:16608: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:16609: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>conftest.err)
    ac_status=$?
    cat conftest.err >&5
-   echo "$as_me:16612: \$? = $ac_status" >&5
+   echo "$as_me:16613: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s "$ac_outfile"; then
      # The compiler can only warn and ignore the option if not recognized
      # So say no if there are warnings other than the usual output.
@@ -16938,11 +16939,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:16941: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:16942: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>conftest.err)
    ac_status=$?
    cat conftest.err >&5
-   echo "$as_me:16945: \$? = $ac_status" >&5
+   echo "$as_me:16946: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s "$ac_outfile"; then
      # The compiler can only warn and ignore the option if not recognized
      # So say no if there are warnings other than the usual output.
@@ -17037,11 +17038,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:17040: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:17041: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>out/conftest.err)
    ac_status=$?
    cat out/conftest.err >&5
-   echo "$as_me:17044: \$? = $ac_status" >&5
+   echo "$as_me:17045: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s out/conftest2.$ac_objext
    then
      # The compiler can only warn and ignore the option if not recognized
@@ -17089,11 +17090,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:17092: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:17093: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>out/conftest.err)
    ac_status=$?
    cat out/conftest.err >&5
-   echo "$as_me:17096: \$? = $ac_status" >&5
+   echo "$as_me:17097: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s out/conftest2.$ac_objext
    then
      # The compiler can only warn and ignore the option if not recognized
@@ -18785,7 +18786,7 @@ if test "${enable_sjlj_exceptions+set}" = set; then
   :
 else
   cat > conftest.$ac_ext << EOF
-#line 18788 "configure"
+#line 18789 "configure"
 struct S { ~S(); };
 void bar();
 void foo()
@@ -20685,6 +20686,14 @@ if test "${libgcj_cv_exidx+set}" = set; then
 else
   saved_ldflags="$LDFLAGS"
    LDFLAGS="${LDFLAGS} -Wl,--no-merge-exidx-entries"
+   # The IRIX 6 ld doesn't recognize --no-merge-exidx-entries, but only
+   # warns about unknown options, which breaks the testsuite.  So enable
+   # AC_LANG_WERROR, but there's currently (autoconf 2.64) no way to turn
+   # it off again.  As a workaround, save and restore werror flag like
+   # AC_PATH_XTRA.
+   ac_xsave_c_werror_flag=$ac_c_werror_flag
+
+ac_c_werror_flag=yes
    if test x$gcc_no_link = xyes; then
   { { echo "$as_me:$LINENO: error: Link tests are not allowed after GCC_NO_EXECUTABLES." >&5
 echo "$as_me: error: Link tests are not allowed after GCC_NO_EXECUTABLES." >&2;}
@@ -20724,6 +20733,7 @@ eval "libgcj_cv_exidx=no"
 fi
 rm -f conftest.err conftest.$ac_objext \
       conftest$ac_exeext conftest.$ac_ext
+   ac_c_werror_flag=$ac_xsave_c_werror_flag
    LDFLAGS="${saved_ldflags}"
 
 fi
