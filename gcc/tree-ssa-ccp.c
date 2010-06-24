@@ -1296,21 +1296,6 @@ fold_const_aggregate_ref (tree t)
 	break;
       }
 
-    /* ???  Best do a fold_const_aggregate_ref_off with an extra constant
-       offset argument to avoid creating new trees.  */
-    case INDIRECT_REF:
-      {
-	tree base = TREE_OPERAND (t, 0);
-	if (TREE_CODE (base) == SSA_NAME
-	    && (value = get_value (base))
-	    && value->lattice_val == CONSTANT
-	    && TREE_CODE (value->value) == ADDR_EXPR
-	    && useless_type_conversion_p (TREE_TYPE (t),
-					  TREE_TYPE (TREE_TYPE (value->value))))
-	  return fold_const_aggregate_ref (TREE_OPERAND (value->value, 0));
-	break;
-      }
-
     case MEM_REF:
       /* Get the base object we are accessing.  */
       base = TREE_OPERAND (t, 0);
@@ -1375,11 +1360,14 @@ fold_const_aggregate_ref (tree t)
 	  && (TYPE_MODE (TREE_TYPE (t))
 	      == TYPE_MODE (TREE_TYPE (TREE_TYPE (ctor))))
 	  && GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (t))) != 0
-	  && integer_zerop (int_const_binop (TRUNC_MOD_EXPR,
-					     idx, size_int (GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (t)))), 0)))
+	  && integer_zerop
+	       (int_const_binop
+		  (TRUNC_MOD_EXPR, idx,
+		   size_int (GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (t)))), 0)))
 	{
-	  idx = int_const_binop (TRUNC_DIV_EXPR,
-				 idx, size_int (GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (t)))), 0);
+	  idx = int_const_binop (TRUNC_DIV_EXPR, idx,
+				 size_int (GET_MODE_SIZE
+					     (TYPE_MODE (TREE_TYPE (t)))), 0);
 	  FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (ctor), cnt, cfield, cval)
 	    if (tree_int_cst_equal (cfield, idx))
 	      {

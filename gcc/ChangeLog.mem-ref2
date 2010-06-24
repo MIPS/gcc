@@ -1,5 +1,12 @@
 2010-06-24  Richard Guenther  <rguenther@suse.de>
 
+	* tree-complex.c (extract_component): Do not handle INDIRECT_REF.
+	* tree-ssa-ccp.c (fold_const_aggregate_ref): Likewise.
+	* tree-ssa-structalias.c (get_constraint_for_1): Likewise.
+	* tree-ssa-operands.c (get_expr_operands): Likewise.
+
+2010-06-24  Richard Guenther  <rguenther@suse.de>
+
 	* tree-ssa-ccp.c (ccp_fold): Do not bother about volatile
 	qualifiers of pointers.
 	* tree.def (MEM_REF): Clarify.

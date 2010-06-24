@@ -711,10 +711,10 @@ mark_address_taken (tree ref)
 }
 
 
-/* A subroutine of get_expr_operands to handle INDIRECT_REF,
+/* A subroutine of get_expr_operands to handle MEM_REF,
    ALIGN_INDIRECT_REF and MISALIGNED_INDIRECT_REF.
 
-   STMT is the statement being processed, EXPR is the INDIRECT_REF
+   STMT is the statement being processed, EXPR is the MEM_REF
       that got us here.
 
    FLAGS is as in get_expr_operands.
@@ -915,7 +915,6 @@ get_expr_operands (gimple stmt, tree *expr_p, int flags)
       /* fall through */
 
     case ALIGN_INDIRECT_REF:
-    case INDIRECT_REF:
     case MEM_REF:
       get_indirect_ref_operands (stmt, expr, flags, true);
       return;

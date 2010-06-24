@@ -596,7 +596,6 @@ extract_component (gimple_stmt_iterator *gsi, tree t, bool imagpart_p,
     case VAR_DECL:
     case RESULT_DECL:
     case PARM_DECL:
-    case INDIRECT_REF:
     case COMPONENT_REF:
     case ARRAY_REF:
     case VIEW_CONVERT_EXPR:

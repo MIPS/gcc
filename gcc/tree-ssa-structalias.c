@@ -3335,12 +3335,6 @@ get_constraint_for_1 (tree t, VEC (ce_s, heap) **results, bool address_p)
       {
 	switch (TREE_CODE (t))
 	  {
-	  case INDIRECT_REF:
-	    {
-	      get_constraint_for_1 (TREE_OPERAND (t, 0), results, address_p);
-	      do_deref (results);
-	      return;
-	    }
 	  case MEM_REF:
 	    {
 	      get_constraint_for_ptr_offset (TREE_OPERAND (t, 0),
