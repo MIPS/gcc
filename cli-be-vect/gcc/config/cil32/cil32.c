@@ -748,6 +748,22 @@ static tree cil32_builtin_pattern (enum tree_code code, tree type)
         }
     }
 
+  if (code == WIDEN_MULT_EXPR && TREE_CODE (elem_type) == INTEGER_TYPE)
+    {
+      switch (element_size)
+        {
+          case 1:
+            return cil32_builtins[CIL32_GEN_WIDEN_MULT_VHI];
+
+          case 2:
+            return cil32_builtins[CIL32_GEN_WIDEN_MULT_VSI];
+
+          default:
+            return NULL_TREE;
+        }
+    }
+
+
   return NULL_TREE;
 }
 

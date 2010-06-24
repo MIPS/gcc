@@ -1303,6 +1303,20 @@ DEF_CILBUILTIN(GEN_DOT_PRODUCT_VHI, "[genvec_support]genvec_support.VHI::VHI_dot
                3,
                intQI16_type_node, intQI16_type_node, intHI8_type_node)
 
+/* widen mult pattern */
+
+DEF_CILBUILTIN(GEN_WIDEN_MULT_VSI, "[genvec_support]genvec_support.VSI::VSI_widen_mult", \
+               ATTR_CONST_NOTHROW_LIST,          \
+               VSI_type_node, \
+               3,
+               VHI_type_node, VHI_type_node, VSI_type_node)
+
+DEF_CILBUILTIN(GEN_WIDEN_MULT_VHI, "[genvec_support]genvec_support.VHI::VHI_widen_mult", \
+               ATTR_CONST_NOTHROW_LIST,          \
+               intHI8_type_node, \
+               3,
+               intQI16_type_node, intQI16_type_node, intHI8_type_node)
+
 /* init */
 DEF_CILBUILTIN(GCC_BUILD_INIT_VEC_VDF, "[genvec_support]genvec_support.VDF::VDF_init_vec", \
                ATTR_CONST_NOTHROW_LIST,        \
