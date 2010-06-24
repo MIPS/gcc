@@ -4298,7 +4298,7 @@ vectorizable_assignment (gimple stmt, gimple_stmt_iterator *gsi,
   tree scalar_dest;
   tree op;
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
-  tree vectype = STMT_VINFO_VECTYPE (stmt_info);
+  tree vectype = STMT_VINFO_VECTYPE (stmt_info), vectype_in;
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
   tree new_temp;
   tree def;
@@ -4309,6 +4309,7 @@ vectorizable_assignment (gimple stmt, gimple_stmt_iterator *gsi,
   int i;
   VEC(tree,heap) *vec_oprnds = NULL;
   tree vop;
+  enum tree_code code;
 
   /* Multiple types in SLP are handled by creating the appropriate number of
      vectorized stmts for each SLP node. Hence, NCOPIES is always 1 in
@@ -4336,8 +4337,10 @@ vectorizable_assignment (gimple stmt, gimple_stmt_iterator *gsi,
   if (TREE_CODE (scalar_dest) != SSA_NAME)
     return false;
 
+  code = gimple_assign_rhs_code (stmt);
   if (gimple_assign_single_p (stmt)
-      || gimple_assign_rhs_code (stmt) == PAREN_EXPR)
+      || code == PAREN_EXPR
+      || CONVERT_EXPR_CODE_P (code))
     op = gimple_assign_rhs1 (stmt);
   else
     return false;
@@ -4348,6 +4351,16 @@ vectorizable_assignment (gimple stmt, gimple_stmt_iterator *gsi,
         fprintf (vect_dump, "use not simple.");
       return false;
     }
+
+  /* We can handle NOP_EXPR conversions that do not change the number
+     of elements or the vector size.  */
+  vectype_in = get_vectype_for_scalar_type (TREE_TYPE (op));
+  if (CONVERT_EXPR_CODE_P (code)
+      && (!vectype_in
+          || TYPE_VECTOR_SUBPARTS (vectype_in) != nunits
+          || (GET_MODE_SIZE (TYPE_MODE (vectype))
+              != GET_MODE_SIZE (TYPE_MODE (vectype_in)))))
+    return false;
 
   if (!vec_stmt) /* transformation not required.  */
     {
@@ -4372,6 +4385,9 @@ vectorizable_assignment (gimple stmt, gimple_stmt_iterator *gsi,
   for (i = 0; VEC_iterate (tree, vec_oprnds, i, vop); i++)
     {
       *vec_stmt = gimple_build_assign (vec_dest, vop);
+      if (CONVERT_EXPR_CODE_P (code))
+        vop = build1 (VIEW_CONVERT_EXPR, vectype, vop);
+
       new_temp = make_ssa_name (vec_dest, *vec_stmt);
       gimple_assign_set_lhs (*vec_stmt, new_temp);
       vect_finish_stmt_generation (stmt, *vec_stmt, gsi);
