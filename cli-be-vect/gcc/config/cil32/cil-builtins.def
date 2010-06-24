@@ -1340,6 +1340,33 @@ DEF_CILBUILTIN(GCC_BUILD_INIT_VEC_VQI, "[genvec_support]genvec_support.VQI::VQI_
                2, \
                intQI_type_node, intQI_type_node)
 
+/* float->int */
+DEF_CILBUILTIN(GEN_VSI_FLOAT_TO_INT_UNSIGNED, "[genvec_support]genvec_support.VSI::VSI_float_to_int_unsigned", \
+               ATTR_CONST_NOTHROW_LIST,         \
+               VSI_type_node, \
+               1, \
+               float_type_node)
+
+DEF_CILBUILTIN(GEN_VSI_FLOAT_TO_INT_SIGNED, "[genvec_support]genvec_support.VSI::VSI_float_to_int_signed", \
+               ATTR_CONST_NOTHROW_LIST,         \
+               VSI_type_node, \
+               1, \
+               float_type_node)
+
+/* int->float */
+DEF_CILBUILTIN(GEN_VSF_INT_TO_FLOAT_UNSIGNED, "[genvec_support]genvec_support.VSF::VSF_int_to_float_unsigned", \
+               ATTR_CONST_NOTHROW_LIST,         \
+               VSF_type_node, \
+               1, \
+               unsigned_type_node)
+
+DEF_CILBUILTIN(GEN_VSF_INT_TO_FLOAT_SIGNED, "[genvec_support]genvec_support.VSI::VSI_int_to_float_signed", \
+               ATTR_CONST_NOTHROW_LIST,         \
+               VSF_type_node, \
+               1, \
+               integer_type_node)
+
+
 /* V DF */
 DEF_CILBUILTIN(GEN_VDF_CTOR, "[Xxxx.Simd]Xxxx.Simd.VecGenDF::.ctor", \
                ATTR_CONST_NOTHROW_LIST, \

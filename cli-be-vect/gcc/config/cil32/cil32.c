@@ -97,6 +97,7 @@ static tree cil32_builtin_get_loop_niters (void);
 static tree cil32_builtin_pattern (enum tree_code code, tree);
 static tree cil32_builtin_realign_offset (tree);
 static tree cil32_builtin_build_init_vec (tree);
+static tree cil32_builtin_conversion (enum tree_code, tree);
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ATTRIBUTE_TABLE
@@ -182,6 +183,9 @@ static tree cil32_builtin_build_init_vec (tree);
 #define TARGET_VECTORIZE_BUILTIN_BUILD_INIT_VEC \
   cil32_builtin_build_init_vec
 
+#undef TARGET_VECTORIZE_BUILTIN_CONVERSION
+#define TARGET_VECTORIZE_BUILTIN_CONVERSION \
+  cil32_builtin_conversion
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -814,6 +818,46 @@ static tree cil32_builtin_build_init_vec (tree type)
         default:
           return NULL_TREE;
         }
+    }
+}
+
+/* Implement targetm.vectorize.builtin_conversion.
+   Returns a decl of a function that implements conversion of an integer vector
+   into a floating-point vector, or vice-versa. TYPE is the type of the integer
+   side of the conversion.
+   Return NULL_TREE if it is not available.  */
+static tree
+cil32_builtin_conversion (enum tree_code code, tree type)
+{
+  tree elem_type = TREE_TYPE (type);
+  unsigned element_size = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (elem_type));
+
+  switch (code)
+    {
+    case FIX_TRUNC_EXPR:
+      switch (element_size)
+        {
+        case 4:
+          return TYPE_UNSIGNED (type)
+            ? cil32_builtins[CIL32_GEN_VSI_FLOAT_TO_INT_UNSIGNED]
+            : cil32_builtins[CIL32_GEN_VSI_FLOAT_TO_INT_SIGNED];
+        default:
+          return NULL_TREE;
+        }
+
+    case FLOAT_EXPR:
+      switch (element_size)
+        {
+        case 4:
+          return TYPE_UNSIGNED (type)
+            ? cil32_builtins[CIL32_GEN_VSF_INT_TO_FLOAT_UNSIGNED]
+            : cil32_builtins[CIL32_GEN_VSF_INT_TO_FLOAT_SIGNED];
+        default:
+          return NULL_TREE;
+        }
+
+    default:
+      return NULL_TREE;
     }
 }
 
