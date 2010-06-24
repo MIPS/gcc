@@ -398,6 +398,8 @@
 #define TARGET_VECTORIZE_BUILTIN_PATTERN 0
 #define TARGET_VECTORIZE_BUILTIN_REALIGN_OFFSET 0
 #define TARGET_VECTORIZE_BUILTIN_BUILD_INIT_VEC 0
+#define TARGET_VECTORIZE_BUILTIN_EXTRACT_EVEN_ODD 0
+#define TARGET_VECTORIZE_BUILTIN_INTERLEAVE_HIGH_LOW 0
 
 #define TARGET_VECTORIZE                                                \
   {									\
@@ -422,7 +424,9 @@
     TARGET_VECTORIZE_BUILTIN_GET_LOOP_NITERS,                           \
     TARGET_VECTORIZE_BUILTIN_PATTERN,                                   \
     TARGET_VECTORIZE_BUILTIN_REALIGN_OFFSET,                            \
-    TARGET_VECTORIZE_BUILTIN_BUILD_INIT_VEC                             \
+    TARGET_VECTORIZE_BUILTIN_BUILD_INIT_VEC,                            \
+    TARGET_VECTORIZE_BUILTIN_EXTRACT_EVEN_ODD,                          \
+    TARGET_VECTORIZE_BUILTIN_INTERLEAVE_HIGH_LOW                        \
   }
 
 #define TARGET_DEFAULT_TARGET_FLAGS 0

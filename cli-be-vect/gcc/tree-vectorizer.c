@@ -2515,6 +2515,17 @@ supportable_widening_operation (enum tree_code code, gimple stmt, tree vectype,
       gcc_unreachable ();
     }
 
+  if (code == WIDEN_MULT_EXPR && targetm.vectorize.builtin_pattern
+      && targetm.vectorize.builtin_pattern (c1, vectype)
+      && targetm.vectorize.builtin_pattern (c2, vectype))
+    {
+      *code1 = *code2 = CALL_EXPR;
+      *decl1 = targetm.vectorize.builtin_pattern (c1, vectype);
+      *decl2 = targetm.vectorize.builtin_pattern (c2, vectype);
+      *multi_step_cvt = 0;
+      return true;
+    }
+
   if (code == FIX_TRUNC_EXPR)
     {
       /* The signedness is determined from output operand.  */
@@ -2533,17 +2544,13 @@ supportable_widening_operation (enum tree_code code, gimple stmt, tree vectype,
   vec_mode = TYPE_MODE (vectype);
   if (((icode1 = optab_handler (optab1, vec_mode)->insn_code) == CODE_FOR_nothing
        || (icode2 = optab_handler (optab2, vec_mode)->insn_code)
-                                                       == CODE_FOR_nothing)
-       && !(targetm.vectorize.builtin_pattern
-            && targetm.vectorize.builtin_pattern (WIDEN_MULT_EXPR, vectype)))
+                                                       == CODE_FOR_nothing))
     return false;
 
   /* Check if it's a multi-step conversion that can be done using intermediate 
      types.  */
-  if (!(targetm.vectorize.builtin_pattern
-            && targetm.vectorize.builtin_pattern (WIDEN_MULT_EXPR, vectype))
-      && (insn_data[icode1].operand[0].mode != TYPE_MODE (wide_vectype)
-       || insn_data[icode2].operand[0].mode != TYPE_MODE (wide_vectype)))
+  if (insn_data[icode1].operand[0].mode != TYPE_MODE (wide_vectype)
+      || insn_data[icode2].operand[0].mode != TYPE_MODE (wide_vectype))
     {
       int i;
       tree prev_type = vectype, intermediate_type;

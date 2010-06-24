@@ -1305,17 +1305,29 @@ DEF_CILBUILTIN(GEN_DOT_PRODUCT_VHI, "[genvec_support]genvec_support.VHI::VHI_dot
 
 /* widen mult pattern */
 
-DEF_CILBUILTIN(GEN_WIDEN_MULT_VSI, "[genvec_support]genvec_support.VSI::VSI_widen_mult", \
+DEF_CILBUILTIN(GEN_WIDEN_MULT_HI_VSI, "[genvec_support]genvec_support.VSI::VSI_widen_mult_hi", \
                ATTR_CONST_NOTHROW_LIST,          \
                VSI_type_node, \
-               3,
-               VHI_type_node, VHI_type_node, VSI_type_node)
+               2,
+               VHI_type_node, VHI_type_node)
 
-DEF_CILBUILTIN(GEN_WIDEN_MULT_VHI, "[genvec_support]genvec_support.VHI::VHI_widen_mult", \
+DEF_CILBUILTIN(GEN_WIDEN_MULT_HI_VHI, "[genvec_support]genvec_support.VHI::VHI_widen_mult_hi", \
                ATTR_CONST_NOTHROW_LIST,          \
-               intHI8_type_node, \
-               3,
-               intQI16_type_node, intQI16_type_node, intHI8_type_node)
+               VHI_type_node, \
+               2,
+               VQI_type_node, VQI_type_node)
+
+DEF_CILBUILTIN(GEN_WIDEN_MULT_LO_VSI, "[genvec_support]genvec_support.VSI::VSI_widen_mult_lo", \
+               ATTR_CONST_NOTHROW_LIST,          \
+               VSI_type_node, \
+               2,
+               VHI_type_node, VHI_type_node)
+
+DEF_CILBUILTIN(GEN_WIDEN_MULT_LO_VHI, "[genvec_support]genvec_support.VHI::VHI_widen_mult_lo", \
+               ATTR_CONST_NOTHROW_LIST,          \
+               VHI_type_node, \
+               2,
+               VQI_type_node, VQI_type_node)
 
 /* init */
 DEF_CILBUILTIN(GCC_BUILD_INIT_VEC_VDF, "[genvec_support]genvec_support.VDF::VDF_init_vec", \
@@ -1380,6 +1392,79 @@ DEF_CILBUILTIN(GEN_VSF_INT_TO_FLOAT_SIGNED, "[genvec_support]genvec_support.VSI:
                1, \
                integer_type_node)
 
+/* interleave high/low */
+DEF_CILBUILTIN(GEN_VSI_INTERLEAVE_HIGH, "[genvec_support]genvec_support.VSI::VSI_interleave_high", \
+               ATTR_CONST_NOTHROW_LIST,         \
+               VSI_type_node, \
+               2, \
+               VSI_type_node, VSI_type_node)
+
+DEF_CILBUILTIN(GEN_VSI_INTERLEAVE_LOW, "[genvec_support]genvec_support.VSI::VSI_interleave_low", \
+               ATTR_CONST_NOTHROW_LIST,         \
+	       VSI_type_node, \
+               2, \
+               VSI_type_node, VSI_type_node)
+
+DEF_CILBUILTIN(GEN_VHI_INTERLEAVE_HIGH, "[genvec_support]genvec_support.VHI::VHI_interleave_high", \
+               ATTR_CONST_NOTHROW_LIST,         \
+               VHI_type_node, \
+               2, \
+               VHI_type_node, VHI_type_node)
+
+DEF_CILBUILTIN(GEN_VHI_INTERLEAVE_LOW, "[genvec_support]genvec_support.VHI::VHI_interleave_low", \
+               ATTR_CONST_NOTHROW_LIST,         \
+               VHI_type_node, \
+               2, \
+               VHI_type_node, VHI_type_node)
+
+DEF_CILBUILTIN(GEN_VQI_INTERLEAVE_HIGH, "[genvec_support]genvec_support.VQI::VQI_interleave_high", \
+               ATTR_CONST_NOTHROW_LIST,         \
+               VQI_type_node, \
+               2, \
+               VQI_type_node, VQI_type_node)
+
+DEF_CILBUILTIN(GEN_VQI_INTERLEAVE_LOW, "[genvec_support]genvec_support.VQI::VQI_interleave_low", \
+               ATTR_CONST_NOTHROW_LIST,         \
+               VQI_type_node, \
+               2, \
+               VQI_type_node, VQI_type_node)
+
+/* extract even/odd */
+DEF_CILBUILTIN(GEN_VSI_EXTRACT_EVEN, "[genvec_support]genvec_support.VSI::VSI_extract_even", \
+               ATTR_CONST_NOTHROW_LIST,         \
+               VSI_type_node, \
+               2, \
+               VSI_type_node, VSI_type_node)
+
+DEF_CILBUILTIN(GEN_VSI_EXTRACT_ODD, "[genvec_support]genvec_support.VSI::VSI_extract_odd", \
+               ATTR_CONST_NOTHROW_LIST,         \
+               VSI_type_node, \
+               2, \
+               VSI_type_node, VSI_type_node)
+
+DEF_CILBUILTIN(GEN_VHI_EXTRACT_EVEN, "[genvec_support]genvec_support.VHI::VHI_extract_even", \
+               ATTR_CONST_NOTHROW_LIST,         \
+               VHI_type_node, \
+               2, \
+               VHI_type_node, VHI_type_node)
+
+DEF_CILBUILTIN(GEN_VHI_EXTRACT_ODD, "[genvec_support]genvec_support.VHI::VHI_extract_odd", \
+               ATTR_CONST_NOTHROW_LIST,         \
+               VHI_type_node, \
+               2, \
+               VHI_type_node, VHI_type_node)
+
+DEF_CILBUILTIN(GEN_VQI_EXTRACT_EVEN, "[genvec_support]genvec_support.VQI::VQI_extract_even", \
+               ATTR_CONST_NOTHROW_LIST,         \
+               VQI_type_node, \
+               2, \
+               VQI_type_node, VQI_type_node)
+
+DEF_CILBUILTIN(GEN_VQI_EXTRACT_ODD, "[genvec_support]genvec_support.VQI::VQI_extract_odd", \
+               ATTR_CONST_NOTHROW_LIST,         \
+               VQI_type_node, \
+               2, \
+               VQI_type_node, VQI_type_node)
 
 /* V DF */
 DEF_CILBUILTIN(GEN_VDF_CTOR, "[Xxxx.Simd]Xxxx.Simd.VecGenDF::.ctor", \

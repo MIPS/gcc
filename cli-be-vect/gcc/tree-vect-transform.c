@@ -5176,6 +5176,8 @@ vect_create_vectorized_promotion_stmts (VEC (tree, heap) **vec_oprnds0,
         }
     }
 
+  VEC_free (tree, heap, vec_tmp);
+
   if (multi_step_cvt)
     {
       /* For multi-step promotion operation we first generate we call the 
@@ -5408,7 +5410,8 @@ vectorizable_type_promotion (gimple stmt, gimple_stmt_iterator *gsi,
   VEC_free (tree, heap, tmp_vec_dsts);
   VEC_free (tree, heap, interm_types);
   VEC_free (tree, heap, vec_oprnds0);
-  VEC_free (tree, heap, vec_oprnds1);
+  if (vec_oprnds1)
+    VEC_free (tree, heap, vec_oprnds1);
 
   *vec_stmt = STMT_VINFO_VEC_STMT (stmt_info);
   return true;
@@ -5429,6 +5432,13 @@ vect_strided_store_supported (tree vectype)
   mode = (int) TYPE_MODE (vectype);
       
   /* Check that the operation is supported.  */
+  if (targetm.vectorize.builtin_interleave_high_low
+      && targetm.vectorize.builtin_interleave_high_low 
+            (VEC_INTERLEAVE_HIGH_EXPR, vectype)
+      && targetm.vectorize.builtin_interleave_high_low
+            (VEC_INTERLEAVE_LOW_EXPR, vectype))
+    return true;
+
   interleave_high_optab = optab_for_tree_code (VEC_INTERLEAVE_HIGH_EXPR, 
 					       vectype, optab_default);
   interleave_low_optab = optab_for_tree_code (VEC_INTERLEAVE_LOW_EXPR, 
@@ -5525,7 +5535,7 @@ vect_permute_store_chain (VEC(tree,heap) *dr_chain,
   tree perm_dest, vect1, vect2, high, low;
   gimple perm_stmt;
   tree vectype = STMT_VINFO_VECTYPE (vinfo_for_stmt (stmt));
-  tree scalar_dest;
+  tree scalar_dest, builtin_decl;
   int i;
   unsigned int j;
   enum tree_code high_code, low_code;
@@ -5563,11 +5573,23 @@ vect_permute_store_chain (VEC(tree,heap) *dr_chain,
 	      low_code = VEC_INTERLEAVE_HIGH_EXPR;
 	      high_code = VEC_INTERLEAVE_LOW_EXPR;
 	    }
-	  perm_stmt = gimple_build_assign_with_ops (high_code, perm_dest,
-						    vect1, vect2);
-	  high = make_ssa_name (perm_dest, perm_stmt);
-	  gimple_assign_set_lhs (perm_stmt, high);
-	  vect_finish_stmt_generation (stmt, perm_stmt, gsi);
+         
+          if ((builtin_decl = targetm.vectorize.builtin_interleave_high_low
+                                                          (high_code, vectype)))
+            {
+              perm_stmt = gimple_build_call (builtin_decl, 2, vect1, vect2);
+              high = make_ssa_name (perm_dest, perm_stmt);
+              gimple_call_set_lhs (perm_stmt, high);
+              gsi_insert_before (gsi, perm_stmt, GSI_SAME_STMT);
+            }
+          else
+            {
+	      perm_stmt = gimple_build_assign_with_ops (high_code, perm_dest,
+	  					        vect1, vect2);
+ 	      high = make_ssa_name (perm_dest, perm_stmt);
+	      gimple_assign_set_lhs (perm_stmt, high);
+	      vect_finish_stmt_generation (stmt, perm_stmt, gsi);
+            }
 	  VEC_replace (tree, *result_chain, 2*j, high);
 
 	  /* Create interleaving stmt:
@@ -5578,11 +5600,22 @@ vect_permute_store_chain (VEC(tree,heap) *dr_chain,
 	  perm_dest = create_tmp_var (vectype, "vect_inter_low");
 	  DECL_GIMPLE_REG_P (perm_dest) = 1;
 	  add_referenced_var (perm_dest);
-	  perm_stmt = gimple_build_assign_with_ops (low_code, perm_dest,
-						    vect1, vect2);
-	  low = make_ssa_name (perm_dest, perm_stmt);
-	  gimple_assign_set_lhs (perm_stmt, low);
-	  vect_finish_stmt_generation (stmt, perm_stmt, gsi);
+          if ((builtin_decl = targetm.vectorize.builtin_interleave_high_low
+                                                          (low_code, vectype)))
+            {
+              perm_stmt = gimple_build_call (builtin_decl, 2, vect1, vect2);
+              low = make_ssa_name (perm_dest, perm_stmt);
+              gimple_call_set_lhs (perm_stmt, low);
+              gsi_insert_before (gsi, perm_stmt, GSI_SAME_STMT);
+            }
+          else
+            {
+	      perm_stmt = gimple_build_assign_with_ops (low_code, perm_dest,
+	 					        vect1, vect2);
+  	      low = make_ssa_name (perm_dest, perm_stmt);
+	      gimple_assign_set_lhs (perm_stmt, low);
+	      vect_finish_stmt_generation (stmt, perm_stmt, gsi);
+            }
 	  VEC_replace (tree, *result_chain, 2*j+1, low);
 	}
       dr_chain = VEC_copy (tree, heap, *result_chain);
@@ -6213,6 +6246,13 @@ vect_strided_load_supported (tree vectype)
   optab perm_even_optab, perm_odd_optab;
   int mode;
 
+  if (targetm.vectorize.builtin_interleave_high_low
+      && targetm.vectorize.builtin_interleave_high_low
+            (VEC_EXTRACT_EVEN_EXPR, vectype)
+      && targetm.vectorize.builtin_interleave_high_low
+            (VEC_EXTRACT_ODD_EXPR, vectype))
+    return true;
+
   mode = (int) TYPE_MODE (vectype);
 
   perm_even_optab = optab_for_tree_code (VEC_EXTRACT_EVEN_EXPR, vectype,
@@ -6333,7 +6373,7 @@ vect_permute_load_chain (VEC(tree,heap) *dr_chain,
 			 gimple_stmt_iterator *gsi,
 			 VEC(tree,heap) **result_chain)
 {
-  tree perm_dest, data_ref, first_vect, second_vect;
+  tree perm_dest, data_ref, first_vect, second_vect, builtin_decl;
   gimple perm_stmt;
   tree vectype = STMT_VINFO_VECTYPE (vinfo_for_stmt (stmt));
   int i;
@@ -6356,13 +6396,25 @@ vect_permute_load_chain (VEC(tree,heap) *dr_chain,
 	  DECL_GIMPLE_REG_P (perm_dest) = 1;
 	  add_referenced_var (perm_dest);
 
-	  perm_stmt = gimple_build_assign_with_ops (VEC_EXTRACT_EVEN_EXPR,
+          if ((builtin_decl = targetm.vectorize.builtin_extract_even_odd
+                                         (VEC_EXTRACT_EVEN_EXPR, vectype)))
+            {
+              perm_stmt = gimple_build_call (builtin_decl, 2, first_vect, 
+                                             second_vect);
+              data_ref = make_ssa_name (perm_dest, perm_stmt);
+              gimple_call_set_lhs (perm_stmt, data_ref);
+              gsi_insert_before (gsi, perm_stmt, GSI_SAME_STMT);
+            }
+          else
+            {
+  	      perm_stmt = gimple_build_assign_with_ops (VEC_EXTRACT_EVEN_EXPR,
 						    perm_dest, first_vect,
 						    second_vect);
 
-	  data_ref = make_ssa_name (perm_dest, perm_stmt);
-	  gimple_assign_set_lhs (perm_stmt, data_ref);
-	  vect_finish_stmt_generation (stmt, perm_stmt, gsi);
+  	      data_ref = make_ssa_name (perm_dest, perm_stmt);
+ 	      gimple_assign_set_lhs (perm_stmt, data_ref);
+	      vect_finish_stmt_generation (stmt, perm_stmt, gsi);
+            }
 	  mark_symbols_for_renaming (perm_stmt);
 
 	  VEC_replace (tree, *result_chain, j/2, data_ref);	      
@@ -6372,12 +6424,24 @@ vect_permute_load_chain (VEC(tree,heap) *dr_chain,
 	  DECL_GIMPLE_REG_P (perm_dest) = 1;
 	  add_referenced_var (perm_dest);
 
-	  perm_stmt = gimple_build_assign_with_ops (VEC_EXTRACT_ODD_EXPR,
+          if ((builtin_decl = targetm.vectorize.builtin_extract_even_odd
+                                         (VEC_EXTRACT_ODD_EXPR, vectype)))
+            {
+              perm_stmt = gimple_build_call (builtin_decl, 2, first_vect,
+                                             second_vect);
+              data_ref = make_ssa_name (perm_dest, perm_stmt);
+              gimple_call_set_lhs (perm_stmt, data_ref);
+              gsi_insert_before (gsi, perm_stmt, GSI_SAME_STMT);
+            }
+          else
+            {
+	      perm_stmt = gimple_build_assign_with_ops (VEC_EXTRACT_ODD_EXPR,
 						    perm_dest, first_vect,
 						    second_vect);
-	  data_ref = make_ssa_name (perm_dest, perm_stmt);
-	  gimple_assign_set_lhs (perm_stmt, data_ref);
-	  vect_finish_stmt_generation (stmt, perm_stmt, gsi);
+  	      data_ref = make_ssa_name (perm_dest, perm_stmt);
+	      gimple_assign_set_lhs (perm_stmt, data_ref);
+	      vect_finish_stmt_generation (stmt, perm_stmt, gsi);
+            }
 	  mark_symbols_for_renaming (perm_stmt);
 
 	  VEC_replace (tree, *result_chain, j/2+length/2, data_ref);

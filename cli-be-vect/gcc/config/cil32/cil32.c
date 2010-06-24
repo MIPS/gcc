@@ -98,6 +98,8 @@ static tree cil32_builtin_pattern (enum tree_code code, tree);
 static tree cil32_builtin_realign_offset (tree);
 static tree cil32_builtin_build_init_vec (tree);
 static tree cil32_builtin_conversion (enum tree_code, tree);
+static tree cil32_builtin_interleave_high_low (enum tree_code, tree);
+static tree cil32_builtin_extract_even_odd (enum tree_code, tree);
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ATTRIBUTE_TABLE
@@ -186,6 +188,14 @@ static tree cil32_builtin_conversion (enum tree_code, tree);
 #undef TARGET_VECTORIZE_BUILTIN_CONVERSION
 #define TARGET_VECTORIZE_BUILTIN_CONVERSION \
   cil32_builtin_conversion
+
+#undef TARGET_VECTORIZE_BUILTIN_INTERLEAVE_HIGH_LOW
+#define TARGET_VECTORIZE_BUILTIN_INTERLEAVE_HIGH_LOW \
+  cil32_builtin_interleave_high_low
+
+#undef TARGET_VECTORIZE_BUILTIN_EXTRACT_EVEN_ODD
+#define TARGET_VECTORIZE_BUILTIN_EXTRACT_EVEN_ODD \
+  cil32_builtin_extract_even_odd
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -748,21 +758,35 @@ static tree cil32_builtin_pattern (enum tree_code code, tree type)
         }
     }
 
-  if (code == WIDEN_MULT_EXPR && TREE_CODE (elem_type) == INTEGER_TYPE)
+  if (code == VEC_WIDEN_MULT_HI_EXPR && TREE_CODE (elem_type) == INTEGER_TYPE)
     {
       switch (element_size)
         {
           case 1:
-            return cil32_builtins[CIL32_GEN_WIDEN_MULT_VHI];
+            return cil32_builtins[CIL32_GEN_WIDEN_MULT_HI_VHI];
 
           case 2:
-            return cil32_builtins[CIL32_GEN_WIDEN_MULT_VSI];
+            return cil32_builtins[CIL32_GEN_WIDEN_MULT_HI_VSI];
 
           default:
             return NULL_TREE;
         }
     }
 
+  if (code == VEC_WIDEN_MULT_LO_EXPR && TREE_CODE (elem_type) == INTEGER_TYPE)
+    {
+      switch (element_size)
+        {
+          case 1:
+            return cil32_builtins[CIL32_GEN_WIDEN_MULT_LO_VHI];
+
+          case 2:
+            return cil32_builtins[CIL32_GEN_WIDEN_MULT_LO_VSI];
+
+          default:
+            return NULL_TREE;
+        }
+    }
 
   return NULL_TREE;
 }
@@ -877,3 +901,96 @@ cil32_builtin_conversion (enum tree_code code, tree type)
     }
 }
 
+static tree
+cil32_builtin_interleave_high_low (enum tree_code code, tree type)
+{
+  tree elem_type = TREE_TYPE (type);
+  unsigned element_size = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (elem_type));
+
+  switch (code)
+    {
+    case VEC_INTERLEAVE_HIGH_EXPR:
+      switch (element_size)
+        {
+        case 4:
+	  return cil32_builtins[CIL32_GEN_VSI_INTERLEAVE_HIGH];
+
+        case 2:
+          return cil32_builtins[CIL32_GEN_VHI_INTERLEAVE_HIGH];
+
+        case 1:
+          return cil32_builtins[CIL32_GEN_VQI_INTERLEAVE_HIGH];
+
+        default:
+          return NULL_TREE;
+        }
+
+    case VEC_INTERLEAVE_LOW_EXPR:
+      switch (element_size)
+        {
+        case 4:
+          return cil32_builtins[CIL32_GEN_VSI_INTERLEAVE_LOW];
+
+        case 2:
+          return cil32_builtins[CIL32_GEN_VHI_INTERLEAVE_LOW];
+
+        case 1:
+          return cil32_builtins[CIL32_GEN_VQI_INTERLEAVE_LOW];
+
+        default:
+          return NULL_TREE;
+        }
+
+    default:
+      return NULL_TREE;
+    }
+}
+
+
+static tree
+cil32_builtin_extract_even_odd (enum tree_code code, tree type)
+{
+  tree elem_type = TREE_TYPE (type);
+  unsigned element_size = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (elem_type));
+
+  switch (code)
+    {
+    case VEC_EXTRACT_EVEN_EXPR:
+      switch (element_size)
+        {
+        case 4:
+          return cil32_builtins[CIL32_GEN_VSI_EXTRACT_EVEN];
+
+        case 2:
+          return cil32_builtins[CIL32_GEN_VHI_EXTRACT_EVEN];
+
+        case 1:
+          return cil32_builtins[CIL32_GEN_VQI_EXTRACT_EVEN];
+
+        default:
+          return NULL_TREE;
+        }
+
+    case VEC_EXTRACT_ODD_EXPR:
+      switch (element_size)
+        {
+        case 4:
+          return cil32_builtins[CIL32_GEN_VSI_EXTRACT_ODD];
+
+        case 2:
+          return cil32_builtins[CIL32_GEN_VHI_EXTRACT_ODD];
+
+        case 1:
+          return cil32_builtins[CIL32_GEN_VQI_EXTRACT_ODD];
+
+        default:
+          return NULL_TREE;
+        }
+
+    default:
+      return NULL_TREE;
+    }
+}
+
+
+ 

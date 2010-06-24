@@ -501,6 +501,10 @@ struct gcc_target
     tree (* builtin_realign_offset) (tree);
 
     tree (* builtin_build_init_vec) (tree);
+
+    tree (* builtin_extract_even_odd) (enum tree_code, tree);
+
+    tree (* builtin_interleave_high_low) (enum tree_code, tree);
 } vectorize;
 
   /* The initial value of target_flags.  */
