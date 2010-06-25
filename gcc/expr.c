@@ -8367,7 +8367,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	    int nregs = hard_regno_nregs[i][GET_MODE (decl_rtl)];
 	    while (nregs)
 	      {
-		SET_HARD_REG_BIT (crtl->asm_clobbers, i);
+		SET_HARD_REG_BIT (CRTL_ASM_CLOBBERS, i);
 		i++;
 		nregs--;
 	      }

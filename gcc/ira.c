@@ -1461,7 +1461,7 @@ compute_regs_asm_clobbered (void)
 		      + hard_regno_nregs[dregno][mode] - 1;
 
 		    for (i = dregno; i <= end; ++i)
-		      SET_HARD_REG_BIT(crtl->asm_clobbers, i);
+		      SET_HARD_REG_BIT (CRTL_ASM_CLOBBERS, i);
 		  }
 	      }
 	}
@@ -1507,7 +1507,7 @@ ira_setup_eliminable_regset (void)
 	= (! targetm.can_eliminate (eliminables[i].from, eliminables[i].to)
 	   || (eliminables[i].to == STACK_POINTER_REGNUM && need_fp));
 
-      if (!TEST_HARD_REG_BIT (crtl->asm_clobbers, eliminables[i].from))
+      if (!TEST_HARD_REG_BIT (CRTL_ASM_CLOBBERS, eliminables[i].from))
 	{
 	    SET_HARD_REG_BIT (eliminable_regset, eliminables[i].from);
 
@@ -1521,7 +1521,7 @@ ira_setup_eliminable_regset (void)
 	df_set_regs_ever_live (eliminables[i].from, true);
     }
 #if FRAME_POINTER_REGNUM != HARD_FRAME_POINTER_REGNUM
-  if (!TEST_HARD_REG_BIT (crtl->asm_clobbers, HARD_FRAME_POINTER_REGNUM))
+  if (!TEST_HARD_REG_BIT (CRTL_ASM_CLOBBERS, HARD_FRAME_POINTER_REGNUM))
     {
       SET_HARD_REG_BIT (eliminable_regset, HARD_FRAME_POINTER_REGNUM);
       if (need_fp)
@@ -1535,7 +1535,7 @@ ira_setup_eliminable_regset (void)
 #endif
 
 #else
-  if (!TEST_HARD_REG_BIT (crtl->asm_clobbers, HARD_FRAME_POINTER_REGNUM))
+  if (!TEST_HARD_REG_BIT (CRTL_ASM_CLOBBERS, HARD_FRAME_POINTER_REGNUM))
     {
       SET_HARD_REG_BIT (eliminable_regset, FRAME_POINTER_REGNUM);
       if (need_fp)

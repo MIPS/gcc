@@ -1,5 +1,15 @@
 2010-06-24  Joern Rennecke  <joern.rennecke@embecosm.com>
 
+	* function.h (CRTL_ASM_CLOBBERS): Define.
+	(struct rtl_data): Use type hard_reg_set_u for member asm_clobbers.
+	* Makefile.in (target-gtypes.h): Add hard_reg_set_u definition.
+
+	* expr.c (expand_expr_real_1): Use CRTL_ASM_CLOBBERS.
+	* ira.c (compute_regs_asm_clobbered): Likewise.
+	(ira_setup_eliminable_regset): Likewise.
+
+2010-06-24  Joern Rennecke  <joern.rennecke@embecosm.com>
+
 	PR other/44566
 	* function.h (MACHINE_FUNCTION): Define.
 	* Makefile.in (target-gtypes.h): Add machine_function_u definition.
