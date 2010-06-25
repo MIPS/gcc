@@ -1,3 +1,9 @@
+2010-06-13  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	PR bootstrap/44512
+	* genenums.c (main): Output include of insn-constants.h
+	* Makefile.in (insn-enums.o): Depend on insn-constants.h.
+
 2010-06-25  Changpeng Fang  <changpeng.fang@amd.com>
 
 	* common.opt (fprefetch-loop-arrays): Re-define
