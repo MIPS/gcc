@@ -31,6 +31,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "output.h"
 #include "expr.h"
+#include "multi-target.h"
 
 /* This pass moves constant conditions out of loops, duplicating the loop
    in progress, i.e. this code:
@@ -78,6 +79,8 @@ along with GCC; see the file COPYING3.  If not see
   transformation on innermost loops, as the benefit of doing it on loops
   containing subloops would not be very large compared to complications
   with handling this case.  */
+
+START_TARGET_SPECIFIC
 
 static struct loop *unswitch_loop (struct loop *, basic_block, rtx, rtx);
 static void unswitch_single_loop (struct loop *, rtx, int);
@@ -464,3 +467,5 @@ unswitch_loop (struct loop *loop, basic_block unswitch_on, rtx cond, rtx cinsn)
 
   return nloop;
 }
+
+END_TARGET_SPECIFIC

@@ -46,6 +46,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "df.h"
 #include "ira.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 static int optimize_reg_copy_1 (rtx, rtx, rtx);
 static void optimize_reg_copy_2 (rtx, rtx, rtx);
@@ -1375,3 +1378,5 @@ struct rtl_opt_pass pass_regmove =
   TODO_ggc_collect                      /* todo_flags_finish */
  }
 };
+
+END_TARGET_SPECIFIC

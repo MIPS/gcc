@@ -20,6 +20,8 @@ along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
 
+#include "multi-target.h"
+
 /* If secondary reloads are the same for inputs and outputs, define those
    macros here.  */
 
@@ -30,9 +32,11 @@ along with GCC; see the file COPYING3.  If not see
   SECONDARY_RELOAD_CLASS (CLASS, MODE, X)
 #endif
 
+START_TARGET_SPECIFIC
 extern int memory_move_cost (enum machine_mode, enum reg_class, bool);
 extern int memory_move_secondary_cost (enum machine_mode, enum reg_class,
 				       bool);
+END_TARGET_SPECIFIC
 
 /* Maximum number of reloads we can need.  */
 #define MAX_RELOADS (2 * MAX_RECOG_OPERANDS * (MAX_REGS_PER_ADDRESS + 1))
@@ -71,6 +75,7 @@ enum reload_type
 };
 
 #ifdef GCC_INSN_CODES_H
+START_TARGET_SPECIFIC
 /* Each reload is recorded with a structure like this.  */
 struct reload
 {
@@ -150,7 +155,10 @@ struct reload
 
 extern struct reload rld[MAX_RELOADS];
 extern int n_reloads;
+END_TARGET_SPECIFIC
 #endif
+
+START_TARGET_SPECIFIC
 
 extern GTY (()) VEC(rtx,gc) *reg_equiv_memory_loc_vec;
 extern rtx *reg_equiv_constant;
@@ -380,3 +388,5 @@ extern void debug_reload (void);
 /* Compute the actual register we should reload to, in case we're
    reloading to/from a register that is wider than a word.  */
 extern rtx reload_adjust_reg_for_mode (rtx, enum machine_mode);
+
+END_TARGET_SPECIFIC

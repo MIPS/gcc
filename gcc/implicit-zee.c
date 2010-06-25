@@ -206,6 +206,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "df.h"
 #include "cgraph.h"
+#include "multi-target.h"
 
 /* This says if a register is newly created for the purpose of
    zero-extension.  */
@@ -215,6 +216,8 @@ enum insn_merge_code
   MERGE_NOT_ATTEMPTED = 0,
   MERGE_SUCCESS
 };
+
+START_TARGET_SPECIFIC
 
 /* This says if a INSN UID or its definition has already been merged
    with a zero-extend or not.  */
@@ -999,3 +1002,4 @@ struct rtl_opt_pass pass_implicit_zee =
   TODO_verify_rtl_sharing,              /* todo_flags_finish */
  }
 };
+END_TARGET_SPECIFIC

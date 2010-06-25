@@ -38,6 +38,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "params.h"
 #include "ira-int.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 /* The flags is set up every time when we calculate pseudo register
    classes through function ira_set_pseudo_classes.  */
@@ -1835,3 +1838,5 @@ ira_adjust_equiv_reg_cost (unsigned regno, int cost)
   else
     regno_equiv_gains[regno] += cost;
 }
+
+END_TARGET_SPECIFIC

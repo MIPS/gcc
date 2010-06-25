@@ -112,6 +112,7 @@ a register with any other reload.  */
 #include "params.h"
 #include "target.h"
 #include "ira.h"
+#include "multi-target.h"
 
 /* True if X is a constant that can be forced into the constant pool.  */
 #define CONST_POOL_OK_P(X)			\
@@ -126,6 +127,8 @@ a register with any other reload.  */
    || (reg_class_size [(C)] >= 1 && CLASS_LIKELY_SPILLED_P (C)))
 
 
+START_TARGET_SPECIFIC
+
 /* All reloads of the current insn are recorded here.  See reload.h for
    comments.  */
 int n_reloads;
@@ -7439,3 +7442,5 @@ debug_reload (void)
 {
   debug_reload_to_stream (stderr);
 }
+
+END_TARGET_SPECIFIC

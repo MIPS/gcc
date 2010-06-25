@@ -51,6 +51,7 @@
 
 #include "tm.h"
 #include "insn-modes.h"
+#include "multi-target.h"
 
 /* Types used by the record_gcc_switches() target function.  */
 typedef enum
@@ -127,10 +128,32 @@ enum vect_cost_for_stmt
   vec_perm
 };
 
+struct gimple_stmt_iterator_d;
+
+enum task_type { TASK_TYPE_VECTORIZED_LOOP };
+
 /* The target structure.  This holds all the backend hooks.  */
 
+/* ??? the use of the target vector makes it necessary to cast
+   target-specific enums from/to int, since we expose the function
+   signatures of target specific hooks that operate e.g. on enum reg_class
+   to target-independent passes.  */
 struct gcc_target
 {
+  /* For multi-targeted configurations, the name to be used to describe
+     this target for options, attributes and error messages.  */
+  const char *name;
+
+  /* Position of this target vector in targetm_array.
+     Initialized with the Makefile-generated TARGET_NUM.  */
+  int target_arch;
+
+  /* The sizetype table for this target.  */
+  tree *sizetype_tab;
+
+  /* The optab table for this target*/
+  struct optab_d *optab_table;
+
   /* Functions that output assembler for the target.  */
   struct asm_out
   {
@@ -181,6 +204,9 @@ struct gcc_target
     /* Emit an assembler directive to set visibility for the symbol
        associated with the tree decl.  */
     void (* visibility) (tree, int);
+
+    /* Output assembler code when changing architectures.  */
+    void (* new_arch) (FILE *, struct gcc_target *, struct gcc_target *);
 
     /* Output the assembler code for entry to a function.  */
     void (* function_prologue) (FILE *, HOST_WIDE_INT);
@@ -506,6 +532,9 @@ struct gcc_target
   /* Functions relating to vectorization.  */
   struct vectorize
   {
+    /* Return a vector type for SCALAR_TYPE.  */
+    tree (* vectype_for_scalar_type) (tree scalar_type, FILE *vect_dump);
+
     /* The following member value is a pointer to a function called
        by the vectorizer, and return the decl of the target builtin
        function.  */
@@ -751,6 +780,30 @@ struct gcc_target
 
   /* Undo the effects of encode_section_info on the symbol string.  */
   const char * (* strip_name_encoding) (const char *);
+
+  bool (*task_ok_for_target) (struct gcc_target *other, enum task_type);
+
+  /* Say if the target OTHER shares its data memory with this target.  */
+  bool (*common_data_with_target) (struct gcc_target *other);
+  /* Emit gimple to copy SIZE bytes from SRC on this target to DEST on
+     TARGET.  */
+  void (*copy_to_target) (struct gimple_stmt_iterator_d *,
+			  struct gcc_target *, tree, tree, tree);
+  /* Emit gimple to copy SIZE bytes from SRC on TARGET to DEST on this
+     target.  */
+  void (*copy_from_target) (struct gimple_stmt_iterator_d *,
+			    struct gcc_target *, tree, tree, tree);
+  /* Generate gimple to allocate SIZE bytes of data on TARGET and assign
+     the base address to COPY, for the purpose of passing data to/from
+     FUNCTION on TARGET.  Return a value that is passed to the
+     build_call_on_target hook.  */
+  tree (*alloc_task_on_target) (struct gimple_stmt_iterator_d *,
+				struct gcc_target *, tree copy, tree size,
+				tree function);
+  /* Generate gimple for a call to fn with NARGS arguments ARGS
+     on target OTHER.  */
+  void (*build_call_on_target) (struct gimple_stmt_iterator_d *,
+				struct gcc_target *, int nargs, tree *args);
 
   /* If shift optabs for MODE are known to always truncate the shift count,
      return the mask that they apply.  Return 0 otherwise.  */
@@ -1239,6 +1292,17 @@ struct gcc_target
 
     /* Function to determine if one function can inline another function.  */
     bool (*can_inline_p) (tree, tree);
+
+    /* Do option overrides for the target.  Only if main_taget is true are
+       global options like flag_pic or flag_finite_math_only allowed to be
+       tampered with.  Return true if code can be genarated for this target
+       (e.g. if flag_pic is set and main_taget is false, and the target can't
+	generate code that is suitable to include in pic code, return false.)
+     */
+    /* ??? should add another hook elsewhere if code can sometimes be
+       generated, depending on the tree in question.  E.g. might be able to
+       do pic if no statically allocated data is involved.  */
+    bool (*override) (bool main_target);
   } target_option;
 
   /* For targets that need to mark extra registers as live on entry to
@@ -1294,7 +1358,20 @@ struct gcc_target
   /* Leave the boolean fields at the end.  */
 };
 
-extern struct gcc_target targetm;
+/* *targetm_pnt is the target for the current compilation
+   (e.g. of one function); this_targetm is the target of the current namespace;
+   targetm_array is a zero-terminated array of all targets.
+   In most files, targetm is the same as *targetm_pnt, except in <tyarget>.c,
+   where it is this_targetm.  */
+extern struct gcc_target *targetm_pnt, *targetm_array[];
+#ifndef targetm
+#define targetm (*targetm_pnt)
+#endif
+
+START_TARGET_SPECIFIC
+extern struct gcc_target this_targetm;
+END_TARGET_SPECIFIC
+EXTRA_TARGETS_DECL(struct gcc_target this_targetm)
 
 struct gcc_targetcm {
   /* Handle target switch CODE (an OPT_* value).  ARG is the argument

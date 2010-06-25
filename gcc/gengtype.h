@@ -36,6 +36,12 @@ typedef struct options *options_p;
 /* Variables used to communicate between the lexer and the parser.  */
 extern int lexer_toplevel_done;
 extern struct fileloc lexer_line;
+extern int pp_nest, no_extra_nest;
+extern bool target_specific;
+
+/* This function has the side effect of forcing the creation of the
+   output file.  Needed when the lexer conditionally skips a GTY.  */
+extern const char *get_output_file_name (const char *);
 
 /* Print an error message.  */
 extern void error_at_line

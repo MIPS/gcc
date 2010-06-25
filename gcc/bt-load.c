@@ -38,6 +38,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "recog.h"
 #include "df.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 /* Target register optimizations - these are performed after reload.  */
 
@@ -1573,3 +1576,5 @@ struct rtl_opt_pass pass_branch_target_load_optimize2 =
   TODO_ggc_collect,                     /* todo_flags_finish */
  }
 };
+
+END_TARGET_SPECIFIC

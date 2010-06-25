@@ -27,7 +27,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "vecprim.h"
 #include "tm.h"		/* For CUMULATIVE_ARGS.  */
 #include "hard-reg-set.h"
+#include "multi-target.h"
+#ifdef GENERATOR_FILE
 #include "target-gtypes.h"
+#elif 1
+/* ??? We still have clashes of target-defines with enum tags, e.g. mxp
+   insn-constants.h defines FP_REG, which is an enum tag in arc.h that
+   gets copied into the arc namespace of target-types.h.
+   Using target-gtypes.h is not standards conformant, because the same type
+   has different definitions in different files (albeit all the same size).  */
+#include "target-gtypes.h"
+#else
+#include "target-types.h"
+#endif
 
 /* Stack of pending (incomplete) sequences saved by `start_sequence'.
    Each element describes one pending sequence.
@@ -217,9 +229,19 @@ struct GTY(()) incoming_args {
   rtx internal_arg_pointer;
 };
 
+#ifdef EXTRA_TARGET
+#define CONCAT_(A,B) A##B
+#define CONCAT(A,B) CONCAT_(A,B)
+#define INCOMING_ARGS_INFO(INCOMING_ARGS) \
+  ((INCOMING_ARGS).info.CONCAT(EXTRA_TARGET,_ca))
+#define MACHINE_FUNCTION(FUNCTION) \
+  ((FUNCTION).machine.CONCAT(EXTRA_TARGET,_mf))
+#define CRTL_ASM_CLOBBERS (crtl->asm_clobbers.CONCAT(EXTRA_TARGET,_hrs))
+#else
 #define INCOMING_ARGS_INFO(INCOMING_ARGS) ((INCOMING_ARGS).info._ca)
 #define MACHINE_FUNCTION(FUNCTION) ((FUNCTION).machine._mf)
 #define CRTL_ASM_CLOBBERS (crtl->asm_clobbers._hrs)
+#endif
 
 /* Data for function partitioning.  */
 struct GTY(()) function_subsections {
@@ -630,6 +652,7 @@ extern GTY(()) struct function *cfun;
    push_cfun or set_cfun.  */
 #define cfun (cfun + 0)
 
+START_TARGET_SPECIFIC
 /* Nonzero if we've already converted virtual regs to hard regs.  */
 extern int virtuals_instantiated;
 
@@ -727,4 +750,5 @@ extern int get_next_funcdef_no (void);
 extern bool optimize_function_for_size_p (struct function *);
 extern bool optimize_function_for_speed_p (struct function *);
 
+END_TARGET_SPECIFIC
 #endif  /* GCC_FUNCTION_H */

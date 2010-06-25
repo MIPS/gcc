@@ -4282,7 +4282,7 @@ lang_tree_files=
 # `language' must be a single word so is spelled singularly.
 all_languages=
 all_compilers=
-all_outputs='Makefile gccbug'
+all_outputs='Makefile T-extra gccbug'
 # List of language makefile fragments.
 all_lang_makefrags=
 # Additional files for gengtype
@@ -4535,6 +4535,7 @@ AC_SUBST(c_target_objs)
 AC_SUBST(cxx_target_objs)
 AC_SUBST(fortran_target_objs)
 AC_SUBST(target_cpu_default)
+AC_SUBST(with_extra_target_list)
 
 AC_SUBST_FILE(language_hooks)
 

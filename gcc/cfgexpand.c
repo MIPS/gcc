@@ -48,10 +48,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "bitmap.h"
 #include "sbitmap.h"
 #include "insn-attr.h" /* For INSN_SCHEDULING.  */
+#include "multi-target.h"
 
+START_TARGET_SPECIFIC
+
+#ifndef EXTRA_TARGET
 /* This variable holds information helping the rewriting of SSA trees
    into RTL.  */
 struct ssaexpand SA;
+#endif /* !EXTRA_TARGET */
 
 /* This variable holds the currently expanded gimple statement for purposes
    of comminucating the profile info to the builtin expanders.  */
@@ -3996,7 +4001,9 @@ gimple_expand_cfg (void)
   return 0;
 }
 
-struct rtl_opt_pass pass_expand =
+EXTRA_TARGETS_DECL (struct rtl_dispatch_pass pass_expand)
+
+struct rtl_dispatch_pass pass_expand =
 {
  {
   RTL_PASS,
@@ -4012,8 +4019,14 @@ struct rtl_opt_pass pass_expand =
   PROP_rtl,                             /* properties_provided */
   PROP_ssa | PROP_trees,		/* properties_destroyed */
   TODO_verify_ssa | TODO_verify_flow
-    | TODO_verify_stmts,		/* todo_flags_start */
+    | TODO_verify_stmts
+    | TODO_arch_dispatch,		/* todo_flags_start */
   TODO_dump_func
   | TODO_ggc_collect			/* todo_flags_finish */
- }
+ },
+#if NUM_TARGETS > 1 && !defined(EXTRA_TARGET)
+ { EXTRA_TARGETS_EXPAND_COMMA (&,pass_expand.pass) }
+#endif /* !EXTRA_TARGET */
 };
+
+END_TARGET_SPECIFIC

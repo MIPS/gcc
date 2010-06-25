@@ -21,10 +21,14 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_DBXOUT_H
 #define GCC_DBXOUT_H
 
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 extern int dbxout_symbol (tree, int);
 extern void dbxout_parms (tree);
 extern void dbxout_reg_parms (tree);
 extern int dbxout_syms (tree);
+END_TARGET_SPECIFIC
 
 /* Language description for N_SO stabs.  */
 #define N_SO_AS          1

@@ -47,6 +47,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ira.h"
 #include "target.h"
 #include "emit-rtl.h"
+#include "multi-target.h"
 
 /* This file contains the reload pass of the compiler, which is
    run after register allocation has been done.  It checks that
@@ -82,6 +83,8 @@ along with GCC; see the file COPYING3.  If not see
    fixing up each insn, and generating the new insns to copy values
    into the reload registers.  */
 
+START_TARGET_SPECIFIC
+
 /* During reload_as_needed, element N contains a REG rtx for the hard reg
    into which reg N has been reloaded (perhaps for a previous insn).  */
 static rtx *reg_last_reload_reg;
@@ -9380,3 +9383,5 @@ fixup_abnormal_edges (void)
   verify_flow_info ();
 #endif
 }
+
+END_TARGET_SPECIFIC

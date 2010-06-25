@@ -54,6 +54,9 @@
 #include "sbitmap.h"
 #include "timevar.h"
 #include "df.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 /* Builtin types, data and prototypes. */
 
@@ -223,6 +226,7 @@ static section *spu_select_section (tree, int, unsigned HOST_WIDE_INT);
 static void spu_unique_section (tree, int);
 static rtx spu_expand_load (rtx, rtx, rtx, int);
 static void spu_trampoline_init (rtx, tree, rtx);
+static bool spu_override_options (bool);
 
 extern const char *reg_names[];
 
@@ -465,6 +469,9 @@ static const struct attribute_spec spu_attribute_table[] =
 #undef TARGET_TRAMPOLINE_INIT
 #define TARGET_TRAMPOLINE_INIT spu_trampoline_init
 
+#undef TARGET_OVERRIDE_OPTIONS
+#define TARGET_OVERRIDE_OPTIONS spu_override_options
+
 struct gcc_target targetm = TARGET_INITIALIZER;
 
 void
@@ -482,12 +489,13 @@ spu_optimization_options (int level ATTRIBUTE_UNUSED, int size ATTRIBUTE_UNUSED)
    on a particular target machine.  You can define a macro
    OVERRIDE_OPTIONS to take account of this. This macro, if defined, is
    executed once just after all the command options have been parsed.  */
-void
-spu_override_options (void)
+static bool
+spu_override_options (bool main_target)
 {
   /* Small loops will be unpeeled at -O3.  For SPU it is more important
      to keep code small by default.  */
-  if (!flag_unroll_loops && !flag_peel_loops
+  /* FIXME: this parameter should exist separately for all targets.  */
+  if (!flag_unroll_loops && !flag_peel_loops && main_target
       && !PARAM_SET_P (PARAM_MAX_COMPLETELY_PEEL_TIMES))
     PARAM_VALUE (PARAM_MAX_COMPLETELY_PEEL_TIMES) = 1;
 
@@ -537,6 +545,7 @@ spu_override_options (void)
     }
 
   REAL_MODE_FORMAT (SFmode) = &spu_single_format;
+  return true;
 }
 
 /* Handle an attribute requiring a FUNCTION_DECL; arguments as in
@@ -7089,3 +7098,5 @@ spu_function_profiler (FILE * file, int labelno)
 }
 
 #include "gt-spu.h"
+
+END_TARGET_SPECIFIC

@@ -32,6 +32,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "alloc-pool.h"
 #include "timevar.h"
+#include "multi-target.h"
 
 struct dataflow;
 struct df_d;
@@ -898,6 +899,7 @@ extern struct df_d *df;
 #define DF_DEBUG_CFG
 #endif
 
+START_TARGET_SPECIFIC
 
 /* Functions defined in df-core.c.  */
 
@@ -1125,5 +1127,7 @@ extern bool unionfind_union (struct web_entry *, struct web_entry *);
 extern void union_defs (df_ref, struct web_entry *,
 			unsigned int *used, struct web_entry *,
 			bool (*fun) (struct web_entry *, struct web_entry *));
+
+END_TARGET_SPECIFIC
 
 #endif /* GCC_DF_H */

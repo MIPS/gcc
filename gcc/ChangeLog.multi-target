@@ -1,0 +1,419 @@
+2010-06-25  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+gcc:
+	* configure.ac: When --with-extra-target-list is given, ensure
+	--enable-build-with-cxx is active.
+	* configure: Regenerate.
+gcc/gcc:
+	* multi-target.h, README-multi-target, any-lang.c: New files.
+	* addresses.h: Include "multi-target.h" and add START_TARGET_SPECIFIC
+	and END_TARGET_SPECIFC markers.
+	* alias.c, alias.h, auto-inc-dec.c, basic-block.h: Likewise.
+	* bb-reorder.c, bt-load.c, builtins.c, caller-save.c: Likewise.
+	* calls.c, cfganal.c, cfgbuild.c, cfg.c, cfgcleanup.c: Likewise.
+	* cfgexpand.c, cfghooks.c, cfghooks.h, cfglayout.c: Likewise.
+	* cfglayout.h, cfgloopanal.c, cfgloop.h, cfgrtl.c, combine.c: Likewise.
+	* combine-stack-adj.c, cse.c, cselib.c, cselib.h, dbxout.c: Likewise.
+	* dbxout.h, dce.c, dce.h, ddg.c, ddg.h, df-byte-scan.c: Likewise.
+	* df-core.c, df.h, df-problems.c, df-scan.c, dojump.c, dse.c: Likewise.
+	* dwarf2asm.c, dwarf2asm.h, dwarf2out.c, dwarf2out.h: Likewise.
+	* emit-rtl.c, except.c, except.h, explow.c, expmed.c, expr.c: Likewise.
+	* expr.h, final.c, fixed-value.h, flags.h, function.c: Likewise.
+	* function.h, fwprop.c, gcse.c, ggc.h, gimple.h, graph.c: Likewise.
+	* haifa-sched.c, hard-reg-set.h, ifcvt.c, implicit-zee.c: Likewise.
+	* init-regs.c, insn-addr.h, integrate.c, ira-build.c, ira.c: Likewise.
+	* ira-color.c, ira-conflicts.c, ira-costs.c, ira-emit.c: Likewise.
+	* ira.h, ira-int.h, ira-lives.c, jump.c, loop-doloop.c: Likewise.
+	* loop-init.c, loop-invariant.c, loop-iv.c, loop-unroll.c: Likewise.
+	* loop-unswitch.c, lower-subreg.c, machmode.h: Likewise.
+	* mode-switching.c, modulo-sched.c, optabs.c, optabs.h: Likewise.
+	* opts.c, output.h, passes.c, postreload.c: Likewise.
+	* postreload-gcse.c, predict.c, predict.h, print-rtl.c: Likewise.
+	* recog.c, recog.h, regcprop.c, reginfo.c, regmove.c: Likewise.
+	* regrename.c, regset.h, regs.h, reg-stack.c, regstat.c: Likewise.
+	* reload1.c, reload.c, reload.h, reorg.c, resource.c: Likewise.
+	* resource.h, rtlanal.c, rtl.c, rtl.h, rtlhooks.c: Likewise.
+	* rtlhooks-def.h, sched-deps.c, sched-ebb.c, sched-int.h: Likewise.
+	* sched-rgn.c, sched-vis.c, sdbout.c, sel-sched.c: Likewise.
+	* sel-sched-dump.c, sel-sched-dump.h, sel-sched-ir.c: Likewise.
+	* sel-sched-ir.h, simplify-rtx.c, stack-ptr-mod.c, stmt.c: Likewise.
+	* store-motion.c, stor-layout.c, target.h, targhooks.c: Likewise.
+	* targhooks.h, toplev.c, toplev.h, tree-flow.h, tree.h: Likewise.
+	* tree-pass.h, tree-ssa-address.c, tree-ssa-loop-manip.c: Likewise.
+	* varasm.c, var-tracking.c, web.c, config/sh/sh.c: Likewise.
+	* config/sh/sh.h, config/sh/sh-protos.h, config/spu/spu.c: Likewise.
+	* config/spu/spu.h, config/rs6000/rs6000.h: Likewise.
+	* config/rs6000/rs6000.c: Likewise.
+
+	* calls.c: Add #ifndef EXTRA_TARGET / #endif directives.
+	* cfgexpand.c, cfghooks.c, df-core.c, emit-rtl.c, explow.c: Likewise.
+	* expr.c, function.c, gcse.c, gengtype-parse.c, optabs.c: Likewise.
+	* opts.c, passes.c, reginfo.c, regstat.c, stor-layout.c: Likewise.
+	* targhooks.c, toplev.c, tree-scalar-evolution.h: Likewise.
+	* tree-ssa-address.c, varasm.c
+
+	* T-extra.in: New file, broken out of:
+	* Makefile.in.
+	* T-extra.in: Use $(CURRENT_TARGET) prefix for names of variables
+	that are set.
+
+	* doc/extend.texi (target_arch): Document new attribute.
+	* doc/tm.texi: Adjust struct machine_function documentation.
+
+	* targhooks.c: Include diagnostic.h, tree-pass.h and
+	tree-pretty-print.h.
+	(default_branch_target_register_class): Remove enum reg_class from
+	interface.
+	(default_ira_cover_classes, default_secondary_reload): Likewise
+	(default_override_options): New function.
+	(default_task_ok_for_target): Likewise.
+	(default_common_data_with_target): Likewise.
+	(default_vectype_for_scalar_type): Likewise, using code from
+	tree-vect-stmts.c:get_vectype_for_scalar_type.
+	(default_addr_space_valid_pointer_mode): Use this_targetm.
+	(default_addr_space_legitimate_address_p): Likewise.
+	(default_target_option_valid_attribute_p): Look up name of target.
+	(default_branch_target_register_class): Remove enum reg_class from
+	interface.
+	(default_ira_cover_classes, default_secondary_reload): Likewise.
+	(default_override_options, default_vectype_for_scalar_type): Declare.
+	(default_task_ok_for_target): Likewise.
+	(default_common_data_with_target): Likewise.
+	* regstat.c (setjmp_crosses): No longer static.  Declare extern.
+
+	* doc/install.texi (Target specification): Document
+	--with-extra-target-list.
+
+	* genrecog.c (write_header, main): Make generated file include
+	"multi-target.h" and have START_TARGET_SPECIFIC and END_TARGET_SPECIFC
+	markers.
+	* gengenrtl.c (genheader): Likewise.
+	* genopinit (main): Likewise.
+	* genoutput.c (output_prologue, main): Likewise.
+	* genextract.c (print_header, main): Likewise.
+	* genautomata.c (main): Likewise.
+	* genemit.c (main): Likewise.
+	* genpeep.c (main): Likewise.
+	* genattrtab.c (main): Likewise.
+	* genattr (gen_attr, main): Likewise.
+	* optc-gen.awk: Likewise.
+	* genmodes.c (emit_insn_modes_c_header, emit_insn_modes_c): Likewise.
+	(emit_min_insn_modes_c_header, emit_min_insn_modes_c): Likewise.
+	* genflags.c (main): Likewise.
+	* genpreds.c (write_tm_constrs_h): Likewise.
+	(write_tm_preds_h): Likewise.
+	(write_insn_preds_c): Likewise.
+	* opth-gen.awk: Likewise.
+
+	* gcc/gcc/c-family/c-common.c (handle_target_arch_attribute):
+	New function.
+	(handle_caller_arch_attribute): Likewise.
+	(c_common_attribute_table): Add target_arch and caller_arch.
+	(handle_target_attribute): Call the valid_attribute_p of the
+	target architecture the function belongs to.
+
+	* gengtype.c (IS_EXTRA_TARGET): Define.
+	(struct type): Move potentially narrow enums together.
+	Add type_specific field.
+	(string_type, scalar_nonchar, scalar_char): Update initializers.
+	(ttags_file): New file-scope static variable.
+	(read_input_list): For IS_EXTRA_TARGET, anticipate a [target_files]
+	delimiter, to put all the target-specific files into 'language' 0.
+	(new_structure, find_structure): Initialize target_specific field.
+	(create_file): Update copyright notice.
+	(write_rtx_next, open_base_files): Emit
+	START_TARGET_SPECIFIC / END_TARGET_SPECIFIC for gtype_desc_c.
+	(open_base_files): Add include of "multi-target.h" to ifiles.
+	For IS_EXTRA_TARGET, create gtype-ttags.h.
+	(relevant_type_p): New function.
+	(write_types_process_field, output_type_enum): For IS_EXTRA_TARGET,
+	augment mangling with target name.
+	(write_enum_defn, write_splay_tree_allocator_def): Likewise.
+	(write_types, write_local): Only perform output for relevant types.
+	(write_enum_defn, write_splay_tree_allocators): Likewise.
+	(write_func_for_structure): Likewise.  Remove FIXME kludge.
+	(write_enum_defn): For IS_EXTRA_TARGET, place enumerators into
+	separate file ttags_file, and include multi-target.h and
+	../gtype-desc.h in header_file.
+	(main): For IS_EXTRA_TARGET, wrap declarations / defintions in
+	START_TARGET_SPECIFIC / END_TARGET_SPECIFIC.
+	* mkconfig.sh <DEFINES processing>: Handle defines with parameters.
+	<HEADERS processing>: Wrap config/FOO/FOO-protos.h in
+	START_TARGET_SPECIFIC / END_TARGET_SPECIFIC.
+	* gengtype.h (pp_nest, no_extra_nest, target_specific): Declare.
+	(get_output_file_name): Likewise.
+	* optabs.c [!EXTRA_TARGET] (optab_for_tree_code_array): New array.
+	(optab_for_tree_code): Rename to...
+	(optab_for_tree_code_1) ... this.
+	* tree-ssa-loop-manip.c: Include target.h.
+	(rewrite_phi_with_iv): Use targetm.sizetype_tab.
+	* optabs.h: Include target.h.  Make types at start of file
+	non-target- specific.
+	(optab_for_tree_code_1, optab_for_tree_code_array): Declare.
+	(optab_for_tree_code): Now a static inline function.
+	* reload.c (push_secondary_reload): Remove enum reg_class from
+	target hook interface.
+	(secondary_reload_class): Likewise.
+	* tree-pass.h (rtl_dispatch_pass): New struct.
+	(TODO_arch_dispatch): New TODO flag.
+	(pass_expand): Change type to rtl_dispatch_pass.
+	* target.h (struct gimple_stmt_iterator_d): Add orward declaration.
+	(enum task_type): New enum.
+	(struct gcc_target): New members name, target_arch, sizetype_tab,
+	optab_table, task_ok_for_target, common_data_with_target,
+	copy_to_target, copy_from_target, alloc_task_on_target,
+	build_call_on_target and override.
+	Add new member new_arch to member asm_out.  Add new member
+	vectype_for_scalar_type to member vectorize.
+	Remove enum reg_class from target hook interface.
+	(targetm_pnt, targetm_array, this_targetm): Declare.
+	(targetm): Now a macro.
+	* cfghooks.c (cfg_hooks): No longer static; shared across targets.
+	* toplev.c [!EXTRA_TARGET] (targetm_array, targetm_pnt): Define and
+	inititialize.
+	(init_random_seed, process_options, backend_init): No longer static.
+	(general_init): Add ATTRIBUTE_UNUSED to argv0.
+	(process_options) [!EXTRA_TARGET]: Disable target-independent option
+	processing.  Use target_option.override hook.
+	(backend_init): Use EXTRA_TARGETS_CALL to backend_init on extra targets.
+	(lang_dependent_init): No longer static.  Make EXTRA_TARGETS_CALL on
+	initialize_sizetypes lang_dependent_init.
+	[EXTRA_TARGET]: Fix up sizetype if it has wrong mode.
+	(target_reinit): Do EXTRA_TARGETS_CALL to self.
+	(do_compile): Do EXTRA_TARGETS_CALL to process_options.
+	* toplev.h (init_random_seed): Declare.
+	* tree-ssa-loop-ivopts.c (computation_cost): Use tree_expand_expr.
+	(force_expr_to_var_cost): Use targetm.sizetype.
+	(rewrite_use_address): Use tree_create_mem_ref.
+	* gengtype-lex.l: Use extra options stack and noyy_top_state.
+	(pp_nest, no_extra_nest, target_specific): New variables.
+	(in_struct_comment): Remove state.
+	(start_pp_directive, in_pp_directive, pp_scanning): New states.
+	(*): Allow to skip #ifndef EXTRA_TARGET sections.
+	(INITIAL): Recognize START_TARGET_SPECIFIC / END_TARGET_SPECIFIC
+	to turn target_specific on and off.
+	(TARGET_SCOPE/{EOID}): New pattern.
+	* machmode.def (EXTRA_MODES_FILE): Replace with:
+	("extra-modes.h")
+	* expr.c (expand_expr_real_1): Use CRTL_ASM_CLOBBERS.
+	[!EXTRA_TARGET] (tree_expand_expr): New function.
+	(build_personality_function): Use a pointer type with the current
+	targets mode.
+	* expr.h (tree_expand_expr): Declare.
+	* opts.c (decode_options): Use this_targetm for target-specific
+	processing.  Do an EXTRA_TARGETS_CALL of self.
+	* optc-gen.awk: Add an extra pass to scan for Init.
+	* tree-ssa-address.c (tree_create_mem_ref): New function.
+	* configure.ac (all_outputs): Add T-extra.
+	(with_extra_target_list): New AC_SUBST.
+	* configure: Regenerate.
+	* function.c (allocate_struct_function_1): New function, broken out of:
+	(allocate_struct_function).
+	(free_after_compilation): Use MACHINE_FUNCTION.
+	(allocate_struct_function_1): Likewise.
+	(assign_parms): Use INCOMING_ARGS_INFO.
+	(set_cfun): Update target_pnt.
+	[!EXTRA_TARGET] (allocate_struct_function_1_array): New const array.
+	(lookup_attr_target): New function, broken out of:
+	(allocate_struct_function).
+	[EXTRA_TARGET] (allocate_struct_function): Don't define.
+	(allocate_struct_function): Initialize cfun->target_arch and set
+	targetm_pnt.
+	(init_emit_array): Declare.
+	[!EXTRA_TARGET] (init_emit_array): Define and initialize.
+	(prepare_function_start): Call the init_emit function for
+	cfun->target_arch.
+	(init_function_start): Do an EXTRA_TARGETS_CALL to self.
+	* function.h: Include target-types / target-gtypes.h.
+	(incoming_args): Use cumulative_args_u for info member.
+	(INCOMING_ARGS_INFO, MACHINE_FUNCTION, CRTL_ASM_CLOBBERS): Define.
+	(rtl_data): Define asm_clobbers as hard_reg_set_u.
+	(struct function): Use machine_function_u for member machine.
+	New member target_arch.
+	* tree-vectorizer.h (target.h): Include.
+	(get_vectype_for_scalar_type) Now a static incline function.
+	* stor-layout.c (vector_type_mode_array): Declare.
+	(vector_type_mode): Dispatch through vector_type_mode_array.
+	[!EXTRA_TARGET]: (vector_type_mode_array): Define.
+	* tree-affine.c (target.h): Include.
+	(add_elt_to_tree): Use targetm.sizetype.
+	(aff_combination_to_tree): Likewise.
+	* gentargtype.cc: New file.
+	* genmodes.c (struct mode_data): New member target.
+	(blank_mode): Add initializer for new member.
+	(struct mode_adjust): New member target.
+	(target): New variable.
+	(find_mode): Set target field for to-be searched mode.
+	(new_mode): Set target member.
+	(eq_mode): Also consider target.
+	(new_adjust): Set target member.
+	(drop_mode, fixup_target_modes): New functions.
+	(make_complex_modes, make_vector_modes): When processing
+	target-specific input, don't make modes for other targets.
+	(make_complex_modes): Tag new modes with the same
+	target field as the modes that they are made from.
+	(make_partial_integer_mode): Make error message clearer.
+	(calc_wider_mode, emit_mode_wider): Don't include modes from extra
+	targets in the wider mode chain.
+	(emit_insn_modes_h): Skip other target's modes in search
+	For minimum/maximum modes.
+	(emit_real_format_for_mode): Skip modes of other targets.
+	(emit_mode_adjustments): Skip adjustments for other targets.
+	(main): Call fixup_target_modes.
+	* config/sh/sh.c (struct save_entry_s): Change type of mode to int.
+
+	* bt-load.c (branch_target_load_optimize): Remove enum reg_class
+	from target hook interface.
+	* ggc-common.c (tm.h): Include.
+	(gt_ggc_rtab, gt_ggc_deletable_rtab): Apply EXTRA_TARGETS_DECL.
+	(gt_pch_cache_rtab, gt_pch_scalar_rtab): Likewise.
+	(gt_ggc_cache_rtab): Likewise.
+	(gt_ggc_rtabs, gt_ggc_deletable_rtabs): New arrays.
+	(gt_pch_cache_rtabs, gt_pch_scalar_rtabs): Likewise.
+	(gt_ggc_cache_rtabs): Likewise.
+	(ggc_mark_roots, gt_pch_save): Iterate through new arrays.
+	(gt_pch_restore): Likewise.
+	* emit-rtl.c (label_num): No longer static.
+	(const_int_htab, const_double_htab): Likewise.
+	(gen_reg_rtx): Add assert.
+	* cfgexpand.c (pass_expand): Change type to rtl_dispatch_pass.
+	Add TODO_arch_dispatch flag and initializer for target_variants field.
+        * tree-ssa-pre.c (next_expression_id): Initialize to 1.
+        (eliminate): Check that lhsexpr has id > 0.
+	* explow.c (hard_libcall_value): Use this_targetm.
+        * common.opt (align_functions, align_jumps): Mark with AllTarget.
+        (align_loops, flag_data_sections, flag_delayed_branch): Likewise.
+        (flag_no_function_cse, flag_function_sections): Likewise.
+        (flag_leading_underscore, flag_omit_frame_pointer): Likewise.
+        (flag_rename_registers, flag_schedule_insns): Likewise.
+        (flag_schedule_insns_after_reload): Likewise.
+        * varasm.c (last_arch): New variable.
+        (default_target_new_arch): New function.
+        (assemble_start_function): Use asm_out.new_arch hook,
+        and update last_arch.
+	* ira.c (setup_cover_and_important_classes): Remove enum reg_class
+	from target hook interface.  Use this_targetm and CRTL_ASM_CLOBBERS.
+        * target-def.h (TARGET_ASM_NEW_ARCH): Define.
+	(TARGET_VECTORIZE_VECTYPE_FOR_SCALAR_TYPE): Likewise.
+	(TARGET_TASK_OK_FOR_TARGET, TARGET_COMMON_DATA_WITH_TARGET): Likewise.
+	(TARGET_COPY_TO_TARGET, TARGET_COPY_FROM_TARGET): Likewise.
+	(TARGET_ALLOC_TASK_ON_TARGET, TARGET_BUILD_CALL_ON_TARGET): Likewise.
+	(TARGET_OVERRIDE_OPTIONS): Likewise.
+	(TARGET_VECTORIZE): Add TARGET_VECTORIZE_VECTYPE_FOR_SCALAR_TYPE.
+        (TARGET_OPTION_HOOKS): Include TARGET_OVERRIDE_OPTIONS.
+	(TARGET_INITIALIZER): Initialize new members.
+	* ira-costs.c (copy_cost): Remove enum reg_class from target hook
+	interface.
+	* rtl.h (struct function): Remove forward declaration.
+	* tree-vect-stmts.c (vectorizable_store): Use targetm.optab_table.
+	(vectorizable_load): Likewise.
+	(get_vectype_for_scalar_type): Remove.
+	* output.h (struct gcc_target): Add forward declaration.
+	(default_target_new_arch): Declare.
+	* reginfo.c (init_reg_sets): Do EXTRA_TARGETS_CALL to self.
+	* Makefile.in (gcc_config_arguments, TA): New Makefile variables.
+	(TARGET_NUM, OBJS-extra-target, EXTRA_TARGET_RULES): Likewise.
+	(enumerate, empty, space, COMMON_ABI): Likewise.
+	Include T-extra.
+	(REGSET_H): Add multi-target.h.
+	(OPTABS_H): Add $(TARGET_H).
+	(GGC_H): Add s-extra-gty.
+	(TREE_VECTORIZER_H): Remove duplicate.  Add target.h.
+	[EXTRA_TARGET] (ALL_COMPILERFLAGS): Add -DEXTRA_TARGET.
+	[EXTRA_TARGET] $(TA)%.o : %.c: New rule.
+	(OBJS-rtl): New Makefile variable, broken out of...
+	(OBJS-common).  Add $(OBJS-rtl).
+	For each target, add members of $(OBJS-extra-target) and
+	$($(TA)-out_object_file) with with target name prepended.
+	(s-extra-gty, make-OBJS-rtl, $(TA)any-lang.o): New rules.
+	(intl/config.intl, build/gentargtype.o): Likewise.
+	(build/gentargtype$(build_exeext)): Likewise.
+	[!EXTRA_TARGET]: For each extra target, evaluate EXTRA_TARGET_RULES,
+	substituting the underscore-bearing / hyphened target name for
+	any occurences of THIS_TARGET /  THIS-TARGET, and an ordinal number
+	corresponding to an index into targetm_array for any occurences of
+	THIS-TARGET-NUM.
+	(MOSTLYCLEANFILES): Add $(TA) prefix to source files the object
+	files for which appear in OBJS-rtl, and to insn-constants.h.
+	(cs-tm.h): Add NUM_TARGETS, TARGET_NUM, EXTRA_TARGETS_EXPAND and
+	TARGET_SCOPE_ to DEFINES.
+	(cs-tm_p.h): Add $(tm_p_include_list) to HEADERS.
+	(graph.o, c-family/c-opts.o): Prepend $(TA) to rule target basename.
+	(options.o, gtype-desc.o): Likewise.
+	(stor-layout.o, tree-ssa-address.o, opts.o, targhooks.o): Likewise.
+	(toplev.o, passes.o, rtl.o, print-rtl.o, rtlanal.o): Likewise.
+	(varasm.o, function.o, stmt.o, except.o, expr.o, dojump.o): Likewise.
+	(builtins.o, calls.o, expmed.o, explow.o, optabs.o) : Likewise.
+	(dbxout.o, sdbout.o, dwarf2out.o, dwarf2asm.o, vmsdbgout.o): Likewise.
+	(emit-rtl.o, integrate.o, jump.o, simplify-rtx.o, cselib.o): Likewise.
+	(cse.o, dce.o, dse.o, fwprop.o, web.o, implicit-zee.o): Likewise.
+	(gcse.o, store-motion.o, resource.o, mode-switching.o): Likewise.
+	(df-core.o, df-problems.o, df-scan.o, df-byte-scan.o): Likewise.
+	(regstat.o, var-tracking.o, loop-doloop.o, auto-inc-dec.o): Likewise.
+	(cfg.o, cfghooks.o, cfgexpand.o, cfgrtl.o, cfganal.o): Likewise.
+	(cfgbuild.o, cfgcleanup.o, cfgloopanal.o, loop-iv.o): Likewise.
+	(loop-invariant.o, loop-init.o, loop-unswitch.o): Likewise.
+	(loop-unroll.o, combine.o, reginfo.o, reload.o, reload1.o): Likewise.
+	(rtlhooks.o, postreload.o, postreload-gcse.o, caller-save.o): Likewise.
+	(bt-load.o, reorg.o, alias.o, stack-ptr-mod.o, init-regs.o): Likewise.
+	(ira-build.o, ira-costs.o, ira-conflicts.o, ira-color.o): Likewise.
+	(ira-emit.o, ira-lives.o, ira.o, regmove.o): Likewise.
+	(combine-stack-adj.o, ddg.o, modulo-sched.o, haifa-sched.o): Likewise.
+	(sched-deps.o, sched-rgn.o, sched-ebb.o, sched-vis.o): Likewise.
+	(sel-sched.o, sel-sched-dump.o, sel-sched-ir.o, final.o): Likewise.
+	(recog.o, reg-stack.o, predict.o, bb-reorder.o, cfglayout.o): Likewise.
+	(regcprop.o, regrename.o, ifcvt.o, lower-subreg.o): Likewise.
+	($(out_object_file)), insn-attrtab.o, insn-automata.o): Likewise.
+	(insn-emit.o, insn-enums.o, insn-extract.o, insn-modes.o): Likewise.
+	(insn-opinit.o, insn-output.o, insn-peep.o, insn-preds.o): Likewise.
+	(insn-recog.o, insn-modes.c, min-insn-modes.c, insn-preds.c): Likewise.
+	(insn-emit.c, insn-recog.c, insn-extract.c, insn-output.c): Likewise.
+	(insn-peep.c, insn-attrtab.c, insn-automata.c, insn-enums.c): Likewise.
+	(insn-enums.c, insn-opinit.c): Likewise.
+	($(simple_generated_c:insn-%.c=s-%)): Likewise.
+	($(simple_rtl_generated_c:insn-%.c=s-%)): Likewise.
+	($(simple_generated_c:insn-%.c=s-%)): Likewise.
+	(ggc-common.o): Depend on $(TM_H).
+	(tree-affine.o): Depend on $(TARGET_H).
+	($(TA)targhooks.o): Depend on tree-pretty-print.h.
+	($(TA)$(out_object_file)): Add compiler flags -Dtargetm and
+	-DTARGET_NAME.
+	($(simple_generated_c)): Add $(TA) prefix.
+        (GTFILES-RAW): New makefile variable.  Use it to compute...
+        (GTFILES) so that extra targets don't see *.c files the object files
+        of which are not in $(OBJS-extra-target).
+        [EXTRA_TARGET] (GTFILES): Bracket $(out_file) between [target_files]
+        and [extra_target].
+        (gtype-ttags.h): Depend on s-gtype.
+	(build/%.o) [$(EXTRA_TARGET)]: Add -DEXTRA_TARGET to compiler flags.
+        (build/gengtype.o): Add EXTRA_TARGETS_FILES and EXTRA_TARGET_STRING
+        to BUILD_CPPFLAGS.
+	Depend on extra-modes.h instead of $(extra_modes_file).
+	[!TA] (extra-modes.h, target-types.h): New rules.
+	[!TA] (EXTRA_OBJS): Include files from extra targets.
+	* gimple.h (gimple_stmt_iterator_d): New struct tag.
+	* passes.c (register_dump_files): No longer static.  Declare.
+	(init_optimization_passes) [!EXTRA_TARGET]: Make EXTRA_TARGETS_CALL
+	to self.
+	(init_optimization_passes) [EXTRA_TARGET]: Start new pass list
+	with pass_expand at &pass_expand.target_variants[TARGET_NUM-1];
+	call register_dump_files for this pass list.
+	[!EXTRA_TARGET] (execute_todo): Call df_finish_pass on target
+	indicated by targetm.
+	(execute_pass_list): Handle TODO_arch_dispatch.
+	* reload1.c (emit_input_reload_insns): : Remove enum reg_class from
+	target hook interface.
+
+        * config/spu/spu-protos.h (spu_override_options): Don't declare.
+        * config/spu/spu.c (spu_override_options): Now static.  Change
+        signature to fit target hook.
+        (TARGET_OVERRIDE_OPTIONS): Redefine.
+        * config/spu/spu.h (OVERRIDE_OPTIONS): Don't define.
+
+        * config/sh/sh.h (OVERRIDE_OPTIONS): Delete.
+        * config/sh/sh.c (sh_override_options): Change type to match hook.
+        Make manipulation of global flags dependent on main_target.
+        (TARGET_OVERRIDE_OPTIONS): Redefine.
+
+gcc/po:
+	* EXCLUDES: Add gentargtype.cc.

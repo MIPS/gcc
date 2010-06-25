@@ -26,6 +26,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl.h"
 #include "vecprim.h"
 #include "double-int.h"
+#include "multi-target.h"
 
 #include "bitmap.h"
 #include "sbitmap.h"
@@ -217,14 +218,18 @@ struct loop *alloc_loop (void);
 extern void flow_loop_free (struct loop *);
 int flow_loop_nodes_find (basic_block, struct loop *);
 void fix_loop_structure (bitmap changed_bbs);
+START_TARGET_SPECIFIC
 bool mark_irreducible_loops (void);
+END_TARGET_SPECIFIC
 void release_recorded_exits (void);
 void record_loop_exits (void);
 void rescan_loop_exit (edge, bool, bool);
+START_TARGET_SPECIFIC
 
 /* Loop data structure manipulation/querying.  */
 extern void flow_loop_tree_node_add (struct loop *, struct loop *);
 extern void flow_loop_tree_node_remove (struct loop *);
+END_TARGET_SPECIFIC
 extern void add_loop (struct loop *, struct loop *);
 extern bool flow_loop_nested_p	(const struct loop *, const struct loop *);
 extern bool flow_bb_inside_loop_p (const struct loop *, const_basic_block);
@@ -232,13 +237,17 @@ extern struct loop * find_common_loop (struct loop *, struct loop *);
 struct loop *superloop_at_depth (struct loop *, unsigned);
 struct eni_weights_d;
 extern unsigned tree_num_loop_insns (struct loop *, struct eni_weights_d *);
+START_TARGET_SPECIFIC
 extern int num_loop_insns (const struct loop *);
 extern int average_num_loop_insns (const struct loop *);
 extern unsigned get_loop_level (const struct loop *);
+END_TARGET_SPECIFIC
 extern bool loop_exit_edge_p (const struct loop *, const_edge);
 extern bool is_loop_exit (struct loop *, basic_block);
+START_TARGET_SPECIFIC
 extern void mark_loop_exit_edges (void);
 
+END_TARGET_SPECIFIC
 /* Loops & cfg manipulation.  */
 extern basic_block *get_loop_body (const struct loop *);
 extern unsigned get_loop_body_with_size (const struct loop *, basic_block *,
@@ -272,6 +281,7 @@ extern void create_preheaders (int);
 extern void force_single_succ_latches (void);
 
 extern void verify_loop_structure (void);
+START_TARGET_SPECIFIC
 
 /* Loop analysis.  */
 extern bool just_once_each_iteration_p (const struct loop *, const_basic_block);
@@ -279,11 +289,15 @@ gcov_type expected_loop_iterations_unbounded (const struct loop *);
 extern unsigned expected_loop_iterations (const struct loop *);
 extern rtx doloop_condition_get (rtx);
 
+END_TARGET_SPECIFIC
 void estimate_numbers_of_iterations_loop (struct loop *);
 HOST_WIDE_INT estimated_loop_iterations_int (struct loop *, bool);
 bool estimated_loop_iterations (struct loop *, bool, double_int *);
 
 /* Loop manipulation.  */
+/* some functions in cfgloopmanip.c are called from target-specific functions,
+   even though cfgloopmanip.c is not compiled as target-specific.  That's
+   OK because the target specific parts get dispatched via cfg_hooks. */
 extern bool can_duplicate_loop_p (const struct loop *loop);
 
 #define DLTHE_FLAG_UPDATE_FREQ	1	/* Update frequencies in
@@ -308,6 +322,7 @@ struct loop * loop_version (struct loop *, void *,
 			    basic_block *, unsigned, unsigned, unsigned, bool);
 extern bool remove_path (edge);
 void scale_loop_frequencies (struct loop *, int, int);
+START_TARGET_SPECIFIC
 
 /* Induction variable analysis.  */
 
@@ -654,5 +669,7 @@ extern void unroll_and_peel_loops (int);
 extern void doloop_optimize_loops (void);
 extern void move_loop_invariants (void);
 extern bool finite_loop_p (struct loop *);
+
+END_TARGET_SPECIFIC
 
 #endif /* GCC_CFGLOOP_H */

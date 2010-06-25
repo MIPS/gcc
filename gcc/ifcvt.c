@@ -45,6 +45,9 @@
 #include "vec.h"
 #include "vecprim.h"
 #include "dbgcnt.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 #ifndef HAVE_conditional_move
 #define HAVE_conditional_move 0
@@ -4418,3 +4421,4 @@ struct rtl_opt_pass pass_if_after_reload =
   TODO_ggc_collect                      /* todo_flags_finish */
  }
 };
+END_TARGET_SPECIFIC

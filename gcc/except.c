@@ -143,6 +143,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "timevar.h"
 #include "tree-flow.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 /* Provide defaults for stuff that may not be defined when using
    sjlj exceptions.  */
@@ -165,6 +168,8 @@ static int sjlj_fc_data_ofs;
 static int sjlj_fc_personality_ofs;
 static int sjlj_fc_lsda_ofs;
 static int sjlj_fc_jbuf_ofs;
+
+END_TARGET_SPECIFIC
 
 
 struct GTY(()) call_site_record_d
@@ -173,6 +178,8 @@ struct GTY(()) call_site_record_d
   int action;
 };
 
+START_TARGET_SPECIFIC
+
 static bool get_eh_region_and_lp_from_rtx (const_rtx, eh_region *,
 					   eh_landing_pad *);
 
@@ -3435,3 +3442,5 @@ verify_eh_tree (struct function *fun)
 }
 
 #include "gt-except.h"
+
+END_TARGET_SPECIFIC

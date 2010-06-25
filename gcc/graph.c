@@ -33,6 +33,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "toplev.h"
 #include "graph.h"
 #include "emit-rtl.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 static const char *const graph_ext[] =
 {
@@ -428,3 +431,5 @@ finish_graph_dump_file (const char *base)
       fclose (fp);
     }
 }
+
+END_TARGET_SPECIFIC

@@ -21,6 +21,9 @@
 #define GCC_CFGLAYOUT_H
 
 #include "basic-block.h"
+#include "multi-target.h"
+
+START_TARGET_SPECIFIC
 
 extern GTY(()) rtx cfg_layout_function_footer;
 extern GTY(()) rtx cfg_layout_function_header;
@@ -33,5 +36,7 @@ extern void copy_bbs (basic_block *, unsigned, basic_block *,
 		      edge *, unsigned, edge *, struct loop *,
 		      basic_block);
 extern rtx duplicate_insn_chain (rtx, rtx);
+
+END_TARGET_SPECIFIC
 
 #endif /* GCC_CFGLAYOUT_H */

@@ -23,6 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 #define GCC_TREE_VECTORIZER_H
 
 #include "tree-data-ref.h"
+#include "target.h"
 
 typedef source_location LOC;
 #define UNKNOWN_LOC UNKNOWN_LOCATION
@@ -80,7 +81,7 @@ enum verbosity_levels {
   REPORT_DR_DETAILS,
   REPORT_BAD_FORM_LOOPS,
   REPORT_OUTER_LOOPS,
-  REPORT_SLP,
+  REPORT_SLP, /* report Superword Level Parallelism analysis details.  */
   REPORT_DETAILS,
   /* New verbosity levels should be added before this one.  */
   MAX_VERBOSITY_LEVEL
@@ -707,7 +708,6 @@ extern LOC find_loop_location (struct loop *);
 extern bool vect_can_advance_ivs_p (loop_vec_info);
 
 /* In tree-vect-stmts.c.  */
-extern tree get_vectype_for_scalar_type (tree);
 extern tree get_same_sized_vectype (tree, tree);
 extern bool vect_is_simple_use (tree, loop_vec_info, bb_vec_info, gimple *,
                                 tree *,  enum vect_def_type *);
@@ -825,5 +825,15 @@ void vect_pattern_recog (loop_vec_info);
 unsigned vectorize_loops (void);
 /* Vectorization debug information */
 extern bool vect_print_dump_info (enum verbosity_levels);
+
+
+/* Return a vector type for SCALAR_TYPE.  */
+static inline tree
+get_vectype_for_scalar_type (tree scalar_type)
+{
+  FILE *dump_file = vect_print_dump_info (REPORT_DETAILS) ? vect_dump : 0;
+
+  return targetm.vectorize.vectype_for_scalar_type (scalar_type, dump_file);
+}
 
 #endif  /* GCC_TREE_VECTORIZER_H  */

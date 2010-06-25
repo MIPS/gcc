@@ -19,6 +19,8 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
+#include "multi-target.h"
+
 /* Describe a value.  */
 typedef struct GTY(()) cselib_val_struct {
   /* The hash value.  */
@@ -72,6 +74,8 @@ enum cselib_record_what
   CSELIB_PRESERVE_CONSTANTS = 2
 };
 
+START_TARGET_SPECIFIC
+
 extern void (*cselib_discard_hook) (cselib_val *);
 extern void (*cselib_record_sets_hook) (rtx insn, struct cselib_set *sets,
 					int n_sets);
@@ -102,3 +106,5 @@ extern void cselib_preserve_only_values (void);
 extern void cselib_preserve_cfa_base_value (cselib_val *);
 
 extern void dump_cselib_table (FILE *);
+
+END_TARGET_SPECIFIC

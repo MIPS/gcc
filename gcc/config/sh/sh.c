@@ -56,7 +56,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfgloop.h"
 #include "alloc-pool.h"
 #include "tm-constrs.h"
+#include "multi-target.h"
 
+START_TARGET_SPECIFIC
 
 int code_for_indirect_jump_scratch = CODE_FOR_indirect_jump_scratch;
 
@@ -168,6 +170,7 @@ int assembler_dialect;
 static bool shmedia_space_reserved_for_target_registers;
 
 static bool sh_handle_option (size_t, const char *, int);
+static bool sh_override_options (bool);
 static void split_branches (rtx);
 static int branch_dest (rtx);
 static void force_into (rtx, rtx);
@@ -354,6 +357,9 @@ static const struct attribute_spec sh_attribute_table[] =
 #define TARGET_DEFAULT_TARGET_FLAGS TARGET_DEFAULT
 #undef TARGET_HANDLE_OPTION
 #define TARGET_HANDLE_OPTION sh_handle_option
+
+#undef TARGET_OVERRIDE_OPTIONS
+#define TARGET_OVERRIDE_OPTIONS sh_override_options
 
 #undef TARGET_INSERT_ATTRIBUTES
 #define TARGET_INSERT_ATTRIBUTES sh_insert_attributes
@@ -712,17 +718,20 @@ sh_optimization_options (int level ATTRIBUTE_UNUSED, int size ATTRIBUTE_UNUSED)
   set_param_value ("simultaneous-prefetches", 2);
 }
 
-/* Implement OVERRIDE_OPTIONS macro.  Validate and override various
+/* Implement OVERRIDE_OPTIONS hook.  Validate and override various
    options, and do some machine dependent initialization.  */
-void
-sh_override_options (void)
+static bool
+sh_override_options (bool main_target)
 {
   int regno;
 
   SUBTARGET_OVERRIDE_OPTIONS;
-  if (flag_finite_math_only == 2)
-    flag_finite_math_only
-      = !flag_signaling_nans && TARGET_SH2E && ! TARGET_IEEE;
+  if (main_target)
+    {
+      if (flag_finite_math_only == 2)
+      flag_finite_math_only
+	= !flag_signaling_nans && TARGET_SH2E && ! TARGET_IEEE;
+    }
   if (TARGET_SH2E && !flag_finite_math_only)
     target_flags |= MASK_IEEE;
   sh_cpu = PROCESSOR_SH1;
@@ -921,7 +930,7 @@ sh_override_options (void)
   /* Unwinding with -freorder-blocks-and-partition does not work on this
      architecture, because it requires far jumps to label crossing between
      hot/cold sections which are rejected on this architecture.  */
-  if (flag_reorder_blocks_and_partition)
+  if (main_target && flag_reorder_blocks_and_partition)
     {
       if (flag_exceptions)
 	{
@@ -972,6 +981,7 @@ sh_override_options (void)
 
   if (sh_fixed_range_str)
     sh_fix_range (sh_fixed_range_str);
+  return true;
 }
 
 /* Print the operand address in x to the stream.  */
@@ -6668,11 +6678,13 @@ sh_media_register_for_return (void)
    -  add 1 entry for a delimiter.  */
 #define MAX_SAVED_REGS (62+32+8)
 
+/* In a multi-target configuration, a narrow type like unsigned char might
+   not be enough to hold a machine mode.  */
 typedef struct save_entry_s
 {
   unsigned char reg;
-  unsigned char mode;
   short offset;
+  int mode;
 } save_entry;
 
 #define MAX_TEMPS 4
@@ -12272,3 +12284,5 @@ sh_secondary_reload (bool in_p, rtx x, reg_class_t rclass_i,
 enum sh_divide_strategy_e sh_div_strategy = SH_DIV_STRATEGY_DEFAULT;
 
 #include "gt-sh.h"
+
+END_TARGET_SPECIFIC
