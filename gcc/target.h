@@ -675,7 +675,7 @@ struct gcc_target
 
   /* Return a register class for which branch target register
      optimizations should be applied.  */
-  enum reg_class (* branch_target_register_class) (void);
+  reg_class_t (* branch_target_register_class) (void);
 
   /* Return true if branch target register optimizations should include
      callee-saved registers that are not already live during the current
@@ -813,7 +813,7 @@ struct gcc_target
   bool (* vector_mode_supported_p) (enum machine_mode mode);
 
   /* Compute cost of moving registers to/from memory.  */
-  int (* memory_move_cost) (enum machine_mode, enum reg_class, bool);
+  int (* memory_move_cost) (enum machine_mode, reg_class_t, bool);
 
   /* True for MODE if the target expects that registers in this mode will
      be allocated to registers in a small register class.  The compiler is
@@ -1096,12 +1096,11 @@ struct gcc_target
   tree (*convert_to_type) (tree type, tree expr);
 
   /* Return the array of IRA cover classes for the current target.  */
-  const enum reg_class *(*ira_cover_classes) (void);
+  const reg_class_t *(*ira_cover_classes) (void);
 
   /* Return the class for a secondary reload, and fill in extra information.  */
-  enum reg_class (*secondary_reload) (bool, rtx, enum reg_class,
-				      enum machine_mode,
-				      secondary_reload_info *);
+  reg_class_t (*secondary_reload) (bool, rtx, reg_class_t, enum machine_mode,
+				   secondary_reload_info *);
 
   /* This target hook allows the backend to perform additional
      processing while initializing for variable expansion.  */
