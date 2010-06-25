@@ -3275,6 +3275,12 @@ look like this:
 @end group
 @end smallexample
 
+Also warn for dangerous uses of the 
+?: with omitted middle operand GNU extension. When the condition
+in the ?: operator is a boolean expression the omitted value will
+be always 1. Often the user expects it to be a value computed
+inside the conditional expression instead. 
+
 This warning is enabled by @option{-Wall}.
 
 @item -Wsequence-point
@@ -3663,7 +3669,7 @@ comparisons, so this warning level will give a very large number of
 false positives.
 @end table
 
-@item -Wsuggest-attribute=@r{[}const@r{|}pure@r{]}
+@item -Wsuggest-attribute=@r{[}const@r{|}pure@r{|}noreturn@r{]}
 @opindex Wsuggest-attribute=
 @opindex Wno-suggest-attribute=
 Warn for cases where adding an attribute may be beneficial. The
