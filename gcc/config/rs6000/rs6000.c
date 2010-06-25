@@ -21215,12 +21215,13 @@ toc_hash_eq (const void *h1, const void *h2)
 const char *
 rs6000_xcoff_strip_dollar (const char *name)
 {
+  const char *cp;
   char *strip, *p;
   int len;
 
-  p = strchr (name, '$');
+  cp = strchr (name, '$');
 
-  if (p == 0 || p == name)
+  if (cp == 0 || cp == name)
     return name;
 
   len = strlen (name);
