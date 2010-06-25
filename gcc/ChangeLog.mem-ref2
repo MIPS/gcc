@@ -1,5 +1,9 @@
 2010-06-25  Richard Guenther  <rguenther@suse.de>
 
+	* gcc.dg/tree-ssa/loadpre6.c: Adjust for PR44656.
+
+2010-06-25  Richard Guenther  <rguenther@suse.de>
+
 	Merge from trunk r161367.
 
 2010-06-25  Richard Guenther  <rguenther@suse.de>
