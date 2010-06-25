@@ -3865,7 +3865,7 @@ s-target-gtypes: Makefile
 	 echo '  {'; \
 	 echo '    CUMULATIVE_ARGS GTY ((tag ("TARGET_NUM"))) _ca;'; \
 	 echo '  } cumulative_args_u;'; \
-	) >> tmp-target-gtypes.h
+	) > tmp-target-gtypes.h
 	$(SHELL) $(srcdir)/../move-if-change tmp-target-gtypes.h target-gtypes.h
 	$(STAMP) s-target-gtypes
 
