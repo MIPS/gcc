@@ -1,5 +1,10 @@
 2010-06-25  Richard Guenther  <rguenther@suse.de>
 
+	* config/i386/i386.c (ix86_canonical_va_list_type): Replace
+	INDIRECT_REF handling with MEM_REF.
+
+2010-06-25  Richard Guenther  <rguenther@suse.de>
+
 	* cfgexpand.c (expand_debug_expr): Revert change.
 
 2010-06-25  Richard Guenther  <rguenther@suse.de>
