@@ -13705,7 +13705,7 @@ rs6000_secondary_reload (bool in_p,
 			 secondary_reload_info *sri)
 {
   enum reg_class rclass = (enum reg_class) rclass_i;
-  enum reg_class ret = ALL_REGS;
+  reg_class_t ret = ALL_REGS;
   enum insn_code icode;
   bool default_p = false;
 
