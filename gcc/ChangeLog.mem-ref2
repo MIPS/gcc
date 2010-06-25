@@ -1,5 +1,14 @@
 2010-06-25  Richard Guenther  <rguenther@suse.de>
 
+	* tree-cfg.c (verify_address): New function, split out from ...
+	(verify_expr): ... here.  Use for verifying ADDR_EXPRs and
+	the address operand of MEM_REFs.  Reject INDIRECT_REFs.
+	(verify_types_in_gimple_min_lval): Replace commented code
+	with a comment.
+	(verify_types_in_gimple_reference): Adjust MEM_REF verifying.
+
+2010-06-25  Richard Guenther  <rguenther@suse.de>
+
 	* config/alpha/alpha.c (alpha_stdarg_optimize_hook): Adjust
 	for MEM_REF.
 	* config/rs6000/rs6000.c (rs6000_check_sdmode): Likewise.

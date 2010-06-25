@@ -2533,6 +2533,49 @@ gimple_split_edge (edge edge_in)
   return new_bb;
 }
 
+
+/* Verify properties of the address expression T with base object BASE.  */
+
+static tree
+verify_address (tree t, tree base)
+{
+  bool old_constant;
+  bool old_side_effects;
+  bool new_constant;
+  bool new_side_effects;
+
+  old_constant = TREE_CONSTANT (t);
+  old_side_effects = TREE_SIDE_EFFECTS (t);
+
+  recompute_tree_invariant_for_addr_expr (t);
+  new_side_effects = TREE_SIDE_EFFECTS (t);
+  new_constant = TREE_CONSTANT (t);
+
+  if (old_constant != new_constant)
+    {
+      error ("constant not recomputed when ADDR_EXPR changed");
+      return t;
+    }
+  if (old_side_effects != new_side_effects)
+    {
+      error ("side effects not recomputed when ADDR_EXPR changed");
+      return t;
+    }
+
+  if (!(TREE_CODE (base) == VAR_DECL
+	|| TREE_CODE (base) == PARM_DECL
+	|| TREE_CODE (base) == RESULT_DECL))
+    return NULL_TREE;
+
+  if (DECL_GIMPLE_REG_P (base))
+    {
+      error ("DECL_GIMPLE_REG_P set on a variable with address taken");
+      return base;
+    }
+
+  return NULL_TREE;
+}
+
 /* Callback for walk_tree, check that all elements with address taken are
    properly noticed as such.  The DATA is an int* that is 1 if TP was seen
    inside a PHI node.  */
@@ -2561,28 +2604,26 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
       break;
 
     case INDIRECT_REF:
-      x = TREE_OPERAND (t, 0);
-      if (!is_gimple_reg (x) && !is_gimple_min_invariant (x))
-	{
-	  error ("Indirect reference's operand is not a register or a constant.");
-	  return x;
-	}
-      break;
+      error ("INDIRECT_REF in gimple IL");
+      return t;
 
     case MEM_REF:
       x = TREE_OPERAND (t, 0);
-      if (!is_gimple_reg (x) && !is_gimple_min_invariant (x))
+      if (!is_gimple_mem_ref_addr (x))
 	{
-	  error ("MEM_REFs operand is not a register or a constant.");
+	  error ("Invalid first operand of MEM_REF.");
 	  return x;
+	}
+      if (TREE_CODE (TREE_OPERAND (t, 1)) != INTEGER_CST
+	  || !POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (t, 1))))
+	{
+	  error ("Invalid offset operand of MEM_REF.");
+	  return TREE_OPERAND (t, 1);
 	}
       if (TREE_CODE (x) == ADDR_EXPR
-	  && !DECL_P (TREE_OPERAND (x, 0))
-	  && !CONSTANT_CLASS_P (TREE_OPERAND (x, 0)))
-	{
-	  error ("Invalid address operand of MEM_REF.");
-	  return x;
-	}
+	  && (x = verify_address (x, TREE_OPERAND (x, 0))))
+	return x;
+      *walk_subtrees = 0;
       break;
 
     case ASSERT_EXPR:
@@ -2600,30 +2641,9 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 
     case ADDR_EXPR:
       {
-	bool old_constant;
-	bool old_side_effects;
-	bool new_constant;
-	bool new_side_effects;
+	tree tem;
 
 	gcc_assert (is_gimple_address (t));
-
-	old_constant = TREE_CONSTANT (t);
-	old_side_effects = TREE_SIDE_EFFECTS (t);
-
-	recompute_tree_invariant_for_addr_expr (t);
-	new_side_effects = TREE_SIDE_EFFECTS (t);
-	new_constant = TREE_CONSTANT (t);
-
-        if (old_constant != new_constant)
-	  {
-	    error ("constant not recomputed when ADDR_EXPR changed");
-	    return t;
-	  }
-	if (old_side_effects != new_side_effects)
-	  {
-	    error ("side effects not recomputed when ADDR_EXPR changed");
-	    return t;
-	  }
 
 	/* Skip any references (they will be checked when we recurse down the
 	   tree) and ensure that any variable used as a prefix is marked
@@ -2633,21 +2653,17 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	     x = TREE_OPERAND (x, 0))
 	  ;
 
+	if ((tem = verify_address (t, x)))
+	  return tem;
+
 	if (!(TREE_CODE (x) == VAR_DECL
 	      || TREE_CODE (x) == PARM_DECL
 	      || TREE_CODE (x) == RESULT_DECL))
 	  return NULL;
-#if 0
-	/* FIXME.  */
+
 	if (!TREE_ADDRESSABLE (x))
 	  {
 	    error ("address taken, but ADDRESSABLE bit not set");
-	    return x;
-	  }
-#endif
-	if (DECL_GIMPLE_REG_P (x))
-	  {
-	    error ("DECL_GIMPLE_REG_P set on a variable with address taken");
 	    return x;
 	  }
 
@@ -2854,16 +2870,7 @@ verify_types_in_gimple_min_lval (tree expr)
       debug_generic_stmt (op);
       return true;
     }
-#if 0
-  if (!useless_type_conversion_p (TREE_TYPE (expr),
-				  TREE_TYPE (TREE_TYPE (op))))
-    {
-      error ("type mismatch in indirect reference");
-      debug_generic_stmt (TREE_TYPE (expr));
-      debug_generic_stmt (TREE_TYPE (TREE_TYPE (op)));
-      return true;
-    }
-#endif
+  /* Memory references now generally can involve a value conversion.  */
 
   return false;
 }
@@ -2966,20 +2973,16 @@ verify_types_in_gimple_reference (tree expr, bool require_lvalue)
 
   if (TREE_CODE (expr) == MEM_REF)
     {
-      if (!is_gimple_val (TREE_OPERAND (expr, 0))
-	  || TREE_CODE (TREE_OPERAND (expr, 1)) != INTEGER_CST
-	  || !POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (expr, 1))))
+      if (!is_gimple_mem_ref_addr (TREE_OPERAND (expr, 0)))
 	{
-	  error ("Invalid operands in MEM_REF.");
+	  error ("Invalid address operand in MEM_REF.");
 	  debug_generic_stmt (expr);
 	  return true;
 	}
-      if (TREE_CODE (TREE_OPERAND (expr, 0)) == ADDR_EXPR
-	  && !DECL_P (TREE_OPERAND (TREE_OPERAND (expr, 0), 0))
-	  /* ???  FIXME.  We should always fold these.  */
-	  && !CONSTANT_CLASS_P (TREE_OPERAND (TREE_OPERAND (expr, 0), 0)))
+      if (TREE_CODE (TREE_OPERAND (expr, 1)) != INTEGER_CST
+	  || !POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (expr, 1))))
 	{
-	  error ("Invalid address operand for MEM_REF.");
+	  error ("Invalid offset operand in MEM_REF.");
 	  debug_generic_stmt (expr);
 	  return true;
 	}
