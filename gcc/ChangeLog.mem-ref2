@@ -1,3 +1,7 @@
+2010-06-25  Richard Guenther  <rguenther@suse.de>
+
+	* tree-affine.c (tree_to_aff_combination): Handle MEM_REF.
+
 2010-06-24  Richard Guenther  <rguenther@suse.de>
 
 	* tree-ssa-alias.c (indirect_ref_may_alias_decl_p): Fix
