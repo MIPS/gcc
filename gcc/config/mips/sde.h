@@ -91,7 +91,8 @@ along with GCC; see the file COPYING3.  If not see
 /* Use $5 as a temporary for both MIPS16 and non-MIPS16.  */
 #undef MIPS_EPILOGUE_TEMP_REGNUM
 #define MIPS_EPILOGUE_TEMP_REGNUM \
-  (cfun->machine->interrupt_handler_p ? K0_REG_NUM : GP_REG_FIRST + 5)
+  (MACHINE_FUNCTION (*cfun)->interrupt_handler_p \
+   ? K0_REG_NUM : GP_REG_FIRST + 5)
 
 /* Using long will always be right for size_t and ptrdiff_t, since
    sizeof(long) must equal sizeof(void *), following from the setting

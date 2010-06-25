@@ -217,7 +217,7 @@ free_after_compilation (struct function *f)
 
   memset (crtl, 0, sizeof (struct rtl_data));
   f->eh = NULL;
-  f->machine = NULL;
+  MACHINE_FUNCTION (*f) = NULL;
   f->cfg = NULL;
 
   regno_reg_rtx = NULL;
@@ -4201,7 +4201,7 @@ allocate_struct_function (tree fndecl, bool abstract_p)
   init_eh_for_function ();
 
   if (init_machine_status)
-    cfun->machine = (*init_machine_status) ();
+    MACHINE_FUNCTION (*cfun) = (*init_machine_status) ();
 
 #ifdef OVERRIDE_ABI_FORMAT
   OVERRIDE_ABI_FORMAT (fndecl);

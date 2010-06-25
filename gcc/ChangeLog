@@ -1,6 +1,48 @@
 2010-06-24  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	PR other/44566
+	* function.h (MACHINE_FUNCTION): Define.
+	* Makefile.in (target-gtypes.h): Add machine_function_u definition.
+
+	* function.h (struct function): Use machine_function_u for member
+	machine.
+	* function.c (free_after_compilation): Use MACHINE_FUNCTION.
+	(allocate_struct_function): Likewise.
+	* doc/tm.texi: Adjust struct machine_function documentation.
+
+	* config/alpha/alpha.c (entire file): Replace cfun->machine with
+        MACHINE_FUNCTION (*cfun).
+	* config/xtensa/xtensa.c: Likewise.
+	* config/pa/pa.c: Likewise.
+	* config/mmix/mmix.md: Likewise.
+	* config/mmix/mmix.c: Likewise.
+	* config/sparc/sparc.c: Likewise.
+	* config/bfin/bfin.c: Likewise.
+	* config/moxie/moxie.c: Likewise.
+	* config/ia64/ia64.md: Likewise.
+	* config/ia64/ia64.c: Likewise.
+	* config/mep/mep.c: Likewise.
+	* config/m32c/m32c.c: Likewise.
+	* config/cris/cris.c: Likewise.
+	* config/avr/avr.c: Likewise.
+	* config/avr/avr.md: Likewise.
+	* config/iq2000/iq2000.c: Likewise.
+	* config/frv/frv.c: Likewise.
+	* config/mips/mips.h: Likewise.
+	* config/mips/sde.h: Likewise.
+	* config/mips/mips.c: Likewise.
+	* config/s390/s390.c: Likewise.
+	* config/rs6000/rs6000.c: Likewise.
+	* config/arm/arm.c: Likewise.
+	* config/arm/arm.md: Likewise.
+	* config/arm/arm.h: Likewise.
+	* config/i386/i386.h: Likewise.
+	* config/i386/i386.c: Likewise.
+	* config/i386/cygming.h: Likewise.
+
+2010-06-24  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	PR other/44566
 	* function.h (target-gtypes.h): Include.
 	(struct function): New member target_arch.
 	* Makefile.in (TARGET_NUM): New Makefile variable.

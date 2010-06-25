@@ -4507,7 +4507,7 @@ ix86_function_ok_for_sibcall (tree decl, tree exp)
     {
       /* The SYSV ABI has more call-clobbered registers;
 	 disallow sibcalls from MS to SYSV.  */
-      if (cfun->machine->call_abi == MS_ABI
+      if (MACHINE_FUNCTION (*cfun)->call_abi == MS_ABI
 	  && ix86_function_type_abi (type) == SYSV_ABI)
 	return false;
     }
@@ -5040,7 +5040,7 @@ ix86_cfun_abi (void)
 {
   if (! cfun || ! TARGET_64BIT)
     return ix86_abi;
-  return cfun->machine->call_abi;
+  return MACHINE_FUNCTION (*cfun)->call_abi;
 }
 
 /* regclass.c  */
@@ -5053,9 +5053,10 @@ void
 ix86_call_abi_override (const_tree fndecl)
 {
   if (fndecl == NULL_TREE)
-    cfun->machine->call_abi = ix86_abi;
+    MACHINE_FUNCTION (*cfun)->call_abi = ix86_abi;
   else
-    cfun->machine->call_abi = ix86_function_type_abi (TREE_TYPE (fndecl));
+    MACHINE_FUNCTION (*cfun)->call_abi
+      = ix86_function_type_abi (TREE_TYPE (fndecl));
 }
 
 /* MS and SYSV ABI have different set of call used registers.  Avoid expensive
@@ -5065,7 +5066,7 @@ static void
 ix86_maybe_switch_abi (void)
 {
   if (TARGET_64BIT &&
-      call_used_regs[SI_REG] == (cfun->machine->call_abi == MS_ABI))
+      call_used_regs[SI_REG] == (MACHINE_FUNCTION (*cfun)->call_abi == MS_ABI))
     reinit_regs ();
 }
 
@@ -7715,7 +7716,7 @@ ix86_frame_pointer_required (void)
 {
   /* If we accessed previous frames, then the generated code expects
      to be able to access the saved ebp value in our frame.  */
-  if (cfun->machine->accesses_prev_frame)
+  if (MACHINE_FUNCTION (*cfun)->accesses_prev_frame)
     return true;
 
   /* Several x86 os'es need a frame pointer for other reasons,
@@ -7742,7 +7743,7 @@ ix86_frame_pointer_required (void)
 void
 ix86_setup_frame_addresses (void)
 {
-  cfun->machine->accesses_prev_frame = 1;
+  MACHINE_FUNCTION (*cfun)->accesses_prev_frame = 1;
 }
 
 #ifndef USE_HIDDEN_LINKONCE
@@ -8176,12 +8177,13 @@ ix86_compute_frame_layout (struct ix86_frame *frame)
      didn't change as reload does multiple calls to the function and does not
      expect the decision to change within single iteration.  */
   if (!optimize_function_for_size_p (cfun)
-      && cfun->machine->use_fast_prologue_epilogue_nregs != frame->nregs)
+      && (MACHINE_FUNCTION (*cfun)->use_fast_prologue_epilogue_nregs
+	  != frame->nregs))
     {
       int count = frame->nregs;
       struct cgraph_node *node = cgraph_node (current_function_decl);
 
-      cfun->machine->use_fast_prologue_epilogue_nregs = count;
+      MACHINE_FUNCTION (*cfun)->use_fast_prologue_epilogue_nregs = count;
       /* The fast prologue uses move instead of push to save registers.  This
          is significantly longer, but also executes faster as modern hardware
          can execute the moves in parallel, but can't do that for push/pop.
@@ -8197,13 +8199,13 @@ ix86_compute_frame_layout (struct ix86_frame *frame)
       if (node->frequency < NODE_FREQUENCY_NORMAL
 	  || (flag_branch_probabilities
 	      && node->frequency < NODE_FREQUENCY_HOT))
-        cfun->machine->use_fast_prologue_epilogue = false;
+        MACHINE_FUNCTION (*cfun)->use_fast_prologue_epilogue = false;
       else
-        cfun->machine->use_fast_prologue_epilogue
+        MACHINE_FUNCTION (*cfun)->use_fast_prologue_epilogue
 	   = !expensive_function_p (count);
     }
   if (TARGET_PROLOGUE_USING_MOVE
-      && cfun->machine->use_fast_prologue_epilogue)
+      && MACHINE_FUNCTION (*cfun)->use_fast_prologue_epilogue)
     frame->save_regs_using_mov = true;
   else
     frame->save_regs_using_mov = false;
@@ -8834,7 +8836,7 @@ ix86_expand_prologue (void)
       bool eax_live;
       rtx t;
 
-      if (cfun->machine->call_abi == MS_ABI)
+      if (MACHINE_FUNCTION (*cfun)->call_abi == MS_ABI)
 	eax_live = false;
       else
 	eax_live = ix86_eax_live_at_start_p ();
@@ -9210,13 +9212,13 @@ ix86_expand_epilogue (int style)
      tuning in future.  */
   if ((!sp_valid && (frame.nregs + frame.nsseregs) <= 1)
       || (TARGET_EPILOGUE_USING_MOVE
-	  && cfun->machine->use_fast_prologue_epilogue
+	  && MACHINE_FUNCTION (*cfun)->use_fast_prologue_epilogue
 	  && ((frame.nregs + frame.nsseregs) > 1
 	      || (frame.to_allocate + frame.padding0) != 0))
       || (frame_pointer_needed && !(frame.nregs + frame.nsseregs)
 	  && (frame.to_allocate + frame.padding0) != 0)
       || (frame_pointer_needed && TARGET_USE_LEAVE
-	  && cfun->machine->use_fast_prologue_epilogue
+	  && MACHINE_FUNCTION (*cfun)->use_fast_prologue_epilogue
 	  && (frame.nregs + frame.nsseregs) == 1)
       || crtl->calls_eh_return)
     {
@@ -9328,7 +9330,7 @@ ix86_expand_epilogue (int style)
 				   style, !using_drap);
       /* If not an i386, mov & pop is faster than "leave".  */
       else if (TARGET_USE_LEAVE || optimize_function_for_size_p (cfun)
-	       || !cfun->machine->use_fast_prologue_epilogue)
+	       || !MACHINE_FUNCTION (*cfun)->use_fast_prologue_epilogue)
 	ix86_emit_leave (red_offset);
       else
 	{
@@ -11583,7 +11585,7 @@ get_some_local_dynamic_name_1 (rtx *px, void *data ATTRIBUTE_UNUSED)
   if (GET_CODE (x) == SYMBOL_REF
       && SYMBOL_REF_TLS_MODEL (x) == TLS_MODEL_LOCAL_DYNAMIC)
     {
-      cfun->machine->some_ld_name = XSTR (x, 0);
+      MACHINE_FUNCTION (*cfun)->some_ld_name = XSTR (x, 0);
       return 1;
     }
 
@@ -11595,13 +11597,13 @@ get_some_local_dynamic_name (void)
 {
   rtx insn;
 
-  if (cfun->machine->some_ld_name)
-    return cfun->machine->some_ld_name;
+  if (MACHINE_FUNCTION (*cfun)->some_ld_name)
+    return MACHINE_FUNCTION (*cfun)->some_ld_name;
 
   for (insn = get_insns (); insn ; insn = NEXT_INSN (insn))
     if (NONDEBUG_INSN_P (insn)
 	&& for_each_rtx (&PATTERN (insn), get_some_local_dynamic_name_1, 0))
-      return cfun->machine->some_ld_name;
+      return MACHINE_FUNCTION (*cfun)->some_ld_name;
 
   return NULL;
 }
@@ -26616,7 +26618,7 @@ x86_output_mi_thunk (FILE *file,
 	output_asm_insn ("jmp\t%P0", xops);
       /* All thunks should be in the same object as their target,
 	 and thus binds_local_p should be true.  */
-      else if (TARGET_64BIT && cfun->machine->call_abi == MS_ABI)
+      else if (TARGET_64BIT && MACHINE_FUNCTION (*cfun)->call_abi == MS_ABI)
 	gcc_unreachable ();
       else
 	{

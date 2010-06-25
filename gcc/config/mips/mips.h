@@ -1782,9 +1782,10 @@ enum mips_code_readable_setting {
 
 #define MIPS16_PIC_TEMP_REGNUM (GP_REG_FIRST + 2)
 #define MIPS_PROLOGUE_TEMP_REGNUM \
-  (cfun->machine->interrupt_handler_p ? K0_REG_NUM : GP_REG_FIRST + 3)
+  (MACHINE_FUNCTION (*cfun)->interrupt_handler_p\
+   ? K0_REG_NUM : GP_REG_FIRST + 3)
 #define MIPS_EPILOGUE_TEMP_REGNUM		\
-  (cfun->machine->interrupt_handler_p		\
+  (MACHINE_FUNCTION (*cfun)->interrupt_handler_p\
    ? K0_REG_NUM					\
    : GP_REG_FIRST + (TARGET_MIPS16 ? 6 : 8))
 

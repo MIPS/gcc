@@ -2489,10 +2489,11 @@ ia64_compute_frame_size (HOST_WIDE_INT size)
   diddle_return_value (mark_reg_gr_used_mask, NULL);
 
   /* Don't allocate scratches to the EH scratch registers.  */
-  if (cfun->machine->ia64_eh_epilogue_sp)
-    mark_reg_gr_used_mask (cfun->machine->ia64_eh_epilogue_sp, NULL);
-  if (cfun->machine->ia64_eh_epilogue_bsp)
-    mark_reg_gr_used_mask (cfun->machine->ia64_eh_epilogue_bsp, NULL);
+  if (MACHINE_FUNCTION (*cfun)->ia64_eh_epilogue_sp)
+    mark_reg_gr_used_mask (MACHINE_FUNCTION (*cfun)->ia64_eh_epilogue_sp, NULL);
+  if (MACHINE_FUNCTION (*cfun)->ia64_eh_epilogue_bsp)
+    mark_reg_gr_used_mask (MACHINE_FUNCTION (*cfun)->ia64_eh_epilogue_bsp,
+			   NULL);
 
   /* Find the size of the register stack frame.  We have only 80 local
      registers, because we reserve 8 for the inputs and 8 for the
@@ -2510,7 +2511,7 @@ ia64_compute_frame_size (HOST_WIDE_INT size)
      all eight input registers as in use, so that locals aren't visible to
      the caller.  */
 
-  if (cfun->machine->n_varargs > 0
+  if (MACHINE_FUNCTION (*cfun)->n_varargs > 0
       || lookup_attribute ("syscall_linkage",
 			   TYPE_ATTRIBUTES (TREE_TYPE (current_function_decl))))
     current_frame_info.n_input_regs = 8;
@@ -2698,7 +2699,7 @@ ia64_compute_frame_size (HOST_WIDE_INT size)
   /* If we're forced to use st8.spill, we're forced to save and restore
      ar.unat as well.  The check for existing liveness allows inline asm
      to touch ar.unat.  */
-  if (spilled_gr_p || cfun->machine->n_varargs
+  if (spilled_gr_p || MACHINE_FUNCTION (*cfun)->n_varargs
       || df_regs_ever_live_p (AR_UNAT_REGNUM))
     {
       df_set_regs_ever_live (AR_UNAT_REGNUM, true);
@@ -3184,7 +3185,7 @@ ia64_expand_prologue (void)
 
   /* Set up frame pointer, stack pointer, and spill iterators.  */
 
-  n_varargs = cfun->machine->n_varargs;
+  n_varargs = MACHINE_FUNCTION (*cfun)->n_varargs;
   setup_spill_pointers (current_frame_info.n_spilled + n_varargs,
 			stack_pointer_rtx, 0);
 
@@ -3611,7 +3612,7 @@ ia64_expand_epilogue (int sibcall_p)
   finish_spill_pointers ();
 
   if (current_frame_info.total_size
-      || cfun->machine->ia64_eh_epilogue_sp
+      || MACHINE_FUNCTION (*cfun)->ia64_eh_epilogue_sp
       || frame_pointer_needed)
     {
       /* ??? At this point we must generate a magic insn that appears to
@@ -3621,8 +3622,9 @@ ia64_expand_epilogue (int sibcall_p)
       emit_insn (gen_blockage ());
     }
 
-  if (cfun->machine->ia64_eh_epilogue_sp)
-    emit_move_insn (stack_pointer_rtx, cfun->machine->ia64_eh_epilogue_sp);
+  if (MACHINE_FUNCTION (*cfun)->ia64_eh_epilogue_sp)
+    emit_move_insn (stack_pointer_rtx,
+		    MACHINE_FUNCTION (*cfun)->ia64_eh_epilogue_sp);
   else if (frame_pointer_needed)
     {
       insn = emit_move_insn (stack_pointer_rtx, hard_frame_pointer_rtx);
@@ -3655,8 +3657,8 @@ ia64_expand_epilogue (int sibcall_p)
 						 frame_size_rtx)));
     }
 
-  if (cfun->machine->ia64_eh_epilogue_bsp)
-    emit_insn (gen_set_bsp (cfun->machine->ia64_eh_epilogue_bsp));
+  if (MACHINE_FUNCTION (*cfun)->ia64_eh_epilogue_bsp)
+    emit_insn (gen_set_bsp (MACHINE_FUNCTION (*cfun)->ia64_eh_epilogue_bsp));
 
   if (! sibcall_p)
     emit_jump_insn (gen_return_internal (gen_rtx_REG (DImode, BR_REG (0))));
@@ -4064,7 +4066,7 @@ ia64_setup_incoming_varargs (CUMULATIVE_ARGS *cum, enum machine_mode mode,
     {
       int n = MAX_ARGUMENT_SLOTS - next_cum.words;
       *pretend_size = n * UNITS_PER_WORD;
-      cfun->machine->n_varargs = n;
+      MACHINE_FUNCTION (*cfun)->n_varargs = n;
     }
 }
 
@@ -9533,7 +9535,7 @@ process_epilogue (FILE *asm_out_file, rtx insn, bool unwind, bool frame)
     {
       if (unwind)
 	fprintf (asm_out_file, "\t.label_state %d\n",
-		 ++cfun->machine->state_num);
+		 ++MACHINE_FUNCTION (*cfun)->state_num);
       need_copy_state = true;
     }
 
@@ -9803,7 +9805,7 @@ process_for_unwind_directive (FILE *asm_out_file, rtx insn)
 		{
 		  fprintf (asm_out_file, "\t.body\n");
 		  fprintf (asm_out_file, "\t.copy_state %d\n",
-			   cfun->machine->state_num);
+			   MACHINE_FUNCTION (*cfun)->state_num);
 		}
 	      if (IA64_CHANGE_CFA_IN_EPILOGUE)
 		ia64_dwarf2out_def_steady_cfa (insn, frame);

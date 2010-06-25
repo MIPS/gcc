@@ -1056,11 +1056,11 @@ xtensa_copy_incoming_a7 (rtx opnd)
   rtx reg, tmp;
   enum machine_mode mode;
 
-  if (!cfun->machine->need_a7_copy)
+  if (!MACHINE_FUNCTION (*cfun)->need_a7_copy)
     return opnd;
 
   /* This function should never be called again once a7 has been copied.  */
-  gcc_assert (!cfun->machine->set_frame_ptr_insn);
+  gcc_assert (!MACHINE_FUNCTION (*cfun)->set_frame_ptr_insn);
 
   mode = GET_MODE (opnd);
 
@@ -1080,7 +1080,7 @@ xtensa_copy_incoming_a7 (rtx opnd)
   /* 1-word args will always be in a7; 2-word args in a6/a7.  */
   gcc_assert (REGNO (reg) + HARD_REGNO_NREGS (A7_REG, mode) - 1 == A7_REG);
 
-  cfun->machine->need_a7_copy = false;
+  MACHINE_FUNCTION (*cfun)->need_a7_copy = false;
 
   /* Copy a7 to a new pseudo at the function entry.  Use gen_raw_REG to
      create the REG for a7 so that hard_frame_pointer_rtx is not used.  */
@@ -1115,7 +1115,8 @@ xtensa_copy_incoming_a7 (rtx opnd)
       gcc_unreachable ();
     }
 
-  cfun->machine->set_frame_ptr_insn = emit_insn (gen_set_frame_ptr ());
+  MACHINE_FUNCTION (*cfun)->set_frame_ptr_insn
+    = emit_insn (gen_set_frame_ptr ());
 
   /* For DF and DI mode arguments, copy the incoming value in A6 now.  */
   if (mode == DFmode || mode == DImode)
@@ -1124,13 +1125,13 @@ xtensa_copy_incoming_a7 (rtx opnd)
   entry_insns = get_insns ();
   end_sequence ();
 
-  if (cfun->machine->vararg_a7)
+  if (MACHINE_FUNCTION (*cfun)->vararg_a7)
     {
       /* This is called from within builtin_saveregs, which will insert the
 	 saveregs code at the function entry, ahead of anything placed at
 	 the function entry now.  Instead, save the sequence to be inserted
 	 at the beginning of the saveregs code.  */
-      cfun->machine->vararg_a7_copy = entry_insns;
+      MACHINE_FUNCTION (*cfun)->vararg_a7_copy = entry_insns;
     }
   else
     {
@@ -1546,7 +1547,7 @@ void
 xtensa_setup_frame_addresses (void)
 {
   /* Set flag to cause TARGET_FRAME_POINTER_REQUIRED to return true.  */
-  cfun->machine->accesses_prev_frame = 1;
+  MACHINE_FUNCTION (*cfun)->accesses_prev_frame = 1;
 
   emit_library_call
     (gen_rtx_SYMBOL_REF (Pmode, "__xtensa_libgcc_window_spill"),
@@ -2036,7 +2037,7 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode, tree type,
   regno = regbase + *arg_words;
 
   if (cum->incoming && regno <= A7_REG && regno + words > A7_REG)
-    cfun->machine->need_a7_copy = true;
+    MACHINE_FUNCTION (*cfun)->need_a7_copy = true;
 
   return gen_rtx_REG (mode, regno);
 }
@@ -2516,7 +2517,7 @@ xtensa_frame_pointer_required (void)
      This seems wrong but maybe it's necessary for other architectures.
      This function is derived from the i386 code.  */
 
-  if (cfun->machine->accesses_prev_frame)
+  if (MACHINE_FUNCTION (*cfun)->accesses_prev_frame)
     return true;
 
   return false;
@@ -2551,7 +2552,7 @@ xtensa_expand_prologue (void)
 
   if (frame_pointer_needed)
     {
-      if (cfun->machine->set_frame_ptr_insn)
+      if (MACHINE_FUNCTION (*cfun)->set_frame_ptr_insn)
 	{
 	  rtx first;
 
@@ -2562,7 +2563,7 @@ xtensa_expand_prologue (void)
 	  /* For all instructions prior to set_frame_ptr_insn, replace
 	     hard_frame_pointer references with stack_pointer.  */
 	  for (insn = first;
-	       insn != cfun->machine->set_frame_ptr_insn;
+	       insn != MACHINE_FUNCTION (*cfun)->set_frame_ptr_insn;
 	       insn = NEXT_INSN (insn))
 	    {
 	      if (INSN_P (insn))
@@ -2711,14 +2712,14 @@ xtensa_builtin_saveregs (void)
   set_mem_alias_set (gp_regs, get_varargs_alias_set ());
 
   /* Now store the incoming registers.  */
-  cfun->machine->need_a7_copy = true;
-  cfun->machine->vararg_a7 = true;
+  MACHINE_FUNCTION (*cfun)->need_a7_copy = true;
+  MACHINE_FUNCTION (*cfun)->vararg_a7 = true;
   move_block_from_reg (GP_ARG_FIRST + arg_words,
 		       adjust_address (gp_regs, BLKmode,
 				       arg_words * UNITS_PER_WORD),
 		       gp_left);
-  gcc_assert (cfun->machine->vararg_a7_copy != 0);
-  emit_insn_before (cfun->machine->vararg_a7_copy, get_insns ());
+  gcc_assert (MACHINE_FUNCTION (*cfun)->vararg_a7_copy != 0);
+  emit_insn_before (MACHINE_FUNCTION (*cfun)->vararg_a7_copy, get_insns ());
 
   return XEXP (gp_regs, 0);
 }

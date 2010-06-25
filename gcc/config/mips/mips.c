@@ -2622,13 +2622,13 @@ gen_load_const_gp (rtx reg)
 static rtx
 mips16_gp_pseudo_reg (void)
 {
-  if (cfun->machine->mips16_gp_pseudo_rtx == NULL_RTX)
-    cfun->machine->mips16_gp_pseudo_rtx = gen_reg_rtx (Pmode);
+  if (MACHINE_FUNCTION (*cfun)->mips16_gp_pseudo_rtx == NULL_RTX)
+    MACHINE_FUNCTION (*cfun)->mips16_gp_pseudo_rtx = gen_reg_rtx (Pmode);
 
   /* Don't emit an instruction to initialize the pseudo register if
      we are being called from the tree optimizers' cost-calculation
      routines.  */
-  if (!cfun->machine->initialized_mips16_gp_pseudo_p
+  if (!MACHINE_FUNCTION (*cfun)->initialized_mips16_gp_pseudo_p
       && (current_ir_type () != IR_GIMPLE || currently_expanding_to_rtl))
     {
       rtx insn, scan;
@@ -2639,15 +2639,15 @@ mips16_gp_pseudo_reg (void)
       while (NEXT_INSN (scan) && !INSN_P (NEXT_INSN (scan)))
 	scan = NEXT_INSN (scan);
 
-      insn = gen_load_const_gp (cfun->machine->mips16_gp_pseudo_rtx);
+      insn = gen_load_const_gp (MACHINE_FUNCTION (*cfun)->mips16_gp_pseudo_rtx);
       emit_insn_after (insn, scan);
 
       pop_topmost_sequence ();
 
-      cfun->machine->initialized_mips16_gp_pseudo_p = true;
+      MACHINE_FUNCTION (*cfun)->initialized_mips16_gp_pseudo_p = true;
     }
 
-  return cfun->machine->mips16_gp_pseudo_rtx;
+  return MACHINE_FUNCTION (*cfun)->mips16_gp_pseudo_rtx;
 }
 
 /* Return a base register that holds pic_offset_table_rtx.
@@ -5377,8 +5377,8 @@ mips_setup_incoming_varargs (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 	}
     }
   if (REG_PARM_STACK_SPACE (cfun->decl) == 0)
-    cfun->machine->varargs_size = (gp_saved * UNITS_PER_WORD
-				   + fp_saved * UNITS_PER_FPREG);
+    MACHINE_FUNCTION (*cfun)->varargs_size
+      = (gp_saved * UNITS_PER_WORD + fp_saved * UNITS_PER_FPREG);
 }
 
 /* Implement TARGET_BUILTIN_VA_LIST.  */
@@ -5536,7 +5536,8 @@ mips_va_start (tree valist, rtx nextarg)
     }
   else
     {
-      nextarg = plus_constant (nextarg, -cfun->machine->varargs_size);
+      nextarg
+	= plus_constant (nextarg, -MACHINE_FUNCTION (*cfun)->varargs_size);
       std_expand_builtin_va_start (valist, nextarg);
     }
 }
@@ -7831,9 +7832,9 @@ mips_debugger_offset (rtx addr, HOST_WIDE_INT offset)
       || reg == frame_pointer_rtx
       || reg == hard_frame_pointer_rtx)
     {
-      offset -= cfun->machine->frame.total_size;
+      offset -= MACHINE_FUNCTION (*cfun)->frame.total_size;
       if (reg == hard_frame_pointer_rtx)
-	offset += cfun->machine->frame.hard_frame_pointer_offset;
+	offset += MACHINE_FUNCTION (*cfun)->frame.hard_frame_pointer_offset;
     }
 
   /* sdbout_parms does not want this to crash for unrecognized cases.  */
@@ -8368,9 +8369,11 @@ mips16e_collect_argument_save_p (rtx dest, rtx src, rtx *reg_values,
      frame-pointer access.  */
   addr = mips16e_collect_propagate_value (XEXP (dest, 0), reg_values);
   mips_split_plus (addr, &base, &offset);
-  required_offset = cfun->machine->frame.total_size + argno * UNITS_PER_WORD;
+  required_offset
+    = MACHINE_FUNCTION (*cfun)->frame.total_size + argno * UNITS_PER_WORD;
   if (base == hard_frame_pointer_rtx)
-    required_offset -= cfun->machine->frame.hard_frame_pointer_offset;
+    required_offset
+      -= MACHINE_FUNCTION (*cfun)->frame.hard_frame_pointer_offset;
   else if (base != stack_pointer_rtx)
     return false;
   if (offset != required_offset)
@@ -8414,7 +8417,7 @@ mips16e_collect_argument_saves (void)
       src = SET_SRC (set);
       if (mips16e_collect_argument_save_p (dest, src, reg_values, &regno))
 	{
-	  if (!BITSET_P (cfun->machine->frame.mask, regno))
+	  if (!BITSET_P (MACHINE_FUNCTION (*cfun)->frame.mask, regno))
 	    {
 	      delete_insn (insn);
 	      nargs = MAX (nargs, (regno - GP_ARG_FIRST) + 1);
@@ -8479,7 +8482,7 @@ mips16e_build_save_restore (bool restore_p, unsigned int *mask_ptr,
   unsigned int i, regno;
   int n;
 
-  gcc_assert (cfun->machine->frame.num_fp == 0);
+  gcc_assert (MACHINE_FUNCTION (*cfun)->frame.num_fp == 0);
 
   /* Calculate the number of elements in the PARALLEL.  We need one element
      for the stack adjustment, one for each argument register save, and one
@@ -8787,7 +8790,7 @@ mips_cfun_has_inflexible_gp_ref_p (void)
 	return true;
     }
 
-  return mips_find_gp_ref (&cfun->machine->has_inflexible_gp_insn_p,
+  return mips_find_gp_ref (&MACHINE_FUNCTION (*cfun)->has_inflexible_gp_insn_p,
 			   mips_insn_has_inflexible_gp_ref_p);
 }
 
@@ -8825,7 +8828,7 @@ mips_cfun_has_flexible_gp_ref_p (void)
   if (TARGET_ABICALLS_PIC2 && !reload_completed && crtl->uses_const_pool)
     return true;
 
-  return mips_find_gp_ref (&cfun->machine->has_flexible_gp_insn_p,
+  return mips_find_gp_ref (&MACHINE_FUNCTION (*cfun)->has_flexible_gp_insn_p,
 			   mips_insn_has_flexible_gp_ref_p);
 }
 
@@ -8879,7 +8882,7 @@ mips_global_pointer (void)
 
    We handle this as follows:
 
-   (1) During reload, we set cfun->machine->global_pointer to
+   (1) During reload, we set MACHINE_FUNCTION (*cfun)->global_pointer to
        INVALID_REGNUM if we _know_ that the current function
        doesn't need a global pointer.  This is only valid if
        long branches don't need the GOT.
@@ -8887,7 +8890,7 @@ mips_global_pointer (void)
        Otherwise, we assume that we might need a global pointer
        and pick an appropriate register.
 
-   (2) If cfun->machine->global_pointer != INVALID_REGNUM,
+   (2) If MACHINE_FUNCTION (*cfun)->global_pointer != INVALID_REGNUM,
        we ensure that the global pointer is available at every
        block boundary bar entry and exit.  We do this in one of two ways:
 
@@ -8911,13 +8914,14 @@ mips_global_pointer (void)
    (3) During prologue and epilogue generation, we emit "ghost"
        placeholder instructions to manipulate the global pointer.
 
-   (4) During prologue generation, we set cfun->machine->must_initialize_gp_p
-       and cfun->machine->must_restore_gp_when_clobbered_p if we already know
-       that the function needs a global pointer.  (There is no need to set
+   (4) During prologue generation, we set
+       MACHINE_FUNCTION (*cfun)->must_initialize_gp_p and
+       MACHINE_FUNCTION (*cfun)->must_restore_gp_when_clobbered_p if we already
+       know that the function needs a global pointer.  (There is no need to set
        them earlier than this, and doing it as late as possible leads to
        fewer false positives.)
 
-   (5) If cfun->machine->must_initialize_gp_p is true during a
+   (5) If MACHINE_FUNCTION (*cfun)->must_initialize_gp_p is true during a
        split_insns pass, we split the ghost instructions into real
        instructions.  These split instructions can then be optimized in
        the usual way.  Otherwise, we keep the ghost instructions intact,
@@ -8929,15 +8933,16 @@ mips_global_pointer (void)
        stores $28 to the stack, but it handles the split form of
        the ghost instruction as an ordinary store.
 
-   (6) [OldABI only.]  If cfun->machine->must_restore_gp_when_clobbered_p
+   (6) [OldABI only.]  If
+       MACHINE_FUNCTION (*cfun)->must_restore_gp_when_clobbered_p
        is true during the first post-epilogue split_insns pass, we split
        calls and restore_gp patterns into instructions that explicitly
        load pic_offset_table_rtx from the cprestore slot.  Otherwise,
        we split these patterns into instructions that _don't_ load from
        the cprestore slot.
 
-       If cfun->machine->must_restore_gp_when_clobbered_p is true at the
-       time of the split, then any instructions that exist at that time
+       If MACHINE_FUNCTION (*cfun)->must_restore_gp_when_clobbered_p is true
+       at the time of the split, then any instructions that exist at that time
        can make free use of pic_offset_table_rtx.  However, if we want
        to introduce new uses of the global pointer after the split,
        we must explicitly load the value from the cprestore slot, since
@@ -8948,9 +8953,10 @@ mips_global_pointer (void)
        loads from the cprestore slot in the usual case where no
        long branches are needed.
 
-   (7) If cfun->machine->must_initialize_gp_p is still false at the end
-       of md_reorg, we decide whether the global pointer is needed for
-       long branches.  If so, we set cfun->machine->must_initialize_gp_p
+   (7) If MACHINE_FUNCTION (*cfun)->must_initialize_gp_p is still
+       false at the end of md_reorg, we decide whether the global
+       pointer is needed for long branches.  If so, we set
+       MACHINE_FUNCTION (*cfun)->must_initialize_gp_p
        to true and split the ghost instructions into real instructions
        at that stage.
 
@@ -8975,7 +8981,7 @@ mips_global_pointer (void)
 bool
 mips_must_initialize_gp_p (void)
 {
-  return cfun->machine->must_initialize_gp_p;
+  return MACHINE_FUNCTION (*cfun)->must_initialize_gp_p;
 }
 
 /* Return true if REGNO is a register that is ordinarily call-clobbered
@@ -8990,7 +8996,7 @@ mips_interrupt_extra_call_saved_reg_p (unsigned int regno)
   if (TARGET_DSP && DSP_ACC_REG_P (regno))
     return true;
 
-  if (GP_REG_P (regno) && !cfun->machine->use_shadow_register_set_p)
+  if (GP_REG_P (regno) && !MACHINE_FUNCTION (*cfun)->use_shadow_register_set_p)
     {
       /* $0 is hard-wired.  */
       if (regno == GP_REG_FIRST)
@@ -9021,7 +9027,7 @@ static bool
 mips_cfun_call_saved_reg_p (unsigned int regno)
 {
   /* Interrupt handlers need to save extra registers.  */
-  if (cfun->machine->interrupt_handler_p
+  if (MACHINE_FUNCTION (*cfun)->interrupt_handler_p
       && mips_interrupt_extra_call_saved_reg_p (regno))
     return true;
 
@@ -9059,7 +9065,7 @@ mips_cfun_might_clobber_call_saved_reg_p (unsigned int regno)
 
   /* If we're using a call-saved global pointer, the function's
      prologue will need to set it up.  */
-  if (cfun->machine->global_pointer == regno)
+  if (MACHINE_FUNCTION (*cfun)->global_pointer == regno)
     return true;
 
   /* The function's prologue will need to set the frame pointer if
@@ -9075,7 +9081,7 @@ mips_cfun_might_clobber_call_saved_reg_p (unsigned int regno)
 
   /* If REGNO is ordinarily call-clobbered, we must assume that any
      called function could modify it.  */
-  if (cfun->machine->interrupt_handler_p
+  if (MACHINE_FUNCTION (*cfun)->interrupt_handler_p
       && !current_function_is_leaf
       && mips_interrupt_extra_call_saved_reg_p (regno))
     return true;
@@ -9198,22 +9204,22 @@ mips_compute_frame_info (void)
 	error ("interrupt handlers cannot be MIPS16 functions");
       else
 	{
-	  cfun->machine->interrupt_handler_p = true;
-	  cfun->machine->use_shadow_register_set_p =
+	  MACHINE_FUNCTION (*cfun)->interrupt_handler_p = true;
+	  MACHINE_FUNCTION (*cfun)->use_shadow_register_set_p =
 	    mips_use_shadow_register_set_p (TREE_TYPE (current_function_decl));
-	  cfun->machine->keep_interrupts_masked_p =
+	  MACHINE_FUNCTION (*cfun)->keep_interrupts_masked_p =
 	    mips_keep_interrupts_masked_p (TREE_TYPE (current_function_decl));
-	  cfun->machine->use_debug_exception_return_p =
+	  MACHINE_FUNCTION (*cfun)->use_debug_exception_return_p =
 	    mips_use_debug_exception_return_p (TREE_TYPE
 					       (current_function_decl));
 	}
     }
 
-  frame = &cfun->machine->frame;
+  frame = &MACHINE_FUNCTION (*cfun)->frame;
   memset (frame, 0, sizeof (*frame));
   size = get_frame_size ();
 
-  cfun->machine->global_pointer = mips_global_pointer ();
+  MACHINE_FUNCTION (*cfun)->global_pointer = mips_global_pointer ();
 
   /* The first two blocks contain the outgoing argument area and the $gp save
      slot.  This area isn't needed in leaf functions, but if the
@@ -9295,7 +9301,7 @@ mips_compute_frame_info (void)
     }
 
   /* Add in space for the interrupt context information.  */
-  if (cfun->machine->interrupt_handler_p)
+  if (MACHINE_FUNCTION (*cfun)->interrupt_handler_p)
     {
       /* Check HI/LO.  */
       if (mips_save_reg_p (LO_REGNUM) || mips_save_reg_p (HI_REGNUM))
@@ -9316,7 +9322,7 @@ mips_compute_frame_info (void)
       frame->num_cop0_regs++;
 
       /* If we don't keep interrupts masked, we need to save EPC.  */
-      if (!cfun->machine->keep_interrupts_masked_p)
+      if (!MACHINE_FUNCTION (*cfun)->keep_interrupts_masked_p)
 	frame->num_cop0_regs++;
     }
 
@@ -9336,7 +9342,7 @@ mips_compute_frame_info (void)
     }
 
   /* Move above the callee-allocated varargs save area.  */
-  offset += MIPS_STACK_ALIGN (cfun->machine->varargs_size);
+  offset += MIPS_STACK_ALIGN (MACHINE_FUNCTION (*cfun)->varargs_size);
   frame->arg_pointer_offset = offset;
 
   /* Move above the callee-allocated area for pretend stack arguments.  */
@@ -9366,7 +9372,8 @@ mips_compute_frame_info (void)
 enum mips_loadgp_style
 mips_current_loadgp_style (void)
 {
-  if (!TARGET_USE_GOT || cfun->machine->global_pointer == INVALID_REGNUM)
+  if (!TARGET_USE_GOT
+      || MACHINE_FUNCTION (*cfun)->global_pointer == INVALID_REGNUM)
     return LOADGP_NONE;
 
   if (TARGET_RTP_PIC)
@@ -9395,7 +9402,7 @@ mips_frame_pointer_required (void)
   if (TARGET_MIPS16)
     {
       mips_compute_frame_info ();
-      if (!SMALL_OPERAND (cfun->machine->frame.total_size))
+      if (!SMALL_OPERAND (MACHINE_FUNCTION (*cfun)->frame.total_size))
 	return true;
     }
 
@@ -9427,15 +9434,15 @@ mips_initial_elimination_offset (int from, int to)
     {
     case FRAME_POINTER_REGNUM:
       if (FRAME_GROWS_DOWNWARD)
-	offset = (cfun->machine->frame.args_size
-		  + cfun->machine->frame.cprestore_size
-		  + cfun->machine->frame.var_size);
+	offset = (MACHINE_FUNCTION (*cfun)->frame.args_size
+		  + MACHINE_FUNCTION (*cfun)->frame.cprestore_size
+		  + MACHINE_FUNCTION (*cfun)->frame.var_size);
       else
 	offset = 0;
       break;
 
     case ARG_POINTER_REGNUM:
-      offset = cfun->machine->frame.arg_pointer_offset;
+      offset = MACHINE_FUNCTION (*cfun)->frame.arg_pointer_offset;
       break;
 
     default:
@@ -9443,7 +9450,7 @@ mips_initial_elimination_offset (int from, int to)
     }
 
   if (to == HARD_FRAME_POINTER_REGNUM)
-    offset -= cfun->machine->frame.hard_frame_pointer_offset;
+    offset -= MACHINE_FUNCTION (*cfun)->frame.hard_frame_pointer_offset;
 
   return offset;
 }
@@ -9491,9 +9498,10 @@ mips_set_return_address (rtx address, rtx scratch)
 {
   rtx slot_address;
 
-  gcc_assert (BITSET_P (cfun->machine->frame.mask, RETURN_ADDR_REGNUM));
+  gcc_assert (BITSET_P (MACHINE_FUNCTION (*cfun)->frame.mask,
+			RETURN_ADDR_REGNUM));
   slot_address = mips_add_offset (scratch, stack_pointer_rtx,
-				  cfun->machine->frame.gp_sp_offset);
+				  MACHINE_FUNCTION (*cfun)->frame.gp_sp_offset);
   mips_emit_move (gen_frame_mem (GET_MODE (address), slot_address), address);
 }
 
@@ -9502,8 +9510,8 @@ mips_set_return_address (rtx address, rtx scratch)
 bool
 mips_cfun_has_cprestore_slot_p (void)
 {
-  return (cfun->machine->global_pointer != INVALID_REGNUM
-	  && cfun->machine->frame.cprestore_size > 0);
+  return (MACHINE_FUNCTION (*cfun)->global_pointer != INVALID_REGNUM
+	  && MACHINE_FUNCTION (*cfun)->frame.cprestore_size > 0);
 }
 
 /* Fill *BASE and *OFFSET such that *BASE + *OFFSET refers to the
@@ -9517,7 +9525,7 @@ mips_get_cprestore_base_and_offset (rtx *base, HOST_WIDE_INT *offset,
 {
   const struct mips_frame_info *frame;
 
-  frame = &cfun->machine->frame;
+  frame = &MACHINE_FUNCTION (*cfun)->frame;
   /* .cprestore always uses the stack pointer instead of the frame pointer.
      We have a free choice for direct stores for non-MIPS16 functions,
      and for MIPS16 functions whose cprestore slot is in range of the
@@ -9599,7 +9607,7 @@ mips_restore_gp_from_cprestore_slot (rtx temp)
 {
   gcc_assert (TARGET_ABICALLS && TARGET_OLDABI && epilogue_completed);
 
-  if (!cfun->machine->must_restore_gp_when_clobbered_p)
+  if (!MACHINE_FUNCTION (*cfun)->must_restore_gp_when_clobbered_p)
     {
       emit_note (NOTE_INSN_DELETED);
       return;
@@ -9644,8 +9652,8 @@ mips_for_each_saved_acc (HOST_WIDE_INT sp_offset, mips_save_restore_fn fn)
   HOST_WIDE_INT offset;
   int regno;
 
-  offset = cfun->machine->frame.acc_sp_offset - sp_offset;
-  if (BITSET_P (cfun->machine->frame.acc_mask, 0))
+  offset = MACHINE_FUNCTION (*cfun)->frame.acc_sp_offset - sp_offset;
+  if (BITSET_P (MACHINE_FUNCTION (*cfun)->frame.acc_mask, 0))
     {
       mips_save_restore_reg (word_mode, LO_REGNUM, offset, fn);
       offset -= UNITS_PER_WORD;
@@ -9654,7 +9662,7 @@ mips_for_each_saved_acc (HOST_WIDE_INT sp_offset, mips_save_restore_fn fn)
     }
 
   for (regno = DSP_ACC_REG_FIRST; regno <= DSP_ACC_REG_LAST; regno++)
-    if (BITSET_P (cfun->machine->frame.acc_mask,
+    if (BITSET_P (MACHINE_FUNCTION (*cfun)->frame.acc_mask,
 		  ((regno - DSP_ACC_REG_FIRST) / 2) + 1))
       {
 	mips_save_restore_reg (word_mode, regno, offset, fn);
@@ -9678,25 +9686,25 @@ mips_for_each_saved_gpr_and_fpr (HOST_WIDE_INT sp_offset,
      the return register be stored at func+4, and also it allows us not to
      need a nop in the epilogue if at least one register is reloaded in
      addition to return address.  */
-  offset = cfun->machine->frame.gp_sp_offset - sp_offset;
+  offset = MACHINE_FUNCTION (*cfun)->frame.gp_sp_offset - sp_offset;
   for (regno = GP_REG_LAST; regno >= GP_REG_FIRST; regno--)
-    if (BITSET_P (cfun->machine->frame.mask, regno - GP_REG_FIRST))
+    if (BITSET_P (MACHINE_FUNCTION (*cfun)->frame.mask, regno - GP_REG_FIRST))
       {
 	/* Record the ra offset for use by mips_function_profiler.  */
 	if (regno == RETURN_ADDR_REGNUM)
-	  cfun->machine->frame.ra_fp_offset = offset + sp_offset;
+	  MACHINE_FUNCTION (*cfun)->frame.ra_fp_offset = offset + sp_offset;
 	mips_save_restore_reg (word_mode, regno, offset, fn);
 	offset -= UNITS_PER_WORD;
       }
 
   /* This loop must iterate over the same space as its companion in
      mips_compute_frame_info.  */
-  offset = cfun->machine->frame.fp_sp_offset - sp_offset;
+  offset = MACHINE_FUNCTION (*cfun)->frame.fp_sp_offset - sp_offset;
   fpr_mode = (TARGET_SINGLE_FLOAT ? SFmode : DFmode);
   for (regno = FP_REG_LAST - MAX_FPRS_PER_FMT + 1;
        regno >= FP_REG_FIRST;
        regno -= MAX_FPRS_PER_FMT)
-    if (BITSET_P (cfun->machine->frame.fmask, regno - FP_REG_FIRST))
+    if (BITSET_P (MACHINE_FUNCTION (*cfun)->frame.fmask, regno - FP_REG_FIRST))
       {
 	mips_save_restore_reg (fpr_mode, regno, offset, fn);
 	offset -= GET_MODE_SIZE (fpr_mode);
@@ -9739,7 +9747,8 @@ mips_emit_save_slot_move (rtx dest, rtx src, rtx temp)
       mem = src;
     }
 
-  if (regno == cfun->machine->global_pointer && !mips_must_initialize_gp_p ())
+  if (regno == MACHINE_FUNCTION (*cfun)->global_pointer
+      && !mips_must_initialize_gp_p ())
     {
       /* We don't yet know whether we'll need this instruction or not.
 	 Postpone the decision by emitting a ghost move.  This move
@@ -9795,7 +9804,7 @@ mips_output_cplocal (void)
 {
   if (!TARGET_EXPLICIT_RELOCS
       && mips_must_initialize_gp_p ()
-      && cfun->machine->global_pointer != GLOBAL_POINTER_REGNUM)
+      && MACHINE_FUNCTION (*cfun)->global_pointer != GLOBAL_POINTER_REGNUM)
     output_asm_insn (".cplocal %+", 0);
 }
 
@@ -9829,7 +9838,7 @@ mips_output_function_prologue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
     {
       const struct mips_frame_info *frame;
 
-      frame = &cfun->machine->frame;
+      frame = &MACHINE_FUNCTION (*cfun)->frame;
 
       /* .frame FRAMEREG, FRAMESIZE, RETREG.  */
       fprintf (file,
@@ -9881,13 +9890,13 @@ mips_output_function_prologue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 	     .set nomacro block.  */
 	  mips_push_asm_switch (&mips_noreorder);
 	  output_asm_insn (".cpload\t%^", 0);
-	  if (!cfun->machine->all_noreorder_p)
+	  if (!MACHINE_FUNCTION (*cfun)->all_noreorder_p)
 	    mips_pop_asm_switch (&mips_noreorder);
 	  else
 	    mips_push_asm_switch (&mips_nomacro);
 	}
     }
-  else if (cfun->machine->all_noreorder_p)
+  else if (MACHINE_FUNCTION (*cfun)->all_noreorder_p)
     {
       mips_push_asm_switch (&mips_noreorder);
       mips_push_asm_switch (&mips_nomacro);
@@ -9911,7 +9920,7 @@ mips_output_function_epilogue (FILE *file ATTRIBUTE_UNUSED,
   SET_REGNO (pic_offset_table_rtx, GLOBAL_POINTER_REGNUM);
   mips_output_cplocal ();
 
-  if (cfun->machine->all_noreorder_p)
+  if (MACHINE_FUNCTION (*cfun)->all_noreorder_p)
     {
       mips_pop_asm_switch (&mips_nomacro);
       mips_pop_asm_switch (&mips_noreorder);
@@ -10027,7 +10036,7 @@ mips_expand_prologue (void)
   unsigned int nargs;
   rtx insn;
 
-  if (cfun->machine->global_pointer != INVALID_REGNUM)
+  if (MACHINE_FUNCTION (*cfun)->global_pointer != INVALID_REGNUM)
     {
       /* Check whether an insn uses pic_offset_table_rtx, either explicitly
 	 or implicitly.  If so, we can commit to using a global pointer
@@ -10035,14 +10044,15 @@ mips_expand_prologue (void)
       if (mips_cfun_has_inflexible_gp_ref_p ()
 	  || mips_cfun_has_flexible_gp_ref_p ())
 	{
-	  cfun->machine->must_initialize_gp_p = true;
-	  cfun->machine->must_restore_gp_when_clobbered_p = true;
+	  MACHINE_FUNCTION (*cfun)->must_initialize_gp_p = true;
+	  MACHINE_FUNCTION (*cfun)->must_restore_gp_when_clobbered_p = true;
 	}
 
-      SET_REGNO (pic_offset_table_rtx, cfun->machine->global_pointer);
+      SET_REGNO (pic_offset_table_rtx,
+		 MACHINE_FUNCTION (*cfun)->global_pointer);
     }
 
-  frame = &cfun->machine->frame;
+  frame = &MACHINE_FUNCTION (*cfun)->frame;
   size = frame->total_size;
 
   /* Save the registers.  Allocate up to MIPS_MAX_FIRST_STACK_STEP
@@ -10080,18 +10090,18 @@ mips_expand_prologue (void)
  	}
       else
  	{
-	  if (cfun->machine->interrupt_handler_p)
+	  if (MACHINE_FUNCTION (*cfun)->interrupt_handler_p)
 	    {
 	      HOST_WIDE_INT offset;
 	      rtx mem;
 
 	      /* If this interrupt is using a shadow register set, we need to
 		 get the stack pointer from the previous register set.  */
-	      if (cfun->machine->use_shadow_register_set_p)
+	      if (MACHINE_FUNCTION (*cfun)->use_shadow_register_set_p)
 		emit_insn (gen_mips_rdpgpr (stack_pointer_rtx,
 					    stack_pointer_rtx));
 
-	      if (!cfun->machine->keep_interrupts_masked_p)
+	      if (!MACHINE_FUNCTION (*cfun)->keep_interrupts_masked_p)
 		{
 		  /* Move from COP0 Cause to K0.  */
 		  emit_insn (gen_cop0_move (gen_rtx_REG (SImode, K0_REG_NUM),
@@ -10111,7 +10121,7 @@ mips_expand_prologue (void)
 
 	      /* Start at the uppermost location for saving.  */
 	      offset = frame->cop0_sp_offset - size;
-	      if (!cfun->machine->keep_interrupts_masked_p)
+	      if (!MACHINE_FUNCTION (*cfun)->keep_interrupts_masked_p)
 		{
 		  /* Push EPC into its stack slot.  */
 		  mem = gen_frame_mem (word_mode,
@@ -10127,7 +10137,7 @@ mips_expand_prologue (void)
 						     COP0_STATUS_REG_NUM)));
 
 	      /* Right justify the RIPL in k0.  */
-	      if (!cfun->machine->keep_interrupts_masked_p)
+	      if (!MACHINE_FUNCTION (*cfun)->keep_interrupts_masked_p)
 		emit_insn (gen_lshrsi3 (gen_rtx_REG (SImode, K0_REG_NUM),
 					gen_rtx_REG (SImode, K0_REG_NUM),
 					GEN_INT (CAUSE_IPL)));
@@ -10139,13 +10149,13 @@ mips_expand_prologue (void)
 	      offset -= UNITS_PER_WORD;
 
 	      /* Insert the RIPL into our copy of SR (k1) as the new IPL.  */
-	      if (!cfun->machine->keep_interrupts_masked_p)
+	      if (!MACHINE_FUNCTION (*cfun)->keep_interrupts_masked_p)
 		emit_insn (gen_insvsi (gen_rtx_REG (SImode, K1_REG_NUM),
 				       GEN_INT (6),
 				       GEN_INT (SR_IPL),
 				       gen_rtx_REG (SImode, K0_REG_NUM)));
 
-	      if (!cfun->machine->keep_interrupts_masked_p)
+	      if (!MACHINE_FUNCTION (*cfun)->keep_interrupts_masked_p)
 		/* Enable interrupts by clearing the KSU ERL and EXL bits.
 		   IE is already the correct value, so we don't have to do
 		   anything explicit.  */
@@ -10261,7 +10271,7 @@ mips_expand_prologue (void)
     }
 
   /* We need to search back to the last use of K0 or K1.  */
-  if (cfun->machine->interrupt_handler_p)
+  if (MACHINE_FUNCTION (*cfun)->interrupt_handler_p)
     {
       for (insn = get_last_insn (); insn != NULL_RTX; insn = PREV_INSN (insn))
 	if (INSN_P (insn)
@@ -10337,7 +10347,7 @@ mips_expand_epilogue (bool sibcall_p)
      should deallocate afterwards.
 
      Start off by assuming that no registers need to be restored.  */
-  frame = &cfun->machine->frame;
+  frame = &MACHINE_FUNCTION (*cfun)->frame;
   step1 = frame->total_size;
   step2 = 0;
 
@@ -10419,13 +10429,13 @@ mips_expand_epilogue (bool sibcall_p)
       mips_for_each_saved_gpr_and_fpr (frame->total_size - step2,
 				       mips_restore_reg);
 
-      if (cfun->machine->interrupt_handler_p)
+      if (MACHINE_FUNCTION (*cfun)->interrupt_handler_p)
 	{
 	  HOST_WIDE_INT offset;
 	  rtx mem;
 
 	  offset = frame->cop0_sp_offset - (frame->total_size - step2);
-	  if (!cfun->machine->keep_interrupts_masked_p)
+	  if (!MACHINE_FUNCTION (*cfun)->keep_interrupts_masked_p)
 	    {
 	      /* Restore the original EPC.  */
 	      mem = gen_frame_mem (word_mode,
@@ -10445,7 +10455,7 @@ mips_expand_epilogue (bool sibcall_p)
 	  offset -= UNITS_PER_WORD;
 
 	  /* If we don't use shoadow register set, we need to update SP.  */
-	  if (!cfun->machine->use_shadow_register_set_p && step2 > 0)
+	  if (!MACHINE_FUNCTION (*cfun)->use_shadow_register_set_p && step2 > 0)
 	    emit_insn (gen_add3_insn (stack_pointer_rtx,
 				      stack_pointer_rtx,
 				      GEN_INT (step2)));
@@ -10485,10 +10495,10 @@ mips_expand_epilogue (bool sibcall_p)
   if (!sibcall_p)
     {
       mips_expand_before_return ();
-      if (cfun->machine->interrupt_handler_p)
+      if (MACHINE_FUNCTION (*cfun)->interrupt_handler_p)
 	{
 	  /* Interrupt handlers generate eret or deret.  */
-	  if (cfun->machine->use_debug_exception_return_p)
+	  if (MACHINE_FUNCTION (*cfun)->use_debug_exception_return_p)
 	    emit_jump_insn (gen_mips_deret ());
 	  else
 	    emit_jump_insn (gen_mips_eret ());
@@ -10511,8 +10521,8 @@ mips_expand_epilogue (bool sibcall_p)
     }
 
   /* Search from the beginning to the first use of K0 or K1.  */
-  if (cfun->machine->interrupt_handler_p
-      && !cfun->machine->keep_interrupts_masked_p)
+  if (MACHINE_FUNCTION (*cfun)->interrupt_handler_p
+      && !MACHINE_FUNCTION (*cfun)->keep_interrupts_masked_p)
     {
       for (insn = get_insns (); insn != NULL_RTX; insn = NEXT_INSN (insn))
 	if (INSN_P (insn)
@@ -10533,7 +10543,7 @@ bool
 mips_can_use_return_insn (void)
 {
   /* Interrupt handlers need to go through the epilogue.  */
-  if (cfun->machine->interrupt_handler_p)
+  if (MACHINE_FUNCTION (*cfun)->interrupt_handler_p)
     return false;
 
   if (!reload_completed)
@@ -10548,7 +10558,7 @@ mips_can_use_return_insn (void)
   if (mips16_cfun_returns_in_fpr_p ())
     return false;
 
-  return cfun->machine->frame.total_size == 0;
+  return MACHINE_FUNCTION (*cfun)->frame.total_size == 0;
 }
 
 /* Return true if register REGNO can store a value of mode MODE.
@@ -11223,12 +11233,12 @@ mips_process_load_label (rtx target)
 static unsigned int
 mips_load_label_length (void)
 {
-  if (cfun->machine->load_label_length == 0)
+  if (MACHINE_FUNCTION (*cfun)->load_label_length == 0)
     {
       mips_process_load_label (pc_rtx);
-      cfun->machine->load_label_length = mips_multi_num_insns;
+      MACHINE_FUNCTION (*cfun)->load_label_length = mips_multi_num_insns;
     }
-  return cfun->machine->load_label_length;
+  return MACHINE_FUNCTION (*cfun)->load_label_length;
 }
 
 /* Emit an asm sequence to start a noat block and load the address
@@ -11280,7 +11290,8 @@ mips_adjust_insn_length (rtx insn, int length)
     length += 4;
 
   /* See how many nops might be needed to avoid hardware hazards.  */
-  if (!cfun->machine->ignore_hazard_length_p && INSN_CODE (insn) >= 0)
+  if (!MACHINE_FUNCTION (*cfun)->ignore_hazard_length_p
+      && INSN_CODE (insn) >= 0)
     switch (get_attr_hazard (insn))
       {
       case HAZARD_NONE:
@@ -13806,8 +13817,8 @@ r10k_safe_address_p (rtx x, rtx insn)
      is safe from speculation at any point in the function.  */
   mips_split_plus (x, &base, &offset_val);
   if (base == virtual_incoming_args_rtx
-      && offset_val >= -cfun->machine->frame.total_size
-      && offset_val < cfun->machine->frame.args_size)
+      && offset_val >= -MACHINE_FUNCTION (*cfun)->frame.total_size
+      && offset_val < MACHINE_FUNCTION (*cfun)->frame.args_size)
     return true;
 
   /* Check for uncached addresses.  */
@@ -14726,7 +14737,7 @@ mips_avoid_hazard (rtx after, rtx insn, int *hilo_delay,
      an asm statement.  We don't know whether there will be hazards
      between the asm statement and the gcc-generated code.  */
   if (GET_CODE (pattern) == ASM_INPUT || asm_noperands (pattern) >= 0)
-    cfun->machine->all_noreorder_p = false;
+    MACHINE_FUNCTION (*cfun)->all_noreorder_p = false;
 
   /* Ignore zero-length instructions (barriers and the like).  */
   ninsns = get_attr_length (insn) / 4;
@@ -14787,36 +14798,36 @@ mips_reorg_process_insns (void)
   split_all_insns_noflow ();
 
   /* Recalculate instruction lengths without taking nops into account.  */
-  cfun->machine->ignore_hazard_length_p = true;
+  MACHINE_FUNCTION (*cfun)->ignore_hazard_length_p = true;
   shorten_branches (get_insns ());
 
-  cfun->machine->all_noreorder_p = true;
+  MACHINE_FUNCTION (*cfun)->all_noreorder_p = true;
 
   /* We don't track MIPS16 PC-relative offsets closely enough to make
      a good job of "set .noreorder" code in MIPS16 mode.  */
   if (TARGET_MIPS16)
-    cfun->machine->all_noreorder_p = false;
+    MACHINE_FUNCTION (*cfun)->all_noreorder_p = false;
 
   /* Code that doesn't use explicit relocs can't be ".set nomacro".  */
   if (!TARGET_EXPLICIT_RELOCS)
-    cfun->machine->all_noreorder_p = false;
+    MACHINE_FUNCTION (*cfun)->all_noreorder_p = false;
 
   /* Profiled functions can't be all noreorder because the profiler
      support uses assembler macros.  */
   if (crtl->profile)
-    cfun->machine->all_noreorder_p = false;
+    MACHINE_FUNCTION (*cfun)->all_noreorder_p = false;
 
   /* Code compiled with -mfix-vr4120 can't be all noreorder because
      we rely on the assembler to work around some errata.  */
   if (TARGET_FIX_VR4120)
-    cfun->machine->all_noreorder_p = false;
+    MACHINE_FUNCTION (*cfun)->all_noreorder_p = false;
 
   /* The same is true for -mfix-vr4130 if we might generate MFLO or
      MFHI instructions.  Note that we avoid using MFLO and MFHI if
      the VR4130 MACC and DMACC instructions are available instead;
      see the *mfhilo_{si,di}_macc patterns.  */
   if (TARGET_FIX_VR4130 && !ISA_HAS_MACCHI)
-    cfun->machine->all_noreorder_p = false;
+    MACHINE_FUNCTION (*cfun)->all_noreorder_p = false;
 
   htab = htab_create (37, mips_lo_sum_offset_hash,
 		      mips_lo_sum_offset_eq, free);
@@ -14897,7 +14908,7 @@ mips_expand_ghost_gp_insns (void)
   /* Quick exit if we already know that we will or won't need a
      global pointer.  */
   if (!TARGET_USE_GOT
-      || cfun->machine->global_pointer == INVALID_REGNUM
+      || MACHINE_FUNCTION (*cfun)->global_pointer == INVALID_REGNUM
       || mips_must_initialize_gp_p ())
     return false;
 
@@ -14918,7 +14929,7 @@ mips_expand_ghost_gp_insns (void)
     return false;
 
   /* We've now established that we need $gp.  */
-  cfun->machine->must_initialize_gp_p = true;
+  MACHINE_FUNCTION (*cfun)->must_initialize_gp_p = true;
   split_all_insns_noflow ();
 
   return true;
@@ -15003,10 +15014,11 @@ mips_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
     {
       /* Pick a global pointer.  Use a call-clobbered register if
 	 TARGET_CALL_SAVED_GP.  */
-      cfun->machine->global_pointer
+      MACHINE_FUNCTION (*cfun)->global_pointer
 	= TARGET_CALL_SAVED_GP ? 15 : GLOBAL_POINTER_REGNUM;
-      cfun->machine->must_initialize_gp_p = true;
-      SET_REGNO (pic_offset_table_rtx, cfun->machine->global_pointer);
+      MACHINE_FUNCTION (*cfun)->must_initialize_gp_p = true;
+      SET_REGNO (pic_offset_table_rtx,
+		 MACHINE_FUNCTION (*cfun)->global_pointer);
 
       /* Set up the global pointer for n32 or n64 abicalls.  */
       mips_emit_loadgp ();
@@ -15956,7 +15968,7 @@ mips_eh_uses (unsigned int regno)
 	}
       else
 	{
-	  if (cfun->machine->global_pointer == regno)
+	  if (MACHINE_FUNCTION (*cfun)->global_pointer == regno)
 	    return true;
 	}
     }
@@ -15982,7 +15994,7 @@ mips_epilogue_uses (unsigned int regno)
 
   /* An interrupt handler must preserve some registers that are
      ordinarily call-clobbered.  */
-  if (cfun->machine->interrupt_handler_p
+  if (MACHINE_FUNCTION (*cfun)->interrupt_handler_p
       && mips_interrupt_extra_call_saved_reg_p (regno))
     return true;
 
@@ -16251,13 +16263,13 @@ void mips_function_profiler (FILE *file)
     {
       /* If TARGET_MCOUNT_RA_ADDRESS load $12 with the address of the
 	 ra save location.  */
-      if (cfun->machine->frame.ra_fp_offset == 0)
+      if (MACHINE_FUNCTION (*cfun)->frame.ra_fp_offset == 0)
 	/* ra not saved, pass zero.  */
 	fprintf (file, "\tmove\t%s,%s\n", reg_names[12], reg_names[0]);
       else
 	fprintf (file, "\t%s\t%s," HOST_WIDE_INT_PRINT_DEC "(%s)\n",
 		 Pmode == DImode ? "dla" : "la", reg_names[12],
-		 cfun->machine->frame.ra_fp_offset,
+		 MACHINE_FUNCTION (*cfun)->frame.ra_fp_offset,
 		 reg_names[STACK_POINTER_REGNUM]);
     }
   if (!TARGET_NEWABI)

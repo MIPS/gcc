@@ -1,6 +1,6 @@
 /* Structure for saving state for a nested function.
    Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2003, 2004, 2005, 2006, 2007, 2008, 2009
+   1999, 2000, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -218,6 +218,7 @@ struct GTY(()) incoming_args {
 };
 
 #define INCOMING_ARGS_INFO(INCOMING_ARGS) ((INCOMING_ARGS).info._ca)
+#define MACHINE_FUNCTION(FUNCTION) ((FUNCTION).machine._mf)
 
 /* Data for function partitioning.  */
 struct GTY(()) function_subsections {
@@ -512,7 +513,7 @@ struct GTY(()) function {
   /* For md files.  */
 
   /* tm.h can use this to store whatever it likes.  */
-  struct machine_function * GTY ((maybe_undef)) machine;
+  machine_function_u GTY ((desc ("%0.target_arch"))) machine;
 
   /* Language-specific code can use this to store whatever it likes.  */
   struct language_function * language;
