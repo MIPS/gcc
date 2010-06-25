@@ -1,5 +1,13 @@
 2010-06-25  Richard Guenther  <rguenther@suse.de>
 
+	* config/alpha/alpha.c (alpha_stdarg_optimize_hook): Adjust
+	for MEM_REF.
+	* config/rs6000/rs6000.c (rs6000_check_sdmode): Likewise.
+	* config/sh/sh.c (sh_gimplify_va_arg_expr): Likewise.
+	* config/spu/spu.c (spu_gimplify_va_arg_expr): Likewise.
+
+2010-06-25  Richard Guenther  <rguenther@suse.de>
+
 	* gcc.dg/tree-ssa/loadpre6.c: Adjust for PR44656.
 
 2010-06-25  Richard Guenther  <rguenther@suse.de>
