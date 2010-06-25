@@ -1,5 +1,9 @@
 2010-06-25  Richard Guenther  <rguenther@suse.de>
 
+	* cfgexpand.c (expand_debug_expr): Revert change.
+
+2010-06-25  Richard Guenther  <rguenther@suse.de>
+
 	* tree-cfg.c (verify_address): New function, split out from ...
 	(verify_expr): ... here.  Use for verifying ADDR_EXPRs and
 	the address operand of MEM_REFs.  Reject INDIRECT_REFs.
