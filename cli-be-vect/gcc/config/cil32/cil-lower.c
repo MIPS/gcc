@@ -684,11 +684,29 @@ lower_cil_vector_and (cil_type_t type)
       default:
         gcc_unreachable ();
       }
-  else
-    {
-      fprintf (stderr, "In lower_cil_vector_and: %s\n", cil_type_names [type]);
-      internal_error ("AND operator not defined yet\n");
-    }
+  else  /* simd_type == GENERIC_SIMD */
+    switch (type)
+      {
+        /* 64-bit */
+      case CIL_V2SI: builtin = CIL32_GEN_VSI_AND; break;
+      case CIL_V4HI: builtin = CIL32_GEN_VHI_AND; break;
+      case CIL_V8QI: builtin = CIL32_GEN_VQI_AND; break;
+
+        /* 128-bit */
+      case CIL_V4SI: builtin = CIL32_GEN_VSI_AND; break;
+      case CIL_V8HI: builtin = CIL32_GEN_VHI_AND; break;
+      case CIL_V16QI: builtin = CIL32_GEN_VQI_AND; break;
+
+        /* 256-bit */
+      case CIL_V8SI: builtin = CIL32_GEN_VSI_AND; break;
+      case CIL_V16HI: builtin = CIL32_GEN_VHI_AND; break;
+      case CIL_V32QI: builtin = CIL32_GEN_VQI_AND; break;
+
+      default:
+        fprintf (stderr, "In lower_cil_vector_and: %s\n",
+                 cil_type_names [type]);
+        gcc_unreachable ();
+      }
 
   return cil_build_call (cil32_builtins[builtin]);
 }
@@ -729,10 +747,28 @@ lower_cil_vector_or (cil_type_t type)
         gcc_unreachable ();
       }
   else
-    {
-      fprintf (stderr, "In lower_cil_vector_or: %s\n", cil_type_names [type]);
-      internal_error ("OR operator not defined yet\n");
-    }
+    switch (type)
+      {
+        /* 64-bit */
+      case CIL_V2SI: builtin = CIL32_GEN_VSI_OR; break;
+      case CIL_V4HI: builtin = CIL32_GEN_VHI_OR; break;
+      case CIL_V8QI: builtin = CIL32_GEN_VQI_OR; break;
+
+        /* 128-bit */
+      case CIL_V4SI: builtin = CIL32_GEN_VSI_OR; break;
+      case CIL_V8HI: builtin = CIL32_GEN_VHI_OR; break;
+      case CIL_V16QI: builtin = CIL32_GEN_VQI_OR; break;
+
+        /* 256-bit */
+      case CIL_V8SI: builtin = CIL32_GEN_VSI_OR; break;
+      case CIL_V16HI: builtin = CIL32_GEN_VHI_OR; break;
+      case CIL_V32QI: builtin = CIL32_GEN_VQI_OR; break;
+
+      default:
+        fprintf (stderr, "In lower_cil_vector_or: %s\n",
+                 cil_type_names [type]);
+        gcc_unreachable ();
+      }
 
   return cil_build_call (cil32_builtins[builtin]);
 }
@@ -773,10 +809,28 @@ lower_cil_vector_xor (cil_type_t type)
         gcc_unreachable ();
       }
   else
-    {
-      fprintf (stderr, "In lower_cil_vector_xor: %s\n", cil_type_names [type]);
-      internal_error ("XOR operator not defined yet\n");
-    }
+    switch (type)
+      {
+        /* 64-bit */
+      case CIL_V2SI: builtin = CIL32_GEN_VSI_XOR; break;
+      case CIL_V4HI: builtin = CIL32_GEN_VHI_XOR; break;
+      case CIL_V8QI: builtin = CIL32_GEN_VQI_XOR; break;
+
+        /* 128-bit */
+      case CIL_V4SI: builtin = CIL32_GEN_VSI_XOR; break;
+      case CIL_V8HI: builtin = CIL32_GEN_VHI_XOR; break;
+      case CIL_V16QI: builtin = CIL32_GEN_VQI_XOR; break;
+
+        /* 256-bit */
+      case CIL_V8SI: builtin = CIL32_GEN_VSI_XOR; break;
+      case CIL_V16HI: builtin = CIL32_GEN_VHI_XOR; break;
+      case CIL_V32QI: builtin = CIL32_GEN_VQI_XOR; break;
+
+      default:
+        fprintf (stderr, "In lower_cil_vector_xor: %s\n",
+                 cil_type_names [type]);
+        gcc_unreachable ();
+      }
 
   return cil_build_call (cil32_builtins[builtin]);
 }
