@@ -1355,7 +1355,7 @@ xstormy16_expand_builtin_va_start (tree valist, rtx nextarg ATTRIBUTE_UNUSED)
 
   t = build2 (MODIFY_EXPR, TREE_TYPE (count), count,
 	      build_int_cst (NULL_TREE,
-			     crtl->args.info * UNITS_PER_WORD));
+			     INCOMING_ARGS_INFO (crtl->args) * UNITS_PER_WORD));
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 }

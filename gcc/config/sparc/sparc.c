@@ -5890,7 +5890,7 @@ sparc_function_value_regno_p (const unsigned int regno)
 static rtx
 sparc_builtin_saveregs (void)
 {
-  int first_reg = crtl->args.info.words;
+  int first_reg = INCOMING_ARGS_INFO (crtl->args).words;
   rtx address;
   int regno;
 

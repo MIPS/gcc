@@ -7085,9 +7085,9 @@ ix86_va_start (tree valist, rtx nextarg)
   sav = build3 (COMPONENT_REF, TREE_TYPE (f_sav), valist, f_sav, NULL_TREE);
 
   /* Count number of gp and fp argument registers used.  */
-  words = crtl->args.info.words;
-  n_gpr = crtl->args.info.regno;
-  n_fpr = crtl->args.info.sse_regno;
+  words = INCOMING_ARGS_INFO (crtl->args).words;
+  n_gpr = INCOMING_ARGS_INFO (crtl->args).regno;
+  n_fpr = INCOMING_ARGS_INFO (crtl->args).sse_regno;
 
   if (cfun->va_list_gpr_size)
     {

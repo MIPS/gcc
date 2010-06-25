@@ -7113,9 +7113,9 @@ s390_register_info (int clobbered_regs[])
     {
       /* Varargs functions need to save gprs 2 to 6.  */
       if (cfun->va_list_gpr_size
-	  && crtl->args.info.gprs < GP_ARG_NUM_REG)
+	  && INCOMING_ARGS_INFO (crtl->args).gprs < GP_ARG_NUM_REG)
 	{
-	  int min_gpr = crtl->args.info.gprs;
+	  int min_gpr = INCOMING_ARGS_INFO (crtl->args).gprs;
 	  int max_gpr = min_gpr + cfun->va_list_gpr_size;
 	  if (max_gpr > GP_ARG_NUM_REG)
 	    max_gpr = GP_ARG_NUM_REG;
@@ -7137,9 +7137,9 @@ s390_register_info (int clobbered_regs[])
 
       /* Mark f0, f2 for 31 bit and f0-f4 for 64 bit to be saved.  */
       if (TARGET_HARD_FLOAT && cfun->va_list_fpr_size
-	  && crtl->args.info.fprs < FP_ARG_NUM_REG)
+	  && INCOMING_ARGS_INFO (crtl->args).fprs < FP_ARG_NUM_REG)
 	{
-	  int min_fpr = crtl->args.info.fprs;
+	  int min_fpr = INCOMING_ARGS_INFO (crtl->args).fprs;
 	  int max_fpr = min_fpr + cfun->va_list_fpr_size;
 	  if (max_fpr > FP_ARG_NUM_REG)
 	    max_fpr = FP_ARG_NUM_REG;
@@ -8604,7 +8604,7 @@ s390_build_builtin_va_list (void)
    The following global variables are used to initialize
    the va_list structure:
 
-     crtl->args.info:
+     INCOMING_ARGS_INFO (crtl->args):
        holds number of gprs and fprs used for named arguments.
      crtl->args.arg_offset_rtx:
        holds the offset of the first anonymous stack argument
@@ -8631,8 +8631,8 @@ s390_va_start (tree valist, rtx nextarg ATTRIBUTE_UNUSED)
 
   /* Count number of gp and fp argument registers used.  */
 
-  n_gpr = crtl->args.info.gprs;
-  n_fpr = crtl->args.info.fprs;
+  n_gpr = INCOMING_ARGS_INFO (crtl->args).gprs;
+  n_fpr = INCOMING_ARGS_INFO (crtl->args).fprs;
 
   if (cfun->va_list_gpr_size)
     {

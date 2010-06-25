@@ -1583,7 +1583,7 @@ expand_prologue (void)
     }
 
   /* Save arg registers to the stack if necessary.  */
-  else if (crtl->args.info.anonymous_args)
+  else if (INCOMING_ARGS_INFO (crtl->args).anonymous_args)
     {
       if (TARGET_PROLOG_FUNCTION && TARGET_V850E && !TARGET_DISABLE_CALLT)
 	emit_insn (gen_save_r6_r9_v850e ());

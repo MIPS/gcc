@@ -5472,7 +5472,7 @@ mips_va_start (tree valist, rtx nextarg)
       int fpr_save_area_size;
       int fpr_offset;
 
-      cum = &crtl->args.info;
+      cum = &INCOMING_ARGS_INFO (crtl->args);
       gpr_save_area_size
 	= (MAX_ARGS_IN_REGISTERS - cum->num_gprs) * UNITS_PER_WORD;
       fpr_save_area_size
@@ -6015,7 +6015,8 @@ mips16_build_function_stub (void)
   fprintf (asm_out_file, "\t# Stub function for %s (",
 	   current_function_name ());
   separator = "";
-  for (f = (unsigned int) crtl->args.info.fp_code; f != 0; f >>= 2)
+  for (f = (unsigned int) INCOMING_ARGS_INFO (crtl->args).fp_code;
+       f != 0; f >>= 2)
     {
       fprintf (asm_out_file, "%s%s", separator,
 	       (f & 3) == 1 ? "float" : "double");
@@ -6051,7 +6052,7 @@ mips16_build_function_stub (void)
   output_asm_insn ("la\t%^,%0", &symbol);
 
   /* Move the arguments from floating-point registers to general registers.  */
-  mips_output_args_xfer (crtl->args.info.fp_code, 'f');
+  mips_output_args_xfer (INCOMING_ARGS_INFO (crtl->args).fp_code, 'f');
 
   /* Jump to the MIPS16 function.  */
   output_asm_insn ("jr\t%^", NULL);
@@ -9814,7 +9815,7 @@ mips_output_function_prologue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
      floating-point arguments.  */
   if (TARGET_MIPS16
       && TARGET_HARD_FLOAT_ABI
-      && crtl->args.info.fp_code != 0)
+      && INCOMING_ARGS_INFO (crtl->args).fp_code != 0)
     mips16_build_function_stub ();
 
   /* Get the function name the same way that toplev.c does before calling

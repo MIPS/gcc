@@ -4100,7 +4100,7 @@ spu_build_builtin_va_list (void)
    The following global variables are used to initialize
    the va_list structure:
 
-     crtl->args.info;
+     INCOMING_ARGS_INFO (crtl->args);
        the CUMULATIVE_ARGS for this function
 
      crtl->args.arg_offset_rtx:

@@ -185,9 +185,9 @@ static struct alpha_rtx_cost_data const alpha_rtx_cost_size =
 
 /* Get the number of args of a function in one of two ways.  */
 #if TARGET_ABI_OPEN_VMS || TARGET_ABI_UNICOSMK
-#define NUM_ARGS crtl->args.info.num_args
+#define NUM_ARGS INCOMING_ARGS_INFO (crtl->args).num_args
 #else
-#define NUM_ARGS crtl->args.info
+#define NUM_ARGS INCOMING_ARGS_INFO (crtl->args)
 #endif
 
 #define REG_PV 27

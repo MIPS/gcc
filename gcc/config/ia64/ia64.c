@@ -3152,7 +3152,8 @@ ia64_expand_prologue (void)
   /* We don't need an alloc instruction if we've used no outputs or locals.  */
   if (current_frame_info.n_local_regs == 0
       && current_frame_info.n_output_regs == 0
-      && current_frame_info.n_input_regs <= crtl->args.info.int_regs
+      && (current_frame_info.n_input_regs
+	  <= INCOMING_ARGS_INFO (crtl->args).int_regs)
       && !TEST_HARD_REG_BIT (current_frame_info.mask, AR_PFS_REGNUM))
     {
       /* If there is no alloc, but there are input registers used, then we

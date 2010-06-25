@@ -1,3 +1,41 @@
+2010-06-24  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	PR other/44566
+	* function.h (target-gtypes.h): Include.
+	(struct function): New member target_arch.
+	* Makefile.in (TARGET_NUM): New Makefile variable.
+	(cs-tm.h): Add TARGET_NUM to DEFINES.
+	(GTFILES): Add target-gtypes.h.
+
+	* function.h (struct incoming_args): Use type cumulative_args_u for
+	member info.
+	(INCOMING_ARGS_INFO): Define.
+	* Makefile.in (target-gtypes.h, s-target-gtypes): New rules.
+
+	* function.c (assign_parms): Use INCOMING_ARGS_INFO.
+
+	* config/alpha/alpha.c (entire file): Replace crtl->args.info with
+        INCOMING_ARGS_INFO (crtl->args).
+	* config/xtensa/xtensa.c: Likewise.
+	* config/sh/sh.md: Likewise.
+	* config/sh/sh.c: Likewise.
+	* config/arc/arc.c: Likewise.
+	* config/mmix/mmix.c: Likewise.
+	* config/m68hc11/m68hc11.c: Likewise.
+	* config/sparc/sparc.c: Likewise.
+	* config/ia64/ia64.c: Likewise.
+	* config/avr/avr.c: Likewise.
+	* config/stormy16/stormy16.c: Likewise.
+	* config/iq2000/iq2000.c: Likewise.
+	* config/frv/frv.c: Likewise.
+	* config/mips/mips.c: Likewise.
+	* config/spu/spu.c: Likewise.
+	* config/v850/v850.c: Likewise.
+	* config/s390/s390.c: Likewise.
+	* config/rs6000/rs6000.c: Likewise.
+	* config/arm/arm.c: Likewise.
+	* config/i386/i386.c: Likewise.
+
 2010-06-23  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	PR bootstrap/44637

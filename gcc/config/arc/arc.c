@@ -2277,8 +2277,8 @@ static void
 arc_va_start (tree valist, rtx nextarg)
 {
   /* See arc_setup_incoming_varargs for reasons for this oddity.  */
-  if (crtl->args.info < 8
-      && (crtl->args.info & 1))
+  if (INCOMING_ARGS_INFO (crtl->args) < 8
+      && (INCOMING_ARGS_INFO (crtl->args) & 1))
     nextarg = plus_constant (nextarg, UNITS_PER_WORD);
 
   std_expand_builtin_va_start (valist, nextarg);

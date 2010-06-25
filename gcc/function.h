@@ -27,6 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "vecprim.h"
 #include "tm.h"		/* For CUMULATIVE_ARGS.  */
 #include "hard-reg-set.h"
+#include "target-gtypes.h"
 
 /* Stack of pending (incomplete) sequences saved by `start_sequence'.
    Each element describes one pending sequence.
@@ -210,11 +211,13 @@ struct GTY(()) incoming_args {
 
   /* Quantities of various kinds of registers
      used for the current function's args.  */
-  CUMULATIVE_ARGS info;
+  cumulative_args_u GTY ((desc ("cfun ? cfun->target_arch : -1"))) info;
 
   /* The arg pointer hard register, or the pseudo into which it was copied.  */
   rtx internal_arg_pointer;
 };
+
+#define INCOMING_ARGS_INFO(INCOMING_ARGS) ((INCOMING_ARGS).info._ca)
 
 /* Data for function partitioning.  */
 struct GTY(()) function_subsections {
@@ -607,6 +610,9 @@ struct GTY(()) function {
      adjusts one of its arguments and forwards to another
      function.  */
   unsigned int is_thunk : 1;
+
+  /* Target architecture to compile this function for.  */
+  unsigned int target_arch : 8;
 };
 
 /* If va_list_[gf]pr_size is set to this, it means we don't know how

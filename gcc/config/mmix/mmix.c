@@ -831,9 +831,9 @@ mmix_reorg (void)
      wasteful to optimize for unused parameter registers.  As of
      2002-04-30, df_regs_ever_live_p (n) seems to be set for only-reads too, but
      that might change.  */
-  if (!TARGET_ABI_GNU && regno < crtl->args.info.regs - 1)
+  if (!TARGET_ABI_GNU && regno < INCOMING_ARGS_INFO (crtl->args).regs - 1)
     {
-      regno = crtl->args.info.regs - 1;
+      regno = INCOMING_ARGS_INFO (crtl->args).regs - 1;
 
       /* We don't want to let this cause us to go over the limit and make
 	 incoming parameter registers be misnumbered and treating the last

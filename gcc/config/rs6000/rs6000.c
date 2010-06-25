@@ -8681,10 +8681,10 @@ rs6000_va_start (tree valist, rtx nextarg)
 		f_sav, NULL_TREE);
 
   /* Count number of gp and fp argument registers used.  */
-  words = crtl->args.info.words;
-  n_gpr = MIN (crtl->args.info.sysv_gregno - GP_ARG_MIN_REG,
+  words = INCOMING_ARGS_INFO (crtl->args).words;
+  n_gpr = MIN (INCOMING_ARGS_INFO (crtl->args).sysv_gregno - GP_ARG_MIN_REG,
 	       GP_ARG_NUM_REG);
-  n_fpr = MIN (crtl->args.info.fregno - FP_ARG_MIN_REG,
+  n_fpr = MIN (INCOMING_ARGS_INFO (crtl->args).fregno - FP_ARG_MIN_REG,
 	       FP_ARG_NUM_REG);
 
   if (TARGET_DEBUG_ARG)
@@ -17362,7 +17362,8 @@ compute_vrsave_mask (void)
      them in again.  More importantly, the mask we compute here is
      used to generate CLOBBERs in the set_vrsave insn, and we do not
      wish the argument registers to die.  */
-  for (i = crtl->args.info.vregno - 1; i >= ALTIVEC_ARG_MIN_REG; --i)
+  for (i = INCOMING_ARGS_INFO (crtl->args).vregno - 1;
+       i >= ALTIVEC_ARG_MIN_REG; --i)
     mask &= ~ALTIVEC_REG_BIT (i);
 
   /* Similarly, remove the return value from the set.  */

@@ -976,6 +976,10 @@ struct gcc_target
     bool (*return_in_memory) (const_tree type, const_tree fndecl);
     bool (*return_in_msb) (const_tree type);
 
+    /* ??? FIXME: we shouldn't use CUMULATIVE_ARGS in the target hook
+       interface, here, because this is a target dependent type.
+       We should use union cumulative_args_u instead.  */
+
     /* Return true if a parameter must be passed by reference.  TYPE may
        be null if this is a libcall.  CA may be null if this query is
        from __builtin_va_arg.  */
