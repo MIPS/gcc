@@ -141,6 +141,37 @@ create_cli_fn_table (void)
   cli_functions[78] = add_cli_function ("genvec_support_VDI_ALoad_Mono_Simd_Vector2l_Mono_Simd_Vector2l", unsigned_type_node);
   cli_functions[79] = add_cli_function ("genvec_support_VSF_ALoad_Mono_Simd_Vector4f__Mono_Simd_Vector4f", unsigned_type_node);
   cli_functions[80] = add_cli_function ("genvec_support_VDF_ALoad_Mono_Simd_Vector2f__Mono_Simd_Vector2f", unsigned_type_node);
+
+
+/* REPLACE WITH ACTUAL NAMES.  */ 
+  cli_functions[81] = add_cli_function ("genvec_support_int2float_signed", unsigned_type_node);
+  cli_functions[82] = add_cli_function ("genvec_support_int2float_unsigned", unsigned_type_node);
+  cli_functions[83] = add_cli_function ("genvec_support_float2int_signed", unsigned_type_node);
+  cli_functions[84] = add_cli_function ("genvec_support_float2int_unsigned", unsigned_type_node);
+
+  cli_functions[85] = add_cli_function ("genvec_support_interleave_high_vqi", unsigned_type_node);
+  cli_functions[86] = add_cli_function ("genvec_support_interleave_high_vhi", unsigned_type_node);
+  cli_functions[87] = add_cli_function ("genvec_support_interleave_high_vsi", unsigned_type_node);
+
+  cli_functions[88] = add_cli_function ("genvec_support_interleave_low_vqi", unsigned_type_node);
+  cli_functions[89] = add_cli_function ("genvec_support_interleave_low_vhi", unsigned_type_node);
+  cli_functions[90] = add_cli_function ("genvec_support_interleave_low_vsi", unsigned_type_node);
+
+  cli_functions[91] = add_cli_function ("genvec_support_extract_even_vqi", unsigned_type_node);
+  cli_functions[92] = add_cli_function ("genvec_support_extract_even_vhi", unsigned_type_node);
+  cli_functions[93] = add_cli_function ("genvec_support_extract_even_vsi", unsigned_type_node);
+
+  cli_functions[94] = add_cli_function ("genvec_support_extract_odd_vqi", unsigned_type_node);
+  cli_functions[95] = add_cli_function ("genvec_support_extract_odd_vhi", unsigned_type_node);
+  cli_functions[96] = add_cli_function ("genvec_support_extract_odd_vsi", unsigned_type_node);
+
+  cli_functions[97] = add_cli_function ("genvec_support_pack_vqi", unsigned_type_node);
+  cli_functions[98] = add_cli_function ("genvec_support_pack_vhi", unsigned_type_node);
+
+  cli_functions[99] = add_cli_function ("genvec_support_widen_mult_hi_vhi", unsigned_type_node);
+  cli_functions[100] = add_cli_function ("genvec_support_widen_mult_hi_vsi", unsigned_type_node);
+  cli_functions[101] = add_cli_function ("genvec_support_widen_mult_lo_vhi", unsigned_type_node);
+  cli_functions[102] = add_cli_function ("genvec_support_widen_mult_lo_vsi", unsigned_type_node);
 }
 
 #define MAX_CLI_FN 81
@@ -170,7 +201,7 @@ get_vectype (tree scalar_type)
 }
 
 static void
-finish_replacement (tree new_rhs, gimple stmt)
+finish_replacement (tree new_rhs, gimple stmt, gimple new_call_stmt)
 {
   gimple_stmt_iterator gsi;
   gimple use_stmt;
@@ -178,7 +209,12 @@ finish_replacement (tree new_rhs, gimple stmt)
   use_operand_p use_p;
   tree lhs = gimple_call_lhs (stmt);
   tree new_lhs = duplicate_ssa_name (lhs, NULL);
-  gimple new_stmt = gimple_build_assign (new_lhs, new_rhs);
+  gimple new_stmt;
+
+  if (new_call_stmt)
+    new_stmt = new_call_stmt;
+  else
+    new_stmt = gimple_build_assign (new_lhs, new_rhs);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -187,7 +223,11 @@ finish_replacement (tree new_rhs, gimple stmt)
       fprintf (dump_file, "\n");
     }
 
-  gimple_assign_set_lhs (new_stmt, new_lhs);
+  if (new_call_stmt)
+    gimple_call_set_lhs (new_stmt, new_lhs);
+  else
+    gimple_assign_set_lhs (new_stmt, new_lhs);
+
   gsi = gsi_for_stmt (stmt);
   gsi_insert_before (&gsi, new_stmt, GSI_NEW_STMT);
   gsi = gsi_for_stmt (stmt);
@@ -222,7 +262,7 @@ replace_init_builtin (gimple stmt)
     new_rhs = build_vector (vectype, t);
   else
     new_rhs = build_constructor_from_list (vectype, t);
-  finish_replacement (new_rhs, stmt);
+  finish_replacement (new_rhs, stmt, NULL);
   return true;
 }
 
@@ -267,7 +307,7 @@ replace_get_vec_size_builtin (int index, gimple stmt)
     return false;
 
   new_rhs = fold_convert (unsigned_type_node, TYPE_SIZE_UNIT (vectype));
-  finish_replacement (new_rhs, stmt);
+  finish_replacement (new_rhs, stmt, NULL);
   return true;
 }
 
@@ -320,7 +360,7 @@ replace_aligned_load_builtin (int index, gimple stmt)
   gsi_next (&gsi);
   gsi_remove (&gsi, true);
 
-  finish_replacement (new_rhs, stmt);
+  finish_replacement (new_rhs, stmt, NULL);
 
 
   return true;
@@ -365,7 +405,7 @@ replace_stride_builtin (int index, gimple stmt)
   if (!vectype)
     return false;
   new_rhs = build_int_cst (unsigned_type_node, TYPE_VECTOR_SUBPARTS (vectype));
-  finish_replacement (new_rhs, stmt);
+  finish_replacement (new_rhs, stmt, NULL);
   return true;
 }
 
@@ -408,7 +448,7 @@ replace_align_builtin (int index, gimple stmt)
   if (!vectype)
     return false;
   new_rhs = build_int_cst (unsigned_type_node, TYPE_ALIGN (vectype)/BITS_PER_UNIT);
-  finish_replacement (new_rhs, stmt);
+  finish_replacement (new_rhs, stmt, NULL);
   return true;
 }
 
@@ -432,7 +472,7 @@ replace_uniform_builtin (gimple stmt)
     new_rhs = build_vector (vectype, t);
   else
     new_rhs = build_constructor_from_list (vectype, t);
-  finish_replacement (new_rhs, stmt);
+  finish_replacement (new_rhs, stmt, NULL);
   return true;
 }
 
@@ -471,7 +511,7 @@ replace_affine_builtin (gimple stmt)
     }
 
   new_rhs = build_constructor_from_list (vectype, nreverse (t));
-  finish_replacement (new_rhs, stmt);
+  finish_replacement (new_rhs, stmt, NULL);
   return true;
 }
 
@@ -611,7 +651,7 @@ replace_reduc_epilog_builtin (int index, gimple stmt)
            v_out2 = reduc_expr <v_out1>  */
 
       new_rhs = build1 (reduc_code, vectype, arg);
-      finish_replacement (new_rhs, stmt);
+      finish_replacement (new_rhs, stmt, NULL);
       return true;
     }
 
@@ -651,7 +691,7 @@ replace_reduc_epilog_builtin (int index, gimple stmt)
           gsi_insert_before (&gsi, epilog_stmt, GSI_SAME_STMT);
         }
 
-      finish_replacement (new_temp, stmt);
+      finish_replacement (new_temp, stmt, NULL);
       return true;
     }
 
@@ -696,7 +736,7 @@ replace_reduc_epilog_builtin (int index, gimple stmt)
       gsi_insert_before (&gsi, epilog_stmt, GSI_SAME_STMT);
     }
 
-  finish_replacement (new_temp, stmt);
+  finish_replacement (new_temp, stmt, NULL);
   /* REMOVE EXTRACT SCALAR... ???? */
   return true;
 }
@@ -754,7 +794,7 @@ replace_realign_load_builtin (int index, gimple stmt)
       realignment_token = gimple_call_arg (stmt, 2);
       new_rhs = build3 (REALIGN_LOAD_EXPR, vectype, msq, lsq,
                         realignment_token);
-      finish_replacement (new_rhs, stmt);
+      finish_replacement (new_rhs, stmt, NULL);
       return true;
     }
    
@@ -774,7 +814,7 @@ replace_realign_load_builtin (int index, gimple stmt)
       tmis = size_binop (MULT_EXPR, tmis, size_int(BITS_PER_UNIT));
       dataref_ptr = gimple_call_arg (stmt, 3);
       new_rhs = build2 (MISALIGNED_INDIRECT_REF, vectype, dataref_ptr, tmis);
-      finish_replacement (new_rhs, stmt);
+      finish_replacement (new_rhs, stmt, NULL);
       return true;
     }
 
@@ -787,7 +827,7 @@ replace_get_loop_niters_builtin (gimple stmt)
   tree new_rhs;
 
   new_rhs = gimple_call_arg (stmt, 0);
-  finish_replacement (new_rhs, stmt);
+  finish_replacement (new_rhs, stmt, NULL);
   return true;
 }
 
@@ -799,7 +839,7 @@ replace_dot_product_builtin (gimple stmt)
 
   new_rhs = build3 (DOT_PROD_EXPR, vectype, gimple_call_arg (stmt, 0),
                     gimple_call_arg (stmt, 1), gimple_call_arg (stmt, 2));
-  finish_replacement (new_rhs, stmt);
+  finish_replacement (new_rhs, stmt, NULL);
   return true;
 }
 
@@ -844,7 +884,7 @@ replace_realign_offset_builtin (int index, gimple stmt)
 
   new_rhs = build_int_cst (TREE_TYPE (gimple_call_lhs (stmt)), 
                            TYPE_VECTOR_SUBPARTS (vectype) - 1);
-  finish_replacement (new_rhs, stmt);
+  finish_replacement (new_rhs, stmt, NULL);
   return true;
 }
 
@@ -859,6 +899,226 @@ replace_mask_for_load_builtin (gimple stmt)
   gsi = gsi_for_stmt (stmt);
   gsi_remove (&gsi, true);
 
+  return true;
+}
+
+static bool
+replace_int_float_cvt (int index, gimple stmt)
+{
+  enum tree_code code;
+  tree integral_type, builtin_decl;
+  gimple new_stmt;
+ 
+  switch (index)
+    {
+      case int2float_signed:
+        code = FLOAT_EXPR;
+        integral_type = intSI_type_node;
+        break; 
+
+      case int2float_unsigned:
+        code = FLOAT_EXPR;
+        integral_type = unsigned_intSI_type_node;
+        break;
+
+      case float2int_signed:
+        code = FIX_TRUNC_EXPR;
+        integral_type = intSI_type_node;
+        break;
+
+      case float2int_unsigned:
+        code = FIX_TRUNC_EXPR;
+        integral_type = unsigned_intSI_type_node;
+        break;
+
+      default:
+        return false;
+    }
+
+  if (!targetm.vectorize.builtin_conversion
+      || !(builtin_decl = targetm.vectorize.builtin_conversion 
+                                              (code, integral_type)))
+    return false; 
+   
+  new_stmt = gimple_build_call (builtin_decl, 1, gimple_call_arg (stmt, 0));
+  finish_replacement (NULL, stmt, new_stmt);
+  return true;
+}
+
+static bool
+replace_interleaving (int index, gimple stmt)
+{
+  optab optab;
+  int mode;
+  enum tree_code code;
+  tree scalar_type, vectype, new_rhs;
+
+  switch (index)
+    {
+      case interleave_high_vqi:
+	code = VEC_INTERLEAVE_HIGH_EXPR;
+        scalar_type = intQI_type_node;
+        break;
+
+      case interleave_high_vhi:
+	code = VEC_INTERLEAVE_HIGH_EXPR;
+        scalar_type = intHI_type_node;
+        break;
+
+      case interleave_high_vsi:
+	code = VEC_INTERLEAVE_HIGH_EXPR;
+        scalar_type = intSI_type_node;
+        break;
+
+      case interleave_low_vqi:
+	code = VEC_INTERLEAVE_LOW_EXPR;
+        scalar_type = intQI_type_node;
+        break;
+
+      case interleave_low_vhi:
+	code = VEC_INTERLEAVE_LOW_EXPR;
+        scalar_type = intHI_type_node;
+        break;
+
+      case interleave_low_vsi:
+	code = VEC_INTERLEAVE_LOW_EXPR;
+        scalar_type = intSI_type_node;
+        break;
+
+      case extract_even_vqi:
+	code = VEC_EXTRACT_EVEN_EXPR;
+        scalar_type = intQI_type_node;
+        break;
+
+      case extract_even_vhi:
+	code = VEC_EXTRACT_EVEN_EXPR;
+        scalar_type = intHI_type_node;
+        break;
+
+      case extract_even_vsi:
+	code = VEC_EXTRACT_EVEN_EXPR;
+        scalar_type = intSI_type_node;
+        break;
+
+      case extract_odd_vqi:
+	code = VEC_EXTRACT_ODD_EXPR;
+        scalar_type = intQI_type_node;
+        break;
+
+      case extract_odd_vhi:
+	code = VEC_EXTRACT_ODD_EXPR;
+        scalar_type = intHI_type_node;
+        break;
+
+      case extract_odd_vsi:
+	code = VEC_EXTRACT_ODD_EXPR;
+        scalar_type = intSI_type_node;
+        break;
+
+      default:
+        return false;
+    }
+
+  vectype = get_vectype (scalar_type);
+  if (!vectype)
+    return false;
+
+  mode = (int) TYPE_MODE (vectype);
+
+  optab = optab_for_tree_code (code, vectype, optab_default);
+  if (!optab || optab_handler (optab, mode)->insn_code == CODE_FOR_nothing)
+    return false;
+
+  new_rhs = build2 (code, vectype, gimple_call_arg (stmt, 0), 
+                                   gimple_call_arg (stmt, 1));
+  finish_replacement (new_rhs, stmt, NULL);
+  return true;
+}
+
+static bool
+replace_pack (int index, gimple stmt)
+{
+  enum tree_code code = VEC_PACK_TRUNC_EXPR;
+  tree scalar_type, vectype, new_rhs;
+  optab optab;
+  int mode;
+ 
+  switch (index)
+    {
+      case pack_vqi:
+        scalar_type = intQI_type_node;
+        break;
+
+      case pack_vhi:
+        scalar_type = intHI_type_node;
+        break;
+      default:
+        return false;
+    }
+
+  vectype = get_vectype (scalar_type);
+  if (!vectype)
+    return false;
+
+  mode = (int) TYPE_MODE (vectype);
+
+  optab = optab_for_tree_code (code, vectype, optab_default);
+  if (!optab || optab_handler (optab, mode)->insn_code == CODE_FOR_nothing)
+    return false;
+
+  new_rhs = build2 (code, vectype, gimple_call_arg (stmt, 0),
+                                   gimple_call_arg (stmt, 1));
+  finish_replacement (new_rhs, stmt, NULL);
+  return true;
+}
+
+static bool
+replace_widen_mult (int index, gimple stmt)
+{
+  enum tree_code code;
+  tree scalar_type, vectype, new_rhs;
+  optab optab;
+  int mode;
+
+  switch (index)
+    {
+      case widen_mult_hi_vhi:
+        code = VEC_WIDEN_MULT_HI_EXPR;
+        scalar_type = intSI_type_node;
+        break;
+
+      case widen_mult_hi_vsi:
+        code = VEC_WIDEN_MULT_HI_EXPR;
+        scalar_type = intHI_type_node;
+        break;
+
+      case widen_mult_lo_vhi:
+        code = VEC_WIDEN_MULT_LO_EXPR;
+        scalar_type = intHI_type_node;
+        break;
+
+      case widen_mult_lo_vsi:
+        code = VEC_WIDEN_MULT_HI_EXPR;
+        scalar_type = intSI_type_node;
+        break;
+
+      default:
+        return false;
+    }
+
+  vectype = get_vectype (scalar_type);
+  if (!vectype)
+    return false;
+
+  mode = (int) TYPE_MODE (vectype);
+
+  optab = optab_for_tree_code (code, vectype, optab_default);
+  if (!optab || optab_handler (optab, mode)->insn_code == CODE_FOR_nothing)
+    return false;
+
+  new_rhs = build2 (code, vectype, gimple_call_arg (stmt, 0),
+                                   gimple_call_arg (stmt, 1));
+  finish_replacement (new_rhs, stmt, NULL);
   return true;
 }
 
@@ -974,6 +1234,35 @@ replace_cli_fn (int index, gimple stmt)
       case aligned_load_vdf:
         return replace_aligned_load_builtin (index, stmt);
 
+      case int2float_signed:
+      case int2float_unsigned:
+      case float2int_signed:
+      case float2int_unsigned:
+        return replace_int_float_cvt (index, stmt);
+
+      case interleave_high_vqi:
+      case interleave_high_vhi:
+      case interleave_high_vsi:
+      case interleave_low_vqi:
+      case interleave_low_vhi:
+      case interleave_low_vsi:
+      case extract_even_vqi:
+      case extract_even_vhi:
+      case extract_even_vsi:
+      case extract_odd_vqi:
+      case extract_odd_vhi:
+      case extract_odd_vsi:
+	return replace_interleaving (index, stmt);
+
+      case pack_vqi:
+      case pack_vhi:
+	return replace_pack (index, stmt);
+
+      case widen_mult_hi_vhi:
+      case widen_mult_hi_vsi:
+      case widen_mult_lo_vhi:
+      case widen_mult_lo_vsi:
+	return replace_widen_mult (index, stmt);
 
       default:
         if (dump_file && (dump_flags & TDF_DETAILS))
