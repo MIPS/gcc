@@ -675,17 +675,17 @@ Specifying just @var{target} instead of @option{--target=@var{target}}
 implies that the host defaults to @var{target}.
 
 @item
-Usually, the compiler is only built for a sigle target tarchitecture or
+Usually, the compiler is only built for a single target architecture or
 target architecture family, but you can specify that you want it to
 support additional targets with @option{--target=@var{list}}.  @var{list} is
 a space-separated list of targets.
-E.g. to build a cross compiler with the main target ppc-elf and the
+E.g., to build a cross compiler with the main target ppc-elf and the
 additional target spu-elf, specify
 @smallexample
 @option{--target=ppc-elf} @option{--with-extra-target-list=spu-elf}
 @end smallexample
 There is currently one limitation on combining different targets this way:
-all selected targets must agree in how they define @var{BITS_PER_UNIT}.
+all selected targets must agree in how they define @code{BITS_PER_UNIT}.
 @c tree sizes are based on BITS_PER_UNIT.
 @end itemize
 
