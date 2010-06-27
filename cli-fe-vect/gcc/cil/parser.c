@@ -992,7 +992,14 @@ get_treecode_for_mono_simd_function (const char * called_name)
     return INDIRECT_REF;
   }else if(strcmp(called_name,"Max") == 0){
     return MAX_EXPR;
-  }else{
+  }
+  else if (strcmp (called_name,"op_BitwiseAnd") == 0)
+    return BIT_AND_EXPR;
+  else if (strcmp (called_name,"op_BitwiseOr") == 0)
+    return BIT_IOR_EXPR;
+  else if (strcmp (called_name,"op_ExclusiveOr") == 0)
+    return BIT_XOR_EXPR;
+  else {
     error("unsupported Mono.Simd operation : %s\n",called_name);
     gcc_unreachable ();
     return LAST_AND_UNUSED_TREE_CODE;
