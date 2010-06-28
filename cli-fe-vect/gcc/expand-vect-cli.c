@@ -316,7 +316,6 @@ replace_aligned_load_builtin (int index, gimple stmt)
 {
   tree scalar_type, vectype, new_rhs;
   tree dataref_ptr;
-  gimple_stmt_iterator gsi;
 
   switch (index)
     {
@@ -354,15 +353,7 @@ replace_aligned_load_builtin (int index, gimple stmt)
 
   dataref_ptr = gimple_call_arg (stmt, 0);
   new_rhs = build1 (ALIGN_INDIRECT_REF, vectype, dataref_ptr);
-
-
-  gsi = gsi_for_stmt (stmt);
-  gsi_next (&gsi);
-  gsi_remove (&gsi, true);
-
   finish_replacement (new_rhs, stmt, NULL);
-
-
   return true;
 }
 
@@ -892,13 +883,27 @@ static bool
 replace_mask_for_load_builtin (gimple stmt)
 {
   gimple_stmt_iterator gsi;
+  gimple use_stmt;
+  imm_use_iterator imm_iter;
+  tree builtin_decl;
 
-  if (targetm.vectorize.builtin_mask_for_load)
-    return true;
+  if (targetm.vectorize.builtin_mask_for_load
+      && (builtin_decl = targetm.vectorize.builtin_mask_for_load()))
+    {
+      gimple new_stmt = gimple_build_call (builtin_decl, 1, 
+                                           gimple_call_arg (stmt, 0));
+      finish_replacement (NULL, stmt, new_stmt);
+      return true;
+    }
+
+  FOR_EACH_IMM_USE_STMT (use_stmt, imm_iter, gimple_call_lhs (stmt))
+    {
+      gsi = gsi_for_stmt (use_stmt);
+      gsi_remove (&gsi, true);
+    }
 
   gsi = gsi_for_stmt (stmt);
   gsi_remove (&gsi, true);
-
   return true;
 }
 
