@@ -1,3 +1,102 @@
+2010-06-27  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.c-torture/compile/pr44686.c: New file.
+
+2010-06-27  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/44683
+	* gcc.c-torture/execute/pr44683.c: New testcase.
+
+2010-06-27  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/noreturn3.ad[sb]: New test.
+
+2010-06-26  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/explicit5.C: New.
+
+2010-06-26  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/44393
+	* gcc.dg/pr44393.c: New testcase.
+
+2010-06-26  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.dg/tree-ssa/ipa-split-2.c: New testcase.
+
+2010-06-26  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/44674
+	* gcc.dg/pr44674.c: New testcase.
+
+2010-06-26  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/opts-3.c: New test.
+
+2010-06-26  Tobias Burnus  <burnus@net-b.de>
+
+	* gfortran.dg/type_decl_1.f90: New.
+	* gfortran.dg/type_decl_2.f90: New.
+
+2010-06-26  Tobias Burnus  <burnus@net-b.de>
+
+	* gfortran.dg/semicolon_fixed.f: Fix dg syntax..
+	* gfortran.dg/semicolon_fixed_2.f: Ditto.
+
+2010-06-25  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR testsuite/38946
+	* gfortran.dg/array_constructor_23.f: Update test to allow for small
+	error in comparing reals.
+
+2010-06-25  Tobias Burnus  <burnus@net-b.de>
+
+	* selected_real_kind_2.f90: New.
+	* selected_real_kind_3.f90: New.
+
+2010-06-25  Tobias Burnus  <burnus@net-b.de>
+
+	* gfortran.dg/entry_19.f90: New.
+
+2010-06-25  Tobias Burnus  <burnus@net-b.de>
+
+	* gfortran.dg/end_subroutine_1.f90: New.
+	* gfortran.dg/end_subroutine_2.f90: New.
+	* gfortran.dg/interface_proc_end.f90: Update.
+
+2010-06-25  Tobias Burnus  <burnus@net-b.de>
+
+	* gfortran.dg/semicolon_fixed.f: Update.
+	* gfortran.dg/semicolon_fixed_2.f: New.
+	* gfortran.dg/semicolon_free_2.f90: New.
+	* gfortran.dg/semicolon_free.f90: Update.
+
+2010-06-25  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/44448
+	* gfortran.dg/atan2_1.f90: Add -ffloat-store.
+
+2010-06-25  Martin Jambor  <mjambor@suse.cz>
+
+	* g++.dg/ipa/iinline-3.C: New test.
+	* gcc.dg/ipa/modif-1.c: Removed.
+
+2010-06-25  Jan Hubicka  <jh@suse.cz>
+
+	* testsuite/gcc.dg/tree-ssa/ipa-split-1.c
+
+2010-06-25  Martin Jambor  <mjambor@suse.cz>
+
+	* g++.dg/ipa/iinline-2.C: New test.
+
+2010-06-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/43866
+	* gfortran.dg/pr43866.f90: New test.
+
+	PR tree-optimization/44539
+	* gcc.dg/pr44539.c: New test.
+
 2010-06-25  Bernd Schmidt  <bernds@codesourcery.com>
 
 	From Jim Wilson:
@@ -31,7 +130,7 @@
 
 2010-06-24  Andi Kleen  <ak@linux.intel.com>
 
-        * c-c++-common/warn-omitted-condop.c: New.
+	* c-c++-common/warn-omitted-condop.c: New.
 
 2010-06-24  Tobias Burnus  <burnus@net-b.de>
 

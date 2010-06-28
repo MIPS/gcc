@@ -1,3 +1,372 @@
+2010-06-28  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* system.h: Poison GCC_EXCEPT_H for front-end files.
+
+	* langhooks.h (struct lang_hooks): Add eh_protect_cleanup_actions
+	langhook.
+	* langhooks-def.h (LANG_HOOKS_EH_PROTECT_CLEANUP_ACTIONS) New.
+	Define to NULL by default.
+	* except.h: Define GCC_EXCEPT_H.
+	(doing_eh): Remove prototype.
+	(init_eh, init_eh_for_function): Move prototypes to toplev.h.
+	(lang_protect_cleanup_actions): Remove.
+	* except.c (lang_protect_cleanup_actions): Remove.
+	(doing_eh): Remove.
+	(gen_eh_region): Don't check doing_eh here.
+	* toplev.h (init_eh, init_eh_for_function_): Moved from except.h.
+	* tree-eh.c (honor_protect_cleanup_actions): Use new langhook
+	instead of lang_protect_cleanup_actions.
+	* omp-low.c (maybe_catch_exception): Likewise.
+	* Makefile.in: Update dependencies.
+
+2010-06-28  Bingfeng Mei <bmei@broadcom.com>
+
+        * cgraph.h (struct varpool_node): new used_from_object_file flag.
+        (struct cgraph_local_info): new used_from_object_file flag.
+        * cgraph.c (dump_cgraph_node): dump used_from_object_file flag.
+        (cgraph_clone_node): initialize used_from_object_file.
+        (cgraph_create_virtual_clone): initialize used_from_object_file.
+        * lto-symbtab.c (lto_symtab_merge_decls_1): Set
+        used_from_object_file flags for symbols of LDPR_PREVAILING_DEF
+        when compiling with -fwhole-program.
+        (lto_symtab_resolve_symbols) Use LDPR_PREVAILING_DEF_IRONLY for
+	internal resolver.
+        * ipa.c (function_and_variable_visibility): Set externally_visible
+        flag of varpool_node if used_from_object_file flag is set.
+        (cgraph_externally_visible_p): check used_from_object_file flag.
+        * doc/invoke.texi (-fwhole-program option): Change description of
+        externally_visible attribute accordingly.
+        * doc/extend.texi (externally_visible): Ditto.
+
+2010-06-27  Jan Hubicka  <jh@suse.cz>
+
+	* params.def (max-inline-insns-auto): Default to 40.
+	* doc/invoke.texi (max-inline-insns-auto): Document the change.
+
+2010-06-27  Jan Hubicka  <jh@suse.cz>
+
+	PR middle-end/44671
+	PR middle-end/44686
+	* tree.c (build_function_decl_skip_args): Clear DECL_BUILT_IN on signature
+	change.
+	* ipa-split.c (split_function): Always clear DECL_BUILT_IN.
+	* ipa-prop.c (ipa_modify_formal_parameters): Likewise.
+
+2010-06-27  Anatoly Sokolov  <aesok@post.ru>
+
+	* target.h (struct gcc_target): Add register_move_cost field.
+	* target-def.h (TARGET_REGISTER_MOVE_COST): New.
+	(TARGET_INITIALIZER): Use TARGET_REGISTER_MOVE_COST.
+	* targhooks.c (default_register_move_cost): New function.
+	* targhooks.h (default_register_move_cost): Declare function.
+	* defaults.h (REGISTER_MOVE_COST): Delete.
+	* ira-int.h (ira_register_move_cost): Update comment.
+	* ira.c: (ira_register_move_cost): Update comment.
+	* reload.h (register_move_cost): Declare.
+	* reginfo.c (register_move_cost): New function.
+	(move_cost): Update comment.
+	(init_move_cost, memory_move_secondary_cost): Replace
+	REGISTER_MOVE_COST with register_move_cost.
+	* postreload.c (reload_cse_simplify_set): (Ditto.).
+	* reload.c (find_valid_class, find_reloads): (Ditto.).
+	* reload1.c (choose_reload_regs): (Ditto.).
+	* doc/tm.texi (TARGET_REGISTER_MOVE_COST): New.
+	(REGISTER_MOVE_COST, TARGET_MEMORY_MOVE_COST): Update documentation.
+	* doc/md.texi (can_create_pseudo_p): Update documentation.
+
+	* config/i386/i386.h (MEMORY_MOVE_COST): Remove macro.
+	* config/i386/i386-protos.h (int ix86_memory_move_cost): Remove.
+	* config/i386/i386.h (ix86_memory_move_cost): Make static.
+	(TARGET_MEMORY_MOVE_COST): Define.
+
+	* config/ia64/ia64.h (MEMORY_MOVE_COST): Remove macro.
+	* config/ia64/ia64-protos.h (int ia64_memory_move_cost): Remove.
+	* config/ia64/ia64.h (ia64_memory_move_cost): Make static.
+	(TARGET_MEMORY_MOVE_COST): Define.
+
+2010-06-27  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/44683
+	* tree-ssa-dom.c (record_edge_info): Record equivalences for the
+	false edge from the inverted condition.
+
+2010-06-27  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/44684
+	* tree-ssa-alias.c (refs_may_alias_p_1): Allow SSA name refs.
+	(stmt_may_clobber_ref_p_1): Do not bother to call the oracle
+	for register LHS.  Or non-store assignments.
+
+2010-06-26  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/sparc/sparc.c (sparc_emit_set_const32): Make static.
+	(sparc_emit_set_const64): Likewise.  Remove disabled code.
+	* config/sparc/sparc-protos.h (sparc_emit_set_const32): Delete.
+	(sparc_emit_set_const64): Likewise.
+
+2010-06-26  Catherine Moore  <clm@codesourcery.com>
+
+	* config/mips/mips.md (alu_type): New attribute.
+	(type): Infer type from alu_type.
+	(*add<mode>3, *add<mode>3_mips16, *addsi3_extended,
+	*baddu_si_eb, *baddu_si_el, *baddu_di, sub<mode>3,
+	*subsi3_extended, negsi2, negdi2, *low<mode>,
+	*low<mode>_mips16, *ior<mode>3, *ior<mode>3_mips16,
+	xor<mode>3, *nor<mode>3,
+	*zero_extend<GPR:mode>_trunc<SHORT:mode>,
+	*zero_extendhi_truncqi):  Set alu_type instead of type.
+
+2010-06-26  Douglas B Rupp  <rupp@gnat.com>
+
+	* config/alpha/alpha.c (alpha_need_linkage): Adjust
+	splay_tree_new_ggc call.
+	(alpha_use_linkage): Likewise.
+
+2010-06-26  Joseph Myers  <joseph@codesourcery.com>
+
+	* collect2.c (main): Remove SWITCHES_NEED_SPACES conditional.
+	* doc/tm.texi (SWITCHES_NEED_SPACES): Don't document.
+	* gcc.c (SWITCHES_NEED_SPACES, switches_need_spaces): Remove.
+	(static_specs): Remove switches_need_spaces.
+	(process_command, do_self_spec): Hardcode handling "-o" instead of
+	checking switches_need_spaces.
+	* system.h (SWITCHES_NEED_SPACES): Poison.
+
+2010-06-26  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/44393
+	* tree-loop-distribution.c (generate_loops_for_partition): Fix
+	stmt removal and VOP renaming.
+	(generate_memset_zero): Remove redundant stmt updating.
+	* tree-flow.h (mark_virtual_ops_in_bb): Remove.
+	* tree-cfg.c (mark_virtual_ops_in_bb): Likewise.
+
+2010-06-26  Jan Hubicka  <jh@suse.cz>
+
+	* ipa-split.c (consider_split): PHI in entry block is OK as long as all
+	edges comming from header are equivalent.
+	(visit_bb): Handle PHIs correctly.
+	* tree-inline.c (copy_phis_for_bb): Be able to copy
+	PHI from entry edge.
+	(copy_cfg_body): Produce edge from entry BB before copying
+	PHIs.
+
+2010-06-26  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/44674
+	* tree-ssa-alias.c (refs_may_alias_p_1): Allow all kind of
+	decls.  Handle LABEL_DECLs like FUNCTION_DECLs.
+
+2010-06-26  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.c (n_switches_alloc, n_infiles_alloc, alloc_infile,
+	add_infile, alloc_switch): New.
+	(process_command): Remove variable lang_n_infiles.  Process
+	options in a single pass.  Use new functions for allocating
+	infiles and switches arrays.  Properly skip operands of
+	-Xpreprocessor and -Xassembler.
+
+2010-06-26  Jan Hubicka  <jh@suse.cz>
+
+	PR middle-end/44671
+	* cgraphunit.c (cgraph_function_versioning): Remove wrong
+	cgraph_make_decl_local call; fix typo copying RTL data.
+
+2010-06-25  DJ Delorie  <dj@redhat.com>
+
+	* config/m32c/m32c-protos.h (m32c_note_pragma_address): Declare.
+	(m32c_output_aligned_common): Likewise.
+	* config/m32c/m32c.h (ASM_OUTPUT_ALIGNED_DECL_COMMON): New.
+	(ASM_OUTPUT_ALIGNED_DECL_LOCAL): New.
+	* config/m32c/m32c-pragma.c (m32c_pragma_address): New.
+	(m32c_register_pragmas): Register it.
+	* config/m32c/m32c.c (m32c_get_pragma_address): New.
+	(m32c_insert_attributes): Set #pragma address decls volatile.
+	(pragma_entry_eq): New.
+	(pragma_entry_hash): New.
+	(m32c_note_pragma_address): New.
+	(m32c_get_pragma_address): New.
+	(m32c_output_aligned_common): New.
+	* doc/extend.texi: Document the new pragma.
+
+	* config/m32c/m32c.c (m32c_illegal_subreg_p): Reject illegal MEMs
+	also.
+	* config/m32c/predicates.md (m32c_any_operand): Check the code
+	instead of memory_operand so as to allow matching volatile MEMs.
+	(m32c_nonimmediate_operand): Likewise.
+	(mra_operand): Allow volatiles.
+
+2010-06-25  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/44610
+	* simplify-rtx.c (delegitimize_mem_from_attrs): Don't use a base
+	address if the offset is unknown.
+
+2010-06-25  Douglas B Rupp  <rupp@gnat.com>
+
+	* dwarf2out.c (dwarf2out_vms_debug_main_pointer): New function.
+	* dwarf2out.h (dwarf2out_vms_debug_main_pointer): Declare new function.
+	* config/ia64/ia64-protos.h (ia64_start_function): Declare.
+	* config/ia64/sysv4.h (ASM_DECLARE_FUNCTION_NAME): Move contents
+	to ia64_start_function. Invoke it.
+	* config/ia64/ia64.c (ia64_start_function): Call new function
+	dwarf2out_vms_debug_main_pointer.
+
+2010-06-25  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* tree-if-conv.c (insert_gimplified_predicates): Do not insert
+	statements computing the true predicate.
+
+2010-06-25  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* tree-if-conv.c (init_bb_predicate): Initialize the predicate
+	to boolean_true_node.
+	(reset_bb_predicate): New.
+	(predicate_bbs): Call reset_bb_predicate.
+
+2010-06-25  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* tree-if-conv.c (combine_blocks): Remove FIXME comment.
+	(tree_if_conversion): Returns true when something has been changed.
+	(main_tree_if_conversion): Return TODO_cleanup_cfg when if-conversion
+	changed something.
+
+2010-06-25  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* Makefile.in (tree-if-conv.o): Depends on DBGCNT_H.
+	* dbgcnt.def (if_conversion_tree): New DEBUG_COUNTER.
+	* tree-if-conv.c: Include dbgcnt.h.
+	(tree_if_conversion): Use if_conversion_tree to count the number of
+	if-convertible loops.
+
+2010-06-25  Changpeng Fang  <changpeng.fang@amd.com>
+
+	* common.opt (fprefetch-loop-arrays): Re-define
+	-fprefetch-loop-arrays as a tri-state option with the initial
+	value of -1.
+	* tree-ssa-loop.c (gate_tree_ssa_loop_prefetch): Invoke prefetch
+	pass only when flag_prefetch_loop_arrays > 0.
+	* toplev.c (process_options): Note that, with tri-states,
+	flag_prefetch_loop_arrays>0 means prefetching is enabled.
+	* config/i386/i386.c (override_options): Enable prefetching at -O3
+	for a set of CPUs that sw prefetching is helpful.
+	(software_prefetching_beneficial_p): New.  Return TRUE if software
+	prefetching is beneficial for the given CPU.
+
+2010-06-25  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR rtl-optimization/44326
+	* implicit-zee.c (find_removable_zero_extends): Replace
+	INSN_P with NONDEBUG_INSN_P.
+
+2010-06-25  Martin Jambor  <mjambor@suse.cz>
+
+	* ipa-prop.h (struct ipa_param_descriptor): Removed the modified flag.
+	(struct ipa_node_params): Removed the modification_analysis_done flag.
+	(ipa_is_param_modified): Removed.
+	(ipa_analyze_node): Declare.
+	(ipa_compute_jump_functions): Remove declaration.
+	(ipa_count_arguments): Likewise.
+	(ipa_detect_param_modifications): Likewise.
+	(ipa_analyze_params_uses): Likewise.
+	* ipa-prop.c (struct param_analysis_info): New type.
+	(visit_store_addr_for_mod_analysis): Removed.
+	(visit_load_for_mod_analysis): Renamed to visit_ref_for_mod_analysis,
+	moved down in the file.
+	(ipa_detect_param_modifications): Merged into ipa_analyze_params_uses.
+	(ipa_count_arguments): Made static.
+	(mark_modified): New function.
+	(is_parm_modified_before_call): New function.
+	(compute_pass_through_member_ptrs): New parameter parms_info, call
+	is_parm_modified_before_call instead of ipa_is_param_modified.
+	(ipa_compute_jump_functions_for_edge): New parameter parms_info, pass
+	it to compute_pass_through_member_ptrs.
+	(ipa_compute_jump_functions): New parameter parms_info, pass it to
+	ipa_compute_jump_functions_for_edge.  Call ipa_initialize_node_params
+	on the callee if it is analyzed.  Made static.
+	(ipa_analyze_indirect_call_uses): New parameter parms_info, call
+	is_parm_modified_before_call instead of ipa_is_param_modified.
+	(ipa_analyze_call_uses): New parameter parms_info, pass it to
+	ipa_analyze_indirect_call_uses.
+	(ipa_analyze_stmt_uses): New parameter parms_info, pass it to
+	ipa_analyze_call_uses.
+	(ipa_analyze_params_uses): New parameter parms_info, pass it to
+	ipa_analyze_stmt_uses.  Also perform the used analysis.  Made static.
+	(ipa_analyze_node): New function.
+	(ipa_print_node_params): Do not dump the modified flag.
+	(ipa_write_node_info): Assert uses_analysis_done rather than streaming
+	it.  Do not stream the modified parameter flag.
+	(ipa_read_node_info): Set uses_analysis_done to 1 instead of streaming
+	it.  Do not stream the modified parameter flag.
+	* ipa-cp.c (ipcp_analyze_node): Removed.
+	(ipcp_init_stage): Iterate only once over the nodes, analyze each one
+	with only a call to ipa_analyze_node.
+	* ipa-inline.c (inline_indirect_intraprocedural_analysis): Analyze the
+	node with only a call to ipa_analyze_node.
+
+2010-06-25  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	* doc/invoke.texi (-Wsuggest-attribute): Add item for noreturn.
+
+2010-06-25  Jan Hubicka  <jh@suse.cz>
+
+	* tree-pass.h (pass_split_functions): Declare.
+	* opts.c (decode_options): Enable function splitting at -O2
+	* timevar.def (TV_IPA_FNSPLIT): New macro.
+	* ipa-split.c: New file.
+	* common.opt (-fpartial-inlining): New flag.
+	* Makefile.in (ipa-split.o): New object file.
+	* passes.c (init_optimization_passes): Add ipa-split.
+	* params.def (partial-inlining-entry-probability): New parameters.
+	* doc/invoke.texi (-fpartial-inlining): New.
+
+2010-06-25  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR 44665
+	* tree-inline.c (gimple_expand_calls_inline): Fix typo in comment.
+	* gimplify.c (is_gimple_reg_rhs_or_call): Likewise.
+	(gimplify_expr): Likewise.
+
+2010-06-25  Martin Jambor  <mjambor@suse.cz>
+
+	* ipa-prop.c (determine_cst_member_ptr): Ignore non-clobbering
+	statements instead of bailing out on them.
+	(ipa_analyze_indirect_call_uses): Do not require that loads from the
+	parameter are in the same BB as the condition.  Update comments.
+
+2010-06-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/43866
+	* tree-ssa-loop-unswitch.c (tree_may_unswitch_on): If stmt is always
+	true or always false, return NULL_TREE.
+	(tree_unswitch_single_loop): Optimize conditions even when reaching
+	max-unswitch-level parameter.  If num > 0, optimize first all conditions
+	using entry checks, then do still reachable block discovery and consider
+	only conditions in still reachable basic blocks in the loop.
+
+	PR tree-optimization/44539
+	* tree-cfgcleanup.c (fixup_noreturn_call): Call update_stmt even when
+	the call doesn't have LHS, but has VDEF.
+
+2010-06-25  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/pa/pa.h (MODIFY_TARGET_NAME): Remove.
+	* doc/tm.texi (MODIFY_TARGET_NAME): Don't document.
+	* gcc.c (enum add_del, struct modify_target, modify_target):
+	Remove.
+	(process_command): Remove code conditional on MODIFY_TARGET_NAME.
+	* system.h (MODIFY_TARGET_NAME): Poison.
+
+2010-06-25  Alan Modra  <amodra@gmail.com>
+
+	* doc/invoke.texi: Delete mcmodel=medium from powerpc options.
+	* config/rs6000/rs6000.h (enum rs6000_cmodel): Delete CMODEL_MEDIUM.
+	* config/rs6000/linux64.h (SUBSUBTARGET_OVERRIDE_OPTIONS): Set
+	CMODEL_LARGE as default.
+	* config/rs6000/rs6000.c (rs6000_handle_option): Remove mcmodel=medium.
+	(offsettable_ok_by_alignment): Delete.
+	(rs6000_emit_move): Remove mcmodel=medium optimization.
+
 2010-06-25  Bernd Schmidt  <bernds@codesourcery.com>
 
 	With large parts from Jim Wilson:

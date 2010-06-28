@@ -225,12 +225,11 @@ namespace __gnu_profile
     __trace_base<__object_info, __stack_info>::
     __collect_warnings(__warning_vector_t& __warnings)
     {
-      typename __stack_table_t::iterator __i = __stack_table.begin();
-      for (; __i != __stack_table.end(); ++__i)
-	__warnings.push_back(__warning_data((*__i).second.__magnitude(), 
-					    (*__i).first, 
-					    __id,
-					    (*__i).second.__advice()));
+      for (typename __stack_table_t::iterator __it
+	     = __stack_table.begin(); __it != __stack_table.end(); ++__it)
+	__warnings.push_back(__warning_data((*__it).second.__magnitude(),
+					    (*__it).first, __id,
+					    (*__it).second.__advice()));
     }
 
   template<typename __object_info, typename __stack_info>
@@ -462,8 +461,8 @@ namespace __gnu_profile
     std::fclose(__raw_file);
 
     // Sort data by magnitude, keeping just top N.
-    size_t __cutoff = std::min(_GLIBCXX_PROFILE_DATA(_S_max_warn_count),
-			       __warnings.size());
+    std::size_t __cutoff = std::min(_GLIBCXX_PROFILE_DATA(_S_max_warn_count),
+				    __warnings.size());
     __top_n(__warnings, __top_warnings, __cutoff);
 
     FILE* __warn_file = __open_output_file("txt");
@@ -564,10 +563,10 @@ namespace __gnu_profile
       if (!__env_value)
         {
           // Look it up in the config file.
-          __env_t::iterator it 
+          __env_t::iterator __it 
 	    = _GLIBCXX_PROFILE_DATA(__env).find(__factor->__env_var);
-          if (it != _GLIBCXX_PROFILE_DATA(__env).end())
-            __env_value = (*it).second.c_str();
+          if (__it != _GLIBCXX_PROFILE_DATA(__env).end())
+            __env_value = (*__it).second.c_str();
         }
 
       if (__env_value)
