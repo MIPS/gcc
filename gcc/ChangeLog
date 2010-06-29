@@ -1,3 +1,88 @@
+2010-06-28  Jan Hubicka  <jh@suse.cz>
+
+	PR middle-end/44671
+	* ipa-split.c (test_nonssa_use, mark_nonssa_use): Check also uses of RESULT_DECL.
+
+2010-06-28  Anatoly Sokolov  <aesok@post.ru>
+
+	* double-int.h (force_fit_type_double): Remove declaration.
+	* double-int.c (force_fit_type_double): Move to tree.c.
+	* tree.h (force_fit_type_double): Declare.
+	* tree.h (force_fit_type_double): Moved from double-int.c. Use
+	double_int type for 'cst' argument. Use double_int_fits_to_tree_p and
+	double_int_to_tree instead of fit_double_type and build_int_cst_wide.
+	* convert.c (convert_to_pointer): Adjust call to
+	force_fit_type_double.
+	* tree-vrp.c (extract_range_from_assert,
+	extract_range_from_unary_expr): Adjust call to force_fit_type_double.
+	* fold-const.c: Update comment.
+	(int_const_binop, fold_convert_const_int_from_int,
+	fold_convert_const_int_from_real, fold_convert_const_int_from_fixed,
+	extract_muldiv_1, fold_div_compare, fold_sign_changed_comparison,
+	fold_unary_loc, fold_negate_const, fold_abs_const, fold_not_const,
+	round_up_loc): Adjust call to force_fit_type_double.
+
+2010-06-28  Philipp Tomsich <philipp.tomsich@theobroma-systems.com>
+
+	* config/rs6000/rs6000.h (PROCESSOR_TITAN): Declare.
+
+2010-06-28  Martin Jambor  <mjambor@suse.cz>
+
+	* tree-sra.c (convert_callers): New parameter, change fndecls of
+	recursive calls.
+	(modify_function): Pass the old decl to convert_callers.
+
+2010-06-28  Martin Jambor  <mjambor@suse.cz>
+
+	* ipa-cp.c (ipcp_init_cloned_node): Replace calls to
+	ipa_check_create_node_params and ipa_initialize_node_params with
+	checking asserts they are not necessary.
+
+2010-06-28  Jan Hubicka  <jh@suse.cz>
+
+	PR tree-optimization/44687
+	* ipa-split.c (split_function): Use DECL_RESULT to store return value.
+
+2010-06-28  Martin Jambor  <mjambor@suse.cz>
+
+	PR c++/44535
+	* gimple-fold.c (get_first_base_binfo_with_virtuals): New function.
+	(gimple_get_relevant_ref_binfo): Use get_first_base_binfo_with_virtuals
+	instead of BINFO_BASE_BINFO.
+
+2010-06-28  Michael Matz  <matz@suse.de>
+
+	PR middle-end/44592
+	* gimple-fold.c (gimplify_and_update_call_from_tree): Maintain
+	proper VDEF chain for intermediate stores in the sequence.
+
+2010-06-28  Jan Hubicka  <jh@suse.cz>
+
+	PR tree-optimization/44357
+	* ipa-inline.c (add_new_edges_to_heap): Do not add edges to uninlinable
+	functions.
+
+2010-06-28  Philipp Tomsich <philipp.tomsich@theobroma-systems.com>
+
+	* config.gcc (powerpc*-*-*): Handle titan.
+	* config/rs6000/rs6000.c (titan_cost): New costs.
+	(rs6000_override_options): Add "titan" to processor_target_table.
+	Add Titan to branch alignment logic.
+	Correctly set rs6000_cost for titan.
+	* config/rs6000/rs6000.md (cpu): Add titan.  Include "titan.md".
+	* config/rs6000/titan.md: New file.
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Document -mcpu=titan.
+	
+2010-06-28  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* tree-browser.c (TB_history_stack): Convert to a VEC.
+	(TB_SET_HEAD): Adjust for new type of TB_history_stack.
+	(TB_history_prev): Likewise.
+
+2010-06-28  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* vec.h (vec_heap_free): Add parentheses around free.
+
 2010-06-28  Steven Bosscher  <steven@gcc.gnu.org>
 
 	* system.h: Poison GCC_EXCEPT_H for front-end files.

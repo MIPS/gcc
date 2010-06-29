@@ -138,6 +138,7 @@ test_nonssa_use (gimple stmt ATTRIBUTE_UNUSED, tree t,
   if (t && !is_gimple_reg (t)
       && ((TREE_CODE (t) == VAR_DECL
 	  && auto_var_in_fn_p (t, current_function_decl))
+	  || (TREE_CODE (t) == RESULT_DECL)
 	  || (TREE_CODE (t) == PARM_DECL)))
     return bitmap_bit_p ((bitmap)data, DECL_UID (t));
   return false;
@@ -441,7 +442,8 @@ mark_nonssa_use (gimple stmt ATTRIBUTE_UNUSED, tree t,
       return true;
     }
 
-  if (TREE_CODE (t) == VAR_DECL && auto_var_in_fn_p (t, current_function_decl))
+  if ((TREE_CODE (t) == VAR_DECL && auto_var_in_fn_p (t, current_function_decl))
+      || (TREE_CODE (t) == RESULT_DECL))
     bitmap_set_bit ((bitmap)data, DECL_UID (t));
   return false;
 }
@@ -928,9 +930,7 @@ split_function (struct split_point *split_point)
 	  gimple ret;
 	  if (!VOID_TYPE_P (TREE_TYPE (TREE_TYPE (current_function_decl))))
 	    {
-	      retval
-	        = create_tmp_var (TREE_TYPE (TREE_TYPE (current_function_decl)),
-				  "RET");
+	      retval = DECL_RESULT (current_function_decl);
 	      if (is_gimple_reg (retval))
 		retval = make_ssa_name (retval, call);
 	      gimple_call_set_lhs (call, retval);
