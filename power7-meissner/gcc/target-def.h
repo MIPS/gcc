@@ -474,6 +474,10 @@
 #define TARGET_ADDRESS_COST default_address_cost
 #define TARGET_CONST_ANCHOR 0
 
+#ifndef TARGET_REGISTER_MOVE_COST
+#define TARGET_REGISTER_MOVE_COST default_register_move_cost
+#endif
+
 #ifndef TARGET_MEMORY_MOVE_COST
 #define TARGET_MEMORY_MOVE_COST default_memory_move_cost
 #endif
@@ -708,6 +712,22 @@
 #define TARGET_CALLEE_COPIES hook_bool_CUMULATIVE_ARGS_mode_tree_bool_false
 #define TARGET_ARG_PARTIAL_BYTES hook_int_CUMULATIVE_ARGS_mode_tree_bool_0
 
+#ifndef TARGET_FUNCTION_ARG_ADVANCE
+#define TARGET_FUNCTION_ARG_ADVANCE default_function_arg_advance
+#endif
+
+#ifndef TARGET_FUNCTION_ARG
+#define TARGET_FUNCTION_ARG default_function_arg
+#endif
+
+#ifndef TARGET_FUNCTION_INCOMING_ARG
+#ifndef FUNCTION_INCOMING_ARG
+#define TARGET_FUNCTION_INCOMING_ARG TARGET_FUNCTION_ARG
+#else
+#define TARGET_FUNCTION_INCOMING_ARG default_function_incoming_arg
+#endif
+#endif
+
 #define TARGET_FUNCTION_VALUE default_function_value
 #define TARGET_LIBCALL_VALUE default_libcall_value
 #define TARGET_FUNCTION_VALUE_REGNO_P default_function_value_regno_p
@@ -718,6 +738,7 @@
 #define TARGET_STATIC_CHAIN default_static_chain
 #define TARGET_TRAMPOLINE_INIT default_trampoline_init
 #define TARGET_TRAMPOLINE_ADJUST_ADDRESS NULL
+#define TARGET_RETURN_POPS_ARGS default_return_pops_args
 
 #define TARGET_CALLS {						\
    TARGET_PROMOTE_FUNCTION_MODE,				\
@@ -734,6 +755,9 @@
    TARGET_MUST_PASS_IN_STACK,					\
    TARGET_CALLEE_COPIES,					\
    TARGET_ARG_PARTIAL_BYTES,					\
+   TARGET_FUNCTION_ARG_ADVANCE,					\
+   TARGET_FUNCTION_ARG,						\
+   TARGET_FUNCTION_INCOMING_ARG,				\
    TARGET_INVALID_ARG_FOR_UNPROTOTYPED_FN,			\
    TARGET_FUNCTION_VALUE,					\
    TARGET_LIBCALL_VALUE,					\
@@ -744,7 +768,8 @@
    TARGET_ALLOCATE_STACK_SLOTS_FOR_ARGS,			\
    TARGET_STATIC_CHAIN,						\
    TARGET_TRAMPOLINE_INIT,					\
-   TARGET_TRAMPOLINE_ADJUST_ADDRESS				\
+   TARGET_TRAMPOLINE_ADJUST_ADDRESS,				\
+   TARGET_RETURN_POPS_ARGS					\
    }
 
 #ifndef TARGET_UNWIND_TABLES_DEFAULT
@@ -946,6 +971,10 @@
 #define TARGET_OPTION_PRAGMA_PARSE default_target_option_pragma_parse
 #endif
 
+#ifndef TARGET_OPTION_OVERRIDE
+#define TARGET_OPTION_OVERRIDE default_target_option_override
+#endif
+
 #ifndef TARGET_CAN_INLINE_P
 #define TARGET_CAN_INLINE_P default_target_can_inline_p
 #endif
@@ -957,6 +986,7 @@
     TARGET_OPTION_RESTORE,			\
     TARGET_OPTION_PRINT,			\
     TARGET_OPTION_PRAGMA_PARSE,			\
+    TARGET_OPTION_OVERRIDE,			\
     TARGET_CAN_INLINE_P,			\
   }
 
@@ -1027,6 +1057,7 @@
   TARGET_ADDR_SPACE_HOOKS,			\
   TARGET_SCALAR_MODE_SUPPORTED_P,		\
   TARGET_VECTOR_MODE_SUPPORTED_P,               \
+  TARGET_REGISTER_MOVE_COST,			\
   TARGET_MEMORY_MOVE_COST, 			\
   TARGET_SMALL_REGISTER_CLASSES_FOR_MODE_P,	\
   TARGET_RTX_COSTS,				\

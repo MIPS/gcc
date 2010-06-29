@@ -1,3 +1,8 @@
+2010-06-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 161543.
+	* REVISION: Update subversion id.
+
 2010-06-25  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000-protos.h
@@ -7,7 +12,7 @@
 
 	* config/rs6000/rs6000.c (rs6000_override_options): Default
 	-mfcfid for power*.
-	(+rs6000_expand_convert_si_to_sfdf): New function to expand SImode
+	(rs6000_expand_convert_si_to_sfdf): New function to expand SImode
 	to SF/DFmode.
 
 	* config/rs6000/rs6000.md (VSr2): Use "ws", not "!f#r".

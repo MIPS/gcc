@@ -812,6 +812,11 @@ struct gcc_target
      for further details.  */
   bool (* vector_mode_supported_p) (enum machine_mode mode);
 
+  /* Compute cost of moving data from a register of class FROM to one of
+     TO, using MODE.  */
+  int (* register_move_cost) (enum machine_mode, enum reg_class,
+			      enum reg_class);
+
   /* Compute cost of moving registers to/from memory.  */
   int (* memory_move_cost) (enum machine_mode, enum reg_class, bool);
 
@@ -1015,6 +1020,26 @@ struct gcc_target
     int (* arg_partial_bytes) (CUMULATIVE_ARGS *ca, enum machine_mode mode,
 			       tree type, bool named);
 
+    /* Update the state in CA to advance past an argument in the
+       argument list.  The values MODE, TYPE, and NAMED describe that
+       argument.  */
+    void (*function_arg_advance) (CUMULATIVE_ARGS *ca,
+				  enum machine_mode mode, const_tree type,
+				  bool named);
+
+    /* Return zero if the argument described by the state of CA should
+       be placed on a stack, or a hard register in which to store the
+       argument.  The values MODE, TYPE, and NAMED describe that
+       argument.  */
+    rtx (*function_arg) (const CUMULATIVE_ARGS *ca,
+			 enum machine_mode mode, const_tree type, bool named);
+
+    /* Likewise, but for machines with register windows.  Return the
+       location where the argument will appear to the callee.  */
+    rtx (*function_incoming_arg) (const CUMULATIVE_ARGS *ca,
+				  enum machine_mode mode,
+				  const_tree type, bool named);
+
     /* Return the diagnostic message string if function without a prototype
        is not allowed for this 'val' argument; NULL otherwise. */
     const char *(*invalid_arg_for_unprototyped_fn) (const_tree typelist,
@@ -1059,6 +1084,11 @@ struct gcc_target
 
     /* Adjust the address of the trampoline in a target-specific way.  */
     rtx (*trampoline_adjust_address) (rtx addr);
+
+    /* Return the number of bytes of its own arguments that a function
+       pops on returning, or 0 if the function pops no arguments and the
+       caller must therefore pop them all after the function returns.  */
+    int (*return_pops_args) (tree fundecl, tree funtype, int size);
   } calls;
 
   /* Return the diagnostic message string if conversion from FROMTYPE
@@ -1233,6 +1263,9 @@ struct gcc_target
        NULL, the second argument specifies the default options to use.  Return
        true if the options are valid, and set the current state.  */
     bool (*pragma_parse) (tree, tree);
+
+     /* Do option overrides for the target.  */
+     void (*override) (void);
 
     /* Function to determine if one function can inline another function.  */
     bool (*can_inline_p) (tree, tree);
