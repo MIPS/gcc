@@ -1,3 +1,19 @@
+2010-06-25  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/44610
+	* simplify-rtx.c (delegitimize_mem_from_attrs): Don't use a base
+	address if the offset is unknown.
+
+2010-06-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/44492
+	* recog.h (struct recog_data): Add is_asm field.
+	* recog.c (asm_operand_ok, constrain_operands): If neither < nor > is
+	present in constraints of inline-asm operand and memory operand
+	contains {PRE,POST}_{INC,DEC,MODIFY}, return 0.
+	(extract_insn): Initialize recog_data.is_asm.
+	* doc/md.texi (Constraints): Document operand side-effect rules.
+
 2010-06-29  Jakub Jelinek  <jakub@redhat.com>
 
 	PR debug/44668
