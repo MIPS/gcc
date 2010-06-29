@@ -115,6 +115,10 @@ mpopcntd
 Target Report Mask(POPCNTD)
 Use PowerPC V2.06 popcntd instruction
 
+mfcfid
+Target Report Mask(FCFID_32BIT)
+Generate the fcfid instruction even in 32-bit code
+
 mvsx
 Target Report Mask(VSX)
 Use vector/scalar (VSX) instructions

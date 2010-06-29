@@ -125,6 +125,7 @@ extern void rs6000_output_symbol_ref (FILE*, rtx);
 extern HOST_WIDE_INT rs6000_initial_elimination_offset (int, int);
 extern void rs6000_emit_popcount (rtx, rtx);
 extern void rs6000_emit_parity (rtx, rtx);
+extern void rs6000_expand_convert_si_to_sfdf (rtx, rtx, bool);
 
 extern rtx rs6000_machopic_legitimize_pic_address (rtx, enum machine_mode,
 						   rtx);

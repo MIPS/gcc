@@ -1,3 +1,62 @@
+2010-06-25  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-protos.h
+	(rs6000_expand_convert_si_to_sfdf): Add declaration.
+
+	* config/rs6000/rs6000.opt (-mfcfid): New switch.
+
+	* config/rs6000/rs6000.c (rs6000_override_options): Default
+	-mfcfid for power*.
+	(+rs6000_expand_convert_si_to_sfdf): New function to expand SImode
+	to SF/DFmode.
+
+	* config/rs6000/rs6000.md (VSr2): Use "ws", not "!f#r".
+	(VSr3): Use "ws", not "!d#r".
+	(vsx_float<VSi><mode>2): Limit expander to just vectors.
+	(vsx_floatuns<VSi><mode>2): Ditto.
+	(vsx_floatdidf2): Use nonimmediate_operand for source to suppress
+	value being loaded into a GPR and then spilled to the stack.
+	(vsx_floatunsdidf2): Ditto.
+
+	* config/rs6000/rs6000.h (TARGET_FCFID): New target macro for
+	instruction support based on switches.
+	(TARGET_LFIWAX): Ditto.
+	(TARGET_LFIWZX): Ditto.
+	(TARGET_FCFIDS): Ditto.
+	(TARGET_FCFIDU): Ditto.
+	(TARGET_FCFIDUS): Ditto.
+
+	* config/rs6000/rs6000.md (UNSPEC_LFIWAX): New unspec number.
+	(UNSPEC_LFIWZX): Ditto.
+	(SFDF): New iterator.
+	(rreg2): New mode attribute.
+	(SIGN_SI_CVT_FP): Ditto.
+	(UNS_SI_CVT_FP): Ditto.
+	(rsqrt<mode>2): Use RS6000_RECIP_HAVE_RSQRTE_P.
+	(lfiwax): New insn for SImode -> SFmode/DFmode converts.
+	(floatsi<mode>2_lfiwax): Ditto.
+	(lfiwzx): Ditto.
+	(floatunssi<mode>2_lfiwzx): Ditto.
+	(floatsidf2): Add support for the lfiwax/lfiwzx instructions, and
+	-mfcfid.
+	(floatsidf2_internal): Ditto.
+	(floatunssidf2): Ditto.
+	(floatunssidf2_internal): Ditto.
+	(stfiwx): Be compatible with other fp insns, and test for
+	TARGET_HARD_FLOAT, TARGET_FPRS, etc.
+	(floatdidf2): Add support for -mfcfid.  Change from
+	gpc_reg_operand to nonimmediate_operand to prevent stuff being
+	loaded into a GPR and then spilled to the stack to move to FPR.
+	(floatunsdidf2): Add support for fcfidu.
+	(floatunsdidf2_fdfidu): Ditto.
+	(fix_truncdfdi2_fpr): Change constraint from "!d#r" to "d".
+	(floatdisf2): Add support for fcfids.
+	(floatdisf2_fcfids): Ditto.
+	(floatdisf2_internal1): Ditto.
+	(floatunsdisf2): Add support for fcfidus.
+
+	* doc/invoke.texi (-mfcfid): Document.
+
 2010-06-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to subversion id 161215.

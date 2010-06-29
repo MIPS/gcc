@@ -2421,7 +2421,7 @@ rs6000_override_options (const char *default_cpu)
 	  | MASK_ISEL},
  	 {"a2", PROCESSOR_PPCA2,
  	  POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_POWERPC64 | MASK_POPCNTB
- 	  | MASK_CMPB | MASK_NO_UPDATE },
+ 	  | MASK_CMPB | MASK_NO_UPDATE | MASK_FCFID_32BIT },
 	 {"e300c2", PROCESSOR_PPCE300C2, POWERPC_BASE_MASK | MASK_SOFT_FLOAT},
 	 {"e300c3", PROCESSOR_PPCE300C3, POWERPC_BASE_MASK},
 	 {"e500mc", PROCESSOR_PPCE500MC, POWERPC_BASE_MASK | MASK_PPC_GFXOPT
@@ -2446,25 +2446,25 @@ rs6000_override_options (const char *default_cpu)
 	  POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_POWERPC64},
 	 {"power4", PROCESSOR_POWER4,
 	  POWERPC_BASE_MASK | MASK_POWERPC64 | MASK_PPC_GPOPT | MASK_PPC_GFXOPT
-	  | MASK_MFCRF},
+	  | MASK_MFCRF | MASK_FCFID_32BIT},
 	 {"power5", PROCESSOR_POWER5,
 	  POWERPC_BASE_MASK | MASK_POWERPC64 | MASK_PPC_GPOPT | MASK_PPC_GFXOPT
-	  | MASK_MFCRF | MASK_POPCNTB},
+	  | MASK_MFCRF | MASK_POPCNTB | MASK_FCFID_32BIT},
 	 {"power5+", PROCESSOR_POWER5,
 	  POWERPC_BASE_MASK | MASK_POWERPC64 | MASK_PPC_GPOPT | MASK_PPC_GFXOPT
-	  | MASK_MFCRF | MASK_POPCNTB | MASK_FPRND},
+	  | MASK_MFCRF | MASK_POPCNTB | MASK_FPRND | MASK_FCFID_32BIT},
  	 {"power6", PROCESSOR_POWER6,
 	  POWERPC_BASE_MASK | MASK_POWERPC64 | MASK_PPC_GPOPT | MASK_PPC_GFXOPT
 	  | MASK_MFCRF | MASK_POPCNTB | MASK_FPRND | MASK_CMPB | MASK_DFP
-	  | MASK_RECIP_PRECISION},
+	  | MASK_RECIP_PRECISION | MASK_FCFID_32BIT},
 	 {"power6x", PROCESSOR_POWER6,
 	  POWERPC_BASE_MASK | MASK_POWERPC64 | MASK_PPC_GPOPT | MASK_PPC_GFXOPT
 	  | MASK_MFCRF | MASK_POPCNTB | MASK_FPRND | MASK_CMPB | MASK_DFP
-	  | MASK_MFPGPR | MASK_RECIP_PRECISION},
-	 {"power7", PROCESSOR_POWER7,
+	  | MASK_MFPGPR | MASK_RECIP_PRECISION | MASK_FCFID_32BIT},
+	 {"power7", PROCESSOR_POWER7,	/* Don't add MASK_ISEL by default */
 	  POWERPC_7400_MASK | MASK_POWERPC64 | MASK_PPC_GPOPT | MASK_MFCRF
 	  | MASK_POPCNTB | MASK_FPRND | MASK_CMPB | MASK_DFP | MASK_POPCNTD
-	  | MASK_VSX| MASK_RECIP_PRECISION},	/* Don't add MASK_ISEL by default */
+	  | MASK_VSX | MASK_RECIP_PRECISION | MASK_FCFID_32BIT},
 	 {"powerpc", PROCESSOR_POWERPC, POWERPC_BASE_MASK},
 	 {"powerpc64", PROCESSOR_POWERPC64,
 	  POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_POWERPC64},
@@ -2493,12 +2493,13 @@ rs6000_override_options (const char *default_cpu)
 		     | MASK_MFCRF | MASK_POPCNTB | MASK_FPRND | MASK_MULHW
 		     | MASK_DLMZB | MASK_CMPB | MASK_MFPGPR | MASK_DFP
 		     | MASK_POPCNTD | MASK_VSX | MASK_ISEL | MASK_NO_UPDATE
-		     | MASK_RECIP_PRECISION)
+		     | MASK_RECIP_PRECISION | MASK_FCFID_32BIT)
   };
 
   /* Masks for instructions set at various powerpc ISAs.  */
   enum {
-    ISA_2_1_MASKS = MASK_MFCRF,
+    ISA_2_1_MASKS = (POWERPC_BASE_MASK | MASK_POWERPC64 | MASK_PPC_GPOPT |
+		     MASK_PPC_GFXOPT | MASK_MFCRF | MASK_FCFID_32BIT),
     ISA_2_2_MASKS = (ISA_2_1_MASKS | MASK_POPCNTB | MASK_FPRND),
 
     /* For ISA 2.05, do not add MFPGPR, since it isn't in ISA 2.06, and
@@ -2509,7 +2510,7 @@ rs6000_override_options (const char *default_cpu)
     /* For ISA 2.06, don't add ISEL, since in general it isn't a win, but
        altivec is a win so enable it.  */
     ISA_2_6_MASKS = (ISA_2_5_MASKS | MASK_ALTIVEC | MASK_POPCNTD
-		     | MASK_VSX | MASK_RECIP_PRECISION)
+		     | MASK_VSX)
   };
 
   /* Numerous experiment shows that IRA based loop pressure
@@ -26400,6 +26401,76 @@ rs6000_final_prescan_insn (rtx insn, rtx *operand ATTRIBUTE_UNUSED,
 	warning_at (location, OPT_mwarn_cell_microcode,
 		    "emitting conditional microcode insn %s\t[%s] #%d",
 		    temp, insn_data[INSN_CODE (insn)].name, INSN_UID (insn));
+    }
+}
+
+
+/* Expand 32-bit int -> floating point conversions.  Return true if
+   successful.  */
+
+void
+rs6000_expand_convert_si_to_sfdf (rtx dest, rtx src, bool unsigned_p)
+{
+  enum machine_mode dmode = GET_MODE (dest);
+  rtx (*func_si) (rtx, rtx, rtx);
+  rtx (*func_di) (rtx, rtx);
+  rtx reg, stack;
+
+  gcc_assert (GET_MODE (src) == SImode);
+
+  if (dmode == SFmode)
+    {
+      if (unsigned_p)
+	{
+	  gcc_assert (TARGET_FCFIDUS && TARGET_LFIWZX);
+	  func_si = gen_floatunssisf2_lfiwzx;
+	  func_di = gen_floatunsdisf2;
+	}
+      else
+	{
+	  gcc_assert (TARGET_FCFIDS && TARGET_LFIWAX);
+	  func_si = gen_floatsisf2_lfiwax;
+	  func_di = gen_floatdisf2;
+	}
+    }
+
+  else if (dmode == DFmode)
+    {
+      if (unsigned_p)
+	{
+	  gcc_assert (TARGET_FCFIDU && TARGET_LFIWZX);
+	  func_si = gen_floatunssidf2_lfiwzx;
+	  func_di = gen_floatunsdidf2;
+	}
+      else
+	{
+	  gcc_assert (TARGET_FCFID && TARGET_LFIWAX);
+	  func_si = gen_floatsidf2_lfiwax;
+	  func_di = gen_floatdidf2;
+	}
+    }
+
+  else
+    gcc_unreachable ();
+
+  if (MEM_P (src))
+    {
+      reg = gen_reg_rtx (DImode);
+      emit_insn (func_si (dest, src, reg));
+    }
+  else if (!TARGET_MFPGPR || !TARGET_POWERPC64)
+    {
+      reg = gen_reg_rtx (DImode);
+      stack = assign_stack_temp (SImode, GET_MODE_SIZE (SImode), 0);
+      emit_move_insn (stack, src);
+      emit_insn (func_si (dest, stack, reg));
+    }
+  else
+    {
+      if (!REG_P (src))
+	src = force_reg (SImode, src);
+      src = convert_to_mode (DImode, src, unsigned_p);
+      emit_insn (func_di (dest, src));
     }
 }
 
