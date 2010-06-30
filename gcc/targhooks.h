@@ -101,6 +101,12 @@ extern int hook_int_CUMULATIVE_ARGS_mode_tree_bool_0
   (CUMULATIVE_ARGS *, enum machine_mode, tree, bool);
 extern const char *hook_invalid_arg_for_unprototyped_fn
   (const_tree, const_tree, const_tree);
+extern void default_function_arg_advance
+  (CUMULATIVE_ARGS *, enum machine_mode, const_tree, bool);
+extern rtx default_function_arg
+  (const CUMULATIVE_ARGS *, enum machine_mode, const_tree, bool);
+extern rtx default_function_incoming_arg
+  (const CUMULATIVE_ARGS *, enum machine_mode, const_tree, bool);
 extern bool hook_bool_const_rtx_commutative_p (const_rtx, int);
 extern rtx default_function_value (const_tree, const_tree, bool);
 extern rtx default_libcall_value (enum machine_mode, const_rtx);
@@ -108,6 +114,7 @@ extern bool default_function_value_regno_p (const unsigned int);
 extern rtx default_internal_arg_pointer (void);
 extern rtx default_static_chain (const_tree, bool);
 extern void default_trampoline_init (rtx, tree, rtx);
+extern int default_return_pops_args (tree, tree, int);
 extern enum reg_class default_branch_target_register_class (void);
 #ifdef IRA_COVER_CLASSES
 extern const enum reg_class *default_ira_cover_classes (void);
@@ -115,6 +122,7 @@ extern const enum reg_class *default_ira_cover_classes (void);
 extern enum reg_class default_secondary_reload (bool, rtx, enum reg_class,
 						enum machine_mode,
 						secondary_reload_info *);
+extern void default_target_option_override (void);
 extern void hook_void_bitmap (bitmap);
 extern bool default_handle_c_option (size_t, const char *, int);
 extern int default_reloc_rw_mask (void);

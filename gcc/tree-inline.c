@@ -1726,7 +1726,7 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
 		  /* We have missing edge in the callgraph.  This can happen
 		     when previous inlining turned an indirect call into a
 		     direct call by constant propagating arguments or we are
-		     producing dead clone (for further clonning).  In all
+		     producing dead clone (for further cloning).  In all
 		     other cases we hit a bug (incorrect node sharing is the
 		     most common reason for missing edges).  */
 		  gcc_assert (dest->needed || !dest->analyzed
@@ -1989,7 +1989,7 @@ copy_phis_for_bb (basic_block bb, copy_body_data *id)
 	      tree block = id->block;
 	      edge_iterator ei2;
 
-	      /* When doing partial clonning, we allow PHIs on the entry block
+	      /* When doing partial cloning, we allow PHIs on the entry block
 		 as long as all the arguments are the same.  Find any input
 		 edge to see argument to copy.  */
 	      if (!old_edge)
@@ -2056,7 +2056,7 @@ initialize_cfun (tree new_fndecl, tree callee_fndecl, gcov_type count)
   gcc_assert (cfun->cfg == NULL);
   gcc_assert (cfun->decl == new_fndecl);
 
-  /* Copy items we preserve during clonning.  */
+  /* Copy items we preserve during cloning.  */
   cfun->static_chain_decl = src_cfun->static_chain_decl;
   cfun->nonlocal_goto_save_area = src_cfun->nonlocal_goto_save_area;
   cfun->function_end_locus = src_cfun->function_end_locus;
@@ -2173,6 +2173,8 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency_scale,
   bool need_debug_cleanup = false;
   gcov_type count_scale;
   int last;
+  int incoming_frequency = 0;
+  gcov_type incoming_count = 0;
 
   if (ENTRY_BLOCK_PTR_FOR_FUNCTION (src_cfun)->count)
     count_scale = (REG_BR_PROB_BASE * count
@@ -2182,6 +2184,28 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency_scale,
 
   /* Register specific tree functions.  */
   gimple_register_cfg_hooks ();
+
+  /* If we are inlining just region of the function, make sure to connect new entry
+     to ENTRY_BLOCK_PTR.  Since new entry can be part of loop, we must compute
+     frequency and probability of ENTRY_BLOCK_PTR based on the frequencies and
+     probabilities of edges incoming from nonduplicated region.  */
+  if (new_entry)
+    {
+      edge e;
+      edge_iterator ei;
+
+      FOR_EACH_EDGE (e, ei, new_entry->preds)
+	if (!e->src->aux)
+	  {
+	    incoming_frequency += EDGE_FREQUENCY (e);
+	    incoming_count += e->count;
+	  }
+      incoming_count = incoming_count * count_scale / REG_BR_PROB_BASE;
+      incoming_frequency
+	= incoming_frequency * frequency_scale / REG_BR_PROB_BASE;
+      ENTRY_BLOCK_PTR->count = incoming_count;
+      ENTRY_BLOCK_PTR->frequency = incoming_frequency;
+    }
 
   /* Must have a CFG here at this point.  */
   gcc_assert (ENTRY_BLOCK_PTR_FOR_FUNCTION
@@ -2218,10 +2242,9 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency_scale,
 
   if (new_entry)
     {
-      edge e;
-      e = make_edge (entry_block_map, (basic_block)new_entry->aux, EDGE_FALLTHRU);
+      edge e = make_edge (entry_block_map, (basic_block)new_entry->aux, EDGE_FALLTHRU);
       e->probability = REG_BR_PROB_BASE;
-      e->count = entry_block_map->count;
+      e->count = incoming_count;
     }
 
   if (gimple_in_ssa_p (cfun))
@@ -2655,6 +2678,32 @@ initialize_inlined_parameters (copy_body_data *id, gimple stmt,
       tree val;
       val = i < gimple_call_num_args (stmt) ? gimple_call_arg (stmt, i) : NULL;
       setup_one_parameter (id, p, val, fn, bb, &vars);
+    }
+  /* After remapping parameters remap their types.  This has to be done
+     in a second loop over all parameters to appropriately remap
+     variable sized arrays when the size is specified in a
+     parameter following the array.  */
+  for (p = parms, i = 0; p; p = TREE_CHAIN (p), i++)
+    {
+      tree *varp = (tree *) pointer_map_contains (id->decl_map, p);
+      if (varp
+	  && TREE_CODE (*varp) == VAR_DECL)
+	{
+	  tree def = (gimple_in_ssa_p (cfun)
+		      ? gimple_default_def (id->src_cfun, p) : NULL);
+	  TREE_TYPE (*varp) = remap_type (TREE_TYPE (*varp), id);
+	  /* Also remap the default definition if it was remapped
+	     to the default definition of the parameter replacement
+	     by the parameter setup.  */
+	  if (def && gimple_in_ssa_p (cfun) && is_gimple_reg (p))
+	    {
+	      tree *defp = (tree *) pointer_map_contains (id->decl_map, def);
+	      if (defp
+		  && TREE_CODE (*defp) == SSA_NAME
+		  && SSA_NAME_VAR (*defp) == *varp)
+		TREE_TYPE (*defp) = TREE_TYPE (*varp);
+	    }
+	}
     }
 
   /* Initialize the static chain.  */
@@ -5194,6 +5243,23 @@ tree_function_versioning (tree old_decl, tree new_decl,
   if (id.dst_node->analyzed)
     cgraph_rebuild_references ();
   update_ssa (TODO_update_ssa);
+
+  /* After partial cloning we need to rescale frequencies, so they are
+     within proper range in the cloned function.  */
+  if (new_entry)
+    {
+      struct cgraph_edge *e;
+      rebuild_frequencies ();
+
+      new_version_node->count = ENTRY_BLOCK_PTR->count;
+      for (e = new_version_node->callees; e; e = e->next_callee)
+	{
+	  basic_block bb = gimple_bb (e->call_stmt);
+	  e->frequency = compute_call_stmt_bb_frequency (current_function_decl, bb);
+	  e->count = bb->count;
+	}
+    }
+
   free_dominance_info (CDI_DOMINATORS);
   free_dominance_info (CDI_POST_DOMINATORS);
 

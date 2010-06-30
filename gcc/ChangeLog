@@ -1,7 +1,370 @@
+2010-06-30  Richard Guenther  <rguenther@suse.de>
+
+	PR target/44722
+	* config/i386/i386.md (peephole2 for fix:SSEMODEI24): Guard
+	against oscillation with reverse peephole2.
+
+2010-06-30  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/44721
+	* config/i386/i386.md (peephole2 for arithmetic ops with memory):
+	Fix last commit.
+
+2010-06-30  Nick Clifton  <nickc@redhat.com>
+
+	* config/rx/rx-modes.def: New file.
+	* config/rx/rx.h (FIRST_PSEUDO_REGISTER): Increase to 17.
+	(CC_REGNUM): Define.
+	(FIXED_REGISTERS, CALL_USED_REGISTERS, REGISTER_NAMES): Add cc
+	register.
+	(CC_NO_CARRY, NOTICE_UPDATE_CC): Delete.
+	(SELECT_CC_MODE): Define.
+	* config/rx/rx.md (CC_REG): Define.  Update all patterns to use
+	(reg:CC CC_REG) instead of (cc0).
+	(attr "cc"): Delete.
+	(cbranchsi4): Do not split compare and branch here. Instead move
+	it to...
+	(cbranchsi4_<code>): ... here.  New patterns.
+	(cmpsi): Call rx-compare_redundant to find out if it is necessary
+	to emit the compare instruction.
+	* config/rx/rx.c (rx_gen-cond_branch_template): Remove tests of
+	cc_status flags.
+	(rx_get_stack_layout): Iterate up to before CC_REGNUM not
+	FIRST_PSEUDO_REGNUM.
+	(rx_expand_prologue, rx_expand_epilogue): Likewise.
+	(rx_notice_update_cc): Delete.
+	(rx_cc_modes_compatible): New function.
+	(flags_needed_for_conditional): New function.
+	(flags_from_mode): New function.
+	(rx_compare_redundant): New function - scans backwards through
+	insn list to find out if condition flags are already set
+	correctly.
+	(TARGET_CC_MODES_COMPATIBLE): Define.
+	* config/rx/rx-protos.h (rx_compare_redundant): Prototype.
+
+	* config/rx/rx.h (BRANCH_COST): Define.
+	(REGISTER_MOVE_COST): Define.
+	* config/rx/predicates (rx_source_operand): Allow all constant
+	types.
+	* config/rx/rx.md (addsi3): Add alternative for swapped operands.
+	(tstsi4): New pattern.
+	* config/rx/rx.c (rx_memory_move_cost): Define.
+	(TARGET_MEMORY_MOVE_COST): Define.
+
+2010-06-30  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	* tree.h (block_may_fallthru): Declare here.
+	* tree-flow.h (block_may_fallthru): Do not declare here.
+	* c-typeck.c: Do not include tree-flow.h. Include gimple.h and
+	bitmap.h
+	* Makefile.in (c-typeck.o): Update dependencies.
+
+2010-06-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/44694
+	* cselib.h (cselib_preserve_cfa_base_value): Add regno argument.
+	* cselib.c (cfa_base_preserved_regno): New static variable.
+	(cselib_reset_table): Don't reset cfa_base_preserved_regno instead
+	of REGNO (cfa_base_preserved_val->locs->loc).
+	(cselib_preserve_cfa_base_value): Add regno argument, set
+	cfa_base_preserved_regno to it.
+	(cselib_invalidate_regno): Allow removal of registers other than
+	cfa_base_preserved_regno from cfa_base_preserved_val.
+	(cselib_finish): Set cfa_base_preserved_regno to INVALID_REGNUM.
+	* var-tracking.c (adjust_mems): Replace sp or hfp even outside
+	of MEM addresses, if not on LHS.
+	(reverse_op): Don't add reverse ops for cfa_base_rtx.
+	(vt_init_cfa_base): Adjust cselib_preserve_cfa_base_value caller.
+
+2010-06-30  Bernd Schmidt  <bernds@codesourcery.com>
+
+	* recog.c (peep2_do_rebuild_jump_labels, peep2_do_cleanup_cfg): New
+	static variables.
+	(peep2_buf_position): New static function.
+	(peep2_regno_dead_p, peep2_reg_dead_p, peep2_find_free_register,
+	peephole2_optimize): Use it.
+	(peep2_attempt, peep2_update_life): New static functions, broken out
+	of peephole2_optimize.
+	(peep2_fill_buffer): New static function.
+	(peephole2_optimize): Change the main loop to try to fill the buffer
+	with the maximum number of insns before matching them against
+	peepholes.  Use a forward scan.  Remove special case for targets with
+	conditional execution.
+	* genrecog.c (change_state): Delete dead code.
+	* config/i386/i386.md (peephole2 for arithmetic ops with memory):
+	Rewrite so as not to expect the second insn to have had a peephole
+	applied yet.
+
+2010-06-29  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* genhooks.c (emit_findices): Cast field precision to int.
+	(emit_documentation): Likewise.
+
+2010-06-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/43801
+	* cgraph.c (cgraph_create_virtual_clone): Clear DECL_SECTION_NAME
+	if old_decl was DECL_ONE_ONLY.
+
+	PR debug/44668
+	* dwarf2out.c (add_accessibility_attribute): New function.
+	(gen_subprogram_die, gen_variable_die, gen_field_die): Use it
+	instead of adding DW_AT_accessibility manually.
+	(gen_enumeration_type_die, gen_struct_or_union_type_die,
+	gen_typedef_die): Use it.
+
+2010-06-29  Douglas B Rupp  <rupp@gnat.com>
+
+	* vmsdbgout.c (full_name): Just output the file name if not native.
+
+2010-06-29  Douglas B Rupp  <rupp@gnat.com>
+
+	* vmsdbgout.c (func_table): Replace with VEC func{nam,num}_tables.
+	(funcnam_table): New static table.
+	(funcnum_table): New static table.
+	(write_rtnbeg): Write value saved in funcnum_table.
+	(write_rtnend): Write value saved in funcnum_table.
+	(vmsdbgout_begin_function): Save current function info in
+	(vmsdbgout_init): Initialize func{nam,num}_tables. Minor reformatting.
+	(vmsdbgout_finish): Iterate over funcnum_table.
+
+2010-06-29  Douglas B Rupp  <rupp@gnat.com>
+
+	* vmsdbgout.c (vmsdbgout_begin_epilogue): Declare
+	(vmsdbgout_type_decl): Declare
+	(vmsdbg_debug_hooks): Add entry for type_decl and begin_epilogue.
+	(FUNC_EPILOGUE_LABEL): New macro
+	(vmsdbgout_begin_epilogue): New function.
+	(vmsdbgout_type_decl): New function.
+
+2010-06-29  Douglas B Rupp  <rupp@gnat.com>
+
+	* vmsdbg.h: Update copyright.
+
+2010-06-29  Douglas B Rupp  <rupp@gnat.com>
+
+	* vmsdbg.h (DST_K_TBG): New DST constant.
+	* vmsdbgout.c (addr_const_to_string): Removed, not referenced.
+	(write_modbeg): Cast module_language to avoid warning.
+	(write_rtnbeg): Use DST_K_TBG vice magic mystery number.
+
+2010-06-29  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	PR other/44034
+	* target.def, doc/tm.texi.in, genhooks.c: New files.
+	* target.h: Instead of defining individual hook members,
+	define DEFHOOKPOD / DEFHOOK / DEFHOOK_UNDOC / HOOKSTRUCT and
+	include target.def.
+	* target-def.h: Instead of defining individual hook initializers,
+	include target-hooks-def.h.
+	* df-scan.c, haifa-sched.c, sel-sched.c: Rename targetm members:
+	targetm.live_on_entry -> targetm.extra_live_on_entry
+	targetm.sched.md_finish ->targetm.sched.finish
+	targetm.sched.md_init -> targetm.sched.init
+	targetm.sched.md_init_global -> targetm.sched.init_global
+	targetm.asm_out.unwind_label -> targetm.asm_out.emit_unwind_label
+	targetm.asm_out.except_table_label ->
+	  targetm.asm_out.emit_except_table_label
+	targetm.asm_out.visibility -> targetm.asm_out.assemble_visibility
+	targetm.target_help -> targetm.help
+	targetm.vectorize.builtin_support_vector_misalignment ->
+	  targetm.vectorize.support_vector_misalignment
+	targetm.file_start_app_off -> targetm.asm_file_start_app_off
+	targetm.file_start_file_directive ->
+	 targetm.asm_file_start_file_directive
+	* dwarf2out.c, opts.c, tree-vect-data-refs.c, except.c: Likewise.
+	* varasm.c, config/alpha/alpha.c, config/cris/cris.c: Likewise.
+	* gcc/config/spu/spu.c, config/ia64/ia64.c: Rename target macros:
+	TARGET_VECTOR_ALIGNMENT_REACHABLE ->
+	  TARGET_VECTORIZE_VECTOR_ALIGNMENT_REACHABLE
+	TARGET_SUPPORT_VECTOR_MISALIGNMENT ->
+	  TARGET_VECTORIZE_SUPPORT_VECTOR_MISALIGNMENT
+	TARGET_UNWIND_EMIT -> TARGET_ASM_UNWIND_EMIT
+	* config/rs6000/rs6000.c, config/arm/arm.c: Likewise.
+	* Makefile.in (TARGET_H): Depend on target.def.
+	(TARGET_DEF_H): Depend on target-hooks-def.h.
+	(target-hooks-def.h, tm.texi, s-target-hooks-def-h): New rules.
+	(s-tm-texi, build/genhooks.o, build/genhooks): Likewise.
+	* doc/tm.texi: Regenerate.
+
+	* Makefile.in (s-tm-texi): Remove stray tab / rule.
+
+	* config/m68k/m68k.c (targetm.sched.init_global): Update comment.
+	(targetm.sched.init): Likewise.
+
+2010-06-29  Nathan Froyd  <froydnj@codesourcery.com>
+
+	PR bootstrap/44713
+	* config/i386/i386.c (type_natural_mode): Const-ify CUM parameter.
+	(function_arg_advance_32): Const-ify TYPE parameter.
+	(function_arg_advance_64): Likewise.  Change type of NAMED to bool.
+	(ix86_function_arg_advance): Change type of NAMED to bool.
+	(function_arg_32): Const-ify CUM and TYPE parameters.
+	(function_arg_64): Likewise.  Change type of NAMED to bool.
+	(function_arg_ms_64): Const-ify CUM parameter. Change type of NAMED
+	to bool.
+	(ix86_function_arg): Change type of NAMED to bool.
+	(ix86_setup_incoming_varargs): Call ix86_function_arg_advance.  Pass
+	last argument as a bool.
+
+2010-06-29  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* doc/tm.texi (TARGET_OPTION_OVERRIDE): Document.
+	(OVERRIDE_OPTIONS): Add note of obsolescence.
+	Replace references with references to TARGET_OPTION_OVERRIDE.
+	(Except for C_COMMON_OVERRIDE_OPTIONS, which remains similar to
+	 the macro).
+	* targhooks.c (default_target_option_override): New function.
+	* targhooks.h (default_target_option_override): Declare.
+	* target.h (struct gcc_target): Add override member to
+	target_option member.
+	* toplev.c (process_options): Replace OVERRIDE_OPTIONS use with
+	targetm.target_option.override call.
+	* target-def.h (TARGET_OPTION_OVERRIDE): Define.
+	(TARGET_OPTION_HOOKS): Add TARGET_OPTION_OVERRIDE.
+
+2010-06-29  Jan Hubicka  <jh@suse.cz>
+
+	* tree-inline.c: Replace incomming by incomin and clonning by cloning.
+
+2010-06-29  Jan Hubicka  <jh@suse.cz>
+
+	* predict.c (propagate_freq): Clear EXIT_BLOCK_PTR frequency if it is
+	unreachable.
+	(rebuild_frequencies): New function.
+	* predict.h (rebuild_frequencies): Declare.
+	* tree-inline.c (copy_cfg_body): Compute properly count & frequency of
+	entry block and edge reaching new_entry.
+	(tree_function_versioning): When doing partial cloning, rebuild frequencies
+	when done.
+	* passes.c (execute_function_todo): Use rebild_frequencies.
+
+2010-06-29  Richard Guenther  <rguenther@suse.de>
+
+	* tree-dfa.c (dump_variable): Remove noalias_state dumping.
+	* tree-flow.h (enum noalias_state): Remove.
+	(struct var_ann_d): Remove noalias_state member.
+
+2010-06-29  Bernd Schmidt  <bernds@codesourcery.com>
+
+	PR target/43902
+	* config/arm/arm.md (maddsidi4, umaddsidi4): New expanders.
+	(maddhisi4): Renamed from mulhisi3addsi.  Operands renumbered.
+	(maddhidi4): Likewise.
+
+	Revert parts of the change for PR25130.
+	* cse.c (exp_equiv_p): For MEMs, if for_gcse, only compare
+	MEM_ALIAS_SET.
+
+2010-06-29  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* calls.c, dse.c, expr.c, function.c: Call targetm.calls.function_arg,
+	targetm.calls.function_incoming_arg, and
+	targetm.calls.function_arg_advance instead of FUNCTION_ARG,
+	FUNCTION_INCOMING_ARG, and FUNCTION_ARG_ADVANCE, respectively.
+	* target.h (struct gcc_target): Add function_arg_advance,
+	function_arg, and function_incoming_arg fields.
+	* target-def.h (TARGET_FUNCTION_ARG_ADVANCE, TARGET_FUNCTION_ARG):
+	(TARGET_FUNCTION_INCOMING_ARG): Define.
+	(TARGET_CALLS): Add TARGET_FUNCTION_ARG_ADVANCE, TARGET_FUNCTION_ARG,
+	and TARGET_FUNCTION_INCOMING_ARG.
+	* targhooks.h (default_function_arg_advance): Declare.
+	(default_function_arg, default_function_incoming_arg): Declare.
+	* targhooks.c (default_function_arg_advance): New function.
+	(default_function_arg, default_function_incoming_arg): New function.
+	* config/i386/i386.c (function_arg_advance): Rename to...
+	(ix86_function_arg_advance): ...this.  Make static.
+	(function_arg): Rename to...
+	(ix86_function_arg): ...this.  Make static.
+	(TARGET_FUNCTION_ARG_ADVANCE): Define.
+	(TARGET_FUNCTION_ARG): Define.
+	* config/i386/i386.h (FUNCTION_ARG_ADVANCE): Delete.
+	(FUNCTION_ARG): Delete.
+	* config/i386/i386-protos.h (function_arg_advance): Delete prototype.
+	(function_arg): Delete prototype.
+
+2010-06-29  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* reginfo.c (init_reg_sets_1): Adjust comments.
+	* combine-stack-adj.c (rest_of_handle_stack_adjustments): Likewise.
+	* calls.c (prepare_call_address): Likewise.
+	(emit_call_1): Use targetm.calls.return_pops_args.
+	(expand_call): Likewise.
+	* function.c (assign_parms): Likewise.
+	* system.h (RETURN_POPS_ARGS): Add to #pragma poison list.
+	* target.h (struct gcc_target) [struct calls]: Add
+	return_pops_args field.
+	* targhooks.h (default_return_pops_args): Declare.
+	* targhooks.c (default_return_pops_args): Define.
+	* target-def.h (TARGET_RETURN_POPS_ARGS): Define.
+	(TARGET_CALLS): Add TARGET_RETURN_POPS_ARGS.
+	* doc/tm.texi (RETURN_POPS_ARGS): Rename to...
+	(TARGET_RETURN_POPS_ARGS): ...this.  Use deftypefn.  Adjust
+	documentation.
+	* config/alpha/alpha.h (RETURN_POPS_ARGS): Delete.
+	* config/arc/arc.h (RETURN_POPS_ARGS): Likewise.
+	* config/arm/arm.h (RETURN_POPS_ARGS): Likewise.
+	* config/avr/avr.h (RETURN_POPS_ARGS): Likewise.
+	* config/bfin/bfin.h (RETURN_POPS_ARGS): Likewise.
+	* config/cris/cris.h (RETURN_POPS_ARGS): Likewise.
+	* config/crx/crx.h (RETURN_POPS_ARGS): Likewise.
+	* config/fr30/fr30.h (RETURN_POPS_ARGS): Likewise.
+	* config/frv/frv.h (RETURN_POPS_ARGS): Likewise.
+	* config/h8300/h8300.h (RETURN_POPS_ARGS): Likewise.
+	* config/ia64/ia64.h (RETURN_POPS_ARGS): Likewise.
+	* config/iq2000/iq2000.h (RETURN_POPS_ARGS): Likewise.
+	* config/lm32/lm32.h (RETURN_POPS_ARGS): Likewise.
+	* config/m32c/m32c.h (RETURN_POPS_ARGS): Likewise.
+	* config/m32r/m32r.h (RETURN_POPS_ARGS): Likewise.
+	* config/m68hc11/m68hc11.h (RETURN_POPS_ARGS): Likewise.
+	* config/mcore/mcore.h (RETURN_POPS_ARGS): Likewise.
+	* config/mep/mep.h (RETURN_POPS_ARGS): Likewise.
+	* config/mips/mips.h (RETURN_POPS_ARGS): Likewise.
+	* config/mmix/mmix.h (RETURN_POPS_ARGS): Likewise.
+	* config/mn10300/mn10300.h (RETURN_POPS_ARGS): Likewise.
+	* config/moxie/moxie.h (RETURN_POPS_ARGS): Likewise.
+	* config/pa/pa.h (RETURN_POPS_ARGS): Likewise.
+	* config/pdp11/pdp11.h (RETURN_POPS_ARGS): Likewise.
+	* config/picochip/picochip.h (RETURN_POPS_ARGS): Likewise.
+	* config/rs6000/rs6000.h (RETURN_POPS_ARGS): Likewise.
+	* config/rx/rx.h (RETURN_POPS_ARGS): Likewise.
+	* config/s390/s390.h (RETURN_POPS_ARGS): Likewise.
+	* config/score/score.h (RETURN_POPS_ARGS): Likewise.
+	* config/sh/sh.h (RETURN_POPS_ARGS): Likewise.
+	* config/sparc/sparc.h (RETURN_POPS_ARGS): Likewise.
+	* config/spu/spu.h (RETURN_POPS_ARGS): Likewise.
+	* config/stormy16/stormy16.h (RETURN_POPS_ARGS): Likewise.
+	* config/v850/v850.h (RETURN_POPS_ARGS): Likewise.
+	* config/xtensa/xtensa.h (RETURN_POPS_ARGS): Likewise.
+	* config/i386/i386-protos.h (ix86_return_pops_args): Delete.
+	* config/i386/i386.h (RETURN_POPS_ARGS): Delete.
+	* config/i386/i386.c (ix86_return_pops_args): Make static.
+	Constify arguments.
+	(TARGET_RETURN_POPS_ARGS): Define.
+	* config/m68k/m68k.h (RETURN_POPS_ARGS): Move to...
+	* config/m68k/m68k.c (m68k_return_pops_args): ...here.  New function.
+	(TARGET_RETURN_POPS_ARGS): Define.
+	* config/vax/vax.h (RETURN_POPS_ARGS): Move to...
+	* config/vax/vax.c (vax_return_pops_args): ...here.  New function.
+	(TARGET_RETURN_POPS_ARGS): Define.
+
+2010-06-29  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/44667
+	* tree-inline.c (initialize_inlined_parameters): Make sure
+	to remap the inlined parameter variable substitutions types.
+
+2010-06-29  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR rtl-optimization/44659
+	* combine.c (make_compound_operation) <SUBREG>: Do not return the
+	result of force_to_mode if it partially re-expanded the compound.
+
 2010-06-28  Jan Hubicka  <jh@suse.cz>
 
 	PR middle-end/44671
-	* ipa-split.c (test_nonssa_use, mark_nonssa_use): Check also uses of RESULT_DECL.
+	* ipa-split.c (test_nonssa_use, mark_nonssa_use): Check also uses of
+	RESULT_DECL.
 
 2010-06-28  Anatoly Sokolov  <aesok@post.ru>
 
@@ -22,7 +385,7 @@
 	fold_unary_loc, fold_negate_const, fold_abs_const, fold_not_const,
 	round_up_loc): Adjust call to force_fit_type_double.
 
-2010-06-28  Philipp Tomsich <philipp.tomsich@theobroma-systems.com>
+2010-06-28  Philipp Tomsich  <philipp.tomsich@theobroma-systems.com>
 
 	* config/rs6000/rs6000.h (PROCESSOR_TITAN): Declare.
 
@@ -62,7 +425,7 @@
 	* ipa-inline.c (add_new_edges_to_heap): Do not add edges to uninlinable
 	functions.
 
-2010-06-28  Philipp Tomsich <philipp.tomsich@theobroma-systems.com>
+2010-06-28  Philipp Tomsich  <philipp.tomsich@theobroma-systems.com>
 
 	* config.gcc (powerpc*-*-*): Handle titan.
 	* config/rs6000/rs6000.c (titan_cost): New costs.
@@ -104,7 +467,7 @@
 	* omp-low.c (maybe_catch_exception): Likewise.
 	* Makefile.in: Update dependencies.
 
-2010-06-28  Bingfeng Mei <bmei@broadcom.com>
+2010-06-28  Bingfeng Mei  <bmei@broadcom.com>
 
         * cgraph.h (struct varpool_node): new used_from_object_file flag.
         (struct cgraph_local_info): new used_from_object_file flag.
@@ -132,8 +495,8 @@
 
 	PR middle-end/44671
 	PR middle-end/44686
-	* tree.c (build_function_decl_skip_args): Clear DECL_BUILT_IN on signature
-	change.
+	* tree.c (build_function_decl_skip_args): Clear DECL_BUILT_IN on
+	signature change.
 	* ipa-split.c (split_function): Always clear DECL_BUILT_IN.
 	* ipa-prop.c (ipa_modify_formal_parameters): Likewise.
 
@@ -501,8 +864,8 @@
 	functions for dealing with three-operand statements.
 	* tree.c (commutative_ternary_tree_code): New function.
 	* tree.h (commutative_ternary_tree_code): Declare it.
-	* tree-vrp.c (gimple_assign_nonnegative_warnv_p): Return false for ternary
-	statements.
+	* tree-vrp.c (gimple_assign_nonnegative_warnv_p): Return false for
+	ternary statements.
 	(gimple_assign_nonzero_warnv_p): Likewise.
 	* tree-ssa-sccvn.c (stmt_has_constants): Handle GIMPLE_TERNARY_RHS.
 	* tree-ssa-ccp.c (get_rhs_assign_op_for_ccp): New static function.
@@ -3050,7 +3413,7 @@
 	* tree-inline.c (expand_call_inline): Pass translated return value of
 	cgraph_inline_failed_string to diagnostic function.
 
-2010-06-08  Andrew Pinski <pinskia@gmail.com>
+2010-06-08  Andrew Pinski  <pinskia@gmail.com>
 	    Shujing Zhao  <pearly.zhao@oracle.com>
 
 	PR c/37724
