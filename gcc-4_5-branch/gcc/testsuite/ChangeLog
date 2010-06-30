@@ -1,3 +1,16 @@
+2010-06-30  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline
+	2010-06-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/43866
+	* gfortran.dg/pr43866.f90: New test.
+
+2010-06-30  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/43905
+	* g++.dg/torture/pr43905.C: New test.
+
 2010-06-05  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/44361
@@ -86,6 +99,7 @@
 	* gcc.dg/Wunused-var-5.c: New test.
 	* gcc.dg/Wunused-var-6.c: New test.
 	* gcc.dg/Wunused-parm-1.c: New test.
+
 2010-06-30  Jakub Jelinek  <jakub@redhat.com>
 
 	* g++.dg/opt/ctor1.C: New test.

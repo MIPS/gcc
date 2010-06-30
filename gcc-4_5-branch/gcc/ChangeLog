@@ -1,3 +1,73 @@
+2010-06-30  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline
+	2010-06-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/44694
+	* cselib.h (cselib_preserve_cfa_base_value): Add regno argument.
+	* cselib.c (cfa_base_preserved_regno): New static variable.
+	(cselib_reset_table): Don't reset cfa_base_preserved_regno instead
+	of REGNO (cfa_base_preserved_val->locs->loc).
+	(cselib_preserve_cfa_base_value): Add regno argument, set
+	cfa_base_preserved_regno to it.
+	(cselib_invalidate_regno): Allow removal of registers other than
+	cfa_base_preserved_regno from cfa_base_preserved_val.
+	(cselib_finish): Set cfa_base_preserved_regno to INVALID_REGNUM.
+	* var-tracking.c (adjust_mems): Replace sp or hfp even outside
+	of MEM addresses, if not on LHS.
+	(reverse_op): Don't add reverse ops for cfa_base_rtx.
+	(vt_init_cfa_base): Adjust cselib_preserve_cfa_base_value caller.
+
+	2010-06-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/43866
+	* tree-ssa-loop-unswitch.c (tree_may_unswitch_on): If stmt is always
+	true or always false, return NULL_TREE.
+	(tree_unswitch_single_loop): Optimize conditions even when reaching
+	max-unswitch-level parameter.  If num > 0, optimize first all conditions
+	using entry checks, then do still reachable block discovery and consider
+	only conditions in still reachable basic blocks in the loop.
+
+	2010-05-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/42278
+	* dwarf2out.c (base_type_die): Don't add name attribute here.
+	(modified_type_die): Instead of sizetype use
+	its underlying original type.  If a DW_TAG_base_type doesn't
+	have name added, add __unknown__.
+	(dwarf2out_imported_module_or_decl_1): Don't call base_type_die,
+	always call force_type_die instead.
+
+	2010-05-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/44059
+	* config/elfos.h (ASM_DECLARE_OBJECT_NAME): Use qnu_unique_object
+	even for DECL_ONE_ONLY DECL_ARTIFICIAL !TREE_READONLY decls.
+	* config/alpha/elf.h (ASM_DECLARE_OBJECT_NAME): Likewise.
+	* dwarf2asm.c (dw2_output_indirect_constant_1): Set TREE_READONLY
+	on DW.ref.* decls.
+
+2010-06-30  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/43905
+	* tree-sra.c (encountered_recursive_call): Removed with all its uses.
+	(convert_callers): Do not handle recursive calls specially.
+	(create_abstract_origin): Removed.
+	(modify_function): Version the call graph node instead of creating
+	abstract origins and dealing with same_body aliases.
+	(ipa_sra_preliminary_function_checks): Check whether the function
+	is versionable.
+	* Makefile.in (tree-sra.o): Add TREE_INLINE_H to dependencies.
+
+2010-06-30  Martin Jambor  <mjambor@suse.cz>
+
+	Backport from mainline
+	2010-05-29  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.c (clone_function_name): Made public.
+	* cgraph.h (clone_function_name): Declare.
+	* cgraphunit.c (cgraph_function_versioning): Produce new name.
+
 2010-06-05  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/44361
