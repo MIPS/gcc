@@ -1,5 +1,5 @@
 // PR c++/41927
-// { dg-options "-std=c++0x -Wall" }
+// { dg-options "-std=c++0x -Wall -Wunused-but-set-variable" }
 
 // We were getting a spurious ||/&& warning about the enable_if with the
 // source position of d1.
@@ -29,6 +29,6 @@ template<typename Rep>
 int main()
 {
   duration<int> d0;
-  duration<int> d1 = d0;
+  duration<int> d1 = d0;	// { dg-warning "set but not used" }
 }
 

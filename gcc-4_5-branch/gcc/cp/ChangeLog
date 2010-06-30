@@ -1,3 +1,65 @@
+2010-06-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/44412
+	* typeck.c (build_class_member_access_expr): Call mark_exp_read
+	on object for static data members.
+
+2010-06-04  Jakub Jelinek  <jakub@redhat.com>
+	    Jason Merrill  <jason@redhat.com>
+
+	PR c++/44362
+	* call.c (build_conditional_expr): If both arg2 and arg3 are lvalues
+	with the same type, call mark_lvalue_use on both.
+
+2010-06-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/44361
+	* cvt.c (convert_to_void): If implicit is NULL, call mark_rvalue_use
+	instead of calling mark_exp_read only when not an assignment.
+
+2010-05-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* decl.c (poplevel): Never emit -Wunused-but-set-variable warnings
+	for DECL_INTEGRAL_CONSTANT_VAR_P decls.
+
+2010-05-17  Dodji Seketeli  <dodji@redhat.com>
+	    Jason Merrill  <jason@redhat.com>
+
+	PR c++/44108
+	* decl.c (compute_array_index_type): Call mark_rvalue_use.
+
+2010-05-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/44062
+	* semantics.c (finish_expr_stmt): Don't call mark_exp_read here...
+	* cvt.c (convert_to_void): ... but here.  If expr is a COMPOUND_EXPR,
+	look at its second operand.
+
+2010-04-22  Jakub Jelinek <jakub@redhat.com>
+	    Dodji Seketeli <dodji@redhat.com>
+
+	PR c/18624
+	* cp-tree.h (mark_exp_read, rvalue_use, lvalue_use, type_use):
+	Declare ...
+	* expr.c (mark_exp_read, rvalue_use, lvalue_use, type_use): ... new fns.
+	* typeck.c (cxx_sizeof_expr, cxx_alignof_expr): Call type_use.
+	(decay_conversion, perform_integral_promotions): Call rvalue_use.
+	(cp_build_unary_op): Call lvalue_use.
+	* decl.c (unused_but_set_errorcount): New variable.
+	(poplevel): Issue -Wunused-but-set-variable diagnostics.
+	(duplicate_decls): Merge DECL_READ_P flags.
+	(start_cleanup_fn): Set DECL_READ_P flag.
+	(finish_function): Issue -Wunused-but-set-parameter diagnostics.
+	* tree.c (rvalue): Call rvalue_use.
+	* pt.c (convert_nontype_argument): Likewise.
+	* semantics.c (finish_expr_stmt, finish_asm_stmt, finish_typeof,
+	finish_decltype_type): Likewise.
+	* call.c (convert_like_real) <ck_identity, ck_user>: Call rvalue use.
+	(build_x_va_arg, build_new_method_call, build_over_call): Call lvalue_use
+	or rvalue_use depending on the expr.
+	* init.c (build_new, build_delete): Likewise.
+	* rtti.c (build_typeid, build_dynamic_cast_1): Likewise.
+
 2010-06-29  Jason Merrill  <jason@redhat.com>
 
 	PR c++/44587

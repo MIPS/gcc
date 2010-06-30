@@ -1763,6 +1763,36 @@ function_to_pointer_conversion (location_t loc, tree exp)
   return build_unary_op (loc, ADDR_EXPR, exp, 0);
 }
 
+/* Mark EXP as read, not just set, for set but not used -Wunused
+   warning purposes.  */
+
+void
+mark_exp_read (tree exp)
+{
+  switch (TREE_CODE (exp))
+    {
+    case VAR_DECL:
+    case PARM_DECL:
+      DECL_READ_P (exp) = 1;
+      break;
+    case ARRAY_REF:
+    case COMPONENT_REF:
+    case MODIFY_EXPR:
+    case REALPART_EXPR:
+    case IMAGPART_EXPR:
+    CASE_CONVERT:
+    case ADDR_EXPR:
+      mark_exp_read (TREE_OPERAND (exp, 0));
+      break;
+    case COMPOUND_EXPR:
+    case C_MAYBE_CONST_EXPR:
+      mark_exp_read (TREE_OPERAND (exp, 1));
+      break;
+    default:
+      break;
+    }
+}
+
 /* Perform the default conversion of arrays and functions to pointers.
    Return the result of converting EXP.  For any other expression, just
    return EXP.
@@ -1818,6 +1848,12 @@ default_function_array_conversion (location_t loc, struct c_expr exp)
   return exp;
 }
 
+struct c_expr
+default_function_array_read_conversion (location_t loc, struct c_expr exp)
+{
+  mark_exp_read (exp.value);
+  return default_function_array_conversion (loc, exp);
+}
 
 /* EXP is an expression of integer type.  Apply the integer promotions
    to it and return the promoted value.  */
@@ -1878,6 +1914,8 @@ default_conversion (tree exp)
   tree type = TREE_TYPE (exp);
   enum tree_code code = TREE_CODE (type);
   tree promoted_type;
+
+  mark_exp_read (exp);
 
   /* Functions and arrays have been converted during parsing.  */
   gcc_assert (code != FUNCTION_TYPE);
@@ -8769,6 +8807,8 @@ emit_side_effect_warnings (location_t loc, tree expr)
 tree
 c_process_expr_stmt (location_t loc, tree expr)
 {
+  tree exprv;
+
   if (!expr)
     return NULL_TREE;
 
@@ -8788,6 +8828,12 @@ c_process_expr_stmt (location_t loc, tree expr)
   if (!STATEMENT_LIST_STMT_EXPR (cur_stmt_list)
       && warn_unused_value)
     emit_side_effect_warnings (loc, expr);
+
+  exprv = expr;
+  while (TREE_CODE (exprv) == COMPOUND_EXPR)
+    exprv = TREE_OPERAND (exprv, 1);
+  if (DECL_P (exprv) || handled_component_p (exprv))
+    mark_exp_read (exprv);
 
   /* If the expression is not of a type to which we cannot assign a line
      number, wrap the thing in a no-op NOP_EXPR.  */
