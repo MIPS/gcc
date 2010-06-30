@@ -362,10 +362,9 @@ cil_insert_block (tree block ATTRIBUTE_UNUSED)
 }
 
 static tree
-cil_pushdecl (tree t)
+cil_pushdecl (tree t ATTRIBUTE_UNUSED)
 {
-  gcc_unreachable ();
-  return cil_bindings_push_decl (t);
+  return NULL_TREE;
 }
 
 /* Return the list of declarations in the current level. Note that this list
