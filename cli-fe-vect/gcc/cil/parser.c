@@ -1,3 +1,4 @@
+
 /* CIL Compiler parser and tree emitter.
 
    Copyright (C) 2006-2007 Free Software Foundation, Inc.
@@ -65,6 +66,7 @@
 #include "parser.h"
 #include "bindings.h"
 #include "stack.h"
+#include <endian.h>
 
 /* parse only the methods which are reachable from the entry point */
 bool flag_parse_only_reachable = FALSE;
@@ -2188,7 +2190,11 @@ preparse_method_labels(unsigned const char *code, unsigned const char *code_end,
       gint16 arg_int16;
       gint8 arg_int8;
       guint32 arg_token = 0;
-#define read_arg(a) a = *((typeof (a) *) ip); ip += sizeof (a);
+/*#define read_arg(a) a = *((const typeof (a) *) ip); ip += sizeof (a);*/
+#define read_arg8(a) a = *((const typeof (a) *) ip); ip += sizeof (a);
+#define read_arg16(a) a = (typeof (a))le16toh(*((const typeof (a) *) ip)); ip += sizeof (a);
+#define read_arg32(a) a = (typeof (a))le32toh(*((const typeof (a) *) ip)); ip += sizeof (a);
+#define read_arg64(a) a = (typeof (a))le64toh(*((const typeof (a) *) ip)); ip += sizeof (a);
       switch (mono_opcodes [opcode].argument)
         {
         case MonoInlineNone:
@@ -2198,55 +2204,55 @@ preparse_method_labels(unsigned const char *code, unsigned const char *code_end,
         case MonoInlineMethod:
         case MonoInlineTok:
         case MonoInlineSig:
-          read_arg (arg_token);
+          read_arg32 (arg_token);
           break;
         case MonoInlineString:
           /* TODO */
           ip += 4;
           break;
         case MonoInlineVar:
-          read_arg (arg_int16);
+          read_arg16 (arg_int16);
           break;
         case MonoShortInlineVar:
-          read_arg (arg_int8);
+          read_arg8 (arg_int8);
           break;
         case MonoInlineBrTarget:
-          read_arg (arg_int32);
+          read_arg32 (arg_int32);
 	  /* set label */
 	  cil_labels_set_get_label (labels, ip + arg_int32);
           break;
         case MonoShortInlineBrTarget:
-          read_arg (arg_int8);
+          read_arg8 (arg_int8);
 	  /* set label */
 	  cil_labels_set_get_label (labels, ip + ((gint32) arg_int8));
           break;
         case MonoInlineSwitch:
 	  {
-	    read_arg (arg_int32);
+	    read_arg32 (arg_int32);
 	    const gint32 sval = arg_int32;
 	    gint32 i;
 	    for (i = 0; i < sval; ++i)
 	      {
-		read_arg (arg_int32);
+		read_arg32 (arg_int32);
 		/* set the label */
 		cil_labels_set_get_label (labels, ip + arg_int32);
 	      }
 	    break;
 	  }
         case MonoInlineR:
-          read_arg (arg_int64);
+          read_arg64 (arg_int64);
           break;
         case MonoShortInlineR:
-          read_arg (arg_int32);
+          read_arg32 (arg_int32);
           break;
         case MonoInlineI:
-          read_arg (arg_int32);
+          read_arg32 (arg_int32);
           break;
         case MonoShortInlineI:
-          read_arg (arg_int8);
+          read_arg8 (arg_int8);
           break;
         case MonoInlineI8:
-          read_arg (arg_int64);
+          read_arg64 (arg_int64);
           break;
 
         default:
@@ -2297,11 +2303,14 @@ parse_method_code (MonoMethod *method)
       gint8 arg_int8;
       guint8 arg_uint8;
       guint32 arg_token;
-#define read_arg(a) a = *((typeof (a) *) ip); ip += sizeof (a); /* TODO: endiannes */
-    //fflush(stdout); fflush(stderr); printf("::%s\n",mono_opcode_name(opcode)); fflush(stdout);
+/*#define read_arg(a) a = *((const typeof (a) *) ip); ip += sizeof (a);*/
+#define read_arg8(a) a = *((const typeof (a) *) ip); ip += sizeof (a);
+#define read_arg16(a) a = (typeof (a))le16toh(*((const typeof (a) *) ip)); ip += sizeof (a);
+#define read_arg32(a) a = (typeof (a))le32toh(*((const typeof (a) *) ip)); ip += sizeof (a);
+#define read_arg64(a) a = (typeof (a))le64toh(*((const typeof (a) *) ip)); ip += sizeof (a);
       switch (opcode) {
       case MONO_CEE_UNALIGNED_:
-        read_arg (arg_uint8);
+        read_arg8 (arg_uint8);
         parser_current_prefix.unaligned = true;
         parser_current_prefix.unaligned_value = arg_uint8;
         break;
@@ -2309,11 +2318,11 @@ parse_method_code (MonoMethod *method)
         parser_current_prefix.bolatile = true;
         break;
       case MONO_CEE_LDC_I4:
-        read_arg (arg_int32);
+        read_arg32 (arg_int32);
         parser_emit_ldc_i4 (arg_int32);
         break;
       case MONO_CEE_LDC_I4_S:
-        read_arg (arg_int8);
+        read_arg8 (arg_int8);
         parser_emit_ldc_i4 (arg_int8);
         break;
       case MONO_CEE_LDC_I4_M1:
@@ -2347,15 +2356,15 @@ parse_method_code (MonoMethod *method)
         parser_emit_ldc_i4 (8);
         break;
       case MONO_CEE_LDC_R4:
-        read_arg (arg_int32);
+        read_arg32 (arg_int32);
         parser_emit_ldc_r4 (arg_int32);
         break;
       case MONO_CEE_LDC_R8:
-        read_arg (arg_int64);
+        read_arg64 (arg_int64);
         parser_emit_ldc_r8 (arg_int64);
         break;
       case MONO_CEE_LDC_I8:
-        read_arg (arg_int64);
+        read_arg64 (arg_int64);
         parser_emit_ldc_i8 (arg_int64);
         break;
       case MONO_CEE_ADD:
@@ -2395,11 +2404,11 @@ parse_method_code (MonoMethod *method)
         parser_emit_stloc (3);
         break;
       case MONO_CEE_STLOC_S:
-        read_arg (arg_uint8);
+        read_arg8 (arg_uint8);
         parser_emit_stloc (arg_uint8);
         break;
       case MONO_CEE_STLOC:
-        read_arg (arg_uint16);
+        read_arg16 (arg_uint16);
         parser_emit_stloc (arg_uint16);
         break;
       case MONO_CEE_LDLOC_0:
@@ -2415,47 +2424,47 @@ parse_method_code (MonoMethod *method)
         parser_emit_ldloc (3);
         break;
       case MONO_CEE_LDLOC_S:
-        read_arg (arg_uint8);
+        read_arg8 (arg_uint8);
         parser_emit_ldloc (arg_uint8);
         break;
       case MONO_CEE_LDLOC:
-        read_arg (arg_uint16);
+        read_arg16 (arg_uint16);
         parser_emit_ldloc (arg_uint16);
         break;
       case MONO_CEE_LDLOCA_S:
-        read_arg (arg_uint8);
+        read_arg8 (arg_uint8);
         parser_emit_ldloca (arg_uint8);
         break;
       case MONO_CEE_LDLOCA:
-        read_arg (arg_uint16);
+        read_arg16 (arg_uint16);
         parser_emit_ldloca (arg_uint16);
         break;
       case MONO_CEE_LDFTN:
-        read_arg (arg_token);
+        read_arg32 (arg_token);
         parser_emit_ldftn (method, arg_token);
         break;
       case MONO_CEE_CALL:
-        read_arg (arg_token);
+        read_arg32 (arg_token);
         parser_emit_call (method, arg_token);
         break;
       case MONO_CEE_CALLI:
-        read_arg (arg_token);
+        read_arg32 (arg_token);
         parser_emit_calli (method, arg_token);
         break;
       case MONO_CEE_STARG:
-        read_arg (arg_uint16);
+        read_arg16 (arg_uint16);
         parser_emit_starg (arg_uint16);
         break;
       case MONO_CEE_STARG_S:
-        read_arg (arg_uint8);
+        read_arg8 (arg_uint8);
         parser_emit_starg (arg_uint8);
         break;
       case MONO_CEE_LDARG:
-        read_arg (arg_uint16);
+        read_arg16 (arg_uint16);
         parser_emit_ldarg (arg_uint16);
         break;
       case MONO_CEE_LDARG_S:
-        read_arg (arg_uint8);
+        read_arg8 (arg_uint8);
         parser_emit_ldarg (arg_uint8);
         break;
       case MONO_CEE_LDARG_0:
@@ -2471,47 +2480,47 @@ parse_method_code (MonoMethod *method)
         parser_emit_ldarg (3);
         break;
       case MONO_CEE_LDARGA:
-        read_arg (arg_uint16);
+        read_arg16 (arg_uint16);
         parser_emit_ldarga (arg_uint16);
         break;
       case MONO_CEE_LDARGA_S:
-        read_arg (arg_uint8);
+        read_arg8 (arg_uint8);
         parser_emit_ldarga (arg_uint8);
         break;
       case MONO_CEE_LDSFLD:
-        read_arg (arg_token);
+        read_arg32 (arg_token);
         parser_emit_ldsfld (method, arg_token);
         break;
       case MONO_CEE_LDSFLDA:
-        read_arg (arg_token);
+        read_arg32 (arg_token);
         parser_emit_ldsflda (method, arg_token);
         break;
       case MONO_CEE_STSFLD:
-        read_arg (arg_token);
+        read_arg32 (arg_token);
         parser_emit_stsfld (method, arg_token);
         break;
       case MONO_CEE_STFLD:
-        read_arg (arg_token);
+        read_arg32 (arg_token);
         parser_emit_stfld (method, arg_token);
         break;
       case MONO_CEE_LDFLD:
-        read_arg (arg_token);
+        read_arg32 (arg_token);
         parser_emit_ldfld (method, arg_token);
         break;
       case MONO_CEE_LDFLDA:
-        read_arg (arg_token);
+        read_arg32 (arg_token);
         parser_emit_ldflda (method, arg_token);
         break;
       case MONO_CEE_LDOBJ:
-        read_arg (arg_token);
+        read_arg32 (arg_token);
         parser_emit_ldobj (method, arg_token);
         break;
       case MONO_CEE_STOBJ:
-        read_arg (arg_token);
+        read_arg32 (arg_token);
         parser_emit_stobj (method, arg_token);
         break;
     case MONO_CEE_NEWOBJ:
-      read_arg (arg_token);
+      read_arg32 (arg_token);
       parser_emit_newobj (method, arg_token);
       break;
       case MONO_CEE_CONV_I:
@@ -2617,107 +2626,107 @@ parse_method_code (MonoMethod *method)
         parser_emit_ceq ();
         break;
       case MONO_CEE_BR:
-        read_arg (arg_int32);
+        read_arg32 (arg_int32);
         parser_emit_br (ip, arg_int32, labels);
         break;
       case MONO_CEE_BR_S:
-        read_arg (arg_int8);
+        read_arg8 (arg_int8);
         parser_emit_br (ip, arg_int8, labels);
         break;
       case MONO_CEE_BGE_S:
-        read_arg (arg_int8);
+        read_arg8 (arg_int8);
         parser_emit_bge (ip, arg_int8, labels);
         break;
       case MONO_CEE_BGE:
-        read_arg (arg_int32);
+        read_arg32 (arg_int32);
         parser_emit_bge (ip, arg_int32, labels);
         break;
       case MONO_CEE_BGE_UN:
-        read_arg (arg_int32);
+        read_arg32 (arg_int32);
         parser_emit_bge_un (ip, arg_int32, labels);
         break;
       case MONO_CEE_BGE_UN_S:
-        read_arg (arg_int8);
+        read_arg8 (arg_int8);
         parser_emit_bge_un (ip, arg_int8, labels);
         break;
       case MONO_CEE_BLE_S:
-        read_arg (arg_int8);
+        read_arg8 (arg_int8);
         parser_emit_ble (ip, arg_int8, labels);
         break;
       case MONO_CEE_BLE:
-        read_arg (arg_int32);
+        read_arg32 (arg_int32);
         parser_emit_ble (ip, arg_int32, labels);
         break;
       case MONO_CEE_BLE_UN_S:
-        read_arg (arg_int8);
+        read_arg8 (arg_int8);
         parser_emit_ble_un (ip, arg_int8, labels);
         break;
       case MONO_CEE_BLE_UN:
-        read_arg (arg_int32);
+        read_arg32 (arg_int32);
         parser_emit_ble_un (ip, arg_int32, labels);
         break;
       case MONO_CEE_BLT_S:
-        read_arg (arg_int8);
+        read_arg8 (arg_int8);
         parser_emit_blt (ip, arg_int8, labels);
         break;
       case MONO_CEE_BLT:
-        read_arg (arg_int32);
+        read_arg32 (arg_int32);
         parser_emit_blt (ip, arg_int32, labels);
         break;
       case MONO_CEE_BLT_UN_S:
-        read_arg (arg_int8);
+        read_arg8 (arg_int8);
         parser_emit_blt_un (ip, arg_int8, labels);
         break;
       case MONO_CEE_BLT_UN:
-        read_arg (arg_int32);
+        read_arg32 (arg_int32);
         parser_emit_blt_un (ip, arg_int32, labels);
         break;
       case MONO_CEE_BGT_S:
-        read_arg (arg_int8);
+        read_arg8 (arg_int8);
         parser_emit_bgt (ip, arg_int8, labels);
         break;
       case MONO_CEE_BGT:
-        read_arg (arg_int32);
+        read_arg32 (arg_int32);
         parser_emit_bgt (ip, arg_int32, labels);
         break;
       case MONO_CEE_BGT_UN_S:
-        read_arg (arg_int8);
+        read_arg8 (arg_int8);
         parser_emit_bgt_un (ip, arg_int8, labels);
         break;
       case MONO_CEE_BGT_UN:
-        read_arg (arg_int32);
+        read_arg32 (arg_int32);
         parser_emit_bgt_un (ip, arg_int32, labels);
         break;
       case MONO_CEE_BNE_UN_S:
-        read_arg (arg_int8);
+        read_arg8 (arg_int8);
         parser_emit_bne_un (ip, arg_int8, labels);
         break;
       case MONO_CEE_BNE_UN:
-        read_arg (arg_int32);
+        read_arg32 (arg_int32);
         parser_emit_bne_un (ip, arg_int32, labels);
         break;
       case MONO_CEE_BEQ_S:
-        read_arg (arg_int8);
+        read_arg8 (arg_int8);
         parser_emit_beq (ip, arg_int8, labels);
         break;
       case MONO_CEE_BEQ:
-        read_arg (arg_int32);
+        read_arg32 (arg_int32);
         parser_emit_beq (ip, arg_int32, labels);
         break;
       case MONO_CEE_BRFALSE:
-        read_arg (arg_int32);
+        read_arg32 (arg_int32);
         parser_emit_brfalse (ip, arg_int32, labels);
         break;
       case MONO_CEE_BRFALSE_S:
-        read_arg (arg_int8);
+        read_arg8 (arg_int8);
         parser_emit_brfalse (ip, arg_int8, labels);
         break;
       case MONO_CEE_BRTRUE:
-        read_arg (arg_int32);
+        read_arg32 (arg_int32);
         parser_emit_brtrue (ip, arg_int32, labels);
         break;
       case MONO_CEE_BRTRUE_S:
-        read_arg (arg_int8);
+        read_arg8 (arg_int8);
         parser_emit_brtrue (ip, arg_int8, labels);
         break;
       case MONO_CEE_INITBLK:
@@ -2754,12 +2763,12 @@ parse_method_code (MonoMethod *method)
         parser_emit_not ();
         break;
       case MONO_CEE_SWITCH: {
-        read_arg (arg_uint32);
+        read_arg32 (arg_uint32);
         const guint32 n_offsets = arg_uint32;
         gint32 offsets[n_offsets];
         guint32 i;
         for (i = 0; i < n_offsets; ++i) {
-          read_arg (arg_int32);
+          read_arg32 (arg_int32);
           offsets[i] = arg_int32;
         }
         parser_emit_switch (ip, n_offsets, offsets, labels);
@@ -2856,7 +2865,11 @@ parser_preparse_method (MonoMethod *method, GSList **called_methods, GSList **re
       gint16 arg_int16;
       gint8 arg_int8;
       guint32 arg_token = 0;
-#define read_arg(a) a = *((typeof (a) *) ip); ip += sizeof (a);
+/*#define read_arg(a) a = *((const typeof (a) *) ip); ip += sizeof (a);*/
+#define read_arg8(a) a = *((const typeof (a) *) ip); ip += sizeof (a);
+#define read_arg16(a) a = (typeof (a))le16toh(*((const typeof (a) *) ip)); ip += sizeof (a);
+#define read_arg32(a) a = (typeof (a))le32toh(*((const typeof (a) *) ip)); ip += sizeof (a);
+#define read_arg64(a) a = (typeof (a))le64toh(*((const typeof (a) *) ip)); ip += sizeof (a);
       switch (mono_opcodes [opcode].argument)
         {
         case MonoInlineNone:
@@ -2866,47 +2879,47 @@ parser_preparse_method (MonoMethod *method, GSList **called_methods, GSList **re
         case MonoInlineMethod:
         case MonoInlineTok:
         case MonoInlineSig:
-          read_arg (arg_token);
+          read_arg32 (arg_token);
           break;
         case MonoInlineString:
           /* TODO */
           ip += 4;
           break;
         case MonoInlineVar:
-          read_arg (arg_int16);
+          read_arg16 (arg_int16);
           break;
         case MonoShortInlineVar:
-          read_arg (arg_int8);
+          read_arg8 (arg_int8);
           break;
         case MonoInlineBrTarget:
-          read_arg (arg_int32);
+          read_arg32 (arg_int32);
           break;
         case MonoShortInlineBrTarget:
-          read_arg (arg_int8);
+          read_arg8 (arg_int8);
           break;
         case MonoInlineSwitch: {
-          read_arg (arg_int32);
+          read_arg32 (arg_int32);
           const gint32 sval = arg_int32;
           gint32 i;
           for (i = 0; i < sval; ++i) {
-            read_arg (arg_int32);
+            read_arg32 (arg_int32);
           }
           break;
         }
         case MonoInlineR:
-          read_arg (arg_int64);
+          read_arg64 (arg_int64);
           break;
         case MonoShortInlineR:
-          read_arg (arg_int32);
+          read_arg32 (arg_int32);
           break;
         case MonoInlineI:
-          read_arg (arg_int32);
+          read_arg32 (arg_int32);
           break;
         case MonoShortInlineI:
-          read_arg (arg_int8);
+          read_arg8 (arg_int8);
           break;
         case MonoInlineI8:
-          read_arg (arg_int64);
+          read_arg64 (arg_int64);
           break;
         default:
           g_assert_not_reached ();
