@@ -1,3 +1,300 @@
+2010-06-30  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* target.def: Remove comment about licensing problems of function
+	declarations.
+
+	* target.def (declare_constant_name): Change exp to expr.  Use DEFHOOK.
+	* doc/tm.texi.in (TARGET_ASM_DECLARE_CONSTANT_NAME): Use @hook.
+	* doc/tm.texi: Regenerate.
+
+	* target.def (builtin_reciprocal): Change tm_fn to md_fn.  Use DEFHOOK.
+	* doc/tm.texi.in (TARGET_BUILTIN_RECIPROCAL): Use @hook.
+
+	* target.def (enum_va_list_p): Use DEFHOOK.
+	* doc/tm.texi.in (TARGET_ENUM_VA_LIST_P): Use @hook.
+	Rename ptype to ptree.
+	* doc/tm.texi: Regenerate.
+
+	* target.def (fold_builtin): Rename nargs to n_args.  Use DEFHOOK.
+	* doc/tm.texi.in (TARGET_FOLD_BUILTIN): Use @hook.
+	* doc/tm.texi: Regenerate.
+
+	* target.def (memory_move_cost): Use DEFHOOK.
+	* doc/tm.texi.in (TARGET_MEMORY_MOVE_COST): Use @hook.
+	Rename regclass AKA class to rclass.
+	* doc/tm.texi: Regenerate.
+
+	* target.def (pragma_parse): Use DEFHOOK.
+	* doc/tm.texi.in (TARGET_OPTION_PRAGMA_PARSE): Use @hook.
+	s/TARGET_VALID_OPTION_ATTRIBUTE_P/TARGET_OPTION_VALID_ATRIBUTE_P/ .
+	* doc/tm.texi: Regenerate.
+
+	* target.def (pass_by_reference): Use DEFHOOK.
+	* doc/tm.texi.in (TARGET_PASS_BY_REFERENCE): Use @hook.
+	* doc/tm.texi: Regenerate.
+
+	* target.def (resolve_overloaded_builtin): Rename params to arglist.
+	Use DEFHOOK.
+	* doc/tm.texi.in (TARGET_RESOLVE_OVERLOADED_BUILTIN): Use @hook.
+	* doc/tm.texi: Regenerate.
+
+	* target.def (return_pops_args): Use DEFHOOK.
+	* doc/tm.texi.in (TARGET_RETURN_POPS_ARGS): Use @hook.
+	Rename stack-size to size.
+	* doc/tm.texi: Regenerate.
+
+	* target.def (dfa_new_cycle): Use DEFHOOK.  Rename dump_file to dump,
+	last-sched_cycle to last_clock, cur_cycle to clock.
+	* doc/tm.texi.in: Use @hook.
+	* doc/tm.texi: Regenerate.
+
+	* target.def (print_operand, print_operand_address): Update comment.
+	(print_operand_punct_valid_p): Likewise.
+
+2010-06-30  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	* toplev.h (_fatal_insn_not_found, _fatal_insn): Move declarations
+	to rtl.h.
+	(error_for_asm,	warning_for_asm): Move declarations to rtl-error.h.
+	* rtl.h (_fatal_insn_not_found, _fatal_insn): Move declarations
+	here.
+	* rtl-error.h: New.
+	* regrename.c: Do not include toplev.h. Include rtl-error.h.
+	* rtl-error.c: Likewise.
+	* reload.c: Likewise.
+	* recog.c:  Likewise.
+	* sel-sched.c: Likewise.
+	* function.c: Likewise.
+	* reg-stack.c: Likewise.
+	* cfgrtl.c: Likewise.
+	* reload1.c: Likewise.
+	* final.c: Include rtl-error.
+	* Makefile.in: Adjust dependencies.
+
+2010-06-30  Jan Hubicka  <jh@suse.cz>
+
+	PR middle-end/PR44706
+	* ipa-split (split_function): Refine conditions when to use DECL_RESULT
+	to return the value.
+
+2010-06-30  Michael Matz  <matz@suse.de>
+
+	PR bootstrap/44699
+	* tree-vrp.c (vrp_finalize): Deal with changing num_ssa_names.
+	* gimple-fold.c (gimplify_and_update_call_from_tree): If LHS is
+	a gimple reg, attach the original VDEF to the last store in the
+	sequence.
+
+2010-06-30  Iain Sandoe  <iains@gcc.gnu.org>
+
+	PR other/44034
+	* config/darwin.c (darwin_override_options): Use renamed
+	targetm.asm_out.emit_unwind_label.
+
+2010-06-30  Bernd Schmidt  <bernds@codesourcery.com>
+
+	PR tree-optimization/39799
+	* tree-inline.c (remap_ssa_name): Initialize variable only if
+	SSA_NAME_OCCURS_IN_ABNORMAL_PHI.
+
+2010-06-30  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* c-parser.c (c_parser_omp_for_loop): Use a VEC for for_block.
+
+2010-06-30  Richard Guenther  <rguenther@suse.de>
+
+	PR target/44722
+	* config/i386/i386.md (peephole2 for fix:SSEMODEI24): Guard
+	against oscillation with reverse peephole2.
+
+2010-06-30  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/44721
+	* config/i386/i386.md (peephole2 for arithmetic ops with memory):
+	Fix last commit.
+
+2010-06-30  Nick Clifton  <nickc@redhat.com>
+
+	* config/rx/rx-modes.def: New file.
+	* config/rx/rx.h (FIRST_PSEUDO_REGISTER): Increase to 17.
+	(CC_REGNUM): Define.
+	(FIXED_REGISTERS, CALL_USED_REGISTERS, REGISTER_NAMES): Add cc
+	register.
+	(CC_NO_CARRY, NOTICE_UPDATE_CC): Delete.
+	(SELECT_CC_MODE): Define.
+	* config/rx/rx.md (CC_REG): Define.  Update all patterns to use
+	(reg:CC CC_REG) instead of (cc0).
+	(attr "cc"): Delete.
+	(cbranchsi4): Do not split compare and branch here. Instead move
+	it to...
+	(cbranchsi4_<code>): ... here.  New patterns.
+	(cmpsi): Call rx-compare_redundant to find out if it is necessary
+	to emit the compare instruction.
+	* config/rx/rx.c (rx_gen-cond_branch_template): Remove tests of
+	cc_status flags.
+	(rx_get_stack_layout): Iterate up to before CC_REGNUM not
+	FIRST_PSEUDO_REGNUM.
+	(rx_expand_prologue, rx_expand_epilogue): Likewise.
+	(rx_notice_update_cc): Delete.
+	(rx_cc_modes_compatible): New function.
+	(flags_needed_for_conditional): New function.
+	(flags_from_mode): New function.
+	(rx_compare_redundant): New function - scans backwards through
+	insn list to find out if condition flags are already set
+	correctly.
+	(TARGET_CC_MODES_COMPATIBLE): Define.
+	* config/rx/rx-protos.h (rx_compare_redundant): Prototype.
+
+	* config/rx/rx.h (BRANCH_COST): Define.
+	(REGISTER_MOVE_COST): Define.
+	* config/rx/predicates (rx_source_operand): Allow all constant
+	types.
+	* config/rx/rx.md (addsi3): Add alternative for swapped operands.
+	(tstsi4): New pattern.
+	* config/rx/rx.c (rx_memory_move_cost): Define.
+	(TARGET_MEMORY_MOVE_COST): Define.
+
+2010-06-30  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	* tree.h (block_may_fallthru): Declare here.
+	* tree-flow.h (block_may_fallthru): Do not declare here.
+	* c-typeck.c: Do not include tree-flow.h. Include gimple.h and
+	bitmap.h
+	* Makefile.in (c-typeck.o): Update dependencies.
+
+2010-06-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/44694
+	* cselib.h (cselib_preserve_cfa_base_value): Add regno argument.
+	* cselib.c (cfa_base_preserved_regno): New static variable.
+	(cselib_reset_table): Don't reset cfa_base_preserved_regno instead
+	of REGNO (cfa_base_preserved_val->locs->loc).
+	(cselib_preserve_cfa_base_value): Add regno argument, set
+	cfa_base_preserved_regno to it.
+	(cselib_invalidate_regno): Allow removal of registers other than
+	cfa_base_preserved_regno from cfa_base_preserved_val.
+	(cselib_finish): Set cfa_base_preserved_regno to INVALID_REGNUM.
+	* var-tracking.c (adjust_mems): Replace sp or hfp even outside
+	of MEM addresses, if not on LHS.
+	(reverse_op): Don't add reverse ops for cfa_base_rtx.
+	(vt_init_cfa_base): Adjust cselib_preserve_cfa_base_value caller.
+
+2010-06-30  Bernd Schmidt  <bernds@codesourcery.com>
+
+	* recog.c (peep2_do_rebuild_jump_labels, peep2_do_cleanup_cfg): New
+	static variables.
+	(peep2_buf_position): New static function.
+	(peep2_regno_dead_p, peep2_reg_dead_p, peep2_find_free_register,
+	peephole2_optimize): Use it.
+	(peep2_attempt, peep2_update_life): New static functions, broken out
+	of peephole2_optimize.
+	(peep2_fill_buffer): New static function.
+	(peephole2_optimize): Change the main loop to try to fill the buffer
+	with the maximum number of insns before matching them against
+	peepholes.  Use a forward scan.  Remove special case for targets with
+	conditional execution.
+	* genrecog.c (change_state): Delete dead code.
+	* config/i386/i386.md (peephole2 for arithmetic ops with memory):
+	Rewrite so as not to expect the second insn to have had a peephole
+	applied yet.
+
+2010-06-29  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* genhooks.c (emit_findices): Cast field precision to int.
+	(emit_documentation): Likewise.
+
+2010-06-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/43801
+	* cgraph.c (cgraph_create_virtual_clone): Clear DECL_SECTION_NAME
+	if old_decl was DECL_ONE_ONLY.
+
+	PR debug/44668
+	* dwarf2out.c (add_accessibility_attribute): New function.
+	(gen_subprogram_die, gen_variable_die, gen_field_die): Use it
+	instead of adding DW_AT_accessibility manually.
+	(gen_enumeration_type_die, gen_struct_or_union_type_die,
+	gen_typedef_die): Use it.
+
+2010-06-29  Douglas B Rupp  <rupp@gnat.com>
+
+	* vmsdbgout.c (full_name): Just output the file name if not native.
+
+2010-06-29  Douglas B Rupp  <rupp@gnat.com>
+
+	* vmsdbgout.c (func_table): Replace with VEC func{nam,num}_tables.
+	(funcnam_table): New static table.
+	(funcnum_table): New static table.
+	(write_rtnbeg): Write value saved in funcnum_table.
+	(write_rtnend): Write value saved in funcnum_table.
+	(vmsdbgout_begin_function): Save current function info in
+	(vmsdbgout_init): Initialize func{nam,num}_tables. Minor reformatting.
+	(vmsdbgout_finish): Iterate over funcnum_table.
+
+2010-06-29  Douglas B Rupp  <rupp@gnat.com>
+
+	* vmsdbgout.c (vmsdbgout_begin_epilogue): Declare
+	(vmsdbgout_type_decl): Declare
+	(vmsdbg_debug_hooks): Add entry for type_decl and begin_epilogue.
+	(FUNC_EPILOGUE_LABEL): New macro
+	(vmsdbgout_begin_epilogue): New function.
+	(vmsdbgout_type_decl): New function.
+
+2010-06-29  Douglas B Rupp  <rupp@gnat.com>
+
+	* vmsdbg.h: Update copyright.
+
+2010-06-29  Douglas B Rupp  <rupp@gnat.com>
+
+	* vmsdbg.h (DST_K_TBG): New DST constant.
+	* vmsdbgout.c (addr_const_to_string): Removed, not referenced.
+	(write_modbeg): Cast module_language to avoid warning.
+	(write_rtnbeg): Use DST_K_TBG vice magic mystery number.
+
+2010-06-29  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	PR other/44034
+	* target.def, doc/tm.texi.in, genhooks.c: New files.
+	* target.h: Instead of defining individual hook members,
+	define DEFHOOKPOD / DEFHOOK / DEFHOOK_UNDOC / HOOKSTRUCT and
+	include target.def.
+	* target-def.h: Instead of defining individual hook initializers,
+	include target-hooks-def.h.
+	* df-scan.c, haifa-sched.c, sel-sched.c: Rename targetm members:
+	targetm.live_on_entry -> targetm.extra_live_on_entry
+	targetm.sched.md_finish ->targetm.sched.finish
+	targetm.sched.md_init -> targetm.sched.init
+	targetm.sched.md_init_global -> targetm.sched.init_global
+	targetm.asm_out.unwind_label -> targetm.asm_out.emit_unwind_label
+	targetm.asm_out.except_table_label ->
+	  targetm.asm_out.emit_except_table_label
+	targetm.asm_out.visibility -> targetm.asm_out.assemble_visibility
+	targetm.target_help -> targetm.help
+	targetm.vectorize.builtin_support_vector_misalignment ->
+	  targetm.vectorize.support_vector_misalignment
+	targetm.file_start_app_off -> targetm.asm_file_start_app_off
+	targetm.file_start_file_directive ->
+	 targetm.asm_file_start_file_directive
+	* dwarf2out.c, opts.c, tree-vect-data-refs.c, except.c: Likewise.
+	* varasm.c, config/alpha/alpha.c, config/cris/cris.c: Likewise.
+	* gcc/config/spu/spu.c, config/ia64/ia64.c: Rename target macros:
+	TARGET_VECTOR_ALIGNMENT_REACHABLE ->
+	  TARGET_VECTORIZE_VECTOR_ALIGNMENT_REACHABLE
+	TARGET_SUPPORT_VECTOR_MISALIGNMENT ->
+	  TARGET_VECTORIZE_SUPPORT_VECTOR_MISALIGNMENT
+	TARGET_UNWIND_EMIT -> TARGET_ASM_UNWIND_EMIT
+	* config/rs6000/rs6000.c, config/arm/arm.c: Likewise.
+	* Makefile.in (TARGET_H): Depend on target.def.
+	(TARGET_DEF_H): Depend on target-hooks-def.h.
+	(target-hooks-def.h, tm.texi, s-target-hooks-def-h): New rules.
+	(s-tm-texi, build/genhooks.o, build/genhooks): Likewise.
+	* doc/tm.texi: Regenerate.
+
+	* Makefile.in (s-tm-texi): Remove stray tab / rule.
+
+	* config/m68k/m68k.c (targetm.sched.init_global): Update comment.
+	(targetm.sched.init): Likewise.
+
 2010-06-29  Nathan Froyd  <froydnj@codesourcery.com>
 
 	PR bootstrap/44713
