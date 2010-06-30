@@ -1,3 +1,16 @@
+2010-06-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.h (TARGET_STFIWX): New macro.
+	(TARGET_FCTIDUZ): Ditto.
+	(TARGET_FCTIWUZ): Ditto.
+
+	* config/rs6000/rs6000.md (fix_truncdfdi2): Use TARGET_FCFID and
+	TARGET_FCFIDS instead of TARGET_POWERPC64 for modern machines that
+	support FCFID and friends in 32-bit mode.
+	(fix_truncdfdi2_fpr): Ditto.
+	(floatdisf2): Ditto.
+	(floatdisf2_internal1): Ditto.
+
 2010-06-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 161543.
