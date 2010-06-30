@@ -320,9 +320,10 @@ ssa_operand_alloc (unsigned size)
 	  gcc_unreachable ();
 	}
 
-      ptr = (struct ssa_operand_memory_d *)
-	      ggc_alloc (sizeof (void *)
-			 + gimple_ssa_operands (cfun)->ssa_operand_mem_size);
+
+      ptr = ggc_alloc_ssa_operand_memory_d (sizeof (void *)
+                        + gimple_ssa_operands (cfun)->ssa_operand_mem_size);
+
       ptr->next = gimple_ssa_operands (cfun)->operand_memory;
       gimple_ssa_operands (cfun)->operand_memory = ptr;
       gimple_ssa_operands (cfun)->operand_memory_index = 0;
@@ -987,11 +988,13 @@ get_expr_operands (gimple stmt, tree *expr_p, int flags)
 
     case DOT_PROD_EXPR:
     case REALIGN_LOAD_EXPR:
+    case WIDEN_MULT_PLUS_EXPR:
+    case WIDEN_MULT_MINUS_EXPR:
       {
 	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags);
-        get_expr_operands (stmt, &TREE_OPERAND (expr, 1), flags);
-        get_expr_operands (stmt, &TREE_OPERAND (expr, 2), flags);
-        return;
+	get_expr_operands (stmt, &TREE_OPERAND (expr, 1), flags);
+	get_expr_operands (stmt, &TREE_OPERAND (expr, 2), flags);
+	return;
       }
 
     case FUNCTION_DECL:

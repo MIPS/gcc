@@ -986,6 +986,33 @@ fold_gimple_assign (gimple_stmt_iterator *si)
         }
       break;
 
+    case GIMPLE_TERNARY_RHS:
+      result = fold_ternary_loc (loc, subcode,
+				 TREE_TYPE (gimple_assign_lhs (stmt)),
+				 gimple_assign_rhs1 (stmt),
+				 gimple_assign_rhs2 (stmt),
+				 gimple_assign_rhs3 (stmt));
+
+      if (result)
+        {
+          STRIP_USELESS_TYPE_CONVERSION (result);
+          if (valid_gimple_rhs_p (result))
+	    return result;
+
+	  /* Fold might have produced non-GIMPLE, so if we trust it blindly
+	     we lose canonicalization opportunities.  Do not go again
+	     through fold here though, or the same non-GIMPLE will be
+	     produced.  */
+          if (commutative_ternary_tree_code (subcode)
+              && tree_swap_operands_p (gimple_assign_rhs1 (stmt),
+                                       gimple_assign_rhs2 (stmt), false))
+            return build3 (subcode, TREE_TYPE (gimple_assign_lhs (stmt)),
+			   gimple_assign_rhs2 (stmt),
+			   gimple_assign_rhs1 (stmt),
+			   gimple_assign_rhs3 (stmt));
+        }
+      break;
+
     case GIMPLE_INVALID_RHS:
       gcc_unreachable ();
     }
@@ -1026,7 +1053,9 @@ fold_gimple_cond (gimple stmt)
    is replaced.  If the call is expected to produces a result, then it
    is replaced by an assignment of the new RHS to the result variable.
    If the result is to be ignored, then the call is replaced by a
-   GIMPLE_NOP.  */
+   GIMPLE_NOP.  A proper VDEF chain is retained by making the first
+   VUSE and the last VDEF of the whole sequence be the same as the replaced
+   statement and using new SSA names for stores in between.  */
 
 void
 gimplify_and_update_call_from_tree (gimple_stmt_iterator *si_p, tree expr)
@@ -1038,12 +1067,15 @@ gimplify_and_update_call_from_tree (gimple_stmt_iterator *si_p, tree expr)
   gimple_seq stmts = gimple_seq_alloc();
   struct gimplify_ctx gctx;
   gimple last = NULL;
+  gimple laststore = NULL;
+  tree reaching_vuse;
 
   stmt = gsi_stmt (*si_p);
 
   gcc_assert (is_gimple_call (stmt));
 
   lhs = gimple_call_lhs (stmt);
+  reaching_vuse = gimple_vuse (stmt);
 
   push_gimplify_context (&gctx);
 
@@ -1068,13 +1100,48 @@ gimplify_and_update_call_from_tree (gimple_stmt_iterator *si_p, tree expr)
       new_stmt = gsi_stmt (i);
       find_new_referenced_vars (new_stmt);
       mark_symbols_for_renaming (new_stmt);
+      /* If the new statement has a VUSE, update it with exact SSA name we
+         know will reach this one.  */
+      if (gimple_vuse (new_stmt))
+	{
+	  /* If we've also seen a previous store create a new VDEF for
+	     the latter one, and make that the new reaching VUSE.  */
+	  if (laststore)
+	    {
+	      reaching_vuse = make_ssa_name (gimple_vop (cfun), laststore);
+	      gimple_set_vdef (laststore, reaching_vuse);
+	      update_stmt (laststore);
+	      laststore = NULL;
+	    }
+	  gimple_set_vuse (new_stmt, reaching_vuse);
+	  gimple_set_modified (new_stmt, true);
+	}
+      if (gimple_assign_single_p (new_stmt)
+	  && !is_gimple_reg (gimple_assign_lhs (new_stmt)))
+	{
+	  laststore = new_stmt;
+	}
       last = new_stmt;
     }
 
   if (lhs == NULL_TREE)
     {
-      unlink_stmt_vdef (stmt);
-      release_defs (stmt);
+      /* If we replace a call without LHS that has a VDEF and our new
+         sequence ends with a store we must make that store have the same
+	 vdef in order not to break the sequencing.  This can happen
+	 for instance when folding memcpy calls into assignments.  */
+      if (gimple_vdef (stmt) && laststore)
+	{
+	  gimple_set_vdef (laststore, gimple_vdef (stmt));
+	  if (TREE_CODE (gimple_vdef (stmt)) == SSA_NAME)
+	    SSA_NAME_DEF_STMT (gimple_vdef (stmt)) = laststore;
+	  update_stmt (laststore);
+	}
+      else
+	{
+	  unlink_stmt_vdef (stmt);
+	  release_defs (stmt);
+	}
       new_stmt = last;
     }
   else
@@ -1084,10 +1151,30 @@ gimplify_and_update_call_from_tree (gimple_stmt_iterator *si_p, tree expr)
 	  gsi_insert_before (si_p, last, GSI_NEW_STMT);
 	  gsi_next (si_p);
 	}
+      if (laststore && is_gimple_reg (lhs))
+	{
+	  gimple_set_vdef (laststore, gimple_vdef (stmt));
+	  update_stmt (laststore);
+	  if (TREE_CODE (gimple_vdef (stmt)) == SSA_NAME)
+	    SSA_NAME_DEF_STMT (gimple_vdef (stmt)) = laststore;
+	  laststore = NULL;
+	}
+      else if (laststore)
+	{
+	  reaching_vuse = make_ssa_name (gimple_vop (cfun), laststore);
+	  gimple_set_vdef (laststore, reaching_vuse);
+	  update_stmt (laststore);
+	  laststore = NULL;
+	}
       new_stmt = gimple_build_assign (lhs, tmp);
-      gimple_set_vuse (new_stmt, gimple_vuse (stmt));
-      gimple_set_vdef (new_stmt, gimple_vdef (stmt));
-      move_ssa_defining_stmt_for_defs (new_stmt, stmt);
+      if (!is_gimple_reg (tmp))
+	gimple_set_vuse (new_stmt, reaching_vuse);
+      if (!is_gimple_reg (lhs))
+	{
+	  gimple_set_vdef (new_stmt, gimple_vdef (stmt));
+	  if (TREE_CODE (gimple_vdef (stmt)) == SSA_NAME)
+	    SSA_NAME_DEF_STMT (gimple_vdef (stmt)) = new_stmt;
+	}
     }
 
   gimple_set_location (new_stmt, gimple_location (stmt));
@@ -1403,6 +1490,22 @@ gimple_fold_builtin (gimple stmt)
   return result;
 }
 
+/* Return the first of the base binfos of BINFO that has virtual functions.  */
+
+static tree
+get_first_base_binfo_with_virtuals (tree binfo)
+{
+  int i;
+  tree base_binfo;
+
+  for (i = 0; BINFO_BASE_ITERATE (binfo, i, base_binfo); i++)
+    if (BINFO_VIRTUALS (base_binfo))
+      return base_binfo;
+
+  return NULL_TREE;
+}
+
+
 /* Search for a base binfo of BINFO that corresponds to TYPE and return it if
    it is found or NULL_TREE if it is not.  */
 
@@ -1458,8 +1561,8 @@ gimple_get_relevant_ref_binfo (tree ref, tree known_binfo)
 	      || BINFO_N_BASE_BINFOS (binfo) == 0)
 	    return NULL_TREE;
 
-	  base_binfo = BINFO_BASE_BINFO (binfo, 0);
-	  if (BINFO_TYPE (base_binfo) != TREE_TYPE (field))
+	  base_binfo = get_first_base_binfo_with_virtuals (binfo);
+	  if (base_binfo && BINFO_TYPE (base_binfo) != TREE_TYPE (field))
 	    {
 	      tree d_binfo;
 
@@ -1716,3 +1819,1052 @@ fold_stmt_inplace (gimple stmt)
   return changed;
 }
 
+/* Canonicalize and possibly invert the boolean EXPR; return NULL_TREE 
+   if EXPR is null or we don't know how.
+   If non-null, the result always has boolean type.  */
+
+static tree
+canonicalize_bool (tree expr, bool invert)
+{
+  if (!expr)
+    return NULL_TREE;
+  else if (invert)
+    {
+      if (integer_nonzerop (expr))
+	return boolean_false_node;
+      else if (integer_zerop (expr))
+	return boolean_true_node;
+      else if (TREE_CODE (expr) == SSA_NAME)
+	return fold_build2 (EQ_EXPR, boolean_type_node, expr,
+			    build_int_cst (TREE_TYPE (expr), 0));
+      else if (TREE_CODE_CLASS (TREE_CODE (expr)) == tcc_comparison)
+	return fold_build2 (invert_tree_comparison (TREE_CODE (expr), false),
+			    boolean_type_node,
+			    TREE_OPERAND (expr, 0),
+			    TREE_OPERAND (expr, 1));
+      else
+	return NULL_TREE;
+    }
+  else
+    {
+      if (TREE_CODE (TREE_TYPE (expr)) == BOOLEAN_TYPE)
+	return expr;
+      if (integer_nonzerop (expr))
+	return boolean_true_node;
+      else if (integer_zerop (expr))
+	return boolean_false_node;
+      else if (TREE_CODE (expr) == SSA_NAME)
+	return fold_build2 (NE_EXPR, boolean_type_node, expr,
+			    build_int_cst (TREE_TYPE (expr), 0));
+      else if (TREE_CODE_CLASS (TREE_CODE (expr)) == tcc_comparison)
+	return fold_build2 (TREE_CODE (expr),
+			    boolean_type_node,
+			    TREE_OPERAND (expr, 0),
+			    TREE_OPERAND (expr, 1));
+      else
+	return NULL_TREE;
+    }
+}
+
+/* Check to see if a boolean expression EXPR is logically equivalent to the
+   comparison (OP1 CODE OP2).  Check for various identities involving
+   SSA_NAMEs.  */
+
+static bool
+same_bool_comparison_p (const_tree expr, enum tree_code code,
+			const_tree op1, const_tree op2)
+{
+  gimple s;
+
+  /* The obvious case.  */
+  if (TREE_CODE (expr) == code
+      && operand_equal_p (TREE_OPERAND (expr, 0), op1, 0)
+      && operand_equal_p (TREE_OPERAND (expr, 1), op2, 0))
+    return true;
+
+  /* Check for comparing (name, name != 0) and the case where expr
+     is an SSA_NAME with a definition matching the comparison.  */
+  if (TREE_CODE (expr) == SSA_NAME
+      && TREE_CODE (TREE_TYPE (expr)) == BOOLEAN_TYPE)
+    {
+      if (operand_equal_p (expr, op1, 0))
+	return ((code == NE_EXPR && integer_zerop (op2))
+		|| (code == EQ_EXPR && integer_nonzerop (op2)));
+      s = SSA_NAME_DEF_STMT (expr);
+      if (is_gimple_assign (s)
+	  && gimple_assign_rhs_code (s) == code
+	  && operand_equal_p (gimple_assign_rhs1 (s), op1, 0)
+	  && operand_equal_p (gimple_assign_rhs2 (s), op2, 0))
+	return true;
+    }
+
+  /* If op1 is of the form (name != 0) or (name == 0), and the definition
+     of name is a comparison, recurse.  */
+  if (TREE_CODE (op1) == SSA_NAME
+      && TREE_CODE (TREE_TYPE (op1)) == BOOLEAN_TYPE)
+    {
+      s = SSA_NAME_DEF_STMT (op1);
+      if (is_gimple_assign (s)
+	  && TREE_CODE_CLASS (gimple_assign_rhs_code (s)) == tcc_comparison)
+	{
+	  enum tree_code c = gimple_assign_rhs_code (s);
+	  if ((c == NE_EXPR && integer_zerop (op2))
+	      || (c == EQ_EXPR && integer_nonzerop (op2)))
+	    return same_bool_comparison_p (expr, c,
+					   gimple_assign_rhs1 (s),
+					   gimple_assign_rhs2 (s));
+	  if ((c == EQ_EXPR && integer_zerop (op2))
+	      || (c == NE_EXPR && integer_nonzerop (op2)))
+	    return same_bool_comparison_p (expr,
+					   invert_tree_comparison (c, false),
+					   gimple_assign_rhs1 (s),
+					   gimple_assign_rhs2 (s));
+	}
+    }
+  return false;
+}
+
+/* Check to see if two boolean expressions OP1 and OP2 are logically
+   equivalent.  */
+
+static bool
+same_bool_result_p (const_tree op1, const_tree op2)
+{
+  /* Simple cases first.  */
+  if (operand_equal_p (op1, op2, 0))
+    return true;
+
+  /* Check the cases where at least one of the operands is a comparison.
+     These are a bit smarter than operand_equal_p in that they apply some
+     identifies on SSA_NAMEs.  */
+  if (TREE_CODE_CLASS (TREE_CODE (op2)) == tcc_comparison
+      && same_bool_comparison_p (op1, TREE_CODE (op2),
+				 TREE_OPERAND (op2, 0),
+				 TREE_OPERAND (op2, 1)))
+    return true;
+  if (TREE_CODE_CLASS (TREE_CODE (op1)) == tcc_comparison
+      && same_bool_comparison_p (op2, TREE_CODE (op1),
+				 TREE_OPERAND (op1, 0),
+				 TREE_OPERAND (op1, 1)))
+    return true;
+
+  /* Default case.  */
+  return false;
+}
+
+/* Forward declarations for some mutually recursive functions.  */
+
+static tree
+and_comparisons_1 (enum tree_code code1, tree op1a, tree op1b,
+		   enum tree_code code2, tree op2a, tree op2b);
+static tree
+and_var_with_comparison (tree var, bool invert,
+			 enum tree_code code2, tree op2a, tree op2b);
+static tree
+and_var_with_comparison_1 (gimple stmt, 
+			   enum tree_code code2, tree op2a, tree op2b);
+static tree
+or_comparisons_1 (enum tree_code code1, tree op1a, tree op1b,
+		  enum tree_code code2, tree op2a, tree op2b);
+static tree
+or_var_with_comparison (tree var, bool invert,
+			enum tree_code code2, tree op2a, tree op2b);
+static tree
+or_var_with_comparison_1 (gimple stmt, 
+			  enum tree_code code2, tree op2a, tree op2b);
+
+/* Helper function for and_comparisons_1:  try to simplify the AND of the
+   ssa variable VAR with the comparison specified by (OP2A CODE2 OP2B).
+   If INVERT is true, invert the value of the VAR before doing the AND.
+   Return NULL_EXPR if we can't simplify this to a single expression.  */
+
+static tree
+and_var_with_comparison (tree var, bool invert,
+			 enum tree_code code2, tree op2a, tree op2b)
+{
+  tree t;
+  gimple stmt = SSA_NAME_DEF_STMT (var);
+
+  /* We can only deal with variables whose definitions are assignments.  */
+  if (!is_gimple_assign (stmt))
+    return NULL_TREE;
+  
+  /* If we have an inverted comparison, apply DeMorgan's law and rewrite
+     !var AND (op2a code2 op2b) => !(var OR !(op2a code2 op2b))
+     Then we only have to consider the simpler non-inverted cases.  */
+  if (invert)
+    t = or_var_with_comparison_1 (stmt, 
+				  invert_tree_comparison (code2, false),
+				  op2a, op2b);
+  else
+    t = and_var_with_comparison_1 (stmt, code2, op2a, op2b);
+  return canonicalize_bool (t, invert);
+}
+
+/* Try to simplify the AND of the ssa variable defined by the assignment
+   STMT with the comparison specified by (OP2A CODE2 OP2B).
+   Return NULL_EXPR if we can't simplify this to a single expression.  */
+
+static tree
+and_var_with_comparison_1 (gimple stmt,
+			   enum tree_code code2, tree op2a, tree op2b)
+{
+  tree var = gimple_assign_lhs (stmt);
+  tree true_test_var = NULL_TREE;
+  tree false_test_var = NULL_TREE;
+  enum tree_code innercode = gimple_assign_rhs_code (stmt);
+
+  /* Check for identities like (var AND (var == 0)) => false.  */
+  if (TREE_CODE (op2a) == SSA_NAME
+      && TREE_CODE (TREE_TYPE (var)) == BOOLEAN_TYPE)
+    {
+      if ((code2 == NE_EXPR && integer_zerop (op2b))
+	  || (code2 == EQ_EXPR && integer_nonzerop (op2b)))
+	{
+	  true_test_var = op2a;
+	  if (var == true_test_var)
+	    return var;
+	}
+      else if ((code2 == EQ_EXPR && integer_zerop (op2b))
+	       || (code2 == NE_EXPR && integer_nonzerop (op2b)))
+	{
+	  false_test_var = op2a;
+	  if (var == false_test_var)
+	    return boolean_false_node;
+	}
+    }
+
+  /* If the definition is a comparison, recurse on it.  */
+  if (TREE_CODE_CLASS (innercode) == tcc_comparison)
+    {
+      tree t = and_comparisons_1 (innercode,
+				  gimple_assign_rhs1 (stmt),
+				  gimple_assign_rhs2 (stmt),
+				  code2,
+				  op2a,
+				  op2b);
+      if (t)
+	return t;
+    }
+
+  /* If the definition is an AND or OR expression, we may be able to
+     simplify by reassociating.  */
+  if (innercode == TRUTH_AND_EXPR
+      || innercode == TRUTH_OR_EXPR
+      || (TREE_CODE (TREE_TYPE (var)) == BOOLEAN_TYPE
+	  && (innercode == BIT_AND_EXPR || innercode == BIT_IOR_EXPR)))
+    {
+      tree inner1 = gimple_assign_rhs1 (stmt);
+      tree inner2 = gimple_assign_rhs2 (stmt);
+      gimple s;
+      tree t;
+      tree partial = NULL_TREE;
+      bool is_and = (innercode == TRUTH_AND_EXPR || innercode == BIT_AND_EXPR);
+      
+      /* Check for boolean identities that don't require recursive examination
+	 of inner1/inner2:
+	 inner1 AND (inner1 AND inner2) => inner1 AND inner2 => var
+	 inner1 AND (inner1 OR inner2) => inner1
+	 !inner1 AND (inner1 AND inner2) => false
+	 !inner1 AND (inner1 OR inner2) => !inner1 AND inner2
+         Likewise for similar cases involving inner2.  */
+      if (inner1 == true_test_var)
+	return (is_and ? var : inner1);
+      else if (inner2 == true_test_var)
+	return (is_and ? var : inner2);
+      else if (inner1 == false_test_var)
+	return (is_and
+		? boolean_false_node
+		: and_var_with_comparison (inner2, false, code2, op2a, op2b));
+      else if (inner2 == false_test_var)
+	return (is_and
+		? boolean_false_node
+		: and_var_with_comparison (inner1, false, code2, op2a, op2b));
+
+      /* Next, redistribute/reassociate the AND across the inner tests.
+	 Compute the first partial result, (inner1 AND (op2a code op2b))  */
+      if (TREE_CODE (inner1) == SSA_NAME
+	  && is_gimple_assign (s = SSA_NAME_DEF_STMT (inner1))
+	  && TREE_CODE_CLASS (gimple_assign_rhs_code (s)) == tcc_comparison
+	  && (t = maybe_fold_and_comparisons (gimple_assign_rhs_code (s),
+					      gimple_assign_rhs1 (s),
+					      gimple_assign_rhs2 (s),
+					      code2, op2a, op2b)))
+	{
+	  /* Handle the AND case, where we are reassociating:
+	     (inner1 AND inner2) AND (op2a code2 op2b)
+	     => (t AND inner2)
+	     If the partial result t is a constant, we win.  Otherwise
+	     continue on to try reassociating with the other inner test.  */
+	  if (is_and)
+	    {
+	      if (integer_onep (t))
+		return inner2;
+	      else if (integer_zerop (t))
+		return boolean_false_node;
+	    }
+
+	  /* Handle the OR case, where we are redistributing:
+	     (inner1 OR inner2) AND (op2a code2 op2b)
+	     => (t OR (inner2 AND (op2a code2 op2b)))  */
+	  else
+	    {
+	      if (integer_onep (t))
+		return boolean_true_node;
+	      else
+		/* Save partial result for later.  */
+		partial = t;
+	    }
+	}
+      
+      /* Compute the second partial result, (inner2 AND (op2a code op2b)) */
+      if (TREE_CODE (inner2) == SSA_NAME
+	  && is_gimple_assign (s = SSA_NAME_DEF_STMT (inner2))
+	  && TREE_CODE_CLASS (gimple_assign_rhs_code (s)) == tcc_comparison
+	  && (t = maybe_fold_and_comparisons (gimple_assign_rhs_code (s),
+					      gimple_assign_rhs1 (s),
+					      gimple_assign_rhs2 (s),
+					      code2, op2a, op2b)))
+	{
+	  /* Handle the AND case, where we are reassociating:
+	     (inner1 AND inner2) AND (op2a code2 op2b)
+	     => (inner1 AND t)  */
+	  if (is_and)
+	    {
+	      if (integer_onep (t))
+		return inner1;
+	      else if (integer_zerop (t))
+		return boolean_false_node;
+	    }
+
+	  /* Handle the OR case. where we are redistributing:
+	     (inner1 OR inner2) AND (op2a code2 op2b)
+	     => (t OR (inner1 AND (op2a code2 op2b)))
+	     => (t OR partial)  */
+	  else
+	    {
+	      if (integer_onep (t))
+		return boolean_true_node;
+	      else if (partial)
+		{
+		  /* We already got a simplification for the other
+		     operand to the redistributed OR expression.  The
+		     interesting case is when at least one is false.
+		     Or, if both are the same, we can apply the identity
+		     (x OR x) == x.  */
+		  if (integer_zerop (partial))
+		    return t;
+		  else if (integer_zerop (t))
+		    return partial;
+		  else if (same_bool_result_p (t, partial))
+		    return t;
+		}
+	    }
+	}
+    }
+  return NULL_TREE;
+}
+
+/* Try to simplify the AND of two comparisons defined by
+   (OP1A CODE1 OP1B) and (OP2A CODE2 OP2B), respectively.
+   If this can be done without constructing an intermediate value,
+   return the resulting tree; otherwise NULL_TREE is returned.
+   This function is deliberately asymmetric as it recurses on SSA_DEFs
+   in the first comparison but not the second.  */
+
+static tree
+and_comparisons_1 (enum tree_code code1, tree op1a, tree op1b,
+		   enum tree_code code2, tree op2a, tree op2b)
+{
+  /* First check for ((x CODE1 y) AND (x CODE2 y)).  */
+  if (operand_equal_p (op1a, op2a, 0)
+      && operand_equal_p (op1b, op2b, 0))
+    {
+      tree t = combine_comparisons (UNKNOWN_LOCATION,
+				    TRUTH_ANDIF_EXPR, code1, code2,
+				    boolean_type_node, op1a, op1b);
+      if (t)
+	return t;
+    }
+
+  /* Likewise the swapped case of the above.  */
+  if (operand_equal_p (op1a, op2b, 0)
+      && operand_equal_p (op1b, op2a, 0))
+    {
+      tree t = combine_comparisons (UNKNOWN_LOCATION,
+				    TRUTH_ANDIF_EXPR, code1,
+				    swap_tree_comparison (code2),
+				    boolean_type_node, op1a, op1b);
+      if (t)
+	return t;
+    }
+
+  /* If both comparisons are of the same value against constants, we might
+     be able to merge them.  */
+  if (operand_equal_p (op1a, op2a, 0)
+      && TREE_CODE (op1b) == INTEGER_CST
+      && TREE_CODE (op2b) == INTEGER_CST)
+    {
+      int cmp = tree_int_cst_compare (op1b, op2b);
+
+      /* If we have (op1a == op1b), we should either be able to
+	 return that or FALSE, depending on whether the constant op1b
+	 also satisfies the other comparison against op2b.  */
+      if (code1 == EQ_EXPR)
+	{
+	  bool done = true;
+	  bool val;
+	  switch (code2)
+	    {
+	    case EQ_EXPR: val = (cmp == 0); break;
+	    case NE_EXPR: val = (cmp != 0); break;
+	    case LT_EXPR: val = (cmp < 0); break;
+	    case GT_EXPR: val = (cmp > 0); break;
+	    case LE_EXPR: val = (cmp <= 0); break;
+	    case GE_EXPR: val = (cmp >= 0); break;
+	    default: done = false;
+	    }
+	  if (done)
+	    {
+	      if (val)
+		return fold_build2 (code1, boolean_type_node, op1a, op1b);
+	      else
+		return boolean_false_node;
+	    }
+	}
+      /* Likewise if the second comparison is an == comparison.  */
+      else if (code2 == EQ_EXPR)
+	{
+	  bool done = true;
+	  bool val;
+	  switch (code1)
+	    {
+	    case EQ_EXPR: val = (cmp == 0); break;
+	    case NE_EXPR: val = (cmp != 0); break;
+	    case LT_EXPR: val = (cmp > 0); break;
+	    case GT_EXPR: val = (cmp < 0); break;
+	    case LE_EXPR: val = (cmp >= 0); break;
+	    case GE_EXPR: val = (cmp <= 0); break;
+	    default: done = false;
+	    }
+	  if (done)
+	    {
+	      if (val)
+		return fold_build2 (code2, boolean_type_node, op2a, op2b);
+	      else
+		return boolean_false_node;
+	    }
+	}
+
+      /* Same business with inequality tests.  */
+      else if (code1 == NE_EXPR)
+	{
+	  bool val;
+	  switch (code2)
+	    {
+	    case EQ_EXPR: val = (cmp != 0); break;
+	    case NE_EXPR: val = (cmp == 0); break;
+	    case LT_EXPR: val = (cmp >= 0); break;
+	    case GT_EXPR: val = (cmp <= 0); break;
+	    case LE_EXPR: val = (cmp > 0); break;
+	    case GE_EXPR: val = (cmp < 0); break;
+	    default:
+	      val = false;
+	    }
+	  if (val)
+	    return fold_build2 (code2, boolean_type_node, op2a, op2b);
+	}
+      else if (code2 == NE_EXPR)
+	{
+	  bool val;
+	  switch (code1)
+	    {
+	    case EQ_EXPR: val = (cmp == 0); break;
+	    case NE_EXPR: val = (cmp != 0); break;
+	    case LT_EXPR: val = (cmp <= 0); break;
+	    case GT_EXPR: val = (cmp >= 0); break;
+	    case LE_EXPR: val = (cmp < 0); break;
+	    case GE_EXPR: val = (cmp > 0); break;
+	    default:
+	      val = false;
+	    }
+	  if (val)
+	    return fold_build2 (code1, boolean_type_node, op1a, op1b);
+	}
+
+      /* Chose the more restrictive of two < or <= comparisons.  */
+      else if ((code1 == LT_EXPR || code1 == LE_EXPR)
+	       && (code2 == LT_EXPR || code2 == LE_EXPR))
+	{
+	  if ((cmp < 0) || (cmp == 0 && code1 == LT_EXPR))
+	    return fold_build2 (code1, boolean_type_node, op1a, op1b);
+	  else
+	    return fold_build2 (code2, boolean_type_node, op2a, op2b);
+	}
+
+      /* Likewise chose the more restrictive of two > or >= comparisons.  */
+      else if ((code1 == GT_EXPR || code1 == GE_EXPR)
+	       && (code2 == GT_EXPR || code2 == GE_EXPR))
+	{
+	  if ((cmp > 0) || (cmp == 0 && code1 == GT_EXPR))
+	    return fold_build2 (code1, boolean_type_node, op1a, op1b);
+	  else
+	    return fold_build2 (code2, boolean_type_node, op2a, op2b);
+	}
+
+      /* Check for singleton ranges.  */
+      else if (cmp == 0
+	       && ((code1 == LE_EXPR && code2 == GE_EXPR)
+		   || (code1 == GE_EXPR && code2 == LE_EXPR)))
+	return fold_build2 (EQ_EXPR, boolean_type_node, op1a, op2b);
+
+      /* Check for disjoint ranges. */
+      else if (cmp <= 0
+	       && (code1 == LT_EXPR || code1 == LE_EXPR)
+	       && (code2 == GT_EXPR || code2 == GE_EXPR))
+	return boolean_false_node;
+      else if (cmp >= 0
+	       && (code1 == GT_EXPR || code1 == GE_EXPR)
+	       && (code2 == LT_EXPR || code2 == LE_EXPR))
+	return boolean_false_node;
+    }
+
+  /* Perhaps the first comparison is (NAME != 0) or (NAME == 1) where
+     NAME's definition is a truth value.  See if there are any simplifications
+     that can be done against the NAME's definition.  */
+  if (TREE_CODE (op1a) == SSA_NAME
+      && (code1 == NE_EXPR || code1 == EQ_EXPR)
+      && (integer_zerop (op1b) || integer_onep (op1b)))
+    {
+      bool invert = ((code1 == EQ_EXPR && integer_zerop (op1b))
+		     || (code1 == NE_EXPR && integer_onep (op1b)));
+      gimple stmt = SSA_NAME_DEF_STMT (op1a);
+      switch (gimple_code (stmt))
+	{
+	case GIMPLE_ASSIGN:
+	  /* Try to simplify by copy-propagating the definition.  */
+	  return and_var_with_comparison (op1a, invert, code2, op2a, op2b);
+
+	case GIMPLE_PHI:
+	  /* If every argument to the PHI produces the same result when
+	     ANDed with the second comparison, we win.
+	     Do not do this unless the type is bool since we need a bool
+	     result here anyway.  */
+	  if (TREE_CODE (TREE_TYPE (op1a)) == BOOLEAN_TYPE)
+	    {
+	      tree result = NULL_TREE;
+	      unsigned i;
+	      for (i = 0; i < gimple_phi_num_args (stmt); i++)
+		{
+		  tree arg = gimple_phi_arg_def (stmt, i);
+		  
+		  /* If this PHI has itself as an argument, ignore it.
+		     If all the other args produce the same result,
+		     we're still OK.  */
+		  if (arg == gimple_phi_result (stmt))
+		    continue;
+		  else if (TREE_CODE (arg) == INTEGER_CST)
+		    {
+		      if (invert ? integer_nonzerop (arg) : integer_zerop (arg))
+			{
+			  if (!result)
+			    result = boolean_false_node;
+			  else if (!integer_zerop (result))
+			    return NULL_TREE;
+			}
+		      else if (!result)
+			result = fold_build2 (code2, boolean_type_node,
+					      op2a, op2b);
+		      else if (!same_bool_comparison_p (result,
+							code2, op2a, op2b))
+			return NULL_TREE;
+		    }
+		  else if (TREE_CODE (arg) == SSA_NAME)
+		    {
+		      tree temp = and_var_with_comparison (arg, invert,
+							   code2, op2a, op2b);
+		      if (!temp)
+			return NULL_TREE;
+		      else if (!result)
+			result = temp;
+		      else if (!same_bool_result_p (result, temp))
+			return NULL_TREE;
+		    }
+		  else
+		    return NULL_TREE;
+		}
+	      return result;
+	    }
+
+	default:
+	  break;
+	}
+    }
+  return NULL_TREE;
+}
+
+/* Try to simplify the AND of two comparisons, specified by
+   (OP1A CODE1 OP1B) and (OP2B CODE2 OP2B), respectively.
+   If this can be simplified to a single expression (without requiring
+   introducing more SSA variables to hold intermediate values),
+   return the resulting tree.  Otherwise return NULL_TREE.
+   If the result expression is non-null, it has boolean type.  */
+
+tree
+maybe_fold_and_comparisons (enum tree_code code1, tree op1a, tree op1b,
+			    enum tree_code code2, tree op2a, tree op2b)
+{
+  tree t = and_comparisons_1 (code1, op1a, op1b, code2, op2a, op2b);
+  if (t)
+    return t;
+  else
+    return and_comparisons_1 (code2, op2a, op2b, code1, op1a, op1b);
+}
+
+/* Helper function for or_comparisons_1:  try to simplify the OR of the
+   ssa variable VAR with the comparison specified by (OP2A CODE2 OP2B).
+   If INVERT is true, invert the value of VAR before doing the OR.
+   Return NULL_EXPR if we can't simplify this to a single expression.  */
+
+static tree
+or_var_with_comparison (tree var, bool invert,
+			enum tree_code code2, tree op2a, tree op2b)
+{
+  tree t;
+  gimple stmt = SSA_NAME_DEF_STMT (var);
+
+  /* We can only deal with variables whose definitions are assignments.  */
+  if (!is_gimple_assign (stmt))
+    return NULL_TREE;
+  
+  /* If we have an inverted comparison, apply DeMorgan's law and rewrite
+     !var OR (op2a code2 op2b) => !(var AND !(op2a code2 op2b))
+     Then we only have to consider the simpler non-inverted cases.  */
+  if (invert)
+    t = and_var_with_comparison_1 (stmt, 
+				   invert_tree_comparison (code2, false),
+				   op2a, op2b);
+  else
+    t = or_var_with_comparison_1 (stmt, code2, op2a, op2b);
+  return canonicalize_bool (t, invert);
+}
+
+/* Try to simplify the OR of the ssa variable defined by the assignment
+   STMT with the comparison specified by (OP2A CODE2 OP2B).
+   Return NULL_EXPR if we can't simplify this to a single expression.  */
+
+static tree
+or_var_with_comparison_1 (gimple stmt,
+			  enum tree_code code2, tree op2a, tree op2b)
+{
+  tree var = gimple_assign_lhs (stmt);
+  tree true_test_var = NULL_TREE;
+  tree false_test_var = NULL_TREE;
+  enum tree_code innercode = gimple_assign_rhs_code (stmt);
+
+  /* Check for identities like (var OR (var != 0)) => true .  */
+  if (TREE_CODE (op2a) == SSA_NAME
+      && TREE_CODE (TREE_TYPE (var)) == BOOLEAN_TYPE)
+    {
+      if ((code2 == NE_EXPR && integer_zerop (op2b))
+	  || (code2 == EQ_EXPR && integer_nonzerop (op2b)))
+	{
+	  true_test_var = op2a;
+	  if (var == true_test_var)
+	    return var;
+	}
+      else if ((code2 == EQ_EXPR && integer_zerop (op2b))
+	       || (code2 == NE_EXPR && integer_nonzerop (op2b)))
+	{
+	  false_test_var = op2a;
+	  if (var == false_test_var)
+	    return boolean_true_node;
+	}
+    }
+
+  /* If the definition is a comparison, recurse on it.  */
+  if (TREE_CODE_CLASS (innercode) == tcc_comparison)
+    {
+      tree t = or_comparisons_1 (innercode,
+				 gimple_assign_rhs1 (stmt),
+				 gimple_assign_rhs2 (stmt),
+				 code2,
+				 op2a,
+				 op2b);
+      if (t)
+	return t;
+    }
+  
+  /* If the definition is an AND or OR expression, we may be able to
+     simplify by reassociating.  */
+  if (innercode == TRUTH_AND_EXPR
+      || innercode == TRUTH_OR_EXPR
+      || (TREE_CODE (TREE_TYPE (var)) == BOOLEAN_TYPE
+	  && (innercode == BIT_AND_EXPR || innercode == BIT_IOR_EXPR)))
+    {
+      tree inner1 = gimple_assign_rhs1 (stmt);
+      tree inner2 = gimple_assign_rhs2 (stmt);
+      gimple s;
+      tree t;
+      tree partial = NULL_TREE;
+      bool is_or = (innercode == TRUTH_OR_EXPR || innercode == BIT_IOR_EXPR);
+      
+      /* Check for boolean identities that don't require recursive examination
+	 of inner1/inner2:
+	 inner1 OR (inner1 OR inner2) => inner1 OR inner2 => var
+	 inner1 OR (inner1 AND inner2) => inner1
+	 !inner1 OR (inner1 OR inner2) => true
+	 !inner1 OR (inner1 AND inner2) => !inner1 OR inner2
+      */
+      if (inner1 == true_test_var)
+	return (is_or ? var : inner1);
+      else if (inner2 == true_test_var)
+	return (is_or ? var : inner2);
+      else if (inner1 == false_test_var)
+	return (is_or
+		? boolean_true_node
+		: or_var_with_comparison (inner2, false, code2, op2a, op2b));
+      else if (inner2 == false_test_var)
+	return (is_or
+		? boolean_true_node
+		: or_var_with_comparison (inner1, false, code2, op2a, op2b));
+      
+      /* Next, redistribute/reassociate the OR across the inner tests.
+	 Compute the first partial result, (inner1 OR (op2a code op2b))  */
+      if (TREE_CODE (inner1) == SSA_NAME
+	  && is_gimple_assign (s = SSA_NAME_DEF_STMT (inner1))
+	  && TREE_CODE_CLASS (gimple_assign_rhs_code (s)) == tcc_comparison
+	  && (t = maybe_fold_or_comparisons (gimple_assign_rhs_code (s),
+					     gimple_assign_rhs1 (s),
+					     gimple_assign_rhs2 (s),
+					     code2, op2a, op2b)))
+	{
+	  /* Handle the OR case, where we are reassociating:
+	     (inner1 OR inner2) OR (op2a code2 op2b)
+	     => (t OR inner2)
+	     If the partial result t is a constant, we win.  Otherwise
+	     continue on to try reassociating with the other inner test.  */
+	  if (innercode == TRUTH_OR_EXPR)
+	    {
+	      if (integer_onep (t))
+		return boolean_true_node;
+	      else if (integer_zerop (t))
+		return inner2;
+	    }
+	  
+	  /* Handle the AND case, where we are redistributing:
+	     (inner1 AND inner2) OR (op2a code2 op2b)
+	     => (t AND (inner2 OR (op2a code op2b)))  */
+	  else
+	    {
+	      if (integer_zerop (t))
+		return boolean_false_node;
+	      else
+		/* Save partial result for later.  */
+		partial = t;
+	    }
+	}
+      
+      /* Compute the second partial result, (inner2 OR (op2a code op2b)) */
+      if (TREE_CODE (inner2) == SSA_NAME
+	  && is_gimple_assign (s = SSA_NAME_DEF_STMT (inner2))
+	  && TREE_CODE_CLASS (gimple_assign_rhs_code (s)) == tcc_comparison
+	  && (t = maybe_fold_or_comparisons (gimple_assign_rhs_code (s),
+					     gimple_assign_rhs1 (s),
+					     gimple_assign_rhs2 (s),
+					     code2, op2a, op2b)))
+	{
+	  /* Handle the OR case, where we are reassociating:
+	     (inner1 OR inner2) OR (op2a code2 op2b)
+	     => (inner1 OR t)  */
+	  if (innercode == TRUTH_OR_EXPR)
+	    {
+	      if (integer_zerop (t))
+		return inner1;
+	      else if (integer_onep (t))
+		return boolean_true_node;
+	    }
+	  
+	  /* Handle the AND case, where we are redistributing:
+	     (inner1 AND inner2) OR (op2a code2 op2b)
+	     => (t AND (inner1 OR (op2a code2 op2b)))
+	     => (t AND partial)  */
+	  else 
+	    {
+	      if (integer_zerop (t))
+		return boolean_false_node;
+	      else if (partial)
+		{
+		  /* We already got a simplification for the other
+		     operand to the redistributed AND expression.  The
+		     interesting case is when at least one is true.
+		     Or, if both are the same, we can apply the identity
+		     (x AND x) == true.  */
+		  if (integer_onep (partial))
+		    return t;
+		  else if (integer_onep (t))
+		    return partial;
+		  else if (same_bool_result_p (t, partial))
+		    return boolean_true_node;
+		}
+	    }
+	}
+    }
+  return NULL_TREE;
+}
+
+/* Try to simplify the OR of two comparisons defined by
+   (OP1A CODE1 OP1B) and (OP2A CODE2 OP2B), respectively.
+   If this can be done without constructing an intermediate value,
+   return the resulting tree; otherwise NULL_TREE is returned.
+   This function is deliberately asymmetric as it recurses on SSA_DEFs
+   in the first comparison but not the second.  */
+
+static tree
+or_comparisons_1 (enum tree_code code1, tree op1a, tree op1b,
+		  enum tree_code code2, tree op2a, tree op2b)
+{
+  /* First check for ((x CODE1 y) OR (x CODE2 y)).  */
+  if (operand_equal_p (op1a, op2a, 0)
+      && operand_equal_p (op1b, op2b, 0))
+    {
+      tree t = combine_comparisons (UNKNOWN_LOCATION,
+				    TRUTH_ORIF_EXPR, code1, code2,
+				    boolean_type_node, op1a, op1b);
+      if (t)
+	return t;
+    }
+
+  /* Likewise the swapped case of the above.  */
+  if (operand_equal_p (op1a, op2b, 0)
+      && operand_equal_p (op1b, op2a, 0))
+    {
+      tree t = combine_comparisons (UNKNOWN_LOCATION,
+				    TRUTH_ORIF_EXPR, code1,
+				    swap_tree_comparison (code2),
+				    boolean_type_node, op1a, op1b);
+      if (t)
+	return t;
+    }
+
+  /* If both comparisons are of the same value against constants, we might
+     be able to merge them.  */
+  if (operand_equal_p (op1a, op2a, 0)
+      && TREE_CODE (op1b) == INTEGER_CST
+      && TREE_CODE (op2b) == INTEGER_CST)
+    {
+      int cmp = tree_int_cst_compare (op1b, op2b);
+
+      /* If we have (op1a != op1b), we should either be able to
+	 return that or TRUE, depending on whether the constant op1b
+	 also satisfies the other comparison against op2b.  */
+      if (code1 == NE_EXPR)
+	{
+	  bool done = true;
+	  bool val;
+	  switch (code2)
+	    {
+	    case EQ_EXPR: val = (cmp == 0); break;
+	    case NE_EXPR: val = (cmp != 0); break;
+	    case LT_EXPR: val = (cmp < 0); break;
+	    case GT_EXPR: val = (cmp > 0); break;
+	    case LE_EXPR: val = (cmp <= 0); break;
+	    case GE_EXPR: val = (cmp >= 0); break;
+	    default: done = false;
+	    }
+	  if (done)
+	    {
+	      if (val)
+		return boolean_true_node;
+	      else
+		return fold_build2 (code1, boolean_type_node, op1a, op1b);
+	    }
+	}
+      /* Likewise if the second comparison is a != comparison.  */
+      else if (code2 == NE_EXPR)
+	{
+	  bool done = true;
+	  bool val;
+	  switch (code1)
+	    {
+	    case EQ_EXPR: val = (cmp == 0); break;
+	    case NE_EXPR: val = (cmp != 0); break;
+	    case LT_EXPR: val = (cmp > 0); break;
+	    case GT_EXPR: val = (cmp < 0); break;
+	    case LE_EXPR: val = (cmp >= 0); break;
+	    case GE_EXPR: val = (cmp <= 0); break;
+	    default: done = false;
+	    }
+	  if (done)
+	    {
+	      if (val)
+		return boolean_true_node;
+	      else
+		return fold_build2 (code2, boolean_type_node, op2a, op2b);
+	    }
+	}
+
+      /* See if an equality test is redundant with the other comparison.  */
+      else if (code1 == EQ_EXPR)
+	{
+	  bool val;
+	  switch (code2)
+	    {
+	    case EQ_EXPR: val = (cmp == 0); break;
+	    case NE_EXPR: val = (cmp != 0); break;
+	    case LT_EXPR: val = (cmp < 0); break;
+	    case GT_EXPR: val = (cmp > 0); break;
+	    case LE_EXPR: val = (cmp <= 0); break;
+	    case GE_EXPR: val = (cmp >= 0); break;
+	    default:
+	      val = false;
+	    }
+	  if (val)
+	    return fold_build2 (code2, boolean_type_node, op2a, op2b);
+	}
+      else if (code2 == EQ_EXPR)
+	{
+	  bool val;
+	  switch (code1)
+	    {
+	    case EQ_EXPR: val = (cmp == 0); break;
+	    case NE_EXPR: val = (cmp != 0); break;
+	    case LT_EXPR: val = (cmp > 0); break;
+	    case GT_EXPR: val = (cmp < 0); break;
+	    case LE_EXPR: val = (cmp >= 0); break;
+	    case GE_EXPR: val = (cmp <= 0); break;
+	    default:
+	      val = false;
+	    }
+	  if (val)
+	    return fold_build2 (code1, boolean_type_node, op1a, op1b);
+	}
+
+      /* Chose the less restrictive of two < or <= comparisons.  */
+      else if ((code1 == LT_EXPR || code1 == LE_EXPR)
+	       && (code2 == LT_EXPR || code2 == LE_EXPR))
+	{
+	  if ((cmp < 0) || (cmp == 0 && code1 == LT_EXPR))
+	    return fold_build2 (code2, boolean_type_node, op2a, op2b);
+	  else
+	    return fold_build2 (code1, boolean_type_node, op1a, op1b);
+	}
+
+      /* Likewise chose the less restrictive of two > or >= comparisons.  */
+      else if ((code1 == GT_EXPR || code1 == GE_EXPR)
+	       && (code2 == GT_EXPR || code2 == GE_EXPR))
+	{
+	  if ((cmp > 0) || (cmp == 0 && code1 == GT_EXPR))
+	    return fold_build2 (code2, boolean_type_node, op2a, op2b);
+	  else
+	    return fold_build2 (code1, boolean_type_node, op1a, op1b);
+	}
+
+      /* Check for singleton ranges.  */
+      else if (cmp == 0
+	       && ((code1 == LT_EXPR && code2 == GT_EXPR)
+		   || (code1 == GT_EXPR && code2 == LT_EXPR)))
+	return fold_build2 (NE_EXPR, boolean_type_node, op1a, op2b);
+
+      /* Check for less/greater pairs that don't restrict the range at all.  */
+      else if (cmp >= 0
+	       && (code1 == LT_EXPR || code1 == LE_EXPR)
+	       && (code2 == GT_EXPR || code2 == GE_EXPR))
+	return boolean_true_node;
+      else if (cmp <= 0
+	       && (code1 == GT_EXPR || code1 == GE_EXPR)
+	       && (code2 == LT_EXPR || code2 == LE_EXPR))
+	return boolean_true_node;
+    }
+
+  /* Perhaps the first comparison is (NAME != 0) or (NAME == 1) where
+     NAME's definition is a truth value.  See if there are any simplifications
+     that can be done against the NAME's definition.  */
+  if (TREE_CODE (op1a) == SSA_NAME
+      && (code1 == NE_EXPR || code1 == EQ_EXPR)
+      && (integer_zerop (op1b) || integer_onep (op1b)))
+    {
+      bool invert = ((code1 == EQ_EXPR && integer_zerop (op1b))
+		     || (code1 == NE_EXPR && integer_onep (op1b)));
+      gimple stmt = SSA_NAME_DEF_STMT (op1a);
+      switch (gimple_code (stmt))
+	{
+	case GIMPLE_ASSIGN:
+	  /* Try to simplify by copy-propagating the definition.  */
+	  return or_var_with_comparison (op1a, invert, code2, op2a, op2b);
+
+	case GIMPLE_PHI:
+	  /* If every argument to the PHI produces the same result when
+	     ORed with the second comparison, we win.
+	     Do not do this unless the type is bool since we need a bool
+	     result here anyway.  */
+	  if (TREE_CODE (TREE_TYPE (op1a)) == BOOLEAN_TYPE)
+	    {
+	      tree result = NULL_TREE;
+	      unsigned i;
+	      for (i = 0; i < gimple_phi_num_args (stmt); i++)
+		{
+		  tree arg = gimple_phi_arg_def (stmt, i);
+		  
+		  /* If this PHI has itself as an argument, ignore it.
+		     If all the other args produce the same result,
+		     we're still OK.  */
+		  if (arg == gimple_phi_result (stmt))
+		    continue;
+		  else if (TREE_CODE (arg) == INTEGER_CST)
+		    {
+		      if (invert ? integer_zerop (arg) : integer_nonzerop (arg))
+			{
+			  if (!result)
+			    result = boolean_true_node;
+			  else if (!integer_onep (result))
+			    return NULL_TREE;
+			}
+		      else if (!result)
+			result = fold_build2 (code2, boolean_type_node,
+					      op2a, op2b);
+		      else if (!same_bool_comparison_p (result,
+							code2, op2a, op2b))
+			return NULL_TREE;
+		    }
+		  else if (TREE_CODE (arg) == SSA_NAME)
+		    {
+		      tree temp = or_var_with_comparison (arg, invert,
+							  code2, op2a, op2b);
+		      if (!temp)
+			return NULL_TREE;
+		      else if (!result)
+			result = temp;
+		      else if (!same_bool_result_p (result, temp))
+			return NULL_TREE;
+		    }
+		  else
+		    return NULL_TREE;
+		}
+	      return result;
+	    }
+
+	default:
+	  break;
+	}
+    }
+  return NULL_TREE;
+}
+
+/* Try to simplify the OR of two comparisons, specified by
+   (OP1A CODE1 OP1B) and (OP2B CODE2 OP2B), respectively.
+   If this can be simplified to a single expression (without requiring
+   introducing more SSA variables to hold intermediate values),
+   return the resulting tree.  Otherwise return NULL_TREE.
+   If the result expression is non-null, it has boolean type.  */
+
+tree
+maybe_fold_or_comparisons (enum tree_code code1, tree op1a, tree op1b,
+			   enum tree_code code2, tree op2a, tree op2b)
+{
+  tree t = or_comparisons_1 (code1, op1a, op1b, code2, op2a, op2b);
+  if (t)
+    return t;
+  else
+    return or_comparisons_1 (code2, op2a, op2b, code1, op1a, op1b);
+}

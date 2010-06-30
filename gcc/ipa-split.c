@@ -138,6 +138,7 @@ test_nonssa_use (gimple stmt ATTRIBUTE_UNUSED, tree t,
   if (t && !is_gimple_reg (t)
       && ((TREE_CODE (t) == VAR_DECL
 	  && auto_var_in_fn_p (t, current_function_decl))
+	  || (TREE_CODE (t) == RESULT_DECL)
 	  || (TREE_CODE (t) == PARM_DECL)))
     return bitmap_bit_p ((bitmap)data, DECL_UID (t));
   return false;
@@ -277,7 +278,7 @@ consider_split (struct split_point *current, bitmap non_ssa_vars,
     }
 
   /* FIXME: we currently can pass only SSA function parameters to the split
-     arguments.  Once parm_adjustment infrastructure is supported by clonning,
+     arguments.  Once parm_adjustment infrastructure is supported by cloning,
      we can pass more than that.  */
   if (num_args != bitmap_count_bits (current->ssa_names_to_pass))
     {
@@ -441,7 +442,8 @@ mark_nonssa_use (gimple stmt ATTRIBUTE_UNUSED, tree t,
       return true;
     }
 
-  if (TREE_CODE (t) == VAR_DECL && auto_var_in_fn_p (t, current_function_decl))
+  if ((TREE_CODE (t) == VAR_DECL && auto_var_in_fn_p (t, current_function_decl))
+      || (TREE_CODE (t) == RESULT_DECL))
     bitmap_set_bit ((bitmap)data, DECL_UID (t));
   return false;
 }
@@ -843,6 +845,14 @@ split_function (struct split_point *split_point)
 				     args_to_skip,
 				     split_point->split_bbs,
 				     split_point->entry_bb, "_part");
+  /* For usual cloning it is enough to clear builtin only when signature
+     changes.  For partial inlining we however can not expect the part
+     of builtin implementation to have same semantic as the whole.  */
+  if (DECL_BUILT_IN (node->decl))
+    {
+      DECL_BUILT_IN_CLASS (node->decl) = NOT_BUILT_IN;
+      DECL_FUNCTION_CODE (node->decl) = (enum built_in_function) 0;
+    }
   cgraph_node_remove_callees (cgraph_node (current_function_decl));
   if (!split_part_return_p)
     TREE_THIS_VOLATILE (node->decl) = 1;
@@ -920,9 +930,14 @@ split_function (struct split_point *split_point)
 	  gimple ret;
 	  if (!VOID_TYPE_P (TREE_TYPE (TREE_TYPE (current_function_decl))))
 	    {
-	      retval
-	        = create_tmp_var (TREE_TYPE (TREE_TYPE (current_function_decl)),
-				  "RET");
+	      retval = DECL_RESULT (current_function_decl);
+
+	      /* We use temporary register to hold value when aggregate_value_p
+		 is false.  Similarly for DECL_BY_REFERENCE we must avoid extra
+		 copy.  */
+	      if (!aggregate_value_p (retval, TREE_TYPE (current_function_decl))
+		  && !DECL_BY_REFERENCE (retval))
+		retval = create_tmp_reg (TREE_TYPE (retval), NULL);
 	      if (is_gimple_reg (retval))
 		retval = make_ssa_name (retval, call);
 	      gimple_call_set_lhs (call, retval);

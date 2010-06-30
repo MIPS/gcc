@@ -176,7 +176,7 @@ VN_INFO (tree name)
 {
   vn_ssa_aux_t res = VEC_index (vn_ssa_aux_t, vn_ssa_aux_table,
 				SSA_NAME_VERSION (name));
-  gcc_assert (res);
+  gcc_checking_assert (res);
   return res;
 }
 
@@ -2352,6 +2352,10 @@ stmt_has_constants (gimple stmt)
     case GIMPLE_BINARY_RHS:
       return (is_gimple_min_invariant (gimple_assign_rhs1 (stmt))
 	      || is_gimple_min_invariant (gimple_assign_rhs2 (stmt)));
+    case GIMPLE_TERNARY_RHS:
+      return (is_gimple_min_invariant (gimple_assign_rhs1 (stmt))
+	      || is_gimple_min_invariant (gimple_assign_rhs2 (stmt))
+	      || is_gimple_min_invariant (gimple_assign_rhs3 (stmt)));
     case GIMPLE_SINGLE_RHS:
       /* Constants inside reference ops are rarely interesting, but
 	 it can take a lot of looking to find them.  */

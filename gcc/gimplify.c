@@ -534,7 +534,7 @@ lookup_tmp_var (tree val, bool is_formal)
 
 
 /* Return true if T is a CALL_EXPR or an expression that can be
-   assignmed to a temporary.  Note that this predicate should only be
+   assigned to a temporary.  Note that this predicate should only be
    used during gimplification.  See the rationale for this in
    gimplify_modify_expr.  */
 
@@ -1153,14 +1153,9 @@ gimplify_bind_expr (tree *expr_p, gimple_seq *pre_p)
 
       /* Preliminarily mark non-addressed complex variables as eligible
 	 for promotion to gimple registers.  We'll transform their uses
-	 as we find them.
-	 We exclude complex types if not optimizing because they can be
-	 subject to partial stores in GNU C by means of the __real__ and
-	 __imag__ operators and we cannot promote them to total stores
-	 (see gimplify_modify_expr_complex_part).  */
-      if (optimize
-	  && (TREE_CODE (TREE_TYPE (t)) == COMPLEX_TYPE
-	      || TREE_CODE (TREE_TYPE (t)) == VECTOR_TYPE)
+	 as we find them.  */
+      if ((TREE_CODE (TREE_TYPE (t)) == COMPLEX_TYPE
+	   || TREE_CODE (TREE_TYPE (t)) == VECTOR_TYPE)
 	  && !TREE_THIS_VOLATILE (t)
 	  && (TREE_CODE (t) == VAR_DECL && !DECL_HARD_REGISTER (t))
 	  && !needs_to_live_in_memory (t))
@@ -5140,9 +5135,10 @@ gimplify_cleanup_point_expr (tree *expr_p, gimple_seq *pre_p)
 	    {
               /* Note that gsi_insert_seq_before and gsi_remove do not
                  scan operands, unlike some other sequence mutators.  */
-	      gsi_insert_seq_before_without_update (&iter,
-                                                    gimple_wce_cleanup (wce),
-                                                    GSI_SAME_STMT);
+	      if (!gimple_wce_cleanup_eh_only (wce))
+		gsi_insert_seq_before_without_update (&iter,
+						      gimple_wce_cleanup (wce),
+						      GSI_SAME_STMT);
 	      gsi_remove (&iter, true);
 	      break;
 	    }
@@ -5585,7 +5581,7 @@ omp_notice_variable (struct gimplify_omp_ctx *ctx, tree decl, bool in_code)
 	{
 	case OMP_CLAUSE_DEFAULT_NONE:
 	  error ("%qE not specified in enclosing parallel",
-		 DECL_NAME (decl));
+		 DECL_NAME (lang_hooks.decls.omp_report_decl (decl)));
 	  if ((ctx->region_type & ORT_TASK) != 0)
 	    error_at (ctx->location, "enclosing task");
 	  else
@@ -6513,7 +6509,7 @@ gimplify_omp_atomic (tree *expr_p, gimple_seq *pre_p)
 
    GIMPLE_TEST_F points to a function that takes a tree T and
        returns nonzero if T is in the GIMPLE form requested by the
-       caller.  The GIMPLE predicates are in tree-gimple.c.
+       caller.  The GIMPLE predicates are in gimple.c.
 
    FALLBACK tells the function what sort of a temporary we want if
        gimplification cannot produce an expression that complies with
@@ -7597,6 +7593,10 @@ gimplify_body (tree *body_p, tree fndecl, bool do_parms)
   struct gimplify_ctx gctx;
 
   timevar_push (TV_TREE_GIMPLIFY);
+
+  /* Initialize for optimize_insn_for_s{ize,peed}_p possibly called during
+     gimplification.  */
+  default_rtl_profile ();
 
   gcc_assert (gimplify_ctxp == NULL);
   push_gimplify_context (&gctx);

@@ -134,7 +134,7 @@ create_var_ann (tree t)
 	      || TREE_CODE (t) == PARM_DECL
 	      || TREE_CODE (t) == RESULT_DECL);
 
-  ann = GGC_CNEW (struct var_ann_d);
+  ann = ggc_alloc_cleared_var_ann_d ();
   *DECL_VAR_ANN_PTR (t) = ann;
 
   return ann;
@@ -242,8 +242,6 @@ debug_referenced_vars (void)
 void
 dump_variable (FILE *file, tree var)
 {
-  var_ann_t ann;
-
   if (TREE_CODE (var) == SSA_NAME)
     {
       if (POINTER_TYPE_P (TREE_TYPE (var)))
@@ -258,8 +256,6 @@ dump_variable (FILE *file, tree var)
     }
 
   print_generic_expr (file, var, dump_flags);
-
-  ann = var_ann (var);
 
   fprintf (file, ", UID D.%u", (unsigned) DECL_UID (var));
   if (DECL_PT_UID (var) != DECL_UID (var))
@@ -276,14 +272,6 @@ dump_variable (FILE *file, tree var)
 
   if (TREE_THIS_VOLATILE (var))
     fprintf (file, ", is volatile");
-
-  if (ann && ann->noalias_state == NO_ALIAS)
-    fprintf (file, ", NO_ALIAS (does not alias other NO_ALIAS symbols)");
-  else if (ann && ann->noalias_state == NO_ALIAS_GLOBAL)
-    fprintf (file, ", NO_ALIAS_GLOBAL (does not alias other NO_ALIAS symbols"
-	           " and global vars)");
-  else if (ann && ann->noalias_state == NO_ALIAS_ANYTHING)
-    fprintf (file, ", NO_ALIAS_ANYTHING (does not alias any other symbols)");
 
   if (cfun && gimple_default_def (cfun, var))
     {
