@@ -40,6 +40,12 @@
 	(gen_enumeration_type_die, gen_struct_or_union_type_die,
 	gen_typedef_die): Use it.
 
+2010-06-27  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/44683
+	* tree-ssa-dom.c (record_edge_info): Record equivalences for the
+	false edge from the inverted condition.
+
 2010-06-25  Jakub Jelinek  <jakub@redhat.com>
 
 	PR middle-end/43866
