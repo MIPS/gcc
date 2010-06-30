@@ -1,3 +1,8 @@
+2010-06-21  Jan Kratochvil  <jan.kratochvil@redhat.com>
+
+	* doc/Makefile.am (POD2MAN): Provide --date from ChangeLog.
+	* doc/Makefile.in: Regenerate.
+
 2010-01-09  Jakub Jelinek  <jakub@redhat.com>
 
 	* gnu/java/rmi/registry/RegistryImpl.java (version): Update

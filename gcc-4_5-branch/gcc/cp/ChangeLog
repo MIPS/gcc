@@ -1,3 +1,29 @@
+2010-06-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* cp-objcp-common.c (shadowed_var_for_decl): Change into
+	tree_decl_map hashtab from tree_map.
+	(decl_shadowed_for_var_lookup, decl_shadowed_for_var_insert): Adjust.
+	(init_shadowed_var_for_decl): Adjust initialization.
+
+	PR debug/44367
+	* semantics.c (finalize_nrv): Don't copy DECL_ARTIFICIAL, DECL_IGNORED_P,
+	DECL_SOURCE_LOCATION and DECL_ABSTRACT_ORIGIN from var to result.
+	Set DECL_VALUE_EXPR on var.
+
+2010-05-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/44148
+	* pt.c (tsubst): Unshare template argument.
+
+2010-04-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* cp-tree.h (TYPE_REF_IS_RVALUE): Remove.
+
+2010-04-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* cp-tree.h (SCOPED_ENUM_P, UNSCOPED_ENUM_P, SET_SCOPED_ENUM_P): Use
+	ENUM_IS_SCOPED bit instead of TYPE_LANG_FLAG_5.
+
 2010-06-04  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/44412

@@ -1560,9 +1560,12 @@ static inline tree
 var_debug_decl (tree decl)
 {
   if (decl && DECL_P (decl)
-      && DECL_DEBUG_EXPR_IS_FROM (decl) && DECL_DEBUG_EXPR (decl)
-      && DECL_P (DECL_DEBUG_EXPR (decl)))
-    decl = DECL_DEBUG_EXPR (decl);
+      && DECL_DEBUG_EXPR_IS_FROM (decl))
+    {
+      tree debugdecl = DECL_DEBUG_EXPR (decl);
+      if (debugdecl && DECL_P (debugdecl))
+	decl = debugdecl;
+    }
 
   return decl;
 }
@@ -4534,13 +4537,32 @@ track_expr_p (tree expr, bool need_rtl)
      don't need to track this expression if the ultimate declaration is
      ignored.  */
   realdecl = expr;
-  if (DECL_DEBUG_EXPR_IS_FROM (realdecl) && DECL_DEBUG_EXPR (realdecl))
+  if (DECL_DEBUG_EXPR_IS_FROM (realdecl))
     {
       realdecl = DECL_DEBUG_EXPR (realdecl);
-      /* ??? We don't yet know how to emit DW_OP_piece for variable
-	 that has been SRA'ed.  */
-      if (!DECL_P (realdecl))
-	return 0;
+      if (realdecl == NULL_TREE)
+	realdecl = expr;
+      else if (!DECL_P (realdecl))
+	{
+	  if (handled_component_p (realdecl))
+	    {
+	      HOST_WIDE_INT bitsize, bitpos, maxsize;
+	      tree innerdecl
+		= get_ref_base_and_extent (realdecl, &bitpos, &bitsize,
+					   &maxsize);
+	      if (!DECL_P (innerdecl)
+		  || DECL_IGNORED_P (innerdecl)
+		  || TREE_STATIC (innerdecl)
+		  || bitsize <= 0
+		  || bitpos + bitsize > 256
+		  || bitsize != maxsize)
+		return 0;
+	      else
+		realdecl = expr;
+	    }
+	  else
+	    return 0;
+	}
     }
 
   /* Do not track EXPR if REALDECL it should be ignored for debugging

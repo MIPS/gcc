@@ -1,3 +1,46 @@
+2010-06-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/44668
+	* g++.dg/debug/dwarf2/accessibility1.C: New test.
+
+2010-06-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/44492
+	* g++.dg/torture/pr44492.C: New test.
+
+2010-05-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/42801
+	* gcc.dg/guality/vla-2.c: New test.
+
+2010-05-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/44148
+	* g++.dg/torture/pr44148.C: New test.
+
+2010-05-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/44112
+	* gcc.dg/debug/dwarf2/const-1.c: Remove.
+	* g++.dg/debug/dwarf2/const1.C: Remove.
+
+2010-05-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/43983
+	* gcc.dg/guality/sra-1.c: New test.
+
+2010-04-30  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.dg/tree-ssa/builtin-free.c: New testcase.
+
+2010-04-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/debug/dwarf2/rv1.C: New test.
+
+2010-04-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/debug/dwarf2/enum1.C: New test.
+
 2010-06-30  Jakub Jelinek  <jakub@redhat.com>
 
 	Backport from mainline

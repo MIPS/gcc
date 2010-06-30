@@ -194,9 +194,15 @@
 	  return "vmovaps\t{%1, %0|%0, %1}";
 	case MODE_V4DF:
 	case MODE_V2DF:
-	  return "vmovapd\t{%1, %0|%0, %1}";
+	  if (TARGET_SSE_PACKED_SINGLE_INSN_OPTIMAL)
+	    return "vmovaps\t{%1, %0|%0, %1}";
+	  else
+	    return "vmovapd\t{%1, %0|%0, %1}";
 	default:
-	  return "vmovdqa\t{%1, %0|%0, %1}";
+	  if (TARGET_SSE_PACKED_SINGLE_INSN_OPTIMAL)
+	    return "vmovaps\t{%1, %0|%0, %1}";
+	  else
+	    return "vmovdqa\t{%1, %0|%0, %1}";
 	}
     default:
       gcc_unreachable ();
@@ -236,9 +242,15 @@
 	case MODE_V4SF:
 	  return "movaps\t{%1, %0|%0, %1}";
 	case MODE_V2DF:
-	  return "movapd\t{%1, %0|%0, %1}";
+	  if (TARGET_SSE_PACKED_SINGLE_INSN_OPTIMAL)
+	    return "movaps\t{%1, %0|%0, %1}";
+	  else
+	    return "movapd\t{%1, %0|%0, %1}";
 	default:
-	  return "movdqa\t{%1, %0|%0, %1}";
+	  if (TARGET_SSE_PACKED_SINGLE_INSN_OPTIMAL)
+	    return "movaps\t{%1, %0|%0, %1}";
+	  else
+	    return "movdqa\t{%1, %0|%0, %1}";
 	}
     default:
       gcc_unreachable ();
@@ -1610,7 +1622,12 @@
 	  (match_operand:AVXMODEF2P 2 "nonimmediate_operand" "xm")))]
   "AVX_VEC_FLOAT_MODE_P (<MODE>mode)
    && ix86_binary_operator_ok (<CODE>, <MODE>mode, operands)"
-  "v<logicprefix>p<avxmodesuffixf2c>\t{%2, %1, %0|%0, %1, %2}"
+{
+  if (TARGET_SSE_PACKED_SINGLE_INSN_OPTIMAL)
+    return "v<logicprefix>ps\t{%2, %1, %0|%0, %1, %2}";
+  else
+    return "v<logicprefix>p<avxmodesuffixf2c>\t{%2, %1, %0|%0, %1, %2}";
+}
   [(set_attr "type" "sselog")
    (set_attr "prefix" "vex")
    (set_attr "mode" "<avxvecmode>")])
@@ -1630,7 +1647,12 @@
 	  (match_operand:SSEMODEF2P 2 "nonimmediate_operand" "xm")))]
   "SSE_VEC_FLOAT_MODE_P (<MODE>mode)
    && ix86_binary_operator_ok (<CODE>, <MODE>mode, operands)"
-  "<logicprefix>p<ssemodesuffixf2c>\t{%2, %0|%0, %2}"
+{
+  if (TARGET_SSE_PACKED_SINGLE_INSN_OPTIMAL)
+    return "<logicprefix>ps\t{%2, %0|%0, %2}";
+  else
+    return "<logicprefix>p<ssemodesuffixf2c>\t{%2, %0|%0, %2}";
+}
   [(set_attr "type" "sselog")
    (set_attr "mode" "<MODE>")])
 
@@ -1686,7 +1708,12 @@
 	  (match_operand:MODEF 1 "register_operand" "x")
 	  (match_operand:MODEF 2 "register_operand" "x")))]
   "AVX_FLOAT_MODE_P (<MODE>mode)"
-  "v<logicprefix>p<ssemodefsuffix>\t{%2, %1, %0|%0, %1, %2}"
+{
+  if (TARGET_SSE_PACKED_SINGLE_INSN_OPTIMAL)
+    return "v<logicprefix>ps\t{%2, %1, %0|%0, %1, %2}";
+  else
+    return "v<logicprefix>p<ssemodefsuffix>\t{%2, %1, %0|%0, %1, %2}";
+}
   [(set_attr "type" "sselog")
    (set_attr "prefix" "vex")
    (set_attr "mode" "<ssevecmode>")])
@@ -1697,7 +1724,12 @@
 	  (match_operand:MODEF 1 "register_operand" "0")
 	  (match_operand:MODEF 2 "register_operand" "x")))]
   "SSE_FLOAT_MODE_P (<MODE>mode)"
-  "<logicprefix>p<ssemodefsuffix>\t{%2, %0|%0, %2}"
+{
+  if (TARGET_SSE_PACKED_SINGLE_INSN_OPTIMAL)
+    return "<logicprefix>ps\t{%2, %0|%0, %2}";
+  else
+    return "<logicprefix>p<ssemodefsuffix>\t{%2, %0|%0, %2}";
+}
   [(set_attr "type" "sselog")
    (set_attr "mode" "<ssevecmode>")])
 
