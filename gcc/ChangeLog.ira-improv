@@ -1,0 +1,528 @@
+2010-07-01  Vladimir Makarov  <vmakarov@redhat.com>
+
+	Merge from trunk @ 161613
+	* target-def.h (IRA_COVER_CLASSES, TARGET_IRA_COVER_CLASSES):
+	Remove.
+	* target.def (ira_cover_classes): Remove.
+	* doc/tm.texi: Ditto.
+	
+2010-06-18  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* ira-costs.c (setup_regno_cost_classes_by_aclass): Fix a typo.
+
+2010-06-16  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* ira.c (ira_class_hard_regs_num): Fix the comment.
+
+	* ira-costs.c (struct cost_classes): New member hard_regno_index.
+	(setup_cost_classes): New.
+	(setup_regno_cost_classes_by_aclass): Call setup_cost_classes.
+	(setup_regno_cost_classes_by_mode): Ditto.
+	(record_address_regs): Fix overflow code.
+	(scan_one_insn): Ditto.
+	(find_costs_and_classes): Ditto.  Move setting cost classes to the
+	loop start.
+	(setup_allocno_class_and_costs): Use member hard_regno_index.
+	(ira_tune_allocno_costs): Fix overflow code.
+	
+2010-06-11  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* ira-int.h (ira_max_memory_move_cost, ira_max_may_move_in_cost,
+	ira_max_may_move_out_cost, ira_get_register_move_cost,
+	ira_get_may_move_cost, ira_get_max_may_move_cost): Remove.
+	(ira_init_register_move_cost_if_necessary): New.
+	
+	* ira-conflicts.c (build_conflict_bit_table): Optimize.
+	(process_regs_for_copy): Call
+	ira_init_register_move_cost_if_necessary.  Use
+	ira_register_move_cost instead of ira_get_register_move_cost.
+	(build_allocno_conflicts): Optimize.
+
+	* ira-color.c (update_copy_costs, move_spill_restore,
+	update_curr_costs): Call ira_init_register_move_cost_if_necessary.
+	Use ira_register_move_cost instead of ira_get_register_move_cost.
+	(get_allocno_hard_regs_subnodes_num): Remove last parameter.
+	(form_allocno_hard_regs_nodes_forest): Do't pass profitable
+	registers to get_allocno_hard_regs_subnodes_num.
+	(improve_allocation): Don't cycle when register is out of range.
+
+	* ira-live.c: Include sbitmap.h.
+	(process_single_reg_class_operands): Call
+	ira_init_register_move_cost_if_necessary.  Use
+	ira_register_move_cost instead of ira_get_register_move_cost.
+	(remove_some_program_points_and_update_live_ranges): Use sbitmaps.
+	Compress live ranges even more.
+
+	* ira-emit.c (emit_move_list): Call
+	ira_init_register_move_cost_if_necessary.  Use
+	ira_register_move_cost instead of ira_get_register_move_cost.
+
+	* ira.c (ira_max_memory_move_cost, ira_max_may_move_in_cost,
+	ira_max_may_move_out_cost): Make static.
+	(setup_pressure_classes): Call
+	ira_init_register_move_cost_if_necessary.  Use
+	ira_register_move_cost instead of ira_get_register_move_cost.
+	(comp_reg_classes_func): Use original classes at the end.
+
+	* ira-costs.c (cost_classes, cost_classes_num): Remove.
+	(struct cost_classes, cost_classes_t, const_cost_classes_t,
+	regno_cost_classes, cost_classes_hash, cost_classes_eq,
+	cost_classes_del, cost_classes_htab, cost_classes_mode_cache,
+	initiate_regno_cost_classes, setup_regno_cost_classes_by_aclass,
+	setup_regno_cost_classes_by_mode, finish_regno_cost_classes): New.
+	(record_reg_classes): Optimize.  Call
+	ira_init_register_move_cost_if_necessary.  Use
+	ira_register_move_cost, ira_may_move_in_cost, and
+	ira_may_move_out_cost instead of ira_get_register_move_cost and
+	ira_get_may_move_cost.  Use regno_cost_classes instead of
+	cost_classes.  Use right regno for digital constraint.
+	(record_address_regs): Ditto.
+	(scan_one_insn): Optimize.  Use regno_cost_classes instead of
+	cost_classes.  Check added costs for overflow.
+	(print_allocno_costs, print_pseudo_costs): Use regno_cost_classes
+	instead of cost_classes.
+	(find_costs_and_classes): Optimize.  Set up cost classes for each
+	registers.  Use also their mode for this.  Use regno_cost_classes
+	instead of cost_classes.  Call
+	ira_init_register_move_cost_if_necessary.  Use
+	ira_register_move_cost instead of ira_get_register_move_cost.
+	Check added costs for overflow.
+	(setup_allocno_class_and_costs): Use regno_cost_classes instead of
+	cost_classes.
+	(ira_tune_allocno_costs): Check added costs for overflow.
+	(free_ira_costs, ira_init_costs): Don't use cost_classes.
+	(ira_costs, ira_set_pseudo_classes): Call
+	initiate_regno_cost_classes and finish_regno_cost_classes.
+	
+2010-06-04  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* ira-color.c (update_copy_costs): Remove assert.  Skip cost
+	update if the hard reg does not belong the class.
+
+2010-05-31  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* config/alpha/alpha.h (IRA_COVER_CLASSES): Remove.
+
+	* config/arm/arm.h (IRA_COVER_CLASSES): Ditto.
+
+	* config/avr/avr.h (IRA_COVER_CLASSES): Ditto.
+
+	* config/bfin/bfin.h (IRA_COVER_CLASSES): Ditto.
+
+	* config/crx/crx.h (IRA_COVER_CLASSES): Ditto.
+
+	* config/cris/cris.h (IRA_COVER_CLASSES): Ditto.
+
+	* config/fr30/fr30.h (IRA_COVER_CLASSES): Ditto.
+
+	* config/frv/frv.h (IRA_COVER_CLASSES): Ditto.
+
+	* config/h8300/h8300.h (IRA_COVER_CLASSES): Ditto.
+
+	* config/i386/i386.h (STACK_REG_COVER_CLASS FLOAT_REGS): Ditto.
+
+	* config/i386/i386.c (TARGET_IRA_COVER_CLASSES,
+	i386_ira_cover_classes): Ditto.
+
+	* config/ia64/ia64.h (IRA_COVER_CLASSES): Ditto.
+
+	* config/iq2000/iq2000.h (IRA_COVER_CLASSES): Ditto.
+
+	* config/m32r/m32r.h (IRA_COVER_CLASSES): Ditto.
+
+	* config/m68k/m68k.h (IRA_COVER_CLASSES): Ditto.
+
+	* config/mcore/mcore.h (IRA_COVER_CLASSES): Ditto.
+
+	* config/mep/mep.h (IRA_COVER_CLASSES): Ditto.
+
+	* config/mips/mips.c (TARGET_IRA_COVER_CLASSES,
+	mips_ira_cover_classes): Ditto.
+
+	* config/mn10300/mn10300.h (IRA_COVER_CLASSES): Ditto.
+
+	* config/moxie/moxie.h (IRA_COVER_CLASSES): Ditto.
+
+	* config/pa/pa64-regs.h (IRA_COVER_CLASSES): Ditto.
+
+	* config/pa/pa32-regs.h (IRA_COVER_CLASSES): Ditto.
+
+	* config/picochip/picochip.h (IRA_COVER_CLASSES): Ditto.
+
+	* config/rs6000/rs6000.h (IRA_COVER_CLASSES_PRE_VSX,
+	IRA_COVER_CLASSES_VSX): Ditto.
+
+	* config/rs6000/rs6000.c (TARGET_IRA_COVER_CLASSES,
+	rs6000_ira_cover_classes): Ditto.
+
+	* config/rx/rx.h (IRA_COVER_CLASSES): Ditto.
+
+	* config/s390/s390.h (IRA_COVER_CLASSES): Ditto.
+
+	* config/score/score.h (IRA_COVER_CLASSES): Ditto.
+
+	* config/sh/sh.h (IRA_COVER_CLASSES): Ditto.
+
+	* config/sparc/sparc.h (IRA_COVER_CLASSES): Ditto.
+
+	* config/spu/spu.h (IRA_COVER_CLASSES): Ditto.
+
+	* config/stormy16/stormy16.h (IRA_COVER_CLASSES): Ditto.
+
+	* config/v850/v850.h (IRA_COVER_CLASSES): Ditto.
+
+	* config/vax/vax.h (IRA_COVER_CLASSES): Ditto.
+
+	* config/xtensa/xtensa.h (IRA_COVER_CLASSES): Ditto.
+	
+	* target-def.h (TARGET_IRA_COVER_CLASSES): Remove.
+	(TARGET_INITIALIZER): Remove it there too.
+
+	* target.h (struct gcc_target): Remove ira_cover_classes.
+
+	* targhooks.c (default_ira_cover_classes): Remove.
+
+	* targhooks.h (default_ira_cover_classes): Ditto.
+	
+	* rtl.h (reg_cover_class): Rename to reg_allocno_class.
+
+	* sched-int.h: Remove mentioning cover classes from the file.
+	(sched_regno_cover_class): Rename to sched_regno_pressure_class.
+	
+	* haifa-sched.c: Remove mentioning cover classes from the file.
+	Use ira_reg_pressure_cover instead of ira_reg_class_cover.  Use
+	ira_pressure_classes and ira_pressure_classes_num instead of
+	ira_reg_class_cover_size and ira_reg_class_cover.  Use
+	sched_regno_pressure_class instead of sched_regno_cover_class.
+	(mark_regno_birth_or_death): Use ira_reg_class_max_nregs instead
+	of ira_reg_class_nregs.
+	
+	* sched-deps.c: Remove mentioning cover classes from the file.
+	Use ira_reg_pressure_cover instead of ira_reg_class_cover.  Use
+	ira_pressure_classes and ira_pressure_classes_num instead of
+	ira_reg_class_cover_size and ira_reg_class_cover.
+	(mark_insn_hard_regno_birth, mark_hard_regno_death): Use
+	sched_regno_pressure_class instead of sched_regno_cover_class.
+	(mark_insn_pseudo_birth, mark_pseudo_death): Ditto.  Use
+	ira_reg_class_max_nregs instead of ira_reg_class_nregs.
+	
+	* loop-invariant.c: Remove mentioning cover classes from the file.
+	Use ira_pressure_classes and ira_pressure_classes_num instead of
+	ira_reg_class_cover_size and ira_reg_class_cover.
+	(get_cover_class_and_nregs): Rename to
+	get_cover_pressure_and_nregs.  Use ira_reg_class_max_nregs instead
+	of ira_reg_class_nregs.  Use reg_allocno_class instead of
+	reg_cover_class.
+	(get_inv_cost): Use instead ira_stack_reg_pressure_class of
+	STACK_REG_COVER_CLASS.
+	(get_regno_cover_class): Rename to get_regno_pressure_class.
+	
+	* reginfo.c: Add 2010 to Copyright.  Remove mentioning cover
+	classes from the file.
+	(struct reg_pref): Rename coverclass into allocnoclass.
+	(reg_cover_class): Rename to reg_allocno_class.
+	
+	* common.opt (fira-coalesce): Remove.
+
+	* toplev.h (flag_ira_coalesce): Remove.
+	
+	* doc/invoke.texi (flag_ira_coalesce): Remove.
+
+	* doc/tm.texi (STACK_REG_COVER_CLASS, TARGET_IRA_COVER_CLASSES,
+	IRA_COVER_CLASSES): Remove.
+
+	* opts.c (decode_options): Remove ira_cover_class check.
+	
+	* ira.h: Add 2010 to Copyright.
+	(ira_hard_regno_cover_class): Rename to
+	ira_hard_regno_allocno_class.
+	(ira_reg_class_cover_size, ira_reg_class_cover): Rename to
+	ira_allocno_classes_num and ira_allocno_classes.
+	(ira_class_translate): Rename to ira_allocno_class_translate.
+	(ira_pressure_classes_num, ira_pressure_classes,
+	ira_pressure_class_translate, ira_stack_reg_pressure_class): New
+	definitions.
+	(ira_reg_class_nregs): Rename to ira_reg_class_max_nregs.
+	(ira_reg_class_min_nregs): New definition.
+	
+	* ira-int.h: Add 2010 to Copyright.  Remove mentioning cover
+	classes from the file.
+	(struct ira_allocno): Make mode a bitfield.  Move other bitfield
+	after mode.  Make hard_regno a short int.  Remove reg.  Rename
+	cover_class to aclass and make it a bitfield.  Rename
+	cover_class_cost and updated_cover_class_cost to class_cost and
+	updated_class_cost.  Remove first_coalesced_allocno and
+	next_coalesced_allocno.  Move mem_optimized_dest_p,
+	somewhere_renamed_p, child_renamed_p, reg, and mem_optimized_dest
+	into struct ira_emit_data.  Remove in_graph_p, may_be_spilled_p,
+	splay_removed_p, left_conflicts_size, available_regs_num,
+	next_bucket_allocno, prev_bucket_allocno, and temp.  Add new
+	member add_data.
+	(ALLOCNO_IN_GRAPH_P, ALLOCNO_MAY_BE_SPILLED_P,
+	ALLOCNO_SPLAY_REMOVED_P, ALLOCNO_LEFT_CONFLICTS_SIZE,
+	ALLOCNO_AVAILABLE_REGS_NUM, ALLOCNO_NEXT_BUCKET_ALLOCNO,
+	ALLOCNO_PREV_BUCKET_ALLOCNO, ALLOCNO_TEMP,
+	ALLOCNO_FIRST_COALESCED_ALLOCNO, ALLOCNO_NEXT_COALESCED_ALLOCNO):
+	Remove.
+	(ALLOCNO_ADD_DATA): New macro.
+	(ALLOCNO_COVER_CLASS): Rename to ALLOCNO_CLASS.
+	(ALLOCNO_COVER_CLASS_COST, ALLOCNO_UPDATED_COVER_CLASS_COST):
+	Rename to ALLOCNO_CLASS_COST and ALLOCNO_UPDATED__CLASS_COST.
+	(ira_emit_data_t): New typedef.
+	(struct ira_emit_data): New.  Move mem_optimized_dest_p,
+	somewhere_renamed_p, child_renamed_p, reg, mem_optimized_dest from
+	struct ira_allocno.
+	(ALLOCNO_EMIT_DATA): New macro.
+	(ira_allocno_emit_data): New.
+	(ira_max_nregs): Remove.
+	(ira_max_memory_move_cost, ira_max_may_move_in_cost,
+	ira_max_may_move_out_cost): New externals.
+	(prohibited_class_mode_regs): Rename to
+	ira_prohibited_class_mode_regs.
+	(ira_reg_allocno_class_p, ira_reg_pressure_class_p): New.
+	(ira_reg_class_union): Rename to ira_reg_class_subunion.
+	(ira_reg_class_superunion): New external.
+	(ira_reallocate): Remove.
+	(ira_remove_allocno_copy_from_list): Remove.
+	(ira_debug_class_cover): Rename to ira_debug_allocno_classes.
+	(ira_set_allocno_cover_class): Rename to ira_set_allocno_class.
+	(ira_tune_allocno_costs_and_cover_classes): Rename to
+	ira_tune_allocno_costs.
+	(ira_debug_hard_regs_forest, ira_initiate_emit_data,
+	ira_finish_emit_data): New.
+	(ira_get_max_may_move_cost): New function.
+	(ira_allocno_conflict_iter_cond): Speed it up.
+	(ira_allocno_conflict_iter_next): Remove.
+	(FOR_EACH_ALLOCNO_CONFLICT): Don't use
+	ira_allocno_conflict_iter_next.
+	(ira_hard_reg_set_intersection_p, hard_reg_set_size): New
+	functions.
+	(ira_allocate_and_set_costs, ira_allocate_and_copy_costs,
+	ira_allocate_and_accumulate_costs,
+	ira_allocate_and_set_or_copy_costs): Rename cover_class to aclass.	
+
+	* ira.c: Remove mentioning cover classes from the file.  Add
+	comments about coloring without cover classes.  Use ALLOCNO_CLASS
+	instead of ALLOCNO_COVER_CLASS.
+	(ira_reallocate): Remove.
+	(ira_max_memory_move_cost, ira_max_register_move_cost,
+	ira_max_may_move_in_cost, ira_max_may_move_out_cost): New
+	definitions.
+	(ira_remove_allocno_copy_from_list): Remove.
+	(setup_reg_subclasses): Move it before
+	setup_class_subset_and_memory_move_costs.
+	(setup_class_subset_and_memory_move_costs): Call
+	setup_reg_subclasses.  Setup ira_max_memory_move_cost.
+	(ira_reg_allocno_class_p, ira_pressure_classes_num,
+	ira_pressure_classes, ira_pressure_class_translate,
+	ira_stack_reg_pressure_class): New definitions.
+	(ira_reg_class_cover_size, ira_reg_class_cover): Rename to
+	ira_allocno_classes_num and ira_allocno_classes.
+	(setup_stack_reg_pressure_class, setup_pressure_classes): New.
+	(ira_class_translate): Rename to ira_allocno_class_translate.
+	(setup_class_translate_array): New.
+	(setup_class_translate): Call it for allocno and pressure classes.
+	(ira_reg_class_union): Rename to ira_reg_class_subunion.
+	(ira_reg_class_superunion): New definition.
+	(setup_reg_class_relations): Set up ira_reg_class_superunion.
+	(print_class_cover): Rename to print_classes.
+	(ira_debug_class_cover): Rename to ira_debug_allocno_classes.
+	(find_reg_class_closure): Rename to find_reg_classes.  Don't call
+	setup_reg_subclasses.
+	(clarify_prohibited_class_mode_regs): New function.
+	(ira_hard_regno_cover_class): Rename to
+	ira_hard_regno_allocno_class.
+	(setup_hard_regno_cover_class): Rename to setup_hard_regno_aclass.
+	(ira_reg_class_nregs): Rename to ira_reg_class_max_nregs.
+	(ira_reg_class_min_nregs): New definition.
+	(setup_reg_class_nregs): Set up ira_reg_class_min_nregs.
+	(prohibited_class_mode_regs): Rename to
+	ira_prohibited_class_mode_regs.
+	(ira_init_register_move_cost): Set up ira_max_register_move_cost,
+	ira_max_may_move_in_cost, and ira_max_may_move_out_cost.
+	(ira_init_once): Initialize them.
+	(free_register_move_costs): Process them.
+	(ira_init): Move calls of find_reg_classes and
+	setup_hard_regno_aclass after setup_reg_class_nregs.  Call
+	clarify_prohibited_class_mode_regs.
+	(setup_reg_renumber): Don't use ALLOCNO_REG.
+	(setup_allocno_assignment_flags): Use ALLOCNO_EMIT_DATA.
+	(too_high_register_pressure_p): Use pressure classes.
+	(ira): Call ira_initiate_emit_data and ira_finish_emit_data.
+	
+	* ira-conflicts.c: Remove mentioning cover classes from the file.
+	Use ALLOCNO_CLASS instead of ALLOCNO_COVER_CLASS.  Use
+	ALLOCNO_COVER_CLASS_COST instead of ALLOCNO_CLASS_COST.
+	
+	* ira-build.c: Add 2010 to Copyright.  Remove mentioning cover
+	classes from the file.  Use ALLOCNO_CLASS and ALLOCNO_CLASS_COST
+	instead of ALLOCNO_COVER_CLASS and ALLOCNO_COVER_CLASS_COST.  Use
+	ALLOCNO_UPDATED_CLASS_COST instead of
+	ALLOCNO_UPDATED_COVER_CLASS_COST.
+	(ira_create_allocno): Remove initialization of
+	ALLOCNO_MEM_OPTIMIZED_DEST, ALLOCNO_MEM_OPTIMIZED_DEST_P,
+	ALLOCNO_SOMEWHERE_RENAMED_P, ALLOCNO_CHILD_RENAMED_P,
+	ALLOCNO_IN_GRAPH_P, ALLOCNO_MAY_BE_SPILLED_P,
+	ALLOCNO_SPLAY_REMOVED_P, ALLOCNO_LEFT_CONFLICTS_SIZE,
+	ALLOCNO_NEXT_BUCKET_ALLOCNO, ALLOCNO_PREV_BUCKET_ALLOCNO,
+	ALLOCNO_FIRST_COALESCED_ALLOCNO, and
+	ALLOCNO_NEXT_COALESCED_ALLOCNO.  Initialize ALLOCNO_ADD_DATA.
+	(ira_set_allocno_cover_class): Rename to ira_set_allocno_class.
+	(create_cap_allocno): Ditto.  Remove assert.  Don't propagate
+	ALLOCNO_AVAILABLE_REGS_NUM.
+	(ira_free_allocno_costs): New function.
+	(finish_allocno): Change a part of code into call of
+	ira_free_allocno_costs.
+	(allocno_range_compare_func): Don't compare classes.
+	(setup_min_max_conflict_allocno_ids): Ditto.
+	(copy_info_to_removed_store_destinations): Use ALLOCNO_EMIT_DATA
+	instead of ALLOCNO_MEM_OPTIMIZED_DEST_P and ALLOCNO_REG.
+	(ira_flattening): Ditto.  Use ALLOCNO_EMIT_DATA instead of
+	ALLOCNO_MEM_OPTIMIZED_DEST and ALLOCNO_SOMEWHERE_RENAMED_P.
+	
+	* ira-emit.c: Add 2010 to Copyright.  Remove mentioning cover
+	classes from the file.  Use ALLOCNO_EMIT_DATA instead of
+	ALLOCNO_REG, ALLOCNO_CHILD_RENAMED_P, ALLOCNO_MEM_OPTIMIZED_DEST,
+	ALLOCNO_MEM_OPTIMIZED_DEST_P, and ALLOCNO_SOMEWHERE_RENAMED_P.
+	Use ALLOCNO_CLASS instead of ALLOCNO_COVER_CLASS.
+	(modify_move_list): Call create_new_alloc instead of
+	ira_create_allocno.  Call ira_set_allocno_class instead of
+	ira_set_allocno_cover_class.
+	(ira_allocno_emit_data, void_p, new_allocno_emit_data_vec): New
+	definitions.
+	(ira_initiate_emit_data, ira_finish_emit_data,
+	create_new_allocno): New functions.
+	
+	* ira-costs.c: Add 2010 to Copyright.  Remove mentioning cover
+	classes from the file.  Use ALLOCNO_CLASS instead of
+	ALLOCNO_COVER_CLASS.  Use ALLOCNO_CLASS_COST instead of
+	ALLOCNO_COVER_CLASS_COST.
+	(regno_cover_class): Rename to regno_aclass.
+	(record_reg_classes): Use ira_reg_class_subunion instead of
+	ira_reg_class_union.
+	(record_address_regs): Check overflow. ?
+	(scan_one_insn): Ditto.  Don't use preferred class. ?
+	(print_allocno_costs): Print total mem cost fore regional
+	allocation.
+	(find_costs_and_classes): Setup preferred classes if pseudo
+	classes is defined.  Use classes intersected with them on the 1st
+	pass. Check overflow.  Use ira_reg_class_subunion instead of
+	ira_reg_class_union.  Use ira_allocno_class_translate and
+	regno_aclass instead of ira_class_translate and regno_cover_class.
+	Modify code for finding regno_aclass.  Setup preferred classes for
+	the next pass.
+	(setup_allocno_cover_class_and_costs): Rename to
+	setup_allocno_class_and_costs.  Use regno_aclass instead of
+	regno_cover_class.  Use ira_set_allocno_class instead of
+	ira_set_allocno_cover_class.
+	(init_costs, finish_costs): Use regno_aclass instead of
+	regno_cover_class.
+	(ira_costs): Use setup_allocno_class_and_costs instead of
+	setup_allocno_cover_class_and_costs.
+	(ira_tune_allocno_costs_and_cover_classes): Rename to
+	ira_tune_allocno_costs.  Check overflow.  Skip conflict hard regs.
+	
+	* ira-color.c: Remove mentioning cover classes from the file.  Use
+	ALLOCNO_CLASS, ALLOCNO_CLASS_COST, and ALLOCNO_UPDATED_CLASS_COST
+	instead of ALLOCNO_COVER_CLASS, ALLOCNO_COVER_CLASS_COST, and
+	ALLOCNO_UPDATED_COVER_CLASS_COST.  Use ALLOCNO_EMIT_DATA instead
+	of ALLOCNO_MAY_BE_SPILLED_P, ALLOCNO_TEMP,
+	ALLOCNO_NEXT_BUCKET_ALLOCNO, ALLOCNO_PREV_BUCKET_ALLOCNO,
+	ALLOCNO_AVAILABLE_REGS_NUM, ALLOCNO_IN_GRAPH_P,
+	ALLOCNO_COLORABLE_P.
+	(splay-tree.h): Remove include.
+	(allocno_hard_regs_t, allocno_hard_regs_node_t): New typedefs.
+	(struct allocno_hard_regs, struct allocno_hard_regs_node): New.
+	(struct color_data): New.
+	(color_data_t): New typedef.
+	(allocno_color_data): New definition.
+	(ALLOCNO_COLOR_DATA): New macro.
+	(allocno_coalesced_p, processed_coalesced_allocno_bitmap): Move
+	before copy_freq_compare_func.
+	(allocnos_for_spilling, removed_splay_allocno_vec): Remove.
+	(allocno_hard_regs_vec, allocno_hard_regs_htab, node_check_tick,
+	hard_regs_roots, hard_regs_node_vec, allocno_hard_regs_nodes_num,
+	allocno_hard_regs_nodes): New definitions.
+	(allocno_hard_regs_hash, allocno_hard_regs_eq, find_hard_regs,
+	insert_hard_regs, init_allocno_hard_regs, add_allocno_hard_regs,
+	finish_allocno_hard_regs, allocno_hard_regs_compare,
+	create_new_allocno_hard_regs_node,
+	add_new_allocno_hard_regs_node_to_forest,
+	add_allocno_hard_regs_to_forest, collect_allocno_hard_regs_cover,
+	setup_allocno_hard_regs_nodes_parent, first_common_ancestor_node,
+	print_hard_reg_set, print_hard_regs_subforest,
+	print_hard_regs_forest, ira_debug_hard_regs_forest,
+	remove_unused_allocno_hard_regs_nodes,
+	enumerate_allocno_hard_regs_nodes): New functions.
+	(allocnos_have_intersected_live_ranges_p,
+	pseudos_have_intersected_live_ranges_p): Move before
+	copy_freq_compare_func.
+	(allocno_hard_regs_subnode_t): New typedef.
+	(struct allocno_hard_regs_subnode): New.
+	(allocno_hard_regs_subnodes, allocno_hard_regs_subnode_index): New
+	definitions.
+	(setup_allocno_hard_regs_subnode_index,
+	get_allocno_hard_regs_subnodes_num,
+	form_allocno_hard_regs_nodes_forest,
+	finish_allocno_hard_regs_nodes_tree,
+	finish_allocno_hard_regs_nodes_forest,
+	setup_left_conflict_sizes_p, update_left_conflict_sizes_p,
+	setup_profitable_hard_regs): New functions.
+	(print_coalesced_allocno): Remove.
+	(assign_hard_reg): Assume no coalesced allocnos.  Process only
+	profitable hard regs.
+	(uncolorable_allocnos_num): Make it scalar.
+	(allocno_spill_priority): Make it inline.  Use
+	ALLOCNO_EXCESS_PRESSURE_POINTS_NUM and ira_reg_class_max_nregs
+	instead of ALLOCNO_LEFT_CONFLICTS_SIZE and
+	ira_reg_class_max_nregs.
+	(get_coalesced_allocnos_attributes): Remove.
+	(bucket_allocno_compare_func): Assume no coalesced allocnos.
+	(sort_bucket): Add compare function as a parameter.
+	(add_allocno_to_ordered_bucket): Assume no coalesced allocnos.
+	(uncolorable_allocnos_splay_tree, USE_SPLAY_P): Remove.
+	(push_allocno_to_stack): Rewrite for checking new allocno
+	colorability.
+	(remove_allocno_from_bucket_and_push): Use
+	ira_print_expanded_allocno instead of print_coalesced_allocno.
+	Print cost too.  Remove assert.
+	(push_only_colorable): Pass new parameter to sort_bucket.
+	(push_allocno_to_spill): Remove.
+	(allocno_spill_priority_compare): Make it inline and rewrite.
+	(splay_tree_allocate, splay_tree_free): Remove.
+	(allocno_spill_sort_compare): New function.
+	(push_allocnos_to_stack): Sort allocnos for spilling once.  Assume
+	uncoalesced allocnos.  Don't build and use splay tree.  Choose
+	first allocno in uncolorable allocno bucket to spill.
+	(setup_allocno_available_regs_num): Assume uncoalesced allocnos,
+	check only profitable hard regs.  Print info about hard regs
+	nodes.
+	(setup_allocno_left_conflicts_size): Remove.
+	(put_allocno_into_bucket): Don't call
+	setup_allocno_left_conflicts_size.  Use
+	setup_left_conflict_sizes_p.
+	(coalesce_data_t): New typedef.
+	(struct coalesce_data): New.
+	(allocno_coalesce_data): New definition.
+	(ALLOCNO_COALESCE_DATA): New macro.
+	(copy_freq_compare_func, merge_allocnos,
+	coalesced_allocno_conflict_p): Move before
+	coalesced_pseudo_reg_freq_compare.
+	(coalesced_allocno_conflict_p, coalesce_allocnos): Ditto.  Remove
+	parameter.  Assume it true.  Use ALLOCNO_COALESCED_DATA instead of
+	ALLOCNO_FIRST_COALESCED_ALLOCNO and
+	ALLOCNO_NEXT_COALESCED_ALLOCNO.
+	(setup_coalesced_allocno_costs_and_nums): Use
+	ALLOCNO_COALESCED_DATA instead of ALLOCNO_FIRST_COALESCED_ALLOCNO
+	and ALLOCNO_NEXT_COALESCED_ALLOCNO.
+	(slot_coalesced_allocno_live_ranges_intersect_p,
+	setup_slot_coalesced_allocno_live_ranges): Ditto.
+	(ira_sort_regnos_for_alter_reg): Initialize and finalize
+	allocno_coalesce_data.  Call coalesce_allocnos without parameter.
+	(color): Remove allocating and freeing removed_splay_allocno_vec.
+	(fast_allocation): Use ira_prohibited_class_mode_regs instead of
+	prohibited_class_mode_regs.
+
+	* Makefile.in (ira-color.o): Remove SPLAY_TREE_H from
+	dependencies.
+	

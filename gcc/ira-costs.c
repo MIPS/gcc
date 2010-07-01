@@ -33,6 +33,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "addresses.h"
 #include "insn-config.h"
 #include "recog.h"
+#include "reload.h"
 #include "toplev.h"
 #include "target.h"
 #include "params.h"
@@ -109,6 +110,10 @@ static enum reg_class *pref_buffer;
 
 /* Record allocno class of each allocno with the same regno.  */
 static enum reg_class *regno_aclass;
+
+/* Record cost gains for not allocating a register with an invariant
+   equivalence.  */
+static int *regno_equiv_gains;
 
 /* Execution frequency of the current insn.  */
 static int frequency;
@@ -1547,6 +1552,7 @@ find_costs_and_classes (FILE *dump_file)
 	  enum reg_class *cost_classes = cost_classes_ptr->classes;
 	  int *i_costs = temp_costs->cost;
 	  int i_mem_cost;
+	  int equiv_savings = regno_equiv_gains[i];
 
 	  if (! allocno_p)
 	    {
@@ -1626,6 +1632,15 @@ find_costs_and_classes (FILE *dump_file)
 #endif
 		}
 	    }
+	  if (equiv_savings < 0)
+	    temp_costs->mem_cost = -equiv_savings;
+	  else if (equiv_savings > 0)
+	    {
+	      temp_costs->mem_cost = 0;
+	      for (k = cost_classes_ptr->num - 1; k >= 0; k--)
+		i_costs[k] += equiv_savings;
+	    }
+
 	  best_cost = (1 << (HOST_BITS_PER_INT - 2)) - 1;
 	  best = ALL_REGS;
 	  alt_class = NO_REGS;
@@ -1986,6 +2001,8 @@ init_costs (void)
 						 * cost_elements_num);
   regno_aclass = (enum reg_class *) ira_allocate (sizeof (enum reg_class)
 						 * max_reg_num ());
+  regno_equiv_gains = (int *) ira_allocate (sizeof (int) * max_reg_num ());
+  memset (regno_equiv_gains, 0, sizeof (int) * max_reg_num ());
 }
 
 /* Common finalization function for ira_costs and
@@ -1994,6 +2011,7 @@ static void
 finish_costs (void)
 {
   ira_free (regno_aclass);
+  ira_free (regno_equiv_gains);
   ira_free (pref_buffer);
   ira_free (costs);
 }
@@ -2009,6 +2027,7 @@ ira_costs (void)
   total_allocno_costs = (struct costs *) ira_allocate (max_struct_costs_size
 						       * ira_allocnos_num);
   initiate_regno_cost_classes ();
+  calculate_elim_costs_all_insns ();
   find_costs_and_classes (ira_dump_file);
   setup_allocno_class_and_costs ();
   finish_regno_cost_classes ();
@@ -2116,4 +2135,17 @@ ira_tune_allocno_costs (void)
 	  }
       }
     }
+}
+
+/* Add COST to the estimated gain for eliminating REGNO with its
+   equivalence.  If COST is zero, record that no such elimination is
+   possible.  */
+
+void
+ira_adjust_equiv_reg_cost (unsigned regno, int cost)
+{
+  if (cost == 0)
+    regno_equiv_gains[regno] = 0;
+  else
+    regno_equiv_gains[regno] += cost;
 }

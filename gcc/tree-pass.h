@@ -38,6 +38,7 @@ enum tree_dump_index
   TDI_nested,			/* dump each function after unnesting it */
   TDI_vcg,			/* create a VCG graph file for each
 				   function's flowgraph.  */
+  TDI_ada,                      /* dump declarations in Ada syntax.  */
   TDI_tree_all,                 /* enable all the GENERIC/GIMPLE dumps.  */
   TDI_rtl_all,                  /* enable all the RTL dumps.  */
   TDI_ipa_all,                  /* enable all the IPA dumps.  */
@@ -441,6 +442,7 @@ extern struct gimple_opt_pass pass_build_cgraph_edges;
 extern struct gimple_opt_pass pass_local_pure_const;
 extern struct gimple_opt_pass pass_tracer;
 extern struct gimple_opt_pass pass_warn_unused_result;
+extern struct gimple_opt_pass pass_split_functions;
 
 /* IPA Passes */
 extern struct simple_ipa_opt_pass pass_ipa_function_and_variable_visibility;

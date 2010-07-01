@@ -25,7 +25,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "basic-block.h"
 #include "output.h"
-#include "diagnostic.h"
 #include "tree-flow.h"
 #include "tree-dump.h"
 #include "tree-pass.h"
@@ -601,7 +600,7 @@ tree_ssa_loop_prefetch (void)
 static bool
 gate_tree_ssa_loop_prefetch (void)
 {
-  return flag_prefetch_loop_arrays != 0;
+  return flag_prefetch_loop_arrays > 0;
 }
 
 struct gimple_opt_pass pass_loop_prefetch =

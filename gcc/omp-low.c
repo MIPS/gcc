@@ -3112,8 +3112,8 @@ maybe_catch_exception (gimple_seq body)
   if (!flag_exceptions)
     return body;
 
-  if (lang_protect_cleanup_actions)
-    decl = lang_protect_cleanup_actions ();
+  if (lang_hooks.eh_protect_cleanup_actions != NULL)
+    decl = lang_hooks.eh_protect_cleanup_actions ();
   else
     decl = built_in_decls[BUILT_IN_TRAP];
 
@@ -5887,7 +5887,9 @@ lower_omp_critical (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 
       if (!critical_name_mutexes)
 	critical_name_mutexes
-	  = splay_tree_new_ggc (splay_tree_compare_pointers);
+	  = splay_tree_new_ggc (splay_tree_compare_pointers,
+				ggc_alloc_splay_tree_tree_node_tree_node_splay_tree_s,
+				ggc_alloc_splay_tree_tree_node_tree_node_splay_tree_node_s);
 
       n = splay_tree_lookup (critical_name_mutexes, (splay_tree_key) name);
       if (n == NULL)

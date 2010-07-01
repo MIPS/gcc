@@ -29,10 +29,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "output.h"
 #include "flags.h"
 #include "function.h"
-#include "expr.h"
 #include "ggc.h"
 #include "langhooks.h"
-#include "diagnostic.h"
 #include "tree-pretty-print.h"
 #include "gimple-pretty-print.h"
 #include "tree-flow.h"
@@ -438,13 +436,13 @@ create_bb (void *h, void *e, basic_block after)
   gcc_assert (!e);
 
   /* Create and initialize a new basic block.  Since alloc_block uses
-     ggc_alloc_cleared to allocate a basic block, we do not have to
-     clear the newly allocated basic block here.  */
+     GC allocation that clears memory to allocate a basic block, we do
+     not have to clear the newly allocated basic block here.  */
   bb = alloc_block ();
 
   bb->index = last_basic_block;
   bb->flags = BB_NEW;
-  bb->il.gimple = GGC_CNEW (struct gimple_bb_info);
+  bb->il.gimple = ggc_alloc_cleared_gimple_bb_info ();
   set_bb_seq (bb, h ? (gimple_seq) h : gimple_seq_alloc ());
 
   /* Add the new block to the linked list of blocks.  */
@@ -1476,6 +1474,23 @@ gimple_can_merge_blocks_p (basic_block a, basic_block b)
   if (!gimple_seq_empty_p (phis)
       && name_mappings_registered_p ())
     return false;
+
+  /* When not optimizing, don't merge if we'd lose goto_locus.  */
+  if (!optimize
+      && single_succ_edge (a)->goto_locus != UNKNOWN_LOCATION)
+    {
+      location_t goto_locus = single_succ_edge (a)->goto_locus;
+      gimple_stmt_iterator prev, next;
+      prev = gsi_last_nondebug_bb (a);
+      next = gsi_after_labels (b);
+      if (!gsi_end_p (next) && is_gimple_debug (gsi_stmt (next)))
+	gsi_next_nondebug (&next);
+      if ((gsi_end_p (prev)
+	   || gimple_location (gsi_stmt (prev)) != goto_locus)
+	  && (gsi_end_p (next)
+	      || gimple_location (gsi_stmt (next)) != goto_locus))
+	return false;
+    }
 
   return true;
 }
@@ -3518,6 +3533,65 @@ do_pointer_plus_expr_check:
   return false;
 }
 
+/* Verify a gimple assignment statement STMT with a ternary rhs.
+   Returns true if anything is wrong.  */
+
+static bool
+verify_gimple_assign_ternary (gimple stmt)
+{
+  enum tree_code rhs_code = gimple_assign_rhs_code (stmt);
+  tree lhs = gimple_assign_lhs (stmt);
+  tree lhs_type = TREE_TYPE (lhs);
+  tree rhs1 = gimple_assign_rhs1 (stmt);
+  tree rhs1_type = TREE_TYPE (rhs1);
+  tree rhs2 = gimple_assign_rhs2 (stmt);
+  tree rhs2_type = TREE_TYPE (rhs2);
+  tree rhs3 = gimple_assign_rhs3 (stmt);
+  tree rhs3_type = TREE_TYPE (rhs3);
+
+  if (!is_gimple_reg (lhs)
+      && !(optimize == 0
+	   && TREE_CODE (lhs_type) == COMPLEX_TYPE))
+    {
+      error ("non-register as LHS of ternary operation");
+      return true;
+    }
+
+  if (!is_gimple_val (rhs1)
+      || !is_gimple_val (rhs2)
+      || !is_gimple_val (rhs3))
+    {
+      error ("invalid operands in ternary operation");
+      return true;
+    }
+
+  /* First handle operations that involve different types.  */
+  switch (rhs_code)
+    {
+    case WIDEN_MULT_PLUS_EXPR:
+    case WIDEN_MULT_MINUS_EXPR:
+      if ((!INTEGRAL_TYPE_P (rhs1_type)
+	   && !FIXED_POINT_TYPE_P (rhs1_type))
+	  || !useless_type_conversion_p (rhs1_type, rhs2_type)
+	  || !useless_type_conversion_p (lhs_type, rhs3_type)
+	  || 2 * TYPE_PRECISION (rhs1_type) != TYPE_PRECISION (lhs_type)
+	  || TYPE_PRECISION (rhs1_type) != TYPE_PRECISION (rhs2_type))
+	{
+	  error ("type mismatch in widening multiply-accumulate expression");
+	  debug_generic_expr (lhs_type);
+	  debug_generic_expr (rhs1_type);
+	  debug_generic_expr (rhs2_type);
+	  debug_generic_expr (rhs3_type);
+	  return true;
+	}
+      break;
+
+    default:
+      gcc_unreachable ();
+    }
+  return false;
+}
+
 /* Verify a gimple assignment statement STMT with a single rhs.
    Returns true if anything is wrong.  */
 
@@ -3663,6 +3737,9 @@ verify_gimple_assign (gimple stmt)
 
     case GIMPLE_BINARY_RHS:
       return verify_gimple_assign_binary (stmt);
+
+    case GIMPLE_TERNARY_RHS:
+      return verify_gimple_assign_ternary (stmt);
 
     default:
       gcc_unreachable ();
@@ -4003,14 +4080,8 @@ verify_stmt (gimple_stmt_iterator *gsi)
     {
       if (!stmt_could_throw_p (stmt))
 	{
-	  /* During IPA passes, ipa-pure-const sets nothrow flags on calls
-	     and they are updated on statements only after fixup_cfg
-	     is executed at beggining of expansion stage.  */
-	  if (cgraph_state != CGRAPH_STATE_IPA_SSA)
-	    {
-	      error ("statement marked for throw, but doesn%'t");
-	      goto fail;
-	    }
+	  error ("statement marked for throw, but doesn%'t");
+	  goto fail;
 	}
       else if (lp_nr > 0 && !last_in_block && stmt_can_throw_internal (stmt))
 	{
@@ -5721,21 +5792,6 @@ move_stmt_r (gimple_stmt_iterator *gsi_p, bool *handled_ops_p,
   return NULL_TREE;
 }
 
-/* Marks virtual operands of all statements in basic blocks BBS for
-   renaming.  */
-
-void
-mark_virtual_ops_in_bb (basic_block bb)
-{
-  gimple_stmt_iterator gsi;
-
-  for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
-    mark_virtual_ops_for_renaming (gsi_stmt (gsi));
-
-  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
-    mark_virtual_ops_for_renaming (gsi_stmt (gsi));
-}
-
 /* Move basic block BB from function CFUN to function DEST_FN.  The
    block is moved out of the original linked list and placed after
    block AFTER in the new list.  Also, the block is removed from the
@@ -7247,14 +7303,16 @@ struct gimple_opt_pass pass_warn_function_return =
 static unsigned int
 execute_warn_function_noreturn (void)
 {
-  if (warn_missing_noreturn
-      && !TREE_THIS_VOLATILE (cfun->decl)
-      && EDGE_COUNT (EXIT_BLOCK_PTR->preds) == 0
-      && !lang_hooks.missing_noreturn_ok_p (cfun->decl))
-    warning_at (DECL_SOURCE_LOCATION (cfun->decl), OPT_Wmissing_noreturn,
-		"function might be possible candidate "
-		"for attribute %<noreturn%>");
+  if (!TREE_THIS_VOLATILE (current_function_decl)
+      && EDGE_COUNT (EXIT_BLOCK_PTR->preds) == 0)
+    warn_function_noreturn (current_function_decl);
   return 0;
+}
+
+static bool
+gate_warn_function_noreturn (void)
+{
+  return warn_suggest_attribute_noreturn;
 }
 
 struct gimple_opt_pass pass_warn_function_noreturn =
@@ -7262,7 +7320,7 @@ struct gimple_opt_pass pass_warn_function_noreturn =
  {
   GIMPLE_PASS,
   "*warn_function_noreturn",		/* name */
-  NULL,					/* gate */
+  gate_warn_function_noreturn,		/* gate */
   execute_warn_function_noreturn,	/* execute */
   NULL,					/* sub */
   NULL,					/* next */

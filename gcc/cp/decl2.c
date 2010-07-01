@@ -1,6 +1,6 @@
 /* Process declarations and variables for C++ compiler.
    Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008, 2009
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008, 2009, 2010
    Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
@@ -37,21 +37,22 @@ along with GCC; see the file COPYING3.  If not see
 #include "cp-tree.h"
 #include "decl.h"
 #include "output.h"
-#include "except.h"
 #include "toplev.h"
 #include "timevar.h"
 #include "cpplib.h"
 #include "target.h"
-#include "c-common.h"
+#include "c-family/c-common.h"
 #include "tree-mudflap.h"
 #include "cgraph.h"
 #include "tree-inline.h"
-#include "c-pragma.h"
+#include "c-family/c-pragma.h"
 #include "tree-dump.h"
 #include "intl.h"
 #include "gimple.h"
 #include "pointer-set.h"
 #include "splay-tree.h"
+#include "langhooks.h"
+#include "c-family/c-ada-spec.h"
 
 extern cpp_reader *parse_in;
 
@@ -2723,8 +2724,8 @@ start_objects (int method_type, int initp)
 
   fndecl = build_lang_decl (FUNCTION_DECL,
 			    get_file_function_name (type),
-			    build_function_type (void_type_node,
-						 void_list_node));
+			    build_function_type_list (void_type_node,
+						      NULL_TREE));
   start_preparsed_function (fndecl, /*attrs=*/NULL_TREE, SF_PRE_PARSED);
 
   TREE_PUBLIC (current_function_decl) = 0;
@@ -2816,7 +2817,6 @@ static splay_tree priority_info_map;
 static tree
 start_static_storage_duration_function (unsigned count)
 {
-  tree parm_types;
   tree type;
   tree body;
   char id[sizeof (SSDF_IDENTIFIER) + 1 /* '\0' */ + 32];
@@ -2825,11 +2825,9 @@ start_static_storage_duration_function (unsigned count)
      SSDF_IDENTIFIER_<number>.  */
   sprintf (id, "%s_%u", SSDF_IDENTIFIER, count);
 
-  /* Create the parameters.  */
-  parm_types = void_list_node;
-  parm_types = tree_cons (NULL_TREE, integer_type_node, parm_types);
-  parm_types = tree_cons (NULL_TREE, integer_type_node, parm_types);
-  type = build_function_type (void_type_node, parm_types);
+  type = build_function_type_list (void_type_node,
+				   integer_type_node, integer_type_node,
+				   NULL_TREE);
 
   /* Create the FUNCTION_DECL itself.  */
   ssdf_decl = build_lang_decl (FUNCTION_DECL,
@@ -3461,6 +3459,69 @@ build_java_method_aliases (struct pointer_set_t *candidates)
     }
 }
 
+/* Return C++ property of T, based on given operation OP.  */
+
+static int
+cpp_check (tree t, cpp_operation op)
+{
+  switch (op)
+    {
+      case IS_ABSTRACT:
+	return DECL_PURE_VIRTUAL_P (t);
+      case IS_CONSTRUCTOR:
+	return DECL_CONSTRUCTOR_P (t);
+      case IS_DESTRUCTOR:
+	return DECL_DESTRUCTOR_P (t);
+      case IS_COPY_CONSTRUCTOR:
+	return DECL_COPY_CONSTRUCTOR_P (t);
+      case IS_TEMPLATE:
+	return TREE_CODE (t) == TEMPLATE_DECL;
+      default:
+        return 0;
+    }
+}
+
+/* Collect source file references recursively, starting from NAMESPC.  */
+
+static void 
+collect_source_refs (tree namespc) 
+{
+  tree t;
+
+  if (!namespc) 
+    return;
+
+  /* Iterate over names in this name space.  */
+  for (t = NAMESPACE_LEVEL (namespc)->names; t; t = TREE_CHAIN (t))
+    if (!DECL_IS_BUILTIN (t) )
+      collect_source_ref (DECL_SOURCE_FILE (t));
+  
+  /* Dump siblings, if any */
+  collect_source_refs (TREE_CHAIN (namespc));
+
+  /* Dump children, if any */
+  collect_source_refs (NAMESPACE_LEVEL (namespc)->namespaces);
+}
+
+/* Collect decls relevant to SOURCE_FILE from all namespaces recursively,
+   starting from NAMESPC.  */
+
+static void
+collect_ada_namespace (tree namespc, const char *source_file)
+{
+  if (!namespc)
+    return;
+
+  /* Collect decls from this namespace */
+  collect_ada_nodes (NAMESPACE_LEVEL (namespc)->names, source_file);
+
+  /* Collect siblings, if any */
+  collect_ada_namespace (TREE_CHAIN (namespc), source_file);
+
+  /* Collect children, if any */
+  collect_ada_namespace (NAMESPACE_LEVEL (namespc)->namespaces, source_file);
+}
+
 /* Returns true iff there is a definition available for variable or
    function DECL.  */
 
@@ -3495,6 +3556,14 @@ no_linkage_error (tree decl)
 	       "is used but never defined", decl, t);
 }
 
+/* Collect declarations from all namespaces relevant to SOURCE_FILE.  */
+
+static void
+collect_all_refs (const char *source_file)
+{
+  collect_ada_namespace (global_namespace, source_file);
+}
+
 /* This routine is called at the end of compilation.
    Its job is to create all the code needed to initialize and
    destroy the global aggregates.  We do the destruction
@@ -3516,11 +3585,23 @@ cp_write_global_declarations (void)
   at_eof = 1;
 
   /* Bad parse errors.  Just forget about it.  */
-  if (! global_bindings_p () || current_class_type || decl_namespace_list)
+  if (! global_bindings_p () || current_class_type
+      || !VEC_empty (tree,decl_namespace_list))
     return;
 
   if (pch_file)
     c_common_write_pch ();
+
+  /* Handle -fdump-ada-spec[-slim] */
+  if (dump_enabled_p (TDI_ada))
+    {
+      if (get_dump_file_info (TDI_ada)->flags & TDF_SLIM)
+	collect_source_ref (main_input_filename);
+      else
+	collect_source_refs (global_namespace);
+
+      dump_ada_specs (collect_all_refs, cpp_check);
+    }
 
   /* FIXME - huh?  was  input_line -= 1;*/
 
@@ -4029,8 +4110,9 @@ mark_used (tree decl)
 	      return;
 	    }
 	}
-      error ("deleted function %q+D", decl);
-      error ("used here");
+      error ("use of deleted function %qD", decl);
+      if (!maybe_explain_implicit_delete (decl))
+	error_at (DECL_SOURCE_LOCATION (decl), "declared here");
       return;
     }
   /* If we don't need a value, then we don't need to synthesize DECL.  */
