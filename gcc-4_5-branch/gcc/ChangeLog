@@ -1,3 +1,44 @@
+2010-07-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/44694
+	* dwarf2out.c (reg_loc_descriptor): For eliminated arg_pointer_rtx
+	or frame_pointer_rtx use DW_OP_fbreg offset DW_OP_stack_value.
+
+2010-07-01  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline
+	2010-06-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/43801
+	* cgraph.c (cgraph_create_virtual_clone): Clear DECL_SECTION_NAME
+	if old_decl was DECL_ONE_ONLY.
+
+	2010-06-21  Jakub Jelinek  <jakub@redhat.com>
+ 
+	PR target/44575
+	* config/i386/i386.c (ix86_gimplify_va_arg): When copying
+	va_arg from a set of register save slots into a temporary,
+	if the container is bigger than type size, do the copying
+	using smaller mode or using memcpy.
+
+2010-06-30  Jan Hubicka  <jh@suse.cz>
+
+	Backport from mainline
+	2010-06-27  Jan Hubicka  <jh@suse.cz>
+
+	PR middle-end/44671
+	PR middle-end/44686
+	* tree.c (build_function_decl_skip_args): Clear DECL_BUILT_IN on
+	signature change.
+	* ipa-split.c (split_function): Always clear DECL_BUILT_IN.
+	* ipa-prop.c (ipa_modify_formal_parameters): Likewise.
+
+	2010-06-28  Jan Hubicka  <jh@suse.cz>
+
+	PR tree-optimization/44357
+	* ipa-inline.c (add_new_edges_to_heap): Do not add edges to uninlinable
+	functions.
+
 2010-06-29  Jakub Jelinek  <jakub@redhat.com>
 
 	PR debug/44668
