@@ -94,7 +94,7 @@ a register with any other reload.  */
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "rtl.h"
+#include "rtl-error.h"
 #include "tm_p.h"
 #include "insn-config.h"
 #include "expr.h"
@@ -108,10 +108,10 @@ a register with any other reload.  */
 #include "flags.h"
 #include "output.h"
 #include "function.h"
-#include "toplev.h"
 #include "params.h"
 #include "target.h"
 #include "ira.h"
+#include "toplev.h" /* exact_log2 may be used by targets */
 
 /* True if X is a constant that can be forced into the constant pool.  */
 #define CONST_POOL_OK_P(X)			\
@@ -363,7 +363,8 @@ push_secondary_reload (int in_p, rtx x, int opnum, int optional,
 
   sri.icode = CODE_FOR_nothing;
   sri.prev_sri = prev_sri;
-  rclass = targetm.secondary_reload (in_p, x, reload_class, reload_mode, &sri);
+  rclass = (enum reg_class) targetm.secondary_reload (in_p, x, reload_class,
+						      reload_mode, &sri);
   icode = (enum insn_code) sri.icode;
 
   /* If we don't need any secondary registers, done.  */
@@ -526,7 +527,8 @@ secondary_reload_class (bool in_p, enum reg_class rclass,
 
   sri.icode = CODE_FOR_nothing;
   sri.prev_sri = NULL;
-  rclass = targetm.secondary_reload (in_p, x, rclass, mode, &sri);
+  rclass
+    = (enum reg_class) targetm.secondary_reload (in_p, x, rclass, mode, &sri);
   icode = (enum insn_code) sri.icode;
 
   /* If there are no secondary reloads at all, we return NO_REGS.
