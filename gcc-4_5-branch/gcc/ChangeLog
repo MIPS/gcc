@@ -1,3 +1,8 @@
+2010-07-02  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/44777
+	* tree-cfg.c (gimple_block_ends_with_call_p): Handle empty BBs.
+
 2010-07-01  Jakub Jelinek  <jakub@redhat.com>
 
 	PR debug/44694
@@ -20,6 +25,12 @@
 	va_arg from a set of register save slots into a temporary,
 	if the container is bigger than type size, do the copying
 	using smaller mode or using memcpy.
+
+	2010-05-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/44104
+	* dwarf2out.c (modified_type_die): Don't dereference mod_type_die
+	if it is NULL.
 
 2010-06-30  Jan Hubicka  <jh@suse.cz>
 

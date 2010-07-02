@@ -1,3 +1,25 @@
+2010-07-02  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/44039
+	* g++.dg/template/crash98.C: New.
+
+2010-07-02  Iain Sandoe  <iains@gcc.gnu.org>
+
+	* obj-c++.dg/cxx-ivars-3.mm: Make the test require OSX <= 10.4.
+	Use the ABI-0 accessors and fail it for m64.
+
+2010-07-02  Iain Sandoe  <iains@gcc.gnu.org>
+
+	* objc-obj-c++-shared/next-abi.h: Remove dependency on system
+	headers.  Add clause to reflect that, pre-10.5, ABI is always 0.
+	* objc/execute/forward-1.m: Depend only on __NEXT_RUNTIME__ for
+	the method types to forward:.
+
+2010-07-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/40421
+	* gfortran.fortran-torture/compile/pr40421.f90: New test.
+
 2010-07-01  Jakub Jelinek  <jakub@redhat.com>
 
 	Backport from mainline
@@ -7,7 +29,7 @@
 	* g++.dg/torture/pr43801.C: New test.
 
 	2010-06-21  Jakub Jelinek  <jakub@redhat.com>
- 
+
 	PR target/44575
 	* gcc.c-torture/execute/pr44575.c: New test.
 
