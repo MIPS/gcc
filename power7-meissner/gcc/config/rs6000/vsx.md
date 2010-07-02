@@ -25,6 +25,9 @@
 ;; Iterator for the 2 64-bit vector types
 (define_mode_iterator VSX_D [V2DF V2DI])
 
+;; Iterator for the DF types
+(define_mode_iterator VSX_DF [V2DF DF])
+
 ;; Iterator for the 2 32-bit vector types
 (define_mode_iterator VSX_W [V4SF V4SI])
 
@@ -989,10 +992,10 @@
 ;; since the xsrdpiz instruction does not truncate the value if the floating
 ;; point value is < LONG_MIN or > LONG_MAX.
 (define_insn "*vsx_float_fix_<mode>2"
-  [(set (match_operand:VSX_B 0 "vsx_register_operand" "=<VSr>,?wa")
-	(float:VSX_B
+  [(set (match_operand:VSX_DF 0 "vsx_register_operand" "=<VSr>,?wa")
+	(float:VSX_DF
 	 (fix:<VSI>
-	  (match_operand:VSX_B 1 "vsx_register_operand" "<VSr>,?wa"))))]
+	  (match_operand:VSX_DF 1 "vsx_register_operand" "<VSr>,?wa"))))]
   "TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_DOUBLE_FLOAT
    && VECTOR_UNIT_VSX_P (<MODE>mode) && flag_unsafe_math_optimizations
    && !flag_trapping_math"
