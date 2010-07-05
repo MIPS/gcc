@@ -1,3 +1,36 @@
+2010-07-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/44780
+	* typeck.c (convert_for_assignment): When converting a convertible
+	vector type or objc++ types, call mark_rvalue_use.
+	* typeck2.c (build_m_component_ref): Use return values from
+	mark_rvalue_use or mark_lvalue_use.
+	* class.c (build_base_path): Likewise.
+	* call.c (build_conditional_expr): Likewise.
+
+2010-06-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/44682
+	* class.c (build_base_path): If want_pointer, call mark_rvalue_use
+	on expr.
+
+2010-06-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/44619
+	* typeck2.c (build_m_component_ref): Call mark_lvalue_use on
+	datum and mark_rvalue_use on component.
+
+2010-06-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/44444
+	* expr.c (mark_exp_read): Handle INDIRECT_REF.
+	* cvt.c (convert_to_void): Handle INDIRECT_REF like
+	handled_component_p.
+
+	PR c++/44443
+	* decl.c (initialize_local_var): If TREE_USED is set on the type,
+	set also DECL_READ_P on the decl.
+
 2010-07-02  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	PR c++/44039
