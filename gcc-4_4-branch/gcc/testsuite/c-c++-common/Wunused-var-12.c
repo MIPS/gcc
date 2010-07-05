@@ -1,6 +1,6 @@
 /* PR c++/44780 */
 /* { dg-do compile } */
-/* { dg-options "-Wunused" } */
+/* { dg-options "-Wunused -Wunused-but-set-variable" } */
 
 typedef double vec __attribute__ ((__vector_size__ (16)));
 vec c, d;
