@@ -25,6 +25,9 @@
 ;; Iterator for the 2 64-bit vector types
 (define_mode_iterator VSX_D [V2DF V2DI])
 
+;; Iterator for the DF types
+(define_mode_iterator VSX_DF [V2DF DF])
+
 ;; Iterator for the 2 32-bit vector types
 (define_mode_iterator VSX_W [V4SF V4SI])
 
@@ -73,11 +76,11 @@
 ;; Map the register class used for float<->int conversions
 (define_mode_attr VSr2	[(V2DF  "wd")
 			 (V4SF  "wf")
-			 (DF    "!f#r")])
+			 (DF    "ws")])
 
 (define_mode_attr VSr3	[(V2DF  "wa")
 			 (V4SF  "wa")
-			 (DF    "!f#r")])
+			 (DF    "ws")])
 
 ;; Map the register class for sp<->dp float conversions, destination
 (define_mode_attr VSr4	[(SF	"ws")
@@ -881,20 +884,39 @@
 ;; For the unsigned tests, there isn't a generic double -> unsigned conversion
 ;; in rs6000.md so don't test VECTOR_UNIT_VSX_P, just test against VSX.
 (define_insn "vsx_float<VSi><mode>2"
-  [(set (match_operand:VSX_B 0 "vsx_register_operand" "=<VSr>,?wa")
-	(float:VSX_B (match_operand:<VSI> 1 "vsx_register_operand" "<VSr2>,<VSr3>")))]
+  [(set (match_operand:VSX_F 0 "vsx_register_operand" "=<VSr>,?wa")
+	(float:VSX_F (match_operand:<VSI> 1 "vsx_register_operand" "<VSr2>,<VSr3>")))]
   "VECTOR_UNIT_VSX_P (<MODE>mode)"
   "x<VSv>cvsx<VSc><VSs> %x0,%x1"
   [(set_attr "type" "<VStype_simple>")
    (set_attr "fp_type" "<VSfptype_simple>")])
 
+;; For scalar converts, follow the pattern in rs6000.md and allowing operand1
+;; to be in memory so the optimizer/register allocator not to load the value
+;; into a GPR and then have to spill it to memory.
+(define_insn "*vsx_floatsidf2"
+  [(set (match_operand:DF 0 "vsx_register_operand" "=ws,?wa")
+	(float:DF (match_operand:DI 1 "nonimmediate_operand" "ws,wa")))]
+  "VECTOR_UNIT_VSX_P (DFmode)"
+  "xscvsxddp %x0,%x1"
+  [(set_attr "type" "fp")
+   (set_attr "fp_type" "fp_addsub_d")])
+
 (define_insn "vsx_floatuns<VSi><mode>2"
-  [(set (match_operand:VSX_B 0 "vsx_register_operand" "=<VSr>,?wa")
-	(unsigned_float:VSX_B (match_operand:<VSI> 1 "vsx_register_operand" "<VSr2>,<VSr3>")))]
+  [(set (match_operand:VSX_F 0 "vsx_register_operand" "=<VSr>,?wa")
+	(unsigned_float:VSX_F (match_operand:<VSI> 1 "vsx_register_operand" "<VSr2>,<VSr3>")))]
   "VECTOR_UNIT_VSX_P (<MODE>mode)"
   "x<VSv>cvux<VSc><VSs> %x0,%x1"
   [(set_attr "type" "<VStype_simple>")
    (set_attr "fp_type" "<VSfptype_simple>")])
+
+(define_insn "*vsx_floatunssidf2"
+  [(set (match_operand:DF 0 "vsx_register_operand" "=ws,?wa")
+	(unsigned_float:DF (match_operand:DI 1 "nonimmediate_operand" "d,d")))]
+  "VECTOR_UNIT_VSX_P (DFmode)"
+  "xscvuxddp %x0,%x1"
+  [(set_attr "type" "fp")
+   (set_attr "fp_type" "fp_addsub_d")])
 
 (define_insn "vsx_fix_trunc<mode><VSi>2"
   [(set (match_operand:<VSI> 0 "vsx_register_operand" "=<VSr2>,?<VSr3>")
@@ -963,6 +985,21 @@
 		      UNSPEC_FRIP))]
   "VECTOR_UNIT_VSX_P (<MODE>mode)"
   "x<VSv>r<VSs>ip %x0,%x1"
+  [(set_attr "type" "<VStype_simple>")
+   (set_attr "fp_type" "<VSfptype_simple>")])
+
+;; Only optimize (float (fix x)) -> frz if we are in fast-math mode, since
+;; since the xsrdpiz instruction does not truncate the value if the floating
+;; point value is < LONG_MIN or > LONG_MAX.
+(define_insn "*vsx_float_fix_<mode>2"
+  [(set (match_operand:VSX_DF 0 "vsx_register_operand" "=<VSr>,?wa")
+	(float:VSX_DF
+	 (fix:<VSI>
+	  (match_operand:VSX_DF 1 "vsx_register_operand" "<VSr>,?wa"))))]
+  "TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_DOUBLE_FLOAT
+   && VECTOR_UNIT_VSX_P (<MODE>mode) && flag_unsafe_math_optimizations
+   && !flag_trapping_math"
+  "x<VSv>r<VSs>iz %x0,%x1"
   [(set_attr "type" "<VStype_simple>")
    (set_attr "fp_type" "<VSfptype_simple>")])
 

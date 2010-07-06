@@ -1,0 +1,152 @@
+2010-07-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Recreate branch, based off of subversion id 161886.
+	* REVISION: Update subversion id.
+
+2010-07-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_expand_convert_si_to_sfdf): Don't
+	expand the insn immediately, generate an insn with clobbers that
+	will be split later.
+
+	* config/rs6000/vsx.md (VSX_DF): New iterator.
+	(vsx_float_fix_<mode>2): Optimize (double)(long) into a single
+	instruction.
+	* config/rs6000/rs6000.md (friz): Ditto.
+
+	* config/rs6000/rs6000.md (SI_CONVERT_FP): New mode attribute, to
+	for the fcfid/fcfids instruction being availble.
+	(SIGN_SI_CVT_FP): Delete.
+	(UNS_SI_CVT_FP): Delete.
+	(E500_CONVERT): New mode attribute for E500 floating point
+	conversions.
+	(fix_truncsfsi2): Add support for power7.
+	(lfiwax): Create generator function.
+	(floatsi<mode>2_lfiwax): Rewrite insn to take the memory argument
+	as a clobber, and split later.
+	(floatunssi<mode2>_lfiwzx): Ditto.
+	(floatsi<mode2>_lfiwax_ext): New combiner insn to combine memory
+	reference and sign extend.
+	(floatunssi<mode2>_lfiwzx_ext): Ditto.
+	(fix_trunc<mode>si2_stfiwx): New combined insn to support
+	truncation to SI mode to use the STFIWX instruction.
+	(fix_truncdfsi2): Rewrite STFIWX support.
+	(fix_truncdfsi2_internal): Only enable if no STFIWX instruction.
+	Change name of FCTIWZ insn.
+	(fix_truncdfsi2_internal_gfxopt): Delete.
+	(fix_truncdfsi2_mfpgpr): Ditto.
+	(fixuns_trunc<mode>si2_stfiwx): New insn for floating point to
+	unsigned conversions on power7.
+	(fixuns_trunc<mode>si2): Replace fixuns_truncsfsi2,
+	fixuns_truncdfsi2 with combined insn, and add power7 support.
+	(fctiwz_<mode>): Rename from fctiwz, and add both SF/DF support.
+	(fctiwuz_<mode>): New insn for power7 support.
+	(float<mode>_fixsisf2): New combined insn to optimize doint double
+	to int to double type conversions to prevent the compiler from
+	storing the intermediate value on the stack and reloading it.
+	(float<mode>_fixsidf2): Ditto.
+	(float<mode>_fixdisf2): Ditto.
+	(float<mode>_fixdidf2): Ditto.
+	(fix_trunctfsi2_internal): Change name of FCTIWZ insn.
+
+2010-06-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 161633.
+	* REVISION: Update subversion id.
+
+2010-06-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.h (TARGET_STFIWX): New macro.
+	(TARGET_FCTIDUZ): Ditto.
+	(TARGET_FCTIWUZ): Ditto.
+
+	* config/rs6000/rs6000.md (fix_truncdfdi2): Use TARGET_FCFID and
+	TARGET_FCFIDS instead of TARGET_POWERPC64 for modern machines that
+	support FCFID and friends in 32-bit mode.
+	(fix_truncdfdi2_fpr): Ditto.
+	(floatdisf2): Ditto.
+	(floatdisf2_internal1): Ditto.
+
+2010-06-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 161543.
+	* REVISION: Update subversion id.
+
+2010-06-25  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-protos.h
+	(rs6000_expand_convert_si_to_sfdf): Add declaration.
+
+	* config/rs6000/rs6000.opt (-mfcfid): New switch.
+
+	* config/rs6000/rs6000.c (rs6000_override_options): Default
+	-mfcfid for power*.
+	(rs6000_expand_convert_si_to_sfdf): New function to expand SImode
+	to SF/DFmode.
+
+	* config/rs6000/rs6000.md (VSr2): Use "ws", not "!f#r".
+	(VSr3): Use "ws", not "!d#r".
+	(vsx_float<VSi><mode>2): Limit expander to just vectors.
+	(vsx_floatuns<VSi><mode>2): Ditto.
+	(vsx_floatdidf2): Use nonimmediate_operand for source to suppress
+	value being loaded into a GPR and then spilled to the stack.
+	(vsx_floatunsdidf2): Ditto.
+
+	* config/rs6000/rs6000.h (TARGET_FCFID): New target macro for
+	instruction support based on switches.
+	(TARGET_LFIWAX): Ditto.
+	(TARGET_LFIWZX): Ditto.
+	(TARGET_FCFIDS): Ditto.
+	(TARGET_FCFIDU): Ditto.
+	(TARGET_FCFIDUS): Ditto.
+
+	* config/rs6000/rs6000.md (UNSPEC_LFIWAX): New unspec number.
+	(UNSPEC_LFIWZX): Ditto.
+	(SFDF): New iterator.
+	(rreg2): New mode attribute.
+	(SIGN_SI_CVT_FP): Ditto.
+	(UNS_SI_CVT_FP): Ditto.
+	(rsqrt<mode>2): Use RS6000_RECIP_HAVE_RSQRTE_P.
+	(lfiwax): New insn for SImode -> SFmode/DFmode converts.
+	(floatsi<mode>2_lfiwax): Ditto.
+	(lfiwzx): Ditto.
+	(floatunssi<mode>2_lfiwzx): Ditto.
+	(floatsidf2): Add support for the lfiwax/lfiwzx instructions, and
+	-mfcfid.
+	(floatsidf2_internal): Ditto.
+	(floatunssidf2): Ditto.
+	(floatunssidf2_internal): Ditto.
+	(stfiwx): Be compatible with other fp insns, and test for
+	TARGET_HARD_FLOAT, TARGET_FPRS, etc.
+	(floatdidf2): Add support for -mfcfid.  Change from
+	gpc_reg_operand to nonimmediate_operand to prevent stuff being
+	loaded into a GPR and then spilled to the stack to move to FPR.
+	(floatunsdidf2): Add support for fcfidu.
+	(floatunsdidf2_fdfidu): Ditto.
+	(fix_truncdfdi2_fpr): Change constraint from "!d#r" to "d".
+	(floatdisf2): Add support for fcfids.
+	(floatdisf2_fcfids): Ditto.
+	(floatdisf2_internal1): Ditto.
+	(floatunsdisf2): Add support for fcfidus.
+
+	* doc/invoke.texi (-mfcfid): Document.
+
+2010-06-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to subversion id 161215.
+	* REVISION: Update subversion id.
+
+2010-06-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.md (UNSPEC_FCTIW): New insns.
+	(UNSPEC_FCTID): Ditto.
+	(lrintdfdi2): New insn to support lrint builtin.
+	(fctiw): New insn, eventually for lrintf builtin.
+	(movdi_mfpgpr): Add VSX support.
+	(movdi_internal64): Ditto.
+
+2010-06-04  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Recreate branch, based off of subversion id 160284.
+	* REVISION: New file, set for branch.
+
