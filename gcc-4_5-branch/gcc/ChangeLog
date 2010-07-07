@@ -1,3 +1,53 @@
+2010-07-06  Alexandre Oliva  <aoliva@redhat.com>
+
+	* doc/gimple.texi (GIMPLE_DEBUG): Document.
+	* doc/rtl.texi (Debug Information): New node.
+	(NOTE_INSN_VAR_LOCATION): Document.
+	(debug_insn): Likewise.
+	* doc/generic.texi (DEBUG_EXPR_DECL): Document.
+
+2010-07-05  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	Backport from mainline:
+	PR target/44531
+	* config.gcc (sh*-*-*): Use regular expressions instead of
+	the 'i' modifier for sed substitutions.
+
+2010-07-05  Mikael Pettersson  <mikpe@it.uu.se>
+
+	PR bootstrap/44820
+	* config/arm/arm.c (arm_attr_length_move_neon): Delete regno.
+
+2010-07-05  Jie Zhang  <jie@codesourcery.com>
+
+	* config/arm/arm.c (arm_attr_length_move_neon): New.
+	* config/arm/arm-protos.h (arm_attr_length_move_neon): Declare.
+	* config/arm/neon.md (define_mode_attr V_slen): Remove.
+	(neon_mov<mode> for VSTRUCT): Use arm_attr_length_move_neon
+	to compute length attribute.
+
+2010-07-05  Jie Zhang  <jie@codesourcery.com>
+
+	* config/arm/vfp.md (*push_multi_vfp): Use vfp_register_operand
+	as predicate for operand 1 and remove its constraint.
+	* config/arm/predicates.md (vfp_register_operand): New.
+	* config/arm/arm.md (*push_multi): Remove the constraint of
+	operand 1.
+	(*push_fp_multi): Likewise.
+
+2010-07-03  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/44597
+	* config/pa/predicates.md (prefetch_cc_operand): Remove.
+	(prefetch_nocc_operand): Likewise.
+	* config/pa/pa.md (prefetch): Revise expander to use prefetch_20.
+	(prefetch_20): New insn.
+	(prefetch_cc): Remove.
+	(prefetch_nocc): Likewise.
+
+	PR target/44705
+	* config/pa/pa.h (GO_IF_LEGITIMATE_ADDRESS): Reject LABEL_REF.
+
 2010-07-05  Jakub Jelinek  <jakub@redhat.com>
 
 	* tree-nrv.c (tree_nrv): Set DECL_VALUE_EXPR on found to result.

@@ -1,3 +1,8 @@
+2010-07-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* Makefile.am (AM_MAKEFLAGS): Pass also mandir to submakes.
+	* Makefile.in: Regenerated.
+
 2010-06-30  Jakub Jelinek  <jakub@redhat.com>
 
 	* src/powerpc/linux64.S: Add .note.GNU-stack on Linux.
