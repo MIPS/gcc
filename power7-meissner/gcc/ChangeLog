@@ -1,3 +1,116 @@
+2010-07-07  Tom Tromey  <tromey@redhat.com>
+
+	* doc/tm.texi: Update.
+	* doc/tm.texi.in (SDB and DWARF) <TARGET_WANT_DEBUG_PUB_SECTIONS>:
+	Add @hook.
+	* target.def (want_debug_pub_sections): New hook.
+	* config/darwin.h (TARGET_WANT_DEBUG_PUB_SECTIONS): Define.
+	* dwarf2out.c (add_pubname_string): Check
+	targetm.want_debug_pub_sections.
+	(add_pubname): Likewise.
+	(add_pubtype): Likewise.
+
+2010-07-07  Jie Zhang  <jie@codesourcery.com>
+
+	* genautomata.c (output_automata_list_min_issue_delay_code):
+	Correctly decompress min_issue_delay.
+
+2010-07-07  Bernd Schmidt  <bernds@codesourcery.com>
+
+	PR rtl-optimization/44404
+	* auto-inc-dec.c (find_inc): Avoid calling count_occurrences if
+	possible, use reg_overlap_mentioned_p instead.
+
+2010-07-07  Duncan Sands  <baldrick@free.fr>
+
+	PR middle-end/41355
+	* tree.c (build_function_type_skip_args): Copy the original type using
+        build_distinct_type_copy rather than copy_node.
+
+2010-07-07  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/44850
+	* config/i386/i386.c (ix86_function_ms_hook_prologue): Revert
+	revision 161876.
+	(ix86_expand_prologue): Likewise.
+	(ix86_handle_fndecl_attribute): Likewise.
+	(ix86_asm_declare_function_name): Likewise.
+	* config/i386/i386.h (ASM_DECLARE_FUNCTION_NAME): Likewise.
+	* config/i386/cygming.h (ASM_DECLARE_FUNCTION_NAME): Likewise.
+	(SUBTARGET_ASM_DECLARE_FUNCTION_NAME): Likewise.
+	* config/i386/i386-protos.h (ix86_asm_declare_function_name):
+	Likewise.
+	* doc/extend.texi: Likewise.
+
+2010-07-07  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/44844
+	* config/i386/i386.md (rdrand<mode>): Changed to expand to
+	retry if the carry flag isn't valid.
+	(rdrand<mode>_1): New.
+
+2010-07-07  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/44790
+	* expr.c (expand_expr_real_1): Go the POINTER_PLUS_EXPR path
+	for expanding the constant offset for MEM_REFs.
+
+2010-07-07  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-propagate.h (valid_gimple_call_p): Remove.
+	* tree-ssa-propagate.c (valid_gimple_call_p): Make static.  Fix.
+	* gimple.h (is_gimple_operand): Remove.
+	* gimple.c (is_gimple_operand): Likewise.
+	(walk_gimple_op): Fix wi->val_only setting for calls.
+	* tree-cfg.c (verify_gimple_call): Fix argument validation.
+	* tree-profile.c (tree_gen_ic_func_profiler): Do not create
+	invalid gimple calls.
+
+2010-07-06  Jan Hubicka  <jh@suse.cz>
+
+	* lto-cgraph.c (output_cgraph): Add missing declaration.
+
+2010-07-06  Jan Hubicka  <jh@suse.cz>
+
+	* lto-cgraph.c (output_cgraph): Output toplevel asms only into first
+	partition.
+
+2010-07-06  Alexandre Oliva  <aoliva@redhat.com>
+
+	* doc/gimple.texi (GIMPLE_DEBUG): Document.
+	* doc/rtl.texi (Debug Information): New node.
+	(NOTE_INSN_VAR_LOCATION): Document.
+	(debug_insn): Likewise.
+	* doc/generic.texi (DEBUG_EXPR_DECL): Document.
+
+2010-07-07  Jan Hubicka  <jh@suse.cz>
+
+	With parts by Richard Guenther
+
+	PR middle-end/44813
+	* tree-ssa-uninit.c (ssa_undefined_value_p): Result decl is defined
+	for functions passed by reference.
+	* tree.c (needs_to_live_in_memory): RESULT_DECL don't need to live
+	in memory when passed by reference.
+	* tree-ssa-ccp.c (get_default_value): Only VAR_DECL is undefined at
+	beggining.
+	* ipa-split.c (split_function): Cleanup way return value is passed;
+	handle SSA DECL_BY_REFERENCE retvals.
+	* tree-ssa.c (verify_def): Verify that RESULT_DECL is read only when
+	DECL_BY_REFERENCE is set.
+	* tree-ssa-structalias.c (get_constraint_for_ssa_var, get_fi_for_callee,
+	find_what_p_points_to): Handle RESULT_DECL.
+	* tree-inline.c (declare_return_variable): Get new entry_block argument;
+	when passing by reference ensure that RESULT_DECL is gimple_val.
+	(remap_gimple_op_r): Remap RESULT_DECL ssa name.
+	(remap_gimple_stmt): Handle SSA DECL_BY_REFERENCE returns.
+
+2010-07-07  Bernd Schmidt  <bernds@codesourcery.com>
+
+	PR rtl-optimization/44787
+	* config/arm/arm.md (arith_shiftsi): Allow stack pointer in operand 2.
+	* config/arm/thumb2.md (thumb2_arith_shiftsi): Likewise.
+
 2010-07-06  Jan Hubicka  <jh@suse.cz>
 
 	* lto-symtab.c (lto_cgraph_replace_node): Handle aliases.
