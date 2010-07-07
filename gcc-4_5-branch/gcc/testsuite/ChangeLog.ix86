@@ -1,0 +1,15 @@
+2010-07-07  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2010-07-04  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR rtl-optimization/44695
+	* gcc.dg/torture/pr44695.c: New.
+
+	2010-06-24  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/44588
+	* gcc.target/i386/mod-1.c: New.
+	* gcc.target/i386/umod-1.c: Likewise.
+	* gcc.target/i386/umod-2.c: Likewise.
+	* gcc.target/i386/umod-3.c: Likewise.

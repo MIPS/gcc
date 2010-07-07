@@ -1,0 +1,22 @@
+2010-07-07  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2010-07-04  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR rtl-optimization/44695
+	* config/i386/i386.md (extract_code): Removed.
+	(<u>divmodqi4): Likewise.
+	(divmodqi4): New.
+	(udivmodqi4): Likewise.
+	(divmodhiqi3): Change div/mod to HImode and extend operand 2 to
+	HImode.
+	(udivmodhiqi3): Likewise.
+
+	2010-06-24  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/44588
+	* config/i386/i386.md (extract_code): New.
+	(<u>divmodqi4): Likewise.
+	(divmodhiqi3): Likewise.
+	(udivmodhiqi3): Likewise.
+	(<u>divqi3): Remvoved.
