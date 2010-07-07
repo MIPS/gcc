@@ -1,3 +1,11 @@
+2010-07-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-nrv.c (tree_nrv): Set DECL_VALUE_EXPR on found to result.
+
+	PR c++/44808
+	* gimplify.c (gimplify_modify_expr): Only SET_DECL_DEBUG_EXPR if
+	*from_p is VAR_DECL.
+
 2010-07-02  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
 
 	PR target/44707
