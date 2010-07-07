@@ -1371,26 +1371,26 @@ DEF_CILBUILTIN(GEN_VSI_FLOAT_TO_INT_UNSIGNED, "[genvec_support]genvec_support.VS
                ATTR_CONST_NOTHROW_LIST,         \
                VSI_type_node, \
                1, \
-               float_type_node)
+               VSF_type_node)
 
 DEF_CILBUILTIN(GEN_VSI_FLOAT_TO_INT_SIGNED, "[genvec_support]genvec_support.VSI::VSI_float_to_int_signed", \
                ATTR_CONST_NOTHROW_LIST,         \
                VSI_type_node, \
                1, \
-               float_type_node)
+               VSF_type_node)
 
 /* int->float */
 DEF_CILBUILTIN(GEN_VSF_INT_TO_FLOAT_UNSIGNED, "[genvec_support]genvec_support.VSF::VSF_int_to_float_unsigned", \
                ATTR_CONST_NOTHROW_LIST,         \
                VSF_type_node, \
                1, \
-               unsigned_type_node)
+               VSI_type_node)
 
 DEF_CILBUILTIN(GEN_VSF_INT_TO_FLOAT_SIGNED, "[genvec_support]genvec_support.VSI::VSI_int_to_float_signed", \
                ATTR_CONST_NOTHROW_LIST,         \
                VSF_type_node, \
                1, \
-               integer_type_node)
+               VSI_type_node)
 
 /* interleave high/low */
 DEF_CILBUILTIN(GEN_VSI_INTERLEAVE_HIGH, "[genvec_support]genvec_support.VSI::VSI_interleave_high", \
