@@ -1,5 +1,22 @@
 2010-07-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/rs6000.opt (-mfriz): Enable by default.
+
+	* config/rs6000/vsx.md (vsx_floatdf_fixsidf2): Add VSX specific
+	optimization for converting to int and back to a floating point
+	type.
+	(vsx_floatsf_fixsisf2): Ditto.
+	(vsx_xvcvsxwdp_df): Ditto.
+	(vsx_floatunssf_fixunssisf2): Ditto.
+	(vsx_xvcvuxwdp_df): Ditto.
+
+	* config/rs6000/rs6000.md (float<mode>_fixsisf2): Delete, since
+	the FCTIWZ instruction leaves garbage in the upper 32-bits.
+	(float<mode>_fixsidf2): Ditto.
+	(float<mode>_fixdisf2): Fix pattern matching.
+	(float<mode>_fixdidf2): Make sure we don't match if FRIZ would be
+	used.
+
 	Merge up to subversion id 162003.
 	* REVISION: Update subversion id.
 
