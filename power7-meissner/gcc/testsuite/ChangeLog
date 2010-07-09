@@ -1,3 +1,102 @@
+2010-07-09  Tom de Vries  <tjvries@xs4all.nl>
+
+	* gcc.dg/debug/dwarf2/pr31230.c: New testcase.
+
+2010-07-09  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/44852
+	* gcc.c-torture/execute/pr44852.c: New testcase.
+
+2010-07-09  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc.target/x86_64/abi/asm-support.S (snapshot): Replace
+	multiplication by values.
+	* gcc.target/x86_64/abi/asm-support-darwin.s (_snapshot): Likewise.
+	* gcc.target/x86_64/abi/avx/asm-support.S (snapshot): Likewise.
+
+2010-07-09  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/44882
+	* gfortran.dg/pr44882.f90: New testcase.
+
+2010-07-09  Bernd Schmidt  <bernds@codesourcery.com>
+
+	PR target/40657
+	* gcc.target/arm/pr40657-1.c: New test.
+	* gcc.target/arm/pr40657-2.c: New test.
+	* gcc.c-torture/execute/pr40657.c: New test.
+
+2010-07-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/tree-ssa/vrp50.c: New test.
+	* gcc.dg/vect/slp-perm-4.c (main): Make sure loop isn't vectorized.
+
+2010-07-08  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/44649
+	* gfortran.dg/c_sizeof_1.f90: Modified.
+	* gfortran.dg/storage_size_1.f08: New.
+	* gfortran.dg/storage_size_2.f08: New.
+
+2010-07-08  Mikael Pettersson  <mikpe@it.uu.se>
+
+	* gcc.c-torture/execute/20100708-1.c: New test.
+
+2010-07-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/44847
+	* gfortran.dg/gomp/pr44847.f90: New test.
+
+2010-07-08  Sebastian Pop  <sebastian.pop@amd.com>
+
+	PR tree-optimization/44710
+	* gcc.dg/tree-ssa/ifc-6.c: New.
+	* gcc.dg/tree-ssa/ifc-pr44710.c: New.
+
+2010-07-08  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/18918
+	* gfortran.dg/coarray_10.f90: Add an additional test.
+
+2010-07-08  Peter Bergner  <bergner@vnet.ibm.com>
+
+	PR middle-end/44828
+	* gcc.c-torture/execute/pr44828.c (foo): Use signed char.
+	* gcc.c-torture/execute/pr44828.x: Revert.
+
+2010-07-08  Jason Merrill  <jason@redhat.com>
+
+	PR c++/43120
+	* g++.dg/inherit/covariant17.C: New.
+	* g++.dg/abi/covariant1.C: Actually test for the bug.
+
+2010-07-08  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR rtl-optimization/44838
+	* gcc.dg/pr44838.c: New.
+
+2010-07-08  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/44831
+	* gcc.c-torture/compile/pr44831.c: New testcase.
+	* gcc.dg/tree-ssa/pr21463.c: Adjust.
+
+2010-07-08  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/44861
+	* g++.dg/vect/pr44861.cc: New testcase.
+
+2010-07-07  Peter Bergner  <bergner@vnet.ibm.com>
+
+	PR middle-end/44828
+	* gcc.c-torture/execute/pr44828.x: New file.
+
+2010-07-07  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* g++.dg/ext/altivec-2.C: Add -Wno-unused-but-set-variable to
+	dg-options.
+	* g++.dg/ext/altivec-17.C: Adjust error message.
+
 2010-07-07  Tom Tromey  <tromey@redhat.com>
 
 	* g++.dg/debug/dwarf2/pubnames-1.C: Make darwin-specific.

@@ -1,3 +1,456 @@
+2010-07-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/44877
+	* config/rs6000/rs6000.c (rs6000_expand_builtin): Use
+	POINTER_TYPE_P instead of checking only for POINTER_TYPE for the
+	builtin mask for load/store builtins.
+
+2010-07-09  Uros Bizjak  <ubizjak@gmail.com>
+
+	* configure.ac (gcc_cv_as_ix86_rep_lock_prefix): Also check
+	for "lock addl".
+	* configure: Regenerate.
+	* config/i386/i386.c (ix86_print_operand) <case ';'>:
+	Remove TARGET_MACHO.
+
+2010-07-09  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_override_options): Fix setting of
+	default ISA flags.
+	* config/rs6000/rs6000.h (ASM_CPU_SPEC): Add -mvsx.
+
+2010-07-09  Tom de Vries  <tjvries@xs4all.nl>
+
+	* tree.c (type_hash_if_marked_p): Removed non-ggc_marked_p clause.
+
+2010-07-09  Hariharan Sandanagobalane <hariharan@picochip.com>
+
+	* config/picochip/picochip.md (commsTestPort): Emit more
+	efficient sequence for tstport instruction.
+
+2010-07-09  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (ix86_veclib_handler): Make static.
+
+2010-07-09  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/44852
+	* tree-ssa-alias.c: Include toplev.h for exact_log2.
+	(indirect_ref_may_alias_decl_p): Properly handle negative offsets
+	in MEM_REF.
+	(indirect_refs_may_alias_p): Likewise.
+	* Makefile.in (tree-ssa-alias.o): Add $(TOPLEV_H).
+
+2010-07-09  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/44882
+	* tree-vect-stmts.c (vectorizable_store): Do not assert alias
+	sets do conflict.
+	(vectorizable_load): Likewise.
+
+2010-07-09  Bernd Schmidt  <bernds@codesourcery.com>
+
+	PR target/40657
+	* config/arm/arm.c (thumb1_extra_regs_pushed): New arg FOR_PROLOGUE.
+	All callers changed.
+	Handle the case when we're called for the epilogue.
+	(thumb_unexpanded_epilogue): Use it.
+	(thumb1_expand_epilogue): Likewise.
+
+2010-07-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-vrp.c (extract_range_from_binary_expr) <BIT_AND_EXPR>: If
+	both ranges are range_int_cst_p with non-negative minimum,
+	try harder to derive smaller range.
+
+2010-07-09  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	* genrecog.c: Include diagnostic-core.h before toplev.h.
+	* genoutput.c: Likewise.
+	* genextract.c: Likewise.
+	* genautomata.c: Likewise.
+	* genemit.c: Likewise.
+	* genpeep.c: Likewise.
+	* genattrtab.c: Likewise.
+	* genconditions.c: Likewise.
+	* genpreds.c: Likewise.
+
+2010-07-08  Andi Kleen  <ak@linux.intel.com>
+
+	* lto-section-in.c (lto_section_name): Add missing comma.
+
+2010-07-08  Anatoly Sokolov  <aesok@post.ru>
+
+	* config/ia64/ia64.h (OVERRIDE_OPTIONS): Remove macros.
+	* config/ia64/ia64-protos.h (ia64_override_options): Remove.
+	* config/ia64/ia64.c (TARGET_OPTION_OVERRIDE): Define.
+	(ia64_override_options): Rename to...
+	(ia64_option_override): ... this one. Make static.
+
+2010-07-08  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR middle-end/44843
+	* emit-rtl.c (set_mem_attributes_minus_bitpos): Do not rely on the
+	pointed-to type of the offset in a MEM_REF to compute the alignment.
+
+2010-07-08  Kai Tietz  <kai.tietz@onevision.com>
+
+	* final.c (final_scan_insn): Replace
+	TARGET_UNWIND_INFO macro check by unwind_emit
+	hook NULL check.
+	* targhooks.c (default_unwind_emit): Removed.
+	* targhooks.h (default_unwind_emit): Likewise.
+	* target.def (unwind_emit): Set default value to NULL.
+
+	* config/i386/i386-protos.h (ix86_asm_output_function_label):
+	New prototype.
+	* config/i386/i386.c (ix86_function_ms_hook_prologue): Check
+	for NULL fntype argument and allow 64-bit targets.
+	(ix86_asm_output_function_label): New function.
+	(ix86_expand_prologue): Handle 64-bit ms hook prologue.
+	(ix86_handle_fndecl_attribute): Likewise.
+	* doc/extend.texi (ms_hook_prologue): Adjust documentation.
+	* doc/doc/tm.texi: Regenerated.
+	* doc/doc/doc/tm.texi.in (ASM_OUTPUT_FUNCTION_LABEL): New.
+	(ASM_DECLARE_FUNCTION_NAME): Adjust documentation.
+	* defaults.h (ASM_OUTPUT_FUNCTION_LABEL): New macro.
+	* config/darwin.h (ASM_DECLARE_FUNCTION_NAME): Use
+	ASM_OUTPUT_FUNCTION_LABEL instead of ASM_OUTPUT_LABEL.
+	* config/elfos.h: Likewise.
+	* config/i386/cygming.h: Likewise.
+	* config/netbsd-aout.h: Likewise.
+	* config/openbsd.h: Likewise.
+	* config/i386/i386.h (ASM_OUTPUT_FUNCTION_LABEL): Override
+	by ix86_asm_output_function_label function call.
+	* varasm.c (assemble_start_function): Use
+	ASM_OUTPUT_FUNCTION_LABEL instead of ASM_OUTPUT_LABEL.
+
+2010-07-08  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.c (cgraph_will_be_removed_from_program_if_no_direct_calls):
+	New function.
+	* cgraph.h (cgraph_will_be_removed_from_program_if_no_direct_calls):
+	Declare.
+	* ipa-cp.c (ipcp_estimate_growth): Use it.
+	* ipa-inline.c (cgraph_estimate_growth, cgraph_decide_inlining):
+	Likewise.
+
+2010-07-08  Jan Hubicka  <jh@suse.cz>
+
+	* tree-inline.c (declare_return_variable): Allocate annotation for new
+	temporary.
+
+2010-07-08  Sebastian Pop  <sebastian.pop@amd.com>
+
+	PR tree-optimization/44710
+	* tree-if-conv.c (parse_predicate): New.
+	(add_to_predicate_list): Call it, call maybe_fold_or_comparisons.
+	Make sure that the predicates are either SSA_NAMEs or gimple_condexpr.
+
+2010-07-08  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* common.opt (ftree-loop-if-convert): New flag.
+	* doc/invoke.texi (ftree-loop-if-convert): Documented.
+	* tree-if-conv.c (gate_tree_if_conversion): Enable if-conversion
+	when flag_tree_loop_if_convert is set.
+
+2010-07-08  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c: Use short syntax for function calls
+	through function pointers.
+	* config/i386/i386.md: Ditto.
+
+2010-07-08  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* emit-rtl.c (set_mem_attributes_minus_bitpos): Fix formatting issues.
+
+2010-07-08  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-sccvn.c (vn_reference_maybe_forwprop_address): Fix
+	stmt check for POINTER_PLUS_EXPRs, fix the pointer assignment.
+
+2010-07-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (mem_loc_descriptor): Use DW_OP_const[48]u
+	instead of DW_OP_addr for DW_OP_GNU_push_tls_address operand.
+	(loc_list_from_tree): Likewise.
+	(output_loc_operands): Handle outputting DW_OP_const[48]u
+	with loc->dtprel set.
+	(resolve_addr_in_expr): Handle loc->dtprel like DW_OP_addr.
+
+2010-07-08  Jan Hubicka  <jh@suse.cz>
+
+	* ipa.c: Include pointer-set.h
+	(cgraph_externally_visible_p): New attribute ALIASED;
+	when in LTO, hidden symbols are local unless they are aliased.
+	(function_and_variable_visibility): Compute aliased nodes;
+	handle LTO and hidden symbol on functions and vars.
+	* cgraph.c (cgraph_make_decl_local): Clear NAMED_SECTION
+	for COMDAT symbols; handle COMDAT_GROUPS also at vars.
+
+2010-07-08  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/i386/cygming.h (STACK_CHECK_STATIC_BUILTIN): Define to 1.
+	* config/i386/freebsd.h (STACK_CHECK_STATIC_BUILTIN): Likewise.
+	* config/i386/linux.h (STACK_CHECK_STATIC_BUILTIN): Likewise.
+	* config/i386/linux64.h (STACK_CHECK_STATIC_BUILTIN): Likewise.
+	* config/i386/sol2.h (STACK_CHECK_STATIC_BUILTIN): Likewise.
+	* config/i386/i386.c (ix86_gen_adjust_stack_and_probe): New variable.
+	(ix86_gen_probe_stack_range): Likewise.
+	(override_options): Set them.
+	(ix86_target_stack_probe): New function.
+	(ix86_compute_frame_layout): Force use of push instructions to
+	save registers if stack checking with probes is enabled.
+	(get_scratch_register_on_entry): New function.
+	(release_scratch_register_on_entry): Likewise.
+	(ix86_adjust_stack_and_probe): Likewise.
+	(output_adjust_stack_and_probe): Likewise.
+	(ix86_emit_probe_stack_range): Likewise.
+	(output_probe_stack_range): Likewise.
+	(ix86_expand_prologue): Emit stack checking code if static built-in
+	stack checking is enabled.
+	Test ix86_target_stack_probe instead of TARGET_STACK_PROBE.
+	* config/i386/i386-protos.h (ix86_target_stack_probe): Declare.
+	(output_adjust_stack_and_probe): Likewise.
+	(output_probe_stack_range): Likewise.
+	* config/i386/i386.md (UNSPECV_PROBE_STACK_RANGE): New constant.
+	(allocate_stack_worker_32): Test ix86_target_stack_probe instead of
+	TARGET_STACK_PROBE.
+	(allocate_stack_worker_64): Likewise.
+	(allocate_stack): Likewise.
+	(adjust_stack_and_probe): New insn.
+	(probe_stack_range): Likewise.
+
+2010-07-08  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/44831
+	* tree-ssa-phiprop.c (phiprop_insert_phi): Properly build
+	a MEM_REF preserving TBAA info of the original dereference.
+	Dereference the original pointer if the address is not invariant.
+	(propagate_with_phi): Fixup type checks wrt MEM_REFs.  Require
+	at least one invariant address that we are going to dereference.
+
+2010-07-08  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/44861
+	* tree-vect-stmts.c (vectorizable_store): Preserve TBAA
+	information when building MEM_REFs.
+	(vectorizable_load): Likewise.
+	* tree-vect-data-refs.c (vect_setup_realignment): Likewise.
+
+2010-07-08  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/sol2-c.c: Do not include diagnostic-core.h.
+
+2010-07-08  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	PR bootstrap/44768
+	* cfgexpand.c (estimated_stack_frame_size): Make self-contained
+	with respect to current_function_decl. Pass decl of the function.
+	* tree-inline.h (estimated_stack_frame_size): Adjust prototype.
+	* ipa-inline.c (compute_inline_parameters): Pass decl to
+	estimated_stack_frame_size.
+
+2010-07-08  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-sccvn.c (vn_reference_maybe_forwprop_address):
+	New function.
+	(valueize_refs): Call it.
+
+2010-07-08  Richard Guenther  <rguenther@suse.de>
+
+	PR rtl-optimization/44838
+	* tree-ssa-alias.c (indirect_refs_may_alias_p): When not in
+	SSA form do not use pointer equivalence.
+
+2010-07-08  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* dwarf2out.c (AT_linkage_name): Delete.
+	(add_linkage_attr): New function.
+	(add_linkage_name): Call it to emit the linkage attribute.
+	(dwarf2out_finish): Likewise.
+	(move_linkage_attr): Explicitly accept both attribute variants.
+
+2010-07-08  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	* toplev.h: Do not include diagnostic-core.h.
+	Include diagnostic-core.h in every file that includes toplev.h.
+	* c-tree.h: Do not include toplev.h.
+	* pretty-print.h: Update comment.
+	* Makefile.in: Update dependencies.
+	* alias.c: Include diagnostic-core.h in every file that includes
+	toplev.h.
+	* attribs.c: Likewise.
+	* auto-inc-dec.c: Likewise.
+	* bb-reorder.c: Likewise.
+	* bt-load.c: Likewise.
+	* caller-save.c: Likewise.
+	* calls.c: Likewise.
+	* cfg.c: Likewise.
+	* cfganal.c: Likewise.
+	* cfgbuild.c: Likewise.
+	* cfgcleanup.c: Likewise.
+	* cfghooks.c: Likewise.
+	* cfgloop.c: Likewise.
+	* combine.c: Likewise.
+	* config/alpha/alpha.c: Likewise.
+	* config/arc/arc.c: Likewise.
+	* config/arm/arm.c: Likewise.
+	* config/arm/pe.c: Likewise.
+	* config/avr/avr.c: Likewise.
+	* config/bfin/bfin.c: Likewise.
+	* config/cris/cris.c: Likewise.
+	* config/crx/crx.c: Likewise.
+	* config/darwin-c.c: Likewise.
+	* config/darwin.c: Likewise.
+	* config/fr30/fr30.c: Likewise.
+	* config/frv/frv.c: Likewise.
+	* config/h8300/h8300.c: Likewise.
+	* config/host-darwin.c: Likewise.
+	* config/i386/i386.c: Likewise.
+	* config/i386/netware.c: Likewise.
+	* config/i386/nwld.c: Likewise.
+	* config/i386/winnt-cxx.c: Likewise.
+	* config/i386/winnt-stubs.c: Likewise.
+	* config/i386/winnt.c: Likewise.
+	* config/ia64/ia64-c.c: Likewise.
+	* config/ia64/ia64.c: Likewise.
+	* config/iq2000/iq2000.c: Likewise.
+	* config/lm32/lm32.c: Likewise.
+	* config/m32c/m32c-pragma.c: Likewise.
+	* config/m32c/m32c.c: Likewise.
+	* config/m32r/m32r.c: Likewise.
+	* config/m68hc11/m68hc11.c: Likewise.
+	* config/m68k/m68k.c: Likewise.
+	* config/mcore/mcore.c: Likewise.
+	* config/mep/mep-pragma.c: Likewise.
+	* config/mep/mep.c: Likewise.
+	* config/mmix/mmix.c: Likewise.
+	* config/mn10300/mn10300.c: Likewise.
+	* config/moxie/moxie.c: Likewise.
+	* config/pa/pa.c: Likewise.
+	* config/pdp11/pdp11.c: Likewise.
+	* config/picochip/picochip.c: Likewise.
+	* config/rs6000/rs6000-c.c: Likewise.
+	* config/rs6000/rs6000.c: Likewise.
+	* config/rx/rx.c: Likewise.
+	* config/s390/s390.c: Likewise.
+	* config/score/score.c: Likewise.
+	* config/score/score3.c: Likewise.
+	* config/score/score7.c: Likewise.
+	* config/sh/sh.c: Likewise.
+	* config/sh/symbian-base.c: Likewise.
+	* config/sh/symbian-c.c: Likewise.
+	* config/sh/symbian-cxx.c: Likewise.
+	* config/sol2-c.c: Likewise.
+	* config/sol2.c: Likewise.
+	* config/sparc/sparc.c: Likewise.
+	* config/spu/spu.c: Likewise.
+	* config/stormy16/stormy16.c: Likewise.
+	* config/v850/v850-c.c: Likewise.
+	* config/v850/v850.c: Likewise.
+	* config/vax/vax.c: Likewise.
+	* config/vxworks.c: Likewise.
+	* config/xtensa/xtensa.c: Likewise.
+	* convert.c: Likewise.
+	* cse.c: Likewise.
+	* cselib.c: Likewise.
+	* dbgcnt.c: Likewise.
+	* dbxout.c: Likewise.
+	* ddg.c: Likewise.
+	* dominance.c: Likewise.
+	* emit-rtl.c: Likewise.
+	* explow.c: Likewise.
+	* expmed.c: Likewise.
+	* fixed-value.c: Likewise.
+	* fold-const.c: Likewise.
+	* fwprop.c: Likewise.
+	* gcse.c: Likewise.
+	* ggc-common.c: Likewise.
+	* ggc-page.c: Likewise.
+	* ggc-zone.c: Likewise.
+	* gimple-low.c: Likewise.
+	* gimplify.c: Likewise.
+	* graph.c: Likewise.
+	* haifa-sched.c: Likewise.
+	* ifcvt.c: Likewise.
+	* implicit-zee.c: Likewise.
+	* integrate.c: Likewise.
+	* ira-build.c: Likewise.
+	* ira-color.c: Likewise.
+	* ira-conflicts.c: Likewise.
+	* ira-costs.c: Likewise.
+	* ira-lives.c: Likewise.
+	* ira.c: Likewise.
+	* lists.c: Likewise.
+	* loop-doloop.c: Likewise.
+	* loop-iv.c: Likewise.
+	* lto-opts.c: Likewise.
+	* lto-symtab.c: Likewise.
+	* main.c: Likewise.
+	* modulo-sched.c: Likewise.
+	* optabs.c: Likewise.
+	* params.c: Likewise.
+	* plugin.c: Likewise.
+	* postreload-gcse.c: Likewise.
+	* postreload.c: Likewise.
+	* predict.c: Likewise.
+	* profile.c: Likewise.
+	* real.c: Likewise.
+	* regcprop.c: Likewise.
+	* reginfo.c: Likewise.
+	* regmove.c: Likewise.
+	* reorg.c: Likewise.
+	* resource.c: Likewise.
+	* rtl.c: Likewise.
+	* rtlanal.c: Likewise.
+	* sched-deps.c: Likewise.
+	* sched-ebb.c: Likewise.
+	* sched-rgn.c: Likewise.
+	* sdbout.c: Likewise.
+	* sel-sched-dump.c: Likewise.
+	* sel-sched-ir.c: Likewise.
+	* simplify-rtx.c: Likewise.
+	* stmt.c: Likewise.
+	* stor-layout.c: Likewise.
+	* store-motion.c: Likewise.
+	* targhooks.c: Likewise.
+	* tree-cfg.c: Likewise.
+	* tree-cfgcleanup.c: Likewise.
+	* tree-dump.c: Likewise.
+	* tree-eh.c: Likewise.
+	* tree-inline.c: Likewise.
+	* tree-nomudflap.c: Likewise.
+	* tree-object-size.c: Likewise.
+	* tree-optimize.c: Likewise.
+	* tree-outof-ssa.c: Likewise.
+	* tree-phinodes.c: Likewise.
+	* tree-profile.c: Likewise.
+	* tree-ssa-ccp.c: Likewise.
+	* tree-ssa-coalesce.c: Likewise.
+	* tree-ssa-live.c: Likewise.
+	* tree-ssa-loop-niter.c: Likewise.
+	* tree-ssa-loop-prefetch.c: Likewise.
+	* tree-ssa-loop.c: Likewise.
+	* tree-ssa-structalias.c: Likewise.
+	* tree-ssa-uninit.c: Likewise.
+	* tree-ssa.c: Likewise.
+	* tree-vect-data-refs.c: Likewise.
+	* tree-vect-loop-manip.c: Likewise.
+	* tree-vect-loop.c: Likewise.
+	* tree-vect-patterns.c: Likewise.
+	* tree-vect-stmts.c: Likewise.
+	* tree-vrp.c: Likewise.
+	* varasm.c: Likewise.
+	* vec.c: Likewise.
+	* web.c: Likewise.
+	* xcoffout.c: Likewise.
+
+2010-07-07  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* gengtype.c (write_field_root): New function.
+	(write_root): Use it.
+
 2010-07-07  Wei Guozhi  <carrot@google.com>
 
 	* config/arm/thumb2.md (peephole2 to convert zero_extract/compare
@@ -35,7 +488,7 @@
 
 	PR middle-end/41355
 	* tree.c (build_function_type_skip_args): Copy the original type using
-        build_distinct_type_copy rather than copy_node.
+	build_distinct_type_copy rather than copy_node.
 
 2010-07-07  H.J. Lu  <hongjiu.lu@intel.com>
 
@@ -48,8 +501,7 @@
 	* config/i386/i386.h (ASM_DECLARE_FUNCTION_NAME): Likewise.
 	* config/i386/cygming.h (ASM_DECLARE_FUNCTION_NAME): Likewise.
 	(SUBTARGET_ASM_DECLARE_FUNCTION_NAME): Likewise.
-	* config/i386/i386-protos.h (ix86_asm_declare_function_name):
-	Likewise.
+	* config/i386/i386-protos.h (ix86_asm_declare_function_name): Likewise.
 	* doc/extend.texi: Likewise.
 
 2010-07-07  H.J. Lu  <hongjiu.lu@intel.com>
@@ -95,7 +547,7 @@
 
 2010-07-07  Jan Hubicka  <jh@suse.cz>
 
-	With parts by Richard Guenther
+	With parts by Richard Guenther.
 
 	PR middle-end/44813
 	* tree-ssa-uninit.c (ssa_undefined_value_p): Result decl is defined
@@ -149,7 +601,7 @@
 2010-07-06  Uros Bizjak  <ubizjak@gmail.com>
 
 	* config/i386/i386.md (immediate_operand): New mode attribute.
-	
+
 	(pro_epilogue_adjust_stack_<mode>_1): Macroize insn from
 	pro_epilogue_adjust_stack  and pro_epilogue_adjust_stack_rex64
 	using P mode iterator.

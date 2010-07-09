@@ -41,6 +41,7 @@
 #include "output.h"
 #include "basic-block.h"
 #include "integrate.h"
+#include "diagnostic-core.h"
 #include "toplev.h"
 #include "ggc.h"
 #include "hashtab.h"
@@ -2683,11 +2684,11 @@ rs6000_override_options (const char *default_cpu)
   /* For the newer switches (vsx, dfp, etc.) set some of the older options,
      unless the user explicitly used the -mno-<option> to disable the code.  */
   if (TARGET_VSX)
-    target_flags |= (ISA_2_6_MASKS & (target_flags_explicit & ~ISA_2_6_MASKS));
+    target_flags |= (ISA_2_6_MASKS & ~target_flags_explicit);
   else if (TARGET_DFP)
-    target_flags |= (ISA_2_5_MASKS & (target_flags_explicit & ~ISA_2_5_MASKS));
+    target_flags |= (ISA_2_5_MASKS & ~target_flags_explicit);
   else if (TARGET_ALTIVEC)
-    target_flags |= (MASK_PPC_GFXOPT & (target_flags_explicit & ~MASK_PPC_GFXOPT));
+    target_flags |= (MASK_PPC_GFXOPT & ~target_flags_explicit);
 
   /* Set debug flags */
   if (rs6000_debug_name)
@@ -11523,7 +11524,7 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 	gcc_assert (TARGET_ALTIVEC);
 
 	arg = CALL_EXPR_ARG (exp, 0);
-	gcc_assert (TREE_CODE (TREE_TYPE (arg)) == POINTER_TYPE);
+	gcc_assert (POINTER_TYPE_P (TREE_TYPE (arg)));
 	op = expand_expr (arg, NULL_RTX, Pmode, EXPAND_NORMAL);
 	addr = memory_address (mode, op);
 	if (fcode == ALTIVEC_BUILTIN_MASK_FOR_STORE)

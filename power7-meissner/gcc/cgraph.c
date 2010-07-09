@@ -2455,15 +2455,16 @@ cgraph_make_decl_local (tree decl)
 
   if (TREE_CODE (decl) == VAR_DECL)
     DECL_COMMON (decl) = 0;
-  else if (TREE_CODE (decl) == FUNCTION_DECL)
+  else gcc_assert (TREE_CODE (decl) == FUNCTION_DECL);
+
+  if (DECL_COMDAT (decl))
     {
+      DECL_SECTION_NAME (decl) = 0;
       DECL_COMDAT (decl) = 0;
-      DECL_COMDAT_GROUP (decl) = 0;
-      DECL_WEAK (decl) = 0;
-      DECL_EXTERNAL (decl) = 0;
     }
-  else
-    gcc_unreachable ();
+  DECL_COMDAT_GROUP (decl) = 0;
+  DECL_WEAK (decl) = 0;
+  DECL_EXTERNAL (decl) = 0;
   TREE_PUBLIC (decl) = 0;
   if (!DECL_RTL_SET_P (decl))
     return;
@@ -2648,6 +2649,31 @@ cgraph_edge_cannot_lead_to_return (struct cgraph_edge *e)
     }
   else
     return cgraph_node_cannot_return (e->callee);
+}
+
+/* Return true when function NODE can be excpected to be removed
+   from program when direct calls in this compilation unit are removed.
+
+   As a special case COMDAT functions are
+   cgraph_can_remove_if_no_direct_calls_p while the are not
+   cgraph_only_called_directly_p (it is possible they are called from other
+   unit)
+
+   This function behaves as cgraph_only_called_directly_p because eliminating
+   all uses of COMDAT function does not make it neccesarily disappear from
+   the program unless we are compiling whole program or we do LTO.  In this
+   case we know we win since dynamic linking will not really discard the
+   linkonce section.  */
+
+bool
+cgraph_will_be_removed_from_program_if_no_direct_calls (struct cgraph_node *node)
+{
+  if (node->local.used_from_object_file)
+    return false;
+  if (!in_lto_p && !flag_whole_program)
+    return cgraph_only_called_directly_p (node);
+  else
+    return cgraph_can_remove_if_no_direct_calls_p (node);
 }
 
 #include "gt-cgraph.h"
