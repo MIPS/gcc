@@ -998,7 +998,7 @@
 	  (match_operand:VSX_DF 1 "vsx_register_operand" "<VSr>,?wa"))))]
   "TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_DOUBLE_FLOAT
    && VECTOR_UNIT_VSX_P (<MODE>mode) && flag_unsafe_math_optimizations
-   && !flag_trapping_math"
+   && !flag_trapping_math && TARGET_FRIZ"
   "x<VSv>r<VSs>iz %x0,%x1"
   [(set_attr "type" "<VStype_simple>")
    (set_attr "fp_type" "<VSfptype_simple>")])

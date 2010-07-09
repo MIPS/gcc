@@ -1,3 +1,10 @@
+2010-07-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.opt (-mfriz): Add temporary debug switch.
+
+	* config/rs6000/vsx.md (vsx_float_fix_<mode>2): Use -mfriz switch.
+	* config/rs6000/rs6000.md (friz): Ditto.
+
 2010-07-07  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to subversion id 161930.
