@@ -1,3 +1,33 @@
+2010-07-09  Dave Korn  <dave.korn.cygwin@gmail.com>
+
+	Backport from mainline
+	2010-05-06  Dave Korn  <dave.korn.cygwin@gmail.com>
+
+	PR target/43888
+	* config/i386/winnt.c (i386_pe_binds_local_p): Tweak weak symbol
+	handling to still return true for x64 targets.
+
+2010-07-08  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2010-05-27  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/44284
+	* tree-vect-stmts.c (vectorizable_assignment): Handle
+	sign-changing conversions as simple copy.
+
+	2010-07-06  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/44828
+	* convert.c (convert_to_integer): Watch out for overflowing
+	MULT_EXPR as well.
+
+2010-07-07  Duncan Sands  <baldrick@free.fr>
+
+	PR middle-end/41355
+	* tree.c (build_function_type_skip_args): Copy the original type using
+	build_distinct_type_copy rather than copy_node.
+
 2010-07-08  Jakub Jelinek  <jakub@redhat.com>
 
 	* dwarf2out.c (mem_loc_descriptor): Use DW_OP_const[48]u
