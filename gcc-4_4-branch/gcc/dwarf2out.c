@@ -4978,8 +4978,11 @@ output_loc_sequence (dw_loc_descr_ref loc)
   for (; loc != NULL; loc = loc->dw_loc_next)
     {
       /* Output the opcode.  */
-      dw2_asm_output_data (1, loc->dw_loc_opc,
-			   "%s", dwarf_stack_op_name (loc->dw_loc_opc));
+      int opc = loc->dw_loc_opc;
+      if (opc == INTERNAL_DW_OP_tls_addr)
+	opc = DWARF2_ADDR_SIZE == 4 ? DW_OP_const4u : DW_OP_const8u;
+      dw2_asm_output_data (1, opc,
+			   "%s", dwarf_stack_op_name (opc));
 
       /* Output the operand(s) (if any).  */
       output_loc_operands (loc);

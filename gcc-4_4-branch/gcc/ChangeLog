@@ -1,3 +1,8 @@
+2010-07-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (output_loc_sequence): Output INTERNAL_DW_OP_tls_addr
+	as either DW_OP_const4u or DW_OP_const8u.
+
 2010-07-03  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
 
 	PR target/44597
