@@ -1,3 +1,41 @@
+2010-07-09  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/44886
+	* tree-vect-stmts.c (vectorizable_assignment): Fixup backport
+	of the fix for PR44284.
+
+2010-07-09  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2010-05-28  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* tree-vect-stmts.c (vectorizable_assignment): Call build1 instead of
+	build1_stat.
+
+2010-07-09  Dave Korn  <dave.korn.cygwin@gmail.com>
+
+	Backport from mainline
+	2010-05-06  Dave Korn  <dave.korn.cygwin@gmail.com>
+
+	PR target/43888
+	* config/i386/winnt.c (i386_pe_binds_local_p): Tweak weak symbol
+	handling to still return true for x64 targets.
+
+2010-07-08  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2010-05-27  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/44284
+	* tree-vect-stmts.c (vectorizable_assignment): Handle
+	sign-changing conversions as simple copy.
+
+	2010-07-06  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/44828
+	* convert.c (convert_to_integer): Watch out for overflowing
+	MULT_EXPR as well.
+
 2010-07-07  Duncan Sands  <baldrick@free.fr>
 
 	PR middle-end/41355
