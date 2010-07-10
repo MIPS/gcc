@@ -1,3 +1,12 @@
+2010-07-09  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2010-06-29  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR rtl-optimization/44659
+	* combine.c (make_compound_operation) <SUBREG>: Do not return the
+	result of force_to_mode if it partially re-expanded the compound.
+
 2010-07-07  H.J. Lu  <hongjiu.lu@intel.com>
 
 	Backport from mainline
