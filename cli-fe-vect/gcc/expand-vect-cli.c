@@ -27,6 +27,8 @@
 #include "tree-pass.h"
 #include "langhooks.h"
 
+#define MAX_CLI_FN 103 
+
 static tree
 add_cli_function (const char *name,
                   tree type)
@@ -143,38 +145,36 @@ create_cli_fn_table (void)
   cli_functions[80] = add_cli_function ("genvec_support_VDF_ALoad_Mono_Simd_Vector2f__Mono_Simd_Vector2f", unsigned_type_node);
 
 
-/* REPLACE WITH ACTUAL NAMES.  */ 
-  cli_functions[81] = add_cli_function ("genvec_support_int2float_signed", unsigned_type_node);
-  cli_functions[82] = add_cli_function ("genvec_support_int2float_unsigned", unsigned_type_node);
-  cli_functions[83] = add_cli_function ("genvec_support_float2int_signed", unsigned_type_node);
-  cli_functions[84] = add_cli_function ("genvec_support_float2int_unsigned", unsigned_type_node);
+  cli_functions[81] = add_cli_function ("genvec_support_VSI_VSI_int_to_float_signed_Mono_Simd_Vector4i_Mono_Simd_Vector4f", unsigned_type_node);
+  cli_functions[82] = add_cli_function ("genvec_support_VSI_VSI_int_to_float_unsigned_Mono_Simd_Vector4i_Mono_Simd_Vector4f", unsigned_type_node);
+  cli_functions[83] = add_cli_function ("genvec_support_VSI_VSI_float_to_int_signed_Mono_Simd_Vector4f_Mono_Simd_Vector4i", unsigned_type_node);
+  cli_functions[84] = add_cli_function ("genvec_support_VSI_VSI_float_to_int_signed_Mono_Simd_Vector4f_Mono_Simd_Vector4i", unsigned_type_node);
 
-  cli_functions[85] = add_cli_function ("genvec_support_interleave_high_vqi", unsigned_type_node);
-  cli_functions[86] = add_cli_function ("genvec_support_interleave_high_vhi", unsigned_type_node);
-  cli_functions[87] = add_cli_function ("genvec_support_interleave_high_vsi", unsigned_type_node);
+  cli_functions[85] = add_cli_function ("genvec_support_VQI_VQI_interleave_high_Mono_Simd_Vector16sb_Mono_Simd_Vector8s_Mono_Simd_Vector16sb", unsigned_type_node);
+  cli_functions[86] = add_cli_function ("genvec_support_VHI_VHI_interleave_high_Mono_Simd_Vector8s_Mono_Simd_Vector8s_Mono_Simd_Vector8s", unsigned_type_node);
+  cli_functions[87] = add_cli_function ("genvec_support_VSI_VSI_interleave_high_Mono_Simd_Vector4i_Mono_Simd_Vector4i_Mono_Simd_Vector4i", unsigned_type_node);
 
-  cli_functions[88] = add_cli_function ("genvec_support_interleave_low_vqi", unsigned_type_node);
-  cli_functions[89] = add_cli_function ("genvec_support_interleave_low_vhi", unsigned_type_node);
-  cli_functions[90] = add_cli_function ("genvec_support_interleave_low_vsi", unsigned_type_node);
+  cli_functions[88] = add_cli_function ("genvec_support_VQI_VQI_interleave_low_Mono_Simd_Vector16sb_Mono_Simd_Vector8s_Mono_Simd_Vector16sb", unsigned_type_node);
+  cli_functions[89] = add_cli_function ("genvec_support_VHI_VHI_interleave_low_Mono_Simd_Vector8s_Mono_Simd_Vector8s_Mono_Simd_Vector8s", unsigned_type_node);
+  cli_functions[90] = add_cli_function ("genvec_support_VSI_VSI_interleave_low_Mono_Simd_Vector4i_Mono_Simd_Vector4i_Mono_Simd_Vector4i", unsigned_type_node);
 
-  cli_functions[91] = add_cli_function ("genvec_support_extract_even_vqi", unsigned_type_node);
-  cli_functions[92] = add_cli_function ("genvec_support_extract_even_vhi", unsigned_type_node);
-  cli_functions[93] = add_cli_function ("genvec_support_extract_even_vsi", unsigned_type_node);
+  cli_functions[91] = add_cli_function ("genvec_support_VQI_VQI_extract_even_Mono_Simd_Vector16sb_Mono_Simd_Vector8s_Mono_Simd_Vector16sb", unsigned_type_node);
+  cli_functions[92] = add_cli_function ("genvec_support_VHI_VHI_extract_even_Mono_Simd_Vector8s_Mono_Simd_Vector8s_Mono_Simd_Vector8s", unsigned_type_node);
+  cli_functions[93] = add_cli_function ("genvec_support_VSI_VSI_extract_even_Mono_Simd_Vector4i_Mono_Simd_Vector4i_Mono_Simd_Vector4i", unsigned_type_node);
 
-  cli_functions[94] = add_cli_function ("genvec_support_extract_odd_vqi", unsigned_type_node);
-  cli_functions[95] = add_cli_function ("genvec_support_extract_odd_vhi", unsigned_type_node);
-  cli_functions[96] = add_cli_function ("genvec_support_extract_odd_vsi", unsigned_type_node);
+  cli_functions[94] = add_cli_function ("genvec_support_VQI_VQI_extract_odd_Mono_Simd_Vector16sb_Mono_Simd_Vector8s_Mono_Simd_Vector16sb", unsigned_type_node);
+  cli_functions[95] = add_cli_function ("genvec_support_VHI_VHI_extract_odd_Mono_Simd_Vector8s_Mono_Simd_Vector8s_Mono_Simd_Vector8s", unsigned_type_node);
+  cli_functions[96] = add_cli_function ("genvec_support_VSI_VSI_extract_odd_Mono_Simd_Vector4i_Mono_Simd_Vector4i_Mono_Simd_Vector4i", unsigned_type_node);
 
-  cli_functions[97] = add_cli_function ("genvec_support_pack_vqi", unsigned_type_node);
-  cli_functions[98] = add_cli_function ("genvec_support_pack_vhi", unsigned_type_node);
+  cli_functions[97] = add_cli_function ("genvec_support_VQI_VQI_pack_Mono_Simd_Vector4i_Mono_Simd_Vector8s_Mono_Simd_Vector16sb", unsigned_type_node);
+  cli_functions[98] = add_cli_function ("genvec_support_VHI_VHI_pack_Mono_Simd_Vector4i_Mono_Simd_Vector4i_Mono_Simd_Vector8s", unsigned_type_node);
 
-  cli_functions[99] = add_cli_function ("genvec_support_widen_mult_hi_vhi", unsigned_type_node);
-  cli_functions[100] = add_cli_function ("genvec_support_widen_mult_hi_vsi", unsigned_type_node);
-  cli_functions[101] = add_cli_function ("genvec_support_widen_mult_lo_vhi", unsigned_type_node);
-  cli_functions[102] = add_cli_function ("genvec_support_widen_mult_lo_vsi", unsigned_type_node);
+  cli_functions[99] = add_cli_function ("genvec_support_VHI_VHI_widen_mult_hi_Mono_Simd_Vector16sb_Mono_Simd_Vector8s_Mono_Simd_Vector8s", unsigned_type_node);
+  cli_functions[100] = add_cli_function ("genvec_support_VSI_VSI_widen_mult_hi_Mono_Simd_Vector8s_Mono_Simd_Vector8s_Mono_Simd_Vector4i", unsigned_type_node);
+  cli_functions[101] = add_cli_function ("genvec_support_VHI_VHI_widen_mult_lo_Mono_Simd_Vector16sb_Mono_Simd_Vector8s_Mono_Simd_Vector8s", unsigned_type_node);
+  cli_functions[102] = add_cli_function ("genvec_support_VSI_VSI_widen_mult_lo_Mono_Simd_Vector8s_Mono_Simd_Vector8s_Mono_Simd_Vector4i", unsigned_type_node);
 }
 
-#define MAX_CLI_FN 81
 
 static tree
 get_vectype (tree scalar_type)
@@ -911,9 +911,9 @@ static bool
 replace_int_float_cvt (int index, gimple stmt)
 {
   enum tree_code code;
-  tree integral_type, builtin_decl;
+  tree integral_type, builtin_decl, vectype;
   gimple new_stmt;
- 
+
   switch (index)
     {
       case int2float_signed:
@@ -940,9 +940,13 @@ replace_int_float_cvt (int index, gimple stmt)
         return false;
     }
 
+  vectype = get_vectype (integral_type);
+  if (!vectype)
+    return false;
+
   if (!targetm.vectorize.builtin_conversion
       || !(builtin_decl = targetm.vectorize.builtin_conversion 
-                                              (code, integral_type)))
+                                              (code, vectype)))
     return false; 
    
   new_stmt = gimple_build_call (builtin_decl, 1, gimple_call_arg (stmt, 0));
@@ -1057,6 +1061,7 @@ replace_pack (int index, gimple stmt)
       case pack_vhi:
         scalar_type = intHI_type_node;
         break;
+
       default:
         return false;
     }
@@ -1089,7 +1094,7 @@ replace_widen_mult (int index, gimple stmt)
     {
       case widen_mult_hi_vhi:
         code = VEC_WIDEN_MULT_HI_EXPR;
-        scalar_type = intSI_type_node;
+        scalar_type = intQI_type_node;
         break;
 
       case widen_mult_hi_vsi:
@@ -1099,12 +1104,12 @@ replace_widen_mult (int index, gimple stmt)
 
       case widen_mult_lo_vhi:
         code = VEC_WIDEN_MULT_LO_EXPR;
-        scalar_type = intHI_type_node;
+        scalar_type = intQI_type_node;
         break;
 
       case widen_mult_lo_vsi:
-        code = VEC_WIDEN_MULT_HI_EXPR;
-        scalar_type = intSI_type_node;
+        code = VEC_WIDEN_MULT_LO_EXPR;
+        scalar_type = intHI_type_node;
         break;
 
       default:
