@@ -1,3 +1,10 @@
+2010-07-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR testsuite/44701
+	* recog.c (constrain_operands): Allow side-effects in memory
+	operands if either < or > constraint is used, rather than if
+	both < and > is used.
+
 2010-07-08  Jakub Jelinek  <jakub@redhat.com>
 
 	* dwarf2out.c (output_loc_sequence): Output INTERNAL_DW_OP_tls_addr
