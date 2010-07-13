@@ -2745,7 +2745,7 @@ constrain_operands (int strict)
 			case PRE_MODIFY:
 			case POST_MODIFY:
 			  if (strchr (recog_data.constraints[opno], '<') == NULL
-			      || strchr (recog_data.constraints[opno], '>')
+			      && strchr (recog_data.constraints[opno], '>')
 				 == NULL)
 			    return 0;
 			  break;
