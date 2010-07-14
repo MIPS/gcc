@@ -905,7 +905,7 @@ resolve_structure_cons (gfc_expr *expr)
 	  && !(comp->attr.pointer || comp->attr.allocatable
 	       || comp->attr.proc_pointer
 	       || (comp->ts.type == BT_CLASS
-		   && (CLASS_DATA (comp)->attr.pointer
+		   && (CLASS_DATA (comp)->attr.class_pointer
 		       || CLASS_DATA (comp)->attr.allocatable))))
 	{
 	  t = FAILURE;
@@ -2440,10 +2440,11 @@ gfc_iso_c_func_interface (gfc_symbol *sym, gfc_actual_arglist *args,
 {
   char name[GFC_MAX_SYMBOL_LEN + 1];
   char binding_label[GFC_MAX_BINDING_LABEL_LEN + 1];
-  int optional_arg = 0, is_pointer = 0;
+  int optional_arg = 0;
   gfc_try retval = SUCCESS;
   gfc_symbol *args_sym;
   gfc_typespec *arg_ts;
+  symbol_attribute arg_attr;
 
   if (args->expr->expr_type == EXPR_CONSTANT
       || args->expr->expr_type == EXPR_OP
@@ -2460,8 +2461,7 @@ gfc_iso_c_func_interface (gfc_symbol *sym, gfc_actual_arglist *args,
      and not necessarily that of the expr symbol (args_sym), because
      the actual expression could be a part-ref of the expr symbol.  */
   arg_ts = &(args->expr->ts);
-
-  is_pointer = gfc_is_data_pointer (args->expr);
+  arg_attr = gfc_expr_attr (args->expr);
     
   if (sym->intmod_sym_id == ISOCBINDING_ASSOCIATED)
     {
@@ -2504,7 +2504,7 @@ gfc_iso_c_func_interface (gfc_symbol *sym, gfc_actual_arglist *args,
       else if (sym->intmod_sym_id == ISOCBINDING_LOC)
         {
           /* Make sure we have either the target or pointer attribute.  */
-	  if (!args_sym->attr.target && !is_pointer)
+	  if (!arg_attr.target && !arg_attr.pointer)
             {
               gfc_error_now ("Parameter '%s' to '%s' at %L must be either "
                              "a TARGET or an associated pointer",
@@ -2587,7 +2587,7 @@ gfc_iso_c_func_interface (gfc_symbol *sym, gfc_actual_arglist *args,
 			  }
                     }
                 }
-              else if (is_pointer
+              else if (arg_attr.pointer
 		       && is_scalar_expr_ptr (args->expr) != SUCCESS)
                 {
                   /* Case 1c, section 15.1.2.5, J3/04-007: an associated
@@ -2622,6 +2622,13 @@ gfc_iso_c_func_interface (gfc_symbol *sym, gfc_actual_arglist *args,
                                  &(args->expr->where));
                   retval = FAILURE;
                 }
+	      else if (arg_ts->type == BT_CLASS)
+		{
+		  gfc_error_now ("Parameter '%s' to '%s' at %L must not be "
+				 "polymorphic", args_sym->name, sym->name,
+				 &(args->expr->where));
+		  retval = FAILURE;
+		}
             }
         }
       else if (sym->intmod_sym_id == ISOCBINDING_FUNLOC)
@@ -4772,6 +4779,15 @@ resolve_variable (gfc_expr *e)
 	sym->entry_id = current_entry_id + 1;
     }
 
+  /* If a symbol has been host_associated mark it.  This is used latter,
+     to identify if aliasing is possible via host association.  */
+  if (sym->attr.flavor == FL_VARIABLE
+	&& gfc_current_ns->parent
+	&& (gfc_current_ns->parent == sym->ns
+	      || (gfc_current_ns->parent->parent
+		    && gfc_current_ns->parent->parent == sym->ns)))
+    sym->attr.host_assoc = 1;
+
 resolve_procedure:
   if (t == SUCCESS && resolve_procedure_expression (e) == FAILURE)
     t = FAILURE;
@@ -5468,7 +5484,6 @@ resolve_typebound_function (gfc_expr* e)
   gfc_ref *class_ref;
   gfc_symtree *st;
   const char *name;
-  const char *genname;
   gfc_typespec ts;
 
   st = e->symtree;
@@ -5492,11 +5507,6 @@ resolve_typebound_function (gfc_expr* e)
   c = gfc_find_component (declared, "$data", true, true);
   declared = c->ts.u.derived;
 
-  /* Keep the generic name so that the vtab reference can be made.  */
-  genname = NULL; 
-  if (e->value.compcall.tbp->is_generic)
-    genname = e->value.compcall.name;
-
   /* Treat the call as if it is a typebound procedure, in order to roll
      out the correct name for the specific function.  */
   if (resolve_compcall (e, &name) == FAILURE)
@@ -5512,15 +5522,6 @@ resolve_typebound_function (gfc_expr* e)
 
   /* '$vptr' points to the vtab, which contains the procedure pointers.  */
   gfc_add_component_ref (e, "$vptr");
-  if (genname)
-    {
-      /* A generic procedure needs the subsidiary vtabs and vtypes for
-	 the specific procedures to have been build.  */
-      gfc_symbol *vtab;
-      vtab = gfc_find_derived_vtab (declared, true);
-      gcc_assert (vtab);
-      gfc_add_component_ref (e, genname);
-    }
   gfc_add_component_ref (e, name);
 
   /* Recover the typespec for the expression.  This is really only
@@ -5543,7 +5544,6 @@ resolve_typebound_subroutine (gfc_code *code)
   gfc_ref *new_ref;
   gfc_ref *class_ref;
   gfc_symtree *st;
-  const char *genname;
   const char *name;
   gfc_typespec ts;
 
@@ -5568,11 +5568,6 @@ resolve_typebound_subroutine (gfc_code *code)
   c = gfc_find_component (declared, "$data", true, true);
   declared = c->ts.u.derived;
 
-  /* Keep the generic name so that the vtab reference can be made.  */
-  genname = NULL; 
-  if (code->expr1->value.compcall.tbp->is_generic)
-    genname = code->expr1->value.compcall.name;
-
   if (resolve_typebound_call (code, &name) == FAILURE)
     return FAILURE;
   ts = code->expr1->ts;
@@ -5586,15 +5581,6 @@ resolve_typebound_subroutine (gfc_code *code)
 
   /* '$vptr' points to the vtab, which contains the procedure pointers.  */
   gfc_add_component_ref (code->expr1, "$vptr");
-  if (genname)
-    {
-      /* A generic procedure needs the subsidiary vtabs and vtypes for
-	 the specific procedures to have been build.  */
-      gfc_symbol *vtab;
-      vtab = gfc_find_derived_vtab (declared, true);
-      gcc_assert (vtab);
-      gfc_add_component_ref (code->expr1, genname);
-    }
   gfc_add_component_ref (code->expr1, name);
 
   /* Recover the typespec for the expression.  This is really only
@@ -6087,7 +6073,7 @@ resolve_deallocate_expr (gfc_expr *e)
   if (sym->ts.type == BT_CLASS)
     {
       allocatable = CLASS_DATA (sym)->attr.allocatable;
-      pointer = CLASS_DATA (sym)->attr.pointer;
+      pointer = CLASS_DATA (sym)->attr.class_pointer;
     }
   else
     {
@@ -6111,7 +6097,7 @@ resolve_deallocate_expr (gfc_expr *e)
 	  if (c->ts.type == BT_CLASS)
 	    {
 	      allocatable = CLASS_DATA (c)->attr.allocatable;
-	      pointer = CLASS_DATA (c)->attr.pointer;
+	      pointer = CLASS_DATA (c)->attr.class_pointer;
 	    }
 	  else
 	    {
@@ -6310,7 +6296,7 @@ resolve_allocate_expr (gfc_expr *e, gfc_code *code)
       if (sym->ts.type == BT_CLASS)
 	{
 	  allocatable = CLASS_DATA (sym)->attr.allocatable;
-	  pointer = CLASS_DATA (sym)->attr.pointer;
+	  pointer = CLASS_DATA (sym)->attr.class_pointer;
 	  dimension = CLASS_DATA (sym)->attr.dimension;
 	  codimension = CLASS_DATA (sym)->attr.codimension;
 	  is_abstract = CLASS_DATA (sym)->attr.abstract;
@@ -6348,7 +6334,7 @@ resolve_allocate_expr (gfc_expr *e, gfc_code *code)
 		if (c->ts.type == BT_CLASS)
 		  {
 		    allocatable = CLASS_DATA (c)->attr.allocatable;
-		    pointer = CLASS_DATA (c)->attr.pointer;
+		    pointer = CLASS_DATA (c)->attr.class_pointer;
 		    dimension = CLASS_DATA (c)->attr.dimension;
 		    codimension = CLASS_DATA (c)->attr.codimension;
 		    is_abstract = CLASS_DATA (c)->attr.abstract;
@@ -7496,7 +7482,7 @@ resolve_select_type (gfc_code *code)
 	  new_st->expr1->value.function.actual = gfc_get_actual_arglist ();
 	  new_st->expr1->value.function.actual->expr = gfc_get_variable_expr (code->expr1->symtree);
 	  gfc_add_component_ref (new_st->expr1->value.function.actual->expr, "$vptr");
-	  vtab = gfc_find_derived_vtab (body->ext.case_list->ts.u.derived, true);
+	  vtab = gfc_find_derived_vtab (body->ext.case_list->ts.u.derived);
 	  st = gfc_find_symtree (vtab->ns->sym_root, vtab->name);
 	  new_st->expr1->value.function.actual->next = gfc_get_actual_arglist ();
 	  new_st->expr1->value.function.actual->next->expr = gfc_get_variable_expr (st);
@@ -9130,7 +9116,7 @@ build_default_init_expr (gfc_symbol *sym)
     {    
     case BT_INTEGER:
       if (gfc_option.flag_init_integer != GFC_INIT_INTEGER_OFF)
-	mpz_init_set_si (init_expr->value.integer, 
+	mpz_set_si (init_expr->value.integer, 
 			 gfc_option.flag_init_integer_value);
       else
 	{
@@ -9140,7 +9126,6 @@ build_default_init_expr (gfc_symbol *sym)
       break;
 
     case BT_REAL:
-      mpfr_init (init_expr->value.real);
       switch (gfc_option.flag_init_real)
 	{
 	case GFC_INIT_REAL_SNAN:
@@ -9170,7 +9155,6 @@ build_default_init_expr (gfc_symbol *sym)
       break;
 	  
     case BT_COMPLEX:
-      mpc_init2 (init_expr->value.complex, mpfr_get_default_prec());
       switch (gfc_option.flag_init_real)
 	{
 	case GFC_INIT_REAL_SNAN:
@@ -9318,7 +9302,8 @@ resolve_fl_var_and_proc (gfc_symbol *sym, int mp_flag)
   if (sym->ts.type == BT_CLASS && !(sym->result && sym->result != sym))
     {
       /* F03:C502.  */
-      if (!gfc_type_is_extensible (CLASS_DATA (sym)->ts.u.derived))
+      if (sym->attr.class_ok
+	  && !gfc_type_is_extensible (CLASS_DATA (sym)->ts.u.derived))
 	{
 	  gfc_error ("Type '%s' of CLASS variable '%s' at %L is not extensible",
 		     CLASS_DATA (sym)->ts.u.derived->name, sym->name,
@@ -10769,7 +10754,7 @@ resolve_fl_derived (gfc_symbol *sym)
       gfc_component *vptr = gfc_find_component (sym, "$vptr", true, true);
       if (vptr->ts.u.derived == NULL)
 	{
-	  gfc_symbol *vtab = gfc_find_derived_vtab (data->ts.u.derived, false);
+	  gfc_symbol *vtab = gfc_find_derived_vtab (data->ts.u.derived);
 	  gcc_assert (vtab);
 	  vptr->ts.u.derived = vtab->ts.u.derived;
 	}
@@ -11084,7 +11069,7 @@ resolve_fl_derived (gfc_symbol *sym)
 	  return FAILURE;
 	}
 
-      if (c->ts.type == BT_CLASS && CLASS_DATA (c)->attr.pointer
+      if (c->ts.type == BT_CLASS && CLASS_DATA (c)->attr.class_pointer
 	  && CLASS_DATA (c)->ts.u.derived->components == NULL
 	  && !CLASS_DATA (c)->ts.u.derived->attr.zero_comp)
 	{
@@ -11096,7 +11081,8 @@ resolve_fl_derived (gfc_symbol *sym)
 
       /* C437.  */
       if (c->ts.type == BT_CLASS
-	  && !(CLASS_DATA (c)->attr.pointer || CLASS_DATA (c)->attr.allocatable))
+	  && !(CLASS_DATA (c)->attr.class_pointer
+	       || CLASS_DATA (c)->attr.allocatable))
 	{
 	  gfc_error ("Component '%s' with CLASS at %L must be allocatable "
 		     "or pointer", c->name, &c->loc);

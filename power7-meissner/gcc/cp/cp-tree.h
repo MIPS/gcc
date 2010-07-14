@@ -168,6 +168,9 @@ c-common.h, not after.
 
      The BV_FN is the declaration for the virtual function itself.
 
+     If BV_LOST_PRIMARY is set, it means that this entry is for a lost
+     primary virtual base and can be left null in the vtable.
+
    BINFO_VTABLE
      This is an expression with POINTER_TYPE that gives the value
      to which the vptr should be initialized.  Use get_vtbl_decl_for_binfo
@@ -1323,6 +1326,7 @@ struct GTY(()) lang_type_class {
   unsigned lazy_move_assign : 1;
   unsigned has_complex_move_ctor : 1;
   unsigned has_complex_move_assign : 1;
+  unsigned has_user_opeq : 1;
 
   /* When adding a flag here, consider whether or not it ought to
      apply to a template instance if it applies to the template.  If
@@ -1331,7 +1335,7 @@ struct GTY(()) lang_type_class {
   /* There are some bits left to fill out a 32-bit word.  Keep track
      of this by updating the size of this bitfield whenever you add or
      remove a flag.  */
-  unsigned dummy : 4;
+  unsigned dummy : 3;
 
   tree primary_base;
   VEC(tree_pair_s,gc) *vcall_indices;
@@ -1767,6 +1771,8 @@ struct GTY((variable_size)) lang_type {
 /* The function to call.  */
 #define BV_FN(NODE) (TREE_VALUE (NODE))
 
+/* Whether or not this entry is for a lost primary virtual base.  */
+#define BV_LOST_PRIMARY(NODE) (TREE_LANG_FLAG_0 (NODE))
 
 /* For FUNCTION_TYPE or METHOD_TYPE, a list of the exceptions that
    this type can raise.  Each TREE_VALUE is a _TYPE.  The TREE_VALUE
@@ -3136,6 +3142,10 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
 /* Nonzero for a class type means that the class type has a
    user-declared constructor.  */
 #define TYPE_HAS_USER_CONSTRUCTOR(NODE) (TYPE_LANG_FLAG_1 (NODE))
+
+/* ...or a user-declared operator=.  */
+#define TYPE_HAS_USER_OPEQ(NODE) \
+  (LANG_TYPE_CLASS_CHECK (NODE)->has_user_opeq)
 
 /* When appearing in an INDIRECT_REF, it means that the tree structure
    underneath is actually a call to a constructor.  This is needed
@@ -5483,7 +5493,8 @@ extern int comp_ptr_ttypes			(tree, tree);
 extern bool comp_ptr_ttypes_const		(tree, tree);
 extern bool error_type_p			(const_tree);
 extern int ptr_reasonably_similar		(const_tree, const_tree);
-extern tree build_ptrmemfunc			(tree, tree, int, bool);
+extern tree build_ptrmemfunc			(tree, tree, int, bool,
+						 tsubst_flags_t);
 extern int cp_type_quals			(const_tree);
 extern int type_memfn_quals			(const_tree);
 extern tree apply_memfn_quals			(tree, cp_cv_quals);
@@ -5512,7 +5523,8 @@ extern tree non_reference			(tree);
 extern tree lookup_anon_field			(tree, tree);
 extern bool invalid_nonstatic_memfn_p		(const_tree, tsubst_flags_t);
 extern tree convert_member_func_to_ptr		(tree, tree);
-extern tree convert_ptrmem			(tree, tree, bool, bool);
+extern tree convert_ptrmem			(tree, tree, bool, bool,
+						 tsubst_flags_t);
 extern int lvalue_or_else			(tree, enum lvalue_use,
                                                  tsubst_flags_t);
 extern void check_template_keyword		(tree);

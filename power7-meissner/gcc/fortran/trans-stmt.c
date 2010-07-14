@@ -1643,10 +1643,11 @@ gfc_trans_character_select (gfc_code *code)
 	gcc_unreachable ();
 
 #undef ADD_FIELD
-#define ADD_FIELD(NAME, TYPE)					\
-  ss_##NAME[k] = gfc_add_field_to_struct				\
-     (&(TYPE_FIELDS (select_struct[k])), select_struct[k],	\
-      get_identifier (stringize(NAME)), TYPE, &chain)
+#define ADD_FIELD(NAME, TYPE)						    \
+  ss_##NAME[k] = gfc_add_field_to_struct (select_struct[k],		    \
+					  get_identifier (stringize(NAME)), \
+					  TYPE,				    \
+					  &chain)
 
       ADD_FIELD (string1, pchartype);
       ADD_FIELD (string1_len, gfc_charlen_type_node);
@@ -4294,7 +4295,7 @@ gfc_trans_allocate (gfc_code * code)
 
 	      if (ts->type == BT_DERIVED)
 		{
-		  vtab = gfc_find_derived_vtab (ts->u.derived, true);
+		  vtab = gfc_find_derived_vtab (ts->u.derived);
 		  gcc_assert (vtab);
 		  gfc_trans_assign_vtab_procs (&block, ts->u.derived, vtab);
 		  gfc_init_se (&lse, NULL);

@@ -130,7 +130,7 @@ static void finish_struct_methods (tree);
 static void maybe_warn_about_overly_private_class (tree);
 static int method_name_cmp (const void *, const void *);
 static int resort_method_name_cmp (const void *, const void *);
-static void add_implicitly_declared_members (tree, int, int);
+static void add_implicitly_declared_members (tree, int, int, int, int);
 static tree fixed_type_or_null (tree, int *, int *);
 static tree build_simple_base_path (tree expr, tree binfo);
 static tree build_vtbl_ref_1 (tree, tree);
@@ -139,13 +139,13 @@ static void build_vtbl_initializer (tree, tree, tree, tree, int *,
 static int count_fields (tree);
 static int add_fields_to_record_type (tree, struct sorted_fields_type*, int);
 static bool check_bitfield_decl (tree);
-static void check_field_decl (tree, tree, int *, int *, int *);
-static void check_field_decls (tree, tree *, int *, int *);
+static void check_field_decl (tree, tree, int *, int *, int *, int *, int *);
+static void check_field_decls (tree, tree *, int *, int *, int *, int *);
 static tree *build_base_field (record_layout_info, tree, splay_tree, tree *);
 static void build_base_fields (record_layout_info, splay_tree, tree *);
 static void check_methods (tree);
 static void remove_zero_width_bit_fields (tree);
-static void check_bases (tree, int *, int *);
+static void check_bases (tree, int *, int *, int *, int *);
 static void check_bases_and_members (tree);
 static tree create_vtable_ptr (tree, tree *);
 static void include_empty_classes (record_layout_info);
@@ -1249,7 +1249,9 @@ handle_using_decl (tree using_decl, tree t)
 static void
 check_bases (tree t,
 	     int* cant_have_const_ctor_p,
-	     int* no_const_asn_ref_p)
+	     int* no_const_asn_ref_p,
+	     int* cant_have_lazy_ctor,
+	     int* cant_have_lazy_opeq)
 {
   int i;
   int seen_non_virtual_nearly_empty_base_p;
@@ -1288,6 +1290,10 @@ check_bases (tree t,
       if (TYPE_HAS_COPY_ASSIGN (basetype)
 	  && !TYPE_HAS_CONST_COPY_ASSIGN (basetype))
 	*no_const_asn_ref_p = 1;
+      if (TYPE_HAS_USER_CONSTRUCTOR (basetype))
+	*cant_have_lazy_ctor = 1;
+      if (TYPE_HAS_USER_OPEQ (basetype))
+	*cant_have_lazy_opeq = 1;
 
       if (BINFO_VIRTUAL_P (base_binfo))
 	/* A virtual base does not effect nearly emptiness.  */
@@ -2205,6 +2211,40 @@ update_vtable_entry_for_fn (tree t, tree binfo, tree fn, tree* virtuals,
     gcc_assert (DECL_INVALID_OVERRIDER_P (overrider_target) ||
 		!DECL_THUNK_P (fn));
 
+  /* If we need a covariant thunk, then we may need to adjust first_defn.
+     The ABI specifies that the thunks emitted with a function are
+     determined by which bases the function overrides, so we need to be
+     sure that we're using a thunk for some overridden base; even if we
+     know that the necessary this adjustment is zero, there may not be an
+     appropriate zero-this-adjusment thunk for us to use since thunks for
+     overriding virtual bases always use the vcall offset.
+
+     Furthermore, just choosing any base that overrides this function isn't
+     quite right, as this slot won't be used for calls through a type that
+     puts a covariant thunk here.  Calling the function through such a type
+     will use a different slot, and that slot is the one that determines
+     the thunk emitted for that base.
+
+     So, keep looking until we find the base that we're really overriding
+     in this slot: the nearest primary base that doesn't use a covariant
+     thunk in this slot.  */
+  if (overrider_target != overrider_fn)
+    {
+      if (BINFO_TYPE (b) == DECL_CONTEXT (overrider_target))
+	/* We already know that the overrider needs a covariant thunk.  */
+	b = get_primary_binfo (b);
+      for (; ; b = get_primary_binfo (b))
+	{
+	  tree main_binfo = TYPE_BINFO (BINFO_TYPE (b));
+	  tree bv = chain_index (ix, BINFO_VIRTUALS (main_binfo));
+	  if (BINFO_LOST_PRIMARY_P (b))
+	    lost = true;
+	  if (!DECL_THUNK_P (TREE_VALUE (bv)))
+	    break;
+	}
+      first_defn = b;
+    }
+
   /* Assume that we will produce a thunk that convert all the way to
      the final overrider, and not to an intermediate virtual base.  */
   virtual_base = NULL_TREE;
@@ -2229,38 +2269,6 @@ update_vtable_entry_for_fn (tree t, tree binfo, tree fn, tree* virtuals,
 	}
     }
 
-  if (overrider_fn != overrider_target && !virtual_base)
-    {
-      /* The ABI specifies that a covariant thunk includes a mangling
-	 for a this pointer adjustment.  This-adjusting thunks that
-	 override a function from a virtual base have a vcall
-	 adjustment.  When the virtual base in question is a primary
-	 virtual base, we know the adjustments are zero, (and in the
-	 non-covariant case, we would not use the thunk).
-	 Unfortunately we didn't notice this could happen, when
-	 designing the ABI and so never mandated that such a covariant
-	 thunk should be emitted.  Because we must use the ABI mandated
-	 name, we must continue searching from the binfo where we
-	 found the most recent definition of the function, towards the
-	 primary binfo which first introduced the function into the
-	 vtable.  If that enters a virtual base, we must use a vcall
-	 this-adjusting thunk.  Bleah! */
-      tree probe = first_defn;
-
-      while ((probe = get_primary_binfo (probe))
-	     && (unsigned) list_length (BINFO_VIRTUALS (probe)) > ix)
-	if (BINFO_VIRTUAL_P (probe))
-	  virtual_base = probe;
-
-      if (virtual_base)
-	/* OK, first_defn got this function from a (possibly lost) primary
-	   virtual base, so we're going to use the vcall offset for that
-	   primary virtual base.  But the caller is passing a first_defn*,
-	   not a virtual_base*, so the correct delta is the delta between
-	   first_defn* and itself, i.e. zero.  */
-	goto virtual_covariant;
-    }
-
   /* Compute the constant adjustment to the `this' pointer.  The
      `this' pointer, when this function is called, will point at BINFO
      (or one of its primary bases, which are at the same offset).  */
@@ -2275,7 +2283,6 @@ update_vtable_entry_for_fn (tree t, tree binfo, tree fn, tree* virtuals,
        entry in our vtable.  Except possibly in a constructor vtable,
        if we happen to get our primary back.  In that case, the offset
        will be zero, as it will be a primary base.  */
-   virtual_covariant:
     delta = size_zero_node;
   else
     /* The `this' pointer needs to be adjusted from pointing to
@@ -2293,6 +2300,9 @@ update_vtable_entry_for_fn (tree t, tree binfo, tree fn, tree* virtuals,
       = get_vcall_index (overrider_target, BINFO_TYPE (virtual_base));
   else
     BV_VCALL_INDEX (*virtuals) = NULL_TREE;
+
+  if (lost)
+    BV_LOST_PRIMARY (*virtuals) = true;
 }
 
 /* Called from modify_all_vtables via dfs_walk.  */
@@ -2624,7 +2634,9 @@ maybe_add_class_template_decl_list (tree type, tree t, int friend_p)
 static void
 add_implicitly_declared_members (tree t,
 				 int cant_have_const_cctor,
-				 int cant_have_const_assignment)
+				 int cant_have_const_assignment,
+				 int cant_have_lazy_ctor,
+				 int cant_have_lazy_opeq)
 {
   /* Destructor.  */
   if (!CLASSTYPE_DESTRUCTORS (t))
@@ -2676,6 +2688,26 @@ add_implicitly_declared_members (tree t,
       CLASSTYPE_LAZY_COPY_ASSIGN (t) = 1;
       if (cxx_dialect >= cxx0x)
 	CLASSTYPE_LAZY_MOVE_ASSIGN (t) = 1;
+    }
+
+  /* If a base or member type has a user-declared constructor or operator=,
+     we need to declare ours now to avoid issues with circular lazy
+     declarations (cpp0x/implicit6.C).  */
+  if (cant_have_lazy_ctor)
+    {
+      if (CLASSTYPE_LAZY_DEFAULT_CTOR (t))
+	lazily_declare_fn (sfk_constructor, t);
+      if (CLASSTYPE_LAZY_COPY_CTOR (t))
+	lazily_declare_fn (sfk_copy_constructor, t);
+      if (CLASSTYPE_LAZY_MOVE_CTOR (t))
+	lazily_declare_fn (sfk_move_constructor, t);
+    }
+  if (cant_have_lazy_opeq)
+    {
+      if (CLASSTYPE_LAZY_COPY_ASSIGN (t))
+	lazily_declare_fn (sfk_copy_assignment, t);
+      if (CLASSTYPE_LAZY_MOVE_ASSIGN (t))
+	lazily_declare_fn (sfk_move_assignment, t);
     }
 
   /* We can't be lazy about declaring functions that might override
@@ -2826,13 +2858,15 @@ check_field_decl (tree field,
 		  tree t,
 		  int* cant_have_const_ctor,
 		  int* no_const_asn_ref,
-		  int* any_default_members)
+		  int* any_default_members,
+		  int* cant_have_lazy_ctor,
+		  int* cant_have_lazy_opeq)
 {
   tree type = strip_array_types (TREE_TYPE (field));
 
-  /* An anonymous union cannot contain any fields which would change
+  /* In C++98 an anonymous union cannot contain any fields which would change
      the settings of CANT_HAVE_CONST_CTOR and friends.  */
-  if (ANON_UNION_TYPE_P (type))
+  if (ANON_UNION_TYPE_P (type) && cxx_dialect < cxx0x)
     ;
   /* And, we don't set TYPE_HAS_CONST_COPY_CTOR, etc., for anonymous
      structs.  So, we recurse through their fields here.  */
@@ -2843,7 +2877,8 @@ check_field_decl (tree field,
       for (fields = TYPE_FIELDS (type); fields; fields = TREE_CHAIN (fields))
 	if (TREE_CODE (fields) == FIELD_DECL && !DECL_C_BIT_FIELD (field))
 	  check_field_decl (fields, t, cant_have_const_ctor,
-			    no_const_asn_ref, any_default_members);
+			    no_const_asn_ref, any_default_members,
+			    cant_have_lazy_ctor, cant_have_lazy_opeq);
     }
   /* Check members with class type for constructors, destructors,
      etc.  */
@@ -2853,8 +2888,10 @@ check_field_decl (tree field,
 	 make it through without complaint.  */
       abstract_virtuals_error (field, type);
 
-      if (TREE_CODE (t) == UNION_TYPE)
+      if (TREE_CODE (t) == UNION_TYPE && cxx_dialect < cxx0x)
 	{
+	  static bool warned;
+	  int oldcount = errorcount;
 	  if (TYPE_NEEDS_CONSTRUCTING (type))
 	    error ("member %q+#D with constructor not allowed in union",
 		   field);
@@ -2863,8 +2900,12 @@ check_field_decl (tree field,
 	  if (TYPE_HAS_COMPLEX_COPY_ASSIGN (type))
 	    error ("member %q+#D with copy assignment operator not allowed in union",
 		   field);
-	  /* Don't bother diagnosing move assop now; C++0x has more
-	     flexible unions.  */
+	  if (!warned && errorcount > oldcount)
+	    {
+	      inform (DECL_SOURCE_LOCATION (field), "unrestricted unions "
+		      "only available with -std=c++0x or -std=gnu++0x");
+	      warned = true;
+	    }
 	}
       else
 	{
@@ -2889,6 +2930,11 @@ check_field_decl (tree field,
       if (TYPE_HAS_COPY_ASSIGN (type)
 	  && !TYPE_HAS_CONST_COPY_ASSIGN (type))
 	*no_const_asn_ref = 1;
+
+      if (TYPE_HAS_USER_CONSTRUCTOR (type))
+	*cant_have_lazy_ctor = 1;
+      if (TYPE_HAS_USER_OPEQ (type))
+	*cant_have_lazy_opeq = 1;
     }
   if (DECL_INITIAL (field) != NULL_TREE)
     {
@@ -2928,7 +2974,9 @@ check_field_decl (tree field,
 static void
 check_field_decls (tree t, tree *access_decls,
 		   int *cant_have_const_ctor_p,
-		   int *no_const_asn_ref_p)
+		   int *no_const_asn_ref_p,
+		   int *cant_have_lazy_ctor_p,
+		   int *cant_have_lazy_opeq_p)
 {
   tree *field;
   tree *next;
@@ -3120,7 +3168,9 @@ check_field_decls (tree t, tree *access_decls,
 	check_field_decl (x, t,
 			  cant_have_const_ctor_p,
 			  no_const_asn_ref_p,
-			  &any_default_members);
+			  &any_default_members,
+			  cant_have_lazy_ctor_p,
+			  cant_have_lazy_opeq_p);
 
       /* If any field is const, the structure type is pseudo-const.  */
       if (CP_TYPE_CONST_P (type))
@@ -4443,6 +4493,8 @@ check_bases_and_members (tree t)
   /* Nonzero if the implicitly generated assignment operator
      should take a non-const reference argument.  */
   int no_const_asn_ref;
+  int cant_have_lazy_ctor = 0;
+  int cant_have_lazy_opeq = 0;
   tree access_decls;
   bool saved_complex_asn_ref;
   bool saved_nontrivial_dtor;
@@ -4455,7 +4507,8 @@ check_bases_and_members (tree t)
 
   /* Check all the base-classes.  */
   check_bases (t, &cant_have_const_ctor,
-	       &no_const_asn_ref);
+	       &no_const_asn_ref, &cant_have_lazy_ctor,
+	       &cant_have_lazy_opeq);
 
   /* Check all the method declarations.  */
   check_methods (t);
@@ -4472,7 +4525,9 @@ check_bases_and_members (tree t)
      being set appropriately.  */
   check_field_decls (t, &access_decls,
 		     &cant_have_const_ctor,
-		     &no_const_asn_ref);
+		     &no_const_asn_ref,
+		     &cant_have_lazy_ctor,
+		     &cant_have_lazy_opeq);
 
   /* A nearly-empty class has to be vptr-containing; a nearly empty
      class contains just a vptr.  */
@@ -4544,7 +4599,9 @@ check_bases_and_members (tree t)
   /* Synthesize any needed methods.  */
   add_implicitly_declared_members (t,
 				   cant_have_const_ctor,
-				   no_const_asn_ref);
+				   no_const_asn_ref,
+				   cant_have_lazy_ctor,
+				   cant_have_lazy_opeq);
 
   /* Check defaulted declarations here so we have cant_have_const_ctor
      and don't need to worry about clones.  */
@@ -7648,7 +7705,7 @@ build_vtbl_initializer (tree binfo,
 			int* non_fn_entries_p,
 			VEC(constructor_elt,gc) **inits)
 {
-  tree v, b;
+  tree v;
   vtbl_init_data vid;
   unsigned ix, jx;
   tree vbinfo;
@@ -7762,20 +7819,8 @@ build_vtbl_initializer (tree binfo,
 	 zero out unused slots in ctor vtables, rather than filling them
 	 with erroneous values (though harmless, apart from relocation
 	 costs).  */
-      for (b = binfo; ; b = get_primary_binfo (b))
-	{
-	  /* We found a defn before a lost primary; go ahead as normal.  */
-	  if (look_for_overrides_here (BINFO_TYPE (b), fn_original))
-	    break;
-
-	  /* The nearest definition is from a lost primary; clear the
-	     slot.  */
-	  if (BINFO_LOST_PRIMARY_P (b))
-	    {
-	      init = size_zero_node;
-	      break;
-	    }
-	}
+      if (BV_LOST_PRIMARY (v))
+	init = size_zero_node;
 
       if (! init)
 	{

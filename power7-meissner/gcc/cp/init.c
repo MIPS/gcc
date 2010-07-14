@@ -564,25 +564,27 @@ build_field_list (tree t, tree list, int *uses_unions_p)
 
   for (fields = TYPE_FIELDS (t); fields; fields = TREE_CHAIN (fields))
     {
+      tree fieldtype;
+
       /* Skip CONST_DECLs for enumeration constants and so forth.  */
       if (TREE_CODE (fields) != FIELD_DECL || DECL_ARTIFICIAL (fields))
 	continue;
 
+      fieldtype = TREE_TYPE (fields);
       /* Keep track of whether or not any fields are unions.  */
-      if (TREE_CODE (TREE_TYPE (fields)) == UNION_TYPE)
+      if (TREE_CODE (fieldtype) == UNION_TYPE)
 	*uses_unions_p = 1;
 
       /* For an anonymous struct or union, we must recursively
 	 consider the fields of the anonymous type.  They can be
 	 directly initialized from the constructor.  */
-      if (ANON_AGGR_TYPE_P (TREE_TYPE (fields)))
+      if (ANON_AGGR_TYPE_P (fieldtype))
 	{
 	  /* Add this field itself.  Synthesized copy constructors
 	     initialize the entire aggregate.  */
 	  list = tree_cons (fields, NULL_TREE, list);
 	  /* And now add the fields in the anonymous aggregate.  */
-	  list = build_field_list (TREE_TYPE (fields), list,
-				   uses_unions_p);
+	  list = build_field_list (fieldtype, list, uses_unions_p);
 	}
       /* Add this field.  */
       else if (DECL_NAME (fields))
@@ -708,38 +710,54 @@ sort_mem_initializers (tree t, tree mem_inits)
 
      If a ctor-initializer specifies more than one mem-initializer for
      multiple members of the same union (including members of
-     anonymous unions), the ctor-initializer is ill-formed.  */
+     anonymous unions), the ctor-initializer is ill-formed.
+
+     Here we also splice out uninitialized union members.  */
   if (uses_unions_p)
     {
       tree last_field = NULL_TREE;
-      for (init = sorted_inits; init; init = TREE_CHAIN (init))
+      tree *p;
+      for (p = &sorted_inits; *p; )
 	{
 	  tree field;
-	  tree field_type;
+	  tree ctx;
 	  int done;
 
-	  /* Skip uninitialized members and base classes.  */
-	  if (!TREE_VALUE (init)
-	      || TREE_CODE (TREE_PURPOSE (init)) != FIELD_DECL)
-	    continue;
+	  init = *p;
+
+	  field = TREE_PURPOSE (init);
+
+	  /* Skip base classes.  */
+	  if (TREE_CODE (field) != FIELD_DECL)
+	    goto next;
+
+	  /* If this is an anonymous union with no explicit initializer,
+	     splice it out.  */
+	  if (!TREE_VALUE (init) && ANON_UNION_TYPE_P (TREE_TYPE (field)))
+	    goto splice;
+
 	  /* See if this field is a member of a union, or a member of a
 	     structure contained in a union, etc.  */
-	  field = TREE_PURPOSE (init);
-	  for (field_type = DECL_CONTEXT (field);
-	       !same_type_p (field_type, t);
-	       field_type = TYPE_CONTEXT (field_type))
-	    if (TREE_CODE (field_type) == UNION_TYPE)
+	  for (ctx = DECL_CONTEXT (field);
+	       !same_type_p (ctx, t);
+	       ctx = TYPE_CONTEXT (ctx))
+	    if (TREE_CODE (ctx) == UNION_TYPE)
 	      break;
 	  /* If this field is not a member of a union, skip it.  */
-	  if (TREE_CODE (field_type) != UNION_TYPE)
-	    continue;
+	  if (TREE_CODE (ctx) != UNION_TYPE)
+	    goto next;
+
+	  /* If this union member has no explicit initializer, splice
+	     it out.  */
+	  if (!TREE_VALUE (init))
+	    goto splice;
 
 	  /* It's only an error if we have two initializers for the same
 	     union type.  */
 	  if (!last_field)
 	    {
 	      last_field = field;
-	      continue;
+	      goto next;
 	    }
 
 	  /* See if LAST_FIELD and the field initialized by INIT are
@@ -750,41 +768,48 @@ sort_mem_initializers (tree t, tree mem_inits)
 	       union { struct { int i; int j; }; };
 
 	     initializing both `i' and `j' makes sense.  */
-	  field_type = DECL_CONTEXT (field);
+	  ctx = DECL_CONTEXT (field);
 	  done = 0;
 	  do
 	    {
-	      tree last_field_type;
+	      tree last_ctx;
 
-	      last_field_type = DECL_CONTEXT (last_field);
+	      last_ctx = DECL_CONTEXT (last_field);
 	      while (1)
 		{
-		  if (same_type_p (last_field_type, field_type))
+		  if (same_type_p (last_ctx, ctx))
 		    {
-		      if (TREE_CODE (field_type) == UNION_TYPE)
+		      if (TREE_CODE (ctx) == UNION_TYPE)
 			error_at (DECL_SOURCE_LOCATION (current_function_decl),
 				  "initializations for multiple members of %qT",
-				  last_field_type);
+				  last_ctx);
 		      done = 1;
 		      break;
 		    }
 
-		  if (same_type_p (last_field_type, t))
+		  if (same_type_p (last_ctx, t))
 		    break;
 
-		  last_field_type = TYPE_CONTEXT (last_field_type);
+		  last_ctx = TYPE_CONTEXT (last_ctx);
 		}
 
 	      /* If we've reached the outermost class, then we're
 		 done.  */
-	      if (same_type_p (field_type, t))
+	      if (same_type_p (ctx, t))
 		break;
 
-	      field_type = TYPE_CONTEXT (field_type);
+	      ctx = TYPE_CONTEXT (ctx);
 	    }
 	  while (!done);
 
 	  last_field = field;
+
+	next:
+	  p = &TREE_CHAIN (*p);
+	  continue;
+	splice:
+	  *p = TREE_CHAIN (*p);
+	  continue;
 	}
     }
 
@@ -3353,21 +3378,27 @@ push_base_cleanups (void)
       finish_decl_cleanup (NULL_TREE, expr);
     }
 
+  /* Don't automatically destroy union members.  */
+  if (TREE_CODE (current_class_type) == UNION_TYPE)
+    return;
+
   for (member = TYPE_FIELDS (current_class_type); member;
        member = TREE_CHAIN (member))
     {
-      if (TREE_TYPE (member) == error_mark_node
+      tree this_type = TREE_TYPE (member);
+      if (this_type == error_mark_node
 	  || TREE_CODE (member) != FIELD_DECL
 	  || DECL_ARTIFICIAL (member))
 	continue;
-      if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (TREE_TYPE (member)))
+      if (ANON_UNION_TYPE_P (this_type))
+	continue;
+      if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (this_type))
 	{
 	  tree this_member = (build_class_member_access_expr
 			      (current_class_ref, member,
 			       /*access_path=*/NULL_TREE,
 			       /*preserve_reference=*/false,
 			       tf_warning_or_error));
-	  tree this_type = TREE_TYPE (member);
 	  expr = build_delete (this_type, this_member,
 			       sfk_complete_destructor,
 			       LOOKUP_NONVIRTUAL|LOOKUP_DESTRUCTOR|LOOKUP_NORMAL,

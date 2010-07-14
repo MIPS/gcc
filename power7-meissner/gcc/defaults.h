@@ -1025,6 +1025,18 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define MOVE_MAX_PIECES   MOVE_MAX
 #endif
 
+#ifndef MAX_MOVE_MAX
+#define MAX_MOVE_MAX MOVE_MAX
+#endif
+
+#ifndef MIN_UNITS_PER_WORD
+#define MIN_UNITS_PER_WORD UNITS_PER_WORD
+#endif
+
+#ifndef MAX_BITS_PER_WORD
+#define MAX_BITS_PER_WORD BITS_PER_WORD
+#endif
+
 #ifndef STACK_POINTER_OFFSET
 #define STACK_POINTER_OFFSET    0
 #endif
@@ -1370,6 +1382,10 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
    controllable by the user at some point.  */
 #ifndef STACK_CHECK_MAX_VAR_SIZE
 #define STACK_CHECK_MAX_VAR_SIZE (STACK_CHECK_MAX_FRAME_SIZE / 100)
+#endif
+
+#ifndef SWITCHABLE_TARGET
+#define SWITCHABLE_TARGET 0
 #endif
 
 #endif /* GCC_INSN_FLAGS_H  */

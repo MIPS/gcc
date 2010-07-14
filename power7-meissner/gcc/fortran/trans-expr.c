@@ -1393,12 +1393,40 @@ string_to_single_character (tree len, tree str, int kind)
 {
   gcc_assert (POINTER_TYPE_P (TREE_TYPE (str)));
 
-  if (INTEGER_CST_P (len) && TREE_INT_CST_LOW (len) == 1
-      && TREE_INT_CST_HIGH (len) == 0)
+  if (!INTEGER_CST_P (len) || TREE_INT_CST_HIGH (len) != 0)
+    return NULL_TREE;
+
+  if (TREE_INT_CST_LOW (len) == 1)
     {
       str = fold_convert (gfc_get_pchar_type (kind), str);
-      return build_fold_indirect_ref_loc (input_location,
-				      str);
+      return build_fold_indirect_ref_loc (input_location, str);
+    }
+
+  if (kind == 1
+      && TREE_CODE (str) == ADDR_EXPR
+      && TREE_CODE (TREE_OPERAND (str, 0)) == ARRAY_REF
+      && TREE_CODE (TREE_OPERAND (TREE_OPERAND (str, 0), 0)) == STRING_CST
+      && array_ref_low_bound (TREE_OPERAND (str, 0))
+	 == TREE_OPERAND (TREE_OPERAND (str, 0), 1)
+      && TREE_INT_CST_LOW (len) > 1
+      && TREE_INT_CST_LOW (len)
+	 == (unsigned HOST_WIDE_INT)
+	    TREE_STRING_LENGTH (TREE_OPERAND (TREE_OPERAND (str, 0), 0)))
+    {
+      tree ret = fold_convert (gfc_get_pchar_type (kind), str);
+      ret = build_fold_indirect_ref_loc (input_location, ret);
+      if (TREE_CODE (ret) == INTEGER_CST)
+	{
+	  tree string_cst = TREE_OPERAND (TREE_OPERAND (str, 0), 0);
+	  int i, len = TREE_STRING_LENGTH (string_cst);
+	  const char *ptr = TREE_STRING_POINTER (string_cst);
+
+	  for (i = 1; i < len; i++)
+	    if (ptr[i] != ' ')
+	      return NULL_TREE;
+
+	  return ret;
+	}
     }
 
   return NULL_TREE;
@@ -2478,8 +2506,8 @@ gfc_conv_derived_to_class (gfc_se *parmse, gfc_expr *e,
 		       var, cmp->backend_decl, NULL_TREE);
 
   /* Remember the vtab corresponds to the derived type
-    not to the class declared type.  */
-  vtab = gfc_find_derived_vtab (e->ts.u.derived, true);
+     not to the class declared type.  */
+  vtab = gfc_find_derived_vtab (e->ts.u.derived);
   gcc_assert (vtab);
   gfc_trans_assign_vtab_procs (&parmse->pre, e->ts.u.derived, vtab);
   tmp = gfc_build_addr_expr (NULL_TREE, gfc_get_symbol_decl (vtab));
@@ -3556,19 +3584,13 @@ gfc_trans_string_copy (stmtblock_t * block, tree dlength, tree dest,
   if (dlength != NULL_TREE)
     {
       dlen = fold_convert (size_type_node, gfc_evaluate_now (dlength, block));
-      dsc = string_to_single_character (slen, dest, dkind);
+      dsc = string_to_single_character (dlen, dest, dkind);
     }
   else
     {
       dlen = build_int_cst (size_type_node, 1);
       dsc =  dest;
     }
-
-  if (slength != NULL_TREE && POINTER_TYPE_P (TREE_TYPE (src)))
-    ssc = string_to_single_character (slen, src, skind);
-  if (dlength != NULL_TREE && POINTER_TYPE_P (TREE_TYPE (dest)))
-    dsc = string_to_single_character (dlen, dest, dkind);
-
 
   /* Assign directly if the types are compatible.  */
   if (dsc != NULL_TREE && ssc != NULL_TREE
@@ -4978,6 +5000,11 @@ arrayfunc_assign_needs_temporary (gfc_expr * expr1, gfc_expr * expr2)
       if (!expr2->value.function.esym->attr.contained)
 	return false;
 
+      /* A temporary is not needed if the lhs has never been host
+	 associated and the procedure is contained.  */
+      else if (!sym->attr.host_assoc)
+	return false;
+
       /* A temporary is not needed if the variable is local and not
 	 a pointer, a target or a result.  */
       if (sym->ns->parent
@@ -5636,7 +5663,7 @@ gfc_trans_class_assign (gfc_code *code)
 	{
 	  gfc_symbol *vtab;
 	  gfc_symtree *st;
-	  vtab = gfc_find_derived_vtab (code->expr2->ts.u.derived, true);
+	  vtab = gfc_find_derived_vtab (code->expr2->ts.u.derived);
 	  gcc_assert (vtab);
 	  gfc_trans_assign_vtab_procs (&block, code->expr2->ts.u.derived, vtab);
 	  rhs = gfc_get_expr ();

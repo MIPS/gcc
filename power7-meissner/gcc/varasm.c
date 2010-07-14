@@ -429,7 +429,7 @@ static int
 emutls_common_1 (void **loc, void *xstmts)
 {
   struct tree_map *h = *(struct tree_map **) loc;
-  tree args, x, *pstmts = (tree *) xstmts;
+  tree x, *pstmts = (tree *) xstmts;
   tree word_type_node;
 
   if (! DECL_COMMON (h->base.from)
@@ -443,17 +443,14 @@ emutls_common_1 (void **loc, void *xstmts)
      do this and there is an initializer, -fanchor_section loses,
      because it would be too late to ensure the template is
      output.  */
-  x = null_pointer_node;
-  args = tree_cons (NULL, x, NULL);
-  x = build_int_cst (word_type_node, DECL_ALIGN_UNIT (h->base.from));
-  args = tree_cons (NULL, x, args);
-  x = fold_convert (word_type_node, DECL_SIZE_UNIT (h->base.from));
-  args = tree_cons (NULL, x, args);
-  x = build_fold_addr_expr (h->to);
-  args = tree_cons (NULL, x, args);
-
   x = built_in_decls[BUILT_IN_EMUTLS_REGISTER_COMMON];
-  x = build_function_call_expr (UNKNOWN_LOCATION, x, args);
+  x = build_call_expr (x, 4,
+		       build_fold_addr_expr (h->to),
+		       fold_convert (word_type_node,
+				     DECL_SIZE_UNIT (h->base.from)),
+		       build_int_cst (word_type_node,
+				      DECL_ALIGN_UNIT (h->base.from)),
+		       null_pointer_node);
 
   append_to_statement_list (x, pstmts);
   return 1;
@@ -2153,6 +2150,9 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
   rtx decl_rtl, symbol;
   section *sect;
 
+  /* This function is supposed to handle VARIABLES.  Ensure we have one.  */
+  gcc_assert (TREE_CODE (decl) == VAR_DECL);
+
   if (! targetm.have_tls
       && TREE_CODE (decl) == VAR_DECL
       && DECL_THREAD_LOCAL_P (decl))
@@ -2189,12 +2189,6 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
      when a declaration is first seen.  */
 
   if (DECL_EXTERNAL (decl))
-    return;
-
-  /* Output no assembler code for a function declaration.
-     Only definitions of functions output anything.  */
-
-  if (TREE_CODE (decl) == FUNCTION_DECL)
     return;
 
   /* Do nothing for global register variables.  */
