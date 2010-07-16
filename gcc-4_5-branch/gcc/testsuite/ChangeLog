@@ -1,3 +1,8 @@
+2010-07-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/40206
+	* gfortran.dg/select_char_3.f90: New test.
+
 2010-07-08  Jakub Jelinek  <jakub@redhat.com>
 
 	PR fortran/44847

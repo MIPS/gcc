@@ -1,3 +1,9 @@
+2010-07-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/40206
+	* trans-stmt.c (gfc_trans_character_select): Always use NULL for high
+	in CASE_LABEL_EXPR and use NULL for low for the default case.
+
 2010-07-08  Jakub Jelinek  <jakub@redhat.com>
 
 	PR fortran/44847
