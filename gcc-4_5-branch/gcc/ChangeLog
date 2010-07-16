@@ -1,3 +1,80 @@
+2010-07-15  Jie Zhang  <jie@codesourcery.com>
+
+	* config/arm/cortex-a8.md (cortex_a8_load_store_2): Reserve
+	cortex_a8_issue_ls.
+
+2010-07-14  Jie Zhang  <jie@codesourcery.com>
+
+	* config/arm/cortex-a8.md (cortex_a8_alu): Don't use
+	cortex_a8_default when neon_type is not none.
+
+2010-07-14  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2010-07-12  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* config/i386/i386.c (ix86_sol10_return_in_memory): Rename to
+	ix86_solaris_return_in_memory.
+	* config/i386-protos.h: Reflect this.
+	* config/i386/vx-common.h (SUBTARGET_RETURN_IN_MEMORY): Likewise.
+	* config/i386/sol2-10.h (SUBTARGET_RETURN_IN_MEMORY): Likewise.
+	Move ...
+	* config/i386/sol2.h (SUBTARGET_RETURN_IN_MEMORY): ... here.
+
+2010-07-14  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2010-07-12  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* config.gcc (i[34567]86-*-solaris2*): Default with_arch_32 to
+	pentiumpro on Solaris 8 and 9/x86.
+	* doc/install.texi (Specific, i?86-*-solaris2.[89]): Recommend GNU as.
+	Document SSE/SSE2 support.
+	* doc/sourcebuild.texi (Effective-Target Keywords): Document sse.
+
+2010-07-13  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* config/i386/sol2-unwind.h (x86_64_fallback_frame_state): Correct
+	explanation.
+	Find ucontext_t * on Solaris 11.
+	(x86_fallback_frame_state): Handle Solaris 9 multi-threaded pattern.
+	Handle new Solaris 11 __sighndlr patterns.
+
+2010-07-13  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2010-07-12  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR pch/14940
+	* config/host-solaris.c (mmap_fixed): New function.
+	(sol_gt_pch_get_address): Use it.
+	(sol_gt_pch_use_address): Likewise.
+
+2010-07-12  Jie Zhang  <jie@codesourcery.com>
+
+	* config/arm/arm.c (arm_get_frame_offsets): Don't use r3 to
+	align the stack when it's going to be saved.
+
+2010-07-11  Kai Tietz  <kai.tietz@onevision.com>
+
+	Merged back from trunk
+	* config/i386/winnt.c (i386_pe_file_end): Quote symbol name
+	in directive -export.
+
+2010-07-09  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/44886
+	* tree-vect-stmts.c (vectorizable_assignment): Fixup backport
+	of the fix for PR44284.
+
+2010-07-09  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2010-05-28  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* tree-vect-stmts.c (vectorizable_assignment): Call build1 instead of
+	build1_stat.
+
 2010-07-13  Jakub Jelinek  <jakub@redhat.com>
 
 	PR testsuite/44701
