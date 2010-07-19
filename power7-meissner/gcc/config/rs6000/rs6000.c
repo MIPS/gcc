@@ -6774,6 +6774,25 @@ rs6000_emit_set_long_const (rtx dest, HOST_WIDE_INT c1, HOST_WIDE_INT c2)
   return dest;
 }
 
+/* Given a memory reference, if it is not a reg or reg+reg addressing, convert
+   to such a form to deal with memory reference instructions like STFIWX that
+   only take reg+reg addressing.  */
+
+extern rtx
+rs6000_make_indexed_or_indirect_address (rtx x)
+{
+  int strict = (reload_in_progress || reload_completed);
+  rtx addr;
+
+  gcc_assert (MEM_P (x));
+  addr = XEXP (x, 0);
+  if (! legitimate_indexed_address_p (addr, strict)
+      && ! legitimate_indirect_address_p (addr, strict))
+    x = replace_equiv_address (x, copy_addr_to_reg (addr));
+
+  return x;
+}
+
 /* Helper for the following.  Get rid of [r+r] memory refs
    in cases where it won't work (TImode, TFmode, TDmode).  */
 
@@ -26540,7 +26559,7 @@ rs6000_expand_convert_si_to_sfdf (rtx dest, rtx src, bool unsigned_p)
 {
   enum machine_mode dmode = GET_MODE (dest);
   rtx (*func_si) (rtx, rtx, rtx, rtx);
-  rtx (*func_si_ext) (rtx, rtx);
+  rtx (*func_si2) (rtx, rtx, rtx);
   rtx (*func_di) (rtx, rtx);
   rtx reg, stack;
 
@@ -26552,14 +26571,14 @@ rs6000_expand_convert_si_to_sfdf (rtx dest, rtx src, bool unsigned_p)
 	{
 	  gcc_assert (TARGET_FCFIDUS && TARGET_LFIWZX);
 	  func_si = gen_floatunssisf2_lfiwzx;
-	  func_si_ext = gen_floatunssisf2_lfiwzx_ext;
+	  func_si2 = gen_floatunssisf2_lfiwzx2;
 	  func_di = gen_floatunsdisf2;
 	}
       else
 	{
 	  gcc_assert (TARGET_FCFIDS && TARGET_LFIWAX);
 	  func_si = gen_floatsisf2_lfiwax;
-	  func_si_ext = gen_floatsisf2_lfiwax_ext;
+	  func_si2 = gen_floatsisf2_lfiwax2;
 	  func_di = gen_floatdisf2;
 	}
     }
@@ -26570,14 +26589,14 @@ rs6000_expand_convert_si_to_sfdf (rtx dest, rtx src, bool unsigned_p)
 	{
 	  gcc_assert (TARGET_FCFIDU && TARGET_LFIWZX);
 	  func_si = gen_floatunssidf2_lfiwzx;
-	  func_si_ext = gen_floatunssidf2_lfiwzx_ext;
+	  func_si2 = gen_floatunssidf2_lfiwzx2;
 	  func_di = gen_floatunsdidf2;
 	}
       else
 	{
 	  gcc_assert (TARGET_FCFID && TARGET_LFIWAX);
 	  func_si = gen_floatsidf2_lfiwax;
-	  func_si_ext = gen_floatsidf2_lfiwax_ext;
+	  func_si2 = gen_floatsidf2_lfiwax2;
 	  func_di = gen_floatdidf2;
 	}
     }
@@ -26586,11 +26605,16 @@ rs6000_expand_convert_si_to_sfdf (rtx dest, rtx src, bool unsigned_p)
     gcc_unreachable ();
 
   if (MEM_P (src))
-    emit_insn (func_si_ext (dest, src));
+    {
+      reg = gen_reg_rtx (DImode);
+      src = rs6000_make_indexed_or_indirect_address (src);
+      emit_insn (func_si2 (dest, src, reg));
+    }
   else if (!TARGET_MFPGPR || !TARGET_POWERPC64)
     {
       reg = gen_reg_rtx (DImode);
       stack = assign_stack_temp (SImode, GET_MODE_SIZE (SImode), 0);
+      stack = rs6000_make_indexed_or_indirect_address (stack);
       emit_insn (func_si (dest, src, reg, stack));
     }
   else

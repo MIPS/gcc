@@ -1,3 +1,62 @@
+2010-07-19  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-protos.h
+	(rs6000_make_indexed_or_indirect_address): New declaration.
+
+	* config/rs6000/rs6000.c
+	(rs6000_make_indexed_or_indirect_address): Function to convert a
+	memory address to REG+REG addressing for STFIWX/LFIWAX/LRIWZX.
+	(rs6000_expand_convert_si_to_sfdf): Change name/signature of insn
+	that does the conversion and stores the result to memory.  Insure
+	the address uses REG+REG addressing.
+
+	* config/rs6000/rs6000.md (UNSPEC_VSX_XXSPLTW): New UNSPEC
+	constant.
+	(vsx_xscvdpsxws_<mode>): VSX form of FCTIWZ instruction.
+	(vsx_xscvdpuxws_<mode>): VSX form of FCTIWUZ instruction.
+	(vsx_xscvspdp_sf): New insn for (float)(int) optimization.
+	(vsx_xscvdpsp_scalar): Update insn so it properly combines
+	conversion to int and back to float.
+	(vsx_floatunsdf_fixunssidf2): Ditto.
+	(vsx_xscvsxwdp_df): Ditto.
+	(vsx_xxspltw_di): New insn for splatting bottom/upper word from a
+	DI value into a vector.
+
+	* config/rs6000/rs6000.md (lfiwax): Make memory predicate match
+	hardware instruction.  Allow split before register allocation.
+	(floatsi*): Ditto.
+	(lfiwzx): Ditto.
+	(floatunssi*): Ditto.
+	(fix_trunc*): Ditto.
+	(fixuns_trunc*): Ditto.
+	(fctiwz_<mode>): Ditto.
+	(fctiwuz_<mode>): Ditto.
+
+2010-07-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vsx.md (UNSPEC_VSX_XXSPLTW): Define.
+	(vsx_xscvdpsxws): New insn, mirror fctiwz for VSX.
+	(vsx_xscvdpuxws): New insn, mirror fctiwuz for VSX.
+	(vsx_xscvspdp_sf): New insn, with SF mode target.
+	(vsx_floatsf_fixsisf2): Rework floating round optimizations.
+	(vsx_floatunsdf_fixunssidf2): Ditto.
+	(vsx_xvcvsxwdp_df): Move location in file.
+	(vsx_xxspltw_di): New insn, to splat a SImode in a DImode value.
+
+	* config/rs6000/rs6000.md (fix_trunc<mode>si2_stfiwx): Make stack
+	temp use reg+reg addressing.
+	(fixuns_trunc<mode>si2_stfiwx): Ditto.
+	(fix_trunc<mode>si2_stfiwx2): Clone from
+	fix_trunc<mode>si2_stfiwx, removing the stack temp argument.
+	(fixuns_trunc<mode>si2_stfiwx2): Clone from
+	fixuns_trunc<mode>si2_stfiwx, removing the stack temp argument.
+	(fix_truncdfsi2): Make stack temp use reg+reg addressing.  If
+	operand0 is a memory, avoid using a stack temp.
+	(fixuns_truncdfsi2): Ditto.
+	(fctiwz_<mode>): Split into separate define_expand, define_insn
+	and for the define_insn exclude VSX.
+	(fctiwuz_<mode>): Ditto.
+
 2010-07-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/vsx.md (vsx_copysignsf3): Delete, use fcpsgn

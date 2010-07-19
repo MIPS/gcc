@@ -198,7 +198,7 @@
    (UNSPEC_VSX_MSUB		511)
    (UNSPEC_VSX_NMADD		512)
    (UNSPEC_VSX_NMSUB		513)
-   ;; 514 deleted
+   (UNSPEC_VSX_XXSPLTW		514)
    (UNSPEC_VSX_TDIV		515)
    (UNSPEC_VSX_TSQRT		516)
    (UNSPEC_VSX_XXPERMDI		517)
@@ -878,8 +878,8 @@
    (set_attr "fp_type" "<VSfptype_simple>")])
 
 ;; For scalar converts, follow the pattern in rs6000.md and allowing operand1
-;; to be in memory so the optimizer/register allocator not to load the value
-;; into a GPR and then have to spill it to memory.
+;; to be in memory so the optimizer/register allocator will not to load the
+;; value into a GPR and then have to spill it to memory.
 (define_insn "*vsx_floatsidf2"
   [(set (match_operand:DF 0 "vsx_register_operand" "=ws,?wa")
 	(float:DF (match_operand:DI 1 "nonimmediate_operand" "ws,wa")))]
@@ -887,6 +887,14 @@
   "xscvsxddp %x0,%x1"
   [(set_attr "type" "fp")
    (set_attr "fp_type" "fp_addsub_d")])
+
+(define_insn "*vsx_xscvdpsxws_<mode>"
+  [(set (match_operand:DI 0 "gpc_reg_operand" "=d")
+	(unspec:DI [(fix:SI (match_operand:SFDF 1 "gpc_reg_operand" "wa"))]
+		   UNSPEC_FCTIWZ))]
+  "VECTOR_UNIT_VSX_P (DFmode)"
+  "xscvdpsxws %x0,%x1"
+  [(set_attr "type" "fp")])
 
 (define_insn "vsx_floatuns<VSi><mode>2"
   [(set (match_operand:VSX_F 0 "vsx_register_operand" "=<VSr>,?wa")
@@ -903,6 +911,15 @@
   "xscvuxddp %x0,%x1"
   [(set_attr "type" "fp")
    (set_attr "fp_type" "fp_addsub_d")])
+
+(define_insn "*vsx_xscvdpuxws_<mode>"
+  [(set (match_operand:DI 0 "vsx_register_operand" "=d")
+	(unspec:DI [(unsigned_fix:SI
+		     (match_operand:SFDF 1 "vsx_register_operand" "wa"))]
+		   UNSPEC_FCTIWUZ))]
+  "VECTOR_UNIT_VSX_P (DFmode)"
+  "xscvdpuxws %x0,%x1"
+  [(set_attr "type" "fp")])
 
 (define_insn "vsx_fix_trunc<mode><VSi>2"
   [(set (match_operand:<VSI> 0 "vsx_register_operand" "=<VSr2>,?<VSr3>")
@@ -1008,6 +1025,14 @@
 (define_insn "vsx_xscvspdp"
   [(set (match_operand:DF 0 "vsx_register_operand" "=ws,?wa")
 	(unspec:DF [(match_operand:V4SF 1 "vsx_register_operand" "wa,wa")]
+		   UNSPEC_VSX_CVSPDP))]
+  "VECTOR_UNIT_VSX_P (DFmode)"
+  "xscvspdp %x0,%x1"
+  [(set_attr "type" "fp")])
+
+(define_insn "vsx_xscvspdp_sf"
+  [(set (match_operand:SF 0 "vsx_register_operand" "=ws,?wa")
+	(unspec:SF [(match_operand:V4SF 1 "vsx_register_operand" "wa,wa")]
 		   UNSPEC_VSX_CVSPDP))]
   "VECTOR_UNIT_VSX_P (DFmode)"
   "xscvspdp %x0,%x1"
@@ -1121,10 +1146,10 @@
   [(set (match_operand:SF 0 "gpc_reg_operand" "=f,?f")
 	(float:SF
 	 (fix:SI
-	  (float_extend:DF (match_operand:SF 1 "gpc_reg_operand" "f,f")))))
-   (clobber (match_scratch:V2DF 2 "=wd,wa"))
+	  (match_operand:SF 1 "gpc_reg_operand" "f,f"))))
+   (clobber (match_scratch:DI 2 "=d,d"))
    (clobber (match_scratch:V4SI 3 "=wd,wa"))
-   (clobber (match_scratch:DF 4 "=d,d"))]
+   (clobber (match_scratch:V4SF 4 "=wd,wa"))]
   "TARGET_SINGLE_FLOAT && TARGET_DOUBLE_FLOAT && TARGET_FPRS
    && VECTOR_UNIT_VSX_P (DFmode) && VECTOR_UNIT_VSX_P (V2DFmode)"
   "#"
@@ -1132,23 +1157,13 @@
   [(pc)]
   "
 {
-  emit_insn (gen_vsx_concat_v2df (operands[2], operands[1], operands[1]));
-  emit_insn (gen_vsx_xvcvdpsxws (operands[3], operands[2]));
-  emit_insn (gen_vsx_xvcvsxwdp_df (operands[4], operands[3]));
-  emit_insn (gen_truncdfsf2 (operands[0], operands[4]));
+  emit_insn (gen_fctiwz_sf (operands[2], operands[1]));
+  emit_insn (gen_vsx_xxspltw_di (operands[3], operands[2], const1_rtx));
+  emit_insn (gen_vsx_floatv4siv4sf2 (operands[4], operands[3]));
+  emit_insn (gen_vsx_xscvspdp_sf (operands[0], operands[4]));
   DONE;
 }"
   [(set_attr "length" "16")])
-
-;; Special version for (double)(int) optimization that pretends the bottom dword
-;; is not generated
-(define_insn "vsx_xvcvsxwdp_df"
-  [(set (match_operand:DF 0 "vsx_register_operand" "=ws,?wa")
-	(unspec:DF [(match_operand:V4SI 1 "vsx_register_operand" "wd,wa")]
-		   UNSPEC_VSX_CVSXWDP))]
-  "VECTOR_UNIT_VSX_P (DFmode) && VECTOR_UNIT_VSX_P (V2DFmode)"
-  "xvcvsxwdp %x0,%x1"
-  [(set_attr "type" "vecfloat")])
 
 (define_insn_and_split "*vsx_floatunsdf_fixunssidf2"
   [(set (match_operand:DF 0 "vsx_register_operand" "=ws,?wa")
@@ -1174,11 +1189,10 @@
   [(set (match_operand:SF 0 "gpc_reg_operand" "=f,?f")
 	(unsigned_float:SF
 	 (unsigned_fix:SI
-	  (float_extend:DF
-	   (match_operand:SF 1 "gpc_reg_operand" "f,f")))))
-   (clobber (match_scratch:V2DF 2 "=wd,wa"))
+	  (match_operand:SF 1 "gpc_reg_operand" "f,f"))))
+   (clobber (match_scratch:DI 2 "=d,d"))
    (clobber (match_scratch:V4SI 3 "=wd,wa"))
-   (clobber (match_scratch:DF 4 "=d,d"))]
+   (clobber (match_scratch:V4SF 4 "=wd,wa"))]
   "TARGET_SINGLE_FLOAT && TARGET_DOUBLE_FLOAT && TARGET_FPRS
    && VECTOR_UNIT_VSX_P (DFmode) && VECTOR_UNIT_VSX_P (V2DFmode)"
   "#"
@@ -1186,16 +1200,24 @@
   [(pc)]
   "
 {
-  emit_insn (gen_vsx_concat_v2df (operands[2], operands[1], operands[1]));
-  emit_insn (gen_vsx_xvcvdpuxws (operands[3], operands[2]));
-  emit_insn (gen_vsx_xvcvuxwdp_df (operands[4], operands[3]));
-  emit_insn (gen_truncdfsf2 (operands[0], operands[4]));
+  emit_insn (gen_fctiwuz_sf (operands[2], operands[1]));
+  emit_insn (gen_vsx_xxspltw_di (operands[3], operands[2], const1_rtx));
+  emit_insn (gen_vsx_floatunsv4siv4sf2 (operands[4], operands[3]));
+  emit_insn (gen_vsx_xscvspdp_sf (operands[0], operands[4]));
   DONE;
 }"
   [(set_attr "length" "16")])
 
-;; Special version for (double)(unsigned) optimization that pretends the bottom
-;; dword is not generated
+;; Special versions for (double)(int) optimization that pretends the bottom dword
+;; is not generated
+(define_insn "vsx_xvcvsxwdp_df"
+  [(set (match_operand:DF 0 "vsx_register_operand" "=ws,?wa")
+	(unspec:DF [(match_operand:V4SI 1 "vsx_register_operand" "wd,wa")]
+		   UNSPEC_VSX_CVSXWDP))]
+  "VECTOR_UNIT_VSX_P (DFmode) && VECTOR_UNIT_VSX_P (V2DFmode)"
+  "xvcvsxwdp %x0,%x1"
+  [(set_attr "type" "vecfloat")])
+
 (define_insn "vsx_xvcvuxwdp_df"
   [(set (match_operand:DF 0 "vsx_register_operand" "=ws,?wa")
 	(unspec:DF [(match_operand:V4SI 1 "vsx_register_operand" "wd,wa")]
@@ -1387,6 +1409,16 @@
 	  (parallel
 	   [(match_operand:QI 2 "u5bit_cint_operand" "i,i")]))))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
+  "xxspltw %x0,%x1,%2"
+  [(set_attr "type" "vecperm")])
+
+;; Special xxspltw for getting a part of a DImode value into a vector
+(define_insn "vsx_xxspltw_di"
+  [(set (match_operand:V4SI 0 "vsx_register_operand" "=wf,?wa")
+	(unspec:V4SI [(match_operand:DI 1 "vsx_register_operand" "d,d")
+		      (match_operand:QI 2 "u5bit_cint_operand" "i,i")]
+		     UNSPEC_VSX_XXSPLTW))]
+  "TARGET_VSX"
   "xxspltw %x0,%x1,%2"
   [(set_attr "type" "vecperm")])
 
