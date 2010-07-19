@@ -10,28 +10,6 @@
 	that does the conversion and stores the result to memory.  Insure
 	the address uses REG+REG addressing.
 
-	* config/rs6000/rs6000.md (UNSPEC_VSX_XXSPLTW): New UNSPEC
-	constant.
-	(vsx_xscvdpsxws_<mode>): VSX form of FCTIWZ instruction.
-	(vsx_xscvdpuxws_<mode>): VSX form of FCTIWUZ instruction.
-	(vsx_xscvspdp_sf): New insn for (float)(int) optimization.
-	(vsx_xscvdpsp_scalar): Update insn so it properly combines
-	conversion to int and back to float.
-	(vsx_floatunsdf_fixunssidf2): Ditto.
-	(vsx_xscvsxwdp_df): Ditto.
-	(vsx_xxspltw_di): New insn for splatting bottom/upper word from a
-	DI value into a vector.
-
-	* config/rs6000/rs6000.md (lfiwax): Make memory predicate match
-	hardware instruction.  Allow split before register allocation.
-	(floatsi*): Ditto.
-	(lfiwzx): Ditto.
-	(floatunssi*): Ditto.
-	(fix_trunc*): Ditto.
-	(fixuns_trunc*): Ditto.
-	(fctiwz_<mode>): Ditto.
-	(fctiwuz_<mode>): Ditto.
-
 2010-07-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/vsx.md (UNSPEC_VSX_XXSPLTW): Define.
