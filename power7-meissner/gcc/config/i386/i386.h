@@ -477,7 +477,13 @@ extern tree x86_mfence;
    redefines this to 1.  */
 #define TARGET_MACHO 0
 
-/* Likewise, for the Windows 64-bit ABI.  */
+/* Branch island 'stubs' are emitted for earlier versions of darwin.
+   This provides a default (over-ridden in darwin.h.)  */
+#ifndef TARGET_MACHO_BRANCH_ISLANDS
+#define TARGET_MACHO_BRANCH_ISLANDS 0
+#endif
+
+/* For the Windows 64-bit ABI.  */
 #define TARGET_64BIT_MS_ABI (TARGET_64BIT && ix86_cfun_abi () == MS_ABI)
 
 /* Available call abi.  */
@@ -1815,10 +1821,11 @@ typedef struct ix86_args {
 
 #define CLEAR_RATIO(speed) ((speed) ? MIN (6, ix86_cost->move_ratio) : 2)
 
-/* Define if shifts truncate the shift count
-   which implies one can omit a sign-extension or zero-extension
-   of a shift count.  */
-/* On i386, shifts do truncate the count.  But bit opcodes don't.  */
+/* Define if shifts truncate the shift count which implies one can
+   omit a sign-extension or zero-extension of a shift count.
+
+   On i386, shifts do truncate the count.  But bit test instructions
+   take the modulo of the bit offset operand.  */
 
 /* #define SHIFT_COUNT_TRUNCATED */
 

@@ -1,3 +1,344 @@
+2010-07-20  Maxim Kuvyrkov  <maxim@codesourcery.com>
+
+	* config.gcc (LIBC_GLIBC, LIBC_UCLIBC, LIBC_BIONIC): Move constants
+	to top level.
+	* config/linux.h (LINUX_TARGET_OS_CPP_BUILTINS): Move Android-specific
+	definitions ...
+	* config/linux-android.h (ANDROID_TARGET_OS_CPP_BUILTINS): ... here.
+	New macro.
+	* config/arm/linux-eabi.h (TARGET_OS_CPP_BUILTINS): Use it.
+
+2010-07-19  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* gengtype.c (start_root_entry): New function, split out from
+	write_root.  Check whether V is null and raise an error if so.
+	(write_field_root): Check for V being null.  Don't raise an error here;
+	set V to null instead.
+	(write_root): Update comment above function.  Use start_root_entry.
+
+2010-07-19  Xinliang David Li  <davidxl@google.com>
+
+	PR testsuite/44932
+	* tree-ssa-uninit.c (collect_phi_def_edges): Fix bug collecting def edges.
+	(find_uninit_use): Add dump.
+	(is_use_properly_guarded): Ditto.
+	(warn_uninitialized_phi): Ditto.
+	(execute_late_warn_uninitialized): Ditto.
+
+2010-07-19  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/44941
+	* expr.c (emit_block_move_hints): Move zero size check first.
+	Move asserts to more useful places.
+	* calls.c (load_register_parameters): Check for zero size.
+
+2010-07-19  Richard Henderson  <rth@redhat.com>
+
+	* tree-optimize.c (execute_all_early_local_passes): New.  Change
+	cgraph_state here ...
+	(execute_early_local_optimizations): ... not here.  Remove.
+	(pass_early_local_passes, pass_all_early_optimizations): Update.
+
+2010-07-19  Bernd Schmidt  <bernds@codesourcery.com>
+
+	* postreload.c (reload_combine_closest_single_use): Ignore the
+	number of uses for DEBUG_INSNs.
+	(fixup_debug_insns): New static function.
+	(reload_combine_recognize_const_pattern): Use it.  Don't let the
+	main loop be affected by DEBUG_INSNs.
+	Really disallow moving adds past a jump insn.
+	(reload_combine_recognize_pattern): Don't update use_ruid here.
+	(reload_combine_note_use): Do it here.
+	(reload_combine): Use control_flow_insn_p rather than JUMP_P.
+
+2010-07-19  Bingfeng Mei  <bmei@broadcom.com>
+
+	* ddg.c (create_ddg): Exclude nodes of debug_insn in counting nodes
+        of a loop.
+        * loop-doloop.c (doloop_condition_get): Skip possible debug_insn.
+
+2010-07-19  Iain Sandoe  <iains@gcc.gnu.org>
+
+	* config/i386/darwin.h: Define darwin_emit_branch_islands.
+	(TARGET_MACHO_BRANCH_ISLANDS): New.
+	(FUNCTION_PROFILER): Use TARGET_MACHO_BRANCH_ISLANDS.
+	* config/i386/i386.h (TARGET_MACHO_BRANCH_ISLANDS): Define a
+	default value.
+	* config/i386/i386.c (output_pic_addr_const): Do not emit
+	branch islands unless TARGET_MACHO_BRANCH_ISLANDS is set.
+	(x86_output_mi_thunk): Adjust symbol creation.
+	* config/rs6000/darwin.h: Define darwin_emit_branch_islands.
+	Remove out of date comment.
+	* config/rs6000/rs6000.c (print_operand): Adjust symbol.
+	DARWIN_LINKER_GENERATES_ISLANDS: Remove.
+	DARWIN_GENERATE_ISLANDS: Ditto.
+	(output_call):  Do not emit branch islands unless
+	darwin_emit_branch_islands is set.
+	* config/darwin.c: Declare darwin_emit_branch_islands.
+	(machopic_indirect_data_reference): Do not emit unless
+	darwin_emit_branch_islands is set.
+	(darwin_override_options): Set darwin_emit_branch_islands
+	where it is needed.
+	* config/darwin9.h
+	DARWIN_LINKER_GENERATES_ISLANDS: Remove.
+
+2010-07-19  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* doc/sourcebuild.texi (Effective-Target Keywords): Document
+	sse_runtime, sse2_runtime.
+
+2010-07-18  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* config/mips/mips.c (mips16_build_call_stub): Zero-extend the
+	low half of a single-register SCmode return value before ORing
+	it with the high half.
+	* config/mips/mips16.S (MERGE_GPRf): Likewise.
+
+2010-07-17  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/44805
+	* config/pa/pa.h (CONSTANT_ALIGNMENT): Align strings to BITS_PER_WORD
+	on all targets.
+
+2010-07-17  Bernd Schmidt  <bernds@codesourcery.com>
+
+	PR target/42235
+	* postreload.c (reload_cse_move2add): Return bool, true if anything.
+	changed.  All callers changed.
+	(move2add_use_add2_insn): Likewise.
+	(move2add_use_add3_insn): Likewise.
+	(reload_cse_regs): If reload_cse_move2add changed anything, rerun
+	reload_combine.
+	(RELOAD_COMBINE_MAX_USES): Bump to 16.
+	(last_jump_ruid): New static variable.
+	(struct reg_use): New members CONTAINING_MEM and RUID.
+	(reg_state): New members ALL_OFFSETS_MATCH and REAL_STORE_RUID.
+	(reload_combine_split_one_ruid, reload_combine_split_ruids,
+	reload_combine_purge_insn_uses, reload_combine_closest_single_use
+	reload_combine_purge_reg_uses_after_ruid,
+	reload_combine_recognize_const_pattern): New static functions.
+	(reload_combine_recognize_pattern): Verify that ALL_OFFSETS_MATCH
+	is true for our reg and that we have available index regs.
+	(reload_combine_note_use): New args RUID and CONTAINING_MEM.  All
+	callers changed.  Use them to initialize fields in struct reg_use.
+	(reload_combine): Initialize last_jump_ruid.  Be careful when to
+	take PREV_INSN of the scanned insn.  Update REAL_STORE_RUID fields.
+	Call reload_combine_recognize_const_pattern.
+	(reload_combine_note_store): Update REAL_STORE_RUID field.
+
+2010-07-16  Jason Merrill  <jason@redhat.com>
+
+	* Makefile.in (opts-common.o): Depend on options.h.
+
+2010-07-16  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* tree.c (build_common_builtin_nodes): Use build_function_type_list
+	instead of build_function_type.
+	* tree-ssa-loop-prefetch.c (tree_ssa_prefetch_arrays): Likewise.
+	* cgraphunit.c (cgraph_build_static_cdtor): Likewise.
+
+2010-07-16  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* config/rs6000/rs6000.c (rs6000_emit_sISEL): Let rs6000_emit_int_cmove
+	do all the work.
+	(rs6000_emit_int_cmove): Use function pointers for insn generation.
+	Don't force values into registers unnecessarily.
+	(output_isel): Assert that we're not given conditions we can't handle.
+	Delete corresponding code.
+	* config/rs6000/rs6000.md (isel_signed_<mode>): Use
+	scc_comparison_operator constraint.  Permit 0 for the consequent
+	operand.  Permit any GPR for the alternative operand.
+	(isel_unsigned_<mode>): Likewise.
+
+2010-07-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/44942
+	* config/i386/i386-protos.h (ix86_function_arg_boundary): Change second
+	argument to const_tree.
+	* config/i386/i386.c (function_arg_advance): If padding needs to be
+	inserted before argument, increment cum->words by number of padding
+	words as well.
+	(contains_aligned_value_p): Change argument to const_tree.
+	(ix86_function_arg_boundary): Change second argument to const_tree.
+
+2010-07-16  Bernd Schmidt  <bernds@codesourcery.com>
+
+	PR target/42235
+	* function.c (record_hard_reg_sets): New static function.
+	(assign_parm_setup_reg): If an optab for extending exists and the
+	generated code clobbbers no hard regs, emit the insn directly and
+	create a REG_EQUIV note.
+
+2010-07-15  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* c-decl.c (detect_field_duplicates): Use DECL_CHAIN insted of
+	TREE_CHAIN.
+	* c-typeck.c (push_init_level): Likewise.
+	(process_init_element): Likewise.
+
+2010-07-15  Anatoly Sokolov  <aesok@post.ru>
+
+	* tree.h (enum tree_index): Add TI_INTEGER_THREE.
+	(integer_three_node): Add.
+	* tree.c (build_common_tree_nodes_2): Use integer_type_node insead of
+	NULL_TREE in build_int_cst calls. Initialize the integer_three_node.
+	* builtins.c (expand_builtin_prefetch): Use common tree nodes instead
+	of call build_int_cst.
+	* tree-ssa-sccvn.c (copy_reference_ops_from_ref): Ditto.
+	* tree-ssa-loop-ivopts.c (idx_find_step): Ditto.
+	(find_interesting_uses_address): Ditto.
+	* tree-ssa-alias.c (ao_ref_init_from_ptr_and_size): Ditto.
+	* tree-eh.c (lower_eh_constructs_2): Ditto.
+	* tree-vect-loop.c (get_initial_def_for_induction): Ditto.
+	* c-typeck.c (really_start_incremental_init, push_init_level): Ditto.
+	* expmed.c (expand_divmod): Ditto.
+	* tree-mudflap.c (mx_register_decls): Ditto.
+	* varasm.c (array_size_for_constructor): Ditto.
+	* tree-ssa-loop-prefetch.c (issue_prefetch_ref): Ditto.
+	* c-parser.c (c_parser_postfix_expression): Ditto.
+
+2010-07-15  Bernd Schmidt  <bernds@codesourcery.com>
+
+	* postreload.c (last_label_ruid, first_index_reg, last_index_reg):
+	New static variables.
+	(reload_combine_recognize_pattern): New static function, broken out
+	of reload_combine.
+	(reload_combine): Use it.  Only initialize first_index_reg and
+	last_index_reg once.
+
+2010-07-15  Richard Henderson  <rth@redhat.com>
+
+	* cgraphunit.c (cgraph_build_static_cdtor): Clear current_function_decl
+	when done.
+
+2010-07-15  Jan Hubicka  <jh@suse.cz>
+
+	* lto-symtab.c (lto_symtab_resolve_symbols): Remove hack handling comdats
+	for broken gold.
+	(lto_sy	mtab_merge_decls_1): Set used_from_object_file correctly. 
+
+2010-07-15  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* tree.h (TREE_RTL_OPERAND_CHECK): Delete.
+
+2010-07-15  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* tree.h (DECL_CHAIN): Define.
+	* alias.c: Carefully replace TREE_CHAIN with DECL_CHAIN.
+	* c-decl.c: Likewise.
+	* c-parser.c: Likewise.
+	* c-typeck.c: Likewise.
+	* cfgexpand.c: Likewise.
+	* cgraph.c: Likewise.
+	* cgraphunit.c: Likewise.
+	* combine.c: Likewise.
+	* config/alpha/alpha.c: Likewise.
+	* config/arm/arm.c: Likewise.
+	* config/frv/frv.c: Likewise.
+	* config/i386/i386.c: Likewise.
+	* config/i386/winnt-cxx.c: Likewise.
+	* config/ia64/ia64.c: Likewise.
+	* config/iq2000/iq2000.c: Likewise.
+	* config/mep/mep.c: Likewise.
+	* config/mips/mips.c: Likewise.
+	* config/pa/som.h: Likewise.
+	* config/rs6000/rs6000.c: Likewise.
+	* config/s390/s390.c: Likewise.
+	* config/sh/sh.c: Likewise.
+	* config/sh/symbian-cxx.c: Likewise.
+	* config/sparc/sparc.c: Likewise.
+	* config/spu/spu.c: Likewise.
+	* config/stormy16/stormy16.c: Likewise.
+	* config/vxworks.c: Likewise.
+	* config/xtensa/xtensa.c: Likewise.
+	* coverage.c: Likewise.
+	* dbxout.c: Likewise.
+	* dwarf2out.c: Likewise.
+	* emit-rtl.c: Likewise.
+	* expr.c: Likewise.
+	* function.c: Likewise.
+	* gimple-low.c: Likewise.
+	* gimple-pretty-print.c: Likewise.
+	* gimplify.c: Likewise.
+	* integrate.c: Likewise.
+	* ipa-inline.c: Likewise.
+	* ipa-prop.c: Likewise.
+	* ipa-split.c: Likewise.
+	* ipa-struct-reorg.c: Likewise.
+	* ipa-type-escape.c: Likewise.
+	* langhooks.c: Likewise.
+	* lto-cgraph.c: Likewise.
+	* omp-low.c: Likewise.
+	* stor-layout.c: Likewise.
+	* tree-cfg.c: Likewise.
+	* tree-complex.c: Likewise.
+	* tree-dfa.c: Likewise.
+	* tree-dump.c: Likewise.
+	* tree-inline.c: Likewise.
+	* tree-mudflap.c: Likewise.
+	* tree-nested.c: Likewise.
+	* tree-object-size.c: Likewise.
+	* tree-pretty-print.c: Likewise.
+	* tree-sra.c: Likewise.
+	* tree-ssa-live.c: Likewise.
+	* tree-ssa-loop-niter.c: Likewise.
+	* tree-ssa-math-opts.c: Likewise.
+	* tree-ssa-reassoc.c: Likewise.
+	* tree-ssa-sccvn.c: Likewise.
+	* tree-ssa-structalias.c: Likewise.
+	* tree-tailcall.c: Likewise.
+	* tree-vrp.c: Likewise.
+	* tree.c: Likewise.
+	* var-tracking.c: Likewise.
+	* varasm.c: Likewise.
+
+2010-07-15  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	PR target/44877
+	* config/spu/spu.c (spu_expand_builtin_1): Allow references
+	(as well as pointers) as argument to mask_for_load builtins.
+
+2010-07-15  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/44946
+	* tree-ssa-structalias.c (get_constraint_for_component_ref): Deal
+	with accessing only padding properly.
+
+2010-07-15  Jan Hubicka  <jh@suse.cz>
+
+	* ipa.c (function_and_variable_visibility): Variables marked as used
+	should not be localized.
+
+2010-07-15  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.c: Include lto-streamer.h
+	(change_decl_assembler_name): Work when assembler name hash is at place.
+	(cgraph_make_decl_local): When localizing COMDAT symbol at WPA stage, be
+	sure to rename it to avoid name clash.
+	* ipa.c (cgraph_externally_visible_p, function_and_variable_visibility):
+	Localize hidden symbols only when locally defined.
+
+2010-07-15  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.h (SHIFT_COUNT_TRUNCATED): Expand comment.
+
+2010-07-15  Magnus Granberg  <zorry@gentoo.org>
+	    Kevin F. Quinn  <kevquinn@gentoo.org>
+
+	* builtins.c (expand_builtin_init_trampoline): Warn for -Wtrampolines.
+	* common.opt: Add -Wtrampolines.
+	* doc/invoke.texi: Add -Wtrampolines.
+
+2010-07-15  Jie Zhang  <jie@codesourcery.com>
+
+	* config/arm/cortex-a8.md (cortex_a8_load_store_2): Reserve
+	cortex_a8_issue_ls.
+
+2010-07-15  Dave Korn  <dave.korn.cygwin@gmail.com>
+
+	* config/i386/cygwin.h (LIBGCJ_SONAME): Update.
+	* config/i386/mingw32.h (LIBGCJ_SONAME): Likewise.
+
 2010-07-14  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
 
 	* config/spu/spu.c (reg_names): Remove prototype.
@@ -66,8 +407,7 @@
 2010-07-14  Bernd Schmidt  <bernds@codesourcery.com>
 
 	* ira-int.h (struct ira_object): New.
-	(ira_object_t): New typedef.  Add DEF_VEC_P and DEF_VEC_ALLOC_P
-	for it.
+	(ira_object_t): New typedef.  Add DEF_VEC_P and DEF_VEC_ALLOC_P for it.
 	(struct ira_allocno): Remove members min, max,
 	conflict_allocno_array, conflict_id, conflict_allocno_array_size,
 	conflict_allocnos_num and conflict_vec_p.  Add new member object.
@@ -96,9 +436,8 @@
 	(ira_allocno_conflict_iter_init, ira_allocno_conflict_iter_cond):
 	Changed to take into account that conflicts are now tracked for
 	objects.
-	* ira-conflicts.c (OBJECTS_CONFLICT_P): Renamed from
-	CONFLICT_ALLOCNO_P.  Args changed to accept ira_object_t.  All
-	uses changed.
+	* ira-conflicts.c (OBJECTS_CONFLICT_P): Renamed from CONFLICT_ALLOCNO_P.
+	Args changed to accept ira_object_t.  All uses changed.
 	(allocnos_conflict_p): New static function.
 	(collected_conflict_objects): Renamed from collected_allocno_objects;
 	now a vector of ira_object_t.  All uses changed.
@@ -131,7 +470,7 @@
 	compress_conflict_vecs, remove_low_level_allocnos, ira_flattening,
 	setup_min_max_allocno_live_range_point, allocno_range_compare_func,
 	setup_min_max_conflict_allocno_ids, ):  Likewise.
-	((add_to_conflicts): Renamed from add_to_allocno_conflicts, args changed
+	(add_to_conflicts): Renamed from add_to_allocno_conflicts, args changed
 	to ira_object_t; all callers changed.
 	(ira_add_conflict): Renamed from ira_add_allocno_conflict, args changed
 	to ira_object_t, all callers changed.
@@ -150,8 +489,8 @@
 	dealing with objects.
 	* ira.c (ira_bad_reload_regno_1): Adjusted for dealing with objects.
 
-	* ira-int.h (struct live_range): Rename allocno member to object and change
-	type to ira_object_t.
+	* ira-int.h (struct live_range): Rename allocno member to object
+	and change type to ira_object_t.
 	(struct ira_object): New member live_ranges.
 	(struct ira_allocno): Remove member live_ranges.
 	(ALLOCNO_LIVE_RANGES): Remove.
@@ -165,8 +504,8 @@
 	changed to ira_object_t, all callers changed.
 	(copy_live_range): Rename from copy_allocno_live_range, all callers
 	changed.
-	(ira_copy_live_range_list): Rename from ira_copy_allocno_live_range_list,
-	all callers changed.
+	(ira_copy_live_range_list): Rename from
+	ira_copy_allocno_live_range_list, all callers changed.
 	(ira_merge_live_ranges): Rename from ira_merge_allocno_live_range_list,
 	all callers changed.
 	(ira_live_ranges_intersect_p): Rename from
@@ -390,8 +729,7 @@
 	(can_copy_p): Remove can_copy_init_p.
 	* target-globals.h (this_target_gcse): Declare.
 	(target_globals): Add a gcse field.
-	(restore_target_globals): Copy the gcse field to
-	this_target_gcse.
+	(restore_target_globals): Copy the gcse field to this_target_gcse.
 	* target-globals.c: Include gcse.h.
 	(default_target_globals): Initialize the gcse field.
 	(save_target_globals): Likewise.
@@ -647,9 +985,9 @@
 
 2010-07-12  Richard Sandiford  <rdsandiford@googlemail.com>
 
-	* regs.h (target_regs): Add x_hard_regs_of_mode, x_contains_reg_of_mode,
-	x_move_cost, x_may_move_in_cost, x_may_move_out_cost and
-	x_last_mode_for_init_move_cost.
+	* regs.h (target_regs): Add x_hard_regs_of_mode,
+	x_contains_reg_of_mode, x_move_cost, x_may_move_in_cost,
+	x_may_move_out_cost and x_last_mode_for_init_move_cost.
 	(have_regs_of_mode, contains_reg_of_mode, move_cost)
 	(may_move_in_cost, may_move_out_cost): Redefine as macros.
 	* reginfo.c (have_regs_of_mode, contains_reg_of_mode, move_cost)

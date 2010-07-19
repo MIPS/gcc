@@ -4857,7 +4857,7 @@ mips_function_arg (const CUMULATIVE_ARGS *cum, enum machine_mode mode,
       tree field;
 
       /* First check to see if there is any such field.  */
-      for (field = TYPE_FIELDS (type); field; field = TREE_CHAIN (field))
+      for (field = TYPE_FIELDS (type); field; field = DECL_CHAIN (field))
 	if (TREE_CODE (field) == FIELD_DECL
 	    && SCALAR_FLOAT_TYPE_P (TREE_TYPE (field))
 	    && TYPE_PRECISION (TREE_TYPE (field)) == BITS_PER_WORD
@@ -4884,7 +4884,7 @@ mips_function_arg (const CUMULATIVE_ARGS *cum, enum machine_mode mode,
 	    {
 	      rtx reg;
 
-	      for (; field; field = TREE_CHAIN (field))
+	      for (; field; field = DECL_CHAIN (field))
 		if (TREE_CODE (field) == FIELD_DECL
 		    && int_bit_position (field) >= bitpos)
 		  break;
@@ -5122,7 +5122,7 @@ mips_fpr_return_fields (const_tree valtype, tree *fields)
     return 0;
 
   i = 0;
-  for (field = TYPE_FIELDS (valtype); field != 0; field = TREE_CHAIN (field))
+  for (field = TYPE_FIELDS (valtype); field != 0; field = DECL_CHAIN (field))
     {
       if (TREE_CODE (field) != FIELD_DECL)
 	continue;
@@ -5444,11 +5444,11 @@ mips_build_builtin_va_list (void)
       DECL_FIELD_CONTEXT (f_res) = record;
 
       TYPE_FIELDS (record) = f_ovfl;
-      TREE_CHAIN (f_ovfl) = f_gtop;
-      TREE_CHAIN (f_gtop) = f_ftop;
-      TREE_CHAIN (f_ftop) = f_goff;
-      TREE_CHAIN (f_goff) = f_foff;
-      TREE_CHAIN (f_foff) = f_res;
+      DECL_CHAIN (f_ovfl) = f_gtop;
+      DECL_CHAIN (f_gtop) = f_ftop;
+      DECL_CHAIN (f_ftop) = f_goff;
+      DECL_CHAIN (f_goff) = f_foff;
+      DECL_CHAIN (f_foff) = f_res;
 
       layout_type (record);
       return record;
@@ -5483,10 +5483,10 @@ mips_va_start (tree valist, rtx nextarg)
 	= (MAX_ARGS_IN_REGISTERS - cum->num_fprs) * UNITS_PER_FPREG;
 
       f_ovfl = TYPE_FIELDS (va_list_type_node);
-      f_gtop = TREE_CHAIN (f_ovfl);
-      f_ftop = TREE_CHAIN (f_gtop);
-      f_goff = TREE_CHAIN (f_ftop);
-      f_foff = TREE_CHAIN (f_goff);
+      f_gtop = DECL_CHAIN (f_ovfl);
+      f_ftop = DECL_CHAIN (f_gtop);
+      f_goff = DECL_CHAIN (f_ftop);
+      f_foff = DECL_CHAIN (f_goff);
 
       ovfl = build3 (COMPONENT_REF, TREE_TYPE (f_ovfl), valist, f_ovfl,
 		     NULL_TREE);
@@ -5568,10 +5568,10 @@ mips_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
       tree t, u;
 
       f_ovfl = TYPE_FIELDS (va_list_type_node);
-      f_gtop = TREE_CHAIN (f_ovfl);
-      f_ftop = TREE_CHAIN (f_gtop);
-      f_goff = TREE_CHAIN (f_ftop);
-      f_foff = TREE_CHAIN (f_goff);
+      f_gtop = DECL_CHAIN (f_ovfl);
+      f_ftop = DECL_CHAIN (f_gtop);
+      f_goff = DECL_CHAIN (f_ftop);
+      f_foff = DECL_CHAIN (f_goff);
 
       /* Let:
 
@@ -6318,24 +6318,37 @@ mips16_build_call_stub (rtx retval, rtx *fn_ptr, rtx args_size, int fp_code)
 	  switch (GET_MODE (retval))
 	    {
 	    case SCmode:
-	      mips_output_32bit_xfer ('f', GP_RETURN + 1,
-				      FP_REG_FIRST + MAX_FPRS_PER_FMT);
-	      /* Fall though.  */
-	    case SFmode:
-	      mips_output_32bit_xfer ('f', GP_RETURN, FP_REG_FIRST);
+	      mips_output_32bit_xfer ('f', GP_RETURN + TARGET_BIG_ENDIAN,
+				      TARGET_BIG_ENDIAN
+				      ? FP_REG_FIRST + MAX_FPRS_PER_FMT
+				      : FP_REG_FIRST);
+	      mips_output_32bit_xfer ('f', GP_RETURN + TARGET_LITTLE_ENDIAN,
+				      TARGET_LITTLE_ENDIAN
+				      ? FP_REG_FIRST + MAX_FPRS_PER_FMT
+				      : FP_REG_FIRST);
 	      if (GET_MODE (retval) == SCmode && TARGET_64BIT)
 		{
 		  /* On 64-bit targets, complex floats are returned in
 		     a single GPR, such that "sd" on a suitably-aligned
 		     target would store the value correctly.  */
 		  fprintf (asm_out_file, "\tdsll\t%s,%s,32\n",
+			   reg_names[GP_RETURN + TARGET_BIG_ENDIAN],
+			   reg_names[GP_RETURN + TARGET_BIG_ENDIAN]);
+		  fprintf (asm_out_file, "\tdsll\t%s,%s,32\n",
 			   reg_names[GP_RETURN + TARGET_LITTLE_ENDIAN],
 			   reg_names[GP_RETURN + TARGET_LITTLE_ENDIAN]);
+		  fprintf (asm_out_file, "\tdsrl\t%s,%s,32\n",
+			   reg_names[GP_RETURN + TARGET_BIG_ENDIAN],
+			   reg_names[GP_RETURN + TARGET_BIG_ENDIAN]);
 		  fprintf (asm_out_file, "\tor\t%s,%s,%s\n",
 			   reg_names[GP_RETURN],
 			   reg_names[GP_RETURN],
 			   reg_names[GP_RETURN + 1]);
 		}
+	      break;
+
+	    case SFmode:
+	      mips_output_32bit_xfer ('f', GP_RETURN, FP_REG_FIRST);
 	      break;
 
 	    case DCmode:

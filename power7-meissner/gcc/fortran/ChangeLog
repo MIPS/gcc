@@ -1,8 +1,123 @@
+2010-07-19  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/42385
+	* interface.c (matching_typebound_op): Add argument for the
+	return of the generic name for the procedure.
+	(build_compcall_for_operator): Add an argument for the generic
+	name of an operator procedure and supply it to the expression.
+	(gfc_extend_expr, gfc_extend_assign): Use the generic name in
+	calls to the above procedures.
+	* resolve.c (resolve_typebound_function): Catch procedure
+	component calls for CLASS objects, check that the vtable is
+	complete and insert the $vptr and procedure components, to make
+	the call.
+	(resolve_typebound_function): The same.
+	* trans-decl.c (gfc_trans_deferred_vars): Do not deallocate
+	an allocatable scalar if it is a result.
+
+2010-07-19  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/44353
+	* match.c (gfc_match_iterator): Reverted.
+
+2010-07-18  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/44353
+	* match.c (gfc_match_iterator): Remove error that iterator
+	cannot be INTENT(IN).
+
+2010-07-17  Mikael Morin  <mikael@gcc.gnu.org>
+
+	* trans-array.c (gfc_free_ss): Don't free beyond ss rank.
+	Access subscript through the "dim" field index.
+	(gfc_trans_create_temp_array): Access ss info through the "dim" field
+	index.
+	(gfc_conv_array_index_offset): Ditto.
+	(gfc_conv_loop_setup): Ditto.
+	(gfc_conv_expr_descriptor): Ditto.
+	(gfc_conv_ss_startstride): Ditto.  Update call to
+	gfc_conv_section_startstride.
+	(gfc_conv_section_startstride): Set values along the array dimension.
+	Get array dimension directly from the argument.
+
+2010-07-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* trans.h (gfc_string_to_single_character): New prototype.
+	* trans-expr.c (string_to_single_character): Renamed to ...
+	(gfc_string_to_single_character): ... this.  No longer static.
+	(gfc_conv_scalar_char_value, gfc_build_compare_string,
+	gfc_trans_string_copy): Adjust callers.
+	* config-lang.in (gtfiles): Add fortran/trans-stmt.c.
+	* trans-stmt.c: Include ggc.h and gt-fortran-trans-stmt.h.
+	(select_struct): Move to toplevel, add GTY(()).
+	(gfc_trans_character_select): Optimize SELECT CASE
+	with character length 1.
+
+2010-07-15  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* f95-lang.c: Carefully replace TREE_CHAIN with DECL_CHAIN.
+	* trans-common.c: Likewise.
+	* trans-decl.c: Likewise.
+	* trans-types.c: Likewise.
+	* trans.c: Likewise.
+
+2010-07-15  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/44936
+	* resolve.c (resolve_typebound_generic_call): Resolve generic
+	non-polymorphic type-bound procedure calls to the correct specific
+	procedure.
+	(resolve_typebound_subroutine): Remove superfluous code.
+
+2010-07-15  Daniel Kraft  <d@domob.eu>
+
+	PR fortran/44709
+	* trans.h (struct gfc_wrapped_block): New struct.
+	(gfc_start_wrapped_block), (gfc_add_init_cleanup): New methods.
+	(gfc_finish_wrapped_block): New method.
+	(gfc_init_default_dt): Add new init code to block rather than
+	returning it.
+	* trans-array.h (gfc_trans_auto_array_allocation): Use gfc_wrapped_block
+	(gfc_trans_dummy_array_bias): Ditto.
+	(gfc_trans_g77_array): Ditto.
+	(gfc_trans_deferred_array): Ditto.
+	* trans.c (gfc_add_expr_to_block): Call add_expr_to_chain.
+	(add_expr_to_chain): New method based on old gfc_add_expr_to_block.
+	(gfc_start_wrapped_block), (gfc_add_init_cleanup): New methods.
+	(gfc_finish_wrapped_block): New method.
+	* trans-array.c (gfc_trans_auto_array_allocation): use gfc_wrapped_block
+	(gfc_trans_g77_array), (gfc_trans_dummy_array_bias): Ditto.
+	(gfc_trans_deferred_array): Ditto.
+	* trans-decl.c (gfc_trans_dummy_character): Ditto.
+	(gfc_trans_auto_character_variable), (gfc_trans_assign_aux_var): Ditto.
+	(init_intent_out_dt): Ditto.
+	(gfc_init_default_dt): Add new init code to block rather than
+	returning it.
+	(gfc_trans_deferred_vars): Use gfc_wrapped_block to collect all init
+	and cleanup code and put it all together.
+
+2010-07-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* trans.h (gfc_build_compare_string): Add CODE argument.
+	* trans-intrinsic.c (gfc_conv_intrinsic_strcmp): Pass OP to
+	gfc_build_compare_string.
+	* trans-expr.c (gfc_conv_expr_op): Pass CODE to
+	gfc_build_compare_string.
+	(string_to_single_character): Rename len variable to length.
+	(gfc_optimize_len_trim): New function.
+	(gfc_build_compare_string): Add CODE argument.  If it is EQ_EXPR
+	or NE_EXPR and one of the strings is string literal with LEN_TRIM
+	bigger than the length of the other string, they compare unequal.
+
+	PR fortran/40206
+	* trans-stmt.c (gfc_trans_character_select): Always use NULL for high
+	in CASE_LABEL_EXPR and use NULL for low for the default case.
+
 2010-07-14  Mikael Morin  <mikael@gcc.gnu.org>
 
 	* trans-array.c (gfc_conv_section_upper_bound): Remove
 	(gfc_conv_section_startstride): Don't set the upper bound in the 
-	vector subscript case. 
+	vector subscript case.
 	(gfc_conv_loop_setup): Don't use gfc_conv_section_upper_bound
 
 2010-07-14  Janus Weil  <janus@gcc.gnu.org>
@@ -127,11 +242,11 @@
 	* trans-stmt.c (ADD_FIELD): Ditto.
 	* trans-types.c
 	(gfc_get_derived_type): Ditto. Don't create backend_decl for C_PTR's
-	C_ADDRESS field. 
+	C_ADDRESS field.
 	(gfc_add_field_to_struct_1): Set TYPE_FIELDS(context) instead of
 	fieldlist, remove fieldlist from argument list.
 	(gfc_add_field_to_struct): Update call to gfc_add_field_to_struct_1
-	and remove fieldlist from argument list. 
+	and remove fieldlist from argument list.
 	(gfc_get_desc_dim_type, gfc_get_array_descriptor_base,
 	gfc_get_mixed_entry_union): Move setting
 	TYPE_FIELDS to gfc_add_field_to_struct_1 and update calls to it.

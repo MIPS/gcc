@@ -1120,6 +1120,11 @@ emit_block_move_hints (rtx x, rtx y, rtx size, enum block_op_methods method,
   rtx retval = 0;
   unsigned int align;
 
+  gcc_assert (size);
+  if (CONST_INT_P (size)
+      && INTVAL (size) == 0)
+    return 0;
+
   switch (method)
     {
     case BLOCK_OP_NORMAL:
@@ -1143,12 +1148,9 @@ emit_block_move_hints (rtx x, rtx y, rtx size, enum block_op_methods method,
       gcc_unreachable ();
     }
 
+  gcc_assert (MEM_P (x) && MEM_P (y));
   align = MIN (MEM_ALIGN (x), MEM_ALIGN (y));
   gcc_assert (align >= BITS_PER_UNIT);
-
-  gcc_assert (MEM_P (x));
-  gcc_assert (MEM_P (y));
-  gcc_assert (size);
 
   /* Make sure we've got BLKmode addresses; store_one_arg can decide that
      block copy is more efficient for other large modes, e.g. DCmode.  */
@@ -1159,9 +1161,6 @@ emit_block_move_hints (rtx x, rtx y, rtx size, enum block_op_methods method,
      can be incorrect is coming from __builtin_memcpy.  */
   if (CONST_INT_P (size))
     {
-      if (INTVAL (size) == 0)
-	return 0;
-
       x = shallow_copy_rtx (x);
       y = shallow_copy_rtx (y);
       set_mem_size (x, size);
@@ -5054,7 +5053,7 @@ count_type_elements (const_tree type, bool allow_flexarr)
 	HOST_WIDE_INT n = 0, t;
 	tree f;
 
-	for (f = TYPE_FIELDS (type); f ; f = TREE_CHAIN (f))
+	for (f = TYPE_FIELDS (type); f ; f = DECL_CHAIN (f))
 	  if (TREE_CODE (f) == FIELD_DECL)
 	    {
 	      t = count_type_elements (TREE_TYPE (f), false);
@@ -5063,7 +5062,7 @@ count_type_elements (const_tree type, bool allow_flexarr)
 		  /* Check for structures with flexible array member.  */
 		  tree tf = TREE_TYPE (f);
 		  if (allow_flexarr
-		      && TREE_CHAIN (f) == NULL
+		      && DECL_CHAIN (f) == NULL
 		      && TREE_CODE (tf) == ARRAY_TYPE
 		      && TYPE_DOMAIN (tf)
 		      && TYPE_MIN_VALUE (TYPE_DOMAIN (tf))

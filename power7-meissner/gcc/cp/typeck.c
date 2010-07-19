@@ -1503,6 +1503,18 @@ comptypes (tree t1, tree t2, int strict)
     return structural_comptypes (t1, t2, strict);
 }
 
+/* Returns nonzero iff TYPE1 and TYPE2 are the same type, ignoring
+   top-level qualifiers.  */
+
+bool
+same_type_ignoring_top_level_qualifiers_p (tree type1, tree type2)
+{
+  if (type1 == error_mark_node || type2 == error_mark_node)
+    return false;
+
+  return same_type_p (TYPE_MAIN_VARIANT (type1), TYPE_MAIN_VARIANT (type2));
+}
+
 /* Returns 1 if TYPE1 is at least as qualified as TYPE2.  */
 
 bool
@@ -2136,7 +2148,7 @@ lookup_anon_field (tree t, tree type)
 {
   tree field;
 
-  for (field = TYPE_FIELDS (t); field; field = TREE_CHAIN (field))
+  for (field = TYPE_FIELDS (t); field; field = DECL_CHAIN (field))
     {
       if (TREE_STATIC (field))
 	continue;
@@ -5490,14 +5502,16 @@ build_x_conditional_expr (tree ifexp, tree op1, tree op2,
    that performs them all and returns the value of the last of them.  */
 
 tree
-build_x_compound_expr_from_list (tree list, expr_list_kind exp)
+build_x_compound_expr_from_list (tree list, expr_list_kind exp,
+				 tsubst_flags_t complain)
 {
   tree expr = TREE_VALUE (list);
 
   if (TREE_CHAIN (list))
     {
-      switch (exp)
-	{
+      if (complain & tf_error)
+	switch (exp)
+	  {
 	  case ELK_INIT:
 	    permerror (input_location, "expression list treated as compound "
 				       "expression in initializer");
@@ -5512,11 +5526,11 @@ build_x_compound_expr_from_list (tree list, expr_list_kind exp)
 	    break;
 	  default:
 	    gcc_unreachable ();
-	}
+	  }
 
       for (list = TREE_CHAIN (list); list; list = TREE_CHAIN (list))
 	expr = build_x_compound_expr (expr, TREE_VALUE (list), 
-                                      tf_warning_or_error);
+                                      complain);
     }
 
   return expr;
@@ -6988,7 +7002,7 @@ build_ptrmemfunc1 (tree type, tree delta, tree pfn)
 
   /* Pull the FIELD_DECLs out of the type.  */
   pfn_field = TYPE_FIELDS (type);
-  delta_field = TREE_CHAIN (pfn_field);
+  delta_field = DECL_CHAIN (pfn_field);
 
   /* Make sure DELTA has the type we want.  */
   delta = convert_and_check (delta_type_node, delta);

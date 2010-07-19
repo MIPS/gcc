@@ -1,3 +1,78 @@
+2010-07-19  Jason Merrill  <jason@redhat.com>
+
+	PR c++/44969
+	* tree.c (cp_tree_equal): Compare type of *CAST_EXPR.
+	* pt.c (iterative_hash_template_arg): Hash type of *CAST_EXPR.
+
+2010-07-19  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/44969
+	* typeck.c (build_x_compound_expr_from_list): Add tsubst_flags_t
+	parameter.
+	* cp-tree.h: Adjust declaration.
+	* init.c (perform_member_init): Adjust caller.
+	* decl.c (grok_reference_init, cp_finish_decl): Likewise.
+	* typeck2.c (store_init_value): Likewise.
+	(build_functional_cast): Pass complain argument to
+	build_x_compound_expr_from_list.
+
+2010-07-16  Jason Merrill  <jason@redhat.com>
+
+	PR c++/32505
+	* pt.c (process_partial_specialization): Diagnose partial
+	specialization after instantiation.
+	(most_specialized_class): Add complain parm.
+
+	* ptree.c (cxx_print_xnode): Handle TEMPLATE_INFO.
+
+2010-07-15  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* init.c (build_new_1): Use cp_build_function_call_nary instead of
+	cp_build_function_call.
+
+2010-07-15  Jason Merrill  <jason@redhat.com>
+
+	PR c++/44909
+	* call.c (add_function_candidate): If we're working on an implicit
+	declaration, don't consider candidates that won't match.
+	* typeck.c (same_type_ignoring_top_level_qualifiers_p): Now a fn.
+	* cp-tree.h (same_type_ignoring_top_level_qualifiers_p): Adjust.
+
+	Revert:
+	* cp-tree.h (struct lang_type_class): Add has_user_opeq.
+	(TYPE_HAS_USER_OPEQ): New.
+	* decl.c (grok_special_member_properties): Set it.
+	* class.c (add_implicitly_declared_members): Don't lazily declare
+	constructors/operator= if a base or member has a user-declared one.
+	(check_bases_and_members, check_bases): Adjust.
+	(check_field_decls, check_field_decl): Adjust.
+
+2010-07-15  Anatoly Sokolov  <aesok@post.ru>
+
+	* decl.c (integer_three_node): Remove.
+	(cxx_init_decl_processing): Do not initialize the integer_three_node.
+	* cp-tree.h (integer_three_node): Remove.
+
+2010-07-15  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* cp-tree.h: Carefully replace TREE_CHAIN with DECL_CHAIN.
+	* call.c: Likewise.
+	* class.c: Likewise.
+	* cp-gimplify.c: Likewise.
+	* decl.c: Likewise.
+	* decl2.c: Likewise.
+	* init.c: Likewise.
+	* mangle.c: Likewise.
+	* name-lookup.c: Likewise.
+	* optimize.c: Likewise.
+	* parser.c: Likewise.
+	* pt.c: Likewise.
+	* rtti.c: Likewise.
+	* search.c: Likewise.
+	* semantics.c: Likewise.
+	* typeck.c: Likewise.
+	* typeck2.c: Likewise.
+
 2010-07-14  Jason Merrill  <jason@redhat.com>
 
 	* init.c (sort_mem_initializers): Rename "field_type" to "ctx".
