@@ -855,11 +855,10 @@
 ;; Copy sign
 (define_insn "vsx_copysign<mode>3"
   [(set (match_operand:VSX_B 0 "vsx_register_operand" "=<VSr>,?wa")
-	(if_then_else:VSX_B
-	 (ge:VSX_B (match_operand:VSX_B 2 "vsx_register_operand" "<VSr>,wa")
-		   (match_operand:VSX_B 3 "zero_constant" "j,j"))
-	 (abs:VSX_B (match_operand:VSX_B 1 "vsx_register_operand" "<VSr>,wa"))
-	 (neg:VSX_B (abs:VSX_B (match_dup 1)))))]
+	(unspec:VSX_B
+	 [(match_operand:VSX_B 1 "vsx_register_operand" "<VSr>,wa")
+	  (match_operand:VSX_B 2 "vsx_register_operand" "<VSr>,wa")]
+	 UNSPEC_COPYSIGN))]
   "VECTOR_UNIT_VSX_P (<MODE>mode)"
   "x<VSv>cpsgn<VSs> %x0,%x2,%x1"
   [(set_attr "type" "<VStype_simple>")
@@ -877,12 +876,9 @@
   [(set_attr "type" "<VStype_simple>")
    (set_attr "fp_type" "<VSfptype_simple>")])
 
-;; For scalar converts, follow the pattern in rs6000.md and allowing operand1
-;; to be in memory so the optimizer/register allocator will not to load the
-;; value into a GPR and then have to spill it to memory.
 (define_insn "*vsx_floatsidf2"
   [(set (match_operand:DF 0 "vsx_register_operand" "=ws,?wa")
-	(float:DF (match_operand:DI 1 "nonimmediate_operand" "ws,wa")))]
+	(float:DF (match_operand:DI 1 "vsx_register_operand" "d,d")))]
   "VECTOR_UNIT_VSX_P (DFmode)"
   "xscvsxddp %x0,%x1"
   [(set_attr "type" "fp")
@@ -898,7 +894,8 @@
 
 (define_insn "vsx_floatuns<VSi><mode>2"
   [(set (match_operand:VSX_F 0 "vsx_register_operand" "=<VSr>,?wa")
-	(unsigned_float:VSX_F (match_operand:<VSI> 1 "vsx_register_operand" "<VSr2>,<VSr3>")))]
+	(unsigned_float:VSX_F
+	 (match_operand:<VSI> 1 "vsx_register_operand" "<VSr2>,<VSr3>")))]
   "VECTOR_UNIT_VSX_P (<MODE>mode)"
   "x<VSv>cvux<VSc><VSs> %x0,%x1"
   [(set_attr "type" "<VStype_simple>")
@@ -906,7 +903,7 @@
 
 (define_insn "*vsx_floatunssidf2"
   [(set (match_operand:DF 0 "vsx_register_operand" "=ws,?wa")
-	(unsigned_float:DF (match_operand:DI 1 "nonimmediate_operand" "d,d")))]
+	(unsigned_float:DF (match_operand:DI 1 "vsx_register_operand" "d,d")))]
   "VECTOR_UNIT_VSX_P (DFmode)"
   "xscvuxddp %x0,%x1"
   [(set_attr "type" "fp")

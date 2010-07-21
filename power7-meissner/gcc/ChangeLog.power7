@@ -1,3 +1,59 @@
+2010-07-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vector.md (vector_copysign<mode>3): Use UNSPEC
+	instead of doing the RTL to avoid -0 problems.
+	* config/rs6000/vsx.md (vsx_copysign<mode>3): Ditto.
+	* config/rs6000/rs6000.md (copysign<mode>3_fcpsgn): Ditto.
+
+	* config/rs6000/rs6000-protos.h (rs6000_address_for_fpconvert):
+	Rename from rs6000_make_indexed_or_indirect_address.
+	(rs6000_allocate_stack_temp): New declaration.
+
+	* config/rs6000/rs6000.c (rs6000_address_for_fpconvert):
+	Rename from rs6000_make_indexed_or_indirect_address.  On 32-bit,
+	don't allow REG+REG addresses for 64-bit memory.  Use
+	rs6000_allocate_stack_temp to return a stack temp that is either
+	offettable or setup for REG+REG addressing.
+	(rs6000_allocate_stack_temp): Ditto.
+	(rs6000_expand_convert_si_to_sfdf): Use
+	rs6000_address_for_fpconvert and rs6000_allocate_stack_temp as
+	appropriate.
+	* config/rs6000/rs6000.md (floatsi<mode>2_lfiwax): Ditto.
+	(floatunssi<mode>2_lfiwzx): Ditto.
+	(fix_trunc<mode>si2): Ditto.
+	(fixuns_trunc<mode>si2): Ditto.
+
+	* config/rs6000/vsx.md (vsx_floatsidf2): Go back to requiring
+	input to be in a register.
+	(vsx_floatunssidf2): Ditto.
+	(<vsx_floatuns<VSi><mode>2): Reformat a long line.
+
+	* config/rs6000/rs6000.md (UNSPEC_COPYSIGN): New unspec #.
+	(floatsidf2): Make scratch stack address offsetable.
+	(fix_truncdfdi2): Convert to define_expand to allow for VSX
+	support.
+	(fix_truncdfdi2_fpr): Non-VSX insn for fix_truncdfdi2.
+	(floatdidf2): Go back to requiring input be in a register.
+	(floatdidf2_fcfid): Ditto.
+	(floatunsdidf2): Ditto.
+	(floatunsdidf2_fdfidu): Ditto.
+	(floatdisf2): Ditto.
+	(floatdisf2_fcfids): Ditto.
+	(floatunsdisf2): Ditto.
+	(floatunsdisf2_fcfidus): Ditto.
+	(floatdidf2_mem): New combiner pattern to merge load and convert
+	to reduce the number of store-load hits caused by loading the
+	value into a GPR, then storing it on the stack, and reloading it.
+	(floatunsdidf2_mem): Ditto.
+	(floatdisf2_mem): Ditto.
+	(floatunsdisf2_mem): Ditto.
+	(floatunsdidf2_fcfidu): Rename from floatunsdidf2_fdfidu.
+	(fix_trunc<mode>si2_stfiwx2): Remove gen_ function.  Turn into
+	combiner pattern.
+	(fixuns_trunc<mode>si2_stfiwx2): Ditto.
+	(fix_trunc<mode>si2): Go back to taking a register as input.
+	(fixuns_trunc<mode>si2): Ditto.
+
 2010-07-19  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to version 162317.

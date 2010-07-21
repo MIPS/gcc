@@ -6774,25 +6774,6 @@ rs6000_emit_set_long_const (rtx dest, HOST_WIDE_INT c1, HOST_WIDE_INT c2)
   return dest;
 }
 
-/* Given a memory reference, if it is not a reg or reg+reg addressing, convert
-   to such a form to deal with memory reference instructions like STFIWX that
-   only take reg+reg addressing.  */
-
-extern rtx
-rs6000_make_indexed_or_indirect_address (rtx x)
-{
-  int strict = (reload_in_progress || reload_completed);
-  rtx addr;
-
-  gcc_assert (MEM_P (x));
-  addr = XEXP (x, 0);
-  if (! legitimate_indexed_address_p (addr, strict)
-      && ! legitimate_indirect_address_p (addr, strict))
-    x = replace_equiv_address (x, copy_addr_to_reg (addr));
-
-  return x;
-}
-
 /* Helper for the following.  Get rid of [r+r] memory refs
    in cases where it won't work (TImode, TFmode, TDmode).  */
 
@@ -26513,6 +26494,50 @@ rs6000_final_prescan_insn (rtx insn, rtx *operand ATTRIBUTE_UNUSED,
 }
 
 
+/* Allocate a stack temp and fixup the address so it meets the particular
+   memory requirements (either offetable or REG+REG addressing).  */
+
+rtx
+rs6000_allocate_stack_temp (enum machine_mode mode,
+			    bool offsettable_p,
+			    bool reg_reg_p)
+{
+  rtx stack = assign_stack_temp (mode, GET_MODE_SIZE (mode), 0);
+  rtx addr = XEXP (stack, 0);
+  int strict_p = (reload_in_progress || reload_completed);
+
+  if (!legitimate_indirect_address_p (addr, strict_p))
+    {
+      if (offsettable_p
+	  && !rs6000_legitimate_offset_address_p (mode, addr, strict_p))
+	stack = replace_equiv_address (stack, copy_addr_to_reg (addr));
+
+      else if (reg_reg_p && !legitimate_indexed_address_p (addr, strict_p))
+	stack = replace_equiv_address (stack, copy_addr_to_reg (addr));
+    }
+
+  return stack;
+}
+
+/* Given a memory reference, if it is not a reg or reg+reg addressing, convert
+   to such a form to deal with memory reference instructions like STFIWX that
+   only take reg+reg addressing.  */
+
+rtx
+rs6000_address_for_fpconvert (rtx x)
+{
+  int strict_p = (reload_in_progress || reload_completed);
+  rtx addr;
+
+  gcc_assert (MEM_P (x));
+  addr = XEXP (x, 0);
+  if (! legitimate_indirect_address_p (addr, strict_p)
+      && ! legitimate_indexed_address_p (addr, strict_p))
+    x = replace_equiv_address (x, copy_addr_to_reg (addr));
+
+  return x;
+}
+
 /* Expand 32-bit int -> floating point conversions.  Return true if
    successful.  */
 
@@ -26569,14 +26594,13 @@ rs6000_expand_convert_si_to_sfdf (rtx dest, rtx src, bool unsigned_p)
   if (MEM_P (src))
     {
       reg = gen_reg_rtx (DImode);
-      src = rs6000_make_indexed_or_indirect_address (src);
+      src = rs6000_address_for_fpconvert (src);
       emit_insn (func_si2 (dest, src, reg));
     }
   else if (!TARGET_MFPGPR || !TARGET_POWERPC64)
     {
       reg = gen_reg_rtx (DImode);
-      stack = assign_stack_temp (SImode, GET_MODE_SIZE (SImode), 0);
-      stack = rs6000_make_indexed_or_indirect_address (stack);
+      stack = rs6000_allocate_stack_temp (SImode, false, true);
       emit_insn (func_si (dest, src, reg, stack));
     }
   else
