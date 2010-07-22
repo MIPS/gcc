@@ -1,3 +1,16 @@
+2010-07-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/guality/asm-1.c: New test.
+
+	PR debug/45003
+	* gcc.dg/guality/pr45003-2.c: New test.
+	* gcc.dg/guality/pr45003-3.c: New test.
+
+2010-07-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/45003
+	* gcc.dg/guality/pr45003-1.c: New test.
+
 2010-07-14  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
 
 	Backport from mainline:

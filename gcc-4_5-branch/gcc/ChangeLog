@@ -1,3 +1,27 @@
+2010-07-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/45003
+	* var-tracking.c (reverse_op): Also handle {SIGN,ZERO}_EXTEND of
+	a MEM.
+	* dwarf2out.c (loc_descriptor): Don't handle SIGN_EXTEND nor
+	ZERO_EXTEND here.
+
+2010-07-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/45006
+	* cfgexpand.c (expand_debug_expr): Only look at TYPE_UNSIGNED of
+	operand's type if exp is tcc_unary class tree.
+
+2010-07-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* var-tracking.c (vt_expand_loc, vt_expand_loc_dummy): Bump maximum
+	depth to 8 from 5.
+
+	PR debug/45003
+	* cfgexpand.c (expand_debug_expr) <case NOP_EXPR>: Use ZERO_EXTEND
+	or SIGN_EXTEND depending on TYPE_UNSIGNED of the operand's type
+	instead of the result's type.
+
 2010-07-15  Jie Zhang  <jie@codesourcery.com>
 
 	* config/arm/cortex-a8.md (cortex_a8_load_store_2): Reserve
