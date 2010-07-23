@@ -1,3 +1,38 @@
+2010-07-21  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/44929
+	* Revert my commit r162326 for this PR.
+
+2010-07-19  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/44929
+	* fortran/match.c (match_type_spec): Check for derived type before
+	intrinsic types.
+
+2010-07-18  Daniel Franke  <franke.daniel@gmail.com>
+	    Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/30668
+	PR fortran/31346
+	PR fortran/34260
+        * resolve.c (resolve_global_procedure): Improved checking if an
+        explicit interface is required.
+
+	PR fortran/40011
+	* resolve.c (resolve_global_procedure): Resolve the gsymbol's
+	namespace before trying to reorder the gsymbols.
+
+2010-07-11  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/44773
+	* trans-expr.c (arrayfunc_assign_needs_temporary): No temporary
+	if the lhs has never been host associated, as well as not being
+	use associated, a pointer or a target.
+	* resolve.c (resolve_variable): Mark variables that are host
+	associated.
+	* gfortran.h: Add the host_assoc bit to the symbol_attribute
+	structure.
+
 2010-07-08  Jakub Jelinek  <jakub@redhat.com>
 
 	PR fortran/44847
