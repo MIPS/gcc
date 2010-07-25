@@ -1,5 +1,46 @@
 2010-07-22  Jakub Jelinek  <jakub@redhat.com>
 
+	Backport from mainline
+	2010-07-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/44942
+	* config/i386/i386-protos.h (ix86_function_arg_boundary): Change second
+	argument to const_tree.
+	* config/i386/i386.c (function_arg_advance): If padding needs to be
+	inserted before argument, increment cum->words by number of padding
+	words as well.
+	(contains_aligned_value_p): Change argument to const_tree.
+	(ix86_function_arg_boundary): Change second argument to const_tree.
+
+2010-07-21  Steve Ellcey  <sje@cup.hp.com>
+
+	Backport from mainline:
+	PR target/42869
+	* config/ia64/sync.md (sync_compare_and_swap): Move memory fence.
+
+2010-07-15  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2010-07-12  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* config/i386/i386.c (ix86_sol10_return_in_memory): Rename to
+	ix86_solaris_return_in_memory.
+	* config/i386-protos.h: Reflect this.
+	* config/i386/vx-common.h (SUBTARGET_RETURN_IN_MEMORY): Likewise.
+	* config/i386/sol2-10.h (SUBTARGET_RETURN_IN_MEMORY): Likewise.
+	Move ...
+	* config/i386/sol2.h (SUBTARGET_RETURN_IN_MEMORY): ... here.
+
+2010-07-15  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2010-07-12  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* doc/install.texi (Specific, i?86-*-solaris2.[89]): Recommend GNU as.
+	Document SSE/SSE2 support.
+
+2010-07-22  Jakub Jelinek  <jakub@redhat.com>
+
 	PR bootstrap/45028
 	* regrename.c (copyprop_hardreg_forward_1): If changed is true,
 	call cprop_find_used_regs again via note_uses.
