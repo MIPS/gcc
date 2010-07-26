@@ -772,6 +772,7 @@ See RS/6000 and PowerPC Options.
 -mcall-sysv  -mcall-netbsd @gol
 -maix-struct-return  -msvr4-struct-return @gol
 -mabi=@var{abi-type} -msecure-plt -mbss-plt @gol
+-mblock-move-inline-limit=@var{num} @gol
 -misel -mno-isel @gol
 -misel=yes  -misel=no @gol
 -mspe -mno-spe @gol
@@ -868,6 +869,8 @@ See RS/6000 and PowerPC Options.
 -mtda=@var{n}  -msda=@var{n}  -mzda=@var{n} @gol
 -mapp-regs  -mno-app-regs @gol
 -mdisable-callt  -mno-disable-callt @gol
+-mv850e2v3 @gol
+-mv850e2 @gol
 -mv850e1 @gol
 -mv850e @gol
 -mv850  -mbig-switch}
@@ -15627,6 +15630,13 @@ On embedded PowerPC systems, put all initialized global and static data
 in the @samp{.data} section, and all uninitialized data in the
 @samp{.bss} section.
 
+@item -mblock-move-inline-limit=@var{num}
+@opindex mblock-move-inline-limit
+Inline all block moves (such as calls to @code{memcpy} or structure
+copies) less than or equal to @var{num} bytes.  The minimum value for
+@var{num} is 32 bytes on 32-bit targets and 64 bytes on 64-bit
+targets.  The default value is target-specific.
+
 @item -G @var{num}
 @opindex G
 @cindex smaller data references (PowerPC)
@@ -16956,11 +16966,21 @@ the compiler.  This setting is the default.
 @opindex mno-app-regs
 This option will cause r2 and r5 to be treated as fixed registers.
 
+@item -mv850e2v3
+@opindex mv850e2v3
+Specify that the target processor is the V850E2V3.  The preprocessor
+constants @samp{__v850e2v3__} will be defined if
+this option is used.
+
+@item -mv850e2
+@opindex mv850e2
+Specify that the target processor is the V850E2.  The preprocessor
+constants @samp{__v850e2__} will be defined if
+
 @item -mv850e1
 @opindex mv850e1
 Specify that the target processor is the V850E1.  The preprocessor
 constants @samp{__v850e1__} and @samp{__v850e__} will be defined if
-this option is used.
 
 @item -mv850e
 @opindex mv850e
@@ -16968,6 +16988,7 @@ Specify that the target processor is the V850E@.  The preprocessor
 constant @samp{__v850e__} will be defined if this option is used.
 
 If neither @option{-mv850} nor @option{-mv850e} nor @option{-mv850e1}
+nor @option{-mv850e2} nor @option{-mv850e2v3}
 are defined then a default target processor will be chosen and the
 relevant @samp{__v850*__} preprocessor constant will be defined.
 
@@ -16977,7 +16998,7 @@ defined, regardless of which processor variant is the target.
 @item -mdisable-callt
 @opindex mdisable-callt
 This option will suppress generation of the CALLT instruction for the
-v850e and v850e1 flavors of the v850 architecture.  The default is
+v850e, v850e1, v850e2 and v850e2v3 flavors of the v850 architecture.  The default is
 @option{-mno-disable-callt} which allows the CALLT instruction to be used.
 
 @end table
