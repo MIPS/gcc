@@ -26,7 +26,9 @@
 
    Contact information at STMicroelectronics:
      Andrea C. Ornstein <andrea.ornstein@st.com>
-     Erven Rohou        <erven.rohou@st.com>
+
+   Contact information at INRIA:
+     Erven Rohou        <erven.rohou@inria.fr>
 */
 
 #ifndef GCC_CIL_STACK_H
@@ -54,6 +56,19 @@ typedef enum
     CIL_STYPE_VECTOR8US,
     CIL_STYPE_VECTOR16SB,
     CIL_STYPE_VECTOR16B,
+
+    /* For generic vector widths */
+    CIL_STYPE_VECTORxD,
+    CIL_STYPE_VECTORxF,
+    CIL_STYPE_VECTORxL,
+    CIL_STYPE_VECTORxUL,
+    CIL_STYPE_VECTORxI,
+    CIL_STYPE_VECTORxUI,
+    CIL_STYPE_VECTORxS,
+    CIL_STYPE_VECTORxUS,
+    CIL_STYPE_VECTORxSB,
+    CIL_STYPE_VECTORxB,
+
     CIL_STYPE_ERROR   /* CIL_STACK_TYPE_ERROR           */
   }
 CilStackType;

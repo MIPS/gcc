@@ -1,6 +1,6 @@
 /* CIL evaluation stack
 
-   Copyright (C) 2006 Free Software Foundation, Inc.
+   Copyright (C) 2006,2010 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the
@@ -27,7 +27,9 @@
 
    Contact information at STMicroelectronics:
      Andrea C. Ornstein <andrea.ornstein@st.com>
-     Erven Rohou        <erven.rohou@st.com>
+
+   Contact information at INRIA:
+     Erven Rohou        <erven.rohou@inria.fr>
 */
 
 #include "config.h"
@@ -229,25 +231,47 @@ cil_stack_get_tree_type_for_cil_stack_type (CilStackType ct)
     case CIL_STYPE_MP:
       return build_pointer_type (void_type_node);
     case CIL_STYPE_VECTOR2D:
-      return build_vector_type( double_type_node  ,2);
+      return build_vector_type (double_type_node, 2);
     case CIL_STYPE_VECTOR4F:
-      return build_vector_type( float_type_node ,4);
+      return build_vector_type (float_type_node, 4);
     case CIL_STYPE_VECTOR2L:
-      return build_vector_type( long_integer_type_node, 2);
+      return build_vector_type (long_integer_type_node, 2);
     case CIL_STYPE_VECTOR2UL:
-      return build_vector_type( long_unsigned_type_node, 2);
+      return build_vector_type (long_unsigned_type_node, 2);
     case CIL_STYPE_VECTOR4I:
-      return build_vector_type( integer_type_node, 4);
+      return build_vector_type (integer_type_node, 4);
     case CIL_STYPE_VECTOR4UI:
-      return build_vector_type( unsigned_type_node, 4);
+      return build_vector_type (unsigned_type_node, 4);
     case CIL_STYPE_VECTOR8S:
-      return build_vector_type( short_integer_type_node, 8);
+      return build_vector_type (short_integer_type_node, 8);
     case CIL_STYPE_VECTOR8US:
-      return build_vector_type( short_unsigned_type_node, 8);
+      return build_vector_type (short_unsigned_type_node, 8);
     case CIL_STYPE_VECTOR16SB:
       return build_vector_type (intQI_type_node, 16);
     case CIL_STYPE_VECTOR16B:
-      return build_vector_type( unsigned_intQI_type_node, 16);
+      return build_vector_type (unsigned_intQI_type_node, 16);
+
+    case CIL_STYPE_VECTORxD:
+      return build_vector_type (double_type_node, simd_width / 8);
+    case CIL_STYPE_VECTORxF:
+      return build_vector_type (float_type_node, simd_width / 4);
+    case CIL_STYPE_VECTORxL:
+      return build_vector_type (long_integer_type_node, simd_width / 8);
+    case CIL_STYPE_VECTORxUL:
+      return build_vector_type (long_unsigned_type_node, simd_width / 8);
+    case CIL_STYPE_VECTORxI:
+      return build_vector_type (integer_type_node, simd_width / 4);
+    case CIL_STYPE_VECTORxUI:
+      return build_vector_type (unsigned_type_node, simd_width / 4);
+    case CIL_STYPE_VECTORxS:
+      return build_vector_type (short_integer_type_node, simd_width / 2);
+    case CIL_STYPE_VECTORxUS:
+      return build_vector_type (short_unsigned_type_node, simd_width / 2);
+    case CIL_STYPE_VECTORxSB:
+      return build_vector_type (intQI_type_node, simd_width);
+    case CIL_STYPE_VECTORxB:
+      return build_vector_type (unsigned_intQI_type_node, simd_width);
+
     case CIL_STYPE_OBJECT:
       gcc_unreachable (); /* TODO */
     case CIL_STYPE_ERROR:
@@ -290,6 +314,37 @@ build_cil_stack_cst (CilStackType ct, int x)
   case CIL_STYPE_VECTOR16B:
     gcc_unreachable ();
     return unsigned_intQI_type_node;
+
+  case CIL_STYPE_VECTORxD:
+    gcc_unreachable ();
+    return double_type_node;
+  case CIL_STYPE_VECTORxF:
+    gcc_unreachable ();
+    return float_type_node;
+  case CIL_STYPE_VECTORxL:
+    gcc_unreachable ();
+    return long_integer_type_node;
+  case CIL_STYPE_VECTORxUL:
+    gcc_unreachable ();
+    return long_unsigned_type_node;
+  case CIL_STYPE_VECTORxI:
+    return build_int_cst(integer_type_node,x);
+  case CIL_STYPE_VECTORxUI:
+    gcc_unreachable ();
+    return unsigned_type_node;
+  case CIL_STYPE_VECTORxS:
+    gcc_unreachable ();
+    return build_int_cst(short_integer_type_node,x);
+  case CIL_STYPE_VECTORxUS:
+    gcc_unreachable ();
+    return short_unsigned_type_node;
+  case CIL_STYPE_VECTORxSB:
+    return build_int_cst(intQI_type_node,x);
+  case CIL_STYPE_VECTORxB:
+    gcc_unreachable ();
+
+    return unsigned_intQI_type_node;
+
   default:
     gcc_unreachable ();
     return NULL;
@@ -321,6 +376,28 @@ cil_stack_type_to_nuints (CilStackType ct)
       return 16;
     case CIL_STYPE_VECTOR16B:
       return 16;
+
+    case CIL_STYPE_VECTORxD:
+      return simd_width / 8;
+    case CIL_STYPE_VECTORxF:
+      return simd_width / 4;
+    case CIL_STYPE_VECTORxL:
+      return simd_width / 8;
+    case CIL_STYPE_VECTORxUL:
+      return simd_width / 8;
+    case CIL_STYPE_VECTORxI:
+      return simd_width / 4;
+    case CIL_STYPE_VECTORxUI:
+      return simd_width / 4;
+    case CIL_STYPE_VECTORxS:
+      return simd_width / 2;
+    case CIL_STYPE_VECTORxUS:
+      return simd_width / 2;
+    case CIL_STYPE_VECTORxSB:
+      return simd_width;
+    case CIL_STYPE_VECTORxB:
+      return simd_width;
+
     case CIL_STYPE_INT32:
     case CIL_STYPE_INT64:
     case CIL_STYPE_NINT:
@@ -339,31 +416,55 @@ cil_stack_type_to_nuints (CilStackType ct)
 CilStackType
 get_cil_stack_type_for_mono_simd_class (const char * called_klass_name)
 {
-  if(strcmp(called_klass_name,"Vector2d")==0){
+  /* printf("get_cil_stack_type_for_mono_simd_class(%s)\n", called_klass_name); */
+  if (strcmp (called_klass_name,"Vector2d")==0)
     return CIL_STYPE_VECTOR2D;
-  }else if(strcmp(called_klass_name,"Vector4f")==0){
+  else if (strcmp (called_klass_name,"Vector4f")==0)
     return CIL_STYPE_VECTOR4F;
-  }else if(strcmp(called_klass_name,"Vector2l")==0){
+  else if (strcmp (called_klass_name,"Vector2l")==0)
     return CIL_STYPE_VECTOR2L;
-  }else if(strcmp(called_klass_name,"Vector2ul")==0){
+  else if (strcmp (called_klass_name,"Vector2ul")==0)
     return CIL_STYPE_VECTOR2UL;
-  }else if(strcmp(called_klass_name,"Vector4i")==0){
+  else if (strcmp (called_klass_name,"Vector4i")==0)
     return CIL_STYPE_VECTOR4I;
-  }else if(strcmp(called_klass_name,"Vector4ui")==0){
+  else if (strcmp (called_klass_name,"Vector4ui")==0)
     return CIL_STYPE_VECTOR4UI;
-  }else if(strcmp(called_klass_name,"Vector8s")==0){
+  else if (strcmp (called_klass_name,"Vector8s")==0)
     return CIL_STYPE_VECTOR8S;
-  }else if(strcmp(called_klass_name,"Vector8us")==0){
+  else if (strcmp (called_klass_name,"Vector8us")==0)
     return CIL_STYPE_VECTOR8US;
-  }else if(strcmp(called_klass_name,"Vector16sb")==0){
+  else if (strcmp (called_klass_name,"Vector16sb")==0)
     return CIL_STYPE_VECTOR16SB;
-  }else if(strcmp(called_klass_name,"Vector16b")==0){
+  else if (strcmp (called_klass_name,"Vector16b")==0)
     return CIL_STYPE_VECTOR16B;
-  }else{
-    error("no stack type for vector %s",called_klass_name);
-    gcc_unreachable ();
-    return CIL_STYPE_ERROR;
-  }
+
+  if (strcmp (called_klass_name,"VecGenDF")==0)
+    return CIL_STYPE_VECTORxD;
+  else if (strcmp (called_klass_name,"VecGenSF")==0)
+    return CIL_STYPE_VECTORxF;
+  else if (strcmp (called_klass_name,"VecGenDI")==0)
+    return CIL_STYPE_VECTORxL;
+  else if (strcmp (called_klass_name,"VecGenUDI")==0)
+    return CIL_STYPE_VECTORxUL;
+  else if (strcmp (called_klass_name,"VecGenSI")==0)
+    return CIL_STYPE_VECTORxI;
+  else if (strcmp (called_klass_name,"VecGenUSI")==0)
+    return CIL_STYPE_VECTORxUI;
+  else if (strcmp (called_klass_name,"VecGenHI")==0)
+    return CIL_STYPE_VECTORxS;
+  else if (strcmp (called_klass_name,"VecGenUHI")==0)
+    return CIL_STYPE_VECTORxUS;
+  else if (strcmp (called_klass_name,"VecGenQQQI")==0)
+    return CIL_STYPE_VECTORxSB;
+  else if (strcmp (called_klass_name,"VecGenQQI")==0)
+    return CIL_STYPE_VECTORxB;
+
+  else
+    {
+      error("no stack type for vector %s", called_klass_name);
+      gcc_unreachable ();
+      return CIL_STYPE_ERROR;
+    }
 }
 /*
 CilStackType

@@ -1,7 +1,7 @@
 
 /* CIL Compiler parser and tree emitter.
 
-   Copyright (C) 2006-2007 Free Software Foundation, Inc.
+   Copyright (C) 2006,2007,2010 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the
@@ -29,7 +29,9 @@
 
    Contact information at STMicroelectronics:
      Andrea C. Ornstein <andrea.ornstein@st.com>
-     Erven Rohou        <erven.rohou@st.com>
+
+   Contact information at INRIA:
+     Erven Rohou        <erven.rohou@inria.fr>
 */
 
 /* Mono headers must be included before GCC ones, because they use
@@ -67,6 +69,7 @@
 #include "bindings.h"
 #include "stack.h"
 #include <endian.h>
+
 
 /* parse only the methods which are reachable from the entry point */
 bool flag_parse_only_reachable = FALSE;
@@ -167,7 +170,9 @@ parser_get_class_record_or_union_tree (MonoClass *klass)
     }
   else
     {
-    gcc_assert (TREE_CODE (ret) == UNION_TYPE || TREE_CODE (ret) == VECTOR_TYPE || TREE_CODE (ret) == VECTOR_CST);
+      gcc_assert (   TREE_CODE (ret) == UNION_TYPE
+                  || TREE_CODE (ret) == VECTOR_TYPE
+                  || TREE_CODE (ret) == VECTOR_CST);
     }
   gcc_assert (ret);
   return ret;
@@ -193,7 +198,9 @@ static tree
 parser_get_method_tree (MonoMethod *method)
 {
   tree ret = g_hash_table_lookup (parsed_methods_decl, method);
-  gcc_assert (ret && (TREE_CODE (ret) == FUNCTION_DECL || TREE_CODE (ret) == VAR_DECL));
+  gcc_assert (   ret
+              && (   TREE_CODE (ret) == FUNCTION_DECL
+                  || TREE_CODE (ret) == VAR_DECL));
   return ret;
 }
 
@@ -330,21 +337,22 @@ parser_get_method_is_gcc4netstdlib (MonoMethod *method)
 {
   MonoClass *method_klass = mono_method_get_class (method);
   MonoImage *method_image = mono_class_get_image(method_klass);
-  // return (strcmp ("libstd", mono_image_get_name(method_image)) == 0);
+  /* return (strcmp ("libstd", mono_image_get_name(method_image)) == 0); */
 
 
   const char *image_name = mono_image_get_name(method_image);
   if (strcmp ("libstd",image_name) == 0)
     {
       const char *method_name = mono_method_get_name(method);
-    if ( (strcmp (".init",method_name) == 0) || (strcmp (".fini",method_name) == 0))
+      if (   (strcmp (".init",method_name) == 0)
+          || (strcmp (".fini", method_name) == 0))
         {
           return 0;
         }
       return 1;
-    }else{
-      return 0;
     }
+  else
+    return 0;
 }
 
 static GCCCilMethodMode
@@ -382,6 +390,7 @@ typedef enum
     GCC_CIL_CLASS_MODE_EXTERNAL
   }
 GCCCilClassMode;
+
 
 static GCCCilMethodMode
 parser_get_class_mode (MonoClass *klass)
@@ -949,69 +958,152 @@ parser_build_static_field_ref_tree (MonoClassField *field)
 
 tree get_vector_type_for_mono_simd_class (const char * called_klass_name)
 {
-  int nunits = atoi(called_klass_name+6);
-  if(strcmp(called_klass_name,"Vector2d")==0){
-    return build_vector_type( double_type_node  ,nunits);
-  }else if(strcmp(called_klass_name,"Vector4f")==0){
-    return build_vector_type( float_type_node ,nunits);
-  }else if(strcmp(called_klass_name,"Vector2l")==0){
-    return build_vector_type( long_integer_type_node, nunits);
-  }else if(strcmp(called_klass_name,"Vector2ul")==0){
-    return build_vector_type( long_unsigned_type_node, nunits);
-  }else if(strcmp(called_klass_name,"Vector4i")==0){
-    return build_vector_type( integer_type_node, nunits);
-  }else if(strcmp(called_klass_name,"Vector4ui")==0){
-    return build_vector_type( unsigned_type_node, nunits);
-  }else if(strcmp(called_klass_name,"Vector8s")==0){
-    return build_vector_type( short_integer_type_node, nunits);
-  }else if(strcmp(called_klass_name,"Vector8us")==0){
-    return build_vector_type( short_unsigned_type_node, nunits);
-  }else if(strcmp(called_klass_name,"Vector16sb")==0){
-    return build_vector_type (intQI_type_node, nunits);
-  }else if(strcmp(called_klass_name,"Vector16b")==0){
-    return build_vector_type( unsigned_intQI_type_node, nunits);
-  }else{
-    error("unsupported vector type %s",called_klass_name);
-    gcc_unreachable ();
-    return NULL;
-  }
+  int nunits;
+
+  /* Mono.Simd naming convention */
+  if (strncmp (called_klass_name, "Vector", 6) == 0)
+    {
+      nunits = atoi(called_klass_name+6);
+
+      /* printf("in get_vector_type_for_mono_simd_class: %s nunits = %d\n", */
+      /*        called_klass_name, nunits); */
+
+      if (strcmp (called_klass_name, "Vector2d")==0)
+        return build_vector_type (double_type_node, nunits);
+      else if (strcmp (called_klass_name,"Vector4f")==0)
+        return build_vector_type (float_type_node, nunits);
+      else if (strcmp(called_klass_name,"Vector2l")==0)
+        return build_vector_type (long_integer_type_node, nunits);
+      else if (strcmp(called_klass_name,"Vector2ul")==0)
+        return build_vector_type (long_unsigned_type_node, nunits);
+      else if (strcmp(called_klass_name,"Vector4i")==0)
+        return build_vector_type (integer_type_node, nunits);
+      else if (strcmp(called_klass_name,"Vector4ui")==0)
+        return build_vector_type (unsigned_type_node, nunits);
+      else if (strcmp(called_klass_name,"Vector8s")==0)
+        return build_vector_type (short_integer_type_node, nunits);
+      else if (strcmp(called_klass_name,"Vector8us")==0)
+        return build_vector_type (short_unsigned_type_node, nunits);
+      else if (strcmp(called_klass_name,"Vector16sb")==0)
+        return build_vector_type( intQI_type_node, nunits);
+      else if (strcmp(called_klass_name,"Vector16b")==0)
+        return build_vector_type (unsigned_intQI_type_node, nunits);
+    }
+
+
+  /* Xxxx.Simd naming convention */
+  if (strcmp (called_klass_name, "VecGenDF")==0)
+    {
+      nunits = simd_width / 8;
+      /* printf("in get_vector_type_for_mono_simd_class: %s, nunits=%d\n", */
+      /*        called_klass_name, nunits); */
+      return build_vector_type (double_type_node, nunits);
+    }
+  else if (strcmp (called_klass_name, "VecGenSF")==0)
+    {
+      nunits = simd_width / 4;
+      /* printf("in get_vector_type_for_mono_simd_class: %s, nunits=%d\n", */
+      /*        called_klass_name, nunits); */
+      return build_vector_type (float_type_node, nunits);
+    }
+  else if (strcmp(called_klass_name, "VecGenDI")==0)
+    {
+      nunits = simd_width / 8;
+      /* printf("in get_vector_type_for_mono_simd_class: %s, nunits=%d\n", */
+      /*        called_klass_name, nunits); */
+      return build_vector_type (long_integer_type_node, nunits);
+    }
+  else if (strcmp(called_klass_name, "VecGenUDI")==0)  /* FIXME */
+    {
+      nunits = simd_width / 8;
+      /* printf("in get_vector_type_for_mono_simd_class: %s, nunits=%d\n", */
+      /*        called_klass_name, nunits); */
+      return build_vector_type (long_unsigned_type_node, nunits);
+    }
+  else if (strcmp(called_klass_name, "VecGenSI")==0)
+    {
+      nunits = simd_width / 4;
+      /* printf("in get_vector_type_for_mono_simd_class: %s, nunits=%d\n", */
+      /*        called_klass_name, nunits); */
+      return build_vector_type (integer_type_node, nunits);
+    }
+  else if (strcmp(called_klass_name, "VecGenUSI")==0)  /* FIXME */
+    {
+      nunits = simd_width / 4;
+      /* printf("in get_vector_type_for_mono_simd_class: %s, nunits=%d\n", */
+      /*        called_klass_name, nunits); */
+      return build_vector_type (unsigned_type_node, nunits);
+    }
+  else if (strcmp(called_klass_name, "VecGenHI")==0)
+    {
+      nunits = simd_width / 2;
+      /* printf("in get_vector_type_for_mono_simd_class: %s, nunits=%d\n", */
+      /*        called_klass_name, nunits); */
+      return build_vector_type( short_integer_type_node, nunits);
+    }
+  else if (strcmp(called_klass_name, "VecGenUHI")==0)  /* FIXME */
+    {
+      nunits = simd_width / 2;
+      /* printf("in get_vector_type_for_mono_simd_class: %s, nunits=%d\n", */
+      /*        called_klass_name, nunits); */
+      return build_vector_type( short_unsigned_type_node, nunits);
+    }
+  else if (strcmp(called_klass_name, "VecGenQQQI")==0)
+    {
+      nunits = simd_width;
+      /* printf("in get_vector_type_for_mono_simd_class: %s, nunits=%d\n", */
+      /*        called_klass_name, nunits); */
+      return build_vector_type (intQI_type_node, nunits);
+    }
+  else if (strcmp(called_klass_name, "VecGenQQI")==0)  /* FIXME */
+    {
+      nunits = simd_width;
+      /* printf("in get_vector_type_for_mono_simd_class: %s, nunits=%d\n", */
+      /*        called_klass_name, nunits); */
+      return build_vector_type( unsigned_intQI_type_node, nunits);
+    }
+
+  error ("unsupported vector type '%s'", called_klass_name);
+  gcc_unreachable ();
+  return NULL;
 }
 
 enum tree_code
 get_treecode_for_mono_simd_function (const char * called_name)
 {
-  if(strcmp(called_name,"op_Addition") == 0){
+  if (strcmp (called_name, "op_Addition") == 0)
     return PLUS_EXPR;
-  }else if(strcmp(called_name,"op_Subtraction") == 0){
+  else if (strcmp (called_name, "op_Subtraction") == 0)
     return MINUS_EXPR;
-  }else if(strcmp(called_name,"op_Multiply") == 0){
+  else if (strcmp (called_name, "op_Multiply") == 0)
     return MULT_EXPR;
-  }else if(strcmp(called_name,"op_Divide") == 0){
+  else if (strcmp (called_name, "op_Divide") == 0)
     return RDIV_EXPR;
-  }else if(strcmp(called_name,"StoreAligned") == 0){
+  else if (strcmp (called_name, "StoreAligned") == 0)
     return ALIGN_INDIRECT_REF;
-  }else if(strcmp(called_name,"LoadAligned") == 0){
+  else if (strcmp (called_name, "LoadAligned") == 0)
     return INDIRECT_REF;
-  }else if(strcmp(called_name,"Max") == 0){
+  else if (strcmp (called_name, "Max") == 0)
     return MAX_EXPR;
-  }
-  else if (strcmp (called_name,"op_BitwiseAnd") == 0)
+  else if (strcmp (called_name, "Min") == 0)
+    return MIN_EXPR;
+  else if (strcmp (called_name, "op_BitwiseAnd") == 0)
     return BIT_AND_EXPR;
-  else if (strcmp (called_name,"op_BitwiseOr") == 0)
+  else if (strcmp (called_name, "op_BitwiseOr") == 0)
     return BIT_IOR_EXPR;
-  else if (strcmp (called_name,"op_ExclusiveOr") == 0)
+  else if (strcmp (called_name, "op_ExclusiveOr") == 0)
     return BIT_XOR_EXPR;
-  else {
-    error("unsupported Mono.Simd operation : %s\n",called_name);
-    gcc_unreachable ();
-    return LAST_AND_UNUSED_TREE_CODE;
-  }
+  else
+    {
+      error ("unsupported Mono.Simd operation : %s\n", called_name);
+      gcc_unreachable ();
+      return LAST_AND_UNUSED_TREE_CODE;
+    }
 }
 
 static void
 parser_emit_mono_simd_call (MonoMethod *caller, guint32 token)
 {
-
   MonoImage *image = mono_class_get_image (mono_method_get_class (caller));
   MonoMethod *called = mono_get_method (image, token, NULL);
   MonoClass *called_klass = mono_method_get_class (called);
@@ -1028,7 +1120,7 @@ parser_emit_mono_simd_call (MonoMethod *caller, guint32 token)
   CilStackType typeB;
   
   enum tree_code code = get_treecode_for_mono_simd_function (called_name);
-  switch(code)
+  switch (code)
     {
     case PLUS_EXPR:  /* op_Addition */
     case MINUS_EXPR: /* op_Subtract */
@@ -1050,18 +1142,19 @@ parser_emit_mono_simd_call (MonoMethod *caller, guint32 token)
       }
 
     case MAX_EXPR:
+    case MIN_EXPR:
       {
         gcc_assert (cil_stack_is_empty () == 0);
         tree opB = cil_stack_pop (&typeB);
         gcc_assert (cil_stack_is_empty () == 0);
         tree opA = cil_stack_pop (&typeA);
-        tree type_tree = TREE_TYPE(opA);
+        tree type_tree = TREE_TYPE (opA);
         tree exp = fold_build2 (code, type_tree, opA, opB);
-        cil_stack_push (exp, typeA );
+        cil_stack_push (exp, typeA);
         break;
       }
 
-    case ALIGN_INDIRECT_REF: // StoreAligned
+    case ALIGN_INDIRECT_REF: /* StoreAligned */
       {
         tree type_tree = get_vector_type_for_mono_simd_class (called_klass_name);
         gcc_assert (cil_stack_is_empty () == 0);
@@ -1084,23 +1177,27 @@ parser_emit_mono_simd_call (MonoMethod *caller, guint32 token)
         break;
       }
 
-    case INDIRECT_REF: // LoadAligned
+    case INDIRECT_REF: /* LoadAligned */
       {
         tree type_tree = get_vector_type_for_mono_simd_class (called_klass_name);
         gcc_assert(cil_stack_is_empty () == 0);
         tree src_tree = cil_stack_pop (NULL);
-        tree converted_src_tree = convert (build_pointer_type (type_tree), src_tree);
+        tree converted_src_tree = convert (build_pointer_type (type_tree),
+                                           src_tree);
         tree value_tree = build1 (INDIRECT_REF, type_tree, converted_src_tree);
         if (parser_current_prefix.bolatile)
           {
             value_tree = parser_build_volatile_reference_tree (value_tree);
           }
-        cil_stack_push (cil_bindings_output_statements_and_create_temp (value_tree), get_cil_stack_type_for_mono_simd_class (called_klass_name) );
+        cil_stack_push (cil_bindings_output_statements_and_create_temp (value_tree),
+                        get_cil_stack_type_for_mono_simd_class (called_klass_name) );
         break;
       }
+
     default:
       {
-        error("unsupported Mono.Simd call : '%s'.%s::%s\n",called_namespace_name,called_klass_name,called_name);
+        error ("unsupported Mono.Simd call : '%s'.%s::%s\n",
+               called_namespace_name, called_klass_name, called_name);
         gcc_unreachable ();
         break;
       }
@@ -1285,17 +1382,27 @@ parser_emit_call (MonoMethod *caller, guint32 token)
 
    //printf ("emit_call : '%s'.%s::%s\n",called_namespace_name,called_klass_name,mono_method_get_name(called)); fflush(stdout); fflush(stderr);
 
-  if(strcmp ("Crt", called_klass_name) == 0 && strcmp ("gcc4net", called_namespace_name) == 0)
+  if (   strcmp ("Crt", called_klass_name) == 0
+      && strcmp ("gcc4net", called_namespace_name) == 0)
     {
-    const char *called_name = mono_method_get_name (called);
-    if (strncmp ("__abs", called_name, 5) == 0) {
-      return parser_emit_abs();
-    } else if ( strncmp ("__min", called_name, 5) == 0 || strncmp ("__umin", called_name, 6) == 0) {
-      return parser_emit_min();
-    } else if (   strncmp ("__max", called_name, 5) == 0 || strncmp ("__umax", called_name, 6) == 0) {
-      return parser_emit_max();
+      const char *called_name = mono_method_get_name (called);
+      if (strncmp ("__abs", called_name, 5) == 0) {
+        return parser_emit_abs();
+      }
+      else if (   strncmp ("__min", called_name, 5) == 0
+               || strncmp ("__umin", called_name, 6) == 0)
+        {
+          return parser_emit_min();
+        }
+      else if (   strncmp ("__max", called_name, 5) == 0
+               || strncmp ("__umax", called_name, 6) == 0)
+        {
+          return parser_emit_max();
+        }
     }
-    }else if(strcmp ("Mono.Simd", called_namespace_name) == 0){
+  else if (   strcmp ("Mono.Simd", called_namespace_name) == 0
+           || strcmp ("Xxxx.Simd", called_namespace_name) == 0)
+    {
       return parser_emit_mono_simd_call (caller, token);
     }
   /*
@@ -1666,17 +1773,22 @@ parser_emit_newobj (MonoMethod *caller, guint32 token)
   const char *called_klass_name = mono_class_get_name (called_klass);
   const char *called_namespace_name = mono_class_get_namespace (called_klass);
 
-  if(strcmp(called_name,".ctor")==1)
+  if (strcmp(called_name,".ctor") != 0)
     {
     error ("newobj function must be a constructor. invalid constructor: '%s'.%s::%s\n\n",called_namespace_name,called_klass_name,called_name); fflush(stdout);
     gcc_unreachable ();
     return;
     }
-  if(strcmp(called_namespace_name,"Mono.Simd")==1)
+  if (strcmp(called_namespace_name, "Mono.Simd") &&
+      strcmp(called_namespace_name, "Xxxx.Simd"))
     {
-    error ("unsupported namespace in newobj: '%s'.%s::%s\n\n",called_namespace_name,called_klass_name,called_name); fflush(stdout);
-    gcc_unreachable ();
-    return;
+      error ("unsupported namespace in newobj: '%s'.%s::%s\n\n",
+             called_namespace_name,
+             called_klass_name,
+             called_name);
+      fflush(stdout);
+      gcc_unreachable ();
+      return;
     }
 
   guint16 param_count = mono_signature_get_param_count(called_signature);
@@ -1721,7 +1833,7 @@ parser_emit_newobj (MonoMethod *caller, guint32 token)
     ctor_vec = parser_build_volatile_reference_tree (ctor_vec);
     }
   cil_bindings_output_statements (ctor_vec);
-  cil_stack_push (ctor_vec, get_cil_stack_type_for_mono_simd_class (called_klass_name) );
+  cil_stack_push (ctor_vec, get_cil_stack_type_for_mono_simd_class (called_klass_name));
 }
 
 #define TEMPLATE_PARSER_EMIT_CONV(name, type_tree, stack_type) \
@@ -3900,13 +4012,17 @@ parse_class_instance_fields (MonoClass *klass)
       layout_type (union_type_tree);
       gcc_assert (TYPE_SIZE (union_type_tree) != NULL_TREE);
     /* THIS MAPPING SHOULD MAP MONO.SIMD TO VECTORS NOT UNIONS */
-    if(strcmp(mono_class_get_namespace(klass),"Mono.Simd")==0){
-      const char *called_klass_name = mono_class_get_name (klass);
-      tree vector_type = get_vector_type_for_mono_simd_class (called_klass_name);
-      g_hash_table_insert (parsed_classes_unions, klass, vector_type);
-    }else{
-      g_hash_table_insert (parsed_classes_unions, klass, union_type_tree);
-    }
+      if (strcmp(mono_class_get_namespace(klass), "Mono.Simd") == 0 ||
+          strcmp(mono_class_get_namespace(klass), "Xxxx.Simd") == 0 )
+        {
+          const char *called_klass_name = mono_class_get_name (klass);
+          tree vector_type = get_vector_type_for_mono_simd_class (called_klass_name);
+          g_hash_table_insert (parsed_classes_unions, klass, vector_type);
+        }
+      else
+        {
+          g_hash_table_insert (parsed_classes_unions, klass, union_type_tree);
+        }
 
       char *union_type_name = parser_get_class_mangled_name (klass, "_union");
       cil_bindings_push_type_decl (union_type_name, union_type_tree); /* ensures that the type is not garbage collected */
@@ -4502,4 +4618,3 @@ parser_parse_file (const char *filename)
 
 #include "debug.h" /* for debug_hooks */
 #include "gt-cil-parser.h"
-
