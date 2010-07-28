@@ -267,6 +267,9 @@ cil_type_for_mode (enum machine_mode mode, int unsigned_p)
   if (mode == TImode)
     return unsigned_p ? unsigned_intTI_type_node : intTI_type_node;
 
+  if (mode == OImode)
+    return unsigned_p ? unsigned_intOI_type_node : intOI_type_node;
+
 #if HOST_BITS_PER_WIDE_INT >= 64
   if (mode == TYPE_MODE (intTI_type_node))
     return unsigned_p ? unsigned_intTI_type_node : intTI_type_node;
