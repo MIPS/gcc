@@ -695,7 +695,10 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	      }
 	    else if (TREE_CODE (node) == VECTOR_TYPE)
 	      {
-		pp_string (buffer, "vector ");
+                int num_part = TYPE_VECTOR_SUBPARTS (node);
+		pp_string (buffer, "vector");
+                pp_decimal_int (buffer, num_part);
+                pp_space (buffer);
 		dump_generic_node (buffer, TREE_TYPE (node), spc, flags, false);
 	      }
 	    else if (TREE_CODE (node) == INTEGER_TYPE)
