@@ -1,5 +1,21 @@
 2010-07-27  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/rs6000.c (rs6000_rtx_costs): Update costs for
+	popcount on power7 and parity on power6 systems.
+	(rs6000_emit_popcount): Rename gen_popcntwsi2 to gen_popcntddi2.
+	(rs6000_emit_parity): Add support for power6 prtyd/prtyw
+	instructions.
+
+	* config/rs6000/rs6000.md (UNSPEC_PARITY): New unspec.
+	(UNSPEC_*): Reorder UNSPEC_COPYSIGN, UNSPEC_PARITY, so
+	the copysign/parity patches can be pushed out.
+	(popcntd<mode>2): Combine popcntwsi2 and popcntddi2 into one
+	pattern.
+	(parity<mode>2_cmpb): New insn for parity on power6 and newer
+	machines.
+
+2010-07-27  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	Merge up to 162570.
 	* REVISION: Update subversion id.
 
