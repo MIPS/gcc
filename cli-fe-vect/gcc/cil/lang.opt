@@ -41,6 +41,11 @@ fcbuiltin
 CIL
 Recognize C built-in functions
 
+fsimd-width=
+CIL Var(simd_width) UInteger Joined Init(16)
+Define the width of SIMD vectors (in bytes)
+
+
 v
 CIL
 

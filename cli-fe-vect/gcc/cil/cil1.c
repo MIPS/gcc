@@ -163,17 +163,26 @@ cil_handle_option (size_t scode, const char *arg, int value)
     case OPT_fcompile_only_reachable:
       flag_parse_only_reachable = true;
       break;
+
     case OPT_ferror_unsupported:
       flag_unsupported_method_behavior = UMB_ERROR;
       break;
+
     case OPT_fvm_profile_info:
 //      cil_read_vm_profile_info (arg);
       error("OPT_fvm_profile_info cil_read_vm_profile_info deprecated in 4.5-avx ");
       gcc_unreachable();
       break;
+
     case OPT_fcbuiltin:
       flag_no_cbuiltin = !value;
       break;
+
+    case OPT_fsimd_width_:
+      if ((simd_width != 8) && (simd_width != 16) && (simd_width != 32))
+        error ("-fsimd-width: only vector sizes 8, 16 and 32 are supported");
+      break;
+
     default:
       gcc_unreachable ();
     }
