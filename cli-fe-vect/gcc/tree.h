@@ -3415,12 +3415,14 @@ enum tree_index
   TI_INTSI_TYPE,
   TI_INTDI_TYPE,
   TI_INTTI_TYPE,
+  TI_INTOI_TYPE,
 
   TI_UINTQI_TYPE,
   TI_UINTHI_TYPE,
   TI_UINTSI_TYPE,
   TI_UINTDI_TYPE,
   TI_UINTTI_TYPE,
+  TI_UINTOI_TYPE,
 
   TI_UINT32_TYPE,
   TI_UINT64_TYPE,
@@ -3569,12 +3571,14 @@ extern GTY(()) tree global_trees[TI_MAX];
 #define intSI_type_node			global_trees[TI_INTSI_TYPE]
 #define intDI_type_node			global_trees[TI_INTDI_TYPE]
 #define intTI_type_node			global_trees[TI_INTTI_TYPE]
+#define intOI_type_node			global_trees[TI_INTOI_TYPE]
 
 #define unsigned_intQI_type_node	global_trees[TI_UINTQI_TYPE]
 #define unsigned_intHI_type_node	global_trees[TI_UINTHI_TYPE]
 #define unsigned_intSI_type_node	global_trees[TI_UINTSI_TYPE]
 #define unsigned_intDI_type_node	global_trees[TI_UINTDI_TYPE]
 #define unsigned_intTI_type_node	global_trees[TI_UINTTI_TYPE]
+#define unsigned_intOI_type_node	global_trees[TI_UINTOI_TYPE]
 
 #define uint32_type_node		global_trees[TI_UINT32_TYPE]
 #define uint64_type_node		global_trees[TI_UINT64_TYPE]
