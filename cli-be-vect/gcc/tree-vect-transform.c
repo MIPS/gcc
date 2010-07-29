@@ -6244,7 +6244,8 @@ vect_setup_realignment (gimple stmt, gimple_stmt_iterator *gsi,
 	  gcc_assert (!new_bb);
 	}
 
-      if (DR_MISALIGNMENT (dr) != -1)
+      if (DR_MISALIGNMENT (dr) != -1
+          && flag_alignment_hints)
         {
           alignment = build_int_cst (TREE_TYPE (DR_INIT (dr)), VECT_MAX_SIZE);
           misalign = size_binop (TRUNC_MOD_EXPR,  
@@ -7335,7 +7336,8 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
                 {
                   tree alignment, misalign;
 
-                  if (DR_MISALIGNMENT (first_dr) != -1)
+                  if (DR_MISALIGNMENT (first_dr) != -1
+                      && flag_alignment_hints)
                     {
                       alignment 
                         = build_int_cst (TREE_TYPE (DR_INIT (first_dr)), 
@@ -8437,7 +8439,8 @@ vect_do_peeling_for_alignment (loop_vec_info loop_vinfo)
   niters_of_prolog_loop = vect_gen_niters_for_prolog_loop (loop_vinfo, 
                                                            ni_name);
   
-  if (targetm.vectorize.builtin_get_loop_niters 
+  if (flag_peel_loop_bound_hints
+      && targetm.vectorize.builtin_get_loop_niters 
       && (builtin_decl = targetm.vectorize.builtin_get_loop_niters ()))
     {
       tree var = create_tmp_var (TREE_TYPE (niters_of_prolog_loop), 

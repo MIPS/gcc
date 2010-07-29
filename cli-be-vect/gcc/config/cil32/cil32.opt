@@ -90,3 +90,12 @@ mbases-aligned
 Common Report Var(flag_bases_aligned) Optimization
 Assume that all the data ref bases are aligned
 
+malignment-hints
+Common Report Var(flag_alignment_hints) Init(1) Optimization
+Generate alignment hints
+
+mpeel-loop-bound-hints
+Common Report Var(flag_peel_loop_bound_hints) Init(1) Optimization
+Generate peel loop bound hints
+
+
