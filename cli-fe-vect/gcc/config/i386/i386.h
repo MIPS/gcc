@@ -1036,7 +1036,7 @@ enum target_cpu_default
   (TARGET_AVX ? (((MODE) == DFmode || (MODE) == SFmode) ? 16 : 16)	\
    	      : (TARGET_SSE ? 16 : UNITS_PER_WORD))
 #else
-#define UNITS_PER_SIMD_WORD(MODE) (TARGET_AVX ? 32 : (TARGET_MMX ? 8 : 16))
+#define UNITS_PER_SIMD_WORD(MODE) (TARGET_AVX ? 32 : (TARGET_SSE ? 16 : (TARGET_MMX ? 8 : UNITS_PER_WORD)))
 #endif
 
 #define VALID_DFP_MODE_P(MODE) \
