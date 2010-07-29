@@ -232,6 +232,200 @@ cil_type_for_size (unsigned int bits, int unsigned_p)
 
 static GTY(()) tree registered_builtin_types;
 
+tree                                                                                  
+cil_type_for_mode (enum machine_mode mode, int unsignedp)                        
+{                                                                                     
+  tree t;                                                                             
+
+  if (mode == TYPE_MODE (integer_type_node))
+    return unsignedp ? unsigned_type_node : integer_type_node;
+
+  if (mode == TYPE_MODE (signed_char_type_node))
+    return unsignedp ? unsigned_char_type_node : signed_char_type_node;
+
+  if (mode == TYPE_MODE (short_integer_type_node))
+    return unsignedp ? short_unsigned_type_node : short_integer_type_node;
+
+  if (mode == TYPE_MODE (long_integer_type_node))
+    return unsignedp ? long_unsigned_type_node : long_integer_type_node;
+
+  if (mode == TYPE_MODE (long_long_integer_type_node))
+    return unsignedp ? long_long_unsigned_type_node : long_long_integer_type_node;
+/*
+  if (mode == TYPE_MODE (widest_integer_literal_type_node))
+    return unsignedp ? widest_unsigned_literal_type_node   
+                     : widest_integer_literal_type_node;   
+*/
+  if (mode == QImode)
+    return unsignedp ? unsigned_intQI_type_node : intQI_type_node;
+
+  if (mode == HImode)
+    return unsignedp ? unsigned_intHI_type_node : intHI_type_node;
+
+  if (mode == SImode)
+    return unsignedp ? unsigned_intSI_type_node : intSI_type_node;
+
+  if (mode == DImode)
+    return unsignedp ? unsigned_intDI_type_node : intDI_type_node;
+
+#if HOST_BITS_PER_WIDE_INT >= 64
+  if (mode == TYPE_MODE (intTI_type_node))
+    return unsignedp ? unsigned_intTI_type_node : intTI_type_node;
+#endif                                                            
+
+  if (mode == TYPE_MODE (float_type_node))
+    return float_type_node;               
+
+  if (mode == TYPE_MODE (double_type_node))
+    return double_type_node;               
+
+  if (mode == TYPE_MODE (long_double_type_node))
+    return long_double_type_node;               
+
+  if (mode == TYPE_MODE (void_type_node))
+    return void_type_node;               
+
+  if (mode == TYPE_MODE (build_pointer_type (char_type_node)))
+    return (unsignedp                                         
+            ? make_unsigned_type (GET_MODE_PRECISION (mode))  
+            : make_signed_type (GET_MODE_PRECISION (mode)));  
+
+  if (mode == TYPE_MODE (build_pointer_type (integer_type_node)))
+    return (unsignedp                                            
+            ? make_unsigned_type (GET_MODE_PRECISION (mode))     
+            : make_signed_type (GET_MODE_PRECISION (mode)));     
+
+  if (COMPLEX_MODE_P (mode))
+    {                       
+      enum machine_mode inner_mode;
+      tree inner_type;             
+
+      if (mode == TYPE_MODE (complex_float_type_node))
+        return complex_float_type_node;               
+      if (mode == TYPE_MODE (complex_double_type_node))
+        return complex_double_type_node;               
+      if (mode == TYPE_MODE (complex_long_double_type_node))
+        return complex_long_double_type_node;               
+
+      if (mode == TYPE_MODE (complex_integer_type_node) && !unsignedp)
+        return complex_integer_type_node;                             
+
+      inner_mode = GET_MODE_INNER (mode);
+      inner_type = cil_type_for_mode (inner_mode, unsignedp);
+      if (inner_type != NULL_TREE)                                
+        return build_complex_type (inner_type);                   
+    }                                                             
+  else if (VECTOR_MODE_P (mode))                                  
+    {                                                             
+      enum machine_mode inner_mode = GET_MODE_INNER (mode);       
+      tree inner_type = cil_type_for_mode (inner_mode, unsignedp);
+      if (inner_type != NULL_TREE)                                     
+        return build_vector_type_for_mode (inner_type, mode);          
+    }                                                                  
+
+  if (mode == TYPE_MODE (dfloat32_type_node))
+    return dfloat32_type_node;               
+  if (mode == TYPE_MODE (dfloat64_type_node))
+    return dfloat64_type_node;               
+  if (mode == TYPE_MODE (dfloat128_type_node))
+    return dfloat128_type_node;               
+
+  if (ALL_SCALAR_FIXED_POINT_MODE_P (mode))
+    {                                      
+      if (mode == TYPE_MODE (short_fract_type_node))
+        return unsignedp ? sat_short_fract_type_node : short_fract_type_node;
+      if (mode == TYPE_MODE (fract_type_node))                               
+        return unsignedp ? sat_fract_type_node : fract_type_node;            
+      if (mode == TYPE_MODE (long_fract_type_node))                          
+        return unsignedp ? sat_long_fract_type_node : long_fract_type_node;  
+      if (mode == TYPE_MODE (long_long_fract_type_node))                     
+        return unsignedp ? sat_long_long_fract_type_node                     
+                         : long_long_fract_type_node;                        
+
+      if (mode == TYPE_MODE (unsigned_short_fract_type_node))
+        return unsignedp ? sat_unsigned_short_fract_type_node
+                         : unsigned_short_fract_type_node;   
+      if (mode == TYPE_MODE (unsigned_fract_type_node))      
+        return unsignedp ? sat_unsigned_fract_type_node      
+                         : unsigned_fract_type_node;         
+      if (mode == TYPE_MODE (unsigned_long_fract_type_node)) 
+        return unsignedp ? sat_unsigned_long_fract_type_node 
+                         : unsigned_long_fract_type_node;    
+      if (mode == TYPE_MODE (unsigned_long_long_fract_type_node))
+        return unsignedp ? sat_unsigned_long_long_fract_type_node
+                         : unsigned_long_long_fract_type_node;   
+
+      if (mode == TYPE_MODE (short_accum_type_node))
+        return unsignedp ? sat_short_accum_type_node : short_accum_type_node;
+      if (mode == TYPE_MODE (accum_type_node))
+        return unsignedp ? sat_accum_type_node : accum_type_node;
+      if (mode == TYPE_MODE (long_accum_type_node))
+        return unsignedp ? sat_long_accum_type_node : long_accum_type_node;
+      if (mode == TYPE_MODE (long_long_accum_type_node))
+        return unsignedp ? sat_long_long_accum_type_node
+                         : long_long_accum_type_node;
+
+      if (mode == TYPE_MODE (unsigned_short_accum_type_node))
+        return unsignedp ? sat_unsigned_short_accum_type_node
+                         : unsigned_short_accum_type_node;
+      if (mode == TYPE_MODE (unsigned_accum_type_node))
+        return unsignedp ? sat_unsigned_accum_type_node
+                         : unsigned_accum_type_node;
+      if (mode == TYPE_MODE (unsigned_long_accum_type_node))
+        return unsignedp ? sat_unsigned_long_accum_type_node
+                         : unsigned_long_accum_type_node;
+      if (mode == TYPE_MODE (unsigned_long_long_accum_type_node))
+        return unsignedp ? sat_unsigned_long_long_accum_type_node
+                         : unsigned_long_long_accum_type_node;
+
+      if (mode == QQmode)
+        return unsignedp ? sat_qq_type_node : qq_type_node;
+      if (mode == HQmode)
+        return unsignedp ? sat_hq_type_node : hq_type_node;
+      if (mode == SQmode)
+        return unsignedp ? sat_sq_type_node : sq_type_node;
+      if (mode == DQmode)
+        return unsignedp ? sat_dq_type_node : dq_type_node;
+      if (mode == TQmode)
+        return unsignedp ? sat_tq_type_node : tq_type_node;
+
+      if (mode == UQQmode)
+        return unsignedp ? sat_uqq_type_node : uqq_type_node;
+      if (mode == UHQmode)
+        return unsignedp ? sat_uhq_type_node : uhq_type_node;
+      if (mode == USQmode)
+        return unsignedp ? sat_usq_type_node : usq_type_node;
+      if (mode == UDQmode)
+        return unsignedp ? sat_udq_type_node : udq_type_node;
+      if (mode == UTQmode)
+        return unsignedp ? sat_utq_type_node : utq_type_node;
+
+      if (mode == HAmode)
+        return unsignedp ? sat_ha_type_node : ha_type_node;
+      if (mode == SAmode)
+        return unsignedp ? sat_sa_type_node : sa_type_node;
+      if (mode == DAmode)
+        return unsignedp ? sat_da_type_node : da_type_node;
+      if (mode == TAmode)
+        return unsignedp ? sat_ta_type_node : ta_type_node;
+
+      if (mode == UHAmode)
+        return unsignedp ? sat_uha_type_node : uha_type_node;
+      if (mode == USAmode)
+        return unsignedp ? sat_usa_type_node : usa_type_node;
+      if (mode == UDAmode)
+        return unsignedp ? sat_uda_type_node : uda_type_node;
+      if (mode == UTAmode)
+        return unsignedp ? sat_uta_type_node : uta_type_node;
+    }
+
+  for (t = registered_builtin_types; t; t = TREE_CHAIN (t))
+    if (TYPE_MODE (TREE_VALUE (t)) == mode)
+      return TREE_VALUE (t);
+
+  return 0;
+}
+/*
 static tree
 cil_type_for_mode (enum machine_mode mode, int unsigned_p)
 {
@@ -301,13 +495,15 @@ cil_type_for_mode (enum machine_mode mode, int unsigned_p)
     if (TYPE_MODE (TREE_VALUE (t)) == mode)
       return TREE_VALUE (t);
 
-  /* TODO: to be completed when complex and vectors are added*/
+  // TODO: to be completed when complex and vectors are added
   if (COMPLEX_MODE_P (mode) || VECTOR_MODE_P (mode))
       return NULL_TREE;
 
   gcc_unreachable ();
   return NULL_TREE;
 }
+
+*/
 
 tree
 cil_unsigned_type (tree type)
