@@ -233,7 +233,7 @@ cil_type_for_size (unsigned int bits, int unsigned_p)
 static GTY(()) tree registered_builtin_types;
 
 tree                                                                                  
-cil_type_for_mode (enum machine_mode mode, int unsignedp)                        
+cil_type_for_mode (enum machine_mode mode, int unsignedp)
 {                                                                                     
   tree t;                                                                             
 
@@ -272,6 +272,9 @@ cil_type_for_mode (enum machine_mode mode, int unsignedp)
   if (mode == TYPE_MODE (intTI_type_node))
     return unsignedp ? unsigned_intTI_type_node : intTI_type_node;
 #endif                                                            
+
+  if (mode == OImode)
+    return unsignedp ? unsigned_intOI_type_node : intOI_type_node;
 
   if (mode == TYPE_MODE (float_type_node))
     return float_type_node;               
@@ -425,85 +428,6 @@ cil_type_for_mode (enum machine_mode mode, int unsignedp)
 
   return 0;
 }
-/*
-static tree
-cil_type_for_mode (enum machine_mode mode, int unsigned_p)
-{
-  tree t;
-
-  if (mode == TYPE_MODE (integer_type_node))
-    return unsigned_p ? unsigned_type_node : integer_type_node;
-
-  if (mode == TYPE_MODE (signed_char_type_node))
-    return unsigned_p ? unsigned_char_type_node : signed_char_type_node;
-
-  if (mode == TYPE_MODE (short_integer_type_node))
-    return unsigned_p ? short_unsigned_type_node : short_integer_type_node;
-
-  if (mode == TYPE_MODE (long_integer_type_node))
-    return unsigned_p ? long_unsigned_type_node : long_integer_type_node;
-
-  if (mode == TYPE_MODE (long_long_integer_type_node))
-    return unsigned_p ? long_long_unsigned_type_node : long_long_integer_type_node;
-
-  if (mode == QImode)
-    return unsigned_p ? unsigned_intQI_type_node : intQI_type_node;
-
-  if (mode == HImode)
-    return unsigned_p ? unsigned_intHI_type_node : intHI_type_node;
-
-  if (mode == SImode)
-    return unsigned_p ? unsigned_intSI_type_node : intSI_type_node;
-
-  if (mode == DImode)
-    return unsigned_p ? unsigned_intDI_type_node : intDI_type_node;
-
-  if (mode == TImode)
-    return unsigned_p ? unsigned_intTI_type_node : intTI_type_node;
-
-  if (mode == OImode)
-    return unsigned_p ? unsigned_intOI_type_node : intOI_type_node;
-
-#if HOST_BITS_PER_WIDE_INT >= 64
-  if (mode == TYPE_MODE (intTI_type_node))
-    return unsigned_p ? unsigned_intTI_type_node : intTI_type_node;
-#endif
-
-  if (mode == TYPE_MODE (float_type_node))
-    return float_type_node;
-
-  if (mode == TYPE_MODE (double_type_node))
-    return double_type_node;
-
-  if (mode == TYPE_MODE (long_double_type_node))
-    return long_double_type_node;
-
-  if (mode == TYPE_MODE (void_type_node))
-    return void_type_node;
-
-  if (mode == TYPE_MODE (build_pointer_type (char_type_node)))
-    return (unsigned_p
-            ? make_unsigned_type (GET_MODE_PRECISION (mode))
-            : make_signed_type (GET_MODE_PRECISION (mode)));
-
-  if (mode == TYPE_MODE (build_pointer_type (integer_type_node)))
-    return (unsigned_p
-            ? make_unsigned_type (GET_MODE_PRECISION (mode))
-            : make_signed_type (GET_MODE_PRECISION (mode)));
-
-  for (t = registered_builtin_types; t; t = TREE_CHAIN (t))
-    if (TYPE_MODE (TREE_VALUE (t)) == mode)
-      return TREE_VALUE (t);
-
-  // TODO: to be completed when complex and vectors are added
-  if (COMPLEX_MODE_P (mode) || VECTOR_MODE_P (mode))
-      return NULL_TREE;
-
-  gcc_unreachable ();
-  return NULL_TREE;
-}
-
-*/
 
 tree
 cil_unsigned_type (tree type)
