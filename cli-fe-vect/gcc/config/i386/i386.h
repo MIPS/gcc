@@ -1031,7 +1031,7 @@ enum target_cpu_default
    integer vector operations.  But vectorizer doesn't support
    different sizes for integer and floating point vectors.  We limit
    vector size to 16byte.  */
-#if ERVEN_ORIGINAL
+#if 1
 #define UNITS_PER_SIMD_WORD(MODE)					\
   (TARGET_AVX ? (((MODE) == DFmode || (MODE) == SFmode) ? 16 : 16)	\
    	      : (TARGET_SSE ? 16 : UNITS_PER_WORD))

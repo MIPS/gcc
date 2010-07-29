@@ -216,6 +216,8 @@ cil_stack_debug_dump (void)
 tree
 cil_stack_get_tree_type_for_cil_stack_type (CilStackType ct)
 {
+  int nunits;
+
   switch (ct)
     {
     case CIL_STYPE_INT32:
@@ -230,26 +232,46 @@ cil_stack_get_tree_type_for_cil_stack_type (CilStackType ct)
       return double_type_node;
     case CIL_STYPE_MP:
       return build_pointer_type (void_type_node);
+
     case CIL_STYPE_VECTOR2D:
-      return build_vector_type (double_type_node, 2);
+      nunits = simd_width / 8;
+      return build_vector_type (double_type_node, nunits);
+
     case CIL_STYPE_VECTOR4F:
-      return build_vector_type (float_type_node, 4);
+      nunits = simd_width / 4;
+      return build_vector_type (float_type_node, nunits);
+
     case CIL_STYPE_VECTOR2L:
-      return build_vector_type (long_integer_type_node, 2);
+      nunits = simd_width / 8;
+      return build_vector_type (long_integer_type_node, nunits);
+
     case CIL_STYPE_VECTOR2UL:
-      return build_vector_type (long_unsigned_type_node, 2);
+      nunits = simd_width / 8;
+      return build_vector_type (long_unsigned_type_node, nunits);
+
     case CIL_STYPE_VECTOR4I:
-      return build_vector_type (integer_type_node, 4);
+      nunits = simd_width / 4;
+      return build_vector_type (integer_type_node, nunits);
+
     case CIL_STYPE_VECTOR4UI:
-      return build_vector_type (unsigned_type_node, 4);
+      nunits = simd_width / 4;
+      return build_vector_type (unsigned_type_node, nunits);
+
     case CIL_STYPE_VECTOR8S:
-      return build_vector_type (short_integer_type_node, 8);
+      nunits = simd_width / 2;
+      return build_vector_type (short_integer_type_node, nunits);
+
     case CIL_STYPE_VECTOR8US:
-      return build_vector_type (short_unsigned_type_node, 8);
+      nunits = simd_width / 2;
+      return build_vector_type (short_unsigned_type_node, nunits);
+
     case CIL_STYPE_VECTOR16SB:
-      return build_vector_type (intQI_type_node, 16);
+      nunits = simd_width;
+      return build_vector_type (intQI_type_node, nunits);
+
     case CIL_STYPE_VECTOR16B:
-      return build_vector_type (unsigned_intQI_type_node, 16);
+      nunits = simd_width;
+      return build_vector_type (unsigned_intQI_type_node, nunits);
 
     case CIL_STYPE_VECTORxD:
       return build_vector_type (double_type_node, simd_width / 8);
@@ -280,7 +302,7 @@ cil_stack_get_tree_type_for_cil_stack_type (CilStackType ct)
       gcc_unreachable ();
     }
 }
-
+#if 0
 tree
 build_cil_stack_cst (CilStackType ct, int x)
 {
@@ -289,28 +311,37 @@ build_cil_stack_cst (CilStackType ct, int x)
   case CIL_STYPE_VECTOR2D:
     gcc_unreachable ();
     return double_type_node;
+
   case CIL_STYPE_VECTOR4F:
     gcc_unreachable ();
     return float_type_node;
+
   case CIL_STYPE_VECTOR2L:
     gcc_unreachable ();
     return long_integer_type_node;
+
   case CIL_STYPE_VECTOR2UL:
     gcc_unreachable ();
     return long_unsigned_type_node;
+
   case CIL_STYPE_VECTOR4I:
     return build_int_cst(integer_type_node,x);
+
   case CIL_STYPE_VECTOR4UI:
     gcc_unreachable ();
     return unsigned_type_node;
+
   case CIL_STYPE_VECTOR8S:
     gcc_unreachable ();
     return build_int_cst(short_integer_type_node,x);
+
   case CIL_STYPE_VECTOR8US:
     gcc_unreachable ();
     return short_unsigned_type_node;
+
   case CIL_STYPE_VECTOR16SB:
     return build_int_cst(intQI_type_node,x);
+
   case CIL_STYPE_VECTOR16B:
     gcc_unreachable ();
     return unsigned_intQI_type_node;
@@ -350,32 +381,41 @@ build_cil_stack_cst (CilStackType ct, int x)
     return NULL;
   }
 }
-
+#endif
 int
 cil_stack_type_to_nuints (CilStackType ct)
 {
   switch (ct)
     {
     case CIL_STYPE_VECTOR2D:
-      return 2;
+      return simd_width / 8;  /* SSE default: 2 */
+
     case CIL_STYPE_VECTOR4F:
-      return 4;
+      return simd_width / 4;
+
     case CIL_STYPE_VECTOR2L:
-      return 2;
+      return simd_width / 8;
+
     case CIL_STYPE_VECTOR2UL:
-      return 2;
+      return simd_width / 8;
+
     case CIL_STYPE_VECTOR4I:
-      return 4;
+      return simd_width / 4;
+
     case CIL_STYPE_VECTOR4UI:
-      return 4;
+      return simd_width / 4;
+
     case CIL_STYPE_VECTOR8S:
-      return 8;
+      return simd_width / 2;
+
     case CIL_STYPE_VECTOR8US:
-      return 8;
+      return simd_width / 2;
+
     case CIL_STYPE_VECTOR16SB:
-      return 16;
+      return simd_width;
+
     case CIL_STYPE_VECTOR16B:
-      return 16;
+      return simd_width;
 
     case CIL_STYPE_VECTORxD:
       return simd_width / 8;

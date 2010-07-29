@@ -963,32 +963,66 @@ tree get_vector_type_for_mono_simd_class (const char * called_klass_name)
   /* Mono.Simd naming convention */
   if (strncmp (called_klass_name, "Vector", 6) == 0)
     {
-      nunits = atoi(called_klass_name+6);
+      /* nunits = atoi(called_klass_name+6); */
 
       /* printf("in get_vector_type_for_mono_simd_class: %s nunits = %d\n", */
       /*        called_klass_name, nunits); */
 
       if (strcmp (called_klass_name, "Vector2d")==0)
-        return build_vector_type (double_type_node, nunits);
+        {
+          nunits = simd_width / 8;
+          return build_vector_type (double_type_node, nunits);
+        }
       else if (strcmp (called_klass_name,"Vector4f")==0)
-        return build_vector_type (float_type_node, nunits);
+        {
+          nunits = simd_width / 4;
+          return build_vector_type (float_type_node, nunits);
+        }
       else if (strcmp(called_klass_name,"Vector2l")==0)
-        return build_vector_type (long_integer_type_node, nunits);
+        {
+          nunits = simd_width / 8;
+          return build_vector_type (long_integer_type_node, nunits);
+        }
       else if (strcmp(called_klass_name,"Vector2ul")==0)
-        return build_vector_type (long_unsigned_type_node, nunits);
+        {
+          nunits = simd_width / 8;
+          return build_vector_type (long_unsigned_type_node, nunits);
+        }
       else if (strcmp(called_klass_name,"Vector4i")==0)
-        return build_vector_type (integer_type_node, nunits);
+        {
+          nunits = simd_width / 4;
+          return build_vector_type (integer_type_node, nunits);
+        }
       else if (strcmp(called_klass_name,"Vector4ui")==0)
-        return build_vector_type (unsigned_type_node, nunits);
+        {
+          nunits = simd_width / 4;
+          return build_vector_type (unsigned_type_node, nunits);
+        }
       else if (strcmp(called_klass_name,"Vector8s")==0)
-        return build_vector_type (short_integer_type_node, nunits);
+        {
+          nunits = simd_width / 2;
+          return build_vector_type (short_integer_type_node, nunits);
+        }
       else if (strcmp(called_klass_name,"Vector8us")==0)
-        return build_vector_type (short_unsigned_type_node, nunits);
+        {
+          nunits = simd_width / 2;
+          return build_vector_type (short_unsigned_type_node, nunits);
+        }
       else if (strcmp(called_klass_name,"Vector16sb")==0)
-        return build_vector_type( intQI_type_node, nunits);
+        {
+          nunits = simd_width;
+          return build_vector_type( intQI_type_node, nunits);
+        }
       else if (strcmp(called_klass_name,"Vector16b")==0)
-        return build_vector_type (unsigned_intQI_type_node, nunits);
+        {
+          nunits = simd_width;
+          return build_vector_type (unsigned_intQI_type_node, nunits);
+        }
     }
+
+
+  error ("We should not reach here. Run the sed script?\n");
+  gcc_unreachable ();
 
 
   /* Xxxx.Simd naming convention */

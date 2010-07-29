@@ -273,8 +273,8 @@ cil_type_for_mode (enum machine_mode mode, int unsignedp)
     return unsignedp ? unsigned_intTI_type_node : intTI_type_node;
 #endif                                                            
 
-  if (mode == OImode)
-    return unsignedp ? unsigned_intOI_type_node : intOI_type_node;
+  /* if (mode == OImode) */
+  /*   return unsignedp ? unsigned_intOI_type_node : intOI_type_node; */
 
   if (mode == TYPE_MODE (float_type_node))
     return float_type_node;               
