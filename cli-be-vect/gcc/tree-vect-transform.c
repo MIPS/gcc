@@ -2722,6 +2722,16 @@ vect_create_epilog_for_reduction (tree vect_def, gimple stmt,
       prev_phi_info = vinfo_for_stmt (phi);
     }
 
+  /* The epilogue is created for the outer-loop, i.e., for the loop being
+     vectorized.  */
+  if (double_reduc)
+    {
+      loop = outer_loop;
+      exit_bb = single_exit (loop)->dest;
+    }
+
+  exit_gsi = gsi_after_labels (exit_bb);
+
   /* 2.2 Get the relevant tree-code to use in the epilog for schemes 2,3 
          (i.e. when reduc_code is not available) and in the final adjustment
 	 code (if needed).  Also get the original scalar reduction variable as
@@ -2763,16 +2773,6 @@ vect_create_epilog_for_reduction (tree vect_def, gimple stmt,
      outer-loop.  */
   if (nested_in_vect_loop && !double_reduc)
     goto vect_finalize_reduction;
-
-  /* The epilogue is created for the outer-loop, i.e., for the loop being
-     vectorized.  */
-  if (double_reduc)
-    {
-      loop = outer_loop;
-      exit_bb = single_exit (loop)->dest;
-    }
-
-  exit_gsi = gsi_after_labels (exit_bb);
 
   /* FORNOW */
   gcc_assert (ncopies == 1);
@@ -3138,6 +3138,8 @@ vect_finalize_reduction:
 
   VEC_free (gimple, heap, phis);
 
+  phis = VEC_alloc (gimple, heap, 3);
+
   if (nested_in_vect_loop)
     {
       if (double_reduc)
@@ -3146,7 +3148,6 @@ vect_finalize_reduction:
         return;
     }
 
-  phis = VEC_alloc (gimple, heap, 3);
   /* Find the loop-closed-use at the loop exit of the original scalar
      result. (The reduction result is expected to have two immediate uses -
      one at the latch block, and one at the loop exit). For double
@@ -3180,8 +3181,7 @@ vect_finalize_reduction:
         FOR_EACH_IMM_USE_ON_STMT (use_p, imm_iter)
           SET_USE (use_p, new_temp);
     }
-
-  VEC_free (gimple, heap, phis);
+   VEC_free (gimple, heap, phis);
 } 
 
 
