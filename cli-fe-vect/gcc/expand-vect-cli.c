@@ -137,10 +137,10 @@ create_cli_fn_table (void)
   cli_functions[73] = add_cli_function ("genvec_support_VSF_get_vec_size_System_UInt32", unsigned_type_node);
   cli_functions[74] = add_cli_function ("genvec_support_VDF_get_vec_size_System_UInt32", unsigned_type_node);
 
-  cli_functions[75] = add_cli_function ("genvec_support_VQI_ALoad_Mono_Simd_Vector16sb_Mono_Simd_Vector16sb", unsigned_type_node);
-  cli_functions[76] = add_cli_function ("genvec_support_VHI_ALoad_Mono_Simd_Vector8s_Mono_Simd_Vector8s", unsigned_type_node);
+  cli_functions[75] = add_cli_function ("genvec_support_VQI_ALoad_Mono_Simd_Vector16sb__Mono_Simd_Vector16sb", unsigned_type_node);
+  cli_functions[76] = add_cli_function ("genvec_support_VHI_ALoad_Mono_Simd_Vector8s__Mono_Simd_Vector8s", unsigned_type_node);
   cli_functions[77] = add_cli_function ("genvec_support_VSI_ALoad_Mono_Simd_Vector4i__Mono_Simd_Vector4i", unsigned_type_node);
-  cli_functions[78] = add_cli_function ("genvec_support_VDI_ALoad_Mono_Simd_Vector2l_Mono_Simd_Vector2l", unsigned_type_node);
+  cli_functions[78] = add_cli_function ("genvec_support_VDI_ALoad_Mono_Simd_Vector2l__Mono_Simd_Vector2l", unsigned_type_node);
   cli_functions[79] = add_cli_function ("genvec_support_VSF_ALoad_Mono_Simd_Vector4f__Mono_Simd_Vector4f", unsigned_type_node);
   cli_functions[80] = add_cli_function ("genvec_support_VDF_ALoad_Mono_Simd_Vector2f__Mono_Simd_Vector2f", unsigned_type_node);
 
