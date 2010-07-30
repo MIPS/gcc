@@ -1,3 +1,9 @@
+2010-07-19  Bingfeng Mei  <bmei@broadcom.com>
+
+	* ddg.c (create_ddg): Exclude nodes of debug_insn in counting nodes
+        of a loop.
+        * loop-doloop.c (doloop_condition_get): Skip possible debug_insn.
+
 2010-07-27  Jakub Jelinek  <jakub@redhat.com>
 
 	PR target/44542
