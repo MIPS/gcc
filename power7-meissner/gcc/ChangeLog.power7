@@ -1,11 +1,131 @@
 2010-07-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
-	* config/rs6000/rs6000.md (floatdisf2_mem): Add match_scratch for
-	DI tmp instead of using gen_lowpart to create a subreg for the
-	output.
-	(floatunsdisf2_mem): Ditto.
+	* config/rs6000/rs6000-protos.h (rs6000_address_for_fpconvert):
+	New declaration.
+	(rs6000_expand_convert_si_to_sfdf): Ditto.
+	(rs6000_allocate_stack_temp): Ditto.
 
-2010-07-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
+	* config/rs6000/rs6000.opt (-mfcfid): New option to say a
+	processor supports fcfid in 32-bit mode.
+	(-mfriz): Undocumented debug option to control whether FRIZ is
+	generated.
+
+	* config/rs6000/rs6000.c (rs6000_override_options): Add -mfcfid to
+	appropriate machines.  Set more options for ISA 2.1.
+	(rs6000_allocate_stack_temp): New function to allocate a stack
+	temp and adjust the address to support only the addressing that it
+	will be used (reg+offset, reg+reg, or just reg).
+	(rs6000_address_for_fpconvert): Make sure an address is
+	appropriate for the STFIWX/LDFIWAX/LDFIWZX instructions.
+	(rs6000_expand_convert_si_to_sfdf): New function to do common code
+	for 32-bit integer to floating point conversions.
+
+	* config/rs6000/vsx.md (VSX_DF): New iterator for just V2DF, DF.
+	(VSr2): Use "ws" constraint for floating point, not "!f#r".
+	(VSr3): Ditto.
+	(UNSPEC_XXSPLTW): New unspec constant.
+	(vsx_float<VSi><mode>2): Restrict to just V2DF, V4SF.
+	(vsx_floatuns<VSi><mode>2): Ditto.
+	(vsx_floatsidf2): New insns to mirror floating point conversion
+	insns in rs6000.md.
+	(vsx_xscvdpsxws_<mode>): Ditto.
+	(vsx_floatunssidf2): Ditto.
+	(vsx_xscvdpuxws_<mode>): Ditto.
+	(vsx_float_fix_<mode>2): Ditto.
+	(vsx_sxcvspdf_sf): New insn for optimizing converting a floating
+	point type to 32-bit integer and back to floating point.
+	(vsx_floatdf_fixsidf2): Ditto.
+	(vsx_floatsf_fixsisf2): Ditto.
+	(vsx_floatunsdf_fixunssidf2): Ditto.
+	(vsx_floatunsdf_fixunssisf2): Ditto.
+	(vsx_xvcvsxwdp_df): Ditto.
+	(vsx_xvcvuxwdp_df): Ditto.
+	(vsx_xxspltw_di): Ditto.
+
+	* config/rs6000/rs6000.h (TARGET_FCFID): New macro to determine if
+	instructions are supported based on the various switches.
+	(TARGET_STFIWX): Ditto.
+	(TARGET_LFIWAX): Ditto.
+	(TARGET_LFIWZX): Ditto.
+	(TARGET_FCFIDS): Ditto.
+	(TARGET_FCFIDU): Ditto.
+	(TARGET_FCFIDUS): Ditto.
+	(TARGET_FCTIDUZ): Ditto.
+	(TARGET_FCTIWUZ): Ditto.
+
+	* config/rs6000/rs6000.md (UNSPEC_FCTIW): New unspec constant.
+	(UNSPEC_FCTID): Ditto.
+	(UNSPEC_LFIWAX): Ditto.
+	(UNSPEC_LFIWZX): Ditto.
+	(UNSPEC_FCTIWUZ): Ditto.
+	(SI_CONVERT_FP): New mode attribute for floating point
+	conversion.
+	(E500_CONVERT): Ditto.
+	(lfiwax): New insn to support floating point conversion rewrite.
+	Add support for LFIWAX/LFIWZX instructions.  Add support for doing
+	FCFID on 32-bit systems.  Add support for FCFIDS/FCFIDU/FCFIDUS
+	instructions.  Use combiner to avoid loading values to GPR, then
+	being spilled on the stack and being reloaded in FPR registers.
+	Add support for using FRIZ to optimize (double)(long).  Group
+	insns together.
+	(floatsi<mode>2_lfiwax): Ditto.
+	(floatsi<mode>2_lfiwax2): Ditto.
+	(lfiwzx): Ditto.
+	(floatunssi<mode>2_lfiwzx): Ditto.
+	(floatsidf2): Ditto.
+	(floatsidf2_internal): Ditto.
+	(floatunssisf2): Ditto.
+	(floatunssidf2): Ditto.
+	(floatunssidf2_internal): Ditto.
+	(fix_trunc<mode>si2_stfiwx): Ditto.
+	(fix_trunc<mode>si2_stfiwx2): Ditto.
+	(fix_trunc<mode>si2): Ditto.
+	(fix_trunc<mode>si2_internal): Ditto.
+	(fix_truncdfdi2): Ditto.
+	(fix_truncdfdi2_fctidz): Ditto.
+	(fixuns_trunc<mode>si2_stfiwx): Ditto.
+	(fixuns_trunc<mode>si2_stfiwx2): Ditto.
+	(fix_trunc<mode>si2): Ditto.
+	(fix_trunc<mode>si2_internal): Ditto.
+	(fix_truncdfdi2): Ditto.
+	(fix_truncdfdi2_fctidz): Ditto.
+	(fixuns_trunc<mode>si2_stfiwx): Ditto.
+	(fixuns_trunc<mode>si2_stfiwx2): Ditto.
+	(fixuns_trunc<mode>si2): Ditto.
+	(fixuns_trunc<mode>di2): Ditto.
+	(fixuns_trunc<mode>di2_fctiduz): Ditto.
+	(fctiwz_<mode>): Ditto.
+	(friz): Ditto.
+	(float<mode>_fixdidf2): Ditto.
+	(stfiwx): Ditto.
+	(floatsisf2): Ditto.
+	(floatdidf2): Ditto.
+	(floatdidf2_fcfid): Ditto.
+	(floatdidf2_mem): Ditto.
+	(floatunsdidf2): Ditto.
+	(floatunsdidf2_mem): Ditto.
+	(floatdisf2): Ditto.
+	(floatdisf2_fcfids): Ditto.
+	(floatdisf2_mem): Ditto.
+	(floatdisf2_internal): Ditto.
+	(floatunsdisf2): Ditto.
+	(floatunsdisf2_fcfidus): Ditto.
+	(floatunsdisf2_mem): Ditto.
+	(fix_trunctfsi2_internal): Ditto.
+	(fix_truncdfsi2): Delete, merge into common patterns above.
+	(fix_truncsfsi2): Ditto.
+	(fixuns_truncsfsi2): Ditto.
+	(fixuns_truncdfsi2): Ditto.
+	(fix_truncdfsi2_internal): Ditto.
+	(fix_truncdfsi2_internal_gfxopt): Ditto.
+	(fix_truncdfsi2_mfpgpr): Ditto.
+	(fctiwz): Ditto.
+	(floatdidf2_fpr): Ditto.
+	(fix_truncdfdi2): Ditto.
+	(lrintdfdi2): Add lrintl support.
+	(fix_truncdfdi2_fpr): Ditto.
+	(movdi_mfpgpr): Add support for moving DI values in VSX registers.
+	(movdi_internal64): Ditto.
 
 	Recreate branch from mainline subversion id 162659.
 	* REVISION: New file, add subversion id for tracing.
