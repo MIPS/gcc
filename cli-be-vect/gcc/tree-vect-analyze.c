@@ -1537,13 +1537,6 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
 	  print_generic_expr (vect_dump, base, TDF_SLIM);
 	}
 
-      if (!LOOP_VINFO_ALIGN_SCHEME (loop_vinfo) && !flag_bases_aligned)
-        {
-          VEC_safe_push (data_reference_p, heap, 
-                         LOOP_VINFO_DRS_FOR_ALIGN_CHECKS (loop_vinfo), dr);
-          SET_DR_MISALIGNMENT (dr, 0);
-        }
-
       return true;
     }
 
@@ -1566,6 +1559,9 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
       cannot_force_alignment = true;
     }
 
+  if (flag_bases_aligned)
+    base_aligned = true;
+
   if (!base_aligned) 
     {
       /* Do not change the alignment of global variables if 
@@ -1579,19 +1575,22 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
 	      print_generic_expr (vect_dump, ref, TDF_SLIM);
 	    }
 
-          if (!LOOP_VINFO_ALIGN_SCHEME (loop_vinfo) && !flag_bases_aligned)
-            {
-              VEC_safe_push (data_reference_p, heap,
-                             LOOP_VINFO_DRS_FOR_ALIGN_CHECKS (loop_vinfo), dr);
-              SET_DR_MISALIGNMENT (dr, 0);
-            }
-
-	  return true;
+          /* If there is no forced scheme, we are now creating the "bases
+             aligned" version and have to record the misalignment value.  */
+          if (LOOP_VINFO_ALIGN_SCHEME (loop_vinfo))
+ 	    return true;
 	}
 
       if (cannot_force_alignment && !LOOP_VINFO_ALIGN_SCHEME (loop_vinfo))
-        VEC_safe_push (data_reference_p, heap,
+        {
+          VEC_safe_push (data_reference_p, heap,
                        LOOP_VINFO_DRS_FOR_ALIGN_CHECKS (loop_vinfo), dr);
+          if (vect_print_dump_info (REPORT_DETAILS))
+            {
+              fprintf (vect_dump, "Saving ref for further guard creation: ");
+              print_generic_expr (vect_dump, ref, TDF_SLIM);
+            }
+        }
       else
         {
           /* Force the alignment of the decl.
@@ -1608,11 +1607,15 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
   gcc_assert (base_aligned
 	      || (TREE_CODE (base) == VAR_DECL 
 		  && DECL_ALIGN (base) >= TYPE_ALIGN (vectype))
-              || cannot_force_alignment);
+              || cannot_force_alignment
+              || flag_bases_aligned);
 
-  if (!(cannot_force_alignment && !LOOP_VINFO_ALIGN_SCHEME (loop_vinfo)))
-    /* Modulo alignment.  */
-    misalign = size_binop (TRUNC_MOD_EXPR, misalign, alignment);
+  /* In "unknown misalignment" scheme we leave the misalignment -1.  */
+  if (!base_aligned && LOOP_VINFO_ALIGN_SCHEME (loop_vinfo))
+    return true;
+
+ /* Modulo alignment.  */
+ misalign = size_binop (TRUNC_MOD_EXPR, misalign, alignment);
 
   if (!host_integerp (misalign, 1))
     {
@@ -1699,8 +1702,8 @@ vect_update_misalignment_for_peel (struct data_reference *dr,
   if (known_alignment_for_access_p (dr)
       && known_alignment_for_access_p (dr_peel)
       && !(targetm.vectorize.builtin_can_force_alignment
-            && !targetm.vectorize.builtin_can_force_alignment ()
-            && !LOOP_VINFO_ALIGN_SCHEME (loop_vinfo)))
+           && !targetm.vectorize.builtin_can_force_alignment ()
+           && LOOP_VINFO_ALIGN_SCHEME (loop_vinfo)))
     {
       int misal = DR_MISALIGNMENT (dr);
       tree vectype = STMT_VINFO_VECTYPE (stmt_info);
@@ -1712,7 +1715,10 @@ vect_update_misalignment_for_peel (struct data_reference *dr,
     }
 
   if (vect_print_dump_info (REPORT_DETAILS))
-    fprintf (vect_dump, "Setting misalignment to -1.");
+    {
+      fprintf (vect_dump, "Setting misalignment to -1.");
+      print_generic_expr (vect_dump, dr->ref, TDF_SLIM);
+    }
   SET_DR_MISALIGNMENT (dr, -1);
 }
 
