@@ -7231,7 +7231,8 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
               gimple_call_set_lhs (new_stmt, offset);
               new_bb = gsi_insert_on_edge_immediate (loop_preheader_edge (loop),
                                                      new_stmt);
-             gcc_assert (!new_bb);
+              gcc_assert (!new_bb);
+              offset = fold_build2 (MINUS_EXPR, sizetype, offset, integer_one_node);
             }
           else
 	    offset = fold_build2 (MINUS_EXPR, sizetype,
