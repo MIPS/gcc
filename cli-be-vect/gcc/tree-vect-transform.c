@@ -6952,7 +6952,7 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
   gimple new_stmt = NULL;
   tree dummy;
   enum dr_alignment_support alignment_support_scheme;
-  tree dataref_ptr = NULL_TREE;
+  tree dataref_ptr = NULL_TREE, misaligned_dataref_ptr = NULL_TREE;
   gimple ptr_incr;
   int nunits = TYPE_VECTOR_SUBPARTS (vectype);
   int ncopies;
@@ -7248,13 +7248,24 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
     { 
       /* 1. Create the vector pointer update chain.  */
       if (j == 0)
-        dataref_ptr = vect_create_data_ref_ptr (first_stmt,
-					        at_loop, offset, 
-						&dummy, &ptr_incr, false, 
-						&inv_p, NULL_TREE);
+        {
+          misaligned_dataref_ptr = vect_create_data_ref_ptr (first_stmt,
+                                                at_loop, NULL_TREE,
+                                                &dummy, &ptr_incr, false,
+                                                &inv_p, NULL_TREE);
+          dataref_ptr = vect_create_data_ref_ptr (first_stmt,
+                                                at_loop, offset,
+                                                &dummy, &ptr_incr, false,
+                                                &inv_p, NULL_TREE);
+        }
       else
-        dataref_ptr = 
+        {
+          dataref_ptr = 
 		bump_vector_ptr (dataref_ptr, ptr_incr, gsi, stmt, NULL_TREE);
+          misaligned_dataref_ptr =
+                bump_vector_ptr (misaligned_dataref_ptr, ptr_incr, gsi, stmt, 
+                                 NULL_TREE);
+        }
 
       for (i = 0; i < vec_num; i++)
 	{
@@ -7357,7 +7368,8 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
                     }
 
                   new_stmt = gimple_build_call (builtin_decl, 6, msq, lsq, 
-                                                realignment_token, dataref_ptr, 
+                                                realignment_token, 
+                                                misaligned_dataref_ptr, 
                                                 misalign, alignment);
                   new_temp = make_ssa_name (vec_dest, new_stmt);
                   add_referenced_var (vec_dest);
