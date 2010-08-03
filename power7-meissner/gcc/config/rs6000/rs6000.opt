@@ -123,6 +123,10 @@ mfriz
 Target Undocumented Report Var(TARGET_FRIZ) Init(-1)
 ; Under -ffast-math, generate a FRIZ instruction to combine converting double to long and back to double.
 
+mmass
+Target Report Var(TARGET_MASS) Init(0)
+Use the Mathematical Acceleration Subsystem library high performance math libraries.
+
 mvsx
 Target Report Mask(VSX)
 Use vector/scalar (VSX) instructions
