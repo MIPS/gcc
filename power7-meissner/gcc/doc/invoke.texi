@@ -788,7 +788,7 @@ See RS/6000 and PowerPC Options.
 -msdata=@var{opt}  -mvxworks  -G @var{num}  -pthread @gol
 -mrecip -mrecip=@var{opt} -mno-recip -mrecip-precision
 -mno-recip-precision @gol
--mmass}
+-mmass -mmfcfid -mfriz}
 
 @emph{RX Options}
 @gccoptlist{-m64bit-doubles  -m32bit-doubles  -fpu  -nofpu@gol
@@ -15805,6 +15805,23 @@ will currently emit calls to @code{acosd2}, @code{acosf4},
 for power7.  Both @option{-ftree-vectorize} and
 @option{-funsafe-math-optimizations} have to be enabled.  The MASS
 libraries will have to be specified at link time.
+
+@item -mmfcfid
+@itemx -mno-fcfid
+@opindex mfcfid
+Generate the @code{fcfid} instruction even in 32-bit code.  Earlier
+powerpc's only enabled the @code{fcfid} instruction to convert 64-bit
+integers to double precision floating point in 64-bit mode, while
+newer machines can use the instruction in 32-bit mode.
+
+@item -mfriz
+@itemx -mno-friz
+@opindex mfriz
+Generate the @code{friz} instruction to convert a floating point value
+to 64-bit integer and back to floating point.  This is only done if
+the @option{-funsafe-math-optimizations} is enabled, since the
+@code{friz} instruction produces different results if the value is too
+large to fit into a 64-bit integer.
 @end table
 
 @node RX Options

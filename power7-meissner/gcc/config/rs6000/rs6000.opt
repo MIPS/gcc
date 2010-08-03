@@ -120,8 +120,8 @@ Target Report Mask(FCFID_32BIT)
 Generate the fcfid instruction even in 32-bit code
 
 mfriz
-Target Undocumented Report Var(TARGET_FRIZ) Init(-1)
-; Under -ffast-math, generate a FRIZ instruction to combine converting double to long and back to double.
+Target Report Var(TARGET_FRIZ) Init(-1)
+Under -ffast-math, generate a FRIZ instruction to combine converting double to long and back to double.
 
 mmass
 Target Report Var(TARGET_MASS) Init(0)
