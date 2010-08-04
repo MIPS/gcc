@@ -6,7 +6,7 @@
 	compiler to autovectorize mathmetical functions for power7 using
 	the Mathematical Acceleration Subsystem library.
 
-	* config/rs6000/rs6000.c (+rs6000_builtin_vectorized_libmass): New
+	* config/rs6000/rs6000.c (rs6000_builtin_vectorized_libmass): New
 	function to handle auto vectorizing math functions that are in the
 	MASS library.
 	(rs6000_builtin_vectorized_function): Call it.
