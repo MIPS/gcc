@@ -2498,10 +2498,10 @@ rs6000_override_options (const char *default_cpu)
 	  POWERPC_BASE_MASK | MASK_POWERPC64 | MASK_PPC_GPOPT | MASK_PPC_GFXOPT
 	  | MASK_MFCRF | MASK_POPCNTB | MASK_FPRND | MASK_CMPB | MASK_DFP
 	  | MASK_MFPGPR | MASK_RECIP_PRECISION},
-	 {"power7", PROCESSOR_POWER7,
+	 {"power7", PROCESSOR_POWER7,   /* Don't add MASK_ISEL by default */
 	  POWERPC_7400_MASK | MASK_POWERPC64 | MASK_PPC_GPOPT | MASK_MFCRF
 	  | MASK_POPCNTB | MASK_FPRND | MASK_CMPB | MASK_DFP | MASK_POPCNTD
-	  | MASK_VSX| MASK_RECIP_PRECISION},	/* Don't add MASK_ISEL by default */
+	  | MASK_VSX | MASK_RECIP_PRECISION},
 	 {"powerpc", PROCESSOR_POWERPC, POWERPC_BASE_MASK},
 	 {"powerpc64", PROCESSOR_POWERPC64,
 	  POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_POWERPC64},
@@ -2538,15 +2538,15 @@ rs6000_override_options (const char *default_cpu)
     ISA_2_1_MASKS = MASK_MFCRF,
     ISA_2_2_MASKS = (ISA_2_1_MASKS | MASK_POPCNTB | MASK_FPRND),
 
-    /* For ISA 2.05, do not add MFPGPR, since it isn't in ISA 2.06, and
-       don't add ALTIVEC, since in general it isn't a win on power6.  */
+    /* For ISA 2.05, do not add MFPGPR, since it isn't in ISA 2.06, and don't
+       add ALTIVEC, since in general it isn't a win on power6.  In ISA 2.04,
+       fsel, fre, fsqrt, etc. were no longer documented as optional. */
     ISA_2_5_MASKS = (ISA_2_2_MASKS | MASK_CMPB | MASK_RECIP_PRECISION
-		     | MASK_DFP),
+		     | MASK_DFP | MASK_PPC_GFXOPT | MASK_PPC_GPOPT),
 
     /* For ISA 2.06, don't add ISEL, since in general it isn't a win, but
        altivec is a win so enable it.  */
-    ISA_2_6_MASKS = (ISA_2_5_MASKS | MASK_ALTIVEC | MASK_POPCNTD
-		     | MASK_VSX | MASK_RECIP_PRECISION)
+    ISA_2_6_MASKS = (ISA_2_5_MASKS | MASK_ALTIVEC | MASK_POPCNTD | MASK_VSX)
   };
 
   /* Numerous experiment shows that IRA based loop pressure
@@ -2692,10 +2692,12 @@ rs6000_override_options (const char *default_cpu)
 
   /* For the newer switches (vsx, dfp, etc.) set some of the older options,
      unless the user explicitly used the -mno-<option> to disable the code.  */
-  if (TARGET_VSX)
+  if (TARGET_VSX || TARGET_POPCNTD)
     target_flags |= (ISA_2_6_MASKS & ~target_flags_explicit);
-  else if (TARGET_DFP)
+  else if (TARGET_DFP || TARGET_CMPB)
     target_flags |= (ISA_2_5_MASKS & ~target_flags_explicit);
+  else if (TARGET_POPCNTB || TARGET_FPRND)
+    target_flags |= (ISA_2_2_MASKS & ~target_flags_explicit);
   else if (TARGET_ALTIVEC)
     target_flags |= (MASK_PPC_GFXOPT & ~target_flags_explicit);
 

@@ -1,5 +1,28 @@
 2010-08-04  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/rs6000.md (floatdidf2): Use TARGET_FCFID to
+	control whether to provide DF to DI conversion.
+	(floatdidf2_fpr): Ditto.
+	(fix_truncdfdi2): Use TARGET_FCTIDZ to control whether to provide
+	DI to DF conversion.
+
+	* config/rs6000/rs6000.c (rs6000_override_options): Set PPC_GFXOPT
+	and PPC_GPOPT for ISA 2.05.  Set 2.05 options if either 2.05
+	switch was set (hard dfp, cmpb).  Set 2.06 options if either 2.06
+	switch was set (vsx, popcntd).
+
+	* config/rs6000/rs6000.h (TARGET_FCFID): New macro to say we can
+	use various floating point conversion options.
+	(TARGET_FCTIDZ): Ditto.
+	(TARGET_STFIWX): Ditto.
+	(TARGET_LFIWAX): Ditto.
+	(TARGET_LFIWZX): Ditto.
+	(TARGET_FCFIDS): Ditto.
+	(TARGET_FCFIDU): Ditto.
+	(TARGET_FCFIDUS): Ditto.
+	(TARGET_FCTIDUZ): Ditto.
+	(TARGET_FCTIWUZ): Ditto.
+
 	* doc/invoke.texi (RS/6000 and PowerPC Options): Document -mmass.
 
 	* config/rs6000/rs6000.opt (-mmass): New option to enable the
