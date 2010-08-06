@@ -1,5 +1,46 @@
 2010-08-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/rs6000-protos.h
+	(rs6000_expand_convert_si_to_sfdf): New declaration.
+
+	* config/rs6000/rs6000.c (rs6000_expand_convert_si_to_sfdf): New
+	function to combine conversion of signed/unsigned 32-bit integer
+	to 32-bit and 64-bit floating point.
+
+	* config/rs6000/rs6000.md (UNSPEC_FCTIW): New unspec constant.
+	(UNSPEC_FCTID): Ditto.
+	(UNSPEC_LFIWAX): Ditto.
+	(UNSPEC_LFIWZX): Ditto.
+	(SI_CONVERT_FP): New mode attribute to say whether the appropriate
+	instruction to convert 32-bit in to floating point exists.
+	(E500_CONVERT): New mode attribute to give correct test for E500
+	for SF/DF mode.
+	(lfiwax): New insn to support LFIWAX/LFIWXZ, FCFIDU, FCFIDS,
+	FCFIDSU instructions.
+	(floatsi<mode>2_lfiwax): Ditto.
+	(floatsi<mode>2_lfiwax2): Ditto.
+	(lfiwzx): Ditto.
+	(floatunssi<mode>2_lfiwzx): Ditto.
+	(floatunssi<mode>2_lfiwzx2): Ditto.
+	(floatunsdidf2_fcfidu): Ditto.
+	(floatdisf2_fcfids): Ditto.
+	(floatunsdisf2): Ditto.
+	(floatsidf2): Add support for the LFIWAX, LFIWZX, FCFID, FCFIDU
+	instructions.
+	(floatunssisf2): Ditto.
+	(floatunssidf2): Ditto.
+	(floatsisf2): Ditto.
+	(floatsisf2): Ditto.
+	(floatdisf2): Ditto.
+	(floatunsdfsi2): Ditto.
+	(floatsidf2_interal2): Allow use on 32-bit machines that support
+	FCFID.
+	(floatunssidf2_internal2): Ditto.
+	(floatdisf2_internal2): Ditto.
+	(floatdisf2_mem): Combiner insn to try and reduce moving memory to
+	GPRS, spilling to the stack and reloading into FPRs.
+	(floatunsdisf2_mem): Ditto.
+
 	* config/rs6000/rs6000-protos.h (rs6000_address_for_fpconvert):
 	New declaration.
 	(rs6000_allocate_stack_temp): Ditto.
