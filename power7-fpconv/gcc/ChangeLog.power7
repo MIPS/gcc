@@ -1,5 +1,18 @@
 2010-08-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/rs6000.md (fix_trunc<mode>si2): Spacing glitch.
+	(fix_trunc<mode>si2_stfiwx): Delete redundant store.
+	(fixuns_trunc<mode>si2): New insn, support power7 unsigned convert
+	ops along with SPE's unsigned conversions.
+	(fixuns_truncsfsi2): Merge into fixuns_trunc<mode>si2.
+	(fixuns_truncdfsi2): Ditto.
+	(fix_trunc<mdoe>di2_fctidz): New insn for floating point converts.
+	(fixuns_trunc<mode>si2_stfiwx): Ditto.
+	(fixuns_trunc<mode>di2): Ditto.
+	(fixuns_trunc<mode>di2_fctiwuz): Ditto.
+	(fctiwuz_<mode>): Ditto.
+	(fixuns_truncdfdi2): Delete, merge into fixuns_trunc<mode>di2.
+
 	Merge up to 162963.
 	* REVISION: Update subversion id.
 
