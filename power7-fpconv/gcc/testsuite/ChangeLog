@@ -1,3 +1,55 @@
+2010-08-06  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	* gfortran.dg/dependency_30.f90:  Fix incorrect dg-do line.
+
+2010-08-06  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/sfinae3.C: New.
+	* g++.dg/cpp0x/sfinae4.C: New.
+
+2010-08-06  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.dg/tree-ssa/ssa-dce-3.c: XFAIL.
+	* gcc.dg/tree-ssa/pr23744.c: Disable CCP.
+	* gcc.dg/tree-ssa/pr25382.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-ccp-30.c: New testcase.
+	* gcc.dg/tree-ssa/ssa-ccp-31.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-ccp-32.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-ccp-33.c: Likewise.
+	* gcc.c-torture/execute/20100805-1.c: Likewise.
+
+2010-08-05  Martin Jambor  <mjambor@suse.cz>
+
+	PR testsuite/42855
+	* gcc.dg/tree-ssa/pr42585.c: Skip dump scan on powerpc and arm.
+
+2010-08-05  Martin Jambor  <mjambor@suse.cz>
+
+	* gcc.dg/ipa/ipcp-ii-1.c: New test.
+	* g++.dg/ipa/ipcp-ivi-1.C: Likewise.
+
+2010-08-05  Martin Jambor  <mjambor@suse.cz>
+
+	* g++.dg/ipa/devirt-1.C: New test.
+	* g++.dg/ipa/devirt-2.C: Likewise.
+	* g++.dg/ipa/devirt-3.C: Likewise.
+	* g++.dg/ipa/devirt-4.C: Likewise.
+	* g++.dg/ipa/devirt-5.C: Likewise.
+	* gcc.dg/ipa/iinline-3.c: Likewise.
+
+2010-08-05  Jie Zhang  <jie@codesourcery.com>
+
+	PR tree-optimization/45144
+	* gcc.dg/tree-ssa/pr45144.c: New test.
+
+2010-08-04  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/42207
+	PR fortran/44064
+	PR fortran/44065
+	* gfortran.dg/class_25.f03: New.
+	* gfortran.dg/class_26.f03: New.
+
 2010-08-04  Daniel Gutson  <dgutson@codesourcery.com>
 
 	* g++.dg/warn/miss-format-1.C: Update line number.

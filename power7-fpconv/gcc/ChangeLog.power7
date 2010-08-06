@@ -1,5 +1,8 @@
 2010-08-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to 162963.
+	* REVISION: Update subversion id.
+
 	* config/rs6000/rs6000.md (fix_trunc<mode>si2): Combine
 	fix_truncdfsi2, fix_truncsfsi2.  Add support for STFIWX.
 	(fix_truncsfsi2): Delete, merge into fix_trunc<mode>si2.
