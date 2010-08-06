@@ -1,5 +1,21 @@
 2010-08-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/rs6000.md (fix_trunc<mode>si2): Combine
+	fix_truncdfsi2, fix_truncsfsi2.  Add support for STFIWX.
+	(fix_truncsfsi2): Delete, merge into fix_trunc<mode>si2.
+	(fix_truncdfsi2): Ditto.
+	(fix_trunc<mode>si2_stfiwx): New insns for convert floating point
+	to 32-bit int on systems that support STFIWX.
+	(fix_trunc<mode>si2_internal): Make fix_truncdfsi2_internal handle
+	both DF/SF, and export generator function.
+	(fix_truncdfsi2_internal): Delete, merge into
+	fix_trunc<mode>si2_internal.
+	(fix_truncdfsi2_internal_gfxopt): Delete, replace by
+	fix_trunc<mode>si2_stfiwx.
+	(fctwiz_<mode>): Handle both SF/DF.  Fix minor spacing glitch.
+	(fctwiz): Delete, merge into fctwiz_<mode>.
+	(fix_trunctfsi2_internal): use fctwiz_df, not fctwiz.
+
 	* config/rs6000/rs6000.md (floatdidf2_mem): New combiner pattern
 	to avoid loading int value in a GPR, spilling it on the stack, and
 	reloading it into a FPR.
