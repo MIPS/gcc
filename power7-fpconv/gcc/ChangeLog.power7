@@ -1,3 +1,22 @@
+2010-08-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-protos.h (rs6000_address_for_fpconvert):
+	New declaration.
+	(rs6000_allocate_stack_temp): Ditto.
+
+	* config/rs6000/rs6000.c (rs6000_address_for_fpconvert): New
+	function, to return true if a memory address can be used with the
+	STFIWX, LDFIWAX, LDFIWZX instructions.
+	(rs6000_allocate_stack_temp): New function, return a stack temp,
+	possibly modifying the address to match the instructions we will
+	use with it.
+
+	* config/rs6000/rs6000.md (fixuns_truncsfsi2): Move to be near the
+	other fix/fixuns patterns in the file.
+	(fix_truncsfsi2): Ditto.
+	(fixuns_truncdfsi2): Ditto.
+	(fixuns_truncdfdi2): Ditto.
+
 2010-08-04  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.md (floatdidf2): Use TARGET_FCFID to
