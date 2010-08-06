@@ -1,7 +1,7 @@
 2010-08-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
-	* config/rs6000/rs6000.md (floatdidf2_mem): New compiler to avoid
-	loading int value in a GPR, spilling it on the stack, and
+	* config/rs6000/rs6000.md (floatdidf2_mem): New combiner pattern
+	to avoid loading int value in a GPR, spilling it on the stack, and
 	reloading it into a FPR.
 	(floatunsdidf2_mem): Ditto.
 
