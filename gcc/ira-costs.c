@@ -34,6 +34,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-config.h"
 #include "recog.h"
 #include "reload.h"
+#include "diagnostic-core.h"
 #include "toplev.h"
 #include "target.h"
 #include "params.h"
@@ -66,20 +67,16 @@ struct costs
   int cost[1];
 };
 
-/* Initialized once.  It is a maximal possible size of the allocated
-   struct costs.  */
-static int max_struct_costs_size;
-
-/* Allocated and initialized once, and used to initialize cost values
-   for each insn.  */
-static struct costs *init_cost;
-
-/* Allocated once, and used for temporary purposes.  */
-static struct costs *temp_costs;
-
-/* Allocated once, and used for the cost calculation.  */
-static struct costs *op_costs[MAX_RECOG_OPERANDS];
-static struct costs *this_op_costs[MAX_RECOG_OPERANDS];
+#define max_struct_costs_size \
+  (this_target_ira_int->x_max_struct_costs_size)
+#define init_cost \
+  (this_target_ira_int->x_init_cost)
+#define temp_costs \
+  (this_target_ira_int->x_temp_costs)
+#define op_costs \
+  (this_target_ira_int->x_op_costs)
+#define this_op_costs \
+  (this_target_ira_int->x_this_op_costs)
 
 /* Costs of each class for each allocno or pseudo.  */
 static struct costs *costs;
@@ -382,8 +379,7 @@ copy_cost (rtx x, enum machine_mode mode, enum reg_class rclass, bool to_p,
 static void
 record_reg_classes (int n_alts, int n_ops, rtx *ops,
 		    enum machine_mode *modes, const char **constraints,
-		    rtx insn, struct costs **op_costs,
-		    enum reg_class *pref)
+		    rtx insn, enum reg_class *pref)
 {
   int alt;
   int i, j, k, regno, other_regno;
@@ -493,7 +489,8 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 		     needs to do a copy, which is one insn.  */
 		  struct costs *pp = this_op_costs[i];
 		  int *pp_costs = pp->cost;
-		  cost_classes_t cost_classes_ptr = regno_cost_classes[REGNO (op)];
+		  cost_classes_t cost_classes_ptr
+		    = regno_cost_classes[REGNO (op)];
 		  enum reg_class *cost_classes = cost_classes_ptr->classes;
 		  bool in_p = recog_data.operand_type[i] != OP_OUT;
 		  bool out_p = recog_data.operand_type[i] != OP_IN;
@@ -1183,7 +1180,7 @@ record_address_regs (enum machine_mode mode, rtx x, int context,
 
 /* Calculate the costs of insn operands.  */
 static void
-record_operand_costs (rtx insn, struct costs **op_costs, enum reg_class *pref)
+record_operand_costs (rtx insn, enum reg_class *pref)
 {
   const char *constraints[MAX_RECOG_OPERANDS];
   enum machine_mode modes[MAX_RECOG_OPERANDS];
@@ -1236,11 +1233,11 @@ record_operand_costs (rtx insn, struct costs **op_costs, enum reg_class *pref)
 	xconstraints[i+1] = constraints[i];
 	record_reg_classes (recog_data.n_alternatives, recog_data.n_operands,
 			    recog_data.operand, modes,
-			    xconstraints, insn, op_costs, pref);
+			    xconstraints, insn, pref);
       }
   record_reg_classes (recog_data.n_alternatives, recog_data.n_operands,
 		      recog_data.operand, modes,
-		      constraints, insn, op_costs, pref);
+		      constraints, insn, pref);
 }
 
 
@@ -1283,7 +1280,7 @@ scan_one_insn (rtx insn)
 			   0, MEM, SCRATCH, frequency * 2);
     }
 
-  record_operand_costs (insn, op_costs, pref);
+  record_operand_costs (insn, pref);
 
   /* Now add the cost for each operand to the total costs for its
      allocno.  */
@@ -2065,6 +2062,9 @@ ira_tune_allocno_costs (void)
   enum machine_mode mode;
   ira_allocno_t a;
   ira_allocno_iterator ai;
+  ira_allocno_object_iterator oi;
+  ira_object_t obj;
+  bool skip_p;
 
   FOR_EACH_ALLOCNO (a, ai)
     {
@@ -2083,8 +2083,18 @@ ira_tune_allocno_costs (void)
 	  for (j = n - 1; j >= 0; j--)
 	    {
 	      regno = ira_class_hard_regs[aclass][j];
-	      if (! ira_hard_reg_not_in_set_p (regno, mode,
-					       ALLOCNO_CONFLICT_HARD_REGS (a)))
+	      skip_p = false;
+	      FOR_EACH_ALLOCNO_OBJECT (a, obj, oi)
+		{
+		  if (! ira_hard_reg_not_in_set_p (regno, mode,
+						   OBJECT_CONFLICT_HARD_REGS
+						   (obj)))
+		    {
+		      skip_p = true;
+		      break;
+		    }
+		}
+	      if (skip_p)
 		continue;
 	      rclass = REGNO_REG_CLASS (regno);
 	      cost = 0;

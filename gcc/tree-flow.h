@@ -321,7 +321,6 @@ typedef struct
 extern tree referenced_var_lookup (unsigned int);
 extern bool referenced_var_check_and_insert (tree);
 #define num_referenced_vars htab_elements (gimple_referenced_vars (cfun))
-#define referenced_var(i) referenced_var_lookup (i)
 
 #define num_ssa_names (VEC_length (tree, cfun->gimple_df->ssa_names))
 #define ssa_name(i) (VEC_index (tree, cfun->gimple_df->ssa_names, (i)))
@@ -368,7 +367,7 @@ struct omp_region
   /* If this is a combined parallel+workshare region, this is a list
      of additional arguments needed by the combined parallel+workshare
      library call.  */
-  tree ws_args;
+  VEC(tree,gc) *ws_args;
 
   /* The code for the omp directive of this region.  */
   enum gimple_code type;
@@ -833,7 +832,7 @@ struct mem_address
 };
 
 struct affine_tree_combination;
-tree create_mem_ref (gimple_stmt_iterator *, tree,
+tree create_mem_ref (gimple_stmt_iterator *, tree, tree,
 		     struct affine_tree_combination *, tree, bool);
 rtx addr_for_mem_ref (struct mem_address *, addr_space_t, bool);
 void get_address_description (tree, struct mem_address *);

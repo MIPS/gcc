@@ -1955,7 +1955,10 @@ bitmap_find_leader (bitmap_set_t set, unsigned int val, gimple stmt)
 	      gimple def_stmt = SSA_NAME_DEF_STMT (PRE_EXPR_NAME (val));
 	      if (gimple_code (def_stmt) != GIMPLE_PHI
 		  && gimple_bb (def_stmt) == gimple_bb (stmt)
-		  && gimple_uid (def_stmt) >= gimple_uid (stmt))
+		  /* PRE insertions are at the end of the basic-block
+		     and have UID 0.  */
+		  && (gimple_uid (def_stmt) == 0
+		      || gimple_uid (def_stmt) >= gimple_uid (stmt)))
 		continue;
 	    }
 	  return val;
@@ -2820,7 +2823,6 @@ create_component_ref_by_pieces_1 (basic_block block, vn_reference_t ref,
 	return folded;
       }
       break;
-    case ALIGN_INDIRECT_REF:
     case MISALIGNED_INDIRECT_REF:
       {
 	tree folded;
@@ -3021,9 +3023,10 @@ find_or_generate_expression (basic_block block, pre_expr expr,
     }
 
   /* If it's still NULL, it must be a complex expression, so generate
-     it recursively.  Not so for FRE though.  */
+     it recursively.  Not so if inserting expressions for values generated
+     by SCCVN.  */
   if (genop == NULL
-      && !in_fre)
+      && !domstmt)
     {
       bitmap_set_t exprset;
       unsigned int lookfor = get_expr_value_id (expr);

@@ -348,6 +348,7 @@ enum gfc_isym_id
   GFC_ISYM_CPU_TIME,
   GFC_ISYM_CSHIFT,
   GFC_ISYM_CTIME,
+  GFC_ISYM_C_SIZEOF,
   GFC_ISYM_DATE_AND_TIME,
   GFC_ISYM_DBLE,
   GFC_ISYM_DIGITS,
@@ -504,6 +505,7 @@ enum gfc_isym_id
   GFC_ISYM_SRAND,
   GFC_ISYM_SR_KIND,
   GFC_ISYM_STAT,
+  GFC_ISYM_STORAGE_SIZE,
   GFC_ISYM_SUM,
   GFC_ISYM_SYMLINK,
   GFC_ISYM_SYMLNK,
@@ -573,6 +575,15 @@ typedef enum
   GFC_FCOARRAY_SINGLE
 }
 gfc_fcoarray;
+
+typedef enum
+{
+  GFC_REVERSE_NOT_SET,
+  GFC_REVERSE_SET,
+  GFC_CAN_REVERSE,
+  GFC_CANNOT_REVERSE
+}
+gfc_reverse;
 
 /************************* Structures *****************************/
 
@@ -680,7 +691,8 @@ typedef struct
     use_assoc:1,		/* Symbol has been use-associated.  */
     use_only:1,			/* Symbol has been use-associated, with ONLY.  */
     use_rename:1,		/* Symbol has been use-associated and renamed.  */
-    imported:1;			/* Symbol has been associated by IMPORT.  */
+    imported:1,			/* Symbol has been associated by IMPORT.  */
+    host_assoc:1;		/* Symbol has been host associated.  */ 
 
   unsigned in_namelist:1, in_common:1, in_equivalence:1;
   unsigned function:1, subroutine:1, procedure:1;
@@ -1343,7 +1355,7 @@ typedef struct gfc_namespace
   struct gfc_code *code;
 
   /* Points to the equivalences set up in this namespace.  */
-  struct gfc_equiv *equiv;
+  struct gfc_equiv *equiv, *old_equiv;
 
   /* Points to the equivalence groups produced by trans_common.  */
   struct gfc_equiv_list *equiv_lists;
@@ -2509,6 +2521,7 @@ gfc_user_op *gfc_get_uop (const char *);
 gfc_user_op *gfc_find_uop (const char *, gfc_namespace *);
 void gfc_free_symbol (gfc_symbol *);
 gfc_symbol *gfc_new_symbol (const char *, gfc_namespace *);
+gfc_symtree* gfc_find_symtree_in_proc (const char *, gfc_namespace *);
 int gfc_find_symbol (const char *, gfc_namespace *, int, gfc_symbol **);
 int gfc_find_sym_tree (const char *, gfc_namespace *, int, gfc_symtree **);
 int gfc_get_symbol (const char *, gfc_namespace *, gfc_symbol **);
@@ -2598,6 +2611,7 @@ void gfc_free_forall_iterator (gfc_forall_iterator *);
 void gfc_free_alloc_list (gfc_alloc *);
 void gfc_free_namelist (gfc_namelist *);
 void gfc_free_equiv (gfc_equiv *);
+void gfc_free_equiv_until (gfc_equiv *, gfc_equiv *);
 void gfc_free_data (gfc_data *);
 void gfc_free_case_list (gfc_case *);
 
@@ -2670,6 +2684,7 @@ void gfc_expr_replace_comp (gfc_expr *, gfc_component *);
 bool gfc_is_proc_ptr_comp (gfc_expr *, gfc_component **);
 
 bool gfc_is_coindexed (gfc_expr *);
+bool gfc_get_corank (gfc_expr *);
 bool gfc_has_ultimate_allocatable (gfc_expr *);
 bool gfc_has_ultimate_pointer (gfc_expr *);
 
@@ -2715,7 +2730,7 @@ gfc_try gfc_resolve_array_spec (gfc_array_spec *, int);
 int gfc_compare_array_spec (gfc_array_spec *, gfc_array_spec *);
 
 void gfc_simplify_iterator_var (gfc_expr *);
-gfc_try gfc_expand_constructor (gfc_expr *);
+gfc_try gfc_expand_constructor (gfc_expr *, bool);
 int gfc_constant_ac (gfc_expr *);
 int gfc_expanded_ac (gfc_expr *);
 gfc_try gfc_resolve_character_array_constructor (gfc_expr *);
@@ -2806,7 +2821,6 @@ void gfc_global_used (gfc_gsymbol *, locus *);
 
 /* dependency.c */
 int gfc_dep_compare_expr (gfc_expr *, gfc_expr *);
-int gfc_is_data_pointer (gfc_expr *);
 
 /* check.c */
 gfc_try gfc_check_same_strlen (const gfc_expr*, const gfc_expr*, const char*);
@@ -2816,7 +2830,7 @@ void gfc_add_component_ref (gfc_expr *, const char *);
 gfc_expr *gfc_class_null_initializer (gfc_typespec *);
 gfc_try gfc_build_class_symbol (gfc_typespec *, symbol_attribute *,
 				gfc_array_spec **, bool);
-gfc_symbol *gfc_find_derived_vtab (gfc_symbol *, bool);
+gfc_symbol *gfc_find_derived_vtab (gfc_symbol *);
 gfc_symtree* gfc_find_typebound_proc (gfc_symbol*, gfc_try*,
 				      const char*, bool, locus*);
 gfc_symtree* gfc_find_typebound_user_op (gfc_symbol*, gfc_try*,
@@ -2827,5 +2841,9 @@ gfc_typebound_proc* gfc_find_typebound_intrinsic_op (gfc_symbol*, gfc_try*,
 gfc_symtree* gfc_get_tbp_symtree (gfc_symtree**, const char*);
 
 #define CLASS_DATA(sym) sym->ts.u.derived->components
+
+/* frontend-passes.c */
+
+void gfc_run_passes (gfc_namespace *);
 
 #endif /* GCC_GFORTRAN_H  */

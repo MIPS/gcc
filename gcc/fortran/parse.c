@@ -892,6 +892,7 @@ next_statement (void)
   gfc_new_block = NULL;
 
   gfc_current_ns->old_cl_list = gfc_current_ns->cl_list;
+  gfc_current_ns->old_equiv = gfc_current_ns->equiv;
   for (;;)
     {
       gfc_statement_label = NULL;
@@ -1651,6 +1652,9 @@ reject_statement (void)
   gfc_free_charlen (gfc_current_ns->cl_list, gfc_current_ns->old_cl_list);
   gfc_current_ns->cl_list = gfc_current_ns->old_cl_list;
 
+  gfc_free_equiv_until (gfc_current_ns->equiv, gfc_current_ns->old_equiv);
+  gfc_current_ns->equiv = gfc_current_ns->old_equiv;
+
   gfc_new_block = NULL;
   gfc_undo_symbols ();
   gfc_clear_warning ();
@@ -2103,7 +2107,7 @@ endType:
 
       /* Look for pointer components.  */
       if (c->attr.pointer
-	  || (c->ts.type == BT_CLASS && CLASS_DATA (c)->attr.pointer)
+	  || (c->ts.type == BT_CLASS && CLASS_DATA (c)->attr.class_pointer)
 	  || (c->ts.type == BT_DERIVED && c->ts.u.derived->attr.pointer_comp))
 	sym->attr.pointer_comp = 1;
 
@@ -4414,7 +4418,11 @@ prog_units:
      later and all their interfaces resolved.  */
   gfc_current_ns->code = s.head;
   if (next)
-    next->sibling = gfc_current_ns;
+    {
+      for (; next->sibling; next = next->sibling)
+	;
+      next->sibling = gfc_current_ns;
+    }
   else
     gfc_global_ns_list = gfc_current_ns;
 

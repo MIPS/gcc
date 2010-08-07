@@ -205,6 +205,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "value-prof.h"
 #include "langhooks.h"
 #include "target.h"
+#include "diagnostic-core.h"
 #include "toplev.h"
 #include "dbgcnt.h"
 
@@ -300,7 +301,8 @@ get_default_value (tree var)
 	 before being initialized.  If VAR is a local variable, we
 	 can assume initially that it is UNDEFINED, otherwise we must
 	 consider it VARYING.  */
-      if (is_gimple_reg (sym) && TREE_CODE (sym) != PARM_DECL)
+      if (is_gimple_reg (sym)
+	  && TREE_CODE (sym) == VAR_DECL)
 	val.lattice_val = UNDEFINED;
       else
 	val.lattice_val = VARYING;
@@ -728,9 +730,8 @@ ccp_lattice_meet (prop_value_t *val1, prop_value_t *val2)
 	 Ci M Cj = VARYING	if (i != j)
 
          If these two values come from memory stores, make sure that
-	 they come from the same memory reference.  */
-      val1->lattice_val = CONSTANT;
-      val1->value = val1->value;
+	 they come from the same memory reference.
+         Nothing to do.  VAL1 already contains the value we want.  */
     }
   else
     {
@@ -1162,6 +1163,16 @@ fold_const_aggregate_ref (tree t)
       base = TREE_OPERAND (t, 0);
       switch (TREE_CODE (base))
 	{
+	case MEM_REF:
+	  /* ???  We could handle this case.  */
+	  if (!integer_zerop (TREE_OPERAND (base, 1)))
+	    return NULL_TREE;
+	  base = get_base_address (base);
+	  if (!base
+	      || TREE_CODE (base) != VAR_DECL)
+	    return NULL_TREE;
+
+	  /* Fallthru.  */
 	case VAR_DECL:
 	  if (!TREE_READONLY (base)
 	      || TREE_CODE (TREE_TYPE (base)) != ARRAY_TYPE
