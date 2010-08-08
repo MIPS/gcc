@@ -1577,7 +1577,7 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
 
           /* If there is no forced scheme, we are now creating the "bases
              aligned" version and have to record the misalignment value.  */
-          if (LOOP_VINFO_ALIGN_SCHEME (loop_vinfo))
+          if (LOOP_VINFO_ALIGN_SCHEME (loop_vinfo) || !flag_alignment_hints)
  	    return true;
 	}
 

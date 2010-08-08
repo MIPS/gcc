@@ -4401,7 +4401,7 @@ vectorizable_assignment (gimple stmt, gimple_stmt_iterator *gsi,
   vectype_in = get_vectype_for_scalar_type (TREE_TYPE (op));
   if (CONVERT_EXPR_CODE_P (code)
       && (!vectype_in
-          || TYPE_VECTOR_SUBPARTS (vectype_in) != nunits
+          || TYPE_VECTOR_SUBPARTS (vectype_in) != (unsigned) nunits
           || (GET_MODE_SIZE (TYPE_MODE (vectype))
               != GET_MODE_SIZE (TYPE_MODE (vectype_in)))))
     return false;
@@ -9246,7 +9246,8 @@ vect_transform_loop (loop_vec_info loop_vinfo)
     fprintf (vect_dump, "=== vec_transform_loop ===");
 
   if (VEC_length (data_reference_p, LOOP_VINFO_DRS_FOR_ALIGN_CHECKS (loop_vinfo))
-      && !LOOP_VINFO_ALIGN_SCHEME (loop_vinfo) && !flag_bases_aligned)
+      && !LOOP_VINFO_ALIGN_SCHEME (loop_vinfo) && !flag_bases_aligned
+      && flag_alignment_hints)
     {
       struct loop *new_loop = vect_loop_versioning (loop_vinfo);
       loop_vec_info new_loop_vinfo = vect_analyze_loop (new_loop, true);
