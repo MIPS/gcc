@@ -8979,14 +8979,15 @@ vect_create_cond_for_alias_checks (loop_vec_info loop_vinfo,
    cost model initially.  */
 
 static struct loop *
-vect_loop_versioning (loop_vec_info loop_vinfo)
+vect_loop_versioning (loop_vec_info loop_vinfo, 
+                      gimple_stmt_iterator *cond_exp_gsi, bool inner)
 {
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   struct loop *nloop;
   tree cond_expr = NULL_TREE;
   gimple_seq cond_expr_stmt_list = NULL;
   basic_block condition_bb;
-  gimple_stmt_iterator gsi, cond_exp_gsi;
+  gimple_stmt_iterator gsi;
   basic_block merge_bb;
   basic_block new_exit_bb;
   edge new_exit_e, e;
@@ -8997,46 +8998,80 @@ vect_loop_versioning (loop_vec_info loop_vinfo)
   tree scalar_loop_iters = LOOP_VINFO_NITERS (loop_vinfo);
   int min_profitable_iters = 0;
   unsigned int th;
+  tree builtin_decl = NULL_TREE;
 
-  if (VEC_length (data_reference_p, LOOP_VINFO_DRS_FOR_ALIGN_CHECKS (loop_vinfo))
-      && !LOOP_VINFO_ALIGN_SCHEME (loop_vinfo))
+  if (inner)
     {
-      vect_create_cond_for_dr_align_checks (loop_vinfo, &cond_expr,
-                                         &cond_expr_stmt_list);
-      VEC_free (data_reference_p, heap, LOOP_VINFO_DRS_FOR_ALIGN_CHECKS (loop_vinfo));
+      if (LOOP_VINFO_NEEDS_DOUBLE (loop_vinfo)
+           && targetm.vectorize.builtin_double_supported 
+           && (builtin_decl = targetm.vectorize.builtin_double_supported ()))
+        {
+          tree var = create_tmp_var (boolean_type_node, "double");
+          gimple new_stmt = gimple_build_call (builtin_decl, 0);
+          tree tmp_cond_expr;
+
+          add_referenced_var (var);
+          tmp_cond_expr = make_ssa_name (var, new_stmt);
+          gimple_call_set_lhs (new_stmt, tmp_cond_expr);
+          gimple_seq_add_stmt (&cond_expr_stmt_list, new_stmt);
+
+          if (cond_expr)
+            {
+              cond_expr =
+                 fold_build2 (TRUTH_AND_EXPR, boolean_type_node, cond_expr, tmp_cond_expr);
+              cond_expr =
+                 force_gimple_operand (cond_expr, &gimplify_stmt_list, true, NULL_TREE);
+              gimple_seq_add_seq (&cond_expr_stmt_list, gimplify_stmt_list);
+            }
+          else
+            cond_expr = tmp_cond_expr;
+         }
+
+      if (!cond_expr)
+        {
+          cond_expr = create_tmp_var (boolean_type_node, "dummy");
+        }
     }
   else
     {
-  /* Get profitability threshold for vectorized loop.  */
-  min_profitable_iters = LOOP_VINFO_COST_MODEL_MIN_ITERS (loop_vinfo);
+      if (VEC_length (data_reference_p, LOOP_VINFO_DRS_FOR_ALIGN_CHECKS (loop_vinfo))
+          && !LOOP_VINFO_ALIGN_SCHEME (loop_vinfo) && !flag_bases_aligned)
+        {
+          vect_create_cond_for_dr_align_checks (loop_vinfo, &cond_expr,
+                                                &cond_expr_stmt_list);
+          VEC_free (data_reference_p, heap, 
+                    LOOP_VINFO_DRS_FOR_ALIGN_CHECKS (loop_vinfo));
+        }
+      else
+        {
+          /* Get profitability threshold for vectorized loop.  */
+          min_profitable_iters = LOOP_VINFO_COST_MODEL_MIN_ITERS (loop_vinfo);
 
-  th = conservative_cost_threshold (loop_vinfo,
-				    min_profitable_iters);
+          th = conservative_cost_threshold (loop_vinfo,
+      				            min_profitable_iters);
 
-  cond_expr =
-    fold_build2 (GT_EXPR, boolean_type_node, scalar_loop_iters, 
-		 build_int_cst (TREE_TYPE (scalar_loop_iters), th));
+          cond_expr = 
+            fold_build2 (GT_EXPR, boolean_type_node, scalar_loop_iters, 
+	      	     build_int_cst (TREE_TYPE (scalar_loop_iters), th));
 
-  cond_expr = force_gimple_operand (cond_expr, &cond_expr_stmt_list,
-				    false, NULL_TREE);
+            cond_expr = force_gimple_operand (cond_expr, &cond_expr_stmt_list,
+     				        false, NULL_TREE);
 
-  if (VEC_length (gimple, LOOP_VINFO_MAY_MISALIGN_STMTS (loop_vinfo)))
-      vect_create_cond_for_align_checks (loop_vinfo, &cond_expr,
-					 &cond_expr_stmt_list);
+          if (VEC_length (gimple, LOOP_VINFO_MAY_MISALIGN_STMTS (loop_vinfo)))
+            vect_create_cond_for_align_checks (loop_vinfo, &cond_expr,
+ 					   &cond_expr_stmt_list);
 
-  if (VEC_length (ddr_p, LOOP_VINFO_MAY_ALIAS_DDRS (loop_vinfo)))
-    vect_create_cond_for_alias_checks (loop_vinfo, &cond_expr, 
-				       &cond_expr_stmt_list);
-    }
+          if (VEC_length (ddr_p, LOOP_VINFO_MAY_ALIAS_DDRS (loop_vinfo)))
+            vect_create_cond_for_alias_checks (loop_vinfo, &cond_expr, 
+	  			           &cond_expr_stmt_list);
+        }
 
-  cond_expr =
-    fold_build2 (NE_EXPR, boolean_type_node, cond_expr, integer_zero_node);
-  cond_expr =
-    force_gimple_operand (cond_expr, &gimplify_stmt_list, true, NULL_TREE);
-  gimple_seq_add_seq (&cond_expr_stmt_list, gimplify_stmt_list);
-
-  //vect_mark_split_info_for_renaming (loop_vinfo);
-  //update_ssa (TODO_update_ssa);
+      cond_expr =
+        fold_build2 (NE_EXPR, boolean_type_node, cond_expr, integer_zero_node);
+      cond_expr =
+        force_gimple_operand (cond_expr, &gimplify_stmt_list, true, NULL_TREE);
+      gimple_seq_add_seq (&cond_expr_stmt_list, gimplify_stmt_list);
+   }
 
   initialize_original_copy_tables ();
   nloop = loop_version (loop, cond_expr, &condition_bb,
@@ -9072,8 +9107,8 @@ vect_loop_versioning (loop_vec_info loop_vinfo)
   update_ssa (TODO_update_ssa);
   if (cond_expr_stmt_list)
     {
-      cond_exp_gsi = gsi_last_bb (condition_bb);
-      gsi_insert_seq_before (&cond_exp_gsi, cond_expr_stmt_list, GSI_SAME_STMT);
+      *cond_exp_gsi = gsi_last_bb (condition_bb);
+      gsi_insert_seq_before (cond_exp_gsi, cond_expr_stmt_list, GSI_SAME_STMT);
     }
 
   return nloop;
@@ -9241,15 +9276,18 @@ vect_transform_loop (loop_vec_info loop_vinfo)
   tree vf;
   gimple new_stmt;
   basic_block new_bb;
+  gimple_stmt_iterator cond_expr_gsi;
 
   if (vect_print_dump_info (REPORT_DETAILS))
     fprintf (vect_dump, "=== vec_transform_loop ===");
 
-  if (VEC_length (data_reference_p, LOOP_VINFO_DRS_FOR_ALIGN_CHECKS (loop_vinfo))
+  if (VEC_length (data_reference_p, 
+                  LOOP_VINFO_DRS_FOR_ALIGN_CHECKS (loop_vinfo))
       && !LOOP_VINFO_ALIGN_SCHEME (loop_vinfo) && !flag_bases_aligned
       && flag_alignment_hints)
     {
-      struct loop *new_loop = vect_loop_versioning (loop_vinfo);
+      struct loop *new_loop = vect_loop_versioning (loop_vinfo, &cond_expr_gsi, 
+                                                    false);
       loop_vec_info new_loop_vinfo = vect_analyze_loop (new_loop, true);
       new_loop->aux = new_loop_vinfo;
 
@@ -9257,9 +9295,29 @@ vect_transform_loop (loop_vec_info loop_vinfo)
         vect_transform_loop (new_loop_vinfo);
     }
 
+  if (loop->inner && flag_loop_nest_version 
+      && LOOP_VINFO_NEEDS_DOUBLE (loop_vinfo))
+    {
+      struct loop *new_loop = vect_loop_versioning (loop_vinfo, &cond_expr_gsi, 
+                                                    true);
+      loop_vec_info inner_loop_vinfo;
+
+      if (vect_print_dump_info (REPORT_DETAILS))
+        fprintf (vect_dump, "=== SWITCHING TO INNER LOOP ===");
+
+      inner_loop_vinfo = vect_analyze_loop (new_loop->inner, false);
+      new_loop->inner->aux = inner_loop_vinfo;
+
+      if (inner_loop_vinfo && LOOP_VINFO_VECTORIZABLE_P (inner_loop_vinfo))
+        vect_transform_loop (inner_loop_vinfo);
+   
+      if (vect_print_dump_info (REPORT_DETAILS))
+        fprintf (vect_dump, "=== SWITCHING BACK TO OUTER LOOP ===");
+    }
+
   if (VEC_length (gimple, LOOP_VINFO_MAY_MISALIGN_STMTS (loop_vinfo))
       || VEC_length (ddr_p, LOOP_VINFO_MAY_ALIAS_DDRS (loop_vinfo)))
-    vect_loop_versioning (loop_vinfo);
+    vect_loop_versioning (loop_vinfo, &cond_expr_gsi, false);
 
   /* CHECKME: we wouldn't need this if we called update_ssa once
      for all loops.  */

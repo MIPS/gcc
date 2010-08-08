@@ -101,6 +101,7 @@ static tree cil32_builtin_conversion (enum tree_code, tree);
 static tree cil32_builtin_interleave_high_low (enum tree_code, tree);
 static tree cil32_builtin_extract_even_odd (enum tree_code, tree);
 static tree cil32_builtin_pack (enum tree_code, tree);
+static tree cil32_builtin_double_supported (void);
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ATTRIBUTE_TABLE
@@ -109,6 +110,9 @@ static tree cil32_builtin_pack (enum tree_code, tree);
 #undef TARGET_INIT_BUILTINS
 #define TARGET_INIT_BUILTINS cil_init_builtins
 
+#undef TARGET_VECTORIZE_BUILTIN_DOUBLE_SUPPORTED
+#define TARGET_VECTORIZE_BUILTIN_DOUBLE_SUPPORTED \
+  cil32_builtin_double_supported
 
 #undef TARGET_ASM_FILE_START
 #define TARGET_ASM_FILE_START cil32_file_start
@@ -724,8 +728,14 @@ static tree cil32_builtin_realign_load (tree type)
     }
   else
     {
-      if (element_size == 4)
-        return cil32_builtins[CIL32_GEN_VSF_REALIGN_LOAD];
+      switch (element_size)
+        {
+          case 4:
+            return cil32_builtins[CIL32_GEN_VSF_REALIGN_LOAD];
+
+          case 8:
+            return cil32_builtins[CIL32_GEN_VDF_REALIGN_LOAD];
+        }
     }  
 
   return NULL_TREE;
@@ -840,6 +850,9 @@ static tree cil32_builtin_build_init_vec (tree type)
     {
       switch (element_size)
         {
+        case 8:
+          return cil32_builtins[CIL32_GCC_BUILD_INIT_VEC_VDI];
+
         case 4:
           return cil32_builtins[CIL32_GCC_BUILD_INIT_VEC_VSI];
 
@@ -857,6 +870,9 @@ static tree cil32_builtin_build_init_vec (tree type)
     {
       switch (element_size)
         {
+        case 8:
+          return cil32_builtins[CIL32_GCC_BUILD_INIT_VEC_VDF];
+
         case 4:
           return cil32_builtins[CIL32_GCC_BUILD_INIT_VEC_VSF];
 
@@ -1022,5 +1038,10 @@ cil32_builtin_pack (enum tree_code code, tree type)
     default:
       return NULL_TREE;
     }
+}
+
+static tree cil32_builtin_double_supported (void)
+{
+  return cil32_builtins[CIL32_GCC_DOUBLE_SUPPORTED];
 }
  

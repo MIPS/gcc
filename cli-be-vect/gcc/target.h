@@ -507,6 +507,9 @@ struct gcc_target
     tree (* builtin_interleave_high_low) (enum tree_code, tree);
 
     tree (* builtin_pack) (enum tree_code, tree);
+
+    tree (* builtin_double_supported) (void);
+
 } vectorize;
 
   /* The initial value of target_flags.  */

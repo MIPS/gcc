@@ -127,8 +127,8 @@ vect_determine_vectorization_factor (loop_vec_info loop_vinfo)
   unsigned int nunits;
   stmt_vec_info stmt_info;
   int i;
-  HOST_WIDE_INT dummy;
   tree biggest_type = NULL;
+  HOST_WIDE_INT lhs_size_unit, rhs_size_unit;
 
   if (vect_print_dump_info (REPORT_DETAILS))
     fprintf (vect_dump, "=== vect_determine_vectorization_factor ===");
@@ -153,6 +153,9 @@ vect_determine_vectorization_factor (loop_vec_info loop_vinfo)
             {
 	      gcc_assert (!STMT_VINFO_VECTYPE (stmt_info));
               scalar_type = TREE_TYPE (PHI_RESULT (phi));
+
+              if (scalar_type == double_type_node)
+                LOOP_VINFO_NEEDS_DOUBLE (loop_vinfo) = true;
 
 	      if (vect_print_dump_info (REPORT_DETAILS))
 		{
@@ -245,12 +248,18 @@ vect_determine_vectorization_factor (loop_vec_info loop_vinfo)
 	    }
 	  else
 	    {
-
 	      gcc_assert (! STMT_VINFO_DATA_REF (stmt_info)
 			  && !is_pattern_stmt_p (stmt_info));
 
-	      scalar_type = vect_get_smallest_scalar_type (stmt, &dummy, 
-                                                           &dummy);
+	      scalar_type = vect_get_smallest_scalar_type (stmt, &lhs_size_unit, 
+                                                           &rhs_size_unit);
+
+              if (scalar_type == double_type_node
+                  || (is_gimple_assign (stmt)
+                      && TREE_TYPE (gimple_assign_rhs1 (stmt)) 
+                            == double_type_node))
+                LOOP_VINFO_NEEDS_DOUBLE (loop_vinfo) = true;
+
 	      if (vect_print_dump_info (REPORT_DETAILS))
 		{
 		  fprintf (vect_dump, "get vectype for scalar type:  ");
@@ -3819,6 +3828,9 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
      
       /* Set vectype for STMT.  */
       scalar_type = TREE_TYPE (DR_REF (dr));
+      if (scalar_type == double_type_node)
+        LOOP_VINFO_NEEDS_DOUBLE (loop_vinfo) = true;
+
       STMT_VINFO_VECTYPE (stmt_info) =
                 get_vectype_for_scalar_type (scalar_type);
       if (!STMT_VINFO_VECTYPE (stmt_info)) 

@@ -264,6 +264,8 @@ typedef struct _loop_vec_info {
 
   VEC (data_reference_p, heap) *drs_for_alignment_checks;
 
+  /* Inner-outer loop versioning flags.  */
+  bool needs_double;
 } *loop_vec_info;
 
 /* Access Functions.  */
@@ -292,6 +294,7 @@ typedef struct _loop_vec_info {
 #define LOOP_VINFO_SPLIT_INFO(L)      (L)->split_info
 #define LOOP_VINFO_ALIGN_SCHEME(L)    (L)->align_scheme
 #define LOOP_VINFO_DRS_FOR_ALIGN_CHECKS(L) (L)-> drs_for_alignment_checks
+#define LOOP_VINFO_NEEDS_DOUBLE(L)   (L)->needs_double
 
 #define NITERS_KNOWN_P(n)                     \
 (host_integerp ((n),0)                        \

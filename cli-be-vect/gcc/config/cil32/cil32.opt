@@ -99,3 +99,7 @@ Common Report Var(flag_peel_loop_bound_hints) Init(1) Optimization
 Generate peel loop bound hints
 
 
+mloop-nest-version
+Common Report Var(flag_loop_nest_version) Optimization
+Apply versioning to choose which loop in the loop nest to vectorize
+

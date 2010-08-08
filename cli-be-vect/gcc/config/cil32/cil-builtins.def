@@ -1480,6 +1480,12 @@ DEF_CILBUILTIN(GEN_VQI_PACK, "[genvec_support]genvec_support.VQI::VQI_pack", \
                VHI_type_node, VHI_type_node)
 
 
+/* inner or outer loop?  */
+DEF_CILBUILTIN(GCC_DOUBLE_SUPPORTED, "[genvec_support]genvec_support.VSI::VSI_double_supported", \
+               ATTR_CONST_NOTHROW_LIST,        \
+               boolean_type_node, \
+               0)
+
 /* V DF */
 DEF_CILBUILTIN(GEN_VDF_CTOR, "[Xxxx.Simd]Xxxx.Simd.VecGenDF::.ctor", \
                ATTR_CONST_NOTHROW_LIST, \
