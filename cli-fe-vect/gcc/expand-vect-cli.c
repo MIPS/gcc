@@ -791,14 +791,14 @@ replace_realign_load_builtin (int index, gimple stmt)
    
   if (optab_handler (movmisalign_optab, mode)->insn_code != CODE_FOR_nothing)
     { 
-      misalign = gimple_call_arg (stmt, 4);
+      misalign = fold_convert (sizetype, gimple_call_arg (stmt, 4));
       alignment = gimple_call_arg (stmt, 5);
 
       if (!TREE_INT_CST_LOW (alignment))
         tmis = size_zero_node;
       else
         {
-          alignment = ssize_int (TYPE_ALIGN (vectype)/BITS_PER_UNIT);
+          alignment = size_int (TYPE_ALIGN (vectype)/BITS_PER_UNIT);
           tmis = size_binop (FLOOR_MOD_EXPR, misalign, alignment);
         }
 
