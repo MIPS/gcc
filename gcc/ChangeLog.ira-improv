@@ -1,3 +1,9 @@
+2010-08-10  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* ira-color.c (bucket_allocno_compare_func): Check frequency
+	first.
+	(push_allocno_to_stack): Print changing allocnpo colorability.
+
 2010-07-01  Vladimir Makarov  <vmakarov@redhat.com>
 
 	Merge from trunk @ 161613

@@ -1777,12 +1777,12 @@ bucket_allocno_compare_func (const void *v1p, const void *v2p)
   if ((diff = (int) ALLOCNO_CLASS (a2) - ALLOCNO_CLASS (a1)) != 0)
     return diff;
   a1_freq = ALLOCNO_FREQ (a1);
-  a1_num = ALLOCNO_COLOR_DATA (a1)->available_regs_num;
   a2_freq = ALLOCNO_FREQ (a2);
+  if ((diff = a1_freq - a2_freq) != 0)
+    return diff;
+  a1_num = ALLOCNO_COLOR_DATA (a1)->available_regs_num;
   a2_num = ALLOCNO_COLOR_DATA (a2)->available_regs_num;
   if ((diff = a2_num - a1_num) != 0)
-    return diff;
-  else if ((diff = a1_freq - a2_freq) != 0)
     return diff;
   return ALLOCNO_NUM (a2) - ALLOCNO_NUM (a1);
 }
@@ -1923,6 +1923,12 @@ push_allocno_to_stack (ira_allocno_t a)
 		    (conflict_a, &uncolorable_allocno_bucket);
 	      add_allocno_to_ordered_bucket
 		(conflict_a, &colorable_allocno_bucket);
+	      if (internal_flag_ira_verbose > 4 && ira_dump_file != NULL)
+		{
+		  fprintf (ira_dump_file, "        Making");
+		  ira_print_expanded_allocno (conflict_a);
+		  fprintf (ira_dump_file, " colorable\n");
+		}
 	    }
 	  
 	}
