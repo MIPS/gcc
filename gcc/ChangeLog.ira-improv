@@ -1,5 +1,18 @@
 2010-08-10  Vladimir Makarov  <vmakarov@redhat.com>
 
+	* ira-int.h (allocno_emit_reg): New.
+
+	* ira-emit (change_regs, store_can_be_removed_p)
+	(generate_edge_moves, change_loop)
+	(set_allocno_somewhere_renamed_p, modify_move_list)
+	(emit_move_list, add_range_and_copies_from_move_list)
+	(add_range_and_copies_from_move_list): Use allocno_emit_reg.
+
+	* ira-build.c (copy_info_to_removed_store_destinations)
+	(ira_flattening): Ditto.
+
+2010-08-10  Vladimir Makarov  <vmakarov@redhat.com>
+
 	* system.h (IRA_COVER_CLASSES, TARGET_IRA_COVER_CLASSES): Poison.
 
 2010-08-10  Vladimir Makarov  <vmakarov@redhat.com>
