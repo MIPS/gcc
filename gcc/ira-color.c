@@ -1436,7 +1436,8 @@ update_conflict_hard_regno_costs (int *costs, enum reg_class aclass,
       }
 }
 
-/*???*/
+/* Set up conflicting and profitable regs (through CONFLICT_REGS and
+   PROFITABLE_REGS) for each object of allocno A.  */
 static inline void
 setup_conflict_profitable_regs (ira_allocno_t a, bool retry_p,
 				HARD_REG_SET *conflict_regs,
@@ -1460,7 +1461,8 @@ setup_conflict_profitable_regs (ira_allocno_t a, bool retry_p,
     }
 }
 
-/*???*/
+/* Return true if HARD_REGNO is ok for assigning to allocno A whose
+   objects have corresponding CONFLICT_REGS and PROFITABLE_REGS.  */
 static inline bool
 check_hard_reg_p (ira_allocno_t a, int hard_regno,
 		  HARD_REG_SET *conflict_regs, HARD_REG_SET *profitable_regs)

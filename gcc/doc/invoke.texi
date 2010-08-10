@@ -380,11 +380,11 @@ Objective-C and Objective-C++ Dialects}.
 -fsel-sched-pipelining -fsel-sched-pipelining-outer-loops @gol
 -fsignaling-nans -fsingle-precision-constant -fsplit-ivs-in-unroller @gol
 -fsplit-wide-types -fstack-protector -fstack-protector-all @gol
--fstrict-aliasing -fstrict-overflow -fthread-jumps -ftracer @gol
+-fstrict-aliasing -fstrict-overflow -fthread-jumps -ftracer -ftree-bit-ccp @gol
 -ftree-builtin-call-dce -ftree-ccp -ftree-ch -ftree-copy-prop @gol
 -ftree-copyrename -ftree-dce -ftree-dominator-opts -ftree-dse @gol
 -ftree-forwprop -ftree-fre -ftree-loop-if-convert -ftree-loop-im @gol
--ftree-phiprop -ftree-loop-distribution @gol
+-ftree-phiprop -ftree-loop-distribution -ftree-loop-distribute-patterns @gol
 -ftree-loop-ivcanon -ftree-loop-linear -ftree-loop-optimize @gol
 -ftree-parallelize-loops=@var{n} -ftree-pre -ftree-pta -ftree-reassoc @gol
 -ftree-sink -ftree-sra -ftree-switch-conversion @gol
@@ -601,7 +601,7 @@ Objective-C and Objective-C++ Dialects}.
 -momit-leaf-frame-pointer  -mno-red-zone -mno-tls-direct-seg-refs @gol
 -mcmodel=@var{code-model} -mabi=@var{name} @gol
 -m32  -m64 -mlarge-data-threshold=@var{num} @gol
--msse2avx}
+-msse2avx -mfentry}
 
 @emph{IA-64 Options}
 @gccoptlist{-mbig-endian  -mlittle-endian  -mgnu-as  -mgnu-ld  -mno-pic @gol
@@ -790,7 +790,7 @@ See RS/6000 and PowerPC Options.
 
 @emph{RX Options}
 @gccoptlist{-m64bit-doubles  -m32bit-doubles  -fpu  -nofpu@gol
--mcpu= -patch=@gol
+-mcpu=@gol
 -mbig-endian-data -mlittle-endian-data @gol
 -msmall-data @gol
 -msim  -mno-sim@gol
@@ -5848,6 +5848,7 @@ compilation time.
 -fipa-reference @gol
 -fmerge-constants
 -fsplit-wide-types @gol
+-ftree-bit-ccp @gol
 -ftree-builtin-call-dce @gol
 -ftree-ccp @gol
 -ftree-ch @gol
@@ -6732,6 +6733,13 @@ Transposing is enabled only if profiling information is available.
 Perform forward store motion  on trees.  This flag is
 enabled by default at @option{-O} and higher.
 
+@item -ftree-bit-ccp
+@opindex ftree-bit-ccp
+Perform sparse conditional bit constant propagation on trees and propagate
+pointer alignment information.
+This pass only operates on local scalar variables and is enabled by default
+at @option{-O} and higher.  It requires that @option{-ftree-ccp} is enabled.
+
 @item -ftree-ccp
 @opindex ftree-ccp
 Perform sparse conditional constant propagation (CCP) on trees.  This
@@ -6919,6 +6927,29 @@ DO I = 1, N
    D(I) = E(I) * F
 ENDDO
 @end smallexample
+
+@item -ftree-loop-distribute-patterns
+Perform loop distribution of patterns that can be code generated with
+calls to a library.  This flag is enabled by default at @option{-O3}.
+
+This pass distributes the initialization loops and generates a call to
+memset zero.  For example, the loop
+@smallexample
+DO I = 1, N
+  A(I) = 0
+  B(I) = A(I) + I
+ENDDO
+@end smallexample
+is transformed to
+@smallexample
+DO I = 1, N
+   A(I) = 0
+ENDDO
+DO I = 1, N
+   B(I) = A(I) + I
+ENDDO
+@end smallexample
+and the initialization loop is transformed into a call to memset zero.
 
 @item -ftree-loop-im
 @opindex ftree-loop-im
@@ -8238,6 +8269,29 @@ when @option{-ftree-vectorize} is used.  The number of iterations after
 vectorization needs to be greater than the value specified by this option
 to allow vectorization.  The default value is 0.
 
+@item gcse-cost-distance-ratio
+Scaling factor in calculation of maximum distance an expression
+can be moved by GCSE optimizations.  This is currently supported only in
+code hoisting pass.  The bigger the ratio, the more agressive code hoisting
+will be with simple expressions, i.e., the expressions which have cost
+less than @option{gcse-unrestricted-cost}.  Specifying 0 will disable
+hoisting of simple expressions.  The default value is 10.
+
+@item gcse-unrestricted-cost
+Cost, roughly measured as the cost of a single typical machine
+instruction, at which GCSE optimizations will not constrain
+the distance an expression can travel.  This is currently
+supported only in code hoisting pass.  The lesser the cost,
+the more aggressive code hoisting will be.  Specifying 0 will
+allow all expressions to travel unrestricted distances.
+The default value is 3.
+
+@item max-hoist-depth
+The depth of search in the dominator tree for expressions to hoist.
+This is used to avoid quadratic behavior in hoisting algorithm.
+The value of 0 will avoid limiting the search, but may slow down compilation
+of huge functions.  The default value is 30.
+
 @item max-unrolled-insns
 The maximum number of instructions that a loop should have if that loop
 is unrolled, and if the loop is unrolled, it determines how many times
@@ -8679,6 +8733,12 @@ Loop blocking or strip mining transforms, enabled with
 loop in the loop nest by a given number of iterations.  The strip
 length can be changed using the @option{loop-block-tile-size}
 parameter.  The default value is 51 iterations.
+
+@item devirt-type-list-size
+IPA-CP attempts to track all possible types passed to a function's
+parameter in order to perform devirtualization.
+@option{devirt-type-list-size} is the maximum number of types it
+stores per a single formal parameter of a function.
 
 @end table
 @end table
@@ -12464,6 +12524,14 @@ For systems that use GNU libc, the default is on.
 @opindex msse2avx
 Specify that the assembler should encode SSE instructions with VEX
 prefix.  The option @option{-mavx} turns this on by default.
+
+@item -mfentry
+@itemx -mno-fentry
+@opindex mfentry
+If profiling is active @option{-pg} put the profiling
+counter call before prologue.
+Note: On x86 architectures the attribute @code{ms_hook_prologue}
+isn't possible at the moment for @option{-mfentry} and @option{-pg}.
 @end table
 
 These @samp{-m} switches are supported in addition to the above
@@ -15353,20 +15421,25 @@ unaligned memory references will be handled by the system.
 @itemx -mno-relocatable
 @opindex mrelocatable
 @opindex mno-relocatable
-On embedded PowerPC systems generate code that allows (does not allow)
-the program to be relocated to a different address at runtime.  If you
-use @option{-mrelocatable} on any module, all objects linked together must
-be compiled with @option{-mrelocatable} or @option{-mrelocatable-lib}.
+Generate code that allows (does not allow) a static executable to be
+relocated to a different address at runtime.  A simple embedded
+PowerPC system loader should relocate the entire contents of
+@code{.got2} and 4-byte locations listed in the @code{.fixup} section,
+a table of 32-bit addresses generated by this option.  For this to
+work, all objects linked together must be compiled with
+@option{-mrelocatable} or @option{-mrelocatable-lib}.
+@option{-mrelocatable} code aligns the stack to an 8 byte boundary.
 
 @item -mrelocatable-lib
 @itemx -mno-relocatable-lib
 @opindex mrelocatable-lib
 @opindex mno-relocatable-lib
-On embedded PowerPC systems generate code that allows (does not allow)
-the program to be relocated to a different address at runtime.  Modules
-compiled with @option{-mrelocatable-lib} can be linked with either modules
-compiled without @option{-mrelocatable} and @option{-mrelocatable-lib} or
-with modules compiled with the @option{-mrelocatable} options.
+Like @option{-mrelocatable}, @option{-mrelocatable-lib} generates a
+@code{.fixup} section to allow static executables to be relocated at
+runtime, but @option{-mrelocatable-lib} does not use the smaller stack
+alignment of @option{-mrelocatable}.  Objects compiled with
+@option{-mrelocatable-lib} may be linked with objects compiled with
+any combination of the @option{-mrelocatable} options.
 
 @item -mno-toc
 @itemx -mtoc
@@ -15780,9 +15853,7 @@ use then the FPU hardware will not be used for doubles.
 This is because the RX FPU instructions are themselves unsafe.
 
 @item -mcpu=@var{name}
-@itemx -patch=@var{name}
 @opindex -mcpu
-@opindex -patch
 Selects the type of RX CPU to be targeted.  Currently three types are
 supported, the generic @var{RX600} and @var{RX200} series hardware and
 the specific @var{RX610} cpu.  The default is @var{RX600}.

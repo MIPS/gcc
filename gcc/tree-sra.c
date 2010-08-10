@@ -811,7 +811,7 @@ create_access (tree expr, gimple stmt, bool write)
 /* Return true iff TYPE is a RECORD_TYPE with fields that are either of gimple
    register types or (recursively) records with only these two kinds of fields.
    It also returns false if any of these records has a zero-size field as its
-   last field.  */
+   last field or has a bit-field.  */
 
 static bool
 type_consists_of_records_p (tree type)
@@ -826,6 +826,9 @@ type_consists_of_records_p (tree type)
     if (TREE_CODE (fld) == FIELD_DECL)
       {
 	tree ft = TREE_TYPE (fld);
+
+	if (DECL_BIT_FIELD (fld))
+	  return false;
 
 	if (!is_gimple_reg_type (ft)
 	    && !type_consists_of_records_p (ft))
@@ -843,10 +846,12 @@ type_consists_of_records_p (tree type)
 /* Create total_scalarization accesses for all scalar type fields in DECL that
    must be of a RECORD_TYPE conforming to type_consists_of_records_p.  BASE
    must be the top-most VAR_DECL representing the variable, OFFSET must be the
-   offset of DECL within BASE.  */
+   offset of DECL within BASE.  REF must be the memory reference expression for
+   the given decl.  */
 
 static void
-completely_scalarize_record (tree base, tree decl, HOST_WIDE_INT offset)
+completely_scalarize_record (tree base, tree decl, HOST_WIDE_INT offset,
+			     tree ref)
 {
   tree fld, decl_type = TREE_TYPE (decl);
 
@@ -855,28 +860,23 @@ completely_scalarize_record (tree base, tree decl, HOST_WIDE_INT offset)
       {
 	HOST_WIDE_INT pos = offset + int_bit_position (fld);
 	tree ft = TREE_TYPE (fld);
+	tree nref = build3 (COMPONENT_REF, TREE_TYPE (fld), ref, fld,
+			    NULL_TREE);
 
 	if (is_gimple_reg_type (ft))
 	  {
 	    struct access *access;
 	    HOST_WIDE_INT size;
-	    tree expr;
-	    bool ok;
 
 	    size = tree_low_cst (DECL_SIZE (fld), 1);
-	    expr = base;
-	    ok = build_ref_for_offset (&expr, TREE_TYPE (base), pos,
-				       ft, false);
-	    gcc_assert (ok);
-
 	    access = create_access_1 (base, pos, size);
-	    access->expr = expr;
+	    access->expr = nref;
 	    access->type = ft;
 	    access->total_scalarization = 1;
 	    /* Accesses for intraprocedural SRA can have their stmt NULL.  */
 	  }
 	else
-	  completely_scalarize_record (base, fld, pos);
+	  completely_scalarize_record (base, fld, pos, nref);
       }
 }
 
@@ -2067,7 +2067,7 @@ analyze_all_variable_accesses (void)
 		<= max_total_scalarization_size)
 	    && type_consists_of_records_p (TREE_TYPE (var)))
 	  {
-	    completely_scalarize_record (var, var, 0);
+	    completely_scalarize_record (var, var, 0, var);
 	    if (dump_file && (dump_flags & TDF_DETAILS))
 	      {
 		fprintf (dump_file, "Will attempt to totally scalarize ");
@@ -3147,6 +3147,8 @@ find_param_candidates (void)
 
 	  if (TREE_CODE (type) == FUNCTION_TYPE
 	      || TYPE_VOLATILE (type)
+	      || (TREE_CODE (type) == ARRAY_TYPE
+		  && TYPE_NONALIASED_COMPONENT (type))
 	      || !is_gimple_reg (parm)
 	      || is_va_list_type (type)
 	      || ptr_parm_has_direct_uses (parm))
@@ -4310,13 +4312,6 @@ modify_function (struct cgraph_node *node, ipa_parm_adjustment_vec adjustments)
 static bool
 ipa_sra_preliminary_function_checks (struct cgraph_node *node)
 {
-  if (!tree_versionable_function_p (current_function_decl))
-    {
-      if (dump_file)
-	fprintf (dump_file, "Function isn't allowed to be versioned.\n");
-      return false;
-    }
-
   if (!cgraph_node_can_be_local_p (node))
     {
       if (dump_file)
@@ -4451,7 +4446,7 @@ ipa_early_sra (void)
 static bool
 ipa_early_sra_gate (void)
 {
-  return flag_ipa_sra;
+  return flag_ipa_sra && dbg_cnt (eipa_sra);
 }
 
 struct gimple_opt_pass pass_early_ipa_sra =

@@ -57,10 +57,6 @@ Common Separate
 -version
 Common
 
-G
-Common Joined Separate UInteger
--G<number>	Put global and static data smaller than <number> bytes into a special section (on some targets)
-
 O
 Common JoinedOrMissing Optimization
 -O<number>	Set optimization level to <number>
@@ -1281,6 +1277,10 @@ ftree-ccp
 Common Report Var(flag_tree_ccp) Optimization
 Enable SSA-CCP optimization on trees
 
+ftree-bit-ccp
+Common Report Var(flag_tree_bit_ccp) Optimization
+Enable SSA-BIT-CCP optimization on trees
+
 ftree-store-ccp
 Common
 Does nothing.  Preserved for backward compatibility.
@@ -1332,6 +1332,10 @@ Enable Full Redundancy Elimination (FRE) on trees
 ftree-loop-distribution
 Common Report Var(flag_tree_loop_distribution) Optimization
 Enable loop distribution on trees
+
+ftree-loop-distribute-patterns
+Common Report Var(flag_tree_loop_distribute_patterns) Optimization
+Enable loop distribution for patterns transformed into a library call
 
 ftree-loop-im
 Common Report Var(flag_tree_loop_im) Init(1) Optimization
@@ -1580,7 +1584,7 @@ Common Joined Var(plugindir_string) Init(0)
 -iplugindir=<dir>	Set <dir> to be the default plugin directory
 
 o
-Common Joined Separate
+Common Joined Separate MissingArgError(missing filename after %qs)
 -o <file>	Place output into <file>
 
 p

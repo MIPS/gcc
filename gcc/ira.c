@@ -1473,7 +1473,7 @@ setup_prohibited_mode_move_regs (void)
   test_reg1 = gen_rtx_REG (VOIDmode, 0);
   test_reg2 = gen_rtx_REG (VOIDmode, 0);
   move_pat = gen_rtx_SET (VOIDmode, test_reg1, test_reg2);
-  move_insn = gen_rtx_INSN (VOIDmode, 0, 0, 0, 0, 0, move_pat, -1, 0);
+  move_insn = gen_rtx_INSN (VOIDmode, 0, 0, 0, 0, move_pat, 0, -1, 0);
   for (i = 0; i < NUM_MACHINE_MODES; i++)
     {
       SET_HARD_REG_SET (ira_prohibited_mode_move_regs[i]);
@@ -1481,9 +1481,9 @@ setup_prohibited_mode_move_regs (void)
 	{
 	  if (! HARD_REGNO_MODE_OK (j, (enum machine_mode) i))
 	    continue;
-	  SET_REGNO (test_reg1, j);
+	  SET_REGNO_RAW (test_reg1, j);
 	  PUT_MODE (test_reg1, (enum machine_mode) i);
-	  SET_REGNO (test_reg2, j);
+	  SET_REGNO_RAW (test_reg2, j);
 	  PUT_MODE (test_reg2, (enum machine_mode) i);
 	  INSN_CODE (move_insn) = -1;
 	  recog_memoized (move_insn);

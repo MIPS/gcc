@@ -2502,6 +2502,32 @@ gfc_free_symbol (gfc_symbol *sym)
 }
 
 
+/* Decrease the reference counter and free memory when we reach zero.  */
+
+void
+gfc_release_symbol (gfc_symbol *sym)
+{
+  if (sym == NULL)
+    return;
+
+  if (sym->formal_ns != NULL && sym->refs == 2)
+    {
+      /* As formal_ns contains a reference to sym, delete formal_ns just
+	 before the deletion of sym.  */
+      gfc_namespace *ns = sym->formal_ns;
+      sym->formal_ns = NULL;
+      gfc_free_namespace (ns);
+    }
+
+  sym->refs--;
+  if (sym->refs > 0)
+    return;
+
+  gcc_assert (sym->refs == 0);
+  gfc_free_symbol (sym);
+}
+
+
 /* Allocate and initialize a new symbol node.  */
 
 gfc_symbol *
@@ -2893,11 +2919,7 @@ gfc_undo_symbols (void)
 
 	  gfc_delete_symtree (&p->ns->sym_root, p->name);
 
-	  p->refs--;
-	  if (p->refs < 0)
-	    gfc_internal_error ("gfc_undo_symbols(): Negative refs");
-	  if (p->refs == 0)
-	    gfc_free_symbol (p);
+	  gfc_release_symbol (p);
 	  continue;
 	}
 
@@ -3107,35 +3129,13 @@ free_uop_tree (gfc_symtree *uop_tree)
 static void
 free_sym_tree (gfc_symtree *sym_tree)
 {
-  gfc_namespace *ns;
-  gfc_symbol *sym;
-
   if (sym_tree == NULL)
     return;
 
   free_sym_tree (sym_tree->left);
   free_sym_tree (sym_tree->right);
 
-  sym = sym_tree->n.sym;
-
-  sym->refs--;
-  if (sym->refs < 0)
-    gfc_internal_error ("free_sym_tree(): Negative refs");
-
-  if (sym->formal_ns != NULL && sym->refs == 1)
-    {
-      /* As formal_ns contains a reference to sym, delete formal_ns just
-         before the deletion of sym.  */
-      ns = sym->formal_ns;
-      sym->formal_ns = NULL;
-      gfc_free_namespace (ns);
-    }
-  else if (sym->refs == 0)
-    {
-      /* Go ahead and delete the symbol.  */
-      gfc_free_symbol (sym);
-    }
-
+  gfc_release_symbol (sym_tree->n.sym);
   gfc_free (sym_tree);
 }
 
@@ -3189,13 +3189,7 @@ gfc_free_finalizer (gfc_finalizer* el)
 {
   if (el)
     {
-      if (el->proc_sym)
-	{
-	  --el->proc_sym->refs;
-	  if (!el->proc_sym->refs)
-	    gfc_free_symbol (el->proc_sym);
-	}
-
+      gfc_release_symbol (el->proc_sym);
       gfc_free (el);
     }
 }
@@ -3449,16 +3443,13 @@ gfc_save_all (gfc_namespace *ns)
 }
 
 
-#ifdef GFC_DEBUG
 /* Make sure that no changes to symbols are pending.  */
 
 void
-gfc_symbol_state(void) {
-
-  if (changed_syms != NULL)
-    gfc_internal_error("Symbol changes still pending!");
+gfc_enforce_clean_symbol_state(void)
+{
+  gcc_assert (changed_syms == NULL);
 }
-#endif
 
 
 /************** Global symbol handling ************/
@@ -3887,6 +3878,9 @@ gen_cptr_param (gfc_formal_arglist **head,
   formal_arg = gfc_get_formal_arglist ();
   /* Add arg to list of formal args (the CPTR arg).  */
   add_formal_arg (head, tail, formal_arg, param_sym);
+
+  /* Validate changes.  */
+  gfc_commit_symbol (param_sym);
 }
 
 
@@ -3932,6 +3926,9 @@ gen_fptr_param (gfc_formal_arglist **head,
   formal_arg = gfc_get_formal_arglist ();
   /* Add arg to list of formal args.  */
   add_formal_arg (head, tail, formal_arg, param_sym);
+
+  /* Validate changes.  */
+  gfc_commit_symbol (param_sym);
 }
 
 
@@ -4004,6 +4001,9 @@ gen_shape_param (gfc_formal_arglist **head,
   formal_arg = gfc_get_formal_arglist ();
   /* Add arg to list of formal args.  */
   add_formal_arg (head, tail, formal_arg, param_sym);
+
+  /* Validate changes.  */
+  gfc_commit_symbol (param_sym);
 }
 
 
@@ -4066,6 +4066,9 @@ gfc_copy_formal_args (gfc_symbol *dest, gfc_symbol *src)
 
       /* Add arg to list of formal args.  */
       add_formal_arg (&head, &tail, formal_arg, formal_arg->sym);
+
+      /* Validate changes.  */
+      gfc_commit_symbol (formal_arg->sym);
     }
 
   /* Add the interface to the symbol.  */
@@ -4123,6 +4126,9 @@ gfc_copy_formal_args_intr (gfc_symbol *dest, gfc_intrinsic_sym *src)
 
       /* Add arg to list of formal args.  */
       add_formal_arg (&head, &tail, formal_arg, formal_arg->sym);
+
+      /* Validate changes.  */
+      gfc_commit_symbol (formal_arg->sym);
     }
 
   /* Add the interface to the symbol.  */
@@ -4176,6 +4182,9 @@ gfc_copy_formal_args_ppc (gfc_component *dest, gfc_symbol *src)
 
       /* Add arg to list of formal args.  */
       add_formal_arg (&head, &tail, formal_arg, formal_arg->sym);
+
+      /* Validate changes.  */
+      gfc_commit_symbol (formal_arg->sym);
     }
 
   /* Add the interface to the symbol.  */
@@ -4555,6 +4564,7 @@ generate_isocbinding_symbol (const char *mod_name, iso_c_binding_symbol s,
       default:
 	gcc_unreachable ();
     }
+  gfc_commit_symbol (tmp_sym);
 }
 
 

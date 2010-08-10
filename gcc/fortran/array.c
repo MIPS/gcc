@@ -300,10 +300,14 @@ resolve_array_bound (gfc_expr *e, int check_constant)
       || gfc_specification_expr (e) == FAILURE)
     return FAILURE;
 
-  if (check_constant && gfc_is_constant_expr (e) == 0)
+  if (check_constant && !gfc_is_constant_expr (e))
     {
-      gfc_error ("Variable '%s' at %L in this context must be constant",
-		 e->symtree->n.sym->name, &e->where);
+      if (e->expr_type == EXPR_VARIABLE)
+	gfc_error ("Variable '%s' at %L in this context must be constant",
+		   e->symtree->n.sym->name, &e->where);
+      else
+	gfc_error ("Expression at %L in this context must be constant",
+		   &e->where);
       return FAILURE;
     }
 
@@ -1203,7 +1207,7 @@ gfc_check_iter_variable (gfc_expr *expr)
 
   sym = expr->symtree->n.sym;
 
-  for (c = base; c; c = c->previous)
+  for (c = base; c && c->iterator; c = c->previous)
     if (sym == c->iterator->var->symtree->n.sym)
       return SUCCESS;
 
@@ -1825,7 +1829,7 @@ got_charlen:
 	      has_ts = (expr->ts.u.cl && expr->ts.u.cl->length_from_typespec);
 
 	      if (! cl
-		  || (current_length != -1 && current_length < found_length))
+		  || (current_length != -1 && current_length != found_length))
 		gfc_set_constant_character_len (found_length, p->expr,
 						has_ts ? -1 : found_length);
 	    }
