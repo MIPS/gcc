@@ -1,5 +1,9 @@
 2010-08-10  Vladimir Makarov  <vmakarov@redhat.com>
 
+	* system.h (IRA_COVER_CLASSES, TARGET_IRA_COVER_CLASSES): Poison.
+
+2010-08-10  Vladimir Makarov  <vmakarov@redhat.com>
+
 	* ira-color.c (bucket_allocno_compare_func): Check frequency
 	first.
 	(push_allocno_to_stack): Print changing allocnpo colorability.
