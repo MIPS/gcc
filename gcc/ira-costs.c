@@ -382,7 +382,7 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 		    rtx insn, enum reg_class *pref)
 {
   int alt;
-  int i, j, k, regno, other_regno;
+  int i, j, k;
   rtx set;
   int insn_allows_mem[MAX_RECOG_OPERANDS];
 
@@ -465,7 +465,7 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 		    }
 		}
 	      else if (! REG_P (ops[j])
-		       || (regno = REGNO (ops[j])) < FIRST_PSEUDO_REGISTER)
+		       || REGNO (ops[j]) < FIRST_PSEUDO_REGISTER)
 		{
 		  /* This op is an allocno but the one it matches is
 		     not.  */
@@ -740,7 +740,7 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 	     allocated for register preferencing.  If some register
 	     class is valid, compute the costs of moving the allocno
 	     into that class.  */
-	  if (REG_P (op) && (regno = REGNO (op)) >= FIRST_PSEUDO_REGISTER)
+	  if (REG_P (op) && REGNO (op) >= FIRST_PSEUDO_REGISTER)
 	    {
 	      if (classes[i] == NO_REGS)
 		{
@@ -754,6 +754,7 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 		}
 	      else
 		{
+		  unsigned int regno = REGNO (op);
 		  struct costs *pp = this_op_costs[i];
 		  int *pp_costs = pp->cost;
 		  cost_classes_t cost_classes_ptr = regno_cost_classes[regno];
@@ -863,12 +864,13 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
       /* Finally, update the costs with the information we've
 	 calculated about this alternative.  */
       for (i = 0; i < n_ops; i++)
-	if (REG_P (ops[i]) && (regno = REGNO (ops[i])) >= FIRST_PSEUDO_REGISTER)
+	if (REG_P (ops[i]) && REGNO (ops[i]) >= FIRST_PSEUDO_REGISTER)
 	  {
 	    struct costs *pp = op_costs[i], *qq = this_op_costs[i];
 	    int *pp_costs = pp->cost, *qq_costs = qq->cost;
 	    int scale = 1 + (recog_data.operand_type[i] == OP_INOUT);
-	    cost_classes_t cost_classes_ptr = regno_cost_classes[regno];
+	    cost_classes_t cost_classes_ptr
+	      = regno_cost_classes[REGNO (ops[i])];
 
 	    pp->mem_cost = MIN (pp->mem_cost,
 				(qq->mem_cost + op_cost_add) * scale);
@@ -911,9 +913,11 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
       && REG_P (ops[0]) && REG_P (ops[1])
       && find_regno_note (insn, REG_DEAD, REGNO (ops[1])))
     for (i = 0; i <= 1; i++)
-      if ((regno = REGNO (ops[i])) >= FIRST_PSEUDO_REGISTER
-	  && (other_regno = REGNO (ops[!i])) < FIRST_PSEUDO_REGISTER)
+      if (REGNO (ops[i]) >= FIRST_PSEUDO_REGISTER
+	  && REGNO (ops[!i]) < FIRST_PSEUDO_REGISTER)
 	{
+	  unsigned int regno = REGNO (ops[i]);
+	  unsigned int other_regno = REGNO (ops[!i]);
 	  enum machine_mode mode = GET_MODE (ops[!i]);
 	  cost_classes_t cost_classes_ptr = regno_cost_classes[regno];
 	  enum reg_class *cost_classes = cost_classes_ptr->classes;
@@ -1136,9 +1140,10 @@ record_address_regs (enum machine_mode mode, rtx x, int context,
 	enum reg_class *cost_classes;
 	move_table *move_in_cost;
 
-	if ((regno = REGNO (x)) < FIRST_PSEUDO_REGISTER)
+	if (REGNO (x) < FIRST_PSEUDO_REGISTER)
 	  break;
 
+	regno = REGNO (x);
 	if (allocno_p)
 	  ALLOCNO_BAD_SPILL_P (ira_curr_regno_allocno_map[regno]) = true;
 	pp = COSTS (costs, COST_INDEX (regno));
@@ -1250,7 +1255,7 @@ scan_one_insn (rtx insn)
 {
   enum rtx_code pat_code;
   rtx set, note;
-  int i, k, regno;
+  int i, k;
 
   if (!NONDEBUG_INSN_P (insn))
     return insn;
@@ -1286,8 +1291,9 @@ scan_one_insn (rtx insn)
      allocno.  */
   for (i = 0; i < recog_data.n_operands; i++)
     if (REG_P (recog_data.operand[i])
-	&& (regno = REGNO (recog_data.operand[i])) >= FIRST_PSEUDO_REGISTER)
+	&& REGNO (recog_data.operand[i]) >= FIRST_PSEUDO_REGISTER)
       {
+	int regno = REGNO (recog_data.operand[i]);
 	struct costs *p = COSTS (costs, COST_INDEX (regno));
 	struct costs *q = op_costs[i];
 	int *p_costs = p->cost, *q_costs = q->cost;

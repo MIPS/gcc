@@ -1,3 +1,13 @@
+2010-08-11  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* ira-color.c (allocnos_have_intersected_live_ranges_p): Rename to
+	allocnos_conflict_by_live_ranges_p.
+	(pseudos_have_intersected_live_ranges_p): Rename to
+	pseudos_conflict_by_live_ranges_p.
+
+	* ira-costs.c (record_reg_classes, scan_one_insn): Don't assign in
+	if-stmts.
+	
 2010-08-10  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* ira-int.h (allocno_emit_reg): New.

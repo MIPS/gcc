@@ -3145,7 +3145,7 @@ ira_reassign_conflict_allocnos (int start_regno)
    used to find a conflict for new allocnos or allocnos with the
    different allocno classes.  */
 static bool
-allocnos_have_intersected_live_ranges_p (ira_allocno_t a1, ira_allocno_t a2)
+allocnos_conflict_by_live_ranges_p (ira_allocno_t a1, ira_allocno_t a2)
 {
   rtx reg1, reg2;
   int i, j;
@@ -3182,7 +3182,7 @@ allocnos_have_intersected_live_ranges_p (ira_allocno_t a1, ira_allocno_t a2)
    intersect.  This should be used when there is only one region.
    Currently this is used during reload.  */
 static bool
-pseudos_have_intersected_live_ranges_p (int regno1, int regno2)
+conflict_by_live_ranges_p (int regno1, int regno2)
 {
   ira_allocno_t a1, a2;
 
@@ -3193,7 +3193,7 @@ pseudos_have_intersected_live_ranges_p (int regno1, int regno2)
   if ((a1 = ira_loop_tree_root->regno_allocno_map[regno1]) == NULL
       || (a2 = ira_loop_tree_root->regno_allocno_map[regno2]) == NULL)
     return false;
-  return allocnos_have_intersected_live_ranges_p (a1, a2);
+  return allocnos_conflict_by_live_ranges_p (a1, a2);
 }
 
 #endif
@@ -3307,7 +3307,7 @@ coalesced_allocno_conflict_p (ira_allocno_t a1, ira_allocno_t a2)
       for (conflict_a = ALLOCNO_COALESCE_DATA (a1)->next;;
 	   conflict_a = ALLOCNO_COALESCE_DATA (conflict_a)->next)
 	{
-	  if (allocnos_have_intersected_live_ranges_p (a, conflict_a))
+	  if (allocnos_conflict_by_live_ranges_p (a, conflict_a))
 	    return true;
 	  if (conflict_a == a1)
 	    break;
@@ -4068,8 +4068,8 @@ ira_reuse_stack_slot (int regno, unsigned int inherent_size,
 				    FIRST_PSEUDO_REGISTER, i, bi)
 	    {
 	      another_allocno = ira_regno_allocno_map[i];
-	      if (allocnos_have_intersected_live_ranges_p (allocno,
-							   another_allocno))
+	      if (allocnos_conflict_by_live_ranges_p (allocno,
+						      another_allocno))
 		goto cont;
 	    }
 	  for (cost = 0, cp = ALLOCNO_COPIES (allocno);
@@ -4118,7 +4118,7 @@ ira_reuse_stack_slot (int regno, unsigned int inherent_size,
       EXECUTE_IF_SET_IN_BITMAP (&slot->spilled_regs,
 				FIRST_PSEUDO_REGISTER, i, bi)
 	{
-	  ira_assert (! pseudos_have_intersected_live_ranges_p (regno, i));
+	  ira_assert (! conflict_by_live_ranges_p (regno, i));
 	}
 #endif
       SET_REGNO_REG_SET (&slot->spilled_regs, regno);
