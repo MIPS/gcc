@@ -1,3 +1,237 @@
+2010-08-10  Xinliang David Li  <davidxl@google.com>
+
+	* tree-ssa-loop-ivopts.c (get_address_cost): Properly
+	compute max/min offset in address.
+
+2010-08-10  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* ira-live.c: Include sbitmap.h.
+	(remove_some_program_points_and_update_live_ranges): Use sbitmaps.
+	Compress live ranges even more.
+
+2010-08-10  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* coverage.c (ctr_labels): Delete.
+
+2010-08-10  Bernd Schmidt  <bernds@codesourcery.com>
+
+	PR bootstrap/45177
+	* config/arm/arm.c (multiple_operation_profitable_p): Move xscale
+	test here from arm_gen_load_multiple_1.
+	(arm_gen_load_multiple_1, arm_gen_store_multiple_1): Use
+	multiple_operation_profitable_p.
+
+2010-08-10  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* tree-ssa-pre.c (init_pre): Call alloc_aux_for_blocks.
+	(fini_pre): Call free_aux_for_blocks.  Delete unused bb variable.
+
+2010-08-10  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/i386.c (ix86_compute_frame_layout): Re-align stack
+	after saving registers.  Assert that SSE registers are only saved
+	with a sufficiently aligned frame.
+	(ix86_emit_save_reg_using_mov): Assert realigned only with DRAP;
+	remove stack_realign_fp handling.
+	(ix86_expand_prologue): Save int registers before stack_realign_fp,
+	and do not mark the stack alignment as frame related.
+	(ix86_expand_epilogue): SP is now invalid with stack_realign_fp.
+
+	* dwarf2out.c (dwarf2out_frame_debug_expr): Flush queued register
+	saves when re-aligning the stack.
+
+2010-08-10  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* basic-block.h (alloc_aux_for_block, alloc_aux_for_edge): Delete.
+	* cfg.c (alloc_aux_for_block, alloc_aux_for_edge): Make static.
+	(alloc_aux_for_blocks, clear_aux_for_blocks): Use FOR_ALL_BB.
+
+2010-08-10  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* dwarf2out.c (struct die_struct): Move die_tag to the end.
+
+2010-08-09  Sofiane Naci  <sofiane.naci@arm.com>
+
+	* config/arm/iterators.md: New file.
+	* config/arm/arm.md: Include iterators.md.
+	(QHSI): Move to new file.
+	(LTUGEU, cnb, optab, ior_xor): Likewise.
+	* config/arm/iwmmxt.md (VMMX): Move to new file.
+	(VSHFT, MMX_char): Likewise.
+	* config/arm/neon.md (VD): Move to new file.
+	(VDX, VDI, VQ, VQX, VQI, VQXMOV, VSTRUCT, VTAB, V_TAB_n, VW): Likewise.
+	(VN, VDQ, VDQW, VDQIW, VCVTF, VCVTI, VMD, VMQ, VMDQ, VMDI): Likewise.
+	(VMDQI, VX, VE, V64, V32, V_CVTTO, V_elem, V_ext): Likewise.
+	(V_two_elem, V_three_elem, V_four_elem, V_req, V_widen): Likewise.
+	(V_narrow, V_HALF, V_half,V_DOUBLE, V_double): Likewise.
+	(V_double_width, V_cmp_result, V_if_elem, V_s_elem): Likewise.
+	(V_u_elem, V_uf_sclr, V_sz_elem, VD_dup): Likewise.
+	(V_PAIR, vqh_ops, vqhs_ops, VQH_mnem, VQH_sign, V_suf64): Likewise.
+	(scalar_mul_constraint,Is_float_mode, Scalar_mul_8_16): Likewise.
+	(Is_d_reg, V_mode_nunits): Likewise.
+	* config/arm/vec-common.md (VALL): Move to new file.
+	(VALLW, VINT, VINTW): Likewise.
+
+2010-08-10  Bernd Schmidt  <bernds@codesourcery.com>
+
+	PR middle-end/45182
+	* combine.c (make_compound_operation): Don't try to convert
+	shifts into multiplications for modes that aren't SCALAR_INT_MODE_P.
+
+2010-08-10  Richard Guenther  <rguenther@suse.de>
+
+	* tree.h (get_object_alignment): Adjust prototype.
+	* builtins.c (get_object_alignment): Return unsigned int,
+	drop the align parameter.  Handle MEM_REF, MISALIGNED_INDIRECT_REF
+	and TARGET_MEM_REF properly.
+	(get_pointer_alignment): Adjust.
+	* emit-rtl.c (get_mem_align_offset): Adjust comment.
+	(set_mem_attributes_minus_bitpos): Adjust.
+	* tree-ssa-ccp.c (get_value_from_alignment): Adjust.
+
+2010-08-10  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-copy.c (set_copy_of_val): Use operand_equal_p.
+	(copy_prop_visit_assignment): Simplify.
+	(copy_prop_visit_stmt): Also visit assignments from
+	constants.
+	(copy_prop_visit_phi_node): Use operand_equal_p.
+
+2010-08-09  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* ipa-split.c (find_split_points): Free stack.
+
+2010-08-09  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* tree.h (tree_node_kind) [perm_list_kind,temp_list_kind]: Delete.
+	* tree.c (tree_node_kind): Delete corresponding entries.
+
+2010-08-09  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* alias.c (may_alias_p): Remove unused ret.
+
+2010-08-09  Bingfeng Mei  <bmei@broadcom.com>
+
+	* ddg.c (walk_mems_2): Moved from alias.c, use may_alias_p instead of
+	alias_sets_conflict_p.
+	(walk_mems_1): Moved from alias.c.
+	(insns_may_alias_p): New function, originally insn_alias_sets_conflict_p
+	in alias.c. 
+        (add_inter_loop_mem_dep): Use insns_may_alias_p now.
+        * cse.c (cse_insn): New argument in calling nonoverlapping_memrefs_p.
+        * alias.c (walk_mems_2): Moved to ddg.c.
+	(walk_mems_1): Ditto.
+	(insn_alias_sets_conflict_p): Renamed to insns_may_alias_p and moved
+	to ddg.c.
+	(nonoverlapping_memrefs_p): Add flag to guard offset-based memory
+	disambiguation.
+	*(may_alias_p): New function to check whether two memory expression
+	may alias or not. Currently used in buidling inter-iteration memory
+	dependence.
+	*alias.h (nonoverlapping_memrefs_p): New flag as third argument.
+	(insn_alias_sets_conflict_p): Removed
+	*rtl.h (may_alias_p): New function prototype.
+        
+2010-08-09  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* tree.c (nreverse): Assert that we don't have a BLOCK.
+
+2010-08-09  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* builtins.c (fold_builtin_next_arg): Use stdarg_p.
+	* config/arm/arm.c (arm_get_pcs_model): Likewise.
+	* config/avr/avr.c (init_cumulative_args): Likewise.
+	* config/iq2000/iq2000.c (iq2000_expand_prologue): Likewise.
+	* config/lm32/lm32.c (lm32_setup_incoming_varargs): Likewise.
+	* config/m68k/m68k.c (m68k_return_pops_args): Likewise.
+	* config/mn10300/mn10300.c (mn10300_builtin_saveregs): Likewise.
+	* config/pa/pa.c (hppa_builtin_saveregs): Likewise.
+	* config/pa/som.h (ASM_DECLARE_FUNCTION_NAME): Likewise.
+	* config/rs6000/rs6000.c (init_cumulative_args): Likewise.
+	* dwarf2out.c (gen_subprogram_die): Likewise.
+	* function.c (allocate_struct_function): Likewise.
+	* c-aux-info.c (gen_formal_list_for_func_dec): Likewise.
+	(deserves_ellipsis): Delete.
+
+2010-08-09  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-copy.c (cached_last_copy_of): Remove.
+	(valueize_val): New function.
+	(get_last_copy_of): Remove.
+	(set_copy_of_val): Simplify.
+	(dump_copy_of): Likewise.
+	(copy_prop_visit_cond_stmt): Use valueize_val.
+	(copy_prop_visit_phi_node): Properly handle unvisited names.
+	Drop code managing copy-of chains.
+	(init_copy_prop): Adjust.
+	(fini_copy_prop): Likewise.
+	(execute_copy_prop): Remove obsolete comment.
+
+2010-08-09  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/44632
+	* function.c (gimplify_parameters): Do not clear addressable
+	bit of the original parameter.
+
+2010-08-09  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/45212
+	* emit-rtl.c (set_mem_attributes_minus_bitpos): Adjust
+	alignment from MEM_REF offset only if we took it from the
+	base object.
+
+2010-08-09  Eric Fisher <joefoxreal@gmail.com>
+
+	* doc/sourcebuild.texi (vect_int_mult): Remove duplicate entry.
+
+2010-08-08  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* c-tree.h (build_arg_info): Declare.
+	* c-decl.c (build_arg_info): Define.
+	(get_parm_info): Call it.  Delete initialization code.
+	* c-parser.c (c_parser_parms_declarator): Likewise.
+	(c_parser_parms_list_declaractor): Likewise.
+
+2010-08-08  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* c-tree.h (c_arg_tag): Define.  Define a VEC containing it.
+	(struct c_arg_info): Change type of tags field.
+	* c-decl.c (grokdeclarator): Update for changed type of tags field.
+	(get_parm_info): Likewise.
+	(store_parm_decls_newstyle): Likewise.
+
+2010-08-08  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* config/rs6000/rs6000.c (branch_island): Define.  Define a VEC of it.
+	(branch_island_list): Delete.
+	(branch_islands): Declare.
+	(add_compiler_branch_island): Adjust for branch_islands instead of
+	branch_island_list.
+	(macho_branch_islands): Likewise.
+	(no_previous_def): Likewise.
+	(get_prev_label): Likewise.
+
+2010-08-08  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR boehm-gc/34544
+	* gthr-posix.h (__gthread_start): Delete.
+	(__gthread_active_init): Use pthread_default_stacksize_np instead of
+	pthread_create to determine if hpux pthreads are active.
+	* gthr-posix95.h (__gthread_start): Delete.
+	(__gthread_active_init): Likewise use pthread_default_stacksize_np.
+
+2010-08-08  Kai Tietz  <kai.tietz@onevision.com>
+
+	* config/i386/mingw32.h ((EXTRA_OS_CPP_BUILTINS): Define
+	_WIN64 not expanded.
+
+2010-08-07  Uros Bizjak  <ubizjak@gmail.com>
+	    H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/45213
+	* config/i386/i386.c (ix86_print_operand): Handle 'q' operand modifier
+	to output 32bit SFmode immediate as 8 byte sign extended value.
+
 2010-08-07  Marcus Shawcroft  <marcus.shawcroft@arm.com>
 
 	* config/arm/linux-atomic.c (SUBWORD_VAL_CAS): Instantiate with
@@ -11,16 +245,16 @@
 
 2010-08-07  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
 
-        * config/arm/cortex-a9.md: Rewrite VFP Pipeline description.
-        * config/arm/arm.c (arm_xscale_tune): Initialize sched_adjust_cost.
-         (arm_fastmul_tune,arm_slowmul_tune, arm_9e_tune): Likewise.
-         (arm_adjust_cost): Split into xscale_sched_adjust_cost and a
-         generic part.
-         (cortex_a9_sched_adjust_cost): New function.
-         (xscale_sched_adjust_cost): New function.
-        * config/arm/arm-protos.h (struct tune_params): New field
-        sched_adjust_cost.
-        * config/arm/arm-cores.def: Adjust costs for cortex-a9.
+	* config/arm/cortex-a9.md: Rewrite VFP Pipeline description.
+	* config/arm/arm.c (arm_xscale_tune): Initialize sched_adjust_cost.
+	(arm_fastmul_tune,arm_slowmul_tune, arm_9e_tune): Likewise.
+	(arm_adjust_cost): Split into xscale_sched_adjust_cost and a
+	generic part.
+	(cortex_a9_sched_adjust_cost): New function.
+	(xscale_sched_adjust_cost): New function.
+	* config/arm/arm-protos.h (struct tune_params): New field
+	sched_adjust_cost.
+	* config/arm/arm-cores.def: Adjust costs for cortex-a9.
 
 2010-08-06  Eric Botcazou  <ebotcazou@adacore.com>
 

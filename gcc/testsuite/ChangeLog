@@ -1,3 +1,76 @@
+2010-08-10  xinliang David Li  <davidxl@google.com>
+	* gcc.dg/tree-ssa/loop-19.c: Add option
+	-fno-prefetch-loop-array
+
+2010-08-10  Bernd Schmidt  <bernds@codesourcery.com>
+
+	PR middle-end/45182
+	* gcc.c-torture/compile/pr45182.c: New test.
+
+2010-08-09  Jason Merrill  <jason@redhat.com>
+
+	PR c++/45236
+	* g++.dg/cpp0x/variadic-104.C: New.
+
+2010-08-09  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/44235
+	* gfortran.dg/dependency_32.f90:  New test.
+
+2010-08-09  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/44632
+	* g++.dg/opt/nrv17.C: New testcase.
+
+2010-08-09  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/45212
+	* emit-rtl.c (set_mem_attributes_minus_bitpos): Adjust
+	alignment from MEM_REF offset only if we took it from the
+	base object.
+
+	* gcc.target/i386/pr24178.c: New testcase.
+
+2010-08-08  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.dg/20030107-1.c: Do not call cleanup-coverage-files.
+	* gcc.dg/20030702-1.c: Ditto.
+	* gcc.dg/20050309-1.c: Ditto.
+	* gcc.dg/20050325-1.c: Ditto.
+	* gcc.dg/20050330-2.c: Ditto.
+	* gcc.dg/20051201-1.c: Ditto.
+	* gcc.dg/gomp/pr27573.c: Ditto.
+	* gcc.dg/gomp/pr34610.c: Ditto.
+	* gcc.dg/pr24225.c: Ditto.
+	* gcc.dg/pr26570.c: Ditto.
+	* gcc.dg/pr32773.c: Ditto.
+	* g++.dg/gcov/gcov-6.C: Ditto.
+	* g++.dg/gomp/pr34608.C: Ditto.
+	* gfortran.dg/gomp/pr27573.f90: Ditto.
+
+	* gcc.dg/profile-dir-1.c: Do not call cleanup-coverage-files.  Remove
+	dg-require-host-local dg directive.
+	* gcc.dg/profile-dir-2.c: Ditto.
+	* gcc.dg/profile-dir-3.c: Ditto.
+
+2010-08-08  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/45109
+	* gcc.c-torture/compile/pr45109.c: New testcase.
+
+2010-08-08  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.dg/march.c: Skip if -march defined.
+	* gcc.dg/mtune.c: Skip if -mtune defined.
+
+	* g++.old-deja/g++.jason/thunk3.C: Skip for targets with
+	generic thunk support.
+
+2010-08-07  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/45213
+	* gcc.target/i386/pr45213.c: New test.
+
 2010-08-07  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
 	PR libfortran/45143
@@ -5,9 +78,9 @@
 
 2010-08-07  Marcus Shawcroft <marcus.shawcroft@arm.com>
 
-        * lib/target-supports.exp: (check_effective_target_sync_int_long):
-        Add arm*-*-linux-gnueabi.
-        (check_effective_target_sync_char_short): Likewise.
+	* lib/target-supports.exp (check_effective_target_sync_int_long):
+	Add arm*-*-linux-gnueabi.
+	(check_effective_target_sync_char_short): Likewise.
 
 2010-08-06  Thomas Koenig  <tkoenig@gcc.gnu.org>
 

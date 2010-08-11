@@ -1,3 +1,89 @@
+2010-08-10  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/bits/shared_ptr_base.h: Remove a few now redundant
+	__glibcxx_function_requires(_ConvertibleConcept...).
+	* testsuite/20_util/shared_ptr/cons/43820.cc: Adjust dg-error
+	line number.
+	* testsuite/20_util/weak_ptr/comparison/cmp_neg.cc: Likewise.
+
+2010-08-10  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* testsuite/ext/stdio_sync_filebuf/char/1.cc: Avoid -Wall
+	warnings.
+	* testsuite/ext/stdio_sync_filebuf/wchar_t/1.cc: Likewise.
+
+2010-08-10  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* testsuite/23_containers/array/range_access.cc: Avoid -Wall
+	warnings.
+
+2010-08-10  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* testsuite/20_util/ratio/cons/cons_overflow_neg.cc: Avoid -Wall
+	warnings.
+
+	* include/bits/shared_ptr.h (shared_ptr<>::shared_ptr
+	(const shared_ptr<>&), shared_ptr(shared_ptr<>&&), weak_ptr<>::
+	weak_ptr(const weak_ptr<>&), weak_ptr(const shared_ptr<>&)):
+	Constrain appropriately via std::is_convertible, etc.
+	* include/bits/shared_ptr_base.h: Likewise.
+	* include/bits/unique_ptr.h (default_delete<>::
+	default_delete(const default_delete<>&),
+	unique_ptr<>::unique_ptr(unique_ptr<>&&), operator=(unique_ptr<>&&)):
+	Likewise.
+
+	* testsuite/20_util/weak_ptr/comparison/cmp_neg.cc: Adjust dg-error
+	line numbers.
+	* testsuite/20_util/shared_ptr/cons/43820.cc: Likewise.
+
+	* include/bits/unique_ptr.h (unique_ptr<>::unique_ptr(auto_ptr<>&&)):
+	Add.
+	* include/std/memory: Adjust includes order.
+	* testsuite/20_util/unique_ptr/cons/auto_ptr.cc: New.
+	* testsuite/20_util/unique_ptr/cons/auto_ptr_neg.cc: Likewise.
+	* testsuite/20_util/shared_ptr/cons/auto_ptr_neg.cc: Minor tweaks.
+
+2010-08-10  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/45228
+	* include/std/tuple (tuple<typename... _Elements>): Constrain
+	converting constructors and assignment operators with
+	sizeof...(_UElements) == sizeof...(_Elements).
+	(tuple(tuple<_UElements...>&): Remove.
+	(tuple<typename _T1>): Add.
+	* testsuite/20_util/tuple/cons/45228.cc: New.
+	* testsuite/20_util/tuple/cons/converting.cc: Likewise.
+	* testsuite/20_util/weak_ptr/comparison/cmp_neg.cc: Adjust
+	dg-error line number.
+
+	* include/std/tuple (_Tuple_impl<>::_Tuple_impl(const _Tuple_impl&)):
+	Defaulted.
+
+	* include/std/tuple (tuple<typename _T1, typename _T2>
+	::operator=(pair<_U1, _U2>&&)): Use forward.
+
+2010-08-08  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/44963
+	* include/bits/stl_iterator.h (insert_iterator<>::
+	operator=(const typename _Container::value_type&,
+	back_insert_iterator<>::
+	operator=(const typename _Container::value_type&),
+	front_insert_iterator<>::
+	operator=(const typename _Container::value_type&))): Add
+	in C++0x mode.
+	* testsuite/ext/rope/44963.cc: New.
+	* testsuite/20_util/weak_ptr/comparison/cmp_neg.cc: Adjust
+	dg-error line number.
+
+2010-08-08  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/c_global/cmath: Implement US 136.
+	* include/tr1_impl/cmath: Do not bring fpclassify, etc from namespace
+	std, define namespace tr1.
+	* testsuite/26_numerics/headers/cmath/
+	c99_classification_macros_c++0x.cc: New.
+
 2010-08-06  David Malcolm  <dmalcolm@redhat.com>
 	    Jan Kratochvil  <jan.kratochvil@redhat.com>
 

@@ -1332,7 +1332,7 @@ remove_some_program_points_and_update_live_ranges (void)
   sbitmap born_or_dead, born, dead;
   sbitmap_iterator sbi;
   bool born_p, dead_p, prev_born_p, prev_dead_p;
-
+  
   born = sbitmap_alloc (ira_max_point);
   dead = sbitmap_alloc (ira_max_point);
   sbitmap_zero (born);
@@ -1341,8 +1341,8 @@ remove_some_program_points_and_update_live_ranges (void)
     for (r = OBJECT_LIVE_RANGES (obj); r != NULL; r = r->next)
       {
 	ira_assert (r->start <= r->finish);
-        SET_BIT (born, r->start);
-        SET_BIT (dead, r->finish);
+	SET_BIT (born, r->start);
+	SET_BIT (dead, r->finish);
       }
 
   born_or_dead = sbitmap_alloc (ira_max_point);
