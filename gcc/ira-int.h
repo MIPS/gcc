@@ -478,6 +478,13 @@ struct ira_emit_data
 /* Data used to emit live range split insns and to flattening IR.  */
 extern ira_emit_data_t ira_allocno_emit_data;
 
+/* Abbreviation for frequent emit data access.  */
+static inline rtx
+allocno_emit_reg (ira_allocno_t a)
+{
+  return ALLOCNO_EMIT_DATA (a)->reg;
+}
+
 #define OBJECT_ALLOCNO(O) ((O)->allocno)
 #define OBJECT_SUBWORD(O) ((O)->subword)
 #define OBJECT_CONFLICT_ARRAY(O) ((O)->conflicts_array)
