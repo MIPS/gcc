@@ -27,7 +27,6 @@
 #include "tree-pass.h"
 #include "langhooks.h"
 
-#define MAX_CLI_FN 103 
 
 static tree
 add_cli_function (const char *name,
@@ -173,8 +172,20 @@ create_cli_fn_table (void)
   cli_functions[100] = add_cli_function ("genvec_support_VSI_VSI_widen_mult_hi_Mono_Simd_Vector8s_Mono_Simd_Vector8s_Mono_Simd_Vector4i", unsigned_type_node);
   cli_functions[101] = add_cli_function ("genvec_support_VHI_VHI_widen_mult_lo_Mono_Simd_Vector16sb_Mono_Simd_Vector8s_Mono_Simd_Vector8s", unsigned_type_node);
   cli_functions[102] = add_cli_function ("genvec_support_VSI_VSI_widen_mult_lo_Mono_Simd_Vector8s_Mono_Simd_Vector8s_Mono_Simd_Vector4i", unsigned_type_node);
+  cli_functions[103] = add_cli_function ("double_supported", unsigned_type_node);
+  cli_functions[104] = add_cli_function ("unpack_hi_vqi", unsigned_type_node);
+  cli_functions[105] = add_cli_function ("unpack_hi_vhi", unsigned_type_node);
+  cli_functions[106] = add_cli_function ("unpack_lo_vqi", unsigned_type_node);
+  cli_functions[107] = add_cli_function ("unpack_lo_vhi", unsigned_type_node);
+  cli_functions[108] = add_cli_function ("shift_right_vqi", unsigned_type_node);
+  cli_functions[109] = add_cli_function ("shift_right_vhi", unsigned_type_node);
+  cli_functions[110] = add_cli_function ("shift_right_vsi", unsigned_type_node);
+  cli_functions[111] = add_cli_function ("shift_left_vqi", unsigned_type_node);
+  cli_functions[112] = add_cli_function ("shift_left_vhi", unsigned_type_node);
+  cli_functions[113] = add_cli_function ("shift_left_vsi", unsigned_type_node);
 }
 
+#define MAX_CLI_FN 114 
 
 static tree
 get_vectype (tree scalar_type)
@@ -1132,6 +1143,165 @@ replace_widen_mult (int index, gimple stmt)
   return true;
 }
 
+
+static bool
+replace_shift (int index, gimple stmt)
+{
+  enum tree_code code;
+  tree scalar_type, vectype, new_rhs;
+  optab optab;
+  int mode;
+  tree scalar_arg = gimple_call_arg (stmt, 1);
+  tree vector_arg = gimple_call_arg (stmt, 2);
+  gimple def_stmt;
+  bool invariant = true;
+  tree shift_arg = NULL_TREE;
+
+  switch (index)
+    {
+      case shift_right_vqi:
+        code = RSHIFT_EXPR;
+        scalar_type = intQI_type_node;
+        break;
+
+      case shift_right_vhi:
+        code = RSHIFT_EXPR;
+        scalar_type = intHI_type_node;
+        break;
+
+      case shift_right_vsi:
+        code = RSHIFT_EXPR;
+        scalar_type = intSI_type_node;
+        break;
+
+      case shift_left_vqi:
+        code = LSHIFT_EXPR;
+        scalar_type = intQI_type_node;
+        break;
+
+      case shift_left_vhi:
+        code = LSHIFT_EXPR;
+        scalar_type = intHI_type_node;
+        break;
+
+      case shift_left_vsi:
+        code = LSHIFT_EXPR;
+        scalar_type = intSI_type_node;
+        break;
+
+      default:
+        return false;
+    }
+
+  vectype = get_vectype (scalar_type);
+  if (!vectype)
+    return false;
+
+  mode = (int) TYPE_MODE (vectype);
+
+  gcc_assert (TREE_CODE (vector_arg) == SSA_NAME);
+  def_stmt = SSA_NAME_DEF_STMT (vector_arg);
+  if (gimple_bb (stmt) == gimple_bb (def_stmt))
+    invariant = false;
+
+  if (invariant)
+    {
+      optab = optab_for_tree_code (code, vectype, optab_scalar);
+      if (optab
+          && (optab_handler (optab, TYPE_MODE (vectype))->insn_code
+              != CODE_FOR_nothing))
+        shift_arg = scalar_arg;
+      else
+        {
+          optab = optab_for_tree_code (code, vectype, optab_vector);
+          if (optab
+              && (optab_handler (optab, TYPE_MODE (vectype))->insn_code
+                  != CODE_FOR_nothing))
+            shift_arg = vector_arg;
+        }
+    }
+  else
+    {
+      optab = optab_for_tree_code (code, vectype, optab_vector);
+      if (optab
+          && (optab_handler (optab, TYPE_MODE (vectype))->insn_code
+              != CODE_FOR_nothing))
+        shift_arg = vector_arg;
+    }
+
+  if (!shift_arg)
+    return false;
+
+  new_rhs = build2 (code, vectype, gimple_call_arg (stmt, 0), shift_arg);
+  finish_replacement (new_rhs, stmt, NULL);
+  return true;
+}
+
+static bool
+replace_double_supported (gimple stmt)
+{
+  tree vectype, new_rhs;
+
+  vectype = get_vectype (double_type_node);
+  if (vectype)
+    new_rhs = boolean_true_node;
+  else
+    new_rhs = boolean_false_node;
+
+  finish_replacement (new_rhs, stmt, NULL);
+  return true;
+}
+
+static bool
+replace_unpack (int index, gimple stmt)
+{
+  enum tree_code code;
+  tree scalar_type, vectype, new_rhs;
+  optab optab;
+  int mode;
+
+  switch (index)
+    {
+      case unpack_hi_vqi:
+        code = VEC_UNPACK_HI_EXPR;
+        scalar_type = intQI_type_node;
+        break;
+
+      case unpack_hi_vhi:
+        code = VEC_UNPACK_HI_EXPR;
+        scalar_type = intHI_type_node;
+        break;
+
+      case unpack_lo_vqi:
+        code = VEC_UNPACK_LO_EXPR;
+        scalar_type = intQI_type_node;
+        break;
+
+      case unpack_lo_vhi:
+        code = VEC_UNPACK_LO_EXPR;
+        scalar_type = intHI_type_node;
+        break;
+
+      default:
+        return false;
+    }
+
+  vectype = get_vectype (scalar_type);
+  if (!vectype)
+    return false;
+
+  mode = (int) TYPE_MODE (vectype);
+
+  optab = optab_for_tree_code (code, vectype, optab_default);
+  if (!optab || optab_handler (optab, mode)->insn_code == CODE_FOR_nothing)
+    return false;
+
+  new_rhs = build2 (code, vectype, gimple_call_arg (stmt, 0),
+                                   gimple_call_arg (stmt, 1));
+  finish_replacement (new_rhs, stmt, NULL);
+  return true;
+}
+
 static bool
 replace_cli_fn (int index, gimple stmt)
 {
@@ -1273,6 +1443,23 @@ replace_cli_fn (int index, gimple stmt)
       case widen_mult_lo_vhi:
       case widen_mult_lo_vsi:
 	return replace_widen_mult (index, stmt);
+
+      case double_supported:
+        return replace_double_supported (stmt);
+
+      case unpack_hi_vqi:
+      case unpack_hi_vhi:
+      case unpack_lo_vqi:
+      case unpack_lo_vhi:
+        return replace_unpack (index, stmt);
+
+      case shift_right_vqi:
+      case shift_right_vhi:
+      case shift_right_vsi:
+      case shift_left_vqi:
+      case shift_left_vhi:
+      case shift_left_vsi:
+        return replace_shift (index, stmt);
 
       default:
         if (dump_file && (dump_flags & TDF_DETAILS))

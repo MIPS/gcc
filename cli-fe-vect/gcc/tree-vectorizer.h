@@ -977,6 +977,17 @@ enum cli_builtins {
   widen_mult_hi_vsi,
   widen_mult_lo_vhi,
   widen_mult_lo_vsi,
+  double_supported,
+  unpack_hi_vqi,
+  unpack_hi_vhi,
+  unpack_lo_vqi,
+  unpack_lo_vhi,
+  shift_right_vqi,
+  shift_right_vhi,
+  shift_right_vsi,
+  shift_left_vqi,
+  shift_left_vhi,
+  shift_left_vsi,
 };
 
 #endif  /* GCC_TREE_VECTORIZER_H  */
