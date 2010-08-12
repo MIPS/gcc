@@ -1,3 +1,21 @@
+2010-08-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.md (lrint<mode>di2): New insn, define for
+	lrint builtin support.
+	(btrunc<mode>2): Combine SF/DF round builtins into one pattern.
+	(btrunc<mode>2_fpr): Ditto.
+	(ceil<mode>2): Ditto.
+	(ceil<mode>2_fpr): Ditto.
+	(floor<mode>2): Ditto.
+	(floor<mode>2_fpr): Ditto.
+	(round<mode>2): Ditto.
+	(btruncdf2, btruncdf2_fpr, bruncsf2): Delete, merge into combined
+	insn.
+	(ceildf2, ceildf2_fpr, ceilsf2): Ditto.
+	(floordf2, floordf2_fpr, floorsf2): Ditto.
+	(rounddf2, roundsf2): Ditto.
+	(ftruncdf2): Delete, this insn isn't needed.
+
 2010-08-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.md (fix_trunc<mode>si2_stfiwx): Move
