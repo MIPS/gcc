@@ -1,3 +1,49 @@
+2010-08-07  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/31588
+	PR fortran/43954
+	Backport from mainline:
+	* gfortranspec.c (lang_specific_driver): Removed deprecation
+	warning for -M.
+	* lang.opt: Add options -M, -MM, -MD, -MMD, -MF, -MG, -MP, -MT, -MQ.
+	* lang-specs.h (CPP_FORWARD_OPTIONS): Add -M* options.
+	* cpp.h (gfc_cpp_makedep): New.
+	(gfc_cpp_add_dep): New.
+	(gfc_cpp_add_target): New.
+	* cpp.c (gfc_cpp_option): Add deps* members.
+	(gfc_cpp_makedep): New.
+	(gfc_cpp_add_dep): New.
+	(gfc_cpp_add_target): New.
+	(gfc_cpp_init_options): Initialize new options.
+	(gfc_cpp_handle_option): Handle new options.
+	(gfc_cpp_post_options): Map new options to libcpp-options.
+	(gfc_cpp_init): Handle deferred -MQ and -MT options.
+	(gfc_cpp_done): If requested, write dependencies to file.
+	* module.c (gfc_dump_module): Add a module filename as target.
+	* scanner.c (open_included_file): New parameter system; add the
+	included file as dependency.
+	(gfc_open_included_file): Add the included file as dependency.
+	(gfc_open_intrinsic_module): Likewise.
+	* invoke.texi: Removed deprecation warning for -M.
+	* gfortran.texi: Removed Makefile-dependencies project.
+
+2010-08-06  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/44660
+	* gfortran.h (gfc_namespace): New field old_equiv.
+	(gfc_free_equiv_until): New prototype.
+	* match.c (gfc_free_equiv_until): New, renamed from gfc_free_equiv with
+	a parameterized stop condition.
+	(gfc_free_equiv): Use gfc_free_equiv_until.
+	* parse.c (next_statement): Save equivalence list.
+	(reject_statement): Restore equivalence list. 
+
+2010-07-23  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/45019
+	* dependency.c (gfc_check_dependency): Add argument alising check.
+	* symbol.c (gfc_symbols_could_alias): Add argument alising check.
+
 2010-07-10  Paul Thomas  <pault@gcc.gnu.org>
 
 	PR fortran/44582
