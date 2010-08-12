@@ -1,3 +1,52 @@
+2010-08-11  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/bits/hashtable.h (_Hashtable<>::erase(const key_type&)):
+	Use std::__addressof.
+
+	* include/bits/forward_list.tcc (forward_list<>::remove): Deal
+	correctly with &__tmp->_M_value == &__val.
+	* testsuite/23_containers/forward_list/operations/remove_freed.cc:
+	New.
+
+2010-08-11  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/bits/stl_algo.h (shuffle): Change signature consistently
+	with random_shuffle (US 121).
+	* include/bits/algorithmfwd.h: Adjust.
+	* testsuite/25_algorithms/shuffle/requirements/
+	explicit_instantiation/2.cc: Likewise.
+	* testsuite/25_algorithms/shuffle/requirements/
+	explicit_instantiation/pod.cc: Likewise.
+
+2010-08-11  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/bits/move.h (forward): Reinstate the N2835 version.
+
+2010-08-11  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/42925
+	* include/bits/unique_ptr.h (operator==(const unique_ptr<>&,
+	nullptr_t), operator==(nullptr_t, const unique_ptr<>&),
+	operator!=(const unique_ptr<>&, nullptr_t),
+	operator!=(nullptr_t, const unique_ptr<>&)): Add.
+	* include/bits/shared_ptr_base.h (operator==(const __shared_ptr<>&,
+	nullptr_t), operator==(nullptr_t, const __shared_ptr<>&),
+	operator!=(const __shared_ptr<>&, nullptr_t),
+	operator!=(nullptr_t, const __shared_ptr<>&)): Likewise.
+	* include/bits/shared_ptr.h (operator==(const shared_ptr<>&,
+	nullptr_t), operator==(nullptr_t, const shared_ptr<>&),
+	operator!=(const shared_ptr<>&, nullptr_t),
+	operator!=(nullptr_t, const shared_ptr<>&)): Likewise.
+	* testsuite/20_util/unique_ptr/comparison/42925.cc: New.
+	* testsuite/20_util/shared_ptr/comparison/42925.cc: Likewise.
+	* testsuite/20_util/weak_ptr/comparison/cmp_neg.cc: Adjust
+	dg-error line numbers.
+
+2010-08-11  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/bits/unique_ptr.h: Replace _Tp_Deleter -> _Dp, and
+	_Up_Deleter -> _Ep.
+
 2010-08-10  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	* include/bits/shared_ptr_base.h: Remove a few now redundant

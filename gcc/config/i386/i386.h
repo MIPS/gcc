@@ -1101,6 +1101,12 @@ enum target_cpu_default
    : (MODE) == QImode && (REGNO) > BX_REG && !TARGET_64BIT ? SImode 	\
    : (MODE))
 
+/* The only ABI that saves SSE registers across calls is Win64 (thus no
+   need to check the current ABI here), and with AVX enabled Win64 only
+   guarantees that the low 16 bytes are saved.  */
+#define HARD_REGNO_CALL_PART_CLOBBERED(REGNO, MODE)             \
+  (SSE_REGNO_P (REGNO) && GET_MODE_SIZE (MODE) > 16)
+
 /* Specify the registers used for certain standard purposes.
    The values of these macros are register numbers.  */
 
@@ -2113,12 +2119,6 @@ do {									\
    asm (SECTION_OP "\n\t"					\
 	"call " CRT_MKSTR(__USER_LABEL_PREFIX__) #FUNC "\n"	\
 	TEXT_SECTION_ASM_OP);
-
-#define OUTPUT_ADDR_CONST_EXTRA(FILE, X, FAIL)	\
-do {						\
-  if (! output_addr_const_extra (FILE, (X)))	\
-    goto FAIL;					\
-} while (0);
 
 /* Which processor to schedule for. The cpu attribute defines a list that
    mirrors this list, so changes to i386.md must be made at the same time.  */

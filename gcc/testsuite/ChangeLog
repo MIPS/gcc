@@ -1,3 +1,86 @@
+2010-08-12  Jie Zhang  <jie@codesourcery.com>
+
+	* gcc.dg/graphite/interchange-9.c (M): Define to be 111.
+	(N): Likewise.
+	(main): Adjust accordingly.
+
+2010-08-11  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* gfortran.dg/graphite/id-22.f: New.
+
+2010-08-11  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* gcc.dg/graphite/id-26.c: New.
+
+2010-08-11  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* gcc.dg/graphite/id-25.c: New.
+
+2010-08-11  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* gcc.dg/graphite/run-id-5.c: New.
+	* gcc.dg/graphite/run-id-6.c: New.
+	* gfortran.dg/graphite/id-21.f: New.
+
+2010-08-11  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* gcc.dg/graphite/id-24.c: New.
+
+2010-08-11  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* gcc.dg/tree-ssa/pr20742.c: New.
+
+2010-08-11  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* gcc.dg/graphite/id-23.c: New.
+
+2010-08-11  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* gfortran.dg/graphite/id-20.f: Adjust testcase.
+
+2010-08-11  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* gcc.dg/graphite/pr42729.c: New.
+
+2010-08-11  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* gfortran.dg/graphite/id-20.f: New.
+
+2010-08-11  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* gcc.dg/graphite/id-22.c: New.
+
+2010-08-11  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* gcc.dg/graphite/run-id-2.c: Call abort.
+
+2010-08-11  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* gcc.dg/graphite/id-20.c: New.
+
+2010-08-11  Janus Weil  <janus@gcc.gnu.org>
+	    Steve Kargl <kargl@gcc.gnu.org>
+
+	PR fortran/44595
+	* gfortran.dg/move_alloc_3.f90: New.
+	* gfortran.dg/random_seed_2.f90: New.
+
+2010-08-10  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* lib/target-supports.exp (check_effective_target_sync_int_long):
+	Add hppa*-*-linux*.
+	(check_effective_target_sync_char_short): Likewise.
+
+2010-08-10  Yao Qi  <yao@codesourcery.com>
+
+	* gcc.dg/builtin-stringop-chk-1.c: Change ARM triplet to a more
+	general form.
+	* gcc.dg/tree-ssa/loop-31.c: Likewise.
+	* g++.dg/other/packed1.C: Likewise.
+	* g++.dg/other/crash-4.C: Likewise.
+	* g++.dg/ext/packed8.C: Likewise.
+	* g++.dg/init/array16.C: Likewise.
+
 2010-08-10  xinliang David Li  <davidxl@google.com>
 	* gcc.dg/tree-ssa/loop-19.c: Add option
 	-fno-prefetch-loop-array
