@@ -1,9 +1,6 @@
-2010-07-23  Jakub Jelinek  <jakub@redhat.com>
-	    Richard Guenther  <rguenther@suse.de>
+2010-07-31  Release Manager
 
-	PR tree-optimization/45047
-	* tree-vect-stmts.c (vectorizable_assignment): Return false
-	if vectype_out is NULL for conversion statement.
+	* GCC 4.5.1 released.
 
 2010-06-24  Steven Bosscher  <steven@gcc.gnu.org>
 

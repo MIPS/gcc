@@ -1,3 +1,116 @@
+2010-08-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/45262
+	* gcc.c-torture/execute/pr45262.c: New test.
+
+	PR debug/45259
+	* gcc.dg/pr45259.c: New test.
+
+	Backport from mainline
+	2010-07-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/45055
+	PR rtl-optimization/45137
+	* gcc.dg/pr45055.c: New test.
+
+2010-08-08  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.dg/20030107-1.c: Do not call cleanup-coverage-files.
+	* gcc.dg/20030702-1.c: Ditto.
+	* gcc.dg/20050309-1.c: Ditto.
+	* gcc.dg/20050325-1.c: Ditto.
+	* gcc.dg/20050330-2.c: Ditto.
+	* gcc.dg/20051201-1.c: Ditto.
+	* gcc.dg/gomp/pr27573.c: Ditto.
+	* gcc.dg/gomp/pr34610.c: Ditto.
+	* gcc.dg/pr24225.c: Ditto.
+	* gcc.dg/pr26570.c: Ditto.
+	* gcc.dg/pr32773.c: Ditto.
+	* g++.dg/gcov/gcov-6.C: Ditto.
+	* g++.dg/gomp/pr34608.C: Ditto.
+	* gfortran.dg/gomp/pr27573.f90: Ditto.
+
+	* gcc.dg/profile-dir-1.c: Do not call cleanup-coverage-files.  Remove
+	dg-require-host-local dg directive.
+	* gcc.dg/profile-dir-2.c: Ditto.
+	* gcc.dg/profile-dir-3.c: Ditto.
+
+2010-08-08  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/45034
+	* gcc.c-torture/execute/pr45034.c: New testcase.
+
+2010-08-08  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/45109
+	* gcc.c-torture/compile/pr45109.c: New testcase.
+
+2010-08-08  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.dg/march.c: Skip if -march defined.
+	* gcc.dg/mtune.c: Skip if -mtune defined.
+
+	* g++.old-deja/g++.jason/thunk3.C: Skip for targets with
+	generic thunk support.
+
+	Backport from mainline:
+	2010-05-25  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.dg/tree-ssa/sra-10.c: Do not dump esra details.
+
+	Backport from mainline:
+	2010-04-22  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.dg/graphite/interchange-0.c: Fix dg-final directive.
+
+2010-08-05  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/44929
+	* gfortran.dg/allocate_derived_3.f90: New.
+
+2010-08-04  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2010-07-20  Bingfeng Mei  <bmei@broadcom.com>
+
+	* gcc.dg/lto/20090313_0.c: Use dg-require-effective-target
+	sync_char_short.
+
+	2010-06-24  Steve Ellcey  <sje@cup.hp.com>
+
+	PR testsuite/43283
+	* gcc.dg/lto/20091216-1_0.c: Use newline instead of semicolon
+	and add argument to nop for IA64.
+
+2010-08-03  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/44914
+	* g++.dg/tree-ssa/pr44914.C: New test.
+
+2010-08-02  Uros Bizjak  <ubizjak@gmail.com>
+
+	* lib/gcc-dg.exp (cleanup-coverage-files): Remove options from
+	test name.
+	(cleanup-repo-files): Ditto.
+	(cleanup-saved-temps): Ditto.
+
+2010-07-31  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	PR c++/45112
+	* testsuite/g++.dg/pr45112.C: New test.
+
+2010-07-31  Release Manager
+
+	* GCC 4.5.1 released.
+
+2010-07-30  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	Backport from mainline
+	2010-07-22  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	PR target/43698
+	* gcc.target/arm/pr43698.c: New test.
+
 2010-07-23  Jakub Jelinek  <jakub@redhat.com>
 
 	PR tree-optimization/45047
@@ -467,15 +580,15 @@
 	Backport from mainline
 	2010-05-17  Martin Jambor  <mjambor@suse.cz>
 
-        PR middle-end/44133
-        * gcc.dg/tree-ssa/pr44133.c: New test.
+	PR middle-end/44133
+	* gcc.dg/tree-ssa/pr44133.c: New test.
 
 2010-06-29  Martin Jambor  <mjambor@suse.cz>
 
 	Backport from mainline
 	2010-04-13  Martin Jambor  <mjambor@suse.cz>
 
-        * gcc.dg/tree-ssa/sra-9.c: New test.
+	* gcc.dg/tree-ssa/sra-9.c: New test.
 
 2010-06-28  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
 
@@ -624,7 +737,7 @@
 	PR testsuite/44518
 	* obj-c++.dg/encode-2.mm: XFAIL new test for all targets.
 	* obj-c++.dg/encode-3.mm: Restore XFAIL run for all targets.
-	
+
 2010-06-12  Daniel Franke  <franke.daniel@gmail.com>
 
 	PR fortran/44347

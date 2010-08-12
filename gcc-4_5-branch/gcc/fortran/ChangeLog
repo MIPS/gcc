@@ -1,3 +1,76 @@
+2010-08-09  Janus Weil  <janus@gcc.gnu.org>
+
+	* intrinsic.texi: Correct documentation of ASINH, ACOSH and ATANH.
+
+2010-08-07  Daniel Franke  <franke.daniel@gmail.com>
+
+	2010-06-13  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/31588
+	PR fortran/43954
+	Backport from mainline:
+	* gfortranspec.c (lang_specific_driver): Removed deprecation
+	warning for -M.
+	* lang.opt: Add options -M, -MM, -MD, -MMD, -MF, -MG, -MP, -MT, -MQ.
+	* lang-specs.h (CPP_FORWARD_OPTIONS): Add -M* options.
+	* cpp.h (gfc_cpp_makedep): New.
+	(gfc_cpp_add_dep): New.
+	(gfc_cpp_add_target): New.
+	* cpp.c (gfc_cpp_option): Add deps* members.
+	(gfc_cpp_makedep): New.
+	(gfc_cpp_add_dep): New.
+	(gfc_cpp_add_target): New.
+	(gfc_cpp_init_options): Initialize new options.
+	(gfc_cpp_handle_option): Handle new options.
+	(gfc_cpp_post_options): Map new options to libcpp-options.
+	(gfc_cpp_init): Handle deferred -MQ and -MT options.
+	(gfc_cpp_done): If requested, write dependencies to file.
+	* module.c (gfc_dump_module): Add a module filename as target.
+	* scanner.c (open_included_file): New parameter system; add the
+	included file as dependency.
+	(gfc_open_included_file): Add the included file as dependency.
+	(gfc_open_intrinsic_module): Likewise.
+	* invoke.texi: Removed deprecation warning for -M.
+	* gfortran.texi: Removed Makefile-dependencies project.
+
+2010-08-05  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/44660
+	* gfortran.h (gfc_namespace): New field old_equiv.
+	(gfc_free_equiv_until): New prototype.
+	* match.c (gfc_free_equiv_until): New, renamed from gfc_free_equiv with
+	a parameterized stop condition.
+	(gfc_free_equiv): Use gfc_free_equiv_until.
+	* parse.c (next_statement): Save equivalence list.
+	(reject_statement): Restore equivalence list. 
+
+2010-08-05  Mikael Morin  <mikael@gcc.gnu.org>
+	    Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/42051
+	PR fortran/44064
+	PR fortran/45151
+	* intrinsic.c (gfc_get_intrinsic_sub_symbol): Commit changed symbol. 
+	* symbol.c (gen_cptr_param, gen_fptr_param, gen_shape_param,
+	gfc_copy_formal_args, gfc_copy_formal_args_intr,
+	gfc_copy_formal_args_ppc, generate_isocbinding_symbol): Ditto.
+	(gfc_find_derived_vtab): Commit newly created symbols.
+	* parse.c (parse_derived_contains, parse_spec, parse_progunit): 
+	Call reject_statement in case of error. 
+	(match_deferred_characteritics): Call gfc_undo_symbols in case match
+	fails.
+
+2010-08-05  Janus Weil  <janus@gcc.gnu.org>
+	    Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/44929
+	* match.c (match_type_spec): Try to parse derived types before
+	intrinsic types.
+
+2010-07-31  Release Manager
+
+	* GCC 4.5.1 released.
+
 2010-07-21  Steven G. Kargl  <kargl@gcc.gnu.org>
 
 	PR fortran/44929
