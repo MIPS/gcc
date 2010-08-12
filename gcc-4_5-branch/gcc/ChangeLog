@@ -1,3 +1,139 @@
+2010-08-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/45262
+	* fold-const.c (make_range) <case NEGATE_EXPR>: Punt if
+	-a overflows.  Normalize the range.
+
+	PR debug/45259
+	* caller-save.c (save_call_clobbered_regs): Only swap notes with
+	DEBUG_INSNs if n_regs_saved.
+
+	Backport from mainline
+	2010-07-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/45055
+	PR rtl-optimization/45137
+	* rtl.h (prev_nonnote_nondebug_insn, next_nonnote_nondebug_insn): New
+	prototypes.
+	* emit-rtl.c (prev_nonnote_nondebug_insn, next_nonnote_nondebug_insn):
+	New functions.
+	* combine.c (next_nonnote_nondebug_insn): Removed.
+	* ifcvt.c (noce_process_if_block): Use prev_nonnote_nondebug_insn.
+	* haifa-sched.c (queue_to_ready): Use next_nonnote_nondebug_insn.
+	* sched-deps.c (sched_analyze_insn): Likewise.
+	(fixup_sched_groups, deps_start_bb): Use prev_nonnote_nondebug_insn.
+	* rtlanal.c (canonicalize_condition): Likewise.
+	* postreload.c (reload_combine): Likewise.
+	(reload_cse_move2add): Use next_nonnote_nondebug_insn.
+
+2010-08-08  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	Backport from mainline.
+	2010-07-17  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/44805
+	* config/pa/pa.h (CONSTANT_ALIGNMENT): Align strings to BITS_PER_WORD
+	on all targets.
+
+2010-08-08  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/45034
+	* convert.c (convert_to_integer): Always use an unsigned
+	type for narrowed negate and bitwise not.
+
+2010-08-08  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/45109
+	* tree-ssa-structalias.c (get_constraint_for_component_ref):
+	Explicitly strip handled components and indirect references.
+
+2010-08-08  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR boehm-gc/34544
+	* gthr-posix.h (__gthread_start): Delete.
+	(__gthread_active_init): Use pthread_default_stacksize_np instead of
+	pthread_create to determine if hpux pthreads are active.
+	* gthr-posix95.h (__gthread_start): Delete.
+	(__gthread_active_init): Likewise use pthread_default_stacksize_np.
+
+2010-08-06  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/44942
+	* config/sparc/sparc.c (function_arg_advance): Always take into account
+	the padding, if any.
+
+2010-08-06  Uros Bizjak  <ubizjak@gmail.com>
+
+	* expmed.c (expand_mult_const) <case alg_shift>: Expand shift into
+	temporary. Emit move from temporary to accum, so REG_EQUAL note will
+	be attached to this insn in correct mode.
+
+2010-08-06  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (ix86_decompose_address): Check for SI_REG
+	using REGNO of base_reg directly.
+
+2010-08-03  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/spu/spu.c (spu_emit_branch_hint): Do not access NOTE_KIND of
+	non-NOTE insns.
+
+2010-08-03  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/41089
+	* config/alpha/alpha.c (alpha_build_builtin_va_list): Mark __offset
+	as volatile.
+
+2010-08-03  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/44914
+	* tree-sra.c (cfg_changed): New variable.
+	(sra_initialize): Initialize cgf_changed to false.
+	(scan_function): Set cfg_changed if cfg was changed.
+	(perform_intra_sra): Return also TODO_cleanup_cfg if cfg was changed.
+	(ipa_early_sra): Likewise.
+
+2010-08-02  DJ Delorie  <dj@redhat.com>
+
+	* config/rx/predicates.md (rx_constshift_operand): New.
+	* config/rx/rx.md (zs_cond): New.
+	(cbranchsi4): Remove mode.
+	(*cbranchsi4_<code>): Likewise.
+	(*tstbranchsi4_<code>): New.
+	(*tstbranchsi4r_<code>): New.
+	(*tstbranchsi4m_eq): New.
+	(*tstbranchsi4m_ne): New.
+	(cbranchsf4): Remove mode.
+	(*cbranchsf4_<code>): Likewise.
+
+2010-07-31  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/45052
+	* ipa-pure-const.c (check_stmt): Check volatileness.
+
+2010-07-31  Richard Guenther  <rguenther@suse.de>
+
+	* ipa-prop.c (ipa_modify_formal_parameters): Use
+	build_distinct_type_copy.
+
+2010-07-31  Richard Guenther  <rguenther@suse.de>
+
+	* DEV-PHASE: Set back to prerelease.
+	* BASE-VER: Bump to 4.5.2.
+
+2010-07-31  Release Manager
+
+	* GCC 4.5.1 released.
+
+2010-07-30  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	Backport from mainline.
+	2010-07-22  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+ 	PR target/43698
+	* config/arm/arm.md: Split arm_rev into *arm_rev and *thumb1_rev.
+	Set *arm_rev to be predicable.
+
 2010-07-27  Jakub Jelinek  <jakub@redhat.com>
 
 	PR target/44542
@@ -346,7 +482,7 @@
 	if old_decl was DECL_ONE_ONLY.
 
 	2010-06-21  Jakub Jelinek  <jakub@redhat.com>
- 
+
 	PR target/44575
 	* config/i386/i386.c (ix86_gimplify_va_arg): When copying
 	va_arg from a set of register save slots into a temporary,
