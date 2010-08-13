@@ -1,5 +1,29 @@
 2010-08-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/rs6000.c (rs6000_init_hard_regno_mode_ok): Set
+	"ws" constraint to be FLOAT_REGS if not VSX.
+	(rs6000_expand_convert_si_to_sfdf): Change calling signature for
+	conversion insns.
+
+	* config/rs6000/rs6000.md (floatsi<mode>2_lfiwax): Use <rreg2>
+	constraint.  Change order of clobbers.
+	(floatunssi<mode>2_lfiwzx): Ditto.
+	(floatsi<mode>2_lfiwax2): Delete, rename to
+	floatsi<mode>2_lfiwax_mem.
+	(floatunssi<mode>2_lfiwzx2): Delete, rename to
+	floatunssi<mode>2_lfiwax_mem.
+	(floatsi<mode>2_lfiwax_mem): Use memory_operand to get more
+	matches instead of indexed_or_indirect_operand.  Allow split
+	before reload for memory operands.
+	(floatunssi<mode>2_lfiwzx_mem): Ditto.
+	(floatsi<mode>2_lfiwax_mem2): New insn for combiner.
+	(floatunssi<mode>2_lfiwzx_mem2): Ditto.
+	(floatunssisf2): Rewrite to to expand SImode to DImode and do the
+	DImode conversion.
+	(floatunssidf2): Ditto.
+	(floatsisf2): Ditto.
+	(floatsidf2): Ditto.
+
 	* config/rs6000/rs6000.md (floatdidf2_fpr): Use "d" for register
 	constraint, not "!d#r".
 	(floatdisf2_internal1): Ditto.

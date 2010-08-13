@@ -2131,6 +2131,8 @@ rs6000_init_hard_regno_mode_ok (void)
 						  ? VSX_REGS
 						  : FLOAT_REGS);
     }
+  else if (TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_DOUBLE_FLOAT)
+    rs6000_constraints[RS6000_CONSTRAINT_ws] = FLOAT_REGS;
 
   if (TARGET_ALTIVEC)
     rs6000_constraints[RS6000_CONSTRAINT_v] = ALTIVEC_REGS;
@@ -26853,7 +26855,7 @@ rs6000_expand_convert_si_to_sfdf (rtx dest, rtx src, bool unsigned_p)
 {
   enum machine_mode dmode = GET_MODE (dest);
   rtx (*func_si) (rtx, rtx, rtx, rtx);
-  rtx (*func_si2) (rtx, rtx, rtx);
+  rtx (*func_si_mem) (rtx, rtx);
   rtx (*func_di) (rtx, rtx);
   rtx reg, stack;
 
@@ -26865,14 +26867,14 @@ rs6000_expand_convert_si_to_sfdf (rtx dest, rtx src, bool unsigned_p)
 	{
 	  gcc_assert (TARGET_FCFIDUS && TARGET_LFIWZX);
 	  func_si = gen_floatunssisf2_lfiwzx;
-	  func_si2 = gen_floatunssisf2_lfiwzx2;
+	  func_si_mem = gen_floatunssisf2_lfiwzx_mem;
 	  func_di = gen_floatunsdisf2;
 	}
       else
 	{
 	  gcc_assert (TARGET_FCFIDS && TARGET_LFIWAX);
 	  func_si = gen_floatsisf2_lfiwax;
-	  func_si2 = gen_floatsisf2_lfiwax2;
+	  func_si_mem = gen_floatsisf2_lfiwax_mem;
 	  func_di = gen_floatdisf2;
 	}
     }
@@ -26883,14 +26885,14 @@ rs6000_expand_convert_si_to_sfdf (rtx dest, rtx src, bool unsigned_p)
 	{
 	  gcc_assert (TARGET_FCFIDU && TARGET_LFIWZX);
 	  func_si = gen_floatunssidf2_lfiwzx;
-	  func_si2 = gen_floatunssidf2_lfiwzx2;
+	  func_si_mem = gen_floatunssidf2_lfiwzx_mem;
 	  func_di = gen_floatunsdidf2;
 	}
       else
 	{
 	  gcc_assert (TARGET_FCFID && TARGET_LFIWAX);
 	  func_si = gen_floatsidf2_lfiwax;
-	  func_si2 = gen_floatsidf2_lfiwax2;
+	  func_si_mem = gen_floatsidf2_lfiwax_mem;
 	  func_di = gen_floatdidf2;
 	}
     }
@@ -26900,22 +26902,21 @@ rs6000_expand_convert_si_to_sfdf (rtx dest, rtx src, bool unsigned_p)
 
   if (MEM_P (src))
     {
-      reg = gen_reg_rtx (DImode);
       src = rs6000_address_for_fpconvert (src);
-      emit_insn (func_si2 (dest, src, reg));
+      emit_insn (func_si_mem (dest, src));
     }
-  else if (!TARGET_MFPGPR || !TARGET_POWERPC64)
+  else if (!TARGET_MFPGPR)
     {
       reg = gen_reg_rtx (DImode);
       stack = rs6000_allocate_stack_temp (SImode, false, true);
-      emit_insn (func_si (dest, src, reg, stack));
+      emit_insn (func_si (dest, src, stack, reg));
     }
   else
     {
       if (!REG_P (src))
 	src = force_reg (SImode, src);
-      src = convert_to_mode (DImode, src, unsigned_p);
-      emit_insn (func_di (dest, src));
+      reg = convert_to_mode (DImode, src, unsigned_p);
+      emit_insn (func_di (dest, reg));
     }
 }
 
