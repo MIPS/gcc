@@ -1,5 +1,8 @@
 2010-08-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/rs6000.c (rs6000_override_options): If the user
+	does -mcpu=power7 -mno-altivec, don't allow VSX to be re-enabled.
+
 	* config/rs6000/rs6000.c (rs6000_init_hard_regno_mode_ok): Set
 	"ws" constraint to be FLOAT_REGS if not VSX.
 	(rs6000_expand_convert_si_to_sfdf): Change calling signature for

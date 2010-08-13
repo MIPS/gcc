@@ -2689,6 +2689,7 @@ rs6000_override_options (const char *default_cpu)
 	{
 	  warning (0, msg);
 	  target_flags &= ~ MASK_VSX;
+	  target_flags_explicit |= MASK_VSX;
 	}
     }
 
