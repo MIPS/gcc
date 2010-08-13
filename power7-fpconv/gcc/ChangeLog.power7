@@ -1,5 +1,13 @@
 2010-08-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/vsx.md (vsx_floatdf_fixsidf2): Prefer using the
+	output register for the scratch temps to improve scheduling after
+	register allocation.  Allow double loads from memory and use the
+	load and splat operation.
+	(vsx_floatsf_fixsisf2): Ditto.
+	(vsx_floatunsdf_fixunssidf2): Ditto.
+	(vsx_floatunssf_fixunssisf2): Ditto.
+
 	* config/rs6000/rs6000.c (rs6000_override_options): If the user
 	does -mcpu=power7 -mno-altivec, don't allow VSX to be re-enabled.
 

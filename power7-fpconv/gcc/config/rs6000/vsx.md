@@ -1085,20 +1085,24 @@
 ;; on the stack and then reload it.  We make a combined instruction, and then
 ;; split it back into the separate instructions.
 
+; The first alternative to to use 0 as the constraint is meant to try and
+; improve the scheduling of back to back round operations, so that the second
+; round operation's scratch registers will not overlap with the first.
+
 (define_insn_and_split "*vsx_floatdf_fixsidf2"
-  [(set (match_operand:DF 0 "vsx_register_operand" "=ws,?wa")
+  [(set (match_operand:DF 0 "vsx_register_operand" "=ws,ws,?ws,?wa,?ws,?wa")
 	(float:DF
 	 (fix:SI
-	  (match_operand:DF 1 "vsx_register_operand" "ws,?wa"))))
-   (clobber (match_scratch:V2DF 2 "=wd,?wa"))
-   (clobber (match_scratch:V4SI 3 "=wd,?wa"))]
+	  (match_operand:DF 1 "nonimmediate_operand" "Z,ws,Z,ws,Z,wa"))))
+   (clobber (match_scratch:V2DF 2 "=0,0,wd,wd,wa,wa"))
+   (clobber (match_scratch:V4SI 3 "=0,0,wd,wd,wa,wa"))]
   "VECTOR_UNIT_VSX_P (DFmode) && VECTOR_UNIT_VSX_P (V2DFmode)"
   "#"
   "&& reload_completed"
   [(pc)]
   "
 {
-  emit_insn (gen_vsx_concat_v2df (operands[2], operands[1], operands[1]));
+  emit_insn (gen_vsx_splat_v2df (operands[2], operands[1]));
   emit_insn (gen_vsx_xvcvdpsxws (operands[3], operands[2]));
   emit_insn (gen_vsx_xvcvsxwdp_df (operands[0], operands[3]));
   DONE;
@@ -1106,13 +1110,13 @@
   [(set_attr "length" "12")])
 
 (define_insn_and_split "*vsx_floatsf_fixsisf2"
-  [(set (match_operand:SF 0 "gpc_reg_operand" "=f,?f")
+  [(set (match_operand:SF 0 "gpc_reg_operand" "=f,?f,?f")
 	(float:SF
 	 (fix:SI
-	  (match_operand:SF 1 "gpc_reg_operand" "f,f"))))
-   (clobber (match_scratch:DI 2 "=d,d"))
-   (clobber (match_scratch:V4SI 3 "=wd,wa"))
-   (clobber (match_scratch:V4SF 4 "=wd,wa"))]
+	  (match_operand:SF 1 "gpc_reg_operand" "f,f,f"))))
+   (clobber (match_scratch:DI 2 "=0,d,d"))
+   (clobber (match_scratch:V4SI 3 "=0,wd,wa"))
+   (clobber (match_scratch:V4SF 4 "=0,wd,wa"))]
   "TARGET_SINGLE_FLOAT && TARGET_DOUBLE_FLOAT && TARGET_FPRS
    && VECTOR_UNIT_VSX_P (DFmode) && VECTOR_UNIT_VSX_P (V2DFmode)"
   "#"
@@ -1129,19 +1133,19 @@
   [(set_attr "length" "16")])
 
 (define_insn_and_split "*vsx_floatunsdf_fixunssidf2"
-  [(set (match_operand:DF 0 "vsx_register_operand" "=ws,?wa")
+  [(set (match_operand:DF 0 "vsx_register_operand" "=ws,ws,?ws,?ws,?wa,?wa")
 	(unsigned_float:DF
 	 (unsigned_fix:SI
-	  (match_operand:DF 1 "vsx_register_operand" "ws,wa"))))
-   (clobber (match_scratch:V2DF 2 "=wd,wa"))
-   (clobber (match_scratch:V4SI 3 "=wd,wa"))]
+	  (match_operand:DF 1 "nonimmediate_operand" "Z,ws,Z,ws,Z,wa"))))
+   (clobber (match_scratch:V2DF 2 "=0,0,wd,wd,wa,wa"))
+   (clobber (match_scratch:V4SI 3 "=0,0,wd,wd,wa,wa"))]
   "VECTOR_UNIT_VSX_P (DFmode) && VECTOR_UNIT_VSX_P (V2DFmode)"
   "#"
   "&& reload_completed"
   [(pc)]
   "
 {
-  emit_insn (gen_vsx_concat_v2df (operands[2], operands[1], operands[1]));
+  emit_insn (gen_vsx_splat_v2df (operands[2], operands[1]));
   emit_insn (gen_vsx_xvcvdpuxws (operands[3], operands[2]));
   emit_insn (gen_vsx_xvcvuxwdp_df (operands[0], operands[3]));
   DONE;
@@ -1149,13 +1153,13 @@
   [(set_attr "length" "12")])
 
 (define_insn_and_split "*vsx_floatunssf_fixunssisf2"
-  [(set (match_operand:SF 0 "gpc_reg_operand" "=f,?f")
+  [(set (match_operand:SF 0 "gpc_reg_operand" "=f,?f,?f")
 	(unsigned_float:SF
 	 (unsigned_fix:SI
-	  (match_operand:SF 1 "gpc_reg_operand" "f,f"))))
-   (clobber (match_scratch:DI 2 "=d,d"))
-   (clobber (match_scratch:V4SI 3 "=wd,wa"))
-   (clobber (match_scratch:V4SF 4 "=wd,wa"))]
+	  (match_operand:SF 1 "gpc_reg_operand" "f,f,f"))))
+   (clobber (match_scratch:DI 2 "=0,d,d"))
+   (clobber (match_scratch:V4SI 3 "=0,wd,wa"))
+   (clobber (match_scratch:V4SF 4 "=0,wd,wa"))]
   "TARGET_SINGLE_FLOAT && TARGET_DOUBLE_FLOAT && TARGET_FPRS
    && VECTOR_UNIT_VSX_P (DFmode) && VECTOR_UNIT_VSX_P (V2DFmode)"
   "#"
