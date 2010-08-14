@@ -2619,6 +2619,27 @@ if test x$with_cpu = x ; then
   esac
 fi
 
+# Support --with-fpmath.
+if test x$with_fpmath != x; then
+  case ${target} in
+    i[34567]86-*-* | x86_64-*-*)
+      case ${with_fpmath} in
+      sse)
+	tm_file="${tm_file} i386/ssemath.h"
+	;;
+      *)
+	echo "Invalid --with-fpmath=$with_fpmath" 1>&2
+	exit 1
+	;;
+      esac
+      ;;
+    *)
+      echo "--with-fpmath isn't supported for $target." 1>&2
+      exit 1
+      ;;
+  esac
+fi
+
 # Similarly for --with-schedule.
 if test x$with_schedule = x; then
 	case ${target} in

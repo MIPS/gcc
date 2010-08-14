@@ -1,3 +1,11 @@
+2010-08-13  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2010-02-26  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR testsuite/37074:
+	* gcc.dg/torture/stackalign/stackalign.exp: Add -mno-mmx to x86.
+
 2010-08-12  H.J. Lu  <hongjiu.lu@intel.com>
 
 	Backport from mainline
