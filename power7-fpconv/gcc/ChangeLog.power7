@@ -1,3 +1,21 @@
+2010-08-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.opt (-mvsx-round): New debug switch to
+	enable optimizing (double)(int) type conversions.  Default to
+	off.
+
+	* config/rs6000/vsx.md (vsx_floatdf_fix): Only generate code with
+	-mvsx-round.
+	(vsx_floatsf_fix): Ditto.
+	(vsx_floatunsdf_fixunssidf2): Ditto.
+	(vsx_floatunssf_fixunssisf2): Ditto.
+
+	* config/rs6000/rs6000.md (floatunssisf2): Fix up conditions to
+	work under 32-bit, fastmath vs. non-fastmath, spe patterns, etc.
+	(floatunssidf2): Ditto.
+	(float<mode>2_fpr): Ditto.
+	(floatsisf2): Ditto.
+
 2010-08-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/vsx.md (vsx_floatdf_fixsidf2): Prefer using the

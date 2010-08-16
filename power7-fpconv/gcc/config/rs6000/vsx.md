@@ -1096,7 +1096,8 @@
 	  (match_operand:DF 1 "nonimmediate_operand" "Z,ws,Z,ws,Z,wa"))))
    (clobber (match_scratch:V2DF 2 "=0,0,wd,wd,wa,wa"))
    (clobber (match_scratch:V4SI 3 "=0,0,wd,wd,wa,wa"))]
-  "VECTOR_UNIT_VSX_P (DFmode) && VECTOR_UNIT_VSX_P (V2DFmode)"
+  "VECTOR_UNIT_VSX_P (DFmode) && VECTOR_UNIT_VSX_P (V2DFmode)
+   && TARGET_VSX_ROUND"
   "#"
   "&& reload_completed"
   [(pc)]
@@ -1118,7 +1119,8 @@
    (clobber (match_scratch:V4SI 3 "=0,wd,wa"))
    (clobber (match_scratch:V4SF 4 "=0,wd,wa"))]
   "TARGET_SINGLE_FLOAT && TARGET_DOUBLE_FLOAT && TARGET_FPRS
-   && VECTOR_UNIT_VSX_P (DFmode) && VECTOR_UNIT_VSX_P (V2DFmode)"
+   && VECTOR_UNIT_VSX_P (DFmode) && VECTOR_UNIT_VSX_P (V2DFmode)
+   && TARGET_VSX_ROUND"
   "#"
   "&& reload_completed"
   [(pc)]
@@ -1139,7 +1141,8 @@
 	  (match_operand:DF 1 "nonimmediate_operand" "Z,ws,Z,ws,Z,wa"))))
    (clobber (match_scratch:V2DF 2 "=0,0,wd,wd,wa,wa"))
    (clobber (match_scratch:V4SI 3 "=0,0,wd,wd,wa,wa"))]
-  "VECTOR_UNIT_VSX_P (DFmode) && VECTOR_UNIT_VSX_P (V2DFmode)"
+  "VECTOR_UNIT_VSX_P (DFmode) && VECTOR_UNIT_VSX_P (V2DFmode)
+   && TARGET_VSX_ROUND"
   "#"
   "&& reload_completed"
   [(pc)]
@@ -1161,7 +1164,8 @@
    (clobber (match_scratch:V4SI 3 "=0,wd,wa"))
    (clobber (match_scratch:V4SF 4 "=0,wd,wa"))]
   "TARGET_SINGLE_FLOAT && TARGET_DOUBLE_FLOAT && TARGET_FPRS
-   && VECTOR_UNIT_VSX_P (DFmode) && VECTOR_UNIT_VSX_P (V2DFmode)"
+   && VECTOR_UNIT_VSX_P (DFmode) && VECTOR_UNIT_VSX_P (V2DFmode)
+   && TARGET_VSX_ROUND"
   "#"
   "&& reload_completed"
   [(pc)]
