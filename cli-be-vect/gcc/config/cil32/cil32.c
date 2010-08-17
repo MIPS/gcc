@@ -101,7 +101,9 @@ static tree cil32_builtin_conversion (enum tree_code, tree);
 static tree cil32_builtin_interleave_high_low (enum tree_code, tree);
 static tree cil32_builtin_extract_even_odd (enum tree_code, tree);
 static tree cil32_builtin_pack (enum tree_code, tree);
+static tree cil32_builtin_unpack (enum tree_code, tree);
 static tree cil32_builtin_double_supported (void);
+static tree cil32_builtin_shift (enum tree_code, tree);
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ATTRIBUTE_TABLE
@@ -205,6 +207,14 @@ static tree cil32_builtin_double_supported (void);
 #undef TARGET_VECTORIZE_BUILTIN_PACK
 #define TARGET_VECTORIZE_BUILTIN_PACK \
   cil32_builtin_pack
+
+#undef TARGET_VECTORIZE_BUILTIN_UNPACK
+#define TARGET_VECTORIZE_BUILTIN_UNPACK \
+  cil32_builtin_unpack
+
+#undef TARGET_VECTORIZE_BUILTIN_SHIFT
+#define TARGET_VECTORIZE_BUILTIN_SHIFT \
+  cil32_builtin_shift
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -1043,5 +1053,91 @@ cil32_builtin_pack (enum tree_code code, tree type)
 static tree cil32_builtin_double_supported (void)
 {
   return cil32_builtins[CIL32_GCC_DOUBLE_SUPPORTED];
+}
+
+static tree
+cil32_builtin_unpack (enum tree_code code, tree type)
+{
+  tree elem_type = TREE_TYPE (type);
+  unsigned element_size = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (elem_type));
+
+  switch (code)
+    {
+    case VEC_UNPACK_HI_EXPR:
+      switch (element_size)
+        {
+        case 4:
+          return cil32_builtins[CIL32_GEN_VHI_UNPACK_HIGH];
+
+        case 2:
+          return cil32_builtins[CIL32_GEN_VQI_UNPACK_HIGH];
+
+        default:
+          return NULL_TREE;
+        }
+
+    case VEC_UNPACK_LO_EXPR:
+      switch (element_size)
+        {
+        case 4:
+          return cil32_builtins[CIL32_GEN_VHI_UNPACK_LOW];
+
+        case 2:
+          return cil32_builtins[CIL32_GEN_VQI_UNPACK_LOW];
+
+        default:
+          return NULL_TREE;
+        }
+
+
+    default:
+      return NULL_TREE;
+    }
+}
+
+
+static tree
+cil32_builtin_shift (enum tree_code code, tree type)
+{
+  tree elem_type = TREE_TYPE (type);
+  unsigned element_size = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (elem_type));
+
+  switch (code)
+    {
+    case LSHIFT_EXPR:
+      switch (element_size)
+        {
+        case 4:
+          return cil32_builtins[CIL32_GEN_VSI_SHIFT_LEFT];
+
+        case 2:
+          return cil32_builtins[CIL32_GEN_VHI_SHIFT_LEFT];
+
+        case 1:
+          return cil32_builtins[CIL32_GEN_VQI_SHIFT_LEFT];
+
+        default:
+          return NULL_TREE;
+        }
+
+    case RSHIFT_EXPR:
+      switch (element_size)
+        {
+        case 4:
+          return cil32_builtins[CIL32_GEN_VSI_SHIFT_RIGHT];
+
+        case 2:
+          return cil32_builtins[CIL32_GEN_VHI_SHIFT_RIGHT];
+
+        case 1:
+          return cil32_builtins[CIL32_GEN_VQI_SHIFT_RIGHT];
+
+        default:
+          return NULL_TREE;
+        }
+
+    default:
+      return NULL_TREE;
+    }
 }
  

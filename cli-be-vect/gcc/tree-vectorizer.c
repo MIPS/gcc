@@ -2526,6 +2526,18 @@ supportable_widening_operation (enum tree_code code, gimple stmt, tree vectype,
       return true;
     }
 
+  if ((c1 == VEC_UNPACK_HI_EXPR || c1 == VEC_UNPACK_LO_EXPR)
+      && targetm.vectorize.builtin_unpack
+      && targetm.vectorize.builtin_unpack (c1, vectype)
+      && targetm.vectorize.builtin_unpack (c2, vectype))
+    {
+      *code1 = *code2 = CALL_EXPR;
+      *multi_step_cvt = 0;
+      *decl1 = targetm.vectorize.builtin_unpack (c1, vectype);
+      *decl2 = targetm.vectorize.builtin_unpack (c2, vectype);
+      return true;
+    }
+
   if (code == FIX_TRUNC_EXPR)
     {
       /* The signedness is determined from output operand.  */

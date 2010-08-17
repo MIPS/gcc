@@ -1479,6 +1479,68 @@ DEF_CILBUILTIN(GEN_VQI_PACK, "[genvec_support]genvec_support.VQI::VQI_pack", \
                2, \
                VHI_type_node, VHI_type_node)
 
+/* unpack */
+DEF_CILBUILTIN(GEN_VHI_UNPACK_HIGH, "[genvec_support]genvec_support.VSI::VSI_unpack_high", \
+               ATTR_CONST_NOTHROW_LIST,         \
+               VSI_type_node, \
+               1, \
+               VHI_type_node)
+
+DEF_CILBUILTIN(GEN_VQI_UNPACK_HIGH, "[genvec_support]genvec_support.VHI::VHI_unpack_high", \
+               ATTR_CONST_NOTHROW_LIST,         \
+               VHI_type_node, \
+               1, \
+               VQI_type_node)
+
+DEF_CILBUILTIN(GEN_VHI_UNPACK_LOW, "[genvec_support]genvec_support.VSI::VSI_unpack_low", \
+               ATTR_CONST_NOTHROW_LIST,         \
+               VSI_type_node, \
+               1, \
+               VHI_type_node)
+
+DEF_CILBUILTIN(GEN_VQI_UNPACK_LOW, "[genvec_support]genvec_support.VHI::VHI_unpack_low", \
+               ATTR_CONST_NOTHROW_LIST,         \
+               VHI_type_node, \
+               1, \
+               VQI_type_node)
+
+/* shift */
+DEF_CILBUILTIN(GEN_VSI_SHIFT_LEFT, "[genvec_support]genvec_support.VSI::VSI_shift_left", \
+               ATTR_CONST_NOTHROW_LIST,         \
+               VSI_type_node, \
+               3, \
+               VSI_type_node, VSI_type_node, unsigned_type_node)
+
+DEF_CILBUILTIN(GEN_VHI_SHIFT_LEFT, "[genvec_support]genvec_support.VHI::VHI_shift_left", \
+               ATTR_CONST_NOTHROW_LIST,         \
+               VHI_type_node, \
+               3, \
+               VHI_type_node, VHI_type_node, unsigned_type_node)
+
+DEF_CILBUILTIN(GEN_VQI_SHIFT_LEFT, "[genvec_support]genvec_support.VQI::VQI_shift_left", \
+               ATTR_CONST_NOTHROW_LIST,         \
+               VQI_type_node, \
+               3, \
+               VQI_type_node, VQI_type_node, unsigned_type_node)
+
+DEF_CILBUILTIN(GEN_VSI_SHIFT_RIGHT, "[genvec_support]genvec_support.VSI::VSI_shift_right", \
+               ATTR_CONST_NOTHROW_LIST,         \
+               VSI_type_node, \
+               3, \
+               VSI_type_node, VSI_type_node, unsigned_type_node)
+
+DEF_CILBUILTIN(GEN_VHI_SHIFT_RIGHT, "[genvec_support]genvec_support.VHI::VHI_shift_right", \
+               ATTR_CONST_NOTHROW_LIST,         \
+               VHI_type_node, \
+               3, \
+               VHI_type_node, VHI_type_node, unsigned_type_node)
+
+DEF_CILBUILTIN(GEN_VQI_SHIFT_RIGHT, "[genvec_support]genvec_support.VQI::VQI_shift_right", \
+               ATTR_CONST_NOTHROW_LIST,         \
+               VQI_type_node, \
+               3, \
+               VQI_type_node, VQI_type_node, unsigned_type_node)
+
 
 /* inner or outer loop?  */
 DEF_CILBUILTIN(GCC_DOUBLE_SUPPORTED, "[genvec_support]genvec_support.VSI::VSI_double_supported", \

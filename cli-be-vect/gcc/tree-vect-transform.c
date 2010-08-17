@@ -4568,8 +4568,8 @@ vectorizable_operation (gimple stmt, gimple_stmt_iterator *gsi,
   tree vectype_out;
   int ncopies;
   int j, i;
-  VEC(tree,heap) *vec_oprnds0 = NULL, *vec_oprnds1 = NULL;
-  tree vop0, vop1;
+  VEC(tree,heap) *vec_oprnds0 = NULL, *vec_oprnds1 = NULL, *vec_oprnds2 = NULL;
+  tree vop0, vop1, vop2, builtin_decl = NULL_TREE;
   unsigned int k;
   bool shift_p = false;
   bool scalar_shift_arg = false;
@@ -4648,6 +4648,10 @@ vectorizable_operation (gimple stmt, gimple_stmt_iterator *gsi,
     {
       shift_p = true;
 
+     if (targetm.vectorize.builtin_shift
+         && targetm.vectorize.builtin_shift (code, vectype))
+       builtin_decl = targetm.vectorize.builtin_shift (code, vectype);
+
       /* vector shifted by vector */
       if (dt[1] == vect_loop_def)
 	{
@@ -4682,16 +4686,19 @@ vectorizable_operation (gimple stmt, gimple_stmt_iterator *gsi,
 
       else
 	{
-	  if (vect_print_dump_info (REPORT_DETAILS))
-	    fprintf (vect_dump, "operand mode requires invariant argument.");
-	  return false;
+          if (!builtin_decl)
+            {  
+  	      if (vect_print_dump_info (REPORT_DETAILS))
+ 	        fprintf (vect_dump, "operand mode requires invariant argument.");
+	      return false;
+            }
 	}
     }
   else
     optab = optab_for_tree_code (code, vectype, optab_default);
 
   /* Supportable by target?  */
-  if (!optab)
+  if (!optab && !builtin_decl)
     {
       if (vect_print_dump_info (REPORT_DETAILS))
 	fprintf (vect_dump, "no optab.");
@@ -4699,7 +4706,7 @@ vectorizable_operation (gimple stmt, gimple_stmt_iterator *gsi,
     }
   vec_mode = TYPE_MODE (vectype);
   icode = (int) optab_handler (optab, vec_mode)->insn_code;
-  if (icode == CODE_FOR_nothing)
+  if (icode == CODE_FOR_nothing && !builtin_decl)
     {
       if (vect_print_dump_info (REPORT_DETAILS))
 	fprintf (vect_dump, "op not supported by target.");
@@ -4752,10 +4759,16 @@ vectorizable_operation (gimple stmt, gimple_stmt_iterator *gsi,
     {
       vec_oprnds0 = VEC_alloc (tree, heap, 1);
       if (op_type == binary_op)
-        vec_oprnds1 = VEC_alloc (tree, heap, 1);
+        {
+          vec_oprnds1 = VEC_alloc (tree, heap, 1);
+          vec_oprnds2 = VEC_alloc (tree, heap, 1);
+        }
     }
-  else if (scalar_shift_arg)
-    vec_oprnds1 = VEC_alloc (tree, heap, slp_node->vec_stmts_size);  
+  else if (scalar_shift_arg || builtin_decl)
+    {
+      vec_oprnds1 = VEC_alloc (tree, heap, slp_node->vec_stmts_size);  
+      vec_oprnds2 = VEC_alloc (tree, heap, slp_node->vec_stmts_size);  
+    }
 
   /* In case the vectorization factor (VF) is bigger than the number
      of elements that we can fit in a vectype (nunits), we have to generate
@@ -4816,14 +4829,15 @@ vectorizable_operation (gimple stmt, gimple_stmt_iterator *gsi,
       /* Handle uses.  */
       if (j == 0)
 	{
-	  if (op_type == binary_op && scalar_shift_arg)
+	  if (op_type == binary_op && (scalar_shift_arg || builtin_decl))
 	    {
 	      /* Vector shl and shr insn patterns can be defined with scalar 
 		 operand 2 (shift operand). In this case, use constant or loop 
 		 invariant op1 directly, without extending it to vector mode 
 		 first.  */
-	      optab_op2_mode = insn_data[icode].operand[2].mode;
-	      if (!VECTOR_MODE_P (optab_op2_mode))
+              if (!builtin_decl)
+ 	        optab_op2_mode = insn_data[icode].operand[2].mode;
+	      if (builtin_decl || !VECTOR_MODE_P (optab_op2_mode))
 		{
 		  if (vect_print_dump_info (REPORT_DETAILS))
 		    fprintf (vect_dump, "operand 1 using scalar mode.");
@@ -4845,25 +4859,86 @@ vectorizable_operation (gimple stmt, gimple_stmt_iterator *gsi,
           /* vec_oprnd1 is available if operand 1 should be of a scalar-type 
              (a special case for certain kind of vector shifts); otherwise, 
              operand 1 should be of a vector type (the usual case).  */
-	  if (op_type == binary_op && !vec_oprnd1)
-	    vect_get_vec_defs (op0, op1, stmt, &vec_oprnds0, &vec_oprnds1, 
-			       slp_node);
+	  if (op_type == binary_op && (!vec_oprnd1 || builtin_decl))
+            {
+              tree uniform_decl; 
+
+              if (slp_node && vec_oprnd1 && builtin_decl
+                  && targetm.vectorize.builtin_build_uniform_vec
+                  && (uniform_decl 
+                      = targetm.vectorize.builtin_build_uniform_vec (vectype)))
+                {
+                  tree var = vect_get_new_vect_var (vectype, 
+                                    vect_simple_var, "uniform_vec_");
+                  tree vec_var;
+                  edge pe;
+                  basic_block new_bb;
+                  struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
+
+                  new_stmt = gimple_build_call (uniform_decl, 1, vec_oprnd1);
+                  add_referenced_var (var);
+                  vec_var = make_ssa_name (var, new_stmt);
+                  gimple_call_set_lhs (new_stmt, vec_var);
+                  pe = loop_preheader_edge (loop);
+                  new_bb = gsi_insert_on_edge_immediate (pe, new_stmt);
+                  gcc_assert (!new_bb);
+                  for (k = 0; k < slp_node->vec_stmts_size; k++)
+                    VEC_quick_push (tree, vec_oprnds2, vec_var);
+
+                  vect_get_vec_defs (op0, NULL_TREE, stmt, &vec_oprnds0, NULL,
+                                     slp_node);
+                }
+              else
+ 	        vect_get_vec_defs (op0, op1, stmt, &vec_oprnds0, &vec_oprnds2, 
+		  	           slp_node);
+            }
 	  else
 	    vect_get_vec_defs (op0, NULL_TREE, stmt, &vec_oprnds0, NULL, 
 			       slp_node);
 	}
       else
-	vect_get_vec_defs_for_stmt_copy (dt, &vec_oprnds0, &vec_oprnds1);
+        {
+          if (builtin_decl)
+            {
+              if (slp_node)
+   	        vect_get_vec_defs_for_stmt_copy (dt, &vec_oprnds0, NULL);
+              else
+   	        vect_get_vec_defs_for_stmt_copy (dt, &vec_oprnds0, &vec_oprnds2);
+            }
+          else
+            {
+              if (op_type == binary_op && !vec_oprnd1)
+                vect_get_vec_defs_for_stmt_copy (dt, &vec_oprnds0, &vec_oprnds2);
+              else
+                vect_get_vec_defs_for_stmt_copy (dt, &vec_oprnds0, &vec_oprnds1);
+            }
+        }
 
       /* Arguments are ready. Create the new vector stmt.  */
       for (i = 0; VEC_iterate (tree, vec_oprnds0, i, vop0); i++)
         {
-	  vop1 = ((op_type == binary_op)
-		  ? VEC_index (tree, vec_oprnds1, i) : NULL);
-	  new_stmt = gimple_build_assign_with_ops (code, vec_dest, vop0, vop1);
-	  new_temp = make_ssa_name (vec_dest, new_stmt);
-	  gimple_assign_set_lhs (new_stmt, new_temp);
-	  vect_finish_stmt_generation (stmt, new_stmt, gsi);
+          if (builtin_decl)
+            {
+              vop1 = VEC_index (tree, vec_oprnds1, i);
+              vop2 = VEC_index (tree, vec_oprnds2, i);
+              new_stmt = gimple_build_call (builtin_decl, 3, vop0, vop1, vop2);
+              new_temp = make_ssa_name (vec_dest, new_stmt);
+              gimple_call_set_lhs (new_stmt, new_temp);
+              gsi_insert_before (gsi, new_stmt, GSI_SAME_STMT);
+              set_vinfo_for_stmt (new_stmt, new_stmt_vec_info (new_stmt, loop_vinfo));
+            }
+          else
+            {
+              if (op_type == binary_op && !vec_oprnd1)
+    	        vop1 = VEC_index (tree, vec_oprnds2, i);
+              else
+                vop1 = ((op_type == binary_op)
+		         ? VEC_index (tree, vec_oprnds1, i) : NULL);
+ 	      new_stmt = gimple_build_assign_with_ops (code, vec_dest, vop0, vop1);
+ 	      new_temp = make_ssa_name (vec_dest, new_stmt);
+	      gimple_assign_set_lhs (new_stmt, new_temp);
+	      vect_finish_stmt_generation (stmt, new_stmt, gsi);
+            }
           if (slp_node)
 	    VEC_quick_push (gimple, SLP_TREE_VEC_STMTS (slp_node), new_stmt);
         }
@@ -4881,6 +4956,7 @@ vectorizable_operation (gimple stmt, gimple_stmt_iterator *gsi,
   VEC_free (tree, heap, vec_oprnds0);
   if (vec_oprnds1)
     VEC_free (tree, heap, vec_oprnds1);
+  VEC_free (tree, heap, vec_oprnds2);
 
   return true;
 }

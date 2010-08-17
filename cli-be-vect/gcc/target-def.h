@@ -400,7 +400,9 @@
 #define TARGET_VECTORIZE_BUILTIN_BUILD_INIT_VEC 0
 #define TARGET_VECTORIZE_BUILTIN_EXTRACT_EVEN_ODD 0
 #define TARGET_VECTORIZE_BUILTIN_PACK 0
+#define TARGET_VECTORIZE_BUILTIN_UNPACK 0
 #define TARGET_VECTORIZE_BUILTIN_DOUBLE_SUPPORTED 0
+#define TARGET_VECTORIZE_BUILTIN_SHIFT 0
 
 #define TARGET_VECTORIZE                                                \
   {									\
@@ -429,7 +431,9 @@
     TARGET_VECTORIZE_BUILTIN_EXTRACT_EVEN_ODD,                          \
     TARGET_VECTORIZE_BUILTIN_INTERLEAVE_HIGH_LOW,                       \
     TARGET_VECTORIZE_BUILTIN_PACK,                                      \
-    TARGET_VECTORIZE_BUILTIN_DOUBLE_SUPPORTED                           \
+    TARGET_VECTORIZE_BUILTIN_UNPACK,                                    \
+    TARGET_VECTORIZE_BUILTIN_DOUBLE_SUPPORTED,                          \
+    TARGET_VECTORIZE_BUILTIN_SHIFT                                      \      
   }
 
 #define TARGET_DEFAULT_TARGET_FLAGS 0

@@ -508,8 +508,11 @@ struct gcc_target
 
     tree (* builtin_pack) (enum tree_code, tree);
 
+    tree (* builtin_unpack) (enum tree_code, tree);
+
     tree (* builtin_double_supported) (void);
 
+    tree (* builtin_shift) (enum tree_code, tree);
 } vectorize;
 
   /* The initial value of target_flags.  */
