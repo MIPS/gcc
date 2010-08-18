@@ -4340,7 +4340,7 @@ vectorizable_assignment (gimple stmt, gimple_stmt_iterator *gsi,
   tree scalar_dest;
   tree op;
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
-  tree vectype = STMT_VINFO_VECTYPE (stmt_info), vectype_in;
+  tree vectype = STMT_VINFO_VECTYPE (stmt_info), vectype_in, vectype_out;
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
   tree new_temp;
   tree def;
@@ -4397,10 +4397,14 @@ vectorizable_assignment (gimple stmt, gimple_stmt_iterator *gsi,
   /* We can handle NOP_EXPR conversions that do not change the number
      of elements or the vector size.  */
   vectype_in = get_vectype_for_scalar_type (TREE_TYPE (op));
+  vectype_out = get_vectype_for_scalar_type (TREE_TYPE (scalar_dest));
+
   if (CONVERT_EXPR_CODE_P (code)
       && (!vectype_in
           || TYPE_VECTOR_SUBPARTS (vectype_in) != (unsigned) nunits
-          || (GET_MODE_SIZE (TYPE_MODE (vectype))
+          || TYPE_VECTOR_SUBPARTS (vectype_in) 
+               != TYPE_VECTOR_SUBPARTS (vectype_out)
+          || (GET_MODE_SIZE (TYPE_MODE (vectype_out))
               != GET_MODE_SIZE (TYPE_MODE (vectype_in)))))
     return false;
 
