@@ -802,6 +802,9 @@ replace_realign_load_builtin (int index, gimple stmt)
    
   if (optab_handler (movmisalign_optab, mode)->insn_code != CODE_FOR_nothing)
     { 
+      gimple def_stmt;
+      gimple_stmt_iterator gsi;
+
       misalign = fold_convert (sizetype, gimple_call_arg (stmt, 4));
       alignment = gimple_call_arg (stmt, 5);
 
@@ -817,6 +820,16 @@ replace_realign_load_builtin (int index, gimple stmt)
       dataref_ptr = gimple_call_arg (stmt, 3);
       new_rhs = build2 (MISALIGNED_INDIRECT_REF, vectype, dataref_ptr, tmis);
       finish_replacement (new_rhs, stmt, NULL);
+
+      realignment_token = gimple_call_arg (stmt, 2);
+      def_stmt = SSA_NAME_DEF_STMT (realignment_token);
+      if (def_stmt && is_gimple_assign (def_stmt)
+          && gimple_assign_rhs_code (def_stmt) == VIEW_CONVERT_EXPR)
+        {
+          gsi = gsi_for_stmt (def_stmt);
+          gsi_remove (&gsi, true);
+        }
+
       return true;
     }
 
