@@ -165,7 +165,7 @@ create_cli_fn_table (void)
   cli_functions[95] = add_cli_function ("genvec_support_VHI_VHI_extract_odd_Mono_Simd_Vector8s_Mono_Simd_Vector8s_Mono_Simd_Vector8s", unsigned_type_node);
   cli_functions[96] = add_cli_function ("genvec_support_VSI_VSI_extract_odd_Mono_Simd_Vector4i_Mono_Simd_Vector4i_Mono_Simd_Vector4i", unsigned_type_node);
 
-  cli_functions[97] = add_cli_function ("genvec_support_VQI_VQI_pack_Mono_Simd_Vector4i_Mono_Simd_Vector8s_Mono_Simd_Vector16sb", unsigned_type_node);
+  cli_functions[97] = add_cli_function ("genvec_support_VQI_VQI_pack_Mono_Simd_Vector8s_Mono_Simd_Vector8s_Mono_Simd_Vector16sb", unsigned_type_node);
   cli_functions[98] = add_cli_function ("genvec_support_VHI_VHI_pack_Mono_Simd_Vector4i_Mono_Simd_Vector4i_Mono_Simd_Vector8s", unsigned_type_node);
 
   cli_functions[99] = add_cli_function ("genvec_support_VHI_VHI_widen_mult_hi_Mono_Simd_Vector16sb_Mono_Simd_Vector8s_Mono_Simd_Vector8s", unsigned_type_node);
@@ -173,16 +173,16 @@ create_cli_fn_table (void)
   cli_functions[101] = add_cli_function ("genvec_support_VHI_VHI_widen_mult_lo_Mono_Simd_Vector16sb_Mono_Simd_Vector8s_Mono_Simd_Vector8s", unsigned_type_node);
   cli_functions[102] = add_cli_function ("genvec_support_VSI_VSI_widen_mult_lo_Mono_Simd_Vector8s_Mono_Simd_Vector8s_Mono_Simd_Vector4i", unsigned_type_node);
   cli_functions[103] = add_cli_function ("double_supported", unsigned_type_node);
-  cli_functions[104] = add_cli_function ("unpack_hi_vqi", unsigned_type_node);
-  cli_functions[105] = add_cli_function ("unpack_hi_vhi", unsigned_type_node);
-  cli_functions[106] = add_cli_function ("unpack_lo_vqi", unsigned_type_node);
-  cli_functions[107] = add_cli_function ("unpack_lo_vhi", unsigned_type_node);
-  cli_functions[108] = add_cli_function ("shift_right_vqi", unsigned_type_node);
-  cli_functions[109] = add_cli_function ("shift_right_vhi", unsigned_type_node);
-  cli_functions[110] = add_cli_function ("shift_right_vsi", unsigned_type_node);
-  cli_functions[111] = add_cli_function ("shift_left_vqi", unsigned_type_node);
-  cli_functions[112] = add_cli_function ("shift_left_vhi", unsigned_type_node);
-  cli_functions[113] = add_cli_function ("shift_left_vsi", unsigned_type_node);
+  cli_functions[104] = add_cli_function ("genvec_support_VSI_VSI_unpack_high_Mono_Simd_Vector8s_Mono_Simd_Vector4i", unsigned_type_node);
+  cli_functions[105] = add_cli_function ("genvec_support_VHI_VHI_unpack_high_Mono_Simd_Vector16sb_Mono_Simd_Vector8s", unsigned_type_node);
+  cli_functions[106] = add_cli_function ("genvec_support_VSI_VSI_unpack_low_Mono_Simd_Vector8s_Mono_Simd_Vector4i", unsigned_type_node);
+  cli_functions[107] = add_cli_function ("genvec_support_VHI_VHI_unpack_low_Mono_Simd_Vector16sb_Mono_Simd_Vector8s", unsigned_type_node);
+  cli_functions[108] = add_cli_function ("genvec_support_VQI_VQI_shift_right_Mono_Simd_Vector16sb_Mono_Simd_Vector16sb_System_UInt32_Mono_Simd_Vector16sb", unsigned_type_node);
+  cli_functions[109] = add_cli_function ("genvec_support_VHI_VHI_shift_right_Mono_Simd_Vector8s_Mono_Simd_Vector8s_System_UInt32_Mono_Simd_Vector8s", unsigned_type_node);
+  cli_functions[110] = add_cli_function ("genvec_support_VSI_VSI_shift_right_Mono_Simd_Vector4i_Mono_Simd_Vector4i_System_UInt32_Mono_Simd_Vector4i", unsigned_type_node);
+  cli_functions[111] = add_cli_function ("genvec_support_VQI_VQI_left_right_Mono_Simd_Vector16sb_Mono_Simd_Vector16sb_System_UInt32_Mono_Simd_Vector16sb", unsigned_type_node);
+  cli_functions[112] = add_cli_function ("genvec_support_VHI_VHI_shift_left_Mono_Simd_Vector8s_Mono_Simd_Vector8s_System_UInt32_Mono_Simd_Vector8s", unsigned_type_node);
+  cli_functions[113] = add_cli_function ("genvec_support_VSI_VSI_shift_left_Mono_Simd_Vector4i_Mono_Simd_Vector4i_System_UInt32_Mono_Simd_Vector4i", unsigned_type_node);
 }
 
 #define MAX_CLI_FN 114 
@@ -894,8 +894,6 @@ static bool
 replace_mask_for_load_builtin (gimple stmt)
 {
   gimple_stmt_iterator gsi;
-  gimple use_stmt;
-  imm_use_iterator imm_iter;
   tree builtin_decl;
 
   if (targetm.vectorize.builtin_mask_for_load
@@ -905,12 +903,6 @@ replace_mask_for_load_builtin (gimple stmt)
                                            gimple_call_arg (stmt, 0));
       finish_replacement (NULL, stmt, new_stmt);
       return true;
-    }
-
-  FOR_EACH_IMM_USE_STMT (use_stmt, imm_iter, gimple_call_lhs (stmt))
-    {
-      gsi = gsi_for_stmt (use_stmt);
-      gsi_remove (&gsi, true);
     }
 
   gsi = gsi_for_stmt (stmt);
@@ -1066,11 +1058,11 @@ replace_pack (int index, gimple stmt)
   switch (index)
     {
       case pack_vqi:
-        scalar_type = intQI_type_node;
+        scalar_type = intHI_type_node;
         break;
 
       case pack_vhi:
-        scalar_type = intHI_type_node;
+        scalar_type = intSI_type_node;
         break;
 
       default:
@@ -1296,8 +1288,7 @@ replace_unpack (int index, gimple stmt)
   if (!optab || optab_handler (optab, mode)->insn_code == CODE_FOR_nothing)
     return false;
 
-  new_rhs = build2 (code, vectype, gimple_call_arg (stmt, 0),
-                                   gimple_call_arg (stmt, 1));
+  new_rhs = build1 (code, vectype, gimple_call_arg (stmt, 0));
   finish_replacement (new_rhs, stmt, NULL);
   return true;
 }
