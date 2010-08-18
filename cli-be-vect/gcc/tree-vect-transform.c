@@ -4553,9 +4553,9 @@ vectorizable_operation (gimple stmt, gimple_stmt_iterator *gsi,
   enum machine_mode vec_mode;
   tree new_temp;
   int op_type;
-  optab optab;
+  optab optab = NULL;
   int icode;
-  enum machine_mode optab_op2_mode;
+  enum machine_mode optab_op2_mode = 0;
   tree def;
   gimple def_stmt;
   enum vect_def_type dt[2] = {vect_unknown_def_type, vect_unknown_def_type};
@@ -4919,7 +4919,7 @@ vectorizable_operation (gimple stmt, gimple_stmt_iterator *gsi,
             {
               vop1 = VEC_index (tree, vec_oprnds1, i);
               vop2 = VEC_index (tree, vec_oprnds2, i);
-              new_stmt = gimple_build_call (builtin_decl, 3, vop0, vop1, vop2);
+              new_stmt = gimple_build_call (builtin_decl, 3, vop0, vop2, vop1);
               new_temp = make_ssa_name (vec_dest, new_stmt);
               gimple_call_set_lhs (new_stmt, new_temp);
               gsi_insert_before (gsi, new_stmt, GSI_SAME_STMT);
