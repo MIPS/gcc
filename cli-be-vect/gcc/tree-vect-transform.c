@@ -7371,7 +7371,13 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
 	    case dr_explicit_realign:
 	      {
 		tree ptr, bump;
-                tree vs_minus_1 = size_int (TYPE_VECTOR_SUBPARTS (vectype) - 1);
+                tree vs_minus_1 = fold_build2 (MINUS_EXPR, sizetype,
+                  fold_convert (sizetype,
+                      vect_tree_type_vector_subparts (loop_vinfo, vectype)), 
+                  integer_one_node);
+                gimple_seq stmts = NULL;
+                tree tmp_var;
+                gimple tmp_stmt;
 
 		if (compute_in_loop)
 		  msq = vect_setup_realignment (first_stmt, gsi,
@@ -7390,7 +7396,18 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
 		msq = new_temp;
 
 		bump = size_binop (MULT_EXPR, vs_minus_1,
-				   TYPE_SIZE_UNIT (scalar_type));
+				   vect_type_size_unit (loop_vinfo, vectype));
+                tmp_var = create_tmp_var (TREE_TYPE (bump), "bump");
+                add_referenced_var (tmp_var);
+                bump = force_gimple_operand (bump, &stmts, false, NULL);
+                if (stmts)
+                  gsi_insert_seq_before (gsi, stmts, GSI_SAME_STMT);
+
+                tmp_stmt = gimple_build_assign (tmp_var, bump);
+                bump = make_ssa_name (tmp_var, tmp_stmt);
+                gimple_assign_set_lhs (tmp_stmt, bump);
+                vect_finish_stmt_generation (stmt, tmp_stmt, gsi);
+
 		ptr = bump_vector_ptr (dataref_ptr, NULL, gsi, stmt, bump);
 	        data_ref = build1 (ALIGN_INDIRECT_REF, vectype, ptr);
 	        break;
