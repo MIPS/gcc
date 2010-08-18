@@ -172,7 +172,7 @@ create_cli_fn_table (void)
   cli_functions[100] = add_cli_function ("genvec_support_VSI_VSI_widen_mult_hi_Mono_Simd_Vector8s_Mono_Simd_Vector8s_Mono_Simd_Vector4i", unsigned_type_node);
   cli_functions[101] = add_cli_function ("genvec_support_VHI_VHI_widen_mult_lo_Mono_Simd_Vector16sb_Mono_Simd_Vector8s_Mono_Simd_Vector8s", unsigned_type_node);
   cli_functions[102] = add_cli_function ("genvec_support_VSI_VSI_widen_mult_lo_Mono_Simd_Vector8s_Mono_Simd_Vector8s_Mono_Simd_Vector4i", unsigned_type_node);
-  cli_functions[103] = add_cli_function ("double_supported", unsigned_type_node);
+  cli_functions[103] = add_cli_function ("genvec_support_VSI_VSI_double_supported_System_SByte", unsigned_type_node);
   cli_functions[104] = add_cli_function ("genvec_support_VSI_VSI_unpack_high_Mono_Simd_Vector8s_Mono_Simd_Vector4i", unsigned_type_node);
   cli_functions[105] = add_cli_function ("genvec_support_VHI_VHI_unpack_high_Mono_Simd_Vector16sb_Mono_Simd_Vector8s", unsigned_type_node);
   cli_functions[106] = add_cli_function ("genvec_support_VSI_VSI_unpack_low_Mono_Simd_Vector8s_Mono_Simd_Vector4i", unsigned_type_node);
@@ -1249,9 +1249,9 @@ replace_double_supported (gimple stmt)
 
   vectype = get_vectype (double_type_node);
   if (vectype)
-    new_rhs = boolean_true_node;
+    new_rhs = build_int_cst (signed_char_type_node, 1);
   else
-    new_rhs = boolean_false_node;
+    new_rhs = build_int_cst (signed_char_type_node, 0);
 
   finish_replacement (new_rhs, stmt, NULL);
   return true;
