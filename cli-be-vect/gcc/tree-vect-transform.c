@@ -2345,11 +2345,10 @@ get_initial_def_for_reduction (gimple stmt, tree init_val, tree *adjustment_def)
   stmt_vec_info stmt_vinfo = vinfo_for_stmt (stmt);
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_vinfo);
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
-  tree vectype = STMT_VINFO_VECTYPE (stmt_vinfo);
+  tree scalar_type = TREE_TYPE (init_val);
+  tree vectype = get_vectype_for_scalar_type (scalar_type);
   int nunits =  TYPE_VECTOR_SUBPARTS (vectype);
-  tree scalar_type = TREE_TYPE (vectype);
   enum tree_code code = gimple_assign_rhs_code (stmt);
-  tree type = TREE_TYPE (init_val);
   tree def_for_init;
   tree init_def;
   tree t = NULL_TREE;
@@ -2359,9 +2358,9 @@ get_initial_def_for_reduction (gimple stmt, tree init_val, tree *adjustment_def)
   tree init_value;
   REAL_VALUE_TYPE real_init_val = dconst0;
   int int_init_val = 0;
-  tree vector_type;
 
-  gcc_assert (POINTER_TYPE_P (type) || INTEGRAL_TYPE_P (type) || SCALAR_FLOAT_TYPE_P (type));
+  gcc_assert (POINTER_TYPE_P (scalar_type) || INTEGRAL_TYPE_P (scalar_type) 
+              || SCALAR_FLOAT_TYPE_P (scalar_type));
   if (nested_in_vect_loop_p (loop, stmt))
     nested_in_vect_loop = true;
   else
@@ -2390,7 +2389,6 @@ get_initial_def_for_reduction (gimple stmt, tree init_val, tree *adjustment_def)
   else
     init_value = init_val;
 
-  vector_type = get_vectype_for_scalar_type (type);
   switch (code)
   {
   case WIDEN_SUM_EXPR:
@@ -2427,10 +2425,10 @@ get_initial_def_for_reduction (gimple stmt, tree init_val, tree *adjustment_def)
 
     if (targetm.vectorize.builtin_build_uniform_vec
         && (builtin_decl1 
-           = targetm.vectorize.builtin_build_uniform_vec (vector_type))
+           = targetm.vectorize.builtin_build_uniform_vec (vectype))
         && targetm.vectorize.builtin_build_init_vec
         && (builtin_decl2
-                = targetm.vectorize.builtin_build_init_vec (vector_type)))
+                = targetm.vectorize.builtin_build_init_vec (vectype)))
       {
         tree var = vect_get_new_vect_var (vectype,
                                           vect_simple_var, "init_vec_");
@@ -2485,7 +2483,7 @@ get_initial_def_for_reduction (gimple stmt, tree init_val, tree *adjustment_def)
 
     if (targetm.vectorize.builtin_build_uniform_vec
         && (builtin_decl1
-           = targetm.vectorize.builtin_build_uniform_vec (vector_type)))
+           = targetm.vectorize.builtin_build_uniform_vec (vectype)))
       {
         tree var = vect_get_new_vect_var (vectype,
                                           vect_simple_var, "init_vec_");
@@ -8824,9 +8822,16 @@ vect_create_cond_for_dr_align_checks (loop_vec_info loop_vinfo,
       else
         {
 #endif
+
+      ref_stmt = DR_STMT (dr);
+      /* For interleaving, only the alignment of the first access matters.  */
+      if (!vinfo_for_stmt (ref_stmt) 
+          || (STMT_VINFO_STRIDED_ACCESS (vinfo_for_stmt (ref_stmt))
+              && DR_GROUP_FIRST_DR (vinfo_for_stmt (ref_stmt)) != ref_stmt))
+        continue;
+
       /* Unknown misalignment, check the access itself.  */
       /* create: addr_tmp = (int)(address_of_first_vector) */
-      ref_stmt = DR_STMT (dr);
       addr_base =
             vect_create_addr_base_for_vector_ref (ref_stmt, &new_stmt_list,
                                                   NULL_TREE, loop);
