@@ -1066,10 +1066,10 @@ cil32_builtin_unpack (enum tree_code code, tree type)
     case VEC_UNPACK_HI_EXPR:
       switch (element_size)
         {
-        case 4:
+        case 2:
           return cil32_builtins[CIL32_GEN_VHI_UNPACK_HIGH];
 
-        case 2:
+        case 1:
           return cil32_builtins[CIL32_GEN_VQI_UNPACK_HIGH];
 
         default:
@@ -1079,10 +1079,10 @@ cil32_builtin_unpack (enum tree_code code, tree type)
     case VEC_UNPACK_LO_EXPR:
       switch (element_size)
         {
-        case 4:
+        case 2:
           return cil32_builtins[CIL32_GEN_VHI_UNPACK_LOW];
 
-        case 2:
+        case 1:
           return cil32_builtins[CIL32_GEN_VQI_UNPACK_LOW];
 
         default:

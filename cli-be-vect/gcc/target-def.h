@@ -433,7 +433,7 @@
     TARGET_VECTORIZE_BUILTIN_PACK,                                      \
     TARGET_VECTORIZE_BUILTIN_UNPACK,                                    \
     TARGET_VECTORIZE_BUILTIN_DOUBLE_SUPPORTED,                          \
-    TARGET_VECTORIZE_BUILTIN_SHIFT                                      \      
+    TARGET_VECTORIZE_BUILTIN_SHIFT                                      \
   }
 
 #define TARGET_DEFAULT_TARGET_FLAGS 0
