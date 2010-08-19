@@ -1,3 +1,16 @@
+2010-08-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.opt (-mveclibabi=mass): Rename -mmass to
+	-mveclibabi.
+
+	* config/rs6000/rs6000.c (rs6000_veclib_handler): New variable to
+	handle which vector math library we have.
+	(rs6000_override_options): Rename -mmass to -mveclibabi=mass.
+	(rs6000_builtin_vectorized_function): Ditto.
+
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Rename -mmass to
+	-mveclibabi=mass.
+
 2010-08-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.opt (-mvsx-round): New debug switch to
