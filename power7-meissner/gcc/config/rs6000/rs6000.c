@@ -2134,8 +2134,6 @@ rs6000_init_hard_regno_mode_ok (void)
 						  ? VSX_REGS
 						  : FLOAT_REGS);
     }
-  else if (TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_DOUBLE_FLOAT)
-    rs6000_constraints[RS6000_CONSTRAINT_ws] = FLOAT_REGS;
 
   if (TARGET_ALTIVEC)
     rs6000_constraints[RS6000_CONSTRAINT_v] = ALTIVEC_REGS;
