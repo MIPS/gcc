@@ -205,7 +205,9 @@
    (UNSPEC_VSX_SET		518)
    (UNSPEC_VSX_ROUND_I		519)
    (UNSPEC_VSX_ROUND_IC		520)
-   (UNSPEC_VSX_SLDWI		521)])
+   (UNSPEC_VSX_SLDWI		521)
+   (UNSPEC_VSX_XSCVDPSXWS	522)
+   (UNSPEC_VSX_XSCVDPUXWS	523)])
 
 ;; VSX moves
 (define_insn "*vsx_mov<mode>"
@@ -954,21 +956,6 @@
   [(set_attr "type" "<VStype_simple>")
    (set_attr "fp_type" "<VSfptype_simple>")])
 
-;; Only optimize (float (fix x)) -> frz if we are in fast-math mode, since
-;; since the xsrdpiz instruction does not truncate the value if the floating
-;; point value is < LONG_MIN or > LONG_MAX.
-(define_insn "*vsx_float_fix_<mode>2"
-  [(set (match_operand:VSX_DF 0 "vsx_register_operand" "=<VSr>,?wa")
-	(float:VSX_DF
-	 (fix:<VSI>
-	  (match_operand:VSX_DF 1 "vsx_register_operand" "<VSr>,?wa"))))]
-  "TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_DOUBLE_FLOAT
-   && VECTOR_UNIT_VSX_P (<MODE>mode) && flag_unsafe_math_optimizations
-   && !flag_trapping_math && TARGET_FRIZ"
-  "x<VSv>r<VSs>iz %x0,%x1"
-  [(set_attr "type" "<VStype_simple>")
-   (set_attr "fp_type" "<VSfptype_simple>")])
-
 
 ;; VSX convert to/from double vector
 
@@ -1081,21 +1068,35 @@
   [(set_attr "type" "vecfloat")])
 
 
+;; Only optimize (float (fix x)) -> frz if we are in fast-math mode, since
+;; since the xsrdpiz instruction does not truncate the value if the floating
+;; point value is < LONG_MIN or > LONG_MAX.
+(define_insn "*vsx_float_fix_<mode>2"
+  [(set (match_operand:VSX_DF 0 "vsx_register_operand" "=<VSr>,?wa")
+	(float:VSX_DF
+	 (fix:<VSI>
+	  (match_operand:VSX_DF 1 "vsx_register_operand" "<VSr>,?wa"))))]
+  "TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_DOUBLE_FLOAT
+   && VECTOR_UNIT_VSX_P (<MODE>mode) && flag_unsafe_math_optimizations
+   && !flag_trapping_math && TARGET_FRIZ"
+  "x<VSv>r<VSs>iz %x0,%x1"
+  [(set_attr "type" "<VStype_simple>")
+   (set_attr "fp_type" "<VSfptype_simple>")])
+
 ;; Optimize (double)(int)x type operations to not store the intermediate value
 ;; on the stack and then reload it.  We make a combined instruction, and then
-;; split it back into the separate instructions.
+;; split it back into the separate instructions.  We use a scalar convert from
+;; floating point and vector convert back, since there isn't a scalar
+;; instruction that uses the value in the upper 32-bits.  It doesn't matter
+;; what the value is for the bottom word that is converted, since all integer
+;; values convert to double without generating a trap.
 
-; The first alternative to to use 0 as the constraint is meant to try and
-; improve the scheduling of back to back round operations, so that the second
-; round operation's scratch registers will not overlap with the first.
-
-(define_insn_and_split "*vsx_floatdf_fixsidf2"
-  [(set (match_operand:DF 0 "vsx_register_operand" "=ws,ws,?ws,?wa,?ws,?wa")
+(define_insn_and_split "*vsx_floatdf_fixsi<mode>2"
+  [(set (match_operand:DF 0 "vsx_register_operand" "=ws,?wa")
 	(float:DF
 	 (fix:SI
-	  (match_operand:DF 1 "nonimmediate_operand" "Z,ws,Z,ws,Z,wa"))))
-   (clobber (match_scratch:V2DF 2 "=0,0,wd,wd,wa,wa"))
-   (clobber (match_scratch:V4SI 3 "=0,0,wd,wd,wa,wa"))]
+	  (match_operand:SFDF 1 "vsx_register_operand" "<rreg>,<rreg>"))))
+   (clobber (match_scratch:V4SI 2 "=wa,wa"))]
   "VECTOR_UNIT_VSX_P (DFmode) && VECTOR_UNIT_VSX_P (V2DFmode)
    && TARGET_VSX_ROUND"
   "#"
@@ -1103,44 +1104,19 @@
   [(pc)]
   "
 {
-  emit_insn (gen_vsx_splat_v2df (operands[2], operands[1]));
-  emit_insn (gen_vsx_xvcvdpsxws (operands[3], operands[2]));
-  emit_insn (gen_vsx_xvcvsxwdp_df (operands[0], operands[3]));
+  emit_insn (gen_vsx_xscvdpsxws_<mode> (operands[2], operands[1]));
+  emit_insn (gen_vsx_xvcvsxwdp_df (operands[0], operands[2]));
   DONE;
 }"
-  [(set_attr "length" "12")])
+  [(set_attr "length" "8")])
 
-(define_insn_and_split "*vsx_floatsf_fixsisf2"
-  [(set (match_operand:SF 0 "gpc_reg_operand" "=f,?f,?f")
+(define_insn_and_split "*vsx_floatsf_fixsi<mode>2"
+  [(set (match_operand:SF 0 "vsx_register_operand" "=f,?f")
 	(float:SF
 	 (fix:SI
-	  (match_operand:SF 1 "gpc_reg_operand" "f,f,f"))))
-   (clobber (match_scratch:DI 2 "=0,d,d"))
-   (clobber (match_scratch:V4SI 3 "=0,wd,wa"))
-   (clobber (match_scratch:V4SF 4 "=0,wd,wa"))]
-  "TARGET_SINGLE_FLOAT && TARGET_DOUBLE_FLOAT && TARGET_FPRS
-   && VECTOR_UNIT_VSX_P (DFmode) && VECTOR_UNIT_VSX_P (V2DFmode)
-   && TARGET_VSX_ROUND"
-  "#"
-  "&& reload_completed"
-  [(pc)]
-  "
-{
-  emit_insn (gen_fctiwz_sf (operands[2], operands[1]));
-  emit_insn (gen_vsx_xxspltw_di (operands[3], operands[2], const1_rtx));
-  emit_insn (gen_vsx_floatv4siv4sf2 (operands[4], operands[3]));
-  emit_insn (gen_vsx_xscvspdp_sf (operands[0], operands[4]));
-  DONE;
-}"
-  [(set_attr "length" "16")])
-
-(define_insn_and_split "*vsx_floatunsdf_fixunssidf2"
-  [(set (match_operand:DF 0 "vsx_register_operand" "=ws,ws,?ws,?ws,?wa,?wa")
-	(unsigned_float:DF
-	 (unsigned_fix:SI
-	  (match_operand:DF 1 "nonimmediate_operand" "Z,ws,Z,ws,Z,wa"))))
-   (clobber (match_scratch:V2DF 2 "=0,0,wd,wd,wa,wa"))
-   (clobber (match_scratch:V4SI 3 "=0,0,wd,wd,wa,wa"))]
+	  (match_operand:SFDF 1 "vsx_register_operand" "<rreg>,<rreg>"))))
+   (clobber (match_scratch:V4SI 2 "=wa,wa"))
+   (clobber (match_scratch:DF 3 "=d,d"))]
   "VECTOR_UNIT_VSX_P (DFmode) && VECTOR_UNIT_VSX_P (V2DFmode)
    && TARGET_VSX_ROUND"
   "#"
@@ -1148,36 +1124,70 @@
   [(pc)]
   "
 {
-  emit_insn (gen_vsx_splat_v2df (operands[2], operands[1]));
-  emit_insn (gen_vsx_xvcvdpuxws (operands[3], operands[2]));
-  emit_insn (gen_vsx_xvcvuxwdp_df (operands[0], operands[3]));
+  emit_insn (gen_vsx_xscvdpsxws_<mode> (operands[2], operands[1]));
+  emit_insn (gen_vsx_xvcvsxwdp_df (operands[3], operands[2]));
+  emit_insn (gen_truncdfsf2 (operands[0], operands[3]));
   DONE;
 }"
   [(set_attr "length" "12")])
 
-(define_insn_and_split "*vsx_floatunssf_fixunssisf2"
-  [(set (match_operand:SF 0 "gpc_reg_operand" "=f,?f,?f")
-	(unsigned_float:SF
+(define_insn_and_split "*vsx_floatunsdf_fixunssidf2"
+  [(set (match_operand:DF 0 "vsx_register_operand" "=ws,?wa")
+	(unsigned_float:DF
 	 (unsigned_fix:SI
-	  (match_operand:SF 1 "gpc_reg_operand" "f,f,f"))))
-   (clobber (match_scratch:DI 2 "=0,d,d"))
-   (clobber (match_scratch:V4SI 3 "=0,wd,wa"))
-   (clobber (match_scratch:V4SF 4 "=0,wd,wa"))]
-  "TARGET_SINGLE_FLOAT && TARGET_DOUBLE_FLOAT && TARGET_FPRS
-   && VECTOR_UNIT_VSX_P (DFmode) && VECTOR_UNIT_VSX_P (V2DFmode)
+	  (match_operand:SFDF 1 "vsx_register_operand" "<rreg>,<rreg>"))))
+   (clobber (match_scratch:V4SI 2 "=ws,wa"))]
+  "VECTOR_UNIT_VSX_P (DFmode) && VECTOR_UNIT_VSX_P (V2DFmode)
    && TARGET_VSX_ROUND"
   "#"
   "&& reload_completed"
   [(pc)]
   "
 {
-  emit_insn (gen_fctiwuz_sf (operands[2], operands[1]));
-  emit_insn (gen_vsx_xxspltw_di (operands[3], operands[2], const1_rtx));
-  emit_insn (gen_vsx_floatunsv4siv4sf2 (operands[4], operands[3]));
-  emit_insn (gen_vsx_xscvspdp_sf (operands[0], operands[4]));
+  emit_insn (gen_vsx_xscvdpuxws_<mode> (operands[2], operands[1]));
+  emit_insn (gen_vsx_xvcvuxwdp_df (operands[0], operands[2]));
   DONE;
 }"
-  [(set_attr "length" "16")])
+  [(set_attr "length" "8")])
+
+(define_insn_and_split "*vsx_floatunssf_fixunssi<mode>2"
+  [(set (match_operand:SF 0 "vsx_register_operand" "=f,?f")
+	(unsigned_float:SF
+	 (unsigned_fix:SI
+	  (match_operand:SFDF 1 "vsx_register_operand" "<rreg>,<rreg>"))))
+   (clobber (match_scratch:V4SI 2 "=wa,wa"))
+   (clobber (match_scratch:DF 3 "=ws,wa"))]
+  "VECTOR_UNIT_VSX_P (DFmode) && VECTOR_UNIT_VSX_P (V2DFmode)
+   && TARGET_VSX_ROUND"
+  "#"
+  "&& reload_completed"
+  [(pc)]
+  "
+{
+  emit_insn (gen_vsx_xscvdpuxws_<mode> (operands[2], operands[1]));
+  emit_insn (gen_vsx_xvcvuxwdp_df (operands[3], operands[2]));
+  emit_insn (gen_truncdfsf2 (operands[0], operands[3]));
+  DONE;
+}"
+  [(set_attr "length" "12")])
+
+;; Scalar convert to 32-bit int that has the result in a V4SI so that we can
+;; use the result in a XVCVSXDDP or XVCVUXDDP instruction.
+(define_insn "vsx_xscvdpsxws_<mode>"
+  [(set (match_operand:V4SI 0 "vsx_register_operand" "=wd,?wa")
+	(unspec:V4SI [(match_operand:SFDF 1 "vsx_register_operand" "ws,ws")]
+		     UNSPEC_VSX_XSCVDPSXWS))]
+  "VECTOR_UNIT_VSX_P (DFmode) && VECTOR_UNIT_VSX_P (V2DFmode)"
+  "xscvdpsxws %x0,%x1"
+  [(set_attr "type" "fpsimple")])
+
+(define_insn "vsx_xscvdpuxws_<mode>"
+  [(set (match_operand:V4SI 0 "vsx_register_operand" "=wd,?wa")
+	(unspec:V4SI [(match_operand:SFDF 1 "vsx_register_operand" "ws,ws")]
+		     UNSPEC_VSX_XSCVDPUXWS))]
+  "VECTOR_UNIT_VSX_P (DFmode) && VECTOR_UNIT_VSX_P (V2DFmode)"
+  "xscvdpuxws %x0,%x1"
+  [(set_attr "type" "fpsimple")])
 
 ;; Special versions for (double)(int) optimization that pretends the bottom dword
 ;; is not generated
@@ -1380,16 +1390,6 @@
 	  (parallel
 	   [(match_operand:QI 2 "u5bit_cint_operand" "i,i")]))))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
-  "xxspltw %x0,%x1,%2"
-  [(set_attr "type" "vecperm")])
-
-;; Special xxspltw for getting a part of a DImode value into a vector
-(define_insn "vsx_xxspltw_di"
-  [(set (match_operand:V4SI 0 "vsx_register_operand" "=wf,?wa")
-	(unspec:V4SI [(match_operand:DI 1 "vsx_register_operand" "d,d")
-		      (match_operand:QI 2 "u5bit_cint_operand" "i,i")]
-		     UNSPEC_VSX_XXSPLTW))]
-  "TARGET_VSX"
   "xxspltw %x0,%x1,%2"
   [(set_attr "type" "vecperm")])
 

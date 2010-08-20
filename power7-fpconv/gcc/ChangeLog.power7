@@ -1,5 +1,20 @@
 2010-08-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/vsx.md (UNSPEC_VSX_XSCVDPSXWS): New unspec.
+	(UNSPEC_VSX_XSCVDPUXWS): Ditto.
+	(vsx_float_fix_<mode>2): Move lower in the file.
+	(vsx_floatdf_fixsidf2): Delete, replace by more generic version.
+	(vsx_floatsf_fixsisf2): Ditto.
+	(vsx_floatunsdf_fixunssidf2): Ditto.
+	(vsx_floatunssf_fixunssisf2): Ditto.
+	(vsx_floatdf_fixsi<mode>2): Rewrite floating point round insns.
+	(vsx_floatsf_fixsi<mode>2): Ditto.
+	(vsx_floatunsdf_fixunssi<mode>2): Ditto.
+	(vsx_floatunssf_fixunssi<mode>2): Ditto.
+	(vsx_xscvdpsxws_<mode>): Ditto.
+	(vsx_xscvdpuxws_<mode>): Ditto.
+	(vsx_xxspltw_di): Delete, no longer used.
+
 	* config/rs6000/rs6000.c (rs6000_init_hard_regno_mode_ok): Undo
 	change setting ws constraint if no VSX.
 	(rs6000_override_options): Tweak setting default options based on
