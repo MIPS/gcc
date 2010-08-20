@@ -2543,13 +2543,17 @@ rs6000_override_options (const char *default_cpu)
 
     /* For ISA 2.05, do not add MFPGPR, since it isn't in ISA 2.06, and don't
        add ALTIVEC, since in general it isn't a win on power6.  In ISA 2.04,
-       fsel, fre, fsqrt, etc. were no longer documented as optional. */
-    ISA_2_5_MASKS = (ISA_2_2_MASKS | MASK_CMPB | MASK_RECIP_PRECISION
-		     | MASK_DFP | MASK_PPC_GFXOPT | MASK_PPC_GPOPT),
+       fsel, fre, fsqrt, etc. were no longer documented as optional.  Group
+       masks by server and embedded. */
+    ISA_2_5_MASKS_EMBEDDED = (ISA_2_2_MASKS | MASK_CMPB | MASK_RECIP_PRECISION
+			      | MASK_PPC_GFXOPT | MASK_PPC_GPOPT),
+    ISA_2_5_MASKS_SERVER = (ISA_2_5_MASKS_EMBEDDED | MASK_DFP),
 
     /* For ISA 2.06, don't add ISEL, since in general it isn't a win, but
        altivec is a win so enable it.  */
-    ISA_2_6_MASKS = (ISA_2_5_MASKS | MASK_ALTIVEC | MASK_POPCNTD | MASK_VSX)
+    ISA_2_6_MASKS_EMBEDDED = (ISA_2_5_MASKS_EMBEDDED | MASK_POPCNTD),
+    ISA_2_6_MASKS_SERVER = (ISA_2_5_MASKS_SERVER | MASK_POPCNTD | MASK_ALTIVEC
+			    | MASK_VSX)
   };
 
   /* Numerous experiment shows that IRA based loop pressure
@@ -2696,10 +2700,14 @@ rs6000_override_options (const char *default_cpu)
 
   /* For the newer switches (vsx, dfp, etc.) set some of the older options,
      unless the user explicitly used the -mno-<option> to disable the code.  */
-  if (TARGET_VSX || TARGET_POPCNTD)
-    target_flags |= (ISA_2_6_MASKS & ~target_flags_explicit);
-  else if (TARGET_DFP || TARGET_CMPB)
-    target_flags |= (ISA_2_5_MASKS & ~target_flags_explicit);
+  if (TARGET_VSX)
+    target_flags |= (ISA_2_6_MASKS_SERVER & ~target_flags_explicit);
+  else if (TARGET_POPCNTD)
+    target_flags |= (ISA_2_6_MASKS_EMBEDDED & ~target_flags_explicit);
+  else if (TARGET_DFP)
+    target_flags |= (ISA_2_5_MASKS_SERVER & ~target_flags_explicit);
+  else if (TARGET_CMPB)
+    target_flags |= (ISA_2_5_MASKS_EMBEDDED & ~target_flags_explicit);
   else if (TARGET_POPCNTB || TARGET_FPRND)
     target_flags |= (ISA_2_2_MASKS & ~target_flags_explicit);
   else if (TARGET_ALTIVEC)

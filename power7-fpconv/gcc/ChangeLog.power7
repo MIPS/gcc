@@ -2,6 +2,8 @@
 
 	* config/rs6000/rs6000.c (rs6000_init_hard_regno_mode_ok): Undo
 	change setting ws constraint if no VSX.
+	(rs6000_override_options): Tweak setting default options based on
+	server and embedded options.
 
 	* config/rs6000/rs6000.md (floatsisf2): Fix E500 thinko.
 
