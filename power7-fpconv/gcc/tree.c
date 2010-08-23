@@ -136,8 +136,6 @@ static const char * const tree_node_kind_names[] = {
   "exprs",
   "constants",
   "identifiers",
-  "perm_tree_lists",
-  "temp_tree_lists",
   "vecs",
   "binfos",
   "ssa names",
@@ -1373,7 +1371,7 @@ build_constructor (tree type, VEC(constructor_elt,gc) *vals)
   TREE_TYPE (c) = type;
   CONSTRUCTOR_ELTS (c) = vals;
 
-  for (i = 0; VEC_iterate (constructor_elt, vals, i, elt); i++)
+  FOR_EACH_VEC_ELT (constructor_elt, vals, i, elt)
     if (!TREE_CONSTANT (elt->value))
       {
 	constant_p = false;
@@ -1972,7 +1970,7 @@ vec_member (const_tree elem, VEC(tree,gc) *v)
 {
   unsigned ix;
   tree t;
-  for (ix = 0; VEC_iterate (tree, v, ix, t); ix++)
+  FOR_EACH_VEC_ELT (tree, v, ix, t)
     if (elem == t)
       return true;
   return false;
@@ -2108,6 +2106,9 @@ nreverse (tree t)
   tree prev = 0, decl, next;
   for (decl = t; decl; decl = next)
     {
+      /* We shouldn't be using this function to reverse BLOCK chains; we
+	 have blocks_nreverse for that.  */
+      gcc_checking_assert (TREE_CODE (decl) != BLOCK);
       next = TREE_CHAIN (decl);
       TREE_CHAIN (decl) = prev;
       prev = decl;
@@ -2136,7 +2137,7 @@ build_tree_list_vec_stat (const VEC(tree,gc) *vec MEM_STAT_DECL)
   tree *pp = &ret;
   unsigned int i;
   tree t;
-  for (i = 0; VEC_iterate (tree, vec, i, t); ++i)
+  FOR_EACH_VEC_ELT (tree, vec, i, t)
     {
       *pp = build_tree_list_stat (NULL, t PASS_MEM_STAT);
       pp = &TREE_CHAIN (*pp);
@@ -2914,7 +2915,7 @@ push_without_duplicates (tree exp, VEC (tree, heap) **queue)
   unsigned int i;
   tree iter;
 
-  for (i = 0; VEC_iterate (tree, *queue, i, iter); i++)
+  FOR_EACH_VEC_ELT (tree, *queue, i, iter)
     if (simple_cst_equal (iter, exp) == 1)
       break;
 
@@ -3905,12 +3906,12 @@ build_simple_mem_ref_loc (location_t loc, tree ptr)
   return tem;
 }
 
-/* Return the constant offset of a MEM_REF tree T.  */
+/* Return the constant offset of a MEM_REF or TARGET_MEM_REF tree T.  */
 
 double_int
 mem_ref_offset (const_tree t)
 {
-  tree toff = TREE_OPERAND (t, 1);
+  tree toff = TREE_CODE (t) == MEM_REF ? TREE_OPERAND (t, 1) : TMR_OFFSET (t);
   return double_int_sext (tree_to_double_int (toff),
 			  TYPE_PRECISION (TREE_TYPE (toff)));
 }
@@ -3927,8 +3928,9 @@ reference_alias_ptr_type (const_tree t)
     base = TREE_OPERAND (base, 0);
   if (TREE_CODE (base) == MEM_REF)
     return TREE_TYPE (TREE_OPERAND (base, 1));
-  else if (TREE_CODE (base) == TARGET_MEM_REF
-	   || TREE_CODE (base) == MISALIGNED_INDIRECT_REF)
+  else if (TREE_CODE (base) == TARGET_MEM_REF)
+    return TREE_TYPE (TMR_OFFSET (base)); 
+  else if (TREE_CODE (base) == MISALIGNED_INDIRECT_REF)
     return NULL_TREE;
   else
     return build_pointer_type (TYPE_MAIN_VARIANT (TREE_TYPE (base)));
@@ -3973,7 +3975,7 @@ build_nt_call_vec (tree fn, VEC(tree,gc) *args)
   ret = build_vl_exp (CALL_EXPR, VEC_length (tree, args) + 3);
   CALL_EXPR_FN (ret) = fn;
   CALL_EXPR_STATIC_CHAIN (ret) = NULL_TREE;
-  for (ix = 0; VEC_iterate (tree, args, ix, t); ++ix)
+  FOR_EACH_VEC_ELT (tree, args, ix, t)
     CALL_EXPR_ARG (ret, ix) = t;
   return ret;
 }
@@ -4252,7 +4254,7 @@ free_lang_data_in_binfo (tree binfo)
   BINFO_INHERITANCE_CHAIN (binfo) = NULL_TREE;
   BINFO_SUBVTT_INDEX (binfo) = NULL_TREE;
 
-  for (i = 0; VEC_iterate (tree, BINFO_BASE_BINFOS (binfo), i, t); i++)
+  FOR_EACH_VEC_ELT (tree, BINFO_BASE_BINFOS (binfo), i, t)
     free_lang_data_in_binfo (t);
 }
 
@@ -5018,7 +5020,7 @@ free_lang_data_in_cgraph (void)
   for (n = cgraph_nodes; n; n = n->next)
     find_decls_types_in_node (n, &fld);
 
-  for (i = 0; VEC_iterate (alias_pair, alias_pairs, i, p); i++)
+  FOR_EACH_VEC_ELT (alias_pair, alias_pairs, i, p)
     find_decls_types (p->decl, &fld);
 
   /* Find decls and types in every varpool symbol.  */
@@ -5028,15 +5030,15 @@ free_lang_data_in_cgraph (void)
   /* Set the assembler name on every decl found.  We need to do this
      now because free_lang_data_in_decl will invalidate data needed
      for mangling.  This breaks mangling on interdependent decls.  */
-  for (i = 0; VEC_iterate (tree, fld.decls, i, t); i++)
+  FOR_EACH_VEC_ELT (tree, fld.decls, i, t)
     assign_assembler_name_if_neeeded (t);
 
   /* Traverse every decl found freeing its language data.  */
-  for (i = 0; VEC_iterate (tree, fld.decls, i, t); i++)
+  FOR_EACH_VEC_ELT (tree, fld.decls, i, t)
     free_lang_data_in_decl (t);
 
   /* Traverse every type found freeing its language data.  */
-  for (i = 0; VEC_iterate (tree, fld.types, i, t); i++)
+  FOR_EACH_VEC_ELT (tree, fld.types, i, t)
     free_lang_data_in_type (t);
 
   pointer_set_destroy (fld.pset);
@@ -9661,7 +9663,7 @@ build_call_vec (tree return_type, tree fn, VEC(tree,gc) *args)
   TREE_TYPE (ret) = return_type;
   CALL_EXPR_FN (ret) = fn;
   CALL_EXPR_STATIC_CHAIN (ret) = NULL_TREE;
-  for (ix = 0; VEC_iterate (tree, args, ix, t); ++ix)
+  FOR_EACH_VEC_ELT (tree, args, ix, t)
     CALL_EXPR_ARG (ret, ix) = t;
   process_call_operands (ret);
   return ret;

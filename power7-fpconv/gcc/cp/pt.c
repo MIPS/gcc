@@ -6540,11 +6540,16 @@ lookup_template_class (tree d1,
 	       i > 0 && t != NULL_TREE;
 	       --i, t = TREE_CHAIN (t))
 	    {
-	      tree a = coerce_template_parms (TREE_VALUE (t),
-					      arglist, gen_tmpl,
-					      complain,
-					      /*require_all_args=*/true,
-					      /*use_default_args=*/true);
+	      tree a;
+	      if (i == saved_depth)
+		a = coerce_template_parms (TREE_VALUE (t),
+					   arglist, gen_tmpl,
+					   complain,
+					   /*require_all_args=*/true,
+					   /*use_default_args=*/true);
+	      else
+		/* Outer levels should have already been coerced.  */
+		a = TMPL_ARGS_LEVEL (arglist, i);
 
 	      /* Don't process further if one of the levels fails.  */
 	      if (a == error_mark_node)
@@ -7730,11 +7735,9 @@ perform_typedefs_access_check (tree tmpl, tree targs)
     return;
 
   saved_location = input_location;
-  for (i = 0;
-       VEC_iterate (qualified_typedef_usage_t,
+  FOR_EACH_VEC_ELT (qualified_typedef_usage_t,
 		    get_types_needing_access_check (tmpl),
-		    i, iter);
-	++i)
+		    i, iter)
     {
       tree type_decl = iter->typedef_decl;
       tree type_scope = iter->context;
@@ -12794,7 +12797,7 @@ tsubst_copy_and_build (tree t,
 
 	n = VEC_copy (constructor_elt, gc, CONSTRUCTOR_ELTS (t));
         newlen = VEC_length (constructor_elt, n);
-	for (idx = 0; VEC_iterate (constructor_elt, n, idx, ce); idx++)
+	FOR_EACH_VEC_ELT (constructor_elt, n, idx, ce)
 	  {
 	    if (ce->index && process_index_p)
 	      ce->index = RECUR (ce->index);
@@ -12828,8 +12831,7 @@ tsubst_copy_and_build (tree t,
             VEC(constructor_elt,gc) *old_n = n;
 
             n = VEC_alloc (constructor_elt, gc, newlen);
-            for (idx = 0; VEC_iterate (constructor_elt, old_n, idx, ce); 
-                 idx++)
+            FOR_EACH_VEC_ELT (constructor_elt, old_n, idx, ce)
               {
                 if (TREE_CODE (ce->value) == TREE_VEC)
                   {
@@ -17918,7 +17920,7 @@ any_type_dependent_arguments_p (const VEC(tree,gc) *args)
   unsigned int i;
   tree arg;
 
-  for (i = 0; VEC_iterate (tree, args, i, arg); ++i)
+  FOR_EACH_VEC_ELT (tree, args, i, arg)
     {
       if (type_dependent_expression_p (arg))
 	return true;
@@ -18354,7 +18356,7 @@ make_args_non_dependent (VEC(tree,gc) *args)
   unsigned int ix;
   tree arg;
 
-  for (ix = 0; VEC_iterate (tree, args, ix, arg); ++ix)
+  FOR_EACH_VEC_ELT (tree, args, ix, arg)
     {
       tree newarg = build_non_dependent_expr (arg);
       if (newarg != arg)
@@ -18657,11 +18659,9 @@ append_type_to_template_for_access_check (tree templ,
   gcc_assert (type_decl && (TREE_CODE (type_decl) == TYPE_DECL));
 
   /* Make sure we don't append the type to the template twice.  */
-  for (i = 0;
-       VEC_iterate (qualified_typedef_usage_t,
+  FOR_EACH_VEC_ELT (qualified_typedef_usage_t,
 		    get_types_needing_access_check (templ),
-		    i, iter);
-       ++i)
+		    i, iter)
     if (iter->typedef_decl == type_decl && scope == iter->context)
       return;
 

@@ -1,3 +1,13 @@
+2010-08-09  Andreas Tobler  <andreast@fgznet.ch>
+
+	* configure.ac: Add target powerpc64-*-freebsd*.
+	* configure: Regenerate.
+	* testsuite/libffi.call/cls_align_longdouble_split.c: Pass
+	-mlong-double-128 only to linux targets.
+	* testsuite/libffi.call/cls_align_longdouble_split2.c: Likewise.
+	* testsuite/libffi.call/cls_longdouble.c: Likewise.
+	* testsuite/libffi.call/huge_struct.c: Likewise.
+
 2010-07-10  Evan Phoenix  <evan@fallingsnow.net>
 
 	* src/closures.c (selinux_enabled_check): Fix strncmp usage bug.
@@ -54,8 +64,7 @@
 
 2010-04-07  Jakub Jelinek  <jakub@redhat.com>
 
-	* regex.c (byte_re_match_2_internal): Avoid set but not used
-	warning.
+	* testsuite/libffi.call/err_bad_abi.c: Remove unused args variable.
 
 2010-04-02  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
 

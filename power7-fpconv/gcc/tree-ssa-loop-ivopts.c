@@ -3241,9 +3241,8 @@ get_address_cost (bool symbol_present, bool var_present,
   if (!data)
     {
       HOST_WIDE_INT i;
-      HOST_WIDE_INT start = BIGGEST_ALIGNMENT / BITS_PER_UNIT;
-      HOST_WIDE_INT rat, off;
-      int old_cse_not_expected;
+      HOST_WIDE_INT rat, off = 0;
+      int old_cse_not_expected, width;
       unsigned sym_p, var_p, off_p, rat_p, add_c;
       rtx seq, addr, base;
       rtx reg0, reg1;
@@ -3252,33 +3251,40 @@ get_address_cost (bool symbol_present, bool var_present,
 
       reg1 = gen_raw_REG (address_mode, LAST_VIRTUAL_REGISTER + 1);
 
+      width = GET_MODE_BITSIZE (address_mode) - 1;
+      if (width > (HOST_BITS_PER_WIDE_INT - 1))
+	width = HOST_BITS_PER_WIDE_INT - 1;
       addr = gen_rtx_fmt_ee (PLUS, address_mode, reg1, NULL_RTX);
-      for (i = start; i <= 1 << 20; i <<= 1)
-	{
-	  XEXP (addr, 1) = gen_int_mode (i, address_mode);
-	  if (!memory_address_addr_space_p (mem_mode, addr, as))
-	    break;
-	}
-      data->max_offset = i == start ? 0 : i >> 1;
-      off = data->max_offset;
 
-      for (i = start; i <= 1 << 20; i <<= 1)
+      for (i = width; i >= 0; i--)
 	{
-	  XEXP (addr, 1) = gen_int_mode (-i, address_mode);
-	  if (!memory_address_addr_space_p (mem_mode, addr, as))
+	  off = -((HOST_WIDE_INT) 1 << i);
+	  XEXP (addr, 1) = gen_int_mode (off, address_mode);
+	  if (memory_address_addr_space_p (mem_mode, addr, as))
 	    break;
 	}
-      data->min_offset = i == start ? 0 : -(i >> 1);
+      data->min_offset = (i == -1? 0 : off);
+
+      for (i = width; i >= 0; i--)
+	{
+	  off = ((HOST_WIDE_INT) 1 << i) - 1;
+	  XEXP (addr, 1) = gen_int_mode (off, address_mode);
+	  if (memory_address_addr_space_p (mem_mode, addr, as))
+	    break;
+	}
+      if (i == -1)
+        off = 0;
+      data->max_offset = off;
 
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
 	  fprintf (dump_file, "get_address_cost:\n");
-	  fprintf (dump_file, "  min offset %s %d\n",
+	  fprintf (dump_file, "  min offset %s " HOST_WIDE_INT_PRINT_DEC "\n",
 		   GET_MODE_NAME (mem_mode),
-		   (int) data->min_offset);
-	  fprintf (dump_file, "  max offset %s %d\n",
+		   data->min_offset);
+	  fprintf (dump_file, "  max offset %s " HOST_WIDE_INT_PRINT_DEC "\n",
 		   GET_MODE_NAME (mem_mode),
-		   (int) data->max_offset);
+		   data->max_offset);
 	}
 
       rat = 1;
@@ -5874,56 +5880,12 @@ rewrite_use_nonlinear_expr (struct ivopts_data *data,
     }
 }
 
-/* Replaces ssa name in index IDX by its basic variable.  Callback for
-   for_each_index.  */
-
-static bool
-idx_remove_ssa_names (tree base, tree *idx,
-		      void *data ATTRIBUTE_UNUSED)
-{
-  tree *op;
-
-  if (TREE_CODE (*idx) == SSA_NAME)
-    *idx = SSA_NAME_VAR (*idx);
-
-  if (TREE_CODE (base) == ARRAY_REF || TREE_CODE (base) == ARRAY_RANGE_REF)
-    {
-      op = &TREE_OPERAND (base, 2);
-      if (*op
-	  && TREE_CODE (*op) == SSA_NAME)
-	*op = SSA_NAME_VAR (*op);
-      op = &TREE_OPERAND (base, 3);
-      if (*op
-	  && TREE_CODE (*op) == SSA_NAME)
-	*op = SSA_NAME_VAR (*op);
-    }
-
-  return true;
-}
-
-/* Unshares REF and replaces ssa names inside it by their basic variables.  */
-
-static tree
-unshare_and_remove_ssa_names (tree ref)
-{
-  ref = unshare_expr (ref);
-  for_each_index (&ref, idx_remove_ssa_names, NULL);
-
-  return ref;
-}
-
 /* Copies the reference information from OLD_REF to NEW_REF.  */
 
 static void
 copy_ref_info (tree new_ref, tree old_ref)
 {
   tree new_ptr_base = NULL_TREE;
-
-  if (TREE_CODE (old_ref) == TARGET_MEM_REF
-      && TREE_CODE (new_ref) == TARGET_MEM_REF)
-    TMR_ORIGINAL (new_ref) = TMR_ORIGINAL (old_ref);
-  else if (TREE_CODE (new_ref) == TARGET_MEM_REF)
-    TMR_ORIGINAL (new_ref) = unshare_and_remove_ssa_names (old_ref);
 
   TREE_SIDE_EFFECTS (new_ref) = TREE_SIDE_EFFECTS (old_ref);
   TREE_THIS_VOLATILE (new_ref) = TREE_THIS_VOLATILE (old_ref);
@@ -6285,7 +6247,7 @@ free_loop_data (struct ivopts_data *data)
 
   data->max_inv_id = 0;
 
-  for (i = 0; VEC_iterate (tree, decl_rtl_to_reset, i, obj); i++)
+  FOR_EACH_VEC_ELT (tree, decl_rtl_to_reset, i, obj)
     SET_DECL_RTL (obj, NULL_RTX);
 
   VEC_truncate (tree, decl_rtl_to_reset, 0);

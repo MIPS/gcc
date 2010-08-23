@@ -373,6 +373,7 @@ extern struct gimple_opt_pass pass_iv_canon;
 extern struct gimple_opt_pass pass_scev_cprop;
 extern struct gimple_opt_pass pass_empty_loop;
 extern struct gimple_opt_pass pass_record_bounds;
+extern struct gimple_opt_pass pass_graphite;
 extern struct gimple_opt_pass pass_graphite_transforms;
 extern struct gimple_opt_pass pass_if_conversion;
 extern struct gimple_opt_pass pass_loop_distribution;
@@ -467,6 +468,7 @@ extern struct simple_ipa_opt_pass pass_ipa_struct_reorg;
 extern struct ipa_opt_pass_d pass_ipa_lto_wpa_fixup;
 extern struct ipa_opt_pass_d pass_ipa_lto_finish_out;
 extern struct ipa_opt_pass_d pass_ipa_profile;
+extern struct ipa_opt_pass_d pass_ipa_cdtor_merge;
 
 extern struct gimple_opt_pass pass_all_optimizations;
 extern struct gimple_opt_pass pass_cleanup_cfg_post_optimizing;

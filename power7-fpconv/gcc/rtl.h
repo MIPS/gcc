@@ -2371,7 +2371,7 @@ extern void mark_elimination (int, int);
 
 /* In reginfo.c */
 extern int reg_classes_intersect_p (reg_class_t, reg_class_t);
-extern int reg_class_subset_p (enum reg_class, enum reg_class);
+extern int reg_class_subset_p (reg_class_t, reg_class_t);
 extern void globalize_reg (int);
 extern void init_reg_modes_target (void);
 extern void init_regs (void);
@@ -2424,6 +2424,7 @@ extern int canon_true_dependence (const_rtx, enum machine_mode, rtx, const_rtx,
 extern int read_dependence (const_rtx, const_rtx);
 extern int anti_dependence (const_rtx, const_rtx);
 extern int output_dependence (const_rtx, const_rtx);
+extern int may_alias_p (const_rtx, const_rtx);
 extern void init_alias_target (void);
 extern void init_alias_analysis (void);
 extern void end_alias_analysis (void);

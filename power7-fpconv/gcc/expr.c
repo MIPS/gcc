@@ -6599,9 +6599,7 @@ safe_from_p (const_rtx x, tree exp, int top_p)
 	  constructor_elt *ce;
 	  unsigned HOST_WIDE_INT idx;
 
-	  for (idx = 0;
-	       VEC_iterate (constructor_elt, CONSTRUCTOR_ELTS (exp), idx, ce);
-	       idx++)
+	  FOR_EACH_VEC_ELT (constructor_elt, CONSTRUCTOR_ELTS (exp), idx, ce)
 	    if ((ce->index != NULL_TREE && !safe_from_p (x, ce->index, 0))
 		|| !safe_from_p (x, ce->value, 0))
 	      return 0;
@@ -8658,25 +8656,13 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
       {
 	addr_space_t as = TYPE_ADDR_SPACE (TREE_TYPE (exp));
 	struct mem_address addr;
-	tree base;
 
 	get_address_description (exp, &addr);
 	op0 = addr_for_mem_ref (&addr, as, true);
 	op0 = memory_address_addr_space (mode, op0, as);
 	temp = gen_rtx_MEM (mode, op0);
-	set_mem_attributes (temp, TMR_ORIGINAL (exp), 0);
+	set_mem_attributes (temp, exp, 0);
 	set_mem_addr_space (temp, as);
-	base = get_base_address (TMR_ORIGINAL (exp));
-	if (base
-	    && (INDIRECT_REF_P (base) || TREE_CODE (base) == MEM_REF)
-	    && TMR_BASE (exp)
-	    && TREE_CODE (TMR_BASE (exp)) == SSA_NAME
-	    && POINTER_TYPE_P (TREE_TYPE (TMR_BASE (exp))))
-	  {
-	    set_mem_expr (temp, build1 (INDIRECT_REF,
-					TREE_TYPE (exp), TMR_BASE (exp)));
-	    set_mem_offset (temp, NULL_RTX);
-	  }
       }
       return temp;
 

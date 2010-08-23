@@ -1,3 +1,45 @@
+2010-08-20  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* c-common.c: Use FOR_EACH_VEC_ELT.
+	* c-gimplify.c: Likewise.
+	* c-pragma.c: Likewise.
+
+2010-08-16  Joseph Myers  <joseph@codesourcery.com>
+
+	* c.opt (MDX): Change back to MD.  Mark NoDriverArg instead of
+	RejectDriver.
+	(MMDX): Change back to MMD.  Mark NoDriverArg instead of
+	RejectDriver.
+	* c-opts.c (c_common_handle_option): Use OPT_MD and OPT_MMD
+	instead of OPT_MDX and OPT_MMDX.
+
+2010-08-16  Joseph Myers  <joseph@codesourcery.com>
+
+	* c.opt (MDX, MMDX, lang-asm): Mark RejectDriver.
+
+2010-08-12  Joseph Myers  <joseph@codesourcery.com>
+
+	* c.opt (MD, MMD): Change to MDX and MMDX.
+	* c-opts.c (c_common_handle_option): Use OPT_MMD and OPT_MMDX.
+
+2010-08-11  Joseph Myers  <joseph@codesourcery.com>
+
+	* c-opts.c (c_common_handle_option): Call handle_generated_option
+	instead of handle_option.
+
+2010-08-08  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* c-pragma.c (add_to_renaming_pragma_list): Fix call to VEC_safe_push.
+	(maybe_apply_renaming_pragma): Delete unneeded declarations.
+
+2010-08-08  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* c-pragma.c (pending_redefinition): Declare.  Declare a VEC of it.
+	(pending_redefine_extname): Change type to a VEC.
+	(add_to_renaming_pragma_list): Update for new type of
+	pending_redefine_extname.
+	(maybe_apply_renaming_pragma): Likewise.
+
 2010-08-04  Arnaud Charlet  <charlet@adacore.com>
 
 	* c-ada-spec.c (dump_ada_template): Mark underlying instance type as

@@ -253,7 +253,6 @@ extern bool mips_expand_ext_as_unaligned_load (rtx, rtx, HOST_WIDE_INT,
 extern bool mips_expand_ins_as_unaligned_store (rtx, rtx, HOST_WIDE_INT,
 						HOST_WIDE_INT);
 extern bool mips_mem_fits_mode_p (enum machine_mode mode, rtx x);
-extern void mips_override_options (void);
 extern void mips_conditional_register_usage (void);
 extern void mips_order_regs_for_local_alloc (void);
 extern HOST_WIDE_INT mips_debugger_offset (rtx, HOST_WIDE_INT);
@@ -295,8 +294,6 @@ extern enum reg_class mips_secondary_reload_class (enum reg_class,
 						   enum machine_mode,
 						   rtx, bool);
 extern int mips_class_max_nregs (enum reg_class, enum machine_mode);
-extern int mips_register_move_cost (enum machine_mode, enum reg_class,
-				    enum reg_class);
 
 extern int mips_adjust_insn_length (rtx, int);
 extern void mips_output_load_label (rtx);

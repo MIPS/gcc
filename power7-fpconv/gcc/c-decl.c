@@ -999,9 +999,7 @@ update_label_decls (struct c_scope *scope)
 
 	      /* Update the bindings of any goto statements associated
 		 with this label.  */
-	      for (ix = 0;
-		   VEC_iterate (c_goto_bindings_p, label_vars->gotos, ix, g);
-		   ++ix)
+	      FOR_EACH_VEC_ELT (c_goto_bindings_p, label_vars->gotos, ix, g)
 		update_spot_bindings (scope, &g->goto_bindings);
 	    }
 	}
@@ -1352,9 +1350,7 @@ c_bindings_start_stmt_expr (struct c_spot_bindings* switch_bindings)
 	    continue;
 	  label_vars = b->u.label;
 	  ++label_vars->label_bindings.stmt_exprs;
-	  for (ix = 0;
-	       VEC_iterate (c_goto_bindings_p, label_vars->gotos, ix, g);
-	       ++ix)
+	  FOR_EACH_VEC_ELT (c_goto_bindings_p, label_vars->gotos, ix, g)
 	    ++g->goto_bindings.stmt_exprs;
 	}
     }
@@ -1392,9 +1388,7 @@ c_bindings_end_stmt_expr (struct c_spot_bindings *switch_bindings)
 	      label_vars->label_bindings.left_stmt_expr = true;
 	      label_vars->label_bindings.stmt_exprs = 0;
 	    }
-	  for (ix = 0;
-	       VEC_iterate (c_goto_bindings_p, label_vars->gotos, ix, g);
-	       ++ix)
+	  FOR_EACH_VEC_ELT (c_goto_bindings_p, label_vars->gotos, ix, g)
 	    {
 	      --g->goto_bindings.stmt_exprs;
 	      if (g->goto_bindings.stmt_exprs < 0)
@@ -3120,7 +3114,7 @@ lookup_label_for_goto (location_t loc, tree name)
        ...
        goto lab;
      Issue a warning or error.  */
-  for (ix = 0; VEC_iterate (tree, label_vars->decls_in_scope, ix, decl); ++ix)
+  FOR_EACH_VEC_ELT (tree, label_vars->decls_in_scope, ix, decl)
     warn_about_goto (loc, label, decl);
 
   if (label_vars->label_bindings.left_stmt_expr)
@@ -3172,9 +3166,7 @@ check_earlier_gotos (tree label, struct c_label_vars* label_vars)
   unsigned int ix;
   struct c_goto_bindings *g;
 
-  for (ix = 0;
-       VEC_iterate (c_goto_bindings_p, label_vars->gotos, ix, g);
-       ++ix)
+  FOR_EACH_VEC_ELT (c_goto_bindings_p, label_vars->gotos, ix, g)
     {
       struct c_binding *b;
       struct c_scope *scope;
@@ -4103,6 +4095,35 @@ start_decl (struct c_declarator *declarator, struct c_declspecs *declspecs,
   return tem;
 }
 
+/* Subroutine of finish_decl. TYPE is the type of an uninitialized object
+   DECL or the non-array element type if DECL is an uninitialized array.
+   If that type has a const member, diagnose this. */
+
+static void
+diagnose_uninitialized_cst_member (tree decl, tree type)
+{
+  tree field;
+  for (field = TYPE_FIELDS (type); field; field = TREE_CHAIN (field))
+    {
+      tree field_type;
+      if (TREE_CODE (field) != FIELD_DECL)
+	continue;
+      field_type = strip_array_types (TREE_TYPE (field));
+
+      if (TYPE_QUALS (field_type) & TYPE_QUAL_CONST)
+      	{
+	  warning_at (DECL_SOURCE_LOCATION (decl), OPT_Wc___compat,
+	  	      "uninitialized const member in %qT is invalid in C++",
+		      strip_array_types (TREE_TYPE (decl)));
+	  inform (DECL_SOURCE_LOCATION (field), "%qD should be initialized", field);
+	}
+
+      if (TREE_CODE (field_type) == RECORD_TYPE
+	  || TREE_CODE (field_type) == UNION_TYPE)
+	diagnose_uninitialized_cst_member (decl, field_type);
+    }
+}
+
 /* Finish processing of a declaration;
    install its initial value.
    If ORIGTYPE is not NULL_TREE, it is the original type of INIT.
@@ -4420,11 +4441,18 @@ finish_decl (tree decl, location_t init_loc, tree init,
 
   if (warn_cxx_compat
       && TREE_CODE (decl) == VAR_DECL
-      && TREE_READONLY (decl)
       && !DECL_EXTERNAL (decl)
       && DECL_INITIAL (decl) == NULL_TREE)
-    warning_at (DECL_SOURCE_LOCATION (decl), OPT_Wc___compat,
-		"uninitialized const %qD is invalid in C++", decl);
+    {
+      type = strip_array_types (type);
+      if (TREE_READONLY (decl))
+	warning_at (DECL_SOURCE_LOCATION (decl), OPT_Wc___compat,
+		    "uninitialized const %qD is invalid in C++", decl);
+      else if ((TREE_CODE (type) == RECORD_TYPE
+	      	|| TREE_CODE (type) == UNION_TYPE)
+	       && C_TYPE_FIELDS_READONLY (type))
+	diagnose_uninitialized_cst_member (decl, type);
+    }
 }
 
 /* Given a parsed parameter declaration, decode it into a PARM_DECL.  */
@@ -5541,12 +5569,11 @@ grokdeclarator (const struct c_declarator *declarator,
 	       the formal parameter list of this FUNCTION_TYPE to point to
 	       the FUNCTION_TYPE node itself.  */
 	    {
-	      tree link;
+	      c_arg_tag *tag;
+	      unsigned ix;
 
-	      for (link = arg_info->tags;
-		   link;
-		   link = TREE_CHAIN (link))
-		TYPE_CONTEXT (TREE_VALUE (link)) = type;
+	      FOR_EACH_VEC_ELT_REVERSE (c_arg_tag, arg_info->tags, ix, tag)
+		TYPE_CONTEXT (tag->type) = type;
 	    }
 	    break;
 	  }
@@ -6177,6 +6204,22 @@ grokparms (struct c_arg_info *arg_info, bool funcdef_flag)
     }
 }
 
+/* Allocate and initialize a c_arg_info structure from the parser's
+   obstack.  */
+
+struct c_arg_info *
+build_arg_info (void)
+{
+  struct c_arg_info *ret = XOBNEW (&parser_obstack, struct c_arg_info);
+  ret->parms = NULL_TREE;
+  ret->tags = NULL;
+  ret->types = NULL_TREE;
+  ret->others = NULL_TREE;
+  ret->pending_sizes = NULL;
+  ret->had_vla_unspec = 0;
+  return ret;
+}
+
 /* Take apart the current scope and return a c_arg_info structure with
    info on a parameter list just parsed.
 
@@ -6189,21 +6232,16 @@ struct c_arg_info *
 get_parm_info (bool ellipsis)
 {
   struct c_binding *b = current_scope->bindings;
-  struct c_arg_info *arg_info = XOBNEW (&parser_obstack,
-					struct c_arg_info);
+  struct c_arg_info *arg_info = build_arg_info ();
+
   tree parms    = 0;
-  tree tags     = 0;
+  VEC(c_arg_tag,gc) *tags = NULL;
   tree types    = 0;
   tree others   = 0;
 
   static bool explained_incomplete_types = false;
   bool gave_void_only_once_err = false;
 
-  arg_info->parms = 0;
-  arg_info->tags = 0;
-  arg_info->types = 0;
-  arg_info->others = 0;
-  arg_info->pending_sizes = 0;
   arg_info->had_vla_unspec = current_scope->had_vla_unspec;
 
   /* The bindings in this scope must not get put into a block.
@@ -6246,6 +6284,7 @@ get_parm_info (bool ellipsis)
     {
       tree decl = b->decl;
       tree type = TREE_TYPE (decl);
+      c_arg_tag *tag;
       const char *keyword;
 
       switch (TREE_CODE (decl))
@@ -6319,7 +6358,9 @@ get_parm_info (bool ellipsis)
 		}
 	    }
 
-	  tags = tree_cons (b->id, decl, tags);
+	  tag = VEC_safe_push (c_arg_tag, gc, tags, NULL);
+	  tag->id = b->id;
+	  tag->type = decl;
 	  break;
 
 	case CONST_DECL:
@@ -6739,7 +6780,7 @@ warn_cxx_compat_finish_struct (tree fieldlist)
      because the flag is used to issue visibility warnings, and we
      only want to issue those warnings if the type is referenced
      outside of the struct declaration.  */
-  for (ix = 0; VEC_iterate (tree, struct_parse_info->struct_types, ix, x); ++ix)
+  FOR_EACH_VEC_ELT (tree, struct_parse_info->struct_types, ix, x)
     C_TYPE_DEFINED_IN_STRUCT (x) = 1;
 
   /* The TYPEDEFS_SEEN field of STRUCT_PARSE_INFO is a list of
@@ -6755,9 +6796,7 @@ warn_cxx_compat_finish_struct (tree fieldlist)
 	 a pointer_set because identifiers are interned.  */
       struct pointer_set_t *tset = pointer_set_create ();
 
-      for (ix = 0;
-	   VEC_iterate (tree, struct_parse_info->typedefs_seen, ix, x);
-	   ++ix)
+      FOR_EACH_VEC_ELT (tree, struct_parse_info->typedefs_seen, ix, x)
 	pointer_set_insert (tset, DECL_NAME (x));
 
       for (x = fieldlist; x != NULL_TREE; x = DECL_CHAIN (x))
@@ -6778,9 +6817,7 @@ warn_cxx_compat_finish_struct (tree fieldlist)
 
   /* For each field which has a binding and which was not defined in
      an enclosing struct, clear the in_struct field.  */
-  for (ix = 0;
-       VEC_iterate (c_binding_ptr, struct_parse_info->fields, ix, b);
-       ++ix)
+  FOR_EACH_VEC_ELT (c_binding_ptr, struct_parse_info->fields, ix, b)
     b->in_struct = 0;
 }
 
@@ -6859,9 +6896,7 @@ finish_struct (location_t loc, tree t, tree fieldlist, tree attributes,
       else
 	{
 	  /* A field that is pseudo-const makes the structure likewise.  */
-	  tree t1 = TREE_TYPE (x);
-	  while (TREE_CODE (t1) == ARRAY_TYPE)
-	    t1 = TREE_TYPE (t1);
+	  tree t1 = strip_array_types (TREE_TYPE (x));
 	  if ((TREE_CODE (t1) == RECORD_TYPE || TREE_CODE (t1) == UNION_TYPE)
 	      && C_TYPE_FIELDS_READONLY (t1))
 	    C_TYPE_FIELDS_READONLY (t) = 1;
@@ -7644,6 +7679,8 @@ static void
 store_parm_decls_newstyle (tree fndecl, const struct c_arg_info *arg_info)
 {
   tree decl;
+  c_arg_tag *tag;
+  unsigned ix;
 
   if (current_scope->bindings)
     {
@@ -7696,9 +7733,9 @@ store_parm_decls_newstyle (tree fndecl, const struct c_arg_info *arg_info)
     }
 
   /* And all the tag declarations.  */
-  for (decl = arg_info->tags; decl; decl = TREE_CHAIN (decl))
-    if (TREE_PURPOSE (decl))
-      bind (TREE_PURPOSE (decl), TREE_VALUE (decl), current_scope,
+  FOR_EACH_VEC_ELT_REVERSE (c_arg_tag, arg_info->tags, ix, tag)
+    if (tag->id)
+      bind (tag->id, tag->type, current_scope,
 	    /*invisible=*/false, /*nested=*/false, UNKNOWN_LOCATION);
 }
 
@@ -8041,7 +8078,7 @@ store_parm_decls (void)
     tree t;
     int i;
 
-    for (i = 0; VEC_iterate (tree, pending_sizes, i, t); i++)
+    FOR_EACH_VEC_ELT (tree, pending_sizes, i, t)
       add_stmt (t);
   }
 

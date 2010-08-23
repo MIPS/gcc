@@ -73,7 +73,7 @@ C ObjC C++ ObjC++
 Generate make dependencies
 
 MD
-C ObjC C++ ObjC++ Separate MissingArgError(missing filename after %qs)
+C ObjC C++ ObjC++ NoDriverArg Separate MissingArgError(missing filename after %qs)
 Generate make dependencies and compile
 
 MF
@@ -89,7 +89,7 @@ C ObjC C++ ObjC++
 Like -M but ignore system header files
 
 MMD
-C ObjC C++ ObjC++ Separate MissingArgError(missing filename after %qs)
+C ObjC C++ ObjC++ NoDriverArg Separate MissingArgError(missing filename after %qs)
 Like -MD but ignore system header files
 
 MP
@@ -926,7 +926,7 @@ C ObjC C++ ObjC++ Joined Separate
 -iwithprefixbefore <dir>	Add <dir> to the end of the main include path
 
 lang-asm
-C Undocumented
+C Undocumented RejectDriver
 
 nostdinc
 C ObjC C++ ObjC++

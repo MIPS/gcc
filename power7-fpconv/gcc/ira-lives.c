@@ -37,6 +37,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "toplev.h"
 #include "params.h"
 #include "df.h"
+#include "sbitmap.h"
 #include "sparseset.h"
 #include "ira-int.h"
 
@@ -896,7 +897,7 @@ ira_implicitly_set_insn_hard_regs (HARD_REG_SET *set)
 static void
 process_single_reg_class_operands (bool in_p, int freq)
 {
-  int i, regno, cost;
+  int i, regno;
   unsigned int px;
   enum reg_class cl;
   rtx operand;
@@ -923,32 +924,46 @@ process_single_reg_class_operands (bool in_p, int freq)
       if (REG_P (operand)
 	  && (regno = REGNO (operand)) >= FIRST_PSEUDO_REGISTER)
 	{
-	  enum machine_mode mode;
 	  enum reg_class cover_class;
 
 	  operand_a = ira_curr_regno_allocno_map[regno];
-	  mode = ALLOCNO_MODE (operand_a);
 	  cover_class = ALLOCNO_COVER_CLASS (operand_a);
 	  if (ira_class_subset_p[cl][cover_class]
-	      && ira_class_hard_regs_num[cl] != 0
-	      && (ira_class_hard_reg_index[cover_class]
-		  [ira_class_hard_regs[cl][0]]) >= 0
-	      && reg_class_size[cl] <= (unsigned) CLASS_MAX_NREGS (cl, mode))
+	      && ira_class_hard_regs_num[cl] != 0)
 	    {
-	      int i, size;
-	      cost
-		= (freq
-		   * (in_p
-		      ? ira_get_register_move_cost (mode, cover_class, cl)
-		      : ira_get_register_move_cost (mode, cl, cover_class)));
-	      ira_allocate_and_set_costs
-		(&ALLOCNO_CONFLICT_HARD_REG_COSTS (operand_a), cover_class, 0);
-	      size = ira_reg_class_nregs[cover_class][mode];
-	      for (i = 0; i < size; i++)
-	        ALLOCNO_CONFLICT_HARD_REG_COSTS (operand_a)
-		  [ira_class_hard_reg_index
-		   [cover_class][ira_class_hard_regs[cl][i]]]
-		  -= cost;
+	      /* View the desired allocation of OPERAND as:
+
+		    (REG:YMODE YREGNO),
+
+		 a simplification of:
+
+		    (subreg:YMODE (reg:XMODE XREGNO) OFFSET).  */
+	      enum machine_mode ymode, xmode;
+	      int xregno, yregno;
+	      HOST_WIDE_INT offset;
+
+	      xmode = recog_data.operand_mode[i];
+	      xregno = ira_class_hard_regs[cl][0];
+	      ymode = ALLOCNO_MODE (operand_a);
+	      offset = subreg_lowpart_offset (ymode, xmode);
+	      yregno = simplify_subreg_regno (xregno, xmode, offset, ymode);
+	      if (yregno >= 0
+		  && ira_class_hard_reg_index[cover_class][yregno] >= 0)
+		{
+		  int cost;
+
+		  ira_allocate_and_set_costs
+		    (&ALLOCNO_CONFLICT_HARD_REG_COSTS (operand_a),
+		     cover_class, 0);
+		  cost
+		    = (freq
+		       * (in_p
+			  ? ira_get_register_move_cost (xmode, cover_class, cl)
+			  : ira_get_register_move_cost (xmode, cl,
+							cover_class)));
+		  ALLOCNO_CONFLICT_HARD_REG_COSTS (operand_a)
+		    [ira_class_hard_reg_index[cover_class][yregno]] -= cost;
+		}
 	    }
 	}
 
@@ -1308,25 +1323,43 @@ remove_some_program_points_and_update_live_ranges (void)
   ira_object_t obj;
   ira_object_iterator oi;
   live_range_t r;
-  bitmap born_or_died;
-  bitmap_iterator bi;
-
-  born_or_died = ira_allocate_bitmap ();
+  sbitmap born_or_dead, born, dead;
+  sbitmap_iterator sbi;
+  bool born_p, dead_p, prev_born_p, prev_dead_p;
+  
+  born = sbitmap_alloc (ira_max_point);
+  dead = sbitmap_alloc (ira_max_point);
+  sbitmap_zero (born);
+  sbitmap_zero (dead);
   FOR_EACH_OBJECT (obj, oi)
     for (r = OBJECT_LIVE_RANGES (obj); r != NULL; r = r->next)
       {
 	ira_assert (r->start <= r->finish);
-	bitmap_set_bit (born_or_died, r->start);
-	bitmap_set_bit (born_or_died, r->finish);
+	SET_BIT (born, r->start);
+	SET_BIT (dead, r->finish);
       }
 
+  born_or_dead = sbitmap_alloc (ira_max_point);
+  sbitmap_a_or_b (born_or_dead, born, dead);
   map = (int *) ira_allocate (sizeof (int) * ira_max_point);
-  n = 0;
-  EXECUTE_IF_SET_IN_BITMAP(born_or_died, 0, i, bi)
+  n = -1;
+  prev_born_p = prev_dead_p = false;
+  EXECUTE_IF_SET_IN_SBITMAP (born_or_dead, 0, i, sbi)
     {
-      map[i] = n++;
+      born_p = TEST_BIT (born, i);
+      dead_p = TEST_BIT (dead, i);
+      if ((prev_born_p && ! prev_dead_p && born_p && ! dead_p)
+	  || (prev_dead_p && ! prev_born_p && dead_p && ! born_p))
+	map[i] = n;
+      else
+	map[i] = ++n;
+      prev_born_p = born_p;
+      prev_dead_p = dead_p;
     }
-  ira_free_bitmap (born_or_died);
+  sbitmap_free (born_or_dead);
+  sbitmap_free (born);
+  sbitmap_free (dead);
+  n++;
   if (internal_flag_ira_verbose > 1 && ira_dump_file != NULL)
     fprintf (ira_dump_file, "Compressing live ranges: from %d to %d - %d%%\n",
 	     ira_max_point, n, 100 * n / ira_max_point);

@@ -372,12 +372,12 @@ bool flag_warn_unused_result = false;
 const char **in_fnames;
 unsigned num_in_fnames;
 
-static bool common_handle_option (size_t scode, const char *arg, int value,
+static bool common_handle_option (const struct cl_decoded_option *decoded,
 				  unsigned int lang_mask, int kind,
 				  const struct cl_option_handlers *handlers);
 static void handle_param (const char *);
 static char *write_langs (unsigned int lang_mask);
-static void complain_wrong_lang (const char *, const struct cl_option *,
+static void complain_wrong_lang (const struct cl_decoded_option *,
 				 unsigned int lang_mask);
 static void set_debug_level (enum debug_info_type type, int extended,
 			     const char *arg);
@@ -410,22 +410,35 @@ write_langs (unsigned int mask)
   return result;
 }
 
-/* Complain that switch OPT_INDEX does not apply to this front end.  */
+/* Complain that switch DECODED does not apply to this front end (mask
+   LANG_MASK).  */
 static void
-complain_wrong_lang (const char *text, const struct cl_option *option,
+complain_wrong_lang (const struct cl_decoded_option *decoded,
 		     unsigned int lang_mask)
 {
-  char *ok_langs, *bad_lang;
+  const struct cl_option *option = &cl_options[decoded->opt_index];
+  const char *text = decoded->orig_option_with_args_text;
+  char *ok_langs = NULL, *bad_lang = NULL;
+  unsigned int opt_flags = option->flags;
 
   if (!lang_hooks.complain_wrong_lang_p (option))
     return;
 
-  ok_langs = write_langs (option->flags);
-  bad_lang = write_langs (lang_mask);
+  opt_flags &= ((1U << cl_lang_count) - 1) | CL_DRIVER;
+  if (opt_flags != CL_DRIVER)
+    ok_langs = write_langs (opt_flags);
+  if (lang_mask != CL_DRIVER)
+    bad_lang = write_langs (lang_mask);
 
-  /* Eventually this should become a hard error IMO.  */
-  warning (0, "command line option \"%s\" is valid for %s but not for %s",
-	   text, ok_langs, bad_lang);
+  if (opt_flags == CL_DRIVER)
+    error ("command line option %qs is valid for the driver but not for %s",
+	   text, bad_lang);
+  else if (lang_mask == CL_DRIVER)
+    gcc_unreachable ();
+  else
+    /* Eventually this should become a hard error IMO.  */
+    warning (0, "command line option %qs is valid for %s but not for %s",
+	     text, ok_langs, bad_lang);
 
   free (ok_langs);
   free (bad_lang);
@@ -461,12 +474,14 @@ void print_ignored_options (void)
   input_location = saved_loc;
 }
 
-/* Handle an unknown option ARG, returning true if an error should be
+/* Handle an unknown option DECODED, returning true if an error should be
    given.  */
 
 static bool
-unknown_option_callback (const char *opt)
+unknown_option_callback (const struct cl_decoded_option *decoded)
 {
+  const char *opt = decoded->arg;
+
   if (opt[1] == 'W' && opt[2] == 'n' && opt[3] == 'o' && opt[4] == '-')
     {
       /* We don't generate warnings for unknown -Wno-* options unless
@@ -478,17 +493,16 @@ unknown_option_callback (const char *opt)
     return true;
 }
 
-/* Note that an option (index OPT_INDEX, argument ARG, value VALUE)
-   has been successfully handled with a handler for mask MASK.  */
+/* Note that an option DECODED has been successfully handled with a
+   handler for mask MASK.  */
 
 static void
-post_handling_callback (size_t opt_index ATTRIBUTE_UNUSED,
-			const char *arg ATTRIBUTE_UNUSED,
-			int value ATTRIBUTE_UNUSED,
+post_handling_callback (const struct cl_decoded_option *decoded ATTRIBUTE_UNUSED,
 			unsigned int mask ATTRIBUTE_UNUSED)
 {
 #ifdef ENABLE_LTO
-  lto_register_user_option (opt_index, arg, value, mask);
+  lto_register_user_option (decoded->opt_index, decoded->arg,
+			    decoded->value, mask);
 #endif
 }
 
@@ -496,23 +510,27 @@ post_handling_callback (size_t opt_index ATTRIBUTE_UNUSED,
    handle_option.  */
 
 static bool
-lang_handle_option (size_t opt_index, const char *arg, int value,
+lang_handle_option (const struct cl_decoded_option *decoded,
 		    unsigned int lang_mask ATTRIBUTE_UNUSED, int kind,
 		    const struct cl_option_handlers *handlers)
 {
-  return lang_hooks.handle_option (opt_index, arg, value, kind, handlers);
+  gcc_assert (decoded->canonical_option_num_elements <= 2);
+  return lang_hooks.handle_option (decoded->opt_index, decoded->arg,
+				   decoded->value, kind, handlers);
 }
 
 /* Handle a back-end option; arguments and return value as for
    handle_option.  */
 
 static bool
-target_handle_option (size_t opt_index, const char *arg, int value,
-		    unsigned int lang_mask ATTRIBUTE_UNUSED, int kind,
-		    const struct cl_option_handlers *handlers ATTRIBUTE_UNUSED)
+target_handle_option (const struct cl_decoded_option *decoded,
+		      unsigned int lang_mask ATTRIBUTE_UNUSED, int kind,
+		      const struct cl_option_handlers *handlers ATTRIBUTE_UNUSED)
 {
+  gcc_assert (decoded->canonical_option_num_elements <= 2);
   gcc_assert (kind == DK_UNSPECIFIED);
-  return targetm.handle_option (opt_index, arg, value);
+  return targetm.handle_option (decoded->opt_index, decoded->arg,
+				decoded->value);
 }
 
 /* Handle FILENAME from the command line.  */
@@ -574,14 +592,10 @@ flag_instrument_functions_exclude_p (tree fndecl)
       char *s;
 
       name = lang_hooks.decl_printable_name (fndecl, 0);
-      for (i = 0;
-	   VEC_iterate (char_p, flag_instrument_functions_exclude_functions,
-			i, s);
-	   ++i)
-	{
-	  if (strstr (name, s) != NULL)
-	    return true;
-	}
+      FOR_EACH_VEC_ELT (char_p, flag_instrument_functions_exclude_functions,
+			i, s)
+	if (strstr (name, s) != NULL)
+	  return true;
     }
 
   if (VEC_length (char_p, flag_instrument_functions_exclude_files) > 0)
@@ -591,13 +605,9 @@ flag_instrument_functions_exclude_p (tree fndecl)
       char *s;
 
       name = DECL_SOURCE_FILE (fndecl);
-      for (i = 0;
-	   VEC_iterate (char_p, flag_instrument_functions_exclude_files, i, s);
-	   ++i)
-	{
-	  if (strstr (name, s) != NULL)
-	    return true;
-	}
+      FOR_EACH_VEC_ELT (char_p, flag_instrument_functions_exclude_files, i, s)
+	if (strstr (name, s) != NULL)
+	  return true;
     }
 
   return false;
@@ -673,7 +683,8 @@ decode_options (unsigned int argc, const char **argv,
   else
     lang_mask = initial_lang_mask;
 
-  decode_cmdline_options_to_array (argc, argv, lang_mask,
+  decode_cmdline_options_to_array (argc, argv,
+				   lang_mask | CL_COMMON | CL_TARGET,
 				   decoded_options, decoded_options_count);
   if (first_time_p)
     /* Perform language-specific options initialization.  */
@@ -1185,6 +1196,12 @@ print_filtered_help (unsigned int include_flags,
       if ((option->flags & exclude_flags) != 0)
 	continue;
 
+      /* The driver currently prints its own help text.  */
+      if ((option->flags & CL_DRIVER) != 0
+	  && (option->flags & (((1U << cl_lang_count) - 1)
+			       | CL_COMMON | CL_TARGET)) == 0)
+	continue;
+
       found = true;
       /* Skip switches that have already been printed.  */
       if (printed[i])
@@ -1325,6 +1342,7 @@ print_specific_help (unsigned int include_flags,
       switch (flag & include_flags)
 	{
 	case 0:
+	case CL_DRIVER:
 	  break;
 
 	case CL_TARGET:
@@ -1387,15 +1405,20 @@ print_specific_help (unsigned int include_flags,
 /* Handle target- and language-independent options.  Return zero to
    generate an "unknown option" message.  Only options that need
    extra handling need to be listed here; if you simply want
-   VALUE assigned to a variable, it happens automatically.  */
+   DECODED->value assigned to a variable, it happens automatically.  */
 
 static bool
-common_handle_option (size_t scode, const char *arg, int value,
+common_handle_option (const struct cl_decoded_option *decoded,
 		      unsigned int lang_mask, int kind ATTRIBUTE_UNUSED,
 		      const struct cl_option_handlers *handlers)
 {
+  size_t scode = decoded->opt_index;
+  const char *arg = decoded->arg;
+  int value = decoded->value;
   static bool verbose = false;
   enum opt_code code = (enum opt_code) scode;
+
+  gcc_assert (decoded->canonical_option_num_elements <= 2);
 
   switch (code)
     {
@@ -1423,7 +1446,8 @@ common_handle_option (size_t scode, const char *arg, int value,
 	print_specific_help (0, undoc_mask, all_langs_mask);
 	/* Then display any remaining, non-language options.  */
 	for (i = CL_MIN_OPTION_CLASS; i <= CL_MAX_OPTION_CLASS; i <<= 1)
-	  print_specific_help (i, undoc_mask, 0);
+	  if (i != CL_DRIVER)
+	    print_specific_help (i, undoc_mask, 0);
 	exit_after_options = true;
 	break;
       }
@@ -2358,8 +2382,8 @@ enable_warning_as_error (const char *arg, int value, unsigned int lang_mask,
 
 	  /* -Werror=foo implies -Wfoo.  */
 	  if (option->var_type == CLVC_BOOLEAN)
-	    handle_option (option_index, arg, value, lang_mask, (int)kind,
-			   handlers);
+	    handle_generated_option (option_index, NULL, value, lang_mask,
+				     (int)kind, handlers);
 
 	  if (warning_as_error_callback)
 	    warning_as_error_callback (option_index);

@@ -228,6 +228,8 @@ static void arm_asm_trampoline_template (FILE *);
 static void arm_trampoline_init (rtx, tree, rtx);
 static rtx arm_trampoline_adjust_address (rtx);
 static rtx arm_pic_static_addr (rtx orig, rtx reg);
+static bool cortex_a9_sched_adjust_cost (rtx, rtx, rtx, int *);
+static bool xscale_sched_adjust_cost (rtx, rtx, rtx, int *);
 
 
 /* Table of machine attributes.  */
@@ -591,6 +593,7 @@ static int thumb_call_reg_needed;
 #define FL_NEON       (1 << 20)       /* Neon instructions.  */
 #define FL_ARCH7EM    (1 << 21)	      /* Instructions present in the ARMv7E-M
 					 architecture.  */
+#define FL_ARCH7      (1 << 22)       /* Architecture 7.  */
 
 #define FL_IWMMXT     (1 << 29)	      /* XScale v2 or "Intel Wireless MMX technology".  */
 
@@ -615,7 +618,7 @@ static int thumb_call_reg_needed;
 #define FL_FOR_ARCH6ZK	FL_FOR_ARCH6K
 #define FL_FOR_ARCH6T2	(FL_FOR_ARCH6 | FL_THUMB2)
 #define FL_FOR_ARCH6M	(FL_FOR_ARCH6 & ~FL_NOTM)
-#define FL_FOR_ARCH7	(FL_FOR_ARCH6T2 &~ FL_NOTM)
+#define FL_FOR_ARCH7	((FL_FOR_ARCH6T2 & ~FL_NOTM) | FL_ARCH7)
 #define FL_FOR_ARCH7A	(FL_FOR_ARCH7 | FL_NOTM | FL_ARCH6K)
 #define FL_FOR_ARCH7R	(FL_FOR_ARCH7A | FL_DIV)
 #define FL_FOR_ARCH7M	(FL_FOR_ARCH7 | FL_DIV)
@@ -652,6 +655,9 @@ int arm_arch6 = 0;
 
 /* Nonzero if this chip supports the ARM 6K extensions.  */
 int arm_arch6k = 0;
+
+/* Nonzero if this chip supports the ARM 7 extensions.  */
+int arm_arch7 = 0;
 
 /* Nonzero if instructions not present in the 'M' profile can be used.  */
 int arm_arch_notm = 0;
@@ -766,26 +772,38 @@ struct processors
 const struct tune_params arm_slowmul_tune =
 {
   arm_slowmul_rtx_costs,
+  NULL,
   3
 };
 
 const struct tune_params arm_fastmul_tune =
 {
   arm_fastmul_rtx_costs,
+  NULL,
   1
 };
 
 const struct tune_params arm_xscale_tune =
 {
   arm_xscale_rtx_costs,
+  xscale_sched_adjust_cost,
   2
 };
 
 const struct tune_params arm_9e_tune =
 {
   arm_9e_rtx_costs,
+  NULL,
   1
 };
+
+const struct tune_params arm_cortex_a9_tune =
+{
+  arm_9e_rtx_costs,
+  cortex_a9_sched_adjust_cost,
+  1
+};
+
 
 /* Not all of these give usefully different compilation alternatives,
    but there is no simple way of generalizing them.  */
@@ -1575,6 +1593,7 @@ arm_override_options (void)
   arm_arch6 = (insn_flags & FL_ARCH6) != 0;
   arm_arch6k = (insn_flags & FL_ARCH6K) != 0;
   arm_arch_notm = (insn_flags & FL_NOTM) != 0;
+  arm_arch7 = (insn_flags & FL_ARCH7) != 0;
   arm_arch7em = (insn_flags & FL_ARCH7EM) != 0;
   arm_arch_thumb2 = (insn_flags & FL_THUMB2) != 0;
   arm_arch_xscale = (insn_flags & FL_XSCALE) != 0;
@@ -3703,9 +3722,7 @@ arm_get_pcs_model (const_tree type, const_tree decl)
       /* Detect varargs functions.  These always use the base rules
 	 (no argument is ever a candidate for a co-processor
 	 register).  */
-      bool base_rules = (TYPE_ARG_TYPES (type) != 0
-			 && (TREE_VALUE (tree_last (TYPE_ARG_TYPES (type)))
-			     != void_type_node));
+      bool base_rules = stdarg_p (type);
       
       if (user_convention)
 	{
@@ -7691,30 +7708,14 @@ arm_address_cost (rtx x, bool speed ATTRIBUTE_UNUSED)
 {
   return TARGET_32BIT ? arm_arm_address_cost (x) : arm_thumb_address_cost (x);
 }
-/* This function implements the target macro TARGET_SCHED_ADJUST_COST.
-   It corrects the value of COST based on the relationship between
-   INSN and DEP through the dependence LINK.  It returns the new
-   value.  */
-  
-static int
-arm_adjust_cost (rtx insn, rtx link, rtx dep, int cost)
+
+/* Adjust cost hook for XScale.  */
+static bool
+xscale_sched_adjust_cost (rtx insn, rtx link, rtx dep, int * cost)
 {
-  rtx i_pat, d_pat;
-
-  /* When generating Thumb-1 code, we want to place flag-setting operations
-     close to a conditional branch which depends on them, so that we can
-     omit the comparison.  */
-  if (TARGET_THUMB1
-      && REG_NOTE_KIND (link) == 0
-      && recog_memoized (insn) == CODE_FOR_cbranchsi4_insn
-      && recog_memoized (dep) >= 0
-      && get_attr_conds (dep) == CONDS_SET)
-    return 0;
-
   /* Some true dependencies can have a higher cost depending
      on precisely how certain input operands are used.  */
-  if (arm_tune_xscale
-      && REG_NOTE_KIND (link) == 0
+  if (REG_NOTE_KIND(link) == 0
       && recog_memoized (insn) >= 0
       && recog_memoized (dep) >= 0)
     {
@@ -7748,9 +7749,115 @@ arm_adjust_cost (rtx insn, rtx link, rtx dep, int cost)
 
 	      if (reg_overlap_mentioned_p (recog_data.operand[opno],
 					   shifted_operand))
-		return 2;
+		{
+		  *cost = 2;
+		  return false;
+		}
 	    }
 	}
+    }
+  return true;
+}
+
+/* Adjust cost hook for Cortex A9.  */
+static bool
+cortex_a9_sched_adjust_cost (rtx insn, rtx link, rtx dep, int * cost)
+{
+  switch (REG_NOTE_KIND (link))
+    {
+    case REG_DEP_ANTI:
+      *cost = 0;
+      return false;
+
+    case REG_DEP_TRUE:
+    case REG_DEP_OUTPUT:
+	if (recog_memoized (insn) >= 0
+	    && recog_memoized (dep) >= 0)
+	  {
+	    if (GET_CODE (PATTERN (insn)) == SET)
+	      {
+		if (GET_MODE_CLASS 
+		    (GET_MODE (SET_DEST (PATTERN (insn)))) == MODE_FLOAT
+		  || GET_MODE_CLASS 
+		    (GET_MODE (SET_SRC (PATTERN (insn)))) == MODE_FLOAT)
+		  {
+		    enum attr_type attr_type_insn = get_attr_type (insn);
+		    enum attr_type attr_type_dep = get_attr_type (dep);
+
+		    /* By default all dependencies of the form
+		       s0 = s0 <op> s1
+		       s0 = s0 <op> s2
+		       have an extra latency of 1 cycle because
+		       of the input and output dependency in this
+		       case. However this gets modeled as an true
+		       dependency and hence all these checks.  */
+		    if (REG_P (SET_DEST (PATTERN (insn)))
+			&& REG_P (SET_DEST (PATTERN (dep)))
+			&& reg_overlap_mentioned_p (SET_DEST (PATTERN (insn)),
+						    SET_DEST (PATTERN (dep))))
+		      {
+			/* FMACS is a special case where the dependant
+			   instruction can be issued 3 cycles before
+			   the normal latency in case of an output 
+			   dependency.  */
+			if ((attr_type_insn == TYPE_FMACS
+			     || attr_type_insn == TYPE_FMACD)
+			    && (attr_type_dep == TYPE_FMACS
+				|| attr_type_dep == TYPE_FMACD))
+			  {
+			    if (REG_NOTE_KIND (link) == REG_DEP_OUTPUT)
+			      *cost = insn_default_latency (dep) - 3;
+			    else
+			      *cost = insn_default_latency (dep);
+			    return false;
+			  }
+			else
+			  {
+			    if (REG_NOTE_KIND (link) == REG_DEP_OUTPUT)
+			      *cost = insn_default_latency (dep) + 1;
+			    else
+			      *cost = insn_default_latency (dep);
+			  }
+			return false;
+		      }
+		  }
+	      }
+	  }
+	break;
+
+    default:
+      gcc_unreachable ();
+    }
+
+  return true;
+}
+
+/* This function implements the target macro TARGET_SCHED_ADJUST_COST.
+   It corrects the value of COST based on the relationship between
+   INSN and DEP through the dependence LINK.  It returns the new
+   value. There is a per-core adjust_cost hook to adjust scheduler costs
+   and the per-core hook can choose to completely override the generic 
+   adjust_cost function. Only put bits of code into arm_adjust_cost that 
+   are common across all cores.  */
+static int
+arm_adjust_cost (rtx insn, rtx link, rtx dep, int cost)
+{
+  rtx i_pat, d_pat;
+
+ /* When generating Thumb-1 code, we want to place flag-setting operations
+    close to a conditional branch which depends on them, so that we can
+    omit the comparison. */
+  if (TARGET_THUMB1
+      && REG_NOTE_KIND (link) == 0
+      && recog_memoized (insn) == CODE_FOR_cbranchsi4_insn
+      && recog_memoized (dep) >= 0
+      && get_attr_conds (dep) == CONDS_SET)
+    return 0;
+
+  if (current_tune->sched_adjust_cost != NULL)
+    {
+      if (!current_tune->sched_adjust_cost (insn, link, dep, &cost))
+	return cost;
     }
 
   /* XXX This is not strictly true for the FPA.  */
@@ -7774,7 +7881,8 @@ arm_adjust_cost (rtx insn, rtx link, rtx dep, int cost)
 	 constant pool are cached, and that others will miss.  This is a
 	 hack.  */
 
-      if ((GET_CODE (src_mem) == SYMBOL_REF && CONSTANT_POOL_ADDRESS_P (src_mem))
+      if ((GET_CODE (src_mem) == SYMBOL_REF 
+	   && CONSTANT_POOL_ADDRESS_P (src_mem))
 	  || reg_mentioned_p (stack_pointer_rtx, src_mem)
 	  || reg_mentioned_p (frame_pointer_rtx, src_mem)
 	  || reg_mentioned_p (hard_frame_pointer_rtx, src_mem))
@@ -9186,6 +9294,36 @@ multiple_operation_profitable_p (bool is_store ATTRIBUTE_UNUSED,
   if (nops == 2 && arm_ld_sched && add_offset != 0)
     return false;
 
+  /* XScale has load-store double instructions, but they have stricter
+     alignment requirements than load-store multiple, so we cannot
+     use them.
+
+     For XScale ldm requires 2 + NREGS cycles to complete and blocks
+     the pipeline until completion.
+
+	NREGS		CYCLES
+	  1		  3
+	  2		  4
+	  3		  5
+	  4		  6
+
+     An ldr instruction takes 1-3 cycles, but does not block the
+     pipeline.
+
+	NREGS		CYCLES
+	  1		 1-3
+	  2		 2-6
+	  3		 3-9
+	  4		 4-12
+
+     Best case ldr will always win.  However, the more ldr instructions
+     we issue, the less likely we are to be able to schedule them well.
+     Using ldr instructions also increases code size.
+
+     As a compromise, we use ldr for counts of 1 or 2 regs, and ldm
+     for counts of 3 or 4 regs.  */
+  if (nops <= 2 && arm_tune_xscale && !optimize_size)
+    return false;
   return true;
 }
 
@@ -9538,35 +9676,7 @@ arm_gen_load_multiple_1 (int count, int *regs, rtx *mems, rtx basereg,
   int i = 0, j;
   rtx result;
 
-  /* XScale has load-store double instructions, but they have stricter
-     alignment requirements than load-store multiple, so we cannot
-     use them.
-
-     For XScale ldm requires 2 + NREGS cycles to complete and blocks
-     the pipeline until completion.
-
-	NREGS		CYCLES
-	  1		  3
-	  2		  4
-	  3		  5
-	  4		  6
-
-     An ldr instruction takes 1-3 cycles, but does not block the
-     pipeline.
-
-	NREGS		CYCLES
-	  1		 1-3
-	  2		 2-6
-	  3		 3-9
-	  4		 4-12
-
-     Best case ldr will always win.  However, the more ldr instructions
-     we issue, the less likely we are to be able to schedule them well.
-     Using ldr instructions also increases code size.
-
-     As a compromise, we use ldr for counts of 1 or 2 regs, and ldm
-     for counts of 3 or 4 regs.  */
-  if (arm_tune_xscale && count <= 2 && ! optimize_size)
+  if (!multiple_operation_profitable_p (false, count, 0))
     {
       rtx seq;
 
@@ -9618,9 +9728,7 @@ arm_gen_store_multiple_1 (int count, int *regs, rtx *mems, rtx basereg,
   if (GET_CODE (basereg) == PLUS)
     basereg = XEXP (basereg, 0);
 
-  /* See arm_gen_load_multiple_1 for discussion of
-     the pros/cons of ldm/stm usage for XScale.  */
-  if (arm_tune_xscale && count <= 2 && ! optimize_size)
+  if (!multiple_operation_profitable_p (false, count, 0))
     {
       rtx seq;
 
@@ -12836,13 +12944,13 @@ output_move_double (rtx *operands)
 	    {
 	      if (GET_CODE (XEXP (operands[0], 0)) == PRE_MODIFY)
 		{
-		  output_asm_insn ("ldr%?\t%0, [%1, %2]!", otherops);
-		  output_asm_insn ("ldr%?\t%H0, [%1, #4]", otherops);
+		  output_asm_insn ("str%?\t%0, [%1, %2]!", otherops);
+		  output_asm_insn ("str%?\t%H0, [%1, #4]", otherops);
 		}
 	      else
 		{
-		  output_asm_insn ("ldr%?\t%H0, [%1, #4]", otherops);
-		  output_asm_insn ("ldr%?\t%0, [%1], %2", otherops);
+		  output_asm_insn ("str%?\t%H0, [%1, #4]", otherops);
+		  output_asm_insn ("str%?\t%0, [%1], %2", otherops);
 		}
 	    }
 	  else if (GET_CODE (XEXP (operands[0], 0)) == PRE_MODIFY)
@@ -14359,7 +14467,8 @@ arm_output_epilogue (rtx sibling)
 		  && !crtl->tail_call_emit)
 		{
 		  unsigned long mask;
-		  mask = (1 << (arm_size_return_regs() / 4)) - 1;
+                  /* Preserve return values, of any size.  */
+		  mask = (1 << ((arm_size_return_regs() + 3) / 4)) - 1;
 		  mask ^= 0xf;
 		  mask &= ~saved_regs_mask;
 		  reg = 0;
@@ -16141,6 +16250,17 @@ arm_print_operand (FILE *stream, rtx x, int code)
 	asm_fprintf (stream, "[%r]", REGNO (addr));
 	if (postinc)
 	  fputs("!", stream);
+      }
+      return;
+
+    case 'C':
+      {
+	rtx addr;
+
+	gcc_assert (GET_CODE (x) == MEM);
+	addr = XEXP (x, 0);
+	gcc_assert (GET_CODE (addr) == REG);
+	asm_fprintf (stream, "[%r]", REGNO (addr));
       }
       return;
 
@@ -22470,6 +22590,374 @@ static bool
 arm_have_conditional_execution (void)
 {
   return !TARGET_THUMB1;
+}
+
+/* Legitimize a memory reference for sync primitive implemented using
+   ldrex / strex.  We currently force the form of the reference to be
+   indirect without offset.  We do not yet support the indirect offset
+   addressing supported by some ARM targets for these
+   instructions.  */
+static rtx
+arm_legitimize_sync_memory (rtx memory)
+{
+  rtx addr = force_reg (Pmode, XEXP (memory, 0));
+  rtx legitimate_memory = gen_rtx_MEM (GET_MODE (memory), addr);
+
+  set_mem_alias_set (legitimate_memory, ALIAS_SET_MEMORY_BARRIER);
+  MEM_VOLATILE_P (legitimate_memory) = MEM_VOLATILE_P (memory);
+  return legitimate_memory;
+}
+
+/* An instruction emitter. */
+typedef void (* emit_f) (int label, const char *, rtx *);
+
+/* An instruction emitter that emits via the conventional
+   output_asm_insn.  */
+static void
+arm_emit (int label ATTRIBUTE_UNUSED, const char *pattern, rtx *operands)
+{
+  output_asm_insn (pattern, operands);
+}
+
+/* Count the number of emitted synchronization instructions.  */
+static unsigned arm_insn_count;
+
+/* An emitter that counts emitted instructions but does not actually
+   emit instruction into the the instruction stream.  */
+static void
+arm_count (int label,
+	   const char *pattern ATTRIBUTE_UNUSED,
+	   rtx *operands ATTRIBUTE_UNUSED)
+{
+  if (! label)
+    ++ arm_insn_count;
+}
+
+/* Construct a pattern using conventional output formatting and feed
+   it to output_asm_insn.  Provides a mechanism to construct the
+   output pattern on the fly.  Note the hard limit on the pattern
+   buffer size.  */
+static void
+arm_output_asm_insn (emit_f emit, int label, rtx *operands,
+		     const char *pattern, ...)
+{
+  va_list ap;
+  char buffer[256];
+
+  va_start (ap, pattern);
+  vsprintf (buffer, pattern, ap);
+  va_end (ap);
+  emit (label, buffer, operands);
+}
+
+/* Emit the memory barrier instruction, if any, provided by this
+   target to a specified emitter.  */
+static void
+arm_process_output_memory_barrier (emit_f emit, rtx *operands)
+{
+  if (TARGET_HAVE_DMB)
+    {
+      /* Note we issue a system level barrier. We should consider
+         issuing a inner shareabilty zone barrier here instead, ie.
+         "DMB ISH".  */
+      emit (0, "dmb\tsy", operands);
+      return;
+    }
+
+  if (TARGET_HAVE_DMB_MCR)
+    {
+      emit (0, "mcr\tp15, 0, r0, c7, c10, 5", operands);
+      return;
+    }
+
+  gcc_unreachable ();
+}
+
+/* Emit the memory barrier instruction, if any, provided by this
+   target.  */
+const char *
+arm_output_memory_barrier (rtx *operands)
+{
+  arm_process_output_memory_barrier (arm_emit, operands);
+  return "";
+}
+
+/* Helper to figure out the instruction suffix required on ldrex/strex
+   for operations on an object of the specified mode.  */
+static const char *
+arm_ldrex_suffix (enum machine_mode mode)
+{
+  switch (mode)
+    {
+    case QImode: return "b";
+    case HImode: return "h";
+    case SImode: return "";
+    case DImode: return "d";
+    default:
+      gcc_unreachable ();
+    }
+  return "";
+}
+
+/* Emit an ldrex{b,h,d, } instruction appropriate for the specified
+   mode.  */
+static void
+arm_output_ldrex (emit_f emit,
+		  enum machine_mode mode,
+		  rtx target,
+		  rtx memory)
+{
+  const char *suffix = arm_ldrex_suffix (mode);
+  rtx operands[2];
+
+  operands[0] = target;
+  operands[1] = memory;
+  arm_output_asm_insn (emit, 0, operands, "ldrex%s\t%%0, %%C1", suffix);
+}
+
+/* Emit a strex{b,h,d, } instruction appropriate for the specified
+   mode.  */
+static void
+arm_output_strex (emit_f emit,
+		  enum machine_mode mode,
+		  const char *cc,
+		  rtx result,
+		  rtx value,
+		  rtx memory)
+{
+  const char *suffix = arm_ldrex_suffix (mode);
+  rtx operands[3];
+
+  operands[0] = result;
+  operands[1] = value;
+  operands[2] = memory;
+  arm_output_asm_insn (emit, 0, operands, "strex%s%s\t%%0, %%1, %%C2", suffix,
+		       cc);
+}
+
+/* Helper to emit a two operand instruction.  */
+static void
+arm_output_op2 (emit_f emit, const char *mnemonic, rtx d, rtx s)
+{
+  rtx operands[2];
+
+  operands[0] = d;
+  operands[1] = s;
+  arm_output_asm_insn (emit, 0, operands, "%s\t%%0, %%1", mnemonic);
+}
+
+/* Helper to emit a three operand instruction.  */
+static void
+arm_output_op3 (emit_f emit, const char *mnemonic, rtx d, rtx a, rtx b)
+{
+  rtx operands[3];
+
+  operands[0] = d;
+  operands[1] = a;
+  operands[2] = b;
+  arm_output_asm_insn (emit, 0, operands, "%s\t%%0, %%1, %%2", mnemonic);
+}
+
+/* Emit a load store exclusive synchronization loop.
+
+   do
+     old_value = [mem]
+     if old_value != required_value
+       break;
+     t1 = sync_op (old_value, new_value)
+     [mem] = t1, t2 = [0|1]
+   while ! t2
+
+   Note:
+     t1 == t2 is not permitted
+     t1 == old_value is permitted
+
+   required_value:
+
+   RTX register or const_int representing the required old_value for
+   the modify to continue, if NULL no comparsion is performed.  */
+static void
+arm_output_sync_loop (emit_f emit,
+		      enum machine_mode mode,
+		      rtx old_value,
+		      rtx memory,
+		      rtx required_value,
+		      rtx new_value,
+		      rtx t1,
+		      rtx t2,
+		      enum attr_sync_op sync_op,
+		      int early_barrier_required)
+{
+  rtx operands[1];
+
+  gcc_assert (t1 != t2);
+
+  if (early_barrier_required)
+    arm_process_output_memory_barrier (emit, NULL);
+
+  arm_output_asm_insn (emit, 1, operands, "%sLSYT%%=:", LOCAL_LABEL_PREFIX);
+
+  arm_output_ldrex (emit, mode, old_value, memory);
+
+  if (required_value)
+    {
+      rtx operands[2];
+
+      operands[0] = old_value;
+      operands[1] = required_value;
+      arm_output_asm_insn (emit, 0, operands, "cmp\t%%0, %%1");
+      arm_output_asm_insn (emit, 0, operands, "bne\t%sLSYB%%=", LOCAL_LABEL_PREFIX);
+    }
+
+  switch (sync_op)
+    {
+    case SYNC_OP_ADD:
+      arm_output_op3 (emit, "add", t1, old_value, new_value);
+      break;
+
+    case SYNC_OP_SUB:
+      arm_output_op3 (emit, "sub", t1, old_value, new_value);
+      break;
+
+    case SYNC_OP_IOR:
+      arm_output_op3 (emit, "orr", t1, old_value, new_value);
+      break;
+
+    case SYNC_OP_XOR:
+      arm_output_op3 (emit, "eor", t1, old_value, new_value);
+      break;
+
+    case SYNC_OP_AND:
+      arm_output_op3 (emit,"and", t1, old_value, new_value);
+      break;
+
+    case SYNC_OP_NAND:
+      arm_output_op3 (emit, "and", t1, old_value, new_value);
+      arm_output_op2 (emit, "mvn", t1, t1);
+      break;
+
+    case SYNC_OP_NONE:
+      t1 = new_value;
+      break;
+    }
+
+  arm_output_strex (emit, mode, "", t2, t1, memory);
+  operands[0] = t2;
+  arm_output_asm_insn (emit, 0, operands, "teq\t%%0, #0");
+  arm_output_asm_insn (emit, 0, operands, "bne\t%sLSYT%%=", LOCAL_LABEL_PREFIX);
+
+  arm_process_output_memory_barrier (emit, NULL);
+  arm_output_asm_insn (emit, 1, operands, "%sLSYB%%=:", LOCAL_LABEL_PREFIX);
+}
+
+static rtx
+arm_get_sync_operand (rtx *operands, int index, rtx default_value)
+{
+  if (index > 0)
+    default_value = operands[index - 1];
+
+  return default_value;
+}
+
+#define FETCH_SYNC_OPERAND(NAME, DEFAULT) \
+  arm_get_sync_operand (operands, (int) get_attr_sync_##NAME (insn), DEFAULT);
+
+/* Extract the operands for a synchroniztion instruction from the
+   instructions attributes and emit the instruction.  */
+static void
+arm_process_output_sync_insn (emit_f emit, rtx insn, rtx *operands)
+{
+  rtx result, memory, required_value, new_value, t1, t2;
+  int early_barrier;
+  enum machine_mode mode;
+  enum attr_sync_op sync_op;
+
+  result = FETCH_SYNC_OPERAND(result, 0);
+  memory = FETCH_SYNC_OPERAND(memory, 0);
+  required_value = FETCH_SYNC_OPERAND(required_value, 0);
+  new_value = FETCH_SYNC_OPERAND(new_value, 0);
+  t1 = FETCH_SYNC_OPERAND(t1, 0);
+  t2 = FETCH_SYNC_OPERAND(t2, 0);
+  early_barrier =
+    get_attr_sync_release_barrier (insn) == SYNC_RELEASE_BARRIER_YES;
+  sync_op = get_attr_sync_op (insn);
+  mode = GET_MODE (memory);
+
+  arm_output_sync_loop (emit, mode, result, memory, required_value,
+			new_value, t1, t2, sync_op, early_barrier);
+}
+
+/* Emit a synchronization instruction loop.  */
+const char *
+arm_output_sync_insn (rtx insn, rtx *operands)
+{
+  arm_process_output_sync_insn (arm_emit, insn, operands);
+  return "";
+}
+
+/* Count the number of machine instruction that will be emitted for a
+   synchronization instruction.  Note that the emitter used does not
+   emit instructions, it just counts instructions being carefull not
+   to count labels.  */
+unsigned int
+arm_sync_loop_insns (rtx insn, rtx *operands)
+{
+  arm_insn_count = 0;
+  arm_process_output_sync_insn (arm_count, insn, operands);
+  return arm_insn_count;
+}
+
+/* Helper to call a target sync instruction generator, dealing with
+   the variation in operands required by the different generators.  */
+static rtx
+arm_call_generator (struct arm_sync_generator *generator, rtx old_value,
+  		    rtx memory, rtx required_value, rtx new_value)
+{
+  switch (generator->op)
+    {
+    case arm_sync_generator_omn:
+      gcc_assert (! required_value);
+      return generator->u.omn (old_value, memory, new_value);
+
+    case arm_sync_generator_omrn:
+      gcc_assert (required_value);
+      return generator->u.omrn (old_value, memory, required_value, new_value);
+    }
+
+  return NULL;
+}
+
+/* Expand a synchronization loop. The synchronization loop is expanded
+   as an opaque block of instructions in order to ensure that we do
+   not subsequently get extraneous memory accesses inserted within the
+   critical region. The exclusive access property of ldrex/strex is
+   only guaranteed in there are no intervening memory accesses. */
+void
+arm_expand_sync (enum machine_mode mode,
+		 struct arm_sync_generator *generator,
+		 rtx target, rtx memory, rtx required_value, rtx new_value)
+{
+  if (target == NULL)
+    target = gen_reg_rtx (mode);
+
+  memory = arm_legitimize_sync_memory (memory);
+  if (mode != SImode)
+    {
+      rtx load_temp = gen_reg_rtx (SImode);
+
+      if (required_value)
+	required_value = convert_modes (SImode, mode, required_value, true);
+
+      new_value = convert_modes (SImode, mode, new_value, true);
+      emit_insn (arm_call_generator (generator, load_temp, memory,
+				     required_value, new_value));
+      emit_move_insn (target, gen_lowpart (mode, load_temp));
+    }
+  else
+    {
+      emit_insn (arm_call_generator (generator, target, memory, required_value,
+				     new_value));
+    }
 }
 
 #include "gt-arm.h"

@@ -7128,8 +7128,9 @@ when @code{flag_pic} is true).
 @end defmac
 
 @defmac PIC_OFFSET_TABLE_REG_CALL_CLOBBERED
-Define this macro if the register defined by
-@code{PIC_OFFSET_TABLE_REGNUM} is clobbered by calls.  Do not define
+A C expression that is nonzero if the register defined by
+@code{PIC_OFFSET_TABLE_REGNUM} is clobbered by calls.  If not defined,
+the default is zero.  Do not define
 this macro if @code{PIC_OFFSET_TABLE_REGNUM} is not defined.
 @end defmac
 
@@ -7408,6 +7409,18 @@ split the object into smaller parts.
 The default implementation of this hook will use the
 @code{TARGET_ASM_BYTE_OP} family of strings, returning @code{false}
 when the relevant string is @code{NULL}.
+@end deftypefn
+
+@deftypefn {Target Hook} bool TARGET_ASM_OUTPUT_ADDR_CONST_EXTRA (FILE *@var{file}, rtx @var{x})
+A target hook to recognize @var{rtx} patterns that @code{output_addr_const}
+can't deal with, and output assembly code to @var{file} corresponding to
+the pattern @var{x}.  This may be used to allow machine-dependent
+@code{UNSPEC}s to appear within constants.
+
+If target hook fails to recognize a pattern, it must return @code{false},
+so that a standard error message is printed.  If it prints an error message
+itself, by calling, for example, @code{output_operand_lossage}, it may just
+return @code{true}.
 @end deftypefn
 
 @defmac OUTPUT_ADDR_CONST_EXTRA (@var{stream}, @var{x}, @var{fail})
@@ -10682,10 +10695,11 @@ for overlap with regards to asm-declared registers.
 
 @defmac MATH_LIBRARY
 Define this macro as a C string constant for the linker argument to link
-in the system math library, or @samp{""} if the target does not have a
+in the system math library, minus the initial @samp{"-l"}, or
+@samp{""} if the target does not have a
 separate math library.
 
-You need only define this macro if the default of @samp{"-lm"} is wrong.
+You need only define this macro if the default of @samp{"m"} is wrong.
 @end defmac
 
 @defmac LIBRARY_PATH_ENV
