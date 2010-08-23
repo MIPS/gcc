@@ -1034,6 +1034,9 @@ add_attributes_to_decl (symbol_attribute sym_attr, tree list)
 }
 
 
+static void build_function_decl (gfc_symbol * sym, bool global);
+
+
 /* Return the decl for a gfc_symbol, create it if it doesn't already
    exist.  */
 
@@ -1160,12 +1163,21 @@ gfc_get_symbol_decl (gfc_symbol * sym)
 	}
     }
 
-  /* Catch function declarations.  Only used for actual parameters and
-     procedure pointers.  */
   if (sym->attr.flavor == FL_PROCEDURE)
     {
-      decl = gfc_get_extern_function_decl (sym);
-      gfc_set_decl_location (decl, &sym->declared_at);
+      /* Catch function declarations. Only used for actual parameters,
+	 procedure pointers and procptr initialization targets.  */
+      if (sym->attr.external || sym->attr.use_assoc || sym->attr.intrinsic)
+	{
+	  decl = gfc_get_extern_function_decl (sym);
+	  gfc_set_decl_location (decl, &sym->declared_at);
+	}
+      else
+	{
+	  if (!sym->backend_decl)
+	    build_function_decl (sym, false);
+	  decl = sym->backend_decl;
+	}
       return decl;
     }
 
@@ -1281,8 +1293,11 @@ gfc_get_symbol_decl (gfc_symbol * sym)
 	 every time the procedure is entered. The TREE_STATIC is
 	 in this case due to -fmax-stack-var-size=.  */
       DECL_INITIAL (decl) = gfc_conv_initializer (sym->value, &sym->ts,
-	  TREE_TYPE (decl), sym->attr.dimension,
-	  sym->attr.pointer || sym->attr.allocatable);
+						  TREE_TYPE (decl),
+						  sym->attr.dimension,
+						  sym->attr.pointer
+						  || sym->attr.allocatable,
+						  sym->attr.proc_pointer);
     }
 
   if (!TREE_STATIC (decl)
@@ -1369,9 +1384,9 @@ get_proc_pointer_decl (gfc_symbol *sym)
     {
       /* Add static initializer.  */
       DECL_INITIAL (decl) = gfc_conv_initializer (sym->value, &sym->ts,
-	  TREE_TYPE (decl),
-	  sym->attr.proc_pointer ? false : sym->attr.dimension,
-	  sym->attr.proc_pointer);
+						  TREE_TYPE (decl),
+						  sym->attr.dimension,
+						  false, true);
     }
 
   attributes = add_attributes_to_decl (sym->attr, NULL_TREE);
@@ -1608,8 +1623,10 @@ build_function_decl (gfc_symbol * sym, bool global)
   tree result_decl;
   gfc_formal_arglist *f;
 
-  gcc_assert (!sym->backend_decl);
   gcc_assert (!sym->attr.external);
+
+  if (sym->backend_decl)
+    return;
 
   /* Set the line and filename.  sym->declared_at seems to point to the
      last statement for subroutines, but it'll do for now.  */
@@ -3133,42 +3150,15 @@ trans_associate_var (gfc_symbol* sym, gfc_wrapped_block* block)
 	 descriptor to the one generated for the temporary.  */
       if (!sym->assoc->variable)
 	{
-	  tree offs;
 	  int dim;
 
 	  gfc_add_modify (&se.pre, desc, se.expr);
 
 	  /* The generated descriptor has lower bound zero (as array
-	     temporary), shift bounds so we get lower bounds of 1 all the time.
-	     The offset has to be corrected as well.
-	     Because the ubound shift and offset depends on the lower bounds, we
-	     first calculate those and set the lbound to one last.  */
-
-	  offs = gfc_conv_descriptor_offset_get (desc);
+	     temporary), shift bounds so we get lower bounds of 1.  */
 	  for (dim = 0; dim < e->rank; ++dim)
-	    {
-	      tree from, to;
-	      tree stride;
-
-	      from = gfc_conv_descriptor_lbound_get (desc, gfc_rank_cst[dim]);
-	      to = gfc_conv_descriptor_ubound_get (desc, gfc_rank_cst[dim]);
-	      stride = gfc_conv_descriptor_stride_get (desc, gfc_rank_cst[dim]);
-
-	      tmp = fold_build2 (MINUS_EXPR, gfc_array_index_type,
-				 gfc_index_one_node, from);
-	      to = fold_build2 (PLUS_EXPR, gfc_array_index_type, to, tmp);
-
-	      tmp = fold_build2 (MULT_EXPR, gfc_array_index_type, tmp, stride);
-	      offs = fold_build2 (MINUS_EXPR, gfc_array_index_type, offs, tmp);
-
-	      gfc_conv_descriptor_ubound_set (&se.pre, desc,
-					      gfc_rank_cst[dim], to);
-	    }
-	  gfc_conv_descriptor_offset_set (&se.pre, desc, offs);
-
-	  for (dim = 0; dim < e->rank; ++dim)
-	    gfc_conv_descriptor_lbound_set (&se.pre, desc, gfc_rank_cst[dim],
-					    gfc_index_one_node);
+	    gfc_conv_shift_descriptor_lbound (&se.pre, desc,
+					      dim, gfc_index_one_node);
 	}
 
       /* Done, register stuff as init / cleanup code.  */
@@ -3587,7 +3577,7 @@ gfc_create_module_variable (gfc_symbol * sym)
       && (sym->equiv_built || sym->attr.in_equivalence))
     return;
 
-  if (sym->backend_decl && !sym->attr.vtab)
+  if (sym->backend_decl && !sym->attr.vtab && !sym->attr.target)
     internal_error ("backend decl for module variable %s already exists",
 		    sym->name);
 
@@ -3833,9 +3823,10 @@ gfc_emit_parameter_debug_info (gfc_symbol *sym)
   TREE_USED (decl) = 1;
   if (DECL_CONTEXT (decl) && TREE_CODE (DECL_CONTEXT (decl)) == NAMESPACE_DECL)
     TREE_PUBLIC (decl) = 1;
-  DECL_INITIAL (decl)
-    = gfc_conv_initializer (sym->value, &sym->ts, TREE_TYPE (decl),
-			    sym->attr.dimension, 0);
+  DECL_INITIAL (decl) = gfc_conv_initializer (sym->value, &sym->ts,
+					      TREE_TYPE (decl),
+					      sym->attr.dimension,
+					      false, false);
   debug_hooks->global_decl (decl);
 }
 

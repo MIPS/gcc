@@ -422,6 +422,7 @@ enum gfc_isym_id
   GFC_ISYM_J0,
   GFC_ISYM_J1,
   GFC_ISYM_JN,
+  GFC_ISYM_JN2,
   GFC_ISYM_KILL,
   GFC_ISYM_KIND,
   GFC_ISYM_LBOUND,
@@ -531,7 +532,8 @@ enum gfc_isym_id
   GFC_ISYM_XOR,
   GFC_ISYM_Y0,
   GFC_ISYM_Y1,
-  GFC_ISYM_YN
+  GFC_ISYM_YN,
+  GFC_ISYM_YN2
 };
 typedef enum gfc_isym_id gfc_isym_id;
 
@@ -1538,7 +1540,7 @@ typedef struct gfc_intrinsic_arg
   char name[GFC_MAX_SYMBOL_LEN + 1];
 
   gfc_typespec ts;
-  int optional;
+  unsigned optional:1, value:1;
   ENUM_BITFIELD (sym_intent) intent:2;
   gfc_actual_arglist *actual;
 
@@ -2466,7 +2468,7 @@ gfc_try gfc_add_cray_pointee (symbol_attribute *, locus *);
 match gfc_mod_pointee_as (gfc_array_spec *);
 gfc_try gfc_add_protected (symbol_attribute *, const char *, locus *);
 gfc_try gfc_add_result (symbol_attribute *, const char *, locus *);
-gfc_try gfc_add_save (symbol_attribute *, const char *, locus *);
+gfc_try gfc_add_save (symbol_attribute *, save_state, const char *, locus *);
 gfc_try gfc_add_threadprivate (symbol_attribute *, const char *, locus *);
 gfc_try gfc_add_saved_common (symbol_attribute *, locus *);
 gfc_try gfc_add_target (symbol_attribute *, locus *);

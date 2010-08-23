@@ -126,6 +126,88 @@ resolve_typespec_used (gfc_typespec* ts, locus* where, const char* name)
 }
 
 
+static void resolve_symbol (gfc_symbol *sym);
+static gfc_try resolve_intrinsic (gfc_symbol *sym, locus *loc);
+
+
+/* Resolve the interface for a PROCEDURE declaration or procedure pointer.  */
+
+static gfc_try
+resolve_procedure_interface (gfc_symbol *sym)
+{
+  if (sym->ts.interface == sym)
+    {
+      gfc_error ("PROCEDURE '%s' at %L may not be used as its own interface",
+		 sym->name, &sym->declared_at);
+      return FAILURE;
+    }
+  if (sym->ts.interface->attr.procedure)
+    {
+      gfc_error ("Interface '%s', used by procedure '%s' at %L, is declared "
+		 "in a later PROCEDURE statement", sym->ts.interface->name,
+		 sym->name, &sym->declared_at);
+      return FAILURE;
+    }
+
+  /* Get the attributes from the interface (now resolved).  */
+  if (sym->ts.interface->attr.if_source || sym->ts.interface->attr.intrinsic)
+    {
+      gfc_symbol *ifc = sym->ts.interface;
+      resolve_symbol (ifc);
+
+      if (ifc->attr.intrinsic)
+	resolve_intrinsic (ifc, &ifc->declared_at);
+
+      if (ifc->result)
+	sym->ts = ifc->result->ts;
+      else   
+	sym->ts = ifc->ts;
+      sym->ts.interface = ifc;
+      sym->attr.function = ifc->attr.function;
+      sym->attr.subroutine = ifc->attr.subroutine;
+      gfc_copy_formal_args (sym, ifc);
+
+      sym->attr.allocatable = ifc->attr.allocatable;
+      sym->attr.pointer = ifc->attr.pointer;
+      sym->attr.pure = ifc->attr.pure;
+      sym->attr.elemental = ifc->attr.elemental;
+      sym->attr.dimension = ifc->attr.dimension;
+      sym->attr.contiguous = ifc->attr.contiguous;
+      sym->attr.recursive = ifc->attr.recursive;
+      sym->attr.always_explicit = ifc->attr.always_explicit;
+      sym->attr.ext_attr |= ifc->attr.ext_attr;
+      /* Copy array spec.  */
+      sym->as = gfc_copy_array_spec (ifc->as);
+      if (sym->as)
+	{
+	  int i;
+	  for (i = 0; i < sym->as->rank; i++)
+	    {
+	      gfc_expr_replace_symbols (sym->as->lower[i], sym);
+	      gfc_expr_replace_symbols (sym->as->upper[i], sym);
+	    }
+	}
+      /* Copy char length.  */
+      if (ifc->ts.type == BT_CHARACTER && ifc->ts.u.cl)
+	{
+	  sym->ts.u.cl = gfc_new_charlen (sym->ns, ifc->ts.u.cl);
+	  gfc_expr_replace_symbols (sym->ts.u.cl->length, sym);
+	  if (sym->ts.u.cl->length && !sym->ts.u.cl->resolved
+	      && gfc_resolve_expr (sym->ts.u.cl->length) == FAILURE)
+	    return FAILURE;
+	}
+    }
+  else if (sym->ts.interface->name[0] != '\0')
+    {
+      gfc_error ("Interface '%s' of procedure '%s' at %L must be explicit",
+		 sym->ts.interface->name, sym->name, &sym->declared_at);
+      return FAILURE;
+    }
+
+  return SUCCESS;
+}
+
+
 /* Resolve types of formal argument lists.  These have to be done early so that
    the formal argument lists of module procedures can be copied to the
    containing module before the individual procedures are resolved
@@ -174,6 +256,9 @@ resolve_formal_arglist (gfc_symbol *proc)
 		       &proc->declared_at);
 	  continue;
 	}
+      else if (sym->attr.procedure && sym->ts.interface
+	       && sym->attr.if_source != IFSRC_DECL)
+	resolve_procedure_interface (sym);
 
       if (sym->attr.if_source != IFSRC_UNKNOWN)
 	resolve_formal_arglist (sym);
@@ -833,10 +918,11 @@ resolve_contained_functions (gfc_namespace *ns)
 
 
 /* Resolve all of the elements of a structure constructor and make sure that
-   the types are correct.  */
+   the types are correct. The 'init' flag indicates that the given
+   constructor is an initializer.  */
 
 static gfc_try
-resolve_structure_cons (gfc_expr *expr)
+resolve_structure_cons (gfc_expr *expr, int init)
 {
   gfc_constructor *cons;
   gfc_component *comp;
@@ -896,7 +982,8 @@ resolve_structure_cons (gfc_expr *expr)
 
       /* If we don't have the right type, try to convert it.  */
 
-      if (!gfc_compare_types (&cons->expr->ts, &comp->ts))
+      if (!comp->attr.proc_pointer &&
+	  !gfc_compare_types (&cons->expr->ts, &comp->ts))
 	{
 	  t = FAILURE;
 	  if (strcmp (comp->name, "$extends") == 0)
@@ -1005,6 +1092,23 @@ resolve_structure_cons (gfc_expr *expr)
 		     "a TARGET", &cons->expr->where, comp->name);
 	}
 
+      if (init)
+	{
+	  /* F08:C461. Additional checks for pointer initialization.  */
+	  if (a.allocatable)
+	    {
+	      t = FAILURE;
+	      gfc_error ("Pointer initialization target at %L "
+			 "must not be ALLOCATABLE ", &cons->expr->where);
+	    }
+	  if (!a.save)
+	    {
+	      t = FAILURE;
+	      gfc_error ("Pointer initialization target at %L "
+			 "must have the SAVE attribute", &cons->expr->where);
+	    }
+	}
+
       /* F2003, C1272 (3).  */
       if (gfc_pure (NULL) && cons->expr->expr_type == EXPR_VARIABLE
 	  && (gfc_impure_variable (cons->expr->symtree->n.sym)
@@ -1015,6 +1119,7 @@ resolve_structure_cons (gfc_expr *expr)
 		     "pointer component '%s' at %L in PURE procedure",
 		     comp->name, &cons->expr->where);
 	}
+
     }
 
   return t;
@@ -5977,7 +6082,7 @@ gfc_resolve_expr (gfc_expr *e)
       if (t == FAILURE)
 	break;
 
-      t = resolve_structure_cons (e);
+      t = resolve_structure_cons (e, 0);
       if (t == FAILURE)
 	break;
 
@@ -7727,7 +7832,12 @@ resolve_transfer (gfc_code *code)
 
   exp = code->expr1;
 
-  if (exp->expr_type != EXPR_VARIABLE && exp->expr_type != EXPR_FUNCTION)
+  while (exp != NULL && exp->expr_type == EXPR_OP
+	 && exp->value.op.op == INTRINSIC_PARENTHESES)
+    exp = exp->value.op.op1;
+
+  if (exp == NULL || (exp->expr_type != EXPR_VARIABLE
+		      && exp->expr_type != EXPR_FUNCTION))
     return;
 
   sym = exp->symtree->n.sym;
@@ -8924,10 +9034,17 @@ resolve_code (gfc_code *code, gfc_namespace *ns)
 static void
 resolve_values (gfc_symbol *sym)
 {
+  gfc_try t;
+
   if (sym->value == NULL)
     return;
 
-  if (gfc_resolve_expr (sym->value) == FAILURE)
+  if (sym->value->expr_type == EXPR_STRUCTURE)
+    t= resolve_structure_cons (sym->value, 1);
+  else 
+    t = gfc_resolve_expr (sym->value);
+
+  if (t == FAILURE)
     return;
 
   gfc_check_assign_symbol (sym, sym->value);
@@ -9636,7 +9753,7 @@ resolve_fl_variable (gfc_symbol *sym, int mp_flag)
 	  return FAILURE;
 	}
 
-      if (e && sym->attr.save && !gfc_is_constant_expr (e))
+      if (e && sym->attr.save == SAVE_EXPLICIT && !gfc_is_constant_expr (e))
 	{
 	  gfc_error (auto_save_msg, sym->name, &sym->declared_at);
 	  return FAILURE;
@@ -10938,9 +11055,6 @@ ensure_not_abstract (gfc_symbol* sub, gfc_symbol* ancestor)
 }
 
 
-static void resolve_symbol (gfc_symbol *sym);
-
-
 /* Resolve the components of a derived type.  */
 
 static gfc_try
@@ -11501,7 +11615,8 @@ resolve_symbol (gfc_symbol *sym)
   gfc_component *c;
 
   /* Avoid double resolution of function result symbols.  */
-  if ((sym->result || sym->attr.result) && (sym->ns != gfc_current_ns))
+  if ((sym->result || sym->attr.result) && !sym->attr.dummy
+      && (sym->ns != gfc_current_ns))
     return;
   
   if (sym->attr.flavor == FL_UNKNOWN)
@@ -11540,78 +11655,9 @@ resolve_symbol (gfc_symbol *sym)
     gfc_add_function (&sym->attr, sym->name, &sym->declared_at);
 
   if (sym->attr.procedure && sym->ts.interface
-      && sym->attr.if_source != IFSRC_DECL)
-    {
-      if (sym->ts.interface == sym)
-	{
-	  gfc_error ("PROCEDURE '%s' at %L may not be used as its own "
-		     "interface", sym->name, &sym->declared_at);
-	  return;
-	}
-      if (sym->ts.interface->attr.procedure)
-	{
-	  gfc_error ("Interface '%s', used by procedure '%s' at %L, is declared"
-		     " in a later PROCEDURE statement", sym->ts.interface->name,
-		     sym->name,&sym->declared_at);
-	  return;
-	}
-
-      /* Get the attributes from the interface (now resolved).  */
-      if (sym->ts.interface->attr.if_source
-	  || sym->ts.interface->attr.intrinsic)
-	{
-	  gfc_symbol *ifc = sym->ts.interface;
-	  resolve_symbol (ifc);
-
-	  if (ifc->attr.intrinsic)
-	    resolve_intrinsic (ifc, &ifc->declared_at);
-
-	  if (ifc->result)
-	    sym->ts = ifc->result->ts;
-	  else   
-	    sym->ts = ifc->ts;
-	  sym->ts.interface = ifc;
-	  sym->attr.function = ifc->attr.function;
-	  sym->attr.subroutine = ifc->attr.subroutine;
-	  gfc_copy_formal_args (sym, ifc);
-
-	  sym->attr.allocatable = ifc->attr.allocatable;
-	  sym->attr.pointer = ifc->attr.pointer;
-	  sym->attr.pure = ifc->attr.pure;
-	  sym->attr.elemental = ifc->attr.elemental;
-	  sym->attr.dimension = ifc->attr.dimension;
-	  sym->attr.contiguous = ifc->attr.contiguous;
-	  sym->attr.recursive = ifc->attr.recursive;
-	  sym->attr.always_explicit = ifc->attr.always_explicit;
-          sym->attr.ext_attr |= ifc->attr.ext_attr;
-	  /* Copy array spec.  */
-	  sym->as = gfc_copy_array_spec (ifc->as);
-	  if (sym->as)
-	    {
-	      int i;
-	      for (i = 0; i < sym->as->rank; i++)
-		{
-		  gfc_expr_replace_symbols (sym->as->lower[i], sym);
-		  gfc_expr_replace_symbols (sym->as->upper[i], sym);
-		}
-	    }
-	  /* Copy char length.  */
-	  if (ifc->ts.type == BT_CHARACTER && ifc->ts.u.cl)
-	    {
-	      sym->ts.u.cl = gfc_new_charlen (sym->ns, ifc->ts.u.cl);
-	      gfc_expr_replace_symbols (sym->ts.u.cl->length, sym);
-	      if (sym->ts.u.cl->length && !sym->ts.u.cl->resolved
-		    && gfc_resolve_expr (sym->ts.u.cl->length) == FAILURE)
-		return;
-	    }
-	}
-      else if (sym->ts.interface->name[0] != '\0')
-	{
-	  gfc_error ("Interface '%s' of procedure '%s' at %L must be explicit",
-		    sym->ts.interface->name, sym->name, &sym->declared_at);
-	  return;
-	}
-    }
+      && sym->attr.if_source != IFSRC_DECL
+      && resolve_procedure_interface (sym) == FAILURE)
+    return;
 
   if (sym->attr.is_protected && !sym->attr.proc_pointer
       && (sym->attr.procedure || sym->attr.external))
