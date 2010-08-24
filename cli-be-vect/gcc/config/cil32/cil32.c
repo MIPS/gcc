@@ -941,35 +941,69 @@ cil32_builtin_interleave_high_low (enum tree_code code, tree type)
   switch (code)
     {
     case VEC_INTERLEAVE_HIGH_EXPR:
-      switch (element_size)
+      if (TREE_CODE (elem_type) == INTEGER_TYPE)
         {
-        case 4:
-	  return cil32_builtins[CIL32_GEN_VSI_INTERLEAVE_HIGH];
+          switch (element_size)
+            {
+              case 4:
+ 	        return cil32_builtins[CIL32_GEN_VSI_INTERLEAVE_HIGH];
 
-        case 2:
-          return cil32_builtins[CIL32_GEN_VHI_INTERLEAVE_HIGH];
+              case 2:
+                return cil32_builtins[CIL32_GEN_VHI_INTERLEAVE_HIGH];
 
-        case 1:
-          return cil32_builtins[CIL32_GEN_VQI_INTERLEAVE_HIGH];
+              case 1:
+                return cil32_builtins[CIL32_GEN_VQI_INTERLEAVE_HIGH];
 
-        default:
-          return NULL_TREE;
+              default:
+                return NULL_TREE;
+            }
+        }
+      else
+        {
+          switch (element_size)
+            {
+              case 8:
+                return cil32_builtins[CIL32_GEN_VDF_INTERLEAVE_HIGH];
+
+              case 4:
+                return cil32_builtins[CIL32_GEN_VSF_INTERLEAVE_HIGH];
+
+              default:
+                return NULL_TREE;
+            }
         }
 
     case VEC_INTERLEAVE_LOW_EXPR:
-      switch (element_size)
+      if (TREE_CODE (elem_type) == INTEGER_TYPE)
         {
-        case 4:
-          return cil32_builtins[CIL32_GEN_VSI_INTERLEAVE_LOW];
+          switch (element_size)
+            {
+              case 4:
+                return cil32_builtins[CIL32_GEN_VSI_INTERLEAVE_LOW];
 
-        case 2:
-          return cil32_builtins[CIL32_GEN_VHI_INTERLEAVE_LOW];
+              case 2:
+                return cil32_builtins[CIL32_GEN_VHI_INTERLEAVE_LOW];
 
-        case 1:
-          return cil32_builtins[CIL32_GEN_VQI_INTERLEAVE_LOW];
+              case 1:
+                return cil32_builtins[CIL32_GEN_VQI_INTERLEAVE_LOW];
 
-        default:
-          return NULL_TREE;
+              default:
+                return NULL_TREE;
+            }
+        }
+      else
+        {
+          switch (element_size)
+            {
+              case 8:
+                return cil32_builtins[CIL32_GEN_VDF_INTERLEAVE_LOW];
+
+              case 4:
+                return cil32_builtins[CIL32_GEN_VSF_INTERLEAVE_LOW];
+
+              default:
+                return NULL_TREE;
+            }
         }
 
     default:
@@ -984,38 +1018,73 @@ cil32_builtin_extract_even_odd (enum tree_code code, tree type)
   tree elem_type = TREE_TYPE (type);
   unsigned element_size = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (elem_type));
 
+
   switch (code)
     {
     case VEC_EXTRACT_EVEN_EXPR:
-      switch (element_size)
+      if (TREE_CODE (elem_type) == INTEGER_TYPE)
         {
-        case 4:
-          return cil32_builtins[CIL32_GEN_VSI_EXTRACT_EVEN];
+          switch (element_size)
+            {
+              case 4:
+                return cil32_builtins[CIL32_GEN_VSI_EXTRACT_EVEN];
 
-        case 2:
-          return cil32_builtins[CIL32_GEN_VHI_EXTRACT_EVEN];
+              case 2:
+                return cil32_builtins[CIL32_GEN_VHI_EXTRACT_EVEN];
 
-        case 1:
-          return cil32_builtins[CIL32_GEN_VQI_EXTRACT_EVEN];
+              case 1:
+                return cil32_builtins[CIL32_GEN_VQI_EXTRACT_EVEN];
 
-        default:
-          return NULL_TREE;
+              default:
+                return NULL_TREE;
+            }
+        }
+      else
+        {
+          switch (element_size)
+            {
+              case 8:
+                return cil32_builtins[CIL32_GEN_VDF_EXTRACT_EVEN];
+
+              case 4:
+                return cil32_builtins[CIL32_GEN_VSF_EXTRACT_EVEN];
+
+              default:
+                return NULL_TREE;
+            }
         }
 
     case VEC_EXTRACT_ODD_EXPR:
-      switch (element_size)
+      if (TREE_CODE (elem_type) == INTEGER_TYPE)
         {
-        case 4:
-          return cil32_builtins[CIL32_GEN_VSI_EXTRACT_ODD];
+          switch (element_size)
+            {
+              case 4:
+                return cil32_builtins[CIL32_GEN_VSI_EXTRACT_ODD];
 
-        case 2:
-          return cil32_builtins[CIL32_GEN_VHI_EXTRACT_ODD];
+              case 2:
+                return cil32_builtins[CIL32_GEN_VHI_EXTRACT_ODD];
 
-        case 1:
-          return cil32_builtins[CIL32_GEN_VQI_EXTRACT_ODD];
+              case 1:
+                return cil32_builtins[CIL32_GEN_VQI_EXTRACT_ODD];
 
-        default:
-          return NULL_TREE;
+              default:
+                return NULL_TREE;
+            }
+        }
+      else
+        {
+          switch (element_size)
+            {
+              case 8:
+                return cil32_builtins[CIL32_GEN_VDF_EXTRACT_ODD];
+
+              case 4:
+                return cil32_builtins[CIL32_GEN_VSF_EXTRACT_ODD];
+
+              default:
+                return NULL_TREE;
+            }
         }
 
     default:
