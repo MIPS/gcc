@@ -534,6 +534,9 @@ replace_reduc_epilog_builtin (int index, gimple stmt)
   optab reduc_optab;
   enum machine_mode vec_mode;
   enum tree_code code;
+  gimple use_stmt;
+  imm_use_iterator imm_iter;
+  use_operand_p use_p;
 
   arg = gimple_call_arg (stmt, 0);
   vectype = TREE_TYPE (arg);
@@ -739,8 +742,13 @@ replace_reduc_epilog_builtin (int index, gimple stmt)
       gsi_insert_before (&gsi, epilog_stmt, GSI_SAME_STMT);
     }
 
-  finish_replacement (new_temp, stmt, NULL);
-  /* REMOVE EXTRACT SCALAR... ???? */
+  FOR_EACH_IMM_USE_STMT (use_stmt, imm_iter, gimple_assign_lhs (stmt))
+    FOR_EACH_IMM_USE_ON_STMT (use_p, imm_iter)
+      SET_USE (use_p, new_temp);
+  
+  gsi = gsi_for_stmt (stmt);
+  gsi_remove (&gsi, true);
+ 
   return true;
 }
 
