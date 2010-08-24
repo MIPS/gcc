@@ -1,3 +1,56 @@
+2010-08-24  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.md (fixuns_truncsfsi2): Delete, merge into
+	common pattern for both SF/DF.  Add power7 support.
+	(fix_truncsfsi2): Ditto.
+	(fixuns_truncdfsi2): Ditto.
+	(fixuns_truncdfdi2): Ditto.
+	(fix_truncdfsi2): Ditto.
+	(fix_truncdfsi2_internal): Ditto.
+	(fix_truncdfsi2_internal_gfxopt): Ditto.
+	(fix_truncdfsi2_mfpgpr): Ditto.
+	(fctiwz): Ditto.
+	(btruncdf2): Ditto.
+	(btruncdf2_fpr): Ditto.
+	(btructsf2): Ditto.
+	(ceildf2): Ditto.
+	(ceildf2_fpr): Ditto.
+	(ceilsf2): Ditto.
+	(floordf2): Ditto.
+	(floordf2_fpr): Ditto.
+	(floorsf2): Ditto.
+	(rounddf2): Ditto.
+	(rounddf2_fpr): Ditto.
+	(roundsf2): Ditto.
+	(fix_trunc<mode>si2): Combine SF/DF conversion into one insn.
+	(fix_trunc<mode>di2): Ditto.
+	(fixuns_trunc<mode>si2): Ditto.
+	(fixuns_trunc<mode>di2): Ditto.
+	(fctiwz_<mode>): Ditto.
+	(btrunc<mode>2): Ditto.
+	(btrunc<mode>2_fpr): Ditto.
+	(ceil<mode>2): Ditto.
+	(ceil<mode>2_fpr): Ditto.
+	(floor<mode>2): Ditto.
+	(float<mode>2_fpr): Ditto.
+	(round<mode>2): Ditto.
+	(round<mode>2_fpr): Ditto.
+	(fix_trunc<mode>si2_stfiwx): New insn for machines with STFIWX.
+	(fixuns_trunc<mode>si2_stfiwx): Ditto.
+	(fix_truncdfsi2_internal): Ditto.
+	(fix_trunc<mode>si2_mem): Combiner pattern to eliminate storing
+	converted value on stack, loaded into GPR, and then stored into
+	the final destination.
+	(fix_trunc<mode>di2_fctidz): New pattern for targets supporting
+	FCTIDZ.
+	(lrint<mode>di2): New insn, provide the lrint builtin functions.
+	(ftruncdf2): Delete, unused.
+	(fix_trunctfsi2_internal): Use gen_fctiwz_df, not gen_fctiwz.
+
+	* config/rs6000/vsx.md (toplevel): Update copyright year.
+	(VSr2): Use "ws" contraint for DFmode, not "!r#r".
+	(VSr3): Ditto.
+
 2010-08-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 163480, -mveclibabi=mass approved.
