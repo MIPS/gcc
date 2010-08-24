@@ -642,6 +642,8 @@ replace_reduc_epilog_builtin (int index, gimple stmt)
   element_bitsize = tree_low_cst (bitsize, 1);
   vec_size_in_bits = tree_low_cst (TYPE_SIZE (vectype), 1);
 
+  gsi = gsi_for_stmt (stmt);
+
   gcc_assert (reduc_code < NUM_TREE_CODES);
   reduc_optab = optab_for_tree_code (reduc_code, vectype,
                                          optab_default);
@@ -672,7 +674,6 @@ replace_reduc_epilog_builtin (int index, gimple stmt)
       add_referenced_var (vec_dest);
       DECL_GIMPLE_REG_P (vec_dest) = true;
       new_temp = arg;
-      gsi = gsi_for_stmt (stmt);
 
       for (bit_offset = vec_size_in_bits/2;
            bit_offset >= element_bitsize;
@@ -1204,10 +1205,12 @@ replace_shift (int index, gimple stmt)
 
   mode = (int) TYPE_MODE (vectype);
 
-  gcc_assert (TREE_CODE (vector_arg) == SSA_NAME);
-  def_stmt = SSA_NAME_DEF_STMT (vector_arg);
-  if (gimple_bb (stmt) == gimple_bb (def_stmt))
-    invariant = false;
+  if (TREE_CODE (vector_arg) == SSA_NAME)
+    {
+      def_stmt = SSA_NAME_DEF_STMT (vector_arg);
+      if (gimple_bb (stmt) == gimple_bb (def_stmt))
+        invariant = false; 
+    }
 
   if (invariant)
     {
