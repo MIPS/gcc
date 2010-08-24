@@ -7396,7 +7396,7 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
 		msq = new_temp;
 
 		bump = size_binop (MULT_EXPR, vs_minus_1,
-				   vect_type_size_unit (loop_vinfo, vectype));
+                                   TYPE_SIZE_UNIT (scalar_type));
                 tmp_var = create_tmp_var (TREE_TYPE (bump), "bump");
                 add_referenced_var (tmp_var);
                 bump = force_gimple_operand (bump, &stmts, false, NULL);
