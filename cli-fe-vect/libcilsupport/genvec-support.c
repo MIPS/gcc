@@ -864,3 +864,95 @@ genvec_support_VSF_VSF_realign_offset_System_UInt32()
   return 0;
 }
 
+v4sf
+genvec_support_VSI_VSI_int_to_float_signed_Mono_Simd_Vector4i_Mono_Simd_Vector4f(u4si vec)
+{
+  int i;
+  u4sf res;
+
+  for(i=0; i < 4; i++) {
+    res.a[i] = vec.a[i];
+  }
+  return res.v;
+}
+
+
+/* public static Vector8s VHI_shift_left(Vector8s a, Vector8s b, uint c) */
+v8hi
+genvec_support_VHI_VHI_shift_left_Mono_Simd_Vector8s_Mono_Simd_Vector8s_System_UInt32_Mono_Simd_Vector8s(u8si a, u8si b, unsigned int c)
+{
+  int i;
+  u8hi res;
+  for(i=0; i < 8; i++) {
+    res.a[i] = a.a[i] << c;
+  }
+  return res.v;
+}
+
+
+/* public static Vector8s VHI_shift_right(Vector8s a, Vector8s b, uint c) */
+v8hi
+genvec_support_VHI_VHI_shift_right_Mono_Simd_Vector8s_Mono_Simd_Vector8s_System_UInt32_Mono_Simd_Vector8s(u8si a, u8si b, unsigned int c)
+{
+  int i;
+  u8hi res;
+  for(i=0; i < 8; i++) {
+    res.a[i] = a.a[i] >> c;
+  }
+  return res.v;
+}
+
+
+/* public static Vector4i VSI_shift_left(Vector4i a, Vector4i b, uint c) */
+v4si
+genvec_support_VSI_VSI_shift_left_Mono_Simd_Vector4i_Mono_Simd_Vector4i_System_UInt32_Mono_Simd_Vector4i(u4si a, u4si b, unsigned int c)
+{
+  int i;
+  u4si res;
+  for(i=0; i < 4; i++) {
+    res.a[i] = a.a[i] << c;
+  }
+  return res.v;
+}
+
+
+/* public static Vector4i VSI_shift_right(Vector4i a, Vector4i b, uint c) */
+v4si
+genvec_support_VSI_VSI_shift_right_Mono_Simd_Vector4i_Mono_Simd_Vector4i_System_UInt32_Mono_Simd_Vector4i(u4si a, u4si b, unsigned int c)
+{
+  int i;
+  u4si res;
+  for(i=0; i < 4; i++) {
+    res.a[i] = a.a[i] >> c;
+  }
+  return res.v;
+}
+
+
+/* public static Vector8s VHI_pack(Vector4i a, Vector4i b) */
+v8hi
+genvec_support_VHI_VHI_pack_Mono_Simd_Vector4i_Mono_Simd_Vector4i_Mono_Simd_Vector8s(u4si a, u4si b)
+{
+  int i;
+  u8hi res;
+  for(i=0; i < 4; i++) {
+    res.a[i] = a.a[i] & 0xffff;
+  }
+  for(i=0; i < 4; i++) {
+    res.a[i+4] = b.a[i] & 0xffff;
+  }
+  return res.v;
+}
+
+
+/* public static Vector4i VSI_float_to_int_signed(Vector4f a) */
+v4si
+genvec_support_VSI_VSI_float_to_int_signed_Mono_Simd_Vector4f_Mono_Simd_Vector4i(u4sf a)
+{
+  int i;
+  u4si res;
+  for(i=0; i < 4; i++) {
+    res.a[i] = (int)(a.a[i]);
+  }
+  return res.v;  
+}
