@@ -742,7 +742,7 @@ replace_reduc_epilog_builtin (int index, gimple stmt)
       gsi_insert_before (&gsi, epilog_stmt, GSI_SAME_STMT);
     }
 
-  FOR_EACH_IMM_USE_STMT (use_stmt, imm_iter, gimple_assign_lhs (stmt))
+  FOR_EACH_IMM_USE_STMT (use_stmt, imm_iter, gimple_call_lhs (stmt))
     FOR_EACH_IMM_USE_ON_STMT (use_p, imm_iter)
       SET_USE (use_p, new_temp);
   
