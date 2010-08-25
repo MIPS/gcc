@@ -183,9 +183,18 @@ create_cli_fn_table (void)
   cli_functions[111] = add_cli_function ("genvec_support_VQI_VQI_left_right_Mono_Simd_Vector16sb_Mono_Simd_Vector16sb_System_UInt32_Mono_Simd_Vector16sb", unsigned_type_node);
   cli_functions[112] = add_cli_function ("genvec_support_VHI_VHI_shift_left_Mono_Simd_Vector8s_Mono_Simd_Vector8s_System_UInt32_Mono_Simd_Vector8s", unsigned_type_node);
   cli_functions[113] = add_cli_function ("genvec_support_VSI_VSI_shift_left_Mono_Simd_Vector4i_Mono_Simd_Vector4i_System_UInt32_Mono_Simd_Vector4i", unsigned_type_node);
+
+  cli_functions[114] = add_cli_function ("genvec_support_VSF_VSF_interleave_high_Mono_Simd_Vector4f_Mono_Simd_Vector4f_Mono_Simd_Vector4f", unsigned_type_node);
+  cli_functions[115] = add_cli_function ("genvec_support_VDF_VDF_interleave_high_Mono_Simd_Vector2d_Mono_Simd_Vector2d_Mono_Simd_Vector2d", unsigned_type_node);
+  cli_functions[116] = add_cli_function ("genvec_support_VSF_VSF_interleave_low_Mono_Simd_Vector4f_Mono_Simd_Vector4f_Mono_Simd_Vector4f", unsigned_type_node);
+  cli_functions[117] = add_cli_function ("genvec_support_VDF_VDF_interleave_low_Mono_Simd_Vector2d_Mono_Simd_Vector2d_Mono_Simd_Vector2d", unsigned_type_node);
+  cli_functions[118] = add_cli_function ("genvec_support_VSF_VSF_extract_even_Mono_Simd_Vector4f_Mono_Simd_Vector4f_Mono_Simd_Vector4f", unsigned_type_node);
+  cli_functions[119] = add_cli_function ("genvec_support_VDF_VDF_extract_even_Mono_Simd_Vector2d_Mono_Simd_Vector2d_Mono_Simd_Vector2d", unsigned_type_node);
+  cli_functions[120] = add_cli_function ("genvec_support_VSF_VSF_extract_odd_Mono_Simd_Vector4f_Mono_Simd_Vector4f_Mono_Simd_Vector4f", unsigned_type_node);
+  cli_functions[121] = add_cli_function ("genvec_support_VDF_VDF_extract_odd_Mono_Simd_Vector2d_Mono_Simd_Vector2d_Mono_Simd_Vector2d", unsigned_type_node);
 }
 
-#define MAX_CLI_FN 114 
+#define MAX_CLI_FN 122 
 
 static tree
 get_vectype (tree scalar_type)
@@ -1049,6 +1058,46 @@ replace_interleaving (int index, gimple stmt)
         scalar_type = intSI_type_node;
         break;
 
+      case interleave_high_vsf:
+        code = VEC_INTERLEAVE_HIGH_EXPR;
+        scalar_type = float_type_node;
+        break;
+
+      case interleave_high_vdf:
+        code = VEC_INTERLEAVE_HIGH_EXPR;
+        scalar_type = double_type_node;
+        break;
+
+      case interleave_low_vsf:
+        code = VEC_INTERLEAVE_LOW_EXPR;
+        scalar_type = float_type_node;
+        break;
+
+      case interleave_low_vdf:
+        code = VEC_INTERLEAVE_LOW_EXPR;
+        scalar_type = double_type_node;
+        break;
+
+      case extract_even_vsf:
+        code = VEC_EXTRACT_EVEN_EXPR;
+        scalar_type = float_type_node;
+        break;
+
+      case extract_even_vdf:
+        code = VEC_EXTRACT_EVEN_EXPR;
+        scalar_type = double_type_node;
+        break;
+
+      case extract_odd_vsf:
+        code = VEC_EXTRACT_ODD_EXPR;
+        scalar_type = float_type_node;
+        break;
+
+      case extract_odd_vdf:
+        code = VEC_EXTRACT_ODD_EXPR;
+        scalar_type = double_type_node;
+        break;
+
       default:
         return false;
     }
@@ -1447,6 +1496,14 @@ replace_cli_fn (int index, gimple stmt)
       case extract_odd_vqi:
       case extract_odd_vhi:
       case extract_odd_vsi:
+      case interleave_high_vsf:
+      case interleave_high_vdf:
+      case interleave_low_vsf:
+      case interleave_low_vdf:
+      case extract_even_vsf:
+      case extract_even_vdf:
+      case extract_odd_vsf:
+      case extract_odd_vdf:
 	return replace_interleaving (index, stmt);
 
       case pack_vqi:

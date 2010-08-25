@@ -988,6 +988,14 @@ enum cli_builtins {
   shift_left_vqi,
   shift_left_vhi,
   shift_left_vsi,
+  interleave_high_vsf,
+  interleave_high_vdf,
+  interleave_low_vsf,
+  interleave_low_vdf,
+  extract_even_vsf,
+  extract_even_vdf,
+  extract_odd_vsf,
+  extract_odd_vdf,
 };
 
 #endif  /* GCC_TREE_VECTORIZER_H  */
