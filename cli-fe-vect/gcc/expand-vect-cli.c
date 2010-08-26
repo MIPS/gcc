@@ -761,6 +761,7 @@ replace_reduc_epilog_builtin (int index, gimple stmt)
   return true;
 }
 
+VEC (gimple, heap) *removed_stmts = NULL;
 static bool
 replace_realign_load_builtin (int index, gimple stmt)
 {
@@ -844,8 +845,28 @@ replace_realign_load_builtin (int index, gimple stmt)
       if (def_stmt && is_gimple_assign (def_stmt)
           && gimple_assign_rhs_code (def_stmt) == VIEW_CONVERT_EXPR)
         {
-          gsi = gsi_for_stmt (def_stmt);
-          gsi_remove (&gsi, true);
+          int i;
+          gimple rem_stmt;
+          bool removed = false;
+
+          if (!removed_stmts)
+            removed_stmts = VEC_alloc (gimple, heap, 3);
+          else
+            {
+              for (i = 0; VEC_iterate (gimple, removed_stmts, i, rem_stmt); i++)
+                if (def_stmt == rem_stmt)
+                  {
+                    removed = true;
+                    break;
+                  }
+            }
+          
+          if (!removed)
+            {
+              VEC_safe_push (gimple, heap, removed_stmts, def_stmt);
+              gsi = gsi_for_stmt (def_stmt);
+              gsi_remove (&gsi, true);
+            }
         }
 
       return true;
@@ -1598,6 +1619,9 @@ scan_loops (void)
 
   FOR_EACH_BB (bb)
     replace_cli_builtins (bb);
+
+  if (removed_stmts)
+    VEC_free (gimple, heap, removed_stmts);
 
   mark_sym_for_renaming (gimple_vop (cfun));
   return 1;
