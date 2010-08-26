@@ -1,3 +1,49 @@
+2010-08-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/44858
+	* gcc.c-torture/execute/pr44858.c: New test.
+
+	PR rtl-optimization/45400
+	* g++.dg/other/i386-8.C: New test.
+
+2010-08-19  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/init/value8.C: New.
+
+2010-08-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/45344
+	Backport from mainline
+	2010-05-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* gfortran.dg/gomp/pr44036-1.f90: Adjust.
+
+2010-08-17  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/45296
+	* gcc.target/i386/pr45296.c: New test.
+
+2010-08-16  Changpeng Fang  <changpeng.fang@amd.com>
+
+        PR tree-optimization/45241
+        * gcc.dg/vect/no-tree-pre-pr45241.c: New test.
+
+2010-08-14  Uros Bizjak  <ubizjak@gmail.com>
+
+	* g++.dg/cast.C: Change fields of structures to "long" to pass
+	the test on targets with STRUCTURE_SIZE_BOUNDARY != BITS_PER_UNIT.
+	* g++.dg/cpp0x/iop.C: Ditto.
+	* g++.dg/cpp0x/named_refs.C: Ditto.
+	* g++.dg/cpp0x/rv1p.C: Ditto.
+	* g++.dg/cpp0x/rv2p.C: Ditto.
+	* g++.dg/cpp0x/rv3p.C: Ditto.
+	* g++.dg/cpp0x/rv4p.C: Ditto.
+	* g++.dg/cpp0x/rv5p.C: Ditto.
+	* g++.dg/cpp0x/rv6p.C: Ditto.
+	* g++.dg/cpp0x/rv7p.C: Ditto.
+	* g++.dg/cpp0x/rv8p.C: Ditto.
+	* g++.dg/cpp0x/unnamed_refs.C: Ditto.
+
 2010-08-12  Jakub Jelinek  <jakub@redhat.com>
 
 	PR middle-end/45262
