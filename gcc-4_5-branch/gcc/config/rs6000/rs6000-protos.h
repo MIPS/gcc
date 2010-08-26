@@ -1,5 +1,6 @@
 /* Definitions of target machine for GNU compiler, for IBM RS/6000.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,
+   2010
    Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
@@ -106,9 +107,8 @@ extern void rs6000_split_compare_and_swap (rtx, rtx, rtx, rtx, rtx);
 extern void rs6000_expand_compare_and_swapqhi (rtx, rtx, rtx, rtx);
 extern void rs6000_split_compare_and_swapqhi (rtx, rtx, rtx, rtx, rtx, rtx);
 extern void rs6000_split_lock_test_and_set (rtx, rtx, rtx, rtx);
-extern void rs6000_emit_swdivsf (rtx, rtx, rtx);
-extern void rs6000_emit_swdivdf (rtx, rtx, rtx);
-extern void rs6000_emit_swrsqrtsf (rtx, rtx);
+extern void rs6000_emit_swdiv (rtx, rtx, rtx, bool);
+extern void rs6000_emit_swrsqrt (rtx, rtx);
 extern void output_toc (FILE *, rtx, int, enum machine_mode);
 extern rtx rs6000_longcall_ref (rtx);
 extern void rs6000_fatal_bad_address (rtx);
