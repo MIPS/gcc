@@ -1235,8 +1235,8 @@ replace_shift (int index, gimple stmt)
   tree scalar_type, vectype, new_rhs;
   optab optab;
   int mode;
-  tree scalar_arg = gimple_call_arg (stmt, 1);
-  tree vector_arg = gimple_call_arg (stmt, 2);
+  tree scalar_arg = gimple_call_arg (stmt, 2);
+  tree vector_arg = gimple_call_arg (stmt, 1);
   gimple def_stmt;
   bool invariant = true;
   tree shift_arg = NULL_TREE;
@@ -1295,7 +1295,7 @@ replace_shift (int index, gimple stmt)
       optab = optab_for_tree_code (code, vectype, optab_scalar);
       if (optab
           && (optab_handler (optab, TYPE_MODE (vectype))->insn_code
-              != CODE_FOR_nothing))
+              != CODE_FOR_nothing)) 
         shift_arg = scalar_arg;
       else
         {
@@ -1311,7 +1311,7 @@ replace_shift (int index, gimple stmt)
       optab = optab_for_tree_code (code, vectype, optab_vector);
       if (optab
           && (optab_handler (optab, TYPE_MODE (vectype))->insn_code
-              != CODE_FOR_nothing))
+              != CODE_FOR_nothing)) 
         shift_arg = vector_arg;
     }
 
