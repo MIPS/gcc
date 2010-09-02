@@ -104,6 +104,7 @@ static tree cil32_builtin_pack (enum tree_code, tree);
 static tree cil32_builtin_unpack (enum tree_code, tree);
 static tree cil32_builtin_double_supported (void);
 static tree cil32_builtin_shift (enum tree_code, tree);
+static tree cil32_builtin_bit_field_ref (tree);
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ATTRIBUTE_TABLE
@@ -215,6 +216,10 @@ static tree cil32_builtin_shift (enum tree_code, tree);
 #undef TARGET_VECTORIZE_BUILTIN_SHIFT
 #define TARGET_VECTORIZE_BUILTIN_SHIFT \
   cil32_builtin_shift
+
+#undef TARGET_VECTORIZE_BUILTIN_BIT_FIELD_REF
+#define TARGET_VECTORIZE_BUILTIN_BIT_FIELD_REF \
+  cil32_builtin_bit_field_ref
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -1209,4 +1214,43 @@ cil32_builtin_shift (enum tree_code code, tree type)
       return NULL_TREE;
     }
 }
+
  
+static tree 
+cil32_builtin_bit_field_ref (tree type)
+{
+  tree elem_type = TREE_TYPE (type);
+  unsigned element_size = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (elem_type));
+
+  if (TREE_CODE (elem_type) == INTEGER_TYPE)
+    {
+      switch (element_size)
+        {
+          case 4:
+            return cil32_builtins[CIL32_GEN_VSI_BIT_FIELD_REF];
+
+          case 2:
+            return cil32_builtins[CIL32_GEN_VHI_BIT_FIELD_REF];
+
+          case 1:
+            return cil32_builtins[CIL32_GEN_VQI_BIT_FIELD_REF];
+
+          default:
+            return NULL_TREE;
+        }
+    }
+  else
+    {
+      switch (element_size)
+        {
+          case 8:
+            return cil32_builtins[CIL32_GEN_VDF_BIT_FIELD_REF];
+
+          case 4:
+            return cil32_builtins[CIL32_GEN_VSF_BIT_FIELD_REF];
+
+          default:
+            return NULL_TREE;
+        }
+    }
+}

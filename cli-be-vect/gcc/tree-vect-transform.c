@@ -2964,17 +2964,30 @@ vect_create_epilog_for_reduction (tree vect_def, gimple stmt,
       if (vect_print_dump_info (REPORT_DETAILS))
 	fprintf (vect_dump, "extract scalar result");
 
-      if (BYTES_BIG_ENDIAN)
-	bitpos = size_binop (MULT_EXPR,
+      if (targetm.vectorize.builtin_bit_field_ref
+          && (builtin_decl
+              = targetm.vectorize.builtin_bit_field_ref (vectype)))
+        {
+          epilog_stmt = gimple_build_call (builtin_decl, 3, new_temp, bitsize, 
+                                           bitsize_zero_node);
+          new_temp = make_ssa_name (new_scalar_dest, epilog_stmt);
+          gimple_call_set_lhs (epilog_stmt, new_temp);
+        }
+      else
+        {
+          if (BYTES_BIG_ENDIAN)
+  	    bitpos = size_binop (MULT_EXPR,
 		       bitsize_int (TYPE_VECTOR_SUBPARTS (vectype) - 1),
 		       TYPE_SIZE (scalar_type));
-      else
-	bitpos = bitsize_zero_node;
+          else
+	    bitpos = bitsize_zero_node;
 
-      rhs = build3 (BIT_FIELD_REF, scalar_type, new_temp, bitsize, bitpos);
-      epilog_stmt = gimple_build_assign (new_scalar_dest, rhs);
-      new_temp = make_ssa_name (new_scalar_dest, epilog_stmt);
-      gimple_assign_set_lhs (epilog_stmt, new_temp);
+          rhs = build3 (BIT_FIELD_REF, scalar_type, new_temp, bitsize, bitpos);
+          epilog_stmt = gimple_build_assign (new_scalar_dest, rhs);
+          new_temp = make_ssa_name (new_scalar_dest, epilog_stmt);
+          gimple_assign_set_lhs (epilog_stmt, new_temp);
+        }
+
       gsi_insert_before (&exit_gsi, epilog_stmt, GSI_SAME_STMT);
     }
 
@@ -7501,16 +7514,31 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
 		  int k;
 		  tree t = NULL_TREE;
 		  tree vec_inv, bitpos, bitsize = TYPE_SIZE (scalar_type);
+                  tree builtin_decl;
 
 		  /* CHECKME: bitpos depends on endianess?  */
 		  bitpos = bitsize_zero_node;
-		  vec_inv = build3 (BIT_FIELD_REF, scalar_type, new_temp, 
-				    bitsize, bitpos);
-		  vec_dest = 
-			vect_create_destination_var (scalar_dest, NULL_TREE);
-		  new_stmt = gimple_build_assign (vec_dest, vec_inv);
-                  new_temp = make_ssa_name (vec_dest, new_stmt);
-		  gimple_assign_set_lhs (new_stmt, new_temp);
+                  vec_dest =
+                        vect_create_destination_var (scalar_dest, NULL_TREE);
+
+                  if (targetm.vectorize.builtin_bit_field_ref
+                      && (builtin_decl
+                          = targetm.vectorize.builtin_bit_field_ref (vectype)))
+                    {
+                      new_stmt = gimple_build_call (builtin_decl, 3, new_temp, 
+                                                    bitsize, bitpos);
+                      new_temp = make_ssa_name (vec_dest, new_stmt);
+                      gimple_call_set_lhs (new_stmt, new_temp);
+                    }
+                  else
+                    {
+  		      vec_inv = build3 (BIT_FIELD_REF, scalar_type, new_temp, 
+		 		        bitsize, bitpos);
+		      new_stmt = gimple_build_assign (vec_dest, vec_inv);
+                      new_temp = make_ssa_name (vec_dest, new_stmt);
+		      gimple_assign_set_lhs (new_stmt, new_temp);
+                    }
+
 		  vect_finish_stmt_generation (stmt, new_stmt, gsi);
 
 		  for (k = nunits - 1; k >= 0; --k)
