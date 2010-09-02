@@ -116,6 +116,10 @@ mpopcntd
 Target Report Mask(POPCNTD)
 Use PowerPC V2.06 popcntd instruction
 
+mfriz
+Target Report Var(TARGET_FRIZ) Init(-1)
+Under -ffast-math, generate a FRIZ instruction for (double)(long long) conversions
+
 mveclibabi=
 Target RejectNegative Joined Var(rs6000_veclibabi_name)
 Vector library ABI to use
