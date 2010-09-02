@@ -193,11 +193,11 @@ create_cli_fn_table (void)
   cli_functions[120] = add_cli_function ("genvec_support_VSF_VSF_extract_odd_Mono_Simd_Vector4f_Mono_Simd_Vector4f_Mono_Simd_Vector4f", unsigned_type_node);
   cli_functions[121] = add_cli_function ("genvec_support_VDF_VDF_extract_odd_Mono_Simd_Vector2d_Mono_Simd_Vector2d_Mono_Simd_Vector2d", unsigned_type_node);
 
-  cli_functions[122] = add_cli_function ("bit_field_ref_vqi", unsigned_type_node);
-  cli_functions[123] = add_cli_function ("bit_field_ref_vhi", unsigned_type_node);
-  cli_functions[124] = add_cli_function ("bit_field_ref_vsi", unsigned_type_node);
-  cli_functions[125] = add_cli_function ("bit_field_ref_vsf", unsigned_type_node);
-  cli_functions[126] = add_cli_function ("bit_field_ref_vdf", unsigned_type_node);
+  cli_functions[122] = add_cli_function ("genvec_support_VQI_VQI_bit_field_ref_Mono_Simd_Vector16sb_System_UInt32_System_UInt32_System_Int16", unsigned_type_node);
+  cli_functions[123] = add_cli_function ("genvec_support_VHI_VHI_bit_field_ref_Mono_Simd_Vector8s_System_UInt32_System_UInt32_System_Int16", unsigned_type_node);
+  cli_functions[124] = add_cli_function ("genvec_support_VSI_VSI_bit_field_ref_Mono_Simd_Vector4i_System_UInt32_System_UInt32_System_Int16", unsigned_type_node);
+  cli_functions[125] = add_cli_function ("genvec_support_VSF_VSF_bit_field_ref_Mono_Simd_Vector4f_System_UInt32_System_UInt32_System_Int16", unsigned_type_node);
+  cli_functions[126] = add_cli_function ("genvec_support_VDF_VDF_bit_field_ref_Mono_Simd_Vector2d_System_UInt32_System_UInt32_System_Int16", unsigned_type_node);
 
 }
 
@@ -1433,12 +1433,11 @@ replace_bit_field_ref (int index, gimple stmt)
   bitsize = TYPE_SIZE (scalar_type);
   gcc_assert (!tree_int_cst_compare (bitsize, gimple_call_arg (stmt, 1)));
   bitpos = gimple_call_arg (stmt, 2);
- 
+
   if (BYTES_BIG_ENDIAN)
     bitpos = size_binop (MULT_EXPR,
-                         size_binop (MINUS_EXPR,
-                                     bitsize_int (TYPE_VECTOR_SUBPARTS (vectype) - 1),
-                                     bitpos),
+                         bitsize_int (TYPE_VECTOR_SUBPARTS (vectype) - 1 -
+                                      TREE_INT_CST_LOW (bitpos)),
                          TYPE_SIZE (scalar_type));
 
   new_rhs = build3 (BIT_FIELD_REF, scalar_type, gimple_call_arg (stmt, 0), 
