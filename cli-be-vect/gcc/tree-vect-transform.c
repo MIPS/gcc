@@ -7541,12 +7541,28 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
 
 		  vect_finish_stmt_generation (stmt, new_stmt, gsi);
 
-		  for (k = nunits - 1; k >= 0; --k)
-		    t = tree_cons (NULL_TREE, new_temp, t);
-		  /* FIXME: use build_constructor directly.  */
-		  vec_inv = build_constructor_from_list (vectype, t);
-		  new_temp = vect_init_vector (stmt, vec_inv, vectype, gsi);
-		  new_stmt = SSA_NAME_DEF_STMT (new_temp);
+                  if (targetm.vectorize.builtin_build_uniform_vec
+                      && (builtin_decl = targetm.vectorize.builtin_build_uniform_vec (
+                                                                 vectype)))
+                    {
+                      tree var = vect_get_new_vect_var (vectype,
+                                     vect_simple_var, "uniform_vec_");
+
+                      new_stmt = gimple_build_call (builtin_decl, 1, new_temp);
+                      add_referenced_var (var);
+                      new_temp = make_ssa_name (var, new_stmt);
+                      gimple_call_set_lhs (new_stmt, new_temp);
+                      vect_finish_stmt_generation (stmt, new_stmt, gsi);
+                    }
+                  else
+                    {
+		      for (k = nunits - 1; k >= 0; --k)
+		        t = tree_cons (NULL_TREE, new_temp, t);
+		      /* FIXME: use build_constructor directly.  */
+		      vec_inv = build_constructor_from_list (vectype, t);
+		      new_temp = vect_init_vector (stmt, vec_inv, vectype, gsi);
+		      new_stmt = SSA_NAME_DEF_STMT (new_temp);
+                    }
 		}
 	      else
 		gcc_unreachable (); /* FORNOW. */
