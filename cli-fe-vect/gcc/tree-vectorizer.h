@@ -996,6 +996,11 @@ enum cli_builtins {
   extract_even_vdf,
   extract_odd_vsf,
   extract_odd_vdf,
+  bit_field_ref_vqi,
+  bit_field_ref_vhi,
+  bit_field_ref_vsi,
+  bit_field_ref_vsf,
+  bit_field_ref_vdf,
 };
 
 #endif  /* GCC_TREE_VECTORIZER_H  */

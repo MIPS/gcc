@@ -192,9 +192,16 @@ create_cli_fn_table (void)
   cli_functions[119] = add_cli_function ("genvec_support_VDF_VDF_extract_even_Mono_Simd_Vector2d_Mono_Simd_Vector2d_Mono_Simd_Vector2d", unsigned_type_node);
   cli_functions[120] = add_cli_function ("genvec_support_VSF_VSF_extract_odd_Mono_Simd_Vector4f_Mono_Simd_Vector4f_Mono_Simd_Vector4f", unsigned_type_node);
   cli_functions[121] = add_cli_function ("genvec_support_VDF_VDF_extract_odd_Mono_Simd_Vector2d_Mono_Simd_Vector2d_Mono_Simd_Vector2d", unsigned_type_node);
+
+  cli_functions[122] = add_cli_function ("bit_field_ref_vqi", unsigned_type_node);
+  cli_functions[123] = add_cli_function ("bit_field_ref_vhi", unsigned_type_node);
+  cli_functions[124] = add_cli_function ("bit_field_ref_vsi", unsigned_type_node);
+  cli_functions[125] = add_cli_function ("bit_field_ref_vsf", unsigned_type_node);
+  cli_functions[126] = add_cli_function ("bit_field_ref_vdf", unsigned_type_node);
+
 }
 
-#define MAX_CLI_FN 122 
+#define MAX_CLI_FN 127 
 
 static tree
 get_vectype (tree scalar_type)
@@ -1387,6 +1394,59 @@ replace_unpack (int index, gimple stmt)
   return true;
 }
 
+
+static bool
+replace_bit_field_ref (int index, gimple stmt)
+{
+  tree scalar_type, vectype, new_rhs, bitpos, bitsize;
+
+  switch (index)
+    {
+      case bit_field_ref_vqi:
+        scalar_type = intQI_type_node;
+        break;
+
+      case bit_field_ref_vhi:
+        scalar_type = intHI_type_node;
+        break;
+
+      case bit_field_ref_vsi:
+        scalar_type = intSI_type_node;
+        break;
+
+      case bit_field_ref_vsf:
+        scalar_type = float_type_node;
+        break;
+
+      case bit_field_ref_vdf:
+        scalar_type = double_type_node;
+        break;
+     
+      default:
+        return false;
+    }
+
+  vectype = get_vectype (scalar_type);
+  if (!vectype)
+    return false;
+
+  bitsize = TYPE_SIZE (scalar_type);
+  gcc_assert (!tree_int_cst_compare (bitsize, gimple_call_arg (stmt, 1)));
+  bitpos = gimple_call_arg (stmt, 2);
+ 
+  if (BYTES_BIG_ENDIAN)
+    bitpos = size_binop (MULT_EXPR,
+                         size_binop (MINUS_EXPR,
+                                     bitsize_int (TYPE_VECTOR_SUBPARTS (vectype) - 1),
+                                     bitpos),
+                         TYPE_SIZE (scalar_type));
+
+  new_rhs = build3 (BIT_FIELD_REF, scalar_type, gimple_call_arg (stmt, 0), 
+                    bitsize, bitpos);
+  finish_replacement (new_rhs, stmt, NULL);
+  return true;
+}
+
 static bool
 replace_cli_fn (int index, gimple stmt)
 {
@@ -1553,6 +1613,13 @@ replace_cli_fn (int index, gimple stmt)
       case shift_left_vhi:
       case shift_left_vsi:
         return replace_shift (index, stmt);
+
+      case bit_field_ref_vqi:
+      case bit_field_ref_vhi:
+      case bit_field_ref_vsi:
+      case bit_field_ref_vsf:
+      case bit_field_ref_vdf:
+        return replace_bit_field_ref (index, stmt);
 
       default:
         if (dump_file && (dump_flags & TDF_DETAILS))
