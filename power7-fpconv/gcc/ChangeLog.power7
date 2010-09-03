@@ -1,3 +1,36 @@
+2010-09-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_address_for_fpconvert): Deal with
+	PRE_INC, PRE_DEC, and PRE_MODIFY.
+
+	* config/rs6000/power7.md: Add support for missing types,
+	imul_compare, lmul_compare, veccmpsimple.
+
+	* config/rs6000/rs6000.md (abs<mode>2_isel): Delete
+	reload_completed requirement for splitting, allocating a new
+	register if necessary, and set the type attribute on the combined
+	insn.  If possible, prefer using the output register for the temp.
+	(nabs<mode>2_isel): Ditto.
+	(abssi2_nopower): Ditto.
+	(nabs_power): Ditto.
+	(neg<mode>2): Ditto.
+	(floatsi<mode>2_lfiwax): Ditto.
+	(floatsi<mode>2_lfiwax_mem): Ditto.
+	(floatsi<mode>2_lfiwax_mem2): Ditto.
+	(floatunssi<mode>2_lfiwzx): Ditto.
+	(floatunssi<mode>2_lfiwzx_mem): Ditto.
+	(floatunssi<mode>2_lfiwzx_mem2): Ditto.
+	(floatunssidf2_internal): Ditto.
+	(fix_trunc<mode>si2_stfiwx): Ditto.
+	(fix_trunc<mode>si2_stfiwx_mem): Ditto.
+	(fix_trunc<mode>si2_internal): Ditto.
+	(fixuns_trunc<mode>si2_stfiwx): Ditto.
+	(fixuns_trunc<mode>si2_mem): Ditto.
+	(fixuns_trunc<mode>di2): Ditto.
+	(floatunsdidf2): Ditto.
+	(floatdisf2): Ditto.
+	(floatunsdisf2_mem): Ditto.
+
 2010-08-31  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.opt (-mfriz): New switch to control whether

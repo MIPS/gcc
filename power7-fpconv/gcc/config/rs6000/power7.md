@@ -182,7 +182,7 @@
 (define_bypass 3 "power7-cmp,power7-compare" "power7-crlogical,power7-delayedcr")
 
 (define_insn_reservation "power7-mul" 4
-  (and (eq_attr "type" "imul,imul2,imul3,lmul")
+  (and (eq_attr "type" "imul,imul2,imul3,lmul,imul_compare,lmul_compare")
        (eq_attr "cpu" "power7"))
   "DU_power7,FXU_power7")
 
@@ -291,7 +291,7 @@
   "DU_power7,VSU_power7")
 
 (define_insn_reservation "power7-vecsimple" 2
-  (and (eq_attr "type" "vecsimple")
+  (and (eq_attr "type" "vecsimple,veccmpsimple")
        (eq_attr "cpu" "power7"))
   "du1_power7,VSU_power7")
 

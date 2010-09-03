@@ -4980,7 +4980,8 @@ rs6000_expand_vector_init (rtx target, rtx vals)
     }
 
   /* Double word values on VSX can use xxpermdi or lxvdsx.  */
-  if (VECTOR_MEM_VSX_P (mode) && (mode == V2DFmode || mode == V2DImode))
+  if (VECTOR_MEM_VSX_P (mode) && (mode == V2DFmode || mode == V2DImode)
+      && (all_same || all_const_zero))
     {
       if (all_same)
 	{
@@ -4992,8 +4993,8 @@ rs6000_expand_vector_init (rtx target, rtx vals)
 	}
       else
 	{
-	  rtx op0 = copy_to_reg (XVECEXP (vals, 0, 0));
-	  rtx op1 = copy_to_reg (XVECEXP (vals, 0, 1));
+	  rtx op0 = copy_to_mode_reg (inner_mode, XVECEXP (vals, 0, 0));
+	  rtx op1 = copy_to_mode_reg (inner_mode, XVECEXP (vals, 0, 1));
 	  if (mode == V2DFmode)
 	    emit_insn (gen_vsx_concat_v2df (target, op0, op1));
 	  else
@@ -27013,7 +27014,28 @@ rs6000_address_for_fpconvert (rtx x)
   addr = XEXP (x, 0);
   if (! legitimate_indirect_address_p (addr, strict_p)
       && ! legitimate_indexed_address_p (addr, strict_p))
-    x = replace_equiv_address (x, copy_addr_to_reg (addr));
+    {
+      if (GET_CODE (addr) == PRE_INC || GET_CODE (addr) == PRE_DEC)
+	{
+	  rtx reg = XEXP (addr, 0);
+	  HOST_WIDE_INT size = GET_MODE_SIZE (GET_MODE (x));
+	  rtx size_rtx = GEN_INT ((GET_CODE (addr) == PRE_DEC) ? -size : size);
+	  gcc_assert (REG_P (reg));
+	  emit_insn (gen_add3_insn (reg, reg, size_rtx));
+	  addr = reg;
+	}
+      else if (GET_CODE (addr) == PRE_MODIFY)
+	{
+	  rtx reg = XEXP (addr, 0);
+	  rtx expr = XEXP (addr, 1);
+	  gcc_assert (REG_P (reg));
+	  gcc_assert (GET_CODE (expr) == PLUS);
+	  emit_insn (gen_add3_insn (reg, XEXP (expr, 0), XEXP (expr, 1)));
+	  addr = reg;
+	}
+
+      x = replace_equiv_address (x, copy_addr_to_reg (addr));
+    }
 
   return x;
 }
