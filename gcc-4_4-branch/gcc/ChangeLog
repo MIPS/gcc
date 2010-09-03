@@ -1,3 +1,391 @@
+2010-09-02  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline
+	2010-08-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/45423
+	* gimplify.c (goa_stabilize_expr): Handle TRUTH_NOT_EXPR
+	and TRUTH_{AND,OR,XOR}_EXPR.
+	* c-parser.c (c_parser_omp_atomic): Handle boolean
+	{PRE,POST}_{INC,DEC}REMENT.
+
+2010-09-01  Eric Botcazou  <ebotcazou@adacore.com>
+
+	Backport from mainline
+	2010-08-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/45353
+	* sel-sched-ir.c (sel_bb_head): Return NULL even if next_nonnote_insn
+	after bb_note is a BARRIER.
+
+2010-09-01  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gimplify.c (gimplify_init_constructor): Do not create a temporary for
+	a volatile LHS if the constructor has only one element.
+
+2010-08-28  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/41484
+	* config/i386/sse.md (sse4_1_extendv8qiv8hi2): Also accept memory
+	operands for operand 1.
+	(sse4_1_extendv4qiv4si2): Ditto.
+	(sse4_1_extendv2qiv2di2): Ditto.
+	(sse4_1_extendv4hiv4si2): Ditto.
+	(sse4_1_extendv2hiv2di2): Ditto.
+	(sse4_1_extendv2siv2di2): Ditto.
+	(sse4_1_zero_extendv8qiv8hi2): Ditto.
+	(sse4_1_zero_extendv4qiv4si2): Ditto.
+	(sse4_1_zero_extendv2qiv2di2): Ditto.
+	(sse4_1_zero_extendv4hiv4si2): Ditto.
+	(sse4_1_zero_extendv2hiv2di2): Ditto.
+	(sse4_1_zero_extendv2siv2di2): Ditto.
+	(*sse4_1_extendv8qiv8hi2): Remove insn pattern.
+	(*sse4_1_extendv4qiv4si2): Ditto.
+	(*sse4_1_extendv2qiv2di2): Ditto.
+	(*sse4_1_extendv4hiv4si2): Ditto.
+	(*sse4_1_extendv2hiv2di2): Ditto.
+	(*sse4_1_extendv2siv2di2): Ditto.
+	(*sse4_1_zero_extendv8qiv8hi2): Ditto.
+	(*sse4_1_zero_extendv4qiv4si2): Ditto.
+	(*sse4_1_zero_extendv2qiv2di2): Ditto.
+	(*sse4_1_zero_extendv4hiv4si2): Ditto.
+	(*sse4_1_zero_extendv2hiv2di2): Ditto.
+	(*sse4_1_zero_extendv2siv2di2): Ditto.
+
+2010-08-24  Andrey Belevantsev  <abel@ispras.ru>
+
+	Backport from mainline:
+	2010-08-19  Andrey Belevantsev  <abel@ispras.ru>
+
+	PR rtl-optimization/44691
+	* sel-sched.c (count_occurrences_1): Also punt when SUBREG_REG
+	is not a register.
+
+2010-08-24  Andrey Belevantsev  <abel@ispras.ru>
+
+	Backport from mainline:
+	2010-01-14  Alexander Monakov  <amonakov@ispras.ru>
+
+	* sel-sched.c: Add 2010 to copyright years.
+	* sel-sched-ir.c: Likewise.
+	* sel-sched-ir.h: Likewise.
+
+2010-08-24  Andrey Belevantsev  <abel@ispras.ru>
+
+	Backport from mainline:
+	2010-01-14  Alexander Monakov  <amonakov@ispras.ru>
+
+	* sel-sched-ir.c (sel_restore_other_notes): Rename to
+	sel_restore_notes.  Update all callers.  Call reemit_notes for
+	all insns.
+
+2010-08-24  Andrey Belevantsev  <abel@ispras.ru>
+
+	Backport from mainline:
+	2010-01-14  Andrey Belevantsev  <abel@ispras.ru>
+
+	PR rtl-optimization/42246
+	* sel-sched-ir.h (get_all_loop_exits): Include exits from inner
+	loops.
+
+2010-08-24  Andrey Belevantsev  <abel@ispras.ru>
+
+	Backport from mainline:
+	2010-01-14  Andrey Belevantsev  <abel@ispras.ru>
+
+	* sel-sched.c (compute_av_set_at_bb_end): Do not test that number of
+	all successors is the same as number of successors in current region.
+
+2010-08-24  Andrey Belevantsev  <abel@ispras.ru>
+
+	Backport from mainline:
+	2010-01-14  Alexander Monakov  <amonakov@ispras.ru>
+
+	* sel-sched.c (maybe_emit_renaming_copy): Exit early when expression
+	to rename is not separable.  Otherwise check that its LHS is not NULL.
+
+2010-08-24  Andrey Belevantsev  <abel@ispras.ru>
+
+	Backport from mainline:
+	2010-01-14  Alexander Monakov  <amonakov@ispras.ru>
+
+	* sel-sched.c (choose_best_reg_1):  Loop over all regs for mode.
+
+2010-08-24  Andrey Belevantsev  <abel@ispras.ru>
+
+	Backport from mainline:
+	2010-01-14  Alexander Monakov  <amonakov@ispras.ru>
+
+	* sel-sched.c (mark_unavailable_hard_regs): Do not try to search
+	available registers when failed to discover LHS register class.
+	Fix indentation.  Update comment.
+
+2010-08-24  Andrey Belevantsev  <abel@ispras.ru>
+
+	Backport from mainline:
+	2010-01-14  Andrey Belevantsev  <abel@ispras.ru>
+	    Alexander Monakov  <amonakov@ispras.ru>
+
+	PR rtl-optimization/42389
+	* sel-sched.c (advance_one_cycle): Set FENCE_ISSUE_MORE
+	to can_issue_more.
+	(advance_state_on_fence): Likewise.
+	(sel_target_adjust_priority): Print debug output only when
+	sched_verbose >= 4, not 2.
+	(get_expr_cost): Do not issue all unique insns on the next cycle.
+	(fill_insns): Initialize can_issue_more from the value saved
+	with the fence.
+	* sel-sched-ir.c (flist_add): New parameter issue_more.
+	Init FENCE_ISSUE_MORE with it.
+	(merge_fences): Likewise.
+	(init_fences): Update call to flist_add.
+	(add_to_fences, add_clean_fence_to_fences)
+	(add_dirty_fence_to_fences): Likewise.
+	(move_fence_to_fences): Update call to merge_fences.
+	(invoke_reorder_hooks): Do not reset can_issue_more on insns from
+	sched groups.
+	* sel-sched-ir.h (struct _fence): New field issue_more.
+	(FENCE_ISSUE_MORE): New accessor macro.
+
+2010-08-24  Andrey Belevantsev  <abel@ispras.ru>
+
+	Backport from mainline:
+	2010-01-14  Andrey Belevantsev  <abel@ispras.ru>
+
+	PR rtl-optimization/42388
+	* sel-sched-ir.c (maybe_tidy_empty_bb): Do not delete empty blocks
+	that have no predecessors nor successors.  Do not call move_bb_info
+	for empty blocks outside of current region.
+
+2010-08-24  Andrey Belevantsev  <abel@ispras.ru>
+
+	Backport from mainline:
+	2010-01-14  Alexander Monakov  <amonakov@ispras.ru>
+
+	PR rtl-optimization/42294
+	* sel-sched-ir.h (struct _sel_insn_data): Update comment.
+	* sel-sched.c (move_exprs_to_boundary): Transitively add all
+	originators' originators.
+
+2010-08-24  Andrey Belevantsev  <abel@ispras.ru>
+
+	Backport from mainline:
+	2010-01-14  Alexander Monakov  <amonakov@ispras.ru>
+
+	PR rtl-optimization/39453
+	PR rtl-optimization/42246
+	* sel-sched-ir.c (considered_for_pipelining_p): Do not test
+	for pipelining_p.
+	(sel_add_loop_preheaders): Add preheader to last_added_blocks.
+
+2010-08-24  Andrey Belevantsev  <abel@ispras.ru>
+
+	Backport from mainline:
+	2010-01-14  Andrey Belevantsev  <abel@ispras.ru>
+	    Alexander Monakov  <amonakov@ispras.ru>
+
+	PR middle-end/42245
+	* sel-sched-ir.c (sel_recompute_toporder): New.  Use it...
+	(maybe_tidy_empty_bb): ... here.  Make static.  Add new
+	argument.  Update all callers.
+	(tidy_control_flow): ... and here.  Recompute topological order
+	of basic blocks in region if necessary.
+	(sel_redirect_edge_and_branch): Change return type.  Return true
+	if topological order might have been invalidated.
+	(purge_empty_blocks): Export and move from...
+	* sel-sched.c (purge_empty_blocks): ... here.
+	* sel-sched-ir.h (sel_redirect_edge_and_branch): Update prototype.
+	(maybe_tidy_empty_bb): Delete prototype.
+	(purge_empty_blocks): Declare.
+
+2010-08-24  Andrey Belevantsev  <abel@ispras.ru>
+
+	Backport from mainline:
+	2010-01-14  Andrey Belevantsev <abel@ispras.ru>
+
+	PR rtl-optimization/42249
+	* sel-sched.c (try_replace_dest_reg): When chosen register
+	and original register is the same, do not bail out early, but
+	still check all original insns for validity of replacing destination
+	register.  Set EXPR_TARGET_AVAILABLE to 1 before leaving function
+	in this case.
+
+2010-08-24  Andrey Belevantsev  <abel@ispras.ru>
+
+	Backport from mainline:
+	2009-11-13  Andrey Belevantsev  <abel@ispras.ru>
+
+	PR rtl-optimization/41697
+	* sel-sched-ir.c (fallthru_bb_of_jump): Bail out when a block with
+	a conditional jump has a single successor.
+
+2010-08-24  Andrey Belevantsev  <abel@ispras.ru>
+
+	Backport from mainline:
+	2009-11-13  Andrey Belevantsev  <abel@ispras.ru>
+
+	* sched-deps.c (init_deps): New parameter lazy_reg_last.  Don't
+	allocate reg_last when in case lazy_reg_last is true.
+	(init_deps_reg_last): New.
+	(free_deps): When max_reg is 0, this context is already freed.
+	* sched-int.h (init_deps_reg_last): Export.
+	(init_deps): Update prototype.
+	* sched-ebb.c (schedule_ebb): Update the call to init_deps.
+	* sched-rgn.c (sched_rgn_compute_dependencies): Likewise.
+	* ddg.c (build_intra_loop_deps): Likewise.
+	* sel-sched-ir.c (copy_deps_context, create_deps_context,
+	reset_deps_context, deps_init_id): Likewise.
+	(init_first_time_insn_data): Lazy allocate INSN_DEPS_CONTEXT.
+	(free_data_for_scheduled_insn): New, break down from ...
+	(free_first_time_insn_data): ... here.
+	(has_dependence_p): Allocate reg_last now, when it is needed.
+	(extend_insn_data): When maximal LUID is big enough, allocate
+	per-insn data in smaller chunks.
+	* sel-sched-ir.h (free_data_for_scheduled_insn): Export.
+	* sel-sched.c (update_seqnos_and_stage): Free INSN_DEPS_CONTEXT
+	in scheduled insn.
+
+2010-08-24  Andrey Belevantsev  <abel@ispras.ru>
+
+	Backport from mainline:
+	2009-10-15  Steve Ellcey  <sje@cup.hp.com>
+
+	PR rtl-optimization/41697
+	* sel-sched-ir.h (_eligible_successor_edge_p): Check successor count.
+
+2010-08-24  Andrey Belevantsev  <abel@ispras.ru>
+
+	Backport from mainline:
+	2009-05-29  Andrey Belevantsev  <abel@ispras.ru>
+
+	PR rtl-optimization/40101
+	* sel-sched-ir.c (get_seqno_by_preds): Allow returning negative
+	seqno.	Adjust comment.
+	* sel-sched.c (find_seqno_for_bookkeeping): Assert that when
+	inserting bookkeeping before a jump, the jump is not scheduled.
+	When no positive seqno found, provide a value.  Add comment.
+
+2010-08-24  Andrey Belevantsev  <abel@ispras.ru>
+
+	Backport from mainline:
+	2009-04-28  Alexander Monakov  <amonakov@ispras.ru>
+
+	* sel-sched-ir.c (maybe_tidy_empty_bb): Do not attempt to delete a
+	block if there are complex incoming edges.
+	(sel_merge_blocks): Remove useless assert.
+	(sel_redirect_edge_and_branch): Check that edge was redirected.
+	* sel-sched-ir.h (_eligible_successor_edge_p): Remove assert.
+	(sel_find_rgns): Delete declaration.
+	* sel-sched.c (purge_empty_blocks): Attempt to remove first block of
+	the region when it is not a preheader.
+
+2010-08-17  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/45296
+	* reginfo.c (globalize_reg): Reject stack registers.
+
+2010-08-16  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	Backport from mainline:
+	2010-08-09  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/44632
+	* function.c (gimplify_parameters): Do not clear addressable
+	bit of the original parameter.
+
+2010-08-14  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	Revert:
+	2010-08-08  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR boehm-gc/34544
+	* gthr-posix.h (__gthread_start): Delete.
+	(__gthread_active_init): Use pthread_default_stacksize_np instead of
+	pthread_create to determine if hpux pthreads are active.
+	* gthr-posix95.h (__gthread_start): Delete.
+	(__gthread_active_init): Likewise use pthread_default_stacksize_np.
+
+2010-08-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/45262
+	* fold-const.c (make_range) <case NEGATE_EXPR>: Punt if
+	-a overflows.  Normalize the range.
+
+2010-08-10  Steve Ellcey  <sje@cup.hp.com>
+	    Jakub Jelinek <jakub@redhat.com>
+
+	Backport from mainline:
+	PR middle-end/41551
+	* function.c (instantiate_virtual_regs_in_insn): Copy to new reg
+	before forcing mode.
+
+2010-08-08  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	Backport from mainline.
+	2010-07-17  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/44805
+	* config/pa/pa.h (CONSTANT_ALIGNMENT): Align strings to BITS_PER_WORD
+	on all targets.
+
+2010-08-08  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/45109
+	* tree-ssa-structalias.c (get_constraint_for_component_ref):
+	Explicitly strip handled components and indirect references.
+
+2010-08-08  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR boehm-gc/34544
+	* gthr-posix.h (__gthread_start): Delete.
+	(__gthread_active_init): Use pthread_default_stacksize_np instead of
+	pthread_create to determine if hpux pthreads are active.
+	* gthr-posix95.h (__gthread_start): Delete.
+	(__gthread_active_init): Likewise use pthread_default_stacksize_np.
+
+2010-08-06  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/44942
+	* config/sparc/sparc.c (function_arg_advance): Always take into account
+	the padding, if any.
+
+2010-08-06  Uros Bizjak  <ubizjak@gmail.com>
+
+	* expmed.c (expand_mult_const) <case alg_shift>: Expand shift into
+	temporary. Emit move from temporary to accum, so REG_EQUAL note will
+	be attached to this insn in correct mode.
+
+2010-08-06  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (ix86_decompose_address): Check for SI_REG
+	using REGNO of base_reg directly.
+
+2010-08-04  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/spu/spu.c (spu_emit_branch_hint): Do not access NOTE_KIND of
+	non-NOTE insns.
+
+2010-07-28  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	Backport from mainline:
+	2010-04-03  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/42509
+	* alias.c (nonoverlapping_memrefs_p): For spill-slot accesses
+	require a non-NULL MEM_OFFSET.
+
+2010-07-27  Richard Guenther  <rguenther@suse.de>
+
+	PR c/44555
+	* c-common.c (c_common_truthvalue_conversion): Remove
+	premature and wrong optimization concering ADDR_EXPRs.
+
+2010-07-27  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/44977
+	* tree-ssa-dom.c (propagate_rhs_into_lhs): Do not create invalid
+	SSA form.
+
 2010-07-19  Bingfeng Mei  <bmei@broadcom.com>
 
 	* ddg.c (create_ddg): Exclude nodes of debug_insn in counting nodes

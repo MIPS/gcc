@@ -1,3 +1,148 @@
+2010-09-02  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline
+	2010-08-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/45423
+	* gcc.dg/gomp/atomic-12.c: New test.
+	* gcc.dg/gomp/atomic-13.c: New test.
+	* gcc.dg/gomp/atomic-14.c: New test.
+	* g++.dg/gomp/atomic-11.C: New test.
+	* g++.dg/gomp/atomic-12.C: New test.
+	* g++.dg/gomp/atomic-13.C: New test.
+	* g++.dg/gomp/atomic-14.C: New test.
+
+2010-08-29  Jason Merrill  <jason@redhat.com>
+
+	PR c++/44991
+	* g++.dg/parse/defarg15.C: New.
+
+2010-08-24  Andrey Belevantsev <abel@ispras.ru>
+
+	Backport from mainline:
+	2010-08-19  Andrey Belevantsev  <abel@ispras.ru>
+
+	PR rtl-optimization/44691
+	* gfortran.dg/pr44691.f: New test.
+
+2010-08-24  Andrey Belevantsev <abel@ispras.ru>
+
+	Backport from mainline:
+	2010-01-14  Alexander Monakov  <amonakov@ispras.ru>
+
+	PR rtl-optimization/42246
+	* gfortran.dg/pr42246-2.f: New.
+
+2010-01-14  Alexander Monakov  <amonakov@ispras.ru>
+
+	PR rtl-optimization/42389
+	* gcc.dg/pr42389.c: New.
+
+2010-08-24  Andrey Belevantsev <abel@ispras.ru>
+
+	Backport from mainline:
+	2010-01-14  Alexander Monakov  <amonakov@ispras.ru>
+
+	PR rtl-optimization/42388
+	* gcc.dg/pr42388.c: New.
+
+2010-08-24  Andrey Belevantsev <abel@ispras.ru>
+
+	Backport from mainline:
+	2010-01-14  Alexander Monakov <amonakov@ispras.ru>
+
+	PR rtl-optimization/42294
+	* gfortran.dg/pr42294.f: New.
+
+2010-08-24  Andrey Belevantsev <abel@ispras.ru>
+
+	Backport from mainline:
+	2010-01-14  Alexander Monakov <amonakov@ispras.ru>
+
+	PR rtl-optimization/39453
+	PR rtl-optimization/42246
+	* gcc.dg/pr39453.c: New.
+	* gcc.dg/pr42246.c: New.
+
+2010-08-24  Andrey Belevantsev <abel@ispras.ru>
+
+	Backport from mainline:
+	2010-01-14  Alexander Monakov <amonakov@ispras.ru>
+
+	PR middle-end/42245
+	* gcc.dg/pr42245.c: New.
+	* gcc.dg/pr42245-2.c: New.
+
+2010-08-24  Andrey Belevantsev <abel@ispras.ru>
+
+	Backport from mainline:
+	2010-01-14  Alexander Monakov <amonakov@ispras.ru>
+
+	PR rtl-optimization/42249
+	* gcc.dg/pr42249.c: New.
+
+2010-08-24  Andrey Belevantsev <abel@ispras.ru>
+
+	Backport from mainline:
+	2009-04-28  Alexander Monakov  <amonakov@ispras.ru>
+	* gcc.target/ia64/20071210-2.c: New testcase.
+
+2010-08-19  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/init/value8.C: New.
+
+2010-08-17  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/45296
+	* gcc.target/i386/pr45296.c: New test.
+
+2010-08-15  Uros Bizjak  <ubizjak@gmail.com>
+
+	* g++.dg/cast.C: Change fields of structures to "long" to pass
+	the test on targets with STRUCTURE_SIZE_BOUNDARY != BITS_PER_UNIT.
+	* g++.dg/cpp0x/iop.C: Ditto.
+	* g++.dg/cpp0x/named_refs.C: Ditto.
+	* g++.dg/cpp0x/rv1p.C: Ditto.
+	* g++.dg/cpp0x/rv2p.C: Ditto.
+	* g++.dg/cpp0x/rv3p.C: Ditto.
+	* g++.dg/cpp0x/rv4p.C: Ditto.
+	* g++.dg/cpp0x/rv5p.C: Ditto.
+	* g++.dg/cpp0x/rv6p.C: Ditto.
+	* g++.dg/cpp0x/rv7p.C: Ditto.
+	* g++.dg/cpp0x/rv8p.C: Ditto.
+	* g++.dg/cpp0x/unnamed_refs.C: Ditto.
+
+2010-08-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/45262
+	* gcc.c-torture/execute/pr45262.c: New test.
+
+2010-08-10  Steve Ellcey  <sje@cup.hp.com>
+
+	Backport from mainline:
+	PR middle-end/41551
+	* gcc.dg/pr41551.c: New test.
+
+2010-08-08  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/45109
+	* gcc.c-torture/compile/pr45109.c: New testcase.
+
+2010-08-08  Uros Bizjak  <ubizjak@gmail.com>
+
+	* g++.old-deja/g++.jason/thunk3.C: Skip for targets with
+	generic thunk support.
+
+2010-07-27  Richard Guenther  <rguenther@suse.de>
+
+	PR c/44555
+	* gcc.c-torture/execute/pr44555.c: New testcase.
+
+2010-07-27  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/44977
+	* gcc.dg/torture/pr44977.c: New testcase.
+
 2010-07-23  Tobias Burnus  <burnus@net-b.de>
 
 	PR fortran/45019
@@ -370,7 +515,7 @@
 
 	2009-10-03  Ben Elliston  <bje@au.ibm.com>
 		    Janis Johnson  <janis187@us.ibm.com>
-	    	    Diego Novillo  <dnovillo@google.com>
+		    Diego Novillo  <dnovillo@google.com>
 
 	* lib/c-torture.exp: Load target-supports.exp.
 
