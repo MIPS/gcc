@@ -2812,6 +2812,15 @@ add_subroutines (void)
 	      gfc_check_dtime_etime_sub, NULL, gfc_resolve_dtime_sub,
 	      vl, BT_REAL, 4, REQUIRED, tm, BT_REAL, 4, REQUIRED);
 
+  add_sym_5s ("execute_command_line", GFC_ISYM_EXECUTE_COMMAND_LINE,
+	      CLASS_IMPURE , BT_UNKNOWN, 0, GFC_STD_F2008,
+	      NULL, NULL, gfc_resolve_execute_command_line,
+	      "command", BT_CHARACTER, dc, REQUIRED, INTENT_IN,
+	      "wait", BT_LOGICAL, dl, OPTIONAL, INTENT_IN,
+	      "exitstat", BT_INTEGER, di, OPTIONAL, INTENT_INOUT,
+	      "cmdstat", BT_INTEGER, di, OPTIONAL, INTENT_OUT,
+	      "cmdmsg", BT_CHARACTER, dc, OPTIONAL, INTENT_INOUT);
+
   add_sym_1s ("fdate", GFC_ISYM_FDATE, CLASS_IMPURE, BT_UNKNOWN, 0, GFC_STD_GNU,
 	      gfc_check_fdate_sub, NULL, gfc_resolve_fdate_sub,
 	      dt, BT_CHARACTER, dc, REQUIRED);
@@ -3051,6 +3060,7 @@ add_conv (bt from_type, int from_kind, bt to_type, int to_kind, int standard)
   sym->simplify.cc = gfc_convert_constant;
   sym->standard = standard;
   sym->elemental = 1;
+  sym->pure = 1;
   sym->conversion = 1;
   sym->ts = to;
   sym->id = GFC_ISYM_CONVERSION;
@@ -3201,6 +3211,7 @@ add_char_conversions (void)
 	char_conversions[n].simplify.cc = gfc_convert_char_constant;
 	char_conversions[n].standard = GFC_STD_F2003;
 	char_conversions[n].elemental = 1;
+	char_conversions[n].pure = 1;
 	char_conversions[n].conversion = 0;
 	char_conversions[n].ts = to;
 	char_conversions[n].id = GFC_ISYM_CONVERSION;

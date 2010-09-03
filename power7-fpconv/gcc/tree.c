@@ -3910,7 +3910,7 @@ build_simple_mem_ref_loc (location_t loc, tree ptr)
 double_int
 mem_ref_offset (const_tree t)
 {
-  tree toff = TREE_CODE (t) == MEM_REF ? TREE_OPERAND (t, 1) : TMR_OFFSET (t);
+  tree toff = TREE_OPERAND (t, 1);
   return double_int_sext (tree_to_double_int (toff),
 			  TYPE_PRECISION (TREE_TYPE (toff)));
 }
@@ -10508,7 +10508,7 @@ get_name (tree t)
 /* Return true if TYPE has a variable argument list.  */
 
 bool
-stdarg_p (tree fntype)
+stdarg_p (const_tree fntype)
 {
   function_args_iterator args_iter;
   tree n = NULL_TREE, t;

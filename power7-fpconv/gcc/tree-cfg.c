@@ -2990,6 +2990,12 @@ verify_types_in_gimple_reference (tree expr, bool require_lvalue)
     }
   else if (TREE_CODE (expr) == TARGET_MEM_REF)
     {
+      if (!TMR_BASE (expr)
+	  || !is_gimple_mem_ref_addr (TMR_BASE (expr)))
+	{
+	  error ("Invalid address operand in in TARGET_MEM_REF.");
+	  return true;
+	}
       if (!TMR_OFFSET (expr)
 	  || TREE_CODE (TMR_OFFSET (expr)) != INTEGER_CST
 	  || !POINTER_TYPE_P (TREE_TYPE (TMR_OFFSET (expr))))

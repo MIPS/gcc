@@ -1,19 +1,28 @@
-2010-09-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
+2010-09-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
-	* config/rs6000/rs6000.c (rs6000_address_for_fpconvert): Deal with
-	PRE_INC, PRE_DEC, and PRE_MODIFY.
+	Merge up to 163843.
+	* REVISION: Update subversion id.
+
+2010-09-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_expand_vector_init): Fix
+	segmentation violation with vector init of V2DI/V2DF with 0 and a
+	variable.
+	(rs6000_address_for_fpconvert): Deal with PRE_INC, PRE_DEC, and
+	PRE_MODIFY.
 
 	* config/rs6000/power7.md: Add support for missing types,
 	imul_compare, lmul_compare, veccmpsimple.
 
-	* config/rs6000/rs6000.md (abs<mode>2_isel): Delete
-	reload_completed requirement for splitting, allocating a new
-	register if necessary, and set the type attribute on the combined
-	insn.  If possible, prefer using the output register for the temp.
+	* config/rs6000/rs6000.md (abs<mode>2_isel): Set cpu type to
+	three.
 	(nabs<mode>2_isel): Ditto.
 	(abssi2_nopower): Ditto.
 	(nabs_power): Ditto.
-	(neg<mode>2): Ditto.
+	(neg<mode>2): Delete reload_completed requirement for splitting,
+	allocating a new register if necessary, and set the type attribute
+	on the combined insn.  If possible, prefer using the output
+	register for the temp.
 	(floatsi<mode>2_lfiwax): Ditto.
 	(floatsi<mode>2_lfiwax_mem): Ditto.
 	(floatsi<mode>2_lfiwax_mem2): Ditto.
@@ -30,6 +39,10 @@
 	(floatunsdidf2): Ditto.
 	(floatdisf2): Ditto.
 	(floatunsdisf2_mem): Ditto.
+	(movdi_internal32): Use xxlxor to clear register if VSX register
+	set to 0.
+	(movdi_mfpgpr): Ditto.
+	(movdi_internal64): Ditto.
 
 2010-08-31  Michael Meissner  <meissner@linux.vnet.ibm.com>
 

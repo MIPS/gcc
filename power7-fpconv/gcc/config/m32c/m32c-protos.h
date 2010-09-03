@@ -22,7 +22,6 @@
 #define MM enum machine_mode
 #define UINT unsigned int
 
-int  m32c_class_likely_spilled_p (int);
 void m32c_conditional_register_usage (void);
 int  m32c_const_ok_for_constraint_p (HOST_WIDE_INT, char, const char *);
 UINT m32c_dwarf_frame_regnum (int);
@@ -45,12 +44,6 @@ void m32c_note_pragma_address (const char *, unsigned);
 int  m32c_regno_ok_for_base_p (int);
 int  m32c_trampoline_alignment (void);
 int  m32c_trampoline_size (void);
-
-#if defined(RTX_CODE) && defined(TREE_CODE)
-
-rtx  m32c_function_arg (CUMULATIVE_ARGS *, MM, tree, int);
-
-#endif
 
 #ifdef RTX_CODE
 
@@ -96,7 +89,6 @@ int  m32c_split_psi_p (rtx *);
 
 #ifdef TREE_CODE
 
-void m32c_function_arg_advance (CUMULATIVE_ARGS *, MM, tree, int);
 tree m32c_gimplify_va_arg_expr (tree, tree, gimple_seq *, gimple_seq *);
 void m32c_init_cumulative_args (CUMULATIVE_ARGS *, tree, rtx, tree, int);
 bool m32c_promote_function_return (const_tree);

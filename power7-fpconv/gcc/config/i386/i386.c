@@ -1480,21 +1480,21 @@ static unsigned int initial_ix86_tune_features[X86_TUNE_LAST] = {
   /* X86_TUNE_PROMOTE_HI_REGS */
   m_PPRO,
 
-  /* X86_TUNE_ADD_ESP_4: Enable if add/sub is preferred over 1/2 push/pop.  */
-  m_ATOM | m_AMD_MULTIPLE | m_K6_GEODE | m_PENT4 | m_NOCONA
-  | m_CORE2 | m_GENERIC,
+  /* X86_TUNE_SINGLE_POP: Enable if single pop insn is preferred
+     over esp addition.  */
+  m_386 | m_486 | m_PENT | m_PPRO,
 
-  /* X86_TUNE_ADD_ESP_8 */
-  m_AMD_MULTIPLE | m_ATOM | m_PPRO | m_K6_GEODE | m_386
-  | m_486 | m_PENT4 | m_NOCONA | m_CORE2 | m_GENERIC,
+  /* X86_TUNE_DOUBLE_POP: Enable if double pop insn is preferred
+     over esp addition.  */
+  m_PENT,
 
-  /* X86_TUNE_SUB_ESP_4 */
-  m_AMD_MULTIPLE | m_ATOM | m_PPRO | m_PENT4 | m_NOCONA | m_CORE2
-  | m_GENERIC,
+  /* X86_TUNE_SINGLE_PUSH: Enable if single push insn is preferred
+     over esp subtraction.  */
+  m_386 | m_486 | m_PENT | m_K6_GEODE,
 
-  /* X86_TUNE_SUB_ESP_8 */
-  m_AMD_MULTIPLE | m_ATOM | m_PPRO | m_386 | m_486
-  | m_PENT4 | m_NOCONA | m_CORE2 | m_GENERIC,
+  /* X86_TUNE_DOUBLE_PUSH. Enable if double push insn is preferred
+     over esp subtraction.  */
+  m_PENT | m_K6_GEODE,
 
   /* X86_TUNE_INTEGER_DFMODE_MOVES: Enable if integer moves are preferred
      for DFmode copies */
@@ -8119,13 +8119,7 @@ output_set_got (rtx dest, rtx label ATTRIBUTE_UNUSED)
       /* Ensure all queued register saves are flushed before the
 	 call.  */
       if (dwarf2out_do_frame ())
-	{
-	  rtx insn;
-	  start_sequence ();
-	  insn = emit_barrier ();
-	  end_sequence ();
-	  dwarf2out_frame_debug (insn, false);
-	}
+	dwarf2out_flush_queued_reg_saves ();
 #endif
       xops[2] = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (name));
       xops[2] = gen_rtx_MEM (QImode, xops[2]);
@@ -26218,6 +26212,32 @@ ix86_secondary_reload (bool in_p, rtx x, reg_class_t rclass,
   return NO_REGS;
 }
 
+/* Implement TARGET_CLASS_LIKELY_SPILLED_P.  */
+
+static bool
+ix86_class_likely_spilled_p (reg_class_t rclass)
+{
+  switch (rclass)
+    {
+      case AREG:
+      case DREG:
+      case CREG:
+      case BREG:
+      case AD_REGS:
+      case SIREG:
+      case DIREG:
+      case SSE_FIRST_REG:
+      case FP_TOP_REG:
+      case FP_SECOND_REG:
+	return true;
+
+      default:
+	break;
+    }
+
+  return false;
+}
+
 /* If we are copying between general and FP registers, we need a memory
    location. The same is true for SSE and MMX registers.
 
@@ -31735,6 +31755,9 @@ ix86_enum_va_list (int idx, const char **pname, tree *ptree)
 
 #undef TARGET_SECONDARY_RELOAD
 #define TARGET_SECONDARY_RELOAD ix86_secondary_reload
+
+#undef TARGET_CLASS_LIKELY_SPILLED_P
+#define TARGET_CLASS_LIKELY_SPILLED_P ix86_class_likely_spilled_p
 
 #undef TARGET_VECTORIZE_BUILTIN_VECTORIZATION_COST
 #define TARGET_VECTORIZE_BUILTIN_VECTORIZATION_COST \

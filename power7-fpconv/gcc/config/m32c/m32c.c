@@ -73,8 +73,12 @@ static bool m32c_fixed_condition_code_regs (unsigned int *, unsigned int *);
 static struct machine_function *m32c_init_machine_status (void);
 static void m32c_insert_attributes (tree, tree *);
 static bool m32c_legitimate_address_p (enum machine_mode, rtx, bool);
+static rtx m32_function_arg (CUMULATIVE_ARGS *, enum machine_mode
+			     const_tree, bool);
 static bool m32c_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
 				    const_tree, bool);
+static void m32c_function_arg_advance (CUMULATIVE_ARGS *, enum machine_mode,
+				       const_tree, bool);
 static bool m32c_promote_prototypes (const_tree);
 static int m32c_pushm_popm (Push_Pop_Type);
 static bool m32c_strict_argument_naming (CUMULATIVE_ARGS *);
@@ -819,14 +823,19 @@ m32c_secondary_reload_class (int rclass, enum machine_mode mode, rtx x)
   return NO_REGS;
 }
 
-/* Implements CLASS_LIKELY_SPILLED_P.  A_REGS is needed for address
+/* Implements TARGET_CLASS_LIKELY_SPILLED_P.  A_REGS is needed for address
    reloads.  */
-int
-m32c_class_likely_spilled_p (int regclass)
+
+#undef TARGET_CLASS_LIKELY_SPILLED_P
+#define TARGET_CLASS_LIKELY_SPILLED_P m32c_class_likely_spilled_p
+
+static bool
+m32c_class_likely_spilled_p (reg_class_t regclass)
 {
   if (regclass == A_REGS)
-    return 1;
-  return reg_class_size[regclass] == 1;
+    return true;
+
+  return (reg_class_size[(int) regclass] == 1);
 }
 
 /* Implements CLASS_MAX_NREGS.  We calculate this according to its
@@ -1453,10 +1462,11 @@ m32c_push_rounding (int n)
 
 /* Passing Arguments in Registers */
 
-/* Implements FUNCTION_ARG.  Arguments are passed partly in registers,
-   partly on stack.  If our function returns a struct, a pointer to a
-   buffer for it is at the top of the stack (last thing pushed).  The
-   first few real arguments may be in registers as follows:
+/* Implements TARGET_FUNCTION_ARG.  Arguments are passed partly in
+   registers, partly on stack.  If our function returns a struct, a
+   pointer to a buffer for it is at the top of the stack (last thing
+   pushed).  The first few real arguments may be in registers as
+   follows:
 
    R8C/M16C:	arg1 in r1 if it's QI or HI (else it's pushed on stack)
 		arg2 in r2 if it's HI (else pushed on stack)
@@ -1469,9 +1479,11 @@ m32c_push_rounding (int n)
 
    Note that when arg1 doesn't fit in r1, arg2 may still be passed in
    r2 if it fits.  */
-rtx
+#undef TARGET_FUNCTION_ARG
+#define TARGET_FUNCTION_ARG m32c_function_arg
+static rtx
 m32c_function_arg (CUMULATIVE_ARGS * ca,
-		   enum machine_mode mode, tree type, int named)
+		   enum machine_mode mode, const_tree type, bool named)
 {
   /* Can return a reg, parallel, or 0 for stack */
   rtx rv = NULL_RTX;
@@ -1544,15 +1556,17 @@ m32c_init_cumulative_args (CUMULATIVE_ARGS * ca,
   ca->parm_num = 1;
 }
 
-/* Implements FUNCTION_ARG_ADVANCE.  force_mem is set for functions
-   returning structures, so we always reset that.  Otherwise, we only
-   need to know the sequence number of the argument to know what to do
-   with it.  */
-void
+/* Implements TARGET_FUNCTION_ARG_ADVANCE.  force_mem is set for
+   functions returning structures, so we always reset that.  Otherwise,
+   we only need to know the sequence number of the argument to know what
+   to do with it.  */
+#undef TARGET_FUNCTION_ARG_ADVANCE
+#define TARGET_FUNCTION_ARG_ADVANCE m32c_function_arg_advance
+static void
 m32c_function_arg_advance (CUMULATIVE_ARGS * ca,
 			   enum machine_mode mode ATTRIBUTE_UNUSED,
-			   tree type ATTRIBUTE_UNUSED,
-			   int named ATTRIBUTE_UNUSED)
+			   const_tree type ATTRIBUTE_UNUSED,
+			   bool named ATTRIBUTE_UNUSED)
 {
   if (ca->force_mem)
     ca->force_mem = 0;
