@@ -1,3 +1,39 @@
+2010-09-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/45500
+	* dwarf2out.c (rtl_for_decl_init): Give up for all generic vectors,
+	not just generic vectors with BLKmode.
+
+2010-09-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/45458
+	* bb-reorder.c (add_labels_and_missing_jumps): Treat
+	bbs ending with throwing insns like blocks ending with a call.
+	(fix_up_fall_thru_edges): Likewise.
+
+2010-08-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/45259
+	* caller-save.c (save_call_clobbered_regs): Only swap notes with
+	DEBUG_INSNs if n_regs_saved.
+
+2010-07-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/45055
+	PR rtl-optimization/45137
+	* rtl.h (prev_nonnote_nondebug_insn, next_nonnote_nondebug_insn): New
+	prototypes.
+	* emit-rtl.c (prev_nonnote_nondebug_insn, next_nonnote_nondebug_insn):
+	New functions.
+	* combine.c (next_nonnote_nondebug_insn): Removed.
+	* ifcvt.c (noce_process_if_block): Use prev_nonnote_nondebug_insn.
+	* haifa-sched.c (queue_to_ready): Use next_nonnote_nondebug_insn.
+	* sched-deps.c (sched_analyze_insn): Likewise.
+	(fixup_sched_groups, deps_start_bb): Use prev_nonnote_nondebug_insn.
+	* rtlanal.c (canonicalize_condition): Likewise.
+	* postreload.c (reload_combine_recognize_pattern): Likewise.
+	(reload_cse_move2add): Use next_nonnote_nondebug_insn.
+
 2010-09-02  Jakub Jelinek  <jakub@redhat.com>
 
 	Backport from mainline
