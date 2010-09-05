@@ -27,6 +27,7 @@
 #include "tree-pass.h"
 #include "langhooks.h"
 
+bool double_not_supported = false;
 
 static tree
 add_cli_function (const char *name,
@@ -196,20 +197,25 @@ create_cli_fn_table (void)
   cli_functions[122] = add_cli_function ("genvec_support_VQI_VQI_bit_field_ref_Mono_Simd_Vector16sb_System_UInt32_System_UInt32_System_Int8", unsigned_type_node);
   cli_functions[123] = add_cli_function ("genvec_support_VHI_VHI_bit_field_ref_Mono_Simd_Vector8s_System_UInt32_System_UInt32_System_Int16", unsigned_type_node);
   cli_functions[124] = add_cli_function ("genvec_support_VSI_VSI_bit_field_ref_Mono_Simd_Vector4i_System_UInt32_System_UInt32_System_Int32", unsigned_type_node);
-  cli_functions[125] = add_cli_function ("genvec_support_VSF_VSF_bit_field_ref_Mono_Simd_Vector4f_System_UInt32_System_UInt32_System_Int32", unsigned_type_node);
-  cli_functions[126] = add_cli_function ("genvec_support_VDF_VDF_bit_field_ref_Mono_Simd_Vector2d_System_UInt32_System_UInt32_System_Int64", unsigned_type_node);
-
+  cli_functions[125] = add_cli_function ("genvec_support_VSF_VSF_bit_field_ref_Mono_Simd_Vector4f_System_UInt32_System_UInt32_System_Single", unsigned_type_node);
+  cli_functions[126] = add_cli_function ("genvec_support_VDF_VDF_bit_field_ref_Mono_Simd_Vector2d_System_UInt32_System_UInt32_System_Double", unsigned_type_node);
 }
 
 #define MAX_CLI_FN 127 
 
 static tree
-get_vectype (tree scalar_type)
+get_vectype (tree scalar_type, bool *ignore_stmt)
 {
   enum machine_mode inner_mode = TYPE_MODE (scalar_type);
   int nbytes = GET_MODE_SIZE (inner_mode);
   int nunits;
   tree vectype;
+
+  if (scalar_type == double_type_node && double_not_supported)
+    {
+      *ignore_stmt = true;
+      return NULL_TREE;
+    }
 
   if (nbytes == 0 || nbytes >= UNITS_PER_SIMD_WORD (inner_mode))
     return NULL_TREE;
@@ -220,9 +226,10 @@ get_vectype (tree scalar_type)
 
   vectype = build_vector_type (scalar_type, nunits);
 
-  gcc_assert (vectype
-              && (VECTOR_MODE_P (TYPE_MODE (vectype))
-                  || INTEGRAL_MODE_P (TYPE_MODE (vectype))));
+  if (!(vectype
+        && (VECTOR_MODE_P (TYPE_MODE (vectype))
+            || INTEGRAL_MODE_P (TYPE_MODE (vectype)))))
+    return NULL_TREE;
 
   return vectype;
 }
@@ -272,13 +279,21 @@ replace_init_builtin (gimple stmt)
 {
   tree new_rhs, scalar_type, vectype, arg0, arg1, t;
   int i, nunits;
+  bool ignore_stmt;
 
   arg0 = gimple_call_arg (stmt, 0);
   arg1 = gimple_call_arg (stmt, 1);
   scalar_type = TREE_TYPE (arg0);
-  vectype = get_vectype (scalar_type);
+  vectype = get_vectype (scalar_type, &ignore_stmt);
   if (!vectype)
-    return false;
+    {
+      if (!ignore_stmt)
+        return false;
+
+      new_rhs = integer_zero_node;
+      finish_replacement (new_rhs, stmt, NULL);
+      return true;
+    }
 
   nunits = TYPE_VECTOR_SUBPARTS (vectype);
   t = NULL_TREE;
@@ -298,6 +313,7 @@ replace_get_vec_size_builtin (int index, gimple stmt)
 {
   tree type, vectype;
   tree new_rhs;
+  bool ignore_stmt;
 
   switch (index)
     {
@@ -329,7 +345,7 @@ replace_get_vec_size_builtin (int index, gimple stmt)
         return false;
     }
 
-  vectype = get_vectype (type);
+  vectype = get_vectype (type, &ignore_stmt);
   if (!vectype)
     return false;
 
@@ -343,6 +359,7 @@ replace_aligned_load_builtin (int index, gimple stmt)
 {
   tree scalar_type, vectype, new_rhs;
   tree dataref_ptr;
+  bool ignore_stmt;
 
   switch (index)
     {
@@ -374,7 +391,7 @@ replace_aligned_load_builtin (int index, gimple stmt)
         return false;
     }
 
-  vectype = get_vectype (scalar_type);
+  vectype = get_vectype (scalar_type, &ignore_stmt);
   if (!vectype)
     return false;
 
@@ -388,6 +405,7 @@ static bool
 replace_stride_builtin (int index, gimple stmt)
 {
   tree scalar_type, vectype, new_rhs;
+  bool ignore_stmt;
 
   switch (index)
     {
@@ -419,7 +437,7 @@ replace_stride_builtin (int index, gimple stmt)
         return false;
     }
 
-  vectype = get_vectype (scalar_type);
+  vectype = get_vectype (scalar_type, &ignore_stmt);
   if (!vectype)
     return false;
   new_rhs = build_int_cst (unsigned_type_node, TYPE_VECTOR_SUBPARTS (vectype));
@@ -431,6 +449,7 @@ static bool
 replace_align_builtin (int index, gimple stmt)
 {
   tree new_rhs, scalar_type, vectype;
+  bool ignore_stmt;
 
   switch (index)
     {
@@ -462,7 +481,7 @@ replace_align_builtin (int index, gimple stmt)
         return false;
     }
 
-  vectype = get_vectype (scalar_type);
+  vectype = get_vectype (scalar_type, &ignore_stmt);
   if (!vectype)
     return false;
   new_rhs = build_int_cst (unsigned_type_node, TYPE_ALIGN (vectype)/BITS_PER_UNIT);
@@ -475,10 +494,11 @@ replace_uniform_builtin (gimple stmt)
 {
   tree new_rhs, scalar_type, vectype, arg, t;
   int i, nunits;
+  bool ignore_stmt;
 
   arg = gimple_call_arg (stmt, 0);
   scalar_type = TREE_TYPE (arg);
-  vectype = get_vectype (scalar_type);
+  vectype = get_vectype (scalar_type, &ignore_stmt);
   if (!vectype)
     return false;
 
@@ -501,11 +521,12 @@ replace_affine_builtin (gimple stmt)
   int i, nunits;
   gimple init_stmt;
   gimple_stmt_iterator gsi;
+  bool ignore_stmt;
 
   arg0 = gimple_call_arg (stmt, 0);
   arg1 = gimple_call_arg (stmt, 1);
   scalar_type = TREE_TYPE (arg0);
-  vectype = get_vectype (scalar_type);
+  vectype = get_vectype (scalar_type, &ignore_stmt);
   if (!vectype)
     return false;
 
@@ -777,6 +798,7 @@ replace_realign_load_builtin (int index, gimple stmt)
   tree msq, lsq, realignment_token, dataref_ptr;
   tree misalign, alignment;
   tree tmis;
+  bool ignore_stmt;
 
   switch (index)
     {
@@ -809,7 +831,7 @@ replace_realign_load_builtin (int index, gimple stmt)
         return false;
     }
 
-  vectype = get_vectype (scalar_type);
+  vectype = get_vectype (scalar_type, &ignore_stmt);
   if (!vectype)
     return false;
 
@@ -897,6 +919,13 @@ replace_dot_product_builtin (gimple stmt)
 {
   tree vectype = TREE_TYPE (gimple_call_lhs (stmt));
   tree new_rhs;
+  enum machine_mode mode = TYPE_MODE (vectype);
+
+  optab dot_prod_optab =
+    optab_for_tree_code (DOT_PROD_EXPR, vectype, optab_default);
+  if (!dot_prod_optab 
+      || optab_handler (dot_prod_optab, mode)->insn_code == CODE_FOR_nothing)
+    return false; 
 
   new_rhs = build3 (DOT_PROD_EXPR, vectype, gimple_call_arg (stmt, 0),
                     gimple_call_arg (stmt, 1), gimple_call_arg (stmt, 2));
@@ -908,6 +937,7 @@ static bool
 replace_realign_offset_builtin (int index, gimple stmt)
 {
   tree scalar_type, vectype, new_rhs;
+  bool ignore_stmt;
 
   switch (index)
     {
@@ -939,7 +969,7 @@ replace_realign_offset_builtin (int index, gimple stmt)
         return false;
     }
 
-  vectype = get_vectype (scalar_type);
+  vectype = get_vectype (scalar_type, &ignore_stmt);
   if (!vectype)
     return false;
 
@@ -975,6 +1005,7 @@ replace_int_float_cvt (int index, gimple stmt)
   enum tree_code code;
   tree integral_type, builtin_decl, vectype;
   gimple new_stmt;
+  bool ignore_stmt;
 
   switch (index)
     {
@@ -1002,7 +1033,7 @@ replace_int_float_cvt (int index, gimple stmt)
         return false;
     }
 
-  vectype = get_vectype (integral_type);
+  vectype = get_vectype (integral_type, &ignore_stmt);
   if (!vectype)
     return false;
 
@@ -1023,6 +1054,7 @@ replace_interleaving (int index, gimple stmt)
   int mode;
   enum tree_code code;
   tree scalar_type, vectype, new_rhs;
+  bool ignore_stmt;
 
   switch (index)
     {
@@ -1130,7 +1162,7 @@ replace_interleaving (int index, gimple stmt)
         return false;
     }
 
-  vectype = get_vectype (scalar_type);
+  vectype = get_vectype (scalar_type, &ignore_stmt);
   if (!vectype)
     return false;
 
@@ -1153,6 +1185,7 @@ replace_pack (int index, gimple stmt)
   tree scalar_type, vectype, new_rhs;
   optab optab;
   int mode;
+  bool ignore_stmt;
  
   switch (index)
     {
@@ -1168,7 +1201,7 @@ replace_pack (int index, gimple stmt)
         return false;
     }
 
-  vectype = get_vectype (scalar_type);
+  vectype = get_vectype (scalar_type, &ignore_stmt);
   if (!vectype)
     return false;
 
@@ -1191,6 +1224,7 @@ replace_widen_mult (int index, gimple stmt)
   tree scalar_type, vectype, new_rhs;
   optab optab;
   int mode;
+  bool ignore_stmt;
 
   switch (index)
     {
@@ -1218,7 +1252,7 @@ replace_widen_mult (int index, gimple stmt)
         return false;
     }
 
-  vectype = get_vectype (scalar_type);
+  vectype = get_vectype (scalar_type, &ignore_stmt);
   if (!vectype)
     return false;
 
@@ -1247,6 +1281,7 @@ replace_shift (int index, gimple stmt)
   gimple def_stmt;
   bool invariant = true;
   tree shift_arg = NULL_TREE;
+  bool ignore_stmt;
 
   switch (index)
     {
@@ -1284,7 +1319,7 @@ replace_shift (int index, gimple stmt)
         return false;
     }
 
-  vectype = get_vectype (scalar_type);
+  vectype = get_vectype (scalar_type, &ignore_stmt);
   if (!vectype)
     return false;
 
@@ -1334,14 +1369,16 @@ static bool
 replace_double_supported (gimple stmt)
 {
   tree vectype, new_rhs;
+  bool ignore_stmt;
 
-  vectype = get_vectype (double_type_node);
+  vectype = get_vectype (double_type_node, &ignore_stmt);
   if (vectype)
     new_rhs = build_int_cst (signed_char_type_node, 1);
   else
     new_rhs = build_int_cst (signed_char_type_node, 0);
 
   finish_replacement (new_rhs, stmt, NULL);
+  double_not_supported = true;
   return true;
 }
 
@@ -1352,6 +1389,7 @@ replace_unpack (int index, gimple stmt)
   tree scalar_type, vectype, new_rhs;
   optab optab;
   int mode;
+  bool ignore_stmt;
 
   switch (index)
     {
@@ -1379,7 +1417,7 @@ replace_unpack (int index, gimple stmt)
         return false;
     }
 
-  vectype = get_vectype (scalar_type);
+  vectype = get_vectype (scalar_type, &ignore_stmt);
   if (!vectype)
     return false;
 
@@ -1399,6 +1437,7 @@ static bool
 replace_bit_field_ref (int index, gimple stmt)
 {
   tree scalar_type, vectype, new_rhs, bitpos, bitsize;
+  bool ignore_stmt;
 
   switch (index)
     {
@@ -1426,7 +1465,7 @@ replace_bit_field_ref (int index, gimple stmt)
         return false;
     }
 
-  vectype = get_vectype (scalar_type);
+  vectype = get_vectype (scalar_type, &ignore_stmt);
   if (!vectype)
     return false;
 
