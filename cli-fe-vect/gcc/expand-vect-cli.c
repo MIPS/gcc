@@ -1480,7 +1480,7 @@ replace_bit_field_ref (int index, gimple stmt)
                          TYPE_SIZE (scalar_type));
 
   new_rhs = build3 (BIT_FIELD_REF, scalar_type, gimple_call_arg (stmt, 0), 
-                    bitsize, bitpos);
+                    bitsize, fold_convert (bitsizetype, bitpos));
   finish_replacement (new_rhs, stmt, NULL);
   return true;
 }
