@@ -1,3 +1,11 @@
+2010-09-06  Alan Modra  <amodra@gmail.com>
+
+	* doc/invoke.text: Reinstate mcmodel=medium.
+	* config/rs6000/rs6000.h (enum rs6000_cmodel): Add CMODEL_MEDIUM.
+	* config/rs6000/rs6000.c (rs6000_handle_option): Add mcmodel=medium.
+	(toc_relative_ok, offsettable_ok_by_alignment): New functions.
+	(rs6000_emit_move): Reinstate mcmodel=medium optimization.
+
 2010-08-06  Peter Bergner  <bergner@vnet.ibm.com>
 
 	* config/rs6000/linux64.h (SUBSUBTARGET_OVERRIDE_OPTIONS): Set
