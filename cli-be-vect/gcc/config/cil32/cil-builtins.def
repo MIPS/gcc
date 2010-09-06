@@ -1594,31 +1594,31 @@ DEF_CILBUILTIN(GEN_VSI_BIT_FIELD_REF, "[genvec_support]genvec_support.VSI::VSI_b
                ATTR_CONST_NOTHROW_LIST,         \
                intSI_type_node, \
                3, \
-               VSI_type_node, unsigned_type_node, unsigned_type_node)
+               VSI_type_node, long_long_unsigned_type_node, long_long_unsigned_type_node)
 
 DEF_CILBUILTIN(GEN_VHI_BIT_FIELD_REF, "[genvec_support]genvec_support.VHI::VHI_bit_field_ref", \
                ATTR_CONST_NOTHROW_LIST,         \
                intHI_type_node, \
                3, \
-               VHI_type_node, unsigned_type_node, unsigned_type_node)
+               VHI_type_node, long_long_unsigned_type_node, long_long_unsigned_type_node)
 
 DEF_CILBUILTIN(GEN_VQI_BIT_FIELD_REF, "[genvec_support]genvec_support.VQI::VQI_bit_field_ref", \
                ATTR_CONST_NOTHROW_LIST,         \
                intQI_type_node, \
                3, \
-               VQI_type_node, unsigned_type_node, unsigned_type_node)
+               VQI_type_node, long_long_unsigned_type_node, long_long_unsigned_type_node)
 
 DEF_CILBUILTIN(GEN_VDF_BIT_FIELD_REF, "[genvec_support]genvec_support.VDF::VDF_bit_field_ref", \
                ATTR_CONST_NOTHROW_LIST,         \
                double_type_node, \
                3, \
-               VDF_type_node, unsigned_type_node, unsigned_type_node)
+               VDF_type_node, long_long_unsigned_type_node, long_long_unsigned_type_node)
 
 DEF_CILBUILTIN(GEN_VSF_BIT_FIELD_REF, "[genvec_support]genvec_support.VSF::VSF_bit_field_ref", \
                ATTR_CONST_NOTHROW_LIST,         \
                float_type_node, \
                3, \
-               VSF_type_node, unsigned_type_node, unsigned_type_node)
+               VSF_type_node, long_long_unsigned_type_node, long_long_unsigned_type_node)
 
 /* inner or outer loop?  */
 DEF_CILBUILTIN(GCC_DOUBLE_SUPPORTED, "[genvec_support]genvec_support.VSI::VSI_double_supported", \
