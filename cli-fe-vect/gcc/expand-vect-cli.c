@@ -199,9 +199,11 @@ create_cli_fn_table (void)
   cli_functions[124] = add_cli_function ("genvec_support_VSI_VSI_bit_field_ref_Mono_Simd_Vector4i_System_UInt32_System_UInt32_System_Int32", unsigned_type_node);
   cli_functions[125] = add_cli_function ("genvec_support_VSF_VSF_bit_field_ref_Mono_Simd_Vector4f_System_UInt32_System_UInt32_System_Single", unsigned_type_node);
   cli_functions[126] = add_cli_function ("genvec_support_VDF_VDF_bit_field_ref_Mono_Simd_Vector2d_System_UInt32_System_UInt32_System_Double", unsigned_type_node);
+
+  cli_functions[127] = add_cli_function ("genvec_support_VSI_VSI_int_mult_supported_System_SByte", unsigned_type_node);
 }
 
-#define MAX_CLI_FN 127 
+#define MAX_CLI_FN 128 
 
 static tree
 get_vectype (tree scalar_type, bool *ignore_stmt)
@@ -845,6 +847,13 @@ replace_realign_load_builtin (int index, gimple stmt)
       new_rhs = build3 (REALIGN_LOAD_EXPR, vectype, msq, lsq,
                         realignment_token);
       finish_replacement (new_rhs, stmt, NULL);
+      if (dump_file && (dump_flags & TDF_DETAILS))
+        {
+          fprintf (dump_file, "FOUND OPTAB: ");
+          print_gimple_stmt (dump_file, stmt, 0, TDF_SLIM);
+          fprintf (dump_file, "\n");
+        }
+
       return true;
     }
    
@@ -1383,6 +1392,23 @@ replace_double_supported (gimple stmt)
 }
 
 static bool
+replace_int_mult_supported (gimple stmt)
+{
+  tree new_rhs;
+
+  /* Dirty hack - int mult is supported on Altivec, as well as mask for 
+     load.  */
+  if (targetm.vectorize.builtin_mask_for_load
+      && targetm.vectorize.builtin_mask_for_load())
+    new_rhs = build_int_cst (signed_char_type_node, 1);
+  else
+    new_rhs = build_int_cst (signed_char_type_node, 0);
+
+  finish_replacement (new_rhs, stmt, NULL);
+  return true;
+}
+
+static bool
 replace_unpack (int index, gimple stmt)
 {
   enum tree_code code;
@@ -1658,6 +1684,9 @@ replace_cli_fn (int index, gimple stmt)
       case bit_field_ref_vsf:
       case bit_field_ref_vdf:
         return replace_bit_field_ref (index, stmt);
+
+      case int_mult_supported:
+        return replace_int_mult_supported (stmt);
 
       default:
         if (dump_file && (dump_flags & TDF_DETAILS))

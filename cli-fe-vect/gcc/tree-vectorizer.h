@@ -1001,6 +1001,7 @@ enum cli_builtins {
   bit_field_ref_vsi,
   bit_field_ref_vsf,
   bit_field_ref_vdf,
+  int_mult_supported,
 };
 
 #endif  /* GCC_TREE_VECTORIZER_H  */
