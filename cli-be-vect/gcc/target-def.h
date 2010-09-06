@@ -404,6 +404,7 @@
 #define TARGET_VECTORIZE_BUILTIN_DOUBLE_SUPPORTED 0
 #define TARGET_VECTORIZE_BUILTIN_SHIFT 0
 #define TARGET_VECTORIZE_BUILTIN_BIT_FIELD_REF 0
+#define TARGET_VECTORIZE_BUILTIN_INT_MULT_SUPPORTED 0
 
 #define TARGET_VECTORIZE                                                \
   {									\
@@ -435,7 +436,8 @@
     TARGET_VECTORIZE_BUILTIN_UNPACK,                                    \
     TARGET_VECTORIZE_BUILTIN_DOUBLE_SUPPORTED,                          \
     TARGET_VECTORIZE_BUILTIN_SHIFT,                                     \
-    TARGET_VECTORIZE_BUILTIN_BIT_FIELD_REF                              \
+    TARGET_VECTORIZE_BUILTIN_BIT_FIELD_REF,                             \
+    TARGET_VECTORIZE_BUILTIN_INT_MULT_SUPPORTED                         \
   }
 
 #define TARGET_DEFAULT_TARGET_FLAGS 0

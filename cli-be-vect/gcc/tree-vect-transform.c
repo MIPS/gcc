@@ -4746,6 +4746,11 @@ vectorizable_operation (gimple stmt, gimple_stmt_iterator *gsi,
       return false;
     }
 
+  if (code == MULT_EXPR 
+      && (TREE_TYPE (scalar_dest) == intSI_type_node 
+          || TREE_TYPE (scalar_dest) == unsigned_intSI_type_node))
+    LOOP_VINFO_NEEDS_INT_MULT (loop_vinfo) = true;
+
   if (!vec_stmt) /* transformation not required.  */
     {
       STMT_VINFO_TYPE (stmt_info) = op_vec_info_type;
@@ -9173,6 +9178,31 @@ vect_loop_versioning (loop_vec_info loop_vinfo,
             cond_expr = tmp_cond_expr;
          }
 
+       if (LOOP_VINFO_NEEDS_INT_MULT (loop_vinfo)
+           && targetm.vectorize.builtin_int_mult_supported
+           && (builtin_decl = targetm.vectorize.builtin_int_mult_supported ()))
+        {
+          tree var = create_tmp_var (boolean_type_node, "int_mult");
+          gimple new_stmt = gimple_build_call (builtin_decl, 0);
+          tree tmp_cond_expr;
+
+          add_referenced_var (var);
+          tmp_cond_expr = make_ssa_name (var, new_stmt);
+          gimple_call_set_lhs (new_stmt, tmp_cond_expr);
+          gimple_seq_add_stmt (&cond_expr_stmt_list, new_stmt);
+
+          if (cond_expr)
+            {
+              cond_expr =
+                 fold_build2 (TRUTH_AND_EXPR, boolean_type_node, cond_expr, tmp_cond_expr);
+              cond_expr =
+                 force_gimple_operand (cond_expr, &gimplify_stmt_list, true, NULL_TREE);
+              gimple_seq_add_seq (&cond_expr_stmt_list, gimplify_stmt_list);
+            }
+          else
+            cond_expr = tmp_cond_expr;
+         }
+
       if (!cond_expr)
         {
           cond_expr = create_tmp_var (boolean_type_node, "dummy");
@@ -9442,7 +9472,8 @@ vect_transform_loop (loop_vec_info loop_vinfo)
     }
 
   if (loop->inner && flag_loop_nest_version 
-      && LOOP_VINFO_NEEDS_DOUBLE (loop_vinfo))
+      && (LOOP_VINFO_NEEDS_DOUBLE (loop_vinfo)
+          || LOOP_VINFO_NEEDS_INT_MULT (loop_vinfo)))
     {
       struct loop *new_loop = vect_loop_versioning (loop_vinfo, &cond_expr_gsi, 
                                                     true);

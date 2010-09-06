@@ -515,6 +515,8 @@ struct gcc_target
     tree (* builtin_shift) (enum tree_code, tree);
 
     tree (* builtin_bit_field_ref) (tree);
+
+    tree (* builtin_int_mult_supported) (void);
 } vectorize;
 
   /* The initial value of target_flags.  */

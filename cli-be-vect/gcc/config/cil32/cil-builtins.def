@@ -1626,6 +1626,11 @@ DEF_CILBUILTIN(GCC_DOUBLE_SUPPORTED, "[genvec_support]genvec_support.VSI::VSI_do
                boolean_type_node, \
                0)
 
+DEF_CILBUILTIN(GCC_INT_MULT_SUPPORTED, "[genvec_support]genvec_support.VSI::VSI_int_mult_supported", \
+               ATTR_CONST_NOTHROW_LIST,        \
+               intQI_type_node, \
+               0)
+
 /* V DF */
 DEF_CILBUILTIN(GEN_VDF_CTOR, "[Xxxx.Simd]Xxxx.Simd.VecGenDF::.ctor", \
                ATTR_CONST_NOTHROW_LIST, \

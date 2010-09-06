@@ -1972,6 +1972,7 @@ new_loop_vec_info (struct loop *loop)
   LOOP_VINFO_ALIGN_SCHEME (res) = no_forced_scheme;
   LOOP_VINFO_DRS_FOR_ALIGN_CHECKS (res) = VEC_alloc (data_reference_p, heap, 10);
   LOOP_VINFO_NEEDS_DOUBLE (res) = false;
+  LOOP_VINFO_NEEDS_INT_MULT (res) = false;
   return res;
 }
 

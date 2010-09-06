@@ -103,6 +103,7 @@ static tree cil32_builtin_extract_even_odd (enum tree_code, tree);
 static tree cil32_builtin_pack (enum tree_code, tree);
 static tree cil32_builtin_unpack (enum tree_code, tree);
 static tree cil32_builtin_double_supported (void);
+static tree cil32_builtin_int_mult_supported (void);
 static tree cil32_builtin_shift (enum tree_code, tree);
 static tree cil32_builtin_bit_field_ref (tree);
 
@@ -112,10 +113,6 @@ static tree cil32_builtin_bit_field_ref (tree);
 
 #undef TARGET_INIT_BUILTINS
 #define TARGET_INIT_BUILTINS cil_init_builtins
-
-#undef TARGET_VECTORIZE_BUILTIN_DOUBLE_SUPPORTED
-#define TARGET_VECTORIZE_BUILTIN_DOUBLE_SUPPORTED \
-  cil32_builtin_double_supported
 
 #undef TARGET_ASM_FILE_START
 #define TARGET_ASM_FILE_START cil32_file_start
@@ -220,6 +217,14 @@ static tree cil32_builtin_bit_field_ref (tree);
 #undef TARGET_VECTORIZE_BUILTIN_BIT_FIELD_REF
 #define TARGET_VECTORIZE_BUILTIN_BIT_FIELD_REF \
   cil32_builtin_bit_field_ref
+
+#undef TARGET_VECTORIZE_BUILTIN_DOUBLE_SUPPORTED
+#define TARGET_VECTORIZE_BUILTIN_DOUBLE_SUPPORTED \
+  cil32_builtin_double_supported
+
+#undef TARGET_VECTORIZE_BUILTIN_INT_MULT_SUPPORTED
+#define TARGET_VECTORIZE_BUILTIN_INT_MULT_SUPPORTED \
+  cil32_builtin_int_mult_supported
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -1128,6 +1133,12 @@ static tree cil32_builtin_double_supported (void)
 {
   return cil32_builtins[CIL32_GCC_DOUBLE_SUPPORTED];
 }
+
+static tree cil32_builtin_int_mult_supported (void)
+{
+  return cil32_builtins[CIL32_GCC_INT_MULT_SUPPORTED];
+}
+
 
 static tree
 cil32_builtin_unpack (enum tree_code code, tree type)
