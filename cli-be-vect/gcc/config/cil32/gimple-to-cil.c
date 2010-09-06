@@ -2776,7 +2776,7 @@ gen_abs_expr (cil_stmt_iterator *csi, tree node)
 
   if (INTEGRAL_TYPE_P (type))
     {
-      if (size == 32)
+      if ((size == 16) || (size == 32))
 	builtin = CIL32_ABSSI2;
       else
 	{
