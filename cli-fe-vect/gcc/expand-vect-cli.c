@@ -194,11 +194,11 @@ create_cli_fn_table (void)
   cli_functions[120] = add_cli_function ("genvec_support_VSF_VSF_extract_odd_Mono_Simd_Vector4f_Mono_Simd_Vector4f_Mono_Simd_Vector4f", unsigned_type_node);
   cli_functions[121] = add_cli_function ("genvec_support_VDF_VDF_extract_odd_Mono_Simd_Vector2d_Mono_Simd_Vector2d_Mono_Simd_Vector2d", unsigned_type_node);
 
-  cli_functions[122] = add_cli_function ("genvec_support_VQI_VQI_bit_field_ref_Mono_Simd_Vector16sb_System_UInt32_System_UInt32_System_Int8", unsigned_type_node);
-  cli_functions[123] = add_cli_function ("genvec_support_VHI_VHI_bit_field_ref_Mono_Simd_Vector8s_System_UInt32_System_UInt32_System_Int16", unsigned_type_node);
-  cli_functions[124] = add_cli_function ("genvec_support_VSI_VSI_bit_field_ref_Mono_Simd_Vector4i_System_UInt32_System_UInt32_System_Int32", unsigned_type_node);
-  cli_functions[125] = add_cli_function ("genvec_support_VSF_VSF_bit_field_ref_Mono_Simd_Vector4f_System_UInt32_System_UInt32_System_Single", unsigned_type_node);
-  cli_functions[126] = add_cli_function ("genvec_support_VDF_VDF_bit_field_ref_Mono_Simd_Vector2d_System_UInt32_System_UInt32_System_Double", unsigned_type_node);
+  cli_functions[122] = add_cli_function ("genvec_support_VQI_VQI_bit_field_ref_Mono_Simd_Vector16sb_System_UInt64_System_UInt64_System_Int8", unsigned_type_node);
+  cli_functions[123] = add_cli_function ("genvec_support_VHI_VHI_bit_field_ref_Mono_Simd_Vector8s_System_UInt64_System_UInt64_System_Int16", unsigned_type_node);
+  cli_functions[124] = add_cli_function ("genvec_support_VSI_VSI_bit_field_ref_Mono_Simd_Vector4i_System_UInt64_System_UInt64_System_Int32", unsigned_type_node);
+  cli_functions[125] = add_cli_function ("genvec_support_VSF_VSF_bit_field_ref_Mono_Simd_Vector4f_System_UInt64_System_UInt64_System_Single", unsigned_type_node);
+  cli_functions[126] = add_cli_function ("genvec_support_VDF_VDF_bit_field_ref_Mono_Simd_Vector2d_System_UInt64_System_UInt-'_System_Double", unsigned_type_node);
 
   cli_functions[127] = add_cli_function ("genvec_support_VSI_VSI_int_mult_supported_System_SByte", unsigned_type_node);
 }
