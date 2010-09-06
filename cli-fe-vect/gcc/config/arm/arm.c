@@ -17213,6 +17213,7 @@ static neon_builtin_datum neon_builtin_data[] =
 #undef VAR8
 #undef VAR9
 #undef VAR10
+#undef intOI_type_node
 
 static void
 arm_init_neon_builtins (void)

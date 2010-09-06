@@ -801,6 +801,8 @@ replace_realign_load_builtin (int index, gimple stmt)
   tree misalign, alignment;
   tree tmis;
   bool ignore_stmt;
+  gimple def_stmt;
+  gimple_stmt_iterator gsi;
 
   switch (index)
     {
@@ -856,12 +858,11 @@ replace_realign_load_builtin (int index, gimple stmt)
 
       return true;
     }
-   
+  
+  dataref_ptr = gimple_call_arg (stmt, 3);
+ 
   if (optab_handler (movmisalign_optab, mode)->insn_code != CODE_FOR_nothing)
     { 
-      gimple def_stmt;
-      gimple_stmt_iterator gsi;
-
       misalign = fold_convert (sizetype, gimple_call_arg (stmt, 4));
       alignment = gimple_call_arg (stmt, 5);
 
@@ -874,37 +875,39 @@ replace_realign_load_builtin (int index, gimple stmt)
         }
 
       tmis = size_binop (MULT_EXPR, tmis, size_int(BITS_PER_UNIT));
-      dataref_ptr = gimple_call_arg (stmt, 3);
       new_rhs = build2 (MISALIGNED_INDIRECT_REF, vectype, dataref_ptr, tmis);
-      finish_replacement (new_rhs, stmt, NULL);
+    }
+  else
+    new_rhs = build1 (INDIRECT_REF, vectype, dataref_ptr);
 
-      realignment_token = gimple_call_arg (stmt, 2);
-      def_stmt = SSA_NAME_DEF_STMT (realignment_token);
-      if (def_stmt && is_gimple_assign (def_stmt)
-          && gimple_assign_rhs_code (def_stmt) == VIEW_CONVERT_EXPR)
+  finish_replacement (new_rhs, stmt, NULL);
+  
+  realignment_token = gimple_call_arg (stmt, 2);
+  def_stmt = SSA_NAME_DEF_STMT (realignment_token);
+  if (def_stmt && is_gimple_assign (def_stmt)
+      && gimple_assign_rhs_code (def_stmt) == VIEW_CONVERT_EXPR)
+    {
+      int i;
+      gimple rem_stmt;
+      bool removed = false;
+
+      if (!removed_stmts)
+        removed_stmts = VEC_alloc (gimple, heap, 3);
+      else
         {
-          int i;
-          gimple rem_stmt;
-          bool removed = false;
-
-          if (!removed_stmts)
-            removed_stmts = VEC_alloc (gimple, heap, 3);
-          else
-            {
-              for (i = 0; VEC_iterate (gimple, removed_stmts, i, rem_stmt); i++)
-                if (def_stmt == rem_stmt)
-                  {
-                    removed = true;
-                    break;
-                  }
-            }
-          
-          if (!removed)
-            {
-              VEC_safe_push (gimple, heap, removed_stmts, def_stmt);
-              gsi = gsi_for_stmt (def_stmt);
-              gsi_remove (&gsi, true);
-            }
+          for (i = 0; VEC_iterate (gimple, removed_stmts, i, rem_stmt); i++)
+            if (def_stmt == rem_stmt)
+              {
+                removed = true;
+                break;
+              }
+        }
+        
+      if (!removed)
+        {
+          VEC_safe_push (gimple, heap, removed_stmts, def_stmt);
+          gsi = gsi_for_stmt (def_stmt);
+          gsi_remove (&gsi, true);
         }
 
       return true;
