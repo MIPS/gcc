@@ -1071,37 +1071,55 @@ replace_interleaving (int index, gimple stmt)
   switch (index)
     {
       case interleave_high_vqi:
-	code = VEC_INTERLEAVE_HIGH_EXPR;
+        if (BYTES_BIG_ENDIAN)
+          code = VEC_INTERLEAVE_LOW_EXPR;
+        else
+ 	  code = VEC_INTERLEAVE_HIGH_EXPR;
         scalar_type = intQI_type_node;
         break;
 
       case interleave_high_vhi:
-	code = VEC_INTERLEAVE_HIGH_EXPR;
+        if (BYTES_BIG_ENDIAN)
+          code = VEC_INTERLEAVE_LOW_EXPR;
+        else
+          code = VEC_INTERLEAVE_HIGH_EXPR;
         scalar_type = intHI_type_node;
         break;
 
       case interleave_high_vsi:
-	code = VEC_INTERLEAVE_HIGH_EXPR;
+        if (BYTES_BIG_ENDIAN)
+          code = VEC_INTERLEAVE_LOW_EXPR;
+        else
+          code = VEC_INTERLEAVE_HIGH_EXPR;
         scalar_type = intSI_type_node;
         break;
 
       case interleave_low_vqi:
-	code = VEC_INTERLEAVE_LOW_EXPR;
+        if (BYTES_BIG_ENDIAN)
+          code = VEC_INTERLEAVE_HIGH_EXPR;
+        else
+  	  code = VEC_INTERLEAVE_LOW_EXPR;
         scalar_type = intQI_type_node;
         break;
 
       case interleave_low_vhi:
-	code = VEC_INTERLEAVE_LOW_EXPR;
+        if (BYTES_BIG_ENDIAN)
+          code = VEC_INTERLEAVE_HIGH_EXPR;
+        else
+          code = VEC_INTERLEAVE_LOW_EXPR;
         scalar_type = intHI_type_node;
         break;
 
       case interleave_low_vsi:
-	code = VEC_INTERLEAVE_LOW_EXPR;
+        if (BYTES_BIG_ENDIAN)
+          code = VEC_INTERLEAVE_HIGH_EXPR;
+        else
+          code = VEC_INTERLEAVE_LOW_EXPR;
         scalar_type = intSI_type_node;
         break;
 
       case extract_even_vqi:
-	code = VEC_EXTRACT_EVEN_EXPR;
+   	code = VEC_EXTRACT_EVEN_EXPR;
         scalar_type = intQI_type_node;
         break;
 
@@ -1131,22 +1149,34 @@ replace_interleaving (int index, gimple stmt)
         break;
 
       case interleave_high_vsf:
-        code = VEC_INTERLEAVE_HIGH_EXPR;
+        if (BYTES_BIG_ENDIAN)
+          code = VEC_INTERLEAVE_LOW_EXPR;
+        else
+          code = VEC_INTERLEAVE_HIGH_EXPR;
         scalar_type = float_type_node;
         break;
 
       case interleave_high_vdf:
-        code = VEC_INTERLEAVE_HIGH_EXPR;
+        if (BYTES_BIG_ENDIAN)
+          code = VEC_INTERLEAVE_LOW_EXPR;
+        else
+          code = VEC_INTERLEAVE_HIGH_EXPR;
         scalar_type = double_type_node;
         break;
 
       case interleave_low_vsf:
-        code = VEC_INTERLEAVE_LOW_EXPR;
+        if (BYTES_BIG_ENDIAN)
+          code = VEC_INTERLEAVE_HIGH_EXPR;
+        else
+          code = VEC_INTERLEAVE_LOW_EXPR;
         scalar_type = float_type_node;
         break;
 
       case interleave_low_vdf:
-        code = VEC_INTERLEAVE_LOW_EXPR;
+        if (BYTES_BIG_ENDIAN)
+          code = VEC_INTERLEAVE_HIGH_EXPR;
+        else
+          code = VEC_INTERLEAVE_LOW_EXPR;
         scalar_type = double_type_node;
         break;
 
@@ -1241,22 +1271,34 @@ replace_widen_mult (int index, gimple stmt)
   switch (index)
     {
       case widen_mult_hi_vhi:
-        code = VEC_WIDEN_MULT_HI_EXPR;
+        if (BYTES_BIG_ENDIAN)
+          code = VEC_WIDEN_MULT_LO_EXPR;
+        else
+          code = VEC_WIDEN_MULT_HI_EXPR;
         scalar_type = intQI_type_node;
         break;
 
       case widen_mult_hi_vsi:
-        code = VEC_WIDEN_MULT_HI_EXPR;
+        if (BYTES_BIG_ENDIAN)
+          code = VEC_WIDEN_MULT_LO_EXPR;
+        else
+          code = VEC_WIDEN_MULT_HI_EXPR;
         scalar_type = intHI_type_node;
         break;
 
       case widen_mult_lo_vhi:
-        code = VEC_WIDEN_MULT_LO_EXPR;
+        if (BYTES_BIG_ENDIAN)
+          code = VEC_WIDEN_MULT_HI_EXPR;
+        else
+          code = VEC_WIDEN_MULT_LO_EXPR;
         scalar_type = intQI_type_node;
         break;
 
       case widen_mult_lo_vsi:
-        code = VEC_WIDEN_MULT_LO_EXPR;
+        if (BYTES_BIG_ENDIAN)
+          code = VEC_WIDEN_MULT_HI_EXPR;
+        else
+          code = VEC_WIDEN_MULT_LO_EXPR;
         scalar_type = intHI_type_node;
         break;
 
@@ -1423,22 +1465,34 @@ replace_unpack (int index, gimple stmt)
   switch (index)
     {
       case unpack_hi_vqi:
-        code = VEC_UNPACK_HI_EXPR;
+        if (BYTES_BIG_ENDIAN)
+          code = VEC_UNPACK_LO_EXPR;
+        else
+          code = VEC_UNPACK_HI_EXPR;
         scalar_type = intQI_type_node;
         break;
 
       case unpack_hi_vhi:
-        code = VEC_UNPACK_HI_EXPR;
+        if (BYTES_BIG_ENDIAN)
+          code = VEC_UNPACK_LO_EXPR;
+        else
+          code = VEC_UNPACK_HI_EXPR;
         scalar_type = intHI_type_node;
         break;
 
       case unpack_lo_vqi:
-        code = VEC_UNPACK_LO_EXPR;
+        if (BYTES_BIG_ENDIAN)
+          code = VEC_UNPACK_HI_EXPR;
+        else
+          code = VEC_UNPACK_LO_EXPR;
         scalar_type = intQI_type_node;
         break;
 
       case unpack_lo_vhi:
-        code = VEC_UNPACK_LO_EXPR;
+        if (BYTES_BIG_ENDIAN)
+          code = VEC_UNPACK_HI_EXPR;
+        else
+          code = VEC_UNPACK_LO_EXPR;
         scalar_type = intHI_type_node;
         break;
 
