@@ -324,14 +324,16 @@ valid_mem_ref_p (enum machine_mode mode, addr_space_t as,
 
 /* Checks whether a TARGET_MEM_REF with type TYPE and parameters given by ADDR
    is valid on the current target and if so, creates and returns the
-   TARGET_MEM_REF.  */
+   TARGET_MEM_REF.  If VERIFY is false omit the verification step.  */
 
 static tree
-create_mem_ref_raw (tree type, tree alias_ptr_type, struct mem_address *addr)
+create_mem_ref_raw (tree type, tree alias_ptr_type, struct mem_address *addr,
+		    bool verify)
 {
   tree base, index2;
 
-  if (!valid_mem_ref_p (TYPE_MODE (type), TYPE_ADDR_SPACE (type), addr))
+  if (verify
+      && !valid_mem_ref_p (TYPE_MODE (type), TYPE_ADDR_SPACE (type), addr))
     return NULL_TREE;
 
   if (addr->step && integer_onep (addr->step))
@@ -664,8 +666,8 @@ static void
 gimplify_mem_ref_parts (gimple_stmt_iterator *gsi, struct mem_address *parts)
 {
   if (parts->base)
-    parts->base = force_gimple_operand_gsi (gsi, parts->base,
-					    true, NULL_TREE,
+    parts->base = force_gimple_operand_gsi_1 (gsi, parts->base,
+					    is_gimple_mem_ref_addr, NULL_TREE,
 					    true, GSI_SAME_STMT);
   if (parts->index)
     parts->index = force_gimple_operand_gsi (gsi, parts->index,
@@ -689,7 +691,7 @@ create_mem_ref (gimple_stmt_iterator *gsi, tree type, aff_tree *addr,
 
   addr_to_parts (type, addr, iv_cand, base_hint, &parts, speed);
   gimplify_mem_ref_parts (gsi, &parts);
-  mem_ref = create_mem_ref_raw (type, alias_ptr_type, &parts);
+  mem_ref = create_mem_ref_raw (type, alias_ptr_type, &parts, true);
   if (mem_ref)
     return mem_ref;
 
@@ -705,7 +707,7 @@ create_mem_ref (gimple_stmt_iterator *gsi, tree type, aff_tree *addr,
 				true, NULL_TREE, true, GSI_SAME_STMT);
       parts.step = NULL_TREE;
 
-      mem_ref = create_mem_ref_raw (type, alias_ptr_type, &parts);
+      mem_ref = create_mem_ref_raw (type, alias_ptr_type, &parts, true);
       if (mem_ref)
 	return mem_ref;
     }
@@ -724,11 +726,11 @@ create_mem_ref (gimple_stmt_iterator *gsi, tree type, aff_tree *addr,
 	  if (parts.index)
 	    {
 	      atype = TREE_TYPE (tmp);
-	      parts.base = force_gimple_operand_gsi (gsi,
+	      parts.base = force_gimple_operand_gsi_1 (gsi,
 			fold_build2 (POINTER_PLUS_EXPR, atype,
 				     tmp,
 				     fold_convert (sizetype, parts.base)),
-			true, NULL_TREE, true, GSI_SAME_STMT);
+			is_gimple_mem_ref_addr, NULL_TREE, true, GSI_SAME_STMT);
 	    }
 	  else
 	    {
@@ -740,7 +742,7 @@ create_mem_ref (gimple_stmt_iterator *gsi, tree type, aff_tree *addr,
 	parts.base = tmp;
       parts.symbol = NULL_TREE;
 
-      mem_ref = create_mem_ref_raw (type, alias_ptr_type, &parts);
+      mem_ref = create_mem_ref_raw (type, alias_ptr_type, &parts, true);
       if (mem_ref)
 	return mem_ref;
     }
@@ -751,17 +753,17 @@ create_mem_ref (gimple_stmt_iterator *gsi, tree type, aff_tree *addr,
       if (parts.base)
 	{
 	  atype = TREE_TYPE (parts.base);
-	  parts.base = force_gimple_operand_gsi (gsi,
+	  parts.base = force_gimple_operand_gsi_1 (gsi,
 			fold_build2 (POINTER_PLUS_EXPR, atype,
 				     parts.base,
 			    	     parts.index),
-			true, NULL_TREE, true, GSI_SAME_STMT);
+			is_gimple_mem_ref_addr, NULL_TREE, true, GSI_SAME_STMT);
 	}
       else
 	parts.base = parts.index;
       parts.index = NULL_TREE;
 
-      mem_ref = create_mem_ref_raw (type, alias_ptr_type, &parts);
+      mem_ref = create_mem_ref_raw (type, alias_ptr_type, &parts, true);
       if (mem_ref)
 	return mem_ref;
     }
@@ -772,18 +774,18 @@ create_mem_ref (gimple_stmt_iterator *gsi, tree type, aff_tree *addr,
       if (parts.base)
 	{
 	  atype = TREE_TYPE (parts.base);
-	  parts.base = force_gimple_operand_gsi (gsi,
+	  parts.base = force_gimple_operand_gsi_1 (gsi,
 			fold_build2 (POINTER_PLUS_EXPR, atype,
 				     parts.base,
 				     fold_convert (sizetype, parts.offset)),
-			true, NULL_TREE, true, GSI_SAME_STMT);
+			is_gimple_mem_ref_addr, NULL_TREE, true, GSI_SAME_STMT);
 	}
       else
 	parts.base = parts.offset;
 
       parts.offset = NULL_TREE;
 
-      mem_ref = create_mem_ref_raw (type, alias_ptr_type, &parts);
+      mem_ref = create_mem_ref_raw (type, alias_ptr_type, &parts, true);
       if (mem_ref)
 	return mem_ref;
     }
@@ -899,10 +901,12 @@ maybe_fold_tmr (tree ref)
   if (!changed)
     return NULL_TREE;
 
-  ret = create_mem_ref_raw (TREE_TYPE (ref), TREE_TYPE (addr.offset), &addr);
-  if (!ret)
-    return NULL_TREE;
-
+  /* If we have propagated something into this TARGET_MEM_REF and thus
+     ended up folding it, always create a new TARGET_MEM_REF regardless
+     if it is valid in this for on the target - the propagation result
+     wouldn't be anyway.  */
+  ret = create_mem_ref_raw (TREE_TYPE (ref),
+			    TREE_TYPE (addr.offset), &addr, false);
   copy_mem_ref_info (ret, ref);
   return ret;
 }

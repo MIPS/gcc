@@ -1443,9 +1443,6 @@ idx_find_step (tree base, tree *idx, void *data)
   tree step, iv_base, iv_step, lbound, off;
   struct loop *loop = dta->ivopts_data->current_loop;
 
-  if (TREE_CODE (base) == MISALIGNED_INDIRECT_REF)
-    return false;
-
   /* If base is a component ref, require that the offset of the reference
      be invariant.  */
   if (TREE_CODE (base) == COMPONENT_REF)
@@ -1765,8 +1762,6 @@ find_interesting_uses_address (struct ivopts_data *data, gimple stmt, tree *op_p
 	goto fail;
       step = ifs_ivopts_data.step;
 
-      gcc_assert (TREE_CODE (base) != MISALIGNED_INDIRECT_REF);
-
       /* Check that the base expression is addressable.  This needs
 	 to be done after substituting bases of IVs into it.  */
       if (may_be_nonaddressable_p (base))
@@ -1788,14 +1783,9 @@ find_interesting_uses_address (struct ivopts_data *data, gimple stmt, tree *op_p
 	    ref = &TREE_OPERAND (*ref, 0);
 	  if (TREE_CODE (*ref) == MEM_REF)
 	    {
-	      tree tem = TREE_OPERAND (*ref, 0);
-	      STRIP_NOPS (tem);
-	      if (tem != TREE_OPERAND (*ref, 0))
-		tem = fold_build2 (MEM_REF, TREE_TYPE (*ref),
-				   tem, TREE_OPERAND (*ref, 1));
-	      else
-		tem = fold_binary (MEM_REF, TREE_TYPE (*ref),
-				   tem, TREE_OPERAND (*ref, 1));
+	      tree tem = fold_binary (MEM_REF, TREE_TYPE (*ref),
+				      TREE_OPERAND (*ref, 0),
+				      TREE_OPERAND (*ref, 1));
 	      if (tem)
 		*ref = tem;
 	    }

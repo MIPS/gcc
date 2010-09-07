@@ -612,6 +612,9 @@ dfp=`if test $enable_decimal_float != no; then echo 1; else echo 0; fi`
 AC_DEFINE_UNQUOTED(ENABLE_DECIMAL_FLOAT, $dfp,
 [Define to 1 to enable decimal float extension to C.])
 
+# Use default_decimal_float for dependency.
+enable_decimal_float=$default_decimal_float
+
 bid=`if test $enable_decimal_float = bid; then echo 1; else echo 0; fi`
 AC_DEFINE_UNQUOTED(ENABLE_DECIMAL_BID_FORMAT, $bid,
 [Define to 1 to specify that we are using the BID decimal floating
@@ -627,7 +630,7 @@ AC_ARG_ENABLE(fixed-point,
     mips*-*-*)
       case $host in
 	mips*-sgi-irix*)
-	  AC_MSG_WARN(fixed-point is not supported on IRIX, ignored)
+	  AC_MSG_WARN([fixed-point is not supported on IRIX, ignored])
 	  enable_fixed_point=no
 	  ;;
 	*)
@@ -636,7 +639,7 @@ AC_ARG_ENABLE(fixed-point,
       esac
       ;;
     *)
-      AC_MSG_WARN(fixed-point is not supported for this target, ignored)
+      AC_MSG_WARN([fixed-point is not supported for this target, ignored])
       enable_fixed_point=no
       ;;
   esac
