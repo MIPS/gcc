@@ -1,3 +1,215 @@
+2010-09-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/45484
+	* dwarf2out.c (flush_queued_reg_saves): Rename to...
+	(dwarf2out_flush_queued_reg_saves): ... this.  No longer static.
+	(dwarf2out_frame_debug): Adjust callers.
+	* dwarf2out.h (dwarf2out_flush_queued_reg_saves): New prototype.
+	* config/i386/i386.c (output_set_got): Call it.
+
+	PR debug/45500
+	* dwarf2out.c (rtl_for_decl_init): Give up for all generic vectors,
+	not just generic vectors with BLKmode.
+
+2010-09-02  Ian Bolton  <ian.bolton@arm.com>
+
+	Backport from mainline
+	2010-09-01  Ian Bolton  <ian.bolton@arm.com>
+
+	* Makefile.in (tree-switch-conversion.o): Update dependencies.
+	
+	2010-08-19  Ian Bolton  <ian.bolton@arm.com>
+	
+	PR target/45070
+	* config/arm/arm.c (arm_output_epilogue): Ensure that return
+	value of size 1-3 is handled correctly.
+
+	2010-08-19  Ian Bolton  <ian.bolton@arm.com>
+
+	* tree-switch-conversion.c (gen_inbound_check): Ensure that the
+	type for the conditional has wide enough range.
+
+	2010-08-07  Marcus Shawcroft  <marcus.shawcroft@arm.com>
+	
+	* config/arm/linux-atomic.c (SUBWORD_VAL_CAS): Instantiate with
+	'unsigned short' and 'unsigned char' instead of 'short' and 'char'.
+	(SUBWORD_BOOL_CAS): Likewise.
+	(SUBWORD_SYNC_OP): Likewise.
+	(SUBWORD_TEST_AND_SET): Likewise.
+	(FETCH_AND_OP_WORD): Parenthesise INF_OP
+	(SUBWORD_SYNC_OP): Likewise.
+	(OP_AND_FETCH_WORD): Likewise.
+	
+2010-09-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/45458
+	* bb-reorder.c (add_labels_and_missing_jumps): Treat
+	bbs ending with throwing insns like blocks ending with a call.
+	(fix_up_fall_thru_edges): Likewise.
+
+2010-09-01  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gimplify.c (gimplify_init_constructor): Do not create a temporary for
+	a volatile LHS if the constructor has only one element.
+
+2010-08-31  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-nested.c (convert_all_function_calls): Iterate until after the
+	sum of static chains in the nest doesn't change.
+
+2010-08-31  Eric Botcazou  <ebotcazou@adacore.com>
+
+	Backport from mainline
+	2010-08-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/45353
+	* sel-sched-ir.c (sel_bb_head): Return NULL even if next_nonnote_insn
+	after bb_note is a BARRIER.
+
+2010-08-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/45423
+	* gimplify.c (goa_stabilize_expr): Handle TRUTH_NOT_EXPR
+	and TRUTH_{AND,OR,XOR}_EXPR.
+	* c-parser.c (c_parser_omp_atomic): Handle boolean
+	{PRE,POST}_{INC,DEC}REMENT.
+
+2010-08-30  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline
+	2010-07-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/45079
+	* c-pretty-print.c (pp_c_expression): Handle C_MAYBE_CONST_EXPR.
+
+2010-08-30  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2010-08-25  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/45393
+	* tree-ssa-math-opts.c (execute_cse_sincos_1): Properly transfer
+	and clean EH info.  Avoid SSA update.
+	(execute_cse_sincos): Cleanup the CFG if it has changed.
+
+2010-08-28  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/ia64/ia64.md (cstorebi4): Fix thinko.
+
+2010-08-28  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/41484
+	* config/i386/sse.md (sse4_1_extendv8qiv8hi2): Also accept memory
+	operands for operand 1.
+	(sse4_1_extendv4qiv4si2): Ditto.
+	(sse4_1_extendv2qiv2di2): Ditto.
+	(sse4_1_extendv4hiv4si2): Ditto.
+	(sse4_1_extendv2hiv2di2): Ditto.
+	(sse4_1_extendv2siv2di2): Ditto.
+	(sse4_1_zero_extendv8qiv8hi2): Ditto.
+	(sse4_1_zero_extendv4qiv4si2): Ditto.
+	(sse4_1_zero_extendv2qiv2di2): Ditto.
+	(sse4_1_zero_extendv4hiv4si2): Ditto.
+	(sse4_1_zero_extendv2hiv2di2): Ditto.
+	(sse4_1_zero_extendv2siv2di2): Ditto.
+	(*sse4_1_extendv8qiv8hi2): Remove insn pattern.
+	(*sse4_1_extendv4qiv4si2): Ditto.
+	(*sse4_1_extendv2qiv2di2): Ditto.
+	(*sse4_1_extendv4hiv4si2): Ditto.
+	(*sse4_1_extendv2hiv2di2): Ditto.
+	(*sse4_1_extendv2siv2di2): Ditto.
+	(*sse4_1_zero_extendv8qiv8hi2): Ditto.
+	(*sse4_1_zero_extendv4qiv4si2): Ditto.
+	(*sse4_1_zero_extendv2qiv2di2): Ditto.
+	(*sse4_1_zero_extendv4hiv4si2): Ditto.
+	(*sse4_1_zero_extendv2hiv2di2): Ditto.
+	(*sse4_1_zero_extendv2siv2di2): Ditto.
+
+2010-08-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/44858
+	* combine.c (try_combine): If recog_for_combine added CLOBBERs to
+	newi2pat, make sure they don't affect newpat.
+
+	PR rtl-optimization/45400
+	* combine.c (simplify_shift_const_1) <case SUBREG>: Only use
+	SUBREG_REG if both modes are of MODE_INT class.
+
+2010-08-20  Changpeng Fang  <changpeng.fang@amd.com>
+
+	PR tree-optimization/45260
+	* tree-flow.h (may_be_nonaddressable_p): New definition. Make the
+	existing static function global.
+
+	* tree-ssa-loop-ivopts.c (may_be_nonaddressable_p): This function
+	is changed to global.
+
+	* tree-ssa-loop-prefetch.c (gather_memory_references_ref): Call
+	may_be_nonaddressable_p on base, and don't collect this reference
+	if the address of the base could not be taken.
+
+2010-08-20  David Edelsohn  <edelsohn@gnu.org>
+
+	Backport from mainline
+	2010-04-22  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/x-aix: Override LDFLAGS for all COMPILERS.
+
+2010-08-19  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (*add<SWI:mode>3_cconly_overflow): Do not use
+	ix86_binary_operator_ok.
+
+2010-08-18  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/45327
+	* config/i386/i386.md (<any_or:code><SWI:mode>_3): Do not use
+	ix86_binary_operator_ok.
+
+2010-08-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2010-08-18  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR middle-end/45292
+	* optabs.c (expand_bool_compare_and_swap): Expand pending
+	pops before trying the optab.
+
+2010-08-17  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/45296
+	* reginfo.c (globalize_reg): Reject stack registers.
+
+2010-08-16  Changpeng Fang  <changpeng.fang@amd.com>
+
+	Backport from mainline:
+	2010-08-12  Changpeng Fang  <changpeng.fang@amd.com>
+
+	PR tree-optimization/45241
+	* tree-vect-patterns.c (vect_recog_dot_prod_pattern): Give
+	up dot_prod pattern searching if a stmt is outside the loop.
+
+2010-08-16  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	Backport from mainline:
+	2010-08-09  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/44632
+	* function.c (gimplify_parameters): Do not clear addressable
+	bit of the original parameter.
+
+2010-08-14  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	Revert:
+	2010-08-08  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR boehm-gc/34544
+	* gthr-posix.h (__gthread_start): Delete.
+	(__gthread_active_init): Use pthread_default_stacksize_np instead of
+	pthread_create to determine if hpux pthreads are active.
+	* gthr-posix95.h (__gthread_start): Delete.
+	(__gthread_active_init): Likewise use pthread_default_stacksize_np.
+
 2010-08-12  Jakub Jelinek  <jakub@redhat.com>
 
 	PR middle-end/45262
@@ -241,8 +453,8 @@
 2010-07-19  Bingfeng Mei  <bmei@broadcom.com>
 
 	* ddg.c (create_ddg): Exclude nodes of debug_insn in counting nodes
-        of a loop.
-        * loop-doloop.c (doloop_condition_get): Skip possible debug_insn.
+	of a loop.
+	* loop-doloop.c (doloop_condition_get): Skip possible debug_insn.
 
 2010-07-22  Jakub Jelinek  <jakub@redhat.com>
 
@@ -1009,24 +1221,24 @@
 	Backport from mainline
 	2010-05-17  Martin Jambor  <mjambor@suse.cz>
 
-        PR middle-end/44133
-        * tree-sra.c (create_access_replacement): New parameter rename, mark
-        the replaement for renaming only when it is true.
-        (get_access_replacement): Pass true in the rename parameter of
-        create_access_replacement.
-        (get_unrenamed_access_replacement): New function.
-        (replace_uses_with_default_def_ssa_name): New parameter racc, get the
-        replacement declaration from it.
+	PR middle-end/44133
+	* tree-sra.c (create_access_replacement): New parameter rename, mark
+	the replaement for renaming only when it is true.
+	(get_access_replacement): Pass true in the rename parameter of
+	create_access_replacement.
+	(get_unrenamed_access_replacement): New function.
+	(replace_uses_with_default_def_ssa_name): New parameter racc, get the
+	replacement declaration from it.
 
 2010-06-29  Martin Jambor  <mjambor@suse.cz>
 
 	Backport from mainline
 	2010-04-13  Martin Jambor  <mjambor@suse.cz>
 
-        * tree-sra.c (replace_uses_with_default_def_ssa_name): New function.
-        (sra_modify_assign): Delete stmts loading dead data even if racc has no
-        children.  Call replace_uses_with_default_def_ssa_name to handle
-        SSA_NAES on lhs.
+	* tree-sra.c (replace_uses_with_default_def_ssa_name): New function.
+	(sra_modify_assign): Delete stmts loading dead data even if racc has no
+	children.  Call replace_uses_with_default_def_ssa_name to handle
+	SSA_NAES on lhs.
 
 2010-06-27  Jan Hubicka  <jh@suse.cz>
 
@@ -1153,7 +1365,7 @@
 	Backport from mainline:
 	2010-05-18  Steven Bosscher  <steven@gcc.gnu.org>
 
-        * darwin.c (darwin_asm_named_section): Do not add assembler comment
+	* darwin.c (darwin_asm_named_section): Do not add assembler comment
 	after .section directive; just print it before the directive
 	instead.
 
@@ -2276,7 +2488,7 @@
 	* tree-tailcall.c (find_tail_calls): Verify the tail call
 	properly.
 
-2010-04-19 Ira Rosen <irar@il.ibm.com>
+2010-04-19 Ira Rosen  <irar@il.ibm.com>
 
 	PR tree-optimization/43771
 	* tree-vect-slp.c (vect_supported_load_permutation_p): Check that
@@ -2542,11 +2754,11 @@
 	* Makefile.in ($(out_object_file)): Depend on
 	gt-$(basename $(notdir $(out_file))).h.
 
-2010-04-01  Ralf Corsépius <ralf.corsepius@rtems.org>
+2010-04-01  Ralf Corsépius  <ralf.corsepius@rtems.org>
 
 	* config.gcc (lm32-*-rtems*): Add t-lm32.
 
-2010-04-01  Joel Sherrill <joel.sherrill@oarcorp.com>
+2010-04-01  Joel Sherrill  <joel.sherrill@oarcorp.com>
 
 	* config.gcc: Add lm32-*-rtems*.
 	* config/lm32/rtems.h: New file.
@@ -2601,8 +2813,8 @@
 
 	PR middle-end/43602
 	Revert
-	2010-03-30  Seongbae Park <seongbae.park@gmail.com>
-	    Jack Howarth <howarth@bromo.med.uc.edu>
+	2010-03-30  Seongbae Park  <seongbae.park@gmail.com>
+		    Jack Howarth  <howarth@bromo.med.uc.edu>
 
 	* tree-profile.c (tree_init_ic_make_global_vars): Make static
 	variables TLS.
@@ -2893,8 +3105,8 @@
 	* config/s390/s390.c (s390_emit_prologue): Omit issuing a dynamic
 	stack check if the mask would be zero.
 
-2010-03-30  Seongbae Park <seongbae.park@gmail.com>
-	    Jack Howarth <howarth@bromo.med.uc.edu>
+2010-03-30  Seongbae Park  <seongbae.park@gmail.com>
+	    Jack Howarth  <howarth@bromo.med.uc.edu>
 
 	* tree-profile.c (tree_init_ic_make_global_vars): Make static
 	variables TLS.
@@ -3237,7 +3449,7 @@
 	instead of callq.
 
 2010-03-22  Janis Johnson  <janis187@us.ibm.com>
-	    Rainer Orth <ro@CeBiTec.Uni-Bielefeld.DE>
+	    Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
 
 	* doc/sourcebuild.texi (Test Directives): Split into six
 	subsections, with most of the current text in new subsections
@@ -3392,8 +3604,8 @@
 	(sparc_file_end): Emit a hidden comdat symbol for the PIC
 	thunk if possible.  Output CFI information as needed.
 
-2010-03-18  Francois-Xavier Coudert <fxcoudert@gcc.gnu.org>
-	    Jack Howarth <howarth@bromo.med.uc.edu>
+2010-03-18  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+	    Jack Howarth  <howarth@bromo.med.uc.edu>
 
 	PR target/36399
 	* config/i386/i386.h: Fix ABI on darwin x86-32.
@@ -3536,7 +3748,7 @@
 	* graphite-sese-to-poly.c (split_reduction_stmt): Skip debug
 	statements before splitting block.
 
-2010-03-16  Rainer Orth <ro@CeBiTec.Uni-Bielefeld.DE>
+2010-03-16  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
 
 	* doc/sourcebuild.texi (Testsuites): Fix markup.
 	Use pathnames relative to gcc/testsuite.
@@ -4148,7 +4360,7 @@
 	* tree-vect-loop.c (vect_transform_loop): Kill out-of-loop debug
 	uses of relevant DEFs that are dead outside the loop too.
 
-2010-03-06  Alexandre Oliva <aoliva@redhat.com>
+2010-03-06  Alexandre Oliva  <aoliva@redhat.com>
 
 	* var-tracking.c (dataflow_set_merge): Swap src and src2.
 	Reverted:
@@ -4930,7 +5142,7 @@
 	* config/spu/spu-c.c (spu_resolve_overloaded_builtin): Call
 	lang_hooks.types_compatible_p instead of comptypes.
 
-2010-02-18  Sebastian Huber <sebastian.huber@embedded-brains.de>
+2010-02-18  Sebastian Huber  <sebastian.huber@embedded-brains.de>
 
 	* config/arm/lib1funcs.asm (__prefer_thumb__): New define.
 	(udivsi3, aeabi_uidivmod, divsi3, aeabi_idivmod): Use Thumb-1 variant
@@ -5001,7 +5213,7 @@
 	statements ...
 	(vrp_visit_phi_node): ... but only for loop PHI nodes.
 
-2010-02-16  Ira Rosen <irar@il.ibm.com>
+2010-02-16  Ira Rosen  <irar@il.ibm.com>
 
 	PR tree-optimization/43074
 	* tree-vectorizer.h (VECTORIZABLE_CYCLE_DEF): New.
@@ -5029,8 +5241,8 @@
 	flag_var_tracking_assignments.
 	* Makefile.in (var-tracking.o): Adjust dependencies.
 
-2010-02-16  Jack Howarth <howarth@bromo.med.uc.edu>
-	    Jakub Jelinek <jakub@redhat.com>
+2010-02-16  Jack Howarth  <howarth@bromo.med.uc.edu>
+	    Jakub Jelinek  <jakub@redhat.com>
 
 	PR target/42854
 	* config/darwin.h (ASM_WEAKEN_DECL): Don't check weak attribute
@@ -5128,7 +5340,7 @@
 
 2010-02-12  Dave Korn  <dave.korn.cygwin@gmail.com>
 	    Jack Howarth  <howarth@bromo.med.uc.edu>
-	    Iain Sandoe <iain.sandoe@sandoe-acoustics.co.uk>
+	    Iain Sandoe  <iain.sandoe@sandoe-acoustics.co.uk>
 
 	PR target/42982
 	Partial revert of unintended change in fix for PR41605.
@@ -6551,7 +6763,7 @@
 	(maybe_tidy_empty_bb): Delete prototype.
 	(purge_empty_blocks): Declare.
 
-2010-01-14  Andrey Belevantsev <abel@ispras.ru>
+2010-01-14  Andrey Belevantsev  <abel@ispras.ru>
 
 	PR rtl-optimization/42249
 	* sel-sched.c (try_replace_dest_reg): When chosen register
