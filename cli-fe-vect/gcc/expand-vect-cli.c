@@ -986,7 +986,7 @@ replace_realign_offset_builtin (int index, gimple stmt)
     return false;
 
   new_rhs = build_int_cst (TREE_TYPE (gimple_call_lhs (stmt)), 
-                           TYPE_VECTOR_SUBPARTS (vectype) - 1);
+                           TYPE_VECTOR_SUBPARTS (vectype));
   finish_replacement (new_rhs, stmt, NULL);
   return true;
 }
