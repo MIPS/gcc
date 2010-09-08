@@ -4085,7 +4085,7 @@ parse_class_static_fields (MonoClass *klass)
         {
           MonoType *type = mono_field_get_type (field);
           parser_parse_type (type);
-
+  
           if (!(field_flags & MONO_FIELD_ATTR_LITERAL))
             {
               tree field_name_tree = get_identifier (mono_field_get_name (field));
@@ -4094,6 +4094,7 @@ parse_class_static_fields (MonoClass *klass)
 
               DECL_CONTEXT (field_tree) = class_static_record;
               DECL_FCONTEXT (field_tree) = class_static_record;
+              DECL_ALIGN (field_tree) = 16*8; /* align static fields to 16 byte boundary */
               TYPE_FIELDS (class_static_record) = chainon (TYPE_FIELDS (class_static_record), field_tree);
 
               emit_static_storage = true;
