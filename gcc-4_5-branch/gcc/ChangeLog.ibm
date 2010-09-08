@@ -1,3 +1,8 @@
+2010-09-08  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* config/rs6000/linux64.h (SUBSUBTARGET_OVERRIDE_OPTIONS): Set
+	CMODEL_MEDIUM as default.
+
 2010-09-06  Alan Modra  <amodra@gmail.com>
 
 	* config/rs6000/rs6000.c (toc_relative_ok): New function.
