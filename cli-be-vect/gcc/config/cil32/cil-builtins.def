@@ -1299,9 +1299,9 @@ DEF_CILBUILTIN(GEN_DOT_PRODUCT_VSI, "[genvec_support]genvec_support.VSI::VSI_dot
 
 DEF_CILBUILTIN(GEN_DOT_PRODUCT_VHI, "[genvec_support]genvec_support.VHI::VHI_dot_product", \
                ATTR_CONST_NOTHROW_LIST,          \
-               intHI8_type_node, \
+               VHI_type_node, \
                3,
-               intQI16_type_node, intQI16_type_node, intHI8_type_node)
+               VQI_type_node, VQI_type_node, VHI_type_node)
 
 /* widen mult pattern */
 

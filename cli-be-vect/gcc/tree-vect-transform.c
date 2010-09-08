@@ -9464,11 +9464,18 @@ vect_transform_loop (loop_vec_info loop_vinfo)
     {
       struct loop *new_loop = vect_loop_versioning (loop_vinfo, &cond_expr_gsi, 
                                                     false);
-      loop_vec_info new_loop_vinfo = vect_analyze_loop (new_loop, true);
+      loop_vec_info new_loop_vinfo = NULL;
+
+      if (vect_print_dump_info (REPORT_DETAILS))
+        fprintf (vect_dump, "=== SWITCHING TO VERSIONED LOOP ===");
+      new_loop_vinfo = vect_analyze_loop (new_loop, true);
       new_loop->aux = new_loop_vinfo;
 
       if (new_loop_vinfo && LOOP_VINFO_VECTORIZABLE_P (new_loop_vinfo))
         vect_transform_loop (new_loop_vinfo);
+
+      if (vect_print_dump_info (REPORT_DETAILS))
+        fprintf (vect_dump, "=== SWITCHING BACK FROM VERSIONED LOOP ===");
     }
 
   if (loop->inner && flag_loop_nest_version 

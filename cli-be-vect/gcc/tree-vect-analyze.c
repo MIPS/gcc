@@ -4722,6 +4722,48 @@ vect_analyze_loop_form (struct loop *loop)
 }
 
 
+static void
+remove_pattern_stmts (loop_vec_info loop_vinfo)
+{
+  struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
+  basic_block *bbs;
+  int nbbs;
+  gimple_stmt_iterator si;
+  int j;
+
+  bbs = LOOP_VINFO_BBS (loop_vinfo);
+  nbbs = loop->num_nodes;
+
+  for (j = 0; j < nbbs; j++)
+    {
+      basic_block bb = bbs[j];
+
+      for (si = gsi_start_bb (bb); !gsi_end_p (si); )
+        {
+          gimple stmt = gsi_stmt (si);
+
+          if (!is_gimple_assign (stmt))
+            {
+              gsi_next (&si);
+              continue;
+            }
+
+          if (gimple_assign_rhs_code (stmt) == DOT_PROD_EXPR
+              || gimple_assign_rhs_code (stmt) == WIDEN_MULT_EXPR)
+            { 
+              if (vect_print_dump_info (REPORT_DETAILS))
+                {
+                  fprintf (vect_dump, "Removing pattern stmt for version ");
+                  print_gimple_stmt (vect_dump, stmt, 0, TDF_SLIM);
+                }
+              gsi_remove (&si, true);
+            }
+
+          gsi_next (&si);
+        }
+    }
+}
+
 /* Function vect_analyze_loop.
 
    Apply a set of analyses on LOOP, and create a loop_vec_info struct
@@ -4780,6 +4822,9 @@ vect_analyze_loop (struct loop *loop, bool version)
       destroy_loop_vec_info (loop_vinfo, true);
       return NULL;
     }
+
+  if (version)
+    remove_pattern_stmts (loop_vinfo);
 
   /* Classify all cross-iteration scalar data-flow cycles.
      Cross-iteration cycles caused by virtual phis are analyzed separately.  */
