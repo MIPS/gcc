@@ -113,8 +113,8 @@ create_cli_fn_table (void)
 
   cli_functions[54] = add_cli_function ("genvec_support_VQI_VI_get_loop_niters_System_Int32_System_Int32_System_Int32", unsigned_type_node);
 
-  cli_functions[55] = add_cli_function ("genvec_support_VHI_VHI_dot_product_Mono_Simd_Vector16sb_Mono_Simd_Vector16sb_Mono_Simd_Vector8s_Mono_Simd_Vector8s", unsigned_type_node);
-  cli_functions[56] = add_cli_function ("genvec_support_VSI_VSI_dot_product_Mono_Simd_Vector8s_Mono_Simd_Vector8s_Mono_Simd_Vector4i_Mono_Simd_Vector4i", unsigned_type_node);
+  cli_functions[55] = add_cli_function ("genvec_support_VSI_VSI_dot_product_Mono_Simd_Vector8s_Mono_Simd_Vector8s_Mono_Simd_Vector4i_Mono_Simd_Vector4i", unsigned_type_node);
+  cli_functions[56] = add_cli_function ("genvec_support_VHI_VHI_dot_product_Mono_Simd_Vector16sb_Mono_Simd_Vector16sb_Mono_Simd_Vector8s_Mono_Simd_Vector8s", unsigned_type_node);
 
   cli_functions[57] = add_cli_function ("genvec_support_VQI_VQI_realign_offset_System_UInt32", unsigned_type_node);
   cli_functions[58] = add_cli_function ("genvec_support_VHI_VHI_realign_offset_System_UInt32", unsigned_type_node);
