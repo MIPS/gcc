@@ -927,11 +927,37 @@ replace_get_loop_niters_builtin (gimple stmt)
 }
 
 static bool
-replace_dot_product_builtin (gimple stmt)
+replace_dot_product_builtin (int index, gimple stmt)
 {
-  tree vectype = TREE_TYPE (gimple_call_lhs (stmt));
-  tree new_rhs;
-  enum machine_mode mode = TYPE_MODE (vectype);
+  tree scalar_type, vectype, new_rhs, scalar_type_out, vectype_out;
+  bool ignore_stmt;
+  enum machine_mode mode;
+
+  switch (index)
+    {
+      case dot_product_vhi:
+        scalar_type = intHI_type_node;
+        scalar_type_out = intSI_type_node;
+        break;
+
+      case dot_product_vqi:
+        scalar_type = intQI_type_node;
+        scalar_type_out = intHI_type_node;
+        break;
+
+      default:
+        return false;
+    }
+
+  vectype = get_vectype (scalar_type, &ignore_stmt);
+  if (!vectype)
+    return false;
+
+  vectype_out = get_vectype (scalar_type_out, &ignore_stmt);
+  if (!vectype)
+    return false;
+
+  mode = TYPE_MODE (vectype);
 
   optab dot_prod_optab =
     optab_for_tree_code (DOT_PROD_EXPR, vectype, optab_default);
@@ -939,7 +965,7 @@ replace_dot_product_builtin (gimple stmt)
       || optab_handler (dot_prod_optab, mode)->insn_code == CODE_FOR_nothing)
     return false; 
 
-  new_rhs = build3 (DOT_PROD_EXPR, vectype, gimple_call_arg (stmt, 0),
+  new_rhs = build3 (DOT_PROD_EXPR, vectype_out, gimple_call_arg (stmt, 0),
                     gimple_call_arg (stmt, 1), gimple_call_arg (stmt, 2));
   finish_replacement (new_rhs, stmt, NULL);
   return true;
@@ -1646,7 +1672,7 @@ replace_cli_fn (int index, gimple stmt)
 
       case dot_product_vhi:
       case dot_product_vqi:
-        return replace_dot_product_builtin (stmt);
+        return replace_dot_product_builtin (index, stmt);
 
       case realign_offset_vsi:
       case realign_offset_vhi:
