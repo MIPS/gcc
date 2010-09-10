@@ -1,3 +1,49 @@
+2010-09-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vector.md (VEC_32): New mode iterator for V4SI,
+	V4SF.
+	(UNSPEC_EXTRACT_EVEN): New unspec constant.
+	(UNSPEC_EXTRACT_ODD): Ditto.
+	(vec_extract_even<mode>): Move vector extract even/odd insns from
+	altivec.md.  Combine V4SF/V4SI cases.  Use helper function to
+	create the vperm mask.  Make rtl type correct.
+	(vec_extract_evenv8hi): Ditto.
+	(vec_extract_evenv16qi): Ditto.
+	(vec_extract_odd<mode>): Ditto.
+	(vec_extract_oddv8hi): Ditto.
+	(vec_extract_oddv16qi): Ditto.
+	(vec_pack_trunc_v2df): Rewrite to use define_expand and
+	define_insn_and_split instead of emitting the insns immediately.
+	Make the RTL match what this insn does.
+	(vec_pack_sfix_trunc_v2df): Ditto.
+	(vec_pack_ufix_trunc_v2df): Ditto.
+
+	* config/rs6000/rs6000-protos.h (rs6000_vperm_even_mask): New
+	declaration.
+	(rs6000_vperm_odd_mask): Ditto.
+
+	* config/rs6000/rs6000.c (rs6000_vperm_even_mask): New helper
+	function to allocate the vperm mask for even/odd extraction.
+	(rs6000_vperm_odd_mask): Ditto.
+
+	* config/rs6000/altivec.md (UNSPEC_EXTEVEN_V4SI): Delete.
+	(UNSPEC_EXTEVEN_V8HI): Ditto.
+	(UNSPEC_EXTEVEN_V16QI): Ditto.
+	(UNSPEC_EXTEVEN_V4SF): Ditto.
+	(UNSPEC_EXTODD_V4SI): Ditto.
+	(UNSPEC_EXTODD_V8HI): Ditto.
+	(UNSPEC_EXTODD_V16QI): Ditto.
+	(UNSPEC_EXTODD_V4SF): Ditto.
+	(vec_extract_evenv4si): Move vector even/odd extract insns to
+	vector.md .
+	(vec_extract_evenv4sf): Ditto.
+	(vec_extract_evenv8hi): Ditto.
+	(vec_extract_evenv16qi): Ditto.
+	(vec_extract_oddv4si): Ditto.
+	(vec_extract_oddv4sf): Ditto.
+	(vec_extract_oddv8hi): Ditto.
+	(vec_extract_oddv16qi): Ditto.
+
 2010-09-07  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 163962.

@@ -51,7 +51,10 @@
 ;; Vector init/extract modes
 (define_mode_iterator VEC_E [V16QI V8HI V4SI V2DI V4SF V2DF])
 
-;; Vector modes for 64-bit base types
+;; Vector modes that have 32-bit base types
+(define_mode_iterator VEC_32 [V4SI V4SF])
+
+;; Vector modes that have 64-bit base types
 (define_mode_iterator VEC_64 [V2DI V2DF])
 
 ;; Vector reload iterator
@@ -75,7 +78,9 @@
 
 ;; constants for unspec
 (define_constants
-  [(UNSPEC_PREDICATE	400)])
+  [(UNSPEC_PREDICATE	400)
+   (UNSPEC_EXTRACT_EVEN	401)
+   (UNSPEC_EXTRACT_ODD	402)])
 
 
 ;; Vector move instructions.
@@ -700,52 +705,199 @@
   "VECTOR_UNIT_VSX_P (<MODE>mode)"
   "")
 
+(define_expand "vec_extract_even<mode>"
+ [(set (match_operand:VEC_32 0 "vlogical_operand" "")
+       (unspec:VEC_32 [(match_operand:VEC_32 1 "vlogical_operand" "")
+		       (match_operand:VEC_32 2 "vlogical_operand" "")]
+		      UNSPEC_EXTRACT_EVEN))]
+  "VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode)"
+  "
+{
+  rtx mask = rs6000_vperm_even_mask (<MODE>mode);
+  emit_insn (gen_altivec_vperm_<mode> (operands[0], operands[1], operands[2], mask));
+  DONE;
+}")
+
+(define_expand "vec_extract_evenv8hi"
+ [(set (match_operand:V8HI 0 "vlogical_operand" "")
+       (unspec:V8HI [(match_operand:V8HI 1 "vlogical_operand" "")
+		     (match_operand:V8HI 2 "vlogical_operand" "")]
+		    UNSPEC_EXTRACT_EVEN))]
+  "VECTOR_UNIT_ALTIVEC_P (V8HImode)"
+  "
+{ 
+  rtx mask = rs6000_vperm_even_mask (V8HImode);
+  emit_insn (gen_altivec_vperm_v8hi (operands[0], operands[1], operands[2], mask));
+  DONE;
+}")
+
+(define_expand "vec_extract_evenv16qi"
+ [(set (match_operand:V16QI 0 "vlogical_operand" "")
+       (unspec:V16QI [(match_operand:V16QI 1 "vlogical_operand" "")
+                      (match_operand:V16QI 2 "vlogical_operand" "")]
+		     UNSPEC_EXTRACT_EVEN))]
+  "VECTOR_UNIT_ALTIVEC_P (V16QImode)"
+  "
+{ 
+  rtx mask = rs6000_vperm_even_mask (V16QImode);
+  emit_insn (gen_altivec_vperm_v16qi (operands[0], operands[1], operands[2], mask));
+  DONE;
+}")
+
+(define_expand "vec_extract_odd<mode>"
+ [(set (match_operand:VEC_32 0 "vlogical_operand" "")
+       (unspec:VEC_32 [(match_operand:VEC_32 1 "vlogical_operand" "")
+		       (match_operand:VEC_32 2 "vlogical_operand" "")]
+		    UNSPEC_EXTRACT_ODD))]
+  "VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode)"
+  "
+{
+  rtx mask = rs6000_vperm_odd_mask (<MODE>mode);
+  emit_insn (gen_altivec_vperm_<mode> (operands[0], operands[1], operands[2], mask));
+  
+  DONE;
+}")
+
+(define_expand "vec_extract_oddv8hi"
+ [(use (match_operand:V8HI 0 "vlogical_operand" ""))
+  (use (match_operand:V8HI 1 "vlogical_operand" ""))
+  (use (match_operand:V8HI 2 "vlogical_operand" ""))]
+  "VECTOR_UNIT_ALTIVEC_P (V8HImode)"
+  "
+{
+  emit_insn (gen_vpkuwum_nomode (operands[0], operands[1], operands[2]));
+  DONE;
+}")
+
+(define_expand "vec_extract_oddv16qi"
+ [(use (match_operand:V16QI 0 "vlogical_operand" ""))
+  (use (match_operand:V16QI 1 "vlogical_operand" ""))
+  (use (match_operand:V16QI 2 "vlogical_operand" ""))]
+  "VECTOR_UNIT_ALTIVEC_P (V16QImode)"
+  "
+{
+  emit_insn (gen_vpkuhum_nomode (operands[0], operands[1], operands[2]));
+  DONE;
+}")
+
 
 ;; Convert double word types to single word types
 (define_expand "vec_pack_trunc_v2df"
-  [(match_operand:V4SF 0 "vfloat_operand" "")
-   (match_operand:V2DF 1 "vfloat_operand" "")
-   (match_operand:V2DF 2 "vfloat_operand" "")]
-  "VECTOR_UNIT_VSX_P (V2DFmode) && TARGET_ALTIVEC"
+  [(parallel [(set (match_operand:V4SF 0 "vfloat_operand" "")
+		   (vec_concat:V4SF
+		    (truncate:V2SF (match_operand:V2DF 1 "vfloat_operand" ""))
+		    (truncate:V2SF (match_operand:V2DF 2 "vfloat_operand" ""))))
+	      (clobber (match_scratch:V4SF 3 ""))
+	      (clobber (match_scratch:V4SF 4 ""))
+	      (use (match_dup 5))])]
+  "VECTOR_UNIT_VSX_P (V2DFmode) && VECTOR_UNIT_ALTIVEC_OR_VSX_P (V4SFmode)"
 {
-  rtx r1 = gen_reg_rtx (V4SFmode);
-  rtx r2 = gen_reg_rtx (V4SFmode);
-
-  emit_insn (gen_vsx_xvcvdpsp (r1, operands[1]));
-  emit_insn (gen_vsx_xvcvdpsp (r2, operands[2]));
-  emit_insn (gen_vec_extract_evenv4sf (operands[0], r1, r2));
-  DONE;
+  operands[5] = rs6000_vperm_even_mask (V4SFmode);
 })
+
+(define_insn_and_split "*vec_pack_trunc_v2df_internal"
+  [(set (match_operand:V4SF 0 "vfloat_operand" "=&v,?v,?v")
+	(vec_concat:V4SF
+	 (truncate:V2SF (match_operand:V2DF 1 "vfloat_operand" "wd,wd,wa"))
+	 (truncate:V2SF (match_operand:V2DF 2 "vfloat_operand" "wd,wd,wa"))))
+   (clobber (match_scratch:V4SF 3 "=0,&v,&v"))
+   (clobber (match_scratch:V4SF 4 "=&v,&v,&v"))
+   (use (match_operand:V16QI 5 "vlogical_operand" "v,v,v"))]
+  "VECTOR_UNIT_VSX_P (V2DFmode) && VECTOR_UNIT_ALTIVEC_OR_VSX_P (V4SFmode)"
+  "#"
+  ""
+  [(pc)]
+{
+  if (GET_CODE (operands[3]) == SCRATCH)
+    operands[3] = gen_reg_rtx (V4SFmode);
+  if (GET_CODE (operands[4]) == SCRATCH)
+    operands[4] = gen_reg_rtx (V4SFmode);
+  emit_insn (gen_vsx_xvcvdpsp (operands[3], operands[1]));
+  emit_insn (gen_vsx_xvcvdpsp (operands[4], operands[2]));
+  emit_insn (gen_altivec_vperm_v4sf (operands[0], operands[3], operands[4],
+				     operands[5]));
+  DONE;
+}
+  [(set_attr "length" "12")
+   (set_attr "type" "vecfloat")])
 
 (define_expand "vec_pack_sfix_trunc_v2df"
-  [(match_operand:V4SI 0 "vint_operand" "")
-   (match_operand:V2DF 1 "vfloat_operand" "")
-   (match_operand:V2DF 2 "vfloat_operand" "")]
-  "VECTOR_UNIT_VSX_P (V2DFmode) && TARGET_ALTIVEC"
+  [(parallel [(set (match_operand:V4SI 0 "vfloat_operand" "")
+		   (vec_concat:V4SI
+		    (fix:V2SI (match_operand:V2DF 1 "vfloat_operand" ""))
+		    (fix:V2SI (match_operand:V2DF 2 "vfloat_operand" ""))))
+	      (clobber (match_scratch:V4SI 3 ""))
+	      (clobber (match_scratch:V4SI 4 ""))
+	      (use (match_dup 5))])]
+  "VECTOR_UNIT_VSX_P (V2DFmode) && VECTOR_UNIT_ALTIVEC_P (V4SImode)"
 {
-  rtx r1 = gen_reg_rtx (V4SImode);
-  rtx r2 = gen_reg_rtx (V4SImode);
-
-  emit_insn (gen_vsx_xvcvdpsxws (r1, operands[1]));
-  emit_insn (gen_vsx_xvcvdpsxws (r2, operands[2]));
-  emit_insn (gen_vec_extract_evenv4si (operands[0], r1, r2));
-  DONE;
+  operands[5] = rs6000_vperm_even_mask (V4SImode);
 })
+
+(define_insn_and_split "*vec_pack_sfix_trunc_v2df_internal"
+  [(set (match_operand:V4SI 0 "vfloat_operand" "=&v,v,?v")
+	(vec_concat:V4SI
+	 (fix:V2SI (match_operand:V2DF 1 "vfloat_operand" "wd,wd,wa"))
+	 (fix:V2SI (match_operand:V2DF 2 "vfloat_operand" "wd,wd,wa"))))
+   (clobber (match_scratch:V4SI 3 "=0,&v,&v"))
+   (clobber (match_scratch:V4SI 4 "=&v,&v,&v"))
+   (use (match_operand:V16QI 5 "vlogical_operand" "v,v,v"))]
+  "VECTOR_UNIT_VSX_P (V2DFmode) && VECTOR_UNIT_ALTIVEC_P (V4SImode)"
+  "#"
+  ""
+  [(pc)]
+{
+  if (GET_CODE (operands[3]) == SCRATCH)
+    operands[3] = gen_reg_rtx (V4SImode);
+  if (GET_CODE (operands[4]) == SCRATCH)
+    operands[4] = gen_reg_rtx (V4SImode);
+  emit_insn (gen_vsx_xvcvdpsxws (operands[3], operands[1]));
+  emit_insn (gen_vsx_xvcvdpsxws (operands[4], operands[2]));
+  emit_insn (gen_altivec_vperm_v4si (operands[0], operands[3], operands[4],
+				     operands[5]));
+  DONE;
+}
+  [(set_attr "length" "12")
+   (set_attr "type" "vecfloat")])
 
 (define_expand "vec_pack_ufix_trunc_v2df"
-  [(match_operand:V4SI 0 "vint_operand" "")
-   (match_operand:V2DF 1 "vfloat_operand" "")
-   (match_operand:V2DF 2 "vfloat_operand" "")]
-  "VECTOR_UNIT_VSX_P (V2DFmode) && TARGET_ALTIVEC"
+  [(parallel [(set (match_operand:V4SI 0 "vfloat_operand" "")
+		   (vec_concat:V4SI
+		    (unsigned_fix:V2SI (match_operand:V2DF 1 "vfloat_operand" ""))
+		    (unsigned_fix:V2SI (match_operand:V2DF 2 "vfloat_operand" ""))))
+	      (clobber (match_scratch:V4SI 3 ""))
+	      (clobber (match_scratch:V4SI 4 ""))
+	      (use (match_dup 5))])]
+  "VECTOR_UNIT_VSX_P (V2DFmode) && VECTOR_UNIT_ALTIVEC_P (V4SImode)"
 {
-  rtx r1 = gen_reg_rtx (V4SImode);
-  rtx r2 = gen_reg_rtx (V4SImode);
-
-  emit_insn (gen_vsx_xvcvdpuxws (r1, operands[1]));
-  emit_insn (gen_vsx_xvcvdpuxws (r2, operands[2]));
-  emit_insn (gen_vec_extract_evenv4si (operands[0], r1, r2));
-  DONE;
+  operands[5] = rs6000_vperm_even_mask (V4SImode);
 })
+
+(define_insn_and_split "*vec_pack_ufix_trunc_v2df_internal"
+  [(set (match_operand:V4SI 0 "vfloat_operand" "=&v,?v,?v")
+	(vec_concat:V4SI
+	 (unsigned_fix:V2SI (match_operand:V2DF 1 "vfloat_operand" "wd,wd,wa"))
+	 (unsigned_fix:V2SI (match_operand:V2DF 2 "vfloat_operand" "wd,wd,wa"))))
+   (clobber (match_scratch:V4SI 3 "=0,&v,&v"))
+   (clobber (match_scratch:V4SI 4 "=&v,&v,&v"))
+   (use (match_operand:V16QI 5 "vlogical_operand" "v,v,v"))]
+  "VECTOR_UNIT_VSX_P (V2DFmode) && VECTOR_UNIT_ALTIVEC_P (V4SImode)"
+  "#"
+  ""
+  [(pc)]
+{
+  if (GET_CODE (operands[3]) == SCRATCH)
+    operands[3] = gen_reg_rtx (V4SImode);
+  if (GET_CODE (operands[4]) == SCRATCH)
+    operands[4] = gen_reg_rtx (V4SImode);
+  emit_insn (gen_vsx_xvcvdpuxws (operands[3], operands[1]));
+  emit_insn (gen_vsx_xvcvdpuxws (operands[4], operands[2]));
+  emit_insn (gen_altivec_vperm_v4si (operands[0], operands[3], operands[4],
+				     operands[5]));
+  DONE;
+}
+  [(set_attr "length" "12")
+   (set_attr "type" "vecfloat")])
 
 ;; Convert single word types to double word
 (define_expand "vec_unpacks_hi_v4sf"

@@ -27112,4 +27112,80 @@ rs6000_expand_convert_si_to_sfdf (rtx dest, rtx src, bool unsigned_p)
     }
 }
 
+/* Return the appropriate permute mask in a register for doing even
+   interleaving for a given vector type.  */
+
+rtx
+rs6000_vperm_even_mask (enum machine_mode mode)
+{
+  static const unsigned char even_1byte[16] = 
+    {  0,  2,  4,  6,  8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30 };
+
+  static const unsigned char even_2byte[16] = 
+    {  0,  1,  4,  5,  8,  9, 12, 13, 16, 17, 20, 21, 24, 25, 28, 29 };
+
+  static const unsigned char even_4byte[16] = 
+    {  0,  1,  2,  3,  8,  9, 10, 11, 16, 17, 18, 19, 24, 25, 26, 27 };
+
+  const unsigned char *mask;
+  rtx mask_reg;
+  rtvec v;
+  unsigned i;
+
+  switch (mode)
+    {
+    case V16QImode: mask = even_1byte; break;
+    case V8HImode:  mask = even_2byte; break;
+    case V4SImode:  mask = even_4byte; break;
+    case V4SFmode:  mask = even_4byte; break;
+    default:	    gcc_unreachable ();
+    }
+
+  v = rtvec_alloc (16);
+  for (i = 0; i < 16; i++)
+    RTVEC_ELT (v, i) = gen_rtx_CONST_INT (QImode, mask[i]);
+
+  mask_reg = gen_reg_rtx (V16QImode);
+  emit_insn (gen_vec_initv16qi (mask_reg, gen_rtx_PARALLEL (V16QImode, v)));
+  return mask_reg;
+}
+
+/* Return the appropriate permute mask in a register for doing odd interleaving
+   for a given vector type.  */
+
+rtx
+rs6000_vperm_odd_mask (enum machine_mode mode)
+{
+  static const unsigned char odd_1byte[16] =
+    {  1,  3,  5,  7,  9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31 };
+
+  static const unsigned char odd_2byte[16] =
+    {  2,  3,  6,  7, 10, 11, 14, 15, 18, 19, 22, 23, 26, 27, 30, 31 };
+
+  static const unsigned char odd_4byte[16] =
+    {  4,  5,  6,  7, 12, 13, 14, 15, 20, 21, 22, 23, 28, 29, 30, 31 };
+
+  rtx mask_reg;
+  rtvec v;
+  const unsigned char *mask;
+  unsigned i;
+
+  switch (mode)
+    {
+    case V16QImode: mask = odd_1byte; break;
+    case V8HImode:  mask = odd_2byte; break;
+    case V4SImode:  mask = odd_4byte; break;
+    case V4SFmode:  mask = odd_4byte; break;
+    default:	    gcc_unreachable ();
+    }
+
+  v = rtvec_alloc (16);
+  for (i = 0; i < 16; i++)
+    RTVEC_ELT (v, i) = gen_rtx_CONST_INT (QImode, mask[i]);
+
+  mask_reg = gen_reg_rtx (V16QImode);
+  emit_insn (gen_vec_initv16qi (mask_reg, gen_rtx_PARALLEL (V16QImode, v)));
+  return mask_reg;
+}
+
 #include "gt-rs6000.h"
