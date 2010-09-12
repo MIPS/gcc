@@ -854,6 +854,13 @@ vect_analyze_loop_form (struct loop *loop)
   if (vect_print_dump_info (REPORT_DETAILS))
     fprintf (vect_dump, "=== vect_analyze_loop_form ===");
 
+  if (loop->inner && flag_no_vect_outer_loop)
+    {
+      if (vect_print_dump_info (REPORT_DETAILS))
+        fprintf (vect_dump, "outer-loop vectorization disabled.");
+      return NULL;
+    }
+
   /* Different restrictions apply when we are considering an inner-most loop,
      vs. an outer (nested) loop.
      (FORNOW. May want to relax some of these restrictions in the future).  */
