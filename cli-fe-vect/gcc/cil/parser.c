@@ -1021,7 +1021,7 @@ tree get_vector_type_for_mono_simd_class (const char * called_klass_name)
     }
 
 
-  error ("We should not reach here. Run the sed script?\n");
+  error ("\nCan't find vector type for class %s.\n\nWe should not reach here. Run the sed script?\n",called_klass_name);
   gcc_unreachable ();
 
 
@@ -1127,6 +1127,8 @@ get_treecode_for_mono_simd_function (const char * called_name)
     return BIT_IOR_EXPR;
   else if (strcmp (called_name, "op_ExclusiveOr") == 0)
     return BIT_XOR_EXPR;
+  else if (strcmp (called_name, "Abs") == 0)
+    return ABS_EXPR;
   else
     {
       error ("unsupported Mono.Simd operation : %s\n", called_name);
@@ -1174,7 +1176,15 @@ parser_emit_mono_simd_call (MonoMethod *caller, guint32 token)
                         get_cil_stack_type_for_mono_simd_class (called_klass_name));
         break;
       }
-
+    case ABS_EXPR:
+      {
+	gcc_assert(cil_stack_is_empty () == 0);
+	tree opA = cil_stack_pop (&typeA);
+        tree type_tree = TREE_TYPE (opA);
+	tree exp = fold_build1 (ABS_EXPR, type_tree, opA);
+	cil_stack_push (exp, typeA);
+	break;
+      }
     case MAX_EXPR:
     case MIN_EXPR:
       {
