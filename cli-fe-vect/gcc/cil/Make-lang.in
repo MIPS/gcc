@@ -134,8 +134,8 @@ cil.srcextra:
 #
 # Build hooks:
 
-cil.all.cross:
-	_error_not_here_yet - havent even thought about it - it may even work
+cil.all.cross: cil
+#	_error_not_here_yet - havent even thought about it - it may even work
 
 cil.start.encap:
 cil.rest.encap:

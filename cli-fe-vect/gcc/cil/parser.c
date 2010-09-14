@@ -2930,6 +2930,8 @@ parse_method_code (MonoMethod *method)
         parser_emit_switch (ip, n_offsets, offsets, labels);
       }
         break;
+      case MONO_CEE_NOP:
+        break;
       default:
         gcc_unreachable ();
       }
@@ -3204,6 +3206,7 @@ parser_preparse_method (MonoMethod *method, GSList **called_methods, GSList **re
       case MONO_CEE_NEG:
       case MONO_CEE_NOT:
       case MONO_CEE_SWITCH:
+      case MONO_CEE_NOP:
         break;
       case MONO_CEE_CALLI: {
         MonoMethodSignature *signature = mono_metadata_parse_signature (image, arg_token);
