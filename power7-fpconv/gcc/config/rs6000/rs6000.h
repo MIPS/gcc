@@ -297,9 +297,11 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 
 /* Code model for 64-bit linux.
    small: 16-bit toc offsets.
-   large: 32-bit toc offsets.  */
+   medium: 32-bit toc offsets, static data and code within 2G of TOC pointer.
+   large: 32-bit toc offsets, no limit on static data and code.  */
 enum rs6000_cmodel {
   CMODEL_SMALL,
+  CMODEL_MEDIUM,
   CMODEL_LARGE
 };
 
@@ -1147,13 +1149,6 @@ extern unsigned rs6000_pointer_size;
 
 #define PAIRED_VECTOR_MODE(MODE)        \
          ((MODE) == V2SFmode)            
-
-#define UNITS_PER_SIMD_WORD(MODE)					\
-	(TARGET_VSX ? UNITS_PER_VSX_WORD				\
-	 : (TARGET_ALTIVEC ? UNITS_PER_ALTIVEC_WORD			\
-	 : (TARGET_SPE ? UNITS_PER_SPE_WORD				\
-	 : (TARGET_PAIRED_FLOAT ? UNITS_PER_PAIRED_WORD			\
-	 : UNITS_PER_WORD))))
 
 /* Value is TRUE if hard register REGNO can hold a value of
    machine-mode MODE.  */

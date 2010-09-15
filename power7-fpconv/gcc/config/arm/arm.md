@@ -419,10 +419,11 @@
 ; CLOB means that the condition codes are altered in an undefined manner, if
 ;   they are altered at all
 ;
-; UNCONDITIONAL means the instions can not be conditionally executed.
+; UNCONDITIONAL means the instruction can not be conditionally executed and
+;   that the instruction does not use or alter the condition codes.
 ;
-; NOCOND means that the condition codes are neither altered nor affect the
-;   output of this insn
+; NOCOND means that the instruction does not use or alter the condition
+;   codes but can be converted into a conditionally exectuted instruction.
 
 (define_attr "conds" "use,set,clob,unconditional,nocond"
 	(if_then_else
@@ -3322,7 +3323,7 @@
 )
 
 (define_insn "arm_ashldi3_1bit"
-  [(set (match_operand:DI            0 "s_register_operand" "=&r,r")
+  [(set (match_operand:DI            0 "s_register_operand" "=r,&r")
         (ashift:DI (match_operand:DI 1 "s_register_operand" "0,r")
                    (const_int 1)))
    (clobber (reg:CC CC_REGNUM))]
@@ -3381,7 +3382,7 @@
 )
 
 (define_insn "arm_ashrdi3_1bit"
-  [(set (match_operand:DI              0 "s_register_operand" "=&r,r")
+  [(set (match_operand:DI              0 "s_register_operand" "=r,&r")
         (ashiftrt:DI (match_operand:DI 1 "s_register_operand" "0,r")
                      (const_int 1)))
    (clobber (reg:CC CC_REGNUM))]
@@ -3438,7 +3439,7 @@
 )
 
 (define_insn "arm_lshrdi3_1bit"
-  [(set (match_operand:DI              0 "s_register_operand" "=&r,r")
+  [(set (match_operand:DI              0 "s_register_operand" "=r,&r")
         (lshiftrt:DI (match_operand:DI 1 "s_register_operand" "0,r")
                      (const_int 1)))
    (clobber (reg:CC CC_REGNUM))]
@@ -4065,7 +4066,6 @@
   "TARGET_32BIT"
   [(set (match_dup 0) (match_dup 1))]
 {
-  rtx insn;
   rtx lo_part = gen_lowpart (SImode, operands[0]);
   enum machine_mode src_mode = GET_MODE (operands[1]);
 
@@ -10659,34 +10659,29 @@
 (define_expand "bswapsi2"
   [(set (match_operand:SI 0 "s_register_operand" "=r")
   	(bswap:SI (match_operand:SI 1 "s_register_operand" "r")))]
-"TARGET_EITHER"
+"TARGET_EITHER && (arm_arch6 || !optimize_size)"
 "
-  if (!arm_arch6)
-    {
-      if (!optimize_size)
-	{
-	  rtx op2 = gen_reg_rtx (SImode);
-	  rtx op3 = gen_reg_rtx (SImode);
+    if (!arm_arch6)
+      {
+	rtx op2 = gen_reg_rtx (SImode);
+	rtx op3 = gen_reg_rtx (SImode);
 
-	  if (TARGET_THUMB)
-	    {
-	      rtx op4 = gen_reg_rtx (SImode);
-	      rtx op5 = gen_reg_rtx (SImode);
+	if (TARGET_THUMB)
+	  {
+	    rtx op4 = gen_reg_rtx (SImode);
+	    rtx op5 = gen_reg_rtx (SImode);
 
-	      emit_insn (gen_thumb_legacy_rev (operands[0], operands[1],
-					       op2, op3, op4, op5));
-	    }
-	  else
-	    {
-	      emit_insn (gen_arm_legacy_rev (operands[0], operands[1],
-					     op2, op3));
-	    }
+	    emit_insn (gen_thumb_legacy_rev (operands[0], operands[1],
+					     op2, op3, op4, op5));
+	  }
+	else
+	  {
+	    emit_insn (gen_arm_legacy_rev (operands[0], operands[1],
+					   op2, op3));
+	  }
 
-	  DONE;
-	}
-      else
-	FAIL;
-    }
+	DONE;
+      }
   "
 )
 

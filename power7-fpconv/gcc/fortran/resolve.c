@@ -1916,25 +1916,6 @@ resolve_elemental_actual (gfc_expr *expr, gfc_code *c)
 }
 
 
-/* Go through each actual argument in ACTUAL and see if it can be
-   implemented as an inlined, non-copying intrinsic.  FNSYM is the
-   function being called, or NULL if not known.  */
-
-static void
-find_noncopying_intrinsics (gfc_symbol *fnsym, gfc_actual_arglist *actual)
-{
-  gfc_actual_arglist *ap;
-  gfc_expr *expr;
-
-  for (ap = actual; ap; ap = ap->next)
-    if (ap->expr
-	&& (expr = gfc_get_noncopying_intrinsic_argument (ap->expr))
-	&& !gfc_check_fncall_dependency (expr, INTENT_IN, fnsym, actual,
-					 NOT_ELEMENTAL))
-      ap->expr->inline_noncopying_intrinsic = 1;
-}
-
-
 /* This function does the checking of references to global procedures
    as defined in sections 18.1 and 14.1, respectively, of the Fortran
    77 and 95 standards.  It checks for a gsymbol for the name, making
@@ -3115,15 +3096,6 @@ resolve_function (gfc_expr *expr)
       gfc_expr_set_symbols_referenced (expr->ts.u.cl->length);
     }
 
-  if (t == SUCCESS
-	&& !((expr->value.function.esym
-		&& expr->value.function.esym->attr.elemental)
-			||
-	     (expr->value.function.isym
-		&& expr->value.function.isym->elemental)))
-    find_noncopying_intrinsics (expr->value.function.esym,
-				expr->value.function.actual);
-
   /* Make sure that the expression has a typespec that works.  */
   if (expr->ts.type == BT_UNKNOWN)
     {
@@ -3602,8 +3574,6 @@ resolve_call (gfc_code *c)
   if (resolve_elemental_actual (NULL, c) == FAILURE)
     return FAILURE;
 
-  if (t == SUCCESS && !(c->resolved_sym && c->resolved_sym->attr.elemental))
-    find_noncopying_intrinsics (c->resolved_sym, c->ext.actual);
   return t;
 }
 
@@ -6727,10 +6697,16 @@ resolve_allocate_expr (gfc_expr *e, gfc_code *code)
       if (ts.type == BT_CLASS)
 	ts = ts.u.derived->components->ts;
 
-      if (ts.type == BT_DERIVED)
+      if (ts.type == BT_DERIVED && gfc_has_default_initializer(ts.u.derived))
 	{
-	  code->expr3 = gfc_default_initializer (&ts);
-	  gfc_resolve_expr (code->expr3);
+	  gfc_expr *init_e = gfc_default_initializer (&ts);
+	  gfc_code *init_st = gfc_get_code ();
+	  init_st->loc = code->loc;
+	  init_st->op = EXEC_INIT_ASSIGN;
+	  init_st->expr1 = gfc_expr_to_initialize (e);
+	  init_st->expr2 = init_e;
+	  init_st->next = code->next;
+	  code->next = init_st;
 	}
     }
   else if (code->expr3->mold && code->expr3->ts.type == BT_DERIVED)

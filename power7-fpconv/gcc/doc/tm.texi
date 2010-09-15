@@ -995,13 +995,6 @@ Minimum number of units in a word.  If this is undefined, the default is
 smallest value that @code{UNITS_PER_WORD} can have at run-time.
 @end defmac
 
-@defmac UNITS_PER_SIMD_WORD (@var{mode})
-Number of units in the vectors that the vectorizer can produce for
-scalar mode @var{mode}.  The default is equal to @code{UNITS_PER_WORD},
-because the vectorizer can do some transformations even in absence of
-specialized @acronym{SIMD} hardware.
-@end defmac
-
 @defmac POINTER_SIZE
 Width of a pointer, in bits.  You must specify a value no wider than the
 width of @code{Pmode}.  If it is not equal to the width of @code{Pmode},
@@ -5765,6 +5758,13 @@ the elements in the vectors should be of type @var{type}.  @var{is_packed}
 parameter is true if the memory access is defined in a packed struct.
 @end deftypefn
 
+@deftypefn {Target Hook} {unsigned int} TARGET_VECTORIZE_UNITS_PER_SIMD_WORD (enum machine_mode @var{mode})
+This hook should return th number of units in the vectors that the
+vectorizer can produce for scalar mode @var{mode}.  The default is
+equal to @code{UNITS_PER_WORD}, because the vectorizer can do some
+transformations even in absence of specialized @acronym{SIMD} hardware.
+@end deftypefn
+
 @node Anchored Addresses
 @section Anchored Addresses
 @cindex anchored addresses
@@ -6775,6 +6775,16 @@ the machine and the resources required by each instruction.  The target
 backend can use @var{g} to calculate such bound.  A very simple lower
 bound will be used in case this hook is not implemented: the total number
 of instructions divided by the issue rate.
+@end deftypefn
+
+@deftypefn {Target Hook} bool TARGET_SCHED_DISPATCH (rtx @var{insn}, int @var{x})
+This hook is called by Haifa Scheduler.  It returns true if dispatch scheduling
+is supported in hardware and the condition specified in the parameter is true.
+@end deftypefn
+
+@deftypefn {Target Hook} void TARGET_SCHED_DISPATCH_DO (rtx @var{insn}, int @var{x})
+This hook is called by Haifa Scheduler.  It performs the operation specified
+in its second parameter.
 @end deftypefn
 
 @node Sections
@@ -8742,6 +8752,10 @@ It should be defined on targets where it is desirable for the table
 to be broken up according to function.
 
 The default is that no label is emitted.
+@end deftypefn
+
+@deftypefn {Target Hook} void TARGET_ASM_EMIT_EXCEPT_PERSONALITY (rtx @var{personality})
+If the target implements @code{TARGET_ASM_UNWIND_EMIT}, this hook may be used to emit a directive to install a personality hook into the unwind info.  This hook should not be used if dwarf2 unwind info is used.
 @end deftypefn
 
 @deftypefn {Target Hook} void TARGET_ASM_UNWIND_EMIT (FILE *@var{stream}, rtx @var{insn})

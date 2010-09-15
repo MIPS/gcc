@@ -26,6 +26,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "ggc.h"
 #include "tree.h"
+#include "tm_p.h"
 #include "target.h"
 #include "basic-block.h"
 #include "tree-pretty-print.h"
@@ -2540,6 +2541,17 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo,
       base = unshare_expr (DR_BASE_ADDRESS (dr));
       offset = unshare_expr (DR_OFFSET (dr));
       init = unshare_expr (DR_INIT (dr));
+
+      if (stmt_could_throw_p (stmt))
+        {
+          if (vect_print_dump_info (REPORT_UNVECTORIZED_LOCATIONS))
+            {
+              fprintf (vect_dump, "not vectorized: statement can throw an "
+                       "exception ");
+              print_gimple_stmt (vect_dump, stmt, 0, TDF_SLIM);
+            }
+          return false;
+        }
 
       /* Update DR field in stmt_vec_info struct.  */
 

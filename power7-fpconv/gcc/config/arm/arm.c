@@ -196,6 +196,8 @@ static bool arm_return_in_memory (const_tree, const_tree);
 #ifdef TARGET_UNWIND_INFO
 static void arm_unwind_emit (FILE *, rtx);
 static bool arm_output_ttype (rtx);
+static void arm_asm_emit_except_personality (rtx);
+static void arm_asm_init_sections (void);
 #endif
 static void arm_dwarf_handle_frame_unspec (const char *, rtx, int);
 static rtx arm_dwarf_register_span (rtx);
@@ -234,6 +236,7 @@ static rtx arm_trampoline_adjust_address (rtx);
 static rtx arm_pic_static_addr (rtx orig, rtx reg);
 static bool cortex_a9_sched_adjust_cost (rtx, rtx, rtx, int *);
 static bool xscale_sched_adjust_cost (rtx, rtx, rtx, int *);
+static unsigned int arm_units_per_simd_word (enum machine_mode);
 
 
 /* Table of machine attributes.  */
@@ -361,6 +364,8 @@ static const struct attribute_spec arm_attribute_table[] =
 #define TARGET_SHIFT_TRUNCATION_MASK arm_shift_truncation_mask
 #undef TARGET_VECTOR_MODE_SUPPORTED_P
 #define TARGET_VECTOR_MODE_SUPPORTED_P arm_vector_mode_supported_p
+#undef TARGET_VECTORIZE_UNITS_PER_SIMD_WORD
+#define TARGET_VECTORIZE_UNITS_PER_SIMD_WORD arm_units_per_simd_word
 
 #undef  TARGET_MACHINE_DEPENDENT_REORG
 #define TARGET_MACHINE_DEPENDENT_REORG arm_reorg
@@ -455,6 +460,12 @@ static const struct attribute_spec arm_attribute_table[] =
 
 #undef TARGET_ARM_EABI_UNWINDER
 #define TARGET_ARM_EABI_UNWINDER true
+
+#undef TARGET_ASM_EMIT_EXCEPT_PERSONALITY
+#define TARGET_ASM_EMIT_EXCEPT_PERSONALITY arm_asm_emit_except_personality
+
+#undef TARGET_ASM_INIT_SECTIONS
+#define TARGET_ASM_INIT_SECTIONS arm_asm_init_sections
 #endif /* TARGET_UNWIND_INFO */
 
 #undef TARGET_DWARF_HANDLE_FRAME_UNSPEC
@@ -21861,6 +21872,17 @@ arm_vector_mode_supported_p (enum machine_mode mode)
   return false;
 }
 
+/* Use the option -mvectorize-with-neon-quad to override the use of doubleword
+   registers when autovectorizing for Neon, at least until multiple vector
+   widths are supported properly by the middle-end.  */
+
+static unsigned int
+arm_units_per_simd_word (enum machine_mode mode ATTRIBUTE_UNUSED)
+{
+  return (TARGET_NEON
+	  ? (TARGET_NEON_VECTORIZE_QUAD ? 16 : 8) : UNITS_PER_WORD);
+}
+
 /* Implements target hook small_register_classes_for_mode_p.  */
 bool
 arm_small_register_classes_for_mode_p (enum machine_mode mode ATTRIBUTE_UNUSED)
@@ -22208,6 +22230,25 @@ arm_output_ttype (rtx x)
   fputc ('\n', asm_out_file);
 
   return TRUE;
+}
+
+/* Implement TARGET_ASM_EMIT_EXCEPT_PERSONALITY.  */
+
+static void
+arm_asm_emit_except_personality (rtx personality)
+{
+  fputs ("\t.personality\t", asm_out_file);
+  output_addr_const (asm_out_file, personality);
+  fputc ('\n', asm_out_file);
+}
+
+/* Implement TARGET_ASM_INITIALIZE_SECTIONS.  */
+
+static void
+arm_asm_init_sections (void)
+{
+  exception_section = get_unnamed_section (0, output_section_asm_op,
+					   "\t.handlerdata");
 }
 #endif /* TARGET_UNWIND_INFO */
 
