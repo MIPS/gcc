@@ -1,3 +1,48 @@
+2010-09-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* optabs.h (convert_optab_index): Add roundint, rounduint convert
+	optabs.
+	(roundint_optab): Ditto.
+	(rounduint_optab): Ditto.
+	* genopinit.c (optabs): Ditto.
+
+	* config/rs6000/rs6000-protos.h
+	(rs6000_expand_convert_si_to_sfdf): Delete, no longer used.
+
+	* config/rs6000/rs6000.c (rs6000_emit_minmax): On VSX generate
+	xsmindp/xsmaxdp for SF min/max.
+	(rs6000_expand_convert_si_to_sfdf): Delete, no longer used.
+
+	* config/rs6000/vsx.md (vsx_smaxsf3): VSX version of SF min/max.
+	(vsx_sminsf3): Ditto.
+
+	* config/rs6000/rs6000.md (floatsi<mode>2_lfiwax): Rework floating
+	point convert insns, so the memory slot to move values between GPR
+	and FPR register sets is allocated when the insns are split.
+	Split the insns before register allocation always.  Delete
+	combiner patterns no longer needed with splits before register
+	allocation.  Don't use rs6000_expand_convert_so_sfdf any more.
+	(floatsi<mode>2_lfiwax_mem): Ditto.
+	(floatsi<mode>2_lfiwax_mem2): Ditto.
+	(floatunssi<mode>2_lfiwzx): Ditto.
+	(floatunssi<mode>2_lfiwzx_mem): Ditto.
+	(floatunssi<mode>2_lfiwzx_mem2): Ditto.
+	(floatsidf2): Ditto.
+	(floatunssisf2): Ditto.
+	(floatunssidf2): Ditto.
+	(fix_trunc<mode>si2): Ditto.
+	(fix_trunc<mode>si2_stfiwx): Ditto.
+	(fix_trunc<mode>si2_mem): Ditto.
+	(fixuns_trunc<mode>si2): Ditto.
+	(fixuns_trunc<mode>si2_stfiwx): Ditto.
+	(fixuns_trunc<mode>si2_mem): Ditto.
+	(floatsisf2): Ditto.
+	(roundintdfsi2): Initial implementation of roundint insn.
+	(round32<mode>2_fprs): Combiner pattern to reduce the number of
+	stores and loads needed to round a floating point type to an
+	integer and back again.
+	(roundu32<mode>2_fprs): Ditto.
+
 2010-09-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 164314.

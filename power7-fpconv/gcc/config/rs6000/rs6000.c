@@ -17157,7 +17157,9 @@ rs6000_emit_minmax (rtx dest, enum rtx_code code, rtx op0, rtx op1)
   rtx target;
 
   /* VSX/altivec have direct min/max insns.  */
-  if ((code == SMAX || code == SMIN) && VECTOR_UNIT_ALTIVEC_OR_VSX_P (mode))
+  if ((code == SMAX || code == SMIN)
+      && (VECTOR_UNIT_ALTIVEC_OR_VSX_P (mode)
+	  || (mode == SFmode && VECTOR_UNIT_VSX_P (DFmode))))
     {
       emit_insn (gen_rtx_SET (VOIDmode,
 			      dest,
@@ -27134,79 +27136,6 @@ rs6000_address_for_fpconvert (rtx x)
     }
 
   return x;
-}
-
-/* Expand 32-bit int -> floating point conversions.  Return true if
-   successful.  */
-
-void
-rs6000_expand_convert_si_to_sfdf (rtx dest, rtx src, bool unsigned_p)
-{
-  enum machine_mode dmode = GET_MODE (dest);
-  rtx (*func_si) (rtx, rtx, rtx, rtx);
-  rtx (*func_si_mem) (rtx, rtx);
-  rtx (*func_di) (rtx, rtx);
-  rtx reg, stack;
-
-  gcc_assert (GET_MODE (src) == SImode);
-
-  if (dmode == SFmode)
-    {
-      if (unsigned_p)
-	{
-	  gcc_assert (TARGET_FCFIDUS && TARGET_LFIWZX);
-	  func_si = gen_floatunssisf2_lfiwzx;
-	  func_si_mem = gen_floatunssisf2_lfiwzx_mem;
-	  func_di = gen_floatunsdisf2;
-	}
-      else
-	{
-	  gcc_assert (TARGET_FCFIDS && TARGET_LFIWAX);
-	  func_si = gen_floatsisf2_lfiwax;
-	  func_si_mem = gen_floatsisf2_lfiwax_mem;
-	  func_di = gen_floatdisf2;
-	}
-    }
-
-  else if (dmode == DFmode)
-    {
-      if (unsigned_p)
-	{
-	  gcc_assert (TARGET_FCFIDU && TARGET_LFIWZX);
-	  func_si = gen_floatunssidf2_lfiwzx;
-	  func_si_mem = gen_floatunssidf2_lfiwzx_mem;
-	  func_di = gen_floatunsdidf2;
-	}
-      else
-	{
-	  gcc_assert (TARGET_FCFID && TARGET_LFIWAX);
-	  func_si = gen_floatsidf2_lfiwax;
-	  func_si_mem = gen_floatsidf2_lfiwax_mem;
-	  func_di = gen_floatdidf2;
-	}
-    }
-
-  else
-    gcc_unreachable ();
-
-  if (MEM_P (src))
-    {
-      src = rs6000_address_for_fpconvert (src);
-      emit_insn (func_si_mem (dest, src));
-    }
-  else if (!TARGET_MFPGPR)
-    {
-      reg = gen_reg_rtx (DImode);
-      stack = rs6000_allocate_stack_temp (SImode, false, true);
-      emit_insn (func_si (dest, src, stack, reg));
-    }
-  else
-    {
-      if (!REG_P (src))
-	src = force_reg (SImode, src);
-      reg = convert_to_mode (DImode, src, unsigned_p);
-      emit_insn (func_di (dest, reg));
-    }
 }
 
 /* Return the appropriate permute mask in a register for doing even

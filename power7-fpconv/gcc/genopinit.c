@@ -74,6 +74,8 @@ static const char * const optabs[] =
   "set_convert_optab_handler (fractuns_optab, $B, $A, CODE_FOR_$(fractuns$Q$a$I$b2$))",
   "set_convert_optab_handler (satfract_optab, $B, $A, CODE_FOR_$(satfract$a$Q$b2$))",
   "set_convert_optab_handler (satfractuns_optab, $B, $A, CODE_FOR_$(satfractuns$I$a$Q$b2$))",
+  "set_convert_optab_handler (roundint_optab, $B, $A, CODE_FOR_$(roundint$F$a$I$b2$))",
+  "set_convert_optab_handler (rounduint_optab, $B, $A, CODE_FOR_$(rounduint$F$a$I$b2$))",
   "set_optab_handler (add_optab, $A, CODE_FOR_$(add$P$a3$))",
   "set_optab_handler (addv_optab, $A, CODE_FOR_$(add$F$a3$)),\n\
     set_optab_handler (add_optab, $A, CODE_FOR_$(add$F$a3$))",

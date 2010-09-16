@@ -569,6 +569,9 @@ enum convert_optab_index
   COI_satfract,
   COI_satfractuns,
 
+  COI_roundint,
+  COI_rounduint,
+
   COI_MAX
 };
 
@@ -589,6 +592,8 @@ enum convert_optab_index
 #define fractuns_optab (&convert_optab_table[COI_fractuns])
 #define satfract_optab (&convert_optab_table[COI_satfract])
 #define satfractuns_optab (&convert_optab_table[COI_satfractuns])
+#define roundint_optab (&convert_optab_table[COI_roundint])
+#define rounduint_optab (&convert_optab_table[COI_rounduint])
 
 /* Contains the optab used for each rtx code.  */
 extern optab code_to_optab[NUM_RTX_CODE + 1];
