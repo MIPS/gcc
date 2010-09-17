@@ -2794,6 +2794,16 @@ gen_abs_expr (cil_stmt_iterator *csi, tree node)
 	  builtin = CIL32_ABSDF2;
 	}
     }
+  else if (TREE_CODE (type) == VECTOR_TYPE)
+    {
+      cil_type_t cil_type = vector_to_cil (type);
+      if (cil_type == CIL_V16HI)
+        builtin = CIL32_GEN_VHI_ABS;
+      else
+        {
+          internal_error ("vector type not supported in gen_abs_expr\n");
+        }
+    }
   else
     gcc_unreachable ();
 

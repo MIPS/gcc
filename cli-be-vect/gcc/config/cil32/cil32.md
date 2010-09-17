@@ -277,6 +277,13 @@
   ""
   "vec_smin")
 
+(define_insn "abs<mode>2"
+  [(set (match_operand:VECMODES 0 "nonimmediate_operand"  "")
+       (abs:VECMODES
+        (match_operand:VECMODES 1 "general_operand" "")))]
+  ""
+  "vec_abs")
+
 ;; (define_insn "umin<mode>3"
 ;;   [(set (match_operand:VECMODES 0 "nonimmediate_operand"  "")
 ;;        (umin:VECMODES

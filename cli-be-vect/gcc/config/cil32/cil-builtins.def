@@ -1923,6 +1923,11 @@ DEF_CILBUILTIN(GEN_VHI_MAX, "[Xxxx.Simd]Xxxx.Simd.VectorOperations::Max  ", \
                VHI_type_node,                                        \
                2, VHI_type_node, VHI_type_node)
 
+DEF_CILBUILTIN(GEN_VHI_ABS, "[Xxxx.Simd]Xxxx.Simd.VectorOperations::Abs  ", \
+               ATTR_NULL,                                               \
+               VHI_type_node,                                        \
+               1, VHI_type_node)
+
 /* V QI */
 DEF_CILBUILTIN(GEN_VQI_CTOR, "[Xxxx.Simd]Xxxx.Simd.VecGenQQQI::.ctor", \
                ATTR_NULL,        \
