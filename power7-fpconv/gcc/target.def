@@ -2311,7 +2311,14 @@ DEFHOOK
 (override,
  "",
  void, (void),
- default_target_option_override)
+ hook_void_void)
+
+/* Set default optimizations for the target.  */
+DEFHOOK
+(optimization,
+ "",
+ void, (int level, int size),
+ hook_void_int_int)
 
 /* Function to determine if one function can inline another function.  */
 #undef HOOK_PREFIX
