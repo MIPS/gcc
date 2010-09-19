@@ -1099,10 +1099,36 @@ DEF_CILBUILTIN(GCC_BUILD_AFFINE_VEC_VQI, "[genvec_support]genvec_support.VQI::VQ
 
 
 /* vec_size */
-DEF_CILBUILTIN(GCC_GET_STEP, "[genvec_support]genvec_support.VQI::get_vec_size", \
+DEF_CILBUILTIN(GCC_GET_STEP_VDF, "[genvec_support]genvec_support.VDF::get_vec_size_vdf", \
                ATTR_CONST_NOTHROW_LIST,          \
                unsigned_type_node, \
                0)
+
+DEF_CILBUILTIN(GCC_GET_STEP_VSF, "[genvec_support]genvec_support.VSF::get_vec_size_vsf", \
+               ATTR_CONST_NOTHROW_LIST,          \
+               unsigned_type_node, \
+               0)
+
+DEF_CILBUILTIN(GCC_GET_STEP_VDI, "[genvec_support]genvec_support.VDI::get_vec_size_vdi", \
+               ATTR_CONST_NOTHROW_LIST,          \
+               unsigned_type_node, \
+               0)
+
+DEF_CILBUILTIN(GCC_GET_STEP_VSI, "[genvec_support]genvec_support.VSI::get_vec_size_vsi", \
+               ATTR_CONST_NOTHROW_LIST,          \
+               unsigned_type_node, \
+               0)
+
+DEF_CILBUILTIN(GCC_GET_STEP_VHI, "[genvec_support]genvec_support.VHI::get_vec_size_vhi", \
+               ATTR_CONST_NOTHROW_LIST,          \
+               unsigned_type_node, \
+               0)
+
+DEF_CILBUILTIN(GCC_GET_STEP_VQI, "[genvec_support]genvec_support.VQI::get_vec_size_vqi", \
+               ATTR_CONST_NOTHROW_LIST,          \
+               unsigned_type_node, \
+               0)
+
 
 /* align */
 DEF_CILBUILTIN(GCC_GET_ALIGN_VDF, "[genvec_support]genvec_support.VDF::VDF_align", \

@@ -417,7 +417,42 @@ cil32_vector_mode_supported_p (enum machine_mode mode ATTRIBUTE_UNUSED)
 static tree
 cil32_builtin_get_vec_size (tree type ATTRIBUTE_UNUSED)
 {
-  return cil32_builtins[CIL32_GCC_GET_STEP];
+  tree elem_type = TREE_TYPE (type);
+  unsigned element_size = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (elem_type));
+
+  if (TREE_CODE (elem_type) == INTEGER_TYPE)
+    {
+      switch (element_size)
+        {
+        case 8:
+          return cil32_builtins[CIL32_GCC_GET_STEP_VDI];
+
+        case 4:
+          return cil32_builtins[CIL32_GCC_GET_STEP_VSI];
+
+        case 2:
+          return cil32_builtins[CIL32_GCC_GET_STEP_VHI];
+
+        case 1:
+          return cil32_builtins[CIL32_GCC_GET_STEP_VQI];
+
+        default:
+          return NULL_TREE;
+        }
+    }
+  else
+    {
+      switch (element_size)
+        {
+        case 8:
+          return cil32_builtins[CIL32_GCC_GET_STEP_VDF];
+        case 4:
+          return cil32_builtins[CIL32_GCC_GET_STEP_VSF];
+
+        default:
+          return NULL_TREE;
+        }
+    }
 }
 
 static tree
