@@ -411,6 +411,22 @@ gnat_poplevel (void)
   free_binding_level = level;
 }
 
+/* Exit a binding level and discard the associated BLOCK.  */
+
+void
+gnat_zaplevel (void)
+{
+  struct gnat_binding_level *level = current_binding_level;
+  tree block = level->block;
+
+  BLOCK_CHAIN (block) = free_block_chain;
+  free_block_chain = block;
+
+  /* Free this binding structure.  */
+  current_binding_level = level->chain;
+  level->chain = free_binding_level;
+  free_binding_level = level;
+}
 
 /* Records a ..._DECL node DECL as belonging to the current lexical scope
    and uses GNAT_NODE for location information and propagating flags.  */
@@ -441,13 +457,12 @@ gnat_pushdecl (tree decl, Node_Id gnat_node)
   add_decl_expr (decl, gnat_node);
 
   /* Put the declaration on the list.  The list of declarations is in reverse
-     order.  The list will be reversed later.  Put global variables in the
-     globals list and builtin functions in a dedicated list to speed up
-     further lookups.  Don't put TYPE_DECLs for UNCONSTRAINED_ARRAY_TYPE into
-     the list, as they will cause trouble with the debugger and aren't needed
-     anyway.  */
-  if (TREE_CODE (decl) != TYPE_DECL
-      || TREE_CODE (TREE_TYPE (decl)) != UNCONSTRAINED_ARRAY_TYPE)
+     order.  The list will be reversed later.  Put global declarations in the
+     globals list and local ones in the current block.  But skip TYPE_DECLs
+     for UNCONSTRAINED_ARRAY_TYPE in both cases, as they will cause trouble
+     with the debugger and aren't needed anyway.  */
+  if (!(TREE_CODE (decl) == TYPE_DECL
+        && TREE_CODE (TREE_TYPE (decl)) == UNCONSTRAINED_ARRAY_TYPE))
     {
       if (global_bindings_p ())
 	{
@@ -456,16 +471,10 @@ gnat_pushdecl (tree decl, Node_Id gnat_node)
 	  if (TREE_CODE (decl) == FUNCTION_DECL && DECL_BUILT_IN (decl))
 	    VEC_safe_push (tree, gc, builtin_decls, decl);
 	}
-      else
+      else if (!DECL_EXTERNAL (decl))
 	{
-	  tree block;
-	  /* Fake PARM_DECLs go into the topmost block of the function.  */
-	  if (TREE_CODE (decl) == PARM_DECL)
-	    block = BLOCK_SUPERCONTEXT (current_binding_level->block);
-	  else
-	    block = current_binding_level->block;
-	  DECL_CHAIN (decl) = BLOCK_VARS (block);
-	  BLOCK_VARS (block) = decl;
+	  DECL_CHAIN (decl) = BLOCK_VARS (current_binding_level->block);
+	  BLOCK_VARS (current_binding_level->block) = decl;
 	}
     }
 
@@ -1371,12 +1380,11 @@ create_var_decl_1 (tree var_name, tree asm_name, tree type, tree var_init,
       && !have_global_bss_p ())
     DECL_COMMON (var_decl) = 1;
 
-  /* If it's public and not external, always allocate storage for it.
-     At the global binding level we need to allocate static storage for the
-     variable if and only if it's not external. If we are not at the top level
-     we allocate automatic storage unless requested not to.  */
+  /* At the global binding level, we need to allocate static storage for the
+     variable if it isn't external.  Otherwise, we allocate automatic storage
+     unless requested not to.  */
   TREE_STATIC (var_decl)
-    = !extern_flag && (public_flag || static_flag || global_bindings_p ());
+    = !extern_flag && (static_flag || global_bindings_p ());
 
   /* For an external constant whose initializer is not absolute, do not emit
      debug info.  In DWARF this would mean a global relocation in a read-only
@@ -1892,6 +1900,13 @@ end_subprog_body (tree body)
 
   /* Mark the RESULT_DECL as being in this subprogram. */
   DECL_CONTEXT (DECL_RESULT (fndecl)) = fndecl;
+
+  /* The body should be a BIND_EXPR whose BLOCK is the top-level one.  */
+  if (TREE_CODE (body) == BIND_EXPR)
+    {
+      BLOCK_SUPERCONTEXT (BIND_EXPR_BLOCK (body)) = fndecl;
+      DECL_INITIAL (fndecl) = BIND_EXPR_BLOCK (body);
+    }
 
   DECL_SAVED_TREE (fndecl) = body;
 
@@ -3214,15 +3229,18 @@ build_function_stub (tree gnu_subprog, Entity_Id gnat_subprog)
   tree gnu_subprog_type, gnu_subprog_addr, gnu_subprog_call;
   tree gnu_stub_param, gnu_arg_types, gnu_param;
   tree gnu_stub_decl = DECL_FUNCTION_STUB (gnu_subprog);
-  tree gnu_body;
   VEC(tree,gc) *gnu_param_vec = NULL;
 
   gnu_subprog_type = TREE_TYPE (gnu_subprog);
 
+  /* Initialize the information structure for the function.  */
+  allocate_struct_function (gnu_stub_decl, false);
+  set_cfun (NULL);
+
   begin_subprog_body (gnu_stub_decl);
-  gnat_pushlevel ();
 
   start_stmt_group ();
+  gnat_pushlevel ();
 
   /* Loop over the parameters of the stub and translate any of them
      passed by descriptor into a by reference one.  */
@@ -3244,8 +3262,6 @@ build_function_stub (tree gnu_subprog, Entity_Id gnat_subprog)
       VEC_safe_push (tree, gc, gnu_param_vec, gnu_param);
     }
 
-  gnu_body = end_stmt_group ();
-
   /* Invoke the internal subprogram.  */
   gnu_subprog_addr = build1 (ADDR_EXPR, build_pointer_type (gnu_subprog_type),
 			     gnu_subprog);
@@ -3254,16 +3270,13 @@ build_function_stub (tree gnu_subprog, Entity_Id gnat_subprog)
 
   /* Propagate the return value, if any.  */
   if (VOID_TYPE_P (TREE_TYPE (gnu_subprog_type)))
-    append_to_statement_list (gnu_subprog_call, &gnu_body);
+    add_stmt (gnu_subprog_call);
   else
-    append_to_statement_list (build_return_expr (DECL_RESULT (gnu_stub_decl),
-						 gnu_subprog_call),
-			      &gnu_body);
+    add_stmt (build_return_expr (DECL_RESULT (gnu_stub_decl),
+				 gnu_subprog_call));
 
   gnat_poplevel ();
-
-  allocate_struct_function (gnu_stub_decl, false);
-  end_subprog_body (gnu_body);
+  end_subprog_body (end_stmt_group ());
 }
 
 /* Build a type to be used to represent an aliased object whose nominal type

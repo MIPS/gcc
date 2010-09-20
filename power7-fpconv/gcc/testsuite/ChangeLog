@@ -1,3 +1,108 @@
+2010-09-20  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/45704
+	* gcc.dg/torture/pr45704.c: New testcase.
+
+2010-09-20  Jan Hubicka  <jh@suse.cz>
+
+	PR tree-optimize/45605
+	* g++.dg/tree-ssa/pr45605.C: New testcase.
+
+2010-09-20  Michael Matz  <matz@suse.de>
+
+	PR testsuite/45706
+	* gcc.dg/vect/pr43432.c: Don't override dg-options, defaults are
+	enough.
+
+2010-09-20  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/45705
+	* gcc.dg/tree-ssa/ssa-dom-dse-1.c: New testcase.
+
+2010-09-20  Michael Matz  <matz@suse.de>
+
+	PR testsuite/45706
+	* lib/target-supports.exp (check_effective_target_vect_perm):
+	Add i?86-*-*.
+
+2010-09-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/45695
+	* gcc.c-torture/execute/pr45695.c: New test.
+
+2010-09-19  Jan Hubicka  <jh@suse.cz>
+
+	PR lto/44246
+	* gcc.c-torture/compile/pr44246.c:New file.
+
+2010-09-19  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/45714
+	* gfortran.dg/vect/pr45714-a.f: New test.
+	* gfortran.dg/vect/pr45714-b.f: New test.
+
+2010-09-19  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/const1.adb: Rename into...
+	* gnat.dg/constant1.adb: ...this.
+	* gnat.dg/constant2.adb: New test.
+	* gnat.dg/constant2_pkg1.ads: New helper.
+	* gnat.dg/constant2_pkg2.ad[sb]: Likewise.
+
+2010-09-19  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/specs/constant1.ads: New test.
+	* gnat.dg/specs/constant1_pkg.ads: New helper.
+
+2010-09-18  Jan Hubicka  <jh@suse.cz>
+
+	PR tree-optimization/45453
+	* g++.dg/tree-ssa/pr45453.C: New testcase.
+
+2010-09-18  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/initlist44.C: New.
+
+2010-09-18  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/45709
+	* g++.dg/torture/pr45709-2.C: New testcase.
+
+2010-09-18  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/45709
+	* g++.dg/torture/pr45709.C: New testcase.
+
+2010-09-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR testsuite/45719
+	* gcc.target/i386/pad-3.c: Pass -fno-pic.
+
+2010-09-17  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.target/i386/pad-1.c: New.
+	* gcc.target/i386/pad-2.c: Likewise.
+	* gcc.target/i386/pad-3.c: Likewise.
+	* gcc.target/i386/pad-4.c: Likewise.
+	* gcc.target/i386/pad-5a.c: Likewise.
+	* gcc.target/i386/pad-5b.c: Likewise.
+	* gcc.target/i386/pad-6a.c: Likewise.
+	* gcc.target/i386/pad-6b.c: Likewise.
+	* gcc.target/i386/pad-7.c: Likewise.
+	* gcc.target/i386/pad-8.c: Likewise.
+	* gcc.target/i386/pad-9.c: Likewise.
+	* gcc.target/i386/pad-10.c: Likewise.
+
+2010-09-17  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR middle-end/45234
+	* gcc.dg/torture/stackalign/alloca-5.c: New.
+
+2010-09-17  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR middle-end/45678
+	* gcc.dg/torture/pr45678-2.c: New.
+
 2010-09-17  Richard Guenther  <rguenther@suse.de>
 
 	PR middle-end/45678
@@ -17,7 +122,7 @@
 
 2010-09-17  Nicola Pero  <nicola.pero@meta-innovation.com>
 
-	PR testsuite/45692	
+	PR testsuite/45692
 	* objc/execute/exceptions/throw-nil.m: Run the test only with the
 	GNU runtime.
 
