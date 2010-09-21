@@ -1,3 +1,23 @@
+2010-09-02  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline
+	2010-08-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/45423
+	* parser.c (cp_parser_omp_atomic): Handle boolean
+	{PRE,POST}_INCREMENT.
+
+2010-08-29  Jason Merrill  <jason@redhat.com>
+
+	PR c++/44991
+	* parser.c (cp_parser_parameter_declaration): Pop parameter decls
+	after tentative parsing.
+
+2010-08-19  Jason Merrill  <jason@redhat.com>
+
+	PR c++/45315
+	* init.c (build_new_1): Don't use build_value_init in a template.
+
 2010-06-29  Jason Merrill  <jason@redhat.com>
 
 	PR c++/44587

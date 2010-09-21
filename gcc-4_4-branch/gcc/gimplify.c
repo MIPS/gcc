@@ -3715,11 +3715,12 @@ gimplify_init_constructor (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	      }
 	  }
 
-	/* If the target is volatile and we have non-zero elements
-	   initialize the target from a temporary.  */
+	/* If the target is volatile, we have non-zero elements and more than
+	   one field to assign, initialize the target from a temporary.  */
 	if (TREE_THIS_VOLATILE (object)
 	    && !TREE_ADDRESSABLE (type)
-	    && num_nonzero_elements > 0)
+	    && num_nonzero_elements > 0
+	    && VEC_length (constructor_elt, elts) > 1)
 	  {
 	    tree temp = create_tmp_var (TYPE_MAIN_VARIANT (type), NULL);
 	    TREE_OPERAND (*expr_p, 0) = temp;
@@ -6184,8 +6185,12 @@ goa_stabilize_expr (tree *expr_p, gimple_seq *pre_p, tree lhs_addr,
 	{
 	case TRUTH_ANDIF_EXPR:
 	case TRUTH_ORIF_EXPR:
+	case TRUTH_AND_EXPR:
+	case TRUTH_OR_EXPR:
+	case TRUTH_XOR_EXPR:
 	  saw_lhs |= goa_stabilize_expr (&TREE_OPERAND (expr, 1), pre_p,
 					 lhs_addr, lhs_var);
+	case TRUTH_NOT_EXPR:
 	  saw_lhs |= goa_stabilize_expr (&TREE_OPERAND (expr, 0), pre_p,
 					 lhs_addr, lhs_var);
 	  break;

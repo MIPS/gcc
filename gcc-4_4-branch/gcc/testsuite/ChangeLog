@@ -1,3 +1,198 @@
+2010-09-21  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline
+	2010-09-17  Richard Guenther  <rguenther@suse.de>
+		    H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR middle-end/45678
+	* gcc.dg/torture/pr45678-1.c: New.
+	* gcc.dg/torture/pr45678-2.c: Likewise.
+
+2010-09-20  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2010-09-17  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR middle-end/45234
+	* gcc.dg/torture/stackalign/alloca-5.c: New.
+
+2010-09-18  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/45709
+	* g++.dg/torture/pr45709.C: New testcase.
+	* g++.dg/torture/pr45709-2.C: Likewise.
+
+2010-09-17  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2010-09-08  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* lib/target-supports.exp
+	(check_effective_target_run_expensive_tests): New proc.
+	* gcc.c-torture/compile/limits-fnargs.c: Use
+	dg-require-effective-target run_expensive_tests.
+
+2010-09-12  Alexander Monakov  <amonakov@ispras.ru>
+
+	Backport from mainline
+	2010-09-06  Alexander Monakov  <amonakov@ispras.ru>
+
+	PR rtl-optimization/44919
+	* g++.dg/opt/pr44919.C: New.
+
+2010-09-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/pr40386.c: Remove part that has been applied
+	twice.
+	* gcc.c-torture/execute/pr40386.x: Likewise.
+
+2010-09-08  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR middle-end/40386
+	* gcc.c-torture/execute/{pr40386.c,pr40386.x}: New testcase.
+	
+2010-09-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/45595
+	* gfortran.dg/gomp/pr45595.f90: New test.
+
+2010-09-07  Ian Bolton  <ian.bolton@arm.com>
+
+	Backport from mainline
+	2010-08-19  Ian Bolton  <ian.bolton@arm.com>
+	
+	PR target/45070
+	* gcc.c-torture/execute/pr45070.c: New.
+
+	2010-08-19  Ian Bolton  <ian.bolton@arm.com>
+
+	* g++.dg/pr44328.C: New test.
+	
+	2010-08-07  Marcus Shawcroft <marcus.shawcroft@arm.com>
+
+	* lib/target-supports.exp: (check_effective_target_sync_int_long):
+	Add arm*-*-linux-gnueabi.
+	(check_effective_target_sync_char_short): Likewise.
+
+2010-09-03  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc.target/x86_64/abi/avx/abi-avx.exp: Link with
+	gcc.target/i386/clearcap.map if supported.
+
+2010-09-02  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline
+	2010-08-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/45423
+	* gcc.dg/gomp/atomic-12.c: New test.
+	* gcc.dg/gomp/atomic-13.c: New test.
+	* gcc.dg/gomp/atomic-14.c: New test.
+	* g++.dg/gomp/atomic-11.C: New test.
+	* g++.dg/gomp/atomic-12.C: New test.
+	* g++.dg/gomp/atomic-13.C: New test.
+	* g++.dg/gomp/atomic-14.C: New test.
+
+2010-08-29  Jason Merrill  <jason@redhat.com>
+
+	PR c++/44991
+	* g++.dg/parse/defarg15.C: New.
+
+2010-08-24  Andrey Belevantsev <abel@ispras.ru>
+
+	Backport from mainline:
+	2010-08-19  Andrey Belevantsev  <abel@ispras.ru>
+
+	PR rtl-optimization/44691
+	* gfortran.dg/pr44691.f: New test.
+
+2010-08-24  Andrey Belevantsev <abel@ispras.ru>
+
+	Backport from mainline:
+	2010-01-14  Alexander Monakov  <amonakov@ispras.ru>
+
+	PR rtl-optimization/42246
+	* gfortran.dg/pr42246-2.f: New.
+
+2010-01-14  Alexander Monakov  <amonakov@ispras.ru>
+
+	PR rtl-optimization/42389
+	* gcc.dg/pr42389.c: New.
+
+2010-08-24  Andrey Belevantsev <abel@ispras.ru>
+
+	Backport from mainline:
+	2010-01-14  Alexander Monakov  <amonakov@ispras.ru>
+
+	PR rtl-optimization/42388
+	* gcc.dg/pr42388.c: New.
+
+2010-08-24  Andrey Belevantsev <abel@ispras.ru>
+
+	Backport from mainline:
+	2010-01-14  Alexander Monakov <amonakov@ispras.ru>
+
+	PR rtl-optimization/42294
+	* gfortran.dg/pr42294.f: New.
+
+2010-08-24  Andrey Belevantsev <abel@ispras.ru>
+
+	Backport from mainline:
+	2010-01-14  Alexander Monakov <amonakov@ispras.ru>
+
+	PR rtl-optimization/39453
+	PR rtl-optimization/42246
+	* gcc.dg/pr39453.c: New.
+	* gcc.dg/pr42246.c: New.
+
+2010-08-24  Andrey Belevantsev <abel@ispras.ru>
+
+	Backport from mainline:
+	2010-01-14  Alexander Monakov <amonakov@ispras.ru>
+
+	PR middle-end/42245
+	* gcc.dg/pr42245.c: New.
+	* gcc.dg/pr42245-2.c: New.
+
+2010-08-24  Andrey Belevantsev <abel@ispras.ru>
+
+	Backport from mainline:
+	2010-01-14  Alexander Monakov <amonakov@ispras.ru>
+
+	PR rtl-optimization/42249
+	* gcc.dg/pr42249.c: New.
+
+2010-08-24  Andrey Belevantsev <abel@ispras.ru>
+
+	Backport from mainline:
+	2009-04-28  Alexander Monakov  <amonakov@ispras.ru>
+	* gcc.target/ia64/20071210-2.c: New testcase.
+
+2010-08-19  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/init/value8.C: New.
+
+2010-08-17  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/45296
+	* gcc.target/i386/pr45296.c: New test.
+
+2010-08-15  Uros Bizjak  <ubizjak@gmail.com>
+
+	* g++.dg/cast.C: Change fields of structures to "long" to pass
+	the test on targets with STRUCTURE_SIZE_BOUNDARY != BITS_PER_UNIT.
+	* g++.dg/cpp0x/iop.C: Ditto.
+	* g++.dg/cpp0x/named_refs.C: Ditto.
+	* g++.dg/cpp0x/rv1p.C: Ditto.
+	* g++.dg/cpp0x/rv2p.C: Ditto.
+	* g++.dg/cpp0x/rv3p.C: Ditto.
+	* g++.dg/cpp0x/rv4p.C: Ditto.
+	* g++.dg/cpp0x/rv5p.C: Ditto.
+	* g++.dg/cpp0x/rv6p.C: Ditto.
+	* g++.dg/cpp0x/rv7p.C: Ditto.
+	* g++.dg/cpp0x/rv8p.C: Ditto.
+	* g++.dg/cpp0x/unnamed_refs.C: Ditto.
+
 2010-08-12  Jakub Jelinek  <jakub@redhat.com>
 
 	PR middle-end/45262
