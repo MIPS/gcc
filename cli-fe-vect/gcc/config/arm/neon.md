@@ -159,7 +159,8 @@
    (UNSPEC_VUZP1		201)
    (UNSPEC_VUZP2		202)
    (UNSPEC_VZIP1		203)
-   (UNSPEC_VZIP2		204)])
+   (UNSPEC_VZIP2		204)
+   (UNSPEC_MISALIGNED_ACCESS	205)])
 
 ;; Double-width vector modes.
 (define_mode_iterator VD [V8QI V4HI V2SI V2SF])
@@ -673,6 +674,52 @@
 
   neon_disambiguate_copy (operands, dest, src, 4);
 })
+
+(define_expand "movmisalign<mode>"
+  [(set (match_operand:VDQX 0 "nonimmediate_operand"	      "")
+	(unspec:VDQX [(match_operand:VDQX 1 "general_operand" "")]
+		     UNSPEC_MISALIGNED_ACCESS))]
+  "TARGET_NEON && !BYTES_BIG_ENDIAN"
+{
+  /* This pattern is not permitted to fail during expansion: if both arguments
+     are non-registers (e.g. memory := constant, which can be created by the
+     auto-vectorizer), force operand 1 into a register.  */
+  if (!s_register_operand (operands[0], <MODE>mode)
+      && !s_register_operand (operands[1], <MODE>mode))
+    operands[1] = force_reg (<MODE>mode, operands[1]);
+})
+
+(define_insn "*movmisalign<mode>_neon_store"
+  [(set (match_operand:VDX 0 "memory_operand"		       "=Um")
+	(unspec:VDX [(match_operand:VDX 1 "s_register_operand" " w")]
+		    UNSPEC_MISALIGNED_ACCESS))]
+  "TARGET_NEON && !BYTES_BIG_ENDIAN"
+  "vst1.<V_sz_elem>\t{%P1}, %A0"
+  [(set_attr "neon_type" "neon_vst1_1_2_regs_vst2_2_regs")])
+
+(define_insn "*movmisalign<mode>_neon_load"
+  [(set (match_operand:VDX 0 "s_register_operand"	   "=w")
+	(unspec:VDX [(match_operand:VDX 1 "memory_operand" " Um")]
+		    UNSPEC_MISALIGNED_ACCESS))]
+  "TARGET_NEON && !BYTES_BIG_ENDIAN"
+  "vld1.<V_sz_elem>\t{%P0}, %A1"
+  [(set_attr "neon_type" "neon_vld1_1_2_regs")])
+
+(define_insn "*movmisalign<mode>_neon_store"
+  [(set (match_operand:VQX 0 "memory_operand"		       "=Um")
+	(unspec:VQX [(match_operand:VQX 1 "s_register_operand" " w")]
+		    UNSPEC_MISALIGNED_ACCESS))]
+  "TARGET_NEON && !BYTES_BIG_ENDIAN"
+  "vst1.<V_sz_elem>\t{%q1}, %A0"
+  [(set_attr "neon_type" "neon_vst1_1_2_regs_vst2_2_regs")])
+
+(define_insn "*movmisalign<mode>_neon_load"
+  [(set (match_operand:VQX 0 "s_register_operand"	   "=w")
+	(unspec:VQX [(match_operand:VQX 1 "memory_operand" " Um")]
+		    UNSPEC_MISALIGNED_ACCESS))]
+  "TARGET_NEON && !BYTES_BIG_ENDIAN"
+  "vld1.<V_sz_elem>\t{%q0}, %A1"
+  [(set_attr "neon_type" "neon_vld1_1_2_regs")])
 
 (define_insn "vec_set<mode>_internal"
   [(set (match_operand:VD 0 "s_register_operand" "=w")
@@ -5051,3 +5098,38 @@
   emit_insn (gen_orn<mode>3_neon (operands[0], operands[1], operands[2]));
   DONE;
 })
+
+
+;; dot product
+
+(define_expand "udot_prodv4hi"
+  [(match_operand:V2SI 0 "register_operand" "=v")
+   (match_operand:V4HI 1 "register_operand" "v")
+   (match_operand:V4HI 2 "register_operand" "v")
+   (match_operand:V2SI 3 "register_operand" "v")]  
+ "TARGET_NEON"
+
+{
+ /*rtx tmp = gen_rtx_REG (V4HImode);*/
+ emit_insn (gen_neon_vmulv4hi (operands[1], operands[1], operands[2], const0_rtx));
+ emit_insn (gen_neon_vpadalv4hi (operands[3], operands[3], operands[1], const0_rtx));
+ emit_move_insn (operands[0], operands[3]);
+ DONE;
+})
+
+(define_expand "sdot_prodv4hi"
+  [(match_operand:V2SI 0 "register_operand" "=v")
+   (match_operand:V4HI 1 "register_operand" "v")
+   (match_operand:V4HI 2 "register_operand" "v")
+   (match_operand:V2SI 3 "register_operand" "v")]  
+ "TARGET_NEON"
+
+{
+ /* FIXME: operands[1] gets clobbered and it shouldn't. A free register must be used as temporary */
+ emit_insn (gen_neon_vmulv4hi (operands[1], operands[1], operands[2], const0_rtx));
+ emit_insn (gen_neon_vpadalv4hi (operands[3], operands[3], operands[1], const0_rtx));
+ emit_move_insn (operands[0], operands[3]);
+ DONE;
+})
+
+

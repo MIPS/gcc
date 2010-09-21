@@ -219,12 +219,12 @@ get_vectype (tree scalar_type, bool *ignore_stmt)
       return NULL_TREE;
     }
 
-  if (nbytes == 0 || nbytes >= UNITS_PER_SIMD_WORD (inner_mode))
+  if (nbytes == 0 || nbytes >= simd_width)
     return NULL_TREE;
 
   /* FORNOW: Only a single vector size per mode (UNITS_PER_SIMD_WORD)
      is expected.  */
-  nunits = UNITS_PER_SIMD_WORD (inner_mode) / nbytes;
+  nunits = simd_width / nbytes;
 
   vectype = build_vector_type (scalar_type, nunits);
 

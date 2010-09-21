@@ -2750,3 +2750,4 @@
   emit_insn (gen_altivec_vcfux (operands[0], tmp, const0_rtx));
   DONE;
 }")
+

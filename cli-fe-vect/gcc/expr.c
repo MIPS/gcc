@@ -4351,7 +4351,10 @@ expand_assignment (tree to, tree from, bool nontemporal)
            && op_mode1 != VOIDmode)
          reg = copy_to_mode_reg (op_mode1, reg);
 
-      insn = GEN_FCN (icode) (mem, reg);
+       insn = GEN_FCN (icode) (mem, reg);
+       /* The movmisalign<mode> pattern cannot fail, else the assignment would
+          silently be omitted.  */
+       gcc_assert (insn != NULL_RTX);
        emit_insn (insn);
        return;
      }
@@ -8718,6 +8721,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 
 	    /* Nor can the insn generator.  */
 	    insn = GEN_FCN (icode) (reg, temp);
+	    gcc_assert (insn != NULL_RTX);
 	    emit_insn (insn);
 
 	    return reg;
