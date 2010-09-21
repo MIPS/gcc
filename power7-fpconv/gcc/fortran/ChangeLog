@@ -1,3 +1,48 @@
+2010-09-21  Jason Blevins  <jrblevin@sdf.org>
+
+	* intrinsics.texi (HYPOT, IMAGE_INDEX, BESSEL_JN, BESSEL_YN,
+	execute_command_line, IEOR, IOR, NORM2, NOT, NULL, PARITY):
+	Correct spelling.
+
+2010-09-21  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/45648
+	* trans-array.c (gfc_conv_expr_descriptor): Calculate dim out of n and
+	info->dim.
+
+	PR fortran/45648
+	* trans-array.c (gfc_conv_expr_descriptor): Unset full if we are
+	accessing dimensions in reversed order. 
+
+	PR fortran/45648
+	* trans-array.c (gfc_conv_expr_descriptor): Special case noncopying
+	intrinsic function call. 
+
+	* trans-array.c (gfc_conv_expr_descriptor): Remove ss lookup.
+	Update asserts accordingly.
+
+	PR fortran/45648
+	* trans.h (gfc_se): New field force_tmp. 
+	* trans-expr.c (gfc_conv_procedure_call): Check for argument alias
+	and set parmse.force_tmp if some alias is found. 
+	* trans-array.c (gfc_conv_expr_descriptor): Force a temporary creation
+	if se->force_tmp is set. 
+
+2010-09-20  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/45438
+	* trans-expr.c (gfc_conv_procedure_call): Fix pointer checking for
+	TBPs, PPCs and pointer/allocatable components.
+
+2010-09-20  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/45081
+	* simplify.c (is_constant_array_expr): Allow structure array
+	elements as well as constants.
+	(gfc_simplify_pack, gfc_simplify_reshape, gfc_simplify_spread,
+	gfc_simplify_transpose, gfc_simplify_unpack): Copy the derived
+	type of source to the result.
+
 2010-09-19  Thomas Koenig  <tkoenig@gcc.gnu.org>
 
 	* frontend-passes.c (gfc_expr_walker):  Also

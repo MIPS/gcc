@@ -1,4 +1,159 @@
-2010-09-20  Rafael Carre   <rafael.carre@gmail.com>
+2010-09-21  Anatoly Sokolov  <aesok@post.ru>
+
+	* config/rs6000/rs6000.h (OUTPUT_ADDR_CONST_EXTRA): Remove macros.
+	* config/rs6000/rs6000-protos.h (rs6000_output_addr_const_extra):
+	Remove.
+	* config/rs6000/rs6000.c (rs6000_output_addr_const_extra): Make
+	static.
+	(TTARGET_ASM_OUTPUT_ADDR_CONST_EXTRA): Define.
+
+2010-09-21  Nicola Pero  <nicola.pero@meta-innovation.com>
+
+	PR objc/23710
+	* c-family/c-common.h (objc_start_method_definition): Return bool
+	instead of void.
+	* c-family/stub-objc.c (objc_start_method_definition): Return bool
+	instead of void.
+	* c-parser.c (c_parser_objc_method_definition): Check the return
+	value of objc_start_method_definition and if false is returned,
+	parse the method definition but emit no code.
+	
+2010-09-21  Nicola Pero  <nicola.pero@meta-innovation.com>
+
+	PR objc/25965
+	* c-decl.c (detect_field_duplicates): If compiling Objective-C,
+	call objc_get_interface_ivars ().
+	* c-family/c-common.h (objc_get_interface_ivars): New declaration.
+	* c-family/stub-objc.c (objc_get_interface_ivars): New stub.
+	
+2010-09-21  Kai Tietz  <kai.tietz@onevision.com>
+
+	PR target/45694
+	* config/i386/i386.c (ix86_expand_prologue): Save r10 in case that
+	static chain-register is used for 64-bit.
+
+2010-09-21  Richard Guenther  <rguenther@suse.de>
+
+	* dwarf2out.c (is_cu_die): New function.
+	(add_pubtype): Use it.
+	(gen_subprogram_die): Likewise.
+	(gen_struct_or_union_type_die): Likewise.
+	(dwarf2out_finish): Likewise.
+	(comp_unit_die): Rename to ...
+	(single_comp_unit_die): ... this.
+	(comp_unit_die): New function lazily constructing and
+	returning single_comp_unit_die.
+	(is_cxx, is_fortran, is_ada, debug_dwarf, break_out_comdat_types,
+	base_type_die, subrange_type_die, modified_type_die,
+	lower_bound_default, add_bound_info, add_prototyped_attribute,
+	dwarf2out_vms_debug_main_pointer, scope_die_for, retry_incomplete_types,
+	dwarf2out_abstract_function, gen_type_die_with_usage, get_context_die,
+	force_decl_die, gen_namespace_die, dwarf2out_decl,
+	dwarf2out_start_source_file, dwarf2out_end_source_file,
+	prune_unused_types, dwarf2out_finish): Use it.
+	(gen_compile_unit_die): For GNU GIMPLE derive DW_AT_language from
+	the global list of translation-unit decls.
+	(dwarf2out_init): Do not create single_comp_unit_die here.
+	(force_decl_die): Handle TRANSLATION_UNIT_DECL.
+
+2010-09-21  Richard Guenther  <rguenther@suse.de>
+
+	* dwarf2out.c (dwarf2out_decl): Do not always generate a DIE
+	for bool for C++.
+
+2010-09-21  Bernd Schmidt  <bernds@codesourcery.com>
+
+	* config/arm/iterators.md (qhs_extenddi_op): New mode_attr.
+	(qhs_extenddi_cstr): Likewise.
+	* config/arm/arm.md (zero_extend<mode>di2, extend<mode>di2): Use
+	them for the source operand.
+
+2010-09-21  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (ix86_split_ashl): Rename single_width variable
+	to half_width.  Use GET_MODE_BITSIZE to calculate mode size.
+	(ix86_split_ashr): Ditto.
+	(ix86_split_lshr): Ditto.
+
+2010-09-21  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/45580
+	* tree-ssa-propagate.c (substitute_and_fold): Always replace
+	regular uses.
+	* gimple-fold.c (gimple_fold_obj_type_ref): For a BINFO without
+	virtuals fold the call into a regular indirect one.
+
+2010-09-20  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR rtl-optimization/42775
+	* cfgrtl.c (rest_of_pass_free_cfg): Recompute notes if delay slot
+	scheduling is enabled.
+
+2010-09-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/45728
+	* expr.c (expand_expr_real_1): If op0 isn't REG or MEM, try
+	gen_lowpart_common first and if that fails, force_reg first
+	before calling gen_lowpart.
+
+	PR middle-end/45678
+	* cfgexpand.c (expand_one_stack_var_at): Use
+	crtl->max_used_stack_slot_alignment as max_align, instead
+	of maximum of that and PREFERRED_STACK_BOUNDARY.
+	Don't call update_stack_alignment.
+
+2010-09-20  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* langhooks.h (struct lang_hooks_for_types): Remove hash_types field.
+	* langhooks-def.h (LANG_HOOKS_HASH_TYPES): Delete.
+	(LANG_HOOKS_FOR_TYPES_INITIALIZER): Remove LANG_HOOKS_HASH_TYPES.
+	* system.h (LANG_HOOKS_HASH_TYPES): Poison.
+	* tree.c (type_hash_canon): Do not test lang_hooks.types.hash_types.
+	(build_nonstandard_integer_type): Likewise.
+	(build_range_type_1): New function, built from...
+	(build_range_type): ...this.  Call build_range_type_1.
+	(build_nonshared_range_type): New function.
+	(build_array_type_1): New function, built from...
+	(build_array_type: ...this.  Call build_array_type_1.
+	(build_nonshared_array_type): New function.
+	* tree.h (build_nonshared_range_type): Declare.
+	(build_nonshared_array_type): Likewise.
+
+2010-09-20  Anatoly Sokolov  <aesok@post.ru>
+
+	* config/arm/arm.h (CLASS_LIKELY_SPILLED_P): Remove.
+	* config/arm/arm.c (TARGET_CLASS_LIKELY_SPILLED_P): Define.
+	(arm_class_likely_spilled_p): New function.
+
+2010-09-20  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (ix86_expand_ashl_const): Rewrite using
+	indirect functions.
+	(ix86_split_ashl): Ditto.
+	(ix86_split_ashr): Ditto.
+	(ix86_split_lshr): Ditto.
+	(ix86_adjust_counter): Ditto.
+
+2010-09-20  Nicola Pero  <nicola.pero@meta-innovation.com>
+
+	* c-family/c-common.h (constant_string_class): Documented with
+	comment identical to the one already in c-common.c.
+
+2010-09-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (any_cfis_emitted): New static variable.
+	(add_fde_cfi): Set it.
+	(dwarf2out_frame_debug): Clear it before processing,
+	if it is set afterwards, flush any queued reg saves.
+
+	PR debug/45124
+	* dwarf2out.c (add_accessibility_attribute): Assume
+	DW_ACCESS_private as the default for dwarf_version > 2
+	and DW_TAG_class_type parent.
+	(gen_inheritance_die): Assume DW_ACCESS_public as the default
+	for dwarf_version > 2 and parent other than DW_TAG_class_type.
+
+2010-09-20  Rafael Carre  <rafael.carre@gmail.com>
 
 	PR target/45726
 	* arm.md (arm_movt): Only enable on machines with MOVT.
@@ -40,7 +195,7 @@
 	too and work for automatic vars.
 	(varpool_finalize_decl): Use const_value_known_p.
 
-2010-09-20  Rafael Carre   <rafael.carre@gmail.com>
+2010-09-20  Rafael Carre  <rafael.carre@gmail.com>
 
 	PR target/45726
 	* arm.md (arm_movtas_ze): Only enable on machine with MOVT.

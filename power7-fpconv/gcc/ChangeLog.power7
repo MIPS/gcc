@@ -1,3 +1,8 @@
+2010-09-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 164498 (fix 47512, build spec with debug).
+	* REVISION: Update subversion id.
+
 2010-09-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 164441 (fix 45714, optimizing vectorized pow).
