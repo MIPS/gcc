@@ -1,3 +1,199 @@
+2010-09-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/45678
+	* expr.c (expand_expr_real_1) <case VIEW_CONVERT_EXPR>: If
+	op0 isn't sufficiently aligned and there is movmisalignM
+	insn for mode, use it to load op0 into a temporary register.
+
+	Backport from mainline
+	2010-09-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/45678
+	* cfgexpand.c (expand_one_stack_var_at): Limit alignment to
+	crtl->max_used_stack_slot_alignment.
+
+2010-09-21  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/45704
+	* gimplify.c (gimplify_modify_expr_rhs): Preserve volatileness.
+
+2010-09-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/45728
+	* expr.c (expand_expr_real_1): If op0 isn't REG or MEM, try
+	gen_lowpart_common first and if that fails, force_reg first
+	before calling gen_lowpart.
+
+	PR rtl-optimization/45695
+	* combine.c (try_combine): Don't try to swap the two patterns, if the
+	chosen order is not possible, just give up.  For HAVE_cc0 targets,
+	check if XVECEXP (newpat, 0, 0) doesn't use REGs or MEMs set by insns
+	in between i2 and i3.
+
+2010-09-20  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR rtl-optimization/42775
+	* cfgrtl.c (rest_of_pass_free_cfg): Recompute notes if delay slot
+	scheduling is enabled.
+
+2010-09-20  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2010-09-17  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR middle-end/45234
+	* calls.c (expand_call): Make sure that all variable sized
+	adjustments are multiple of preferred stack boundary after
+	stack alignment.
+
+2010-09-20  Rafael Carre   <rafael.carre@gmail.com>
+
+	PR target/45726
+	* arm.md (arm_movtas_ze): Only enable on machine with MOVT.
+
+2010-09-20  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/45623
+	* tree-ssa-structalias.c (get_constraint_for_ptr_offset): Adjust.
+	(get_constraint_for_component_ref): If computing a constraint
+	for the rhs handle type punning through unions.
+	(get_constraint_for_address_of): Adjust.
+	(get_constraint_for_1): Likewise.
+	(get_constraint_for): Likewise.
+	(get_constraint_for_rhs): New function.
+	(do_structure_copy): Adjust.
+	(make_constraint_to): Likewise.
+	(handle_const_call): Likewise.
+	(find_func_aliases): Likewise.
+
+2010-09-18  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/45709
+	* tree-inline.c (copy_phis_for_bb): Delay commit of edge
+	insertions until after all PHI nodes of the block are processed.
+
+2010-09-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2010-04-07  Dodji Seketeli  <dodji@redhat.com>
+
+	PR debug/43628
+	* dwarf2out.c (modified_type_die): Ignore artificial typedefs.
+
+2010-09-18  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/45709
+	* tree-inline.c (copy_phis_for_bb): Fixup new_edge when
+	we splitted it.
+
+2010-09-17  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2010-09-08  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* doc/sourcebuild.texi (Effective-Target Keywords): Document
+	run_expensive_tests.
+
+2010-09-15  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR rtl-optimization/45593
+	* reorg.c (relax_delay_slots): Use emit_copy_of_insn_after to re-emit
+	insns that were in delay slots as stand-alone insns.
+
+2010-09-14  Tristan Gingold  <gingold@adacore.com>
+
+	* configure.ac (plugins): Fix typos.
+	* configure: Regenerate.
+
+2010-09-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/45567
+	* builtins.c (expand_builtin_interclass_mathfn, expand_builtin_cexpi,
+	expand_builtin_powi): Remove subtarget argument, pass NULL_RTX instead.
+	(expand_builtin): Adjust caller.
+	(expand_builtin_unop): Only use subtarget if it has the right mode.
+
+	PR debug/45660
+	* dwarf2out.c (gen_decl_die): Call gen_type_die for origin before
+	gen_type_die for function/method return type.
+
+2010-09-13  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR rtl-optimization/41087
+	* ifcvt.c (noce_get_condition): Don't allow conditions with
+	side-effects.
+
+2010-09-12  Alexander Monakov  <amonakov@ispras.ru>
+
+	Backport from mainline
+	2010-09-06  Andrey Belevantsev  <abel@ispras.ru>
+
+	PR rtl-optimization/44919
+	* sel-sched.c (move_cond_jump): Remove assert, check that
+	the several blocks case can only happen with mutually exclusive
+	insns instead.  Rewrite the movement code to support moving through
+	several basic blocks.
+
+2010-09-10  Jack Howarth <howarth@bromo.med.uc.edu>
+
+	Backport from mainline
+	2010-09-07  H.J. Lu  <hjl.tools@gmail.com>
+		    Jack Howarth <howarth@bromo.med.uc.edu>
+
+	PR target/36502
+	PR target/42313
+	PR target/44651
+	* config/i386/darwin.h (STACK_BOUNDARY): Redefine as 128 for
+	profiling or 64-bit MS_ABI and as BITS_PER_WORD otherwise.
+	(PREFERRED_STACK_BOUNDARY): Replace STACK_BOUNDARY with 128 in
+	MAX macro.
+
+2010-09-09  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR middle-end/45312
+	* reload1.c (merge_assigned_reloads): Remove.
+	(reload_as_needed): Don't call it.
+
+2010-09-09  Matthias Klose  <doko@ubuntu.com>
+
+	PR bootstrap/43847
+	* configure.ac (--enable-plugin): Enhance for cross builds.
+	* configure: Regenerate.
+
+2010-09-09  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR middle-end/44554
+	* ira.c (ira): Switch off sharing spill slots if setjmp is called.
+
+2010-09-08  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR middle-end/40386
+	* ira.c (pseudo_for_reload_consideration_p): Don't use
+	flag_ira_share_spill_slots.
+
+2010-09-09  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/s390/s390.c (legitimate_reload_constant_p): Accept floating-
+	point zero operands that fit into a single GPR.
+	(s390_preferred_reload_class): Ensure we only return general-purpose
+	register classes.
+	* config/s390/s390.md ("*mov<mode>_64dfp"): Use lghi to load
+	floating-point zero operands into GPRs.
+	("*mov<mode>_64"): Likewise.
+	("mov<mode>"): Likewise using lhi.
+
+2010-09-09  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/s390/s390.c (s390_symref_operand_p): Return false for
+	literal pool references.
+	(s390_check_qrst_address): Update caller.
+
+2010-09-08  Martin Jambor  <mjambor@suse.cz>
+
+	PR other/45443
+	* doc/invoke.texi: Add -fipa-cp-clone to list of switches turned on
+	at -O3.
+
 2010-09-03  Jakub Jelinek  <jakub@redhat.com>
 
 	PR middle-end/45484
