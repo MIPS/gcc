@@ -1,3 +1,78 @@
+2010-09-23  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/45744
+	* frontend-passes.c (optimize_binop_array_assignment):
+	Only re-use lhs as intermediate storage if kind and type
+	parameters match.
+
+2010-09-23  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/45745
+	PR fortran/45648
+	* trans-array.c (gfc_conv_expr_descriptor): Handle
+	ss->type == GFC_SS_INTRINSIC (for {l,u}bound intrinsics) case.
+
+2010-09-23  Tobias Burnus  <burnus@net-b.de>
+
+	* intrinsic.texi (OpenMP modules): Add named constants of
+	OMP_LIB.
+
+2010-09-23  Daniel Kraft  <d@domob.eu>
+
+	PR fortran/38936
+	PR fortran/44044
+	PR fortran/45474
+	* gfortran.h (gfc_check_vardef_context): New method.
+	(struct symbol_attribute): New flag `select_type_temporary'.
+	* primary.c (gfc_variable_attr): Clarify initialization of ref.
+	(match_variable): Remove PROTECTED check and assignment check
+	for PARAMETERs (this is now done later).
+	* match.c (gfc_match_iterator): Remove INTENT(IN) check.
+	(gfc_match_associate): Defer initialization of newAssoc->variable.
+	(gfc_match_nullify): Remove PURE definability check.
+	(select_type_set_tmp): Set new `select_type_temporary' flag.
+	* expr.c (gfc_check_assign): Remove INTENT(IN) check here.
+	(gfc_check_pointer_assign): Ditto (and other checks removed).
+	(gfc_check_vardef_context): New method.
+	* interface.c (compare_parameter_protected): Removed.
+	(compare_actual_formal): Use `gfc_check_vardef_context' for checks
+	related to INTENT([IN]OUT) arguments.
+	* intrinsic.c (check_arglist): Check INTENT for intrinsics.
+	* resolve.c (gfc_resolve_iterator): Use `gfc_check_vardef_context'.
+	(remove_last_array_ref): New method.
+	(resolve_deallocate_expr), (resolve_allocate_expr): Ditto.
+	(resolve_allocate_deallocate): Ditto (for STAT and ERRMSG).
+	(resolve_assoc_var): Remove checks for definability here.
+	(resolve_select_type): Handle resolving of code->block here.
+	(resolve_ordinary_assign): Remove PURE check.
+	(resolve_code): Do not resolve code->blocks for SELECT TYPE here.
+	Use `gfc_check_vardef_context' for assignments and pointer-assignments.
+
+2010-08-22  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* gfortran.texi (Argument list functions): Allow URL to wrap.
+	* intrinsic.texi (GETGID, GETPID, GETUID, IMAGE_INDEX)
+	(IS_IOSTAT_END, IS_IOSTAT_EOR, NUM_IMAGES, THIS_IMAGE)
+	(ISO_FORTRAN_ENV): Fix markup in index entries, and a couple of
+	code markups in the text.
+	* invoke.texi (Fortran Dialect Options)
+	(Error and Warning Options, Directory Options, Code Gen Options):
+	Likewise.  Remove @code inside @smallexample.
+
+2010-09-22  Joseph Myers  <joseph@codesourcery.com>
+
+	* gfortranspec.c (lang_specific_driver): Handle OPT__version and
+	OPT__help instead of OPT_fversion and OPT_fhelp.
+	* lang.opt (-all-warnings, -assert, -assert=, -comments,
+	-comments-in-macros, -define-macro, -define-macro=, -dependencies,
+	-dump, -dump=, -include-barrier, -include-directory,
+	-include-directory=, -include-directory-after,
+	-include-directory-after=, -include-prefix, -include-prefix=,
+	-no-line-commands, -no-standard-includes, -output, -output=,
+	-preprocess, -print-missing-file-dependencies, -trace-includes,
+	-undefine-macro, -undefine-macro=, -user-dependencies, -verbose,
+	-write-dependencies, -write-user-dependencies): New.
+
 2010-09-21  Jason Blevins  <jrblevin@sdf.org>
 
 	* intrinsics.texi (HYPOT, IMAGE_INDEX, BESSEL_JN, BESSEL_YN,

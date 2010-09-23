@@ -1,3 +1,140 @@
+2010-09-24  Nicola Pero  <nicola.pero@meta-innovation.com>
+
+	* obj-c++.dg/too-many-args.mm: New file.
+
+2010-09-24  Nicola Pero  <nicola.pero@meta-innovation.com>
+
+	Merge from 'apple/trunk' branch on FSF servers.
+
+	2006-03-27 Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4491608
+	* objc.dg/too-many-args.m: New
+
+2010-09-23  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/45744
+	* gfortran.dg/dependency_36.f90:  New test.
+
+2010-09-23  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/pad-1.c: Remove -S from dg-options.
+	* gcc.target/i386/pad-3.c: Ditto.
+	* gcc.target/i386/pad-7.c: Ditto.
+	* gcc.target/i386/pad-7.c: Ditto.
+	* gcc.target/i386/pr36502.c: Ditto.
+	* gcc.target/i386/zee.c: Ditto.
+	* gcc.target/i386/20060821-1.c: Ditto.
+	* gcc.target/i386/pad-2.c: Ditto.  Scan for NOPs on separate lines.
+	* gcc.target/i386/pad-5a.c: Ditto.  Do not use scan-assembler-not.
+	* gcc.target/i386/pad-5b.c: Ditto.
+	* gcc.target/i386/pad-6a.c: Ditto.
+	* gcc.target/i386/pad-6b.c: Ditto.
+	* gcc.target/i386/pad-8.c: Ditto.
+	* gcc.target/i386/pad-9.c: Ditto.
+	* gcc.target/i386/pad-10.c: Ditto.
+	* gcc.target/i386/pad-4.c: Ditto.  Require pic effective target.
+
+2010-09-23  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/45565
+	* g++.dg/ipa/pr45565.C: New testcase.
+
+2010-09-23  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/45745
+	PR fortran/45648
+	* gfortran.dg/vector_subscript_bound_1.f90: New.
+
+2010-09-23  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/45750
+	* gcc.dg/pr45750.c: New testcase.
+
+2010-09-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/torture/stackalign/alloca-4.c: Remove -m32 from dg-options.
+	* gcc.dg/torture/stackalign/alloca-5.c: Likewise.  Fix up -DDEBUG
+	build.
+
+2010-09-23  Bernd Schmidt  <bernds@codesourcery.com>
+
+	PR rtl-optimization/44374
+	* gcc.target/arm/headmerge-1.c: New test.
+	* gcc.target/arm/headmerge-2.c: New test.
+	* gcc.target/i386/headmerge-1.c: New test.
+	* gcc.target/i386/headmerge-2.c: New test.
+
+2010-09-23  Daniel Kraft  <d@domob.eu>
+
+	PR fortran/38936
+	PR fortran/44044
+	PR fortran/45474
+	* gfortran.dg/intrinsic_intent_1.f03: New test.
+	* gfortran.dg/select_type_17.f03: New test.
+	* gfortran.dg/associate_5.f03: More definability tests.
+	* gfortran.dg/enum_2.f90: Check definability.
+	* gfortran.dg/allocatable_dummy_2.f90: Change expected error message.
+	* gfortran.dg/allocate_alloc_opt_2.f90: Ditto.
+	* gfortran.dg/char_expr_2.f90: Ditto.
+	* gfortran.dg/deallocate_alloc_opt_2.f90: Ditto.
+	* gfortran.dg/enum_5.f90: Ditto.
+	* gfortran.dg/equiv_constraint_8.f90: Ditto.
+	* gfortran.dg/impure_assignment_2.f90: Ditto.
+	* gfortran.dg/impure_assignment_3.f90: Ditto.
+	* gfortran.dg/intent_out_1.f90: Ditto.
+	* gfortran.dg/intent_out_3.f90: Ditto.
+	* gfortran.dg/pointer_assign_7.f90: Ditto.
+	* gfortran.dg/pointer_intent_3.f90: Ditto.
+	* gfortran.dg/pr19936_1.f90: Ditto.
+	* gfortran.dg/proc_ptr_comp_3.f90: Ditto.
+	* gfortran.dg/simpleif_2.f90: Ditto.
+	* gfortran.dg/protected_5.f90: Ditto.
+	* gfortran.dg/protected_4.f90: Ditto and remove invalid error check.
+	* gfortran.dg/protected_6.f90: Ditto.
+	* gfortran.dg/protected_7.f90: Ditto.
+
+2010-09-22  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/45710
+	* gfortran.dg/namelist_65.f90: New test.
+
+2010-09-22  Marcus Shawcroft  <marcus.shawcroft@arm.com>
+
+	* lib/scanasm.exp(dg-function-on-line): Permit .fnstart to appear in
+        the regexp pattern between the expected label and location string.
+
+2010-09-22  Marcus Shawcroft  <marcus.shawcroft@arm.com>
+
+	* gcc.dg/pr28706.c: Typo fix to dg-require-effective-target lto.
+
+2010-09-22  Marcus Shawcroft  <marcus.shawcroft@arm.com>
+
+	* gcc.dg/debug/pr41893-1.c: Typo fix to dg-require-effective-target lto.
+	* gcc.dg/pr27898.c: Likewise.
+	* gcc.dg/pr28712.c: Likewise.
+	* gcc.dg/pr30762-1.c: Likewise.
+	* gcc.dg/pr31529-1.c: Likewise.
+	* gcc.dg/pr34457-1.c: Likewise.
+	* gcc.dg/pr34668-1.c: Likewise.
+	* gcc.dg/pr34989-1.c: Likewise.
+	* gcc.dg/pr43557-1.c: Likewise.
+
+2010-09-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/45739
+	* gcc.target/i386/pr45739.c: Tighten up scan-assembler-not
+	regexps.
+
+2010-09-22  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.target/sparc/mnofpu.c: New test.
+
+2010-09-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/45739
+	* gcc.target/i386/pr45739.c: New test.
+
 2010-09-21  Mikael Morin  <mikael@gcc.gnu.org>
 
 	PR fortran/45648
@@ -20,12 +157,11 @@
 
 	2005-10-11  Fariborz Jahanian <fjahanian@apple.com>
 
-	        Radar 4291785
-	        
-	        objc.dg/naming-4.m: New
-	        objc.dg/naming-5.m: New
-	        obj-c++.dg/naming-1.mm: New
-	        obj-c++.dg/naming-2.mm: New
+	Radar 4291785
+	* objc.dg/naming-4.m: New
+	* objc.dg/naming-5.m: New
+	* obj-c++.dg/naming-1.mm: New
+	* obj-c++.dg/naming-2.mm: New
 
 2010-09-21  Jonathan Wakely  <redi@gcc.gnu.org>
 	    Jack Howarth  <howarth@bromo.med.uc.edu>

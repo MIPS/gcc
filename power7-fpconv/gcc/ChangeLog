@@ -1,31 +1,256 @@
+2010-09-24  Nicola Pero  <nicola.pero@meta-innovation.com>
+
+	* c-typeck.c (convert_arguments): Use warning 'too many arguments
+	to method [methodname]' for an Objective-C method instead of the
+	less satisfactory 'too many arguments to function' (with no method
+	name).
+
+2010-09-23  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-flow.h (execute_update_addresses_taken): Remove parameter.
+	* tree-ssa.c (maybe_optimize_var): Tweak comment and dump messages.
+	(execute_update_addresses_taken): Remove parameter.  Execute the
+	optimization unconditionally.
+	* passes.c (execute_function_todo): Call execute_update_addresses_taken
+	unconditionally if TODO_rebuild_alias is set, else only when optimizing
+	if TODO_update_address_taken is set.
+
+2010-09-23  Anatoly Sokolov  <aesok@post.ru>
+
+	* config/arm/arm.h (OUTPUT_ADDR_CONST_EXTRA): Remove.
+	* config/arm/arm-protos.h (arm_output_addr_const_extra): Remove.
+	* config/arm/arm.c (TARGET_ASM_OUTPUT_ADDR_CONST_EXTRA): Define.
+	(arm_output_addr_const_extra): Make static.
+
+2010-09-23  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (UNSPECV_NOPS): Rename from UNSPEC_NOPS and
+	define as unspec_volatile.
+	("nops"): Define as unspec_volatile. Use fputs to write to
+	asm_out_file directly.  Output NOPs on separate lines using while loop.
+	* config/i386/i386.c (ix86_code_end): Use fputs to write to
+	asm_out_file directly.  Output NOPs on separate lines using while loop.
+
+2010-09-23  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/45565
+	* cgraphunit.c (cgraph_redirect_edge_call_stmt_to_callee):
+	Make sure to adjust the fndecl before replacing the stmt.
+
+2010-09-23  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/45750
+	* gimplify.c (gimplify_expr): Properly pass on GS_ERROR when
+	gimplifying MEM_REF.
+
+2010-09-23  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/rs6000.c (toc_relative_ok): Delete.
+	(rs6000_emit_move): Use SYMBOL_REF_LOCAL_P instead.
+
+2010-09-23  Bernd Schmidt  <bernds@codesourcery.com>
+
+	PR rtl-optimization/44374
+	* basic-block.h (enum bb_flags): Add BB_MODIFIED.
+	* df-core.c (df_set_bb_dirty): Set it.
+	* ifcvt.c (find_memory): Remove function.
+	(dead_or_predicable): Use can_move_insns_across.
+	* df.h (can_move_insns_across): Declare function.
+	* cfgcleanup.c (block_was_dirty): New static variable.
+	(try_crossjump_bb, try_forward_edges): Test BB_MODIFIED flag rather
+	than df_get_bb_dirty.
+	(try_head_merge_bb): New static function.
+	(try_optimize_cfg): Call it.  Call df_analyze if block_was_dirty
+	is set.
+	* df-problems.c: Include "target.h"
+	(df_simulate_find_uses): New static function.
+	(MEMREF_NORMAL, MEMREF_VOLATILE): New macros.
+	(find_memory, find_memory_store): New static functions.
+	(can_move_insns_across): New function.
+	* Makefile.in (df-problems.o): Update dependencies.
+
+2010-09-22  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR java/44095
+	* config/sparc/linux.h (ASM_SPEC): Pass -K PIC if -findirect-dispatch
+	is specified and the suffix of the file isn't ".c".
+	* config/sparc/linux64.h (ASM_SPEC): Likewise.
+
+2010-09-22  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* doc/contrib.texi (Contributors): Allow URL to wrap in PDF output.
+	* doc/cppopts.texi: Fix markup of index entry.
+	* doc/extend.texi (Constructing Calls): Fix markup of
+	__builtin_va_arg_pack and __builtin_va_arg_pack_len definition.
+	(Conditionals, C++ Comments, Pragmas, Unnamed Fields, Thread-Local)
+	(Vague Linkage, C++ Attributes): Fix markup of index entries and
+	keywords.
+	* doc/invoke.texi (Option Summary): Fix spacing.  Rewrap to
+	avoid long lines.
+	(C Dialect Options, C++ Dialect Options, Warning Options)
+	(Debugging Options, Spec Files, Darwin Options)
+	(i386 and x86-64 Options, MIPS Options)
+	(RS/6000 and PowerPC Options, Code Gen Options): Fix markup of
+	index entries, avoid abbreviations, allow URLs to wrap, avoid
+	long lines, avoid overlong pages from long @itemx lists.
+	* doc/objc.texi (Garbage Collection): Allow URLs to wrap.
+	* doc/standards.texi (Standards): Likewise.
+	* doc/trouble.texi (Incompatibilities): Fix markup of index entry.
+
+2010-09-22  Joseph Myers  <joseph@codesourcery.com>
+
+	* opts-common.c (prune_options): Make static.  Work with decoded
+	options.
+	(decode_cmdline_options_to_array): Call prune_options.  Don't
+	resize option array here.
+	* opts.h (prune_options): Remove prototype.
+	* gcc.c (process_command): Take decoded options; don't call
+	decode_cmdline_options_to_array here.  Use decoded options for argv[0].
+	(main): Call decode_cmdline_options_to_array here instead of
+	prune_options.  Update call to process_command.
+	* config/darwin-driver.c: Include opts.h.
+	(darwin_default_min_version): Work with decoded options.  Don't
+	handle -b or -V here.
+	* config/darwin.h (darwin_default_min_version): Update prototype.
+	(GCC_DRIVER_HOST_INITIALIZATION): Update call to
+	darwin_default_min_version.
+	* config/i386/cygwin.h (mingw_scan): Update prototype.
+	(GCC_DRIVER_HOST_INITIALIZATION): Update call to mingw_scan.
+	* config/i386/cygwin1.c: Include opts.h.
+	(mingw_scan): Work with decoded options.
+	* config/i386/t-cygwin (cygwin1.o): Update dependencies.
+	* config/t-darwin (darwin-driver.o): Update dependencies.
+
+2010-09-22  Joseph Myers  <joseph@codesourcery.com>
+
+	* common.opt (-assemble, -compile, -coverage, -debug, -dump,
+	-dump=, -dumpbase, -dumpdir, -entry, -entry=, -extra-warnings,
+	-for-assembler, -for-assembler=, -for-linker, -for-linker=,
+	-force-link, -force-link=, -language, -language=,
+	-library-directory, -library-directory=, -no-canonical-prefixes,
+	-no-standard-libraries, -no-warnings, -optimize, -output,
+	-output=, -pass-exit-codes, -pedantic, -pedantic-errors, -pie,
+	-pipe, -prefix, -prefix=, -preprocess, -print-file-name,
+	-print-file-name=, -print-libgcc-file-name,
+	-print-multi-directory, -print-multi-lib,
+	-print-multi-os-directory, -print-prog-name, -print-prog-name=,
+	-print-search-dirs, -print-sysroot, -print-sysroot-headers-suffix,
+	-profile, -save-temps, -shared, -specs, -specs=, -static,
+	-symbolic, -time, -verbose, -param=, -sysroot, coverage, e, u,
+	symbolic): New.
+	(fhelp, fhelp=, ftarget-help, fversion): Make into aliases.
+	* gcc.c (A Short Introduction to Adding a Command-Line Option):
+	Remove comment.
+	(cc1_options): Correct specs for passing down --help,
+	--target-help and --help=*.  Add spec for passing down --version.
+	(struct option_map, option_map, target_option_translations,
+	translate_options): Remove.
+	(driver_handle_option): Handle OPT__version, OPT__help, OPT__help_
+	and OPT__target_help instead of OPT_fversion, OPT_fhelp,
+	OPT_fhelp_ and OPT_ftarget_help.
+	(process_command): Don't call translate_options.  Call
+	decode_cmdline_options_to_array before checking for
+	-no-canonical-prefixes using decoded options.
+	* opts-common.c (tm.h): Update comment on #include.
+	(find_opt): Allow abbreviations of long options.
+	(struct option_map, option_map): New.
+	(decode_cmdline_option): Use them instead of hardcoding -Wno, -fno
+	and -mno handling.
+	(target_option_translations): New.
+	(decode_cmdline_options_to_array): Handle
+	TARGET_OPTION_TRANSLATE_TABLE in driver.
+	* opts.c (common_handle_option): Don't handle OPT_fhelp,
+	OPT_ftarget_help, OPT_fhelp_ or OPT_fversion.
+
+2010-09-22  Richard Guenther  <rguenther@suse.de>
+
+	* tree-inline.c (optimize_inline_calls): Schedule cleanups
+	only if we inlined something.  Block compaction and conditional
+	folding are done by cfg cleanup.  Schedule update-address-taken.
+	(tree_function_versioning): Remove redundant call to number_blocks.
+	* tree-optimize.c (execute_cleanup_cfg_post_optimizing): Conditional
+	folding is done by cfg cleanup.
+	* passes.c (init_optimization_passes): Remove update-address-taken
+	pass after IPA inlining.
+
+2010-09-22  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* postreload.c (move2add_note_store): Add reg_symbol_ref[] checks
+	to update conditions. Fix reg_mode[] check.
+
+2010-09-22  Hariharan Sandanagobalane  <hariharan@picochip.com>
+
+	* config/picochip/picochip.md (movhicc): Use expand to check whether
+	movhicc is available and split it after reload.
+
+2010-09-22  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssanames.c (release_dead_ssa_names): Do not remove
+	callee edges here.
+	* passes.c (init_optimization_passes): Remove early CFG cleanup.
+	* tree-optimize.c (execute_cleanup_cfg_pre_ipa): Remove.
+	(pass_cleanup_cfg): Likewise.
+	(execute_fixup_cfg): Cleanup.
+	* tree-pass.h (pass_cleanup_cfg): Remove.
+
+2010-09-22  Martin Jambor  <mjambor@suse.cz>
+
+	* gimple-fold.c (fold_gimple_call): New parameter inplace, do not fold
+	builtins if it is true.
+	(fold_stmt_1): Call, fold_gimple_call always, pass inplace as a
+	parameter.
+
+2010-09-22  Martin Jambor  <mjambor@suse.cz>
+
+	* tree-sra.c (struct access): New field grp_no_warning.
+	(create_access_replacement): Set TREE_NO_WARNING according to
+	 grp_no_warning.
+	(create_artificial_child_access): Use build_ref_for_model and set
+	grp_no_warning if build_user_friendly_ref_for_offset fails.
+	(propagate_subaccesses_across_link): Likewise.
+
+2010-09-22  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/35664
+	* config/sparc/constraints.md ('e'): Return NO_REGS if !TARGET_FPU.
+	('f'): Likewise.
+
+2010-09-22  Tristan Gingold  <gingold@adacore.com>
+
+	* config/alpha/alpha.c (alpha_use_linkage): Initialize target field.
+
+2010-09-22  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.h (MAX_STRINGOP_ALGS): Fix typo in the name.
+	* config/i386/i386.c (decide_alg): Update for rename.
+
+2010-09-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/45739
+	* simplify-rtx.c (simplify_binary_operation_1): Optimize even
+	vector mode | CONST0_RTX (mode) and ^ CONST0_RTX (mode).
+
 2010-09-21  Anatoly Sokolov  <aesok@post.ru>
 
 	* config/rs6000/rs6000.h (OUTPUT_ADDR_CONST_EXTRA): Remove macros.
 	* config/rs6000/rs6000-protos.h (rs6000_output_addr_const_extra):
 	Remove.
-	* config/rs6000/rs6000.c (rs6000_output_addr_const_extra): Make
-	static.
+	* config/rs6000/rs6000.c (rs6000_output_addr_const_extra): Make static.
 	(TTARGET_ASM_OUTPUT_ADDR_CONST_EXTRA): Define.
 
 2010-09-21  Nicola Pero  <nicola.pero@meta-innovation.com>
 
 	PR objc/23710
-	* c-family/c-common.h (objc_start_method_definition): Return bool
-	instead of void.
-	* c-family/stub-objc.c (objc_start_method_definition): Return bool
-	instead of void.
 	* c-parser.c (c_parser_objc_method_definition): Check the return
 	value of objc_start_method_definition and if false is returned,
 	parse the method definition but emit no code.
-	
+
 2010-09-21  Nicola Pero  <nicola.pero@meta-innovation.com>
 
 	PR objc/25965
 	* c-decl.c (detect_field_duplicates): If compiling Objective-C,
 	call objc_get_interface_ivars ().
-	* c-family/c-common.h (objc_get_interface_ivars): New declaration.
-	* c-family/stub-objc.c (objc_get_interface_ivars): New stub.
-	
+
 2010-09-21  Kai Tietz  <kai.tietz@onevision.com>
 
 	PR target/45694
@@ -272,7 +497,7 @@
 	* tree-inline.c (copy_phis_for_bb): Delay commit of edge
 	insertions until after all PHI nodes of the block are processed.
 
-2010-09-18  Tijl Coosemans <tijl@coosemans.org>
+2010-09-18  Tijl Coosemans  <tijl@coosemans.org>
 
 	* config/i386/freebsd.h (SUBTARGET32_DEFAULT_CPU): Add.
 
@@ -889,7 +1114,7 @@
 2010-09-15  Tejas Belagod  <tejas.belagod@arm.com>
 
 	* config/arm/neon.md (vec_pack_trunc_<mode>): Instruction
-	pattern for vmovn. Expansion in case of non 
+	pattern for vmovn. Expansion in case of non
 	-mvectorize-with-neon-quad.
 	(neon_vec_pack_trunc_<mode>): Instruction pattern for vmovn for
 	non- -mvectorize-with-neon-quad case.
