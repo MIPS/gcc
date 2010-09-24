@@ -1,5 +1,13 @@
+2010-09-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (any_cfis_emitted): New static variable.
+	(add_fde_cfi): Set it.
+	(dwarf2out_frame_debug): Clear it before processing,
+	if it is set afterwards, flush any queued reg saves.
+
 2010-09-24  Jakub Jelinek  <jakub@redhat.com>
 
+	PR debug/45124
 	Revert:
 	2010-09-17  H.J. Lu  <hongjiu.lu@intel.com>
 
