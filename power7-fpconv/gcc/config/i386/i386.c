@@ -3661,7 +3661,7 @@ ix86_option_override_internal (bool main_args_p)
       ix86_gen_one_cmpl2 = gen_one_cmpldi2;
       ix86_gen_monitor = gen_sse3_monitor64;
       ix86_gen_andsp = gen_anddi3;
-      ix86_gen_allocate_stack_worker = gen_allocate_stack_worker_64;
+      ix86_gen_allocate_stack_worker = gen_allocate_stack_worker_probe_di;
       ix86_gen_adjust_stack_and_probe = gen_adjust_stack_and_probedi;
       ix86_gen_probe_stack_range = gen_probe_stack_rangedi;
     }
@@ -3674,7 +3674,7 @@ ix86_option_override_internal (bool main_args_p)
       ix86_gen_one_cmpl2 = gen_one_cmplsi2;
       ix86_gen_monitor = gen_sse3_monitor;
       ix86_gen_andsp = gen_andsi3;
-      ix86_gen_allocate_stack_worker = gen_allocate_stack_worker_32;
+      ix86_gen_allocate_stack_worker = gen_allocate_stack_worker_probe_si;
       ix86_gen_adjust_stack_and_probe = gen_adjust_stack_and_probesi;
       ix86_gen_probe_stack_range = gen_probe_stack_rangesi;
     }
@@ -7964,12 +7964,12 @@ ix86_code_end (void)
   rtx xops[2];
   int regno;
 
-  for (regno = 0; regno < 8; ++regno)
+  for (regno = AX_REG; regno <= SP_REG; regno++)
     {
       char name[32];
       tree decl;
 
-      if (! ((pic_labels_used >> regno) & 1))
+      if (!(pic_labels_used & (1 << regno)))
 	continue;
 
       get_pc_thunk_name (name, regno);
@@ -8022,10 +8022,8 @@ ix86_code_end (void)
       /* Make sure unwind info is emitted for the thunk if needed.  */
       final_start_function (emit_barrier (), asm_out_file, 1);
 
-      xops[0] = gen_rtx_REG (Pmode, regno);
-      xops[1] = gen_rtx_MEM (Pmode, stack_pointer_rtx);
       /* Pad stack IP move with 4 instructions (two NOPs count
-	 as one instruction.)  */
+	 as one instruction).  */
       if (TARGET_PAD_SHORT_FUNCTION)
 	{
 	  int i = 8;
@@ -8034,6 +8032,8 @@ ix86_code_end (void)
 	    fputs ("\tnop\n", asm_out_file);
 	}
 
+      xops[0] = gen_rtx_REG (Pmode, regno);
+      xops[1] = gen_rtx_MEM (Pmode, stack_pointer_rtx);
       output_asm_insn ("mov%z0\t{%1, %0|%0, %1}", xops);
       fputs ("\tret\n", asm_out_file);
       final_end_function ();
@@ -8777,9 +8777,9 @@ pro_epilogue_adjust_stack (rtx dest, rtx src, rtx offset,
   rtx insn;
 
   if (! TARGET_64BIT)
-    insn = emit_insn (gen_pro_epilogue_adjust_stack_si_1 (dest, src, offset));
+    insn = gen_pro_epilogue_adjust_stack_si_add (dest, src, offset);
   else if (x86_64_immediate_operand (offset, DImode))
-    insn = emit_insn (gen_pro_epilogue_adjust_stack_di_1 (dest, src, offset));
+    insn = gen_pro_epilogue_adjust_stack_di_add (dest, src, offset);
   else
     {
       rtx tmp;
@@ -8796,10 +8796,11 @@ pro_epilogue_adjust_stack (rtx dest, rtx src, rtx offset,
       insn = emit_insn (gen_rtx_SET (DImode, tmp, offset));
       if (style < 0)
 	RTX_FRAME_RELATED_P (insn) = 1;
-      insn = emit_insn (gen_pro_epilogue_adjust_stack_di_2 (dest, src, tmp,
-							    offset));
+
+      insn = gen_pro_epilogue_adjust_stack_di_add (dest, src, tmp);
     }
 
+  insn = emit_insn (insn);
   if (style >= 0)
     ix86_add_queued_cfa_restore_notes (insn);
 
@@ -9699,6 +9700,8 @@ ix86_expand_prologue (void)
     {
       rtx eax = gen_rtx_REG (Pmode, AX_REG);
       rtx r10 = NULL;
+      rtx (*adjust_stack_insn)(rtx, rtx, rtx);
+
       bool eax_live = false;
       bool r10_live = false;
 
@@ -9720,16 +9723,25 @@ ix86_expand_prologue (void)
 	}
 
       emit_move_insn (eax, GEN_INT (allocate));
+      emit_insn (ix86_gen_allocate_stack_worker (eax, eax));
 
-      insn = emit_insn (ix86_gen_allocate_stack_worker (eax, eax));
+      /* Use the fact that AX still contains ALLOCATE.  */
+      adjust_stack_insn = (TARGET_64BIT
+			   ? gen_pro_epilogue_adjust_stack_di_sub
+			   : gen_pro_epilogue_adjust_stack_si_sub);
+
+      insn = emit_insn (adjust_stack_insn (stack_pointer_rtx,
+					   stack_pointer_rtx, eax));
 
       if (m->fs.cfa_reg == stack_pointer_rtx)
 	{
 	  m->fs.cfa_offset += allocate;
-	  t = gen_rtx_PLUS (Pmode, stack_pointer_rtx, GEN_INT (-allocate));
-	  t = gen_rtx_SET (VOIDmode, stack_pointer_rtx, t);
-	  add_reg_note (insn, REG_CFA_ADJUST_CFA, t);
+
 	  RTX_FRAME_RELATED_P (insn) = 1;
+	  add_reg_note (insn, REG_CFA_ADJUST_CFA,
+			gen_rtx_SET (VOIDmode, stack_pointer_rtx,
+				     plus_constant (stack_pointer_rtx,
+						    -allocate)));
 	}
       m->fs.sp_offset += allocate;
 

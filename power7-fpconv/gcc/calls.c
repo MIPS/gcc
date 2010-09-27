@@ -610,6 +610,8 @@ flags_from_decl_or_type (const_tree exp)
 
       if (DECL_IS_NOVOPS (exp))
 	flags |= ECF_NOVOPS;
+      if (lookup_attribute ("leaf", DECL_ATTRIBUTES (exp)))
+	flags |= ECF_LEAF;
 
       if (TREE_NOTHROW (exp))
 	flags |= ECF_NOTHROW;
@@ -2384,19 +2386,6 @@ expand_call (tree exp, rtx target, int ignore)
     preferred_stack_boundary = crtl->preferred_stack_boundary;
 
   preferred_unit_stack_boundary = preferred_stack_boundary / BITS_PER_UNIT;
-
-  if (SUPPORTS_STACK_ALIGNMENT)
-    {
-      /* All variable sized adjustments must be multiple of preferred
-	 stack boundary.  Stack alignment may change preferred stack
-	 boundary after variable sized adjustments have been made.  We
-	 need to compensate it here.  */
-      unsigned HOST_WIDE_INT delta
-	= ((stack_pointer_delta - pending_stack_adjust)
-	   % preferred_unit_stack_boundary);
-      if (delta)
-	anti_adjust_stack (GEN_INT (preferred_unit_stack_boundary - delta));
-    }
 
   /* We want to make two insn chains; one for a sibling call, the other
      for a normal call.  We will select one of the two chains after

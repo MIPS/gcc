@@ -1,3 +1,97 @@
+2010-09-27  Nicola Pero  <nicola.pero@meta-innovation.com>
+
+	Merge from 'apple/trunk' branch on FSF servers.  Renamed
+	const-str-12.m to constr-str-12b.m to avoid conflicts.
+	
+	2005-12-15  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4229905
+	* obj-c++.dg/warn5.mm: New
+	
+	2005-06-22  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4154928
+	* obj-c++.dg/const-str-12.mm: New.
+	* objc.dg/const-str-12.m: New.
+
+2010-09-27  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/40569
+	PR fortran/40568
+	* gfortran.dg/storage_size_2.f08: Fix test.
+	* gfortran.dg/c_sizeof_1.f90: Fix test.
+	* gfortran.dg/c_sizeof_2.f90: Update dg-error.
+	* gfortran.dg/c_sizeof_3.f90: New.
+	* gfortran.dg/c_sizeof_4.f90: New.
+	* gfortran.dg/iso_c_binding_compiler_1.f90: New.
+	* gfortran.dg/iso_c_binding_compiler_2.f90: New.
+
+2010-09-26  Daniel Kraft  <d@domob.eu>
+
+	PR fortran/45783
+	PR fortran/45795
+	* gfortran.dg/select_type_18.f03: New test.
+
+2010-09-25  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/return2.ad[sb]: New test.
+	* gnat.dg/return2_pkg.ads: New helper.
+
+2010-09-25  Daniel Kraft  <d@domob.eu>
+
+	PR fortran/45776
+	* gfortran.dg/io_constraints_6.f03: New test.
+	* gfortran.dg/io_constraints_7.f03: New test.
+	* gfortran.dg/newunit_2.f90: New test.
+
+2010-09-24  Steven G. Kargl  < kargl@gcc.gnu.org>
+
+	* testsuite/gfortran.dg/operator_c1202.f90: New test.
+
+2010-09-24  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.dg/tree-ssa/leaf.c: New testcase.
+
+2010-09-24  Jan Hubicka  <jh@suse.cz>
+
+	PR tree-optimization/45738
+	PR tree-optimization/45741
+	* gcc.c-torture/compile/pr45741.c: New.
+	* gfortran.fortran-torture/compile/pr45738.f90: New.
+
+2010-09-24  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/cpp/undef-opt-1.c: New test.
+
+2010-09-24  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/other/error10.C: Adjust expected output.
+
+2010-09-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/45234
+	* gcc.dg/torture/stackalign/alloca-6.c: New test.
+	* gcc.target/i386/pr45234.c: New test.
+
+2010-09-24  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.dg/lto/20091006-2_0.c: Prune warnings.
+
+2010-09-24  Marcus Shawcroft  <marcus.shawcroft@arm.com>
+
+	* g++.dg/debug/dwarf2/nested-2.C: Permit the ARM @ character
+	as a comment leader in regexp.
+
+2010-09-24  Nicola Pero  <nicola.pero@meta-innovation.com>
+
+	* objc.dg/sync-2.m: New test.
+	* obj-c++.dg/sync-2.mm: New test.
+
+2010-09-24  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/40571
+	* gfortran.dg/iso_fortran_env_7.f90: New.
+
 2010-09-24  Nicola Pero  <nicola.pero@meta-innovation.com>
 
 	* obj-c++.dg/too-many-args.mm: New file.

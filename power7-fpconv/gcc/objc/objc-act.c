@@ -20,26 +20,6 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
-
-/* Purpose: This module implements the Objective-C 4.0 language.
-
-   compatibility issues (with the Stepstone translator):
-
-   - does not recognize the following 3.3 constructs.
-     @requires, @classes, @messages, = (...)
-   - methods with variable arguments must conform to ANSI standard.
-   - tagged structure definitions that appear in BOTH the interface
-     and implementation are not allowed.
-   - public/private: all instance variables are public within the
-     context of the implementation...I consider this to be a bug in
-     the translator.
-   - statically allocated objects are not supported. the user will
-     receive an error if this service is requested.
-
-   code generation `options':
-
-   */
-
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
@@ -1120,6 +1100,35 @@ objc_compare_protocols (tree lcls, tree ltyp, tree rcls, tree rtyp, bool warn)
   return have_lproto || (rcls != NULL_TREE);
 }
 
+/* Given two types TYPE1 and TYPE2, return their least common ancestor.
+   Both TYPE1 and TYPE2 must be pointers, and already determined to be
+   compatible by objc_compare_types() below.  */
+
+tree
+objc_common_type (tree type1, tree type2)
+{
+  tree inner1 = TREE_TYPE (type1), inner2 = TREE_TYPE (type2);
+
+  while (POINTER_TYPE_P (inner1))
+    {
+      inner1 = TREE_TYPE (inner1);
+      inner2 = TREE_TYPE (inner2);
+    }
+
+  /* If one type is derived from another, return the base type.  */
+  if (DERIVED_FROM_P (inner1, inner2))
+    return type1;
+  else if (DERIVED_FROM_P (inner2, inner1))
+    return type2;
+
+  /* If both types are 'Class', return 'Class'.  */
+  if (objc_is_class_id (inner1) && objc_is_class_id (inner2))
+    return objc_class_type;
+
+  /* Otherwise, return 'id'.  */
+  return objc_object_type;
+}
+
 /* Determine if it is permissible to assign (if ARGNO is greater than -3)
    an instance of RTYP to an instance of LTYP or to compare the two
    (if ARGNO is equal to -3), per ObjC type system rules.  Before
@@ -1291,6 +1300,28 @@ objc_compare_types (tree ltyp, tree rtyp, int argno, tree callee)
     }
 
   return true;
+}
+
+/* This routine is similar to objc_compare_types except that function-pointers are
+   excluded. This is because, caller assumes that common types are of (id, Object*)
+   variety and calls objc_common_type to obtain a common type. There is no commonolty
+   between two function-pointers in this regard. */
+
+bool 
+objc_have_common_type (tree ltyp, tree rtyp, int argno, tree callee)
+{
+  if (objc_compare_types (ltyp, rtyp, argno, callee))
+    {
+      /* exclude function-pointer types. */
+      do
+        {
+          ltyp = TREE_TYPE (ltyp);  /* Remove indirections.  */
+          rtyp = TREE_TYPE (rtyp);
+        }
+      while (POINTER_TYPE_P (ltyp) && POINTER_TYPE_P (rtyp));
+      return !(TREE_CODE (ltyp) == FUNCTION_TYPE && TREE_CODE (rtyp) == FUNCTION_TYPE);
+    }
+  return false;
 }
 
 /* Check if LTYP and RTYP have the same type qualifiers.  If either type
@@ -2878,8 +2909,8 @@ objc_get_class_reference (tree ident)
 	     : TREE_TYPE (ident));
 
 #ifdef OBJCPLUS
-  if (TYPE_P (ident) && TYPE_CONTEXT (ident)
-      && TYPE_CONTEXT (ident) != global_namespace)
+  if (TYPE_P (ident)
+      && CP_TYPE_CONTEXT (ident) != global_namespace)
     local_scope = true;
 #endif
 
@@ -3271,7 +3302,7 @@ objc_is_global_reference_p (tree expr)
   return (TREE_CODE (expr) == INDIRECT_REF || TREE_CODE (expr) == PLUS_EXPR
 	  ? objc_is_global_reference_p (TREE_OPERAND (expr, 0))
 	  : DECL_P (expr)
-	  ? (!DECL_CONTEXT (expr) || TREE_STATIC (expr))
+	  ? (DECL_FILE_SCOPE_P (expr) || TREE_STATIC (expr))
 	  : 0);
 }
 

@@ -1,3 +1,35 @@
+2010-09-27  Nicola Pero  <nicola.pero@meta-innovation.com>
+
+	Merge from apple/trunk branch on FSF servers:
+	
+	2005-12-15  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4229905
+	* typeck.c (composite_pointer_type): Call objc_have_common_type
+	when comparing two objective-c pointer types.
+
+	2005-06-22  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4154928
+	* call.c (standard_conversion): Allow for a pointer conversion
+	between any two ObjC pointer types.
+	* typeck.c (composite_pointer_type): Determine common type
+	for two ObjC pointer types.
+	
+2010-09-24  Jan Hubicka  <jh@suse.cz>
+
+	* decl.c (finish_function): Use decl_replaceable_p
+	* method.c (make_alias_for_thunk): Update call of cgraph_same_body_alias.
+
+2010-09-24  Jason Merrill  <jason@redhat.com>
+
+	* decl.c (compute_array_index_type): Remember type dependence of
+	array bound.
+	* pt.c (dependent_type_p_r): Don't recompute it here.
+
+	* error.c (dump_expr) [CASE_CONVERT]: Print conversion between
+	reference and pointer to the same type as "*" or "&".
+
 2010-09-24  Nicola Pero  <nicola.pero@meta-innovation.com>
 
 	* typeck.c (warn_args_num): Use warning 'too many arguments to
