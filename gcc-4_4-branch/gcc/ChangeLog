@@ -1,3 +1,135 @@
+2010-09-24  Jakub Jelinek  <jakub@redhat.com>
+
+	Revert:
+	2010-09-17  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR middle-end/45234
+	* calls.c (expand_call): Make sure that all variable sized
+	adjustments are multiple of preferred stack boundary after
+	stack alignment.
+
+2010-09-23  Eric Botcazou  <ebotcazou@adacore.com>
+
+	Backport from mainline
+	2010-09-02  Olivier Hainque  <hainque@adacore.com>
+
+	PR middle-end/44763
+	* ira-color.c (SORTGT): New macro, helper for qsort callbacks.
+	(allocno_priority_compare_func): Use it instead of a straight
+	difference computation over priorities.
+
+2010-09-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/45728
+	* expr.c (expand_expr_real_1): If op0 isn't REG or MEM, try
+	gen_lowpart_common first and if that fails, force_reg first
+	before calling gen_lowpart.
+
+2010-09-22  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/35664
+	* config/sparc/constraints.md ('e'): Return NO_REGS if !TARGET_FPU.
+	('f'): Likewise.
+
+2010-09-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/45678
+	* expr.c (expand_expr_real_1) <case VIEW_CONVERT_EXPR>: If
+	op0 isn't sufficiently aligned and there is movmisalignM
+	insn for mode, use it to load op0 into a temporary register.
+
+	Backport from mainline
+	2010-09-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/45678
+	* cfgexpand.c (expand_one_stack_var_at): Limit alignment to
+	crtl->max_used_stack_slot_alignment.
+
+2010-09-20  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR rtl-optimization/42775
+	* cfgrtl.c (rest_of_pass_free_cfg): Recompute notes if delay slot
+	scheduling is enabled.
+
+2010-09-20  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2010-09-17  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR middle-end/45234
+	* calls.c (expand_call): Make sure that all variable sized
+	adjustments are multiple of preferred stack boundary after
+	stack alignment.
+
+2010-09-18  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/45709
+	* tree-inline.c (copy_phis_for_bb): Delay commit of edge
+	insertions until after all PHI nodes of the block are processed.
+
+2010-09-12  Alexander Monakov  <amonakov@ispras.ru>
+
+	Backport from mainline
+	2010-09-06  Andrey Belevantsev  <abel@ispras.ru>
+
+	PR rtl-optimization/44919
+	* sel-sched.c (move_cond_jump): Remove assert, check that
+	the several blocks case can only happen with mutually exclusive
+	insns instead.  Rewrite the movement code to support moving through
+	several basic blocks.
+
+2010-09-09  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR middle-end/45312
+	* reload1.c (merge_assigned_reloads): Remove.
+	(reload_as_needed): Don't call it.
+
+2010-09-09  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR middle-end/44554
+	* ira.c (ira): Switch off sharing spill slots if setjmp is called.
+
+2010-09-08  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR middle-end/40386
+	* ira.c (pseudo_for_reload_consideration_p): Don't use
+	flag_ira_share_spill_slots.
+
+2010-09-08  Martin Jambor  <mjambor@suse.cz>
+
+	PR other/45443
+	* doc/invoke.texi: Add -fipa-cp-clone to list of switches turned on
+	at -O3.
+
+2010-09-07  Ian Bolton  <ian.bolton@arm.com>
+
+	Backport from mainline
+	2010-09-01  Ian Bolton  <ian.bolton@arm.com>
+
+	* Makefile.in (tree-switch-conversion.o): Update dependencies.
+	
+	2010-08-19  Ian Bolton  <ian.bolton@arm.com>
+	
+	PR target/45070
+	* config/arm/arm.c (arm_output_epilogue): Ensure that return
+	value of size 1-3 is handled correctly.
+
+	2010-08-19  Ian Bolton  <ian.bolton@arm.com>
+
+	* tree-switch-conversion.c (gen_inbound_check): Ensure that the
+	type for the conditional has wide enough range.
+
+	2010-08-07  Marcus Shawcroft  <marcus.shawcroft@arm.com>
+	
+	* config/arm/linux-atomic.c (SUBWORD_VAL_CAS): Instantiate with
+	'unsigned short' and 'unsigned char' instead of 'short' and 'char'.
+	(SUBWORD_BOOL_CAS): Likewise.
+	(SUBWORD_SYNC_OP): Likewise.
+	(SUBWORD_TEST_AND_SET): Likewise.
+	(FETCH_AND_OP_WORD): Parenthesise INF_OP
+	(SUBWORD_SYNC_OP): Likewise.
+	(OP_AND_FETCH_WORD): Likewise.
+
 2009-08-28  Cary Coutant  <ccoutant@google.com>
 
 	PR debug/41063
