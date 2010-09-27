@@ -1,3 +1,9 @@
+2009-12-18  Jimmy Guo  <jguo@yahoo-inc.com>
+
+	PR libstdc++/40088
+	* src/locale_init.cc (locale::locale()): Optimize the common case
+	where _S_global still points to _S_classic.
+
 2010-09-17  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
 
 	Backport from mainline:
