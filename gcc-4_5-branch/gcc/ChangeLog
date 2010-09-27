@@ -1,3 +1,380 @@
+2010-09-25  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-inline.c (copy_bb): Use GSI_CONTINUE_LINKING when inserting new
+	statements because of the return slot optimization.
+
+2010-09-24  Jakub Jelinek  <jakub@redhat.com>
+
+	Revert:
+	2010-09-17  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR middle-end/45234
+	* calls.c (expand_call): Make sure that all variable sized
+	adjustments are multiple of preferred stack boundary after
+	stack alignment.
+
+2010-09-23  Eric Botcazou  <ebotcazou@adacore.com>
+
+	Backport from mainline
+	2010-09-02  Olivier Hainque  <hainque@adacore.com>
+
+	PR middle-end/44763
+	* ira-color.c (SORTGT): New macro, helper for qsort callbacks.
+	(allocno_priority_compare_func): Use it instead of a straight
+	difference computation over priorities.
+
+2010-09-22  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR java/44095
+	* config/sparc/linux.h (ASM_SPEC): Pass -K PIC if -findirect-dispatch
+	is specified and the suffix of the file isn't ".c".
+	* config/sparc/linux64.h (ASM_SPEC): Likewise.
+
+2010-09-22  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/35664
+	* config/sparc/constraints.md ('e'): Return NO_REGS if !TARGET_FPU.
+	('f'): Likewise.
+
+2010-09-21  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR rtl-optimization/41085
+	Backport from mainline
+	2010-07-27  Bernd Schmidt  <bernds@codesourcery.com>
+
+	PR rtl-optimization/45051
+	* reload1.c (delete_output_reload): Use refers_to_regno_p rather
+	than reg_mentioned_p.
+
+2010-09-21  Kai Tietz  <kai.tietz@onevision.com>
+
+	PR target/45694
+	* config/i386/i386.c (ix86_expand_prologue): Save r10 in case that
+	static chain-register is used for 64-bit.
+
+2010-09-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/45678
+	* expr.c (expand_expr_real_1) <case VIEW_CONVERT_EXPR>: If
+	op0 isn't sufficiently aligned and there is movmisalignM
+	insn for mode, use it to load op0 into a temporary register.
+
+	Backport from mainline
+	2010-09-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/45678
+	* cfgexpand.c (expand_one_stack_var_at): Limit alignment to
+	crtl->max_used_stack_slot_alignment.
+
+2010-09-21  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/45704
+	* gimplify.c (gimplify_modify_expr_rhs): Preserve volatileness.
+
+2010-09-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/45728
+	* expr.c (expand_expr_real_1): If op0 isn't REG or MEM, try
+	gen_lowpart_common first and if that fails, force_reg first
+	before calling gen_lowpart.
+
+	PR rtl-optimization/45695
+	* combine.c (try_combine): Don't try to swap the two patterns, if the
+	chosen order is not possible, just give up.  For HAVE_cc0 targets,
+	check if XVECEXP (newpat, 0, 0) doesn't use REGs or MEMs set by insns
+	in between i2 and i3.
+
+2010-09-20  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR rtl-optimization/42775
+	* cfgrtl.c (rest_of_pass_free_cfg): Recompute notes if delay slot
+	scheduling is enabled.
+
+2010-09-20  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2010-09-17  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR middle-end/45234
+	* calls.c (expand_call): Make sure that all variable sized
+	adjustments are multiple of preferred stack boundary after
+	stack alignment.
+
+2010-09-20  Rafael Carre   <rafael.carre@gmail.com>
+
+	PR target/45726
+	* arm.md (arm_movtas_ze): Only enable on machine with MOVT.
+
+2010-09-20  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/45623
+	* tree-ssa-structalias.c (get_constraint_for_ptr_offset): Adjust.
+	(get_constraint_for_component_ref): If computing a constraint
+	for the rhs handle type punning through unions.
+	(get_constraint_for_address_of): Adjust.
+	(get_constraint_for_1): Likewise.
+	(get_constraint_for): Likewise.
+	(get_constraint_for_rhs): New function.
+	(do_structure_copy): Adjust.
+	(make_constraint_to): Likewise.
+	(handle_const_call): Likewise.
+	(find_func_aliases): Likewise.
+
+2010-09-18  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/45709
+	* tree-inline.c (copy_phis_for_bb): Delay commit of edge
+	insertions until after all PHI nodes of the block are processed.
+
+2010-09-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2010-04-07  Dodji Seketeli  <dodji@redhat.com>
+
+	PR debug/43628
+	* dwarf2out.c (modified_type_die): Ignore artificial typedefs.
+
+2010-09-18  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/45709
+	* tree-inline.c (copy_phis_for_bb): Fixup new_edge when
+	we splitted it.
+
+2010-09-17  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2010-09-08  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* doc/sourcebuild.texi (Effective-Target Keywords): Document
+	run_expensive_tests.
+
+2010-09-15  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR rtl-optimization/45593
+	* reorg.c (relax_delay_slots): Use emit_copy_of_insn_after to re-emit
+	insns that were in delay slots as stand-alone insns.
+
+2010-09-14  Tristan Gingold  <gingold@adacore.com>
+
+	* configure.ac (plugins): Fix typos.
+	* configure: Regenerate.
+
+2010-09-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/45567
+	* builtins.c (expand_builtin_interclass_mathfn, expand_builtin_cexpi,
+	expand_builtin_powi): Remove subtarget argument, pass NULL_RTX instead.
+	(expand_builtin): Adjust caller.
+	(expand_builtin_unop): Only use subtarget if it has the right mode.
+
+	PR debug/45660
+	* dwarf2out.c (gen_decl_die): Call gen_type_die for origin before
+	gen_type_die for function/method return type.
+
+2010-09-13  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR rtl-optimization/41087
+	* ifcvt.c (noce_get_condition): Don't allow conditions with
+	side-effects.
+
+2010-09-12  Alexander Monakov  <amonakov@ispras.ru>
+
+	Backport from mainline
+	2010-09-06  Andrey Belevantsev  <abel@ispras.ru>
+
+	PR rtl-optimization/44919
+	* sel-sched.c (move_cond_jump): Remove assert, check that
+	the several blocks case can only happen with mutually exclusive
+	insns instead.  Rewrite the movement code to support moving through
+	several basic blocks.
+
+2010-09-10  Jack Howarth <howarth@bromo.med.uc.edu>
+
+	Backport from mainline
+	2010-09-07  H.J. Lu  <hjl.tools@gmail.com>
+		    Jack Howarth <howarth@bromo.med.uc.edu>
+
+	PR target/36502
+	PR target/42313
+	PR target/44651
+	* config/i386/darwin.h (STACK_BOUNDARY): Redefine as 128 for
+	profiling or 64-bit MS_ABI and as BITS_PER_WORD otherwise.
+	(PREFERRED_STACK_BOUNDARY): Replace STACK_BOUNDARY with 128 in
+	MAX macro.
+
+2010-09-09  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR middle-end/45312
+	* reload1.c (merge_assigned_reloads): Remove.
+	(reload_as_needed): Don't call it.
+
+2010-09-09  Matthias Klose  <doko@ubuntu.com>
+
+	PR bootstrap/43847
+	* configure.ac (--enable-plugin): Enhance for cross builds.
+	* configure: Regenerate.
+
+2010-09-09  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR middle-end/44554
+	* ira.c (ira): Switch off sharing spill slots if setjmp is called.
+
+2010-09-08  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR middle-end/40386
+	* ira.c (pseudo_for_reload_consideration_p): Don't use
+	flag_ira_share_spill_slots.
+
+2010-09-09  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/s390/s390.c (legitimate_reload_constant_p): Accept floating-
+	point zero operands that fit into a single GPR.
+	(s390_preferred_reload_class): Ensure we only return general-purpose
+	register classes.
+	* config/s390/s390.md ("*mov<mode>_64dfp"): Use lghi to load
+	floating-point zero operands into GPRs.
+	("*mov<mode>_64"): Likewise.
+	("mov<mode>"): Likewise using lhi.
+
+2010-09-09  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/s390/s390.c (s390_symref_operand_p): Return false for
+	literal pool references.
+	(s390_check_qrst_address): Update caller.
+
+2010-09-08  Martin Jambor  <mjambor@suse.cz>
+
+	PR other/45443
+	* doc/invoke.texi: Add -fipa-cp-clone to list of switches turned on
+	at -O3.
+
+2010-09-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/45484
+	* dwarf2out.c (flush_queued_reg_saves): Rename to...
+	(dwarf2out_flush_queued_reg_saves): ... this.  No longer static.
+	(dwarf2out_frame_debug): Adjust callers.
+	* dwarf2out.h (dwarf2out_flush_queued_reg_saves): New prototype.
+	* config/i386/i386.c (output_set_got): Call it.
+
+	PR debug/45500
+	* dwarf2out.c (rtl_for_decl_init): Give up for all generic vectors,
+	not just generic vectors with BLKmode.
+
+2010-09-02  Ian Bolton  <ian.bolton@arm.com>
+
+	Backport from mainline
+	2010-09-01  Ian Bolton  <ian.bolton@arm.com>
+
+	* Makefile.in (tree-switch-conversion.o): Update dependencies.
+	
+	2010-08-19  Ian Bolton  <ian.bolton@arm.com>
+	
+	PR target/45070
+	* config/arm/arm.c (arm_output_epilogue): Ensure that return
+	value of size 1-3 is handled correctly.
+
+	2010-08-19  Ian Bolton  <ian.bolton@arm.com>
+
+	* tree-switch-conversion.c (gen_inbound_check): Ensure that the
+	type for the conditional has wide enough range.
+
+	2010-08-07  Marcus Shawcroft  <marcus.shawcroft@arm.com>
+	
+	* config/arm/linux-atomic.c (SUBWORD_VAL_CAS): Instantiate with
+	'unsigned short' and 'unsigned char' instead of 'short' and 'char'.
+	(SUBWORD_BOOL_CAS): Likewise.
+	(SUBWORD_SYNC_OP): Likewise.
+	(SUBWORD_TEST_AND_SET): Likewise.
+	(FETCH_AND_OP_WORD): Parenthesise INF_OP
+	(SUBWORD_SYNC_OP): Likewise.
+	(OP_AND_FETCH_WORD): Likewise.
+	
+2010-09-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/45458
+	* bb-reorder.c (add_labels_and_missing_jumps): Treat
+	bbs ending with throwing insns like blocks ending with a call.
+	(fix_up_fall_thru_edges): Likewise.
+
+2010-09-01  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gimplify.c (gimplify_init_constructor): Do not create a temporary for
+	a volatile LHS if the constructor has only one element.
+
+2010-08-31  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-nested.c (convert_all_function_calls): Iterate until after the
+	sum of static chains in the nest doesn't change.
+
+2010-08-31  Eric Botcazou  <ebotcazou@adacore.com>
+
+	Backport from mainline
+	2010-08-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/45353
+	* sel-sched-ir.c (sel_bb_head): Return NULL even if next_nonnote_insn
+	after bb_note is a BARRIER.
+
+2010-08-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/45423
+	* gimplify.c (goa_stabilize_expr): Handle TRUTH_NOT_EXPR
+	and TRUTH_{AND,OR,XOR}_EXPR.
+	* c-parser.c (c_parser_omp_atomic): Handle boolean
+	{PRE,POST}_{INC,DEC}REMENT.
+
+2010-08-30  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline
+	2010-07-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/45079
+	* c-pretty-print.c (pp_c_expression): Handle C_MAYBE_CONST_EXPR.
+
+2010-08-30  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2010-08-25  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/45393
+	* tree-ssa-math-opts.c (execute_cse_sincos_1): Properly transfer
+	and clean EH info.  Avoid SSA update.
+	(execute_cse_sincos): Cleanup the CFG if it has changed.
+
+2010-08-28  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/ia64/ia64.md (cstorebi4): Fix thinko.
+
+2010-08-28  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/41484
+	* config/i386/sse.md (sse4_1_extendv8qiv8hi2): Also accept memory
+	operands for operand 1.
+	(sse4_1_extendv4qiv4si2): Ditto.
+	(sse4_1_extendv2qiv2di2): Ditto.
+	(sse4_1_extendv4hiv4si2): Ditto.
+	(sse4_1_extendv2hiv2di2): Ditto.
+	(sse4_1_extendv2siv2di2): Ditto.
+	(sse4_1_zero_extendv8qiv8hi2): Ditto.
+	(sse4_1_zero_extendv4qiv4si2): Ditto.
+	(sse4_1_zero_extendv2qiv2di2): Ditto.
+	(sse4_1_zero_extendv4hiv4si2): Ditto.
+	(sse4_1_zero_extendv2hiv2di2): Ditto.
+	(sse4_1_zero_extendv2siv2di2): Ditto.
+	(*sse4_1_extendv8qiv8hi2): Remove insn pattern.
+	(*sse4_1_extendv4qiv4si2): Ditto.
+	(*sse4_1_extendv2qiv2di2): Ditto.
+	(*sse4_1_extendv4hiv4si2): Ditto.
+	(*sse4_1_extendv2hiv2di2): Ditto.
+	(*sse4_1_extendv2siv2di2): Ditto.
+	(*sse4_1_zero_extendv8qiv8hi2): Ditto.
+	(*sse4_1_zero_extendv4qiv4si2): Ditto.
+	(*sse4_1_zero_extendv2qiv2di2): Ditto.
+	(*sse4_1_zero_extendv4hiv4si2): Ditto.
+	(*sse4_1_zero_extendv2hiv2di2): Ditto.
+	(*sse4_1_zero_extendv2siv2di2): Ditto.
+
 2010-08-25  Jakub Jelinek  <jakub@redhat.com>
 
 	PR rtl-optimization/44858
@@ -27,7 +404,7 @@
 	2010-04-22  David Edelsohn  <edelsohn@gnu.org>
 
 	* config/rs6000/x-aix: Override LDFLAGS for all COMPILERS.
-	
+
 2010-08-19  Uros Bizjak  <ubizjak@gmail.com>
 
 	* config/i386/i386.md (*add<SWI:mode>3_cconly_overflow): Do not use
