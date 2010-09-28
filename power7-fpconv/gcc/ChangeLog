@@ -1,3 +1,189 @@
+2010-09-28  Ian Lance Taylor  <iant@google.com>
+
+	* config/i386/i386.c (ix86_supports_split_stack): Test
+	HAVE_GAS_CFI_PERSONALITY_DIRECTIVE rather than
+	dwarf2out_do_cfi_asm.
+
+2010-09-28  Ian Lance Taylor  <iant@google.com>
+
+	PR target/45815
+	* opts.c (decode_options): Don't test whether the target supports
+	split stack if flag_split_stack == 0.
+
+2010-09-28  Jan Hubicka  <jh@suse.cz>
+
+	* builtin-attrs.def (ATTR_LEAF): New attribute.
+	(ATTR_NOVOPS_LEAF_LIST, ATTR_LEAF_LIST, ATTR_NOTHROW_LEAF_LIST,
+	ATTR_CONST_NOTHROW_LEAF_LIST, ATTR_PURE_NOTHROW_LEAF_LIST,
+	ATTR_PURE_NOTHROW_NOVOPS_LEAF_LIST, ATTR_NORETURN_NOTHROW_LEAF_LIST,
+	ATTR_MALLOC_NOTHROW_LEAF_LIST, ATTR_SENTINEL_NOTHROW_LEAF_LIST,
+	ATTR_NOTHROW_NONNULL_LEAF, ATTR_CONST_NOTHROW_NONNULL_LEAF,
+	ATTR_CONST_NOTHROW_TYPEGENERIC_LEAF, ATTR_PURE_NOTHROW_NONNULL_LEAF,
+	ATTR_MALLOC_NOTHROW_NONNULL_LEAF): New attribute lists.
+	* sync-builtins.def: Annotate all builtins by leaf.
+	* omp-builtins.def: Annotate all builtins by leaf.
+	* builtins.def: Annotate relevant builtins with leaf attribute.
+	(ATTR_MATHFN_ERRNO, ATTR_MATHFN_FPROUNDING,
+	ATTR_MATHFN_FPROUNDING_ERRNO, ATTR_MATHFN_FPROUNDING_STORE): Make
+	leaf.
+
+2010-09-28  Jan Hubicka  <jh@suse.cz>
+
+	* tree-ssa-ccp.c (fold_ctor_reference): New function.
+	(fold_const_aggregate_ref): Use it.
+	* fold-const.c (canonicalize_constructor_val): Check that we don't fold
+	into external static.
+
+2010-09-28  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR target/44452
+	* config/i386/i386.opt (mvect8-ret-in-mem): Define.
+	* config/i386/i386.c (ix86_target_string): Handle -mvect8-ret-in-mem.
+	(ix86_solaris_return_in_memory): Remove.
+	* config/i386/i386-protos.h (ix86_solaris_return_in_memory): Remove.
+	* config/i386/sol2.h (SUBTARGET_RETURN_IN_MEMORY): Remove.
+	(TARGET_SUBTARGET_DEFAULT): Redefine.
+	* config/i386/sol2-10.h (TARGET_SUBTARGET_DEFAULT): Update comment.
+	* config/i386/vx-common.h (SUBTARGET_RETURN_IN_MEMORY): Remove.
+	(TARGET_SUBTARGET_DEFAULT): Redefine.
+	* doc/invoke.texi (Option Summary, i386 and x86-64 Options): Add
+	-mvect8-ret-in-mem.
+	(i386 and x86-64 Options): Document -mvect8-ret-in-mem.
+
+2010-09-29  Alan Modra  <amodra@gmail.com>
+
+	PR target/45807
+	* config/rs6000/aix.h (SETUP_FRAME_ADDRESSES): Delete.
+	* config/rs6000/linux64.h (SETUP_FRAME_ADDRESSES): Delete.
+	* config/rs6000/rs6000-protos.h (rs6000_aix_emit_builtin_unwind_init):
+	Delete.
+	* config/rs6000/rs6000.c (rs6000_aix_emit_builtin_unwind_init): Delete.
+	(rs6000_emit_prologue): Don't just create frame save info for r2,
+	actually save r2.
+
+2010-09-28  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/cygming.h (ASM_OUTPUT_DWARF_OFFSET): Output 8 bytes
+	when 8 bytes are requested.
+
+2010-09-28  Tristan Gingold  <gingold@adacore.com>
+
+	* config/avr/avr.c (expand_prologue): Set
+	current_function_static_stack_size.
+
+2010-09-28  Tristan Gingold  <gingold@adacore.com>
+
+	* config/alpha/alpha.md: Change the initial condition of the
+	probing loop.
+
+2010-09-28  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/sse.md (*avx_<umaxmin:code><mode>3):
+	Split from *avx_<maxmin:code><mode>3.
+	(*avx_<smaxmin:code><mode>3): Ditto.
+	* config/i386/i386.md (maxmin): Remove code iterator.
+
+2010-09-27  Ian Lance Taylor  <iant@google.com>
+
+	* config/i386/i386.c (ix86_supports_split_stack): -fsplit-stack
+	requires assembler support for CFI directives.
+
+2010-09-27  Richard Henderson  <rth@redhat.com>
+
+	* dwarf2out.c (dwarf2out_cfi_label): Use ASM_OUTPUT_DEBUG_LABEL.
+
+2010-09-27  Hans-Peter Nilsson  <hp@axis.com>
+
+	* emit-rtl.c (reorder_insns_nobb) [ENABLE_CHECKING]: Sanity-check
+	that AFTER is not in the range FROM..TO, inclusive.
+
+2010-09-27  Hans-Peter Nilsson  <hp@axis.com>
+	    Bernd Schmidt  <bernds@codesourcery.com>
+
+	PR rtl-optimization/45792
+	* cfgcleanup.c (try_head_merge_bb): New rtx vector nextptr.
+	If not all insns are to be merged, for each edge, stash the
+	next candidate after the to-be-merged insns before doing the
+	merge, and use them for the retry at the new insertion point.
+	Handle CC0 targets when retrying.
+
+2010-09-27  Ian Lance Taylor  <iant@google.com>
+
+	* common.opt (fsplit-stack): New option.
+	* opts.c (decode_options): Set flag_split_stack to final value.
+	* target.def (supports_split_stack): New hook.
+	* gcc.c (STACK_SPLIT_SPEC): Define.
+	(LINK_COMMAND_SPEC): Use STACK_SPLIT_SPEC.
+	* doc/invoke.texi (Option Summary): Mention -fsplit-stack.
+	(Code Gen Options): Document -fsplit-stack.
+	* doc/extend.texi (Function Attributes): Mention no_split_stack.
+	(Function Attributes): Document no_split_stack.
+	* doc/tm.texi.in (Stack Smashing Protection): Add @hook
+	TARGET_SUPPORTS_SPLIT_STACK.
+	* doc/tm.texi: Rebuild.
+	* function.c (thread_prologue_and_epilogue_insns): If
+	flag_split_stack, add split stack prologue.
+	* explow.c (allocate_dynamic_stack_space): Support -fsplit-stack.
+	* varasm.c (saw_no_split_stack): New static variable.
+	(assemble_start_function): Set saw_no_split_stack if the function
+	has the no_split_stack attribute.
+	(file_end_indicate_split_stack): New function.
+	* output.h (file_end_indicate_split_stack): Declare.
+	* libgcc-std.ver (GCC_4.6.0): Add -fsplit-stack support variables
+	and function.
+	* doc/libgcc.texi (Miscellaneous routines): Document -fsplit-stack
+	routines.
+	* config/i386/i386.c (ix86_option_override_internal): Don't set
+	expand_builtin_va_start to NULL if -fsplit-stack.
+	(ix86_function_regparm): Reduce local regparm by 1 for 32-bit
+	-fsplit-stack.
+	(ix86_va_start): If -fsplit-stack, get overflow pointer	from
+	scratch register set by prologue.
+	(ix86_code_end): If -fsplit-stack, call
+	file_end_indicate_split_stack.
+	(ix86_supports_split_stack): New static function.
+	(SPLIT_STACK_AVAILABLE): Define.
+	(split_stack_prologue_scratch_regno): New static function.
+	(split_stack_fn): New static variable.
+	(ix86_expand_split_stack_prologue): New function.
+	(ix86_live_on_entry): New static function.
+	(ix86_legitimate_address_p): Handle UNSPEC_STACK_CHECK.
+	(output_pic_addr_const): Likewise.
+	(i386_asm_output_addr_const_extra): Likewise.
+	(ix86_expand_call): Change return type to rtx.  Return the new
+	call instruction.
+	(TARGET_SUPPORTS_SPLIT_STACK): Define.
+	(TARGET_EXTRA_LIVE_ON_ENTRY): Define.
+	* config/i386/i386.md (UNSPEC_STACK_CHECK): Define.
+	(split_stack_prologue, split_stack_return): New insns.
+	(split_stack_space_check): New insn.
+	* config/i386/i386.h (struct machine_function): Add
+	split_stack_varargs_pointer field.
+	* config/i386/linux.h (TARGET_CAN_SPLIT_STACK): Define.
+	(TARGET_THREAD_SPLIT_STACK_OFFSET): Define.
+	* config/i386/linux64.h (TARGET_CAN_SPLIT_STACK): Define.
+	(TARGET_THREAD_SPLIT_STACK_OFFSET): Define.
+	* config/i386/i386-protos.h (ix86_expand_split_stack_prologue):
+	Declare.
+	(ix86_expand_call): Update declaration.
+
+2010-09-27  Nicola Pero  <nicola.pero@meta-innovation.com>
+
+	* doc/objc.texi (Type encoding): Added the new 'long double' (D)
+	code.  Added byref, which was missing in the list of codes.
+	Explain that enumeration values are encoded as the integer type
+	that the compiler uses to store them.  Explain and make examples
+	of how 'const' interacts with pointers, and the complication of
+	the encoding of 'const char *'.
+	(Legacy type encoding): New subsection, explaining that GCC emits
+	incorrect type encodings for the NeXT runtime for compatibility
+	reasons.
+	(@@encode): New subsection, explaining @encode and particularly
+	that protocol qualifiers are not recognized inside an @encode()
+	expression.
+	(Method signatures): New subsection, explaining how method
+	signatures are encoded.
+
 2010-09-27  Nicola Pero  <nicola.pero@meta-innovation.com>
 
 	Merge from 'apple/trunk' branch on FSF servers.  Removed small
