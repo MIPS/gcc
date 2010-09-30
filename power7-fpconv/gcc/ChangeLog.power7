@@ -41,7 +41,32 @@
 
 	* config/rs6000/rs6000.c (rs6000_emit_minmax): On VSX generate
 	xsmindp/xsmaxdp for SF min/max.
-	(rs6000_expand_convert_si_to_sfdf): Delete, no longer used.
+	(rs6000_expand_convert_si_to_sfdf): 2010-09-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* tree-vect-stmts.c (vectorizable_call): Allow 3 argument
+	vectorizable functions to support vectorizing fma.
+
+	* optabs.h (OTI_fma): Add fma optab.
+	(fma_optab): Ditto.
+
+	* genopinit.c (optabs): Set fma optab.
+
+	* builitns.c (expand_builtin_mathfn_ternary): New function for
+	expanding ternary math functions, like fma.
+	(expand_builtin): Call it for the fma builtins.
+
+	* config/rs6000/rs6000.c (rs6000_builtin_vectorized_function):
+	Handle fma builtins.
+
+	* config/rs6000/rs6000.md (UNSPEC_FMA): New unspec.
+	(fmasf4): Add fma builtin support, even if -mno-fused-madd was
+	used.
+	(fmasf4_powerpc): Ditto.
+	(fmasf4_power): Ditto.
+	(fmadf4): Ditto.
+	(fmadf4_fpr): Ditto.
+
+Delete, no longer used.
 
 	* config/rs6000/vsx.md (vsx_smaxsf3): VSX version of SF min/max.
 	(vsx_sminsf3): Ditto.
