@@ -146,7 +146,7 @@ static void objc_start_function (tree, tree, tree, struct c_arg_info *);
 #endif
 static tree start_protocol (enum tree_code, tree, tree);
 static tree build_method_decl (enum tree_code, tree, tree, tree, bool);
-static tree objc_add_method (tree, tree, int);
+static tree objc_add_method (tree, tree, int, bool);
 static tree add_instance_variable (tree, int, tree);
 static tree build_ivar_reference (tree);
 static tree is_ivar (tree, tree);
@@ -351,6 +351,10 @@ int objc_public_flag;
 
 /* Use to generate method labels.  */
 static int method_slot = 0;
+
+/* Flag to say whether methods in a protocol are optional or
+   required.  */
+static bool objc_method_optional_flag = false;
 
 static int objc_collecting_ivars = 0;
 
@@ -651,8 +655,13 @@ lookup_protocol_in_reflist (tree rproto_list, tree lproto)
 }
 
 void
-objc_start_class_interface (tree klass, tree super_class, tree protos)
+objc_start_class_interface (tree klass, tree super_class,
+			    tree protos, tree attributes)
 {
+  if (attributes)
+    warning_at (input_location, OPT_Wattributes, 
+		"class attributes are not available in this version"
+		" of the compiler, (ignored)");
   objc_interface_context
     = objc_ivar_context
     = start_class (CLASS_INTERFACE_TYPE, klass, super_class, protos);
@@ -660,8 +669,13 @@ objc_start_class_interface (tree klass, tree super_class, tree protos)
 }
 
 void
-objc_start_category_interface (tree klass, tree categ, tree protos)
+objc_start_category_interface (tree klass, tree categ,
+			       tree protos, tree attributes)
 {
+  if (attributes)
+    warning_at (input_location, OPT_Wattributes, 
+		"category attributes are not available in this version"
+		" of the compiler, (ignored)");
   objc_interface_context
     = start_class (CATEGORY_INTERFACE_TYPE, klass, categ, protos);
   objc_ivar_chain
@@ -669,10 +683,15 @@ objc_start_category_interface (tree klass, tree categ, tree protos)
 }
 
 void
-objc_start_protocol (tree name, tree protos)
+objc_start_protocol (tree name, tree protos, tree attributes)
 {
+  if (attributes)
+    warning_at (input_location, OPT_Wattributes, 
+		"protocol attributes are not available in this version"
+		" of the compiler, (ignored)");
   objc_interface_context
     = start_protocol (PROTOCOL_INTERFACE_TYPE, name, protos);
+  objc_method_optional_flag = false;
 }
 
 void
@@ -687,6 +706,7 @@ objc_finish_interface (void)
 {
   finish_class (objc_interface_context);
   objc_interface_context = NULL_TREE;
+  objc_method_optional_flag = false;
 }
 
 void
@@ -739,6 +759,18 @@ objc_set_visibility (int visibility)
 }
 
 void
+objc_set_method_opt (bool optional)
+{
+  objc_method_optional_flag = optional;
+  if (!objc_interface_context 
+      || TREE_CODE (objc_interface_context) != PROTOCOL_INTERFACE_TYPE)
+    {
+      error ("@optional/@required is allowed in @protocol context only.");
+      objc_method_optional_flag = false;
+    }
+}
+
+void
 objc_set_method_type (enum tree_code type)
 {
   objc_inherit_code = (type == PLUS_EXPR
@@ -755,7 +787,7 @@ objc_build_method_signature (tree rettype, tree selector,
 }
 
 void
-objc_add_method_declaration (tree decl)
+objc_add_method_declaration (tree decl, tree attributes)
 {
   if (!objc_interface_context)
     {
@@ -766,22 +798,33 @@ objc_add_method_declaration (tree decl)
       fatal_error ("method declaration not in @interface context");
     }
 
+  if (attributes)
+    warning_at (input_location, OPT_Wattributes, 
+		"method attributes are not available in this version"
+		" of the compiler, (ignored)");
+
   objc_add_method (objc_interface_context,
 		   decl,
-		   objc_inherit_code == CLASS_METHOD_DECL);
+		   objc_inherit_code == CLASS_METHOD_DECL,
+		   objc_method_optional_flag);
 }
 
 /* Return 'true' if the method definition could be started, and
    'false' if not (because we are outside an @implementation context).
 */
 bool
-objc_start_method_definition (tree decl)
+objc_start_method_definition (tree decl, tree attributes)
 {
   if (!objc_implementation_context)
     {
       error ("method definition not in @implementation context");
       return false;
     }
+
+  if (attributes)
+    warning_at (input_location, OPT_Wattributes, 
+		"method attributes are not available in this version"
+		" of the compiler, (ignored)");
 
 #ifndef OBJCPLUS
   /* Indicate no valid break/continue context by setting these variables
@@ -792,7 +835,8 @@ objc_start_method_definition (tree decl)
 
   objc_add_method (objc_implementation_context,
 		   decl,
-		   objc_inherit_code == CLASS_METHOD_DECL);
+		   objc_inherit_code == CLASS_METHOD_DECL, 
+		   /* is optional */ false);
   start_method_def (decl);
   return true;
 }
@@ -803,20 +847,6 @@ objc_add_instance_variable (tree decl)
   (void) add_instance_variable (objc_ivar_context,
 				objc_public_flag,
 				decl);
-}
-
-/* Return 1 if IDENT is an ObjC/ObjC++ reserved keyword in the context of
-   an '@'.  */
-
-int
-objc_is_reserved_word (tree ident)
-{
-  unsigned char code = C_RID_CODE (ident);
-
-  return (OBJC_IS_AT_KEYWORD (code)
-	  || code == RID_CLASS || code == RID_PUBLIC
-	  || code == RID_PROTECTED || code == RID_PRIVATE
-	  || code == RID_TRY || code == RID_THROW || code == RID_CATCH);
 }
 
 /* Return true if TYPE is 'id'.  */
@@ -1483,6 +1513,14 @@ objc_check_decl (tree decl)
   if (OBJC_TYPE_NAME (type) && (type = objc_is_class_name (OBJC_TYPE_NAME (type))))
     error ("statically allocated instance of Objective-C class %qE",
 	   type);
+}
+
+void
+objc_check_global_decl (tree decl)
+{
+  tree id = DECL_NAME (decl);
+  if (objc_is_class_name (id) && global_bindings_p())
+    error ("redeclaration of Objective-C class %qs", IDENTIFIER_POINTER (id));
 }
 
 /* Construct a PROTOCOLS-qualified variant of INTERFACE, where INTERFACE may
@@ -3074,7 +3112,9 @@ objc_declare_class (tree ident_list)
 	  if (record)
 	    {
 	      if (TREE_CODE (record) == TYPE_DECL)
-		type = DECL_ORIGINAL_TYPE (record);
+		type = DECL_ORIGINAL_TYPE (record) ? 
+			DECL_ORIGINAL_TYPE (record) : 
+			TREE_TYPE (record);
 
 	      if (!TYPE_HAS_OBJC_INFO (type)
 		  || !TYPE_OBJC_INTERFACE (type))
@@ -3624,7 +3664,7 @@ objc_eh_personality (void)
   if (!flag_objc_sjlj_exceptions
       && !objc_eh_personality_decl)
     objc_eh_personality_decl
-      = build_personality_function (USING_SJLJ_EXCEPTIONS
+      = build_personality_function (targetm.except_unwind_info () == UI_SJLJ
 				    ? "__gnu_objc_personality_sj0"
 				    : "__gnu_objc_personality_v0");
 
@@ -4630,7 +4670,7 @@ objc_generate_cxx_ctor_or_dtor (bool dtor)
 						 ? TAG_CXX_DESTRUCT
 						 : TAG_CXX_CONSTRUCT),
 				 make_node (TREE_LIST),
-				 false));
+				 false), NULL);
   body = begin_function_body ();
   compound_stmt = begin_compound_stmt (0);
 
@@ -5962,6 +6002,7 @@ adjust_type_for_id_default (tree type)
      In:	key_name, an "identifier_node" (optional).
 		arg_type, a  "tree_list" (optional).
 		arg_name, an "identifier_node".
+		attributes, a optional tree containing param attributes.
 
      Note:	It would be really nice to strongly type the preceding
 		arguments in the function prototype; however, then I
@@ -5970,9 +6011,15 @@ adjust_type_for_id_default (tree type)
      Out:	an instance of "keyword_decl".  */
 
 tree
-objc_build_keyword_decl (tree key_name, tree arg_type, tree arg_name)
+objc_build_keyword_decl (tree key_name, tree arg_type, 
+			 tree arg_name, tree attributes)
 {
   tree keyword_decl;
+
+  if (attributes)
+    warning_at (input_location, OPT_Wattributes, 
+		"method parameter attributes are not available in this "
+		"version of the compiler, (ignored)");
 
   /* If no type is specified, default to "id".  */
   arg_type = adjust_type_for_id_default (arg_type);
@@ -7046,11 +7093,32 @@ add_method_to_hash_list (hash *hash_list, tree method)
 }
 
 static tree
-objc_add_method (tree klass, tree method, int is_class)
+objc_add_method (tree klass, tree method, int is_class, bool is_optional)
 {
   tree mth;
 
-  if (!(mth = lookup_method (is_class
+  /* @optional methods are added to protocol's OPTIONAL list */
+  if (is_optional)
+    {
+      gcc_assert (TREE_CODE (klass) == PROTOCOL_INTERFACE_TYPE);
+      if (!(mth = lookup_method (is_class
+				? PROTOCOL_OPTIONAL_CLS_METHODS (klass)
+				: PROTOCOL_OPTIONAL_NST_METHODS (klass), 
+								method)))
+	{
+	  if (is_class)
+	    {
+	      TREE_CHAIN (method) = PROTOCOL_OPTIONAL_CLS_METHODS (klass);
+	      PROTOCOL_OPTIONAL_CLS_METHODS (klass) = method;
+	    }
+	  else
+	    {
+	      TREE_CHAIN (method) = PROTOCOL_OPTIONAL_NST_METHODS (klass);
+	      PROTOCOL_OPTIONAL_NST_METHODS (klass) = method;
+	    }
+	}
+    }
+  else if (!(mth = lookup_method (is_class
 			     ? CLASS_CLS_METHODS (klass)
 			     : CLASS_NST_METHODS (klass), method)))
     {
@@ -8114,7 +8182,7 @@ encode_array (tree type, int curtype, int format)
   tree an_int_cst = TYPE_SIZE (type);
   tree array_of = TREE_TYPE (type);
   char buffer[40];
-
+  
   if (an_int_cst == NULL)
     {
       /* We are trying to encode an incomplete array.  An incomplete
@@ -9037,7 +9105,8 @@ really_start_method (tree method,
 
 	  if (interface)
 	    objc_add_method (interface, copy_node (method),
-			     TREE_CODE (method) == CLASS_METHOD_DECL);
+			     TREE_CODE (method) == CLASS_METHOD_DECL, 
+			     /* is_optional= */ false);
 	}
     }
 }
