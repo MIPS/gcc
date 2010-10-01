@@ -1,3 +1,92 @@
+2010-09-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/45843
+	* config/i386/i386.c (ix86_gimplify_va_arg): Use
+	INTVAL (XEXP (slot, 1)) as prev_size.
+
+2010-09-29  Kai Tietz  <kai.tietz@onevision.com>
+
+        * config/i386/mingw32.h (TARGET_64BIT): replaced by
+        TARGET_64BIT_DEFAULT in #if check.
+
+2010-09-28  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/cygming.h (ASM_OUTPUT_DWARF_OFFSET): Output 8 bytes
+	when 8 bytes are requested.                             
+
+2010-09-27  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	Backport from mainline:
+
+	2010-05-19  James E. Wilson  <wilson@codesourcery.com>
+
+	PR target/43764
+	* config/mips/mips.c (mips_call_expr_from_insn): New arg second_call.
+	Set it.
+	(mips_annotate_pic_calls): Pass new arg to mips_call_expr_from_insn.
+	Use it.
+
+2010-09-27  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	PR rtl-optimization/43358
+	* ira-lives.c (process_single_reg_class_operands): Adjust the costs
+	of a single hard register, using simplify_subreg_regno to decide
+	what that register should be.
+
+2010-09-25  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-inline.c (copy_bb): Use GSI_CONTINUE_LINKING when inserting new
+	statements because of the return slot optimization.
+
+2010-09-24  Jakub Jelinek  <jakub@redhat.com>
+
+	Revert:
+	2010-09-17  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR middle-end/45234
+	* calls.c (expand_call): Make sure that all variable sized
+	adjustments are multiple of preferred stack boundary after
+	stack alignment.
+
+2010-09-23  Eric Botcazou  <ebotcazou@adacore.com>
+
+	Backport from mainline
+	2010-09-02  Olivier Hainque  <hainque@adacore.com>
+
+	PR middle-end/44763
+	* ira-color.c (SORTGT): New macro, helper for qsort callbacks.
+	(allocno_priority_compare_func): Use it instead of a straight
+	difference computation over priorities.
+
+2010-09-22  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR java/44095
+	* config/sparc/linux.h (ASM_SPEC): Pass -K PIC if -findirect-dispatch
+	is specified and the suffix of the file isn't ".c".
+	* config/sparc/linux64.h (ASM_SPEC): Likewise.
+
+2010-09-22  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/35664
+	* config/sparc/constraints.md ('e'): Return NO_REGS if !TARGET_FPU.
+	('f'): Likewise.
+
+2010-09-21  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR rtl-optimization/41085
+	Backport from mainline
+	2010-07-27  Bernd Schmidt  <bernds@codesourcery.com>
+
+	PR rtl-optimization/45051
+	* reload1.c (delete_output_reload): Use refers_to_regno_p rather
+	than reg_mentioned_p.
+
+2010-09-21  Kai Tietz  <kai.tietz@onevision.com>
+
+	PR target/45694
+	* config/i386/i386.c (ix86_expand_prologue): Save r10 in case that
+	static chain-register is used for 64-bit.
+
 2010-09-21  Jakub Jelinek  <jakub@redhat.com>
 
 	PR middle-end/45678

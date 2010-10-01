@@ -1,3 +1,44 @@
+2010-09-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/45843
+	* g++.dg/torture/pr45843.C: New test.
+
+2010-09-30  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* ada/acats/run_acats: Revert revision 157037.
+
+2010-09-28  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR target/44452
+	* gcc.target/i386/abi-2.c: XFAIL on i?86-*-solaris2* && ilp32.
+	* gcc.target/i386/pr22076.c: Skip on i?86-solaris2* && ilp32.
+
+2010-09-25  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/return2.ad[sb]: New test.
+	* gnat.dg/return2_pkg.ads: New helper.
+
+2010-09-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/45234
+	* gcc.dg/torture/stackalign/alloca-5.c: Remove.
+
+2010-09-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/torture/stackalign/alloca-4.c: Remove -m32 from dg-options.
+	* gcc.dg/torture/stackalign/alloca-5.c: Likewise.  Fix up -DDEBUG
+	build.
+
+2010-09-22  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	Backport from mainline
+	PR libfortran/45532
+	* gfortran.dg/namelist_64.f90: New test.
+
+2010-09-22  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.target/sparc/mnofpu.c: New test.
+
 2010-09-21  Jakub Jelinek  <jakub@redhat.com>
 
 	Backport from mainline
