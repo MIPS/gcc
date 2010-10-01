@@ -1,3 +1,7 @@
+2010-09-30  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (mem_loc_descriptor): Handle IF_THEN_ELSE.
+
 2010-09-20  Jakub Jelinek  <jakub@redhat.com>
 
 	* dwarf2out.c (any_cfis_emitted): New static variable.
