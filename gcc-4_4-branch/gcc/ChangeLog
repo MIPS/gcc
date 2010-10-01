@@ -1,3 +1,36 @@
+2010-09-24  Jakub Jelinek  <jakub@redhat.com>
+
+	Revert:
+	2010-09-17  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR middle-end/45234
+	* calls.c (expand_call): Make sure that all variable sized
+	adjustments are multiple of preferred stack boundary after
+	stack alignment.
+
+2010-09-23  Eric Botcazou  <ebotcazou@adacore.com>
+
+	Backport from mainline
+	2010-09-02  Olivier Hainque  <hainque@adacore.com>
+
+	PR middle-end/44763
+	* ira-color.c (SORTGT): New macro, helper for qsort callbacks.
+	(allocno_priority_compare_func): Use it instead of a straight
+	difference computation over priorities.
+
+2010-09-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/45728
+	* expr.c (expand_expr_real_1): If op0 isn't REG or MEM, try
+	gen_lowpart_common first and if that fails, force_reg first
+	before calling gen_lowpart.
+
+2010-09-22  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/35664
+	* config/sparc/constraints.md ('e'): Return NO_REGS if !TARGET_FPU.
+	('f'): Likewise.
+
 2010-09-21  Jakub Jelinek  <jakub@redhat.com>
 
 	PR middle-end/45678
