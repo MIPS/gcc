@@ -1,3 +1,60 @@
+2010-10-01  Nick Clifton  <nickc@redhat.com>
+
+	* common.opt: Add -fcombine-stack-adjustments.
+	* opts.c (decode_options): Enable -fcombine-stack-adjustments at
+	-O1.
+	* combine-stack-adj.c (gate_handle_stack_adjustments): Check
+	flag_combine_stack_adjustments.
+	* doc/invoke.texi: Document the new option.
+
+2010-10-01  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/45854
+	* tree-eh.c (cleanup_empty_eh): Avoid degenerate case.
+
+2010-10-01  Anthony Green  <green@moxielogic.com>
+
+	* config.gcc: Fix moxie-*-rtems* configuration.
+
+2010-10-01  Richard Guenther  <rguenther@suse.de>
+
+	* dwarf2out.c (gen_namespace_die): Use DECL_FILE_SCOPE_P.
+	(gen_decl_die): Likewise.
+
+2010-10-01  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/spu/spu.c (spu_init_builtins): No longer add END_BUILTINS
+	to the function code for SPU MD builtins.
+	(spu_expand_builtin): Update.
+	* config/spu/spu-c.c (spu_resolve_overloaded_builtin): Update.
+
+2010-10-01  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/spu/spu.c (TARGET_EXCEPT_UNWIND_INFO): Set to
+	sjlj_except_unwind_info.
+
+2010-10-01  Tristan Gingold  <gingold@adacore.com>
+
+	* configure.ac: Define the nop insn for avr*-*-*
+	* configure: Regenerate.
+
+2010-10-01  Alan Modra  <amodra@gmail.com>
+
+	PR target/45807
+	* config/rs6000/rs6000.c (rs6000_emit_prologue): Properly sign
+	extend toc_restore_insn.
+
+2010-09-30  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/43959
+	* function.c (gimplify_parameters): Use create_tmp_reg instead of
+	create_tmp_var.
+
+2010-09-30  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/sh.c (sh_expand_prologue): Set
+	current_function_static_stack_size.
+
 2010-09-30  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
 
 	* configure.ac: Check for Solaris 8 ld with .hidden support.
@@ -505,11 +562,12 @@
 
 2010-09-29  Nathan Sidwell  <nathan@codesourcery.com>
 
+	PR testsuite/45664
 	* configure.ac: Add --enable-indirect-function option.
 	* config.gcc: Add default_gnu_indirect_function.
 	* config.in (HAVE_GAS_INDIRECT_FUNCTION): Rename to ...
 	(HAVE_GNU_INDIRECT_FUNCTION): ... this.
-	* varasm.c (do_assemble_alias): Adjust for macto name change.
+	* varasm.c (do_assemble_alias): Adjust for macro name change.
 	* configure: Rebuilt.
 	* doc/install.texi: Document --enable-indirect-function.
 
