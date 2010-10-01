@@ -50,7 +50,7 @@ float vfd[SIZE] __attribute__((__aligned__(32)));
 void
 vector_fma (void)
 {
-  size_t i;
+  int i;
 
   for (i = 0; i < SIZE; i++)
     vda[i] = __builtin_fma (vdb[i], vdc[i], vdd[i]);
@@ -59,7 +59,7 @@ vector_fma (void)
 void
 vector_fmaf (void)
 {
-  size_t i;
+  int i;
 
   for (i = 0; i < SIZE; i++)
     vfa[i] = __builtin_fmaf (vfb[i], vfc[i], vfd[i]);
@@ -68,7 +68,7 @@ vector_fmaf (void)
 void
 vnormal_fma (void)
 {
-  size_t i;
+  int i;
 
   for (i = 0; i < SIZE; i++)
     vda[i] = (vdb[i] * vdc[i]) + vdd[i];
@@ -77,7 +77,7 @@ vnormal_fma (void)
 void
 vnormal_fmaf (void)
 {
-  size_t i;
+  int i;
 
   for (i = 0; i < SIZE; i++)
     vfa[i] = (vfb[i] * vfc[i]) + vfd[i];

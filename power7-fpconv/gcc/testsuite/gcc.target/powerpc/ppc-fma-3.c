@@ -45,7 +45,7 @@ float vfd[SIZE] __attribute__((__aligned__(32)));
 void
 vector_fmaf (void)
 {
-  size_t i;
+  int i;
 
   for (i = 0; i < SIZE; i++)
     vfa[i] = __builtin_fmaf (vfb[i], vfc[i], vfd[i]);
@@ -54,7 +54,7 @@ vector_fmaf (void)
 void
 vnormal_fmaf (void)
 {
-  size_t i;
+  int i;
 
   for (i = 0; i < SIZE; i++)
     vfa[i] = (vfb[i] * vfc[i]) + vfd[i];
