@@ -98,8 +98,15 @@ do { \
 		  ? "__LITTLE_ENDIAN__" : "__BIG_ENDIAN__"); \
 } while (0)
 
-/* We can not debug without a frame pointer.  */
-/* #define CAN_DEBUG_WITHOUT_FP */
+#define CAN_DEBUG_WITHOUT_FP 
+
+/* Value should be nonzero if functions must have frame pointers.
+   Zero means the frame pointer need not be set up (and parms may be accessed
+   via the stack pointer) in functions that seem suitable.  */
+
+#ifndef SUBTARGET_FRAME_POINTER_REQUIRED
+#define SUBTARGET_FRAME_POINTER_REQUIRED 0
+#endif
 
 #define CONDITIONAL_REGISTER_USAGE do					\
 {									\
@@ -463,8 +470,6 @@ do { \
 
 #define DRIVER_SELF_SPECS "%{m2a:%{ml:%eSH2a does not support little-endian}}"
 
-#define OPTIMIZATION_OPTIONS(LEVEL,SIZE) sh_optimization_options (LEVEL, SIZE)
-
 #define ASSEMBLER_DIALECT assembler_dialect
 
 extern int assembler_dialect;
@@ -497,10 +502,6 @@ extern enum sh_divide_strategy_e sh_div_strategy;
 #endif
 
 #define SUBTARGET_OVERRIDE_OPTIONS (void) 0
-
-extern const char *sh_fixed_range_str;
-
-#define OVERRIDE_OPTIONS sh_override_options ()
 
 
 /* Target machine storage layout.  */
@@ -1202,11 +1203,12 @@ extern enum reg_class regno_reg_class[FIRST_PSEUDO_REGISTER];
   FPUL_REGS, LIM_REG_CLASSES						     \
 }
 
-/* When defined, the compiler allows registers explicitly used in the
-   rtl to be used as spill registers but prevents the compiler from
-   extending the lifetime of these registers.  */
-
-#define SMALL_REGISTER_CLASSES (! TARGET_SHMEDIA)
+/* When this hook returns true for MODE, the compiler allows
+   registers explicitly used in the rtl to be used as spill registers
+   but prevents the compiler from extending the lifetime of these
+   registers.  */
+#define TARGET_SMALL_REGISTER_CLASSES_FOR_MODE_P \
+  sh_small_register_classes_for_mode_p
 
 /* The order in which register should be allocated.  */
 /* Sometimes FP0_REGS becomes the preferred class of a floating point pseudo,
@@ -1415,17 +1417,6 @@ extern enum reg_class regno_reg_class[FIRST_PSEUDO_REGISTER];
 /* Offset of first parameter from the argument pointer register value.  */
 #define FIRST_PARM_OFFSET(FNDECL)  0
 
-/* Value is the number of byte of arguments automatically
-   popped when returning from a subroutine call.
-   FUNDECL is the declaration node of the function (as a tree),
-   FUNTYPE is the data type of the function (as a tree),
-   or for a library call it is an identifier node for the subroutine name.
-   SIZE is the number of bytes of arguments passed on the stack.
-
-   On the SH, the caller does not pop any of its arguments that were passed
-   on the stack.  */
-#define RETURN_POPS_ARGS(FUNDECL,FUNTYPE,SIZE)  0
-
 /* Value is the number of bytes of arguments automatically popped when
    calling a subroutine.
    CUM is the accumulated argument list.
@@ -1453,8 +1444,6 @@ extern enum reg_class regno_reg_class[FIRST_PSEUDO_REGISTER];
 		    || GET_MODE_CLASS (MODE) == MODE_COMPLEX_FLOAT)\
    ? FIRST_FP_PARM_REG					\
    : FIRST_PARM_REG)
-
-#define FUNCTION_VALUE_REGNO_P(REGNO) sh_function_value_regno_p (REGNO)
 
 /* 1 if N is a possible register number for function argument passing.  */
 /* ??? There are some callers that pass REGNO as int, and others that pass
@@ -1628,17 +1617,12 @@ struct sh_args {
 #define INIT_CUMULATIVE_LIBCALL_ARGS(CUM, MODE, LIBNAME) \
   sh_init_cumulative_args (& (CUM), NULL_TREE, (LIBNAME), NULL_TREE, 0, (MODE))
 
-#define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED)	\
-	sh_function_arg_advance (&(CUM), (MODE), (TYPE), (NAMED))
-#define FUNCTION_ARG(CUM, MODE, TYPE, NAMED)	\
-	sh_function_arg (&(CUM), (MODE), (TYPE), (NAMED))
-
 /* Return boolean indicating arg of mode MODE will be passed in a reg.
    This macro is only used in this file.  */
 
 #define PASS_IN_REG_P(CUM, MODE, TYPE) \
   (((TYPE) == 0 \
-    || (! TREE_ADDRESSABLE ((tree)(TYPE)) \
+    || (! TREE_ADDRESSABLE ((TYPE)) \
 	&& (! (TARGET_HITACHI || (CUM).renesas_abi) \
 	    || ! (AGGREGATE_TYPE_P (TYPE) \
 		  || (!TARGET_FPU_ANY \
@@ -2182,9 +2166,6 @@ struct sh_args {
   ((CLASS) == FP0_REGS || (CLASS) == FP_REGS \
    || (CLASS) == DF_REGS || (CLASS) == DF_HI_REGS)
 
-#define REGISTER_MOVE_COST(MODE, SRCCLASS, DSTCLASS) \
-  sh_register_move_cost ((MODE), (SRCCLASS), (DSTCLASS))
-
 /* ??? Perhaps make MEMORY_MOVE_COST depend on compiler option?  This
    would be so that people with slow memory systems could generate
    different code that does fewer memory accesses.  */
@@ -2433,20 +2414,6 @@ struct sh_args {
 #define FINAL_PRESCAN_INSN(INSN, OPVEC, NOPERANDS) \
   final_prescan_insn ((INSN), (OPVEC), (NOPERANDS))
 
-/* Print operand X (an rtx) in assembler syntax to file FILE.
-   CODE is a letter or dot (`z' in `%z0') or 0 if no letter was specified.
-   For `%' followed by punctuation, CODE is the punctuation and X is null.  */
-
-#define PRINT_OPERAND(STREAM, X, CODE)  print_operand ((STREAM), (X), (CODE))
-
-/* Print a memory address as an operand to reference that memory location.  */
-
-#define PRINT_OPERAND_ADDRESS(STREAM,X)  print_operand_address ((STREAM), (X))
-
-#define PRINT_OPERAND_PUNCT_VALID_P(CHAR) \
-  ((CHAR) == '.' || (CHAR) == '#' || (CHAR) == '@' || (CHAR) == ','	\
-   || (CHAR) == '$' || (CHAR) == '\'' || (CHAR) == '>')
-
 /* Recognize machine-specific patterns that may appear within
    constants.  Used for PIC-specific UNSPECs.  */
 #define OUTPUT_ADDR_CONST_EXTRA(STREAM, X, FAIL) \
@@ -2577,8 +2544,6 @@ enum processor_type {
 #define sh_cpu_attr ((enum attr_cpu)sh_cpu)
 extern enum processor_type sh_cpu;
 
-extern int optimize; /* needed for gen_casesi.  */
-
 enum mdep_reorg_phase_e
 {
   SH_BEFORE_MDEP_REORG,
@@ -2633,11 +2598,9 @@ extern int current_function_interrupt;
 
 #define SIDI_OFF (TARGET_LITTLE_ENDIAN ? 0 : 4)
 
-/* ??? Define ACCUMULATE_OUTGOING_ARGS?  This is more efficient than pushing
-   and popping arguments.  However, we do have push/pop instructions, and
-   rather limited offsets (4 bits) in load/store instructions, so it isn't
-   clear if this would give better code.  If implemented, should check for
-   compatibility problems.  */
+/* Better to allocate once the maximum space for outgoing args in the
+   prologue rather than duplicate around each call.  */
+#define ACCUMULATE_OUTGOING_ARGS TARGET_ACCUMULATE_OUTGOING_ARGS
 
 #define SH_DYNAMIC_SHIFT_COST \
   (TARGET_HARD_SH4 ? 1 : TARGET_SH3 ? (TARGET_SMALLCODE ? 1 : 2) : 20)

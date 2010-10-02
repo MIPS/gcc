@@ -66,6 +66,7 @@ std_headers = \
 	${std_srcdir}/system_error \
 	${std_srcdir}/thread \
 	${std_srcdir}/tuple \
+	${std_srcdir}/typeindex \
 	${std_srcdir}/type_traits \
 	${std_srcdir}/unordered_map \
 	${std_srcdir}/unordered_set \
@@ -121,6 +122,16 @@ bits_headers = \
 	${bits_srcdir}/postypes.h \
 	${bits_srcdir}/random.h \
 	${bits_srcdir}/random.tcc \
+	${bits_srcdir}/range_access.h \
+	${bits_srcdir}/regex.h \
+	${bits_srcdir}/regex_compiler.h \
+	${bits_srcdir}/regex_constants.h \
+	${bits_srcdir}/regex_cursor.h \
+	${bits_srcdir}/regex_error.h \
+	${bits_srcdir}/regex_grep_matcher.h \
+	${bits_srcdir}/regex_grep_matcher.tcc \
+	${bits_srcdir}/regex_nfa.h \
+	${bits_srcdir}/regex_nfa.tcc \
 	${bits_srcdir}/stream_iterator.h \
 	${bits_srcdir}/streambuf_iterator.h \
 	${bits_srcdir}/shared_ptr.h \
@@ -708,6 +719,7 @@ debug_headers = \
 	${debug_srcdir}/debug.h \
 	${debug_srcdir}/deque \
 	${debug_srcdir}/formatter.h \
+	${debug_srcdir}/forward_list \
 	${debug_srcdir}/functions.h \
 	${debug_srcdir}/list \
 	${debug_srcdir}/map \
@@ -800,6 +812,7 @@ profile_impl_srcdir = ${glibcxx_srcdir}/include/profile/impl
 profile_impl_builddir = ./profile/impl
 profile_impl_headers = \
 	${profile_impl_srcdir}/profiler.h \
+	${profile_impl_srcdir}/profiler_algos.h \
 	${profile_impl_srcdir}/profiler_container_size.h \
 	${profile_impl_srcdir}/profiler_hash_func.h \
 	${profile_impl_srcdir}/profiler_hashtable_size.h \
@@ -812,15 +825,8 @@ profile_impl_headers = \
 	${profile_impl_srcdir}/profiler_list_to_vector.h \
 	${profile_impl_srcdir}/profiler_list_to_slist.h
 
-# Some of the different "C" header models need extra files.
 # Some "C" header schemes require the "C" compatibility headers.
 # For --enable-cheaders=c_std
-if GLIBCXX_C_HEADERS_EXTRA
-c_base_headers_extra = ${c_base_srcdir}/cmath.tcc
-else
-c_base_headers_extra =
-endif
-
 if GLIBCXX_C_HEADERS_COMPATIBILITY
 c_compatibility_headers_extra = ${c_compatibility_headers}
 else
@@ -893,7 +899,7 @@ pch_output_dirs = \
 	${pch1_output_builddir} ${pch2_output_builddir} ${pch3_output_builddir}
 pch_output_anchors = \
 	${pch1_output_anchor} ${pch2_output_anchor} ${pch3_output_anchor}
-PCHFLAGS=-x c++-header $(CXXFLAGS)
+PCHFLAGS=-x c++-header -nostdinc++ $(CXXFLAGS)
 if GLIBCXX_BUILD_PCH
 pch_build = ${pch_output}
 else
@@ -903,10 +909,10 @@ endif
 # List of all timestamp files.  By keeping only one copy of this list, both
 # CLEANFILES and all-local are kept up-to-date.
 allstamped = \
-	stamp-std stamp-bits stamp-c_base stamp-c_base_extra \
-	stamp-c_compatibility  stamp-backward stamp-ext stamp-pb \
-	stamp-tr1 stamp-tr1-impl stamp-decimal stamp-debug \
-	stamp-parallel stamp-profile stamp-profile-impl stamp-host 
+	stamp-std stamp-bits stamp-c_base stamp-c_compatibility \
+	stamp-backward stamp-ext stamp-pb stamp-tr1 stamp-tr1-impl \
+	stamp-decimal stamp-debug stamp-parallel stamp-profile \
+	stamp-profile-impl stamp-host 
 
 # List of all files that are created by explicit building, editing, or
 # catenation.

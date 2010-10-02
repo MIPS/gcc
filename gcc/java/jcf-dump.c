@@ -51,8 +51,6 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "ggc.h"
 #include "intl.h"
 
 #include "jcf.h"
@@ -77,10 +75,6 @@ int flag_print_constant_pool = 0;
 int flag_print_fields = 1;
 int flag_print_methods = 1;
 int flag_print_attributes = 1;
-
-/* When nonzero, warn when source file is newer than matching class
-   file.  */
-int flag_newer = 1;
 
 /* Print names of classes that have a "main" method. */
 int flag_print_main = 0;

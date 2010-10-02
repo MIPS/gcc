@@ -72,7 +72,7 @@ along with GCC; see the file COPYING3.  If not see
 #define LOCAL_LABEL_PREFIX "."
 
 /* The 32-bit Solaris assembler does not support .quad.  Do not use it.  */
-#ifndef TARGET_BI_ARCH
+#ifndef HAVE_AS_IX86_QUAD
 #undef ASM_QUAD
 #endif
 
@@ -90,11 +90,6 @@ along with GCC; see the file COPYING3.  If not see
 	fprintf ((FILE), "\n");				\
       }							\
   } while (0)
-
-/* Follow Sun requirements for TLS code sequences and use Sun assembler TLS
-   syntax.  */
-#undef TARGET_SUN_TLS
-#define TARGET_SUN_TLS 1
 
 /* Follow Sun requirements for TLS code sequences and use Sun assembler TLS
    syntax.  */
@@ -145,12 +140,22 @@ along with GCC; see the file COPYING3.  If not see
 /* Register the Solaris-specific #pragma directives.  */
 #define REGISTER_SUBTARGET_PRAGMAS() solaris_register_pragmas ()
 
+/* Undo i386/sysv4.h version.  */
+#undef SUBTARGET_RETURN_IN_MEMORY
+
+/* Augment i386/unix.h version to return 8-byte vectors in memory, matching
+   Sun Studio compilers until version 12, the only ones supported on
+   Solaris 8 and 9.  */
+#undef TARGET_SUBTARGET_DEFAULT
+#define TARGET_SUBTARGET_DEFAULT \
+	(MASK_80387 | MASK_IEEE_FP | MASK_FLOAT_RETURNS | MASK_VECT8_RETURNS)
+
 /* Output a simple call for .init/.fini.  */
 #define ASM_OUTPUT_CALL(FILE, FN)				\
   do								\
     {								\
       fprintf (FILE, "\tcall\t");				\
-      print_operand (FILE, XEXP (DECL_RTL (FN), 0), 'P');	\
+      ix86_print_operand (FILE, XEXP (DECL_RTL (FN), 0), 'P');	\
       fprintf (FILE, "\n");					\
     }								\
   while (0)
@@ -158,6 +163,9 @@ along with GCC; see the file COPYING3.  If not see
 /* We do not need NT_VERSION notes.  */
 #undef X86_FILE_START_VERSION_DIRECTIVE
 #define X86_FILE_START_VERSION_DIRECTIVE false
+
+/* Static stack checking is supported by means of probes.  */
+#define STACK_CHECK_STATIC_BUILTIN 1
 
 /* Only recent versions of Solaris 11 ld properly support hidden .gnu.linkonce
    sections, so don't use them.  */

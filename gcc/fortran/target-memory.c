@@ -1,5 +1,5 @@
 /* Simulate storage of variables into target memory.
-   Copyright (C) 2007, 2008, 2009
+   Copyright (C) 2007, 2008, 2009, 2010
    Free Software Foundation, Inc.
    Contributed by Paul Thomas and Brooks Moses
 

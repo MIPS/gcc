@@ -1,5 +1,5 @@
 /* Primary expression subroutines
-   Copyright (C) 2000, 2001, 2002, 2004, 2005, 2006, 2007, 2008
+   Copyright (C) 2000, 2001, 2002, 2004, 2005, 2006, 2007, 2008, 2009, 2010
    Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
@@ -26,7 +26,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "arith.h"
 #include "match.h"
 #include "parse.h"
-#include "toplev.h"
 #include "constructor.h"
 
 /* Matches a kind-parameter expression, which is either a named
@@ -243,7 +242,7 @@ match_hollerith_constant (gfc_expr **result)
   locus old_loc;
   gfc_expr *e = NULL;
   const char *msg;
-  int num;
+  int num, pad;
   int i;  
 
   old_loc = gfc_current_locus;
@@ -280,7 +279,10 @@ match_hollerith_constant (gfc_expr **result)
 	  e = gfc_get_constant_expr (BT_HOLLERITH, gfc_default_character_kind,
 				     &gfc_current_locus);
 
-	  e->representation.string = XCNEWVEC (char, num + 1);
+	  /* Calculate padding needed to fit default integer memory.  */
+	  pad = gfc_default_integer_kind - (num % gfc_default_integer_kind);
+
+	  e->representation.string = XCNEWVEC (char, num + pad + 1);
 
 	  for (i = 0; i < num; i++)
 	    {
@@ -295,8 +297,13 @@ match_hollerith_constant (gfc_expr **result)
 	      e->representation.string[i] = (unsigned char) c;
 	    }
 
-	  e->representation.string[num] = '\0';
-	  e->representation.length = num;
+	  /* Now pad with blanks and end with a null char.  */
+	  for (i = 0; i < pad; i++)
+	    e->representation.string[num + i] = ' ';
+
+	  e->representation.string[num + i] = '\0';
+	  e->representation.length = num + pad;
+	  e->ts.u.pad = pad;
 
 	  *result = e;
 	  return MATCH_YES;
@@ -868,12 +875,11 @@ match_string_constant (gfc_expr **result)
 
   gfc_gobble_whitespace ();
 
-  start_locus = gfc_current_locus;
-
   c = gfc_next_char ();
   if (c == '\'' || c == '"')
     {
       kind = gfc_default_character_kind;
+      start_locus = gfc_current_locus;
       goto got_delim;
     }
 
@@ -917,11 +923,12 @@ match_string_constant (gfc_expr **result)
     goto no_match;
 
   gfc_gobble_whitespace ();
-  start_locus = gfc_current_locus;
 
   c = gfc_next_char ();
   if (c != '\'' && c != '"')
     goto no_match;
+
+  start_locus = gfc_current_locus;
 
   if (kind == -1)
     {
@@ -976,7 +983,6 @@ got_delim:
   e->ts.is_iso_c = 0;
 
   gfc_current_locus = start_locus;
-  gfc_next_char ();		/* Skip delimiter */
 
   /* We disable the warning for the following loop as the warning has already
      been printed in the loop above.  */
@@ -1750,14 +1756,20 @@ gfc_match_varspec (gfc_expr *primary, int equiv_flag, bool sub_flag,
 	}
     }
 
+  /* For associate names, we may not yet know whether they are arrays or not.
+     Thus if we have one and parentheses follow, we have to assume that it
+     actually is one for now.  The final decision will be made at
+     resolution time, of course.  */
+  if (sym->assoc && gfc_peek_ascii_char () == '(')
+    sym->attr.dimension = 1;
+
   if ((equiv_flag && gfc_peek_ascii_char () == '(')
       || gfc_peek_ascii_char () == '[' || sym->attr.codimension
       || (sym->attr.dimension && !sym->attr.proc_pointer
 	  && !gfc_is_proc_ptr_comp (primary, NULL)
 	  && !(gfc_matching_procptr_assignment
 	       && sym->attr.flavor == FL_PROCEDURE))
-      || (sym->ts.type == BT_CLASS
-	  && sym->ts.u.derived->components->attr.dimension))
+      || (sym->ts.type == BT_CLASS && CLASS_DATA (sym)->attr.dimension))
     {
       /* In EQUIVALENCE, we don't know yet whether we are seeing
 	 an array, character variable or array of character
@@ -1892,16 +1904,15 @@ gfc_match_varspec (gfc_expr *primary, int equiv_flag, bool sub_flag,
 	    return m;
 	}
       else if (component->ts.type == BT_CLASS
-	       && component->ts.u.derived->components->as != NULL
+	       && CLASS_DATA (component)->as != NULL
 	       && !component->attr.proc_pointer)
 	{
 	  tail = extend_ref (primary, tail);
 	  tail->type = REF_ARRAY;
 
-	  m = gfc_match_array_ref (&tail->u.ar,
-				   component->ts.u.derived->components->as,
+	  m = gfc_match_array_ref (&tail->u.ar, CLASS_DATA (component)->as,
 				   equiv_flag,
-			   component->ts.u.derived->components->as->corank);
+				   CLASS_DATA (component)->as->corank);
 	  if (m != MATCH_YES)
 	    return m;
 	}
@@ -1996,15 +2007,14 @@ gfc_variable_attr (gfc_expr *expr, gfc_typespec *ts)
   if (expr->expr_type != EXPR_VARIABLE && expr->expr_type != EXPR_FUNCTION)
     gfc_internal_error ("gfc_variable_attr(): Expression isn't a variable");
 
-  ref = expr->ref;
   sym = expr->symtree->n.sym;
   attr = sym->attr;
 
   if (sym->ts.type == BT_CLASS)
     {
-      dimension = sym->ts.u.derived->components->attr.dimension;
-      pointer = sym->ts.u.derived->components->attr.pointer;
-      allocatable = sym->ts.u.derived->components->attr.allocatable;
+      dimension = CLASS_DATA (sym)->attr.dimension;
+      pointer = CLASS_DATA (sym)->attr.class_pointer;
+      allocatable = CLASS_DATA (sym)->attr.allocatable;
     }
   else
     {
@@ -2020,7 +2030,7 @@ gfc_variable_attr (gfc_expr *expr, gfc_typespec *ts)
   if (ts != NULL && expr->ts.type == BT_UNKNOWN)
     *ts = sym->ts;
 
-  for (; ref; ref = ref->next)
+  for (ref = expr->ref; ref; ref = ref->next)
     switch (ref->type)
       {
       case REF_ARRAY:
@@ -2063,8 +2073,8 @@ gfc_variable_attr (gfc_expr *expr, gfc_typespec *ts)
 
 	if (comp->ts.type == BT_CLASS)
 	  {
-	    pointer = comp->ts.u.derived->components->attr.pointer;
-	    allocatable = comp->ts.u.derived->components->attr.allocatable;
+	    pointer = CLASS_DATA (comp)->attr.class_pointer;
+	    allocatable = CLASS_DATA (comp)->attr.allocatable;
 	  }
 	else
 	  {
@@ -2085,6 +2095,7 @@ gfc_variable_attr (gfc_expr *expr, gfc_typespec *ts)
   attr.pointer = pointer;
   attr.allocatable = allocatable;
   attr.target = target;
+  attr.save = sym->attr.save;
 
   return attr;
 }
@@ -2112,9 +2123,9 @@ gfc_expr_attr (gfc_expr *e)
 	  attr = sym->attr;
 	  if (sym->ts.type == BT_CLASS)
 	    {
-	      attr.dimension = sym->ts.u.derived->components->attr.dimension;
-	      attr.pointer = sym->ts.u.derived->components->attr.pointer;
-	      attr.allocatable = sym->ts.u.derived->components->attr.allocatable;
+	      attr.dimension = CLASS_DATA (sym)->attr.dimension;
+	      attr.pointer = CLASS_DATA (sym)->attr.class_pointer;
+	      attr.allocatable = CLASS_DATA (sym)->attr.allocatable;
 	    }
 	}
       else
@@ -2974,11 +2985,7 @@ match_variable (gfc_expr **result, int equiv_flag, int host_flag)
   switch (sym->attr.flavor)
     {
     case FL_VARIABLE:
-      if (sym->attr.is_protected && sym->attr.use_assoc)
-	{
-	  gfc_error ("Assigning to PROTECTED variable at %C");
-	  return MATCH_ERROR;
-	}
+      /* Everything is alright.  */
       break;
 
     case FL_UNKNOWN:
@@ -3010,22 +3017,24 @@ match_variable (gfc_expr **result, int equiv_flag, int host_flag)
 
     case FL_PARAMETER:
       if (equiv_flag)
-	gfc_error ("Named constant at %C in an EQUIVALENCE");
-      else
-	gfc_error ("Cannot assign to a named constant at %C");
-      return MATCH_ERROR;
+	{
+	  gfc_error ("Named constant at %C in an EQUIVALENCE");
+	  return MATCH_ERROR;
+	}
+      /* Otherwise this is checked for and an error given in the
+	 variable definition context checks.  */
       break;
 
     case FL_PROCEDURE:
       /* Check for a nonrecursive function result variable.  */
       if (sym->attr.function
-          && !sym->attr.external
-          && sym->result == sym
-          && (gfc_is_function_return_value (sym, gfc_current_ns)
-              || (sym->attr.entry
-                  && sym->ns == gfc_current_ns)
-              || (sym->attr.entry
-                  && sym->ns == gfc_current_ns->parent)))
+	  && !sym->attr.external
+	  && sym->result == sym
+	  && (gfc_is_function_return_value (sym, gfc_current_ns)
+	      || (sym->attr.entry
+		  && sym->ns == gfc_current_ns)
+	      || (sym->attr.entry
+		  && sym->ns == gfc_current_ns->parent)))
 	{
 	  /* If a function result is a derived type, then the derived
 	     type may still have to be resolved.  */

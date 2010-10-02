@@ -1,5 +1,6 @@
 /* Compiler arithmetic
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008,
+   2009, 2010
    Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
@@ -259,6 +260,8 @@ gfc_arith_done_1 (void)
 
   for (rp = gfc_real_kinds; rp->kind; rp++)
     mpfr_clears (rp->epsilon, rp->huge, rp->tiny, rp->subnormal, NULL);
+
+  mpfr_free_cache ();
 }
 
 
@@ -783,7 +786,6 @@ arith_power (gfc_expr *op1, gfc_expr *op2, gfc_expr **resultp)
   int power_sign;
   gfc_expr *result;
   arith rc;
-  extern bool init_flag;
 
   rc = ARITH_OK;
   result = gfc_get_constant_expr (op1->ts.type, op1->ts.kind, &op1->where);
@@ -898,7 +900,7 @@ arith_power (gfc_expr *op1, gfc_expr *op2, gfc_expr **resultp)
 
     case BT_REAL:
 
-      if (init_flag)
+      if (gfc_init_expr_flag)
 	{
 	  if (gfc_notify_std (GFC_STD_F2003,"Fortran 2003: Noninteger "
 			      "exponent in an initialization "
@@ -920,7 +922,7 @@ arith_power (gfc_expr *op1, gfc_expr *op2, gfc_expr **resultp)
 
     case BT_COMPLEX:
       {
-	if (init_flag)
+	if (gfc_init_expr_flag)
 	  {
 	    if (gfc_notify_std (GFC_STD_F2003,"Fortran 2003: Noninteger "
 				"exponent in an initialization "
@@ -2258,7 +2260,7 @@ hollerith2representation (gfc_expr *result, gfc_expr *src)
 {
   int src_len, result_len;
 
-  src_len = src->representation.length;
+  src_len = src->representation.length - src->ts.u.pad;
   result_len = gfc_target_expr_size (result);
 
   if (src_len > result_len)
