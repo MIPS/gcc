@@ -1,3 +1,87 @@
+2010-10-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/45876
+	* gcc.c-torture/compile/pr45876.c: New test.
+
+2010-10-04  Julian Brown  <julian@codesourcery.com>
+
+	* gcc.dg/vect/vect-42.c: Use vect_element_align instead of
+	vect_hw_misalign.
+	* gcc.dg/vect/vect-60.c: Likewise.
+	* gcc.dg/vect/vect-56.c: Likewise.
+	* gcc.dg/vect/vect-93.c: Likewise.
+	* gcc.dg/vect/no-scevccp-outer-8.c: Likewise.
+	* gcc.dg/vect/vect-95.c: Likewise.
+	* gcc.dg/vect/vect-96.c: Likewise.
+	* gcc.dg/vect/vect-outer-5.c: Use quad-word vectors when available.
+	* gcc.dg/vect/slp-25.c: Likewise.
+	* gcc.dg/vect/slp-3.c: Likewise.
+	* gcc.dg/vect/vect-multitypes-1.c: Likewise.
+	* gcc.dg/vect/no-vfa-pr29145.c: Likewise.
+	* gcc.dg/vect/vect-multitypes-4.c: Likewise. Use vect_element_align.
+	* gcc.dg/vect/vect-109.c: Likewise.
+	* gcc.dg/vect/vect-peel-1.c: Likewise.
+	* gcc.dg/vect/vect-peel-2.c: Likewise.
+	* lib/target-supports.exp
+	(check_effective_target_arm_vect_no_misalign): New.
+	(check_effective_target_vect_no_align): Use above.
+	(check_effective_target_vect_element_align): New.
+	(add_options_for_quad_vectors): New.
+
+2010-10-04  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/45572
+	* g++.dg/ipa/pr45572-1.C: New test.
+	* g++.dg/ipa/pr45572-2.C: Likewise.
+
+2010-10-03  Ian Lance Taylor  <iant@google.com>
+
+	* gcc.dg/anon-struct-11.c: New test.
+	* gcc.dg/anon-struct-12.c: New test.
+	* gcc.dg/anon-struct-13.c: New test.
+	* gcc.dg/anon-struct-14.c: New test.
+
+2010-10-03  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* g++.dg/torture/pr45764.C: Revert revision 164914.
+	* gcc.dg/vect/pr43432.c: Likewise.
+	* gcc.dg/vect/vect-114.c: Likewise.
+	* gcc.dg/vect/vect-15.c: Likewise.
+
+2010-10-03  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/sfinae5.C: New.
+
+2010-10-02  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR tree-optimization/45720
+	PR tree-optimization/45764
+	* g++.dg/torture/pr45764.C: New.
+
+	* gcc.dg/vect/pr43432.c: Xfail.
+	* gcc.dg/vect/vect-114.c: Likewise.
+	* gcc.dg/vect/vect-15.c: Likewise.
+
+2010-10-02  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* gcc.dg/torture/pr45678-1.c: Add -fno-common to options on 32-bit
+	hppa*-*-hpux*.
+	* gcc.dg/torture/pr45678-2.c: Likewise.
+
+2010-10-02  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/45748
+	* gfortran.dg/intrinsic_6.f90: New.
+
+2010-10-02  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/42831
+	* gfortran.dg/dependency_37.f90:  New test.
+
+2010-10-01  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/shift_mask.c: New test.
+
 2010-10-01  Richard Guenther  <rguenther@suse.de>
 
 	PR tree-optimization/45854
@@ -7,7 +91,7 @@
 
 	* gcc.c-torture/execute/cmpsf-1.c: Rename FLOAT_{MIN,MAX} to
 	__FLT_{MIN,MAX}__.
-	
+
 2010-09-30  Sebastian Pop  <sebastian.pop@amd.com>
 
 	PR middle-end/45758
@@ -206,8 +290,8 @@
 	Merge from 'apple/trunk' branch on FSF servers (test method-20.m
 	from the branch renamed to method-20b.m to avoid clashes).
 
-	2005-08-23  Stuart Hastings <stuart@apple.com>
-	            Ziemowit Laski  <zlaski@apple.com>
+	2005-08-23  Stuart Hastings  <stuart@apple.com>
+		    Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 4209854
 	* obj-c++.dg/method-23.mm: New.
@@ -263,8 +347,7 @@
 2010-09-27  Nicola Pero  <nicola.pero@meta-innovation.com>
 
 	PR objc/45763
-	* objc.dg/encode-1.m: Execute the test with the GNU runtime as
-	well.
+	* objc.dg/encode-1.m: Execute the test with the GNU runtime as well.
 
 2010-09-27  Nicola Pero  <nicola.pero@meta-innovation.com>
 
@@ -279,28 +362,25 @@
 	Changelogs are below.
 
 	* objc.dg/encode-6.m: Execute the test only with the GNU runtime.
-	* objc.dg/encode-6-next.m: New file (from encode-6.m in the
-	branch).
-	* objc.dg/encode-7-next.m: New file (from encode-7.m in the
-	branch).
+	* objc.dg/encode-6-next.m: New file (from encode-6.m in the branch).
+	* objc.dg/encode-7-next.m: New file (from encode-7.m in the branch).
 	* objc.dg/encode-7-next-64bit.m: New file (from encode-7-64bit.m
-	in the branch).	
+	in the branch).
 	* objc.dg/proto-qual-1.m: Test the 3.3 ABI on NeXT (from
 	proto-qual-1.m in the branch) and the normal ABI on GNU.
 	* objc.dg/threedotthree-abi-1.m: New file (from the branch).  Run
 	the test only with the NeXT runtime.
 	* obj-c++/encode-1.mm: Execute the test only with the GNU runtime.
-	* obj-c++/encode-1-next.mm: New file (from encode-1.mm in the
-	branch).
+	* obj-c++/encode-1-next.mm: New file (from encode-1.mm in the branch).
 	* obj-c++.dg/threedotthree-abi-1.mm: New file (from the branch).
 	Run the test only with the NeXT runtime.
-	
+
 	2006-03-30 Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4492973
 	* objc.dg/encode-7-64bit.m: New.
 	* objc.dg/encode-7.m: Skip if -m64.
-	
+
 	2005-10-19  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4301047
@@ -319,12 +399,12 @@
 
 	Merge from 'apple/trunk' branch on FSF servers.  Renamed
 	const-str-12.m to constr-str-12b.m to avoid conflicts.
-	
+
 	2005-12-15  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4229905
 	* obj-c++.dg/warn5.mm: New
-	
+
 	2005-06-22  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 4154928
@@ -363,7 +443,7 @@
 
 2010-09-24  Steven G. Kargl  < kargl@gcc.gnu.org>
 
-	* testsuite/gfortran.dg/operator_c1202.f90: New test.
+	* gfortran.dg/operator_c1202.f90: New test.
 
 2010-09-24  Jan Hubicka  <jh@suse.cz>
 
@@ -427,7 +507,6 @@
 	PR fortran/45744
 	* gfortran.dg/dependency_36.f90:  New test.
 
->>>>>>> .r164755
 2010-09-23  Uros Bizjak  <ubizjak@gmail.com>
 
 	* gcc.target/i386/pad-1.c: Remove -S from dg-options.
@@ -514,7 +593,7 @@
 2010-09-22  Marcus Shawcroft  <marcus.shawcroft@arm.com>
 
 	* lib/scanasm.exp(dg-function-on-line): Permit .fnstart to appear in
-        the regexp pattern between the expected label and location string.
+	the regexp pattern between the expected label and location string.
 
 2010-09-22  Marcus Shawcroft  <marcus.shawcroft@arm.com>
 
@@ -901,8 +980,8 @@
 2010-09-10  Jack Howarth <howarth@bromo.med.uc.edu>
 
 	PR target/42070
-	* gcc/testsuite/lib/profopt.exp: Prune warnings on execname2 compile.
-	* gcc/testsuite/lib/prune.exp: Prune "can't add line info" warnings.
+	* lib/profopt.exp: Prune warnings on execname2 compile.
+	* lib/prune.exp: Prune "can't add line info" warnings.
 
 2010-09-14  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
@@ -1026,10 +1105,10 @@
 	* gcc.dg/attr-ifunc-3.c: New.
 	* gcc.dg/attr-ifunc-4.c: New.
 	* gcc.dg/attr-ifunc-5.c: New.
-	* testsuite/g++.dg/ext/attr-ifunc-1.C: New.
-	* testsuite/g++.dg/ext/attr-ifunc-2.C: New.
-	* testsuite/g++.dg/ext/attr-ifunc-3.C: New.
-	* testsuite/g++.dg/ext/attr-ifunc-4.C: New.
+	* g++.dg/ext/attr-ifunc-1.C: New.
+	* g++.dg/ext/attr-ifunc-2.C: New.
+	* g++.dg/ext/attr-ifunc-3.C: New.
+	* g++.dg/ext/attr-ifunc-4.C: New.
 
 2010-09-09  Vladimir Makarov  <vmakarov@redhat.com>
 
@@ -1129,7 +1208,7 @@
 	PR target/42313
 	PR target/44651
 	* gcc.target/i386/builtin-unreachable.c: Don't skip on darwin.
-	* gcc/testsuite/gcc.dg/stack-usage-1.c: Use default on i386/Darwin.
+	* gcc.dg/stack-usage-1.c: Use default on i386/Darwin.
 
 2010-09-07  Mikael Morin  <mikael@gcc.gnu.org>
 
@@ -1580,13 +1659,13 @@
 2010-08-27  Tobias Burnus  <burnus@net-b.de>
 
 	PR fortran/33197
-	* gcc/testsuite/gfortran.dg/norm2_1.f90: New.
-	* gcc/testsuite/gfortran.dg/norm2_2.f90: New.
-	* gcc/testsuite/gfortran.dg/norm2_3.f90: New.
-	* gcc/testsuite/gfortran.dg/norm2_4.f90: New.
-	* gcc/testsuite/gfortran.dg/parity_1.f90: New.
-	* gcc/testsuite/gfortran.dg/parity_2.f90: New.
-	* gcc/testsuite/gfortran.dg/parity_3.f90: New.
+	* gfortran.dg/norm2_1.f90: New.
+	* gfortran.dg/norm2_2.f90: New.
+	* gfortran.dg/norm2_3.f90: New.
+	* gfortran.dg/norm2_4.f90: New.
+	* gfortran.dg/parity_1.f90: New.
+	* gfortran.dg/parity_2.f90: New.
+	* gfortran.dg/parity_3.f90: New.
 
 2010-08-27  Janus Weil  <janus@gcc.gnu.org>
 
@@ -2387,7 +2466,7 @@
 2010-07-30  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
 
 	PR c++/45112
-	* testsuite/g++.dg/pr45112.C: New test.
+	* g++.dg/pr45112.C: New test.
 
 2010-07-30  Jakub Jelinek  <jakub@redhat.com>
 
@@ -2881,7 +2960,7 @@
 2010-07-22  Martin Jambor  <mjambor@suse.cz>
 
 	PR tree-optimization/44891
-	* testsuite/gcc.c-torture/compile/pr44891.c: New test.
+	* gcc.c-torture/compile/pr44891.c: New test.
 
 2010-07-22  Richard Guenther  <rguenther@suse.de>
 
@@ -4222,7 +4301,7 @@
 
 2010-06-28  Martin Jambor  <mjambor@suse.cz>
 
-	* testsuite/gcc.dg/ipa/ipa-sra-6.c: New test.
+	* gcc.dg/ipa/ipa-sra-6.c: New test.
 
 2010-06-28  Jan Hubicka  <jh@suse.cz>
 
@@ -4340,7 +4419,7 @@
 
 2010-06-25  Jan Hubicka  <jh@suse.cz>
 
-	* testsuite/gcc.dg/tree-ssa/ipa-split-1.c
+	* gcc.dg/tree-ssa/ipa-split-1.c
 
 2010-06-25  Martin Jambor  <mjambor@suse.cz>
 
@@ -4775,11 +4854,11 @@
 
 2010-06-09  Steven G. Kargl  <kargl@gcc.gnu.org>
 
-	* testsuite/gfortran.dg/mvbits_9.f90: New test.
-	* testsuite/gfortran.dg/ibset_1.f90: Ditto.
-	* testsuite/gfortran.dg/ibits_1.f90: Ditto.
-	* testsuite/gfortran.dg/btest_1.f90: Ditto.
-	* testsuite/gfortran.dg/ibclr_1.f90: Ditto.
+	* gfortran.dg/mvbits_9.f90: New test.
+	* gfortran.dg/ibset_1.f90: Ditto.
+	* gfortran.dg/ibits_1.f90: Ditto.
+	* gfortran.dg/btest_1.f90: Ditto.
+	* gfortran.dg/ibclr_1.f90: Ditto.
 
 2010-06-09  Jason Merrill  <jason@redhat.com>
 

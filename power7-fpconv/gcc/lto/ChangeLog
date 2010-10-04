@@ -1,3 +1,12 @@
+2010-10-04  Andi Kleen <ak@linux.intel.com>
+
+	* Make-lang.in (lto1): Add + to build rule.
+
+2010-10-03  Andi Kleen <ak@linux.intel.com>
+
+    	* lto.c (lto_file_finalize): Replace gcc_assert for missing section
+          with fatal_error.
+
 2010-09-28  Jan Hubicka  <jh@suse.cz>
 
 	* lto-lang.c (handle_leaf_attribute): New function.

@@ -1,5 +1,10 @@
 2010-10-04  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to 164954.
+	* REVISION: Update subversion id.
+
+2010-10-04  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	* config/rs6000/rs6000.c (rs6000_builtin_vectorized_function):
 	Support both Altivec and VSX fmas builtins.
 

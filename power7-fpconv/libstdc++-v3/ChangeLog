@@ -1,3 +1,33 @@
+2010-10-04  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/std/functional (function<>::swap): Use std::swap.
+	* include/tr1/functional (function<>::swap): Likewise.
+
+2010-10-04  Andreas Schwab  <schwab@redhat.com>
+
+	* acinclude.m4 (GLIBCXX_ENABLE): Properly quote argument to
+	AC_HELP_STRING.  Double quote expansion of _g_help.
+	(GLIBCXX_ENABLE_LIBSTDCXX_TIME): Double quote third argument of
+	GLIBCXX_ENABLE.
+	(GLIBCXX_ENABLE_CHEADERS): Likewise.
+	(GLIBCXX_ENABLE_CLOCALE): Likewise.
+	(GLIBCXX_ENABLE_ALLOCATOR): Likewise.
+	(GLIBCXX_ENABLE_CSTDIO): Likewise.
+	(GLIBCXX_ENABLE_SYMVERS): Likewise.
+	* configure: Regenerate.
+
+2010-10-02  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR libstdc++/45863
+	* scripts/extract_symvers: Revert the pvs change.
+
+2010-10-01  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* scripts/extract_symvers: Add support for tracking TLS symbols.
+	* testsuite/util/testsuite_abi.h (symbol::category): Add tls type.
+	* testsuite/util/testsuite_abi.cc: Set symbol type to tls when
+	appropriate, collect size info.
+
 2010-10-01  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
 
 	* scripts/extract_symvers: Use pvs if present.

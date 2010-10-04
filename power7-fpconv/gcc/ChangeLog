@@ -1,8 +1,194 @@
+2010-10-04  Andi Kleen <ak@linux.intel.com>
+
+	* Makefile.in (xgcc, cpp, cc1, collect2, lto-wrapper, gcov,
+        gcov-dump, cc1-dummy, genprog, build/gcov-iov):
+        Add + to build rule.
+
+2010-10-04  Matthias Klose  <doko@ubuntu.com>
+
+	* config/sparc/t-linux64 (MULTILIB_OSDIRNAMES): Use ../lib32 as the
+	multilib osdirname if it exists.
+	* config/s390/t-linux64 (MULTILIB_OSDIRNAMES): Likewise.
+
+2010-10-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/45876
+	* fold-const.c (fold_binary_loc) <case BIT_AND_EXPR>: Use
+	arg0's type or its unsigned counterpart as utype.  Convert
+	arg1 to utype unconditionally.
+
+2010-10-04  Julian Brown  <julian@codesourcery.com>
+
+	* expr.c (expand_assignment): Add assertion to prevent emitting
+	null rtx for movmisalign pattern.
+	(expand_expr_real_1): Likewise.
+	* config/arm/arm.c (arm_builtin_support_vector_misalignment): New.
+	(TARGET_VECTORIZE_SUPPORT_VECTOR_MISALIGNMENT): New. Use above.
+	(arm_vector_alignment_reachable): New.
+	(TARGET_VECTORIZE_VECTOR_ALIGNMENT_REACHABLE): New. Use above.
+	(neon_vector_mem_operand): Disallow PRE_DEC for misaligned loads.
+	(arm_print_operand): Include alignment qualifier in %A.
+	* config/arm/neon.md (UNSPEC_MISALIGNED_ACCESS): New constant.
+	(movmisalign<mode>): New expander.
+	(movmisalign<mode>_neon_store, movmisalign<mode>_neon_load): New
+	insn patterns.
+
+2010-10-04  Joseph Myers  <joseph@codesourcery.com>
+
+	* optc-gen.awk: Define global_options_set.  Don't define
+	target_flags_explicit.
+	* opth-gen.awk: Declare global_options_set.  Define
+	target_flags_explicit as macro.
+	* opts-common.c (handle_option): Take opts_set and generated_p
+	parameters.
+	(handle_generated_option, read_cmdline_option, set_option): Take
+	opts_set parameter.
+	(set_option): Use opts_set instead of hardcoding target_flags and
+	target_flags_explicit.
+	* opts.c (sel_sched_switch_set, profile_arc_flag_set,
+	flag_profile_values_set, flag_unroll_loops_set, flag_tracer_set,
+	flag_value_profile_transformations_set, flag_peel_loops_set,
+	flag_branch_probabilities_set, flag_inline_functions_set,
+	flag_ipa_cp_set, flag_ipa_cp_clone_set,
+	flag_predictive_commoning_set, flag_unswitch_loops_set,
+	flag_gcse_after_reload_set): Remove.
+	(common_handle_option, lang_handle_option, target_handle_option):
+	Take opts_set parameter.  Assert that it is &global_options_set.
+	(common_handle_option): Don't set _set variables.  Check opts_set
+	instead of such variables.
+	(enable_warning_as_error): Pass &global_options_set to
+	handle_generated_option.
+	* opts.h (cl_option_handler_func.handler, set_option,
+	handle_option, handle_generated_option, read_cmdline_option): Add
+	opts_set parameters.
+	(handle_option): Add generated_p parameter.
+	* config/i386/i386.c (ix86_function_specific_save,
+	ix86_function_specific_restore): Updat for renaming of
+	target_flags_explicit field.
+	* config/i386/i386.opt (target_flags_explicit): Rename to
+	ix86_target_flags_explicit.
+	* config/ia64/ia64.c (ia64_override_options_after_change): Check
+	global_options_set.x_flag_selective_scheduling and
+	global_options_set.x_flag_selective_scheduling2, not
+	sel_sched_switch_set.
+	* flags.h (sel_sched_switch_set,
+	flag_speculative_prefetching_set): Remove.
+	* gcc.c (driver_handle_option): Take opts_set parameter.  Assert
+	that it is &global_options_set.
+	(process_command): Pass &global_options_set to
+	read_cmdline_option.
+	* lto-opts.c (lto_reissue_options): Pass &global_options_set to
+	set_option.
+	* toplev.c (target_flags_explicit): Remove.
+
+2010-10-04  Jan Hubicka  <jh@suse.cz>
+
+	PR middle-end/45871
+	* tree-ssa-ccp.c (get_base_constructor): Take HOST_WIDE_INT offset;
+	use get_ref_base_and_offset to handle references.
+	(fold_const_aggregate_ref): Update.
+
+2010-10-04  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/45572
+	* ipa-prop.c (ipa_make_edge_direct_to_target): Call
+	ipa_check_create_node_params.
+	* ipa-inline.c (add_new_edges_to_heap): Do not insert inlined edges.
+
+2010-10-04  Yao Qi  <yao@codesourcery.com>
+
+	* doc/passes.texi: Clean up.
+
+2010-10-03  Ian Lance Taylor  <iant@google.com>
+
+	* c-typeck.c (lookup_field): If -fplan9-extensions, permit
+	referring to a field using a typedef name.
+	(find_anonymous_field_with_type): New static function.
+	(convert_to_anonymous_field): New static function.
+	(convert_for_assignment): If -fplan9-extensions, permit converting
+	pointer to struct to pointer to anonymous field.
+	* c-decl.c (grokfield): If -fplan9-extensions, permit anonymous
+	fields.
+	(is_duplicate_field): New static function.
+	(detect_field_duplicates_hash): If -fplan9-extensions, check for
+	typedef names duplicating field names.
+	(detect_field_duplicates): Likewise.
+	* doc/invoke.texi (Option Summary): Mention -fplan9-extensions.
+	(C Dialect Options): Document -fplan9-extensions.
+	* doc/extend.texi (Unnamed Fields): Document -fplan9-extensions.
+
+2010-10-03  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* tree-vect-data-refs.c (vect_analyze_data_ref_access): Revert
+	revision 164914.
+	(vect_create_data_ref_ptr): Likewise.
+	* tree-vect-stmts.c (vectorizable_store): Likewise.
+	(perm_mask_for_reverse): Likewise.
+	(reverse_vec_elements): Likewise.
+	(vectorizable_load): Likewise.
+
+2010-10-03  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	* cppbuiltin.c: New file.
+	* cppbuiltin.h: New file.
+	* Makefile.in: Take into account cppbuiltin.{h,c}.
+
+2010-10-03  Andi Kleen <ak@linux.intel.com>
+
+	* lto-cgraph.c (input_cgraph): Check for missing sections.
+
+2010-10-03  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (*ashl<mode>3_mask): Change operand 2 preticate
+	to nonimmediate_operand.  Force operand 2 to register when allowed.
+	(*<shiftrt_insn><mode>3_mask): Ditto.
+	(*<rotate_insn><mode>3_mask): Ditto.
+
+2010-10-02  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR tree-optimization/45720
+	PR tree-optimization/45764
+	* tree-vect-data-refs.c (vect_analyze_data_ref_access):
+	Don't accept backwards consecutive accesses.
+	(vect_create_data_ref_ptr): Disallow negative steps.
+
+	* tree-vect-stmts.c (vectorizable_store): Allow negative steps.
+	(perm_mask_for_reverse): Removed.
+	(reverse_vec_elements): Likewise.
+	(vectorizable_load): Don't handle negative steps.
+
+2010-10-02  Jan Hubicka  <jh@suse.cz>
+
+	* tree-ssa-ccp.c (ccp_fold_stmt): Fold away OBJ_TYPE_REF when
+	call destination is known.
+
+2010-10-02  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/45820
+	* config/pa/pa.c (pa_secondary_reload): Handle symbolic operands
+	earlier.
+
+2010-10-02  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* doc/install.texi (Configuration): Document build_configargs,
+	host_configargs, target_configargs.
+
+2010-10-01  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (*ashl<mode>3_mask): New insn_and_split pattern.
+	(*<shiftrt_insn><mode>3_mask): Ditto.
+	(*<rotate_insn><mode>3_mask): Ditto.
+
+2010-10-01  Steve Ellcey  <sje@cup.hp.com>
+
+	PR tree-optimization/44716
+	* config/ia64/hpux.h (UNLIKELY_EXECUTED_TEXT_SECTION_NAME): Define.
+	(HOT_TEXT_SECTION_NAME): Define.
+
 2010-10-01  Nick Clifton  <nickc@redhat.com>
 
 	* common.opt: Add -fcombine-stack-adjustments.
-	* opts.c (decode_options): Enable -fcombine-stack-adjustments at
-	-O1.
+	* opts.c (decode_options): Enable -fcombine-stack-adjustments at -O1.
 	* combine-stack-adj.c (gate_handle_stack_adjustments): Check
 	flag_combine_stack_adjustments.
 	* doc/invoke.texi: Document the new option.
@@ -280,8 +466,9 @@
 
 2010-09-30  Sebastian Pop  <sebastian.pop@amd.com>
 
-	* graphite-clast-to-gimple.c (max_signed_precision_type): Remove the call
-	to lang_hooks.types.type_for_size.  Call build_nonstandard_integer_type.
+	* graphite-clast-to-gimple.c (max_signed_precision_type): Remove
+	the call to lang_hooks.types.type_for_size.  Call
+	build_nonstandard_integer_type.
 
 2010-09-30  Riyadh Baghdadi <baghdadi.mr@gmail.com>
 
@@ -298,8 +485,8 @@
 	(print_pdr_access_layout): Updated to support OpenScop format.
 	(print_pdr): Same.
 	(openscop_print_pbb_domain): New.
-	(print_pbb_body): Added a parameter to allow indicating that pbb_body is
-	not provided.
+	(print_pbb_body): Added a parameter to allow indicating that pbb_body
+	is not provided.
 	(print_pbb): Updated to call the new print_pbb_body.
 	(openscop_print_scop_context): New.
 	(print_scop_header): New.
@@ -345,8 +532,7 @@
 	* Makefile.in (build/gen%$(build_exeext)): Move rule after all
 	special-casing for generators and turn into ...
 	((genprog:%=build/gen%$(build_exeext))): ... this static pattern
-	rule, for better error messages in case of toplevel dependency
-	errors.
+	rule, for better error messages in case of toplevel dependency errors.
 	(genprog): Add hooks, rename to ...
 	(genprogerr): ... this, and let genprog also contain check,
 	checksum, condmd.
@@ -355,7 +541,7 @@
 	(build/genhooks$(build_exeext)): Remove now-unneeded dependency.
 
 2010-09-30  Jonathan Wakely  <jwakely.gcc@gmail.com>
-            Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+	    Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
 
 	* doc/install.texi: Suggest using LD_LIBRARY_PATH to find libs
 	for GMP, MPFR and MPC.
@@ -363,8 +549,7 @@
 2010-09-30  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
 
 	* config/sparc/sparc.opt (mimpure-text): Move ...
-	* config/sol2.opt: ... here.
-	Correct description.
+	* config/sol2.opt: ... here.  Correct description.
 	* config.gcc (*-*-solaris2*): Add sol2.opt to extra_options.
 	* doc/invoke.texi (Option Summary, SPARC Options): Move
 	-mimpure-text, -mno-impure-text, -threads, -pthreads, -pthread ...
@@ -454,8 +639,7 @@
 	* opts.c (common_handle_option, lang_handle_option,
 	target_handle_option): Take gcc_options parameter.  Assert that it
 	is &global_options.
-	(read_cmdline_options): Pass &global_options to
-	read_cmdline_option.
+	(read_cmdline_options): Pass &global_options to read_cmdline_option.
 	(print_filtered_help): Use option_flag_var.  Pass &global_options
 	to option_enabled.
 	(common_handle_option): Use option_flag_var.
@@ -488,8 +672,7 @@
 
 	* c-parser.c (c_lex_one_token): When finding a CPP_AT_NAME
 	Objective-C token, map RID_CLASS to RID_AT_CLASS and similar.
-	(c_parser_external_declaration): Use RID_AT_CLASS
-	instead of RID_CLASS.
+	(c_parser_external_declaration): Use RID_AT_CLASS instead of RID_CLASS.
 	(c_parser_objc_class_declaration): Same change.
 	(c_parser_objc_try_catch_statement): Use RID_AT_TRY instead of
 	RID_TRY and RID_AT_CATCH instead of RID_CATCH.
@@ -525,8 +708,7 @@
 2010-09-29  Bernd Schmidt  <bernds@codesourcery.com>
 
 	PR target/40457
-	* postreload.c (move2add_use_add2_insn): Use full_costs for
-	comparison.
+	* postreload.c (move2add_use_add2_insn): Use full_costs for comparison.
 	(move2add_use_add3_insn): Likewise.
 	(reload_cse_move2add): Likewise.
 	* rtlanal.c (get_full_rtx_cost): New function.
@@ -547,8 +729,7 @@
 
 2010-09-29  Jack Howarth <howarth@bromo.med.uc.edu>
 
-	* varasm.c (assemble_alias): Add error message for
-	unsupported ifunc.
+	* varasm.c (assemble_alias): Add error message for unsupported ifunc.
 
 2010-09-29  Mike Stump  <mikestump@comcast.net>
 
@@ -583,8 +764,7 @@
 2010-09-29  Joseph Myers  <joseph@codesourcery.com>
 
 	* optc-gen.awk: Generate global_options initializer instead of
-	individual variables.  Add x_ prefix to names of structure
-	members.
+	individual variables.  Add x_ prefix to names of structure members.
 	* opth-gen.awk: Generate gcc_options structure.  Add x_ prefix to
 	names of structure members.
 	* doc/tm.texi.in (HARD_FRAME_POINTER_IS_FRAME_POINTER,
@@ -593,8 +773,7 @@
 	* alias.c: Use HARD_FRAME_POINTER_IS_FRAME_POINTER
 	* builtins.c: Use HARD_FRAME_POINTER_IS_ARG_POINTER.
 	* c-parser.c (disable_extension_diagnostics,
-	restore_extension_diagnostics): Update names of cpp_options
-	members.
+	restore_extension_diagnostics): Update names of cpp_options members.
 	* combine.c: Use HARD_FRAME_POINTER_IS_FRAME_POINTER
 	* common.opt (fcompare-debug-second): Don't use Var.
 	* config/alpha/alpha.h (target_flags): Remove.
@@ -652,8 +831,8 @@
 2010-09-29  Hariharan Sandanagobalane <hariharan@picochip.com>
 
 	* config/picochip/picochip.c (picochip_output_internal_label):
-	  This function can now be called for debug CFI labels, which can come in
-	  the middle of a vliw instruction. Postpone until end of vliw.
+	This function can now be called for debug CFI labels, which can come
+	in the middle of a vliw instruction.  Postpone until end of vliw.
 
 2010-09-29  Richard Guenther  <rguenther@suse.de>
 
@@ -765,7 +944,7 @@
 	(TARGET_UNWIND_INFO): Remove.
 
 	* config/pa/pa.c (pa_option_override): Use targetm.except_unwind_info.
-	
+
 2010-09-28  Iain Sandoe  <iains@gcc.gnu.org>
 
 	* c-parser.c (c_parser_objc_class_definition): Adjust prototype.
@@ -782,13 +961,12 @@
 	* toplev.h (save_decoded_options, save_decoded_options_count):
 	New global variables.
 	* toplev.c (save_decoded_options, save_decoded_options_count):
-	export variables.
+	Export variables.
 
 2010-09-28  Ian Lance Taylor  <iant@google.com>
 
 	* config/i386/i386.c (ix86_supports_split_stack): Test
-	HAVE_GAS_CFI_PERSONALITY_DIRECTIVE rather than
-	dwarf2out_do_cfi_asm.
+	HAVE_GAS_CFI_PERSONALITY_DIRECTIVE rather than dwarf2out_do_cfi_asm.
 
 2010-09-28  Ian Lance Taylor  <iant@google.com>
 
@@ -981,7 +1159,7 @@
 	Radar 4229905
 	* c-typeck.c (build_conditional_expr): Call objc_have_common_type when
 	looking for objective-c common pointer types.
-	
+
 	2005-06-22  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 4154928
