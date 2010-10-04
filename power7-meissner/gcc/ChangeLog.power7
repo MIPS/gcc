@@ -1,5 +1,32 @@
 2010-10-04  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* doc/md.texi (Standard Names): Add fma@{var{m}4 documentation.
+
+	* tree-vect-stmts.c (vectorizable_call): Allow 3 argument
+	vectorizable functions to support vectorizing fma.
+
+	* optabs.h (OTI_fma): Add fma optab.
+	(fma_optab): Ditto.
+
+	* genopinit.c (optabs): Set fma optab.
+
+	* builitns.c (expand_builtin_mathfn_ternary): New function for
+	expanding ternary math functions, like fma.
+	(expand_builtin): Call it for the fma builtins.
+
+	* config/rs6000/rs6000.c (rs6000_builtin_vectorized_function):
+	Handle fma builtins.
+
+	* config/rs6000/rs6000.md (UNSPEC_FMA): New unspec.
+	(fmasf4): Add fma builtin support, even if -mno-fused-madd was
+	used.
+	(fmasf4_powerpc): Ditto.
+	(fmasf4_power): Ditto.
+	(fmadf4): Ditto.
+	(fmadf4_fpr): Ditto.
+
+2010-10-04  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	Recreate branch, based off of subversion id 164946.
 	* REVISION: New file, track subversion merge number.
 
