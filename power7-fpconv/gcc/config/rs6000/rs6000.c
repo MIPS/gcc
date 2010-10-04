@@ -3902,7 +3902,11 @@ rs6000_builtin_vectorized_function (tree fndecl, tree type_out,
 	    return rs6000_builtin_decls[VSX_BUILTIN_XVMADDDP];
 	  break;
 	case BUILT_IN_FMAF:
-	  if (VECTOR_UNIT_ALTIVEC_OR_VSX_P (V4SFmode)
+	  if (VECTOR_UNIT_VSX_P (V4SFmode)
+	      && out_mode == SFmode && out_n == 4
+	      && in_mode == SFmode && in_n == 4)
+	    return rs6000_builtin_decls[VSX_BUILTIN_XVMADDSP];
+	  else if (VECTOR_UNIT_ALTIVEC_P (V4SFmode)
 	      && out_mode == SFmode && out_n == 4
 	      && in_mode == SFmode && in_n == 4)
 	    return rs6000_builtin_decls[ALTIVEC_BUILTIN_VMADDFP];
