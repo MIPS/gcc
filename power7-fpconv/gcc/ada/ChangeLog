@@ -1,3 +1,346 @@
+2010-10-05  Robert Dewar  <dewar@adacore.com>
+
+	* par-ch5.adb (Test_Statement_Required): Allow all pragmas in Ada 2012
+	mode.
+
+2010-10-05  Pascal Obry  <obry@adacore.com>
+
+	* gnat_rm.texi: Fix typo.
+
+2010-10-05  Arnaud Charlet  <charlet@adacore.com>
+
+	* gnat_ugn.texi: Add note about identifiers with same name and
+	-fdump-ada-spec.
+
+2010-10-05  Robert Dewar  <dewar@adacore.com>
+
+	* sem_ch4.adb: Minor reformatting.
+	* a-direct.ads: Minor comment update.
+
+2010-10-05  Javier Miranda  <miranda@adacore.com>
+
+	* sem_ch3.adb (Add_Internal_Interface_Entities): Removing code that is
+	no longer required after change in New_Overloaded_Entity.
+	* sem_ch6.adb (New_Overloaded_Entity): Code reorganization to isolate
+	the fragment of code that handles derivations of interface primitives.
+	Add missing dependence on global variable Inside_Freezing_Actions to
+	ensure the correct management of internal interface entities.
+	* sem_ch13.adb (Analyze_Freeze_Entity): Add missing increase/decrease
+	of the global variable Inside_Freezing_Actions to ensure that internal
+	interface entities are well handled by New_Overloaded_Entity.
+	* sem_disp.adb (Find_Primitive_Covering_Interface): Add documentation
+	and complete the algorithm to catch hidden primitives derived of
+	private type that covers the interface.
+	* sem_disp.ads (Find_Primitive_Covering_Interface): Add missing
+	documentation.
+
+2010-10-05  Robert Dewar  <dewar@adacore.com>
+
+	* prj-util.adb, prj-util.ads, prj.ads, s-vxwext-rtp.adb, sem_ch4.adb,
+	sem_ch7.adb, sem_res.adb, sem_type.adb: Minor reformatting.
+	Minor code reorganization (use Nkind_In).
+
+2010-10-05  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch10.adb (Analyze_Task_Body_Stub): Diagnose duplicate stub for
+	task.
+
+2010-10-05  Vincent Celier  <celier@adacore.com>
+
+	* gnatbind.adb: If the main library file is not for a suitable main
+	program, change the error message.
+
+2010-10-05  Vincent Celier  <celier@adacore.com>
+
+	* a-direct.ads: Minor spelling error fixes in comments.
+	* gnat_rm.texi: Add three entries in "Implementation Defined
+	Characteristics" for the interpretations of the Form parameters in
+	Ada.Directories.
+
+2010-10-05  Robert Dewar  <dewar@adacore.com>
+
+	* exp_ch3.adb, exp_ch5.adb, exp_disp.adb, exp_dist.adb, gnatlink.adb,
+	makeutl.adb, par-ch6.adb, prj-dect.adb, prj-env.adb, prj-env.ads,
+	prj-ext.adb, prj-nmsc.adb, prj-part.adb, prj-pp.ads: Minor code
+	reorganization.
+	Minor reformatting.
+
+2010-10-05  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_res.adb (Check_Parameterless_Call): If the prefix of 'Address is
+	an explicit dereference of an access to function, the prefix is not
+	interpreted as a parameterless call.
+
+2010-10-05  Ed Schonberg  <schonberg@adacore.com>
+
+	* exp_attr.adb: For 'Read and 'Write, use full view of base type if
+	private.
+
+2010-10-05  Vincent Celier  <celier@adacore.com>
+
+	* make.adb (Switches_Of): Allow wild cards in index of attributes
+	Switches.
+	* prj-util.adb (Value_Of): When Allow_Wildcards is True, use the index
+	of the associative array as a glob regular expression.
+	* prj-util.ads (Value_Of (Index, In_Array)): New Boolean parameter
+	Allow_Wildcards, defaulted to False.
+	(Value_Of (Name, Attribute_Or_Array_Name)): Ditto
+	* projects.texi: Document that attribute Switches (<file name>) may
+	use wild cards in the index.
+
+2010-10-05  Robert Dewar  <dewar@adacore.com>
+
+	* a-direct.adb, a-direct.ads, back_end.adb, checks.adb,
+	einfo.adb: Minor reformatting.
+	* debug.adb: Remove obsolete documentation for d.Z flag.
+
+2010-10-05  Vincent Celier  <celier@adacore.com>
+
+	* vms_data.ads: Add VMS qualifier /SRC_INFO= corresponding to gnatmake
+	switch --create-info-file=.
+	* gnat_ugn.texi: Add documentation for new gnatmake switch
+	--source-info=
+
+2010-10-05  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch3.adb: Do not elaborate type definition if syntax error.
+
+2010-10-05  Javier Miranda  <miranda@adacore.com>
+
+	* sprint.adb (Sprint_Node_Actual): Improve output of subprogram bodies
+	to generate the full-qualified names of its corresponding spec.
+	This facilitates locating the corresponing body when reading
+	the DG output.
+
+2010-10-05  Thomas Quinot  <quinot@adacore.com>
+
+	* exp_dist.adb (Make_Helper_Function_Name): For a tagged type, use
+	canonical name without serial number only if the helper is becoming a
+	primitive of the type.
+
+2010-10-05  Javier Miranda  <miranda@adacore.com>
+
+	* exp_disp.adb (Make_DT): Minor code reorganization.
+
+2010-10-05  Ed Schonberg  <schonberg@adacore.com>
+
+	* par-ch6.adb: improve recovery with extra paren in function spec.
+
+2010-10-05  Quentin Ochem  <ochem@adacore.com>
+
+	* prj-tree.ads: Project_Path is now aliased.
+
+2010-10-05  Thomas Quinot  <quinot@adacore.com>
+
+	* checks.adb: Minor reformatting.
+
+2010-10-05  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* mlib-tgt-specific-mingw.adb (No_Argument_List): Delete.
+	(Shared_Libgcc): New aliased variable.
+	(Shared_Libgcc_Switch): New constant.
+	(Build_Dynamic_Library): Pass Shared_Libgcc_Switch to the compiler
+	* gcc-interface/Makefile.in (gnatlib-shared-win32): Pass -shared-libgcc
+	to the compiler.
+	* gcc-interface/Make-lang.in: Update dependencies.
+	
+2010-10-05  Vincent Celier  <celier@adacore.com>
+
+	* prj-part.adb (Parse_Simple_Project): When checking if a child project
+	imports its parent project, also look in projects being extended by
+	imported projects.
+
+2010-10-05  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat_ugn.texi: Adjust instructions in G.10 Building DLLs with GNAT.
+
+2010-10-05  Javier Miranda  <miranda@adacore.com>
+
+	* exp_cg.adb (Slot_Number): Add support to handle aliased entities.
+	(Generate_CG_Output): Switch -gnatd.Z is no longer needed to
+	activate this output.
+
+2010-10-05  Arnaud Charlet  <charlet@adacore.com>
+
+	* back_end.adb (Call_Back_End): Generate an error message when scil
+	generation is enabled, and no scil back-end (by default) is available.
+
+2010-10-05  Javier Miranda  <miranda@adacore.com>
+
+	* debug.adb: Update documentation because -gnatd.Z is no longer required
+	to generate the call-graph information.
+
+2010-10-05  Javier Miranda  <miranda@adacore.com>
+
+	* exp_ch5.adb (Expand_Simple_Function_Return): Rewrite expansion of a
+	runtime access check by an equivalent expansion that causes
+	no problems in the VM backend. The original expansion was
+	not good for the VM backends because when Tagged_Type_Expansion
+	is disabled the attribute Access_Disp_Table is not available.
+
+2010-10-05  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_type.adb (Covers): In a dispatching context, T1 covers T2 if T2
+	is class-wide and T1 is its specific type.
+
+2010-10-05  Ed Schonberg  <schonberg@adacore.com>
+
+	* einfo.adb: Add guard to Is_String_Type to prevent cascaded errors.
+
+2010-10-05  Vincent Celier  <celier@adacore.com>
+
+	* back_end.ads: Minor spelling error correction.
+
+2010-10-05  Arnaud Charlet  <charlet@adacore.com>
+
+	* switch-c.adb, gnat1drv.adb (Scan_Front_End_Switches): Disable
+	warnings when -gnatC is specified here so that warnings can be
+	re-enabled  explicitly.
+	(Adjust_Global_Switches): No longer suppress warnings.
+
+2010-10-05  Vincent Celier  <celier@adacore.com>
+
+	* makeutl.adb: Minor reformatting.
+
+2010-10-05  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch4.adb: add guard in Analyze_One_Call to prevent crash when a
+	non-discrete type appears as an actual in a call.
+
+2010-10-05  Vincent Celier  <celier@adacore.com>
+
+	* make.adb (Scan_Make_Arg): Take into account new switch
+	--source-info=file.
+	* makeusg.adb: Add line for new switch --source-info=file.
+	* makeutl.ads (Source_Info_Option): New constant String for new builder
+	switch.
+	* prj-conf.adb: Put subprograms in alphabetical order
+	(Process_Project_And_Apply_Config): Read/write an eventual source info
+	file, if necessary.
+	* prj-nmsc.adb (Look_For_Sources.Get_Sources_From_Source_Info): New
+	procedure.
+	(Look_For_Sources): If a source info file was successfully read, get the
+	source data from the data read from the source info file.
+	* prj-util.adb (Source_Info_Table): New table
+	(Source_Info_Project_HTable): New hash table
+	(Create): New procedure
+	(Put (File), Put_Line): New procedures
+	(Write_Source_Info_File): New procedure
+	(Read_Source_Info_File): New procedure
+	(Initialize): New procedure
+	(Source_Info_Of): New procedure
+	(Next): New procedure
+	(Close): When file is an out file, fail if the buffer cannot be written
+	or if the file cannot be close successfully.
+	(Get_Line): Fail if file is an out file
+	* prj-util.ads (Create): New procedure
+	(Put (File), Put_Line): New procedures
+	(Write_Source_Info_File): New procedure
+	(Read_Source_Info_File): New procedure
+	(Source_Info_Data): New record type
+	(Source_Info_Iterator): New private type
+	(Initialize): New procedure
+	(Source_Info_Of): New procedure
+	(Next): New procedure
+	* prj.ads (Project_Tree_Data): New components Source_Info_File_Name and
+	Source_Info_File_Exists.
+
+2010-10-05  Ed Schonberg  <schonberg@adacore.com>
+
+	* exp_ch4.adb: Fix typo.
+
+2010-10-05  Thomas Quinot  <quinot@adacore.com>
+
+	* lib-writ.adb: Minor reformatting.
+
+2010-10-05  Javier Miranda  <miranda@adacore.com>
+
+	* sem_ch3.adb (Access_Definition): Remove useless code.
+
+2010-10-05  Emmanuel Briot  <briot@adacore.com>
+
+	* prj-env.adb, prj-env.ads (Set_Path): New subprogram.
+	(Deep_Copy): Removed, not used.
+
+2010-10-05  Javier Miranda  <miranda@adacore.com>
+
+	* sem_ch3.adb (Add_Internal_Interface_Entities): Code reorganization:
+	move code that searches in the list of primitives of a tagged type for
+	the entity that will be overridden by user-defined routines.
+	* sem_disp.adb (Find_Primitive_Covering_Interface): Move here code
+	previously located in routine Add_Internal_Interface_Entities.
+	* sem_disp.ads (Find_Primitive_Covering_Interface): Update documentation
+	* sem_ch6.adb (New_Overloaded_Entity): Add missing check on
+	availability of attribute Alias.
+
+2010-10-05  Ed Falis  <falis@adacore.com>
+
+	* s-taprop-vxworks.adb, s-osinte-vxworks.adb, s-osinte-vxworks.ads,
+	s-vxwext.ads, s-vxwext-kernel.ads, s-vxwext-rtp.adb, s-vxwext-rtp.ads:
+	Move definition of intContext to System.OS_Interface.
+	Add necessary variants in System.VxWorks.Extensions.
+
+2010-10-05  Doug Rupp  <rupp@adacore.com>
+
+	* s-asthan-vms-alpha.adb: On VMS, a task using
+	pragma AST_Entry exhibits a memory leak when the task terminates
+	because the vector allocated for the AST interface is not freed. Fixed
+	by making the vector a controlled type.
+
+2010-10-05  Emmanuel Briot  <briot@adacore.com>
+
+	* prj-nmsc.adb (Expand_Subdirectory_Pattern): Check that the prefix in
+	a "**" pattern properly exists, and report an error otherwise.
+
+2010-10-05  Emmanuel Briot  <briot@adacore.com>
+
+	* prj-env.ads: Use GNAT.OS_Lib rather than System.OS_Lib.
+
+2010-10-05  Emmanuel Briot  <briot@adacore.com>
+
+	* prj-nmsc.adb, prj-err.adb (Expand_Subdirectory_Pattern): New
+	subprogram.
+	Extract some code from Get_Directories, to share with the handling
+	of aggregate projects (for the Project_Files attributes)
+
+2010-10-05  Emmanuel Briot  <briot@adacore.com>
+
+	* gnatcmd.adb, prj-proc.adb, prj-part.adb, prj-ext.adb, prj-ext.ads,
+	switch-m.adb, clean.adb, prj-nmsc.adb, prj-nmsc.ads, prj-env.adb,
+	prj-env.ads, prj-tree.adb, prj-tree.ads (Project_Search_Path): New type.
+
+2010-10-05  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* exp_ch5.adb (Make_Field_Expr): Revert previous change (removed).
+
+2010-10-05  Emmanuel Briot  <briot@adacore.com>
+
+	* prj-dect.adb, prj-nmsc.adb, prj-attr.adb, snames.ads-tmpl
+	(Aggregate projects): added support for parsing aggregate projects.
+	In particular, check the presence and value of the new attributes
+	related to aggregate projects, ie Project_Files, Project_Path
+	and External.
+	(Check_Attribute_Allowed, Check_Package_Allowed,
+	Rename_Obsolescent_Attributes): new subprogram, extracting code
+	from existing subprogram to keep their sizes smaller.
+	(Check_Aggregate_Project, Check_Abstract_Project,
+	Check_Missing_Sources): new subprograms
+	(Check): remove comments that duplicated either the name of the
+	following subprogram call, or the comment on that subprogram.
+	* prj-part.adb (Check_Extending_All_Imports): New subprogram, extracted
+	from Parse_Single_Project.
+	(Check_Aggregate_Imports): new subprogram.
+
+2010-10-05  Vincent Celier  <celier@adacore.com>
+
+	* make.adb (Check): When compiling with -gnatc, recompile if the ALI
+	file has not been generated for the current source, for example if it
+	has been generated for the spec, but we are compiling the body.
+
+2010-10-05  Bob Duff  <duff@adacore.com>
+
+	* xgnatugn.adb: Remove unused procedure.
+
 2010-10-04  Vincent Celier  <celier@adacore.com>
 
 	* a-direct.adb (Copy_File): Interpret the Form parameter and call
