@@ -260,6 +260,27 @@ builtin_define_float_constants (const char *name_prefix,
      NaN has quiet NaNs.  */
   sprintf (name, "__%s_HAS_QUIET_NAN__", name_prefix);
   builtin_define_with_int_value (name, MODE_HAS_NANS (TYPE_MODE (type)));
+
+  /* Note, whether the port has builtin FMA support.  */
+#ifdef HAVE_fmasf4
+  if (HAVE_fmasf4 && FLOAT_TYPE_SIZE == 32)
+    builtin_define_with_int_value ("__FP_FAST_FMAS", 1);
+#endif
+
+#ifdef HAVE_fmadf4
+  if (HAVE_fmadf4 && DOUBLE_TYPE_SIZE == 64)
+    builtin_define_with_int_value ("__FP_FAST_FMA", 1);
+#endif
+
+#ifdef HAVE_fmatf4
+  if (HAVE_fmatf4 && LONG_DOUBLE_TYPE_SIZE == 128)
+    builtin_define_with_int_value ("__FP_FAST_FMAL", 1);
+#endif
+
+#ifdef HAVE_fmaxf4
+  if (HAVE_fmaxf4 && LONG_DOUBLE_TYPE_SIZE > 64 && LONG_DOUBLE_TYPE_SIZE < 128)
+    builtin_define_with_int_value ("__FP_FAST_FMAL", 1);
+#endif
 }
 
 /* Define __DECx__ constants for TYPE using NAME_PREFIX and SUFFIX. */

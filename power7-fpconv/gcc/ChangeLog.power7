@@ -1,3 +1,52 @@
+2010-10-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* doc/rtl.texi (RTX_TERNARY): Document FMA is ternary.  Add
+	SIGN_EXTRACT and ZERO_EXTRACT which were missing.
+
+	* c-family/c-cppbuiltin.c (builtin_define_float_constants): Define
+	__FP_FAST_FMA, __FP_FAST_FMAS, and __FP_FAST_FMAL if the port
+	defines appropriate fused multiply/add instructions.
+
+	* rtl.def (FMA): New RTL for fused multiply/add.
+
+	* simplify-rtx.c (simplify_ternary_operation): Don't simplify FMA
+	ops at present.
+
+	* config/rs6000/vsx.md (UNSPEC_VSX_MADD): Delete.
+	(UNSPEC_VSX_MSUB): Ditto.
+	(UNSPEC_VSX_NMADD): Ditto.
+	(UNSPEC_VSX_NMSUB): Ditto.
+	(vsx_fmadd<mode>4*): Rewrite to use FMA rtl.  Renumber combiner
+	patterns.
+	(vsx_fmsub<mode>4*): Ditto.
+	(vsx_fnmadd<mode>4*): Ditto.
+	(vsx_fnmsub<mode>4*): Ditto.
+
+	* config/rs6000/altivec.md (UNSPEC_VNMSUBFP): Delete.
+	(altivec_vmaddfp): Rewrite to use FMA rtl, and don't use
+	TARGET_FUSED_MADD.  Rename combiner pattern, and add
+	TARGET_FUSED_MADD test.  Delete expander pattern.
+	(altivec_vmaddfp_1): Ditto.
+	(atlivec_mulv4sf3): Ditto.
+	(altivec_vnmsubfp): Ditto.
+	(altivec_vnmsubfp_1): Ditto.
+	(altivec_vnmsubfp_2): Ditto.
+	(altivec_vnmsubfp_3): Delete.
+
+	* config/rs6000/rs6000.md (UNSPEC_FMA): Delete.
+	(fmasf4): Rewrite to always use FMA rtl.  Add combiners to
+	generate the four fused multiply/add ops.  Combine power, powerpc
+	ops.
+	(fmasf4_fpr): Ditto.
+	(fmssf4_fpr): Ditto.
+	(fnmasf4_fpr): Ditto.
+	(fnmssf4_fpr): Ditto.
+	(fmasf4): Ditto.
+	(fmasf4_fpr): Ditto.
+	(fmssf4_fpr): Ditto.
+	(fnmasf4_fpr): Ditto.
+	(fnmssf4_fpr): Ditto.
+
 2010-10-04  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 164954.

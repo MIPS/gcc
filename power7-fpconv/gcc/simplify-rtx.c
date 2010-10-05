@@ -4704,6 +4704,12 @@ simplify_ternary_operation (enum rtx_code code, enum machine_mode mode,
 
   switch (code)
     {
+      /* At present, don't simplify fused multiply and add ops, because we need
+	 to make sure there are no intermediate rounding steps used, and that
+	 we get the right sign if negative 0 would be returned.  */
+    case FMA:
+      return 0;
+
     case SIGN_EXTRACT:
     case ZERO_EXTRACT:
       if (CONST_INT_P (op0)

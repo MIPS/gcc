@@ -5,6 +5,15 @@
 /* { dg-final { scan-assembler-times "xvmadd" 4 } } */
 /* { dg-final { scan-assembler-times "xsmadd" 2 } } */
 /* { dg-final { scan-assembler-times "fmadds" 2 } } */
+/* { dg-final { scan-assembler-times "xvmsub" 2 } } */
+/* { dg-final { scan-assembler-times "xsmsub" 1 } } */
+/* { dg-final { scan-assembler-times "fmsubs" 1 } } */
+/* { dg-final { scan-assembler-times "xvnmadd" 2 } } */
+/* { dg-final { scan-assembler-times "xsnmadd" 1 } } */
+/* { dg-final { scan-assembler-times "fnmadds" 1 } } */
+/* { dg-final { scan-assembler-times "xvnmsub" 2 } } */
+/* { dg-final { scan-assembler-times "xsnmsub" 1 } } */
+/* { dg-final { scan-assembler-times "fnmsubs" 1 } } */
 
 /* All functions should generate an appropriate (a * b) + c instruction
    since -mfused-madd is on by default.  */
@@ -12,25 +21,61 @@
 double
 builtin_fma (double b, double c, double d)
 {
-  return __builtin_fma (b, c, d);
+  return __builtin_fma (b, c, d);			/* xsmadd{a,m}dp */
+}
+
+double
+builtin_fms (double b, double c, double d)
+{
+  return __builtin_fma (b, c, -d)			/* xsmsub{a,b}dp */;
+}
+
+double
+builtin_fnma (double b, double c, double d)
+{
+  return - __builtin_fma (b, c, d);			/* xsnmadd{a,b}dp */
+}
+
+double
+builtin_fnms (double b, double c, double d)
+{
+  return - __builtin_fma (b, c, -d);			/* xsnmsub{a,b}dp */
 }
 
 float
 builtin_fmaf (float b, float c, float d)
 {
-  return __builtin_fmaf (b, c, d);
+  return __builtin_fmaf (b, c, d);			/* fmadds */
+}
+
+float
+builtin_fmsf (float b, float c, float d)
+{
+  return __builtin_fmaf (b, c, -d);			/* fmsubs */
+}
+
+float
+builtin_fnmaf (float b, float c, float d)
+{
+  return - __builtin_fmaf (b, c, d);			/* fnmadds */
+}
+
+float
+builtin_fnmsf (float b, float c, float d)
+{
+  return - __builtin_fmaf (b, c, -d);			/* fnmsubs */
 }
 
 double
 normal_fma (double b, double c, double d)
 {
-  return (b * c) + d;
+  return (b * c) + d;					/* xsmadd{a,m}dp */
 }
 
 float
 normal_fmaf (float b, float c, float d)
 {
-  return (b * c) + d;
+  return (b * c) + d;					/* fmadds */
 }
 
 #ifndef SIZE
@@ -53,7 +98,34 @@ vector_fma (void)
   int i;
 
   for (i = 0; i < SIZE; i++)
-    vda[i] = __builtin_fma (vdb[i], vdc[i], vdd[i]);
+    vda[i] = __builtin_fma (vdb[i], vdc[i], vdd[i]);	/* xvmadd{a,m}dp */
+}
+
+void
+vector_fms (void)
+{
+  int i;
+
+  for (i = 0; i < SIZE; i++)
+    vda[i] = __builtin_fma (vdb[i], vdc[i], -vdd[i]);	/* xvmsub{a,m}dp */
+}
+
+void
+vector_fnma (void)
+{
+  int i;
+
+  for (i = 0; i < SIZE; i++)
+    vda[i] = - __builtin_fma (vdb[i], vdc[i], vdd[i]);	/* xvnmadd{a,m}dp */
+}
+
+void
+vector_fnms (void)
+{
+  int i;
+
+  for (i = 0; i < SIZE; i++)
+    vda[i] = - __builtin_fma (vdb[i], vdc[i], -vdd[i]);	/* xvnmsub{a,m}dp */
 }
 
 void
@@ -62,7 +134,34 @@ vector_fmaf (void)
   int i;
 
   for (i = 0; i < SIZE; i++)
-    vfa[i] = __builtin_fmaf (vfb[i], vfc[i], vfd[i]);
+    vfa[i] = __builtin_fmaf (vfb[i], vfc[i], vfd[i]);	/* xvmadd{a,m}sp */
+}
+
+void
+vector_fmsf (void)
+{
+  int i;
+
+  for (i = 0; i < SIZE; i++)
+    vfa[i] = __builtin_fmaf (vfb[i], vfc[i], -vfd[i]);	/* xvmsub{a,m}sp */
+}
+
+void
+vector_fnmaf (void)
+{
+  int i;
+
+  for (i = 0; i < SIZE; i++)
+    vfa[i] = - __builtin_fmaf (vfb[i], vfc[i], vfd[i]);	/* xvnmadd{a,m}sp */
+}
+
+void
+vector_fnmsf (void)
+{
+  int i;
+
+  for (i = 0; i < SIZE; i++)
+    vfa[i] = - __builtin_fmaf (vfb[i], vfc[i], -vfd[i]); /* xvnmsub{a,m}sp */
 }
 
 void
@@ -71,7 +170,7 @@ vnormal_fma (void)
   int i;
 
   for (i = 0; i < SIZE; i++)
-    vda[i] = (vdb[i] * vdc[i]) + vdd[i];
+    vda[i] = (vdb[i] * vdc[i]) + vdd[i];		/* xvmadd{a,m}dp */
 }
 
 void
@@ -80,5 +179,5 @@ vnormal_fmaf (void)
   int i;
 
   for (i = 0; i < SIZE; i++)
-    vfa[i] = (vfb[i] * vfc[i]) + vfd[i];
+    vfa[i] = (vfb[i] * vfc[i]) + vfd[i];		/* xvmadd{a,m}sp */
 }
