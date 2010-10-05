@@ -406,6 +406,12 @@ struct omp_region
 
   /* True if this is a combined parallel+workshare region.  */
   bool is_combined_parallel;
+
+  /* Streams accessed by this region */
+  htab_t view_pointers;
+
+  /* Streamization data */
+  void *streamization_info;
 };
 
 extern struct omp_region *root_omp_region;

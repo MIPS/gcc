@@ -179,4 +179,21 @@ extern bool GOMP_single_start (void);
 extern void *GOMP_single_copy_start (void);
 extern void GOMP_single_copy_end (void *);
 
+/* stream.c */
+extern void *GOMP_stream_create_stream (size_t, unsigned long long, char *);
+extern void *GOMP_stream_create_read_view (void);
+extern void *GOMP_stream_create_write_view (void);
+extern void *GOMP_stream_create_task (void);
+extern void GOMP_stream_add_expected_views (void *, int, int, int);
+extern void GOMP_stream_connect_view (void *, void *, void *);
+extern void GOMP_stream_wait_until_connected (void *);
+extern unsigned long long GOMP_stream_update (void *,
+					      const unsigned long long);
+extern void GOMP_stream_stall (void *, const unsigned long long);
+extern void GOMP_stream_release (void *, const unsigned long long);
+extern void GOMP_stream_commit (void *, const unsigned long long);
+extern void GOMP_stream_task_exit (void *);
+
+
+
 #endif /* LIBGOMP_G_H */

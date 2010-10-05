@@ -1,0 +1,38 @@
+2010-10-05  Antoniu Pop  <antoniu.pop@gmail.com>
+
+	* stream.c (gomp_stream_add_view_to_list): Added missing sizeof
+	call inside gomp_realloc.
+
+2010-07-10  Antoniu Pop  <antoniu.pop@gmail.com>
+
+	* stream.c (GOMP_stream_connect_view): Update the
+	nr_registered_views field in the view_handle when connecting
+	views.
+
+2010-07-05  Antoniu Pop  <antoniu.pop@gmail.com>
+
+	* stream.c (gomp_stream_unregister_view): Set the EOS_P flag when
+	the last producer exits and commit up to the highest committed index.
+	(gomp_stream_compute_lower_max): New.
+
+2010-07-05  Antoniu Pop  <antoniu.pop@gmail.com>
+
+	* stream.c (GOMP_stream_create_stream): corrected initialization
+	values.
+
+2010-07-01  Antoniu Pop  <antoniu.pop@gmail.com>
+
+	* stream.h: New.
+	* stream.c: New.
+	* Makefile.am (libgomp_la_SOURCES): Added stream.c
+	* Makefile.in: Regenerated.
+	* libgomp.h: Include stream.h
+	* libgomp_g.h (GOMP_stream_create_stream)
+	(GOMP_stream_create_read_view, GOMP_stream_create_write_view)
+	(GOMP_stream_create_task, GOMP_stream_add_expected_views)
+	(GOMP_stream_connect_view, GOMP_stream_wait_until_connected)
+	(GOMP_stream_update, GOMP_stream_stall, GOMP_stream_release)
+	(GOMP_stream_commit, GOMP_stream_task_exit): Declared builtins
+	from stream.c
+	* libgomp.map: Export GOMP_stream_*.
+	* omp.h.in: Added GOMP_stream_* to the OpenMP public interface.

@@ -5734,6 +5734,15 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 	  flags = GOVD_REDUCTION | GOVD_SEEN | GOVD_EXPLICIT;
 	  check_non_private = "reduction";
 	  goto do_add;
+	case OMP_CLAUSE_INPUT:
+	case OMP_CLAUSE_OUTPUT:
+          {
+            tree view = OMP_CLAUSE_VIEW_ID (c);
+            if(view != NULL_TREE)
+	      omp_add_variable (ctx, view, GOVD_LOCAL | GOVD_SEEN);
+          }
+	  flags = GOVD_PRIVATE | GOVD_EXPLICIT;
+	  goto do_add;
 
 	do_add:
 	  decl = OMP_CLAUSE_DECL (c);
@@ -5959,6 +5968,8 @@ gimplify_adjust_omp_clauses (tree *list_p)
 	    = (n->value & GOVD_FIRSTPRIVATE) != 0;
 	  break;
 
+	case OMP_CLAUSE_INPUT:
+	case OMP_CLAUSE_OUTPUT:
 	case OMP_CLAUSE_REDUCTION:
 	case OMP_CLAUSE_COPYIN:
 	case OMP_CLAUSE_COPYPRIVATE:

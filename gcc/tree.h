@@ -295,6 +295,12 @@ enum omp_clause_code
   /* OpenMP clause: lastprivate (variable_list).  */
   OMP_CLAUSE_LASTPRIVATE,
 
+  /* OpenMP clause: firstprivate (variable_list).  */
+  OMP_CLAUSE_INPUT,
+
+  /* OpenMP clause: lastprivate (variable_list).  */
+  OMP_CLAUSE_OUTPUT,
+
   /* OpenMP clause: reduction (operator:variable_list).
      OMP_CLAUSE_REDUCTION_CODE: The tree_code of the operator.
      Operand 1: OMP_CLAUSE_REDUCTION_INIT: Stmt-list to initialize the var.
@@ -1760,6 +1766,24 @@ extern void protected_set_expr_location (tree, location_t);
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_RANGE_CHECK (OMP_CLAUSE_CHECK (NODE),	\
 					      OMP_CLAUSE_PRIVATE,	\
 	                                      OMP_CLAUSE_COPYPRIVATE), 0)
+
+#define OMP_CLAUSE_STREAM_ID(NODE)     					\
+  OMP_CLAUSE_OPERAND (OMP_CLAUSE_RANGE_CHECK (OMP_CLAUSE_CHECK (NODE),	\
+					      OMP_CLAUSE_INPUT,		\
+	                                      OMP_CLAUSE_OUTPUT), 0)
+#define OMP_CLAUSE_STREAM_SUB(NODE)					\
+  OMP_CLAUSE_OPERAND (OMP_CLAUSE_RANGE_CHECK (OMP_CLAUSE_CHECK (NODE),	\
+					      OMP_CLAUSE_INPUT,		\
+	                                      OMP_CLAUSE_OUTPUT), 1)
+#define OMP_CLAUSE_VIEW_ID(NODE)					\
+  OMP_CLAUSE_OPERAND (OMP_CLAUSE_RANGE_CHECK (OMP_CLAUSE_CHECK (NODE),	\
+					      OMP_CLAUSE_INPUT,		\
+	                                      OMP_CLAUSE_OUTPUT), 2)
+#define OMP_CLAUSE_BURST_SIZE(NODE)					\
+  OMP_CLAUSE_OPERAND (OMP_CLAUSE_RANGE_CHECK (OMP_CLAUSE_CHECK (NODE),	\
+					      OMP_CLAUSE_INPUT,		\
+	                                      OMP_CLAUSE_OUTPUT), 3)
+
 #define OMP_CLAUSE_HAS_LOCATION(NODE) \
   ((OMP_CLAUSE_CHECK (NODE))->omp_clause.locus != UNKNOWN_LOCATION)
 #define OMP_CLAUSE_LOCATION(NODE)  (OMP_CLAUSE_CHECK (NODE))->omp_clause.locus

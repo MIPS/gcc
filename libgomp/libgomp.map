@@ -167,4 +167,17 @@ GOMP_2.0 {
 	GOMP_loop_ull_runtime_start;
 	GOMP_loop_ull_static_next;
 	GOMP_loop_ull_static_start;
+	GOMP_stream_create_stream;
+	GOMP_stream_create_read_view;
+	GOMP_stream_create_write_view;
+	GOMP_stream_create_task;
+	GOMP_stream_add_expected_views;
+	GOMP_stream_connect_view;
+	GOMP_stream_wait_until_connected;
+	GOMP_stream_update;
+	GOMP_stream_stall;
+	GOMP_stream_release;
+	GOMP_stream_commit;
+	GOMP_stream_task_exit;
 } GOMP_1.0;
+

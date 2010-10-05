@@ -1,0 +1,206 @@
+2010-10-04  Cupertino Miranda  <cupertinomiranda@gmail.com>
+
+	* omp-low.c: Debugging
+	(convert_view_var_array): Perform a type cast for the case where an
+	address of ARRAY_REF is performed. Cast is done for the expected type
+	of the current node.
+	(expand_view_traverser_callback): Corrected code for cases where an
+	assign statement that has two memory operands.
+
+2010-10-04  Cupertino Miranda  <cupertinomiranda@gmail.com>
+
+	* omp-low.c: Debugging and cleanup
+	(_lookup_stream): Removed stream type checking to start treat every
+	stream var in the same fashion.
+	(TRAVERSE_VIEWS_IN_REGION): Check htab before doing the traversal.
+	(traverse_views_in_region_and_subs): Check region->view_pointers before
+	traverse it.
+	(compute_data_position): Rename variables. Enabled to pass NULL index
+	to make it further reusable.
+	(convert_view_var_array_struct): Added assign_to_var_if_has_parent.
+	(convert_view_var_array): Updated way to perform convertion. Convertion
+	is only executed for ARRAY elements. Created checks to validate if
+	recursive callers should do the convertion or simply ignore. The 
+	remaining expansions are performed by the caller function. 
+	(expand_view_traverser_callback_data): Removed unused nr_elements.
+	(expand_view_traverser_callback): Moved sync_index increment to after
+	commit / release. Created condition to either call 
+	convert_view_var_array (for an ARRAY element, substituting it by direct
+	buffer accesses) or perform the expansion in this function by adding
+	either and read / write to the buffer after / before an update / commit
+	respectively.
+	(register_views_traverser_callback): Change initial assign to
+	sync_index to view_horizon instead of 0.
+	(expand_task_streaming_extensions): Removed assign to nr_elements
+	remove from the structure. Added gsi_inserts for write_stmts and
+	read_stmts elements.
+	(stream_create_calls): Changed created variables from size_type_node to
+	long_long_unsigned_type_node.
+	(expand_push_and_pop_stubs): Removed un-used nr_elements local
+	variable.
+	(expand_omp_single): Removed a condition that was miss protecting some
+	code that was producing bad builtin calls when master had no shared
+	stream with child tasks.
+	(retrieve_streams_info): Changed var from size_type_node to
+	long_long_unsigned_type_node.	
+
+2010-09-28  Antoniu Pop  <antoniu.pop@gmail.com>
+
+	* omp-low.c: Debugging and cleanup.
+	(retrieve_streams_info): Removed unguarded call to
+	OMP_CLAUSE_STREAM_ID.  This macro can only be called on
+	OMP_CLAUSE_INPUT and OMP_CLAUSE_OUTPUT.
+	(list_bbs_in_sese): Renamed variable NEW to avoid compilation
+	warnings and potential surprises.
+	(lookup_stream, compute_data_position): Changed type of
+	BUFFER_MASK to be consistent.  As we use unsigned_long_long for
+	indexes and horizons, this should be used everywhere we interact
+	with stream indexes.
+	(convert_view_var_array): Handle cases where the use of a
+	dereference is not acceptable in gimple. This includes among
+	others, binary RHS in assignment, non-register LHS, statements
+	with no memory operands.
+
+2010-07-27  Cupertino Miranda  <cupertinomiranda@gmail.com>
+
+	* omp-low.c: Updated code to new streaming syntax.
+	(regions_streamization_info): Added outer_check, outer_first,
+	sese_entry, sese_exit;
+	(stream, _lookup_stream): Added buffer_type, buffer_mask,
+	element_number. Removed element_size and data. Initializations within
+	_lookup_stream. Added logic to identify type of elements in stream
+	depending if stream var is simple type or an array. Should be changed
+	later.
+	(view): Added sync_index, buffer_pointer, view_var, burst, view_horizon, 
+	expanded_push_pop and info.
+	(prepare_inner_context_for_streaming): Adapted to supported newly
+	expansion correctly updateing elements in regions_streamization_info.
+	(compute_data_position): Added function to simplify expansion to buffer
+	positions by index.
+	(create_data_pointer): Removed
+	(is_same_expression): Added function to identify similar tree node
+	expressions. Used to compare with operands used in code to substitute
+	the view_var by a direct buffer access.
+	(convert_view_var_array_struct, convert_view_var_array): Strucutre and
+	function traverser callback to convert the view_vars in direct buffer
+	accesses. Uses is_same_expression function to compare tree expressions.
+	(list_bbs_in_sese): Function to create a list of BBS inside of a SESE
+	region. We use it to identify which BBS we should traverse to
+	substitute all view_var references by buffer acceses.
+	(convert_view_var_array_traverser): Function to traverse SESE
+	and substitute all the references of view_var by the respective buffer
+	pointer. It is a callback function but is not used as such. 
+	(expand_view_traverser_callback): Changed how the expansion is
+	performed. Mainly, created different index variables, view_vars are
+	converted here by calls to convert_view_var_array_traverser instead of
+	the previous copy or memcpy that was done before.
+	(register_views_traverser_callback): Initialize newly introduced index
+	vars. 
+	(expand_task_streaming_extensions): Adapted to reflect new syntax /
+	expansion.
+	(expand_push_and_pop_stubs): Updated to reflect new expansion. More
+	respectively, create stall / release statements before single regions.
+	(expand_omp_single): Setup SESE BBS nodes in stramization_info, both
+	task and single regions.
+	(retrieve_streams_info): Initialize new view structure elements.
+						  
+	* gimplify.c: Updated set default cluase for view var.
+	(gimplify_scan_omp_clauses): Added view var as local when omp a new
+	syntax input / output clause is used.
+
+	* c-parser.c: Added support for new input / output clause clauses.
+	(c_parser_omp_stream_identifier, (c_parser_omp_stream_clause): New 
+	parsing function.
+	(c_parser_omp_clause_input, c_parser_omp_clause_output): Updated.
+
+2010-07-22  Cupertino Miranda  <cupertinomiranda@gmail.com>
+
+	* omp-low.c: Clearly commented code.
+	Renamed stream_task to regions_streamization_info
+	Renamed create_synchronization to expand_view_traverser_callback
+	(stream, _lookup_stream): Added access_type, element_size, element_type
+	to stream structure. Initialized those in _lookup_stream.
+	(prepare_inner_context_for_streaming): Updated comments. Removed
+	repeated split_edge call for outer_latch. Removed call to remove edge.
+	(create_data_pointer): Changed way to obtain stream elements size.
+	(expand_view_traverser_callback): In case elements being accessed in
+	view are typed ARRAY_DECL then the data in it is fully copied to and
+	from the buffer with a MEMCPY built in.
+	(lower_copyprivate_clauses): Removed call to build_fold_addr_expr_loc.
+	Removed a couple of redundant calls to cleanup_tree_cfg.
+	
+2010-07-20  Antoniu Pop  <antoniu.pop@gmail.com>
+
+	* omp-low.c (create_task_copyfn): Added cases for OMP_CLAUSE_INPUT
+	and OMP_CLAUSE_OUTPUT to create the proper copy-in code for the
+	marshalling function.
+
+2010-07-09  Cupertino Miranda  <cupertinomiranda@gmail.com>
+
+	* omp-low.c (clause_to_var_struct, hash_clause_to_var,
+        eq_clause_to_var, lookup_var_for_clause): New structure, 
+	hash table and the accessor functions.
+
+2010-07-06  Cupertino Miranda  <cupertinomiranda@gmail.com>
+
+	* omp-low.c (stream_task, get_streamization_info_for_region):
+	Structure and creator/accessor functions streamization
+	information used through code expnsion.
+	(stream, htab_stream, hash_stream, eq_stream, lookup_stream,
+	_lookup_stream): New structure, hash table and the accessor
+	functions.
+	(view, hash_view, eq_view, alloc_view, _lookup_view,
+	lookup_view, maybe_lookup_view): New structure, hash table
+	and the accessor functions.
+	(stmt_location, stmt_loc, htab_stmt_loc, hash_stmt_loc,
+	eq_stmt_loc, get_stmt_loc, lookup_stmt_loc, set_stmt_loc,
+	set_stmt_loc_if_none): New structure, hash table and the
+	accessor functions.
+	(TRAVERSE_VIEWS_IN_REGION_AND_SUBS, TRAVERSE_VIEWS_IN_REGION,
+	GET_VIEW_FOR_STREAM_WITH_POINTER): New macros
+	(scan_sharing_clauses, lower_rec_input_clauses, expand_omp_taskreg,
+	lower_send_clauses, expand_omp_single, execute_expand_omp,
+	lower_omp_taskreg, execute_lower_omp):
+	Implement streamization of INPUT/OUTPUT clauses.
+
+	* c-parser.c (c_parser_omp_clause_name, c_parser_omp_all_clauses,
+	OMP_TASK_CLAUSE_MASK): Added OMP_CLAUSE_INPUT and
+	OMP_CLAUSE_OUTPUT cases.
+	(c_parser_omp_clause_input, c_parser_omp_clause_output): New.
+
+	* tree-flow.h (omp_region): Added streamization_init_bb and
+	streamization_exit_bb fields.
+	* c-pragma.h (pragma_omp_clause): Add OMP_CLAUSE_INPUT
+	OMP_CLAUSE_OUTPUT clauses.
+	* c-typeck.c (c_finish_omp_clauses): Added OMP_CLAUSE_INPUT and
+	OMP_CLAUSE_OUTPUT cases.
+	* gimplify.c (gimplify_scan_omp_clauses,
+	gimplify_adjust_omp_clauses): Added OMP_CLAUSE_INPUT and
+	OMP_CLAUSE_OUTPUT cases.
+	* tree.c (omp_clause_num_ops, omp_clause_code_name, walk_tree_1):
+	Add and handle OMP_CLAUSE_INPUT and OMP_CLAUSE_OUTPUT cases.
+	* tree.h (omp_clause_code): Add OMP_CLAUSE_INPUT
+	OMP_CLAUSE_OUTPUT clauses.
+	* tree-pretty-print.c (dump_omp_clause): Added OMP_CLAUSE_INPUT
+	and OMP_CLAUSE_OUTPUT cases.
+
+2010-07-01  Antoniu Pop  <antoniu.pop@gmail.com>
+
+	* builtin-types.def (BT_FN_ULL_PTR_ULL, BT_FN_VOID_PTR_ULL)
+	(BT_FN_PTR_SIZE_ULL_PTR, BT_FN_VOID_PTR_INT_INT_INT): New builtin
+	types for the GOMP stream runtime.
+	* omp-builtins.def (BUILT_IN_GOMP_STREAM_CREATE_STREAM)
+	(BUILT_IN_GOMP_STREAM_CREATE_READ_VIEW)
+	(BUILT_IN_GOMP_STREAM_CREATE_WRITE_VIEW)
+	(BUILT_IN_GOMP_STREAM_CREATE_TASK)
+	(BUILT_IN_GOMP_STREAM_ADD_EXPECTED_VIEWS)
+	(BUILT_IN_GOMP_STREAM_CONNECT_VIEW)
+	(BUILT_IN_GOMP_STREAM_WAIT_UNTIL_CONNECTED)
+	(BUILT_IN_GOMP_STREAM_UPDATE, BUILT_IN_GOMP_STREAM_STALL)
+	(BUILT_IN_GOMP_STREAM_RELEASE, BUILT_IN_GOMP_STREAM_COMMIT)
+	(BUILT_IN_GOMP_STREAM_TASK_EXIT): New builtin functions of the
+	GOMP stream runtime.
+
+2010-06-30  Cupertino Miranda  <cupertinomiranda@gmail.com>
+
+        * Branch from mainline (r158338).

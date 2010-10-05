@@ -48,6 +48,7 @@
 #include "mutex.h"
 #include "bar.h"
 #include "ptrlock.h"
+#include "stream.h"
 
 
 /* This structure contains the data to control one work-sharing construct,

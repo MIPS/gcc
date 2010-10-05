@@ -102,4 +102,29 @@ int omp_get_active_level (void) __GOMP_NOTHROW;
 }
 #endif
 
+#define GOMP_STREAM_ACCESS(VIEW, INDEX, TYPE)				\
+  (**((TYPE ***) (VIEW)))						\
+  [(unsigned long long)(INDEX) &					\
+   (*((unsigned long long *)((*((char ***) (VIEW))) + 1)))]
+
+extern void *GOMP_stream_create_stream (size_t, unsigned long long, char *)
+  __GOMP_NOTHROW;
+extern void *GOMP_stream_create_read_view (void) __GOMP_NOTHROW;
+extern void *GOMP_stream_create_write_view (void) __GOMP_NOTHROW;
+extern void *GOMP_stream_create_task (void) __GOMP_NOTHROW;
+extern void GOMP_stream_add_expected_views (void *, int, int, int)
+  __GOMP_NOTHROW;
+extern void GOMP_stream_connect_view (void *, void *, void *) __GOMP_NOTHROW;
+extern void GOMP_stream_wait_until_connected (void *) __GOMP_NOTHROW;
+extern unsigned long long GOMP_stream_update (void *,
+					      const unsigned long long)
+  __GOMP_NOTHROW;
+extern void GOMP_stream_stall (void *, const unsigned long long)
+  __GOMP_NOTHROW;
+extern void GOMP_stream_release (void *, const unsigned long long)
+  __GOMP_NOTHROW;
+extern void GOMP_stream_commit (void *, const unsigned long long)
+  __GOMP_NOTHROW;
+extern void GOMP_stream_task_exit (void *) __GOMP_NOTHROW;
+
 #endif /* OMP_H */
