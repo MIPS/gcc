@@ -1,3 +1,298 @@
+2010-10-05  Anatoly Sokolov  <aesok@post.ru>
+
+	* config/m68hc11/m68hc11.h (CLASS_LIKELY_SPILLED_P): Remove.
+	* config/m68hc11/m68hc11.c (TARGET_CLASS_LIKELY_SPILLED_P): Define.
+	(m68hc11_class_likely_spilled_p): New function.
+
+2010-10-05  Nicola Pero  <nicola.pero@meta-innovation.com>
+
+	* c-parser.c (c_parser_objc_method_definition): Updated comment.
+
+2010-10-05  Jan Hubicka  <jh@suse.cz>
+
+	* doc/invoke.texi (-flto-partition, lto-partitions, lto-minpartition):
+	Document.
+	* opts.c (decode_options): Handle lto partitions.
+	* common.opt (flto-partition=1to1, flto-partition=balanced): New.
+	* params.def (PARAM_LTO_PARTITIONS, MIN_PARTITION_SIZE): New.
+
+2010-10-05  Jan Hubicka  <jh@suse.cz>
+
+	* cgraphunit.c (assemble_function): Output thunks and aliases before
+	the function itself.
+
+2010-09-29  Hariharan Sandanagobalane <hariharan@picochip.com>
+
+	* config/picochip/picochip.c (picochip_option_override): Disable
+	exception flags for picochip.
+
+2010-10-05  Joseph Myers  <joseph@codesourcery.com>
+
+	* opts-common.c (handle_option, handle_generated_option,
+	read_cmdline_option, set_option): Add diagnostic_context
+	parameter.  Update calls among these functions.
+	(set_option): Don't use global_dc.
+	* opts.c (read_cmdline_options): Pass global_dc to
+	read_cmdline_option.
+	(decode_options): Pass global_dc to enable_warning_as_error.
+	(common_handle_option): Pass global_dc to enable_warning_as_error.
+	(enable_warning_as_error): Add diagnostic_context parameter.
+	Document parameters.  Don't use global_dc.  Pass
+	diagnostic_context parameter to handle_generated_option.
+	* opts.h (set_option, handle_option, handle_generated_option,
+	read_cmdline_option, enable_warning_as_error): Add
+	diagnostic_context parameter.
+	* Makefile.in (lto-opts.o): Update dependencies.
+	* coretypes.h (struct diagnostic_context, diagnostic_context):
+	Declare here.
+	* diagnostic.h (diagnostic_context): Don't declare typedef here.
+	* gcc.c (process_command): Pass global_dc to read_cmdline_option.
+	* langhooks-def.h (struct diagnostic_context): Don't declare here.
+	(lhd_print_error_function, lhd_initialize_diagnostics): Declare
+	using diagnostic_context typedef.
+	* langhooks.c (lhd_initialize_diagnostics): Declare using
+	diagnostic_context typedef.
+	* langhooks.h (struct diagnostic_context): Don't declare here.
+	(initialize_diagnostics, print_error_function): Declare using
+	diagnostic_context typedef.
+	* lto-opts.c: Include diagnostic.h.
+	(lto_reissue_options): Pass global_dc to set_option.  Pass
+	DK_UNSPECIFIED not 0.
+	* plugin.c (plugins_internal_error_function): Declare using
+	diagnostic_context typedef.
+	* plugin.h (struct diagnostic_context): Don't declare here.
+	(plugins_internal_error_function): Declare using
+	diagnostic_context typedef.
+
+2010-10-05  Olivier Hainque  <hainque@adacore.com>
+            Nicolas Roche  <roche@adacore.com>
+
+	* config/vxworksae.h: Add missing VXWORKS_OS_CPP_BUILTINS.
+	* config/rs6000/vxworks.h: Remove redundant CPP builtin definitions.
+
+2010-10-05  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/45752
+	* tree-vect-slp.c (vect_get_mask_element): Remove static
+	variables, make them function arguments.
+	(vect_transform_slp_perm_load): Pass new arguments to
+	vect_get_mask_element.
+
+2010-10-05  Richard Guenther  <rguenther@suse.de>
+
+	* value-prof.c (gimple_divmod_fixed_value): Work on SSA form.
+	(gimple_mod_pow2): Likewise.
+	(gimple_mod_subtract): Likewise.
+	(gimple_ic): Likewise.
+	(gimple_stringop_fixed_value): Likewise.
+	* tree-profile.c (tree_init_edge_profiler): Mark profile
+	functions nothrow and leaf.
+	(add_abnormal_goto_call_edges): Remove.
+	(tree_gen_edge_profiler): Work on SSA form.
+	(tree_gen_ic_profiler): Likewise.  Simplify.
+	(do_tree_profiling): Update SSA form.
+	(pass_tree_profile): Remove.
+	(do_tree_profiling): Likewise.
+	(gate_tree_profile_ipa): New function.
+	(pass_ipa_tree_profile): New.
+	(tree_profiling): Re-write as IPA pass.  Properly drop const/pure
+	state of instrumented functions.
+	* passes.c (init_optimization_passes): Remove early non-SSA
+	inlining.  Move profiling after early optimizations.
+	* ipa-inline.c (cgraph_gate_ipa_early_inlining): Remove.
+	(pass_ipa_early_inline): Likewise.
+	* tree-pass.h (pass_ipa_early_inline): Remove.
+	(pass_tree_profile): Likewise.
+	(pass_ipa_tree_profile): Declare.
+
+2010-10-05  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+            Christian Borntraeger  <Christian.Borntraeger@de.ibm.com>
+
+	* gcc/config/s390/s390.c (z196_cost): New.
+	(s390_handle_arch_option): Add -march=z196.
+	(s390_option_override): Use the new cost function and use the z10
+	defaults also for z196.
+	(legitimate_reload_constant_p): Adjust comment.
+	(legitimate_reload_fp_constant_p): New function.
+	(s390_preferred_reload_class): Distingiush between FP and Int constants.
+	(preferred_la_operand_p): Avoid la with index on z196.
+	(s390_adjust_priority): Trigger also for z196.
+	(s390_issue_rate): Issue rate for z196 is 3.
+	(s390_z10_fix_long_loop_prediction): Rename to ...
+	(s390_fix_long_loop_prediction): ... this.
+	(s390_reorg): Apply the z10 adjustments also for z196.
+	(s390_loop_unroll_adjust): Do this also for z196.
+	* gcc/config/s390/s390.h (enum processor_type): Add PROCESSOR_2817_Z196.
+	(enum processor_flags): Add PF_Z196.
+	(TARGET_AVOID_CMP_AND_BRANCH): New macro.
+	(TARGET_CPU_Z196, TARGET_Z196): New macros.
+	* gcc/config.gcc: Enable z196 for --with-arch.
+	* gcc/config/s390/2817.md: New file.
+	* gcc/config/s390/2084.md: New type for multiply and add.
+	* gcc/config/s390/2097.md: Likewise.
+	* gcc/config/s390/s390.md (UNSPEC_POPCNT, UNSPEC_COPYSIGN)
+	(UNSPECV_ATOMIC_OP): New constants.
+	(fmadddf, fmaddsf): New values for type attribute.
+	(z196prop): New insn attribute.
+	(cpu, cpu_facility): Add z196.
+	(ATOMIC_Z196): New code iterator.
+	(noxa): New code attribute.
+	(gk): New mode attribute.
+	(*mov<mode>_64, *mov<mode>_31, *mov<mode>_64dfp, mov<mode>):
+	Support load zero for fp constants.
+	(fixuns_truncdddi2, fixuns_trunctddi2)
+	(fixuns_trunc<BFP:mode><GPR:mode>2): Use the standard rtx pattern
+	for z196.
+	(fixuns_trunc<mode>si2, mov<mode>cc, popcountdi2, popcountsi2)
+	(popcounthi2, popcountqi2): New expander.
+	(*fixuns_trunc<FP:mode><GPR:mode>2_z196, floatsi<mode>2)
+	(floatuns<GPR:mode><FP:mode>2, *mov<mode>cc, sync_<atomic><mode>)
+	(sync_old_<atomic><mode>, *popcount<mode>, copysign<mode>3): New
+	insn definition.
+	(add<mode>3, *add<mode>3_carry1_cc, *add<mode>3_carry1_cconly)
+	(*add<mode>3_carry2_cc, *add<mode>3_carry2_cconly, *add<mode>3_cc)
+	(*add<mode>3_cconly, *add<mode>3_cconly2, *add<mode>3_imm_cc, *sub<mode>3)
+	(*sub<mode>3_borrow_cc, *sub<mode>3_borrow_cconly, *sub<mode>3_cc)
+	(*sub<mode>3_cc2, *sub<mode>3_cconly, *sub<mode>3_cconly2)
+	(*anddi3_cc, *anddi3_cconly, *anddi3, *andsi3_cc, *andsi3_cconly)
+	(*andsi3_zarch, *andsi3_esa, *andhi3_zarch, *andqi3_zarch, *iordi3_cc)
+	(*iordi3_cconly, *iordi3, *iorsi3_cc, *iorsi3_cconly, *iorsi3_zarch)
+	(*iorhi3_zarch, *iorqi3_zarch, *xordi3_cc, *xordi3_cconly, *xordi3)
+	(*xorsi3_cc, *xorsi3_cconly, *xorsi3, *xorhi3, *xorqi3, *<shift><mode>3)
+	(*<shift><mode>3_and, *ashr<mode>3_cc, *ashr<mode>3_cconly, *ashr<mode>3)
+	(*ashr<mode>3_cc_and, *ashr<mode>3_cconly_and, *ashr<mode>3_and):
+	Support new z196 instructions.
+
+2010-10-05  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/45877
+	* gimple-fold.c (gimplify_and_update_call_from_tree): Handle
+	case where gimplification optimizes away the stmt.
+
+2010-10-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/45849
+	* var-tracking.c (strip_pointer_flags): New function.
+	(emit_note_insn_var_location): If rtx_equal_p check failed,
+	retry on locations simplified with simplify_replace_fn_rtx
+	and strip_pointer_flags as its callback.
+
+2010-10-04  Jan Hubicka  <jh@suse.cz>
+
+	* gimple-fold.c (static_object_in_other_unit_p): Rename to...
+	(can_refer_decl_in_current_unit_p): ... this one; reverse return
+	value; handle comdats too.
+	(canonicalize_constructor_val): Use it; handle function_decls
+	correctly.
+	(gimple_fold_obj_type_ref_known_binfo): Likewise.
+	* gimple.c (get_base_address): Accept all kinds of decls.
+
+2010-10-04  Joseph Myers  <joseph@codesourcery.com>
+
+	* flags.h (g_switch_value, g_switch_set): Remove.
+	* opts.c (g_switch_value, g_switch_set): Remove.
+	* config/g.opt (G): Add Var(g_switch_value).
+	* config/alpha/alpha.c (alpha_handle_option): Don't handle -G
+	here.
+	(alpha_option_override): Check global_options_set.x_g_switch_value
+	instead of g_switch_set.
+	(alpha_in_small_data_p): Remove cast in comparison with
+	g_switch_value.
+	* config/alpha/elf.h (ASM_OUTPUT_ALIGNED_LOCAL): Cast
+	g_switch_value to unsigned HOST_WIDE_INT.
+	* config/frv/frv.c (frv_const_unspec_p): Remove cast in comparison
+	with g_switch_value.
+	(frv_handle_option): Don't handle -G here.
+	(frv_option_override): Check global_options_set.x_g_switch_value
+	instead of g_switch_set.  Don't modify g_switch_set.
+	(frv_in_small_data_p): Remove cast in comparison with
+	g_switch_value.
+	* config/frv/frv.h (ASM_OUTPUT_ALIGNED_DECL_LOCAL): Cast
+	g_switch_value to unsigned HOST_WIDE_INT.
+	* config/ia64/ia64.c (ia64_handle_option): Don't handle -G here.
+	(ia64_option_override): Check global_options_set.x_g_switch_value
+	instead of g_switch_set.
+	* config/lm32/lm32.c (lm32_handle_option, TARGET_HANDLE_OPTION):
+	Remove.
+	(lm32_in_small_data_p): Remove cast in comparison with
+	g_switch_value.
+	* config/lm32/lm32.h (ASM_OUTPUT_ALIGNED_LOCAL,
+	ASM_OUTPUT_ALIGNED_COMMON): Cast g_switch_value to unsigned
+	HOST_WIDE_INT.
+	* config/m32r/m32r.c (m32r_handle_option): Don't handle -G here.
+	(m32r_init): Check global_options_set.x_g_switch_value instead of
+	g_switch_set.
+	(m32r_in_small_data_p): Remove cast in comparison with
+	g_switch_value.
+	(m32r_file_start): Format g_switch_value with %d.
+	* config/m32r/m32r.h (ASM_OUTPUT_ALIGNED_COMMON,
+	ASM_OUTPUT_ALIGNED_BSS): Cast g_switch_value to unsigned
+	HOST_WIDE_INT.
+	* config/microblaze/microblaze.c (microblaze_handle_option): Don't
+	handle -G here.
+	(microblaze_option_override): Check
+	global_options_set.x_g_switch_value instead of g_switch_set.
+	* config/mips/mips.c (mips_handle_option): Don't handle -G here.
+	(mips_option_override): Check global_options_set.x_g_switch_value
+	instead of g_switch_set.
+	* config/rs6000/rs6000.c (rs6000_handle_option): Don't handle -G
+	here.
+	(rs6000_file_start): Format g_switch_value with %d.
+	(small_data_operand, rs6000_elf_in_small_data_p): Remove casts in
+	comparisons with g_switch_value.
+	* config/rs6000/sysv4.h (SUBTARGET_OVERRIDE_OPTIONS): Check
+	global_options_set.x_g_switch_value instead of g_switch_set.
+	* config/rs6000/vxworks.h (SUBSUBTARGET_OVERRIDE_OPTIONS): Check
+	global_options_set.x_g_switch_value instead of g_switch_set.
+	* config/score/score.c (score_handle_option): Don't handle -G
+	here.
+	* config/score/score3.c (score3_option_override): Check
+	global_options_set.x_g_switch_value instead of g_switch_set.
+	* config/score/score7.c (score7_option_override): Check
+	global_options_set.x_g_switch_value instead of g_switch_set.
+
+2010-10-04  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* common.opt (fira-coalesce): Remove.
+
+	* doc/invoke.texi (flag_ira_coalesce): Remove.
+
+	* ira-color.c (allocno_coalesced_p): Move before
+	copy_freq_compare_func.
+	processed_coalesced_allocno_bitmap): Ditto.
+	(update_conflict_hard_regno_costs): Don't use
+	ALLOCNO_FIRST_COALESCED_ALLOCNO.
+	(allocno_cost_compare_func, print_coalesced_allocno): Remove.
+	(assign_hard_reg): Assume no coalesced allocnos.
+	(get_coalesced_allocnos_attributes): Remove.
+	(bucket_allocno_compare_func): Assume no coalesced allocnos.
+	(push_allocno_to_stack): Ditto.
+	(remove_allocno_from_bucket_and_push): Use
+	ira_print_expanded_allocno instead of print_coalesced_allocno.
+	(push_allocnos_to_stack): Assume uncoalesced allocnos.
+	(all_conflicting_hard_regs_coalesced): Ditto.  Rename to
+	all_conflicting_hard_regs.
+	(setup_allocno_available_regs_num): Assume uncoalesced allocnos.
+	(setup_allocno_left_conflicts_size): Ditto.
+	(put_allocno_into_bucket): Ditto.
+	(copy_freq_compare_func): Remove.
+	(copy_freq_compare_func, merge_allocnos): Move before
+	coalesced_pseudo_reg_freq_compare.
+	coalesced_allocno_conflict_p): Ditto.
+	(coalesced_allocno_conflict_p, coalesce_allocnos): Ditto.  Remove
+	parameter.  Assume it true.
+	(color_allocnos): Assume uncoalesced allocnos.  Use
+	ira_print_expanded_allocno instead of print_coalesced_allocno.
+	(ira_sort_regnos_for_alter_reg): Call coalesce_allocnos without
+	parameter.
+
+	* ira.c: Remove comment about coalescing.
+
+2010-10-04  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/mips/mips.h (target_flags_explicit): Declare for
+	GENERATOR_FILE.
+
 2010-10-04  Andi Kleen <ak@linux.intel.com>
 
 	* Makefile.in (xgcc, cpp, cc1, collect2, lto-wrapper, gcov,
@@ -1483,7 +1778,6 @@
 	unconditionally if TODO_rebuild_alias is set, else only when optimizing
 	if TODO_update_address_taken is set.
 
->>>>>>> .r164755
 2010-09-23  Anatoly Sokolov  <aesok@post.ru>
 
 	* config/arm/arm.h (OUTPUT_ADDR_CONST_EXTRA): Remove.

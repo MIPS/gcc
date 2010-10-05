@@ -1,5 +1,10 @@
 2010-10-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to 165004.
+	* REVISION: Update subversion id.
+
+2010-10-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	* doc/rtl.texi (RTX_TERNARY): Document FMA is ternary.  Add
 	SIGN_EXTRACT and ZERO_EXTRACT which were missing.
 

@@ -480,8 +480,7 @@ package body Sem_Type is
          then
             Add_Entry (Entity (N), Etype (N));
 
-         elsif (Nkind (N) = N_Function_Call
-                 or else Nkind (N) = N_Procedure_Call_Statement)
+         elsif Nkind_In (N, N_Function_Call, N_Procedure_Call_Statement)
            and then Is_Entity_Name (Name (N))
          then
             Add_Entry (Entity (Name (N)), Etype (N));
@@ -876,10 +875,13 @@ package body Sem_Type is
             return False;
          end;
 
-      --  In a dispatching call the actual may be class-wide
+         --  In a dispatching call the actual may be class-wide, the formal
+         --  may be its specific type, or that of a descendent of it.
 
       elsif Is_Class_Wide_Type (T2)
-        and then Base_Type (Root_Type (T2)) = Base_Type (T1)
+        and then
+          (Class_Wide_Type (T1) = T2
+             or else Base_Type (Root_Type (T2)) = Base_Type (T1))
       then
          return True;
 
