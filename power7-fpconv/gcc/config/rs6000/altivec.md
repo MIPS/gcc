@@ -504,15 +504,24 @@
   "vsel %0,%3,%2,%1"
   [(set_attr "type" "vecperm")])
 
-;; Fused multiply add
-(define_insn "altivec_vmaddfp"
-  [(set (match_operand:V4SF 0 "register_operand" "=v")
-	(fma:V4SF (match_operand:V4SF 1 "register_operand" "v")
-		  (match_operand:V4SF 2 "register_operand" "v")
-		  (match_operand:V4SF 3 "register_operand" "v")))]
+;; Fused multiply add.  By default expand the FMA into (plus (mult)) to help
+;; loop unrolling.  Don't do negate multiply ops, because of complications with
+;; honoring signed zero and fused-madd.
+
+(define_expand "altivec_vmaddfp"
+  [(set (match_operand:V4SF 0 "register_operand" "")
+	(plus:V4SF (mult:V4SF (match_operand:V4SF 1 "register_operand" "")
+			      (match_operand:V4SF 2 "register_operand" ""))
+	  	   (match_operand:V4SF 3 "register_operand" "")))]
   "VECTOR_UNIT_ALTIVEC_P (V4SFmode)"
-  "vmaddfp %0,%1,%2,%3"
-  [(set_attr "type" "vecfloat")])
+{
+  if (!TARGET_FUSED_MADD)
+    {
+      emit_insn (gen_altivec_vmaddfp_2 (operands[0], operands[1], operands[2],
+					operands[3]));
+      DONE;
+    }
+})
 
 (define_insn "*altivec_vmaddfp_1"
   [(set (match_operand:V4SF 0 "register_operand" "=v")
@@ -520,6 +529,15 @@
 			      (match_operand:V4SF 2 "register_operand" "v"))
 	  	   (match_operand:V4SF 3 "register_operand" "v")))]
   "VECTOR_UNIT_ALTIVEC_P (V4SFmode) && TARGET_FUSED_MADD"
+  "vmaddfp %0,%1,%2,%3"
+  [(set_attr "type" "vecfloat")])
+
+(define_insn "altivec_vmaddfp_2"
+  [(set (match_operand:V4SF 0 "register_operand" "=v")
+	(fma:V4SF (match_operand:V4SF 1 "register_operand" "v")
+		  (match_operand:V4SF 2 "register_operand" "v")
+		  (match_operand:V4SF 3 "register_operand" "v")))]
+  "VECTOR_UNIT_ALTIVEC_P (V4SFmode)"
   "vmaddfp %0,%1,%2,%3"
   [(set_attr "type" "vecfloat")])
 
