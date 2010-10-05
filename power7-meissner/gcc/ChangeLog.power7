@@ -16,17 +16,18 @@
 	(UNSPEC_VSX_MSUB): Ditto.
 	(UNSPEC_VSX_NMADD): Ditto.
 	(UNSPEC_VSX_NMSUB): Ditto.
-	(vsx_fmadd<mode>4*): Rewrite to use FMA rtl.  Renumber combiner
-	patterns.
+	(vsx_fmadd<mode>4*): Rewrite to use FMA rtl in some cases instead
+	of UNSPEC. Renumber combiner patterns.
 	(vsx_fmsub<mode>4*): Ditto.
 	(vsx_fnmadd<mode>4*): Ditto.
 	(vsx_fnmsub<mode>4*): Ditto.
 
 	* config/rs6000/altivec.md (UNSPEC_VNMSUBFP): Delete.
-	(altivec_vmaddfp): Rewrite to use FMA rtl, and don't use
-	TARGET_FUSED_MADD.  Rename combiner pattern, and add
-	TARGET_FUSED_MADD test.  Delete expander pattern.
+	(altivec_vmaddfp): Rewrite to use FMA rtl if no fused
+	multiply/add.  Rename combiner pattern, and add TARGET_FUSED_MADD
+	test.
 	(altivec_vmaddfp_1): Ditto.
+	(altivec_vmaddfp_2): Ditto.
 	(atlivec_mulv4sf3): Ditto.
 	(altivec_vnmsubfp): Ditto.
 	(altivec_vnmsubfp_1): Ditto.
