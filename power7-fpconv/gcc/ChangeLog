@@ -1,3 +1,103 @@
+2010-10-06  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR rtl-optimization/45394
+	* combine.c (cleanup_auto_inc_dec): Remove AFTER parameter and adjust.
+	(struct rtx_subst_pair): Remove AFTER field.
+	(propagate_for_debug_subst): Adjust call to cleanup_auto_inc_dec.
+	(propagate_for_debug): Remove MOVE parameter and adjust.
+	(try_combine): In the special case where I2 is a PARALLEL, combine only
+	destinations of SETs and set I2SRC to the I2 source.
+	Adjust calls to propagate_for_debug throughout.
+	* reload1.c (eliminate_regs_1) <ASM_OPERANDS>: Do not abort for debug
+	insns.
+
+2010-10-06  Olivier Hainque  <hainque@adacore.com>
+
+	* config/rs6000/rs6000.c (rs6000_expand_ternop_builtin): Rewrite
+	switch on insn codes as sequence of ifs.
+
+2010-10-06  Hariharan Sandanagobalane  <hariharan@picochip.com>
+
+	* config/picochip/picochip.c (TARGET_EXCEPT_UNWIND_INFO): Define it to
+	be UI_NONE for picochip.
+	(picochip_option_override): Do not disable exception flags.
+	* config/picochip/picochip-protos.h (picochip_except_unwind_info):
+	Declare.
+
+2010-10-06  Richard Guenther  <rguenther@suse.de>
+
+	* Makefile.in (regmove.o): Depend on $(TARGET_H).
+
+2010-10-06  Nicola Pero  <nicola.pero@meta-innovation.com>
+
+	Implemented fast enumeration for Objective-C.	
+	* c-parser.c (objc_could_be_foreach_context): New.
+	(c_lex_one_token): Recognize RID_IN keyword in a potential
+	Objective-C foreach context.
+	(c_parser_declaration_or_fndef): Added parameter.  Accept
+	Objective-C RID_IN keyword as terminating a declaration; in that
+	case, return the declaration in the new parameter.
+	(c_parser_extenral_declaration): Updated calls to
+	c_parser_declaration_or_fndef.
+	(c_parser_declaration_or_fndef): Same change.
+	(c_parser_compound_statement_nostart): Same change.
+	(c_parser_label): Same change.
+	(c_parser_objc_methodprotolist): Same change.
+	(c_parser_omp_for_loop): Same change.
+	(c_parser_for_statement): Detect and parse Objective-C foreach
+	statements.
+	(c_parser_omp_for_loop): Updated call to check_for_loop_decls().
+	* c-decl.c (check_for_loop_decls): Added parameter to allow ObjC
+	fast enumeration parsing code to turn off the c99 error but still
+	perform checks on the loop declarations.
+	* c-tree.h (check_for_loop_decls): Updated declaration.
+	* doc/objc.texi: Document fast enumeration.
+	
+2010-10-06  Nick Clifton  <nickc@redhat.com>
+
+	* config/mn10300/mn10300.h (FIRST_PSEUDO_REGISTER): Increment by
+	one.
+	(MDR_REGNUM): Define.
+	(FIXED_REGISTERS, CALL_USED_REGISTERS): Add MDR as a fixed
+	register.
+	(REG_CLASS_CONTENTS): Add MDR to ALL_REGS.
+	(INCOMING_RETURN_ADDR_RTX): Define in terms of MDR.
+	(REGISTER_NAMES): Add MDR.
+	(DWARF2_DEBUGGING_INFO): Define to 1.
+	* config/mn10300/mn10300.c (TARGET_EXCEPT_UNWIND_INFO): Define.
+	(F): New function.  Sets RTX_FRAME_RELATED_P.
+	(mn10300_gen_multiple_store): Use F.
+	(expand_prologue): Use F.  Use gen_movsf() to push floating
+	point registers.
+	(expand_epilogue): Use gen_movsf() to pop floating point
+	registers.
+	(mn10300_option_override): Disable combine stack adjust pass.
+
+2010-10-06  Thomas Schwinge  <thomas@schwinge.name>
+
+	PR target/45901
+	* config/alpha/gnu.h (TARGET_OS_CPP_BUILTINS): Refer to
+	LINUX_TARGET_OS_CPP_BUILTINS instead of HURD_TARGET_OS_CPP_BUILTINS.
+
+2010-10-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* builtins.def (BUILT_IN_CALLOC, BUILT_IN_REALLOC,
+	BUILT_IN_ISALNUM, BUILT_IN_ISALPHA, BUILT_IN_ISASCII,
+	BUILT_IN_ISBLANK, BUILT_IN_ISCNTRL, BUILT_IN_ISDIGIT,
+	BUILT_IN_ISGRAPH, BUILT_IN_ISLOWER, BUILT_IN_ISPRINT,
+	BUILT_IN_ISPUNCT, BUILT_IN_ISSPACE, BUILT_IN_ISUPPER,
+	BUILT_IN_ISXDIGIT, BUILT_IN_TOASCII, BUILT_IN_TOLOWER,
+	BUILT_IN_TOUPPER): Mark as leaf.
+
+	PR middle-end/45838
+	* omp-builtins.def (BUILT_IN_GOMP_PARALLEL_LOOP_STATIC_START,
+	BUILT_IN_GOMP_PARALLEL_LOOP_DYNAMIC_START,
+	BUILT_IN_GOMP_PARALLEL_LOOP_GUIDED_START,
+	BUILT_IN_GOMP_PARALLEL_LOOP_RUNTIME_START,
+	BUILT_IN_GOMP_PARALLEL_START, BUILT_IN_GOMP_TASK,
+	BUILT_IN_GOMP_PARALLEL_SECTIONS_START): Use
+	Revert back to ATTR_NOTHROW_LIST instead of ATTR_NOTHROW_LEAF_LIST.
+
 2010-10-05  Anatoly Sokolov  <aesok@post.ru>
 
 	* config/m68hc11/m68hc11.h (CLASS_LIKELY_SPILLED_P): Remove.
@@ -21,7 +121,7 @@
 	* cgraphunit.c (assemble_function): Output thunks and aliases before
 	the function itself.
 
-2010-09-29  Hariharan Sandanagobalane <hariharan@picochip.com>
+2010-09-29  Hariharan Sandanagobalane  <hariharan@picochip.com>
 
 	* config/picochip/picochip.c (picochip_option_override): Disable
 	exception flags for picochip.
@@ -1123,7 +1223,7 @@
 	* sel-sched.c: Use HARD_FRAME_POINTER_IS_FRAME_POINTER
 	* stmt.c: Use HARD_FRAME_POINTER_IS_ARG_POINTER.
 
-2010-09-29  Hariharan Sandanagobalane <hariharan@picochip.com>
+2010-09-29  Hariharan Sandanagobalane  <hariharan@picochip.com>
 
 	* config/picochip/picochip.c (picochip_output_internal_label):
 	This function can now be called for debug CFI labels, which can come
