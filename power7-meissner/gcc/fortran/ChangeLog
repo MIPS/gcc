@@ -1,3 +1,73 @@
+2010-10-06  Mikael Morin  <mikael@gcc.gnu.org>
+
+	* array.c (gfc_match_array_spec): Don't re-initialize cleared struct.
+	* symbol.c (gen_shape_param): Ditto.
+
+2010-10-06  Mikael Morin  <mikael@gcc.gnu.org>
+
+	* symbol.c (free_entry_list): New function.
+	(gfc_free_namespace): Free list of entries.
+
+2010-10-06  Mikael Morin  <mikael@gcc.gnu.org>
+
+	* symbol.c (free_components): Free list of formal args and formal
+	namespace.
+
+2010-10-06  Mikael Morin  <mikael@gcc.gnu.org>
+
+	* simplify.c (gfc_simplify_size): Clear temporary mpz int before
+	returning.
+
+2010-10-06  Mikael Morin  <mikael@gcc.gnu.org>
+
+	* resolve.c (add_dt_to_dt_list): Remove unneeded if.
+
+2010-10-06  Mikael Morin  <mikael@gcc.gnu.org>
+
+	* resolve.c (check_typebound_baseobject): Free local expr before
+	returning.
+
+2010-10-06  Mikael Morin  <mikael@gcc.gnu.org>
+
+	* primary.c (gfc_match_structure_constructor): Invert the assert logic.
+
+2010-10-06  Mikael Morin  <mikael@gcc.gnu.org>
+
+	* primary.c (gfc_free_structure_ctor_component): Also free the
+	component structure itself.
+
+2010-10-06  Mikael Morin  <mikael@gcc.gnu.org>
+
+	* module.c (gfc_use_module): Free atom_string when done with it.
+
+2010-10-06  Mikael Morin  <mikael@gcc.gnu.org>
+
+	* module.c (read_module): Remove useless string duplication.
+
+2010-10-06  Mikael Morin  <mikael@gcc.gnu.org>
+
+	* gfortranspec.c (append_arg): Remove commented code.
+
+2010-10-06  Mikael Morin  <mikael@gcc.gnu.org>
+
+	* decl.c (match_procedure_in_type): Assertify if conditions.
+
+2010-10-06  Mikael Morin  <mikael@gcc.gnu.org>
+
+	* cpp.c (gfc_cpp_post_options): Don't create a cpp reader if
+	preprocessing is disabled.
+
+2010-10-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/45838
+	* f95-lang.c (ATTR_NOTHROW_LEAF_LIST, ATTR_CONST_NOTHROW_LEAF_LIST,
+	ATTR_NOTHROW_LIST, ATTR_CONST_NOTHROW_LIST): Define.
+	(gfc_define_builtin): Change last argument to int bitmask from bool,
+	control addition of TREE_NOTHROW and leaf attribute as well.
+	(DO_DEFINE_MATH_BUILTIN): Adjust callers.
+	(gfc_init_builtin_functions): Likewise.  Remove
+	ATTR_{,CONST_}NOTHROW_LIST enum.
+
 2010-10-04  Andi Kleen <ak@linux.intel.com>
 
 	* Make-lang.in (gfortran, f951): Add + to build rule.
