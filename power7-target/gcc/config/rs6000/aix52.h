@@ -38,7 +38,7 @@ do {									\
     }									\
   if (TARGET_SOFT_FLOAT && TARGET_LONG_DOUBLE_128)			\
     {									\
-      rs6000_long_double_type_size = 64;				\
+      rs6000_opts.long_double_type_size = 64;				\
       if (rs6000_explicit_options.long_double)				\
 	warning (0, "soft-float and long-double-128 are incompatible");	\
     }									\

@@ -71,6 +71,16 @@
 #define min(A,B)	((A) < (B) ? (A) : (B))
 #define max(A,B)	((A) > (B) ? (A) : (B))
 
+/* Target specific variables, flags, etc.  These are all grouped in a structure
+   so that it can be copied and restored if functions are compiled with
+   different target options.  */
+struct rs6000_options rs6000_opts;
+
+/* Option strings that are processed in rs6000_handle_option and then dealt
+   with in rs6000_override_options.  Don't use GTY(()) for these, since
+   the strings are not allocated.  */
+struct rs6000_option_strings rs6000_opts_str;
+
 /* Structure used to define the rs6000 stack */
 typedef struct rs6000_stack {
   int first_gp_reg_save;	/* first callee saved GP register used */
@@ -136,7 +146,6 @@ typedef struct GTY(()) machine_function
 
 /* Target cpu type */
 
-enum processor_type rs6000_cpu;
 struct rs6000_cpu_select rs6000_select[3] =
 {
   /* switch		name,			tune	arch */
@@ -145,46 +154,8 @@ struct rs6000_cpu_select rs6000_select[3] =
   { (const char *)0,	"-mtune=",		1,	0 },
 };
 
-/* Always emit branch hint bits.  */
-static GTY(()) bool rs6000_always_hint;
-
-/* Schedule instructions for group formation.  */
-static GTY(()) bool rs6000_sched_groups;
-
-/* Align branch targets.  */
-static GTY(()) bool rs6000_align_branch_targets;
-
-/* Support for -msched-costly-dep option.  */
-const char *rs6000_sched_costly_dep_str;
-enum rs6000_dependence_cost rs6000_sched_costly_dep;
-
-/* Support for -minsert-sched-nops option.  */
-const char *rs6000_sched_insert_nops_str;
-enum rs6000_nop_insertion rs6000_sched_insert_nops;
-
 /* Support targetm.vectorize.builtin_mask_for_load.  */
 static GTY(()) tree altivec_builtin_mask_for_load;
-
-/* Size of long double.  */
-int rs6000_long_double_type_size;
-
-/* IEEE quad extended precision long double. */
-int rs6000_ieeequad;
-
-/* Nonzero to use AltiVec ABI.  */
-int rs6000_altivec_abi;
-
-/* Nonzero if we want SPE SIMD instructions.  */
-int rs6000_spe;
-
-/* Nonzero if we want SPE ABI extensions.  */
-int rs6000_spe_abi;
-
-/* Nonzero if floating point operations are done in the GPRs.  */
-int rs6000_float_gprs = 0;
-
-/* Nonzero if we want Darwin's struct-by-value-in-regs ABI.  */
-int rs6000_darwin64_abi;
 
 /* Set to nonzero once AIX common-mode calls have been defined.  */
 static GTY(()) int common_mode_defined;
@@ -194,36 +165,12 @@ static GTY(()) int common_mode_defined;
 int rs6000_pic_labelno;
 
 #ifdef USING_ELFOS_H
-/* Which abi to adhere to */
-const char *rs6000_abi_name;
-
-/* Semantics of the small data area */
-enum rs6000_sdata_type rs6000_sdata = SDATA_DATA;
-
-/* Which small data model to use */
-const char *rs6000_sdata_name = (char *)0;
-
 /* Counter for labels which are to be placed in .fixup.  */
 int fixuplabelno = 0;
 #endif
 
-/* Bit size of immediate TLS offsets and string from which it is decoded.  */
-int rs6000_tls_size = 32;
-const char *rs6000_tls_size_string;
-
-/* ABI enumeration available for subtarget to use.  */
-enum rs6000_abi rs6000_current_abi;
-
 /* Whether to use variant of AIX ABI for PowerPC64 Linux.  */
 int dot_symbols;
-
-/* Debug flags */
-const char *rs6000_debug_name;
-int rs6000_debug_stack;		/* debug stack applications */
-int rs6000_debug_arg;		/* debug argument handling */
-int rs6000_debug_reg;		/* debug register classes */
-int rs6000_debug_addr;		/* debug memory addressing */
-int rs6000_debug_cost;		/* debug rtx_costs */
 
 /* Specify the machine mode that pointers have.  After generation of rtl, the
    compiler makes no further distinction between pointers and any other objects
@@ -254,13 +201,8 @@ static enum insn_code rs6000_vector_reload[NUM_MACHINE_MODES][2];
 tree rs6000_builtin_types[RS6000_BTI_MAX];
 tree rs6000_builtin_decls[RS6000_BUILTIN_COUNT];
 
-const char *rs6000_traceback_name;
-static enum {
-  traceback_default = 0,
-  traceback_none,
-  traceback_part,
-  traceback_full
-} rs6000_traceback;
+/* Type of traceback to use.  */
+static const char *rs6000_traceback_name;
 
 /* Flag to say the TOC is initialized */
 int toc_initialized;
@@ -275,13 +217,6 @@ static GTY(()) section *private_data_section;
 static GTY(()) section *read_only_private_data_section;
 static GTY(()) section *sdata2_section;
 static GTY(()) section *toc_section;
-
-/* Control alignment for fields within structures.  */
-/* String from -malign-XXXXX.  */
-int rs6000_alignment_flags;
-
-/* Code model for 64-bit linux.  */
-enum rs6000_cmodel cmodel;
 
 /* True for any options that were explicitly set.  */
 static struct {
@@ -351,9 +286,6 @@ enum rs6000_recip_mask {
      reciprocal square root estimate, since it isn't accurate enough.  */
   RECIP_LOW_PRECISION	= (RECIP_ALL & ~(RECIP_DF_RSQRT | RECIP_V2DF_RSQRT))
 };
-
-static unsigned int rs6000_recip_control;
-static const char *rs6000_recip_name;
 
 /* -mrecip options.  */
 static struct
@@ -1927,9 +1859,10 @@ rs6000_debug_reg_global (void)
   if (nl)
     fputs (nl, stderr);
 
-  if (rs6000_recip_control)
+  if (rs6000_opts.recip_control)
     {
-      fprintf (stderr, "\nReciprocal mask = 0x%x\n", rs6000_recip_control);
+      fprintf (stderr, "\nReciprocal mask = 0x%x\n",
+	       rs6000_opts.recip_control);
 
       for (m = 0; m < NUM_MACHINE_MODES; ++m)
 	if (rs6000_recip_bits[m])
@@ -1948,7 +1881,7 @@ rs6000_debug_reg_global (void)
       fputs ("\n", stderr);
     }
 
-  switch (rs6000_sched_costly_dep)
+  switch (rs6000_opts.sched_costly_dep)
     {
     case max_dep_latency:
       costly_str = "max_dep_latency";
@@ -1972,11 +1905,11 @@ rs6000_debug_reg_global (void)
 
     default:
       costly_str = costly_num;
-      sprintf (costly_num, "%d", (int)rs6000_sched_costly_dep);
+      sprintf (costly_num, "%d", (int)rs6000_opts.sched_costly_dep);
       break;
     }
 
-  switch (rs6000_sched_insert_nops)
+  switch (rs6000_opts.insert_nops)
     {
     case sched_finish_regroup_exact:
       nop_str = "sched_finish_regroup_exact";
@@ -1992,7 +1925,7 @@ rs6000_debug_reg_global (void)
 
     default:
       nop_str = nop_num;
-      sprintf (nop_num, "%d", (int)rs6000_sched_insert_nops);
+      sprintf (nop_num, "%d", (int)rs6000_opts.insert_nops);
       break;
     }
 
@@ -2002,8 +1935,8 @@ rs6000_debug_reg_global (void)
 	   "sched_restricted_insns_priority = %d\n"
 	   "sched_costly_dep                = %s\n"
 	   "sched_insert_nops               = %s\n\n",
-	   rs6000_always_hint ? "true" : "false",
-	   rs6000_align_branch_targets ? "true" : "false",
+	   rs6000_opts.always_hint ? "true" : "false",
+	   rs6000_opts.align_branch_targets ? "true" : "false",
 	   (int)rs6000_sched_restricted_insns_priority,
 	   costly_str, nop_str);
 }
@@ -2259,7 +2192,7 @@ rs6000_init_hard_regno_mode_ok (void)
   if (VECTOR_UNIT_VSX_P (V2DFmode))
     rs6000_recip_bits[V2DFmode] |= RS6000_RECIP_MASK_HAVE_RSQRTE;
 
-  if (rs6000_recip_control)
+  if (rs6000_opts.recip_control)
     {
       if (!TARGET_FUSED_MADD)
 	warning (0, "-mrecip requires -mfused-madd");
@@ -2273,35 +2206,35 @@ rs6000_init_hard_regno_mode_ok (void)
 	  && flag_reciprocal_math)
 	{
 	  if (RS6000_RECIP_HAVE_RE_P (SFmode)
-	      && (rs6000_recip_control & RECIP_SF_DIV) != 0)
+	      && (rs6000_opts.recip_control & RECIP_SF_DIV) != 0)
 	    rs6000_recip_bits[SFmode] |= RS6000_RECIP_MASK_AUTO_RE;
 
 	  if (RS6000_RECIP_HAVE_RE_P (DFmode)
-	      && (rs6000_recip_control & RECIP_DF_DIV) != 0)
+	      && (rs6000_opts.recip_control & RECIP_DF_DIV) != 0)
 	    rs6000_recip_bits[DFmode] |= RS6000_RECIP_MASK_AUTO_RE;
 
 	  if (RS6000_RECIP_HAVE_RE_P (V4SFmode)
-	      && (rs6000_recip_control & RECIP_V4SF_DIV) != 0)
+	      && (rs6000_opts.recip_control & RECIP_V4SF_DIV) != 0)
 	    rs6000_recip_bits[V4SFmode] |= RS6000_RECIP_MASK_AUTO_RE;
 
 	  if (RS6000_RECIP_HAVE_RE_P (V2DFmode)
-	      && (rs6000_recip_control & RECIP_V2DF_DIV) != 0)
+	      && (rs6000_opts.recip_control & RECIP_V2DF_DIV) != 0)
 	    rs6000_recip_bits[V2DFmode] |= RS6000_RECIP_MASK_AUTO_RE;
 
 	  if (RS6000_RECIP_HAVE_RSQRTE_P (SFmode)
-	      && (rs6000_recip_control & RECIP_SF_RSQRT) != 0)
+	      && (rs6000_opts.recip_control & RECIP_SF_RSQRT) != 0)
 	    rs6000_recip_bits[SFmode] |= RS6000_RECIP_MASK_AUTO_RSQRTE;
 
 	  if (RS6000_RECIP_HAVE_RSQRTE_P (DFmode)
-	      && (rs6000_recip_control & RECIP_DF_RSQRT) != 0)
+	      && (rs6000_opts.recip_control & RECIP_DF_RSQRT) != 0)
 	    rs6000_recip_bits[DFmode] |= RS6000_RECIP_MASK_AUTO_RSQRTE;
 
 	  if (RS6000_RECIP_HAVE_RSQRTE_P (V4SFmode)
-	      && (rs6000_recip_control & RECIP_V4SF_RSQRT) != 0)
+	      && (rs6000_opts.recip_control & RECIP_V4SF_RSQRT) != 0)
 	    rs6000_recip_bits[V4SFmode] |= RS6000_RECIP_MASK_AUTO_RSQRTE;
 
 	  if (RS6000_RECIP_HAVE_RSQRTE_P (V2DFmode)
-	      && (rs6000_recip_control & RECIP_V2DF_RSQRT) != 0)
+	      && (rs6000_opts.recip_control & RECIP_V2DF_RSQRT) != 0)
 	    rs6000_recip_bits[V2DFmode] |= RS6000_RECIP_MASK_AUTO_RSQRTE;
 	}
     }
@@ -2350,7 +2283,7 @@ darwin_rs6000_override_options (void)
 {
   /* The Darwin ABI always includes AltiVec, can't be (validly) turned
      off.  */
-  rs6000_altivec_abi = 1;
+  rs6000_opts.altivec_abi = 1;
   TARGET_ALTIVEC_VRSAVE = 1;
   if (DEFAULT_ABI == ABI_DARWIN)
   {
@@ -2615,7 +2548,7 @@ rs6000_option_override_internal (const char *default_cpu)
 
   /* Identify the processor type.  */
   rs6000_select[0].string = default_cpu;
-  rs6000_cpu = TARGET_POWERPC64 ? PROCESSOR_DEFAULT64 : PROCESSOR_DEFAULT;
+  rs6000_opts.cpu = TARGET_POWERPC64 ? PROCESSOR_DEFAULT64 : PROCESSOR_DEFAULT;
 
   for (i = 0; i < ARRAY_SIZE (rs6000_select); i++)
     {
@@ -2626,7 +2559,7 @@ rs6000_option_override_internal (const char *default_cpu)
 	    if (! strcmp (ptr->string, processor_target_table[j].name))
 	      {
 		if (ptr->set_tune_p)
-		  rs6000_cpu = processor_target_table[j].processor;
+		  rs6000_opts.cpu = processor_target_table[j].processor;
 
 		if (ptr->set_arch_p)
 		  {
@@ -2642,8 +2575,10 @@ rs6000_option_override_internal (const char *default_cpu)
 	}
     }
 
-  if (rs6000_cpu == PROCESSOR_PPCE300C2 || rs6000_cpu == PROCESSOR_PPCE300C3
-      || rs6000_cpu == PROCESSOR_PPCE500MC || rs6000_cpu == PROCESSOR_PPCE500MC64)
+  if (rs6000_opts.cpu == PROCESSOR_PPCE300C2
+      || rs6000_opts.cpu == PROCESSOR_PPCE300C3
+      || rs6000_opts.cpu == PROCESSOR_PPCE500MC
+      || rs6000_opts.cpu == PROCESSOR_PPCE500MC64)
     {
       if (TARGET_ALTIVEC)
 	error ("AltiVec not supported in this target");
@@ -2654,7 +2589,7 @@ rs6000_option_override_internal (const char *default_cpu)
   /* Disable Cell microcode if we are optimizing for the Cell
      and not optimizing for size.  */
   if (rs6000_gen_cell_microcode == -1)
-    rs6000_gen_cell_microcode = !(rs6000_cpu == PROCESSOR_CELL
+    rs6000_gen_cell_microcode = !(rs6000_opts.cpu == PROCESSOR_CELL
                                   && !optimize_size);
 
   /* If we are optimizing big endian systems for space and it's OK to
@@ -2669,7 +2604,7 @@ rs6000_option_override_internal (const char *default_cpu)
      trap.  The 750 does not cause an alignment trap (except when the
      target is unaligned).  */
 
-  if (!BYTES_BIG_ENDIAN && rs6000_cpu != PROCESSOR_PPC750)
+  if (!BYTES_BIG_ENDIAN && rs6000_opts.cpu != PROCESSOR_PPC750)
     {
       if (TARGET_MULTIPLE)
 	{
@@ -2741,8 +2676,8 @@ rs6000_option_override_internal (const char *default_cpu)
   /* E500mc does "better" if we inline more aggressively.  Respect the
      user's opinion, though.  */
   if (rs6000_block_move_inline_limit == 0
-      && (rs6000_cpu == PROCESSOR_PPCE500MC
-	  || rs6000_cpu == PROCESSOR_PPCE500MC64))
+      && (rs6000_opts.cpu == PROCESSOR_PPCE500MC
+	  || rs6000_opts.cpu == PROCESSOR_PPCE500MC64))
     rs6000_block_move_inline_limit = 128;
 
   /* store_one_arg depends on expand_block_move to handle at least the
@@ -2751,23 +2686,29 @@ rs6000_option_override_internal (const char *default_cpu)
     rs6000_block_move_inline_limit = (TARGET_POWERPC64 ? 64 : 32);
 
   /* Set debug flags */
-  if (rs6000_debug_name)
+  if (rs6000_opts_str.debug_name)
     {
-      if (! strcmp (rs6000_debug_name, "all"))
-	rs6000_debug_stack = rs6000_debug_arg = rs6000_debug_reg
-	  = rs6000_debug_addr = rs6000_debug_cost = 1;
-      else if (! strcmp (rs6000_debug_name, "stack"))
-	rs6000_debug_stack = 1;
-      else if (! strcmp (rs6000_debug_name, "arg"))
-	rs6000_debug_arg = 1;
-      else if (! strcmp (rs6000_debug_name, "reg"))
-	rs6000_debug_reg = 1;
-      else if (! strcmp (rs6000_debug_name, "addr"))
-	rs6000_debug_addr = 1;
-      else if (! strcmp (rs6000_debug_name, "cost"))
-	rs6000_debug_cost = 1;
-      else
-	error ("unknown -mdebug-%s switch", rs6000_debug_name);
+      char *p = ASTRDUP (rs6000_opts_str.debug_name);
+      char *q;
+      rs6000_opts.debug = 0;
+
+      while ((q = strtok (p, ",")) != NULL)
+	{
+	  if (! strcmp (q, "all"))
+	    rs6000_opts.debug |= MASK_DEBUG_ALL;
+	  else if (! strcmp (q, "stack"))
+	    rs6000_opts.debug |= MASK_DEBUG_STACK;
+	  else if (! strcmp (q, "arg"))
+	    rs6000_opts.debug |= MASK_DEBUG_ARG;
+	  else if (! strcmp (q, "reg"))
+	    rs6000_opts.debug |= MASK_DEBUG_REG;
+	  else if (! strcmp (q, "addr"))
+	    rs6000_opts.debug |= MASK_DEBUG_ADDR;
+	  else if (! strcmp (q, "cost"))
+	    rs6000_opts.debug |= MASK_DEBUG_COST;
+	  else
+	    error ("unknown -mdebug-%s switch", q);
+	}
 
       /* If the appropriate debug option is enabled, replace the target hooks
 	 with debug versions that call the real version and then prints
@@ -2801,11 +2742,11 @@ rs6000_option_override_internal (const char *default_cpu)
   if (rs6000_traceback_name)
     {
       if (! strncmp (rs6000_traceback_name, "full", 4))
-	rs6000_traceback = traceback_full;
+	rs6000_opts.traceback = traceback_full;
       else if (! strncmp (rs6000_traceback_name, "part", 4))
-	rs6000_traceback = traceback_part;
+	rs6000_opts.traceback = traceback_part;
       else if (! strncmp (rs6000_traceback_name, "no", 2))
-	rs6000_traceback = traceback_none;
+	rs6000_opts.traceback = traceback_none;
       else
 	error ("unknown -mtraceback arg %qs; expecting %<full%>, %<partial%> or %<none%>",
 	       rs6000_traceback_name);
@@ -2821,16 +2762,16 @@ rs6000_option_override_internal (const char *default_cpu)
     }
 
   if (!rs6000_explicit_options.long_double)
-    rs6000_long_double_type_size = RS6000_DEFAULT_LONG_DOUBLE_SIZE;
+    rs6000_opts.long_double_type_size = RS6000_DEFAULT_LONG_DOUBLE_SIZE;
 
 #ifndef POWERPC_LINUX
   if (!rs6000_explicit_options.ieee)
-    rs6000_ieeequad = 1;
+    rs6000_opts.ieeequad = 1;
 #endif
 
   /* Enable Altivec ABI for AIX -maltivec.  */
   if (TARGET_XCOFF && (TARGET_ALTIVEC || TARGET_VSX))
-    rs6000_altivec_abi = 1;
+    rs6000_opts.altivec_abi = 1;
 
   /* The AltiVec ABI is the default for PowerPC-64 GNU/Linux.  For
      PowerPC-32 GNU/Linux, -maltivec implies the AltiVec ABI.  It can
@@ -2839,11 +2780,11 @@ rs6000_option_override_internal (const char *default_cpu)
     {
       if (!rs6000_explicit_options.altivec_abi
 	  && (TARGET_64BIT || TARGET_ALTIVEC || TARGET_VSX))
-	rs6000_altivec_abi = 1;
+	rs6000_opts.altivec_abi = 1;
 
       /* Enable VRSAVE for AltiVec ABI, unless explicitly overridden.  */
       if (!rs6000_explicit_options.vrsave)
-	TARGET_ALTIVEC_VRSAVE = rs6000_altivec_abi;
+	TARGET_ALTIVEC_VRSAVE = rs6000_opts.altivec_abi;
     }
 
   /* Set the Darwin64 ABI as default for 64-bit Darwin.  
@@ -2852,9 +2793,9 @@ rs6000_option_override_internal (const char *default_cpu)
       && DEFAULT_ABI == ABI_DARWIN 
       && TARGET_64BIT)
     {
-      rs6000_darwin64_abi = 1;
+      rs6000_opts.darwin64_abi = 1;
       /* Default to natural alignment, for better performance.  */
-      rs6000_alignment_flags = MASK_ALIGN_NATURAL;
+      rs6000_opts.alignment_flags = MASK_ALIGN_NATURAL;
     }
 
   /* Place FP constants in the constant pool instead of TOC
@@ -2875,8 +2816,8 @@ rs6000_option_override_internal (const char *default_cpu)
   SUB3TARGET_OVERRIDE_OPTIONS;
 #endif
 
-  if (TARGET_E500 || rs6000_cpu == PROCESSOR_PPCE500MC
-      || rs6000_cpu == PROCESSOR_PPCE500MC64)
+  if (TARGET_E500 || rs6000_opts.cpu == PROCESSOR_PPCE500MC
+      || rs6000_opts.cpu == PROCESSOR_PPCE500MC64)
     {
       /* The e500 and e500mc do not have string instructions, and we set
 	 MASK_STRING above when optimizing for size.  */
@@ -2889,11 +2830,11 @@ rs6000_option_override_internal (const char *default_cpu)
 	 default, so let's unset them if we manually set another
 	 CPU that is not the E500.  */
       if (!rs6000_explicit_options.spe_abi)
-	rs6000_spe_abi = 0;
+	rs6000_opts.spe_abi = 0;
       if (!rs6000_explicit_options.spe)
-	rs6000_spe = 0;
+	rs6000_opts.spe = 0;
       if (!rs6000_explicit_options.float_gprs)
-	rs6000_float_gprs = 0;
+	rs6000_opts.float_gprs = 0;
       if (!(target_flags_explicit & MASK_ISEL))
 	target_flags &= ~MASK_ISEL;
     }
@@ -2901,69 +2842,75 @@ rs6000_option_override_internal (const char *default_cpu)
   /* Detect invalid option combinations with E500.  */
   CHECK_E500_OPTIONS;
 
-  rs6000_always_hint = (rs6000_cpu != PROCESSOR_POWER4
-			&& rs6000_cpu != PROCESSOR_POWER5
-			&& rs6000_cpu != PROCESSOR_POWER6
-			&& rs6000_cpu != PROCESSOR_POWER7
-			&& rs6000_cpu != PROCESSOR_PPCA2
-			&& rs6000_cpu != PROCESSOR_CELL);
-  rs6000_sched_groups = (rs6000_cpu == PROCESSOR_POWER4
-			 || rs6000_cpu == PROCESSOR_POWER5
-			 || rs6000_cpu == PROCESSOR_POWER7);
-  rs6000_align_branch_targets = (rs6000_cpu == PROCESSOR_POWER4
-				 || rs6000_cpu == PROCESSOR_POWER5
-				 || rs6000_cpu == PROCESSOR_POWER6
-				 || rs6000_cpu == PROCESSOR_POWER7
-				 || rs6000_cpu == PROCESSOR_PPCE500MC
-				 || rs6000_cpu == PROCESSOR_PPCE500MC64);
+  rs6000_opts.always_hint = (rs6000_opts.cpu != PROCESSOR_POWER4
+			     && rs6000_opts.cpu != PROCESSOR_POWER5
+			     && rs6000_opts.cpu != PROCESSOR_POWER6
+			     && rs6000_opts.cpu != PROCESSOR_POWER7
+			     && rs6000_opts.cpu != PROCESSOR_PPCA2
+			     && rs6000_opts.cpu != PROCESSOR_CELL);
+  rs6000_opts.sched_groups = (rs6000_opts.cpu == PROCESSOR_POWER4
+			      || rs6000_opts.cpu == PROCESSOR_POWER5
+			      || rs6000_opts.cpu == PROCESSOR_POWER7);
+  rs6000_opts.align_branch_targets
+    = (rs6000_opts.cpu == PROCESSOR_POWER4
+       || rs6000_opts.cpu == PROCESSOR_POWER5
+       || rs6000_opts.cpu == PROCESSOR_POWER6
+       || rs6000_opts.cpu == PROCESSOR_POWER7
+       || rs6000_opts.cpu == PROCESSOR_PPCE500MC
+       || rs6000_opts.cpu == PROCESSOR_PPCE500MC64);
 
   /* Allow debug switches to override the above settings.  */
   if (TARGET_ALWAYS_HINT > 0)
-    rs6000_always_hint = TARGET_ALWAYS_HINT;
+    rs6000_opts.always_hint = TARGET_ALWAYS_HINT;
 
   if (TARGET_SCHED_GROUPS > 0)
-    rs6000_sched_groups = TARGET_SCHED_GROUPS;
+    rs6000_opts.sched_groups = TARGET_SCHED_GROUPS;
 
   if (TARGET_ALIGN_BRANCH_TARGETS > 0)
-    rs6000_align_branch_targets = TARGET_ALIGN_BRANCH_TARGETS;
+    rs6000_opts.align_branch_targets = TARGET_ALIGN_BRANCH_TARGETS;
 
   rs6000_sched_restricted_insns_priority
-    = (rs6000_sched_groups ? 1 : 0);
+    = (rs6000_opts.sched_groups ? 1 : 0);
 
   /* Handle -msched-costly-dep option.  */
-  rs6000_sched_costly_dep
-    = (rs6000_sched_groups ? store_to_load_dep_costly : no_dep_costly);
+  rs6000_opts.sched_costly_dep
+    = (rs6000_opts.sched_groups ? store_to_load_dep_costly : no_dep_costly);
 
-  if (rs6000_sched_costly_dep_str)
+  if (rs6000_opts_str.sched_costly_dep_str)
     {
-      if (! strcmp (rs6000_sched_costly_dep_str, "no"))
-	rs6000_sched_costly_dep = no_dep_costly;
-      else if (! strcmp (rs6000_sched_costly_dep_str, "all"))
-	rs6000_sched_costly_dep = all_deps_costly;
-      else if (! strcmp (rs6000_sched_costly_dep_str, "true_store_to_load"))
-	rs6000_sched_costly_dep = true_store_to_load_dep_costly;
-      else if (! strcmp (rs6000_sched_costly_dep_str, "store_to_load"))
-	rs6000_sched_costly_dep = store_to_load_dep_costly;
+      if (! strcmp (rs6000_opts_str.sched_costly_dep_str, "no"))
+	rs6000_opts.sched_costly_dep = no_dep_costly;
+      else if (! strcmp (rs6000_opts_str.sched_costly_dep_str, "all"))
+	rs6000_opts.sched_costly_dep = all_deps_costly;
+      else if (! strcmp (rs6000_opts_str.sched_costly_dep_str,
+			 "true_store_to_load"))
+	rs6000_opts.sched_costly_dep = true_store_to_load_dep_costly;
+      else if (! strcmp (rs6000_opts_str.sched_costly_dep_str,
+			 "store_to_load"))
+	rs6000_opts.sched_costly_dep = store_to_load_dep_costly;
       else
-	rs6000_sched_costly_dep = ((enum rs6000_dependence_cost)
-				   atoi (rs6000_sched_costly_dep_str));
+	rs6000_opts.sched_costly_dep
+	  = ((enum rs6000_dependence_cost)
+	     atoi (rs6000_opts_str.sched_costly_dep_str));
     }
 
   /* Handle -minsert-sched-nops option.  */
-  rs6000_sched_insert_nops
-    = (rs6000_sched_groups ? sched_finish_regroup_exact : sched_finish_none);
+  rs6000_opts.insert_nops
+    = (rs6000_opts.sched_groups ? sched_finish_regroup_exact : sched_finish_none);
 
-  if (rs6000_sched_insert_nops_str)
+  if (rs6000_opts_str.sched_insert_nops_str)
     {
-      if (! strcmp (rs6000_sched_insert_nops_str, "no"))
-	rs6000_sched_insert_nops = sched_finish_none;
-      else if (! strcmp (rs6000_sched_insert_nops_str, "pad"))
-	rs6000_sched_insert_nops = sched_finish_pad_groups;
-      else if (! strcmp (rs6000_sched_insert_nops_str, "regroup_exact"))
-	rs6000_sched_insert_nops = sched_finish_regroup_exact;
+      if (! strcmp (rs6000_opts_str.sched_insert_nops_str, "no"))
+	rs6000_opts.insert_nops = sched_finish_none;
+      else if (! strcmp (rs6000_opts_str.sched_insert_nops_str, "pad"))
+	rs6000_opts.insert_nops = sched_finish_pad_groups;
+      else if (! strcmp (rs6000_opts_str.sched_insert_nops_str,
+			 "regroup_exact"))
+	rs6000_opts.insert_nops = sched_finish_regroup_exact;
       else
-	rs6000_sched_insert_nops = ((enum rs6000_nop_insertion)
-				    atoi (rs6000_sched_insert_nops_str));
+	rs6000_opts.insert_nops
+	  = ((enum rs6000_nop_insertion)
+	     atoi (rs6000_opts_str.sched_insert_nops_str));
     }
 
 #ifdef TARGET_REGNAMES
@@ -3004,8 +2951,8 @@ rs6000_option_override_internal (const char *default_cpu)
     {
       /* Cell wants to be aligned 8byte for dual issue.  Titan wants to be
 	 aligned 8byte to avoid misprediction by the branch predictor.  */
-      if (rs6000_cpu == PROCESSOR_TITAN
-	  || rs6000_cpu == PROCESSOR_CELL)
+      if (rs6000_opts.cpu == PROCESSOR_TITAN
+	  || rs6000_opts.cpu == PROCESSOR_CELL)
 	{
 	  if (align_functions <= 0)
 	    align_functions = 8;
@@ -3014,7 +2961,7 @@ rs6000_option_override_internal (const char *default_cpu)
 	  if (align_loops <= 0)
 	    align_loops = 8;
  	}
-      if (rs6000_align_branch_targets)
+      if (rs6000_opts.align_branch_targets)
 	{
 	  if (align_functions <= 0)
 	    align_functions = 16;
@@ -3041,7 +2988,7 @@ rs6000_option_override_internal (const char *default_cpu)
   if (optimize_size)
     rs6000_cost = TARGET_POWERPC64 ? &size64_cost : &size32_cost;
   else
-    switch (rs6000_cpu)
+    switch (rs6000_opts.cpu)
       {
       case PROCESSOR_RIOS1:
 	rs6000_cost = &rios1_cost;
@@ -3191,12 +3138,12 @@ rs6000_option_override_internal (const char *default_cpu)
   if (TARGET_AVOID_XFORM == -1)
     /* Avoid indexed addressing when targeting Power6 in order to avoid
      the DERAT mispredict penalty.  */
-    TARGET_AVOID_XFORM = (rs6000_cpu == PROCESSOR_POWER6 && TARGET_CMPB);
+    TARGET_AVOID_XFORM = (rs6000_opts.cpu == PROCESSOR_POWER6 && TARGET_CMPB);
 
   /* Set the -mrecip options.  */
-  if (rs6000_recip_name)
+  if (rs6000_opts_str.recip_name)
     {
-      char *p = ASTRDUP (rs6000_recip_name);
+      char *p = ASTRDUP (rs6000_opts_str.recip_name);
       char *q;
       unsigned int mask, i;
       bool invert;
@@ -3233,9 +3180,9 @@ rs6000_option_override_internal (const char *default_cpu)
 	    }
 
 	  if (invert)
-	    rs6000_recip_control &= ~mask;
+	    rs6000_opts.recip_control &= ~mask;
 	  else
-	    rs6000_recip_control |= mask;
+	    rs6000_opts.recip_control |= mask;
 	}
     }
 
@@ -3248,6 +3195,12 @@ rs6000_option_override_internal (const char *default_cpu)
 static void
 rs6000_option_override (void)
 {
+#ifdef USING_ELFOS_H
+  rs6000_opts.sdata = SDATA_DATA;
+#else
+  rs6000_opts.sdata = SDATA_NONE;
+#endif
+
   rs6000_option_override_internal (OPTION_TARGET_CPU_DEFAULT);
 }
 
@@ -3383,10 +3336,10 @@ rs6000_vector_alignment_reachable (const_tree type ATTRIBUTE_UNUSED, bool is_pac
 
   if (TARGET_32BIT)
     {
-      if (rs6000_alignment_flags == MASK_ALIGN_NATURAL)
+      if (rs6000_opts.alignment_flags == MASK_ALIGN_NATURAL)
         return true;
 
-      if (rs6000_alignment_flags ==  MASK_ALIGN_POWER)
+      if (rs6000_opts.alignment_flags ==  MASK_ALIGN_POWER)
         return true;
 
       return false;
@@ -3630,16 +3583,18 @@ rs6000_parse_yes_no_option (const char *name, const char *value, int *flag)
 static void
 rs6000_parse_tls_size_option (void)
 {
-  if (rs6000_tls_size_string == 0)
+  rs6000_opts.tls_size = 32;
+  if (rs6000_opts_str.tls_size_string == 0)
     return;
-  else if (strcmp (rs6000_tls_size_string, "16") == 0)
-    rs6000_tls_size = 16;
-  else if (strcmp (rs6000_tls_size_string, "32") == 0)
-    rs6000_tls_size = 32;
-  else if (strcmp (rs6000_tls_size_string, "64") == 0)
-    rs6000_tls_size = 64;
+  else if (strcmp (rs6000_opts_str.tls_size_string, "16") == 0)
+    rs6000_opts.tls_size = 16;
+  else if (strcmp (rs6000_opts_str.tls_size_string, "32") == 0)
+    rs6000_opts.tls_size = 32;
+  else if (strcmp (rs6000_opts_str.tls_size_string, "64") == 0)
+    rs6000_opts.tls_size = 64;
   else
-    error ("bad value %qs for -mtls-size switch", rs6000_tls_size_string);
+    error ("bad value %qs for -mtls-size switch",
+	   rs6000_opts_str.tls_size_string);
 }
 
 static void
@@ -4032,11 +3987,11 @@ rs6000_handle_option (size_t code, const char *arg, int value)
 #if defined (HAVE_LD_LARGE_TOC) && defined (TARGET_USES_LINUX64_OPT)
     case OPT_mcmodel_:
       if (strcmp (arg, "small") == 0)
-	cmodel = CMODEL_SMALL;
+	rs6000_opts.cmodel = CMODEL_SMALL;
       else if (strcmp (arg, "medium") == 0)
-	cmodel = CMODEL_MEDIUM;
+	rs6000_opts.cmodel = CMODEL_MEDIUM;
       else if (strcmp (arg, "large") == 0)
-	cmodel = CMODEL_LARGE;
+	rs6000_opts.cmodel = CMODEL_LARGE;
       else
 	{
 	  error ("invalid option for -mcmodel: '%s'", arg);
@@ -4065,7 +4020,7 @@ rs6000_handle_option (size_t code, const char *arg, int value)
       break;
 
     case OPT_minsert_sched_nops_:
-      rs6000_sched_insert_nops_str = arg;
+      rs6000_opts_str.sched_insert_nops_str = arg;
       break;
 
     case OPT_mminimal_toc:
@@ -4128,29 +4083,29 @@ rs6000_handle_option (size_t code, const char *arg, int value)
 
     case OPT_mspe:
       rs6000_explicit_options.spe = true;
-      rs6000_spe = value;
+      rs6000_opts.spe = value;
       break;
 
     case OPT_mspe_:
       rs6000_explicit_options.spe = true;
-      rs6000_parse_yes_no_option ("spe", arg, &(rs6000_spe));
+      rs6000_parse_yes_no_option ("spe", arg, &(rs6000_opts.spe));
       break;
 
     case OPT_mdebug_:
-      rs6000_debug_name = arg;
+      rs6000_opts_str.debug_name = arg;
       break;
 
 #ifdef TARGET_USES_SYSV4_OPT
     case OPT_mcall_:
-      rs6000_abi_name = arg;
+      rs6000_opts_str.abi_name = arg;
       break;
 
     case OPT_msdata_:
-      rs6000_sdata_name = arg;
+      rs6000_opts_str.sdata_name = arg;
       break;
 
     case OPT_mtls_size_:
-      rs6000_tls_size_string = arg;
+      rs6000_opts_str.tls_size_string = arg;
       break;
 
     case OPT_mrelocatable:
@@ -4181,53 +4136,53 @@ rs6000_handle_option (size_t code, const char *arg, int value)
       if (!strcmp (arg, "altivec"))
 	{
 	  rs6000_explicit_options.altivec_abi = true;
-	  rs6000_altivec_abi = 1;
+	  rs6000_opts.altivec_abi = 1;
 
 	  /* Enabling the AltiVec ABI turns off the SPE ABI.  */
-	  rs6000_spe_abi = 0;
+	  rs6000_opts.spe_abi = 0;
 	}
       else if (! strcmp (arg, "no-altivec"))
 	{
 	  rs6000_explicit_options.altivec_abi = true;
-	  rs6000_altivec_abi = 0;
+	  rs6000_opts.altivec_abi = 0;
 	}
       else if (! strcmp (arg, "spe"))
 	{
 	  rs6000_explicit_options.spe_abi = true;
-	  rs6000_spe_abi = 1;
-	  rs6000_altivec_abi = 0;
+	  rs6000_opts.spe_abi = 1;
+	  rs6000_opts.altivec_abi = 0;
 	  if (!TARGET_SPE_ABI)
 	    error ("not configured for ABI: '%s'", arg);
 	}
       else if (! strcmp (arg, "no-spe"))
 	{
 	  rs6000_explicit_options.spe_abi = true;
-	  rs6000_spe_abi = 0;
+	  rs6000_opts.spe_abi = 0;
 	}
 
       /* These are here for testing during development only, do not
 	 document in the manual please.  */
       else if (! strcmp (arg, "d64"))
 	{
-	  rs6000_darwin64_abi = 1;
+	  rs6000_opts.darwin64_abi = 1;
 	  warning (0, "Using darwin64 ABI");
 	}
       else if (! strcmp (arg, "d32"))
 	{
-	  rs6000_darwin64_abi = 0;
+	  rs6000_opts.darwin64_abi = 0;
 	  warning (0, "Using old darwin ABI");
 	}
 
       else if (! strcmp (arg, "ibmlongdouble"))
 	{
 	  rs6000_explicit_options.ieee = true;
-	  rs6000_ieeequad = 0;
+	  rs6000_opts.ieeequad = 0;
 	  warning (0, "Using IBM extended precision long double");
 	}
       else if (! strcmp (arg, "ieeelongdouble"))
 	{
 	  rs6000_explicit_options.ieee = true;
-	  rs6000_ieeequad = 1;
+	  rs6000_opts.ieeequad = 1;
 	  warning (0, "Using IEEE extended precision long double");
 	}
 
@@ -4253,11 +4208,11 @@ rs6000_handle_option (size_t code, const char *arg, int value)
     case OPT_mfloat_gprs_:
       rs6000_explicit_options.float_gprs = true;
       if (! strcmp (arg, "yes") || ! strcmp (arg, "single"))
-	rs6000_float_gprs = 1;
+	rs6000_opts.float_gprs = 1;
       else if (! strcmp (arg, "double"))
-	rs6000_float_gprs = 2;
+	rs6000_opts.float_gprs = 2;
       else if (! strcmp (arg, "no"))
-	rs6000_float_gprs = 0;
+	rs6000_opts.float_gprs = 0;
       else
 	{
 	  error ("invalid option for -mfloat-gprs: '%s'", arg);
@@ -4267,19 +4222,19 @@ rs6000_handle_option (size_t code, const char *arg, int value)
 
     case OPT_mlong_double_:
       rs6000_explicit_options.long_double = true;
-      rs6000_long_double_type_size = RS6000_DEFAULT_LONG_DOUBLE_SIZE;
+      rs6000_opts.long_double_type_size = RS6000_DEFAULT_LONG_DOUBLE_SIZE;
       if (value != 64 && value != 128)
 	{
 	  error ("Unknown switch -mlong-double-%s", arg);
-	  rs6000_long_double_type_size = RS6000_DEFAULT_LONG_DOUBLE_SIZE;
+	  rs6000_opts.long_double_type_size = RS6000_DEFAULT_LONG_DOUBLE_SIZE;
 	  return false;
 	}
       else
-	rs6000_long_double_type_size = value;
+	rs6000_opts.long_double_type_size = value;
       break;
 
     case OPT_msched_costly_dep_:
-      rs6000_sched_costly_dep_str = arg;
+      rs6000_opts_str.sched_costly_dep_str = arg;
       break;
 
     case OPT_malign_:
@@ -4293,10 +4248,10 @@ rs6000_handle_option (size_t code, const char *arg, int value)
 	  if (DEFAULT_ABI == ABI_DARWIN && TARGET_64BIT)
 	    warning (0, "-malign-power is not supported for 64-bit Darwin;"
 		     " it is incompatible with the installed C and C++ libraries");
-	  rs6000_alignment_flags = MASK_ALIGN_POWER;
+	  rs6000_opts.alignment_flags = MASK_ALIGN_POWER;
 	}
       else if (! strcmp (arg, "natural"))
-	rs6000_alignment_flags = MASK_ALIGN_NATURAL;
+	rs6000_opts.alignment_flags = MASK_ALIGN_NATURAL;
       else
 	{
 	  error ("unknown -malign-XXXXX option specified: '%s'", arg);
@@ -4359,11 +4314,11 @@ rs6000_handle_option (size_t code, const char *arg, int value)
       }
 
     case OPT_mrecip:
-      rs6000_recip_name = (value) ? "default" : "none";
+      rs6000_opts_str.recip_name = (value) ? "default" : "none";
       break;
 
     case OPT_mrecip_:
-      rs6000_recip_name = arg;
+      rs6000_opts_str.recip_name = arg;
       break;
     }
   return true;
@@ -4410,7 +4365,7 @@ rs6000_file_start (void)
 	}
 
 #ifdef USING_ELFOS_H
-      switch (rs6000_sdata)
+      switch (rs6000_opts.sdata)
 	{
 	case SDATA_NONE: fprintf (file, "%s -msdata=none", start); start = ""; break;
 	case SDATA_DATA: fprintf (file, "%s -msdata=data", start); start = ""; break;
@@ -4418,7 +4373,7 @@ rs6000_file_start (void)
 	case SDATA_EABI: fprintf (file, "%s -msdata=eabi", start); start = ""; break;
 	}
 
-      if (rs6000_sdata && g_switch_value)
+      if (rs6000_opts.sdata && g_switch_value)
 	{
 	  fprintf (file, "%s -G %d", start,
 		   g_switch_value);
@@ -5381,7 +5336,7 @@ small_data_operand (rtx op ATTRIBUTE_UNUSED,
 #if TARGET_ELF
   rtx sym_ref;
 
-  if (rs6000_sdata == SDATA_NONE || rs6000_sdata == SDATA_DATA)
+  if (rs6000_opts.sdata == SDATA_NONE || rs6000_opts.sdata == SDATA_DATA)
     return 0;
 
   if (DEFAULT_ABI != ABI_V4)
@@ -6059,7 +6014,7 @@ rs6000_legitimize_tls_address (rtx addr, enum tls_model model)
   rtx dest, insn;
 
   dest = gen_reg_rtx (Pmode);
-  if (model == TLS_MODEL_LOCAL_EXEC && rs6000_tls_size == 16)
+  if (model == TLS_MODEL_LOCAL_EXEC && rs6000_opts.tls_size == 16)
     {
       rtx tlsreg;
 
@@ -6075,7 +6030,7 @@ rs6000_legitimize_tls_address (rtx addr, enum tls_model model)
 	}
       emit_insn (insn);
     }
-  else if (model == TLS_MODEL_LOCAL_EXEC && rs6000_tls_size == 32)
+  else if (model == TLS_MODEL_LOCAL_EXEC && rs6000_opts.tls_size == 32)
     {
       rtx tlsreg, tmp;
 
@@ -6176,14 +6131,14 @@ rs6000_legitimize_tls_address (rtx addr, enum tls_model model)
 	    use_reg (&CALL_INSN_FUNCTION_USAGE (call_insn),
 		     pic_offset_table_rtx);
 
-	  if (rs6000_tls_size == 16)
+	  if (rs6000_opts.tls_size == 16)
 	    {
 	      if (TARGET_64BIT)
 		insn = gen_tls_dtprel_64 (dest, tmp1, addr);
 	      else
 		insn = gen_tls_dtprel_32 (dest, tmp1, addr);
 	    }
-	  else if (rs6000_tls_size == 32)
+	  else if (rs6000_opts.tls_size == 32)
 	    {
 	      tmp2 = gen_reg_rtx (Pmode);
 	      if (TARGET_64BIT)
@@ -7548,7 +7503,7 @@ rs6000_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 {
   /* For the Darwin64 ABI, test if we can fit the return value in regs.  */
   if (TARGET_MACHO
-      && rs6000_darwin64_abi
+      && rs6000_opts.darwin64_abi
       && TREE_CODE (type) == RECORD_TYPE
       && int_size_in_bytes (type) > 0)
     {
@@ -7762,7 +7717,7 @@ function_arg_boundary (enum machine_mode mode, const_tree type)
 	       && int_size_in_bytes (type) >= 16))
     return 128;
   else if (TARGET_MACHO
- 	   && rs6000_darwin64_abi
+ 	   && rs6000_opts.darwin64_abi
  	   && mode == BLKmode
 	   && type && TYPE_ALIGN (type) > 64)
     return 128;
@@ -7946,7 +7901,7 @@ rs6000_darwin64_record_arg_advance_recurse (CUMULATIVE_ARGS *cum,
 static int
 rs6000_darwin64_struct_check_p (enum machine_mode mode, const_tree type)
 {
-  return rs6000_darwin64_abi
+  return rs6000_opts.darwin64_abi
 	 && ((mode == BLKmode 
 	      && TREE_CODE (type) == RECORD_TYPE 
 	      && int_size_in_bytes (type) > 0)
@@ -9286,7 +9241,7 @@ rs6000_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
      We can return a simplifed answer, since we know there's no offset to add.  */
 
   if (TARGET_MACHO
-      && rs6000_darwin64_abi 
+      && rs6000_opts.darwin64_abi 
       && integer_zerop (TYPE_SIZE (type)))
     {
       unsigned HOST_WIDE_INT align, boundary;
@@ -12773,7 +12728,7 @@ altivec_init_builtins (void)
   def_builtin (MASK_ALTIVEC, "__builtin_vec_stvebx", void_ftype_opaque_long_pvoid, ALTIVEC_BUILTIN_VEC_STVEBX);
   def_builtin (MASK_ALTIVEC, "__builtin_vec_stvehx", void_ftype_opaque_long_pvoid, ALTIVEC_BUILTIN_VEC_STVEHX);
 
-  if (rs6000_cpu == PROCESSOR_CELL)
+  if (rs6000_opts.cpu == PROCESSOR_CELL)
     {
       def_builtin (MASK_ALTIVEC, "__builtin_altivec_lvlx",  v16qi_ftype_long_pcvoid, ALTIVEC_BUILTIN_LVLX);
       def_builtin (MASK_ALTIVEC, "__builtin_altivec_lvlxl", v16qi_ftype_long_pcvoid, ALTIVEC_BUILTIN_LVLXL);
@@ -15245,8 +15200,9 @@ rs6000_output_function_entry (FILE *file, const char *fname)
 /* Print an operand.  Recognize special options, documented below.  */
 
 #if TARGET_ELF
-#define SMALL_DATA_RELOC ((rs6000_sdata == SDATA_EABI) ? "sda21" : "sdarel")
-#define SMALL_DATA_REG ((rs6000_sdata == SDATA_EABI) ? 0 : 13)
+#define SMALL_DATA_RELOC \
+  ((rs6000_opts.sdata == SDATA_EABI) ? "sda21" : "sdarel")
+#define SMALL_DATA_REG ((rs6000_opts.sdata == SDATA_EABI) ? 0 : 13)
 #else
 #define SMALL_DATA_RELOC "sda21"
 #define SMALL_DATA_REG 0
@@ -16589,7 +16545,7 @@ output_cbranch (rtx op, const char *label, int reversed, rtx insn)
 	 assume not taken for branches that are very close to 50% as a
 	 mispredicted taken branch is more expensive than a
 	 mispredicted not-taken branch.  */
-      if (rs6000_always_hint
+      if (rs6000_opts.always_hint
 	  || (abs (prob) > REG_BR_PROB_BASE / 100 * 48
 	      && br_prob_note_reliable_p (note)))
 	{
@@ -20617,9 +20573,9 @@ rs6000_emit_epilogue (int sibcall)
   using_load_multiple = strategy & SAVRES_MULTIPLE;
   restoring_FPRs_inline = strategy & SAVRES_INLINE_FPRS;
   restoring_GPRs_inline = strategy & SAVRES_INLINE_GPRS;
-  using_mtcr_multiple = (rs6000_cpu == PROCESSOR_PPC601
-			 || rs6000_cpu == PROCESSOR_PPC603
-			 || rs6000_cpu == PROCESSOR_PPC750
+  using_mtcr_multiple = (rs6000_opts.cpu == PROCESSOR_PPC601
+			 || rs6000_opts.cpu == PROCESSOR_PPC603
+			 || rs6000_opts.cpu == PROCESSOR_PPC750
 			 || optimize_size);
   /* Restore via the backchain when we have a large frame, since this
      is more efficient than an addis, addi pair.  The second condition
@@ -21395,7 +21351,7 @@ rs6000_output_function_epilogue (FILE *file,
      System V.4 Powerpc's (and the embedded ABI derived from it) use a
      different traceback table.  */
   if (DEFAULT_ABI == ABI_AIX && ! flag_inhibit_size_directive
-      && rs6000_traceback != traceback_none && !cfun->is_thunk)
+      && rs6000_opts.traceback != traceback_none && !cfun->is_thunk)
     {
       const char *fname = NULL;
       const char *language_string = lang_hooks.name;
@@ -21404,9 +21360,9 @@ rs6000_output_function_epilogue (FILE *file,
       int optional_tbtab;
       rs6000_stack_t *info = rs6000_stack_info ();
 
-      if (rs6000_traceback == traceback_full)
+      if (rs6000_opts.traceback == traceback_full)
 	optional_tbtab = 1;
-      else if (rs6000_traceback == traceback_part)
+      else if (rs6000_opts.traceback == traceback_part)
 	optional_tbtab = 0;
       else
 	optional_tbtab = !optimize_size && !TARGET_ELF;
@@ -22557,7 +22513,7 @@ rs6000_variable_issue_1 (rtx insn, int more)
   if (recog_memoized (insn) < 0)
     return more;
 
-  if (rs6000_sched_groups)
+  if (rs6000_opts.sched_groups)
     {
       if (is_microcoded_insn (insn))
         cached_can_issue_more = 0;
@@ -22604,7 +22560,7 @@ rs6000_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
 	   some cycles later.  */
 
 	/* Separate a load from a narrower, dependent store.  */
-	if (rs6000_sched_groups
+	if (rs6000_opts.sched_groups
 	    && GET_CODE (PATTERN (insn)) == SET
 	    && GET_CODE (PATTERN (dep_insn)) == SET
 	    && GET_CODE (XEXP (PATTERN (insn), 1)) == MEM
@@ -22664,7 +22620,7 @@ rs6000_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
           case TYPE_FPSTORE:
           case TYPE_FPSTORE_U:
           case TYPE_FPSTORE_UX:
-            if ((rs6000_cpu == PROCESSOR_POWER6)
+            if ((rs6000_opts.cpu == PROCESSOR_POWER6)
                 && recog_memoized (dep_insn)
                 && (INSN_CODE (dep_insn) >= 0))
               {
@@ -22751,7 +22707,7 @@ rs6000_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
           case TYPE_LOAD_EXT:
           case TYPE_LOAD_EXT_U:
           case TYPE_LOAD_EXT_UX:
-            if ((rs6000_cpu == PROCESSOR_POWER6)
+            if ((rs6000_opts.cpu == PROCESSOR_POWER6)
                 && recog_memoized (dep_insn)
                 && (INSN_CODE (dep_insn) >= 0))
               {
@@ -22828,7 +22784,7 @@ rs6000_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
             break;
 
           case TYPE_FPLOAD:
-            if ((rs6000_cpu == PROCESSOR_POWER6)
+            if ((rs6000_opts.cpu == PROCESSOR_POWER6)
                 && recog_memoized (dep_insn)
                 && (INSN_CODE (dep_insn) >= 0)
                 && (get_attr_type (dep_insn) == TYPE_MFFGPR))
@@ -22845,7 +22801,7 @@ rs6000_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
     case REG_DEP_OUTPUT:
       /* Output dependency; DEP_INSN writes a register that INSN writes some
 	 cycles later.  */
-      if ((rs6000_cpu == PROCESSOR_POWER6)
+      if ((rs6000_opts.cpu == PROCESSOR_POWER6)
           && recog_memoized (dep_insn)
           && (INSN_CODE (dep_insn) >= 0))
         {
@@ -22920,7 +22876,7 @@ is_microcoded_insn (rtx insn)
   if (rs6000_cpu_attr == CPU_CELL)
     return get_attr_cell_micro (insn) == CELL_MICRO_ALWAYS;
 
-  if (rs6000_sched_groups)
+  if (rs6000_opts.sched_groups)
     {
       enum attr_type type = get_attr_type (insn);
       if (type == TYPE_LOAD_EXT_U
@@ -22945,7 +22901,7 @@ is_cracked_insn (rtx insn)
       || GET_CODE (PATTERN (insn)) == CLOBBER)
     return false;
 
-  if (rs6000_sched_groups)
+  if (rs6000_opts.sched_groups)
     {
       enum attr_type type = get_attr_type (insn);
       if (type == TYPE_LOAD_U || type == TYPE_STORE_U
@@ -22973,7 +22929,7 @@ is_branch_slot_insn (rtx insn)
       || GET_CODE (PATTERN (insn)) == CLOBBER)
     return false;
 
-  if (rs6000_sched_groups)
+  if (rs6000_opts.sched_groups)
     {
       enum attr_type type = get_attr_type (insn);
       if (type == TYPE_BRANCH || type == TYPE_JMPREG)
@@ -23110,7 +23066,7 @@ rs6000_adjust_priority (rtx insn ATTRIBUTE_UNUSED, int priority)
 	return (priority + 1);
     }
 
-  if (rs6000_cpu == PROCESSOR_POWER6
+  if (rs6000_opts.cpu == PROCESSOR_POWER6
       && ((load_store_pendulum == -2 && is_load_insn (insn))
           || (load_store_pendulum == 2 && is_store_insn (insn))))
     /* Attach highest priority to insn if the scheduler has just issued two
@@ -23370,25 +23326,25 @@ rs6000_is_costly_dependence (dep_t dep, int cost, int distance)
   /* If the flag is not enabled - no dependence is considered costly;
      allow all dependent insns in the same group.
      This is the most aggressive option.  */
-  if (rs6000_sched_costly_dep == no_dep_costly)
+  if (rs6000_opts.sched_costly_dep == no_dep_costly)
     return false;
 
   /* If the flag is set to 1 - a dependence is always considered costly;
      do not allow dependent instructions in the same group.
      This is the most conservative option.  */
-  if (rs6000_sched_costly_dep == all_deps_costly)
+  if (rs6000_opts.sched_costly_dep == all_deps_costly)
     return true;
 
   insn = DEP_PRO (dep);
   next = DEP_CON (dep);
 
-  if (rs6000_sched_costly_dep == store_to_load_dep_costly
+  if (rs6000_opts.sched_costly_dep == store_to_load_dep_costly
       && is_load_insn (next)
       && is_store_insn (insn))
     /* Prevent load after store in the same group.  */
     return true;
 
-  if (rs6000_sched_costly_dep == true_store_to_load_dep_costly
+  if (rs6000_opts.sched_costly_dep == true_store_to_load_dep_costly
       && is_load_insn (next)
       && is_store_insn (insn)
       && DEP_TYPE (dep) == REG_DEP_TRUE)
@@ -23398,8 +23354,8 @@ rs6000_is_costly_dependence (dep_t dep, int cost, int distance)
 
   /* The flag is set to X; dependences with latency >= X are considered costly,
      and will not be scheduled in the same group.  */
-  if (rs6000_sched_costly_dep <= max_dep_latency
-      && ((cost - distance) >= (int)rs6000_sched_costly_dep))
+  if (rs6000_opts.sched_costly_dep <= max_dep_latency
+      && ((cost - distance) >= (int)rs6000_opts.sched_costly_dep))
     return true;
 
   return false;
@@ -23459,7 +23415,7 @@ rs6000_sched_reorder (FILE *dump ATTRIBUTE_UNUSED, int sched_verbose,
       }
   }
 
-  if (rs6000_cpu == PROCESSOR_POWER6)
+  if (rs6000_opts.cpu == PROCESSOR_POWER6)
     load_store_pendulum = 0;
 
   return rs6000_issue_rate ();
@@ -23514,7 +23470,7 @@ rs6000_sched_reorder2 (FILE *dump, int sched_verbose, rtx *ready,
              of the machine.  Those instructions are currently unaccounted
              for to help minimize compile time overhead of this code.
    */
-  if (rs6000_cpu == PROCESSOR_POWER6 && last_scheduled_insn)
+  if (rs6000_opts.cpu == PROCESSOR_POWER6 && last_scheduled_insn)
     {
       int pos;
       int i;
@@ -23716,7 +23672,7 @@ insn_must_be_first_in_group (rtx insn)
       || GET_CODE (PATTERN (insn)) == CLOBBER)
     return false;
 
-  switch (rs6000_cpu)
+  switch (rs6000_opts.cpu)
     {
     case PROCESSOR_POWER5:
       if (is_cracked_insn (insn))
@@ -23725,7 +23681,7 @@ insn_must_be_first_in_group (rtx insn)
       if (is_microcoded_insn (insn))
         return true;
 
-      if (!rs6000_sched_groups)
+      if (!rs6000_opts.sched_groups)
         return false;
 
       type = get_attr_type (insn);
@@ -23847,7 +23803,7 @@ insn_must_be_last_in_group (rtx insn)
       || GET_CODE (PATTERN (insn)) == CLOBBER)
     return false;
 
-  switch (rs6000_cpu) {
+  switch (rs6000_opts.cpu) {
   case PROCESSOR_POWER4:
   case PROCESSOR_POWER5:
     if (is_microcoded_insn (insn))
@@ -23971,7 +23927,7 @@ force_new_group (int sched_verbose, FILE *dump, rtx *group_insns,
   if (next_insn == NULL_RTX || DEBUG_INSN_P (next_insn))
     return can_issue_more;
 
-  if (rs6000_sched_insert_nops > sched_finish_regroup_exact)
+  if (rs6000_opts.insert_nops > sched_finish_regroup_exact)
     return can_issue_more;
 
   force = is_costly_group (group_insns, next_insn);
@@ -23982,7 +23938,7 @@ force_new_group (int sched_verbose, FILE *dump, rtx *group_insns,
     fprintf (dump,"force: group count = %d, can_issue_more = %d\n",
 	     *group_count ,can_issue_more);
 
-  if (rs6000_sched_insert_nops == sched_finish_regroup_exact)
+  if (rs6000_opts.insert_nops == sched_finish_regroup_exact)
     {
       if (*group_end)
 	can_issue_more = 0;
@@ -24006,9 +23962,9 @@ force_new_group (int sched_verbose, FILE *dump, rtx *group_insns,
       return 0;
     }
 
-  if (rs6000_sched_insert_nops < sched_finish_regroup_exact)
+  if (rs6000_opts.insert_nops < sched_finish_regroup_exact)
     {
-      int n_nops = rs6000_sched_insert_nops;
+      int n_nops = rs6000_opts.insert_nops;
 
       /* Nops can't be issued from the branch slot, so the effective
 	 issue_rate for nops is 'issue_rate - 1'.  */
@@ -24207,7 +24163,7 @@ pad_groups (FILE *dump, int sched_verbose, rtx prev_head_insn, rtx tail)
 	     force group termination, pad the group with nops to force group
 	     termination.  */
 	  if (can_issue_more
-	      && (rs6000_sched_insert_nops == sched_finish_pad_groups)
+	      && (rs6000_opts.insert_nops == sched_finish_pad_groups)
 	      && !insn_terminates_group_p (insn, current_group)
 	      && !insn_terminates_group_p (next_insn, previous_group))
 	    {
@@ -24255,16 +24211,16 @@ rs6000_sched_finish (FILE *dump, int sched_verbose)
   if (sched_verbose)
     fprintf (dump, "=== Finishing schedule.\n");
 
-  if (reload_completed && rs6000_sched_groups)
+  if (reload_completed && rs6000_opts.sched_groups)
     {
       /* Do not run sched_finish hook when selective scheduling enabled.  */
       if (sel_sched_p ())
 	return;
 
-      if (rs6000_sched_insert_nops == sched_finish_none)
+      if (rs6000_opts.insert_nops == sched_finish_none)
 	return;
 
-      if (rs6000_sched_insert_nops == sched_finish_pad_groups)
+      if (rs6000_opts.insert_nops == sched_finish_pad_groups)
 	n_groups = pad_groups (dump, sched_verbose,
 			       current_sched_info->prev_head,
 			       current_sched_info->next_tail);
@@ -24802,7 +24758,7 @@ compare_section_name (const char *section, const char *templ)
 bool
 rs6000_elf_in_small_data_p (const_tree decl)
 {
-  if (rs6000_sdata == SDATA_NONE)
+  if (rs6000_opts.sdata == SDATA_NONE)
     return false;
 
   /* We want to merge strings, so we never consider them small data.  */
@@ -24834,7 +24790,7 @@ rs6000_elf_in_small_data_p (const_tree decl)
 	  && size <= g_switch_value
 	  /* If it's not public, and we're not going to reference it there,
 	     there's no need to put it in the small data section.  */
-	  && (rs6000_sdata != SDATA_DATA || TREE_PUBLIC (decl)))
+	  && (rs6000_opts.sdata != SDATA_DATA || TREE_PUBLIC (decl)))
 	return true;
     }
 
@@ -26102,7 +26058,7 @@ rs6000_register_move_cost (enum machine_mode mode,
 
       /* Power6 has slower LR/CTR moves so make them more expensive than
 	 memory in order to bias spills to memory .*/
-      else if (rs6000_cpu == PROCESSOR_POWER6
+      else if (rs6000_opts.cpu == PROCESSOR_POWER6
 	       && reg_classes_intersect_p (from, LINK_OR_CTR_REGS))
         ret = 6 * hard_regno_nregs[0][mode];
 
@@ -26993,7 +26949,7 @@ rs6000_vector_mode_supported_p (enum machine_mode mode)
 static const char *
 invalid_arg_for_unprototyped_fn (const_tree typelist, const_tree funcdecl, const_tree val)
 {
-  return (!rs6000_darwin64_abi
+  return (!rs6000_opts.darwin64_abi
 	  && typelist == 0
           && TREE_CODE (TREE_TYPE (val)) == VECTOR_TYPE
           && (funcdecl == NULL_TREE

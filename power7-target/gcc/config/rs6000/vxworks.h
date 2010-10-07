@@ -134,9 +134,9 @@ VXWORKS_ADDITIONAL_CPP_SPEC
   do {						\
     if (TARGET_E500)				\
       {						\
-	rs6000_spe = 1;				\
-	rs6000_spe_abi = 1;			\
-	rs6000_float_gprs = 1;			\
+	rs6000_opts.spe = 1;			\
+	rs6000_opts.spe_abi = 1;		\
+	rs6000_opts.float_gprs = 1;		\
       }						\
 						\
   if (!global_options_set.x_g_switch_value)	\

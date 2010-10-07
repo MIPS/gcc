@@ -21,4 +21,4 @@
 #undef  SUB3TARGET_OVERRIDE_OPTIONS
 #define SUB3TARGET_OVERRIDE_OPTIONS \
   if (!rs6000_explicit_options.float_gprs) \
-    rs6000_float_gprs = 2;
+    rs6000_opts.float_gprs = 2;

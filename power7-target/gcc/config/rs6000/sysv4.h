@@ -32,7 +32,7 @@
 #define	TARGET_OBJECT_FORMAT OBJECT_ELF
 
 /* Default ABI to compile code for.  */
-#define DEFAULT_ABI rs6000_current_abi
+#define DEFAULT_ABI rs6000_opts.abi
 
 /* Default ABI to use.  */
 #define RS6000_ABI_NAME "sysv"
@@ -40,16 +40,6 @@
 /* Override rs6000.h definition.  */
 #undef	ASM_DEFAULT_SPEC
 #define	ASM_DEFAULT_SPEC "-mppc"
-
-/* Small data support types.  */
-enum rs6000_sdata_type {
-  SDATA_NONE,			/* No small data support.  */
-  SDATA_DATA,			/* Just put data in .sbss/.sdata, don't use relocs.  */
-  SDATA_SYSV,			/* Use r13 to point to .sdata/.sbss.  */
-  SDATA_EABI			/* Use r13 like above, r2 points to .sdata2/.sbss2.  */
-};
-
-extern enum rs6000_sdata_type rs6000_sdata;
 
 #define	TARGET_TOC		((target_flags & MASK_64BIT)		\
 				 || ((target_flags & (MASK_RELOCATABLE	\
@@ -70,10 +60,6 @@ extern enum rs6000_sdata_type rs6000_sdata;
 #define TARGET_SECURE_PLT	secure_plt
 #endif
 
-extern const char *rs6000_abi_name;
-extern const char *rs6000_sdata_name;
-extern const char *rs6000_tls_size_string; /* For -mtls-size= */
-
 #define SDATA_DEFAULT_SIZE 8
 
 /* The macro SUBTARGET_OVERRIDE_OPTIONS is provided for subtargets, to
@@ -84,105 +70,105 @@ do {									\
   if (!global_options_set.x_g_switch_value)				\
     g_switch_value = SDATA_DEFAULT_SIZE;				\
 									\
-  if (rs6000_abi_name == NULL)						\
-    rs6000_abi_name = RS6000_ABI_NAME;					\
+  if (rs6000_opts_str.abi_name == NULL)					\
+    rs6000_opts_str.abi_name = RS6000_ABI_NAME;				\
 									\
-  if (!strcmp (rs6000_abi_name, "sysv"))				\
-    rs6000_current_abi = ABI_V4;					\
-  else if (!strcmp (rs6000_abi_name, "sysv-noeabi"))			\
+  if (!strcmp (rs6000_opts_str.abi_name, "sysv"))			\
+    rs6000_opts.abi = ABI_V4;						\
+  else if (!strcmp (rs6000_opts_str.abi_name, "sysv-noeabi"))		\
     {									\
-      rs6000_current_abi = ABI_V4;					\
+      rs6000_opts.abi = ABI_V4;						\
       target_flags &= ~ MASK_EABI;					\
     }									\
-  else if (!strcmp (rs6000_abi_name, "sysv-eabi")			\
-	   || !strcmp (rs6000_abi_name, "eabi"))			\
+  else if (!strcmp (rs6000_opts_str.abi_name, "sysv-eabi")		\
+	   || !strcmp (rs6000_opts_str.abi_name, "eabi"))		\
     {									\
-      rs6000_current_abi = ABI_V4;					\
+      rs6000_opts.abi = ABI_V4;						\
       target_flags |= MASK_EABI;					\
     }									\
-  else if (!strcmp (rs6000_abi_name, "aixdesc"))			\
-    rs6000_current_abi = ABI_AIX;					\
-  else if (!strcmp (rs6000_abi_name, "freebsd"))			\
-    rs6000_current_abi = ABI_V4;					\
-  else if (!strcmp (rs6000_abi_name, "linux"))				\
+  else if (!strcmp (rs6000_opts_str.abi_name, "aixdesc"))		\
+    rs6000_opts.abi = ABI_AIX;						\
+  else if (!strcmp (rs6000_opts_str.abi_name, "freebsd"))		\
+    rs6000_opts.abi = ABI_V4;						\
+  else if (!strcmp (rs6000_opts_str.abi_name, "linux"))			\
     {									\
       if (TARGET_64BIT)							\
-	rs6000_current_abi = ABI_AIX;					\
+	rs6000_opts.abi = ABI_AIX;					\
       else								\
-	rs6000_current_abi = ABI_V4;					\
+	rs6000_opts.abi = ABI_V4;					\
     }									\
-  else if (!strcmp (rs6000_abi_name, "gnu"))				\
-    rs6000_current_abi = ABI_V4;					\
-  else if (!strcmp (rs6000_abi_name, "netbsd"))				\
-    rs6000_current_abi = ABI_V4;					\
-  else if (!strcmp (rs6000_abi_name, "openbsd"))			\
-    rs6000_current_abi = ABI_V4;					\
-  else if (!strcmp (rs6000_abi_name, "i960-old"))			\
+  else if (!strcmp (rs6000_opts_str.abi_name, "gnu"))			\
+    rs6000_opts.abi = ABI_V4;						\
+  else if (!strcmp (rs6000_opts_str.abi_name, "netbsd"))		\
+    rs6000_opts.abi = ABI_V4;						\
+  else if (!strcmp (rs6000_opts_str.abi_name, "openbsd"))		\
+    rs6000_opts.abi = ABI_V4;						\
+  else if (!strcmp (rs6000_opts_str.abi_name, "i960-old"))		\
     {									\
-      rs6000_current_abi = ABI_V4;					\
+      rs6000_opts.abi = ABI_V4;						\
       target_flags |= (MASK_LITTLE_ENDIAN | MASK_EABI);			\
       target_flags &= ~MASK_STRICT_ALIGN;				\
       TARGET_NO_BITFIELD_WORD = 1;					\
     }									\
   else									\
     {									\
-      rs6000_current_abi = ABI_V4;					\
-      error ("bad value for -mcall-%s", rs6000_abi_name);		\
+      rs6000_opts.abi = ABI_V4;						\
+      error ("bad value for -mcall-%s", rs6000_opts_str.abi_name);	\
     }									\
 									\
-  if (rs6000_sdata_name)						\
+  if (rs6000_opts_str.sdata_name)					\
     {									\
-      if (!strcmp (rs6000_sdata_name, "none"))				\
-	rs6000_sdata = SDATA_NONE;					\
-      else if (!strcmp (rs6000_sdata_name, "data"))			\
-	rs6000_sdata = SDATA_DATA;					\
-      else if (!strcmp (rs6000_sdata_name, "default"))			\
-	rs6000_sdata = (TARGET_EABI) ? SDATA_EABI : SDATA_SYSV;		\
-      else if (!strcmp (rs6000_sdata_name, "sysv"))			\
-	rs6000_sdata = SDATA_SYSV;					\
-      else if (!strcmp (rs6000_sdata_name, "eabi"))			\
-	rs6000_sdata = SDATA_EABI;					\
+      if (!strcmp (rs6000_opts_str.sdata_name, "none"))			\
+	rs6000_opts.sdata = SDATA_NONE;					\
+      else if (!strcmp (rs6000_opts_str.sdata_name, "data"))		\
+	rs6000_opts.sdata = SDATA_DATA;					\
+      else if (!strcmp (rs6000_opts_str.sdata_name, "default"))		\
+	rs6000_opts.sdata = (TARGET_EABI) ? SDATA_EABI : SDATA_SYSV;	\
+      else if (!strcmp (rs6000_opts_str.sdata_name, "sysv"))		\
+	rs6000_opts.sdata = SDATA_SYSV;					\
+      else if (!strcmp (rs6000_opts_str.sdata_name, "eabi"))		\
+	rs6000_opts.sdata = SDATA_EABI;					\
       else								\
-	error ("bad value for -msdata=%s", rs6000_sdata_name);		\
+	error ("bad value for -msdata=%s", rs6000_opts_str.sdata_name);	\
     }									\
   else if (DEFAULT_ABI == ABI_V4)					\
     {									\
-      rs6000_sdata = SDATA_DATA;					\
-      rs6000_sdata_name = "data";					\
+      rs6000_opts.sdata = SDATA_DATA;					\
+      rs6000_opts_str.sdata_name = "data";				\
     }									\
   else									\
     {									\
-      rs6000_sdata = SDATA_NONE;					\
-      rs6000_sdata_name = "none";					\
+      rs6000_opts.sdata = SDATA_NONE;					\
+      rs6000_opts_str.sdata_name = "none";				\
     }									\
 									\
   if (TARGET_RELOCATABLE &&						\
-      (rs6000_sdata == SDATA_EABI || rs6000_sdata == SDATA_SYSV))	\
+      (rs6000_opts.sdata == SDATA_EABI || rs6000_opts.sdata == SDATA_SYSV)) \
     {									\
-      rs6000_sdata = SDATA_DATA;					\
+      rs6000_opts.sdata = SDATA_DATA;					\
       error ("-mrelocatable and -msdata=%s are incompatible",		\
-	     rs6000_sdata_name);					\
+	     rs6000_opts_str.sdata_name);				\
     }									\
 									\
   else if (flag_pic && DEFAULT_ABI != ABI_AIX				\
-	   && (rs6000_sdata == SDATA_EABI				\
-	       || rs6000_sdata == SDATA_SYSV))				\
+	   && (rs6000_opts.sdata == SDATA_EABI				\
+	       || rs6000_opts.sdata == SDATA_SYSV))			\
     {									\
-      rs6000_sdata = SDATA_DATA;					\
+      rs6000_opts.sdata = SDATA_DATA;					\
       error ("-f%s and -msdata=%s are incompatible",			\
 	     (flag_pic > 1) ? "PIC" : "pic",				\
-	     rs6000_sdata_name);					\
+	     rs6000_opts_str.sdata_name);				\
     }									\
 									\
-  if ((rs6000_sdata != SDATA_NONE && DEFAULT_ABI != ABI_V4)		\
-      || (rs6000_sdata == SDATA_EABI && !TARGET_EABI))			\
+  if ((rs6000_opts.sdata != SDATA_NONE && DEFAULT_ABI != ABI_V4)	\
+      || (rs6000_opts.sdata == SDATA_EABI && !TARGET_EABI))		\
     {									\
-      rs6000_sdata = SDATA_NONE;					\
+      rs6000_opts.sdata = SDATA_NONE;					\
       error ("-msdata=%s and -mcall-%s are incompatible",		\
-	     rs6000_sdata_name, rs6000_abi_name);			\
+	     rs6000_opts_str.sdata_name, rs6000_opts_str.abi_name);	\
     }									\
 									\
-  targetm.have_srodata_section = rs6000_sdata == SDATA_EABI;		\
+  targetm.have_srodata_section = rs6000_opts.sdata == SDATA_EABI;	\
 									\
   if (TARGET_RELOCATABLE && !TARGET_MINIMAL_TOC)			\
     {									\
@@ -190,21 +176,21 @@ do {									\
       error ("-mrelocatable and -mno-minimal-toc are incompatible");	\
     }									\
 									\
-  if (TARGET_RELOCATABLE && rs6000_current_abi == ABI_AIX)		\
+  if (TARGET_RELOCATABLE && rs6000_opts.abi == ABI_AIX)			\
     {									\
       target_flags &= ~MASK_RELOCATABLE;				\
       error ("-mrelocatable and -mcall-%s are incompatible",		\
-	     rs6000_abi_name);						\
+	     rs6000_opts_str.abi_name);					\
     }									\
 									\
-  if (!TARGET_64BIT && flag_pic > 1 && rs6000_current_abi == ABI_AIX)	\
+  if (!TARGET_64BIT && flag_pic > 1 && rs6000_opts.abi == ABI_AIX)	\
     {									\
       flag_pic = 0;							\
       error ("-fPIC and -mcall-%s are incompatible",			\
-	     rs6000_abi_name);						\
+	     rs6000_opts_str.abi_name);					\
     }									\
 									\
-  if (rs6000_current_abi == ABI_AIX && TARGET_LITTLE_ENDIAN)		\
+  if (rs6000_opts.abi == ABI_AIX && TARGET_LITTLE_ENDIAN)		\
     {									\
       target_flags &= ~MASK_LITTLE_ENDIAN;				\
       error ("-mcall-aixdesc must be big endian");			\

@@ -65,10 +65,9 @@ extern int dot_symbols;
 
 #define TARGET_USES_LINUX64_OPT 1
 #ifdef HAVE_LD_LARGE_TOC
-extern enum rs6000_cmodel cmodel;
 #undef TARGET_CMODEL
-#define TARGET_CMODEL cmodel
-#define SET_CMODEL(opt) cmodel = opt
+#define TARGET_CMODEL rs6000_opts.cmodel
+#define SET_CMODEL(opt) rs6000_opts.cmodel = opt
 #else
 #define SET_CMODEL(opt) do {} while (0)
 #endif
@@ -95,15 +94,16 @@ extern enum rs6000_cmodel cmodel;
   do								\
     {								\
       if (!rs6000_explicit_options.alignment)			\
-	rs6000_alignment_flags = MASK_ALIGN_NATURAL;		\
+	rs6000_opts.alignment_flags = MASK_ALIGN_NATURAL;	\
       if (TARGET_64BIT)						\
 	{							\
 	  if (DEFAULT_ABI != ABI_AIX)				\
 	    {							\
-	      rs6000_current_abi = ABI_AIX;			\
+	      rs6000_opts.abi = ABI_AIX;			\
 	      error (INVALID_64BIT, "call");			\
 	    }							\
-	  dot_symbols = !strcmp (rs6000_abi_name, "aixdesc");	\
+	  dot_symbols = !strcmp (rs6000_opts_str.abi_name,	\
+				 "aixdesc");			\
 	  if (target_flags & MASK_RELOCATABLE)			\
 	    {							\
 	      target_flags &= ~MASK_RELOCATABLE;		\
@@ -127,7 +127,7 @@ extern enum rs6000_cmodel cmodel;
 	  if ((target_flags_explicit & MASK_MINIMAL_TOC) != 0)	\
 	    {							\
 	      if (rs6000_explicit_options.cmodel		\
-		  && cmodel != CMODEL_SMALL)			\
+		  && rs6000_opts.cmodel != CMODEL_SMALL)	\
 		error ("-mcmodel incompatible with other toc options"); \
 	      SET_CMODEL (CMODEL_SMALL);			\
 	    }							\
@@ -135,7 +135,7 @@ extern enum rs6000_cmodel cmodel;
 	    {							\
 	      if (!rs6000_explicit_options.cmodel)		\
 		SET_CMODEL (CMODEL_MEDIUM);			\
-	      if (cmodel != CMODEL_SMALL)			\
+	      if (rs6000_opts.cmodel != CMODEL_SMALL)		\
 		{						\
 		  TARGET_NO_FP_IN_TOC = 0;			\
 		  TARGET_NO_SUM_IN_TOC = 0;			\

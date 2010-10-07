@@ -25,12 +25,12 @@
 #undef TARGET_E500_DOUBLE
 #undef CHECK_E500_OPTIONS
 
-#define TARGET_SPE_ABI rs6000_spe_abi
-#define TARGET_SPE rs6000_spe
-#define TARGET_E500 (rs6000_cpu == PROCESSOR_PPC8540)
-#define TARGET_FPRS (rs6000_float_gprs == 0)
-#define TARGET_E500_SINGLE (TARGET_HARD_FLOAT && rs6000_float_gprs == 1)
-#define TARGET_E500_DOUBLE (TARGET_HARD_FLOAT && rs6000_float_gprs == 2)
+#define TARGET_SPE_ABI rs6000_opts.spe_abi
+#define TARGET_SPE rs6000_opts.spe
+#define TARGET_E500 (rs6000_opts.cpu == PROCESSOR_PPC8540)
+#define TARGET_FPRS (rs6000_opts.float_gprs == 0)
+#define TARGET_E500_SINGLE (TARGET_HARD_FLOAT && rs6000_opts.float_gprs == 1)
+#define TARGET_E500_DOUBLE (TARGET_HARD_FLOAT && rs6000_opts.float_gprs == 2)
 #define CHECK_E500_OPTIONS						\
   do {									\
     if (TARGET_E500 || TARGET_SPE || TARGET_SPE_ABI			\

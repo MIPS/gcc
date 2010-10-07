@@ -27,4 +27,4 @@
 #define TARGET_VERSION fprintf (stderr, " (PowerPC Embedded with AltiVec)");
 
 #undef  SUBSUBTARGET_OVERRIDE_OPTIONS
-#define SUBSUBTARGET_OVERRIDE_OPTIONS	rs6000_altivec_abi = 1
+#define SUBSUBTARGET_OVERRIDE_OPTIONS	rs6000_opts.altivec_abi = 1

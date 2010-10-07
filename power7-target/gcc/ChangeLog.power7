@@ -1,5 +1,144 @@
 2010-10-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/aix53.h (SUBTARGET_OVERRIDE_OPTIONS): Move all of
+	the rs6000 option handling variables into a structure so they can
+	be copied and restored easily.  Create the new structures to hold
+	all of the options.
+	* config/rs6000/linuxspe.h (SUBTARGET_OVERRIDE_OPTIONS): Ditto.
+	* config/rs6000/eabialtivec.h (SUBTARGET_OVERRIDE_OPTIONS):
+	Ditto.
+	* config/rs6000/aix43.h (SUBTARGET_OVERRIDE_OPTIONS): Ditto.
+	* config/rs6000/rs6000-c.c (rs6000_cpu_cpp_builtins): Ditto.
+	* config/rs6000/linuxaltivec.h (SUBTARGET_OVERRIDE_OPTIONS):
+	Ditto.
+	* config/rs6000/linux64.h (TARGET_CMODEL): Ditto.
+	(SET_CMODEL): Ditto.
+	(SUBSUBTARGET_OVERRIDE_OPTIONS): Ditto.
+	* config/rs6000/aix52.h (SUBTARGET_OVERRIDE_OPTIONS): Ditto.
+	* config/rs6000/aix61.h (SUBTARGET_OVERRIDE_OPTIONS): Ditto.
+	* config/rs6000/eabispe.h (SUBSUBTARGET_OVERRIDE_OPTIONS): Ditto.
+	* config/rs6000/e500.h (TARGET_*): Ditto.
+	* config/rs6000/e500-double.h ( (SUB3TARGET_OVERRIDE_OPTIONS):
+	Ditto.
+	* config/rs6000/vxworks.h (VXWORKS_ADDITIONAL_CPP_SPEC): Ditto.
+	* config/rs6000/sysv4.h (DEFAULT_ABI_: Ditto.
+	(rs6000_abi_name): Ditto.
+	(rs6000_sdata_name): Ditto.
+	(rs6000_tls_size_string): Ditto.
+	(SUBTARGET_OVERRIDE_OPTIONS): Ditto.
+	* config/rs6000/altivec.md (altivec_lvlx): Ditto.
+	(altivec_lvlxl): Ditto.
+	(altivec_lvrx): Ditto.
+	(altivec_lvrxl): Ditto.
+	(altivec_stvlx): Ditto.
+	(altivec_stvlxl): Ditto.
+	(altivec_stvrx): Ditto.
+	(altivec_stvrxl): Ditto.
+
+	* config/rs6000/rs6000.c (rs6000_opts): New common structure for
+	option settings.
+	(rs6000_opts_str): New common structure for option names.
+	(rs6000_always_hint): Delete, move into common option structure.
+	(rs6000_sched_groups): Ditto.
+	(rs6000_align_branch_targets): Ditto.
+	(rs6000_sched_costly_dep_str): Ditto.
+	(rs6000_sched_costly_dep): Ditto.
+	(rs6000_sched_insert_nops): Ditto.
+	(rs6000_long_double_type_size): Ditto.
+	(rs6000_ieeequad): Ditto.
+	(rs6000_altivec_abi): Ditto.
+	(rs6000_spe): Ditto.
+	(rs6000_spe_abi): Ditto.
+	(rs6000_float_gprs): Ditto.
+	(rs6000_darwin64_abi): Ditto.
+	(rs6000_abi_name): Ditto.
+	(rs6000_sdata): Ditto.
+	(rs6000_sdata_name): Ditto.
+	(rs6000_tls_size_string): Ditto.
+	(rs6000_current_abi): Ditto.
+	(rs6000_debug_name): Ditto.
+	(rs6000_debug_stack): Ditto.
+	(rs6000_debug_arg): Ditto.
+	(rs6000_debug_reg): Ditto.
+	(rs6000_debug_cost): Ditto.
+	(rs6000_traceback_name): Ditto.
+	(rs6000_traceback): Ditto.
+	(rs6000_alignment_flags): Ditto.
+	(rs6000_cmodel): Ditto.
+	(rs6000_recip_control): Ditto.
+	(rs6000_recip_name): Ditto.
+	(rs6000_debug_reg_global): Change references to names in the new
+	common option structure.
+	(rs6000_init_hard_regno_mode_ok): Ditto.
+	(darwin_rs6000_override_options): Ditto.
+	(rs6000_option_override_internal): Ditto.
+	(rs6000_vector_alignment_reachable): Ditto.
+	(rs6000_parse_tls_size_option): Ditto.
+	(rs6000_handle_option): Ditto.
+	(rs6000_file_start): Ditto.
+	(small_data_operand): Ditto.
+	(rs6000_legitimize_tls_address): Ditto.
+	(rs6000_return_in_memory): Ditto.
+	(function_arg_boundary): Ditto.
+	(rs6000_darwin64_record_arg_advance_recurse): Ditto.
+	(altivec_init_builtins): Ditto.
+	(rs6000_output_function_entry): Ditto.
+	(SMALL_DATA_RELOC): Ditto.
+	(SMALL_DATA_REG): Ditto.
+	(output_cbranch): Ditto.
+	(rs6000_emit_epilogue): Ditto.
+	(rs6000_output_function_epilogue): Ditto.
+	(rs6000_variable_issue_1): Ditto.
+	(rs6000_adjust_cost): Ditto.
+	(is_microcoded_insn): Ditto.
+	(is_cracked_insn): Ditto.
+	(is_branch_slot_insn): Ditto.
+	(rs6000_adjust_priority): Ditto.
+	(rs6000_is_costly_dependence): Ditto.
+	(rs6000_sched_reorder): Ditto.
+	(rs6000_sched_reorder2): Ditto.
+	(insn_must_be_first_in_group): Ditto.
+	(insn_must_be_last_in_group): Ditto.
+	(force_new_group): Ditto.
+	(pad_groups): Ditto.
+	(rs6000_sched_finish): Ditto.
+	(compare_section_name): Ditto.
+	(rs6000_register_move_cost): Ditto.
+	(rs6000_vector_mode_supported_p): Ditto.
+
+	* config/rs6000/rs6000.h (PPC405_ERRATUM77): Change references to
+	names in the new common option structure.
+	(TARGET_ALIGN_NATURAL): Ditto.
+	(TARGET_LONG_DOUBLE_128): Ditto.
+	(TARGET_IEEEQUAD): Ditto.
+	(TARGET_ALTIVEC_ABI): Ditto.
+	(TARGET_LDBRX): Ditto.
+	(LONG_DOUBLE_TYPE_SIZE): Ditto.
+	(TARGET_DEBUG_*): Ditto.
+	(MASK_DEBUG_*): Combine all debug flags into a single int.
+	(rs6000_cpu): Delete, move into common options structure.
+	(fpu_type): Ditto.
+	(rs6000_debug_*): Ditto.
+	(rs6000_long_double_type_size): Ditto.
+	(rs6000_ieeequad):
+	(rs6000_altivec_abi): Ditto.
+	(rs6000_spe_abi): Ditto.
+	(rs6000_spe): Ditto.
+	(rs6000_float_gprs): Ditto.
+	(rs6000_alignment_flags): Ditto.
+	(rs6000_sched_insert_nops_str): Ditto.
+	(rs6000_sched_insert_nops): Ditto.
+	(rs6000_current_abi): ditto.
+	(enum rs6000_traceback): Move enumeration here fromr rs6000.c.
+	(enum rs6000_sdata_type): Move enumeration here from sysv4.h.
+	(rs6000_opts_str): New global structure to collect all of the
+	pointers to string options.
+	(rs6000_opts): New global structure to collect all of the option
+	related variables into one structure.
+
+	* config/rs6000/rs6000.opt: Add Save to most of the options that
+	we would want to support with the target attribute.
+
 	Clone branch from GCC mainline, subversion id 165044.
 	* REVISION: New file, track subversion id.
 

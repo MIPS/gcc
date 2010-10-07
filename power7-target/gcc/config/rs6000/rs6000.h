@@ -61,7 +61,7 @@
 
 /* If configured for PPC405, support PPC405CR Erratum77.  */
 #ifdef CONFIG_PPC405CR
-#define PPC405_ERRATUM77 (rs6000_cpu == PROCESSOR_PPC405)
+#define PPC405_ERRATUM77 (rs6000_opts.cpu == PROCESSOR_PPC405)
 #else
 #define PPC405_ERRATUM77 0
 #endif
@@ -381,11 +381,6 @@ enum processor_type
 #define TARGET_SIMPLE_FPU   0
 #define TARGET_XILINX_FPU   0
 
-extern enum processor_type rs6000_cpu;
-
-/* Recast the processor type to the cpu attribute.  */
-#define rs6000_cpu_attr ((enum attr_cpu)rs6000_cpu)
-
 /* Define generic processor types based upon current deployment.  */
 #define PROCESSOR_COMMON    PROCESSOR_PPC601
 #define PROCESSOR_POWER     PROCESSOR_RIOS1
@@ -405,8 +400,6 @@ enum fpu_type_t
 	FPU_SF_FULL,		/* Full Single Precision FPU */
 	FPU_DF_FULL		/* Full Double Single Precision FPU */
 };
-
-extern enum fpu_type_t fpu_type;
 
 /* Specify the dialect of assembler to use.  New mnemonics is dialect one
    and the old mnemonics are dialect zero.  */
@@ -449,32 +442,22 @@ struct rs6000_cpu_select
 extern struct rs6000_cpu_select rs6000_select[];
 
 /* Debug support */
-extern const char *rs6000_debug_name;	/* Name for -mdebug-xxxx option */
-extern int rs6000_debug_stack;		/* debug stack applications */
-extern int rs6000_debug_arg;		/* debug argument handling */
-extern int rs6000_debug_reg;		/* debug register handling */
-extern int rs6000_debug_addr;		/* debug memory addressing */
-extern int rs6000_debug_cost;		/* debug rtx_costs */
+#define MASK_DEBUG_STACK	0x01	/* debug stack applications */
+#define	MASK_DEBUG_ARG		0x02	/* debug argument handling */
+#define MASK_DEBUG_REG		0x04	/* debug register handling */
+#define MASK_DEBUG_ADDR		0x08	/* debug memory addressing */
+#define MASK_DEBUG_COST		0x10	/* debug rtx codes */
+#define MASK_DEBUG_ALL		(MASK_DEBUG_STACK \
+				 | MASK_DEBUG_ARG \
+				 | MASK_DEBUG_REG \
+				 | MASK_DEBUG_ADDR \
+				 | MASK_DEBUG_COST)
 
-#define	TARGET_DEBUG_STACK	rs6000_debug_stack
-#define	TARGET_DEBUG_ARG	rs6000_debug_arg
-#define TARGET_DEBUG_REG	rs6000_debug_reg
-#define TARGET_DEBUG_ADDR	rs6000_debug_addr
-#define TARGET_DEBUG_COST	rs6000_debug_cost
-
-extern const char *rs6000_traceback_name; /* Type of traceback table.  */
-
-/* These are separate from target_flags because we've run out of bits
-   there.  */
-extern int rs6000_long_double_type_size;
-extern int rs6000_ieeequad;
-extern int rs6000_altivec_abi;
-extern int rs6000_spe_abi;
-extern int rs6000_spe;
-extern int rs6000_float_gprs;
-extern int rs6000_alignment_flags;
-extern const char *rs6000_sched_insert_nops_str;
-extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
+#define	TARGET_DEBUG_STACK	(rs6000_opts.debug & MASK_DEBUG_STACK)
+#define	TARGET_DEBUG_ARG	(rs6000_opts.debug & MASK_DEBUG_ARG)
+#define TARGET_DEBUG_REG	(rs6000_opts.debug & MASK_DEBUG_REG)
+#define TARGET_DEBUG_ADDR	(rs6000_opts.debug & MASK_DEBUG_ADDR)
+#define TARGET_DEBUG_COST	(rs6000_opts.debug & MASK_DEBUG_COST)
 
 /* Describe which vector unit to use for a given machine mode.  */
 enum rs6000_vector {
@@ -535,21 +518,21 @@ extern int rs6000_vector_align[];
    ALIGN_NATURAL doubleword-aligns FP doubles (align to object size).
 
    Override the macro definitions when compiling libobjc to avoid undefined
-   reference to rs6000_alignment_flags due to library's use of GCC alignment
-   macros which use the macros below.  */
+   reference to rs6000_opts.alignment_flags due to library's use of GCC
+   alignment macros which use the macros below.  */
 
 #ifndef IN_TARGET_LIBS
 #define MASK_ALIGN_POWER   0x00000000
 #define MASK_ALIGN_NATURAL 0x00000001
-#define TARGET_ALIGN_NATURAL (rs6000_alignment_flags & MASK_ALIGN_NATURAL)
+#define TARGET_ALIGN_NATURAL (rs6000_opts.alignment_flags & MASK_ALIGN_NATURAL)
 #else
 #define TARGET_ALIGN_NATURAL 0
 #endif
 
-#define TARGET_LONG_DOUBLE_128 (rs6000_long_double_type_size == 128)
-#define TARGET_IEEEQUAD rs6000_ieeequad
-#define TARGET_ALTIVEC_ABI rs6000_altivec_abi
-#define TARGET_LDBRX (TARGET_POPCNTD || rs6000_cpu == PROCESSOR_CELL)
+#define TARGET_LONG_DOUBLE_128 (rs6000_opts.long_double_type_size == 128)
+#define TARGET_IEEEQUAD rs6000_opts.ieeequad
+#define TARGET_ALTIVEC_ABI rs6000_opts.altivec_abi
+#define TARGET_LDBRX (TARGET_POPCNTD || rs6000_opts.cpu == PROCESSOR_CELL)
 
 #define TARGET_SPE_ABI 0
 #define TARGET_SPE 0
@@ -748,7 +731,7 @@ extern unsigned char rs6000_recip_bits[];
 /* A C expression for the size in bits of the type `long double' on
    the target machine.  If you don't define this, the default is two
    words.  */
-#define LONG_DOUBLE_TYPE_SIZE rs6000_long_double_type_size
+#define LONG_DOUBLE_TYPE_SIZE rs6000_opts.long_double_type_size
 
 /* Define this to set long double type size to use in libgcc2.c, which can
    not depend on target_flags.  */
@@ -1475,8 +1458,6 @@ enum rs6000_abi {
   ABI_V4,			/* System V.4/eabi */
   ABI_DARWIN			/* Apple's Darwin (OS X kernel) */
 };
-
-extern enum rs6000_abi rs6000_current_abi;	/* available for use by subtarget */
 
 /* Define this if pushing a word on the stack
    makes the stack pointer a smaller address.  */
@@ -2421,6 +2402,116 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0).  */
 
 /* General flags.  */
 extern int frame_pointer_needed;
+
+/* Type of traceback to use.  */
+enum rs6000_traceback {
+  traceback_default = 0,
+  traceback_none,
+  traceback_part,
+  traceback_full
+};
+
+/* Small data support types.  */
+enum rs6000_sdata_type {
+  SDATA_NONE,			/* No small data support.  */
+  SDATA_DATA,			/* Just put data in .sbss/.sdata, don't use relocs.  */
+  SDATA_SYSV,			/* Use r13 to point to .sdata/.sbss.  */
+  SDATA_EABI			/* Use r13 like above, r2 points to .sdata2/.sbss2.  */
+};
+
+/* Option strings that are processed in rs6000_handle_option and then dealt
+   with in rs6000_override_options.  Don't use GTY(()) for these, since
+   the strings are not allocated.  */
+
+struct rs6000_option_strings {
+  const char *sched_costly_dep_str;
+  const char *sched_insert_nops_str;
+  const char *abi_name;
+  const char *sdata_name;
+  const char *debug_name;
+  const char *recip_name;
+  const char *tls_size_string;
+};
+
+extern struct rs6000_option_strings rs6000_opts_str;
+
+/* Target specific variables, flags, etc.  These are all grouped in a structure
+   so that it can be copied and restored if functions are compiled with
+   different target options.  */
+
+typedef struct GTY(()) rs6000_options
+{
+  /* cpu we are generating code for */
+  enum processor_type cpu;
+
+  /* whether to schedule nops */
+  enum rs6000_nop_insertion insert_nops;
+
+  /* Code model for 64-bit linux.  */
+  enum rs6000_cmodel cmodel;
+
+  /* Support for -msched-costly-dep option.  */
+  enum rs6000_dependence_cost sched_costly_dep;
+
+  /* ABI enumeration available for subtarget to use.  */
+  enum rs6000_abi abi;
+
+  /* Type of traceback to use.  */
+  enum rs6000_traceback traceback;
+
+  /* Small data support types.  */
+  enum rs6000_sdata_type sdata;
+
+  /* Control alignment for fields within structures.  */
+  /* String from -malign-XXXXX.  */
+  int alignment_flags;
+
+  /* Size of long double.  */
+  int long_double_type_size;
+
+  /* IEEE quad extended precision long double. */
+  int ieeequad;
+
+  /* Nonzero to use AltiVec ABI.  */
+  int altivec_abi;
+
+  /* Nonzero if we want SPE ABI extensions.  */
+  int spe_abi;
+
+  /* Nonzero if we want SPE SIMD instructions.  */
+  int spe;
+
+  /* Nonzero if floating point operations are done in the GPRs.  */
+  int float_gprs;
+
+  /* Always emit branch hint bits.  */
+  int always_hint;
+
+  /* Schedule instructions for group formation.  */
+  int sched_groups;
+
+  /* Align branch targets.  */
+  int align_branch_targets;
+
+  /* Nonzero if we want Darwin's struct-by-value-in-regs ABI.  */
+  int darwin64_abi;
+
+  /* Bit size of immediate TLS offsets and string from which it is decoded.  */
+  int tls_size;
+
+  /* Various debug flags.  */
+  unsigned int debug;
+
+  /* reciprocl divide/square root estimate options.  */
+  unsigned int recip_control;
+
+} rs6000_options_t;
+
+extern GTY(()) rs6000_options_t rs6000_opts;
+
+/* Recast the processor type to the cpu attribute.  */
+#define rs6000_cpu_attr ((enum attr_cpu)rs6000_opts.cpu)
+
 
 /* Classification of the builtin functions to properly set the declaration tree
    flags.  */

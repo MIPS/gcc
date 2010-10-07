@@ -312,7 +312,7 @@ rs6000_cpu_cpp_builtins (cpp_reader *pfile)
 	  cpp_get_callbacks (pfile)->macro_to_expand = rs6000_macro_to_expand;
 	}
     }
-  if (rs6000_cpu == PROCESSOR_CELL)
+  if (rs6000_opts.cpu == PROCESSOR_CELL)
     builtin_define ("__PPU__");
   if (TARGET_SPE)
     builtin_define ("__SPE__");
@@ -324,7 +324,7 @@ rs6000_cpu_cpp_builtins (cpp_reader *pfile)
       ||(TARGET_HARD_FLOAT && TARGET_FPRS && !TARGET_DOUBLE_FLOAT))
     builtin_define ("_SOFT_DOUBLE");
   /* Used by lwarx/stwcx. errata work-around.  */
-  if (rs6000_cpu == PROCESSOR_PPC405)
+  if (rs6000_opts.cpu == PROCESSOR_PPC405)
     builtin_define ("__PPC405__");
   /* Used by libstdc++.  */
   if (TARGET_NO_LWSYNC)
@@ -386,7 +386,7 @@ rs6000_cpu_cpp_builtins (cpp_reader *pfile)
       builtin_define ("__LONGDOUBLE128");
     }
 
-  switch (rs6000_current_abi)
+  switch (rs6000_opts.abi)
     {
     case ABI_V4:
       builtin_define ("_CALL_SYSV");

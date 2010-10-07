@@ -2419,7 +2419,7 @@
   [(set (match_operand:V16QI 0 "register_operand" "=v")
         (unspec:V16QI [(match_operand 1 "memory_operand" "Z")] 
 		      UNSPEC_LVLX))]
-  "TARGET_ALTIVEC && rs6000_cpu == PROCESSOR_CELL"
+  "TARGET_ALTIVEC && rs6000_opts.cpu == PROCESSOR_CELL"
   "lvlx %0,%y1"
   [(set_attr "type" "vecload")])
 
@@ -2427,7 +2427,7 @@
   [(set (match_operand:V16QI 0 "register_operand" "=v")
         (unspec:V16QI [(match_operand 1 "memory_operand" "Z")] 
 		      UNSPEC_LVLXL))]
-  "TARGET_ALTIVEC && rs6000_cpu == PROCESSOR_CELL"
+  "TARGET_ALTIVEC && rs6000_opts.cpu == PROCESSOR_CELL"
   "lvlxl %0,%y1"
   [(set_attr "type" "vecload")])
 
@@ -2435,7 +2435,7 @@
   [(set (match_operand:V16QI 0 "register_operand" "=v")
         (unspec:V16QI [(match_operand 1 "memory_operand" "Z")] 
 		      UNSPEC_LVRX))]
-  "TARGET_ALTIVEC && rs6000_cpu == PROCESSOR_CELL"
+  "TARGET_ALTIVEC && rs6000_opts.cpu == PROCESSOR_CELL"
   "lvrx %0,%y1"
   [(set_attr "type" "vecload")])
 
@@ -2443,7 +2443,7 @@
   [(set (match_operand:V16QI 0 "register_operand" "=v")
         (unspec:V16QI [(match_operand 1 "memory_operand" "Z")] 
 		      UNSPEC_LVRXL))]
-  "TARGET_ALTIVEC && rs6000_cpu == PROCESSOR_CELL"
+  "TARGET_ALTIVEC && rs6000_opts.cpu == PROCESSOR_CELL"
   "lvrxl %0,%y1"
   [(set_attr "type" "vecload")])
 
@@ -2452,7 +2452,7 @@
     [(set (match_operand:V4SI 0 "memory_operand" "=Z")
 	  (match_operand:V4SI 1 "register_operand" "v"))
      (unspec [(const_int 0)] UNSPEC_STVLX)])]
-  "TARGET_ALTIVEC && rs6000_cpu == PROCESSOR_CELL"
+  "TARGET_ALTIVEC && rs6000_opts.cpu == PROCESSOR_CELL"
   "stvlx %1,%y0"
   [(set_attr "type" "vecstore")])
 
@@ -2461,7 +2461,7 @@
     [(set (match_operand:V4SI 0 "memory_operand" "=Z")
 	  (match_operand:V4SI 1 "register_operand" "v"))
      (unspec [(const_int 0)] UNSPEC_STVLXL)])]
-  "TARGET_ALTIVEC && rs6000_cpu == PROCESSOR_CELL"
+  "TARGET_ALTIVEC && rs6000_opts.cpu == PROCESSOR_CELL"
   "stvlxl %1,%y0"
   [(set_attr "type" "vecstore")])
 
@@ -2470,7 +2470,7 @@
     [(set (match_operand:V4SI 0 "memory_operand" "=Z")
 	  (match_operand:V4SI 1 "register_operand" "v"))
      (unspec [(const_int 0)] UNSPEC_STVRX)])]
-  "TARGET_ALTIVEC && rs6000_cpu == PROCESSOR_CELL"
+  "TARGET_ALTIVEC && rs6000_opts.cpu == PROCESSOR_CELL"
   "stvrx %1,%y0"
   [(set_attr "type" "vecstore")])
 
@@ -2479,7 +2479,7 @@
     [(set (match_operand:V4SI 0 "memory_operand" "=Z")
 	  (match_operand:V4SI 1 "register_operand" "v"))
      (unspec [(const_int 0)] UNSPEC_STVRXL)])]
-  "TARGET_ALTIVEC && rs6000_cpu == PROCESSOR_CELL"
+  "TARGET_ALTIVEC && rs6000_opts.cpu == PROCESSOR_CELL"
   "stvrxl %1,%y0"
   [(set_attr "type" "vecstore")])
 
