@@ -20,6 +20,93 @@
 ; along with GCC; see the file COPYING3.  If not see
 ; <http://www.gnu.org/licenses/>.
 
+HeaderInclude
+config/rs6000/rs6000-opts.h
+
+;; Current processor
+TargetVariable
+enum processor_type rs6000_cpu = PROCESSOR_RIOS1
+
+;; Always emit branch hint bits.
+TargetVariable
+unsigned char rs6000_always_hint
+
+;; Schedule instructions for group formation.
+TargetVariable
+unsigned char rs6000_sched_groups
+
+;; Align branch targets.
+TargetVariable
+unsigned char rs6000_align_branch_targets
+
+;; Support for -msched-costly-dep option.
+TargetVariable
+enum rs6000_dependence_cost rs6000_sched_costly_dep = no_dep_costly
+
+;; Support for -minsert-sched-nops option.
+TargetVariable
+enum rs6000_nop_insertion rs6000_sched_insert_nops = sched_finish_none
+
+;; Size of long double.
+TargetVariable
+unsigned char rs6000_long_double_type_size
+
+;; IEEE quad extended precision long double.
+TargetVariable
+unsigned char rs6000_ieeequad
+
+;; Nonzero to use AltiVec ABI.
+TargetVariable
+unsigned char rs6000_altivec_abi
+
+;; Nonzero if we want SPE SIMD instructions.
+TargetVariable
+int rs6000_spe
+
+;; Nonzero if we want SPE ABI extensions.
+TargetVariable
+unsigned char rs6000_spe_abi
+
+;; Nonzero if floating point operations are done in the GPRs.
+TargetVariable
+unsigned char rs6000_float_gprs
+
+;; Nonzero if we want Darwin's struct-by-value-in-regs ABI.
+TargetVariable
+unsigned char rs6000_darwin64_abi
+
+;; Which small data model to use (for System V targets only)
+TargetVariable
+enum rs6000_sdata_type rs6000_sdata = SDATA_DATA
+
+;; Bit size of immediate TLS offsets and string from which it is decoded.
+TargetVariable
+int rs6000_tls_size = 32
+
+;; ABI enumeration available for subtarget to use.
+TargetVariable
+enum rs6000_abi rs6000_current_abi = ABI_NONE
+
+;; Type of traceback to use.
+TargetVariable
+enum rs6000_traceback_type rs6000_traceback = traceback_default
+
+;; Control alignment for fields within structures.
+TargetVariable
+unsigned char rs6000_alignment_flags
+
+;; Code model for 64-bit linux.
+TargetVariable
+enum rs6000_cmodel rs6000_current_cmodel = CMODEL_SMALL
+
+;; What type of reciprocal estimation instructions to generate
+TargetVariable
+unsigned int rs6000_recip_control
+
+;; Debug flags
+TargetVariable
+unsigned int rs6000_debug
+
 mpower
 Target Report RejectNegative Mask(POWER)
 Use POWER instruction set

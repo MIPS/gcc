@@ -29,7 +29,12 @@ BEGIN {
 	n_langs = 0
 	n_target_save = 0
 	n_extra_vars = 0
+	n_extra_target_vars = 0
 	n_extra_masks = 0
+	n_extra_c_includes = 0
+	n_extra_h_includes = 0
+	have_save = 0;
+	quote = "\042"
 	FS=SUBSEP
 }
 
@@ -47,6 +52,30 @@ BEGIN {
 		else if ($1 == "Variable") {
 			extra_vars[n_extra_vars] = $2
 			n_extra_vars++
+		}
+		else if ($1 == "TargetVariable") {
+			# Combination of TargetSave and Variable
+			extra_vars[n_extra_vars] = $2
+			n_extra_vars++
+
+			var = $2
+			sub(" *=.*", "", var)
+			orig_var = var
+			name = var
+			type = var
+			sub("^.*[ *]", "", name)
+			sub(" *" name "$", "", type)
+			target_save_decl[n_target_save] = type " x_" name
+			n_target_save++
+
+			extra_target_vars[n_extra_target_vars] = name
+			n_extra_target_vars++
+		}
+		else if ($1 == "HeaderInclude") {
+			extra_h_includes[n_extra_h_includes++] = $2;
+		}
+		else if ($1 == "SourceInclude")  {
+			extra_c_includes[n_extra_c_includes++] = $2;
 		}
 		else {
 			name = opt_args("Mask", $1)
@@ -71,10 +100,20 @@ print "#ifndef OPTIONS_H"
 print "#define OPTIONS_H"
 print ""
 
-have_save = 0;
+if (n_extra_h_includes > 0) {
+	for (i = 0; i < n_extra_h_includes; i++) {
+		print "#include " quote extra_h_includes[i] quote
+	}
+	print ""
+}
 
 print "#ifndef GENERATOR_FILE"
-print "struct gcc_options\n{"
+print "#if !defined(GCC_DRIVER) && !defined(IN_LIBGCC2) && !defined(IN_TARGET_LIBS)"
+print "struct GTY(()) gcc_options"
+print "#else"
+print "struct gcc_options"
+print "#endif"
+print "{"
 print "#endif"
 
 for (i = 0; i < n_extra_vars; i++) {
@@ -146,6 +185,7 @@ print "{";
 n_opt_char = 2;
 n_opt_short = 0;
 n_opt_int = 0;
+n_opt_enum = 0;
 n_opt_other = 0;
 var_opt_char[0] = "unsigned char x_optimize";
 var_opt_char[1] = "unsigned char x_optimize_size";
@@ -170,6 +210,9 @@ for (i = 0; i < n_opts; i++) {
 		else if (otype ~ "^((un)?signed +)?char *$")
 			var_opt_char[n_opt_char++] = otype "x_" name;
 
+		else if (otype ~ "^enum +[a-zA-Z0-9_]+ *$")
+			var_opt_enum[n_opt_enum++] = otype "x_" name;
+
 		else
 			var_opt_other[n_opt_other++] = otype "x_" name;
 	}
@@ -177,6 +220,10 @@ for (i = 0; i < n_opts; i++) {
 
 for (i = 0; i < n_opt_other; i++) {
 	print "  " var_opt_other[i] ";";
+}
+
+for (i = 0; i < n_opt_enum; i++) {
+	print "  " var_opt_enum[i] ";";
 }
 
 for (i = 0; i < n_opt_int; i++) {
@@ -202,6 +249,7 @@ print "{";
 n_target_char = 0;
 n_target_short = 0;
 n_target_int = 0;
+n_target_enum = 0;
 n_target_other = 0;
 
 for (i = 0; i < n_target_save; i++) {
@@ -214,6 +262,9 @@ for (i = 0; i < n_target_save; i++) {
 	else if (target_save_decl[i] ~ "^((un)?signed +)?char +[_a-zA-Z0-9]+$")
 		var_target_char[n_target_char++] = target_save_decl[i];
 
+	else if (target_save_decl[i] ~ "^enum +[_a-zA-Z0-9]+ +[_a-zA-Z0-9]+$") {
+		var_target_enum[n_target_enum++] = target_save_decl[i];
+	}
 	else
 		var_target_other[n_target_other++] = target_save_decl[i];
 }
@@ -239,6 +290,9 @@ if (have_save) {
 			else if (otype ~ "^((un)?signed +)?char *$")
 				var_target_char[n_target_char++] = otype "x_" name;
 
+			else if (otype ~ "^enum +[_a-zA-Z0-9]+ +[_a-zA-Z0-9]+")
+				var_target_enum[n_target_enum++] = otype "x_" name;
+
 			else
 				var_target_other[n_target_other++] = otype "x_" name;
 		}
@@ -249,6 +303,10 @@ if (have_save) {
 
 for (i = 0; i < n_target_other; i++) {
 	print "  " var_target_other[i] ";";
+}
+
+for (i = 0; i < n_target_enum; i++) {
+	print "  " var_target_enum[i] ";";
 }
 
 for (i = 0; i < n_target_int; i++) {
