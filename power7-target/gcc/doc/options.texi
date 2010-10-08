@@ -62,21 +62,20 @@ and @samp{TargetSave} records in that the variable is defined in the
 @code{cl_target_option} structure.  The variables are saved in the
 target save code and restored in the target restore code.
 
-records have two fields: the string @samp{TargetSave}, and a
-declaration type to go in the @code{cl_target_option} structure.
+@item
+A variable record to record any additional files that the
+@file{options.h} file should include.  This is useful to provide
+enumeration or structure definitions needed for target variables.
+These records have two fields: the string @samp{HeaderInclude} and the
+name of the include file.
 
 @item
-A variable record to record any additional files to include in the
-@file{options.h} file.  This is useful to provide enumeration or
-structure definitions needed for target variables.  These records have
-two fields: the string @samp{HeaderInclude} and the name of the
+A variable record to record any additional files that the
+@file{options.c} file should include.  This is useful to provide
+inline functions needed for target variables and/or @code{#ifdef}
+sequences to properly set up the initialization.  These records have
+two fields: the string @samp{SourceInclude} and the name of the
 include file.
-
-@item
-A variable record to record any additional files to include in the
-@file{options.c} file.  This is useful to provide inline functions
-needed for target variables.  These records have two fields: the
-string @samp{SourceInclude} and the name of the include file.
 
 @item
 An option definition record.  These records have the following fields:
