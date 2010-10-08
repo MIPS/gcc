@@ -81,6 +81,15 @@ struct rs6000_options rs6000_opts;
    the strings are not allocated.  */
 struct rs6000_option_strings rs6000_opts_str;
 
+/* Hash table stuff for keeping track of different target options.  */
+static GTY ((param_is (struct rs6000_options))) htab_t target_hash_table;
+
+/* Hash of the global options that the compiler was invoked with.  */
+static struct GTY (()) rs6000_options *rs6000_target_main;
+
+/* Hash of the options used by the current function.  */
+static struct GTY (()) rs6000_options *rs6000_target_current;
+
 /* Structure used to define the rs6000 stack */
 typedef struct rs6000_stack {
   int first_gp_reg_save;	/* first callee saved GP register used */
@@ -899,6 +908,8 @@ static rtx gen_frame_mem_offset (enum machine_mode, rtx, int);
 static unsigned rs6000_hash_constant (rtx);
 static unsigned toc_hash_function (const void *);
 static int toc_hash_eq (const void *, const void *);
+static unsigned target_hash_function (const void *);
+static int target_hash_eq (const void *, const void *);
 static bool reg_offset_addressing_ok_p (enum machine_mode);
 static bool virtual_stack_registers_memory_p (rtx);
 static bool constant_pool_expr_p (rtx);
@@ -1201,6 +1212,14 @@ const int INSN_NOT_AVAILABLE = -1;
 static enum machine_mode rs6000_eh_return_filter_mode (void);
 static bool rs6000_can_eliminate (const int, const int);
 static void rs6000_trampoline_init (rtx, tree, rtx);
+
+static void rs6000_function_specific_save (struct cl_target_option *);
+static void rs6000_function_specific_restore (struct cl_target_option *);
+static void rs6000_function_specific_print (FILE *, int,
+					    struct cl_target_option *);
+static bool rs6000_valid_target_attribute_p (tree, tree, tree, int);
+static bool rs6000_can_inline_p (tree, tree);
+static void rs6000_set_current_function (tree);
 
 /* Hash table stuff for keeping track of TOC entries.  */
 
@@ -1546,6 +1565,24 @@ static const struct attribute_spec rs6000_attribute_table[] =
 
 #undef TARGET_STACK_PROTECT_FAIL
 #define TARGET_STACK_PROTECT_FAIL rs6000_stack_protect_fail
+
+#undef TARGET_SET_CURRENT_FUNCTION
+#define TARGET_SET_CURRENT_FUNCTION rs6000_set_current_function
+
+#undef TARGET_OPTION_VALID_ATTRIBUTE_P
+#define TARGET_OPTION_VALID_ATTRIBUTE_P rs6000_valid_target_attribute_p
+
+#undef TARGET_OPTION_SAVE
+#define TARGET_OPTION_SAVE rs6000_function_specific_save
+
+#undef TARGET_OPTION_RESTORE
+#define TARGET_OPTION_RESTORE rs6000_function_specific_restore
+
+#undef TARGET_OPTION_PRINT
+#define TARGET_OPTION_PRINT rs6000_function_specific_print
+
+#undef TARGET_CAN_INLINE_P
+#define TARGET_CAN_INLINE_P rs6000_can_inline_p
 
 /* MPC604EUM 3.5.2 Weak Consistency between Multiple Processors
    The PowerPC architecture requires only weak consistency among
@@ -2348,6 +2385,7 @@ rs6000_option_override_internal (const char *default_cpu)
   size_t i, j;
   struct rs6000_cpu_select *ptr;
   int set_masks;
+  void **found;
 
   /* Simplifications for entries below.  */
 
@@ -3187,6 +3225,25 @@ rs6000_option_override_internal (const char *default_cpu)
     }
 
   rs6000_init_hard_regno_mode_ok ();
+
+  /* Create the hash table if this is the first call.  There probably aren't
+     going to be too many unique sets of target hash tables, so cut down the
+     memory somewhat from the normal hash tables. */
+  if (!target_hash_table)
+    target_hash_table = htab_create_ggc (250, target_hash_function,
+					 target_hash_eq, NULL);
+
+  found = htab_find_slot (target_hash_table, &rs6000_opts, INSERT);
+  if (*found == NULL)
+    {
+      struct rs6000_options *h = ggc_alloc_rs6000_options (); 
+      *h = rs6000_opts;
+      *found = (void *)h;
+    }
+
+  rs6000_target_current = (struct rs6000_options *)(*found);
+  if (!rs6000_target_main)
+    rs6000_target_main = rs6000_target_current;
 }
 
 /* Implement TARGET_OPTION_OVERRIDE.  On the RS/6000 this is used to
@@ -3202,6 +3259,38 @@ rs6000_option_override (void)
 #endif
 
   rs6000_option_override_internal (OPTION_TARGET_CPU_DEFAULT);
+}
+
+/* Hash function for target functions to return a unique htab entry for each
+   set of unique machine options.  A lot of the fields are simple 0/1 type
+   fields, so do a rotate to try and get hashes that are spread out.  */
+static unsigned
+target_hash_function (const void *hash_entry)
+{
+  unsigned ret = 0;
+  size_t i;
+  const unsigned int *p = (const unsigned int *) hash_entry;
+
+  gcc_assert ((sizeof (struct rs6000_options) % sizeof (unsigned int)) == 0);
+  for (i = 0; i < sizeof (struct rs6000_options) / sizeof (unsigned int); i++)
+    ret = ((ret << 2) | (ret >> ((sizeof (unsigned int) * 8) - 2))) ^ p[i];
+
+  return ret;
+}
+
+/* Compare target hash entries H1 and H2 for equivalence.  */
+static int
+target_hash_eq (const void *h1, const void *h2)
+{
+  const unsigned int *p1 = (const unsigned int *) h1;
+  const unsigned int *p2 = (const unsigned int *) h2;
+  size_t i;
+
+  for (i = 0; i < sizeof (struct rs6000_options) / sizeof (unsigned int); i++)
+    if (*p1 != *p2)
+      return 0;
+
+  return 1;
 }
 
 /* Implement targetm.vectorize.builtin_mask_for_load.  */
@@ -27117,4 +27206,157 @@ rs6000_expand_convert_si_to_sfdf (rtx dest, rtx src, bool unsigned_p)
     }
 }
 
+
+
+/* Save the current options */
+
+static void
+rs6000_function_specific_save (struct cl_target_option *ARG_UNUSED (ptr))
+{
+  gcc_unreachable ();
+}
+
+/* Restore the current options */
+
+static void
+rs6000_function_specific_restore (struct cl_target_option *ARG_UNUSED (ptr))
+{
+  gcc_unreachable ();
+}
+
+/* Print the current options */
+
+static void
+rs6000_function_specific_print (FILE *ARG_UNUSED (file),
+				int ARG_UNUSED (indent),
+				struct cl_target_option *ARG_UNUSED (ptr))
+{
+  gcc_unreachable ();
+}
+
+
+/* Remember the last target of rs6000_set_current_function.  */
+static GTY(()) tree rs6000_previous_fndecl;
+
+/* Establish appropriate back-end context for processing the function
+   FNDECL.  The argument might be NULL to indicate processing at top
+   level, outside of any function scope.  */
+static void
+rs6000_set_current_function (tree fndecl)
+{
+  /* Only change the context if the function changes.  This hook is called
+     several times in the course of compiling a function, and we don't want to
+     slow things down too much or call target_reinit when it isn't safe.  */
+  if (fndecl && fndecl != rs6000_previous_fndecl)
+    {
+      tree old_tree = (rs6000_previous_fndecl
+		       ? DECL_FUNCTION_SPECIFIC_TARGET (rs6000_previous_fndecl)
+		       : NULL_TREE);
+
+      tree new_tree = (fndecl
+		       ? DECL_FUNCTION_SPECIFIC_TARGET (fndecl)
+		       : NULL_TREE);
+
+      rs6000_previous_fndecl = fndecl;
+      if (old_tree == new_tree)
+	;
+
+      else if (new_tree)
+	{
+	  cl_target_option_restore (&global_options,
+				    TREE_TARGET_OPTION (new_tree));
+	  target_reinit ();
+	}
+
+      else if (old_tree)
+	{
+	  struct cl_target_option *def
+	    = TREE_TARGET_OPTION (target_option_current_node);
+
+	  cl_target_option_restore (&global_options, def);
+	  target_reinit ();
+	}
+    }
+}
+
+/* Hook to validate attribute((target("string"))).  */
+
+static bool
+rs6000_valid_target_attribute_p (tree ARG_UNUSED (fndecl),
+				 tree ARG_UNUSED (name),
+				 tree ARG_UNUSED (args),
+				 int ARG_UNUSED (flags))
+{
+#if 0
+  struct cl_target_option cur_target;
+  bool ret = true;
+  tree old_optimize = build_optimization_node ();
+  tree new_target, new_optimize;
+  tree func_optimize = DECL_FUNCTION_SPECIFIC_OPTIMIZATION (fndecl);
+
+  /* If the function changed the optimization levels as well as setting target
+     options, start with the optimizations specified.  */
+  if (func_optimize && func_optimize != old_optimize)
+    cl_optimization_restore (&global_options,
+			     TREE_OPTIMIZATION (func_optimize));
+
+  /* The target attributes may also change some optimization flags, so update
+     the optimization options if necessary.  */
+  cl_target_option_save (&cur_target, &global_options);
+  new_target = rs6000_valid_target_attribute_tree (args);
+  new_optimize = build_optimization_node ();
+
+  if (!new_target)
+    ret = false;
+
+  else if (fndecl)
+    {
+      DECL_FUNCTION_SPECIFIC_TARGET (fndecl) = new_target;
+
+      if (old_optimize != new_optimize)
+	DECL_FUNCTION_SPECIFIC_OPTIMIZATION (fndecl) = new_optimize;
+    }
+
+  cl_target_option_restore (&global_options, &cur_target);
+
+  if (old_optimize != new_optimize)
+    cl_optimization_restore (&global_options,
+			     TREE_OPTIMIZATION (old_optimize));
+
+  return ret;
+#else
+  return false;
+#endif
+}
+
+/* Hook to determine if one function can safely inline another.  */
+
+static bool
+rs6000_can_inline_p (tree caller, tree callee)
+{
+  bool ret = false;
+  tree caller_tree = DECL_FUNCTION_SPECIFIC_TARGET (caller);
+  tree callee_tree = DECL_FUNCTION_SPECIFIC_TARGET (callee);
+
+  /* If callee has no option attributes, then it is ok to inline.  */
+  if (!callee_tree)
+    ret = true;
+
+  /* If caller has no option attributes, but callee does then it is not ok to
+     inline.  */
+  else if (!caller_tree)
+    ret = false;
+
+  else
+    {
+      struct cl_target_option *caller_opts = TREE_TARGET_OPTION (caller_tree);
+      struct cl_target_option *callee_opts = TREE_TARGET_OPTION (callee_tree);
+
+      ret = (caller_opts == callee_opts);
+    }
+
+  return ret;
+}
+
+
 #include "gt-rs6000.h"

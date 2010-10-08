@@ -20,10 +20,90 @@
 ; along with GCC; see the file COPYING3.  If not see
 ; <http://www.gnu.org/licenses/>.
 
-;; Definitions to add to the cl_target_option structure
-;; All of the useful target information
-TargetSave
-struct rs6000_options *options
+;; Variables to be defined in gcc_options
+;; Cpu we are generating code for
+TargetVariable
+enum processor_type rs6000_cpu
+
+;; Whether to schedule nops
+TargetVariable
+enum rs6000_nop_insertion rs6000_sched_insert_nops
+
+;; Code model for 64-bit linux.
+TargetVariable
+enum rs6000_cmodel rs6000_cmodel
+
+;; Support for -msched-costly-dep option.
+TargetVariable
+enum rs6000_dependence_cost rs6000_sched_costly_dep
+
+;; ABI enumeration available for subtarget to use.
+TargetVariable
+enum rs6000_abi rs6000_abi
+
+;; Type of traceback to use.
+TargetVariable
+enum rs6000_traceback rs6000_traceback
+
+;; Small data support types.
+TargetVariable
+enum rs6000_sdata_type rs6000_sdata
+
+;; Various debug flags.
+TargetVariable
+unsigned int rs6000_debug
+
+;; Reciprocl divide/square root estimate options.
+TargetVariable
+unsigned int rs6000_recip_control
+
+;; Control alignment for fields within structures.
+TargetVariable
+unsigned char rs6000_alignment_flags
+
+;; Size of long double.
+TargetVariable
+unsigned char rs6000_long_double_type_size
+
+;; IEEE quad extended precision long double.
+TargetVariable
+unsigned char rs6000_ieeequad
+
+;; Nonzero to use AltiVec ABI.
+TargetVariable
+unsigned char rs6000_altivec_abi
+
+;; Nonzero if we want SPE ABI extensions.
+TargetVariable
+unsigned char rs6000_spe_abi
+
+;; Nonzero if we want SPE SIMD instructions.
+TargetVariable
+unsigned char rs6000_spe
+
+;; Nonzero if floating point operations are done in the GPRs.
+TargetVariable
+unsigned char rs6000_float_gprs
+
+;; Always emit branch hint bits.
+TargetVariable
+unsigned char rs6000_always_hint
+
+;; Schedule instructions for group formation.
+TargetVariable
+unsigned char rs6000_sched_groups
+
+;; Align branch targets.
+TargetVariable
+unsigned char rs6000_align_branch_targets
+
+;; Nonzero if we want Darwin's struct-by-value-in-regs ABI.
+TargetVariable
+unsigned char rs6000_darwin64_abi
+
+;; Bit size of immediate TLS offsets and string from which it is decoded.
+TargetVariable
+unsigned char rs6000_tls_size
 
 ;; Options
 mpower

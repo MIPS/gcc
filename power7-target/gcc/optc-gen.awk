@@ -31,6 +31,7 @@ BEGIN {
 	n_langs = 0
 	n_target_save = 0
 	n_extra_vars = 0
+	n_extra_target_vars = 0
         quote = "\042"
 	comma = ","
 	FS=SUBSEP
@@ -52,6 +53,24 @@ BEGIN {
 		else if ($1 == "Variable") {
 			extra_vars[n_extra_vars] = $2
 			n_extra_vars++
+		}
+		else if ($1 == "TargetVariable") {
+			# Combination of TargetSave and Variable
+			extra_vars[n_extra_vars] = $2
+			n_extra_vars++
+
+			var = $2
+			sub(" *=.*", "", var)
+			orig_var = var
+			name = var
+			type = var
+			sub("^.*[ *]", "", name)
+			sub(" *" name "$", "", type)
+			target_save_decl[n_target_save] = type " x_" name
+			n_target_save++
+
+			extra_target_vars[n_extra_target_vars] = name
+			n_extra_target_vars++;
 		}
 		else {
 			name = opt_args("Mask", $1)
@@ -83,6 +102,9 @@ print "#endif /* GCC_DRIVER */"
 print ""
 
 have_save = 0;
+if (n_extra_target_vars)
+	have_save = 1
+
 print "struct gcc_options global_options =\n{"
 for (i = 0; i < n_extra_vars; i++) {
 	var = extra_vars[i]
@@ -303,6 +325,7 @@ print "{";
 n_opt_char = 2;
 n_opt_short = 0;
 n_opt_int = 0;
+n_opt_enum = 0;
 n_opt_other = 0;
 var_opt_char[0] = "optimize";
 var_opt_char[1] = "optimize_size";
@@ -329,6 +352,9 @@ for (i = 0; i < n_opts; i++) {
 		else if (otype ~ "^((un)?signed +)?short *$")
 			var_opt_short[n_opt_short++] = name;
 
+		else if (otype ~ "^enum +[a-zA-Z0-9_]+ *")
+			var_opt_enum[n_opt_enum++] = name;
+
 		else if (otype ~ "^((un)?signed +)?char *$") {
 			var_opt_char[n_opt_char++] = name;
 			if (otype ~ "^unsigned +char *$")
@@ -350,6 +376,10 @@ for (i = 0; i < n_opt_char; i++) {
 print "";
 for (i = 0; i < n_opt_other; i++) {
 	print "  ptr->x_" var_opt_other[i] " = opts->x_" var_opt_other[i] ";";
+}
+
+for (i = 0; i < n_opt_enum; i++) {
+	print "  ptr->x_" var_opt_enum[i] " = opts->x_" var_opt_enum[i] ";";
 }
 
 for (i = 0; i < n_opt_int; i++) {
@@ -374,6 +404,10 @@ print "{";
 
 for (i = 0; i < n_opt_other; i++) {
 	print "  opts->x_" var_opt_other[i] " = ptr->x_" var_opt_other[i] ";";
+}
+
+for (i = 0; i < n_opt_enum; i++) {
+	print "  ptr->x_" var_opt_enum[i] " = opts->x_" var_opt_enum[i] ";";
 }
 
 for (i = 0; i < n_opt_int; i++) {
@@ -406,6 +440,15 @@ for (i = 0; i < n_opt_other; i++) {
 	print "             indent_to, \"\",";
 	print "             \"" var_opt_other[i] "\",";
 	print "             (unsigned long)ptr->x_" var_opt_other[i] ");";
+	print "";
+}
+
+for (i = 0; i < n_opt_enum; i++) {
+	print "  if (ptr->x_" var_opt_enum[i] ")";
+	print "    fprintf (file, \"%*s%s (%#x)\\n\",";
+	print "             indent_to, \"\",";
+	print "             \"" var_opt_enum[i] "\",";
+	print "             ptr->x_" var_opt_enum[i] ");";
 	print "";
 }
 
@@ -447,6 +490,7 @@ print "{";
 n_target_char = 0;
 n_target_short = 0;
 n_target_int = 0;
+n_target_enum = 0;
 n_target_other = 0;
 
 if (have_save) {
@@ -466,6 +510,9 @@ if (have_save) {
 
 			else if (otype ~ "^((un)?signed +)?short *$")
 				var_target_short[n_target_short++] = name;
+
+			else if (otype ~ "^enum +[_a-zA-Z0-9]+ *$")
+				var_target_enum[n_target_enum++] = name;
 
 			else if (otype ~ "^((un)?signed +)?char *$") {
 				var_target_char[n_target_char++] = name;
@@ -498,8 +545,16 @@ print "  if (targetm.target_option.save)";
 print "    targetm.target_option.save (ptr);";
 print "";
 
+for (i = 0; i < n_extra_target_vars; i++) {
+	print "  ptr->x_" extra_target_vars[i] " = opts->x_" extra_target_vars[i] ";";
+}
+
 for (i = 0; i < n_target_other; i++) {
 	print "  ptr->x_" var_target_other[i] " = opts->x_" var_target_other[i] ";";
+}
+
+for (i = 0; i < n_target_enum; i++) {
+	print "  ptr->x_" var_target_enum[i] " = opts->x_" var_target_enum[i] ";";
 }
 
 for (i = 0; i < n_target_int; i++) {
@@ -522,8 +577,16 @@ print "void";
 print "cl_target_option_restore (struct gcc_options *opts, struct cl_target_option *ptr)";
 print "{";
 
+for (i = 0; i < n_extra_target_vars; i++) {
+	print "  opts->x_" extra_target_vars[i] " = ptr->x_" extra_target_vars[i] ";";
+}
+
 for (i = 0; i < n_target_other; i++) {
 	print "  opts->x_" var_target_other[i] " = ptr->x_" var_target_other[i] ";";
+}
+
+for (i = 0; i < n_target_enum; i++) {
+	print "  opts->x_" var_target_enum[i] " = ptr->x_" var_target_enum[i] ";";
 }
 
 for (i = 0; i < n_target_int; i++) {
@@ -561,6 +624,15 @@ for (i = 0; i < n_target_other; i++) {
 	print "             indent, \"\",";
 	print "             \"" var_target_other[i] "\",";
 	print "             (unsigned long)ptr->x_" var_target_other[i] ");";
+	print "";
+}
+
+for (i = 0; i < n_target_enum; i++) {
+	print "  if (ptr->x_" var_target_enum[i] ")";
+	print "    fprintf (file, \"%*s%s (%#x)\\n\",";
+	print "             indent, \"\",";
+	print "             \"" var_target_enum[i] "\",";
+	print "             ptr->x_" var_target_enum[i] ");";
 	print "";
 }
 
