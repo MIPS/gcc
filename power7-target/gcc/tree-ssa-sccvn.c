@@ -1708,10 +1708,16 @@ init_vn_nary_op_from_pieces (vn_nary_op_t vno, unsigned int length,
   vno->opcode = code;
   vno->length = length;
   vno->type = type;
-  vno->op[0] = op0;
-  vno->op[1] = op1;
-  vno->op[2] = op2;
-  vno->op[3] = op3;
+  switch (length)
+    {
+      /* The fallthrus here are deliberate.  */
+    case 4: vno->op[3] = op3;
+    case 3: vno->op[2] = op2;
+    case 2: vno->op[1] = op1;
+    case 1: vno->op[0] = op0;
+    default:
+      break;
+    }
 }
 
 /* Initialize VNO from OP.  */
@@ -3038,10 +3044,7 @@ compare_ops (const void *pa, const void *pb)
 static void
 sort_scc (VEC (tree, heap) *scc)
 {
-  qsort (VEC_address (tree, scc),
-	 VEC_length (tree, scc),
-	 sizeof (tree),
-	 compare_ops);
+  VEC_qsort (tree, scc, compare_ops);
 }
 
 /* Insert the no longer used nary ONARY to the hash INFO.  */
