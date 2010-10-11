@@ -28,6 +28,7 @@
 --  handling of private and full declarations, and the construction of dispatch
 --  tables for tagged types.
 
+with Aspects;  use Aspects;
 with Atree;    use Atree;
 with Debug;    use Debug;
 with Einfo;    use Einfo;
@@ -51,6 +52,7 @@ with Sem_Ch6;  use Sem_Ch6;
 with Sem_Ch8;  use Sem_Ch8;
 with Sem_Ch10; use Sem_Ch10;
 with Sem_Ch12; use Sem_Ch12;
+with Sem_Ch13; use Sem_Ch13;
 with Sem_Disp; use Sem_Disp;
 with Sem_Eval; use Sem_Eval;
 with Sem_Prag; use Sem_Prag;
@@ -768,7 +770,7 @@ package body Sem_Ch7 is
       --     package Pkg is ...
 
       if From_With_Type (Id) then
-         return;
+         goto Leave;
       end if;
 
       if Debug_Flag_C then
@@ -842,6 +844,9 @@ package body Sem_Ch7 is
          Write_Location (Sloc (N));
          Write_Eol;
       end if;
+
+      <<Leave>>
+         Analyze_Aspect_Specifications (N, Id, Aspect_Specifications (N));
    end Analyze_Package_Declaration;
 
    -----------------------------------
@@ -1426,6 +1431,7 @@ package body Sem_Ch7 is
 
       New_Private_Type (N, Id, N);
       Set_Depends_On_Private (Id);
+      Analyze_Aspect_Specifications (N, Id, Aspect_Specifications (N));
    end Analyze_Private_Type_Declaration;
 
    ----------------------------------
@@ -2035,6 +2041,7 @@ package body Sem_Ch7 is
          Set_Is_Volatile             (Priv, Is_Volatile                (Full));
          Set_Treat_As_Volatile       (Priv, Treat_As_Volatile          (Full));
          Set_Is_Ada_2005_Only        (Priv, Is_Ada_2005_Only           (Full));
+         Set_Is_Ada_2012_Only        (Priv, Is_Ada_2012_Only           (Full));
          Set_Has_Pragma_Unmodified   (Priv, Has_Pragma_Unmodified      (Full));
          Set_Has_Pragma_Unreferenced (Priv, Has_Pragma_Unreferenced    (Full));
          Set_Has_Pragma_Unreferenced_Objects

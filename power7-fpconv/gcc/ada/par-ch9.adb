@@ -168,7 +168,7 @@ package body Ch9 is
             if Token = Tok_New then
                Scan; --  past NEW
 
-               if Ada_Version < Ada_05 then
+               if Ada_Version < Ada_2005 then
                   Error_Msg_SP ("task interface is an Ada 2005 extension");
                   Error_Msg_SP ("\unit must be compiled with -gnat05 switch");
                end if;
@@ -480,7 +480,7 @@ package body Ch9 is
          if Token = Tok_New then
             Scan; --  past NEW
 
-            if Ada_Version < Ada_05 then
+            if Ada_Version < Ada_2005 then
                Error_Msg_SP ("protected interface is an Ada 2005 extension");
                Error_Msg_SP ("\unit must be compiled with -gnat05 switch");
             end if;
@@ -640,7 +640,7 @@ package body Ch9 is
          end if;
 
          if Is_Overriding or else Not_Overriding then
-            if Ada_Version < Ada_05 then
+            if Ada_Version < Ada_2005 then
                Error_Msg_SP ("overriding indicator is an Ada 2005 extension");
                Error_Msg_SP ("\unit must be compiled with -gnat05 switch");
 
@@ -651,7 +651,7 @@ package body Ch9 is
                Set_Must_Not_Override (Decl, Not_Overriding);
 
             elsif Token = Tok_Function or else Token = Tok_Procedure then
-               Decl := P_Subprogram (Pf_Decl);
+               Decl := P_Subprogram (Pf_Decl_Pexp);
 
                Set_Must_Override     (Specification (Decl), Is_Overriding);
                Set_Must_Not_Override (Specification (Decl), Not_Overriding);
@@ -682,7 +682,7 @@ package body Ch9 is
             return P_Entry_Declaration;
 
          elsif Token = Tok_Function or else Token = Tok_Procedure then
-            return P_Subprogram (Pf_Decl);
+            return P_Subprogram (Pf_Decl_Pexp);
 
          elsif Token = Tok_Identifier then
             L := New_List;
@@ -754,7 +754,7 @@ package body Ch9 is
                  or else
                Token = Tok_Not or else Bad_Spelling_Of (Tok_Not)
          then
-            Append (P_Subprogram (Pf_Decl_Pbod), Item_List);
+            Append (P_Subprogram (Pf_Decl_Pbod_Pexp), Item_List);
 
          elsif Token = Tok_Pragma or else Bad_Spelling_Of (Tok_Pragma) then
             P_Pragmas_Opt (Item_List);
@@ -824,7 +824,7 @@ package body Ch9 is
       end if;
 
       if Is_Overriding or else Not_Overriding then
-         if Ada_Version < Ada_05 then
+         if Ada_Version < Ada_2005 then
             Error_Msg_SP ("overriding indicator is an Ada 2005 extension");
             Error_Msg_SP ("\unit must be compiled with -gnat05 switch");
 
@@ -900,7 +900,7 @@ package body Ch9 is
          Discard_Junk_Node (P_Expression_No_Right_Paren);
       end if;
 
-      TF_Semicolon;
+      P_Aspect_Specifications (Decl_Node);
       return Decl_Node;
 
    exception

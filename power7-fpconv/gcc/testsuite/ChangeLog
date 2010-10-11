@@ -1,3 +1,193 @@
+2010-10-11  Martin Jambor  <mjambor@suse.cz>
+
+	PR middle-end/45699
+	* g++.dg/torture/pr45699.C: New test.
+	* g++.dg/otr-fold-1.C: Adjusted.
+	* g++.dg/otr-fold-1.C: Likewise.
+
+2010-10-11  Nick Clifton  <nickc@redhat.com>
+
+	* gcc.c-torture/compile/pr44197.c: Require visibility support.
+        Allow for a user label prefix.
+
+2010-10-10  Richard Guenther  <rguenther@suse.de>
+
+	* g++.dg/lto/20101010-1_0.C: New testcase.
+	* g++.dg/lto/20101010-2_0.C: Likewise.
+
+2010-10-11  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/45902
+	* gcc.dg/vect/45902.c: New test.
+
+2010-10-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/45870
+	* gcc.dg/tls/pr45870.c: New test.
+
+2010-10-10  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/45961
+	* gfortran.dg/typebound_operator_6.f03: New.
+
+2010-10-10  Kai Tietz  <kai.tietz@onevision.com>
+
+	* g++.dg/ext/dllexport-MI1.C: Enable for x86_64 mingw
+	and adjust -export symbol scanning.
+	* g++.dg/ext/dllexport1.C: Likewise.
+	* g++.dg/ext/dllexport3.C: Likewise.
+	* gcc.dg/dll-3.c: Likewise.
+	* gcc.dg/dll-4.c: Likewise.
+	* gcc.dg/dll-5.c: Likewise.
+
+2010-10-10  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.dg/tree-prof/ic-misattribution-1a.c: Cleanup tree_profile_ipa
+	instead of tree_profile dump file.
+	* g++.dg/tree-prof/inline_mismatch_args.C: Cleanup einline dump file.
+	* gfortran.dg/derived_array_intrinisics_1.f90: Cleanup original
+	dump file.
+
+2010-10-10  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.dg/lto/20101009-1_0.c (bar): Fix asm constraints.
+
+2010-10-09  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	* gfortran.dg/character_comparison_4.f90:  New test.
+	* gfortran.dg/character_comparison_5.f90:  New test.
+	* gfortran.dg/character_comparison_6.f90:  New test.
+
+2010-10-09  Richard Henderson  <rth@redhat.com>
+
+	* lib/target-supports.exp
+	(check_effective_target_automatic_stack_alignment): Always true.
+
+2010-10-09  Richard Guenther  <rguenther@suse.de>
+
+	PR lto/45956
+	* gcc.dg/lto/20101009-2_0.c: New testcase.
+	* gcc.dg/lto/20101009-2_1.c: Likewise.
+	* gcc.dg/lto/20101009-2_2.c: Likewise.
+
+2010-10-09  Richard Guenther  <rguenther@suse.de>
+
+	PR lto/45947
+	* g++.dg/lto/20101009-1_0.C: New testcase.
+
+2010-10-09  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/45945
+	* gcc.dg/lto/20101009-1_0.c: New testcase.
+
+2010-10-08  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/45913
+	* gcc.target/i386/pr45913.c: New.
+
+2010-10-08  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/45943
+	* gfortran.dg/streamio_16.f90: Update test.
+
+2010-10-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/45903
+	* gcc.target/i386/pr45903.c: New test.
+
+2010-10-08  Arnaud Charlet  <charlet@adacore.com>
+
+	* gnat.dg/interface5.adb: Compile with warnings disabled.
+
+2010-10-07  Nicola Pero  <nicola.pero@meta-innovation.com>
+
+	* obj-c++.dg/encode-10.mm: New testcase.
+
+2010-10-07  Nicola Pero  <nicola.pero@meta-innovation.com>
+
+	PR objc++/23614
+	* obj-c++.dg/lookup-2.mm: Do not assign 'nil' to a pointer to a
+	C++ class.  Removed XFAIL.
+
+2010-10-07  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/45933
+	* gfortran.dg/typebound_operator_5.f03: New.
+
+2010-10-07  Nicola Pero  <nicola.pero@meta-innovation.com>
+
+	Merge from 'apple/trunk' branch on FSF servers.
+
+	2006-04-26  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4508851
+	* obj-c++.dg/method-namespace-1.mm: New.
+
+2010-10-07  Martin Jambor  <mjambor@suse.cz>
+
+	* gcc.dg/tree-ssa/sra-11.c: New test.
+
+2010-10-07  Tejas Belagod  <tejas.belagod@arm.com>
+
+	PR Tree-Vect/45847
+	* gcc.dg/vect/pr45847.c: New test.
+
+2010-10-07  Iain Sandoe  <iains@gcc.gnu.org>
+	    Kai Tietz  <kai.tietz@onevision.com>
+
+	* objc.dg/proto-lossage-4.m: Use intptr_t instead of long type.
+
+2010-10-07  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/45732
+	* gcc.dg/torture/pr45732.c: New testcase.
+
+2010-10-07  Iain Sandoe  <iains@gcc.gnu.org>
+
+	* objc.dg/foreach-1.m: Adjust for -fnext-runtime compatibility.
+	* objc.dg/foreach-2.m: Likewise.
+	* objc.dg/foreach-3.m: Likewise.
+	* objc.dg/foreach-4.m: Likewise.
+	* objc.dg/foreach-5.m: Likewise.
+	* objc.dg/foreach-6.m: Likewise.
+	* objc.dg/foreach-7.m: Likewise.
+	* objc.dg/objc-foreach-4.m: Likewise.
+	* objc.dg/objc-foreach-5.m: Likewise.
+
+2010-10-07  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/45869
+	* gcc.dg/torture/pr45869.c: New testcase.
+
+2010-10-07  Iain Sandoe  <iains@gcc.gnu.org>
+
+	* objc.dg/set-not-used-1.m: New
+	* obj-c++.dg/set-not-used-1.mm: New.
+
+2010-10-07  Iain Sandoe  <iains@gcc.gnu.org>
+
+	* objc.dg/attributes/method-attribute-3.m: New.
+	* obj-c++.dg/attributes/method-attribute-3.mm: New.
+
+2010-10-07  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/45916
+	* gfortran.dg/generic_typebound_operator_1.f90: New test.
+
+2010-10-06  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/45889
+	* gfortran.dg/alloc_comp_constraint_6.f90: New test.
+
+2010-10-06  Nicola Pero  <nicola.pero@meta-innovation.com>
+
+	Merge from 'apple/trunk' branch on FSF servers.
+
+	2005-12-14  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4278774
+	* obj-c++.dg/encode-9.mm: New.
+
 2010-10-06  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* g++.dg/cpp0x/pr45908.C: New test.
@@ -21,7 +211,7 @@
 	2006-04-13 Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4502236
-	* objc.dg/objc-foreach-5.m: New.	
+	* objc.dg/objc-foreach-5.m: New.
 
 	2006-04-12 Fariborz Jahanian <fjahanian@apple.com>
 
@@ -35,7 +225,7 @@
 
 	2005-03-07 Fariborz Jahanian <fjahanian@apple.com>
 
-        Radar 4468498
+	Radar 4468498
 	* objc.dg/objc-foreach-2.m: New.
 
 	2006-02-15   Fariborz Jahanian <fjahanian@apple.com>
@@ -43,11 +233,11 @@
 	Radar 4294910
 	* objc.dg/objc-foreach-1.m: New
 
-2010-10-06  Hariharan Sandanagobalane <hariharan@picochip.com>
+2010-10-06  Hariharan Sandanagobalane  <hariharan@picochip.com>
 
 	* gcc.c-torture/execute/cmpsi-2.c : Unsigned comparisons should use
 	unsigned values.
-	
+
 2010-10-05  Nicola Pero  <nicola.pero@meta-innovation.com>
 
 	PR objc++/28050
@@ -86,12 +276,12 @@
 
 	Radar 4093475
 	* obj-c++.dg/syntax-error-[3-4].mm: New.
-	
+
 	2005-08-02  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 4185810
 	* obj-c++.dg/syntax-error-[1-2].mm: New.
-	
+
 2010-10-05  Ira Rosen  <irar@il.ibm.com>
 
 	PR tree-optimization/45752
@@ -324,7 +514,7 @@
 	* objc.dg/method-20b.m: Provide an implementation of Object.
 	Adjust XFAIL for m64 NeXT runtime.
 	* objc.dg/const-str-12b.m: Use mapped data types Darwin >= 9.
-	* objc.dg/encode-3.m: Correct line ordering, provide header for 
+	* objc.dg/encode-3.m: Correct line ordering, provide header for
 	sprintf.
 	* objc.dg/encode-7-next.m: Only run for 32bit.
 	* objc.dg/encode-7-next-64bit.m: Only run for 64bit.
@@ -340,7 +530,7 @@
 2010-09-30  Nicola Pero  <nicola.pero@meta-innovation.com>
 
 	Merge from 'apple/trunk' branch on FSF servers.
-	
+
 	2005-10-04  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4278236
@@ -747,8 +937,7 @@
 2010-09-22  Jakub Jelinek  <jakub@redhat.com>
 
 	PR rtl-optimization/45739
-	* gcc.target/i386/pr45739.c: Tighten up scan-assembler-not
-	regexps.
+	* gcc.target/i386/pr45739.c: Tighten up scan-assembler-not regexps.
 
 2010-09-22  Eric Botcazou  <ebotcazou@adacore.com>
 

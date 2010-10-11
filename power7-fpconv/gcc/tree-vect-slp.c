@@ -1643,6 +1643,7 @@ vect_slp_analyze_bb (basic_block bb)
   int max_vf = MAX_VECTORIZATION_FACTOR;
   bool data_dependence_in_bb = false;
 
+  current_vector_size = 0;
 
   if (vect_print_dump_info (REPORT_DETAILS))
     fprintf (vect_dump, "===vect_slp_analyze_bb===\n");
@@ -1894,13 +1895,20 @@ vect_get_constant_vectors (slp_tree slp_node, VEC(tree,heap) **vec_oprnds,
     }
 
   if (CONSTANT_CLASS_P (op))
-    constant_p = true;
+    {
+      constant_p = true;
+      if (POINTER_TYPE_P (TREE_TYPE (gimple_assign_lhs (stmt))))
+        vector_type = get_vectype_for_scalar_type (TREE_TYPE (op));
+      else
+        vector_type = STMT_VINFO_VECTYPE (stmt_vinfo);
+    }
   else
-    constant_p = false;
+    {
+      constant_p = false;
+      vector_type = get_vectype_for_scalar_type (TREE_TYPE (op));
+    }
 
-  vector_type = get_vectype_for_scalar_type (TREE_TYPE (op));
   gcc_assert (vector_type);
-
   nunits = TYPE_VECTOR_SUBPARTS (vector_type);
 
   /* NUMBER_OF_COPIES is the number of times we need to use the same values in

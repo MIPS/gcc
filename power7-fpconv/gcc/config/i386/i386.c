@@ -3632,15 +3632,11 @@ ix86_option_override_internal (bool main_args_p)
   if (!TARGET_SCHEDULE)
     flag_schedule_insns_after_reload = flag_schedule_insns = 0;
 
-  if (!PARAM_SET_P (PARAM_SIMULTANEOUS_PREFETCHES))
-    set_param_value ("simultaneous-prefetches",
-		     ix86_cost->simultaneous_prefetches);
-  if (!PARAM_SET_P (PARAM_L1_CACHE_LINE_SIZE))
-    set_param_value ("l1-cache-line-size", ix86_cost->prefetch_block);
-  if (!PARAM_SET_P (PARAM_L1_CACHE_SIZE))
-    set_param_value ("l1-cache-size", ix86_cost->l1_cache_size);
-  if (!PARAM_SET_P (PARAM_L2_CACHE_SIZE))
-    set_param_value ("l2-cache-size", ix86_cost->l2_cache_size);
+  maybe_set_param_value (PARAM_SIMULTANEOUS_PREFETCHES,
+			 ix86_cost->simultaneous_prefetches);
+  maybe_set_param_value (PARAM_L1_CACHE_LINE_SIZE, ix86_cost->prefetch_block);
+  maybe_set_param_value (PARAM_L1_CACHE_SIZE, ix86_cost->l1_cache_size);
+  maybe_set_param_value (PARAM_L2_CACHE_SIZE, ix86_cost->l2_cache_size);
 
   /* Enable sw prefetching at -O3 for CPUS that prefetching is helpful.  */
   if (flag_prefetch_loop_arrays < 0
@@ -12305,6 +12301,49 @@ ix86_pic_register_p (rtx x)
     return REG_P (x) && REGNO (x) == PIC_OFFSET_TABLE_REGNUM;
 }
 
+/* Helper function for ix86_delegitimize_address.
+   Attempt to delegitimize TLS local-exec accesses.  */
+
+static rtx
+ix86_delegitimize_tls_address (rtx orig_x)
+{
+  rtx x = orig_x, unspec;
+  struct ix86_address addr;
+
+  if (!TARGET_TLS_DIRECT_SEG_REFS)
+    return orig_x;
+  if (MEM_P (x))
+    x = XEXP (x, 0);
+  if (GET_CODE (x) != PLUS || GET_MODE (x) != Pmode)
+    return orig_x;
+  if (ix86_decompose_address (x, &addr) == 0
+      || addr.seg != (TARGET_64BIT ? SEG_FS : SEG_GS)
+      || addr.disp == NULL_RTX
+      || GET_CODE (addr.disp) != CONST)
+    return orig_x;
+  unspec = XEXP (addr.disp, 0);
+  if (GET_CODE (unspec) == PLUS && CONST_INT_P (XEXP (unspec, 1)))
+    unspec = XEXP (unspec, 0);
+  if (GET_CODE (unspec) != UNSPEC || XINT (unspec, 1) != UNSPEC_NTPOFF)
+    return orig_x;
+  x = XVECEXP (unspec, 0, 0);
+  gcc_assert (GET_CODE (x) == SYMBOL_REF);
+  if (unspec != XEXP (addr.disp, 0))
+    x = gen_rtx_PLUS (Pmode, x, XEXP (XEXP (addr.disp, 0), 1));
+  if (addr.index)
+    {
+      rtx idx = addr.index;
+      if (addr.scale != 1)
+	idx = gen_rtx_MULT (Pmode, idx, GEN_INT (addr.scale));
+      x = gen_rtx_PLUS (Pmode, idx, x);
+    }
+  if (addr.base)
+    x = gen_rtx_PLUS (Pmode, addr.base, x);
+  if (MEM_P (orig_x))
+    x = replace_equiv_address_nv (orig_x, x);
+  return x;
+}
+
 /* In the name of slightly smaller debug output, and to cater to
    general assembler lossage, recognize PIC+GOTOFF and turn it back
    into a direct symbol reference.
@@ -12340,7 +12379,7 @@ ix86_delegitimize_address (rtx x)
 	  || GET_CODE (XEXP (x, 0)) != UNSPEC
 	  || XINT (XEXP (x, 0), 1) != UNSPEC_GOTPCREL
 	  || !MEM_P (orig_x))
-	return orig_x;
+	return ix86_delegitimize_tls_address (orig_x);
       x = XVECEXP (XEXP (x, 0), 0, 0);
       if (GET_MODE (orig_x) != Pmode)
 	return simplify_gen_subreg (GET_MODE (orig_x), x, Pmode, 0);
@@ -12349,7 +12388,7 @@ ix86_delegitimize_address (rtx x)
 
   if (GET_CODE (x) != PLUS
       || GET_CODE (XEXP (x, 1)) != CONST)
-    return orig_x;
+    return ix86_delegitimize_tls_address (orig_x);
 
   if (ix86_pic_register_p (XEXP (x, 0)))
     /* %ebx + GOT/GOTOFF */
@@ -12389,7 +12428,7 @@ ix86_delegitimize_address (rtx x)
     result = XVECEXP (x, 0, 0);
 
   if (! result)
-    return orig_x;
+    return ix86_delegitimize_tls_address (orig_x);
 
   if (const_addend)
     result = gen_rtx_CONST (Pmode, gen_rtx_PLUS (Pmode, result, const_addend));
@@ -14987,7 +15026,16 @@ ix86_binary_operator_ok (enum rtx_code code, enum machine_mode mode,
 
   /* Source 1 cannot be a non-matching memory.  */
   if (MEM_P (src1) && !rtx_equal_p (dst, src1))
-    return false;
+    {
+      /* Support "andhi/andsi/anddi" as a zero-extending move.  */
+      return (code == AND
+	      && (mode == HImode
+		  || mode == SImode
+		  || (TARGET_64BIT && mode == DImode))
+	      && CONST_INT_P (src2)
+	      && (INTVAL (src2) == 0xff
+		  || INTVAL (src2) == 0xffff));
+    }
 
   return true;
 }
@@ -26272,7 +26320,7 @@ ix86_vectorize_builtin_conversion (unsigned int code,
 	    case V8SFmode:
 	      return (TYPE_UNSIGNED (src_type)
 		      ? NULL_TREE
-		      : ix86_builtins[IX86_BUILTIN_CVTDQ2PS]);
+		      : ix86_builtins[IX86_BUILTIN_CVTDQ2PS256]);
 	    default:
 	      return NULL_TREE;
 	    }
@@ -26602,12 +26650,15 @@ i386_ira_cover_classes (void)
  return TARGET_SSE_MATH ? sse_fpmath_classes : no_sse_fpmath_classes;
 }
 
-/* Put float CONST_DOUBLE in the constant pool instead of fp regs.
+/* Implement TARGET_PREFERRED_RELOAD_CLASS.
+
+   Put float CONST_DOUBLE in the constant pool instead of fp regs.
    QImode must go into class Q_REGS.
    Narrow ALL_REGS to GENERAL_REGS.  This supports allowing movsf and
    movdf to do mem-to-mem moves through integer regs.  */
-enum reg_class
-ix86_preferred_reload_class (rtx x, enum reg_class regclass)
+
+static reg_class_t
+ix86_preferred_reload_class (rtx x, reg_class_t regclass)
 {
   enum machine_mode mode = GET_MODE (x);
 
@@ -32962,23 +33013,44 @@ has_dispatch (rtx insn, int action)
 /* ??? No autovectorization into MMX or 3DNOW until we can reliably
    place emms and femms instructions.  */
 
-static unsigned int
-ix86_units_per_simd_word (enum machine_mode mode)
+static enum machine_mode
+ix86_preferred_simd_mode (enum machine_mode mode)
 {
   /* Disable double precision vectorizer if needed.  */
   if (mode == DFmode && !TARGET_VECTORIZE_DOUBLE)
-    return UNITS_PER_WORD;
+    return word_mode;
 
-#if 0
-  /*  FIXME: AVX has 32byte floating point vector operations and 16byte
-      integer vector operations.  But vectorizer doesn't support
-      different sizes for integer and floating point vectors.  We limit
-      vector size to 16byte.  */
-  if (TARGET_AVX)
-    return (mode == DFmode || mode == SFmode) ? 32 : 16;
-  else
-#endif
-    return TARGET_SSE ? 16 : UNITS_PER_WORD;
+  if (!TARGET_AVX && !TARGET_SSE)
+    return word_mode;
+
+  switch (mode)
+    {
+    case SFmode:
+      return TARGET_AVX ? V8SFmode : V4SFmode;
+    case DFmode:
+      return TARGET_AVX ? V4DFmode : V2DFmode;
+    case DImode:
+      return V2DImode;
+    case SImode:
+      return V4SImode;
+    case HImode:
+      return V8HImode;
+    case QImode:
+      return V16QImode;
+
+    default:;
+    }
+
+  return word_mode;
+}
+
+/* If AVX is enabled then try vectorizing with both 256bit and 128bit
+   vectors.  */
+
+static unsigned int
+ix86_autovectorize_vector_sizes (void)
+{
+  return TARGET_AVX ? 32 | 16 : 0;
 }
 
 /* Initialize the GCC target structure.  */
@@ -33226,6 +33298,8 @@ ix86_units_per_simd_word (enum machine_mode mode)
 #undef TARGET_SECONDARY_RELOAD
 #define TARGET_SECONDARY_RELOAD ix86_secondary_reload
 
+#undef TARGET_PREFERRED_RELOAD_CLASS
+#define TARGET_PREFERRED_RELOAD_CLASS ix86_preferred_reload_class
 #undef TARGET_CLASS_LIKELY_SPILLED_P
 #define TARGET_CLASS_LIKELY_SPILLED_P ix86_class_likely_spilled_p
 
@@ -33238,9 +33312,12 @@ ix86_units_per_simd_word (enum machine_mode mode)
 #undef TARGET_VECTORIZE_BUILTIN_VEC_PERM_OK
 #define TARGET_VECTORIZE_BUILTIN_VEC_PERM_OK \
   ix86_vectorize_builtin_vec_perm_ok
-#undef TARGET_VECTORIZE_UNITS_PER_SIMD_WORD
-#define TARGET_VECTORIZE_UNITS_PER_SIMD_WORD \
-  ix86_units_per_simd_word
+#undef TARGET_VECTORIZE_PREFERRED_SIMD_MODE
+#define TARGET_VECTORIZE_PREFERRED_SIMD_MODE \
+  ix86_preferred_simd_mode
+#undef TARGET_VECTORIZE_AUTOVECTORIZE_VECTOR_SIZES
+#define TARGET_VECTORIZE_AUTOVECTORIZE_VECTOR_SIZES \
+  ix86_autovectorize_vector_sizes
 
 #undef TARGET_SET_CURRENT_FUNCTION
 #define TARGET_SET_CURRENT_FUNCTION ix86_set_current_function

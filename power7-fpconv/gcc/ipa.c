@@ -592,8 +592,13 @@ cgraph_externally_visible_p (struct cgraph_node *node, bool whole_program, bool 
   if (aliased)
     return true;
 
+  /* If linker counts on us, we must preserve the function.  */
+  if (cgraph_used_from_object_file_p (node))
+    return true;
   /* When doing link time optimizations, hidden symbols become local.  */
-  if (in_lto_p && DECL_VISIBILITY (node->decl) == VISIBILITY_HIDDEN
+  if (in_lto_p
+      && (DECL_VISIBILITY (node->decl) == VISIBILITY_HIDDEN
+	  || DECL_VISIBILITY (node->decl) == VISIBILITY_INTERNAL)
       /* Be sure that node is defined in IR file, not in other object
 	 file.  In that case we don't set used_from_other_object_file.  */
       && node->analyzed)
@@ -621,8 +626,6 @@ cgraph_externally_visible_p (struct cgraph_node *node, bool whole_program, bool 
 	      return true;
 	}
     }
-  if (cgraph_used_from_object_file_p (node))
-    return true;
   if (DECL_PRESERVE_P (node->decl))
     return true;
   if (MAIN_NAME_P (DECL_NAME (node->decl)))
@@ -794,7 +797,8 @@ function_and_variable_visibility (bool whole_program)
 	       /* When doing linktime optimizations, all hidden symbols will
 		  become local.  */
 	       && (!in_lto_p
-		   || DECL_VISIBILITY (vnode->decl) != VISIBILITY_HIDDEN
+		   || (DECL_VISIBILITY (vnode->decl) != VISIBILITY_HIDDEN
+		       && DECL_VISIBILITY (vnode->decl) != VISIBILITY_INTERNAL)
 		   /* We can get prevailing decision in other object file.
 		      In this case we do not sed used_from_object_file.  */
 		   || !vnode->finalized))
@@ -1483,7 +1487,6 @@ build_cdtor (bool ctor_p, VEC (tree, heap) *cdtors)
 	  TREE_SIDE_EFFECTS (call) = 1;
 	  append_to_statement_list (call, &body);
 	}
-      while (i < len);
       gcc_assert (body != NULL_TREE);
       /* Generate a function to call all the function of like
 	 priority.  */
@@ -1554,20 +1557,14 @@ build_cdtor_fns (void)
   if (!VEC_empty (tree, static_ctors))
     {
       gcc_assert (!targetm.have_ctors_dtors || in_lto_p);
-      qsort (VEC_address (tree, static_ctors),
-	     VEC_length (tree, static_ctors),
-	     sizeof (tree),
-	     compare_ctor);
+      VEC_qsort (tree, static_ctors, compare_ctor);
       build_cdtor (/*ctor_p=*/true, static_ctors);
     }
 
   if (!VEC_empty (tree, static_dtors))
     {
       gcc_assert (!targetm.have_ctors_dtors || in_lto_p);
-      qsort (VEC_address (tree, static_dtors),
-	     VEC_length (tree, static_dtors),
-	     sizeof (tree),
-	     compare_dtor);
+      VEC_qsort (tree, static_dtors, compare_dtor);
       build_cdtor (/*ctor_p=*/false, static_dtors);
     }
 }

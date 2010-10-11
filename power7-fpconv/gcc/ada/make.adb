@@ -1842,8 +1842,7 @@ package body Make is
                end if;
 
             elsif not Read_Only and then Main_Project /= No_Project then
-
-               if not Check_Source_Info_In_ALI (ALI) then
+               if not Check_Source_Info_In_ALI (ALI, Project_Tree) then
                   ALI := No_ALI_Id;
                   return;
                end if;
@@ -1917,8 +1916,7 @@ package body Make is
                if ALI_Project = No_Project then
                   ALI := No_ALI_Id;
 
-                  Verbose_Msg
-                    (Lib_File, " wrong object directory");
+                  Verbose_Msg (Lib_File, " wrong object directory");
                   return;
                end if;
 
@@ -8117,7 +8115,7 @@ package body Make is
              or else Argv (2 .. Argv'Last) = "pg"
              or else (Argv (2) = 'm' and then Argv'Last > 2)
              or else (Argv (2) = 'f' and then Argv'Last > 2)
-             or else (Argv (2) = 'O' and then Argv'Last > 2)
+             or else Argv (2) = 'O'
          then
             Add_Switch (Argv, Compiler, And_Save => And_Save);
             Add_Switch (Argv, Linker,   And_Save => And_Save);

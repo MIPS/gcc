@@ -123,6 +123,13 @@ procedure Gnat1drv is
          Generate_SCIL := True;
       end if;
 
+      --  Disable CodePeer_Mode in Check_Syntax, since we need front-end
+      --  expansion.
+
+      if Operating_Mode = Check_Syntax then
+         CodePeer_Mode := False;
+      end if;
+
       --  Set ASIS mode if -gnatt and -gnatc are set
 
       if Operating_Mode = Check_Semantics and then Tree_Output then
@@ -136,10 +143,11 @@ procedure Gnat1drv is
 
          Inline_Active := False;
 
-         --  Turn off SCIL generation in ASIS mode, since SCIL requires front-
-         --  end expansion.
+         --  Turn off SCIL generation and CodePeer mode in semantics mode,
+         --  since SCIL requires front-end expansion.
 
          Generate_SCIL := False;
+         CodePeer_Mode := False;
       end if;
 
       --  SCIL mode needs to disable front-end inlining since the generated
@@ -159,10 +167,6 @@ procedure Gnat1drv is
 
          Front_End_Inlining := False;
          Inline_Active      := False;
-
-         --  Turn off ASIS mode: incompatible with front-end expansion
-
-         ASIS_Mode := False;
 
          --  Disable front-end optimizations, to keep the tree as close to the
          --  source code as possible, and also to avoid inconsistencies between
@@ -704,6 +708,7 @@ begin
          Treepr.Tree_Dump;
          Sem_Ch13.Validate_Unchecked_Conversions;
          Sem_Ch13.Validate_Address_Clauses;
+         Sem_Ch13.Validate_Independence;
          Errout.Output_Messages;
          Namet.Finalize;
 
@@ -880,6 +885,7 @@ begin
 
          Sem_Ch13.Validate_Unchecked_Conversions;
          Sem_Ch13.Validate_Address_Clauses;
+         Sem_Ch13.Validate_Independence;
          Errout.Finalize (Last_Call => True);
          Errout.Output_Messages;
          Treepr.Tree_Dump;
@@ -913,6 +919,7 @@ begin
       then
          Sem_Ch13.Validate_Unchecked_Conversions;
          Sem_Ch13.Validate_Address_Clauses;
+         Sem_Ch13.Validate_Independence;
          Errout.Finalize (Last_Call => True);
          Errout.Output_Messages;
          Write_ALI (Object => False);
@@ -979,6 +986,11 @@ begin
       --  by the backend where possible).
 
       Sem_Ch13.Validate_Address_Clauses;
+
+      --  Validate independence pragmas (again using values annotated by
+      --  the back end for component layout etc.)
+
+      Sem_Ch13.Validate_Independence;
 
       --  Now we complete output of errors, rep info and the tree info. These
       --  are delayed till now, since it is perfectly possible for gigi to
