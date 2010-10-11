@@ -515,7 +515,7 @@ package body Exp_Ch4 is
          --  Note: we skip the accessibility check for the VM case, since
          --  there does not seem to be any practical way of implementing it.
 
-         if Ada_Version >= Ada_05
+         if Ada_Version >= Ada_2005
            and then Tagged_Type_Expansion
            and then Is_Class_Wide_Type (DesigT)
            and then not Scope_Suppress (Accessibility_Check)
@@ -635,7 +635,7 @@ package body Exp_Ch4 is
          --  we plan to expand the allowed forms of functions that are treated
          --  as build-in-place.
 
-         if Ada_Version >= Ada_05
+         if Ada_Version >= Ada_2005
            and then Is_Build_In_Place_Function_Call (Exp)
          then
             Make_Build_In_Place_Call_In_Allocator (N, Exp);
@@ -947,7 +947,7 @@ package body Exp_Ch4 is
                --  want to Adjust.
 
                if not Aggr_In_Place
-                 and then not Is_Inherently_Limited_Type (T)
+                 and then not Is_Immutably_Limited_Type (T)
                then
                   Insert_Actions (N,
                     Make_Adjust_Call (
@@ -1085,7 +1085,7 @@ package body Exp_Ch4 is
          --  we plan to expand the allowed forms of functions that are treated
          --  as build-in-place.
 
-         if Ada_Version >= Ada_05
+         if Ada_Version >= Ada_2005
            and then Is_Build_In_Place_Function_Call (Exp)
          then
             Make_Build_In_Place_Call_In_Allocator (N, Exp);
@@ -2181,7 +2181,7 @@ package body Exp_Ch4 is
                end if;
             end if;
 
-         elsif Ada_Version >= Ada_12 then
+         elsif Ada_Version >= Ada_2012 then
 
             --  if no TSS has been created for the type, check whether there is
             --  a primitive equality declared for it. If it is abstract replace
@@ -2193,7 +2193,14 @@ package body Exp_Ch4 is
             begin
                Prim := First_Elmt (Collect_Primitive_Operations (Full_Type));
                while Present (Prim) loop
-                  if Chars (Node (Prim)) = Name_Op_Eq then
+
+                  --  Locate primitive equality with the right signature
+
+                  if Chars (Node (Prim)) = Name_Op_Eq
+                    and then Etype (First_Formal (Node (Prim))) =
+                               Etype (Next_Formal (First_Formal (Node (Prim))))
+                    and then Etype (Node (Prim)) = Standard_Boolean
+                  then
                      if Is_Abstract_Subprogram (Node (Prim)) then
                         return
                           Make_Raise_Program_Error (Loc,
@@ -3665,15 +3672,6 @@ package body Exp_Ch4 is
                if Has_Task (T) then
                   if No (Master_Id (Base_Type (PtrT))) then
 
-                     --  If we have a non-library level task with restriction
-                     --  No_Task_Hierarchy set, then no point in expanding.
-
-                     if not Is_Library_Level_Entity (T)
-                       and then Restriction_Active (No_Task_Hierarchy)
-                     then
-                        return;
-                     end if;
-
                      --  The designated type was an incomplete type, and the
                      --  access type did not get expanded. Salvage it now.
 
@@ -3775,7 +3773,7 @@ package body Exp_Ch4 is
                      if not Is_Constrained (Typ)
                        and then Present (Discriminant_Default_Value
                                          (First_Discriminant (Typ)))
-                       and then (Ada_Version < Ada_05
+                       and then (Ada_Version < Ada_2005
                                   or else
                                     not Has_Constrained_Partial_View (Typ))
                      then
@@ -3792,7 +3790,7 @@ package body Exp_Ch4 is
                         --  anonymous access type make sure an accessibility
                         --  check is inserted if necessary (3.10.2(22.q/2))
 
-                        if Ada_Version >= Ada_05
+                        if Ada_Version >= Ada_2005
                           and then
                             Ekind (Etype (Nod)) = E_Anonymous_Access_Type
                         then
@@ -4862,7 +4860,7 @@ package body Exp_Ch4 is
       --  Ada 2005 (AI-318-02): If the prefix is a call to a build-in-place
       --  function, then additional actuals must be passed.
 
-      if Ada_Version >= Ada_05
+      if Ada_Version >= Ada_2005
         and then Is_Build_In_Place_Function_Call (P)
       then
          Make_Build_In_Place_Call_In_Anonymous_Context (P);
@@ -7452,7 +7450,7 @@ package body Exp_Ch4 is
       --  Ada 2005 (AI-318-02): If the prefix is a call to a build-in-place
       --  function, then additional actuals must be passed.
 
-      if Ada_Version >= Ada_05
+      if Ada_Version >= Ada_2005
         and then Is_Build_In_Place_Function_Call (P)
       then
          Make_Build_In_Place_Call_In_Anonymous_Context (P);
@@ -7751,7 +7749,7 @@ package body Exp_Ch4 is
       --  Ada 2005 (AI-318-02): If the prefix is a call to a build-in-place
       --  function, then additional actuals must be passed.
 
-      if Ada_Version >= Ada_05
+      if Ada_Version >= Ada_2005
         and then Is_Build_In_Place_Function_Call (Pfx)
       then
          Make_Build_In_Place_Call_In_Anonymous_Context (Pfx);
@@ -8105,7 +8103,8 @@ package body Exp_Ch4 is
            Make_Object_Declaration (Loc,
              Defining_Identifier => Tnn,
              Object_Definition   => New_Occurrence_Of (Btyp, Loc),
-             Expression => Conv),
+             Constant_Present    => True,
+             Expression          => Conv),
 
            Make_Raise_Constraint_Error (Loc,
              Condition =>

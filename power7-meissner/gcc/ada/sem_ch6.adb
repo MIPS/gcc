@@ -23,6 +23,7 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
+with Aspects;  use Aspects;
 with Atree;    use Atree;
 with Checks;   use Checks;
 with Debug;    use Debug;
@@ -59,6 +60,7 @@ with Sem_Ch5;  use Sem_Ch5;
 with Sem_Ch8;  use Sem_Ch8;
 with Sem_Ch10; use Sem_Ch10;
 with Sem_Ch12; use Sem_Ch12;
+with Sem_Ch13; use Sem_Ch13;
 with Sem_Disp; use Sem_Disp;
 with Sem_Dist; use Sem_Dist;
 with Sem_Elim; use Sem_Elim;
@@ -381,6 +383,7 @@ package body Sem_Ch6 is
 
       Generate_Reference_To_Formals (Designator);
       Check_Eliminated (Designator);
+      Analyze_Aspect_Specifications (N, Designator, Aspect_Specifications (N));
    end Analyze_Abstract_Subprogram_Declaration;
 
    ----------------------------------------
@@ -476,14 +479,15 @@ package body Sem_Ch6 is
          then
             --  Error in Ada 2005
 
-            if Ada_Version >= Ada_05
+            if Ada_Version >= Ada_2005
               and then not Debug_Flag_Dot_L
               and then not GNAT_Mode
             then
                Error_Msg_N
                  ("(Ada 2005) cannot copy object of a limited type " &
                   "(RM-2005 6.5(5.5/2))", Expr);
-               if Is_Inherently_Limited_Type (R_Type) then
+
+               if Is_Immutably_Limited_Type (R_Type) then
                   Error_Msg_N
                     ("\return by reference not permitted in Ada 2005", Expr);
                end if;
@@ -494,15 +498,23 @@ package body Sem_Ch6 is
             --  In GNAT mode, this is just a warning, to allow it to be
             --  evilly turned off. Otherwise it is a real error.
 
+            --  In a generic context, simplify the warning because it makes
+            --  no sense to discuss pass-by-reference or copy.
+
             elsif Warn_On_Ada_2005_Compatibility or GNAT_Mode then
-               if Is_Inherently_Limited_Type (R_Type) then
+               if Inside_A_Generic then
                   Error_Msg_N
-                    ("return by reference not permitted in Ada 2005 " &
-                     "(RM-2005 6.5(5.5/2))?", Expr);
+                    ("return of limited object not permitted in Ada2005 "
+                     & "(RM-2005 6.5(5.5/2))?", Expr);
+
+               elsif Is_Immutably_Limited_Type (R_Type) then
+                  Error_Msg_N
+                    ("return by reference not permitted in Ada 2005 "
+                     & "(RM-2005 6.5(5.5/2))?", Expr);
                else
                   Error_Msg_N
-                    ("cannot copy object of a limited type in Ada 2005 " &
-                     "(RM-2005 6.5(5.5/2))?", Expr);
+                    ("cannot copy object of a limited type in Ada 2005 "
+                     & "(RM-2005 6.5(5.5/2))?", Expr);
                end if;
 
             --  Ada 95 mode, compatibility warnings disabled
@@ -511,9 +523,11 @@ package body Sem_Ch6 is
                return; --  skip continuation messages below
             end if;
 
-            Error_Msg_N
-              ("\consider switching to return of access type", Expr);
-            Explain_Limited_Type (R_Type, Expr);
+            if not Inside_A_Generic then
+               Error_Msg_N
+                 ("\consider switching to return of access type", Expr);
+               Explain_Limited_Type (R_Type, Expr);
+            end if;
          end if;
       end Check_Limited_Return;
 
@@ -620,7 +634,11 @@ package body Sem_Ch6 is
                   Subtype_Ind);
             end if;
 
-            if Is_Constrained (R_Type) then
+            --  AI05-103: for elementary types, subtypes must statically match
+
+            if Is_Constrained (R_Type)
+              or else Is_Access_Type (R_Type)
+            then
                if not Subtypes_Statically_Match (R_Stm_Type, R_Type) then
                   Error_Msg_N
                     ("subtype must statically match function result subtype",
@@ -718,7 +736,7 @@ package body Sem_Ch6 is
          --  type, apply an implicit conversion of the expression to that type
          --  to force appropriate static and run-time accessibility checks.
 
-         if Ada_Version >= Ada_05
+         if Ada_Version >= Ada_2005
            and then Ekind (R_Type) = E_Anonymous_Access_Type
          then
             Rewrite (Expr, Convert_To (R_Type, Relocate_Node (Expr)));
@@ -729,7 +747,7 @@ package body Sem_Ch6 is
          --  expression's type is not declared at a deeper level than the
          --  function (RM05-6.5(5.6/2)).
 
-         if Ada_Version >= Ada_05
+         if Ada_Version >= Ada_2005
            and then Is_Class_Wide_Type (R_Type)
          then
             if Type_Access_Level (Etype (Expr)) >
@@ -754,21 +772,30 @@ package body Sem_Ch6 is
          --  involving dereferences of access parameters. For now we just
          --  check the static cases.
 
-         if (Ada_Version < Ada_05 or else Debug_Flag_Dot_L)
-           and then Is_Inherently_Limited_Type (Etype (Scope_Id))
+         if (Ada_Version < Ada_2005 or else Debug_Flag_Dot_L)
+           and then Is_Immutably_Limited_Type (Etype (Scope_Id))
            and then Object_Access_Level (Expr) >
                       Subprogram_Access_Level (Scope_Id)
          then
-            Rewrite (N,
-              Make_Raise_Program_Error (Loc,
-                Reason => PE_Accessibility_Check_Failed));
-            Analyze (N);
 
-            Error_Msg_N
-              ("cannot return a local value by reference?", N);
-            Error_Msg_NE
-              ("\& will be raised at run time?",
-               N, Standard_Program_Error);
+            --  Suppress the message in a generic, where the rewriting
+            --  is irrelevant.
+
+            if Inside_A_Generic then
+               null;
+
+            else
+               Rewrite (N,
+                 Make_Raise_Program_Error (Loc,
+                   Reason => PE_Accessibility_Check_Failed));
+               Analyze (N);
+
+               Error_Msg_N
+                 ("cannot return a local value by reference?", N);
+               Error_Msg_NE
+                 ("\& will be raised at run time?",
+                   N, Standard_Program_Error);
+            end if;
          end if;
 
          if Known_Null (Expr)
@@ -1037,6 +1064,31 @@ package body Sem_Ch6 is
    begin
       Analyze (Explicit_Actual_Parameter (N));
    end Analyze_Parameter_Association;
+
+   --------------------------------------
+   -- Analyze_Parameterized_Expression --
+   --------------------------------------
+
+   procedure Analyze_Parameterized_Expression (N : Node_Id) is
+      Loc  : constant Source_Ptr := Sloc (N);
+      LocX : constant Source_Ptr := Sloc (Expression (N));
+
+   begin
+      --  This is one of the occasions on which we write things during semantic
+      --  analysis. Transform the parameterized expression into an equivalent
+      --  subprogram body, and then analyze that.
+
+      Rewrite (N,
+        Make_Subprogram_Body (Loc,
+          Specification              => Specification (N),
+          Declarations               => Empty_List,
+          Handled_Statement_Sequence =>
+            Make_Handled_Sequence_Of_Statements (LocX,
+              Statements => New_List (
+                Make_Simple_Return_Statement (LocX,
+                  Expression => Expression (N))))));
+      Analyze (N);
+   end Analyze_Parameterized_Expression;
 
    ----------------------------
    -- Analyze_Procedure_Call --
@@ -1383,8 +1435,27 @@ package body Sem_Ch6 is
                          and then
                            Ekind (Root_Type (Typ)) = E_Incomplete_Type)
             then
-               Error_Msg_NE
-                 ("invalid use of incomplete type&", Designator, Typ);
+               --  AI05-0151: Tagged incomplete types are allowed in all formal
+               --  parts. Untagged incomplete types are not allowed in bodies.
+
+               if Ada_Version >= Ada_2012 then
+                  if Is_Tagged_Type (Typ) then
+                     null;
+
+                  elsif Nkind_In (Parent (Parent (N)),
+                     N_Accept_Statement,
+                     N_Entry_Body,
+                     N_Subprogram_Body)
+                  then
+                     Error_Msg_NE
+                       ("invalid use of untagged incomplete type&",
+                          Designator, Typ);
+                  end if;
+
+               else
+                  Error_Msg_NE
+                    ("invalid use of incomplete type&", Designator, Typ);
+               end if;
             end if;
          end if;
 
@@ -2096,7 +2167,7 @@ package body Sem_Ch6 is
             --  why, to be investigated further???
 
             Set_Has_Delayed_Freeze (Spec_Id);
-            Insert_Actions (N, Freeze_Entity (Spec_Id, Loc));
+            Insert_Actions (N, Freeze_Entity (Spec_Id, N));
          end if;
       end if;
 
@@ -2280,7 +2351,7 @@ package body Sem_Ch6 is
       --  is the limited view of a class-wide type and the non-limited view is
       --  available, update the return type accordingly.
 
-      if Ada_Version >= Ada_05
+      if Ada_Version >= Ada_2005
         and then Comes_From_Source (N)
       then
          declare
@@ -2628,18 +2699,18 @@ package body Sem_Ch6 is
 
    procedure Analyze_Subprogram_Declaration (N : Node_Id) is
       Loc        : constant Source_Ptr := Sloc (N);
+      Scop       : constant Entity_Id  := Current_Scope;
       Designator : Entity_Id;
       Form       : Node_Id;
-      Scop       : constant Entity_Id := Current_Scope;
       Null_Body  : Node_Id := Empty;
 
    --  Start of processing for Analyze_Subprogram_Declaration
 
    begin
       --  For a null procedure, capture the profile before analysis, for
-      --  expansion at the freeze point and at each point of call.
-      --  The body will only be used if the procedure has preconditions.
-      --  In that case the body is analyzed at the freeze point.
+      --  expansion at the freeze point and at each point of call. The body
+      --  will only be used if the procedure has preconditions. In that case
+      --  the body is analyzed at the freeze point.
 
       if Nkind (Specification (N)) = N_Procedure_Specification
         and then Null_Present (Specification (N))
@@ -2732,7 +2803,7 @@ package body Sem_Ch6 is
       --  Ada 2005 (AI-251): Abstract interface primitives must be abstract
       --  or null.
 
-      if Ada_Version >= Ada_05
+      if Ada_Version >= Ada_2005
         and then Comes_From_Source (N)
         and then Is_Dispatching_Operation (Designator)
       then
@@ -2803,7 +2874,7 @@ package body Sem_Ch6 is
       if Nkind (Parent (N)) = N_Compilation_Unit then
          Set_Body_Required (Parent (N), True);
 
-         if Ada_Version >= Ada_05
+         if Ada_Version >= Ada_2005
            and then Nkind (Specification (N)) = N_Procedure_Specification
            and then Null_Present (Specification (N))
          then
@@ -2823,6 +2894,8 @@ package body Sem_Ch6 is
          Write_Location (Sloc (N));
          Write_Eol;
       end if;
+
+      Analyze_Aspect_Specifications (N, Designator, Aspect_Specifications (N));
    end Analyze_Subprogram_Declaration;
 
    --------------------------------------
@@ -2866,7 +2939,7 @@ package body Sem_Ch6 is
          --  Same processing for an access parameter whose designated type is
          --  derived from a synchronized interface.
 
-         if Ada_Version >= Ada_05 then
+         if Ada_Version >= Ada_2005 then
             declare
                Formal     : Entity_Id;
                Formal_Typ : Entity_Id;
@@ -2932,19 +3005,32 @@ package body Sem_Ch6 is
          --  Ada 2005 (AI-251): If the return type is abstract, verify that
          --  the subprogram is abstract also. This does not apply to renaming
          --  declarations, where abstractness is inherited.
+
          --  In case of primitives associated with abstract interface types
          --  the check is applied later (see Analyze_Subprogram_Declaration).
 
-         if Is_Abstract_Type (Etype (Designator))
-           and then not Is_Interface (Etype (Designator))
-           and then Nkind (Parent (N)) /= N_Subprogram_Renaming_Declaration
-           and then Nkind (Parent (N)) /=
-                      N_Abstract_Subprogram_Declaration
-           and then
-             (Nkind (Parent (N))) /= N_Formal_Abstract_Subprogram_Declaration
+         if not Nkind_In (Parent (N), N_Subprogram_Renaming_Declaration,
+                                      N_Abstract_Subprogram_Declaration,
+                                      N_Formal_Abstract_Subprogram_Declaration)
          then
-            Error_Msg_N
-              ("function that returns abstract type must be abstract", N);
+            if Is_Abstract_Type (Etype (Designator))
+              and then not Is_Interface (Etype (Designator))
+            then
+               Error_Msg_N
+                 ("function that returns abstract type must be abstract", N);
+
+            --  Ada 2012 (AI-0073): extend this test to subprograms with an
+            --  access result whose designated type is abstract.
+
+            elsif Nkind (Result_Definition (N)) = N_Access_Definition
+              and then
+                not Is_Class_Wide_Type (Designated_Type (Etype (Designator)))
+              and then Is_Abstract_Type (Designated_Type (Etype (Designator)))
+              and then Ada_Version >= Ada_2012
+            then
+               Error_Msg_N ("function whose access result designates "
+                 & "abstract type must be abstract", N);
+            end if;
          end if;
       end if;
 
@@ -3633,7 +3719,7 @@ package body Sem_Ch6 is
          --  Ada 2005 (AI-231): In case of anonymous access types check the
          --  null-exclusion and access-to-constant attributes match.
 
-         if Ada_Version >= Ada_05
+         if Ada_Version >= Ada_2005
            and then Ekind (Etype (Old_Type)) = E_Anonymous_Access_Type
            and then
              (Can_Never_Be_Null (Old_Type)
@@ -3673,7 +3759,6 @@ package body Sem_Ch6 is
                Error_Msg_Name_1 := Chars (New_Id);
                Error_Msg_Name_2 :=
                  Name_Ada + Convention_Id'Pos (Convention (New_Id));
-
                Conformance_Error ("\prior declaration for% has convention %!");
 
             else
@@ -3733,6 +3818,29 @@ package body Sem_Ch6 is
                Set_Error_Posted (New_Formal);
                return;
             end if;
+
+            --  Null exclusion must match
+
+            if Null_Exclusion_Present (Parent (Old_Formal))
+                 /=
+               Null_Exclusion_Present (Parent (New_Formal))
+            then
+               --  Only give error if both come from source. This should be
+               --  investigated some time, since it should not be needed ???
+
+               if Comes_From_Source (Old_Formal)
+                    and then
+                  Comes_From_Source (New_Formal)
+               then
+                  Conformance_Error
+                    ("\null exclusion for & does not match", New_Formal);
+
+                  --  Mark error posted on the new formal to avoid duplicated
+                  --  complaint about types not matching.
+
+                  Set_Error_Posted (New_Formal);
+               end if;
+            end if;
          end if;
 
          --  Ada 2005 (AI-423): Possible access [sub]type and itype match. This
@@ -3755,7 +3863,7 @@ package body Sem_Ch6 is
             New_Formal_Base := Get_Instance_Of (New_Formal_Base);
          end if;
 
-         Access_Types_Match := Ada_Version >= Ada_05
+         Access_Types_Match := Ada_Version >= Ada_2005
 
             --  Ensure that this rule is only applied when New_Id is a
             --  renaming of Old_Id.
@@ -3865,7 +3973,7 @@ package body Sem_Ch6 is
             --  the null-exclusion and access-to-constant attributes must
             --  match.
 
-            if Ada_Version >= Ada_05
+            if Ada_Version >= Ada_2005
               and then Ekind (Etype (Old_Formal)) = E_Anonymous_Access_Type
               and then Ekind (Etype (New_Formal)) = E_Anonymous_Access_Type
               and then
@@ -3874,6 +3982,11 @@ package body Sem_Ch6 is
                    or else
                  Is_Access_Constant (Etype (Old_Formal)) /=
                  Is_Access_Constant (Etype (New_Formal)))
+
+              --  Do not complain if error already posted on New_Formal. This
+              --  avoids some redundant error messages.
+
+              and then not Error_Posted (New_Formal)
             then
                --  It is allowed to omit the null-exclusion in case of stream
                --  attribute subprograms. We recognize stream subprograms
@@ -4151,29 +4264,21 @@ package body Sem_Ch6 is
    --  Start of processing for Check_Delayed_Subprogram
 
    begin
-      --  Never need to freeze abstract subprogram
+      --  All subprograms, including abstract subprograms, may need a freeze
+      --  node if some formal type or the return type needs one.
 
-      if Ekind (Designator) /= E_Subprogram_Type
-        and then Is_Abstract_Subprogram (Designator)
-      then
-         null;
-      else
-         --  Need delayed freeze if return type itself needs a delayed
-         --  freeze and is not yet frozen.
+      Possible_Freeze (Etype (Designator));
+      Possible_Freeze (Base_Type (Etype (Designator))); -- needed ???
 
-         Possible_Freeze (Etype (Designator));
-         Possible_Freeze (Base_Type (Etype (Designator))); -- needed ???
+      --  Need delayed freeze if any of the formal types themselves need
+      --  a delayed freeze and are not yet frozen.
 
-         --  Need delayed freeze if any of the formal types themselves need
-         --  a delayed freeze and are not yet frozen.
-
-         F := First_Formal (Designator);
-         while Present (F) loop
-            Possible_Freeze (Etype (F));
-            Possible_Freeze (Base_Type (Etype (F))); -- needed ???
-            Next_Formal (F);
-         end loop;
-      end if;
+      F := First_Formal (Designator);
+      while Present (F) loop
+         Possible_Freeze (Etype (F));
+         Possible_Freeze (Base_Type (Etype (F))); -- needed ???
+         Next_Formal (F);
+      end loop;
 
       --  Mark functions that return by reference. Note that it cannot be
       --  done for delayed_freeze subprograms because the underlying
@@ -4187,7 +4292,7 @@ package body Sem_Ch6 is
             Utyp : constant Entity_Id := Underlying_Type (Typ);
 
          begin
-            if Is_Inherently_Limited_Type (Typ) then
+            if Is_Immutably_Limited_Type (Typ) then
                Set_Returns_By_Ref (Designator);
 
             elsif Present (Utyp) and then CW_Or_Has_Controlled_Part (Utyp) then
@@ -5334,7 +5439,7 @@ package body Sem_Ch6 is
             --  In Ada2005, access constant indicators must match for
             --  subtype conformance.
 
-            if Ada_Version >= Ada_05
+            if Ada_Version >= Ada_2005
               and then Ctype >= Subtype_Conformant
               and then
                 Is_Access_Constant (Type_1) /= Is_Access_Constant (Type_2)
@@ -5372,7 +5477,7 @@ package body Sem_Ch6 is
                     Etype (Base_Type (Desig_2)), Ctype);
 
             elsif Are_Anonymous_Access_To_Subprogram_Types then
-               if Ada_Version < Ada_05 then
+               if Ada_Version < Ada_2005 then
                   return Ctype = Type_Conformant
                     or else
                       Subtypes_Statically_Match (Desig_1, Desig_2);
@@ -5623,7 +5728,7 @@ package body Sem_Ch6 is
       --  Ada 2005 (AI-318-02): In the case of build-in-place functions, add
       --  appropriate extra formals. See type Exp_Ch6.BIP_Formal_Kind.
 
-      if Ada_Version >= Ada_05 and then Is_Build_In_Place_Function (E) then
+      if Ada_Version >= Ada_2005 and then Is_Build_In_Place_Function (E) then
          declare
             Result_Subt : constant Entity_Id := Etype (E);
 
@@ -5810,32 +5915,59 @@ package body Sem_Ch6 is
         and then Is_Record_Type (Typ)
         and then not Is_Tagged_Type (Typ)
       then
+         --  If the type is not declared in a package, or if we are in the
+         --  body of the package or in some other scope, the new operation is
+         --  not primitive, and therefore legal, though suspicious. If the
+         --  type is a generic actual (sub)type, the operation is not primitive
+         --  either because the base type is declared elsewhere.
+
          if Is_Frozen (Typ) then
-            Error_Msg_NE
-              ("equality operator must be declared "
-                & "before type& is frozen", Eq_Op, Typ);
+            if Ekind (Scope (Typ)) /= E_Package
+              or else Scope (Typ) /= Current_Scope
+            then
+               null;
 
-            Obj_Decl := Next (Parent (Typ));
-            while Present (Obj_Decl)
-              and then Obj_Decl /= Decl
-            loop
-               if Nkind (Obj_Decl) = N_Object_Declaration
-                 and then Etype (Defining_Identifier (Obj_Decl)) = Typ
-               then
-                  Error_Msg_NE ("type& is frozen by declaration?",
-                     Obj_Decl, Typ);
-                  Error_Msg_N
-                    ("\an equality operator cannot be declared after this "
-                      & "point ('R'M 4.5.2 (9.8)) (Ada2012))?", Obj_Decl);
-                  exit;
-               end if;
+            elsif Is_Generic_Actual_Type (Typ) then
+               null;
 
-               Next (Obj_Decl);
-            end loop;
+            elsif In_Package_Body (Scope (Typ)) then
+               Error_Msg_NE
+                 ("equality operator must be declared "
+                   & "before type& is frozen", Eq_Op, Typ);
+               Error_Msg_N
+                 ("\move declaration to package spec", Eq_Op);
+
+            else
+               Error_Msg_NE
+                 ("equality operator must be declared "
+                   & "before type& is frozen", Eq_Op, Typ);
+
+               Obj_Decl := Next (Parent (Typ));
+               while Present (Obj_Decl)
+                 and then Obj_Decl /= Decl
+               loop
+                  if Nkind (Obj_Decl) = N_Object_Declaration
+                    and then Etype (Defining_Identifier (Obj_Decl)) = Typ
+                  then
+                     Error_Msg_NE ("type& is frozen by declaration?",
+                        Obj_Decl, Typ);
+                     Error_Msg_N
+                       ("\an equality operator cannot be declared after this "
+                         & "point ('R'M 4.5.2 (9.8)) (Ada 2012))?", Obj_Decl);
+                     exit;
+                  end if;
+
+                  Next (Obj_Decl);
+               end loop;
+            end if;
 
          elsif not In_Same_List (Parent (Typ), Decl)
            and then not Is_Limited_Type (Typ)
          then
+
+            --  This makes it illegal to have a primitive equality declared in
+            --  the private part if the type is visible.
+
             Error_Msg_N ("equality operator appears too late", Eq_Op);
          end if;
       end if;
@@ -5914,7 +6046,7 @@ package body Sem_Ch6 is
                --  current one is the explicit overriding.
 
                elsif Ekind (E) = E_Function
-                 and then Ada_Version >= Ada_05
+                 and then Ada_Version >= Ada_2005
                  and then not Comes_From_Source (E)
                  and then Has_Controlling_Result (E)
                  and then Is_Null_Extension (Etype (E))
@@ -7004,16 +7136,34 @@ package body Sem_Ch6 is
                      & "(RM 3.9.3(10))!", S);
 
                elsif Ekind (S) = E_Function
-                 and then Is_Tagged_Type (T)
-                 and then T = Base_Type (Etype (S))
                  and then not Is_Overriding
                then
-                  Error_Msg_N
-                    ("private function with tagged result must"
-                     & " override visible-part function", S);
-                  Error_Msg_N
-                    ("\move subprogram to the visible part"
-                     & " (RM 3.9.3(10))", S);
+                  if Is_Tagged_Type (T)
+                    and then T = Base_Type (Etype (S))
+                  then
+                     Error_Msg_N
+                       ("private function with tagged result must"
+                        & " override visible-part function", S);
+                     Error_Msg_N
+                       ("\move subprogram to the visible part"
+                        & " (RM 3.9.3(10))", S);
+
+                  --  AI05-0073: extend this test to the case of a function
+                  --  with a controlling access result.
+
+                  elsif Ekind (Etype (S)) = E_Anonymous_Access_Type
+                    and then Is_Tagged_Type (Designated_Type (Etype (S)))
+                    and then
+                      not Is_Class_Wide_Type (Designated_Type (Etype (S)))
+                    and then Ada_Version >= Ada_2012
+                  then
+                     Error_Msg_N
+                       ("private function with controlling access result "
+                          & "must override visible-part function", S);
+                     Error_Msg_N
+                       ("\move subprogram to the visible part"
+                          & " (RM 3.9.3(10))", S);
+                  end if;
                end if;
             end if;
          end Check_Private_Overriding;
@@ -7548,7 +7698,7 @@ package body Sem_Ch6 is
       --  of an operation that was already derived in the visible part of
       --  the current package.
 
-      if Ada_Version >= Ada_05
+      if Ada_Version >= Ada_2005
         and then Present (Derived_Type)
         and then Present (Alias (S))
         and then Is_Dispatching_Operation (Alias (S))
@@ -8053,7 +8203,7 @@ package body Sem_Ch6 is
          then
             Make_Inequality_Operator (S);
 
-            if Ada_Version >= Ada_12 then
+            if Ada_Version >= Ada_2012 then
                Check_Untagged_Equality (S);
             end if;
          end if;
@@ -8180,18 +8330,39 @@ package body Sem_Ch6 is
                elsif not Nkind_In (Parent (T), N_Access_Function_Definition,
                                                N_Access_Procedure_Definition)
                then
-                  Error_Msg_NE
-                    ("invalid use of incomplete type&",
-                       Param_Spec, Formal_Type);
 
-                  --  Further checks on the legality of incomplete types
-                  --  in formal parts must be delayed until the freeze point
-                  --  of the enclosing subprogram or access to subprogram.
+                  --  AI05-0151: Tagged incomplete types are allowed in all
+                  --  formal parts. Untagged incomplete types are not allowed
+                  --  in bodies.
+
+                  if Ada_Version >= Ada_2012 then
+                     if Is_Tagged_Type (Formal_Type) then
+                        null;
+
+                     elsif Nkind_In (Parent (Parent (T)), N_Accept_Statement,
+                                                          N_Entry_Body,
+                                                          N_Subprogram_Body)
+                     then
+                        Error_Msg_NE
+                          ("invalid use of untagged incomplete type&",
+                           Ptype, Formal_Type);
+                     end if;
+
+                  else
+                     Error_Msg_NE
+                       ("invalid use of incomplete type&",
+                        Param_Spec, Formal_Type);
+
+                     --  Further checks on the legality of incomplete types
+                     --  in formal parts are delayed until the freeze point
+                     --  of the enclosing subprogram or access to subprogram.
+                  end if;
                end if;
 
             elsif Ekind (Formal_Type) = E_Void then
-               Error_Msg_NE ("premature use of&",
-                 Parameter_Type (Param_Spec), Formal_Type);
+               Error_Msg_NE
+                 ("premature use of&",
+                  Parameter_Type (Param_Spec), Formal_Type);
             end if;
 
             --  Ada 2005 (AI-231): Create and decorate an internal subtype
@@ -8199,7 +8370,7 @@ package body Sem_Ch6 is
             --  formal in the enclosing scope. Finally, replace the parameter
             --  type of the formal with the internal subtype.
 
-            if Ada_Version >= Ada_05
+            if Ada_Version >= Ada_2005
               and then Null_Exclusion_Present (Param_Spec)
             then
                if not Is_Access_Type (Formal_Type) then
@@ -8212,8 +8383,7 @@ package body Sem_Ch6 is
                   then
                      Error_Msg_NE
                        ("`NOT NULL` not allowed (& already excludes null)",
-                        Param_Spec,
-                        Formal_Type);
+                        Param_Spec, Formal_Type);
                   end if;
 
                   Formal_Type :=
@@ -8316,7 +8486,7 @@ package body Sem_Ch6 is
 
          --  Ada 2005 (AI-231): Static checks
 
-         if Ada_Version >= Ada_05
+         if Ada_Version >= Ada_2005
            and then Is_Access_Type (Etype (Formal))
            and then Can_Never_Be_Null (Etype (Formal))
          then
@@ -8653,7 +8823,6 @@ package body Sem_Ch6 is
    -------------------------
 
    procedure Set_Actual_Subtypes (N : Node_Id; Subp : Entity_Id) is
-      Loc            : constant Source_Ptr := Sloc (N);
       Decl           : Node_Id;
       Formal         : Entity_Id;
       T              : Entity_Id;
@@ -8767,7 +8936,7 @@ package body Sem_Ch6 is
 
             if Present (First_Stmt) then
                Insert_List_Before_And_Analyze (First_Stmt,
-                 Freeze_Entity (Defining_Identifier (Decl), Loc));
+                 Freeze_Entity (Defining_Identifier (Decl), N));
             end if;
 
             if Nkind (N) = N_Accept_Statement
@@ -8826,7 +8995,7 @@ package body Sem_Ch6 is
          --  Ada 2005 (AI-231): In Ada95, access parameters are always non-
          --  null; In Ada 2005, only if then null_exclusion is explicit.
 
-         if Ada_Version < Ada_05
+         if Ada_Version < Ada_2005
            or else Can_Never_Be_Null (Etype (Formal_Id))
          then
             Set_Is_Known_Non_Null (Formal_Id);

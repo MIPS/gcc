@@ -23,6 +23,7 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
+with Aspects;  use Aspects;
 with Atree;    use Atree;
 with Checks;   use Checks;
 with Einfo;    use Einfo;
@@ -52,7 +53,6 @@ with Sem_Warn; use Sem_Warn;
 with Snames;   use Snames;
 with Stand;    use Stand;
 with Sinfo;    use Sinfo;
-with Table;
 with Targparm; use Targparm;
 with Ttypes;   use Ttypes;
 with Tbuild;   use Tbuild;
@@ -619,6 +619,331 @@ package body Sem_Ch13 is
       end if;
    end Alignment_Check_For_Esize_Change;
 
+   -----------------------------------
+   -- Analyze_Aspect_Specifications --
+   -----------------------------------
+
+   procedure Analyze_Aspect_Specifications
+     (N : Node_Id;
+      E : Entity_Id;
+      L : List_Id)
+   is
+      Aspect : Node_Id;
+      Aitem  : Node_Id;
+      Ent    : Node_Id;
+
+      Ins_Node : Node_Id := N;
+      --  Insert pragmas (other than Pre/Post) after this node
+
+      --  The general processing involves building an attribute definition
+      --  clause or a pragma node that corresponds to the access type. Then
+      --  one of two things happens:
+
+      --  If we are required to delay the evaluation of this aspect to the
+      --  freeze point, we preanalyze the relevant argument, and then attach
+      --  the corresponding pragma/attribute definition clause to the aspect
+      --  specification node, which is then placed in the Rep Item chain.
+      --  In this case we mark the entity with the Has_Delayed_Aspects flag,
+      --  and we evaluate the rep item at the freeze point.
+
+      --  If no delay is required, we just insert the pragma or attribute
+      --  after the declaration, and it will get processed by the normal
+      --  circuit. The From_Aspect_Specification flag is set on the pragma
+      --  or attribute definition node in either case to activate special
+      --  processing (e.g. not traversing the list of homonyms for inline).
+
+      Delay_Required : Boolean;
+      --  Set True if delay is required
+
+   begin
+      if L = No_List then
+         return;
+      end if;
+
+      Aspect := First (L);
+      while Present (Aspect) loop
+         declare
+            Id   : constant Node_Id   := Identifier (Aspect);
+            Expr : constant Node_Id   := Expression (Aspect);
+            Nam  : constant Name_Id   := Chars (Id);
+            A_Id : constant Aspect_Id := Get_Aspect_Id (Nam);
+            Anod : Node_Id;
+            T    : Entity_Id;
+
+         begin
+            Set_Entity (Aspect, E);
+            Ent := New_Occurrence_Of (E, Sloc (Id));
+
+            --  Check for duplicate aspect
+
+            Anod := First (L);
+            while Anod /= Aspect loop
+               if Nam = Chars (Identifier (Anod)) then
+                  Error_Msg_Name_1 := Nam;
+                  Error_Msg_Sloc := Sloc (Anod);
+                  Error_Msg_NE
+                    ("aspect% for & ignored, already given at#", Id, E);
+                  goto Continue;
+               end if;
+
+               Next (Anod);
+            end loop;
+
+            --  Processing based on specific aspect
+
+            case A_Id is
+
+               --  No_Aspect should be impossible
+
+               when No_Aspect =>
+                  raise Program_Error;
+
+                  --  Aspects taking an optional boolean argument. For all of
+                  --  these we just create a matching pragma and insert it,
+                  --  setting flag Cancel_Aspect if the expression is False.
+
+               when Aspect_Ada_2005                     |
+                    Aspect_Ada_2012                     |
+                    Aspect_Atomic                       |
+                    Aspect_Atomic_Components            |
+                    Aspect_Discard_Names                |
+                    Aspect_Favor_Top_Level              |
+                    Aspect_Inline                       |
+                    Aspect_Inline_Always                |
+                    Aspect_No_Return                    |
+                    Aspect_Pack                         |
+                    Aspect_Persistent_BSS               |
+                    Aspect_Preelaborable_Initialization |
+                    Aspect_Pure_Function                |
+                    Aspect_Shared                       |
+                    Aspect_Suppress_Debug_Info          |
+                    Aspect_Unchecked_Union              |
+                    Aspect_Universal_Aliasing           |
+                    Aspect_Unmodified                   |
+                    Aspect_Unreferenced                 |
+                    Aspect_Unreferenced_Objects         |
+                    Aspect_Volatile                     |
+                    Aspect_Volatile_Components          =>
+
+                  --  Build corresponding pragma node
+
+                  Aitem :=
+                    Make_Pragma (Sloc (Aspect),
+                      Pragma_Argument_Associations => New_List (Ent),
+                      Pragma_Identifier            =>
+                        Make_Identifier (Sloc (Id), Chars (Id)));
+
+                  --  Deal with missing expression case, delay never needed
+
+                  if No (Expr) then
+                     Delay_Required := False;
+
+                  --  Expression is present
+
+                  else
+                     Preanalyze_Spec_Expression (Expr, Standard_Boolean);
+
+                     --  If preanalysis gives a static expression, we don't
+                     --  need to delay (this will happen often in practice).
+
+                     if Is_OK_Static_Expression (Expr) then
+                        Delay_Required := False;
+
+                        if Is_False (Expr_Value (Expr)) then
+                           Set_Aspect_Cancel (Aitem);
+                        end if;
+
+                     --  If we don't get a static expression, then delay, the
+                     --  expression may turn out static by freeze time.
+
+                     else
+                        Delay_Required := True;
+                     end if;
+                  end if;
+
+               --  Aspects corresponding to attribute definition clauses with
+               --  the exception of Address which is treated specially.
+
+               when Aspect_Address        |
+                    Aspect_Alignment      |
+                    Aspect_Bit_Order      |
+                    Aspect_Component_Size |
+                    Aspect_External_Tag   |
+                    Aspect_Machine_Radix  |
+                    Aspect_Object_Size    |
+                    Aspect_Size           |
+                    Aspect_Storage_Pool   |
+                    Aspect_Storage_Size   |
+                    Aspect_Stream_Size    |
+                    Aspect_Value_Size     =>
+
+                  --  Preanalyze the expression with the appropriate type
+
+                  case A_Id is
+                     when Aspect_Address      =>
+                        T := RTE (RE_Address);
+                     when Aspect_Bit_Order    =>
+                        T := RTE (RE_Bit_Order);
+                     when Aspect_External_Tag =>
+                        T := Standard_String;
+                     when Aspect_Storage_Pool =>
+                        T := Class_Wide_Type (RTE (RE_Root_Storage_Pool));
+                     when others              =>
+                        T := Any_Integer;
+                  end case;
+
+                  Preanalyze_Spec_Expression (Expr, T);
+
+                  --  Construct the attribute definition clause
+
+                  Aitem :=
+                    Make_Attribute_Definition_Clause (Sloc (Aspect),
+                      Name       => Ent,
+                      Chars      => Chars (Id),
+                      Expression => Relocate_Node (Expr));
+
+                  --  We do not need a delay if we have a static expression
+
+                  if Is_OK_Static_Expression (Expression (Aitem)) then
+                     Delay_Required := False;
+
+                  --  Here a delay is required
+
+                  else
+                     Delay_Required := True;
+                  end if;
+
+               --  Aspects corresponding to pragmas with two arguments, where
+               --  the first argument is a local name referring to the entity,
+               --  and the second argument is the aspect definition expression.
+
+               when Aspect_Suppress   |
+                    Aspect_Unsuppress =>
+
+                  --  Construct the pragma
+
+                  Aitem :=
+                    Make_Pragma (Sloc (Aspect),
+                      Pragma_Argument_Associations => New_List (
+                        New_Occurrence_Of (E, Sloc (Expr)),
+                        Relocate_Node (Expr)),
+                      Pragma_Identifier            =>
+                      Make_Identifier (Sloc (Id), Chars (Id)));
+
+                  --  We don't have to play the delay game here, since the only
+                  --  values are check names which don't get analyzed anyway.
+
+                  Delay_Required := False;
+
+               --  Aspects corresponding to pragmas with two arguments, where
+               --  the second argument is a local name referring to the entity,
+               --  and the first argument is the aspect definition expression.
+
+               when Aspect_Warnings =>
+
+                  --  Construct the pragma
+
+                  Aitem :=
+                    Make_Pragma (Sloc (Aspect),
+                      Pragma_Argument_Associations => New_List (
+                        Relocate_Node (Expr),
+                        New_Occurrence_Of (E, Sloc (Expr))),
+                      Pragma_Identifier            =>
+                         Make_Identifier (Sloc (Id), Chars (Id)));
+
+                  --  We don't have to play the delay game here, since the only
+                  --  values are check names which don't get analyzed anyway.
+
+                  Delay_Required := False;
+
+               --  Aspect Post corresponds to pragma Postcondition with single
+               --  argument that is the expression (we never give a message
+               --  argument. This is inserted right after the declaration,
+               --  to get the required pragma placement.
+
+               when Aspect_Post =>
+
+                  --  Construct the pragma
+
+                  Aitem :=
+                    Make_Pragma (Sloc (Expr),
+                      Pragma_Argument_Associations => New_List (
+                        Relocate_Node (Expr)),
+                      Pragma_Identifier            =>
+                      Make_Identifier (Sloc (Id), Name_Postcondition));
+
+                  --  We don't have to play the delay game here. The required
+                  --  delay in this case is already implemented by the pragma.
+
+                  Delay_Required := False;
+
+               --  Aspect Pre corresponds to pragma Precondition with single
+               --  argument that is the expression (we never give a message
+               --  argument). This is inserted right after the declaration,
+               --  to get the required pragma placement.
+
+               when Aspect_Pre =>
+
+                  --  Construct the pragma
+
+                  Aitem :=
+                    Make_Pragma (Sloc (Expr),
+                      Pragma_Argument_Associations => New_List (
+                        Relocate_Node (Expr)),
+                      Pragma_Identifier            =>
+                        Make_Identifier (Sloc (Id), Name_Precondition));
+
+                  --  We don't have to play the delay game here. The required
+                  --  delay in this case is already implemented by the pragma.
+
+                  Delay_Required := False;
+
+               --  Aspects currently unimplemented
+
+               when Aspect_Invariant |
+                    Aspect_Predicate =>
+
+                  Error_Msg_N ("aspect& not implemented", Identifier (Aspect));
+                  goto Continue;
+            end case;
+
+            Set_From_Aspect_Specification (Aitem, True);
+
+            --  If a delay is required, we delay the freeze (not much point in
+            --  delaying the aspect if we don't delay the freeze!). The pragma
+            --  or clause is then attached to the aspect specification which
+            --  is placed in the rep item list.
+
+            if Delay_Required then
+               Ensure_Freeze_Node (E);
+               Set_Is_Delayed_Aspect (Aitem);
+               Set_Has_Delayed_Aspects (E);
+               Set_Aspect_Rep_Item (Aspect, Aitem);
+               Record_Rep_Item (E, Aspect);
+
+            --  If no delay required, insert the pragma/clause in the tree
+
+            else
+               --  For Pre/Post cases, insert immediately after the entity
+               --  declaration, since that is the required pragma placement.
+
+               if A_Id = Aspect_Pre or else A_Id = Aspect_Post then
+                  Insert_After (N, Aitem);
+
+               --  For all other cases, insert in sequence
+
+               else
+                  Insert_After (Ins_Node, Aitem);
+                  Ins_Node := Aitem;
+               end if;
+            end if;
+         end;
+
+         <<Continue>>
+            Next (Aspect);
+      end loop;
+   end Analyze_Aspect_Specifications;
+
    -----------------------
    -- Analyze_At_Clause --
    -----------------------
@@ -684,6 +1009,12 @@ package body Sem_Ch13 is
       procedure Analyze_Stream_TSS_Definition (TSS_Nam : TSS_Name_Type);
       --  Common processing for 'Read, 'Write, 'Input and 'Output attribute
       --  definition clauses.
+
+      function Duplicate_Clause return Boolean;
+      --  This routine checks if the aspect for U_Ent being given by attribute
+      --  definition clause N is for an aspect that has already been specified,
+      --  and if so gives an error message. If there is a duplicate, True is
+      --  returned, otherwise if there is no error, False is returned.
 
       -----------------------------------
       -- Analyze_Stream_TSS_Definition --
@@ -821,6 +1152,40 @@ package body Sem_Ch13 is
          end if;
       end Analyze_Stream_TSS_Definition;
 
+      ----------------------
+      -- Duplicate_Clause --
+      ----------------------
+
+      function Duplicate_Clause return Boolean is
+         A : Node_Id;
+
+      begin
+         --  Nothing to do if this attribute definition clause comes from
+         --  an aspect specification, since we could not be duplicating an
+         --  explicit clause, and we dealt with the case of duplicated aspects
+         --  in Analyze_Aspect_Specifications.
+
+         if From_Aspect_Specification (N) then
+            return False;
+         end if;
+
+         --  Otherwise current clause may duplicate previous clause or a
+         --  previously given aspect specification for the same aspect.
+
+         A := Get_Rep_Item_For_Entity (U_Ent, Chars (N));
+
+         if Present (A) then
+            if Entity (A) = U_Ent then
+               Error_Msg_Name_1 := Chars (N);
+               Error_Msg_Sloc := Sloc (A);
+               Error_Msg_NE ("aspect% for & previously specified#", N, U_Ent);
+               return True;
+            end if;
+         end if;
+
+         return False;
+      end Duplicate_Clause;
+
    --  Start of processing for Analyze_Attribute_Definition_Clause
 
    begin
@@ -929,6 +1294,8 @@ package body Sem_Ch13 is
          return;
       end if;
 
+      Set_Entity (N, U_Ent);
+
       --  Switch on particular attribute
 
       case Id is
@@ -970,8 +1337,8 @@ package body Sem_Ch13 is
                return;
             end if;
 
-            if Present (Address_Clause (U_Ent)) then
-               Error_Msg_N ("address already given for &", Nam);
+            if Duplicate_Clause then
+               null;
 
             --  Case of address clause for subprogram
 
@@ -1236,9 +1603,8 @@ package body Sem_Ch13 is
             then
                Error_Msg_N ("alignment cannot be given for &", Nam);
 
-            elsif Has_Alignment_Clause (U_Ent) then
-               Error_Msg_Sloc := Sloc (Alignment_Clause (U_Ent));
-               Error_Msg_N ("alignment clause previously given#", N);
+            elsif Duplicate_Clause then
+               null;
 
             elsif Align /= No_Uint then
                Set_Has_Alignment_Clause (U_Ent);
@@ -1266,6 +1632,9 @@ package body Sem_Ch13 is
             if not Is_Record_Type (U_Ent) then
                Error_Msg_N
                  ("Bit_Order can only be defined for record type", Nam);
+
+            elsif Duplicate_Clause then
+               null;
 
             else
                Analyze_And_Resolve (Expr, RTE (RE_Bit_Order));
@@ -1308,29 +1677,20 @@ package body Sem_Ch13 is
             Btype := Base_Type (U_Ent);
             Ctyp := Component_Type (Btype);
 
-            if Has_Component_Size_Clause (Btype) then
-               Error_Msg_N
-                 ("component size clause for& previously given", Nam);
+            if Duplicate_Clause then
+               null;
+
+            elsif Rep_Item_Too_Early (Btype, N) then
+               null;
 
             elsif Csize /= No_Uint then
                Check_Size (Expr, Ctyp, Csize, Biased);
 
-               if Has_Aliased_Components (Btype)
-                 and then Csize < 32
-                 and then Csize /= 8
-                 and then Csize /= 16
-               then
-                  Error_Msg_N
-                    ("component size incorrect for aliased components", N);
-                  return;
-               end if;
-
-               --  For the biased case, build a declaration for a subtype
-               --  that will be used to represent the biased subtype that
-               --  reflects the biased representation of components. We need
-               --  this subtype to get proper conversions on referencing
-               --  elements of the array. Note that component size clauses
-               --  are ignored in VM mode.
+               --  For the biased case, build a declaration for a subtype that
+               --  will be used to represent the biased subtype that reflects
+               --  the biased representation of components. We need the subtype
+               --  to get proper conversions on referencing elements of the
+               --  array. Note: component size clauses are ignored in VM mode.
 
                if VM_Target = No_VM then
                   if Biased then
@@ -1385,7 +1745,7 @@ package body Sem_Ch13 is
                end if;
 
                Set_Has_Component_Size_Clause (Btype, True);
-               Set_Has_Non_Standard_Rep      (Btype, True);
+               Set_Has_Non_Standard_Rep (Btype, True);
             end if;
          end Component_Size_Case;
 
@@ -1399,28 +1759,33 @@ package body Sem_Ch13 is
                Error_Msg_N ("should be a tagged type", Nam);
             end if;
 
-            Analyze_And_Resolve (Expr, Standard_String);
+            if Duplicate_Clause then
+               null;
 
-            if not Is_Static_Expression (Expr) then
-               Flag_Non_Static_Expr
-                 ("static string required for tag name!", Nam);
-            end if;
-
-            if VM_Target = No_VM then
-               Set_Has_External_Tag_Rep_Clause (U_Ent);
             else
-               Error_Msg_Name_1 := Attr;
-               Error_Msg_N
-                 ("% attribute unsupported in this configuration", Nam);
-            end if;
+               Analyze_And_Resolve (Expr, Standard_String);
 
-            if not Is_Library_Level_Entity (U_Ent) then
-               Error_Msg_NE
-                 ("?non-unique external tag supplied for &", N, U_Ent);
-               Error_Msg_N
-                 ("?\same external tag applies to all subprogram calls", N);
-               Error_Msg_N
-                 ("?\corresponding internal tag cannot be obtained", N);
+               if not Is_Static_Expression (Expr) then
+                  Flag_Non_Static_Expr
+                    ("static string required for tag name!", Nam);
+               end if;
+
+               if VM_Target = No_VM then
+                  Set_Has_External_Tag_Rep_Clause (U_Ent);
+               else
+                  Error_Msg_Name_1 := Attr;
+                  Error_Msg_N
+                    ("% attribute unsupported in this configuration", Nam);
+               end if;
+
+               if not Is_Library_Level_Entity (U_Ent) then
+                  Error_Msg_NE
+                    ("?non-unique external tag supplied for &", N, U_Ent);
+                  Error_Msg_N
+                    ("?\same external tag applies to all subprogram calls", N);
+                  Error_Msg_N
+                    ("?\corresponding internal tag cannot be obtained", N);
+               end if;
             end if;
          end External_Tag;
 
@@ -1445,9 +1810,8 @@ package body Sem_Ch13 is
             if not Is_Decimal_Fixed_Point_Type (U_Ent) then
                Error_Msg_N ("decimal fixed-point type expected for &", Nam);
 
-            elsif Has_Machine_Radix_Clause (U_Ent) then
-               Error_Msg_Sloc := Sloc (Alignment_Clause (U_Ent));
-               Error_Msg_N ("machine radix clause previously given#", N);
+            elsif Duplicate_Clause then
+               null;
 
             elsif Radix /= No_Uint then
                Set_Has_Machine_Radix_Clause (U_Ent);
@@ -1479,8 +1843,8 @@ package body Sem_Ch13 is
             if not Is_Type (U_Ent) then
                Error_Msg_N ("Object_Size cannot be given for &", Nam);
 
-            elsif Has_Object_Size_Clause (U_Ent) then
-               Error_Msg_N ("Object_Size already given for &", Nam);
+            elsif Duplicate_Clause then
+               null;
 
             else
                Check_Size (Expr, U_Ent, Size, Biased);
@@ -1534,8 +1898,8 @@ package body Sem_Ch13 is
          begin
             FOnly := True;
 
-            if Has_Size_Clause (U_Ent) then
-               Error_Msg_N ("size already given for &", Nam);
+            if Duplicate_Clause then
+               null;
 
             elsif not Is_Type (U_Ent)
               and then Ekind (U_Ent) /= E_Variable
@@ -1717,8 +2081,7 @@ package body Sem_Ch13 is
                  ("storage pool cannot be given for a derived access type",
                   Nam);
 
-            elsif Has_Storage_Size_Clause (U_Ent) then
-               Error_Msg_N ("storage size already given for &", Nam);
+            elsif Duplicate_Clause then
                return;
 
             elsif Present (Associated_Storage_Pool (U_Ent)) then
@@ -1847,8 +2210,8 @@ package body Sem_Ch13 is
                  ("storage size cannot be given for a derived access type",
                   Nam);
 
-            elsif Has_Storage_Size_Clause (Btype) then
-               Error_Msg_N ("storage size already given for &", Nam);
+            elsif Duplicate_Clause then
+               null;
 
             else
                Analyze_And_Resolve (Expr, Any_Integer);
@@ -1859,7 +2222,7 @@ package body Sem_Ch13 is
                      return;
                   end if;
 
-                  if Compile_Time_Known_Value (Expr)
+                  if Is_OK_Static_Expression (Expr)
                     and then Expr_Value (Expr) = 0
                   then
                      Set_No_Pool_Assigned (Btype);
@@ -1892,8 +2255,8 @@ package body Sem_Ch13 is
                Check_Restriction (No_Implementation_Attributes, N);
             end if;
 
-            if Has_Stream_Size_Clause (U_Ent) then
-               Error_Msg_N ("Stream_Size already given for &", Nam);
+            if Duplicate_Clause then
+               null;
 
             elsif Is_Elementary_Type (U_Ent) then
                if Size /= System_Storage_Unit
@@ -1937,11 +2300,8 @@ package body Sem_Ch13 is
             if not Is_Type (U_Ent) then
                Error_Msg_N ("Value_Size cannot be given for &", Nam);
 
-            elsif Present
-                   (Get_Attribute_Definition_Clause
-                     (U_Ent, Attribute_Value_Size))
-            then
-               Error_Msg_N ("Value_Size already given for &", Nam);
+            elsif Duplicate_Clause then
+               null;
 
             elsif Is_Array_Type (U_Ent)
               and then not Is_Constrained (U_Ent)
@@ -2412,7 +2772,7 @@ package body Sem_Ch13 is
       --  also used to locate primitives covering interfaces when processing
       --  generics (see Derive_Subprograms).
 
-      if Ada_Version >= Ada_05
+      if Ada_Version >= Ada_2005
         and then Ekind (E) = E_Record_Type
         and then Is_Tagged_Type (E)
         and then not Is_Interface (E)
@@ -2506,16 +2866,16 @@ package body Sem_Ch13 is
    --  for the remainder of this processing.
 
    procedure Analyze_Record_Representation_Clause (N : Node_Id) is
-      Ident   : constant Node_Id    := Identifier (N);
-      Rectype : Entity_Id;
-      CC      : Node_Id;
-      Posit   : Uint;
-      Fbit    : Uint;
-      Lbit    : Uint;
-      Hbit    : Uint := Uint_0;
-      Comp    : Entity_Id;
-      Ocomp   : Entity_Id;
+      Ident   : constant Node_Id := Identifier (N);
       Biased  : Boolean;
+      CC      : Node_Id;
+      Comp    : Entity_Id;
+      Fbit    : Uint;
+      Hbit    : Uint := Uint_0;
+      Lbit    : Uint;
+      Ocomp   : Entity_Id;
+      Posit   : Uint;
+      Rectype : Entity_Id;
 
       CR_Pragma : Node_Id := Empty;
       --  Points to N_Pragma node if Complete_Representation pragma present
@@ -2542,10 +2902,6 @@ package body Sem_Ch13 is
          Error_Msg_NE
            ("record type required, found}", Ident, First_Subtype (Rectype));
          return;
-
-      elsif Is_Unchecked_Union (Rectype) then
-         Error_Msg_N
-           ("record rep clause not allowed for Unchecked_Union", N);
 
       elsif Scope (Rectype) /= Current_Scope then
          Error_Msg_N ("type must be declared in this scope", N);
@@ -2721,6 +3077,24 @@ package body Sem_Ch13 is
                   if No (Comp) then
                      Error_Msg_N
                        ("component clause is for non-existent field", CC);
+
+                  --  Ada 2012 (AI05-0026): Any name that denotes a
+                  --  discriminant of an object of an unchecked union type
+                  --  shall not occur within a record_representation_clause.
+
+                  --  The general restriction of using record rep clauses on
+                  --  Unchecked_Union types has now been lifted. Since it is
+                  --  possible to introduce a record rep clause which mentions
+                  --  the discriminant of an Unchecked_Union in non-Ada 2012
+                  --  code, this check is applied to all versions of the
+                  --  language.
+
+                  elsif Ekind (Comp) = E_Discriminant
+                    and then Is_Unchecked_Union (Rectype)
+                  then
+                     Error_Msg_N
+                       ("cannot reference discriminant of Unchecked_Union",
+                        Component_Name (CC));
 
                   elsif Present (Component_Clause (Comp)) then
 
@@ -4167,6 +4541,8 @@ package body Sem_Ch13 is
 
    procedure Initialize is
    begin
+      Address_Clause_Checks.Init;
+      Independence_Checks.Init;
       Unchecked_Conversions.Init;
    end Initialize;
 
@@ -5061,6 +5437,292 @@ package body Sem_Ch13 is
          end;
       end loop;
    end Validate_Address_Clauses;
+
+   ---------------------------
+   -- Validate_Independence --
+   ---------------------------
+
+   procedure Validate_Independence is
+      SU   : constant Uint := UI_From_Int (System_Storage_Unit);
+      N    : Node_Id;
+      E    : Entity_Id;
+      IC   : Boolean;
+      Comp : Entity_Id;
+      Addr : Node_Id;
+      P    : Node_Id;
+
+      procedure Check_Array_Type (Atyp : Entity_Id);
+      --  Checks if the array type Atyp has independent components, and
+      --  if not, outputs an appropriate set of error messages.
+
+      procedure No_Independence;
+      --  Output message that independence cannot be guaranteed
+
+      function OK_Component (C : Entity_Id) return Boolean;
+      --  Checks one component to see if it is independently accessible, and
+      --  if so yields True, otherwise yields False if independent access
+      --  cannot be guaranteed. This is a conservative routine, it only
+      --  returns True if it knows for sure, it returns False if it knows
+      --  there is a problem, or it cannot be sure there is no problem.
+
+      procedure Reason_Bad_Component (C : Entity_Id);
+      --  Outputs continuation message if a reason can be determined for
+      --  the component C being bad.
+
+      ----------------------
+      -- Check_Array_Type --
+      ----------------------
+
+      procedure Check_Array_Type (Atyp : Entity_Id) is
+         Ctyp : constant Entity_Id := Component_Type (Atyp);
+
+      begin
+         --  OK if no alignment clause, no pack, and no component size
+
+         if not Has_Component_Size_Clause (Atyp)
+           and then not Has_Alignment_Clause (Atyp)
+           and then not Is_Packed (Atyp)
+         then
+            return;
+         end if;
+
+         --  Check actual component size
+
+         if not Known_Component_Size (Atyp)
+           or else not (Addressable (Component_Size (Atyp))
+                          and then Component_Size (Atyp) < 64)
+           or else Component_Size (Atyp) mod Esize (Ctyp) /= 0
+         then
+            No_Independence;
+
+            --  Bad component size, check reason
+
+            if Has_Component_Size_Clause (Atyp) then
+               P :=
+                 Get_Attribute_Definition_Clause
+                   (Atyp, Attribute_Component_Size);
+
+               if Present (P) then
+                  Error_Msg_Sloc := Sloc (P);
+                  Error_Msg_N ("\because of Component_Size clause#", N);
+                  return;
+               end if;
+            end if;
+
+            if Is_Packed (Atyp) then
+               P := Get_Rep_Pragma (Atyp, Name_Pack);
+
+               if Present (P) then
+                  Error_Msg_Sloc := Sloc (P);
+                  Error_Msg_N ("\because of pragma Pack#", N);
+                  return;
+               end if;
+            end if;
+
+            --  No reason found, just return
+
+            return;
+         end if;
+
+         --  Array type is OK independence-wise
+
+         return;
+      end Check_Array_Type;
+
+      ---------------------
+      -- No_Independence --
+      ---------------------
+
+      procedure No_Independence is
+      begin
+         if Pragma_Name (N) = Name_Independent then
+            Error_Msg_NE
+              ("independence cannot be guaranteed for&", N, E);
+         else
+            Error_Msg_NE
+              ("independent components cannot be guaranteed for&", N, E);
+         end if;
+      end No_Independence;
+
+      ------------------
+      -- OK_Component --
+      ------------------
+
+      function OK_Component (C : Entity_Id) return Boolean is
+         Rec  : constant Entity_Id := Scope (C);
+         Ctyp : constant Entity_Id := Etype (C);
+
+      begin
+         --  OK if no component clause, no Pack, and no alignment clause
+
+         if No (Component_Clause (C))
+           and then not Is_Packed (Rec)
+           and then not Has_Alignment_Clause (Rec)
+         then
+            return True;
+         end if;
+
+         --  Here we look at the actual component layout. A component is
+         --  addressable if its size is a multiple of the Esize of the
+         --  component type, and its starting position in the record has
+         --  appropriate alignment, and the record itself has appropriate
+         --  alignment to guarantee the component alignment.
+
+         --  Make sure sizes are static, always assume the worst for any
+         --  cases where we cannot check static values.
+
+         if not (Known_Static_Esize (C)
+                  and then Known_Static_Esize (Ctyp))
+         then
+            return False;
+         end if;
+
+         --  Size of component must be addressable or greater than 64 bits
+         --  and a multiple of bytes.
+
+         if not Addressable (Esize (C))
+           and then Esize (C) < Uint_64
+         then
+            return False;
+         end if;
+
+         --  Check size is proper multiple
+
+         if Esize (C) mod Esize (Ctyp) /= 0 then
+            return False;
+         end if;
+
+         --  Check alignment of component is OK
+
+         if not Known_Component_Bit_Offset (C)
+           or else Component_Bit_Offset (C) < Uint_0
+           or else Component_Bit_Offset (C) mod Esize (Ctyp) /= 0
+         then
+            return False;
+         end if;
+
+         --  Check alignment of record type is OK
+
+         if not Known_Alignment (Rec)
+           or else (Alignment (Rec) * SU) mod Esize (Ctyp) /= 0
+         then
+            return False;
+         end if;
+
+         --  All tests passed, component is addressable
+
+         return True;
+      end OK_Component;
+
+      --------------------------
+      -- Reason_Bad_Component --
+      --------------------------
+
+      procedure Reason_Bad_Component (C : Entity_Id) is
+         Rec  : constant Entity_Id := Scope (C);
+         Ctyp : constant Entity_Id := Etype (C);
+
+      begin
+         --  If component clause present assume that's the problem
+
+         if Present (Component_Clause (C)) then
+            Error_Msg_Sloc := Sloc (Component_Clause (C));
+            Error_Msg_N ("\because of Component_Clause#", N);
+            return;
+         end if;
+
+         --  If pragma Pack clause present, assume that's the problem
+
+         if Is_Packed (Rec) then
+            P := Get_Rep_Pragma (Rec, Name_Pack);
+
+            if Present (P) then
+               Error_Msg_Sloc := Sloc (P);
+               Error_Msg_N ("\because of pragma Pack#", N);
+               return;
+            end if;
+         end if;
+
+         --  See if record has bad alignment clause
+
+         if Has_Alignment_Clause (Rec)
+           and then Known_Alignment (Rec)
+           and then (Alignment (Rec) * SU) mod Esize (Ctyp) /= 0
+         then
+            P := Get_Attribute_Definition_Clause (Rec, Attribute_Alignment);
+
+            if Present (P) then
+               Error_Msg_Sloc := Sloc (P);
+               Error_Msg_N ("\because of Alignment clause#", N);
+            end if;
+         end if;
+
+         --  Couldn't find a reason, so return without a message
+
+         return;
+      end Reason_Bad_Component;
+
+   --  Start of processing for Validate_Independence
+
+   begin
+      for J in Independence_Checks.First .. Independence_Checks.Last loop
+         N  := Independence_Checks.Table (J).N;
+         E  := Independence_Checks.Table (J).E;
+         IC := Pragma_Name (N) = Name_Independent_Components;
+
+         --  Deal with component case
+
+         if Ekind (E) = E_Discriminant or else Ekind (E) = E_Component then
+            if not OK_Component (E) then
+               No_Independence;
+               Reason_Bad_Component (E);
+               goto Continue;
+            end if;
+         end if;
+
+         --  Deal with record with Independent_Components
+
+         if IC and then Is_Record_Type (E) then
+            Comp := First_Component_Or_Discriminant (E);
+            while Present (Comp) loop
+               if not OK_Component (Comp) then
+                  No_Independence;
+                  Reason_Bad_Component (Comp);
+                  goto Continue;
+               end if;
+
+               Next_Component_Or_Discriminant (Comp);
+            end loop;
+         end if;
+
+         --  Deal with address clause case
+
+         if Is_Object (E) then
+            Addr := Address_Clause (E);
+
+            if Present (Addr) then
+               No_Independence;
+               Error_Msg_Sloc := Sloc (Addr);
+               Error_Msg_N ("\because of Address clause#", N);
+               goto Continue;
+            end if;
+         end if;
+
+         --  Deal with independent components for array type
+
+         if IC and then Is_Array_Type (E) then
+            Check_Array_Type (E);
+         end if;
+
+         --  Deal with independent components for array object
+
+         if IC and then Is_Object (E) and then Is_Array_Type (Etype (E)) then
+            Check_Array_Type (Etype (E));
+         end if;
+
+      <<Continue>> null;
+      end loop;
+   end Validate_Independence;
 
    -----------------------------------
    -- Validate_Unchecked_Conversion --
