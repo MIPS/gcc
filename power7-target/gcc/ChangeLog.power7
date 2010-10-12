@@ -25,14 +25,8 @@
 	(OPTIONS_C_EXTRA): New make variable for SourceInclude.
 	(@options_include@): Add the include files if any specified by the
 	various .opt files.
-	(OPTIONS_H): New make variable for options.h and any files it
+	(OPTIONS_H): Add $(OPTIONS_H_EXTRA).
 	includes.
-	(TREE_H): Use $(OPTIONS_H) instead of options.h.
-	(FLAGS_H): Ditto.
-	(c-family/c-opts.o): Ditto.
-	(lto-opts.o): Ditto.
-	(opts.o): Ditto.
-	(opts-common.o): Ditto.
 	(options.o): Add $(OPTIONS_C_EXTRA) to the dependencies.
 	(gcc-options.o): Ditto.
 
