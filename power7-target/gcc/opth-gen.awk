@@ -99,6 +99,8 @@ print ""
 print "#ifndef OPTIONS_H"
 print "#define OPTIONS_H"
 print ""
+print "#include \"flag-types.h\""
+print ""
 
 if (n_extra_h_includes > 0) {
 	for (i = 0; i < n_extra_h_includes; i++) {
