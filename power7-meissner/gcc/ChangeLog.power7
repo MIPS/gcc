@@ -1,5 +1,15 @@
 2010-10-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* simplify-rtx.c (simplify_ternary_operation): Return NULL_RTX for
+	FMA, not 0.
+
+	* tree.h (mode_has_fma): New function to return if MODE supports a
+	fast multiply and add instruction.
+	* builtins.c (mode_has_fma): Ditto.
+
+	* config/rs6000/rs6000-c.c (rs6000_cpu_cpp_builtins): Don't define
+	the FMA macros here.
+
 	Merge up to 165477.
 	* REVISION: Update subversion id.
 
