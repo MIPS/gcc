@@ -3097,11 +3097,19 @@ rs6000_option_override_internal (const char *default_cpu)
       }
 
   maybe_set_param_value (PARAM_SIMULTANEOUS_PREFETCHES,
-			 rs6000_cost->simultaneous_prefetches);
-  maybe_set_param_value (PARAM_L1_CACHE_SIZE, rs6000_cost->l1_cache_size);
+			 rs6000_cost->simultaneous_prefetches,
+			 global_options.x_param_values,
+			 global_options_set.x_param_values);
+  maybe_set_param_value (PARAM_L1_CACHE_SIZE, rs6000_cost->l1_cache_size,
+			 global_options.x_param_values,
+			 global_options_set.x_param_values);
   maybe_set_param_value (PARAM_L1_CACHE_LINE_SIZE,
-			 rs6000_cost->cache_line_size);
-  maybe_set_param_value (PARAM_L2_CACHE_SIZE, rs6000_cost->l2_cache_size);
+			 rs6000_cost->cache_line_size,
+			 global_options.x_param_values,
+			 global_options_set.x_param_values);
+  maybe_set_param_value (PARAM_L2_CACHE_SIZE, rs6000_cost->l2_cache_size,
+			 global_options.x_param_values,
+			 global_options_set.x_param_values);
 
   /* If using typedef char *va_list, signal that __builtin_va_start (&ap, 0)
      can be optimized to ap = __builtin_next_arg (0).  */
@@ -17097,7 +17105,13 @@ output_isel (rtx *operands)
 
   code = GET_CODE (operands[1]);
 
-  gcc_assert (!(code == GE || code == GEU || code == LE || code == LEU || code == NE));
+  if (code == GE || code == GEU || code == LE || code == LEU || code == NE)
+    {
+      gcc_assert (GET_CODE (operands[2]) == REG
+		  && GET_CODE (operands[3]) == REG);
+      PUT_CODE (operands[1], reverse_condition (code));
+      return "isel %0,%3,%2,%j1";
+    }
 
   return "isel %0,%2,%3,%j1";
 }
@@ -25669,7 +25683,7 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int *total,
 	  || (outer_code == COMPARE
 	      && (satisfies_constraint_I (x)
 		  || satisfies_constraint_K (x)))
-	  || (outer_code == EQ
+	  || ((outer_code == EQ || outer_code == NE)
 	      && (satisfies_constraint_I (x)
 		  || satisfies_constraint_K (x)
 		  || (mode == SImode

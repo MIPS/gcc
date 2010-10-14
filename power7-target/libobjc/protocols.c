@@ -23,7 +23,6 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 <http://www.gnu.org/licenses/>.  */
 
 #include "objc-private/common.h"
-#include "objc/objc.h"
 #include "objc/runtime.h"
 #include "objc-private/module-abi-8.h" /* For runtime structures  */
 #include "objc/thr.h"
@@ -211,6 +210,13 @@ class_copyProtocolList (Class class_, unsigned int *numberOfReturnedProtocols)
   unsigned int count = 0;
   Protocol **returnValue = NULL;
   struct objc_protocol_list* proto_list;
+
+  if (class_ == Nil)
+    {
+      if (numberOfReturnedProtocols)
+	*numberOfReturnedProtocols = 0;
+      return NULL;
+    }
 
   /* Lock the runtime mutex because the class protocols may be
      concurrently modified.  */
