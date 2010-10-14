@@ -1,3 +1,13 @@
+2010-10-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+
+	* doc/cpp.texi (Common Predefined Macros): Spell __FP_FAST_FMAF
+	and fmaf correctly.
+	* config/rs6000/rs6000-c.c (rs6000_cpu_cpp_builtins): Ditto.
+	* doc/md.texi (Standard Names): Ditto.
+	* config/rs6000/rs6000.md (fmasf4): Ditto.
+	(fmadf4): Ditto.
+
 2010-10-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* doc/cpp.texi (Common Predefined Macros): Document __FP_FAST_FMA,

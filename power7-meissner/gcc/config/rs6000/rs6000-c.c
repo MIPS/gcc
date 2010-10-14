@@ -324,7 +324,7 @@ rs6000_cpu_cpp_builtins (cpp_reader *pfile)
       ||(TARGET_HARD_FLOAT && TARGET_FPRS && !TARGET_DOUBLE_FLOAT))
     builtin_define ("_SOFT_DOUBLE");
   if (TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_SINGLE_FLOAT)
-    builtin_define ("__FP_FAST_FMAS");
+    builtin_define ("__FP_FAST_FMAF");
   if (TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_DOUBLE_FLOAT)
     builtin_define ("__FP_FAST_FMA");
   /* Used by lwarx/stwcx. errata work-around.  */
