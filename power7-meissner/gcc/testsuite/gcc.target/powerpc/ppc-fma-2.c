@@ -27,7 +27,7 @@ builtin_fma (double b, double c, double d)
 double
 builtin_fms (double b, double c, double d)
 {
-  return __builtin_fma (b, c, -d)			/* xsmsub{a,b}dp */;
+  return __builtin_fma (b, c, -d);			/* xsmsub{a,b}dp */
 }
 
 double

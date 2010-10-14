@@ -1,9 +1,12 @@
-/* { dg-do run { target { powerpc*-*-* } } } */
+/* { dg-do compile { target { powerpc*-*-* } } } */
 /* { dg-skip-if "" { powerpc*-*-darwin* } { "*" } { "" } } */
-/* { dg-options "-O2 -mcpu=power5 -std=c99 -fno-builtin-fma -fno-builtin-fmaf" } */
+/* { dg-require-effective-target ilp32 } */
+/* { dg-options "-O2 -mcpu=power5 -std=c99 -msoft-float" } */
+/* { dg-final { scan-assembler-not "fmadd" } } */
+/* { dg-final { scan-assembler-not "xsfmadd" } } */
 
-/* Test whether -fno-builtin-fma, -fno-builtin-fmaf properly turn off the
-   macros math.h uses for FP_FAST_FMA{,F,L}.  */
+/* Test whether -msoft-float turns off the macros math.h uses for
+   FP_FAST_FMA{,F,L}.  */
 #ifdef __FP_FAST_FMA
 #error "__FP_FAST_FMA should not be defined"
 #endif
@@ -12,8 +15,14 @@
 #error "__FP_FAST_FMAF should not be defined"
 #endif
 
-int
-main (void)
+double
+builtin_fma (double b, double c, double d)
 {
-  return 0;
+  return __builtin_fma (b, c, d);			/* bl fma  */
+}
+
+float
+builtin_fmaf (float b, float c, float d)
+{
+  return __builtin_fmaf (b, c, -d);			/* bl fmaf */
 }

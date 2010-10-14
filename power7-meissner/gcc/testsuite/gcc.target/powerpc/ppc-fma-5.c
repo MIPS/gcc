@@ -17,10 +17,10 @@ int
 main (void)
 {
   if (__builtin_fma (d_a, d_b, d_c) != (2.0 * 3.0) + 4.0)
-    abort ();
+    __builtin_abort ();
 
   if (__builtin_fmaf (f_a, f_b, f_c) != (2.0f * 3.0f) + 4.0f)
-    abort ();
+    __builtin_abort ();
 
   return 0;
 }
