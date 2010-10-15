@@ -1,0 +1,7 @@
+2010-10-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* c-cppbuiltin.c (builtin_define_float_constants): Emit
+	__FP_FAST_FMA, __FP_FAST_FMAF, and __FP_FAST_FMAL if the machine
+	has the appropriate fma builtins.
+	(c_cpp_builtins): Adjust call to builtin_define_float_constants.
+

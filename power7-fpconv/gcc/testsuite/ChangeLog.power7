@@ -1,3 +1,12 @@
+2010-10-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/ppc-fma-5.c: New test for __FP_FAST_FMA*
+	being defined properly.
+	* gcc.target/powerpc/ppc-fma-6.c: Ditto.
+
+	* gcc.target/powerpc/ppc-fma-1.c: Minor whitespace issue.
+	* gcc.target/powerpc/ppc-fma-2.c: Ditto.
+
 2010-10-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* gcc.target/powerpc/ppc-fma-1.c: Update tests for powerpc FMA

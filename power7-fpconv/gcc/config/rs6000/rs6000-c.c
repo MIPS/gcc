@@ -323,10 +323,6 @@ rs6000_cpu_cpp_builtins (cpp_reader *pfile)
   if ((!(TARGET_HARD_FLOAT && (TARGET_FPRS || TARGET_E500_DOUBLE)))
       ||(TARGET_HARD_FLOAT && TARGET_FPRS && !TARGET_DOUBLE_FLOAT))
     builtin_define ("_SOFT_DOUBLE");
-  if (TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_SINGLE_FLOAT)
-    builtin_define ("__FP_FAST_FMAS");
-  if (TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_DOUBLE_FLOAT)
-    builtin_define ("__FP_FAST_FMA");
   /* Used by lwarx/stwcx. errata work-around.  */
   if (rs6000_cpu == PROCESSOR_PPC405)
     builtin_define ("__PPC405__");
