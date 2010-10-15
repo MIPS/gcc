@@ -191,6 +191,8 @@ enum optab_index
   OTI_pow,
   /* Arc tangent of y/x */
   OTI_atan2,
+  /* Floating multiply/add */
+  OTI_fma,
 
   /* Move instruction.  */
   OTI_mov,
@@ -435,6 +437,7 @@ extern struct optab_d optab_table[OTI_MAX];
 #define umax_optab (&optab_table[OTI_umax])
 #define pow_optab (&optab_table[OTI_pow])
 #define atan2_optab (&optab_table[OTI_atan2])
+#define fma_optab (&optab_table[OTI_fma])
 
 #define mov_optab (&optab_table[OTI_mov])
 #define movstrict_optab (&optab_table[OTI_movstrict])

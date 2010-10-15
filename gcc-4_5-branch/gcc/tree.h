@@ -4961,6 +4961,7 @@ extern tree build_range_check (location_t, tree, tree, int, tree, tree);
 extern bool merge_ranges (int *, tree *, tree *, int, tree, tree, int,
 			  tree, tree);
 extern void set_builtin_user_assembler_name (tree decl, const char *asmspec);
+extern bool mode_has_fma (enum machine_mode mode);
 
 /* In convert.c */
 extern tree strip_float_extensions (tree);

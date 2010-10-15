@@ -159,6 +159,7 @@ static const char * const optabs[] =
   "optab_handler (sqrt_optab, $A)->insn_code = CODE_FOR_$(sqrt$a2$)",
   "optab_handler (floor_optab, $A)->insn_code = CODE_FOR_$(floor$a2$)",
   "convert_optab_handler (lfloor_optab, $B, $A)->insn_code = CODE_FOR_$(lfloor$F$a$I$b2$)",
+  "optab_handler (fma_optab, $A)->insn_code = CODE_FOR_$(fma$a4$)",
   "optab_handler (ceil_optab, $A)->insn_code = CODE_FOR_$(ceil$a2$)",
   "convert_optab_handler (lceil_optab, $B, $A)->insn_code = CODE_FOR_$(lceil$F$a$I$b2$)",
   "optab_handler (round_optab, $A)->insn_code = CODE_FOR_$(round$a2$)",
