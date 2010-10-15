@@ -3628,10 +3628,8 @@ rs6000_option_optimization (int level ATTRIBUTE_UNUSED,
        avoid calling them when that's the only reason we would.  */
     flag_errno_math = 0;
 
-  /* Enable section anchors by default.
-     Skip section anchors for Objective C and Objective C++
-     until front-ends fixed.  */
-  if (!TARGET_MACHO && lang_hooks.name[4] != 'O')
+  /* Enable section anchors by default.  */
+  if (!TARGET_MACHO)
     flag_section_anchors = 2;
 }
 
@@ -3877,6 +3875,22 @@ rs6000_builtin_vectorized_function (tree fndecl, tree type_out,
 	    return rs6000_builtin_decls[VSX_BUILTIN_XVRSPIM];
 	  if (VECTOR_UNIT_ALTIVEC_P (V4SFmode))
 	    return rs6000_builtin_decls[ALTIVEC_BUILTIN_VRFIM];
+	  break;
+	case BUILT_IN_FMA:
+	  if (VECTOR_UNIT_VSX_P (V2DFmode)
+	      && out_mode == DFmode && out_n == 2
+	      && in_mode == DFmode && in_n == 2)
+	    return rs6000_builtin_decls[VSX_BUILTIN_XVMADDDP];
+	  break;
+	case BUILT_IN_FMAF:
+	  if (VECTOR_UNIT_VSX_P (V4SFmode)
+	      && out_mode == SFmode && out_n == 4
+	      && in_mode == SFmode && in_n == 4)
+	    return rs6000_builtin_decls[VSX_BUILTIN_XVMADDSP];
+	  else if (VECTOR_UNIT_ALTIVEC_P (V4SFmode)
+	      && out_mode == SFmode && out_n == 4
+	      && in_mode == SFmode && in_n == 4)
+	    return rs6000_builtin_decls[ALTIVEC_BUILTIN_VMADDFP];
 	  break;
 	case BUILT_IN_TRUNC:
 	  if (VECTOR_UNIT_VSX_P (V2DFmode)

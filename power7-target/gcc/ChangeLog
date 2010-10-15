@@ -1,3 +1,166 @@
+2010-10-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* doc/md.texi (Standard Names): Add fma@var{m}4 documentation.
+
+	* doc/rtl.texi (RTX_TERNARY): Document FMA is ternary.  Add
+	SIGN_EXTRACT and ZERO_EXTRACT which were missing.
+	(Standard names): Document fma.
+
+	* doc/cpp.texi (Common Predefined Macros): Document __FP_FAST_FMA,
+	__FP_FAST_FMAF, __FP_FAST_FMAL.
+
+	* builitns.c (expand_builtin_mathfn_ternary): New function for
+	expanding ternary math functions, like fma.
+	(expand_builtin): Call it for the fma builtins.
+
+	* simplify-rtx.c (simplify_ternary_operation): Don't simplify FMA
+	ops at present.
+
+	* tree-vect-stmts.c (vectorizable_call): Allow 3 argument
+	vectorizable functions to support vectorizing fma.
+
+	* config/rs6000/rs6000.c (rs6000_builtin_vectorized_function):
+	Handle fma builtins.
+
+	* config/rs6000/vsx.md (UNSPEC_VSX_MADD): Delete.
+	(UNSPEC_VSX_MSUB): Ditto.
+	(UNSPEC_VSX_NMADD): Ditto.
+	(UNSPEC_VSX_NMSUB): Ditto.
+	(vsx_fmadd<mode>4*): Rewrite to use FMA rtl in some cases instead
+	of UNSPEC. Renumber combiner patterns.
+	(vsx_fmsub<mode>4*): Ditto.
+	(vsx_fnmadd<mode>4*): Ditto.
+	(vsx_fnmsub<mode>4*): Ditto.
+
+	* config/rs6000/altivec.md (UNSPEC_VNMSUBFP): Delete.
+	(altivec_vmaddfp): Rewrite to use FMA rtl if no fused
+	multiply/add.  Rename combiner pattern, and add TARGET_FUSED_MADD
+	test.
+	(altivec_vmaddfp_1): Ditto.
+	(altivec_vmaddfp_2): Ditto.
+	(atlivec_mulv4sf3): Ditto.
+	(altivec_vnmsubfp): Ditto.
+	(altivec_vnmsubfp_1): Ditto.
+	(altivec_vnmsubfp_2): Ditto.
+	(altivec_vnmsubfp_3): Delete.
+
+	* config/rs6000/rs6000.md (UNSPEC_FMA): Delete.
+	(fmasf4): Rewrite to always use FMA rtl.  Add combiners to
+	generate the four fused multiply/add ops.  Combine power, powerpc
+	ops.
+	(fmasf4_fpr): Ditto.
+	(fmssf4_fpr): Ditto.
+	(fnmasf4_fpr): Ditto.
+	(fnmssf4_fpr): Ditto.
+	(fmadf4): Ditto.
+	(fmadf4_fpr): Ditto.
+	(fmsdf4_fpr): Ditto.
+	(fnmadf4_fpr): Ditto.
+	(fnmsdf4_fpr): Ditto.
+
+	* optabs.h (OTI_fma): Add fma optab.
+	(fma_optab): Ditto.
+
+	* genopinit.c (optabs): Set fma optab.
+
+	* rtl.def (FMA): Add FMA rtl.
+
+	* tree.h (mode_has_fma): New function to return if MODE supports a
+	fast multiply and add instruction.
+	* builtins.c (mode_has_fma): Ditto.
+
+2010-10-15  Jan Hubicka  <jh@suse.cz>
+
+	* lto-streamer-out.c (write_symbol): Use pointer set of seen
+	objects instead of bitmap.
+	(produce_symtab): Likewise; output defined symbols first.
+
+2010-10-15  Jie Zhang  <jie@codesourcery.com>
+
+	* doc/invoke.texi: Add -fstrict-volatile-bitfields to
+	Option Summary and Index.
+
+2010-10-15  Richard Guenther  <rguenther@suse.de>
+
+	* tree.c (free_lang_data_in_decl): Clear DECL_INITIAL
+	for automatic variables again.
+
+2010-10-15  Joseph Myers  <joseph@codesourcery.com>
+
+	* doc/extend.texi (Variable Length): Don't refer to VLAs not
+	conforming to C99.
+
+2010-10-15  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/rx/rx.c (rx_option_optimization): Change to
+	rx_override_options_after_change.  Don't change
+	flag_lto_compression_level.  Don't check for changes to whether
+	FPU instructions can be used.  Check and set only
+	flag_finite_math_only, not other fast-math flags.
+	(rx_option_override): Call rx_override_options_after_change.
+	(TARGET_OPTION_OPTIMIZATION): Remove.
+	(TARGET_OVERRIDE_OPTIONS_AFTER_CHANGE): Define.
+
+2010-10-15  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/rs6000/rs6000.c (rs6000_option_optimization): Don't
+	disable section anchors for lang_hooks.name[4] != 'O'.
+
+2010-10-15  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/frv/frv.c (frv_option_optimization,
+	TARGET_OPTION_OPTIMIZATION): Remove.
+	* config/frv/frv.h (RCSP_SOFTWARE_PIPELINING): Remove.
+
+2010-10-15  Michael Matz  <matz@suse.de>
+
+	* cgraphunit.c (clone_of_p): Define unconditionally.
+
+2010-10-15  Richard Guenther  <rguenther@suse.de>
+
+	PR lto/45957
+	* tree.c (free_lang_data_in_decl): Do not clear DECL_INITIAL
+	of vars.
+
+2010-10-15  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* ifcvt.c (find_active_insn_before): New function.
+	(find_active_insn_after): New function.
+	(cond_exec_process_if_block): Use new functions to replace
+	prev_active_insn() and next_active_insn().
+
+2010-10-14  Yao Qi  <yao@codesourcery.com>
+
+	PR target/45447
+	* config/arm/arm.c (arm_build_builtin_va_list): Assign
+	va_list_name to TYPE_STUB_DECL (va_list_type).
+
+2010-10-14  Jan Hubicka  <jh@suse.cz>
+
+	PR middle-end/45621
+	* cgraph.c (cgraph_update_edges_for_call_stmt_node): When new call is
+	redirected to clone, be happy.
+	* cgraph.h (cgraph node): Enable former_clone_of unconditinally.
+	* cgraphunit.c (verify_cgraph_node, cgraph_materialize_clone): Handle
+	former_clone_of unconditionally.
+	
+2010-10-14  Iain Sandoe  <iains@gcc.gnu.org>
+
+	merge from FSF apple 'trunk' branch. 
+	2006 Fariborz Jahanian <fjahanian@apple.com>
+	
+	Radars 4436866, 4505126, 4506903, 4517826
+	* c-parser.c (c_parser, objc_property_attr_context) New flag.
+	(c_lex_one_token): Handle property attributes.
+	(c_parser_external_declaration): Handle @property.
+	(c_parser_declaration_or_fndef): Warn on invalid attributes before
+	@alias, @class, @end and @property objc keywords.
+	(c_parser_objc_methodprotolist): Handle @property.
+	(c_parser_objc_property_attrlist): New.
+	(c_parser_objc_at_property): New.
+	* c-typeck.c (build_component_ref): Handle CLASS.property syntax.
+	(build_modify_expr): Likewise.
+
 2010-10-14  Jakub Jelinek  <jakub@redhat.com>
 
 	PR tree-optimization/46008

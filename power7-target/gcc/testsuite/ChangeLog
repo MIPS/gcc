@@ -1,3 +1,97 @@
+2010-10-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/ppc-fma-1.c: New tests for powerpc FMA
+	builtin combiner patterns.
+	* gcc.target/powerpc/ppc-fma-2.c: Ditto.
+	* gcc.target/powerpc/ppc-fma-3.c: Ditto.
+	* gcc.target/powerpc/ppc-fma-4.c: Ditto.
+	* gcc.target/powerpc/ppc-fma-5.c: Ditto.
+	* gcc.target/powerpc/ppc-fma-6.c: Ditto.
+
+2010-10-15  Richard Guenther  <rguenther@suse.de>
+
+	* g++.dg/lto/20101015-1_0.C: New testcase.
+
+2010-10-15  Richard Guenther  <rguenther@suse.de>
+
+	PR testsuite/46021
+	* gcc.dg/tree-ssa/20031106-3.c: Remove XFAIL.
+	* gcc.dg/tree-ssa/fre-vce-1.c: Likewise.
+
+2010-10-15  Richard Guenther  <rguenther@suse.de>
+
+	PR lto/45957
+	* g++.dg/lto/20101014-1_0.C: New testcase.
+
+2010-10-15  Nicola Pero  <nicola.pero@meta-innovation.com>
+
+	* objc.dg/gnu-api-2-protocol.m: New.
+	* objc.dg/gnu-api-2-sel.m: New.
+
+2010-10-15  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+       * g++.dg/torture/stackalign/eh-vararg-2.C: Fix dg-options for
+       arm-eabi targets.
+
+2010-10-15  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* gcc.dg/20101010-1.c: New testcase.
+
+2010-10-15  Jie Zhang  <jie@codesourcery.com>
+
+	* lib/lto.exp (lto-link-and-maybe-run): Use the default linker
+	script when relocatable linking.
+
+2010-10-14  Yao Qi  <yao@codesourcery.com>
+
+	PR target/45447
+	* gcc.target/arm/pr45447.c: New test.
+
+2010-10-14  Jan Hubicka  <jh@suse.cz>
+
+	PR middle-end/45621
+	* g++.dg/lto/pr45621.h : New.
+	* g++.dg/lto/pr45621_0.C: New.
+	* g++.dg/lto/pr45621_1.C: New.
+
+2010-10-14  Iain Sandoe  <iains@gcc.gnu.org>
+
+	* objc.dg/property: New.
+	* objc.dg/property/fsf-property-basic.m: New.
+	* objc.dg/property/fsf-property-method-access.m: New.
+	* objc.dg/property/fsf-property-named-ivar.m: New.
+	* obj-c++.dg/property: New.
+	* obj-c++.dg/property/fsf-property-basic.mm: New.
+	* obj-c++.dg/property/fsf-property-method-access.mm: New.
+	* obj-c++.dg/property/fsf-property-named-ivar.mm: New.
+
+	merge from FSF apple 'trunk' branch. 
+	2006 Fariborz Jahanian <fjahanian@apple.com>
+	
+	Radars 4436866, 4505126, 4506903, 4517826
+	* objc.dg/property/property-1.m: New.
+	* objc.dg/property/property-2.m: New.
+	* objc.dg/property/property-3.m: New.
+	* objc.dg/property/property-neg-1.m: New.
+	* objc.dg/property/property-neg-2.m: New.
+	* objc.dg/property/property-neg-3.m: New.
+	* objc.dg/property/property-neg-4.m: New.
+	* objc.dg/property/property-neg-5.m: New.
+	* objc.dg/property/property-neg-6.m: New.
+	* objc.dg/property/property-neg-7.m: New.
+	* objc.dg/property/property.exp: New.
+	* obj-c++.dg/property/property-1.mm: New.
+	* obj-c++.dg/property/property-2.mm: New.
+	* obj-c++.dg/property/property-3.mm: New.
+	* obj-c++.dg/property/property-neg-1.mm: New.
+	* obj-c++.dg/property/property-neg-2.mm: New.
+	* obj-c++.dg/property/property-neg-3.mm: New.
+	* obj-c++.dg/property/property-neg-4.mm: New.
+	* obj-c++.dg/property/property-neg-5.mm: New.
+	* obj-c++.dg/property/property-neg-6.mm: New.
+	* obj-c++.dg/property/property-neg-7.mm: New.
+	* obj-c++.dg/property/property.exp: New.
+
 2010-10-14  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* gcc.dg/pr45570.c: Fix typos.  Also run for i?86-*-*.
