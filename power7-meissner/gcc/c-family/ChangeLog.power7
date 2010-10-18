@@ -1,0 +1,7 @@
+2010-10-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/46041
+	* c-cppbuiltin.c (mode_has_fma): Move function here from
+	builtins.c.  Don't use the fma optab, instead just use the
+	HAVE_fma* macros, so that __FP_FAST_FMA* will be defined when
+	using -save-temps.

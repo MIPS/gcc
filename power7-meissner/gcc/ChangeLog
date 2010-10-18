@@ -1,3 +1,40 @@
+2010-10-18  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-flow.h (gimple_purge_all_dead_abnormal_call_edges): Declare.
+	* tree-cfg.c (gimple_purge_dead_abnormal_call_edges): Move around and
+	rewrite modelled on gimple_purge_dead_eh_edges.
+	(gimple_purge_all_dead_abnormal_call_edges): New function.
+	* tree-inline.c (expand_call_inline): Call gimple_purge_dead_eh_edges
+	directly instead of through gimple_purge_dead_abnormal_call_edges.
+	* tree-ssa-pre.c (need_ab_cleanup): New static variable.
+	(eliminate): Set bit in need_ab_cleanup for the basic block if we have
+	removed AB side-effects from one of its statements.
+	(init_pre): Initialize need_ab_cleanup.
+	(fini_pre): Purge dead abnormal call edges and clean up the CFG if bits
+	are set in need_ab_cleanup.  Free need_ab_cleanup afterward.
+
+2010-10-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/46015
+	* c-parser.c (c_parser_statement_after_labels): Call mark_exp_read
+	on computed goto argument.
+
+2010-10-18  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/45967
+	* tree-ssa-structalias.c (type_could_have_pointers): Remove.
+	(could_have_pointers): Likewise.
+	(handle_rhs_call, handle_const_call, handle_pure_call,
+	find_func_aliases, intra_create_variable_infos): Remove calls to them.
+	(struct fieldoff): Add must_have_pointers field.
+	(type_must_have_pointers): New function.
+	(field_must_have_pointers): Likewise.
+	(push_fields_onto_fieldstack): Remove must_have_pointers_p argument.
+	Adjust field merging.
+	(create_function_info_for): May-have-pointers of varinfo is
+	almost always true.
+	(create_variable_info_for_1): Likewise.
+
 2010-10-18  Tejas Belagod  <tejas.belagod@arm.com>
 
 	* config/arm/neon.md (neon_move_hi_quad_<mode>): Fix the order
