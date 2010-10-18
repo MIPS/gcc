@@ -1741,6 +1741,16 @@ then
 	    | powerpc*-*-*,powerpc64*-*-*)
 		CROSS="$CROSS -DNATIVE_CROSS" ;;
 	esac
+
+	case $target in
+		*-*-mingw*)
+			if test "x$with_headers" = x; then
+				with_headers=yes
+			fi
+			;;
+		*)
+			;;
+	esac
 elif test "x$TARGET_SYSTEM_ROOT" != x; then
         SYSTEM_HEADER_DIR=$build_system_header_dir 
 fi
@@ -4350,7 +4360,7 @@ lang_tree_files=
 # `language' must be a single word so is spelled singularly.
 all_languages=
 all_compilers=
-all_outputs='Makefile gccbug'
+all_outputs='Makefile'
 # List of language makefile fragments.
 all_lang_makefrags=
 # Additional files for gengtype
