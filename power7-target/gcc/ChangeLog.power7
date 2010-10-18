@@ -1,6 +1,6 @@
 2010-10-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
-	Merge up to 165515 (fma patch).
+	Merge up to 165524 (fma patch).
 	* REVISION: Update subversion id.
 
 2010-10-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
