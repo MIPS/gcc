@@ -369,6 +369,8 @@ static void complain_wrong_lang (const struct cl_decoded_option *,
 				 unsigned int lang_mask);
 static void set_debug_level (enum debug_info_type type, int extended,
 			     const char *arg);
+static void set_fast_math_flags (int set);
+static void set_unsafe_math_optimizations_flags (int set);
 
 /* Return a malloced slash-separated list of languages in MASK.  */
 static char *
@@ -1005,7 +1007,7 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set)
      section-anchors.  */
   if (!flag_unit_at_a_time)
     {
-      if (flag_section_anchors == 1)
+      if (flag_section_anchors && opts_set->x_flag_section_anchors)
 	error ("Section anchors must be disabled when unit-at-a-time "
 	       "is disabled.");
       flag_section_anchors = 0;
@@ -1022,14 +1024,16 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set)
   /* Unless the user has asked for section anchors, we disable toplevel
      reordering at -O0 to disable transformations that might be surprising
      to end users and to get -fno-toplevel-reorder tested.  */
-  if (!optimize && flag_toplevel_reorder == 2 && flag_section_anchors != 1)
+  if (!optimize
+      && flag_toplevel_reorder == 2
+      && !(flag_section_anchors && opts_set->x_flag_section_anchors))
     {
       flag_toplevel_reorder = 0;
       flag_section_anchors = 0;
     }
   if (!flag_toplevel_reorder)
     {
-      if (flag_section_anchors == 1)
+      if (flag_section_anchors && opts_set->x_flag_section_anchors)
 	error ("section anchors must be disabled when toplevel reorder"
 	       " is disabled");
       flag_section_anchors = 0;
@@ -2173,7 +2177,7 @@ set_Wstrict_aliasing (int onoff)
 
 /* The following routines are useful in setting all the flags that
    -ffast-math and -fno-fast-math imply.  */
-void
+static void
 set_fast_math_flags (int set)
 {
   flag_unsafe_math_optimizations = set;
@@ -2190,7 +2194,7 @@ set_fast_math_flags (int set)
 
 /* When -funsafe-math-optimizations is set the following
    flags are set as well.  */
-void
+static void
 set_unsafe_math_optimizations_flags (int set)
 {
   flag_trapping_math = !set;

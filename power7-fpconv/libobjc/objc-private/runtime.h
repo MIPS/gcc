@@ -67,12 +67,15 @@ extern void __objc_update_dispatch_table_for_class (Class);/* (objc-msg.c) */
 extern int  __objc_init_thread_system(void);    /* thread.c */
 extern int  __objc_fini_thread_system(void);    /* thread.c */
 extern void __objc_print_dtable_stats(void);    /* sendmsg.c */
-
+extern void __objc_init_class (Class class);  /* init.c */
 extern void class_add_method_list(Class, struct objc_method_list *);
 
 /* Registering instance methods as class methods for root classes */
 extern void __objc_register_instance_methods_to_class(Class);
 extern struct objc_method * search_for_method_in_list(struct objc_method_list * list, SEL op);
+
+extern void
+__objc_update_classes_with_methods (struct objc_method *method_a, struct objc_method *method_b); /* class.c */
 
 /* True when class links has been resolved */     
 extern BOOL __objc_class_links_resolved;
