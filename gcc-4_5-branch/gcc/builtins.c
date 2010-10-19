@@ -13827,11 +13827,3 @@ set_builtin_user_assembler_name (tree decl, const char *asmspec)
       break;
     }
 }
-
-/* Return true if MODE provides a fast multiply/add (FMA) builtin function.  */
-
-bool
-mode_has_fma (enum machine_mode mode)
-{
-  return optab_handler (fma_optab, mode)->insn_code != CODE_FOR_nothing;
-}
