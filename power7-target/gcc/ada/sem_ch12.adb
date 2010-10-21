@@ -5309,6 +5309,25 @@ package body Sem_Ch12 is
             then
                Install_Parent (Inst_Par);
                Parent_Installed := True;
+
+            --  The generic unit may be the renaming of the implicit child
+            --  present in an instance. In that case the parent instance is
+            --  obtained from the name of the renamed entity.
+
+            elsif Ekind (Entity (Gen_Id)) = E_Generic_Package
+              and then Present (Renamed_Entity (Entity (Gen_Id)))
+              and then Is_Child_Unit (Renamed_Entity (Entity (Gen_Id)))
+            then
+               declare
+                  Renamed_Package : constant Node_Id :=
+                                      Name (Parent (Entity (Gen_Id)));
+               begin
+                  if Nkind (Renamed_Package) = N_Expanded_Name then
+                     Inst_Par := Entity (Prefix (Renamed_Package));
+                     Install_Parent (Inst_Par);
+                     Parent_Installed := True;
+                  end if;
+               end;
             end if;
          end if;
 
@@ -9437,7 +9456,7 @@ package body Sem_Ch12 is
          I2 := First_Index (Act_T);
          for J in 1 .. Formal_Dimensions loop
 
-            --  If the indices of the actual were given by a subtype_mark,
+            --  If the indexes of the actual were given by a subtype_mark,
             --  the index was transformed into a range attribute. Retrieve
             --  the original type mark for checking.
 

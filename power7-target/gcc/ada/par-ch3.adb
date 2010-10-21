@@ -1137,6 +1137,16 @@ package body Ch3 is
          Discard_Junk_Node (P_Array_Type_Definition);
          return Error;
 
+      --  If Some becomes a keyword, the following is needed to make it
+      --  acceptable in older versions of Ada.
+
+      elsif Token = Tok_Some
+        and then Ada_Version < Ada_2012
+      then
+         Scan_Reserved_Identifier (False);
+         Scan;
+         return Token_Node;
+
       else
          Type_Node := P_Qualified_Simple_Name_Resync;
 
@@ -3774,7 +3784,7 @@ package body Ch3 is
       --  Ada 2005 (AI-345): In case of interfaces with a null list of
       --  interfaces we build a record_definition node.
 
-      if Token = Tok_Semicolon then
+      if Token = Tok_Semicolon or else Aspect_Specifications_Present then
          Typedef_Node := New_Node (N_Record_Definition, Token_Ptr);
 
          Set_Abstract_Present  (Typedef_Node);

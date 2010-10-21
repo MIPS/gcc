@@ -1370,12 +1370,7 @@ rtl_split_edge (edge edge_in)
      Avoid existence of fallthru predecessors.  */
   if ((edge_in->flags & EDGE_FALLTHRU) == 0)
     {
-      edge e;
-      edge_iterator ei;
-
-      FOR_EACH_EDGE (e, ei, edge_in->dest->preds)
-	if (e->flags & EDGE_FALLTHRU)
-	  break;
+      edge e = find_fallthru_edge (edge_in->dest->preds);
 
       if (e)
 	force_nonfallthru (e);
@@ -2068,7 +2063,6 @@ rtl_verify_flow_info (void)
   FOR_EACH_BB_REVERSE (bb)
     {
       edge e;
-      edge_iterator ei;
       rtx head = BB_HEAD (bb);
       rtx end = BB_END (bb);
 
@@ -2122,9 +2116,7 @@ rtl_verify_flow_info (void)
 
       last_head = PREV_INSN (x);
 
-      FOR_EACH_EDGE (e, ei, bb->succs)
-	if (e->flags & EDGE_FALLTHRU)
-	  break;
+      e = find_fallthru_edge (bb->succs);
       if (!e)
 	{
 	  rtx insn;
@@ -2700,9 +2692,7 @@ cfg_layout_can_merge_blocks_p (basic_block a, basic_block b)
 static void
 cfg_layout_merge_blocks (basic_block a, basic_block b)
 {
-#ifdef ENABLE_CHECKING
-  gcc_assert (cfg_layout_can_merge_blocks_p (a, b));
-#endif
+  gcc_checking_assert (cfg_layout_can_merge_blocks_p (a, b));
 
   if (dump_file)
     fprintf (dump_file, "merging block %d into block %d\n", b->index, a->index);

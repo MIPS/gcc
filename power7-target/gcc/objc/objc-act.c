@@ -211,6 +211,14 @@ static const char *synth_id_with_class_suffix (const char *, tree);
 hash *nst_method_hash_list = 0;
 hash *cls_method_hash_list = 0;
 
+/* Hash tables to manage the global pool of class names.  */
+
+hash *cls_name_hash_list = 0;
+hash *als_name_hash_list = 0;
+
+static void hash_class_name_enter (hash *, tree, tree);
+static hash hash_class_name_lookup (hash *, tree);
+
 static hash hash_lookup (hash *, tree);
 static tree lookup_method (tree, tree);
 static tree lookup_method_static (tree, tree, int);
@@ -384,7 +392,6 @@ struct imp_entry *imp_list = 0;
 int imp_count = 0;	/* `@implementation' */
 int cat_count = 0;	/* `@category' */
 
-enum tree_code objc_inherit_code;
 objc_ivar_visibility_kind objc_ivar_visibility;
 
 /* Use to generate method labels.  */
@@ -429,13 +436,6 @@ struct GTY(()) string_descriptor {
 };
 
 static GTY((param_is (struct string_descriptor))) htab_t string_htab;
-
-/* Store the EH-volatilized types in a hash table, for easy retrieval.  */
-struct GTY(()) volatilized_type {
-  tree type;
-};
-
-static GTY((param_is (struct volatilized_type))) htab_t volatilized_htab;
 
 FILE *gen_declaration_file;
 
@@ -631,22 +631,15 @@ objc_init (void)
   return true;
 }
 
+/* This is called automatically (at the very end of compilation) by
+   c_write_global_declarations and cp_write_global_declarations.  */
 void
-objc_finish_file (void)
+objc_write_global_declarations (void)
 {
   mark_referenced_methods ();
 
-#ifdef OBJCPLUS
-  /* We need to instantiate templates _before_ we emit ObjC metadata;
-     if we do not, some metadata (such as selectors) may go missing.  */
-  at_eof = 1;
-  instantiate_pending_templates (0);
-#endif
-
-  /* Finalize Objective-C runtime data.  No need to generate tables
-     and code if only checking syntax, or if generating a PCH file.  */
-  if (!flag_syntax_only && !pch_file)
-    finish_objc ();
+  /* Finalize Objective-C runtime data.  */
+  finish_objc ();
 
   if (gen_declaration_file)
     fclose (gen_declaration_file);
@@ -1284,24 +1277,20 @@ build_property_reference (tree property, tree id)
   return getter;
 }
 
-void
-objc_set_method_type (enum tree_code type)
-{
-  objc_inherit_code = (type == PLUS_EXPR
-		       ? CLASS_METHOD_DECL
-		       : INSTANCE_METHOD_DECL);
-}
-
 tree
-objc_build_method_signature (tree rettype, tree selector,
+objc_build_method_signature (bool is_class_method, tree rettype, tree selector,
 			     tree optparms, bool ellipsis)
 {
-  return build_method_decl (objc_inherit_code, rettype, selector,
-			    optparms, ellipsis);
+  if (is_class_method)
+    return build_method_decl (CLASS_METHOD_DECL, rettype, selector,
+			      optparms, ellipsis);
+  else
+    return build_method_decl (INSTANCE_METHOD_DECL, rettype, selector,
+			      optparms, ellipsis);
 }
 
 void
-objc_add_method_declaration (tree decl, tree attributes)
+objc_add_method_declaration (bool is_class_method, tree decl, tree attributes)
 {
   if (!objc_interface_context)
     {
@@ -1315,7 +1304,7 @@ objc_add_method_declaration (tree decl, tree attributes)
   objc_decl_method_attributes (&decl, attributes, 0);
   objc_add_method (objc_interface_context,
 		   decl,
-		   objc_inherit_code == CLASS_METHOD_DECL,
+		   is_class_method,
 		   objc_method_optional_flag);
 }
 
@@ -1323,7 +1312,7 @@ objc_add_method_declaration (tree decl, tree attributes)
    'false' if not (because we are outside an @implementation context).
 */
 bool
-objc_start_method_definition (tree decl, tree attributes)
+objc_start_method_definition (bool is_class_method, tree decl, tree attributes)
 {
   if (!objc_implementation_context)
     {
@@ -1344,7 +1333,7 @@ objc_start_method_definition (tree decl, tree attributes)
   objc_decl_method_attributes (&decl, attributes, 0);
   objc_add_method (objc_implementation_context,
 		   decl,
-		   objc_inherit_code == CLASS_METHOD_DECL, 
+		   is_class_method,
 		   /* is optional */ false);
   start_method_def (decl);
   return true;
@@ -1490,6 +1479,11 @@ objc_build_volatilized_type (tree type)
 	  && (TREE_TYPE (t) != TREE_TYPE (type)))
 	continue;
 
+      /* Only match up the types which were previously volatilized in similar fashion and not
+	 because they were declared as such. */
+      if (!lookup_attribute ("objc_volatilized", TYPE_ATTRIBUTES (t)))
+	continue;
+
       /* Everything matches up!  */
       return t;
     }
@@ -1498,6 +1492,13 @@ objc_build_volatilized_type (tree type)
      a new one.  */
   t = build_variant_type_copy (type);
   TYPE_VOLATILE (t) = 1;
+
+  TYPE_ATTRIBUTES (t) = merge_attributes (TYPE_ATTRIBUTES (type),
+                      			  tree_cons (get_identifier ("objc_volatilized"),
+                                 	  NULL_TREE,
+                                 	  NULL_TREE));
+  if (TREE_CODE (t) == ARRAY_TYPE)
+    TREE_TYPE (t) = objc_build_volatilized_type (TREE_TYPE (t));
 
   /* Set up the canonical type information. */
   if (TYPE_STRUCTURAL_EQUALITY_P (type))
@@ -1523,18 +1524,8 @@ objc_volatilize_decl (tree decl)
 	  || TREE_CODE (decl) == PARM_DECL))
     {
       tree t = TREE_TYPE (decl);
-      struct volatilized_type key;
-      void **loc;
 
       t = objc_build_volatilized_type (t);
-      key.type = t;
-      loc = htab_find_slot (volatilized_htab, &key, INSERT);
-
-      if (!*loc)
-	{
-	  *loc = ggc_alloc_volatilized_type ();
-	  ((struct volatilized_type *) *loc)->type = t;
-	}
 
       TREE_TYPE (decl) = t;
       TREE_THIS_VOLATILE (decl) = 1;
@@ -1881,16 +1872,11 @@ bool
 objc_type_quals_match (tree ltyp, tree rtyp)
 {
   int lquals = TYPE_QUALS (ltyp), rquals = TYPE_QUALS (rtyp);
-  struct volatilized_type key;
 
-  key.type = ltyp;
-
-  if (htab_find_slot (volatilized_htab, &key, NO_INSERT))
+  if (lookup_attribute ("objc_volatilized", TYPE_ATTRIBUTES (ltyp)))
     lquals &= ~TYPE_QUAL_VOLATILE;
 
-  key.type = rtyp;
-
-  if (htab_find_slot (volatilized_htab, &key, NO_INSERT))
+  if (lookup_attribute ("objc_volatilized", TYPE_ATTRIBUTES (rtyp)))
     rquals &= ~TYPE_QUAL_VOLATILE;
 
   return (lquals == rquals);
@@ -1993,23 +1979,6 @@ objc_xref_basetypes (tree ref, tree basetype)
     }
 }
 
-static hashval_t
-volatilized_hash (const void *ptr)
-{
-  const_tree const typ = ((const struct volatilized_type *)ptr)->type;
-
-  return htab_hash_pointer(typ);
-}
-
-static int
-volatilized_eq (const void *ptr1, const void *ptr2)
-{
-  const_tree const typ1 = ((const struct volatilized_type *)ptr1)->type;
-  const_tree const typ2 = ((const struct volatilized_type *)ptr2)->type;
-
-  return typ1 == typ2;
-}
-
 /* Called from finish_decl.  */
 
 void
@@ -2030,6 +1999,16 @@ objc_check_global_decl (tree decl)
   tree id = DECL_NAME (decl);
   if (objc_is_class_name (id) && global_bindings_p())
     error ("redeclaration of Objective-C class %qs", IDENTIFIER_POINTER (id));
+}
+
+/* Return a non-volatalized version of TYPE. */
+
+tree
+objc_non_volatilized_type (tree type)
+{
+  if (lookup_attribute ("objc_volatilized", TYPE_ATTRIBUTES (type)))
+    type = build_qualified_type (type, (TYPE_QUALS (type) & ~TYPE_QUAL_VOLATILE));
+  return type;
 }
 
 /* Construct a PROTOCOLS-qualified variant of INTERFACE, where INTERFACE may
@@ -2130,6 +2109,9 @@ lookup_and_install_protocols (tree protocols)
 {
   tree proto;
   tree return_value = NULL_TREE;
+
+  if (protocols == error_mark_node)
+    return NULL;
 
   for (proto = protocols; proto; proto = TREE_CHAIN (proto))
     {
@@ -3607,7 +3589,8 @@ objc_declare_alias (tree alias_ident, tree class_ident)
 #ifdef OBJCPLUS
       pop_lang_context ();
 #endif
-      alias_chain = tree_cons (underlying_class, alias_ident, alias_chain);
+      hash_class_name_enter (als_name_hash_list, alias_ident, 
+			     underlying_class);
     }
 }
 
@@ -3649,7 +3632,7 @@ objc_declare_class (tree ident_list)
 	  record = xref_tag (RECORD_TYPE, ident);
 	  INIT_TYPE_OBJC_INFO (record);
 	  TYPE_OBJC_INTERFACE (record) = ident;
-	  class_chain = tree_cons (NULL_TREE, ident, class_chain);
+	  hash_class_name_enter (cls_name_hash_list, ident, NULL_TREE);
 	}
     }
 }
@@ -3657,7 +3640,7 @@ objc_declare_class (tree ident_list)
 tree
 objc_is_class_name (tree ident)
 {
-  tree chain;
+  hash target;
 
   if (ident && TREE_CODE (ident) == IDENTIFIER_NODE
       && identifier_global_value (ident))
@@ -3669,7 +3652,12 @@ objc_is_class_name (tree ident)
     ident = OBJC_TYPE_NAME (ident);
 #ifdef OBJCPLUS
   if (ident && TREE_CODE (ident) == TYPE_DECL)
-    ident = DECL_NAME (ident);
+    {
+      tree type = TREE_TYPE (ident);
+      if (type && TREE_CODE (type) == TEMPLATE_TYPE_PARM)
+        return NULL_TREE;
+      ident = DECL_NAME (ident);
+    }
 #endif
   if (!ident || TREE_CODE (ident) != IDENTIFIER_NODE)
     return NULL_TREE;
@@ -3677,16 +3665,15 @@ objc_is_class_name (tree ident)
   if (lookup_interface (ident))
     return ident;
 
-  for (chain = class_chain; chain; chain = TREE_CHAIN (chain))
-    {
-      if (ident == TREE_VALUE (chain))
-	return ident;
-    }
+  target = hash_class_name_lookup (cls_name_hash_list, ident);
+  if (target)
+    return target->key;
 
-  for (chain = alias_chain; chain; chain = TREE_CHAIN (chain))
+  target = hash_class_name_lookup (als_name_hash_list, ident);
+  if (target)
     {
-      if (ident == TREE_VALUE (chain))
-	return TREE_PURPOSE (chain);
+      gcc_assert (target->list && target->list->value);
+      return target->list->value;
     }
 
   return 0;
@@ -5187,17 +5174,18 @@ objc_generate_cxx_ctor_or_dtor (bool dtor)
   /* - (id) .cxx_construct { ... return self; } */
   /* - (void) .cxx_construct { ... }            */
 
-  objc_set_method_type (MINUS_EXPR);
   objc_start_method_definition
-   (objc_build_method_signature (build_tree_list (NULL_TREE,
-						  dtor
-						  ? void_type_node
-						  : objc_object_type),
-				 get_identifier (dtor
-						 ? TAG_CXX_DESTRUCT
-						 : TAG_CXX_CONSTRUCT),
-				 make_node (TREE_LIST),
-				 false), NULL);
+    (false /* is_class_method */,
+     objc_build_method_signature (false /* is_class_method */,
+				  build_tree_list (NULL_TREE,
+						   dtor
+						   ? void_type_node
+						   : objc_object_type),
+				  get_identifier (dtor
+						  ? TAG_CXX_DESTRUCT
+						  : TAG_CXX_CONSTRUCT),
+				  make_node (TREE_LIST),
+				  false), NULL);
   body = begin_function_body ();
   compound_stmt = begin_compound_stmt (0);
 
@@ -5252,6 +5240,10 @@ objc_generate_cxx_cdtors (void)
 {
   bool need_ctor = false, need_dtor = false;
   tree ivar;
+
+  /* Error case, due to possibly an extra @end. */
+  if (!objc_implementation_context)
+    return;
 
   /* We do not want to do this for categories, since they do not have
      their own ivars.  */
@@ -6502,8 +6494,7 @@ synth_id_with_class_suffix (const char *preamble, tree ctxt)
 
 /* If type is empty or only type qualifiers are present, add default
    type of id (otherwise grokdeclarator will default to int).  */
-
-static tree
+static inline tree
 adjust_type_for_id_default (tree type)
 {
   if (!type)
@@ -6561,7 +6552,6 @@ objc_build_keyword_decl (tree key_name, tree arg_type,
 }
 
 /* Given a chain of keyword_decl's, synthesize the full keyword selector.  */
-
 static tree
 build_keyword_selector (tree selector)
 {
@@ -7495,13 +7485,60 @@ hash_init (void)
   nst_method_hash_list = ggc_alloc_cleared_vec_hash (SIZEHASHTABLE);
   cls_method_hash_list = ggc_alloc_cleared_vec_hash (SIZEHASHTABLE);
 
+  cls_name_hash_list = ggc_alloc_cleared_vec_hash (SIZEHASHTABLE);
+  als_name_hash_list = ggc_alloc_cleared_vec_hash (SIZEHASHTABLE);
+
   /* Initialize the hash table used to hold the constant string objects.  */
   string_htab = htab_create_ggc (31, string_hash,
 				   string_eq, NULL);
+}
 
-  /* Initialize the hash table used to hold EH-volatilized types.  */
-  volatilized_htab = htab_create_ggc (31, volatilized_hash,
-				      volatilized_eq, NULL);
+/* This routine adds sel_name to the hash list. sel_name  is a class or alias
+   name for the class. If alias name, then value is its underlying class.
+   If class, the value is NULL_TREE. */
+
+static void
+hash_class_name_enter (hash *hashlist, tree sel_name, tree value)
+{
+  hash obj;
+  int slot = hash_func (sel_name) % SIZEHASHTABLE;
+
+  obj = ggc_alloc_hashed_entry ();
+  if (value != NULL_TREE)
+    {
+      /* Save the underlying class for the 'alias' in the hash table */
+      attr obj_attr = ggc_alloc_hashed_attribute ();
+      obj_attr->value = value;
+      obj->list = obj_attr;
+    }
+  else
+    obj->list = 0;
+  obj->next = hashlist[slot];
+  obj->key = sel_name;
+
+  hashlist[slot] = obj;         /* append to front */
+
+}
+
+/*
+   Searches in the hash table looking for a match for class or alias name.
+*/
+
+static hash
+hash_class_name_lookup (hash *hashlist, tree sel_name)
+{
+  hash target;
+
+  target = hashlist[hash_func (sel_name) % SIZEHASHTABLE];
+
+  while (target)
+    {
+      if (sel_name == target->key)
+	return target;
+
+      target = target->next;
+    }
+  return 0;
 }
 
 /* WARNING!!!!  hash_enter is called with a method, and will peek
@@ -8617,9 +8654,8 @@ objc_synthesize_getter (tree klass, tree class_method, tree property)
   if (!decl)
     return;
 
-  objc_inherit_code = INSTANCE_METHOD_DECL;
   /* For now no attributes.  */
-  objc_start_method_definition (copy_node (decl), NULL_TREE);
+  objc_start_method_definition (false /* is_class_method */, copy_node (decl), NULL_TREE);
 
   body = c_begin_compound_stmt (true);
   /* return self->_property_name; */
@@ -8677,9 +8713,8 @@ objc_synthesize_setter (tree klass, tree class_method, tree property)
   if (!decl)
     return;
 
-  objc_inherit_code = INSTANCE_METHOD_DECL;
   /* For now, no attributes.  */
-  objc_start_method_definition (copy_node (decl), NULL_TREE);
+  objc_start_method_definition (false /* is_class_method */, copy_node (decl), NULL_TREE);
 
   body = c_begin_compound_stmt (true);
   /* _property_name = _value; */
@@ -8711,6 +8746,55 @@ objc_synthesize_setter (tree klass, tree class_method, tree property)
   finish_function ();
 #endif
   objc_finish_method_definition (fn);
+}
+
+/* This function is called by the parser after a @synthesize
+   expression is parsed.  'start_locus' is the location of the
+   @synthesize expression, and 'property_and_ivar_list' is a chained
+   list of the property and ivar names.
+ */
+void
+objc_add_synthesize_declaration (location_t start_locus ATTRIBUTE_UNUSED, tree property_and_ivar_list ATTRIBUTE_UNUSED)
+{
+  if (property_and_ivar_list == error_mark_node)
+    return;
+
+  if (!objc_implementation_context)
+    {
+      /* We can get here only in Objective-C; the Objective-C++ parser
+	 detects the problem while parsing, outputs the error
+	 "misplaced '@synthesize' Objective-C++ construct" and skips
+	 the declaration.  */
+      error ("%<@synthesize%> not in @implementation context");
+      return;
+    }
+
+  /* TODO */
+  error ("%<@synthesize%> is not supported in this version of the compiler");
+}
+
+/* This function is called by the parser after a @dynamic expression
+   is parsed.  'start_locus' is the location of the @dynamic
+   expression, and 'property_list' is a chained list of all the
+   property names.  */
+void
+objc_add_dynamic_declaration (location_t start_locus ATTRIBUTE_UNUSED, tree property_list ATTRIBUTE_UNUSED)
+{
+  if (property_list == error_mark_node)
+    return;
+
+  if (!objc_implementation_context)
+    {
+      /* We can get here only in Objective-C; the Objective-C++ parser
+	 detects the problem while parsing, outputs the error
+	 "misplaced '@dynamic' Objective-C++ construct" and skips the
+	 declaration.  */
+      error ("%<@dynamic%> not in @implementation context");
+      return;
+    }
+
+  /* TODO */
+  error ("%<@dynamic%> is not supported in this version of the compiler");
 }
 
 /* Main routine to generate code/data for all the property information for 

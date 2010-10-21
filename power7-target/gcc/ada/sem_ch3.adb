@@ -284,9 +284,11 @@ package body Sem_Ch3 is
      (N    : Node_Id;
       T    : Entity_Id;
       Prev : Entity_Id := Empty);
-   --  If T is the full declaration of an incomplete or private type, check the
-   --  conformance of the discriminants, otherwise process them. Prev is the
-   --  entity of the partial declaration, if any.
+   --  If N is the full declaration of the completion T of an incomplete or
+   --  private type, check its discriminants (which are already known to be
+   --  conformant with those of the partial view, see Find_Type_Name),
+   --  otherwise process them. Prev is the entity of the partial declaration,
+   --  if any.
 
    procedure Check_Real_Bound (Bound : Node_Id);
    --  Check given bound for being of real type and static. If not, post an
@@ -484,8 +486,8 @@ package body Sem_Ch3 is
    --  operations of progenitors of Tagged_Type, and replace the subsidiary
    --  subtypes with Tagged_Type, to build the specs of the inherited interface
    --  primitives. The derived primitives are aliased to those of the
-   --  interface. This routine takes care also of transferring to the full-view
-   --  subprograms associated with the partial-view of Tagged_Type that cover
+   --  interface. This routine takes care also of transferring to the full view
+   --  subprograms associated with the partial view of Tagged_Type that cover
    --  interface primitives.
 
    procedure Derived_Standard_Character
@@ -1358,6 +1360,12 @@ package body Sem_Ch3 is
       begin
          pragma Assert (Is_Tagged_Type (Iface)
            and then Is_Interface (Iface));
+
+         --  This is a reasonable place to propagate predicates
+
+         if Has_Predicates (Iface) then
+            Set_Has_Predicates (Typ);
+         end if;
 
          Def :=
            Make_Component_Definition (Loc,
@@ -2300,7 +2308,7 @@ package body Sem_Ch3 is
       end if;
 
       if Etype (T) = Any_Type then
-         goto Leave;
+         return;
       end if;
 
       --  Some common processing for all types
@@ -2395,8 +2403,9 @@ package body Sem_Ch3 is
       Set_Optimize_Alignment_Flags (Def_Id);
       Check_Eliminated (Def_Id);
 
-      <<Leave>>
+      if Nkind (N) = N_Full_Type_Declaration then
          Analyze_Aspect_Specifications (N, Def_Id, Aspect_Specifications (N));
+      end if;
    end Analyze_Full_Type_Declaration;
 
    ----------------------------------
@@ -3592,6 +3601,8 @@ package body Sem_Ch3 is
 
       Generate_Definition (T);
 
+      --  For other than Ada 2012, just enter the name in the current scope
+
       if Ada_Version < Ada_2012 then
          Enter_Name (T);
 
@@ -3833,6 +3844,7 @@ package body Sem_Ch3 is
       Set_Is_Ada_2005_Only  (Id, Is_Ada_2005_Only  (T));
       Set_Is_Ada_2012_Only  (Id, Is_Ada_2012_Only  (T));
       Set_Convention        (Id, Convention        (T));
+      Set_Has_Predicates    (Id, Has_Predicates    (T));
 
       --  In the case where there is no constraint given in the subtype
       --  indication, Process_Subtype just returns the Subtype_Mark, so its
@@ -4586,11 +4598,11 @@ package body Sem_Ch3 is
          Error_Msg_N ("missing index definition in array type declaration", T);
 
          declare
-            Indices : constant List_Id :=
+            Indexes : constant List_Id :=
                         New_List (New_Occurrence_Of (Any_Id, Sloc (T)));
          begin
-            Set_Discrete_Subtype_Definitions (Def, Indices);
-            Set_First_Index (T, First (Indices));
+            Set_Discrete_Subtype_Definitions (Def, Indexes);
+            Set_First_Index (T, First (Indexes));
             return;
          end;
       end if;
@@ -4606,7 +4618,7 @@ package body Sem_Ch3 is
       end if;
 
       --  In the case of an unconstrained array the parser has already verified
-      --  that all the indices are unconstrained but we still need to make sure
+      --  that all the indexes are unconstrained but we still need to make sure
       --  that the element type is constrained.
 
       if Is_Indefinite_Subtype (Element_Type) then
@@ -7657,6 +7669,21 @@ package body Sem_Ch3 is
       Set_Is_Controlled  (Derived_Type, Is_Controlled  (Parent_Type));
       Set_Is_Tagged_Type (Derived_Type, Is_Tagged_Type (Parent_Type));
 
+      --  Propagate invariant information. The new type has invariants if
+      --  they are inherited from the parent type, and these invariants can
+      --  be further inherited, so both flags are set.
+
+      if Has_Inheritable_Invariants (Parent_Type) then
+         Set_Has_Inheritable_Invariants (Derived_Type);
+         Set_Has_Invariants (Derived_Type);
+      end if;
+
+      --  We similarly inherit predicates
+
+      if Has_Predicates (Parent_Type) then
+         Set_Has_Predicates (Derived_Type);
+      end if;
+
       --  The derived type inherits the representation clauses of the parent.
       --  However, for a private type that is completed by a derivation, there
       --  may be operation attributes that have been specified already (stream
@@ -9564,7 +9591,9 @@ package body Sem_Ch3 is
    --  If an incomplete or private type declaration was already given for the
    --  type, the discriminants may have already been processed if they were
    --  present on the incomplete declaration. In this case a full conformance
-   --  check is performed otherwise just process them.
+   --  check has been performed in Find_Type_Name, and we then recheck here
+   --  some properties that can't be checked on the partial view alone.
+   --  Otherwise we call Process_Discriminants.
 
    procedure Check_Or_Process_Discriminants
      (N    : Node_Id;
@@ -9574,19 +9603,44 @@ package body Sem_Ch3 is
    begin
       if Has_Discriminants (T) then
 
-         --  Make the discriminants visible to component declarations
+         --  Discriminants are already set on T if they were already present
+         --  on the partial view. Make them visible to component declarations.
 
          declare
-            D    : Entity_Id;
-            Prev : Entity_Id;
+            D : Entity_Id;
+            --  Discriminant on T (full view) referencing expr on partial view
+
+            Prev_D : Entity_Id;
+            --  Entity of corresponding discriminant on partial view
+
+            New_D : Node_Id;
+            --  Discriminant specification for full view, expression is the
+            --  syntactic copy on full view (which has been checked for
+            --  conformance with partial view), only used here to post error
+            --  message.
 
          begin
-            D := First_Discriminant (T);
+            D     := First_Discriminant (T);
+            New_D := First (Discriminant_Specifications (N));
             while Present (D) loop
-               Prev := Current_Entity (D);
+               Prev_D := Current_Entity (D);
                Set_Current_Entity (D);
                Set_Is_Immediately_Visible (D);
-               Set_Homonym (D, Prev);
+               Set_Homonym (D, Prev_D);
+
+               --  Handle the case where there is an untagged partial view and
+               --  the full view is tagged: must disallow discriminants with
+               --  defaults. However suppress the error here if it was already
+               --  reported on the default expression of the partial view.
+
+               if Is_Tagged_Type (T)
+                    and then Present (Expression (Parent (D)))
+                    and then not Error_Posted (Expression (Parent (D)))
+               then
+                  Error_Msg_N
+                    ("discriminants of tagged type cannot have defaults",
+                     Expression (New_D));
+               end if;
 
                --  Ada 2005 (AI-230): Access discriminant allowed in
                --  non-limited record types.
@@ -9600,6 +9654,7 @@ package body Sem_Ch3 is
                end if;
 
                Next_Discriminant (D);
+               Next (New_D);
             end loop;
          end;
 
@@ -10412,7 +10467,7 @@ package body Sem_Ch3 is
 
       function Build_Constrained_Array_Type
         (Old_Type : Entity_Id) return Entity_Id;
-      --  If Old_Type is an array type, one of whose indices is constrained
+      --  If Old_Type is an array type, one of whose indexes is constrained
       --  by a discriminant, build an Itype whose constraint replaces the
       --  discriminant with its value in the constraint.
 
@@ -10708,7 +10763,7 @@ package body Sem_Ch3 is
             Next_Elmt (E);
          end loop;
 
-         --  The corresponding_Discriminant mechanism is incomplete, because
+         --  The Corresponding_Discriminant mechanism is incomplete, because
          --  the correspondence between new and old discriminants is not one
          --  to one: one new discriminant can constrain several old ones. In
          --  that case, scan sequentially the stored_constraint, the list of
@@ -14171,8 +14226,8 @@ package body Sem_Ch3 is
 
          elsif Ekind (Prev) = E_Incomplete_Type
            and then (Ada_Version < Ada_2012
-                       or else No (Full_View (Prev))
-                       or else not Is_Private_Type (Full_View (Prev)))
+                      or else No (Full_View (Prev))
+                      or else not Is_Private_Type (Full_View (Prev)))
          then
 
             --  Indicate that the incomplete declaration has a matching full
@@ -16016,8 +16071,10 @@ package body Sem_Ch3 is
 
       --  Ada 2005 (AI-287, AI-318): Relax the strictness of the front end in
       --  case of limited aggregates (including extension aggregates), and
-      --  function calls. The function call may have been give in prefixed
+      --  function calls. The function call may have been given in prefixed
       --  notation, in which case the original node is an indexed component.
+      --  If the function is parameterless, the original node was an explicit
+      --  dereference.
 
       case Nkind (Original_Node (Exp)) is
          when N_Aggregate | N_Extension_Aggregate | N_Function_Call | N_Op =>
@@ -16036,13 +16093,16 @@ package body Sem_Ch3 is
          --  A return statement for a build-in-place function returning a
          --  synchronized type also introduces an unchecked conversion.
 
-         when N_Type_Conversion | N_Unchecked_Type_Conversion =>
+         when N_Type_Conversion           |
+              N_Unchecked_Type_Conversion =>
             return not Comes_From_Source (Exp)
               and then
                 OK_For_Limited_Init_In_05
                   (Typ, Expression (Original_Node (Exp)));
 
-         when N_Indexed_Component | N_Selected_Component  =>
+         when N_Indexed_Component     |
+              N_Selected_Component    |
+              N_Explicit_Dereference  =>
             return Nkind (Exp) = N_Function_Call;
 
          --  A use of 'Input is a function call, hence allowed. Normally the
@@ -16324,13 +16384,17 @@ package body Sem_Ch3 is
                  ("discriminant defaults not allowed for formal type",
                   Expression (Discr));
 
-            --  Tagged types declarations cannot have defaulted discriminants,
-            --  but an untagged private type with defaulted discriminants can
-            --  have a tagged completion.
-
             elsif Is_Tagged_Type (Current_Scope)
               and then Comes_From_Source (N)
             then
+               --  Note: see similar test in Check_Or_Process_Discriminants, to
+               --  handle the (illegal) case of the completion of an untagged
+               --  view with discriminants with defaults by a tagged full view.
+               --  We skip the check if Discr does not come from source to
+               --  account for the case of an untagged derived type providing
+               --  defaults for a renamed discriminant from a private nontagged
+               --  ancestor with a tagged full view (ACATS B460006).
+
                Error_Msg_N
                  ("discriminants of tagged type cannot have defaults",
                   Expression (Discr));
@@ -17103,17 +17167,83 @@ package body Sem_Ch3 is
       --  If the private view has user specified stream attributes, then so has
       --  the full view.
 
+      --  Why the test, how could these flags be already set in Full_T ???
+
       if Has_Specified_Stream_Read (Priv_T) then
          Set_Has_Specified_Stream_Read (Full_T);
       end if;
+
       if Has_Specified_Stream_Write (Priv_T) then
          Set_Has_Specified_Stream_Write (Full_T);
       end if;
+
       if Has_Specified_Stream_Input (Priv_T) then
          Set_Has_Specified_Stream_Input (Full_T);
       end if;
+
       if Has_Specified_Stream_Output (Priv_T) then
          Set_Has_Specified_Stream_Output (Full_T);
+      end if;
+
+      --  Deal with invariants
+
+      if Has_Invariants (Full_T)
+           or else
+         Has_Invariants (Priv_T)
+      then
+         Set_Has_Invariants (Full_T);
+         Set_Has_Invariants (Priv_T);
+      end if;
+
+      if Has_Inheritable_Invariants (Full_T)
+           or else
+         Has_Inheritable_Invariants (Priv_T)
+      then
+         Set_Has_Inheritable_Invariants (Full_T);
+         Set_Has_Inheritable_Invariants (Priv_T);
+      end if;
+
+      --  This is where we build the invariant procedure if needed
+
+      if Has_Invariants (Priv_T) then
+         declare
+            PDecl : Entity_Id;
+            PBody : Entity_Id;
+            Packg : constant Node_Id := Declaration_Node (Scope (Priv_T));
+
+         begin
+            Build_Invariant_Procedure (Full_T, PDecl, PBody);
+
+            --  Error defense, normally these should be set
+
+            if Present (PDecl) and then Present (PBody) then
+
+               --  Spec goes at the end of the public part of the package.
+               --  That's behind us, so we have to manually analyze the
+               --  inserted spec.
+
+               Append_To (Visible_Declarations (Packg), PDecl);
+               Analyze (PDecl);
+
+               --  Body goes at the end of the private part of the package.
+               --  That's ahead of us so it will get analyzed later on when
+               --  we come to it.
+
+               Append_To (Private_Declarations (Packg), PBody);
+
+               --  Copy Invariant procedure to private declaration
+
+               Set_Invariant_Procedure (Priv_T, Invariant_Procedure (Full_T));
+               Set_Has_Invariants (Priv_T);
+            end if;
+         end;
+      end if;
+
+      --  Propagate predicates to full type
+
+      if Has_Predicates (Priv_T) then
+         Set_Predicate_Function (Priv_T, Predicate_Function (Full_T));
+         Set_Has_Predicates (Priv_T);
       end if;
    end Process_Full_View;
 

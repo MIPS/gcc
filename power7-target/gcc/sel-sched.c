@@ -612,12 +612,14 @@ static bool
 in_fallthru_bb_p (rtx insn, rtx succ)
 {
   basic_block bb = BLOCK_FOR_INSN (insn);
+  edge e;
 
   if (bb == BLOCK_FOR_INSN (succ))
     return true;
 
-  if (find_fallthru_edge (bb))
-    bb = find_fallthru_edge (bb)->dest;
+  e = find_fallthru_edge_from (bb);
+  if (e)
+    bb = e->dest;
   else
     return false;
 
@@ -4905,7 +4907,7 @@ move_cond_jump (rtx insn, bnd_t bnd)
   next = PREV_INSN (insn);
   BND_TO (bnd) = insn;
 
-  ft_edge = find_fallthru_edge (block_from);
+  ft_edge = find_fallthru_edge_from (block_from);
   block_next = ft_edge->dest;
   /* There must be a fallthrough block (or where should go
   control flow in case of false jump predicate otherwise?).  */
@@ -6358,7 +6360,6 @@ code_motion_process_successors (insn_t insn, av_set_t orig_ops,
         goto rescan;
     }
 
-#ifdef ENABLE_CHECKING
   /* Here, RES==1 if original expr was found at least for one of the
      successors.  After the loop, RES may happen to have zero value
      only if at some point the expr searched is present in av_set, but is
@@ -6366,12 +6367,11 @@ code_motion_process_successors (insn_t insn, av_set_t orig_ops,
      The exception is when the original operation is blocked by
      bookkeeping generated for another fence or for another path in current
      move_op.  */
-  gcc_assert (res == 1
-              || (res == 0
-                  && av_set_could_be_blocked_by_bookkeeping_p (orig_ops,
-							       static_params))
-              || res == -1);
-#endif
+  gcc_checking_assert (res == 1
+		       || (res == 0
+			   && av_set_could_be_blocked_by_bookkeeping_p (orig_ops,
+									static_params))
+		       || res == -1);
 
   /* Merge data, clean up, etc.  */
   if (res != -1 && code_motion_path_driver_info->after_merge_succs)

@@ -5410,7 +5410,20 @@ package body Sem_Prag is
 
       --    Set required restrictions (see System.Rident for detailed list)
 
+      --    Set the No_Dependence rules
+      --      No_Dependence => Ada.Asynchronous_Task_Control
+      --      No_Dependence => Ada.Calendar
+      --      No_Dependence => Ada.Execution_Time.Group_Budget
+      --      No_Dependence => Ada.Execution_Time.Timers
+      --      No_Dependence => Ada.Task_Attributes
+      --      No_Dependence => System.Multiprocessors.Dispatching_Domains
+
       procedure Set_Ravenscar_Profile (N : Node_Id) is
+         Prefix_Entity   : Entity_Id;
+         Selector_Entity : Entity_Id;
+         Prefix_Node     : Node_Id;
+         Node            : Node_Id;
+
       begin
          --  pragma Task_Dispatching_Policy (FIFO_Within_Priorities)
 
@@ -5459,6 +5472,106 @@ package body Sem_Prag is
 
          Set_Profile_Restrictions
            (Ravenscar, N, Warn => Treat_Restrictions_As_Warnings);
+
+         --  Set the No_Dependence restrictions
+
+         --  The following No_Dependence restrictions:
+         --    No_Dependence => Ada.Asynchronous_Task_Control
+         --    No_Dependence => Ada.Calendar
+         --    No_Dependence => Ada.Task_Attributes
+         --  are already set by previous call to Set_Profile_Restrictions.
+
+         --  Set the following restrictions which were added to Ada 2005:
+         --    No_Dependence => Ada.Execution_Time.Group_Budget
+         --    No_Dependence => Ada.Execution_Time.Timers
+
+         if Ada_Version >= Ada_2005 then
+            Name_Buffer (1 .. 3) := "ada";
+            Name_Len := 3;
+
+            Prefix_Entity := Make_Identifier (Loc, Name_Find);
+
+            Name_Buffer (1 .. 14) := "execution_time";
+            Name_Len := 14;
+
+            Selector_Entity := Make_Identifier (Loc, Name_Find);
+
+            Prefix_Node :=
+              Make_Selected_Component
+                (Sloc          => Loc,
+                 Prefix        => Prefix_Entity,
+                 Selector_Name => Selector_Entity);
+
+            Name_Buffer (1 .. 13) := "group_budgets";
+            Name_Len := 13;
+
+            Selector_Entity := Make_Identifier (Loc, Name_Find);
+
+            Node :=
+              Make_Selected_Component
+                (Sloc          => Loc,
+                 Prefix        => Prefix_Node,
+                 Selector_Name => Selector_Entity);
+
+            Set_Restriction_No_Dependence
+              (Unit    => Node,
+               Warn    => Treat_Restrictions_As_Warnings,
+               Profile => Ravenscar);
+
+            Name_Buffer (1 .. 6) := "timers";
+            Name_Len := 6;
+
+            Selector_Entity := Make_Identifier (Loc, Name_Find);
+
+            Node :=
+              Make_Selected_Component
+                (Sloc          => Loc,
+                 Prefix        => Prefix_Node,
+                 Selector_Name => Selector_Entity);
+
+            Set_Restriction_No_Dependence
+              (Unit    => Node,
+               Warn    => Treat_Restrictions_As_Warnings,
+               Profile => Ravenscar);
+         end if;
+
+         --  Set the following restrictions which was added to Ada 2012 (see
+         --  AI-0171):
+         --    No_Dependence => System.Multiprocessors.Dispatching_Domains
+
+         if Ada_Version >= Ada_2012 then
+            Name_Buffer (1 .. 6) := "system";
+            Name_Len := 6;
+
+            Prefix_Entity := Make_Identifier (Loc, Name_Find);
+
+            Name_Buffer (1 .. 15) := "multiprocessors";
+            Name_Len := 15;
+
+            Selector_Entity := Make_Identifier (Loc, Name_Find);
+
+            Prefix_Node :=
+              Make_Selected_Component
+                (Sloc          => Loc,
+                 Prefix        => Prefix_Entity,
+                 Selector_Name => Selector_Entity);
+
+            Name_Buffer (1 .. 19) := "dispatching_domains";
+            Name_Len := 19;
+
+            Selector_Entity := Make_Identifier (Loc, Name_Find);
+
+            Node :=
+              Make_Selected_Component
+                (Sloc          => Loc,
+                 Prefix        => Prefix_Node,
+                 Selector_Name => Selector_Entity);
+
+            Set_Restriction_No_Dependence
+              (Unit    => Node,
+               Warn    => Treat_Restrictions_As_Warnings,
+               Profile => Ravenscar);
+         end if;
       end Set_Ravenscar_Profile;
 
    --  Start of processing for Analyze_Pragma
@@ -7133,8 +7246,11 @@ package body Sem_Prag is
 
             if Nkind (Expression (Arg1)) = N_Null then
                Analyze (Expression (Arg1));
+
+               --  This is an odd case, this is not really an expression, so
+               --  we don't have a type for it. So just set the type to Empty.
+
                Set_Etype (Expression (Arg1), Empty);
-               --  It's not really an expression, and we have no type for it
 
             --  Case of Default_Storage_Pool (storage_pool_NAME);
 
@@ -9272,6 +9388,67 @@ package body Sem_Prag is
             end loop;
          end Interrupt_State;
 
+         ---------------
+         -- Invariant --
+         ---------------
+
+         --  pragma Invariant
+         --    ([Entity =>]    type_LOCAL_NAME,
+         --     [Check  =>]    EXPRESSION
+         --     [,[Message =>] String_Expression]);
+
+         when Pragma_Invariant => Invariant : declare
+            Type_Id : Node_Id;
+            Typ     : Entity_Id;
+
+            Discard : Boolean;
+            pragma Unreferenced (Discard);
+
+         begin
+            GNAT_Pragma;
+            Check_At_Least_N_Arguments (2);
+            Check_At_Most_N_Arguments (3);
+            Check_Optional_Identifier (Arg1, Name_Entity);
+            Check_Optional_Identifier (Arg2, Name_Check);
+
+            if Arg_Count = 3 then
+               Check_Optional_Identifier (Arg3, Name_Message);
+               Check_Arg_Is_Static_Expression (Arg3, Standard_String);
+            end if;
+
+            Check_Arg_Is_Local_Name (Arg1);
+
+            Type_Id := Get_Pragma_Arg (Arg1);
+            Find_Type (Type_Id);
+            Typ := Entity (Type_Id);
+
+            if Typ = Any_Type then
+               return;
+
+            elsif not Ekind_In (Typ, E_Private_Type,
+                                     E_Record_Type_With_Private,
+                                     E_Limited_Private_Type)
+            then
+               Error_Pragma_Arg
+                 ("pragma% only allowed for private type", Arg1);
+            end if;
+
+            --  Note that the type has at least one invariant, and also that
+            --  it has inheritable invariants if we have Invariant'Class.
+
+            Set_Has_Invariants (Typ);
+
+            if Class_Present (N) then
+               Set_Has_Inheritable_Invariants (Typ);
+            end if;
+
+            --  The remaining processing is simply to link the pragma on to
+            --  the rep item chain, for processing when the type is frozen.
+            --  This is accomplished by a call to Rep_Item_Too_Late.
+
+            Discard := Rep_Item_Too_Late (Typ, N, FOnly => True);
+         end Invariant;
+
          ----------------------
          -- Java_Constructor --
          ----------------------
@@ -10988,6 +11165,46 @@ package body Sem_Prag is
                Analyze (N);
             end if;
          end Precondition;
+
+         ---------------
+         -- Predicate --
+         ---------------
+
+         --  pragma Predicate
+         --    ([Entity =>]    type_LOCAL_NAME,
+         --     [Check  =>]    EXPRESSION);
+
+         when Pragma_Predicate => Predicate : declare
+            Type_Id : Node_Id;
+            Typ     : Entity_Id;
+
+            Discard : Boolean;
+            pragma Unreferenced (Discard);
+
+         begin
+            GNAT_Pragma;
+            Check_Arg_Count (2);
+            Check_Optional_Identifier (Arg1, Name_Entity);
+            Check_Optional_Identifier (Arg2, Name_Check);
+
+            Check_Arg_Is_Local_Name (Arg1);
+
+            Type_Id := Get_Pragma_Arg (Arg1);
+            Find_Type (Type_Id);
+            Typ := Entity (Type_Id);
+
+            if Typ = Any_Type then
+               return;
+            end if;
+
+            --  The remaining processing is simply to link the pragma on to
+            --  the rep item chain, for processing when the type is frozen.
+            --  This is accomplished by a call to Rep_Item_Too_Late. We also
+            --  mark the type as having predicates.
+
+            Set_Has_Predicates (Typ);
+            Discard := Rep_Item_Too_Late (Typ, N, FOnly => True);
+         end Predicate;
 
          ------------------
          -- Preelaborate --
@@ -13707,6 +13924,7 @@ package body Sem_Prag is
       Pragma_Interrupt_Handler             => -1,
       Pragma_Interrupt_Priority            => -1,
       Pragma_Interrupt_State               => -1,
+      Pragma_Invariant                     => -1,
       Pragma_Java_Constructor              => -1,
       Pragma_Java_Interface                => -1,
       Pragma_Keep_Names                    =>  0,
@@ -13741,6 +13959,7 @@ package body Sem_Prag is
       Pragma_Persistent_BSS                =>  0,
       Pragma_Postcondition                 => -1,
       Pragma_Precondition                  => -1,
+      Pragma_Predicate                     => -1,
       Pragma_Preelaborate                  => -1,
       Pragma_Preelaborate_05               => -1,
       Pragma_Priority                      => -1,
