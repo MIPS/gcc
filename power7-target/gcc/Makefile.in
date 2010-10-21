@@ -895,7 +895,7 @@ BUILTINS_DEF = builtins.def sync-builtins.def omp-builtins.def
 TREE_H = tree.h all-tree.def tree.def c-family/c-common.def \
 	$(lang_tree_files) $(MACHMODE_H) tree-check.h $(BUILTINS_DEF) \
 	$(INPUT_H) statistics.h $(VEC_H) treestruct.def $(HASHTAB_H) \
-	double-int.h alias.h $(SYMTAB_H) $(FLAGS_H) $(OPTIONS_H) vecir.h \
+	double-int.h alias.h $(SYMTAB_H) $(FLAGS_H) vecir.h \
 	$(REAL_H) $(FIXED_VALUE_H)
 REGSET_H = regset.h $(BITMAP_H) hard-reg-set.h
 BASIC_BLOCK_H = basic-block.h $(PREDICT_H) $(VEC_H) $(FUNCTION_H) cfghooks.h
