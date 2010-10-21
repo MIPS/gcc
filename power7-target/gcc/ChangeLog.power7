@@ -1,5 +1,7 @@
 2010-10-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* Makefile.in (TM_H): Delete change from merge error.
+
 	merge up to 165784.
 	* REVISION: Update subversion id.
 
