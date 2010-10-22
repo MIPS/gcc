@@ -1,5 +1,8 @@
 2010-10-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to 165869.
+	* REVISION: Update subversion id.
+
 	* opt-include.awk: New awk script to output the include files
 	specified by option HeaderInclude and SourceInclude options.
 
