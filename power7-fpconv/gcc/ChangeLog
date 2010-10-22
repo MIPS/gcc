@@ -1,3 +1,180 @@
+2010-10-22  DJ Delorie  <dj@redhat.com>
+
+	* config/m32c/m32c-pragma.c (m32c_register_pragmas): Register the
+	__far address space.
+	* config/m32c/m32c.h (ADDR_SPACE_FAR): New.  Add support for
+	"__far" address space for R8C and M16C processor variants.
+	* config/m32c/m32c.c (m32c_addr_space_legitimate_address_p): New.
+	(far_addr_space_p): New.
+	(encode_pattern_1): Add sign and zero extend support.
+	(m32c_hard_regno_nregs_1): Large pointers in A16 mode are SImode.
+	(m32c_extra_constraint_p2): Add SF constraint.
+	(m32c_legitimate_address_p): Support __far addresses.
+	(m32c_addr_space_pointer_mode): New.
+	(m32c_addr_space_address_mode): New.
+	(m32c_addr_space_legitimate_address_p): New.
+	(m32c_addr_space_legitimize_address): New.
+	(m32c_addr_space_subset_p): New.
+	(m32c_addr_space_convert): New.
+	(conversions): Add __far operand patterns.
+	(m32c_prepare_move): Force constants into registers for __far
+	moves.
+	(m32c_split_move): __far moves are always split.
+	* config/m32c/addsub.md (addsi3_1): Support SImode symbols.
+	* config/m32c/mov.md (mov<mode>_far_op1): New.
+	(mov<mode>_far_op2): New.
+	(movqi_op): Add __far (SF) support.
+	(movhi_op): Likewise.
+	(movsi_splittable): Split A1A0 also.
+
+2010-10-22  Artjoms Sinkarovs <artyom.shinakroff@gmail.com>
+	Andrew Pinski <pinskia@gmail.com>
+
+	* c-typeck.c (build_array_ref): Handle subscripting of vectors.
+	* doc/extend.texi: New paragraph
+
+2010-10-22  Paul Koning  <ni1d@arrl.net>
+
+	* config.pdp11/pdp11.h (DBX_DEBUGGING_INFO): Define.
+
+2010-10-22  DJ Delorie  <dj@redhat.com>
+
+	* config/m32c/m32c-lib1.S (m32c_jsri16): Make reentrant.
+
+2010-10-22  Paul Koning  <ni1d@arrl.net>
+
+	* config/pdp11/pdp11.h (IRA_COVER_CLASSES): Define.
+
+2010-10-22  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/i386.c (ix86_builtin_vectorized_function): Add
+	cases for __builtin_fma and __builtin_fmaf.
+
+2010-10-22  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/i386.c (ix86_expand_fp_absneg_operator): Produce
+	NEG+USE for vectors as well.
+	* config/i386/i386.md (*absneg<VEC_FLOAT_MODE>2): New pattern
+	and splitter.
+
+2010-10-22  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.c (DEFAULT_SWITCH_CURTAILS_COMPILATION,
+	SWITCH_CURTAILS_COMPILATION): Remove.
+	* doc/tm.texi.in (SWITCH_CURTAILS_COMPILATION): Remove
+	documentation.
+	* doc/tm.texi: Regenerate.
+	* system.h (SWITCH_CURTAILS_COMPILATION): Poison.
+
+2010-10-22  Changpeng Fang  <changpeng.fang@amd.com>
+
+	* gcc/config/i386/bdver1.md: New file.
+	* gcc/config/i386/i386.md (include "bdver1.md"): Invoke the
+	pipeline description for bdver1.
+	(x86_sahf_1): Add "bdver1_decode" attribute.
+	(*cmpfp_i_mixed): Likewise.
+	(*cmpfp_i_sse): Likewise.
+	(*cmpfp_i_i387): Likewise.
+	(*cmpfp_iu_mixed): Likewise.
+	(*cmpfp_iu_sse): Likewise.
+	(*cmpfp_iu_387): Likewise.
+	(*swap<mode>,*swap<mode>_1): Likewise.
+	(fixuns_trunc<mode>hi2): Likewise.
+	(fix_trunc<mode>si_sse): Likewise.
+	(x86_fnstcw_1): Likewise.
+	(x86_fldcw_1): Likewise.
+	(*floatsi<mode>2_vector_mixed_with_temp): Likewise.
+	(*floatsi<mode>2_vector_mixed): Likewise.
+	(*float<SSEMODEI24:mode><MODEF:mode>2_mixed_with_temp): Likewise.
+	(*float<SSEMODEI24:mode><MODEF:mode>2_mixed_interunit): Likewise.
+	(*float<SSEMODEI24:mode><MODEF:mode>2_mixed_nointerunit): Likewise.
+	(*floatsi<mode>2_vector_sse_with_temp): Likewise.
+	(*floatsi<mode>2_vector_sse): Likewise.
+	(*float<SSEMODEI24:mode><MODEF:mode>2_sse_with_temp): Likewise.
+	(*float<SSEMODEI24:mode><MODEF:mode>2_sse_interunit): Likewise.
+	(*float<SSEMODEI24:mode><MODEF:mode>2_sse_nointerunit): Likewise.
+	(*mul<mode>3_1): Likewise.
+	(*mulsi3_1_zext): Likewise.
+	(*mulhi3_1): Likewise.
+	(*mulqi3_1): Likewise.
+	(*<u>mul<mode><dwi>3_1): Likewise.
+	(*<u>mulqihi3_1): Likewise.
+	(*<s>muldi3_highpart_1): Likewise.
+	(*<s>mulsi3_highpart_1): Likewise.
+	(*<s>mulsi3_highpart_zext): Likewise.
+	(x86_64_shld): Likewise.
+	(x86_shld): Likewise.
+	(x86_64_shrd): Likewise.
+	(x86_shrd): Likewise.
+	(sqrtxf2): Likewise.
+	(sqrt_extend<mode>xf2_i387): Likewise.
+	(*sqrt<mode>2_sse): Likewise.
+	* gcc/config/i386/sse.md (sse_cvtsi2ss): Add "bdver1_decode" attribute.
+	(sse_cvtsi2ssq): Likewise.
+	(sse_cvtss2si): Likewise.
+	(sse_cvtss2si_2): Likewise.
+	(sse_cvtss2siq): Likewise.
+	(sse_cvtss2siq_2): Likewise.
+	(sse_cvttss2si): Likewise.
+	(sse_cvttss2siq): Likewise.
+	(sse2_cvtpi2pd): Likewise.
+	(sse2_cvttpd2pi): Likewise.
+	(sse2_cvtsi2sd): Likewise.
+	(sse2_cvtsi2sdq): Likewise.
+	(sse2_cvtsd2si): Likewise.
+	(sse2_cvtsd2si_2): Likewise.
+	(sse2_cvtsd2siq): Likewise.
+	(sse2_cvtsd2siq_2): Likewise.
+	(sse2_cvttsd2si): Likewise.
+	(sse2_cvttsd2siq): Likewise.
+	(*sse2_cvtpd2dq): Likewise.
+	(*sse2_cvttpd2dq): Likewise.
+	(sse2_cvtsd2ss): Likewise.
+	(sse2_cvtss2sd): Likewise.
+	(*sse2_cvtpd2ps): Likewise.
+	(sse2_cvtps2pd): Likewise.
+
+2010-10-22  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/46137
+	* gimple-fold.c (gimplify_and_update_call_from_tree): Properly
+	remove the virtual operands if they are not needed.
+
+2010-10-22  Changpeng Fang  <changpeng.fang@amd.com>
+
+	* gcc/config/i386/i386.c (processor_costs bdver1_cost): Update
+	insn costs and architectural parameters for bdver1.
+
+2010-10-22  Richard Guenther  <rguenther@suse.de>
+
+	* gimple.h (gimple_register_canonical_type): Declare.
+	* gimple.c (gimple_canonical_types): New global hashtable.
+	(struct gimple_type_leader_entry_s): New type.
+	(gimple_type_leader): New global cache.
+	(gimple_lookup_type_leader): New function.
+	(gtc_visit): Query the proper cache.
+	(gimple_types_compatible_p): Likewise.
+	(gimple_register_type): Use the new cache instead of TYPE_CANONICAL.
+	(gimple_canonical_type_eq): New function.
+	(gimple_register_canonical_type): Likewise.
+	(print_gimple_types_stats): Adjust for gimple_canonical_types.
+	(free_gimple_type_tables): Likewise.  Free gimple_type_leader.
+	* tree-ssa.c (useless_type_conversion_p): Do not dispatch to
+	gimple_types_compatible_p for LTO.
+
+2010-10-22  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/46098
+	* config/i386/sse.md (*avx_movu<ssemodesuffix><avxmodesuffix>):
+	Rename from avx_movu<ssemodesuffix><avxmodesuffix>.
+	(avx_movu<ssemodesuffix><avxmodesuffix>): New expander.
+	(*<sse>_movu<ssemodesuffix>): Rename from <sse>_movu<ssemodesuffix>.
+	(<sse>_movu<ssemodesuffix>): New expander.
+	(*avx_movdqu<avxmodesuffix>): Rename from avx_movdqu<avxmodesuffix>.
+	(avx_movdqu<avxmodesuffix>): New expander.
+	(*sse2_movdqu): Rename from sse2_movdqu.
+	(sse2_movdqu): New expander.
+
 2010-10-22  Richard Guenther  <rguenther@suse.de>
 
 	PR tree-optimization/45720
@@ -175,7 +352,7 @@
 2010-10-21  Iain Sandoe  <iains@gcc.gnu.org>
 
 	Based on the CFString implementation in FSF apple/trunk branch.
-	
+
 	* target.def (objc_construct_string): New Hook.
 	* doc/tm.texi (objc_construct_string): Document.
 	* doc/tm.texi.in (TARGET_OBJC_CONSTRUCT_STRING): New.
@@ -192,7 +369,7 @@
 	(darwin_cfstring_p): Likewise.
 	(darwin_enter_string_into_cfstring_table): Likewise.
 	* config/rs6000/darwin.h (SUBTARGET_INIT_BUILTINS) Update for CFString.
-	* config/darwin.c (darwin_running_cxx): New var. 
+	* config/darwin.c (darwin_running_cxx): New var.
 	(machopic_select_section): Return cfstring_constant_object_section.
 	(darwin_override_options): Set darwin_running_cxx.
 	(add_builtin_field_decl): New.

@@ -1,3 +1,12 @@
+2010-10-22  Jason Merrill  <jason@redhat.com>
+
+	PR c++/46129
+	* pt.c (instantiate_class_template): Don't instantiate default
+	arguments.
+
+	PR c++/46103
+	* init.c (build_vec_init): Handle memberwise move.
+
 2010-10-21  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	PR c++/46117
