@@ -1,5 +1,132 @@
 2010-10-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* opt-include.awk: New awk script to output the include files
+	specified by option HeaderInclude and SourceInclude options.
+
+	* configure.ac: Figure out the additional include files specified
+	by the HeaderInclude and SourceInclude options directives.
+	* configure: Regenerate.
+
+	* optc-gen.awk: Add support for TargetVariable, HeaderInclude, and
+	SourceInclude.  Add GTY(()) on main option structure for the
+	compiler proper, but not in the driver file.
+	* opth-gen.awk: Ditto.
+
+	* Makefile.in (OPTIONS_H_EXTRA): New make variable for HeaderInclude.
+	(OPTIONS_C_EXTRA): New make variable for SourceInclude.
+	(@options_include@): Add the include files if any specified by the
+	various .opt files.
+	(OPTIONS_H): Add $(OPTIONS_H_EXTRA).
+	(opts-common.o): Add $(OPTIONS_C_EXTRA) to the dependencies.
+	(options.o): Ditto.
+	(gcc-options.o): Ditto.
+
+	* doc/options.texi (Option file format): Document TargetVariable,
+	HeaderInclude, and SourceInclude.
+
+	* config/rs6000/rs6000.opt (HeaderInclude): Include rs6000-opts.h.
+	(rs6000_cpu): Move definition here as a TargetVariable, from
+	rs6000.c.
+	(rs6000_always_hint): Ditto.
+	(rs6000_sched_groups): Ditto.
+	(rs6000_align_branch_targets): Ditto.
+	(rs6000_sched_costly_dep): Ditto.
+	(rs6000_sched_insert_nops): Ditto.
+	(rs6000_long_double_type_size): Ditto.
+	(rs6000_ieeequad): Ditto.
+	(rs6000_spe): Ditto.
+	(rs6000_spe_abi): Ditto.
+	(rs6000_float_gprs): Ditto.
+	(rs6000_darwin64_abi): Ditto.
+	(rs6000_sdata): Ditto.
+	(rs6000_tls_size): Ditto.
+	(rs6000_current_abi): Ditto.
+	(rs6000_tracebback): Ditto.
+	(rs6000_alignment_flags): Ditto.
+	(rs6000_recip_control): Ditto.
+	(rs6000_current_cmode): Rename from cmodel.  Move definition here
+	as a TargetVariable, from rs6000.c.
+	(rs6000_debug): Combine separate debug flags to a single
+	variable.
+
+	* config/rs6000/linux64.h (cmodel): Delete.
+	(TARGET_CMODE): Change cmodel to rs6000_current_cmodel.
+	(SUBSUBTARGET_OVERRIDE_OPTIONS): Ditto.
+
+	* config/rs6000/rs6000.c (rs6000_cpu): Move definition to
+	rs6000.opt as TargetVariables.
+	(rs6000_always_hint): Ditto.
+	(rs6000_sched_groups): Ditto.
+	(rs6000_align_branch_targets): Ditto.
+	(rs6000_sched_costly_dep): Ditto.
+	(rs6000_sched_insert_nops): Ditto.
+	(rs6000_long_double_type_size): Ditto.
+	(rs6000_ieeequad): Ditto.
+	(rs6000_spe): Ditto.
+	(rs6000_spe_abi): Ditto.
+	(rs6000_float_gprs): Ditto.
+	(rs6000_darwin64_abi): Ditto.
+	(rs6000_sdata): Ditto.
+	(rs6000_tls_size): Ditto.
+	(rs6000_current_abi): Ditto.
+	(rs6000_tracebback): Ditto.
+	(rs6000_alignment_flags): Ditto.
+	(rs6000_recip_control): Ditto.
+	(rs6000_current_cmode): Rename from cmodel.  Move to rs6000.opt.
+	(rs6000_sched_insert_nops_str): Make static.
+	(rs6000_sched_costly_dep_str): Ditto.
+	(rs6000_tls_size_string): Ditto.
+	(rs6000_debug_name): Ditto.
+	(rs6000_traceback_name): Ditto.
+	(rs6000_recip_name): Ditto.
+	(rs6000_debug_stack): Delete, combine debug flags into a single
+	variable.  Allow -mdebug=foo,bar.
+	(rs6000_debug_arg): Ditto.
+	(rs6000_debug_reg): Ditto.
+	(rs6000_debug_addr): Ditto.
+	(rs6000_debug_cost): Ditto.
+	(rs6000_option_override_internal): Ditto.
+	(traceback enum): Move to rs6000-opts.h.
+	(rs6000_handle_option): Rename cmodel to rs6000_current_cmodel.
+
+	* gcc/config/rs6000/rs6000.h (toplevel): Include rs6000-opts.h if
+	it hasn't already been included.
+	(enum rs6000_cmodel): Move enumerations to rs6000-opts.h so they
+	can be used by target variables.
+	(enum processor_type): Ditto.
+	(enum fpu_type_t): Ditto.
+	(enum rs6000_dependence_cost): Ditto.
+	(enum rs6000_nop_insertion): Ditto.
+	(enum group_formation): Ditto.
+	(enum rs6000_vector): Ditto.
+	(enum rs6000_abi): Ditto.
+	(TARGET_DEBUG_*): Use a single rs6000_debug variable instead of
+	having a separate variable for each debug flag.
+	(rs6000_cpu): Delete variable definitons that are now defined as
+	TargetVariables in rs6000.opt.
+	(rs6000_long_double_type_size): Ditto.
+	(rs6000_ieeequad): Ditto.
+	(rs6000_altivec_abi): Ditto.
+	(rs6000_spe_abi): Ditto.
+	(rs6000_spe): Ditto.
+	(rs6000_float_gprs): Ditto.
+	(rs6000_alignment_flags): Ditto.
+	(rs6000_current_abi): Ditto.
+	(rs6000_sched_insert_nop_str): Delete.
+
+	* gcc/config/rs6000/rs6000-opts.h: New file.  Move all enums here
+	from rs6000.h and sysv4.h to allow target variables to be declared
+	as enums.
+
+	* gcc/config/rs6000/sysv4.h (enum rs6000_sdata_type): Move to
+	rs6000-opts.h.
+	(rs6000_sdata): Delete, this is now a TargetVariable.
+	(rs6000_tls_size_string): Ditto.
+	(rs6000_abi_name): Delete.
+	(rs6000_sdata_name): Ditto.
+
+2010-10-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	Recreate branch from subversion id 165840.
 	* REVISION: New file.
 

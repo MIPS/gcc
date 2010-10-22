@@ -136,7 +136,6 @@ typedef struct GTY(()) machine_function
 
 /* Target cpu type */
 
-enum processor_type rs6000_cpu;
 struct rs6000_cpu_select rs6000_select[3] =
 {
   /* switch		name,			tune	arch */
@@ -145,46 +144,21 @@ struct rs6000_cpu_select rs6000_select[3] =
   { (const char *)0,	"-mtune=",		1,	0 },
 };
 
-/* Always emit branch hint bits.  */
-static GTY(()) bool rs6000_always_hint;
+/* String variables to hold the various options.  */
+static const char *rs6000_sched_insert_nops_str;
+static const char *rs6000_sched_costly_dep_str;
+static const char *rs6000_tls_size_string;
+static const char *rs6000_debug_name;
+static const char *rs6000_traceback_name;
+static const char *rs6000_recip_name;
 
-/* Schedule instructions for group formation.  */
-static GTY(()) bool rs6000_sched_groups;
-
-/* Align branch targets.  */
-static GTY(()) bool rs6000_align_branch_targets;
-
-/* Support for -msched-costly-dep option.  */
-const char *rs6000_sched_costly_dep_str;
-enum rs6000_dependence_cost rs6000_sched_costly_dep;
-
-/* Support for -minsert-sched-nops option.  */
-const char *rs6000_sched_insert_nops_str;
-enum rs6000_nop_insertion rs6000_sched_insert_nops;
+#ifdef USING_ELFOS_H
+static const char *rs6000_abi_name;
+static const char *rs6000_sdata_name;
+#endif
 
 /* Support targetm.vectorize.builtin_mask_for_load.  */
 static GTY(()) tree altivec_builtin_mask_for_load;
-
-/* Size of long double.  */
-int rs6000_long_double_type_size;
-
-/* IEEE quad extended precision long double. */
-int rs6000_ieeequad;
-
-/* Nonzero to use AltiVec ABI.  */
-int rs6000_altivec_abi;
-
-/* Nonzero if we want SPE SIMD instructions.  */
-int rs6000_spe;
-
-/* Nonzero if we want SPE ABI extensions.  */
-int rs6000_spe_abi;
-
-/* Nonzero if floating point operations are done in the GPRs.  */
-int rs6000_float_gprs = 0;
-
-/* Nonzero if we want Darwin's struct-by-value-in-regs ABI.  */
-int rs6000_darwin64_abi;
 
 /* Set to nonzero once AIX common-mode calls have been defined.  */
 static GTY(()) int common_mode_defined;
@@ -194,36 +168,12 @@ static GTY(()) int common_mode_defined;
 int rs6000_pic_labelno;
 
 #ifdef USING_ELFOS_H
-/* Which abi to adhere to */
-const char *rs6000_abi_name;
-
-/* Semantics of the small data area */
-enum rs6000_sdata_type rs6000_sdata = SDATA_DATA;
-
-/* Which small data model to use */
-const char *rs6000_sdata_name = (char *)0;
-
 /* Counter for labels which are to be placed in .fixup.  */
 int fixuplabelno = 0;
 #endif
 
-/* Bit size of immediate TLS offsets and string from which it is decoded.  */
-int rs6000_tls_size = 32;
-const char *rs6000_tls_size_string;
-
-/* ABI enumeration available for subtarget to use.  */
-enum rs6000_abi rs6000_current_abi;
-
 /* Whether to use variant of AIX ABI for PowerPC64 Linux.  */
 int dot_symbols;
-
-/* Debug flags */
-const char *rs6000_debug_name;
-int rs6000_debug_stack;		/* debug stack applications */
-int rs6000_debug_arg;		/* debug argument handling */
-int rs6000_debug_reg;		/* debug register classes */
-int rs6000_debug_addr;		/* debug memory addressing */
-int rs6000_debug_cost;		/* debug rtx_costs */
 
 /* Specify the machine mode that pointers have.  After generation of rtl, the
    compiler makes no further distinction between pointers and any other objects
@@ -254,14 +204,6 @@ static enum insn_code rs6000_vector_reload[NUM_MACHINE_MODES][2];
 tree rs6000_builtin_types[RS6000_BTI_MAX];
 tree rs6000_builtin_decls[RS6000_BUILTIN_COUNT];
 
-const char *rs6000_traceback_name;
-static enum {
-  traceback_default = 0,
-  traceback_none,
-  traceback_part,
-  traceback_full
-} rs6000_traceback;
-
 /* Flag to say the TOC is initialized */
 int toc_initialized;
 char toc_label_name[10];
@@ -275,13 +217,6 @@ static GTY(()) section *private_data_section;
 static GTY(()) section *read_only_private_data_section;
 static GTY(()) section *sdata2_section;
 static GTY(()) section *toc_section;
-
-/* Control alignment for fields within structures.  */
-/* String from -malign-XXXXX.  */
-int rs6000_alignment_flags;
-
-/* Code model for 64-bit linux.  */
-enum rs6000_cmodel cmodel;
 
 /* True for any options that were explicitly set.  */
 static struct {
@@ -351,9 +286,6 @@ enum rs6000_recip_mask {
      reciprocal square root estimate, since it isn't accurate enough.  */
   RECIP_LOW_PRECISION	= (RECIP_ALL & ~(RECIP_DF_RSQRT | RECIP_V2DF_RSQRT))
 };
-
-static unsigned int rs6000_recip_control;
-static const char *rs6000_recip_name;
 
 /* -mrecip options.  */
 static struct
@@ -2767,21 +2699,27 @@ rs6000_option_override_internal (const char *default_cpu)
   /* Set debug flags */
   if (rs6000_debug_name)
     {
-      if (! strcmp (rs6000_debug_name, "all"))
-	rs6000_debug_stack = rs6000_debug_arg = rs6000_debug_reg
-	  = rs6000_debug_addr = rs6000_debug_cost = 1;
-      else if (! strcmp (rs6000_debug_name, "stack"))
-	rs6000_debug_stack = 1;
-      else if (! strcmp (rs6000_debug_name, "arg"))
-	rs6000_debug_arg = 1;
-      else if (! strcmp (rs6000_debug_name, "reg"))
-	rs6000_debug_reg = 1;
-      else if (! strcmp (rs6000_debug_name, "addr"))
-	rs6000_debug_addr = 1;
-      else if (! strcmp (rs6000_debug_name, "cost"))
-	rs6000_debug_cost = 1;
-      else
-	error ("unknown -mdebug-%s switch", rs6000_debug_name);
+      char *p = ASTRDUP (rs6000_debug_name);
+      char *q;
+      rs6000_debug = 0;
+
+      while ((q = strtok (p, ",")) != NULL)
+	{
+	  if (! strcmp (q, "all"))
+	    rs6000_debug |= MASK_DEBUG_ALL;
+	  else if (! strcmp (q, "stack"))
+	    rs6000_debug |= MASK_DEBUG_STACK;
+	  else if (! strcmp (q, "arg"))
+	    rs6000_debug |= MASK_DEBUG_ARG;
+	  else if (! strcmp (q, "reg"))
+	    rs6000_debug |= MASK_DEBUG_REG;
+	  else if (! strcmp (q, "addr"))
+	    rs6000_debug |= MASK_DEBUG_ADDR;
+	  else if (! strcmp (q, "cost"))
+	    rs6000_debug |= MASK_DEBUG_COST;
+	  else
+	    error ("unknown -mdebug-%s switch", q);
+	}
 
       /* If the appropriate debug option is enabled, replace the target hooks
 	 with debug versions that call the real version and then prints
@@ -4102,11 +4040,11 @@ rs6000_handle_option (size_t code, const char *arg, int value)
 #if defined (HAVE_LD_LARGE_TOC) && defined (TARGET_USES_LINUX64_OPT)
     case OPT_mcmodel_:
       if (strcmp (arg, "small") == 0)
-	cmodel = CMODEL_SMALL;
+	rs6000_current_cmodel = CMODEL_SMALL;
       else if (strcmp (arg, "medium") == 0)
-	cmodel = CMODEL_MEDIUM;
+	rs6000_current_cmodel = CMODEL_MEDIUM;
       else if (strcmp (arg, "large") == 0)
-	cmodel = CMODEL_LARGE;
+	rs6000_current_cmodel = CMODEL_LARGE;
       else
 	{
 	  error ("invalid option for -mcmodel: '%s'", arg);
