@@ -439,6 +439,7 @@ const struct c_common_resword c_common_reswords[] =
   { "__is_standard_layout", RID_IS_STD_LAYOUT, D_CXXONLY },
   { "__is_trivial",     RID_IS_TRIVIAL, D_CXXONLY },
   { "__is_union",	RID_IS_UNION,	D_CXXONLY },
+  { "__is_literal_type", RID_IS_LITERAL_TYPE, D_CXXONLY },
   { "__imag",		RID_IMAGPART,	0 },
   { "__imag__",		RID_IMAGPART,	0 },
   { "__inline",		RID_INLINE,	0 },
@@ -556,10 +557,16 @@ const struct c_common_resword c_common_reswords[] =
   { "oneway",		RID_ONEWAY,		D_OBJC },
   { "out",		RID_OUT,		D_OBJC },
   /* These are recognized inside a property attribute list */
-  { "readonly",		RID_READONLY,		D_OBJC }, 
-  { "copies",		RID_COPIES,		D_OBJC },
+  { "assign",	        RID_ASSIGN,		D_OBJC }, 
+  { "copy",	        RID_COPY,		D_OBJC }, 
   { "getter",		RID_GETTER,		D_OBJC }, 
+  { "nonatomic",	RID_NONATOMIC,		D_OBJC }, 
+  { "readonly",		RID_READONLY,		D_OBJC }, 
+  { "readwrite",	RID_READWRITE,		D_OBJC }, 
+  { "retain",	        RID_RETAIN,		D_OBJC }, 
   { "setter",		RID_SETTER,		D_OBJC }, 
+  /* The following two will be removed once @synthesize is fully implemented.  */
+  { "copies",		RID_COPIES,		D_OBJC },
   { "ivar",		RID_IVAR,		D_OBJC }, 
 };
 
@@ -2581,22 +2588,6 @@ check_case_value (tree value)
 {
   if (value == NULL_TREE)
     return value;
-
-  /* ??? Can we ever get nops here for a valid case value?  We
-     shouldn't for C.  */
-  STRIP_TYPE_NOPS (value);
-  /* In C++, the following is allowed:
-
-       const int i = 3;
-       switch (...) { case i: ... }
-
-     So, we try to reduce the VALUE to a constant that way.  */
-  if (c_dialect_cxx ())
-    {
-      value = decl_constant_value (value);
-      STRIP_TYPE_NOPS (value);
-      value = fold (value);
-    }
 
   if (TREE_CODE (value) == INTEGER_CST)
     /* Promote char or short to int.  */

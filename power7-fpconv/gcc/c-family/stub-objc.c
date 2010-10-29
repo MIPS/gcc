@@ -324,14 +324,18 @@ objc_get_class_ivars (tree ARG_UNUSED (name))
 }
 
 void
-objc_set_property_attr (location_t ARG_UNUSED (loc),
-			objc_property_attribute_kind ARG_UNUSED (code),
-			tree ARG_UNUSED (identifier))
-{
-}
-
-void
-objc_add_property_variable (tree ARG_UNUSED (prop))
+objc_add_property_declaration (location_t ARG_UNUSED (location), 
+			       tree ARG_UNUSED (decl),
+			       bool ARG_UNUSED (parsed_property_readonly),
+			       bool ARG_UNUSED (parsed_property_readwrite),
+			       bool ARG_UNUSED (parsed_property_assign),
+			       bool ARG_UNUSED (parsed_property_retain),
+			       bool ARG_UNUSED (parsed_property_copy),
+			       bool ARG_UNUSED (parsed_property_nonatomic),
+			       tree ARG_UNUSED (parsed_property_getter_ident),
+			       tree ARG_UNUSED (parsed_property_setter_ident),
+			       bool ARG_UNUSED (parsed_property_copies),
+			       tree ARG_UNUSED (parsed_property_ivar_ident))
 {
 }
 
@@ -357,6 +361,13 @@ void
 objc_add_dynamic_declaration (location_t ARG_UNUSED (start_locus), 
 			      tree ARG_UNUSED (property_list))
 {
+}
+
+const char *
+objc_maybe_printable_name (tree ARG_UNUSED (decl), 
+			   int ARG_UNUSED (v))
+{
+  return NULL;
 }
 
 tree

@@ -148,12 +148,6 @@ extern enum processor_type ia64_tune;
 
 #define WORDS_BIG_ENDIAN (TARGET_BIG_ENDIAN != 0)
 
-#if defined(__BIG_ENDIAN__)
-#define LIBGCC2_WORDS_BIG_ENDIAN 1
-#else
-#define LIBGCC2_WORDS_BIG_ENDIAN 0
-#endif
-
 #define UNITS_PER_WORD 8
 
 #define POINTER_SIZE (TARGET_ILP32 ? 32 : 64)
@@ -1032,19 +1026,6 @@ enum reg_class
 #define FR_RET_LAST  FR_REG (15)
 #define AR_ARG_FIRST OUT_REG (0)
 
-/* A C expression that controls whether a function argument is passed in a
-   register, and which register.  */
-
-#define FUNCTION_ARG(CUM, MODE, TYPE, NAMED) \
-  ia64_function_arg (&CUM, MODE, TYPE, NAMED, 0)
-
-/* Define this macro if the target machine has "register windows", so that the
-   register in which a function sees an arguments is not necessarily the same
-   as the one in which the caller passed the argument.  */
-
-#define FUNCTION_INCOMING_ARG(CUM, MODE, TYPE, NAMED) \
-  ia64_function_arg (&CUM, MODE, TYPE, NAMED, 1)
-
 /* A C type for declaring a variable that is used as the first argument of
    `FUNCTION_ARG' and other related values.  For some target machines, the type
    `int' suffices and can hold the number of bytes of argument so far.  */
@@ -1091,14 +1072,6 @@ do {									\
   (CUM).atypes[3] = (CUM).atypes[4] = (CUM).atypes[5] = I64;            \
   (CUM).atypes[6] = (CUM).atypes[7] = I64;                              \
 } while (0)
-
-/* A C statement (sans semicolon) to update the summarizer variable CUM to
-   advance past an argument in the argument list.  The values MODE, TYPE and
-   NAMED describe that argument.  Once this is done, the variable CUM is
-   suitable for analyzing the *following* argument with `FUNCTION_ARG'.  */
-
-#define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED) \
- ia64_function_arg_advance (&CUM, MODE, TYPE, NAMED)
 
 /* If defined, a C expression that gives the alignment boundary, in bits, of an
    argument with the specified mode and type.  */

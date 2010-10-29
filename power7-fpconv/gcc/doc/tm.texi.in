@@ -912,13 +912,6 @@ order of words in memory is the same as the order in registers.  This
 macro need not be a constant.
 @end defmac
 
-@defmac LIBGCC2_WORDS_BIG_ENDIAN
-Define this macro if @code{WORDS_BIG_ENDIAN} is not constant.  This must be a
-constant value with the same meaning as @code{WORDS_BIG_ENDIAN}, which will be
-used only when compiling @file{libgcc2.c}.  Typically the value will be set
-based on preprocessor defines.
-@end defmac
-
 @defmac FLOAT_WORDS_BIG_ENDIAN
 Define this macro to have the value 1 if @code{DFmode}, @code{XFmode} or
 @code{TFmode} floating point numbers are stored in memory with the word
@@ -4606,6 +4599,10 @@ pass an address to the subroutine.
 This macro has effect in @option{-fpcc-struct-return} mode, but it does
 nothing when you use @option{-freg-struct-return} mode.
 @end defmac
+
+@hook TARGET_GET_RAW_RESULT_MODE
+
+@hook TARGET_GET_RAW_ARG_MODE
 
 @node Caller Saves
 @subsection Caller-Saves Register Allocation

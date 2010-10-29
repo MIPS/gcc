@@ -1372,6 +1372,14 @@ gimplify_decl_expr (tree *stmt_p, gimple_seq *seq_p)
 				   STACK_CHECK_MAX_VAR_SIZE) > 0))
 	gimplify_vla_decl (decl, seq_p);
 
+      /* Some front ends do not explicitly declare all anonymous
+	 artificial variables.  We compensate here by declaring the
+	 variables, though it would be better if the front ends would
+	 explicitly declare them.  */
+      if (!DECL_SEEN_IN_BIND_EXPR_P (decl)
+	  && DECL_ARTIFICIAL (decl) && DECL_NAME (decl) == NULL_TREE)
+	gimple_add_tmp_var (decl);
+
       if (init && init != error_mark_node)
 	{
 	  if (!TREE_STATIC (decl))
@@ -1386,14 +1394,6 @@ gimplify_decl_expr (tree *stmt_p, gimple_seq *seq_p)
 	       as they may contain a label address.  */
 	    walk_tree (&init, force_labels_r, NULL, NULL);
 	}
-
-      /* Some front ends do not explicitly declare all anonymous
-	 artificial variables.  We compensate here by declaring the
-	 variables, though it would be better if the front ends would
-	 explicitly declare them.  */
-      if (!DECL_SEEN_IN_BIND_EXPR_P (decl)
-	  && DECL_ARTIFICIAL (decl) && DECL_NAME (decl) == NULL_TREE)
-	gimple_add_tmp_var (decl);
     }
 
   return GS_ALL_DONE;
@@ -4634,10 +4634,10 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 static enum gimplify_status
 gimplify_variable_sized_compare (tree *expr_p)
 {
+  location_t loc = EXPR_LOCATION (*expr_p);
   tree op0 = TREE_OPERAND (*expr_p, 0);
   tree op1 = TREE_OPERAND (*expr_p, 1);
-  tree t, arg, dest, src;
-  location_t loc = EXPR_LOCATION (*expr_p);
+  tree t, arg, dest, src, expr;
 
   arg = TYPE_SIZE_UNIT (TREE_TYPE (op0));
   arg = unshare_expr (arg);
@@ -4646,8 +4646,11 @@ gimplify_variable_sized_compare (tree *expr_p)
   dest = build_fold_addr_expr_loc (loc, op0);
   t = implicit_built_in_decls[BUILT_IN_MEMCMP];
   t = build_call_expr_loc (loc, t, 3, dest, src, arg);
-  *expr_p
+
+  expr
     = build2 (TREE_CODE (*expr_p), TREE_TYPE (*expr_p), t, integer_zero_node);
+  SET_EXPR_LOCATION (expr, loc);
+  *expr_p = expr;
 
   return GS_OK;
 }

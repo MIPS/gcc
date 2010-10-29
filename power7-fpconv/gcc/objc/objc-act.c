@@ -75,9 +75,14 @@ bool in_late_binary_op = false;
 #endif  /* OBJCPLUS */
 
 /* This is the default way of generating a method name.  */
-/* I am not sure it is really correct.
-   Perhaps there's a danger that it will make name conflicts
-   if method names contain underscores. -- rms.  */
+/* This has the problem that "test_method:argument:" and
+   "test:method_argument:" will generate the same name
+   ("_i_Test__test_method_argument_" for an instance method of the
+   class "Test"), so you can't have them both in the same class!
+   Moreover, the demangling (going from
+   "_i_Test__test_method_argument" back to the original name) is
+   undefined because there are two correct ways of demangling the
+   name.  */
 #ifndef OBJC_GEN_METHOD_LABEL
 #define OBJC_GEN_METHOD_LABEL(BUF, IS_INST, CLASS_NAME, CAT_NAME, SEL_NAME, NUM) \
   do {					    \
@@ -401,11 +406,6 @@ static int method_slot = 0;
    required.  */
 static bool objc_method_optional_flag = false;
 
-static bool property_readonly;
-static tree property_getter;
-static tree property_setter;
-static tree property_ivar;
-static bool property_copies;
 static bool in_objc_property_setter_name_context = false;
 
 static int objc_collecting_ivars = 0;
@@ -548,30 +548,6 @@ generate_struct_by_value_array (void)
     }
 
   exit (0);
-}
-
-/* FIXME: We need to intercept calls to warn_deprecated_use, since that 
-   ultimately calls warning () with a "qD" formatter for decls.  The 'D' 
-   formatter does not handle ObjC-specific decls (in ObjC++).  For now, we
-   interpose a switch to the  default handler which simply prints the decl
-   identifier.  
-   Eventually, we should handle this within the objc{,p}/ code.  */
-
-static void
-objc_warn_deprecated_use (tree depitem, tree attr)
-{
-  if (DECL_P (depitem))
-    {
-      static bool (*sav_printer) (pretty_printer *, text_info *, const char *,
-				  int, bool, bool, bool) = NULL ;
-      if (sav_printer == NULL)
-	sav_printer = diagnostic_format_decoder (global_dc) ;
-      diagnostic_format_decoder (global_dc) = &default_tree_printer;
-      warn_deprecated_use (depitem, attr);
-      diagnostic_format_decoder (global_dc) = sav_printer;
-    }
-  else
-    warn_deprecated_use (depitem, attr);
 }
 
 bool
@@ -834,74 +810,99 @@ objc_set_method_opt (bool optional)
     }
 }
 
-/* This routine gathers property attribute information from the attribute
-   portion of a property declaration. */
-
+/* This routine is called by the parser when a
+   @property... declaration is found.  'decl' is the declaration of
+   the property (type/identifier), and the other arguments represent
+   property attributes that may have been specified in the Objective-C
+   declaration.  'parsed_property_readonly' is 'true' if the attribute
+   'readonly' was specified, and 'false' if not; similarly for the
+   other bool parameters.  'parsed_property_getter_ident' is NULL_TREE
+   if the attribute 'getter' was not specified, and is the identifier
+   corresponding to the specified getter if it was; similarly for
+   'parsed_property_setter_ident'.  */
 void
-objc_set_property_attr (location_t loc, objc_property_attribute_kind attr,
-			tree ident)
-{
-  static char string[BUFSIZE];
-  switch (attr)
-    {
-    case OBJC_PATTR_INIT: /* init */
-	property_readonly = property_copies = false;
-	property_setter = property_getter = property_ivar = NULL_TREE;
-	break;
-    case OBJC_PATTR_READONLY: /* readonly */
-	property_readonly = true;
-	break;
-    case OBJC_PATTR_GETTER: /* getter = ident */
-	if (property_getter != NULL_TREE)
-	  error_at (loc, "the %<getter%> attribute may only be specified once");
-        property_getter = ident;
-	break;
-    case OBJC_PATTR_SETTER: /* setter = ident */
-	if (property_setter != NULL_TREE)
-	  error_at (loc, "the %<setter%> attribute may only be specified once");
-	/* setters always have a trailing ':' in their name. In fact, this is the
-	   only syntax that parser recognizes for a setter name. Must add a trailing
-	   ':' here so name matches that of the declaration of user instance method
-	   for the setter. */
-	sprintf (string, "%s:", IDENTIFIER_POINTER (ident));
-	property_setter = get_identifier (string);;
-	break;
-    case OBJC_PATTR_IVAR: /* ivar = ident */
-	if (property_ivar != NULL_TREE)
-	  error_at (loc, "the %<ivar%> attribute may only be specified once");
-	else if (objc_interface_context) 
-	  {
-	    warning_at (loc, 0, "the %<ivar%> attribute is ignored in an @interface");
-	    property_ivar = NULL_TREE;
-	  }
-	else
-	  property_ivar = ident;
-	break;
-    case OBJC_PATTR_COPIES: /* copies */
-	property_copies = true;
-	break;
-    default:
-	break;
-    }
-}
-
-/* This routine builds a 'property_decl' tree node and adds it to the list
-   of such properties in the current class. It also checks for duplicates.
-*/
-
-void
-objc_add_property_variable (tree decl)
+objc_add_property_declaration (location_t location, tree decl,
+			       bool parsed_property_readonly, bool parsed_property_readwrite,
+			       bool parsed_property_assign, bool parsed_property_retain,
+			       bool parsed_property_copy, bool parsed_property_nonatomic,
+			       tree parsed_property_getter_ident, tree parsed_property_setter_ident,
+			       /* The following two will be removed.  */
+			       bool parsed_property_copies, tree parsed_property_ivar_ident)
 {
   tree property_decl;
   tree x;
   tree interface = NULL_TREE;
+  /* 'property_readonly' is the final readonly/rewrite attribute of
+     the property declaration after all things have been
+     considered.  */
+  bool property_readonly = false;
+  enum objc_property_assign_semantics property_assign_semantics = OBJC_PROPERTY_ASSIGN;
+  /* The following will be removed once @synthesize is implemented.  */
+  bool property_copies = false;
 
+  if (parsed_property_readonly && parsed_property_readwrite)
+    {
+      error_at (location, "%<readonly%> attribute conflicts with %<readwrite%> attribute");
+      /* In case of conflicting attributes (here and below), after
+	 producing an error, we pick one of the attributes and keep
+	 going.  */
+      property_readonly = false;
+    }
+  else
+    {
+      if (parsed_property_readonly)
+	property_readonly = true;
+  
+      if (parsed_property_readwrite)
+	property_readonly = false;
+    }
+
+  if (parsed_property_readonly && parsed_property_setter_ident)
+    {
+      /* Maybe this should be an error ? */
+      warning_at (location, 0, "%<readonly%> attribute conflicts with %<setter%> attribute");
+      parsed_property_readonly = false;
+    }
+
+  if (parsed_property_assign && parsed_property_retain)
+    {
+      error_at (location, "%<assign%> attribute conflicts with %<retain%> attribute");
+      property_assign_semantics = OBJC_PROPERTY_RETAIN;
+    }
+  else if (parsed_property_assign && parsed_property_copy)
+    {
+      error_at (location, "%<assign%> attribute conflicts with %<copy%> attribute");
+      property_assign_semantics = OBJC_PROPERTY_COPY;
+    }
+  else if (parsed_property_retain && parsed_property_copy)
+    {
+      error_at (location, "%<retain%> attribute conflicts with %<copy%> attribute");
+      property_assign_semantics = OBJC_PROPERTY_COPY;
+    }
+  else
+    {
+      if (parsed_property_assign)
+	property_assign_semantics = OBJC_PROPERTY_ASSIGN;
+
+      if (parsed_property_retain)
+	property_assign_semantics = OBJC_PROPERTY_RETAIN;
+
+      if (parsed_property_copy)
+	property_assign_semantics = OBJC_PROPERTY_COPY;
+    }
+
+  /* This will be removed when @synthesize is implemented.  */
+  if (parsed_property_copies)
+    property_copies = true;
+
+  /* This case will be removed when @synthesize is implemented; then
+     @property will only be allowed in an @interface context.  */
   if (objc_implementation_context)
     {
       interface = lookup_interface (CLASS_NAME (objc_implementation_context));
       if (!interface)
 	{
-	  error ("no class property can be implemented without an interface");
+	  error_at (location, "no class property can be implemented without an interface");
 	  return;
 	}
       if (TREE_CODE (objc_implementation_context) == CATEGORY_IMPLEMENTATION_TYPE)
@@ -910,30 +911,66 @@ objc_add_property_variable (tree decl)
 				     CLASS_SUPER_NAME (objc_implementation_context));	
 	  if (!interface)
 	    {
-	      error ("no category property can be implemented without an interface");
+	      error_at (location, "no category property can be implemented without an interface");
 	      return;
 	    }
         }
     }
+  else if (objc_interface_context) 
+    {
+      /* This will be removed when ivar is removed.  */
+      if (parsed_property_ivar_ident)
+	{
+	  warning_at (location, 0, "the %<ivar%> attribute is ignored in an @interface");
+	  parsed_property_ivar_ident = NULL_TREE;
+	}
+    }
   else if (!objc_interface_context)
     {
-      fatal_error ("property declaration not in @interface or @implementation context");
+      error_at (location, "property declaration not in @interface or @implementation context");
       return;
+    }
+
+  if (parsed_property_setter_ident)
+    {
+      /* The setter should be terminated by ':', but the parser only
+	 passes us an identifier without ':'.  So, we need to add ':'
+	 at the end.  */
+      const char *parsed_setter = IDENTIFIER_POINTER (parsed_property_setter_ident);
+      size_t length = strlen (parsed_setter);
+      char *final_setter = (char *)alloca (length + 2);
+
+      sprintf (final_setter, "%s:", parsed_setter);
+      parsed_property_setter_ident = get_identifier (final_setter);
     }
 
   property_decl = make_node (PROPERTY_DECL);
   TREE_TYPE (property_decl) = TREE_TYPE (decl);
 
   PROPERTY_NAME (property_decl) = DECL_NAME (decl);
-  PROPERTY_GETTER_NAME (property_decl) = property_getter;
-  PROPERTY_SETTER_NAME (property_decl) = property_setter;
-  PROPERTY_IVAR_NAME (property_decl) = property_ivar;
+  PROPERTY_GETTER_NAME (property_decl) = parsed_property_getter_ident;
+  PROPERTY_SETTER_NAME (property_decl) = parsed_property_setter_ident;
+  PROPERTY_IVAR_NAME (property_decl) = parsed_property_ivar_ident;
   PROPERTY_READONLY (property_decl) = property_readonly 
 					? boolean_true_node 
 					: boolean_false_node;
   PROPERTY_COPIES (property_decl) = property_copies 
 					? boolean_true_node 
 					: boolean_false_node;
+
+  /* TODO: The following is temporary code that will be removed when
+     property_assign_semantics and property_nonatomic are
+     implemented.  */
+  if (objc_implementation_context && objc_interface_context)
+    {
+      /* This branch is impossible but the compiler can't know it.  Do
+	 something with property_assign_semantics and
+	 parsed_property_nonatomic (not implemented yet) to convince
+	 the compiler we're using them and prevent it from generating
+	 warnings and breaking bootstrap.  */
+      PROPERTY_COPIES (property_decl) = property_assign_semantics ? boolean_true_node : boolean_false_node;
+      PROPERTY_READONLY (property_decl) = parsed_property_nonatomic ? boolean_true_node : boolean_false_node;
+    }
 
   if (objc_interface_context)
     {
@@ -942,13 +979,13 @@ objc_add_property_variable (tree decl)
       /* Issue error if property and an ivar name match. */
       if (TREE_CODE (objc_interface_context) == CLASS_INTERFACE_TYPE
 	  && is_ivar (CLASS_IVARS (objc_interface_context), DECL_NAME (decl)))
-	error ("property %qD may not have the same name as an ivar in the class", decl);
+	error_at (location, "property %qD may not have the same name as an ivar in the class", decl);
       /* must check for duplicate property declarations. */
       for (x = CLASS_PROPERTY_DECL (objc_interface_context); x; x = TREE_CHAIN (x))
 	{
 	  if (PROPERTY_NAME (x) == DECL_NAME (decl))
 	    {
-	      error ("duplicate property declaration %qD", decl);
+	      error_at (location, "duplicate property declaration %qD", decl);
 	      return;
 	    }
 	}
@@ -957,6 +994,8 @@ objc_add_property_variable (tree decl)
     }
   else
     {
+      /* This case will go away once @syhtensize is implemented.  */
+
       /* Doing the property in implementation context. */
       /* If property is not declared in the interface issue error. */
       for (x = CLASS_PROPERTY_DECL (interface); x; x = TREE_CHAIN (x))
@@ -964,26 +1003,27 @@ objc_add_property_variable (tree decl)
 	  break;
       if (!x)
 	{
-	  error ("no declaration of property %qD found in the interface", decl);
+	  error_at (location, "no declaration of property %qD found in the interface", decl);
 	  return;
 	}
       /* readonlys must also match. */
       if (PROPERTY_READONLY (x) != PROPERTY_READONLY (property_decl))
 	{
-	  error ("property %qD %<readonly%> attribute conflicts with its" 
-		 " interface version", decl);
+	  error_at (location, "property %qD %<readonly%> attribute conflicts with its" 
+		    " interface version", decl);
 	}
       /* copies must also match. */
       if (PROPERTY_COPIES (x) != PROPERTY_COPIES (property_decl))
 	{
-	  error ("property %qD %<copies%> attribute conflicts with its" 
-		 " interface version", decl);
+	  error_at (location, "property %qD %<copies%> attribute conflicts with its" 
+		    " interface version", decl);
 	}
       /* Cannot have readonly and setter attribute for the same property. */
       if (PROPERTY_READONLY (property_decl) == boolean_true_node &&
 	  PROPERTY_SETTER_NAME (property_decl))
 	{
-	  warning (0, "a %<readonly%> property cannot have a setter (ignored)");
+	  /* This error is already reported up there.  */
+	  /* warning_at (location, 0, "a %<readonly%> property cannot have a setter (ignored)"); */
 	  PROPERTY_SETTER_NAME (property_decl) = NULL_TREE;
 	}
       /* Add the property to the list of properties for current implementation. */
@@ -1058,7 +1098,7 @@ lookup_property (tree interface_type, tree property)
   return inter;
 }
 
-/* This routine recognizes a dot-notation for a propery reference and generates a call to
+/* This routine recognizes a dot-notation for a property reference and generates a call to
    the getter function for this property. In all other cases, it returns a NULL_TREE.
 */
 
@@ -6541,35 +6581,43 @@ adjust_type_for_id_default (tree type)
   return type;
 }
 
-/*   Usage:
-		keyworddecl:
-			selector ':' '(' typename ')' identifier
+/* Return a KEYWORD_DECL built using the specified key_name, arg_type,
+   arg_name and attributes. (TODO: Rename KEYWORD_DECL to
+   OBJC_METHOD_PARM_DECL ?)
 
-     Purpose:
-		Transform an Objective-C keyword argument into
-		the C equivalent parameter declarator.
+   A KEYWORD_DECL is a tree representing the declaration of a
+   parameter of an Objective-C method.  It is produced when parsing a
+   fragment of Objective-C method declaration of the form
 
-     In:	key_name, an "identifier_node" (optional).
-		arg_type, a  "tree_list" (optional).
-		arg_name, an "identifier_node".
-		attributes, a optional tree containing param attributes.
+   keyworddecl:
+     selector ':' '(' typename ')' identifier
 
-     Note:	It would be really nice to strongly type the preceding
-		arguments in the function prototype; however, then I
-		could not use the "accessor" macros defined in "tree.h".
+   For example, take the Objective-C method
 
-     Out:	an instance of "keyword_decl".  */
+   -(NSString *)pathForResource:(NSString *)resource ofType:(NSString *)type; 
 
+   the two fragments "pathForResource:(NSString *)resource" and
+   "ofType:(NSString *)type" will generate a KEYWORD_DECL each.  The
+   KEYWORD_DECL stores the 'key_name' (eg, identifier for
+   "pathForResource"), the 'arg_type' (eg, tree representing a
+   NSString *), the 'arg_name' (eg identifier for "resource") and
+   potentially some attributes (for example, a tree representing
+   __attribute__ ((unused)) if such an attribute was attached to a
+   certain parameter).  You can access this information using the
+   TREE_TYPE (for arg_type), KEYWORD_ARG_NAME (for arg_name),
+   KEYWORD_KEY_NAME (for key_name), DECL_ATTRIBUTES (for attributes).
+
+   'key_name' is an identifier node (and is optional as you can omit
+   it in Objective-C methods).
+   'arg_type' is a tree list (and is optional too if no parameter type
+   was specified).
+   'arg_name' is an identifier node and is required.
+   'attributes' is an optional tree containing parameter attributes.  */
 tree
 objc_build_keyword_decl (tree key_name, tree arg_type, 
 			 tree arg_name, tree attributes)
 {
   tree keyword_decl;
-
-  if (attributes)
-    warning_at (input_location, OPT_Wattributes, 
-		"method parameter attributes are not available in this "
-		"version of the compiler, (ignored)");
 
   /* If no type is specified, default to "id".  */
   arg_type = adjust_type_for_id_default (arg_type);
@@ -6579,6 +6627,7 @@ objc_build_keyword_decl (tree key_name, tree arg_type,
   TREE_TYPE (keyword_decl) = arg_type;
   KEYWORD_ARG_NAME (keyword_decl) = arg_name;
   KEYWORD_KEY_NAME (keyword_decl) = key_name;
+  DECL_ATTRIBUTES (keyword_decl) = attributes;
 
   return keyword_decl;
 }
@@ -7273,7 +7322,7 @@ build_objc_method_call (location_t loc, int super_flag, tree method_prototype,
   sender_cast = build_pointer_type (ftype);
 
   if (method_prototype && TREE_DEPRECATED (method_prototype))
-    objc_warn_deprecated_use (method_prototype, NULL_TREE);
+    warn_deprecated_use (method_prototype, NULL_TREE);
 
   lookup_object = build_c_cast (loc, rcv_p, lookup_object);
 
@@ -9913,10 +9962,13 @@ start_method_def (tree method)
   parmlist = METHOD_SEL_ARGS (method);
   while (parmlist)
     {
-      tree type = TREE_VALUE (TREE_TYPE (parmlist)), parm;
+      /* parmlist is a KEYWORD_DECL.  */
+      tree type = TREE_VALUE (TREE_TYPE (parmlist));
+      tree parm;
 
       parm = build_decl (input_location,
 			 PARM_DECL, KEYWORD_ARG_NAME (parmlist), type);
+      decl_attributes (&parm, DECL_ATTRIBUTES (parmlist), 0);
       objc_push_parm (parm);
       parmlist = DECL_CHAIN (parmlist);
     }
@@ -10078,7 +10130,6 @@ objc_start_function (tree name, tree type, tree attrs,
 #else
   current_function_returns_value = 0;  /* Assume, until we see it does.  */
   current_function_returns_null = 0;
-
   decl_attributes (&fndecl, attrs, 0);
   announce_function (fndecl);
   DECL_INITIAL (fndecl) = error_mark_node;
@@ -10615,7 +10666,64 @@ dump_interface (FILE *fp, tree chain)
   fprintf (fp, "@end\n");
 }
 
-/* Demangle function for Objective-C */
+#if 0
+/* Produce the pretty printing for an Objective-C method.  This is
+   currently unused, but could be handy while reorganizing the pretty
+   printing to be more robust.  */
+static const char *
+objc_pretty_print_method (bool is_class_method,
+			  const char *class_name,
+			  const char *category_name,
+			  const char *selector)
+{
+  if (category_name)
+    {
+      char *result = XNEWVEC (char, strlen (class_name) + strlen (category_name) 
+			      + strlen (selector) + 7);
+
+      if (is_class_method)
+	sprintf (result, "+[%s(%s) %s]", class_name, category_name, selector);
+      else
+	sprintf (result, "-[%s(%s) %s]", class_name, category_name, selector);
+
+      return result;
+    }
+  else
+    {
+      char *result = XNEWVEC (char, strlen (class_name)
+			      + strlen (selector) + 5);
+
+      if (is_class_method)
+	sprintf (result, "+[%s %s]", class_name, selector);
+      else
+	sprintf (result, "-[%s %s]", class_name, selector);
+
+      return result;      
+    }
+}
+#endif
+
+/* Demangle function for Objective-C.  Attempt to demangle the
+   function name associated with a method (eg, going from
+   "_i_NSObject__class" to "-[NSObject class]"); usually for the
+   purpose of pretty printing or error messages.  Return the demangled
+   name, or NULL if the string is not an Objective-C mangled method
+   name.
+
+   Because of how the mangling is done, any method that has a '_' in
+   its original name is at risk of being demangled incorrectly.  In
+   some cases there are multiple valid ways to demangle a method name
+   and there is no way we can decide.
+
+   TODO: objc_demangle() can't always get it right; the right way to
+   get this correct for all method names would be to store the
+   Objective-C method name somewhere in the function decl.  Then,
+   there is no demangling to do; we'd just pull the method name out of
+   the decl.  As an additional bonus, when printing error messages we
+   could check for such a method name, and if we find it, we know the
+   function is actually an Objective-C method and we could print error
+   messages saying "In method '+[NSObject class]" instead of "In
+   function '+[NSObject class]" as we do now.  */
 static const char *
 objc_demangle (const char *mangled)
 {
@@ -10638,7 +10746,7 @@ objc_demangle (const char *mangled)
       if (cp == NULL)
 	{
 	  free(demangled);      /* not mangled name */
-	  return mangled;
+	  return NULL;
 	}
       if (cp[1] == '_')  /* easy case: no category name */
 	{
@@ -10652,29 +10760,100 @@ objc_demangle (const char *mangled)
 	  if (cp == 0)
 	    {
 	      free(demangled);    /* not mangled name */
-	      return mangled;
+	      return NULL;
 	    }
 	  *cp++ = ')';
 	  *cp++ = ' ';            /* overwriting 1st char of method name... */
 	  strcpy(cp, mangled + (cp - demangled)); /* get it back */
 	}
+      /* Now we have the method name.  We need to generally replace
+	 '_' with ':' but trying to preserve '_' if it could only have
+	 been in the mangled string because it was already in the
+	 original name.  In cases where it's ambiguous, we assume that
+	 any '_' originated from a ':'.  */
+
+      /* Initial '_'s in method name can't have been generating by
+	 converting ':'s.  Skip them.  */
       while (*cp && *cp == '_')
-	cp++;                   /* skip any initial underbars in method name */
-      for (; *cp; cp++)
-	if (*cp == '_')
-	  *cp = ':';            /* replace remaining '_' with ':' */
+	cp++;
+
+      /* If the method name does not end with '_', then it has no
+	 arguments and there was no replacement of ':'s with '_'s
+	 during mangling.  Check for that case, and skip any
+	 replacement if so.  This at least guarantees that methods
+	 with no arguments are always demangled correctly (unless the
+	 original name ends with '_').  */
+      if (*(mangled + strlen (mangled) - 1) != '_')
+	{
+	  /* Skip to the end.  */
+	  for (; *cp; cp++)
+	    ;
+	}
+      else
+	{
+	  /* Replace remaining '_' with ':'.  This may get it wrong if
+	     there were '_'s in the original name.  In most cases it
+	     is impossible to disambiguate.  */
+	  for (; *cp; cp++)
+	    if (*cp == '_')
+	      *cp = ':';         
+	}
       *cp++ = ']';              /* closing right brace */
       *cp++ = 0;                /* string terminator */
       return demangled;
     }
   else
-    return mangled;             /* not an objc mangled name */
+    return NULL;             /* not an objc mangled name */
 }
 
+/* Try to pretty-print a decl.  If the 'decl' is an Objective-C
+   specific decl, return the printable name for it.  If not, return
+   NULL.  */
 const char *
-objc_printable_name (tree decl, int kind ATTRIBUTE_UNUSED)
+objc_maybe_printable_name (tree decl, int v ATTRIBUTE_UNUSED)
 {
-  return objc_demangle (IDENTIFIER_POINTER (DECL_NAME (decl)));
+  switch (TREE_CODE (decl))
+    {
+    case FUNCTION_DECL:
+      return objc_demangle (IDENTIFIER_POINTER (DECL_NAME (decl)));
+      break;
+
+      /* The following happens when we are printing a deprecation
+	 warning for a method.  The warn_deprecation() will end up
+	 trying to print the decl for INSTANCE_METHOD_DECL or
+	 CLASS_METHOD_DECL.  It would be nice to be able to print
+	 "-[NSObject autorelease] is deprecated", but to do that, we'd
+	 need to store the class and method name in the method decl,
+	 which we currently don't do.  For now, just return the name
+	 of the method.  We don't return NULL, because that may
+	 trigger further attempts to pretty-print the decl in C/C++,
+	 but they wouldn't know how to pretty-print it.  */
+    case INSTANCE_METHOD_DECL:
+    case CLASS_METHOD_DECL:
+      return IDENTIFIER_POINTER (DECL_NAME (decl));
+      break;
+    default:
+      return NULL;
+      break;
+    }
+}
+
+/* Return a printable name for 'decl'.  This first tries
+   objc_maybe_printable_name(), and if that fails, it returns the name
+   in the decl.  This is used as LANG_HOOKS_DECL_PRINTABLE_NAME for
+   Objective-C; in Objective-C++, setting the hook is not enough
+   because lots of C++ Front-End code calls cxx_printable_name,
+   dump_decl and other C++ functions directly.  So instead we have
+   modified dump_decl to call objc_maybe_printable_name directly.  */
+const char *
+objc_printable_name (tree decl, int v)
+{
+  const char *demangled_name = objc_maybe_printable_name (decl, v);
+
+  if (demangled_name != NULL)
+    return demangled_name;
+  else
+    return IDENTIFIER_POINTER (DECL_NAME (decl));
 }
 
 static void

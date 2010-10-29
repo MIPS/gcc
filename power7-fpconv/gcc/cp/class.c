@@ -1269,6 +1269,10 @@ check_bases (tree t,
 
       gcc_assert (COMPLETE_TYPE_P (basetype));
 
+      /* If any base class is non-literal, so is the derived class.  */
+      if (!CLASSTYPE_LITERAL_P (basetype))
+        CLASSTYPE_LITERAL_P (t) = false;
+
       /* Effective C++ rule 14.  We only need to check TYPE_POLYMORPHIC_P
 	 here because the case of virtual functions but non-virtual
 	 dtor is handled in finish_struct_1.  */
@@ -2668,7 +2672,20 @@ add_implicitly_declared_members (tree t,
   if (! TYPE_HAS_USER_CONSTRUCTOR (t))
     {
       TYPE_HAS_DEFAULT_CONSTRUCTOR (t) = 1;
-      CLASSTYPE_LAZY_DEFAULT_CTOR (t) = 1;
+      if (TYPE_HAS_TRIVIAL_DFLT (t))
+	{
+	  /* A trivial default constructor is constexpr
+	     if there is nothing to initialize.  */
+	  if (cxx_dialect >= cxx0x && is_really_empty_class (t))
+	    TYPE_HAS_CONSTEXPR_CTOR (t) = 1;
+	  CLASSTYPE_LAZY_DEFAULT_CTOR (t) = 1;
+	}
+      else if (cxx_dialect >= cxx0x)
+	/* We need to go ahead and declare this to set
+	   TYPE_HAS_CONSTEXPR_CTOR.  */
+	lazily_declare_fn (sfk_constructor, t);
+      else
+	CLASSTYPE_LAZY_DEFAULT_CTOR (t) = 1;
     }
 
   /* [class.ctor]
@@ -3050,6 +3067,11 @@ check_field_decls (tree t, tree *access_decls,
 
       if (TREE_PRIVATE (x) || TREE_PROTECTED (x))
 	CLASSTYPE_NON_AGGREGATE (t) = 1;
+
+      /* If at least one non-static data member is non-literal, the whole
+         class becomes non-literal.  */
+      if (!literal_type_p (type))
+        CLASSTYPE_LITERAL_P (t) = false;
 
       /* A standard-layout class is a class that:
 	 ...
@@ -4316,6 +4338,19 @@ type_has_user_provided_default_constructor (tree t)
   return false;
 }
 
+/* Returns true iff class T has a constexpr default constructor.  */
+
+bool
+type_has_constexpr_default_constructor (tree t)
+{
+  tree fns;
+
+  if (!CLASS_TYPE_P (t))
+    return false;
+  fns = get_default_ctor (t);
+  return (fns && DECL_DECLARED_CONSTEXPR_P (fns));
+}
+
 /* Returns true iff class TYPE has a virtual destructor.  */
 
 bool
@@ -4453,6 +4488,41 @@ type_requires_array_cookie (tree type)
     }
 
   return has_two_argument_delete_p;
+}
+
+/* Finish computing the `literal type' property of class type T.
+
+   At this point, we have already processed base classes and
+   non-static data members.  We need to check whether the copy
+   constructor is trivial, the destructor is trivial, and there
+   is a trivial default constructor or at least one constexpr
+   constructor other than the copy constructor.  */
+
+static void
+finalize_literal_type_property (tree t)
+{
+  if (cxx_dialect < cxx0x
+      || TYPE_HAS_NONTRIVIAL_DESTRUCTOR (t)
+      /* FIXME These constraints seem unnecessary; remove from standard.
+	 || !TYPE_HAS_TRIVIAL_COPY_CTOR (t)
+	 || TYPE_HAS_COMPLEX_MOVE_CTOR (t)*/ )
+    CLASSTYPE_LITERAL_P (t) = false;
+  else if (CLASSTYPE_LITERAL_P (t) && !TYPE_HAS_TRIVIAL_DFLT (t)
+	   && !TYPE_HAS_CONSTEXPR_CTOR (t))
+    CLASSTYPE_LITERAL_P (t) = false;
+
+  if (!CLASSTYPE_LITERAL_P (t) && !CLASSTYPE_TEMPLATE_INSTANTIATION (t))
+    {
+      tree fn;
+      for (fn = TYPE_METHODS (t); fn; fn = DECL_CHAIN (fn))
+	if (DECL_DECLARED_CONSTEXPR_P (fn)
+	    && DECL_NONSTATIC_MEMBER_FUNCTION_P (fn)
+	    && !DECL_CONSTRUCTOR_P (fn))
+	  {
+	    error ("enclosing class of %q+D is not a literal type", fn);
+	    DECL_DECLARED_CONSTEXPR_P (fn) = false;
+	  }
+    }
 }
 
 /* Check the validity of the bases and members declared in T.  Add any
@@ -4610,6 +4680,10 @@ check_bases_and_members (tree t)
       /* "This class type is not an aggregate."  */
       CLASSTYPE_NON_AGGREGATE (t) = 1;
     }
+
+  /* Compute the 'literal type' property before we
+     do anything with non-static member functions.  */
+  finalize_literal_type_property (t);
 
   /* Create the in-charge and not-in-charge variants of constructors
      and destructors.  */
@@ -5445,6 +5519,7 @@ finish_struct_1 (tree t)
   CLASSTYPE_EMPTY_P (t) = 1;
   CLASSTYPE_NEARLY_EMPTY_P (t) = 1;
   CLASSTYPE_CONTAINS_EMPTY_CLASS_P (t) = 0;
+  CLASSTYPE_LITERAL_P (t) = true;
 
   /* Do end-of-class semantic processing: checking the validity of the
      bases and members and add implicitly generated methods.  */
