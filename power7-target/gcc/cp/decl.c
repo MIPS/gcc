@@ -92,6 +92,7 @@ static void layout_var_decl (tree);
 static tree check_initializer (tree, tree, int, tree *);
 static void make_rtl_for_nonlocal_decl (tree, tree, const char *);
 static void save_function_data (tree);
+static void copy_type_enum (tree , tree);
 static void check_function_type (tree, tree);
 static void finish_constructor_body (void);
 static void begin_destructor_body (void);
@@ -1127,6 +1128,32 @@ check_redeclaration_exception_specification (tree new_decl,
     }
 }
 
+/* Return true if OLD_DECL and NEW_DECL agree on constexprness.
+   Otherwise issue diagnostics.  */
+
+static bool
+validate_constexpr_redeclaration (tree old_decl, tree new_decl)
+{
+  old_decl = STRIP_TEMPLATE (old_decl);
+  new_decl = STRIP_TEMPLATE (new_decl);
+  if (!VAR_OR_FUNCTION_DECL_P (old_decl)
+      || !VAR_OR_FUNCTION_DECL_P (new_decl))
+    return true;
+  if (DECL_DECLARED_CONSTEXPR_P (old_decl)
+      == DECL_DECLARED_CONSTEXPR_P (new_decl))
+    return true;
+  if (TREE_CODE (old_decl) == FUNCTION_DECL && DECL_BUILT_IN (old_decl))
+    {
+      /* Hide a built-in declaration.  */
+      DECL_DECLARED_CONSTEXPR_P (old_decl)
+	= DECL_DECLARED_CONSTEXPR_P (new_decl);
+      return true;
+    }
+  error ("redeclaration %qD differs in %<constexpr%>", new_decl);
+  error ("from previous declaration %q+D", old_decl);
+  return false;
+}
+
 #define GNU_INLINE_P(fn) (DECL_DECLARED_INLINE_P (fn)			\
 			  && lookup_attribute ("gnu_inline",		\
 					       DECL_ATTRIBUTES (fn)))
@@ -1605,6 +1632,9 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
   /* If new decl is `static' and an `extern' was seen previously,
      warn about it.  */
   warn_extern_redeclared_static (newdecl, olddecl);
+
+  if (!validate_constexpr_redeclaration (olddecl, newdecl))
+    return error_mark_node;
 
   /* We have committed to returning 1 at this point.  */
   if (TREE_CODE (newdecl) == FUNCTION_DECL)
@@ -2908,6 +2938,11 @@ finish_case_label (location_t loc, tree low_value, tree high_value)
   if (!check_switch_goto (switch_stack->level))
     return error_mark_node;
 
+  if (low_value)
+    low_value = decl_constant_value (low_value);
+  if (high_value)
+    high_value = decl_constant_value (high_value);
+
   r = c_add_case_label (loc, switch_stack->cases, cond,
 			SWITCH_STMT_TYPE (switch_stack->switch_stmt),
 			low_value, high_value);
@@ -4028,7 +4063,7 @@ check_tag_decl (cp_decl_specifier_seq *declspecs)
       else if (saw_typedef)
 	warning (0, "%<typedef%> was ignored in this declaration");
       else if (declspecs->specs[(int) ds_constexpr])
-        error ("%<constexpr> cannot be used for type declarations");
+        error ("%<constexpr%> cannot be used for type declarations");
     }
 
   return declared_type;
@@ -4309,9 +4344,6 @@ start_decl (const cp_declarator *declarator,
 	  && !alias)
 	permerror (input_location, "declaration of %q#D outside of class is not definition",
 		   decl);
-
-      if (!ensure_literal_type_for_constexpr_object (decl))
-        return error_mark_node;
     }
 
   was_public = TREE_PUBLIC (decl);
@@ -4343,7 +4375,7 @@ start_decl (const cp_declarator *declarator,
       /* This is a const variable with implicit 'static'.  Set
 	 DECL_THIS_STATIC so we can tell it from variables that are
 	 !TREE_PUBLIC because of the anonymous namespace.  */
-      gcc_assert (CP_TYPE_CONST_P (TREE_TYPE (decl)));
+      gcc_assert (CP_TYPE_CONST_P (TREE_TYPE (decl)) || errorcount);
       DECL_THIS_STATIC (decl) = 1;
     }
 
@@ -4752,14 +4784,10 @@ check_for_uninitialized_const_var (tree decl)
 {
   tree type = strip_array_types (TREE_TYPE (decl));
 
-  if (TREE_CODE (decl) == VAR_DECL && DECL_DECLARED_CONSTEXPR_P (decl)
-      && DECL_INITIAL (decl) == NULL)
-    error ("missing initializer for constexpr %qD", decl);
-
   /* ``Unless explicitly declared extern, a const object does not have
      external linkage and must be initialized. ($8.4; $12.1)'' ARM
      7.1.6 */
-  else if (TREE_CODE (decl) == VAR_DECL
+  if (TREE_CODE (decl) == VAR_DECL
       && TREE_CODE (type) != REFERENCE_TYPE
       && CP_TYPE_CONST_P (type)
       && (!TYPE_NEEDS_CONSTRUCTING (type)
@@ -5689,6 +5717,12 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 	    return;
 	}
     }
+
+  if (TREE_CODE (decl) == FUNCTION_DECL)
+    validate_constexpr_fundecl (decl);
+
+  else if (!ensure_literal_type_for_constexpr_object (decl))
+    DECL_DECLARED_CONSTEXPR_P (decl) = 0;
 
   if (init && TREE_CODE (decl) == FUNCTION_DECL)
     {
@@ -6958,6 +6992,8 @@ grokfndecl (tree ctype,
   /* If the declaration was declared inline, mark it as such.  */
   if (inlinep)
     DECL_DECLARED_INLINE_P (decl) = 1;
+  if (inlinep & 2)
+    DECL_DECLARED_CONSTEXPR_P (decl) = true;
 
   DECL_EXTERNAL (decl) = 1;
   if (quals && TREE_CODE (type) == FUNCTION_TYPE)
@@ -7340,6 +7376,21 @@ build_ptrmem_type (tree class_type, tree member_type)
 int
 check_static_variable_definition (tree decl, tree type)
 {
+  /* If DECL is declared constexpr, we'll do the appropriate checks
+     in check_initializer.  */
+  if (DECL_P (decl) && DECL_DECLARED_CONSTEXPR_P (decl))
+    return 0;
+  else if (cxx_dialect >= cxx0x && !INTEGRAL_OR_ENUMERATION_TYPE_P (type))
+    {
+      if (literal_type_p (type))
+	error ("%<constexpr%> needed for in-class initialization of static "
+	       "data member %q#D of non-integral type", decl);
+      else
+	error ("in-class initialization of static data member %q#D of "
+	       "non-literal type", decl);
+      return 1;
+    }
+
   /* Motion 10 at San Diego: If a static const integral data member is
      initialized with an integral constant expression, the initializer
      may appear either in the declaration (within the class), or in
@@ -7351,10 +7402,6 @@ check_static_variable_definition (tree decl, tree type)
       error ("invalid in-class initialization of static data member "
 	     "of non-integral type %qT",
 	     type);
-      /* If we just return the declaration, crashes will sometimes
-	 occur.  We therefore return void_type_node, as if this were a
-	 friend declaration, to cause callers to completely ignore
-	 this declaration.  */
       return 1;
     }
   else if (!CP_TYPE_CONST_P (type))
@@ -8045,6 +8092,12 @@ grokdeclarator (const cp_declarator *declarator,
   if (name == NULL)
     name = decl_context == PARM ? "parameter" : "type name";
 
+  if (constexpr_p && declspecs->specs[(int)ds_typedef])
+    {
+      error ("%<constexpr%> cannot appear in a typedef declaration");
+      return error_mark_node;
+    }
+
   /* If there were multiple types specified in the decl-specifier-seq,
      issue an error message.  */
   if (declspecs->multiple_types_p)
@@ -8298,17 +8351,6 @@ grokdeclarator (const cp_declarator *declarator,
   type_quals = TYPE_UNQUALIFIED;
   if (declspecs->specs[(int)ds_const])
     type_quals |= TYPE_QUAL_CONST;
-  /* A `constexpr' specifier used in an object declaration declares
-     the object as `const'.  */
-  if (constexpr_p)
-    {
-      if (innermost_code == cdk_function)
-        ;
-      else if (declspecs->specs[(int)ds_const] != 0)
-        error ("both %<const%> and %<constexpr%> cannot be used here");
-      else
-        type_quals |= TYPE_QUAL_CONST;
-    }
   if (declspecs->specs[(int)ds_volatile])
     type_quals |= TYPE_QUAL_VOLATILE;
   if (declspecs->specs[(int)ds_restrict])
@@ -8685,21 +8727,6 @@ grokdeclarator (const cp_declarator *declarator,
 		  }
 	      }
 
-            /* It is not allowed to use `constexpr' in a function
-               declaration that is not a definition.
-               That is too strict, though.  */
-            if (constexpr_p && !funcdef_flag)
-              {
-                error ("the %<constexpr%> specifier cannot be used in "
-                       "a function declaration that is not a definition");
-                constexpr_p = false;
-              }
-
-            /* A constexpr non-static member function is implicitly const.  */
-            if (constexpr_p && decl_context == FIELD && staticp == 0
-                && sfk != sfk_constructor && sfk != sfk_destructor)
-              memfn_quals |= TYPE_QUAL_CONST;
-
 	    arg_types = grokparms (declarator->u.function.parameters,
 				   &parms);
 
@@ -8877,6 +8904,18 @@ grokdeclarator (const cp_declarator *declarator,
 	}
     }
 
+  /* A `constexpr' specifier used in an object declaration declares
+     the object as `const'.  */
+  if (constexpr_p && innermost_code != cdk_function)
+    {
+      if (type_quals & TYPE_QUAL_CONST)
+        error ("both %<const%> and %<constexpr%> cannot be used here");
+      if (type_quals & TYPE_QUAL_VOLATILE)
+        error ("both %<volatile%> and %<constexpr%> cannot be used here");
+      type_quals |= TYPE_QUAL_CONST;
+      type = cp_build_qualified_type (type, type_quals);
+    }
+
   if (unqualified_id && TREE_CODE (unqualified_id) == TEMPLATE_ID_EXPR
       && TREE_CODE (type) != FUNCTION_TYPE
       && TREE_CODE (type) != METHOD_TYPE)
@@ -8963,8 +9002,6 @@ grokdeclarator (const cp_declarator *declarator,
 	return error_mark_node;
       else if (TREE_CODE (type) == FUNCTION_TYPE)
 	{
-	  tree sname = declarator->u.id.unqualified_name;
-
 	  if (current_class_type
 	      && (!friendp || funcdef_flag))
 	    {
@@ -8974,20 +9011,6 @@ grokdeclarator (const cp_declarator *declarator,
 		     ctype, name, current_class_type);
 	      return error_mark_node;
 	    }
-
-          /* It is not permitted to define a member function outside ist
-             membership class as `constexpr'.  */
-          if (constexpr_p)
-            error ("a constexpr function cannot be defined "
-                   "outside of its class");
-
-	  if (TREE_CODE (sname) == IDENTIFIER_NODE
-	      && NEW_DELETE_OPNAME_P (sname))
-	    /* Overloaded operator new and operator delete
-	       are always static functions.  */
-	    ;
-	  else
-	    type = build_memfn_type (type, ctype, memfn_quals);
 	}
       else if (declspecs->specs[(int)ds_typedef]
 	       && current_class_type)
@@ -8997,6 +9020,15 @@ grokdeclarator (const cp_declarator *declarator,
 	  return error_mark_node;
 	}
     }
+
+  if (ctype == NULL_TREE && decl_context == FIELD && friendp == 0)
+    ctype = current_class_type;
+
+  /* A constexpr non-static member function is implicitly const.  */
+  if (constexpr_p && ctype && staticp == 0
+      && TREE_CODE (type) == FUNCTION_TYPE
+      && sfk != sfk_constructor && sfk != sfk_destructor)
+    memfn_quals |= TYPE_QUAL_CONST;
 
   /* Now TYPE has the actual type.  */
 
@@ -9361,6 +9393,10 @@ grokdeclarator (const cp_declarator *declarator,
 	type = build_pointer_type (type);
     }
 
+  if (ctype && TREE_CODE (type) == FUNCTION_TYPE && staticp < 2
+      && !NEW_DELETE_OPNAME_P (unqualified_id))
+    type = build_memfn_type (type, ctype, memfn_quals);
+
   {
     tree decl;
 
@@ -9394,22 +9430,15 @@ grokdeclarator (const cp_declarator *declarator,
 	    error ("invalid use of %<::%>");
 	    return error_mark_node;
 	  }
-	else if (TREE_CODE (type) == FUNCTION_TYPE)
+	else if (TREE_CODE (type) == FUNCTION_TYPE
+		 || TREE_CODE (type) == METHOD_TYPE)
 	  {
 	    int publicp = 0;
 	    tree function_context;
 
 	    if (friendp == 0)
 	      {
-		if (ctype == NULL_TREE)
-		  ctype = current_class_type;
-
-		if (ctype == NULL_TREE)
-		  {
-		    error ("can't make %qD into a method -- not in a class",
-			   unqualified_id);
-		    return error_mark_node;
-		  }
+		gcc_assert (ctype);
 
 		/* ``A union may [ ... ] not [ have ] virtual functions.''
 		   ARM 9.5 */
@@ -9430,8 +9459,6 @@ grokdeclarator (const cp_declarator *declarator,
 			virtualp = 0;
 		      }
 		  }
-		else if (staticp < 2)
-		  type = build_memfn_type (type, ctype, memfn_quals);
 	      }
 
 	    /* Check that the name used for a destructor makes sense.  */
@@ -9454,9 +9481,12 @@ grokdeclarator (const cp_declarator *declarator,
 		    return error_mark_node;
 		  }
                 if (constexpr_p)
-                  error ("a destructor cannot be %<constexpr%>");
+                  {
+                    error ("a destructor cannot be %<constexpr%>");
+                    return error_mark_node;
+                  }
 	      }
-	    else if (sfk == sfk_constructor && friendp)
+	    else if (sfk == sfk_constructor && friendp && !ctype)
 	      {
 		error ("expected qualified name in friend declaration "
 		       "for constructor %qD",
@@ -9476,7 +9506,7 @@ grokdeclarator (const cp_declarator *declarator,
 			       unqualified_id,
 			       virtualp, flags, memfn_quals, raises,
 			       friendp ? -1 : 0, friendp, publicp,
-                               inlinep || constexpr_p,
+                               inlinep | (2 * constexpr_p),
 			       sfk,
 			       funcdef_flag, template_count, in_namespace,
 			       attrlist, declarator->id_loc);
@@ -9497,25 +9527,6 @@ grokdeclarator (const cp_declarator *declarator,
 	       is called a converting constructor.  */
 	    if (explicitp == 2)
 	      DECL_NONCONVERTING_P (decl) = 1;
-	  }
-	else if (TREE_CODE (type) == METHOD_TYPE)
-	  {
-	    /* We only get here for friend declarations of
-	       members of other classes.  */
-	    /* All method decls are public, so tell grokfndecl to set
-	       TREE_PUBLIC, also.  */
-	    decl = grokfndecl (ctype, type,
-			       TREE_CODE (unqualified_id) != TEMPLATE_ID_EXPR
-			       ? unqualified_id : dname,
-			       parms,
-			       unqualified_id,
-			       virtualp, flags, memfn_quals, raises,
-			       friendp ? -1 : 0, friendp, 1, 0, sfk,
-			       funcdef_flag, template_count, in_namespace,
-			       attrlist,
-			       declarator->id_loc);
-	    if (decl == NULL_TREE)
-	      return error_mark_node;
 	  }
 	else if (!staticp && !dependent_type_p (type)
 		 && !COMPLETE_TYPE_P (complete_type (type))
@@ -9595,14 +9606,24 @@ grokdeclarator (const cp_declarator *declarator,
 		       the rest of the compiler does not correctly
 		       handle the initialization unless the member is
 		       static so we make it static below.  */
-		    permerror (input_location, "ISO C++ forbids initialization of member %qD",
-			       unqualified_id);
-		    permerror (input_location, "making %qD static", unqualified_id);
-		    staticp = 1;
+		    if (cxx_dialect >= cxx0x)
+		      {
+			sorry ("non-static data member initializers");
+		      }
+		    else
+		      {
+			permerror (input_location, "ISO C++ forbids initialization of member %qD",
+				   unqualified_id);
+			permerror (input_location, "making %qD static", unqualified_id);
+			staticp = 1;
+		      }
 		  }
 
 		if (uses_template_parms (type))
 		  /* We'll check at instantiation time.  */
+		  ;
+		else if (constexpr_p)
+		  /* constexpr has the same requirements.  */
 		  ;
 		else if (check_static_variable_definition (unqualified_id,
 							   type))
@@ -9713,11 +9734,6 @@ grokdeclarator (const cp_declarator *declarator,
 		sfk = sfk_none;
 	      }
 	  }
-	else if (TREE_CODE (type) == FUNCTION_TYPE && staticp < 2
-		 && !NEW_DELETE_OPNAME_P (original_name))
-	  type = build_method_type_directly (ctype,
-					     TREE_TYPE (type),
-					     TYPE_ARG_TYPES (type));
 
 	/* Record presence of `static'.  */
 	publicp = (ctype != NULL_TREE
@@ -9727,7 +9743,8 @@ grokdeclarator (const cp_declarator *declarator,
 	decl = grokfndecl (ctype, type, original_name, parms, unqualified_id,
 			   virtualp, flags, memfn_quals, raises,
 			   1, friendp,
-			   publicp, inlinep || constexpr_p, sfk, funcdef_flag,
+			   publicp, inlinep | (2 * constexpr_p), sfk,
+                           funcdef_flag,
 			   template_count, in_namespace, attrlist,
 			   declarator->id_loc);
 	if (decl == NULL_TREE)
@@ -9796,6 +9813,9 @@ grokdeclarator (const cp_declarator *declarator,
 		storage_class = sc_none;
 	      }
 	  }
+	else if (constexpr_p && DECL_EXTERNAL (decl))
+	  error ("declaration of constexpr variable %qD is not a definition",
+		 decl);
       }
 
     if (storage_class == sc_extern && initialized && !funcdef_flag)
@@ -9825,8 +9845,8 @@ grokdeclarator (const cp_declarator *declarator,
       DECL_THIS_STATIC (decl) = 1;
 
     /* Don't forget constexprness.  */
-    if (VAR_OR_FUNCTION_DECL_P (decl))
-      DECL_DECLARED_CONSTEXPR_P (decl) = constexpr_p;
+    if (constexpr_p)
+      DECL_DECLARED_CONSTEXPR_P (decl) = true;
 
     /* Record constancy and volatility on the DECL itself .  There's
        no need to do this when processing a template; we'll do this
@@ -10291,6 +10311,10 @@ grok_special_member_properties (tree decl)
 	TYPE_HAS_COMPLEX_MOVE_CTOR (class_type) = 1;
       else if (is_list_ctor (decl))
 	TYPE_HAS_LIST_CTOR (class_type) = 1;
+
+      if (DECL_DECLARED_CONSTEXPR_P (decl)
+	  && !copy_fn_p (decl) && !move_fn_p (decl))
+	TYPE_HAS_CONSTEXPR_CTOR (class_type) = 1;
     }
   else if (DECL_OVERLOADED_OPERATOR_P (decl) == NOP_EXPR)
     {
@@ -11309,8 +11333,26 @@ xref_basetypes (tree ref, tree base_list)
 }
 
 
+/* Copies the enum-related properties from type SRC to type DST.
+   Used with the underlying type of an enum and the enum itself.  */
+static void
+copy_type_enum (tree dst, tree src)
+{
+  TYPE_MIN_VALUE (dst) = TYPE_MIN_VALUE (src);
+  TYPE_MAX_VALUE (dst) = TYPE_MAX_VALUE (src);
+  TYPE_SIZE (dst) = TYPE_SIZE (src);
+  TYPE_SIZE_UNIT (dst) = TYPE_SIZE_UNIT (src);
+  SET_TYPE_MODE (dst, TYPE_MODE (src));
+  TYPE_PRECISION (dst) = TYPE_PRECISION (src);
+  TYPE_ALIGN (dst) = TYPE_ALIGN (src);
+  TYPE_USER_ALIGN (dst) = TYPE_USER_ALIGN (src);
+  TYPE_UNSIGNED (dst) = TYPE_UNSIGNED (src);
+}
+
 /* Begin compiling the definition of an enumeration type.
    NAME is its name, 
+
+   if ENUMTYPE is not NULL_TREE then the type has alredy been found.
 
    UNDERLYING_TYPE is the type that will be used as the storage for
    the enumeration type. This should be NULL_TREE if no storage type
@@ -11318,97 +11360,145 @@ xref_basetypes (tree ref, tree base_list)
 
    SCOPED_ENUM_P is true if this is a scoped enumeration type.
 
+   if IS_NEW is not NULL, gets TRUE iff a new type is created.
+
    Returns the type object, as yet incomplete.
    Also records info about it so that build_enumerator
    may be used to declare the individual values as they are read.  */
 
 tree
-start_enum (tree name, tree underlying_type, bool scoped_enum_p)
+start_enum (tree name, tree enumtype, tree underlying_type,
+	    bool scoped_enum_p, bool *is_new)
 {
-  tree enumtype;
-
+  tree prevtype = NULL_TREE;
   gcc_assert (TREE_CODE (name) == IDENTIFIER_NODE);
+
+  if (is_new)
+    *is_new = false;
+  /* [C++0x dcl.enum]p5:
+
+    If not explicitly specified, the underlying type of a scoped
+    enumeration type is int.  */
+  if (!underlying_type && scoped_enum_p)
+    underlying_type = integer_type_node;
+
+  if (underlying_type)
+    underlying_type = cv_unqualified (underlying_type);
 
   /* If this is the real definition for a previous forward reference,
      fill in the contents in the same object that used to be the
      forward reference.  */
+  if (!enumtype)
+    enumtype = lookup_and_check_tag (enum_type, name,
+				     /*tag_scope=*/ts_current,
+				     /*template_header_p=*/false);
 
-  enumtype = lookup_and_check_tag (enum_type, name,
-				   /*tag_scope=*/ts_current,
-				   /*template_header_p=*/false);
-
-  if (enumtype != NULL_TREE && TREE_CODE (enumtype) == ENUMERAL_TYPE)
+  /* In case of a template_decl, the only check that should be deferred
+     to instantiation time is the comparison of underlying types.  */
+  if (enumtype && TREE_CODE (enumtype) == ENUMERAL_TYPE)
     {
-      error_at (input_location, "multiple definition of %q#T", enumtype);
-      error_at (DECL_SOURCE_LOCATION (TYPE_MAIN_DECL (enumtype)),
-		"previous definition here");
-      /* Clear out TYPE_VALUES, and start again.  */
-      TYPE_VALUES (enumtype) = NULL_TREE;
+      if (scoped_enum_p != SCOPED_ENUM_P (enumtype))
+	{
+	  error_at (input_location, "scoped/unscoped mismatch "
+		    "in enum %q#T", enumtype);
+	  error_at (DECL_SOURCE_LOCATION (TYPE_MAIN_DECL (enumtype)),
+		    "previous definition here");
+	  enumtype = error_mark_node;
+	}
+      else if (ENUM_FIXED_UNDERLYING_TYPE_P (enumtype) != !! underlying_type)
+	{
+	  error_at (input_location, "underlying type mismatch "
+		    "in enum %q#T", enumtype);
+	  error_at (DECL_SOURCE_LOCATION (TYPE_MAIN_DECL (enumtype)),
+		    "previous definition here");
+	  enumtype = error_mark_node;
+	}
+      else if (underlying_type && ENUM_UNDERLYING_TYPE (enumtype)
+	       && !dependent_type_p (underlying_type)
+	       && !dependent_type_p (ENUM_UNDERLYING_TYPE (enumtype))
+	       && !same_type_p (underlying_type,
+				ENUM_UNDERLYING_TYPE (enumtype)))
+	{
+	  error_at (input_location, "different underlying type "
+		    "in enum %q#T", enumtype);
+	  error_at (DECL_SOURCE_LOCATION (TYPE_MAIN_DECL (enumtype)),
+		    "previous definition here");
+	  underlying_type = NULL_TREE;
+	}
     }
-  else
+
+  if (!enumtype || TREE_CODE (enumtype) != ENUMERAL_TYPE
+      || processing_template_decl)
     {
       /* In case of error, make a dummy enum to allow parsing to
 	 continue.  */
       if (enumtype == error_mark_node)
-	name = make_anon_name ();
+	{
+	  name = make_anon_name ();
+	  enumtype = NULL_TREE;
+	}
 
+      /* enumtype may be an ENUMERAL_TYPE if this is a redefinition
+         of an opaque enum, or an opaque enum of an already defined
+	 enumeration (C++0x only).
+	 In any other case, it'll be NULL_TREE. */
+      if (!enumtype)
+	{
+	  if (is_new)
+	    *is_new = true;
+	}
+      prevtype = enumtype;
       enumtype = cxx_make_type (ENUMERAL_TYPE);
       enumtype = pushtag (name, enumtype, /*tag_scope=*/ts_current);
+      if (enumtype == error_mark_node)
+	return error_mark_node;
+
+      /* The enum is considered opaque until the opening '{' of the
+	 enumerator list.  */
+      SET_OPAQUE_ENUM_P (enumtype, true);
+      ENUM_FIXED_UNDERLYING_TYPE_P (enumtype) = !! underlying_type;
     }
 
-  if (enumtype == error_mark_node)
-    return enumtype;
-
-  if (scoped_enum_p)
-    {
-      SET_SCOPED_ENUM_P (enumtype, 1);
-      begin_scope (sk_scoped_enum, enumtype);
-
-      /* [C++0x dcl.enum]p5: 
-
-          If not explicitly specified, the underlying type of a scoped
-          enumeration type is int.  */
-      if (!underlying_type)
-        underlying_type = integer_type_node;
-    }
+  SET_SCOPED_ENUM_P (enumtype, scoped_enum_p);
 
   if (underlying_type)
     {
       if (CP_INTEGRAL_TYPE_P (underlying_type))
         {
-          TYPE_MIN_VALUE (enumtype) = TYPE_MIN_VALUE (underlying_type);
-          TYPE_MAX_VALUE (enumtype) = TYPE_MAX_VALUE (underlying_type);
-          TYPE_SIZE (enumtype) = TYPE_SIZE (underlying_type);
-          TYPE_SIZE_UNIT (enumtype) = TYPE_SIZE_UNIT (underlying_type);
-          SET_TYPE_MODE (enumtype, TYPE_MODE (underlying_type));
-          TYPE_PRECISION (enumtype) = TYPE_PRECISION (underlying_type);
-          TYPE_ALIGN (enumtype) = TYPE_ALIGN (underlying_type);
-          TYPE_USER_ALIGN (enumtype) = TYPE_USER_ALIGN (underlying_type);
-          TYPE_UNSIGNED (enumtype) = TYPE_UNSIGNED (underlying_type);
+	  copy_type_enum (enumtype, underlying_type);
           ENUM_UNDERLYING_TYPE (enumtype) = underlying_type;
         }
-      else if (!dependent_type_p (underlying_type))
+      else if (dependent_type_p (underlying_type))
+	ENUM_UNDERLYING_TYPE (enumtype) = underlying_type;
+      else
         error ("underlying type %<%T%> of %<%T%> must be an integral type", 
                underlying_type, enumtype);
     }
 
-  return enumtype;
+  /* If into a template class, the returned enum is always the first
+     declaration (opaque or not) seen. This way all the references to
+     this type will be to the same declaration. The following ones are used
+     only to check for definition errors.  */
+  if (prevtype && processing_template_decl)
+    return prevtype;
+  else
+    return enumtype;
 }
 
 /* After processing and defining all the values of an enumeration type,
-   install their decls in the enumeration type and finish it off.
-   ENUMTYPE is the type object and VALUES a list of name-value pairs.  */
+   install their decls in the enumeration type.
+   ENUMTYPE is the type object.  */
 
 void
-finish_enum (tree enumtype)
+finish_enum_value_list (tree enumtype)
 {
   tree values;
+  tree underlying_type;
   tree decl;
-  tree minnode;
-  tree maxnode;
   tree value;
+  tree minnode, maxnode;
   tree t;
-  tree underlying_type = NULL_TREE;
+
   bool fixed_underlying_type_p 
     = ENUM_UNDERLYING_TYPE (enumtype) != NULL_TREE;
 
@@ -11425,10 +11515,6 @@ finish_enum (tree enumtype)
 	   values;
 	   values = TREE_CHAIN (values))
 	TREE_TYPE (TREE_VALUE (values)) = enumtype;
-      if (at_function_scope_p ())
-	add_stmt (build_min (TAG_DEFN, enumtype));
-      if (SCOPED_ENUM_P (enumtype))
-	finish_scope ();
       return;
     }
 
@@ -11438,34 +11524,34 @@ finish_enum (tree enumtype)
       minnode = maxnode = NULL_TREE;
 
       for (values = TYPE_VALUES (enumtype);
-           values;
-           values = TREE_CHAIN (values))
-        {
-          decl = TREE_VALUE (values);
+	   values;
+	   values = TREE_CHAIN (values))
+	{
+	  decl = TREE_VALUE (values);
 
-          /* [dcl.enum]: Following the closing brace of an enum-specifier,
-             each enumerator has the type of its enumeration.  Prior to the
-             closing brace, the type of each enumerator is the type of its
-             initializing value.  */
-          TREE_TYPE (decl) = enumtype;
+	  /* [dcl.enum]: Following the closing brace of an enum-specifier,
+	     each enumerator has the type of its enumeration.  Prior to the
+	     closing brace, the type of each enumerator is the type of its
+	     initializing value.  */
+	  TREE_TYPE (decl) = enumtype;
 
-          /* Update the minimum and maximum values, if appropriate.  */
-          value = DECL_INITIAL (decl);
-          if (value == error_mark_node)
-            value = integer_zero_node;
-          /* Figure out what the minimum and maximum values of the
-             enumerators are.  */
-          if (!minnode)
-            minnode = maxnode = value;
-          else if (tree_int_cst_lt (maxnode, value))
-            maxnode = value;
-          else if (tree_int_cst_lt (value, minnode))
-            minnode = value;
-        }
+	  /* Update the minimum and maximum values, if appropriate.  */
+	  value = DECL_INITIAL (decl);
+	  if (value == error_mark_node)
+	    value = integer_zero_node;
+	  /* Figure out what the minimum and maximum values of the
+	     enumerators are.  */
+	  if (!minnode)
+	    minnode = maxnode = value;
+	  else if (tree_int_cst_lt (maxnode, value))
+	    maxnode = value;
+	  else if (tree_int_cst_lt (value, minnode))
+	    minnode = value;
+	}
     }
   else
     /* [dcl.enum]
-       
+
        If the enumerator-list is empty, the underlying type is as if
        the enumeration had a single enumerator with value 0.  */
     minnode = maxnode = integer_zero_node;
@@ -11530,15 +11616,7 @@ finish_enum (tree enumtype)
          The value of sizeof() applied to an enumeration type, an object
          of an enumeration type, or an enumerator, is the value of sizeof()
          applied to the underlying type.  */
-      TYPE_MIN_VALUE (enumtype) = TYPE_MIN_VALUE (underlying_type);
-      TYPE_MAX_VALUE (enumtype) = TYPE_MAX_VALUE (underlying_type);
-      TYPE_SIZE (enumtype) = TYPE_SIZE (underlying_type);
-      TYPE_SIZE_UNIT (enumtype) = TYPE_SIZE_UNIT (underlying_type);
-      SET_TYPE_MODE (enumtype, TYPE_MODE (underlying_type));
-      TYPE_PRECISION (enumtype) = TYPE_PRECISION (underlying_type);
-      TYPE_ALIGN (enumtype) = TYPE_ALIGN (underlying_type);
-      TYPE_USER_ALIGN (enumtype) = TYPE_USER_ALIGN (underlying_type);
-      TYPE_UNSIGNED (enumtype) = TYPE_UNSIGNED (underlying_type);
+      copy_type_enum (enumtype, underlying_type);
 
       /* Compute the minimum and maximum values for the type.
 
@@ -11603,26 +11681,29 @@ finish_enum (tree enumtype)
 
   /* Fix up all variant types of this enum type.  */
   for (t = TYPE_MAIN_VARIANT (enumtype); t; t = TYPE_NEXT_VARIANT (t))
-    {
-      TYPE_VALUES (t) = TYPE_VALUES (enumtype);
-      TYPE_MIN_VALUE (t) = TYPE_MIN_VALUE (enumtype);
-      TYPE_MAX_VALUE (t) = TYPE_MAX_VALUE (enumtype);
-      TYPE_SIZE (t) = TYPE_SIZE (enumtype);
-      TYPE_SIZE_UNIT (t) = TYPE_SIZE_UNIT (enumtype);
-      SET_TYPE_MODE (t, TYPE_MODE (enumtype));
-      TYPE_PRECISION (t) = TYPE_PRECISION (enumtype);
-      TYPE_ALIGN (t) = TYPE_ALIGN (enumtype);
-      TYPE_USER_ALIGN (t) = TYPE_USER_ALIGN (enumtype);
-      TYPE_UNSIGNED (t) = TYPE_UNSIGNED (enumtype);
-      ENUM_UNDERLYING_TYPE (t) = ENUM_UNDERLYING_TYPE (enumtype);
-    }
-
-  /* Finish up the scope of a scoped enumeration.  */
-  if (SCOPED_ENUM_P (enumtype))
-    finish_scope ();
+    TYPE_VALUES (t) = TYPE_VALUES (enumtype);
 
   /* Finish debugging output for this type.  */
   rest_of_type_compilation (enumtype, namespace_bindings_p ());
+}
+
+/* Finishes the enum type. This is called only the first time an
+   enumeration is seen, be it opaque or odinary.
+   ENUMTYPE is the type object.  */
+
+void
+finish_enum (tree enumtype)
+{
+  if (processing_template_decl)
+    {
+      if (at_function_scope_p ())
+	add_stmt (build_min (TAG_DEFN, enumtype));
+      return;
+    }
+
+  /* Here there should not be any variants of this type.  */
+  gcc_assert (enumtype == TYPE_MAIN_VARIANT (enumtype)
+	      && !TYPE_NEXT_VARIANT (enumtype));
 }
 
 /* Build and install a CONST_DECL for an enumeration constant of the
@@ -11800,10 +11881,6 @@ check_function_type (tree decl, tree current_function_parms)
 
   /* In a function definition, arg types must be complete.  */
   require_complete_types_for_parms (current_function_parms);
-
-  /* constexpr functions must have literal argument types and
-     literal return type.  */
-  validate_constexpr_fundecl (decl);
 
   if (dependent_type_p (return_type))
     return;
@@ -12063,6 +12140,10 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
       if (DECL_FILE_SCOPE_P (decl1))
 	maybe_apply_pragma_weak (decl1);
     }
+
+  /* constexpr functions must have literal argument types and
+     literal return type.  */
+  validate_constexpr_fundecl (decl1);
 
   /* Reset this in case the call to pushdecl changed it.  */
   current_function_decl = decl1;
@@ -12602,7 +12683,6 @@ finish_function (int flags)
   tree fndecl = current_function_decl;
   tree fntype, ctype = NULL_TREE;
   int inclass_inline = (flags & 2) != 0;
-  int nested;
 
   /* When we get some parse errors, we can end up without a
      current_function_decl, so cope.  */
@@ -12614,7 +12694,6 @@ finish_function (int flags)
 
   record_key_method_defined (fndecl);
 
-  nested = function_depth > 1;
   fntype = TREE_TYPE (fndecl);
 
   /*  TREE_READONLY (fndecl) = 1;
@@ -12825,11 +12904,7 @@ finish_function (int flags)
   --function_depth;
 
   /* Clean up.  */
-  if (! nested)
-    /* Let the error reporting routines know that we're outside a
-       function.  For a nested function, this value is used in
-       cxx_pop_function_context and then reset via pop_function_context.  */
-    current_function_decl = NULL_TREE;
+  current_function_decl = NULL_TREE;
 
   defer_mark_used_calls = false;
   if (deferred_mark_used_calls)

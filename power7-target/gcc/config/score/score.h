@@ -103,14 +103,6 @@
 #define BYTES_BIG_ENDIAN       (TARGET_LITTLE_ENDIAN == 0)
 #define WORDS_BIG_ENDIAN       (TARGET_LITTLE_ENDIAN == 0)
 
-/* Define this to set the endianness to use in libgcc2.c, which can
-   not depend on target_flags.  */
-#if defined(__scorele__)
-#define LIBGCC2_WORDS_BIG_ENDIAN       0
-#else
-#define LIBGCC2_WORDS_BIG_ENDIAN       1
-#endif
-
 /* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD                 4
 
@@ -577,21 +569,6 @@ extern enum reg_class score_char_to_class[256];
 #define OUTGOING_REG_PARM_STACK_SPACE(FNTYPE) 1
 
 /* Passing Arguments in Registers  */
-/* Determine where to put an argument to a function.
-   Value is zero to push the argument on the stack,
-   or a hard register in which to store the argument.
-
-   MODE is the argument's machine mode.
-   TYPE is the data type of the argument (as a tree).
-    This is null for libcalls where that information may
-    not be available.
-   CUM is a variable of type CUMULATIVE_ARGS which gives info about
-    the preceding args and about the function being called.
-   NAMED is nonzero if this argument is a named parameter
-    (otherwise it is an extra parameter matching an ellipsis).  */
-#define FUNCTION_ARG(CUM, MODE, TYPE, NAMED) \
-  score_function_arg (&CUM, MODE, TYPE, NAMED)
-
 /* A C type for declaring a variable that is used as the first argument of
    `FUNCTION_ARG' and other related values.  For some target machines, the
    type `int' suffices and can hold the number of bytes of argument so far.  */
@@ -609,12 +586,6 @@ typedef struct score_args
    For a library call, FNTYPE is 0.  */
 #define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, n_named_args) \
   score_init_cumulative_args (&CUM, FNTYPE, LIBNAME)
-
-/* Update the data in CUM to advance over an argument
-   of mode MODE and data type TYPE.
-   (TYPE is null for libcalls where that information may not be available.)  */
-#define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED) \
-  score_function_arg_advance (&CUM, MODE, TYPE, NAMED)
 
 /* 1 if N is a possible register number for function argument passing.
    We have no FP argument registers when soft-float.  When FP registers

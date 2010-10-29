@@ -1,3 +1,55 @@
+2010-10-27  Nicola Pero  <nicola.pero@meta-innovation.com>
+
+	* objc-act.c (objc_add_property_declaration): Added arguments to
+	pass the various property attributes that were parsed with the
+	property declaration.  Process arguments to determine the final
+	property attributes and produce error messages as appropriate.
+	Added temporary code to keep the compiler silent about variables
+	set but not used - for new attributes that are only checked but
+	have no effect yet.
+	(property_readonly): Removed.
+	(property_setter): Removed.
+	(property_getter): Removed.
+	(property_ivar): Removed.
+	(property_copies): Removed.	
+	(objc_set_property_attr): Removed.
+	* objc-act.h (enum property_assign_semantics): New.
+	
+2010-10-27  Nicola Pero  <nicola.pero@meta-innovation.com>
+
+	* objc-act.c (objc_add_property_variable): Renamed to
+	objc_add_property_declaration.  Added location argument.  Updated
+	warnings and errors to use it.  Use error, not fatal_error, if a
+	property declaration is found outside an interface or
+	implementation context.
+	
+2010-10-24  Nicola Pero  <nicola.pero@meta-innovation.com>
+
+	* objc-act.c (objc_build_keyword_decl): Updated comments.  Do not
+	emit a warning that method parameter attributes are unimplemented.
+	Instead, store them into DECL_ATTRIBUTES of the KEYWORD_DECL.
+	(start_method_def): Copy attributes from each KEYWORD_DECL into
+	the corresponding PARM_DECL.
+	(objc_warn_deprecated_use): Removed.
+	(build_objc_method_call): Call warn_deprecated_use, not
+	objc_warn_deprecated_use.
+	(objc_maybe_printable_name): Do not try to get the identifier name
+	of DECLs that we don't recognize.  Immediately return NULL for them.
+	(objc_printable_name): Removed C++-specific case, which is no
+	longer used.  Updated comments.
+	
+2010-10-23  Nicola Pero  <nicola.pero@meta-innovation.com>
+
+	* objc-act.c (OBJC_GEN_METHOD_LABEL): Updated comments.
+	(objc_demangle): Return NULL if demangling can not be done because
+	the string to demangle is not an Objective-C mangled method name.
+	Be smarter in demangling method names so that at least for methods
+	with no arguments we are able to almost always demangle '_' correctly.
+	Updated comments.
+	(objc_maybe_printable_name): New.
+	(objc_printable_name): Call objc_maybe_printable_name.  If it
+	returns NULL, call cxx_printable_name in Objective-C++.
+
 2010-10-21  Iain Sandoe  <iains@gcc.gnu.org>
 
 	Based on the CFString implementation in FSF apple/trunk branch.

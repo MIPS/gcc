@@ -1,5 +1,8 @@
 2010-10-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to 166071.
+	* REVISION: Update subversion id.
+
 	* opth-gen.awk: Use alnum variable instead of [A-Za-z0-9].
 	* optc-gen.awk: Ditto.
 	* doc/options.texi (TargetVariable): Fix grammar.
