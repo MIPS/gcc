@@ -215,7 +215,7 @@ for (i = 0; i < n_opts; i++) {
 		else if (otype ~ "^((un)?signed +)?char *$")
 			var_opt_char[n_opt_char++] = otype "x_" name;
 
-		else if (otype ~ "^enum +[a-zA-Z0-9_]+ *$")
+		else if (otype ~ ("^enum +[_" alnum "]+ *$"))
 			var_opt_enum[n_opt_enum++] = otype "x_" name;
 
 		else
@@ -267,7 +267,7 @@ for (i = 0; i < n_target_save; i++) {
 	else if (target_save_decl[i] ~ "^((un)?signed +)?char +[_ " alnum "]+$")
 		var_target_char[n_target_char++] = target_save_decl[i];
 
-	else if (target_save_decl[i] ~ "^enum +[_a-zA-Z0-9]+ +[_a-zA-Z0-9]+$") {
+	else if (target_save_decl[i] ~ ("^enum +[_" alnum "]+ +[_" alnum "]+$")) {
 		var_target_enum[n_target_enum++] = target_save_decl[i];
 	}
 	else
@@ -295,7 +295,7 @@ if (have_save) {
 			else if (otype ~ "^((un)?signed +)?char *$")
 				var_target_char[n_target_char++] = otype "x_" name;
 
-			else if (otype ~ "^enum +[_a-zA-Z0-9]+ +[_a-zA-Z0-9]+")
+			else if (otype ~ ("^enum +[_" alnum "]+ +[_" alnum "]+"))
 				var_target_enum[n_target_enum++] = otype "x_" name;
 
 			else

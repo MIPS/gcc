@@ -368,7 +368,7 @@ for (i = 0; i < n_opts; i++) {
 		else if (otype ~ "^((un)?signed +)?short *$")
 			var_opt_short[n_opt_short++] = name;
 
-		else if (otype ~ "^enum +[a-zA-Z0-9_]+ *")
+		else if (otype ~ ("^enum +[_" alnum "]+ *"))
 			var_opt_enum[n_opt_enum++] = name;
 
 		else if (otype ~ "^((un)?signed +)?char *$") {
@@ -527,7 +527,7 @@ if (have_save) {
 			else if (otype ~ "^((un)?signed +)?short *$")
 				var_target_short[n_target_short++] = name;
 
-			else if (otype ~ "^enum +[_a-zA-Z0-9]+ *$")
+			else if (otype ~ ("^enum +[_" alnum "]+ *$"))
 				var_target_enum[n_target_enum++] = name;
 
 			else if (otype ~ "^((un)?signed +)?char *$") {

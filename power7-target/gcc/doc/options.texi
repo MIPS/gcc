@@ -56,10 +56,10 @@ A variable record to define a variable used to store option
 information.  These records have two fields: the string
 @samp{TargetVariable}, and a declaration of the type and name of the
 variable, optionally with an initializer (but without any trailing
-@samp{;}).  @samp{TargetVariable} are a combination of @samp{Variable}
+@samp{;}).  @samp{TargetVariable} is a combination of @samp{Variable}
 and @samp{TargetSave} records in that the variable is defined in the
 @code{gcc_options} structure, but these variables are also stored in
-@code{cl_target_option} structure.  The variables are saved in the
+the @code{cl_target_option} structure.  The variables are saved in the
 target save code and restored in the target restore code.
 
 @item
