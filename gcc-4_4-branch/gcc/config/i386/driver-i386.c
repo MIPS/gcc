@@ -520,7 +520,7 @@ const char *host_detect_local_cpu (int argc, const char **argv)
     case PROCESSOR_PENTIUMPRO:
       if (has_longmode)
 	/* It is Core 2 or Atom.  */
-	cpu = (model == 28) ? "atom" : "core2";
+	cpu = (model == 28 || model == 38) ? "atom" : "core2";
       else if (arch)
 	{
 	  if (has_sse3)
