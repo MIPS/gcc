@@ -27193,6 +27193,34 @@ static struct rs6000_opt_mask const rs6000_opt_masks[] =
   { "string",		MASK_STRING,		false, false },
 };
 
+/* Option variables that we want to support inside attribute((target)) and
+   #pragma GCC target operations.  */
+
+struct rs6000_opt_var {
+  const char *name;		/* option name */
+  size_t global_offset;		/* offset of the option in global_options.  */
+  size_t target_offset;		/* offset of the option in target optiosn.  */
+};
+
+static struct rs6000_opt_var const rs6000_opt_vars[] =
+{
+  { "friz",
+    offsetof (struct gcc_options, x_TARGET_FRIZ),
+    offsetof (struct cl_target_option, x_TARGET_FRIZ), },
+  { "avoid-indexed-addresses",
+    offsetof (struct gcc_options, x_TARGET_AVOID_XFORM),
+    offsetof (struct cl_target_option, x_TARGET_AVOID_XFORM) },
+  { "fused-madd",
+    offsetof (struct gcc_options, x_TARGET_FUSED_MADD),
+    offsetof (struct cl_target_option, x_TARGET_FUSED_MADD), },
+  { "paired",
+    offsetof (struct gcc_options, x_rs6000_paired_float),
+    offsetof (struct cl_target_option, x_rs6000_paired_float), },
+  { "longcall",
+    offsetof (struct gcc_options, x_rs6000_default_long_calls),
+    offsetof (struct cl_target_option, x_rs6000_default_long_calls), },
+};
+
 /* Inner function to handle attribute((target("..."))) and #pragma GCC target
    parsing.  Return true if there were no errors.  */
 
@@ -27273,6 +27301,18 @@ rs6000_inner_target_options (tree args, bool attr_p)
 		      }
 		    break;
 		  }
+
+	      if (error_p && !not_valid_p)
+		{
+		  for (i = 0; i < ARRAY_SIZE (rs6000_opt_vars); i++)
+		    if (strcmp (r, rs6000_opt_vars[i].name) == 0)
+		      {
+			size_t j = rs6000_opt_vars[i].global_offset;
+			((int *) &global_options)[j] = !invert;
+			error_p = false;
+			break;
+		      }
+		}
 	    }
 
 	  if (error_p)
@@ -27616,6 +27656,15 @@ rs6000_function_specific_print (FILE *file, int indent,
 		 rs6000_opt_masks[i].invert ? "no-" : "",
 		 rs6000_opt_masks[i].name);
       }
+
+  /* Print the various options that are variables.  */
+  for (i = 0; i < ARRAY_SIZE (rs6000_opt_vars); i++)
+    {
+      size_t j = rs6000_opt_vars[i].target_offset;
+      if (((signed char *) ptr)[j])
+	fprintf (file, "%*s-m%s\n", indent, "",
+		 rs6000_opt_vars[i].name);
+    }
 }
 
 

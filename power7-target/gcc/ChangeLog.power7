@@ -1,3 +1,16 @@
+2010-10-31  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* doc/extend.texi (Function Attributes): Document the PowerPC
+	target attributes.
+	(Pragmas): Document the PowerPC target pragmas.
+
+	* doc/invoke.texi (-mfused-madd): Improve documentation.
+
+	* config/rs6000/rs6000.c (rs6000_opt_vars): Table of switches for
+	target attributes/pragmas that are stored as separate variables.
+	(rs6000_inner_target_options): Add more switches.
+	(rs6000_function_specific_print): Ditto.
+
 2010-10-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/aix.opt (-mxl-compat): Make option Saved.
