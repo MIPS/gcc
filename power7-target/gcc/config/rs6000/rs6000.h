@@ -377,17 +377,20 @@ extern struct rs6000_cpu_select rs6000_select[];
 #define MASK_DEBUG_REG		0x04	/* debug register handling */
 #define MASK_DEBUG_ADDR		0x08	/* debug memory addressing */
 #define MASK_DEBUG_COST		0x10	/* debug rtx codes */
+#define MASK_DEBUG_TARGET	0x20	/* debug target attribute/pragma */
 #define MASK_DEBUG_ALL		(MASK_DEBUG_STACK \
 				 | MASK_DEBUG_ARG \
 				 | MASK_DEBUG_REG \
 				 | MASK_DEBUG_ADDR \
-				 | MASK_DEBUG_COST)
+				 | MASK_DEBUG_COST \
+				 | MASK_DEBUG_TARGET)
 
 #define	TARGET_DEBUG_STACK	(rs6000_debug & MASK_DEBUG_STACK)
 #define	TARGET_DEBUG_ARG	(rs6000_debug & MASK_DEBUG_ARG)
 #define TARGET_DEBUG_REG	(rs6000_debug & MASK_DEBUG_REG)
 #define TARGET_DEBUG_ADDR	(rs6000_debug & MASK_DEBUG_ADDR)
 #define TARGET_DEBUG_COST	(rs6000_debug & MASK_DEBUG_COST)
+#define TARGET_DEBUG_TARGET	(rs6000_debug & MASK_DEBUG_TARGET)
 
 extern enum rs6000_vector rs6000_vector_unit[];
 
@@ -531,6 +534,7 @@ extern unsigned char rs6000_recip_bits[];
 /* Target pragma.  */
 #define REGISTER_TARGET_PRAGMAS() do {				\
   c_register_pragma (0, "longcall", rs6000_pragma_longcall);	\
+  targetm.target_option.pragma_parse = rs6000_pragma_target_parse; \
   targetm.resolve_overloaded_builtin = altivec_resolve_overloaded_builtin; \
 } while (0)
 

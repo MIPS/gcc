@@ -1,3 +1,108 @@
+2010-10-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/aix.opt (-mxl-compat): Make option Saved.
+	* config/rs6000/aix64.opt (-mpe): Ditto.
+	* config/rs6000/linux64.opt (-mprofile-kernel): Ditto.
+	* config/rs6000/sysv4.opt (-mbit-align): Ditto.
+	(-mprototype): Ditto.
+	(-mbit-word): Ditto.
+	(-mregnames): Ditto.
+	(-msecure-plt): Ditto.
+	(-mbss-plt): Ditto.
+	* config/rs6000/rs6000.opt (-mpowerpc-gpopt): Ditto.
+	(-mpowerpc-gfxopt): Ditto.
+	(-mmfcrf): Ditto.
+	(-mpopcntb): Ditto.
+	(-mfprnd): Ditto.
+	(-mcmpb): Ditto.
+	(-mmfpgpr): Ditto.
+	(-maltivec): Ditto.
+	(-mhard-dfp): Ditto.
+	(-mmulhw): Ditto.
+	(-mdlmzb): Ditto.
+	(-mmultiple): Ditto.
+	(-mstring): Ditto.
+	(-mpopcntd): Ditto.
+	(-mfriz): Ditto.
+	(-mvsx): Ditto.
+	(-mno-update): Ditto.
+	(-mavoid-indexed-addresses): Ditto.
+	(-mfused-madd): Ditto.
+	(-mtls-markers): Ditto.
+	(-msched-prolog): Ditto.
+	(-maix-struct-return): Ditto.
+	(-msvr4-struct-return): Ditto.
+	(-mxl-compat): Ditto.
+	(-mrecip-precision): Ditto.
+	(-mno-fp-in-toc): Ditto.
+	(-mno-sum-in-toc): Ditto.
+	(-mvrsave): Ditto.
+	(-mblock-move-inline-limit=): Ditto.
+	(-misel): Ditto.
+	(-mspe): Ditto.
+	(-mpaired): Ditto.
+	(-mlongcall): Ditto.
+	(-mgen-cell-microcode): Ditto.
+	(-mwarn-cell-microcode): Ditto.
+	(-mwarn-altivec-long): Ditto.
+	(-mprioritize-restricted-insns=): Ditto.
+	(-msingle-float): Ditto.
+	(-mdouble-float): Ditto.
+	(-msimple-fpu): Ditto.
+	(-mxilinx-fpu): Ditto.
+	(rs6000_cpu_index): New target variable for -mcpu= index.
+	(rs6000_tune_index): New target variable for -mtune= index.
+	(rs6000_target_flags_explicit): New save area for
+	target_flags_explicit.
+
+	* config/rs6000/rs6000-protos.h (rs6000_pragma_target_parse): New
+	declaration.
+
+	* config/rs6000/rs6000.c (rs6000_tls_size_string): Delete.
+	(rs6000_debug_name): Ditto.
+	(rs6000_traceback_name): Ditto.
+	(rs6000_parse_tls_size_option): Ditto.
+	(TARGET_OPTION_VALID_ATTRIBUTE_P): Define for target attributes
+	and pragma support.
+	(TARGET_OPTION_SAVE): Ditto.
+	(TARGET_OPTION_RESTORE): Ditto.
+	(TARGET_OPTION_PRINT): Ditto.
+	(TARGET_CAN_INLINE_P): Ditto.
+	(TARGET_SET_CURRENT_FUNCTION): Ditto.
+	(struct ptt): Move to file level scope.
+	(processor_target_table): Ditto.
+	(rs6000_cpu_name_lookup): New function, lookup cpu name in
+	processor table, return index.
+	(rs6000_option_override_internal): Don't take default cpu, instead
+	take bool to say if this is the global initialization or target
+	attributes/pragmas.  Adjust for being called multiple times.  Move
+	the processor_target_table to file scope.  Move some of the string
+	validations to rs6000_handle_options.  Save the initial target
+	option nodes.
+	(rs6000_option_override): Adjust rs6000_option_override_internal
+	call.
+	(rs6000_handle_option): Move some of the string validations here,
+	from rs6000_option_override_internal.  Adjust for target
+	attributes and pragmas.  Add -mdebug=target.
+	(rs6000_conditional_register_usage): Print trace message if
+	-mdebug=reg or -mdebug=target.
+	(rs6000_opt_masks): New lookup table for mask options that are
+	available for target attributes/pragmas.
+	(rs6000_inner_target_options): New function to support target
+	attributes/pragmas.
+	(rs6000_debug_target_options): Ditto.
+	(rs6000_valid_attribute_p): Ditto.
+	(rs6000_pragma_target_parse): Ditto.
+	(rs6000_set_current_function): Ditto.
+	(rs6000_function_specific_save): Ditto.
+	(rs6000_function_specific_restore): Ditto.
+	(rs6000_function_specific_print): Ditto.
+	(rs6000_can_inline_p): Ditto.
+
+	* config/rs6000/rs6000.h (MASK_DEBUG_TARGET): Add -mdebug=target.
+	(TARGET_DEBUG_TARGET): Ditto.
+	(REGISTER_TARGET_PRAGMAS): Register the pragma target handler.
+
 2010-10-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 166071.

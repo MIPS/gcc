@@ -147,9 +147,6 @@ struct rs6000_cpu_select rs6000_select[3] =
 /* String variables to hold the various options.  */
 static const char *rs6000_sched_insert_nops_str;
 static const char *rs6000_sched_costly_dep_str;
-static const char *rs6000_tls_size_string;
-static const char *rs6000_debug_name;
-static const char *rs6000_traceback_name;
 static const char *rs6000_recip_name;
 
 #ifdef USING_ELFOS_H
@@ -1071,7 +1068,6 @@ static void rs6000_option_override (void);
 static void rs6000_option_init_struct (struct gcc_options *);
 static void rs6000_option_default_params (void);
 static bool rs6000_handle_option (size_t, const char *, int);
-static void rs6000_parse_tls_size_option (void);
 static void rs6000_parse_yes_no_option (const char *, const char *, int *);
 static int first_altivec_reg_to_save (void);
 static unsigned int compute_vrsave_mask (void);
@@ -1226,6 +1222,15 @@ struct GTY(()) builtin_hash_struct
 };
 
 static GTY ((param_is (struct builtin_hash_struct))) htab_t builtin_hash_table;
+
+static bool rs6000_valid_attribute_p (tree, tree, tree, int);
+static void rs6000_function_specific_save (struct cl_target_option *);
+static void rs6000_function_specific_restore (struct cl_target_option *);
+static void rs6000_function_specific_print (FILE *, int,
+					    struct cl_target_option *);
+static bool rs6000_can_inline_p (tree, tree);
+static void rs6000_set_current_function (tree);
+
 
 /* Default register names.  */
 char rs6000_reg_names[][8] =
@@ -1621,7 +1626,211 @@ static const struct default_options rs6000_option_optimization_table[] =
 #undef TARGET_FUNCTION_VALUE
 #define TARGET_FUNCTION_VALUE rs6000_function_value
 
+#undef TARGET_OPTION_VALID_ATTRIBUTE_P
+#define TARGET_OPTION_VALID_ATTRIBUTE_P rs6000_valid_attribute_p
+
+#undef TARGET_OPTION_SAVE
+#define TARGET_OPTION_SAVE rs6000_function_specific_save
+
+#undef TARGET_OPTION_RESTORE
+#define TARGET_OPTION_RESTORE rs6000_function_specific_restore
+
+#undef TARGET_OPTION_PRINT
+#define TARGET_OPTION_PRINT rs6000_function_specific_print
+
+#undef TARGET_CAN_INLINE_P
+#define TARGET_CAN_INLINE_P rs6000_can_inline_p
+
+#undef TARGET_SET_CURRENT_FUNCTION
+#define TARGET_SET_CURRENT_FUNCTION rs6000_set_current_function
+
 struct gcc_target targetm = TARGET_INITIALIZER;
+
+
+/* Simplifications for entries below.  */
+
+enum {
+  POWERPC_BASE_MASK = MASK_POWERPC | MASK_NEW_MNEMONICS,
+  POWERPC_7400_MASK = POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_ALTIVEC
+};
+
+/* Some OSs don't support saving the high part of 64-bit registers on context
+   switch.  Other OSs don't support saving Altivec registers.  On those OSs, we
+   don't touch the MASK_POWERPC64 or MASK_ALTIVEC settings; if the user wants
+   either, the user must explicitly specify them and we won't interfere with
+   the user's specification.  */
+
+enum {
+  POWER_MASKS = MASK_POWER | MASK_POWER2 | MASK_MULTIPLE | MASK_STRING,
+  POWERPC_MASKS = (POWERPC_BASE_MASK | MASK_PPC_GPOPT | MASK_STRICT_ALIGN
+		   | MASK_PPC_GFXOPT | MASK_POWERPC64 | MASK_ALTIVEC
+		   | MASK_MFCRF | MASK_POPCNTB | MASK_FPRND | MASK_MULHW
+		   | MASK_DLMZB | MASK_CMPB | MASK_MFPGPR | MASK_DFP
+		   | MASK_POPCNTD | MASK_VSX | MASK_ISEL | MASK_NO_UPDATE
+		   | MASK_RECIP_PRECISION)
+};
+
+/* Masks for instructions set at various powerpc ISAs.  */
+enum {
+  ISA_2_1_MASKS = MASK_MFCRF,
+  ISA_2_2_MASKS = (ISA_2_1_MASKS | MASK_POPCNTB | MASK_FPRND),
+
+  /* For ISA 2.05, do not add MFPGPR, since it isn't in ISA 2.06, and don't add
+     ALTIVEC, since in general it isn't a win on power6.  In ISA 2.04, fsel,
+     fre, fsqrt, etc. were no longer documented as optional.  Group masks by
+     server and embedded. */
+  ISA_2_5_MASKS_EMBEDDED = (ISA_2_2_MASKS | MASK_CMPB | MASK_RECIP_PRECISION
+			    | MASK_PPC_GFXOPT | MASK_PPC_GPOPT),
+  ISA_2_5_MASKS_SERVER = (ISA_2_5_MASKS_EMBEDDED | MASK_DFP),
+
+  /* For ISA 2.06, don't add ISEL, since in general it isn't a win, but
+     altivec is a win so enable it.  */
+  ISA_2_6_MASKS_EMBEDDED = (ISA_2_5_MASKS_EMBEDDED | MASK_POPCNTD),
+  ISA_2_6_MASKS_SERVER = (ISA_2_5_MASKS_SERVER | MASK_POPCNTD | MASK_ALTIVEC
+			  | MASK_VSX)
+};
+
+/* This table occasionally claims that a processor does not support a
+   particular feature even though it does, but the feature is slower than the
+   alternative.  Thus, it shouldn't be relied on as a complete description of
+   the processor's support.
+
+   Please keep this list in order, and don't forget to update the documentation
+   in invoke.texi when adding a new processor or flag.  */
+
+struct rs6000_ptt
+{
+  const char *const name;		/* Canonical processor name.  */
+  const enum processor_type processor;	/* Processor type enum value.  */
+  const int target_enable;		/* Target flags to enable.  */
+};
+
+static struct rs6000_ptt const processor_target_table[] =
+{
+  {"401", PROCESSOR_PPC403, POWERPC_BASE_MASK | MASK_SOFT_FLOAT},
+  {"403", PROCESSOR_PPC403,
+   POWERPC_BASE_MASK | MASK_SOFT_FLOAT | MASK_STRICT_ALIGN},
+  {"405", PROCESSOR_PPC405,
+   POWERPC_BASE_MASK | MASK_SOFT_FLOAT | MASK_MULHW | MASK_DLMZB},
+  {"405fp", PROCESSOR_PPC405,
+   POWERPC_BASE_MASK | MASK_MULHW | MASK_DLMZB},
+  {"440", PROCESSOR_PPC440,
+   POWERPC_BASE_MASK | MASK_SOFT_FLOAT | MASK_MULHW | MASK_DLMZB},
+  {"440fp", PROCESSOR_PPC440,
+   POWERPC_BASE_MASK | MASK_MULHW | MASK_DLMZB},
+  {"464", PROCESSOR_PPC440,
+   POWERPC_BASE_MASK | MASK_SOFT_FLOAT | MASK_MULHW | MASK_DLMZB},
+  {"464fp", PROCESSOR_PPC440,
+   POWERPC_BASE_MASK | MASK_MULHW | MASK_DLMZB},
+  {"476", PROCESSOR_PPC476,
+   POWERPC_BASE_MASK | MASK_SOFT_FLOAT | MASK_PPC_GFXOPT | MASK_MFCRF
+   | MASK_POPCNTB | MASK_FPRND | MASK_CMPB | MASK_MULHW | MASK_DLMZB},
+  {"476fp", PROCESSOR_PPC476,
+   POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_MFCRF | MASK_POPCNTB
+   | MASK_FPRND | MASK_CMPB | MASK_MULHW | MASK_DLMZB},
+  {"505", PROCESSOR_MPCCORE, POWERPC_BASE_MASK},
+  {"601", PROCESSOR_PPC601,
+   MASK_POWER | POWERPC_BASE_MASK | MASK_MULTIPLE | MASK_STRING},
+  {"602", PROCESSOR_PPC603, POWERPC_BASE_MASK | MASK_PPC_GFXOPT},
+  {"603", PROCESSOR_PPC603, POWERPC_BASE_MASK | MASK_PPC_GFXOPT},
+  {"603e", PROCESSOR_PPC603, POWERPC_BASE_MASK | MASK_PPC_GFXOPT},
+  {"604", PROCESSOR_PPC604, POWERPC_BASE_MASK | MASK_PPC_GFXOPT},
+  {"604e", PROCESSOR_PPC604e, POWERPC_BASE_MASK | MASK_PPC_GFXOPT},
+  {"620", PROCESSOR_PPC620,
+   POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_POWERPC64},
+  {"630", PROCESSOR_PPC630,
+   POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_POWERPC64},
+  {"740", PROCESSOR_PPC750, POWERPC_BASE_MASK | MASK_PPC_GFXOPT},
+  {"7400", PROCESSOR_PPC7400, POWERPC_7400_MASK},
+  {"7450", PROCESSOR_PPC7450, POWERPC_7400_MASK},
+  {"750", PROCESSOR_PPC750, POWERPC_BASE_MASK | MASK_PPC_GFXOPT},
+  {"801", PROCESSOR_MPCCORE, POWERPC_BASE_MASK | MASK_SOFT_FLOAT},
+  {"821", PROCESSOR_MPCCORE, POWERPC_BASE_MASK | MASK_SOFT_FLOAT},
+  {"823", PROCESSOR_MPCCORE, POWERPC_BASE_MASK | MASK_SOFT_FLOAT},
+  {"8540", PROCESSOR_PPC8540, POWERPC_BASE_MASK | MASK_STRICT_ALIGN
+   | MASK_ISEL},
+  /* 8548 has a dummy entry for now.  */
+  {"8548", PROCESSOR_PPC8540, POWERPC_BASE_MASK | MASK_STRICT_ALIGN
+   | MASK_ISEL},
+  {"a2", PROCESSOR_PPCA2,
+   POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_POWERPC64 | MASK_POPCNTB
+   | MASK_CMPB | MASK_NO_UPDATE },
+  {"e300c2", PROCESSOR_PPCE300C2, POWERPC_BASE_MASK | MASK_SOFT_FLOAT},
+  {"e300c3", PROCESSOR_PPCE300C3, POWERPC_BASE_MASK},
+  {"e500mc", PROCESSOR_PPCE500MC, POWERPC_BASE_MASK | MASK_PPC_GFXOPT
+   | MASK_ISEL},
+  {"e500mc64", PROCESSOR_PPCE500MC64, POWERPC_BASE_MASK | MASK_POWERPC64
+   | MASK_PPC_GFXOPT | MASK_ISEL},
+  {"860", PROCESSOR_MPCCORE, POWERPC_BASE_MASK | MASK_SOFT_FLOAT},
+  {"970", PROCESSOR_POWER4,
+   POWERPC_7400_MASK | MASK_PPC_GPOPT | MASK_MFCRF | MASK_POWERPC64},
+  {"cell", PROCESSOR_CELL,
+   POWERPC_7400_MASK  | MASK_PPC_GPOPT | MASK_MFCRF | MASK_POWERPC64},
+  {"common", PROCESSOR_COMMON, MASK_NEW_MNEMONICS},
+  {"ec603e", PROCESSOR_PPC603, POWERPC_BASE_MASK | MASK_SOFT_FLOAT},
+  {"G3", PROCESSOR_PPC750, POWERPC_BASE_MASK | MASK_PPC_GFXOPT},
+  {"G4",  PROCESSOR_PPC7450, POWERPC_7400_MASK},
+  {"G5", PROCESSOR_POWER4,
+   POWERPC_7400_MASK | MASK_PPC_GPOPT | MASK_MFCRF | MASK_POWERPC64},
+  {"titan", PROCESSOR_TITAN,
+   POWERPC_BASE_MASK | MASK_MULHW | MASK_DLMZB},
+  {"power", PROCESSOR_POWER, MASK_POWER | MASK_MULTIPLE | MASK_STRING},
+  {"power2", PROCESSOR_POWER,
+   MASK_POWER | MASK_POWER2 | MASK_MULTIPLE | MASK_STRING},
+  {"power3", PROCESSOR_PPC630,
+   POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_POWERPC64},
+  {"power4", PROCESSOR_POWER4,
+   POWERPC_BASE_MASK | MASK_POWERPC64 | MASK_PPC_GPOPT | MASK_PPC_GFXOPT
+   | MASK_MFCRF},
+  {"power5", PROCESSOR_POWER5,
+   POWERPC_BASE_MASK | MASK_POWERPC64 | MASK_PPC_GPOPT | MASK_PPC_GFXOPT
+   | MASK_MFCRF | MASK_POPCNTB},
+  {"power5+", PROCESSOR_POWER5,
+   POWERPC_BASE_MASK | MASK_POWERPC64 | MASK_PPC_GPOPT | MASK_PPC_GFXOPT
+   | MASK_MFCRF | MASK_POPCNTB | MASK_FPRND},
+  {"power6", PROCESSOR_POWER6,
+   POWERPC_BASE_MASK | MASK_POWERPC64 | MASK_PPC_GPOPT | MASK_PPC_GFXOPT
+   | MASK_MFCRF | MASK_POPCNTB | MASK_FPRND | MASK_CMPB | MASK_DFP
+   | MASK_RECIP_PRECISION},
+  {"power6x", PROCESSOR_POWER6,
+   POWERPC_BASE_MASK | MASK_POWERPC64 | MASK_PPC_GPOPT | MASK_PPC_GFXOPT
+   | MASK_MFCRF | MASK_POPCNTB | MASK_FPRND | MASK_CMPB | MASK_DFP
+   | MASK_MFPGPR | MASK_RECIP_PRECISION},
+  {"power7", PROCESSOR_POWER7,   /* Don't add MASK_ISEL by default */
+   POWERPC_7400_MASK | MASK_POWERPC64 | MASK_PPC_GPOPT | MASK_MFCRF
+   | MASK_POPCNTB | MASK_FPRND | MASK_CMPB | MASK_DFP | MASK_POPCNTD
+   | MASK_VSX | MASK_RECIP_PRECISION},
+  {"powerpc", PROCESSOR_POWERPC, POWERPC_BASE_MASK},
+  {"powerpc64", PROCESSOR_POWERPC64,
+   POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_POWERPC64},
+  {"rios", PROCESSOR_RIOS1, MASK_POWER | MASK_MULTIPLE | MASK_STRING},
+  {"rios1", PROCESSOR_RIOS1, MASK_POWER | MASK_MULTIPLE | MASK_STRING},
+  {"rios2", PROCESSOR_RIOS2,
+   MASK_POWER | MASK_POWER2 | MASK_MULTIPLE | MASK_STRING},
+  {"rsc", PROCESSOR_PPC601, MASK_POWER | MASK_MULTIPLE | MASK_STRING},
+  {"rsc1", PROCESSOR_PPC601, MASK_POWER | MASK_MULTIPLE | MASK_STRING},
+  {"rs64", PROCESSOR_RS64A,
+   POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_POWERPC64}
+};
+
+/* Look up a processor name for -mcpu=xxx and -mtune=xxx.  Return -1 if the
+   name is invalid.  */
+
+static int
+rs6000_cpu_name_lookup (const char *name)
+{
+  size_t i;
+
+  if (name != NULL)
+    {
+      for (i = 0; i < ARRAY_SIZE (processor_target_table); i++)
+	if (! strcmp (name, processor_target_table[i].name))
+	  return (int)i;
+    }
+
+  return -1;
+}
+
 
 /* Return number of consecutive hard regs needed starting at reg REGNO
    to hold something of mode MODE.
@@ -2352,186 +2561,24 @@ darwin_rs6000_override_options (void)
 #define RS6000_DEFAULT_LONG_DOUBLE_SIZE 64
 #endif
 
-/* Override command line options.  Mostly we process the processor
-   type and sometimes adjust other TARGET_ options.  */
+/* Override command line options.  Mostly we process the processor type and
+   sometimes adjust other TARGET_ options.  */
 
-static void
-rs6000_option_override_internal (const char *default_cpu)
+static bool
+rs6000_option_override_internal (bool global_init_p)
 {
-  size_t i, j;
-  struct rs6000_cpu_select *ptr;
+  bool ret = true;
+  const char *default_cpu = OPTION_TARGET_CPU_DEFAULT;
   int set_masks;
-
-  /* Simplifications for entries below.  */
-
-  enum {
-    POWERPC_BASE_MASK = MASK_POWERPC | MASK_NEW_MNEMONICS,
-    POWERPC_7400_MASK = POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_ALTIVEC
-  };
-
-  /* This table occasionally claims that a processor does not support
-     a particular feature even though it does, but the feature is slower
-     than the alternative.  Thus, it shouldn't be relied on as a
-     complete description of the processor's support.
-
-     Please keep this list in order, and don't forget to update the
-     documentation in invoke.texi when adding a new processor or
-     flag.  */
-  static struct ptt
-    {
-      const char *const name;		/* Canonical processor name.  */
-      const enum processor_type processor; /* Processor type enum value.  */
-      const int target_enable;	/* Target flags to enable.  */
-    } const processor_target_table[]
-      = {{"401", PROCESSOR_PPC403, POWERPC_BASE_MASK | MASK_SOFT_FLOAT},
-	 {"403", PROCESSOR_PPC403,
-	  POWERPC_BASE_MASK | MASK_SOFT_FLOAT | MASK_STRICT_ALIGN},
-	 {"405", PROCESSOR_PPC405,
-	  POWERPC_BASE_MASK | MASK_SOFT_FLOAT | MASK_MULHW | MASK_DLMZB},
-	 {"405fp", PROCESSOR_PPC405,
-	  POWERPC_BASE_MASK | MASK_MULHW | MASK_DLMZB},
-	 {"440", PROCESSOR_PPC440,
-	  POWERPC_BASE_MASK | MASK_SOFT_FLOAT | MASK_MULHW | MASK_DLMZB},
-	 {"440fp", PROCESSOR_PPC440,
-	  POWERPC_BASE_MASK | MASK_MULHW | MASK_DLMZB},
-	 {"464", PROCESSOR_PPC440,
-	  POWERPC_BASE_MASK | MASK_SOFT_FLOAT | MASK_MULHW | MASK_DLMZB},
-	 {"464fp", PROCESSOR_PPC440,
-	  POWERPC_BASE_MASK | MASK_MULHW | MASK_DLMZB},
- 	 {"476", PROCESSOR_PPC476,
-	  POWERPC_BASE_MASK | MASK_SOFT_FLOAT | MASK_PPC_GFXOPT | MASK_MFCRF
-	  | MASK_POPCNTB | MASK_FPRND | MASK_CMPB | MASK_MULHW | MASK_DLMZB},
- 	 {"476fp", PROCESSOR_PPC476,
-	  POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_MFCRF | MASK_POPCNTB
-	  | MASK_FPRND | MASK_CMPB | MASK_MULHW | MASK_DLMZB},
-	 {"505", PROCESSOR_MPCCORE, POWERPC_BASE_MASK},
-	 {"601", PROCESSOR_PPC601,
-	  MASK_POWER | POWERPC_BASE_MASK | MASK_MULTIPLE | MASK_STRING},
-	 {"602", PROCESSOR_PPC603, POWERPC_BASE_MASK | MASK_PPC_GFXOPT},
-	 {"603", PROCESSOR_PPC603, POWERPC_BASE_MASK | MASK_PPC_GFXOPT},
-	 {"603e", PROCESSOR_PPC603, POWERPC_BASE_MASK | MASK_PPC_GFXOPT},
-	 {"604", PROCESSOR_PPC604, POWERPC_BASE_MASK | MASK_PPC_GFXOPT},
-	 {"604e", PROCESSOR_PPC604e, POWERPC_BASE_MASK | MASK_PPC_GFXOPT},
-	 {"620", PROCESSOR_PPC620,
-	  POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_POWERPC64},
-	 {"630", PROCESSOR_PPC630,
-	  POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_POWERPC64},
-	 {"740", PROCESSOR_PPC750, POWERPC_BASE_MASK | MASK_PPC_GFXOPT},
-	 {"7400", PROCESSOR_PPC7400, POWERPC_7400_MASK},
-	 {"7450", PROCESSOR_PPC7450, POWERPC_7400_MASK},
-	 {"750", PROCESSOR_PPC750, POWERPC_BASE_MASK | MASK_PPC_GFXOPT},
-	 {"801", PROCESSOR_MPCCORE, POWERPC_BASE_MASK | MASK_SOFT_FLOAT},
-	 {"821", PROCESSOR_MPCCORE, POWERPC_BASE_MASK | MASK_SOFT_FLOAT},
-	 {"823", PROCESSOR_MPCCORE, POWERPC_BASE_MASK | MASK_SOFT_FLOAT},
-	 {"8540", PROCESSOR_PPC8540, POWERPC_BASE_MASK | MASK_STRICT_ALIGN
-	  | MASK_ISEL},
-	 /* 8548 has a dummy entry for now.  */
-	 {"8548", PROCESSOR_PPC8540, POWERPC_BASE_MASK | MASK_STRICT_ALIGN
-	  | MASK_ISEL},
- 	 {"a2", PROCESSOR_PPCA2,
- 	  POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_POWERPC64 | MASK_POPCNTB
- 	  | MASK_CMPB | MASK_NO_UPDATE },
-	 {"e300c2", PROCESSOR_PPCE300C2, POWERPC_BASE_MASK | MASK_SOFT_FLOAT},
-	 {"e300c3", PROCESSOR_PPCE300C3, POWERPC_BASE_MASK},
-	 {"e500mc", PROCESSOR_PPCE500MC, POWERPC_BASE_MASK | MASK_PPC_GFXOPT
-	  | MASK_ISEL},
-	 {"e500mc64", PROCESSOR_PPCE500MC64, POWERPC_BASE_MASK | MASK_POWERPC64
-	  | MASK_PPC_GFXOPT | MASK_ISEL},
-	 {"860", PROCESSOR_MPCCORE, POWERPC_BASE_MASK | MASK_SOFT_FLOAT},
-	 {"970", PROCESSOR_POWER4,
-	  POWERPC_7400_MASK | MASK_PPC_GPOPT | MASK_MFCRF | MASK_POWERPC64},
-	 {"cell", PROCESSOR_CELL,
-	  POWERPC_7400_MASK  | MASK_PPC_GPOPT | MASK_MFCRF | MASK_POWERPC64},
-	 {"common", PROCESSOR_COMMON, MASK_NEW_MNEMONICS},
-	 {"ec603e", PROCESSOR_PPC603, POWERPC_BASE_MASK | MASK_SOFT_FLOAT},
-	 {"G3", PROCESSOR_PPC750, POWERPC_BASE_MASK | MASK_PPC_GFXOPT},
-	 {"G4",  PROCESSOR_PPC7450, POWERPC_7400_MASK},
-	 {"G5", PROCESSOR_POWER4,
-	  POWERPC_7400_MASK | MASK_PPC_GPOPT | MASK_MFCRF | MASK_POWERPC64},
-	 {"titan", PROCESSOR_TITAN,
-	  POWERPC_BASE_MASK | MASK_MULHW | MASK_DLMZB},
-	 {"power", PROCESSOR_POWER, MASK_POWER | MASK_MULTIPLE | MASK_STRING},
-	 {"power2", PROCESSOR_POWER,
-	  MASK_POWER | MASK_POWER2 | MASK_MULTIPLE | MASK_STRING},
-	 {"power3", PROCESSOR_PPC630,
-	  POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_POWERPC64},
-	 {"power4", PROCESSOR_POWER4,
-	  POWERPC_BASE_MASK | MASK_POWERPC64 | MASK_PPC_GPOPT | MASK_PPC_GFXOPT
-	  | MASK_MFCRF},
-	 {"power5", PROCESSOR_POWER5,
-	  POWERPC_BASE_MASK | MASK_POWERPC64 | MASK_PPC_GPOPT | MASK_PPC_GFXOPT
-	  | MASK_MFCRF | MASK_POPCNTB},
-	 {"power5+", PROCESSOR_POWER5,
-	  POWERPC_BASE_MASK | MASK_POWERPC64 | MASK_PPC_GPOPT | MASK_PPC_GFXOPT
-	  | MASK_MFCRF | MASK_POPCNTB | MASK_FPRND},
- 	 {"power6", PROCESSOR_POWER6,
-	  POWERPC_BASE_MASK | MASK_POWERPC64 | MASK_PPC_GPOPT | MASK_PPC_GFXOPT
-	  | MASK_MFCRF | MASK_POPCNTB | MASK_FPRND | MASK_CMPB | MASK_DFP
-	  | MASK_RECIP_PRECISION},
-	 {"power6x", PROCESSOR_POWER6,
-	  POWERPC_BASE_MASK | MASK_POWERPC64 | MASK_PPC_GPOPT | MASK_PPC_GFXOPT
-	  | MASK_MFCRF | MASK_POPCNTB | MASK_FPRND | MASK_CMPB | MASK_DFP
-	  | MASK_MFPGPR | MASK_RECIP_PRECISION},
-	 {"power7", PROCESSOR_POWER7,   /* Don't add MASK_ISEL by default */
-	  POWERPC_7400_MASK | MASK_POWERPC64 | MASK_PPC_GPOPT | MASK_MFCRF
-	  | MASK_POPCNTB | MASK_FPRND | MASK_CMPB | MASK_DFP | MASK_POPCNTD
-	  | MASK_VSX | MASK_RECIP_PRECISION},
-	 {"powerpc", PROCESSOR_POWERPC, POWERPC_BASE_MASK},
-	 {"powerpc64", PROCESSOR_POWERPC64,
-	  POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_POWERPC64},
-	 {"rios", PROCESSOR_RIOS1, MASK_POWER | MASK_MULTIPLE | MASK_STRING},
-	 {"rios1", PROCESSOR_RIOS1, MASK_POWER | MASK_MULTIPLE | MASK_STRING},
-	 {"rios2", PROCESSOR_RIOS2,
-	  MASK_POWER | MASK_POWER2 | MASK_MULTIPLE | MASK_STRING},
-	 {"rsc", PROCESSOR_PPC601, MASK_POWER | MASK_MULTIPLE | MASK_STRING},
-	 {"rsc1", PROCESSOR_PPC601, MASK_POWER | MASK_MULTIPLE | MASK_STRING},
-	 {"rs64", PROCESSOR_RS64A,
-	  POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_POWERPC64}
-      };
-
-  const size_t ptt_size = ARRAY_SIZE (processor_target_table);
-
-  /* Some OSs don't support saving the high part of 64-bit registers on
-     context switch.  Other OSs don't support saving Altivec registers.
-     On those OSs, we don't touch the MASK_POWERPC64 or MASK_ALTIVEC
-     settings; if the user wants either, the user must explicitly specify
-     them and we won't interfere with the user's specification.  */
-
-  enum {
-    POWER_MASKS = MASK_POWER | MASK_POWER2 | MASK_MULTIPLE | MASK_STRING,
-    POWERPC_MASKS = (POWERPC_BASE_MASK | MASK_PPC_GPOPT | MASK_STRICT_ALIGN
-		     | MASK_PPC_GFXOPT | MASK_POWERPC64 | MASK_ALTIVEC
-		     | MASK_MFCRF | MASK_POPCNTB | MASK_FPRND | MASK_MULHW
-		     | MASK_DLMZB | MASK_CMPB | MASK_MFPGPR | MASK_DFP
-		     | MASK_POPCNTD | MASK_VSX | MASK_ISEL | MASK_NO_UPDATE
-		     | MASK_RECIP_PRECISION)
-  };
-
-  /* Masks for instructions set at various powerpc ISAs.  */
-  enum {
-    ISA_2_1_MASKS = MASK_MFCRF,
-    ISA_2_2_MASKS = (ISA_2_1_MASKS | MASK_POPCNTB | MASK_FPRND),
-
-    /* For ISA 2.05, do not add MFPGPR, since it isn't in ISA 2.06, and don't
-       add ALTIVEC, since in general it isn't a win on power6.  In ISA 2.04,
-       fsel, fre, fsqrt, etc. were no longer documented as optional.  Group
-       masks by server and embedded. */
-    ISA_2_5_MASKS_EMBEDDED = (ISA_2_2_MASKS | MASK_CMPB | MASK_RECIP_PRECISION
-			      | MASK_PPC_GFXOPT | MASK_PPC_GPOPT),
-    ISA_2_5_MASKS_SERVER = (ISA_2_5_MASKS_EMBEDDED | MASK_DFP),
-
-    /* For ISA 2.06, don't add ISEL, since in general it isn't a win, but
-       altivec is a win so enable it.  */
-    ISA_2_6_MASKS_EMBEDDED = (ISA_2_5_MASKS_EMBEDDED | MASK_POPCNTD),
-    ISA_2_6_MASKS_SERVER = (ISA_2_5_MASKS_SERVER | MASK_POPCNTD | MASK_ALTIVEC
-			    | MASK_VSX)
-  };
+  int defcpu_index;
+  int cpu_index;
+  int tune_index;
 
   /* Numerous experiment shows that IRA based loop pressure
      calculation works better for RTL loop invariant motion on targets
      with enough (>= 32) registers.  It is an expensive optimization.
      So it is on only for peak performance.  */
-  if (optimize >= 3)
+  if (optimize >= 3 && global_init_p)
     flag_ira_loop_pressure = 1;
 
   /* Set the pointer size.  */
@@ -2560,41 +2607,44 @@ rs6000_option_override_internal (const char *default_cpu)
   set_masks &= ~target_flags_explicit;
 
   /* Identify the processor type.  */
-  rs6000_select[0].string = default_cpu;
-  rs6000_cpu = TARGET_POWERPC64 ? PROCESSOR_DEFAULT64 : PROCESSOR_DEFAULT;
-
-  for (i = 0; i < ARRAY_SIZE (rs6000_select); i++)
+  if (!default_cpu)
     {
-      ptr = &rs6000_select[i];
-      if (ptr->string != (char *)0 && ptr->string[0] != '\0')
-	{
-	  for (j = 0; j < ptt_size; j++)
-	    if (! strcmp (ptr->string, processor_target_table[j].name))
-	      {
-		if (ptr->set_tune_p)
-		  rs6000_cpu = processor_target_table[j].processor;
-
-		if (ptr->set_arch_p)
-		  {
-		    target_flags &= ~set_masks;
-		    target_flags |= (processor_target_table[j].target_enable
-				     & set_masks);
-		  }
-		break;
-	      }
-
-	  if (j == ptt_size)
-	    error ("bad value (%s) for %s switch", ptr->string, ptr->name);
-	}
+      if (TARGET_POWERPC64)
+	default_cpu = "powerpc64";
+      else if (TARGET_POWERPC)
+	default_cpu = "powerpc";
     }
+
+  defcpu_index = rs6000_cpu_name_lookup (default_cpu);
+  cpu_index = (rs6000_cpu_index > 0) ? rs6000_cpu_index : defcpu_index;
+  tune_index = (rs6000_tune_index > 0) ? rs6000_tune_index : cpu_index;
+
+  if (cpu_index >= 0)
+    {
+      target_flags &= ~set_masks;
+      target_flags |= (processor_target_table[cpu_index].target_enable
+		       & set_masks);
+    }
+
+  rs6000_cpu = ((tune_index >= 0)
+		? processor_target_table[tune_index].processor
+		: (TARGET_POWERPC64
+		   ? PROCESSOR_DEFAULT64
+		   : PROCESSOR_DEFAULT));
 
   if (rs6000_cpu == PROCESSOR_PPCE300C2 || rs6000_cpu == PROCESSOR_PPCE300C3
       || rs6000_cpu == PROCESSOR_PPCE500MC || rs6000_cpu == PROCESSOR_PPCE500MC64)
     {
       if (TARGET_ALTIVEC)
-	error ("AltiVec not supported in this target");
+	{
+	  error ("AltiVec not supported in this target");
+	  ret = false;
+	}
       if (TARGET_SPE)
-	error ("Spe not supported in this target");
+	{
+	  error ("Spe not supported in this target");
+	  ret = false;
+	}
     }
 
   /* Disable Cell microcode if we are optimizing for the Cell
@@ -2696,31 +2746,8 @@ rs6000_option_override_internal (const char *default_cpu)
   if (rs6000_block_move_inline_limit < (TARGET_POWERPC64 ? 64 : 32))
     rs6000_block_move_inline_limit = (TARGET_POWERPC64 ? 64 : 32);
 
-  /* Set debug flags */
-  if (rs6000_debug_name)
+  if (global_init_p)
     {
-      char *p = ASTRDUP (rs6000_debug_name);
-      char *q;
-      rs6000_debug = 0;
-
-      while ((q = strtok (p, ",")) != NULL)
-	{
-	  if (! strcmp (q, "all"))
-	    rs6000_debug |= MASK_DEBUG_ALL;
-	  else if (! strcmp (q, "stack"))
-	    rs6000_debug |= MASK_DEBUG_STACK;
-	  else if (! strcmp (q, "arg"))
-	    rs6000_debug |= MASK_DEBUG_ARG;
-	  else if (! strcmp (q, "reg"))
-	    rs6000_debug |= MASK_DEBUG_REG;
-	  else if (! strcmp (q, "addr"))
-	    rs6000_debug |= MASK_DEBUG_ADDR;
-	  else if (! strcmp (q, "cost"))
-	    rs6000_debug |= MASK_DEBUG_COST;
-	  else
-	    error ("unknown -mdebug-%s switch", q);
-	}
-
       /* If the appropriate debug option is enabled, replace the target hooks
 	 with debug versions that call the real version and then prints
 	 debugging information.  */
@@ -2748,28 +2775,18 @@ rs6000_option_override_internal (const char *default_cpu)
 	  rs6000_mode_dependent_address_ptr
 	    = rs6000_debug_mode_dependent_address;
 	}
-    }
 
-  if (rs6000_traceback_name)
-    {
-      if (! strncmp (rs6000_traceback_name, "full", 4))
-	rs6000_traceback = traceback_full;
-      else if (! strncmp (rs6000_traceback_name, "part", 4))
-	rs6000_traceback = traceback_part;
-      else if (! strncmp (rs6000_traceback_name, "no", 2))
-	rs6000_traceback = traceback_none;
-      else
-	error ("unknown -mtraceback arg %qs; expecting %<full%>, %<partial%> or %<none%>",
-	       rs6000_traceback_name);
-    }
-
-  if (rs6000_veclibabi_name)
-    {
-      if (strcmp (rs6000_veclibabi_name, "mass") == 0)
-	rs6000_veclib_handler = rs6000_builtin_vectorized_libmass;
-      else
-	error ("unknown vectorization library ABI type (%s) for "
-	       "-mveclibabi= switch", rs6000_veclibabi_name);
+      if (rs6000_veclibabi_name)
+	{
+	  if (strcmp (rs6000_veclibabi_name, "mass") == 0)
+	    rs6000_veclib_handler = rs6000_builtin_vectorized_libmass;
+	  else
+	    {
+	      error ("unknown vectorization library ABI type (%s) for "
+		     "-mveclibabi= switch", rs6000_veclibabi_name);
+	      ret = false;
+	    }
+	}
     }
 
   if (!rs6000_explicit_options.long_double)
@@ -2813,9 +2830,6 @@ rs6000_option_override_internal (const char *default_cpu)
      if section anchors enabled.  */
   if (flag_section_anchors)
     TARGET_NO_FP_IN_TOC = 1;
-
-  /* Handle -mtls-size option.  */
-  rs6000_parse_tls_size_option ();
 
 #ifdef SUBTARGET_OVERRIDE_OPTIONS
   SUBTARGET_OVERRIDE_OPTIONS;
@@ -2918,76 +2932,79 @@ rs6000_option_override_internal (const char *default_cpu)
 				    atoi (rs6000_sched_insert_nops_str));
     }
 
+  if (global_init_p)
+    {
 #ifdef TARGET_REGNAMES
-  /* If the user desires alternate register names, copy in the
-     alternate names now.  */
-  if (TARGET_REGNAMES)
-    memcpy (rs6000_reg_names, alt_reg_names, sizeof (rs6000_reg_names));
+      /* If the user desires alternate register names, copy in the
+	 alternate names now.  */
+      if (TARGET_REGNAMES)
+	memcpy (rs6000_reg_names, alt_reg_names, sizeof (rs6000_reg_names));
 #endif
 
-  /* Set aix_struct_return last, after the ABI is determined.
-     If -maix-struct-return or -msvr4-struct-return was explicitly
-     used, don't override with the ABI default.  */
-  if (!rs6000_explicit_options.aix_struct_ret)
-    aix_struct_return = (DEFAULT_ABI != ABI_V4 || DRAFT_V4_STRUCT_RET);
+      /* Set aix_struct_return last, after the ABI is determined.
+	 If -maix-struct-return or -msvr4-struct-return was explicitly
+	 used, don't override with the ABI default.  */
+      if (!rs6000_explicit_options.aix_struct_ret)
+	aix_struct_return = (DEFAULT_ABI != ABI_V4 || DRAFT_V4_STRUCT_RET);
 
 #if 0
-  /* IBM XL compiler defaults to unsigned bitfields.  */
-  if (TARGET_XL_COMPAT)
-    flag_signed_bitfields = 0;
+      /* IBM XL compiler defaults to unsigned bitfields.  */
+      if (TARGET_XL_COMPAT)
+	flag_signed_bitfields = 0;
 #endif
 
-  if (TARGET_LONG_DOUBLE_128 && !TARGET_IEEEQUAD)
-    REAL_MODE_FORMAT (TFmode) = &ibm_extended_format;
+      if (TARGET_LONG_DOUBLE_128 && !TARGET_IEEEQUAD)
+	REAL_MODE_FORMAT (TFmode) = &ibm_extended_format;
 
-  if (TARGET_TOC)
-    ASM_GENERATE_INTERNAL_LABEL (toc_label_name, "LCTOC", 1);
+      if (TARGET_TOC)
+	ASM_GENERATE_INTERNAL_LABEL (toc_label_name, "LCTOC", 1);
 
-  /* We can only guarantee the availability of DI pseudo-ops when
-     assembling for 64-bit targets.  */
-  if (!TARGET_64BIT)
-    {
-      targetm.asm_out.aligned_op.di = NULL;
-      targetm.asm_out.unaligned_op.di = NULL;
-    }
-
-  /* Set branch target alignment, if not optimizing for size.  */
-  if (!optimize_size)
-    {
-      /* Cell wants to be aligned 8byte for dual issue.  Titan wants to be
-	 aligned 8byte to avoid misprediction by the branch predictor.  */
-      if (rs6000_cpu == PROCESSOR_TITAN
-	  || rs6000_cpu == PROCESSOR_CELL)
+      /* We can only guarantee the availability of DI pseudo-ops when
+	 assembling for 64-bit targets.  */
+      if (!TARGET_64BIT)
 	{
-	  if (align_functions <= 0)
-	    align_functions = 8;
-	  if (align_jumps <= 0)
-	    align_jumps = 8;
-	  if (align_loops <= 0)
-	    align_loops = 8;
- 	}
-      if (rs6000_align_branch_targets)
-	{
-	  if (align_functions <= 0)
-	    align_functions = 16;
-	  if (align_jumps <= 0)
-	    align_jumps = 16;
-	  if (align_loops <= 0)
-	    align_loops = 16;
+	  targetm.asm_out.aligned_op.di = NULL;
+	  targetm.asm_out.unaligned_op.di = NULL;
 	}
-      if (align_jumps_max_skip <= 0)
-	align_jumps_max_skip = 15;
-      if (align_loops_max_skip <= 0)
-	align_loops_max_skip = 15;
+
+      /* Set branch target alignment, if not optimizing for size.  */
+      if (!optimize_size)
+	{
+	  /* Cell wants to be aligned 8byte for dual issue.  Titan wants to be
+	     aligned 8byte to avoid misprediction by the branch predictor.  */
+	  if (rs6000_cpu == PROCESSOR_TITAN
+	      || rs6000_cpu == PROCESSOR_CELL)
+	    {
+	      if (align_functions <= 0)
+		align_functions = 8;
+	      if (align_jumps <= 0)
+		align_jumps = 8;
+	      if (align_loops <= 0)
+		align_loops = 8;
+	    }
+	  if (rs6000_align_branch_targets)
+	    {
+	      if (align_functions <= 0)
+		align_functions = 16;
+	      if (align_jumps <= 0)
+		align_jumps = 16;
+	      if (align_loops <= 0)
+		align_loops = 16;
+	    }
+	  if (align_jumps_max_skip <= 0)
+	    align_jumps_max_skip = 15;
+	  if (align_loops_max_skip <= 0)
+	    align_loops_max_skip = 15;
+	}
+
+      /* Arrange to save and restore machine status around nested functions.  */
+      init_machine_status = rs6000_init_machine_status;
+
+      /* We should always be splitting complex arguments, but we can't break
+	 Linux and Darwin ABIs at the moment.  For now, only AIX is fixed.  */
+      if (DEFAULT_ABI != ABI_AIX)
+	targetm.calls.split_complex_arg = NULL;
     }
-
-  /* Arrange to save and restore machine status around nested functions.  */
-  init_machine_status = rs6000_init_machine_status;
-
-  /* We should always be splitting complex arguments, but we can't break
-     Linux and Darwin ABIs at the moment.  For now, only AIX is fixed.  */
-  if (DEFAULT_ABI != ABI_AIX)
-    targetm.calls.split_complex_arg = NULL;
 
   /* Initialize rs6000_cost with the appropriate target costs.  */
   if (optimize_size)
@@ -3106,25 +3123,29 @@ rs6000_option_override_internal (const char *default_cpu)
 	gcc_unreachable ();
       }
 
-  maybe_set_param_value (PARAM_SIMULTANEOUS_PREFETCHES,
-			 rs6000_cost->simultaneous_prefetches,
-			 global_options.x_param_values,
-			 global_options_set.x_param_values);
-  maybe_set_param_value (PARAM_L1_CACHE_SIZE, rs6000_cost->l1_cache_size,
-			 global_options.x_param_values,
-			 global_options_set.x_param_values);
-  maybe_set_param_value (PARAM_L1_CACHE_LINE_SIZE,
-			 rs6000_cost->cache_line_size,
-			 global_options.x_param_values,
-			 global_options_set.x_param_values);
-  maybe_set_param_value (PARAM_L2_CACHE_SIZE, rs6000_cost->l2_cache_size,
-			 global_options.x_param_values,
-			 global_options_set.x_param_values);
+  if (global_init_p)
+    {
+      maybe_set_param_value (PARAM_SIMULTANEOUS_PREFETCHES,
+			     rs6000_cost->simultaneous_prefetches,
+			     global_options.x_param_values,
+			     global_options_set.x_param_values);
+      maybe_set_param_value (PARAM_L1_CACHE_SIZE, rs6000_cost->l1_cache_size,
+			     global_options.x_param_values,
+			     global_options_set.x_param_values);
+      maybe_set_param_value (PARAM_L1_CACHE_LINE_SIZE,
+			     rs6000_cost->cache_line_size,
+			     global_options.x_param_values,
+			     global_options_set.x_param_values);
+      maybe_set_param_value (PARAM_L2_CACHE_SIZE, rs6000_cost->l2_cache_size,
+			     global_options.x_param_values,
+			     global_options_set.x_param_values);
 
-  /* If using typedef char *va_list, signal that __builtin_va_start (&ap, 0)
-     can be optimized to ap = __builtin_next_arg (0).  */
-  if (DEFAULT_ABI != ABI_V4)
-    targetm.expand_builtin_va_start = NULL;
+      /* If using typedef char *va_list, signal that
+	 __builtin_va_start (&ap, 0) can be optimized to
+	 ap = __builtin_next_arg (0).  */
+      if (DEFAULT_ABI != ABI_V4)
+	targetm.expand_builtin_va_start = NULL;
+    }
 
   /* Set up single/double float flags.  
      If TARGET_HARD_FLOAT is set, but neither single or double is set, 
@@ -3186,6 +3207,7 @@ rs6000_option_override_internal (const char *default_cpu)
 		  error ("Unknown option for -mrecip=%s", q);
 		  invert = false;
 		  mask = 0;
+		  ret = false;
 		}
 	    }
 
@@ -3197,6 +3219,13 @@ rs6000_option_override_internal (const char *default_cpu)
     }
 
   rs6000_init_hard_regno_mode_ok ();
+
+  /* Save the initial options in case the user does function specific options */
+  if (global_init_p)
+    target_option_default_node = target_option_current_node
+      = build_target_option_node ();
+
+  return ret;
 }
 
 /* Implement TARGET_OPTION_OVERRIDE.  On the RS/6000 this is used to
@@ -3205,9 +3234,10 @@ rs6000_option_override_internal (const char *default_cpu)
 static void
 rs6000_option_override (void)
 {
-  rs6000_option_override_internal (OPTION_TARGET_CPU_DEFAULT);
+  (void) rs6000_option_override_internal (true);
 }
 
+
 /* Implement targetm.vectorize.builtin_mask_for_load.  */
 static tree
 rs6000_builtin_mask_for_load (void)
@@ -3612,23 +3642,6 @@ rs6000_parse_yes_no_option (const char *name, const char *value, int *flag)
     error ("unknown -m%s= option specified: '%s'", name, value);
 }
 
-/* Validate and record the size specified with the -mtls-size option.  */
-
-static void
-rs6000_parse_tls_size_option (void)
-{
-  if (rs6000_tls_size_string == 0)
-    return;
-  else if (strcmp (rs6000_tls_size_string, "16") == 0)
-    rs6000_tls_size = 16;
-  else if (strcmp (rs6000_tls_size_string, "32") == 0)
-    rs6000_tls_size = 32;
-  else if (strcmp (rs6000_tls_size_string, "64") == 0)
-    rs6000_tls_size = 64;
-  else
-    error ("bad value %qs for -mtls-size switch", rs6000_tls_size_string);
-}
-
 /* Implement TARGET_OPTION_INIT_STRUCT.  */
 
 static void
@@ -4001,6 +4014,7 @@ rs6000_handle_option (size_t code, const char *arg, int value)
 {
   enum fpu_type_t fpu_type = FPU_NONE;
   int isel;
+  char *p, *q;
 
   switch (code)
     {
@@ -4145,7 +4159,45 @@ rs6000_handle_option (size_t code, const char *arg, int value)
       break;
 
     case OPT_mdebug_:
-      rs6000_debug_name = arg;
+      p = ASTRDUP (arg);
+      rs6000_debug = 0;
+
+      while ((q = strtok (p, ",")) != NULL)
+	{
+	  unsigned mask = 0;
+	  bool invert;
+
+	  p = NULL;
+	  if (*q == '!')
+	    {
+	      invert = true;
+	      q++;
+	    }
+	  else
+	    invert = false;
+
+	  if (! strcmp (q, "all"))
+	    mask = MASK_DEBUG_ALL;
+	  else if (! strcmp (q, "stack"))
+	    mask = MASK_DEBUG_STACK;
+	  else if (! strcmp (q, "arg"))
+	    mask = MASK_DEBUG_ARG;
+	  else if (! strcmp (q, "reg"))
+	    mask = MASK_DEBUG_REG;
+	  else if (! strcmp (q, "addr"))
+	    mask = MASK_DEBUG_ADDR;
+	  else if (! strcmp (q, "cost"))
+	    mask = MASK_DEBUG_COST;
+	  else if (! strcmp (q, "target"))
+	    mask = MASK_DEBUG_TARGET;
+	  else
+	    error ("unknown -mdebug-%s switch", q);
+
+	  if (invert)
+	    rs6000_debug &= ~mask;
+	  else	
+	    rs6000_debug |= mask;
+	}
       break;
 
 #ifdef TARGET_USES_SYSV4_OPT
@@ -4158,7 +4210,14 @@ rs6000_handle_option (size_t code, const char *arg, int value)
       break;
 
     case OPT_mtls_size_:
-      rs6000_tls_size_string = arg;
+      if (strcmp (arg, "16") == 0)
+	rs6000_tls_size = 16;
+      else if (strcmp (arg, "32") == 0)
+	rs6000_tls_size = 32;
+      else if (strcmp (arg, "64") == 0)
+	rs6000_tls_size = 64;
+      else
+	error ("bad value %qs for -mtls-size switch", arg);
       break;
 
     case OPT_mrelocatable:
@@ -4248,14 +4307,28 @@ rs6000_handle_option (size_t code, const char *arg, int value)
 
     case OPT_mcpu_:
       rs6000_select[1].string = arg;
+      rs6000_cpu_index = rs6000_cpu_name_lookup (arg);
+      if (rs6000_cpu_index < 0)
+	error ("bad value (%s) for -mcpu", arg);
       break;
 
     case OPT_mtune_:
       rs6000_select[2].string = arg;
+      rs6000_tune_index = rs6000_cpu_name_lookup (arg);
+      if (rs6000_tune_index < 0)
+	error ("bad value (%s) for -mtune", arg);
       break;
 
     case OPT_mtraceback_:
-      rs6000_traceback_name = arg;
+      if (! strncmp (arg, "full", 4))
+	rs6000_traceback = traceback_full;
+      else if (! strncmp (arg, "part", 4))
+	rs6000_traceback = traceback_part;
+      else if (! strncmp (arg, "no", 2))
+	rs6000_traceback = traceback_none;
+      else
+	error ("unknown -mtraceback arg %qs; expecting %<full%>, "
+	       "%<partial%> or %<none%>", arg);
       break;
 
     case OPT_mfloat_gprs_:
@@ -6744,6 +6817,9 @@ void
 rs6000_conditional_register_usage (void)
 {
   int i;
+
+  if (TARGET_DEBUG_REG || TARGET_DEBUG_TARGET)
+    fprintf (stderr, "rs6000_conditional_register_usage called\n");
 
   /* Set MQ register fixed (already call_used) if not POWER
      architecture (RIOS1, RIOS2, RSC, and PPC601) so that it will not
@@ -27060,6 +27136,532 @@ rs6000_final_prescan_insn (rtx insn, rtx *operand ATTRIBUTE_UNUSED,
     }
 }
 
+
+/* Mask options that we want to support inside of attribute((target)) and
+   #pragma GCC target operations.  Note, we do not include things like
+   64/32-bit, endianess, hard/soft floating point, etc. that would have
+   different calling sequences.  */
+
+struct rs6000_opt_mask {
+  const char *name;		/* option name */
+  int mask;			/* mask to set */
+  bool invert;			/* invert sense of mask */
+  bool valid_target;		/* option is a target option */
+};
+
+static struct rs6000_opt_mask const rs6000_opt_masks[] =
+{
+  { "altivec",		MASK_ALTIVEC,		false, true  },
+  { "cmpb",		MASK_CMPB,		false, true  },
+  { "dlmzb",		MASK_DLMZB,		false, true  },
+  { "fprnd",		MASK_FPRND,		false, true  },
+  { "hard-dfp",		MASK_DFP,		false, true  },
+  { "isel",		MASK_ISEL,		false, true  },
+  { "mfcrf",		MASK_MFCRF,		false, true  },
+  { "mfpgpr",		MASK_MFPGPR,		false, true  },
+  { "mulhw",		MASK_MULHW,		false, true  },
+  { "multiple",		MASK_MULTIPLE,		false, true  },
+  { "update",		MASK_NO_UPDATE,		true , true  },
+  { "popcntb",		MASK_POPCNTB,		false, true  },
+  { "popcntd",		MASK_POPCNTD,		false, true  },
+  { "powerpc-gfxopt",	MASK_PPC_GFXOPT,	false, true  },
+  { "powerpc-gpopt",	MASK_PPC_GPOPT,		false, true  },
+  { "recip-precision",	MASK_RECIP_PRECISION,	false, true  },
+  { "string",		MASK_STRING,		false, true  },
+  { "vsx",		MASK_VSX,		false, true  },
+#ifdef MASK_64BIT
+  { "64",		MASK_64BIT,		false, false },
+  { "32",		MASK_64BIT,		true,  false },
+#endif
+#ifdef MASK_EABI
+  { "eabi",		MASK_EABI,		false, false },
+#endif
+#ifdef MASK_LITTLE_ENDIAN
+  { "little",		MASK_LITTLE_ENDIAN,	false, false },
+  { "big",		MASK_LITTLE_ENDIAN,	true,  false },
+#endif
+#ifdef MASK_RELOCATABLE
+  { "relocatable",	MASK_RELOCATABLE,	false, false },
+#endif
+#ifdef MASK_STRICT_ALIGN
+  { "strict-align",	MASK_STRICT_ALIGN,	false, false },
+#endif
+  { "power",		MASK_POWER,		false, false },
+  { "power2",		MASK_POWER2,		false, false },
+  { "powerpc",		MASK_POWERPC,		false, false },
+  { "soft-float",	MASK_SOFT_FLOAT,	false, false },
+  { "string",		MASK_STRING,		false, false },
+};
+
+/* Inner function to handle attribute((target("..."))) and #pragma GCC target
+   parsing.  Return true if there were no errors.  */
+
+static bool
+rs6000_inner_target_options (tree args, bool attr_p)
+{
+  bool ret = true;
+
+  if (args == NULL_TREE)
+    ;
+
+  else if (TREE_CODE (args) == STRING_CST)
+    {
+      char *p = ASTRDUP (TREE_STRING_POINTER (args));
+      char *q;
+
+      while ((q = strtok (p, ",")) != NULL)
+	{
+	  bool error_p = false;
+	  bool not_valid_p = false;
+	  const char *cpu_opt = NULL;
+
+	  p = NULL;
+	  if (strncmp (q, "cpu=", 4) == 0)
+	    {
+	      int cpu_index = rs6000_cpu_name_lookup (q+4);
+	      if (cpu_index >= 0)
+		rs6000_cpu_index = cpu_index;
+	      else
+		{
+		  error_p = true;
+		  cpu_opt = q+4;
+		}
+	    }
+	  else if (strncmp (q, "tune=", 5) == 0)
+	    {
+	      int tune_index = rs6000_cpu_name_lookup (q+5);
+	      if (tune_index >= 0)
+		rs6000_tune_index = tune_index;
+	      else
+		{
+		  error_p = true;
+		  cpu_opt = q+5;
+		}
+	    }
+	  else
+	    {
+	      size_t i;
+	      bool invert = false;
+	      char *r = q;
+
+	      error_p = true;
+	      if (strncmp (r, "no-", 3) == 0)
+		{
+		  invert = true;
+		  r += 3;
+		}
+
+	      for (i = 0; i < ARRAY_SIZE (rs6000_opt_masks); i++)
+		if (strcmp (r, rs6000_opt_masks[i].name) == 0)
+		  {
+		    int mask = rs6000_opt_masks[i].mask;
+
+		    if (!rs6000_opt_masks[i].valid_target)
+		      not_valid_p = true;
+		    else
+		      {
+			error_p = false;
+			target_flags_explicit |= mask;
+
+			if (rs6000_opt_masks[i].invert)
+			  invert = !invert;
+
+			if (invert)
+			  target_flags &= ~mask;
+			else
+			  target_flags |= mask;
+		      }
+		    break;
+		  }
+	    }
+
+	  if (error_p)
+	    {
+	      const char *eprefix, *esuffix;
+
+	      ret = false;
+	      if (attr_p)
+		{
+		  eprefix = "__attribute__((__target__(";
+		  esuffix = ")))";
+		}
+	      else
+		{
+		  eprefix = "#pragma GCC target ";
+		  esuffix = "";
+		}
+
+	      if (cpu_opt)
+		error ("Invalid cpu \"%s\" for %s\"%s\"%s", cpu_opt, eprefix,
+		       q, esuffix);
+	      else if (not_valid_p)
+		error ("%s\"%s\"%s is not allowed", eprefix, q, esuffix);
+	      else
+		error ("%s\"%s\"%s is invalid", eprefix, q, esuffix);
+	    }
+	}
+    }
+
+  else if (TREE_CODE (args) == TREE_LIST)
+    {
+      do
+	{
+	  tree value = TREE_VALUE (args);
+	  if (value)
+	    {
+	      bool ret2 = rs6000_inner_target_options (value, attr_p);
+	      if (!ret2)
+		ret = false;
+	    }
+	  args = TREE_CHAIN (args);
+	}
+      while (args != NULL_TREE);
+    }
+
+  else
+    gcc_unreachable ();
+
+  return ret;
+}
+
+/* Print out the target options as a list for -mdebug=target.  */
+
+static void
+rs6000_debug_target_options (tree args, const char *prefix)
+{
+  if (args == NULL_TREE)
+    fprintf (stderr, "%s<NULL>", prefix);
+
+  else if (TREE_CODE (args) == STRING_CST)
+    {
+      char *p = ASTRDUP (TREE_STRING_POINTER (args));
+      char *q;
+
+      while ((q = strtok (p, ",")) != NULL)
+	{
+	  p = NULL;
+	  fprintf (stderr, "%s\"%s\"", prefix, q);
+	  prefix = ", ";
+	}
+    }
+
+  else if (TREE_CODE (args) == TREE_LIST)
+    {
+      do
+	{
+	  tree value = TREE_VALUE (args);
+	  if (value)
+	    {
+	      rs6000_debug_target_options (value, prefix);
+	      prefix = ", ";
+	    }
+	  args = TREE_CHAIN (args);
+	}
+      while (args != NULL_TREE);
+    }
+
+  else
+    gcc_unreachable ();
+
+  return;
+}
+
+
+/* Hook to validate attribute((target("..."))).  */
+
+static bool
+rs6000_valid_attribute_p (tree fndecl,
+			  tree ARG_UNUSED (name),
+			  tree args,
+			  int flags)
+{
+  struct cl_target_option cur_target;
+  bool ret;
+  tree old_optimize = build_optimization_node ();
+  tree new_target, new_optimize;
+  tree func_optimize = DECL_FUNCTION_SPECIFIC_OPTIMIZATION (fndecl);
+
+  gcc_assert ((fndecl != NULL_TREE) && (args != NULL_TREE));
+
+  if (TARGET_DEBUG_TARGET)
+    {
+      tree tname = DECL_NAME (fndecl);
+      fprintf (stderr, "\n==================== rs6000_valid_attribute_p:\n");
+      if (tname)
+	fprintf (stderr, "function: %.*s\n",
+		 (int) IDENTIFIER_LENGTH (tname),
+		 IDENTIFIER_POINTER (tname));
+      else
+	fprintf (stderr, "function: unknown\n");
+  
+      fprintf (stderr, "args:");
+      rs6000_debug_target_options (args, " ");
+      fprintf (stderr, "\n");
+
+      if (flags)
+	fprintf (stderr, "flags: 0x%x\n", flags);
+
+      fprintf (stderr, "--------------------\n");
+    }
+
+  old_optimize = build_optimization_node ();
+  func_optimize = DECL_FUNCTION_SPECIFIC_OPTIMIZATION (fndecl);
+
+  /* If the function changed the optimization levels as well as setting target
+     options, start with the optimizations specified.  */
+  if (func_optimize && func_optimize != old_optimize)
+    cl_optimization_restore (&global_options,
+			     TREE_OPTIMIZATION (func_optimize));
+
+  /* The target attributes may also change some optimization flags, so update
+     the optimization options if necessary.  */
+  cl_target_option_save (&cur_target, &global_options);
+  ret = rs6000_inner_target_options (args, true);
+
+  /* Set up any additional state.  */
+  if (ret)
+    {
+      ret = rs6000_option_override_internal (false);
+      new_target = build_target_option_node ();
+    }
+  else
+    new_target = NULL;
+
+  new_optimize = build_optimization_node ();
+
+  if (!new_target)
+    ret = false;
+
+  else if (fndecl)
+    {
+      DECL_FUNCTION_SPECIFIC_TARGET (fndecl) = new_target;
+
+      if (old_optimize != new_optimize)
+	DECL_FUNCTION_SPECIFIC_OPTIMIZATION (fndecl) = new_optimize;
+    }
+
+  cl_target_option_restore (&global_options, &cur_target);
+
+  if (old_optimize != new_optimize)
+    cl_optimization_restore (&global_options,
+			     TREE_OPTIMIZATION (old_optimize));
+
+  return ret;
+}
+
+
+/* Hook to validate the current #pragma GCC target and set the state, and
+   update the macros based on what was changed.  If ARGS is NULL, then
+   POP_TARGET is used to reset the options.  */
+
+bool
+rs6000_pragma_target_parse (tree args, tree pop_target)
+{
+  tree cur_tree;
+  bool ret;
+
+  if (TARGET_DEBUG_TARGET)
+    {
+      fprintf (stderr, "\n==================== rs6000_pragma_target_parse\n");
+      fprintf (stderr, "args:");
+      rs6000_debug_target_options (args, " ");
+      fprintf (stderr, "\n");
+
+      if (pop_target)
+	{
+	  fprintf (stderr, "pop_target:\n");
+	  debug_tree (pop_target);
+	}
+      else
+	fprintf (stderr, "pop_target: <NULL>\n");
+
+      fprintf (stderr, "--------------------\n");
+    }
+
+  if (! args)
+    {
+      ret = true;
+      cur_tree = ((pop_target)
+		  ? pop_target
+		  : target_option_default_node);
+      cl_target_option_restore (&global_options,
+				TREE_TARGET_OPTION (cur_tree));
+    }
+  else
+    {
+      ret = rs6000_inner_target_options (args, false);
+      cur_tree = build_target_option_node ();
+
+      if (!cur_tree)
+	ret = false;
+    }
+
+  if (cur_tree)
+    target_option_current_node = cur_tree;
+
+  return ret;
+}
+
+
+/* Remember the last target of rs6000_set_current_function.  */
+static GTY(()) tree rs6000_previous_fndecl;
+
+/* Establish appropriate back-end context for processing the function
+   FNDECL.  The argument might be NULL to indicate processing at top
+   level, outside of any function scope.  */
+static void
+rs6000_set_current_function (tree fndecl)
+{
+  tree old_tree = (rs6000_previous_fndecl
+		   ? DECL_FUNCTION_SPECIFIC_TARGET (rs6000_previous_fndecl)
+		   : NULL_TREE);
+
+  tree new_tree = (fndecl
+		   ? DECL_FUNCTION_SPECIFIC_TARGET (fndecl)
+		   : NULL_TREE);
+
+  if (TARGET_DEBUG_TARGET)
+    {
+      bool print_final = false;
+      fprintf (stderr, "\n==================== rs6000_set_current_function");
+
+      if (fndecl)
+	fprintf (stderr, ", fndecl %s (%p)",
+		 (DECL_NAME (fndecl)
+		  ? IDENTIFIER_POINTER (DECL_NAME (fndecl))
+		  : "<unknown>"), (void *)fndecl);
+
+      if (rs6000_previous_fndecl)
+	fprintf (stderr, ", prev_fndecl (%p)", (void *)rs6000_previous_fndecl);
+
+      fprintf (stderr, "\n");
+      if (new_tree)
+	{
+	  fprintf (stderr, "\nnew fndecl target specific options:\n");
+	  debug_tree (new_tree);
+	  print_final = true;
+	}
+
+      if (old_tree)
+	{
+	  fprintf (stderr, "\nold fndecl target specific options:\n");
+	  debug_tree (old_tree);
+	  print_final = true;
+	}
+
+      if (print_final)
+	fprintf (stderr, "--------------------\n");
+    }
+
+  /* Only change the context if the function changes.  This hook is called
+     several times in the course of compiling a function, and we don't want to
+     slow things down too much or call target_reinit when it isn't safe.  */
+  if (fndecl && fndecl != rs6000_previous_fndecl)
+    {
+      rs6000_previous_fndecl = fndecl;
+      if (old_tree == new_tree)
+	;
+
+      else if (new_tree)
+	{
+	  cl_target_option_restore (&global_options,
+				    TREE_TARGET_OPTION (new_tree));
+	  target_reinit ();
+	}
+
+      else if (old_tree)
+	{
+	  struct cl_target_option *def
+	    = TREE_TARGET_OPTION (target_option_current_node);
+
+	  cl_target_option_restore (&global_options, def);
+	  target_reinit ();
+	}
+    }
+}
+
+
+/* Save the current options */
+
+static void
+rs6000_function_specific_save (struct cl_target_option *ptr)
+{
+  ptr->rs6000_target_flags_explicit = target_flags_explicit;
+}
+
+/* Restore the current options */
+
+static void
+rs6000_function_specific_restore (struct cl_target_option *ptr)
+{
+  target_flags_explicit = ptr->rs6000_target_flags_explicit;
+  (void) rs6000_option_override_internal (false);
+}
+
+/* Print the current options */
+
+static void
+rs6000_function_specific_print (FILE *file, int indent,
+				struct cl_target_option *ptr)
+{
+  size_t i;
+  int flags = ptr->x_target_flags;
+
+  /* Print the various mask options.  */
+  for (i = 0; i < ARRAY_SIZE (rs6000_opt_masks); i++)
+    if ((flags & rs6000_opt_masks[i].mask) != 0)
+      {
+	flags &= ~ rs6000_opt_masks[i].mask;
+	fprintf (file, "%*s-m%s%s\n", indent, "",
+		 rs6000_opt_masks[i].invert ? "no-" : "",
+		 rs6000_opt_masks[i].name);
+      }
+}
+
+
+/* Hook to determine if one function can safely inline another.  */
+
+static bool
+rs6000_can_inline_p (tree caller, tree callee)
+{
+  bool ret = false;
+  tree caller_tree = DECL_FUNCTION_SPECIFIC_TARGET (caller);
+  tree callee_tree = DECL_FUNCTION_SPECIFIC_TARGET (callee);
+
+  /* If callee has no option attributes, then it is ok to inline.  */
+  if (!callee_tree)
+    ret = true;
+
+  /* If caller has no option attributes, but callee does then it is not ok to
+     inline.  */
+  else if (!caller_tree)
+    ret = false;
+
+  else
+    {
+      struct cl_target_option *caller_opts = TREE_TARGET_OPTION (caller_tree);
+      struct cl_target_option *callee_opts = TREE_TARGET_OPTION (callee_tree);
+
+      /* Callee's options should a subset of the caller's, i.e. a vsx function
+	 can inline an altivec function but a non-vsx function can't inline a
+	 vsx function.  */
+      if ((caller_opts->x_target_flags & callee_opts->x_target_flags)
+	  == callee_opts->x_target_flags)
+	ret = true;
+    }
+
+  if (TARGET_DEBUG_TARGET)
+    fprintf (stderr, "rs6000_can_inline_p:, caller %s, callee %s, %s inline\n",
+	     (DECL_NAME (caller)
+	      ? IDENTIFIER_POINTER (DECL_NAME (caller))
+	      : "<unknown>"),
+	     (DECL_NAME (callee)
+	      ? IDENTIFIER_POINTER (DECL_NAME (callee))
+	      : "<unknown>"),
+	     (ret ? "can" : "cannot"));
+
+  return ret;
+}
 
 /* Allocate a stack temp and fixup the address so it meets the particular
    memory requirements (either offetable or REG+REG addressing).  */
