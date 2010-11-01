@@ -2221,6 +2221,8 @@ rs6000_debug_reg_global (void)
     default:		abi_str = "unknown";	break;
     }
 
+  fprintf (stderr, DEBUG_FMT_S, "abi", abi_str);
+
   if (rs6000_altivec_abi)
     fprintf (stderr, DEBUG_FMT_S, "altivec_abi", "true");
 
