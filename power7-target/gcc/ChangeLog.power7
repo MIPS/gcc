@@ -1,3 +1,30 @@
+2010-11-01  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_debug_reg_global): Add more
+	debugging information for -mdebug=reg (cpu, tuning, the status of
+	various abis, tls size, and long double size).
+	(rs6000_init_hard_regno_mode_ok): Only print debug information for
+	-mdebug=reg for the global initialization, not for target
+	attributes, unless -mdebug=target is used.
+	(rs6000_option_override_internal): Update rs6000_cpu_index and
+	rs6000_tune_index when default choices are made.  If a target
+	attribute changes the cpu, but does not change the tuning, use the
+	cpu specified instead of the default specified on the command
+	line.  Silently disable power7 generating vsx/altivec by default
+	if 32-bit and -maltivec-abi was not used.  Given an error if a
+	target attribute changes an option that would involve changing the
+	abi, such as Altivec, SPE, darwin64, etc.
+	(rs6000_conditional_register_usage): Just print trace if
+	-mdebug=target, not -mdebug=reg.
+	(rs6000_valid_attribute_p): Reset default cpu/tune before parsing
+	target attributes/pragmas.
+	(rs6000_pragma_target_parse): Ditto.
+
+	* doc/extend.texi (Function Attributes): Describe restriction on
+	not using Altivec/VSX if altivec abi was not enabled.  Describe
+	using the cpu= attribute/pragma default for tuning if tune=
+	attribute/pragma was not specified.
+
 2010-10-31  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* doc/extend.texi (Function Attributes): Document the PowerPC

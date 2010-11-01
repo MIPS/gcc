@@ -2014,16 +2014,23 @@ rs6000_debug_reg_print (int first_regno, int last_regno, const char *reg_name)
     }
 }
 
+#define DEBUG_FMT_D "%-32s= %d\n"
+#define DEBUG_FMT_S "%-32s= %s\n"
+
 /* Print various interesting information with -mdebug=reg.  */
 static void
 rs6000_debug_reg_global (void)
 {
+  static const char *const tf[2] = { "false", "true" };
   const char *nl = (const char *)0;
   int m;
   char costly_num[20];
   char nop_num[20];
   const char *costly_str;
   const char *nop_str;
+  const char *trace_str;
+  const char *abi_str;
+  const char *cmodel_str;
 
   /* Map enum rs6000_vector to string.  */
   static const char *rs6000_debug_vector_unit[] = {
@@ -2103,6 +2110,14 @@ rs6000_debug_reg_global (void)
       fputs ("\n", stderr);
     }
 
+  if (rs6000_cpu_index >= 0)
+    fprintf (stderr, DEBUG_FMT_S, "cpu",
+	     processor_target_table[rs6000_cpu_index].name);
+
+  if (rs6000_tune_index >= 0)
+    fprintf (stderr, DEBUG_FMT_S, "tune",
+	     processor_target_table[rs6000_tune_index].name);
+
   switch (rs6000_sched_costly_dep)
     {
     case max_dep_latency:
@@ -2131,6 +2146,8 @@ rs6000_debug_reg_global (void)
       break;
     }
 
+  fprintf (stderr, DEBUG_FMT_S, "sched_costly_dep", costly_str);
+
   switch (rs6000_sched_insert_nops)
     {
     case sched_finish_regroup_exact:
@@ -2151,21 +2168,83 @@ rs6000_debug_reg_global (void)
       break;
     }
 
-  fprintf (stderr,
-	   "always_hint                     = %s\n"
-	   "align_branch_targets            = %s\n"
-	   "sched_restricted_insns_priority = %d\n"
-	   "sched_costly_dep                = %s\n"
-	   "sched_insert_nops               = %s\n\n",
-	   rs6000_always_hint ? "true" : "false",
-	   rs6000_align_branch_targets ? "true" : "false",
-	   (int)rs6000_sched_restricted_insns_priority,
-	   costly_str, nop_str);
+  fprintf (stderr, DEBUG_FMT_S, "sched_insert_nops", nop_str);
+
+  switch (rs6000_sdata)
+    {
+    default:
+    case SDATA_NONE:
+      break;
+
+    case SDATA_DATA:
+      fprintf (stderr, DEBUG_FMT_S, "sdata", "data");
+      break;
+
+    case SDATA_SYSV:
+      fprintf (stderr, DEBUG_FMT_S, "sdata", "sysv");
+      break;
+
+    case SDATA_EABI:
+      fprintf (stderr, DEBUG_FMT_S, "sdata", "eabi");
+      break;
+
+    }
+
+  switch (rs6000_traceback)
+    {
+    case traceback_default:	trace_str = "default";	break;
+    case traceback_none:	trace_str = "none";	break;
+    case traceback_part:	trace_str = "part";	break;
+    case traceback_full:	trace_str = "full";	break;
+    default:			trace_str = "unknown";	break;
+    }
+
+  fprintf (stderr, DEBUG_FMT_S, "traceback", trace_str);
+
+  switch (rs6000_current_cmodel)
+    {
+    case CMODEL_SMALL:	cmodel_str = "small";	break;
+    case CMODEL_MEDIUM:	cmodel_str = "medium";	break;
+    case CMODEL_LARGE:	cmodel_str = "large";	break;
+    default:		cmodel_str = "unknown";	break;
+    }
+
+  fprintf (stderr, DEBUG_FMT_S, "cmodel", cmodel_str);
+
+  switch (rs6000_current_abi)
+    {
+    case ABI_NONE:	abi_str = "none";	break;
+    case ABI_AIX:	abi_str = "aix";	break;
+    case ABI_V4:	abi_str = "V4";		break;
+    case ABI_DARWIN:	abi_str = "darwin";	break;
+    default:		abi_str = "unknown";	break;
+    }
+
+  if (rs6000_altivec_abi)
+    fprintf (stderr, DEBUG_FMT_S, "altivec_abi", "true");
+
+  if (rs6000_spe_abi)
+    fprintf (stderr, DEBUG_FMT_S, "spe_abi", "true");
+
+  if (rs6000_darwin64_abi)
+    fprintf (stderr, DEBUG_FMT_S, "darwin64_abi", "true");
+
+  if (rs6000_float_gprs)
+    fprintf (stderr, DEBUG_FMT_S, "float_gprs", "true");
+
+  fprintf (stderr, DEBUG_FMT_S, "always_hint", tf[!!rs6000_always_hint]);
+  fprintf (stderr, DEBUG_FMT_S, "align_branch",
+	   tf[!!rs6000_align_branch_targets]);
+  fprintf (stderr, DEBUG_FMT_D, "tls_size", rs6000_tls_size);
+  fprintf (stderr, DEBUG_FMT_D, "long_double_size",
+	   rs6000_long_double_type_size);
+  fprintf (stderr, DEBUG_FMT_D, "sched_restricted_insns_priority",
+	   (int)rs6000_sched_restricted_insns_priority);
 }
 
 /* Initialize the various global tables that are based on register size.  */
 static void
-rs6000_init_hard_regno_mode_ok (void)
+rs6000_init_hard_regno_mode_ok (bool global_init_p)
 {
   int r, m, c;
   int align64;
@@ -2461,40 +2540,43 @@ rs6000_init_hard_regno_mode_ok (void)
 	}
     }
 
-  if (TARGET_DEBUG_REG)
-    rs6000_debug_reg_global ();
+  if (global_init_p || TARGET_DEBUG_TARGET)
+    {
+      if (TARGET_DEBUG_REG)
+	rs6000_debug_reg_global ();
 
-  if (TARGET_DEBUG_COST || TARGET_DEBUG_REG)
-    fprintf (stderr,
-	     "SImode variable mult cost       = %d\n"
-	     "SImode constant mult cost       = %d\n"
-	     "SImode short constant mult cost = %d\n"
-	     "DImode multipliciation cost     = %d\n"
-	     "SImode division cost            = %d\n"
-	     "DImode division cost            = %d\n"
-	     "Simple fp operation cost        = %d\n"
-	     "DFmode multiplication cost      = %d\n"
-	     "SFmode division cost            = %d\n"
-	     "DFmode division cost            = %d\n"
-	     "cache line size                 = %d\n"
-	     "l1 cache size                   = %d\n"
-	     "l2 cache size                   = %d\n"
-	     "simultaneous prefetches         = %d\n"
-	     "\n",
-	     rs6000_cost->mulsi,
-	     rs6000_cost->mulsi_const,
-	     rs6000_cost->mulsi_const9,
-	     rs6000_cost->muldi,
-	     rs6000_cost->divsi,
-	     rs6000_cost->divdi,
-	     rs6000_cost->fp,
-	     rs6000_cost->dmul,
-	     rs6000_cost->sdiv,
-	     rs6000_cost->ddiv,
-	     rs6000_cost->cache_line_size,
-	     rs6000_cost->l1_cache_size,
-	     rs6000_cost->l2_cache_size,
-	     rs6000_cost->simultaneous_prefetches);
+      if (TARGET_DEBUG_COST || TARGET_DEBUG_REG)
+	fprintf (stderr,
+		 "SImode variable mult cost       = %d\n"
+		 "SImode constant mult cost       = %d\n"
+		 "SImode short constant mult cost = %d\n"
+		 "DImode multipliciation cost     = %d\n"
+		 "SImode division cost            = %d\n"
+		 "DImode division cost            = %d\n"
+		 "Simple fp operation cost        = %d\n"
+		 "DFmode multiplication cost      = %d\n"
+		 "SFmode division cost            = %d\n"
+		 "DFmode division cost            = %d\n"
+		 "cache line size                 = %d\n"
+		 "l1 cache size                   = %d\n"
+		 "l2 cache size                   = %d\n"
+		 "simultaneous prefetches         = %d\n"
+		 "\n",
+		 rs6000_cost->mulsi,
+		 rs6000_cost->mulsi_const,
+		 rs6000_cost->mulsi_const9,
+		 rs6000_cost->muldi,
+		 rs6000_cost->divsi,
+		 rs6000_cost->divdi,
+		 rs6000_cost->fp,
+		 rs6000_cost->dmul,
+		 rs6000_cost->sdiv,
+		 rs6000_cost->ddiv,
+		 rs6000_cost->cache_line_size,
+		 rs6000_cost->l1_cache_size,
+		 rs6000_cost->l2_cache_size,
+		 rs6000_cost->simultaneous_prefetches);
+    }
 }
 
 #if TARGET_MACHO
@@ -2570,9 +2652,11 @@ rs6000_option_override_internal (bool global_init_p)
   bool ret = true;
   const char *default_cpu = OPTION_TARGET_CPU_DEFAULT;
   int set_masks;
-  int defcpu_index;
   int cpu_index;
   int tune_index;
+  struct cl_target_option *main_target_opt
+    = ((global_init_p || target_option_default_node == NULL)
+       ? NULL : TREE_TARGET_OPTION (target_option_default_node));
 
   /* Numerous experiment shows that IRA based loop pressure
      calculation works better for RTL loop invariant motion on targets
@@ -2615,9 +2699,21 @@ rs6000_option_override_internal (bool global_init_p)
 	default_cpu = "powerpc";
     }
 
-  defcpu_index = rs6000_cpu_name_lookup (default_cpu);
-  cpu_index = (rs6000_cpu_index > 0) ? rs6000_cpu_index : defcpu_index;
-  tune_index = (rs6000_tune_index > 0) ? rs6000_tune_index : cpu_index;
+  /* Process the -mcpu=<xxx> and -mtune=<xxx> argument.  If the user changed
+     the cpu in a target attribute or pragma, but did not specify a tuning
+     option, use the cpu for the tuning option rather than the option specified
+     with -mtune on the command line.  */
+  if (rs6000_cpu_index > 0)
+    cpu_index = rs6000_cpu_index;
+  else if (main_target_opt != NULL && main_target_opt->x_rs6000_cpu_index > 0)
+    rs6000_cpu_index = cpu_index = main_target_opt->x_rs6000_cpu_index;
+  else
+    rs6000_cpu_index = cpu_index = rs6000_cpu_name_lookup (default_cpu);
+
+  if (rs6000_tune_index > 0)
+    tune_index = rs6000_tune_index;
+  else
+    rs6000_tune_index = tune_index = cpu_index;
 
   if (cpu_index >= 0)
     {
@@ -2790,16 +2886,37 @@ rs6000_option_override_internal (bool global_init_p)
     }
 
   if (!rs6000_explicit_options.long_double)
-    rs6000_long_double_type_size = RS6000_DEFAULT_LONG_DOUBLE_SIZE;
+    {
+      if (main_target_opt != NULL
+	  && (main_target_opt->x_rs6000_long_double_type_size
+	      != RS6000_DEFAULT_LONG_DOUBLE_SIZE))
+	error ("You cannot change long double size within a target attribute "
+	       "or pragma");
+      else
+	rs6000_long_double_type_size = RS6000_DEFAULT_LONG_DOUBLE_SIZE;
+    }
 
 #ifndef POWERPC_LINUX
   if (!rs6000_explicit_options.ieee)
     rs6000_ieeequad = 1;
 #endif
 
+  /* Disable VSX and Altivec silently if the user switched cpus to power7 in a
+     target attribute or pragma which automatically enables both options,
+     unless the altivec ABI was set.  This is set by default for 64-bit, but
+     not for 32-bit.  */
+  if (main_target_opt != NULL && !main_target_opt->x_rs6000_altivec_abi)
+    target_flags &= ~((MASK_VSX | MASK_ALTIVEC) & ~target_flags_explicit);
+
   /* Enable Altivec ABI for AIX -maltivec.  */
   if (TARGET_XCOFF && (TARGET_ALTIVEC || TARGET_VSX))
-    rs6000_altivec_abi = 1;
+    {
+      if (main_target_opt != NULL && !main_target_opt->x_rs6000_altivec_abi)
+	error ("You cannot switch to the altivec abi within a target "
+	       "attribute or pragma");
+      else
+	rs6000_altivec_abi = 1;
+    }
 
   /* The AltiVec ABI is the default for PowerPC-64 GNU/Linux.  For
      PowerPC-32 GNU/Linux, -maltivec implies the AltiVec ABI.  It can
@@ -2808,7 +2925,14 @@ rs6000_option_override_internal (bool global_init_p)
     {
       if (!rs6000_explicit_options.altivec_abi
 	  && (TARGET_64BIT || TARGET_ALTIVEC || TARGET_VSX))
-	rs6000_altivec_abi = 1;
+	{
+	  if (main_target_opt != NULL &&
+	      !main_target_opt->x_rs6000_altivec_abi)
+	    error ("You cannot switch to the altivec abi within a target "
+		   "attribute or pragma");
+	  else
+	    rs6000_altivec_abi = 1;
+	}
 
       /* Enable VRSAVE for AltiVec ABI, unless explicitly overridden.  */
       if (!rs6000_explicit_options.vrsave)
@@ -2821,9 +2945,15 @@ rs6000_option_override_internal (bool global_init_p)
       && DEFAULT_ABI == ABI_DARWIN 
       && TARGET_64BIT)
     {
-      rs6000_darwin64_abi = 1;
-      /* Default to natural alignment, for better performance.  */
-      rs6000_alignment_flags = MASK_ALIGN_NATURAL;
+      if (main_target_opt != NULL && !main_target_opt->x_rs6000_darwin64_abi)
+	error ("You cannot switch to the darwin64 abi within a target "
+	       "attribute or pragma");
+      else
+	{
+	  rs6000_darwin64_abi = 1;
+	  /* Default to natural alignment, for better performance.  */
+	  rs6000_alignment_flags = MASK_ALIGN_NATURAL;
+	}
     }
 
   /* Place FP constants in the constant pool instead of TOC
@@ -2854,12 +2984,21 @@ rs6000_option_override_internal (bool global_init_p)
       /* For the powerpc-eabispe configuration, we set all these by
 	 default, so let's unset them if we manually set another
 	 CPU that is not the E500.  */
-      if (!rs6000_explicit_options.spe_abi)
-	rs6000_spe_abi = 0;
-      if (!rs6000_explicit_options.spe)
-	rs6000_spe = 0;
-      if (!rs6000_explicit_options.float_gprs)
-	rs6000_float_gprs = 0;
+      if (main_target_opt != NULL
+	  && ((main_target_opt->x_rs6000_spe_abi != rs6000_spe_abi)
+	      || (main_target_opt->x_rs6000_spe != rs6000_spe)
+	      || (main_target_opt->x_rs6000_float_gprs != rs6000_float_gprs)))
+	error ("You cannot switch to the SPE abi within a target "
+	       "attribute or pragma");
+      else
+	{
+	  if (!rs6000_explicit_options.spe_abi)
+	    rs6000_spe_abi = 0;
+	  if (!rs6000_explicit_options.spe)
+	    rs6000_spe = 0;
+	  if (!rs6000_explicit_options.float_gprs)
+	    rs6000_float_gprs = 0;
+	}
       if (!(target_flags_explicit & MASK_ISEL))
 	target_flags &= ~MASK_ISEL;
     }
@@ -3164,6 +3303,16 @@ rs6000_option_override_internal (bool global_init_p)
       rs6000_single_float = rs6000_double_float = 1;
   }
 
+  if (main_target_opt)
+    {
+      if (main_target_opt->x_rs6000_single_float != rs6000_single_float)
+	error ("You are not allowed to change the single precision floating "
+	       "point unit within a target attribute or pragma");
+      if (main_target_opt->x_rs6000_double_float != rs6000_double_float)
+	error ("You are not allowed to change the double precision floating "
+	       "point unit within a target attribute or pragma");
+    }
+
   /* If not explicitly specified via option, decide whether to generate indexed
      load/store instructions.  */
   if (TARGET_AVOID_XFORM == -1)
@@ -3218,7 +3367,7 @@ rs6000_option_override_internal (bool global_init_p)
 	}
     }
 
-  rs6000_init_hard_regno_mode_ok ();
+  rs6000_init_hard_regno_mode_ok (global_init_p);
 
   /* Save the initial options in case the user does function specific options */
   if (global_init_p)
@@ -6818,7 +6967,7 @@ rs6000_conditional_register_usage (void)
 {
   int i;
 
-  if (TARGET_DEBUG_REG || TARGET_DEBUG_TARGET)
+  if (TARGET_DEBUG_TARGET)
     fprintf (stderr, "rs6000_conditional_register_usage called\n");
 
   /* Set MQ register fixed (already call_used) if not POWER
@@ -27456,6 +27605,7 @@ rs6000_valid_attribute_p (tree fndecl,
   /* The target attributes may also change some optimization flags, so update
      the optimization options if necessary.  */
   cl_target_option_save (&cur_target, &global_options);
+  rs6000_cpu_index = rs6000_tune_index = -1;
   ret = rs6000_inner_target_options (args, true);
 
   /* Set up any additional state.  */
@@ -27529,6 +27679,7 @@ rs6000_pragma_target_parse (tree args, tree pop_target)
     }
   else
     {
+      rs6000_cpu_index = rs6000_tune_index = -1;
       ret = rs6000_inner_target_options (args, false);
       cur_tree = build_target_option_node ();
 
