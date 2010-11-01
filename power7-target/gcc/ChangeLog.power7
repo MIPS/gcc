@@ -16,7 +16,7 @@
 	attribute changes the cpu, but does not change the tuning, use the
 	cpu specified instead of the default specified on the command
 	line.  Silently disable power7 generating vsx/altivec by default
-	if 32-bit and -maltivec-abi was not used.  Given an error if a
+	if 32-bit and -mabi=altivec was not used.  Given an error if a
 	target attribute changes an option that would involve changing the
 	abi, such as Altivec, SPE, darwin64, etc.
 	(rs6000_conditional_register_usage): Just print trace if

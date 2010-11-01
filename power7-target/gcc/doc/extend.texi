@@ -3412,7 +3412,7 @@ On the PowerPC, the following options are allowed:
 @cindex @code{target("altivec")} attribute
 Generate code that uses (does not use) AltiVec instructions.  In
 32-bit code, you cannot enable Altivec instructions unless
-@option{-maltivec-abi} was used on the command line.
+@option{-mabi=altivec} was used on the command line.
 
 @item cmpb
 @itemx no-cmpb
@@ -3531,7 +3531,7 @@ Generate code that uses (does not use) vector/scalar (VSX)
 instructions, and also enable the use of built-in functions that allow
 more direct access to the VSX instruction set.  In 32-bit code, you
 cannot enable VSX or Altivec instructions unless
-@option{-maltivec-abi} was used on the command line.
+@option{-mabi=altivec} was used on the command line.
 
 @item friz
 @itemx no-friz
@@ -3571,7 +3571,7 @@ away so that a longer more expensive calling sequence is required.
 Specify the architecture to generate code for in compiling the
 function.  If you select @code{"target("cpu=power7)"} attribute when
 generating 32-bit code, VSX and Altivec instructions are not generated
-unless you use the @option{-maltivec-abi} option on the command line.
+unless you use the @option{-mabi=altivec} option on the command line.
 
 @item tune=@var{TUNE}
 @cindex @code{target("tune=@var{TUNE}")} attribute

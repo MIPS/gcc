@@ -1,8 +1,12 @@
 2010-11-01  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
-	* gcc.target/powerpc/ppc-target-1.c: Add -maltivec-abi to compile
+	* gcc.target/powerpc/ppc-target-1.c: Add -mabi=altivec to compile
 	switches.
 	* gcc.target/powerpc/ppc-target-2.c: Ditto.
+
+	* gcc.target/powerpc/ppc-target-3.c: New test, test that target
+	attribute cpu=power7 does not enable VSX, Altivec on 32-bit
+	without -mabi=altivec.
 
 2010-10-31  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
