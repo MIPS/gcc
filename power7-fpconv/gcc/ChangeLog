@@ -1,3 +1,179 @@
+2010-11-01  Nathan Froyd  <froydnj@codesourcery.com>
+
+	PR tree-optimization/46259
+
+	Revert:
+
+	2010-10-30  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* tree-vect-stmts.c (vect_get_vec_def_for_operand): Use
+	build_vector_from_val.
+
+2010-11-01  DJ Delorie  <dj@redhat.com>
+
+	* config/rx/rx.h (TARGET_CPU_CPP_BUILTINS): Add define for RX610
+	as well as an assertion.
+
+2010-11-01  Paul Koning  <ni1d@arrl.net>
+
+	* config/pdp11/pdp11.c (pdp11_return_in_memory): Return vector and
+	complex modes in memory.
+
+2010-11-01  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* tree.c (build_vector_from_val): Use useless_type_conversion_p.
+
+2010-11-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/45250
+	* var-tracking.c (cfa_base_rtx): Move definition earlier in the file.
+	(cfa_base_offset): New variable.
+	(compute_cfa_pointer): Use cfa_base_rtx and cfa_base_offset.
+	(adjust_mems): Don't do any sp or hfp replacements if cfa_base_rtx
+	is NULL.
+	(vt_init_cfa_base): Initialize cfa_base_offset.
+
+2010-11-01  Alan Modra  <amodra@gmail.com>
+
+	PR target/46030
+	* config/rs6000/rs6000.c (struct rs6000_stack): Add reload_completed
+	and savres_strategy.
+	(stack_info): New file scope var.
+	(rs6000_init_machine_status): Init stack_info.
+	(SAVRES_INLINE_FPRS, SAVRES_INLINE_GPRS,
+	SAVRES_NOINLINE_GPRS_SAVES_LR, SAVRES_NOINLINE_FPRS_SAVES_LR,
+	SAVRES_NOINLINE_FPRS_DOESNT_RESTORE_LR): Replace with..
+	(SAVE_INLINE_FPRS, SAVE_INLINE_GPRS, REST_INLINE_FPRS, REST_INLINE_GPRS,
+	SAVE_NOINLINE_GPRS_SAVES_LR, SAVE_NOINLINE_FPRS_SAVES_LR
+	REST_NOINLINE_FPRS_DOESNT_RESTORE_LR): ..this.  Update all refs.
+	(rs6000_savres_strategy): Rewrite.
+	(rs6000_stack_info): Use "stack_info" in place of local "info".
+	Return cached stack info when reload_completed unless ENABLE_CHECKING
+	in which case confirm newly calculated stack info matches old info.
+	Delay calculation of lr_save_p, set it for out of line gp save/restore
+	as well as fp.  Call rs6000_savres_strategy from here..
+	(rs6000_emit_prologue, rs6000_emit_epilogue): ..rather than here.
+	(rs6000_output_function_prologue): Use info->savres_strategy to
+	determine whether fp save/restore externs need to be emitted.
+
+2010-10-31  Jason Merrill  <jason@redhat.com>
+
+	* tree.h (EXPR_LOC_OR_HERE): New macro.
+	* builtins.c (c_strlen): Use it.
+	* c-decl.c (build_enumerator): Likewise.
+	* gimplify.c (internal_get_tmp_var): Likewise.
+	(shortcut_cond_expr): Likewise.
+	(gimplify_one_sizepos): Likewise.
+
+2010-10-31  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/cygming.h (TARGET_SEH): New.
+	(MAX_STACK_ALIGNMENT): New.  Disable alignment for SEH.
+	(TARGET_ASM_UNWIND_EMIT, TARGET_ASM_UNWIND_EMIT_BEFORE_INSN,
+	TARGET_ASM_FUNCTION_END_PROLOGUE, SUBTARGET_ASM_UNWIND_INIT): New.
+	(TARGET_OS_CPP_BUILTINS): Define __SEH__ as needed.
+	(ASM_DECLARE_FUNCTION_NAME): Use i386_pe_start_function.
+	(ASM_DECLARE_FUNCTION_SIZE): New.
+	* config/i386/i386-protos.h: Update.
+	* config/i386/i386.c (ix86_option_override_internal): Enable
+	flag_unwind_tables with flag_asynchronous_unwind_tables immediately;
+	restrict -mpreferred-stack-boundary for SEH; enable flag_fentry.
+	(ix86_asm_output_function_label): Use SUBTARGET_ASM_UNWIND_INIT.
+	(ix86_compute_frame_layout): For SEH, disable
+	use_fast_prologue_epilogue, move frame pointer to the end of
+	the frame.  Initialize hfp_save_offset.
+	(ix86_expand_prologue): Honor hfp_save_offset.  Emit blockage
+	at end of prologue for SEH.
+	(ix86_expand_epilogue): For SEH, use pops, emit a nop if needed,
+	emit blockage at beginning of epilogue.
+	(ix86_expand_binary_operator): After reload, emit LEA if needed.
+	(ix86_output_call_insn): New.
+	* config/i386/i386.h (TARGET_SEH): New.
+	(struct machine_function): Add member seh.
+	* config/i386/i386.md (all call patterns): Use ix86_output_call_insn.
+	* config/i386/winnt.c (struct seh_frame_state): New.
+	(i386_pe_seh_init, i386_pe_seh_end_prologue, i386_pe_seh_fini,
+	seh_emit_push, seh_emit_save, seh_emit_stackalloc, seh_cfa_adjust_cfa,
+	seh_cfa_offset, seh_frame_related_expr, i386_pe_seh_unwind_emit,
+	i386_pe_start_function, i386_pe_end_function): New.
+
+	* dwarf2out.c (dwarf2out_frame_debug_expr): Accept CFA as well
+	as CFA_STORE in rules 12 and 13.
+
+2010-10-31  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR tree-optimization/46142
+	* tree-vect-stmts.c (vectorizable_call): Enlarge dt array to
+	accommodate third function argument.
+
+2010-10-30  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* tree-ssa-loop-im.c (rewrite_reciprocal): Use build_one_cst.
+
+2010-10-30  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* fold-const.c (build_zero_vector): Use build_vector_from_val.
+	* tree-vect-loop.c (get_initial_def_for_induction): Likewise.
+	(get_initial_def_for_reduction): Likewise.
+	* tree-vect-slp.c (vect_get_constant_vectors): Likewise.
+	* tree-vect-stmts.c (vect_get_vec_def_for_operand): Likewise.
+	* tree.c (build_one_cst): Likewise.
+	(build_vector_from_val): Use types_compatible_p for assert.
+
+2010-10-30  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* emit-rtl.c (mark_used_flags): New function.
+	(set_used_flags, reset_used_flags): Call it.
+
+2010-10-30  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR middle-end/44569
+	* lower-suberg.c (simplify_subreg_concatn): For VOIDmode elements,
+	determine the mode of a subreg by GET_MODE_INNER of CONCATN RTX.
+
+2010-10-30  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/46195
+	* config/i386/i386.c (contains_aligned_value_p): Renamed to ...
+	(ix86_compat_aligned_value_p): This.
+	(ix86_old_function_arg_boundary): Renamed to ...
+	(ix86_compat_function_arg_boundary): This.  Updated.
+	(ix86_contains_aligned_value_p): New.
+	(ix86_function_arg_boundary): Align long double parameters on
+	stack to 4byte in 32bit.
+
+2010-10-30  Nicola Pero  <nicola.pero@meta-innovation.com>
+
+	Implemented Objective-C 2.0 @property, @synthesize and @dynamic.
+	* c-parser.c (c_parser_objc_at_property_declaration): Removed
+	parsing of RID_COPIES and RID_IVAR.  Updated call to
+	objc_add_property_declaration.
+	* c-typecheck.c (build_component_ref): Call
+	objc_maybe_build_component_ref instead of objc_build_setter_call.
+	Use objc_is_property_ref to improve Objective-C checks.
+	(cp_build_modify_expr): Call objc_maybe_build_modify_expr instead
+	of objc_build_getter_call.
+
+2010-10-29  Paul Koning  <ni1d@arrl.net>
+
+	* doc/tm.texi.in (REGNO_OK_FOR_BASE_P, REGNO_MODE_OK_FOR_BASE_P,
+	REGNO_MODE_OK_FOR_REG_BASE, REGNO_MODE_CODE_OK_FOR_BASE_P,
+	REGNO_OK_FOR_INDEX_P): Delete non-strict variant.
+	(REG_OK_STRICT): Move description.
+
+2010-10-29  Paul Koning  <ni1d@arrl.net>
+
+	* config/pdp11/pdp11.md (*and<mode>): Rename to *bic<mode>.
+
+2010-10-29  Paul Koning  <ni1d@arrl.net>
+
+	* config/pdp11/pdp11.md (divhi3, modhi3, divmodhi3): Fix ICE.
+
+2010-10-29  Paul Koning  <ni1d@arrl.net>
+
+	PR/41822
+	* config/pdp11/pdp11.md (andhi3, andqi3): Fix wrong code error.
+
 2010-10-29  Richard Henderson  <rth@redhat.com>
 
 	PR rtl-opt/46226
@@ -49,8 +225,7 @@
 	pdp11_preferred_output_reload_class, pdp11_secondary_reload,
 	pdp11_secondary_memory_needed): New function.
 	(pdp11_return_in_memory): Add other float types.
-	* config/pdp11/pdp11.h (HARD_REGNO_MODE_OK): Add other float
-	types. 
+	* config/pdp11/pdp11.h (HARD_REGNO_MODE_OK): Add other float types.
 	(SECONDARY_MEMORY_NEEDED, CANNOT_CHANGE_MODE_CLASS): Define.
 	(PREFERRED_RELOAD_CLASS, SECONDARY_RELOAD_CLASS,
 	REGISTER_MOVE_COST): Delete.
@@ -62,8 +237,7 @@
 	* config/mn10300/mn10300.c (mn10300_tune_string): New variable.
 	(mn10300_tune_cpu): New variable.
 	(mn10300_handle_option): Handle -mam34 and -mtune options.
-	(mn10300_option_override): Convert tune string into tune cpu
-	variable.
+	(mn10300_option_override): Convert tune string into tune cpu variable.
 	(mn10300_legitimate_constant_p): Delete unused local variable.
 	(is_load_insn): New function.
 	(is_store_insn): New function.
@@ -71,14 +245,13 @@
 	(TARGET_SCHED_ADJUST_COST): Define.
 	* config/mn10300/mn10300.opt (mam34): New option.
 	(mtune): New option.
-	* config/mn10300/mn10300.h (TARGET_CPU_CPP_BUILTINS): Add AM34
-	support.
+	* config/mn10300/mn10300.h (TARGET_CPU_CPP_BUILTINS): Add AM34 support.
 	(enum processor_type): Add AM34.
 	(TARGET_AM34): Define.
 	* config/mn10300/mn10300.md (attr cpu): Add am34.
 	Add pipeline description.
-	(movqi, movhi, movsi, movsf, movdf, movdi): Fix predicates. Remove unneeded
-	alternatives.  Add timing attribute.
+	(movqi, movhi, movsi, movsf, movdf, movdi): Fix predicates.
+	Remove unneeded alternatives.  Add timing attribute.
 	(pop_pic_reg, am33_addsi3, mn10300_addsi3, am33_subsi3,
 	mn10300_subsi3, mulsidi3, umulsidi3, am33_mulsi3,
 	mn10300_mulsi3, udivmodsi4_am33, divmodsi4, am33_andsi3,
@@ -116,6 +289,22 @@
 
 2010-10-28  Nathan Froyd  <froydnj@codesourcery.com>
 
+	* config/microblaze/microblaze-protos.h (function_arg): Delete.
+	(function_arg_advance): Delete.
+	* config/microblaze/microblaze.h (FUNCTION_ARG_ADVANCE): Delete.
+	(FUNCTION_ARG): Delete.
+	* config/microblaze/microblaze.c (function_arg_advance): Rename to...
+	(microblaze_function_arg_advance): ...this.  Make static.  Take a
+	const_tree and a bool.
+	(function-arg): Rename to...
+	(microblaze_function_arg): ...this.  Make static.  Take a const_tree
+	and a bool.
+	(microblaze_expand_prologue): Call targetm.calls.function_arg and
+	targetm.calls.function_arg_advance.
+	(TARGET_FUNCTION_ARG, TARGET_FUNCTION_ARG_ADVANCE): Define.
+
+2010-10-28  Nathan Froyd  <froydnj@codesourcery.com>
+
 	* score.h (FUNCTION_ARG, FUNCTION_ARG_ADVANCE): Delete.
 
 2010-10-28  Nathan Froyd  <froydnj@codesourcery.com>
@@ -124,8 +313,7 @@
 	(FUNCTION_ARG_ADVANCE): Delete.
 	* config/cris/cris.c (cris_function_arg_1, cris_function_arg): New
 	functions.
-	(cris_function_incoming_arg, cris_function_arg_advance): New
-	functions.
+	(cris_function_incoming_arg, cris_function_arg_advance): New functions.
 	(TARGET_FUNCTION_ARG, TARGET_FUNCTION_INCOMING_ARG): Define.
 	(TARGET_FUNCTION_ARG_ADVANCE): Define.
 
@@ -172,8 +360,7 @@
 	* config/crx/crx.h (FUNCTION_ARG, FUNCTION_ARG_ADVANCE): Delete.
 	* config/crx/crx.c (crx_function_arg): Make static.  Take a
 	const_tree and a bool.
-	(crx_function_arg_advance): Make static.  Take a const_tree and
-	a bool.
+	(crx_function_arg_advance): Make static.  Take a const_tree and a bool.
 	(enough_regs_for_param): Take a const_tree.
 	(TARGET_FUNCTION_ARG, TARGET_FUNCTION_ARG_ADVANCE): Define.
 
@@ -253,11 +440,9 @@
 	(frv_function_arg_advance): Delete.
 	* config/frv/frv.h (FUNCTION_ARG, FUNCTION_ARG_ADVANCE): Delete.
 	* config/frv/frv.c (frv_function_arg): Rename to...
-	(frv_function_arg_1): Make static.  Take const_tree and bool
-	arguments.
+	(frv_function_arg_1): Make static.  Take const_tree and bool arguments.
 	(frv_function_arg, frv_function_incoming_arg): New functions.
-	(frv_function_arg_advance): Make static.  Take a const_tree and
-	a bool.
+	(frv_function_arg_advance): Make static.  Take a const_tree and a bool.
 	(TARGET_FUNCTION_ARG, TARGET_FUNCTION_INCOMING_ARG): Define.
 	(TARGET_FUNCTION_ARG_ADVANCE): Define.
 
@@ -414,6 +599,11 @@
 	* config/i386/w32-unwind.h (i386_w32_fallback_frame_state): Fix regnum
 	of EBP.  Do not restore reg #9.  Remove +1 adjustment to EIP and set
 	fs->signal_frame instead.
+
+2010-10-27  Nicola Pero  <nicola.pero@meta-innovation.com>
+
+	* c-parser.c (cp_parser_objc_at_property_declaration): Removed
+	parsing of RID_COPIES and RID_IVAR.
 
 2010-10-27  Nicola Pero  <nicola.pero@meta-innovation.com>
 
