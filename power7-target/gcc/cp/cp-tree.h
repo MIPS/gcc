@@ -236,6 +236,7 @@ struct GTY(()) template_parm_index_s {
   int index;
   int level;
   int orig_level;
+  int num_siblings;
   tree decl;
 };
 typedef struct template_parm_index_s template_parm_index;
@@ -2206,23 +2207,6 @@ struct GTY((variable_size)) lang_decl {
    constant-expression.  */
 #define DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P(NODE) \
   (TREE_LANG_FLAG_2 (VAR_DECL_CHECK (NODE)))
-
-/* Nonzero for a VAR_DECL that can be used in an integral constant
-   expression.
-
-      [expr.const]
-
-      An integral constant-expression can only involve ... const
-      variables of static or enumeration types initialized with
-      constant expressions ...
-
-   The standard does not require that the expression be non-volatile.
-   G++ implements the proposed correction in DR 457.  */
-#define DECL_INTEGRAL_CONSTANT_VAR_P(NODE)		\
-  (TREE_CODE (NODE) == VAR_DECL				\
-   && CP_TYPE_CONST_NON_VOLATILE_P (TREE_TYPE (NODE))	\
-   && INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (NODE))	\
-   && DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (NODE))
 
 /* Nonzero if the DECL was initialized in the class definition itself,
    rather than outside the class.  This is used for both static member
@@ -4235,6 +4219,9 @@ enum overload_flags { NO_SPECIAL = 0, DTOR_FLAG, TYPENAME_FLAG };
    another mechanism.  Exiting early also avoids problems with trying
    to perform argument conversions when the class isn't complete yet.  */
 #define LOOKUP_SPECULATIVE (LOOKUP_LIST_ONLY << 1)
+/* Used in calls to store_init_value to suppress its usual call to
+   digest_init.  */
+#define LOOKUP_ALREADY_DIGESTED (LOOKUP_SPECULATIVE << 1)
 
 #define LOOKUP_NAMESPACES_ONLY(F)  \
   (((F) & LOOKUP_PREFER_NAMESPACES) && !((F) & LOOKUP_PREFER_TYPES))
@@ -4324,6 +4311,9 @@ enum overload_flags { NO_SPECIAL = 0, DTOR_FLAG, TYPENAME_FLAG };
 	((template_parm_index*)TEMPLATE_PARM_INDEX_CHECK (NODE))
 #define TEMPLATE_PARM_IDX(NODE) (TEMPLATE_PARM_INDEX_CAST (NODE)->index)
 #define TEMPLATE_PARM_LEVEL(NODE) (TEMPLATE_PARM_INDEX_CAST (NODE)->level)
+/* The Number of sibling parms this template parm has.  */
+#define TEMPLATE_PARM_NUM_SIBLINGS(NODE) \
+  (TEMPLATE_PARM_INDEX_CAST (NODE)->num_siblings)
 #define TEMPLATE_PARM_DESCENDANTS(NODE) (TREE_CHAIN (NODE))
 #define TEMPLATE_PARM_ORIG_LEVEL(NODE) (TEMPLATE_PARM_INDEX_CAST (NODE)->orig_level)
 #define TEMPLATE_PARM_DECL(NODE) (TEMPLATE_PARM_INDEX_CAST (NODE)->decl)
@@ -4345,10 +4335,6 @@ enum overload_flags { NO_SPECIAL = 0, DTOR_FLAG, TYPENAME_FLAG };
   (TEMPLATE_PARM_DECL (TEMPLATE_TYPE_PARM_INDEX (NODE)))
 #define TEMPLATE_TYPE_PARAMETER_PACK(NODE) \
   (TEMPLATE_PARM_PARAMETER_PACK (TEMPLATE_TYPE_PARM_INDEX (NODE)))
-/* The list of template parms that a given template parameter of type
-   TEMPLATE_TYPE_PARM belongs to.*/
-#define TEMPLATE_TYPE_PARM_SIBLING_PARMS(NODE) \
-  (TREE_CHECK ((NODE), TEMPLATE_TYPE_PARM))->type.maxval
 
 /* These constants can used as bit flags in the process of tree formatting.
 
@@ -4826,7 +4812,7 @@ extern tree static_fn_type			(tree);
 extern void revert_static_member_fn		(tree);
 extern void fixup_anonymous_aggr		(tree);
 extern int check_static_variable_definition	(tree, tree);
-extern tree compute_array_index_type		(tree, tree);
+extern tree compute_array_index_type		(tree, tree, tsubst_flags_t);
 extern tree check_default_argument		(tree, tree);
 typedef int (*walk_namespaces_fn)		(tree, void *);
 extern int walk_namespaces			(walk_namespaces_fn,
@@ -4882,6 +4868,8 @@ extern void constrain_class_visibility		(tree);
 extern void import_export_decl			(tree);
 extern tree build_cleanup			(tree);
 extern tree build_offset_ref_call_from_tree	(tree, VEC(tree,gc) **);
+extern bool decl_constant_var_p			(tree);
+extern bool decl_maybe_constant_var_p		(tree);
 extern void check_default_args			(tree);
 extern void mark_used				(tree);
 extern void finish_static_data_member_decl	(tree, tree, bool, tree, int);
@@ -5034,7 +5022,7 @@ extern void append_type_to_template_for_access_check (tree, tree, tree,
 extern tree splice_late_return_type		(tree, tree);
 extern bool is_auto				(const_tree);
 extern tree process_template_parm		(tree, location_t, tree, 
-						 bool, bool);
+						 bool, bool, unsigned);
 extern tree end_template_parm_list		(tree);
 extern void end_template_decl			(void);
 extern tree maybe_update_decl_type		(tree, tree);
@@ -5120,6 +5108,7 @@ extern tree get_template_innermost_arguments	(const_tree);
 extern tree get_template_argument_pack_elems	(const_tree);
 extern tree get_function_template_decl		(const_tree);
 extern tree resolve_nondeduced_context		(tree);
+extern hashval_t iterative_hash_template_arg (tree arg, hashval_t val);
 
 /* in repo.c */
 extern void init_repo				(void);
@@ -5250,7 +5239,14 @@ extern void finish_handler			(tree);
 extern void finish_cleanup			(tree, tree);
 extern bool literal_type_p (tree);
 extern tree validate_constexpr_fundecl (tree);
+extern tree register_constexpr_fundef (tree, tree);
 extern tree ensure_literal_type_for_constexpr_object (tree);
+extern tree cxx_constant_value (tree);
+extern tree maybe_constant_value (tree);
+extern tree maybe_constant_init (tree);
+extern bool is_sub_constant_expr (tree);
+extern bool reduced_constant_expression_p (tree);
+extern VEC(tree,heap)* cx_error_context (void);
 
 enum {
   BCS_NO_SCOPE = 1,
@@ -5370,7 +5366,6 @@ extern bool type_has_nontrivial_copy_init	(const_tree);
 extern bool class_tmpl_impl_spec_p		(const_tree);
 extern int zero_init_p				(const_tree);
 extern tree strip_typedefs			(tree);
-extern void cp_set_underlying_type		(tree);
 extern tree copy_binfo				(tree, tree, tree,
 						 tree *, int);
 extern int member_p				(const_tree);

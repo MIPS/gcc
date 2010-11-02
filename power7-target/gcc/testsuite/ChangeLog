@@ -1,3 +1,191 @@
+2010-11-02  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR target/46131
+	* lib/target-supports.exp (add_options_for_tls): Pass -pthread for
+	*-*-osf*.
+
+2010-11-02  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/46184
+	* gcc.dg/pr46184.c: New testcase.
+
+2010-11-02  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/46177
+	* gcc.dg/pr46177.c: New testcase.
+
+2010-11-02  Martin Jambor  <mjambor@suse.cz>
+
+	PR middle-end/46120
+	* g++.dg/ipa/ivinline-9.C: New test.
+
+2010-11-02  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/45875
+	* g++.dg/torture/pr45875.C: New test.
+
+2010-11-02  Richard Guenther  <rguenther@suse.de>
+
+	PR testsuite/46249
+	* gcc.dg/tree-ssa/ssa-ccp-32.c: Fix operator precedence.
+
+2010-11-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/46255
+	* gcc.dg/pr46255.c: New test.
+
+2010-11-02  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/46170
+    	PR c++/46162
+	* g++.dg/template/sfinae26.C: New test.
+	* g++.dg/template/sfinae27.C: Likewise.
+
+2010-11-02  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/45606
+	* g++.dg/template/typedef36.C: New test.
+	* gcc/testsuite/g++.dg/template/canon-type-9.C: Likewise.
+	* g++.dg/template/canon-type-10.C: Likewise.
+	* g++.dg/template/canon-type-11.C: Likewise.
+	* g++.dg/template/canon-type-12.C: Likewise.
+	* g++.dg/template/canon-type-13.C: Likewise.
+
+2010-11-02  Iain Sandoe  <iains@gcc.gnu.org>
+
+	* g++.dg/debug/dwarf2/pubnames-1.C: Amend to check for only one instance
+	of debug_pubnames on darwin.
+
+2010-11-01  Jason Merrill  <jason@redhat.com>
+	    Benjamin Kosnik  <bkoz@redhat.com>
+
+	* g++.dg/cpp0x/constexpr-initlist2.C: New.
+	* g++.dg/cpp0x/constexpr-initlist3.C: New.
+
+	* g++.dg/cpp0x/constexpr-array-ptr.C: New.
+	* g++.dg/cpp0x/constexpr-array-ptr2.C: New.
+	* g++.dg/cpp0x/constexpr-array-ptr3.C: New.
+	* g++.dg/cpp0x/constexpr-array-ptr4.C: New.
+	* g++.dg/cpp0x/constexpr-array-ptr5.C: New.
+	* g++.dg/cpp0x/constexpr-array-ptr6.C: New.
+	* g++.dg/cpp0x/constexpr-array.C: New.
+	* g++.dg/cpp0x/constexpr-base.C: New.
+	* g++.dg/cpp0x/constexpr-complex.C: New.
+	* g++.dg/cpp0x/constexpr-data1.C: New.
+	* g++.dg/cpp0x/constexpr-data2.C: New.
+	* g++.dg/cpp0x/constexpr-deref.C: New.
+	* g++.dg/cpp0x/constexpr-diag1.C: New.
+	* g++.dg/cpp0x/constexpr-eh-spec.C: New.
+	* g++.dg/cpp0x/constexpr-ellipsis.C: New.
+	* g++.dg/cpp0x/constexpr-ellipsis2.C: New.
+	* g++.dg/cpp0x/constexpr-empty.C: New.
+	* g++.dg/cpp0x/constexpr-empty2.C: New.
+	* g++.dg/cpp0x/constexpr-empty3.C: New.
+	* g++.dg/cpp0x/constexpr-empty4.C: New.
+	* g++.dg/cpp0x/constexpr-empty5.C: New.
+	* g++.dg/cpp0x/constexpr-ex1.C: New.
+	* g++.dg/cpp0x/constexpr-ex2.C: New.
+	* g++.dg/cpp0x/constexpr-ex3.C: New.
+	* g++.dg/cpp0x/constexpr-ex4.C: New.
+	* g++.dg/cpp0x/constexpr-explicit-inst.C: New.
+	* g++.dg/cpp0x/constexpr-fnptr.C: New.
+	* g++.dg/cpp0x/constexpr-function1.C: New.
+	* g++.dg/cpp0x/constexpr-function2.C: New.
+	* g++.dg/cpp0x/constexpr-function3.C: New.
+	* g++.dg/cpp0x/constexpr-ice.C: New.
+	* g++.dg/cpp0x/constexpr-initlist.C: New.
+	* g++.dg/cpp0x/constexpr-neg1.C: New.
+	* g++.dg/cpp0x/constexpr-noexcept.C: New.
+	* g++.dg/cpp0x/constexpr-noexcept2.C: New.
+	* g++.dg/cpp0x/constexpr-noexcept3.C: New.
+	* g++.dg/cpp0x/constexpr-noexcept4.C: New.
+	* g++.dg/cpp0x/constexpr-non-const-arg.C: New.
+	* g++.dg/cpp0x/constexpr-nonlit.C: New.
+	* g++.dg/cpp0x/constexpr-nonlit2.C: New.
+	* g++.dg/cpp0x/constexpr-nullptr.C: New.
+	* g++.dg/cpp0x/constexpr-object1.C: New.
+	* g++.dg/cpp0x/constexpr-object2.C: New.
+	* g++.dg/cpp0x/constexpr-overflow.C: New.
+	* g++.dg/cpp0x/constexpr-pedantic.C: New.
+	* g++.dg/cpp0x/constexpr-pos1.C: New.
+	* g++.dg/cpp0x/constexpr-potential1.C: New.
+	* g++.dg/cpp0x/constexpr-ptrmem.C: New.
+	* g++.dg/cpp0x/constexpr-pure.C: New.
+	* g++.dg/cpp0x/constexpr-static.C: New.
+	* g++.dg/cpp0x/constexpr-static2.C: New.
+	* g++.dg/cpp0x/constexpr-static3.C: New.
+	* g++.dg/cpp0x/constexpr-static4.C: New.
+	* g++.dg/cpp0x/constexpr-static5.C: New.
+	* g++.dg/cpp0x/constexpr-static6.C: New.
+	* g++.dg/cpp0x/constexpr-string.C: New.
+	* g++.dg/cpp0x/constexpr-switch.C: New.
+	* g++.dg/cpp0x/constexpr-targ.C: New.
+	* g++.dg/cpp0x/constexpr-throw.C: New.
+	* g++.dg/cpp0x/constexpr-typeid.C: New.
+	* g++.dg/cpp0x/constexpr-union.C: New.
+	* g++.dg/cpp0x/constexpr-value.C: New.
+	* g++.dg/cpp0x/constexpr-value2.C: New.
+	* g++.dg/cpp0x/constexpr-variadic.C: New.
+	* g++.dg/cpp0x/initlist5.C: Use constexpr.
+	* g++.dg/cpp0x/static_assert3.C: Add expected error.
+	* g++.dg/other/fold1.C: Likewise.
+	* g++.dg/parse/crash36.C: Likewise.
+	* g++.dg/parse/constant4.C: Adjust expected error.
+	* g++.dg/template/arg5.C: Likewise.
+	* g++.dg/template/non-dependent10.C: Likewise.
+	* g++.dg/template/qualified-id3.C: Likewise.
+	* g++.dg/warn/overflow-warn-1.C: Likewise.
+	* g++.dg/warn/overflow-warn-3.C: Likewise.
+	* g++.dg/warn/overflow-warn-4.C: Likewise.
+	* g++.old-deja/g++.pt/crash10.C: Likewise.
+
+	* g++.dg/cpp0x/constexpr-ctor2.C: New.
+
+2010-11-01  Nicola Pero  <nicola.pero@meta-innovation.com>
+
+	Implemented format and noreturn attributes for Objective-C methods.
+	* objc.dg/attributes/method-attribute-2.m: Updated warnings.
+	* objc.dg/attributes/method-deprecated-1.m: New.
+	* objc.dg/attributes/method-deprecated-2.m: New.
+	* objc.dg/attributes/method-deprecated-3.m: New.
+	* objc.dg/attributes/method-noreturn-1.m: New.
+	* objc.dg/attributes/method-sentinel-1.m: New.
+	* objc.dg/attributes/method-format-1.m: New.
+	* obj-c++.dg/attributes/method-attribute-2.mm: Updated warnings.
+	* obj-c++.dg/attributes/method-deprecated-1.mm: New.
+	* obj-c++.dg/attributes/method-deprecated-2.mm: New.
+	* obj-c++.dg/attributes/method-deprecated-3.mm: New.
+	* obj-c++.dg/attributes/method-noreturn-1.mm: New.
+	* obj-c++.dg/attributes/method-sentinel-1.mm: New.
+	* obj-c++.dg/attributes/method-format-1.mm: New.	
+	
+2010-11-01  Nicola Pero  <nicola.pero@meta-innovation.com>
+
+	* objc.dg/property/at-property-deprecated-1.m: New.
+	* obj-c++.dg/property/at-property-deprecated-1.mm: New.	
+
+2010-11-01  Nicola Pero  <nicola.pero@meta-innovation.com>
+
+	Implemented Objective-C 2.0 property accessors.
+	* objc.dg/property/at-property-6.m: Use nonatomic properties to
+	avoid testing more complex accessors in this testcase which is not
+	about them.
+	* objc.dg/property/at-property-7.m: Same change.
+	* objc.dg/property/at-property-8.m: Same change.
+	* objc.dg/property/at-property-9.m: Same change.
+	* objc.dg/property/at-property-10.m: Same change.
+	* objc.dg/property/at-property-11.m: Same change.
+	* obj-c++.dg/property/at-property-6.mm: Same change.
+	* obj-c++.dg/property/at-property-7.mm: Same change.
+	* obj-c++.dg/property/at-property-8.mm: Same change.
+	* obj-c++.dg/property/at-property-9.mm: Same change.
+	* obj-c++.dg/property/at-property-10.mm: Same change.
+	* obj-c++.dg/property/at-property-11.mm: Same change.
+	* objc.dg/property/at-property-12.m: New.
+	* objc.dg/property/at-property-13.m: New.
+	* obj-c++.dg/property/at-property-12.mm: New.
+	* obj-c++.dg/property/at-property-13.mm: New.	
+	
 2010-11-01  Steven G. Kargl  <kargl@gcc.gnu.org>
 
 	PR fortran/46152
