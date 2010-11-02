@@ -1,3 +1,67 @@
+2010-11-02  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* basic-block.h (insert_insn_end_bb_new): Delete.
+	* cfgrtl.c (insert_insn_end_bb_new): Likewise.
+
+2010-11-02  Uros Bizjak  <ubizjak@gmail.com>
+	    H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386-protos.h (ix86_split_call_vzeroupper): New.
+	(ix86_split_call_pop_vzeroupper): Likewise.
+
+	* config/i386/i386.c (move_or_delete_vzeroupper_2): Rewrite the loop.
+	(ix86_expand_call): Conditionally decorate calls with
+	UNSPEC_CALL_NEEDS_VZEROUPPER unspec.
+	(ix86_split_call_vzeroupper): New.
+	(ix86_split_call_pop_vzeroupper): Likewise.
+
+	* config/i386/i386.md (UNSPEC_CALL_NEEDS_VZEROUPPER): New.
+	(*call_pop_0_vzeroupper): New insn_and_split pattern.
+	(*call_pop_1_vzeroupper): Likewise.
+	(*sibcall_pop_1_vzeroupper): Likewise.
+	(*call_0_vzeroupper): Likewise.
+	(*call_1_vzeroupper): Likewise.
+	(*sibcall_1_vzeroupper): Likewise.
+	(*call_1_rex64_vzeroupper): Likewise.
+	(*call_1_rex64_ms_sysv_vzeroupper): Likewise.
+	(*call_1_rex64_large_vzeroupper): Likewise.
+	(*sibcall_1_rex64_vzeroupper): Likewise.
+	(*call_value_pop_0_vzeroupper): Likewise.
+	(*call_value_pop_1_vzeroupper): Likewise.
+	(*sibcall_value_pop_1_vzeroupper): Likewise.
+	(*call_value_0_vzeroupper): Likewise.
+	(*call_value_0_rex64_vzeroupper): Likewise.
+	(*call_value_0_rex64_ms_sysv_vzeroupper): Likewise.
+	(*call_value_1_vzeroupper): Likewise.
+	(*sibcall_value_1_vzeroupper): Likewise.
+	(*call_value_1_rex64_vzeroupper): Likewise.
+	(*call_value_1_rex64_ms_sysv_vzeroupper): Likewise.
+	(*call_value_1_rex64_large_vzeroupper): Likewise.
+	(*sibcall_value_1_rex64_vzeroupper): Likewise.
+
+2010-11-02  Ian Lance Taylor  <iant@google.com>
+
+	PR lto/46273
+	* config.gcc: Revert last patch: set lto_binary_reader.
+
+2010-11-02  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/46149
+	* tree-ssa-structalias.c (get_constraint_for_1): Properly handle
+	non-indirect MEM_REF variants.
+
+2010-11-02  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/46216
+	* tree-ssa-forwprop.c (tree_ssa_forward_propagate_single_use_vars):
+	Check if we can propagate from a POINTER_PLUS_EXPR before doing so.
+
+2010-11-02  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* configure.ac (*-*-irix6*): Disable set_have_as_tls.
+	(*-*-osf*): Likewise.
+	* configure: Regenerate.
+
 2010-11-02  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* config/i386/driver-i386.c (host_detect_local_cpu): Updated
@@ -70,6 +134,17 @@
 
 2010-11-02  Ian Lance Taylor  <iant@google.com>
 
+	* doc/install.texi (Configuration): Note in two places that Java
+	is not enabled by default.
+
+2010-11-02  Ian Lance Taylor  <iant@google.com>
+
+	* doc/install.texi (Prerequisites): Remove libelf paragraphs.
+	(Configuration): Mention --disable-lto.  Remove --with-libelf
+	paragraph.
+
+2010-11-02  Ian Lance Taylor  <iant@google.com>
+
 	* configure.ac: Remove elf_getshdrstrndx test.  Don't substitute
 	LTO_BINARY_READER or LTO_USE_LIBELF.  Remove LIBELFLIBS and
 	LIBELFINC.  Remove HAVE_libelf.
@@ -135,7 +210,7 @@
 	Define if required.
 	(machopic_symbol_defined_p): Do not try to use current_function_decl
 	when generating _get_pc thunks within stubs.
-	(machopic_indirect_data_reference): Rework for direct conditionals 
+	(machopic_indirect_data_reference): Rework for direct conditionals
 	rather than #ifdefs, add x86 mdynamic-no-pic
 	(machopic_legitimize_pic_address): Update to use HAVE_lo_sum with a
 	defined value.
@@ -255,19 +330,15 @@
 	* config/darwin.h (WORD_SWITCH_TAKES_ARG): Remove options included
 	in darwin.opt.
 	(LINK_COMMAND_SPEC_A): Don't include %{x}.
-	* config/fr30/fr30.h (SWITCH_TAKES_ARG, WORD_SWITCH_TAKES_ARG):
-	Remove.
+	* config/fr30/fr30.h (SWITCH_TAKES_ARG, WORD_SWITCH_TAKES_ARG): Remove.
 	* config/freebsd-spec.h (FBSD_SWITCH_TAKES_ARG): Remove.
 	* config/freebsd.h (SWITCH_TAKES_ARG): Remove.
-	* config/frv/frv.h (SWITCH_TAKES_ARG, WORD_SWITCH_TAKES_ARG):
-	Remove.
+	* config/frv/frv.h (SWITCH_TAKES_ARG, WORD_SWITCH_TAKES_ARG): Remove.
 	* config/i386/djgpp.h (LINK_COMMAND_SPEC): Don't include %{x}.
 	* config/ia64/ia64.h (SWITCH_TAKES_ARG): Remove.
-	* config/interix.h (WORD_SWITCH_TAKES_ARG): Don't handle -T
-	options.
+	* config/interix.h (WORD_SWITCH_TAKES_ARG): Don't handle -T options.
 	* config/lm32/lm32.h (SWITCH_TAKES_ARG): Remove.
-	* config/m32r/m32r.h (SWITCH_TAKES_ARG, WORD_SWITCH_TAKES_ARG):
-	Remove.
+	* config/m32r/m32r.h (SWITCH_TAKES_ARG, WORD_SWITCH_TAKES_ARG): Remove.
 	* config/microblaze/microblaze.h (SWITCH_TAKES_ARG): Remove.
 	* config/mips/mips.h (SWITCH_TAKES_ARG): Remove.
 	* config/mips/netbsd.h (SWITCH_TAKES_ARG): Remove.
@@ -286,8 +357,8 @@
 2010-11-01  Paul Koning  <ni1d@arrl.net>
 
 	* config/pdp11/pdp11.md: Use iterators.
-	(addqi3, subqi3, iorsi3, xorsi3): Delete. 
-	
+	(addqi3, subqi3, iorsi3, xorsi3): Delete.
+
 2010-11-01  Steve Ellcey  <sje@cup.hp.com>
 
 	* defaults.h (TARGET_VTABLE_USES_DESCRIPTORS): Move under ifdef
@@ -301,7 +372,6 @@
 	PR tree-optimization/46259
 
 	Revert:
-
 	2010-10-30  Nathan Froyd  <froydnj@codesourcery.com>
 
 	* tree-vect-stmts.c (vect_get_vec_def_for_operand): Use
@@ -499,7 +569,7 @@
 	instruction encoding.
 
 2010-10-29  Artjoms Sinkarovs <artyom.shinakroff@gmail.com>
-	Andrew Pinski <pinskia@gmail.com>
+	    Andrew Pinski <pinskia@gmail.com>
 
 	* tree.h (build_vector_from_val): Declare.
 	* tree.c (build_vector_from_val): New function.
