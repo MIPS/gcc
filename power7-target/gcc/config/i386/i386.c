@@ -21540,10 +21540,16 @@ ix86_expand_call (rtx retval, rtx fnaddr, rtx callarg1,
       else
 	avx256 = call_no_avx256;
 
-      unspec = gen_rtx_UNSPEC (VOIDmode,
-			       gen_rtvec (1, GEN_INT (avx256)),
-			       UNSPEC_CALL_NEEDS_VZEROUPPER);
-      call = gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, call, unspec));
+      if (reload_completed)
+	emit_insn (gen_avx_vzeroupper (GEN_INT (avx256)));
+      else
+	{
+	  unspec = gen_rtx_UNSPEC (VOIDmode,
+				   gen_rtvec (1, GEN_INT (avx256)),
+				   UNSPEC_CALL_NEEDS_VZEROUPPER);
+	  call = gen_rtx_PARALLEL (VOIDmode,
+				   gen_rtvec (2, call, unspec));
+	}
     }
 
   call = emit_call_insn (call);
@@ -21559,16 +21565,6 @@ ix86_split_call_vzeroupper (rtx insn, rtx vzeroupper)
   rtx call = XVECEXP (PATTERN (insn), 0, 0);
   emit_insn (gen_avx_vzeroupper (vzeroupper));
   emit_call_insn (call);
-}
-
-void
-ix86_split_call_pop_vzeroupper (rtx insn, rtx vzeroupper)
-{
-  rtx call = XVECEXP (PATTERN (insn), 0, 0);
-  rtx pop = XVECEXP (PATTERN (insn), 0, 1);
-  emit_insn (gen_avx_vzeroupper (vzeroupper));
-  emit_call_insn (gen_rtx_PARALLEL (VOIDmode,
-				    gen_rtvec (2, call, pop)));
 }
 
 /* Output the assembly for a call instruction.  */
