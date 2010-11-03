@@ -254,7 +254,7 @@ build_zero_init (tree type, tree nelts, bool static_storage_p)
       init = build_constructor (type, v);
     }
   else if (TREE_CODE (type) == VECTOR_TYPE)
-    init = fold_convert (type, integer_zero_node);
+    init = build_zero_cst (type);
   else
     gcc_assert (TREE_CODE (type) == REFERENCE_TYPE);
 
@@ -1443,7 +1443,7 @@ expand_default_init (tree binfo, tree true_exp, tree exp, tree init, int flags,
   if (exp == true_exp && TREE_CODE (rval) == CALL_EXPR)
     {
       tree fn = get_callee_fndecl (rval);
-      if (DECL_DECLARED_CONSTEXPR_P (fn))
+      if (fn && DECL_DECLARED_CONSTEXPR_P (fn))
 	{
 	  tree e = maybe_constant_value (rval);
 	  if (TREE_CONSTANT (e))
