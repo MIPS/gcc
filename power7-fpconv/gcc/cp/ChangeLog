@@ -1,4 +1,24 @@
+2010-11-04  Jason Merrill  <jason@redhat.com>
+
+	PR c++/46298
+	* semantics.c (build_constexpr_constructor_member_initializers):
+	Handle an enclosing STATEMENT_LIST.
+
+	* semantics.c (speculative_access_check): New.
+	* cp-tree.h: Declare it.
+	* call.c (build_over_call): Use it.
+	* class.c (type_has_constexpr_default_constructor): Use locate_ctor.
+	* method.c (locate_ctor): Use push/pop_deferring_access_checks.
+
 2010-11-03  Jason Merrill  <jason@redhat.com>
+
+	PR c++/46293
+	* semantics.c (build_data_member_initialization): Handle
+	value-init of aggregate empty base.
+
+	PR c++/46289
+	* call.c (can_convert_array): New fn.
+	(build_aggr_conv): Use it.
 
 	PR c++/46289
 	* semantics.c (build_constexpr_constructor_member_initializers):

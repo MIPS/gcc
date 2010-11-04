@@ -1,3 +1,183 @@
+2010-11-04  Pat Haugen  <pthaugen@us.ibm.com>
+
+	* final.c (compute_alignments): Compute/free loop info all the time.
+	* config/rs6000/rs6000.h (LOOP_ALIGN): Define.
+	* config/rs6000/rs6000-protos.h (rs6000_loop_align): Declare.
+	* config/rs6000/t-rs6000 (rs6000.o): Add cfgloop.h.
+	* config/rs6000/rs6000.c (cfgloop.h): Include.
+	(can_override_loop_align): New.
+	(rs6000_option_override_internal): Set it.
+	(TARGET_ASM_LOOP_ALIGN_MAX_SKIP): Define target hook.
+	(rs6000_loop_align): New function.
+	(rs6000_loop_align_max_skip): Likewise.
+
+2010-11-04  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	PR driver/45703
+	* collect2.c (main): Print --help output to stdout.  Do not
+	exit right away, so ld --help is appended.  Add empty lines
+	to separate output suitably.
+
+2010-11-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/46233
+	* ipa-pure-const.c (local_pure_const): Do noreturn discovery
+	after calling analyze_function, not before.
+
+	PR target/46234
+	* config/rs6000/rs6000.c (rs6000_va_start): Use build_simple_mem_ref
+	instead of build_va_arg_indirect_ref.
+	* config/spu/spu.c (spu_va_start): Likewise.
+	* config/s390/s390.c (s390_va_start): Likewise.
+
+2010-11-03  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR middle-end/46292
+	* lower-subreg.c (simplify_subreg_concatn): For VOIDmode elements,
+	if the innermode is not vector mode, determine the mode of a subreg
+	by using mode_for_size of inner_size.
+
+2010-11-04  Richard Guenther  <rguenther@suse.de>
+
+	PR rtl-optimization/46183
+	* gcse.c (execute_rtl_cprop): Cleanup the CFG if something changed.
+	(execute_rtl_pre): Likewise.
+	(execute_rtl_hoist): Likewise.
+
+2010-11-04  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/46068
+	* ipa-split.c (consider_split): Remove gcc_unreachable.
+
+2010-11-04  Richard Guenther  <rguenther@suse.de>
+
+	* tree-nested.c (build_addr): Use build_fold_addr_expr.
+
+2010-11-04  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/45991
+	* gimplify.c (force_gimple_operand_1): Use the provded test
+	function in the initial test.
+
+2010-11-04  Jeff Law  <law@redhat.com>
+
+	* ira.c (validate_equiv_mem): Remove code to avoid invalidation
+	of readonly memory equivalances for const/pure calls.
+
+2010-11-04  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/45733
+	* tree-vect-stmts.c (reverse_vec_elements): Honor the
+	permute builtins function return type.
+
+2010-11-04  Joern Rennecke  <amylaar@spamcop.net>
+
+	PR middle-end/44765
+	* emit-rtl.c (gen_rtx_REG): Before using PIC_OFFSET_TABLE_REGNUM
+	as an index, check it is not INVALID_REGNUM.
+
+	PR bootstrap/44756
+	* ifcvt.c (noce_emit_cmove): Add ATTRIBUTE_UNUSED to target and
+	unsignedp.
+	* reload1.c (set_reload_reg): Add ATTRIBUTE_UNUSED to regno.
+
+	PR bootstrap/44756
+	* function.c (thread_prologue_and_epilogue_insns): Add
+	ATTRIBUTE_UNUSED to seq, epilogue_end and entry_edge.
+
+	PR bootstrap/44756
+	* varasm.c (asm_output_bss): Add ATTRIBUTE_UNUSED to function.
+
+	PR target/44750
+	* config/pdp11/pdp11.c: (pdp11_secondary_reload): Now static.
+	(pdp11_preferred_reload_class): Rename class to rclass.
+	(pdp11_preferred_output_reload_class): Likewise.
+	* config/pdp11/t-pdp11 (dwarf2out.o): Add -Wno-error=type-limits to
+	ALL_COMPILERFLAGS .
+	(java/constants.o): Add -Wno-error to ALL_COMPILERFLAGS.
+
+	PR bootstrap/44756
+	* genopinit.c (main) [FIXUNS_TRUNC_LIKE_FIX_TRUNC]: Cast
+	iteration variables to enum machine_mode.
+
+2010-11-04  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/46213
+	* tree-vect-loop.c (vect_is_simple_reduction_1): Handle
+	MINUS_EXPR only if the first operand is reduction operand.
+
+2010-11-04  Richard Guenther  <rguenther@suse.de>
+	Richard Henderson  <rth@redhat.com>
+
+	* tree.def (FMA_EXPR): New tree code.
+	* expr.c (expand_expr_real_2): Add FMA_EXPR expansion code.
+	* gimple.c (gimple_rhs_class_table): FMA_EXPR is a GIMPLE_TERNARY_RHS.
+	* tree-cfg.c (verify_gimple_assign_ternary): Verify FMA_EXPR types.
+	* tree-inline.c (estimate_operator_cost): Handle FMA_EXPR.
+	* gimple-pretty-print.c (dump_ternary_rhs): Likewise.
+	* tree-ssa-math-opts.c (convert_mult_to_fma): New function.
+	(execute_optimize_widening_mul): Call it.  Reorganize to allow
+	dead stmt removal.  Move TODO flags ...
+	(pass_optimize_widening_mul): ... here.
+	* flag-types.h (enum fp_contract_mode): New enum.
+	* common.opt (flag_fp_contract_mode): New variable.
+	(-ffp-contract): New option.
+	* opts.c (common_handle_option): Handle it.
+	* doc/invoke.texi (-ffp-contract): Document.
+	* tree.h (fold_fma): Declare.
+	* builtins.c (fold_fma): New function.
+	(fold_builtin_fma): Likewise.
+	(fold_builtin_3): Call it for fma.
+	* fold-const.c (fold_ternary_loc): Fold FMA_EXPR.
+	* optabs.c (optab_for_tree_code): Handle FMA_EXPR.
+	* config/i386/sse.md (fms<mode>4, fnma<mode>, fnms<mode>4):
+	New expanders.
+	* doc/md.texi (fms<mode>4, fnma<mode>, fnms<mode>4): Document new
+	named patterns.
+	* genopinit.c (optabs): Initialize fms_optab, fnma_optab and fnms_optab.
+	* optabs.h (enum optab_index): Add OTI_fms, OTI_fnma and OTI_fnms.
+	(fms_optab, fnma_optab, fnms_optab): New defines.
+	* gimplify.c (gimplify_expr): Handle binary truth expressions
+	explicitly.  Handle FMA_EXPR.
+	* tree-vect-stmts.c (vectorizable_operation): Handle ternary
+	operations.
+
+2010-11-04  Artjoms Sinkarovs <artyom.shinakroff@gmail.com>
+	Richard Guenther  <rguenther@suse.de>
+
+	* passes.c (init_optimization_passes): Move veclower after SSA.
+	* tree-vect-generic.c (uniform_vector_p): New function.
+	(expand_vector_operations_1): Handle conversion.
+	(pass_lower_vector): Update SSA form.
+
+2010-11-04  Iain Sandoe  <iains@gcc.gnu.org>
+
+	* gcc/configure.ac: Filter -mdynamic-no-pic from CFLAGS when testing for
+	plugin capabilities.
+	* gcc/configure: Regenerate.
+
+2010-11-03  Xinliang David Li  <davidxl@google.com>
+
+	PR target/46200
+	* tree-ssa-loop-ivopts.c (get_computation_cost_at):
+	Adjust cbase if the use stmt is after iv update.
+
+2010-11-03  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config.gcc (sh64*) <tm_file>: Add newlib-stdint.h for
+	newlib targets.
+
+2010-11-03  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/sh.c (sh_expand_prologue): Remove unnecessary
+	comment.  Pass true to the last argument of output_stack_adjust.
+
+2010-11-03  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/46295
+	* config/i386/i386.c (ix86_expand_vector_move): Set use_avx256_p
+	if 256bit AVX register is used.
+
 2010-11-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.c (rs6000_emit_minmax): Add support to use
