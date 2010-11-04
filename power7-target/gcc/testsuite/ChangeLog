@@ -1,3 +1,160 @@
+2010-11-04  Pat Haugen  <pthaugen@us.ibm.com>
+
+	* gcc.target/powerpc/loop_align.c: New.
+
+2010-11-04  Iain Sandoe  <iains@gcc.gnu.org>
+
+	* gcc.target/powerpc/ppc64-abi-1.c: Skip for Darwin.
+
+	merge from FSF 'apple/trunk' branch.
+	* gcc.target/powerpc/darwin64-abi.c: New.
+
+2010-11-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/46233
+	* gcc.dg/pr46233.c: New test.
+
+2010-11-04  Iain Sandoe  <iains@gcc.gnu.org>
+
+	* objc.dg/property/property-2.m: Deleted.
+	* objc.dg/property/property-3.m: Deleted.
+	
+2010-11-04  Iain Sandoe  <iains@gcc.gnu.org>
+
+	* objc-obj-c++-shared/next-mapping.h: Ensure a GNU-compatible nil is
+	defined.
+	* objc.dg/property/fsf-property-basic.m: XFAIL m64 NeXT run.
+	* objc.dg/property/fsf-property-named-ivar.m: Likewise.
+	* objc.dg/property/property-1.m: Likewise.
+	* objc.dg/property/at-property-6.m: Likewise.
+	* objc.dg/property/at-property-7.m: Likewise.
+	* objc.dg/property/dotsyntax-1.m: Likewise.
+	* objc.dg/property/at-property-8.m: Likewise.
+	* objc.dg/property/dotsyntax-2.m: Likewise.
+	* objc.dg/property/at-property-9.m: Likewise.
+	* objc.dg/property/synthesize-2.m: Likewise.
+	* objc.dg/property/at-property-10.m: Likewise.
+	* objc.dg/property/at-property-11.m: Likewise.
+	* objc.dg/property/at-property-12.m: Likewise.
+	* objc.dg/property/at-property-13.m: Likewise.
+	* objc.dg/property/fsf-property-method-access.m: Likewise.
+	* objc.dg/torture/strings/const-cfstring-1.m: Cater for bogus Darwin10
+	linker warning.
+	* objc.dg/encode-7-next.m: Use next-mapping.h, ignore deprecation 
+	warnings.
+	* objc.dg/encode-7-next-64bit.m: Use next-mapping.h, ignore 
+	deprecation warnings.  Use Object1 implemenation.
+	* objc.dg/demangle-1.m: Provide +initialize.  XFAIL m64 NeXT run.
+	* objc/execute/forward-1.m: Move to objc.dg/torture and reduce scope
+	to m32 NeXT.
+	* objc/execute/forward-1.x: Remove.
+	
+2010-11-04  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/constexpr-access.C: New.
+
+2010-11-04  Richard Guenther  <rguenther@suse.de>
+
+	PR rtl-optimization/46183
+	* gcc.dg/torture/pr46183.c: New testcase.
+
+2010-11-04  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/46068
+	* gcc.dg/torture/pr46068.c: New testcase.
+
+2010-11-04  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/45991
+	* gcc.dg/pr45991.c: New testcase.
+
+2010-11-04  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/46154
+	* g++.dg/torture/pr46154.C: New testcase.
+
+2010-11-04  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/45733
+	* gcc.dg/pr45733.c: New testcase.
+
+2010-11-04  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/46213
+	* gfortran.dg/vect/pr46213.f90: New.
+
+2010-11-04  Richard Guenther  <rguenther@suse.de>
+
+	PR testsuite/45702
+	* gcc.dg/pr34989-1.c: Move ...
+	* gcc.dg/lto/pr34989-1_0.c: ... here.
+	* gcc.dg/pr34989-2.c: Move ...
+	* gcc.dg/lto/pr34989-1_1.c: ... here.
+	* gcc.dg/pr27898.c: Move ...
+	* gcc.dg/lto/pr27898_0.c: ... here and ...
+	* gcc.dg/lto/pr27898_1.c: ... split.
+	* gcc.dg/pr28712.c: Move ...
+	* gcc.dg/lto/pr28712_0.c: ... here and ...
+	* gcc.dg/lto/pr28712_1.c: ... split ...
+	* gcc.dg/lto/pr28712_2.c: ... twice.
+	* gcc.dg/pr28706.c: Move ...
+	* gcc.dg/lto/pr28706_0.c: ... here and ...
+	* gcc.dg/lto/pr28706_1.c: ... split.
+
+2010-11-04  Richard Guenther  <rguenther@suse.de>
+	Richard Henderson  <rth@redhat.com>
+
+	* gcc.target/i386/fma4-vector-2.c: New testcase.
+
+2010-11-04  Artjoms Sinkarovs <artyom.shinakroff@gmail.com>
+	Richard Guenther  <rguenther@suse.de>
+
+	* gcc.dg/vec-scal-opt.c: New testcase.
+	* gcc.dg/vec-scal-opt1.c: New testcase.
+	* gcc.dg/vec-scal-opt2.c: New testcase.
+
+2010-11-04  Iain Sandoe  <iains@gcc.gnu.org>
+
+	* lib/plugin-support.exp (plugin-test-execute): Filter -mdynamic-no-pic
+	from plugin build flags on Darwin targets.
+
+2010-11-03  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.target/i386/pr46285.c: Require split_stack target.
+
+2010-11-03  Jason Merrill  <jason@redhat.com>
+
+	PR c++/46293
+	* g++.dg/cpp0x/constexpr-base2.C: New.
+
+	PR c++/46289
+	* g++.dg/cpp0x/initlist45.C: New.
+
+2010-11-03  Nicola Pero  <nicola.pero@meta-innovation.com>
+
+	* objc.dg/property/dynamic-2.m: Updated for the fact that @dynamic
+	is now allowed in categories.
+	* obj-c++.dg/property/dynamic-2.mm: Same change.
+	* objc.dg/property/dynamic-3.m: New.
+	* obj-c++.dg/property/dynamic-3.mm: New.
+	* objc.dg/property/at-property-14.m: New.
+	* objc.dg/property/at-property-15.m: New.
+	* obj-c++.dg/property/at-property-14.mm: New.
+	* obj-c++.dg/property/at-property-15.mm: New.
+
+	* objc.dg/foreach-6.m: Added a few more tests for valid and
+	invalid iterating variables and collections.
+
+2010-11-03  Xinliang David Li  <davidxl@google.com>
+
+	PR target/46200
+	* g++.dg/tree-ssa/ivopts-2.C: New test.
+
+2010-11-03  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/46295
+	* gcc.target/i386/pr46295.c: New.
+
 2010-11-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* gcc.target/powerpc/vsx-sfminmax.c: New test for using double
@@ -47,7 +204,7 @@
 2010-11-03  Nicola Pero  <nicola.pero@meta-innovation.com>
 
 	Implemented -fobjc-std=objc1 flag.
-	* objc.dg/fobjc-std-1.m: New.	
+	* objc.dg/fobjc-std-1.m: New.
 	* obj-c++.dg/fobjc-std-1.mm: New.
 
 2010-11-03  Richard Guenther  <rguenther@suse.de>
@@ -80,9 +237,9 @@
 2010-11-03  Nicola Pero  <nicola.pero@meta-innovation.com>
 
 	* objc.dg/property/dotsyntax-1.m: New.
-	* objc.dg/property/dotsyntax-2.m: New.	
+	* objc.dg/property/dotsyntax-2.m: New.
 	* obj-c++.dg/property/dotsyntax-1.mm: New.
-	* obj-c++.dg/property/dotsyntax-2.mm: New.	
+	* obj-c++.dg/property/dotsyntax-2.mm: New.
 
 2010-11-03  Jakub Jelinek  <jakub@redhat.com>
 
@@ -301,12 +458,12 @@
 	* obj-c++.dg/attributes/method-deprecated-3.mm: New.
 	* obj-c++.dg/attributes/method-noreturn-1.mm: New.
 	* obj-c++.dg/attributes/method-sentinel-1.mm: New.
-	* obj-c++.dg/attributes/method-format-1.mm: New.	
-	
+	* obj-c++.dg/attributes/method-format-1.mm: New.
+
 2010-11-01  Nicola Pero  <nicola.pero@meta-innovation.com>
 
 	* objc.dg/property/at-property-deprecated-1.m: New.
-	* obj-c++.dg/property/at-property-deprecated-1.mm: New.	
+	* obj-c++.dg/property/at-property-deprecated-1.mm: New.
 
 2010-11-01  Nicola Pero  <nicola.pero@meta-innovation.com>
 
@@ -328,8 +485,8 @@
 	* objc.dg/property/at-property-12.m: New.
 	* objc.dg/property/at-property-13.m: New.
 	* obj-c++.dg/property/at-property-12.mm: New.
-	* obj-c++.dg/property/at-property-13.mm: New.	
-	
+	* obj-c++.dg/property/at-property-13.mm: New.
+
 2010-11-01  Steven G. Kargl  <kargl@gcc.gnu.org>
 
 	PR fortran/46152
@@ -410,7 +567,7 @@
 	* objc.dg/property/property-neg-4.m: Same change.
 	* objc.dg/property/property-neg-5.m: Same change.
 	* objc.dg/property/property-neg-7.m: Same change.
-	* objc.dg/property/property-1.m: Same change.	
+	* objc.dg/property/property-1.m: Same change.
 	* objc.dg/property/synthesize-1.m: Same change.
 	* objc.dg/property/at-property-2.m: Same change.
 	* objc.dg/property/at-property-4.m: Same change.
@@ -420,7 +577,7 @@
 	@synthesize/@dynamic.  Use the same code for GNU and NeXT runtime.
 	* objc.dg/property/fsf-property-basic.m: Same change.
 	* objc.dg/property/fsf-property-named-ivar.m: Same change.
-	
+
 	* objc.dg/property/at-property-5.m: New.
 	* objc.dg/property/at-property-6.m: New.
 	* objc.dg/property/at-property-7.m: New.
@@ -439,7 +596,7 @@
 	* obj-c++.dg/property/property-neg-4.mm: Same change.
 	* obj-c++.dg/property/property-neg-5.mm: Same change.
 	* obj-c++.dg/property/property-neg-7.mm: Same change.
-	* obj-c++.dg/property/property-1.mm: Same change.	
+	* obj-c++.dg/property/property-1.mm: Same change.
 	* obj-c++.dg/property/synthesize-1.mm: Same change.
 	* obj-c++.dg/property/at-property-2.mm: Same change.
 	* obj-c++.dg/property/at-property-4.mm: Same change.
@@ -449,9 +606,9 @@
 	@synthesize/@dynamic.  Use the same code for GNU and NeXT runtime.
 	* obj-c++.dg/property/fsf-property-basic.mm: Same change.
 	* obj-c++.dg/property/fsf-property-named-ivar.mm: Same change.
-	
+
 	* obj-c++.dg/property/at-property-5.mm: New.
-	* obj-c++.dg/property/at-property-6.mm: New.	
+	* obj-c++.dg/property/at-property-6.mm: New.
 	* obj-c++.dg/property/at-property-7.mm: New.
 	* obj-c++.dg/property/at-property-8.mm: New.
 	* obj-c++.dg/property/at-property-9.mm: New.
@@ -459,7 +616,7 @@
 	* obj-c++.dg/property/at-property-11.mm: New.
 	* obj-c++.dg/property/synthesize-2.mm: New.
 	* obj-c++.dg/property/dynamic-2.mm: New.
-	
+
 2010-10-29  Artjoms Sinkarovs <artyom.shinakroff@gmail.com>
 	    Andrew Pinski <pinskia@gmail.com>
 

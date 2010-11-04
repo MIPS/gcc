@@ -75,6 +75,10 @@ unsigned char rs6000_float_gprs
 TargetVariable
 unsigned char rs6000_darwin64_abi
 
+;; Non-zero to allow overriding loop alignment.
+TargetVariable
+unsigned char can_override_loop_align
+
 ;; Which small data model to use (for System V targets only)
 TargetVariable
 enum rs6000_sdata_type rs6000_sdata = SDATA_DATA

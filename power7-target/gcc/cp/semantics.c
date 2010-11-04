@@ -337,6 +337,30 @@ perform_or_defer_access_check (tree binfo, tree decl, tree diag_decl)
   new_access->diag_decl = diag_decl;
 }
 
+/* Used by build_over_call in LOOKUP_SPECULATIVE mode: return whether DECL
+   is accessible in BINFO, and possibly complain if not.  If we're not
+   checking access, everything is accessible.  */
+
+bool
+speculative_access_check (tree binfo, tree decl, tree diag_decl,
+			  bool complain)
+{
+  if (deferred_access_no_check)
+    return true;
+
+  /* If we're checking for implicit delete, we don't want access
+     control errors.  */
+  if (!accessible_p (binfo, decl, true))
+    {
+      /* Unless we're under maybe_explain_implicit_delete.  */
+      if (complain)
+	enforce_access (binfo, decl, diag_decl);
+      return false;
+    }
+
+  return true;
+}
+
 /* Returns nonzero if the current statement is a full expression,
    i.e. temporaries created during that statement should be destroyed
    at the end of the statement.  */
@@ -5460,6 +5484,14 @@ build_data_member_initialization (tree t, VEC(constructor_elt,gc) **vec)
     {
       member = TREE_OPERAND (t, 0);
       init = unshare_expr (TREE_OPERAND (t, 1));
+      if (TREE_CODE (member) == INDIRECT_REF)
+	{
+	  /* Don't put out anything for value-init of an empty base.  */
+	  gcc_assert (is_empty_class (TREE_TYPE (member)));
+	  gcc_assert (TREE_CODE (init) == CONSTRUCTOR
+		      && CONSTRUCTOR_NELTS (init) == 0);
+	  return true;
+	}
     }
   else
     {
@@ -5503,8 +5535,9 @@ build_constexpr_constructor_member_initializers (tree type, tree body)
   if (TREE_CODE (body) == MUST_NOT_THROW_EXPR
       || TREE_CODE (body) == EH_SPEC_BLOCK)
     body = TREE_OPERAND (body, 0);
-  if (TREE_CODE (body) == BIND_EXPR)
-    body = BIND_EXPR_BODY (body);
+  if (TREE_CODE (body) == STATEMENT_LIST)
+    body = STATEMENT_LIST_HEAD (body)->stmt;
+  body = BIND_EXPR_BODY (body);
   if (TREE_CODE (body) == CLEANUP_POINT_EXPR)
     ok = build_data_member_initialization (body, &vec);
   else if (TREE_CODE (body) == STATEMENT_LIST)
