@@ -450,7 +450,7 @@ extern enum cmodel sparc_cmodel;
 /* Special flags to the Sun-4 assembler when using pipe for input.  */
 
 #define ASM_SPEC "\
-%{R} %{!pg:%{!p:%{fpic|fPIC|fpie|fPIE:-k}}} %{keep-local-as-symbols:-L} \
+%{!pg:%{!p:%{fpic|fPIC|fpie|fPIE:-k}}} %{keep-local-as-symbols:-L} \
 %(asm_cpu) %(asm_relax)"
 
 #define AS_NEEDS_DASH_FOR_PIPED_INPUT
@@ -496,13 +496,6 @@ extern enum cmodel sparc_cmodel;
 /* ??? This should be 32 bits for v9 but what can we do?  */
 #define WCHAR_TYPE "short unsigned int"
 #define WCHAR_TYPE_SIZE 16
-
-/* Show we can debug even without a frame pointer.  */
-#define CAN_DEBUG_WITHOUT_FP
-
-/* Option handling.  */
-
-#define OVERRIDE_OPTIONS  sparc_override_options ()
 
 /* Mask of all CPU selection flags.  */
 #define MASK_ISA \
@@ -589,14 +582,6 @@ extern struct sparc_cpu_select sparc_select[];
    numbered.  */
 #define WORDS_BIG_ENDIAN 1
 
-/* Define this to set the endianness to use in libgcc2.c, which can
-   not depend on target_flags.  */
-#if defined (__LITTLE_ENDIAN__) || defined(__LITTLE_ENDIAN_DATA__)
-#define LIBGCC2_WORDS_BIG_ENDIAN 0
-#else
-#define LIBGCC2_WORDS_BIG_ENDIAN 1
-#endif
-
 #define MAX_BITS_PER_WORD	64
 
 /* Width of a word, in units (bytes).  */
@@ -606,8 +591,6 @@ extern struct sparc_cpu_select sparc_select[];
 #else
 #define MIN_UNITS_PER_WORD	4
 #endif
-
-#define UNITS_PER_SIMD_WORD(MODE) (TARGET_VIS ? 8 : UNITS_PER_WORD)
 
 /* Now define the sizes of the C data types.  */
 
@@ -1077,6 +1060,19 @@ extern enum reg_class sparc_regno_reg_class[FIRST_PSEUDO_REGISTER];
 
 #define REGNO_REG_CLASS(REGNO) sparc_regno_reg_class[(REGNO)]
 
+/* The following macro defines cover classes for Integrated Register
+   Allocator.  Cover classes is a set of non-intersected register
+   classes covering all hard registers used for register allocation
+   purpose.  Any move between two registers of a cover class should be
+   cheaper than load or store of the registers.  The macro value is
+   array of register classes with LIM_REG_CLASSES used as the end
+   marker.  */
+
+#define IRA_COVER_CLASSES						     \
+{									     \
+  GENERAL_REGS, EXTRA_FP_REGS, FPCC_REGS, LIM_REG_CLASSES		     \
+}
+
 /* Defines invalid mode changes.  Borrowed from pa64-regs.h.
 
    SImode loads to floating-point registers are not zero-extended.
@@ -1436,35 +1432,6 @@ struct sparc_args {
 
 #define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, FNDECL, N_NAMED_ARGS) \
 init_cumulative_args (& (CUM), (FNTYPE), (LIBNAME), (FNDECL));
-
-/* Update the data in CUM to advance over an argument
-   of mode MODE and data type TYPE.
-   TYPE is null for libcalls where that information may not be available.  */
-
-#define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED) \
-function_arg_advance (& (CUM), (MODE), (TYPE), (NAMED))
-
-/* Determine where to put an argument to a function.
-   Value is zero to push the argument on the stack,
-   or a hard register in which to store the argument.
-
-   MODE is the argument's machine mode.
-   TYPE is the data type of the argument (as a tree).
-    This is null for libcalls where that information may
-    not be available.
-   CUM is a variable of type CUMULATIVE_ARGS which gives info about
-    the preceding args and about the function being called.
-   NAMED is nonzero if this argument is a named parameter
-    (otherwise it is an extra parameter matching an ellipsis).  */
-
-#define FUNCTION_ARG(CUM, MODE, TYPE, NAMED) \
-function_arg (& (CUM), (MODE), (TYPE), (NAMED), 0)
-
-/* Define where a function finds its arguments.
-   This is different from FUNCTION_ARG because of register windows.  */
-
-#define FUNCTION_INCOMING_ARG(CUM, MODE, TYPE, NAMED) \
-function_arg (& (CUM), (MODE), (TYPE), (NAMED), 1)
 
 /* If defined, a C expression which determines whether, and in which direction,
    to pad out an argument with extra space.  The value should be of type

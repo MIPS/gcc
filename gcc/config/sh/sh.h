@@ -98,8 +98,6 @@ do { \
 		  ? "__LITTLE_ENDIAN__" : "__BIG_ENDIAN__"); \
 } while (0)
 
-#define CAN_DEBUG_WITHOUT_FP 
-
 /* Value should be nonzero if functions must have frame pointers.
    Zero means the frame pointer need not be set up (and parms may be accessed
    via the stack pointer) in functions that seem suitable.  */
@@ -470,8 +468,6 @@ do { \
 
 #define DRIVER_SELF_SPECS "%{m2a:%{ml:%eSH2a does not support little-endian}}"
 
-#define OPTIMIZATION_OPTIONS(LEVEL,SIZE) sh_optimization_options (LEVEL, SIZE)
-
 #define ASSEMBLER_DIALECT assembler_dialect
 
 extern int assembler_dialect;
@@ -505,10 +501,6 @@ extern enum sh_divide_strategy_e sh_div_strategy;
 
 #define SUBTARGET_OVERRIDE_OPTIONS (void) 0
 
-extern const char *sh_fixed_range_str;
-
-#define OVERRIDE_OPTIONS sh_override_options ()
-
 
 /* Target machine storage layout.  */
 
@@ -523,14 +515,6 @@ extern const char *sh_fixed_range_str;
 /* Define this if most significant word of a multiword number is the lowest
    numbered.  */
 #define WORDS_BIG_ENDIAN (TARGET_LITTLE_ENDIAN == 0)
-
-/* Define this to set the endianness to use in libgcc2.c, which can
-   not depend on target_flags.  */
-#if defined(__LITTLE_ENDIAN__)
-#define LIBGCC2_WORDS_BIG_ENDIAN 0
-#else
-#define LIBGCC2_WORDS_BIG_ENDIAN 1
-#endif
 
 #define MAX_BITS_PER_WORD 64
 
@@ -629,7 +613,7 @@ extern const char *sh_fixed_range_str;
   barrier_align (LABEL_AFTER_BARRIER)
 
 #define LOOP_ALIGN(A_LABEL) \
-  ((! optimize || TARGET_HARD_SH4 || TARGET_SMALLCODE) \
+  ((! optimize || TARGET_HARD_SH4 || optimize_size) \
    ? 0 : sh_loop_align (A_LABEL))
 
 #define LABEL_ALIGN(A_LABEL) \
@@ -1195,6 +1179,20 @@ enum reg_class
 extern enum reg_class regno_reg_class[FIRST_PSEUDO_REGISTER];
 #define REGNO_REG_CLASS(REGNO) regno_reg_class[(REGNO)]
 
+/* The following macro defines cover classes for Integrated Register
+   Allocator.  Cover classes is a set of non-intersected register
+   classes covering all hard registers used for register allocation
+   purpose.  Any move between two registers of a cover class should be
+   cheaper than load or store of the registers.  The macro value is
+   array of register classes with LIM_REG_CLASSES used as the end
+   marker.  */
+
+#define IRA_COVER_CLASSES						     \
+{									     \
+  GENERAL_REGS, FP_REGS, PR_REGS, T_REGS, MAC_REGS, TARGET_REGS,  	     \
+  FPUL_REGS, LIM_REG_CLASSES						     \
+}
+
 /* When this hook returns true for MODE, the compiler allows
    registers explicitly used in the rtl to be used as spill registers
    but prevents the compiler from extending the lifetime of these
@@ -1437,8 +1435,6 @@ extern enum reg_class regno_reg_class[FIRST_PSEUDO_REGISTER];
    ? FIRST_FP_PARM_REG					\
    : FIRST_PARM_REG)
 
-#define FUNCTION_VALUE_REGNO_P(REGNO) sh_function_value_regno_p (REGNO)
-
 /* 1 if N is a possible register number for function argument passing.  */
 /* ??? There are some callers that pass REGNO as int, and others that pass
    it as unsigned.  We get warnings unless we do casts everywhere.  */
@@ -1611,17 +1607,12 @@ struct sh_args {
 #define INIT_CUMULATIVE_LIBCALL_ARGS(CUM, MODE, LIBNAME) \
   sh_init_cumulative_args (& (CUM), NULL_TREE, (LIBNAME), NULL_TREE, 0, (MODE))
 
-#define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED)	\
-	sh_function_arg_advance (&(CUM), (MODE), (TYPE), (NAMED))
-#define FUNCTION_ARG(CUM, MODE, TYPE, NAMED)	\
-	sh_function_arg (&(CUM), (MODE), (TYPE), (NAMED))
-
 /* Return boolean indicating arg of mode MODE will be passed in a reg.
    This macro is only used in this file.  */
 
 #define PASS_IN_REG_P(CUM, MODE, TYPE) \
   (((TYPE) == 0 \
-    || (! TREE_ADDRESSABLE ((tree)(TYPE)) \
+    || (! TREE_ADDRESSABLE ((TYPE)) \
 	&& (! (TARGET_HITACHI || (CUM).renesas_abi) \
 	    || ! (AGGREGATE_TYPE_P (TYPE) \
 		  || (!TARGET_FPU_ANY \
@@ -1780,7 +1771,7 @@ struct sh_args {
 
 /* Alignment required for a trampoline in bits .  */
 #define TRAMPOLINE_ALIGNMENT \
-  ((CACHE_LOG < 3 || (TARGET_SMALLCODE && ! TARGET_HARVARD)) ? 32 \
+  ((CACHE_LOG < 3 || (optimize_size && ! TARGET_HARVARD)) ? 32 \
    : TARGET_SHMEDIA ? 256 : 64)
 
 /* A C expression whose value is RTL representing the value of the return
@@ -1812,11 +1803,11 @@ struct sh_args {
 
 #define MOVE_BY_PIECES_P(SIZE, ALIGN) \
   (move_by_pieces_ninsns (SIZE, ALIGN, MOVE_MAX_PIECES + 1) \
-   < (TARGET_SMALLCODE ? 2 : ((ALIGN >= 32) ? 16 : 2)))
+   < (optimize_size ? 2 : ((ALIGN >= 32) ? 16 : 2)))
 
 #define STORE_BY_PIECES_P(SIZE, ALIGN) \
   (move_by_pieces_ninsns (SIZE, ALIGN, STORE_MAX_PIECES + 1) \
-   < (TARGET_SMALLCODE ? 2 : ((ALIGN >= 32) ? 16 : 2)))
+   < (optimize_size ? 2 : ((ALIGN >= 32) ? 16 : 2)))
 
 #define SET_BY_PIECES_P(SIZE, ALIGN) STORE_BY_PIECES_P(SIZE, ALIGN)
 
@@ -2027,12 +2018,6 @@ struct sh_args {
    floating point types equivalent to `float'.  */
 #define DOUBLE_TYPE_SIZE ((TARGET_SH2E && ! TARGET_SH4 && ! TARGET_SH2A_DOUBLE) ? 32 : 64)
 
-#if defined(__SH2E__) || defined(__SH3E__) || defined( __SH2A_SINGLE_ONLY__) || defined( __SH4_SINGLE_ONLY__)
-#define LIBGCC2_DOUBLE_TYPE_SIZE 32
-#else
-#define LIBGCC2_DOUBLE_TYPE_SIZE 64
-#endif
-
 /* 'char' is signed by default.  */
 #define DEFAULT_SIGNED_CHAR  1
 
@@ -2164,9 +2149,6 @@ struct sh_args {
 #define REGCLASS_HAS_FP_REG(CLASS) \
   ((CLASS) == FP0_REGS || (CLASS) == FP_REGS \
    || (CLASS) == DF_REGS || (CLASS) == DF_HI_REGS)
-
-#define REGISTER_MOVE_COST(MODE, SRCCLASS, DSTCLASS) \
-  sh_register_move_cost ((MODE), (SRCCLASS), (DSTCLASS))
 
 /* ??? Perhaps make MEMORY_MOVE_COST depend on compiler option?  This
    would be so that people with slow memory systems could generate
@@ -2546,8 +2528,6 @@ enum processor_type {
 #define sh_cpu_attr ((enum attr_cpu)sh_cpu)
 extern enum processor_type sh_cpu;
 
-extern int optimize; /* needed for gen_casesi.  */
-
 enum mdep_reorg_phase_e
 {
   SH_BEFORE_MDEP_REORG,
@@ -2607,7 +2587,7 @@ extern int current_function_interrupt;
 #define ACCUMULATE_OUTGOING_ARGS TARGET_ACCUMULATE_OUTGOING_ARGS
 
 #define SH_DYNAMIC_SHIFT_COST \
-  (TARGET_HARD_SH4 ? 1 : TARGET_SH3 ? (TARGET_SMALLCODE ? 1 : 2) : 20)
+  (TARGET_HARD_SH4 ? 1 : TARGET_SH3 ? (optimize_size ? 1 : 2) : 20)
 
 
 #define NUM_MODES_FOR_MODE_SWITCHING { FP_MODE_NONE }

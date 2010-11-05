@@ -76,18 +76,12 @@ extern const char *rs6000_tls_size_string; /* For -mtls-size= */
 
 #define SDATA_DEFAULT_SIZE 8
 
-/* Sometimes certain combinations of command options do not make sense
-   on a particular target machine.  You can define a macro
-   `OVERRIDE_OPTIONS' to take account of this.  This macro, if
-   defined, is executed once just after all the command options have
-   been parsed.
-
-   The macro SUBTARGET_OVERRIDE_OPTIONS is provided for subtargets, to
-   get control.  */
+/* The macro SUBTARGET_OVERRIDE_OPTIONS is provided for subtargets, to
+   get control in TARGET_OPTION_OVERRIDE.  */
 
 #define SUBTARGET_OVERRIDE_OPTIONS					\
 do {									\
-  if (!g_switch_set)							\
+  if (!global_options_set.x_g_switch_value)				\
     g_switch_value = SDATA_DEFAULT_SIZE;				\
 									\
   if (rs6000_abi_name == NULL)						\
@@ -264,14 +258,6 @@ do {									\
 #define	BYTES_BIG_ENDIAN (TARGET_BIG_ENDIAN)
 #define	WORDS_BIG_ENDIAN (TARGET_BIG_ENDIAN)
 
-/* Define this to set the endianness to use in libgcc2.c, which can
-   not depend on target_flags.  */
-#if !defined(__LITTLE_ENDIAN__) && !defined(__sun__)
-#define LIBGCC2_WORDS_BIG_ENDIAN 1
-#else
-#define LIBGCC2_WORDS_BIG_ENDIAN 0
-#endif
-
 /* Define cutoff for using external functions to save floating point.
    When optimizing for size, use external functions when profitable.  */
 #define FP_SAVE_INLINE(FIRST_REG) (optimize_size			\
@@ -416,8 +402,6 @@ do {									\
    Some svr4 assemblers need to also have something extra said about the
    function's return value.  We allow for that here.  */
 
-extern int rs6000_pic_labelno;
-
 /* Override elfos.h definition.  */
 #undef	ASM_DECLARE_FUNCTION_NAME
 #define ASM_DECLARE_FUNCTION_NAME(FILE, NAME, DECL)			\
@@ -515,13 +499,6 @@ do {									\
 		 reg_names[REGNO], reg_names[1], reg_names[1],		\
 		 reg_names[1]);						\
 } while (0)
-
-/* Switch  Recognition by gcc.c.  Add -G xx support.  */
-
-/* Override svr4.h definition.  */
-#undef	SWITCH_TAKES_ARG
-#define SWITCH_TAKES_ARG(CHAR)						\
-  (DEFAULT_SWITCH_TAKES_ARG (CHAR) || (CHAR) == 'G')
 
 extern int fixuplabelno;
 

@@ -199,10 +199,6 @@ struct common_sched_info_def *common_sched_info;
 /* The minimal value of the INSN_TICK of an instruction.  */
 #define MIN_TICK (-max_insn_queue_index)
 
-/* Issue points are used to distinguish between instructions in max_issue ().
-   For now, all instructions are equally good.  */
-#define ISSUE_POINTS(INSN) 1
-
 /* List of important notes we must keep around.  This is a pointer to the
    last element in the list.  */
 rtx note_list;
@@ -532,6 +528,7 @@ static void extend_h_i_d (void);
 
 static void ready_add (struct ready_list *, rtx, bool);
 static rtx ready_remove_first (struct ready_list *);
+static rtx ready_remove_first_dispatch (struct ready_list *ready);
 
 static void queue_to_ready (struct ready_list *);
 static int early_queue_to_ready (state_t, struct ready_list *);
@@ -542,8 +539,6 @@ static void debug_ready_list (struct ready_list *);
    on the first cycle.  */
 static rtx ready_remove (struct ready_list *, int);
 static void ready_remove_insn (rtx);
-
-static int choose_ready (struct ready_list *, rtx *);
 
 static void fix_inter_tick (rtx, rtx);
 static int fix_tick_ready (rtx);
@@ -592,11 +587,11 @@ schedule_insns (void)
    up.  */
 bool sched_pressure_p;
 
-/* Map regno -> its pressure class.  The map defined only when
+/* Map regno -> its cover class.  The map defined only when
    SCHED_PRESSURE_P is true.  */
-enum reg_class *sched_regno_pressure_class;
+enum reg_class *sched_regno_cover_class;
 
-/* The current register pressure.  Only elements corresponding pressure
+/* The current register pressure.  Only elements corresponding cover
    classes are defined.  */
 static int curr_reg_pressure[N_REG_CLASSES];
 
@@ -626,41 +621,39 @@ sched_init_region_reg_pressure_info (void)
 static void
 mark_regno_birth_or_death (int regno, bool birth_p)
 {
-  enum reg_class pressure_class;
+  enum reg_class cover_class;
 
-  pressure_class = sched_regno_pressure_class[regno];
+  cover_class = sched_regno_cover_class[regno];
   if (regno >= FIRST_PSEUDO_REGISTER)
     {
-      if (pressure_class != NO_REGS)
+      if (cover_class != NO_REGS)
 	{
 	  if (birth_p)
 	    {
 	      bitmap_set_bit (curr_reg_live, regno);
-	      curr_reg_pressure[pressure_class]
-		+= (ira_reg_class_max_nregs
-		    [pressure_class][PSEUDO_REGNO_MODE (regno)]);
+	      curr_reg_pressure[cover_class]
+		+= ira_reg_class_nregs[cover_class][PSEUDO_REGNO_MODE (regno)];
 	    }
 	  else
 	    {
 	      bitmap_clear_bit (curr_reg_live, regno);
-	      curr_reg_pressure[pressure_class]
-		-= (ira_reg_class_max_nregs
-		    [pressure_class][PSEUDO_REGNO_MODE (regno)]);
+	      curr_reg_pressure[cover_class]
+		-= ira_reg_class_nregs[cover_class][PSEUDO_REGNO_MODE (regno)];
 	    }
 	}
     }
-  else if (pressure_class != NO_REGS
+  else if (cover_class != NO_REGS
 	   && ! TEST_HARD_REG_BIT (ira_no_alloc_regs, regno))
     {
       if (birth_p)
 	{
 	  bitmap_set_bit (curr_reg_live, regno);
-	  curr_reg_pressure[pressure_class]++;
+	  curr_reg_pressure[cover_class]++;
 	}
       else
 	{
 	  bitmap_clear_bit (curr_reg_live, regno);
-	  curr_reg_pressure[pressure_class]--;
+	  curr_reg_pressure[cover_class]--;
 	}
     }
 }
@@ -674,8 +667,8 @@ initiate_reg_pressure_info (bitmap live)
   unsigned int j;
   bitmap_iterator bi;
 
-  for (i = 0; i < ira_pressure_classes_num; i++)
-    curr_reg_pressure[ira_pressure_classes[i]] = 0;
+  for (i = 0; i < ira_reg_class_cover_size; i++)
+    curr_reg_pressure[ira_reg_class_cover[i]] = 0;
   bitmap_clear (curr_reg_live);
   EXECUTE_IF_SET_IN_BITMAP (live, 0, j, bi)
     if (current_nr_blocks == 1 || bitmap_bit_p (region_ref_regs, j))
@@ -744,9 +737,9 @@ save_reg_pressure (void)
 {
   int i;
 
-  for (i = 0; i < ira_pressure_classes_num; i++)
-    saved_reg_pressure[ira_pressure_classes[i]]
-      = curr_reg_pressure[ira_pressure_classes[i]];
+  for (i = 0; i < ira_reg_class_cover_size; i++)
+    saved_reg_pressure[ira_reg_class_cover[i]]
+      = curr_reg_pressure[ira_reg_class_cover[i]];
   bitmap_copy (saved_reg_live, curr_reg_live);
 }
 
@@ -756,9 +749,9 @@ restore_reg_pressure (void)
 {
   int i;
 
-  for (i = 0; i < ira_pressure_classes_num; i++)
-    curr_reg_pressure[ira_pressure_classes[i]]
-      = saved_reg_pressure[ira_pressure_classes[i]];
+  for (i = 0; i < ira_reg_class_cover_size; i++)
+    curr_reg_pressure[ira_reg_class_cover[i]]
+      = saved_reg_pressure[ira_reg_class_cover[i]];
   bitmap_copy (curr_reg_live, saved_reg_live);
 }
 
@@ -776,7 +769,7 @@ dying_use_p (struct reg_use_data *use)
 }
 
 /* Print info about the current register pressure and its excess for
-   each pressure class.  */
+   each cover class.  */
 static void
 print_curr_reg_pressure (void)
 {
@@ -784,9 +777,9 @@ print_curr_reg_pressure (void)
   enum reg_class cl;
 
   fprintf (sched_dump, ";;\t");
-  for (i = 0; i < ira_pressure_classes_num; i++)
+  for (i = 0; i < ira_reg_class_cover_size; i++)
     {
-      cl = ira_pressure_classes[i];
+      cl = ira_reg_class_cover[i];
       gcc_assert (curr_reg_pressure[cl] >= 0);
       fprintf (sched_dump, "  %s:%d(%d)", reg_class_names[cl],
 	       curr_reg_pressure[cl],
@@ -1129,24 +1122,23 @@ setup_insn_reg_pressure_info (rtx insn)
   gcc_checking_assert (!DEBUG_INSN_P (insn));
 
   excess_cost_change = 0;
-  for (i = 0; i < ira_pressure_classes_num; i++)
-    death[ira_pressure_classes[i]] = 0;
+  for (i = 0; i < ira_reg_class_cover_size; i++)
+    death[ira_reg_class_cover[i]] = 0;
   for (use = INSN_REG_USE_LIST (insn); use != NULL; use = use->next_insn_use)
     if (dying_use_p (use))
       {
-	cl = sched_regno_pressure_class[use->regno];
+	cl = sched_regno_cover_class[use->regno];
 	if (use->regno < FIRST_PSEUDO_REGISTER)
 	  death[cl]++;
 	else
-	  death[cl]
-	    += ira_reg_class_max_nregs[cl][PSEUDO_REGNO_MODE (use->regno)];
+	  death[cl] += ira_reg_class_nregs[cl][PSEUDO_REGNO_MODE (use->regno)];
       }
   pressure_info = INSN_REG_PRESSURE (insn);
   max_reg_pressure = INSN_MAX_REG_PRESSURE (insn);
   gcc_assert (pressure_info != NULL && max_reg_pressure != NULL);
-  for (i = 0; i < ira_pressure_classes_num; i++)
+  for (i = 0; i < ira_reg_class_cover_size; i++)
     {
-      cl = ira_pressure_classes[i];
+      cl = ira_reg_class_cover[i];
       gcc_assert (curr_reg_pressure[cl] >= 0);
       change = (int) pressure_info[i].set_increase - death[cl];
       before = MAX (0, max_reg_pressure[i] - ira_available_class_regs[cl]);
@@ -1591,9 +1583,9 @@ setup_insn_max_reg_pressure (rtx after, bool update_p)
   static int max_reg_pressure[N_REG_CLASSES];
 
   save_reg_pressure ();
-  for (i = 0; i < ira_pressure_classes_num; i++)
-    max_reg_pressure[ira_pressure_classes[i]]
-      = curr_reg_pressure[ira_pressure_classes[i]];
+  for (i = 0; i < ira_reg_class_cover_size; i++)
+    max_reg_pressure[ira_reg_class_cover[i]]
+      = curr_reg_pressure[ira_reg_class_cover[i]];
   for (insn = NEXT_INSN (after);
        insn != NULL_RTX && ! BARRIER_P (insn)
 	 && BLOCK_FOR_INSN (insn) == BLOCK_FOR_INSN (after);
@@ -1601,24 +1593,24 @@ setup_insn_max_reg_pressure (rtx after, bool update_p)
     if (NONDEBUG_INSN_P (insn))
       {
 	eq_p = true;
-	for (i = 0; i < ira_pressure_classes_num; i++)
+	for (i = 0; i < ira_reg_class_cover_size; i++)
 	  {
-	    p = max_reg_pressure[ira_pressure_classes[i]];
+	    p = max_reg_pressure[ira_reg_class_cover[i]];
 	    if (INSN_MAX_REG_PRESSURE (insn)[i] != p)
 	      {
 		eq_p = false;
 		INSN_MAX_REG_PRESSURE (insn)[i]
-		  = max_reg_pressure[ira_pressure_classes[i]];
+		  = max_reg_pressure[ira_reg_class_cover[i]];
 	      }
 	  }
 	if (update_p && eq_p)
 	  break;
 	update_register_pressure (insn);
-	for (i = 0; i < ira_pressure_classes_num; i++)
-	  if (max_reg_pressure[ira_pressure_classes[i]]
-	      < curr_reg_pressure[ira_pressure_classes[i]])
-	    max_reg_pressure[ira_pressure_classes[i]]
-	      = curr_reg_pressure[ira_pressure_classes[i]];
+	for (i = 0; i < ira_reg_class_cover_size; i++)
+	  if (max_reg_pressure[ira_reg_class_cover[i]]
+	      < curr_reg_pressure[ira_reg_class_cover[i]])
+	    max_reg_pressure[ira_reg_class_cover[i]]
+	      = curr_reg_pressure[ira_reg_class_cover[i]];
       }
   restore_reg_pressure ();
 }
@@ -1632,13 +1624,13 @@ update_reg_and_insn_max_reg_pressure (rtx insn)
   int i;
   int before[N_REG_CLASSES];
 
-  for (i = 0; i < ira_pressure_classes_num; i++)
-    before[i] = curr_reg_pressure[ira_pressure_classes[i]];
+  for (i = 0; i < ira_reg_class_cover_size; i++)
+    before[i] = curr_reg_pressure[ira_reg_class_cover[i]];
   update_register_pressure (insn);
-  for (i = 0; i < ira_pressure_classes_num; i++)
-    if (curr_reg_pressure[ira_pressure_classes[i]] != before[i])
+  for (i = 0; i < ira_reg_class_cover_size; i++)
+    if (curr_reg_pressure[ira_reg_class_cover[i]] != before[i])
       break;
-  if (i < ira_pressure_classes_num)
+  if (i < ira_reg_class_cover_size)
     setup_insn_max_reg_pressure (insn, true);
 }
 
@@ -1684,9 +1676,9 @@ schedule_insn (rtx insn)
       if (pressure_info != NULL)
 	{
 	  fputc (':', sched_dump);
-	  for (i = 0; i < ira_pressure_classes_num; i++)
+	  for (i = 0; i < ira_reg_class_cover_size; i++)
 	    fprintf (sched_dump, "%s%+d(%d)",
-		     reg_class_names[ira_pressure_classes[i]],
+		     reg_class_names[ira_reg_class_cover[i]],
 		     pressure_info[i].set_increase, pressure_info[i].change);
 	}
       fputc ('\n', sched_dump);
@@ -2396,6 +2388,12 @@ insn_finishes_cycle_p (rtx insn)
   return false;
 }
 
+/* Define type for target data used in multipass scheduling.  */
+#ifndef TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DATA_T
+# define TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DATA_T int
+#endif
+typedef TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DATA_T first_cycle_multipass_data_t;
+
 /* The following structure describe an entry of the stack of choices.  */
 struct choice_entry
 {
@@ -2407,6 +2405,8 @@ struct choice_entry
   int n;
   /* State after issuing the insn.  */
   state_t state;
+  /* Target-specific data.  */
+  first_cycle_multipass_data_t target_data;
 };
 
 /* The following array is used to implement a stack of choices used in
@@ -2446,8 +2446,7 @@ static int cached_issue_rate = 0;
    insns is insns with the best rank (the first insn in READY).  To
    make this function tries different samples of ready insns.  READY
    is current queue `ready'.  Global array READY_TRY reflects what
-   insns are already issued in this try.  MAX_POINTS is the sum of points
-   of all instructions in READY.  The function stops immediately,
+   insns are already issued in this try.  The function stops immediately,
    if it reached the such a solution, that all instruction can be issued.
    INDEX will contain index of the best insn in READY.  The following
    function is used only for first cycle multipass scheduling.
@@ -2458,9 +2457,9 @@ static int cached_issue_rate = 0;
    CLOBBERs, etc must be filtered elsewhere.  */
 int
 max_issue (struct ready_list *ready, int privileged_n, state_t state,
-	   int *index)
+	   bool first_cycle_insn_p, int *index)
 {
-  int n, i, all, n_ready, best, delay, tries_num, max_points;
+  int n, i, all, n_ready, best, delay, tries_num;
   int more_issue;
   struct choice_entry *top;
   rtx insn;
@@ -2479,25 +2478,8 @@ max_issue (struct ready_list *ready, int privileged_n, state_t state,
     }
 
   /* Init max_points.  */
-  max_points = 0;
   more_issue = issue_rate - cycle_issued_insns;
-
-  /* ??? We used to assert here that we never issue more insns than issue_rate.
-     However, some targets (e.g. MIPS/SB1) claim lower issue rate than can be
-     achieved to get better performance.  Until these targets are fixed to use
-     scheduler hooks to manipulate insns priority instead, the assert should
-     be disabled.
-
-     gcc_assert (more_issue >= 0);  */
-
-  for (i = 0; i < n_ready; i++)
-    if (!ready_try [i])
-      {
-	if (more_issue-- > 0)
-	  max_points += ISSUE_POINTS (ready_element (ready, i));
-	else
-	  break;
-      }
+  gcc_assert (more_issue >= 0);
 
   /* The number of the issued insns in the best solution.  */
   best = 0;
@@ -2508,6 +2490,10 @@ max_issue (struct ready_list *ready, int privileged_n, state_t state,
   memcpy (top->state, state, dfa_state_size);
   top->rest = dfa_lookahead;
   top->n = 0;
+  if (targetm.sched.first_cycle_multipass_begin)
+    targetm.sched.first_cycle_multipass_begin (&top->target_data,
+					       ready_try, n_ready,
+					       first_cycle_insn_p);
 
   /* Count the number of the insns to search among.  */
   for (all = i = 0; i < n_ready; i++)
@@ -2522,11 +2508,16 @@ max_issue (struct ready_list *ready, int privileged_n, state_t state,
       if (/* If we've reached a dead end or searched enough of what we have
 	     been asked...  */
 	  top->rest == 0
-	  /* Or have nothing else to try.  */
-	  || i >= n_ready)
+	  /* or have nothing else to try...  */
+	  || i >= n_ready
+	  /* or should not issue more.  */
+	  || top->n >= more_issue)
 	{
 	  /* ??? (... || i == n_ready).  */
 	  gcc_assert (i <= n_ready);
+
+	  /* We should not issue more than issue_rate instructions.  */
+	  gcc_assert (top->n <= more_issue);
 
 	  if (top == choice_stack)
 	    break;
@@ -2550,7 +2541,7 @@ max_issue (struct ready_list *ready, int privileged_n, state_t state,
 		  /* This is the index of the insn issued first in this
 		     solution.  */
 		  *index = choice_stack [1].index;
-		  if (top->n == max_points || best == all)
+		  if (top->n == more_issue || best == all)
 		    break;
 		}
 	    }
@@ -2561,6 +2552,11 @@ max_issue (struct ready_list *ready, int privileged_n, state_t state,
 
 	  /* Backtrack.  */
 	  ready_try [i] = 0;
+
+	  if (targetm.sched.first_cycle_multipass_backtrack)
+	    targetm.sched.first_cycle_multipass_backtrack (&top->target_data,
+							   ready_try, n_ready);
+
 	  top--;
 	  memcpy (state, top->state, dfa_state_size);
 	}
@@ -2583,7 +2579,7 @@ max_issue (struct ready_list *ready, int privileged_n, state_t state,
 
 	      n = top->n;
 	      if (memcmp (top->state, state, dfa_state_size) != 0)
-		n += ISSUE_POINTS (insn);
+		n++;
 
 	      /* Advance to the next choice_entry.  */
 	      top++;
@@ -2592,8 +2588,15 @@ max_issue (struct ready_list *ready, int privileged_n, state_t state,
 	      top->index = i;
 	      top->n = n;
 	      memcpy (top->state, state, dfa_state_size);
-
 	      ready_try [i] = 1;
+
+	      if (targetm.sched.first_cycle_multipass_issue)
+		targetm.sched.first_cycle_multipass_issue (&top->target_data,
+							   ready_try, n_ready,
+							   insn,
+							   &((top - 1)
+							     ->target_data));
+
 	      i = -1;
 	    }
 	}
@@ -2601,6 +2604,11 @@ max_issue (struct ready_list *ready, int privileged_n, state_t state,
       /* Increase ready-list index.  */
       i++;
     }
+
+  if (targetm.sched.first_cycle_multipass_end)
+    targetm.sched.first_cycle_multipass_end (best != 0
+					     ? &choice_stack[1].target_data
+					     : NULL);
 
   /* Restore the original state of the DFA.  */
   memcpy (state, choice_stack->state, dfa_state_size);
@@ -2616,7 +2624,8 @@ max_issue (struct ready_list *ready, int privileged_n, state_t state,
    0 if INSN_PTR is set to point to the desirable insn,
    1 if choose_ready () should be restarted without advancing the cycle.  */
 static int
-choose_ready (struct ready_list *ready, rtx *insn_ptr)
+choose_ready (struct ready_list *ready, bool first_cycle_insn_p,
+	      rtx *insn_ptr)
 {
   int lookahead;
 
@@ -2645,7 +2654,11 @@ choose_ready (struct ready_list *ready, rtx *insn_ptr)
   if (lookahead <= 0 || SCHED_GROUP_P (ready_element (ready, 0))
       || DEBUG_INSN_P (ready_element (ready, 0)))
     {
-      *insn_ptr = ready_remove_first (ready);
+      if (targetm.sched.dispatch (NULL_RTX, IS_DISPATCH_ON))
+	*insn_ptr = ready_remove_first_dispatch (ready);
+      else
+	*insn_ptr = ready_remove_first (ready);
+
       return 0;
     }
   else
@@ -2725,14 +2738,12 @@ choose_ready (struct ready_list *ready, rtx *insn_ptr)
 	  {
 	    insn = ready_element (ready, i);
 
-#ifdef ENABLE_CHECKING
 	    /* If this insn is recognizable we should have already
 	       recognized it earlier.
 	       ??? Not very clear where this is supposed to be done.
 	       See dep_cost_1.  */
-	    gcc_assert (INSN_CODE (insn) >= 0
-			|| recog_memoized (insn) < 0);
-#endif
+	    gcc_checking_assert (INSN_CODE (insn) >= 0
+				 || recog_memoized (insn) < 0);
 
 	    ready_try [i]
 	      = (/* INSN_CODE check can be omitted here as it is also done later
@@ -2743,7 +2754,7 @@ choose_ready (struct ready_list *ready, rtx *insn_ptr)
 		     (insn)));
 	  }
 
-      if (max_issue (ready, 1, curr_state, &index) == 0)
+      if (max_issue (ready, 1, curr_state, first_cycle_insn_p, &index) == 0)
 	{
 	  *insn_ptr = ready_remove_first (ready);
 	  if (sched_verbose >= 4)
@@ -2771,7 +2782,8 @@ choose_ready (struct ready_list *ready, rtx *insn_ptr)
 void
 schedule_block (basic_block *target_bb)
 {
-  int i, first_cycle_insn_p;
+  int i;
+  bool first_cycle_insn_p;
   int can_issue_more;
   state_t temp_state = NULL;  /* It is used for multipass scheduling.  */
   int sort_p, advance, start_clock_var;
@@ -2977,7 +2989,7 @@ schedule_block (basic_block *target_bb)
       else
 	can_issue_more = issue_rate;
 
-      first_cycle_insn_p = 1;
+      first_cycle_insn_p = true;
       cycle_issued_insns = 0;
       for (;;)
 	{
@@ -3020,7 +3032,7 @@ schedule_block (basic_block *target_bb)
 	      int res;
 
 	      insn = NULL_RTX;
-	      res = choose_ready (&ready, &insn);
+	      res = choose_ready (&ready, first_cycle_insn_p, &insn);
 
 	      if (res < 0)
 		/* Finish cycle.  */
@@ -3143,6 +3155,10 @@ schedule_block (basic_block *target_bb)
 						       last_scheduled_insn);
 
 	  move_insn (insn, last_scheduled_insn, current_sched_info->next_tail);
+
+	  if (targetm.sched.dispatch (NULL_RTX, IS_DISPATCH_ON))
+	    targetm.sched.dispatch_do (insn, ADD_TO_DISPATCH_WINDOW);
+
 	  reemit_notes (insn);
 	  last_scheduled_insn = insn;
 
@@ -3169,7 +3185,7 @@ schedule_block (basic_block *target_bb)
 	  if (advance != 0)
 	    break;
 
-	  first_cycle_insn_p = 0;
+	  first_cycle_insn_p = false;
 
 	  /* Sort the ready list based on priority.  This must be
 	     redone here, as schedule_insn may have readied additional
@@ -3367,8 +3383,12 @@ sched_init (void)
   flag_schedule_speculative_load = 0;
 #endif
 
+  if (targetm.sched.dispatch (NULL_RTX, IS_DISPATCH_ON))
+    targetm.sched.dispatch_do (NULL_RTX, DISPATCH_INIT);
+
   sched_pressure_p = (flag_sched_pressure && ! reload_completed
 		      && common_sched_info->sched_pass_id == SCHED_RGN_PASS);
+
   if (sched_pressure_p)
     ira_setup_eliminable_regset ();
 
@@ -3451,13 +3471,13 @@ sched_init (void)
       int i, max_regno = max_reg_num ();
 
       ira_set_pseudo_classes (sched_verbose ? sched_dump : NULL);
-      sched_regno_pressure_class
+      sched_regno_cover_class
 	= (enum reg_class *) xmalloc (max_regno * sizeof (enum reg_class));
       for (i = 0; i < max_regno; i++)
-	sched_regno_pressure_class[i]
+	sched_regno_cover_class[i]
 	  = (i < FIRST_PSEUDO_REGISTER
-	     ? ira_pressure_class_translate[REGNO_REG_CLASS (i)]
-	     : ira_pressure_class_translate[reg_allocno_class (i)]);
+	     ? ira_class_translate[REGNO_REG_CLASS (i)]
+	     : reg_cover_class (i));
       curr_reg_live = BITMAP_ALLOC (NULL);
       saved_reg_live = BITMAP_ALLOC (NULL);
       region_ref_regs = BITMAP_ALLOC (NULL);
@@ -3562,7 +3582,7 @@ sched_finish (void)
   haifa_finish_h_i_d ();
   if (sched_pressure_p)
     {
-      free (sched_regno_pressure_class);
+      free (sched_regno_cover_class);
       BITMAP_FREE (region_ref_regs);
       BITMAP_FREE (saved_reg_live);
       BITMAP_FREE (curr_reg_live);
@@ -3616,9 +3636,8 @@ fix_inter_tick (rtx head, rtx tail)
 	  gcc_assert (tick >= MIN_TICK);
 
 	  /* Fix INSN_TICK of instruction from just scheduled block.  */
-	  if (!bitmap_bit_p (&processed, INSN_LUID (head)))
+	  if (bitmap_set_bit (&processed, INSN_LUID (head)))
 	    {
-	      bitmap_set_bit (&processed, INSN_LUID (head));
 	      tick -= next_clock;
 
 	      if (tick < MIN_TICK)
@@ -3638,9 +3657,8 @@ fix_inter_tick (rtx head, rtx tail)
 		  /* If NEXT has its INSN_TICK calculated, fix it.
 		     If not - it will be properly calculated from
 		     scratch later in fix_tick_ready.  */
-		  && !bitmap_bit_p (&processed, INSN_LUID (next)))
+		  && bitmap_set_bit (&processed, INSN_LUID (next)))
 		{
-		  bitmap_set_bit (&processed, INSN_LUID (next));
 		  tick -= next_clock;
 
 		  if (tick < MIN_TICK)
@@ -3963,7 +3981,13 @@ sched_extend_ready_list (int new_sched_ready_n_insns)
 			     new_sched_ready_n_insns + 1);
 
   for (; i <= new_sched_ready_n_insns; i++)
-    choice_stack[i].state = xmalloc (dfa_state_size);
+    {
+      choice_stack[i].state = xmalloc (dfa_state_size);
+
+      if (targetm.sched.first_cycle_multipass_init)
+	targetm.sched.first_cycle_multipass_init (&(choice_stack[i]
+						    .target_data));
+    }
 
   sched_ready_n_insns = new_sched_ready_n_insns;
 }
@@ -3982,7 +4006,13 @@ sched_finish_ready_list (void)
   ready_try = NULL;
 
   for (i = 0; i <= sched_ready_n_insns; i++)
-    free (choice_stack [i].state);
+    {
+      if (targetm.sched.first_cycle_multipass_fini)
+	targetm.sched.first_cycle_multipass_fini (&(choice_stack[i]
+						    .target_data));
+
+      free (choice_stack [i].state);
+    }
   free (choice_stack);
   choice_stack = NULL;
 
@@ -4239,10 +4269,9 @@ xrecalloc (void *p, size_t new_nmemb, size_t old_nmemb, size_t size)
 /* Helper function.
    Find fallthru edge from PRED.  */
 edge
-find_fallthru_edge (basic_block pred)
+find_fallthru_edge_from (basic_block pred)
 {
   edge e;
-  edge_iterator ei;
   basic_block succ;
 
   succ = pred->next_bb;
@@ -4250,21 +4279,23 @@ find_fallthru_edge (basic_block pred)
 
   if (EDGE_COUNT (pred->succs) <= EDGE_COUNT (succ->preds))
     {
-      FOR_EACH_EDGE (e, ei, pred->succs)
-	if (e->flags & EDGE_FALLTHRU)
-	  {
-	    gcc_assert (e->dest == succ);
-	    return e;
-	  }
+      e = find_fallthru_edge (pred->succs);
+
+      if (e)
+	{
+	  gcc_assert (e->dest == succ);
+	  return e;
+	}
     }
   else
     {
-      FOR_EACH_EDGE (e, ei, succ->preds)
-	if (e->flags & EDGE_FALLTHRU)
-	  {
-	    gcc_assert (e->src == pred);
-	    return e;
-	  }
+      e = find_fallthru_edge (succ->preds);
+
+      if (e)
+	{
+	  gcc_assert (e->src == pred);
+	  return e;
+	}
     }
 
   return NULL;
@@ -4306,7 +4337,7 @@ init_before_recovery (basic_block *before_recovery_ptr)
   edge e;
 
   last = EXIT_BLOCK_PTR->prev_bb;
-  e = find_fallthru_edge (last);
+  e = find_fallthru_edge_from (last);
 
   if (e)
     {
@@ -4759,11 +4790,8 @@ fix_recovery_deps (basic_block rec)
 	    {
 	      sd_delete_dep (sd_it);
 
-	      if (!bitmap_bit_p (&in_ready, INSN_LUID (consumer)))
-		{
-		  ready_list = alloc_INSN_LIST (consumer, ready_list);
-		  bitmap_set_bit (&in_ready, INSN_LUID (consumer));
-		}
+	      if (bitmap_set_bit (&in_ready, INSN_LUID (consumer)))
+		ready_list = alloc_INSN_LIST (consumer, ready_list);
 	    }
 	  else
 	    {
@@ -5101,7 +5129,7 @@ calc_priorities (rtx_vec_t roots)
   int i;
   rtx insn;
 
-  for (i = 0; VEC_iterate (rtx, roots, i, insn); i++)
+  FOR_EACH_VEC_ELT (rtx, roots, i, insn)
     priority (insn);
 }
 
@@ -5329,7 +5357,7 @@ sched_scan (const struct sched_scan_info_def *ssi,
 	  unsigned i;
 	  basic_block x;
 
-	  for (i = 0; VEC_iterate (basic_block, bbs, i, x); i++)
+	  FOR_EACH_VEC_ELT (basic_block, bbs, i, x)
 	    init_bb (x);
 	}
 
@@ -5344,7 +5372,7 @@ sched_scan (const struct sched_scan_info_def *ssi,
       unsigned i;
       basic_block x;
 
-      for (i = 0; VEC_iterate (basic_block, bbs, i, x); i++)
+      FOR_EACH_VEC_ELT (basic_block, bbs, i, x)
 	init_insns_in_bb (x);
     }
 
@@ -5356,7 +5384,7 @@ sched_scan (const struct sched_scan_info_def *ssi,
       unsigned i;
       rtx x;
 
-      for (i = 0; VEC_iterate (rtx, insns, i, x); i++)
+      FOR_EACH_VEC_ELT (rtx, insns, i, x)
 	init_insn (x);
     }
 
@@ -5486,7 +5514,7 @@ haifa_finish_h_i_d (void)
   haifa_insn_data_t data;
   struct reg_use_data *use, *next;
 
-  for (i = 0; VEC_iterate (haifa_insn_data_def, h_i_d, i, data); i++)
+  FOR_EACH_VEC_ELT (haifa_insn_data_def, h_i_d, i, data)
     {
       if (data->reg_pressure != NULL)
 	free (data->reg_pressure);
@@ -5563,6 +5591,75 @@ sched_emit_insn (rtx pat)
   last_scheduled_insn = insn;
   haifa_init_insn (insn);
   return insn;
+}
+
+/* This function returns a candidate satisfying dispatch constraints from
+   the ready list.  */
+
+static rtx
+ready_remove_first_dispatch (struct ready_list *ready)
+{
+  int i;
+  rtx insn = ready_element (ready, 0);
+
+  if (ready->n_ready == 1
+      || INSN_CODE (insn) < 0
+      || !INSN_P (insn)
+      || !active_insn_p (insn)
+      || targetm.sched.dispatch (insn, FITS_DISPATCH_WINDOW))
+    return ready_remove_first (ready);
+
+  for (i = 1; i < ready->n_ready; i++)
+    {
+      insn = ready_element (ready, i);
+
+      if (INSN_CODE (insn) < 0
+	  || !INSN_P (insn)
+	  || !active_insn_p (insn))
+	continue;
+
+      if (targetm.sched.dispatch (insn, FITS_DISPATCH_WINDOW))
+	{
+	  /* Return ith element of ready.  */
+	  insn = ready_remove (ready, i);
+	  return insn;
+	}
+    }
+
+  if (targetm.sched.dispatch (NULL_RTX, DISPATCH_VIOLATION))
+    return ready_remove_first (ready);
+
+  for (i = 1; i < ready->n_ready; i++)
+    {
+      insn = ready_element (ready, i);
+
+      if (INSN_CODE (insn) < 0
+	  || !INSN_P (insn)
+	  || !active_insn_p (insn))
+	continue;
+
+      /* Return i-th element of ready.  */
+      if (targetm.sched.dispatch (insn, IS_CMP))
+	return ready_remove (ready, i);
+    }
+
+  return ready_remove_first (ready);
+}
+
+/* Get number of ready insn in the ready list.  */
+
+int
+number_in_ready (void)
+{
+  return ready.n_ready;
+}
+
+/* Get number of ready's in the ready list.  */
+
+rtx
+get_ready_element (int i)
+{
+  return ready_element (&ready, i);
 }
 
 #endif /* INSN_SCHEDULING */

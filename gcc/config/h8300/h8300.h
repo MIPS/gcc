@@ -1,7 +1,7 @@
 /* Definitions of target machine for GNU compiler.
    Renesas H8/300 (generic)
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008, 2009
+   2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008, 2009, 2010
    Free Software Foundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com),
    Jim Wilson (wilson@cygnus.com), and Doug Evans (dje@cygnus.com).
@@ -82,16 +82,6 @@ extern const char * const *h8_reg_names;
 
 #define LIB_SPEC "%{mrelax:-relax} %{g:-lg} %{!p:%{!pg:-lc}}%{p:-lc_p}%{pg:-lc_p}"
 
-#define OPTIMIZATION_OPTIONS(LEVEL, SIZE)				 \
-  do									 \
-    {									 \
-      /* Basic block reordering is only beneficial on targets with cache \
-	 and/or variable-cycle branches where (cycle count taken !=	 \
-	 cycle count not taken).  */					 \
-      flag_reorder_blocks = 0;						 \
-    }									 \
-  while (0)
-
 /* Print subsidiary information on the compiler version in use.  */
 
 #define TARGET_VERSION fprintf (stderr, " (Renesas H8/300)");
@@ -129,23 +119,11 @@ extern const char * const *h8_reg_names;
 #endif
 #endif /* !IN_LIBGCC2 */
 
-/* Do things that must be done once at start up.  */
-
-#define OVERRIDE_OPTIONS			\
-  do						\
-    {						\
-      h8300_init_once ();			\
-    }						\
-  while (0)
-
 /* Default target_flags if no switches specified.  */
 
 #ifndef TARGET_DEFAULT
 #define TARGET_DEFAULT (MASK_QUICKCALL)
 #endif
-
-/* Show we can debug even without a frame pointer.  */
-/* #define CAN_DEBUG_WITHOUT_FP */
 
 /* We want dwarf2 info available to gdb...  */
 #define DWARF2_DEBUGGING_INFO        1
@@ -360,6 +338,19 @@ enum reg_class {
 { "NO_REGS", "COUNTER_REGS", "SOURCE_REGS", "DESTINATION_REGS", \
   "GENERAL_REGS", "MAC_REGS", "ALL_REGS", "LIM_REGS" }
 
+/* The following macro defines cover classes for Integrated Register
+   Allocator.  Cover classes is a set of non-intersected register
+   classes covering all hard registers used for register allocation
+   purpose.  Any move between two registers of a cover class should be
+   cheaper than load or store of the registers.  The macro value is
+   array of register classes with LIM_REG_CLASSES used as the end
+   marker.  */
+
+#define IRA_COVER_CLASSES \
+{						\
+  GENERAL_REGS, MAC_REGS, LIM_REG_CLASSES	\
+}
+
 /* Define which registers fit in which classes.
    This is an initializer for a vector of HARD_REG_SET
    of length N_REG_CLASSES.  */
@@ -460,13 +451,6 @@ enum reg_class {
 #define CONST_DOUBLE_OK_FOR_LETTER_P(VALUE, C)	\
   ((C) == 'G' ? (VALUE) == CONST0_RTX (SFmode)	\
    : 0)
-
-/* Given an rtx X being reloaded into a reg required to be
-   in class CLASS, return the class of reg to actually use.
-   In general this is just CLASS; but on some machines
-   in some cases it is preferable to use a more restrictive class.  */
-
-#define PREFERRED_RELOAD_CLASS(X, CLASS)  (CLASS)
 
 /* Return the maximum number of consecutive registers
    needed to represent mode MODE in a register of class CLASS.  */
@@ -615,35 +599,6 @@ struct cum_arg
 
 #define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
  ((CUM).nbytes = 0, (CUM).libcall = LIBNAME)
-
-/* Update the data in CUM to advance over an argument
-   of mode MODE and data type TYPE.
-   (TYPE is null for libcalls where that information may not be available.)  */
-
-#define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED)			\
- ((CUM).nbytes += ((MODE) != BLKmode					\
-  ? (GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) & -UNITS_PER_WORD	\
-  : (int_size_in_bytes (TYPE) + UNITS_PER_WORD - 1) & -UNITS_PER_WORD))
-
-/* Define where to put the arguments to a function.
-   Value is zero to push the argument on the stack,
-   or a hard register in which to store the argument.
-
-   MODE is the argument's machine mode.
-   TYPE is the data type of the argument (as a tree).
-    This is null for libcalls where that information may
-    not be available.
-   CUM is a variable of type CUMULATIVE_ARGS which gives info about
-    the preceding args and about the function being called.
-   NAMED is nonzero if this argument is a named parameter
-    (otherwise it is an extra parameter matching an ellipsis).  */
-
-/* On the H8/300 all normal args are pushed, unless -mquickcall in which
-   case the first 3 arguments are passed in registers.
-   See function `function_arg'.  */
-
-#define FUNCTION_ARG(CUM, MODE, TYPE, NAMED) \
-  function_arg (&CUM, MODE, TYPE, NAMED)
 
 /* Output assembler code to FILE to increment profiler label # LABELNO
    for profiling a function entry.  */

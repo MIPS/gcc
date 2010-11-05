@@ -53,9 +53,6 @@ do {						\
 
 #define ASM_EXTRA_SPEC ""
 
-#define SWITCH_TAKES_ARG(CHAR)						\
-  (DEFAULT_SWITCH_TAKES_ARG (CHAR) || (CHAR) == 'G')
-
 /* Variables which are this size or smaller are put in the sdata/sbss
    sections.  */
 extern unsigned int ia64_section_threshold;
@@ -118,14 +115,6 @@ enum processor_type
 };
 
 extern enum processor_type ia64_tune;
-
-/* Some machines may desire to change what optimizations are performed for
-   various optimization levels.  This macro, if defined, is executed once just
-   after the optimization level is determined and before the remainder of the
-   command options have been parsed.  Values set in this macro are used as the
-   default values for the other command line options.  */
-
-/* #define OPTIMIZATION_OPTIONS(LEVEL,SIZE) */
 
 /* Driver configuration */
 
@@ -155,12 +144,6 @@ extern enum processor_type ia64_tune;
    significant word has the lowest number.  */
 
 #define WORDS_BIG_ENDIAN (TARGET_BIG_ENDIAN != 0)
-
-#if defined(__BIG_ENDIAN__)
-#define LIBGCC2_WORDS_BIG_ENDIAN 1
-#else
-#define LIBGCC2_WORDS_BIG_ENDIAN 0
-#endif
 
 #define UNITS_PER_WORD 8
 
@@ -646,7 +629,7 @@ while (0)
 #define HARD_REGNO_NREGS(REGNO, MODE)					\
   ((REGNO) == PR_REG (0) && (MODE) == DImode ? 64			\
    : PR_REGNO_P (REGNO) && (MODE) == BImode ? 2				\
-   : PR_REGNO_P (REGNO) && (MODE) == CCImode ? 1			\
+   : (PR_REGNO_P (REGNO) || GR_REGNO_P (REGNO)) && (MODE) == CCImode ? 1\
    : FR_REGNO_P (REGNO) && (MODE) == XFmode ? 1				\
    : FR_REGNO_P (REGNO) && (MODE) == RFmode ? 1				\
    : FR_REGNO_P (REGNO) && (MODE) == XCmode ? 2				\
@@ -664,7 +647,7 @@ while (0)
    : PR_REGNO_P (REGNO) ?					\
      (MODE) == BImode || GET_MODE_CLASS (MODE) == MODE_CC	\
    : GR_REGNO_P (REGNO) ?					\
-     (MODE) != CCImode && (MODE) != XFmode && (MODE) != XCmode && (MODE) != RFmode \
+     (MODE) != XFmode && (MODE) != XCmode && (MODE) != RFmode	\
    : AR_REGNO_P (REGNO) ? (MODE) == DImode			\
    : BR_REGNO_P (REGNO) ? (MODE) == DImode			\
    : 0)
@@ -804,6 +787,19 @@ enum reg_class
     0xFFFFFFFF, 0xFFFFFFFF, 0x3FFF },			\
 }
 
+/* The following macro defines cover classes for Integrated Register
+   Allocator.  Cover classes is a set of non-intersected register
+   classes covering all hard registers used for register allocation
+   purpose.  Any move between two registers of a cover class should be
+   cheaper than load or store of the registers.  The macro value is
+   array of register classes with LIM_REG_CLASSES used as the end
+   marker.  */
+
+#define IRA_COVER_CLASSES						     \
+{									     \
+  PR_REGS, BR_REGS, AR_M_REGS, AR_I_REGS, GR_REGS, FR_REGS, LIM_REG_CLASSES  \
+}
+
 /* A C expression whose value is a register class containing hard register
    REGNO.  In general there is more than one such class; choose a class which
    is "minimal", meaning that no smaller class also contains the register.  */
@@ -843,14 +839,6 @@ enum reg_class
    register or a pseudo register that has been allocated such a hard reg.
    This is needed for POST_MODIFY.  */
 #define REGNO_OK_FOR_INDEX_P(NUM) REGNO_OK_FOR_BASE_P (NUM)
-
-/* A C expression that places additional restrictions on the register class to
-   use when it is necessary to copy value X into a register in class CLASS.
-   The value is a register class; perhaps CLASS, or perhaps another, smaller
-   class.  */
-
-#define PREFERRED_RELOAD_CLASS(X, CLASS) \
-  ia64_preferred_reload_class (X, CLASS)
 
 /* You should define this macro to indicate to the reload phase that it may
    need to allocate at least one register for a reload in addition to the
@@ -996,9 +984,6 @@ enum reg_class
 
 /* Eliminating the Frame Pointer and the Arg Pointer */
 
-/* Show we can debug even without a frame pointer.  */
-#define CAN_DEBUG_WITHOUT_FP
-
 /* If defined, this macro specifies a table of register pairs used to eliminate
    unneeded registers that point into the stack frame.  */
 
@@ -1037,19 +1022,6 @@ enum reg_class
 #define FR_RET_FIRST FR_REG (8)
 #define FR_RET_LAST  FR_REG (15)
 #define AR_ARG_FIRST OUT_REG (0)
-
-/* A C expression that controls whether a function argument is passed in a
-   register, and which register.  */
-
-#define FUNCTION_ARG(CUM, MODE, TYPE, NAMED) \
-  ia64_function_arg (&CUM, MODE, TYPE, NAMED, 0)
-
-/* Define this macro if the target machine has "register windows", so that the
-   register in which a function sees an arguments is not necessarily the same
-   as the one in which the caller passed the argument.  */
-
-#define FUNCTION_INCOMING_ARG(CUM, MODE, TYPE, NAMED) \
-  ia64_function_arg (&CUM, MODE, TYPE, NAMED, 1)
 
 /* A C type for declaring a variable that is used as the first argument of
    `FUNCTION_ARG' and other related values.  For some target machines, the type
@@ -1097,14 +1069,6 @@ do {									\
   (CUM).atypes[3] = (CUM).atypes[4] = (CUM).atypes[5] = I64;            \
   (CUM).atypes[6] = (CUM).atypes[7] = I64;                              \
 } while (0)
-
-/* A C statement (sans semicolon) to update the summarizer variable CUM to
-   advance past an argument in the argument list.  The values MODE, TYPE and
-   NAMED describe that argument.  Once this is done, the variable CUM is
-   suitable for analyzing the *following* argument with `FUNCTION_ARG'.  */
-
-#define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED) \
- ia64_function_arg_advance (&CUM, MODE, TYPE, NAMED)
 
 /* If defined, a C expression that gives the alignment boundary, in bits, of an
    argument with the specified mode and type.  */
@@ -1346,7 +1310,7 @@ do {									\
 /* Define this macro if the register defined by `PIC_OFFSET_TABLE_REGNUM' is
    clobbered by calls.  */
 
-#define PIC_OFFSET_TABLE_REG_CALL_CLOBBERED
+#define PIC_OFFSET_TABLE_REG_CALL_CLOBBERED 1
 
 
 /* The Overall Framework of an Assembler File.  */
@@ -1726,12 +1690,6 @@ do {									\
 
 #define DWARF2_DEBUGGING_INFO 1
 
-/* We do not want call-frame info to be output, since debuggers are
-   supposed to use the target unwind info.  Leave this undefined it
-   TARGET_UNWIND_INFO might ever be false.  */
-
-#define DWARF2_FRAME_INFO 0
-
 #define DWARF2_ASM_LINE_DEBUG_INFO (TARGET_DWARF2_ASM)
 
 /* Use tags for debug info labels, so that they don't break instruction
@@ -1844,8 +1802,6 @@ do {									\
 
 extern int ia64_final_schedule;
 
-#define TARGET_UNWIND_INFO	1
-
 #define TARGET_UNWIND_TABLES_DEFAULT true
 
 #define EH_RETURN_DATA_REGNO(N) ((N) < 4 ? (N) + 15 : INVALID_REGNUM)
@@ -1883,9 +1839,5 @@ struct GTY(()) machine_function
 
 /* Switch on code for querying unit reservations.  */
 #define CPU_UNITS_QUERY 1
-
-/* Define this to change the optimizations performed by default.  */
-#define OPTIMIZATION_OPTIONS(LEVEL, SIZE) \
-  ia64_optimization_options ((LEVEL), (SIZE))
 
 /* End of ia64.h */

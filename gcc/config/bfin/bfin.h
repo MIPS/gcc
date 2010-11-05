@@ -72,10 +72,6 @@ extern unsigned int bfin_workarounds;
 /* Print subsidiary information on the compiler version in use.  */
 #define TARGET_VERSION fprintf (stderr, " (BlackFin bfin)")
 
-/* Run-time compilation parameters selecting different hardware subsets.  */
-
-extern int target_flags;
-
 /* Predefinition in the preprocessor for this target machine */
 #ifndef TARGET_CPU_CPP_BUILTINS
 #define TARGET_CPU_CPP_BUILTINS()		\
@@ -275,17 +271,6 @@ extern int target_flags;
 #define MAX_LIBRARY_ID 255
 
 extern const char *bfin_library_id_string;
-
-/* Sometimes certain combinations of command options do not make
-   sense on a particular target machine.  You can define a macro
-   `OVERRIDE_OPTIONS' to take account of this.  This macro, if
-   defined, is executed once just after all the command options have
-   been parsed.
- 
-   Don't use this macro to turn on various extra optimizations for
-   `-O'.  That is what `OPTIMIZATION_OPTIONS' is for.  */
- 
-#define OVERRIDE_OPTIONS override_options ()
 
 #define FUNCTION_MODE    SImode
 #define Pmode            SImode
@@ -742,20 +727,24 @@ enum reg_class
  : (REGNO) >= REG_RETS ? PROLOGUE_REGS			\
  : NO_REGS)
 
+/* The following macro defines cover classes for Integrated Register
+   Allocator.  Cover classes is a set of non-intersected register
+   classes covering all hard registers used for register allocation
+   purpose.  Any move between two registers of a cover class should be
+   cheaper than load or store of the registers.  The macro value is
+   array of register classes with LIM_REG_CLASSES used as the end
+   marker.  */
+
+#define IRA_COVER_CLASSES				\
+{							\
+    MOST_REGS, AREGS, CCREGS, LIM_REG_CLASSES		\
+}
+
 /* When this hook returns true for MODE, the compiler allows
    registers explicitly used in the rtl to be used as spill registers
    but prevents the compiler from extending the lifetime of these
    registers.  */
 #define TARGET_SMALL_REGISTER_CLASSES_FOR_MODE_P hook_bool_mode_true
-
-#define CLASS_LIKELY_SPILLED_P(CLASS) \
-    ((CLASS) == PREGS_CLOBBERED \
-     || (CLASS) == PROLOGUE_REGS \
-     || (CLASS) == P0REGS \
-     || (CLASS) == D0REGS \
-     || (CLASS) == D1REGS \
-     || (CLASS) == D2REGS \
-     || (CLASS) == CCREGS)
 
 /* Do not allow to store a value in REG_CC for any mode */
 /* Do not allow to store value in pregs if mode is not SI*/
@@ -826,22 +815,6 @@ typedef struct {
   int call_cookie;		/* Do special things for this call */
 } CUMULATIVE_ARGS;
 
-/* Define where to put the arguments to a function.
-   Value is zero to push the argument on the stack,
-   or a hard register in which to store the argument.
-
-   MODE is the argument's machine mode.
-   TYPE is the data type of the argument (as a tree).
-    This is null for libcalls where that information may
-    not be available.
-   CUM is a variable of type CUMULATIVE_ARGS which gives info about
-    the preceding args and about the function being called.
-   NAMED is nonzero if this argument is a named parameter
-    (otherwise it is an extra parameter matching an ellipsis).  */
-
-#define FUNCTION_ARG(CUM, MODE, TYPE, NAMED) \
-  (function_arg (&CUM, MODE, TYPE, NAMED))
-
 #define FUNCTION_ARG_REGNO_P(REGNO) function_arg_regno_p (REGNO)
 
 
@@ -850,12 +823,6 @@ typedef struct {
    For a library call, FNTYPE is 0.  */
 #define INIT_CUMULATIVE_ARGS(CUM,FNTYPE,LIBNAME,INDIRECT, N_NAMED_ARGS)	\
   (init_cumulative_args (&CUM, FNTYPE, LIBNAME))
-
-/* Update the data in CUM to advance over an argument
-   of mode MODE and data type TYPE.
-   (TYPE is null for libcalls where that information may not be available.)  */
-#define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED)	\
-  (function_arg_advance (&CUM, MODE, TYPE, NAMED))
 
 /* Define how to find the value returned by a function.
    VALTYPE is the data type of the value (as a tree).

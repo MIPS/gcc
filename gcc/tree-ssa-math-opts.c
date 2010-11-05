@@ -641,7 +641,7 @@ maybe_record_sincos (VEC(gimple, heap) **stmts,
    result of the cexpi call we insert before the use statement that
    dominates all other candidates.  */
 
-static void
+static bool
 execute_cse_sincos_1 (tree name)
 {
   gimple_stmt_iterator gsi;
@@ -652,6 +652,7 @@ execute_cse_sincos_1 (tree name)
   VEC(gimple, heap) *stmts = NULL;
   basic_block top_bb = NULL;
   int i;
+  bool cfg_changed = false;
 
   type = TREE_TYPE (name);
   FOR_EACH_IMM_USE_STMT (use_stmt, use_iter, name)
@@ -683,16 +684,17 @@ execute_cse_sincos_1 (tree name)
   if (seen_cos + seen_sin + seen_cexpi <= 1)
     {
       VEC_free(gimple, heap, stmts);
-      return;
+      return false;
     }
 
   /* Simply insert cexpi at the beginning of top_bb but not earlier than
      the name def statement.  */
   fndecl = mathfn_built_in (type, BUILT_IN_CEXPI);
   if (!fndecl)
-    return;
-  res = make_rename_temp (TREE_TYPE (TREE_TYPE (fndecl)), "sincostmp");
+    return false;
+  res = create_tmp_reg (TREE_TYPE (TREE_TYPE (fndecl)), "sincostmp");
   stmt = gimple_build_call (fndecl, 1, name);
+  res = make_ssa_name (res, stmt);
   gimple_call_set_lhs (stmt, res);
 
   def_stmt = SSA_NAME_DEF_STMT (name);
@@ -738,11 +740,14 @@ execute_cse_sincos_1 (tree name)
 	stmt = gimple_build_assign (gimple_call_lhs (use_stmt), rhs);
 
 	gsi = gsi_for_stmt (use_stmt);
-	gsi_insert_after (&gsi, stmt, GSI_SAME_STMT);
-	gsi_remove (&gsi, true);
+	gsi_replace (&gsi, stmt, true);
+	if (gimple_purge_dead_eh_edges (gimple_bb (stmt)))
+	  cfg_changed = true;
     }
 
   VEC_free(gimple, heap, stmts);
+
+  return cfg_changed;
 }
 
 /* Go through all calls to sin, cos and cexpi and call execute_cse_sincos_1
@@ -752,6 +757,7 @@ static unsigned int
 execute_cse_sincos (void)
 {
   basic_block bb;
+  bool cfg_changed = false;
 
   calculate_dominance_info (CDI_DOMINATORS);
 
@@ -778,7 +784,7 @@ execute_cse_sincos (void)
 		CASE_FLT_FN (BUILT_IN_CEXPI):
 		  arg = gimple_call_arg (stmt, 0);
 		  if (TREE_CODE (arg) == SSA_NAME)
-		    execute_cse_sincos_1 (arg);
+		    cfg_changed |= execute_cse_sincos_1 (arg);
 		  break;
 
 		default:;
@@ -788,7 +794,7 @@ execute_cse_sincos (void)
     }
 
   free_dominance_info (CDI_DOMINATORS);
-  return 0;
+  return cfg_changed ? TODO_cleanup_cfg : 0;
 }
 
 static bool
@@ -1488,6 +1494,123 @@ convert_plusminus_to_widen (gimple_stmt_iterator *gsi, gimple stmt,
   return true;
 }
 
+/* Combine the multiplication at MUL_STMT with uses in additions and
+   subtractions to form fused multiply-add operations.  Returns true
+   if successful and MUL_STMT should be removed.  */
+
+static bool
+convert_mult_to_fma (gimple mul_stmt)
+{
+  tree mul_result = gimple_assign_lhs (mul_stmt);
+  tree type = TREE_TYPE (mul_result);
+  gimple use_stmt, fma_stmt;
+  use_operand_p use_p;
+  imm_use_iterator imm_iter;
+
+  if (FLOAT_TYPE_P (type)
+      && flag_fp_contract_mode == FP_CONTRACT_OFF)
+    return false;
+
+  /* We don't want to do bitfield reduction ops.  */
+  if (INTEGRAL_TYPE_P (type)
+      && (TYPE_PRECISION (type)
+	  != GET_MODE_PRECISION (TYPE_MODE (type))))
+    return false;
+
+  /* If the target doesn't support it, don't generate it.  We assume that
+     if fma isn't available then fms, fnma or fnms are not either.  */
+  if (optab_handler (fma_optab, TYPE_MODE (type)) == CODE_FOR_nothing)
+    return false;
+
+  /* Make sure that the multiplication statement becomes dead after
+     the transformation, thus that all uses are transformed to FMAs.
+     This means we assume that an FMA operation has the same cost
+     as an addition.  */
+  FOR_EACH_IMM_USE_FAST (use_p, imm_iter, mul_result)
+    {
+      enum tree_code use_code;
+
+      use_stmt = USE_STMT (use_p);
+
+      if (!is_gimple_assign (use_stmt))
+	return false;
+      use_code = gimple_assign_rhs_code (use_stmt);
+      /* ???  We need to handle NEGATE_EXPR to eventually form fnms.  */
+      if (use_code != PLUS_EXPR
+	  && use_code != MINUS_EXPR)
+	return false;
+
+      /* For now restrict this operations to single basic blocks.  In theory
+	 we would want to support sinking the multiplication in
+	 m = a*b;
+	 if ()
+	   ma = m + c;
+	 else
+	   d = m;
+	 to form a fma in the then block and sink the multiplication to the
+	 else block.  */
+      if (gimple_bb (use_stmt) != gimple_bb (mul_stmt))
+	return false;
+
+      /* We can't handle a * b + a * b.  */
+      if (gimple_assign_rhs1 (use_stmt) == gimple_assign_rhs2 (use_stmt))
+	return false;
+
+      /* If the target doesn't support a * b - c then drop the ball.  */
+      if (gimple_assign_rhs1 (use_stmt) == mul_result
+	  && use_code == MINUS_EXPR
+	  && optab_handler (fms_optab, TYPE_MODE (type)) == CODE_FOR_nothing)
+	return false;
+
+      /* If the target doesn't support -a * b + c then drop the ball.  */
+      if (gimple_assign_rhs2 (use_stmt) == mul_result
+	  && use_code == MINUS_EXPR
+	  && optab_handler (fnma_optab, TYPE_MODE (type)) == CODE_FOR_nothing)
+	return false;
+
+      /* We don't yet generate -a * b - c below yet.  */
+    }
+
+  FOR_EACH_IMM_USE_STMT (use_stmt, imm_iter, mul_result)
+    {
+      tree addop, mulop1;
+      gimple_stmt_iterator gsi = gsi_for_stmt (use_stmt);
+
+      mulop1 = gimple_assign_rhs1 (mul_stmt);
+      if (gimple_assign_rhs1 (use_stmt) == mul_result)
+	{
+	  addop = gimple_assign_rhs2 (use_stmt);
+	  /* a * b - c -> a * b + (-c)  */
+	  if (gimple_assign_rhs_code (use_stmt) == MINUS_EXPR)
+	    addop = force_gimple_operand_gsi (&gsi,
+					      build1 (NEGATE_EXPR,
+						      type, addop),
+					      true, NULL_TREE, true,
+					      GSI_SAME_STMT);
+	}
+      else
+	{
+	  addop = gimple_assign_rhs1 (use_stmt);
+	  /* a - b * c -> (-b) * c + a */
+	  if (gimple_assign_rhs_code (use_stmt) == MINUS_EXPR)
+	    mulop1 = force_gimple_operand_gsi (&gsi,
+					       build1 (NEGATE_EXPR,
+						       type, mulop1),
+					       true, NULL_TREE, true,
+					       GSI_SAME_STMT);
+	}
+
+      fma_stmt = gimple_build_assign_with_ops3 (FMA_EXPR,
+						gimple_assign_lhs (use_stmt),
+						mulop1,
+						gimple_assign_rhs2 (mul_stmt),
+						addop);
+      gsi_replace (&gsi, fma_stmt, true);
+    }
+
+  return true;
+}
+
 /* Find integer multiplications where the operands are extended from
    smaller types, and replace the MULT_EXPR with a WIDEN_MULT_EXPR
    where appropriate.  */
@@ -1495,31 +1618,45 @@ convert_plusminus_to_widen (gimple_stmt_iterator *gsi, gimple stmt,
 static unsigned int
 execute_optimize_widening_mul (void)
 {
-  bool changed = false;
   basic_block bb;
 
   FOR_EACH_BB (bb)
     {
       gimple_stmt_iterator gsi;
 
-      for (gsi = gsi_after_labels (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+      for (gsi = gsi_after_labels (bb); !gsi_end_p (gsi);)
         {
 	  gimple stmt = gsi_stmt (gsi);
 	  enum tree_code code;
 
-	  if (!is_gimple_assign (stmt))
-	    continue;
+	  if (is_gimple_assign (stmt))
+	    {
+	      code = gimple_assign_rhs_code (stmt);
+	      switch (code)
+		{
+		case MULT_EXPR:
+		  if (!convert_mult_to_widen (stmt)
+		      && convert_mult_to_fma (stmt))
+		    {
+		      gsi_remove (&gsi, true);
+		      release_defs (stmt);
+		      continue;
+		    }
+		  break;
 
-	  code = gimple_assign_rhs_code (stmt);
-	  if (code == MULT_EXPR)
-	    changed |= convert_mult_to_widen (stmt);
-	  else if (code == PLUS_EXPR || code == MINUS_EXPR)
-	    changed |= convert_plusminus_to_widen (&gsi, stmt, code);
+		case PLUS_EXPR:
+		case MINUS_EXPR:
+		  convert_plusminus_to_widen (&gsi, stmt, code);
+		  break;
+
+		default:;
+		}
+	    }
+	  gsi_next (&gsi);
 	}
     }
 
-  return (changed ? TODO_dump_func | TODO_update_ssa | TODO_verify_ssa
-	  | TODO_verify_stmts : 0);
+  return 0;
 }
 
 static bool
@@ -1543,6 +1680,9 @@ struct gimple_opt_pass pass_optimize_widening_mul =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0                                     /* todo_flags_finish */
+  TODO_verify_ssa
+  | TODO_verify_stmts
+  | TODO_dump_func
+  | TODO_update_ssa                     /* todo_flags_finish */
  }
 };

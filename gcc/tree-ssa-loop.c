@@ -303,8 +303,12 @@ gate_graphite_transforms (void)
 {
   /* Enable -fgraphite pass if any one of the graphite optimization flags
      is turned on.  */
-  if (flag_loop_block || flag_loop_interchange || flag_loop_strip_mine
-      || flag_graphite_identity || flag_loop_parallelize_all)
+  if (flag_loop_block
+      || flag_loop_interchange
+      || flag_loop_strip_mine
+      || flag_graphite_identity
+      || flag_loop_parallelize_all
+      || flag_loop_flatten)
     flag_graphite = 1;
 
   return flag_graphite != 0;
@@ -458,7 +462,7 @@ tree_ssa_loop_bounds (void)
   if (number_of_loops () <= 1)
     return 0;
 
-  estimate_numbers_of_iterations ();
+  estimate_numbers_of_iterations (true);
   scev_reset ();
   return 0;
 }

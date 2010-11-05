@@ -1,6 +1,6 @@
 /* Configuration for an i386 running MS-DOS with DJGPP.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2004, 2005,
-   2007 Free Software Foundation, Inc.
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2004, 2005, 2007,
+   2010 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -102,7 +102,7 @@ along with GCC; see the file COPYING3.  If not see
 #define LINK_COMMAND_SPEC \
 "%{!fsyntax-only: \
 %{!c:%{!M:%{!MM:%{!E:%{!S:%(linker) %l %X %{o*} %{A} %{d} %{e*} %{m} %{N} %{n} \
-\t%{r} %{s} %{t} %{u*} %{x} %{z} %{Z}\
+\t%{r} %{s} %{t} %{u*} %{z} %{Z}\
 \t%{!A:%{!nostdlib:%{!nostartfiles:%S}}}\
 \t%{static:} %{L*} %D %o\
 \t%{!nostdlib:%{!nodefaultlibs:%G %L %G}}\
@@ -166,7 +166,7 @@ along with GCC; see the file COPYING3.  If not see
 #define PTRDIFF_TYPE "int"
 
 /* Used to be defined in xm-djgpp.h, but moved here for cross-compilers.  */
-#define LIBSTDCXX "-lstdcxx"
+#define LIBSTDCXX "stdcxx"
 
 #define TARGET_VERSION fprintf (stderr, " (80386, MS-DOS DJGPP)"); 
 

@@ -327,6 +327,13 @@ struct iv_ca
   /* Number of times each invariant is used.  */
   unsigned *n_invariant_uses;
 
+  /* The array holding the number of uses of each loop
+     invariant expressions created by ivopt.  */
+  unsigned *used_inv_expr;
+
+  /* The number of created loop invariants.  */
+  unsigned num_used_inv_expr;
+
   /* Total cost of the assignment.  */
   comp_cost cost;
 };
@@ -1436,9 +1443,6 @@ idx_find_step (tree base, tree *idx, void *data)
   tree step, iv_base, iv_step, lbound, off;
   struct loop *loop = dta->ivopts_data->current_loop;
 
-  if (TREE_CODE (base) == MISALIGNED_INDIRECT_REF)
-    return false;
-
   /* If base is a component ref, require that the offset of the reference
      be invariant.  */
   if (TREE_CODE (base) == COMPONENT_REF)
@@ -1640,7 +1644,7 @@ may_be_unaligned_p (tree ref, tree step)
 
 /* Return true if EXPR may be non-addressable.   */
 
-static bool
+bool
 may_be_nonaddressable_p (tree expr)
 {
   switch (TREE_CODE (expr))
@@ -1715,6 +1719,16 @@ find_interesting_uses_address (struct ivopts_data *data, gimple stmt, tree *op_p
 	  TMR_BASE (base) = civ->base;
 	  step = civ->step;
 	}
+      if (TMR_INDEX2 (base)
+	  && TREE_CODE (TMR_INDEX2 (base)) == SSA_NAME)
+	{
+	  civ = get_iv (data, TMR_INDEX2 (base));
+	  if (!civ)
+	    goto fail;
+
+	  TMR_INDEX2 (base) = civ->base;
+	  step = civ->step;
+	}
       if (TMR_INDEX (base)
 	  && TREE_CODE (TMR_INDEX (base)) == SSA_NAME)
 	{
@@ -1747,8 +1761,6 @@ find_interesting_uses_address (struct ivopts_data *data, gimple stmt, tree *op_p
 	  || integer_zerop (ifs_ivopts_data.step))
 	goto fail;
       step = ifs_ivopts_data.step;
-
-      gcc_assert (TREE_CODE (base) != MISALIGNED_INDIRECT_REF);
 
       /* Check that the base expression is addressable.  This needs
 	 to be done after substituting bases of IVs into it.  */
@@ -4015,6 +4027,8 @@ get_computation_cost_at (struct ivopts_data *data,
   STRIP_NOPS (cbase);
   ctype = TREE_TYPE (cbase);
 
+  stmt_is_after_inc = stmt_after_increment (data->current_loop, cand, at);
+
   /* use = ubase + ratio * (var - cbase).  If either cbase is a constant
      or ratio == 1, it is better to handle this like
 
@@ -4033,8 +4047,24 @@ get_computation_cost_at (struct ivopts_data *data,
     }
   else if (ratio == 1)
     {
+      tree real_cbase = cbase;
+
+      /* Check to see if any adjustment is needed.  */
+      if (cstepi == 0 && stmt_is_after_inc)
+        {
+          aff_tree real_cbase_aff;
+          aff_tree cstep_aff;
+
+          tree_to_aff_combination (cbase, TREE_TYPE (real_cbase),
+                                   &real_cbase_aff);
+          tree_to_aff_combination (cstep, TREE_TYPE (cstep), &cstep_aff);
+
+          aff_combination_add (&real_cbase_aff, &cstep_aff);
+          real_cbase = aff_combination_to_tree (&real_cbase_aff);
+        }
+
       cost = difference_cost (data,
-			      ubase, cbase,
+			      ubase, real_cbase,
 			      &symbol_present, &var_present, &offset,
 			      depends_on);
       cost.cost /= avg_loop_niter (data->current_loop);
@@ -4076,7 +4106,6 @@ get_computation_cost_at (struct ivopts_data *data,
 
   /* If we are after the increment, the value of the candidate is higher by
      one iteration.  */
-  stmt_is_after_inc = stmt_after_increment (data->current_loop, cand, at);
   if (stmt_is_after_inc)
     offset -= ratio * cstepi;
 
@@ -4806,45 +4835,17 @@ iv_ca_cand_for_use (struct iv_ca *ivs, struct iv_use *use)
   return ivs->cand_for_use[use->id];
 }
 
-
-/* Returns the number of temps needed for new loop invariant
-   expressions.  */
-
-static int
-iv_ca_get_num_inv_exprs (struct ivopts_data *data, struct iv_ca *ivs)
-{
-  unsigned i, n = 0;
-  unsigned *used_inv_expr = XCNEWVEC (unsigned, data->inv_expr_id + 1);
-
-  for (i = 0; i < ivs->upto; i++)
-    {
-      struct iv_use *use = iv_use (data, i);
-      struct cost_pair *cp = iv_ca_cand_for_use (ivs, use);
-      if (cp && cp->inv_expr_id != -1)
-        {
-          used_inv_expr[cp->inv_expr_id]++;
-          if (used_inv_expr[cp->inv_expr_id] == 1)
-            n++;
-        }
-    }
-
-  free (used_inv_expr);
-  return n;
-}
-
 /* Computes the cost field of IVS structure.  */
 
 static void
 iv_ca_recount_cost (struct ivopts_data *data, struct iv_ca *ivs)
 {
-  unsigned n_inv_exprs = 0;
   comp_cost cost = ivs->cand_use_cost;
 
   cost.cost += ivs->cand_cost;
 
-  n_inv_exprs = iv_ca_get_num_inv_exprs (data, ivs);
   cost.cost += ivopts_global_cost_for_size (data,
-                                            ivs->n_regs + n_inv_exprs);
+                                            ivs->n_regs + ivs->num_used_inv_expr);
 
   ivs->cost = cost;
 }
@@ -4901,6 +4902,13 @@ iv_ca_set_no_cp (struct ivopts_data *data, struct iv_ca *ivs,
   ivs->cand_use_cost = sub_costs (ivs->cand_use_cost, cp->cost);
 
   iv_ca_set_remove_invariants (ivs, cp->depends_on);
+
+  if (cp->inv_expr_id != -1)
+    {
+      ivs->used_inv_expr[cp->inv_expr_id]--;
+      if (ivs->used_inv_expr[cp->inv_expr_id] == 0)
+        ivs->num_used_inv_expr--;
+    }
   iv_ca_recount_cost (data, ivs);
 }
 
@@ -4958,6 +4966,13 @@ iv_ca_set_cp (struct ivopts_data *data, struct iv_ca *ivs,
 
       ivs->cand_use_cost = add_costs (ivs->cand_use_cost, cp->cost);
       iv_ca_set_add_invariants (ivs, cp->depends_on);
+
+      if (cp->inv_expr_id != -1)
+        {
+          ivs->used_inv_expr[cp->inv_expr_id]++;
+          if (ivs->used_inv_expr[cp->inv_expr_id] == 1)
+            ivs->num_used_inv_expr++;
+        }
       iv_ca_recount_cost (data, ivs);
     }
 }
@@ -5165,6 +5180,8 @@ iv_ca_new (struct ivopts_data *data)
   nw->cand_cost = 0;
   nw->n_invariant_uses = XCNEWVEC (unsigned, data->max_inv_id + 1);
   nw->cost = zero_cost;
+  nw->used_inv_expr = XCNEWVEC (unsigned, data->inv_expr_id + 1);
+  nw->num_used_inv_expr = 0;
 
   return nw;
 }
@@ -5178,6 +5195,7 @@ iv_ca_free (struct iv_ca **ivs)
   free ((*ivs)->n_cand_uses);
   BITMAP_FREE ((*ivs)->cands);
   free ((*ivs)->n_invariant_uses);
+  free ((*ivs)->used_inv_expr);
   free (*ivs);
   *ivs = NULL;
 }
@@ -5862,7 +5880,16 @@ rewrite_use_nonlinear_expr (struct ivopts_data *data,
       comp = force_gimple_operand_gsi (&bsi, comp, true, NULL_TREE,
 				       true, GSI_SAME_STMT);
       if (POINTER_TYPE_P (TREE_TYPE (tgt)))
-	duplicate_ssa_name_ptr_info (comp, SSA_NAME_PTR_INFO (tgt));
+	{
+	  duplicate_ssa_name_ptr_info (comp, SSA_NAME_PTR_INFO (tgt));
+	  /* As this isn't a plain copy we have to reset alignment
+	     information.  */
+	  if (SSA_NAME_PTR_INFO (comp))
+	    {
+	      SSA_NAME_PTR_INFO (comp)->align = 1;
+	      SSA_NAME_PTR_INFO (comp)->misalign = 0;
+	    }
+	}
     }
 
   if (gimple_code (use->stmt) == GIMPLE_PHI)
@@ -5880,44 +5907,6 @@ rewrite_use_nonlinear_expr (struct ivopts_data *data,
     }
 }
 
-/* Replaces ssa name in index IDX by its basic variable.  Callback for
-   for_each_index.  */
-
-static bool
-idx_remove_ssa_names (tree base, tree *idx,
-		      void *data ATTRIBUTE_UNUSED)
-{
-  tree *op;
-
-  if (TREE_CODE (*idx) == SSA_NAME)
-    *idx = SSA_NAME_VAR (*idx);
-
-  if (TREE_CODE (base) == ARRAY_REF || TREE_CODE (base) == ARRAY_RANGE_REF)
-    {
-      op = &TREE_OPERAND (base, 2);
-      if (*op
-	  && TREE_CODE (*op) == SSA_NAME)
-	*op = SSA_NAME_VAR (*op);
-      op = &TREE_OPERAND (base, 3);
-      if (*op
-	  && TREE_CODE (*op) == SSA_NAME)
-	*op = SSA_NAME_VAR (*op);
-    }
-
-  return true;
-}
-
-/* Unshares REF and replaces ssa names inside it by their basic variables.  */
-
-static tree
-unshare_and_remove_ssa_names (tree ref)
-{
-  ref = unshare_expr (ref);
-  for_each_index (&ref, idx_remove_ssa_names, NULL);
-
-  return ref;
-}
-
 /* Copies the reference information from OLD_REF to NEW_REF.  */
 
 static void
@@ -5925,35 +5914,47 @@ copy_ref_info (tree new_ref, tree old_ref)
 {
   tree new_ptr_base = NULL_TREE;
 
-  if (TREE_CODE (old_ref) == TARGET_MEM_REF
-      && TREE_CODE (new_ref) == TARGET_MEM_REF)
-    TMR_ORIGINAL (new_ref) = TMR_ORIGINAL (old_ref);
-  else if (TREE_CODE (new_ref) == TARGET_MEM_REF)
-    TMR_ORIGINAL (new_ref) = unshare_and_remove_ssa_names (old_ref);
-
   TREE_SIDE_EFFECTS (new_ref) = TREE_SIDE_EFFECTS (old_ref);
   TREE_THIS_VOLATILE (new_ref) = TREE_THIS_VOLATILE (old_ref);
 
-  if (TREE_CODE (new_ref) == TARGET_MEM_REF)
-    new_ptr_base = TMR_BASE (new_ref);
-  else if (TREE_CODE (new_ref) == MEM_REF)
-    new_ptr_base = TREE_OPERAND (new_ref, 0);
+  new_ptr_base = TREE_OPERAND (new_ref, 0);
 
   /* We can transfer points-to information from an old pointer
      or decl base to the new one.  */
   if (new_ptr_base
       && TREE_CODE (new_ptr_base) == SSA_NAME
-      && POINTER_TYPE_P (TREE_TYPE (new_ptr_base))
       && !SSA_NAME_PTR_INFO (new_ptr_base))
     {
       tree base = get_base_address (old_ref);
       if (!base)
 	;
-      else if ((INDIRECT_REF_P (base)
-		|| TREE_CODE (base) == MEM_REF)
-	       && TREE_CODE (TREE_OPERAND (base, 0)) == SSA_NAME)
-	duplicate_ssa_name_ptr_info
-	  (new_ptr_base, SSA_NAME_PTR_INFO (TREE_OPERAND (base, 0)));
+      else if ((TREE_CODE (base) == MEM_REF
+		|| TREE_CODE (base) == TARGET_MEM_REF)
+	       && TREE_CODE (TREE_OPERAND (base, 0)) == SSA_NAME
+	       && SSA_NAME_PTR_INFO (TREE_OPERAND (base, 0)))
+	{
+	  struct ptr_info_def *new_pi;
+	  duplicate_ssa_name_ptr_info
+	    (new_ptr_base, SSA_NAME_PTR_INFO (TREE_OPERAND (base, 0)));
+	  new_pi = SSA_NAME_PTR_INFO (new_ptr_base);
+	  /* We have to be careful about transfering alignment information.  */
+	  if (TREE_CODE (old_ref) == MEM_REF
+	      && !(TREE_CODE (new_ref) == TARGET_MEM_REF
+		   && (TMR_INDEX2 (new_ref)
+		       || (TMR_STEP (new_ref)
+			   && (TREE_INT_CST_LOW (TMR_STEP (new_ref))
+			       < new_pi->align)))))
+	    {
+	      new_pi->misalign += double_int_sub (mem_ref_offset (old_ref),
+						  mem_ref_offset (new_ref)).low;
+	      new_pi->misalign &= (new_pi->align - 1);
+	    }
+	  else
+	    {
+	      new_pi->align = 1;
+	      new_pi->misalign = 0;
+	    }
+	}
       else if (TREE_CODE (base) == VAR_DECL
 	       || TREE_CODE (base) == PARM_DECL
 	       || TREE_CODE (base) == RESULT_DECL)
@@ -6291,7 +6292,7 @@ free_loop_data (struct ivopts_data *data)
 
   data->max_inv_id = 0;
 
-  for (i = 0; VEC_iterate (tree, decl_rtl_to_reset, i, obj); i++)
+  FOR_EACH_VEC_ELT (tree, decl_rtl_to_reset, i, obj)
     SET_DECL_RTL (obj, NULL_RTX);
 
   VEC_truncate (tree, decl_rtl_to_reset, 0);

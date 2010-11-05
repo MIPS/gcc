@@ -776,6 +776,10 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
 
   /* Second pass evaluates arguments.  */
 
+  /* Make sure stack is consistent for asm goto.  */
+  if (nlabels > 0)
+    do_pending_stack_adjust ();
+
   ninout = 0;
   for (i = 0, tail = outputs; tail; tail = TREE_CHAIN (tail), i++)
     {
@@ -1739,7 +1743,7 @@ expand_return (tree retval)
 	     xbitpos for the destination store (right justified).  */
 	  store_bit_field (dst, bitsize, xbitpos % BITS_PER_WORD, word_mode,
 			   extract_bit_field (src, bitsize,
-					      bitpos % BITS_PER_WORD, 1,
+					      bitpos % BITS_PER_WORD, 1, false,
 					      NULL_RTX, word_mode, word_mode));
 	}
 
@@ -1834,7 +1838,7 @@ expand_nl_goto_receiver (void)
        decrementing fp by STARTING_FRAME_OFFSET.  */
     emit_move_insn (virtual_stack_vars_rtx, hard_frame_pointer_rtx);
 
-#if ARG_POINTER_REGNUM != HARD_FRAME_POINTER_REGNUM
+#if !HARD_FRAME_POINTER_IS_ARG_POINTER
   if (fixed_regs[ARG_POINTER_REGNUM])
     {
 #ifdef ELIMINABLE_REGS
@@ -2338,11 +2342,8 @@ expand_case (gimple stmt)
 	  /* If we have not seen this label yet, then increase the
 	     number of unique case node targets seen.  */
 	  lab = label_rtx (n->code_label);
-	  if (!bitmap_bit_p (label_bitmap, CODE_LABEL_NUMBER (lab)))
-	    {
-	      bitmap_set_bit (label_bitmap, CODE_LABEL_NUMBER (lab));
-	      uniq++;
-	    }
+	  if (bitmap_set_bit (label_bitmap, CODE_LABEL_NUMBER (lab)))
+	    uniq++;
 	}
 
       BITMAP_FREE (label_bitmap);

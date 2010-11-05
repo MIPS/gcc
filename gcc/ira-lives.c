@@ -65,8 +65,8 @@ static int curr_point;
    register pressure excess.  Excess pressure for a register class at
    some point means that there are more allocnos of given register
    class living at the point than number of hard-registers of the
-   class available for the allocation.  It is defined only for
-   pressure classes.  */
+   class available for the allocation.  It is defined only for cover
+   classes.  */
 static int high_pressure_start_point[N_REG_CLASSES];
 
 /* Objects live at current point in the scan.  */
@@ -98,7 +98,6 @@ make_hard_regno_born (int regno)
   EXECUTE_IF_SET_IN_SPARSESET (objects_live, i)
     {
       ira_object_t obj = ira_object_id_map[i];
-
       SET_HARD_REG_BIT (OBJECT_CONFLICT_HARD_REGS (obj), regno);
       SET_HARD_REG_BIT (OBJECT_TOTAL_CONFLICT_HARD_REGS (obj), regno);
     }
@@ -136,17 +135,14 @@ update_allocno_pressure_excess_length (ira_object_t obj)
 {
   ira_allocno_t a = OBJECT_ALLOCNO (obj);
   int start, i;
-  enum reg_class aclass, pclass, cl;
+  enum reg_class cover_class, cl;
   live_range_t p;
 
-  aclass = ALLOCNO_CLASS (a);
-  pclass = ira_pressure_class_translate[aclass];
+  cover_class = ALLOCNO_COVER_CLASS (a);
   for (i = 0;
-       (cl = ira_reg_class_super_classes[pclass][i]) != LIM_REG_CLASSES;
+       (cl = ira_reg_class_super_classes[cover_class][i]) != LIM_REG_CLASSES;
        i++)
     {
-      if (! ira_reg_pressure_class_p[cl])
-	continue;
       if (high_pressure_start_point[cl] < 0)
 	continue;
       p = OBJECT_LIVE_RANGES (obj);
@@ -171,26 +167,24 @@ make_object_dead (ira_object_t obj)
   update_allocno_pressure_excess_length (obj);
 }
 
-/* The current register pressures for each pressure class for the current
+/* The current register pressures for each cover class for the current
    basic block.  */
 static int curr_reg_pressure[N_REG_CLASSES];
 
-/* Record that register pressure for PCLASS increased by N registers.
-   Update the current register pressure, maximal register pressure for
-   the current BB and the start point of the register pressure
-   excess.  */
+/* Record that register pressure for COVER_CLASS increased by N
+   registers.  Update the current register pressure, maximal register
+   pressure for the current BB and the start point of the register
+   pressure excess.  */
 static void
-inc_register_pressure (enum reg_class pclass, int n)
+inc_register_pressure (enum reg_class cover_class, int n)
 {
   int i;
   enum reg_class cl;
 
   for (i = 0;
-       (cl = ira_reg_class_super_classes[pclass][i]) != LIM_REG_CLASSES;
+       (cl = ira_reg_class_super_classes[cover_class][i]) != LIM_REG_CLASSES;
        i++)
     {
-      if (! ira_reg_pressure_class_p[cl])
-	continue;
       curr_reg_pressure[cl] += n;
       if (high_pressure_start_point[cl] < 0
 	  && (curr_reg_pressure[cl] > ira_available_class_regs[cl]))
@@ -200,13 +194,13 @@ inc_register_pressure (enum reg_class pclass, int n)
     }
 }
 
-/* Record that register pressure for PCLASS has decreased by NREGS
-   registers; update current register pressure, start point of the
-   register pressure excess, and register pressure excess length for
-   living allocnos.  */
+/* Record that register pressure for COVER_CLASS has decreased by
+   NREGS registers; update current register pressure, start point of
+   the register pressure excess, and register pressure excess length
+   for living allocnos.  */
 
 static void
-dec_register_pressure (enum reg_class pclass, int nregs)
+dec_register_pressure (enum reg_class cover_class, int nregs)
 {
   int i;
   unsigned int j;
@@ -214,11 +208,9 @@ dec_register_pressure (enum reg_class pclass, int nregs)
   bool set_p = false;
 
   for (i = 0;
-       (cl = ira_reg_class_super_classes[pclass][i]) != LIM_REG_CLASSES;
+       (cl = ira_reg_class_super_classes[cover_class][i]) != LIM_REG_CLASSES;
        i++)
     {
-      if (! ira_reg_pressure_class_p[cl])
-	continue;
       curr_reg_pressure[cl] -= nregs;
       ira_assert (curr_reg_pressure[cl] >= 0);
       if (high_pressure_start_point[cl] >= 0
@@ -230,15 +222,12 @@ dec_register_pressure (enum reg_class pclass, int nregs)
       EXECUTE_IF_SET_IN_SPARSESET (objects_live, j)
 	update_allocno_pressure_excess_length (ira_object_id_map[j]);
       for (i = 0;
-	   (cl = ira_reg_class_super_classes[pclass][i]) != LIM_REG_CLASSES;
+	   (cl = ira_reg_class_super_classes[cover_class][i])
+	     != LIM_REG_CLASSES;
 	   i++)
-	{
-	  if (! ira_reg_pressure_class_p[cl])
-	    continue;
-	  if (high_pressure_start_point[cl] >= 0
-	      && curr_reg_pressure[cl] <= ira_available_class_regs[cl])
-	    high_pressure_start_point[cl] = -1;
-	}
+	if (high_pressure_start_point[cl] >= 0
+	    && curr_reg_pressure[cl] <= ira_available_class_regs[cl])
+	  high_pressure_start_point[cl] = -1;
     }
 }
 
@@ -248,8 +237,8 @@ static void
 mark_pseudo_regno_live (int regno)
 {
   ira_allocno_t a = ira_curr_regno_allocno_map[regno];
-  enum reg_class pclass;
   int i, n, nregs;
+  enum reg_class cl;
 
   if (a == NULL)
     return;
@@ -258,8 +247,8 @@ mark_pseudo_regno_live (int regno)
   allocno_saved_at_call[ALLOCNO_NUM (a)] = 0;
 
   n = ALLOCNO_NUM_OBJECTS (a);
-  pclass = ira_pressure_class_translate[ALLOCNO_CLASS (a)];
-  nregs = ira_reg_class_max_nregs[pclass][ALLOCNO_MODE (a)];
+  cl = ALLOCNO_COVER_CLASS (a);
+  nregs = ira_reg_class_nregs[cl][ALLOCNO_MODE (a)];
   if (n > 1)
     {
       /* We track every subobject separately.  */
@@ -270,11 +259,10 @@ mark_pseudo_regno_live (int regno)
   for (i = 0; i < n; i++)
     {
       ira_object_t obj = ALLOCNO_OBJECT (a, i);
-
       if (sparseset_bit_p (objects_live, OBJECT_CONFLICT_ID (obj)))
 	continue;
 
-      inc_register_pressure (pclass, nregs);
+      inc_register_pressure (cl, nregs);
       make_object_born (obj);
     }
 }
@@ -287,7 +275,7 @@ mark_pseudo_regno_subword_live (int regno, int subword)
 {
   ira_allocno_t a = ira_curr_regno_allocno_map[regno];
   int n, nregs;
-  enum reg_class pclass;
+  enum reg_class cl;
   ira_object_t obj;
 
   if (a == NULL)
@@ -303,15 +291,15 @@ mark_pseudo_regno_subword_live (int regno, int subword)
       return;
     }
 
-  pclass = ira_pressure_class_translate[ALLOCNO_CLASS (a)];
-  nregs = ira_reg_class_max_nregs[pclass][ALLOCNO_MODE (a)];
+  cl = ALLOCNO_COVER_CLASS (a);
+  nregs = ira_reg_class_nregs[cl][ALLOCNO_MODE (a)];
   gcc_assert (nregs == n);
   obj = ALLOCNO_OBJECT (a, subword);
 
   if (sparseset_bit_p (objects_live, OBJECT_CONFLICT_ID (obj)))
     return;
 
-  inc_register_pressure (pclass, nregs);
+  inc_register_pressure (cl, nregs);
   make_object_born (obj);
 }
 
@@ -326,21 +314,34 @@ mark_hard_reg_live (rtx reg)
   if (! TEST_HARD_REG_BIT (ira_no_alloc_regs, regno))
     {
       int last = regno + hard_regno_nregs[regno][GET_MODE (reg)];
-      enum reg_class aclass, pclass;
 
       while (regno < last)
 	{
 	  if (! TEST_HARD_REG_BIT (hard_regs_live, regno)
 	      && ! TEST_HARD_REG_BIT (eliminable_regset, regno))
 	    {
-	      aclass = ira_hard_regno_allocno_class[regno];
-	      pclass = ira_pressure_class_translate[aclass];
-	      inc_register_pressure (pclass, 1);
+	      enum reg_class cover_class = ira_hard_regno_cover_class[regno];
+	      inc_register_pressure (cover_class, 1);
 	      make_hard_regno_born (regno);
 	    }
 	  regno++;
 	}
     }
+}
+
+/* Mark a pseudo, or one of its subwords, as live.  REGNO is the pseudo's
+   register number; ORIG_REG is the access in the insn, which may be a
+   subreg.  */
+static void
+mark_pseudo_reg_live (rtx orig_reg, unsigned regno)
+{
+  if (df_read_modify_subreg_p (orig_reg))
+    {
+      mark_pseudo_regno_subword_live (regno,
+				      subreg_lowpart_p (orig_reg) ? 0 : 1);
+    }
+  else
+    mark_pseudo_regno_live (regno);
 }
 
 /* Mark the register referenced by use or def REF as live.  */
@@ -354,15 +355,7 @@ mark_ref_live (df_ref ref)
     reg = SUBREG_REG (reg);
 
   if (REGNO (reg) >= FIRST_PSEUDO_REGISTER)
-    {
-      if (df_read_modify_subreg_p (orig_reg))
-	{
-	  mark_pseudo_regno_subword_live (REGNO (reg),
-					  subreg_lowpart_p (orig_reg) ? 0 : 1);
-	}
-      else
-	mark_pseudo_regno_live (REGNO (reg));
-    }
+    mark_pseudo_reg_live (orig_reg, REGNO (reg));
   else
     mark_hard_reg_live (reg);
 }
@@ -383,8 +376,8 @@ mark_pseudo_regno_dead (int regno)
   allocno_saved_at_call[ALLOCNO_NUM (a)] = 0;
 
   n = ALLOCNO_NUM_OBJECTS (a);
-  cl = ira_pressure_class_translate[ALLOCNO_CLASS (a)];
-  nregs = ira_reg_class_max_nregs[cl][ALLOCNO_MODE (a)];
+  cl = ALLOCNO_COVER_CLASS (a);
+  nregs = ira_reg_class_nregs[cl][ALLOCNO_MODE (a)];
   if (n > 1)
     {
       /* We track every subobject separately.  */
@@ -423,8 +416,8 @@ mark_pseudo_regno_subword_dead (int regno, int subword)
     /* The allocno as a whole doesn't die in this case.  */
     return;
 
-  cl = ira_pressure_class_translate[ALLOCNO_CLASS (a)];
-  nregs = ira_reg_class_max_nregs[cl][ALLOCNO_MODE (a)];
+  cl = ALLOCNO_COVER_CLASS (a);
+  nregs = ira_reg_class_nregs[cl][ALLOCNO_MODE (a)];
   gcc_assert (nregs == n);
 
   obj = ALLOCNO_OBJECT (a, subword);
@@ -445,20 +438,33 @@ mark_hard_reg_dead (rtx reg)
   if (! TEST_HARD_REG_BIT (ira_no_alloc_regs, regno))
     {
       int last = regno + hard_regno_nregs[regno][GET_MODE (reg)];
-      enum reg_class aclass, pclass;
 
       while (regno < last)
 	{
 	  if (TEST_HARD_REG_BIT (hard_regs_live, regno))
 	    {
-	      aclass = ira_hard_regno_allocno_class[regno];
-	      pclass = ira_pressure_class_translate[aclass];
-	      dec_register_pressure (pclass, 1);
+	      enum reg_class cover_class = ira_hard_regno_cover_class[regno];
+	      dec_register_pressure (cover_class, 1);
 	      make_hard_regno_dead (regno);
 	    }
 	  regno++;
 	}
     }
+}
+
+/* Mark a pseudo, or one of its subwords, as dead.  REGNO is the pseudo's
+   register number; ORIG_REG is the access in the insn, which may be a
+   subreg.  */
+static void
+mark_pseudo_reg_dead (rtx orig_reg, unsigned regno)
+{
+  if (df_read_modify_subreg_p (orig_reg))
+    {
+      mark_pseudo_regno_subword_dead (regno,
+				      subreg_lowpart_p (orig_reg) ? 0 : 1);
+    }
+  else
+    mark_pseudo_regno_dead (regno);
 }
 
 /* Mark the register referenced by definition DEF as dead, if the
@@ -482,26 +488,22 @@ mark_ref_dead (df_ref def)
     return;
 
   if (REGNO (reg) >= FIRST_PSEUDO_REGISTER)
-    {
-      if (df_read_modify_subreg_p (orig_reg))
-	{
-	  mark_pseudo_regno_subword_dead (REGNO (reg),
-					  subreg_lowpart_p (orig_reg) ? 0 : 1);
-	}
-      else
-	mark_pseudo_regno_dead (REGNO (reg));
-    }
+    mark_pseudo_reg_dead (orig_reg, REGNO (reg));
   else
     mark_hard_reg_dead (reg);
 }
 
-/* Make pseudo REG conflicting with pseudo DREG, if the 1st pseudo
-   class is intersected with class CL.  Advance the current program
-   point before making the conflict if ADVANCE_P.  Return TRUE if we
-   will need to advance the current program point.  */
+/* If REG is a pseudo or a subreg of it, and the class of its allocno
+   intersects CL, make a conflict with pseudo DREG.  ORIG_DREG is the
+   rtx actually accessed, it may be indentical to DREG or a subreg of it.
+   Advance the current program point before making the conflict if
+   ADVANCE_P.  Return TRUE if we will need to advance the current
+   program point.  */
 static bool
-make_pseudo_conflict (rtx reg, enum reg_class cl, rtx dreg, bool advance_p)
+make_pseudo_conflict (rtx reg, enum reg_class cl, rtx dreg, rtx orig_dreg,
+		      bool advance_p)
 {
+  rtx orig_reg = reg;
   ira_allocno_t a;
 
   if (GET_CODE (reg) == SUBREG)
@@ -511,35 +513,37 @@ make_pseudo_conflict (rtx reg, enum reg_class cl, rtx dreg, bool advance_p)
     return advance_p;
 
   a = ira_curr_regno_allocno_map[REGNO (reg)];
-  if (! reg_classes_intersect_p (cl, ALLOCNO_CLASS (a)))
+  if (! reg_classes_intersect_p (cl, ALLOCNO_COVER_CLASS (a)))
     return advance_p;
 
   if (advance_p)
     curr_point++;
 
-  mark_pseudo_regno_live (REGNO (reg));
-  mark_pseudo_regno_live (REGNO (dreg));
-  mark_pseudo_regno_dead (REGNO (reg));
-  mark_pseudo_regno_dead (REGNO (dreg));
+  mark_pseudo_reg_live (orig_reg, REGNO (reg));
+  mark_pseudo_reg_live (orig_dreg, REGNO (dreg));
+  mark_pseudo_reg_dead (orig_reg, REGNO (reg));
+  mark_pseudo_reg_dead (orig_dreg, REGNO (dreg));
 
   return false;
 }
 
 /* Check and make if necessary conflicts for pseudo DREG of class
    DEF_CL of the current insn with input operand USE of class USE_CL.
-   Advance the current program point before making the conflict if
-   ADVANCE_P.  Return TRUE if we will need to advance the current
-   program point.  */
+   ORIG_DREG is the rtx actually accessed, it may be indentical to
+   DREG or a subreg of it.  Advance the current program point before
+   making the conflict if ADVANCE_P.  Return TRUE if we will need to
+   advance the current program point.  */
 static bool
-check_and_make_def_use_conflict (rtx dreg, enum reg_class def_cl,
-				 int use, enum reg_class use_cl,
-				 bool advance_p)
+check_and_make_def_use_conflict (rtx dreg, rtx orig_dreg,
+				 enum reg_class def_cl, int use,
+				 enum reg_class use_cl, bool advance_p)
 {
   if (! reg_classes_intersect_p (def_cl, use_cl))
     return advance_p;
 
   advance_p = make_pseudo_conflict (recog_data.operand[use],
-				    use_cl, dreg, advance_p);
+				    use_cl, dreg, orig_dreg, advance_p);
+
   /* Reload may end up swapping commutative operands, so you
      have to take both orderings into account.  The
      constraints for the two operands can be completely
@@ -550,12 +554,12 @@ check_and_make_def_use_conflict (rtx dreg, enum reg_class def_cl,
       && recog_data.constraints[use][0] == '%')
     advance_p
       = make_pseudo_conflict (recog_data.operand[use + 1],
-			      use_cl, dreg, advance_p);
+			      use_cl, dreg, orig_dreg, advance_p);
   if (use >= 1
       && recog_data.constraints[use - 1][0] == '%')
     advance_p
       = make_pseudo_conflict (recog_data.operand[use - 1],
-			      use_cl, dreg, advance_p);
+			      use_cl, dreg, orig_dreg, advance_p);
   return advance_p;
 }
 
@@ -570,6 +574,7 @@ check_and_make_def_conflict (int alt, int def, enum reg_class def_cl)
   enum reg_class use_cl, acl;
   bool advance_p;
   rtx dreg = recog_data.operand[def];
+  rtx orig_dreg = dreg;
 
   if (def_cl == NO_REGS)
     return;
@@ -581,7 +586,7 @@ check_and_make_def_conflict (int alt, int def, enum reg_class def_cl)
     return;
 
   a = ira_curr_regno_allocno_map[REGNO (dreg)];
-  acl = ALLOCNO_CLASS (a);
+  acl = ALLOCNO_COVER_CLASS (a);
   if (! reg_classes_intersect_p (acl, def_cl))
     return;
 
@@ -615,8 +620,8 @@ check_and_make_def_conflict (int alt, int def, enum reg_class def_cl)
       if (alt1 < recog_data.n_alternatives)
 	continue;
 
-      advance_p = check_and_make_def_use_conflict (dreg, def_cl, use,
-						   use_cl, advance_p);
+      advance_p = check_and_make_def_use_conflict (dreg, orig_dreg, def_cl,
+						   use, use_cl, advance_p);
 
       if ((use_match = recog_op_alt[use][alt].matches) >= 0)
 	{
@@ -627,8 +632,8 @@ check_and_make_def_conflict (int alt, int def, enum reg_class def_cl)
 	    use_cl = ALL_REGS;
 	  else
 	    use_cl = recog_op_alt[use_match][alt].cl;
-	  advance_p = check_and_make_def_use_conflict (dreg, def_cl, use,
-						       use_cl, advance_p);
+	  advance_p = check_and_make_def_use_conflict (dreg, orig_dreg, def_cl,
+						       use, use_cl, advance_p);
 	}
     }
 }
@@ -811,7 +816,7 @@ single_reg_class (const char *constraints, rtx op, rtx equiv_const)
 		     : REG_CLASS_FROM_CONSTRAINT (c, constraints));
 	  if ((cl != NO_REGS && next_cl != cl)
 	      || (ira_available_class_regs[next_cl]
-		  > ira_reg_class_max_nregs[next_cl][GET_MODE (op)]))
+		  > ira_reg_class_nregs[next_cl][GET_MODE (op)]))
 	    return NO_REGS;
 	  cl = next_cl;
 	  break;
@@ -824,7 +829,7 @@ single_reg_class (const char *constraints, rtx op, rtx equiv_const)
 	  if ((cl != NO_REGS && next_cl != cl)
 	      || next_cl == NO_REGS
 	      || (ira_available_class_regs[next_cl]
-		  > ira_reg_class_max_nregs[next_cl][GET_MODE (op)]))
+		  > ira_reg_class_nregs[next_cl][GET_MODE (op)]))
 	    return NO_REGS;
 	  cl = next_cl;
 	  break;
@@ -899,7 +904,7 @@ ira_implicitly_set_insn_hard_regs (HARD_REG_SET *set)
 			 regs in this class are fixed.  */
 		      && ira_available_class_regs[cl] != 0
 		      && (ira_available_class_regs[cl]
-			  <= ira_reg_class_max_nregs[cl][mode]))
+			  <= ira_reg_class_nregs[cl][mode]))
 		    IOR_HARD_REG_SET (*set, reg_class_contents[cl]);
 		  break;
 		}
@@ -913,7 +918,7 @@ ira_implicitly_set_insn_hard_regs (HARD_REG_SET *set)
 static void
 process_single_reg_class_operands (bool in_p, int freq)
 {
-  int i, regno, cost;
+  int i, regno;
   unsigned int px;
   enum reg_class cl;
   rtx operand;
@@ -940,32 +945,46 @@ process_single_reg_class_operands (bool in_p, int freq)
       if (REG_P (operand)
 	  && (regno = REGNO (operand)) >= FIRST_PSEUDO_REGISTER)
 	{
-	  enum machine_mode mode;
-	  enum reg_class aclass;
+	  enum reg_class cover_class;
 
 	  operand_a = ira_curr_regno_allocno_map[regno];
-	  mode = ALLOCNO_MODE (operand_a);
-	  aclass = ALLOCNO_CLASS (operand_a);
-	  if (ira_class_subset_p[cl][aclass]
-	      && ira_class_hard_regs_num[cl] != 0
-	      && (ira_class_hard_reg_index[aclass]
-		  [ira_class_hard_regs[cl][0]]) >= 0
-	      && reg_class_size[cl] <= (unsigned) CLASS_MAX_NREGS (cl, mode))
+	  cover_class = ALLOCNO_COVER_CLASS (operand_a);
+	  if (ira_class_subset_p[cl][cover_class]
+	      && ira_class_hard_regs_num[cl] != 0)
 	    {
-	      int i, size;
+	      /* View the desired allocation of OPERAND as:
 
-	      ira_init_register_move_cost_if_necessary (mode);
-	      cost = freq * (in_p
-			     ? ira_register_move_cost[mode][aclass][cl]
-			     : ira_register_move_cost[mode][cl][aclass]);
-	      ira_allocate_and_set_costs
-		(&ALLOCNO_CONFLICT_HARD_REG_COSTS (operand_a), aclass, 0);
-	      size = ira_reg_class_max_nregs[aclass][mode];
-	      for (i = 0; i < size; i++)
-	        ALLOCNO_CONFLICT_HARD_REG_COSTS (operand_a)
-		  [ira_class_hard_reg_index
-		   [aclass][ira_class_hard_regs[cl][i]]]
-		  -= cost;
+		    (REG:YMODE YREGNO),
+
+		 a simplification of:
+
+		    (subreg:YMODE (reg:XMODE XREGNO) OFFSET).  */
+	      enum machine_mode ymode, xmode;
+	      int xregno, yregno;
+	      HOST_WIDE_INT offset;
+
+	      xmode = recog_data.operand_mode[i];
+	      xregno = ira_class_hard_regs[cl][0];
+	      ymode = ALLOCNO_MODE (operand_a);
+	      offset = subreg_lowpart_offset (ymode, xmode);
+	      yregno = simplify_subreg_regno (xregno, xmode, offset, ymode);
+	      if (yregno >= 0
+		  && ira_class_hard_reg_index[cover_class][yregno] >= 0)
+		{
+		  int cost;
+
+		  ira_allocate_and_set_costs
+		    (&ALLOCNO_CONFLICT_HARD_REG_COSTS (operand_a),
+		     cover_class, 0);
+		  cost
+		    = (freq
+		       * (in_p
+			  ? ira_get_register_move_cost (xmode, cover_class, cl)
+			  : ira_get_register_move_cost (xmode, cl,
+							cover_class)));
+		  ALLOCNO_CONFLICT_HARD_REG_COSTS (operand_a)
+		    [ira_class_hard_reg_index[cover_class][yregno]] -= cost;
+		}
 	    }
 	}
 
@@ -1022,10 +1041,10 @@ process_bb_node_lives (ira_loop_tree_node_t loop_tree_node)
   bb = loop_tree_node->bb;
   if (bb != NULL)
     {
-      for (i = 0; i < ira_pressure_classes_num; i++)
+      for (i = 0; i < ira_reg_class_cover_size; i++)
 	{
-	  curr_reg_pressure[ira_pressure_classes[i]] = 0;
-	  high_pressure_start_point[ira_pressure_classes[i]] = -1;
+	  curr_reg_pressure[ira_reg_class_cover[i]] = 0;
+	  high_pressure_start_point[ira_reg_class_cover[i]] = -1;
 	}
       curr_bb_node = loop_tree_node;
       reg_live_out = DF_LR_OUT (bb);
@@ -1036,17 +1055,14 @@ process_bb_node_lives (ira_loop_tree_node_t loop_tree_node)
       for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
 	if (TEST_HARD_REG_BIT (hard_regs_live, i))
 	  {
-	    enum reg_class aclass, pclass, cl;
+	    enum reg_class cover_class, cl;
 
-	    aclass = ira_allocno_class_translate[REGNO_REG_CLASS (i)];
-	    pclass = ira_pressure_class_translate[aclass];
+	    cover_class = ira_class_translate[REGNO_REG_CLASS (i)];
 	    for (j = 0;
-		 (cl = ira_reg_class_super_classes[pclass][j])
+		 (cl = ira_reg_class_super_classes[cover_class][j])
 		   != LIM_REG_CLASSES;
 		 j++)
 	      {
-		if (! ira_reg_pressure_class_p[cl])
-		  continue;
 		curr_reg_pressure[cl]++;
 		if (curr_bb_node->reg_pressure[cl] < curr_reg_pressure[cl])
 		  curr_bb_node->reg_pressure[cl] = curr_reg_pressure[cl];
@@ -1246,7 +1262,6 @@ process_bb_node_lives (ira_loop_tree_node_t loop_tree_node)
 	  EXECUTE_IF_SET_IN_SPARSESET (objects_live, px)
 	    {
 	      ira_allocno_t a = OBJECT_ALLOCNO (ira_object_id_map[px]);
-
 	      ALLOCNO_NO_STACK_REG_P (a) = true;
 	      ALLOCNO_TOTAL_NO_STACK_REG_P (a) = true;
 	    }
@@ -1270,15 +1285,15 @@ process_bb_node_lives (ira_loop_tree_node_t loop_tree_node)
     }
   /* Propagate register pressure to upper loop tree nodes: */
   if (loop_tree_node != ira_loop_tree_root)
-    for (i = 0; i < ira_pressure_classes_num; i++)
+    for (i = 0; i < ira_reg_class_cover_size; i++)
       {
-	enum reg_class pclass;
+	enum reg_class cover_class;
 
-	pclass = ira_pressure_classes[i];
-	if (loop_tree_node->reg_pressure[pclass]
-	    > loop_tree_node->parent->reg_pressure[pclass])
-	  loop_tree_node->parent->reg_pressure[pclass]
-	    = loop_tree_node->reg_pressure[pclass];
+	cover_class = ira_reg_class_cover[i];
+	if (loop_tree_node->reg_pressure[cover_class]
+	    > loop_tree_node->parent->reg_pressure[cover_class])
+	  loop_tree_node->parent->reg_pressure[cover_class]
+	    = loop_tree_node->reg_pressure[cover_class];
       }
 }
 
@@ -1410,7 +1425,6 @@ print_allocno_live_ranges (FILE *f, ira_allocno_t a)
 {
   int n = ALLOCNO_NUM_OBJECTS (a);
   int i;
-
   for (i = 0; i < n; i++)
     {
       fprintf (f, " a%d(r%d", ALLOCNO_NUM (a), ALLOCNO_REGNO (a));

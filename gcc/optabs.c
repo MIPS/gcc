@@ -374,6 +374,9 @@ optab_for_tree_code (enum tree_code code, const_tree type,
 	      : (TYPE_SATURATING (type)
 		 ? ssmsub_widen_optab : smsub_widen_optab));
 
+    case FMA_EXPR:
+      return fma_optab;
+
     case REDUC_MAX_EXPR:
       return TYPE_UNSIGNED (type) ? reduc_umax_optab : reduc_smax_optab;
 
@@ -1257,7 +1260,7 @@ expand_doubleword_mult (enum machine_mode mode, rtx op0, rtx op1, rtx target,
   /* OP1_HIGH should now be dead.  */
 
   adjust = expand_binop (word_mode, add_optab, adjust, temp,
-			 adjust, 0, OPTAB_DIRECT);
+			 NULL_RTX, 0, OPTAB_DIRECT);
 
   if (target && !REG_P (target))
     target = NULL_RTX;
@@ -1274,8 +1277,7 @@ expand_doubleword_mult (enum machine_mode mode, rtx op0, rtx op1, rtx target,
 
   product_high = operand_subword (product, high, 1, mode);
   adjust = expand_binop (word_mode, add_optab, product_high, adjust,
-			 REG_P (product_high) ? product_high : adjust,
-			 0, OPTAB_DIRECT);
+			 NULL_RTX, 0, OPTAB_DIRECT);
   emit_move_insn (product_high, adjust);
   return product;
 }
@@ -6909,6 +6911,7 @@ expand_bool_compare_and_swap (rtx mem, rtx old_val, rtx new_val, rtx target)
   if (icode == CODE_FOR_nothing)
     return NULL_RTX;
 
+  do_pending_stack_adjust ();
   do
     {
       start_sequence ();

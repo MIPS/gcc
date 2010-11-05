@@ -327,7 +327,6 @@ ipcp_lattice_from_jfunc (struct ipa_node_params *info, struct ipcp_lattice *lat,
     {
       struct ipcp_lattice *caller_lat;
       tree t;
-      bool ok;
 
       caller_lat = ipcp_get_lattice (info, jfunc->value.ancestor.formal_id);
       lat->type = caller_lat->type;
@@ -340,16 +339,10 @@ ipcp_lattice_from_jfunc (struct ipa_node_params *info, struct ipcp_lattice *lat,
 	  return;
 	}
       t = TREE_OPERAND (caller_lat->constant, 0);
-      ok = build_ref_for_offset (&t, TREE_TYPE (t),
-				 jfunc->value.ancestor.offset,
-				 jfunc->value.ancestor.type, false);
-      if (!ok)
-	{
-	  lat->type = IPA_BOTTOM;
-	  lat->constant = NULL_TREE;
-	}
-      else
-	lat->constant = build_fold_addr_expr (t);
+      t = build_ref_for_offset (EXPR_LOCATION (t), t,
+				jfunc->value.ancestor.offset,
+				jfunc->value.ancestor.type, NULL, false);
+      lat->constant = build_fold_addr_expr (t);
     }
   else
     lat->type = IPA_BOTTOM;
@@ -427,8 +420,11 @@ ipcp_versionable_function_p (struct cgraph_node *node)
 {
   struct cgraph_edge *edge;
 
-  /* There are a number of generic reasons functions cannot be versioned.  */
-  if (!node->local.versionable)
+  /* There are a number of generic reasons functions cannot be versioned.  We
+     also cannot remove parameters if there are type attributes such as fnspec
+     present.  */
+  if (!node->local.versionable
+      || TYPE_ATTRIBUTES (TREE_TYPE (node->decl)))
     return false;
 
   /* Removing arguments doesn't work if the function takes varargs
@@ -460,6 +456,15 @@ ipcp_cloning_candidate_p (struct cgraph_node *node)
      */
   if (cgraph_only_called_directly_p (node) || !node->analyzed)
     return false;
+
+  /* When function address is taken, we are pretty sure it will be called in hidden way.  */
+  if (node->address_taken)
+    {
+      if (dump_file)
+        fprintf (dump_file, "Not considering %s for cloning; address is taken.\n",
+ 	         cgraph_node_name (node));
+      return false;
+    }
 
   if (cgraph_function_body_availability (node) <= AVAIL_OVERWRITABLE)
     {
@@ -565,7 +570,7 @@ ipcp_initialize_node_lattices (struct cgraph_node *node)
 
   if (ipa_is_called_with_var_arguments (info))
     type = IPA_BOTTOM;
-  else if (cgraph_only_called_directly_p (node))
+  else if (node->local.local)
     type = IPA_TOP;
   /* When cloning is allowed, we can assume that externally visible functions
      are not called.  We will compensate this by cloning later.  */

@@ -589,12 +589,12 @@ gen_rtx_REG (enum machine_mode mode, unsigned int regno)
       if (regno == FRAME_POINTER_REGNUM
 	  && (!reload_completed || frame_pointer_needed))
 	return frame_pointer_rtx;
-#if FRAME_POINTER_REGNUM != HARD_FRAME_POINTER_REGNUM
+#if !HARD_FRAME_POINTER_IS_FRAME_POINTER
       if (regno == HARD_FRAME_POINTER_REGNUM
 	  && (!reload_completed || frame_pointer_needed))
 	return hard_frame_pointer_rtx;
 #endif
-#if FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM && HARD_FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
+#if FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM && !HARD_FRAME_POINTER_IS_ARG_POINTER
       if (regno == ARG_POINTER_REGNUM)
 	return arg_pointer_rtx;
 #endif
@@ -603,6 +603,7 @@ gen_rtx_REG (enum machine_mode mode, unsigned int regno)
 	return return_address_pointer_rtx;
 #endif
       if (regno == (unsigned) PIC_OFFSET_TABLE_REGNUM
+	  && PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM
 	  && fixed_regs[PIC_OFFSET_TABLE_REGNUM])
 	return pic_offset_table_rtx;
       if (regno == STACK_POINTER_REGNUM)
@@ -1615,14 +1616,10 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
 	align = MAX (align, TYPE_ALIGN (type));
     }
 
-  else if (TREE_CODE (t) == MISALIGNED_INDIRECT_REF)
-    {
-      if (integer_zerop (TREE_OPERAND (t, 1)))
-	/* We don't know anything about the alignment.  */
-	align = BITS_PER_UNIT;
-      else
-	align = tree_low_cst (TREE_OPERAND (t, 1), 1);
-    }
+  else if (TREE_CODE (t) == TARGET_MEM_REF)
+    /* ??? This isn't fully correct, we can't set the alignment from the
+       type in all cases.  */
+    align = MAX (align, TYPE_ALIGN (type));
 
   /* If the size is known, we can set that.  */
   if (TYPE_SIZE_UNIT (type) && host_integerp (TYPE_SIZE_UNIT (type), 1))
@@ -1664,7 +1661,11 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
 	  else
 	    MEM_NOTRAP_P (ref) = 1;
 	}
-      else
+      else if (TREE_CODE (base) == INDIRECT_REF
+	       || TREE_CODE (base) == MEM_REF
+	       || TREE_CODE (base) == TARGET_MEM_REF
+	       || TREE_CODE (base) == ARRAY_REF
+	       || TREE_CODE (base) == ARRAY_RANGE_REF)
 	MEM_NOTRAP_P (ref) = TREE_THIS_NOTRAP (base);
 
       base = get_base_address (base);
@@ -1777,8 +1778,7 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
 	    }
 
 	  /* If this is an indirect reference, record it.  */
-	  else if (TREE_CODE (t) == MEM_REF 
-		   || TREE_CODE (t) == MISALIGNED_INDIRECT_REF)
+	  else if (TREE_CODE (t) == MEM_REF)
 	    {
 	      expr = t;
 	      offset = const0_rtx;
@@ -1788,7 +1788,7 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
 
       /* If this is an indirect reference, record it.  */
       else if (TREE_CODE (t) == MEM_REF 
-	       || TREE_CODE (t) == MISALIGNED_INDIRECT_REF)
+	       || TREE_CODE (t) == TARGET_MEM_REF)
 	{
 	  expr = t;
 	  offset = const0_rtx;
@@ -1840,10 +1840,8 @@ set_mem_attributes (rtx ref, tree t, int objectp)
 void
 set_mem_alias_set (rtx mem, alias_set_type set)
 {
-#ifdef ENABLE_CHECKING
   /* If the new and old alias sets don't conflict, something is wrong.  */
-  gcc_assert (alias_sets_conflict_p (set, MEM_ALIAS_SET (mem)));
-#endif
+  gcc_checking_assert (alias_sets_conflict_p (set, MEM_ALIAS_SET (mem)));
 
   MEM_ATTRS (mem) = get_mem_attrs (set, MEM_EXPR (mem), MEM_OFFSET (mem),
 				   MEM_SIZE (mem), MEM_ALIGN (mem),
@@ -2241,7 +2239,6 @@ get_spill_slot_decl (bool force_build_p)
   DECL_ARTIFICIAL (d) = 1;
   DECL_IGNORED_P (d) = 1;
   TREE_USED (d) = 1;
-  TREE_THIS_NOTRAP (d) = 1;
   spill_slot_decl = d;
 
   rd = gen_rtx_MEM (BLKmode, frame_pointer_rtx);
@@ -2732,11 +2729,10 @@ repeat:
   return;
 }
 
-/* Clear all the USED bits in X to allow copy_rtx_if_shared to be used
-   to look for shared sub-parts.  */
+/* Set the USED bit in X and its non-shareable subparts to FLAG.  */
 
-void
-reset_used_flags (rtx x)
+static void
+mark_used_flags (rtx x, int flag)
 {
   int i, j;
   enum rtx_code code;
@@ -2782,7 +2778,7 @@ repeat:
       break;
     }
 
-  RTX_FLAG (x, used) = 0;
+  RTX_FLAG (x, used) = flag;
 
   format_ptr = GET_RTX_FORMAT (code);
   length = GET_RTX_LENGTH (code);
@@ -2797,15 +2793,24 @@ repeat:
               x = XEXP (x, i);
 	      goto repeat;
             }
-	  reset_used_flags (XEXP (x, i));
+	  mark_used_flags (XEXP (x, i), flag);
 	  break;
 
 	case 'E':
 	  for (j = 0; j < XVECLEN (x, i); j++)
-	    reset_used_flags (XVECEXP (x, i, j));
+	    mark_used_flags (XVECEXP (x, i, j), flag);
 	  break;
 	}
     }
+}
+
+/* Clear all the USED bits in X to allow copy_rtx_if_shared to be used
+   to look for shared sub-parts.  */
+
+void
+reset_used_flags (rtx x)
+{
+  mark_used_flags (x, 0);
 }
 
 /* Set all the USED bits in X to allow copy_rtx_if_shared to be used
@@ -2814,64 +2819,7 @@ repeat:
 void
 set_used_flags (rtx x)
 {
-  int i, j;
-  enum rtx_code code;
-  const char *format_ptr;
-
-  if (x == 0)
-    return;
-
-  code = GET_CODE (x);
-
-  /* These types may be freely shared so we needn't do any resetting
-     for them.  */
-
-  switch (code)
-    {
-    case REG:
-    case DEBUG_EXPR:
-    case VALUE:
-    case CONST_INT:
-    case CONST_DOUBLE:
-    case CONST_FIXED:
-    case CONST_VECTOR:
-    case SYMBOL_REF:
-    case CODE_LABEL:
-    case PC:
-    case CC0:
-      return;
-
-    case DEBUG_INSN:
-    case INSN:
-    case JUMP_INSN:
-    case CALL_INSN:
-    case NOTE:
-    case LABEL_REF:
-    case BARRIER:
-      /* The chain of insns is not being copied.  */
-      return;
-
-    default:
-      break;
-    }
-
-  RTX_FLAG (x, used) = 1;
-
-  format_ptr = GET_RTX_FORMAT (code);
-  for (i = 0; i < GET_RTX_LENGTH (code); i++)
-    {
-      switch (*format_ptr++)
-	{
-	case 'e':
-	  set_used_flags (XEXP (x, i));
-	  break;
-
-	case 'E':
-	  for (j = 0; j < XVECLEN (x, i); j++)
-	    set_used_flags (XVECEXP (x, i, j));
-	  break;
-	}
-    }
+  mark_used_flags (x, 1);
 }
 
 /* Copy X if necessary so that it won't be altered by changes in OTHER.
@@ -3982,6 +3930,13 @@ delete_insns_since (rtx from)
 void
 reorder_insns_nobb (rtx from, rtx to, rtx after)
 {
+#ifdef ENABLE_CHECKING
+  rtx x;
+  for (x = from; x != to; x = NEXT_INSN (x))
+    gcc_assert (after != x);
+  gcc_assert (after != to);
+#endif
+
   /* Splice this bunch out of where it is now.  */
   if (PREV_INSN (from))
     NEXT_INSN (PREV_INSN (from)) = NEXT_INSN (to);
@@ -5381,6 +5336,8 @@ init_virtual_regs (void)
   regno_reg_rtx[VIRTUAL_STACK_DYNAMIC_REGNUM] = virtual_stack_dynamic_rtx;
   regno_reg_rtx[VIRTUAL_OUTGOING_ARGS_REGNUM] = virtual_outgoing_args_rtx;
   regno_reg_rtx[VIRTUAL_CFA_REGNUM] = virtual_cfa_rtx;
+  regno_reg_rtx[VIRTUAL_PREFERRED_STACK_BOUNDARY_REGNUM]
+    = virtual_preferred_stack_boundary_rtx;
 }
 
 
@@ -5703,6 +5660,8 @@ init_emit_regs (void)
   virtual_outgoing_args_rtx =
     gen_raw_REG (Pmode, VIRTUAL_OUTGOING_ARGS_REGNUM);
   virtual_cfa_rtx = gen_raw_REG (Pmode, VIRTUAL_CFA_REGNUM);
+  virtual_preferred_stack_boundary_rtx =
+    gen_raw_REG (Pmode, VIRTUAL_PREFERRED_STACK_BOUNDARY_REGNUM);
 
   /* Initialize RTL for commonly used hard registers.  These are
      copied into regno_reg_rtx as we begin to compile each function.  */

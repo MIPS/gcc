@@ -1,6 +1,6 @@
 /* Handle #pragma, system V.4 style.  Supports #pragma weak and #pragma pack.
    Copyright (C) 1992, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005,
-   2006, 2007, 2008 Free Software Foundation, Inc.
+   2006, 2007, 2008, 2009, 2010 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -306,7 +306,7 @@ maybe_apply_pragma_weak (tree decl)
 
   id = DECL_ASSEMBLER_NAME (decl);
 
-  for (i = 0; VEC_iterate (pending_weak, pending_weaks, i, pe); i++)
+  FOR_EACH_VEC_ELT (pending_weak, pending_weaks, i, pe)
     if (id == pe->name)
       {
 	apply_pragma_weak (decl, pe->value);
@@ -324,7 +324,7 @@ maybe_apply_pending_pragma_weaks (void)
   int i;
   pending_weak *pe;
 
-  for (i = 0; VEC_iterate (pending_weak, pending_weaks, i, pe); i++)
+  FOR_EACH_VEC_ELT (pending_weak, pending_weaks, i, pe)
     {
       alias_id = pe->name;
       id = pe->value;
@@ -486,9 +486,7 @@ add_to_renaming_pragma_list (tree oldname, tree newname)
   unsigned ix;
   pending_redefinition *p;
 
-  for (ix = 0;
-       VEC_iterate (pending_redefinition, pending_redefine_extname, ix, p);
-       ix++)
+  FOR_EACH_VEC_ELT (pending_redefinition, pending_redefine_extname, ix, p)
     if (oldname == p->oldname)
       {
 	if (p->newname != newname)
@@ -553,9 +551,7 @@ maybe_apply_renaming_pragma (tree decl, tree asmname)
 		   "conflict with previous rename");
 
       /* Take any pending redefine_extname off the list.  */
-      for (ix = 0;
-	   VEC_iterate (pending_redefinition, pending_redefine_extname, ix, p);
-	   ix++)
+      FOR_EACH_VEC_ELT (pending_redefinition, pending_redefine_extname, ix, p)
 	if (DECL_NAME (decl) == p->oldname)
 	  {
 	    /* Only warn if there is a conflict.  */
@@ -571,9 +567,7 @@ maybe_apply_renaming_pragma (tree decl, tree asmname)
     }
 
   /* Find out if we have a pending #pragma redefine_extname.  */
-  for (ix = 0;
-       VEC_iterate (pending_redefinition, pending_redefine_extname, ix, p);
-       ix++)
+  FOR_EACH_VEC_ELT (pending_redefinition, pending_redefine_extname, ix, p)
     if (DECL_NAME (decl) == p->oldname)
       {
 	tree newname = p->newname;
@@ -757,13 +751,15 @@ handle_pragma_diagnostic(cpp_reader *ARG_UNUSED(dummy))
   for (option_index = 0; option_index < cl_options_count; option_index++)
     if (strcmp (cl_options[option_index].opt_text, option_string) == 0)
       {
+	void *flag_var = option_flag_var (option_index, &global_options);
+
 	/* This overrides -Werror, for example.  */
 	diagnostic_classify_diagnostic (global_dc, option_index, kind, input_location);
 	/* This makes sure the option is enabled, like -Wfoo would do.  */
 	if (cl_options[option_index].var_type == CLVC_BOOLEAN
-	    && cl_options[option_index].flag_var
+	    && flag_var
 	    && kind != DK_IGNORED)
-	    *(int *) cl_options[option_index].flag_var = 1;
+	    *(int *) flag_var = 1;
 	return;
       }
   GCC_BAD ("unknown option after %<#pragma GCC diagnostic%> kind");
@@ -989,7 +985,8 @@ handle_pragma_pop_options (cpp_reader *ARG_UNUSED(dummy))
   if (p->optimize_binary != optimization_current_node)
     {
       tree old_optimize = optimization_current_node;
-      cl_optimization_restore (TREE_OPTIMIZATION (p->optimize_binary));
+      cl_optimization_restore (&global_options,
+			       TREE_OPTIMIZATION (p->optimize_binary));
       c_cpp_builtins_optimize_pragma (parse_in, old_optimize,
 				      p->optimize_binary);
       optimization_current_node = p->optimize_binary;
@@ -1026,7 +1023,8 @@ handle_pragma_reset_options (cpp_reader *ARG_UNUSED(dummy))
   if (new_optimize != optimization_current_node)
     {
       tree old_optimize = optimization_current_node;
-      cl_optimization_restore (TREE_OPTIMIZATION (new_optimize));
+      cl_optimization_restore (&global_options,
+			       TREE_OPTIMIZATION (new_optimize));
       c_cpp_builtins_optimize_pragma (parse_in, old_optimize, new_optimize);
       optimization_current_node = new_optimize;
     }

@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler, for CRX.
    Copyright (C) 1991, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
+   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
    Free Software Foundation, Inc.
 
    This file is part of GCC.
@@ -53,17 +53,6 @@ do {								\
 #endif
 
 #define TARGET_VERSION fputs (" (CRX/ELF)", stderr);
-
-/* Put each function in its own section so that PAGE-instruction
- * relaxation can do its best.  */
-#define OPTIMIZATION_OPTIONS(LEVEL, SIZEFLAG)	\
-    do {					\
-	if ((LEVEL) || (SIZEFLAG))		\
-	    flag_function_sections = 1;	\
-    } while (0)
-
-/* Show we can debug even without a frame pointer.  */
-#define CAN_DEBUG_WITHOUT_FP
 
 /*****************************************************************************/
 /* STORAGE LAYOUT							     */
@@ -183,6 +172,19 @@ enum reg_class
 
 #define N_REG_CLASSES (int) LIM_REG_CLASSES
 
+/* The following macro defines cover classes for Integrated Register
+   Allocator.  Cover classes is a set of non-intersected register
+   classes covering all hard registers used for register allocation
+   purpose.  Any move between two registers of a cover class should be
+   cheaper than load or store of the registers.  The macro value is
+   array of register classes with LIM_REG_CLASSES used as the end
+   marker.  */
+
+#define IRA_COVER_CLASSES         \
+{                                 \
+   GENERAL_REGS, LIM_REG_CLASSES  \
+} 
+
 #define REG_CLASS_NAMES \
   {			\
     "NO_REGS",		\
@@ -223,8 +225,6 @@ enum reg_class
    || (reg_renumber && (unsigned)reg_renumber[REGNO] < 16))
 
 #define REGNO_OK_FOR_INDEX_P(REGNO)	   REGNO_OK_FOR_BASE_P(REGNO)
-
-#define PREFERRED_RELOAD_CLASS(X,CLASS) CLASS
 
 #define SECONDARY_RELOAD_CLASS(CLASS, MODE, X) \
   crx_secondary_reload_class (CLASS, MODE, X)
@@ -300,9 +300,6 @@ enum reg_class
 
 #define PUSH_ROUNDING(BYTES) (((BYTES) + 3) & ~3)
 
-#define FUNCTION_ARG(CUM, MODE, TYPE, NAMED) \
-  ((rtx) crx_function_arg(&(CUM), (MODE), (TYPE), (NAMED)))
-
 #ifndef CUMULATIVE_ARGS
 struct cumulative_args
 {
@@ -317,9 +314,6 @@ struct cumulative_args
 
 #define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, FNDECL, N_NAMED_ARGS) \
   crx_init_cumulative_args(&(CUM), (FNTYPE), (LIBNAME))
-
-#define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED) \
-  crx_function_arg_advance(&(CUM), (MODE), (TYPE), (NAMED))
 
 #define FUNCTION_ARG_REGNO_P(REGNO)  crx_function_arg_regno_p(REGNO)
 

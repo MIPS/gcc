@@ -1,5 +1,5 @@
 /* Subroutines used for code generation on Vitesse IQ2000 processors
-   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009
+   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -147,6 +147,7 @@ static enum machine_mode gpr_mode;
 /* Initialize the GCC target structure.  */
 static struct machine_function* iq2000_init_machine_status (void);
 static bool iq2000_handle_option      (size_t, const char *, int);
+static void iq2000_option_override    (void);
 static section *iq2000_select_rtx_section (enum machine_mode, rtx,
 					   unsigned HOST_WIDE_INT);
 static void iq2000_init_builtins      (void);
@@ -163,6 +164,10 @@ static bool iq2000_pass_by_reference  (CUMULATIVE_ARGS *, enum machine_mode,
 				       const_tree, bool);
 static int  iq2000_arg_partial_bytes  (CUMULATIVE_ARGS *, enum machine_mode,
 				       tree, bool);
+static rtx iq2000_function_arg	      (CUMULATIVE_ARGS *,
+				       enum machine_mode, const_tree, bool);
+static void iq2000_function_arg_advance (CUMULATIVE_ARGS *,
+					 enum machine_mode, const_tree, bool);
 static void iq2000_va_start	      (tree, rtx);
 static bool iq2000_legitimate_address_p (enum machine_mode, rtx, bool);
 static bool iq2000_can_eliminate      (const int, const int);
@@ -174,6 +179,13 @@ static void iq2000_print_operand      (FILE *, rtx, int);
 static void iq2000_print_operand_address (FILE *, rtx);
 static bool iq2000_print_operand_punct_valid_p (unsigned char code);
 
+/* Implement TARGET_OPTION_OPTIMIZATION_TABLE.  */
+static const struct default_options iq2000_option_optimization_table[] =
+  {
+    { OPT_LEVELS_1_PLUS, OPT_fomit_frame_pointer, NULL, 1 },
+    { OPT_LEVELS_NONE, 0, NULL, 0 }
+  };
+
 #undef  TARGET_INIT_BUILTINS
 #define TARGET_INIT_BUILTINS 		iq2000_init_builtins
 #undef  TARGET_EXPAND_BUILTIN
@@ -182,6 +194,10 @@ static bool iq2000_print_operand_punct_valid_p (unsigned char code);
 #define TARGET_ASM_SELECT_RTX_SECTION	iq2000_select_rtx_section
 #undef  TARGET_HANDLE_OPTION
 #define TARGET_HANDLE_OPTION		iq2000_handle_option
+#undef  TARGET_OPTION_OVERRIDE
+#define TARGET_OPTION_OVERRIDE		iq2000_option_override
+#undef  TARGET_OPTION_OPTIMIZATION_TABLE
+#define TARGET_OPTION_OPTIMIZATION_TABLE iq2000_option_optimization_table
 #undef  TARGET_RTX_COSTS
 #define TARGET_RTX_COSTS		iq2000_rtx_costs
 #undef  TARGET_ADDRESS_COST
@@ -221,6 +237,10 @@ static bool iq2000_print_operand_punct_valid_p (unsigned char code);
 #define TARGET_CALLEE_COPIES		hook_callee_copies_named
 #undef  TARGET_ARG_PARTIAL_BYTES
 #define TARGET_ARG_PARTIAL_BYTES	iq2000_arg_partial_bytes
+#undef  TARGET_FUNCTION_ARG
+#define TARGET_FUNCTION_ARG		iq2000_function_arg
+#undef  TARGET_FUNCTION_ARG_ADVANCE
+#define TARGET_FUNCTION_ARG_ADVANCE	iq2000_function_arg_advance
 
 #undef  TARGET_SETUP_INCOMING_VARARGS
 #define TARGET_SETUP_INCOMING_VARARGS	iq2000_setup_incoming_varargs
@@ -1120,9 +1140,9 @@ init_cumulative_args (CUMULATIVE_ARGS *cum, tree fntype,
 /* Advance the argument of type TYPE and mode MODE to the next argument
    position in CUM.  */
 
-void
-function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode, tree type,
-		      int named)
+static void
+iq2000_function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
+			     const_tree type, bool named)
 {
   if (TARGET_DEBUG_D_MODE)
     {
@@ -1189,9 +1209,9 @@ function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode, tree type,
 /* Return an RTL expression containing the register for the given mode MODE
    and type TYPE in CUM, or 0 if the argument is to be passed on the stack.  */
 
-struct rtx_def *
-function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode, const_tree type,
-	      int named)
+static rtx
+iq2000_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
+		     const_tree type, bool named)
 {
   rtx ret;
   int regbase = -1;
@@ -1428,8 +1448,8 @@ iq2000_handle_option (size_t code, const char *arg, int value ATTRIBUTE_UNUSED)
 
 /* Detect any conflicts in the switches.  */
 
-void
-override_options (void)
+static void
+iq2000_option_override (void)
 {
   target_flags &= ~MASK_GPOPT;
 
@@ -1927,9 +1947,11 @@ iq2000_expand_prologue (void)
 	  passed_mode = Pmode;
 	}
 
-      entry_parm = FUNCTION_ARG (args_so_far, passed_mode, passed_type, 1);
+      entry_parm = iq2000_function_arg (&args_so_far, passed_mode,
+					passed_type, true);
 
-      FUNCTION_ARG_ADVANCE (args_so_far, passed_mode, passed_type, 1);
+      iq2000_function_arg_advance (&args_so_far, passed_mode,
+				   passed_type, true);
       next_arg = DECL_CHAIN (cur_arg);
 
       if (entry_parm && store_args_on_stack)
@@ -1968,10 +1990,11 @@ iq2000_expand_prologue (void)
 
   /* In order to pass small structures by value in registers we need to
      shift the value into the high part of the register.
-     Function_arg has encoded a PARALLEL rtx, holding a vector of
-     adjustments to be made as the next_arg_reg variable, so we split up the
-     insns, and emit them separately.  */
-  next_arg_reg = FUNCTION_ARG (args_so_far, VOIDmode, void_type_node, 1);
+     iq2000_unction_arg has encoded a PARALLEL rtx, holding a vector of
+     adjustments to be made as the next_arg_reg variable, so we split up
+     the insns, and emit them separately.  */
+  next_arg_reg = iq2000_function_arg (&args_so_far, VOIDmode,
+				      void_type_node, true);
   if (next_arg_reg != 0 && GET_CODE (next_arg_reg) == PARALLEL)
     {
       rtvec adjust = XVEC (next_arg_reg, 0);
@@ -2281,7 +2304,7 @@ iq2000_pass_by_reference (CUMULATIVE_ARGS *cum, enum machine_mode mode,
        CUMULATIVE_ARGS temp;
 
        temp = *cum;
-       if (FUNCTION_ARG (temp, mode, type, named) != 0)
+       if (iq2000_function_arg (&temp, mode, type, named) != 0)
 	 return 1;
      }
 

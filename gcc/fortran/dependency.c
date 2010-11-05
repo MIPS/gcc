@@ -29,6 +29,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gfortran.h"
 #include "dependency.h"
 #include "constructor.h"
+#include "arith.h"
 
 /* static declarations */
 /* Enums  */
@@ -123,6 +124,11 @@ gfc_are_identical_variables (gfc_expr *e1, gfc_expr *e2)
   gfc_ref *r1, *r2;
 
   if (e1->symtree->n.sym != e2->symtree->n.sym)
+    return false;
+
+  /* Volatile variables should never compare equal to themselves.  */
+
+  if (e1->symtree->n.sym->attr.volatile_)
     return false;
 
   r1 = e1->ref;
@@ -306,6 +312,42 @@ gfc_dep_compare_expr (gfc_expr *e1, gfc_expr *e2)
 	}
     }
 
+  /* Compare A // B vs. C // D.  */
+
+  if (e1->expr_type == EXPR_OP && e1->value.op.op == INTRINSIC_CONCAT
+      && e2->expr_type == EXPR_OP && e2->value.op.op == INTRINSIC_CONCAT)
+    {
+      int l, r;
+
+      l = gfc_dep_compare_expr (e1->value.op.op1, e2->value.op.op1);
+      r = gfc_dep_compare_expr (e1->value.op.op2, e2->value.op.op2);
+
+      if (l == -2)
+	return -2;
+
+      if (l == 0)
+	{
+	  /* Watch out for 'A ' // x vs. 'A' // x.  */
+	  gfc_expr *e1_left = e1->value.op.op1;
+	  gfc_expr *e2_left = e2->value.op.op1;
+
+	  if (e1_left->expr_type == EXPR_CONSTANT
+	      && e2_left->expr_type == EXPR_CONSTANT
+	      && e1_left->value.character.length
+	        != e2_left->value.character.length)
+	    return -2;
+	  else
+	    return r;
+	}
+      else
+	{
+	  if (l != 0)
+	    return l;
+	  else
+	    return r;
+	}
+    }
+
   /* Compare X vs. X-C.  */
   if (e2->expr_type == EXPR_OP && e2->value.op.op == INTRINSIC_MINUS)
     {
@@ -321,6 +363,10 @@ gfc_dep_compare_expr (gfc_expr *e1, gfc_expr *e2)
   switch (e1->expr_type)
     {
     case EXPR_CONSTANT:
+      /* Compare strings for equality.  */
+      if (e1->ts.type == BT_CHARACTER && e2->ts.type == BT_CHARACTER)
+	return gfc_compare_string (e1, e2);
+
       if (e1->ts.type != BT_INTEGER || e2->ts.type != BT_INTEGER)
 	return -2;
 
@@ -353,39 +399,38 @@ gfc_dep_compare_expr (gfc_expr *e1, gfc_expr *e2)
       return -2;
 
     case EXPR_FUNCTION:
-      /* We can only compare calls to the same intrinsic function.  */
-      if (e1->value.function.isym == 0 || e2->value.function.isym == 0
-	  || e1->value.function.isym != e2->value.function.isym)
+
+      /* PURE functions can be compared for argument equality.  */
+      if ((e1->value.function.esym && e2->value.function.esym
+	   && e1->value.function.esym == e2->value.function.esym
+	   && e1->value.function.esym->result->attr.pure)
+	  || (e1->value.function.isym && e2->value.function.isym
+	      && e1->value.function.isym == e2->value.function.isym
+	      && e1->value.function.isym->pure))
+	{
+	  args1 = e1->value.function.actual;
+	  args2 = e2->value.function.actual;
+
+	  /* Compare the argument lists for equality.  */
+	  while (args1 && args2)
+	    {
+	      /*  Bitwise xor, since C has no non-bitwise xor operator.  */
+	      if ((args1->expr == NULL) ^ (args2->expr == NULL))
+		return -2;
+
+	      if (args1->expr != NULL && args2->expr != NULL
+		  && gfc_dep_compare_expr (args1->expr, args2->expr) != 0)
+		return -2;
+
+	      args1 = args1->next;
+	      args2 = args2->next;
+	    }
+	  return (args1 || args2) ? -2 : 0;
+	}
+      else
 	return -2;
+      break;
 
-      args1 = e1->value.function.actual;
-      args2 = e2->value.function.actual;
-
-      /* We should list the "constant" intrinsic functions.  Those
-	 without side-effects that provide equal results given equal
-	 argument lists.  */
-      switch (e1->value.function.isym->id)
-	{
-
-	case GFC_ISYM_REAL:
-	case GFC_ISYM_LOGICAL:
-	case GFC_ISYM_DBLE:
-	  break;
-
-	default:
-	  return -2;
-	}
-
-      /* Compare the argument lists for equality.  */
-      while (args1 && args2)
-	{
-	  if (gfc_dep_compare_expr (args1->expr, args2->expr) != 0)
-	    return -2;
-	  args1 = args1->next;
-	  args2 = args2->next;
-	}
-      return (args1 || args2) ? -2 : 0;
-      
     default:
       return -2;
     }
@@ -628,11 +673,15 @@ gfc_check_argument_var_dependency (gfc_expr *var, sym_intent intent,
       return gfc_check_dependency (var, expr, 1);
 
     case EXPR_FUNCTION:
-      if (intent != INTENT_IN && expr->inline_noncopying_intrinsic
-	  && (arg = gfc_get_noncopying_intrinsic_argument (expr))
-	  && gfc_check_argument_var_dependency (var, intent, arg, elemental))
-	return 1;
-      if (elemental)
+      if (intent != INTENT_IN)
+	{
+	  arg = gfc_get_noncopying_intrinsic_argument (expr);
+	  if (arg != NULL)
+	    return gfc_check_argument_var_dependency (var, intent, arg,
+						      NOT_ELEMENTAL);
+	}
+
+      if (elemental != NOT_ELEMENTAL)
 	{
 	  if ((expr->value.function.esym
 	       && expr->value.function.esym->attr.elemental)
@@ -684,12 +733,11 @@ gfc_check_argument_dependency (gfc_expr *other, sym_intent intent,
       return gfc_check_argument_var_dependency (other, intent, expr, elemental);
 
     case EXPR_FUNCTION:
-      if (other->inline_noncopying_intrinsic)
-	{
-	  other = gfc_get_noncopying_intrinsic_argument (other);
-	  return gfc_check_argument_dependency (other, INTENT_IN, expr, 
-						elemental);
-	}
+      other = gfc_get_noncopying_intrinsic_argument (other);
+      if (other != NULL)
+	return gfc_check_argument_dependency (other, INTENT_IN, expr,
+					      NOT_ELEMENTAL);
+
       return 0;
 
     default:
@@ -963,8 +1011,9 @@ gfc_check_dependency (gfc_expr *expr1, gfc_expr *expr2, bool identical)
       return 1;
 
     case EXPR_FUNCTION:
-      if (expr2->inline_noncopying_intrinsic)
+      if (gfc_get_noncopying_intrinsic_argument (expr2) != NULL)
 	identical = 1;
+
       /* Remember possible differences between elemental and
 	 transformational functions.  All functions inside a FORALL
 	 will be pure.  */
@@ -1023,6 +1072,7 @@ check_section_vs_section (gfc_array_ref *l_ar, gfc_array_ref *r_ar, int n)
   gfc_expr *r_lower;
   gfc_expr *r_upper;
   int r_dir;
+  bool identical_strides;
 
   /* If they are the same range, return without more ado.  */
   if (gfc_is_same_range (l_ar, r_ar, n, 0))
@@ -1075,6 +1125,23 @@ check_section_vs_section (gfc_array_ref *l_ar, gfc_array_ref *r_ar, int n)
   /* The strides should never be zero.  */
   if (l_dir == 0 || r_dir == 0)
     return GFC_DEP_OVERLAP;
+
+  /* Determine if the strides are equal.  */
+
+  if (l_stride)
+    {
+      if (r_stride)
+	identical_strides = gfc_dep_compare_expr (l_stride, r_stride) == 0;
+      else
+	identical_strides = gfc_expr_is_one (l_stride, 0) == 1;
+    }
+  else
+    {
+      if (r_stride)
+	identical_strides = gfc_expr_is_one (r_stride, 0) == 1;
+      else
+	identical_strides = true;
+    }
 
   /* Determine LHS upper and lower bounds.  */
   if (l_dir == 1)
@@ -1175,11 +1242,7 @@ check_section_vs_section (gfc_array_ref *l_ar, gfc_array_ref *r_ar, int n)
       && l_start && r_start && gfc_dep_compare_expr (l_start, r_start) == -1
       && l_end && r_end && gfc_dep_compare_expr (l_end, r_end) == -1)
     {
-      /* Check that the strides are the same.  */
-      if (!l_stride && !r_stride)
-	return GFC_DEP_FORWARD;
-      if (l_stride && r_stride
-	  && gfc_dep_compare_expr (l_stride, r_stride) == 0)
+      if (identical_strides)
 	return GFC_DEP_FORWARD;
     }
 
@@ -1188,20 +1251,12 @@ check_section_vs_section (gfc_array_ref *l_ar, gfc_array_ref *r_ar, int n)
       && l_start && r_start && gfc_dep_compare_expr (l_start, r_start) == 1
       && l_end && r_end && gfc_dep_compare_expr (l_end, r_end) == 1)
     {
-      /* Check that the strides are the same.  */
-      if (!l_stride && !r_stride)
-	return GFC_DEP_FORWARD;
-      if (l_stride && r_stride
-	  && gfc_dep_compare_expr (l_stride, r_stride) == 0)
+      if (identical_strides)
 	return GFC_DEP_FORWARD;
     }
 
 
-  /*  Are the strides the same?  */
-  if ((!l_stride && !r_stride)
-	||
-      (l_stride && r_stride
-	&& gfc_dep_compare_expr (l_stride, r_stride) == 0))
+  if (identical_strides)
     {
 
       if (l_start && IS_ARRAY_EXPLICIT (l_ar->as))

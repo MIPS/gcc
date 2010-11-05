@@ -1,6 +1,6 @@
 /* Analyze RTL for GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -64,12 +64,6 @@ static unsigned int num_sign_bit_copies1 (const_rtx, enum machine_mode, const_rt
    -1 if a code has no such operand.  */
 static int non_rtx_starting_operands[NUM_RTX_CODE];
 
-/* Bit flags that specify the machine subtype we are compiling for.
-   Bits are tested using macros TARGET_... defined in the tm.h file
-   and set by `-m...' switches.  Must be defined in rtlanal.c.  */
-
-int target_flags;
-
 /* Truncation narrows the mode from SOURCE mode to DESTINATION mode.
    If TARGET_MODE_REP_EXTENDED (DESTINATION, DESTINATION_REP) is
    SIGN_EXTEND then while narrowing we also have to enforce the
@@ -118,13 +112,11 @@ rtx_unstable_p (const_rtx x)
 	  /* The arg pointer varies if it is not a fixed register.  */
 	  || (x == arg_pointer_rtx && fixed_regs[ARG_POINTER_REGNUM]))
 	return 0;
-#ifndef PIC_OFFSET_TABLE_REG_CALL_CLOBBERED
       /* ??? When call-clobbered, the value is stable modulo the restore
 	 that must happen after a call.  This currently screws up local-alloc
 	 into believing that the restore is not needed.  */
-      if (x == pic_offset_table_rtx)
+      if (!PIC_OFFSET_TABLE_REG_CALL_CLOBBERED && x == pic_offset_table_rtx)
 	return 0;
-#endif
       return 1;
 
     case ASM_OPERANDS:
@@ -197,14 +189,11 @@ rtx_varies_p (const_rtx x, bool for_alias)
 	  || (x == arg_pointer_rtx && fixed_regs[ARG_POINTER_REGNUM]))
 	return 0;
       if (x == pic_offset_table_rtx
-#ifdef PIC_OFFSET_TABLE_REG_CALL_CLOBBERED
 	  /* ??? When call-clobbered, the value is stable modulo the restore
 	     that must happen after a call.  This currently screws up
 	     local-alloc into believing that the restore is not needed, so we
 	     must return 0 only if we are called from alias analysis.  */
-	  && for_alias
-#endif
-	  )
+	  && (!PIC_OFFSET_TABLE_REG_CALL_CLOBBERED || for_alias))
 	return 0;
       return 1;
 
@@ -3600,6 +3589,17 @@ rtx_cost (rtx x, enum rtx_code outer_code ATTRIBUTE_UNUSED, bool speed)
 
   return total;
 }
+
+/* Fill in the structure C with information about both speed and size rtx
+   costs for X, with outer code OUTER.  */
+
+void
+get_full_rtx_cost (rtx x, enum rtx_code outer, struct full_rtx_costs *c)
+{
+  c->speed = rtx_cost (x, outer, true);
+  c->size = rtx_cost (x, outer, false);
+}
+
 
 /* Return cost of address expression X.
    Expect that X is properly formed address reference.
