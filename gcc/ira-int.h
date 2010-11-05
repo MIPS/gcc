@@ -819,11 +819,6 @@ struct target_ira_int {
   struct costs *x_op_costs[MAX_RECOG_OPERANDS];
   struct costs *x_this_op_costs[MAX_RECOG_OPERANDS];
 
-  /* Classes used for cost calculation.  They may be different on
-     different iterations of the cost calculations or in different
-     optimization modes.  */
-  enum reg_class *x_cost_classes;
-
   /* Hard registers that can not be used for the register allocator for
      all functions of the current compilation unit.  */
   HARD_REG_SET x_no_unit_alloc_regs;

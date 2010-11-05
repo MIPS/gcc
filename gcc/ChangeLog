@@ -1,5 +1,36 @@
 2010-11-05  Vladimir Makarov  <vmakarov@redhat.com>
 
+	* ira-int.h (struct target_ira_int): Remove x_cost_classes.
+
+	* ira-costs.c: Fix formatting.
+	(cost_classes, cost_classes_num): Remove.
+	(struct cost_classes, cost_classes_t, const_cost_classes_t): New.
+	(regno_cost_classes, cost_classes_hash, cost_classes_eq): New.
+	(cost_classes_del, cost_classes_htab): New.
+	(cost_classes_aclass_cache, cost_classes_mode_cache): New.
+	(initiate_regno_cost_classes, setup_cost_classes): New.
+	(setup_regno_cost_classes_by_aclass): New.
+	(setup_regno_cost_classes_by_mode, finish_regno_cost_classes):
+	New.
+	(record_reg_classes): Use regno_cost_classes instead of
+	cost_classes.  Move checking opposite operand up.
+	(record_address_regs): Use regno_cost_classes
+	instead of cost_classes.
+	(scan_one_insn): Ditto.  Use always general register.
+	(print_allocno_costs): Use regno_cost_classes instead of
+	cost_classes.
+	(print_pseudo_costs): Ditto.  Use Reg_N_REFS.
+	(find_costs_and_classes): Set up cost classes for each registers.
+	Use also their mode for this.  Use regno_cost_classes instead of
+	cost_classes.
+	(setup_allocno_class_and_costs): Use regno_cost_classes instead of
+	cost_classes.
+	(free_ira_costs, ira_init_costs): Don't use cost_classes.
+	(ira_costs, ira_set_pseudo_classes): Call
+	initiate_regno_cost_classes and finish_regno_cost_classes.
+
+2010-11-05  Vladimir Makarov  <vmakarov@redhat.com>
+
 	* target-def.h (TARGET_IRA_COVER_CLASSES): Remove.
 
 	* target.def (ira_cover_classes): Remove.
