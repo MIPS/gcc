@@ -221,57 +221,6 @@ extern int ira_max_point;
    live ranges with given start/finish point.  */
 extern live_range_t *ira_start_point_ranges, *ira_finish_point_ranges;
 
-/* See below.  */
-typedef struct object_hard_regs *object_hard_regs_t;
-
-/* The structure contains information about hard registers can be
-   assigned to objects.  Usually it is allocno profitable hard
-   registers but in some cases this set can be a bit different.  Major
-   reason of the difference is a requirement to use hard register sets
-   that form a tree or a forest (set of trees), i.e. hard register set
-   of a node should contain hard register sets of its subnodes.  */
-struct object_hard_regs
-{
-  /* Hard registers can be assigned to an allocno.  */
-  HARD_REG_SET set;
-  /* Overall (spilling) cost of all allocnos with given register
-     set.  */
-  long long int cost;
-};
-
-/* See below.  */
-typedef struct object_hard_regs_node *object_hard_regs_node_t;
-
-/* A node representing object hard registers.  Such nodes form a
-   forest (set of trees).  Each subnode of given node in the forest
-   refers for hard register set (usually object profitable hard
-   register set) which is a subset of one referred from given
-   node.  */
-struct object_hard_regs_node
-{
-  /* Set up number of the node in preorder traversing of the forest.  */
-  int preorder_num;
-  /* Used for different calculation like finding conflict size of an
-     allocno.  */
-  int check;
-  /* Used for calculation of conflict size of an allocno.  The
-     conflict size of the allocno is maximal number of given object
-     hard registers needed for allocation of the conflicting allocnos.
-     Given allocno is trivially colored if this number plus the number
-     of hard registers needed for given allocno is not greater than
-     the number of given allocno hard register set.  */
-  int conflict_size;
-  /* The number of hard registers given by member hard_regs.  */
-  int hard_regs_num;
-  /* The following member is used to form the final forest.  */
-  bool used_p;
-  /* Pointer to the corresponding profitable hard registers.  */
-  object_hard_regs_t hard_regs;
-  /* Parent, first subnode, previous and next node with the same
-     parent in the forest.  */
-  object_hard_regs_node_t parent, first, prev, next;
-};
-
 /* A structure representing conflict information for an allocno
    (or one of its subwords).  */
 struct ira_object
@@ -313,20 +262,9 @@ struct ira_object
      ira_object structures.  Otherwise, we use a bit vector indexed
      by conflict ID numbers.  */
   unsigned int conflict_vec_p : 1;
-  /* Profitable hard regs available for this pseudo allocation.  It
-     means that the set excludes unavailable hard regs and hard regs
-     conflicting with given pseudo.  They should be of the allocno
-     class.  */
-  HARD_REG_SET profitable_hard_regs;
-  /* The object hard registers node.  */
-  object_hard_regs_node_t hard_regs_node;
-  /* Array of structures object_hard_regs_subnode representing
-     given object hard registers node (the 1st element in the array)
-     and all its subnodes in the tree (forest) of object hard
-     register nodes (see comments above).  */
-  int hard_regs_subnodes_start;
-  /* The length of the previous array. */
-  int hard_regs_subnodes_num;
+  /* Different additional data.  It is used to decrease size of
+     allocno data footprint.  */
+  void *add_data;
 };
 
 /* A structure representing an allocno (allocation entity).  Allocno
@@ -346,16 +284,40 @@ struct ira_allocno
   int regno;
   /* Mode of the allocno which is the mode of the corresponding
      pseudo-register.  */
-  enum machine_mode mode;
+  ENUM_BITFIELD (machine_mode) mode : 8;
+  /* Register class which should be used for allocation for given
+     allocno.  NO_REGS means that we should use memory.  */
+  ENUM_BITFIELD (reg_class) aclass : 16;
+  /* During the reload, value TRUE means that we should not reassign a
+     hard register to the allocno got memory earlier.  It is set up
+     when we removed memory-memory move insn before each iteration of
+     the reload.  */
+  unsigned int dont_reassign_p : 1;
+#ifdef STACK_REGS
+  /* Set to TRUE if allocno can't be assigned to the stack hard
+     register correspondingly in this region and area including the
+     region and all its subregions recursively.  */
+  unsigned int no_stack_reg_p : 1, total_no_stack_reg_p : 1;
+#endif
+  /* TRUE value means that there is no sense to spill the allocno
+     during coloring because the spill will result in additional
+     reloads in reload pass.  */
+  unsigned int bad_spill_p : 1;
+  /* TRUE if a hard register or memory has been assigned to the
+     allocno.  */
+  unsigned int assigned_p : 1;
+  /* TRUE if conflicts for given allocno are represented by vector of
+     pointers to the conflicting allocnos.  Otherwise, we use a bit
+     vector where a bit with given index represents allocno with the
+     same number.  */
+  unsigned int conflict_vec_p : 1;
   /* Hard register assigned to given allocno.  Negative value means
      that memory was allocated to the allocno.  During the reload,
      spilled allocno has value equal to the corresponding stack slot
      number (0, ...) - 2.  Value -1 is used for allocnos spilled by the
      reload (at this point pseudo-register has only one allocno) which
      did not get stack slot yet.  */
-  int hard_regno;
-  /* Final rtx representation of the allocno.  */
-  rtx reg;
+  short int hard_regno;
   /* Allocnos with the same regno are linked by the following member.
      Allocnos corresponding to inner loops are first in the list (it
      corresponds to depth-first traverse of the loops).  */
@@ -373,9 +335,6 @@ struct ira_allocno
   int nrefs;
   /* Accumulated frequency of usage of the allocno.  */
   int freq;
-  /* Register class which should be used for allocation for given
-     allocno.  NO_REGS means that we should use memory.  */
-  enum reg_class aclass;
   /* Minimal accumulated and updated costs of usage register of the
      allocno class.  */
   int class_cost, updated_class_cost;
@@ -403,11 +362,6 @@ struct ira_allocno
   /* It is a link to allocno (cap) on lower loop level represented by
      given cap.  Null if given allocno is not a cap.  */
   ira_allocno_t cap_member;
-  /* Coalesced allocnos form a cyclic list.  One allocno given by
-     FIRST_COALESCED_ALLOCNO represents all coalesced allocnos.  The
-     list is chained by NEXT_COALESCED_ALLOCNO.  */
-  ira_allocno_t first_coalesced_allocno;
-  ira_allocno_t next_coalesced_allocno;
   /* The number of objects tracked in the following array.  */
   int num_objects;
   /* An array of structures describing conflict information and live
@@ -420,48 +374,6 @@ struct ira_allocno
   int call_freq;
   /* Accumulated number of the intersected calls.  */
   int calls_crossed_num;
-  /* TRUE if the allocno assigned to memory was a destination of
-     removed move (see ira-emit.c) at loop exit because the value of
-     the corresponding pseudo-register is not changed inside the
-     loop.  */
-  unsigned int mem_optimized_dest_p : 1;
-  /* TRUE if the corresponding pseudo-register has disjoint live
-     ranges and the other allocnos of the pseudo-register except this
-     one changed REG.  */
-  unsigned int somewhere_renamed_p : 1;
-  /* TRUE if allocno with the same REGNO in a subregion has been
-     renamed, in other words, got a new pseudo-register.  */
-  unsigned int child_renamed_p : 1;
-  /* During the reload, value TRUE means that we should not reassign a
-     hard register to the allocno got memory earlier.  It is set up
-     when we removed memory-memory move insn before each iteration of
-     the reload.  */
-  unsigned int dont_reassign_p : 1;
-#ifdef STACK_REGS
-  /* Set to TRUE if allocno can't be assigned to the stack hard
-     register correspondingly in this region and area including the
-     region and all its subregions recursively.  */
-  unsigned int no_stack_reg_p : 1, total_no_stack_reg_p : 1;
-#endif
-  /* TRUE value means that there is no sense to spill the allocno
-     during coloring because the spill will result in additional
-     reloads in reload pass.  */
-  unsigned int bad_spill_p : 1;
-  /* TRUE value means that the allocno was not removed yet from the
-     conflicting graph during colouring.  */
-  unsigned int in_graph_p : 1;
-  /* TRUE if a hard register or memory has been assigned to the
-     allocno.  */
-  unsigned int assigned_p : 1;
-  /* TRUE if it is put on the stack to make other allocnos
-     colorable.  */
-  unsigned int may_be_spilled_p : 1;
-  /* TRUE if the allocno is trivially colorable.  */
-  unsigned int colorable_p : 1;
-  /* Non NULL if we remove restoring value from given allocno to
-     MEM_OPTIMIZED_DEST at loop exit (see ira-emit.c) because the
-     allocno value is not changed inside the loop.  */
-  ira_allocno_t mem_optimized_dest;
   /* Array of usage costs (accumulated and the one updated during
      coloring) for each hard register of the allocno class.  The
      member value can be NULL if all costs are the same and equal to
@@ -484,15 +396,9 @@ struct ira_allocno
      of other allocnos not assigned yet during assigning to given
      allocno.  */
   int *conflict_hard_reg_costs, *updated_conflict_hard_reg_costs;
-  /* Number of hard registers of the allocno class really available
-     for the allocno allocation.  */
-  int available_regs_num;
-  /* Allocnos in a bucket (used in coloring) chained by the following
-     two members.  */
-  ira_allocno_t next_bucket_allocno;
-  ira_allocno_t prev_bucket_allocno;
-  /* Used for temporary purposes.  */
-  int temp;
+  /* Different additional data.  It is used to decrease size of
+     allocno data footprint.  */
+  void *add_data;
 };
 
 
@@ -520,10 +426,7 @@ struct ira_allocno
 #define ALLOCNO_TOTAL_NO_STACK_REG_P(A) ((A)->total_no_stack_reg_p)
 #endif
 #define ALLOCNO_BAD_SPILL_P(A) ((A)->bad_spill_p)
-#define ALLOCNO_IN_GRAPH_P(A) ((A)->in_graph_p)
 #define ALLOCNO_ASSIGNED_P(A) ((A)->assigned_p)
-#define ALLOCNO_MAY_BE_SPILLED_P(A) ((A)->may_be_spilled_p)
-#define ALLOCNO_COLORABLE_P(A) ((A)->colorable_p)
 #define ALLOCNO_MODE(A) ((A)->mode)
 #define ALLOCNO_COPIES(A) ((A)->allocno_copies)
 #define ALLOCNO_HARD_REG_COSTS(A) ((A)->hard_reg_costs)
@@ -539,14 +442,48 @@ struct ira_allocno
 #define ALLOCNO_UPDATED_MEMORY_COST(A) ((A)->updated_memory_cost)
 #define ALLOCNO_EXCESS_PRESSURE_POINTS_NUM(A) \
   ((A)->excess_pressure_points_num)
-#define ALLOCNO_AVAILABLE_REGS_NUM(A) ((A)->available_regs_num)
-#define ALLOCNO_NEXT_BUCKET_ALLOCNO(A) ((A)->next_bucket_allocno)
-#define ALLOCNO_PREV_BUCKET_ALLOCNO(A) ((A)->prev_bucket_allocno)
-#define ALLOCNO_TEMP(A) ((A)->temp)
-#define ALLOCNO_FIRST_COALESCED_ALLOCNO(A) ((A)->first_coalesced_allocno)
-#define ALLOCNO_NEXT_COALESCED_ALLOCNO(A) ((A)->next_coalesced_allocno)
 #define ALLOCNO_OBJECT(A,N) ((A)->objects[N])
 #define ALLOCNO_NUM_OBJECTS(A) ((A)->num_objects)
+#define ALLOCNO_ADD_DATA(A) ((A)->add_data)
+
+/* Typedef for pointer to the subsequent structure.  */
+typedef struct ira_emit_data *ira_emit_data_t;
+
+/* Allocno bound data used for emit pseudo live range split insns and
+   to flattening IR.  */
+struct ira_emit_data
+{
+  /* TRUE if the allocno assigned to memory was a destination of
+     removed move (see ira-emit.c) at loop exit because the value of
+     the corresponding pseudo-register is not changed inside the
+     loop.  */
+  unsigned int mem_optimized_dest_p : 1;
+  /* TRUE if the corresponding pseudo-register has disjoint live
+     ranges and the other allocnos of the pseudo-register except this
+     one changed REG.  */
+  unsigned int somewhere_renamed_p : 1;
+  /* TRUE if allocno with the same REGNO in a subregion has been
+     renamed, in other words, got a new pseudo-register.  */
+  unsigned int child_renamed_p : 1;
+  /* Final rtx representation of the allocno.  */
+  rtx reg;
+  /* Non NULL if we remove restoring value from given allocno to
+     MEM_OPTIMIZED_DEST at loop exit (see ira-emit.c) because the
+     allocno value is not changed inside the loop.  */
+  ira_allocno_t mem_optimized_dest;
+};
+
+#define ALLOCNO_EMIT_DATA(a) ((ira_emit_data_t) ALLOCNO_ADD_DATA (a))
+
+/* Data used to emit live range split insns and to flattening IR.  */
+extern ira_emit_data_t ira_allocno_emit_data;
+
+/* Abbreviation for frequent emit data access.  */
+static inline rtx
+allocno_emit_reg (ira_allocno_t a)
+{
+  return ALLOCNO_EMIT_DATA (a)->reg;
+}
 
 #define OBJECT_ALLOCNO(O) ((O)->allocno)
 #define OBJECT_SUBWORD(O) ((O)->subword)
@@ -562,10 +499,7 @@ struct ira_allocno
 #define OBJECT_MAX(O) ((O)->max)
 #define OBJECT_CONFLICT_ID(O) ((O)->id)
 #define OBJECT_LIVE_RANGES(O) ((O)->live_ranges)
-#define OBJECT_PROFITABLE_HARD_REGS(O) ((O)->profitable_hard_regs)
-#define OBJECT_HARD_REGS_NODE(O) ((O)->hard_regs_node)
-#define OBJECT_HARD_REGS_SUBNODES_START(O) ((O)->hard_regs_subnodes_start)
-#define OBJECT_HARD_REGS_SUBNODES_NUM(O) ((O)->hard_regs_subnodes_num)
+#define OBJECT_ADD_DATA(O) ((O)->add_data)
 
 /* Map regno -> allocnos with given regno (see comments for
    allocno member `next_regno_allocno').  */
@@ -997,7 +931,6 @@ extern struct target_ira_int *this_target_ira_int;
 /* ira.c: */
 
 extern void *ira_allocate (size_t);
-extern void *ira_reallocate (void *, size_t);
 extern void ira_free (void *addr);
 extern bitmap ira_allocate_bitmap (void);
 extern void ira_free_bitmap (bitmap);
@@ -1094,36 +1027,20 @@ extern void ira_finish_assign (void);
 extern void ira_color (void);
 
 /* ira-emit.c */
+extern void ira_initiate_emit_data (void);
+extern void ira_finish_emit_data (void);
 extern void ira_emit (bool);
 
 
 
-/* Return cost of moving value of MODE from register of class FROM to
-   register of class TO.  */
-static inline int
-ira_get_register_move_cost (enum machine_mode mode,
-			    enum reg_class from, enum reg_class to)
+/* Initialize register costs for MODE if necessary.  */
+static inline void
+ira_init_register_move_cost_if_necessary (enum machine_mode mode)
 {
   if (ira_register_move_cost[mode] == NULL)
     ira_init_register_move_cost (mode);
-  return ira_register_move_cost[mode][from][to];
 }
 
-/* Return cost of moving value of MODE from register of class FROM to
-   register of class TO.  Return zero if IN_P is true and FROM is
-   subset of TO or if IN_P is false and FROM is superset of TO.  */
-static inline int
-ira_get_may_move_cost (enum machine_mode mode,
-		       enum reg_class from, enum reg_class to,
-		       bool in_p)
-{
-  if (ira_register_move_cost[mode] == NULL)
-    ira_init_register_move_cost (mode);
-  return (in_p
-	  ? ira_may_move_in_cost[mode][from][to]
-	  : ira_may_move_out_cost[mode][from][to]);
-}
- 
 
 
 /* The iterator for all allocnos.  */
@@ -1299,7 +1216,7 @@ typedef struct {
   unsigned IRA_INT_TYPE word;
 } ira_object_conflict_iterator;
 
-/* Initialize the iterator I with OBJ conflicts.  */
+/* Initialize the iterator I with ALLOCNO conflicts.  */
 static inline void
 ira_object_conflict_iter_init (ira_object_conflict_iterator *i,
 			       ira_object_t obj)
@@ -1323,8 +1240,8 @@ ira_object_conflict_iter_init (ira_object_conflict_iterator *i,
     }
 }
 
-/* Return TRUE if we have more conflicting objects to visit, in which
-   case *POBJ is set to the object to be visited.  Otherwise, return
+/* Return TRUE if we have more conflicting allocnos to visit, in which
+   case *A is set to the allocno to be visited.  Otherwise, return
    FALSE.  */
 static inline bool
 ira_object_conflict_iter_cond (ira_object_conflict_iterator *i,
@@ -1334,14 +1251,17 @@ ira_object_conflict_iter_cond (ira_object_conflict_iterator *i,
 
   if (i->conflict_vec_p)
     {
-      obj = ((ira_object_t *) i->vec)[i->word_num];
+      obj = ((ira_object_t *) i->vec)[i->word_num++];
       if (obj == NULL)
 	return false;
     }
   else
     {
+      unsigned IRA_INT_TYPE word = i->word;
+      unsigned int bit_num = i->bit_num;
+
       /* Skip words that are zeros.  */
-      for (; i->word == 0; i->word = ((IRA_INT_TYPE *) i->vec)[i->word_num])
+      for (; word == 0; word = ((IRA_INT_TYPE *) i->vec)[i->word_num])
 	{
 	  i->word_num++;
 
@@ -1349,31 +1269,20 @@ ira_object_conflict_iter_cond (ira_object_conflict_iterator *i,
 	  if (i->word_num * sizeof (IRA_INT_TYPE) >= i->size)
 	    return false;
 
-	  i->bit_num = i->word_num * IRA_INT_BITS;
+	  bit_num = i->word_num * IRA_INT_BITS;
 	}
 
       /* Skip bits that are zero.  */
-      for (; (i->word & 1) == 0; i->word >>= 1)
-	i->bit_num++;
+      for (; (word & 1) == 0; word >>= 1)
+	bit_num++;
 
-      obj = ira_object_id_map[i->bit_num + i->base_conflict_id];
+      obj = ira_object_id_map[bit_num + i->base_conflict_id];
+      i->bit_num = bit_num + 1;
+      i->word = word >> 1;
     }
 
   *pobj = obj;
   return true;
-}
-
-/* Advance to the next conflicting object.  */
-static inline void
-ira_object_conflict_iter_next (ira_object_conflict_iterator *i)
-{
-  if (i->conflict_vec_p)
-    i->word_num++;
-  else
-    {
-      i->word >>= 1;
-      i->bit_num++;
-    }
 }
 
 /* Loop over all objects conflicting with OBJ.  In each iteration,
@@ -1381,8 +1290,7 @@ ira_object_conflict_iter_next (ira_object_conflict_iterator *i)
    of ira_object_conflict_iterator used to iterate the conflicts.  */
 #define FOR_EACH_OBJECT_CONFLICT(OBJ, CONF, ITER)			\
   for (ira_object_conflict_iter_init (&(ITER), (OBJ));			\
-       ira_object_conflict_iter_cond (&(ITER), &(CONF));		\
-       ira_object_conflict_iter_next (&(ITER)))
+       ira_object_conflict_iter_cond (&(ITER), &(CONF));)
 
 
 

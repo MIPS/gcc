@@ -443,7 +443,7 @@ ira_create_object (ira_allocno_t a, int subword)
   OBJECT_MIN (obj) = INT_MAX;
   OBJECT_MAX (obj) = -1;
   OBJECT_LIVE_RANGES (obj) = NULL;
-  CLEAR_HARD_REG_SET (OBJECT_PROFITABLE_HARD_REGS (obj));
+  OBJECT_ADD_DATA (obj) = NULL;
 
   VEC_safe_push (ira_object_t, heap, ira_object_id_map_vec, obj);
   ira_object_id_map
@@ -488,16 +488,9 @@ ira_create_allocno (int regno, bool cap_p,
   ALLOCNO_NO_STACK_REG_P (a) = false;
   ALLOCNO_TOTAL_NO_STACK_REG_P (a) = false;
 #endif
-  ALLOCNO_MEM_OPTIMIZED_DEST (a) = NULL;
-  ALLOCNO_MEM_OPTIMIZED_DEST_P (a) = false;
-  ALLOCNO_SOMEWHERE_RENAMED_P (a) = false;
-  ALLOCNO_CHILD_RENAMED_P (a) = false;
   ALLOCNO_DONT_REASSIGN_P (a) = false;
   ALLOCNO_BAD_SPILL_P (a) = false;
-  ALLOCNO_IN_GRAPH_P (a) = false;
   ALLOCNO_ASSIGNED_P (a) = false;
-  ALLOCNO_MAY_BE_SPILLED_P (a) = false;
-  ALLOCNO_COLORABLE_P (a) = false;
   ALLOCNO_MODE (a) = (regno < 0 ? VOIDmode : PSEUDO_REGNO_MODE (regno));
   ALLOCNO_COPIES (a) = NULL;
   ALLOCNO_HARD_REG_COSTS (a) = NULL;
@@ -510,12 +503,9 @@ ira_create_allocno (int regno, bool cap_p,
   ALLOCNO_MEMORY_COST (a) = 0;
   ALLOCNO_UPDATED_MEMORY_COST (a) = 0;
   ALLOCNO_EXCESS_PRESSURE_POINTS_NUM (a) = 0;
-  ALLOCNO_NEXT_BUCKET_ALLOCNO (a) = NULL;
-  ALLOCNO_PREV_BUCKET_ALLOCNO (a) = NULL;
-  ALLOCNO_FIRST_COALESCED_ALLOCNO (a) = a;
-  ALLOCNO_NEXT_COALESCED_ALLOCNO (a) = a;
   ALLOCNO_NUM_OBJECTS (a) = 0;
 
+  ALLOCNO_ADD_DATA (a) = NULL;
   VEC_safe_push (ira_allocno_t, heap, allocno_vec, a);
   ira_allocnos = VEC_address (ira_allocno_t, allocno_vec);
   ira_allocnos_num = VEC_length (ira_allocno_t, allocno_vec);
@@ -2635,7 +2625,7 @@ copy_info_to_removed_store_destinations (int regno)
        a != NULL;
        a = ALLOCNO_NEXT_REGNO_ALLOCNO (a))
     {
-      if (a != regno_top_level_allocno_map[REGNO (ALLOCNO_REG (a))])
+      if (a != regno_top_level_allocno_map[REGNO (allocno_emit_reg (a))])
 	/* This allocno will be removed.  */
 	continue;
 
@@ -2647,8 +2637,8 @@ copy_info_to_removed_store_destinations (int regno)
 	if ((parent_a = parent->regno_allocno_map[regno]) == NULL
 	    || (parent_a
 		== regno_top_level_allocno_map[REGNO
-					       (ALLOCNO_REG (parent_a))]
-		&& ALLOCNO_MEM_OPTIMIZED_DEST_P (parent_a)))
+					       (allocno_emit_reg (parent_a))]
+		&& ALLOCNO_EMIT_DATA (parent_a)->mem_optimized_dest_p))
 	  break;
       if (parent == NULL || parent_a == NULL)
 	continue;
@@ -2719,28 +2709,31 @@ ira_flattening (int max_regno_before_emit, int ira_max_point_before_emit)
 	   a != NULL;
 	   a = ALLOCNO_NEXT_REGNO_ALLOCNO (a))
 	{
+	  ira_emit_data_t parent_data, data = ALLOCNO_EMIT_DATA (a);
+
 	  ira_assert (ALLOCNO_CAP_MEMBER (a) == NULL);
-	  if (ALLOCNO_SOMEWHERE_RENAMED_P (a))
+	  if (data->somewhere_renamed_p)
 	    new_pseudos_p = true;
 	  parent_a = ira_parent_allocno (a);
 	  if (parent_a == NULL)
 	    {
 	      ALLOCNO_COPIES (a) = NULL;
-	      regno_top_level_allocno_map[REGNO (ALLOCNO_REG (a))] = a;
+	      regno_top_level_allocno_map[REGNO (data->reg)] = a;
 	      continue;
 	    }
 	  ira_assert (ALLOCNO_CAP_MEMBER (parent_a) == NULL);
 
-	  if (ALLOCNO_MEM_OPTIMIZED_DEST (a) != NULL)
+	  if (data->mem_optimized_dest != NULL)
 	    mem_dest_p = true;
-	  if (REGNO (ALLOCNO_REG (a)) == REGNO (ALLOCNO_REG (parent_a)))
+	  parent_data = ALLOCNO_EMIT_DATA (parent_a);
+	  if (REGNO (data->reg) == REGNO (parent_data->reg))
 	    {
 	      merge_hard_reg_conflicts (a, parent_a, true);
 	      move_allocno_live_ranges (a, parent_a);
 	      merged_p = true;
-	      ALLOCNO_MEM_OPTIMIZED_DEST_P (parent_a)
-		= (ALLOCNO_MEM_OPTIMIZED_DEST_P (parent_a)
-		   || ALLOCNO_MEM_OPTIMIZED_DEST_P (a));
+	      parent_data->mem_optimized_dest_p
+		= (parent_data->mem_optimized_dest_p
+		   || data->mem_optimized_dest_p);
 	      continue;
 	    }
 	  new_pseudos_p = true;
@@ -2776,7 +2769,7 @@ ira_flattening (int max_regno_before_emit, int ira_max_point_before_emit)
 		break;
 	    }
 	  ALLOCNO_COPIES (a) = NULL;
-	  regno_top_level_allocno_map[REGNO (ALLOCNO_REG (a))] = a;
+	  regno_top_level_allocno_map[REGNO (data->reg)] = a;
 	}
       if (mem_dest_p && copy_info_to_removed_store_destinations (i))
 	merged_p = true;
@@ -2794,7 +2787,7 @@ ira_flattening (int max_regno_before_emit, int ira_max_point_before_emit)
 	  ira_allocno_object_iterator oi;
 	  ira_object_t obj;
 
-	  if (a != regno_top_level_allocno_map[REGNO (ALLOCNO_REG (a))]
+	  if (a != regno_top_level_allocno_map[REGNO (allocno_emit_reg (a))]
 	      || ALLOCNO_CAP_MEMBER (a) != NULL)
 	    continue;
 	  FOR_EACH_ALLOCNO_OBJECT (a, obj, oi)
@@ -2812,7 +2805,7 @@ ira_flattening (int max_regno_before_emit, int ira_max_point_before_emit)
 	      ira_object_t obj = r->object;
 
 	      a = OBJECT_ALLOCNO (obj);
-	      if (a != regno_top_level_allocno_map[REGNO (ALLOCNO_REG (a))]
+	      if (a != regno_top_level_allocno_map[REGNO (allocno_emit_reg (a))]
 		  || ALLOCNO_CAP_MEMBER (a) != NULL)
 		continue;
 
@@ -2849,17 +2842,17 @@ ira_flattening (int max_regno_before_emit, int ira_max_point_before_emit)
 	      (ira_dump_file, "      Remove cp%d:%c%dr%d-%c%dr%d\n",
 	       cp->num, ALLOCNO_CAP_MEMBER (cp->first) != NULL ? 'c' : 'a',
 	       ALLOCNO_NUM (cp->first),
-	       REGNO (ALLOCNO_REG (cp->first)),
+	       REGNO (allocno_emit_reg (cp->first)),
 	       ALLOCNO_CAP_MEMBER (cp->second) != NULL ? 'c' : 'a',
 	       ALLOCNO_NUM (cp->second),
-	       REGNO (ALLOCNO_REG (cp->second)));
+	       REGNO (allocno_emit_reg (cp->second)));
 	  cp->loop_tree_node = NULL;
 	  continue;
 	}
       first
-	= regno_top_level_allocno_map[REGNO (ALLOCNO_REG (cp->first))];
+	= regno_top_level_allocno_map[REGNO (allocno_emit_reg (cp->first))];
       second
-	= regno_top_level_allocno_map[REGNO (ALLOCNO_REG (cp->second))];
+	= regno_top_level_allocno_map[REGNO (allocno_emit_reg (cp->second))];
       node = cp->loop_tree_node;
       if (node == NULL)
 	keep_p = true; /* It copy generated in ira-emit.c.  */
@@ -2869,10 +2862,10 @@ ira_flattening (int max_regno_before_emit, int ira_max_point_before_emit)
 	     which we will have different pseudos.  */
 	  node_first = node->regno_allocno_map[ALLOCNO_REGNO (cp->first)];
 	  node_second = node->regno_allocno_map[ALLOCNO_REGNO (cp->second)];
-	  keep_p = ((REGNO (ALLOCNO_REG (first))
-		     == REGNO (ALLOCNO_REG (node_first)))
-		     && (REGNO (ALLOCNO_REG (second))
-			 == REGNO (ALLOCNO_REG (node_second))));
+	  keep_p = ((REGNO (allocno_emit_reg (first))
+		     == REGNO (allocno_emit_reg (node_first)))
+		     && (REGNO (allocno_emit_reg (second))
+			 == REGNO (allocno_emit_reg (node_second))));
 	}
       if (keep_p)
 	{
@@ -2886,25 +2879,25 @@ ira_flattening (int max_regno_before_emit, int ira_max_point_before_emit)
 	  if (internal_flag_ira_verbose > 4 && ira_dump_file != NULL)
 	    fprintf (ira_dump_file, "      Remove cp%d:a%dr%d-a%dr%d\n",
 		     cp->num, ALLOCNO_NUM (cp->first),
-		     REGNO (ALLOCNO_REG (cp->first)),
+		     REGNO (allocno_emit_reg (cp->first)),
 		     ALLOCNO_NUM (cp->second),
-		     REGNO (ALLOCNO_REG (cp->second)));
+		     REGNO (allocno_emit_reg (cp->second)));
 	}
     }
   /* Remove unnecessary allocnos on lower levels of the loop tree.  */
   FOR_EACH_ALLOCNO (a, ai)
     {
-      if (a != regno_top_level_allocno_map[REGNO (ALLOCNO_REG (a))]
+      if (a != regno_top_level_allocno_map[REGNO (allocno_emit_reg (a))]
 	  || ALLOCNO_CAP_MEMBER (a) != NULL)
 	{
 	  if (internal_flag_ira_verbose > 4 && ira_dump_file != NULL)
 	    fprintf (ira_dump_file, "      Remove a%dr%d\n",
-		     ALLOCNO_NUM (a), REGNO (ALLOCNO_REG (a)));
+		     ALLOCNO_NUM (a), REGNO (allocno_emit_reg (a)));
 	  finish_allocno (a);
 	  continue;
 	}
       ALLOCNO_LOOP_TREE_NODE (a) = ira_loop_tree_root;
-      ALLOCNO_REGNO (a) = REGNO (ALLOCNO_REG (a));
+      ALLOCNO_REGNO (a) = REGNO (allocno_emit_reg (a));
       ALLOCNO_CAP (a) = NULL;
       /* Restore updated costs for assignments from reload.  */
       ALLOCNO_UPDATED_MEMORY_COST (a) = ALLOCNO_MEMORY_COST (a);

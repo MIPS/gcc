@@ -636,20 +636,6 @@ ira_allocate (size_t len)
   return res;
 }
 
-/* Reallocate memory PTR of size LEN for IRA data.  */
-void *
-ira_reallocate (void *ptr, size_t len)
-{
-  void *res;
-
-#ifndef IRA_NO_OBSTACK
-  res = obstack_alloc (&ira_obstack, len);
-#else
-  res = xrealloc (ptr, len);
-#endif
-  return res;
-}
-
 /* Free memory ADDR allocated for IRA data.  */
 void
 ira_free (void *addr ATTRIBUTE_UNUSED)
@@ -775,9 +761,8 @@ setup_pressure_classes (void)
 				  ira_prohibited_class_mode_regs[cl][m]);
 	  if (hard_reg_set_empty_p (temp_hard_regset))
 	    continue;
-	  cost = ira_get_register_move_cost ((enum machine_mode) m,
-					     (enum reg_class) cl,
-					     (enum reg_class) cl);
+	  ira_init_register_move_cost_if_necessary ((enum machine_mode) m);
+	  cost = ira_register_move_cost[m][cl][cl];
 	  if (cost <= ira_max_memory_move_cost[m][cl][1]
 	      || cost <= ira_max_memory_move_cost[m][cl][0])
 	    break;
@@ -1818,7 +1803,7 @@ setup_allocno_assignment_flags (void)
 	 allocnos because the cost info and info about intersected
 	 calls are incorrect for them.  */
       ALLOCNO_ASSIGNED_P (a) = (hard_regno >= 0
-				|| ALLOCNO_MEM_OPTIMIZED_DEST_P (a)
+				|| ALLOCNO_EMIT_DATA (a)->mem_optimized_dest_p
 				|| (ALLOCNO_MEMORY_COST (a)
 				    - ALLOCNO_CLASS_COST (a)) < 0);
       ira_assert (hard_regno < 0
@@ -3396,7 +3381,7 @@ ira (FILE *f)
   df_clear_flags (DF_NO_INSN_RESCAN);
   regstat_init_n_sets_and_refs ();
   regstat_compute_ri ();
-
+    
   /* If we are not optimizing, then this is the only place before
      register allocation where dataflow is done.  And that is needed
      to generate these warnings.  */
@@ -3471,6 +3456,8 @@ ira (FILE *f)
 
   ira_max_point_before_emit = ira_max_point;
 
+  ira_initiate_emit_data ();
+
   ira_emit (loops_p);
 
   if (ira_conflicts_p)
@@ -3502,6 +3489,8 @@ ira (FILE *f)
 	  ira_reassign_conflict_allocnos (max_regno);
 	}
     }
+
+  ira_finish_emit_data ();
 
   setup_reg_renumber ();
 

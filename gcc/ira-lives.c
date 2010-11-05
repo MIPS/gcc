@@ -992,11 +992,10 @@ process_single_reg_class_operands (bool in_p, int freq)
 		  ira_allocate_and_set_costs
 		    (&ALLOCNO_CONFLICT_HARD_REG_COSTS (operand_a),
 		     aclass, 0);
-		  cost
-		    = (freq
-		       * (in_p
-			  ? ira_get_register_move_cost (xmode, aclass, cl)
-			  : ira_get_register_move_cost (xmode, cl, aclass)));
+		  ira_init_register_move_cost_if_necessary (xmode);
+		  cost = freq * (in_p
+				 ? ira_register_move_cost[xmode][aclass][cl]
+				 : ira_register_move_cost[xmode][cl][aclass]);
 		  ALLOCNO_CONFLICT_HARD_REG_COSTS (operand_a)
 		    [ira_class_hard_reg_index[aclass][yregno]] -= cost;
 		}

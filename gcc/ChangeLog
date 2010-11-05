@@ -1,5 +1,144 @@
 2010-11-05  Vladimir Makarov  <vmakarov@redhat.com>
 
+	* ira-build.c: (ira_create_object): Remove initialization of
+	OBJECT_PROFITABLE_HARD_REGS.  Initialize OBJECT_ADD_DATA.
+	(ira_create_allocno): Remove initialization of
+	ALLOCNO_MEM_OPTIMIZED_DEST, ALLOCNO_MEM_OPTIMIZED_DEST_P,
+	ALLOCNO_SOMEWHERE_RENAMED_P, ALLOCNO_CHILD_RENAMED_P,
+	ALLOCNO_IN_GRAPH_P, ALLOCNO_MAY_BE_SPILLED_P, ALLOCNO_COLORABLE_P,
+	ALLOCNO_NEXT_BUCKET_ALLOCNO, ALLOCNO_PREV_BUCKET_ALLOCNO,
+	ALLOCNO_FIRST_COALESCED_ALLOCNO, ALLOCNO_NEXT_COALESCED_ALLOCNO.
+	Initialize ALLOCNO_ADD_DATA.
+	(copy_info_to_removed_store_destinations): Use ALLOCNO_EMIT_DATA
+	and allocno_emit_reg instead of ALLOCNO_MEM_OPTIMIZED_DEST_P and
+	ALLOCNO_REG.
+	(ira_flattening): Ditto.  Use ALLOCNO_EMIT_DATA instead of
+	ALLOCNO_MEM_OPTIMIZED_DEST and ALLOCNO_SOMEWHERE_RENAMED_P.
+
+	* ira.c (ira_reallocate): Remove.
+	(setup_pressure_classes): Call
+	ira_init_register_move_cost_if_necessary.  Use
+	ira_register_move_cost instead of ira_get_register_move_cost.
+	(setup_allocno_assignment_flags): Use ALLOCNO_EMIT_DATA.
+	(ira): Call ira_initiate_emit_data and ira_finish_emit_data.
+
+	* ira-color.c: Use ALLOCNO_COLOR_DATA instead of
+	ALLOCNO_IN_GRAPH_P, ALLOCNO_MAY_BE_SPILLED_P, ALLOCNO_COLORABLE_P,
+	ALLOCNO_AVAILABLE_REGS_NUM, ALLOCNO_NEXT_BUCKET_ALLOCNO,
+	ALLOCNO_PREV_BUCKET_ALLOCNO. ALLOCNO_TEMP. Use OBJECT_COLOR_DATA
+	instead of OBJECT_PROFITABLE_HARD_REGS, OBJECT_HARD_REGS_NODE,
+	OBJECT_HARD_REGS_SUBNODES_START, OBJECT_HARD_REGS_SUBNODES_NUM.
+	Fix formatting.
+	(object_hard_regs_t, object_hard_regs_node_t): Move from
+	ira-int.h.
+	(struct object_hard_regs, struct object_hard_regs_node): Ditto.
+	(struct allocno_color_data): New.
+	(allocno_color_data_t): New typedef.
+	(allocno_color_data): New definition.
+	(ALLOCNO_COLOR_DATA): New macro.
+	(struct object_color_data): New.
+	(object_color_data_t): New typedef.
+	(object_color_data): New definition.
+	(OBJECT_COLOR_DATA): New macro.
+	(update_copy_costs, calculate_allocno_spill_cost): Call
+	ira_init_register_move_cost_if_necessary.  Use
+	ira_register_move_cost instead of ira_get_register_move_cost.
+	(move_spill_restore, update_curr_costs): Ditto.
+	(allocno_spill_priority): Make it inline.
+	(color_pass): Allocate and free allocno_color_dat and
+	object_color_data.
+	(struct coalesce_data, coalesce_data_t): New.
+	(allocno_coalesce_data): New definition.
+	(ALLOCNO_COALESCE_DATA): New macro.
+	(merge_allocnos, coalesced_allocno_conflict_p): Use
+	ALLOCNO_COALESCED_DATA instead of ALLOCNO_FIRST_COALESCED_ALLOCNO,
+	ALLOCNO_NEXT_COALESCED_ALLOCNO, ALLOCNO_TEMP.
+	(coalesce_allocnos): Ditto.
+	(setup_coalesced_allocno_costs_and_nums): Ditto.
+	(collect_spilled_coalesced_allocnos): Ditto.
+	(slot_coalesced_allocno_live_ranges_intersect_p): Ditto.
+	(setup_slot_coalesced_allocno_live_ranges): Ditto.
+	(coalesce_spill_slots): Ditto.
+	(ira_sort_regnos_for_alter_reg): Ditto.  Allocate, initialize and
+	free allocno_coalesce_data.
+
+	* ira-conflicts.c: Fix formatting.
+	(process_regs_for_copy): Call
+	ira_init_register_move_cost_if_necessary.  Use
+	ira_register_move_cost instead of ira_get_register_move_cost.
+	(build_object_conflicts): Optimize.
+
+	* ira-costs.c (record_reg_classes): Optimize.  Call
+	ira_init_register_move_cost_if_necessary.  Use
+	ira_register_move_cost, ira_may_move_in_cost, and
+	ira_may_move_out_cost instead of ira_get_register_move_cost and
+	ira_get_may_move_cost.
+	(record_address_regs): Ditto.
+	(scan_one_insn): Optimize.
+	(find_costs_and_classes): Optimize.
+	(process_bb_node_for_hard_reg_moves): Call
+	ira_init_register_move_cost_if_necessary.  Use
+	ira_register_move_cost instead of ira_get_register_move_cost.
+
+	* ira-emit.c: Use allocno_emit_reg, ALLOCNO_EMIT_DATA instead of
+	ALLOCNO_REG, ALLOCNO_CHILD_RENAMED_P, ALLOCNO_MEM_OPTIMIZED_DEST,
+	ALLOCNO_MEM_OPTIMIZED_DEST_P, and ALLOCNO_SOMEWHERE_RENAMED_P.
+	(ira_allocno_emit_data, void_p, new_allocno_emit_data_vec): New
+	definitions.
+	(ira_initiate_emit_data, ira_finish_emit_data)
+	(create_new_allocno): New functions.
+	(modify_move_list): Call create_new_alloc instead of
+	ira_create_allocno.
+	(emit_move_list): Call ira_init_register_move_cost_if_necessary.
+	Use ira_register_move_cost instead of ira_get_register_move_cost.
+
+	* ira-int.h: Fix some comments.
+	(object_hard_regs_t, object_hard_regs_node_t): Move
+	to ira-color.c.
+	(struct object_hard_regs, struct object_hard_regs_node):
+	Ditto.
+	(struct ira_object): Remove profitable_hard_regs, hard_regs_node,
+	hard_regs_subnodes_start, hard_regs_subnodes_num.  Add new member
+	add_data.
+	(struct ira_allocno): Make mode and aclass a bitfield.  Move other
+	bitfield after mode.  Make hard_regno a short int.  Make
+	hard_regno short.  Remove first_coalesced_allocno and
+	next_coalesced_allocno.  Move mem_optimized_dest_p,
+	somewhere_renamed_p, child_renamed_p, reg, and mem_optimized_dest
+	into struct ira_emit_data.  Remove in_graph_p, may_be_spilled_p,
+	available_regs_num, next_bucket_allocno, prev_bucket_allocno,
+	temp, colorable_p.  Add new member add_data.
+	(ALLOCNO_IN_GRAPH_P, ALLOCNO_MAY_BE_SPILLED_P): Remove.
+	(ALLOCNO_COLORABLE_P, ALLOCNO_AVAILABLE_REGS_NUM): Remove.
+	(ALLOCNO_NEXT_BUCKET_ALLOCNO, ALLOCNO_PREV_BUCKET_ALLOCNO): Remove.
+	(ALLOCNO_TEMP, ALLOCNO_FIRST_COALESCED_ALLOCNO): Remove.
+	(ALLOCNO_NEXT_COALESCED_ALLOCNO): Remove.
+	(ALLOCNO_ADD_DATA): New macro.
+	(ira_emit_data_t): New typedef.
+	(struct ira_emit_data): New.  Move mem_optimized_dest_p,
+	somewhere_renamed_p, child_renamed_p, reg, mem_optimized_dest
+	from struct ira_allocno.
+	(ALLOCNO_EMIT_DATA): New macro.
+	(ira_allocno_emit_data, allocno_emit_reg): New.
+	(ALLOCNO_PROFITABLE_HARD_REGS, OBJECT_HARD_REGS_NODE): Remove.
+	(OBJECT_HARD_REGS_SUBNODES_STAR, OBJECT_HARD_REGS_SUBNODES_NUM):
+	Remove.
+	(OBJECT_ADD_DATA): New macro.
+	(ira_reallocate): Remove.
+	(ira_initiate_emit_data, ira_finish_emit_data): New.
+	(ira_get_register_move_cost, ira_get_may_move_cost): Remove.
+	(ira_init_register_move_cost_if_necessary): New.
+	(ira_object_conflict_iter_next): Merge into
+	ira_object_conflict_iter_cond.
+	(FOR_EACH_OBJECT_CONFLICT): Don't use
+	ira_object_conflict_iter_next.
+
+	* ira-live.c: (process_single_reg_class_operands): Call
+	ira_init_register_move_cost_if_necessary.  Use
+	ira_register_move_cost instead of ira_get_register_move_cost.
+
+2010-11-05  Vladimir Makarov  <vmakarov@redhat.com>
+
 	* ira-int.h (struct target_ira_int): Remove x_cost_classes.
 
 	* ira-costs.c: Fix formatting.

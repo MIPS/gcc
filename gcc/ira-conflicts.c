@@ -206,6 +206,7 @@ allocnos_conflict_for_copy_p (ira_allocno_t a1, ira_allocno_t a2)
      the lowest order words.  */
   ira_object_t obj1 = ALLOCNO_OBJECT (a1, 0);
   ira_object_t obj2 = ALLOCNO_OBJECT (a2, 0);
+
   return OBJECTS_CONFLICT_P (obj1, obj2);
 }
 
@@ -427,7 +428,8 @@ process_regs_for_copy (rtx reg1, rtx reg2, bool constraint_p,
 	return false;
     }
 
-  if (! IN_RANGE (allocno_preferenced_hard_regno, 0, FIRST_PSEUDO_REGISTER - 1))
+  if (! IN_RANGE (allocno_preferenced_hard_regno,
+		  0, FIRST_PSEUDO_REGISTER - 1))
     /* Can not be tied.  */
     return false;
   rclass = REGNO_REG_CLASS (allocno_preferenced_hard_regno);
@@ -441,10 +443,11 @@ process_regs_for_copy (rtx reg1, rtx reg2, bool constraint_p,
   if (index < 0)
     /* Can not be tied.  It is not in the allocno class.  */
     return false;
+  ira_init_register_move_cost_if_necessary (mode);
   if (HARD_REGISTER_P (reg1))
-    cost = ira_get_register_move_cost (mode, aclass, rclass) * freq;
+    cost = ira_register_move_cost[mode][aclass][rclass] * freq;
   else
-    cost = ira_get_register_move_cost (mode, rclass, aclass) * freq;
+    cost = ira_register_move_cost[mode][rclass][aclass] * freq;
   do
     {
       ira_allocate_and_set_costs
@@ -508,7 +511,8 @@ add_insn_allocno_copies (rtx insn)
 			? SET_SRC (set)
 			: SUBREG_REG (SET_SRC (set))) != NULL_RTX)
     {
-      process_regs_for_copy (SET_DEST (set), SET_SRC (set), false, insn, freq);
+      process_regs_for_copy (SET_DEST (set), SET_SRC (set),
+			     false, insn, freq);
       return;
     }
   /* Fast check of possibility of constraint or shuffle copies.  If
@@ -609,6 +613,7 @@ build_object_conflicts (ira_object_t obj)
   ira_allocno_t a = OBJECT_ALLOCNO (obj);
   IRA_INT_TYPE *object_conflicts;
   minmax_set_iterator asi;
+  int parent_min;
 
   object_conflicts = conflicts[OBJECT_CONFLICT_ID (obj)];
   px = 0;
@@ -617,6 +622,7 @@ build_object_conflicts (ira_object_t obj)
     {
       ira_object_t another_obj = ira_object_id_map[i];
       ira_allocno_t another_a = OBJECT_ALLOCNO (obj);
+
       ira_assert (ira_reg_classes_intersect_p
 		  [ALLOCNO_CLASS (a)][ALLOCNO_CLASS (another_a)]);
       collected_conflict_objects[px++] = another_obj;
@@ -633,6 +639,7 @@ build_object_conflicts (ira_object_t obj)
   else
     {
       int conflict_bit_vec_words_num;
+
       OBJECT_CONFLICT_ARRAY (obj) = object_conflicts;
       if (OBJECT_MAX (obj) < OBJECT_MIN (obj))
 	conflict_bit_vec_words_num = 0;
@@ -651,6 +658,7 @@ build_object_conflicts (ira_object_t obj)
   ira_assert (ALLOCNO_NUM_OBJECTS (a) == ALLOCNO_NUM_OBJECTS (parent_a));
   parent_obj = ALLOCNO_OBJECT (parent_a, OBJECT_SUBWORD (obj));
   parent_num = OBJECT_CONFLICT_ID (parent_obj);
+  parent_min = OBJECT_MIN (parent_obj);
   FOR_EACH_BIT_IN_MINMAX_SET (object_conflicts,
 			      OBJECT_MIN (obj), OBJECT_MAX (obj), i, asi)
     {
@@ -671,9 +679,8 @@ build_object_conflicts (ira_object_t obj)
 		  == ALLOCNO_NUM_OBJECTS (another_parent_a));
       SET_MINMAX_SET_BIT (conflicts[parent_num],
 			  OBJECT_CONFLICT_ID (ALLOCNO_OBJECT (another_parent_a,
-						     another_word)),
-			  OBJECT_MIN (parent_obj),
-			  OBJECT_MAX (parent_obj));
+							      another_word)),
+			  parent_min, OBJECT_MAX (parent_obj));
     }
 }
 
@@ -877,6 +884,7 @@ ira_build_conflicts (void)
   FOR_EACH_ALLOCNO (a, ai)
     {
       int i, n = ALLOCNO_NUM_OBJECTS (a);
+
       for (i = 0; i < n; i++)
 	{
 	  ira_object_t obj = ALLOCNO_OBJECT (a, i);
