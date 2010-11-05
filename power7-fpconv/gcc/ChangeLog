@@ -1,3 +1,122 @@
+2010-11-05  Joseph Myers  <joseph@codesourcery.com>
+
+	* defaults.h (DEFAULT_WORD_SWITCH_TAKES_ARG,
+	WORD_SWITCH_TAKES_ARG): Remove.
+	* doc/options.texi (Args): Document.
+	* doc/tm.texi.in (WORD_SWITCH_TAKES_ARG): Remove.
+	* doc/tm.texi: Regenerate.
+	* opt-functions.awk (switch_flags): Handle Args.
+	* opts-common.c: Update comment on tm.h include.
+	(decode_cmdline_option): Handle options with multiple arguments.
+	Don't check WORD_SWITCH_TAKES_ARG for unknown options.
+	* opts.h (CL_SEPARATE_NARGS_SHIFT, CL_SEPARATE_NARGS_MASK):
+	Define.
+	(CL_PARAMS, CL_WARNING, CL_OPTIMIZATION, CL_DRIVER, CL_TARGET,
+	CL_COMMON): Update values.
+	* system.h (WORD_SWITCH_TAKES_ARG): Poison.
+	* config/darwin.h (WORD_SWITCH_TAKES_ARG): Remove.
+	* config/darwin.opt (Zsegaddr, sectalign, sectcreate,
+	sectobjectsymbols, sectorder, segcreate, segprot): New.
+
+2010-11-05  H.J. Lu  <hongjiu.lu@intel.com>
+	    Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (ix86_expand_move): Set use_avx256_p if
+	256bit AVX register is used.
+	(ix86_expand_vector_move_misalign): Likewise.
+	(ix86_expand_vector_move): Replace use_avx256_p with
+	VALID_AVX256_REG_MODE.
+
+2010-11-05  Joern Rennecke  <amylaar@spamcop.net>
+
+	 PR target/44750
+	* config/pdp11/t-pdp11 (dwarf2out.o, java/constants.o): Undo last
+	change.  Set $@-warn.o to -Wno-error.
+
+	PR bootstrap/44756
+	* expr.c (emit_push_insn): Cast value of PUSH_ROUNDING before
+	comparing it to a signed value.
+
+2010-11-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* cfgexpand.c (expand_debug_expr): Handle MEM_REF
+	with non-zero offset.
+
+	PR tree-optimization/46099
+	* tree-parloops.c (take_address_of): Add GSI argument.  Return NULL
+	if it is NULL and uid wasn't found in the hash table.  Just fold the
+	result if it is NULL otherwise.  Insert other potentially needed
+	stmts right before current stmt instead of on the entry edge.
+	(struct elv_data): Add gsi and reset fields.
+	(eliminate_local_variables_1): Adjust caller.  If take_address_of
+	failed for debug stmt, set dta->reset and return.
+	(eliminate_local_variables_stmt): Change STMT argument for GSI,
+	pass GSI through to the callback, handle resetting of debug stmts.
+	(eliminate_local_variables): Adjust caller.  Process debug stmts
+	in second phase.
+
+	PR middle-end/43690
+	* gimplify.c (gimplify_asm_expr): If a "m" input is a
+	{pre,post}{in,de}crement, fail.
+
+	PR debug/46307
+	* tree-ssa-operands.c (get_expr_operands): Handle FMA_EXPR.
+	* tree-pretty-print.c (dump_generic_node): Likewise.
+	(op_code_prio): Likewise.
+	* cfgexpand.c (expand_debug_expr): Likewise.
+
+2010-11-04  Paul Koning  <ni1d@arrl.net>
+
+	* doc/md.texi (Machine Constraints): Correct formatting in PDP-11
+	constraints. 
+	
+2010-11-04  Chao-ying Fu  <fu@mips.com>
+
+	* configure.ac: Test assembler support for DSP Rev1 mult.
+	* configure: Regenerate.
+	* config.in: Regenerate.
+	* config/mips/mips.h (ISA_HAS_DSP_MULT): New define.
+	* config/mips/mips.c (CODE_FOR_mips_mult): New define.
+	(CODE_FOR_mips_multu): New define.
+	(mips_builtins): Move madd, maddu, msub, msubu, mult, multu from
+	dspr2_32 to dsp_32.
+	(mips_mulsidi3_gen_fn): Test (TARGET_FIX_R4000 && !ISA_HAS_DSP).
+	Delete returns when ISA_HAS_DSPR2 because the old patterns are deleted.
+	* config/mips/mips-dsp.md (mips_madd<u>, mips_msub<u>):
+	New define_expand patterns.
+	* config/mips/constraints.md (ka): Update the constraint to test
+	ISA_HAS_DSP_MULT instead of ISA_HAS_DSPR2.
+	* config/mips/mips-dspr2.md (mips_madd<u>, mips_msub<u>, mips_mult,
+	mips_multu): Delete.
+	* config/mips/mips.md (<u>mulsidi3_32bit): Add comments.
+	Change target constraint to "ka".
+	Use (!TARGET_FIX_R4000 || ISA_HAS_DSP), instead of
+	(!TARGET_FIX_R4000 && !ISA_HAS_DSPR2).
+	Emit the accumulator destination when ISA_HAS_DSP_MULT.
+	(<u>msubsidi4): Add comments.
+	Test ISA_HAS_DSP.
+	Emit the accumulator destination when ISA_HAS_DSP_MULT.
+	(<u>maddsidi4): Likewise.
+	* doc/extend.texi (MIPS DSP Built-in Functions): Move madd, maddu,
+	msub, msubu, mult, multu built-in functions from DSP r2 to DSP r1.
+
+2010-11-04  Paul Koning  <ni1d@arrl.net>
+
+	* doc/md.texi (Machine Constraints): Add PDP-11 constraints.
+	
+2010-11-04  Paul Koning  <ni1d@arrl.net>
+
+	* doc/invoke.texi (PDP-11 Options): Delete -msplit, -mno-split.
+
+2010-11-04  Nicola Pero  <nicola.pero@meta-innovation.com>
+
+	Fixed using the Objective-C 2.0 dot-syntax with class names.
+	* c-parser.c (c_parser_next_token_starts_declspecs): In
+	Objective-C, detect Objective-C 2.0 dot-syntax with a class name.
+	(c_parser_next_token_starts_declaration): Same.
+	(c_parser_postfix_expression): Parse the Objective-C 2.0
+	dot-syntax with a class name.
+
 2010-11-04  Pat Haugen  <pthaugen@us.ibm.com>
 
 	* final.c (compute_alignments): Compute/free loop info all the time.
@@ -100,6 +219,18 @@
 	* genopinit.c (main) [FIXUNS_TRUNC_LIKE_FIX_TRUNC]: Cast
 	iteration variables to enum machine_mode.
 
+	PR target/44751
+	* config/h8300/h8300.c: Include df.h.
+	(push, pop): Use add_reg_note.
+	(compute_plussi_cc, compute_logical_op_cc): Return enum attr_c.
+	(compute_a_shift_cc): Likewise.
+	(expand_a_shift): Argument code has type enum rtx_code.
+	(struct shift_insn): Member cc_valid has type enum attr_cc.
+	(struct shift_info) <cc_inline, cc_special>: Likewise.
+	enum attr_cc.
+	* config/h8300/h8300-protos.h (compute_plussi_cc): Update prototype.
+	(compute_a_shift_cc, compute_logical_op_cc, expand_a_shift): Likewise.
+
 2010-11-04  Ira Rosen  <irar@il.ibm.com>
 
 	PR tree-optimization/46213
@@ -152,9 +283,9 @@
 
 2010-11-04  Iain Sandoe  <iains@gcc.gnu.org>
 
-	* gcc/configure.ac: Filter -mdynamic-no-pic from CFLAGS when testing for
+	* configure.ac: Filter -mdynamic-no-pic from CFLAGS when testing for
 	plugin capabilities.
-	* gcc/configure: Regenerate.
+	* configure: Regenerate.
 
 2010-11-03  Xinliang David Li  <davidxl@google.com>
 
@@ -317,7 +448,7 @@
 2010-11-03  Ian Lance Taylor  <iant@google.com>
 
 	PR lto/46273
-	* gcc/config.gcc: Don't set lto_binary_reader.
+	* config.gcc: Don't set lto_binary_reader.
 	* doc/install.texi (Prerequisites): Remove libelf paragraphs.
 	(Configuration): Mention --disable-lto.  Remove --with-libelf
 	paragraph.
@@ -4575,7 +4706,7 @@
 2010-10-05  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
 	    Christian Borntraeger  <Christian.Borntraeger@de.ibm.com>
 
-	* gcc/config/s390/s390.c (z196_cost): New.
+	* config/s390/s390.c (z196_cost): New.
 	(s390_handle_arch_option): Add -march=z196.
 	(s390_option_override): Use the new cost function and use the z10
 	defaults also for z196.
@@ -4589,15 +4720,15 @@
 	(s390_fix_long_loop_prediction): ... this.
 	(s390_reorg): Apply the z10 adjustments also for z196.
 	(s390_loop_unroll_adjust): Do this also for z196.
-	* gcc/config/s390/s390.h (enum processor_type): Add PROCESSOR_2817_Z196.
+	* config/s390/s390.h (enum processor_type): Add PROCESSOR_2817_Z196.
 	(enum processor_flags): Add PF_Z196.
 	(TARGET_AVOID_CMP_AND_BRANCH): New macro.
 	(TARGET_CPU_Z196, TARGET_Z196): New macros.
-	* gcc/config.gcc: Enable z196 for --with-arch.
-	* gcc/config/s390/2817.md: New file.
-	* gcc/config/s390/2084.md: New type for multiply and add.
-	* gcc/config/s390/2097.md: Likewise.
-	* gcc/config/s390/s390.md (UNSPEC_POPCNT, UNSPEC_COPYSIGN)
+	* config.gcc: Enable z196 for --with-arch.
+	* config/s390/2817.md: New file.
+	* config/s390/2084.md: New type for multiply and add.
+	* config/s390/2097.md: Likewise.
+	* config/s390/s390.md (UNSPEC_POPCNT, UNSPEC_COPYSIGN)
 	(UNSPECV_ATOMIC_OP): New constants.
 	(fmadddf, fmaddsf): New values for type attribute.
 	(z196prop): New insn attribute.
@@ -5978,7 +6109,7 @@
 	use gen_pro_epilogue_adjust_stack_*_3 and annotate it.
 	(__chkstk_ms): New function.
 	* config/i386/t-cygming (LIB1ASMFUNCS): Add _chkstk_ms.
-	* gcc/config/i386/t-interix: Likewise.
+	* config/i386/t-interix: Likewise.
 	* configure.ac (HAVE_GAS_CFI_DIRECTIVE): Export for target.
 	(HAVE_GAS_CFI_PERSONALITY_DIRECTIVE): Likewise.
 	(HAVE_GAS_CFI_SECTIONS_DIRECTIVE): Likewise.
@@ -6157,7 +6288,7 @@
 	    Dominique Dhumieres  <dominiq@lps.ens.fr>
 
 	PR bootstrap/45751
-	* gcc/config/darwin-driver.c (darwin_default_min_version):
+	* config/darwin-driver.c (darwin_default_min_version):
 	Adjust size passed to memcpy in two places.
 
 2010-09-24  Richard Guenther  <rguenther@suse.de>
@@ -32885,7 +33016,7 @@
 
 2010-01-16  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
 
-	PR gcc/42525
+	PR other/42525
 	* Makefile.in (write_entries_to_file, install-plugin):
 	Use \012 instead of \n with tr.
 
