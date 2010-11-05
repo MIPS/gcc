@@ -1,5 +1,10 @@
 2010-11-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	PR target/45585
+	* config/rs6000/darwin.md (movdi_low): Allow DImode values to be
+	in FPR registers.
+	(movdi_low_st): Ditto.
+
 	* ipa.c (cgraph_remove_unreachable_nodes): Undo 10/26 change on
 	branch until it is fixed on the trunk.
 
