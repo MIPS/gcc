@@ -622,6 +622,16 @@ LIBSTD_HPROTO_IMPL(float, floorf, float p0)
     return floorf(p0);
 }
 
+LIBSTD_HPROTO_IMPL(double, round, double p0)
+{
+    return round(p0);
+}
+
+LIBSTD_HPROTO_IMPL(float, roundf, float p0)
+{
+    return roundf(p0);
+}
+
 LIBSTD_HPROTO_IMPL(long, lround, double p0)
 {
     return lround(p0);

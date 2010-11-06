@@ -161,6 +161,8 @@ LIBSTD_HPROTO(double, ceil, double p0);
 LIBSTD_HPROTO(float, ceilf, float p0);
 LIBSTD_HPROTO(double, floor, double p0);
 LIBSTD_HPROTO(float, floorf, float p0);
+LIBSTD_HPROTO(double, round, double p0);
+LIBSTD_HPROTO(float, roundf, float p0);
 LIBSTD_HPROTO(long, lround, double p0);
 LIBSTD_HPROTO(long, lroundf, float p0);
 

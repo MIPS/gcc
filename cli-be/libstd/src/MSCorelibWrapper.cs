@@ -857,6 +857,16 @@ public class MSCorelibWrapper
         return (float)System.Math.Floor(f);
     }
 
+    public static double round(double d)
+    {
+      return System.Math.Round(d, 0);
+    }
+
+    public static float roundf(float f)
+    {
+      return (float)System.Math.Round(f, 0);
+    }
+
     public static int lround(double d)
     {
         return Convert.ToInt32(d);

@@ -1,4 +1,14 @@
-2010-04-12  Thierry LAFAGE  <lafage@dingdong.irisa.fr>
+2010-10-06  Erven Rohou <erven.rohou@inria.fr>
+
+        Add prototype and implementation for round and roundf.
+
+        * libstd/include/__host.h: prototype
+        * libstd/src/__host.c: implementation
+        * libstd/src/math.c: implementation
+        * libstd/src/MSCorelibWrapper.cs: implementation
+        * libstd/src_opt/MSCorelibWrapper.cs: pinvoke declaration
+
+2010-04-12  Thierry LAFAGE  <thierry.lafage@inria.fr>
 
 	* gcc/config/cil32/emit-cil.c: if -g is enabled, add .line
 	directives before each method/function definition.

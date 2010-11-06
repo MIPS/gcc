@@ -170,8 +170,15 @@ xPROTO_IMPL(long, lrintf, float);
 xPROTO_IMPL(long long, llrint, double);
 xPROTO_IMPL(long long, llrintf, float);
 
-xPROTO_IMPL(double, round, double);
-xPROTO_IMPL(float, roundf, float);
+LIBSTD_LPROTO_IMPL(double, round, double p0)
+{
+    return LIBSTD_HNAME(round)(p0);
+}
+
+LIBSTD_LPROTO_IMPL(float, roundf, float p0)
+{
+    return LIBSTD_HNAME(roundf)(p0);
+}
 
 LIBSTD_LPROTO_IMPL(long, lround, double p0)
 {

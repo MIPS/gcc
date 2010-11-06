@@ -248,6 +248,12 @@ public class MSCorelibWrapper
     [DllImport("MSCorelibWrapper_support.so", EntryPoint="__host__floorf")]
     unsafe public static extern float floorf(float f);
 
+    [DllImport("MSCorelibWrapper_support.so", EntryPoint="__host__round")]
+    unsafe public static extern double round(double d);
+
+    [DllImport("MSCorelibWrapper_support.so", EntryPoint="__host__roundf")]
+    unsafe public static extern float roundf(float f);
+
     [DllImport("MSCorelibWrapper_support.so", EntryPoint="__host__lround")]
     unsafe public static extern int lround(double d);
 
