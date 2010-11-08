@@ -1,3 +1,8 @@
+2010-11-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 166448.
+	* REVISION: Update subversion id.
+
 2010-11-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	PR target/45585
