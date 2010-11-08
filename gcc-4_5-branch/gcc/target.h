@@ -121,6 +121,18 @@ struct gcc_target
     const char *byte_op;
     struct asm_int_op aligned_op, unaligned_op;
 
+    /* The maximum number of bytes to skip when applying LABEL_ALIGN_AFTER_BARRIER.  */
+    int (* label_align_after_barrier_max_skip) (rtx label);
+
+    /* The maximum number of bytes to skip when applying LOOP_ALIGN.  */
+    int (* loop_align_max_skip) (rtx label);
+
+    /* The maximum number of bytes to skip when applying LABEL_ALIGN.  */
+    int (* label_align_max_skip) (rtx label);
+
+    /* The maximum number of bytes to skip when applying JUMP_ALIGN.  */
+    int (* jump_align_max_skip) (rtx label);
+
     /* Try to output the assembler code for an integer object whose
        value is given by X.  SIZE is the size of the object in bytes and
        ALIGNED_P indicates whether it is aligned.  Return true if

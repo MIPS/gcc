@@ -60,6 +60,22 @@
 
 #define TARGET_ASM_INTEGER default_assemble_integer
 
+#ifndef TARGET_ASM_LABEL_ALIGN_AFTER_BARRIER_MAX_SKIP
+#define TARGET_ASM_LABEL_ALIGN_AFTER_BARRIER_MAX_SKIP default_label_align_after_barrier_max_skip
+#endif
+
+#ifndef TARGET_ASM_LOOP_ALIGN_MAX_SKIP
+#define TARGET_ASM_LOOP_ALIGN_MAX_SKIP default_loop_align_max_skip
+#endif
+
+#ifndef TARGET_ASM_LABEL_ALIGN_MAX_SKIP
+#define TARGET_ASM_LABEL_ALIGN_MAX_SKIP default_label_align_max_skip
+#endif
+
+#ifndef TARGET_ASM_JUMP_ALIGN_MAX_SKIP
+#define TARGET_ASM_JUMP_ALIGN_MAX_SKIP default_jump_align_max_skip
+#endif
+
 #ifndef TARGET_ASM_GLOBALIZE_LABEL
 #define TARGET_ASM_GLOBALIZE_LABEL default_globalize_label
 #endif
@@ -278,6 +294,10 @@
 			TARGET_ASM_BYTE_OP,			\
 			TARGET_ASM_ALIGNED_INT_OP,		\
 			TARGET_ASM_UNALIGNED_INT_OP,		\
+			TARGET_ASM_LABEL_ALIGN_AFTER_BARRIER_MAX_SKIP, \
+			TARGET_ASM_LOOP_ALIGN_MAX_SKIP,		\
+			TARGET_ASM_LABEL_ALIGN_MAX_SKIP,	\
+			TARGET_ASM_JUMP_ALIGN_MAX_SKIP,		\
 			TARGET_ASM_INTEGER,			\
 			TARGET_ASM_GLOBALIZE_LABEL,		\
 			TARGET_ASM_GLOBALIZE_DECL_NAME,		\
