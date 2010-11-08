@@ -1,3 +1,40 @@
+2010-11-06  Jason Merrill  <jason@redhat.com>
+
+	* init.c (perform_member_init): Use build_vec_init_expr for
+	value-init of arrays, too.
+	* cp-gimplify.c (cp_gimplify_expr): Use VEC_INIT_EXPR_VALUE_INIT.
+	* cp-tree.h (VEC_INIT_EXPR_IS_CONSTEXPR): New macro.
+	(VEC_INIT_EXPR_VALUE_INIT): New macro.
+	* semantics.c (potential_constant_expression): No longer static.
+	Check VEC_INIT_EXPR_IS_CONSTEXPR.
+	* tree.c (build_vec_init_expr): Handle value-init.  Set
+	VEC_INIT_EXPR_IS_CONSTEXPR and VEC_INIT_EXPR_VALUE_INIT.
+
+2010-11-06  Nathan Froyd  <froydnj@codesourcery.com>
+
+	PR c++/45332
+	* parser.c (cp_lexer_previous_token): New function.
+	(cp_parser_member_declaration): Use previous token for error
+	messages.  Assume semicolon presence rather than grovelling for
+	the next one.
+
+2010-11-06  Joern Rennecke  <amylaar@spamcop.net>
+
+	PR middle-end/46314
+	* method.c (make_alias_for_thunk):
+	Use targetm.asm_out.generate_internal_label.
+
+2010-11-05  Jason Merrill  <jason@redhat.com>
+
+	PR c++/45473
+	* search.c (look_for_overrides): A constructor is never virtual.
+
+2010-11-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/46160
+	* cp-gimplify.c (cp_gimplify_expr): Drop volatile MEM_REFs
+	on the RHS to avoid infinite recursion with gimplify_expr.
+
 2010-11-05  Jason Merrill  <jason@redhat.com>
 
 	PR c++/46304
