@@ -1,3 +1,99 @@
+2010-11-09  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	PR rtl-optimization/46237
+	* ira-conflicts.c (ira_build_conflicts): Record conflicts for call
+	saved hard regs if they might get partially clobbered.
+
+2010-11-06  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	PR debug/45939
+	* var-tracking.c (emit_note_insn_var_location): Make sure that
+	call related var location notes come before the normal ones.
+
+2010-11-04  Uros Bizjak  <ubizjak@gmail.com>
+
+	Revert:
+	2010-10-30  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR middle-end/44569
+	* lower-suberg.c (simplify_subreg_concatn): For VOIDmode elements,
+	determine the mode of a subreg by GET_MODE_INNER of CONCATN RTX.
+
+2010-11-04  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/rs6000.c (rs6000_pic_labelno): Make static.
+	(rs6000_emit_load_toc_table): Don't use rs6000_pic_labelno when
+	TARGET_SECURE_PLT.
+	* config/rs6000/sysv4.h (rs6000_pic_labelno): Don't declare.
+	* config/rs6000/rs6000.md (load_toc_v4_PIC_3b): Use "b" constraint
+	on input, "r" on output.
+
+2010-11-02  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/45902
+	* tree-vectorizer.h (enum stmt_vec_info_type): Add new value for
+	shift.
+	(vect_get_slp_defs): Add arguments.
+	* tree-vect-stmts.c (cost_for_stmt): Handle shifts.
+	(vect_get_vec_def_for_operand): Use operand's
+	type to determine number of units in the created vector.
+	(vect_get_vec_defs): Pass scalar operands to vect_get_slp_defs.
+	(vectorizable_shift): New function.
+	(vectorizable_operation): Move code that handles shifts to
+	vectorizable_shift.
+	(vectorizable_type_demotion): Pass scalar operands to
+	vect_get_slp_defs.
+	(vectorizable_type_promotion, vectorizable_store): Likewise.
+	(vect_analyze_stmt): Call vectorizable_shift.
+	(vect_transform_stmt): Likewise.
+	* tree-vect-slp.c (vect_get_constant_vectors): Add new argument.
+	Use it as the operand to create vectors except for stores.
+	(vect_get_slp_defs): Add new arguments. Pass them to
+	vect_get_constant_vectors.
+
+2010-10-30  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR middle-end/44569
+	* lower-suberg.c (simplify_subreg_concatn): For VOIDmode elements,
+	determine the mode of a subreg by GET_MODE_INNER of CONCATN RTX.
+
+2010-10-30  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/46153
+	* config/i386/sse.md (sse_movhlps_exp): Use destination
+	returned from ix86_fixup_binary_operands to expand insn.
+	(sse_movlhps_exp): Ditto.
+	(sse_loadhps_exp): Ditto.
+	(sse_loadlps_exp): Ditto.
+	(sse2_loadhpd_exp): Ditto.
+	(sse2_loadlpd_exp): Ditto.
+
+2010-10-29  Richard Henderson  <rth@redhat.com>
+
+	PR rtl-opt/46226
+	* stmt.c (expand_asm_operands): Call do_pending_stack_adjust
+	for asm goto.
+
+2010-10-27  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/sparc/sol2-unwind.h (sparc64_fallback_frame_state): Adjust
+	for newer Solaris 10 release.
+	(sparc_fallback_frame_state): Likewise.
+
+2010-10-26  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/46167
+	* tree-vect-patterns.c (vect_recog_dot_prod_pattern): Check that
+	there is basic block for the statement.
+
+2010-10-24  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* reg-stack.c (convert_regs_1): Return boolean value, true if the CFG
+	has been modified.
+	(convert_regs_2): Likewise.  Adjust calls to convert_regs_1.
+	(convert_regs): Adjust calls to convert_regs_2.  Clean up the CFG if
+	it has been modified.
+
 2010-10-22  Uros Bizjak  <ubizjak@gmail.com>
 
 	PR target/46098
