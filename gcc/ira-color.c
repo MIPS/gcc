@@ -40,7 +40,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "df.h"
 #include "ira-int.h"
 
-/* See below.  */
 typedef struct object_hard_regs *object_hard_regs_t;
 
 /* The structure contains information about hard registers can be
@@ -58,7 +57,6 @@ struct object_hard_regs
   long long int cost;
 };
 
-/* See below.  */
 typedef struct object_hard_regs_node *object_hard_regs_node_t;
 
 /* A node representing object hard registers.  Such nodes form a
@@ -294,8 +292,13 @@ object_hard_regs_compare (const void *v1p, const void *v2p)
 
 
 /* Used for finding a common ancestor of two allocno hard registers
-   nodes in the forrest.  It is also used to figure out allocno
-   colorability.  */
+   nodes in the forest.  We use the current value of
+   'node_check_tick' to mark all nodes from one node to the top and
+   then walking up from another node until we find a marked node.
+
+   It is also used to figure out allocno colorability as a mark that
+   we already reset value of member 'conflict_size' for the forest
+   node corresponding to the processed allocno.  */
 static int node_check_tick;
 
 /* Roots of the forest containing hard register sets can be assigned
@@ -306,7 +309,7 @@ static object_hard_regs_node_t hard_regs_roots;
 DEF_VEC_P(object_hard_regs_node_t);
 DEF_VEC_ALLOC_P(object_hard_regs_node_t, heap);
 
-/* Vector used to create the forrest.  */
+/* Vector used to create the forest.  */
 static VEC(object_hard_regs_node_t, heap) *hard_regs_node_vec;
 
 /* Create and return object hard registers node containing object
@@ -410,8 +413,8 @@ add_object_hard_regs_to_forest (object_hard_regs_node_t *roots,
   VEC_truncate (object_hard_regs_node_t, hard_regs_node_vec, start);
 }
 
-/* Add object hard registers nodes starting with the forrest level
-   given by FIRTS which contains biggest set inside SET.  */
+/* Add object hard registers nodes starting with the forest level
+   given by FIRST which contains biggest set inside SET.  */
 static void
 collect_object_hard_regs_cover (object_hard_regs_node_t first,
 				 HARD_REG_SET set)
@@ -2317,9 +2320,11 @@ allocno_cost_compare_func (const void *v1p, const void *v2p)
   return ALLOCNO_NUM (p1) - ALLOCNO_NUM (p2);
 }
 
-/* Improve the allocation by spilling some allocnos and assigning the
-   freed hard registers to other allocnos if it decreases the overall
-   allocation cost.  */
+/* We used Chaitin-Briggs coloring to assign as many pseudos as
+   possible to hard registers.  Let us try to improve allocation with
+   cost point of view.  This function improves the allocation by
+   spilling some allocnos and assigning the freed hard registers to
+   other allocnos if it decreases the overall allocation cost.  */
 static void
 improve_allocation (void)
 {
@@ -2335,9 +2340,13 @@ improve_allocation (void)
   ira_allocno_t a;
   bitmap_iterator bi;
 
+  /* Clear counts used to process conflicting allocnos only once for
+     each allocno.  */
   EXECUTE_IF_SET_IN_BITMAP (coloring_allocno_bitmap, 0, i, bi)
     ALLOCNO_COLOR_DATA (ira_allocnos[i])->temp = 0;
   check = n = 0;
+  /* Process each allocno and try to assign a hard register to it by
+     spilling some its conflicting allocnos.  */
   EXECUTE_IF_SET_IN_BITMAP (coloring_allocno_bitmap, 0, i, bi)
     {
       a = ira_allocnos[i];
@@ -2352,6 +2361,9 @@ improve_allocation (void)
       if ((hregno = ALLOCNO_HARD_REGNO (a)) < 0)
 	base_cost = ALLOCNO_UPDATED_MEMORY_COST (a);
       else if (allocno_costs == NULL)
+	/* It means that assigning a hard register is not profitable
+	   (we don't waste memory for hard register costs in this
+	   case).  */
 	continue;
       else
 	base_cost = allocno_costs[ira_class_hard_reg_index[aclass][hregno]];
@@ -2359,6 +2371,8 @@ improve_allocation (void)
       setup_conflict_profitable_regs (a, false,
 				      conflicting_regs, profitable_hard_regs);
       class_size = ira_class_hard_regs_num[aclass];
+      /* Set up cost improvement for usage of each profitable hard
+	 register for allocno A.  */
       for (j = 0; j < class_size; j++)
 	{
 	  hregno = ira_class_hard_regs[aclass][j];
@@ -2374,9 +2388,17 @@ improve_allocation (void)
 	    try_p = true;
 	}
       if (! try_p)
+	/* There is no chance to improve the allocation cost by
+	   assigning hard register to allocno A even without spilling
+	   conflicting allocnos.  */
 	continue;
       mode = ALLOCNO_MODE (a);
       nwords = ALLOCNO_NUM_OBJECTS (a);
+      /* Process each allocno conflicting with A and update the cost
+	 improvement for profitable hard registers of A.  To use a
+	 hard register for A we need to spill some conflicting
+	 allocnos and that creates penalty for the cost
+	 improvement.  */
       for (word = 0; word < nwords; word++)
 	{
 	  ira_object_t conflict_obj;
@@ -2388,6 +2410,9 @@ improve_allocation (void)
 	      ira_allocno_t conflict_a = OBJECT_ALLOCNO (conflict_obj);
 
 	      if (ALLOCNO_COLOR_DATA (conflict_a)->temp == check)
+		/* We already processed this conflicting allocno
+		   because we processed earlier another object of the
+		   conflicting allocno.  */
 		continue;
 	      ALLOCNO_COLOR_DATA (conflict_a)->temp = check;
 	      if ((conflict_hregno = ALLOCNO_HARD_REGNO (conflict_a)) < 0)
@@ -2422,6 +2447,8 @@ improve_allocation (void)
 	}
       min_cost = INT_MAX;
       best = -1;
+      /* Now we choose hard register for A which results in highest
+	 allocation cost improvement.  */
       for (j = 0; j < class_size; j++)
 	{
 	  hregno = ira_class_hard_regs[aclass][j];
@@ -2434,8 +2461,13 @@ improve_allocation (void)
 	    }
 	}
       if (min_cost >= 0)
+	/* We are in a situation when assigning any hard register to A
+	   by spilling some conflicting allocnos does not improve the
+	   allocation cost.  */
 	continue;
       nregs = hard_regno_nregs[best][mode];
+      /* Now spill conflicting allocnos which contain a hard register
+	 of A when we assign the best chosen hard register to it.  */
       for (word = 0; word < nwords; word++)
 	{
 	  ira_object_t conflict_obj;
@@ -2462,6 +2494,7 @@ improve_allocation (void)
 			 ALLOCNO_NUM (a), ALLOCNO_REGNO (a));
 	    }
 	}
+      /* Assign the best chosen hard register to A.  */
       ALLOCNO_HARD_REGNO (a) = best;
       if (internal_flag_ira_verbose > 2 && ira_dump_file != NULL)
 	fprintf (ira_dump_file, "Assigning %d to a%dr%d\n",
@@ -2469,6 +2502,15 @@ improve_allocation (void)
     }
   if (n == 0)
     return;
+  /* We spilled some allocnos to assign their hard registers to other
+     allocnos.  The spilled allocnos are now in array
+     'sorted_allocnos'.  There is still a possibility that some of the
+     spilled allocnos can get hard registers.  So let us try assign
+     them hard registers again (just a reminder -- function
+     'assign_hard_reg' assigns hard registers only if it is possible
+     and profitable).  We process the spilled allocnos with biggest
+     benefit to get hard register first -- see function
+     'allocno_cost_compare_func'.  */
   qsort (sorted_allocnos, n, sizeof (ira_allocno_t),
 	 allocno_cost_compare_func);
   for (j = 0; j < n; j++)

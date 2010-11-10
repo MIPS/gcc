@@ -1,3 +1,17 @@
+2010-11-10  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* ira.c: Add high level comment about improving allocation cost.
+	Remove comment about coalescing.
+
+	* ira-color.c: Change forrest to forest and FIRTS to FIRST in
+	comments.
+	(object_hard_regs_t, object_hard_regs_node_t):
+	Remove meaningless comments.
+	(node_check_tick, improve_allocation): Add more comments.
+
+	* ira-int.h (target_ira_int): Fix typos in comment for
+	x_ira_max_memory_move_cost.
+	
 2010-11-05  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* ira-build.c: (ira_create_object): Remove initialization of

@@ -768,7 +768,7 @@ struct target_ira_int {
   move_table *x_ira_register_move_cost[MAX_MACHINE_MODE];
 
   /* Array analogs of the macros MEMORY_MOVE_COST and
-     REGISTER_MOVE_COST but they contain maximumal cost not minimumal as
+     REGISTER_MOVE_COST but they contain maximal cost not minimal as
      the previous two ones do.  */
   short int x_ira_max_memory_move_cost[MAX_MACHINE_MODE][N_REG_CLASSES][2];
   move_table *x_ira_max_register_move_cost[MAX_MACHINE_MODE];

@@ -187,8 +187,6 @@ along with GCC; see the file COPYING3.  If not see
          used to figure out trivial colorability of allocnos.  The
          approximation is a pretty rare case.
 
-       * Optional aggressive coalescing of allocnos in the region.
-
        * Putting allocnos onto the coloring stack.  IRA uses Briggs
          optimistic coloring which is a major improvement over
          Chaitin's coloring.  Therefore IRA does not spill allocnos at
@@ -218,6 +216,13 @@ along with GCC; see the file COPYING3.  If not see
          allocation cost which reflects the cost of usage of the
          hard-register for the allocno and cost of usage of the
          hard-register for allocnos conflicting with given allocno.
+
+       * Chaitin-Briggs coloring assigns as many pseudos as possible
+         to hard registers.  After coloringh we try to improve
+         allocation with cost point of view.  We improve the
+         allocation by spilling some allocnos and assigning the freed
+         hard registers to other allocnos if it decreases the overall
+         allocation cost.
 
        * After allono assigning in the region, IRA modifies the hard
          register and memory costs for the corresponding allocnos in
