@@ -404,6 +404,12 @@ cgraph_estimate_growth (struct cgraph_node *node)
   if (cgraph_will_be_removed_from_program_if_no_direct_calls (node)
       && !DECL_EXTERNAL (node->decl) && !self_recursive)
     growth -= node->global.size;
+  /* COMDAT functions are very often not shared across multiple units since they
+     come from various template instantiations.  Take this into account.  */
+  else  if (DECL_COMDAT (node->decl) && !self_recursive
+	    && cgraph_can_remove_if_no_direct_calls_p (node))
+    growth -= (node->global.size
+	       * (100 - PARAM_VALUE (PARAM_COMDAT_SHARING_PROBABILITY)) + 50) / 100;
 
   node->global.estimated_growth = growth;
   return growth;
@@ -1407,6 +1413,14 @@ cgraph_flatten (struct cgraph_node *node)
 	  continue;
 	}
 
+      if (gimple_in_ssa_p (DECL_STRUCT_FUNCTION (node->decl))
+	  != gimple_in_ssa_p (DECL_STRUCT_FUNCTION (e->callee->decl)))
+	{
+	  if (dump_file)
+	    fprintf (dump_file, "Not inlining: SSA form does not match.\n");
+	  continue;
+	}
+
       /* Inline the edge and flatten the inline clone.  Avoid
          recursing through the original node if the node was cloned.  */
       if (dump_file)
@@ -1578,16 +1592,15 @@ cgraph_decide_inlining (void)
   return 0;
 }
 
-/* Return true when N is leaf function.  Accept cheap (pure&const) builtins
+/* Return true when N is leaf function.  Accept cheap builtins
    in leaf functions.  */
+
 static bool
 leaf_node_p (struct cgraph_node *n)
 {
   struct cgraph_edge *e;
   for (e = n->callees; e; e = e->next_callee)
-    if (!DECL_BUILT_IN (e->callee->decl)
-	|| (!TREE_READONLY (e->callee->decl)
-	    || DECL_PURE_P (e->callee->decl)))
+    if (!is_inexpensive_builtin (e->callee->decl))
       return false;
   return true;
 }
