@@ -553,6 +553,7 @@ const char *host_detect_local_cpu (int argc, const char **argv)
 	  cpu = "core2";
 	  break;
 	case 0x25:
+	case 0x2c:
 	case 0x2f:
 	  /* FIXME: Optimize for Westmere.  */
 	  cpu = "core2";
