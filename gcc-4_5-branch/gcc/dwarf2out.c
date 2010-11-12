@@ -4203,7 +4203,8 @@ enum dw_val_class
   dw_val_class_str,
   dw_val_class_macptr,
   dw_val_class_file,
-  dw_val_class_data8
+  dw_val_class_data8,
+  dw_val_class_decl_ref
 };
 
 /* Describe a floating point constant value, or a vector constant value.  */
@@ -4241,6 +4242,7 @@ typedef struct GTY(()) dw_val_struct {
       unsigned char GTY ((tag ("dw_val_class_flag"))) val_flag;
       struct dwarf_file_data * GTY ((tag ("dw_val_class_file"))) val_file;
       unsigned char GTY ((tag ("dw_val_class_data8"))) val_data8[8];
+      tree GTY ((tag ("dw_val_class_decl_ref"))) val_decl_ref;
     }
   GTY ((desc ("%1.val_class"))) v;
 }
@@ -4272,6 +4274,8 @@ typedef struct GTY(()) dw_loc_list_struct {
 		      Only on head of list */
   const char *section; /* Section this loclist is relative to */
   dw_loc_descr_ref expr;
+  hashval_t hash;
+  bool emitted;
 } dw_loc_list_node;
 
 #if defined (DWARF2_DEBUGGING_INFO) || defined (DWARF2_UNWIND_INFO)
@@ -4601,6 +4605,8 @@ dwarf_stack_op_name (unsigned int op)
       return "DW_OP_GNU_uninit";
     case DW_OP_GNU_encoded_addr:
       return "DW_OP_GNU_encoded_addr";
+    case DW_OP_GNU_implicit_pointer:
+      return "DW_OP_GNU_implicit_pointer";
 
     default:
       return "OP_<unknown>";
@@ -4705,6 +4711,9 @@ loc_list_plus_const (dw_loc_list_ref list_head, HOST_WIDE_INT offset)
     loc_descr_plus_const (&d->expr, offset);
 }
 #endif
+
+#define DWARF_REF_SIZE	\
+  (dwarf_version == 2 ? DWARF2_ADDR_SIZE : DWARF_OFFSET_SIZE)
 
 /* Return the size of a location descriptor.  */
 
@@ -4812,11 +4821,14 @@ size_of_loc_descr (dw_loc_descr_ref loc)
       size += 4;
       break;
     case DW_OP_call_ref:
-      size += DWARF2_ADDR_SIZE;
+      size += DWARF_REF_SIZE;
       break;
     case DW_OP_implicit_value:
       size += size_of_uleb128 (loc->dw_loc_oprnd1.v.val_unsigned)
 	      + loc->dw_loc_oprnd1.v.val_unsigned;
+      break;
+    case DW_OP_GNU_implicit_pointer:
+      size += DWARF_REF_SIZE + size_of_sleb128 (loc->dw_loc_oprnd2.v.val_int);
       break;
     default:
       break;
@@ -4855,6 +4867,7 @@ size_of_locs (dw_loc_descr_ref loc)
 
 #ifdef DWARF2_DEBUGGING_INFO
 static HOST_WIDE_INT extract_int (const unsigned char *, unsigned);
+static void get_ref_die_offset_label (char *, dw_die_ref);
 #endif
 
 /* Output location description stack opcode's operands (if any).  */
@@ -5075,6 +5088,21 @@ output_loc_operands (dw_loc_descr_ref loc)
 	}
       break;
 
+    case DW_OP_GNU_implicit_pointer:
+      {
+#ifdef DWARF2_DEBUGGING_INFO
+	char label[MAX_ARTIFICIAL_LABEL_BYTES
+		   + HOST_BITS_PER_WIDE_INT / 2 + 2];
+	gcc_assert (val1->val_class == dw_val_class_die_ref);
+	get_ref_die_offset_label (label, val1->v.val_die_ref.die);
+	dw2_asm_output_offset (DWARF_REF_SIZE, label, debug_info_section, NULL);
+	dw2_asm_output_data_sleb128 (val2->v.val_int, NULL);
+#else
+	gcc_unreachable ();
+#endif
+      }
+      break;
+
     default:
       /* Other codes have no operands.  */
       break;
@@ -5211,6 +5239,10 @@ output_loc_operands_raw (dw_loc_descr_ref loc)
       dw2_asm_output_data_uleb128_raw (val1->v.val_unsigned);
       fputc (',', asm_out_file);
       dw2_asm_output_data_sleb128_raw (val2->v.val_int);
+      break;
+
+    case DW_OP_GNU_implicit_pointer:
+      gcc_unreachable ();
       break;
 
     default:
@@ -6427,6 +6459,14 @@ is_tagged_type (const_tree type)
 
   return (code == RECORD_TYPE || code == UNION_TYPE
 	  || code == QUAL_UNION_TYPE || code == ENUMERAL_TYPE);
+}
+
+/* Set label to debug_info_section_label + die_offset of a DIE reference.  */
+
+static void
+get_ref_die_offset_label (char *label, dw_die_ref ref)
+{
+  sprintf (label, "%s+%ld", debug_info_section_label, ref->die_offset);
 }
 
 /* Convert a DIE tag into its string name.  */
@@ -10663,6 +10703,10 @@ output_loc_list (dw_loc_list_ref list_head)
 {
   dw_loc_list_ref curr = list_head;
 
+  if (list_head->emitted)
+    return;
+  list_head->emitted = true;
+
   ASM_OUTPUT_LABEL (asm_out_file, list_head->ll_symbol);
 
   /* Walk the location list, and output each range + expression.  */
@@ -13465,6 +13509,7 @@ mem_loc_descriptor (rtx rtl, enum machine_mode mode,
     case CONCAT:
     case CONCATN:
     case VAR_LOCATION:
+    case DEBUG_IMPLICIT_PTR:
       expansion_failed (NULL_TREE, rtl,
 			"CONCAT/CONCATN/VAR_LOCATION is handled only by loc_descriptor");
       return 0;
@@ -14078,6 +14123,37 @@ concatn_loc_descriptor (rtx concatn, enum var_init_status initialized)
   return cc_loc_result;
 }
 
+/* Helper function for loc_descriptor.  Return DW_OP_GNU_implicit_pointer
+   for DEBUG_IMPLICIT_PTR RTL.  */
+
+static dw_loc_descr_ref
+implicit_ptr_descriptor (rtx rtl, HOST_WIDE_INT offset)
+{
+  dw_loc_descr_ref ret;
+  dw_die_ref ref;
+
+  if (dwarf_strict)
+    return NULL;
+  gcc_assert (TREE_CODE (DEBUG_IMPLICIT_PTR_DECL (rtl)) == VAR_DECL
+	      || TREE_CODE (DEBUG_IMPLICIT_PTR_DECL (rtl)) == PARM_DECL
+	      || TREE_CODE (DEBUG_IMPLICIT_PTR_DECL (rtl)) == RESULT_DECL);
+  ref = lookup_decl_die (DEBUG_IMPLICIT_PTR_DECL (rtl));
+  ret = new_loc_descr (DW_OP_GNU_implicit_pointer, 0, offset);
+  ret->dw_loc_oprnd2.val_class = dw_val_class_const;
+  if (ref)
+    {
+      ret->dw_loc_oprnd1.val_class = dw_val_class_die_ref;
+      ret->dw_loc_oprnd1.v.val_die_ref.die = ref;
+      ret->dw_loc_oprnd1.v.val_die_ref.external = 0;
+    }
+  else
+    {
+      ret->dw_loc_oprnd1.val_class = dw_val_class_decl_ref;
+      ret->dw_loc_oprnd1.v.val_decl_ref = DEBUG_IMPLICIT_PTR_DECL (rtl);
+    }
+  return ret;
+}
+
 /* Output a proper Dwarf location descriptor for a variable or parameter
    which is either allocated in a register or in a memory location.  For a
    register, we just generate an OP_REG and the register number.  For a
@@ -14320,6 +14396,19 @@ loc_descriptor (rtx rtl, enum machine_mode mode,
 	}
       break;
 
+    case DEBUG_IMPLICIT_PTR:
+      loc_result = implicit_ptr_descriptor (rtl, 0);
+      break;
+
+    case PLUS:
+      if (GET_CODE (XEXP (rtl, 0)) == DEBUG_IMPLICIT_PTR
+	  && CONST_INT_P (XEXP (rtl, 1)))
+	{
+	  loc_result
+	    = implicit_ptr_descriptor (XEXP (rtl, 0), INTVAL (XEXP (rtl, 1)));
+	  break;
+	}
+      /* FALLTHRU */
     default:
       if (GET_MODE_CLASS (mode) == MODE_INT && GET_MODE (rtl) == mode
 	  && GET_MODE_SIZE (GET_MODE (rtl)) <= DWARF2_ADDR_SIZE
@@ -18967,7 +19056,7 @@ gen_variable_die (tree decl, tree origin, dw_die_ref context_die)
   if (declaration)
     add_AT_flag (var_die, DW_AT_declaration, 1);
 
-  if (decl && (DECL_ABSTRACT (decl) || declaration))
+  if (decl && (DECL_ABSTRACT (decl) || declaration || old_die == NULL))
     equate_decl_number_to_die (decl, var_die);
 
   if (! declaration
@@ -21828,6 +21917,17 @@ resolve_addr_in_expr (dw_loc_descr_ref loc)
 	    && loc->dw_loc_oprnd2.val_class == dw_val_class_addr
 	    && resolve_one_addr (&loc->dw_loc_oprnd2.v.val_addr, NULL)))
       return false;
+    else if (loc->dw_loc_opc == DW_OP_GNU_implicit_pointer
+	     && loc->dw_loc_oprnd1.val_class == dw_val_class_decl_ref)
+      {
+	dw_die_ref ref
+	  = lookup_decl_die (loc->dw_loc_oprnd1.v.val_decl_ref);
+	if (ref == NULL)
+	  return false;
+	loc->dw_loc_oprnd1.val_class = dw_val_class_die_ref;
+	loc->dw_loc_oprnd1.v.val_die_ref.die = ref;
+	loc->dw_loc_oprnd1.v.val_die_ref.external = 0;
+      }
   return true;
 }
 
@@ -21893,7 +21993,376 @@ resolve_addr (dw_die_ref die)
 
   FOR_EACH_CHILD (die, c, resolve_addr (c));
 }
+
+/* Helper routines for optimize_location_lists.
+   This pass tries to share identical local lists in .debug_loc
+   section.  */
 
+/* Iteratively hash operands of LOC opcode.  */
+
+static inline hashval_t
+hash_loc_operands (dw_loc_descr_ref loc, hashval_t hash)
+{
+  dw_val_ref val1 = &loc->dw_loc_oprnd1;
+  dw_val_ref val2 = &loc->dw_loc_oprnd2;
+
+  switch (loc->dw_loc_opc)
+    {
+    case DW_OP_const4u:
+    case DW_OP_const8u:
+      if (loc->dtprel)
+	goto hash_addr;
+      /* FALLTHRU */
+    case DW_OP_const1u:
+    case DW_OP_const1s:
+    case DW_OP_const2u:
+    case DW_OP_const2s:
+    case DW_OP_const4s:
+    case DW_OP_const8s:
+    case DW_OP_constu:
+    case DW_OP_consts:
+    case DW_OP_pick:
+    case DW_OP_plus_uconst:
+    case DW_OP_breg0:
+    case DW_OP_breg1:
+    case DW_OP_breg2:
+    case DW_OP_breg3:
+    case DW_OP_breg4:
+    case DW_OP_breg5:
+    case DW_OP_breg6:
+    case DW_OP_breg7:
+    case DW_OP_breg8:
+    case DW_OP_breg9:
+    case DW_OP_breg10:
+    case DW_OP_breg11:
+    case DW_OP_breg12:
+    case DW_OP_breg13:
+    case DW_OP_breg14:
+    case DW_OP_breg15:
+    case DW_OP_breg16:
+    case DW_OP_breg17:
+    case DW_OP_breg18:
+    case DW_OP_breg19:
+    case DW_OP_breg20:
+    case DW_OP_breg21:
+    case DW_OP_breg22:
+    case DW_OP_breg23:
+    case DW_OP_breg24:
+    case DW_OP_breg25:
+    case DW_OP_breg26:
+    case DW_OP_breg27:
+    case DW_OP_breg28:
+    case DW_OP_breg29:
+    case DW_OP_breg30:
+    case DW_OP_breg31:
+    case DW_OP_regx:
+    case DW_OP_fbreg:
+    case DW_OP_piece:
+    case DW_OP_deref_size:
+    case DW_OP_xderef_size:
+      hash = iterative_hash_object (val1->v.val_int, hash);
+      break;
+    case DW_OP_skip:
+    case DW_OP_bra:
+      {
+	int offset;
+
+	gcc_assert (val1->val_class == dw_val_class_loc);
+	offset = val1->v.val_loc->dw_loc_addr - (loc->dw_loc_addr + 3);
+	hash = iterative_hash_object (offset, hash);
+      }
+      break;
+    case DW_OP_implicit_value:
+      hash = iterative_hash_object (val1->v.val_unsigned, hash);
+      switch (val2->val_class)
+	{
+	case dw_val_class_const:
+	  hash = iterative_hash_object (val2->v.val_int, hash);
+	  break;
+	case dw_val_class_vec:
+	  {
+	    unsigned int elt_size = val2->v.val_vec.elt_size;
+	    unsigned int len = val2->v.val_vec.length;
+
+	    hash = iterative_hash_object (elt_size, hash);
+	    hash = iterative_hash_object (len, hash);
+	    hash = iterative_hash (val2->v.val_vec.array,
+				   len * elt_size, hash);
+	  }
+	  break;
+	case dw_val_class_const_double:
+	  hash = iterative_hash_object (val2->v.val_double.low, hash);
+	  hash = iterative_hash_object (val2->v.val_double.high, hash);
+	  break;
+	case dw_val_class_addr:
+	  hash = iterative_hash_rtx (val2->v.val_addr, hash);
+	  break;
+	default:
+	  gcc_unreachable ();
+	}
+      break;
+    case DW_OP_bregx:
+    case DW_OP_bit_piece:
+      hash = iterative_hash_object (val1->v.val_int, hash);
+      hash = iterative_hash_object (val2->v.val_int, hash);
+      break;
+    case DW_OP_addr:
+    hash_addr:
+      if (loc->dtprel)
+	{
+	  unsigned char dtprel = 0xd1;
+	  hash = iterative_hash_object (dtprel, hash);
+	}
+      hash = iterative_hash_rtx (val1->v.val_addr, hash);
+      break;
+    case DW_OP_GNU_implicit_pointer:
+      hash = iterative_hash_object (val2->v.val_int, hash);
+      break;
+
+    default:
+      /* Other codes have no operands.  */
+      break;
+    }
+  return hash;
+}
+
+/* Iteratively hash the whole DWARF location expression LOC.  */
+
+static inline hashval_t
+hash_locs (dw_loc_descr_ref loc, hashval_t hash)
+{
+  dw_loc_descr_ref l;
+  bool sizes_computed = false;
+  /* Compute sizes, so that DW_OP_skip/DW_OP_bra can be checksummed.  */
+  size_of_locs (loc);
+
+  for (l = loc; l != NULL; l = l->dw_loc_next)
+    {
+      enum dwarf_location_atom opc = l->dw_loc_opc;
+      hash = iterative_hash_object (opc, hash);
+      if ((opc == DW_OP_skip || opc == DW_OP_bra) && !sizes_computed)
+	{
+	  size_of_locs (loc);
+	  sizes_computed = true;
+	}
+      hash = hash_loc_operands (l, hash);
+    }
+  return hash;
+}
+
+/* Compute hash of the whole location list LIST_HEAD.  */
+
+static inline void
+hash_loc_list (dw_loc_list_ref list_head)
+{
+  dw_loc_list_ref curr = list_head;
+  hashval_t hash = 0;
+
+  for (curr = list_head; curr != NULL; curr = curr->dw_loc_next)
+    {
+      hash = iterative_hash (curr->begin, strlen (curr->begin) + 1, hash);
+      hash = iterative_hash (curr->end, strlen (curr->end) + 1, hash);
+      if (curr->section)
+	hash = iterative_hash (curr->section, strlen (curr->section) + 1,
+			       hash);
+      hash = hash_locs (curr->expr, hash);
+    }
+  list_head->hash = hash;
+}
+
+/* Return true if X and Y opcodes have the same operands.  */
+
+static inline bool
+compare_loc_operands (dw_loc_descr_ref x, dw_loc_descr_ref y)
+{
+  dw_val_ref valx1 = &x->dw_loc_oprnd1;
+  dw_val_ref valx2 = &x->dw_loc_oprnd2;
+  dw_val_ref valy1 = &y->dw_loc_oprnd1;
+  dw_val_ref valy2 = &y->dw_loc_oprnd2;
+
+  switch (x->dw_loc_opc)
+    {
+    case DW_OP_const4u:
+    case DW_OP_const8u:
+      if (x->dtprel)
+	goto hash_addr;
+      /* FALLTHRU */
+    case DW_OP_const1u:
+    case DW_OP_const1s:
+    case DW_OP_const2u:
+    case DW_OP_const2s:
+    case DW_OP_const4s:
+    case DW_OP_const8s:
+    case DW_OP_constu:
+    case DW_OP_consts:
+    case DW_OP_pick:
+    case DW_OP_plus_uconst:
+    case DW_OP_breg0:
+    case DW_OP_breg1:
+    case DW_OP_breg2:
+    case DW_OP_breg3:
+    case DW_OP_breg4:
+    case DW_OP_breg5:
+    case DW_OP_breg6:
+    case DW_OP_breg7:
+    case DW_OP_breg8:
+    case DW_OP_breg9:
+    case DW_OP_breg10:
+    case DW_OP_breg11:
+    case DW_OP_breg12:
+    case DW_OP_breg13:
+    case DW_OP_breg14:
+    case DW_OP_breg15:
+    case DW_OP_breg16:
+    case DW_OP_breg17:
+    case DW_OP_breg18:
+    case DW_OP_breg19:
+    case DW_OP_breg20:
+    case DW_OP_breg21:
+    case DW_OP_breg22:
+    case DW_OP_breg23:
+    case DW_OP_breg24:
+    case DW_OP_breg25:
+    case DW_OP_breg26:
+    case DW_OP_breg27:
+    case DW_OP_breg28:
+    case DW_OP_breg29:
+    case DW_OP_breg30:
+    case DW_OP_breg31:
+    case DW_OP_regx:
+    case DW_OP_fbreg:
+    case DW_OP_piece:
+    case DW_OP_deref_size:
+    case DW_OP_xderef_size:
+      return valx1->v.val_int == valy1->v.val_int;
+    case DW_OP_skip:
+    case DW_OP_bra:
+      gcc_assert (valx1->val_class == dw_val_class_loc
+		  && valy1->val_class == dw_val_class_loc
+		  && x->dw_loc_addr == y->dw_loc_addr);
+      return valx1->v.val_loc->dw_loc_addr == valy1->v.val_loc->dw_loc_addr;
+    case DW_OP_implicit_value:
+      if (valx1->v.val_unsigned != valy1->v.val_unsigned
+	  || valx2->val_class != valy2->val_class)
+	return false;
+      switch (valx2->val_class)
+	{
+	case dw_val_class_const:
+	  return valx2->v.val_int == valy2->v.val_int;
+	case dw_val_class_vec:
+	  return valx2->v.val_vec.elt_size == valy2->v.val_vec.elt_size
+		 && valx2->v.val_vec.length == valy2->v.val_vec.length
+		 && memcmp (valx2->v.val_vec.array, valy2->v.val_vec.array,
+			    valx2->v.val_vec.elt_size
+			    * valx2->v.val_vec.length) == 0;
+	case dw_val_class_const_double:
+	  return valx2->v.val_double.low == valy2->v.val_double.low
+		 && valx2->v.val_double.high == valy2->v.val_double.high;
+	case dw_val_class_addr:
+	  return rtx_equal_p (valx2->v.val_addr, valy2->v.val_addr);
+	default:
+	  gcc_unreachable ();
+	}
+    case DW_OP_bregx:
+    case DW_OP_bit_piece:
+      return valx1->v.val_int == valy1->v.val_int
+	     && valx2->v.val_int == valy2->v.val_int;
+    case DW_OP_addr:
+    hash_addr:
+      return rtx_equal_p (valx1->v.val_addr, valx2->v.val_addr);
+    case DW_OP_GNU_implicit_pointer:
+      return valx1->val_class == dw_val_class_die_ref
+	     && valx1->val_class == valy1->val_class
+	     && valx1->v.val_die_ref.die == valy1->v.val_die_ref.die
+	     && valx2->v.val_int == valy2->v.val_int;
+    default:
+      /* Other codes have no operands.  */
+      return true;
+    }
+}
+
+/* Return true if DWARF location expressions X and Y are the same.  */
+
+static inline bool
+compare_locs (dw_loc_descr_ref x, dw_loc_descr_ref y)
+{
+  for (; x != NULL && y != NULL; x = x->dw_loc_next, y = y->dw_loc_next)
+    if (x->dw_loc_opc != y->dw_loc_opc
+	|| x->dtprel != y->dtprel
+	|| !compare_loc_operands (x, y))
+      break;
+  return x == NULL && y == NULL;
+}
+
+/* Return precomputed hash of location list X.  */
+
+static hashval_t
+loc_list_hash (const void *x)
+{
+  return ((const struct dw_loc_list_struct *) x)->hash;
+}
+
+/* Return 1 if location lists X and Y are the same.  */
+
+static int
+loc_list_eq (const void *x, const void *y)
+{
+  const struct dw_loc_list_struct *a = (const struct dw_loc_list_struct *) x;
+  const struct dw_loc_list_struct *b = (const struct dw_loc_list_struct *) y;
+  if (a == b)
+    return 1;
+  if (a->hash != b->hash)
+    return 0;
+  for (; a != NULL && b != NULL; a = a->dw_loc_next, b = b->dw_loc_next)
+    if (strcmp (a->begin, b->begin) != 0
+	|| strcmp (a->end, b->end) != 0
+	|| (a->section == NULL) != (b->section == NULL)
+	|| (a->section && strcmp (a->section, b->section) != 0)
+	|| !compare_locs (a->expr, b->expr))
+      break;
+  return a == NULL && b == NULL;
+}
+
+/* Recursively optimize location lists referenced from DIE
+   children and share them whenever possible.  */
+
+static void
+optimize_location_lists_1 (dw_die_ref die, htab_t htab)
+{
+  dw_die_ref c;
+  dw_attr_ref a;
+  unsigned ix;
+  void **slot;
+
+  for (ix = 0; VEC_iterate (dw_attr_node, die->die_attr, ix, a); ix++)
+    if (AT_class (a) == dw_val_class_loc_list)
+      {
+	dw_loc_list_ref list = AT_loc_list (a);
+	/* TODO: perform some optimizations here, before hashing
+	   it and storing into the hash table.  */
+	hash_loc_list (list);
+	slot = htab_find_slot_with_hash (htab, list, list->hash,
+					 INSERT);
+	if (*slot == NULL)
+	  *slot = (void *) list;
+	else
+	  a->dw_attr_val.v.val_loc_list = (dw_loc_list_ref) *slot;
+      }
+
+  FOR_EACH_CHILD (die, c, optimize_location_lists_1 (c, htab));
+}
+
+/* Optimize location lists referenced from DIE
+   children and share them whenever possible.  */
+
+static void
+optimize_location_lists (dw_die_ref die)
+{
+  htab_t htab = htab_create (500, loc_list_hash, loc_list_eq, NULL);
+  optimize_location_lists_1 (die, htab);
+  htab_delete (htab);
+}
+
 /* Output stuff that dwarf requires at the end of every file,
    and generate the DWARF-2 debugging info.  */
 
@@ -22108,23 +22577,15 @@ dwarf2out_finish (const char *filename)
 	add_ranges (NULL);
     }
 
-  /* Output location list section if necessary.  */
-  if (have_location_lists)
-    {
-      /* Output the location lists info.  */
-      switch_to_section (debug_loc_section);
-      ASM_GENERATE_INTERNAL_LABEL (loc_section_label,
-				   DEBUG_LOC_SECTION_LABEL, 0);
-      ASM_OUTPUT_LABEL (asm_out_file, loc_section_label);
-      output_location_lists (die);
-    }
-
   if (debug_info_level >= DINFO_LEVEL_NORMAL)
     add_AT_lineptr (comp_unit_die, DW_AT_stmt_list,
 		    debug_line_section_label);
 
   if (debug_info_level >= DINFO_LEVEL_VERBOSE)
     add_AT_macptr (comp_unit_die, DW_AT_macro_info, macinfo_section_label);
+
+  if (have_location_lists)
+    optimize_location_lists (die);
 
   /* Output all of the compilation units.  We put the main one last so that
      the offsets are available to output_pubnames.  */
@@ -22159,6 +22620,17 @@ dwarf2out_finish (const char *filename)
   /* Output the abbreviation table.  */
   switch_to_section (debug_abbrev_section);
   output_abbrev_section ();
+
+  /* Output location list section if necessary.  */
+  if (have_location_lists)
+    {
+      /* Output the location lists info.  */
+      switch_to_section (debug_loc_section);
+      ASM_GENERATE_INTERNAL_LABEL (loc_section_label,
+				   DEBUG_LOC_SECTION_LABEL, 0);
+      ASM_OUTPUT_LABEL (asm_out_file, loc_section_label);
+      output_location_lists (die);
+    }
 
   /* Output public names table if necessary.  */
   if (!VEC_empty (pubname_entry, pubname_table))

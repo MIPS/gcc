@@ -29,6 +29,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "vec.h"
 #include "fixed-value.h"
 #include "alias.h"
+#include "hashtab.h"
 
 #undef FFS  /* Some systems predefine this symbol; don't let it interfere.  */
 #undef FLOAT /* Likewise.  */
@@ -934,6 +935,9 @@ extern const char * const reg_note_name[];
 /* DEBUG_EXPR_DECL corresponding to a DEBUG_EXPR RTX.  */
 #define DEBUG_EXPR_TREE_DECL(RTX) XCTREE (RTX, 0, DEBUG_EXPR)
 
+/* VAR_DECL/PARM_DECL DEBUG_IMPLICIT_PTR takes address of.  */
+#define DEBUG_IMPLICIT_PTR_DECL(RTX) XCTREE (RTX, 0, DEBUG_IMPLICIT_PTR)
+
 /* Possible initialization status of a variable.   When requested
    by the user, this information is tracked and recorded in the DWARF
    debug information, along with the variable's location.  */
@@ -1586,6 +1590,7 @@ extern unsigned int rtx_size (const_rtx);
 extern rtx shallow_copy_rtx_stat (const_rtx MEM_STAT_DECL);
 #define shallow_copy_rtx(a) shallow_copy_rtx_stat (a MEM_STAT_INFO)
 extern int rtx_equal_p (const_rtx, const_rtx);
+extern hashval_t iterative_hash_rtx (const_rtx, hashval_t);
 
 /* In emit-rtl.c */
 extern rtvec gen_rtvec_v (int, rtx *);
@@ -2377,6 +2382,8 @@ extern rtx emit_library_call_value (rtx, rtx, enum libcall_type,
 /* In varasm.c */
 extern void init_varasm_once (void);
 extern enum tls_model decl_default_tls_model (const_tree);
+
+extern rtx make_debug_expr_from_rtl (const_rtx);
 
 /* In rtl.c */
 extern void traverse_md_constants (int (*) (void **, void *), void *);

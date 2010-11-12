@@ -866,7 +866,8 @@ HOSTHOOKS_DEF_H = hosthooks-def.h $(HOOKS_H)
 LANGHOOKS_DEF_H = langhooks-def.h $(HOOKS_H)
 TARGET_DEF_H = target-def.h $(HOOKS_H) targhooks.h
 RTL_BASE_H = rtl.h rtl.def $(MACHMODE_H) reg-notes.def insn-notes.def \
-  $(INPUT_H) $(REAL_H) statistics.h vec.h $(FIXED_VALUE_H) alias.h
+  $(INPUT_H) $(REAL_H) statistics.h vec.h $(FIXED_VALUE_H) alias.h \
+  $(HASHTAB_H)
 FIXED_VALUE_H = fixed-value.h $(MACHMODE_H) double-int.h
 RTL_H = $(RTL_BASE_H) genrtl.h
 PARAMS_H = params.h params.def

@@ -1,3 +1,140 @@
+2010-11-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/46171
+	* df-problems.c (struct dead_debug_use, struct dead_debug): Move
+	earlier.
+	(df_set_unused_notes_for_mw, df_create_unused_note): Add DEBUG
+	argument, call dead_debug_reset when adding REG_UNUSED note.
+	(dead_debug_reset): New function.
+	(df_note_bb_compute): Adjust df_set_unused_notes_for_mw and
+	df_create_unused_note callers.
+
+2010-11-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/46252
+	* reload1.c (delete_dead_insn): Use prev_active_insn instead of
+	prev_real_insn.
+	* gcse.c (insert_insn_end_basic_block): Likewise.
+
+2010-11-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/46255
+	* tree-cfg.c (gimple_flow_call_edges_add): Use gsi_last_nondebug_bb
+	instead of gsi_last_bb.
+
+2010-10-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/46066
+	* tree-parloops.c (create_parallel_loop): Use gsi_last_nondebug_bb
+	instead of gsi_last_bb.
+
+2010-10-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/46015
+	* c-parser.c (c_parser_statement_after_labels): Call mark_exp_read
+	on computed goto argument.
+
+2010-10-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* cse.c (is_dead_reg): Change into inline function that is not
+	called through for_each_rtx.
+	(set_live_p): Adjust caller.
+	(insn_live_p): Don't reset DEBUG_INSNs here.
+	(struct dead_debug_insn_data): New data. 
+	(count_stores, is_dead_debug_insn, replace_dead_reg): New functions.
+	(delete_trivially_dead_insns): If there is just one setter for the
+	dead reg that is referenced by some DEBUG_INSNs, create a DEBUG_EXPR
+	and add DEBUG_INSN for it right before the removed setter and
+	use the DEBUG_EXPR instead of the dead pseudo.
+
+2010-10-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* rtl.h: Include hashtab.h.
+	(iterative_hash_rtx): New prototype.
+	* rtl.c (iterative_hash_rtx): New function.
+	* dwarf2out.c (dw_loc_list_node): Add hash and emitted fields.
+	(output_loc_list): Return immediately if emitted is set,
+	set it.
+	(hash_loc_operands, hash_locs, hash_loc_list,
+	compare_loc_operands, compare_locs, loc_list_hash, loc_list_eq,
+	optimize_location_lists_1, optimize_location_lists): New function.
+	(dwarf2out_finish): Call optimize_location_lists.
+	* Makefile.in (RTL_BASE_H): Depend on $(HASHTAB_H).
+
+2010-09-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/45630
+	* dwarf2out.c (get_ref_die_offset_label): Use %ld instead of
+	HOST_WIDE_INT_PRINT_DEC to print ref->die_offset.
+	(implicit_ptr_descriptor): Return NULL if dwarf_strict.
+
+2010-09-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* rtl.def (DEBUG_IMPLICIT_PTR): New rtl code.
+	* rtl.h (DEBUG_IMPLICIT_PTR_DECL): Define.
+	* rtl.c (rtx_equal_p_cb, rtx_equal_p): Handle DEBUG_IMPLICIT_PTR.
+	* print-rtl.c (print_rtx): Likewise.
+	* cselib.c (rtx_equal_for_cselib_p, cselib_hash_rtx): Likewise.
+	* cfgexpand.c (expand_debug_expr): Generate DEBUG_IMPLICIT_PTR
+	for ADDR_EXPR with non-addressable object.
+	* dwarf2out.c (enum dw_val_class): Add dw_val_class_decl_ref.
+	(struct dw_val_struct): Add v.val_decl_ref.
+	(dwarf_stack_op_name, output_loc_operands, output_loc_operands_raw):
+	Handle DW_OP_GNU_implicit_pointer.
+	(size_of_loc_descr): Likewise.  Fix up DW_OP_call_ref size.
+	(get_ref_die_offset_label): New function.
+	(implicit_ptr_descriptor): New function.
+	(mem_loc_descriptor): Handle DEBUG_IMPLICIT_PTR.
+	(loc_descriptor): Likewise.
+	(gen_variable_die): Put even definitions into decl_die_table.
+	(resolve_addr_in_expr): Resolve still unresolved
+	DW_OP_GNU_implicit_pointer operands, if it can't be resolved
+	return false.
+	(dwarf2out_finish): Call output_location_lists after outputting
+	.debug_info and .debug_abbrev instead of before.
+
+2010-09-09  Roland McGrath  <roland@redhat.com>
+
+	* dwarf2out.c (DWARF_REF_SIZE): Define.
+	(size_of_loc_descr): Use it for DW_OP_call_ref.
+
+2010-08-04  Bernd Schmidt  <bernds@codesourcery.com>
+
+	PR rtl-optimization/45162
+	* df-problems.c (df_word_lr_bb_local_compute): Ignore DEBUG_INSNs.
+	* dce.c (word_dce_process_block): Likewise.
+
+2010-05-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/44023
+	* df-problems.c (struct dead_debug): Add to_rescan field.
+	(dead_debug_init): Clear to_rescan field.
+	(dead_debug_finish): Rescan all debug insns in to_rescan
+	bitmap and free the bitmap.
+	(dead_debug_insert_before): Instead of rescanning debug insns
+	immediately queue their rescanning until dead_debug_finish.
+	(df_note_bb_compute): After dead_debug_add do continue instead
+	of break.
+
+2010-05-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/43994
+	* df-problems.c (dead_debug_insert_before): Use *DF_REF_REAL_LOC
+	instead of DF_REF_REAL_REG.
+
+2010-05-05  Alexandre Oliva  <aoliva@redhat.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/43478
+	* df-problems.c (struct dead_debug_use, struct dead_debug): New.
+	(dead_debug_init, dead_debug_finish): New functions.
+	(dead_debug_add, dead_debug_insert_before): Likewise.
+	(df_note_bb_compute): Initialize a dead_debug object, add dead
+	debug uses to it, insert debug bind insns before death insns,
+	reset debug insns that refer to pending uses at the end.
+	* rtl.h (make_debug_expr_from_rtl): New prototype.
+	* varasm.c (make_debug_expr_from_rtl): New function.
+
 2010-11-12  Alexander Monakov  <amonakov@ispras.ru>
 
 	Backport from mainline:

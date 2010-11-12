@@ -1,3 +1,8 @@
+2010-10-07  Iain Sandoe  <iains@gcc.gnu.org>
+
+	* objc-act.c (objc_build_message_expr):  Call mark_exp_read () to signal that
+	the receiver has been used.
+
 2010-07-31  Release Manager
 
 	* GCC 4.5.1 released.

@@ -1,3 +1,38 @@
+2010-11-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/46171
+	* gcc.dg/pr46171.c: New test.
+
+2010-11-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/46252
+	* gcc.dg/pr46252.c: New test.
+
+2010-11-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/46255
+	* gcc.dg/pr46255.c: New test.
+
+2010-10-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/46066
+	* gcc.dg/autopar/pr46066.c: New test.
+
+2010-10-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/46015
+	* c-c++-common/Wunused-var-13.c: New test.
+
+2010-10-07  Iain Sandoe  <iains@gcc.gnu.org>
+
+	* objc.dg/set-not-used-1.m: New
+	* obj-c++.dg/set-not-used-1.mm: New.
+
+2010-05-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/44023
+	* gcc.dg/pr44023.c: New test.
+
 2010-11-12  Alexander Monakov  <amonakov@ispras.ru>
 
 	Backport from mainline:

@@ -797,7 +797,7 @@ byte_dce_process_block (basic_block bb, bool redo_out, bitmap au)
   df_byte_lr_simulate_artificial_refs_at_end (bb, local_live);
 
   FOR_BB_INSNS_REVERSE (bb, insn)
-    if (INSN_P (insn))
+    if (NONDEBUG_INSN_P (insn))
       {
 	/* The insn is needed if there is someone who uses the output.  */
 	for (def_rec = DF_INSN_DEFS (insn); *def_rec; def_rec++)
