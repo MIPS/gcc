@@ -546,6 +546,7 @@ finish_goto_stmt (tree destination)
   else
     {
       /* The DESTINATION is being used as an rvalue.  */
+      destination = mark_rvalue_use (destination);
       if (!processing_template_decl)
 	{
 	  destination = decay_conversion (destination);

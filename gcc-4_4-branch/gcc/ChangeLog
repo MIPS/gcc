@@ -1,3 +1,62 @@
+2010-11-06  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	PR debug/45939
+	* var-tracking.c (emit_note_insn_var_location): Make sure that
+	call related var location notes come before the normal ones.
+
+2010-11-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/46099
+	* tree-parloops.c (take_address_of): Add GSI argument.  Return NULL
+	if it is NULL and uid wasn't found in the hash table.  Just fold the
+	result if it is NULL otherwise.  Insert other potentially needed
+	stmts right before current stmt instead of on the entry edge.
+	(struct elv_data): Add gsi and reset fields.
+	(eliminate_local_variables_1): Adjust caller.  If take_address_of
+	failed for debug stmt, set dta->reset and return.
+	(eliminate_local_variables_stmt): Change STMT argument for GSI,
+	pass GSI through to the callback, handle resetting of debug stmts.
+	(eliminate_local_variables): Adjust caller.  Process debug stmts
+	in second phase.
+
+2010-11-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/46252
+	* reload1.c (delete_dead_insn): Use prev_active_insn instead of
+	prev_real_insn.
+	* gcse.c (insert_insn_end_basic_block): Likewise.
+
+2010-11-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/46255
+	* tree-cfg.c (gimple_flow_call_edges_add): Use gsi_last_nondebug_bb
+	instead of gsi_last_bb.
+
+2010-10-29  Richard Henderson  <rth@redhat.com>
+
+	PR rtl-opt/46226
+	* stmt.c (expand_asm_operands): Call do_pending_stack_adjust
+	for asm goto.
+
+2010-10-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/46066
+	* tree-parloops.c (create_parallel_loop): Use gsi_last_nondebug_bb
+	instead of gsi_last_bb.
+
+2010-10-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/46015
+	* c-parser.c (c_parser_statement_after_labels): Call mark_exp_read
+	on computed goto argument.
+
+2010-10-08  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/45656
+	* cse.c (cse_extended_basic_block): Preserve cc0 info across
+	debug isnsn.  Skip them when searching for cc0 setter.
+	(set_live_p): Skip debug insns when searching for cc0 user.
+
 2010-11-12  Jakub Jelinek  <jakub@redhat.com>
 
 	Backport from mainline

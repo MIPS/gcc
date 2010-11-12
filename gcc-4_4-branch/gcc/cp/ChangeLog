@@ -1,3 +1,9 @@
+2010-10-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/46015
+	* semantics.c (finish_goto_stmt): Call mark_rvalue_use on computed
+	goto destination.
+
 2010-10-01  Release Manager
 
 	* GCC 4.4.5 released.
