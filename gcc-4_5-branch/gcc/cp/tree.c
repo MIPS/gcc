@@ -72,7 +72,8 @@ lvalue_p_1 (const_tree ref)
 	  == REFERENCE_TYPE)
     return lvalue_p_1 (TREE_OPERAND (ref, 0));
 
-  if (TREE_CODE (TREE_TYPE (ref)) == REFERENCE_TYPE)
+  if (TREE_TYPE (ref)
+      && TREE_CODE (TREE_TYPE (ref)) == REFERENCE_TYPE)
     {
       /* unnamed rvalue references are rvalues */
       if (TYPE_REF_IS_RVALUE (TREE_TYPE (ref))
@@ -812,7 +813,7 @@ cp_build_qualified_type_real (tree type,
       /* See if we already have an identically qualified type.  Tests
 	 should be equivalent to those in check_qualified_type.  */
       for (t = TYPE_MAIN_VARIANT (type); t; t = TYPE_NEXT_VARIANT (t))
-	if (cp_type_quals (t) == type_quals
+	if (TREE_TYPE (t) == element_type
 	    && TYPE_NAME (t) == TYPE_NAME (type)
 	    && TYPE_CONTEXT (t) == TYPE_CONTEXT (type)
 	    && attribute_list_equal (TYPE_ATTRIBUTES (t),
