@@ -1,3 +1,134 @@
+2010-11-12  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline
+	2010-11-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/43690
+	* c-c++-common/pr43690.c: New test.
+
+	2010-11-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/46107
+	* gcc.c-torture/compile/pr46107.c: New test.
+
+2010-11-10  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/46419
+	* gcc-target/i386/pr46419.c: New test.
+
+2010-11-08  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2010-11-05  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc.target/i386/i386.exp (FLAGS): Remove.
+	Wrap gcc_target_compile with $clearcap_ldflags added to options.
+
+2010-11-03  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	Backport from mainline:
+	PR libgfortran/46010
+	* gfortran.dg/namelist_66.f90: New test.
+
+2010-10-22  Uros Bizjak  <ubizjak@gmail.com>
+	    H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/45946
+	* gcc.target/i386/pr45946.c: New test.
+
+2010-10-21  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2010-10-20  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR c++/46024
+	* g++.dg/warn/miss-format-1.C: Enclose dg-error target list in braces.
+
+	2010-08-04  Daniel Gutson  <dgutson@codesourcery.com>
+
+	* g++.dg/warn/miss-format-1.C: Update line number.
+
+	2010-05-03  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* g++.dg/warn/miss-format-1.C (bar): xfail dg-warning on
+	alpha*-dec-osf*.
+
+2010-10-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/46019
+	* gcc.c-torture/execute/pr46019.c: New test.
+
+2010-10-16  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	Backport from mainline
+	2010-09-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR testsuite/45543
+	* g++.dg/debug/dwarf2/typedef1.C: Expect just one
+	DW_TAG_enumeration_type DIE.
+
+	2010-09-04  Andreas Schwab  <schwab@linux-m68k.org>
+	* g++.dg/debug/dwarf2/typedef1.C: Replace ".*" by "\[^\n\]*".
+
+	2009-11-07  Jason Merrill  <jason@redhat.com>
+
+	PR c++/18451
+	PR c++/40738
+	* g++.dg/other/typedef1.C: Update expected errors.
+
+	2009-08-03  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR testsuite/40858
+	* g++.dg/debug/dwarf2/typedef1.C: Also match assembler string used with
+	.ascii.
+
+	2010-09-04  Andreas Schwab  <schwab@linux-m68k.org>
+	* g++.dg/debug/dwarf2/pubnames-1.C: Replace ".*" by "\[^\n\]*".
+
+	2010-07-07  Tom Tromey  <tromey@redhat.com>
+	* g++.dg/debug/dwarf2/pubnames-1.C: Make darwin-specific.
+
+	2009-09-08  Dodji Seketeli  <dodji@redhat.com>
+	* g++.dg/debug/dwarf2/pubnames-1.C: Use -fno-merge-debug-string
+	and adjust.  Also, adjust to take darwin specifics in account.
+
+2010-10-12  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc.dg/pragma-init-fini.c: Skip on i?86-*-solaris2.8 && !gas.
+	* gcc.dg/pragma-init-fini-2.c: XFAIL on i?86-*-solaris2.8 && !gas.
+
+2010-10-10  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	Backport from mainline
+	2010-09-04  Andreas Schwab  <schwab@linux-m68k.org>
+
+	* gcc.dg/debug/dwarf2/inline2.c: Replace ".*" by "\[^\n\]*".
+
+	2010-03-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/debug/dwarf2/inline2.c (third): Make a a global var
+	and add volatile keyword.
+
+	2009-11-23  Steve Ellcey  <sje@cup.hp.com>
+
+	* gcc.dg/debug/dwarf2/inline2.c: Modify scan.
+
+2010-10-10  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* gcc.dg/torture/pr41555.c: Require stdint types.
+
+2010-10-06  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	Backport from mainline
+	PR libfortran/45710
+	* gfortran.dg/namelist_65.f90: New test.
+
+2010-10-04  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* gcc.dg/torture/pr45678-1.c: Add -fno-common to options on 32-bit
+	hppa*-*-hpux*.
+	* gcc.dg/torture/pr45678-2.c: Likewise.
+
 2010-10-01  Jakub Jelinek  <jakub@redhat.com>
 
 	Backport from mainline
@@ -106,7 +237,7 @@
 
 	PR middle-end/40386
 	* gcc.c-torture/execute/{pr40386.c,pr40386.x}: New testcase.
-	
+
 2010-09-08  Jakub Jelinek  <jakub@redhat.com>
 
 	PR fortran/45595
@@ -116,14 +247,14 @@
 
 	Backport from mainline
 	2010-08-19  Ian Bolton  <ian.bolton@arm.com>
-	
+
 	PR target/45070
 	* gcc.c-torture/execute/pr45070.c: New.
 
 	2010-08-19  Ian Bolton  <ian.bolton@arm.com>
 
 	* g++.dg/pr44328.C: New test.
-	
+
 	2010-08-07  Marcus Shawcroft <marcus.shawcroft@arm.com>
 
 	* lib/target-supports.exp: (check_effective_target_sync_int_long):
