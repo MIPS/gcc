@@ -2,7 +2,7 @@
 /* { dg-do compile } */
 /* { dg-options "-Wunused-but-set-variable" } */
 
-#import "../objc-obj-c++-shared/Object1.h"
+#include <objc/Object.h>
 #include <objc/objc-api.h>
 
 @interface obj : Object
