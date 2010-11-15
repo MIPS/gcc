@@ -1,3 +1,353 @@
+2010-11-12  Olivier Hainque  <hainque@adacore.com>
+
+	* config/rs6000/rs6000.c (rs6000_expand_ternop_builtin): Rewrite
+	switch on insn codes as sequence of ifs.
+
+2010-11-12  Alexander Monakov  <amonakov@ispras.ru>
+
+	Backport from mainline:
+	2010-08-19  Andrey Belevantsev  <abel@ispras.ru>
+
+	PR rtl-optimization/44691
+	* sel-sched.c (count_occurrences_1): Also punt when SUBREG_REG
+	is not a register.
+
+2010-11-12  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2010-11-09  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/46355
+	* tree-loop-distribution.c (tree_loop_distribution): Do not
+	distribute loops without a single exit.
+
+	2010-11-02  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/46177
+	* tree-loop-distribution.c (prop_phis): Use
+	mark_virtual_phi_result_for_renaming.
+
+	2010-11-09  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/46177
+	* tree-loop-distribution.c (prop_phis): Remove.
+	(generate_builtin): Re-use the old loop exit edge to avoid
+	needing to update PHI nodes.
+
+2010-11-11  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline
+	2010-11-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/44772
+	* c-decl.c (warn_cxx_compat_finish_struct): Don't call
+	pointer_set_contains if DECL_NAME is NULL.
+
+	PR tree-optimization/46099
+	* tree-parloops.c (take_address_of): Add GSI argument.  Return NULL
+	if it is NULL and uid wasn't found in the hash table.  Just fold the
+	result if it is NULL otherwise.  Insert other potentially needed
+	stmts right before current stmt instead of on the entry edge.
+	(struct elv_data): Add gsi and reset fields.
+	(eliminate_local_variables_1): Adjust caller.  If take_address_of
+	failed for debug stmt, set dta->reset and return.
+	(eliminate_local_variables_stmt): Change STMT argument for GSI,
+	pass GSI through to the callback, handle resetting of debug stmts.
+	(eliminate_local_variables): Adjust caller.  Process debug stmts
+	in second phase.
+
+	PR middle-end/43690
+	* gimplify.c (gimplify_asm_expr): If a "m" input is a
+	{pre,post}{in,de}crement, fail.
+
+	2010-11-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/46165
+	* tree-ssa-pre.c (eliminate): Return TODO_cleanup_cfg if changing
+	a normal call into noreturn call.
+
+	PR tree-optimization/46107
+	* cfgloopmanip.c (loop_version): Set irred_flag back into entry->flags
+	if cfg_hook_duplicate_loop_to_header_edge failed.
+
+2010-11-10  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR middle-end/46419
+	* config/i386/xmmintrin.h (_mm_cvtpi16_ps): Swap __hisi and __losi.
+	(_mm_cvtpu16_ps): Ditto.
+
+2010-11-09  Sebastian Pop  <sebastian.pop@amd.com>
+
+	PR tree-optimization/45314
+	Backport of revision 163132.
+	* graphite-sese-to-poly.c (rewrite_phi_out_of_ssa): Always insert out
+	of SSA copies on edges except for loop->latch.
+
+2010-11-09  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	PR rtl-optimization/46237
+	* ira-conflicts.c (ira_build_conflicts): Record conflicts for call
+	saved hard regs if they might get partially clobbered.
+
+2010-11-06  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	PR debug/45939
+	* var-tracking.c (emit_note_insn_var_location): Make sure that
+	call related var location notes come before the normal ones.
+
+2010-11-04  Uros Bizjak  <ubizjak@gmail.com>
+
+	Revert:
+	2010-10-30  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR middle-end/44569
+	* lower-suberg.c (simplify_subreg_concatn): For VOIDmode elements,
+	determine the mode of a subreg by GET_MODE_INNER of CONCATN RTX.
+
+2010-11-04  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/rs6000.c (rs6000_pic_labelno): Make static.
+	(rs6000_emit_load_toc_table): Don't use rs6000_pic_labelno when
+	TARGET_SECURE_PLT.
+	* config/rs6000/sysv4.h (rs6000_pic_labelno): Don't declare.
+	* config/rs6000/rs6000.md (load_toc_v4_PIC_3b): Use "b" constraint
+	on input, "r" on output.
+
+2010-11-02  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/45902
+	* tree-vectorizer.h (enum stmt_vec_info_type): Add new value for shift.
+	(vect_get_slp_defs): Add arguments.
+	* tree-vect-stmts.c (cost_for_stmt): Handle shifts.
+	(vect_get_vec_def_for_operand): Use operand's
+	type to determine number of units in the created vector.
+	(vect_get_vec_defs): Pass scalar operands to vect_get_slp_defs.
+	(vectorizable_shift): New function.
+	(vectorizable_operation): Move code that handles shifts to
+	vectorizable_shift.
+	(vectorizable_type_demotion): Pass scalar operands to
+	vect_get_slp_defs.
+	(vectorizable_type_promotion, vectorizable_store): Likewise.
+	(vect_analyze_stmt): Call vectorizable_shift.
+	(vect_transform_stmt): Likewise.
+	* tree-vect-slp.c (vect_get_constant_vectors): Add new argument.
+	Use it as the operand to create vectors except for stores.
+	(vect_get_slp_defs): Add new arguments. Pass them to
+	vect_get_constant_vectors.
+
+2010-10-30  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR middle-end/44569
+	* lower-suberg.c (simplify_subreg_concatn): For VOIDmode elements,
+	determine the mode of a subreg by GET_MODE_INNER of CONCATN RTX.
+
+2010-10-30  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/46153
+	* config/i386/sse.md (sse_movhlps_exp): Use destination
+	returned from ix86_fixup_binary_operands to expand insn.
+	(sse_movlhps_exp): Ditto.
+	(sse_loadhps_exp): Ditto.
+	(sse_loadlps_exp): Ditto.
+	(sse2_loadhpd_exp): Ditto.
+	(sse2_loadlpd_exp): Ditto.
+
+2010-10-29  Richard Henderson  <rth@redhat.com>
+
+	PR rtl-opt/46226
+	* stmt.c (expand_asm_operands): Call do_pending_stack_adjust
+	for asm goto.
+
+2010-10-27  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/sparc/sol2-unwind.h (sparc64_fallback_frame_state): Adjust
+	for newer Solaris 10 release.
+	(sparc_fallback_frame_state): Likewise.
+
+2010-10-26  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/46167
+	* tree-vect-patterns.c (vect_recog_dot_prod_pattern): Check that
+	there is basic block for the statement.
+
+2010-10-24  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* reg-stack.c (convert_regs_1): Return boolean value, true if the CFG
+	has been modified.
+	(convert_regs_2): Likewise.  Adjust calls to convert_regs_1.
+	(convert_regs): Adjust calls to convert_regs_2.  Clean up the CFG if
+	it has been modified.
+
+2010-10-22  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/46098
+	* config/i386/sse.md (*avx_movup<avxmodesuffixf2c><avxmodesuffix>):
+	Rename from avx_movup<avxmodesuffixf2c><avxmodesuffix>.
+	(avx_movup<avxmodesuffixf2c><avxmodesuffix>): New expander.
+	(*<sse>_movup<ssemodesuffixf2c>): Rename from
+	<sse>_movup<ssemodesuffixf2c>.
+	(<sse>_movup<ssemodesuffixf2c>): New expander.
+	(*avx_movdqu<avxmodesuffix>): Rename from avx_movdqu<avxmodesuffix>.
+	(avx_movdqu<avxmodesuffix>): New expander.
+	(*sse2_movdqu): Rename from sse2_movdqu.
+	(sse2_movdqu): New expander.
+
+2010-10-22  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/45946
+	* config/i386/i386.md (*pushti2): New insn pattern.
+	(pushti2 splitter): New insn splitter.
+
+2010-10-20  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR fortran/42169
+	* ira-emit.c (store_can_be_removed_p): Return false instead of
+	gcc_unreachable.
+
+2010-10-20  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* stor-layout.c (skip_simple_constant_arithmetic): New function.
+	(self_referential_size): Use it instead of skip_simple_arithmetic.
+
+2010-10-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/46019
+	* fold-const.c (fold_binary_loc): If integer_pow2p has
+	TREE_INT_CST_LOW zero, look at TREE_INT_CST_HIGH.
+
+2010-10-16  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gimplify.c (gimplify_type_sizes) <ARRAY_TYPE>: If the type is to be
+	ignored for debug info purposes, do not clear the DECL_IGNORED_P flag
+	on the bounds of its domain.
+	* tree.h (DECL_IGNORED_P): Document effect on TYPE_DECL specifically.
+
+2010-10-15  Joseph Myers  <joseph@codesourcery.com>
+
+	* doc/extend.texi (Variable Length): Don't refer to VLAs not
+	conforming to C99.
+
+2010-10-14  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/45969
+	* c-typeck.c (build_binary_op): Don't try to compute a semantic
+	type with excess precision for boolean operations.
+
+2010-10-13  Richard Guenther  <rguenther@suse.de>
+	    Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	PR debug/44832
+	* tree-ssa-live.c (mark_all_vars_used_1): Set TREE_USED for
+	LABEL_DECL.
+	(remove_unused_scope_block_p): Don't drop TREE_USED LABEL_DECLs
+	unless they have DECL_IGNORED_P set.
+
+2010-10-13  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/45982
+	* tree-ssa-structalias.c (make_constraints_to): New function.
+	(make_constraint_to): Implement in terms of make_constraints_to.
+	(find_func_aliases): Properly make return values of pure/const
+	functions escape if they assign to sth that is not a pointer.
+
+2010-10-11  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/45656
+	* cse.c (cse_extended_basic_block): Preserve cc0 info across
+	debug isnsn.  Skip them when searching for cc0 setter.
+	(set_live_p): Skip debug insns when searching for cc0 user.
+
+2010-10-09  Ralf Corsépius <ralf.corsepius@rtems.org>
+
+	* config.gcc (bfin*-rtems*): Add newlib-stdint.h.
+	* config.gcc (lm32*-rtems*): Add newlib-stdint.h.
+
+2010-10-07  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/45869
+	* tree-cfg.c (verify_gimple_assign_binary): Allow vector shifts
+	of pointers.
+
+2010-10-07  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2010-09-07  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/45569
+	* tree-eh.c (operation_could_trap_helper_p): Neither COMPLEX_EXPR
+	nor CONSTRUCTOR can trap.
+	* tree-complex.c (update_complex_assignment): Update EH info.
+
+2010-10-06  Jack Howarth  <howarth@bromo.med.uc.edu>
+
+	Backport from mainline
+	2010-04-26  Jack Howarth <howarth@bromo.med.uc.edu>
+
+	PR 43715
+	* configure.ac: Pass -g for export_sym_check on darwin.
+	Use "-undefined dynamic_lookup" on darwin.
+	* configure: Regenerate.
+
+2010-10-05  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/45752
+	* tree-vect-slp.c (vect_get_mask_element): Remove static
+	variables, make them function arguments.
+	(vect_transform_slp_perm_load): Pass new arguments to
+	vect_get_mask_element.
+
+2010-10-04  Matthias Klose  <doko@ubuntu.com>
+
+	* config/sparc/t-linux64 (MULTILIB_OSDIRNAMES): Use ../lib32 as the
+	multilib osdirname if it exists.
+	* config/s390/t-linux64 (MULTILIB_OSDIRNAMES): Likewise.
+
+2010-10-03  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/45820
+	* config/pa/pa.c (pa_secondary_reload): Handle symbolic operands
+	earlier.
+
+2010-10-01  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/45854
+	* tree-eh.c (cleanup_empty_eh): Avoid degenerate case.
+
+2010-09-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/45843
+	* config/i386/i386.c (ix86_gimplify_va_arg): Use
+	INTVAL (XEXP (slot, 1)) as prev_size.
+
+2010-09-29  Kai Tietz  <kai.tietz@onevision.com>
+
+	* config/i386/mingw32.h (TARGET_64BIT): replaced by
+	TARGET_64BIT_DEFAULT in #if check.
+
+2010-09-28  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/cygming.h (ASM_OUTPUT_DWARF_OFFSET): Output 8 bytes
+	when 8 bytes are requested.
+
+2010-09-27  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	Backport from mainline:
+
+	2010-05-19  James E. Wilson  <wilson@codesourcery.com>
+
+	PR target/43764
+	* config/mips/mips.c (mips_call_expr_from_insn): New arg second_call.
+	Set it.
+	(mips_annotate_pic_calls): Pass new arg to mips_call_expr_from_insn.
+	Use it.
+
+2010-09-27  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	PR rtl-optimization/43358
+	* ira-lives.c (process_single_reg_class_operands): Adjust the costs
+	of a single hard register, using simplify_subreg_regno to decide
+	what that register should be.
+
 2010-09-25  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* tree-inline.c (copy_bb): Use GSI_CONTINUE_LINKING when inserting new
@@ -100,7 +450,7 @@
 	adjustments are multiple of preferred stack boundary after
 	stack alignment.
 
-2010-09-20  Rafael Carre   <rafael.carre@gmail.com>
+2010-09-20  Rafael Carre  <rafael.carre@gmail.com>
 
 	PR target/45726
 	* arm.md (arm_movtas_ze): Only enable on machine with MOVT.
@@ -267,9 +617,9 @@
 	2010-09-01  Ian Bolton  <ian.bolton@arm.com>
 
 	* Makefile.in (tree-switch-conversion.o): Update dependencies.
-	
+
 	2010-08-19  Ian Bolton  <ian.bolton@arm.com>
-	
+
 	PR target/45070
 	* config/arm/arm.c (arm_output_epilogue): Ensure that return
 	value of size 1-3 is handled correctly.
@@ -280,7 +630,7 @@
 	type for the conditional has wide enough range.
 
 	2010-08-07  Marcus Shawcroft  <marcus.shawcroft@arm.com>
-	
+
 	* config/arm/linux-atomic.c (SUBWORD_VAL_CAS): Instantiate with
 	'unsigned short' and 'unsigned char' instead of 'short' and 'char'.
 	(SUBWORD_BOOL_CAS): Likewise.
@@ -289,7 +639,7 @@
 	(FETCH_AND_OP_WORD): Parenthesise INF_OP
 	(SUBWORD_SYNC_OP): Likewise.
 	(OP_AND_FETCH_WORD): Likewise.
-	
+
 2010-09-01  Jakub Jelinek  <jakub@redhat.com>
 
 	PR middle-end/45458

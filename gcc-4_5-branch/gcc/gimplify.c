@@ -4995,6 +4995,13 @@ gimplify_asm_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
       /* If the operand is a memory input, it should be an lvalue.  */
       if (!allows_reg && allows_mem)
 	{
+	  tree inputv = TREE_VALUE (link);
+	  STRIP_NOPS (inputv);
+	  if (TREE_CODE (inputv) == PREDECREMENT_EXPR
+	      || TREE_CODE (inputv) == PREINCREMENT_EXPR
+	      || TREE_CODE (inputv) == POSTDECREMENT_EXPR
+	      || TREE_CODE (inputv) == POSTINCREMENT_EXPR)
+	    TREE_VALUE (link) = error_mark_node;
 	  tret = gimplify_expr (&TREE_VALUE (link), pre_p, post_p,
 				is_gimple_lvalue, fb_lvalue | fb_mayfail);
 	  mark_addressable (TREE_VALUE (link));
@@ -7419,7 +7426,10 @@ gimplify_type_sizes (tree type, gimple_seq *list_p)
       /* Ensure VLA bounds aren't removed, for -O0 they should be variables
 	 with assigned stack slots, for -O1+ -g they should be tracked
 	 by VTA.  */
-      if (TYPE_DOMAIN (type)
+      if (!(TYPE_NAME (type)
+	    && TREE_CODE (TYPE_NAME (type)) == TYPE_DECL
+	    && DECL_IGNORED_P (TYPE_NAME (type)))
+	  && TYPE_DOMAIN (type)
 	  && INTEGRAL_TYPE_P (TYPE_DOMAIN (type)))
 	{
 	  t = TYPE_MIN_VALUE (TYPE_DOMAIN (type));
