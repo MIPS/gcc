@@ -1,3 +1,74 @@
+2010-11-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/46491
+	* gcc.target/i386/pr46491.c: New test.
+
+2010-11-13  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/45742
+	* gfortran.dg/volatile12.f90: New.
+
+2010-11-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/46177
+	* gcc.dg/pr46177.c: Fix dg-options.
+
+2010-11-12  Alexander Monakov  <amonakov@ispras.ru>
+
+	Backport from mainline:
+	2010-08-19  Andrey Belevantsev  <abel@ispras.ru>
+
+	PR rtl-optimization/44691
+	* gfortran.dg/pr44691.f: New test.
+
+2010-11-12  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2010-11-09  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/46355
+	* gcc.dg/pr46355.c: New testcase.
+
+	2010-11-02  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/46177
+	* gcc.dg/pr46177.c: New testcase.
+
+	2010-11-09  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/46177
+	* gcc.dg/pr46177-2.c: New testcase.
+
+2010-11-11  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline
+	2010-11-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/45894
+	* g++.dg/warn/Wsequence-point-2.C: New test.
+
+	2010-11-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/44772
+	* gcc.dg/Wcxx-compat-21.c: New test.
+
+	PR c++/46160
+	* g++.dg/opt/empty2.C: New test.
+
+	PR tree-optimization/46099
+	* gcc.dg/autopar/pr46099.c: New test.
+
+	PR middle-end/43690
+	* c-c++-common/pr43690.c: New test.
+
+	2010-11-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/46165
+	* gcc.dg/pr46165.c: New test.
+
+	PR tree-optimization/46107
+	* gcc.c-torture/compile/pr46107.c: New test.
+
 2010-11-10  Uros Bizjak  <ubizjak@gmail.com>
 
 	PR target/46419
