@@ -1,5 +1,8 @@
 2010-11-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* ipa.c (cgraph_remove_unreachable_nodes): Re-introduce 10/26
+	change.
+
 	Merge up to 166816.
 	* REVISION: Update subversion id.
 
