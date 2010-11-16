@@ -1,3 +1,8 @@
+2010-11-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* builtins.c (expand_builtin_mathfn_ternary): Fix backport issue
+	with GCC 4.5 with optab_handler being different in 4.6 than 4.5.
+
 2010-11-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Backport from mainline

@@ -2174,7 +2174,7 @@ expand_builtin_mathfn_ternary (tree exp, rtx target, rtx subtarget)
   mode = TYPE_MODE (TREE_TYPE (exp));
 
   /* Before working hard, check whether the instruction is available.  */
-  if (optab_handler (builtin_optab, mode) == CODE_FOR_nothing)
+  if (optab_handler (builtin_optab, mode)->insn_code == CODE_FOR_nothing)
     return NULL_RTX;
 
   target = gen_reg_rtx (mode);
