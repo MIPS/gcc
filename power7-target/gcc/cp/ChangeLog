@@ -1,4 +1,40 @@
+2010-11-15  Nicola Pero  <nicola.pero@meta-innovation.com>
+
+	* typeck.c (cp_build_unary_op): Use
+	objc_build_incr_expr_for_property_ref to build the pre/post
+	increment/decrement of an Objective-C property ref.
+
+2010-11-13  Jason Merrill  <jason@redhat.com>
+
+	* decl.c (cp_finish_decl): Use resolve_nondeduced_context for auto.
+	* init.c (build_new): Likewise.
+	* pt.c (tsubst_decl): Likewise.
+	(do_auto_deduction): Likewise.
+	(resolve_nondeduced_context): Use build_offset_ref and
+	cp_build_addr_expr.
+
+2010-11-12  Joseph Myers  <joseph@codesourcery.com>
+
+	* Make-lang.in (g++spec.o): Use $(OPTS_H).
+
+2010-11-13  Ville Voutilainen <ville.voutilainen@gmail.com> <ville.voutilainen@symbio.com>
+
+	Core 1135, 1136, 1145, 1149
+	* method.c (defaultable_fn_check): Do not disallow defaulting a
+	non-public or explicit special member function on its first
+	declaration.
+
+2010-11-12  James Dennett <jdennett@google.com>
+
+	PR/39415
+	* typeck.c (build_static_cast_1): Convert to the target type
+	when doing static_cast<cv Derived*>(Base*).
+
 2010-11-10  Jason Merrill  <jason@redhat.com>
+
+	PR c++/46420
+	* pt.c (tsubst_copy_and_build) [TARGET_EXPR]: New case.
+	[CONSTRUCTOR]: Use the tsubsted type.
 
 	PR c++/46369
 	* semantics.c (cxx_eval_bit_field_ref): New.
@@ -766,7 +802,7 @@
 	(type_dependent_expression_p): Added case for AT_ENCODE_EXPR.
 	* parser.c (cp_parser_objc_encode_expression): Updated comment.
 
-2010-10-07  Nicola Pero  <nicola@nicola.brainstorm.co.uk>
+2010-10-07  Nicola Pero  <nicola.pero@meta-innovation.com>
 
 	Merge from apple/trunk branch on FSF servers.
 

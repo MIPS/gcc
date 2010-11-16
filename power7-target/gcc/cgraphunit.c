@@ -197,8 +197,7 @@ cgraph_decide_is_function_needed (struct cgraph_node *node, tree decl)
 	    && !(DECL_CONTEXT (decl)
 		 && TREE_CODE (DECL_CONTEXT (decl)) == FUNCTION_DECL)))
        && !flag_whole_program
-       && !flag_lto
-       && !flag_whopr)
+       && !flag_lto)
       && !DECL_COMDAT (decl) && !DECL_EXTERNAL (decl))
     return true;
 
@@ -944,6 +943,7 @@ cgraph_analyze_functions (void)
 	  fprintf (cgraph_dump_file, " %s", cgraph_node_name (node));
       fprintf (cgraph_dump_file, "\n\nInitial ");
       dump_cgraph (cgraph_dump_file);
+      dump_varpool (cgraph_dump_file);
     }
 
   if (cgraph_dump_file)
@@ -973,6 +973,7 @@ cgraph_analyze_functions (void)
     {
       fprintf (cgraph_dump_file, "\n\nReclaimed ");
       dump_cgraph (cgraph_dump_file);
+      dump_varpool (cgraph_dump_file);
     }
   bitmap_obstack_release (NULL);
   first_analyzed = cgraph_nodes;
@@ -1817,6 +1818,7 @@ cgraph_optimize (void)
     {
       fprintf (cgraph_dump_file, "\nFinal ");
       dump_cgraph (cgraph_dump_file);
+      dump_varpool (cgraph_dump_file);
     }
 #ifdef ENABLE_CHECKING
   verify_cgraph ();

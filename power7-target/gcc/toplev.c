@@ -1916,6 +1916,12 @@ process_options (void)
       flag_var_tracking_uninit = 0;
     }
 
+  /* The debug hooks are used to implement -fdump-go-spec because it
+     gives a simple and stable API for all the information we need to
+     dump.  */
+  if (flag_dump_go_spec != NULL)
+    debug_hooks = dump_go_spec_init (flag_dump_go_spec, debug_hooks);
+
   /* If the user specifically requested variable tracking with tagging
      uninitialized variables, we need to turn on variable tracking.
      (We already determined above that variable tracking is feasible.)  */
@@ -2357,7 +2363,7 @@ toplev_main (int argc, char **argv)
      enough to default flags appropriately.  */
   decode_options (&global_options, &global_options_set,
 		  save_decoded_options, save_decoded_options_count,
-		  global_dc);
+		  UNKNOWN_LOCATION, global_dc);
 
   init_local_tick ();
 

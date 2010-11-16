@@ -485,6 +485,33 @@ add_field_decl (tree type, const char *name, tree **chain)
   return field;
 }
 
+/* Create a temporary variable of type 'type'.  If 'name' is set, uses
+   the specified name, else use no name.  Returns the declaration of
+   the type.  The 'name' is mostly useful for debugging.
+*/
+static tree
+objc_create_temporary_var (tree type, const char *name)
+{
+  tree decl;
+
+  if (name != NULL)
+    {
+      decl = build_decl (input_location,
+			 VAR_DECL, get_identifier (name), type);
+    }
+  else
+    {
+      decl = build_decl (input_location,
+			 VAR_DECL, NULL_TREE, type);
+    }
+  TREE_USED (decl) = 1;
+  DECL_ARTIFICIAL (decl) = 1;
+  DECL_IGNORED_P (decl) = 1;
+  DECL_CONTEXT (decl) = current_function_decl;
+
+  return decl;
+}
+
 /* Some platforms pass small structures through registers versus
    through an invisible pointer.  Determine at what size structure is
    the transition point between the two possibilities.  */
@@ -948,8 +975,7 @@ objc_add_property_declaration (location_t location, tree decl,
 
   if (parsed_property_readonly && parsed_property_setter_ident)
     {
-      /* Maybe this should be an error ?  The Apple documentation says it is a warning.  */
-      warning_at (location, 0, "%<readonly%> attribute conflicts with %<setter%> attribute");
+      error_at (location, "%<readonly%> attribute conflicts with %<setter%> attribute");
       property_readonly = false;
     }
 
@@ -989,16 +1015,43 @@ objc_add_property_declaration (location_t location, tree decl,
   /* At this point we know that we are either in an interface, a
      category, or a protocol.  */
 
-  /* Check that the property does not have an initial value specified.
-     This should never happen as the parser doesn't allow this, but
-     it's just in case.  */
-  if (DECL_INITIAL (decl))
+  /* We expect a FIELD_DECL from the parser.  Make sure we didn't get
+     something else, as that would confuse the checks below.  */
+  if (TREE_CODE (decl) != FIELD_DECL)
     {
-      error_at (location, "property can not have an initial value");
+      error_at (location, "invalid property declaration");
+      return;      
+    }
+
+  /* Do some spot-checks for the most obvious invalid types.  */
+
+  if (TREE_CODE (TREE_TYPE (decl)) == ARRAY_TYPE)
+    {
+      error_at (location, "property can not be an array");
       return;
     }
 
-  /* TODO: Check that the property type is an Objective-C object or a "POD".  */
+  /* The C++/ObjC++ parser seems to reject the ':' for a bitfield when
+     parsing, while the C/ObjC parser accepts it and gives us a
+     FIELD_DECL with a DECL_INITIAL set.  So we use the DECL_INITIAL
+     to check for a bitfield when doing ObjC.  */
+#ifndef OBJCPLUS
+  if (DECL_INITIAL (decl))
+    {
+      /* A @property is not an actual variable, but it is a way to
+	 describe a pair of accessor methods, so its type (which is
+	 the type of the return value of the getter and the first
+	 argument of the setter) can't be a bitfield (as return values
+	 and arguments of functions can not be bitfields).  The
+	 underlying instance variable could be a bitfield, but that is
+	 a different matter.  */
+      error_at (location, "property can not be a bit-field");
+      return;      
+    }
+#endif
+
+  /* TODO: Check that the property type is an Objective-C object or a
+     "POD".  */
 
   /* Implement -Wproperty-assign-default (which is enabled by default).  */
   if (warn_property_assign_default
@@ -1136,7 +1189,8 @@ objc_add_property_declaration (location_t location, tree decl,
 	  
       if (PROPERTY_NONATOMIC (x) != parsed_property_nonatomic)
 	{
-	  error_at (location, "'nonatomic' attribute of property %qD conflicts with previous declaration", decl);
+	  warning_at (location, 0,
+		      "'nonatomic' attribute of property %qD conflicts with previous declaration", decl);
       
 	  if (original_location != UNKNOWN_LOCATION)
 	    inform (original_location, "originally specified here");
@@ -1145,7 +1199,8 @@ objc_add_property_declaration (location_t location, tree decl,
 
       if (PROPERTY_GETTER_NAME (x) != parsed_property_getter_ident)
 	{
-	  error_at (location, "'getter' attribute of property %qD conflicts with previous declaration", decl);
+	  warning_at (location, 0,
+		      "'getter' attribute of property %qD conflicts with previous declaration", decl);
       
 	  if (original_location != UNKNOWN_LOCATION)
 	    inform (original_location, "originally specified here");
@@ -1157,7 +1212,8 @@ objc_add_property_declaration (location_t location, tree decl,
 	{
 	  if (PROPERTY_SETTER_NAME (x) != parsed_property_setter_ident)
 	    {
-	      error_at (location, "'setter' attribute of property %qD conflicts with previous declaration", decl);
+	      warning_at (location, 0,
+			  "'setter' attribute of property %qD conflicts with previous declaration", decl);
 	      
 	      if (original_location != UNKNOWN_LOCATION)
 		inform (original_location, "originally specified here");
@@ -1167,7 +1223,8 @@ objc_add_property_declaration (location_t location, tree decl,
 
       if (PROPERTY_ASSIGN_SEMANTICS (x) != property_assign_semantics)
 	{
-	  error_at (location, "assign semantics attributes of property %qD conflict with previous declaration", decl);
+	  warning_at (location, 0,
+		      "assign semantics attributes of property %qD conflict with previous declaration", decl);
       
 	  if (original_location != UNKNOWN_LOCATION)
 	    inform (original_location, "originally specified here");
@@ -1177,29 +1234,49 @@ objc_add_property_declaration (location_t location, tree decl,
       /* It's ok to have a readonly property that becomes a readwrite, but not vice versa.  */
       if (PROPERTY_READONLY (x) == 0  &&  property_readonly == 1)
 	{
-	  error_at (location, "'readonly' attribute of property %qD conflicts with previous declaration", decl);
+	  warning_at (location, 0,
+		      "'readonly' attribute of property %qD conflicts with previous declaration", decl);
       
 	  if (original_location != UNKNOWN_LOCATION)
 	    inform (original_location, "originally specified here");
 	  return;
 	}
 
-      if (property_readonly)
-	{
-	  /* If the property is readonly, it is Ok if the property
-	     type is a specialization of the previously declared one.
-	     Eg, the superclass returns 'NSArray' while the subclass
-	     returns 'NSMutableArray'.  */
-	  
-	  /* TODO: Check that the types are the same, or more specialized.  */
-	  ;
-	}
-      else
-	{
-	  /* Else, the types must match exactly.  */
+      /* We now check that the new and old property declarations have
+	 the same types (or compatible one).  In the Objective-C
+	 tradition of loose type checking, we do type-checking but
+	 only generate warnings (not errors) if they do not match.
+	 For non-readonly properties, the types must match exactly;
+	 for readonly properties, it is allowed to use a "more
+	 specialized" type in the new property declaration.  Eg, the
+	 superclass has a getter returning (NSArray *) and the
+	 subclass a getter returning (NSMutableArray *).  The object's
+	 getter returns an (NSMutableArray *); but if you cast the
+	 object to the superclass, which is allowed, you'd still
+	 expect the getter to return an (NSArray *), which works since
+	 an (NSMutableArray *) is an (NSArray *) too.  So, the set of
+	 objects belonging to the type of the new @property should be
+	 a subset of the set of objects belonging to the type of the
+	 old @property.  This is what "specialization" means.  And the
+	 reason it only applies to readonly properties is that for a
+	 readwrite property the setter would have the opposite
+	 requirement - ie that the superclass type is more specialized
+	 then the subclass one; hence the only way to satisfy both
+	 constraints is that the types match.  */
 
-	  /* TODO: Check that property types are identical.  */
-	  ;
+      /* If the types are not the same in the C sense, we warn ...  */
+      if (!comptypes (TREE_TYPE (x), TREE_TYPE (decl))
+	  /* ... unless the property is readonly, in which case we
+	     allow a new, more specialized, declaration.  */
+	  && (!property_readonly 
+	      || !objc_compare_types (TREE_TYPE (x),
+				      TREE_TYPE (decl), -5, NULL_TREE)))
+	{
+	  warning_at (location, 0,
+		      "type of property %qD conflicts with previous declaration", decl);
+	  if (original_location != UNKNOWN_LOCATION)
+	    inform (original_location, "originally specified here");
+	  return;
 	}
     }
 
@@ -1445,15 +1522,10 @@ objc_maybe_build_component_ref (tree object, tree property_ident)
 	  else if (t == self_decl)
 	    interface_type = lookup_interface (CLASS_NAME (implementation_template));
 
-	  /* TODO: Protocols.  */
-
 	  if (interface_type)
 	    {
 	      if (TREE_CODE (objc_method_context) != CLASS_METHOD_DECL)
-		{
-		  x = lookup_property (interface_type, property_ident);
-		  /* TODO: Protocols.  */
-		}
+		x = lookup_property (interface_type, property_ident);
 	
 	      if (x == NULL_TREE)
 		{
@@ -1468,8 +1540,6 @@ objc_maybe_build_component_ref (tree object, tree property_ident)
 		  if (t == self_decl)
 		    implementation = objc_implementation_context;
 		  
-		  /* TODO: Protocols.  */
-
 		  x = maybe_make_artificial_property_decl 
 		    (interface_type, implementation, NULL_TREE,
 		     property_ident,
@@ -1543,8 +1613,6 @@ objc_maybe_build_component_ref (tree object, tree property_ident)
 	    }
 	}
     }
-
-  /* TODO: Fix compiling super.accessor.  */
 
   if (x)
     {
@@ -1680,6 +1748,42 @@ objc_is_property_ref (tree node)
     return false;
 }
 
+/* This function builds a setter call for a PROPERTY_REF (real, for a
+   declared property, or artificial, for a dot-syntax accessor which
+   is not corresponding to a property).  'lhs' must be a PROPERTY_REF
+   (the caller must check this beforehand).  'rhs' is the value to
+   assign to the property.  A plain setter call is returned, or
+   error_mark_node if the property is readonly.  */
+
+static tree
+objc_build_setter_call (tree lhs, tree rhs)
+{
+  tree object_expr = PROPERTY_REF_OBJECT (lhs);
+  tree property_decl = PROPERTY_REF_PROPERTY_DECL (lhs);
+  
+  if (PROPERTY_READONLY (property_decl))
+    {
+      error ("readonly property can not be set");	  
+      return error_mark_node;
+    }
+  else
+    {
+      tree setter_argument = build_tree_list (NULL_TREE, rhs);
+      tree setter;
+      
+      /* TODO: Check that the setter return type is 'void'.  */
+
+      /* TODO: Decay arguments in C.  */
+      setter = objc_finish_message_expr (object_expr, 
+					 PROPERTY_SETTER_NAME (property_decl),
+					 setter_argument);
+      return setter;
+    }
+
+  /* Unreachable, but the compiler may not realize.  */
+  return error_mark_node;
+}
+
 /* This hook routine is called when a MODIFY_EXPR is being built.  We
    check what is being modified; if it is a PROPERTY_REF, we need to
    generate a 'setter' function call for the property.  If this is not
@@ -1699,30 +1803,191 @@ objc_maybe_build_modify_expr (tree lhs, tree rhs)
 {
   if (lhs && TREE_CODE (lhs) == PROPERTY_REF)
     {
-      tree object_expr = PROPERTY_REF_OBJECT (lhs);
-      tree property_decl = PROPERTY_REF_PROPERTY_DECL (lhs);
+      /* Building a simple call to the setter method would work for cases such as
 
-      if (PROPERTY_READONLY (property_decl))
-	{
-	  error ("readonly property can not be set");	  
-	  return error_mark_node;
-	}
-      else
-	{
-	  tree setter_argument = build_tree_list (NULL_TREE, rhs);
-	  tree setter;
+      object.count = 1;
 
-	  /* TODO: Check that the setter return type is 'void'.  */
+      but wouldn't work for cases such as
 
-	  /* TODO: Decay argument in C.  */
-	  setter = objc_finish_message_expr (object_expr, 
-					     PROPERTY_SETTER_NAME (property_decl),
-					     setter_argument);
-	  return setter;
-	}
+      count = object2.count = 1;
+
+      to get these to work with very little effort, we build a
+      compound statement which does the setter call (to set the
+      property to 'rhs'), but which can also be evaluated returning
+      the 'rhs'.  So, we want to create the following:
+
+      (temp = rhs; [object setProperty: temp]; temp)
+      */
+      tree temp_variable_decl, bind;
+      /* s1, s2 and s3 are the tree statements that we need in the
+	 compound expression.  */
+      tree s1, s2, s3, compound_expr;
+      
+      /* TODO: If 'rhs' is a constant, we could maybe do without the
+	 'temp' variable ? */
+
+      /* Declare __objc_property_temp in a local bind.  */
+      temp_variable_decl = objc_create_temporary_var (TREE_TYPE (rhs), "__objc_property_temp");
+      DECL_SOURCE_LOCATION (temp_variable_decl) = input_location;
+      bind = build3 (BIND_EXPR, void_type_node, temp_variable_decl, NULL, NULL);
+      SET_EXPR_LOCATION (bind, input_location);
+      TREE_SIDE_EFFECTS (bind) = 1;
+      add_stmt (bind);
+      
+      /* Now build the compound statement.  */
+      
+      /* s1: __objc_property_temp = rhs */
+      s1 = build_modify_expr (input_location, temp_variable_decl, NULL_TREE,
+			      NOP_EXPR,
+			      input_location, rhs, NULL_TREE);
+      SET_EXPR_LOCATION (s1, input_location);
+  
+      /* s2: [object setProperty: __objc_property_temp] */
+      s2 = objc_build_setter_call (lhs, temp_variable_decl);
+
+      /* This happens if building the setter failed because the property
+	 is readonly.  */
+      if (s2 == error_mark_node)
+	return error_mark_node;
+
+      SET_EXPR_LOCATION (s2, input_location);
+  
+      /* s3: __objc_property_temp */
+      s3 = convert (TREE_TYPE (lhs), temp_variable_decl);
+
+      /* Now build the compound statement (s1, s2, s3) */
+      compound_expr = build_compound_expr (input_location, build_compound_expr (input_location, s1, s2), s3);
+
+      /* Without this, with -Wall you get a 'valued computed is not
+	 used' every time there is a "object.property = x" where the
+	 value of the resulting MODIFY_EXPR is not used.  That is
+	 correct (maybe a more sophisticated implementation could
+	 avoid generating the compound expression if not needed), but
+	 we need to turn it off.  */
+      TREE_NO_WARNING (compound_expr) = 1;
+      return compound_expr;
     }
   else
     return NULL_TREE;
+}
+
+/* This hook is called by the frontend when one of the four unary
+   expressions PREINCREMENT_EXPR, POSTINCREMENT_EXPR,
+   PREDECREMENT_EXPR and POSTDECREMENT_EXPR is being built with an
+   argument which is a PROPERTY_REF.  For example, this happens if you have
+
+   object.count++;
+
+   where 'count' is a property.  We need to use the 'getter' and
+   'setter' for the property in an appropriate way to build the
+   appropriate expression.  'code' is the code for the expression (one
+   of the four mentioned above); 'argument' is the PROPERTY_REF, and
+   'increment' is how much we need to add or subtract.  */   
+tree
+objc_build_incr_expr_for_property_ref (location_t location,
+				       enum tree_code code, 
+				       tree argument, tree increment)
+{
+  /* Here are the expressions that we want to build:
+
+     For PREINCREMENT_EXPR / PREDECREMENT_EXPR:
+    (temp = [object property] +/- increment, [object setProperty: temp], temp)
+    
+    For POSTINCREMENT_EXPR / POSTECREMENT_EXPR:
+    (temp = [object property], [object setProperty: temp +/- increment], temp) */
+  
+  tree temp_variable_decl, bind;
+  /* s1, s2 and s3 are the tree statements that we need in the
+     compound expression.  */
+  tree s1, s2, s3, compound_expr;
+  
+  /* Safety check.  */
+  if (!argument || TREE_CODE (argument) != PROPERTY_REF)
+    return error_mark_node;
+
+  /* Declare __objc_property_temp in a local bind.  */
+  temp_variable_decl = objc_create_temporary_var (TREE_TYPE (argument), "__objc_property_temp");
+  DECL_SOURCE_LOCATION (temp_variable_decl) = location;
+  bind = build3 (BIND_EXPR, void_type_node, temp_variable_decl, NULL, NULL);
+  SET_EXPR_LOCATION (bind, location);
+  TREE_SIDE_EFFECTS (bind) = 1;
+  add_stmt (bind);
+  
+  /* Now build the compound statement.  */
+  
+  /* Note that the 'getter' is generated at gimplify time; at this
+     time, we can simply put the property_ref (ie, argument) wherever
+     we want the getter ultimately to be.  */
+  
+  /* s1: __objc_property_temp = [object property] <+/- increment> */
+  switch (code)
+    {
+    case PREINCREMENT_EXPR:	 
+      /* __objc_property_temp = [object property] + increment */
+      s1 = build_modify_expr (location, temp_variable_decl, NULL_TREE,
+			      NOP_EXPR,
+			      location, build2 (PLUS_EXPR, TREE_TYPE (argument), 
+						argument, increment), NULL_TREE);
+      break;
+    case PREDECREMENT_EXPR:
+      /* __objc_property_temp = [object property] - increment */
+      s1 = build_modify_expr (location, temp_variable_decl, NULL_TREE,
+			      NOP_EXPR,
+			      location, build2 (MINUS_EXPR, TREE_TYPE (argument), 
+						argument, increment), NULL_TREE);
+      break;
+    case POSTINCREMENT_EXPR:
+    case POSTDECREMENT_EXPR:
+      /* __objc_property_temp = [object property] */
+      s1 = build_modify_expr (location, temp_variable_decl, NULL_TREE,
+			      NOP_EXPR,
+			      location, argument, NULL_TREE);
+      break;
+    default:
+      gcc_unreachable ();
+    }
+  
+  /* s2: [object setProperty: __objc_property_temp <+/- increment>] */
+  switch (code)
+    {
+    case PREINCREMENT_EXPR:	 
+    case PREDECREMENT_EXPR:
+      /* [object setProperty: __objc_property_temp] */
+      s2 = objc_build_setter_call (argument, temp_variable_decl);
+      break;
+    case POSTINCREMENT_EXPR:
+      /* [object setProperty: __objc_property_temp + increment] */
+      s2 = objc_build_setter_call (argument,
+				   build2 (PLUS_EXPR, TREE_TYPE (argument), 
+					   temp_variable_decl, increment));
+      break;
+    case POSTDECREMENT_EXPR:
+      /* [object setProperty: __objc_property_temp - increment] */
+      s2 = objc_build_setter_call (argument,
+				   build2 (MINUS_EXPR, TREE_TYPE (argument), 
+					   temp_variable_decl, increment));
+      break;
+    default:
+      gcc_unreachable ();
+    }
+
+  /* This happens if building the setter failed because the property
+     is readonly.  */
+  if (s2 == error_mark_node)
+    return error_mark_node;
+
+  SET_EXPR_LOCATION (s2, location); 
+  
+  /* s3: __objc_property_temp */
+  s3 = convert (TREE_TYPE (argument), temp_variable_decl);
+  
+  /* Now build the compound statement (s1, s2, s3) */
+  compound_expr = build_compound_expr (location, build_compound_expr (location, s1, s2), s3);
+
+  /* Prevent C++ from warning with -Wall that "right operand of comma
+     operator has no effect".  */
+  TREE_NO_WARNING (compound_expr) = 1;
+  return compound_expr;
 }
 
 tree
@@ -2121,8 +2386,8 @@ objc_common_type (tree type1, tree type2)
    returning 'true', this routine may issue warnings related to, e.g.,
    protocol conformance.  When returning 'false', the routine must
    produce absolutely no warnings; the C or C++ front-end will do so
-   instead, if needed.  If either LTYP or RTYP is not an Objective-C type,
-   the routine must return 'false'.
+   instead, if needed.  If either LTYP or RTYP is not an Objective-C
+   type, the routine must return 'false'.
 
    The ARGNO parameter is encoded as follows:
      >= 1	Parameter number (CALLEE contains function being called);
@@ -2130,8 +2395,11 @@ objc_common_type (tree type1, tree type2)
      -1		Assignment;
      -2		Initialization;
      -3		Comparison (LTYP and RTYP may match in either direction);
-     -4		Silent comparison (for C++ overload resolution).
-  */
+     -4		Silent comparison (for C++ overload resolution);
+     -5		Silent "specialization" comparison for RTYP to be a "specialization" 
+                of LTYP (a specialization means that RTYP is LTYP plus some constraints, 
+                so that each object of type RTYP is also of type LTYP).  This is used
+                when comparing property types.  */
 
 bool
 objc_compare_types (tree ltyp, tree rtyp, int argno, tree callee)
@@ -2216,11 +2484,24 @@ objc_compare_types (tree ltyp, tree rtyp, int argno, tree callee)
   if (rcls && TREE_CODE (rcls) == IDENTIFIER_NODE)
     rcls = NULL_TREE;
 
-  /* If either type is an unqualified 'id', we're done.  */
-  if ((!lproto && objc_is_object_id (ltyp))
-      || (!rproto && objc_is_object_id (rtyp)))
-    return true;
-
+  /* If either type is an unqualified 'id', we're done.  This is because
+     an 'id' can be assigned to or from any type with no warnings.  */
+  if (argno != -5)
+    {
+      if ((!lproto && objc_is_object_id (ltyp))
+	  || (!rproto && objc_is_object_id (rtyp)))
+	return true;
+    }
+  else
+    {
+      /* For property checks, though, an 'id' is considered the most
+	 general type of object, hence if you try to specialize an
+	 'NSArray *' (ltyp) property with an 'id' (rtyp) one, we need
+	 to warn.  */
+      if (!lproto && objc_is_object_id (ltyp))
+	return true;
+    }
+  
   pointers_compatible = (TYPE_MAIN_VARIANT (ltyp) == TYPE_MAIN_VARIANT (rtyp));
 
   /* If the underlying types are the same, and at most one of them has
@@ -2236,13 +2517,22 @@ objc_compare_types (tree ltyp, tree rtyp, int argno, tree callee)
   else
     {
       if (!pointers_compatible)
-	pointers_compatible
-	  = (objc_is_object_id (ltyp) || objc_is_object_id (rtyp));
+	{
+	  /* Again, if any of the two is an 'id', we're satisfied,
+	     unless we're comparing properties, in which case only an
+	     'id' on the left-hand side (old property) is good
+	     enough.  */
+	  if (argno != -5)
+	    pointers_compatible
+	      = (objc_is_object_id (ltyp) || objc_is_object_id (rtyp));
+	  else
+	    pointers_compatible = objc_is_object_id (ltyp);	    
+	}
 
       if (!pointers_compatible)
 	pointers_compatible = DERIVED_FROM_P (ltyp, rtyp);
 
-      if (!pointers_compatible && argno <= -3)
+      if (!pointers_compatible && (argno == -3 || argno == -4))
 	pointers_compatible = DERIVED_FROM_P (rtyp, ltyp);
     }
 
@@ -2268,6 +2558,7 @@ objc_compare_types (tree ltyp, tree rtyp, int argno, tree callee)
 	 ObjC-specific.  */
       switch (argno)
 	{
+	case -5:
 	case -4:
 	  return false;
 
@@ -2494,7 +2785,22 @@ objc_get_protocol_qualified_type (tree interface, tree protocols)
 		  : xref_tag (RECORD_TYPE, type));
 	}
       else
-        return interface;
+	{
+	  /* This case happens when we are given an 'interface' which
+	     is not a valid class name.  For example if a typedef was
+	     used, and 'interface' really is the identifier of the
+	     typedef, but when you resolve it you don't get an
+	     Objective-C class, but something else, such as 'int'.
+	     This is an error; protocols make no sense unless you use
+	     them with Objective-C objects.  */
+	  error_at (input_location, "only Objective-C object types can be qualified with a protocol");
+
+	  /* Try to recover.  Ignore the invalid class name, and treat
+	     the object as an 'id' to silence further warnings about
+	     the class.  */
+	  type = objc_object_type;
+	  is_ptr = true;
+	}
     }
 
   if (protocols)
@@ -4576,32 +4882,6 @@ get_class_ivars (tree interface, bool inherited)
   return ivar_chain;
 }
 
-/* Create a temporary variable of type 'type'.  If 'name' is set, uses
-   the specified name, else use no name.  Returns the declaration of
-   the type.  The 'name' is mostly useful for debugging.
-*/
-static tree
-objc_create_temporary_var (tree type, const char *name)
-{
-  tree decl;
-
-  if (name != NULL)
-    {
-      decl = build_decl (input_location,
-			 VAR_DECL, get_identifier (name), type);
-    }
-  else
-    {
-      decl = build_decl (input_location,
-			 VAR_DECL, NULL_TREE, type);
-    }
-  TREE_USED (decl) = 1;
-  DECL_ARTIFICIAL (decl) = 1;
-  DECL_IGNORED_P (decl) = 1;
-  DECL_CONTEXT (decl) = current_function_decl;
-
-  return decl;
-}
 
 /* Exception handling constructs.  We begin by having the parser do most
    of the work and passing us blocks.  What we do next depends on whether
@@ -9797,19 +10077,81 @@ objc_add_synthesize_declaration_for_property (location_t location, tree interfac
   if (ivar_name == NULL_TREE)
     ivar_name = property_name;
 
-  /* Check that the instance variable exists.  You can only use a
-     non-private instance variable from the same class, not one from
-     the superclass (this makes sense as it allows us to check that an
+  /* Check that the instance variable exists.  You can only use an
+     instance variable from the same class, not one from the
+     superclass (this makes sense as it allows us to check that an
      instance variable is only used in one synthesized property).  */
-  if (!is_ivar (CLASS_IVARS (interface), ivar_name))
-    {
-      error_at (location, "ivar %qs used by %<@synthesize%> declaration must be an existing ivar", 
-		IDENTIFIER_POINTER (property_name));
-      return;
-    }
+  {
+    tree ivar = is_ivar (CLASS_IVARS (interface), ivar_name);
+    tree type_of_ivar;
+    if (!ivar)
+      {
+	error_at (location, "ivar %qs used by %<@synthesize%> declaration must be an existing ivar", 
+		  IDENTIFIER_POINTER (property_name));
+	return;
+      }
 
-  /* TODO: Check that the types of the instance variable and of the
-     property match.  */
+    if (DECL_BIT_FIELD_TYPE (ivar))
+      type_of_ivar = DECL_BIT_FIELD_TYPE (ivar);
+    else
+      type_of_ivar = TREE_TYPE (ivar);
+    
+    /* If the instance variable has a different C type, we throw an error ...  */
+    if (!comptypes (TREE_TYPE (property), type_of_ivar)
+	/* ... unless the property is readonly, in which case we allow
+	   the instance variable to be more specialized (this means we
+	   can generate the getter all right and it works).  */
+	&& (!PROPERTY_READONLY (property)
+	    || !objc_compare_types (TREE_TYPE (property),
+				    type_of_ivar, -5, NULL_TREE)))
+      {
+	location_t original_location = DECL_SOURCE_LOCATION (ivar);
+	
+	error_at (location, "property %qs is using instance variable %qs of incompatible type",
+		  IDENTIFIER_POINTER (property_name),
+		  IDENTIFIER_POINTER (ivar_name));
+	
+	if (original_location != UNKNOWN_LOCATION)
+	  inform (original_location, "originally specified here");
+      }
+
+    /* If the instance variable is a bitfield, the property must be
+       'assign', 'nonatomic' because the runtime getter/setter helper
+       do not work with bitfield instance variables.  */
+    if (DECL_BIT_FIELD_TYPE (ivar))
+      {
+	/* If there is an error, we return and not generate any
+	   getter/setter because trying to set up the runtime
+	   getter/setter helper calls with bitfields is at high risk
+	   of ICE.  */
+
+	if (PROPERTY_ASSIGN_SEMANTICS (property) != OBJC_PROPERTY_ASSIGN)
+	  {
+	    location_t original_location = DECL_SOURCE_LOCATION (ivar);
+	    
+	    error_at (location, "'assign' property %qs is using bit-field instance variable %qs",
+		      IDENTIFIER_POINTER (property_name),
+		      IDENTIFIER_POINTER (ivar_name));
+	
+	    if (original_location != UNKNOWN_LOCATION)
+	      inform (original_location, "originally specified here");
+	    return;
+	  }
+
+	if (!PROPERTY_NONATOMIC (property))
+	  {
+	    location_t original_location = DECL_SOURCE_LOCATION (ivar);
+	    
+	    error_at (location, "'atomic' property %qs is using bit-field instance variable %qs",
+		      IDENTIFIER_POINTER (property_name),
+		      IDENTIFIER_POINTER (ivar_name));
+	    
+	    if (original_location != UNKNOWN_LOCATION)
+	      inform (original_location, "originally specified here");
+	    return;
+	  }
+      }
+  }
 
   /* Check that no other property is using the same instance
      variable.  */
@@ -12502,8 +12844,8 @@ objc_type_valid_for_messaging (tree type, bool accept_classes)
   if (objc_is_object_id (type))
     return true;
 
-  if (accept_classes && objc_is_class_id (type))
-    return true;
+  if (objc_is_class_id (type))
+    return accept_classes;
 
   if (TYPE_HAS_OBJC_INFO (type))
     return true;

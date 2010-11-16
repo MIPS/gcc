@@ -1,3 +1,62 @@
+2010-11-15  Tobias Burnus  <burnus@net.b.de>
+
+	PR fortran/46484
+	* check.c (variable_check): Don't treat functions calls as variables;
+	optionally accept function themselves.
+	(gfc_check_all_any, gfc_check_loc, gfc_check_move_alloc,
+	gfc_check_null, gfc_check_present, gfc_check_cpu_time,
+	gfc_check_date_and_time, gfc_check_mvbits, gfc_check_random_number,
+	gfc_check_random_seed, gfc_check_system_clock,
+	gfc_check_dtime_etime, gfc_check_dtime_etime_sub,
+	gfc_check_itime_idate,gfc_check_ltime_gmtime): Update call.
+
+2010-11-13  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/45742
+	* trans-common.c (build_field): Add TREE_SIDE_EFFECTS for volatile.
+	* trans-decl.c (gfc_finish_var_decl): Ditto.
+	(create_function_arglist): Handle volatile dummy arguments.
+
+2010-11-12  Joseph Myers  <joseph@codesourcery.com>
+
+	* Make-lang.in (gfortranspec.o): Use $(OPTS_H).
+	* gfortran.h (gfc_handle_option): Take location_t parameter.
+	* options.c (gfc_handle_option): Take location_t parameter.
+
+2010-11-12  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/45794
+	trans-expr.c (gfc_conv_procedure_call): Avoid NULL array spec.
+	
+2010-11-11  Nathan Froyd  <froydnj@codesourcery.com>
+
+	PR c/44782
+	* options.c (gfc_post_options): Initialize gfc_option.max_errors.
+	(gfc_handle_option) [OPT_fmax_errors_]: Remove.
+	* lang.opt (fmax-errors=): Remove.
+
+2010-11-11  Steven G. Kargl <kargl@gcc.gnu.org>
+
+	* symbol.c (verify_bind_c_derived_type):  Accept BIND(C) on an empty
+	derived type.
+
+2010-11-11  Jan Hubicka  <jh@suse.cz>
+
+	* options.c (gfc_post_options): Remove flag_whopr.
+
+2010-11-11  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/46413
+	* resolve.c (resolve_transfer): Reject I/O transfer of
+	polymorphic type.
+
+	PR fortran/46205
+	* resolve.c (resolve_code): Reject nonscalar FORALL masks.
+
+2010-11-11  Janus Weil  <janus@gcc.gnu.org>
+
+	* resolve.c (resolve_procedure_interface): Copy 'is_bind_c' attribute.
+
 2010-11-10  Joseph Myers  <joseph@codesourcery.com>
 
 	* trans-array.c (gfc_trans_deferred_array): Use "front-end"

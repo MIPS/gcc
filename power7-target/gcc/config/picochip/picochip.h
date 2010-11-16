@@ -1,7 +1,7 @@
 /* Definitions of target machine for GNU compiler for picoChip
    Copyright (C) 2001, 2008, 2009, 2010 Free Software Foundation, Inc.
 
-   Contributed by picoChip Designs Ltd. (http://www.picochip.com)
+   Contributed by Picochip Ltd. (http://www.picochip.com)
    Maintained by Daniel Towner (daniel.towner@picochip.com) and
    Hariharan Sandanagobalane (hariharan@picochip.com).
 
@@ -403,13 +403,6 @@ extern const enum reg_class picochip_regno_reg_class[FIRST_PSEUDO_REGISTER];
 
 #define INIT_CUMULATIVE_ARGS(CUM,FNTYPE,LIBNAME,INDIRECT,N_NAMED_ARGS) \
   ((CUM) = 0)
-
-/* Originally this used TYPE_ALIGN to determine the
-   alignment.  Unfortunately, this fails in some cases, because the
-   type is unknown (e.g., libcall's). Instead, use GET_MODE_ALIGNMENT
-   since the mode is always present. */
-#define FUNCTION_ARG_BOUNDARY(MODE,TYPE) \
-  picochip_get_function_arg_boundary(MODE)
 
 /* The first 6 registers can hold parameters.  */
 #define FUNCTION_ARG_REGNO_P(REGNO) ((REGNO) < 6)

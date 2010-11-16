@@ -1,3 +1,57 @@
+2010-11-15  Nicola Pero  <nicola.pero@meta-innovation.com>
+
+	* objc-act.c (objc_build_setter_call): New.
+	(objc_maybe_build_modify_expr): Rewritten to build a compound
+	statement.
+	(objc_build_incr_expr_for_property_ref): Updated calls to
+	objc_maybe_build_modify_expr to call objc_build_setter_call
+	instead.  Use build_modify_expr () instead of build2 (MODIFY_EXPR,
+	...).  Use convert () instead of build1 (NOP_EXPR, ...).  Use
+	TREE_NO_WARNING on the final compound statement to silence C++
+	warnings.
+
+2010-11-15  Nicola Pero  <nicola.pero@meta-innovation.com>
+
+	* objc-act.c (objc_build_incr_expr_for_property_ref): New.
+	(objc_create_temporary_var): Moved it towards the beginning of the
+	file so that objc_build_incr_expr_for_property_ref can use it.
+
+2010-11-14  Nicola Pero  <nicola.pero@meta-innovation.com>
+
+	* objc-act.c (objc_add_property_declaration): Check that the decl
+	we received from the parser is a FIELD_DECL; reject array and
+	bitfield properties.  Convert the warning when a property is
+	readonly and a setter is specified into an error.  Convert errors
+	when a property declaration does not match a property declaration
+	in a superclass into warnings.
+	(objc_add_synthesize_declaration_for_property): Use
+	DECL_BIT_FIELD_TYPE to determine the type of an instance variable
+	if it is a bitfield.  Throw an error if we are asked to synthesize
+	setters/getters for a bitfield instance variable but the property
+	is not appropriate - it must be assign and nonatomic.  If the
+	property is readonly, allow the instance variable type to be a
+	specialization of the property type.
+	(objc_type_valid_for_messaging): Fixed returning 'false' for a
+	Class qualified with a protocol when the 'accept_classes' argument
+	is 'false'.
+
+2010-11-13  Nicola Pero  <nicola.pero@meta-innovation.com>
+
+	* objc-act.c (objc_get_protocol_qualified_type): detect cases
+	where we are asked to attach a protocol to something which is not
+	an Objective-C object type, and produce an error.
+
+2010-11-11  Nicola Pero  <nicola.pero@meta-innovation.com>
+
+	* objc-act.c (objc_add_property_declaration): Check that the type
+	of a property and of an inherited property match.
+	(objc_maybe_build_component_ref): Tidied up indentation and
+	comments.
+	(objc_common_type): Added new type of check (-5).
+	(objc_add_synthesize_declaration_for_property): Check that the
+	property to synthesize and the instance variable to use have the
+	same type.
+	
 2010-11-10  Joseph Myers  <joseph@codesourcery.com>
 
 	* objc-act.c (objc_init): Use %' in diagnostic.
@@ -670,7 +724,7 @@
 	(objc_push_parm): Rebuild the PARM_DECL if its type has
 	been decayed.	
 
-2010-09-28  Nicola Pero  <nicola@nicola.brainstorm.co.uk>
+2010-09-28  Nicola Pero  <nicola.pero@meta-innovation.com>
 
 	* objc-act.c (encode_type): Fixed encoding enums with the next
 	runtime.
