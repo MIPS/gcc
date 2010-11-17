@@ -341,12 +341,13 @@ print "{";
 n_opt_char = 2;
 n_opt_short = 0;
 n_opt_int = 0;
-n_opt_enum = 0;
+n_opt_enum = 1;
 n_opt_other = 0;
 var_opt_char[0] = "optimize";
 var_opt_char[1] = "optimize_size";
 var_opt_range["optimize"] = "0, 255";
 var_opt_range["optimize_size"] = "0, 255";
+var_opt_enum[0] = "flag_fp_contract_mode";
 
 # Sort by size to mimic how the structure is laid out to be friendlier to the
 # cache.
@@ -394,12 +395,12 @@ for (i = 0; i < n_opt_other; i++) {
 	print "  ptr->x_" var_opt_other[i] " = opts->x_" var_opt_other[i] ";";
 }
 
-for (i = 0; i < n_opt_enum; i++) {
-	print "  ptr->x_" var_opt_enum[i] " = opts->x_" var_opt_enum[i] ";";
-}
-
 for (i = 0; i < n_opt_int; i++) {
 	print "  ptr->x_" var_opt_int[i] " = opts->x_" var_opt_int[i] ";";
+}
+
+for (i = 0; i < n_opt_enum; i++) {
+	print "  ptr->x_" var_opt_enum[i] " = opts->x_" var_opt_enum[i] ";";
 }
 
 for (i = 0; i < n_opt_short; i++) {
@@ -422,12 +423,12 @@ for (i = 0; i < n_opt_other; i++) {
 	print "  opts->x_" var_opt_other[i] " = ptr->x_" var_opt_other[i] ";";
 }
 
-for (i = 0; i < n_opt_enum; i++) {
-	print "  ptr->x_" var_opt_enum[i] " = opts->x_" var_opt_enum[i] ";";
-}
-
 for (i = 0; i < n_opt_int; i++) {
 	print "  opts->x_" var_opt_int[i] " = ptr->x_" var_opt_int[i] ";";
+}
+
+for (i = 0; i < n_opt_enum; i++) {
+	print "  opts->x_" var_opt_enum[i] " = ptr->x_" var_opt_enum[i] ";";
 }
 
 for (i = 0; i < n_opt_short; i++) {
@@ -459,21 +460,20 @@ for (i = 0; i < n_opt_other; i++) {
 	print "";
 }
 
-for (i = 0; i < n_opt_enum; i++) {
-	print "  if (ptr->x_" var_opt_enum[i] ")";
-	print "    fprintf (file, \"%*s%s (%#x)\\n\",";
-	print "             indent_to, \"\",";
-	print "             \"" var_opt_enum[i] "\",";
-	print "             ptr->x_" var_opt_enum[i] ");";
-	print "";
-}
-
 for (i = 0; i < n_opt_int; i++) {
 	print "  if (ptr->x_" var_opt_int[i] ")";
 	print "    fprintf (file, \"%*s%s (%#x)\\n\",";
 	print "             indent_to, \"\",";
 	print "             \"" var_opt_int[i] "\",";
 	print "             ptr->x_" var_opt_int[i] ");";
+	print "";
+}
+
+for (i = 0; i < n_opt_enum; i++) {
+	print "  fprintf (file, \"%*s%s (%#x)\\n\",";
+	print "           indent_to, \"\",";
+	print "           \"" var_opt_enum[i] "\",";
+	print "           (int) ptr->x_" var_opt_enum[i] ");";
 	print "";
 }
 

@@ -190,10 +190,11 @@ print "{";
 n_opt_char = 2;
 n_opt_short = 0;
 n_opt_int = 0;
-n_opt_enum = 0;
+n_opt_enum = 1;
 n_opt_other = 0;
 var_opt_char[0] = "unsigned char x_optimize";
 var_opt_char[1] = "unsigned char x_optimize_size";
+var_opt_enum[0] = "enum fp_contract_mode x_flag_fp_contract_mode";
 
 for (i = 0; i < n_opts; i++) {
 	if (flag_set_p("Optimization", flags[i])) {
@@ -227,12 +228,12 @@ for (i = 0; i < n_opt_other; i++) {
 	print "  " var_opt_other[i] ";";
 }
 
-for (i = 0; i < n_opt_enum; i++) {
-	print "  " var_opt_enum[i] ";";
-}
-
 for (i = 0; i < n_opt_int; i++) {
 	print "  " var_opt_int[i] ";";
+}
+
+for (i = 0; i < n_opt_enum; i++) {
+	print "  " var_opt_enum[i] ";";
 }
 
 for (i = 0; i < n_opt_short; i++) {

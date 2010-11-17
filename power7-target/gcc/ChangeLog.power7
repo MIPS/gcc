@@ -1,4 +1,15 @@
-2010-11-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
+2010-11-17  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_option_override_internal): Make
+	error messages for target attributes or pragmas conform to
+	existing usage.
+	(rs6000_inner_target_options): Ditto.
+
+	* opth-gen.awk: Add flag_fp_contract_mode to variables saved as
+	optimization variables.  Sort enums between ints and shorts.  Fix
+	cut+paste error in restoration of enum optimize variables.  Cast
+	enum values to int before printing.
+	* optc-gen.awk: Ditto.
 
 	* ipa.c (cgraph_remove_unreachable_nodes): Re-introduce 10/26
 	change.

@@ -2889,8 +2889,7 @@ rs6000_option_override_internal (bool global_init_p)
       if (main_target_opt != NULL
 	  && (main_target_opt->x_rs6000_long_double_type_size
 	      != RS6000_DEFAULT_LONG_DOUBLE_SIZE))
-	error ("You cannot change long double size within a target attribute "
-	       "or pragma");
+	error ("target attribute or pragma changes long double size");
       else
 	rs6000_long_double_type_size = RS6000_DEFAULT_LONG_DOUBLE_SIZE;
     }
@@ -2911,8 +2910,7 @@ rs6000_option_override_internal (bool global_init_p)
   if (TARGET_XCOFF && (TARGET_ALTIVEC || TARGET_VSX))
     {
       if (main_target_opt != NULL && !main_target_opt->x_rs6000_altivec_abi)
-	error ("You cannot switch to the altivec abi within a target "
-	       "attribute or pragma");
+	error ("target attribute or pragma changes AltiVec ABI");
       else
 	rs6000_altivec_abi = 1;
     }
@@ -2927,8 +2925,7 @@ rs6000_option_override_internal (bool global_init_p)
 	{
 	  if (main_target_opt != NULL &&
 	      !main_target_opt->x_rs6000_altivec_abi)
-	    error ("You cannot switch to the altivec abi within a target "
-		   "attribute or pragma");
+	    error ("target attribute or pragma changes AltiVec ABI");
 	  else
 	    rs6000_altivec_abi = 1;
 	}
@@ -2945,8 +2942,7 @@ rs6000_option_override_internal (bool global_init_p)
       && TARGET_64BIT)
     {
       if (main_target_opt != NULL && !main_target_opt->x_rs6000_darwin64_abi)
-	error ("You cannot switch to the darwin64 abi within a target "
-	       "attribute or pragma");
+	error ("target attribute or pragma changes darwin64 ABI");
       else
 	{
 	  rs6000_darwin64_abi = 1;
@@ -2987,8 +2983,7 @@ rs6000_option_override_internal (bool global_init_p)
 	  && ((main_target_opt->x_rs6000_spe_abi != rs6000_spe_abi)
 	      || (main_target_opt->x_rs6000_spe != rs6000_spe)
 	      || (main_target_opt->x_rs6000_float_gprs != rs6000_float_gprs)))
-	error ("You cannot switch to the SPE abi within a target "
-	       "attribute or pragma");
+	error ("target attribute or pragma changes SPE ABI");
       else
 	{
 	  if (!rs6000_explicit_options.spe_abi)
@@ -3309,11 +3304,11 @@ rs6000_option_override_internal (bool global_init_p)
   if (main_target_opt)
     {
       if (main_target_opt->x_rs6000_single_float != rs6000_single_float)
-	error ("You are not allowed to change the single precision floating "
-	       "point unit within a target attribute or pragma");
+	error ("target attribute or pragma changes single precision floating "
+	       "point");
       if (main_target_opt->x_rs6000_double_float != rs6000_double_float)
-	error ("You are not allowed to change the double precision floating "
-	       "point unit within a target attribute or pragma");
+	error ("target attribute or pragma changes double precision floating "
+	       "point");
     }
 
   /* If not explicitly specified via option, decide whether to generate indexed
@@ -27547,7 +27542,7 @@ rs6000_inner_target_options (tree args, bool attr_p)
 		}
 
 	      if (cpu_opt)
-		error ("Invalid cpu \"%s\" for %s\"%s\"%s", cpu_opt, eprefix,
+		error ("invalid cpu \"%s\" for %s\"%s\"%s", cpu_opt, eprefix,
 		       q, esuffix);
 	      else if (not_valid_p)
 		error ("%s\"%s\"%s is not allowed", eprefix, q, esuffix);
