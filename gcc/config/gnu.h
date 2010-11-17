@@ -28,10 +28,6 @@ along with GCC.  If not, see <http://www.gnu.org/licenses/>.
 #undef LIB_SPEC
 #define LIB_SPEC "%{pthread:-lpthread} %{bsd:-lbsd-compat} %{pg|p|profile:-lc_p;:-lc}"
 
-/* Standard include directory.  In GNU, "/usr" is a four-letter word.  */
-#undef STANDARD_INCLUDE_DIR
-#define STANDARD_INCLUDE_DIR "/include"
-
 #undef LINUX_TARGET_OS_CPP_BUILTINS
 #define LINUX_TARGET_OS_CPP_BUILTINS()		\
     do {					\

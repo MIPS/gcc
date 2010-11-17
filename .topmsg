@@ -1,0 +1,6 @@
+Subject: [PATCH] /usr/include vs. /include for GNU/Hurd
+
+This patch removes the special /usr/include vs. /include handling for
+GNU/Hurd.
+
+Not yet sure if you should push this upstream.  Probably we should.
