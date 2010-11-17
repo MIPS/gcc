@@ -5942,7 +5942,7 @@ rs6000_legitimize_tls_address (rtx addr, enum tls_model model)
     }
   else
     {
-      rtx r3, got, tga, tmp1, tmp2, eqv;
+      rtx r3, got, tga, tmp1, tmp2, call_insn;
 
       /* We currently use relocations like @got@tlsgd for tls, which
 	 means the linker will handle allocation of tls entries, placing
@@ -5982,6 +5982,7 @@ rs6000_legitimize_tls_address (rtx addr, enum tls_model model)
 	{
 	  r3 = gen_rtx_REG (Pmode, 3);
 	  tga = rs6000_tls_get_addr ();
+	  emit_library_call_value (tga, dest, LCT_CONST, Pmode, 1, r3, Pmode);
 
 	  if (DEFAULT_ABI == ABI_AIX && TARGET_64BIT)
 	    insn = gen_tls_gd_aix64 (r3, got, addr, tga, const0_rtx);
@@ -5991,21 +5992,18 @@ rs6000_legitimize_tls_address (rtx addr, enum tls_model model)
 	    insn = gen_tls_gd_sysvsi (r3, got, addr, tga, const0_rtx);
 	  else
 	    gcc_unreachable ();
-
-	  start_sequence ();
-	  insn = emit_call_insn (insn);
-	  RTL_CONST_CALL_P (insn) = 1;
-	  use_reg (&CALL_INSN_FUNCTION_USAGE (insn), r3);
+	  call_insn = last_call_insn ();
+	  PATTERN (call_insn) = insn;
 	  if (DEFAULT_ABI == ABI_V4 && TARGET_SECURE_PLT && flag_pic)
-	    use_reg (&CALL_INSN_FUNCTION_USAGE (insn), pic_offset_table_rtx);
-	  insn = get_insns ();
-	  end_sequence ();
-	  emit_libcall_block (insn, dest, r3, addr);
+	    use_reg (&CALL_INSN_FUNCTION_USAGE (call_insn),
+		     pic_offset_table_rtx);
 	}
       else if (model == TLS_MODEL_LOCAL_DYNAMIC)
 	{
 	  r3 = gen_rtx_REG (Pmode, 3);
 	  tga = rs6000_tls_get_addr ();
+	  tmp1 = gen_reg_rtx (Pmode);
+	  emit_library_call_value (tga, tmp1, LCT_CONST, Pmode, 1, r3, Pmode);
 
 	  if (DEFAULT_ABI == ABI_AIX && TARGET_64BIT)
 	    insn = gen_tls_ld_aix64 (r3, got, tga, const0_rtx);
@@ -6015,19 +6013,12 @@ rs6000_legitimize_tls_address (rtx addr, enum tls_model model)
 	    insn = gen_tls_ld_sysvsi (r3, got, tga, const0_rtx);
 	  else
 	    gcc_unreachable ();
-
-	  start_sequence ();
-	  insn = emit_call_insn (insn);
-	  RTL_CONST_CALL_P (insn) = 1;
-	  use_reg (&CALL_INSN_FUNCTION_USAGE (insn), r3);
+	  call_insn = last_call_insn ();
+	  PATTERN (call_insn) = insn;
 	  if (DEFAULT_ABI == ABI_V4 && TARGET_SECURE_PLT && flag_pic)
-	    use_reg (&CALL_INSN_FUNCTION_USAGE (insn), pic_offset_table_rtx);
-	  insn = get_insns ();
-	  end_sequence ();
-	  tmp1 = gen_reg_rtx (Pmode);
-	  eqv = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, const0_rtx),
-				UNSPEC_TLSLD);
-	  emit_libcall_block (insn, tmp1, r3, eqv);
+	    use_reg (&CALL_INSN_FUNCTION_USAGE (call_insn),
+		     pic_offset_table_rtx);
+
 	  if (rs6000_tls_size == 16)
 	    {
 	      if (TARGET_64BIT)
@@ -18631,42 +18622,6 @@ rs6000_aix_asm_output_dwarf_table_ref (char * frame_table_label)
   fprintf (asm_out_file, "\t.ref %s\n",
 	   TARGET_STRIP_NAME_ENCODING (frame_table_label));
 }
-
-/* If _Unwind_* has been called from within the same module,
-   toc register is not guaranteed to be saved to 40(1) on function
-   entry.  Save it there in that case.  */
-
-void
-rs6000_aix_emit_builtin_unwind_init (void)
-{
-  rtx mem;
-  rtx stack_top = gen_reg_rtx (Pmode);
-  rtx opcode_addr = gen_reg_rtx (Pmode);
-  rtx opcode = gen_reg_rtx (SImode);
-  rtx tocompare = gen_reg_rtx (SImode);
-  rtx no_toc_save_needed = gen_label_rtx ();
-
-  mem = gen_frame_mem (Pmode, hard_frame_pointer_rtx);
-  emit_move_insn (stack_top, mem);
-
-  mem = gen_frame_mem (Pmode,
-		       gen_rtx_PLUS (Pmode, stack_top,
-				     GEN_INT (2 * GET_MODE_SIZE (Pmode))));
-  emit_move_insn (opcode_addr, mem);
-  emit_move_insn (opcode, gen_rtx_MEM (SImode, opcode_addr));
-  emit_move_insn (tocompare, gen_int_mode (TARGET_32BIT ? 0x80410014
-					   : 0xE8410028, SImode));
-
-  do_compare_rtx_and_jump (opcode, tocompare, EQ, 1,
-			   SImode, NULL_RTX, NULL_RTX,
-			   no_toc_save_needed, -1);
-
-  mem = gen_frame_mem (Pmode,
-		       gen_rtx_PLUS (Pmode, stack_top,
-				     GEN_INT (5 * GET_MODE_SIZE (Pmode))));
-  emit_move_insn (mem, gen_rtx_REG (Pmode, 2));
-  emit_label (no_toc_save_needed);
-}
 
 /* This ties together stack memory (MEM with an alias set of frame_alias_set)
    and the change to the stack pointer.  */
@@ -19815,22 +19770,6 @@ rs6000_emit_prologue (void)
     {
       unsigned int i, regno;
 
-      /* In AIX ABI we need to pretend we save r2 here.  */
-      if (TARGET_AIX)
-	{
-	  rtx addr, reg, mem;
-
-	  reg = gen_rtx_REG (reg_mode, 2);
-	  addr = gen_rtx_PLUS (Pmode, frame_reg_rtx,
-			       GEN_INT (sp_offset + 5 * reg_size));
-	  mem = gen_frame_mem (reg_mode, addr);
-
-	  insn = emit_move_insn (mem, reg);
-	  rs6000_frame_related (insn, frame_ptr_rtx, info->total_size,
-				NULL_RTX, NULL_RTX);
-	  PATTERN (insn) = gen_blockage ();
-	}
-
       for (i = 0; ; ++i)
 	{
 	  regno = EH_RETURN_DATA_REGNO (i);
@@ -19842,6 +19781,51 @@ rs6000_emit_prologue (void)
 			   + reg_size * (int) i,
 			   info->total_size);
 	}
+    }
+
+  /* In AIX ABI we need to make sure r2 is really saved.  */
+  if (TARGET_AIX && crtl->calls_eh_return)
+    {
+      rtx tmp_reg, tmp_reg_si, hi, lo, compare_result, toc_save_done, jump;
+      long toc_restore_insn;
+
+      gcc_assert (frame_reg_rtx == frame_ptr_rtx
+		  || frame_reg_rtx == sp_reg_rtx);
+      tmp_reg = gen_rtx_REG (Pmode, 11);
+      tmp_reg_si = gen_rtx_REG (SImode, 11);
+      if (using_static_chain_p)
+	emit_move_insn (gen_rtx_REG (Pmode, 0), tmp_reg);
+      gcc_assert (saving_GPRs_inline && saving_FPRs_inline);
+      emit_move_insn (tmp_reg, gen_rtx_REG (Pmode, LR_REGNO));
+      /* Peek at instruction to which this function returns.  If it's
+	 restoring r2, then we know we've already saved r2.  We can't
+	 unconditionally save r2 because the value we have will already
+	 be updated if we arrived at this function via a plt call or
+	 toc adjusting stub.  */
+      emit_move_insn (tmp_reg_si, gen_rtx_MEM (SImode, tmp_reg));
+      toc_restore_insn = TARGET_32BIT ? 0x80410014 : 0xE8410028;
+      hi = gen_int_mode (toc_restore_insn & ~0xffff, SImode);
+      emit_insn (gen_xorsi3 (tmp_reg_si, tmp_reg_si, hi));
+      compare_result = gen_rtx_REG (CCUNSmode, CR0_REGNO);
+      validate_condition_mode (EQ, CCUNSmode);
+      lo = gen_int_mode (toc_restore_insn & 0xffff, SImode);
+      emit_insn (gen_rtx_SET (VOIDmode, compare_result,
+			      gen_rtx_COMPARE (CCUNSmode, tmp_reg_si, lo)));
+      toc_save_done = gen_label_rtx ();
+      jump = gen_rtx_IF_THEN_ELSE (VOIDmode,
+				   gen_rtx_EQ (VOIDmode, compare_result,
+					       const0_rtx),
+				   gen_rtx_LABEL_REF (VOIDmode, toc_save_done),
+				   pc_rtx);
+      jump = emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx, jump));
+      JUMP_LABEL (jump) = toc_save_done;
+      LABEL_NUSES (toc_save_done) += 1;
+
+      emit_frame_save (frame_reg_rtx, frame_ptr_rtx, reg_mode, 2,
+		       sp_offset + 5 * reg_size, info->total_size);
+      emit_label (toc_save_done);
+      if (using_static_chain_p)
+	emit_move_insn (tmp_reg, gen_rtx_REG (Pmode, 0));
     }
 
   /* Save CR if we use any that must be preserved.  */

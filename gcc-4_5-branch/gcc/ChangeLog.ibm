@@ -1,3 +1,8 @@
+2010-11-17  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Merge up to gcc-4_5-branch revision 166873.
+	* REVISION: Update subversion id.
+
 2010-11-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* builtins.c (expand_builtin_mathfn_ternary): Fix backport issue
