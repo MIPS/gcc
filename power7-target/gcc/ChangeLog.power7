@@ -1,5 +1,8 @@
 2010-11-17  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/rs6000.c (rs6000_opt_masks): Add -maix64/-maix32
+	support if the target is AIX instead of -m64/-m32.
+
 	* config/rs6000/rs6000.c (rs6000_option_override_internal): Make
 	error messages for target attributes or pragmas conform to
 	existing usage.

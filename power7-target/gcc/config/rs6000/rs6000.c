@@ -27380,8 +27380,13 @@ static struct rs6000_opt_mask const rs6000_opt_masks[] =
   { "string",		MASK_STRING,		false, true  },
   { "vsx",		MASK_VSX,		false, true  },
 #ifdef MASK_64BIT
+#if TARGET_AIX_OS
+  { "aix64",		MASK_64BIT,		false, false },
+  { "aix32",		MASK_64BIT,		true,  false },
+#else
   { "64",		MASK_64BIT,		false, false },
   { "32",		MASK_64BIT,		true,  false },
+#endif
 #endif
 #ifdef MASK_EABI
   { "eabi",		MASK_EABI,		false, false },
