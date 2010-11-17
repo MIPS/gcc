@@ -32,14 +32,6 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define GET_ENVIRONMENT(VALUE, NAME) do { (VALUE) = getenv (NAME); } while (0)
 #endif
 
-/* This defines which multi-letter switches take arguments.  */
-
-#define DEFAULT_WORD_SWITCH_TAKES_ARG(STR)		0
-
-#ifndef WORD_SWITCH_TAKES_ARG
-#define WORD_SWITCH_TAKES_ARG(STR) DEFAULT_WORD_SWITCH_TAKES_ARG (STR)
-#endif
-
 /* Store in OUTPUT a string (made with alloca) containing an
    assembler-name for a local static variable or function named NAME.
    LABELNO is an integer which is different for each call.  */
@@ -1262,14 +1254,6 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #ifndef FUNCTION_ARG_PADDING
 #define FUNCTION_ARG_PADDING(MODE, TYPE)	\
   DEFAULT_FUNCTION_ARG_PADDING ((MODE), (TYPE))
-#endif
-
-/* Supply a default definition for FUNCTION_ARG_BOUNDARY.  Normally, we let
-   FUNCTION_ARG_PADDING, which also pads the length, handle any needed
-   alignment.  */
-
-#ifndef FUNCTION_ARG_BOUNDARY
-#define FUNCTION_ARG_BOUNDARY(MODE, TYPE)	PARM_BOUNDARY
 #endif
 
 /* Supply a default definition of STACK_SAVEAREA_MODE for emit_stack_save.

@@ -418,8 +418,12 @@ gfc_init_kinds (void)
 	 useless.  TODO: TFmode support should be enabled once libgfortran
 	 support is done.  */
 	if (mode != TYPE_MODE (float_type_node)
-	  && (mode != TYPE_MODE (double_type_node))
-          && (mode != TYPE_MODE (long_double_type_node)))
+	    && (mode != TYPE_MODE (double_type_node))
+	    && (mode != TYPE_MODE (long_double_type_node))
+#ifdef LIBGCC2_HAS_TF_MODE
+	    && (mode != TFmode)
+#endif
+	   )
 	continue;
 
       /* Let the kind equal the precision divided by 8, rounding up.  Again,
@@ -1936,10 +1940,12 @@ gfc_copy_dt_decls_ifequal (gfc_symbol *from, gfc_symbol *to,
   for (; to_cm; to_cm = to_cm->next, from_cm = from_cm->next)
     {
       to_cm->backend_decl = from_cm->backend_decl;
-      if ((!from_cm->attr.pointer || from_gsym)
-	      && from_cm->ts.type == BT_DERIVED)
+      if (from_cm->ts.type == BT_DERIVED
+	  && (!from_cm->attr.pointer || from_gsym))
 	gfc_get_derived_type (to_cm->ts.u.derived);
-
+      else if (from_cm->ts.type == BT_CLASS
+	       && (!CLASS_DATA (from_cm)->attr.class_pointer || from_gsym))
+	gfc_get_derived_type (to_cm->ts.u.derived);
       else if (from_cm->ts.type == BT_CHARACTER)
 	to_cm->ts.u.cl->backend_decl = from_cm->ts.u.cl->backend_decl;
     }

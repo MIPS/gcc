@@ -502,6 +502,19 @@ cp_lexer_token_at (cp_lexer *lexer ATTRIBUTE_UNUSED, cp_token_position pos)
   return pos;
 }
 
+static inline cp_token *
+cp_lexer_previous_token (cp_lexer *lexer)
+{
+  cp_token_position tp;
+
+  if (lexer->next_token == &eof_token)
+    tp = lexer->last_token - 1;
+  else
+    tp = cp_lexer_token_position (lexer, true);
+
+  return cp_lexer_token_at (lexer, tp);
+}
+
 /* nonzero if we are presently saving tokens.  */
 
 static inline int
@@ -16334,14 +16347,8 @@ cp_parser_ctor_initializer_opt_and_function_body (cp_parser *parser)
     }
   /* Parse the function-body.  */
   cp_parser_function_body (parser);
-  if (check_body_p
-      && (TREE_CODE (list) != STATEMENT_LIST
-	  || (last == NULL && STATEMENT_LIST_TAIL (list) != NULL)
-	  || (last != NULL && last != STATEMENT_LIST_TAIL (list)->stmt)))
-    {
-      error ("constexpr constructor does not have empty body");
-      DECL_DECLARED_CONSTEXPR_P (current_function_decl) = false;
-    }
+  if (check_body_p)
+    check_constexpr_ctor_body (last, list);
   /* Finish the function body.  */
   finish_function_body (body);
 
@@ -17627,6 +17634,8 @@ cp_parser_member_declaration (cp_parser* parser)
     }
   else
     {
+      bool assume_semicolon = false;
+
       /* See if these declarations will be friends.  */
       friend_p = cp_parser_friend_p (&decl_specifiers);
 
@@ -17820,11 +17829,18 @@ cp_parser_member_declaration (cp_parser* parser)
 	  else if (cp_lexer_next_token_is_not (parser->lexer,
 					       CPP_SEMICOLON))
 	    {
-	      cp_parser_error (parser, "expected %<;%>");
-	      /* Skip tokens until we find a `;'.  */
-	      cp_parser_skip_to_end_of_statement (parser);
+	      /* The next token might be a ways away from where the
+		 actual semicolon is missing.  Find the previous token
+		 and use that for our error position.  */
+	      cp_token *token = cp_lexer_previous_token (parser->lexer);
+	      error_at (token->location,
+			"expected %<;%> at end of member declaration");
 
-	      break;
+	      /* Assume that the user meant to provide a semicolon.  If
+		 we were to cp_parser_skip_to_end_of_statement, we might
+		 skip to a semicolon inside a member function definition
+		 and issue nonsensical error messages.  */
+	      assume_semicolon = true;
 	    }
 
 	  if (decl)
@@ -17836,6 +17852,9 @@ cp_parser_member_declaration (cp_parser* parser)
 	      if (TREE_CODE (decl) == FUNCTION_DECL)
 		cp_parser_save_default_args (parser, decl);
 	    }
+
+	  if (assume_semicolon)
+	    return;
 	}
     }
 
@@ -18193,7 +18212,7 @@ cp_parser_exception_specification_opt (cp_parser* parser)
   /* Enable this once a lot of code has transitioned to noexcept?  */
   if (cxx_dialect == cxx0x && !in_system_header)
     warning (OPT_Wdeprecated, "dynamic exception specifications are "
-	     "deprecated in C++0x; use %<noexcept%> instead.");
+	     "deprecated in C++0x; use %<noexcept%> instead");
 #endif
 
   /* Consume the `throw'.  */
@@ -21953,7 +21972,7 @@ cp_parser_objc_interstitial_code (cp_parser* parser)
   else if (token->type == CPP_OPEN_BRACE || token->type == CPP_CLOSE_BRACE)
     {
       cp_lexer_consume_token (parser->lexer);
-      error ("stray `%s' between Objective-C++ methods",
+      error ("stray %qs between Objective-C++ methods",
 	     token->type == CPP_OPEN_BRACE ? "{" : "}");
     }
   /* Finally, try to parse a block-declaration, or a function-definition.  */

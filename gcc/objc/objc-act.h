@@ -100,8 +100,7 @@ typedef enum objc_property_assign_semantics {
 #define PROPERTY_IVAR_NAME(DECL) ((DECL)->decl_common.initial)
 
 /* PROPERTY_DYNAMIC can be 0 or 1.  This is 1 if the PROPERTY_DECL
-   represents a @dynamic (or if it is a @property for which a @dynamic
-   declaration has been parsed); otherwise, it is set to 0.  */
+   represents a @dynamic; otherwise, it is set to 0.  */
 #define PROPERTY_DYNAMIC(DECL) DECL_LANG_FLAG_2 (DECL)
 
 /* PROPERTY_HAS_NO_GETTER can be 0 or 1.  Normally it is 0, but if
@@ -131,11 +130,23 @@ typedef enum objc_property_assign_semantics {
    declared property.  */
 #define PROPERTY_REF_PROPERTY_DECL(NODE) TREE_OPERAND (PROPERTY_REF_CHECK (NODE), 1)
 
+/* PROPERTY_REF_GETTER_CALL is the getter call expression, ready to
+   use at gimplify time if needed.  Generating the getter call
+   requires modifying the selector table, and, in the case of
+   self/super, requires the context to be generated correctly.  The
+   gimplify stage is too late to do these things, so we generate the
+   getter call earlier instead, and keep it here in case we need to
+   use it.  */
+#define PROPERTY_REF_GETTER_CALL(NODE) TREE_OPERAND (PROPERTY_REF_CHECK (NODE), 2)
+
 
 /* CLASS_INTERFACE_TYPE, CLASS_IMPLEMENTATION_TYPE,
    CATEGORY_INTERFACE_TYPE, CATEGORY_IMPLEMENTATION_TYPE,
    PROTOCOL_INTERFACE_TYPE */
+/* CLASS_NAME is the name of the class.  */
 #define CLASS_NAME(CLASS) ((CLASS)->type.name)
+/* CLASS_SUPER_NAME is the name of the superclass, or, in the case of
+   categories, it is the name of the category itself.  */
 #define CLASS_SUPER_NAME(CLASS) (TYPE_CHECK (CLASS)->type.context)
 #define CLASS_IVARS(CLASS) TREE_VEC_ELT (TYPE_LANG_SLOT_1 (CLASS), 0)
 #define CLASS_RAW_IVARS(CLASS) TREE_VEC_ELT (TYPE_LANG_SLOT_1 (CLASS), 1)
