@@ -13,6 +13,12 @@
 	ppc_recip_hw.
 	(is-effective-target-keyword): Ditto.
 
+2010-11-08  Pat Haugen  <pthaugen@us.ibm.com>
+	Backport from mainline
+	2010-11-04  Pat Haugen  <pthaugen@us.ibm.com>
+
+	* gcc.target/powerpc/loop_align.c: New.
+
 2010-11-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Backport from mainline

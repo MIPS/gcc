@@ -30,6 +30,48 @@
 	Merge up to gcc-4_5-branch revision 166755.
 	* REVISION: Update subversion id.
 
+2010-11-08  Pat Haugen  <pthaugen@us.ibm.com>
+
+	Backport from mainline
+	2010-11-04  Pat Haugen  <pthaugen@us.ibm.com>
+
+	* final.c (compute_alignments): Compute/free loop info all the time.
+	* config/rs6000/rs6000.h (LOOP_ALIGN): Define.
+	* config/rs6000/rs6000-protos.h (rs6000_loop_align): Declare.
+	* config/rs6000/t-rs6000 (rs6000.o): Add cfgloop.h.
+	* config/rs6000/rs6000.c (cfgloop.h): Include.
+	(can_override_loop_align): New.
+	(rs6000_option_override_internal): Set it.
+	(TARGET_ASM_LOOP_ALIGN_MAX_SKIP): Define target hook.
+	(rs6000_loop_align): New function.
+	(rs6000_loop_align_max_skip): Likewise.
+
+	2010-10-19  DJ Delorie  <dj@redhat.com>
+
+	* doc/tm.texi.in (TARGET_ASM_JUMP_ALIGN_MAX_SKIP): New.
+	(TARGET_ASM_LABEL_ALIGN_AFTER_BARRIER_MAX_SKIP): Change to hook.
+	(TARGET_ASM_LOOP_ALIGN_MAX_SKIP): Likewise.
+	(TARGET_ASM_LABEL_ALIGN_MAX_SKIP): Likewise.
+	* doc/tm.texi: Regenerate.
+	* targhooks.h (default_label_align_after_barrier_max_skip,
+	default_loop_align_max_skip, default_label_align_max_skip,
+	default_jump_align_max_skip): Declare.
+	* target.def (label_align_after_barrier_max_skip): New.
+	(loop_align_max_skip): New.
+	(label_align_max_skip): New.
+	(jump_align_max_skip): New.
+	* system.h (poison): Add those macros to the list.
+	* final.c (LABEL_ALIGN_MAX_SKIP): Remove.
+	(LOOP_ALIGN_MAX_SKIP): Remove.
+	(LABEL_ALIGN_AFTER_BARRIER_MAX_SKIP): Remove.
+	(JUMP_ALIGN_MAX_SKIP): Remove.
+	(default_label_align_after_barrier_max_skip): New.
+	(default_loop_align_max_skip): New.
+	(default_label_align_max_skip): New.
+	(default_jump_align_max_skip): New.
+	(compute_alignments): Use the new hooks.
+	(shorten_branches): Likewise.
+
 2010-11-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Backport from mainline
