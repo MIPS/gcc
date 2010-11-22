@@ -377,6 +377,43 @@ dump_binary_rhs (pretty_printer *buffer, gimple gs, int spc, int flags)
 }
 
 
+/* Helper for dump_gimple_assign.  Print the ternary RHS of the
+   assignment GS.  BUFFER, SPC and FLAGS are as in dump_gimple_stmt.  */
+
+static void
+dump_ternary_rhs (pretty_printer *buffer, gimple gs, int spc, int flags)
+{
+  const char *p;
+  enum tree_code code = gimple_assign_rhs_code (gs);
+  switch (code)
+    {
+    case WIDEN_MULT_PLUS_EXPR:
+    case WIDEN_MULT_MINUS_EXPR:
+      for (p = tree_code_name [(int) code]; *p; p++)
+	pp_character (buffer, TOUPPER (*p));
+      pp_string (buffer, " <");
+      dump_generic_node (buffer, gimple_assign_rhs1 (gs), spc, flags, false);
+      pp_string (buffer, ", ");
+      dump_generic_node (buffer, gimple_assign_rhs2 (gs), spc, flags, false);
+      pp_string (buffer, ", ");
+      dump_generic_node (buffer, gimple_assign_rhs3 (gs), spc, flags, false);
+      pp_character (buffer, '>');
+      break;
+
+    case FMA_EXPR:
+      dump_generic_node (buffer, gimple_assign_rhs1 (gs), spc, flags, false);
+      pp_string (buffer, " * ");
+      dump_generic_node (buffer, gimple_assign_rhs2 (gs), spc, flags, false);
+      pp_string (buffer, " + ");
+      dump_generic_node (buffer, gimple_assign_rhs3 (gs), spc, flags, false);
+      break;
+
+    default:
+      gcc_unreachable ();
+    }
+}
+
+
 /* Dump the gimple assignment GS.  BUFFER, SPC and FLAGS are as in
    dump_gimple_stmt.  */
 
@@ -418,6 +455,8 @@ dump_gimple_assign (pretty_printer *buffer, gimple gs, int spc, int flags)
         dump_unary_rhs (buffer, gs, spc, flags);
       else if (gimple_num_ops (gs) == 3)
         dump_binary_rhs (buffer, gs, spc, flags);
+      else if (gimple_num_ops (gs) == 4)
+        dump_ternary_rhs (buffer, gs, spc, flags);
       else
         gcc_unreachable ();
       if (!(flags & TDF_RHS_ONLY))
@@ -829,6 +868,14 @@ dump_gimple_debug (pretty_printer *buffer, gimple gs, int spc, int flags)
 	dump_gimple_fmt (buffer, spc, flags, "# DEBUG %T => %T",
 			 gimple_debug_bind_get_var (gs),
 			 gimple_debug_bind_get_value (gs));
+      break;
+
+    case FMA_EXPR:
+      dump_generic_node (buffer, gimple_assign_rhs1 (gs), spc, flags, false);
+      pp_string (buffer, " * ");
+      dump_generic_node (buffer, gimple_assign_rhs2 (gs), spc, flags, false);
+      pp_string (buffer, " + ");
+      dump_generic_node (buffer, gimple_assign_rhs3 (gs), spc, flags, false);
       break;
 
     default:

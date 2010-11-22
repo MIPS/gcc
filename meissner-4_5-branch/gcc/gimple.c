@@ -289,31 +289,40 @@ gimple_build_call_from_tree (tree t)
 
 
 /* Extract the operands and code for expression EXPR into *SUBCODE_P,
-   *OP1_P and *OP2_P respectively.  */
+   *OP1_P, *OP2_P and *OP3_P respectively.  */
 
 void
-extract_ops_from_tree (tree expr, enum tree_code *subcode_p, tree *op1_p,
-		       tree *op2_p)
+extract_ops_from_tree_1 (tree expr, enum tree_code *subcode_p, tree *op1_p,
+			 tree *op2_p, tree *op3_p)
 {
   enum gimple_rhs_class grhs_class;
 
   *subcode_p = TREE_CODE (expr);
   grhs_class = get_gimple_rhs_class (*subcode_p);
 
-  if (grhs_class == GIMPLE_BINARY_RHS)
+  if (grhs_class == GIMPLE_TERNARY_RHS)
     {
       *op1_p = TREE_OPERAND (expr, 0);
       *op2_p = TREE_OPERAND (expr, 1);
+      *op3_p = TREE_OPERAND (expr, 2);
+    }
+  else if (grhs_class == GIMPLE_BINARY_RHS)
+    {
+      *op1_p = TREE_OPERAND (expr, 0);
+      *op2_p = TREE_OPERAND (expr, 1);
+      *op3_p = NULL_TREE;
     }
   else if (grhs_class == GIMPLE_UNARY_RHS)
     {
       *op1_p = TREE_OPERAND (expr, 0);
       *op2_p = NULL_TREE;
+      *op3_p = NULL_TREE;
     }
   else if (grhs_class == GIMPLE_SINGLE_RHS)
     {
       *op1_p = expr;
       *op2_p = NULL_TREE;
+      *op3_p = NULL_TREE;
     }
   else
     gcc_unreachable ();
@@ -329,10 +338,10 @@ gimple
 gimple_build_assign_stat (tree lhs, tree rhs MEM_STAT_DECL)
 {
   enum tree_code subcode;
-  tree op1, op2;
+  tree op1, op2, op3;
 
-  extract_ops_from_tree (rhs, &subcode, &op1, &op2);
-  return gimple_build_assign_with_ops_stat (subcode, lhs, op1, op2
+  extract_ops_from_tree_1 (rhs, &subcode, &op1, &op2, &op3);
+  return gimple_build_assign_with_ops_stat (subcode, lhs, op1, op2, op3
   					    PASS_MEM_STAT);
 }
 
@@ -343,7 +352,7 @@ gimple_build_assign_stat (tree lhs, tree rhs MEM_STAT_DECL)
 
 gimple
 gimple_build_assign_with_ops_stat (enum tree_code subcode, tree lhs, tree op1,
-                                   tree op2 MEM_STAT_DECL)
+                                   tree op2, tree op3 MEM_STAT_DECL)
 {
   unsigned num_ops;
   gimple p;
@@ -360,6 +369,12 @@ gimple_build_assign_with_ops_stat (enum tree_code subcode, tree lhs, tree op1,
     {
       gcc_assert (num_ops > 2);
       gimple_assign_set_rhs2 (p, op2);
+    }
+
+  if (op3)
+    {
+      gcc_assert (num_ops > 3);
+      gimple_assign_set_rhs3 (p, op3);
     }
 
   return p;
@@ -1860,10 +1875,10 @@ void
 gimple_assign_set_rhs_from_tree (gimple_stmt_iterator *gsi, tree expr)
 {
   enum tree_code subcode;
-  tree op1, op2;
+  tree op1, op2, op3;
 
-  extract_ops_from_tree (expr, &subcode, &op1, &op2);
-  gimple_assign_set_rhs_with_ops (gsi, subcode, op1, op2);
+  extract_ops_from_tree_1 (expr, &subcode, &op1, &op2, &op3);
+  gimple_assign_set_rhs_with_ops_1 (gsi, subcode, op1, op2, op3);
 }
 
 
@@ -1874,8 +1889,8 @@ gimple_assign_set_rhs_from_tree (gimple_stmt_iterator *gsi, tree expr)
    did not have enough operand slots.  */
 
 void
-gimple_assign_set_rhs_with_ops (gimple_stmt_iterator *gsi, enum tree_code code,
-				tree op1, tree op2)
+gimple_assign_set_rhs_with_ops_1 (gimple_stmt_iterator *gsi, enum tree_code code,
+				  tree op1, tree op2, tree op3)
 {
   unsigned new_rhs_ops = get_gimple_rhs_num_ops (code);
   gimple stmt = gsi_stmt (*gsi);
@@ -1899,6 +1914,8 @@ gimple_assign_set_rhs_with_ops (gimple_stmt_iterator *gsi, enum tree_code code,
   gimple_assign_set_rhs1 (stmt, op1);
   if (new_rhs_ops > 1)
     gimple_assign_set_rhs2 (stmt, op2);
+  if (new_rhs_ops > 2)
+    gimple_assign_set_rhs3 (stmt, op3);
 }
 
 
@@ -2378,6 +2395,8 @@ get_gimple_rhs_num_ops (enum tree_code code)
     return 1;
   else if (rhs_class == GIMPLE_BINARY_RHS)
     return 2;
+  else if (rhs_class == GIMPLE_TERNARY_RHS)
+    return 3;
   else
     gcc_unreachable ();
 }
@@ -2394,6 +2413,9 @@ get_gimple_rhs_num_ops (enum tree_code code)
       || (SYM) == TRUTH_OR_EXPR						    \
       || (SYM) == TRUTH_XOR_EXPR) ? GIMPLE_BINARY_RHS			    \
    : (SYM) == TRUTH_NOT_EXPR ? GIMPLE_UNARY_RHS				    \
+   : ((SYM) == WIDEN_MULT_PLUS_EXPR					    \
+      || (SYM) == WIDEN_MULT_MINUS_EXPR					    \
+      || (SYM) == FMA_EXPR) ? GIMPLE_TERNARY_RHS			    \
    : ((SYM) == COND_EXPR						    \
       || (SYM) == CONSTRUCTOR						    \
       || (SYM) == OBJ_TYPE_REF						    \

@@ -54,6 +54,7 @@ enum expr_kind
   EXPR_SINGLE,
   EXPR_UNARY,
   EXPR_BINARY,
+  EXPR_TERNARY,
   EXPR_CALL
 };
 
@@ -65,6 +66,7 @@ struct hashable_expr
     struct { tree rhs; } single;
     struct { enum tree_code op;  tree opnd; } unary;
     struct { enum tree_code op;  tree opnd0; tree opnd1; } binary;
+    struct { enum tree_code op;  tree opnd0, opnd1, opnd2; } ternary;
     struct { tree fn; bool pure; size_t nargs; tree *args; } call;
   } ops;
 };
@@ -230,6 +232,14 @@ initialize_hash_element (gimple stmt, tree lhs,
           expr->ops.binary.opnd0 = gimple_assign_rhs1 (stmt);
           expr->ops.binary.opnd1 = gimple_assign_rhs2 (stmt);
           break;
+        case GIMPLE_TERNARY_RHS:
+	  expr->kind = EXPR_TERNARY;
+	  expr->type = TREE_TYPE (gimple_assign_lhs (stmt));
+	  expr->ops.ternary.op = subcode;
+	  expr->ops.ternary.opnd0 = gimple_assign_rhs1 (stmt);
+	  expr->ops.ternary.opnd1 = gimple_assign_rhs2 (stmt);
+	  expr->ops.ternary.opnd2 = gimple_assign_rhs3 (stmt);
+	  break;
         default:
           gcc_unreachable ();
         }
@@ -333,7 +343,7 @@ initialize_hash_element_from_expr (struct hashable_expr *expr,
 
 static bool
 hashable_expr_equal_p (const struct hashable_expr *expr0,
-                        const struct hashable_expr *expr1)
+		       const struct hashable_expr *expr1)
 {
   tree type0 = expr0->type;
   tree type1 = expr1->type;
@@ -391,6 +401,25 @@ hashable_expr_equal_p (const struct hashable_expr *expr0,
                 && operand_equal_p (expr0->ops.binary.opnd1,
                                     expr1->ops.binary.opnd0, 0));
       }
+
+    case EXPR_TERNARY:
+      if (expr0->ops.ternary.op != expr1->ops.ternary.op
+	  || !operand_equal_p (expr0->ops.ternary.opnd2,
+			       expr1->ops.ternary.opnd2, 0))
+	return false;
+
+      if (operand_equal_p (expr0->ops.ternary.opnd0,
+			   expr1->ops.ternary.opnd0, 0)
+	  && operand_equal_p (expr0->ops.ternary.opnd1,
+			      expr1->ops.ternary.opnd1, 0))
+	return true;
+
+      /* For commutative ops, allow the other order.  */
+      return (commutative_ternary_tree_code (expr0->ops.ternary.op)
+	      && operand_equal_p (expr0->ops.ternary.opnd0,
+				  expr1->ops.ternary.opnd1, 0)
+	      && operand_equal_p (expr0->ops.ternary.opnd1,
+				  expr1->ops.ternary.opnd0, 0));
 
     case EXPR_CALL:
       {
@@ -462,6 +491,19 @@ iterative_hash_hashable_expr (const struct hashable_expr *expr, hashval_t val)
         }
       break;
 
+    case EXPR_TERNARY:
+      val = iterative_hash_object (expr->ops.ternary.op, val);
+      if (commutative_ternary_tree_code (expr->ops.ternary.op))
+	val = iterative_hash_exprs_commutative (expr->ops.ternary.opnd0,
+						expr->ops.ternary.opnd1, val);
+      else
+        {
+          val = iterative_hash_expr (expr->ops.ternary.opnd0, val);
+          val = iterative_hash_expr (expr->ops.ternary.opnd1, val);
+        }
+      val = iterative_hash_expr (expr->ops.ternary.opnd2, val);
+      break;
+
     case EXPR_CALL:
       {
         size_t i;
@@ -512,6 +554,16 @@ print_expr_hash_elt (FILE * stream, const struct expr_hash_elt *element)
         print_generic_expr (stream, element->expr.ops.binary.opnd0, 0);
         fprintf (stream, " %s ", tree_code_name[element->expr.ops.binary.op]);
         print_generic_expr (stream, element->expr.ops.binary.opnd1, 0);
+        break;
+
+      case EXPR_TERNARY:
+        fprintf (stream, " %s <", tree_code_name[element->expr.ops.ternary.op]);
+        print_generic_expr (stream, element->expr.ops.ternary.opnd0, 0);
+	fputs (", ", stream);
+        print_generic_expr (stream, element->expr.ops.ternary.opnd1, 0);
+	fputs (", ", stream);
+        print_generic_expr (stream, element->expr.ops.ternary.opnd2, 0);
+	fputs (">", stream);
         break;
 
       case EXPR_CALL:

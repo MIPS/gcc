@@ -64,7 +64,13 @@ gimple_assign_rhs_to_tree (gimple stmt)
 
   grhs_class = get_gimple_rhs_class (gimple_expr_code (stmt));
 
-  if (grhs_class == GIMPLE_BINARY_RHS)
+  if (grhs_class == GIMPLE_TERNARY_RHS)
+    t = build3 (gimple_assign_rhs_code (stmt),
+		TREE_TYPE (gimple_assign_lhs (stmt)),
+		gimple_assign_rhs1 (stmt),
+		gimple_assign_rhs2 (stmt),
+		gimple_assign_rhs3 (stmt));
+  else if (grhs_class == GIMPLE_BINARY_RHS)
     t = build2 (gimple_assign_rhs_code (stmt),
 		TREE_TYPE (gimple_assign_lhs (stmt)),
 		gimple_assign_rhs1 (stmt),
@@ -1886,6 +1892,9 @@ expand_gimple_stmt_1 (gimple stmt)
 	    ops.type = TREE_TYPE (lhs);
 	    switch (get_gimple_rhs_class (gimple_expr_code (stmt)))
 	      {
+		case GIMPLE_TERNARY_RHS:
+		  ops.op2 = gimple_assign_rhs3 (stmt);
+		  /* Fallthru */
 		case GIMPLE_BINARY_RHS:
 		  ops.op1 = gimple_assign_rhs2 (stmt);
 		  /* Fallthru */
@@ -2236,6 +2245,9 @@ expand_debug_expr (tree exp)
 	{
 	case COND_EXPR:
 	case DOT_PROD_EXPR:
+	case WIDEN_MULT_PLUS_EXPR:
+	case WIDEN_MULT_MINUS_EXPR:
+	case FMA_EXPR:
 	  goto ternary;
 
 	case TRUTH_ANDIF_EXPR:

@@ -247,14 +247,14 @@ fold_assignment_stmt (gimple stmt)
 
         return fold (rhs);
       }
-      break;
+
     case GIMPLE_UNARY_RHS:
       {
         tree lhs = gimple_assign_lhs (stmt);
         tree op0 = gimple_assign_rhs1 (stmt);
         return fold_unary (subcode, TREE_TYPE (lhs), op0);
       }
-      break;
+
     case GIMPLE_BINARY_RHS:
       {
         tree lhs = gimple_assign_lhs (stmt);
@@ -262,7 +262,16 @@ fold_assignment_stmt (gimple stmt)
         tree op1 = gimple_assign_rhs2 (stmt);
         return fold_binary (subcode, TREE_TYPE (lhs), op0, op1);
       }
-      break;
+
+    case GIMPLE_TERNARY_RHS:
+      {
+        tree lhs = gimple_assign_lhs (stmt);
+        tree op0 = gimple_assign_rhs1 (stmt);
+        tree op1 = gimple_assign_rhs2 (stmt);
+        tree op2 = gimple_assign_rhs3 (stmt);
+        return fold_ternary (subcode, TREE_TYPE (lhs), op0, op1, op2);
+      }
+
     default:
       gcc_unreachable ();
     }
