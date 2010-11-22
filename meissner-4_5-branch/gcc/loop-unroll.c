@@ -1609,10 +1609,10 @@ reset_debug_uses_in_loop (struct loop *loop, rtx reg, int debug_uses)
 static struct var_to_expand *
 analyze_insn_to_expand_var (struct loop *loop, rtx insn)
 {
-  rtx set, dest, src, op1, op2, something;
+  rtx set, dest, src;
   struct var_to_expand *ves;
-  enum machine_mode mode1, mode2;
   unsigned accum_pos;
+  enum rtx_code code;
   int debug_uses = 0;
 
   set = single_set (insn);
@@ -1621,11 +1621,19 @@ analyze_insn_to_expand_var (struct loop *loop, rtx insn)
 
   dest = SET_DEST (set);
   src = SET_SRC (set);
+  code = GET_CODE (src);
 
-  if (GET_CODE (src) != PLUS
-      && GET_CODE (src) != MINUS
-      && GET_CODE (src) != MULT)
+  if (code != PLUS && code != MINUS && code != MULT && code != FMA)
     return NULL;
+
+  if (FLOAT_MODE_P (GET_MODE (dest)))
+    {
+      if (!flag_associative_math)
+        return NULL;
+      /* In the case of FMA, we're also changing the rounding.  */
+      if (code == FMA && !flag_unsafe_math_optimizations)
+	return NULL;
+    }
 
   /* Hmm, this is a bit paradoxical.  We know that INSN is a valid insn
      in MD.  But if there is no optab to generate the insn, we can not
@@ -1636,54 +1644,57 @@ analyze_insn_to_expand_var (struct loop *loop, rtx insn)
      So we check have_insn_for which looks for an optab for the operation
      in SRC.  If it doesn't exist, we can't perform the expansion even
      though INSN is valid.  */
-  if (!have_insn_for (GET_CODE (src), GET_MODE (src)))
+  if (!have_insn_for (code, GET_MODE (src)))
     return NULL;
-
-  op1 = XEXP (src, 0);
-  op2 = XEXP (src, 1);
 
   if (!REG_P (dest)
       && !(GET_CODE (dest) == SUBREG
            && REG_P (SUBREG_REG (dest))))
     return NULL;
 
-  if (rtx_equal_p (dest, op1))
+  /* Find the accumulator use within the operation.  */
+  if (code == FMA)
+    {
+      /* We only support accumulation via FMA in the ADD position.  */
+      if (!rtx_equal_p  (dest, XEXP (src, 2)))
+	return NULL;
+      accum_pos = 2;
+    }
+  else if (rtx_equal_p (dest, XEXP (src, 0)))
     accum_pos = 0;
-  else if (rtx_equal_p (dest, op2))
-    accum_pos = 1;
+  else if (rtx_equal_p (dest, XEXP (src, 1)))
+    {
+      /* The method of expansion that we are using; which includes the
+	 initialization of the expansions with zero and the summation of
+         the expansions at the end of the computation will yield wrong
+	 results for (x = something - x) thus avoid using it in that case.  */
+      if (code == MINUS)
+	return NULL;
+      accum_pos = 1;
+    }
   else
     return NULL;
 
-  /* The method of expansion that we are using; which includes
-     the initialization of the expansions with zero and the summation of
-     the expansions at the end of the computation will yield wrong results
-     for (x = something - x) thus avoid using it in that case.  */
-  if (accum_pos == 1
-      && GET_CODE (src) == MINUS)
-   return NULL;
-
-  something = (accum_pos == 0) ? op2 : op1;
-
-  if (rtx_referenced_p (dest, something))
+  /* It must not otherwise be used.  */
+  if (code == FMA)
+    {
+      if (rtx_referenced_p (dest, XEXP (src, 0))
+	  || rtx_referenced_p (dest, XEXP (src, 1)))
+	return NULL;
+    }
+  else if (rtx_referenced_p (dest, XEXP (src, 1 - accum_pos)))
     return NULL;
 
+  /* It must be used in exactly one insn.  */
   if (!referenced_in_one_insn_in_loop_p (loop, dest, &debug_uses))
     return NULL;
 
-  mode1 = GET_MODE (dest);
-  mode2 = GET_MODE (something);
-  if ((FLOAT_MODE_P (mode1)
-       || FLOAT_MODE_P (mode2))
-      && !flag_associative_math)
-    return NULL;
-
   if (dump_file)
-  {
-    fprintf (dump_file,
-    "\n;; Expanding Accumulator ");
-    print_rtl (dump_file, dest);
-    fprintf (dump_file, "\n");
-  }
+    {
+      fprintf (dump_file, "\n;; Expanding Accumulator ");
+      print_rtl (dump_file, dest);
+      fprintf (dump_file, "\n");
+    }
 
   if (debug_uses)
     /* Instead of resetting the debug insns, we could replace each
@@ -2116,7 +2127,8 @@ insert_var_expansion_initialization (struct var_to_expand *ve,
     return;
 
   start_sequence ();
-  if (ve->op == PLUS || ve->op == MINUS)
+  /* Note that we only accumulate FMA via the ADD operand.  */
+  if (ve->op == PLUS || ve->op == MINUS || ve->op == FMA)
     for (i = 0; VEC_iterate (rtx, ve->var_expansions, i, var); i++)
       {
 	if (honor_signed_zero_p)
@@ -2124,6 +2136,12 @@ insert_var_expansion_initialization (struct var_to_expand *ve,
 	else
 	  zero_init = CONST0_RTX (mode);
 
+        emit_move_insn (var, zero_init);
+      }
+  else if (ve->op == MULT)
+    for (i = 0; VEC_iterate (rtx, ve->var_expansions, i, var); i++)
+      {
+        zero_init =  CONST1_RTX (GET_MODE (var));
         emit_move_insn (var, zero_init);
       }
   else if (ve->op == MULT)
@@ -2158,7 +2176,8 @@ combine_var_copies_in_loop_exit (struct var_to_expand *ve, basic_block place)
     return;
 
   start_sequence ();
-  if (ve->op == PLUS || ve->op == MINUS)
+  /* Note that we only accumulate FMA via the ADD operand.  */
+  if (ve->op == PLUS || ve->op == MINUS || ve->op == FMA)
     for (i = 0; VEC_iterate (rtx, ve->var_expansions, i, var); i++)
       {
         sum = simplify_gen_binary (PLUS, GET_MODE (ve->reg),
