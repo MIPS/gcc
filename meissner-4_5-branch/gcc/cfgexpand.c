@@ -3061,6 +3061,9 @@ expand_debug_expr (tree exp)
 	}
       return NULL;
 
+    case FMA_EXPR:
+      return gen_rtx_FMA (mode, op0, op1, op2);
+
     default:
     flag_unsupported:
 #ifdef ENABLE_CHECKING

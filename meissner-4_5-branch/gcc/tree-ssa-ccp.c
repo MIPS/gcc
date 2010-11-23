@@ -400,26 +400,6 @@ get_value (tree var)
   return val;
 }
 
-/* Return the constant tree value associated with VAR.  */
-
-static inline tree
-get_constant_value (tree var)
-{
-  prop_value_t *val;
-  if (TREE_CODE (var) != SSA_NAME)
-    {
-      if (is_gimple_min_invariant (var))
-        return var;
-      return NULL_TREE;
-    }
-  val = get_value (var);
-  if (val
-      && val->lattice_val == CONSTANT
-      && (TREE_CODE (val->value) != INTEGER_CST))
-    return val->value;
-  return NULL_TREE;
-}
-
 /* Sets the value associated with VAR to VARYING.  */
 
 static inline void
@@ -940,9 +920,10 @@ may_propagate_address_into_dereference (tree addr, tree deref)
 static tree
 valueize_op (tree op)
 {
-  if (TREE_CODE (op) == SSA_NAME)
+  if (TREE_CODE (op) == SSA_NAME
+      && get_value (op)->lattice_val == CONSTANT)
     {
-      tree tem = get_constant_value (op);
+      tree tem = get_value (op)->value;
       if (tem)
 	return tem;
     }

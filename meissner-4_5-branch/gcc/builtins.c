@@ -9208,7 +9208,8 @@ fold_builtin_fma (location_t loc, tree arg0, tree arg1, tree arg2, tree type)
 	return tem;
 
       /* ??? Only expand to FMA_EXPR if it's directly supported.  */
-      if (optab_handler (fma_optab, TYPE_MODE (type)) != CODE_FOR_nothing)
+      if (optab_handler (fma_optab, TYPE_MODE (type))->insn_code
+	  != CODE_FOR_nothing)
         return fold_build3_loc (loc, FMA_EXPR, type, arg0, arg1, arg2);
     }
   return NULL_TREE;

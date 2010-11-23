@@ -25836,7 +25836,7 @@ rs6000_emit_msub (rtx target, rtx m1, rtx m2, rtx a)
 
   /* Altivec does not support fms directly;
      generate in terms of fma in that case.  */
-  if (optab_handler (fms_optab, mode) != CODE_FOR_nothing)
+  if (optab_handler (fms_optab, mode)->insn_code != CODE_FOR_nothing)
     dst = expand_ternary_op (mode, fms_optab, m1, m2, a, target, 0);
   else
     {
@@ -25864,7 +25864,8 @@ rs6000_emit_nmsub (rtx dst, rtx m1, rtx m2, rtx a)
      Fortunately we know that if FMA is supported that FNMSUB is
      also supported in the ISA.  Just expand it directly.  */
 
-  gcc_assert (optab_handler (fma_optab, mode) != CODE_FOR_nothing);
+  gcc_assert (optab_handler (fma_optab, mode)->insn_code
+	      != CODE_FOR_nothing);
 
   r = gen_rtx_NEG (mode, a);
   r = gen_rtx_FMA (mode, m1, m2, r);
