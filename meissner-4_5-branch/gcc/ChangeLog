@@ -1,3 +1,40 @@
+2010-11-22  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR middle-end/43057
+	* fold-const.c (pedantic_non_lvalue_loc): Unshare x before
+	setting location.
+
+2010-11-21  Richard Henderson  <rth@redhat.com>
+
+	PR rtl-optimization/46571
+	* gcse.c (hash_scan_set): Use next_nonnote_nondebug_insn.
+	(compute_hash_table_work): Use NONDEBUG_INSN_P.
+
+2010-11-21  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/mips/mips.c (machine_function): Rename load_label_length to
+	load_label_num_insns.
+	(mips_load_label_length): Rename to...
+	(mips_load_label_num_insns): ...this.  Adjust to first renaming.
+	(mips_adjust_insn_length): Adjust to second renaming.  Fix thinko.
+
+2010-11-20  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/31100
+	* config/sparc/sparc.h (ASM_OUTPUT_ALIGN_WITH_NOP): Move to...
+	* config/sparc/sol2.h (ASM_OUTPUT_ALIGN_WITH_NOP): ...here.
+	* config/sparc/sol2-gas.h (ASM_OUTPUT_ALIGN_WITH_NOP): Undefine.
+
+2010-11-19  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/46547
+	* c-common.c (in_late_binary_op): Define.
+	(c_common_truthvalue_conversion): Check in_late_binary_op before
+	calling c_save_expr.
+	* c-common.h (in_late_binary_op): Declare.
+	* c-tree.h (in_late_binary_op): Move to c-common.h.
+	* c-typeck.c (in_late_binary_op): Move to c-common.c.
+
 2010-11-17  Richard Guenther  <rguenther@suse.de>
 
 	PR tree-optimization/46498

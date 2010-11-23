@@ -1,3 +1,8 @@
+2010-11-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 167093.
+	* REVISION: Update subversion id.
+
 2010-11-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Backport from the GCC 4.6 mainline
