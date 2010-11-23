@@ -915,21 +915,6 @@ may_propagate_address_into_dereference (tree addr, tree deref)
 					TREE_TYPE (TREE_OPERAND (addr, 0))));
 }
 
-/* Return the constant value for OP or OP otherwise.  */
-
-static tree
-valueize_op (tree op)
-{
-  if (TREE_CODE (op) == SSA_NAME
-      && get_value (op)->lattice_val == CONSTANT)
-    {
-      tree tem = get_value (op)->value;
-      if (tem)
-	return tem;
-    }
-  return op;
-}
-
 /* CCP specific front-end to the non-destructive constant folding
    routines.
 
@@ -1002,7 +987,9 @@ ccp_fold (gimple stmt)
 		  list = NULL_TREE;
 		  FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (rhs), i, val)
 		    {
-		      val = valueize_op (val);
+		      if (TREE_CODE (val) == SSA_NAME
+			  && get_value (val)->lattice_val == CONSTANT)
+			val = get_value (val)->value;
 		      if (TREE_CODE (val) == INTEGER_CST
 			  || TREE_CODE (val) == REAL_CST
 			  || TREE_CODE (val) == FIXED_CST)
@@ -1050,7 +1037,7 @@ ccp_fold (gimple stmt)
                  Note that we know the single operand must be a constant,
                  so this should almost always return a simplified RHS.  */
               tree lhs = gimple_assign_lhs (stmt);
-              tree op0 = valueize_op (gimple_assign_rhs1 (stmt));
+              tree op0 = gimple_assign_rhs1 (stmt);
 
               /* Simplify the operand down to a constant.  */
               if (TREE_CODE (op0) == SSA_NAME)
@@ -1095,8 +1082,8 @@ ccp_fold (gimple stmt)
           case GIMPLE_BINARY_RHS:
             {
               /* Handle binary operators that can appear in GIMPLE form.  */
-              tree op0 = valueize_op (gimple_assign_rhs1 (stmt));
-              tree op1 = valueize_op (gimple_assign_rhs2 (stmt));
+              tree op0 = gimple_assign_rhs1 (stmt);
+              tree op1 = gimple_assign_rhs2 (stmt);
 
               /* Simplify the operands down to constants when appropriate.  */
               if (TREE_CODE (op0) == SSA_NAME)
@@ -1131,9 +1118,31 @@ ccp_fold (gimple stmt)
           case GIMPLE_TERNARY_RHS:
             {
               /* Handle ternary operators that can appear in GIMPLE form.  */
-              tree op0 = valueize_op (gimple_assign_rhs1 (stmt));
-              tree op1 = valueize_op (gimple_assign_rhs2 (stmt));
-              tree op2 = valueize_op (gimple_assign_rhs3 (stmt));
+              tree op0 = gimple_assign_rhs1 (stmt);
+              tree op1 = gimple_assign_rhs2 (stmt);
+              tree op2 = gimple_assign_rhs3 (stmt);
+
+              /* Simplify the operands down to constants when appropriate.  */
+              if (TREE_CODE (op0) == SSA_NAME)
+                {
+                  prop_value_t *val = get_value (op0);
+                  if (val->lattice_val == CONSTANT)
+                    op0 = val->value;
+                }
+
+              if (TREE_CODE (op1) == SSA_NAME)
+                {
+                  prop_value_t *val = get_value (op1);
+                  if (val->lattice_val == CONSTANT)
+                    op1 = val->value;
+                }
+
+              if (TREE_CODE (op2) == SSA_NAME)
+                {
+                  prop_value_t *val = get_value (op2);
+                  if (val->lattice_val == CONSTANT)
+                    op2 = val->value;
+                }
 
               return fold_ternary_loc (loc, subcode,
 				       gimple_expr_type (stmt), op0, op1, op2);
@@ -1147,7 +1156,15 @@ ccp_fold (gimple stmt)
 
     case GIMPLE_CALL:
       {
-	tree fn = valueize_op (gimple_call_fn (stmt));
+	tree fn = gimple_call_fn (stmt);
+	prop_value_t *val;
+
+	if (TREE_CODE (fn) == SSA_NAME)
+	  {
+	    val = get_value (fn);
+	    if (val->lattice_val == CONSTANT)
+	      fn = val->value;
+	  }
 	if (TREE_CODE (fn) == ADDR_EXPR
 	    && TREE_CODE (TREE_OPERAND (fn, 0)) == FUNCTION_DECL
 	    && DECL_BUILT_IN (TREE_OPERAND (fn, 0)))
@@ -1156,7 +1173,15 @@ ccp_fold (gimple stmt)
 	    tree call, retval;
 	    unsigned i;
 	    for (i = 0; i < gimple_call_num_args (stmt); ++i)
-	      args[i] = valueize_op (gimple_call_arg (stmt, i));
+	      {
+		args[i] = gimple_call_arg (stmt, i);
+		if (TREE_CODE (args[i]) == SSA_NAME)
+		  {
+		    val = get_value (args[i]);
+		    if (val->lattice_val == CONSTANT)
+		      args[i] = val->value;
+		  }
+	      }
 	    call = build_call_array_loc (loc,
 					 gimple_call_return_type (stmt),
 					 fn, gimple_call_num_args (stmt), args);
@@ -1172,16 +1197,40 @@ ccp_fold (gimple stmt)
     case GIMPLE_COND:
       {
         /* Handle comparison operators that can appear in GIMPLE form.  */
-        tree op0 = valueize_op (gimple_cond_lhs (stmt));
-        tree op1 = valueize_op (gimple_cond_rhs (stmt));
+        tree op0 = gimple_cond_lhs (stmt);
+        tree op1 = gimple_cond_rhs (stmt);
         enum tree_code code = gimple_cond_code (stmt);
+
+        /* Simplify the operands down to constants when appropriate.  */
+        if (TREE_CODE (op0) == SSA_NAME)
+          {
+            prop_value_t *val = get_value (op0);
+            if (val->lattice_val == CONSTANT)
+              op0 = val->value;
+          }
+
+        if (TREE_CODE (op1) == SSA_NAME)
+          {
+            prop_value_t *val = get_value (op1);
+            if (val->lattice_val == CONSTANT)
+              op1 = val->value;
+          }
+
         return fold_binary_loc (loc, code, boolean_type_node, op0, op1);
       }
 
     case GIMPLE_SWITCH:
       {
-	/* Return the constant switch index.  */
-        return valueize_op (gimple_switch_index (stmt));
+        tree rhs = gimple_switch_index (stmt);
+
+        if (TREE_CODE (rhs) == SSA_NAME)
+          {
+            /* If the RHS is an SSA_NAME, return its known constant value,
+               if any.  */
+            return get_value (rhs)->value;
+          }
+
+        return rhs;
       }
 
     default:
