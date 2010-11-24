@@ -389,4 +389,12 @@ enum warn_strict_overflow_code
 /* Whether to emit an overflow warning whose code is C.  */
 #define issue_strict_overflow_warning(c) (warn_strict_overflow >= (int) (c))
 
+/* Floating-point contraction mode.  */
+enum fp_contract_mode {
+  FP_CONTRACT_OFF = 0,
+  FP_CONTRACT_ON = 1,
+  FP_CONTRACT_FAST = 2
+};
+
+extern enum fp_contract_mode flag_fp_contract_mode;
 #endif /* ! GCC_FLAGS_H */

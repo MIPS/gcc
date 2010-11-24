@@ -193,6 +193,9 @@ enum optab_index
   OTI_atan2,
   /* Floating multiply/add */
   OTI_fma,
+  OTI_fms,
+  OTI_fnma,
+  OTI_fnms,
 
   /* Move instruction.  */
   OTI_mov,
@@ -438,6 +441,9 @@ extern struct optab_d optab_table[OTI_MAX];
 #define pow_optab (&optab_table[OTI_pow])
 #define atan2_optab (&optab_table[OTI_atan2])
 #define fma_optab (&optab_table[OTI_fma])
+#define fms_optab (&optab_table[OTI_fms])
+#define fnma_optab (&optab_table[OTI_fnma])
+#define fnms_optab (&optab_table[OTI_fnms])
 
 #define mov_optab (&optab_table[OTI_mov])
 #define movstrict_optab (&optab_table[OTI_movstrict])
@@ -773,6 +779,9 @@ extern void expand_fix (rtx, rtx, int);
 
 /* Generate code for float to integral conversion.  */
 extern bool expand_sfix_optab (rtx, rtx, convert_optab);
+
+/* Generate code for a widening multiply.  */
+extern rtx expand_widening_mult (enum machine_mode, rtx, rtx, rtx, int, optab);
 
 /* Return tree if target supports vector operations for COND_EXPR.  */
 bool expand_vec_cond_expr_p (tree, enum machine_mode);

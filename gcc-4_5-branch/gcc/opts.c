@@ -67,6 +67,9 @@ HOST_WIDE_INT larger_than_size;
 bool warn_frame_larger_than;
 HOST_WIDE_INT frame_larger_than_size;
 
+/* Floating-point contraction mode, fast by default.  */
+enum fp_contract_mode flag_fp_contract_mode = FP_CONTRACT_FAST;
+
 /* Type(s) of debugging information we are producing (if any).  See
    flags.h for the definitions of the different possible types of
    debugging information.  */
@@ -1771,6 +1774,18 @@ common_handle_option (size_t scode, const char *arg, int value,
     case OPT_fdump_:
       if (!dump_switch_p (arg))
 	return 0;
+      break;
+
+    case OPT_ffp_contract_:
+      if (!strcmp (arg, "on"))
+	/* Not implemented, fall back to conservative FP_CONTRACT_OFF.  */
+	flag_fp_contract_mode = FP_CONTRACT_OFF;
+      else if (!strcmp (arg, "off"))
+	flag_fp_contract_mode = FP_CONTRACT_OFF;
+      else if (!strcmp (arg, "fast"))
+	flag_fp_contract_mode = FP_CONTRACT_FAST;
+      else
+	error ("unknown floating point contraction style \"%s\"", arg);
       break;
 
     case OPT_fexcess_precision_:

@@ -994,6 +994,9 @@ get_expr_operands (gimple stmt, tree *expr_p, int flags)
 
     case DOT_PROD_EXPR:
     case REALIGN_LOAD_EXPR:
+    case WIDEN_MULT_PLUS_EXPR:
+    case WIDEN_MULT_MINUS_EXPR:
+    case FMA_EXPR:
       {
 	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags);
         get_expr_operands (stmt, &TREE_OPERAND (expr, 1), flags);

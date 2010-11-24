@@ -1115,6 +1115,39 @@ ccp_fold (gimple stmt)
 				  gimple_expr_type (stmt), op0, op1);
             }
 
+          case GIMPLE_TERNARY_RHS:
+            {
+              /* Handle ternary operators that can appear in GIMPLE form.  */
+              tree op0 = gimple_assign_rhs1 (stmt);
+              tree op1 = gimple_assign_rhs2 (stmt);
+              tree op2 = gimple_assign_rhs3 (stmt);
+
+              /* Simplify the operands down to constants when appropriate.  */
+              if (TREE_CODE (op0) == SSA_NAME)
+                {
+                  prop_value_t *val = get_value (op0);
+                  if (val->lattice_val == CONSTANT)
+                    op0 = val->value;
+                }
+
+              if (TREE_CODE (op1) == SSA_NAME)
+                {
+                  prop_value_t *val = get_value (op1);
+                  if (val->lattice_val == CONSTANT)
+                    op1 = val->value;
+                }
+
+              if (TREE_CODE (op2) == SSA_NAME)
+                {
+                  prop_value_t *val = get_value (op2);
+                  if (val->lattice_val == CONSTANT)
+                    op2 = val->value;
+                }
+
+              return fold_ternary_loc (loc, subcode,
+				       gimple_expr_type (stmt), op0, op1, op2);
+            }
+
           default:
             gcc_unreachable ();
           }
@@ -2956,6 +2989,34 @@ fold_gimple_assign (gimple_stmt_iterator *si)
             return build2 (subcode, TREE_TYPE (gimple_assign_lhs (stmt)),
                            gimple_assign_rhs2 (stmt),
                            gimple_assign_rhs1 (stmt));
+        }
+      break;
+
+
+    case GIMPLE_TERNARY_RHS:
+      result = fold_ternary_loc (loc, subcode,
+				 TREE_TYPE (gimple_assign_lhs (stmt)),
+				 gimple_assign_rhs1 (stmt),
+				 gimple_assign_rhs2 (stmt),
+				 gimple_assign_rhs3 (stmt));
+
+      if (result)
+        {
+          STRIP_USELESS_TYPE_CONVERSION (result);
+          if (valid_gimple_rhs_p (result))
+	    return result;
+
+	  /* Fold might have produced non-GIMPLE, so if we trust it blindly
+	     we lose canonicalization opportunities.  Do not go again
+	     through fold here though, or the same non-GIMPLE will be
+	     produced.  */
+          if (commutative_ternary_tree_code (subcode)
+              && tree_swap_operands_p (gimple_assign_rhs1 (stmt),
+                                       gimple_assign_rhs2 (stmt), false))
+            return build3 (subcode, TREE_TYPE (gimple_assign_lhs (stmt)),
+			   gimple_assign_rhs2 (stmt),
+			   gimple_assign_rhs1 (stmt),
+			   gimple_assign_rhs3 (stmt));
         }
       break;
 

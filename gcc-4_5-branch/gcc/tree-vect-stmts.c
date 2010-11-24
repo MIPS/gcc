@@ -2215,7 +2215,8 @@ vectorizable_shift (gimple stmt, gimple_stmt_iterator *gsi,
 
 /* Function vectorizable_operation.
 
-   Check if STMT performs a binary or unary operation that can be vectorized.
+   Check if STMT performs a binary, unary or ternary operation that can
+   be vectorized.
    If VEC_STMT is also passed, vectorize the STMT: create a vectorized
    stmt to replace it, put it in VEC_STMT, and insert it at BSI.
    Return FALSE if not a vectorizable STMT, TRUE otherwise.  */
@@ -2226,7 +2227,7 @@ vectorizable_operation (gimple stmt, gimple_stmt_iterator *gsi,
 {
   tree vec_dest;
   tree scalar_dest;
-  tree op0, op1 = NULL;
+  tree op0, op1 = NULL_TREE, op2 = NULL_TREE;
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   tree vectype = STMT_VINFO_VECTYPE (stmt_info);
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
@@ -2236,10 +2237,10 @@ vectorizable_operation (gimple stmt, gimple_stmt_iterator *gsi,
   int op_type;
   optab optab;
   int icode;
-  enum machine_mode optab_op2_mode;
   tree def;
   gimple def_stmt;
-  enum vect_def_type dt[2] = {vect_unknown_def_type, vect_unknown_def_type};
+  enum vect_def_type dt[3]
+    = {vect_unknown_def_type, vect_unknown_def_type, vect_unknown_def_type};
   gimple new_stmt = NULL;
   stmt_vec_info prev_stmt_info;
   int nunits_in = TYPE_VECTOR_SUBPARTS (vectype);
@@ -2247,10 +2248,8 @@ vectorizable_operation (gimple stmt, gimple_stmt_iterator *gsi,
   tree vectype_out;
   int ncopies;
   int j, i;
-  VEC(tree,heap) *vec_oprnds0 = NULL, *vec_oprnds1 = NULL;
-  tree vop0, vop1;
-  unsigned int k;
-  bool scalar_shift_arg = false;
+  VEC(tree,heap) *vec_oprnds0 = NULL, *vec_oprnds1 = NULL, *vec_oprnds2 = NULL;
+  tree vop0, vop1, vop2;
   bb_vec_info bb_vinfo = STMT_VINFO_BB_VINFO (stmt_info);
   int vf;
 
@@ -2299,10 +2298,11 @@ vectorizable_operation (gimple stmt, gimple_stmt_iterator *gsi,
 
   /* Support only unary or binary operations.  */
   op_type = TREE_CODE_LENGTH (code);
-  if (op_type != unary_op && op_type != binary_op)
+  if (op_type != unary_op && op_type != binary_op && op_type != ternary_op)
     {
       if (vect_print_dump_info (REPORT_DETAILS))
-	fprintf (vect_dump, "num. args = %d (not unary/binary op).", op_type);
+	fprintf (vect_dump, "num. args = %d (not unary/binary/ternary op).",
+		 op_type);
       return false;
     }
 
@@ -2314,11 +2314,22 @@ vectorizable_operation (gimple stmt, gimple_stmt_iterator *gsi,
       return false;
     }
 
-  if (op_type == binary_op)
+  if (op_type == binary_op || op_type == ternary_op)
     {
       op1 = gimple_assign_rhs2 (stmt);
       if (!vect_is_simple_use (op1, loop_vinfo, bb_vinfo, &def_stmt, &def,
                                &dt[1]))
+	{
+	  if (vect_print_dump_info (REPORT_DETAILS))
+	    fprintf (vect_dump, "use not simple.");
+	  return false;
+	}
+    }
+  if (op_type == ternary_op)
+    {
+      op2 = gimple_assign_rhs3 (stmt);
+      if (!vect_is_simple_use (op2, loop_vinfo, bb_vinfo, &def_stmt, &def,
+                               &dt[2]))
 	{
 	  if (vect_print_dump_info (REPORT_DETAILS))
 	    fprintf (vect_dump, "use not simple.");
@@ -2392,8 +2403,10 @@ vectorizable_operation (gimple stmt, gimple_stmt_iterator *gsi,
   if (!slp_node)
     {
       vec_oprnds0 = VEC_alloc (tree, heap, 1);
-      if (op_type == binary_op)
+      if (op_type == binary_op || op_type == ternary_op)
         vec_oprnds1 = VEC_alloc (tree, heap, 1);
+      if (op_type == ternary_op)
+        vec_oprnds2 = VEC_alloc (tree, heap, 1);
     }
 
   /* In case the vectorization factor (VF) is bigger than the number
@@ -2455,22 +2468,40 @@ vectorizable_operation (gimple stmt, gimple_stmt_iterator *gsi,
       /* Handle uses.  */
       if (j == 0)
 	{
-	  if (op_type == binary_op)
+	  if (op_type == binary_op || op_type == ternary_op)
 	    vect_get_vec_defs (op0, op1, stmt, &vec_oprnds0, &vec_oprnds1,
 			       slp_node);
 	  else
 	    vect_get_vec_defs (op0, NULL_TREE, stmt, &vec_oprnds0, NULL,
 			       slp_node);
+	  if (op_type == ternary_op)
+	    {
+	      vec_oprnds2 = VEC_alloc (tree, heap, 1);
+	      VEC_quick_push (tree, vec_oprnds2,
+			      vect_get_vec_def_for_operand (op2, stmt, NULL));
+	    }
 	}
       else
-	vect_get_vec_defs_for_stmt_copy (dt, &vec_oprnds0, &vec_oprnds1);
+	{
+	  vect_get_vec_defs_for_stmt_copy (dt, &vec_oprnds0, &vec_oprnds1);
+	  if (op_type == ternary_op)
+	    {
+	      tree vec_oprnd = VEC_pop (tree, vec_oprnds2);
+	      VEC_quick_push (tree, vec_oprnds2,
+			      vect_get_vec_def_for_stmt_copy (dt[2],
+							      vec_oprnd));
+	    }
+	}
 
       /* Arguments are ready. Create the new vector stmt.  */
       for (i = 0; VEC_iterate (tree, vec_oprnds0, i, vop0); i++)
         {
-	  vop1 = ((op_type == binary_op)
-		  ? VEC_index (tree, vec_oprnds1, i) : NULL);
-	  new_stmt = gimple_build_assign_with_ops (code, vec_dest, vop0, vop1);
+	  vop1 = ((op_type == binary_op || op_type == ternary_op)
+		  ? VEC_index (tree, vec_oprnds1, i) : NULL_TREE);
+	  vop2 = ((op_type == ternary_op)
+		  ? VEC_index (tree, vec_oprnds2, i) : NULL_TREE);
+	  new_stmt = gimple_build_assign_with_ops3 (code, vec_dest,
+						    vop0, vop1, vop2);
 	  new_temp = make_ssa_name (vec_dest, new_stmt);
 	  gimple_assign_set_lhs (new_stmt, new_temp);
 	  vect_finish_stmt_generation (stmt, new_stmt, gsi);
@@ -2491,6 +2522,8 @@ vectorizable_operation (gimple stmt, gimple_stmt_iterator *gsi,
   VEC_free (tree, heap, vec_oprnds0);
   if (vec_oprnds1)
     VEC_free (tree, heap, vec_oprnds1);
+  if (vec_oprnds2)
+    VEC_free (tree, heap, vec_oprnds2);
 
   return true;
 }
