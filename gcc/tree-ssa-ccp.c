@@ -1319,18 +1319,26 @@ ccp_fold (gimple stmt)
 }
 
 /* See if we can find constructor defining value of BASE.
+   When we know the consructor with constant offset (such as
+   base is array[40] and we do know constructor of array), then
+   BIT_OFFSET is adjusted accordingly.
 
    As a special case, return error_mark_node when constructor
    is not explicitly available, but it is known to be zero
    such as 'static const int a;'.  */
 static tree
-get_base_constructor (tree base, tree *offset)
+get_base_constructor (tree base, HOST_WIDE_INT *bit_offset)
 {
-  *offset = NULL;
+  HOST_WIDE_INT bit_offset2, size, max_size;
   if (TREE_CODE (base) == MEM_REF)
     {
       if (!integer_zerop (TREE_OPERAND (base, 1)))
-        *offset = TREE_OPERAND (base, 1);
+	{
+	  if (!host_integerp (TREE_OPERAND (base, 1), 0))
+	    return NULL_TREE;
+	  *bit_offset += (mem_ref_offset (base).low
+			  * BITS_PER_UNIT);
+	}
 
       base = get_constant_value (TREE_OPERAND (base, 0));
       if (!base || TREE_CODE (base) != ADDR_EXPR)
@@ -1354,18 +1362,18 @@ get_base_constructor (tree base, tree *offset)
 	  && (TREE_STATIC (base) || DECL_EXTERNAL (base)))
         return error_mark_node;
       return DECL_INITIAL (base);
-      
-      break;
 
     case ARRAY_REF:
     case COMPONENT_REF:
-      return fold_const_aggregate_ref (base);
-      break;
+      base = get_ref_base_and_extent (base, &bit_offset2, &size, &max_size);
+      if (max_size == -1 || size != max_size)
+	return NULL_TREE;
+      *bit_offset +=  bit_offset2;
+      return get_base_constructor (base, bit_offset);
 
     case STRING_CST:
     case CONSTRUCTOR:
       return base;
-      break;
 
     default:
       return NULL_TREE;
@@ -1511,23 +1519,30 @@ fold_nonarray_ctor_reference (tree type, tree ctor,
       double_int bits_per_unit_cst = uhwi_to_double_int (BITS_PER_UNIT);
       double_int bitoffset_end;
 
-      /* Variable sized objects in static constructors makes no sense.  */
+      /* Variable sized objects in static constructors makes no sense,
+	 but field_size can be NULL for flexible array members.  */
       gcc_assert (TREE_CODE (field_offset) == INTEGER_CST
 		  && TREE_CODE (byte_offset) == INTEGER_CST
-		  && TREE_CODE (field_size) == INTEGER_CST);
+		  && (field_size != NULL_TREE
+		      ? TREE_CODE (field_size) == INTEGER_CST
+		      : TREE_CODE (TREE_TYPE (cfield)) == ARRAY_TYPE));
 
       /* Compute bit offset of the field.  */
       bitoffset = double_int_add (tree_to_double_int (field_offset),
 				  double_int_mul (byte_offset_cst,
 						  bits_per_unit_cst));
       /* Compute bit offset where the field ends.  */
-      bitoffset_end = double_int_add (bitoffset,
-				      tree_to_double_int (field_size));
+      if (field_size != NULL_TREE)
+	bitoffset_end = double_int_add (bitoffset,
+					tree_to_double_int (field_size));
+      else
+	bitoffset_end = double_int_zero;
 
       /* Is OFFSET in the range (BITOFFSET, BITOFFSET_END)? */
       if (double_int_cmp (uhwi_to_double_int (offset), bitoffset, 0) >= 0
-	  && double_int_cmp (uhwi_to_double_int (offset),
-			     bitoffset_end, 0) < 0)
+	  && (field_size == NULL_TREE
+	      || double_int_cmp (uhwi_to_double_int (offset),
+				 bitoffset_end, 0) < 0))
 	{
 	  double_int access_end = double_int_add (uhwi_to_double_int (offset),
 						  uhwi_to_double_int (size));
@@ -1597,7 +1612,6 @@ fold_const_aggregate_ref (tree t)
   tree ctor, idx, base;
   HOST_WIDE_INT offset, size, max_size;
   tree tem;
-  tree ctr_offset;
 
   if (TREE_CODE_CLASS (TREE_CODE (t)) == tcc_declaration)
     return get_symbol_constant_value (t);
@@ -1633,13 +1647,7 @@ fold_const_aggregate_ref (tree t)
 	      offset *= BITS_PER_UNIT;
 
 	      base = TREE_OPERAND (t, 0);
-	      ctor = get_base_constructor (base, &ctr_offset);
-	      if (ctr_offset)
-		{
-		  if (!host_integerp (ctr_offset, 1))
-		    return NULL_TREE;
-		  offset += TREE_INT_CST_LOW (ctr_offset) * BITS_PER_UNIT;
-		}
+	      ctor = get_base_constructor (base, &offset);
 	      /* Empty constructor.  Always fold to 0. */
 	      if (ctor == error_mark_node)
 		return build_zero_cst (TREE_TYPE (t));
@@ -1661,7 +1669,7 @@ fold_const_aggregate_ref (tree t)
     case TARGET_MEM_REF:
     case MEM_REF:
       base = get_ref_base_and_extent (t, &offset, &size, &max_size);
-      ctor = get_base_constructor (base, &ctr_offset);
+      ctor = get_base_constructor (base, &offset);
 
       /* Empty constructor.  Always fold to 0. */
       if (ctor == error_mark_node)
@@ -1673,12 +1681,6 @@ fold_const_aggregate_ref (tree t)
       if (!ctor)
 	return NULL_TREE;
 
-      if (ctr_offset)
-	{
-	  if (!host_integerp (ctr_offset, 1))
-	    return NULL_TREE;
-	  offset += TREE_INT_CST_LOW (ctr_offset) * BITS_PER_UNIT;
-	}
       /* Out of bound array access.  Value is undefined, but don't fold. */
       if (offset < 0)
 	return NULL_TREE;
@@ -2268,6 +2270,7 @@ ccp_fold_stmt (gimple_stmt_iterator *gsi)
 	tree lhs = gimple_call_lhs (stmt);
 	tree val;
 	tree argt;
+	tree callee;
 	bool changed = false;
 	unsigned i;
 
@@ -2306,6 +2309,25 @@ ccp_fold_stmt (gimple_stmt_iterator *gsi)
 		gimple_call_set_arg (stmt, i, unshare_expr (val));
 		changed = true;
 	      }
+	  }
+
+	callee = gimple_call_fn (stmt);
+	if (TREE_CODE (callee) == OBJ_TYPE_REF
+	    && TREE_CODE (OBJ_TYPE_REF_EXPR (callee)) == SSA_NAME)
+	  {
+	    tree expr = OBJ_TYPE_REF_EXPR (callee);
+	    OBJ_TYPE_REF_EXPR (callee) = valueize_op (expr);
+	    if (TREE_CODE (OBJ_TYPE_REF_EXPR (callee)) == ADDR_EXPR)
+	      {
+		tree t;
+		t = gimple_fold_obj_type_ref (callee, NULL_TREE);
+		if (t)
+		  {
+		    gimple_call_set_fn (stmt, t);
+		    changed = true;
+		  }
+	      }
+	    OBJ_TYPE_REF_EXPR (callee) = expr;
 	  }
 
 	return changed;

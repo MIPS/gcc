@@ -872,7 +872,7 @@ pushdecl_maybe_friend (tree x, bool is_friend)
 		     inlining.  */
 		  && (!TYPE_NAME (type)
 		      || TYPE_NAME (type) != DECL_ABSTRACT_ORIGIN (x))))
-	    cp_set_underlying_type (x);
+	    set_underlying_type (x);
 
 	  if (type != error_mark_node
 	      && TYPE_NAME (type)
@@ -992,7 +992,7 @@ pushdecl_maybe_friend (tree x, bool is_friend)
 		/* OK */;
 	      else
 		{
-		  warning (0, "extern declaration of %q#D doesn't match", x);
+		  warning (0, "extern declaration of %q#D doesn%'t match", x);
 		  warning (0, "global declaration %q+#D", oldglobal);
 		}
 	    }
@@ -3239,7 +3239,6 @@ handle_namespace_attrs (tree ns, tree attributes)
       tree name = TREE_PURPOSE (d);
       tree args = TREE_VALUE (d);
 
-#ifdef HANDLE_PRAGMA_VISIBILITY
       if (is_attribute_p ("visibility", name))
 	{
 	  tree x = args ? TREE_VALUE (args) : NULL_TREE;
@@ -3260,7 +3259,6 @@ handle_namespace_attrs (tree ns, tree attributes)
 	  saw_vis = true;
 	}
       else
-#endif
 	{
 	  warning (OPT_Wattributes, "%qD attribute directive ignored",
 		   name);
@@ -4932,6 +4930,7 @@ arg_assoc_type (struct arg_lookup *k, tree type)
     case BOOLEAN_TYPE:
     case FIXED_POINT_TYPE:
     case DECLTYPE_TYPE:
+    case NULLPTR_TYPE:
       return false;
     case RECORD_TYPE:
       if (TYPE_PTRMEMFUNC_P (type))
@@ -4963,7 +4962,6 @@ arg_assoc_type (struct arg_lookup *k, tree type)
       return false;
     case LANG_TYPE:
       gcc_assert (type == unknown_type_node
-		  || NULLPTR_TYPE_P (type)
 		  || type == init_list_type_node);
       return false;
     case TYPE_PACK_EXPANSION:

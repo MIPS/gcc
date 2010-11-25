@@ -52,6 +52,32 @@ for variables set in option handlers rather than referenced by
 @code{Var} properties.
 
 @item
+A variable record to define a variable used to store option
+information.  These records have two fields: the string
+@samp{TargetVariable}, and a declaration of the type and name of the
+variable, optionally with an initializer (but without any trailing
+@samp{;}).  @samp{TargetVariable} is a combination of @samp{Variable}
+and @samp{TargetSave} records in that the variable is defined in the
+@code{gcc_options} structure, but these variables are also stored in
+the @code{cl_target_option} structure.  The variables are saved in the
+target save code and restored in the target restore code.
+
+@item
+A variable record to record any additional files that the
+@file{options.h} file should include.  This is useful to provide
+enumeration or structure definitions needed for target variables.
+These records have two fields: the string @samp{HeaderInclude} and the
+name of the include file.
+
+@item
+A variable record to record any additional files that the
+@file{options.c} file should include.  This is useful to provide
+inline functions needed for target variables and/or @code{#ifdef}
+sequences to properly set up the initialization.  These records have
+two fields: the string @samp{SourceInclude} and the name of the
+include file.
+
+@item
 An option definition record.  These records have the following fields:
 @enumerate
 @item
@@ -162,6 +188,10 @@ generic error message is used.  @var{message} should contain a single
 @samp{%qs} format, which will be used to format the name of the option
 passed.
 
+@item Args(@var{n})
+For an option marked @code{Separate}, indicate that it takes @var{n}
+arguments.  The default is 1.
+
 @item UInteger
 The option's argument is a non-negative integer.  The option parser
 will check and convert the argument before passing it to the relevant
@@ -195,6 +225,12 @@ option is used and 0 when the ``no-'' form is used.
 @item
 If the option takes an argument and has the @code{UInteger} property,
 @var{var} is an integer variable that stores the value of the argument.
+
+@item
+If the option has the @code{Defer} property, @var{var} is a pointer to
+a @code{VEC(cl_deferred_option,heap)} that stores the option for later
+processing.  (@var{var} is declared with type @code{void *} and needs
+to be cast to @code{VEC(cl_deferred_option,heap)} before use.)
 
 @item
 Otherwise, if the option takes an argument, @var{var} is a pointer to
@@ -251,6 +287,10 @@ The main purpose of this property is to support synonymous options.
 The first option should use @samp{Mask(@var{name})} and the others
 should use @samp{Mask(@var{name}) MaskExists}.
 
+@item Defer
+The option should be stored in a vector, specified with @code{Var},
+for later processing.
+
 @item Alias(@var{opt})
 @itemx Alias(@var{opt}, @var{arg})
 @itemx Alias(@var{opt}, @var{posarg}, @var{negarg})
@@ -299,6 +339,17 @@ is marked @code{Warn}, the target of the alias must not also be marked
 
 @item Report
 The state of the option should be printed by @option{-fverbose-asm}.
+
+@item Warning
+This is a warning option and should be shown as such in
+@option{--help} output.  This flag does not currently affect anything
+other than @option{--help}.
+
+@item Optimization
+This is an optimization option.  It should be shown as such in
+@option{--help} output, and any associated variable named using
+@code{Var} should be saved and restored when the optimization level is
+changed with @code{optimize} attributes.
 
 @item Undocumented
 The option is deliberately missing documentation and should not

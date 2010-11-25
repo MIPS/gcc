@@ -19,6 +19,14 @@
 
 # Some common subroutines for use by opt[ch]-gen.awk.
 
+# Define some helpful character classes, for portability.
+BEGIN {
+	lower = "abcdefghijklmnopqrstuvwxyz"
+	upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	digit = "0123456789"
+	alnum = lower "" upper "" digit
+}
+
 # Return nonzero if FLAGS contains a flag matching REGEX.
 function flag_set_p(regex, flags)
 {
@@ -92,6 +100,12 @@ function switch_flags (flags)
 	  test_flag("Warning", flags,  " | CL_WARNING") \
 	  test_flag("Optimization", flags,  " | CL_OPTIMIZATION") \
 	  test_flag("Report", flags, " | CL_REPORT")
+	sep_args = opt_args("Args", flags)
+	if (sep_args != "") {
+		sep_args--
+		result = result " | (" sep_args \
+		    " << CL_SEPARATE_NARGS_SHIFT)"
+	}
 	sub( "^0 \\| ", "", result )
 	return result
 }
@@ -127,14 +141,16 @@ function static_var(name, flags)
 {
 	if (global_state_p(flags) || !needs_state_p(flags))
 		return ""
-	gsub ("[^A-Za-z0-9]", "_", name)
+	gsub ("[^" alnum "]", "_", name)
 	return "VAR_" name
 }
 
 # Return the type of variable that should be associated with the given flags.
 function var_type(flags)
 {
-	if (!flag_set_p("Joined.*", flags) && !flag_set_p("Separate", flags))
+	if (flag_set_p("Defer", flags))
+		return "void *"
+	else if (!flag_set_p("Joined.*", flags) && !flag_set_p("Separate", flags))
 		return "int "
 	else if (flag_set_p("UInteger", flags))
 		return "int "
@@ -163,6 +179,8 @@ function var_type_struct(flags)
 # "var_cond" and "var_value" fields of its cl_options[] entry.
 function var_set(flags)
 {
+	if (flag_set_p("Defer", flags))
+		return "CLVC_DEFER, 0"
 	s = nth_arg(1, opt_args("Var", flags))
 	if (s != "")
 		return "CLVC_EQUAL, " s
@@ -204,9 +222,7 @@ function var_ref(name, flags)
 # Given the option called NAME return a sanitized version of its name.
 function opt_sanitized_name(name)
 {
-	if (name == "gdwarf+")
-		name = "gdwarfplus"
-	gsub ("[^A-Za-z0-9]", "_", name)
+	gsub ("[^" alnum "]", "_", name)
 	return name
 }
 

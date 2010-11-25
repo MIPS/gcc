@@ -87,6 +87,7 @@ tree gfc_static_ctors;
 tree gfor_fndecl_pause_numeric;
 tree gfor_fndecl_pause_string;
 tree gfor_fndecl_stop_numeric;
+tree gfor_fndecl_stop_numeric_f08;
 tree gfor_fndecl_stop_string;
 tree gfor_fndecl_error_stop_numeric;
 tree gfor_fndecl_error_stop_string;
@@ -554,6 +555,7 @@ gfc_finish_var_decl (tree decl, gfc_symbol * sym)
   if (sym->attr.volatile_)
     {
       TREE_THIS_VOLATILE (decl) = 1;
+      TREE_SIDE_EFFECTS (decl) = 1;
       new_type = build_qualified_type (TREE_TYPE (decl), TYPE_QUAL_VOLATILE);
       TREE_TYPE (decl) = new_type;
     } 
@@ -1090,7 +1092,7 @@ gfc_get_symbol_decl (gfc_symbol * sym)
 	  else
 	    length = sym->ts.u.cl->backend_decl;
 	  if (TREE_CODE (length) == VAR_DECL
-	      && DECL_CONTEXT (length) == NULL_TREE)
+	      && DECL_FILE_SCOPE_P (length))
 	    {
 	      /* Add the string length to the same context as the symbol.  */
 	      if (DECL_CONTEXT (sym->backend_decl) == current_function_decl)
@@ -1454,13 +1456,13 @@ gfc_get_extern_function_decl (gfc_symbol * sym)
 	  tree save_fn_decl = current_function_decl;
 
 	  current_function_decl = NULL_TREE;
-	  gfc_get_backend_locus (&old_loc);
+	  gfc_save_backend_locus (&old_loc);
 	  push_cfun (cfun);
 
 	  gfc_create_function_decl (gsym->ns, true);
 
 	  pop_cfun ();
-	  gfc_set_backend_locus (&old_loc);
+	  gfc_restore_backend_locus (&old_loc);
 	  current_function_decl = save_fn_decl;
 	}
 
@@ -1646,9 +1648,9 @@ build_function_decl (gfc_symbol * sym, bool global)
 
   /* Allow only one nesting level.  Allow public declarations.  */
   gcc_assert (current_function_decl == NULL_TREE
-	      || DECL_CONTEXT (current_function_decl) == NULL_TREE
-	      || TREE_CODE (DECL_CONTEXT (current_function_decl))
-		 == NAMESPACE_DECL);
+	      || DECL_FILE_SCOPE_P (current_function_decl)
+	      || (TREE_CODE (DECL_CONTEXT (current_function_decl))
+		  == NAMESPACE_DECL));
 
   type = gfc_get_function_type (sym);
   fndecl = build_decl (input_location,
@@ -1658,10 +1660,6 @@ build_function_decl (gfc_symbol * sym, bool global)
 
   attributes = add_attributes_to_decl (attr, NULL_TREE);
   decl_attributes (&fndecl, attributes, 0);
-
-  /* Perform name mangling if this is a top level or module procedure.  */
-  if (current_function_decl == NULL_TREE)
-    gfc_set_decl_assembler_name (fndecl, gfc_sym_mangled_function_id (sym));
 
   /* Figure out the return type of the declared function, and build a
      RESULT_DECL for it.  If this is a subroutine with alternate
@@ -1710,12 +1708,11 @@ build_function_decl (gfc_symbol * sym, bool global)
      layout_decl (result_decl, 0);  */
 
   /* Set up all attributes for the function.  */
-  DECL_CONTEXT (fndecl) = current_function_decl;
   DECL_EXTERNAL (fndecl) = 0;
 
   /* This specifies if a function is globally visible, i.e. it is
      the opposite of declaring static in C.  */
-  if (DECL_CONTEXT (fndecl) == NULL_TREE
+  if (!current_function_decl
       && !sym->attr.entry_master && !sym->attr.is_main_program)
     TREE_PUBLIC (fndecl) = 1;
 
@@ -1743,6 +1740,10 @@ build_function_decl (gfc_symbol * sym, bool global)
     pushdecl_top_level (fndecl);
   else
     pushdecl (fndecl);
+
+  /* Perform name mangling if this is a top level or module procedure.  */
+  if (current_function_decl == NULL_TREE)
+    gfc_set_decl_assembler_name (fndecl, gfc_sym_mangled_function_id (sym));
 
   sym->backend_decl = fndecl;
 }
@@ -1944,9 +1945,18 @@ create_function_arglist (gfc_symbol * sym)
       if (f->sym->attr.proc_pointer)
         type = build_pointer_type (type);
 
+      if (f->sym->attr.volatile_)
+	type = build_qualified_type (type, TYPE_QUAL_VOLATILE);
+
       /* Build the argument declaration.  */
       parm = build_decl (input_location,
 			 PARM_DECL, gfc_sym_identifier (f->sym), type);
+
+      if (f->sym->attr.volatile_)
+	{
+	  TREE_THIS_VOLATILE (parm) = 1;
+	  TREE_SIDE_EFFECTS (parm) = 1;
+	}
 
       /* Fill in arg stuff.  */
       DECL_CONTEXT (parm) = fndecl;
@@ -1991,7 +2001,7 @@ trans_function_start (gfc_symbol * sym)
   /* Let the world know what we're about to do.  */
   announce_function (fndecl);
 
-  if (DECL_CONTEXT (fndecl) == NULL_TREE)
+  if (DECL_FILE_SCOPE_P (fndecl))
     {
       /* Create RTL for function declaration.  */
       rest_of_decl_compilation (fndecl, 1, 0);
@@ -2029,7 +2039,7 @@ build_entry_thunks (gfc_namespace * ns, bool global)
   /* This should always be a toplevel function.  */
   gcc_assert (current_function_decl == NULL_TREE);
 
-  gfc_get_backend_locus (&old_loc);
+  gfc_save_backend_locus (&old_loc);
   for (el = ns->entries; el; el = el->next)
     {
       VEC(tree,gc) *args = NULL;
@@ -2193,7 +2203,7 @@ build_entry_thunks (gfc_namespace * ns, bool global)
 	}
     }
 
-  gfc_set_backend_locus (&old_loc);
+  gfc_restore_backend_locus (&old_loc);
 }
 
 
@@ -2803,6 +2813,12 @@ gfc_build_builtin_function_decls (void)
   /* STOP doesn't return.  */
   TREE_THIS_VOLATILE (gfor_fndecl_stop_numeric) = 1;
 
+  gfor_fndecl_stop_numeric_f08 = gfc_build_library_function_decl (
+	get_identifier (PREFIX("stop_numeric_f08")),
+	void_type_node, 1, gfc_int4_type_node);
+  /* STOP doesn't return.  */
+  TREE_THIS_VOLATILE (gfor_fndecl_stop_numeric_f08) = 1;
+
   gfor_fndecl_stop_string = gfc_build_library_function_decl_with_spec (
 	get_identifier (PREFIX("stop_string")), ".R.",
 	void_type_node, 2, pchar_type_node, gfc_int4_type_node);
@@ -3337,11 +3353,11 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, gfc_wrapped_block * block)
 					    NULL_TREE);
 		    }
 
-		  gfc_get_backend_locus (&loc);
+		  gfc_save_backend_locus (&loc);
 		  gfc_set_backend_locus (&sym->declared_at);
 		  gfc_trans_auto_array_allocation (sym->backend_decl,
 						   sym, block);
-		  gfc_set_backend_locus (&loc);
+		  gfc_restore_backend_locus (&loc);
 		}
 	      break;
 
@@ -3387,7 +3403,7 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, gfc_wrapped_block * block)
 
 	      e = gfc_lval_expr_from_sym (sym);
 	      if (sym->ts.type == BT_CLASS)
-		gfc_add_component_ref (e, "$data");
+		gfc_add_data_component (e);
 
 	      gfc_init_se (&se, NULL);
 	      se.want_pointer = 1;
@@ -3402,31 +3418,34 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, gfc_wrapped_block * block)
 
 	      /* Deallocate when leaving the scope. Nullifying is not
 		 needed.  */
-	      tmp = NULL;
 	      if (!sym->attr.result)
-		tmp = gfc_deallocate_with_status (se.expr, NULL_TREE,
-						  true, NULL);
+		tmp = gfc_deallocate_scalar_with_status (se.expr, NULL, true,
+							 NULL, sym->ts);
+	      else
+		tmp = NULL;
 	      gfc_add_init_cleanup (block, gfc_finish_block (&init), tmp);
 	    }
 	}
+      else if (sym->ts.deferred)
+	gfc_fatal_error ("Deferred type parameter not yet supported");
       else if (sym_has_alloc_comp)
 	gfc_trans_deferred_array (sym, block);
       else if (sym->ts.type == BT_CHARACTER)
 	{
-	  gfc_get_backend_locus (&loc);
+	  gfc_save_backend_locus (&loc);
 	  gfc_set_backend_locus (&sym->declared_at);
 	  if (sym->attr.dummy || sym->attr.result)
 	    gfc_trans_dummy_character (sym, sym->ts.u.cl, block);
 	  else
 	    gfc_trans_auto_character_variable (sym, block);
-	  gfc_set_backend_locus (&loc);
+	  gfc_restore_backend_locus (&loc);
 	}
       else if (sym->attr.assign)
 	{
-	  gfc_get_backend_locus (&loc);
+	  gfc_save_backend_locus (&loc);
 	  gfc_set_backend_locus (&sym->declared_at);
 	  gfc_trans_assign_aux_var (sym, block);
-	  gfc_set_backend_locus (&loc);
+	  gfc_restore_backend_locus (&loc);
 	}
       else if (sym->ts.type == BT_DERIVED
 		 && sym->value
@@ -3598,7 +3617,7 @@ gfc_create_module_variable (gfc_symbol * sym)
   if ((sym->attr.in_common || sym->attr.in_equivalence) && sym->backend_decl)
     {
       decl = sym->backend_decl;
-      gcc_assert (DECL_CONTEXT (decl) == NULL_TREE);
+      gcc_assert (DECL_FILE_SCOPE_P (decl));
       gcc_assert (sym->ns->proc_name->attr.flavor == FL_MODULE);
       DECL_CONTEXT (decl) = sym->ns->proc_name->backend_decl;
       gfc_module_add_decl (cur_module, decl);
@@ -3625,7 +3644,6 @@ gfc_create_module_variable (gfc_symbol * sym)
 
   /* Create the variable.  */
   pushdecl (decl);
-  gcc_assert (DECL_CONTEXT (decl) == NULL_TREE);
   gcc_assert (sym->ns->proc_name->attr.flavor == FL_MODULE);
   DECL_CONTEXT (decl) = sym->ns->proc_name->backend_decl;
   rest_of_decl_compilation (decl, 1, 0);
@@ -4009,9 +4027,10 @@ generate_local_decl (gfc_symbol * sym)
 	}
 
       /* Warn for unused variables, but not if they're inside a common
-	 block or are use-associated.  */
+	 block, a namelist, or are use-associated.  */
       else if (warn_unused_variable
-	       && !(sym->attr.in_common || sym->attr.use_assoc || sym->mark))
+	       && !(sym->attr.in_common || sym->attr.use_assoc || sym->mark
+		    || sym->attr.in_namelist))
 	gfc_warning ("Unused variable '%s' declared at %L", sym->name,
 		     &sym->declared_at);
 
@@ -4208,8 +4227,7 @@ add_argument_checking (stmtblock_t *block, gfc_symbol *sym)
 	    not_0length = fold_build2_loc (input_location, NE_EXPR,
 					   boolean_type_node,
 					   cl->passed_length,
-					   fold_convert (gfc_charlen_type_node,
-							 integer_zero_node));
+					   build_zero_cst (gfc_charlen_type_node));
 	    /* The symbol needs to be referenced for gfc_get_symbol_decl.  */
 	    fsym->attr.referenced = 1;
 	    not_absent = gfc_conv_expr_present (fsym);

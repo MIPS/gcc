@@ -518,6 +518,8 @@ lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
   bp_pack_value (&bp, node->alias, 1);
   bp_pack_value (&bp, node->finalized_by_frontend, 1);
   bp_pack_value (&bp, node->frequency, 2);
+  bp_pack_value (&bp, node->only_called_at_startup, 1);
+  bp_pack_value (&bp, node->only_called_at_exit, 1);
   lto_output_bitpack (&bp);
   lto_output_uleb128_stream (ob->main_stream, node->resolution);
 
@@ -978,6 +980,8 @@ input_overwrite_node (struct lto_file_decl_data *file_data,
   node->alias = bp_unpack_value (bp, 1);
   node->finalized_by_frontend = bp_unpack_value (bp, 1);
   node->frequency = (enum node_frequency)bp_unpack_value (bp, 2);
+  node->only_called_at_startup = bp_unpack_value (bp, 1);
+  node->only_called_at_exit = bp_unpack_value (bp, 1);
   node->resolution = resolution;
 }
 
@@ -1440,7 +1444,7 @@ input_profile_summary (struct lto_input_block *ib)
 	       || profile_info->sum_all != lto_input_sleb128 (ib)
 	       || profile_info->run_max != lto_input_sleb128 (ib)
 	       || profile_info->sum_max != lto_input_sleb128 (ib))
-	sorry ("Combining units with different profiles is not supported.");
+	sorry ("combining units with different profiles is not supported");
       /* We allow some units to have profile and other to not have one.  This will
          just make unprofiled units to be size optimized that is sane.  */
     }
@@ -1468,6 +1472,8 @@ input_cgraph (void)
 
       ib = lto_create_simple_input_block (file_data, LTO_section_cgraph,
 					  &data, &len);
+      if (!ib) 
+	fatal_error ("cannot find LTO cgraph in %s", file_data->file_name);
       input_profile_summary (ib);
       file_data->cgraph_node_encoder = lto_cgraph_encoder_new ();
       nodes = input_cgraph_1 (file_data, ib);
@@ -1476,12 +1482,16 @@ input_cgraph (void)
 
       ib = lto_create_simple_input_block (file_data, LTO_section_varpool,
 					  &data, &len);
+      if (!ib)
+	fatal_error ("cannot find LTO varpool in %s", file_data->file_name);
       varpool = input_varpool_1 (file_data, ib);
       lto_destroy_simple_input_block (file_data, LTO_section_varpool,
 				      ib, data, len);
 
       ib = lto_create_simple_input_block (file_data, LTO_section_refs,
 					  &data, &len);
+      if (!ib)
+	fatal_error("cannot find LTO section refs in %s", file_data->file_name);
       input_refs (ib, nodes, varpool);
       lto_destroy_simple_input_block (file_data, LTO_section_refs,
 				      ib, data, len);

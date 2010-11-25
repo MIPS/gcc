@@ -1088,9 +1088,9 @@ init_cumulative_args (CUMULATIVE_ARGS * cum, tree fntype,
 
 /* Advance the argument to the next argument position.  */
 
-void
-function_arg_advance (CUMULATIVE_ARGS * cum, enum machine_mode mode,
-		      tree type, int named ATTRIBUTE_UNUSED)
+static void
+microblaze_function_arg_advance (CUMULATIVE_ARGS * cum, enum machine_mode mode,
+				 const_tree type, bool named ATTRIBUTE_UNUSED)
 {
   cum->arg_number++;
   switch (mode)
@@ -1143,9 +1143,10 @@ function_arg_advance (CUMULATIVE_ARGS * cum, enum machine_mode mode,
 /* Return an RTL expression containing the register for the given mode,
    or 0 if the argument is to be passed on the stack.  */
 
-rtx
-function_arg (CUMULATIVE_ARGS * cum, enum machine_mode mode, 
-	      tree type ATTRIBUTE_UNUSED, int named ATTRIBUTE_UNUSED)
+static rtx
+microblaze_function_arg (CUMULATIVE_ARGS * cum, enum machine_mode mode, 
+			 const_tree type ATTRIBUTE_UNUSED,
+			 bool named ATTRIBUTE_UNUSED)
 {
   rtx ret;
   int regbase = -1;
@@ -1279,17 +1280,12 @@ microblaze_handle_option (size_t code,
 {
   switch (code)
     {
-    case OPT_G:
-      g_switch_value = value;
-      g_switch_set = true;
-      return true;
-
     case OPT_mno_clearbss:
       flag_zero_initialized_in_bss = 0;
       warning (0, "-mno-clearbss is deprecated; use -fno-zero-initialized-in-bss");
       break;
     case OPT_mxl_stack_check:
-      warning (0, "-mxl_stack_check is deprecated; use -fstack-check.");
+      warning (0, "-mxl_stack_check is deprecated; use -fstack-check");
       break;
     }
   return true;
@@ -1304,8 +1300,9 @@ microblaze_option_override (void)
   register enum machine_mode mode;
   int ver;
 
-  microblaze_section_threshold =
-    g_switch_set ? g_switch_value : MICROBLAZE_DEFAULT_GVALUE;
+  microblaze_section_threshold = (global_options_set.x_g_switch_value
+				  ? g_switch_value
+				  : MICROBLAZE_DEFAULT_GVALUE);
 
   /* Check the MicroBlaze CPU version for any special action to be done.  */
   if (microblaze_select_cpu == NULL)
@@ -1426,6 +1423,13 @@ microblaze_option_override (void)
 	}
     }
 }
+
+/* Implement TARGET_OPTION_OPTIMIZATION_TABLE.  */
+static const struct default_options microblaze_option_optimization_table[] =
+  {
+    { OPT_LEVELS_1_PLUS, OPT_fomit_frame_pointer, NULL, 1 },
+    { OPT_LEVELS_NONE, 0, NULL, 0 }
+  };
 
 /* Return true if FUNC is an interrupt function as specified
    by the "interrupt_handler" attribute.  */
@@ -1841,7 +1845,7 @@ print_operand (FILE * file, rtx op, int letter)
 	      break;
 	    case ADDRESS_INVALID:
 	    case ADDRESS_PLT:
-	      fatal_insn ("Invalid address", op);
+	      fatal_insn ("invalid address", op);
 	    }
 	}
     }
@@ -2265,7 +2269,8 @@ microblaze_expand_prologue (void)
 	  passed_mode = Pmode;
 	}
 
-      entry_parm = FUNCTION_ARG (args_so_far, passed_mode, passed_type, 1);
+      entry_parm = targetm.calls.function_arg (&args_so_far, passed_mode,
+					       passed_type, true);
 
       if (entry_parm)
 	{
@@ -2285,7 +2290,8 @@ microblaze_expand_prologue (void)
 	  break;
 	}
 
-      FUNCTION_ARG_ADVANCE (args_so_far, passed_mode, passed_type, 1);
+      targetm.calls.function_arg_advance (&args_so_far, passed_mode,
+					  passed_type, true);
 
       next_arg = TREE_CHAIN (cur_arg);
       if (next_arg == 0)
@@ -2299,7 +2305,8 @@ microblaze_expand_prologue (void)
 
   /* Split parallel insn into a sequence of insns.  */
 
-  next_arg_reg = FUNCTION_ARG (args_so_far, VOIDmode, void_type_node, 1);
+  next_arg_reg = targetm.calls.function_arg (&args_so_far, VOIDmode,
+					     void_type_node, true);
   if (next_arg_reg != 0 && GET_CODE (next_arg_reg) == PARALLEL)
     {
       rtvec adjust = XVEC (next_arg_reg, 0);
@@ -2996,6 +3003,12 @@ microblaze_adjust_cost (rtx insn ATTRIBUTE_UNUSED, rtx link,
 #undef TARGET_ARG_PARTIAL_BYTES
 #define TARGET_ARG_PARTIAL_BYTES	function_arg_partial_bytes
 
+#undef TARGET_FUNCTION_ARG
+#define TARGET_FUNCTION_ARG		microblaze_function_arg
+
+#undef TARGET_FUNCTION_ARG_ADVANCE
+#define TARGET_FUNCTION_ARG_ADVANCE	microblaze_function_arg_advance
+
 #undef TARGET_CAN_ELIMINATE
 #define TARGET_CAN_ELIMINATE 		microblaze_can_eliminate
 
@@ -3031,6 +3044,12 @@ microblaze_adjust_cost (rtx insn ATTRIBUTE_UNUSED, rtx link,
 
 #undef  TARGET_OPTION_OVERRIDE
 #define TARGET_OPTION_OVERRIDE		microblaze_option_override 
+
+#undef  TARGET_OPTION_OPTIMIZATION_TABLE
+#define TARGET_OPTION_OPTIMIZATION_TABLE microblaze_option_optimization_table
+
+#undef TARGET_EXCEPT_UNWIND_INFO
+#define TARGET_EXCEPT_UNWIND_INFO  sjlj_except_unwind_info
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

@@ -956,27 +956,60 @@ input_gimple_stmt (struct lto_input_block *ib, struct data_in *data_in,
 	      if (TREE_CODE (op) == COMPONENT_REF)
 		{
 		  tree field, type, tem;
+		  tree closest_match = NULL_TREE;
 		  field = TREE_OPERAND (op, 1);
 		  type = DECL_CONTEXT (field);
 		  for (tem = TYPE_FIELDS (type); tem; tem = TREE_CHAIN (tem))
 		    {
-		      if (tem == field
-			  || (gimple_types_compatible_p (TREE_TYPE (tem),
-							 TREE_TYPE (field),
-							 GTC_DIAG)
-			      && DECL_NONADDRESSABLE_P (tem)
-				 == DECL_NONADDRESSABLE_P (field)
-			      && gimple_compare_field_offset (tem, field)))
+		      if (tem == field)
 			break;
+		      if (DECL_NONADDRESSABLE_P (tem)
+			  == DECL_NONADDRESSABLE_P (field)
+			  && gimple_compare_field_offset (tem, field))
+			{
+			  if (types_compatible_p (TREE_TYPE (tem),
+						  TREE_TYPE (field)))
+			    break;
+			  else
+			    closest_match = tem;
+			}
 		    }
 		  /* In case of type mismatches across units we can fail
 		     to unify some types and thus not find a proper
-		     field-decl here.  So only assert here if checking
-		     is enabled.  */
-#ifdef ENABLE_CHECKING
-		  gcc_assert (tem != NULL_TREE);
-#endif
-		  if (tem != NULL_TREE)
+		     field-decl here.  */
+		  if (tem == NULL_TREE)
+		    {
+		      /* Thus, emit a ODR violation warning.  */
+		      if (warning_at (gimple_location (stmt), 0,
+				      "use of type %<%E%> with two mismatching "
+				      "declarations at field %<%E%>",
+				      type, TREE_OPERAND (op, 1)))
+			{
+			  if (TYPE_FIELDS (type))
+			    inform (DECL_SOURCE_LOCATION (TYPE_FIELDS (type)),
+				    "original type declared here");
+			  inform (DECL_SOURCE_LOCATION (TREE_OPERAND (op, 1)),
+				  "field in mismatching type declared here");
+			  if (TYPE_NAME (TREE_TYPE (field))
+			      && (TREE_CODE (TYPE_NAME (TREE_TYPE (field)))
+				  == TYPE_DECL))
+			    inform (DECL_SOURCE_LOCATION
+				      (TYPE_NAME (TREE_TYPE (field))),
+				    "type of field declared here");
+			  if (closest_match
+			      && TYPE_NAME (TREE_TYPE (closest_match))
+			      && (TREE_CODE (TYPE_NAME
+				   (TREE_TYPE (closest_match))) == TYPE_DECL))
+			    inform (DECL_SOURCE_LOCATION
+				      (TYPE_NAME (TREE_TYPE (closest_match))),
+				    "type of mismatching field declared here");
+			}
+		      /* And finally fixup the types.  */
+		      TREE_OPERAND (op, 0)
+			= build1 (VIEW_CONVERT_EXPR, type,
+				  TREE_OPERAND (op, 0));
+		    }
+		  else
 		    TREE_OPERAND (op, 1) = tem;
 		}
 
@@ -1876,7 +1909,8 @@ static void
 lto_input_ts_common_tree_pointers (struct lto_input_block *ib,
 				   struct data_in *data_in, tree expr)
 {
-  TREE_TYPE (expr) = lto_input_tree (ib, data_in);
+  if (TREE_CODE (expr) != IDENTIFIER_NODE)
+    TREE_TYPE (expr) = lto_input_tree (ib, data_in);
 }
 
 
@@ -1915,6 +1949,13 @@ lto_input_ts_decl_minimal_tree_pointers (struct lto_input_block *ib,
 {
   DECL_NAME (expr) = lto_input_tree (ib, data_in);
   DECL_CONTEXT (expr) = lto_input_tree (ib, data_in);
+  /* We do not stream BLOCK_VARS but lazily construct it here.  */
+  if (DECL_CONTEXT (expr)
+      && TREE_CODE (DECL_CONTEXT (expr)) == BLOCK)
+    {
+      TREE_CHAIN (expr) = BLOCK_VARS (DECL_CONTEXT (expr));
+      BLOCK_VARS (DECL_CONTEXT (expr)) = expr;
+    }
   DECL_SOURCE_LOCATION (expr) = lto_input_location (ib, data_in);
 }
 
@@ -2136,20 +2177,33 @@ lto_input_ts_block_tree_pointers (struct lto_input_block *ib,
   unsigned i, len;
 
   BLOCK_SOURCE_LOCATION (expr) = lto_input_location (ib, data_in);
-  BLOCK_VARS (expr) = lto_input_chain (ib, data_in);
+  /* We do not stream BLOCK_VARS but lazily construct it when reading
+     in decls.  */
 
   len = lto_input_uleb128 (ib);
-  for (i = 0; i < len; i++)
+  if (len > 0)
     {
-      tree t = lto_input_tree (ib, data_in);
-      VEC_safe_push (tree, gc, BLOCK_NONLOCALIZED_VARS (expr), t);
+      VEC_reserve_exact (tree, gc, BLOCK_NONLOCALIZED_VARS (expr), len);
+      for (i = 0; i < len; i++)
+	{
+	  tree t = lto_input_tree (ib, data_in);
+	  VEC_quick_push (tree, BLOCK_NONLOCALIZED_VARS (expr), t);
+	}
     }
 
   BLOCK_SUPERCONTEXT (expr) = lto_input_tree (ib, data_in);
   BLOCK_ABSTRACT_ORIGIN (expr) = lto_input_tree (ib, data_in);
   BLOCK_FRAGMENT_ORIGIN (expr) = lto_input_tree (ib, data_in);
   BLOCK_FRAGMENT_CHAIN (expr) = lto_input_tree (ib, data_in);
-  BLOCK_SUBBLOCKS (expr) = lto_input_chain (ib, data_in);
+  /* We re-compute BLOCK_SUBBLOCKS of our parent here instead
+     of streaming it.  For non-BLOCK BLOCK_SUPERCONTEXTs we still
+     stream the child relationship explicitly.  */
+  if (BLOCK_SUPERCONTEXT (expr)
+      && TREE_CODE (BLOCK_SUPERCONTEXT (expr)) == BLOCK)
+    {
+      BLOCK_CHAIN (expr) = BLOCK_SUBBLOCKS (BLOCK_SUPERCONTEXT (expr));
+      BLOCK_SUBBLOCKS (BLOCK_SUPERCONTEXT (expr)) = expr;
+    }
 }
 
 
@@ -2183,10 +2237,14 @@ lto_input_ts_binfo_tree_pointers (struct lto_input_block *ib,
   BINFO_VPTR_FIELD (expr) = lto_input_tree (ib, data_in);
 
   len = lto_input_uleb128 (ib);
-  for (i = 0; i < len; i++)
+  if (len > 0)
     {
-      tree a = lto_input_tree (ib, data_in);
-      VEC_safe_push (tree, gc, BINFO_BASE_ACCESSES (expr), a);
+      VEC_reserve_exact (tree, gc, BINFO_BASE_ACCESSES (expr), len);
+      for (i = 0; i < len; i++)
+	{
+	  tree a = lto_input_tree (ib, data_in);
+	  VEC_quick_push (tree, BINFO_BASE_ACCESSES (expr), a);
+	}
     }
 
   BINFO_INHERITANCE_CHAIN (expr) = lto_input_tree (ib, data_in);
@@ -2343,27 +2401,26 @@ lto_input_tree_pointers (struct lto_input_block *ib, struct data_in *data_in,
 static void
 lto_register_var_decl_in_symtab (struct data_in *data_in, tree decl)
 {
-  /* Register symbols with file or global scope to mark what input
-     file has their definition.  */
-  if (decl_function_context (decl) == NULL_TREE)
-    {
-      /* Variable has file scope, not local. Need to ensure static variables
-	 between different files don't clash unexpectedly.  */
-      if (!TREE_PUBLIC (decl))
-        {
-	  /* ??? We normally pre-mangle names before we serialize them
-	     out.  Here, in lto1, we do not know the language, and
-	     thus cannot do the mangling again. Instead, we just
-	     append a suffix to the mangled name.  The resulting name,
-	     however, is not a properly-formed mangled name, and will
-	     confuse any attempt to unmangle it.  */
-	  const char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
-	  char *label;
+  tree context;
 
-	  ASM_FORMAT_PRIVATE_NAME (label, name, DECL_UID (decl));
-	  SET_DECL_ASSEMBLER_NAME (decl, get_identifier (label));
-          rest_of_decl_compilation (decl, 1, 0);
-        }
+  /* Variable has file scope, not local. Need to ensure static variables
+     between different files don't clash unexpectedly.  */
+  if (!TREE_PUBLIC (decl)
+      && !((context = decl_function_context (decl))
+	   && auto_var_in_fn_p (decl, context)))
+    {
+      /* ??? We normally pre-mangle names before we serialize them
+	 out.  Here, in lto1, we do not know the language, and
+	 thus cannot do the mangling again. Instead, we just
+	 append a suffix to the mangled name.  The resulting name,
+	 however, is not a properly-formed mangled name, and will
+	 confuse any attempt to unmangle it.  */
+      const char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+      char *label;
+
+      ASM_FORMAT_PRIVATE_NAME (label, name, DECL_UID (decl));
+      SET_DECL_ASSEMBLER_NAME (decl, get_identifier (label));
+      rest_of_decl_compilation (decl, 1, 0);
     }
 
   /* If this variable has already been declared, queue the

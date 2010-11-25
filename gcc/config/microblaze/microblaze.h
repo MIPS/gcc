@@ -57,13 +57,6 @@ extern enum pipeline_type microblaze_pipe;
 /* Macros to decide whether certain features are available or not,
    depending on the instruction set architecture level.  */
 
-#undef SWITCH_TAKES_ARG
-#define SWITCH_TAKES_ARG(CHAR)						\
-  (DEFAULT_SWITCH_TAKES_ARG (CHAR) || (CHAR) == 'G')
-
-/*  We can debug without having a frame pointer.  */
-#define CAN_DEBUG_WITHOUT_FP
-
 #define DRIVER_SELF_SPECS    				\
 	"%{mxl-soft-mul:%<mno-xl-soft-mul}", 		\
 	"%{mno-xl-barrel-shift:%<mxl-barrel-shift}", 	\
@@ -503,12 +496,6 @@ typedef struct microblaze_args
 #define INIT_CUMULATIVE_ARGS(CUM,FNTYPE,LIBNAME,FNDECL,N_NAMED_ARGS)	\
   init_cumulative_args (&CUM, FNTYPE, LIBNAME)
 
-#define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED)			\
-  function_arg_advance (&CUM, MODE, TYPE, NAMED)
-
-#define FUNCTION_ARG(CUM, MODE, TYPE, NAMED) \
-  function_arg( &CUM, MODE, TYPE, NAMED)
-
 #define NO_PROFILE_COUNTERS			1
 
 #define FUNCTION_PROFILER(FILE, LABELNO) { \
@@ -892,10 +879,6 @@ do {									 \
 #define SDATA2_SECTION_ASM_OP	"\t.sdata2"	/* Small RO initialized data   */
 #define SBSS_SECTION_ASM_OP     "\t.sbss"	/* Small RW uninitialized data */
 #define SBSS2_SECTION_ASM_OP    "\t.sbss2"	/* Small RO uninitialized data */
-
-#define HOT_TEXT_SECTION_NAME   ".text.hot"
-#define UNLIKELY_EXECUTED_TEXT_SECTION_NAME \
-                                ".text.unlikely"
 
 /* We do this to save a few 10s of code space that would be taken up
    by the call_FUNC () wrappers, used by the generic CRT_CALL_STATIC_FUNCTION

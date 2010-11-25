@@ -1371,40 +1371,17 @@ vect_analyze_loop_operations (loop_vec_info loop_vinfo)
 }
 
 
-/* Function vect_analyze_loop.
+/* Function vect_analyze_loop_2.
 
    Apply a set of analyses on LOOP, and create a loop_vec_info struct
    for it.  The different analyses will record information in the
    loop_vec_info struct.  */
-loop_vec_info
-vect_analyze_loop (struct loop *loop)
+static bool
+vect_analyze_loop_2 (loop_vec_info loop_vinfo)
 {
   bool ok, dummy;
-  loop_vec_info loop_vinfo;
   int max_vf = MAX_VECTORIZATION_FACTOR;
   int min_vf = 2;
-
-  if (vect_print_dump_info (REPORT_DETAILS))
-    fprintf (vect_dump, "===== analyze_loop_nest =====");
-
-  if (loop_outer (loop)
-      && loop_vec_info_for_loop (loop_outer (loop))
-      && LOOP_VINFO_VECTORIZABLE_P (loop_vec_info_for_loop (loop_outer (loop))))
-    {
-      if (vect_print_dump_info (REPORT_DETAILS))
-	fprintf (vect_dump, "outer-loop already vectorized.");
-      return NULL;
-    }
-
-  /* Check the CFG characteristics of the loop (nesting, entry/exit, etc.  */
-
-  loop_vinfo = vect_analyze_loop_form (loop);
-  if (!loop_vinfo)
-    {
-      if (vect_print_dump_info (REPORT_DETAILS))
-	fprintf (vect_dump, "bad loop form.");
-      return NULL;
-    }
 
   /* Find all data references in the loop (which correspond to vdefs/vuses)
      and analyze their evolution in the loop.  Also adjust the minimal
@@ -1418,8 +1395,7 @@ vect_analyze_loop (struct loop *loop)
     {
       if (vect_print_dump_info (REPORT_DETAILS))
 	fprintf (vect_dump, "bad data references.");
-      destroy_loop_vec_info (loop_vinfo, true);
-      return NULL;
+      return false;
     }
 
   /* Classify all cross-iteration scalar data-flow cycles.
@@ -1436,8 +1412,7 @@ vect_analyze_loop (struct loop *loop)
     {
       if (vect_print_dump_info (REPORT_DETAILS))
 	fprintf (vect_dump, "unexpected pattern.");
-      destroy_loop_vec_info (loop_vinfo, true);
-      return NULL;
+      return false;
     }
 
   /* Analyze data dependences between the data-refs in the loop
@@ -1451,8 +1426,7 @@ vect_analyze_loop (struct loop *loop)
     {
       if (vect_print_dump_info (REPORT_DETAILS))
 	fprintf (vect_dump, "bad data dependence.");
-      destroy_loop_vec_info (loop_vinfo, true);
-      return NULL;
+      return false;
     }
 
   ok = vect_determine_vectorization_factor (loop_vinfo);
@@ -1460,15 +1434,13 @@ vect_analyze_loop (struct loop *loop)
     {
       if (vect_print_dump_info (REPORT_DETAILS))
         fprintf (vect_dump, "can't determine vectorization factor.");
-      destroy_loop_vec_info (loop_vinfo, true);
-      return NULL;
+      return false;
     }
   if (max_vf < LOOP_VINFO_VECT_FACTOR (loop_vinfo))
     {
       if (vect_print_dump_info (REPORT_DETAILS))
 	fprintf (vect_dump, "bad data dependence.");
-      destroy_loop_vec_info (loop_vinfo, true);
-      return NULL;
+      return false;
     }
 
   /* Analyze the alignment of the data-refs in the loop.
@@ -1479,8 +1451,7 @@ vect_analyze_loop (struct loop *loop)
     {
       if (vect_print_dump_info (REPORT_DETAILS))
 	fprintf (vect_dump, "bad data alignment.");
-      destroy_loop_vec_info (loop_vinfo, true);
-      return NULL;
+      return false;
     }
 
   /* Analyze the access patterns of the data-refs in the loop (consecutive,
@@ -1491,8 +1462,7 @@ vect_analyze_loop (struct loop *loop)
     {
       if (vect_print_dump_info (REPORT_DETAILS))
 	fprintf (vect_dump, "bad data access.");
-      destroy_loop_vec_info (loop_vinfo, true);
-      return NULL;
+      return false;
     }
 
   /* Prune the list of ddrs to be tested at run-time by versioning for alias.
@@ -1504,8 +1474,7 @@ vect_analyze_loop (struct loop *loop)
       if (vect_print_dump_info (REPORT_DETAILS))
 	fprintf (vect_dump, "too long list of versioning for alias "
 			    "run-time tests.");
-      destroy_loop_vec_info (loop_vinfo, true);
-      return NULL;
+      return false;
     }
 
   /* This pass will decide on using loop versioning and/or loop peeling in
@@ -1516,8 +1485,7 @@ vect_analyze_loop (struct loop *loop)
     {
       if (vect_print_dump_info (REPORT_DETAILS))
         fprintf (vect_dump, "bad data alignment.");
-      destroy_loop_vec_info (loop_vinfo, true);
-      return NULL;
+      return false;
     }
 
   /* Check the SLP opportunities in the loop, analyze and build SLP trees.  */
@@ -1539,13 +1507,70 @@ vect_analyze_loop (struct loop *loop)
     {
       if (vect_print_dump_info (REPORT_DETAILS))
 	fprintf (vect_dump, "bad operation or unsupported loop bound.");
-      destroy_loop_vec_info (loop_vinfo, true);
+      return false;
+    }
+
+  return true;
+}
+
+/* Function vect_analyze_loop.
+
+   Apply a set of analyses on LOOP, and create a loop_vec_info struct
+   for it.  The different analyses will record information in the
+   loop_vec_info struct.  */
+loop_vec_info
+vect_analyze_loop (struct loop *loop)
+{
+  loop_vec_info loop_vinfo;
+  unsigned int vector_sizes;
+
+  /* Autodetect first vector size we try.  */
+  current_vector_size = 0;
+  vector_sizes = targetm.vectorize.autovectorize_vector_sizes ();
+
+  if (vect_print_dump_info (REPORT_DETAILS))
+    fprintf (vect_dump, "===== analyze_loop_nest =====");
+
+  if (loop_outer (loop)
+      && loop_vec_info_for_loop (loop_outer (loop))
+      && LOOP_VINFO_VECTORIZABLE_P (loop_vec_info_for_loop (loop_outer (loop))))
+    {
+      if (vect_print_dump_info (REPORT_DETAILS))
+	fprintf (vect_dump, "outer-loop already vectorized.");
       return NULL;
     }
 
-  LOOP_VINFO_VECTORIZABLE_P (loop_vinfo) = 1;
+  while (1)
+    {
+      /* Check the CFG characteristics of the loop (nesting, entry/exit).  */
+      loop_vinfo = vect_analyze_loop_form (loop);
+      if (!loop_vinfo)
+	{
+	  if (vect_print_dump_info (REPORT_DETAILS))
+	    fprintf (vect_dump, "bad loop form.");
+	  return NULL;
+	}
 
-  return loop_vinfo;
+      if (vect_analyze_loop_2 (loop_vinfo))
+	{
+	  LOOP_VINFO_VECTORIZABLE_P (loop_vinfo) = 1;
+
+	  return loop_vinfo;
+	}
+
+      destroy_loop_vec_info (loop_vinfo, true);
+
+      vector_sizes &= ~current_vector_size;
+      if (vector_sizes == 0
+	  || current_vector_size == 0)
+	return NULL;
+
+      /* Try the next biggest vector size.  */
+      current_vector_size = 1 << floor_log2 (vector_sizes);
+      if (vect_print_dump_info (REPORT_DETAILS))
+	fprintf (vect_dump, "***** Re-trying analysis with "
+		 "vector size %d\n", current_vector_size);
+    }
 }
 
 
@@ -1775,7 +1800,11 @@ vect_is_simple_reduction_1 (loop_vec_info loop_info, gimple phi,
      simply rewriting this into "res += -x[i]".  Avoid changing
      gimple instruction for the first simple tests and only do this
      if we're allowed to change code at all.  */
-  if (code == MINUS_EXPR && modify)
+  if (code == MINUS_EXPR
+      && modify
+      && (op1 = gimple_assign_rhs1 (def_stmt))
+      && TREE_CODE (op1) == SSA_NAME
+      && SSA_NAME_DEF_STMT (op1) == phi)
     code = PLUS_EXPR;
 
   if (check_reduction
@@ -2700,13 +2729,11 @@ get_initial_def_for_induction (gimple iv_phi)
 			      expr, step_expr);
     }
 
-  t = NULL_TREE;
-  for (i = 0; i < nunits; i++)
-    t = tree_cons (NULL_TREE, unshare_expr (new_name), t);
+  t = unshare_expr (new_name);
   gcc_assert (CONSTANT_CLASS_P (new_name));
   stepvectype = get_vectype_for_scalar_type (TREE_TYPE (new_name));
   gcc_assert (stepvectype);
-  vec = build_vector (stepvectype, t);
+  vec = build_vector_from_val (stepvectype, t);
   vec_step = vect_init_vector (iv_phi, vec, stepvectype, NULL);
 
 
@@ -2760,11 +2787,9 @@ get_initial_def_for_induction (gimple iv_phi)
       expr = build_int_cst (TREE_TYPE (step_expr), nunits);
       new_name = fold_build2 (MULT_EXPR, TREE_TYPE (step_expr),
 			      expr, step_expr);
-      t = NULL_TREE;
-      for (i = 0; i < nunits; i++)
-	t = tree_cons (NULL_TREE, unshare_expr (new_name), t);
+      t = unshare_expr (new_name);
       gcc_assert (CONSTANT_CLASS_P (new_name));
-      vec = build_vector (stepvectype, t);
+      vec = build_vector_from_val (stepvectype, t);
       vec_step = vect_init_vector (iv_phi, vec, stepvectype, NULL);
 
       vec_def = induc_def;
@@ -2996,14 +3021,7 @@ get_initial_def_for_reduction (gimple stmt, tree init_val,
             break;
           }
 
-        for (i = nunits - 1; i >= 0; --i)
-          t = tree_cons (NULL_TREE, init_value, t);
-
-        if (TREE_CONSTANT (init_val))
-          init_def = build_vector (vectype, t);
-        else
-          init_def = build_constructor_from_list (vectype, t);
-
+	init_def = build_vector_from_val (vectype, init_value);
         break;
 
       default:
@@ -3168,7 +3186,8 @@ vect_create_epilog_for_reduction (VEC (tree, heap) *vect_defs, gimple stmt,
 
   /* Get the loop-entry arguments.  */
   if (slp_node)
-    vect_get_slp_defs (slp_node, &vec_initial_defs, NULL, reduc_index);
+    vect_get_slp_defs (reduction_op, NULL_TREE, slp_node, &vec_initial_defs,
+                       NULL, reduc_index);
   else
     {
       vec_initial_defs = VEC_alloc (tree, heap, 1);
@@ -3893,7 +3912,7 @@ vectorizable_reduction (gimple stmt, gimple_stmt_iterator *gsi,
   VEC (tree, heap) *vec_oprnds0 = NULL, *vec_oprnds1 = NULL, *vect_defs = NULL;
   VEC (gimple, heap) *phis = NULL;
   int vec_num;
-  tree def0, def1;
+  tree def0, def1, tem;
 
   if (nested_in_vect_loop_p (loop, stmt))
     {
@@ -3940,7 +3959,7 @@ vectorizable_reduction (gimple stmt, gimple_stmt_iterator *gsi,
 
   gcc_assert (is_gimple_assign (stmt));
 
-  /* Flatten RHS */
+  /* Flatten RHS.  */
   switch (get_gimple_rhs_class (gimple_assign_rhs_code (stmt)))
     {
     case GIMPLE_SINGLE_RHS:
@@ -3984,8 +4003,6 @@ vectorizable_reduction (gimple stmt, gimple_stmt_iterator *gsi,
      reduction variable.  */
   for (i = 0; i < op_type-1; i++)
     {
-      tree tem;
-
       /* The condition of COND_EXPR is checked in vectorizable_condition().  */
       if (i == 0 && code == COND_EXPR)
         continue;
@@ -4010,8 +4027,10 @@ vectorizable_reduction (gimple stmt, gimple_stmt_iterator *gsi,
         }
     }
 
-  is_simple_use = vect_is_simple_use (ops[i], loop_vinfo, NULL, &def_stmt,
-				      &def, &dt);
+  is_simple_use = vect_is_simple_use_1 (ops[i], loop_vinfo, NULL, &def_stmt,
+					&def, &dt, &tem);
+  if (!vectype_in)
+    vectype_in = tem;
   gcc_assert (is_simple_use);
   gcc_assert (dt == vect_reduction_def
               || dt == vect_nested_cycle
@@ -4307,8 +4326,20 @@ vectorizable_reduction (gimple stmt, gimple_stmt_iterator *gsi,
       /* Handle uses.  */
       if (j == 0)
         {
+          tree op0, op1 = NULL_TREE;
+
+          op0 = ops[!reduc_index];
+          if (op_type == ternary_op)
+            {
+              if (reduc_index == 0)
+                op1 = ops[2];
+              else
+                op1 = ops[1];
+            }
+
           if (slp_node)
-            vect_get_slp_defs (slp_node, &vec_oprnds0, &vec_oprnds1, -1);
+            vect_get_slp_defs (op0, op1, slp_node, &vec_oprnds0, &vec_oprnds1,
+                               -1);
           else
             {
               loop_vec_def0 = vect_get_vec_def_for_operand (ops[!reduc_index],
@@ -4316,13 +4347,8 @@ vectorizable_reduction (gimple stmt, gimple_stmt_iterator *gsi,
               VEC_quick_push (tree, vec_oprnds0, loop_vec_def0);
               if (op_type == ternary_op)
                {
-                 if (reduc_index == 0)
-                   loop_vec_def1 = vect_get_vec_def_for_operand (ops[2], stmt,
-                                                                 NULL);
-                 else
-                   loop_vec_def1 = vect_get_vec_def_for_operand (ops[1], stmt,
-                                                                 NULL);
-
+                 loop_vec_def1 = vect_get_vec_def_for_operand (op1, stmt,
+                                                               NULL);
                  VEC_quick_push (tree, vec_oprnds1, loop_vec_def1);
                }
             }

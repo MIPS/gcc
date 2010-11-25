@@ -257,7 +257,7 @@ vect_recog_dot_prod_pattern (gimple last_stmt, tree *type_in, tree *type_out)
   stmt = SSA_NAME_DEF_STMT (oprnd0);
 
   /* It could not be the dot_prod pattern if the stmt is outside the loop.  */
-  if (!flow_bb_inside_loop_p (loop, gimple_bb (stmt)))
+  if (!gimple_bb (stmt) || !flow_bb_inside_loop_p (loop, gimple_bb (stmt)))
     return NULL;
 
   /* FORNOW.  Can continue analyzing the def-use chain when this stmt in a phi
@@ -413,6 +413,7 @@ vect_recog_widen_mult_pattern (gimple last_stmt,
   vectype = get_vectype_for_scalar_type (half_type0);
   vectype_out = get_vectype_for_scalar_type (type);
   if (!vectype
+      || !vectype_out
       || !supportable_widening_operation (WIDEN_MULT_EXPR, last_stmt,
 					  vectype_out, vectype,
 					  &dummy, &dummy, &dummy_code,

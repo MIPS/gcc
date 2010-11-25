@@ -62,6 +62,14 @@ gfc_option_lang_mask (void)
   return CL_Fortran;
 }
 
+/* Initialize options structure OPTS.  */
+
+void
+gfc_init_options_struct (struct gcc_options *opts)
+{
+  opts->x_flag_errno_math = 0;
+  opts->x_flag_associative_math = -1;
+}
 
 /* Get ready for options handling. Keep in sync with
    libgfortran/runtime/compile_options.c (init_compile_options). */
@@ -82,7 +90,8 @@ gfc_init_options (unsigned int decoded_options_count,
   gfc_option.flag_max_array_constructor = 65535;
   gfc_option.convert = GFC_CONVERT_NATIVE;
   gfc_option.record_marker = 0;
-  gfc_option.dump_parse_tree = 0;
+  gfc_option.dump_fortran_original = 0;
+  gfc_option.dump_fortran_optimized = 0;
 
   gfc_option.warn_aliasing = 0;
   gfc_option.warn_ampersand = 0;
@@ -145,13 +154,7 @@ gfc_init_options (unsigned int decoded_options_count,
   gfc_option.rtcheck = 0;
   gfc_option.coarray = GFC_FCOARRAY_NONE;
 
-  flag_errno_math = 0;
-  flag_associative_math = -1;
-
   set_default_std_flags ();
-
-  /* -fshort-enums can be default on some targets.  */
-  flag_short_enums = targetm.default_short_enums ();
 
   /* Initialize cpp-related options.  */
   gfc_cpp_init_options (decoded_options_count, decoded_options);
@@ -255,7 +258,7 @@ gfc_post_options (const char **pfilename)
     gfc_option.flag_whole_file = 1;
 
   /* Enable whole-file mode if LTO is in effect.  */
-  if (flag_lto || flag_whopr)
+  if (flag_lto)
     gfc_option.flag_whole_file = 1;
 
   /* Fortran allows associative math - but we cannot reassociate if
@@ -268,7 +271,11 @@ gfc_post_options (const char **pfilename)
     gfc_option.rtcheck |= GFC_RTCHECK_BOUNDS;
 
   if (flag_compare_debug)
-    gfc_option.dump_parse_tree = 0;
+    gfc_option.dump_fortran_original = 0;
+
+  /* Make -fmax-errors visible to gfortran's diagnostic machinery.  */
+  if (global_options_set.x_flag_max_errors)
+    gfc_option.max_errors = flag_max_errors;
 
   /* Verify the input file name.  */
   if (!filename || strcmp (filename, "-") == 0)
@@ -545,7 +552,7 @@ gfc_handle_runtime_check_option (const char *arg)
 
 bool
 gfc_handle_option (size_t scode, const char *arg, int value,
-		   int kind ATTRIBUTE_UNUSED,
+		   int kind ATTRIBUTE_UNUSED, location_t loc ATTRIBUTE_UNUSED,
 		   const struct cl_option_handlers *handlers ATTRIBUTE_UNUSED)
 {
   bool result = true;
@@ -684,8 +691,13 @@ gfc_handle_option (size_t scode, const char *arg, int value,
       gfc_option.flag_d_lines = 0;
       break;
 
+    case OPT_fdump_fortran_original:
     case OPT_fdump_parse_tree:
-      gfc_option.dump_parse_tree = value;
+      gfc_option.dump_fortran_original = value;
+      break;
+
+    case OPT_fdump_fortran_optimized:
+      gfc_option.dump_fortran_optimized = value;
       break;
 
     case OPT_ffixed_form:
@@ -750,10 +762,6 @@ gfc_handle_option (size_t scode, const char *arg, int value,
 
     case OPT_fmax_array_constructor_:
       gfc_option.flag_max_array_constructor = value > 65535 ? value : 65535;
-      break;
-
-    case OPT_fmax_errors_:
-      gfc_option.max_errors = value;
       break;
 
     case OPT_fmax_stack_var_size_:

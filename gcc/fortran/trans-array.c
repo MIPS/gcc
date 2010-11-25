@@ -448,7 +448,7 @@ static void gfc_free_ss (gfc_ss *);
 
 /* Free a gfc_ss chain.  */
 
-static void
+void
 gfc_free_ss_chain (gfc_ss * ss)
 {
   gfc_ss *next;
@@ -1731,6 +1731,13 @@ gfc_build_constant_array_constructor (gfc_expr * expr, tree type)
 
   tmptype = gfc_get_nodesc_array_type (type, &as, PACKED_STATIC, true);
 
+  /* as is not needed anymore.  */
+  for (i = 0; i < as.rank + as.corank; i++)
+    {
+      gfc_free_expr (as.lower[i]);
+      gfc_free_expr (as.upper[i]);
+    }
+
   init = build_constructor (tmptype, v);
 
   TREE_CONSTANT (init) = 1;
@@ -2545,6 +2552,7 @@ gfc_conv_tmp_array_ref (gfc_se * se)
 {
   se->string_length = se->ss->string_length;
   gfc_conv_scalarized_array_ref (se, NULL);
+  gfc_advance_se_ss_chain (se);
 }
 
 
@@ -4529,10 +4537,10 @@ gfc_trans_g77_array (gfc_symbol * sym, gfc_wrapped_block * block)
   locus loc;
   tree offset;
   tree tmp;
-  tree stmt;  
+  tree stmt;
   stmtblock_t init;
 
-  gfc_get_backend_locus (&loc);
+  gfc_save_backend_locus (&loc);
   gfc_set_backend_locus (&sym->declared_at);
 
   /* Descriptor type.  */
@@ -4561,7 +4569,7 @@ gfc_trans_g77_array (gfc_symbol * sym, gfc_wrapped_block * block)
     }
   stmt = gfc_finish_block (&init);
 
-  gfc_set_backend_locus (&loc);
+  gfc_restore_backend_locus (&loc);
 
   /* Add the initialization code to the start of the function.  */
 
@@ -4622,7 +4630,7 @@ gfc_trans_dummy_array_bias (gfc_symbol * sym, tree tmpdesc,
       return;
     }
 
-  gfc_get_backend_locus (&loc);
+  gfc_save_backend_locus (&loc);
   gfc_set_backend_locus (&sym->declared_at);
 
   /* Descriptor type.  */
@@ -4914,6 +4922,8 @@ gfc_trans_dummy_array_bias (gfc_symbol * sym, tree tmpdesc,
   /* We don't need to free any memory allocated by internal_pack as it will
      be freed at the end of the function by pop_context.  */
   gfc_add_init_cleanup (block, stmtInit, stmtCleanup);
+
+  gfc_restore_backend_locus (&loc);
 }
 
 
@@ -6062,7 +6072,7 @@ duplicate_allocatable (tree dest, tree src, tree type, int rank,
       null_data = gfc_finish_block (&block);
 
       gfc_init_block (&block);
-      size = TYPE_SIZE_UNIT (type);
+      size = TYPE_SIZE_UNIT (TREE_TYPE (type));
       if (!no_malloc)
 	{
 	  tmp = gfc_call_malloc (&block, type, size);
@@ -6271,22 +6281,18 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
       switch (purpose)
 	{
 	case DEALLOCATE_ALLOC_COMP:
-	  /* Do not deallocate the components of ultimate pointer
-	     components.  */
-	  if (cmp_has_alloc_comps && !c->attr.pointer)
-	    {
-	      comp = fold_build3_loc (input_location, COMPONENT_REF, ctype,
-				      decl, cdecl, NULL_TREE);
-	      rank = c->as ? c->as->rank : 0;
-	      tmp = structure_alloc_comps (c->ts.u.derived, comp, NULL_TREE,
-					   rank, purpose);
-	      gfc_add_expr_to_block (&fnblock, tmp);
-	    }
-
 	  if (c->attr.allocatable && c->attr.dimension)
 	    {
 	      comp = fold_build3_loc (input_location, COMPONENT_REF, ctype,
 				      decl, cdecl, NULL_TREE);
+	      if (cmp_has_alloc_comps && !c->attr.pointer)
+		{
+		  /* Do not deallocate the components of ultimate pointer
+		     components.  */
+		  tmp = structure_alloc_comps (c->ts.u.derived, comp, NULL_TREE,
+					       c->as->rank, purpose);
+		  gfc_add_expr_to_block (&fnblock, tmp);
+		}
 	      tmp = gfc_trans_dealloc_allocated (comp);
 	      gfc_add_expr_to_block (&fnblock, tmp);
 	    }
@@ -6296,7 +6302,8 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
 	      comp = fold_build3_loc (input_location, COMPONENT_REF, ctype,
 				      decl, cdecl, NULL_TREE);
 
-	      tmp = gfc_deallocate_with_status (comp, NULL_TREE, true, NULL);
+	      tmp = gfc_deallocate_scalar_with_status (comp, NULL, true, NULL,
+						       c->ts);
 	      gfc_add_expr_to_block (&fnblock, tmp);
 
 	      tmp = fold_build2_loc (input_location, MODIFY_EXPR,
@@ -6310,12 +6317,13 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
 	      comp = fold_build3_loc (input_location, COMPONENT_REF, ctype,
 				      decl, cdecl, NULL_TREE);
 	      
-	      /* Add reference to '$data' component.  */
+	      /* Add reference to '_data' component.  */
 	      tmp = CLASS_DATA (c)->backend_decl;
 	      comp = fold_build3_loc (input_location, COMPONENT_REF,
 				      TREE_TYPE (tmp), comp, tmp, NULL_TREE);
 
-	      tmp = gfc_deallocate_with_status (comp, NULL_TREE, true, NULL);
+	      tmp = gfc_deallocate_scalar_with_status (comp, NULL, true, NULL,
+						       CLASS_DATA (c)->ts);
 	      gfc_add_expr_to_block (&fnblock, tmp);
 
 	      tmp = fold_build2_loc (input_location, MODIFY_EXPR,
@@ -6349,7 +6357,7 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
 	      /* Allocatable scalar CLASS components.  */
 	      comp = fold_build3_loc (input_location, COMPONENT_REF, ctype,
 				      decl, cdecl, NULL_TREE);
-	      /* Add reference to '$data' component.  */
+	      /* Add reference to '_data' component.  */
 	      tmp = CLASS_DATA (c)->backend_decl;
 	      comp = fold_build3_loc (input_location, COMPONENT_REF,
 				      TREE_TYPE (tmp), comp, tmp, NULL_TREE);
@@ -6470,7 +6478,7 @@ gfc_trans_deferred_array (gfc_symbol * sym, gfc_wrapped_block * block)
 
   /* Make sure the frontend gets these right.  */
   if (!(sym->attr.pointer || sym->attr.allocatable || sym_has_alloc_comp))
-    fatal_error ("Possible frontend bug: Deferred array size without pointer, "
+    fatal_error ("Possible front-end bug: Deferred array size without pointer, "
 		 "allocatable attribute or derived type without allocatable "
 		 "components.");
 
@@ -6493,7 +6501,7 @@ gfc_trans_deferred_array (gfc_symbol * sym, gfc_wrapped_block * block)
       return;
     }
 
-  gfc_get_backend_locus (&loc);
+  gfc_save_backend_locus (&loc);
   gfc_set_backend_locus (&sym->declared_at);
   descriptor = sym->backend_decl;
 
@@ -6506,6 +6514,7 @@ gfc_trans_deferred_array (gfc_symbol * sym, gfc_wrapped_block * block)
       gfc_trans_static_array_pointer (sym);
 
       gfc_add_init_cleanup (block, gfc_finish_block (&init), NULL_TREE);
+      gfc_restore_backend_locus (&loc);
       return;
     }
 
@@ -6543,7 +6552,7 @@ gfc_trans_deferred_array (gfc_symbol * sym, gfc_wrapped_block * block)
     gfc_conv_descriptor_data_set (&init, descriptor, null_pointer_node);
 
   gfc_init_block (&cleanup);
-  gfc_set_backend_locus (&loc);
+  gfc_restore_backend_locus (&loc);
 
   /* Allocatable arrays need to be freed when they go out of scope.
      The allocatable components of pointers must not be touched.  */

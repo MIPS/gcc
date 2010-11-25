@@ -31,7 +31,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "opts.h"
 #include "options.h"
 #include "target.h"
-#include "diagnostic-core.h"
+#include "diagnostic.h"
 #include "toplev.h"
 #include "lto-streamer.h"
 
@@ -299,6 +299,13 @@ lto_write_options (void)
   struct lto_simple_header header;
   struct lto_output_stream *header_stream;
 
+  /* Targets and languages can provide defaults for -fexceptions but
+     we only process user options from the command-line.  Until we
+     serialize out a white list of options from the new global state
+     explicitly append important options as user options here.  */
+  if (flag_exceptions)
+    lto_register_user_option (OPT_fexceptions, NULL, 1, CL_COMMON);
+
   lto_begin_section (section_name, !flag_wpa);
   free (section_name);
 
@@ -402,8 +409,9 @@ lto_reissue_options (void)
       void *flag_var = option_flag_var (o->code, &global_options);
 
       if (flag_var)
-	set_option (&global_options, o->code, o->value, o->arg,
-		    0 /*DK_UNSPECIFIED*/);
+	set_option (&global_options, &global_options_set,
+		    o->code, o->value, o->arg,
+		    DK_UNSPECIFIED, UNKNOWN_LOCATION, global_dc);
 
       if (o->type == CL_TARGET)
 	targetm.handle_option (o->code, o->arg, o->value);

@@ -1,3 +1,20 @@
+2010-11-24  Iain Sandoe  <iains@gcc.gnu.org>
+
+	* testsuite/libgomp.fortran/fortran.exp: Add paths for libquadmath.
+
+2010-11-16  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+	    Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/32049
+	* configure.ac: 
+	* configure: Regenerate.
+
+2010-10-06  Marcus Shawcroft  <marcus.shawcroft@arm.com>
+
+	* config/linux/futex.h: New.
+	* config/linux/arm/mutex.h: New.
+	* configure.tgt (arm*-*-linux*): Add config path.
+
 2010-09-30  Sebastian Pop  <sebastian.pop@amd.com>
 
 	* testsuite/libgomp.graphite/force-parallel-1.c: Adjust.
