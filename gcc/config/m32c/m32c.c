@@ -523,10 +523,12 @@ static struct
   { 1, 1, 0, 0, 0 },		/* mem7 */
 };
 
-/* Implements CONDITIONAL_REGISTER_USAGE.  We adjust the number of
-   available memregs, and select which registers need to be preserved
+/* Implements TARGET_CONDITIONAL_REGISTER_USAGE.  We adjust the number
+   of available memregs, and select which registers need to be preserved
    across calls based on the chip family.  */
 
+#undef TARGET_CONDITIONAL_REGISTER_USAGE
+#define TARGET_CONDITIONAL_REGISTER_USAGE m32c_conditional_register_usage
 void
 m32c_conditional_register_usage (void)
 {

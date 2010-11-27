@@ -1382,8 +1382,10 @@ fi
 
 # Convert extra_options into a form suitable for Makefile use.
 extra_opt_files=
+all_opt_files=
 for f in $extra_options; do
   extra_opt_files="$extra_opt_files \$(srcdir)/config/$f"
+  all_opt_files="$all_opt_files $srcdir/config/$f"
 done
 AC_SUBST(extra_opt_files)
 
@@ -1852,7 +1854,7 @@ elif test -f $gcc_cv_as_gas_srcdir/configure.in \
 elif test -x as$build_exeext; then
 	# Build using assembler in the current directory.
 	gcc_cv_as=./as$build_exeext
-elif test -x $AS_FOR_TARGET; then
+elif ( set dummy $AS_FOR_TARGET; test -x $[2] ); then
         gcc_cv_as="$AS_FOR_TARGET"
 else
         AC_PATH_PROG(gcc_cv_as, $AS_FOR_TARGET)
@@ -1907,7 +1909,7 @@ elif test -f $gcc_cv_ld_gld_srcdir/configure.in \
 elif test -x collect-ld$build_exeext; then
 	# Build using linker in the current directory.
 	gcc_cv_ld=./collect-ld$build_exeext
-elif test -x $LD_FOR_TARGET; then
+elif ( set dummy $LD_FOR_TARGET; test -x $[2] ); then
         gcc_cv_ld="$LD_FOR_TARGET"
 else
         AC_PATH_PROG(gcc_cv_ld, $LD_FOR_TARGET)
@@ -1980,7 +1982,7 @@ if test -f $gcc_cv_binutils_srcdir/configure.in \
 	gcc_cv_nm=../binutils/nm-new$build_exeext
 elif test -x nm$build_exeext; then
 	gcc_cv_nm=./nm$build_exeext
-elif test -x $NM_FOR_TARGET; then
+elif ( set dummy $NM_FOR_TARGET; test -x $[2] ); then
         gcc_cv_nm="$NM_FOR_TARGET"
 else
         AC_PATH_PROG(gcc_cv_nm, $NM_FOR_TARGET)
@@ -2013,7 +2015,7 @@ if test -f $gcc_cv_binutils_srcdir/configure.in \
 	gcc_cv_objdump=../binutils/objdump$build_exeext
 elif test -x objdump$build_exeext; then
 	gcc_cv_objdump=./objdump$build_exeext
-elif test -x $OBJDUMP_FOR_TARGET; then
+elif ( set dummy $OBJDUMP_FOR_TARGET; test -x $[2] ); then
         gcc_cv_objdump="$OBJDUMP_FOR_TARGET"
 else
         AC_PATH_PROG(gcc_cv_objdump, $OBJDUMP_FOR_TARGET)
@@ -4458,6 +4460,7 @@ changequote([,])dnl
 	all_lang_makefrags="$all_lang_makefrags \$(srcdir)/$gcc_subdir/Make-lang.in"
 	if test -f $srcdir/$gcc_subdir/lang.opt; then
 	    lang_opt_files="$lang_opt_files $srcdir/$gcc_subdir/lang.opt"
+	    all_opt_files="$all_opt_files $srcdir/$gcc_subdir/lang.opt"
 	fi
 	if test -f $srcdir/$gcc_subdir/$subdir-tree.def; then
 	    lang_tree_files="$lang_tree_files $srcdir/$gcc_subdir/$subdir-tree.def"
@@ -4506,6 +4509,14 @@ do
 	done
 	echo "lang.$t: $x" >> Make-hooks
 done
+
+# --------
+# Option include files
+# --------
+
+${AWK} -f $srcdir/opt-include.awk $all_opt_files > option-includes.mk
+option_includes="option-includes.mk"
+AC_SUBST_FILE(option_includes)
 
 # --------
 # UNSORTED
@@ -4769,3 +4780,4 @@ done
 ], 
 [subdirs='$subdirs'])
 AC_OUTPUT
+

@@ -3515,27 +3515,23 @@ gtc_visit (tree t1, tree t2, enum gtc_mode mode,
 
   if ((slot = pointer_map_contains (sccstate, p)) != NULL)
     cstate = (struct sccs *)*slot;
+  /* Not yet visited.  DFS recurse.  */
   if (!cstate)
     {
-      bool res;
-      /* Not yet visited.  DFS recurse.  */
-      res = gimple_types_compatible_p_1 (t1, t2, mode, p,
-					 sccstack, sccstate, sccstate_obstack);
-      if (!cstate)
-	cstate = (struct sccs *)* pointer_map_contains (sccstate, p);
+      gimple_types_compatible_p_1 (t1, t2, mode, p,
+				   sccstack, sccstate, sccstate_obstack);
+      cstate = (struct sccs *)* pointer_map_contains (sccstate, p);
       state->low = MIN (state->low, cstate->low);
-      /* If the type is no longer on the SCC stack and thus is not part
-	 of the parents SCC, return its state.  Otherwise we will
-	 ignore this pair and assume equality.  */
-      if (!cstate->on_sccstack)
-	return res;
     }
+  /* If the type is still on the SCC stack adjust the parents low.  */
   if (cstate->dfsnum < state->dfsnum
       && cstate->on_sccstack)
     state->low = MIN (cstate->dfsnum, state->low);
 
-  /* We are part of our parents SCC, skip this entry and return true.  */
-  return true;
+  /* Return the current lattice value.  We start with an equality
+     assumption so types part of a SCC will be optimistically
+     treated equal unless proven otherwise.  */
+  return cstate->u.same_p;
 }
 
 /* Worker for gimple_types_compatible.
@@ -3559,6 +3555,9 @@ gimple_types_compatible_p_1 (tree t1, tree t2, enum gtc_mode mode,
   state->dfsnum = gtc_next_dfs_num++;
   state->low = state->dfsnum;
   state->on_sccstack = true;
+  /* Start with an equality assumption.  As we DFS recurse into child
+     SCCs this assumption may get revisited.  */
+  state->u.same_p = 1;
 
   /* If their attributes are not the same they can't be the same type.  */
   if (!attribute_list_equal (TYPE_ATTRIBUTES (t1), TYPE_ATTRIBUTES (t2)))
@@ -3822,22 +3821,22 @@ different_types:
 
   /* Common exit path for types that are compatible.  */
 same_types:
-  state->u.same_p = 1;
-  goto pop;
+  gcc_assert (state->u.same_p == 1);
 
 pop:
   if (state->low == state->dfsnum)
     {
       type_pair_t x;
 
-      /* Pop off the SCC and set its cache values.  */
+      /* Pop off the SCC and set its cache values to the final
+         comparison result.  */
       do
 	{
 	  struct sccs *cstate;
 	  x = VEC_pop (type_pair_t, *sccstack);
 	  cstate = (struct sccs *)*pointer_map_contains (sccstate, x);
 	  cstate->on_sccstack = false;
-	  x->same_p[mode] = cstate->u.same_p;
+	  x->same_p[mode] = state->u.same_p;
 	}
       while (x != p);
     }
@@ -4283,6 +4282,7 @@ gimple_register_type (tree t)
 {
   void **slot;
   gimple_type_leader_entry *leader;
+  tree mv_leader = NULL_TREE;
 
   gcc_assert (TYPE_P (t));
 
@@ -4298,7 +4298,7 @@ gimple_register_type (tree t)
      pick up the non-typedef variants as canonical, otherwise we'll end
      up taking typedef ids for structure tags during comparison.  */
   if (TYPE_MAIN_VARIANT (t) != t)
-    gimple_register_type (TYPE_MAIN_VARIANT (t));
+    mv_leader = gimple_register_type (TYPE_MAIN_VARIANT (t));
 
   if (gimple_types == NULL)
     gimple_types = htab_create_ggc (16381, gimple_type_hash, gimple_type_eq, 0);
@@ -4365,6 +4365,22 @@ gimple_register_type (tree t)
     {
       leader->type = t;
       leader->leader = t;
+      /* We're the type leader.  Make our TYPE_MAIN_VARIANT valid.  */
+      if (TYPE_MAIN_VARIANT (t) != t
+	  && TYPE_MAIN_VARIANT (t) != mv_leader)
+	{
+	  /* Remove us from our main variant list as we are not the variant
+	     leader and the variant leader will change.  */
+	  tree tem = TYPE_MAIN_VARIANT (t);
+	  while (tem && TYPE_NEXT_VARIANT (tem) != t)
+	    tem = TYPE_NEXT_VARIANT (tem);
+	  if (tem)
+	    TYPE_NEXT_VARIANT (tem) = TYPE_NEXT_VARIANT (t);
+	  TYPE_NEXT_VARIANT (t) = NULL_TREE;
+	  /* Adjust our main variant.  Linking us into its variant list
+	     will happen at fixup time.  */
+	  TYPE_MAIN_VARIANT (t) = mv_leader;
+	}
       *slot = (void *) t;
     }
 
@@ -4392,11 +4408,16 @@ tree
 gimple_register_canonical_type (tree t)
 {
   void **slot;
+  tree orig_t = t;
 
   gcc_assert (TYPE_P (t));
 
   if (TYPE_CANONICAL (t))
     return TYPE_CANONICAL (t);
+
+  /* Always register the type itself first so that if it turns out
+     to be the canonical type it will be the one we merge to as well.  */
+  t = gimple_register_type (t);
 
   /* Always register the main variant first.  This is important so we
      pick up the non-typedef variants as canonical, otherwise we'll end
@@ -4422,6 +4443,9 @@ gimple_register_canonical_type (tree t)
       TYPE_CANONICAL (t) = t;
       *slot = (void *) t;
     }
+
+  /* Also cache the canonical type in the non-leaders.  */
+  TYPE_CANONICAL (orig_t) = t;
 
   return t;
 }

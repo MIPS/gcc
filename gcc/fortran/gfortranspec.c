@@ -75,6 +75,13 @@ static void append_arg (const struct cl_decoded_option *);
 static unsigned int g77_newargc;
 static struct cl_decoded_option *g77_new_decoded_options;
 
+/* The path to the spec file.  */
+static char *spec_file = NULL;
+
+/* This will be NULL if we encounter a situation where we should not
+   link in the fortran libraries.  */
+static const char *library = NULL;
+
 
 /* Return full path name of spec file if it is in DIR, or NULL if
    not.  */
@@ -204,10 +211,6 @@ lang_specific_driver (struct cl_decoded_option **in_decoded_options,
   unsigned int i;
   int verbose = 0;
 
-  /* This will be NULL if we encounter a situation where we should not
-     link in libf2c.  */
-  const char *library = FORTRAN_LIBRARY;
-
   /* 0 => -xnone in effect.
      1 => -xfoo in effect.  */
   int saw_speclang = 0;
@@ -223,15 +226,14 @@ lang_specific_driver (struct cl_decoded_option **in_decoded_options,
   /* Whether we should link a static libgfortran. */
   int static_lib = 0; 
 
-  /* The path to the spec file.  */
-  char *spec_file = NULL;
-
   /* Whether we need to link statically.  */
   int static_linking = 0;
 
   /* The number of input and output files in the incoming arg list.  */
   int n_infiles = 0;
   int n_outfiles = 0;
+
+  library = FORTRAN_LIBRARY;
 
 #if 0
   fprintf (stderr, "Incoming:");
@@ -447,9 +449,10 @@ For more information about these matters, see the file named COPYING\n\n"));
 #endif
 
   /* Read the specs file corresponding to libgfortran.
-     If we didn't find the spec file on the -L path, then we hope it
-     is somewhere in the standard install areas.  */
-  append_option (OPT_specs_, spec_file == NULL ? SPEC_FILE : spec_file, 1);
+     If we didn't find the spec file on the -L path, we load it
+     via lang_specific_pre_link.  */
+  if (spec_file)
+    append_option (OPT_specs_, spec_file, 1);
 
   if (verbose && g77_new_decoded_options != g77_x_decoded_options)
     {
@@ -467,8 +470,13 @@ For more information about these matters, see the file named COPYING\n\n"));
 
 /* Called before linking.  Returns 0 on success and -1 on failure.  */
 int
-lang_specific_pre_link (void)	/* Not used for F77.  */
+lang_specific_pre_link (void)
 {
+  if (spec_file)
+    free (spec_file);
+  else if (library)
+    do_spec ("%:include(libgfortran.spec)");
+
   return 0;
 }
 

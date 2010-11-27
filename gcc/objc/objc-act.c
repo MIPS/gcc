@@ -63,11 +63,6 @@ along with GCC; see the file COPYING3.  If not see
 
 static unsigned int should_call_super_dealloc = 0;
 
-/* When building Objective-C++, we need in_late_binary_op.  */
-#ifdef OBJCPLUS
-bool in_late_binary_op = false;
-#endif  /* OBJCPLUS */
-
 /* When building Objective-C++, we are not linking against the C front-end
    and so need to replicate the C tree-construction functions in some way.  */
 #ifdef OBJCPLUS
@@ -144,7 +139,7 @@ static tree get_proto_encoding (tree);
 static tree lookup_interface (tree);
 static tree objc_add_static_instance (tree, tree);
 
-static tree start_class (enum tree_code, tree, tree, tree);
+static tree start_class (enum tree_code, tree, tree, tree, tree);
 static tree continue_class (tree);
 static void finish_class (tree);
 static void start_method_def (tree);
@@ -153,7 +148,7 @@ static void objc_start_function (tree, tree, tree, tree);
 #else
 static void objc_start_function (tree, tree, tree, struct c_arg_info *);
 #endif
-static tree start_protocol (enum tree_code, tree, tree);
+static tree start_protocol (enum tree_code, tree, tree, tree);
 static tree build_method_decl (enum tree_code, tree, tree, tree, bool);
 static tree objc_add_method (tree, tree, int, bool);
 static tree add_instance_variable (tree, objc_ivar_visibility_kind, tree);
@@ -234,9 +229,9 @@ enum string_section
 static tree add_objc_string (tree, enum string_section);
 static void build_selector_table_decl (void);
 
-/* Protocol additions.  */
+/* Protocols.  */
 
-static tree lookup_protocol (tree);
+static tree lookup_protocol (tree, bool);
 static tree lookup_and_install_protocols (tree);
 
 /* Type encoding.  */
@@ -409,10 +404,6 @@ static int objc_collecting_ivars = 0;
 #define BUFSIZE		1024
 
 static char *errbuf;	/* Buffer for error diagnostics */
-
-/* Data imported from tree.c.  */
-
-extern enum debug_info_type write_symbols;
 
 
 static int flag_typed_selectors;
@@ -730,18 +721,12 @@ void
 objc_start_class_interface (tree klass, tree super_class,
 			    tree protos, tree attributes)
 {
-  if (attributes)
-    {
-      if (flag_objc1_only)
-	error_at (input_location, "class attributes are not available in Objective-C 1.0");
-      else
-	warning_at (input_location, OPT_Wattributes, 
-		    "class attributes are not available in this version"
-		    " of the compiler, (ignored)");
-    }
+  if (flag_objc1_only && attributes)
+    error_at (input_location, "class attributes are not available in Objective-C 1.0");	
+
   objc_interface_context
     = objc_ivar_context
-    = start_class (CLASS_INTERFACE_TYPE, klass, super_class, protos);
+    = start_class (CLASS_INTERFACE_TYPE, klass, super_class, protos, attributes);
   objc_ivar_visibility = OBJC_IVAR_VIS_PROTECTED;
 }
 
@@ -759,7 +744,7 @@ objc_start_category_interface (tree klass, tree categ,
 		    " of the compiler, (ignored)");
     }
   objc_interface_context
-    = start_class (CATEGORY_INTERFACE_TYPE, klass, categ, protos);
+    = start_class (CATEGORY_INTERFACE_TYPE, klass, categ, protos, NULL_TREE);
   objc_ivar_chain
     = continue_class (objc_interface_context);
 }
@@ -767,17 +752,11 @@ objc_start_category_interface (tree klass, tree categ,
 void
 objc_start_protocol (tree name, tree protos, tree attributes)
 {
-  if (attributes)
-    {
-      if (flag_objc1_only)
-	error_at (input_location, "protocol attributes are not available in Objective-C 1.0");	
-      else
-	warning_at (input_location, OPT_Wattributes, 
-		    "protocol attributes are not available in this version"
-		    " of the compiler, (ignored)");
-    }
+  if (flag_objc1_only && attributes)
+    error_at (input_location, "protocol attributes are not available in Objective-C 1.0");	
+
   objc_interface_context
-    = start_protocol (PROTOCOL_INTERFACE_TYPE, name, protos);
+    = start_protocol (PROTOCOL_INTERFACE_TYPE, name, protos, attributes);
   objc_method_optional_flag = false;
 }
 
@@ -801,7 +780,8 @@ objc_start_class_implementation (tree klass, tree super_class)
 {
   objc_implementation_context
     = objc_ivar_context
-    = start_class (CLASS_IMPLEMENTATION_TYPE, klass, super_class, NULL_TREE);
+    = start_class (CLASS_IMPLEMENTATION_TYPE, klass, super_class, NULL_TREE,
+		   NULL_TREE);
   objc_ivar_visibility = OBJC_IVAR_VIS_PROTECTED;
 }
 
@@ -809,7 +789,8 @@ void
 objc_start_category_implementation (tree klass, tree categ)
 {
   objc_implementation_context
-    = start_class (CATEGORY_IMPLEMENTATION_TYPE, klass, categ, NULL_TREE);
+    = start_class (CATEGORY_IMPLEMENTATION_TYPE, klass, categ, NULL_TREE,
+		   NULL_TREE);
   objc_ivar_chain
     = continue_class (objc_implementation_context);
 }
@@ -1714,6 +1695,11 @@ objc_build_class_component_ref (tree class_name, tree property_ident)
       error_at (input_location, "could not find interface for class %qE", class_name); 
       return error_mark_node;
     }
+  else
+    {
+      if (TREE_DEPRECATED (rtype))
+	warning (OPT_Wdeprecated_declarations, "class %qE is deprecated", class_name);    
+    }
 
   x = maybe_make_artificial_property_decl (rtype, NULL_TREE, NULL_TREE,
 					   property_ident,
@@ -2151,32 +2137,54 @@ objc_build_struct (tree klass, tree fields, tree super_name)
       fields = base;
     }
 
-  /* NB: Calling finish_struct() may cause type TYPE_LANG_SPECIFIC fields
-     in all variants of this RECORD_TYPE to be clobbered, but it is therein
-     that we store protocol conformance info (e.g., 'NSObject <MyProtocol>').
-     Hence, we must squirrel away the ObjC-specific information before calling
+  /* NB: Calling finish_struct() may cause type TYPE_OBJC_INFO
+     information in all variants of this RECORD_TYPE to be destroyed
+     (this is because the C frontend manipulates TYPE_LANG_SPECIFIC
+     for something else and then will change all variants to use the
+     same resulting TYPE_LANG_SPECIFIC, ignoring the fact that we use
+     it for ObjC protocols and that such propagation will make all
+     variants use the same objc_info), but it is therein that we store
+     protocol conformance info (e.g., 'NSObject <MyProtocol>').
+     Hence, we must save the ObjC-specific information before calling
      finish_struct(), and then reinstate it afterwards.  */
 
-  for (t = TYPE_NEXT_VARIANT (s); t; t = TYPE_NEXT_VARIANT (t))
+  for (t = TYPE_MAIN_VARIANT (s); t; t = TYPE_NEXT_VARIANT (t))
     {
-      if (!TYPE_HAS_OBJC_INFO (t))
-	{
-	  INIT_TYPE_OBJC_INFO (t);
-	  TYPE_OBJC_INTERFACE (t) = klass;
-	}
+      INIT_TYPE_OBJC_INFO (t);
       VEC_safe_push (tree, heap, objc_info, TYPE_OBJC_INFO (t));
     }
 
-  /* Point the struct at its related Objective-C class.  */
-  INIT_TYPE_OBJC_INFO (s);
-  TYPE_OBJC_INTERFACE (s) = klass;
-
   s = objc_finish_struct (s, fields);
 
-  for (i = 0, t = TYPE_NEXT_VARIANT (s); t; t = TYPE_NEXT_VARIANT (t), i++)
+  for (i = 0, t = TYPE_MAIN_VARIANT (s); t; t = TYPE_NEXT_VARIANT (t), i++)
     {
+      /* We now want to restore the different TYPE_OBJC_INFO, but we
+	 have the additional problem that the C frontend doesn't just
+	 copy TYPE_LANG_SPECIFIC from one variant to the other; it
+	 actually makes all of them the *same* TYPE_LANG_SPECIFIC.  As
+	 we need a different TYPE_OBJC_INFO for each (and
+	 TYPE_OBJC_INFO is a field in TYPE_LANG_SPECIFIC), we need to
+	 make a copy of each TYPE_LANG_SPECIFIC before we modify
+	 TYPE_OBJC_INFO.  */
+      if (TYPE_LANG_SPECIFIC (t))
+	{
+	  /* Create a copy of TYPE_LANG_SPECIFIC.  */
+	  struct lang_type *old_lang_type = TYPE_LANG_SPECIFIC (t);
+	  ALLOC_OBJC_TYPE_LANG_SPECIFIC (t);
+	  memcpy (TYPE_LANG_SPECIFIC (t), old_lang_type,
+		  SIZEOF_OBJC_TYPE_LANG_SPECIFIC);
+	}
+      else
+	{
+	  /* Just create a new one.  */
+	  ALLOC_OBJC_TYPE_LANG_SPECIFIC (t);
+	}
+      /* Replace TYPE_OBJC_INFO with the saved one.  This restores any
+	 protocol information that may have been associated with the
+	 type.  */
       TYPE_OBJC_INFO (t) = VEC_index (tree, objc_info, i);
-      /* Replace the IDENTIFIER_NODE with an actual @interface.  */
+      /* Replace the IDENTIFIER_NODE with an actual @interface now
+	 that we have it.  */
       TYPE_OBJC_INTERFACE (t) = klass;
     }
   VEC_free (tree, heap, objc_info);
@@ -2771,9 +2779,12 @@ objc_non_volatilized_type (tree type)
   return type;
 }
 
-/* Construct a PROTOCOLS-qualified variant of INTERFACE, where INTERFACE may
-   either name an Objective-C class, or refer to the special 'id' or 'Class'
-   types.  If INTERFACE is not a valid ObjC type, just return it unchanged.  */
+/* Construct a PROTOCOLS-qualified variant of INTERFACE, where
+   INTERFACE may either name an Objective-C class, or refer to the
+   special 'id' or 'Class' types.  If INTERFACE is not a valid ObjC
+   type, just return it unchanged.  This function is often called when
+   PROTOCOLS is NULL_TREE, in which case we simply look up the
+   appropriate INTERFACE.  */
 
 tree
 objc_get_protocol_qualified_type (tree interface, tree protocols)
@@ -2866,7 +2877,7 @@ check_protocol_recursively (tree proto, tree list)
       tree pp = TREE_VALUE (p);
 
       if (TREE_CODE (pp) == IDENTIFIER_NODE)
-	pp = lookup_protocol (pp);
+	pp = lookup_protocol (pp, /* warn if deprecated */ false);
 
       if (pp == proto)
 	fatal_error ("protocol %qE has circular dependency",
@@ -2876,8 +2887,9 @@ check_protocol_recursively (tree proto, tree list)
     }
 }
 
-/* Look up PROTOCOLS, and return a list of those that are found.
-   If none are found, return NULL.  */
+/* Look up PROTOCOLS, and return a list of those that are found.  If
+   none are found, return NULL.  Note that this function will emit a
+   warning if a protocol is found and is deprecated.  */
 
 static tree
 lookup_and_install_protocols (tree protocols)
@@ -2891,7 +2903,7 @@ lookup_and_install_protocols (tree protocols)
   for (proto = protocols; proto; proto = TREE_CHAIN (proto))
     {
       tree ident = TREE_VALUE (proto);
-      tree p = lookup_protocol (ident);
+      tree p = lookup_protocol (ident, /* warn_if_deprecated */ true);
 
       if (p)
 	return_value = chainon (return_value,
@@ -4232,7 +4244,6 @@ add_class_reference (tree ident)
 
 /* Get a class reference, creating it if necessary.  Also create the
    reference variable.  */
-
 tree
 objc_get_class_reference (tree ident)
 {
@@ -4427,6 +4438,9 @@ objc_declare_class (tree ident_list)
 
 	  record = xref_tag (RECORD_TYPE, ident);
 	  INIT_TYPE_OBJC_INFO (record);
+	  /* In the case of a @class declaration, we store the ident
+	     in the TYPE_OBJC_INTERFACE.  If later an @interface is
+	     found, we'll replace the ident with the interface.  */
 	  TYPE_OBJC_INTERFACE (record) = ident;
 	  hash_class_name_enter (cls_name_hash_list, ident, NULL_TREE);
 	}
@@ -4664,6 +4678,10 @@ objc_generate_write_barrier (tree lhs, enum tree_code modifycode, tree rhs)
 {
   tree result = NULL_TREE, outer;
   int strong_cast_p = 0, outer_gc_p = 0, indirect_p = 0;
+
+  /* This function is currently only used with the next runtime with
+     garbage collection enabled (-fobjc-gc).  */
+  gcc_assert (flag_next_runtime);
 
   /* See if we have any lhs casts, and strip them out.  NB: The lvalue casts
      will have been transformed to the form '*(type *)&expr'.  */
@@ -5628,6 +5646,10 @@ build_private_template (tree klass)
 	 can emit stabs for this struct type.  */
       if (flag_debug_only_used_symbols && TYPE_STUB_DECL (record))
 	TREE_USED (TYPE_STUB_DECL (record)) = 1;
+
+      /* Copy the attributes from the class to the type.  */
+      if (TREE_DEPRECATED (klass))
+	TREE_DEPRECATED (record) = 1;
     }
 }
 
@@ -8237,7 +8259,7 @@ tree
 objc_build_protocol_expr (tree protoname)
 {
   tree expr;
-  tree p = lookup_protocol (protoname);
+  tree p = lookup_protocol (protoname, /* warn if deprecated */ true);
 
   if (!p)
     {
@@ -9321,7 +9343,7 @@ check_protocols (tree proto_list, const char *type, tree name)
 
 static tree
 start_class (enum tree_code code, tree class_name, tree super_name,
-	     tree protocol_list)
+	     tree protocol_list, tree attributes)
 {
   tree klass, decl;
 
@@ -9349,8 +9371,12 @@ start_class (enum tree_code code, tree class_name, tree super_name,
       && super_name)
     {
       tree super = objc_is_class_name (super_name);
+      tree super_interface = NULL_TREE;
 
-      if (!super || !lookup_interface (super))
+      if (super)
+	super_interface = lookup_interface (super);
+      
+      if (!super_interface)
 	{
 	  error ("cannot find interface declaration for %qE, superclass of %qE",
 		 super ? super : super_name,
@@ -9358,7 +9384,12 @@ start_class (enum tree_code code, tree class_name, tree super_name,
 	  super_name = NULL_TREE;
 	}
       else
-	super_name = super;
+	{
+	  if (TREE_DEPRECATED (super_interface))
+	    warning (OPT_Wdeprecated_declarations, "class %qE is deprecated", 
+		     super);
+	  super_name = super;
+	}
     }
 
   CLASS_NAME (klass) = class_name;
@@ -9441,6 +9472,22 @@ start_class (enum tree_code code, tree class_name, tree super_name,
       if (protocol_list)
 	CLASS_PROTOCOL_LIST (klass)
 	  = lookup_and_install_protocols (protocol_list);
+
+      /* Determine if 'deprecated', the only attribute we recognize
+	 for classes, was used.  Ignore all other attributes for now,
+	 but store them in the klass.  */
+      if (attributes)
+	{
+	  tree attribute;
+	  for (attribute = attributes; attribute; attribute = TREE_CHAIN (attribute))
+	    {
+	      tree name = TREE_PURPOSE (attribute);
+	      
+	      if (is_attribute_p  ("deprecated", name))
+		TREE_DEPRECATED (klass) = 1;
+	    }
+	  TYPE_ATTRIBUTES (klass) = attributes;
+	}
       break;     
 
     case CATEGORY_INTERFACE_TYPE:
@@ -9457,8 +9504,13 @@ start_class (enum tree_code code, tree class_name, tree super_name,
 	    exit (FATAL_EXIT_CODE);
 	  }
 	else
-	  add_category (class_category_is_assoc_with, klass);
-	
+	  {
+	    if (TREE_DEPRECATED (class_category_is_assoc_with))
+	      warning (OPT_Wdeprecated_declarations, "class %qE is deprecated", 
+		       class_name);
+	    add_category (class_category_is_assoc_with, klass);
+	  }
+
 	if (protocol_list)
 	  CLASS_PROTOCOL_LIST (klass)
 	    = lookup_and_install_protocols (protocol_list);
@@ -10544,14 +10596,28 @@ add_protocol (tree protocol)
   return protocol_chain;
 }
 
+/* Looks up a protocol.  If 'warn_if_deprecated' is true, a warning is
+   emitted if the protocol is deprecated.  */
+
 static tree
-lookup_protocol (tree ident)
+lookup_protocol (tree ident, bool warn_if_deprecated)
 {
   tree chain;
 
   for (chain = protocol_chain; chain; chain = TREE_CHAIN (chain))
     if (ident == PROTOCOL_NAME (chain))
-      return chain;
+      {
+	if (warn_if_deprecated && TREE_DEPRECATED (chain))
+	  {
+	    /* It would be nice to use warn_deprecated_use() here, but
+	       we are using TREE_CHAIN (which is supposed to be the
+	       TYPE_STUB_DECL for a TYPE) for something different.  */
+	    warning (OPT_Wdeprecated_declarations, "protocol %qE is deprecated", 
+		     PROTOCOL_NAME (chain));
+	  }
+
+	return chain;
+      }
 
   return NULL_TREE;
 }
@@ -10560,9 +10626,10 @@ lookup_protocol (tree ident)
    they are already declared or defined, the function has no effect.  */
 
 void
-objc_declare_protocols (tree names)
+objc_declare_protocols (tree names, tree attributes)
 {
   tree list;
+  bool deprecated = false;
 
 #ifdef OBJCPLUS
   if (current_namespace != global_namespace) {
@@ -10570,11 +10637,25 @@ objc_declare_protocols (tree names)
   }
 #endif /* OBJCPLUS */
 
+  /* Determine if 'deprecated', the only attribute we recognize for
+     protocols, was used.  Ignore all other attributes.  */
+  if (attributes)
+    {
+      tree attribute;
+      for (attribute = attributes; attribute; attribute = TREE_CHAIN (attribute))
+	{
+	  tree name = TREE_PURPOSE (attribute);
+	  
+	  if (is_attribute_p  ("deprecated", name))
+	    deprecated = true;
+	}
+    }
+
   for (list = names; list; list = TREE_CHAIN (list))
     {
       tree name = TREE_VALUE (list);
 
-      if (lookup_protocol (name) == NULL_TREE)
+      if (lookup_protocol (name, /* warn if deprecated */ false) == NULL_TREE)
 	{
 	  tree protocol = make_node (PROTOCOL_INTERFACE_TYPE);
 
@@ -10585,14 +10666,22 @@ objc_declare_protocols (tree names)
 	  add_protocol (protocol);
 	  PROTOCOL_DEFINED (protocol) = 0;
 	  PROTOCOL_FORWARD_DECL (protocol) = NULL_TREE;
+	  
+	  if (attributes)
+	    {
+	      TYPE_ATTRIBUTES (protocol) = attributes;
+	      if (deprecated)
+		TREE_DEPRECATED (protocol) = 1;
+	    }
 	}
     }
 }
 
 static tree
-start_protocol (enum tree_code code, tree name, tree list)
+start_protocol (enum tree_code code, tree name, tree list, tree attributes)
 {
   tree protocol;
+  bool deprecated = false;
 
 #ifdef OBJCPLUS
   if (current_namespace != global_namespace) {
@@ -10600,7 +10689,21 @@ start_protocol (enum tree_code code, tree name, tree list)
   }
 #endif /* OBJCPLUS */
 
-  protocol = lookup_protocol (name);
+  /* Determine if 'deprecated', the only attribute we recognize for
+     protocols, was used.  Ignore all other attributes.  */
+  if (attributes)
+    {
+      tree attribute;
+      for (attribute = attributes; attribute; attribute = TREE_CHAIN (attribute))
+	{
+	  tree name = TREE_PURPOSE (attribute);
+	  
+	  if (is_attribute_p  ("deprecated", name))
+	    deprecated = true;
+	}
+    }
+
+  protocol = lookup_protocol (name, /* warn_if_deprecated */ false);
 
   if (!protocol)
     {
@@ -10627,6 +10730,14 @@ start_protocol (enum tree_code code, tree name, tree list)
       warning (0, "duplicate declaration for protocol %qE",
 	       name);
     }
+
+  if (attributes)
+    {
+      TYPE_ATTRIBUTES (protocol) = attributes;
+      if (deprecated)
+	TREE_DEPRECATED (protocol) = 1;
+    }
+
   return protocol;
 }
 

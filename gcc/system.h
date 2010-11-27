@@ -684,6 +684,12 @@ extern void fancy_abort (const char *, int, const char *) ATTRIBUTE_NORETURN;
  #pragma GCC poison malloc realloc
 #endif
 
+/* The %m format should be used when GCC's main diagnostic functions
+   supporting %m are available, and xstrerror from libiberty
+   otherwise.  */
+#undef strerror
+ #pragma GCC poison strerror
+
 /* Old target macros that have moved to the target hooks structure.  */
  #pragma GCC poison ASM_OPEN_PAREN ASM_CLOSE_PAREN			\
 	FUNCTION_PROLOGUE FUNCTION_EPILOGUE				\
@@ -719,8 +725,9 @@ extern void fancy_abort (const char *, int, const char *) ATTRIBUTE_NORETURN;
 	OPTIMIZATION_OPTIONS CLASS_LIKELY_SPILLED_P			\
 	USING_SJLJ_EXCEPTIONS TARGET_UNWIND_INFO			\
 	LABEL_ALIGN_MAX_SKIP LOOP_ALIGN_MAX_SKIP			\
-	LABEL_ALIGN_AFTER_BARRIER_MAX_SKIP JUMP_ALIGN_MAX_SKIP \
-	CAN_DEBUG_WITHOUT_FP
+	LABEL_ALIGN_AFTER_BARRIER_MAX_SKIP JUMP_ALIGN_MAX_SKIP 		\
+	CAN_DEBUG_WITHOUT_FP UNLIKELY_EXECUTED_TEXT_SECTION_NAME	\
+	HOT_TEXT_SECTION_NAME
 
 /* Other obsolete target macros, or macros that used to be in target
    headers and were not used, and may be obsolete or may never have
@@ -777,7 +784,9 @@ extern void fancy_abort (const char *, int, const char *) ATTRIBUTE_NORETURN;
 	ORDER_REGS_FOR_LOCAL_ALLOC FUNCTION_OUTGOING_VALUE		   \
 	ASM_DECLARE_CONSTANT_NAME MODIFY_TARGET_NAME SWITCHES_NEED_SPACES  \
 	SWITCH_CURTAILS_COMPILATION SWITCH_TAKES_ARG WORD_SWITCH_TAKES_ARG \
-	TARGET_OPTION_TRANSLATE_TABLE
+	TARGET_OPTION_TRANSLATE_TABLE HANDLE_PRAGMA_PACK_PUSH_POP	   \
+	HANDLE_SYSV_PRAGMA HANDLE_PRAGMA_WEAK CONDITIONAL_REGISTER_USAGE   \
+	FUNCTION_ARG_BOUNDARY MUST_USE_SJLJ_EXCEPTIONS
 
 /* Hooks that are no longer used.  */
  #pragma GCC poison LANG_HOOKS_FUNCTION_MARK LANG_HOOKS_FUNCTION_FREE	\
@@ -791,7 +800,8 @@ extern void fancy_abort (const char *, int, const char *) ATTRIBUTE_NORETURN;
 	TARGET_HANDLE_OFAST TARGET_OPTION_OPTIMIZATION
 
 /* Hooks into libgcc2.  */
- #pragma GCC poison LIBGCC2_DOUBLE_TYPE_SIZE LIBGCC2_WORDS_BIG_ENDIAN
+ #pragma GCC poison LIBGCC2_DOUBLE_TYPE_SIZE LIBGCC2_WORDS_BIG_ENDIAN \
+   LIBGCC2_FLOAT_WORDS_BIG_ENDIAN
 
 /* Miscellaneous macros that are no longer used.  */
  #pragma GCC poison USE_MAPPED_LOCATION

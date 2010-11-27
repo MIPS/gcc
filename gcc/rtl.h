@@ -2387,9 +2387,6 @@ extern void schedule_insns (void);
 /* In sched-ebb.c.  */
 extern void schedule_ebbs (void);
 
-/* In haifa-sched.c.  */
-extern void fix_sched_param (const char *, const char *);
-
 /* In sel-sched-dump.c.  */
 extern void sel_sched_fix_param (const char *param, const char *val);
 
@@ -2411,7 +2408,7 @@ extern int prologue_epilogue_contains (const_rtx);
 extern int sibcall_epilogue_contains (const_rtx);
 extern void mark_temp_addr_taken (rtx);
 extern void update_temp_slot_address (rtx, rtx);
-extern void maybe_copy_epilogue_insn (rtx, rtx);
+extern void maybe_copy_prologue_epilogue_insn (rtx, rtx);
 
 /* In stmt.c */
 extern void expand_null_return (void);
@@ -2510,6 +2507,7 @@ extern rtx find_base_term (rtx);
 extern rtx gen_hard_reg_clobber (enum machine_mode, unsigned int);
 extern rtx get_reg_known_value (unsigned int);
 extern bool get_reg_known_equiv_p (unsigned int);
+extern rtx get_reg_base_value (unsigned int);
 
 #ifdef STACK_REGS
 extern int stack_regs_mentioned (const_rtx insn);

@@ -56,6 +56,7 @@ enum availability
 struct lto_file_decl_data;
 
 extern const char * const cgraph_availability_names[];
+extern const char * const ld_plugin_symbol_resolution_names[];
 
 /* Function inlining information.  */
 
@@ -177,20 +178,6 @@ struct GTY(()) cgraph_clone_info
   VEC(ipa_replace_map_p,gc)* tree_map;
   bitmap args_to_skip;
   bitmap combined_args_to_skip;
-};
-
-enum node_frequency {
-  /* This function most likely won't be executed at all.
-     (set only when profile feedback is available or via function attribute). */
-  NODE_FREQUENCY_UNLIKELY_EXECUTED,
-  /* For functions that are known to be executed once (i.e. constructors, destructors
-     and main function.  */
-  NODE_FREQUENCY_EXECUTED_ONCE,
-  /* The default value.  */
-  NODE_FREQUENCY_NORMAL,
-  /* Optimize this function hard
-     (set only when profile feedback is available or via function attribute). */
-  NODE_FREQUENCY_HOT
 };
 
 
@@ -695,6 +682,7 @@ void varpool_node_set_remove (varpool_node_set, struct varpool_node *);
 void dump_varpool_node_set (FILE *, varpool_node_set);
 void debug_varpool_node_set (varpool_node_set);
 void ipa_discover_readonly_nonaddressable_vars (void);
+bool cgraph_comdat_can_be_unshared_p (struct cgraph_node *);
 
 /* In predict.c  */
 bool cgraph_maybe_hot_edge_p (struct cgraph_edge *e);

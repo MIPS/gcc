@@ -660,6 +660,15 @@ extern bool done_lexing;
 #define C_TYPE_OBJECT_OR_INCOMPLETE_P(type) \
   (!C_TYPE_FUNCTION_P (type))
 
+struct visibility_flags
+{
+  unsigned inpragma : 1;	/* True when in #pragma GCC visibility.  */
+  unsigned inlines_hidden : 1;	/* True when -finlineshidden in effect.  */
+};
+
+/* Global visibility options.  */
+extern struct visibility_flags visibility_options;
+
 /* Attribute table common to the C front ends.  */
 extern const struct attribute_spec c_common_attribute_table[];
 extern const struct attribute_spec c_common_format_attribute_table[];
@@ -675,6 +684,7 @@ extern tree (*make_fname_decl) (location_t, tree, int);
 extern void c_register_addr_space (const char *str, addr_space_t as);
 
 /* In c-common.c.  */
+extern bool in_late_binary_op;
 extern const char *c_addr_space_name (addr_space_t as);
 extern tree identifier_global_value (tree);
 extern void record_builtin_type (enum rid, const char *, tree);
@@ -735,6 +745,10 @@ extern bool valid_location_for_stdc_pragma_p (void);
 extern void set_float_const_decimal64 (void);
 extern void clear_float_const_decimal64 (void);
 extern bool float_const_decimal64_p (void);
+
+extern bool keyword_begins_type_specifier (enum rid);
+extern bool keyword_is_storage_class_specifier (enum rid);
+extern bool keyword_is_type_qualifier (enum rid);
 
 #define c_sizeof(LOC, T)  c_sizeof_or_alignof_type (LOC, T, true, 1)
 #define c_alignof(LOC, T) c_sizeof_or_alignof_type (LOC, T, false, 1)
@@ -822,6 +836,7 @@ extern void warn_for_omitted_condop (location_t, tree);
 extern tree do_case (location_t, tree, tree);
 extern tree build_stmt (location_t, enum tree_code, ...);
 extern tree build_case_label (location_t, tree, tree, tree);
+extern tree build_real_imag_expr (location_t, enum tree_code, tree);
 
 /* These functions must be defined by each front-end which implements
    a variant of the C language.  They are used in c-common.c.  */
@@ -995,7 +1010,7 @@ extern int objc_is_public (tree, tree);
 extern tree objc_is_id (tree);
 extern void objc_declare_alias (tree, tree);
 extern void objc_declare_class (tree);
-extern void objc_declare_protocols (tree);
+extern void objc_declare_protocols (tree, tree);
 extern tree objc_build_message_expr (tree);
 extern tree objc_finish_message_expr (tree, tree, tree);
 extern tree objc_build_selector_expr (location_t, tree);

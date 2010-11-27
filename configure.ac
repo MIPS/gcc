@@ -200,7 +200,8 @@ target_libraries="target-libgcc \
 		target-boehm-gc \
 		${libgcj} \
 		target-libobjc \
-		target-libada"
+		target-libada \
+		target-libgo"
 
 # these tools are built using the target libraries, and are intended to
 # run only in the target environment
@@ -323,19 +324,31 @@ case ${with_newlib} in
   yes) skipdirs=`echo " ${skipdirs} " | sed -e 's/ target-newlib / /'` ;;
 esac
 
-# Handle --enable-gold.
-#   --enable-gold		Build only gold
-#   --disable-gold [default]	Build only ld
-#   --enable-gold=both		Build both gold and ld, ld is default
-#   --enable-gold=both/ld	Same
-#   --enable-gold=both/gold	Build both gold and ld, gold is default, ld is renamed ld.bfd
+# Handle --enable-gold, --enable-ld.
+# --disable-gold [--enable-ld]
+#     Build only ld.  Default option.
+# --enable-gold [--enable-ld]
+#     Build both gold and ld.  Install gold as "ld.gold", install ld
+#     as "ld.bfd" and "ld".
+# --enable-gold=default [--enable-ld]
+#     Build both gold and ld.  Install gold as "ld.gold" and "ld",
+#     install ld as "ld.bfd".
+# --enable-gold[=default] --disable-ld
+#     Build only gold, which is then installed as both "ld.gold" and "ld".
+# --enable-gold --enable-ld=default
+#     Build both gold (installed as "ld.gold") and ld (installed as "ld"
+#     and ld.bfd).
+#     In other words, ld is default
+# --enable-gold=default --enable-ld=default
+#     Error.
 
+default_ld=
 AC_ARG_ENABLE(gold,
-[[  --enable-gold[=ARG]     build gold [ARG={both}[/{gold,ld}]]]],
+[[  --enable-gold[=ARG]     build gold [ARG={default,yes,no}]]],
 ENABLE_GOLD=$enableval,
 ENABLE_GOLD=no)
-  case "${ENABLE_GOLD}" in
-  yes|both|both/gold|both/ld)
+case "${ENABLE_GOLD}" in
+  yes|default)
     # Check for ELF target.
     is_elf=no
     case "${target}" in
@@ -355,14 +368,10 @@ ENABLE_GOLD=no)
       # Check for target supported by gold.
       case "${target}" in
         i?86-*-* | x86_64-*-* | sparc*-*-* | powerpc*-*-* | arm*-*-*)
-	  case "${ENABLE_GOLD}" in 
-	  both*)
-            configdirs="$configdirs gold"
-	    ;;
-	  *)
-            configdirs=`echo " ${configdirs} " | sed -e 's/ ld / gold /'`
-	    ;;
-	  esac
+	  configdirs="$configdirs gold"
+	  if test x${ENABLE_GOLD} = xdefault; then
+	    default_ld=gold
+	  fi
 	  ENABLE_GOLD=yes
           ;;
       esac
@@ -373,7 +382,31 @@ ENABLE_GOLD=no)
   *)
     AC_MSG_ERROR([invalid --enable-gold argument])
     ;;
-  esac
+esac
+
+AC_ARG_ENABLE(ld,
+[[  --enable-ld[=ARG]     build ld [ARG={default,yes,no}]]],
+ENABLE_LD=$enableval,
+ENABLE_LD=yes)
+
+case "${ENABLE_LD}" in
+  default)
+    if test x${default_ld} != x; then
+      AC_MSG_ERROR([either gold or ld can be the default ld])
+    fi
+    ;;
+  yes)
+    ;;
+  no)
+    if test x${ENABLE_GOLD} != xyes; then
+      AC_MSG_WARN([neither ld nor gold are enabled])
+    fi
+    configdirs=`echo " ${configdirs} " | sed -e 's/ ld / /'`
+    ;;
+  *)
+    AC_MSG_ERROR([invalid --enable-ld argument])
+    ;;
+esac
 
 # Configure extra directories which are host specific
 
@@ -450,7 +483,8 @@ yes)
   ;;
 no)
   # Make sure we get it printed in the list of not supported target libs.
-  noconfigdirs="$noconfigdirs ${libgcj}"
+  # Don't disable libffi, though, other languages use it.
+  noconfigdirs="$noconfigdirs `echo ${libgcj} | sed -e 's/target-libffi//'`"
   ;;
 esac
 
@@ -1209,6 +1243,7 @@ if test "${build}" != "${host}" ; then
   CXX_FOR_BUILD=${CXX_FOR_BUILD-g++}
   GCJ_FOR_BUILD=${GCJ_FOR_BUILD-gcj}
   GFORTRAN_FOR_BUILD=${GFORTRAN_FOR_BUILD-gfortran}
+  GOC_FOR_BUILD=${GOC_FOR_BUILD-gccgo}
   DLLTOOL_FOR_BUILD=${DLLTOOL_FOR_BUILD-dlltool}
   LD_FOR_BUILD=${LD_FOR_BUILD-ld}
   NM_FOR_BUILD=${NM_FOR_BUILD-nm}
@@ -1222,6 +1257,7 @@ else
   CXX_FOR_BUILD="\$(CXX)"
   GCJ_FOR_BUILD="\$(GCJ)"
   GFORTRAN_FOR_BUILD="\$(GFORTRAN)"
+  GOC_FOR_BUILD="\$(GOC)"
   DLLTOOL_FOR_BUILD="\$(DLLTOOL)"
   LD_FOR_BUILD="\$(LD)"
   NM_FOR_BUILD="\$(NM)"
@@ -1707,11 +1743,13 @@ if test -d ${srcdir}/gcc; then
       # an apparent bug in bash 1.12 on linux.
       ${srcdir}/gcc/[[*]]/config-lang.in) ;;
       *)
-        # From the config-lang.in, get $language, $lang_requires
+        # From the config-lang.in, get $language, $lang_requires, and
+        # $lang_requires_boot_languages.
         language=
         lang_requires=
+        lang_requires_boot_languages=
         . ${lang_frag}
-        for other in ${lang_requires} ; do
+        for other in ${lang_requires} ${lang_requires_boot_languages}; do
           case ,${enable_languages}, in
 	    *,$other,*) ;;
 	    *,all,*) ;;
@@ -1720,6 +1758,22 @@ if test -d ${srcdir}/gcc; then
 	      enable_languages="${enable_languages},${other}"
 	      ;;
 	  esac
+        done
+	for other in ${lang_requires_boot_languages} ; do
+	  if test "$other" != "c"; then
+	    case ,${enable_stage1_languages}, in
+	      *,$other,*) ;;
+	      *,all,*) ;;
+	      *)
+		case ,${enable_languages}, in
+		  *,$language,*)
+		    echo " '$other' language required by '$language' in stage 1; enabling" 1>&2
+		    enable_stage1_languages="$enable_stage1_languages,${other}"
+		    ;;
+		esac
+		;;
+	    esac
+          fi
         done
         ;;
     esac
@@ -1743,6 +1797,9 @@ if test -d ${srcdir}/gcc; then
 
   missing_languages=`echo ",$enable_languages," | sed -e s/,all,/,/ -e s/,c,/,/ `
   potential_languages=,c,
+
+  enabled_target_libs=
+  disabled_target_libs=
 
   for lang_frag in ${srcdir}/gcc/*/config-lang.in .. ; do
     case ${lang_frag} in
@@ -1821,17 +1878,20 @@ if test -d ${srcdir}/gcc; then
 	case $add_this_lang in
 	  unsupported)
             # Remove language-dependent dirs.
-            eval noconfigdirs='"$noconfigdirs "'\"$target_libs $lang_dirs\"
+	    disabled_target_libs="$disabled_target_libs $target_libs"
+	    noconfigdirs="$noconfigdirs $lang_dirs"
 	    ;;
 	  no)
             # Remove language-dependent dirs; still show language as supported.
-            eval noconfigdirs='"$noconfigdirs "'\"$target_libs $lang_dirs\"
+	    disabled_target_libs="$disabled_target_libs $target_libs"
+	    noconfigdirs="$noconfigdirs $lang_dirs"
             potential_languages="${potential_languages}${language},"
 	    ;;
           yes)
 	    new_enable_languages="${new_enable_languages}${language},"
             potential_languages="${potential_languages}${language},"
 	    missing_languages=`echo "$missing_languages" | sed "s/,$language,/,/"`
+	    enabled_target_libs="$enabled_target_libs $target_libs"
 	    case "${boot_language}:,$enable_stage1_languages," in
 	      yes:* | *:*,$language,* | *:*,yes, | *:*,all,)
 		# Add to (comma-separated) list of stage 1 languages.
@@ -1848,6 +1908,17 @@ if test -d ${srcdir}/gcc; then
         ;;
     esac
   done
+
+  # Add target libraries which are only needed for disabled languages
+  # to noconfigdirs.
+  if test -n "$disabled_target_libs"; then
+    for dir in $disabled_target_libs; do
+      case " $enabled_target_libs " in
+      *" ${dir} "*) ;;
+      *) noconfigdirs="$noconfigdirs $dir" ;;
+      esac
+    done
+  fi
 
   AC_ARG_ENABLE(stage1-languages,
 [  --enable-stage1-languages@<:@=all@:>@   choose additional languages to build during
@@ -3034,6 +3105,7 @@ AC_SUBST(CXX_FOR_BUILD)
 AC_SUBST(DLLTOOL_FOR_BUILD)
 AC_SUBST(GCJ_FOR_BUILD)
 AC_SUBST(GFORTRAN_FOR_BUILD)
+AC_SUBST(GOC_FOR_BUILD)
 AC_SUBST(LDFLAGS_FOR_BUILD)
 AC_SUBST(LD_FOR_BUILD)
 AC_SUBST(NM_FOR_BUILD)
@@ -3144,6 +3216,7 @@ NCN_STRICT_CHECK_TARGET_TOOLS(CXX_FOR_TARGET, c++ g++ cxx gxx)
 NCN_STRICT_CHECK_TARGET_TOOLS(GCC_FOR_TARGET, gcc, ${CC_FOR_TARGET})
 NCN_STRICT_CHECK_TARGET_TOOLS(GCJ_FOR_TARGET, gcj)
 NCN_STRICT_CHECK_TARGET_TOOLS(GFORTRAN_FOR_TARGET, gfortran)
+NCN_STRICT_CHECK_TARGET_TOOLS(GOC_FOR_TARGET, gccgo)
 
 ACX_CHECK_INSTALLED_TARGET_TOOL(AR_FOR_TARGET, ar)
 ACX_CHECK_INSTALLED_TARGET_TOOL(AS_FOR_TARGET, as)
@@ -3163,7 +3236,7 @@ GCC_TARGET_TOOL(ar, AR_FOR_TARGET, AR, [binutils/ar])
 GCC_TARGET_TOOL(as, AS_FOR_TARGET, AS, [gas/as-new])
 GCC_TARGET_TOOL(cc, CC_FOR_TARGET, CC, [gcc/xgcc -B$$r/$(HOST_SUBDIR)/gcc/])
 GCC_TARGET_TOOL(c++, CXX_FOR_TARGET, CXX,
-		[gcc/g++ -B$$r/$(HOST_SUBDIR)/gcc/ -nostdinc++ `test ! -f $$r/$(TARGET_SUBDIR)/libstdc++-v3/scripts/testsuite_flags || $(SHELL) $$r/$(TARGET_SUBDIR)/libstdc++-v3/scripts/testsuite_flags --build-includes` -L$$r/$(TARGET_SUBDIR)/libstdc++-v3/src -L$$r/$(TARGET_SUBDIR)/libstdc++-v3/src/.libs],
+		[gcc/g++ -B$$r/$(HOST_SUBDIR)/gcc/ -nostdinc++ `if test -f $$r/$(TARGET_SUBDIR)/libstdc++-v3/scripts/testsuite_flags; then $(SHELL) $$r/$(TARGET_SUBDIR)/libstdc++-v3/scripts/testsuite_flags --build-includes; else echo -funconfigured-libstdc++-v3 ; fi` -L$$r/$(TARGET_SUBDIR)/libstdc++-v3/src -L$$r/$(TARGET_SUBDIR)/libstdc++-v3/src/.libs],dnl see comments for CXX_FOR_TARGET_FLAG_TO_PASS
 		c++)
 GCC_TARGET_TOOL(c++ for libstdc++, RAW_CXX_FOR_TARGET, CXX,
 		[gcc/xgcc -shared-libgcc -B$$r/$(HOST_SUBDIR)/gcc -nostdinc++ -L$$r/$(TARGET_SUBDIR)/libstdc++-v3/src -L$$r/$(TARGET_SUBDIR)/libstdc++-v3/src/.libs],
@@ -3174,12 +3247,14 @@ GCC_TARGET_TOOL(gcj, GCJ_FOR_TARGET, GCJ,
 		[gcc/gcj -B$$r/$(HOST_SUBDIR)/gcc/], java)
 GCC_TARGET_TOOL(gfortran, GFORTRAN_FOR_TARGET, GFORTRAN,
 		[gcc/gfortran -B$$r/$(HOST_SUBDIR)/gcc/], fortran)
+GCC_TARGET_TOOL(gccgo, GOC_FOR_TARGET, GOC,
+		[gcc/gccgo -B$$r/$(HOST_SUBDIR)/gcc/], go)
 GCC_TARGET_TOOL(ld, LD_FOR_TARGET, LD, [ld/ld-new])
 GCC_TARGET_TOOL(lipo, LIPO_FOR_TARGET, LIPO)
 GCC_TARGET_TOOL(nm, NM_FOR_TARGET, NM, [binutils/nm-new])
 GCC_TARGET_TOOL(objdump, OBJDUMP_FOR_TARGET, OBJDUMP, [binutils/objdump])
 GCC_TARGET_TOOL(ranlib, RANLIB_FOR_TARGET, RANLIB, [binutils/ranlib])
-GCC_TARGET_TOOL(strip, STRIP_FOR_TARGET, STRIP, [binutils/strip])
+GCC_TARGET_TOOL(strip, STRIP_FOR_TARGET, STRIP, [binutils/strip-new])
 GCC_TARGET_TOOL(windres, WINDRES_FOR_TARGET, WINDRES, [binutils/windres])
 GCC_TARGET_TOOL(windmc, WINDMC_FOR_TARGET, WINDMC, [binutils/windmc])
 

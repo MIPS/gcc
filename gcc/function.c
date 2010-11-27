@@ -4900,7 +4900,7 @@ expand_function_end (void)
   /* Output the label for the actual return from the function.  */
   emit_label (return_label);
 
-  if (targetm.except_unwind_info () == UI_SJLJ)
+  if (targetm.except_unwind_info (&global_options) == UI_SJLJ)
     {
       /* Let except.c know where it should emit the call to unregister
 	 the function context for sjlj exceptions.  */
@@ -5059,7 +5059,7 @@ expand_function_end (void)
      may trap are not moved into the epilogue by scheduling, because
      we don't always emit unwind information for the epilogue.  */
   if (cfun->can_throw_non_call_exceptions
-      && targetm.except_unwind_info () != UI_SJLJ)
+      && targetm.except_unwind_info (&global_options) != UI_SJLJ)
     emit_insn (gen_blockage ());
 
   /* If stack protection is enabled for this function, check the guard.  */
@@ -5140,19 +5140,25 @@ record_insns (rtx insns, rtx end, htab_t *hashp)
     }
 }
 
-/* INSN has been duplicated as COPY, as part of duping a basic block.
-   If INSN is an epilogue insn, then record COPY as epilogue as well.  */
+/* INSN has been duplicated or replaced by as COPY, perhaps by duplicating a
+   basic block, splitting or peepholes.  If INSN is a prologue or epilogue
+   insn, then record COPY as well.  */
 
 void
-maybe_copy_epilogue_insn (rtx insn, rtx copy)
+maybe_copy_prologue_epilogue_insn (rtx insn, rtx copy)
 {
+  htab_t hash;
   void **slot;
 
-  if (epilogue_insn_hash == NULL
-      || htab_find (epilogue_insn_hash, insn) == NULL)
-    return;
+  hash = epilogue_insn_hash;
+  if (!hash || !htab_find (hash, insn))
+    {
+      hash = prologue_insn_hash;
+      if (!hash || !htab_find (hash, insn))
+	return;
+    }
 
-  slot = htab_find_slot (epilogue_insn_hash, copy, INSERT);
+  slot = htab_find_slot (hash, copy, INSERT);
   gcc_assert (*slot == NULL);
   *slot = copy;
 }
