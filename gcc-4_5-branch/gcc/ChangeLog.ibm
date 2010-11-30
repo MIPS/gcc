@@ -1,6 +1,17 @@
+2010-11-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from the GCC 4.6 mainline:
+	2010-11-30  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/46722
+	* tree-ssa-math-opts.c (convert_mult_to_fma): Get multiplication
+	operands as arguments.
+	(execute_optimize_widening_mul): Also handle power of two as
+	multiplication.
+
 2010-11-24  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
-	Backport from the GCC 4.6 mainlin
+	Backport from the GCC 4.6 mainline:
 	2010-11-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.md (floatsi<mode>2_lfiwax): Rewrite so
