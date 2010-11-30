@@ -34,7 +34,7 @@
 #include <memory>
 #include <initializer_list>
 
-_GLIBCXX_BEGIN_NAMESPACE(std)
+_GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
 
   /**
    *  @brief  A helper basic node class for %forward_list.
@@ -1002,7 +1002,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
        *  populated with given data.
        */
       void
-      resize(size_type __sz, value_type __val);
+      resize(size_type __sz, const value_type& __val);
 
       /**
        *  @brief  Erases all the elements.
@@ -1289,6 +1289,6 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	 forward_list<_Tp, _Alloc>& __ly)
     { __lx.swap(__ly); }
 
-_GLIBCXX_END_NAMESPACE // namespace std
+_GLIBCXX_END_NESTED_NAMESPACE // namespace std
 
 #endif // _FORWARD_LIST_H
