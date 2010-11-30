@@ -1,18 +1,28 @@
 /* { dg-do compile { target { powerpc*-*-* } } } */
 /* { dg-skip-if "" { powerpc*-*-darwin* } { "*" } { "" } } */
-/* { dg-require-effective-target powerpc_altivec_ok } */
-/* { dg-options "-O3 -ftree-vectorize -mcpu=power6 -ffast-math" } */
-/* { dg-final { scan-assembler-times "fmadd" 1 } } */
-/* { dg-final { scan-assembler-times "fmsub " 1 } } */
-/* { dg-final { scan-assembler-not "fmul" } } */
-/* { dg-final { scan-assembler-not "fadd " } } */
+/* { dg-require-effective-target ilp32 } */
+/* { dg-options "-O2 -mcpu=power5 -std=c99 -msoft-float" } */
+/* { dg-final { scan-assembler-not "fmadd" } } */
+/* { dg-final { scan-assembler-not "xsfmadd" } } */
 
-/* Check whether the common FFT idiom (a*b)+c and (a*b)-c generates two fma
-   instructions, instead of a multiply, add, and subtract.  */
+/* Test whether -msoft-float turns off the macros math.h uses for
+   FP_FAST_FMA{,F,L}.  */
+#ifdef __FP_FAST_FMA
+#error "__FP_FAST_FMA should not be defined"
+#endif
 
-void
-fft (double *result, double a, double b, double c)
+#ifdef __FP_FAST_FMAF
+#error "__FP_FAST_FMAF should not be defined"
+#endif
+
+double
+builtin_fma (double b, double c, double d)
 {
-  result[0] = (a*b) + c;
-  result[1] = (a*b) - c;
+  return __builtin_fma (b, c, d);			/* bl fma  */
+}
+
+float
+builtin_fmaf (float b, float c, float d)
+{
+  return __builtin_fmaf (b, c, -d);			/* bl fmaf */
 }
