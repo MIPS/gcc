@@ -1,3 +1,35 @@
+2010-12-03  Jason Merrill  <jason@redhat.com>
+
+	PR debug/46123
+	* dwarf2out.c (gen_type_die_with_usage): Don't put local types in
+	a declaration DIE.
+
+2010-12-03  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2010-09-15  Olivier Hainque  <hainque@adacore.com>
+        	    Jose Ruiz  <ruiz@adacore.com>
+
+	* config/alpha/osf.h (MD_UNWIND_SUPPORT): Define.
+	* config/alpha/osf-unwind.h: New file.
+
+2010-12-03  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2010-11-12  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* config/mips/iris6.h [!IRIX_USING_GNU_LD]
+	(SUPPORTS_INIT_PRIORITY): Define.
+
+2010-12-03  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2010-11-02  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* configure.ac (*-*-irix6*): Disable set_have_as_tls.
+	(*-*-osf*): Likewise.
+	* configure: Regenerate.
+
 2010-11-29  H.J. Lu  <hongjiu.lu@intel.com>
 
 	Backport from mainline
