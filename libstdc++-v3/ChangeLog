@@ -1,3 +1,211 @@
+2010-12-06  Paul Pluzhnikov  <ppluzhnikov@google.com>
+
+	PR libstdc++/46830
+	* include/ext/sso_string_base.h (__sso_string_base<>::_M_swap):
+	Early return when this == &__rcs.
+
+2010-12-06  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/bits/shared_ptr.h (shared_ptr<>::shared_ptr(_Tp1*, _Deleter,
+	const _Alloc&), shared_ptr(nullptr_t, _Deleter, const _Alloc&)): Take
+	the allocator by value, per N3225.
+	(shared_ptr<>::shared_ptr(_Sp_make_shared_tag, _Alloc, _Args&&...),
+	allocate_shared(_Alloc, _Args&&...): Viceversa, take the allocator
+	by const lvalue ref.
+	* include/bits/shared_ptr_base.h (__shared_count<>::
+	__shared_count(_Sp_make_shared_tag, _Tp*, _Alloc, _Args&&...),
+	__shared_ptr<>::__shared_ptr(_Sp_make_shared_tag, _Alloc, _Args&&...),
+	__allocate_shared(_Alloc, _Args&&...)): Likewise.
+	(__shared_ptr<>::__shared_ptr(_Tp1*, _Deleter, const _Alloc&),
+	__shared_ptr(nullptr_t, _Deleter, const _Alloc&), reset(_Tp1*,
+	_Deleter, const _Alloc&)): Take the allocator by value.
+	* testsuite/20_util/shared_ptr/cons/43820.cc: Adjust dg-error line
+	numbers.
+	* testsuite/20_util/weak_ptr/comparison/cmp_neg.cc: Likewise.
+
+2010-12-06  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* acinclude.m4 (symvers_renaming): Also set if enable_symvers = no.
+	* configure: Regenerate.
+
+2010-12-06  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/46821
+	* include/std/tuple (_Head_base<,, true>::_M_swap_impl):
+	Swap the empty bases.
+	(_Head_base<,, false>::_M_swap_impl): Minor tweak.
+	* testsuite/20_util/weak_ptr/comparison/cmp_neg.cc: Adjust dg-error
+	line number.
+
+2010-12-06  Dave Korn  <dave.korn.cygwin@gmail.com>
+
+	PR target/40125
+	PR lto/46695
+	* configure.ac: Invoke ACX_LT_HOST_FLAGS.
+	* configure.host (OPT_LDFLAGS): Use lt_host_flags for cygming.
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+	* Makefile.in: Regenerate.
+	* doc/Makefile.in: Regenerate.
+	* include/Makefile.in: Regenerate.
+	* libsupc++/Makefile.in: Regenerate.
+	* po/Makefile.in: Regenerate.
+	* python/Makefile.in: Regenerate.
+	* src/Makefile.in: Regenerate.
+	* testsuite/Makefile.in: Regenerate.
+
+2010-12-04  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* include/std/mutex (try_lock, __try_lock_impl): Fix.
+	(lock): Implement using __try_lock_impl.
+	* testsuite/30_threads/try_lock/2.cc: Fix logic.
+	* testsuite/30_threads/try_lock/4.cc: New.
+	* testsuite/30_threads/lock/1.cc: New.
+	* testsuite/30_threads/lock/2.cc: New.
+	* testsuite/30_threads/lock/3.cc: New.
+	* testsuite/30_threads/lock/4.cc: New.
+
+2010-12-02  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* src/future.cc (future_category): Export compatibility symbol.
+	* config/abi/pre/gnu.ver: Move _ZSt15future_categoryv to 3.4.15
+	version.
+
+2010-12-02  François Dumont  <francois.cppdevs@free.fr>
+
+	* testsuite/23_containers/vector/requirements/explicit_instantiation/
+	2.cc: Hide explicit instantiation with non default constructible type
+	in C++0x mode.
+	* testsuite/23_containers/deque/requirements/explicit_instantiation/
+	2.cc: Likewise.
+	* testsuite/23_containers/list/requirements/explicit_instantiation/
+	2.cc: Likewise.
+
+2010-12-02  Kai Tietz  <kai.tietz@onevision.com>
+
+	PR libstdc++/43738
+	* config/io/basic_file_stdio.cc (showmanyc): Check _GLIBCXX_NO_IOCTL
+	before use of ioctl.
+	* config/os/mingw32/os_defines.h (_GLIBCXX_NO_IOCTL): New.
+
+2010-12-01  François Dumont  <francois.cppdevs@free.fr>
+
+	* testsuite/23_containers/deque/cons/2.cc: Fix to explicitly invoke
+	the copy constructor with or without C++0x mode.
+	* testsuite/23_containers/vector/cons/4.cc: Likewise.
+
+2010-12-01  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* scripts/extract_symvers.pl: New file.
+	* scripts/extract_symvers: Rename to ...
+	* scripts/extract_symvers.in: ... this.
+	Use extract_symvers.pl on SunOS.
+	* configure.ac: Add scripts/extract_symvers to AC_CONFIG_FILES.
+	* configure: Regenerate.
+	* Makefile.in: Regenerate.
+	* testsuite/Makefile.am (extract_symvers): Call extract_symvers
+	from $(glibcxx_builddir).
+	* testsuite/Makefile.in: Regenerate.
+	* testsuite/libstdc++-abi/abi.exp: Call extract_symvers from
+	$objdir.
+
+	* config/abi/post/solaris2.8/baseline_symbols.txt: Regenerate.
+	* config/abi/post/solaris2.8/sparcv9/baseline_symbols.txt: Likewise.
+	* config/abi/post/solaris2.10/baseline_symbols.txt: Likewise.
+	* config/abi/post/solaris2.10/amd64/baseline_symbols.txt: Likewise.
+	* config/abi/post/solaris2.10/sparcv9/baseline_symbols.txt: Likewise.
+
+2010-11-30  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/46718
+	* include/std/type_traits (__is_nullptr_t): Add.
+	(is_scalar): Use the latter.
+	* testsuite/20_util/is_scalar/value.cc: New.
+	* testsuite/20_util/is_scalar/requirements/typedefs.cc: Likewise.
+	* testsuite/20_util/is_scalar/requirements/explicit_instantiation.cc:
+	Likewise.
+	* testsuite/20_util/make_signed/requirements/typedefs_neg.cc:
+	Adjust dg-error line numbers.
+	* testsuite/20_util/make_unsigned/requirements/typedefs_neg.cc:
+	Likewise.
+	* testsuite/20_util/declval/requirements/1_neg.cc: Likewise.
+
+2010-11-28  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	PR libstdc++/46689
+	* testsuite/20_util/shared_ptr/comparison/cmp.cc: Remove tests for
+	invalid comparisons.
+
+2010-11-27  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* include/bits/shared_ptr_base.h (operator>, operator>=, operator<=):
+	Remove comparisons not specified in the C++0x draft.
+
+2010-11-27  François Dumont  <francois.cppdevs@free.fr>
+
+	* include/debug/unordered_map (unordered_multimap<>::erase): Fix to
+	erase all elements associated to the key.
+	* include/debug/unordered_set (unordered_multiset<>::erase): Likewise.
+	* testsuite/23_containers/unordered_multimap/erase/1.cc: Modify to
+	check for multiple erase.
+	* testsuite/23_containers/unordered_multiset/erase/1.cc: Likewise.
+
+2010-11-27  François Dumont  <francois.cppdevs@free.fr>
+
+	* include/debug/unordered_map, unordered_set (unordered_map<>::insert,
+	unordered_multimap<>::insert, unordered_set<>::insert,
+	unordered_multiset<>::insert) Debug check iterator hint and pass it to
+	normal implementation.
+
+2010-11-27  François Dumont  <francois.cppdevs@free.fr>
+
+	* include/debug/bitset (bitset<>::reference): Clean code, use normal
+	reference type in experimental mode.
+	* testsuite/23_containers/bitset/debug/invalid/1.cc: Fix for
+	experimental mode.
+
+2010-11-26  François Dumont  <francois.cppdevs@free.fr>
+
+	* testsuite/lib/libstdc++.exp ([check_v3_target_debug_mode]): Use
+	remote_file delete for generated exe.
+	([check_v3_target_profile_mode]): Add.
+	* testsuite/lib/dg-options.exp ([dg-require-profile-mode]): Add
+	* testsuite/ext/profile/mh.cc, profiler_algos.cc, all.cc: Use
+	dg-require-profile-mode, remove explicit _GLIBCXX_PROFILE definition.
+
+2010-11-25  François Dumont  <francois.cppdevs@free.fr>
+
+	* src/debug.cc: Introduce a mutex pool in get_safe_base_mutex.
+	Move code used to manipulate sequence safe iterators from safe
+	iterator methods to safe sequence ones. Remove usage of safe iterator
+	mutex, keep _Safe_iterator_base::_M_get_mutex for library backward
+	binary compatibility.
+	* src/Makefile.am: Build debug.cc in gnu++0x mode for _Hash_impl usage.
+	* src/Makefile.in: Regenerate
+	* include/debug/safe_base.h: Add _Safe_iterator_base _M_invalidate
+	and _M_reset. Add _Safe_sequence_base _M_attach, _M_attach_single,
+	_M_detach and _M_detach_single.
+	* include/debug.safe_iterator.h, safe_iterator.tcc: Remove
+	_Safe_iterator _M_invalidate and _M_invalidate_single. Implement all
+	methods in terms of normal iterators rather than safe ones.
+	* include/debug/safe_sequence.h: Replace _Safe_sequence
+	_M_transfe_iter with _M_transfer_from_if taking the source sequence
+	and a predicate signaling when a safe iterator shall be transfered.
+	Add _Equal_to predicate.
+	* include/debug/safe_sequence.tcc: New.
+	* include/Makefile.am: Adjust.
+	* include/Makefile.in: Regenerate.
+	* include/debug/forward_list: Swap safe iterators in move constructor.
+	Do not invalidate before begin in _M_invalidate_all method.
+	Reimplement safe methods using normal iterators rather than safe ones.
+	* include/debug/set.h, unordered_map, multiset.h, vector,
+	unordered_set, deque, map.h, list, multimap.h: Reimplement safe method
+	using normal iterators rather than safe ones.
+	* testsuite/23_containers/forward_list/debug/clear.cc, swap.cc,
+	move_constructor.cc, splice_after.cc, splice_after1.cc,
+	splice_after2.cc, splice_after3.cc, splice_after4.cc: New.
+	* testsuite/23_containers/vector/debug/multithreaded_swap.cc: New.
+
 2010-11-24  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* include/std/tuple: Mark more constructors constexpr.

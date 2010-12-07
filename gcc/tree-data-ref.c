@@ -3482,6 +3482,7 @@ omega_setup_subscript (tree access_fun_a, tree access_fun_b,
   tree fun_a = chrec_convert (type, access_fun_a, NULL);
   tree fun_b = chrec_convert (type, access_fun_b, NULL);
   tree difference = chrec_fold_minus (type, fun_a, fun_b);
+  tree minus_one;
 
   /* When the fun_a - fun_b is not constant, the dependence is not
      captured by the classic distance vector representation.  */
@@ -3496,7 +3497,8 @@ omega_setup_subscript (tree access_fun_a, tree access_fun_b,
       return true;
     }
 
-  fun_b = chrec_fold_multiply (type, fun_b, integer_minus_one_node);
+  minus_one = build_int_cst (type, -1);
+  fun_b = chrec_fold_multiply (type, fun_b, minus_one);
 
   eq = omega_add_zero_eq (pb, omega_black);
   if (!init_omega_eq_with_af (pb, eq, DDR_NB_LOOPS (ddr), fun_a, ddr)
@@ -4974,6 +4976,27 @@ stores_from_loop (struct loop *loop, VEC (gimple, heap) **stmts)
   free (bbs);
 }
 
+/* Returns true when STMT is an assignment that contains a data
+   reference on its LHS with a stride of the same size as its unit
+   type.  */
+
+static bool
+mem_write_stride_of_same_size_as_unit_type_p (gimple stmt)
+{
+  struct data_reference *dr = XCNEW (struct data_reference);
+  tree op0 = gimple_assign_lhs (stmt);
+  bool res;
+
+  DR_STMT (dr) = stmt;
+  DR_REF (dr) = op0;
+
+  res = dr_analyze_innermost (dr)
+    && stride_of_unit_type_p (DR_STEP (dr), TREE_TYPE (op0));
+
+  free_data_ref (dr);
+  return res;
+}
+
 /* Initialize STMTS with all the statements of LOOP that contain a
    store to memory of the form "A[i] = 0".  */
 
@@ -4994,7 +5017,8 @@ stores_zero_from_loop (struct loop *loop, VEC (gimple, heap) **stmts)
 	  && is_gimple_assign (stmt)
 	  && gimple_assign_rhs_code (stmt) == INTEGER_CST
 	  && (op = gimple_assign_rhs1 (stmt))
-	  && (integer_zerop (op) || real_zerop (op)))
+	  && (integer_zerop (op) || real_zerop (op))
+	  && mem_write_stride_of_same_size_as_unit_type_p (stmt))
 	VEC_safe_push (gimple, heap, *stmts, gsi_stmt (si));
 
   free (bbs);

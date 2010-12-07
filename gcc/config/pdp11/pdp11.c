@@ -36,7 +36,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "expr.h"
 #include "diagnostic-core.h"
-#include "toplev.h"
 #include "tm_p.h"
 #include "target.h"
 #include "target-def.h"
@@ -234,6 +233,10 @@ static const struct default_options pdp11_option_optimization_table[] =
 
 #undef  TARGET_CONDITIONAL_REGISTER_USAGE
 #define TARGET_CONDITIONAL_REGISTER_USAGE pdp11_conditional_register_usage
+
+#undef  TARGET_ASM_FUNCTION_SECTION
+#define TARGET_ASM_FUNCTION_SECTION pdp11_function_section
+
 
 /* Implement TARGET_HANDLE_OPTION.  */
 
@@ -1168,6 +1171,17 @@ output_jump (enum rtx_code code, int inv, int length)
     static char buf[1000];
     const char *pos, *neg;
 
+    if (cc_prev_status.flags & CC_NO_OVERFLOW)
+      {
+	switch (code)
+	  {
+	  case GTU: code = GT; break;
+	  case LTU: code = LT; break;
+	  case GEU: code = GE; break;
+	  case LEU: code = LE; break;
+	  default: ;
+	  }
+      }
     switch (code)
       {
       case EQ: pos = "beq", neg = "bne"; break;
@@ -1221,68 +1235,38 @@ notice_update_cc_on_set(rtx exp, rtx insn ATTRIBUTE_UNUSED)
 {
     if (GET_CODE (SET_DEST (exp)) == CC0)
     { 
-	cc_status.flags = 0;					
-	cc_status.value1 = SET_DEST (exp);			
-	cc_status.value2 = SET_SRC (exp);			
-
-/*
-	if (GET_MODE(SET_SRC(exp)) == DFmode)
-	    cc_status.flags |= CC_IN_FPU;
-*/	
-    }							
-    else if ((GET_CODE (SET_DEST (exp)) == REG		
-	      || GET_CODE (SET_DEST (exp)) == MEM)		
-	     && GET_CODE (SET_SRC (exp)) != PC		
-	     && (GET_MODE (SET_DEST(exp)) == HImode		
-		 || GET_MODE (SET_DEST(exp)) == QImode)	
-		&& (GET_CODE (SET_SRC(exp)) == PLUS		
-		    || GET_CODE (SET_SRC(exp)) == MINUS	
-		    || GET_CODE (SET_SRC(exp)) == AND	
-		    || GET_CODE (SET_SRC(exp)) == IOR	
-		    || GET_CODE (SET_SRC(exp)) == XOR	
-		    || GET_CODE (SET_SRC(exp)) == NOT	
-		    || GET_CODE (SET_SRC(exp)) == NEG	
-			|| GET_CODE (SET_SRC(exp)) == REG	
-		    || GET_CODE (SET_SRC(exp)) == MEM))	
-    { 
-	cc_status.flags = 0;					
-	cc_status.value1 = SET_SRC (exp);   			
-	cc_status.value2 = SET_DEST (exp);			
-	
-	if (cc_status.value1 && GET_CODE (cc_status.value1) == REG	
-	    && cc_status.value2					
-	    && reg_overlap_mentioned_p (cc_status.value1, cc_status.value2))
-    	    cc_status.value2 = 0;					
-	if (cc_status.value1 && GET_CODE (cc_status.value1) == MEM	
-	    && cc_status.value2					
-	    && GET_CODE (cc_status.value2) == MEM)			
-	    cc_status.value2 = 0; 					
+      cc_status.flags = 0;					
+      cc_status.value1 = SET_DEST (exp);			
+      cc_status.value2 = SET_SRC (exp);			
     }							
     else if (GET_CODE (SET_SRC (exp)) == CALL)		
     { 
-	CC_STATUS_INIT; 
+      CC_STATUS_INIT; 
     }
-    else if (GET_CODE (SET_DEST (exp)) == REG)       		
-	/* what's this ? */					
-    { 
-	if ((cc_status.value1					
-	     && reg_overlap_mentioned_p (SET_DEST (exp), cc_status.value1)))
-	    cc_status.value1 = 0;				
-	if ((cc_status.value2					
-	     && reg_overlap_mentioned_p (SET_DEST (exp), cc_status.value2)))
-	    cc_status.value2 = 0;				
-    }							
     else if (SET_DEST(exp) == pc_rtx)
     { 
-	/* jump */
-    }
-    else /* if (GET_CODE (SET_DEST (exp)) == MEM)	*/	
-    {  
-	/* the last else is a bit paranoiac, but since nearly all instructions 
-	   play with condition codes, it's reasonable! */
-
-	CC_STATUS_INIT; /* paranoia*/ 
+      /* jump */
+    }	
+    else if (GET_MODE (SET_DEST(exp)) == HImode		
+	     || GET_MODE (SET_DEST(exp)) == QImode)
+    { 
+      cc_status.flags = GET_CODE (SET_SRC(exp)) == MINUS ? 0 : CC_NO_OVERFLOW;
+      cc_status.value1 = SET_SRC (exp);   			
+      cc_status.value2 = SET_DEST (exp);			
+	
+      if (cc_status.value1 && GET_CODE (cc_status.value1) == REG	
+	  && cc_status.value2					
+	  && reg_overlap_mentioned_p (cc_status.value1, cc_status.value2))
+	cc_status.value2 = 0;					
+      if (cc_status.value1 && GET_CODE (cc_status.value1) == MEM	
+	  && cc_status.value2					
+	  && GET_CODE (cc_status.value2) == MEM)			
+	cc_status.value2 = 0; 					
     }		        
+    else
+    { 
+      CC_STATUS_INIT; 
+    }
 }
 
 
@@ -1897,7 +1881,8 @@ void
 output_addr_const_pdp11 (FILE *file, rtx x)
 {
   char buf[256];
-
+  int i;
+  
  restart:
   switch (GET_CODE (x))
     {
@@ -1921,7 +1906,13 @@ output_addr_const_pdp11 (FILE *file, rtx x)
       break;
 
     case CONST_INT:
-      fprintf (file, "%#o", (int) INTVAL (x) & 0xffff);
+      i = INTVAL (x);
+      if (i < 0)
+	{
+	  i = -i;
+	  fprintf (file, "-");
+	}
+      fprintf (file, "%#o", i & 0xffff);
       break;
 
     case CONST:
@@ -1969,16 +1960,10 @@ output_addr_const_pdp11 (FILE *file, rtx x)
 	goto restart;
 
       output_addr_const_pdp11 (file, XEXP (x, 0));
-      fprintf (file, "-");
-      if (GET_CODE (XEXP (x, 1)) == CONST_INT
-	  && INTVAL (XEXP (x, 1)) < 0)
-	{
-	  fprintf (file, targetm.asm_out.open_paren);
-	  output_addr_const_pdp11 (file, XEXP (x, 1));
-	  fprintf (file, targetm.asm_out.close_paren);
-	}
-      else
-	output_addr_const_pdp11 (file, XEXP (x, 1));
+      if (GET_CODE (XEXP (x, 1)) != CONST_INT
+	  || INTVAL (XEXP (x, 1)) >= 0)
+	fprintf (file, "-");
+      output_addr_const_pdp11 (file, XEXP (x, 1));
       break;
 
     case ZERO_EXTEND:
@@ -2136,6 +2121,15 @@ pdp11_conditional_register_usage (void)
       reg_names[12] = "fr4";
       reg_names[13] = "fr5";
     }
+}
+
+static section *
+pdp11_function_section (tree decl ATTRIBUTE_UNUSED,
+			enum node_frequency freq ATTRIBUTE_UNUSED,
+			bool startup ATTRIBUTE_UNUSED,
+			bool exit ATTRIBUTE_UNUSED)
+{
+  return NULL;
 }
 
 struct gcc_target targetm = TARGET_INITIALIZER;

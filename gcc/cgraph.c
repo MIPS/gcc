@@ -478,6 +478,7 @@ cgraph_create_node (void)
   node->previous = NULL;
   node->global.estimated_growth = INT_MIN;
   node->frequency = NODE_FREQUENCY_NORMAL;
+  node->count_materialization_scale = REG_BR_PROB_BASE;
   ipa_empty_ref_list (&node->ref_list);
   cgraph_nodes = node;
   cgraph_n_nodes++;
@@ -2121,6 +2122,9 @@ cgraph_clone_edge (struct cgraph_edge *e, struct cgraph_node *n,
   new_edge->inline_failed = e->inline_failed;
   new_edge->indirect_inlining_edge = e->indirect_inlining_edge;
   new_edge->lto_stmt_uid = stmt_uid;
+  /* Clone flags that depend on call_stmt availability manually.  */
+  new_edge->can_throw_external = e->can_throw_external;
+  new_edge->call_stmt_cannot_inline_p = e->call_stmt_cannot_inline_p;
   if (update_original)
     {
       e->count -= new_edge->count;
