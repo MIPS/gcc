@@ -1,3 +1,17 @@
+2010-11-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_emit_minmax): Add support to use
+	xsmindp/xsmaxdp on VSX for single precision min/max.
+	* config/rs6000/vsx.md (vsx_smaxsf3): Ditto.
+	(vsx_sminsf3): Ditto.
+
+2010-01-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/42747
+	* config/rs6000/rs6000.md (sqrtdf2): Split into expander and insn
+	to allow generation of the xssqrtdp instruction on power7.
+	(sqrtdf2_fpr): Ditto.
+
 2010-10-21  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
 
 	* config/s390/s390.md (*xordi3_cc): Mark xgrk as z196 only.
