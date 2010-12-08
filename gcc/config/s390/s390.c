@@ -1554,6 +1554,9 @@ s390_handle_arch_option (const char *arg,
 	*flags = processor_alias_table[i].flags;
 	return true;
       }
+
+  *type = PROCESSOR_max;
+  *flags = 0;
   return false;
 }
 
@@ -1614,6 +1617,12 @@ s390_option_override (void)
       s390_handle_arch_option (s390_arch_string, &s390_arch, &s390_arch_flags);
     }
 
+  /* This check is triggered when the user specified a wrong -march=
+     string and prevents subsequent error messages from being
+     issued.  */
+  if (s390_arch == PROCESSOR_max)
+    return;
+
   /* Determine processor to tune for.  */
   if (s390_tune == PROCESSOR_max)
     {
@@ -1632,10 +1641,10 @@ s390_option_override (void)
       if (target_flags_explicit & MASK_HARD_DFP)
 	{
 	  if (!TARGET_CPU_DFP)
-	    error ("Hardware decimal floating point instructions"
+	    error ("hardware decimal floating point instructions"
 		   " not available on %s", s390_arch_string);
 	  if (!TARGET_ZARCH)
-	    error ("Hardware decimal floating point instructions"
+	    error ("hardware decimal floating point instructions"
 		   " not available in ESA/390 mode");
 	}
       else
@@ -1645,7 +1654,7 @@ s390_option_override (void)
   if ((target_flags_explicit & MASK_SOFT_FLOAT) && TARGET_SOFT_FLOAT)
     {
       if ((target_flags_explicit & MASK_HARD_DFP) && TARGET_HARD_DFP)
-	error ("-mhard-dfp can't be used in conjunction with -msoft-float");
+	error ("-mhard-dfp can%'t be used in conjunction with -msoft-float");
 
       target_flags &= ~MASK_HARD_DFP;
     }
@@ -2455,21 +2464,6 @@ s390_rtx_costs (rtx x, int code, int outer_code, int *total,
 
     case PLUS:
     case MINUS:
-      /* Check for multiply and add.  */
-      if ((GET_MODE (x) == DFmode || GET_MODE (x) == SFmode)
-	  && GET_CODE (XEXP (x, 0)) == MULT
-	  && TARGET_HARD_FLOAT && TARGET_FUSED_MADD)
-	{
-	  /* This is the multiply and add case.  */
-	  if (GET_MODE (x) == DFmode)
-	    *total = s390_cost->madbr;
-	  else
-	    *total = s390_cost->maebr;
-	  *total += (rtx_cost (XEXP (XEXP (x, 0), 0), MULT, speed)
-		     + rtx_cost (XEXP (XEXP (x, 0), 1), MULT, speed)
-		     + rtx_cost (XEXP (x, 1), (enum rtx_code) code, speed));
-	  return true;  /* Do not do an additional recursive descent.  */
-	}
       *total = COSTS_N_INSNS (1);
       return false;
 
@@ -2529,6 +2523,28 @@ s390_rtx_costs (rtx x, int code, int outer_code, int *total,
 	  break;
 	default:
 	  return false;
+	}
+      return false;
+
+    case FMA:
+      switch (GET_MODE (x))
+	{
+	case DFmode:
+	  *total = s390_cost->madbr;
+	  break;
+	case SFmode:
+	  *total = s390_cost->maebr;
+	  break;
+	default:
+	  return false;
+	}
+      /* Negate in the third argument is free: FMSUB.  */
+      if (GET_CODE (XEXP (x, 2)) == NEG)
+	{
+	  *total += (rtx_cost (XEXP (x, 0), FMA, speed)
+		     + rtx_cost (XEXP (x, 1), FMA, speed)
+		     + rtx_cost (XEXP (XEXP (x, 2), 0), FMA, speed));
+	  return true;
 	}
       return false;
 
@@ -7939,6 +7955,9 @@ s390_emit_prologue (void)
   if (!TARGET_PACKED_STACK)
     next_fpr = cfun_save_high_fprs_p ? 31 : 0;
 
+  if (flag_stack_usage)
+    current_function_static_stack_size = cfun_frame_layout.frame_size;
+
   /* Decrement stack pointer.  */
 
   if (cfun_frame_layout.frame_size > 0)
@@ -8414,6 +8433,7 @@ s390_function_arg_integer (enum machine_mode mode, const_tree type)
   /* We accept small integral (and similar) types.  */
   if (INTEGRAL_TYPE_P (type)
       || POINTER_TYPE_P (type)
+      || TREE_CODE (type) == NULLPTR_TYPE
       || TREE_CODE (type) == OFFSET_TYPE
       || (TARGET_SOFT_FLOAT && TREE_CODE (type) == REAL_TYPE))
     return true;
@@ -10499,7 +10519,7 @@ s390_loop_unroll_adjust (unsigned nunroll, struct loop *loop)
 #define TARGET_ASM_CLOSE_PAREN ""
 
 #undef TARGET_DEFAULT_TARGET_FLAGS
-#define TARGET_DEFAULT_TARGET_FLAGS (TARGET_DEFAULT | MASK_FUSED_MADD)
+#define TARGET_DEFAULT_TARGET_FLAGS (TARGET_DEFAULT)
 
 #undef TARGET_HANDLE_OPTION
 #define TARGET_HANDLE_OPTION s390_handle_option

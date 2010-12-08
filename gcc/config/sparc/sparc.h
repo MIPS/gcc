@@ -1428,17 +1428,6 @@ init_cumulative_args (& (CUM), (FNTYPE), (LIBNAME), (FNDECL));
 #define FUNCTION_ARG_PADDING(MODE, TYPE) \
 function_arg_padding ((MODE), (TYPE))
 
-/* If defined, a C expression that gives the alignment boundary, in bits,
-   of an argument with the specified mode and type.  If it is not defined,
-   PARM_BOUNDARY is used for all arguments.
-   For sparc64, objects requiring 16 byte alignment are passed that way.  */
-
-#define FUNCTION_ARG_BOUNDARY(MODE, TYPE) \
-((TARGET_ARCH64					\
-  && (GET_MODE_ALIGNMENT (MODE) == 128		\
-      || ((TYPE) && TYPE_ALIGN (TYPE) == 128)))	\
- ? 128 : PARM_BOUNDARY)
-
 
 /* Generate the special assembly code needed to tell the assembler whatever
    it might need to know about the return value of a function.
@@ -2010,13 +1999,6 @@ do {									\
 #define ASM_OUTPUT_ALIGN(FILE,LOG)	\
   if ((LOG) != 0)			\
     fprintf (FILE, "\t.align %d\n", (1<<(LOG)))
-
-/* This is how to output an assembler line that says to advance
-   the location counter to a multiple of 2**LOG bytes using the
-   "nop" instruction as padding.  */
-#define ASM_OUTPUT_ALIGN_WITH_NOP(FILE,LOG)   \
-  if ((LOG) != 0)                             \
-    fprintf (FILE, "\t.align %d,0x1000000\n", (1<<(LOG)))
 
 #define ASM_OUTPUT_SKIP(FILE,SIZE)  \
   fprintf (FILE, "\t.skip "HOST_WIDE_INT_PRINT_UNSIGNED"\n", (SIZE))

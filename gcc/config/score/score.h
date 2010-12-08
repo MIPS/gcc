@@ -420,7 +420,7 @@ enum reg_class
    register REGNO.  In general there is more that one such class;
    choose a class which is "minimal", meaning that no smaller class
    also contains the register.  */
-#define REGNO_REG_CLASS(REGNO)         score_reg_class (REGNO)
+#define REGNO_REG_CLASS(REGNO) (enum reg_class) score_reg_class (REGNO)
 
 /* A macro whose definition is the name of the class to which a
    valid base register must belong.  A base register is one used in

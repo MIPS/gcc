@@ -1717,14 +1717,6 @@ typedef struct
 #define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, FNDECL, N_NAMED_ARGS) \
   arm_init_cumulative_args (&(CUM), (FNTYPE), (LIBNAME), (FNDECL))
 
-/* If defined, a C expression that gives the alignment boundary, in bits, of an
-   argument with the specified mode and type.  If it is not defined,
-   `PARM_BOUNDARY' is used for all arguments.  */
-#define FUNCTION_ARG_BOUNDARY(MODE,TYPE) \
-   ((ARM_DOUBLEWORD_ALIGN && arm_needs_doubleword_align (MODE, TYPE)) \
-   ? DOUBLEWORD_ALIGNMENT \
-   : PARM_BOUNDARY )
-
 /* 1 if N is a possible register number for function argument passing.
    On the ARM, r0-r3 are used to pass args.  */
 #define FUNCTION_ARG_REGNO_P(REGNO)					\
@@ -2091,9 +2083,6 @@ typedef struct
 #define ARM_INDEX_REGISTER_RTX_P(X)  \
   (GET_CODE (X) == REG && ARM_REG_OK_FOR_INDEX_P (X))
 
-/* Define this for compatibility reasons. */
-#define HANDLE_PRAGMA_PACK_PUSH_POP
-
 /* Specify the machine mode that this machine uses
    for the index in the tablejump instruction.  */
 #define CASE_VECTOR_MODE Pmode

@@ -523,6 +523,52 @@ mn10300_print_operand_address (FILE *file, rtx addr)
     }
 }
 
+/* Implement TARGET_ASM_OUTPUT_ADDR_CONST_EXTRA.
+
+   Used for PIC-specific UNSPECs.  */
+
+static bool
+mn10300_asm_output_addr_const_extra (FILE *file, rtx x)
+{
+  if (GET_CODE (x) == UNSPEC)
+    {
+      switch (XINT (x, 1))
+	{
+	case UNSPEC_INT_LABEL:
+	  asm_fprintf (file, ".%LLIL" HOST_WIDE_INT_PRINT_DEC,
+		       INTVAL (XVECEXP (x, 0, 0)));
+	  break;
+	case UNSPEC_PIC:
+	  /* GLOBAL_OFFSET_TABLE or local symbols, no suffix.  */
+	  output_addr_const (file, XVECEXP (x, 0, 0));
+	  break;
+	case UNSPEC_GOT:
+	  output_addr_const (file, XVECEXP (x, 0, 0));
+	  fputs ("@GOT", file);
+	  break;
+	case UNSPEC_GOTOFF:
+	  output_addr_const (file, XVECEXP (x, 0, 0));
+	  fputs ("@GOTOFF", file);
+	  break;
+	case UNSPEC_PLT:
+	  output_addr_const (file, XVECEXP (x, 0, 0));
+	  fputs ("@PLT", file);
+	  break;
+	case UNSPEC_GOTSYM_OFF:
+	  assemble_name (file, GOT_SYMBOL_NAME);
+	  fputs ("-(", file);
+	  output_addr_const (file, XVECEXP (x, 0, 0));
+	  fputs ("-.)", file);
+	  break;
+	default:
+	  return false;
+	}
+      return true;
+    }
+  else
+    return false;
+}
+
 /* Count the number of FP registers that have to be saved.  */
 static int
 fp_regs_to_save (void)
@@ -735,11 +781,14 @@ mn10300_expand_prologue (void)
 			: (((S) >= (1 << 7)) || ((S) < -(1 << 7))) ? 4 : 2)
 #define SIZE_ADD_SP(S) ((((S) >= (1 << 15)) || ((S) < -(1 << 15))) ? 6 \
 			: (((S) >= (1 << 7)) || ((S) < -(1 << 7))) ? 4 : 3)
+
+/* We add 0 * (S) in two places to promote to the type of S,
+   so that all arms of the conditional have the same type.  */
 #define SIZE_FMOV_LIMIT(S,N,L,SIZE1,SIZE2,ELSE) \
-  (((S) >= (L)) ? (SIZE1) * (N) \
+  (((S) >= (L)) ? 0 * (S) + (SIZE1) * (N) \
    : ((S) + 4 * (N) >= (L)) ? (((L) - (S)) / 4 * (SIZE2) \
 			       + ((S) + 4 * (N) - (L)) / 4 * (SIZE1)) \
-   : (ELSE))
+   : 0 * (S) + (ELSE))
 #define SIZE_FMOV_SP_(S,N) \
   (SIZE_FMOV_LIMIT ((S), (N), (1 << 24), 7, 6, \
                    SIZE_FMOV_LIMIT ((S), (N), (1 << 8), 6, 4, \
@@ -1267,6 +1316,35 @@ mn10300_store_multiple_operation (rtx op,
   return mask;
 }
 
+/* Implement TARGET_PREFERRED_RELOAD_CLASS.  */
+
+static reg_class_t
+mn10300_preferred_reload_class (rtx x, reg_class_t rclass)
+{
+  if (x == stack_pointer_rtx && rclass != SP_REGS)
+     return ADDRESS_OR_EXTENDED_REGS;
+  else if (MEM_P (x)
+	   || (REG_P (x) 
+	       && !HARD_REGISTER_P (x))
+	   || (GET_CODE (x) == SUBREG
+	       && REG_P (SUBREG_REG (x))
+	       && !HARD_REGISTER_P (SUBREG_REG (x))))
+    return LIMIT_RELOAD_CLASS (GET_MODE (x), rclass);
+  else
+    return rclass;
+}
+
+/* Implement TARGET_PREFERRED_OUTPUT_RELOAD_CLASS.  */
+
+static reg_class_t
+mn10300_preferred_output_reload_class (rtx x, reg_class_t rclass)
+{
+  if (x == stack_pointer_rtx && rclass != SP_REGS)
+    return ADDRESS_OR_EXTENDED_REGS;
+
+  return rclass;
+}
+
 /* What (if any) secondary registers are needed to move IN with mode
    MODE into a register in register class RCLASS.
 
@@ -1459,7 +1537,7 @@ mn10300_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 		      const_tree type, bool named ATTRIBUTE_UNUSED)
 {
   rtx result = NULL_RTX;
-  int size, align;
+  int size;
 
   /* We only support using 2 data registers as argument registers.  */
   int nregs = 2;
@@ -1469,9 +1547,6 @@ mn10300_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
     size = int_size_in_bytes (type);
   else
     size = GET_MODE_SIZE (mode);
-
-  /* Figure out the alignment of the object to be passed.  */
-  align = size;
 
   cum->nbytes = (cum->nbytes + 3) & ~3;
 
@@ -1521,7 +1596,7 @@ static int
 mn10300_arg_partial_bytes (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 			   tree type, bool named ATTRIBUTE_UNUSED)
 {
-  int size, align;
+  int size;
 
   /* We only support using 2 data registers as argument registers.  */
   int nregs = 2;
@@ -1531,9 +1606,6 @@ mn10300_arg_partial_bytes (CUMULATIVE_ARGS *cum, enum machine_mode mode,
     size = int_size_in_bytes (type);
   else
     size = GET_MODE_SIZE (mode);
-
-  /* Figure out the alignment of the object to be passed.  */
-  align = size;
 
   cum->nbytes = (cum->nbytes + 3) & ~3;
 
@@ -2425,6 +2497,9 @@ mn10300_adjust_sched_cost (rtx insn, rtx link, rtx dep, int cost)
 #undef  TARGET_ASM_FILE_START_FILE_DIRECTIVE
 #define TARGET_ASM_FILE_START_FILE_DIRECTIVE true
 
+#undef TARGET_ASM_OUTPUT_ADDR_CONST_EXTRA
+#define TARGET_ASM_OUTPUT_ADDR_CONST_EXTRA mn10300_asm_output_addr_const_extra
+
 #undef  TARGET_DEFAULT_TARGET_FLAGS
 #define TARGET_DEFAULT_TARGET_FLAGS MASK_MULT_BUG | MASK_PTR_A0D0
 #undef  TARGET_HANDLE_OPTION
@@ -2462,6 +2537,11 @@ mn10300_adjust_sched_cost (rtx insn, rtx link, rtx dep, int cost)
 
 #undef  TARGET_LEGITIMATE_ADDRESS_P
 #define TARGET_LEGITIMATE_ADDRESS_P	mn10300_legitimate_address_p
+
+#undef  TARGET_PREFERRED_RELOAD_CLASS
+#define TARGET_PREFERRED_RELOAD_CLASS mn10300_preferred_reload_class
+#undef  TARGET_PREFERRED_OUTPUT_RELOAD_CLASS
+#define TARGET_PREFERRED_OUTPUT_RELOAD_CLASS mn10300_preferred_output_reload_class
 
 #undef  TARGET_ASM_TRAMPOLINE_TEMPLATE
 #define TARGET_ASM_TRAMPOLINE_TEMPLATE mn10300_asm_trampoline_template

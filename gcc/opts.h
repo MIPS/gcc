@@ -21,6 +21,9 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_OPTS_H
 #define GCC_OPTS_H
 
+#include "input.h"
+#include "vec.h"
+
 /* Specifies how a switch's VAR_VALUE relates to its FLAG_VAR.  */
 enum cl_var_type {
   /* The switch is enabled when FLAG_VAR is nonzero.  */
@@ -37,7 +40,11 @@ enum cl_var_type {
 
   /* The switch takes a string argument and FLAG_VAR points to that
      argument.  */
-  CLVC_STRING
+  CLVC_STRING,
+
+  /* The switch should be stored in the VEC pointed to by FLAG_VAR for
+     later processing.  */
+  CLVC_DEFER
 };
 
 struct cl_option
@@ -156,6 +163,20 @@ struct cl_decoded_option
   int errors;
 };
 
+/* Structure describing an option deferred for handling after the main
+   option handlers.  */
+
+typedef struct
+{
+  /* Elements from struct cl_decoded_option used for deferred
+     options.  */
+  size_t opt_index;
+  const char *arg;
+  int value;
+} cl_deferred_option;
+DEF_VEC_O(cl_deferred_option);
+DEF_VEC_ALLOC_O(cl_deferred_option,heap);
+
 /* Structure describing a single option-handling callback.  */
 
 struct cl_option_handler_func
@@ -164,8 +185,9 @@ struct cl_option_handler_func
   bool (*handler) (struct gcc_options *opts,
 		   struct gcc_options *opts_set,
 		   const struct cl_decoded_option *decoded,
-		   unsigned int lang_mask, int kind,
-		   const struct cl_option_handlers *handlers);
+		   unsigned int lang_mask, int kind, location_t loc,
+		   const struct cl_option_handlers *handlers,
+		   diagnostic_context *dc);
 
   /* The mask that must have some bit in common with the flags for the
      option for this particular handler to be used.  */
@@ -220,28 +242,25 @@ extern void decode_cmdline_options_to_array_default_mask (unsigned int argc,
 							  const char **argv, 
 							  struct cl_decoded_option **decoded_options,
 							  unsigned int *decoded_options_count);
+extern void set_default_handlers (struct cl_option_handlers *handlers);
 extern void decode_options (struct gcc_options *opts,
 			    struct gcc_options *opts_set,
 			    struct cl_decoded_option *decoded_options,
-			    unsigned int decoded_options_count);
+			    unsigned int decoded_options_count,
+			    location_t loc,
+			    diagnostic_context *dc);
 extern int option_enabled (int opt_idx, void *opts);
 extern bool get_option_state (struct gcc_options *, int,
 			      struct cl_option_state *);
 extern void set_option (struct gcc_options *opts,
 			struct gcc_options *opts_set,
 			int opt_index, int value, const char *arg, int kind,
-			diagnostic_context *dc);
+			location_t loc, diagnostic_context *dc);
 extern void *option_flag_var (int opt_index, struct gcc_options *opts);
-bool handle_option (struct gcc_options *opts,
-		    struct gcc_options *opts_set,
-		    const struct cl_decoded_option *decoded,
-		    unsigned int lang_mask, int kind,
-		    const struct cl_option_handlers *handlers,
-		    bool generated_p, diagnostic_context *dc);
 bool handle_generated_option (struct gcc_options *opts,
 			      struct gcc_options *opts_set,
 			      size_t opt_index, const char *arg, int value,
-			      unsigned int lang_mask, int kind,
+			      unsigned int lang_mask, int kind, location_t loc,
 			      const struct cl_option_handlers *handlers,
 			      diagnostic_context *dc);
 void generate_option (size_t opt_index, const char *arg, int value,
@@ -252,13 +271,17 @@ void generate_option_input_file (const char *file,
 extern void read_cmdline_option (struct gcc_options *opts,
 				 struct gcc_options *opts_set,
 				 struct cl_decoded_option *decoded,
+				 location_t loc,
 				 unsigned int lang_mask,
 				 const struct cl_option_handlers *handlers,
 				 diagnostic_context *dc);
-extern void register_warning_as_error_callback (void (*callback) (int));
-extern void enable_warning_as_error (const char *arg, int value,
-				     unsigned int lang_mask,
-				     const struct cl_option_handlers *handlers,
-				     diagnostic_context *dc);
+extern void control_warning_option (unsigned int opt_index, int kind,
+				    bool imply, location_t loc,
+				    unsigned int lang_mask,
+				    const struct cl_option_handlers *handlers,
+				    struct gcc_options *opts,
+				    struct gcc_options *opts_set,
+				    diagnostic_context *dc);
 extern void print_ignored_options (void);
+extern void handle_common_deferred_options (void);
 #endif

@@ -187,7 +187,7 @@ static const struct default_options pdp11_option_optimization_table[] =
 
 #undef TARGET_DEFAULT_TARGET_FLAGS
 #define TARGET_DEFAULT_TARGET_FLAGS \
-  (MASK_FPU | MASK_45 | MASK_ABSHI_BUILTIN | TARGET_UNIX_ASM_DEFAULT)
+  (MASK_FPU | MASK_45 | TARGET_UNIX_ASM_DEFAULT)
 #undef TARGET_HANDLE_OPTION
 #define TARGET_HANDLE_OPTION pdp11_handle_option
 #undef TARGET_OPTION_OPTIMIZATION_TABLE
@@ -300,7 +300,7 @@ pdp11_output_function_prologue (FILE *stream, HOST_WIDE_INT size)
 	asm_fprintf (stream, "\tsub $%#wo, sp\n", fsize);
 
     /* save CPU registers  */
-    for (regno = 0; regno <= PC_REGNUM; regno++)				
+    for (regno = R0_REGNUM; regno <= PC_REGNUM; regno++)				
       if (df_regs_ever_live_p (regno) && ! call_used_regs[regno])	
 	    if (! ((regno == FRAME_POINTER_REGNUM)			
 		   && frame_pointer_needed))				
@@ -379,7 +379,7 @@ pdp11_output_function_epilogue (FILE *stream, HOST_WIDE_INT size)
 	k = 2*j;
 	
 	/* change fp -> r5 due to the compile error on libgcc2.c */
-	for (i = PC_REGNUM ; i >= 0 ; i--)					
+	for (i = PC_REGNUM ; i >= R0_REGNUM ; i--)					
 	  if (df_regs_ever_live_p (i) && ! call_used_regs[i])		
 		fprintf(stream, "\tmov %#" HOST_WIDE_INT_PRINT "o(r5), %s\n",
 			(-fsize-2*j--)&0xffff, reg_names[i]);
@@ -1002,7 +1002,8 @@ pdp11_assemble_integer (rtx x, unsigned int size, int aligned_p)
       {
       case 1:
 	fprintf (asm_out_file, "\t.byte\t");
-	output_addr_const_pdp11 (asm_out_file, x);
+	output_addr_const_pdp11 (asm_out_file, GEN_INT (INTVAL (x) & 0xff));
+;
 	fprintf (asm_out_file, " /* char */\n");
 	return true;
 
@@ -1705,6 +1706,71 @@ pdp11_secondary_memory_needed (reg_class_t c1, reg_class_t c2,
   return (fromfloat != tofloat);
 }
 
+/* Return the class number of the smallest class containing
+   reg number REGNO.  */
+enum reg_class
+pdp11_regno_reg_class (int regno)
+{ 
+  if (regno == FRAME_POINTER_REGNUM || regno == ARG_POINTER_REGNUM)
+    return GENERAL_REGS;
+  else if (regno > AC3_REGNUM)
+    return NO_LOAD_FPU_REGS;
+  else if (regno >= AC0_REGNUM)
+    return LOAD_FPU_REGS;
+  else if (regno & 1)
+    return MUL_REGS;
+  else
+    return GENERAL_REGS;
+}
+
+
+static int
+pdp11_sp_frame_offset (void)
+{
+  int offset = 0, regno;
+  offset = get_frame_size();
+  for (regno = 0; regno <= PC_REGNUM; regno++)
+    if (df_regs_ever_live_p (regno) && ! call_used_regs[regno])
+      offset += 2;
+  for (regno = AC0_REGNUM; regno <= AC5_REGNUM; regno++)
+    if (df_regs_ever_live_p (regno) && ! call_used_regs[regno])
+      offset += 8;
+  
+  return offset;
+}   
+
+/* Return the offset between two registers, one to be eliminated, and the other
+   its replacement, at the start of a routine.  */
+
+int
+pdp11_initial_elimination_offset (int from, int to)
+{
+  int spoff;
+  
+  if (from == ARG_POINTER_REGNUM && to == HARD_FRAME_POINTER_REGNUM)
+    return 4;
+  else if (from == FRAME_POINTER_REGNUM
+	   && to == HARD_FRAME_POINTER_REGNUM)
+    return 0;
+  else
+    {
+      gcc_assert (to == STACK_POINTER_REGNUM);
+
+      /* Get the size of the register save area.  */
+      spoff = pdp11_sp_frame_offset ();
+      if (from == FRAME_POINTER_REGNUM)
+	return spoff;
+
+      gcc_assert (from == ARG_POINTER_REGNUM);
+
+      /* If there is a frame pointer, that is saved too.  */
+      if (frame_pointer_needed)
+	spoff += 2;
+      
+      /* Account for the saved PC in the function call.  */
+      return spoff + 2;
+    }
+}    
 
 /* A copy of output_addr_const modified for pdp11 expression syntax.
    output_addr_const also gets called for %cDIGIT and %nDIGIT, which we don't
@@ -1739,9 +1805,7 @@ output_addr_const_pdp11 (FILE *file, rtx x)
       break;
 
     case CONST_INT:
-      /* Should we check for constants which are too big?  Maybe cutting
-	 them off to 16 bits is OK?  */
-      fprintf (file, "%#ho", (unsigned short) INTVAL (x));
+      fprintf (file, "%#o", (int) INTVAL (x) & 0xffff);
       break;
 
     case CONST:

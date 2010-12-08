@@ -2,7 +2,7 @@
    that are called from within the C and C++ front-ends,
    respectively.
    Copyright (C) 1991, 1995, 1997, 1998, 1999, 2000, 2001, 2002, 2003,
-   2004, 2005, 2007, 2009 Free Software Foundation, Inc.
+   2004, 2005, 2007, 2009, 2010 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -126,7 +126,7 @@ objc_declare_class (tree ARG_UNUSED (list))
 }
 
 void
-objc_declare_protocols (tree ARG_UNUSED (list))
+objc_declare_protocols (tree ARG_UNUSED (list), tree ARG_UNUSED (attributes))
 {
 }
 
@@ -361,6 +361,15 @@ objc_maybe_build_modify_expr (tree ARG_UNUSED (lhs), tree ARG_UNUSED (rhs))
   return 0;
 }
 
+tree
+objc_build_incr_expr_for_property_ref (location_t ARG_UNUSED (location),
+				       enum tree_code ARG_UNUSED (code),
+				       tree ARG_UNUSED (argument),
+				       tree ARG_UNUSED (increment))
+{
+  return 0;
+}
+
 void
 objc_add_synthesize_declaration (location_t ARG_UNUSED (start_locus), 
 				 tree ARG_UNUSED (property_and_ivar_list))
@@ -438,5 +447,17 @@ objc_finish_foreach_loop (location_t ARG_UNUSED (location), tree ARG_UNUSED (obj
 
 void
 objc_write_global_declarations (void)
+{
+}
+
+bool
+objc_string_ref_type_p (tree ARG_UNUSED (strp))
+{
+   return false;
+}
+
+void
+objc_check_format_arg (tree ARG_UNUSED (format_arg), 
+		       tree ARG_UNUSED (args_list))
 {
 }

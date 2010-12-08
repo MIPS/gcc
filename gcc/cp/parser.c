@@ -502,6 +502,29 @@ cp_lexer_token_at (cp_lexer *lexer ATTRIBUTE_UNUSED, cp_token_position pos)
   return pos;
 }
 
+static inline void
+cp_lexer_set_token_position (cp_lexer *lexer, cp_token_position pos)
+{
+  lexer->next_token = cp_lexer_token_at (lexer, pos);
+}
+
+static inline cp_token_position
+cp_lexer_previous_token_position (cp_lexer *lexer)
+{
+  if (lexer->next_token == &eof_token)
+    return lexer->last_token - 1;
+  else
+    return cp_lexer_token_position (lexer, true);
+}
+
+static inline cp_token *
+cp_lexer_previous_token (cp_lexer *lexer)
+{
+  cp_token_position tp = cp_lexer_previous_token_position (lexer);
+
+  return cp_lexer_token_at (lexer, tp);
+}
+
 /* nonzero if we are presently saving tokens.  */
 
 static inline int
@@ -13815,10 +13838,8 @@ cp_parser_namespace_definition (cp_parser* parser)
   /* Parse the body of the namespace.  */
   cp_parser_namespace_body (parser);
 
-#ifdef HANDLE_PRAGMA_VISIBILITY
   if (has_visibility)
     pop_visibility (1);
-#endif
 
   /* Finish the namespace.  */
   pop_namespace ();
@@ -16334,14 +16355,8 @@ cp_parser_ctor_initializer_opt_and_function_body (cp_parser *parser)
     }
   /* Parse the function-body.  */
   cp_parser_function_body (parser);
-  if (check_body_p
-      && (TREE_CODE (list) != STATEMENT_LIST
-	  || (last == NULL && STATEMENT_LIST_TAIL (list) != NULL)
-	  || (last != NULL && last != STATEMENT_LIST_TAIL (list)->stmt)))
-    {
-      error ("constexpr constructor does not have empty body");
-      DECL_DECLARED_CONSTEXPR_P (current_function_decl) = false;
-    }
+  if (check_body_p)
+    check_constexpr_ctor_body (last, list);
   /* Finish the function body.  */
   finish_function_body (body);
 
@@ -16853,6 +16868,100 @@ cp_parser_class_specifier (cp_parser* parser)
     type = finish_struct (type, attributes);
   if (nested_name_specifier_p)
     pop_inner_scope (old_scope, scope);
+
+  /* We've finished a type definition.  Check for the common syntax
+     error of forgetting a semicolon after the definition.  We need to
+     be careful, as we can't just check for not-a-semicolon and be done
+     with it; the user might have typed:
+
+     class X { } c = ...;
+     class X { } *p = ...;
+
+     and so forth.  Instead, enumerate all the possible tokens that
+     might follow this production; if we don't see one of them, then
+     complain and silently insert the semicolon.  */
+  {
+    cp_token *token = cp_lexer_peek_token (parser->lexer);
+    bool want_semicolon = true;
+
+    switch (token->type)
+      {
+      case CPP_NAME:
+      case CPP_SEMICOLON:
+      case CPP_MULT:
+      case CPP_AND:
+      case CPP_OPEN_PAREN:
+      case CPP_CLOSE_PAREN:
+      case CPP_COMMA:
+        want_semicolon = false;
+        break;
+
+        /* While it's legal for type qualifiers and storage class
+           specifiers to follow type definitions in the grammar, only
+           compiler testsuites contain code like that.  Assume that if
+           we see such code, then what we're really seeing is a case
+           like:
+
+           class X { }
+           const <type> var = ...;
+
+           or
+
+           class Y { }
+           static <type> func (...) ...
+
+           i.e. the qualifier or specifier applies to the next
+           declaration.  To do so, however, we need to look ahead one
+           more token to see if *that* token is a type specifier.
+
+	   This code could be improved to handle:
+
+	   class Z { }
+	   static const <type> var = ...;  */
+      case CPP_KEYWORD:
+	if (keyword_is_storage_class_specifier (token->keyword)
+	    || keyword_is_type_qualifier (token->keyword))
+	  {
+	    cp_token *lookahead = cp_lexer_peek_nth_token (parser->lexer, 2);
+
+	    if (lookahead->type == CPP_KEYWORD
+		&& !keyword_begins_type_specifier (lookahead->keyword))
+	      want_semicolon = false;
+	    else if (lookahead->type == CPP_NAME)
+	      /* Handling user-defined types here would be nice, but
+		 very tricky.  */
+	      want_semicolon = false;
+	  }
+	break;
+      default:
+	break;
+      }
+
+    if (want_semicolon)
+      {
+	cp_token_position prev
+	  = cp_lexer_previous_token_position (parser->lexer);
+	cp_token *prev_token = cp_lexer_token_at (parser->lexer, prev);
+	location_t loc = prev_token->location;
+
+	if (CLASSTYPE_DECLARED_CLASS (type))
+	  error_at (loc, "expected %<;%> after class definition");
+	else if (TREE_CODE (type) == RECORD_TYPE)
+	  error_at (loc, "expected %<;%> after struct definition");
+	else if (TREE_CODE (type) == UNION_TYPE)
+	  error_at (loc, "expected %<;%> after union definition");
+	else
+	  gcc_unreachable ();
+
+	/* Unget one token and smash it to look as though we encountered
+	   a semicolon in the input stream.  */
+	cp_lexer_set_token_position (parser->lexer, prev);
+	token = cp_lexer_peek_token (parser->lexer);
+	token->type = CPP_SEMICOLON;
+	token->keyword = RID_MAX;
+      }
+  }
+
   /* If this class is not itself within the scope of another class,
      then we need to parse the bodies of all of the queued function
      definitions.  Note that the queued functions defined in a class
@@ -17627,6 +17736,8 @@ cp_parser_member_declaration (cp_parser* parser)
     }
   else
     {
+      bool assume_semicolon = false;
+
       /* See if these declarations will be friends.  */
       friend_p = cp_parser_friend_p (&decl_specifiers);
 
@@ -17820,11 +17931,18 @@ cp_parser_member_declaration (cp_parser* parser)
 	  else if (cp_lexer_next_token_is_not (parser->lexer,
 					       CPP_SEMICOLON))
 	    {
-	      cp_parser_error (parser, "expected %<;%>");
-	      /* Skip tokens until we find a `;'.  */
-	      cp_parser_skip_to_end_of_statement (parser);
+	      /* The next token might be a ways away from where the
+		 actual semicolon is missing.  Find the previous token
+		 and use that for our error position.  */
+	      cp_token *token = cp_lexer_previous_token (parser->lexer);
+	      error_at (token->location,
+			"expected %<;%> at end of member declaration");
 
-	      break;
+	      /* Assume that the user meant to provide a semicolon.  If
+		 we were to cp_parser_skip_to_end_of_statement, we might
+		 skip to a semicolon inside a member function definition
+		 and issue nonsensical error messages.  */
+	      assume_semicolon = true;
 	    }
 
 	  if (decl)
@@ -17836,6 +17954,9 @@ cp_parser_member_declaration (cp_parser* parser)
 	      if (TREE_CODE (decl) == FUNCTION_DECL)
 		cp_parser_save_default_args (parser, decl);
 	    }
+
+	  if (assume_semicolon)
+	    return;
 	}
     }
 
@@ -18193,7 +18314,7 @@ cp_parser_exception_specification_opt (cp_parser* parser)
   /* Enable this once a lot of code has transitioned to noexcept?  */
   if (cxx_dialect == cxx0x && !in_system_header)
     warning (OPT_Wdeprecated, "dynamic exception specifications are "
-	     "deprecated in C++0x; use %<noexcept%> instead.");
+	     "deprecated in C++0x; use %<noexcept%> instead");
 #endif
 
   /* Consume the `throw'.  */
@@ -21953,7 +22074,7 @@ cp_parser_objc_interstitial_code (cp_parser* parser)
   else if (token->type == CPP_OPEN_BRACE || token->type == CPP_CLOSE_BRACE)
     {
       cp_lexer_consume_token (parser->lexer);
-      error ("stray `%s' between Objective-C++ methods",
+      error ("stray %qs between Objective-C++ methods",
 	     token->type == CPP_OPEN_BRACE ? "{" : "}");
     }
   /* Finally, try to parse a block-declaration, or a function-definition.  */
@@ -22295,7 +22416,8 @@ cp_parser_objc_protocol_declaration (cp_parser* parser, tree attributes)
   /* Try a forward declaration first.  */
   if (tok->type == CPP_COMMA || tok->type == CPP_SEMICOLON)
     {
-      objc_declare_protocols (cp_parser_objc_identifier_list (parser));
+      objc_declare_protocols (cp_parser_objc_identifier_list (parser), 
+			      attributes);
      finish:
       cp_parser_consume_semicolon_at_end_of_statement (parser);
     }

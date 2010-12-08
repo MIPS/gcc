@@ -418,8 +418,12 @@ gfc_init_kinds (void)
 	 useless.  TODO: TFmode support should be enabled once libgfortran
 	 support is done.  */
 	if (mode != TYPE_MODE (float_type_node)
-	  && (mode != TYPE_MODE (double_type_node))
-          && (mode != TYPE_MODE (long_double_type_node)))
+	    && (mode != TYPE_MODE (double_type_node))
+	    && (mode != TYPE_MODE (long_double_type_node))
+#ifdef LIBGCC2_HAS_TF_MODE
+	    && (mode != TFmode)
+#endif
+	   )
 	continue;
 
       /* Let the kind equal the precision divided by 8, rounding up.  Again,
@@ -914,8 +918,6 @@ gfc_init_types (void)
     hi = 0, lo >>= HOST_BITS_PER_WIDE_INT - n;
   gfc_max_array_element_size
     = build_int_cst_wide (long_unsigned_type_node, lo, hi);
-
-  size_type_node = gfc_array_index_type;
 
   boolean_type_node = gfc_get_logical_type (gfc_default_logical_kind);
   boolean_true_node = build_int_cst (boolean_type_node, 1);
@@ -1936,10 +1938,12 @@ gfc_copy_dt_decls_ifequal (gfc_symbol *from, gfc_symbol *to,
   for (; to_cm; to_cm = to_cm->next, from_cm = from_cm->next)
     {
       to_cm->backend_decl = from_cm->backend_decl;
-      if ((!from_cm->attr.pointer || from_gsym)
-	      && from_cm->ts.type == BT_DERIVED)
+      if (from_cm->ts.type == BT_DERIVED
+	  && (!from_cm->attr.pointer || from_gsym))
 	gfc_get_derived_type (to_cm->ts.u.derived);
-
+      else if (from_cm->ts.type == BT_CLASS
+	       && (!CLASS_DATA (from_cm)->attr.class_pointer || from_gsym))
+	gfc_get_derived_type (to_cm->ts.u.derived);
       else if (from_cm->ts.type == BT_CHARACTER)
 	to_cm->ts.u.cl->backend_decl = from_cm->ts.u.cl->backend_decl;
     }

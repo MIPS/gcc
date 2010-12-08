@@ -326,7 +326,7 @@ struct cumulative_args
 #undef  FUNCTION_PROFILER
 #define FUNCTION_PROFILER(STREAM, LABELNO)	\
 {						\
-    sorry ("Profiler support for CRX");		\
+    sorry ("profiler support for CRX");		\
 }
 	
 /*****************************************************************************/

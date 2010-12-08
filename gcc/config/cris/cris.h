@@ -194,7 +194,7 @@ extern int cris_cpu_version;
  MAYBE_AS_NO_MUL_BUG_ABORT \
  "%{v:-v}\
  %(asm_subtarget)\
- %{march=*:%{cpu=*:%eDo not specify both -march=... and -mcpu=...}}\
+ %{march=*:%{cpu=*:%edo not specify both -march=... and -mcpu=...}}\
  %{march=v32:--march=v32} %{mcpu=v32:--march=v32}"
 
 /* For the cris-*-elf subtarget.  */
@@ -1331,9 +1331,6 @@ enum cris_pic_symbol_type
 #define FUNCTION_MODE QImode
 
 #define NO_IMPLICIT_EXTERN_C
-
-/* No specific purpose other than warningless compatibility.  */
-#define HANDLE_PRAGMA_PACK_PUSH_POP 1
 
 /*
  * Local variables:

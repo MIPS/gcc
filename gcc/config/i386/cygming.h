@@ -84,6 +84,10 @@ along with GCC; see the file COPYING3.  If not see
   (TARGET_64BIT ? dbx64_register_map[(n)]		\
 		: svr4_dbx_register_map[(n)])
 
+/* The MS_ABI changes the set of call-used registers.  */
+#undef DWARF_FRAME_REGISTERS
+#define DWARF_FRAME_REGISTERS (TARGET_64BIT ? 33 : 17)
+
 #ifdef HAVE_GAS_PE_SECREL32_RELOC
 /* Use section relative relocations for debugging offsets.  Unlike
    other targets that fake this by putting the section VMA at 0, PE
@@ -174,9 +178,6 @@ along with GCC; see the file COPYING3.  If not see
 #undef LONG_TYPE_SIZE
 #define LONG_TYPE_SIZE 32
 
-/* Enable parsing of #pragma pack(push,<n>) and #pragma pack(pop).  */
-#define HANDLE_PRAGMA_PACK_PUSH_POP 1
-
 union tree_node;
 #define TREE union tree_node *
 

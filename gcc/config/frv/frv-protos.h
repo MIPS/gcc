@@ -52,7 +52,6 @@ extern rtx frv_find_base_term			(rtx);
 extern void frv_init_cumulative_args		(CUMULATIVE_ARGS *, tree,
 						 rtx, tree, int);
 
-extern int frv_function_arg_boundary		(enum machine_mode, tree);
 extern bool frv_function_value_regno_p		(const unsigned int);
 #endif /* TREE_CODE */
 
@@ -89,7 +88,6 @@ extern rtx frv_ifcvt_modify_insn	(ce_if_block_t *, rtx, rtx);
 extern void frv_ifcvt_modify_final	(ce_if_block_t *);
 extern void frv_ifcvt_modify_cancel	(ce_if_block_t *);
 #endif
-extern int frv_trampoline_size		(void);
 extern enum reg_class frv_secondary_reload_class
 					(enum reg_class,
 					 enum machine_mode, rtx);
@@ -101,6 +99,7 @@ extern int frv_legitimate_constant_p	(rtx);
 extern enum machine_mode frv_select_cc_mode (enum rtx_code, rtx, rtx);
 #endif	/* RTX_CODE */
 
+extern int frv_trampoline_size		(void);
 extern int direct_return_p		(void);
 extern int frv_issue_rate		(void);
 extern int frv_acc_group		(rtx);

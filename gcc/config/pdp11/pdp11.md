@@ -25,15 +25,20 @@
 (define_constants
   [
    ;; Register numbers
+   (R0_REGNUM     	  0)
    (RETVAL_REGNUM     	  0)
-   (FRAME_POINTER_REGNUM  5)
+   (HARD_FRAME_POINTER_REGNUM  5)
    (STACK_POINTER_REGNUM  6)
    (PC_REGNUM             7)
    (AC0_REGNUM            8)
    (AC3_REGNUM            11)
    (AC4_REGNUM            12)
    (AC5_REGNUM            13)
-   (FIRST_PSEUDO_REGISTER 14)
+   ;; The next two are not physical registers but are used for addressing
+   ;; arguments.
+   (FRAME_POINTER_REGNUM  14)
+   (ARG_POINTER_REGNUM    15)
+   (FIRST_PSEUDO_REGISTER 16)
    ;; Branch offset limits, as byte offsets from instruction address
    (MIN_BRANCH            -254)
    (MAX_BRANCH            256)
@@ -849,7 +854,7 @@
   [(set_attr "length" "2,4")])
 
 ;; lsr
-(define_insn "" 
+(define_insn "lsrhi1" 
   [(set (match_operand:HI 0 "nonimmediate_operand" "=rR,Q")
 	(lshiftrt:HI (match_operand:HI 1 "general_operand" "0,0")
 		   (const_int 1)))]
@@ -857,7 +862,7 @@
   "clc\;ror %0"
   [(set_attr "length" "2,4")])
 
-(define_insn "lshrsi3"
+(define_insn "lsrsi1"
   [(set (match_operand:SI 0 "register_operand" "=r")
 	(lshiftrt:SI (match_operand:SI 1 "general_operand" "0")
                    (const_int 1)))]
@@ -879,6 +884,36 @@
   return \"\";
 }
   [(set_attr "length" "10")])
+
+(define_expand "lshrsi3"
+  [(match_operand:SI 0 "register_operand" "")
+   (match_operand:SI 1 "register_operand" "0")
+   (match_operand:HI 2 "general_operand" "")]
+  ""
+  "
+{
+  rtx r;
+
+  if (!TARGET_40_PLUS &&
+      (GET_CODE (operands[2]) != CONST_INT ||
+       (unsigned) INTVAL (operands[2]) > 3))
+    FAIL;
+  emit_insn (gen_lsrsi1 (operands[0], operands[1]));
+  if (GET_CODE (operands[2]) != CONST_INT)
+    {
+      r = gen_reg_rtx (HImode);
+      emit_insn (gen_addhi3 (r, operands [2], GEN_INT (-1)));
+      emit_insn (gen_ashrsi3 (operands[0], operands[0], r));
+    }
+  else if ((unsigned) INTVAL (operands[2]) != 1)
+    {
+      emit_insn (gen_ashlsi3 (operands[0], operands[0],
+                              GEN_INT (1 - INTVAL (operands[2]))));
+    }
+  DONE;
+}
+"
+)
 
 ;; shift is by arbitrary count is expensive, 
 ;; shift by one cheap - so let's do that, if
@@ -996,13 +1031,35 @@
   operands[2] = negate_rtx (HImode, operands[2]);
 }")
 
-;;;;- logical shift instructions
-;;(define_insn "lshrsi3"
-;;  [(set (match_operand:HI 0 "register_operand" "=r")
-;;	(lshiftrt:HI (match_operand:HI 1 "register_operand" "0")
-;;		     (match_operand:HI 2 "general_operand" "rI")))]
-;;  ""
-;;  "srl %0,%2")
+(define_expand "lshrhi3"
+  [(match_operand:HI 0 "register_operand" "")
+   (match_operand:HI 1 "register_operand" "")
+   (match_operand:HI 2 "general_operand" "")]
+  ""
+  "
+{
+  rtx r;
+
+  if (!TARGET_40_PLUS &&
+      (GET_CODE (operands[2]) != CONST_INT ||
+       (unsigned) INTVAL (operands[2]) > 3))
+    FAIL;
+  emit_insn (gen_lsrhi1 (operands[0], operands[1]));
+  if (GET_CODE (operands[2]) != CONST_INT)
+    {
+      r = gen_reg_rtx (HImode);
+      emit_insn (gen_addhi3 (r, operands [2], GEN_INT (-1)));
+      emit_insn (gen_ashrhi3 (operands[0], operands[0], r));
+    }
+  else if ((unsigned) INTVAL (operands[2]) != 1)
+    {
+      emit_insn (gen_ashlhi3 (operands[0], operands[0],
+                              GEN_INT (1 - INTVAL (operands[2]))));
+    }
+  DONE;
+}
+"
+)
 
 ;; absolute 
 
@@ -1016,7 +1073,7 @@
 (define_insn "abshi2"
   [(set (match_operand:HI 0 "nonimmediate_operand" "=r,o")
 	(abs:HI (match_operand:HI 1 "general_operand" "0,0")))]
-  "TARGET_ABSHI_BUILTIN"
+  ""
   "*
 {
   static int count = 0;
@@ -1091,9 +1148,8 @@
   lateoperands[1] = operands[1];
   operands[1] = gen_rtx_REG (HImode, REGNO (operands[1]) + 1);
 
-  output_asm_insn (\"com %0\", operands);
   output_asm_insn (\"com %0\", lateoperands);
-  output_asm_insn (\"inc %0\", operands);
+  output_asm_insn (\"neg %0\", operands);
   output_asm_insn (\"adc %0\", lateoperands);
 
   return \"\";
