@@ -1,3 +1,18 @@
+2010-12-07  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline
+	2010-12-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/46753
+	* trans-openmp.c (gfc_trans_omp_do): Use build2_loc instead of
+	fold_build2_loc for OMP_FOR conditions.
+
+2010-12-04  Daniel Kraft  <d@domob.eu>
+
+	PR fortran/46794
+	* trans-expr.c (gfc_conv_power_op): Handle kind of result expression
+	correctly for integer kind 1 and 2 operands.
+
 2010-11-25  Tobias Burnus  <burnus@net-b.de>
 
 	PR fortran/46638

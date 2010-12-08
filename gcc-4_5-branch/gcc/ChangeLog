@@ -1,3 +1,129 @@
+2010-12-07  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline
+	2010-12-06  Jakub Jelinek  <jakub@redhat.com>
+ 
+	PR target/43897
+	* config/ia64/ia64.c (rtx_needs_barrier): Handle asm CLOBBER
+	as a store into that register.
+
+	PR rtl-optimization/46777
+	* cfglayout.c (duplicate_insn_chain): Avoid duplicating
+	also barrier after tablejump.
+
+	2010-11-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/46614
+	* sched-deps.c (NON_FLUSH_JUMP_KIND, NON_FLUSH_JUMP_P): Define.
+	 (deps_analyze_insn): Mark JUMP_INSNs in
+	last_pending_memory_flush that weren't added through
+	flush_pending_lists with NON_FLUSH_JUMP_KIND.
+	(sched_analyze_2, sched_analyze_insn): Check NON_FLUSH_JUMP_P
+	on INSN_LIST instead of JUMP_P check on its operand.
+	* sched-rgn.c (concat_INSN_LIST): Copy over REG_NOTE_KIND.
+
+	PR middle-end/46629
+	* cfgexpand.c (maybe_cleanup_end_of_block): Test NEXT_INSN (insn)
+	instead of insn with any_condjump_p.
+
+	2010-11-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/46499
+	* cfgexpand.c (maybe_cleanup_end_of_block): Remove also BARRIERs
+	following unconditional jumps.
+
+2010-12-07  Sebastian Pop  <sebastian.pop@amd.com>
+
+	Backport from mainline:
+	2010-05-07  Sebastian Pop  <sebastian.pop@amd.com>
+
+	PR tree-optimization/44676
+	* graphite-sese-to-poly.c (loop_entry_phi_arg): Renamed
+	phi_arg_in_outermost_loop.
+	(remove_simple_copy_phi): Call phi_arg_in_outermost_loop.
+	(remove_invariant_phi): Same.
+
+2010-12-07  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline
+	2010-11-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/45870
+	* dwarf2out.c (const_ok_for_output_1): Don't complain about
+	non-delegitimized TLS UNSPECs.
+
+	2010-11-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/46534
+	* builtins.c (fold_builtin_printf): Don't copy and modify string
+	before build_string_literal, instead modify what
+	build_string_literal returned.
+
+	2010-11-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/46440
+	* combine.c (update_cfg_for_uncondjump): When changing
+	an indirect jump into unconditional jump, remove BARRIERs
+	from bb's footer.
+
+	2010-11-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/46401
+	* c-common.c (warning_candidate_p): Don't track non-const calls
+	or STRING_CSTs.
+
+2010-12-06  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2010-07-23  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* doc/sourcebuild.texi (Add Options): Document tls.
+
+2010-12-06  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/46806
+	* tree-ssa-copyrename.c (copy_rename_partition_coalesce): Do not
+	coalesce different types.
+
+2010-12-05  Richard Guenther  <rguenther@suse.de>
+	    Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/46663
+	* tree-vect-patterns.c (vect_recog_pow_pattern): Check that
+	FUNCTION_DECL exists and that it's a builtin.
+
+2010-12-03  Jason Merrill  <jason@redhat.com>
+
+	PR debug/46123
+	* dwarf2out.c (gen_type_die_with_usage): Don't put local types in
+	a declaration DIE.
+
+2010-12-03  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2010-09-15  Olivier Hainque  <hainque@adacore.com>
+        	    Jose Ruiz  <ruiz@adacore.com>
+
+	* config/alpha/osf.h (MD_UNWIND_SUPPORT): Define.
+	* config/alpha/osf-unwind.h: New file.
+
+2010-12-03  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2010-11-12  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* config/mips/iris6.h [!IRIX_USING_GNU_LD]
+	(SUPPORTS_INIT_PRIORITY): Define.
+
+2010-12-03  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2010-11-02  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* configure.ac (*-*-irix6*): Disable set_have_as_tls.
+	(*-*-osf*): Likewise.
+	* configure: Regenerate.
+
 2010-11-29  H.J. Lu  <hongjiu.lu@intel.com>
 
 	Backport from mainline

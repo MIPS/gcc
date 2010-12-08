@@ -1,3 +1,139 @@
+2010-12-07  Sebastian Pop  <sebastian.pop@amd.com>
+
+	PR tree-optimization/44676
+	* gcc.dg/graphite/id-pr44676.c: New.
+
+2010-12-07  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline
+	2010-12-06  Jakub Jelinek  <jakub@redhat.com>
+ 
+	PR target/43897
+	* gcc.target/ia64/pr43897.c: New test.
+
+	PR rtl-optimization/46777
+	* gcc.dg/pr46777.c: New test.
+
+	2010-11-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/46614
+	* gcc.dg/pr46614.c: New test.
+
+	2010-11-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/46499
+	* gcc.dg/pr46499-1.c: New test.
+	* gcc.dg/pr46499-2.c: New test.
+
+	2010-11-20  Jakub Jelinek  <jakub@redhat.com>
+ 
+	PR c++/46538
+	* g++.dg/other/error34.C: New test.
+
+	2010-11-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/46534
+	* gcc.c-torture/compile/pr46534.c: New test.
+
+	2010-11-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/46440
+	* gcc.dg/pr46440.c: New test.
+
+	2010-11-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/46401
+	* g++.dg/warn/Wsequence-point-3.C: New test.
+
+2010-12-06  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2010-07-23  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* lib/target-supports.exp (add_options_for_tls): New proc.
+	* g++.dg/tls/static-1.C: Use dg-add-options tls.
+	* g++.dg/tls/static-1a.cc: Likewise.
+	* gcc.dg/tls/emutls-1.c: Likewise.
+	* gcc.dg/tls/opt-11.c: Likewise.
+	* gcc.dg/tls/opt-12.c: Likewise.
+	* gcc.dg/tls/pr24428-2.c: Likewise.
+	* gcc.dg/tls/pr24428.c: Likewise.
+
+	2010-11-02  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR target/46131
+	* lib/target-supports.exp (add_options_for_tls): Pass -pthread for
+	*-*-osf*.
+
+2010-12-06  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2010-07-16  Iain Sandoe  <iains@gcc.gnu.org>
+
+	PR testsuite/43925
+	* lib/plugin-support.exp (plugin-test-execute):
+	Add ${gcc_objdir}/intl to includes.
+
+2010-12-06  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* ada/acats/run_acats (which): Assign output to temporary
+	variable, only use if successful.
+	Use last field of type output.
+
+2010-12-06  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/46806
+	* g++.dg/torture/20100825.C: New testcase.
+
+2010-12-05  Richard Guenther  <rguenther@suse.de>
+	    Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/46663
+	* gcc.dg/vect/pr46663.c: New test.
+
+2010-12-04  Daniel Kraft  <d@domob.eu>
+
+	PR fortran/46794
+	* gfortran.dg/power2.f90: New test.
+
+2010-12-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/46123
+	* g++.dg/debug/pr46123.C: New test.
+	* g++.dg/debug/dwarf2/pr46123.C: New test.
+
+2010-12-03  Jason Merrill  <jason@redhat.com>
+
+	PR c++/46058
+	* g++.dg/template/scope4.C: New.
+
+2010-12-03  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2010-11-10  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* g++.dg/abi/rtti3.C: Scan for .weakext on alpha*-dec-osf*.
+	* g++.dg/abi/thunk4.C: Likewise.
+	* g++.dg/other/anon5.C: Skip on alpha*-dec-osf*.
+	* g++.dg/warn/pr31246.C: XFAIL on alpha*-dec-osf*.
+	* g++.dg/warn/weak1.C: Skip on alpha*-dec-osf*.
+	* g++.old-deja/g++.eh/badalloc1.C [!STACK_SIZE && __osf__]: Use
+	large arena_size.
+	* gcc.dg/attr-weakref-1.c: Skip on alpha*-dec-osf*.
+	* gcc.dg/intmax_t-1.c: Likewise.
+
+2010-12-03  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2010-11-12  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* lib/prune.exp (prune_gcc_output): Ignore IRIX 6 linker multiline
+	warning.
+	* g++.dg/abi/packed1.C (struct INNER): Ignore warning on
+	mips-sgi-irix*.
+	* g++.dg/cpp/_Pragma1.C: Skip on mips-sgi-irix*.
+	* gcc.target/mips/call-3.c: Add dg-require-visibility.
+
 2010-11-29  H.J. Lu  <hongjiu.lu@intel.com>
 
 	Backport from mainline
