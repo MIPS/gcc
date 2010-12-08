@@ -1,3 +1,34 @@
+2010-12-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/46771
+	* reginfo.c (init_subregs_of_mode): Don't call find_subregs_of_mode
+	on DEBUG_INSNs.
+
+2010-11-26  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/46258
+	* tree-cfg.c (replace_uses_by): Don't mark BBs as altered on
+	debug stmts.
+
+2010-11-21  Richard Henderson  <rth@redhat.com>
+
+	PR rtl-optimization/46571
+	* gcse.c (hash_scan_set): Use next_nonnote_nondebug_insn.
+	(compute_hash_table_work): Use NONDEBUG_INSN_P.
+
+2010-11-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/45870
+	* dwarf2out.c (const_ok_for_output_1): Don't complain about
+	non-delegitimized TLS UNSPECs.
+
+2010-11-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/46387
+	* rtl.h (vt_equate_reg_base_value): New prototype.
+	* alias.c (vt_equate_reg_base_value): New function.
+	* var-tracking.c (vt_init_cfa_base): Use it.
+
 2010-12-07  Jakub Jelinek  <jakub@redhat.com>
 
 	PR middle-end/46534

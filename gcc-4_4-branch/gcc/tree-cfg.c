@@ -1385,7 +1385,7 @@ replace_uses_by (tree name, tree val)
 	  size_t i;
 
 	  fold_stmt_inplace (stmt);
-	  if (cfgcleanup_altered_bbs)
+	  if (cfgcleanup_altered_bbs && !is_gimple_debug (stmt))
 	    bitmap_set_bit (cfgcleanup_altered_bbs, gimple_bb (stmt)->index);
 
 	  /* FIXME.  This should go in pop_stmt_changes.  */
