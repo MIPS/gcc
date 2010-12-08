@@ -1,3 +1,49 @@
+2010-12-07  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline
+	2010-11-20  Jakub Jelinek  <jakub@redhat.com>
+ 
+	PR c++/46538
+	* g++.dg/other/error34.C: New test.
+
+	2010-11-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/46534
+	* gcc.c-torture/compile/pr46534.c: New test.
+
+2010-12-06  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* ada/acats/run_acats (which): Assign output to temporary
+	variable, only use if successful.
+	Use last field of type output.
+
+2010-12-05  Richard Guenther  <rguenther@suse.de>
+	    Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/46663
+	* gcc.dg/vect/pr46663.c: New test.
+
+2010-11-28  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/aliasing2.adb (dg-final): Robustify pattern matching.
+	* gnat.dg/pack9.adb (dg-final): Likewise.
+
+2010-11-27  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/46638
+	PR fortran/46668
+	* gfortran.dg/transfer_simplify_10.f90: Fix endian issue.
+
+2010-11-25  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/46638
+	* gfortran.dg/transfer_simplify_10.f90: New.
+
+2010-11-13  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/45742
+	* gfortran.dg/volatile12.f90: New.
+
 2010-11-05  Jakub Jelinek  <jakub@redhat.com>
 
 	PR tree-optimization/46099

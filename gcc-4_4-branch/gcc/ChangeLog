@@ -1,3 +1,33 @@
+2010-12-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/46534
+	* builtins.c (expand_builtin_printf): Don't copy and modify string
+	before build_string_literal, instead modify what
+	build_string_literal returned.
+
+	Backport from mainline
+	2010-11-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/46534
+	* builtins.c (fold_builtin_printf): Don't copy and modify string
+	before build_string_literal, instead modify what
+	build_string_literal returned.
+
+2010-12-05  Richard Guenther  <rguenther@suse.de>
+	    Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/46663
+	* tree-vect-patterns.c (vect_recog_pow_pattern): Check that
+	FUNCTION_DECL exists and that it's a builtin.
+
+2010-11-29  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR rtl-optimization/46337
+	Backport from mainline
+	2009-04-20  Ian Lance Taylor  <iant@google.com>
+
+	* dse.c (replace_inc_dec): Reverse parameters to gen_int_mode.
+
 2010-11-06  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
 
 	PR debug/45939
