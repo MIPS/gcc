@@ -780,7 +780,7 @@ See RS/6000 and PowerPC Options.
 -mstrict-align  -mno-strict-align  -mrelocatable @gol
 -mno-relocatable  -mrelocatable-lib  -mno-relocatable-lib @gol
 -mtoc  -mno-toc  -mlittle  -mlittle-endian  -mbig  -mbig-endian @gol
--mdynamic-no-pic  -maltivec -mswdiv @gol
+-mdynamic-no-pic  -maltivec -mswdiv  -msingle-pic-base @gol
 -mprioritize-restricted-insns=@var{priority} @gol
 -msched-costly-dep=@var{dependence_type} @gol
 -minsert-sched-nops=@var{scheme} @gol
@@ -1070,6 +1070,9 @@ Free form Fortran source code which should not be preprocessed.
 Free form Fortran source code which must be preprocessed (with the
 traditional preprocessor).
 
+@item @var{file}.go
+Go source code.
+
 @c FIXME: Descriptions of Java file types.
 @c @var{file}.java
 @c @var{file}.class
@@ -1123,6 +1126,7 @@ objective-c++ objective-c++-header objective-c++-cpp-output
 assembler  assembler-with-cpp
 ada
 f77  f77-cpp-input f95  f95-cpp-input
+go
 java
 @end smallexample
 
@@ -8817,6 +8821,10 @@ Size of minimal paritition for WHOPR (in estimated instructions).
 This prevents expenses of splitting very small programs into too many
 partitions.
 
+@item cxx-max-namespaces-for-diagnostic-help
+The maximum number of namespaces to consult for suggestions when C++
+name lookup fails for an identifier.  The default is 1000.
+
 @end table
 @end table
 
@@ -12077,6 +12085,9 @@ instruction set support.
 @item corei7
 Intel Core i7 CPU with 64-bit extensions, MMX, SSE, SSE2, SSE3, SSSE3, SSE4.1
 and SSE4.2 instruction set support.
+@item corei7-avx
+Intel Core i7 CPU with 64-bit extensions, MMX, SSE, SSE2, SSE3, SSSE3,
+SSE4.1, SSE4.2, AVX, AES and PCLMUL instruction set support.
 @item atom
 Intel Atom CPU with 64-bit extensions, MMX, SSE, SSE2, SSE3 and SSSE3
 instruction set support.
@@ -15728,6 +15739,13 @@ On Darwin and Mac OS X systems, compile code so that it is not
 relocatable, but that its external references are relocatable.  The
 resulting code is suitable for applications, but not shared
 libraries.
+
+@item -msingle-pic-base
+@opindex msingle-pic-base
+Treat the register used for PIC addressing as read-only, rather than
+loading it in the prologue for each function.  The run-time system is
+responsible for initializing this register with an appropriate value
+before execution begins.
 
 @item -mprioritize-restricted-insns=@var{priority}
 @opindex mprioritize-restricted-insns

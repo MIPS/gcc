@@ -1,3 +1,12 @@
+2010-12-08  Doug Evans  <dje@google.com>
+
+	* splay-tree.c (splay_tree_foreach_helper): Remove arg `sp',
+	all callers updated.  Rewrite to be non-recursive.
+
+2010-11-29  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* setproctitle.c [HAVE_SYS_PRCTL_H]: Include <sys/types.h>.
+
 2010-11-20  Anthony Green  <green@moxielogic.com>
 
 	* configure.ac: Turn PR_SET_NAME link test into a test for

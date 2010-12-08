@@ -21,7 +21,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include <stdlib.h>
 
 const char *host_detect_local_cpu (int argc, const char **argv);
 
@@ -568,6 +567,10 @@ const char *host_detect_local_cpu (int argc, const char **argv)
 	case 0x2f:
 	  /* Westmere.  */
 	  cpu = "corei7";
+	  break;
+	case 0x2a:
+	  /* Sandy Bridge.  */
+	  cpu = "corei7-avx";
 	  break;
 	case 0x17:
 	case 0x1d:

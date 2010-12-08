@@ -43,7 +43,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-config.h"
 #include "recog.h"
 #include "reload.h"
-#include "toplev.h"
 #include "diagnostic-core.h"
 #include "output.h"
 #include "timevar.h"
@@ -1331,7 +1330,7 @@ init_subregs_of_mode (void)
 
   FOR_EACH_BB (bb)
     FOR_BB_INSNS (bb, insn)
-    if (INSN_P (insn))
+    if (NONDEBUG_INSN_P (insn))
       find_subregs_of_mode (PATTERN (insn));
 }
 
