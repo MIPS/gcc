@@ -1,3 +1,13 @@
+2010-12-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/46771
+	* gcc.dg/pr46771.c: New test.
+
+2010-11-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/46387
+	* gcc.dg/pr46387.c: New test.
+
 2010-12-07  Sebastian Pop  <sebastian.pop@amd.com>
 
 	PR tree-optimization/44676

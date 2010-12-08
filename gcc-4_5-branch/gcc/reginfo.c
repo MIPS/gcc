@@ -1345,7 +1345,7 @@ init_subregs_of_mode (void)
 
   FOR_EACH_BB (bb)
     FOR_BB_INSNS (bb, insn)
-    if (INSN_P (insn))
+    if (NONDEBUG_INSN_P (insn))
       find_subregs_of_mode (PATTERN (insn));
 }
 

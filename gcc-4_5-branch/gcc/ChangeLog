@@ -1,3 +1,16 @@
+2010-12-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/46771
+	* reginfo.c (init_subregs_of_mode): Don't call find_subregs_of_mode
+	on DEBUG_INSNs.
+
+2010-11-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/46387
+	* rtl.h (vt_equate_reg_base_value): New prototype.
+	* alias.c (vt_equate_reg_base_value): New function.
+	* var-tracking.c (vt_init_cfa_base): Use it.
+
 2010-12-07  Jakub Jelinek  <jakub@redhat.com>
 
 	Backport from mainline
