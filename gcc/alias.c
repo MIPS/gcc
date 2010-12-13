@@ -35,7 +35,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "output.h"
 #include "diagnostic-core.h"
-#include "toplev.h"
 #include "cselib.h"
 #include "splay-tree.h"
 #include "ggc.h"
@@ -1289,6 +1288,14 @@ record_set (rtx dest, const_rtx set, void *data ATTRIBUTE_UNUSED)
     new_reg_base_value[regno] = find_base_value (src);
 
   reg_seen[regno] = 1;
+}
+
+/* Return REG_BASE_VALUE for REGNO.  Selective scheduler uses this to avoid
+   using hard registers with non-null REG_BASE_VALUE for renaming.  */
+rtx
+get_reg_base_value (unsigned int regno)
+{
+  return VEC_index (rtx, reg_base_value, regno);
 }
 
 /* If a value is known for REGNO, return it.  */

@@ -36,6 +36,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "cp-tree.h"
 #include "c-family/c-common.h"
+#include "c-family/c-objc.h"
 #include "cp-objcp-common.h"
 #include "tree-inline.h"
 #include "decl.h"
@@ -17152,6 +17153,8 @@ instantiate_decl (tree d, int defer_ok,
       && !DECL_NOT_REALLY_EXTERN (d))
     mark_definable (d);
 
+  DECL_SOURCE_LOCATION (td) = DECL_SOURCE_LOCATION (code_pattern);
+  DECL_SOURCE_LOCATION (d) = DECL_SOURCE_LOCATION (code_pattern);
   input_location = DECL_SOURCE_LOCATION (d);
 
   /* If D is a member of an explicitly instantiated class template,

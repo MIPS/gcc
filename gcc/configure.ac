@@ -589,6 +589,10 @@ AC_ARG_ENABLE(build-with-cxx,
 ENABLE_BUILD_WITH_CXX=$enableval,
 ENABLE_BUILD_WITH_CXX=no)
 AC_SUBST(ENABLE_BUILD_WITH_CXX)
+if test "$ENABLE_BUILD_WITH_CXX" = "yes"; then
+  AC_DEFINE(ENABLE_BUILD_WITH_CXX, 1,
+	    [Define if building with C++.])
+fi
 
 # With stabs
 AC_ARG_WITH(stabs,
@@ -905,6 +909,18 @@ AC_CHECK_HEADER(pthread.h, [have_pthread_h=yes], [have_pthread_h=])
 gcc_AC_C_CHAR_BIT
 AC_C_BIGENDIAN
 
+# ----------------------
+# Checks for C++ headers
+# ----------------------
+
+AC_LANG_PUSH(C++)
+
+AC_CHECK_HEADERS(unordered_map)
+AC_CHECK_HEADERS(tr1/unordered_map)
+AC_CHECK_HEADERS(ext/hash_map)
+
+AC_LANG_POP(C++)
+
 # --------
 # UNSORTED
 # --------
@@ -974,7 +990,7 @@ define(gcc_UNLOCKED_FUNCS, clearerr_unlocked feof_unlocked dnl
   putchar_unlocked putc_unlocked)
 AC_CHECK_FUNCS(times clock kill getrlimit setrlimit atoll atoq \
 	sysconf strsignal getrusage nl_langinfo \
-	gettimeofday mbstowcs wcswidth mmap mincore setlocale \
+	gettimeofday mbstowcs wcswidth mmap setlocale \
 	gcc_UNLOCKED_FUNCS)
 
 if test x$ac_cv_func_mbstowcs = xyes; then
@@ -1854,7 +1870,7 @@ elif test -f $gcc_cv_as_gas_srcdir/configure.in \
 elif test -x as$build_exeext; then
 	# Build using assembler in the current directory.
 	gcc_cv_as=./as$build_exeext
-elif test -x $AS_FOR_TARGET; then
+elif ( set dummy $AS_FOR_TARGET; test -x $[2] ); then
         gcc_cv_as="$AS_FOR_TARGET"
 else
         AC_PATH_PROG(gcc_cv_as, $AS_FOR_TARGET)
@@ -1909,7 +1925,7 @@ elif test -f $gcc_cv_ld_gld_srcdir/configure.in \
 elif test -x collect-ld$build_exeext; then
 	# Build using linker in the current directory.
 	gcc_cv_ld=./collect-ld$build_exeext
-elif test -x $LD_FOR_TARGET; then
+elif ( set dummy $LD_FOR_TARGET; test -x $[2] ); then
         gcc_cv_ld="$LD_FOR_TARGET"
 else
         AC_PATH_PROG(gcc_cv_ld, $LD_FOR_TARGET)
@@ -1982,7 +1998,7 @@ if test -f $gcc_cv_binutils_srcdir/configure.in \
 	gcc_cv_nm=../binutils/nm-new$build_exeext
 elif test -x nm$build_exeext; then
 	gcc_cv_nm=./nm$build_exeext
-elif test -x $NM_FOR_TARGET; then
+elif ( set dummy $NM_FOR_TARGET; test -x $[2] ); then
         gcc_cv_nm="$NM_FOR_TARGET"
 else
         AC_PATH_PROG(gcc_cv_nm, $NM_FOR_TARGET)
@@ -2015,7 +2031,7 @@ if test -f $gcc_cv_binutils_srcdir/configure.in \
 	gcc_cv_objdump=../binutils/objdump$build_exeext
 elif test -x objdump$build_exeext; then
 	gcc_cv_objdump=./objdump$build_exeext
-elif test -x $OBJDUMP_FOR_TARGET; then
+elif ( set dummy $OBJDUMP_FOR_TARGET; test -x $[2] ); then
         gcc_cv_objdump="$OBJDUMP_FOR_TARGET"
 else
         AC_PATH_PROG(gcc_cv_objdump, $OBJDUMP_FOR_TARGET)

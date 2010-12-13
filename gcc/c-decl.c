@@ -46,6 +46,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "opts.h"
 #include "timevar.h"
 #include "c-family/c-common.h"
+#include "c-family/c-objc.h"
 #include "c-family/c-pragma.h"
 #include "c-lang.h"
 #include "langhooks.h"
@@ -8188,6 +8189,9 @@ void
 finish_function (void)
 {
   tree fndecl = current_function_decl;
+  
+  if (c_dialect_objc ())
+    objc_finish_function ();
 
   if (TREE_CODE (fndecl) == FUNCTION_DECL
       && targetm.calls.promote_prototypes (TREE_TYPE (fndecl)))

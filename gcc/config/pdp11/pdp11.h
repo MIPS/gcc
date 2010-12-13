@@ -168,38 +168,6 @@ extern const struct real_format pdp11_d_format;
  0, 0, 0, 0, 0, 0, 1, 1 }
 
 
-/* Make sure everything's fine if we *don't* have an FPU.
-   This assumes that putting a register in fixed_regs will keep the
-   compiler's mitts completely off it.  We don't bother to zero it out
-   of register classes.  Also fix incompatible register naming with
-   the UNIX assembler.
-*/
-#define CONDITIONAL_REGISTER_USAGE \
-{ 						\
-  int i; 					\
-  HARD_REG_SET x; 				\
-  if (!TARGET_FPU)				\
-    { 						\
-      COPY_HARD_REG_SET (x, reg_class_contents[(int)FPU_REGS]); \
-      for (i = R0_REGNUM; i < FIRST_PSEUDO_REGISTER; i++ ) \
-       if (TEST_HARD_REG_BIT (x, i)) 		\
-	fixed_regs[i] = call_used_regs[i] = 1; 	\
-    } 						\
-						\
-  if (TARGET_AC0)				\
-      call_used_regs[AC0_REGNUM] = 1;		\
-  if (TARGET_UNIX_ASM)				\
-    {						\
-      /* Change names of FPU registers for the UNIX assembler.  */ \
-      reg_names[8] = "fr0";			\
-      reg_names[9] = "fr1";			\
-      reg_names[10] = "fr2";			\
-      reg_names[11] = "fr3";			\
-      reg_names[12] = "fr4";			\
-      reg_names[13] = "fr5";			\
-    }						\
-}
-
 /* Return number of consecutive hard regs needed starting at reg REGNO
    to hold something of mode MODE.
    This is ordinarily the length in words of a value of mode MODE
@@ -499,118 +467,6 @@ extern int may_call_alloca;
 #define REG_OK_FOR_BASE_P(X) REGNO_OK_FOR_BASE_P (REGNO (X))
 
 #endif
-
-/* GO_IF_LEGITIMATE_ADDRESS recognizes an RTL expression
-   that is a valid memory address for an instruction.
-   The MODE argument is the machine mode for the MEM expression
-   that wants to use this address.
-
-*/
-
-#define GO_IF_LEGITIMATE_ADDRESS(mode, operand, ADDR) \
-{						      \
-    rtx xfoob;								\
-									\
-    /* accept (R0) */							\
-    if (GET_CODE (operand) == REG					\
-	&& REG_OK_FOR_BASE_P(operand))					\
-      goto ADDR;							\
-									\
-    /* accept @#address */						\
-    if (CONSTANT_ADDRESS_P (operand))					\
-      goto ADDR;							\
-    									\
-    /* accept X(R0) */							\
-    if (GET_CODE (operand) == PLUS       				\
-	&& GET_CODE (XEXP (operand, 0)) == REG				\
-	&& REG_OK_FOR_BASE_P (XEXP (operand, 0))			\
-	&& CONSTANT_ADDRESS_P (XEXP (operand, 1)))			\
-      goto ADDR;							\
-    									\
-    /* accept -(R0) */							\
-    if (GET_CODE (operand) == PRE_DEC					\
-	&& GET_CODE (XEXP (operand, 0)) == REG				\
-	&& REG_OK_FOR_BASE_P (XEXP (operand, 0)))			\
-      goto ADDR;							\
-									\
-    /* accept (R0)+ */							\
-    if (GET_CODE (operand) == POST_INC					\
-	&& GET_CODE (XEXP (operand, 0)) == REG				\
-	&& REG_OK_FOR_BASE_P (XEXP (operand, 0)))			\
-      goto ADDR;							\
-									\
-    /* accept -(SP) -- which uses PRE_MODIFY for byte mode */		\
-    if (GET_CODE (operand) == PRE_MODIFY				\
-	&& GET_CODE (XEXP (operand, 0)) == REG				\
-	&& REGNO (XEXP (operand, 0)) == STACK_POINTER_REGNUM       	\
-	&& GET_CODE ((xfoob = XEXP (operand, 1))) == PLUS		\
-	&& GET_CODE (XEXP (xfoob, 0)) == REG				\
-	&& REGNO (XEXP (xfoob, 0)) == STACK_POINTER_REGNUM       	\
-	&& CONSTANT_P (XEXP (xfoob, 1))                                 \
-	&& INTVAL (XEXP (xfoob,1)) == -2)      	               		\
-      goto ADDR;							\
-									\
-    /* accept (SP)+ -- which uses POST_MODIFY for byte mode */		\
-    if (GET_CODE (operand) == POST_MODIFY				\
-	&& GET_CODE (XEXP (operand, 0)) == REG				\
-	&& REGNO (XEXP (operand, 0)) == STACK_POINTER_REGNUM       	\
-	&& GET_CODE ((xfoob = XEXP (operand, 1))) == PLUS		\
-	&& GET_CODE (XEXP (xfoob, 0)) == REG				\
-	&& REGNO (XEXP (xfoob, 0)) == STACK_POINTER_REGNUM		\
-	&& CONSTANT_P (XEXP (xfoob, 1))                                 \
-	&& INTVAL (XEXP (xfoob,1)) == 2)      	               		\
-      goto ADDR;							\
-									\
-    									\
-    /* handle another level of indirection ! */				\
-    if (GET_CODE(operand) != MEM)					\
-      goto fail;							\
-									\
-    xfoob = XEXP (operand, 0);						\
-									\
-    /* (MEM:xx (MEM:xx ())) is not valid for SI, DI and currently */    \
-    /* also forbidden for float, because we have to handle this */  	\
-    /* in output_move_double and/or output_move_quad() - we could */   	\
-    /* do it, but currently it's not worth it!!! */			\
-    /* now that DFmode cannot go into CPU register file, */		\
-    /* maybe I should allow float ... */				\
-    /*  but then I have to handle memory-to-memory moves in movdf ?? */ \
-									\
-    if (GET_MODE_BITSIZE(mode) > 16)					\
-      goto fail;							\
-									\
-    /* accept @(R0) - which is @0(R0) */				\
-    if (GET_CODE (xfoob) == REG						\
-	&& REG_OK_FOR_BASE_P(xfoob))					\
-      goto ADDR;							\
-									\
-    /* accept @address */						\
-    if (CONSTANT_ADDRESS_P (xfoob))					\
-      goto ADDR;							\
-    									\
-    /* accept @X(R0) */							\
-    if (GET_CODE (xfoob) == PLUS       					\
-	&& GET_CODE (XEXP (xfoob, 0)) == REG				\
-	&& REG_OK_FOR_BASE_P (XEXP (xfoob, 0))				\
-	&& CONSTANT_ADDRESS_P (XEXP (xfoob, 1)))			\
-      goto ADDR;							\
-									\
-    /* accept @-(R0) */							\
-    if (GET_CODE (xfoob) == PRE_DEC					\
-	&& GET_CODE (XEXP (xfoob, 0)) == REG				\
-	&& REG_OK_FOR_BASE_P (XEXP (xfoob, 0)))				\
-      goto ADDR;							\
-									\
-    /* accept @(R0)+ */							\
-    if (GET_CODE (xfoob) == POST_INC					\
-	&& GET_CODE (XEXP (xfoob, 0)) == REG				\
-	&& REG_OK_FOR_BASE_P (XEXP (xfoob, 0)))				\
-      goto ADDR;							\
-									\
-  /* anything else is invalid */					\
-  fail: ;								\
-}
-
 
 /* Specify the machine mode that this machine uses
    for the index in the tablejump instruction.  */

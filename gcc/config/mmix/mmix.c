@@ -36,7 +36,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "function.h"
 #include "expr.h"
 #include "diagnostic-core.h"
-#include "toplev.h"
 #include "recog.h"
 #include "ggc.h"
 #include "dwarf2.h"
@@ -159,6 +158,7 @@ static bool mmix_pass_by_reference (CUMULATIVE_ARGS *,
 static bool mmix_frame_pointer_required (void);
 static void mmix_asm_trampoline_template (FILE *);
 static void mmix_trampoline_init (rtx, tree, rtx);
+static void mmix_conditional_register_usage (void);
 
 /* TARGET_OPTION_OPTIMIZATION_TABLE.  */
 
@@ -211,6 +211,9 @@ static const struct default_options mmix_option_optimization_table[] =
 #define TARGET_ASM_FILE_END mmix_file_end
 #undef TARGET_ASM_OUTPUT_SOURCE_FILENAME
 #define TARGET_ASM_OUTPUT_SOURCE_FILENAME mmix_asm_output_source_filename
+
+#undef TARGET_CONDITIONAL_REGISTER_USAGE
+#define TARGET_CONDITIONAL_REGISTER_USAGE mmix_conditional_register_usage
 
 #undef TARGET_RTX_COSTS
 #define TARGET_RTX_COSTS mmix_rtx_costs
@@ -337,9 +340,9 @@ mmix_local_alignment (tree type ATTRIBUTE_UNUSED, unsigned basic_align)
   return basic_align;
 }
 
-/* CONDITIONAL_REGISTER_USAGE.  */
+/* TARGET_CONDITIONAL_REGISTER_USAGE.  */
 
-void
+static void
 mmix_conditional_register_usage (void)
 {
   int i;

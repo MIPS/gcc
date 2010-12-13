@@ -30,6 +30,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "c-pragma.h"
 #include "ggc.h"
 #include "c-common.h"
+#include "c-objc.h"
 #include "tm_p.h"
 #include "obstack.h"
 #include "cpplib.h"
@@ -303,6 +304,9 @@ const struct fname_var_t fname_vars[] =
   {&pretty_function_name_decl_node, RID_PRETTY_FUNCTION_NAME, 1},
   {NULL, 0, 0},
 };
+
+/* Global visibility options.  */
+struct visibility_flags visibility_options;
 
 static tree c_fully_fold_internal (tree expr, bool, bool *, bool *);
 static tree check_case_value (tree);

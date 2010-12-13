@@ -36,7 +36,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "expr.h"
 #include "diagnostic-core.h"
-#include "toplev.h"
 #include "tm_p.h"
 #include "target.h"
 #include "target-def.h"
@@ -156,6 +155,7 @@ static rtx pdp11_function_arg (CUMULATIVE_ARGS *, enum machine_mode,
 			       const_tree, bool);
 static void pdp11_function_arg_advance (CUMULATIVE_ARGS *,
 					enum machine_mode, const_tree, bool);
+static void pdp11_conditional_register_usage (void);
 
 /* Implement TARGET_OPTION_OPTIMIZATION_TABLE.  */
 
@@ -227,6 +227,12 @@ static const struct default_options pdp11_option_optimization_table[] =
 
 #undef  TARGET_PREFERRED_OUTPUT_RELOAD_CLASS
 #define TARGET_PREFERRED_OUTPUT_RELOAD_CLASS pdp11_preferred_output_reload_class
+
+#undef  TARGET_LEGITIMATE_ADDRESS_P
+#define TARGET_LEGITIMATE_ADDRESS_P pdp11_legitimate_address_p
+
+#undef  TARGET_CONDITIONAL_REGISTER_USAGE
+#define TARGET_CONDITIONAL_REGISTER_USAGE pdp11_conditional_register_usage
 
 /* Implement TARGET_HANDLE_OPTION.  */
 
@@ -1161,6 +1167,17 @@ output_jump (enum rtx_code code, int inv, int length)
     static char buf[1000];
     const char *pos, *neg;
 
+    if (cc_prev_status.flags & CC_NO_OVERFLOW)
+      {
+	switch (code)
+	  {
+	  case GTU: code = GT; break;
+	  case LTU: code = LT; break;
+	  case GEU: code = GE; break;
+	  case LEU: code = LE; break;
+	  default: ;
+	  }
+      }
     switch (code)
       {
       case EQ: pos = "beq", neg = "bne"; break;
@@ -1214,68 +1231,38 @@ notice_update_cc_on_set(rtx exp, rtx insn ATTRIBUTE_UNUSED)
 {
     if (GET_CODE (SET_DEST (exp)) == CC0)
     { 
-	cc_status.flags = 0;					
-	cc_status.value1 = SET_DEST (exp);			
-	cc_status.value2 = SET_SRC (exp);			
-
-/*
-	if (GET_MODE(SET_SRC(exp)) == DFmode)
-	    cc_status.flags |= CC_IN_FPU;
-*/	
-    }							
-    else if ((GET_CODE (SET_DEST (exp)) == REG		
-	      || GET_CODE (SET_DEST (exp)) == MEM)		
-	     && GET_CODE (SET_SRC (exp)) != PC		
-	     && (GET_MODE (SET_DEST(exp)) == HImode		
-		 || GET_MODE (SET_DEST(exp)) == QImode)	
-		&& (GET_CODE (SET_SRC(exp)) == PLUS		
-		    || GET_CODE (SET_SRC(exp)) == MINUS	
-		    || GET_CODE (SET_SRC(exp)) == AND	
-		    || GET_CODE (SET_SRC(exp)) == IOR	
-		    || GET_CODE (SET_SRC(exp)) == XOR	
-		    || GET_CODE (SET_SRC(exp)) == NOT	
-		    || GET_CODE (SET_SRC(exp)) == NEG	
-			|| GET_CODE (SET_SRC(exp)) == REG	
-		    || GET_CODE (SET_SRC(exp)) == MEM))	
-    { 
-	cc_status.flags = 0;					
-	cc_status.value1 = SET_SRC (exp);   			
-	cc_status.value2 = SET_DEST (exp);			
-	
-	if (cc_status.value1 && GET_CODE (cc_status.value1) == REG	
-	    && cc_status.value2					
-	    && reg_overlap_mentioned_p (cc_status.value1, cc_status.value2))
-    	    cc_status.value2 = 0;					
-	if (cc_status.value1 && GET_CODE (cc_status.value1) == MEM	
-	    && cc_status.value2					
-	    && GET_CODE (cc_status.value2) == MEM)			
-	    cc_status.value2 = 0; 					
+      cc_status.flags = 0;					
+      cc_status.value1 = SET_DEST (exp);			
+      cc_status.value2 = SET_SRC (exp);			
     }							
     else if (GET_CODE (SET_SRC (exp)) == CALL)		
     { 
-	CC_STATUS_INIT; 
+      CC_STATUS_INIT; 
     }
-    else if (GET_CODE (SET_DEST (exp)) == REG)       		
-	/* what's this ? */					
-    { 
-	if ((cc_status.value1					
-	     && reg_overlap_mentioned_p (SET_DEST (exp), cc_status.value1)))
-	    cc_status.value1 = 0;				
-	if ((cc_status.value2					
-	     && reg_overlap_mentioned_p (SET_DEST (exp), cc_status.value2)))
-	    cc_status.value2 = 0;				
-    }							
     else if (SET_DEST(exp) == pc_rtx)
     { 
-	/* jump */
-    }
-    else /* if (GET_CODE (SET_DEST (exp)) == MEM)	*/	
-    {  
-	/* the last else is a bit paranoiac, but since nearly all instructions 
-	   play with condition codes, it's reasonable! */
-
-	CC_STATUS_INIT; /* paranoia*/ 
+      /* jump */
+    }	
+    else if (GET_MODE (SET_DEST(exp)) == HImode		
+	     || GET_MODE (SET_DEST(exp)) == QImode)
+    { 
+      cc_status.flags = GET_CODE (SET_SRC(exp)) == MINUS ? 0 : CC_NO_OVERFLOW;
+      cc_status.value1 = SET_SRC (exp);   			
+      cc_status.value2 = SET_DEST (exp);			
+	
+      if (cc_status.value1 && GET_CODE (cc_status.value1) == REG	
+	  && cc_status.value2					
+	  && reg_overlap_mentioned_p (cc_status.value1, cc_status.value2))
+	cc_status.value2 = 0;					
+      if (cc_status.value1 && GET_CODE (cc_status.value1) == MEM	
+	  && cc_status.value2					
+	  && GET_CODE (cc_status.value2) == MEM)			
+	cc_status.value2 = 0; 					
     }		        
+    else
+    { 
+      CC_STATUS_INIT; 
+    }
 }
 
 
@@ -1706,6 +1693,115 @@ pdp11_secondary_memory_needed (reg_class_t c1, reg_class_t c2,
   return (fromfloat != tofloat);
 }
 
+/* TARGET_LEGITIMATE_ADDRESS_P recognizes an RTL expression
+   that is a valid memory address for an instruction.
+   The MODE argument is the machine mode for the MEM expression
+   that wants to use this address.
+
+*/
+
+static bool
+pdp11_legitimate_address_p (enum machine_mode mode,
+			    rtx operand, bool strict)
+{
+    rtx xfoob;
+
+    /* accept @#address */
+    if (CONSTANT_ADDRESS_P (operand))
+      return true;
+    
+    switch (GET_CODE (operand))
+      {
+      case REG:
+	/* accept (R0) */
+	return !strict || REGNO_OK_FOR_BASE_P (REGNO (operand));
+    
+      case PLUS:
+	/* accept X(R0) */
+	return GET_CODE (XEXP (operand, 0)) == REG
+	  && (!strict || REGNO_OK_FOR_BASE_P (REGNO (XEXP (operand, 0))))
+	  && CONSTANT_ADDRESS_P (XEXP (operand, 1));
+
+      case PRE_DEC:
+	/* accept -(R0) */
+	return GET_CODE (XEXP (operand, 0)) == REG
+	  && (!strict || REGNO_OK_FOR_BASE_P (REGNO (XEXP (operand, 0))));
+
+      case POST_INC:
+	/* accept (R0)+ */
+	return GET_CODE (XEXP (operand, 0)) == REG
+	  && (!strict || REGNO_OK_FOR_BASE_P (REGNO (XEXP (operand, 0))));
+
+      case PRE_MODIFY:
+	/* accept -(SP) -- which uses PRE_MODIFY for byte mode */
+	return GET_CODE (XEXP (operand, 0)) == REG
+	  && REGNO (XEXP (operand, 0)) == STACK_POINTER_REGNUM
+	  && GET_CODE ((xfoob = XEXP (operand, 1))) == PLUS
+	  && GET_CODE (XEXP (xfoob, 0)) == REG
+	  && REGNO (XEXP (xfoob, 0)) == STACK_POINTER_REGNUM
+	  && CONSTANT_P (XEXP (xfoob, 1))
+	  && INTVAL (XEXP (xfoob,1)) == -2;
+
+      case POST_MODIFY:
+	/* accept (SP)+ -- which uses POST_MODIFY for byte mode */
+	return GET_CODE (XEXP (operand, 0)) == REG
+	  && REGNO (XEXP (operand, 0)) == STACK_POINTER_REGNUM
+	  && GET_CODE ((xfoob = XEXP (operand, 1))) == PLUS
+	  && GET_CODE (XEXP (xfoob, 0)) == REG
+	  && REGNO (XEXP (xfoob, 0)) == STACK_POINTER_REGNUM
+	  && CONSTANT_P (XEXP (xfoob, 1))
+	  && INTVAL (XEXP (xfoob,1)) == 2;
+
+      case MEM:
+	/* handle another level of indirection ! */
+	xfoob = XEXP (operand, 0);
+
+	/* (MEM:xx (MEM:xx ())) is not valid for SI, DI and currently
+	   also forbidden for float, because we have to handle this 
+	   in output_move_double and/or output_move_quad() - we could
+	   do it, but currently it's not worth it!!! 
+	   now that DFmode cannot go into CPU register file, 
+	   maybe I should allow float ... 
+	   but then I have to handle memory-to-memory moves in movdf ??  */
+	if (GET_MODE_BITSIZE(mode) > 16)
+	  return false;
+
+	/* accept @address */
+	if (CONSTANT_ADDRESS_P (xfoob))
+	  return true;
+
+	switch (GET_CODE (xfoob))
+	  {
+	  case REG:
+	    /* accept @(R0) - which is @0(R0) */
+	    return !strict || REGNO_OK_FOR_BASE_P(REGNO (xfoob));
+
+	  case PLUS:
+	    /* accept @X(R0) */
+	    return GET_CODE (XEXP (xfoob, 0)) == REG
+	      && (!strict || REGNO_OK_FOR_BASE_P (REGNO (XEXP (xfoob, 0))))
+	      && CONSTANT_ADDRESS_P (XEXP (xfoob, 1));
+
+	  case PRE_DEC:
+	    /* accept @-(R0) */
+	    return GET_CODE (XEXP (xfoob, 0)) == REG
+	      && (!strict || REGNO_OK_FOR_BASE_P (REGNO (XEXP (xfoob, 0))));
+
+	  case POST_INC:
+	    /* accept @(R0)+ */
+	    return GET_CODE (XEXP (xfoob, 0)) == REG
+	      && (!strict || REGNO_OK_FOR_BASE_P (REGNO (XEXP (xfoob, 0))));
+
+	  default:
+	    /* anything else is invalid */
+	    return false;
+	  }
+
+      default:
+	/* anything else is invalid */
+	return false;
+      }
+}
 /* Return the class number of the smallest class containing
    reg number REGNO.  */
 enum reg_class
@@ -1919,7 +2015,7 @@ pdp11_libcall_value (enum machine_mode mode,
 static bool
 pdp11_function_value_regno_p (const unsigned int regno)
 {
-  return (regno == 0) || (TARGET_AC0 && (regno == 8));
+  return (regno == RETVAL_REGNUM) || (TARGET_AC0 && (regno == AC0_REGNUM));
 }
 
 /* Worker function for TARGET_TRAMPOLINE_INIT.
@@ -1987,6 +2083,39 @@ pdp11_function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
   *cum += (mode != BLKmode
 	   ? GET_MODE_SIZE (mode)
 	   : int_size_in_bytes (type));
+}
+
+/* Make sure everything's fine if we *don't* have an FPU.
+   This assumes that putting a register in fixed_regs will keep the
+   compiler's mitts completely off it.  We don't bother to zero it out
+   of register classes.  Also fix incompatible register naming with
+   the UNIX assembler.  */
+
+static void
+pdp11_conditional_register_usage (void)
+{
+  int i;
+  HARD_REG_SET x;
+  if (!TARGET_FPU)
+    {
+      COPY_HARD_REG_SET (x, reg_class_contents[(int)FPU_REGS]);
+      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++ )
+       if (TEST_HARD_REG_BIT (x, i))
+	fixed_regs[i] = call_used_regs[i] = 1;
+    }
+
+  if (TARGET_AC0)
+      call_used_regs[AC0_REGNUM] = 1;
+  if (TARGET_UNIX_ASM)
+    {
+      /* Change names of FPU registers for the UNIX assembler.  */
+      reg_names[8] = "fr0";
+      reg_names[9] = "fr1";
+      reg_names[10] = "fr2";
+      reg_names[11] = "fr3";
+      reg_names[12] = "fr4";
+      reg_names[13] = "fr5";
+    }
 }
 
 struct gcc_target targetm = TARGET_INITIALIZER;
