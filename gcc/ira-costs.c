@@ -1353,8 +1353,7 @@ print_allocno_costs (FILE *f)
 	      && (! in_inc_dec[i] || ! forbidden_inc_dec_class[rclass])
 #endif
 #ifdef CANNOT_CHANGE_MODE_CLASS
-	      && ! invalid_mode_change_p (regno, (enum reg_class) rclass,
-					  PSEUDO_REGNO_MODE (regno))
+	      && ! invalid_mode_change_p (regno, (enum reg_class) rclass)
 #endif
 	      )
 	    {
@@ -1399,8 +1398,7 @@ print_pseudo_costs (FILE *f)
 	      && (! in_inc_dec[regno] || ! forbidden_inc_dec_class[rclass])
 #endif
 #ifdef CANNOT_CHANGE_MODE_CLASS
-	      && ! invalid_mode_change_p (regno, (enum reg_class) rclass,
-					  PSEUDO_REGNO_MODE (regno))
+	      && ! invalid_mode_change_p (regno, (enum reg_class) rclass)
 #endif
 	      )
 	    fprintf (f, " %s:%d", reg_class_names[rclass],
@@ -1660,8 +1658,7 @@ find_costs_and_classes (FILE *dump_file)
 		  || (inc_dec_p && forbidden_inc_dec_class[rclass])
 #endif
 #ifdef CANNOT_CHANGE_MODE_CLASS
-		  || invalid_mode_change_p (i, (enum reg_class) rclass,
-					    PSEUDO_REGNO_MODE (i))
+		  || invalid_mode_change_p (i, (enum reg_class) rclass)
 #endif
 		  )
 		continue;
@@ -1740,8 +1737,7 @@ find_costs_and_classes (FILE *dump_file)
 			  || (inc_dec_p && forbidden_inc_dec_class[rclass])
 #endif
 #ifdef CANNOT_CHANGE_MODE_CLASS
-			  || invalid_mode_change_p (i, (enum reg_class) rclass,
-						    PSEUDO_REGNO_MODE (i))
+			  || invalid_mode_change_p (i, (enum reg_class) rclass)
 #endif
 			  )
 			;
@@ -2015,6 +2011,7 @@ static void
 finish_costs (void)
 {
   ira_free (regno_aclass);
+  finish_subregs_of_mode ();
   ira_free (regno_equiv_gains);
   ira_free (pref_buffer);
   ira_free (costs);
