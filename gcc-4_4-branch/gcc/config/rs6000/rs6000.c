@@ -5247,6 +5247,7 @@ rs6000_legitimize_tls_address (rtx addr, enum tls_model model)
   else
     {
       rtx r3, got, tga, tmp1, tmp2, eqv;
+      int reg_parm_stack_space;
 
       /* We currently use relocations like @got@tlsgd for tls, which
 	 means the linker will handle allocation of tls entries, placing
@@ -5305,6 +5306,9 @@ rs6000_legitimize_tls_address (rtx addr, enum tls_model model)
 	  insn = get_insns ();
 	  end_sequence ();
 	  emit_libcall_block (insn, dest, r3, addr);
+	  reg_parm_stack_space = REG_PARM_STACK_SPACE (current_function_decl);
+	  if (crtl->outgoing_args_size < reg_parm_stack_space)
+	    crtl->outgoing_args_size = reg_parm_stack_space;
 	}
       else if (model == TLS_MODEL_LOCAL_DYNAMIC)
 	{
@@ -5332,6 +5336,9 @@ rs6000_legitimize_tls_address (rtx addr, enum tls_model model)
 	  eqv = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, const0_rtx),
 				UNSPEC_TLSLD);
 	  emit_libcall_block (insn, tmp1, r3, eqv);
+	  reg_parm_stack_space = REG_PARM_STACK_SPACE (current_function_decl);
+	  if (crtl->outgoing_args_size < reg_parm_stack_space)
+	    crtl->outgoing_args_size = reg_parm_stack_space;
 	  if (rs6000_tls_size == 16)
 	    {
 	      if (TARGET_64BIT)

@@ -1,3 +1,9 @@
+2010-05-25  Alan Modra  <amodra@gmail.com>
+
+	PR target/44266
+	* config/rs6000/rs6000.c (rs6000_legitimize_tls_address): Ensure
+	space is allocated for parameter save area on __tls_get_addr calls.
+
 2010-12-15  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/rs6000/linux64.h (SUBSUBTARGET_OVERRIDE_OPTIONS): Set
