@@ -285,6 +285,9 @@ static GTY(()) section *toc_section;
 /* String from -malign-XXXXX.  */
 int rs6000_alignment_flags;
 
+/* Code model for 64-bit linux.  */
+enum rs6000_cmodel cmodel;
+
 /* True for any options that were explicitly set.  */
 struct {
   bool aix_struct_ret;		/* True if -maix-struct-ret was used.  */
@@ -296,6 +299,7 @@ struct {
   bool long_double;	        /* True if -mlong-double- was used.  */
   bool ieee;			/* True if -mabi=ieee/ibmlongdouble used.  */
   bool vrsave;			/* True if -mvrsave was used.  */
+  bool cmodel;			/* True if -mcmodel was used.  */
 } rs6000_explicit_options;
 
 struct builtin_description
@@ -3196,6 +3200,22 @@ rs6000_handle_option (size_t code, const char *arg, int value)
       break;
 #endif
 
+#if defined (HAVE_LD_LARGE_TOC) && defined (TARGET_USES_LINUX64_OPT)
+    case OPT_mcmodel_:
+      if (strcmp (arg, "small") == 0)
+	cmodel = CMODEL_SMALL;
+      else if (strcmp (arg, "medium") == 0)
+	cmodel = CMODEL_MEDIUM;
+      else if (strcmp (arg, "large") == 0)
+	cmodel = CMODEL_LARGE;
+      else
+	{
+	  error ("invalid option for -mcmodel: '%s'", arg);
+	  return false;
+	}
+      rs6000_explicit_options.cmodel = true;
+#endif
+
 #ifdef TARGET_USES_AIX64_OPT
     case OPT_maix64:
 #else
@@ -4634,26 +4654,29 @@ constant_pool_expr_p (rtx op)
 	  && ASM_OUTPUT_SPECIAL_POOL_ENTRY_P (get_pool_constant (base), Pmode));
 }
 
+static rtx tocrel_base, tocrel_offset;
+
 bool
 toc_relative_expr_p (rtx op)
 {
-  rtx base, offset;
-
   if (GET_CODE (op) != CONST)
     return false;
 
-  split_const (op, &base, &offset);
-  return (GET_CODE (base) == UNSPEC
-	  && XINT (base, 1) == UNSPEC_TOCREL);
+  split_const (op, &tocrel_base, &tocrel_offset);
+  return (GET_CODE (tocrel_base) == UNSPEC
+	  && XINT (tocrel_base, 1) == UNSPEC_TOCREL);
 }
 
 bool
-legitimate_constant_pool_address_p (rtx x)
+legitimate_constant_pool_address_p (const_rtx x, bool strict)
 {
   return (TARGET_TOC
-	  && GET_CODE (x) == PLUS
+	  && (GET_CODE (x) == PLUS || GET_CODE (x) == LO_SUM)
 	  && GET_CODE (XEXP (x, 0)) == REG
-	  && (TARGET_MINIMAL_TOC || REGNO (XEXP (x, 0)) == TOC_REGISTER)
+	  && (REGNO (XEXP (x, 0)) == TOC_REGISTER
+	      || ((TARGET_MINIMAL_TOC
+		   || TARGET_CMODEL != CMODEL_SMALL)
+		  && INT_REG_OK_FOR_BASE_P (XEXP (x, 0), strict)))
 	  && toc_relative_expr_p (XEXP (x, 1)));
 }
 
@@ -4682,7 +4705,7 @@ rs6000_legitimate_offset_address_p (enum machine_mode mode, rtx x, int strict)
     return false;
   if (!reg_offset_addressing_ok_p (mode))
     return virtual_stack_registers_memory_p (x);
-  if (legitimate_constant_pool_address_p (x))
+  if (legitimate_constant_pool_address_p (x, strict))
     return true;
   if (GET_CODE (XEXP (x, 1)) != CONST_INT)
     return false;
@@ -5031,7 +5054,8 @@ rs6000_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
 	   && constant_pool_expr_p (x)
 	   && ASM_OUTPUT_SPECIAL_POOL_ENTRY_P (get_pool_constant (x), Pmode))
     {
-      return create_TOC_reference (x);
+      rtx reg = TARGET_CMODEL != CMODEL_SMALL ? gen_reg_rtx (Pmode) : NULL_RTX;
+      return create_TOC_reference (x, reg);
     }
   else
     return NULL_RTX;
@@ -5122,10 +5146,13 @@ rs6000_delegitimize_address (rtx orig_x)
   if (MEM_P (x))
     x = XEXP (x, 0);
 
-  if (GET_CODE (x) == PLUS
-      && GET_CODE (XEXP (x, 1)) == CONST
+  if ((GET_CODE (x) == PLUS
+       || GET_CODE (x) == LO_SUM)
       && GET_CODE (XEXP (x, 0)) == REG
-      && REGNO (XEXP (x, 0)) == TOC_REGISTER)
+      && (REGNO (XEXP (x, 0)) == TOC_REGISTER
+	  || TARGET_MINIMAL_TOC
+	  || TARGET_CMODEL != CMODEL_SMALL)
+      && GET_CODE (XEXP (x, 1)) == CONST)
     {
       y = XEXP (XEXP (x, 1), 0);
       if (GET_CODE (y) == UNSPEC
@@ -5137,7 +5164,6 @@ rs6000_delegitimize_address (rtx orig_x)
 	  else
 	    return replace_equiv_address_nv (orig_x, y);
 	}
-      return orig_x;
     }
 
   return orig_x;
@@ -5450,6 +5476,24 @@ rs6000_legitimize_reload_address (rtx x, enum machine_mode mode,
     }
 #endif
 
+  if (TARGET_CMODEL != CMODEL_SMALL
+      && GET_CODE (x) == LO_SUM
+      && GET_CODE (XEXP (x, 0)) == PLUS
+      && GET_CODE (XEXP (XEXP (x, 0), 0)) == REG
+      && REGNO (XEXP (XEXP (x, 0), 0)) == TOC_REGISTER
+      && GET_CODE (XEXP (XEXP (x, 0), 1)) == HIGH
+      && GET_CODE (XEXP (x, 1)) == CONST
+      && GET_CODE (XEXP (XEXP (x, 1), 0)) == UNSPEC
+      && XINT (XEXP (XEXP (x, 1), 0), 1) == UNSPEC_TOCREL
+      && rtx_equal_p (XEXP (XEXP (XEXP (x, 0), 1), 0), XEXP (x, 1)))
+    {
+      push_reload (XEXP (x, 0), NULL_RTX, &XEXP (x, 0), NULL,
+		   BASE_REG_CLASS, Pmode, VOIDmode, 0, 0,
+		   opnum, (enum reload_type) type);
+      *win = 1;
+      return x;
+    }
+
   /* Force ld/std non-word aligned offset into base register by wrapping
      in offset 0.  */
   if (GET_CODE (x) == PLUS
@@ -5575,7 +5619,11 @@ rs6000_legitimize_reload_address (rtx x, enum machine_mode mode,
       && constant_pool_expr_p (x)
       && ASM_OUTPUT_SPECIAL_POOL_ENTRY_P (get_pool_constant (x), mode))
     {
-      x = create_TOC_reference (x);
+      x = create_TOC_reference (x, NULL_RTX);
+      if (TARGET_CMODEL != CMODEL_SMALL)
+	push_reload (XEXP (x, 0), NULL_RTX, &XEXP (x, 0), NULL,
+		     BASE_REG_CLASS, Pmode, VOIDmode, 0, 0,
+		     opnum, (enum reload_type) type);
       *win = 1;
       return x;
     }
@@ -5658,7 +5706,7 @@ rs6000_legitimate_address (enum machine_mode mode, rtx x, int reg_ok_strict)
     return 1;
   if (reg_offset_p && legitimate_small_data_p (mode, x))
     return 1;
-  if (reg_offset_p && legitimate_constant_pool_address_p (x))
+  if (reg_offset_p && legitimate_constant_pool_address_p (x, reg_ok_strict))
     return 1;
   /* If not REG_OK_STRICT (before reload) let pass any stack offset.  */
   if (! reg_ok_strict
@@ -5750,7 +5798,9 @@ rs6000_mode_dependent_address (rtx addr)
       break;
 
     case LO_SUM:
-      return true;
+      /* Anything in the constant pool is sufficiently aligned that
+	 all bytes have the same high part address.  */
+      return !legitimate_constant_pool_address_p (addr, false);
 
     /* Auto-increment cases are now treated generically in recog.c.  */
     case PRE_MODIFY:
@@ -6106,21 +6156,56 @@ rs6000_emit_set_long_const (rtx dest, HOST_WIDE_INT c1, HOST_WIDE_INT c2)
 static void
 rs6000_eliminate_indexed_memrefs (rtx operands[2])
 {
+  if (reload_in_progress)
+    return;
+
   if (GET_CODE (operands[0]) == MEM
       && GET_CODE (XEXP (operands[0], 0)) != REG
-      && ! legitimate_constant_pool_address_p (XEXP (operands[0], 0))
-      && ! reload_in_progress)
+      && ! legitimate_constant_pool_address_p (XEXP (operands[0], 0), false))
     operands[0]
       = replace_equiv_address (operands[0],
 			       copy_addr_to_reg (XEXP (operands[0], 0)));
 
   if (GET_CODE (operands[1]) == MEM
       && GET_CODE (XEXP (operands[1], 0)) != REG
-      && ! legitimate_constant_pool_address_p (XEXP (operands[1], 0))
-      && ! reload_in_progress)
+      && ! legitimate_constant_pool_address_p (XEXP (operands[1], 0), false))
     operands[1]
       = replace_equiv_address (operands[1],
 			       copy_addr_to_reg (XEXP (operands[1], 0)));
+}
+
+/* Return true if memory accesses to DECL are known to never straddle
+   a 32k boundary.  */
+
+static bool
+offsettable_ok_by_alignment (tree decl)
+{
+  unsigned HOST_WIDE_INT dsize, dalign;
+
+  /* Presume any compiler generated symbol_ref is suitably aligned.  */
+  if (!decl)
+    return true;
+
+  if (TREE_CODE (decl) != VAR_DECL
+      && TREE_CODE (decl) != PARM_DECL
+      && TREE_CODE (decl) != RESULT_DECL
+      && TREE_CODE (decl) != FIELD_DECL)
+    return true;
+
+  if (!DECL_SIZE_UNIT (decl))
+    return false;
+
+  if (!host_integerp (DECL_SIZE_UNIT (decl), 1))
+    return false;
+
+  dsize = tree_low_cst (DECL_SIZE_UNIT (decl), 1);
+  if (dsize <= 1)
+    return true;
+  if (dsize > 32768)
+    return false;
+
+  dalign = DECL_ALIGN_UNIT (decl);
+  return dalign >= dsize;
 }
 
 /* Emit a move from SOURCE to DEST in mode MODE.  */
@@ -6436,25 +6521,43 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
       /* If this is a SYMBOL_REF that refers to a constant pool entry,
 	 and we have put it in the TOC, we just need to make a TOC-relative
 	 reference to it.  */
-      if (TARGET_TOC
-	  && GET_CODE (operands[1]) == SYMBOL_REF
-	  && constant_pool_expr_p (operands[1])
-	  && ASM_OUTPUT_SPECIAL_POOL_ENTRY_P (get_pool_constant (operands[1]),
-					      get_pool_mode (operands[1])))
+      if ((TARGET_TOC
+	   && GET_CODE (operands[1]) == SYMBOL_REF
+	   && constant_pool_expr_p (operands[1])
+	   && ASM_OUTPUT_SPECIAL_POOL_ENTRY_P (get_pool_constant (operands[1]),
+					       get_pool_mode (operands[1])))
+	  || (TARGET_CMODEL == CMODEL_MEDIUM
+	      && GET_CODE (operands[1]) == SYMBOL_REF
+	      && !CONSTANT_POOL_ADDRESS_P (operands[1])
+	      && SYMBOL_REF_LOCAL_P (operands[1])
+	      && offsettable_ok_by_alignment (SYMBOL_REF_DECL (operands[1]))))
 	{
-	  operands[1] = create_TOC_reference (operands[1]);
+	  rtx reg = NULL_RTX;
+	  if (TARGET_CMODEL != CMODEL_SMALL)
+	    {
+	      if (can_create_pseudo_p ())
+		reg = gen_reg_rtx (Pmode);
+	      else
+		reg = operands[0];
+	    }
+	  operands[1] = create_TOC_reference (operands[1], reg);
 	}
       else if (mode == Pmode
 	       && CONSTANT_P (operands[1])
 	       && ((GET_CODE (operands[1]) != CONST_INT
 		    && ! easy_fp_constant (operands[1], mode))
 		   || (GET_CODE (operands[1]) == CONST_INT
-		       && num_insns_constant (operands[1], mode) > 2)
+		       && (num_insns_constant (operands[1], mode)
+			   > (TARGET_CMODEL != CMODEL_SMALL ? 3 : 2)))
 		   || (GET_CODE (operands[0]) == REG
 		       && FP_REGNO_P (REGNO (operands[0]))))
 	       && GET_CODE (operands[1]) != HIGH
-	       && ! legitimate_constant_pool_address_p (operands[1])
-	       && ! toc_relative_expr_p (operands[1]))
+	       && ! legitimate_constant_pool_address_p (operands[1], false)
+	       && ! toc_relative_expr_p (operands[1])
+	       && (TARGET_CMODEL == CMODEL_SMALL
+		   || can_create_pseudo_p ()
+		   || (REG_P (operands[0])
+		       && INT_REG_OK_FOR_BASE_P (operands[0], true))))
 	{
 
 #if TARGET_MACHO
@@ -6500,9 +6603,17 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
 			get_pool_constant (XEXP (operands[1], 0)),
 			get_pool_mode (XEXP (operands[1], 0))))
 	    {
-	      operands[1]
-		= gen_const_mem (mode,
-				 create_TOC_reference (XEXP (operands[1], 0)));
+	      rtx tocref;
+	      rtx reg = NULL_RTX;
+	      if (TARGET_CMODEL != CMODEL_SMALL)
+		{
+		  if (can_create_pseudo_p ())
+		    reg = gen_reg_rtx (Pmode);
+		  else
+		    reg = operands[0];
+		}
+	      tocref = create_TOC_reference (XEXP (operands[1], 0), reg);
+	      operands[1] = gen_const_mem (mode, tocref);
 	      set_mem_alias_set (operands[1], get_TOC_alias_set ());
 	    }
 	}
@@ -14811,14 +14922,6 @@ print_operand_address (FILE *file, rtx x)
   else if (GET_CODE (x) == PLUS && GET_CODE (XEXP (x, 1)) == CONST_INT)
     fprintf (file, HOST_WIDE_INT_PRINT_DEC "(%s)",
 	     INTVAL (XEXP (x, 1)), reg_names[ REGNO (XEXP (x, 0)) ]);
-#if TARGET_ELF
-  else if (GET_CODE (x) == LO_SUM && GET_CODE (XEXP (x, 0)) == REG
-	   && CONSTANT_P (XEXP (x, 1)))
-    {
-      output_addr_const (file, XEXP (x, 1));
-      fprintf (file, "@l(%s)", reg_names[ REGNO (XEXP (x, 0)) ]);
-    }
-#endif
 #if TARGET_MACHO
   else if (GET_CODE (x) == LO_SUM && GET_CODE (XEXP (x, 0)) == REG
 	   && CONSTANT_P (XEXP (x, 1)))
@@ -14828,11 +14931,29 @@ print_operand_address (FILE *file, rtx x)
       fprintf (file, ")(%s)", reg_names[ REGNO (XEXP (x, 0)) ]);
     }
 #endif
-  else if (legitimate_constant_pool_address_p (x))
+  else if (legitimate_constant_pool_address_p (x, true))
+    {
+      /* This hack along with a corresponding hack in
+	 rs6000_output_addr_const_extra arranges to output addends
+	 where the assembler expects to find them.  eg.
+	 (lo_sum (reg 9)
+	 .       (const (plus (unspec [symbol_ref ("x") tocrel]) 8)))
+	 without this hack would be output as "x@toc+8@l(9)".  We
+	 want "x+8@toc@l(9)".  */
+      output_addr_const (file, tocrel_base);
+      if (GET_CODE (x) == LO_SUM)
+	fprintf (file, "@l(%s)", reg_names[ REGNO (XEXP (x, 0)) ]);
+      else
+	fprintf (file, "(%s)", reg_names[REGNO (XEXP (x, 0))]);
+    }
+#if TARGET_ELF
+  else if (GET_CODE (x) == LO_SUM && GET_CODE (XEXP (x, 0)) == REG
+	   && CONSTANT_P (XEXP (x, 1)))
     {
       output_addr_const (file, XEXP (x, 1));
-      fprintf (file, "(%s)", reg_names[REGNO (XEXP (x, 0))]);
+      fprintf (file, "@l(%s)", reg_names[ REGNO (XEXP (x, 0)) ]);
     }
+#endif
   else
     gcc_unreachable ();
 }
@@ -14846,9 +14967,14 @@ rs6000_output_addr_const_extra (FILE *file, rtx x)
     switch (XINT (x, 1))
       {
       case UNSPEC_TOCREL:
-	x = XVECEXP (x, 0, 0);
-	gcc_assert (GET_CODE (x) == SYMBOL_REF);
-	output_addr_const (file, x);
+	gcc_assert (GET_CODE (XVECEXP (x, 0, 0)) == SYMBOL_REF);
+	output_addr_const (file, XVECEXP (x, 0, 0));
+	if (x == tocrel_base && tocrel_offset != const0_rtx)
+	  {
+	    if (INTVAL (tocrel_offset) >= 0)
+	      fprintf (file, "+");
+	    output_addr_const (file, tocrel_offset);
+	  }
 	if (!TARGET_AIX || (TARGET_ELF && TARGET_MINIMAL_TOC))
 	  {
 	    putc ('-', file);
@@ -15193,7 +15319,7 @@ rs6000_generate_compare (enum rtx_code code)
 	  && !TARGET_IEEEQUAD
 	  && TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_LONG_DOUBLE_128)
 	emit_insn (gen_rtx_PARALLEL (VOIDmode,
-	  gen_rtvec (9,
+	  gen_rtvec (10,
 		     gen_rtx_SET (VOIDmode,
 				  compare_result,
 				  gen_rtx_COMPARE (comp_mode,
@@ -15206,7 +15332,8 @@ rs6000_generate_compare (enum rtx_code code)
 		     gen_rtx_CLOBBER (VOIDmode, gen_rtx_SCRATCH (DFmode)),
 		     gen_rtx_CLOBBER (VOIDmode, gen_rtx_SCRATCH (DFmode)),
 		     gen_rtx_CLOBBER (VOIDmode, gen_rtx_SCRATCH (DFmode)),
-		     gen_rtx_CLOBBER (VOIDmode, gen_rtx_SCRATCH (DFmode)))));
+		     gen_rtx_CLOBBER (VOIDmode, gen_rtx_SCRATCH (DFmode)),
+		     gen_rtx_CLOBBER (VOIDmode, gen_rtx_SCRATCH (Pmode)))));
       else if (GET_CODE (rs6000_compare_op1) == UNSPEC
 	       && XINT (rs6000_compare_op1, 1) == UNSPEC_SP_TEST)
 	{
@@ -17660,8 +17787,10 @@ uses_TOC (void)
 #endif
 
 rtx
-create_TOC_reference (rtx symbol)
+create_TOC_reference (rtx symbol, rtx largetoc_reg)
 {
+  rtx tocrel, tocreg;
+
   if (TARGET_DEBUG_ADDR)
     {
       if (GET_CODE (symbol) == SYMBOL_REF)
@@ -17677,10 +17806,23 @@ create_TOC_reference (rtx symbol)
 
   if (!can_create_pseudo_p ())
     df_set_regs_ever_live (TOC_REGISTER, true);
-  return gen_rtx_PLUS (Pmode,
-	   gen_rtx_REG (Pmode, TOC_REGISTER),
-	     gen_rtx_CONST (Pmode,
-	       gen_rtx_UNSPEC (Pmode, gen_rtvec (1, symbol), UNSPEC_TOCREL)));
+
+  tocrel = gen_rtx_CONST (Pmode,
+			  gen_rtx_UNSPEC (Pmode, gen_rtvec (1, symbol),
+					  UNSPEC_TOCREL));
+  tocreg = gen_rtx_REG (Pmode, TOC_REGISTER);
+  if (TARGET_CMODEL != CMODEL_SMALL)
+    {
+      rtx hi = gen_rtx_PLUS (Pmode, tocreg, gen_rtx_HIGH (Pmode, tocrel));
+      if (largetoc_reg != NULL)
+	{
+	  emit_move_insn (largetoc_reg, hi);
+	  hi = largetoc_reg;
+	}
+      return gen_rtx_LO_SUM (Pmode, hi, copy_rtx (tocrel));
+    }
+  else
+    return gen_rtx_PLUS (Pmode, tocreg, tocrel);
 }
 
 /* If _Unwind_* has been called from within the same module,

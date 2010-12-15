@@ -156,7 +156,7 @@
 
 (define_constraint "R"
   "AIX TOC entry"
-  (match_test "legitimate_constant_pool_address_p (op)"))
+  (match_test "legitimate_constant_pool_address_p (op, false)"))
 
 ;; General constraints
 

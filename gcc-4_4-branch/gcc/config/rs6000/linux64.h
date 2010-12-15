@@ -61,6 +61,16 @@ extern int dot_symbols;
 #define DOT_SYMBOLS dot_symbols
 #endif
 
+#define TARGET_USES_LINUX64_OPT 1
+#ifdef HAVE_LD_LARGE_TOC
+extern enum rs6000_cmodel cmodel;
+#undef TARGET_CMODEL
+#define TARGET_CMODEL cmodel
+#define SET_CMODEL(opt) cmodel = opt
+#else
+#define SET_CMODEL(opt) do {} while (0)
+#endif
+
 #undef  PROCESSOR_DEFAULT
 #define PROCESSOR_DEFAULT PROCESSOR_POWER6
 #undef  PROCESSOR_DEFAULT64
@@ -112,6 +122,23 @@ extern int dot_symbols;
 	      target_flags |= MASK_POWERPC64;			\
 	      error ("-m64 requires a PowerPC64 cpu");		\
 	    }							\
+	  if ((target_flags_explicit & MASK_MINIMAL_TOC) != 0)	\
+	    {							\
+	      if (rs6000_explicit_options.cmodel		\
+		  && cmodel != CMODEL_SMALL)			\
+		error ("-mcmodel incompatible with other toc options"); \
+	      SET_CMODEL (CMODEL_SMALL);			\
+	    }							\
+	  else							\
+	    {							\
+	      if (!rs6000_explicit_options.cmodel)		\
+		SET_CMODEL (CMODEL_SMALL);			\
+	      if (cmodel != CMODEL_SMALL)			\
+		{						\
+		  TARGET_NO_FP_IN_TOC = 0;			\
+		  TARGET_NO_SUM_IN_TOC = 0;			\
+		}						\
+	    }							\
 	}							\
       else							\
 	{							\
@@ -121,6 +148,11 @@ extern int dot_symbols;
 	    {							\
 	      SET_PROFILE_KERNEL (0);				\
 	      error (INVALID_32BIT, "profile-kernel");		\
+	    }							\
+	  if (rs6000_explicit_options.cmodel)			\
+	    {							\
+	      SET_CMODEL (CMODEL_SMALL);			\
+	      error (INVALID_32BIT, "cmodel");			\
 	    }							\
 	}							\
     }								\

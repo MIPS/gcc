@@ -24874,6 +24874,45 @@ cat >>confdefs.h <<\_ACEOF
 _ACEOF
 
     fi
+
+    echo "$as_me:$LINENO: checking linker large toc support" >&5
+echo $ECHO_N "checking linker large toc support... $ECHO_C" >&6
+if test "${gcc_cv_ld_large_toc+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  gcc_cv_ld_large_toc=no
+    if test $in_tree_ld = yes ; then
+      if test "$gcc_cv_gld_major_version" -eq 2 -a "$gcc_cv_gld_minor_version" -ge 21 -o "$gcc_cv_gld_major_version" -gt 2; then
+        gcc_cv_ld_large_toc=yes
+      fi
+    elif test x$gcc_cv_as != x -a x$gcc_cv_ld != x ; then
+      cat > conftest.s <<EOF
+	.section ".tbss","awT",@nobits
+	.align 3
+ie0:	.space 8
+	.global _start
+	.text
+_start:
+	addis 9,13,ie0@got@tprel@ha
+	ld 9,ie0@got@tprel@l(9)
+EOF
+      if $gcc_cv_as -a64 -o conftest.o conftest.s > /dev/null 2>&1 \
+         && $gcc_cv_ld -melf64ppc --no-toc-sort -o conftest conftest.o > /dev/null 2>&1; then
+        gcc_cv_ld_large_toc=yes
+      fi
+      rm -f conftest conftest.o conftest.s
+    fi
+
+fi
+echo "$as_me:$LINENO: result: $gcc_cv_ld_large_toc" >&5
+echo "${ECHO_T}$gcc_cv_ld_large_toc" >&6
+    if test x"$gcc_cv_ld_large_toc" = xyes; then
+
+cat >>confdefs.h <<\_ACEOF
+#define HAVE_LD_LARGE_TOC 1
+_ACEOF
+
+    fi
     ;;
 esac
 
