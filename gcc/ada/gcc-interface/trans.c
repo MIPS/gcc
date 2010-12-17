@@ -34,6 +34,7 @@
 #include "libfuncs.h"	/* For set_stack_check_libfunc.  */
 #include "tree-iterator.h"
 #include "gimple.h"
+#include "target.h"
 
 #include "ada.h"
 #include "adadecode.h"
@@ -591,12 +592,10 @@ gigi (Node_Id gnat_root, int max_gnat_node, int number_name ATTRIBUTE_UNUSED,
   VEC_safe_push (tree, gc, gnu_program_error_label_stack, NULL_TREE);
 
   /* Process any Pragma Ident for the main unit.  */
-#ifdef ASM_OUTPUT_IDENT
   if (Present (Ident_String (Main_Unit)))
-    ASM_OUTPUT_IDENT
+    targetm.asm_out.output_ident
       (asm_out_file,
        TREE_STRING_POINTER (gnat_to_gnu (Ident_String (Main_Unit))));
-#endif
 
   /* If we are using the GCC exception mechanism, let GCC know.  */
   if (Exception_Mechanism == Back_End_Exceptions)

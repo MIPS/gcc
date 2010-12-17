@@ -68,6 +68,7 @@ extern bool default_print_operand_punct_valid_p (unsigned char);
 extern tree default_mangle_assembler_name (const char *);
 
 extern bool default_asm_output_addr_const_extra (FILE *, rtx);
+extern void legacy_asm_output_ident (FILE *stream, const char *);
 
 extern bool default_scalar_mode_supported_p (enum machine_mode);
 extern bool targhook_words_big_endian (void);

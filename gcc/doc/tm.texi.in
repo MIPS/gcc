@@ -7280,6 +7280,8 @@ A C statement to output something to the assembler file to handle a
 macro is not defined, nothing is output for a @samp{#ident} directive.
 @end defmac
 
+@hook TARGET_ASM_OUTPUT_IDENT
+
 @hook TARGET_ASM_NAMED_SECTION
 Output assembly directives to switch to section @var{name}.  The section
 should have attributes as specified by @var{flags}, which is a bit mask
