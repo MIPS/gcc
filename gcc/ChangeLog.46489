@@ -1,5 +1,10 @@
 2010-12-17  Joern Rennecke  <amylaar@spamcop.net>
 
+gcc/ada:
+	* gcc-interface/decl.c (gnat_to_gnu_param): Use pack_cumulative_args.
+
+2010-12-17  Joern Rennecke  <amylaar@spamcop.net>
+
 	PR middle-end/46500
 	http://gcc.gnu.org/ml/gcc-patches/2010-11/msg01994.html
 	http://gcc.gnu.org/ml/gcc-bugs/2010-11/msg03026.html
