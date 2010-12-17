@@ -129,9 +129,9 @@ static bool crx_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_U
 static int crx_address_cost (rtx, bool);
 static bool crx_legitimate_address_p (enum machine_mode, rtx, bool);
 static bool crx_can_eliminate (const int, const int);
-static rtx crx_function_arg (CUMULATIVE_ARGS *, enum machine_mode,
+static rtx crx_function_arg (cumulative_args_t, enum machine_mode,
 			     const_tree, bool);
-static void crx_function_arg_advance (CUMULATIVE_ARGS *, enum machine_mode,
+static void crx_function_arg_advance (cumulative_args_t, enum machine_mode,
 				      const_tree, bool);
 
 /*****************************************************************************/
@@ -468,9 +468,10 @@ enough_regs_for_param (CUMULATIVE_ARGS * cum, const_tree type,
 /* Implements TARGET_FUNCTION_ARG.  */
 
 static rtx
-crx_function_arg (CUMULATIVE_ARGS * cum, enum machine_mode mode,
+crx_function_arg (cumulative_args_t cum_v, enum machine_mode mode,
 		  const_tree type, bool named ATTRIBUTE_UNUSED)
 {
+  CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
   last_parm_in_reg = 0;
 
   /* Function_arg () is called with this type just after all the args have had
@@ -536,9 +537,11 @@ crx_init_cumulative_args (CUMULATIVE_ARGS * cum, tree fntype,
 /* Implements TARGET_FUNCTION_ARG_ADVANCE.  */
 
 static void
-crx_function_arg_advance (CUMULATIVE_ARGS * cum, enum machine_mode mode,
+crx_function_arg_advance (cumulative_args_t cum_v, enum machine_mode mode,
 			  const_tree type, bool named ATTRIBUTE_UNUSED)
 {
+  CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
+
   /* l holds the number of registers required */
   int l = GET_MODE_BITSIZE (mode) / BITS_PER_WORD;
 

@@ -2322,7 +2322,8 @@ get_call_args (rtx call_insn, tree fn, rtx *args, int nargs)
     {
       enum machine_mode mode = TYPE_MODE (TREE_VALUE (arg));
       rtx reg, link, tmp;
-      reg = targetm.calls.function_arg (&args_so_far, mode, NULL_TREE, true);
+      reg = targetm.calls.function_arg (pack_cumulative_args (&args_so_far),
+					mode, NULL_TREE, true);
       if (!reg || !REG_P (reg) || GET_MODE (reg) != mode
 	  || GET_MODE_CLASS (mode) != MODE_INT)
 	return false;
@@ -2356,7 +2357,8 @@ get_call_args (rtx call_insn, tree fn, rtx *args, int nargs)
       if (tmp)
 	args[idx] = tmp;
 
-      targetm.calls.function_arg_advance (&args_so_far, mode, NULL_TREE, true);
+      targetm.calls.function_arg_advance (pack_cumulative_args (&args_so_far),
+					  mode, NULL_TREE, true);
     }
   if (arg != void_list_node || idx != nargs)
     return false;

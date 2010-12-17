@@ -168,7 +168,7 @@ default_expand_builtin_saveregs (void)
 }
 
 void
-default_setup_incoming_varargs (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,
+default_setup_incoming_varargs (cumulative_args_t ca ATTRIBUTE_UNUSED,
 				enum machine_mode mode ATTRIBUTE_UNUSED,
 				tree type ATTRIBUTE_UNUSED,
 				int *pretend_arg_size ATTRIBUTE_UNUSED,
@@ -187,13 +187,13 @@ default_builtin_setjmp_frame_value (void)
 /* Generic hook that takes a CUMULATIVE_ARGS pointer and returns false.  */
 
 bool
-hook_bool_CUMULATIVE_ARGS_false (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED)
+hook_bool_CUMULATIVE_ARGS_false (cumulative_args_t ca ATTRIBUTE_UNUSED)
 {
   return false;
 }
 
 bool
-default_pretend_outgoing_varargs_named (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED)
+default_pretend_outgoing_varargs_named (cumulative_args_t ca ATTRIBUTE_UNUSED)
 {
   return (targetm.calls.setup_incoming_varargs
 	  != default_setup_incoming_varargs);
@@ -251,7 +251,7 @@ default_mode_rep_extended (enum machine_mode mode ATTRIBUTE_UNUSED,
 /* Generic hook that takes a CUMULATIVE_ARGS pointer and returns true.  */
 
 bool
-hook_bool_CUMULATIVE_ARGS_true (CUMULATIVE_ARGS * a ATTRIBUTE_UNUSED)
+hook_bool_CUMULATIVE_ARGS_true (cumulative_args_t a ATTRIBUTE_UNUSED)
 {
   return true;
 }
@@ -300,7 +300,7 @@ default_cxx_get_cookie_size (tree type)
    of the TARGET_PASS_BY_REFERENCE hook uses just MUST_PASS_IN_STACK.  */
 
 bool
-hook_pass_by_reference_must_pass_in_stack (CUMULATIVE_ARGS *c ATTRIBUTE_UNUSED,
+hook_pass_by_reference_must_pass_in_stack (cumulative_args_t c ATTRIBUTE_UNUSED,
 	enum machine_mode mode ATTRIBUTE_UNUSED, const_tree type ATTRIBUTE_UNUSED,
 	bool named_arg ATTRIBUTE_UNUSED)
 {
@@ -311,7 +311,7 @@ hook_pass_by_reference_must_pass_in_stack (CUMULATIVE_ARGS *c ATTRIBUTE_UNUSED,
    version of the hook is true for all named arguments.  */
 
 bool
-hook_callee_copies_named (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,
+hook_callee_copies_named (cumulative_args_t ca ATTRIBUTE_UNUSED,
 			  enum machine_mode mode ATTRIBUTE_UNUSED,
 			  const_tree type ATTRIBUTE_UNUSED, bool named)
 {
@@ -563,7 +563,7 @@ default_builtin_reciprocal (unsigned int fn ATTRIBUTE_UNUSED,
 
 bool
 hook_bool_CUMULATIVE_ARGS_mode_tree_bool_false (
-	CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,
+	cumulative_args_t ca ATTRIBUTE_UNUSED,
 	enum machine_mode mode ATTRIBUTE_UNUSED,
 	const_tree type ATTRIBUTE_UNUSED, bool named ATTRIBUTE_UNUSED)
 {
@@ -572,7 +572,7 @@ hook_bool_CUMULATIVE_ARGS_mode_tree_bool_false (
 
 bool
 hook_bool_CUMULATIVE_ARGS_mode_tree_bool_true (
-	CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,
+	cumulative_args_t ca ATTRIBUTE_UNUSED,
 	enum machine_mode mode ATTRIBUTE_UNUSED,
 	const_tree type ATTRIBUTE_UNUSED, bool named ATTRIBUTE_UNUSED)
 {
@@ -581,7 +581,7 @@ hook_bool_CUMULATIVE_ARGS_mode_tree_bool_true (
 
 int
 hook_int_CUMULATIVE_ARGS_mode_tree_bool_0 (
-	CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,
+	cumulative_args_t ca ATTRIBUTE_UNUSED,
 	enum machine_mode mode ATTRIBUTE_UNUSED,
 	tree type ATTRIBUTE_UNUSED, bool named ATTRIBUTE_UNUSED)
 {
@@ -589,41 +589,43 @@ hook_int_CUMULATIVE_ARGS_mode_tree_bool_0 (
 }
 
 void
-default_function_arg_advance (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,
+default_function_arg_advance (cumulative_args_t ca ATTRIBUTE_UNUSED,
 			      enum machine_mode mode ATTRIBUTE_UNUSED,
 			      const_tree type ATTRIBUTE_UNUSED,
 			      bool named ATTRIBUTE_UNUSED)
 {
 #ifdef FUNCTION_ARG_ADVANCE
-  CUMULATIVE_ARGS args = *ca;
+  CUMULATIVE_ARGS args = *get_cumulative_args (ca);
   FUNCTION_ARG_ADVANCE (args, mode, CONST_CAST_TREE (type), named);
-  *ca = args;
+  *ca = pack_cumulative_args (args);
 #else
   gcc_unreachable ();
 #endif
 }
 
 rtx
-default_function_arg (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,
+default_function_arg (cumulative_args_t ca ATTRIBUTE_UNUSED,
 		      enum machine_mode mode ATTRIBUTE_UNUSED,
 		      const_tree type ATTRIBUTE_UNUSED,
 		      bool named ATTRIBUTE_UNUSED)
 {
 #ifdef FUNCTION_ARG
-  return FUNCTION_ARG (*ca, mode, CONST_CAST_TREE (type), named);
+  return FUNCTION_ARG (*get_cumulative_args (ca), mode, CONST_CAST_TREE (type),
+		       named);
 #else
   gcc_unreachable ();
 #endif
 }
 
 rtx
-default_function_incoming_arg (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,
+default_function_incoming_arg (cumulative_args_t ca ATTRIBUTE_UNUSED,
 			       enum machine_mode mode ATTRIBUTE_UNUSED,
 			       const_tree type ATTRIBUTE_UNUSED,
 			       bool named ATTRIBUTE_UNUSED)
 {
 #ifdef FUNCTION_INCOMING_ARG
-  return FUNCTION_INCOMING_ARG (*ca, mode, CONST_CAST_TREE (type), named);
+  return FUNCTION_INCOMING_ARG (*get_cumulative_args (ca), mode,
+				CONST_CAST_TREE (type), named);
 #else
   gcc_unreachable ();
 #endif

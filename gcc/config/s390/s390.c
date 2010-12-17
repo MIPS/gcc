@@ -8495,7 +8495,7 @@ s390_function_arg_integer (enum machine_mode mode, const_tree type)
    reference.  */
 
 static bool
-s390_pass_by_reference (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,
+s390_pass_by_reference (cumulative_args_t ca ATTRIBUTE_UNUSED,
 			enum machine_mode mode, const_tree type,
 			bool named ATTRIBUTE_UNUSED)
 {
@@ -8523,9 +8523,11 @@ s390_pass_by_reference (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,
    matching an ellipsis).  */
 
 static void
-s390_function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
+s390_function_arg_advance (cumulative_args_t cum_v, enum machine_mode mode,
 			   const_tree type, bool named ATTRIBUTE_UNUSED)
 {
+  CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
+
   if (s390_function_arg_float (mode, type))
     {
       cum->fprs += 1;
@@ -8559,9 +8561,11 @@ s390_function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
    are pushed to the stack.  */
 
 static rtx
-s390_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
+s390_function_arg (cumulative_args_t cum_v, enum machine_mode mode,
 		   const_tree type, bool named ATTRIBUTE_UNUSED)
 {
+  CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
+
   if (s390_function_arg_float (mode, type))
     {
       if (cum->fprs + 1 > FP_ARG_NUM_REG)
@@ -9607,9 +9611,10 @@ s390_call_saved_register_used (tree call_expr)
  	  type = build_pointer_type (type);
  	}
 
-       parm_rtx = s390_function_arg (&cum, mode, type, 0);
+       parm_rtx
+	= s390_function_arg (pack_cumulative_args (&cum), mode, type, 0);
 
-       s390_function_arg_advance (&cum, mode, type, 0);
+       s390_function_arg_advance (pack_cumulative_args (&cum), mode, type, 0);
 
        if (!parm_rtx)
 	 continue;

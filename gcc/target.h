@@ -49,8 +49,23 @@
 #ifndef GCC_TARGET_H
 #define GCC_TARGET_H
 
-#include "tm.h"
 #include "insn-modes.h"
+
+#ifdef ENABLE_CHECKING
+
+typedef struct { void *magic; void *p; } cumulative_args_t;
+
+#else /* !ENABLE_CHECKING */
+
+#ifdef __GNUC__
+#define ATTRIBUTE_TRANSPARENT_UNION __attribute__((transparent_union))
+#else
+#define ATTRIBUTE_TRANSPARENT_UNION
+#endif
+
+typedef union ATTRIBUTE_TRANSPARENT_UNION { void *p; } cumulative_args_t;
+
+#endif /* !ENABLE_CHECKING */
 
 /* Types used by the record_gcc_switches() target function.  */
 typedef enum
@@ -175,5 +190,33 @@ extern struct gcc_target targetm;
 
 /* Each target can provide their own.  */
 extern struct gcc_targetcm targetcm;
+
+#ifdef GCC_TM_H
+
+#ifndef CUMULATIVE_ARGS_MAGIC
+#define CUMULATIVE_ARGS_MAGIC ((void *) &targetm.calls)
+#endif
+
+static inline CUMULATIVE_ARGS *
+get_cumulative_args (cumulative_args_t arg)
+{
+#ifdef ENABLE_CHECKING
+  gcc_assert (arg.magic == CUMULATIVE_ARGS_MAGIC);
+#endif /* ENABLE_CHECKING */
+  return (CUMULATIVE_ARGS *) arg.p;
+}
+
+static inline cumulative_args_t
+pack_cumulative_args (CUMULATIVE_ARGS *arg)
+{
+  cumulative_args_t ret;
+
+#ifdef ENABLE_CHECKING
+  ret.magic = CUMULATIVE_ARGS_MAGIC;
+#endif /* ENABLE_CHECKING */
+  ret.p = (void *) arg;
+  return ret;
+}
+#endif /* GCC_TM_H */
 
 #endif /* GCC_TARGET_H */

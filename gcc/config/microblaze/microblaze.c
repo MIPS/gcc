@@ -1087,9 +1087,12 @@ init_cumulative_args (CUMULATIVE_ARGS * cum, tree fntype,
 /* Advance the argument to the next argument position.  */
 
 static void
-microblaze_function_arg_advance (CUMULATIVE_ARGS * cum, enum machine_mode mode,
+microblaze_function_arg_advance (cumulative_args_t cum_v,
+				 enum machine_mode mode,
 				 const_tree type, bool named ATTRIBUTE_UNUSED)
 {
+  CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
+
   cum->arg_number++;
   switch (mode)
     {
@@ -1142,10 +1145,12 @@ microblaze_function_arg_advance (CUMULATIVE_ARGS * cum, enum machine_mode mode,
    or 0 if the argument is to be passed on the stack.  */
 
 static rtx
-microblaze_function_arg (CUMULATIVE_ARGS * cum, enum machine_mode mode, 
+microblaze_function_arg (cumulative_args_t cum_v, enum machine_mode mode, 
 			 const_tree type ATTRIBUTE_UNUSED,
 			 bool named ATTRIBUTE_UNUSED)
 {
+  CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
+
   rtx ret;
   int regbase = -1;
   int *arg_words = &cum->arg_words;
@@ -1193,9 +1198,11 @@ microblaze_function_arg (CUMULATIVE_ARGS * cum, enum machine_mode mode,
 
 /* Return number of bytes of argument to put in registers. */
 static int
-function_arg_partial_bytes (CUMULATIVE_ARGS * cum, enum machine_mode mode,	
+function_arg_partial_bytes (cumulative_args_t cum_v, enum machine_mode mode,	
 			    tree type, bool named ATTRIBUTE_UNUSED)	
 {
+  CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
+
   if ((mode == BLKmode
        || GET_MODE_CLASS (mode) != MODE_COMPLEX_INT
        || GET_MODE_CLASS (mode) != MODE_COMPLEX_FLOAT)
@@ -2274,8 +2281,9 @@ microblaze_expand_prologue (void)
 	  passed_mode = Pmode;
 	}
 
-      entry_parm = targetm.calls.function_arg (&args_so_far, passed_mode,
-					       passed_type, true);
+      entry_parm
+	= targetm.calls.function_arg (pack_cumulative_args (&args_so_far),
+				      passed_mode, passed_type, true);
 
       if (entry_parm)
 	{
@@ -2295,8 +2303,8 @@ microblaze_expand_prologue (void)
 	  break;
 	}
 
-      targetm.calls.function_arg_advance (&args_so_far, passed_mode,
-					  passed_type, true);
+      targetm.calls.function_arg_advance (pack_cumulative_args (&args_so_far),
+					  passed_mode, passed_type, true);
 
       next_arg = TREE_CHAIN (cur_arg);
       if (next_arg == 0)
@@ -2310,8 +2318,9 @@ microblaze_expand_prologue (void)
 
   /* Split parallel insn into a sequence of insns.  */
 
-  next_arg_reg = targetm.calls.function_arg (&args_so_far, VOIDmode,
-					     void_type_node, true);
+  next_arg_reg
+    = targetm.calls.function_arg (pack_cumulative_args (&args_so_far),
+				  VOIDmode, void_type_node, true);
   if (next_arg_reg != 0 && GET_CODE (next_arg_reg) == PARALLEL)
     {
       rtvec adjust = XVEC (next_arg_reg, 0);

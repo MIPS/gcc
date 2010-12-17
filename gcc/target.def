@@ -1929,7 +1929,7 @@ DEFHOOK
 (pass_by_reference,
  "",
  bool,
- (CUMULATIVE_ARGS *cum, enum machine_mode mode, const_tree type, bool named),
+ (cumulative_args_t cum, enum machine_mode mode, const_tree type, bool named),
  hook_bool_CUMULATIVE_ARGS_mode_tree_bool_false)
 
 DEFHOOK
@@ -1942,14 +1942,14 @@ DEFHOOK
 DEFHOOK
 (setup_incoming_varargs,
  "",
- void, (CUMULATIVE_ARGS *args_so_far, enum machine_mode mode, tree type,
+ void, (cumulative_args_t args_so_far, enum machine_mode mode, tree type,
 	int *pretend_args_size, int second_time),
  default_setup_incoming_varargs)
 
 DEFHOOK
 (strict_argument_naming,
  "",
- bool, (CUMULATIVE_ARGS *ca),
+ bool, (cumulative_args_t ca),
  hook_bool_CUMULATIVE_ARGS_false)
 
 /* Returns true if we should use
@@ -1958,7 +1958,7 @@ DEFHOOK
 DEFHOOK
 (pretend_outgoing_varargs_named,
  "",
- bool, (CUMULATIVE_ARGS *ca),
+ bool, (cumulative_args_t ca),
  default_pretend_outgoing_varargs_named)
 
 /* Given a complex type T, return true if a parameter of type T
@@ -1985,7 +1985,7 @@ DEFHOOK
 (callee_copies,
  "",
  bool,
- (CUMULATIVE_ARGS *cum, enum machine_mode mode, const_tree type, bool named),
+ (cumulative_args_t cum, enum machine_mode mode, const_tree type, bool named),
  hook_bool_CUMULATIVE_ARGS_mode_tree_bool_false)
 
 /* Return zero for arguments passed entirely on the stack or entirely
@@ -1994,7 +1994,7 @@ DEFHOOK
 DEFHOOK
 (arg_partial_bytes,
  "",
- int, (CUMULATIVE_ARGS *cum, enum machine_mode mode, tree type, bool named),
+ int, (cumulative_args_t cum, enum machine_mode mode, tree type, bool named),
  hook_int_CUMULATIVE_ARGS_mode_tree_bool_0)
 
 /* Update the state in CA to advance past an argument in the
@@ -2005,7 +2005,7 @@ DEFHOOK_UNDOC
 (function_arg_advance,
  "",
  void,
- (CUMULATIVE_ARGS *ca, enum machine_mode mode, const_tree type, bool named),
+ (cumulative_args_t ca, enum machine_mode mode, const_tree type, bool named),
  default_function_arg_advance)
 
 /* Return zero if the argument described by the state of CA should
@@ -2016,7 +2016,7 @@ DEFHOOK_UNDOC
 DEFHOOK_UNDOC
 (function_arg,
  "",
- rtx, (CUMULATIVE_ARGS *ca, enum machine_mode mode, const_tree type,
+ rtx, (cumulative_args_t ca, enum machine_mode mode, const_tree type,
        bool named),
  default_function_arg)
 
@@ -2026,7 +2026,7 @@ DEFHOOK_UNDOC
 DEFHOOK_UNDOC
 (function_incoming_arg,
  "",
- rtx, (CUMULATIVE_ARGS *ca, enum machine_mode mode, const_tree type,
+ rtx, (cumulative_args_t ca, enum machine_mode mode, const_tree type,
        bool named),
  default_function_incoming_arg)
 
