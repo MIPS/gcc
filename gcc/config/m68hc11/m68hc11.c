@@ -1669,7 +1669,7 @@ expand_prologue (void)
      If the first argument is a 32-bit quantity, the D+X registers
      are used.  Use Y to compute the frame.  Otherwise, X is cheaper.
      For 68HC12, this scratch register is not used.  */
-  if (crtl->args.info.nregs == 2)
+  if (get_cumulative_args (crtl->args.info)->nregs == 2)
     scratch = iy_reg;
   else
     scratch = ix_reg;

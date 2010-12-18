@@ -35,6 +35,10 @@ extern enum machine_mode default_cc_modes_compatible (enum machine_mode,
 extern bool default_return_in_memory (const_tree, const_tree);
 
 extern rtx default_expand_builtin_saveregs (void);
+extern cumulative_args_t legacy_init_cumulative_args
+  (void *mem, tree fntype, rtx libname, tree fndecl, int n_named_args);
+extern cumulative_args_t init_simple_cumulative_args
+  (void *mem, tree fntype, rtx libname, tree fndecl, int n_named_args);
 extern void default_setup_incoming_varargs (cumulative_args_t, enum machine_mode, tree, int *, int);
 extern rtx default_builtin_setjmp_frame_value (void);
 extern bool default_pretend_outgoing_varargs_named (cumulative_args_t);
@@ -106,6 +110,7 @@ extern bool hook_bool_CUMULATIVE_ARGS_mode_tree_bool_true
   (cumulative_args_t, enum machine_mode, const_tree, bool);
 extern int hook_int_CUMULATIVE_ARGS_mode_tree_bool_0
   (cumulative_args_t, enum machine_mode, tree, bool);
+extern int hook_int_cumulative_args_0 (cumulative_args_t);
 extern const char *hook_invalid_arg_for_unprototyped_fn
   (const_tree, const_tree, const_tree);
 extern void default_function_arg_advance

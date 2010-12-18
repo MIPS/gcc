@@ -185,9 +185,9 @@ static struct alpha_rtx_cost_data const alpha_rtx_cost_size =
 
 /* Get the number of args of a function in one of two ways.  */
 #if TARGET_ABI_OPEN_VMS || TARGET_ABI_UNICOSMK
-#define NUM_ARGS crtl->args.info.num_args
+#define NUM_ARGS (*get_cumulative_args (crtl->args.info)).num_args
 #else
-#define NUM_ARGS crtl->args.info
+#define NUM_ARGS (*get_cumulative_args (crtl->args.info))
 #endif
 
 #define REG_PV 27
@@ -6395,7 +6395,8 @@ alpha_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
   t = fold_convert (lang_hooks.types.type_for_size (64, 0), offset_field);
   offset = get_initialized_tmp_var (t, pre_p, NULL);
 
-  indirect = pass_by_reference (NULL, TYPE_MODE (type), type, false);
+  indirect = pass_by_reference (pack_cumulative_args (NULL), TYPE_MODE (type),
+				type, false);
   if (indirect)
     type = build_pointer_type_for_mode (type, ptr_mode, true);
 

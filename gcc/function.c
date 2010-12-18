@@ -2083,7 +2083,7 @@ use_register_for_decl (const_tree decl)
 /* Return true if TYPE should be passed by invisible reference.  */
 
 bool
-pass_by_reference (CUMULATIVE_ARGS *ca, enum machine_mode mode,
+pass_by_reference (cumulative_args_t ca, enum machine_mode mode,
 		   tree type, bool named_arg)
 {
   if (type)
@@ -2106,20 +2106,19 @@ pass_by_reference (CUMULATIVE_ARGS *ca, enum machine_mode mode,
 	}
     }
 
-  return targetm.calls.pass_by_reference (pack_cumulative_args (ca), mode,
-					  type, named_arg);
+  return targetm.calls.pass_by_reference (ca, mode, type, named_arg);
 }
 
 /* Return true if TYPE, which is passed by reference, should be callee
    copied instead of caller copied.  */
 
 bool
-reference_callee_copied (CUMULATIVE_ARGS *ca, enum machine_mode mode,
+reference_callee_copied (cumulative_args_t ca, enum machine_mode mode,
 			 tree type, bool named_arg)
 {
   if (type && TREE_ADDRESSABLE (type))
     return false;
-  return targetm.calls.callee_copies (pack_cumulative_args (ca), mode, type, named_arg);
+  return targetm.calls.callee_copies (ca, mode, type, named_arg);
 }
 
 /* Structures to communicate between the subroutines of assign_parms.
@@ -2128,7 +2127,7 @@ reference_callee_copied (CUMULATIVE_ARGS *ca, enum machine_mode mode,
 
 struct assign_parm_data_all
 {
-  CUMULATIVE_ARGS args_so_far;
+  cumulative_args_t args_so_far;
   struct args_size stack_args_size;
   tree function_result_decl;
   tree orig_fnargs;
@@ -2159,7 +2158,7 @@ struct assign_parm_data_one
 /* A subroutine of assign_parms.  Initialize ALL.  */
 
 static void
-assign_parms_initialize_all (struct assign_parm_data_all *all)
+assign_parms_initialize_all (struct assign_parm_data_all *all, void *mem)
 {
   tree fntype ATTRIBUTE_UNUSED;
 
@@ -2167,12 +2166,9 @@ assign_parms_initialize_all (struct assign_parm_data_all *all)
 
   fntype = TREE_TYPE (current_function_decl);
 
-#ifdef INIT_CUMULATIVE_INCOMING_ARGS
-  INIT_CUMULATIVE_INCOMING_ARGS (all->args_so_far, fntype, NULL_RTX);
-#else
-  INIT_CUMULATIVE_ARGS (all->args_so_far, fntype, NULL_RTX,
-			current_function_decl, -1);
-#endif
+  all->args_so_far
+    = targetm.calls.init_cumulative_args (mem, fntype, NULL_RTX,
+					  current_function_decl, -1);
 
 #ifdef REG_PARM_STACK_SPACE
   all->reg_parm_stack_space = REG_PARM_STACK_SPACE (current_function_decl);
@@ -2292,8 +2288,7 @@ assign_parm_find_data_types (struct assign_parm_data_all *all, tree parm,
     data->named_arg = 1;  /* No variadic parms.  */
   else if (DECL_CHAIN (parm))
     data->named_arg = 1;  /* Not the last non-variadic parm. */
-  else if (targetm.calls.strict_argument_naming
-	    (pack_cumulative_args (&all->args_so_far)))
+  else if (targetm.calls.strict_argument_naming (all->args_so_far))
     data->named_arg = 1;  /* Only variadic ones are unnamed.  */
   else
     data->named_arg = 0;  /* Treat as variadic.  */
@@ -2329,7 +2324,7 @@ assign_parm_find_data_types (struct assign_parm_data_all *all, tree parm,
     passed_type = TREE_TYPE (first_field (passed_type));
 
   /* See if this arg was passed by invisible reference.  */
-  if (pass_by_reference (&all->args_so_far, passed_mode,
+  if (pass_by_reference (all->args_so_far, passed_mode,
 			 passed_type, data->named_arg))
     {
       passed_type = nominal_type = build_pointer_type (passed_type);
@@ -2358,9 +2353,9 @@ assign_parms_setup_varargs (struct assign_parm_data_all *all,
 {
   int varargs_pretend_bytes = 0;
 
-  (targetm.calls.setup_incoming_varargs
-    (pack_cumulative_args (&all->args_so_far), data->promoted_mode,
-			   data->passed_type, &varargs_pretend_bytes, no_rtl));
+  targetm.calls.setup_incoming_varargs (all->args_so_far, data->promoted_mode,
+					data->passed_type,
+					&varargs_pretend_bytes, no_rtl);
 
   /* If the back-end has requested extra stack space, record how much is
      needed.  Do not change pretend_args_size otherwise since it may be
@@ -2387,7 +2382,7 @@ assign_parm_find_entry_rtl (struct assign_parm_data_all *all,
     }
 
   entry_parm = (targetm.calls.function_incoming_arg
-		 (pack_cumulative_args (&all->args_so_far),
+		 (all->args_so_far,
 		  data->promoted_mode, data->passed_type, data->named_arg));
 
   if (entry_parm == 0)
@@ -2409,12 +2404,11 @@ assign_parm_find_entry_rtl (struct assign_parm_data_all *all,
 #endif
   if (!in_regs && !data->named_arg)
     {
-      if (targetm.calls.pretend_outgoing_varargs_named
-	   (pack_cumulative_args (&all->args_so_far)))
+      if (targetm.calls.pretend_outgoing_varargs_named (all->args_so_far))
 	{
 	  rtx tem;
 	  tem = (targetm.calls.function_incoming_arg
-		  (pack_cumulative_args (&all->args_so_far),
+		  (all->args_so_far,
 		   data->promoted_mode, data->passed_type, true));
 	  in_regs = tem != NULL;
 	}
@@ -2431,7 +2425,7 @@ assign_parm_find_entry_rtl (struct assign_parm_data_all *all,
       int partial;
 
       partial = (targetm.calls.arg_partial_bytes
-		  (pack_cumulative_args (&all->args_so_far),
+		  (all->args_so_far,
 		   data->promoted_mode, data->passed_type, data->named_arg));
       data->partial = partial;
 
@@ -3309,7 +3303,9 @@ assign_parms (tree fndecl)
   crtl->args.internal_arg_pointer
     = targetm.calls.internal_arg_pointer ();
 
-  assign_parms_initialize_all (&all);
+  /* We will be storing all.args_so_far in crtl, so use the statically
+     allocated CUMULATIVE_ARGS.  */
+  assign_parms_initialize_all (&all, NULL);
   fnargs = assign_parms_augmented_arg_list (&all);
 
   FOR_EACH_VEC_ELT (tree, fnargs, i, parm)
@@ -3363,9 +3359,8 @@ assign_parms (tree fndecl)
       set_decl_incoming_rtl (parm, data.entry_parm, data.passed_pointer);
 
       /* Update info on where next arg arrives in registers.  */
-      (targetm.calls.function_arg_advance
-	(pack_cumulative_args (&all.args_so_far), data.promoted_mode,
-			       data.passed_type, data.named_arg));
+      targetm.calls.function_arg_advance (all.args_so_far, data.promoted_mode,
+					  data.passed_type, data.named_arg);
 
       assign_parm_adjust_stack_rtl (&data);
 
@@ -3539,7 +3534,8 @@ gimplify_parameters (void)
   VEC(tree, heap) *fnargs;
   unsigned i;
 
-  assign_parms_initialize_all (&all);
+  assign_parms_initialize_all (&all,
+			       alloca (targetm.calls.cumulative_args_size));
   fnargs = assign_parms_augmented_arg_list (&all);
 
   FOR_EACH_VEC_ELT (tree, fnargs, i, parm)
@@ -3554,9 +3550,8 @@ gimplify_parameters (void)
 	continue;
 
       /* Update info on where next arg arrives in registers.  */
-      (targetm.calls.function_arg_advance
-	(pack_cumulative_args (&all.args_so_far), data.promoted_mode,
-			       data.passed_type, data.named_arg));
+      targetm.calls.function_arg_advance (all.args_so_far, data.promoted_mode,
+					  data.passed_type, data.named_arg);
 
       /* ??? Once upon a time variable_size stuffed parameter list
 	 SAVE_EXPRs (amongst others) onto a pending sizes list.  This
@@ -3574,7 +3569,7 @@ gimplify_parameters (void)
       if (data.passed_pointer)
 	{
           tree type = TREE_TYPE (data.passed_type);
-	  if (reference_callee_copied (&all.args_so_far, TYPE_MODE (type),
+	  if (reference_callee_copied (all.args_so_far, TYPE_MODE (type),
 				       type, data.named_arg))
 	    {
 	      tree local, t;

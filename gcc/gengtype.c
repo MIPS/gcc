@@ -497,6 +497,8 @@ do_typedef (const char *s, type_p t, struct fileloc *pos)
      definitions).  */
   if (!strcmp (s, "CUMULATIVE_ARGS") && pos->file != this_file)
     return;
+  if (!strcmp (s, "cumulative_args_t") && pos->file != this_file)
+    return;
 
   for (p = typedefs; p != NULL; p = p->next)
     if (strcmp (p->name, s) == 0)
@@ -4871,6 +4873,7 @@ main (int argc, char **argv)
 #define POS_HERE(Call) do { pos.file = this_file; pos.line = __LINE__; \
 	Call;} while(0)
       POS_HERE (do_scalar_typedef ("CUMULATIVE_ARGS", &pos));
+      POS_HERE (do_scalar_typedef ("cumulative_args_t", &pos));
       POS_HERE (do_scalar_typedef ("REAL_VALUE_TYPE", &pos));
       POS_HERE (do_scalar_typedef ("FIXED_VALUE_TYPE", &pos));
       POS_HERE (do_scalar_typedef ("double_int", &pos));

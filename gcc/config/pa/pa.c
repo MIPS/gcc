@@ -6100,7 +6100,8 @@ hppa_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
       unsigned int size, ofs;
       bool indirect;
 
-      indirect = pass_by_reference (NULL, TYPE_MODE (type), type, 0);
+      indirect = pass_by_reference (pack_cumulative_args (NULL),
+				    TYPE_MODE (type), type, 0);
       if (indirect)
 	{
 	  type = ptr;

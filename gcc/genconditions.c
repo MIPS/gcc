@@ -70,6 +70,7 @@ write_header (void)
 \n\
 #include \"coretypes.h\"\n\
 #include \"tm.h\"\n\
+#include \"target.h\"\n\
 #include \"insn-constants.h\"\n\
 #include \"rtl.h\"\n\
 #include \"tm_p.h\"\n\

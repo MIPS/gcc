@@ -292,6 +292,7 @@ static void sh_function_arg_advance (cumulative_args_t, enum machine_mode,
 				     const_tree, bool);
 static rtx sh_function_arg (cumulative_args_t, enum machine_mode,
 			    const_tree, bool);
+static int sh_call_pops_args (cumulative_args_t ca);
 static bool sh_scalar_mode_supported_p (enum machine_mode);
 static int sh_dwarf_calling_convention (const_tree);
 static void sh_encode_section_info (tree, rtx, int);
@@ -546,6 +547,8 @@ static const struct default_options sh_option_optimization_table[] =
 #define TARGET_FUNCTION_ARG sh_function_arg
 #undef TARGET_FUNCTION_ARG_ADVANCE
 #define TARGET_FUNCTION_ARG_ADVANCE sh_function_arg_advance
+#undef TARGET_CALL_POPS_ARGS
+#define TARGET_CALL_POPS_ARGS sh_call_pops_args
 
 #undef TARGET_BUILD_BUILTIN_VA_LIST
 #define TARGET_BUILD_BUILTIN_VA_LIST sh_build_builtin_va_list
@@ -6710,7 +6713,7 @@ calc_live_regs (HARD_REG_SET *live_regs_mask)
   /* Force PR to be live if the prologue has to call the SHmedia
      argument decoder or register saver.  */
   if (TARGET_SHCOMPACT
-      && ((crtl->args.info.call_cookie
+      && ((get_cumulative_args (crtl->args.info)->call_cookie
 	   & ~ CALL_COOKIE_RET_TRAMP (1))
 	  || crtl->saves_all_registers))
     pr_live = 1;
@@ -6737,7 +6740,7 @@ calc_live_regs (HARD_REG_SET *live_regs_mask)
 	  : (/* Only push those regs which are used and need to be saved.  */
 	     (TARGET_SHCOMPACT
 	      && flag_pic
-	      && crtl->args.info.call_cookie
+	      && get_cumulative_args (crtl->args.info)->call_cookie
 	      && reg == PIC_OFFSET_TABLE_REGNUM)
 	     || (df_regs_ever_live_p (reg)
 		 && ((!call_really_used_regs[reg]
@@ -6986,6 +6989,7 @@ sh_expand_prologue (void)
   int stack_usage;
   tree sp_switch_attr
     = lookup_attribute ("sp_switch", DECL_ATTRIBUTES (current_function_decl));
+  CUMULATIVE_ARGS *ca = get_cumulative_args (crtl->args.info);
 
   current_function_interrupt = sh_cfun_interrupt_handler_p ();
 
@@ -6993,24 +6997,21 @@ sh_expand_prologue (void)
      and partially on the stack, e.g. a large structure.  */
   pretend_args = crtl->args.pretend_args_size;
   if (TARGET_VARARGS_PRETEND_ARGS (current_function_decl)
-      && (NPARM_REGS(SImode)
-	  > crtl->args.info.arg_count[(int) SH_ARG_INT]))
+      && (NPARM_REGS(SImode) > ca->arg_count[(int) SH_ARG_INT]))
     pretend_args = 0;
 
-  output_stack_adjust (-pretend_args
-		       - crtl->args.info.stack_regs * 8,
+  output_stack_adjust (-pretend_args - ca->stack_regs * 8,
 		       stack_pointer_rtx, 0, NULL, true);
-  stack_usage = pretend_args + crtl->args.info.stack_regs * 8;
+  stack_usage = pretend_args + ca->stack_regs * 8;
 
-  if (TARGET_SHCOMPACT && flag_pic && crtl->args.info.call_cookie)
+  if (TARGET_SHCOMPACT && flag_pic && ca->call_cookie)
     /* We're going to use the PIC register to load the address of the
        incoming-argument decoder and/or of the return trampoline from
        the GOT, so make sure the PIC register is preserved and
        initialized.  */
     df_set_regs_ever_live (PIC_OFFSET_TABLE_REGNUM, true);
 
-  if (TARGET_SHCOMPACT
-      && (crtl->args.info.call_cookie & ~ CALL_COOKIE_RET_TRAMP(1)))
+  if (TARGET_SHCOMPACT && (ca->call_cookie & ~ CALL_COOKIE_RET_TRAMP(1)))
     {
       int reg;
 
@@ -7018,20 +7019,19 @@ sh_expand_prologue (void)
 	 be pushed onto the stack live, so that register renaming
 	 doesn't overwrite them.  */
       for (reg = 0; reg < NPARM_REGS (SImode); reg++)
-	if (CALL_COOKIE_STACKSEQ_GET (crtl->args.info.call_cookie)
+	if (CALL_COOKIE_STACKSEQ_GET (ca->call_cookie)
 	    >= NPARM_REGS (SImode) - reg)
 	  for (; reg < NPARM_REGS (SImode); reg++)
 	    emit_insn (gen_shcompact_preserve_incoming_args
 		       (gen_rtx_REG (SImode, FIRST_PARM_REG + reg)));
 	else if (CALL_COOKIE_INT_REG_GET
-		 (crtl->args.info.call_cookie, reg) == 1)
+		 (ca->call_cookie, reg) == 1)
 	  emit_insn (gen_shcompact_preserve_incoming_args
 		     (gen_rtx_REG (SImode, FIRST_PARM_REG + reg)));
 
       emit_move_insn (gen_rtx_REG (Pmode, MACL_REG),
 		      stack_pointer_rtx);
-      emit_move_insn (gen_rtx_REG (SImode, R0_REG),
-		      GEN_INT (crtl->args.info.call_cookie));
+      emit_move_insn (gen_rtx_REG (SImode, R0_REG), GEN_INT (ca->call_cookie));
       emit_move_insn (gen_rtx_REG (SImode, MACH_REG),
 		      gen_rtx_REG (SImode, R0_REG));
     }
@@ -7055,7 +7055,7 @@ sh_expand_prologue (void)
 	      int rn = NPARM_REGS(SImode) + FIRST_PARM_REG - i - 1;
 
 	      if (i >= (NPARM_REGS(SImode)
-			- crtl->args.info.arg_count[(int) SH_ARG_INT]
+			- ca->arg_count[(int) SH_ARG_INT]
 			))
 		break;
 	      push (rn);
@@ -7317,7 +7317,7 @@ sh_expand_prologue (void)
     frame_insn (GEN_MOV (hard_frame_pointer_rtx, stack_pointer_rtx));
 
   if (TARGET_SHCOMPACT
-      && (crtl->args.info.call_cookie & ~ CALL_COOKIE_RET_TRAMP(1)))
+      && (ca->call_cookie & ~ CALL_COOKIE_RET_TRAMP(1)))
     {
       /* This must NOT go through the PLT, otherwise mach and macl
 	 may be clobbered.  */
@@ -7610,7 +7610,7 @@ sh_expand_epilogue (bool sibcall_p)
 
   output_stack_adjust (crtl->args.pretend_args_size
 		       + save_size + d_rounding
-		       + crtl->args.info.stack_regs * 8,
+		       + get_cumulative_args (crtl->args.info)->stack_regs * 8,
 		       stack_pointer_rtx, e, NULL, false);
 
   if (crtl->calls_eh_return)
@@ -7732,12 +7732,13 @@ sh_output_function_epilogue (FILE *file ATTRIBUTE_UNUSED,
 static rtx
 sh_builtin_saveregs (void)
 {
+  CUMULATIVE_ARGS *ca = get_cumulative_args (crtl->args.info);
   /* First unnamed integer register.  */
-  int first_intreg = crtl->args.info.arg_count[(int) SH_ARG_INT];
+  int first_intreg = ca->arg_count[(int) SH_ARG_INT];
   /* Number of integer registers we need to save.  */
   int n_intregs = MAX (0, NPARM_REGS (SImode) - first_intreg);
   /* First unnamed SFmode float reg */
-  int first_floatreg = crtl->args.info.arg_count[(int) SH_ARG_FLOAT];
+  int first_floatreg = ca->arg_count[(int) SH_ARG_FLOAT];
   /* Number of SFmode float regs to save.  */
   int n_floatregs = MAX (0, NPARM_REGS (SFmode) - first_floatreg);
   rtx regbuf, fpregs;
@@ -7752,22 +7753,22 @@ sh_builtin_saveregs (void)
 
 	  while (pushregs < NPARM_REGS (SImode) - 1
 		 && (CALL_COOKIE_INT_REG_GET
-			(crtl->args.info.call_cookie,
+			(ca->call_cookie,
 			 NPARM_REGS (SImode) - pushregs)
 		     == 1))
 	    {
-	      crtl->args.info.call_cookie
+	      ca->call_cookie
 		&= ~ CALL_COOKIE_INT_REG (NPARM_REGS (SImode)
 					  - pushregs, 1);
 	      pushregs++;
 	    }
 
 	  if (pushregs == NPARM_REGS (SImode))
-	    crtl->args.info.call_cookie
+	    ca->call_cookie
 	      |= (CALL_COOKIE_INT_REG (0, 1)
 		  | CALL_COOKIE_STACKSEQ (pushregs - 1));
 	  else
-	    crtl->args.info.call_cookie
+	    ca->call_cookie
 	      |= CALL_COOKIE_STACKSEQ (pushregs);
 
 	  crtl->args.pretend_args_size += 8 * n_intregs;
@@ -7977,7 +7978,7 @@ sh_va_start (tree valist, rtx nextarg)
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
-  nfp = crtl->args.info.arg_count[SH_ARG_FLOAT];
+  nfp = get_cumulative_args (crtl->args.info)->arg_count[SH_ARG_FLOAT];
   if (nfp < 8)
     nfp = 8 - nfp;
   else
@@ -7992,7 +7993,7 @@ sh_va_start (tree valist, rtx nextarg)
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
-  nint = crtl->args.info.arg_count[SH_ARG_INT];
+  nint = get_cumulative_args (crtl->args.info)->arg_count[SH_ARG_INT];
   if (nint < 4)
     nint = 4 - nint;
   else
@@ -8751,6 +8752,18 @@ sh_pretend_outgoing_varargs_named (cumulative_args_t ca_v)
   return ! (TARGET_HITACHI || ca->renesas_abi) && ! TARGET_SH5;
 }
 
+/* Value is the number of bytes of arguments automatically popped when
+   calling a subroutine.
+   CA is the accumulated argument list.
+
+   On SHcompact, the call trampoline pops arguments off the stack.  */
+static int
+sh_call_pops_args (cumulative_args_t ca)
+{
+  return TARGET_SHCOMPACT ? get_cumulative_args (ca)->stack_regs * 8 : 0;
+}
+
+
 
 /* Define the offset between two registers, one to be eliminated, and
    the other its replacement, at the start of a routine.  */
@@ -8788,11 +8801,11 @@ initial_elimination_offset (int from, int to)
 
   if (from == ARG_POINTER_REGNUM && to == HARD_FRAME_POINTER_REGNUM)
     return total_saved_regs_space + total_auto_space
-      + crtl->args.info.byref_regs * 8;
+      + get_cumulative_args (crtl->args.info)->byref_regs * 8;
 
   if (from == ARG_POINTER_REGNUM && to == STACK_POINTER_REGNUM)
     return total_saved_regs_space + total_auto_space
-      + crtl->args.info.byref_regs * 8;
+      + get_cumulative_args (crtl->args.info)->byref_regs * 8;
 
   /* Initial gap between fp and sp is 0.  */
   if (from == HARD_FRAME_POINTER_REGNUM && to == STACK_POINTER_REGNUM)
@@ -10403,7 +10416,7 @@ sh_allocate_initial_value (rtx hard_reg)
       if (current_function_is_leaf
 	  && ! sh_pr_n_sets ()
 	  && ! (TARGET_SHCOMPACT
-		&& ((crtl->args.info.call_cookie
+		&& ((get_cumulative_args (crtl->args.info)->call_cookie
 		     & ~ CALL_COOKIE_RET_TRAMP (1))
 		    || crtl->saves_all_registers)))
 	x = hard_reg;
@@ -11013,7 +11026,7 @@ sh_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
 {
   return (1
 	  && (! TARGET_SHCOMPACT
-	      || crtl->args.info.stack_regs == 0)
+	      || get_cumulative_args (crtl->args.info)->stack_regs == 0)
 	  && ! sh_cfun_interrupt_handler_p ()
 	  && (! flag_pic
 	      || (decl && ! TREE_PUBLIC (decl))
@@ -11929,7 +11942,7 @@ sh_get_pr_initial_val (void)
      PR register on SHcompact, because it might be clobbered by the prologue.
      We check first if that is known to be the case.  */
   if (TARGET_SHCOMPACT
-      && ((crtl->args.info.call_cookie
+      && ((get_cumulative_args (crtl->args.info)->call_cookie
 	   & ~ CALL_COOKIE_RET_TRAMP (1))
 	  || crtl->saves_all_registers))
     return gen_frame_mem (SImode, return_address_pointer_rtx);

@@ -2253,7 +2253,8 @@ static void
 frv_expand_builtin_va_start (tree valist, rtx nextarg)
 {
   tree t;
-  int num = crtl->args.info - FIRST_ARG_REGNUM - FRV_NUM_ARG_REGS;
+  int num = (*get_cumulative_args (crtl->args.info)
+	     - FIRST_ARG_REGNUM - FRV_NUM_ARG_REGS);
 
   nextarg = gen_rtx_PLUS (Pmode, virtual_incoming_args_rtx,
 			  GEN_INT (UNITS_PER_WORD * num));
@@ -2261,7 +2262,7 @@ frv_expand_builtin_va_start (tree valist, rtx nextarg)
   if (TARGET_DEBUG_ARG)
     {
       fprintf (stderr, "va_start: args_info = %d, num = %d\n",
-	       crtl->args.info, num);
+	       *get_cumulative_args (crtl->args.info), num);
 
       debug_rtx (nextarg);
     }

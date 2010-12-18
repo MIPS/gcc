@@ -210,7 +210,7 @@ struct GTY(()) incoming_args {
 
   /* Quantities of various kinds of registers
      used for the current function's args.  */
-  CUMULATIVE_ARGS info;
+  cumulative_args_t info;
 
   /* The arg pointer hard register, or the pseudo into which it was copied.  */
   rtx internal_arg_pointer;
@@ -746,9 +746,9 @@ extern const char *current_function_name (void);
 
 extern void do_warn_unused_parameter (tree);
 
-extern bool pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
+extern bool pass_by_reference (cumulative_args_t, enum machine_mode,
 			       tree, bool);
-extern bool reference_callee_copied (CUMULATIVE_ARGS *, enum machine_mode,
+extern bool reference_callee_copied (cumulative_args_t, enum machine_mode,
 				     tree, bool);
 
 extern void used_types_insert (tree);

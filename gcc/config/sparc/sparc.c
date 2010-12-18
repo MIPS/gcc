@@ -6250,7 +6250,7 @@ sparc_function_value_regno_p (const unsigned int regno)
 static rtx
 sparc_builtin_saveregs (void)
 {
-  int first_reg = crtl->args.info.words;
+  int first_reg = get_cumulative_args (crtl->args.info)->words;
   rtx address;
   int regno;
 
@@ -6292,7 +6292,8 @@ sparc_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
   bool indirect;
   tree ptrtype = build_pointer_type (type);
 
-  if (pass_by_reference (NULL, TYPE_MODE (type), type, false))
+  if (pass_by_reference (pack_cumulative_args (NULL), TYPE_MODE (type), type,
+			 false))
     {
       indirect = true;
       size = rsize = UNITS_PER_WORD;

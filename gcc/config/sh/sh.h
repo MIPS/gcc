@@ -1362,13 +1362,6 @@ extern enum reg_class regno_reg_class[FIRST_PSEUDO_REGISTER];
 /* Offset of first parameter from the argument pointer register value.  */
 #define FIRST_PARM_OFFSET(FNDECL)  0
 
-/* Value is the number of bytes of arguments automatically popped when
-   calling a subroutine.
-   CUM is the accumulated argument list.
-
-   On SHcompact, the call trampoline pops arguments off the stack.  */
-#define CALL_POPS_ARGS(CUM) (TARGET_SHCOMPACT ? (CUM).stack_regs * 8 : 0)
-
 /* Some subroutine macros specific to this machine.  */
 
 #define BASE_RETURN_VALUE_REG(MODE) \

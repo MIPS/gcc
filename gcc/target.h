@@ -51,22 +51,6 @@
 
 #include "insn-modes.h"
 
-#ifdef ENABLE_CHECKING
-
-typedef struct { void *magic; void *p; } cumulative_args_t;
-
-#else /* !ENABLE_CHECKING */
-
-#ifdef __GNUC__
-#define ATTRIBUTE_TRANSPARENT_UNION __attribute__((transparent_union))
-#else
-#define ATTRIBUTE_TRANSPARENT_UNION
-#endif
-
-typedef union ATTRIBUTE_TRANSPARENT_UNION { void *p; } cumulative_args_t;
-
-#endif /* !ENABLE_CHECKING */
-
 /* Types used by the record_gcc_switches() target function.  */
 typedef enum
 {

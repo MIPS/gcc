@@ -1922,6 +1922,31 @@ DEFHOOK
  bool, (const_tree type),
  hook_bool_const_tree_false)
 
+DEFHOOKPOD
+(cumulative_args_size,
+ "The amount of memory, in bytes, that the caller should allocate when\
+ passing a non-@code{NULL} @var{mem} argument to the\
+ @code{init_cumulative_args} target hook.",
+/* Once we  got all the  struct-user ports fully hookized, we can use
+   sizeof(int) as  default.  */
+ const size_t, sizeof (CUMULATIVE_ARGS))
+
+DEFHOOK
+(init_cumulative_args,
+ /* Still waiting on the FSF to allow us to put the full documentation here.  */
+ "Broadly like @code{INIT_CUMULATIVE_ARGS}, but it's a hook.\
+  @var{mem} is a memory area to accomodate the target-specific data referred\
+  to by a cumulative_args_t.  It should be (at least) of the size that\
+  @code{TARGET_CUMULATIVE_ARGS_SIZE} indicates.\
+  If @var{mem} is NULL, a statically allocated memory area is used.\
+  When @var{libname} is set, @var{fntype} contains a type which is not\
+  necessarily the actual return type, but which has the same machine mode.\
+  The return value is a @code{cumulative_args_t} that refers to the\
+  initialized argument information.",
+ cumulative_args_t,
+ (void *mem, tree fntype, rtx libname, tree fndecl, int n_named),
+ legacy_init_cumulative_args)
+
 /* Return true if a parameter must be passed by reference.  TYPE may
    be null if this is a libcall.  CA may be null if this query is
    from __builtin_va_arg.  */
@@ -2128,6 +2153,12 @@ DEFHOOK
  "",
  int, (tree fundecl, tree funtype, int size),
  default_return_pops_args)
+
+DEFHOOK
+(call_pops_args,
+ "",
+ int, (cumulative_args_t ca),
+ hook_int_cumulative_args_0)
 
 /* Return a mode wide enough to copy any function value that might be
    returned.  */

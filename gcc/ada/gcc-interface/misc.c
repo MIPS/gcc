@@ -623,7 +623,8 @@ default_pass_by_ref (tree gnu_type)
      is an In Out parameter, but it's probably best to err on the side of
      passing more things by reference.  */
 
-  if (pass_by_reference (NULL, TYPE_MODE (gnu_type), gnu_type, true))
+  if (pass_by_reference (pack_cumulative_args (NULL), TYPE_MODE (gnu_type),
+			 gnu_type, true))
     return true;
 
   if (targetm.calls.return_in_memory (gnu_type, NULL_TREE))
