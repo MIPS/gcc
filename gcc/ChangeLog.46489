@@ -1,5 +1,10 @@
 2010-12-18  Joern Rennecke  <amylaar@spamcop.net>
 
+	From Ralf Wildenhues:
+	* target.def (init_cumulative_args): Documentation spelling fixes.
+
+2010-12-18  Joern Rennecke  <amylaar@spamcop.net>
+
 gcc:
 	* doc/tm.texi: Regenerate.
 	* doc/tm.texi.in (CALL_POPS_ARGS): Change into ...
