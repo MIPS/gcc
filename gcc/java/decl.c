@@ -606,8 +606,10 @@ java_init_decl_processing (void)
 
   /* This is not a java type, however tree-dfa requires a definition for
      size_type_node.  */
-  size_type_node = make_unsigned_type (POINTER_SIZE);
+  size_type_node = make_unsigned_type (pointer_size ());
   set_sizetype (size_type_node);
+  /* Henceforth, we can use TYPE_PRECISION (size_type_node) when we mean
+     pointer_size () for the current target, to avoid unnecessary overhead.  */
 
   /* Define these next since types below may used them.  */
   integer_type_node = java_type_for_size (INT_TYPE_SIZE, 0);

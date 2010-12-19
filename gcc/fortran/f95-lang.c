@@ -583,7 +583,7 @@ gfc_init_decl_processing (void)
      want double_type_node to actually have double precision.  */
   build_common_tree_nodes (false);
 
-  size_type_node = gfc_build_uint_type (POINTER_SIZE);
+  size_type_node = gfc_build_uint_type (pointer_size ());
   set_sizetype (size_type_node);
 
   build_common_tree_nodes_2 (0);

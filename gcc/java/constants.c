@@ -541,7 +541,7 @@ build_constants_constructor (void)
 	     not a scalar but a union, and that's how we should
 	     represent it in the compiler.  We should fix this.  */
 	  if (BYTES_BIG_ENDIAN)
-	    temp <<= ((POINTER_SIZE > 32) ? POINTER_SIZE - 32 : 0);
+	    temp <<= ((JAVA_POINTER_SIZE > 32) ? JAVA_POINTER_SIZE - 32 : 0);
 
           CONSTRUCTOR_PREPEND_VALUE (t, get_tag_node (outgoing_cpool->tags[i]));
           CONSTRUCTOR_PREPEND_VALUE (d,

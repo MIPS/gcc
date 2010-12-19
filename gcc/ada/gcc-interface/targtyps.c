@@ -31,6 +31,7 @@
 #include "tree.h"
 #include "tm.h"
 #include "tm_p.h"
+#include "target.h"
 
 #include "ada.h"
 #include "types.h"
@@ -131,7 +132,7 @@ get_target_long_double_size (void)
 Pos
 get_target_pointer_size (void)
 {
-  return POINTER_SIZE;
+  return pointer_size ();
 }
 
 /* Alignment related values, mapped to attributes for functional and

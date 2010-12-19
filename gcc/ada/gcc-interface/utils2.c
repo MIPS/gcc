@@ -32,6 +32,7 @@
 #include "ggc.h"
 #include "output.h"
 #include "tree-inline.h"
+#include "target.h"
 
 #include "ada.h"
 #include "types.h"
@@ -1941,7 +1942,7 @@ maybe_wrap_malloc (tree data_size, tree data_type, Node_Id gnat_node)
     = ((data_align > default_allocator_alignment)
        ? make_aligning_type (data_type, data_align, data_size,
 			     default_allocator_alignment,
-			     POINTER_SIZE / BITS_PER_UNIT)
+			     pointer_size () / BITS_PER_UNIT)
        : NULL_TREE);
 
   tree size_to_malloc
@@ -1952,7 +1953,7 @@ maybe_wrap_malloc (tree data_size, tree data_type, Node_Id gnat_node)
   /* On VMS, if pointers are 64-bit and the allocator size is 32-bit or
      Convention C, allocate 32-bit memory.  */
   if (TARGET_ABI_OPEN_VMS
-      && POINTER_SIZE == 64
+      && pointer_size () == 64
       && Nkind (gnat_node) == N_Allocator
       && (UI_To_Int (Esize (Etype (gnat_node))) == 32
           || Convention (Etype (gnat_node)) == Convention_C))
@@ -1984,7 +1985,7 @@ maybe_wrap_malloc (tree data_size, tree data_type, Node_Id gnat_node)
       tree storage_ptr_slot_addr
 	= build_binary_op (POINTER_PLUS_EXPR, ptr_void_type_node,
 			   convert (ptr_void_type_node, aligning_field_addr),
-			   size_int (-(HOST_WIDE_INT) POINTER_SIZE
+			   size_int (-(HOST_WIDE_INT) pointer_size ()
 				     / BITS_PER_UNIT));
 
       tree storage_ptr_slot
@@ -2026,7 +2027,7 @@ maybe_wrap_free (tree data_ptr, tree data_type)
 	= build_binary_op
 	  (POINTER_PLUS_EXPR, ptr_void_type_node,
 	   convert (ptr_void_type_node, data_ptr),
-	   size_int (-(HOST_WIDE_INT) POINTER_SIZE / BITS_PER_UNIT));
+	   size_int (-(HOST_WIDE_INT) pointer_size () / BITS_PER_UNIT));
 
       /* FREE_PTR (void *) = *(void **)DATA_FRONT_PTR  */
       free_ptr

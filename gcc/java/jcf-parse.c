@@ -473,7 +473,7 @@ handle_long_constant (JCF *jcf, CPool *cpool, enum cpool_tag kind,
 {
   /* If we're on a 64-bit platform we can fit a long or double
      into the same space as a jword.  */
-  if (POINTER_SIZE >= 64)
+  if (JAVA_POINTER_SIZE >= 64)
     index = find_constant1 (cpool, kind, JPOOL_LONG (jcf, index));
 
   /* In a compiled program the constant pool is in native word

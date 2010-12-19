@@ -566,7 +566,7 @@ gfc_init_kinds (void)
   gfc_character_storage_size = gfc_default_character_kind * 8;
 
   /* Choose the integer kind the same size as "void*" for our index kind.  */
-  gfc_index_integer_kind = POINTER_SIZE / 8;
+  gfc_index_integer_kind = pointer_size () / 8;
   /* Pick a kind the same size as the C "int" type.  */
   gfc_c_int_kind = INT_TYPE_SIZE / 8;
 
