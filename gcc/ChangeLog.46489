@@ -1,7 +1,8 @@
-2010-12-18  Joern Rennecke  <amylaar@spamcop.net>
+2010-12-19  Joern Rennecke  <amylaar@spamcop.net>
 
 	From Ralf Wildenhues:
 	* target.def (init_cumulative_args): Documentation spelling fixes.
+	* doc/tm.texi: Regenerate.
 
 2010-12-18  Joern Rennecke  <amylaar@spamcop.net>
 

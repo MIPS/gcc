@@ -4130,7 +4130,7 @@ The amount of memory, in bytes, that the caller should allocate when passing a n
 @end deftypevr
 
 @deftypefn {Target Hook} cumulative_args_t TARGET_INIT_CUMULATIVE_ARGS (void *@var{mem}, tree @var{fntype}, rtx @var{libname}, tree @var{fndecl}, int @var{n_named})
-Broadly like @code{INIT_CUMULATIVE_ARGS}, but it's a hook.  @var{mem} is a memory area to accomodate the target-specific data referred  to by a cumulative_args_t.  It should be (at least) of the size that  @code{TARGET_CUMULATIVE_ARGS_SIZE} indicates.  If @var{mem} is NULL, a statically allocated memory area is used.  When @var{libname} is set, @var{fntype} contains a type which is not  necessarily the actual return type, but which has the same machine mode.  The return value is a @code{cumulative_args_t} that refers to the  initialized argument information.
+Broadly like @code{INIT_CUMULATIVE_ARGS}, but it's a hook.  @var{mem} is a memory area to accommodate the target-specific data referred  to by a @code{cumulative_args_t}.  It should be (at least) of the size that  @code{TARGET_CUMULATIVE_ARGS_SIZE} indicates.  If @var{mem} is NULL, a statically allocated memory area is used.  When @var{libname} is set, @var{fntype} contains a type which is not  necessarily the actual return type, but which has the same machine mode.  The return value is a @code{cumulative_args_t} that refers to the  initialized argument information.
 @end deftypefn
 
 @defmac INIT_CUMULATIVE_ARGS (@var{cum}, @var{fntype}, @var{libname}, @var{fndecl}, @var{n_named_args})
