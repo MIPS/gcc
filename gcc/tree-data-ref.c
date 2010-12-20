@@ -92,6 +92,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-scalar-evolution.h"
 #include "tree-pass.h"
 #include "langhooks.h"
+#include "target.h"
 
 static struct datadep_stats
 {
@@ -1635,7 +1636,12 @@ estimated_loop_iterations_tree (struct loop *loop, bool conservative)
   if (!estimated_loop_iterations (loop, conservative, &nit))
     return chrec_dont_know;
 
-  type = lang_hooks.types.type_for_size (INT_TYPE_SIZE, true);
+  /* FIXME: this seems rather iffy; better choices might be
+     TYPE_PRECISION (int_type_mode) or BITS_PER_WORD.  However, that would
+     not be bug-compatible, and for targets that have multiple fast integer
+     modes, all should be handled; likewise for signedness.  */
+  type = lang_hooks.types.type_for_size (targetm.integer_type_size (itk_int),
+					 true);
   if (!double_int_fits_to_tree_p (type, nit))
     return chrec_dont_know;
 

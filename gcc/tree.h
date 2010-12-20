@@ -3876,30 +3876,6 @@ extern GTY(()) tree global_trees[TI_MAX];
 #define current_target_pragma		global_trees[TI_CURRENT_TARGET_PRAGMA]
 #define current_optimize_pragma		global_trees[TI_CURRENT_OPTIMIZE_PRAGMA]
 
-/* An enumeration of the standard C integer types.  These must be
-   ordered so that shorter types appear before longer ones, and so
-   that signed types appear before unsigned ones, for the correct
-   functioning of interpret_integer() in c-lex.c.  */
-enum integer_type_kind
-{
-  itk_char,
-  itk_signed_char,
-  itk_unsigned_char,
-  itk_short,
-  itk_unsigned_short,
-  itk_int,
-  itk_unsigned_int,
-  itk_long,
-  itk_unsigned_long,
-  itk_long_long,
-  itk_unsigned_long_long,
-  itk_int128,
-  itk_unsigned_int128,
-  itk_none
-};
-
-typedef enum integer_type_kind integer_type_kind;
-
 /* The standard C integer types.  Use integer_type_kind to index into
    this array.  */
 extern GTY(()) tree integer_types[itk_none];

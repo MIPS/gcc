@@ -369,7 +369,8 @@ extern int darwin_emit_branch_islands;
 /* For binary compatibility with 2.95; Darwin C APIs use bool from
    stdbool.h, which was an int-sized enum in 2.95.  Users can explicitly
    choose to have sizeof(bool)==1 with the -mone-byte-bool switch. */
-#define BOOL_TYPE_SIZE (darwin_one_byte_bool ? CHAR_TYPE_SIZE : INT_TYPE_SIZE)
+extern int darwin_bool_type_size (void);
+#define TARGET_BOOL_TYPE_SIZE darwin_bool_type_size
 
 #undef REGISTER_TARGET_PRAGMAS
 #define REGISTER_TARGET_PRAGMAS() \

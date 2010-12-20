@@ -551,14 +551,6 @@ clear_binding_stack (void)
 }
 
 
-#ifndef CHAR_TYPE_SIZE
-#define CHAR_TYPE_SIZE BITS_PER_UNIT
-#endif
-
-#ifndef INT_TYPE_SIZE
-#define INT_TYPE_SIZE BITS_PER_WORD
-#endif
-
 #undef SIZE_TYPE
 #define SIZE_TYPE "long unsigned int"
 

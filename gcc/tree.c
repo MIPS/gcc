@@ -5087,11 +5087,11 @@ free_lang_data (void)
   fileptr_type_node = ptr_type_node;
   if (TREE_CODE (boolean_type_node) != BOOLEAN_TYPE
       || (TYPE_MODE (boolean_type_node)
-	  != mode_for_size (BOOL_TYPE_SIZE, MODE_INT, 0))
+	  != mode_for_size (targetm.bool_type_size (), MODE_INT, 0))
       || TYPE_PRECISION (boolean_type_node) != 1
       || !TYPE_UNSIGNED (boolean_type_node))
     {
-      boolean_type_node = make_unsigned_type (BOOL_TYPE_SIZE);
+      boolean_type_node = make_unsigned_type (targetm.bool_type_size ());
       TREE_SET_CODE (boolean_type_node, BOOLEAN_TYPE);
       TYPE_MAX_VALUE (boolean_type_node) = build_int_cst (boolean_type_node, 1);
       TYPE_PRECISION (boolean_type_node) = 1;
@@ -9019,10 +9019,11 @@ build_common_tree_nodes (bool signed_char)
       }
 #endif
   /* Define a boolean type.  This type only represents boolean values but
-     may be larger than char depending on the value of BOOL_TYPE_SIZE.
+     may be larger than char depending on the value of
+     targetm.bool_type_size ().
      Front ends which want to override this size (i.e. Java) can redefine
      boolean_type_node before calling build_common_tree_nodes_2.  */
-  boolean_type_node = make_unsigned_type (BOOL_TYPE_SIZE);
+  boolean_type_node = make_unsigned_type (targetm.bool_type_size ());
   TREE_SET_CODE (boolean_type_node, BOOLEAN_TYPE);
   TYPE_MAX_VALUE (boolean_type_node) = build_int_cst (boolean_type_node, 1);
   TYPE_PRECISION (boolean_type_node) = 1;

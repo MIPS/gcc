@@ -568,7 +568,7 @@ gfc_init_kinds (void)
   /* Choose the integer kind the same size as "void*" for our index kind.  */
   gfc_index_integer_kind = pointer_size () / 8;
   /* Pick a kind the same size as the C "int" type.  */
-  gfc_c_int_kind = INT_TYPE_SIZE / 8;
+  gfc_c_int_kind = targetm.integer_type_size (itk_int) / 8;
 
   /* initialize the C interoperable kinds  */
   init_c_interop_kinds();
@@ -671,15 +671,15 @@ gfc_build_int_type (gfc_integer_info *info)
 {
   int mode_precision = info->bit_size;
 
-  if (mode_precision == CHAR_TYPE_SIZE)
+  if (mode_precision == targetm.integer_type_size (itk_char))
     info->c_char = 1;
-  if (mode_precision == SHORT_TYPE_SIZE)
+  if (mode_precision == targetm.integer_type_size (itk_short))
     info->c_short = 1;
-  if (mode_precision == INT_TYPE_SIZE)
+  if (mode_precision == targetm.integer_type_size (itk_int))
     info->c_int = 1;
-  if (mode_precision == LONG_TYPE_SIZE)
+  if (mode_precision == targetm.integer_type_size (itk_long))
     info->c_long = 1;
-  if (mode_precision == LONG_LONG_TYPE_SIZE)
+  if (mode_precision == targetm.integer_type_size (itk_long_long))
     info->c_long_long = 1;
 
   if (TYPE_PRECISION (intQI_type_node) == mode_precision)
@@ -699,15 +699,15 @@ gfc_build_int_type (gfc_integer_info *info)
 tree
 gfc_build_uint_type (int size)
 {
-  if (size == CHAR_TYPE_SIZE)
+  if (size == TYPE_PRECISION (unsigned_char_type_node))
     return unsigned_char_type_node;
-  if (size == SHORT_TYPE_SIZE)
+  if (size == TYPE_PRECISION (short_unsigned_type_node))
     return short_unsigned_type_node;
-  if (size == INT_TYPE_SIZE)
+  if (size == TYPE_PRECISION (unsigned_type_node))
     return unsigned_type_node;
-  if (size == LONG_TYPE_SIZE)
+  if (size == TYPE_PRECISION (long_unsigned_type_node))
     return long_unsigned_type_node;
-  if (size == LONG_LONG_TYPE_SIZE)
+  if (size == TYPE_PRECISION (long_long_unsigned_type_node))
     return long_long_unsigned_type_node;
 
   return make_unsigned_type (size);
@@ -720,13 +720,14 @@ gfc_build_real_type (gfc_real_info *info)
   int mode_precision = info->mode_precision;
   tree new_type;
 
-  if (mode_precision == FLOAT_TYPE_SIZE)
+  if (mode_precision == targetm.float_type_size (th_ft_float))
     info->c_float = 1;
-  if (mode_precision == DOUBLE_TYPE_SIZE)
+  if (mode_precision == targetm.float_type_size (th_ft_double))
     info->c_double = 1;
-  if (mode_precision == LONG_DOUBLE_TYPE_SIZE)
+  if (mode_precision == targetm.float_type_size (th_ft_long_double))
     info->c_long_double = 1;
-  if (mode_precision != LONG_DOUBLE_TYPE_SIZE && mode_precision == 128)
+  if (mode_precision != targetm.float_type_size (th_ft_long_double)
+      && mode_precision == 128)
     {
       info->c_float128 = 1;
       gfc_real16_is_float128 = true;
@@ -771,7 +772,7 @@ gfc_build_logical_type (gfc_logical_info *info)
   int bit_size = info->bit_size;
   tree new_type;
 
-  if (bit_size == BOOL_TYPE_SIZE)
+  if (bit_size == targetm.bool_type_size ())
     {
       info->c_bool = 1;
       return boolean_type_node;
@@ -784,27 +785,6 @@ gfc_build_logical_type (gfc_logical_info *info)
 
   return new_type;
 }
-
-
-#if 0
-/* Return the bit size of the C "size_t".  */
-
-static unsigned int
-c_size_t_size (void)
-{
-#ifdef SIZE_TYPE  
-  if (strcmp (SIZE_TYPE, "unsigned int") == 0)
-    return INT_TYPE_SIZE;
-  if (strcmp (SIZE_TYPE, "long unsigned int") == 0)
-    return LONG_TYPE_SIZE;
-  if (strcmp (SIZE_TYPE, "short unsigned int") == 0)
-    return SHORT_TYPE_SIZE;
-  gcc_unreachable ();
-#else
-  return LONG_TYPE_SIZE;
-#endif
-}
-#endif
 
 /* Create the backend type nodes. We map them to their
    equivalent C type, at least for now.  We also give

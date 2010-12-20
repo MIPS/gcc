@@ -558,7 +558,8 @@ gigi (Node_Id gnat_root, int max_gnat_node, int number_name ATTRIBUTE_UNUSED,
       /* In this case, the builtin floating point types are VAX float,
 	 so make up a type for use.  */
       longest_float_type_node = make_node (REAL_TYPE);
-      TYPE_PRECISION (longest_float_type_node) = LONG_DOUBLE_TYPE_SIZE;
+      TYPE_PRECISION (longest_float_type_node)
+	= targetm.float_type_size (th_ft_long_double);
       layout_type (longest_float_type_node);
       record_builtin_type ("longest float type", longest_float_type_node);
     }
@@ -6811,7 +6812,8 @@ build_binary_op_trapv (enum tree_code code, tree gnu_type, tree left,
 
       else if (needed_precision <= BITS_PER_WORD
 	       || (code == MULT_EXPR
-		   && needed_precision <= LONG_LONG_TYPE_SIZE))
+		   && (needed_precision
+		       <= targetm.integer_type_size (itk_long_long))))
 	{
 	  tree wide_type = gnat_type_for_size (needed_precision, 0);
 

@@ -385,9 +385,9 @@ build_round_expr (tree arg, tree restype)
   /* Depending on the type of the result, choose the long int intrinsic
      (lround family) or long long intrinsic (llround).  We might also
      need to convert the result afterwards.  */
-  if (resprec <= LONG_TYPE_SIZE)
+  if (resprec <= TYPE_PRECISION (long_integer_type_node))
     longlong = false;
-  else if (resprec <= LONG_LONG_TYPE_SIZE)
+  else if (resprec <= TYPE_PRECISION (long_long_integer_type_node))
     longlong = true;
   else
     gcc_unreachable ();
@@ -3555,24 +3555,24 @@ gfc_conv_intrinsic_leadz (gfc_se * se, gfc_expr * expr)
   argsize = TYPE_PRECISION (TREE_TYPE (arg));
 
   /* Which variant of __builtin_clz* should we call?  */
-  if (argsize <= INT_TYPE_SIZE)
+  if (argsize <= TYPE_PRECISION (unsigned_type_node))
     {
       arg_type = unsigned_type_node;
       func = built_in_decls[BUILT_IN_CLZ];
     }
-  else if (argsize <= LONG_TYPE_SIZE)
+  else if (argsize <= TYPE_PRECISION (long_unsigned_type_node))
     {
       arg_type = long_unsigned_type_node;
       func = built_in_decls[BUILT_IN_CLZL];
     }
-  else if (argsize <= LONG_LONG_TYPE_SIZE)
+  else if (argsize <= TYPE_PRECISION (long_long_unsigned_type_node))
     {
       arg_type = long_long_unsigned_type_node;
       func = built_in_decls[BUILT_IN_CLZLL];
     }
   else
     {
-      gcc_assert (argsize == 2 * LONG_LONG_TYPE_SIZE);
+      gcc_assert (argsize == 2 * TYPE_PRECISION (long_long_unsigned_type_node));
       arg_type = gfc_build_uint_type (argsize);
       func = NULL_TREE;
     }
@@ -3609,7 +3609,8 @@ gfc_conv_intrinsic_leadz (gfc_se * se, gfc_expr * expr)
 	 is the bit-size of the long long type (64 in this example).  */
       tree ullsize, ullmax, tmp1, tmp2;
 
-      ullsize = build_int_cst (result_type, LONG_LONG_TYPE_SIZE);
+      ullsize = build_int_cst (result_type,
+			       TYPE_PRECISION (long_long_unsigned_type_node));
       ullmax = fold_build1_loc (input_location, BIT_NOT_EXPR,
 				long_long_unsigned_type_node,
 				build_int_cst (long_long_unsigned_type_node,
@@ -3674,24 +3675,24 @@ gfc_conv_intrinsic_trailz (gfc_se * se, gfc_expr *expr)
   argsize = TYPE_PRECISION (TREE_TYPE (arg));
 
   /* Which variant of __builtin_ctz* should we call?  */
-  if (argsize <= INT_TYPE_SIZE)
+  if (argsize <= TYPE_PRECISION (unsigned_type_node))
     {
       arg_type = unsigned_type_node;
       func = built_in_decls[BUILT_IN_CTZ];
     }
-  else if (argsize <= LONG_TYPE_SIZE)
+  else if (argsize <= TYPE_PRECISION (long_unsigned_type_node))
     {
       arg_type = long_unsigned_type_node;
       func = built_in_decls[BUILT_IN_CTZL];
     }
-  else if (argsize <= LONG_LONG_TYPE_SIZE)
+  else if (argsize <= TYPE_PRECISION (long_long_unsigned_type_node))
     {
       arg_type = long_long_unsigned_type_node;
       func = built_in_decls[BUILT_IN_CTZLL];
     }
   else
     {
-      gcc_assert (argsize == 2 * LONG_LONG_TYPE_SIZE);
+      gcc_assert (argsize == 2 * TYPE_PRECISION (long_long_unsigned_type_node));
       arg_type = gfc_build_uint_type (argsize);
       func = NULL_TREE;
     }
@@ -3723,7 +3724,8 @@ gfc_conv_intrinsic_trailz (gfc_se * se, gfc_expr *expr)
 	 is the bit-size of the long long type (64 in this example).  */
       tree ullsize, ullmax, tmp1, tmp2;
 
-      ullsize = build_int_cst (result_type, LONG_LONG_TYPE_SIZE);
+      ullsize = build_int_cst (result_type,
+			       TYPE_PRECISION (long_long_unsigned_type_node));
       ullmax = fold_build1_loc (input_location, BIT_NOT_EXPR,
 				long_long_unsigned_type_node,
 				build_int_cst (long_long_unsigned_type_node, 0));
@@ -3780,17 +3782,17 @@ gfc_conv_intrinsic_popcnt_poppar (gfc_se * se, gfc_expr *expr, int parity)
   result_type = gfc_get_int_type (gfc_default_integer_kind);
 
   /* Which variant of the builtin should we call?  */
-  if (argsize <= INT_TYPE_SIZE)
+  if (argsize <= TYPE_PRECISION (unsigned_type_node))
     {
       arg_type = unsigned_type_node;
       func = built_in_decls[parity ? BUILT_IN_PARITY : BUILT_IN_POPCOUNT];
     }
-  else if (argsize <= LONG_TYPE_SIZE)
+  else if (argsize <= TYPE_PRECISION (long_unsigned_type_node))
     {
       arg_type = long_unsigned_type_node;
       func = built_in_decls[parity ? BUILT_IN_PARITYL : BUILT_IN_POPCOUNTL];
     }
-  else if (argsize <= LONG_LONG_TYPE_SIZE)
+  else if (argsize <= TYPE_PRECISION (long_long_unsigned_type_node))
     {
       arg_type = long_long_unsigned_type_node;
       func = built_in_decls[parity ? BUILT_IN_PARITYLL : BUILT_IN_POPCOUNTLL];
@@ -3804,7 +3806,7 @@ gfc_conv_intrinsic_popcnt_poppar (gfc_se * se, gfc_expr *expr, int parity)
 
       /* For now, we only cover the case where argsize is twice as large
 	 as 'long long'.  */
-      gcc_assert (argsize == 2 * LONG_LONG_TYPE_SIZE);
+      gcc_assert (argsize == 2 * TYPE_PRECISION (long_long_unsigned_type_node));
 
       func = built_in_decls[parity ? BUILT_IN_PARITYLL : BUILT_IN_POPCOUNTLL];
 
@@ -3818,8 +3820,10 @@ gfc_conv_intrinsic_popcnt_poppar (gfc_se * se, gfc_expr *expr, int parity)
 				   fold_convert (long_long_unsigned_type_node,
 						 arg));
 
-      arg2 = fold_build2_loc (input_location, RSHIFT_EXPR, utype, arg,
-			      build_int_cst (utype, LONG_LONG_TYPE_SIZE));
+      arg2 = (fold_build2_loc
+	       (input_location, RSHIFT_EXPR, utype, arg,
+		build_int_cst (utype,
+			       TYPE_PRECISION (long_long_unsigned_type_node))));
       call2 = build_call_expr_loc (input_location, func, 1,
 				   fold_convert (long_long_unsigned_type_node,
 						 arg2));

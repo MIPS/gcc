@@ -2998,4 +2998,10 @@ darwin_function_section (tree decl, enum node_frequency freq,
     }
 }
 
+int
+darwin_bool_type_size (void)
+{
+  return darwin_one_byte_bool ? CHAR_TYPE_SIZE : INT_TYPE_SIZE;
+}
+
 #include "gt-darwin.h"

@@ -2403,11 +2403,16 @@ add_standard_iv_candidates_for_size (struct ivopts_data *data,
 static void
 add_standard_iv_candidates (struct ivopts_data *data)
 {
-  add_standard_iv_candidates_for_size (data, INT_TYPE_SIZE);
+  /* FIXME: we shouldn't use type sizes here, but look at what sizes suit
+     the target.  */
+  add_standard_iv_candidates_for_size
+    (data, targetm.integer_type_size (itk_int));
 
   /* The same for a double-integer type if it is still fast enough.  */
-  if (BITS_PER_WORD >= INT_TYPE_SIZE * 2)
-    add_standard_iv_candidates_for_size (data, INT_TYPE_SIZE * 2);
+  if (BITS_PER_WORD >= targetm.integer_type_size (itk_int) * 2)
+    add_standard_iv_candidates_for_size (data,
+					 targetm.integer_type_size (itk_int)
+					 * 2);
 }
 
 

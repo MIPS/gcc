@@ -116,7 +116,7 @@ NAMED_CMPXCST (ISOCBINDING_LONG_DOUBLE_COMPLEX, "c_long_double_complex", \
                get_real_kind_from_node (long_double_type_node))
 
 NAMED_LOGCST (ISOCBINDING_BOOL, "c_bool", \
-              get_int_kind_from_width (BOOL_TYPE_SIZE))
+              get_int_kind_from_width (targetm.bool_type_size ()))
 
 NAMED_CHARKNDCST (ISOCBINDING_CHAR, "c_char", gfc_default_character_kind)
 

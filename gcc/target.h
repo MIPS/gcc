@@ -162,6 +162,13 @@ struct default_options
   int value;
 };
 
+/* enums to describe types in target hooks.
+   integer_type_kind is defined in coretypes.h  */
+enum th_float_type
+{
+  th_ft_float, th_ft_double, th_ft_widest_hard_fp, th_ft_long_double
+};
+
 /* The target structure.  This holds all the backend hooks.  */
 #define DEFHOOKPOD(NAME, DOC, TYPE, INIT) TYPE NAME;
 #define DEFHOOK(NAME, DOC, TYPE, PARAMS, INIT) TYPE (* NAME) PARAMS;

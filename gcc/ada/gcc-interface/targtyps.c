@@ -52,11 +52,7 @@
 /* If we don't have a specific size for Ada's equivalent of `long', use that
    of C.  */
 #ifndef ADA_LONG_TYPE_SIZE
-#define ADA_LONG_TYPE_SIZE LONG_TYPE_SIZE
-#endif
-
-#ifndef WIDEST_HARDWARE_FP_SIZE
-#define WIDEST_HARDWARE_FP_SIZE LONG_DOUBLE_TYPE_SIZE
+#define ADA_LONG_TYPE_SIZE (targetm.integer_type_size (itk_long))
 #endif
 
 /* The following provide a functional interface for the front end Ada code
@@ -77,26 +73,26 @@ get_target_bits_per_word (void)
 Pos
 get_target_char_size (void)
 {
-  return CHAR_TYPE_SIZE;
+  return targetm.integer_type_size (itk_char);
 }
 
 Pos
 get_target_wchar_t_size (void)
 {
   /* We never want wide characters less than "short" in Ada.  */
-  return MAX (SHORT_TYPE_SIZE, WCHAR_TYPE_SIZE);
+  return MAX (targetm.integer_type_size (itk_short), WCHAR_TYPE_SIZE);
 }
 
 Pos
 get_target_short_size (void)
 {
-  return SHORT_TYPE_SIZE;
+  return targetm.integer_type_size (itk_short);
 }
 
 Pos
 get_target_int_size (void)
 {
-  return INT_TYPE_SIZE;
+  return targetm.integer_type_size (itk_int);
 }
 
 Pos
@@ -108,25 +104,25 @@ get_target_long_size (void)
 Pos
 get_target_long_long_size (void)
 {
-  return LONG_LONG_TYPE_SIZE;
+  return targetm.integer_type_size (itk_long_long);
 }
 
 Pos
 get_target_float_size (void)
 {
-  return fp_prec_to_size (FLOAT_TYPE_SIZE);
+  return fp_prec_to_size (targetm.float_type_size (th_ft_float));
 }
 
 Pos
 get_target_double_size (void)
 {
-  return fp_prec_to_size (DOUBLE_TYPE_SIZE);
+  return fp_prec_to_size (targetm.float_type_size (th_ft_double));
 }
 
 Pos
 get_target_long_double_size (void)
 {
-  return fp_prec_to_size (WIDEST_HARDWARE_FP_SIZE);
+  return fp_prec_to_size (targetm.float_type_size (th_ft_widest_hard_fp));
 }
 
 Pos
@@ -167,7 +163,7 @@ get_target_maximum_default_alignment (void)
 #ifdef MALLOC_OBSERVABLE_ALIGNMENT
 #define MALLOC_ALIGNMENT MALLOC_OBSERVABLE_ALIGNMENT
 #else
-#define MALLOC_OBSERVABLE_ALIGNMENT (2 * LONG_TYPE_SIZE)
+#define MALLOC_OBSERVABLE_ALIGNMENT (2 * targetm.integer_type_size (itk_long))
 #define MALLOC_ALIGNMENT \
   MAX (MALLOC_ABI_ALIGNMENT, MALLOC_OBSERVABLE_ALIGNMENT)
 #endif

@@ -508,6 +508,56 @@ targhook_float_words_big_endian (void)
   return !!FLOAT_WORDS_BIG_ENDIAN;
 }
 
+int
+legacy_integer_type_size (enum integer_type_kind type)
+{
+  switch (type)
+    {
+    case itk_char:
+      return CHAR_TYPE_SIZE;
+    case itk_short:
+      return SHORT_TYPE_SIZE;
+    case itk_int:
+      return INT_TYPE_SIZE;
+    case itk_long:
+      return LONG_TYPE_SIZE;
+    case itk_long_long:
+      return LONG_LONG_TYPE_SIZE;
+    case itk_int128:
+      return 128;
+    default:
+      gcc_unreachable ();
+    }
+}
+
+/* `bool' has size and alignment `1', on almost all platforms.  */
+int
+default_bool_type_size (void)
+{
+  return CHAR_TYPE_SIZE;
+}
+
+int
+legacy_float_type_size (enum th_float_type type)
+{
+  switch (type)
+    {
+    case th_ft_float:
+      return FLOAT_TYPE_SIZE;
+    case th_ft_double:
+      return DOUBLE_TYPE_SIZE;
+    case th_ft_widest_hard_fp:
+#ifdef WIDEST_HARDWARE_FP_SIZE
+      return WIDEST_HARDWARE_FP_SIZE;
+#endif /* WIDEST_HARDWARE_FP_SIZE */
+      /* Fall through.  */
+    case th_ft_long_double:
+      return LONG_DOUBLE_TYPE_SIZE;
+    default:
+      gcc_unreachable ();
+    }
+}
+
 /* True if the target supports decimal floating point.  */
 
 bool
