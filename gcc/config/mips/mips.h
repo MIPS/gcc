@@ -2806,10 +2806,10 @@ while (0)
    definitions from ../svr4.h on mips-*-linux-gnu.  */
 
 #undef SIZE_TYPE
-#define SIZE_TYPE (POINTER_SIZE == 64 ? "long unsigned int" : "unsigned int")
+#define SIZE_TYPE (POINTER_SIZE == 64 ? itk_unsigned_long : itk_unsigned_int)
 
 #undef PTRDIFF_TYPE
-#define PTRDIFF_TYPE (POINTER_SIZE == 64 ? "long int" : "int")
+#define PTRDIFF_TYPE (POINTER_SIZE == 64 ? itk_long : itk_int)
 
 /* The maximum number of bytes that can be copied by one iteration of
    a movmemsi loop; see mips_block_move_loop.  */

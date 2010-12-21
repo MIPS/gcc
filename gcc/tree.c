@@ -220,6 +220,22 @@ static unsigned int attribute_hash_list (const_tree, hashval_t);
 
 tree global_trees[TI_MAX];
 tree integer_types[itk_none];
+const char * const integer_type_names[itk_none] =
+{
+  "char",
+  "signed char",
+  "unsigned char",
+  "short int",
+  "short unsigned int",
+  "int",
+  "unsigned int",
+  "long int",
+  "long unsigned int",
+  "long long int",
+  "long long unsigned int",
+  "__int128",
+  "__int128 unsigned",
+};
 
 unsigned char tree_contains_struct[MAX_TREE_CODES][64];
 

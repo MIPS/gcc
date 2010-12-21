@@ -1,5 +1,6 @@
 /* Definitions of target machine for GNU compiler for SuperH SH 5.
-   Copyright 2000, 2001, 2002, 2003, 2004, 2007 Free Software Foundation, Inc.
+   Copyright 2000, 2001, 2002, 2003, 2004, 2007, 2010
+   Free Software Foundation, Inc.
    Contributed by Alexandre Oliva <aoliva@redhat.com>
 
 This file is part of GCC.
@@ -23,4 +24,4 @@ along with GCC; see the file COPYING3.  If not see
   fputs (" (SuperH SH)", stderr);
 
 #undef SH_ELF_WCHAR_TYPE
-#define SH_ELF_WCHAR_TYPE "int"
+#define SH_ELF_WCHAR_TYPE itk_int

@@ -166,11 +166,11 @@ along with GCC; see the file COPYING3.  If not see
 #undef MATH_LIBRARY
 #define MATH_LIBRARY ""
 
-#define SIZE_TYPE (TARGET_64BIT ? "long long unsigned int" : "unsigned int")
-#define PTRDIFF_TYPE (TARGET_64BIT ? "long long int" : "int")
+#define SIZE_TYPE (TARGET_64BIT ? itk_unsigned_long_long : itk_unsigned_int)
+#define PTRDIFF_TYPE (TARGET_64BIT ? itk_long_long : itk_int)
 
 #define WCHAR_TYPE_SIZE 16
-#define WCHAR_TYPE "short unsigned int"
+#define WCHAR_TYPE itk_unsigned_short
 
 /* Windows64 continues to use a 32-bit long type.  */
 #undef LONG_TYPE_SIZE

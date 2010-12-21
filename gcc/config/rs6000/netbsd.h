@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler,
    for PowerPC NetBSD systems.
-   Copyright 2002, 2003, 2007, 2008 Free Software Foundation, Inc.
+   Copyright 2002, 2003, 2007, 2008, 2010 Free Software Foundation, Inc.
    Contributed by Wasabi Systems, Inc.
 
    This file is part of GCC.
@@ -53,10 +53,10 @@
 /* Make GCC agree with <machine/ansi.h>.  */
 
 #undef  SIZE_TYPE
-#define SIZE_TYPE "unsigned int"
+#define SIZE_TYPE itk_unsigned_int
 
 #undef  PTRDIFF_TYPE
-#define PTRDIFF_TYPE "int"
+#define PTRDIFF_TYPE itk_int
 
 /* Undo the spec mess from sysv4.h, and just define the specs
    the way NetBSD systems actually expect.  */

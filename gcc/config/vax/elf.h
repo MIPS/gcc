@@ -30,10 +30,10 @@ along with GCC; see the file COPYING3.  If not see
     "%r8", "%r9", "%r10", "%r11", "%ap", "%fp", "%sp", "%pc", }
 
 #undef SIZE_TYPE
-#define SIZE_TYPE "long unsigned int"
+#define SIZE_TYPE itk_unsigned_long
 
 #undef PTRDIFF_TYPE
-#define PTRDIFF_TYPE "long int"
+#define PTRDIFF_TYPE itk_long
 
 /* Profiling routine.  */
 #undef VAX_FUNCTION_PROFILER_NAME

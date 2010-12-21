@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for ARM with PE obj format.
-   Copyright (C) 1995, 1996, 1999, 2000, 2002, 2003, 2004, 2005, 2007
+   Copyright (C) 1995, 1996, 1999, 2000, 2002, 2003, 2004, 2005, 2007, 2010
    Free Software Foundation, Inc.
    Contributed by Doug Evans (dje@cygnus.com).
    
@@ -52,7 +52,7 @@
   { "marm", "mlittle-endian", "msoft-float", "mno-thumb-interwork" }  
 
 #undef  WCHAR_TYPE
-#define WCHAR_TYPE 	"short unsigned int"
+#define WCHAR_TYPE 	itk_unsigned_short
 #undef  WCHAR_TYPE_SIZE
 #define WCHAR_TYPE_SIZE 16
 

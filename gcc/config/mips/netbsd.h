@@ -179,10 +179,10 @@ along with GCC; see the file COPYING3.  If not see
 /* Make gcc agree with <machine/ansi.h> */
 
 #undef WCHAR_TYPE
-#define WCHAR_TYPE "int"
+#define WCHAR_TYPE itk_int
 
 #undef WCHAR_TYPE_SIZE
 #define WCHAR_TYPE_SIZE 32
 
 #undef WINT_TYPE
-#define WINT_TYPE "int"
+#define WINT_TYPE itk_int

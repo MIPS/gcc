@@ -58,10 +58,10 @@ along with GCC; see the file COPYING3.  If not see
 /* Follow FreeBSD's standard headers (<sys/_types.h> etc...).  */
 
 #undef  WCHAR_TYPE
-#define WCHAR_TYPE "int"
+#define WCHAR_TYPE itk_int
 
 #undef  WINT_TYPE
-#define WINT_TYPE "int"
+#define WINT_TYPE itk_int
 
 #define MATH_LIBRARY_PROFILE    "m_p"
 

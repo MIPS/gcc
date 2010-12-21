@@ -51,7 +51,7 @@
    c-common.c, and config/<arch>/<arch>.h.  */
 
 #undef  SIZE_TYPE
-#define SIZE_TYPE "unsigned int"
+#define SIZE_TYPE itk_unsigned_int
 
 /* rs6000.h gets this wrong for FreeBSD.  We use the GCC defaults instead.  */
 #undef WCHAR_TYPE

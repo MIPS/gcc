@@ -29,8 +29,8 @@ along with GCC; see the file COPYING3.  If not see
 #undef SIZE_TYPE
 #undef PTRDIFF_TYPE
 
-#define SIZE_TYPE "unsigned int"
-#define PTRDIFF_TYPE "int"
+#define SIZE_TYPE itk_unsigned_int
+#define PTRDIFF_TYPE itk_int
 
 #define LONG_DOUBLE_TYPE_SIZE 128
 #define HPUX_LONG_DOUBLE_LIBRARY

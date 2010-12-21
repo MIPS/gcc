@@ -1039,27 +1039,26 @@ lto_build_c_type_nodes (void)
   const_string_type_node
     = build_pointer_type (build_qualified_type (char_type_node, TYPE_QUAL_CONST));
 
-  if (strcmp (SIZE_TYPE, "unsigned int") == 0)
+  if (SIZE_TYPE == itk_unsigned_int)
     {
       intmax_type_node = integer_type_node;
-      uintmax_type_node = unsigned_type_node;
       signed_size_type_node = integer_type_node;
     }
-  else if (strcmp (SIZE_TYPE, "long unsigned int") == 0)
+  else if (SIZE_TYPE == itk_unsigned_long)
     {
       intmax_type_node = long_integer_type_node;
-      uintmax_type_node = long_unsigned_type_node;
       signed_size_type_node = long_integer_type_node;
     }
-  else if (strcmp (SIZE_TYPE, "long long unsigned int") == 0)
+  else if (SIZE_TYPE == itk_unsigned_long_long)
     {
       intmax_type_node = long_long_integer_type_node;
-      uintmax_type_node = long_long_unsigned_type_node;
       signed_size_type_node = long_long_integer_type_node;
     }
   else
     gcc_unreachable ();
+  uintmax_type_node = integer_types[SIZE_TYPE];
 
+  /* FIXME: Check if we can use WINT_TYPE / PID_TYPE here.  */
   wint_type_node = unsigned_type_node;
   pid_type_node = integer_type_node;
 }
@@ -1090,23 +1089,8 @@ lto_init (void)
     = flag_signed_char ? signed_char_type_node : unsigned_char_type_node;
 
   /* Tell the middle end what type to use for the size of objects.  */
-  if (strcmp (SIZE_TYPE, "unsigned int") == 0)
-    {
-      set_sizetype (unsigned_type_node);
-      size_type_node = unsigned_type_node;
-    }
-  else if (strcmp (SIZE_TYPE, "long unsigned int") == 0)
-    {
-      set_sizetype (long_unsigned_type_node);
-      size_type_node = long_unsigned_type_node;
-    }
-  else if (strcmp (SIZE_TYPE, "long long unsigned int") == 0)
-    {
-      set_sizetype (long_long_unsigned_type_node);
-      size_type_node = long_long_unsigned_type_node;
-    }
-  else
-    gcc_unreachable ();
+  set_sizetype (integer_types[SIZE_TYPE]);
+  size_type_node = integer_types[SIZE_TYPE];
 
   /* The global tree for the main identifier is filled in by
      language-specific front-end initialization that is not run in the

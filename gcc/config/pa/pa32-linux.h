@@ -59,7 +59,7 @@ call_ ## FUNC (void)					\
 #endif
 
 #undef  WCHAR_TYPE
-#define WCHAR_TYPE "long int"
+#define WCHAR_TYPE itk_long
 
 #undef  WCHAR_TYPE_SIZE
 #define WCHAR_TYPE_SIZE BITS_PER_WORD

@@ -43,10 +43,10 @@ along with GCC; see the file COPYING3.  If not see
 #define TARGET_CPU_DEFAULT TARGET_CPU_DEFAULT_i486
 
 #define WCHAR_TYPE_SIZE 16
-#define WCHAR_TYPE "short unsigned int"
+#define WCHAR_TYPE itk_unsigned_short
 
 /* WinNT (and thus Interix) use unsigned int */
-#define SIZE_TYPE "unsigned int"
+#define SIZE_TYPE itk_unsigned_int
 
 #define ASM_LOAD_ADDR(loc, reg)   "     leal " #loc "," #reg "\n"
 

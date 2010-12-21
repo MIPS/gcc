@@ -138,7 +138,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
    (32-bit) and p. 6P-10, Figure 6.38 (64-bit).  */
 
 #undef WCHAR_TYPE
-#define WCHAR_TYPE (TARGET_ARCH64 ? "int" : "long int")
+#define WCHAR_TYPE (TARGET_ARCH64 ? itk_int : itk_long)
 
 #undef WCHAR_TYPE_SIZE
 #define WCHAR_TYPE_SIZE 32
@@ -148,7 +148,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
    <iso/wchar_iso.h> uses.  */
 
 #undef WINT_TYPE
-#define WINT_TYPE (TARGET_ARCH64 ? "int" : "long int")
+#define WINT_TYPE (TARGET_ARCH64 ? itk_int : itk_long)
 
 #undef WINT_TYPE_SIZE
 #define WINT_TYPE_SIZE 32

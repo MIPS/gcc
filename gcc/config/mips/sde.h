@@ -90,9 +90,9 @@ along with GCC; see the file COPYING3.  If not see
    sizeof(long) must equal sizeof(void *), following from the setting
    of the -mlong64 option.  */
 #undef SIZE_TYPE
-#define SIZE_TYPE "long unsigned int"
+#define SIZE_TYPE itk_unsigned_long
 #undef PTRDIFF_TYPE
-#define PTRDIFF_TYPE "long int"
+#define PTRDIFF_TYPE itk_long
 
 /* Use standard ELF-style local labels (not '$' as on early Irix).  */
 #undef LOCAL_LABEL_PREFIX

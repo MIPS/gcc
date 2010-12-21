@@ -1622,38 +1622,27 @@ The default is to return false.
 @end deftypefn
 
 @defmac SIZE_TYPE
-A C expression for a string describing the name of the data type to use
+An @code{enum integer_type_kind} value describing the the data type to use
 for size values.  The typedef name @code{size_t} is defined using the
-contents of the string.
+name of that type.
 
-The string can contain more than one keyword.  If so, separate them with
-spaces, and write first any length keyword, then @code{unsigned} if
-appropriate, and finally @code{int}.  The string must exactly match one
-of the data type names defined in the function
-@code{init_decl_processing} in the file @file{c-decl.c}.  You may not
-omit @code{int} or change the order---that would cause the compiler to
-crash on startup.
-
-If you don't define this macro, the default is @code{"long unsigned
-int"}.
+If you don't define this macro, the default is @code{itk_unsigned_long}.
 @end defmac
 
 @defmac PTRDIFF_TYPE
-A C expression for a string describing the name of the data type to use
+An @code{enum integer_type_kind} value describing the the data type to use
 for the result of subtracting two pointers.  The typedef name
-@code{ptrdiff_t} is defined using the contents of the string.  See
-@code{SIZE_TYPE} above for more information.
+@code{ptrdiff_t} is defined using the name of that type.
 
-If you don't define this macro, the default is @code{"long int"}.
+If you don't define this macro, the default is @code{itk_long}
 @end defmac
 
 @defmac WCHAR_TYPE
-A C expression for a string describing the name of the data type to use
+An @code{enum integer_type_kind} value describing the the data type to use
 for wide characters.  The typedef name @code{wchar_t} is defined using
-the contents of the string.  See @code{SIZE_TYPE} above for more
-information.
+the name of that type.
 
-If you don't define this macro, the default is @code{"int"}.
+If you don't define this macro, the default is @code{itk_int}.
 @end defmac
 
 @defmac WCHAR_TYPE_SIZE
@@ -1663,36 +1652,34 @@ characters.  This is used in @code{cpp}, which cannot make use of
 @end defmac
 
 @defmac WINT_TYPE
-A C expression for a string describing the name of the data type to
+An @code{enum integer_type_kind} value describing the the data type to
 use for wide characters passed to @code{printf} and returned from
 @code{getwc}.  The typedef name @code{wint_t} is defined using the
-contents of the string.  See @code{SIZE_TYPE} above for more
-information.
+name of that type.
 
-If you don't define this macro, the default is @code{"unsigned int"}.
+If you don't define this macro, the default is @code{itk_unsigned_int}.
 @end defmac
 
 @defmac INTMAX_TYPE
-A C expression for a string describing the name of the data type that
+An @code{enum integer_type_kind} value describing the the data type that
 can represent any value of any standard or extended signed integer type.
-The typedef name @code{intmax_t} is defined using the contents of the
-string.  See @code{SIZE_TYPE} above for more information.
+The typedef name @code{intmax_t} is defined using the name of that type.
 
 If you don't define this macro, the default is the first of
-@code{"int"}, @code{"long int"}, or @code{"long long int"} that has as
-much precision as @code{long long int}.
+@code{itk_int}, @code{itk_long}, or @code{itk_long_long} that denotes
+a type with as much precision as @code{long long int}.
 @end defmac
 
 @defmac UINTMAX_TYPE
-A C expression for a string describing the name of the data type that
+An @code{enum integer_type_kind} value describing the the data type that
 can represent any value of any standard or extended unsigned integer
-type.  The typedef name @code{uintmax_t} is defined using the contents
-of the string.  See @code{SIZE_TYPE} above for more information.
+type.  The typedef name @code{uintmax_t} is defined using the name of
+that type.
 
 If you don't define this macro, the default is the first of
-@code{"unsigned int"}, @code{"long unsigned int"}, or @code{"long long
-unsigned int"} that has as much precision as @code{long long unsigned
-int}.
+@code{itk_unsigned_int}, @code{itk_unsigned_long}, or
+@code{itk_unsigned_long_long} that denotes a typewith as much precision
+as @code{long long unsigned int}.
 @end defmac
 
 @defmac SIG_ATOMIC_TYPE
@@ -1722,7 +1709,8 @@ int}.
 @defmacx UINT_FAST64_TYPE
 @defmacx INTPTR_TYPE
 @defmacx UINTPTR_TYPE
-C expressions for the standard types @code{sig_atomic_t},
+@code{enum integer_type_kind} values
+for the standard types @code{sig_atomic_t},
 @code{int8_t}, @code{int16_t}, @code{int32_t}, @code{int64_t},
 @code{uint8_t}, @code{uint16_t}, @code{uint32_t}, @code{uint64_t},
 @code{int_least8_t}, @code{int_least16_t}, @code{int_least32_t},
@@ -1730,14 +1718,13 @@ C expressions for the standard types @code{sig_atomic_t},
 @code{uint_least32_t}, @code{uint_least64_t}, @code{int_fast8_t},
 @code{int_fast16_t}, @code{int_fast32_t}, @code{int_fast64_t},
 @code{uint_fast8_t}, @code{uint_fast16_t}, @code{uint_fast32_t},
-@code{uint_fast64_t}, @code{intptr_t}, and @code{uintptr_t}.  See
-@code{SIZE_TYPE} above for more information.
+@code{uint_fast64_t}, @code{intptr_t}, and @code{uintptr_t}.
 
-If any of these macros evaluates to a null pointer, the corresponding
+If any of these macros evaluates to @code{itk_none}, the corresponding
 type is not supported; if GCC is configured to provide
 @code{<stdint.h>} in such a case, the header provided may not conform
-to C99, depending on the type in question.  The defaults for all of
-these macros are null pointers.
+to C99, depending on the type in question.  The default for each of
+these macros is @code{itk_none}.
 @end defmac
 
 @defmac TARGET_PTRMEMFUNC_VBIT_LOCATION

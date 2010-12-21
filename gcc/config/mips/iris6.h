@@ -94,53 +94,53 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Specify wchar_t types.  */
 #undef WCHAR_TYPE
-#define WCHAR_TYPE (Pmode == DImode ? "int" : "long int")
+#define WCHAR_TYPE (Pmode == DImode ? itk_int : itk_long)
 
 #undef WCHAR_TYPE_SIZE
 #define WCHAR_TYPE_SIZE INT_TYPE_SIZE
 
 /* Same for wint_t.  */
 #undef WINT_TYPE
-#define WINT_TYPE (Pmode == DImode ? "int" : "long int")
+#define WINT_TYPE (Pmode == DImode ? itk_int : itk_long)
 
 #undef WINT_TYPE_SIZE
 #define WINT_TYPE_SIZE 32
 
 /* C99 stdint.h types.  */
-#define INT8_TYPE "signed char"
-#define INT16_TYPE "short int"
-#define INT32_TYPE "int"
-#define INT64_TYPE "long long int"
-#define UINT8_TYPE "unsigned char"
-#define UINT16_TYPE "short unsigned int"
-#define UINT32_TYPE "unsigned int"
-#define UINT64_TYPE "long long unsigned int"
+#define INT8_TYPE itk_signed_char
+#define INT16_TYPE itk_short
+#define INT32_TYPE itk_int
+#define INT64_TYPE itk_long_long
+#define UINT8_TYPE itk_unsigned_char
+#define UINT16_TYPE itk_unsigned_short
+#define UINT32_TYPE itk_unsigned_int
+#define UINT64_TYPE itk_unsigned_long_long
 
-#define INT_LEAST8_TYPE "signed char"
-#define INT_LEAST16_TYPE "short int"
-#define INT_LEAST32_TYPE "int"
-#define INT_LEAST64_TYPE "long long int"
-#define UINT_LEAST8_TYPE "unsigned char"
-#define UINT_LEAST16_TYPE "short unsigned int"
-#define UINT_LEAST32_TYPE "unsigned int"
-#define UINT_LEAST64_TYPE "long long unsigned int"
+#define INT_LEAST8_TYPE itk_signed_char
+#define INT_LEAST16_TYPE itk_short
+#define INT_LEAST32_TYPE itk_int
+#define INT_LEAST64_TYPE itk_long_long
+#define UINT_LEAST8_TYPE itk_unsigned_char
+#define UINT_LEAST16_TYPE itk_unsigned_short
+#define UINT_LEAST32_TYPE itk_unsigned_int
+#define UINT_LEAST64_TYPE itk_unsigned_long_long
 
-#define INT_FAST8_TYPE "signed char"
-#define INT_FAST16_TYPE "short int"
-#define INT_FAST32_TYPE "int"
-#define INT_FAST64_TYPE "long long int"
-#define UINT_FAST8_TYPE "unsigned char"
-#define UINT_FAST16_TYPE "short unsigned int"
-#define UINT_FAST32_TYPE "unsigned int"
-#define UINT_FAST64_TYPE "long long unsigned int"
+#define INT_FAST8_TYPE itk_signed_char
+#define INT_FAST16_TYPE itk_short
+#define INT_FAST32_TYPE itk_int
+#define INT_FAST64_TYPE itk_long_long
+#define UINT_FAST8_TYPE itk_unsigned_char
+#define UINT_FAST16_TYPE itk_unsigned_short
+#define UINT_FAST32_TYPE itk_unsigned_int
+#define UINT_FAST64_TYPE itk_unsigned_long_long
 
-#define INTMAX_TYPE "long long int"
-#define UINTMAX_TYPE "long long unsigned int"
+#define INTMAX_TYPE itk_long_long
+#define UINTMAX_TYPE itk_unsigned_long_long
 
-#define INTPTR_TYPE "long int"
-#define UINTPTR_TYPE "long unsigned int"
+#define INTPTR_TYPE itk_long
+#define UINTPTR_TYPE itk_unsigned_long
 
-#define SIG_ATOMIC_TYPE "int"
+#define SIG_ATOMIC_TYPE itk_int
 
 /* Plain char is unsigned in the SGI compiler.  */
 #undef DEFAULT_SIGNED_CHAR

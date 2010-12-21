@@ -606,14 +606,14 @@ extern unsigned char rs6000_recip_bits[];
 #define UNITS_PER_SPE_WORD 8
 #define UNITS_PER_PAIRED_WORD 8
 
-/* Type used for ptrdiff_t, as a string used in a declaration.  */
-#define PTRDIFF_TYPE "int"
+/* Type used for ptrdiff_t.  */
+#define PTRDIFF_TYPE itk_int
 
-/* Type used for size_t, as a string used in a declaration.  */
-#define SIZE_TYPE "long unsigned int"
+/* Type used for size_t.  */
+#define SIZE_TYPE itk_unsigned_long
 
-/* Type used for wchar_t, as a string used in a declaration.  */
-#define WCHAR_TYPE "short unsigned int"
+/* Type used for wchar_t.  */
+#define WCHAR_TYPE itk_unsigned_short
 
 /* Width of wchar_t in bits.  */
 #define WCHAR_TYPE_SIZE 16

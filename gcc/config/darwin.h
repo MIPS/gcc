@@ -59,55 +59,55 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 
 #define DO_GLOBAL_DTORS_BODY
 
-/* The string value for __SIZE_TYPE__.  */
+/* The enum integer_type_kind value for __SIZE_TYPE__.  */
 
 #ifndef SIZE_TYPE
-#define SIZE_TYPE "long unsigned int"
+#define SIZE_TYPE itk_unsigned_long
 #endif
 
 /* Type used for ptrdiff_t, as a string used in a declaration.  */
 
 #undef  PTRDIFF_TYPE
-#define PTRDIFF_TYPE "int"
+#define PTRDIFF_TYPE itk_int
 
 /* wchar_t is int.  */
 
 #undef	WCHAR_TYPE
-#define WCHAR_TYPE "int"
+#define WCHAR_TYPE itk_int
 #undef	WCHAR_TYPE_SIZE
 #define WCHAR_TYPE_SIZE 32
 
-#define INT8_TYPE "signed char"
-#define INT16_TYPE "short int"
-#define INT32_TYPE "int"
-#define INT64_TYPE "long long int"
-#define UINT8_TYPE "unsigned char"
-#define UINT16_TYPE "short unsigned int"
-#define UINT32_TYPE "unsigned int"
-#define UINT64_TYPE "long long unsigned int"
+#define INT8_TYPE itk_signed_char
+#define INT16_TYPE itk_short
+#define INT32_TYPE itk_int
+#define INT64_TYPE itk_long_long
+#define UINT8_TYPE itk_unsigned_char
+#define UINT16_TYPE itk_unsigned_short
+#define UINT32_TYPE itk_unsigned_int
+#define UINT64_TYPE itk_unsigned_long_long
 
-#define INT_LEAST8_TYPE "signed char"
-#define INT_LEAST16_TYPE "short int"
-#define INT_LEAST32_TYPE "int"
-#define INT_LEAST64_TYPE "long long int"
-#define UINT_LEAST8_TYPE "unsigned char"
-#define UINT_LEAST16_TYPE "short unsigned int"
-#define UINT_LEAST32_TYPE "unsigned int"
-#define UINT_LEAST64_TYPE "long long unsigned int"
+#define INT_LEAST8_TYPE itk_signed_char
+#define INT_LEAST16_TYPE itk_short
+#define INT_LEAST32_TYPE itk_int
+#define INT_LEAST64_TYPE itk_long_long
+#define UINT_LEAST8_TYPE itk_unsigned_char
+#define UINT_LEAST16_TYPE itk_unsigned_short
+#define UINT_LEAST32_TYPE itk_unsigned_int
+#define UINT_LEAST64_TYPE itk_unsigned_long_long
 
-#define INT_FAST8_TYPE "signed char"
-#define INT_FAST16_TYPE "short int"
-#define INT_FAST32_TYPE "int"
-#define INT_FAST64_TYPE "long long int"
-#define UINT_FAST8_TYPE "unsigned char"
-#define UINT_FAST16_TYPE "short unsigned int"
-#define UINT_FAST32_TYPE "unsigned int"
-#define UINT_FAST64_TYPE "long long unsigned int"
+#define INT_FAST8_TYPE itk_signed_char
+#define INT_FAST16_TYPE itk_short
+#define INT_FAST32_TYPE itk_int
+#define INT_FAST64_TYPE itk_long_long
+#define UINT_FAST8_TYPE itk_unsigned_char
+#define UINT_FAST16_TYPE itk_unsigned_short
+#define UINT_FAST32_TYPE itk_unsigned_int
+#define UINT_FAST64_TYPE itk_unsigned_long_long
 
-#define INTPTR_TYPE "long int"
-#define UINTPTR_TYPE "long unsigned int"
+#define INTPTR_TYPE itk_long
+#define UINTPTR_TYPE itk_unsigned_long
 
-#define SIG_ATOMIC_TYPE "int"
+#define SIG_ATOMIC_TYPE itk_int
 
 /* Default to using the NeXT-style runtime, since that's what is
    pre-installed on Darwin systems.  */
@@ -889,7 +889,7 @@ void add_framework_path (char *);
 
 #define TARGET_C99_FUNCTIONS 1
 
-#define WINT_TYPE "int"
+#define WINT_TYPE itk_int
 
 /* Every program on darwin links against libSystem which contains the pthread
    routines, so there's no need to explicitly call out when doing threaded

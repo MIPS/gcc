@@ -222,9 +222,9 @@ do {								\
 
 /* Make gcc agree with <machine/ansi.h> */
 
-#define SIZE_TYPE "unsigned int"
-#define PTRDIFF_TYPE "int"
-#define WCHAR_TYPE "unsigned int"
+#define SIZE_TYPE itk_unsigned_int
+#define PTRDIFF_TYPE itk_int
+#define WCHAR_TYPE itk_unsigned_int
 #define WCHAR_TYPE_SIZE 32
 
 /* target machine storage layout */

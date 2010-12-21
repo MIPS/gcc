@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for HP PA-RISC
-   Copyright (C) 1998, 1999, 2000, 2002, 2003, 2004, 2005, 2007, 2008
+   Copyright (C) 1998, 1999, 2000, 2002, 2003, 2004, 2005, 2007, 2008, 2010
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -163,8 +163,8 @@ along with GCC; see the file COPYING3.  If not see
 #undef SIZE_TYPE
 #undef PTRDIFF_TYPE
 
-#define SIZE_TYPE "long unsigned int"
-#define PTRDIFF_TYPE "long int"
+#define SIZE_TYPE itk_unsigned_long
+#define PTRDIFF_TYPE itk_long
 
 /* HP-UX 11.0 and above provides initialization and finalization function
    support from linker command line.  We don't need to invoke __main to run

@@ -69,11 +69,11 @@ along with GCC; see the file COPYING3.  If not see
 #define LONG_DOUBLE_TYPE_SIZE	64
 
 /* machine types from ansi */
-#define SIZE_TYPE "unsigned int" 	/* definition of size_t */
-#define WCHAR_TYPE "int" 		/* or long int???? */
+#define SIZE_TYPE itk_unsigned_int 	/* definition of size_t */
+#define WCHAR_TYPE itk_int 		/* or long int???? */
 #define WCHAR_TYPE_SIZE 16
 
-#define PTRDIFF_TYPE "int"
+#define PTRDIFF_TYPE itk_int
 
 /* target machine storage layout */
 

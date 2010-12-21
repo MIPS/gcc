@@ -123,13 +123,13 @@ extern enum processor_type mn10300_tune_cpu;
 #define DEFAULT_SIGNED_CHAR 0
 
 #undef  SIZE_TYPE
-#define SIZE_TYPE "unsigned int"
+#define SIZE_TYPE itk_unsigned_int
 
 #undef  PTRDIFF_TYPE
-#define PTRDIFF_TYPE "int"
+#define PTRDIFF_TYPE itk_int
 
 #undef  WCHAR_TYPE
-#define WCHAR_TYPE "long int"
+#define WCHAR_TYPE itk_long
 
 #undef  WCHAR_TYPE_SIZE
 #define WCHAR_TYPE_SIZE BITS_PER_WORD

@@ -165,7 +165,7 @@ do {						         \
 
 /* Define as short unsigned for compatibility with MS runtime.  */
 #undef WINT_TYPE
-#define WINT_TYPE "short unsigned int"
+#define WINT_TYPE itk_unsigned_short
 
 /* mingw32 uses the  -mthreads option to enable thread support.  */
 #undef GOMP_SELF_SPECS

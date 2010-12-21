@@ -183,40 +183,40 @@ __enable_execute_stack (void *addr)					\
 }
 
 /* Digital UNIX V4.0E (1091)/usr/include/sys/types.h 4.3.49.9 1997/08/14 */
-#define SIZE_TYPE	"long unsigned int"
-#define PTRDIFF_TYPE	"long int"
+#define SIZE_TYPE	itk_unsigned_long
+#define PTRDIFF_TYPE	itk_long
 
-#define SIG_ATOMIC_TYPE "int"
+#define SIG_ATOMIC_TYPE itk_int
 
-#define INT8_TYPE "signed char"
-#define INT16_TYPE "short int"
-#define INT32_TYPE "int"
-#define INT64_TYPE "long int"
-#define UINT8_TYPE "unsigned char"
-#define UINT16_TYPE "short unsigned int"
-#define UINT32_TYPE "unsigned int"
-#define UINT64_TYPE "long unsigned int"
+#define INT8_TYPE itk_signed_char
+#define INT16_TYPE itk_short
+#define INT32_TYPE itk_int
+#define INT64_TYPE itk_long
+#define UINT8_TYPE itk_unsigned_char
+#define UINT16_TYPE itk_unsigned_short
+#define UINT32_TYPE itk_unsigned_int
+#define UINT64_TYPE itk_unsigned_long
 
-#define INT_LEAST8_TYPE "signed char"
-#define INT_LEAST16_TYPE "short int"
-#define INT_LEAST32_TYPE "int"
-#define INT_LEAST64_TYPE "long int"
-#define UINT_LEAST8_TYPE "unsigned char"
-#define UINT_LEAST16_TYPE "short unsigned int"
-#define UINT_LEAST32_TYPE "unsigned int"
-#define UINT_LEAST64_TYPE "long unsigned int"
+#define INT_LEAST8_TYPE itk_signed_char
+#define INT_LEAST16_TYPE itk_short
+#define INT_LEAST32_TYPE itk_int
+#define INT_LEAST64_TYPE itk_long
+#define UINT_LEAST8_TYPE itk_unsigned_char
+#define UINT_LEAST16_TYPE itk_unsigned_short
+#define UINT_LEAST32_TYPE itk_unsigned_int
+#define UINT_LEAST64_TYPE itk_unsigned_long
 
-#define INT_FAST8_TYPE "signed char"
-#define INT_FAST16_TYPE "int"
-#define INT_FAST32_TYPE "int"
-#define INT_FAST64_TYPE "long int"
-#define UINT_FAST8_TYPE "unsigned char"
-#define UINT_FAST16_TYPE "unsigned int"
-#define UINT_FAST32_TYPE "unsigned int"
-#define UINT_FAST64_TYPE "long unsigned int"
+#define INT_FAST8_TYPE itk_signed_char
+#define INT_FAST16_TYPE itk_int
+#define INT_FAST32_TYPE itk_int
+#define INT_FAST64_TYPE itk_long
+#define UINT_FAST8_TYPE itk_unsigned_char
+#define UINT_FAST16_TYPE itk_unsigned_int
+#define UINT_FAST32_TYPE itk_unsigned_int
+#define UINT_FAST64_TYPE itk_unsigned_long
 
-#define INTPTR_TYPE "long int"
-#define UINTPTR_TYPE "long unsigned int"
+#define INTPTR_TYPE itk_long
+#define UINTPTR_TYPE itk_unsigned_long
 
 /* The linker will stick __main into the .init section.  */
 #define HAS_INIT_SECTION

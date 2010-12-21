@@ -158,20 +158,14 @@ extern enum picochip_dfa_type picochip_schedule_type;
    bytes when loading them from memory into a register. */
 #define DEFAULT_SIGNED_CHAR 1
 
-/* Note that the names of the types used in the following macros must
-   be precisely the same as those defined internally in gcc.  For
-   example, `unsigned short' wouldn't work as a type string, since gcc
-   doesn't define any type with this exact string.  The correct string
-   to use is `short unsigned int'. */
+#define SIZE_TYPE itk_unsigned_int
 
-#define SIZE_TYPE "unsigned int"
+#define PTRDIFF_TYPE itk_int
 
-#define PTRDIFF_TYPE "int"
-
-#define WCHAR_TYPE "short unsigned int"
+#define WCHAR_TYPE itk_unsigned_short
 #define WCHAR_TYPE_SIZE 16
 
-#define WINT_TYPE "unsigned int"
+#define WINT_TYPE itk_unsigned_int
 
 /* Register Usage  */
 

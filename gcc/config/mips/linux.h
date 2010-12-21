@@ -19,7 +19,7 @@ along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
 #undef WCHAR_TYPE
-#define WCHAR_TYPE "int"
+#define WCHAR_TYPE itk_int
 
 #undef WCHAR_TYPE_SIZE
 #define WCHAR_TYPE_SIZE 32

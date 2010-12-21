@@ -254,7 +254,7 @@
 #define OS_MISSING_ALTIVEC 1
 
 /* WINT_TYPE */
-#define WINT_TYPE "int"
+#define WINT_TYPE itk_int
 
 /* Static stack checking is supported by means of probes.  */
 #define STACK_CHECK_STATIC_BUILTIN 1

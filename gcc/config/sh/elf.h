@@ -1,5 +1,5 @@
 /* Definitions of target machine for gcc for Renesas / SuperH SH using ELF.
-   Copyright (C) 1996, 1997, 2000, 2001, 2002, 2004, 2005, 2007
+   Copyright (C) 1996, 1997, 2000, 2001, 2002, 2004, 2005, 2007, 2010
    Free Software Foundation, Inc.
    Contributed by Ian Lance Taylor <ian@cygnus.com>.
 
@@ -35,7 +35,7 @@ along with GCC; see the file COPYING3.  If not see
 /* WCHAR_TYPE / WCHAR_TYPE_SIZE are defined to long int / BITS_PER_WORD in
    svr4.h, but these work out as 64 bit for shmedia64.  */
 #undef WCHAR_TYPE
-/* #define WCHAR_TYPE (TARGET_SH5 ? "int" : "long int") */
+/* #define WCHAR_TYPE (TARGET_SH5 ? itk_int : itk_long) */
 #define WCHAR_TYPE SH_ELF_WCHAR_TYPE
    
 #undef WCHAR_TYPE_SIZE
@@ -48,10 +48,10 @@ along with GCC; see the file COPYING3.  If not see
 #define LOCAL_LABEL_PREFIX "."
 
 #undef SIZE_TYPE
-#define SIZE_TYPE (TARGET_SH5 ? "long unsigned int" : "unsigned int")
+#define SIZE_TYPE (TARGET_SH5 ? itk_unsigned_long : itk_unsigned_int)
 
 #undef PTRDIFF_TYPE
-#define PTRDIFF_TYPE (TARGET_SH5 ? "long int" : "int")
+#define PTRDIFF_TYPE (TARGET_SH5 ? itk_long : itk_int)
 
 /* Pass -ml and -mrelax to the assembler and linker.  */
 #undef ASM_SPEC

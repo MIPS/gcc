@@ -111,10 +111,10 @@ extern void vxworks_asm_out_destructor (rtx symbol, int priority);
 
 /* As for svr4.h (which not all VxWorks targets include). */
 #undef PTRDIFF_TYPE
-#define PTRDIFF_TYPE "int"
+#define PTRDIFF_TYPE itk_int
 
 #undef SIZE_TYPE
-#define SIZE_TYPE "unsigned int"
+#define SIZE_TYPE itk_unsigned_int
 
 /* Both kernels and RTPs have the facilities required by this macro.  */
 #define TARGET_POSIX_IO

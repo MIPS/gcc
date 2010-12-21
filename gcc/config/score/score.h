@@ -196,9 +196,9 @@
 #define DEFAULT_SIGNED_CHAR             1
 
 /* Default definitions for size_t and ptrdiff_t.  */
-#define SIZE_TYPE                       "unsigned int"
+#define SIZE_TYPE                       itk_unsigned_int
 
-#define UINTPTR_TYPE			"long unsigned int"
+#define UINTPTR_TYPE			itk_unsigned_long
 
 /* Register Usage
 

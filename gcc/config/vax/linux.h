@@ -48,7 +48,7 @@ along with GCC; see the file COPYING3.  If not see
     %{static:-static}}"
 
 #undef  WCHAR_TYPE
-#define WCHAR_TYPE "long int"
+#define WCHAR_TYPE itk_long
 
 #undef  WCHAR_TYPE_SIZE
 #define WCHAR_TYPE_SIZE BITS_PER_WORD

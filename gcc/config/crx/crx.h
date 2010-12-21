@@ -113,9 +113,9 @@ do {								\
 
 #define DEFAULT_SIGNED_CHAR	1
 
-#define SIZE_TYPE		"unsigned int"
+#define SIZE_TYPE		itk_unsigned_int
 
-#define PTRDIFF_TYPE		"int"
+#define PTRDIFF_TYPE		itk_int
 
 /*****************************************************************************/
 /* REGISTER USAGE.							     */

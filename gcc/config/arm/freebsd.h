@@ -49,10 +49,10 @@
 /* arm.h gets this wrong for FreeBSD.  We use the GCC defaults instead.  */
 
 #undef  SIZE_TYPE
-#define SIZE_TYPE	"unsigned int"
+#define SIZE_TYPE	itk_unsigned_int
 
 #undef  PTRDIFF_TYPE
-#define PTRDIFF_TYPE	"int"
+#define PTRDIFF_TYPE	itk_int
 
 /* We use the GCC defaults here.  */
 #undef WCHAR_TYPE

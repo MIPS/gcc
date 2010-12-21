@@ -4493,16 +4493,6 @@ c_define_builtins (tree va_list_ref_type_node, tree va_list_arg_type_node)
     mudflap_init ();
 }
 
-/* Like get_identifier, but avoid warnings about null arguments when
-   the argument may be NULL for targets where GCC lacks stdint.h type
-   information.  */
-
-static inline tree
-c_get_ident (const char *id)
-{
-  return get_identifier (id);
-}
-
 /* Build tree nodes and builtin functions common to both C and C++ language
    frontends.  */
 
@@ -4613,13 +4603,11 @@ c_common_nodes_and_builtins (void)
   /* `unsigned long' is the standard type for sizeof.
      Note that stddef.h uses `unsigned long',
      and this must agree, even if long and int are the same size.  */
-  size_type_node =
-    TREE_TYPE (identifier_global_value (get_identifier (SIZE_TYPE)));
+  size_type_node = integer_types[SIZE_TYPE];
   signed_size_type_node = c_common_signed_type (size_type_node);
   set_sizetype (size_type_node);
 
-  pid_type_node =
-    TREE_TYPE (identifier_global_value (get_identifier (PID_TYPE)));
+  pid_type_node = integer_types[PID_TYPE];
 
   build_common_tree_nodes_2 (flag_short_double);
 
@@ -4762,8 +4750,7 @@ c_common_nodes_and_builtins (void)
 			  (char_type_node, TYPE_QUAL_CONST));
 
   /* This is special for C++ so functions can be overloaded.  */
-  wchar_type_node = get_identifier (MODIFIED_WCHAR_TYPE);
-  wchar_type_node = TREE_TYPE (identifier_global_value (wchar_type_node));
+  wchar_type_node = integer_types[MODIFIED_WCHAR_TYPE];
   wchar_type_size = TYPE_PRECISION (wchar_type_node);
   underlying_wchar_type_node = wchar_type_node;
   if (c_dialect_cxx ())
@@ -4780,8 +4767,7 @@ c_common_nodes_and_builtins (void)
     = build_array_type (wchar_type_node, array_domain_type);
 
   /* Define 'char16_t'.  */
-  char16_type_node = get_identifier (CHAR16_TYPE);
-  char16_type_node = TREE_TYPE (identifier_global_value (char16_type_node));
+  char16_type_node = integer_types[CHAR16_TYPE];
   char16_type_size = TYPE_PRECISION (char16_type_node);
   if (c_dialect_cxx ())
     {
@@ -4796,8 +4782,7 @@ c_common_nodes_and_builtins (void)
     = build_array_type (char16_type_node, array_domain_type);
 
   /* Define 'char32_t'.  */
-  char32_type_node = get_identifier (CHAR32_TYPE);
-  char32_type_node = TREE_TYPE (identifier_global_value (char32_type_node));
+  char32_type_node = integer_types[CHAR32_TYPE];
   char32_type_size = TYPE_PRECISION (char32_type_node);
   if (c_dialect_cxx ())
     {
@@ -4811,99 +4796,68 @@ c_common_nodes_and_builtins (void)
   char32_array_type_node
     = build_array_type (char32_type_node, array_domain_type);
 
-  wint_type_node =
-    TREE_TYPE (identifier_global_value (get_identifier (WINT_TYPE)));
+  wint_type_node = integer_types[WINT_TYPE];
 
-  intmax_type_node =
-    TREE_TYPE (identifier_global_value (get_identifier (INTMAX_TYPE)));
-  uintmax_type_node =
-    TREE_TYPE (identifier_global_value (get_identifier (UINTMAX_TYPE)));
+  intmax_type_node = integer_types[INTMAX_TYPE];
+  uintmax_type_node = integer_types[UINTMAX_TYPE];
 
-  if (SIG_ATOMIC_TYPE)
-    sig_atomic_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (SIG_ATOMIC_TYPE)));
-  if (INT8_TYPE)
-    int8_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (INT8_TYPE)));
-  if (INT16_TYPE)
-    int16_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (INT16_TYPE)));
-  if (INT32_TYPE)
-    int32_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (INT32_TYPE)));
-  if (INT64_TYPE)
-    int64_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (INT64_TYPE)));
-  if (UINT8_TYPE)
-    uint8_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (UINT8_TYPE)));
-  if (UINT16_TYPE)
-    uint16_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (UINT16_TYPE)));
-  if (UINT32_TYPE)
-    c_uint32_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (UINT32_TYPE)));
-  if (UINT64_TYPE)
-    c_uint64_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (UINT64_TYPE)));
-  if (INT_LEAST8_TYPE)
-    int_least8_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (INT_LEAST8_TYPE)));
-  if (INT_LEAST16_TYPE)
-    int_least16_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (INT_LEAST16_TYPE)));
-  if (INT_LEAST32_TYPE)
-    int_least32_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (INT_LEAST32_TYPE)));
-  if (INT_LEAST64_TYPE)
-    int_least64_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (INT_LEAST64_TYPE)));
-  if (UINT_LEAST8_TYPE)
-    uint_least8_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (UINT_LEAST8_TYPE)));
-  if (UINT_LEAST16_TYPE)
-    uint_least16_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (UINT_LEAST16_TYPE)));
-  if (UINT_LEAST32_TYPE)
-    uint_least32_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (UINT_LEAST32_TYPE)));
-  if (UINT_LEAST64_TYPE)
-    uint_least64_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (UINT_LEAST64_TYPE)));
-  if (INT_FAST8_TYPE)
-    int_fast8_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (INT_FAST8_TYPE)));
-  if (INT_FAST16_TYPE)
-    int_fast16_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (INT_FAST16_TYPE)));
-  if (INT_FAST32_TYPE)
-    int_fast32_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (INT_FAST32_TYPE)));
-  if (INT_FAST64_TYPE)
-    int_fast64_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (INT_FAST64_TYPE)));
-  if (UINT_FAST8_TYPE)
-    uint_fast8_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (UINT_FAST8_TYPE)));
-  if (UINT_FAST16_TYPE)
-    uint_fast16_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (UINT_FAST16_TYPE)));
-  if (UINT_FAST32_TYPE)
-    uint_fast32_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (UINT_FAST32_TYPE)));
-  if (UINT_FAST64_TYPE)
-    uint_fast64_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (UINT_FAST64_TYPE)));
-  if (INTPTR_TYPE)
-    intptr_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (INTPTR_TYPE)));
-  if (UINTPTR_TYPE)
-    uintptr_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (UINTPTR_TYPE)));
+  if (SIG_ATOMIC_TYPE != itk_none)
+    sig_atomic_type_node = integer_types[SIG_ATOMIC_TYPE];
+  if (INT8_TYPE != itk_none)
+    int8_type_node = integer_types[INT8_TYPE];
+  if (INT16_TYPE != itk_none)
+    int16_type_node = integer_types[INT16_TYPE];
+  if (INT32_TYPE != itk_none)
+    int32_type_node = integer_types[INT32_TYPE];
+  if (INT64_TYPE != itk_none)
+    int64_type_node = integer_types[INT64_TYPE];
+  if (UINT8_TYPE != itk_none)
+    uint8_type_node = integer_types[UINT8_TYPE];
+  if (UINT16_TYPE != itk_none)
+    uint16_type_node = integer_types[UINT16_TYPE];
+  if (UINT32_TYPE != itk_none)
+    c_uint32_type_node = integer_types[UINT32_TYPE];
+  if (UINT64_TYPE != itk_none)
+    c_uint64_type_node = integer_types[UINT64_TYPE];
+  if (INT_LEAST8_TYPE != itk_none)
+    int_least8_type_node = integer_types[INT_LEAST8_TYPE];
+  if (INT_LEAST16_TYPE != itk_none)
+    int_least16_type_node = integer_types[INT_LEAST16_TYPE];
+  if (INT_LEAST32_TYPE != itk_none)
+    int_least32_type_node = integer_types[INT_LEAST32_TYPE];
+  if (INT_LEAST64_TYPE != itk_none)
+    int_least64_type_node = integer_types[INT_LEAST64_TYPE];
+  if (UINT_LEAST8_TYPE != itk_none)
+    uint_least8_type_node = integer_types[UINT_LEAST8_TYPE];
+  if (UINT_LEAST16_TYPE != itk_none)
+    uint_least16_type_node = integer_types[UINT_LEAST16_TYPE];
+  if (UINT_LEAST32_TYPE != itk_none)
+    uint_least32_type_node = integer_types[UINT_LEAST32_TYPE];
+  if (UINT_LEAST64_TYPE != itk_none)
+    uint_least64_type_node = integer_types[UINT_LEAST64_TYPE];
+  if (INT_FAST8_TYPE != itk_none)
+    int_fast8_type_node = integer_types[INT_FAST8_TYPE];
+  if (INT_FAST16_TYPE != itk_none)
+    int_fast16_type_node = integer_types[INT_FAST16_TYPE];
+  if (INT_FAST32_TYPE != itk_none)
+    int_fast32_type_node = integer_types[INT_FAST32_TYPE];
+  if (INT_FAST64_TYPE != itk_none)
+    int_fast64_type_node = integer_types[INT_FAST64_TYPE];
+  if (UINT_FAST8_TYPE != itk_none)
+    uint_fast8_type_node = integer_types[UINT_FAST8_TYPE];
+  if (UINT_FAST16_TYPE != itk_none)
+    uint_fast16_type_node = integer_types[UINT_FAST16_TYPE];
+  if (UINT_FAST32_TYPE != itk_none)
+    uint_fast32_type_node = integer_types[UINT_FAST32_TYPE];
+  if (UINT_FAST64_TYPE != itk_none)
+    uint_fast64_type_node = integer_types[UINT_FAST64_TYPE];
+  if (INTPTR_TYPE != itk_none)
+    intptr_type_node = integer_types[INTPTR_TYPE];
+  if (UINTPTR_TYPE != itk_none)
+    uintptr_type_node = integer_types[UINTPTR_TYPE];
 
   default_function_type = build_function_type (integer_type_node, NULL_TREE);
-  ptrdiff_type_node
-    = TREE_TYPE (identifier_global_value (get_identifier (PTRDIFF_TYPE)));
+  ptrdiff_type_node = integer_types[PTRDIFF_TYPE];
   unsigned_ptrdiff_type_node = c_common_unsigned_type (ptrdiff_type_node);
 
   lang_hooks.decls.pushdecl
@@ -5571,68 +5525,103 @@ boolean_increment (enum tree_code code, tree arg)
 void
 c_stddef_cpp_builtins(void)
 {
-  builtin_define_with_value ("__SIZE_TYPE__", SIZE_TYPE, 0);
-  builtin_define_with_value ("__PTRDIFF_TYPE__", PTRDIFF_TYPE, 0);
-  builtin_define_with_value ("__WCHAR_TYPE__", MODIFIED_WCHAR_TYPE, 0);
-  builtin_define_with_value ("__WINT_TYPE__", WINT_TYPE, 0);
-  builtin_define_with_value ("__INTMAX_TYPE__", INTMAX_TYPE, 0);
-  builtin_define_with_value ("__UINTMAX_TYPE__", UINTMAX_TYPE, 0);
-  builtin_define_with_value ("__CHAR16_TYPE__", CHAR16_TYPE, 0);
-  builtin_define_with_value ("__CHAR32_TYPE__", CHAR32_TYPE, 0);
-  if (SIG_ATOMIC_TYPE)
-    builtin_define_with_value ("__SIG_ATOMIC_TYPE__", SIG_ATOMIC_TYPE, 0);
-  if (INT8_TYPE)
-    builtin_define_with_value ("__INT8_TYPE__", INT8_TYPE, 0);
-  if (INT16_TYPE)
-    builtin_define_with_value ("__INT16_TYPE__", INT16_TYPE, 0);
-  if (INT32_TYPE)
-    builtin_define_with_value ("__INT32_TYPE__", INT32_TYPE, 0);
-  if (INT64_TYPE)
-    builtin_define_with_value ("__INT64_TYPE__", INT64_TYPE, 0);
-  if (UINT8_TYPE)
-    builtin_define_with_value ("__UINT8_TYPE__", UINT8_TYPE, 0);
-  if (UINT16_TYPE)
-    builtin_define_with_value ("__UINT16_TYPE__", UINT16_TYPE, 0);
-  if (UINT32_TYPE)
-    builtin_define_with_value ("__UINT32_TYPE__", UINT32_TYPE, 0);
-  if (UINT64_TYPE)
-    builtin_define_with_value ("__UINT64_TYPE__", UINT64_TYPE, 0);
-  if (INT_LEAST8_TYPE)
-    builtin_define_with_value ("__INT_LEAST8_TYPE__", INT_LEAST8_TYPE, 0);
-  if (INT_LEAST16_TYPE)
-    builtin_define_with_value ("__INT_LEAST16_TYPE__", INT_LEAST16_TYPE, 0);
-  if (INT_LEAST32_TYPE)
-    builtin_define_with_value ("__INT_LEAST32_TYPE__", INT_LEAST32_TYPE, 0);
-  if (INT_LEAST64_TYPE)
-    builtin_define_with_value ("__INT_LEAST64_TYPE__", INT_LEAST64_TYPE, 0);
-  if (UINT_LEAST8_TYPE)
-    builtin_define_with_value ("__UINT_LEAST8_TYPE__", UINT_LEAST8_TYPE, 0);
-  if (UINT_LEAST16_TYPE)
-    builtin_define_with_value ("__UINT_LEAST16_TYPE__", UINT_LEAST16_TYPE, 0);
-  if (UINT_LEAST32_TYPE)
-    builtin_define_with_value ("__UINT_LEAST32_TYPE__", UINT_LEAST32_TYPE, 0);
-  if (UINT_LEAST64_TYPE)
-    builtin_define_with_value ("__UINT_LEAST64_TYPE__", UINT_LEAST64_TYPE, 0);
-  if (INT_FAST8_TYPE)
-    builtin_define_with_value ("__INT_FAST8_TYPE__", INT_FAST8_TYPE, 0);
-  if (INT_FAST16_TYPE)
-    builtin_define_with_value ("__INT_FAST16_TYPE__", INT_FAST16_TYPE, 0);
-  if (INT_FAST32_TYPE)
-    builtin_define_with_value ("__INT_FAST32_TYPE__", INT_FAST32_TYPE, 0);
-  if (INT_FAST64_TYPE)
-    builtin_define_with_value ("__INT_FAST64_TYPE__", INT_FAST64_TYPE, 0);
-  if (UINT_FAST8_TYPE)
-    builtin_define_with_value ("__UINT_FAST8_TYPE__", UINT_FAST8_TYPE, 0);
-  if (UINT_FAST16_TYPE)
-    builtin_define_with_value ("__UINT_FAST16_TYPE__", UINT_FAST16_TYPE, 0);
-  if (UINT_FAST32_TYPE)
-    builtin_define_with_value ("__UINT_FAST32_TYPE__", UINT_FAST32_TYPE, 0);
-  if (UINT_FAST64_TYPE)
-    builtin_define_with_value ("__UINT_FAST64_TYPE__", UINT_FAST64_TYPE, 0);
-  if (INTPTR_TYPE)
-    builtin_define_with_value ("__INTPTR_TYPE__", INTPTR_TYPE, 0);
-  if (UINTPTR_TYPE)
-    builtin_define_with_value ("__UINTPTR_TYPE__", UINTPTR_TYPE, 0);
+  builtin_define_with_value ("__SIZE_TYPE__",
+			     integer_type_names[SIZE_TYPE], 0);
+  builtin_define_with_value ("__PTRDIFF_TYPE__",
+			     integer_type_names[PTRDIFF_TYPE], 0);
+  builtin_define_with_value ("__WCHAR_TYPE__",
+			     integer_type_names[MODIFIED_WCHAR_TYPE], 0);
+  builtin_define_with_value ("__WINT_TYPE__",
+			     integer_type_names[WINT_TYPE], 0);
+  builtin_define_with_value ("__INTMAX_TYPE__",
+			     integer_type_names[INTMAX_TYPE], 0);
+  builtin_define_with_value ("__UINTMAX_TYPE__",
+			     integer_type_names[UINTMAX_TYPE], 0);
+  builtin_define_with_value ("__CHAR16_TYPE__",
+			     integer_type_names[CHAR16_TYPE], 0);
+  builtin_define_with_value ("__CHAR32_TYPE__",
+			     integer_type_names[CHAR32_TYPE], 0);
+  if (SIG_ATOMIC_TYPE != itk_none)
+    builtin_define_with_value ("__SIG_ATOMIC_TYPE__",
+			       integer_type_names[SIG_ATOMIC_TYPE], 0);
+  if (INT8_TYPE != itk_none)
+    builtin_define_with_value ("__INT8_TYPE__",
+			       integer_type_names[INT8_TYPE], 0);
+  if (INT16_TYPE != itk_none)
+    builtin_define_with_value ("__INT16_TYPE__",
+			       integer_type_names[INT16_TYPE], 0);
+  if (INT32_TYPE != itk_none)
+    builtin_define_with_value ("__INT32_TYPE__",
+			       integer_type_names[INT32_TYPE], 0);
+  if (INT64_TYPE != itk_none)
+    builtin_define_with_value ("__INT64_TYPE__",
+			       integer_type_names[INT64_TYPE], 0);
+  if (UINT8_TYPE != itk_none)
+    builtin_define_with_value ("__UINT8_TYPE__",
+			       integer_type_names[UINT8_TYPE], 0);
+  if (UINT16_TYPE != itk_none)
+    builtin_define_with_value ("__UINT16_TYPE__",
+			       integer_type_names[UINT16_TYPE], 0);
+  if (UINT32_TYPE != itk_none)
+    builtin_define_with_value ("__UINT32_TYPE__",
+			       integer_type_names[UINT32_TYPE], 0);
+  if (UINT64_TYPE != itk_none)
+    builtin_define_with_value ("__UINT64_TYPE__",
+			       integer_type_names[UINT64_TYPE], 0);
+  if (INT_LEAST8_TYPE != itk_none)
+    builtin_define_with_value ("__INT_LEAST8_TYPE__",
+			       integer_type_names[INT_LEAST8_TYPE], 0);
+  if (INT_LEAST16_TYPE != itk_none)
+    builtin_define_with_value ("__INT_LEAST16_TYPE__",
+			       integer_type_names[INT_LEAST16_TYPE], 0);
+  if (INT_LEAST32_TYPE != itk_none)
+    builtin_define_with_value ("__INT_LEAST32_TYPE__",
+			       integer_type_names[INT_LEAST32_TYPE], 0);
+  if (INT_LEAST64_TYPE != itk_none)
+    builtin_define_with_value ("__INT_LEAST64_TYPE__",
+			       integer_type_names[INT_LEAST64_TYPE], 0);
+  if (UINT_LEAST8_TYPE != itk_none)
+    builtin_define_with_value ("__UINT_LEAST8_TYPE__",
+			       integer_type_names[UINT_LEAST8_TYPE], 0);
+  if (UINT_LEAST16_TYPE != itk_none)
+    builtin_define_with_value ("__UINT_LEAST16_TYPE__",
+			       integer_type_names[UINT_LEAST16_TYPE], 0);
+  if (UINT_LEAST32_TYPE != itk_none)
+    builtin_define_with_value ("__UINT_LEAST32_TYPE__",
+			       integer_type_names[UINT_LEAST32_TYPE], 0);
+  if (UINT_LEAST64_TYPE != itk_none)
+    builtin_define_with_value ("__UINT_LEAST64_TYPE__",
+			       integer_type_names[UINT_LEAST64_TYPE], 0);
+  if (INT_FAST8_TYPE != itk_none)
+    builtin_define_with_value ("__INT_FAST8_TYPE__",
+			       integer_type_names[INT_FAST8_TYPE], 0);
+  if (INT_FAST16_TYPE != itk_none)
+    builtin_define_with_value ("__INT_FAST16_TYPE__",
+			       integer_type_names[INT_FAST16_TYPE], 0);
+  if (INT_FAST32_TYPE != itk_none)
+    builtin_define_with_value ("__INT_FAST32_TYPE__",
+			       integer_type_names[INT_FAST32_TYPE], 0);
+  if (INT_FAST64_TYPE != itk_none)
+    builtin_define_with_value ("__INT_FAST64_TYPE__",
+			       integer_type_names[INT_FAST64_TYPE], 0);
+  if (UINT_FAST8_TYPE != itk_none)
+    builtin_define_with_value ("__UINT_FAST8_TYPE__",
+			       integer_type_names[UINT_FAST8_TYPE], 0);
+  if (UINT_FAST16_TYPE != itk_none)
+    builtin_define_with_value ("__UINT_FAST16_TYPE__",
+			       integer_type_names[UINT_FAST16_TYPE], 0);
+  if (UINT_FAST32_TYPE != itk_none)
+    builtin_define_with_value ("__UINT_FAST32_TYPE__",
+			       integer_type_names[UINT_FAST32_TYPE], 0);
+  if (UINT_FAST64_TYPE != itk_none)
+    builtin_define_with_value ("__UINT_FAST64_TYPE__",
+			       integer_type_names[UINT_FAST64_TYPE], 0);
+  if (INTPTR_TYPE != itk_none)
+    builtin_define_with_value ("__INTPTR_TYPE__",
+			       integer_type_names[INTPTR_TYPE], 0);
+  if (UINTPTR_TYPE != itk_none)
+    builtin_define_with_value ("__UINTPTR_TYPE__",
+			       integer_type_names[UINTPTR_TYPE], 0);
 }
 
 static void

@@ -55,10 +55,10 @@ along with GCC; see the file COPYING3.  If not see
   while (0)
 
 #undef PTRDIFF_TYPE
-#define PTRDIFF_TYPE (TARGET_64BIT ? "long int" : "int")
+#define PTRDIFF_TYPE (TARGET_64BIT ? itk_long : itk_int)
 
 #undef WCHAR_TYPE
-#define WCHAR_TYPE "int"
+#define WCHAR_TYPE itk_int
 
 #undef WCHAR_TYPE_SIZE
 #define WCHAR_TYPE_SIZE 32

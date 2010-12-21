@@ -29,10 +29,10 @@ along with GCC; see the file COPYING3.  If not see
    would know best.  */
 
 #undef SIZE_TYPE
-#define SIZE_TYPE (TARGET_ARCH64 ? "long unsigned int" : "unsigned int")
+#define SIZE_TYPE (TARGET_ARCH64 ? itk_unsigned_long : itk_unsigned_int)
 
 #undef PTRDIFF_TYPE
-#define PTRDIFF_TYPE (TARGET_ARCH64 ? "long int" : "int")
+#define PTRDIFF_TYPE (TARGET_ARCH64 ? itk_long : itk_int)
 
 /* Undefined some symbols which are defined in "svr4.h" but which are
    appropriate only for typical svr4 systems, but not for the specific

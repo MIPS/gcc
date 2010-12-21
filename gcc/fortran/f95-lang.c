@@ -552,7 +552,7 @@ clear_binding_stack (void)
 
 
 #undef SIZE_TYPE
-#define SIZE_TYPE "long unsigned int"
+#define SIZE_TYPE itk_unsigned_long
 
 /* Create tree nodes for the basic scalar types of Fortran 95,
    and some nodes representing standard constants (0, 1, (void *) 0).

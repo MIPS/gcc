@@ -112,13 +112,13 @@ do {						\
    ints and 32-bit longs.  */
 
 #undef SIZE_TYPE
-#define SIZE_TYPE "long unsigned int"
+#define SIZE_TYPE itk_unsigned_long
 
 #undef PTRDIFF_TYPE
-#define PTRDIFF_TYPE "long int"
+#define PTRDIFF_TYPE itk_long
 
 #undef WCHAR_TYPE
-#define WCHAR_TYPE "int"
+#define WCHAR_TYPE itk_int
 
 #undef WCHAR_TYPE_SIZE
 #define WCHAR_TYPE_SIZE 32
