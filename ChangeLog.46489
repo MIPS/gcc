@@ -1,3 +1,14 @@
+2010-12-25  Joern Rennecke  <amylaar@spamcop.net>
+
+contrib:
+	* config-list.mk (LIST): Specify major version number for freebsd
+	configurations.
+	(force): Replace with...
+	(make-log-dir) ... this.
+	$(LIST): Put log files in separate log directory.
+	Don't stop if $(MAKE) fails; if it succeeds, remove the build
+	directory.
+
 2010-12-24  Joern Rennecke  <amylaar@spamcop.net>
 
 contrib:
