@@ -60,7 +60,7 @@ along with GCC; see the file COPYING3.  If not see
 #define UINT_LEAST16_TYPE itk_unsigned_short
 #define UINT_LEAST32_TYPE itk_unsigned_int
 #define UINT_LEAST64_TYPE \
-  (LONG_TYPE_SIZE == 64 ? itk_unsigned_long : itk_unsigned_long_long int)
+  (LONG_TYPE_SIZE == 64 ? itk_unsigned_long : itk_unsigned_long_long)
 
 #define INT_FAST8_TYPE itk_char
 #define INT_FAST16_TYPE itk_int

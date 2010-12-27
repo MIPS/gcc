@@ -1,4 +1,10 @@
 2010-12-27  Joern Rennecke  <amylaar@spamcop.net>
+
+	PR other/46677
+	config/sol2.h (UINT_LEAST64_TYPE): Remove stray 'int' from
+	integer_type_kind value.
+
+2010-12-27  Joern Rennecke  <amylaar@spamcop.net>
 	Merged from trunk:
 	2010-12-20  Joseph Myers  <joseph@codesourcery.com>
 gcc:
