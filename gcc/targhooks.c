@@ -384,6 +384,16 @@ fail:
   return false;
 }
 
+/* Implementation of TARGET_ASM_OUTPUT_IDENT using the old macro.  */
+void
+legacy_asm_output_ident (FILE *stream ATTRIBUTE_UNUSED,
+			 const char *string ATTRIBUTE_UNUSED)
+{
+#ifdef ASM_OUTPUT_IDENT
+  ASM_OUTPUT_IDENT (stream, string);
+#endif
+}
+
 /* True if MODE is valid for the target.  By "valid", we mean able to
    be manipulated in non-trivial ways.  In particular, this means all
    the arithmetic is supported.

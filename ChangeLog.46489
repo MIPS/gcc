@@ -1,0 +1,21 @@
+2010-12-27  Joern Rennecke  <amylaar@spamcop.net>
+
+	PR ada/46738
+	http://gcc.gnu.org/ml/gcc-patches/2010-12/msg00128.html
+gcc:
+	* targhooks.c (legacy_asm_output_ident): New function.
+	* targhooks.h (legacy_asm_output_ident): Declare.
+	* target.def (asm_out): New hook output_ident.
+	* doc/tm.texi.in (TARGET_ASM_OUTPUT_IDENT): Indicate place for new
+	hook.
+	* doc/tm.texi: Regenerate.
+gcc/c-family:
+	* c-lex.c (cb_ident): Use targetm.asm_out.output_ident.
+gcc/ada:
+	* gcc-interface/Make-lang.in (ada/trans.o): Depend on $(TARGET_H).
+	* gcc-interface/trans.c: Include target.h .
+	(gigi): Use targetm.asm_out.output_ident .
+
+2010-12-27  Joern Rennecke  <amylaar@spamcop.net>
+
+	Created pr46489-20101217-branch, revision 168265.

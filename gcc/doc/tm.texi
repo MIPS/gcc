@@ -7307,6 +7307,10 @@ A C statement to output something to the assembler file to handle a
 macro is not defined, nothing is output for a @samp{#ident} directive.
 @end defmac
 
+@deftypefn {Target Hook} void TARGET_ASM_OUTPUT_IDENT (FILE *@var{stream}, const char *@var{string})
+A hook to output something to the assembler file @var{stream} to handle a @samp{#ident} directive containing the text @var{string}.  The default uses @code{ASM_OUTPUT_IDENT}.
+@end deftypefn
+
 @deftypefn {Target Hook} void TARGET_ASM_NAMED_SECTION (const char *@var{name}, unsigned int @var{flags}, tree @var{decl})
 Output assembly directives to switch to section @var{name}.  The section
 should have attributes as specified by @var{flags}, which is a bit mask
