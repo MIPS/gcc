@@ -3299,7 +3299,8 @@ ia64_expand_prologue (void)
   /* We don't need an alloc instruction if we've used no outputs or locals.  */
   if (current_frame_info.n_local_regs == 0
       && current_frame_info.n_output_regs == 0
-      && current_frame_info.n_input_regs <= crtl->args.info.int_regs
+      && (current_frame_info.n_input_regs
+	  <= get_cumulative_args (crtl->args.info)->int_regs)
       && !TEST_HARD_REG_BIT (current_frame_info.mask, AR_PFS_REGNUM))
     {
       /* If there is no alloc, but there are input registers used, then we
@@ -4785,7 +4786,8 @@ ia64_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
 		      gimple_seq *post_p)
 {
   /* Variable sized types are passed by reference.  */
-  if (pass_by_reference (NULL, TYPE_MODE (type), type, false))
+  if (pass_by_reference (pack_cumulative_args (NULL), TYPE_MODE (type),
+			 type, false))
     {
       tree ptrtype = build_pointer_type (type);
       tree addr = std_gimplify_va_arg_expr (valist, ptrtype, pre_p, post_p);

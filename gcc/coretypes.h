@@ -157,6 +157,24 @@ typedef const struct basic_block_def *const_basic_block;
    in target.h.  */
 typedef int reg_class_t;
 
+/* cumulative_args_t is needed for target.h and function.h .  */
+
+#ifdef ENABLE_CHECKING
+
+typedef struct { void *magic; void *p; } cumulative_args_t;
+
+#else /* !ENABLE_CHECKING */
+
+#ifdef __GNUC__
+#define ATTRIBUTE_TRANSPARENT_UNION __attribute__((transparent_union))
+#else
+#define ATTRIBUTE_TRANSPARENT_UNION
+#endif
+
+typedef union ATTRIBUTE_TRANSPARENT_UNION { void *p; } cumulative_args_t;
+
+#endif /* !ENABLE_CHECKING */
+
 #else
 
 struct _dont_use_rtx_here_;

@@ -7265,9 +7265,9 @@ s390_register_info (int clobbered_regs[])
     {
       /* Varargs functions need to save gprs 2 to 6.  */
       if (cfun->va_list_gpr_size
-	  && crtl->args.info.gprs < GP_ARG_NUM_REG)
+	  && get_cumulative_args (crtl->args.info)->gprs < GP_ARG_NUM_REG)
 	{
-	  int min_gpr = crtl->args.info.gprs;
+	  int min_gpr = get_cumulative_args (crtl->args.info)->gprs;
 	  int max_gpr = min_gpr + cfun->va_list_gpr_size;
 	  if (max_gpr > GP_ARG_NUM_REG)
 	    max_gpr = GP_ARG_NUM_REG;
@@ -7289,9 +7289,9 @@ s390_register_info (int clobbered_regs[])
 
       /* Mark f0, f2 for 31 bit and f0-f4 for 64 bit to be saved.  */
       if (TARGET_HARD_FLOAT && cfun->va_list_fpr_size
-	  && crtl->args.info.fprs < FP_ARG_NUM_REG)
+	  && get_cumulative_args (crtl->args.info)->fprs < FP_ARG_NUM_REG)
 	{
-	  int min_fpr = crtl->args.info.fprs;
+	  int min_fpr = get_cumulative_args (crtl->args.info)->fprs;
 	  int max_fpr = min_fpr + cfun->va_list_fpr_size;
 	  if (max_fpr > FP_ARG_NUM_REG)
 	    max_fpr = FP_ARG_NUM_REG;
@@ -8791,8 +8791,8 @@ s390_va_start (tree valist, rtx nextarg ATTRIBUTE_UNUSED)
 
   /* Count number of gp and fp argument registers used.  */
 
-  n_gpr = crtl->args.info.gprs;
-  n_fpr = crtl->args.info.fprs;
+  n_gpr = get_cumulative_args (crtl->args.info)->gprs;
+  n_fpr = get_cumulative_args (crtl->args.info)->fprs;
 
   if (cfun->va_list_gpr_size)
     {
@@ -8893,7 +8893,8 @@ s390_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
 
   size = int_size_in_bytes (type);
 
-  if (pass_by_reference (NULL, TYPE_MODE (type), type, false))
+  if (pass_by_reference (pack_cumulative_args (NULL), TYPE_MODE (type), type,
+      false))
     {
       if (TARGET_DEBUG_ARG)
 	{
@@ -9605,7 +9606,7 @@ s390_call_saved_register_used (tree call_expr)
       mode = TYPE_MODE (type);
       gcc_assert (mode);
 
-      if (pass_by_reference (&cum, mode, type, true))
+      if (pass_by_reference (pack_cumulative_args (&cum), mode, type, true))
  	{
  	  mode = Pmode;
  	  type = build_pointer_type (type);

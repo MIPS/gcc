@@ -2439,6 +2439,7 @@ write_header (void)
 #include \"system.h\"\n\
 #include \"coretypes.h\"\n\
 #include \"tm.h\"\n\
+#include \"target.h\"\n\
 #include \"rtl.h\"\n\
 #include \"tm_p.h\"\n\
 #include \"function.h\"\n\

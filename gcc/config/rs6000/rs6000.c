@@ -8421,7 +8421,8 @@ static void
 rs6000_function_arg_advance (cumulative_args_t cum, enum machine_mode mode,
 			     const_tree type, bool named)
 {
-  rs6000_function_arg_advance_1 (get_cumulative_args (cum), mode, type, named, 0);
+  rs6000_function_arg_advance_1 (get_cumulative_args (cum), mode, type, named,
+				 0);
 }
 
 static rtx
@@ -9472,10 +9473,11 @@ rs6000_va_start (tree valist, rtx nextarg)
 		f_sav, NULL_TREE);
 
   /* Count number of gp and fp argument registers used.  */
-  words = crtl->args.info.words;
-  n_gpr = MIN (crtl->args.info.sysv_gregno - GP_ARG_MIN_REG,
+  words = get_cumulative_args (crtl->args.info)->words;
+  n_gpr = MIN (get_cumulative_args (crtl->args.info)->sysv_gregno
+	       - GP_ARG_MIN_REG,
 	       GP_ARG_NUM_REG);
-  n_fpr = MIN (crtl->args.info.fregno - FP_ARG_MIN_REG,
+  n_fpr = MIN (get_cumulative_args (crtl->args.info)->fregno - FP_ARG_MIN_REG,
 	       FP_ARG_NUM_REG);
 
   if (TARGET_DEBUG_ARG)
@@ -9541,7 +9543,8 @@ rs6000_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
   int regalign = 0;
   gimple stmt;
 
-  if (pass_by_reference (NULL, TYPE_MODE (type), type, false))
+  if (pass_by_reference (pack_cumulative_args (NULL), TYPE_MODE (type), type,
+			 false))
     {
       t = rs6000_gimplify_va_arg (valist, ptrtype, pre_p, post_p);
       return build_va_arg_indirect_ref (t);
@@ -18178,7 +18181,8 @@ compute_vrsave_mask (void)
      them in again.  More importantly, the mask we compute here is
      used to generate CLOBBERs in the set_vrsave insn, and we do not
      wish the argument registers to die.  */
-  for (i = crtl->args.info.vregno - 1; i >= ALTIVEC_ARG_MIN_REG; --i)
+  for (i = get_cumulative_args (crtl->args.info)->vregno - 1;
+       i >= ALTIVEC_ARG_MIN_REG; --i)
     mask &= ~ALTIVEC_REG_BIT (i);
 
   /* Similarly, remove the return value from the set.  */

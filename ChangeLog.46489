@@ -1,5 +1,63 @@
 2010-12-27  Joern Rennecke  <amylaar@spamcop.net>
 
+	From Ralf Wildenhues:
+	http://gcc.gnu.org/ml/gcc-patches/2010-12/msg01515.html
+gcc:
+	* target.def (init_cumulative_args): Documentation spelling fixes.
+	* doc/tm.texi: Regenerate.
+
+2010-12-27  Joern Rennecke  <amylaar@spamcop.net>
+
+	http://gcc.gnu.org/ml/gcc-patches/2010-12/msg01514.html
+gcc:
+	* doc/tm.texi: Regenerate.
+	* doc/tm.texi.in (CALL_POPS_ARGS): Change into ...
+	(TARGET_CALL_POPS_ARGS): New hook.
+	(TARGET_CUMULATIVE_ARGS_SIZE): New hook marker.
+	(TARGET_INIT_CUMULATIVE_ARGS): Likewise.
+	* targhooks.c (legacy_init_cumulative_args): New function.
+	(init_simple_cumulative_args, hook_int_cumulative_args_0): Likewise.
+	* targhooks.h (legacy_init_cumulative_args): Declare.
+	(init_simple_cumulative_args, hook_int_cumulative_args_0): Likewise.
+	* genrecog.c (write_header): Also include target.h.
+	* genemit.c (main): Likewise.
+	* genconditions.c (write_header): Likewise.
+	* gengtype (do_typedef): Also special-case cumulative_args_t.
+	(main): Likewise.
+	* target.def (cumulative_args_size): New const pod "hook".
+	(init_cumulative_args, call_pops_args): New hooks.
+	* target.h (cumulative_args_t) Move from here ...
+	* coretypes.h (cumulative_args_t): ... to here.
+	* builtin.c (std_gimplify_va_arg_expr): Use pack_cumulative_args.
+	* expr.c (block_move_libcall_safe_for_call_parm): Use new hooks.
+	* dse.c (get_call_args): Likewise.
+	* calls.c (emit_call_1, emit_library_call_value_1): Likewise.
+	* function.c (pass_by_reference): Take a cumulative_args_t parameter.
+	Changed all callers.
+	(reference_callee_copied): Likewise.
+	(struct assign_parm_data_all): Change type of args_so_far to
+	cumulative_args_t.  Changed all users.
+	(assign_parms_initialize_all): Take an extra void * parameter.
+	Changed all callers.  Use new hooks.
+	* function.h (struct incoming_arg) <info>: Change type to
+	cumulative_args_t.  Changed all users.
+	(pass_by_reference, reference_callee_copied): Update prototype.
+	* calls.c (emit_call_1): Changed args_so_far to cumulative_args_t.
+	Changed all callers.
+	(initialize_argument_information): Likewise.
+	* Makefile.in (insn-emit.o): Depend on $(TARGET_H).
+	(insn-recog.o): Likewise.
+	(build/gencondmd.o): Depend on target.h.
+	* config/m32c/m32c.h (CALL_POPS_ARGS): Don't define.
+	* config/sh/sh.c (TARGET_CALL_POPS_ARGS): Override.
+	(sh_call_pops_args): New function.
+	* config/sh/sh.h (CALL_POPS_ARGS): Don't define.
+gcc/ada:
+	* gcc-interface/misc.c (default_pass_by_ref): Update for new
+	pass_by_reference signature.
+
+2010-12-27  Joern Rennecke  <amylaar@spamcop.net>
+
 	PR middle-end/46500
 	http://gcc.gnu.org/ml/gcc-patches/2010-11/msg01994.html
 	http://gcc.gnu.org/ml/gcc-bugs/2010-11/msg03026.html

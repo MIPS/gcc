@@ -518,7 +518,6 @@ enum reg_class
 
 #define PUSH_ARGS 1
 #define PUSH_ROUNDING(N) m32c_push_rounding (N)
-#define CALL_POPS_ARGS(C) 0
 
 /* Passing Arguments in Registers */
 

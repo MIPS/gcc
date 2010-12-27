@@ -2773,7 +2773,7 @@ bool
 avr_frame_pointer_required_p (void)
 {
   return (cfun->calls_alloca
-	  || crtl->args.info.nregs == 0
+	  || get_cumulative_args (crtl->args.info)->nregs == 0
   	  || get_frame_size () > 0);
 }
 

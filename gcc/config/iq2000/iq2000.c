@@ -1416,7 +1416,7 @@ iq2000_va_start (tree valist, rtx nextarg)
   /* Find out how many non-float named formals.  */
   int gpr_save_area_size;
   /* Note UNITS_PER_WORD is 4 bytes.  */
-  int_arg_words = crtl->args.info.arg_words;
+  int_arg_words = get_cumulative_args (crtl->args.info)->arg_words;
 
   if (int_arg_words < 8 )
     /* Adjust for the prologue's economy measure.  */

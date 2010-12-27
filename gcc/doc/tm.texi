@@ -3957,12 +3957,12 @@ nothing (the caller pops all).  When this convention is in use,
 number of arguments.
 @end deftypefn
 
-@defmac CALL_POPS_ARGS (@var{cum})
+@deftypefn {Target Hook} int TARGET_CALL_POPS_ARGS (cumulative_args_t @var{ca})
 A C expression that should indicate the number of bytes a call sequence
 pops off the stack.  It is added to the value of @code{RETURN_POPS_ARGS}
 when compiling a function call.
 
-@var{cum} is the variable in which all arguments to the called function
+@var{ca} is the variable in which all arguments to the called function
 have been accumulated.
 
 On certain architectures, such as the SH5, a call trampoline is used
@@ -3970,7 +3970,7 @@ that pops certain registers off the stack, depending on the arguments
 that have been passed to the function.  Since this is a property of the
 call site, not of the called function, @code{RETURN_POPS_ARGS} is not
 appropriate.
-@end defmac
+@end deftypefn
 
 @node Register Arguments
 @subsection Passing Arguments in Registers
@@ -4124,6 +4124,14 @@ reflect an ABI other than that which would normally be used by default.
 If the compiler is generating code for a compiler-generated function,
 @var{fndecl} may be @code{NULL}.
 @end defmac
+
+@deftypevr {Target Hook} {const size_t} TARGET_CUMULATIVE_ARGS_SIZE
+The amount of memory, in bytes, that the caller should allocate when passing a non-@code{NULL} @var{mem} argument to the @code{init_cumulative_args} target hook.
+@end deftypevr
+
+@deftypefn {Target Hook} cumulative_args_t TARGET_INIT_CUMULATIVE_ARGS (void *@var{mem}, tree @var{fntype}, rtx @var{libname}, tree @var{fndecl}, int @var{n_named})
+Broadly like @code{INIT_CUMULATIVE_ARGS}, but it's a hook.  @var{mem} is a memory area to accommodate the target-specific data referred  to by a @code{cumulative_args_t}.  It should be (at least) of the size that  @code{TARGET_CUMULATIVE_ARGS_SIZE} indicates.  If @var{mem} is NULL, a statically allocated memory area is used.  When @var{libname} is set, @var{fntype} contains a type which is not  necessarily the actual return type, but which has the same machine mode.  The return value is a @code{cumulative_args_t} that refers to the  initialized argument information.
+@end deftypefn
 
 @defmac INIT_CUMULATIVE_ARGS (@var{cum}, @var{fntype}, @var{libname}, @var{fndecl}, @var{n_named_args})
 A C statement (sans semicolon) for initializing the variable

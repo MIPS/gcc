@@ -3945,12 +3945,12 @@ nothing (the caller pops all).  When this convention is in use,
 number of arguments.
 @end deftypefn
 
-@defmac CALL_POPS_ARGS (@var{cum})
+@hook TARGET_CALL_POPS_ARGS
 A C expression that should indicate the number of bytes a call sequence
 pops off the stack.  It is added to the value of @code{RETURN_POPS_ARGS}
 when compiling a function call.
 
-@var{cum} is the variable in which all arguments to the called function
+@var{ca} is the variable in which all arguments to the called function
 have been accumulated.
 
 On certain architectures, such as the SH5, a call trampoline is used
@@ -3958,7 +3958,7 @@ that pops certain registers off the stack, depending on the arguments
 that have been passed to the function.  Since this is a property of the
 call site, not of the called function, @code{RETURN_POPS_ARGS} is not
 appropriate.
-@end defmac
+@end deftypefn
 
 @node Register Arguments
 @subsection Passing Arguments in Registers
@@ -4112,6 +4112,10 @@ reflect an ABI other than that which would normally be used by default.
 If the compiler is generating code for a compiler-generated function,
 @var{fndecl} may be @code{NULL}.
 @end defmac
+
+@hook TARGET_CUMULATIVE_ARGS_SIZE
+
+@hook TARGET_INIT_CUMULATIVE_ARGS
 
 @defmac INIT_CUMULATIVE_ARGS (@var{cum}, @var{fntype}, @var{libname}, @var{fndecl}, @var{n_named_args})
 A C statement (sans semicolon) for initializing the variable

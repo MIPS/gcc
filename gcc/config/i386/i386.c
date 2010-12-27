@@ -7848,6 +7848,7 @@ ix86_va_start (tree valist, rtx nextarg)
   tree gpr, fpr, ovf, sav, t;
   tree type;
   rtx ovf_rtx;
+  CUMULATIVE_ARGS *ca;
 
   if (flag_split_stack
       && cfun->machine->split_stack_varargs_pointer == NULL_RTX)
@@ -7918,9 +7919,10 @@ ix86_va_start (tree valist, rtx nextarg)
 		f_sav, NULL_TREE);
 
   /* Count number of gp and fp argument registers used.  */
-  words = crtl->args.info.words;
-  n_gpr = crtl->args.info.regno;
-  n_fpr = crtl->args.info.sse_regno;
+  ca = get_cumulative_args (crtl->args.info);
+  words = ca->words;
+  n_gpr = ca->regno;
+  n_fpr = ca->sse_regno;
 
   if (cfun->va_list_gpr_size)
     {
@@ -8003,7 +8005,8 @@ ix86_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
   ovf = build3 (COMPONENT_REF, TREE_TYPE (f_ovf), valist, f_ovf, NULL_TREE);
   sav = build3 (COMPONENT_REF, TREE_TYPE (f_sav), valist, f_sav, NULL_TREE);
 
-  indirect_p = pass_by_reference (NULL, TYPE_MODE (type), type, false);
+  indirect_p = pass_by_reference (pack_cumulative_args (NULL),
+				  TYPE_MODE (type), type, false);
   if (indirect_p)
     type = build_pointer_type (type);
   size = int_size_in_bytes (type);

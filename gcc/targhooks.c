@@ -167,6 +167,54 @@ default_expand_builtin_saveregs (void)
   return const0_rtx;
 }
 
+cumulative_args_t
+legacy_init_cumulative_args (void *mem, tree fntype ATTRIBUTE_UNUSED,
+			     rtx libname, tree fndecl ATTRIBUTE_UNUSED,
+			     int n_named_args ATTRIBUTE_UNUSED)
+{
+  static CUMULATIVE_ARGS static_args;
+  CUMULATIVE_ARGS *args_so_far;
+
+  if (mem == NULL)
+    mem = &static_args;
+  args_so_far = (CUMULATIVE_ARGS *) mem;
+  if (libname)
+    {
+#ifdef INIT_CUMULATIVE_LIBCALL_ARGS
+      INIT_CUMULATIVE_LIBCALL_ARGS (*args_so_far,
+				    TYPE_MODE (TREE_TYPE (fntype)),
+				    libname);
+      return pack_cumulative_args (args_so_far);
+#else
+      fntype = NULL_TREE;
+#endif
+    }
+#ifdef INIT_CUMULATIVE_INCOMING_ARGS
+  if (n_named_args < 0)
+    {
+      INIT_CUMULATIVE_INCOMING_ARGS (*args_so_far, fntype, libname);
+    }
+  else
+#endif
+    INIT_CUMULATIVE_ARGS (*args_so_far, fntype, libname, fndecl, n_named_args);
+  return pack_cumulative_args (args_so_far);
+}
+
+cumulative_args_t
+init_simple_cumulative_args (void *mem, tree fntype ATTRIBUTE_UNUSED,
+			     rtx libname ATTRIBUTE_UNUSED,
+			     tree fndecl ATTRIBUTE_UNUSED,
+			     int n_named_args ATTRIBUTE_UNUSED)
+{
+  static char static_args[sizeof (int)];
+
+  gcc_assert (sizeof static_args == targetm.calls.cumulative_args_size);
+  if (mem == NULL)
+    mem = &static_args;
+  memset (mem, 0, targetm.calls.cumulative_args_size);
+  return pack_cumulative_args ((CUMULATIVE_ARGS *) mem);
+}
+
 void
 default_setup_incoming_varargs (cumulative_args_t ca ATTRIBUTE_UNUSED,
 				enum machine_mode mode ATTRIBUTE_UNUSED,
@@ -584,6 +632,12 @@ hook_int_CUMULATIVE_ARGS_mode_tree_bool_0 (
 	cumulative_args_t ca ATTRIBUTE_UNUSED,
 	enum machine_mode mode ATTRIBUTE_UNUSED,
 	tree type ATTRIBUTE_UNUSED, bool named ATTRIBUTE_UNUSED)
+{
+  return 0;
+}
+
+int
+hook_int_cumulative_args_0 (cumulative_args_t ca ATTRIBUTE_UNUSED)
 {
   return 0;
 }

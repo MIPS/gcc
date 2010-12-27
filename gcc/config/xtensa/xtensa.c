@@ -2752,7 +2752,7 @@ static rtx
 xtensa_builtin_saveregs (void)
 {
   rtx gp_regs;
-  int arg_words = crtl->args.info.arg_words;
+  int arg_words = get_cumulative_args (crtl->args.info)->arg_words;
   int gp_left = MAX_ARGS_IN_REGISTERS - arg_words;
 
   if (gp_left <= 0)
@@ -2789,7 +2789,7 @@ xtensa_va_start (tree valist, rtx nextarg ATTRIBUTE_UNUSED)
   tree t, u;
   int arg_words;
 
-  arg_words = crtl->args.info.arg_words;
+  arg_words = get_cumulative_args (crtl->args.info)->arg_words;
 
   f_stk = TYPE_FIELDS (va_list_type_node);
   f_reg = DECL_CHAIN (f_stk);
@@ -2840,7 +2840,8 @@ xtensa_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
   tree lab_false, lab_over, lab_false2;
   bool indirect;
 
-  indirect = pass_by_reference (NULL, TYPE_MODE (type), type, false);
+  indirect = pass_by_reference (pack_cumulative_args (NULL), TYPE_MODE (type),
+				type, false);
   if (indirect)
     type = build_pointer_type (type);
 
@@ -3184,7 +3185,7 @@ order_regs_for_local_alloc (void)
 
       /* Use the AR registers in increasing order (skipping a0 and a1)
 	 but save the incoming argument registers for a last resort.  */
-      num_arg_regs = crtl->args.info.arg_words;
+      num_arg_regs = get_cumulative_args (crtl->args.info)->arg_words;
       if (num_arg_regs > MAX_ARGS_IN_REGISTERS)
 	num_arg_regs = MAX_ARGS_IN_REGISTERS;
       for (i = GP_ARG_FIRST; i < 16 - num_arg_regs; i++)
