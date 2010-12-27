@@ -1,4 +1,23 @@
 2010-12-27  Joern Rennecke  <amylaar@spamcop.net>
+	Merged from trunk:
+	2010-12-20  Joseph Myers  <joseph@codesourcery.com>
+gcc:
+	* config/alpha/linux.h (OPTION_GLIBC): Define differently if
+	SINGLE_LIBC.
+	* config/linux.h (OPTION_GLIBC, OPTION_UCLIBC, OPTION_BIONIC):
+	Define differently if SINGLE_LIBC.
+	* config/rs6000/linux.h (OPTION_GLIBC): Define differently if
+	SINGLE_LIBC.
+	* config/rs6000/linux64.h (OPTION_GLIBC): Define differently if
+	SINGLE_LIBC.
+	* config.gcc (*-*-linux* | frv-*-*linux* | *-*-kfreebsd*-gnu |
+	*-*-knetbsd*-gnu | *-*-gnu* | *-*-kopensolaris*-gnu): Define
+	SINGLE_LIBC instead of OPTION_GLIBC.
+	(*-*-uclinux*): Define DEFAULT_LIBC and SINGLE_LIBC.
+	(bfin*-uclinux*, moxie-*-uclinux*, m68k-*-uclinux*): Don't define
+	DEFAULT_LIBC or use linux.opt.
+
+2010-12-27  Joern Rennecke  <amylaar@spamcop.net>
 
 	PR other/46677
 	* config/rs6000/darwin.h (darwin_bool_type_size): Move from here...
