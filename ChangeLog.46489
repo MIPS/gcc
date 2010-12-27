@@ -1,5 +1,10 @@
 2010-12-27  Joern Rennecke  <amylaar@spamcop.net>
 
+contrib:
+	* config-list.mk: New file.
+
+2010-12-27  Joern Rennecke  <amylaar@spamcop.net>
+
 	PR other/46677
 	http://gcc.gnu.org/ml/gcc-patches/2010-12/msg00964.html
 	http://gcc.gnu.org/ml/gcc-cvs/2010-12/msg00792.html
