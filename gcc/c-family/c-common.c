@@ -8408,8 +8408,11 @@ c_common_to_target_charset (HOST_WIDE_INT c)
   uc = cpp_host_to_exec_charset (parse_in, uc);
 
   if (flag_signed_char)
-    return ((HOST_WIDE_INT)uc) << (HOST_BITS_PER_WIDE_INT - CHAR_TYPE_SIZE)
-			       >> (HOST_BITS_PER_WIDE_INT - CHAR_TYPE_SIZE);
+    {
+      unsigned shift = HOST_BITS_PER_WIDE_INT - TYPE_PRECISION (char_type_node);
+
+      return ((HOST_WIDE_INT)uc) << shift >> shift;
+    }
   else
     return uc;
 }

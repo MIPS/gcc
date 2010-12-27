@@ -1489,11 +1489,9 @@ target machine.  If you don't define this, the default is
 @code{BITS_PER_UNIT}.
 @end defmac
 
-@defmac BOOL_TYPE_SIZE
-A C expression for the size in bits of the C++ type @code{bool} and
-C99 type @code{_Bool} on the target machine.  If you don't define
-this, and you probably shouldn't, the default is @code{CHAR_TYPE_SIZE}.
-@end defmac
+@deftypefn {Target Hook} int TARGET_BOOL_TYPE_SIZE (void)
+The size, in bits, of the boolean type used by most front ends that have such  a type.  (Java is an exception, because the language defines the type size.)   The default is @code{CHAR_TYPE_SIZE}.
+@end deftypefn
 
 @defmac FLOAT_TYPE_SIZE
 A C expression for the size in bits of the type @code{float} on the

@@ -394,17 +394,18 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	  esize = UI_To_Int (Esize (gnat_entity));
 
 	  if (IN (kind, Float_Kind))
-	    max_esize = fp_prec_to_size (LONG_DOUBLE_TYPE_SIZE);
+	    max_esize
+	      = fp_prec_to_size (targetm.float_type_size (th_ft_long_double));
 	  else if (IN (kind, Access_Kind))
 	    max_esize = pointer_size () * 2;
 	  else
-	    max_esize = LONG_LONG_TYPE_SIZE;
+	    max_esize = targetm.integer_type_size (itk_long_long);
 
 	  if (esize > max_esize)
 	   esize = max_esize;
 	}
       else
-	esize = LONG_LONG_TYPE_SIZE;
+	esize = targetm.integer_type_size (itk_long_long);
     }
 
   switch (kind)
@@ -7910,7 +7911,7 @@ set_rm_size (Uint uint_size, tree gnu_type, Entity_Id gnat_entity)
 static tree
 make_type_from_size (tree type, tree size_tree, bool for_biased)
 {
-  unsigned HOST_WIDE_INT size;
+  unsigned HOST_WIDE_INT size, max;
   bool biased_p;
   tree new_type;
 
@@ -7940,8 +7941,9 @@ make_type_from_size (tree type, tree size_tree, bool for_biased)
 	break;
 
       biased_p |= for_biased;
-      if (size > LONG_LONG_TYPE_SIZE)
-	size = LONG_LONG_TYPE_SIZE;
+      max = targetm.integer_type_size (itk_long_long);
+      if (size > max)
+	size = max;
 
       if (TYPE_UNSIGNED (type) || biased_p)
 	new_type = make_unsigned_type (size);

@@ -77,6 +77,9 @@ extern void legacy_asm_output_ident (FILE *stream, const char *);
 extern bool default_scalar_mode_supported_p (enum machine_mode);
 extern bool targhook_words_big_endian (void);
 extern bool targhook_float_words_big_endian (void);
+extern int legacy_integer_type_size (enum integer_type_kind);
+extern int default_bool_type_size (void);
+extern int legacy_float_type_size (enum th_float_type);
 extern bool default_decimal_float_supported_p (void);
 extern bool default_fixed_point_supported_p (void);
 

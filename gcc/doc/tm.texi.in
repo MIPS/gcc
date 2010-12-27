@@ -1479,11 +1479,7 @@ target machine.  If you don't define this, the default is
 @code{BITS_PER_UNIT}.
 @end defmac
 
-@defmac BOOL_TYPE_SIZE
-A C expression for the size in bits of the C++ type @code{bool} and
-C99 type @code{_Bool} on the target machine.  If you don't define
-this, and you probably shouldn't, the default is @code{CHAR_TYPE_SIZE}.
-@end defmac
+@hook TARGET_BOOL_TYPE_SIZE
 
 @defmac FLOAT_TYPE_SIZE
 A C expression for the size in bits of the type @code{float} on the

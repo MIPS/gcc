@@ -1,6 +1,78 @@
 2010-12-27  Joern Rennecke  <amylaar@spamcop.net>
 
 	PR other/46677
+	http://gcc.gnu.org/ml/gcc-patches/2010-12/msg00934.html
+	http://gcc.gnu.org/ml/gcc-cvs/2010-12/msg00947.html
+gcc:
+	* doc/tm.texi: Regenerate.
+	* doc/tm.texi.in (BOOL_TYPE_SIZE): Delete.
+	(TARGET_BOOL_TYPE_SIZE): New hook.
+	* targhooks.c (legacy_integer_type_size): New function.
+	(default_bool_type_size, legacy_float_type_size): Likewise.
+	* targhooks.h (legacy_integer_type_size): Declare.
+	(default_bool_type_size, legacy_float_type_size): Likewise.
+	* target.def (bool_type_size): New hook.
+	(integer_type_size, float_type_size): Likewise.
+	* defaults.h (BOOL_TYPE_SIZE): Delete.
+	* tree.c (free_lang_data): Use targetm.bool_type_size.
+	(build_common_tree_nodes): Likewise.
+	* tree.h (enum integer_type_kind): Move from here...
+	* coretypes.h ... to here.
+	* target.h (enum th_float_type): New enum.
+	* tree-ssa-loop-ivopts.c (add_standard_iv_candidates):
+	Use targetm.integer_type_size.
+	* tree-data-ref.c: Include target.h
+	(estimated_loop_iterations_tree): Use targetm.integer_type_size.
+	* system.h (BOOL_TYPE_SIZE): Poison.
+	* Makefile.in (tree-data-ref.o): Depend on $(TARGET_H) .
+	* config/rs6000/darwin.h (BOOL_TYPE_SIZE): Delete.
+	(TARGET_BOOL_TYPE_SIZE): Define.
+	* config/darwin.c (darwin_bool_type_size): New function.
+	* config/darwin.h: (darwin_bool_type_size): Declare.
+gcc/c-family.c:
+	* c-common.c (c_common_to_target_charset):
+	Use TYPE_PRECISION (char_type_node).
+gcc/java:
+	* decl.c (java_init_decl_processing): Use targetm.integer_type_size.
+	* expr.c (expand_java_return): Likewise.
+gcc/ada:
+	* gcc-interface/decl.c (gnat_to_gnu_entity):
+	Use targetm.float_type_size and targetm.integer_type_size.
+	(make_type_from_size): Use targetm.integer_type_size.
+	* gcc-interface/targtyps.c: Include target.h .
+	[!ADA_LONG_TYPE_SIZE] (ADA_LONG_TYPE_SIZE):
+	Use targetm.integer_type_size.
+	[!WIDEST_HARDWARE_FP_SIZE] (LONG_DOUBLE_TYPE_SIZE): Don't define.
+	(get_target_char_size): Use targetm.integer_type_size.
+	(get_target_wchar_t_size, get_target_short_size): Likewise.
+	(get_target_int_size, get_target_long_long_size): Likewise.
+	(get_target_float_size): Use targetm.float_type_size.
+	(get_target_double_size, get_target_long_double_size): Likewise.
+	(MALLOC_OBSERVABLE_ALIGNMENT): Use targetm.integer_type_size.
+	* gcc-interface/trans.c: Include target.h .
+	(gigi): Use targetm.float_type_size.
+	(build_binary_op_trapv): Use targetm.integer_type_size.
+	* gcc-interface/Make-lang.in (ada/targtyps.o): Depend on $(TARGET_H).
+	(ada/trans.o): Likewise.
+gcc/fortran:
+	* trans-types.c (gfc_init_kinds): Use targetm.integer_type_size.
+	(gfc_build_int_type): Likewise.
+	(gfc_build_uint_type): Use TYPE_PRECISION on the type nodes checked.
+	(gfc_build_real_type): Use targetm.float_type_size.
+	(gfc_build_logical_type): Use targetm.bool_type_size.
+	[0] (c_size_t_size): Delete.
+	* f95-lang.c [!CHAR_TYPE_SIZE] (CHAR_TYPE_SIZE): Don't define.
+	[!INT_TYPE_SIZE] (INT_TYPE_SIZE): Likewise.
+	* iso-c-binding.def (c_bool): Use targetm.bool_type_size.
+	* types.def (BT_BOOL): Likewise.
+	* trans-intrinsic.c (build_round_expr): Use TYPE_PRECISION
+	on *_integer_type_node to find out these type's sizes.
+	(gfc_conv_intrinsic_leadz, gfc_conv_intrinsic_trailz): Likewise.
+	(gfc_conv_intrinsic_popcnt_poppar): Likewise.
+
+2010-12-27  Joern Rennecke  <amylaar@spamcop.net>
+
+	PR other/46677
 	http://gcc.gnu.org/ml/gcc-patches/2010-11/msg02772.html
 gcc:
 	* targhooks.c (pointer_size): New function.

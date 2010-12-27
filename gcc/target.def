@@ -1203,6 +1203,26 @@ DEFHOOK_UNDOC
  bool, (void),
  targhook_float_words_big_endian)
 
+DEFHOOK_UNDOC
+(integer_type_size,
+ "",
+ int, (enum integer_type_kind type),
+ legacy_integer_type_size)
+
+DEFHOOK
+(bool_type_size,
+ "The size, in bits, of the boolean type used by most front ends that have such\
+  a type.  (Java is an exception, because the language defines the type size.) \
+  The default is @code{CHAR_TYPE_SIZE}.",
+ int, (void),
+ default_bool_type_size)
+
+DEFHOOK_UNDOC
+(float_type_size,
+ "",
+ int, (enum th_float_type type),
+ legacy_float_type_size)
+
 /* True if the target supports decimal floating point.  */
 DEFHOOK
 (decimal_float_supported_p,
