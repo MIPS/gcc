@@ -1,3 +1,10 @@
+2010-12-26  Joern Rennecke  <amylaar@spamcop.net>
+
+contrib:
+	* config-list.mk (LIST): Use 'OPT' instead of '@-', thus avoiding
+	@ and -- in filenames.
+	$(LIST): Substitute ' -' for OPT.
+
 2010-12-25  Joern Rennecke  <amylaar@spamcop.net>
 
 contrib:
