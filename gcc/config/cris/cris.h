@@ -404,7 +404,7 @@ extern int cris_cpu_version;
 /* Note that WCHAR_TYPE_SIZE is used in cexp.y,
    where TARGET_SHORT is not available.  */
 #undef WCHAR_TYPE
-#define WCHAR_TYPE "long int"
+#define WCHAR_TYPE itk_long
 
 #undef WCHAR_TYPE_SIZE
 #define WCHAR_TYPE_SIZE 32

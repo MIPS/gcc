@@ -179,13 +179,13 @@ extern const struct processor_costs *m68hc11_cost;
 
 /* Definition of size_t.  This is really an unsigned short as the
    68hc11 only handles a 64K address space.  */
-#define SIZE_TYPE               "short unsigned int"
+#define SIZE_TYPE               itk_unsigned_short
 
-/* A C expression for a string describing the name of the data type
+/* An enum integer_type_kind value describing the the data type
    to use for the result of subtracting two pointers.  The typedef
-   name `ptrdiff_t' is defined using the contents of the string.
+   name `ptrdiff_t' is defined using the name of that type.
    The 68hc11 only has a 64K address space.  */
-#define PTRDIFF_TYPE            "short int"
+#define PTRDIFF_TYPE            itk_short
 
 /* Allocation boundary (bits) for storing pointers in memory.  */
 #define POINTER_BOUNDARY	8
@@ -252,7 +252,7 @@ extern const struct processor_costs *m68hc11_cost;
 /* Define these to avoid dependence on meaning of `int'.
    Note that WCHAR_TYPE_SIZE is used in cexp.y,
    where TARGET_SHORT is not available.  */
-#define WCHAR_TYPE              "short int"
+#define WCHAR_TYPE              itk_short
 #define WCHAR_TYPE_SIZE         16
 
 

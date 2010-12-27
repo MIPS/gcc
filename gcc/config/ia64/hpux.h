@@ -30,7 +30,7 @@ along with GCC; see the file COPYING3.  If not see
 #define TARGET_HPUX 1
 
 #undef WCHAR_TYPE
-#define WCHAR_TYPE "unsigned int"
+#define WCHAR_TYPE itk_unsigned_int
 
 #undef WCHAR_TYPE_SIZE
 #define WCHAR_TYPE_SIZE 32

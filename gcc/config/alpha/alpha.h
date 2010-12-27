@@ -232,7 +232,7 @@ extern enum alpha_fp_trap_mode alpha_fptm;
 /* Work around target_flags dependency in ada/targtyps.c.  */
 #define WIDEST_HARDWARE_FP_SIZE 64
 
-#define	WCHAR_TYPE "unsigned int"
+#define	WCHAR_TYPE itk_unsigned_int
 #define	WCHAR_TYPE_SIZE 32
 
 /* Define this macro if it is advisable to hold scalars in registers

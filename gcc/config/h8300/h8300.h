@@ -853,15 +853,19 @@ struct cum_arg
 /* ANSI C types.
    We use longs for the H8/300H and the H8S because ints can be 16 or 32.
    GCC requires SIZE_TYPE to be the same size as pointers.  */
-#define SIZE_TYPE								\
-  (TARGET_H8300 || TARGET_NORMAL_MODE ? TARGET_INT32 ? "short unsigned int" : "unsigned int" : "long unsigned int")
+#define SIZE_TYPE \
+  (TARGET_H8300 || TARGET_NORMAL_MODE \
+   ? TARGET_INT32 ? itk_unsigned_short : itk_unsigned_int \
+   : itk_unsigned_long)
 #define PTRDIFF_TYPE						\
-  (TARGET_H8300 || TARGET_NORMAL_MODE ? TARGET_INT32 ? "short int" : "int" : "long int")
+  (TARGET_H8300 || TARGET_NORMAL_MODE \
+   ? TARGET_INT32 ? itk_short : itk_int \
+   : itk_long)
 
 #define POINTER_SIZE							\
   ((TARGET_H8300H || TARGET_H8300S) && !TARGET_NORMAL_MODE ? 32 : 16)
 
-#define WCHAR_TYPE "short unsigned int"
+#define WCHAR_TYPE itk_unsigned_short
 #define WCHAR_TYPE_SIZE 16
 
 /* A function address in a call instruction

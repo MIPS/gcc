@@ -1,5 +1,5 @@
 /* Target-independent configuration for VxWorks and VxWorks AE.   
-   Copyright (C) 2005, 2007, 2008 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2007, 2008, 2010 Free Software Foundation, Inc.
    Contributed by CodeSourcery, LLC.
 
 This file is part of GCC.
@@ -51,13 +51,13 @@ along with GCC; see the file COPYING3.  If not see
 
 /* VxWorks uses wchar_t == unsigned short (UCS2) on all architectures.  */
 #undef WCHAR_TYPE
-#define WCHAR_TYPE "short unsigned int"
+#define WCHAR_TYPE itk_unsigned_short
 #undef WCHAR_TYPE_SIZE
 #define WCHAR_TYPE_SIZE 16
 
 /* Likewise wint_t.  */
 #undef WINT_TYPE
-#define WINT_TYPE "short unsigned int"
+#define WINT_TYPE itk_unsigned_short
 #undef WINT_TYPE_SIZE
 #define WINT_TYPE_SIZE 16
 

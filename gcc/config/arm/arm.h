@@ -645,17 +645,17 @@ extern int arm_structure_size_boundary;
 
 /* wchar_t is unsigned under the AAPCS.  */
 #ifndef WCHAR_TYPE
-#define WCHAR_TYPE (TARGET_AAPCS_BASED ? "unsigned int" : "int")
+#define WCHAR_TYPE (TARGET_AAPCS_BASED ? itk_unsigned_int : itk_int)
 
 #define WCHAR_TYPE_SIZE BITS_PER_WORD
 #endif
 
 #ifndef SIZE_TYPE
-#define SIZE_TYPE (TARGET_AAPCS_BASED ? "unsigned int" : "long unsigned int")
+#define SIZE_TYPE (TARGET_AAPCS_BASED ? itk_unsigned_int : itk_unsigned_long)
 #endif
 
 #ifndef PTRDIFF_TYPE
-#define PTRDIFF_TYPE (TARGET_AAPCS_BASED ? "int" : "long int")
+#define PTRDIFF_TYPE (TARGET_AAPCS_BASED ? itk_int : itk_long)
 #endif
 
 /* AAPCS requires that structure alignment is affected by bitfields.  */

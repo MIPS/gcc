@@ -72,7 +72,7 @@ for windows/multi thread */
 
 #undef WCHAR_TYPE
 #undef WCHAR_TYPE_SIZE
-#define WCHAR_TYPE "short unsigned int"
+#define WCHAR_TYPE itk_unsigned_short
 #define WCHAR_TYPE_SIZE 16
 
 /* Our strategy for finding global constructors is a bit different, although

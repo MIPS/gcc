@@ -88,7 +88,7 @@ crtbegin.o%s \
 
 /* ??? This should be 32 bits for v9 but what can we do?  */
 #undef WCHAR_TYPE
-#define WCHAR_TYPE "short unsigned int"
+#define WCHAR_TYPE itk_unsigned_short
 
 #undef WCHAR_TYPE_SIZE
 #define WCHAR_TYPE_SIZE 16

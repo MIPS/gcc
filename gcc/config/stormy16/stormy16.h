@@ -116,12 +116,12 @@
 
 #define DEFAULT_SIGNED_CHAR 0
 
-#define SIZE_TYPE "unsigned int"
+#define SIZE_TYPE itk_unsigned_int
 
-#define PTRDIFF_TYPE "int"
+#define PTRDIFF_TYPE itk_int
 
 #undef  WCHAR_TYPE
-#define WCHAR_TYPE "long int"
+#define WCHAR_TYPE itk_long
 
 #undef  WCHAR_TYPE_SIZE
 #define WCHAR_TYPE_SIZE 32

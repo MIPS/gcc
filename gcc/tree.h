@@ -3882,6 +3882,9 @@ extern GTY(()) tree global_trees[TI_MAX];
    this array.  */
 extern GTY(()) tree integer_types[itk_none];
 
+/* The names for these types.  */
+extern const char * const integer_type_names[itk_none];
+
 #define char_type_node			integer_types[itk_char]
 #define signed_char_type_node		integer_types[itk_signed_char]
 #define unsigned_char_type_node		integer_types[itk_unsigned_char]

@@ -100,10 +100,10 @@ while (0)
 /* Make gcc agree with <machine/ansi.h>  */
 
 #undef SIZE_TYPE
-#define SIZE_TYPE "unsigned int"
+#define SIZE_TYPE itk_unsigned_int
 
 #undef PTRDIFF_TYPE
-#define PTRDIFF_TYPE "int"
+#define PTRDIFF_TYPE itk_int
 
 
 /* XXX

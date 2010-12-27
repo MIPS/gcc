@@ -33,7 +33,7 @@ along with GCC; see the file COPYING3.  If not see
 #define DWARF2_ASM_LINE_DEBUG_INFO 1
 
 #undef WCHAR_TYPE
-/* #define WCHAR_TYPE (TARGET_SH5 ? "int" : "long int") */
+/* #define WCHAR_TYPE (TARGET_SH5 ? itk_int : itk_long) */
 #define WCHAR_TYPE SH_ELF_WCHAR_TYPE
    
 #undef WCHAR_TYPE_SIZE
@@ -46,10 +46,10 @@ along with GCC; see the file COPYING3.  If not see
 #define LOCAL_LABEL_PREFIX "."
 
 #undef SIZE_TYPE
-#define SIZE_TYPE (TARGET_SH5 ? "long unsigned int" : "unsigned int")
+#define SIZE_TYPE (TARGET_SH5 ? itk_unsigned_long : itk_unsigned_int)
 
 #undef PTRDIFF_TYPE
-#define PTRDIFF_TYPE (TARGET_SH5 ? "long int" : "int")
+#define PTRDIFF_TYPE (TARGET_SH5 ? itk_long : itk_int)
 
 /* Pass -ml and -mrelax to the assembler and linker.  */
 #undef ASM_SPEC

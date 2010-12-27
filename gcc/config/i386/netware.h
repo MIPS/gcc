@@ -111,19 +111,19 @@ do {									\
 #define TARGET_DEFAULT_PACK_STRUCT 1
 
 #undef  SIZE_TYPE
-#define SIZE_TYPE "unsigned int"
+#define SIZE_TYPE itk_unsigned_int
 
 #undef  PTRDIFF_TYPE
-#define PTRDIFF_TYPE "int"
+#define PTRDIFF_TYPE itk_int
 
 #undef WCHAR_TYPE
-#define WCHAR_TYPE "short unsigned int"
+#define WCHAR_TYPE itk_unsigned_short
 
 #undef WCHAR_TYPE_SIZE
 #define WCHAR_TYPE_SIZE 16
 
 #undef WINT_TYPE
-#define WINT_TYPE "int"
+#define WINT_TYPE itk_int
 
 /* A C statement (sans semicolon) to output to the stdio stream
    FILE the assembler definition of uninitialized global DECL named

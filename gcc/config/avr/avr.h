@@ -168,8 +168,8 @@ extern GTY(()) section *progmem_section;
 
 #define DEFAULT_SIGNED_CHAR 1
 
-#define SIZE_TYPE (INT_TYPE_SIZE == 8 ? "long unsigned int" : "unsigned int")
-#define PTRDIFF_TYPE (INT_TYPE_SIZE == 8 ? "long int" :"int")
+#define SIZE_TYPE (INT_TYPE_SIZE == 8 ? itk_unsigned_long : itk_unsigned_int)
+#define PTRDIFF_TYPE (INT_TYPE_SIZE == 8 ? itk_long : itk_int)
 
 #define WCHAR_TYPE_SIZE 16
 

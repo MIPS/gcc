@@ -149,16 +149,16 @@ along with GCC; see the file COPYING3.  If not see
 #define WCHAR_TYPE_SIZE 16
 
 #undef WCHAR_TYPE
-#define WCHAR_TYPE "short unsigned int"
+#define WCHAR_TYPE itk_unsigned_short
 
 #undef WINT_TYPE
-#define WINT_TYPE "int"
+#define WINT_TYPE itk_int
 
 #undef SIZE_TYPE
-#define SIZE_TYPE "long unsigned int"
+#define SIZE_TYPE itk_unsigned_long
 
 #undef PTRDIFF_TYPE
-#define PTRDIFF_TYPE "int"
+#define PTRDIFF_TYPE itk_int
 
 /* Used to be defined in xm-djgpp.h, but moved here for cross-compilers.  */
 #define LIBSTDCXX "stdcxx"

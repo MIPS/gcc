@@ -178,7 +178,9 @@ typedef union ATTRIBUTE_TRANSPARENT_UNION { void *p; } cumulative_args_t;
 /* An enumeration of the standard C integer types.  These must be
    ordered so that shorter types appear before longer ones, and so
    that signed types appear before unsigned ones, for the correct
-   functioning of interpret_integer() in c-lex.c.  */
+   functioning of interpret_integer() in c-lex.c.
+   Moreover, if this enumeration is changed, you also have to update
+   the integer_type_names array in tree.c .  */
 enum integer_type_kind
 {
   itk_char,

@@ -1,5 +1,5 @@
 /* Definitions for <stdint.h> types on systems using DJGPP.
-   Copyright (C) 2009 Free Software Foundation, Inc.
+   Copyright (C) 2009, 2010 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -17,46 +17,46 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
-#define SIG_ATOMIC_TYPE "int"
+#define SIG_ATOMIC_TYPE itk_int
 
 /* Exact-width integer types */
 
-#define INT8_TYPE "signed char"
-#define INT16_TYPE "signed short int"
-#define INT32_TYPE "signed long int"
-#define INT64_TYPE "signed long long int"
+#define INT8_TYPE itk_signed_char
+#define INT16_TYPE itk_short
+#define INT32_TYPE itk_int
+#define INT64_TYPE itk_long_long
 
-#define UINT8_TYPE "unsigned char"
-#define UINT16_TYPE "short unsigned int"
-#define UINT32_TYPE "long unsigned int"
-#define UINT64_TYPE "long long unsigned int"
+#define UINT8_TYPE itk_unsigned_char
+#define UINT16_TYPE itk_unsigned_short
+#define UINT32_TYPE itk_unsigned_long
+#define UINT64_TYPE itk_unsigned_long_long
 
 /* Minimum-width integer types */
 
-#define INT_LEAST8_TYPE "signed char"
-#define INT_LEAST16_TYPE "signed short int"
-#define INT_LEAST32_TYPE "signed int"
-#define INT_LEAST64_TYPE "signed long long int"
+#define INT_LEAST8_TYPE itk_signed_char
+#define INT_LEAST16_TYPE itk_short
+#define INT_LEAST32_TYPE itk_int
+#define INT_LEAST64_TYPE itk_long_long
 
-#define UINT_LEAST8_TYPE "unsigned char"
-#define UINT_LEAST16_TYPE "short unsigned int"
-#define UINT_LEAST32_TYPE "unsigned int"
-#define UINT_LEAST64_TYPE "long long unsigned int"
+#define UINT_LEAST8_TYPE itk_unsigned_char
+#define UINT_LEAST16_TYPE itk_unsigned_short
+#define UINT_LEAST32_TYPE itk_unsigned_int
+#define UINT_LEAST64_TYPE itk_unsigned_long_long
 
 /* Fastest minimum-width integer types */
 
-#define INT_FAST8_TYPE "signed char"
-#define INT_FAST16_TYPE "signed int"
-#define INT_FAST32_TYPE "signed int"
-#define INT_FAST64_TYPE "long long signed int"
+#define INT_FAST8_TYPE itk_signed_char
+#define INT_FAST16_TYPE itk_int
+#define INT_FAST32_TYPE itk_int
+#define INT_FAST64_TYPE itk_long_long
 
-#define UINT_FAST8_TYPE "unsigned char"
-#define UINT_FAST16_TYPE "unsigned int"
-#define UINT_FAST32_TYPE "unsigned int"
-#define UINT_FAST64_TYPE "long long unsigned int"
+#define UINT_FAST8_TYPE itk_unsigned_char
+#define UINT_FAST16_TYPE itk_unsigned_int
+#define UINT_FAST32_TYPE itk_unsigned_int
+#define UINT_FAST64_TYPE itk_unsigned_long_long
 
 /* Integer types capable of holding object pointers */
 
-#define INTPTR_TYPE "long int"
-#define UINTPTR_TYPE "long unsigned int"
+#define INTPTR_TYPE itk_long
+#define UINTPTR_TYPE itk_unsigned_long
 

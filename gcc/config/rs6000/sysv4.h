@@ -266,15 +266,16 @@ do {									\
 #define	RESTORE_FP_PREFIX "_restfpr_"
 #define RESTORE_FP_SUFFIX ""
 
-/* Type used for size_t, as a string used in a declaration.  */
+/* Type used for size_t.  */
 #undef  SIZE_TYPE
-#define SIZE_TYPE "unsigned int"
+#define SIZE_TYPE itk_unsigned_int
 
-/* Type used for ptrdiff_t, as a string used in a declaration.  */
-#define PTRDIFF_TYPE "int"
+/* Type used for ptrdiff_t.  */
+#define PTRDIFF_TYPE itk_int
 
+/* Type used for wchar_t.  */
 #undef	WCHAR_TYPE
-#define WCHAR_TYPE "long int"
+#define WCHAR_TYPE itk_long
 
 #undef	WCHAR_TYPE_SIZE
 #define WCHAR_TYPE_SIZE 32

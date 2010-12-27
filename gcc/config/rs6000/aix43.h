@@ -158,7 +158,7 @@ do {									\
 /* AIX 4.3 typedefs ptrdiff_t as "long" while earlier releases used "int".  */
 
 #undef PTRDIFF_TYPE
-#define PTRDIFF_TYPE "long int"
+#define PTRDIFF_TYPE itk_long
 
 /* AIX 4 uses PowerPC nop (ori 0,0,0) instruction as call glue for PowerPC
    and "cror 31,31,31" for POWER architecture.  */

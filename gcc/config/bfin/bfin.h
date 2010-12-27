@@ -970,7 +970,7 @@ typedef struct {
 
 
 /* what is the 'type' of size_t */
-#define SIZE_TYPE "long unsigned int"
+#define SIZE_TYPE itk_unsigned_long
 
 /* Define this as 1 if `char' should by default be signed; else as 0.  */
 #define DEFAULT_SIGNED_CHAR 1

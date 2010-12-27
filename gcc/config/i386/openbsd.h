@@ -1,5 +1,6 @@
 /* Configuration for an OpenBSD i386 target.
-   Copyright (C) 1999, 2000, 2002, 2004, 2007 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2002, 2004, 2007, 2010
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -40,13 +41,13 @@ along with GCC; see the file COPYING3.  If not see
 
 /* This must agree with <machine/ansi.h> */
 #undef SIZE_TYPE
-#define SIZE_TYPE "unsigned int"
+#define SIZE_TYPE itk_unsigned_int
 
 #undef PTRDIFF_TYPE
-#define PTRDIFF_TYPE "int"
+#define PTRDIFF_TYPE itk_int
 
 #undef WCHAR_TYPE
-#define WCHAR_TYPE "int"
+#define WCHAR_TYPE itk_int
 
 #undef WCHAR_TYPE_SIZE
 #define WCHAR_TYPE_SIZE 32

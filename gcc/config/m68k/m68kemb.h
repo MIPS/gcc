@@ -1,12 +1,12 @@
 /* Definitions of target machine for GNU compiler.  "embedded" 68XXX.
    This is meant to be included after m68k.h.
-   Copyright (C) 1994, 1995, 1998, 1999, 2004, 2006
+   Copyright (C) 1994, 1995, 1998, 1999, 2004, 2006, 2010
    Free Software Foundation, Inc.  */
 
 /* Override the SVR4 ABI for this target.  */
 
-#define PTRDIFF_TYPE "long int"
-#define SIZE_TYPE "long unsigned int"
+#define PTRDIFF_TYPE itk_long
+#define SIZE_TYPE itk_unsigned_long
 
 /* In order for bitfields to work on a 68000, or with -mnobitfield, we must
    define either PCC_BITFIELD_TYPE_MATTERS or STRUCTURE_SIZE_BOUNDARY.

@@ -1956,15 +1956,15 @@ struct sh_args {
 #define DEFAULT_SIGNED_CHAR  1
 
 /* The type of size_t unsigned int.  */
-#define SIZE_TYPE (TARGET_SH5 ? "long unsigned int" : "unsigned int")
+#define SIZE_TYPE (TARGET_SH5 ? itk_unsigned_long : itk_unsigned_int)
 
 #undef  PTRDIFF_TYPE
-#define PTRDIFF_TYPE (TARGET_SH5 ? "long int" : "int")
+#define PTRDIFF_TYPE (TARGET_SH5 ? itk_long : itk_int)
 
-#define WCHAR_TYPE "short unsigned int"
+#define WCHAR_TYPE itk_unsigned_short
 #define WCHAR_TYPE_SIZE 16
 
-#define SH_ELF_WCHAR_TYPE "long int"
+#define SH_ELF_WCHAR_TYPE itk_long
 
 /* Max number of bytes we can move from memory to memory
    in one reasonably fast instruction.  */

@@ -52,7 +52,7 @@
 
 /* Override the default rs6000 definition.  */
 #undef  PTRDIFF_TYPE
-#define PTRDIFF_TYPE (TARGET_64BIT ? "long int" : "int")
+#define PTRDIFF_TYPE (TARGET_64BIT ? itk_long : itk_int)
 
 #define TARGET_OS_CPP_BUILTINS()			\
   do							\

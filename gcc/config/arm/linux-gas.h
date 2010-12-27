@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler.
    ARM Linux-based GNU systems version.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2004, 2007
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2004, 2007, 2010
    Free Software Foundation, Inc.
    Contributed by Russell King  <rmk92@ecs.soton.ac.uk>.
 
@@ -30,15 +30,15 @@
 #define SUBTARGET_CPP_SPEC  "%{posix:-D_POSIX_SOURCE} %{pthread:-D_REENTRANT}"
 
 #undef  SIZE_TYPE
-#define SIZE_TYPE "unsigned int"
+#define SIZE_TYPE itk_unsigned_int
 
 #undef  PTRDIFF_TYPE
-#define PTRDIFF_TYPE "int"
+#define PTRDIFF_TYPE itk_int
 
 /* Use the AAPCS type for wchar_t, or the previous Linux default for
    non-AAPCS.  */
 #undef WCHAR_TYPE
-#define WCHAR_TYPE (TARGET_AAPCS_BASED ? "unsigned int" : "long int")
+#define WCHAR_TYPE (TARGET_AAPCS_BASED ? itk_unsigned_int : itk_long)
 
 #undef  WCHAR_TYPE_SIZE
 #define WCHAR_TYPE_SIZE BITS_PER_WORD

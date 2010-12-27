@@ -154,11 +154,11 @@ do {									\
 /* AIX V5 typedefs ptrdiff_t as "long" while earlier releases used "int".  */
 
 #undef PTRDIFF_TYPE
-#define PTRDIFF_TYPE "long int"
+#define PTRDIFF_TYPE itk_long
 
 /* Type used for wchar_t, as a string used in a declaration.  */
 #undef  WCHAR_TYPE
-#define WCHAR_TYPE (!TARGET_64BIT ? "short unsigned int" : "unsigned int")
+#define WCHAR_TYPE (!TARGET_64BIT ? itk_unsigned_short : itk_unsigned_int)
 
 /* Width of wchar_t in bits.  */
 #undef  WCHAR_TYPE_SIZE

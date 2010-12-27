@@ -326,7 +326,7 @@ along with GCC; see the file COPYING3.  If not see
 #define INT_TYPE_SIZE (TARGET_SHORT ? 16 : 32)
 
 /* Define these to avoid dependence on meaning of `int'.  */
-#define WCHAR_TYPE "long int"
+#define WCHAR_TYPE itk_long
 #define WCHAR_TYPE_SIZE 32
 
 /* Maximum number of library IDs we permit with -mid-shared-library.  */

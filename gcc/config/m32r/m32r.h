@@ -384,9 +384,9 @@ extern enum m32r_sdata m32r_sdata;
 /* Define this as 1 if `char' should by default be signed; else as 0.  */
 #define DEFAULT_SIGNED_CHAR 1
 
-#define SIZE_TYPE "long unsigned int"
-#define PTRDIFF_TYPE "long int"
-#define WCHAR_TYPE "short unsigned int"
+#define SIZE_TYPE itk_unsigned_long
+#define PTRDIFF_TYPE itk_long
+#define WCHAR_TYPE itk_unsigned_short
 #define WCHAR_TYPE_SIZE 16
 
 /* Standard register usage.  */

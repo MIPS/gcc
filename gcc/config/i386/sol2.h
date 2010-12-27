@@ -177,9 +177,9 @@ along with GCC; see the file COPYING3.  If not see
 #define TF_SIZE 113
 
 #undef  SIZE_TYPE
-#define SIZE_TYPE "unsigned int"
+#define SIZE_TYPE itk_unsigned_int
 
 #undef  PTRDIFF_TYPE
-#define PTRDIFF_TYPE "int"
+#define PTRDIFF_TYPE itk_int
 
 #define MD_UNWIND_SUPPORT "config/i386/sol2-unwind.h"

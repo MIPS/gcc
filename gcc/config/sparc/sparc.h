@@ -498,11 +498,11 @@ extern enum cmodel sparc_cmodel;
 #define LINK_GCC_C_SEQUENCE_SPEC "%G %L %G %L"
 
 
-#define PTRDIFF_TYPE (TARGET_ARCH64 ? "long int" : "int")
-#define SIZE_TYPE (TARGET_ARCH64 ? "long unsigned int" : "unsigned int")
+#define PTRDIFF_TYPE (TARGET_ARCH64 ? itk_long : itk_int)
+#define SIZE_TYPE (TARGET_ARCH64 ? itk_unsigned_long : itk_unsigned_int)
 
 /* ??? This should be 32 bits for v9 but what can we do?  */
-#define WCHAR_TYPE "short unsigned int"
+#define WCHAR_TYPE itk_unsigned_short
 #define WCHAR_TYPE_SIZE 16
 
 /* Mask of all CPU selection flags.  */

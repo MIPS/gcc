@@ -277,22 +277,21 @@ while (0)
 
 #define DEFAULT_SIGNED_CHAR 1
 
-/* A C expression for a string describing the name of the data type to use for
-   size values.  The typedef name `size_t' is defined using the contents of the
-   string.  */
+/* An enum integer_type_kind value describing the data type to use for
+   size values.  The typedef name `size_t' is defined using the name of
+   that type.  */
 /* ??? Needs to be defined for P64 code.  */
 /* #define SIZE_TYPE */
 
-/* A C expression for a string describing the name of the data type to use for
+/* An enum integer_type_kind value string describing the data type to use for
    the result of subtracting two pointers.  The typedef name `ptrdiff_t' is
-   defined using the contents of the string.  See `SIZE_TYPE' above for more
-   information.  */
+   defined using the name of that type.  */
 /* ??? Needs to be defined for P64 code.  */
 /* #define PTRDIFF_TYPE */
 
-/* A C expression for a string describing the name of the data type to use for
-   wide characters.  The typedef name `wchar_t' is defined using the contents
-   of the string.  See `SIZE_TYPE' above for more information.  */
+/* An enum integer_type_kind value describing the data type to use for
+   wide characters.  The typedef name `wchar_t' is defined using the name
+   of that type.  */
 /* #define WCHAR_TYPE */
 
 /* A C expression for the size in bits of the data type for wide characters.

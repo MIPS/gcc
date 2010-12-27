@@ -59,7 +59,7 @@ along with GCC; see the file COPYING3.  If not see
 #define TARGET_FIXUP_EV5_PREFETCH 1
 
 #undef WCHAR_TYPE
-#define WCHAR_TYPE "int"
+#define WCHAR_TYPE itk_int
 
 #ifdef SINGLE_LIBC
 #define OPTION_GLIBC  (DEFAULT_LIBC == LIBC_GLIBC)

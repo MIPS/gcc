@@ -1,5 +1,5 @@
 /* Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
-   2004 Free Software Foundation, Inc.
+   2004, 2010 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -45,10 +45,10 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 
 
 #undef SIZE_TYPE
-#define SIZE_TYPE "unsigned int"
+#define SIZE_TYPE itk_unsigned_int
 
 #undef PTRDIFF_TYPE
-#define PTRDIFF_TYPE "int"
+#define PTRDIFF_TYPE itk_int
 
 #undef ASM_APP_ON
 #define ASM_APP_ON "#APP\n"

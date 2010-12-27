@@ -42,10 +42,10 @@ along with GCC; see the file COPYING3.  If not see
 
 /* SIZE_TYPE and PTRDIFF_TYPE are wrong from sparc/sparc.h.  */
 #undef SIZE_TYPE
-#define SIZE_TYPE "long unsigned int"
+#define SIZE_TYPE itk_unsigned_long
 
 #undef PTRDIFF_TYPE
-#define PTRDIFF_TYPE "long int"
+#define PTRDIFF_TYPE itk_long
 
 /* This is the char to use for continuation (in case we need to turn
    continuation back on).  */

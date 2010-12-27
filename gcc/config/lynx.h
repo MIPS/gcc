@@ -1,6 +1,6 @@
 /* Target independent definitions for LynxOS.
    Copyright (C) 1993, 1994, 1995, 1996, 1999, 2000, 2002, 2003, 2004,
-   2007 Free Software Foundation, Inc.
+   2007, 2010 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -131,15 +131,15 @@ along with GCC; see the file COPYING3.  If not see
 /* Define the actual types of some ANSI-mandated types.  */
 
 #ifndef SIZE_TYPE
-# define SIZE_TYPE "unsigned int"
+# define SIZE_TYPE itk_unsigned_int
 #endif
 
 #ifndef  PTRDIFF_TYPE
-# define PTRDIFF_TYPE "int"
+# define PTRDIFF_TYPE itk_int
 #endif
 
 #ifndef  WCHAR_TYPE
-# define WCHAR_TYPE "long int"
+# define WCHAR_TYPE itk_long
 #endif
 
 #ifndef  WCHAR_TYPE_SIZE
