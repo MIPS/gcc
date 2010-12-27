@@ -166,7 +166,7 @@ score_return_in_memory (const_tree type, const_tree fndecl ATTRIBUTE_UNUSED)
 
 /* Return nonzero when an argument must be passed by reference.  */
 static bool
-score_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
+score_pass_by_reference (cumulative_args_t cum ATTRIBUTE_UNUSED,
                          enum machine_mode mode, const_tree type,
                          bool named ATTRIBUTE_UNUSED)
 {
@@ -492,9 +492,11 @@ score_init_cumulative_args (CUMULATIVE_ARGS *cum,
 
 /* Implement TARGET_FUNCTION_ARG_ADVANCE hook.  */
 static void
-score_function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
+score_function_arg_advance (cumulative_args_t cum_v, enum machine_mode mode,
                             const_tree type, bool named)
 {
+  CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
+
   if (TARGET_SCORE5 || TARGET_SCORE5U || TARGET_SCORE7 || TARGET_SCORE7D)
     score7_function_arg_advance (cum, mode, type, named);
   else if (TARGET_SCORE3)
@@ -504,10 +506,12 @@ score_function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 }
 
 /* Implement TARGET_ARG_PARTIAL_BYTES macro.  */
-int
-score_arg_partial_bytes (CUMULATIVE_ARGS *cum,
+static int
+score_arg_partial_bytes (cumulative_args_t cum_v,
                          enum machine_mode mode, tree type, bool named)
 {
+  CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
+
   if (TARGET_SCORE5 || TARGET_SCORE5U || TARGET_SCORE7 || TARGET_SCORE7D)
     return score7_arg_partial_bytes (cum, mode, type, named);
   else if (TARGET_SCORE3)
@@ -518,9 +522,11 @@ score_arg_partial_bytes (CUMULATIVE_ARGS *cum,
 
 /* Implement TARGET_FUNCTION_ARG hook.  */
 static rtx
-score_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
+score_function_arg (cumulative_args_t cum_v, enum machine_mode mode,
                     const_tree type, bool named)
 {
+  CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
+
   if (TARGET_SCORE5 || TARGET_SCORE5U || TARGET_SCORE7 || TARGET_SCORE7D)
     return score7_function_arg (cum, mode, type, named);
   else if (TARGET_SCORE3)

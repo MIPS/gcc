@@ -2106,7 +2106,8 @@ pass_by_reference (CUMULATIVE_ARGS *ca, enum machine_mode mode,
 	}
     }
 
-  return targetm.calls.pass_by_reference (ca, mode, type, named_arg);
+  return targetm.calls.pass_by_reference (pack_cumulative_args (ca), mode,
+					  type, named_arg);
 }
 
 /* Return true if TYPE, which is passed by reference, should be callee
@@ -2118,7 +2119,7 @@ reference_callee_copied (CUMULATIVE_ARGS *ca, enum machine_mode mode,
 {
   if (type && TREE_ADDRESSABLE (type))
     return false;
-  return targetm.calls.callee_copies (ca, mode, type, named_arg);
+  return targetm.calls.callee_copies (pack_cumulative_args (ca), mode, type, named_arg);
 }
 
 /* Structures to communicate between the subroutines of assign_parms.
@@ -2292,7 +2293,8 @@ assign_parm_find_data_types (struct assign_parm_data_all *all, tree parm,
     data->named_arg = 1;  /* No variadic parms.  */
   else if (DECL_CHAIN (parm))
     data->named_arg = 1;  /* Not the last non-variadic parm. */
-  else if (targetm.calls.strict_argument_naming (&all->args_so_far))
+  else if (targetm.calls.strict_argument_naming
+	    (pack_cumulative_args (&all->args_so_far)))
     data->named_arg = 1;  /* Only variadic ones are unnamed.  */
   else
     data->named_arg = 0;  /* Treat as variadic.  */
@@ -2357,10 +2359,9 @@ assign_parms_setup_varargs (struct assign_parm_data_all *all,
 {
   int varargs_pretend_bytes = 0;
 
-  targetm.calls.setup_incoming_varargs (&all->args_so_far,
-					data->promoted_mode,
-					data->passed_type,
-					&varargs_pretend_bytes, no_rtl);
+  (targetm.calls.setup_incoming_varargs
+    (pack_cumulative_args (&all->args_so_far), data->promoted_mode,
+			   data->passed_type, &varargs_pretend_bytes, no_rtl));
 
   /* If the back-end has requested extra stack space, record how much is
      needed.  Do not change pretend_args_size otherwise since it may be
@@ -2386,10 +2387,9 @@ assign_parm_find_entry_rtl (struct assign_parm_data_all *all,
       return;
     }
 
-  entry_parm = targetm.calls.function_incoming_arg (&all->args_so_far,
-						    data->promoted_mode,
-						    data->passed_type,
-						    data->named_arg);
+  entry_parm = (targetm.calls.function_incoming_arg
+		 (pack_cumulative_args (&all->args_so_far),
+		  data->promoted_mode, data->passed_type, data->named_arg));
 
   if (entry_parm == 0)
     data->promoted_mode = data->passed_mode;
@@ -2410,12 +2410,13 @@ assign_parm_find_entry_rtl (struct assign_parm_data_all *all,
 #endif
   if (!in_regs && !data->named_arg)
     {
-      if (targetm.calls.pretend_outgoing_varargs_named (&all->args_so_far))
+      if (targetm.calls.pretend_outgoing_varargs_named
+	   (pack_cumulative_args (&all->args_so_far)))
 	{
 	  rtx tem;
-	  tem = targetm.calls.function_incoming_arg (&all->args_so_far,
-						     data->promoted_mode,
-						     data->passed_type, true);
+	  tem = (targetm.calls.function_incoming_arg
+		  (pack_cumulative_args (&all->args_so_far),
+		   data->promoted_mode, data->passed_type, true));
 	  in_regs = tem != NULL;
 	}
     }
@@ -2430,10 +2431,9 @@ assign_parm_find_entry_rtl (struct assign_parm_data_all *all,
     {
       int partial;
 
-      partial = targetm.calls.arg_partial_bytes (&all->args_so_far,
-						 data->promoted_mode,
-						 data->passed_type,
-						 data->named_arg);
+      partial = (targetm.calls.arg_partial_bytes
+		  (pack_cumulative_args (&all->args_so_far),
+		   data->promoted_mode, data->passed_type, data->named_arg));
       data->partial = partial;
 
       /* The caller might already have allocated stack space for the
@@ -3364,8 +3364,9 @@ assign_parms (tree fndecl)
       set_decl_incoming_rtl (parm, data.entry_parm, data.passed_pointer);
 
       /* Update info on where next arg arrives in registers.  */
-      targetm.calls.function_arg_advance (&all.args_so_far, data.promoted_mode,
-					  data.passed_type, data.named_arg);
+      (targetm.calls.function_arg_advance
+	(pack_cumulative_args (&all.args_so_far), data.promoted_mode,
+			       data.passed_type, data.named_arg));
 
       assign_parm_adjust_stack_rtl (&data);
 
@@ -3563,8 +3564,9 @@ gimplify_parameters (void)
 	continue;
 
       /* Update info on where next arg arrives in registers.  */
-      targetm.calls.function_arg_advance (&all.args_so_far, data.promoted_mode,
-					  data.passed_type, data.named_arg);
+      (targetm.calls.function_arg_advance
+	(pack_cumulative_args (&all.args_so_far), data.promoted_mode,
+			       data.passed_type, data.named_arg));
 
       /* ??? Once upon a time variable_size stuffed parameter list
 	 SAVE_EXPRs (amongst others) onto a pending sizes list.  This

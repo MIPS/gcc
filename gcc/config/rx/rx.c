@@ -779,10 +779,10 @@ rx_function_arg_size (Mmode mode, const_tree type)
    variable parameter list.  */
 
 static rtx
-rx_function_arg (Fargs * cum, Mmode mode, const_tree type, bool named)
+rx_function_arg (cumulative_args_t cum, Mmode mode, const_tree type, bool named)
 {
   unsigned int next_reg;
-  unsigned int bytes_so_far = *cum;
+  unsigned int bytes_so_far = *get_cumulative_args (cum);
   unsigned int size;
   unsigned int rounded_size;
 
@@ -816,10 +816,10 @@ rx_function_arg (Fargs * cum, Mmode mode, const_tree type, bool named)
 }
 
 static void
-rx_function_arg_advance (Fargs * cum, Mmode mode, const_tree type,
+rx_function_arg_advance (cumulative_args_t  cum, Mmode mode, const_tree type,
 			 bool named ATTRIBUTE_UNUSED)
 {
-  *cum += rx_function_arg_size (mode, type);
+  *get_cumulative_args (cum) += rx_function_arg_size (mode, type);
 }
 
 static unsigned int

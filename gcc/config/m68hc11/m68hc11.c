@@ -97,9 +97,9 @@ static bool m68hc11_can_eliminate (const int, const int);
 static void m68hc11_conditional_register_usage (void);
 static void m68hc11_trampoline_init (rtx, tree, rtx);
 
-static rtx m68hc11_function_arg (CUMULATIVE_ARGS*, enum machine_mode,
+static rtx m68hc11_function_arg (cumulative_args_t, enum machine_mode,
 				 const_tree, bool);
-static void m68hc11_function_arg_advance (CUMULATIVE_ARGS*, enum machine_mode,
+static void m68hc11_function_arg_advance (cumulative_args_t, enum machine_mode,
 					  const_tree, bool);
 
 /* Must be set to 1 to produce debug messages.  */
@@ -1493,9 +1493,11 @@ m68hc11_init_cumulative_args (CUMULATIVE_ARGS *cum, tree fntype, rtx libname)
    (TYPE is null for libcalls where that information may not be available.)  */
 
 static void
-m68hc11_function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
+m68hc11_function_arg_advance (cumulative_args_t cum_v, enum machine_mode mode,
                               const_tree type, bool named ATTRIBUTE_UNUSED)
 {
+  CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
+
   if (mode != BLKmode)
     {
       if (cum->words == 0 && GET_MODE_SIZE (mode) == 4)
@@ -1531,11 +1533,11 @@ m68hc11_function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
     (otherwise it is an extra parameter matching an ellipsis).  */
 
 static rtx
-m68hc11_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
+m68hc11_function_arg (cumulative_args_t cum, enum machine_mode mode,
                       const_tree type ATTRIBUTE_UNUSED,
 		      bool named ATTRIBUTE_UNUSED)
 {
-  if (cum->words != 0)
+  if ((get_cumulative_args (cum))->words != 0)
     {
       return NULL_RTX;
     }

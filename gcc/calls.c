@@ -1138,23 +1138,25 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
       args[i].unsignedp = unsignedp;
       args[i].mode = mode;
 
-      args[i].reg = targetm.calls.function_arg (args_so_far, mode, type,
-						argpos < n_named_args);
+      args[i].reg
+	= targetm.calls.function_arg (pack_cumulative_args (args_so_far), mode,
+				      type, argpos < n_named_args);
 
       /* If this is a sibling call and the machine has register windows, the
 	 register window has to be unwinded before calling the routine, so
 	 arguments have to go into the incoming registers.  */
       if (targetm.calls.function_incoming_arg != targetm.calls.function_arg)
 	args[i].tail_call_reg
-	  = targetm.calls.function_incoming_arg (args_so_far, mode, type,
-						 argpos < n_named_args);
+	  = (targetm.calls.function_incoming_arg
+	      (pack_cumulative_args (args_so_far), mode, type,
+	       argpos < n_named_args));
       else
 	args[i].tail_call_reg = args[i].reg;
 
       if (args[i].reg)
 	args[i].partial
-	  = targetm.calls.arg_partial_bytes (args_so_far, mode, type,
-					     argpos < n_named_args);
+	  = targetm.calls.arg_partial_bytes (pack_cumulative_args (args_so_far),
+					     mode, type, argpos < n_named_args);
 
       args[i].pass_on_stack = targetm.calls.must_pass_in_stack (mode, type);
 
@@ -1204,7 +1206,8 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
       /* Increment ARGS_SO_FAR, which has info about which arg-registers
 	 have been used, etc.  */
 
-      targetm.calls.function_arg_advance (args_so_far, TYPE_MODE (type),
+      targetm.calls.function_arg_advance (pack_cumulative_args (args_so_far),
+					  TYPE_MODE (type),
 					  type, argpos < n_named_args);
     }
 }
@@ -2247,10 +2250,12 @@ expand_call (tree exp, rtx target, int ignore)
      registers, so we must force them into memory.  */
 
   if (type_arg_types != 0
-      && targetm.calls.strict_argument_naming (&args_so_far))
+      && (targetm.calls.strict_argument_naming
+	   (pack_cumulative_args (&args_so_far))))
     ;
   else if (type_arg_types != 0
-	   && ! targetm.calls.pretend_outgoing_varargs_named (&args_so_far))
+	   && ! (targetm.calls.pretend_outgoing_varargs_named
+		  (pack_cumulative_args (&args_so_far))))
     /* Don't include the last named arg.  */
     --n_named_args;
   else
@@ -2861,14 +2866,13 @@ expand_call (tree exp, rtx target, int ignore)
       /* Set up next argument register.  For sibling calls on machines
 	 with register windows this should be the incoming register.  */
       if (pass == 0)
-	next_arg_reg = targetm.calls.function_incoming_arg (&args_so_far,
-							    VOIDmode,
-							    void_type_node,
-							    true);
+	next_arg_reg = (targetm.calls.function_incoming_arg
+			 (pack_cumulative_args (&args_so_far), VOIDmode,
+			  void_type_node, true));
       else
-	next_arg_reg = targetm.calls.function_arg (&args_so_far,
-						   VOIDmode, void_type_node,
-						   true);
+	next_arg_reg
+	  = targetm.calls.function_arg (pack_cumulative_args (&args_so_far),
+					VOIDmode, void_type_node, true);
 
       /* All arguments and registers used for the call must be set up by
 	 now!  */
@@ -3455,10 +3459,12 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
       argvec[count].mode = Pmode;
       argvec[count].partial = 0;
 
-      argvec[count].reg = targetm.calls.function_arg (&args_so_far,
-						      Pmode, NULL_TREE, true);
-      gcc_assert (targetm.calls.arg_partial_bytes (&args_so_far, Pmode,
-						   NULL_TREE, 1) == 0);
+      argvec[count].reg
+	= targetm.calls.function_arg (pack_cumulative_args (&args_so_far),
+				      Pmode, NULL_TREE, true);
+      gcc_assert ((targetm.calls.arg_partial_bytes
+		    (pack_cumulative_args (&args_so_far), Pmode, NULL_TREE, 1))
+		  == 0);
 
       locate_and_pad_parm (Pmode, NULL_TREE,
 #ifdef STACK_PARMS_IN_REG_PARM_AREA
@@ -3472,7 +3478,8 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 	  || reg_parm_stack_space > 0)
 	args_size.constant += argvec[count].locate.size.constant;
 
-      targetm.calls.function_arg_advance (&args_so_far, Pmode, (tree) 0, true);
+      targetm.calls.function_arg_advance (pack_cumulative_args (&args_so_far),
+					  Pmode, (tree) 0, true);
 
       count++;
     }
@@ -3531,11 +3538,13 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
       argvec[count].value = val;
       argvec[count].mode = mode;
 
-      argvec[count].reg = targetm.calls.function_arg (&args_so_far, mode,
-						      NULL_TREE, true);
+      argvec[count].reg
+	= targetm.calls.function_arg (pack_cumulative_args (&args_so_far),
+				      mode, NULL_TREE, true);
 
       argvec[count].partial
-	= targetm.calls.arg_partial_bytes (&args_so_far, mode, NULL_TREE, 1);
+	= targetm.calls.arg_partial_bytes (pack_cumulative_args (&args_so_far),
+					   mode, NULL_TREE, 1);
 
       locate_and_pad_parm (mode, NULL_TREE,
 #ifdef STACK_PARMS_IN_REG_PARM_AREA
@@ -3552,7 +3561,8 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 	  || reg_parm_stack_space > 0)
 	args_size.constant += argvec[count].locate.size.constant;
 
-      targetm.calls.function_arg_advance (&args_so_far, mode, (tree) 0, true);
+      targetm.calls.function_arg_advance (pack_cumulative_args (&args_so_far),
+					  mode, (tree) 0, true);
     }
 
   /* If this machine requires an external definition for library
@@ -3868,7 +3878,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 	       build_function_type (tfom, NULL_TREE),
 	       original_args_size.constant, args_size.constant,
 	       struct_value_size,
-	       targetm.calls.function_arg (&args_so_far,
+	       targetm.calls.function_arg (pack_cumulative_args (&args_so_far),
 					   VOIDmode, void_type_node, true),
 	       valreg,
 	       old_inhibit_defer_pop + 1, call_fusage, flags, & args_so_far);

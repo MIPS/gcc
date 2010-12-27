@@ -1238,14 +1238,16 @@ block_move_libcall_safe_for_call_parm (void)
     for ( ; arg != void_list_node ; arg = TREE_CHAIN (arg))
       {
 	enum machine_mode mode = TYPE_MODE (TREE_VALUE (arg));
-	rtx tmp = targetm.calls.function_arg (&args_so_far, mode,
-					      NULL_TREE, true);
+	rtx tmp
+	  = targetm.calls.function_arg (pack_cumulative_args (&args_so_far),
+					mode, NULL_TREE, true);
 	if (!tmp || !REG_P (tmp))
 	  return false;
-	if (targetm.calls.arg_partial_bytes (&args_so_far, mode, NULL, 1))
+	if (targetm.calls.arg_partial_bytes
+	     (pack_cumulative_args (&args_so_far), mode, NULL, 1))
 	  return false;
-	targetm.calls.function_arg_advance (&args_so_far, mode,
-					    NULL_TREE, true);
+	targetm.calls.function_arg_advance (pack_cumulative_args (&args_so_far),
+					    mode, NULL_TREE, true);
       }
   }
   return true;

@@ -92,9 +92,9 @@ static unsigned int avr_case_values_threshold (void);
 static bool avr_frame_pointer_required_p (void);
 static bool avr_can_eliminate (const int, const int);
 static bool avr_class_likely_spilled_p (reg_class_t c);
-static rtx avr_function_arg (CUMULATIVE_ARGS *, enum machine_mode,
+static rtx avr_function_arg (cumulative_args_t , enum machine_mode,
 			     const_tree, bool);
-static void avr_function_arg_advance (CUMULATIVE_ARGS *, enum machine_mode,
+static void avr_function_arg_advance (cumulative_args_t, enum machine_mode,
 				      const_tree, bool);
 
 /* Allocate registers from r25 to r8 for parameters for function calls.  */
@@ -1584,9 +1584,10 @@ avr_num_arg_regs (enum machine_mode mode, const_tree type)
    in a register, and which register.  */
 
 static rtx
-avr_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
+avr_function_arg (cumulative_args_t cum_v, enum machine_mode mode,
 		  const_tree type, bool named ATTRIBUTE_UNUSED)
 {
+  CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
   int bytes = avr_num_arg_regs (mode, type);
 
   if (cum->nregs && bytes <= cum->nregs)
@@ -1599,9 +1600,10 @@ avr_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
    in the argument list.  */
    
 static void
-avr_function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
+avr_function_arg_advance (cumulative_args_t cum_v, enum machine_mode mode,
 			  const_tree type, bool named ATTRIBUTE_UNUSED)
 {
+  CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
   int bytes = avr_num_arg_regs (mode, type);
 
   cum->nregs -= bytes;

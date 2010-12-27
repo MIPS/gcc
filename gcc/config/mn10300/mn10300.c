@@ -1514,7 +1514,7 @@ mn10300_va_start (tree valist, rtx nextarg)
 /* Return true when a parameter should be passed by reference.  */
 
 static bool
-mn10300_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
+mn10300_pass_by_reference (cumulative_args_t cum ATTRIBUTE_UNUSED,
 			   enum machine_mode mode, const_tree type,
 			   bool named ATTRIBUTE_UNUSED)
 {
@@ -1532,9 +1532,10 @@ mn10300_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
    from a function.  If the result is NULL_RTX, the argument is pushed.  */
 
 static rtx
-mn10300_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
+mn10300_function_arg (cumulative_args_t cum_v, enum machine_mode mode,
 		      const_tree type, bool named ATTRIBUTE_UNUSED)
 {
+  CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
   rtx result = NULL_RTX;
   int size;
 
@@ -1580,21 +1581,23 @@ mn10300_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
    (TYPE is null for libcalls where that information may not be available.)  */
 
 static void
-mn10300_function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
+mn10300_function_arg_advance (cumulative_args_t cum, enum machine_mode mode,
 			      const_tree type, bool named ATTRIBUTE_UNUSED)
 {
-  cum->nbytes += (mode != BLKmode
-		  ? (GET_MODE_SIZE (mode) + 3) & ~3
-		  : (int_size_in_bytes (type) + 3) & ~3);
+  (get_cumulative_args (cum))->nbytes
+    += (mode != BLKmode
+	? (GET_MODE_SIZE (mode) + 3) & ~3
+	: (int_size_in_bytes (type) + 3) & ~3);
 }
 
 /* Return the number of bytes of registers to use for an argument passed
    partially in registers and partially in memory.  */
 
 static int
-mn10300_arg_partial_bytes (CUMULATIVE_ARGS *cum, enum machine_mode mode,
+mn10300_arg_partial_bytes (cumulative_args_t cum_v, enum machine_mode mode,
 			   tree type, bool named ATTRIBUTE_UNUSED)
 {
+  CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
   int size;
 
   /* We only support using 2 data registers as argument registers.  */

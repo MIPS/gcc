@@ -159,7 +159,7 @@ static const struct default_options v850_option_optimization_table[] =
    Specify whether to pass the argument by reference.  */
 
 static bool
-v850_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
+v850_pass_by_reference (cumulative_args_t cum ATTRIBUTE_UNUSED,
 			enum machine_mode mode, const_tree type,
 			bool named ATTRIBUTE_UNUSED)
 {
@@ -176,7 +176,7 @@ v850_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
 /* Implementing the Varargs Macros.  */
 
 static bool
-v850_strict_argument_naming (CUMULATIVE_ARGS * ca ATTRIBUTE_UNUSED)
+v850_strict_argument_naming (cumulative_args_t ca ATTRIBUTE_UNUSED)
 {
   return !TARGET_GHS ? true : false;
 }
@@ -186,9 +186,10 @@ v850_strict_argument_naming (CUMULATIVE_ARGS * ca ATTRIBUTE_UNUSED)
    is NULL_RTX, the argument will be pushed.  */
 
 static rtx
-v850_function_arg (CUMULATIVE_ARGS * cum, enum machine_mode mode,
+v850_function_arg (cumulative_args_t cum_v, enum machine_mode mode,
 		   const_tree type, bool named)
 {
+  CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
   rtx result = NULL_RTX;
   int size, align;
 
@@ -247,9 +248,10 @@ v850_function_arg (CUMULATIVE_ARGS * cum, enum machine_mode mode,
 /* Return the number of bytes which must be put into registers
    for values which are part in registers and part in memory.  */
 static int
-v850_arg_partial_bytes (CUMULATIVE_ARGS * cum, enum machine_mode mode,
+v850_arg_partial_bytes (cumulative_args_t cum_v, enum machine_mode mode,
                         tree type, bool named)
 {
+  CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
   int size, align;
 
   if (TARGET_GHS && !named)
@@ -288,15 +290,16 @@ v850_arg_partial_bytes (CUMULATIVE_ARGS * cum, enum machine_mode mode,
    (TYPE is null for libcalls where that information may not be available.)  */
 
 static void
-v850_function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
+v850_function_arg_advance (cumulative_args_t cum, enum machine_mode mode,
 			   const_tree type, bool named ATTRIBUTE_UNUSED)
 {
-  cum->nbytes += (((type && int_size_in_bytes (type) > 8
-		    ? GET_MODE_SIZE (Pmode)
-		    : (mode != BLKmode
-		       ? GET_MODE_SIZE (mode)
-		       : int_size_in_bytes (type))) + UNITS_PER_WORD - 1)
-		  & -UNITS_PER_WORD);
+  (get_cumulative_args (cum))->nbytes
+    += (((type && int_size_in_bytes (type) > 8
+	  ? GET_MODE_SIZE (Pmode)
+	  : (mode != BLKmode
+	     ? GET_MODE_SIZE (mode)
+	     : int_size_in_bytes (type))) + UNITS_PER_WORD - 1)
+	& -UNITS_PER_WORD);
 }
 
 /* Return the high and low words of a CONST_DOUBLE */
@@ -3046,13 +3049,13 @@ v850_function_value (const_tree valtype,
 /* Worker function for TARGET_SETUP_INCOMING_VARARGS.  */
 
 static void
-v850_setup_incoming_varargs (CUMULATIVE_ARGS *ca,
+v850_setup_incoming_varargs (cumulative_args_t ca,
 			     enum machine_mode mode ATTRIBUTE_UNUSED,
 			     tree type ATTRIBUTE_UNUSED,
 			     int *pretend_arg_size ATTRIBUTE_UNUSED,
 			     int second_time ATTRIBUTE_UNUSED)
 {
-  ca->anonymous_args = (!TARGET_GHS ? 1 : 0);
+  (get_cumulative_args (ca))->anonymous_args = (!TARGET_GHS ? 1 : 0);
 }
 
 /* Worker function for TARGET_CAN_ELIMINATE.  */

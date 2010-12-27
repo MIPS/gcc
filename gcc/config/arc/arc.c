@@ -85,17 +85,17 @@ static void arc_output_function_epilogue (FILE *, HOST_WIDE_INT);
 static void arc_file_start (void);
 static void arc_internal_label (FILE *, const char *, unsigned long);
 static void arc_va_start (tree, rtx);
-static void arc_setup_incoming_varargs (CUMULATIVE_ARGS *, enum machine_mode,
+static void arc_setup_incoming_varargs (cumulative_args_t, enum machine_mode,
 					tree, int *, int);
 static bool arc_rtx_costs (rtx, int, int, int *, bool);
 static int arc_address_cost (rtx, bool);
 static void arc_external_libcall (rtx);
 static bool arc_return_in_memory (const_tree, const_tree);
-static bool arc_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
+static bool arc_pass_by_reference (cumulative_args_t, enum machine_mode,
 				   const_tree, bool);
-static rtx arc_function_arg (CUMULATIVE_ARGS *, enum machine_mode,
+static rtx arc_function_arg (cumulative_args_t, enum machine_mode,
 			     const_tree, bool);
-static void arc_function_arg_advance (CUMULATIVE_ARGS *, enum machine_mode,
+static void arc_function_arg_advance (cumulative_args_t, enum machine_mode,
 				      const_tree, bool);
 static unsigned int arc_function_arg_boundary (enum machine_mode, const_tree);
 static void arc_trampoline_init (rtx, tree, rtx);
@@ -798,12 +798,13 @@ arc_double_limm_p (rtx value)
    to compensate.  */
 
 static void
-arc_setup_incoming_varargs (CUMULATIVE_ARGS *cum,
+arc_setup_incoming_varargs (cumulative_args_t cum_v,
                             enum machine_mode mode,
                             tree type ATTRIBUTE_UNUSED,
                             int *pretend_size,
                             int no_rtl)
 {
+  CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
   int first_anon_arg;
 
   /* All BLKmode values are passed by reference.  */
@@ -2350,7 +2351,7 @@ arc_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
    passed by reference.  */
 
 static bool
-arc_pass_by_reference (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,
+arc_pass_by_reference (cumulative_args_t ca ATTRIBUTE_UNUSED,
 		       enum machine_mode mode, const_tree type,
 		       bool named ATTRIBUTE_UNUSED)
 {
@@ -2411,9 +2412,11 @@ arc_pass_by_reference (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,
    and the rest are pushed.  */
 
 static rtx
-arc_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
+arc_function_arg (cumulative_args_t cum_v, enum machine_mode mode,
 		  const_tree type, bool named ATTRIBUTE_UNUSED)
 {
+  CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
+
   return (PASS_IN_REG_P (*cum, mode, type)
 	  ? gen_rtx_REG (mode, ROUND_ADVANCE_CUM (*cum, mode, type))
 	  : NULL_RTX);
@@ -2422,9 +2425,10 @@ arc_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 /* Worker function for TARGET_FUNCTION_ARG_ADVANCE.  */
 
 static void
-arc_function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
+arc_function_arg_advance (cumulative_args_t cum_v, enum machine_mode mode,
 			  const_tree type, bool named ATTRIBUTE_UNUSED)
 {
+  CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
   *cum = (ROUND_ADVANCE_CUM (*cum, mode, type)
 	  + ROUND_ADVANCE_ARG (mode, type));
 }
