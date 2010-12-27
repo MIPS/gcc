@@ -972,4 +972,6 @@ extern void darwin_driver_init (unsigned int *decoded_options_count,
 #undef SUPPORTS_INIT_PRIORITY
 #define SUPPORTS_INIT_PRIORITY 0
 
+extern int darwin_bool_type_size (void);
+
 #endif /* CONFIG_DARWIN_H */

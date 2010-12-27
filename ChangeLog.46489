@@ -1,3 +1,9 @@
+2010-12-27  Joern Rennecke  <amylaar@spamcop.net>
+
+	PR other/46677
+	* config/rs6000/darwin.h (darwin_bool_type_size): Move from here...
+	* config/darwin.h: ... to here.
+
 2010-12-26  Joern Rennecke  <amylaar@spamcop.net>
 
 contrib:
