@@ -27,8 +27,8 @@ gcc:
 	* Makefile.in (tree-data-ref.o): Depend on $(TARGET_H) .
 	* config/rs6000/darwin.h (BOOL_TYPE_SIZE): Delete.
 	(TARGET_BOOL_TYPE_SIZE): Define.
-	* config/darwin.c (darwin_bool_type_size): New function.
 	* config/darwin.h: (darwin_bool_type_size): Declare.
+	* config/darwin.c (darwin_bool_type_size): New function.
 gcc/c-family.c:
 	* c-common.c (c_common_to_target_charset):
 	Use TYPE_PRECISION (char_type_node).
