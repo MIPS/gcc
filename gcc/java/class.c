@@ -1787,7 +1787,7 @@ make_class_data (tree type)
   tree id_class = get_identifier("java.lang.Class");
   /** Offset from start of virtual function table declaration
       to where objects actually point at, following new g++ ABI. */
-  tree dtable_start_offset = size_int (2 * POINTER_SIZE / BITS_PER_UNIT);
+  tree dtable_start_offset = size_int (2 * JAVA_POINTER_SIZE / BITS_PER_UNIT);
   VEC(int, heap) *field_indexes;
   tree first_real_field;
   VEC(constructor_elt,gc) *v1 = NULL, *v2 = NULL;
@@ -2228,7 +2228,7 @@ make_class_data (tree type)
   DECL_INITIAL (decl) = cons;
   
   /* Hash synchronization requires at least 64-bit alignment. */
-  if (flag_hash_synchronization && POINTER_SIZE < 64)
+  if (flag_hash_synchronization && JAVA_POINTER_SIZE < 64)
     DECL_ALIGN (decl) = 64; 
   
   if (flag_indirect_classes)
@@ -2825,12 +2825,13 @@ emit_register_classes (tree *list_p)
 	 but doesn't have a JCR_SECTION_NAME.  */
       gcc_unreachable ();
 #endif
-      assemble_align (POINTER_SIZE);
+      assemble_align (JAVA_POINTER_SIZE);
 
       FOR_EACH_VEC_ELT (tree, registered_class, i, klass)
 	{
 	  t = build_fold_addr_expr (klass);
-	  output_constant (t, POINTER_SIZE / BITS_PER_UNIT, POINTER_SIZE);
+	  output_constant (t, JAVA_POINTER_SIZE / BITS_PER_UNIT,
+			   JAVA_POINTER_SIZE);
 	}
     }
   else

@@ -1556,4 +1556,23 @@ const struct default_options empty_optimization_table[] =
     { OPT_LEVELS_NONE, 0, NULL, 0 }
   };
 
+/* Return the size of a pointer.  This function might be used when
+   ptr_type_node is not / is not known to be set up, like in the
+   preprocessor.  */
+unsigned
+pointer_size (void)
+{
+  enum machine_mode
+    mode = targetm.addr_space.pointer_mode (ADDR_SPACE_GENERIC);
+
+  /* If the hook definition uses ptr_mode, and we are called before
+     init_emit_once, e.g. from the preprocessor, we might see VOIDmode.  */
+  if (mode == VOIDmode)
+    {
+      gcc_assert (mode == ptr_mode);
+      return POINTER_SIZE;
+    }
+  return GET_MODE_BITSIZE (mode);
+}
+
 #include "gt-targhooks.h"

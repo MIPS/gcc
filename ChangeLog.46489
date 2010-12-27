@@ -1,5 +1,46 @@
 2010-12-27  Joern Rennecke  <amylaar@spamcop.net>
 
+	PR other/46677
+	http://gcc.gnu.org/ml/gcc-patches/2010-11/msg02772.html
+gcc:
+	* targhooks.c (pointer_size): New function.
+	* cppbuiltin.c (define_builtin_macros_for_lp64): Use pointer_size.
+	(define_builtin_macros_for_type_sizes): Likewise.
+	* target.h (pointer_size): Declare.
+
+	* cppbuiltin.c (define_builtin_macros_for_type_sizes):
+	Use TYPE_PRECISION (char_type_node).
+gcc/c-family:
+	c-common.c (c_common_nodes_and_builtins): Use pointer_size.
+gcc/java:
+	* decl.c (java_init_decl_processing): Use pointer_size.
+	* java-tree.h (JAVA_POINTER_SIZE): Define.
+	* class.c (make_class_data): Use JAVA_POINTER_SIZE.
+	(emit_register_classes): Likewise.
+	* jcf-parse.c (handle_long_constant): Likewise.
+	* constants.c (build_constants_constructor): Likewise.
+	* builtins.c (UNMARSHAL3, UNMARSHAL4, UNMARSHAL5): Likewise.
+	(compareAndSwapObject_builtin): Likewise.
+	* boehm.c (get_boehm_type_descriptor): Likewise.
+	(mark_reference_fields): Add log2_size parameter.  Changed all callers.
+gcc/cp:
+	* cvt.c (cp_convert_to_pointer): Use TYPE_PRECISION (ptr_type_node).
+gcc/fortran:
+	* trans-types.c (gfc_init_kinds): Use pointer_size.
+gcc/lto:
+	* lto-object.c (lto_obj_begin_section): Use pointer_size.
+ada:
+	* gcc-interface/decl.c (gnat_to_gnu_entity): Replace pointer_size
+	with pointer_size_t.  Replace POINTER_SIZE with pointer_size ().
+	(rest_of_type_decl_compilation_no_defer): Use pointer_size.
+	(gnat_to_gnu_param, annotate_rep, make_type_from_size): Likewise.
+	* gcc-interface/utils2.c: Include target.h .
+	(maybe_wrap_malloc, maybe_wrap_free): Use pointer_size.
+	* gcc-interface/targtyps.c: Include target.h .
+	(get_target_pointer_size): Use pointer_size.
+
+2010-12-27  Joern Rennecke  <amylaar@spamcop.net>
+
 	From Ralf Wildenhues:
 	http://gcc.gnu.org/ml/gcc-patches/2010-12/msg01515.html
 gcc:

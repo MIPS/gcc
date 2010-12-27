@@ -203,4 +203,8 @@ pack_cumulative_args (CUMULATIVE_ARGS *arg)
 }
 #endif /* GCC_TM_H */
 
+/* Functions defined in targhooks.c that use target hooks and/or target
+   macros that make these values available to frontends / tree optimizers.  */
+extern unsigned pointer_size (void);
+
 #endif /* GCC_TARGET_H */

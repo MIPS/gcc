@@ -35,7 +35,8 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "diagnostic-core.h"
 
 static void mark_reference_fields (tree, double_int *, unsigned int,
-				   int *, int *, int *, HOST_WIDE_INT *);
+				   int *, int *, int *, HOST_WIDE_INT *,
+				   unsigned int);
 
 /* A procedure-based object descriptor.  We know that our
    `kind' is 0, and `env' is likewise 0, so we have a simple
@@ -53,7 +54,8 @@ mark_reference_fields (tree field,
 		       int *pointer_after_end,
 		       int *all_bits_set,
 		       int *last_set_index,
-		       HOST_WIDE_INT *last_view_index)
+		       HOST_WIDE_INT *last_view_index,
+		       unsigned int log2_size)
 {
   /* See if we have fields from our superclass.  */
   if (DECL_NAME (field) == NULL_TREE)
@@ -61,7 +63,7 @@ mark_reference_fields (tree field,
       mark_reference_fields (TYPE_FIELDS (TREE_TYPE (field)),
 			     mask, ubit,
 			     pointer_after_end, all_bits_set,
-			     last_set_index, last_view_index);
+			     last_set_index, last_view_index, log2_size);
       field = DECL_CHAIN (field);
     }
 
@@ -89,15 +91,15 @@ mark_reference_fields (tree field,
 	     we already covered, then we are doomed.  */
 	  gcc_assert (offset > *last_view_index);
 
-	  if (offset % (HOST_WIDE_INT) (POINTER_SIZE / BITS_PER_UNIT))
+	  if (offset & ((1 << log2_size) - 1))
 	    {
 	      *all_bits_set = -1;
 	      *pointer_after_end = 1;
 	      break;
 	    }
 
-	  count = offset * BITS_PER_UNIT / POINTER_SIZE;
-	  size_words = size_bytes * BITS_PER_UNIT / POINTER_SIZE;
+	  count = offset >> log2_size;
+	  size_words = size_bytes >> log2_size;
 
 	  *last_set_index = count;
 	     
@@ -151,7 +153,7 @@ get_boehm_type_descriptor (tree type)
   if (int_size_in_bytes (type) == -1)
     goto procedure_object_descriptor;
 
-  bit = POINTER_SIZE / BITS_PER_UNIT;
+  bit = JAVA_POINTER_SIZE / BITS_PER_UNIT;
   /* The size of this node has to be known.  And, we only support 32
      and 64 bit targets, so we need to know that the log2 is one of
      our values.  */
@@ -174,7 +176,7 @@ get_boehm_type_descriptor (tree type)
   field = TYPE_FIELDS (type);
   mark_reference_fields (field, &mask, ubit,
 			 &pointer_after_end, &all_bits_set,
-			 &last_set_index, &last_view_index);
+			 &last_set_index, &last_view_index, log2_size);
 
   /* If the object is all pointers, or if the part with pointers fits
      in our bitmap, then we are ok.  Otherwise we have to allocate it

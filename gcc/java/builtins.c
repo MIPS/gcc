@@ -243,7 +243,7 @@ do									\
   tree orig_method_call = METHOD_CALL;					\
   this_arg = CALL_EXPR_ARG (orig_method_call, 0);			\
   obj_arg = CALL_EXPR_ARG (orig_method_call, 1);			\
-  offset_arg = fold_convert (java_type_for_size (POINTER_SIZE, 0),	\
+  offset_arg = fold_convert (java_type_for_size (JAVA_POINTER_SIZE, 0),	\
 			     CALL_EXPR_ARG (orig_method_call, 2));	\
 }									\
 while (0)
@@ -255,7 +255,7 @@ do									\
   tree orig_method_call = METHOD_CALL;					\
   this_arg = CALL_EXPR_ARG (orig_method_call, 0);			\
   obj_arg = CALL_EXPR_ARG (orig_method_call, 1);			\
-  offset_arg = fold_convert (java_type_for_size (POINTER_SIZE, 0),	\
+  offset_arg = fold_convert (java_type_for_size (JAVA_POINTER_SIZE, 0),	\
 			     CALL_EXPR_ARG (orig_method_call, 2));	\
   value_arg = CALL_EXPR_ARG (orig_method_call, 3);			\
   value_type = TREE_TYPE (value_arg);					\
@@ -269,7 +269,7 @@ do									\
   tree orig_method_call = METHOD_CALL;					\
   this_arg = CALL_EXPR_ARG (orig_method_call, 0);			\
   obj_arg = CALL_EXPR_ARG (orig_method_call, 1);			\
-  offset_arg = fold_convert (java_type_for_size (POINTER_SIZE, 0),	\
+  offset_arg = fold_convert (java_type_for_size (JAVA_POINTER_SIZE, 0),	\
 			     CALL_EXPR_ARG (orig_method_call, 2));	\
   expected_arg = CALL_EXPR_ARG (orig_method_call, 3);			\
   value_arg = CALL_EXPR_ARG (orig_method_call, 4);			\
@@ -377,7 +377,7 @@ compareAndSwapObject_builtin (tree method_return_type ATTRIBUTE_UNUSED,
     int builtin;
 
     UNMARSHAL5 (orig_call);
-    builtin = (POINTER_SIZE == 32 
+    builtin = (JAVA_POINTER_SIZE == 32 
 	       ? BUILT_IN_BOOL_COMPARE_AND_SWAP_4 
 	       : BUILT_IN_BOOL_COMPARE_AND_SWAP_8);
 

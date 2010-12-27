@@ -4945,7 +4945,7 @@ c_common_nodes_and_builtins (void)
   /* Create the built-in __null node.  It is important that this is
      not shared.  */
   null_node = make_node (INTEGER_CST);
-  TREE_TYPE (null_node) = c_common_type_for_size (POINTER_SIZE, 0);
+  TREE_TYPE (null_node) = c_common_type_for_size (pointer_size (), 0);
 
   /* Since builtin_types isn't gc'ed, don't export these nodes.  */
   memset (builtin_types, 0, sizeof (builtin_types));

@@ -317,7 +317,7 @@ lto_obj_begin_section (const char *name)
 	      && lo->sobj_w != NULL
 	      && lo->section == NULL);
 
-  align = exact_log2 (POINTER_SIZE / BITS_PER_UNIT);
+  align = exact_log2 (pointer_size () / BITS_PER_UNIT);
   lo->section = simple_object_write_create_section (lo->sobj_w, name, align,
 						    &errmsg, &err);
   if (lo->section == NULL)

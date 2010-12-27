@@ -1516,4 +1516,12 @@ extern int java_gimplify_expr (tree *, gimple_seq *, gimple_seq *);
 
 extern FILE *finput;
 
+/* Frontends shouldn't use POINTER_SIZE, since that is a target macro.
+   We can't use TYPE_PRECISION (ptr_type_node), since that node isn't
+   available for java.
+   Luckily, sizetype is set with the precision of pointer_size (),
+   so we don't have to call pointer_size all the time once sizetype
+   has been set up.  */
+#define JAVA_POINTER_SIZE (TYPE_PRECISION (sizetype))
+
 #endif /* ! GCC_JAVA_TREE_H */

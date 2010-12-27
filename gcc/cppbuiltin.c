@@ -105,7 +105,7 @@ static void
 define_builtin_macros_for_lp64 (cpp_reader *pfile)
 {
   if (TYPE_PRECISION (long_integer_type_node) == 64
-      && POINTER_SIZE == 64
+      && pointer_size () == 64
       && TYPE_PRECISION (integer_type_node) == 32)
     {
       cpp_define (pfile, "_LP64");
@@ -163,9 +163,13 @@ define_builtin_macros_for_type_sizes (cpp_reader *pfile)
                          : "__ORDER_LITTLE_ENDIAN__"));
 
   /* ptr_type_node can't be used here since ptr_mode is only set when
-     toplev calls backend_init which is not done with -E switch.  */
+     toplev calls backend_init which is not done with -E switch.
+     In principle we could use
+     targetm.addr_space.pointer_mode (ADDR_SPACE_GENERIC), but we don't really
+     want the prepocessor to have to know about machine modes, and most
+     definitions of the hook also use ptr_mode.  */
   cpp_define_formatted (pfile, "__SIZEOF_POINTER__=%d",
-			POINTER_SIZE / BITS_PER_UNIT);
+			pointer_size () / TYPE_PRECISION (char_type_node));
 }
 
 
