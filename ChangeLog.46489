@@ -1,12 +1,14 @@
 2010-12-29  Joern Rennecke  <amylaar@spamcop.net>
 
 contrib:
-	* (LIST): Replace ix86-netwareOPT-with-ld=nwld with
+	* config-list.mk (LIST): Replace ix86-netwareOPT-with-ld=nwld with
 	i586-netwareOPT-with-ld=SCRIPTSnwld.
 	Replace m68k-netbsdef [sic] with m68k-netbsdelf.
 	(make-script-dir): New target.
 	$(LIST): Depend on it.  For configure invocation, Substitute SCRIPTS
 	with pathname of scripts directory (w/ trailing /).
+
+	* config-list.mk (LIST): Replace ppc64-elf with ppc64-freebsd6.
 
 2010-12-27  Joern Rennecke  <amylaar@spamcop.net>
 
