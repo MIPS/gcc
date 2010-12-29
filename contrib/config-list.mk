@@ -50,7 +50,7 @@ LIST = alpha-linux-gnu alpha-gnu alpha-freebsd6 alpha-netbsd alpha-openbsd \
   powerpcle-eabisim powerpcle-eabi rs6000-ibm-aix4.3 rs6000-ibm-aix5.1.0 \
   rs6000-ibm-aix5.2.0 rs6000-ibm-aix5.3.0 rs6000-ibm-aix6.0 ppc64-freebsd6 \
   rx-elf s390-linux-gnu s390x-linux-gnu s390x-ibm-tpf score-elf sh-elf \
-  shle-linux sh-netbsd sh-superh-elf sh5el-netbsd sh64-netbsd sh64-linux \
+  shle-linux sh-netbsdelf sh-superh-elf sh5el-netbsd sh64-netbsd sh64-linux \
   sh64-elfOPT-with-newlib sh-symbianelf sh-rtems sh-wrs-vxworks sparc-elf \
   sparc-leon-elf sparc-rtems sparc-linux-gnu \
   sparc-leon3-linux-gnuOPT-enable-target=all sparc-netbsdelf \

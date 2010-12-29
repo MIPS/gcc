@@ -10,6 +10,8 @@ contrib:
 
 	* config-list.mk (LIST): Replace ppc64-elf with ppc64-freebsd6.
 
+	* config-list.mk (LIST): Replace sh-netbsd with sh-netbsdelf.
+
 2010-12-27  Joern Rennecke  <amylaar@spamcop.net>
 
 contrib:
