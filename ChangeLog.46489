@@ -16,6 +16,10 @@ contrib:
 	sparc-sun-solaris2 --enable-threads=solaris with
 	sparc-sun-solaris2.8 --enable-threads=solaris .
 
+	* config-list.mk (LIST): Replace
+	x86_64-mingw64-gnu --enable-sjlj-exceptions=yes with
+	x86_64-mingw32 --enable-sjlj-exceptions=yes .
+
 2010-12-27  Joern Rennecke  <amylaar@spamcop.net>
 
 contrib:

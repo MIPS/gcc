@@ -62,7 +62,7 @@ LIST = alpha-linux-gnu alpha-gnu alpha-freebsd6 alpha-netbsd alpha-openbsd \
   x86_64-pc-linux-gnuOPT-with-fpmath=avx \
   x86_64-elfOPT-with-fpmath=sse x86_64-freebsd6 x86_64-netbsd \
   x86_64-knetbsd-gnu x86_64-w64-mingw32 \
-  x86_64-mingw64-gnuOPT-enable-sjlj-exceptions=yes xstormy16-elf xtensa-elf \
+  x86_64-mingw32OPT-enable-sjlj-exceptions=yes xstormy16-elf xtensa-elf \
   xtensa-linux
 
 all: $(LIST)
