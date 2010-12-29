@@ -24,13 +24,13 @@ LIST = alpha-linux-gnu alpha-gnu alpha-freebsd6 alpha-netbsd alpha-openbsd \
   i386-freebsd6.0_aout i486-freebsd4 i686-freebsd6 i686-kfreebsd-gnu \
   i386-netbsd i686-netbsdelf9 i686-knetbsd-gnu i686-openbsd i686-openbsd3.0 \
   i686-elf i686-kopensolaris-gnu i686-symbolics-gnu i686-pc-msdosdjgpp \
-  i686-lynxos ix86-netwareOPT-with-ld=nwld i686-nto-qnx i686-rtems \
-  i686-solaris2.10OPT-enable-threads=solaris i686-wrs-vxworks \
+  i686-lynxos i586-netwareOPT-with-ld=SCRIPTSnwld i686-nto-qnx \
+  i686-rtems i686-solaris2.10OPT-enable-threads=solaris i686-wrs-vxworks \
   i686-wrs-vxworksae i686-peOPT-enable-sjlj-exceptions=yes \
   i686-cygwinOPT-enable-threads=yes i686-mingw32crt i686-interix3 ia64-elf \
   ia64-freebsd6 ia64-linux ia64-hpux ia64-hp-vms iq2000-elf lm32-elf \
   lm32-rtems lm32-uclinux m32c-rtems m32c-elf m32r-elf m32rle-elf m32r-rtems \
-  m32r-linux m32rle-linux m68hc11-elf m68hc12-elf m68k-elf m68k-netbsdef \
+  m32r-linux m32rle-linux m68hc11-elf m68hc12-elf m68k-elf m68k-netbsdelf \
   m68k-openbsd m68k-uclinuxoldabi m68k-uclinux m68k-linux m68k-rtems \
   mcore-elf mcore-pe mep-elf microblaze-linux microblaze-elf \
   mips-sgi-irix6.5OPT-with-stabsOPT-enable-threads=posix mips-netbsd \
@@ -67,7 +67,7 @@ LIST = alpha-linux-gnu alpha-gnu alpha-freebsd6 alpha-netbsd alpha-openbsd \
 
 all: $(LIST)
 
-.PHONEY: make-log-dir
+.PHONEY: make-log-dir make-script-dir
 
 empty=
 
@@ -76,10 +76,18 @@ empty=
 make-log-dir: ../gcc/MAINTAINERS
 	mkdir log
 
-$(LIST): make-log-dir
+# The 'ix86-netware --with-ld=nwld' configuration needs a nwld executable to
+# configure.  See PR47104.
+make-script-dir:
+	mkdir scripts
+	echo ld $* > scripts/nwld
+	chmod u+x scripts/nwld
+
+$(LIST): make-log-dir make-script-dir
 	-mkdir $@
 	(cd $@ && \
-	../../gcc/configure --target=$(subst OPT,$(empty) -,$@) \
+	../../gcc/configure \
+	--target=$(subst SCRIPTS,`pwd`/../scripts/,$(subst OPT,$(empty) -,$@)) \
 	--enable-werror-always ${host_options} --enable-languages=all,ada,go) \
 	> log/$@-config.out 2>&1
 	-$(MAKE) -C $@ all-gcc > log/$@-make.out 2>&1 && rm -r $@
