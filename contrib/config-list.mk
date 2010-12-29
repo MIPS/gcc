@@ -54,7 +54,7 @@ LIST = alpha-linux-gnu alpha-gnu alpha-freebsd6 alpha-netbsd alpha-openbsd \
   sh64-elfOPT-with-newlib sh-symbianelf sh-rtems sh-wrs-vxworks sparc-elf \
   sparc-leon-elf sparc-rtems sparc-linux-gnu \
   sparc-leon3-linux-gnuOPT-enable-target=all sparc-netbsdelf \
-  sparc-sun-solaris2OPT-enable-threads=solaris \
+  sparc-sun-solaris2.8OPT-enable-threads=solaris \
   sparc64-sun-solaris2.10OPT-with-gnu-ldOPT-with-gnu-asOPT-enable-threads=posix \
   sparc-wrs-vxworks sparc64-elf sparc64-rtems sparc64-linux sparc64-freebsd6 \
   sparc64-netbsd sparc64-openbsd spu-elf v850e-elf v850-elf vax-linux-gnu \

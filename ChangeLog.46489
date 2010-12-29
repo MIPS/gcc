@@ -12,6 +12,10 @@ contrib:
 
 	* config-list.mk (LIST): Replace sh-netbsd with sh-netbsdelf.
 
+	* config-list.mk (LIST): Replace
+	sparc-sun-solaris2 --enable-threads=solaris with
+	sparc-sun-solaris2.8 --enable-threads=solaris .
+
 2010-12-27  Joern Rennecke  <amylaar@spamcop.net>
 
 contrib:
