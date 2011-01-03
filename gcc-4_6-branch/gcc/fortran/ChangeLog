@@ -1,0 +1,16 @@
+2011-01-03  Janus Weil  <janus@gcc.gnu.org>
+
+	* intrinsic.texi (LEADZ): Fix example.
+
+2011-01-02  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/46408
+	* class.c (gfc_find_derived_vtab): Use EXEC_INIT_ASSIGN for __copy_
+	routine.
+
+
+Copyright (C) 2011 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.
