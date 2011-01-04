@@ -509,7 +509,6 @@ enum reg_class
 
 #define PRINT_OPERAND_ADDRESS(STREAM, X) xstormy16_print_operand_address (STREAM, X)
 
-/* USER_LABEL_PREFIX is defined in svr4.h.  */
 #define REGISTER_PREFIX ""
 #define LOCAL_LABEL_PREFIX "."
 #define USER_LABEL_PREFIX ""
@@ -551,7 +550,6 @@ enum reg_class
 
 /* Macros Affecting all Debug Formats.  */
 
-/* Defined in svr4.h.  */
 #undef  PREFERRED_DEBUGGING_TYPE
 #define PREFERRED_DEBUGGING_TYPE DWARF2_DEBUG
 
