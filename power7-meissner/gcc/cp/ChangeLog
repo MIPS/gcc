@@ -1,0 +1,51 @@
+2011-01-11  Dodji Seketeli  <dodji@redhat.com>
+
+	PR debug/46955
+	* cp-lang.c (get_template_innermost_arguments_folded)
+	(get_template_argument_pack_elems_folded)
+	(template_arg_needs_folding, fold_cplus_constants): New static
+	functions.
+	(LANG_HOOKS_GET_INNERMOST_GENERIC_ARGS): Set this hook to
+	get_template_innermost_arguments_folded.
+	(LANG_HOOKS_GET_ARGUMENT_PACK_ELEMS): Set this hook to
+	get_template_argument_pack_elems_folded.
+
+2011-01-11  Jason Merrill  <jason@redhat.com>
+
+	PR c++/46658
+	* init.c (build_new_1): Handle value-init in templates differently.
+
+	PR c++/45520
+	* tree.c (maybe_dummy_object): Check current_class_ref against
+	context, not current_class_type.
+
+2011-01-08  Nicola Pero  <nicola.pero@meta-innovation.com>
+
+	PR objc/47078
+	* parser.c (cp_parser_objc_typename): If the type is unknown, for
+	error recovery purposes behave as if it was not specified so that
+	the default type is used.
+
+2011-01-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/47022
+	* pt.c (tsubst_copy_and_build): Use tsubst instead of tsubst_copy
+	for the second build_x_va_arg argument.
+
+2011-01-05  Tom Tromey  <tromey@redhat.com>
+
+	* typeck.c (cp_build_addr_expr_1): Update call to lvalue_error.
+	(lvalue_or_else): Likewise.
+
+2011-01-01  Kai Tietz  <kai.tietz@onevision.com>
+
+	PR target/38662
+	* tree.c (cxx_type_hash_eq):
+	Allow METHOD_TYPE, too.
+
+
+Copyright (C) 2011 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.
