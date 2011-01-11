@@ -1,9 +1,0 @@
-2010-10-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
-
-	PR target/46041
-	* tree.h (mode_has_fma): Delete, move to c-cppbuiltins.c.
-	* builtins.c (mode_has_fma): Ditto.
-
-	Create branch from subversion id 165648.
-	* REVISION: New file.
-
