@@ -11263,16 +11263,22 @@ altivec_expand_ld_builtin (tree exp, rtx target, bool *expandedp)
   switch (fcode)
     {
     case ALTIVEC_BUILTIN_LD_INTERNAL_16qi:
-      icode = CODE_FOR_vector_load_v16qi;
+      icode = CODE_FOR_vector_altivec_load_v16qi;
       break;
     case ALTIVEC_BUILTIN_LD_INTERNAL_8hi:
-      icode = CODE_FOR_vector_load_v8hi;
+      icode = CODE_FOR_vector_altivec_load_v8hi;
       break;
     case ALTIVEC_BUILTIN_LD_INTERNAL_4si:
-      icode = CODE_FOR_vector_load_v4si;
+      icode = CODE_FOR_vector_altivec_load_v4si;
       break;
     case ALTIVEC_BUILTIN_LD_INTERNAL_4sf:
-      icode = CODE_FOR_vector_load_v4sf;
+      icode = CODE_FOR_vector_altivec_load_v4sf;
+      break;
+    case ALTIVEC_BUILTIN_LD_INTERNAL_2df:
+      icode = CODE_FOR_vector_altivec_load_v2df;
+      break;
+    case ALTIVEC_BUILTIN_LD_INTERNAL_2di:
+      icode = CODE_FOR_vector_altivec_load_v2di;
       break;
     default:
       *expandedp = false;
@@ -11316,16 +11322,22 @@ altivec_expand_st_builtin (tree exp, rtx target ATTRIBUTE_UNUSED,
   switch (fcode)
     {
     case ALTIVEC_BUILTIN_ST_INTERNAL_16qi:
-      icode = CODE_FOR_vector_store_v16qi;
+      icode = CODE_FOR_vector_altivec_store_v16qi;
       break;
     case ALTIVEC_BUILTIN_ST_INTERNAL_8hi:
-      icode = CODE_FOR_vector_store_v8hi;
+      icode = CODE_FOR_vector_altivec_store_v8hi;
       break;
     case ALTIVEC_BUILTIN_ST_INTERNAL_4si:
-      icode = CODE_FOR_vector_store_v4si;
+      icode = CODE_FOR_vector_altivec_store_v4si;
       break;
     case ALTIVEC_BUILTIN_ST_INTERNAL_4sf:
-      icode = CODE_FOR_vector_store_v4sf;
+      icode = CODE_FOR_vector_altivec_store_v4sf;
+      break;
+    case ALTIVEC_BUILTIN_ST_INTERNAL_2df:
+      icode = CODE_FOR_vector_altivec_store_v2df;
+      break;
+    case ALTIVEC_BUILTIN_ST_INTERNAL_2di:
+      icode = CODE_FOR_vector_altivec_store_v2di;
       break;
     default:
       *expandedp = false;
@@ -11557,7 +11569,7 @@ altivec_expand_builtin (tree exp, rtx target, bool *expandedp)
   switch (fcode)
     {
     case ALTIVEC_BUILTIN_STVX:
-      return altivec_expand_stv_builtin (CODE_FOR_altivec_stvx, exp);
+      return altivec_expand_stv_builtin (CODE_FOR_altivec_stvx_v4si, exp);
     case ALTIVEC_BUILTIN_STVEBX:
       return altivec_expand_stv_builtin (CODE_FOR_altivec_stvebx, exp);
     case ALTIVEC_BUILTIN_STVEHX:
@@ -11700,7 +11712,7 @@ altivec_expand_builtin (tree exp, rtx target, bool *expandedp)
       return altivec_expand_lv_builtin (CODE_FOR_altivec_lvxl,
 					exp, target, false);
     case ALTIVEC_BUILTIN_LVX:
-      return altivec_expand_lv_builtin (CODE_FOR_altivec_lvx,
+      return altivec_expand_lv_builtin (CODE_FOR_altivec_lvx_v4si,
 					exp, target, false);
     case ALTIVEC_BUILTIN_LVLX:
       return altivec_expand_lv_builtin (CODE_FOR_altivec_lvlx,
@@ -12872,19 +12884,37 @@ altivec_init_builtins (void)
   size_t i;
   tree ftype;
 
+  tree pdouble_type_node = build_pointer_type (double_type_node);
   tree pfloat_type_node = build_pointer_type (float_type_node);
+  tree plong_long_type_node = build_pointer_type (long_long_integer_type_node);
   tree pint_type_node = build_pointer_type (integer_type_node);
   tree pshort_type_node = build_pointer_type (short_integer_type_node);
   tree pchar_type_node = build_pointer_type (char_type_node);
 
   tree pvoid_type_node = build_pointer_type (void_type_node);
 
-  tree pcfloat_type_node = build_pointer_type (build_qualified_type (float_type_node, TYPE_QUAL_CONST));
-  tree pcint_type_node = build_pointer_type (build_qualified_type (integer_type_node, TYPE_QUAL_CONST));
-  tree pcshort_type_node = build_pointer_type (build_qualified_type (short_integer_type_node, TYPE_QUAL_CONST));
-  tree pcchar_type_node = build_pointer_type (build_qualified_type (char_type_node, TYPE_QUAL_CONST));
+  tree pcdouble_type_node
+    = build_pointer_type (build_qualified_type (double_type_node,
+						TYPE_QUAL_CONST));
+  tree pcfloat_type_node
+    = build_pointer_type (build_qualified_type (float_type_node,
+						TYPE_QUAL_CONST));
+  tree pclong_long_type_node
+    = build_pointer_type (build_qualified_type (long_long_integer_type_node,
+						TYPE_QUAL_CONST));
+  tree pcint_type_node
+    = build_pointer_type (build_qualified_type (integer_type_node,
+						TYPE_QUAL_CONST));
+  tree pcshort_type_node
+    = build_pointer_type (build_qualified_type (short_integer_type_node,
+						TYPE_QUAL_CONST));
+  tree pcchar_type_node
+    = build_pointer_type (build_qualified_type (char_type_node,
+						TYPE_QUAL_CONST));
 
-  tree pcvoid_type_node = build_pointer_type (build_qualified_type (void_type_node, TYPE_QUAL_CONST));
+  tree pcvoid_type_node
+    = build_pointer_type (build_qualified_type (void_type_node,
+						TYPE_QUAL_CONST));
 
   tree int_ftype_opaque
     = build_function_type_list (integer_type_node,
@@ -12907,6 +12937,18 @@ altivec_init_builtins (void)
     = build_function_type_list (integer_type_node,
 				integer_type_node, V4SI_type_node,
 				V4SI_type_node, NULL_TREE);
+  tree v2df_ftype_pcdouble
+    = build_function_type_list (V2DF_type_node, pcdouble_type_node, NULL_TREE);
+  tree void_ftype_pdouble_v2df
+    = build_function_type_list (void_type_node,
+				pdouble_type_node, V2DF_type_node, NULL_TREE);
+  tree v2di_ftype_pclong_long
+    = build_function_type_list (V2DI_type_node, pclong_long_type_node,
+				NULL_TREE);
+  tree void_ftype_plong_long_v2di
+    = build_function_type_list (void_type_node,
+				plong_long_type_node, V2DI_type_node,
+				NULL_TREE);
   tree v4sf_ftype_pcfloat
     = build_function_type_list (V4SF_type_node, pcfloat_type_node, NULL_TREE);
   tree void_ftype_pfloat_v4sf
@@ -12996,6 +13038,14 @@ altivec_init_builtins (void)
 				pcvoid_type_node, integer_type_node,
 				integer_type_node, NULL_TREE);
 
+  def_builtin (MASK_VSX, "__builtin_altivec_ld_internal_2di", v2di_ftype_pclong_long,
+	       ALTIVEC_BUILTIN_LD_INTERNAL_2di);
+  def_builtin (MASK_VSX, "__builtin_altivec_st_internal_2di", void_ftype_plong_long_v2di,
+	       ALTIVEC_BUILTIN_ST_INTERNAL_2di);
+  def_builtin (MASK_VSX, "__builtin_altivec_ld_internal_2df", v2df_ftype_pcdouble,
+	       ALTIVEC_BUILTIN_LD_INTERNAL_2df);
+  def_builtin (MASK_VSX, "__builtin_altivec_st_internal_2df", void_ftype_pdouble_v2df,
+	       ALTIVEC_BUILTIN_ST_INTERNAL_2df);
   def_builtin (MASK_ALTIVEC, "__builtin_altivec_ld_internal_4sf", v4sf_ftype_pcfloat,
 	       ALTIVEC_BUILTIN_LD_INTERNAL_4sf);
   def_builtin (MASK_ALTIVEC, "__builtin_altivec_st_internal_4sf", void_ftype_pfloat_v4sf,
@@ -27913,5 +27963,30 @@ rs6000_address_for_fpconvert (rtx x)
 
   return x;
 }
+
+/* Given a memory reference, if it is not in the form for altivec memory
+   reference instructions (i.e. reg or reg+reg addressing with AND of -16),
+   convert to the altivec format.  */
+
+rtx
+rs6000_address_for_altivec (rtx x)
+{
+  gcc_assert (MEM_P (x));
+  if (!altivec_indexed_or_indirect_operand (x, GET_MODE (x)))
+    {
+      rtx addr = XEXP (x, 0);
+      int strict_p = (reload_in_progress || reload_completed);
+
+      if (!legitimate_indexed_address_p (addr, strict_p)
+	  && !legitimate_indirect_address_p (addr, strict_p))
+	addr = copy_to_mode_reg (Pmode, addr);
+
+      addr = gen_rtx_AND (Pmode, addr, GEN_INT (-16));
+      x = change_address (x, GET_MODE (x), addr);
+    }
+
+  return x;
+}
+
 
 #include "gt-rs6000.h"

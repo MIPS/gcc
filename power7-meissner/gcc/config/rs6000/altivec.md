@@ -96,7 +96,8 @@
    (UNSPEC_STVE         203)
    (UNSPEC_SET_VSCR     213)
    (UNSPEC_GET_VRSAVE   214)
-   ;; 215 deleted
+   (UNSPEC_LVX		215)
+   ;; 216 deleted
    (UNSPEC_REDUC_PLUS   217)
    (UNSPEC_VECSH        219)
    (UNSPEC_EXTEVEN_V4SI 220)
@@ -1750,17 +1751,18 @@
   "lvxl %0,%y1"
   [(set_attr "type" "vecload")])
 
-(define_insn "altivec_lvx"
-  [(set (match_operand:V4SI 0 "register_operand" "=v")
-	(match_operand:V4SI 1 "memory_operand" "Z"))]
+(define_insn "altivec_lvx_<mode>"
+  [(set (match_operand:VM2 0 "register_operand" "=v")
+	(unspec:VM2 [(match_operand:VM2 1 "memory_operand" "Z")]
+		    UNSPEC_LVX))]
   "TARGET_ALTIVEC"
   "lvx %0,%y1"
   [(set_attr "type" "vecload")])
 
-(define_insn "altivec_stvx"
+(define_insn "altivec_stvx_<mode>"
   [(parallel
-    [(set (match_operand:V4SI 0 "memory_operand" "=Z")
-	  (match_operand:V4SI 1 "register_operand" "v"))
+    [(set (match_operand:VM2 0 "memory_operand" "=Z")
+	  (match_operand:VM2 1 "register_operand" "v"))
      (unspec [(const_int 0)] UNSPEC_STVX)])]
   "TARGET_ALTIVEC"
   "stvx %1,%y0"
