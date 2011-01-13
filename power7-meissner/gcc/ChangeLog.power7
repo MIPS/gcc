@@ -1,5 +1,10 @@
 2011-01-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to 168755.
+	* REVISION: Update subversion id.
+
+2011-01-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	* config/rs6000/vector.md (vector_altivec_load_<mode>): New insns
 	to use altivec memory instructions, even on VSX.
 	(vector_altivec_store_<mode>): Ditto.

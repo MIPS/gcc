@@ -1,3 +1,131 @@
+2011-01-13  Tobias Burnus  <burnus@net-b.de>
+	    Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/45848
+	PR fortran/47204
+	* gfortran.dg/select_type_20.f90: New.
+	* gfortran.dg/select_type_21.f90: New.
+
+2011-01-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/47251
+	* gcc.target/powerpc/pr47251.c: New file, test PR 47251 fix.
+
+2011-01-13  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* gcc.dg/guality/pr36728-1.c: Disable arg1/2 checks for s390 and
+	s390x.
+	* gcc.dg/guality/pr36728-2.c: Likewise.
+
+2011-01-13  Dodji Seketeli  <dodji@redhat.com>
+
+	PR debug/PR46973
+	* g++.dg/debug/dwarf2/template-params-9.C: New test.
+
+2011-01-13  Andrey Belevantsev  <abel@ispras.ru>
+
+	PR rtl-optimization/45352
+	* gcc.dg/pr45352-3.c: New.
+
+2011-01-12  Rodrigo Rivas Costa <rodrigorivascosta@gmail.com>
+
+	* g++.dg/cpp0x/range-for4.C: Delete useless include and duplicated
+	comment.
+	* g++.dg/cpp0x/range-for8.C: New.
+	* g++.dg/cpp0x/range-for9.C: New.
+
+2011-01-12  Kai Tietz  <kai.tietz@onevision.com>
+
+	PR debug/47209
+	* g++.dg/debug/pr47209.C: New.
+
+2011-01-12  Richard Guenther  <rguenther@suse.de>
+
+	PR lto/47259
+	* gcc.dg/lto/pr47259_0.c: New testcase.
+	* gcc.dg/lto/pr47259_1.c: Likewise.
+
+2011-01-12  Iain Sandoe  <iains@gcc.gnu.org>
+
+	* objc-obj-c++-shared/Object1.h: Add copyright header, update
+	comments.  Add a TEST_SUITE_ADDITIONS category for GNU runtime.
+	Amend NeXT version to declare a TEST_SUITE_ADDITIONS carrying the
+	methods missing from the OBJC2 Object.
+	* objc-obj-c++-shared/Object1-implementation.h: Add copyright header.
+	Amend implementation to use a TEST_SUITE_ADDITIONS category for both GNU
+	and NeXT runtimes.
+	* objc-obj-c++-shared/Object1.mm: Remove redundant header, update 
+	comments.
+	* objc-obj-c++-shared/Object1.m: Likewise.
+	* objc.dg/encode-3.m: Update header use.  Amend to be API2 compatible.
+	* objc.dg/proto-qual-1.m: Likewise.
+	* obj-c++.dg/proto-lossage-3.mm: Likewise.
+	* obj-c++.dg/proto-qual-1.mm: Likewise.
+
+2011-01-12  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR testsuite/33033
+	* gcc.dg/20061124-1.c: Pass -mcpu=v9 on the SPARC.
+
+2011-01-12  Nicola Pero  <nicola.pero@meta-innovation.com>
+
+	Fixed the Objective-C++ testsuite and updated all tests.
+	* lib/obj-c++.exp (obj-c++_init): Declare and set
+	gcc_warning_prefix and gcc_error_prefix.	
+	* obj-c++.dg/attributes/categ-attribute-2.mm: Fixed usage of
+	'dg-warning', 'dg-message' and 'dg-error'.
+	* obj-c++.dg/class-extension-3.mm: Likewise.
+	* obj-c++.dg/class-protocol-1.mm: Likewise.
+	* obj-c++.dg/encode-7.mm: Likewise.
+	* obj-c++.dg/exceptions-3.mm: Likewise.
+	* obj-c++.dg/exceptions-5.mm: Likewise.	
+	* obj-c++.dg/method-12.mm: Likewise.
+	* obj-c++.dg/method-13.mm: Likewise.
+	* obj-c++.dg/method-15.mm: Likewise.
+	* obj-c++.dg/method-16.mm: Likewise.
+	* obj-c++.dg/method-4.mm: Likewise.
+	* obj-c++.dg/method-8.mm: Likewise.
+	* obj-c++.dg/method-conflict-1.mm: Likewise.
+	* obj-c++.dg/method-conflict-2.mm: Likewise.
+	* obj-c++.dg/method-conflict-3.mm: Likewise. Also, removed FIXME
+	and uncommented second part of the testcase now that the testsuite
+	works correctly.
+	* obj-c++.dg/method-conflict-4.mm: Likewise.  Also, removed FIXME
+	and uncommented second part of the testcase now that the testsuite
+	works correctly.
+	* obj-c++.dg/private-1.mm: Likewise.	
+	* obj-c++.dg/proto-lossage-4.mm: Likewise.
+	* obj-c++.dg/syntax-error-7.mm: Likewise.
+	* obj-c++.dg/warn5.mm: Likewise.
+	* obj-c++.dg/property/at-property-14.mm: Likewise.
+	* obj-c++.dg/property/at-property-16.mm: Likewise, and removed
+	FIXME.	
+	* obj-c++.dg/property/at-property-18.mm: Likewise.
+	* obj-c++.dg/property/at-property-20.mm: Likewise, and removed
+	FIXME.
+	* obj-c++.dg/property/at-property-21.mm: Likewise.
+	* obj-c++.dg/property/at-property-28.mm: Likewise.
+	* obj-c++.dg/property/at-property-5.mm: Likewise.
+	* obj-c++.dg/property/dynamic-2.mm: Likewise.
+	* obj-c++.dg/property/property-neg-3.mm: Likewise.
+	* obj-c++.dg/property/synthesize-11.mm: Likewise.
+	* obj-c++.dg/property/synthesize-6.mm: Likewise.
+	* obj-c++.dg/property/synthesize-8.mm: Likewise.
+	* obj-c++.dg/property/synthesize-9.mm: Likewise.
+	* obj-c++.dg/tls/diag-5.mm: Likewise.
+	* obj-c++.dg/ivar-invalid-type-1.mm: Removed FIXME and uncommented
+	dg-error, now matched correctly.
+	
+2011-01-12  Nicola Pero  <nicola.pero@meta-innovation.com>
+
+	* objc.dg/property/at-property-29.m: New.
+	* obj-c++.dg/property/at-property-29.mm: New.	
+	
+2011-01-11  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* go.test/go-test.exp (go-set-goarch): New proc.
+	(go-gc-tests): Use it.
+
 2011-01-11  Dodji Seketeli  <dodji@redhat.com>
 
 	PR debug/46955

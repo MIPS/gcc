@@ -127,6 +127,12 @@ mn10300_option_override (void)
 	 not have timing information available for it.  */
       flag_schedule_insns = 0;
       flag_schedule_insns_after_reload = 0;
+
+      /* Force enable splitting of wide types, as otherwise it is trivial
+	 to run out of registers.  Indeed, this works so well that register
+	 allocation problems are now more common *without* optimization,
+	 when this flag is not enabled by default.  */
+      flag_split_wide_types = 1;
     }
   
   if (mn10300_tune_string)
@@ -2032,6 +2038,66 @@ mn10300_legitimate_constant_p (rtx x)
   return true;
 }
 
+/* Undo pic address legitimization for the benefit of debug info.  */
+
+static rtx
+mn10300_delegitimize_address (rtx orig_x)
+{
+  rtx x = orig_x, ret, addend = NULL;
+  bool need_mem;
+
+  if (MEM_P (x))
+    x = XEXP (x, 0);
+  if (GET_CODE (x) != PLUS || GET_MODE (x) != Pmode)
+    return orig_x;
+
+  if (XEXP (x, 0) == pic_offset_table_rtx)
+    ;
+  /* With the REG+REG addressing of AM33, var-tracking can re-assemble
+     some odd-looking "addresses" that were never valid in the first place.
+     We need to look harder to avoid warnings being emitted.  */
+  else if (GET_CODE (XEXP (x, 0)) == PLUS)
+    {
+      rtx x0 = XEXP (x, 0);
+      rtx x00 = XEXP (x0, 0);
+      rtx x01 = XEXP (x0, 1);
+
+      if (x00 == pic_offset_table_rtx)
+	addend = x01;
+      else if (x01 == pic_offset_table_rtx)
+	addend = x00;
+      else
+	return orig_x;
+
+    }
+  else
+    return orig_x;
+  x = XEXP (x, 1);
+
+  if (GET_CODE (x) != CONST)
+    return orig_x;
+  x = XEXP (x, 0);
+  if (GET_CODE (x) != UNSPEC)
+    return orig_x;
+
+  ret = XVECEXP (x, 0, 0);
+  if (XINT (x, 1) == UNSPEC_GOTOFF)
+    need_mem = false;
+  else if (XINT (x, 1) == UNSPEC_GOT)
+    need_mem = true;
+  else
+    return orig_x;
+
+  gcc_assert (GET_CODE (ret) == SYMBOL_REF);
+  if (need_mem != MEM_P (orig_x))
+    return orig_x;
+  if (need_mem && addend)
+    return orig_x;
+  if (addend)
+    ret = gen_rtx_PLUS (Pmode, addend, ret);
+  return ret;
+}
+
 /* For addresses, costs are relative to "MOV (Rm),Rn".  For AM33 this is
    the 3-byte fully general instruction; for MN103 this is the 2-byte form
    with an address register.  */
@@ -2397,37 +2463,39 @@ mn10300_case_values_threshold (void)
   return 6;
 }
 
-/* Worker function for TARGET_ASM_TRAMPOLINE_TEMPLATE.  */
-
-static void
-mn10300_asm_trampoline_template (FILE *f)
-{
-  fprintf (f, "\tadd -4,sp\n");
-  fprintf (f, "\t.long 0x0004fffa\n");
-  fprintf (f, "\tmov (0,sp),a0\n");
-  fprintf (f, "\tadd 4,sp\n");
-  fprintf (f, "\tmov (13,a0),a1\n");	
-  fprintf (f, "\tmov (17,a0),a0\n");
-  fprintf (f, "\tjmp (a0)\n");
-  fprintf (f, "\t.long 0\n");
-  fprintf (f, "\t.long 0\n");
-}
-
 /* Worker function for TARGET_TRAMPOLINE_INIT.  */
 
 static void
 mn10300_trampoline_init (rtx m_tramp, tree fndecl, rtx chain_value)
 {
-  rtx fnaddr = XEXP (DECL_RTL (fndecl), 0);
-  rtx mem;
+  rtx mem, disp, fnaddr = XEXP (DECL_RTL (fndecl), 0);
 
-  emit_block_move (m_tramp, assemble_trampoline_template (),
-		   GEN_INT (TRAMPOLINE_SIZE), BLOCK_OP_NORMAL);
+  /* This is a strict alignment target, which means that we play
+     some games to make sure that the locations at which we need
+     to store <chain> and <disp> wind up at aligned addresses.
 
-  mem = adjust_address (m_tramp, SImode, 0x14);
+	0x28 0x00			add 0,d0
+	          0xfc 0xdd		mov chain,a1
+        <chain>
+	0xf8 0xed 0x00			btst 0,d1
+	               0xdc		jmp fnaddr
+	<disp>
+
+     Note that the two extra insns are effectively nops; they 
+     clobber the flags but do not affect the contents of D0 or D1.  */
+
+  disp = expand_binop (SImode, sub_optab, fnaddr,
+		       plus_constant (XEXP (m_tramp, 0), 11),
+		       NULL_RTX, 1, OPTAB_DIRECT);
+
+  mem = adjust_address (m_tramp, SImode, 0);
+  emit_move_insn (mem, gen_int_mode (0xddfc0028, SImode));
+  mem = adjust_address (m_tramp, SImode, 4);
   emit_move_insn (mem, chain_value);
-  mem = adjust_address (m_tramp, SImode, 0x18);
-  emit_move_insn (mem, fnaddr);
+  mem = adjust_address (m_tramp, SImode, 8);
+  emit_move_insn (mem, gen_int_mode (0xdc00edf8, SImode));
+  mem = adjust_address (m_tramp, SImode, 12);
+  emit_move_insn (mem, disp);
 }
 
 /* Output the assembler code for a C++ thunk function.
@@ -2648,6 +2716,20 @@ mn10300_conditional_register_usage (void)
     fixed_regs[PIC_OFFSET_TABLE_REGNUM] =
     call_used_regs[PIC_OFFSET_TABLE_REGNUM] = 1;
 }
+
+/* Worker function for TARGET_MD_ASM_CLOBBERS.
+   We do this in the mn10300 backend to maintain source compatibility
+   with the old cc0-based compiler.  */
+
+static tree
+mn10300_md_asm_clobbers (tree outputs ATTRIBUTE_UNUSED,
+                         tree inputs ATTRIBUTE_UNUSED,
+                         tree clobbers)
+{
+  clobbers = tree_cons (NULL_TREE, build_string (5, "EPSW"),
+                        clobbers);
+  return clobbers;
+}
 
 /* Initialize the GCC target structure.  */
 
@@ -2714,14 +2796,14 @@ mn10300_conditional_register_usage (void)
 
 #undef  TARGET_LEGITIMATE_ADDRESS_P
 #define TARGET_LEGITIMATE_ADDRESS_P	mn10300_legitimate_address_p
+#undef  TARGET_DELEGITIMIZE_ADDRESS
+#define TARGET_DELEGITIMIZE_ADDRESS	mn10300_delegitimize_address
 
 #undef  TARGET_PREFERRED_RELOAD_CLASS
 #define TARGET_PREFERRED_RELOAD_CLASS mn10300_preferred_reload_class
 #undef  TARGET_PREFERRED_OUTPUT_RELOAD_CLASS
 #define TARGET_PREFERRED_OUTPUT_RELOAD_CLASS mn10300_preferred_output_reload_class
 
-#undef  TARGET_ASM_TRAMPOLINE_TEMPLATE
-#define TARGET_ASM_TRAMPOLINE_TEMPLATE mn10300_asm_trampoline_template
 #undef  TARGET_TRAMPOLINE_INIT
 #define TARGET_TRAMPOLINE_INIT mn10300_trampoline_init
 
@@ -2740,5 +2822,8 @@ mn10300_conditional_register_usage (void)
 
 #undef  TARGET_CONDITIONAL_REGISTER_USAGE
 #define TARGET_CONDITIONAL_REGISTER_USAGE mn10300_conditional_register_usage
+
+#undef TARGET_MD_ASM_CLOBBERS
+#define TARGET_MD_ASM_CLOBBERS  mn10300_md_asm_clobbers
 
 struct gcc_target targetm = TARGET_INITIALIZER;
