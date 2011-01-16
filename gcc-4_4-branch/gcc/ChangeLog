@@ -1,3 +1,118 @@
+2011-01-16  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline
+	2010-12-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/46880
+	* config/i386/sse.md (sse2_loadlpd, sse2_movsd): Fix shufpd source
+	operand.
+
+	PR middle-end/45852
+	* expr.c (store_expr): Ignore alt_rtl if equal to target,
+	but has side-effects.
+
+	2010-12-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/46865
+	* rtl.c (rtx_equal_p_cb): For last operand of
+	ASM_OPERANDS and ASM_INPUT if integers are different,
+	call locator_eq.
+	* jump.c (rtx_renumbered_equal_p): Likewise.
+
+2011-01-07  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2011-01-06  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR target/43309
+	* config/i386/i386.c (legitimize_tls_address)
+	<TLS_MODEL_INITIAL_EXEC>: Handle TARGET_64BIT && TARGET_SUN_TLS.
+	* config/i386/i386.md (UNSPEC_TLS_IE_SUN): Declare.
+	(tls_initial_exec_64_sun): New pattern.
+
+	2010-03-24  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* config/i386/i386.c (override_options): Don't accept
+	-mtls-dialect=sun any longer.
+	* config/i386/i386.h (TARGET_SUN_TLS): Define as 0.
+	* config/i386/i386.md (*tls_global_dynamic_32_sun): Remove.
+	(*tls_local_dynamic_base_32_sun): Likewise.
+	* config/i386/sol2.h (TARGET_SUN_TLS): Redefine.
+
+2010-12-30  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* config/pa/pa.md: Add ",*" condition to 64-bit add/subtract boolean
+	patterns.
+
+2010-12-27  Yao Qi  <yao@codesourcery.com>
+
+	Backport from mainline:
+	2010-10-14  Yao Qi  <yao@codesourcery.com>
+
+	PR target/45447
+	* config/arm/arm.c (arm_build_builtin_va_list): Assign
+	va_list_name to TYPE_STUB_DECL (va_list_type).
+
+2010-12-22 John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	Backport from mainline:
+	2010-12-18  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/46915
+	* config/pa/pa.c (branch_to_delay_slot_p): Use next_active_insn instead
+	of next_real_insn.  Search forward checking for both ASM_INPUT and
+	ASM_OPERANDS asms until exit condition is found.
+	(branch_needs_nop_p): Likewise.
+	(use_skip_p): New function.
+	(output_cbranch): Use use_skip_p.
+	(output_bb, output_bvb): Likewise.
+
+	2009-06-25  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/40468
+	* pa.c (branch_to_delay_slot_p, branch_needs_nop_p): New functions.
+	(output_cbranch): Use new functions.
+	(output_bb, output_bvb, output_dbra, output_movb): Likewise.
+
+2010-12-13  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2010-09-15  Olivier Hainque  <hainque@adacore.com>
+        	    Jose Ruiz  <ruiz@adacore.com>
+
+	* config/alpha/osf.h (MD_UNWIND_SUPPORT): Define.
+	* config/alpha/osf-unwind.h: New file.
+
+	2009-08-09  Olivier Hainque  <hainque@adacore.com>
+		    Douglas B Rupp  <rupp@gnat.com>
+
+	* config/alpha/alpha.h (DWARF_FRAME_REGNUM): Define.
+
+2010-12-13  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2010-04-28  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR target/22224
+	* config/alpha/osf.h (ASM_OUTPUT_LOCAL): Redefine.
+
+2010-12-13  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2010-11-12  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* config/mips/iris.h [!IRIX_USING_GNU_LD]
+	(SUPPORTS_INIT_PRIORITY): Define.
+
+2010-12-13  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2010-11-02  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* configure.ac (*-*-irix6*): Disable set_have_as_tls.
+	(*-*-osf*): Likewise.
+	* configure: Regenerate.
+
 2010-03-31  Jie Zhang  <jie@codesourcery.com>
 
 	PR 43574

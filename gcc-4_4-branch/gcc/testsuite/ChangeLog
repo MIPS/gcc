@@ -1,3 +1,68 @@
+2011-01-16  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline
+	2010-12-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/46880
+	* gcc.target/i386/pr46880.c: New test.
+
+	PR middle-end/45852
+	* gcc.target/i386/pr45852.c: New test.
+
+	2010-12-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/46865
+	* gcc.target/i386/pr46865-1.c: New test.
+	* gcc.target/i386/pr46865-2.c: New test.
+
+2011-01-13  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gfortran.dg/cray_pointers_2.f90: Use dg-timeout-factor 4.
+
+2011-01-12  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR testsuite/33033
+	* gcc.dg/20061124-1.c: Pass -mcpu=v9 on the SPARC.
+
+2010-12-27  Yao Qi  <yao@codesourcery.com>
+
+	Backport from mainline:
+	2010-10-14  Yao Qi  <yao@codesourcery.com>
+
+	PR target/45447
+	* gcc.target/arm/pr45447.c: New test.
+
+2010-12-13  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2010-04-01  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* g++.dg/cpp/_Pragma1.C: Skip on alpha*-dec-osf*.
+	* g++.dg/eh/spbp.C: Likewise.
+	* g++.dg/other/pragma-ep-1.C: Properly define p, remove
+	superfluous casts.
+	* objc.dg/dwarf-1.m: Skip on  alpha*-dec-osf*.
+	* objc.dg/dwarf-2.m: Likewise.
+
+2010-12-13  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2010-11-12  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* lib/prune.exp (prune_gcc_output): Ignore IRIX 6 linker multiline
+	warning.
+	* g++.dg/cpp/_Pragma1.C: Skip on mips-sgi-irix*.
+
+2010-12-09  Daniel Kraft  <d@domob.eu>
+
+	PR fortran/46794
+	* gfortran.dg/power2.f90: New test.
+
+2010-12-09  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/45081
+	* gfortran.dg/derived_array_intrinsics_1.f90 : New test.
+
 2010-03-29  Jie Zhang  <jie@codesourcery.com>
 
 	PR 43564
@@ -26,7 +91,7 @@
 
 	Backport from mainline
 	2010-11-20  Jakub Jelinek  <jakub@redhat.com>
- 
+
 	PR c++/46538
 	* g++.dg/other/error34.C: New test.
 
