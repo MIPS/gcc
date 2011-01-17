@@ -12131,7 +12131,7 @@ mips_multipass_dfa_lookahead (void)
   if (TUNE_SB1)
     return 4;
 
-  if (TUNE_LOONGSON_2EF)
+  if (TUNE_LOONGSON_2EF || TUNE_LOONGSON_3A)
     return 4;
 
   if (TUNE_OCTEON)
