@@ -1,3 +1,48 @@
+2011-01-16  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline
+	2010-12-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/46874
+	* trans-openmp.c (gfc_trans_omp_array_reduction): Handle allocatable
+	dummy variables.
+
+2010-12-09  Daniel Kraft  <d@domob.eu>
+
+	PR fortran/46794
+	* trans-expr.c (gfc_conv_power_op): Handle kind of result expression
+	correctly for integer kind 1 and 2 operands.
+
+2010-12-09  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/45081
+	* simplify.c (is_constant_array_expr): Allow structure array
+	elements as well as constants.
+	(gfc_simplify_reshape): Copy the derived type of source to
+	the result.
+
+2010-12-07  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline
+	2010-12-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/46753
+	* trans-openmp.c (gfc_trans_omp_do): Use build2_loc instead of
+	fold_build2_loc for OMP_FOR conditions.
+
+2010-11-25  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/46638
+	* target-memory.c (gfc_interpret_derived): Correctly handle
+	component offset.
+
+2010-11-13  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/45742
+	* trans-common.c (build_field): Add TREE_SIDE_EFFECTS for volatile.
+	* trans-decl.c (gfc_finish_var_decl): Ditto.
+	(create_function_arglist): Handle volatile dummy arguments.
+
 2010-10-25  Steven G. Kargl  <kargl@gcc.gnu.org>
 
 	PR fortran/46140
