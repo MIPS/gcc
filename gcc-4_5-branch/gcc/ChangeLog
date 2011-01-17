@@ -1,3 +1,164 @@
+2011-01-17  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2011-01-17  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/47318
+	* config/i386/avxintrin.h (_mm_maskload_pd): Change mask to
+	__m128i.
+	(_mm_maskstore_pd): Likewise.
+	(_mm_maskload_ps): Likewise.
+	(_mm_maskstore_ps): Likewise.
+	(_mm256_maskload_pd): Change mask to __m256i.
+	(_mm256_maskstore_pd): Likewise.
+	(_mm256_maskload_ps): Likewise.
+	(_mm256_maskstore_ps): Likewise.
+
+	* config/i386/i386-builtin-types.def: Updated.
+	(ix86_expand_special_args_builtin): Likewise.
+
+	* config/i386/i386.c (bdesc_special_args): Update
+	__builtin_ia32_maskloadpd, __builtin_ia32_maskloadps,
+	__builtin_ia32_maskloadpd256, __builtin_ia32_maskloadps256,
+	__builtin_ia32_maskstorepd, __builtin_ia32_maskstoreps,
+	__builtin_ia32_maskstorepd256 and __builtin_ia32_maskstoreps256.
+
+	* config/i386/sse.md (avx_maskload<ssemodesuffix><avxmodesuffix>):
+	Use <avxpermvecmode> on mask register.
+	(avx_maskstore<ssemodesuffix><avxmodesuffix>): Likewise.
+
+2011-01-17  Olivier Hainque  <hainque@adacore.com>
+            Michael Haubenwallner  <michael.haubenwallner@salomon.at>
+            Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/46655
+	* xcoffout.c (ASM_OUTPUT_LINE): Output line only if positive, and only
+	if <= USHRT_MAX in 32-bit mode.
+
+2011-01-17  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	PR tree-optimization/47286
+	* tree-ssa-structalias.c (new_var_info): Register variables
+	are global.
+
+	PR tree-optimization/44592
+	* tree-ssa-ccp.c (gimplify_and_update_call_from_tree): Copy
+	from trunk.
+
+2011-01-16  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline
+	2011-01-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/47201
+	* config/i386/i386.c (ix86_delegitimize_address): If
+	simplify_gen_subreg fails, return orig_x.
+
+	2011-01-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/47150
+	* c-convert.c (convert): When converting a complex expression
+	other than COMPLEX_EXPR to a different complex type, ensure
+	c_save_expr is called instead of save_expr, unless in_late_binary_op.
+	* c-typeck.c (convert_for_assignment): Set in_late_binary_op also
+	when converting COMPLEX_TYPE.
+
+	2010-12-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/46880
+	* config/i386/sse.md (sse2_loadlpd, sse2_movsd): Fix shufpd source
+	operand.
+
+	PR middle-end/45852
+	* expr.c (store_expr): Ignore alt_rtl if equal to target,
+	but has side-effects.
+
+	2010-12-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/43655
+	* tree-ssa-ter.c (is_replaceable_p): Don't use
+	gimple_references_memory_p for -O0, instead check for load
+	by looking at rhs.
+
+	PR debug/46893
+	* cfgexpand.c (expand_debug_expr): If GET_MODE (op0) is VOIDmode,
+	use TYPE_MODE (TREE_TYPE (tem)) instead of mode1.
+
+	2010-12-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/46804
+	* regmove.c (optimize_reg_copy_3): Look for REG_EQUAL note
+	on the setter of src_reg rather than on insn.  If it is
+	equal to the setter's original SET_SRC, replace it with its
+	zero or sign extension instead of dropping it.
+
+	PR rtl-optimization/46865
+	* rtl.c (rtx_equal_p_cb, rtx_equal_p): For last operand of
+	ASM_OPERANDS and ASM_INPUT if integers are different,
+	call locator_eq.
+	* jump.c (rtx_renumbered_equal_p): Likewise.
+
+	PR tree-optimization/46864
+	* tree-ssa-loop-im.c (loop_suitable_for_sm): Return false even
+	when there are EDGE_EH exit edges.
+
+	2010-12-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/41082
+	* config/rs6000/rs6000.c (rs6000_expand_vector_extract): Use stvx
+	instead of stve*x.
+	(altivec_expand_stv_builtin): For op0 use mode of operand 1 instead
+	of operand 0.
+	* config/rs6000/altivec.md (VI_scalar): New mode attr.
+	(altivec_stve<VI_char>x, *altivec_stvesfx): Use scalar instead of
+	vector mode for operand 0, put operand 1 into UNSPEC.
+
+2011-01-13  Nick Clifton  <nickc@redhat.com>
+
+	Import this fix from the mainline:
+	2010-10-19  Nick Clifton  <nickc@redhat.com>
+
+	* config/rx/rx.c (rx_function_value): Small integer types are
+	promoted to SImode.
+	(rx_promote_function_mode): New function.
+	(TARGET_PROMOTE_FUNCTION_MODE): Define.
+
+2011-01-07  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2011-01-06  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR target/43309
+	* config/i386/i386.c (legitimize_tls_address)
+	<TLS_MODEL_INITIAL_EXEC>: Handle TARGET_64BIT && TARGET_SUN_TLS.
+	* config/i386/i386.md (UNSPEC_TLS_IE_SUN): Declare.
+	(tls_initial_exec_64_sun): New pattern.
+
+2011-01-03  Eric Botcazou  <ebotcazou@adacore.com>
+
+	Backport from mainline
+	2010-12-30  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/47038
+	* config/sparc/sparc.c (sparc_file_end): Call resolve_unique_section
+	on the GOT helper if USE_HIDDEN_LINKONCE.
+
+	2010-12-02  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/46685
+	* config/sparc/sparc.c (can_use_mov_pic_label_ref): New predicate.
+	(sparc_expand_move): Call it to decide whether to emit the special
+	mov{si,di}_pic_label_ref patterns.
+	(sparc_legitimize_pic_address): Call it to decide whether to emit
+	the regular PIC sequence for labels.  Fix long line.
+	(sparc_file_end): Set is_thunk for the PIC helper.
+
+2010-12-30  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* config/pa/pa.md: Add ",*" condition to 64-bit add/subtract boolean
+	patterns.
+
 2010-12-27  Yao Qi  <yao@codesourcery.com>
 
 	Backport from mainline:
