@@ -12346,6 +12346,8 @@ rs6000_init_builtins (void)
 
   long_integer_type_internal_node = long_integer_type_node;
   long_unsigned_type_internal_node = long_unsigned_type_node;
+  long_long_integer_type_internal_node = long_long_integer_type_node;
+  long_long_unsigned_type_internal_node = long_long_unsigned_type_node;
   intQI_type_internal_node = intQI_type_node;
   uintQI_type_internal_node = unsigned_intQI_type_node;
   intHI_type_internal_node = intHI_type_node;
@@ -12355,7 +12357,7 @@ rs6000_init_builtins (void)
   intDI_type_internal_node = intDI_type_node;
   uintDI_type_internal_node = unsigned_intDI_type_node;
   float_type_internal_node = float_type_node;
-  double_type_internal_node = float_type_node;
+  double_type_internal_node = double_type_node;
   void_type_internal_node = void_type_node;
 
   /* Initialize the modes for builtin_function_type, mapping a machine mode to

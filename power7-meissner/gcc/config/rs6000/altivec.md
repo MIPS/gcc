@@ -1752,9 +1752,10 @@
   [(set_attr "type" "vecload")])
 
 (define_insn "altivec_lvx_<mode>"
-  [(set (match_operand:VM2 0 "register_operand" "=v")
-	(unspec:VM2 [(match_operand:VM2 1 "memory_operand" "Z")]
-		    UNSPEC_LVX))]
+  [(parallel
+    [(set (match_operand:VM2 0 "register_operand" "=v")
+	  (match_operand:VM2 1 "memory_operand" "Z"))
+     (unspec [(const_int 0)] UNSPEC_LVX)])]
   "TARGET_ALTIVEC"
   "lvx %0,%y1"
   [(set_attr "type" "vecload")])
