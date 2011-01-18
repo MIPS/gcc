@@ -1,3 +1,438 @@
+2011-01-18  Richard Guenther  <rguenther@suse.de>
+
+	PR rtl-optimization/47216
+	* emit-rtl.c: Include tree-flow.h.
+	(set_mem_attributes_minus_bitpos): Use tree_could_trap_p instead
+	of replicating it with different semantics.
+	* Makefile.in (emit-rtl.o): Adjust.
+
+2011-01-18  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+        * config/arm/cortex-a9.md (cortex-a9-neon.md): Actually
+        include.
+        (cortex_a9_dp): Handle neon types correctly.
+
+2011-01-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/47299
+	* expr.c (expand_expr_real_2) <case WIDEN_MULT_EXPR>: Don't use
+	subtarget.  Use normal multiplication if both operands are
+	constants.
+	* expmed.c (expand_widening_mult): Don't try to optimize constant
+	multiplication if op0 has VOIDmode.  Convert op1 constant to mode
+	before using it.
+
+2011-01-17  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* doc/lto.texi (LTO): Ensure two spaces after period.  Fix
+	spacing after 'e.g.', typos, comma, hyphenation.
+
+2011-01-17  Richard Henderson  <rth@redhat.com>
+
+	* config/rx/predicates.md (rx_constshift_operand): Use match_test.
+	(rx_restricted_mem_operand): New.
+	(rx_shift_operand): Use register_operand.
+	(rx_source_operand, rx_compare_operand): Likewise.
+	* config/rx/rx.md (addsi3_flags): New expander.
+	(adddi3): Rewrite as expander.
+	(adc_internal, *adc_flags, adddi3_internal): New patterns.
+	(subsi3_flags): New expander.
+	(subdi3): Rewrite as expander.
+	(sbb_internal, *sbb_flags, subdi3_internal): New patterns.
+
+	* config/rx/rx.c (RX_BUILTIN_SAT): Remove.
+	(rx_init_builtins): Remove sat builtin.
+	(rx_expand_builtin): Likewise.
+	* config/rx/rx.md (ssaddsi3): New.
+	(*sat): Rename from sat.  Represent the CC_REG input.
+
+	* config/rx/predicates.md (rshift_operator): New.
+	* config/rx/rx.c (rx_expand_insv): Remove.
+	* config/rx/rx-protos.h: Update.
+	* config/rx/rx.md (*bitset): Rename from bitset.  Swap the ashift
+	operand to the canonical position.
+	(*bitset_in_memory, *bitinvert, *bitinvert_in_memory): Similarly.
+	(*bitclr, *bitclr_in_memory): Similarly.
+	(*insv_imm, rx_insv_reg, *insv_cond, *bmcc, *insv_cond_lt): New.
+	(insv): Retain the zero_extract in the expansion.
+
+	* config/rx/rx.md (bswapsi2): Use = not + for output reload.
+	(bswaphi2, bitinvert, revw): Likewise.
+
+	* config/rx/rx.c (gen_rx_store_vector): Use VOIDmode for gen_rtx_SET.
+	(gen_rx_rtsd_vector, gen_rx_popm_vector): Likewise.
+	* config/rx/rx.md (pop_and_return): Use VOIDmode for SET.
+	(stack_push, stack_pushm, stack_pop, stack_popm): Likewise.
+	(bitset, bitset_in_memory): Likewise.
+	(bitinvert, bitinvert_in_memory): Likewise.
+	(bitclr, bitclr_in_memory): Likewise.
+	(insv, sync_lock_test_and_setsi, movstr, rx_movstr): Likewise.
+	(rx_strend, rx_cmpstrn): Likewise.
+	(rx_setmem): Likewise.  Make the source BLKmode to match the dest.
+	(bitop peep2 patterns): Remove.
+
+	* config/rx/rx.c (rx_match_ccmode): New.
+	* config/rx/rx-protos.h: Update.
+	* config/rx/rx.md (abssi2): Clobber, don't set flags.
+	(addsi3, adddi3, andsi3, negsi2, one_cmplsi2, iorsi3): Likewise.
+	(rotlsi3, rotrsi3, ashrsi3, lshrsi3, ashlsi3): Likewise.
+	(subsi3, subdi3, xorsi3, addsf3, divsf3, mulsf3, subsf3): Likewise.
+	(fix_truncsfsi2, floatsisf2): Likewise.
+	(*abssi2_flags, *addsi3_flags, *andsi3_flags, *negsi2_flags): New.
+	(*one_cmplsi2_flags, *iorsi3_flags, *rotlsi3_flags): New.
+	(*rotrsi3_flags, *ashrsi3_flags, *lshrsi3_flags, *ashlsi3_flags): New.
+	(*subsi3_flags, *xorsi3_flags): New.
+
+	* config/rx/rx.md (cstoresf4, *cstoresf4): New patterns.
+
+	* config/rx/rx.c (rx_print_operand): Remove workaround for
+	unsplit comparison operations.
+
+	* config/rx/rx.md (movsicc): Split after reload.
+	(*movsicc): Merge *movsieq and *movsine via match_operator.
+	(*stcc): New pattern.
+
+	* config/rx/rx.c (rx_float_compare_mode): Remove.
+	* config/rx/rx.h (rx_float_compare_mode): Remove.
+	* config/rx/rx.md (cstoresi4): Split after reload.
+	(*sccc): New pattern.
+
+	* config/rx/predicates.md (label_ref_operand): New.
+	(rx_z_comparison_operator): New.
+	(rx_zs_comparison_operator): New.
+	(rx_fp_comparison_operator): New.
+	* config/rx/rx.c (rx_print_operand) [B]: Examine comparison modes.
+	Validate that the flags are set properly for the comparison.
+	(rx_gen_cond_branch_template): Remove.
+	(rx_cc_modes_compatible): Remove.
+	(mode_from_flags): New.
+	(flags_from_code): Rename from flags_needed_for_conditional.
+	(rx_cc_modes_compatible): Re-write in terms of flags_from_mode.
+	(rx_select_cc_mode): Likewise.
+	(rx_split_fp_compare): New.
+	(rx_split_cbranch): New.
+	* config/rx/rx.md (most_cond, zs_cond): Remove iterators.
+	(*cbranchsi4): Use match_operator and rx_split_cbranch.
+	(*cbranchsf4): Similarly.
+	(*cbranchsi4_tst): Rename from *tstbranchsi4_<code>.  Use
+	match_operator and rx_split_cbranch.
+	(*cbranchsi4_tst_ext): Combine *tstbranchsi4m_eq and
+	tstbranchsi4m_ne.  Use match_operator and rx_split_cbranch.
+	(*cmpsi): Rename from cmpsi.
+	(*tstsi): Rename from tstsi.
+	(*cmpsf): Rename from cmpsf; use CC_Fmode.
+	(*conditional_branch): Rename from conditional_branch.
+	(*reveresed_conditional_branch): Remove.
+	(b<code>): Remove expander.
+	* config/rx/rx-protos.h: Update.
+
+	* config/rx/rx.c (rx_compare_redundant): Remove.
+	* config/rx/rx.md (cmpsi): Don't use it.
+	* config/rx/rx-protos.h: Update.
+
+	* config/rx/rx-modes.def (CC_F): New mode.
+	* config/rx/rx.c (rx_select_cc_mode): New.
+	* config/rx/rx.h (SELECT_CC_MODE): Use it.
+	* config/rx/rx-protos.h: Update.
+
+2011-01-17  Richard Henderson  <rth@redhat.com>
+
+	* except.c (dump_eh_tree): Fix stray ; after for statement.
+
+2011-01-17  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/47313
+	* tree-inline.c (tree_function_versioning): Move DECL_RESULT
+	handling before copying the body.  Properly deal with
+	by-reference result in SSA form.
+
+2011-01-17  Ian Lance Taylor  <iant@google.com>
+
+	PR target/47219
+	* config/sparc/sparc.c (sparc_sr_alias_set): Don't define.
+	(struct_value_alias_set): Don't define.
+	(sparc_option_override): Don't set sparc_sr_alias_set and
+	struct_value_alias_set.
+	(save_or_restore_regs): Use gen_frame_mem rather than calling
+	set_mem_alias_set.
+	(sparc_struct_value_rtx): Likewise.
+
+2011-01-17  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/47318
+	* config/i386/avxintrin.h (_mm_maskload_pd): Change mask to
+	__m128i.
+	(_mm_maskstore_pd): Likewise.
+	(_mm_maskload_ps): Likewise.
+	(_mm_maskstore_ps): Likewise.
+	(_mm256_maskload_pd): Change mask to __m256i.
+	(_mm256_maskstore_pd): Likewise.
+	(_mm256_maskload_ps): Likewise.
+	(_mm256_maskstore_ps): Likewise.
+
+	* config/i386/i386-builtin-types.def: Updated.
+	(ix86_expand_special_args_builtin): Likewise.
+
+	* config/i386/i386.c (bdesc_special_args): Update
+	__builtin_ia32_maskloadpd, __builtin_ia32_maskloadps,
+	__builtin_ia32_maskloadpd256, __builtin_ia32_maskloadps256,
+	__builtin_ia32_maskstorepd, __builtin_ia32_maskstoreps,
+	__builtin_ia32_maskstorepd256 and __builtin_ia32_maskstoreps256.
+
+	* config/i386/sse.md (avx_maskload<ssemodesuffix><avxmodesuffix>):
+	Use <avxpermvecmode> on mask register.
+	(avx_maskstore<ssemodesuffix><avxmodesuffix>): Likewise.
+
+2011-01-17  Olivier Hainque  <hainque@adacore.com>
+            Michael Haubenwallner  <michael.haubenwallner@salomon.at>
+            Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/46655
+	* xcoffout.c (ASM_OUTPUT_LINE): Output line only if positive, and only
+	if <= USHRT_MAX in 32-bit mode.
+
+2011-01-17  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* doc/install.texi (Configuration, Specific): Wrap long
+	lines in examples.  Allow line wrapping in long options
+	and URLs where beneficial for PDF output.
+
+2011-01-16  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* config/mips/mips.c (mips_classify_symbol): Don't return
+	SYMBOL_PC_RELATIVE for nonlocal labels.
+
+2011-01-15  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/sparc/sol2-bi.h (CC1_SPEC): Fix typo.
+
+2011-01-15  Jan Hubicka  <jh@suse.cz>
+
+	PR tree-optimization/47276
+	* ipa.c (function_and_variable_visibility): Do not try to mark alias
+	declarations as needed.
+
+2011-01-15  Martin Jambor  <mjambor@suse.cz>
+
+	* common.opt (fdevirtualize): New flag.
+	* doc/invoke.texi (Option Summary): Document it.
+	* opts.c (default_options_table): Add devirtualize flag.
+	* ipa-prop.c (detect_type_change): Return immediately if
+	devirtualize flag is not set.
+	(detect_type_change_ssa): Likewise.
+	(compute_known_type_jump_func): Likewise.
+	(ipa_analyze_virtual_call_uses): Likewise.
+
+2011-01-14  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/45934
+	PR tree-optimization/46302
+	* ipa-prop.c (type_change_info): New type.
+	(stmt_may_be_vtbl_ptr_store): New function.
+	(check_stmt_for_type_change): Likewise.
+	(detect_type_change): Likewise.
+	(detect_type_change_ssa): Likewise.
+	(compute_complex_assign_jump_func): Check for dynamic type change.
+	(compute_complex_ancestor_jump_func): Likewise.
+	(compute_known_type_jump_func): Likewise.
+	(compute_scalar_jump_functions): Likewise.
+	(ipa_analyze_virtual_call_uses): Likewise.
+	(ipa_analyze_node): Push and pop cfun, set current_function_decl.
+
+2011-01-14  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/i386/i386.h (CC1_CPU_SPEC_1): Don't handle -msse5.
+	* config/i386/i386.opt (msse5): New Alias.
+
+2011-01-14  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/sparc/linux.h (CC1_SPEC): Remove %{sun4:} %{target:}.
+	* config/sparc/linux64.h (CC1_SPEC): Likewise.
+	* config/sparc/netbsd-elf.h (CC1_SPEC32, CC1_SPEC64): Likewise.
+	* config/sparc/sparc.h (CC1_SPEC): Likewise.
+
+2011-01-14  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/sparc/linux.h (CC1_SPEC): Don't handle old equivalents of
+	-mcpu options.
+	* config/sparc/linux64.h (CC1_SPEC): Likewise.
+	* config/sparc/netbsd-elf.h (CC1_SPEC32, CC1_SPEC64): Likewise.
+	* config/sparc/sol2-bi.h (CPP_CPU_SPEC, CC1_SPEC): Likewise.
+	* config/sparc/sparc.h (CPP_CPU_SPEC, CC1_SPEC, ASM_CPU_SPEC):
+	Likewise.
+	* config/sparc/t-elf (MULTILIB_MATCHES): Don't handle -mv8.
+
+2011-01-14  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/rs6000/vxworks.h (CC1_SPEC): Don't handle -fvec or
+	-fvec-eabi.
+
+2011-01-14  Mike Stump  <mikestump@comcast.net>
+
+	* config/alpha/alpha.md (umk_mismatch_args): Don't put a mode on set.
+	* config/fr30/fr30.md: Likweise
+	(movsi_push): Likewise.
+	(movsi_pop): Likewise.
+	(enter_func): Likewise.
+	* config/moxie/moxie.md (movsi_push): Likewise.
+	(movsi_pop): Likewise.
+
+2011-01-14  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/mips/linux64.h (LINK_SPEC): Remove %{bestGnum}
+	%{no_archive} %{exact_version}.
+	* config/mips/mips.h (LINK_SPEC): Remove %{bestGnum}.
+	* config/mips/netbsd.h (LINK_SPEC): Remove %{bestGnum}
+	%{no_archive} %{exact_version}.
+	* config/mips/openbsd.h (LINK_SPEC): Likewise.
+	* config/mips/sde.h (LINK_SPEC): Remove %{bestGnum}.
+	* config/mips/vxworks.h: Likewise.
+
+2011-01-14  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/microblaze/microblaze.h (ASM_SPEC): Remove
+	%{microblaze1}.
+
+2011-01-14  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/m32r/little.h (CPP_ENDIAN_SPEC, CC1_ENDIAN_SPEC,
+	ASM_ENDIAN_SPEC, LINK_ENDIAN_SPEC): Remove.
+
+2011-01-14  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/i386/nwld.h (LINK_SPEC): Check -nodefaultlibs not
+	-nodefaultlib.
+
+2011-01-14  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/cris/cris.h (ASM_SPEC, CRIS_ASM_SUBTARGET_SPEC): Check
+	for mcpu not cpu.
+	* config/cris/linux.h (CRIS_CPP_SUBTARGET_SPEC,
+	CRIS_CC1_SUBTARGET_SPEC, CRIS_ASM_SUBTARGET_SPEC): Check for mcpu
+	not cpu.
+	(CRIS_LINK_SUBTARGET_SPEC): Don't generate -rpath-link options.
+	Don't handle -shlib.
+
+2011-01-14  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/avr/avr.h (CPP_SPEC): Don't handle -posix.
+	(CC1_SPEC): Don't handle -profile.
+
+2011-01-14  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/microblaze/microblaze.h (CC1_SPEC): Remove -gline spec.
+	* config/mips/mips.h (CC1_SPEC): Likewise.
+
+2011-01-14  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/microblaze/microblaze.h (CC1_SPEC): Remove %{save-temps: }.
+	* config/mips/mips.h (CC1_SPEC): Likewise.
+
+2011-01-14  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/i386/linux.h (LINK_SPEC): Don't use %{!ibcs:} conditional.
+	* config/m32r/linux.h (LINK_SPEC): Likewise.
+	* config/mips/linux.h (LINK_SPEC): Likewise.
+	* config/mips/linux64.h (LINK_SPEC): Likewise.
+	* config/sparc/linux.h (LINK_SPEC): Likewise.
+	* config/sparc/linux64.h (LINK_ARCH32_SPEC, LINK_ARCH64_SPEC,
+	LINK_SPEC): Likewise.
+	* config/xtensa/linux.h (LINK_SPEC): Likewise.
+
+2011-01-14  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/arm/linux-elf.h (LINUX_TARGET_LINK_SPEC): Remove
+	%{version:-v}.
+	* config/lm32/uclinux-elf.h (LINK_SPEC): Likewise.
+
+2011-01-14  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/sparc/sp-elf.h (ASM_SPEC): Remove %{v:-V}.
+	* config/sparc/sp64-elf.h (ASM_SPEC): Likewise.
+
+2011-01-14  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/arm/linux-elf.h (LINUX_TARGET_LINK_SPEC): Remove %{b}.
+
+2011-01-14  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* configure.ac (gcc_cv_ld_static_dynamic): Solaris 2 ld always
+	supports -Bstatic/-Bdynamic.
+	* configure: Regenerate.
+
+2011-01-14  Jan Hubicka  <jh@suse.cz>
+	Jack Howarth <howarth@bromo.med.uc.edu>
+
+	PR target/46037
+	* config/darwin.c (darwin_override_options): Honor flag_gtoggle
+	when checking debug_info_level. Test write_symbols instead of
+	debug_hooks->var_location when setting flag_var_tracking_uninit.
+
+2011-01-14  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/47179
+	* target.def (ref_may_alias_errno): New target hook.
+	* targhooks.h (default_ref_may_alias_errno): Declare.
+	* targhooks.c: Include tree-ssa-alias.h and tree-flow.h.
+	(default_ref_may_alias_errno): New function.
+	* target.h (struct ao_ref_s): Declare.
+	* tree-ssa-alias.c: Include target.h.
+	(call_may_clobber_ref_p_1): Use the ref_may_alias_errno target hook.
+	* Makefile.in (tree-ssa-alias.o): Adjust dependencies.
+	(targhooks.o): Likewise.
+	* doc/tm.texi.in (TARGET_REF_MAY_ALIAS_ERRNO): Document.
+	* doc/tm.texi (TARGET_REF_MAY_ALIAS_ERRNO): Copy documentation.
+
+2011-01-14  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-structalias.c  (new_var_info): Use DECL_HARD_REGISTER.
+
+2011-01-14  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/47280
+	* tree-ssa-forwprop.c (associate_plusminus): Cleanup EH and
+	return CFG changes.
+	(tree_ssa_forward_propagate_single_use_vars): Deal with
+	CFG changes from associate_plusminus.
+
+2011-01-14  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/47281
+	Revert
+	2011-01-11  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/46076
+	* tree-ssa.c (useless_type_conversion_p): Conversions from
+	unprototyped to empty argument list function types are useless.
+
+2011-01-14  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/47286
+	* tree-ssa-structalias.c (new_var_info): Register variables are global.
+
+2011-01-14  Martin Jambor  <mjambor@suse.cz>
+
+	PR middle-end/46823
+	* tree-inline.c (expand_call_inline): Get fndecl from call graph edge.
+
+2011-01-13  Anatoly Sokolov  <aesok@post.ru>
+
+	* config/xtensa/xtensa.h (XTENSA_LIBCALL_VALUE, LIBCALL_VALUE,
+	LIBCALL_OUTGOING_VALUE, FUNCTION_VALUE_REGNO_P): Remove macros.
+	* config/xtensa/xtensa.c (xtensa_libcall_value,
+	xtensa_function_value_regno_p): New functions.
+	(TARGET_LIBCALL_VALUE, TARGET_FUNCTION_VALUE_REGNO_P): Define.
+
+2011-01-13  Kai Tietz  <kai.tietz@onevision.com>
+
+	PR c++/47213
+	* config/i386/cygming.h (TARGET_ASM_ASSEMBLE_VISIBILITY):
+	PE specific hook.
+	* config/i386/i386-protos.h (i386_pe_assemble_visibility):
+	New function prototype.
+	* config/i386/winnt.c (i386_pe_assemble_visibility):
+	Warn only if attribute was specified by user.
+
 2011-01-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	PR target/47251
@@ -13,7 +448,7 @@
 
 2011-01-13  Jeff Law  <law@redhat.com>
 
-	* PR rtl-optimization/39077
+	PR rtl-optimization/39077
 	* doc/invoke.texi (max-gcse-insertion-ratio): Document.
 	* params.h (MAX_GCSE_INSERTION_RATIO): Define.
 	* params.def (PARAM_MAX_GCSE_INSERTION_RATIO): Define.
@@ -450,8 +885,8 @@
 2011-01-06  Eric Botcazou  <ebotcazou@adacore.com>
 
 	PR debug/46704
-	* dwarf2out.c (dwarf2out_finish): Output the debug_aranges section
-	only when it is not empty.
+	* dwarf2out.c (dwarf2out_finish): Output the debug_aranges section only
+	when it is not empty.
 
 2011-01-06  Changpeng Fang  <changpeng.fang@amd.com>
 

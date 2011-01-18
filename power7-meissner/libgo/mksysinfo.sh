@@ -207,7 +207,7 @@ fi
 # The registers returned by PTRACE_GETREGS.  This is probably
 # GNU/Linux specific; it should do no harm if there is no
 # _user_regs_struct.
-regs=`grep '^type _user_regs_struct struct' gen-sysinfo.go`
+regs=`grep '^type _user_regs_struct struct' gen-sysinfo.go || true`
 if test "$regs" != ""; then
   regs=`echo $regs | sed -e 's/type _user_regs_struct struct //' -e 's/[{}]//g'`
   regs=`echo $regs | sed -e s'/^ *//'`
@@ -248,6 +248,15 @@ elif test "$sizeof_long" = "8"; then
 else
   echo 1>&2 "mksysinfo.sh: could not determine size of long (got $sizeof_long)"
   exit 1
+fi
+
+# Solaris 2 needs _u?pad128_t, but its default definition in terms of long
+# double is commented by -fdump-go-spec.
+if grep "^// type _pad128_t" gen-sysinfo.go > /dev/null 2>&1; then
+  echo "type _pad128_t struct { _l [4]int32; }" >> ${OUT}
+fi
+if grep "^// type _upad128_t" gen-sysinfo.go > /dev/null 2>&1; then
+  echo "type _upad128_t struct { _l [4]uint32; }" >> ${OUT}
 fi
 
 # The time structures need special handling: we need to name the
