@@ -3316,9 +3316,12 @@ rs6000_option_override_internal (bool global_init_p)
   /* If not explicitly specified via option, decide whether to generate indexed
      load/store instructions.  */
   if (TARGET_AVOID_XFORM == -1)
-    /* Avoid indexed addressing when targeting Power6 in order to avoid
-     the DERAT mispredict penalty.  */
-    TARGET_AVOID_XFORM = (rs6000_cpu == PROCESSOR_POWER6 && TARGET_CMPB);
+    /* Avoid indexed addressing when targeting Power6 in order to avoid the
+     DERAT mispredict penalty.  However the LVE and STVE altivec instructions
+     need indexed accesses and the type used is the scalar type of the element
+     being loaded or stored.  */
+    TARGET_AVOID_XFORM = (rs6000_cpu == PROCESSOR_POWER6 && TARGET_CMPB
+			  && !TARGET_ALTIVEC);
 
   /* Set the -mrecip options.  */
   if (rs6000_recip_name)

@@ -1,5 +1,8 @@
 2011-01-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/rs6000.c (rs6000_option_override_internal): Don't
+	set avoid indexed index addresses switch if -maltivec is used.
+
 	Merge up to 168755.
 	* REVISION: Update subversion id.
 
