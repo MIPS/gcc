@@ -1,3 +1,121 @@
+2011-01-20  Anatoly Sokolov  <aesok@post.ru>
+
+	* config/xtensa/xtensa.h (GO_IF_MODE_DEPENDENT_ADDRESS): Remove.
+	* config/xtensa/xtensa-protos.h (constantpool_address_p): Remove.
+	* config/xtensa/xtensa.c (TARGET_MODE_DEPENDENT_ADDRESS_P): Define.
+	(xtensa_mode_dependent_address_p): New function.
+	(constantpool_address_p): Make static. Change return type to bool.
+	Change argument type to const_rtx. Use CONST_INT_P predicate.
+
+2011-01-20  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/46583
+	* tree-ssa-live.c (remove_unused_scope_block_p): Keep type decls.
+
+2011-01-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/47283
+	* cfgexpand.c (expand_debug_expr): Instead of generating
+	(mem (debug_implicit_ptr)) for MEM_REFs use COMPONENT_REF
+	etc. handling.
+
+2011-01-20  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/47370
+	* tree-inline.c (remap_gimple_op_r): Recurse manually for
+	the pointer operand of MEM_REFs.
+
+2011-01-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/46130
+	* ipa-split.c (consider_split): If return_bb contains non-virtual
+	PHIs other than for retval or if split_function would not adjust it,
+	refuse to split.
+
+2011-01-20  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/47167
+	* tree-ssa-copyrename.c (copy_rename_partition_coalesce):
+	Revert previous change, only avoid enumeral type changes.
+
+2011-01-19  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/47291
+	* dwarf2out.c (generic_type_p, schedule_generic_params_dies_gen)
+    	(gen_scheduled_generic_parms_dies): New functions.
+    	(gen_struct_or_union_type_die): Schedule template parameters DIEs
+    	generation for the end of CU compilation.
+    	(dwarf2out_finish): Generate template parameters DIEs here.
+
+2011-01-19  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/46240
+	* tree-into-ssa.c (maybe_register_def): Do not attempt to add
+	debug bind stmt on merge edges.
+
+2011-01-19  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/47079
+	PR debug/46724
+	* function.c (instantiate_expr): Instantiate incoming rtl of
+	implicit arguments, and recurse on VALUE_EXPRs.
+	(instantiate_decls): Instantiate rtl and VALUE_EXPR of result.
+	* var-tracking.c (adjust_mems): Reject virtual_incoming_args_rtx.
+
+2011-01-19  Alexandre Oliva  <aoliva@redhat.com>
+
+	* c-parser.c (c_parser_for_statement): Initialize
+	collection_expression.
+
+2011-01-19  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/spu/spu-elf.h (ASM_SPEC): Remove %{w:-W}.
+
+2011-01-19  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/rs6000/sysv4.h (LINK_PATH_SPEC): Remove.
+	(LINK_SHLIB_SPEC): Don't use %(link_path).
+	(SUBTARGET_EXTRA_SPECS): Remove link_path.
+
+2011-01-19  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/rs6000/sysv4.h (SHARED_LIB_SUPPORT): Remove conditional.
+	(NO_SHARED_LIB_SUPPORT): Remove.
+	(LINK_SHLIB_SPEC): Remove one conditional definition.
+
+2011-01-19  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/mips/linux64.h (LINK_SPEC): Remove %{non_shared}
+	%{call_shared}.
+	* config/mips/mips.h (LINK_SPEC): Remove %{non_shared}.
+	* config/mips/netbsd.h (LINK_SPEC): Remove %{call_shared}.
+	* config/mips/openbsd.h (LINK_SPEC): Remove %{non_shared}
+	%{call_shared} and conditionals on these options not being passed.
+	* config/mips/sde.h (LINK_SPEC): Remove %{non_shared}
+	%{call_shared}.
+
+2011-01-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* ipa-split.c (find_return_bb): Use single_pred_p/single_pred_edge,
+	simplify.
+
+	* ipa-split.c: Spelling fixes.
+
+2011-01-19  Richard Henderson  <rth@redhat.com>
+
+	* config/mn10300/mn10300.md (mulsi3): Use reg_or_am33_const_operand.
+	(*mulsi3): Likewise.
+
+	* longlong.h [__mn10300__] (count_leading_zeros): New.
+	[__mn10300__] (umul_ppmm, smul_ppmm): New.
+	[__mn10300__] (add_ssaaaa, subddmmss): New.
+	[__mn10300__] (udiv_qrnnd, sdiv_qrnnd): New.
+	[__mn10300__] (UMUL_TIME, UDIV_TIME): New.
+
+2011-01-19  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/spu/spu.h (MOVE_RATIO): Return 4 in the !speed case.
+
 2011-01-19  Richard Henderson  <rth@redhat.com>
 
 	* config/mn10300/mn10300.md (addsi3_flags): New.

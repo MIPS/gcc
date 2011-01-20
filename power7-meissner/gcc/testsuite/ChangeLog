@@ -1,3 +1,44 @@
+2011-01-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/47251
+	* gcc.target/powerpc/pr47251.c: Fixup test so that it runs on
+	ILP32 system and not IP32.
+
+2011-01-20  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/46583
+	* g++.dg/debug/pr46583.C: New.
+
+2011-01-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/47283
+	* g++.dg/debug/pr47283.C: New test.
+
+	PR testsuite/47371
+	* gcc.target/i386/headmerge-1.c: Tighten up scan-assembler regex.
+	* gcc.target/i386/headmerge-2.c: Likewise.
+
+2011-01-20  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/47370
+	* gcc.dg/torture/pr47370.c: New testcase.
+
+2011-01-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/46130
+	* gcc.dg/pr46130-1.c: New test.
+	* gcc.dg/pr46130-2.c: New test.
+
+2011-01-19  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/47291
+    	* g++.dg/debug/dwarf2/template-params-10.C: New test.
+
+2011-01-19  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/46240
+	* g++.dg/debug/pr46240.cc: New.
+
 2011-01-19  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/47303
