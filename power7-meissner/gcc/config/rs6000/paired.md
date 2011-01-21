@@ -20,12 +20,12 @@
 ;; along with this program; see the file COPYING3.  If not see
 ;; <http://www.gnu.org/licenses/>.
 
-(define_constants
-[(UNSPEC_INTERHI_V2SF     330)
- (UNSPEC_INTERLO_V2SF     331)
- (UNSPEC_EXTEVEN_V2SF     332)
- (UNSPEC_EXTODD_V2SF      333)
-])
+(define_c_enum "unspec"
+  [UNSPEC_INTERHI_V2SF
+   UNSPEC_INTERLO_V2SF
+   UNSPEC_EXTEVEN_V2SF
+   UNSPEC_EXTODD_V2SF
+  ])
 
 (define_insn "paired_negv2sf2"
   [(set (match_operand:V2SF 0 "gpc_reg_operand" "=f")

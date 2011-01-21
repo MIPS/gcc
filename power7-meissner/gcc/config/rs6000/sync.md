@@ -591,7 +591,7 @@
 
 (define_insn "isync"
   [(set (mem:BLK (match_scratch 0 "X"))
-	(unspec_volatile:BLK [(mem:BLK (match_scratch 1 "X"))] UNSPEC_ISYNC))]
+	(unspec_volatile:BLK [(mem:BLK (match_scratch 1 "X"))] UNSPECV_ISYNC))]
   ""
   "{ics|isync}"
   [(set_attr "type" "isync")])
@@ -610,7 +610,7 @@
 ; Some AIX assemblers don't accept lwsync, so we use a .long.
 (define_insn "lwsync"
   [(set (mem:BLK (match_scratch 0 "X"))
-	(unspec_volatile:BLK [(mem:BLK (match_scratch 1 "X"))] UNSPEC_LWSYNC))]
+	(unspec_volatile:BLK [(mem:BLK (match_scratch 1 "X"))] UNSPECV_LWSYNC))]
   ""
 {
   if (TARGET_NO_LWSYNC)

@@ -24,9 +24,9 @@
 ;; UNSPEC usage
 ;;
 
-(define_constants
-  [(UNSPEC_MOVSD_LOAD		400)
-   (UNSPEC_MOVSD_STORE		401)
+(define_c_enum "unspec"
+  [UNSPEC_MOVSD_LOAD
+   UNSPEC_MOVSD_STORE
   ])
 
 
