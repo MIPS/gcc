@@ -1,5 +1,9 @@
 2011-01-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to 169111.
+
+2011-01-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	PR target/47408
 	* gcc.target/powerpc/altivec-11.c: Add explicit -mno-vsx.
 	* gcc.target/powerpc/altivec-14.c: Ditto.

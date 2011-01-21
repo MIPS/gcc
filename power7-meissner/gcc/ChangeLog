@@ -1,3 +1,114 @@
+2011-01-21  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/47402
+	Temporarily revert:
+	2011-01-21  Alexandre Oliva  <aoliva@redhat.com>
+	PR debug/47106
+	* tree-dfa.c (create_var_ann): Mark variable as used.
+
+2011-01-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/45566
+	* except.c (convert_to_eh_region_ranges): Emit queued no-region
+	notes from other section in hot/cold partitioning even if
+	last_action is -3.  Increment call_site_base.
+
+	PR rtl-optimization/47366
+	* fwprop.c (forward_propagate_into): Return bool.  If
+	any changes are made, -fnon-call-exceptions is used and
+	REG_EH_REGION note is present, call purge_dead_edges
+	and return true if it purged anything.
+	(fwprop_addr): Adjust callers, call cleanup_cfg (0) if
+	any EH edges were purged.
+
+2011-01-21  Jeff Law  <law@redhat.com>
+
+	PR rtl-optimization/41619
+	* caller-save.c (setup_save_areas): Break out code to determine
+	which hard regs are live across calls by examining the reload chains
+	so that it is always used.
+	Eliminate code which checked REG_N_CALLS_CROSSED.
+
+2011-01-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/47355
+	* tree-eh.c (cleanup_empty_eh_merge_phis): Give up if
+	NOP has non-debug uses beyond PHIs in new_bb.
+
+2011-01-21  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/47106
+	* cfgexpand.c (account_used_vars_for_block): Only account vars
+	that are annotated as used.
+	(estimated_stack_frame_size): Don't set TREE_USED.
+	* tree-dfa.c (create_var_ann): Mark variable as used.
+
+2011-01-21  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/47395
+	* tree.def (WIDEN_MULT_MINUS_EXPR): Fix printed name.
+
+2011-01-21  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/47365
+	* tree-ssa-sccvn.h (vn_lookup_kind): Declare.
+	(vn_reference_lookup_pieces): Adjust.
+	(vn_reference_lookup): Likewise.
+	* tree-ssa-sccvn.c (vn_walk_kind): New static global.
+	(vn_reference_lookup_3): Only look through kills if in
+	VN_WALKREWRITE mode.
+	(vn_reference_lookup_pieces): Adjust.
+	(vn_reference_lookup): Likewise.
+	(visit_reference_op_load): Likewise.
+	(visit_reference_op_store): Likewise.
+	* tree-ssa-pre.c (phi_translate_1): Use VN_WALK mode.
+	(compute_avail): Likewise.
+	(eliminate): Likewise.
+
+2011-01-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-ssa-live.c (remove_unused_scope_block_p): Don't remove
+	DECL_IGNORED_P non-reg vars if they are used.
+
+	PR tree-optimization/47391
+	* varpool.c (const_value_known_p): Return false if
+	decl is volatile.
+
+2011-01-21  Kai Tietz  <kai.tietz@onevision.com>
+
+	PR bootstrap/47215
+	* config/i386/i386.c (ix86_local_alignment): Handle
+	case for va_list_type_node is nil.
+	(ix86_canonical_va_list_type): Likewise.
+
+2011-01-21  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/rs6000-c.c (rs6000_cpu_cpp_builtins): Add
+	builtin_define __CMODEL_MEDIUM__ and __CMODEL_LARGE__.
+
+2011-01-20  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	* config/arm/arm.md (define_attr type): Rename f_load
+	and f_store to f_fpa_load and f_fpa_store. Update.
+	(write_conflict): Deal with rename fallout.
+	(*push_fp_multi): Likewise.
+	* config/arm/fpa.md (f_load): Use f_fpa_load.
+	(f_store): Use f_fpa_store.
+	(*movsf_fpa): Likewise.
+	(*movdf_fpa): Likewise.
+	(*movxf_fpa): Likewise.
+	(*thumb2_movsf_fpa): Likewise.
+	(*thumb2_movdf_fpa): Likewise.
+	(*thumb2_movxf_fpa): Likewise.
+	* config/arm/vfp.md (*thumb2_movdf_vfp): Fix attribute to
+	f_loadd and f_stored.
+	(*thumb2_movdi_vfp): Likewise.
+	(*thumb2_movsf_vfp): Fix attribute to f_loads.
+	(*thumb2_movsi_vfp): Likewise.
+	* config/arm/cortex-m4-fpu.md (cortex_m4_f_load):
+	Use f_loads instead of f_load.
+	* config/arm/cortex-a5.md (cortex_a5_f_loads): Remove f_load.
+
 2011-01-20  Anatoly Sokolov  <aesok@post.ru>
 
 	* config/xtensa/xtensa.h (GO_IF_MODE_DEPENDENT_ADDRESS): Remove.

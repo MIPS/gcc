@@ -1,3 +1,68 @@
+2011-01-21  Jason Merrill  <jason@redhat.com>
+
+	PR c++/47041
+	* g++.dg/cpp0x/constexpr-ctor6.C: New.
+
+2011-01-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/47388
+	* g++.dg/cpp0x/range-for10.C: New test.
+	* g++.dg/template/for1.C: New test.
+
+	PR middle-end/45566
+	* g++.dg/tree-prof/partition3.C: New test.
+
+	* g++.dg/tree-prof/tree-prof.exp: Fix a comment.
+
+	PR rtl-optimization/47366
+	* g++.dg/opt/pr47366.C: New test.
+
+2011-01-21  Jason Merrill  <jason@redhat.com>
+
+	PR c++/46552
+	* g++.dg/cpp0x/constexpr-regress2.C: New.
+
+	* g++.dg/cpp0x/constexpr-stmtexpr.C: New.
+
+2011-01-21  Jeff Law <law@redhat.com>
+
+	PR rtl-optimization/41619
+	* gcc.dg/pr41619.c: New.
+
+2011-01-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/47355
+	* g++.dg/opt/pr47355.C: New test.
+
+2011-01-21  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.dg/tree-ssa/pr47392.c: Make test non-static instead of
+	making main hot.
+
+2011-01-21  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/47365
+	* gcc.dg/torture/pr47365.c: New testcase.
+	* gcc.dg/tree-ssa/pr47392.c: Likewise.
+
+2011-01-21  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* g++.dg/other/anon5.C: Skip on mips-sgi-irix*.
+
+2011-01-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/47391
+	* gcc.dg/pr47391.c: New test.
+
+2011-01-21  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* g++.dg/template/char1.C: Use signed char.
+
+2011-01-21  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/47377
+	* gfortran.dg/pointer_target_4.f90: New.
+
 2011-01-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	PR target/47251
