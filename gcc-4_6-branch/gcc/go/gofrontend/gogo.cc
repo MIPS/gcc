@@ -19,7 +19,7 @@
 
 // Class Gogo.
 
-Gogo::Gogo(int int_type_size, int float_type_size, int pointer_size)
+Gogo::Gogo(int int_type_size, int pointer_size)
   : package_(NULL),
     functions_(),
     globals_(new Bindings(NULL)),
@@ -85,12 +85,6 @@ Gogo::Gogo(int int_type_size, int float_type_size, int pointer_size)
   this->add_named_type(Type::make_integer_type("uintptr", true,
 					       pointer_size,
 					       RUNTIME_TYPE_KIND_UINTPTR));
-
-  this->add_named_type(Type::make_float_type("float", float_type_size,
-					     RUNTIME_TYPE_KIND_FLOAT));
-
-  this->add_named_type(Type::make_complex_type("complex", float_type_size * 2,
-					       RUNTIME_TYPE_KIND_COMPLEX));
 
   this->add_named_type(Type::make_named_bool_type());
 
@@ -199,10 +193,10 @@ Gogo::Gogo(int int_type_size, int float_type_size, int pointer_size)
   append_type->set_is_builtin();
   this->globals_->add_function_declaration("append", NULL, append_type, loc);
 
-  Function_type* cmplx_type = Type::make_function_type(NULL, NULL, NULL, loc);
-  cmplx_type->set_is_varargs();
-  cmplx_type->set_is_builtin();
-  this->globals_->add_function_declaration("cmplx", NULL, cmplx_type, loc);
+  Function_type* complex_type = Type::make_function_type(NULL, NULL, NULL, loc);
+  complex_type->set_is_varargs();
+  complex_type->set_is_builtin();
+  this->globals_->add_function_declaration("complex", NULL, complex_type, loc);
 
   Function_type* real_type = Type::make_function_type(NULL, NULL, NULL, loc);
   real_type->set_is_varargs();
@@ -212,7 +206,7 @@ Gogo::Gogo(int int_type_size, int float_type_size, int pointer_size)
   Function_type* imag_type = Type::make_function_type(NULL, NULL, NULL, loc);
   imag_type->set_is_varargs();
   imag_type->set_is_builtin();
-  this->globals_->add_function_declaration("imag", NULL, cmplx_type, loc);
+  this->globals_->add_function_declaration("imag", NULL, imag_type, loc);
 
   this->define_builtin_function_trees();
 
@@ -330,8 +324,17 @@ Gogo::import_package(const std::string& filename,
   Import imp(stream, location);
   imp.register_builtin_types(this);
   Package* package = imp.import(this, local_name, is_local_name_exported);
-  this->imports_.insert(std::make_pair(filename, package));
-  package->set_is_imported();
+  if (package != NULL)
+    {
+      if (package->name() == this->package_name()
+	  && package->unique_prefix() == this->unique_prefix())
+	error_at(location,
+		 ("imported package uses same package name and prefix "
+		  "as package being compiled (see -fgo-prefix option)"));
+
+      this->imports_.insert(std::make_pair(filename, package));
+      package->set_is_imported();
+    }
 
   delete stream;
 }
@@ -1386,8 +1389,6 @@ Gogo::determine_types()
 	  // initialization, we need an initialization function.
 	  if (!variable->is_global())
 	    ;
-	  else if (variable->has_pre_init())
-	    this->need_init_fn_ = true;
 	  else if (variable->init() == NULL)
 	    ;
 	  else if (variable->type()->interface_type() != NULL)
@@ -1595,9 +1596,10 @@ Find_shortcut::expression(Expression** pexpr)
 class Shortcuts : public Traverse
 {
  public:
-  Shortcuts()
+  Shortcuts(Gogo* gogo)
     : Traverse(traverse_variables
-	       | traverse_statements)
+	       | traverse_statements),
+      gogo_(gogo)
   { }
 
  protected:
@@ -1611,6 +1613,9 @@ class Shortcuts : public Traverse
   // Convert a shortcut operator.
   Statement*
   convert_shortcut(Block* enclosing, Expression** pshortcut);
+
+  // The IR.
+  Gogo* gogo_;
 };
 
 // Remove shortcut operators in a single statement.
@@ -1678,7 +1683,7 @@ Shortcuts::variable(Named_object* no)
 	return TRAVERSE_CONTINUE;
 
       Statement* snew = this->convert_shortcut(NULL, pshortcut);
-      var->add_preinit_statement(snew);
+      var->add_preinit_statement(this->gogo_, snew);
       if (pshortcut == &init)
 	var->set_init(init);
     }
@@ -1721,7 +1726,7 @@ Shortcuts::convert_shortcut(Block* enclosing, Expression** pshortcut)
   delete shortcut;
 
   // Now convert any shortcut operators in LEFT and RIGHT.
-  Shortcuts shortcuts;
+  Shortcuts shortcuts(this->gogo_);
   retblock->traverse(&shortcuts);
 
   return Statement::make_block_statement(retblock, loc);
@@ -1733,7 +1738,7 @@ Shortcuts::convert_shortcut(Block* enclosing, Expression** pshortcut)
 void
 Gogo::remove_shortcuts()
 {
-  Shortcuts shortcuts;
+  Shortcuts shortcuts(this);
   this->traverse(&shortcuts);
 }
 
@@ -1803,9 +1808,10 @@ Find_eval_ordering::expression(Expression** expression_pointer)
 class Order_eval : public Traverse
 {
  public:
-  Order_eval()
+  Order_eval(Gogo* gogo)
     : Traverse(traverse_variables
-	       | traverse_statements)
+	       | traverse_statements),
+      gogo_(gogo)
   { }
 
   int
@@ -1813,6 +1819,10 @@ class Order_eval : public Traverse
 
   int
   statement(Block*, size_t*, Statement*);
+
+ private:
+  // The IR.
+  Gogo* gogo_;
 };
 
 // Implement the order of evaluation rules for a statement.
@@ -1933,7 +1943,7 @@ Order_eval::variable(Named_object* no)
       Expression** pexpr = *p;
       source_location loc = (*pexpr)->location();
       Temporary_statement* ts = Statement::make_temporary(NULL, *pexpr, loc);
-      var->add_preinit_statement(ts);
+      var->add_preinit_statement(this->gogo_, ts);
       *pexpr = Expression::make_temporary_reference(ts, loc);
     }
 
@@ -1945,7 +1955,7 @@ Order_eval::variable(Named_object* no)
 void
 Gogo::order_evaluations()
 {
-  Order_eval order_eval;
+  Order_eval order_eval(this);
   this->traverse(&order_eval);
 }
 
@@ -2062,7 +2072,7 @@ Build_recover_thunks::function(Named_object* orig_no)
       for (Typed_identifier_list::const_iterator p = orig_results->begin();
 	   p != orig_results->end();
 	   ++p)
-	new_results->push_back(*p);
+	new_results->push_back(Typed_identifier("", p->type(), p->location()));
     }
 
   Function_type *new_fntype = Type::make_function_type(NULL, new_params,
@@ -2120,7 +2130,7 @@ Build_recover_thunks::function(Named_object* orig_no)
     }
   args->push_back(this->can_recover_arg(location));
 
-  Expression* call = Expression::make_call(fn, args, false, location);
+  Call_expression* call = Expression::make_call(fn, args, false, location);
 
   Statement* s;
   if (orig_fntype->results() == NULL || orig_fntype->results()->empty())
@@ -2128,7 +2138,14 @@ Build_recover_thunks::function(Named_object* orig_no)
   else
     {
       Expression_list* vals = new Expression_list();
-      vals->push_back(call);
+      size_t rc = orig_fntype->results()->size();
+      if (rc == 1)
+	vals->push_back(call);
+      else
+	{
+	  for (size_t i = 0; i < rc; ++i)
+	    vals->push_back(Expression::make_call_result(call, i));
+	}
       s = Statement::make_return_statement(new_func->type()->results(),
 					   vals, location);
     }
@@ -3139,20 +3156,25 @@ Variable::lower_init_expression(Gogo* gogo, Named_object* function)
 // Get the preinit block.
 
 Block*
-Variable::preinit_block()
+Variable::preinit_block(Gogo* gogo)
 {
   gcc_assert(this->is_global_);
   if (this->preinit_ == NULL)
     this->preinit_ = new Block(NULL, this->location());
+
+  // If a global variable has a preinitialization statement, then we
+  // need to have an initialization function.
+  gogo->set_need_init_fn();
+
   return this->preinit_;
 }
 
 // Add a statement to be run before the initialization expression.
 
 void
-Variable::add_preinit_statement(Statement* s)
+Variable::add_preinit_statement(Gogo* gogo, Statement* s)
 {
-  Block* b = this->preinit_block();
+  Block* b = this->preinit_block(gogo);
   b->add_statement(s);
   b->set_end_location(s->location());
 }
@@ -4149,9 +4171,6 @@ Bindings::traverse(Traverse* traverse, bool is_global)
 	      if (t != NULL
 		  && Type::traverse(t, traverse) == TRAVERSE_EXIT)
 		return TRAVERSE_EXIT;
-	    }
-	  if ((traverse_mask & Traverse::traverse_expressions) != 0)
-	    {
 	      if (p->const_value()->traverse_expression(traverse)
 		  == TRAVERSE_EXIT)
 		return TRAVERSE_EXIT;
@@ -4178,7 +4197,8 @@ Bindings::traverse(Traverse* traverse, bool is_global)
 		return TRAVERSE_EXIT;
 	    }
 	  if (p->is_variable()
-	      && (traverse_mask & Traverse::traverse_expressions) != 0)
+	      && ((traverse_mask & Traverse::traverse_types) != 0
+		  || (traverse_mask & Traverse::traverse_expressions) != 0))
 	    {
 	      if (p->var_value()->traverse_expression(traverse)
 		  == TRAVERSE_EXIT)
