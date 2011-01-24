@@ -1,9 +1,19 @@
+2011-01-24  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from the GCC 4.6 mainline:
+	2011-01-24  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/47385
+	* config/rs6000/altivec.md (vector constant splitters): Add
+	support for creating vector single precision constants if -mvsx is
+	used and we would create the constant using Altivec primitives.
+
 2010-12-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Backport from the GCC 4.6 mainline:
 	2010-12-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
-	PR middle-end/42694
 
+	PR middle-end/42694
 	* builtins.c (expand_builtin_pow_root): Don't optimize pow(x,y)
 	where y is 0.25, 1./6., or 0.75 if the target does not have a sqrt
 	instruction, but do optimize if y is 0.5 or 1./3. since that
