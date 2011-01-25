@@ -1,7 +1,7 @@
 2011-01-25  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
-	* gcc.target/powerpc/avoid-indexed-addresses.c: Add explicit
-	-mcpu=power6 so a default --with-cpu=power7 doesn't give an error
+	* gcc.target/powerpc/avoid-indexed-addresses.c: Disable altivec
+	and vsx so a default --with-cpu=power7 doesn't give an error
 	when -mavoid-indexed-addresses is used.
 
 	* gcc.target/powerpc/ppc32-abi-dfp-1.c: Rewrite to use an asm
