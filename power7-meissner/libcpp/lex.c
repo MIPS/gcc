@@ -547,6 +547,11 @@ search_line_fast (const uchar *s, const uchar *end ATTRIBUTE_UNUSED)
   const vc zero = { 0 };
 
   vc data, mask, t;
+  const uchar *unaligned_s = s;
+
+  /* While altivec loads mask addresses, we still need to align S so
+     that the offset we compute at the end is correct.  */
+  s = (const uchar *)((uintptr_t)s & -16);
 
   /* Altivec loads automatically mask addresses with -16.  This lets us
      issue the first load as early as possible.  */
@@ -555,14 +560,19 @@ search_line_fast (const uchar *s, const uchar *end ATTRIBUTE_UNUSED)
   /* Discard bytes before the beginning of the buffer.  Do this by
      beginning with all ones and shifting in zeros according to the
      mis-alignment.  The LVSR instruction pulls the exact shift we
-     want from the address.  */
-  mask = __builtin_vec_lvsr(0, s);
+     want from the address.
+
+     Originally, we used s in the lvsr and did the alignment afterwords, which
+     works on a system that supported just the Altivec instruction set using
+     the LVX instruction.  With the introduction of the VSX instruction, for
+     GCC 4.5, the load became LXVW4X.  LVX ignores the bottom 3 bits, and
+     LXVW4X does not.  While GCC 4.6 will revert vec_ld/vec_st to go back to
+     only produce Altivec instructions, the possibiliy exists that the stage1
+     compiler was built with a compiler that generated LXVW4X.  This code will
+     work on either system.  */
+  mask = __builtin_vec_lvsr(0, unaligned_s);
   mask = __builtin_vec_perm(zero, ones, mask);
   data &= mask;
-
-  /* While altivec loads mask addresses, we still need to align S so
-     that the offset we compute at the end is correct.  */
-  s = (const uchar *)((uintptr_t)s & -16);
 
   /* Main loop processing 16 bytes at a time.  */
   goto start;

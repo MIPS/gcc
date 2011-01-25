@@ -1,5 +1,9 @@
 2011-01-24  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* doc/extend.texi (PowerPC AltiVec/VSX Built-in Functions):
+	Document using vector double with the load/store builtins, and
+	that the load/store builtins always use Altivec instructions.
+
 	Merge up to 169167.
 	* REVISION: Update subversion id.
 

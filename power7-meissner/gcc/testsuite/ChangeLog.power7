@@ -1,3 +1,15 @@
+2011-01-25  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/avoid-indexed-addresses.c: Add explicit
+	-mcpu=power6 so a default --with-cpu=power7 doesn't give an error
+	when -mavoid-indexed-addresses is used.
+
+	* gcc.target/powerpc/ppc32-abi-dfp-1.c: Rewrite to use an asm
+	wrapper function to save the arguments and then jump to the real
+	function, rather than depending on the compiler not to move stuff
+	before an asm.
+	* gcc.target/powerpc/ppc64-abi-dfp-2.c: Ditto.
+
 2011-01-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 169111.

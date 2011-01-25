@@ -1,0 +1,5 @@
+2011-01-24  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* lex.c (search_line_fast): Work with compilers that generate
+	either LXVW4X or LVX for vec_ld.
+

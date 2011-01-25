@@ -12354,6 +12354,12 @@ vector bool long vec_cmplt (vector double, vector double);
 vector float vec_div (vector float, vector float);
 vector double vec_div (vector double, vector double);
 vector double vec_floor (vector double);
+vector double vec_ld (int, const vector double *);
+vector double vec_ld (int, const double *);
+vector double vec_ldl (int, const vector double *);
+vector double vec_ldl (int, const double *);
+vector unsigned char vec_lvsl (int, const volatile double *);
+vector unsigned char vec_lvsr (int, const volatile double *);
 vector double vec_madd (vector double, vector double, vector double);
 vector double vec_max (vector double, vector double);
 vector double vec_min (vector double, vector double);
@@ -12382,6 +12388,8 @@ vector double vec_sel (vector double, vector double, vector unsigned long);
 vector double vec_sub (vector double, vector double);
 vector float vec_sqrt (vector float);
 vector double vec_sqrt (vector double);
+void vec_st (vector double, int, vector double *);
+void vec_st (vector double, int, double *);
 vector double vec_trunc (vector double);
 vector double vec_xor (vector double, vector double);
 vector double vec_xor (vector double, vector bool long);
@@ -12411,6 +12419,10 @@ int vec_any_nle (vector double, vector double);
 int vec_any_nlt (vector double, vector double);
 int vec_any_numeric (vector double);
 @end smallexample
+
+Note that the @samp{vec_ld} and @samp{vec_st} builtins will always
+generate the Altivec @samp{LVX} and @samp{STVX} instructions even
+if the VSX instruction set is available.
 
 GCC provides a few other builtins on Powerpc to access certain instructions:
 @smallexample
