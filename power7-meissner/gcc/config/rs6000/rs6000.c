@@ -13043,30 +13043,6 @@ altivec_init_builtins (void)
 				pcvoid_type_node, integer_type_node,
 				integer_type_node, NULL_TREE);
 
-  def_builtin (MASK_VSX, "__builtin_altivec_ld_internal_2di", v2di_ftype_pclong_long,
-	       ALTIVEC_BUILTIN_LD_INTERNAL_2di);
-  def_builtin (MASK_VSX, "__builtin_altivec_st_internal_2di", void_ftype_plong_long_v2di,
-	       ALTIVEC_BUILTIN_ST_INTERNAL_2di);
-  def_builtin (MASK_VSX, "__builtin_altivec_ld_internal_2df", v2df_ftype_pcdouble,
-	       ALTIVEC_BUILTIN_LD_INTERNAL_2df);
-  def_builtin (MASK_VSX, "__builtin_altivec_st_internal_2df", void_ftype_pdouble_v2df,
-	       ALTIVEC_BUILTIN_ST_INTERNAL_2df);
-  def_builtin (MASK_ALTIVEC, "__builtin_altivec_ld_internal_4sf", v4sf_ftype_pcfloat,
-	       ALTIVEC_BUILTIN_LD_INTERNAL_4sf);
-  def_builtin (MASK_ALTIVEC, "__builtin_altivec_st_internal_4sf", void_ftype_pfloat_v4sf,
-	       ALTIVEC_BUILTIN_ST_INTERNAL_4sf);
-  def_builtin (MASK_ALTIVEC, "__builtin_altivec_ld_internal_4si", v4si_ftype_pcint,
-	       ALTIVEC_BUILTIN_LD_INTERNAL_4si);
-  def_builtin (MASK_ALTIVEC, "__builtin_altivec_st_internal_4si", void_ftype_pint_v4si,
-	       ALTIVEC_BUILTIN_ST_INTERNAL_4si);
-  def_builtin (MASK_ALTIVEC, "__builtin_altivec_ld_internal_8hi", v8hi_ftype_pcshort,
-	       ALTIVEC_BUILTIN_LD_INTERNAL_8hi);
-  def_builtin (MASK_ALTIVEC, "__builtin_altivec_st_internal_8hi", void_ftype_pshort_v8hi,
-	       ALTIVEC_BUILTIN_ST_INTERNAL_8hi);
-  def_builtin (MASK_ALTIVEC, "__builtin_altivec_ld_internal_16qi", v16qi_ftype_pcchar,
-	       ALTIVEC_BUILTIN_LD_INTERNAL_16qi);
-  def_builtin (MASK_ALTIVEC, "__builtin_altivec_st_internal_16qi", void_ftype_pchar_v16qi,
-	       ALTIVEC_BUILTIN_ST_INTERNAL_16qi);
   def_builtin (MASK_ALTIVEC, "__builtin_altivec_mtvscr", void_ftype_v4si, ALTIVEC_BUILTIN_MTVSCR);
   def_builtin (MASK_ALTIVEC, "__builtin_altivec_mfvscr", v8hi_ftype_void, ALTIVEC_BUILTIN_MFVSCR);
   def_builtin (MASK_ALTIVEC, "__builtin_altivec_dssall", void_ftype_void, ALTIVEC_BUILTIN_DSSALL);
@@ -13097,6 +13073,9 @@ altivec_init_builtins (void)
   def_builtin (MASK_ALTIVEC, "__builtin_vec_stvewx", void_ftype_opaque_long_pvoid, ALTIVEC_BUILTIN_VEC_STVEWX);
   def_builtin (MASK_ALTIVEC, "__builtin_vec_stvebx", void_ftype_opaque_long_pvoid, ALTIVEC_BUILTIN_VEC_STVEBX);
   def_builtin (MASK_ALTIVEC, "__builtin_vec_stvehx", void_ftype_opaque_long_pvoid, ALTIVEC_BUILTIN_VEC_STVEHX);
+
+  def_builtin (MASK_VSX, "__builtin_vec_vsx_ld", opaque_ftype_long_pcvoid, VSX_BUILTIN_VEC_LD);
+  def_builtin (MASK_VSX, "__builtin_vec_vsx_st", void_ftype_opaque_long_pvoid, VSX_BUILTIN_VEC_ST);
 
   if (rs6000_cpu == PROCESSOR_CELL)
     {
