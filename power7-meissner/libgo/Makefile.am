@@ -657,6 +657,20 @@ go_netchan_files = \
 	go/netchan/export.go \
 	go/netchan/import.go
 
+if LIBGO_IS_LINUX
+go_os_sys_file = go/os/sys_linux.go
+else
+if LIBGO_IS_SOLARIS
+go_os_sys_file = go/os/sys_uname.go
+else
+if LIBGO_IS_RTEMS
+go_os_sys_file = go/os/sys_uname.go
+else
+go_os_sys_file = go/os/sys_bsd.go
+endif
+endif
+endif
+
 go_os_files = \
 	go/os/dir.go \
 	go/os/env.go \
@@ -669,7 +683,7 @@ go_os_files = \
 	go/os/path.go \
 	go/os/proc.go \
 	go/os/stat.go \
-	go/os/sys_linux.go \
+	$(go_os_sys_file) \
 	go/os/time.go \
 	go/os/types.go
 
@@ -2272,8 +2286,8 @@ go/printer/check: $(CHECK_DEPS)
 .PHONY: go/printer/check
 
 go/libscanner.a: $(go_go_scanner_files) bytes.gox container/vector.gox fmt.gox \
-		go/token.gox io.gox os.gox sort.gox strconv.gox unicode.gox \
-		utf8.gox
+		go/token.gox io.gox os.gox path.gox sort.gox strconv.gox \
+		unicode.gox utf8.gox
 	$(BUILDARCHIVE)
 go/libscanner.la: go/libscanner.a
 go/scanner/check: $(CHECK_DEPS)
@@ -2464,8 +2478,12 @@ testing/script/check: $(CHECK_DEPS)
 	$(CHECK)
 .PHONY: testing/script/check
 
-sysinfo.go: $(srcdir)/mksysinfo.sh config.h
+sysinfo.go: s-sysinfo; @true
+s-sysinfo: $(srcdir)/mksysinfo.sh config.h
 	CC="$(CC)" $(SHELL) $(srcdir)/mksysinfo.sh
+	$(SHELL) $(srcdir)/../move-if-change tmp-sysinfo.go sysinfo.go
+	$(STAMP) $@
+
 syscalls/libsyscall.a: $(go_syscall_files) $(go_syscall_c_files) sync.gox
 	rm -f syscall.gox syscalls/libsyscall.a
 	test -d syscalls || $(MKDIR_P) syscalls

@@ -1,3 +1,79 @@
+2011-01-28  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc.dg/pr47276.c: Add dg-require-visibility.
+
+2011-01-28  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc.target/i386/asm-6.c: XFAIL on i?86-pc-solaris2.1[0-9] && ilp32.
+
+2011-01-28  Paul Thomas  <pault@gcc.gnu.org>
+	    Tobias Burnus  <burnus@gcc.gnu.org>
+
+	PR fortran/45170
+	PR fortran/35810
+	PR fortran/47350
+	* gfortran.dg/realloc_on_assign_3.f03: New test.
+	* gfortran.dg/realloc_on_assign_4.f03: New test.
+	* gfortran.dg/realloc_on_assign_5.f90: New test.
+	* gfortran.dg/allocatable_function_5.f90: New test.
+	* gfortran.dg/allocate_deferred_char_scalar_1.f90: New test.
+	* gfortran.dg/deferred_type_param_2.f90: Remove two "not yet
+	implemented" dg-errors.
+
+2011-01-27  Jan Hubicka  <jh@suse.cz>
+
+	PR middle-end/46949
+	* gcc.dg/attr-weakref-4.c: New testcase
+
+2011-01-27  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/47228
+	* gcc.dg/torture/pr47228.c: New test.
+
+2011-01-27  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* gcc.dg/tree-ssa/pr42585.c: Disable on s390 and s390x.
+
+2011-01-27  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* lib/compat.exp (compat-execute): Pass -Wl,--extra-stack-space=8192
+	when using auto-overlay support on the SPU.
+
+2011-01-27  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR rtl-optimization/44174
+	* gcc.target/i386/asm-6.c: New test.
+
+2011-01-26  Mikael Pettersson  <mikpe@it.uu.se>
+
+	PR rtl-optimization/46856
+	* gcc.c-torture/compile/pr46856.c: New test.
+
+2011-01-26  Nicola Pero  <nicola.pero@meta-innovation.com>
+	    Andrew Pinski  <pinskia@gmail.com>
+
+	PR c/43082
+	* gcc.dg/pr43082.c: New.
+
+2011-01-26  DJ Delorie  <dj@redhat.com>
+
+	PR rtl-optimization/46878
+	* gcc.dg/pr46878-1.c: New test.
+
+2011-01-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/47476
+	* g++.dg/cpp0x/pr47476.C: New test.
+
+2011-01-26  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.c-torture/compile/20110126-1.c: New test.
+
+2011-01-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/47473
+	* gcc.dg/torture/pr47473.c: New test.
+
 2011-01-26  Jan Hubicka  <jh@suse.cz>
 
 	PR target/47237

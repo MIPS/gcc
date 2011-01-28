@@ -1,3 +1,129 @@
+2011-01-28  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* configure.ac (gcc_cv_ld_static_dynamic): IRIX 6 ld supports
+	-Bstatic/-Bdynamic.
+	* configure: Regenerate.
+
+2011-01-27  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/rs6000/sysv4.h (LIB_NETBSD_SPEC): Don't handle -profile.
+	* config/rs6000/vxworks.h (CC1_SPEC): Don't handle -profile.
+
+2011-01-27  Anatoly Sokolov  <aesok@post.ru>
+
+	* config/s390/s390.h (PREFERRED_RELOAD_CLASS): Remove.
+	* config/s390/s390-protos.h (s390_preferred_reload_class): Remove.
+	* config/s390/s390.c (TARGET_PREFERRED_RELOAD_CLASS): Define.
+	(s390_preferred_reload_class): Make static. Change return and
+	'rclass' argument type to reg_class_t.
+
+2011-01-27  Jan Hubicka  <jh@suse.cz>
+
+	PR middle-end/46949
+	* cgraphunit.c (process_common_attributes): Fix use of remove_attribute.
+	(process_function_and_variable_attributes): Check defined weakrefs.
+
+2011-01-27  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/47228
+	* tree-sra.c (sra_modify_assign): Use build_ref_for_model instead of
+	build_ref_for_offset.
+
+2011-01-27  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/spu/spu-elf.h (ASM_SPEC): Remove.
+
+2011-01-26  Mikael Pettersson <mikpe@it.uu.se>
+
+	PR rtl-optimization/46856
+	* postreload.c (reload_combine_recognize_const_pattern): Do not
+	separate cc0 setter and user on cc0 targets.
+
+2011-01-26  Nicola Pero  <nicola.pero@meta-innovation.com>
+
+	PR c/43082
+	* c-typeck.c (c_objc_common_truthvalue_conversion): If we are
+	passed a VOID_TYPE expression, immediately emit an error and
+	return error_mark_node.
+
+2011-01-26  Jeff Law  <law@redhat.com>
+
+	PR rtl-optimization/47464
+	* df-problems.c (can_move_insn_across): Use may_trap_or_fault_p
+	rather than may_trap_p as needed.
+
+2011-01-26  DJ Delorie  <dj@redhat.com>
+
+	PR rtl-optimization/46878
+	* combine.c (insn_a_feeds_b): Check for the implicit cc0
+	setter/user dependency as well.
+
+2011-01-26  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR rtl-optimization/44469
+	* cfgcleanup.c (try_optimize_cfg): Iterate in CFG layout mode too
+	after removing trivially dead basic blocks.
+
+2011-01-26  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/bfin/bfin.h (LINK_SPEC): Remove %{Qy:} %{!Qn:-Qy}.
+	* config/frv/frv.h (LINK_SPEC): Likewise.
+	* config/i386/netware.h (LINK_SPEC): Likewise.
+	* config/m68k/linux.h (ASM_SPEC): Likewise.
+	* config/rs6000/linux64.h (ASM_SPEC_COMMON): Likewise.
+	* config/rs6000/sysv4.h (LINK_SPEC): Likewise.
+	* config/rs6000/vxworks.h (ASM_SPEC): Likewise.
+	* config/sparc/linux.h (ASM_SPEC): Likewise.
+	* config/sparc/linux64.h (ASM_SPEC): Likewise.
+	* config/sparc/sp-elf.h (ASM_SPEC): Likewise.
+
+2011-01-26  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/bfin/bfin.h (ASM_SPEC): Remove %{Ym,*}.
+	* config/frv/frv.h (ASM_SPEC): Likewise.
+	* config/m68k/linux.h (ASM_SPEC): Likewise.
+	* config/pa/pa-linux.h (ASM_SPEC): Likewise.
+	* config/rs6000/linux64.h (ASM_SPEC): Likewise.
+	* config/rs6000/vxworks.h (ASM_SPEC): Likewise.
+	* config/sparc/linux.h (ASM_SPEC): Likewise.
+	* config/sparc/linux64.h (ASM_SPEC): Likewise.
+	* config/sparc/sp-elf.h (ASM_SPEC): Likewise.
+
+2011-01-26  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/bfin/bfin.h (LINK_SPEC): Remove %{YP,*}.
+	* config/frv/frv.h (LINK_SPEC): Likewise.
+	* config/rs6000/sysv4.h (LINK_SPEC): Likewise.
+
+2011-01-26  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/bfin/bfin.h (ASM_SPEC): Remove %{Yd,*}.
+	* config/frv/frv.h (ASM_SPEC): Likewise.
+	* config/i386/sol2-10.h (ASM_SPEC): Likewise.
+	* config/m68k/linux.h (ASM_SPEC): Likewise.
+	* config/pa/pa-linux.h (ASM_SPEC): Likewise.
+	* config/rs6000/linux64.h (ASM_SPEC32): Likewise.
+	* config/rs6000/vxworks.h (ASM_SPEC): Likewise.
+	* config/sol2.h (ASM_SPEC): Remove comment about -Yd,.
+	* config/sparc/linux.h (ASM_SPEC): Likewise.
+	* config/sparc/linux64.h (ASM_SPEC): Likewise.
+	* config/sparc/sp-elf.h (ASM_SPEC): Likewise.
+	* config/sparc/sysv4.h (ASM_SPEC): Remove %{Yd,*}.
+
+2011-01-26  Steve Ellcey  <sje@cup.hp.com>
+
+	PR target/46997
+	* config/ia64/vect.md (mulv2si3): Enable and fix for TARGET_BIG_ENDIAN.
+	(*mux2): Ditto.
+	(vec_extract_evenodd_help): Ditto.
+	(vec_extract_evenv4hi): Ditto.
+	(vec_extract_oddv4hi): Ditto.
+	(vec_interleave_lowv2si): Ditto.
+	(vec_interleave_highv2si): Ditto.
+	(vec_extract_evenv2si): Ditto.
+	(vec_extract_oddv2si: Ditto.
+	(vec_pack_trunc_v2si): Ditto.
+
 2011-01-22  Jan Hubicka  <jh@suse.cz>
 
 	PR target/47237
