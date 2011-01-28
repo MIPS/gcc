@@ -1,3 +1,40 @@
+2011-01-27  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/47474
+	* trans-decl.c (gfc_generate_function_code): Fix init
+	of allocatable result variable with allocatable components.
+
+2011-01-27  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/47472
+	* options.c (gfc_handle_module_path_options): Save
+	module path without trailing slash as include path.
+
+2011-01-25  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/47448
+	* interface.c (gfc_check_operator_interface): Fix
+	defined-assignment check.
+
+2011-01-23  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/47421
+	* trans-decl.c (gfc_trans_deferred_vars): Do not nullify
+	scalar allocatable dummy arguments.
+
+2011-01-22  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/38536
+	* resolve.c (gfc_iso_c_func_interface):  For C_LOC,
+	check for array sections followed by component references
+	which are illegal.  Also check for coindexed arguments.
+
+2011-01-22  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/47399
+	* primary.c (gfc_match_varspec): Relax gcc_assert to allow for
+	PARAMETER TBP.
+
 2011-01-21  Tobias Burnus  <burnus@net-b.de>
 
 	PR fortran/47394

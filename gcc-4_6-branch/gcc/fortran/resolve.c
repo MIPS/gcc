@@ -2699,6 +2699,9 @@ gfc_iso_c_func_interface (gfc_symbol *sym, gfc_actual_arglist *args,
         }
       else if (sym->intmod_sym_id == ISOCBINDING_LOC)
         {
+	  gfc_ref *ref;
+	  bool seen_section;
+
           /* Make sure we have either the target or pointer attribute.  */
 	  if (!arg_attr.target && !arg_attr.pointer)
             {
@@ -2709,6 +2712,45 @@ gfc_iso_c_func_interface (gfc_symbol *sym, gfc_actual_arglist *args,
               retval = FAILURE;
             }
 
+	  if (gfc_is_coindexed (args->expr))
+	    {
+	      gfc_error_now ("Coindexed argument not permitted"
+			     " in '%s' call at %L", name,
+			     &(args->expr->where));
+	      retval = FAILURE;
+	    }
+
+	  /* Follow references to make sure there are no array
+	     sections.  */
+	  seen_section = false;
+
+	  for (ref=args->expr->ref; ref; ref = ref->next)
+	    {
+	      if (ref->type == REF_ARRAY)
+		{
+		  if (ref->u.ar.type == AR_SECTION)
+		    seen_section = true;
+
+		  if (ref->u.ar.type != AR_ELEMENT)
+		    {
+		      gfc_ref *r;
+		      for (r = ref->next; r; r=r->next)
+			if (r->type == REF_COMPONENT)
+			  {
+			    gfc_error_now ("Array section not permitted"
+					   " in '%s' call at %L", name,
+					   &(args->expr->where));
+			    retval = FAILURE;
+			    break;
+			  }
+		    }
+		}
+	    }
+
+	  if (seen_section && retval == SUCCESS)
+	    gfc_warning ("Array section in '%s' call at %L", name,
+			 &(args->expr->where));
+			 
           /* See if we have interoperable type and type param.  */
           if (verify_c_interop (arg_ts) == SUCCESS
               || gfc_check_any_c_kind (arg_ts) == SUCCESS)
@@ -11684,40 +11726,64 @@ resolve_fl_namelist (gfc_symbol *sym)
 
   for (nl = sym->namelist; nl; nl = nl->next)
     {
-      /* Reject namelist arrays of assumed shape.  */
+      /* Check again, the check in match only works if NAMELIST comes
+	 after the decl.  */
+      if (nl->sym->as && nl->sym->as->type == AS_ASSUMED_SIZE)
+     	{
+	  gfc_error ("Assumed size array '%s' in namelist '%s' at %L is not "
+		     "allowed", nl->sym->name, sym->name, &sym->declared_at);
+	  return FAILURE;
+	}
+
       if (nl->sym->as && nl->sym->as->type == AS_ASSUMED_SHAPE
-	  && gfc_notify_std (GFC_STD_F2003, "NAMELIST array object '%s' "
-			     "must not have assumed shape in namelist "
+	  && gfc_notify_std (GFC_STD_F2003, "Fortran 2003: NAMELIST array "
+			     "object '%s' with assumed shape in namelist "
 			     "'%s' at %L", nl->sym->name, sym->name,
 			     &sym->declared_at) == FAILURE)
+	return FAILURE;
+
+      if (is_non_constant_shape_array (nl->sym)
+	  && gfc_notify_std (GFC_STD_F2003,  "Fortran 2003: NAMELIST array "
+			     "object '%s' with nonconstant shape in namelist "
+			     "'%s' at %L", nl->sym->name, sym->name,
+			     &sym->declared_at) == FAILURE)
+	return FAILURE;
+
+      if (nl->sym->ts.type == BT_CHARACTER
+	  && (nl->sym->ts.u.cl->length == NULL
+	      || !gfc_is_constant_expr (nl->sym->ts.u.cl->length))
+	  && gfc_notify_std (GFC_STD_F2003,  "Fortran 2003: NAMELIST object "
+			     "'%s' with nonconstant character length in "
+			     "namelist '%s' at %L", nl->sym->name, sym->name,
+			     &sym->declared_at) == FAILURE)
+	return FAILURE;
+
+      /* FIXME: Once UDDTIO is implemented, the following can be
+	 removed.  */
+      if (nl->sym->ts.type == BT_CLASS)
+	{
+	  gfc_error ("NAMELIST object '%s' in namelist '%s' at %L is "
+		     "polymorphic and requires a defined input/output "
+		     "procedure", nl->sym->name, sym->name, &sym->declared_at);
+	  return FAILURE;
+	}
+
+      if (nl->sym->ts.type == BT_DERIVED
+	  && (nl->sym->ts.u.derived->attr.alloc_comp
+	      || nl->sym->ts.u.derived->attr.pointer_comp))
+	{
+	  if (gfc_notify_std (GFC_STD_F2003,  "Fortran 2003: NAMELIST object "
+			      "'%s' in namelist '%s' at %L with ALLOCATABLE "
+			      "or POINTER components", nl->sym->name,
+			      sym->name, &sym->declared_at) == FAILURE)
 	    return FAILURE;
 
-      /* Reject namelist arrays that are not constant shape.  */
-      if (is_non_constant_shape_array (nl->sym))
-	{
-	  gfc_error ("NAMELIST array object '%s' must have constant "
-		     "shape in namelist '%s' at %L", nl->sym->name,
+	 /* FIXME: Once UDDTIO is implemented, the following can be
+	    removed.  */
+	  gfc_error ("NAMELIST object '%s' in namelist '%s' at %L has "
+		     "ALLOCATABLE or POINTER components and thus requires "
+		     "a defined input/output procedure", nl->sym->name,
 		     sym->name, &sym->declared_at);
-	  return FAILURE;
-	}
-
-      /* Namelist objects cannot have allocatable or pointer components.  */
-      if (nl->sym->ts.type != BT_DERIVED)
-	continue;
-
-      if (nl->sym->ts.u.derived->attr.alloc_comp)
-	{
-	  gfc_error ("NAMELIST object '%s' in namelist '%s' at %L cannot "
-		     "have ALLOCATABLE components",
-		     nl->sym->name, sym->name, &sym->declared_at);
-	  return FAILURE;
-	}
-
-      if (nl->sym->ts.u.derived->attr.pointer_comp)
-	{
-	  gfc_error ("NAMELIST object '%s' in namelist '%s' at %L cannot "
-		     "have POINTER components", 
-		     nl->sym->name, sym->name, &sym->declared_at);
 	  return FAILURE;
 	}
     }
