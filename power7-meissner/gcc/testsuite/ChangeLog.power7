@@ -1,3 +1,8 @@
+2011-01-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/vsx-builtin-8.c: New file, test vec_vsx_ld
+	and vec_vsx_st.
+
 2011-01-25  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* gcc.target/powerpc/avoid-indexed-addresses.c: Disable altivec

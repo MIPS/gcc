@@ -318,6 +318,8 @@
 #define vec_nearbyint __builtin_vec_nearbyint
 #define vec_rint __builtin_vec_rint
 #define vec_sqrt __builtin_vec_sqrt
+#define vec_vsx_ld __builtin_vec_vsx_ld
+#define vec_vsx_st __builtin_vec_vsx_st
 #endif
 
 /* Predicates.

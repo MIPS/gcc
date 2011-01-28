@@ -1,23 +1,38 @@
 2011-01-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
-	Merge up to 169363.
-	* REVISION: Update subversion id.
+	* config/rs6000/rs6000-c.c (altivec_overloaded_builtins): Add
+	builtins for VSX specific load/store operations.
 
-	* config/rs6000/rs6000-builtin.def (VSX_BUILTIN_VEC_LD): New
-	builtin for VSX style ld/stores.
+	* config/rs6000/rs6000-builtins.def (VSX_BUILTIN_LXVD2X*): Split
+	into separate builtins for each type.
+	(VSX_BUILTIN_LXVW4X*): Ditto.
+	(VSX_BUILTIN_STXVD2X*): Ditto.
+	(VSX_BUILTIN_STXVW4X*): Ditto.
+	(VSX_BUILTIN_VEC_LD): New builtins for VSX load/store.
 	(VSX_BUILTIN_VEC_ST): Ditto.
-	(VSX_BUILTIN_VEC_VSX_LD): Ditto.
-	(VSX_BUILTIN_VEC_VSX_ST): Ditto.
-	(VSX_BUILTIN_OVERLOADED_LAST): Update to include
-	VSX_BUILTIN_VEC_VSX_LD and VSX_BUILTIN_VEC_VSX_ST.
+	(VSX_BUILTIN_OVERLOADED_LAST): Update new last overloaded
+	builtin.
 
-	* config/rs6000/rs6000.c (altivec_init_builtins): Delete
-	undocumented VSX builtins __builtin_altivec_ld_internal_*.
-	Add stubs for __builtin_vec_vsx_ld and __builtin_vec_vsx_st.
+	* config/rs6000/rs6000.c (altivec_expand_builtin): Add support for
+	VSX load/store builtins.
+
+	* doc/extend.texi (PowerPC AltiVec/VSX Built-in Functions):
+	Document vec_vsx_ld and vec_vsx_st.  Delete undocumented VSX
+	builtins __builtin_altivec_ld_internal_* and
+	__builtin_altivec_st_internal_* that were never implemented.
+	Delete all of the type variables created to support these old
+	builtins.
+
+	* config/rs6000/altivec.h (vec_vsx_ld): Add VSX memory bultins.
+	(vec_vsx_st): Ditto.
 
 	* config/rs6000/vsx.md: (vsx_load_<mode>): New expander for VSX
 	load/store builtins.
 	(vsx_store_<mode>): Ditto.
+
+	Merge up to 169363.
+	* REVISION: Update subversion id.
+
 
 2011-01-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
