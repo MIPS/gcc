@@ -1,5 +1,5 @@
 /* IRA hard register and memory cost calculation for allocnos or pseudos.
-   Copyright (C) 2006, 2007, 2008, 2009, 2010
+   Copyright (C) 2006, 2007, 2008, 2009, 2010, 2011
    Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
@@ -1256,6 +1256,7 @@ scan_one_insn (rtx insn)
   enum rtx_code pat_code;
   rtx set, note;
   int i, k;
+  bool counted_mem;
 
   if (!NONDEBUG_INSN_P (insn))
     return insn;
@@ -1265,24 +1266,40 @@ scan_one_insn (rtx insn)
       || pat_code == ADDR_VEC || pat_code == ADDR_DIFF_VEC)
     return insn;
 
+  counted_mem = false;
   set = single_set (insn);
   extract_insn (insn);
 
   /* If this insn loads a parameter from its stack slot, then it
      represents a savings, rather than a cost, if the parameter is
-     stored in memory.  Record this fact.  */
+     stored in memory.  Record this fact. 
+
+     Similarly if we're loading other constants from memory (constant
+     pool, TOC references, small data areas, etc) and this is the only
+     assignment to the destination pseudo.  */
   if (set != 0 && REG_P (SET_DEST (set)) && MEM_P (SET_SRC (set))
       && (note = find_reg_note (insn, REG_EQUIV, NULL_RTX)) != NULL_RTX
-      && MEM_P (XEXP (note, 0)))
+      && ((MEM_P (XEXP (note, 0)))
+	  || (CONSTANT_P (XEXP (note, 0))
+	      && LEGITIMATE_CONSTANT_P (XEXP (note, 0))
+	      && REG_N_SETS (REGNO (SET_DEST (set))) == 1)))
     {
       enum reg_class cl = GENERAL_REGS;
       rtx reg = SET_DEST (set);
       int num = COST_INDEX (REGNO (reg));
+      int sub_cost;
 
-      COSTS (costs, num)->mem_cost
-	-= ira_memory_move_cost[GET_MODE (reg)][cl][1] * frequency;
+      sub_cost = ira_memory_move_cost[GET_MODE (reg)][cl][1] * frequency;
+
+      /* Clamp the memory cost at zero to prevent overflows later
+	 when we subtract its value from INT_MAX.  */
+      if (COSTS (costs, num)->mem_cost > sub_cost)
+	COSTS (costs, num)->mem_cost -= sub_cost;
+      else
+	COSTS (costs, num)->mem_cost = 0;
       record_address_regs (GET_MODE (SET_SRC (set)), XEXP (SET_SRC (set), 0),
 			   0, MEM, SCRATCH, frequency * 2);
+      counted_mem = true;
     }
 
   record_operand_costs (insn, pref);
@@ -1301,9 +1318,11 @@ scan_one_insn (rtx insn)
 	int add_cost;
 
 	add_cost = q->mem_cost;
-	if (add_cost > 0 && INT_MAX - add_cost < p->mem_cost)
+	/* If the already accounted for the memory "cost" above, don't
+	   do so again.  */
+	if (!counted_mem && add_cost > 0 && INT_MAX - add_cost < p->mem_cost)
 	  p->mem_cost = INT_MAX;
-	else
+	else if (!counted_mem) 
 	  p->mem_cost += add_cost;
 	for (k = cost_classes_ptr->num - 1; k >= 0; k--)
 	  {
