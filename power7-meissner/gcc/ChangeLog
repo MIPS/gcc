@@ -1,3 +1,203 @@
+2011-02-01  Bernd Schmidt  <bernds@codesourcery.com>
+
+	* tree-dump.c (dump_option_value_info): Add entry for TDF_CSELIB.
+	* tree-pass.h (TDF_CSELIB): New macro.
+	* cselib.c (new_cselib_val, expand_loc, cselib_expand_value_rtx_1,
+	cselib_lookup): Check for it rather than for TDF_DETAILS.
+
+2011-02-01  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR driver/47547
+	* lto-wrapper.c (run_gcc): Don't add -dumpdir if linker_output
+	is HOST_BIT_BUCKET.
+
+	* opts.c (finish_options): Don't add x_aux_base_name if it is
+	HOST_BIT_BUCKET.
+
+2011-02-01  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/47555
+	Revert
+	2010-07-15  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* params.def (PARAM_SCEV_MAX_EXPR_SIZE): Bump the value to 100.
+
+2011-02-01  Sebastien Bourdeauducq  <sebastien@milkymist.org>
+
+	PR gcc/46692
+	* config/lm32/t-lm32: Add multilib for all CPU options.
+
+2011-02-01  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/47541
+	* tree-ssa-structalias.c (push_fields_onto_fieldstack): Make
+	sure to have a field at offset zero.
+
+2011-01-31  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/arc/arc.opt (EB, EL): New Driver options.
+
+2011-01-31  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/alpha/osf5.opt: New.
+	* config.gcc (alpha*-dec-osf5.1*): Use alpha/osf5.opt.
+
+2011-01-31  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/vms/vms.opt (map, mvms-return-codes): New Driver options.
+
+2011-01-31  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* common.opt (ftree-loop-linear): Use Alias to make it an alias of
+	-floop-interchange.
+	* invoke.texi (-ftree-loop-linear): Make it clear that this flag
+	is an alias of -floop-interchange and that it requires the
+	Graphite infrastructure.
+	* tree-ssa-loop.c (gate_graphite_transforms): Do not set
+	flag_loop_interchange based on the value of flag_tree_loop_linear.
+
+2011-01-31  Jakub Jelinek  <jakub@redhat.com>
+	    Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/47538
+	* tree-ssa-ccp.c (bit_value_binop_1): For uns computation use
+	type instead of r1type, except for comparisons.  For right
+	shifts and comparisons punt if there are mismatches in
+	sizetype vs. non-sizetype types.
+
+2011-01-31  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* doc/sourcebuild.texi (Effective-Target Keywords): Document
+	avx_runtime.
+
+2011-01-31  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* configure.ac (gcc_cv_ld_eh_frame_hdr): Update minimal Sun ld
+	version number.
+	* configure: Regenerate.
+
+2011-01-31  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* configure.ac (gcc_cv_ld_static_option): Define.
+	(gcc_cv_ld_dynamic_option): Define.
+	(gcc_cv_ld_static_dynamic): Tru64 UNIX support -noso/-so_archive
+	instead.
+	(HAVE_LD_STATIC_DYNAMIC): Update message.
+	(LD_STATIC_OPTION): Define.
+	(LD_DYNAMIC_OPTION): Define.
+	* configure: Regenerate.
+	* config.in: Regenerate.
+	* gcc.c (init_spec) [USE_LIBUNWIND_EXCEPTIONS &&
+	HAVE_LD_STATIC_DYNAMIC]: Use them.
+
+2011-01-31  Nick Clifton  <nickc@redhat.com>
+
+	* config/rx/rx.c (rx_get_stack_layout): Only save call clobbered
+	registers inside interrupt handlers if the handler is not a leaf
+	function.
+
+2011-01-31  Nick Clifton  <nickc@redhat.com>
+
+	* config/mn10300/mn10300.c (mn10300_regno_in_class_p): Check for
+	reg_renumber returning an INVALID_REGNUM.
+
+2011-01-31  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR libgcj/44341
+	* doc/install.texi: Document host options discarded when cross
+	configuring target libraries.
+
+2011-01-31  Alexandre Oliva  <aoliva@redhat.com>
+
+	Reverted:
+	2011-01-25  Alexandre Oliva  <aoliva@redhat.com>
+	PR debug/45136
+	PR debug/45130
+	* haifa-sched.c (get_ebb_head_tail): Move notes across boundary
+	debug insns.
+	(no_real_insns_p, schedule_block, set_priorities): Drop special
+	treatment of boundary debug insns.
+	* sched-deps.c (sd_init_insn, sd_finish_insn): Don't mark debug
+	insns.
+	* sched-ebb.c (schedule_ebbs): Don't skip debug insns.
+	* sched-int.h (DEBUG_INSN_SCHED_P): Remove.
+	(BOUNDARY_DEBUG_INSN_P): Likewise.
+	(SCHEDULE_DEBUG_INSN_P): Likewise.
+	* sched-rgn.c (init_ready_list): Drop special treatment of
+	boundary debug insns.
+	* final.c (rest_of_clean-state): Clear notes' BB.
+
+2011-01-31  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/rs6000.c (print_operand): Rearrange addends in
+	toc relative expressions as we do in print_operand_address.
+
+2011-01-30  Kazu Hirata  <kazu@codesourcery.com>
+
+	* doc/extend.texi: Follow spelling conventions.
+	* doc/invoke.texi: Fix a typo.
+
+2011-01-30  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/hpux11.opt: New.
+	* config.gcc (hppa*64*-*-hpux11*, hppa[12]*-*-hpux11*,
+	ia64*-*-hpux*): Use hpux11.opt.
+
+2011-01-30  Jonathan Yong <jon_y@users.sourceforge.net>
+
+	* config.gcc (i[34567]86-*-pe | i[34567]86-*-cygwin*): Add t-dfprules
+	to tmake_file.
+
+2011-01-30  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/install.texi (hppa-hp-hpux10): Remove references to HP
+	support sites.
+
+2011-01-30  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/install.texi (Binaries): Remove outdated reference for
+	Motorola 68HC11/68HC12 downloads.
+
+2011-01-30  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/extend.texi (Thread-Local): Adjust reference to Ulrich
+	Drepper's paper.
+
+2011-01-29  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	PR bootstrap/47147
+	* ginclude/stddef.h: Check for _X86_64_ANSI_H_ and _I386_ANSI_H_ as
+	used by NetBSD.
+
+2011-01-28  Ahmad Sharif <asharif@google.com>
+
+	* value-prof.c (check_counter): Corrected error message.
+
+2011-01-29  Jie Zhang  <jie@codesourcery.com>
+
+	* config/arm/arm.c (arm_legitimize_reload_address): New.
+	* config/arm/arm.h (ARM_LEGITIMIZE_RELOAD_ADDRESS): Use
+	arm_legitimize_reload_address.
+	* config/arm/arm-protos.h (arm_legitimize_reload_address):
+	Declare.
+
+2011-01-28  Ian Lance Taylor  <iant@google.com>
+
+	* godump.c (go_define): Ignore macros whose definitions include
+	two adjacent operands.
+
+2011-01-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/42894
+	* varasm.c (force_const_mem): Store copy of x in desc->constant
+	instead of x itself.
+	* expr.c (emit_move_insn): Add a copy of y_cst instead of y_cst
+	itself into REG_EQUAL note.
+
+2011-01-28  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/freebsd.opt (posix, rdynamic): New Driver options.
+
 2011-01-28  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
 
 	* configure.ac (gcc_cv_ld_static_dynamic): IRIX 6 ld supports
@@ -152,8 +352,8 @@
 2011-01-26  Richard Guenther  <rguenther@suse.de>
 
 	PR tree-optimization/47190
-	 * cgraphunit.c (process_common_attributes): New function.
-        (process_function_and_variable_attributes): Use it.
+	* cgraphunit.c (process_common_attributes): New function.
+	(process_function_and_variable_attributes): Use it.
 
 2011-01-26  Richard Guenther  <rguenther@suse.de>
 
@@ -847,14 +1047,19 @@
 	* tree-ssa-copyrename.c (copy_rename_partition_coalesce):
 	Revert previous change, only avoid enumeral type changes.
 
+2011-01-19  Mike Stump  <mikestump@comcast.net>
+
+	* doc/tm.texi.in (BRANCH_COST): Englishify.
+	* doc/tm.texi (BRANCH_COST): Likewise.
+
 2011-01-19  Dodji Seketeli  <dodji@redhat.com>
 
 	PR c++/47291
 	* dwarf2out.c (generic_type_p, schedule_generic_params_dies_gen)
-    	(gen_scheduled_generic_parms_dies): New functions.
-    	(gen_struct_or_union_type_die): Schedule template parameters DIEs
-    	generation for the end of CU compilation.
-    	(dwarf2out_finish): Generate template parameters DIEs here.
+	(gen_scheduled_generic_parms_dies): New functions.
+	(gen_struct_or_union_type_die): Schedule template parameters DIEs
+	generation for the end of CU compilation.
+	(dwarf2out_finish): Generate template parameters DIEs here.
 
 2011-01-19  Alexandre Oliva  <aoliva@redhat.com>
 
@@ -1187,9 +1392,9 @@
 
 2011-01-18  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
 
-        * config/arm/cortex-a9.md (cortex-a9-neon.md): Actually
-        include.
-        (cortex_a9_dp): Handle neon types correctly.
+	* config/arm/cortex-a9.md (cortex-a9-neon.md): Actually
+	include.
+	(cortex_a9_dp): Handle neon types correctly.
 
 2011-01-18  Jakub Jelinek  <jakub@redhat.com>
 
@@ -1363,8 +1568,8 @@
 	(avx_maskstore<ssemodesuffix><avxmodesuffix>): Likewise.
 
 2011-01-17  Olivier Hainque  <hainque@adacore.com>
-            Michael Haubenwallner  <michael.haubenwallner@salomon.at>
-            Eric Botcazou  <ebotcazou@adacore.com>
+	    Michael Haubenwallner  <michael.haubenwallner@salomon.at>
+	    Eric Botcazou  <ebotcazou@adacore.com>
 
 	PR target/46655
 	* xcoffout.c (ASM_OUTPUT_LINE): Output line only if positive, and only
@@ -1640,7 +1845,7 @@
 	PR debug/PR46973
 	* dwarf2out.c (prune_unused_types_mark_generic_parms_dies): New
 	static function.
-    	(prune_unused_types_mark): Use it.
+	(prune_unused_types_mark): Use it.
 
 2011-01-13  Andrey Belevantsev  <abel@ispras.ru>
 
