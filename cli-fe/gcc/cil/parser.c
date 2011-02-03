@@ -1483,9 +1483,14 @@ parser_emit_ldsflda (MonoMethod *caller, guint32 token)
   MonoImage *image = mono_class_get_image (mono_method_get_class (caller));
   MonoClass *klass = NULL;
   MonoClassField *field = mono_field_from_token (image, token, &klass, NULL);
+  int flags = mono_field_get_flags (field);
   tree exp_addr = parser_build_static_field_address_tree (field);
-  /* FIXME: the type should be CIL_STYPE_NINT if the object memory is unmanaged */
-  cil_stack_push (exp_addr, CIL_STYPE_MP);
+  
+  /* Static fields are unmanaged */
+  if (flags & MONO_FIELD_ATTR_STATIC)
+    cil_stack_push (exp_addr, CIL_STYPE_NINT);
+  else
+    cil_stack_push (exp_addr, CIL_STYPE_MP);
 }
 
 static tree
