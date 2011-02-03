@@ -1911,6 +1911,28 @@ parser_emit_brtrue (const unsigned char *ip, gint32 offset, CILLabelsMap *labels
   cil_bindings_output_statements (cond_expr_tree);
 }
 
+/* FIXME: An actual switch with a correct body may be a better implementation */
+static void
+parser_emit_switch (const unsigned char *ip, guint32 n_offsets, gint32 offsets[], CILLabelsMap *labels)
+{
+  gcc_assert(cil_stack_is_empty () == 0);
+  tree value_tree = convert (integer_type_node, cil_stack_pop (NULL));
+  tree stmt;
+  int i;
+
+  stmt = build1 (GOTO_EXPR, void_type_node, cil_labels_set_get_label (labels, ip));
+  for (i = n_offsets - 1; i >= 0; i--)
+    {
+      const unsigned char *target_ip = ip + offsets[i];
+      tree label_tree = build1 (GOTO_EXPR, void_type_node, cil_labels_set_get_label (labels, target_ip));
+      tree cond_tree =  build2 (EQ_EXPR, integer_type_node, value_tree, build_int_cst (integer_type_node, i));
+      stmt = build3 (COND_EXPR, void_type_node, cond_tree, label_tree, stmt);
+    }
+  cil_bindings_output_statements (stmt);
+}
+
+/* NOTE: This is the original code, but it fails, since gimplifier ignores switchs with NULL SWITCH_BODY */
+#if 0
 static void
 parser_emit_switch (const unsigned char *ip, guint32 n_offsets, gint32 offsets[], CILLabelsMap *labels)
 {
@@ -1931,6 +1953,7 @@ parser_emit_switch (const unsigned char *ip, guint32 n_offsets, gint32 offsets[]
   tree switch_tree = build3 (SWITCH_EXPR, void_type_node, value_tree, NULL_TREE, labels_tree);
   cil_bindings_output_statements (switch_tree);
 }
+#endif
 
 static void
 parser_emit_bge (const unsigned char *ip, gint32 offset, CILLabelsMap *labels)
