@@ -1,3 +1,21 @@
+2010-12-16  Release Manager
+
+	* GCC 4.5.2 released.
+
+2010-12-07  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline
+	2010-11-20  Jakub Jelinek  <jakub@redhat.com>
+ 
+	PR c++/46538
+	* decl.c (cp_make_fname_decl): Return error_mark_node if
+	current_binding_level has already sk_function_parms kind.
+
+2010-12-03  Jason Merrill  <jason@redhat.com>
+
+	PR c++/46058
+	* tree.c (lvalue_kind) [SCOPE_REF]: Handle non-dependent case.
+
 2010-11-11  Jakub Jelinek  <jakub@redhat.com>
 
 	Backport from mainline

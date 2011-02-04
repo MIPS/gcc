@@ -73,21 +73,23 @@ var_used_in_not_loop_header_phi_node (tree var)
   return result;
 }
 
-/* Returns the index of the phi argument corresponding to the initial
-   value in the loop.  */
+/* Returns the index of the PHI argument defined in the outermost
+   loop.  */
 
 static size_t
-loop_entry_phi_arg (gimple phi)
+phi_arg_in_outermost_loop (gimple phi)
 {
   loop_p loop = gimple_bb (phi)->loop_father;
-  size_t i;
+  size_t i, res = 0;
 
   for (i = 0; i < gimple_phi_num_args (phi); i++)
     if (!flow_bb_inside_loop_p (loop, gimple_phi_arg_edge (phi, i)->src))
-      return i;
+      {
+	loop = gimple_phi_arg_edge (phi, i)->src->loop_father;
+	res = i;
+      }
 
-  gcc_unreachable ();
-  return 0;
+  return res;
 }
 
 /* Removes a simple copy phi node "RES = phi (INIT, RES)" at position
@@ -98,7 +100,7 @@ remove_simple_copy_phi (gimple_stmt_iterator *psi)
 {
   gimple phi = gsi_stmt (*psi);
   tree res = gimple_phi_result (phi);
-  size_t entry = loop_entry_phi_arg (phi);
+  size_t entry = phi_arg_in_outermost_loop (phi);
   tree init = gimple_phi_arg_def (phi, entry);
   gimple stmt = gimple_build_assign (res, init);
   edge e = gimple_phi_arg_edge (phi, entry);
@@ -118,7 +120,7 @@ remove_invariant_phi (sese region, gimple_stmt_iterator *psi)
   loop_p loop = loop_containing_stmt (phi);
   tree res = gimple_phi_result (phi);
   tree scev = scalar_evolution_in_region (region, loop, res);
-  size_t entry = loop_entry_phi_arg (phi);
+  size_t entry = phi_arg_in_outermost_loop (phi);
   edge e = gimple_phi_arg_edge (phi, entry);
   tree var;
   gimple stmt;
@@ -713,7 +715,7 @@ scan_tree_for_params_right_scev (sese s, tree e, int var,
       gcc_assert (TREE_CODE (e) == INTEGER_CST);
 
       value_init (val);
-      value_set_si (val, int_cst_value (e));
+      tree_int_to_gmp (e, val);
       add_value_to_dim (l, expr, val);
       value_clear (val);
     }
@@ -727,16 +729,13 @@ scan_tree_for_params_int (tree cst, ppl_Linear_Expression_t expr, Value k)
 {
   Value val;
   ppl_Coefficient_t coef;
-  int v = int_cst_value (cst);
+  tree type = TREE_TYPE (cst);
 
   value_init (val);
-  value_set_si (val, 0);
 
   /* Necessary to not get "-1 = 2^n - 1". */
-  if (v < 0)
-    value_sub_int (val, val, -v);
-  else
-    value_add_int (val, val, v);
+  mpz_set_double_int (val, double_int_sext (tree_to_double_int (cst),
+					    TYPE_PRECISION (type)), false);
 
   value_multiply (val, val, k);
   ppl_new_Coefficient (&coef);
@@ -814,7 +813,7 @@ scan_tree_for_params (sese s, tree e, ppl_Linear_Expression_t c,
 	      Value val;
 	      gcc_assert (host_integerp (TREE_OPERAND (e, 1), 0));
 	      value_init (val);
-	      value_set_si (val, int_cst_value (TREE_OPERAND (e, 1)));
+	      tree_int_to_gmp (TREE_OPERAND (e, 1), val);
 	      value_multiply (val, val, k);
 	      scan_tree_for_params (s, TREE_OPERAND (e, 0), c, val);
 	      value_clear (val);
@@ -829,7 +828,7 @@ scan_tree_for_params (sese s, tree e, ppl_Linear_Expression_t c,
 	      Value val;
 	      gcc_assert (host_integerp (TREE_OPERAND (e, 0), 0));
 	      value_init (val);
-	      value_set_si (val, int_cst_value (TREE_OPERAND (e, 0)));
+	      tree_int_to_gmp (TREE_OPERAND (e, 0), val);
 	      value_multiply (val, val, k);
 	      scan_tree_for_params (s, TREE_OPERAND (e, 1), c, val);
 	      value_clear (val);
@@ -1715,10 +1714,13 @@ pdr_add_data_dimensions (ppl_Polyhedron_t accesses, data_reference_p dr,
       /* subscript - low >= 0 */
       if (host_integerp (low, 0))
 	{
+	  tree minus_low;
+
 	  ppl_new_Linear_Expression_with_dimension (&expr, accessp_nb_dims);
 	  ppl_set_coef (expr, subscript, 1);
 
-	  ppl_set_inhomogeneous (expr, -int_cst_value (low));
+	  minus_low = fold_build1 (NEGATE_EXPR, TREE_TYPE (low), low);
+	  ppl_set_inhomogeneous_tree (expr, minus_low);
 
 	  ppl_new_Constraint (&cstr, expr, PPL_CONSTRAINT_TYPE_GREATER_OR_EQUAL);
 	  ppl_Polyhedron_add_constraint (accesses, cstr);
@@ -1738,7 +1740,7 @@ pdr_add_data_dimensions (ppl_Polyhedron_t accesses, data_reference_p dr,
 	  ppl_new_Linear_Expression_with_dimension (&expr, accessp_nb_dims);
 	  ppl_set_coef (expr, subscript, -1);
 
-	  ppl_set_inhomogeneous (expr, int_cst_value (high));
+	  ppl_set_inhomogeneous_tree (expr, high);
 
 	  ppl_new_Constraint (&cstr, expr, PPL_CONSTRAINT_TYPE_GREATER_OR_EQUAL);
 	  ppl_Polyhedron_add_constraint (accesses, cstr);
@@ -2235,7 +2237,8 @@ rewrite_phi_out_of_ssa (gimple_stmt_iterator *psi)
 
       /* Avoid the insertion of code in the loop latch to please the
 	 pattern matching of the vectorizer.  */
-      if (e->src == bb->loop_father->latch)
+      if (TREE_CODE (arg) == SSA_NAME
+	  && e->src == bb->loop_father->latch)
  	insert_out_of_ssa_copy (zero_dim_array, arg);
       else
 	insert_out_of_ssa_copy_on_edge (e, zero_dim_array, arg);

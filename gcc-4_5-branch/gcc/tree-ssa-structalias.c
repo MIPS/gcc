@@ -369,7 +369,11 @@ new_var_info (tree t, const char *name)
   ret->may_have_pointers = true;
   ret->is_global_var = (t == NULL_TREE);
   if (t && DECL_P (t))
-    ret->is_global_var = is_global_var (t);
+    ret->is_global_var = (is_global_var (t)
+			  /* We have to treat even local register variables
+			     as escape points.  */
+			  || (TREE_CODE (t) == VAR_DECL
+			      && DECL_HARD_REGISTER (t)));
   ret->solution = BITMAP_ALLOC (&pta_obstack);
   ret->oldsolution = BITMAP_ALLOC (&oldpta_obstack);
   ret->next = NULL;
@@ -4304,6 +4308,17 @@ push_fields_onto_fieldstack (tree type, VEC(fieldoff_s,heap) **fieldstack,
 
 	    if (!VEC_empty (fieldoff_s, *fieldstack))
 	      pair = VEC_last (fieldoff_s, *fieldstack);
+
+	    if (!pair
+		&& offset + foff != 0)
+	      {
+		pair = VEC_safe_push (fieldoff_s, heap, *fieldstack, NULL);
+		pair->offset = 0;
+		pair->size = offset + foff;
+		pair->has_unknown_size = false;
+		pair->may_have_pointers = false;
+		pair->only_restrict_pointers = false;
+	      }
 
 	    if (!DECL_SIZE (field)
 		|| !host_integerp (DECL_SIZE (field), 1))

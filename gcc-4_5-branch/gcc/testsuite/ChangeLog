@@ -1,3 +1,421 @@
+2011-02-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from mainline:
+	2011-02-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
+	PR target/47272
+	* gcc.target/powerpc/vsx-builtin-8.c: New file, test vec_vsx_ld
+	and vec_vsx_st.
+
+	* gcc.target/powerpc/avoid-indexed-addresses.c: Disable altivec
+	and vsx so a default --with-cpu=power7 doesn't give an error
+	when -mavoid-indexed-addresses is used.
+
+	* gcc.target/powerpc/ppc32-abi-dfp-1.c: Rewrite to use an asm
+	wrapper function to save the arguments and then jump to the real
+	function, rather than depending on the compiler not to move stuff
+	before an asm.
+	* gcc.target/powerpc/ppc64-abi-dfp-2.c: Ditto.
+
+2011-02-03  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	PR c++/47589
+	* g++.dg/pr47589.C: New test.
+
+2011-02-01  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/47541
+	* g++.dg/torture/pr47541.C: New testcase.
+
+2011-01-31  Nathan Froyd  <froydnj@codesourcery.com>
+
+	Backport from mainline:
+	2010-12-30  Nathan Froyd  <froydnj@codesourcery.com>
+
+        PR target/44606
+        * gcc.dg/pr44606.c: New test.
+
+2011-01-27  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* gcc.dg/tree-ssa/pr42585.c: Disable on power, arm, sh, s390 and
+	s390x.
+
+2011-01-26  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.c-torture/compile/20110126-1.c: New test.
+
+2011-01-25  Tobias Burnus  <burnus@net-b.de>
+
+	Backport from mainline
+	2011-01-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/47331
+	* gfortran.dg/gomp/pr47331.f90: New test.
+
+2011-01-25  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/47448
+	* gfortran.dg/redefined_intrinsic_assignment_2.f90: New.
+
+2011-01-25  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/47411
+	* gcc.dg/torture/pr47411.c: New testcase.
+
+2011-01-24  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gfortran.dg/cray_pointers_2.f90: Avoid cycling through
+	optimization options.
+
+2011-01-24  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gfortran.dg/array_constructor_33.f90: Use dg-timeout-factor 4.
+
+2011-01-21  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/47365
+	* gcc.dg/torture/pr47365.c: New testcase.
+	* gcc.dg/tree-ssa/pr47392.c: Likewise.
+
+2011-01-21  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* g++.dg/other/anon5.C: Skip on mips-sgi-irix*.
+
+2011-01-17  Eric Botcazou  <ebotcazou@adacore.com>
+
+	Backport from mainline
+	2010-11-22  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/pr28796-2.c: SKIP on SPARC/Solaris 8.
+
+	PR rtl-optimization/46603
+	* gcc.dg/vect/slp-multitypes-2.c: XFAIL execution on SPARC 32-bit.
+
+	2010-08-31  Bingfeng Mei  <bmei@broadcom.com>
+
+	* gcc.dg/vect/pr43430-1.c: Requires vect_condition target.
+
+2011-01-17  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* g++.old-deja/g++.other/init19.C: Don't XFAIL on mips-sgi-irix*.
+
+2011-01-17  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2011-01-17  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/47318
+	* gcc.target/i386/avx-vmaskmovpd-1.c: New.
+	* gcc.target/i386/avx-vmaskmovpd-2.c: Likewise.
+	* gcc.target/i386/avx-vmaskmovps-1.c: Likewise.
+	* gcc.target/i386/avx-vmaskmovps-1.c: Likewise.
+
+	* gcc.target/i386/avx-vmaskmovpd-256-1.c (avx_test): Load mask
+	as __m256i.
+	* gcc.target/i386/avx-vmaskmovpd-256-2.c (avx_test): Likewise.
+	* gcc.target/i386/avx-vmaskmovps-256-1.c (avx_test): Likewise.
+	* gcc.target/i386/avx-vmaskmovps-256-2.c (avx_test): Likewise.
+
+2011-01-17  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	PR tree-optimization/47286
+	* gcc.dg/tree-ssa/pr47286.c: New testcase.
+
+	PR tree-optimization/44592
+	* gfortran.dg/pr44592.f90: New testcase.
+
+2011-01-16  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline
+	2011-01-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/47201
+	* gcc.dg/pr47201.c: New test.
+
+	2011-01-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/47150
+	* gcc.c-torture/compile/pr47150.c: New test.
+
+	2010-12-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/46880
+	* gcc.target/i386/pr46880.c: New test.
+
+	PR middle-end/45852
+	* gcc.target/i386/pr45852.c: New test.
+
+	2010-12-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/43655
+	* g++.dg/opt/pr43655.C: New test.
+
+	PR debug/46893
+	* gcc.dg/pr46893.c: New test.
+
+	2010-12-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/46804
+	* gfortran.dg/pr46804.f90: New test.
+
+	PR rtl-optimization/46865
+	* gcc.target/i386/pr46865-1.c: New test.
+	* gcc.target/i386/pr46865-2.c: New test.
+
+	PR tree-optimization/46864
+	* g++.dg/opt/pr46864.C: New test.
+
+2011-01-13  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gfortran.dg/cray_pointers_2.f90: Use dg-timeout-factor 4.
+
+2011-01-12  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR testsuite/33033
+	* gcc.dg/20061124-1.c: Pass -mcpu=v9 on the SPARC.
+
+2011-02-01  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	Backport from mainline
+	PR fortran/45338
+	* gfortran.dg/userdef_operator_2.f90:  New test case.
+
+2010-12-27  Yao Qi  <yao@codesourcery.com>
+
+	Backport from mainline:
+	2010-10-14  Yao Qi  <yao@codesourcery.com>
+
+	PR target/45447
+	* gcc.target/arm/pr45447.c: New test.
+
+2010-12-24  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/opt13_pkg.ad[sb]: Fix line ending.
+
+2010-12-22  Sebastian Pop  <sebastian.pop@amd.com>
+
+	PR tree-optimization/46758
+	* gcc.dg/graphite/run-id-pr46758.c: New.
+
+2010-12-23  Sebastian Pop  <sebastian.pop@amd.com>
+
+	PR tree-optimization/45552
+	* gcc.dg/graphite/pr45552.c
+
+
+2010-12-23  Sebastian Pop  <sebastian.pop@amd.com>
+
+	PR tree-optimization/43023
+	* gfortran.dg/ldist-1.f90: Adjust pattern.
+	* gfortran.dg/ldist-pr43023.f90: New.
+
+2010-12-21  Martin Jambor  <mjambor@suse.cz>
+
+	PR middle-end/46734
+	* g++.dg/tree-ssa/pr46734.C: New test.
+
+2010-12-18  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/46756
+	* gfortran.dg/debug/pr46756.f: New.
+
+2010-12-18  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/46782
+	* gcc.dg/debug/pr46782.c: New.
+
+2010-12-17  Daniel Kraft  <d@domob.eu>
+
+	PR fortran/46794
+	* gfortran.dg/power2.f90: Initialize variables.
+
+2010-12-16  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/opt13.adb: New test.
+	* gnat.dg/opt13_pkg.ad[sb]: New helper.
+
+2010-12-16  Release Manager
+
+	* GCC 4.5.2 released.
+
+2010-12-07  Sebastian Pop  <sebastian.pop@amd.com>
+
+	PR tree-optimization/44676
+	* gcc.dg/graphite/id-pr44676.c: New.
+
+2010-12-07  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline
+	2010-12-06  Jakub Jelinek  <jakub@redhat.com>
+ 
+	PR target/43897
+	* gcc.target/ia64/pr43897.c: New test.
+
+	PR rtl-optimization/46777
+	* gcc.dg/pr46777.c: New test.
+
+	2010-11-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/46614
+	* gcc.dg/pr46614.c: New test.
+
+	2010-11-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/46499
+	* gcc.dg/pr46499-1.c: New test.
+	* gcc.dg/pr46499-2.c: New test.
+
+	2010-11-20  Jakub Jelinek  <jakub@redhat.com>
+ 
+	PR c++/46538
+	* g++.dg/other/error34.C: New test.
+
+	2010-11-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/46534
+	* gcc.c-torture/compile/pr46534.c: New test.
+
+	2010-11-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/46440
+	* gcc.dg/pr46440.c: New test.
+
+	2010-11-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/46401
+	* g++.dg/warn/Wsequence-point-3.C: New test.
+
+2010-12-06  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2010-07-23  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* lib/target-supports.exp (add_options_for_tls): New proc.
+	* g++.dg/tls/static-1.C: Use dg-add-options tls.
+	* g++.dg/tls/static-1a.cc: Likewise.
+	* gcc.dg/tls/emutls-1.c: Likewise.
+	* gcc.dg/tls/opt-11.c: Likewise.
+	* gcc.dg/tls/opt-12.c: Likewise.
+	* gcc.dg/tls/pr24428-2.c: Likewise.
+	* gcc.dg/tls/pr24428.c: Likewise.
+
+	2010-11-02  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR target/46131
+	* lib/target-supports.exp (add_options_for_tls): Pass -pthread for
+	*-*-osf*.
+
+2010-12-06  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2010-07-16  Iain Sandoe  <iains@gcc.gnu.org>
+
+	PR testsuite/43925
+	* lib/plugin-support.exp (plugin-test-execute):
+	Add ${gcc_objdir}/intl to includes.
+
+2010-12-06  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* ada/acats/run_acats (which): Assign output to temporary
+	variable, only use if successful.
+	Use last field of type output.
+
+2010-12-06  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/46806
+	* g++.dg/torture/20100825.C: New testcase.
+
+2010-12-05  Richard Guenther  <rguenther@suse.de>
+	    Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/46663
+	* gcc.dg/vect/pr46663.c: New test.
+
+2010-12-04  Daniel Kraft  <d@domob.eu>
+
+	PR fortran/46794
+	* gfortran.dg/power2.f90: New test.
+
+2010-12-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/46123
+	* g++.dg/debug/pr46123.C: New test.
+	* g++.dg/debug/dwarf2/pr46123.C: New test.
+
+2010-12-03  Jason Merrill  <jason@redhat.com>
+
+	PR c++/46058
+	* g++.dg/template/scope4.C: New.
+
+2010-12-03  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2010-11-10  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* g++.dg/abi/rtti3.C: Scan for .weakext on alpha*-dec-osf*.
+	* g++.dg/abi/thunk4.C: Likewise.
+	* g++.dg/other/anon5.C: Skip on alpha*-dec-osf*.
+	* g++.dg/warn/pr31246.C: XFAIL on alpha*-dec-osf*.
+	* g++.dg/warn/weak1.C: Skip on alpha*-dec-osf*.
+	* g++.old-deja/g++.eh/badalloc1.C [!STACK_SIZE && __osf__]: Use
+	large arena_size.
+	* gcc.dg/attr-weakref-1.c: Skip on alpha*-dec-osf*.
+	* gcc.dg/intmax_t-1.c: Likewise.
+
+2010-12-03  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2010-11-12  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* lib/prune.exp (prune_gcc_output): Ignore IRIX 6 linker multiline
+	warning.
+	* g++.dg/abi/packed1.C (struct INNER): Ignore warning on
+	mips-sgi-irix*.
+	* g++.dg/cpp/_Pragma1.C: Skip on mips-sgi-irix*.
+	* gcc.target/mips/call-3.c: Add dg-require-visibility.
+
+2010-11-29  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2010-07-22  Sebastian Pop  <sebastian.pop@amd.com>
+
+	PR middle-end/46651
+	* gcc.dg/graphite/id-24.c: New.
+
+2010-11-29  Richard Guenther  <rguenther@suse.de>
+	    Zdenek Dvorak  <rakdver@kam.uniff.cz>
+
+	PR tree-optimization/46675
+	* gcc.dg/pr46675.c: New test.
+
+2010-11-28  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/aliasing2.adb (dg-final): Robustify pattern matching.
+	* gnat.dg/pack9.adb (dg-final): Likewise.
+
+2010-11-27  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/46638
+	PR fortran/46668
+	* gfortran.dg/transfer_simplify_10.f90: Fix endian issue.
+
+2010-11-26  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* lib/gnat.exp: Load gcc.exp.
+	(gnat_target_compile): Use gcc_target_compile for *.c sources.
+	* gnat.dg/sse_nolib.adb: Use dg-require-effective-target sse_runtime.
+
+	Backport from mainline:
+	2010-11-25  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/loop_optimization7.adb: Remove dg-require-effective-target.
+	* gnat.dg/sse_nolib.adb: Likewise.
+
+2010-11-25  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/46638
+	* gfortran.dg/transfer_simplify_10.f90: New.
+
 2010-11-20  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* gcc.target/sparc/sparc-align-1.c: New test.

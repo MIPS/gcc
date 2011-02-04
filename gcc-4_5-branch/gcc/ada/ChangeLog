@@ -1,3 +1,19 @@
+2011-01-04  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/trans.c (Subprogram_Body_to_gnu): Evaluate the
+	expressions of the parameter cache within the statement group of
+	the CICO mechanism.
+
+2010-12-16  Release Manager
+
+	* GCC 4.5.2 released.
+
+2010-11-27  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR ada/40777
+	* gcc-interface/targtyps.c (get_target_double_scalar_alignment): Guard
+	use of TARGET_64BIT macro.
+
 2010-09-19  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* gcc-interface/trans.c (gnat_pushdecl): Do not do anything special

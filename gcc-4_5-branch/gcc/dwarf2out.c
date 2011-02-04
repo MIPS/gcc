@@ -12888,11 +12888,18 @@ const_ok_for_output_1 (rtx *rtlp, void *data ATTRIBUTE_UNUSED)
       /* If delegitimize_address couldn't do anything with the UNSPEC, assume
 	 we can't express it in the debug info.  */
 #ifdef ENABLE_CHECKING
-      inform (current_function_decl
-	      ? DECL_SOURCE_LOCATION (current_function_decl)
-	      : UNKNOWN_LOCATION,
-	      "non-delegitimized UNSPEC %d found in variable location",
-	      XINT (rtl, 1));
+      /* Don't complain about TLS UNSPECs, those are just too hard to
+	 delegitimize.  */
+      if (XVECLEN (rtl, 0) != 1
+	  || GET_CODE (XVECEXP (rtl, 0, 0)) != SYMBOL_REF
+	  || SYMBOL_REF_DECL (XVECEXP (rtl, 0, 0)) == NULL
+	  || TREE_CODE (SYMBOL_REF_DECL (XVECEXP (rtl, 0, 0))) != VAR_DECL
+	  || !DECL_THREAD_LOCAL_P (SYMBOL_REF_DECL (XVECEXP (rtl, 0, 0))))
+	inform (current_function_decl
+		? DECL_SOURCE_LOCATION (current_function_decl)
+		: UNKNOWN_LOCATION,
+		"non-delegitimized UNSPEC %d found in variable location",
+		XINT (rtl, 1));
 #endif
       expansion_failed (NULL_TREE, rtl,
 			"UNSPEC hasn't been delegitimized.\n");
@@ -19125,6 +19132,10 @@ gen_type_die_with_usage (tree type, dw_die_ref context_die,
 	     out yet, use a NULL context for now; it will be fixed up in
 	     decls_for_scope.  */
 	  context_die = lookup_decl_die (TYPE_CONTEXT (type));
+	  /* A declaration DIE doesn't count; nested types need to go in the
+	     specification.  */
+	  if (context_die && is_declaration_die (context_die))
+	    context_die = NULL;
 	  need_pop = 0;
 	}
       else

@@ -1579,7 +1579,14 @@ maybe_cleanup_end_of_block (edge e, rtx last)
 	{
 	  insn = PREV_INSN (insn);
 	  if (JUMP_P (NEXT_INSN (insn)))
-	    delete_insn (NEXT_INSN (insn));
+	    {
+	      if (!any_condjump_p (NEXT_INSN (insn)))
+		{
+		  gcc_assert (BARRIER_P (NEXT_INSN (NEXT_INSN (insn))));
+		  delete_insn (NEXT_INSN (NEXT_INSN (insn)));
+		}
+	      delete_insn (NEXT_INSN (insn));
+	    }
 	}
     }
 }
@@ -2583,7 +2590,7 @@ expand_debug_expr (tree exp)
 	    enum machine_mode opmode = GET_MODE (op0);
 
 	    if (opmode == VOIDmode)
-	      opmode = mode1;
+	      opmode = TYPE_MODE (TREE_TYPE (tem));
 
 	    /* This condition may hold if we're expanding the address
 	       right past the end of an array that turned out not to
@@ -2604,7 +2611,8 @@ expand_debug_expr (tree exp)
 				     ? SIGN_EXTRACT
 				     : ZERO_EXTRACT, mode,
 				     GET_MODE (op0) != VOIDmode
-				     ? GET_MODE (op0) : mode1,
+				     ? GET_MODE (op0)
+				     : TYPE_MODE (TREE_TYPE (tem)),
 				     op0, GEN_INT (bitsize), GEN_INT (bitpos));
       }
 

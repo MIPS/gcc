@@ -1,3 +1,784 @@
+2011-02-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from mainline:
+	2011-02-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/47272
+	* doc/extend.texi (PowerPC AltiVec/VSX Built-in Functions):
+	Document using vector double with the load/store builtins, and
+	that the load/store builtins always use Altivec instructions.
+
+	* config/rs6000/vector.md (vector_altivec_load_<mode>): New insns
+	to use altivec memory instructions, even on VSX.
+	(vector_altivec_store_<mode>): Ditto.
+
+	* config/rs6000/rs6000-protos.h (rs6000_address_for_altivec): New
+	function.
+
+	* config/rs6000/rs6000-c.c (altivec_overloaded_builtins): Add
+	V2DF, V2DI support to load/store overloaded builtins.
+
+	* config/rs6000/rs6000-builtin.def (ALTIVEC_BUILTIN_*): Add
+	altivec load/store builtins for V2DF/V2DI types.
+
+	* config/rs6000/rs6000.c (rs6000_option_override_internal): Don't
+	set avoid indexed addresses on power6 if -maltivec.
+	(altivec_expand_ld_builtin): Add V2DF, V2DI support, use
+	vector_altivec_load/vector_altivec_store builtins.
+	(altivec_expand_st_builtin): Ditto.
+	(altivec_expand_builtin): Add VSX memory builtins.
+	(rs6000_init_builtins): Add V2DI types to internal types.
+	(altivec_init_builtins): Add support for V2DF/V2DI altivec
+	load/store builtins.
+	(rs6000_address_for_altivec): Insure memory address is appropriate
+	for Altivec.
+
+	* config/rs6000/vsx.md (vsx_load_<mode>): New expanders for
+	vec_vsx_ld and vec_vsx_st.
+	(vsx_store_<mode>): Ditto.
+
+	* config/rs6000/rs6000.h (RS6000_BTI_long_long): New type
+	variables to hold long long types for VSX vector memory builtins.
+	(RS6000_BTI_unsigned_long_long): Ditto.
+	(long_long_integer_type_internal_node): Ditti.
+	(long_long_unsigned_type_internal_node): Ditti.
+
+	* config/rs6000/altivec.md (UNSPEC_LVX): New UNSPEC.
+	(altivec_lvx_<mode>): Make altivec_lvx use a mode iterator.
+	(altivec_stvx_<mode>): Make altivec_stvx use a mode iterator.
+
+	* config/rs6000/altivec.h (vec_vsx_ld): Define VSX memory builtin
+	short cuts.
+	(vec_vsx_st): Ditto.
+
+	Backport from mainline:
+	2011-02-01  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/47580
+	* config/rs6000/vsx.md (vsx_float<VSi><mode>2): Use
+	gpc_reg_operand instead of vsx_register_operand to match rs6000.md
+	generator functions.
+	(vsx_floatuns<VSi><mode>2): Ditto.
+	(vsx_fix_trunc<mode><VSi>2): Ditto.
+	(vsx_fixuns_trunc<mode><VSi>2): Ditto.
+
+2011-02-02  Nick Clifton  <nickc@redhat.com>
+
+	Import these patches from the mainline:
+	2011-01-31  Nick Clifton  <nickc@redhat.com>
+
+	* config/rx/rx.c (rx_get_stack_layout): Only save call clobbered
+	registers inside interrupt handlers if the handler is not a leaf
+	function.
+
+	2011-01-25  Nick Clifton  <nickc@redhat.com>
+
+	* config/rx/rx.h (LIBCALL_VALUE): Do not promote complex types.
+	* config/rx/rx.c (rx_function_value): Likewise.
+	(rx_promote_function_mode): Likewise.
+	(gen_safe_add): Place an outsized immediate value inside an UNSPEC
+	in order to make it legitimate.
+	* config/rx/rx.md (adddi3_internal): If the second operand is a
+	MEM make sure that the first operand is the same as the result
+	register.
+	(addsi3_unspec): Delete.
+	(subdi3): Do not accept immediate operands.
+	(subdi3_internal): Likewise.
+
+	2011-01-24  Richard Henderson  <rth@redhat.com>
+
+	* config/rx/predicates.md (rx_fp_comparison_operator): Don't accept
+	compound unordered comparisons.
+	* config/rx/rx.c (rx_split_fp_compare): Remove.
+	* config/rx/rx-protos.h: Update.
+	* config/rx/rx.md (gcc_conds, rx_conds): Remove.
+	(cbranchsf4): Don't call rx_split_fp_compare.
+	(*cbranchsf4): Use rx_split_cbranch.
+	(*cmpsf): Don't accept "i" constraint.
+	(*conditional_branch): Only valid after reload.
+	(cstoresf4): Merge expander with insn.  Don't call
+	rx_split_fp_compare.
+
+	2011-01-22  Nick Clifton  <nickc@redhat.com>
+
+	* config/rx/rx.md (cstoresf4): Pass comparison operator to
+	rx_split_fp_compare.
+
+	2011-01-22  Nick Clifton  <nickc@redhat.com>
+
+	* config/rx/rx.md (UNSPEC_CONST): New.
+	(deallocate_and_return): Wrap the amount popped off the stack in
+	an UNSPEC_CONST in order to stop it being rejected by
+	-mmax-constant-size.
+	(pop_and_return): Add a "(return)" rtx.
+	(call): Drop the immediate operand.
+	(call_internal): Likewise.
+	(call_value): Likewise.
+	(call_value_internal): Likewise.
+	(sibcall_internal): Likewise.
+	(sibcall_value_internal): Likewise.
+	(sibcall): Likewise.  Generate an explicit call using
+	sibcall_internal.
+	(sibcall_value): Likewise.
+	(mov<>): FAIL if a constant operand is not legitimate.
+	(addsi3_unpsec): New pattern.
+
+	* config/rx/rx.c (rx_print_operand_address): Handle UNPSEC
+	CONSTs.
+	(ok_for_max_constant): New function.
+	(gen_safe_add): New function.
+	(rx_expand_prologue): Use gen_safe_add.
+	(rx_expand_epilogue): Likewise.
+	(rx_is_legitimate_constant): Use ok_for_max_constant.  Handle
+	UNSPEC CONSTs.
+
+	2011-01-17  Richard Henderson  <rth@redhat.com>
+
+	* config/rx/predicates.md (rx_constshift_operand): Use match_test.
+	(rx_restricted_mem_operand): New.
+	(rx_shift_operand): Use register_operand.
+	(rx_source_operand, rx_compare_operand): Likewise.
+	* config/rx/rx.md (addsi3_flags): New expander.
+	(adddi3): Rewrite as expander.
+	(adc_internal, *adc_flags, adddi3_internal): New patterns.
+	(subsi3_flags): New expander.
+	(subdi3): Rewrite as expander.
+	(sbb_internal, *sbb_flags, subdi3_internal): New patterns.
+
+	* config/rx/rx.c (RX_BUILTIN_SAT): Remove.
+	(rx_init_builtins): Remove sat builtin.
+	(rx_expand_builtin): Likewise.
+	* config/rx/rx.md (ssaddsi3): New.
+	(*sat): Rename from sat.  Represent the CC_REG input.
+
+	* config/rx/predicates.md (rshift_operator): New.
+	* config/rx/rx.c (rx_expand_insv): Remove.
+	* config/rx/rx-protos.h: Update.
+	* config/rx/rx.md (*bitset): Rename from bitset.  Swap the ashift
+	operand to the canonical position.
+	(*bitset_in_memory, *bitinvert, *bitinvert_in_memory): Similarly.
+	(*bitclr, *bitclr_in_memory): Similarly.
+	(*insv_imm, rx_insv_reg, *insv_cond, *bmcc, *insv_cond_lt): New.
+	(insv): Retain the zero_extract in the expansion.
+
+	* config/rx/rx.md (bswapsi2): Use = not + for output reload.
+	(bswaphi2, bitinvert, revw): Likewise.
+
+	* config/rx/rx.c (gen_rx_store_vector): Use VOIDmode for gen_rtx_SET.
+	(gen_rx_rtsd_vector, gen_rx_popm_vector): Likewise.
+	* config/rx/rx.md (pop_and_return): Use VOIDmode for SET.
+	(stack_push, stack_pushm, stack_pop, stack_popm): Likewise.
+	(bitset, bitset_in_memory): Likewise.
+	(bitinvert, bitinvert_in_memory): Likewise.
+	(bitclr, bitclr_in_memory): Likewise.
+	(insv, sync_lock_test_and_setsi, movstr, rx_movstr): Likewise.
+	(rx_strend, rx_cmpstrn): Likewise.
+	(rx_setmem): Likewise.  Make the source BLKmode to match the dest.
+	(bitop peep2 patterns): Remove.
+
+	* config/rx/rx.c (rx_match_ccmode): New.
+	* config/rx/rx-protos.h: Update.
+	* config/rx/rx.md (abssi2): Clobber, don't set flags.
+	(addsi3, adddi3, andsi3, negsi2, one_cmplsi2, iorsi3): Likewise.
+	(rotlsi3, rotrsi3, ashrsi3, lshrsi3, ashlsi3): Likewise.
+	(subsi3, subdi3, xorsi3, addsf3, divsf3, mulsf3, subsf3): Likewise.
+	(fix_truncsfsi2, floatsisf2): Likewise.
+	(*abssi2_flags, *addsi3_flags, *andsi3_flags, *negsi2_flags): New.
+	(*one_cmplsi2_flags, *iorsi3_flags, *rotlsi3_flags): New.
+	(*rotrsi3_flags, *ashrsi3_flags, *lshrsi3_flags, *ashlsi3_flags): New.
+	(*subsi3_flags, *xorsi3_flags): New.
+
+	* config/rx/rx.md (cstoresf4, *cstoresf4): New patterns.
+
+	* config/rx/rx.c (rx_print_operand): Remove workaround for
+	unsplit comparison operations.
+
+	* config/rx/rx.md (movsicc): Split after reload.
+	(*movsicc): Merge *movsieq and *movsine via match_operator.
+	(*stcc): New pattern.
+
+	* config/rx/rx.c (rx_float_compare_mode): Remove.
+	* config/rx/rx.h (rx_float_compare_mode): Remove.
+	* config/rx/rx.md (cstoresi4): Split after reload.
+	(*sccc): New pattern.
+
+	* config/rx/predicates.md (label_ref_operand): New.
+	(rx_z_comparison_operator): New.
+	(rx_zs_comparison_operator): New.
+	(rx_fp_comparison_operator): New.
+	* config/rx/rx.c (rx_print_operand) [B]: Examine comparison modes.
+	Validate that the flags are set properly for the comparison.
+	(rx_gen_cond_branch_template): Remove.
+	(rx_cc_modes_compatible): Remove.
+	(mode_from_flags): New.
+	(flags_from_code): Rename from flags_needed_for_conditional.
+	(rx_cc_modes_compatible): Re-write in terms of flags_from_mode.
+	(rx_select_cc_mode): Likewise.
+	(rx_split_fp_compare): New.
+	(rx_split_cbranch): New.
+	* config/rx/rx.md (most_cond, zs_cond): Remove iterators.
+	(*cbranchsi4): Use match_operator and rx_split_cbranch.
+	(*cbranchsf4): Similarly.
+	(*cbranchsi4_tst): Rename from *tstbranchsi4_<code>.  Use
+	match_operator and rx_split_cbranch.
+	(*cbranchsi4_tst_ext): Combine *tstbranchsi4m_eq and
+	tstbranchsi4m_ne.  Use match_operator and rx_split_cbranch.
+	(*cmpsi): Rename from cmpsi.
+	(*tstsi): Rename from tstsi.
+	(*cmpsf): Rename from cmpsf; use CC_Fmode.
+	(*conditional_branch): Rename from conditional_branch.
+	(*reveresed_conditional_branch): Remove.
+	(b<code>): Remove expander.
+	* config/rx/rx-protos.h: Update.
+
+	* config/rx/rx.c (rx_compare_redundant): Remove.
+	* config/rx/rx.md (cmpsi): Don't use it.
+	* config/rx/rx-protos.h: Update.
+
+	* config/rx/rx-modes.def (CC_F): New mode.
+	* config/rx/rx.c (rx_select_cc_mode): New.
+	* config/rx/rx.h (SELECT_CC_MODE): Use it.
+	* config/rx/rx-protos.h: Update.
+
+2011-02-01  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/47541
+	* tree-ssa-structalias.c (push_fields_onto_fieldstack): Make
+	sure to have a field at offset zero.
+
+2011-01-31  Nathan Froyd  <froydnj@codesourcery.com>
+
+	Backport from mainline:
+	2010-12-30  Nathan Froyd  <froydnj@codesourcery.com>
+
+        PR target/44606
+        * reload1.c (choose_reload_regs): Don't look for equivalences for
+        output reloads of constant loads.
+
+2011-01-30  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/install.texi (hppa-hp-hpux10): Remove references to HP
+	support sites.
+
+2011-01-30  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/install.texi: Update copyright years.
+
+2011-01-30  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/install.texi (Binaries): Remove outdated reference for
+	Motorola 68HC11/68HC12 downloads.
+
+2011-01-30  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/extend.texi (Thread-Local): Adjust reference to Ulrich
+	Drepper's paper.
+
+2011-01-29  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	Backport from mainline:
+	2010-08-22  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+        PR boehm-gc/34544
+	* gthr-posix.h (__gthread_active_init): Delete.
+	(__gthread_active_p): Do activity check here.
+	Don't include errno.h on hppa-hpux.  Update comment.
+	* gthr-posix95.h (__gthread_active_init): Delete.
+	(__gthread_active_p): Do activity check here.
+	Don't include errno.h on hppa-hpux.  Update comment.
+	* config.gcc (hppa[12]*-*-hpux11*): Define extra_parts.
+	* config/pa/pa64-hpux.h (LIB_SPEC): When -static is specified, only
+	add -lpthread when -mt or -pthread is specified.
+	* config/pa/pa-hpux11.h (LIB_SPEC): likewise.
+	(LINK_GCC_C_SEQUENCE_SPEC): Define.
+	* config/pa/t-pa-hpux11 (LIBGCCSTUB_OBJS): Define.
+	(stublib.c, pthread_default_stacksize_np-stub.o,
+	pthread_mutex_lock-stub.o, pthread_mutex_unlock-stub.o,
+	$(T)libgcc_stub.a): Add methods.
+	* config/pa/t-pa64 (LIBGCCSTUB_OBJS): Add pthread stubs.
+	(stublib.c, pthread_default_stacksize_np-stub.o,
+	pthread_mutex_lock-stub.o, pthread_mutex_unlock-stub.o): Add methods.
+	* config/pa/stublib.c (pthread_default_stacksize_np, pthread_mutex_lock,
+	pthread_mutex_unlock): New stubs.
+
+2011-01-26  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR rtl-optimization/44469
+	* cfgcleanup.c (try_optimize_cfg): Iterate in CFG layout mode too
+	after removing trivially dead basic blocks.
+
+2011-01-25  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/47411
+	Backport from mainline
+	2010-06-30  Michael Matz  <matz@suse.de>
+
+	PR bootstrap/44699
+	* tree-vrp.c (vrp_finalize): Deal with changing num_ssa_names.
+
+2011-01-21  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	Backport from mainline.
+	2010-09-08  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	PR target/44392
+	* config/arm/arm.md (bswapsi2): Handle condition correctly
+	for armv6 and optimize_size.
+
+2011-01-21  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/47365
+	* tree-ssa-sccvn.h (vn_lookup_kind): Declare.
+	(vn_reference_lookup_pieces): Adjust.
+	(vn_reference_lookup): Likewise.
+	* tree-ssa-sccvn.c (vn_walk_kind): New static global.
+	(vn_reference_lookup_3): Only look through kills if in
+	VN_WALKREWRITE mode.
+	(vn_reference_lookup_pieces): Adjust.
+	(vn_reference_lookup): Likewise.
+	(visit_reference_op_load): Likewise.
+	(visit_reference_op_store): Likewise.
+	* tree-ssa-pre.c (phi_translate_1): Use VN_WALK mode.
+	(compute_avail): Likewise.
+	(eliminate): Likewise.
+
+2011-01-20  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/47167
+	* tree-ssa-copyrename.c (copy_rename_partition_coalesce):
+	Revert previous change, only avoid enumeral type changes.
+
+2011-01-17  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2011-01-17  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/47318
+	* config/i386/avxintrin.h (_mm_maskload_pd): Change mask to
+	__m128i.
+	(_mm_maskstore_pd): Likewise.
+	(_mm_maskload_ps): Likewise.
+	(_mm_maskstore_ps): Likewise.
+	(_mm256_maskload_pd): Change mask to __m256i.
+	(_mm256_maskstore_pd): Likewise.
+	(_mm256_maskload_ps): Likewise.
+	(_mm256_maskstore_ps): Likewise.
+
+	* config/i386/i386-builtin-types.def: Updated.
+	(ix86_expand_special_args_builtin): Likewise.
+
+	* config/i386/i386.c (bdesc_special_args): Update
+	__builtin_ia32_maskloadpd, __builtin_ia32_maskloadps,
+	__builtin_ia32_maskloadpd256, __builtin_ia32_maskloadps256,
+	__builtin_ia32_maskstorepd, __builtin_ia32_maskstoreps,
+	__builtin_ia32_maskstorepd256 and __builtin_ia32_maskstoreps256.
+
+	* config/i386/sse.md (avx_maskload<ssemodesuffix><avxmodesuffix>):
+	Use <avxpermvecmode> on mask register.
+	(avx_maskstore<ssemodesuffix><avxmodesuffix>): Likewise.
+
+2011-01-17  Olivier Hainque  <hainque@adacore.com>
+            Michael Haubenwallner  <michael.haubenwallner@salomon.at>
+            Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/46655
+	* xcoffout.c (ASM_OUTPUT_LINE): Output line only if positive, and only
+	if <= USHRT_MAX in 32-bit mode.
+
+2011-01-17  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	PR tree-optimization/47286
+	* tree-ssa-structalias.c (new_var_info): Register variables
+	are global.
+
+	PR tree-optimization/44592
+	* tree-ssa-ccp.c (gimplify_and_update_call_from_tree): Copy
+	from trunk.
+
+2011-01-16  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline
+	2011-01-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/47201
+	* config/i386/i386.c (ix86_delegitimize_address): If
+	simplify_gen_subreg fails, return orig_x.
+
+	2011-01-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/47150
+	* c-convert.c (convert): When converting a complex expression
+	other than COMPLEX_EXPR to a different complex type, ensure
+	c_save_expr is called instead of save_expr, unless in_late_binary_op.
+	* c-typeck.c (convert_for_assignment): Set in_late_binary_op also
+	when converting COMPLEX_TYPE.
+
+	2010-12-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/46880
+	* config/i386/sse.md (sse2_loadlpd, sse2_movsd): Fix shufpd source
+	operand.
+
+	PR middle-end/45852
+	* expr.c (store_expr): Ignore alt_rtl if equal to target,
+	but has side-effects.
+
+	2010-12-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/43655
+	* tree-ssa-ter.c (is_replaceable_p): Don't use
+	gimple_references_memory_p for -O0, instead check for load
+	by looking at rhs.
+
+	PR debug/46893
+	* cfgexpand.c (expand_debug_expr): If GET_MODE (op0) is VOIDmode,
+	use TYPE_MODE (TREE_TYPE (tem)) instead of mode1.
+
+	2010-12-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/46804
+	* regmove.c (optimize_reg_copy_3): Look for REG_EQUAL note
+	on the setter of src_reg rather than on insn.  If it is
+	equal to the setter's original SET_SRC, replace it with its
+	zero or sign extension instead of dropping it.
+
+	PR rtl-optimization/46865
+	* rtl.c (rtx_equal_p_cb, rtx_equal_p): For last operand of
+	ASM_OPERANDS and ASM_INPUT if integers are different,
+	call locator_eq.
+	* jump.c (rtx_renumbered_equal_p): Likewise.
+
+	PR tree-optimization/46864
+	* tree-ssa-loop-im.c (loop_suitable_for_sm): Return false even
+	when there are EDGE_EH exit edges.
+
+	2010-12-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/41082
+	* config/rs6000/rs6000.c (rs6000_expand_vector_extract): Use stvx
+	instead of stve*x.
+	(altivec_expand_stv_builtin): For op0 use mode of operand 1 instead
+	of operand 0.
+	* config/rs6000/altivec.md (VI_scalar): New mode attr.
+	(altivec_stve<VI_char>x, *altivec_stvesfx): Use scalar instead of
+	vector mode for operand 0, put operand 1 into UNSPEC.
+
+2011-01-13  Nick Clifton  <nickc@redhat.com>
+
+	Import this fix from the mainline:
+	2010-10-19  Nick Clifton  <nickc@redhat.com>
+
+	* config/rx/rx.c (rx_function_value): Small integer types are
+	promoted to SImode.
+	(rx_promote_function_mode): New function.
+	(TARGET_PROMOTE_FUNCTION_MODE): Define.
+
+2011-01-07  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2011-01-06  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR target/43309
+	* config/i386/i386.c (legitimize_tls_address)
+	<TLS_MODEL_INITIAL_EXEC>: Handle TARGET_64BIT && TARGET_SUN_TLS.
+	* config/i386/i386.md (UNSPEC_TLS_IE_SUN): Declare.
+	(tls_initial_exec_64_sun): New pattern.
+
+2011-01-03  Eric Botcazou  <ebotcazou@adacore.com>
+
+	Backport from mainline
+	2010-12-30  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/47038
+	* config/sparc/sparc.c (sparc_file_end): Call resolve_unique_section
+	on the GOT helper if USE_HIDDEN_LINKONCE.
+
+	2010-12-02  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/46685
+	* config/sparc/sparc.c (can_use_mov_pic_label_ref): New predicate.
+	(sparc_expand_move): Call it to decide whether to emit the special
+	mov{si,di}_pic_label_ref patterns.
+	(sparc_legitimize_pic_address): Call it to decide whether to emit
+	the regular PIC sequence for labels.  Fix long line.
+	(sparc_file_end): Set is_thunk for the PIC helper.
+
+2010-12-30  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* config/pa/pa.md: Add ",*" condition to 64-bit add/subtract boolean
+	patterns.
+
+2010-12-27  Yao Qi  <yao@codesourcery.com>
+
+	Backport from mainline:
+	2010-10-14  Yao Qi  <yao@codesourcery.com>
+
+	PR target/45447
+	* config/arm/arm.c (arm_build_builtin_va_list): Assign
+	va_list_name to TYPE_STUB_DECL (va_list_type).
+
+2010-12-23  Sebastian Pop  <sebastian.pop@amd.com>
+	    Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/46758
+	* graphite-sese-to-poly.c (scan_tree_for_params_right_scev): Use
+	tree_int_to_gmp instead of int_cst_value.
+	(scan_tree_for_params_int): Same.
+	(scan_tree_for_params): Same.
+	(pdr_add_data_dimensions): Use ppl_set_inhomogeneous_tree.
+
+2010-12-23  Sebastian Pop  <sebastian.pop@amd.com>
+
+	Backport from mainline
+	Fix PR45758: reset scevs before Graphite.
+        2010-09-24  Sebastian Pop  <sebastian.pop@amd.com>
+
+	PR tree-optimization/45552
+	* graphite.c (graphite_initialize): Call scev_reset.
+
+2010-12-23  Sebastian Pop  <sebastian.pop@amd.com>
+
+	PR tree-optimization/43023
+	* tree-data-ref.c (mem_write_stride_of_same_size_as_unit_type_p):
+	Removed.
+	(stores_zero_from_loop): Call stmt_stores_zero.
+	(stmt_with_adjacent_zero_store_dr_p): New.
+	* tree-data-ref.h (stmt_with_adjacent_zero_store_dr_p): Declared.
+	(stride_of_unit_type_p): New.
+	* tree-loop-distribution.c (generate_memset_zero): Do not return a
+	boolean.  Call gcc_assert on stride_of_unit_type_p.
+	(generate_builtin): Call stmt_stores_zero.
+	(rdg_flag_all_uses): Removed.
+	(rdg_flag_similar_memory_accesses): Removed.
+	(build_rdg_partition_for_component): Removed parameter
+	other_stores.  Removed call to rdg_flag_similar_memory_accesses.
+	(can_generate_builtin): New.
+	(similar_memory_accesses): New.
+	(fuse_partitions_with_similar_memory_accesses): New.
+	(rdg_build_partitions): Call
+	fuse_partitions_with_similar_memory_accesses.
+
+2010-12-21  Martin Jambor  <mjambor@suse.cz>
+
+	Backport from mainline:
+	2010-12-09  Martin Jambor  <mjambor@suse.cz>
+
+	PR middle-end/46734
+	* tree-sra.c (splice_param_accesses): Check that there are not
+	multiple ADDRESSABLE types.
+
+2010-12-19  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	Backport from mainline:
+	2010-12-18  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/46915
+	* config/pa/pa.c (branch_to_delay_slot_p): Use next_active_insn instead
+	of next_real_insn.  Search forward checking for both ASM_INPUT and
+	ASM_OPERANDS asms until exit condition is found.
+	(branch_needs_nop_p): Likewise.
+	(use_skip_p): New function.
+	(output_cbranch): Use use_skip_p.
+	(output_bb, output_bvb): Likewise.
+
+2010-12-19  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/46729
+	* config/sparc/sparc.h (GLOBAL_OFFSET_TABLE_REGNUM): New macro.
+	(PIC_OFFSET_TABLE_REGNUM): Rewrite in terms of above macro.
+	* config/sparc/sparc.c (pic_helper_needed): Delete.
+	(global_offset_table): Likewise.
+	(pic_helper_symbol): Rename to...
+	(got_helper_rtx): ...this.
+	(global_offset_table_rtx): New global variable.
+	(sparc_got_symbol): Likewise.
+	(sparc_got): New static function.
+	(check_pic): Use local variable and call sparc_got.
+	(sparc_tls_symbol): Initialize to NULL_RTX.
+	(sparc_tls_got): In non-PIC mode, reload the GOT register for Sun TLS
+	and 32-bit ABI and copy the GOT symbol to a new register otherwise.
+	(get_pc_thunk_name): Rename local variable.
+	(gen_load_pcrel_sym): New wrapper around load_pcrel_sym{si,di}.
+	(load_pic_register): Rename to...
+	(load_got_register): ...this.  Adjust and call gen_load_pcrel_sym.
+	(sparc_expand_prologue): Do not test flag_pic.
+	(sparc_output_mi_thunk): Use pic_offset_table_rtx directly.
+	(sparc_file_end): Test got_helper_rtx instead of pic_helper_needed.
+	Rename local variable and do not call get_pc_thunk_name again.
+	* config/sparc/sparc.md (load_pcrel_sym): Add operand #3.
+
+2010-12-18  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/46756
+	* jump.c (mark_all_labels): Skip debug insns.
+
+2010-12-18  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/46782
+	* cfgcleanup.c (try_forward_edges): Skip debug insns.
+
+2010-12-16  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-ssa-sccvn.c (vn_reference_lookup_3): Always punt if the call to
+	get_ref_base_and_extent returns -1 as the max size.
+
+2010-12-16  Richard Guenther  <rguenther@suse.de>
+
+	* DEV-PHASE: Set back to prerelease.
+	* BASE-VER: Bump to 4.5.3.
+
+2010-12-16  Release Manager
+
+	* GCC 4.5.2 released.
+
+2010-12-07  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline
+	2010-12-06  Jakub Jelinek  <jakub@redhat.com>
+ 
+	PR target/43897
+	* config/ia64/ia64.c (rtx_needs_barrier): Handle asm CLOBBER
+	as a store into that register.
+
+	PR rtl-optimization/46777
+	* cfglayout.c (duplicate_insn_chain): Avoid duplicating
+	also barrier after tablejump.
+
+	2010-11-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/46614
+	* sched-deps.c (NON_FLUSH_JUMP_KIND, NON_FLUSH_JUMP_P): Define.
+	 (deps_analyze_insn): Mark JUMP_INSNs in
+	last_pending_memory_flush that weren't added through
+	flush_pending_lists with NON_FLUSH_JUMP_KIND.
+	(sched_analyze_2, sched_analyze_insn): Check NON_FLUSH_JUMP_P
+	on INSN_LIST instead of JUMP_P check on its operand.
+	* sched-rgn.c (concat_INSN_LIST): Copy over REG_NOTE_KIND.
+
+	PR middle-end/46629
+	* cfgexpand.c (maybe_cleanup_end_of_block): Test NEXT_INSN (insn)
+	instead of insn with any_condjump_p.
+
+	2010-11-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/46499
+	* cfgexpand.c (maybe_cleanup_end_of_block): Remove also BARRIERs
+	following unconditional jumps.
+
+2010-12-07  Sebastian Pop  <sebastian.pop@amd.com>
+
+	Backport from mainline:
+	2010-05-07  Sebastian Pop  <sebastian.pop@amd.com>
+
+	PR tree-optimization/44676
+	* graphite-sese-to-poly.c (loop_entry_phi_arg): Renamed
+	phi_arg_in_outermost_loop.
+	(remove_simple_copy_phi): Call phi_arg_in_outermost_loop.
+	(remove_invariant_phi): Same.
+
+2010-12-07  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline
+	2010-11-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/45870
+	* dwarf2out.c (const_ok_for_output_1): Don't complain about
+	non-delegitimized TLS UNSPECs.
+
+	2010-11-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/46534
+	* builtins.c (fold_builtin_printf): Don't copy and modify string
+	before build_string_literal, instead modify what
+	build_string_literal returned.
+
+	2010-11-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/46440
+	* combine.c (update_cfg_for_uncondjump): When changing
+	an indirect jump into unconditional jump, remove BARRIERs
+	from bb's footer.
+
+	2010-11-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/46401
+	* c-common.c (warning_candidate_p): Don't track non-const calls
+	or STRING_CSTs.
+
+2010-12-06  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2010-07-23  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* doc/sourcebuild.texi (Add Options): Document tls.
+
+2010-12-06  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/46806
+	* tree-ssa-copyrename.c (copy_rename_partition_coalesce): Do not
+	coalesce different types.
+
+2010-12-05  Richard Guenther  <rguenther@suse.de>
+	    Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/46663
+	* tree-vect-patterns.c (vect_recog_pow_pattern): Check that
+	FUNCTION_DECL exists and that it's a builtin.
+
+2010-12-03  Jason Merrill  <jason@redhat.com>
+
+	PR debug/46123
+	* dwarf2out.c (gen_type_die_with_usage): Don't put local types in
+	a declaration DIE.
+
+2010-12-03  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2010-09-15  Olivier Hainque  <hainque@adacore.com>
+        	    Jose Ruiz  <ruiz@adacore.com>
+
+	* config/alpha/osf.h (MD_UNWIND_SUPPORT): Define.
+	* config/alpha/osf-unwind.h: New file.
+
+2010-12-03  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2010-11-12  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* config/mips/iris6.h [!IRIX_USING_GNU_LD]
+	(SUPPORTS_INIT_PRIORITY): Define.
+
+2010-12-03  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2010-11-02  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* configure.ac (*-*-irix6*): Disable set_have_as_tls.
+	(*-*-osf*): Likewise.
+	* configure: Regenerate.
+
+2010-11-29  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	PR middle-end/46651
+	2010-07-22  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* graphite-sese-to-poly.c (rewrite_phi_out_of_ssa): Use
+	SSA_NAME_DEF_STMT only on SSA_NAMEs.
+
+2010-11-29  Zdenek Dvorak  <rakdver@kam.uniff.cz>
+
+	PR tree-optimization/46675
+	* tree-ssa-loop-niter.c (split_to_var_and_offset): Avoid overflow
+	in offset calculation.
+
+2010-11-29  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/46258
+	* tree-cfg.c (replace_uses_by): Don't mark BBs as altered on
+	debug stmts.
+
 2010-11-22  Uros Bizjak  <ubizjak@gmail.com>
 
 	PR middle-end/43057
