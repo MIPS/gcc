@@ -1769,6 +1769,7 @@ TEMPLATE_PARSER_EMIT_LDIND (i2, cil_type_for_size (16, false), CIL_STYPE_INT32)
 TEMPLATE_PARSER_EMIT_LDIND (u2, cil_type_for_size (16, true), CIL_STYPE_INT32)
 TEMPLATE_PARSER_EMIT_LDIND (i4, cil_type_for_size (32, false), CIL_STYPE_INT32)
 TEMPLATE_PARSER_EMIT_LDIND (u4, cil_type_for_size (32, true), CIL_STYPE_INT32)
+TEMPLATE_PARSER_EMIT_LDIND (i8, cil_type_for_size (64, false), CIL_STYPE_INT64)
 TEMPLATE_PARSER_EMIT_LDIND (r4, float_type_node, CIL_STYPE_REAL32)
 TEMPLATE_PARSER_EMIT_LDIND (r8, double_type_node, CIL_STYPE_REAL64)
 #undef TEMPLATE_PARSER_EMIT_LDIND
@@ -1795,6 +1796,7 @@ TEMPLATE_PARSER_EMIT_STIND (i, integer_type_node)
 TEMPLATE_PARSER_EMIT_STIND (i1, cil_type_for_size (8, false))
 TEMPLATE_PARSER_EMIT_STIND (i2, cil_type_for_size (16, false))
 TEMPLATE_PARSER_EMIT_STIND (i4, cil_type_for_size (32, false))
+TEMPLATE_PARSER_EMIT_STIND (i8, cil_type_for_size (64, false))
 TEMPLATE_PARSER_EMIT_STIND (r4, float_type_node)
 TEMPLATE_PARSER_EMIT_STIND (r8, double_type_node)
 #undef TEMPLATE_PARSER_EMIT_STIND
@@ -2589,6 +2591,9 @@ parse_method_code (MonoMethod *method)
       case MONO_CEE_LDIND_U4:
         parser_emit_ldind_u4 ();
         break;
+      case MONO_CEE_LDIND_I8:
+        parser_emit_ldind_i8 ();
+        break;
       case MONO_CEE_LDIND_I:
         parser_emit_ldind_i ();
         break;
@@ -2597,6 +2602,9 @@ parse_method_code (MonoMethod *method)
         break;
       case MONO_CEE_LDIND_R8:
         parser_emit_ldind_r8 ();
+        break;
+      case MONO_CEE_STIND_I8:
+        parser_emit_stind_i8 ();
         break;
       case MONO_CEE_STIND_I4:
         parser_emit_stind_i4 ();
@@ -3006,9 +3014,11 @@ parser_preparse_method (MonoMethod *method, GSList **called_methods, GSList **re
       case MONO_CEE_LDIND_U2:
       case MONO_CEE_LDIND_I4:
       case MONO_CEE_LDIND_U4:
+      case MONO_CEE_LDIND_I8:
       case MONO_CEE_LDIND_I:
       case MONO_CEE_LDIND_R4:
       case MONO_CEE_LDIND_R8:
+      case MONO_CEE_STIND_I8:
       case MONO_CEE_STIND_I4:
       case MONO_CEE_STIND_I2:
       case MONO_CEE_STIND_I1:
