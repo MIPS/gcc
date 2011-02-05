@@ -29,7 +29,7 @@ cat > sysinfo.c <<EOF
 #if defined(__sun__) && defined(__svr4__)
 /* Needed by Solaris header files.  */
 #define _XOPEN_SOURCE 600
-#define _EXTENSIONS_
+#define __EXTENSIONS__
 #endif
 
 #include <sys/types.h>
@@ -64,7 +64,7 @@ cat > sysinfo.c <<EOF
 #include <unistd.h>
 EOF
 
-${CC} -fdump-go-spec=gen-sysinfo.go -S -o sysinfo.s sysinfo.c
+${CC} -fdump-go-spec=gen-sysinfo.go -std=gnu99 -S -o sysinfo.s sysinfo.c
 
 echo 'package syscall' > ${OUT}
 

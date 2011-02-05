@@ -1378,7 +1378,8 @@ init_spec (void)
 			    "-lgcc_eh"
 #ifdef USE_LIBUNWIND_EXCEPTIONS
 # ifdef HAVE_LD_STATIC_DYNAMIC
-			    " %{!static:-Bstatic} -lunwind %{!static:-Bdynamic}"
+			    " %{!static:" LD_STATIC_OPTION "} -lunwind"
+			    " %{!static:" LD_DYNAMIC_OPTION "}"
 # else
 			    " -lunwind"
 # endif

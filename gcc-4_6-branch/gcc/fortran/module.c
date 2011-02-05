@@ -2138,6 +2138,20 @@ mio_typespec (gfc_typespec *ts)
   else
     mio_charlen (&ts->u.cl);
 
+  /* So as not to disturb the existing API, use an ATOM_NAME to
+     transmit deferred characteristic for characters (F2003).  */
+  if (iomode == IO_OUTPUT)
+    {
+      if (ts->type == BT_CHARACTER && ts->deferred)
+	write_atom (ATOM_NAME, "DEFERRED_CL");
+    }
+  else if (peek_atom () != ATOM_RPAREN)
+    {
+      if (parse_atom () != ATOM_NAME)
+	bad_module ("Expected string");
+      ts->deferred = 1;
+    }
+
   mio_rparen ();
 }
 
@@ -4205,9 +4219,23 @@ read_cleanup (pointer_info *p)
 
   if (p->type == P_SYMBOL && p->u.rsym.state == USED && !p->u.rsym.referenced)
     {
+      gfc_namespace *ns;
       /* Add hidden symbols to the symtree.  */
       q = get_integer (p->u.rsym.ns);
-      st = gfc_get_unique_symtree ((gfc_namespace *) q->u.pointer);
+      ns = (gfc_namespace *) q->u.pointer;
+
+      if (!p->u.rsym.sym->attr.vtype
+	    && !p->u.rsym.sym->attr.vtab)
+	st = gfc_get_unique_symtree (ns);
+      else
+	{
+	  /* There is no reason to use 'unique_symtrees' for vtabs or
+	     vtypes - their name is fine for a symtree and reduces the
+	     namespace pollution.  */
+	  st = gfc_find_symtree (ns->sym_root, p->u.rsym.sym->name);
+	  if (!st)
+	    st = gfc_new_symtree (&ns->sym_root, p->u.rsym.sym->name);
+	}
 
       st->n.sym = p->u.rsym.sym;
       st->n.sym->refs++;

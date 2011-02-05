@@ -16998,18 +16998,15 @@ cp_parser_class_specifier (cp_parser* parser)
 	   class Z { }
 	   static const <type> var = ...;  */
       case CPP_KEYWORD:
-	if (keyword_is_storage_class_specifier (token->keyword)
-	    || keyword_is_type_qualifier (token->keyword))
+	if (keyword_is_decl_specifier (token->keyword))
 	  {
 	    cp_token *lookahead = cp_lexer_peek_nth_token (parser->lexer, 2);
 
-	    if (lookahead->type == CPP_KEYWORD
-		&& !keyword_begins_type_specifier (lookahead->keyword))
-	      want_semicolon = false;
-	    else if (lookahead->type == CPP_NAME)
-	      /* Handling user-defined types here would be nice, but
-		 very tricky.  */
-	      want_semicolon = false;
+	    /* Handling user-defined types here would be nice, but very
+	       tricky.  */
+	    want_semicolon
+	      = (lookahead->type == CPP_KEYWORD
+		 && keyword_begins_type_specifier (lookahead->keyword));
 	  }
 	break;
       default:
@@ -19919,8 +19916,11 @@ cp_parser_template_declaration_after_export (cp_parser* parser, bool member_p)
       parameter_list = NULL_TREE;
     }
   else
-    /* Parse the template parameters.  */
-    parameter_list = cp_parser_template_parameter_list (parser);
+    {
+      /* Parse the template parameters.  */
+      parameter_list = cp_parser_template_parameter_list (parser);
+      fixup_template_parms ();
+    }
 
   /* Get the deferred access checks from the parameter list.  These
      will be checked once we know what is being declared, as for a
