@@ -1,3 +1,13 @@
+2011-01-31  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/rs6000.c (print_operand): Rearrange addends in
+	toc relative expressions as we do in print_operand_address.
+
+2011-01-21  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/rs6000-c.c (rs6000_cpu_cpp_builtins): Add
+	builtin_define __CMODEL_MEDIUM__ and __CMODEL_LARGE__.
+
 2011-01-07  Jakub Jelinek  <jakub@redhat.com>
 
 	PR target/47201
