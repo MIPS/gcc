@@ -1,4 +1,75 @@
+2011-02-14  Tobias Burnus  <burnus@net-b.de>
+
+	* gfortran.dg/argument_checking_13.f90: Update dg-error.
+	* gfortran.dg/argument_checking_17.f90: New.
+
+2011-02-10  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR target/46610
+	* gcc.target/mips/save-restore-1.c: Skip on mips-sgi-irix6*.
+	* gcc.target/mips/save-restore-3.c: Likewise.
+	* gcc.target/mips/save-restore-4.c: Likewise.
+	* gcc.target/mips/save-restore-5.c: Likewise.
+
+2011-02-07  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2010-07-23  Uros Bizjak  <ubizjak@gmail.com>
+
+	* lib/target-supports.exp (check_avx_hw_available): New procedure.
+	(check_effective_target_avx_runtime): New procedure.
+
+	* gcc.dg/compat/vector-1b_main.c: Use avx_runtime effective target.
+	Remove cpuid.h include and __get_cpuid test.
+	* gcc.dg/compat/vector-2b_main.c: Ditto.
+
+	* gcc.target/i386/avx-check.h (main): Also check bit_OSXSAVE.
+
+2011-02-03  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	PR c++/47589
+	* g++.dg/pr47589.C: New test.
+
+2011-01-31  Nathan Froyd  <froydnj@codesourcery.com>
+
+	Backport from mainline:
+	2010-12-30  Nathan Froyd  <froydnj@codesourcery.com>
+
+	PR target/44606
+	* gcc.dg/pr44606.c: New test.
+
+2011-01-24  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gfortran.dg/cray_pointers_2.f90: Avoid cycling through
+	optimization options.
+
+2011-01-21  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* g++.dg/other/anon5.C: Skip on mips-sgi-irix*.
+
+	Backport from mainline:
+	2010-11-10  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* g++.dg/other/anon5.C: Skip on alpha*-dec-osf*.
+
+2011-01-17  Eric Botcazou  <ebotcazou@adacore.com>
+
+	Backport from mainline
+	2010-11-22  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/pr28796-2.c: SKIP on SPARC/Solaris 8.
+
+	PR rtl-optimization/46603
+	* gcc.dg/vect/slp-multitypes-2.c: XFAIL execution on SPARC 32-bit.
+
+2011-01-17  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* g++.old-deja/g++.other/init19.C: Don't XFAIL on mips-sgi-irix*.
+
 2011-01-17  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2011-01-17  H.J. Lu  <hongjiu.lu@intel.com>
 
 	PR target/47318
 	* gcc.target/i386/avx-vmaskmovpd-1.c: New.
