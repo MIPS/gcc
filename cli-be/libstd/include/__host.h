@@ -48,6 +48,18 @@ LIBSTD_HPROTO(int, close, int fildes);
 /* Return file size. */
 LIBSTD_HPROTO(int, filesize, char *path);
 
+LIBSTD_HPROTO(long long, file_lastaccess_sutc, char* path);
+
+LIBSTD_HPROTO(long long, file_lastwrite_sutc, char* path);
+
+LIBSTD_HPROTO(long long, file_filecreation_sutc, char* path);
+
+LIBSTD_HPROTO(int, file_mode_flags, char* path);
+
+LIBSTD_HPROTO(int, file_uid, char* path);
+
+LIBSTD_HPROTO(int, file_gid, char* path);
+
 /* Called when process exit, to signa IOs _cleanup to host. */
 LIBSTD_HPROTO(void, exit, int status);
 

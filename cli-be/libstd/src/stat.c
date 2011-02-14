@@ -28,15 +28,26 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 #include <sys/stat.h>
 
+/* TODO implement some strategy improving this unefficient implementation */
 LIBSTD_LPROTO_IMPL(int, stat, const char *path, struct stat *buf)
 {
     int size = LIBSTD_HNAME(filesize)((char *)path);
-    if (size != -1) {
-        buf->st_size = size;
-        return 0;
-    }
-    else
-        return -1;
+
+    if (size == -1)
+      return -1;
+
+    buf->st_size = size;
+    buf->st_atime = LIBSTD_HNAME(file_lastaccess_sutc)((char *)path);
+    buf->st_mtime =  LIBSTD_HNAME(file_lastwrite_sutc)((char *)path);
+    /* Note that ctime using UNIX will be filled with last metadata change
+     * (such as permisions), but in windows only file creation  */
+    buf->st_ctime = LIBSTD_HNAME(file_filecreation_sutc)((char *)path);
+
+    buf->st_uid = LIBSTD_HNAME(file_uid)((char *)path);
+    buf->st_gid = LIBSTD_HNAME(file_gid)((char *)path);
+    buf->st_mode = LIBSTD_HNAME(file_mode_flags)((char *)path); 
+
+    return 0;
 }
 
 

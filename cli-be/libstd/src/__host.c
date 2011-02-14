@@ -157,7 +157,97 @@ LIBSTD_HPROTO_IMPL(int, filesize, char* path)
     int result;
     struct stat s;
     if (stat(path, &s) == 0)
-        result = s.st_size;
+         result = s.st_size;
+    else {
+        UPDATE_ERRNO();
+        result = -1;
+    }
+    return result;
+}
+
+LIBSTD_HPROTO_IMPL(long long, file_lastaccess_sutc, char* path)
+{
+    int result;
+    struct stat s;
+    if (stat(path, &s) == 0)
+#ifdef __USE_MISC
+        result = s.st_atim.tv_sec;
+#else        
+        result = s.st_atime;
+#endif                
+    else {
+        UPDATE_ERRNO();
+        result = -1;
+    }
+    return result;
+}
+
+LIBSTD_HPROTO_IMPL(long long, file_lastwrite_sutc, char* path)
+{
+    int result;
+    struct stat s;
+    if (stat(path, &s) == 0)
+#ifdef __USE_MISC
+        result = s.st_mtim.tv_sec;
+#else        
+        result = s.st_mtime;
+#endif                
+    else {
+        UPDATE_ERRNO();
+        result = -1;
+    }
+    return result;
+}
+
+LIBSTD_HPROTO_IMPL(long long, file_filecreation_sutc, char* path)
+{
+    int result;
+    struct stat s;
+    if (stat(path, &s) == 0)
+#ifdef __USE_MISC
+        result = s.st_ctim.tv_sec;
+#else        
+        result = s.st_ctime;
+#endif                
+    else {
+        UPDATE_ERRNO();
+        result = -1;
+    }
+    return result;
+}
+
+LIBSTD_HPROTO_IMPL(int, file_mode_flags, char* path)
+{
+    int result;
+    struct stat s;
+    if (stat(path, &s) == 0)
+        result = s.st_mode;
+    else {
+        UPDATE_ERRNO();
+        result = -1;
+    }
+    return result;
+}
+
+LIBSTD_HPROTO_IMPL(int, file_uid, char* path)
+{
+    int result;
+    struct stat s;
+    if (stat(path, &s) == 0)
+        result = s.st_uid;
+    else {
+        UPDATE_ERRNO();
+        result = -1;
+    }
+    return result;
+}
+
+LIBSTD_HPROTO_IMPL(int, file_gid, char* path)
+{
+    int result;
+    struct stat s;
+    if (stat(path, &s) == 0)
+        result = s.st_gid;
     else {
         UPDATE_ERRNO();
         result = -1;

@@ -36,6 +36,11 @@ typedef unsigned long clock_t;
 
 typedef unsigned long time_t;
 
+struct timespec {
+    time_t tv_sec;		/* Seconds.  */
+    long int tv_nsec;		/* Nanoseconds.  */
+};
+
 struct tm {
   int tm_sec;   /* Seconds after the minute [0,60] (Sic) */
   int tm_min;   /* Minutes after the hour [0,59] */

@@ -24,8 +24,9 @@ using System;
 using System.IO;
 using System.Net.Sockets;
 using System.Security;
+using System.Security.Principal;
+using System.Security.AccessControl;
 using System.Runtime.InteropServices;
-
 
 public class MSCorelibWrapper
 {
@@ -90,6 +91,13 @@ public class MSCorelibWrapper
     private const int __LIBSTD_ENOTSUP      = 134;
     private const int __LIBSTD_ENOSYS       = 333;
 
+    /* file stat flags (st_mode) */
+    /* in sync with sys/stat.h */
+    private const int __LIBSTD_S_IFDIR      = 0x4000;
+    private const int __LIBSTD_S_IFREG      = 0x8000;
+    private const int __LIBSTD_S_IREAD      = 0x0100;
+    private const int __LIBSTD_S_IWRITE     = 0x0080;
+    private const int __LIBSTD_S_IEXEC      = 0x0040;
 
 
     static MSCorelibWrapper()
@@ -345,6 +353,135 @@ public class MSCorelibWrapper
         }
         return result;
     }
+
+    /* returns the number of elapsed secons since epoch in UTC
+     * format until the last access */
+    unsafe public static long file_lastaccess_sutc(sbyte* path)
+    {
+        DateTime epoch = new DateTime(1970, 1, 1);
+        IntPtr ptr_int_ptr = new IntPtr(path);
+        String file_name = Marshal.PtrToStringAnsi(ptr_int_ptr);        
+        long result;
+
+        try {
+            FileInfo info = new FileInfo(file_name);
+            result = (long) (info.LastAccessTimeUtc - epoch).TotalSeconds;
+        }
+        catch(Exception) {
+            my_errno = __LIBSTD_ENOSYS;
+            result = -1;
+        }
+        return result;
+    }
+
+    /* returns the number of elapsed secons since epoch in UTC
+     * format until the last write */
+    unsafe public static long file_lastwrite_sutc(sbyte* path)
+    {
+        DateTime epoch = new DateTime(1970, 1, 1);
+        IntPtr ptr_int_ptr = new IntPtr(path);
+        String file_name = Marshal.PtrToStringAnsi(ptr_int_ptr);        
+        long result;
+
+        try {
+            FileInfo info = new FileInfo(file_name);
+            result = (long) (info.LastWriteTimeUtc - epoch).TotalSeconds;
+        }
+        catch(Exception) {
+            my_errno = __LIBSTD_ENOSYS;
+            result = -1;
+        }
+        return result;
+    }
+
+    /* returns the number of elapsed secons since epoch in UTC
+     * format until the file creation */
+    unsafe public static long file_filecreation_sutc(sbyte* path)
+    {
+        DateTime epoch = new DateTime(1970, 1, 1);
+        IntPtr ptr_int_ptr = new IntPtr(path);
+        String file_name = Marshal.PtrToStringAnsi(ptr_int_ptr);        
+        long result;
+
+        try {
+            FileInfo info = new FileInfo(file_name);
+            result = (long) (info.CreationTimeUtc - epoch).TotalSeconds;
+        }
+        catch(Exception) {
+            my_errno = __LIBSTD_ENOSYS;
+            result = -1;
+        }
+        return result;
+    }
+
+    unsafe public static int file_mode_flags(sbyte* path)
+    {
+        IntPtr ptr_int_ptr = new IntPtr(path);
+        String file_name = Marshal.PtrToStringAnsi(ptr_int_ptr);        
+        int flags = 0;
+
+        Console.Write("Warning: some features of stat() are not supported\n");
+
+        /* File atributres */
+        FileAttributes attr = File.GetAttributes (file_name);
+        if ((attr & FileAttributes.Directory) == FileAttributes.Directory)
+          flags |= __LIBSTD_S_IFDIR;
+        if ((attr & FileAttributes.Normal) == FileAttributes.Normal)
+          flags |= __LIBSTD_S_IFREG;
+
+        /* Access control attributes */
+        try {
+          FileSecurity fSecurity = File.GetAccessControl(file_name);
+          AuthorizationRuleCollection rules = fSecurity.GetAccessRules (true, true, typeof(NTAccount));
+          for (int i = 0; i < rules.Count; i++)
+            {
+              FileSystemAccessRule rule = (FileSystemAccessRule)rules[i];
+              if (rule.FileSystemRights == FileSystemRights.ReadData
+                 || rule.FileSystemRights == FileSystemRights.FullControl
+                 || rule.FileSystemRights == FileSystemRights.Read
+                 || rule.FileSystemRights == FileSystemRights.ReadAndExecute
+                 || rule.FileSystemRights == FileSystemRights.Modify)
+                flags |= __LIBSTD_S_IREAD;
+              if (rule.FileSystemRights == FileSystemRights.WriteData
+                 || rule.FileSystemRights == FileSystemRights.CreateDirectories
+                 || rule.FileSystemRights == FileSystemRights.CreateFiles
+                 || rule.FileSystemRights == FileSystemRights.DeleteSubdirectoriesAndFiles
+                 || rule.FileSystemRights == FileSystemRights.Delete
+                 || rule.FileSystemRights == FileSystemRights.FullControl
+                 || rule.FileSystemRights == FileSystemRights.Write
+                 || rule.FileSystemRights == FileSystemRights.Modify)
+                flags |= __LIBSTD_S_IWRITE;
+
+              if (rule.FileSystemRights == FileSystemRights.ListDirectory
+                 || rule.FileSystemRights == FileSystemRights.Traverse
+                 || rule.FileSystemRights == FileSystemRights.ExecuteFile
+                 || rule.FileSystemRights == FileSystemRights.FullControl
+                 || rule.FileSystemRights == FileSystemRights.ReadAndExecute)
+                flags |= __LIBSTD_S_IEXEC;
+            }
+        } catch (System.NotImplementedException e) {
+          flags |= __LIBSTD_S_IREAD;
+          if ((attr & FileAttributes.ReadOnly) != FileAttributes.ReadOnly)
+            flags |= __LIBSTD_S_IWRITE;
+          if ((flags & __LIBSTD_S_IFDIR) == __LIBSTD_S_IFDIR)
+            flags |= __LIBSTD_S_IEXEC;
+
+          Console.Write("Warning: Unable to get file mode (default: S_IREAD and S_IWRITE if not ReadOnly)\n  Exception: ");
+          Console.WriteLine(e.Message);
+        }
+        return flags;
+    } 
+
+    unsafe public static int file_uid(sbyte* path)
+    {
+      return 0;
+    }
+
+    unsafe public static int file_gid(sbyte* path)
+    {
+      return 0;
+    }
+
 
     public static int lseek(int filedes, int offset, int whence)
     {

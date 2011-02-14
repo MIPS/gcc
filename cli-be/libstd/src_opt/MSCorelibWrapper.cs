@@ -22,6 +22,24 @@ public class MSCorelibWrapper
     [DllImport("MSCorelibWrapper_support.so", EntryPoint="__host__filesize")]
     unsafe public static extern int filesize(sbyte* path);
 
+    [DllImport("MSCorelibWrapper_support.so", EntryPoint="__host__file_lastaccess_sutc")]
+    unsafe public static extern long file_lastaccess_utc_ticks(sbyte* path);
+
+    [DllImport("MSCorelibWrapper_support.so", EntryPoint="__host__file_lastwrite_sutc")]
+    unsafe public static extern long file_lastaccess_utc_ticks(sbyte* path);
+
+    [DllImport("MSCorelibWrapper_support.so", EntryPoint="__host__file_filecreation_sutc")]
+    unsafe public static extern long file_lastaccess_utc_ticks(sbyte* path);
+
+    [DllImport("MSCorelibWrapper_support.so", EntryPoint="__host__file_mode_flags")]
+    unsafe public static extern int file_mode_flags(sbyte* path);
+ 
+    [DllImport("MSCorelibWrapper_support.so", EntryPoint="__host__file_uid")]
+    unsafe public static extern int file_uid(sbyte* path);
+  
+    [DllImport("MSCorelibWrapper_support.so", EntryPoint="__host__file_mode_flags")]
+    unsafe public static extern int file_gid(sbyte* path);
+
     [DllImport("MSCorelibWrapper_support.so", EntryPoint="__host__lseek")]
     unsafe public static extern int lseek(int filedes, int offset, int whence);
 
