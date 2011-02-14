@@ -1,3 +1,13 @@
+2011-02-14  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Backport from mainline
+	2011-02-02  Peter Bergner  <bergner@vnet.ibm.com>
+
+	PR rtl-optimization/47525
+	* df-scan.c: Update copyright years.
+	(df_get_call_refs): Do not mark global registers as DF_REF_REG_USE
+	and non-clobber DF_REF_REG_DEF for calls to const and pure functions.
+
 2011-02-04  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to gcc-4_5-branch, subversion id 169837.
