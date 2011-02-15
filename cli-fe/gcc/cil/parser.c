@@ -3225,7 +3225,7 @@ parse_method_decl (MonoMethod *method)
       int i;
       const char *fun_name = mono_method_get_name (method);
 
-      if (fun_name[0] != '_' && fun_name[0] != '?')
+      if (!cil_use_libstd_builtins && fun_name[0] != '_' && fun_name[0] != '?' )
         {
           for (i=0; i < END_BUILTINS && method_decl == NULL_TREE; ++i)
             {
@@ -3239,6 +3239,7 @@ parse_method_decl (MonoMethod *method)
                 }
             }
         }
+
       if (method_decl != NULL_TREE)
         {
           gcc_assert (!g_hash_table_lookup (parsed_methods_decl, method));
@@ -3246,10 +3247,23 @@ parse_method_decl (MonoMethod *method)
           g_hash_table_insert (parsed_methods_decl, method, method_decl);
           return;
         }
-      else
+      
+      if (cil_use_libstd)
         {
-          identifier = get_identifier (fun_name);
+          char * last, * cur, id[256];
+          
+          /* remove the possible prefix Obj?#[COBJ?] */
+          for (last = fun_name, cur = fun_name; *cur; cur++)
+            if (*cur == '?')
+              last = cur + 1;
+          gcc_assert (*last);
+
+          gcc_assert ((sizeof("Libstd_")+strlen(last)+1) < 256);
+          sprintf(id, "Libstd_%s", last);
+          identifier = get_identifier (id);
         }
+      else
+        identifier = get_identifier (fun_name);
     }
   else if (method_mode == GCC_CIL_METHOD_MODE_PINVOKE)
     {
