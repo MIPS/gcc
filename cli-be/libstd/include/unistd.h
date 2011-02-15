@@ -39,6 +39,7 @@ LIBSTD_LPROTO(int, close, int);
 LIBSTD_LPROTO(ssize_t, read, int, void *, size_t);
 LIBSTD_LPROTO(ssize_t, write, int, const void *, size_t);
 LIBSTD_LPROTO(off_t, lseek, int, off_t, int);
+LIBSTD_LPROTO(int, unlink, const char *);
 
 #define STDIN_FILENO  __LIBSTD_STDIN_FILENO
 #define STDOUT_FILENO __LIBSTD_STDOUT_FILENO

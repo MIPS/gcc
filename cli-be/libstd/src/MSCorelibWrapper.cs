@@ -700,8 +700,17 @@ public class MSCorelibWrapper
 
     unsafe public static int unlink(sbyte* name)
     {
-        my_errno = __LIBSTD_ENOSYS;
-        return -1;
+        String _name = Marshal.PtrToStringAnsi(new System.IntPtr(name));
+
+        try {
+            File.Delete (_name);
+        } catch (Exception) {
+            /* FIXME: set the actual error code */
+            my_errno = __LIBSTD_EIO;
+            return -1;
+        }
+
+        return 0;
     }
 
     unsafe public static int* errno()
