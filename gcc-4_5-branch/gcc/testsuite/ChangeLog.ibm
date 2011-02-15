@@ -1,3 +1,12 @@
+2011-02-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2011-02-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/47755
+	* gcc.target/powerpc/pr47755.c: New file, test all 0 vector
+	constant does not generate a load from memory.
+
 2011-02-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Backport from the GCC 4.6 mainline:
