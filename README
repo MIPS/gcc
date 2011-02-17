@@ -34,7 +34,7 @@ svn co svn://gcc.gnu.org/svn/gcc/branches/st/cli-be <...>/gcc-src/gcc
 - if mono c# compiler is not in the path or is different than gmcs set MCS
   export MCS=gmcs
 - to specify wich is the runtime (mscorlib.dll, ...) to link to, define CLISTDDIR 
-  export CLISTDDIR=/usr/lib/mono/1.0:/usr/lib/mono/2.0
+  export CLISTDDIR=/usr/lib/mono/2.0:/usr/lib/mono/1.0
 
 
 * Build and install binutils:
