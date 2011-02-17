@@ -19,6 +19,8 @@ mkdir <...>/gcc-src
 mkdir <...>/gcc-build
 mkdir <...>/gcc-build/binutils
 mkdir <...>/gcc-build/gcc
+# Build directory for host libstd (pending to automatize)
+mkdir <...>/gcc-build/gcc/libstd
 # Install directory
 mkdir <...>/image
 
@@ -29,10 +31,10 @@ svn co svn://gcc.gnu.org/svn/gcc/branches/st/cli-be <...>/gcc-src/gcc
 
 
 * Set environment variables (examples with bash syntax):
-- if mono c# compiler is not in the path or is different than mcs set MCS
-  export MCS=mcs1
+- if mono c# compiler is not in the path or is different than gmcs set MCS
+  export MCS=gmcs
 - to specify wich is the runtime (mscorlib.dll, ...) to link to, define CLISTDDIR 
-  export CLISTDDIR=/usr/lib/mono/1.0
+  export CLISTDDIR=/usr/lib/mono/1.0:/usr/lib/mono/2.0
 
 
 * Build and install binutils:
@@ -48,11 +50,18 @@ cd <...>/gcc-build/gcc
 make
 make install
 
+* Build and install host libstd (pending to automatize)
+cd <...>/gcc-build/gcc/libstd
+<...>/gcc-src/gcc/libstd/configure --enable-native-lib --with-mcs=gmcs --prefix=<...>/image
+make
+make install
 
 Now in <...>/image/bin you can find all the tools cil32-gcc, cil32-as, ...
 There are also 2 small wrappers to execute code compiled with the
 toolchain on Mono and DotGnu. They are called cil32-mono and
 cil32-ilrun
+Host libstd implementation is in <...>/image/lib/<architecture>, remember to add this
+path to your LD_LIBRARY_PATH if you plan to use CIL Frontend.
 
 
 ---------------------------------------------------------------
@@ -80,8 +89,8 @@ svn co https://clibinutils.svn.sourceforge.net/svnroot/clibinutils/dotgnu-based-
 svn co svn://gcc.gnu.org/svn/gcc/branches/st/cli-be <...>/gcc-src/gcc
 
 * Set environment variables (examples with bash syntax):
-- if mono c# compiler is not in the path or is different than mcs set MCS
-  export MCS=mcs1
+- if mono c# compiler is not in the path or is different than gmcs set MCS
+  export MCS=gmcs
 - add DotGnu binary dir to the PATH
   export PATH=/home.local/work-gcc/dotgnu/usr/bin/:$PATH
 - define OPENSYSTEM_C_DLL as the library used by the DotGnu linker
@@ -134,3 +143,10 @@ cd <...>/gcc-build/cilfe_build
 <...>/gcc-src/gcc/configure --enable-languages=cil --disable-bootstrap --prefix=<...>/cilfe_image
 make
 make install
+
+Now in <...>/image/bin you can find gcil. Unless you use the flag -fno-cil-use-libstd, gcil will try
+to link libstd functions with the host libstd.so implementation. Remember to:
+ - Add the path to libstd.so (<back end base>/image/lib/<architecture) to LD_LIBRARY_PATH
+ - Link with the libstd library:
+   $ gcil -lstd ...
+
