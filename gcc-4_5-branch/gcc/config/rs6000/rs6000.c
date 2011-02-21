@@ -6859,6 +6859,9 @@ offsettable_ok_by_alignment (tree decl)
   if (!decl)
     return true;
 
+  if (TREE_CODE (decl) == STRING_CST)
+    return false;
+
   if (TREE_CODE (decl) != VAR_DECL
       && TREE_CODE (decl) != PARM_DECL
       && TREE_CODE (decl) != RESULT_DECL
