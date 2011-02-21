@@ -115,6 +115,7 @@ SRC = _Exit.c \
       tmpfile.c \
       tmpnam.c \
       ungetc.c \
+      unlink.c \
       vfprintf.c \
       vfscanf.c \
       vprintf.c \
