@@ -1,6 +1,6 @@
 /* Prints out trees in human readable form.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2010
    Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
@@ -206,6 +206,15 @@ cxx_print_xnode (FILE *file, tree node, int indent)
       fprintf (file, "index %d level %d orig_level %d",
 	       TEMPLATE_PARM_IDX (node), TEMPLATE_PARM_LEVEL (node),
 	       TEMPLATE_PARM_ORIG_LEVEL (node));
+      break;
+    case TEMPLATE_INFO:
+      print_node (file, "template", TI_TEMPLATE (node), indent+4);
+      print_node (file, "args", TI_ARGS (node), indent+4);
+      if (TI_PENDING_TEMPLATE_FLAG (node))
+	{
+	  indent_to (file, indent + 3);
+	  fprintf (file, "pending_template");
+	}
       break;
     default:
       break;

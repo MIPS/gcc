@@ -25,6 +25,10 @@
 #undef  ASM_SPEC
 #define ASM_SPEC ""
 
+#undef  LINK_SPEC
+#define LINK_SPEC "%{h*} %{v:-V} \
+		   %{static:-Bstatic} %{shared:-shared} %{symbolic:-Bsymbolic}"
+
 /* For xstormy16:
    - If -msim is specified, everything is built and linked as for the sim.
    - If -T is specified, that linker script is used, and it should provide
@@ -53,8 +57,6 @@
   while (0)
 
 #define TARGET_VERSION fprintf (stderr, " (xstormy16 cpu core)");
-
-#define CAN_DEBUG_WITHOUT_FP
 
 /* Storage Layout.  */
 
@@ -117,6 +119,9 @@
 #define SIZE_TYPE "unsigned int"
 
 #define PTRDIFF_TYPE "int"
+
+#undef  WCHAR_TYPE
+#define WCHAR_TYPE "long int"
 
 #undef  WCHAR_TYPE_SIZE
 #define WCHAR_TYPE_SIZE 32
@@ -220,26 +225,6 @@ enum reg_class
 
 #define INDEX_REG_CLASS GENERAL_REGS
 
-/*   The following letters are unavailable, due to being used as
-   constraints:
-	'0'..'9'
-	'<', '>'
-	'E', 'F', 'G', 'H'
-	'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P'
-	'Q', 'R', 'S', 'T', 'U'
-	'V', 'X'
-	'g', 'i', 'm', 'n', 'o', 'p', 'r', 's'.  */
-
-#define REG_CLASS_FROM_LETTER(CHAR)		\
- (  (CHAR) == 'a' ? R0_REGS			\
-  : (CHAR) == 'b' ? R1_REGS			\
-  : (CHAR) == 'c' ? R2_REGS			\
-  : (CHAR) == 'd' ? R8_REGS			\
-  : (CHAR) == 'e' ? EIGHT_REGS			\
-  : (CHAR) == 't' ? TWO_REGS			\
-  : (CHAR) == 'z' ? ICALL_REGS			\
-  : NO_REGS)
-
 #define REGNO_OK_FOR_BASE_P(NUM) 1
 
 #define REGNO_OK_FOR_INDEX_P(NUM) REGNO_OK_FOR_BASE_P (NUM)
@@ -257,22 +242,6 @@ enum reg_class
 
 #define CLASS_MAX_NREGS(CLASS, MODE) \
   ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
-
-#define CONST_OK_FOR_LETTER_P(VALUE, C)			\
-  (  (C) == 'I' ? (VALUE) >= 0 && (VALUE) <= 3		\
-   : (C) == 'J' ? exact_log2 (VALUE) != -1		\
-   : (C) == 'K' ? exact_log2 (~(VALUE)) != -1		\
-   : (C) == 'L' ? (VALUE) >= 0 && (VALUE) <= 255	\
-   : (C) == 'M' ? (VALUE) >= -255 && (VALUE) <= 0	\
-   : (C) == 'N' ? (VALUE) >= -3 && (VALUE) <= 0		\
-   : (C) == 'O' ? (VALUE) >= 1 && (VALUE) <= 4		\
-   : (C) == 'P' ? (VALUE) >= -4 && (VALUE) <= -1	\
-   : 0 )
-
-#define CONST_DOUBLE_OK_FOR_LETTER_P(VALUE, C) 0
-
-#define EXTRA_CONSTRAINT(VALUE, C) \
-  xstormy16_extra_constraint_p (VALUE, C)
 
 
 /* Basic Stack Layout.  */
@@ -339,18 +308,12 @@ enum reg_class
     + 1) 							\
    / 2)
 
-#define FUNCTION_ARG(CUM, MODE, TYPE, NAMED) \
-	xstormy16_function_arg (CUM, MODE, TYPE, NAMED)
-
 /* For this platform, the value of CUMULATIVE_ARGS is the number of words
    of arguments that have been passed in registers so far.  */
 #define CUMULATIVE_ARGS int
 
 #define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
   (CUM) = 0
-
-#define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED)			\
-  ((CUM) = xstormy16_function_arg_advance (CUM, MODE, TYPE, NAMED))
 
 #define FUNCTION_ARG_REGNO_P(REGNO)					\
   ((REGNO) >= FIRST_ARGUMENT_REGISTER 					\
@@ -515,7 +478,6 @@ enum reg_class
 
 #define PRINT_OPERAND_ADDRESS(STREAM, X) xstormy16_print_operand_address (STREAM, X)
 
-/* USER_LABEL_PREFIX is defined in svr4.h.  */
 #define REGISTER_PREFIX ""
 #define LOCAL_LABEL_PREFIX "."
 #define USER_LABEL_PREFIX ""
@@ -557,7 +519,6 @@ enum reg_class
 
 /* Macros Affecting all Debug Formats.  */
 
-/* Defined in svr4.h.  */
 #undef  PREFERRED_DEBUGGING_TYPE
 #define PREFERRED_DEBUGGING_TYPE DWARF2_DEBUG
 
@@ -595,5 +556,3 @@ enum reg_class
 #define FUNCTION_MODE HImode
 
 #define NO_IMPLICIT_EXTERN_C
-
-#define HANDLE_SYSV_PRAGMA 1

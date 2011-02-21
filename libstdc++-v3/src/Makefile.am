@@ -45,13 +45,37 @@ libstdc++-symbols.ver:  ${glibcxx_srcdir}/$(SYMVER_FILE) \
 	  fi; \
 	fi
 
+CLEANFILES = libstdc++-symbols.ver
+
 if ENABLE_SYMVERS_GNU
+if ENABLE_SYMVERS_SOL2
+version_arg = -Wl,--version-script,libstdc++-symbols.ver-sol2
+version_dep = libstdc++-symbols.ver-sol2
+libstdc++-symbols.ver-sol2 : libstdc++-symbols.ver
+	sed -e '/^#ifdef HAVE_SYMVER_SYMBOL_RENAMING_RUNTIME_SUPPORT/,/^#endif/d' $< \
+	 > $@ || (rm -f $@ ; exit 1)
+else
 version_arg = -Wl,--version-script=libstdc++-symbols.ver
 version_dep = libstdc++-symbols.ver
+endif
 endif
 if ENABLE_SYMVERS_GNU_NAMESPACE
 version_arg = -Wl,--version-script=libstdc++-symbols.ver
 version_dep = libstdc++-symbols.ver
+endif
+if ENABLE_SYMVERS_SUN
+version_arg = -Wl,-M,libstdc++-symbols.ver-sun
+version_dep = libstdc++-symbols.ver-sun
+libstdc++-symbols.ver-sun : libstdc++-symbols.ver \
+		$(toplevel_srcdir)/contrib/make_sunver.pl \
+		$(libstdc___la_OBJECTS) $(libstdc___la_LIBADD)
+	CXXFILT="$(CXXFILT)"; export CXXFILT; \
+	perl $(toplevel_srcdir)/contrib/make_sunver.pl \
+	  libstdc++-symbols.ver \
+	  $(libstdc___la_OBJECTS:%.lo=.libs/%.o) \
+	 `echo $(libstdc___la_LIBADD) | \
+	    sed 's,/\([^/.]*\)\.la,/.libs/\1.a,g'` \
+	 > $@ || (rm -f $@ ; exit 1)
 endif
 if ENABLE_SYMVERS_DARWIN
 version_arg = -Wl,-exported_symbols_list,libstdc++-symbols.explist
@@ -66,6 +90,8 @@ libstdc++-symbols.explist : libstdc++-symbols.ver \
 	    sed 's,/\([^/.]*\)\.la,/.libs/\1.a,g'` \
 	 > $@ || (rm -f $@ ; exit 1)
 endif
+
+CLEANFILES += $(version_dep)
 else
 version_arg =
 version_dep =
@@ -121,8 +147,9 @@ basic_file.cc: ${glibcxx_srcdir}/$(BASIC_FILE_CC)
 	$(LN_S) ${glibcxx_srcdir}/$(BASIC_FILE_CC) ./$@ || true
 
 if ENABLE_PARALLEL
-parallel_sources = parallel_list.cc parallel_settings.cc \
-	           compatibility-parallel_list.cc
+parallel_sources = parallel_settings.cc \
+	           compatibility-parallel_list.cc \
+	           compatibility-parallel_list-2.cc 
 else
 parallel_sources =
 endif
@@ -143,7 +170,9 @@ sources = \
 	compatibility.cc \
 	compatibility-c++0x.cc \
 	compatibility-debug_list.cc \
+	compatibility-debug_list-2.cc \
 	compatibility-list.cc \
+	compatibility-list-2.cc \
 	complex_io.cc \
 	ctype.cc \
 	debug.cc \
@@ -159,7 +188,6 @@ sources = \
 	ios_locale.cc \
 	limits.cc \
 	list.cc \
-	debug_list.cc \
 	locale.cc \
 	locale_init.cc \
 	locale_facets.cc \
@@ -181,6 +209,8 @@ sources = \
 	locale-inst.cc \
 	misc-inst.cc \
 	ostream-inst.cc \
+	placeholders.cc \
+	regex.cc \
 	sstream-inst.cc \
 	streambuf-inst.cc \
 	streambuf.cc \
@@ -232,20 +262,20 @@ concept-inst.o: concept-inst.cc
 
 # Use special rules for parallel mode compilation.
 PARALLEL_FLAGS = -fopenmp -D_GLIBCXX_PARALLEL -I$(glibcxx_builddir)/../libgomp
-parallel_list.lo: parallel_list.cc
-	$(LTCXXCOMPILE) $(PARALLEL_FLAGS) -c $<
-parallel_list.o: parallel_list.cc
-	$(CXXCOMPILE) $(PARALLEL_FLAGS) -c $<
-
 parallel_settings.lo: parallel_settings.cc
 	$(LTCXXCOMPILE) $(PARALLEL_FLAGS) -c $<
 parallel_settings.o: parallel_settings.cc
 	$(CXXCOMPILE) $(PARALLEL_FLAGS) -c $<
 
 compatibility-parallel_list.lo: compatibility-parallel_list.cc
-	$(LTCXXCOMPILE) $(PARALLEL_FLAGS) -c $<
+	$(LTCXXCOMPILE) -c $<
 compatibility-parallel_list.o: compatibility-parallel_list.cc
-	$(CXXCOMPILE) $(PARALLEL_FLAGS) -c $<
+	$(CXXCOMPILE) -c $<
+
+compatibility-parallel_list-2.lo: compatibility-parallel_list-2.cc
+	$(LTCXXCOMPILE) -c $<
+compatibility-parallel_list-2.o: compatibility-parallel_list-2.cc
+	$(CXXCOMPILE) -c $<
 
 # Use special rules for the C++0x sources so that the proper flags are passed.
 functexcept.lo: functexcept.cc
@@ -323,6 +353,21 @@ future.lo: future.cc
 future.o: future.cc
 	$(CXXCOMPILE) -std=gnu++0x -c $<
 
+regex.lo: regex.cc
+	$(LTCXXCOMPILE) -std=gnu++0x -c $<
+regex.o: regex.cc
+	$(CXXCOMPILE) -std=gnu++0x -c $<
+
+debug.lo: debug.cc
+	$(LTCXXCOMPILE) -std=gnu++0x -c $<
+debug.o: debug.cc
+	$(CXXCOMPILE) -std=gnu++0x -c $<
+
+placeholders.lo: placeholders.cc
+	$(LTCXXCOMPILE) -std=gnu++0x -c $<
+placeholders.o: placeholders.cc
+	$(CXXCOMPILE) -std=gnu++0x -c $<
+
 if GLIBCXX_LDBL_COMPAT
 # Use special rules for compatibility-ldbl.cc compilation, as we need to
 # pass -mlong-double-64.
@@ -389,13 +434,17 @@ endif
 debugdir = debug
 
 # Build a set of debug objects here.
+# Take care to fix all possibly-relative paths.
 stamp-debug:
 	if test ! -d ${debugdir}; then \
 	  mkdir -p ${debugdir}; \
 	  (cd ${debugdir}; \
 	  sed -e 's/top_builddir = \.\./top_builddir = ..\/../' \
+	      -e 's/top_build_prefix = \.\./top_build_prefix = ..\/../' \
 	      -e 's/srcdir = \.\./srcdir = ..\/../' \
+	      -e 's/VPATH = \.\./VPATH = ..\/../' \
 	      -e 's/glibcxx_basedir = \.\./glibcxx_basedir = ..\/../' \
+	      -e 's/MKDIR_P = \.\./MKDIR_P = ..\/../' \
 	      -e 's/all-local: build_debug/all-local:/' \
 	      -e 's/install-data-local: install_debug/install-data-local:/' \
 	  < ../Makefile > Makefile) ; \

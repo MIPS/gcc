@@ -23,12 +23,16 @@
 // <http://www.gnu.org/licenses/>.
 
 /**
- * @file regex_nfa.cc
+ * @file bits/regex_nfa.tcc
+ *  This is an internal header file, included by other library headers.
+ *  Do not attempt to use it directly. @headername{regex}
  */
 #include <regex>
 
-namespace std
+namespace std _GLIBCXX_VISIBILITY(default)
 {
+_GLIBCXX_BEGIN_NAMESPACE_VERSION
+
 namespace __regex
 {
 #ifdef _GLIBCXX_DEBUG
@@ -166,5 +170,6 @@ _M_clone()
 { return 0; }
 
 } // namespace __regex
-} // namespace std
 
+_GLIBCXX_END_NAMESPACE_VERSION
+} // namespace

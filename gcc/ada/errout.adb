@@ -426,7 +426,6 @@ package body Errout is
 
          Error_Msg_Sloc := Flag_Location;
          X := Get_Source_File_Index (Flag_Location);
-
          while Instantiation (X) /= No_Location loop
 
             --  Suppress instantiation message on continuation lines
@@ -2145,7 +2144,7 @@ package body Errout is
       --  if the loop does not exit, then the desired case will be left set to
       --  Mixed_Case, this can happen if the name was not in canonical form,
       --  and gets canonicalized on VMS. Possibly we could fix this by
-      --  unconditinally canonicalizing these names ???
+      --  unconditionally canonicalizing these names ???
 
       for J in 1 .. Last_Source_File loop
          Get_Name_String (Full_Debug_Name (J));

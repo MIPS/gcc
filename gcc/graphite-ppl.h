@@ -24,12 +24,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "double-int.h"
 #include "tree.h"
 
-CloogMatrix *new_Cloog_Matrix_from_ppl_Polyhedron (ppl_const_Polyhedron_t);
-CloogDomain *new_Cloog_Domain_from_ppl_Polyhedron (ppl_const_Polyhedron_t);
-CloogDomain * new_Cloog_Domain_from_ppl_Pointset_Powerset (
-  ppl_Pointset_Powerset_C_Polyhedron_t);
-void new_C_Polyhedron_from_Cloog_Matrix (ppl_Polyhedron_t *, CloogMatrix *);
-void insert_constraint_into_matrix (CloogMatrix *, int, ppl_const_Constraint_t);
 ppl_Polyhedron_t ppl_strip_loop (ppl_Polyhedron_t, ppl_dimension_type, int);
 int ppl_lexico_compare_linear_expressions (ppl_Linear_Expression_t,
 					   ppl_Linear_Expression_t);
@@ -52,6 +46,9 @@ void ppl_min_for_le_pointset (ppl_Pointset_Powerset_C_Polyhedron_t,
 			      ppl_Linear_Expression_t, mpz_t);
 ppl_Constraint_t ppl_build_relation (int, int, int, int,
 				     enum ppl_enum_Constraint_Type);
+void debug_gmp_value (mpz_t);
+bool ppl_powerset_is_empty (ppl_Pointset_Powerset_C_Polyhedron_t);
+
 
 /* Assigns to RES the value of the INTEGER_CST T.  */
 

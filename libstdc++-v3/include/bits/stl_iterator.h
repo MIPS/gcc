@@ -49,9 +49,9 @@
  * purpose.  It is provided "as is" without express or implied warranty.
  */
 
-/** @file stl_iterator.h
+/** @file bits/stl_iterator.h
  *  This is an internal header file, included by other library headers.
- *  You should not attempt to use it directly.
+ *  Do not attempt to use it directly. @headername{iterator}
  *
  *  This file implements reverse_iterator, back_insert_iterator,
  *  front_insert_iterator, insert_iterator, __normal_iterator, and their
@@ -65,7 +65,9 @@
 #include <ext/type_traits.h>
 #include <bits/move.h>
 
-_GLIBCXX_BEGIN_NAMESPACE(std)
+namespace std _GLIBCXX_VISIBILITY(default)
+{
+_GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   /**
    * @addtogroup iterators
@@ -416,14 +418,21 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
        *  the end, if you like).  Assigning a value to the %iterator will
        *  always append the value to the end of the container.
       */
+#ifndef __GXX_EXPERIMENTAL_CXX0X__
       back_insert_iterator&
       operator=(typename _Container::const_reference __value)
       {
 	container->push_back(__value);
 	return *this;
       }
+#else
+      back_insert_iterator&
+      operator=(const typename _Container::value_type& __value)
+      {
+	container->push_back(__value);
+	return *this;
+      }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
       back_insert_iterator&
       operator=(typename _Container::value_type&& __value)
       {
@@ -499,14 +508,21 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
        *  the front, if you like).  Assigning a value to the %iterator will
        *  always prepend the value to the front of the container.
       */
+#ifndef __GXX_EXPERIMENTAL_CXX0X__
       front_insert_iterator&
       operator=(typename _Container::const_reference __value)
       {
 	container->push_front(__value);
 	return *this;
       }
+#else
+      front_insert_iterator&
+      operator=(const typename _Container::value_type& __value)
+      {
+	container->push_front(__value);
+	return *this;
+      }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
       front_insert_iterator&
       operator=(typename _Container::value_type&& __value)
       {
@@ -603,6 +619,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
        *     // vector v contains A, 1, 2, 3, and Z
        *  @endcode
       */
+#ifndef __GXX_EXPERIMENTAL_CXX0X__
       insert_iterator&
       operator=(typename _Container::const_reference __value)
       {
@@ -610,8 +627,15 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	++iter;
 	return *this;
       }
+#else
+      insert_iterator&
+      operator=(const typename _Container::value_type& __value)
+      {
+	iter = container->insert(iter, __value);
+	++iter;
+	return *this;
+      }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
       insert_iterator&
       operator=(typename _Container::value_type&& __value)
       {
@@ -658,9 +682,12 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 
   // @} group iterators
 
-_GLIBCXX_END_NAMESPACE
+_GLIBCXX_END_NAMESPACE_VERSION
+} // namespace
 
-_GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
+namespace __gnu_cxx _GLIBCXX_VISIBILITY(default)
+{
+_GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   // This iterator adapter is @a normal in the sense that it does not
   // change the semantics of any of the operators of its iterator
@@ -687,7 +714,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       typedef typename __traits_type::reference 	reference;
       typedef typename __traits_type::pointer   	pointer;
 
-      __normal_iterator() : _M_current(_Iterator()) { }
+      _GLIBCXX_CONSTEXPR __normal_iterator() : _M_current(_Iterator()) { }
 
       explicit
       __normal_iterator(const _Iterator& __i) : _M_current(__i) { }
@@ -870,11 +897,14 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 	      __n, const __normal_iterator<_Iterator, _Container>& __i)
     { return __normal_iterator<_Iterator, _Container>(__i.base() + __n); }
 
-_GLIBCXX_END_NAMESPACE
+_GLIBCXX_END_NAMESPACE_VERSION
+} // namespace
 
 #ifdef __GXX_EXPERIMENTAL_CXX0X__
 
-_GLIBCXX_BEGIN_NAMESPACE(std)
+namespace std _GLIBCXX_VISIBILITY(default)
+{
+_GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   /**
    * @addtogroup iterators
@@ -987,10 +1017,19 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       { return std::move(_M_current[__n]); }
     };
 
+  // Note: See __normal_iterator operators note from Gaby to understand
+  // why there are always 2 versions for most of the move_iterator
+  // operators.
   template<typename _IteratorL, typename _IteratorR>
     inline bool
     operator==(const move_iterator<_IteratorL>& __x,
 	       const move_iterator<_IteratorR>& __y)
+    { return __x.base() == __y.base(); }
+
+  template<typename _Iterator>
+    inline bool
+    operator==(const move_iterator<_Iterator>& __x,
+	       const move_iterator<_Iterator>& __y)
     { return __x.base() == __y.base(); }
 
   template<typename _IteratorL, typename _IteratorR>
@@ -999,10 +1038,22 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	       const move_iterator<_IteratorR>& __y)
     { return !(__x == __y); }
 
+  template<typename _Iterator>
+    inline bool
+    operator!=(const move_iterator<_Iterator>& __x,
+	       const move_iterator<_Iterator>& __y)
+    { return !(__x == __y); }
+
   template<typename _IteratorL, typename _IteratorR>
     inline bool
     operator<(const move_iterator<_IteratorL>& __x,
 	      const move_iterator<_IteratorR>& __y)
+    { return __x.base() < __y.base(); }
+
+  template<typename _Iterator>
+    inline bool
+    operator<(const move_iterator<_Iterator>& __x,
+	      const move_iterator<_Iterator>& __y)
     { return __x.base() < __y.base(); }
 
   template<typename _IteratorL, typename _IteratorR>
@@ -1011,10 +1062,22 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	       const move_iterator<_IteratorR>& __y)
     { return !(__y < __x); }
 
+  template<typename _Iterator>
+    inline bool
+    operator<=(const move_iterator<_Iterator>& __x,
+	       const move_iterator<_Iterator>& __y)
+    { return !(__y < __x); }
+
   template<typename _IteratorL, typename _IteratorR>
     inline bool
     operator>(const move_iterator<_IteratorL>& __x,
 	      const move_iterator<_IteratorR>& __y)
+    { return __y < __x; }
+
+  template<typename _Iterator>
+    inline bool
+    operator>(const move_iterator<_Iterator>& __x,
+	      const move_iterator<_Iterator>& __y)
     { return __y < __x; }
 
   template<typename _IteratorL, typename _IteratorR>
@@ -1023,11 +1086,24 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	       const move_iterator<_IteratorR>& __y)
     { return !(__x < __y); }
 
+  template<typename _Iterator>
+    inline bool
+    operator>=(const move_iterator<_Iterator>& __x,
+	       const move_iterator<_Iterator>& __y)
+    { return !(__x < __y); }
+
   // DR 685.
   template<typename _IteratorL, typename _IteratorR>
     inline auto
     operator-(const move_iterator<_IteratorL>& __x,
 	      const move_iterator<_IteratorR>& __y)
+    -> decltype(__x.base() - __y.base())
+    { return __x.base() - __y.base(); }
+
+  template<typename _Iterator>
+    inline auto
+    operator-(const move_iterator<_Iterator>& __x,
+	      const move_iterator<_Iterator>& __y)
     -> decltype(__x.base() - __y.base())
     { return __x.base() - __y.base(); }
 
@@ -1044,7 +1120,8 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 
   // @} group iterators
 
-_GLIBCXX_END_NAMESPACE
+_GLIBCXX_END_NAMESPACE_VERSION
+} // namespace
 
 #define _GLIBCXX_MAKE_MOVE_ITERATOR(_Iter) std::make_move_iterator(_Iter)
 #else

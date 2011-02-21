@@ -31,6 +31,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "vec.h"
 #include "vecprim.h"
 #include "alloc-pool.h"
+#include "gcov-io.h"
 
 /* Define when debugging the LTO streamer.  This causes the writer
    to output the numeric value for the memory address of the tree node
@@ -139,7 +140,7 @@ along with GCC; see the file COPYING3.  If not see
    sections a '.' and the section type are appended.  */
 #define LTO_SECTION_NAME_PREFIX         ".gnu.lto_"
 
-#define LTO_major_version 1
+#define LTO_major_version 2
 #define LTO_minor_version 0
 
 typedef unsigned char	lto_decl_flags_t;
@@ -235,6 +236,7 @@ enum LTO_tags
   LTO_type_ref,
   LTO_const_decl_ref,
   LTO_imported_decl_ref,
+  LTO_translation_unit_decl_ref,
   LTO_global_decl_ref,			/* Do not change.  */
 
   /* This tag must always be last.  */
@@ -600,6 +602,17 @@ struct GTY(()) lto_file_decl_data
 
   /* Hash new name of renamed global declaration to its original name.  */
   htab_t GTY((skip)) renaming_hash_table;
+
+  /* Linked list used temporarily in reader */
+  struct lto_file_decl_data *next;
+
+  /* Sub ID for merged objects. */
+  unsigned id;
+
+  /* Symbol resolutions for this file */
+  VEC(ld_plugin_symbol_resolution_t,heap) * GTY((skip)) resolutions;
+
+  struct gcov_ctr_summary GTY((skip)) profile_info;
 };
 
 typedef struct lto_file_decl_data *lto_file_decl_data_ptr;
@@ -815,7 +828,7 @@ extern void lto_record_function_out_decl_state (tree,
 extern const char *lto_tag_name (enum LTO_tags);
 extern bitmap lto_bitmap_alloc (void);
 extern void lto_bitmap_free (bitmap);
-extern char *lto_get_section_name (int, const char *);
+extern char *lto_get_section_name (int, const char *, struct lto_file_decl_data *);
 extern void print_lto_report (void);
 extern bool lto_streamer_cache_insert (struct lto_streamer_cache_d *, tree,
 				       int *, unsigned *);
@@ -901,6 +914,7 @@ extern void lto_symtab_merge_cgraph_nodes (void);
 extern tree lto_symtab_prevailing_decl (tree decl);
 extern enum ld_plugin_symbol_resolution lto_symtab_get_resolution (tree decl);
 extern void lto_symtab_free (void);
+extern GTY(()) VEC(tree,gc) *lto_global_var_decls;
 
 
 /* In lto-opts.c.  */

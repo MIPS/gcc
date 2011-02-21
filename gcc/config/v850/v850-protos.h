@@ -1,5 +1,5 @@
 /* Prototypes for v850.c functions used in the md file & elsewhere.
-   Copyright (C) 1999, 2000, 2002, 2004, 2005, 2007
+   Copyright (C) 1999, 2000, 2002, 2004, 2005, 2007, 2010
    Free Software Foundation, Inc.
 
    This file is part of GCC.
@@ -43,11 +43,13 @@ extern char * construct_restore_jr          (rtx);
 extern char * construct_dispose_instruction (rtx);
 extern char * construct_prepare_instruction (rtx);
 extern int    ep_memory_operand             (rtx, Mmode, int);
-#ifdef TREE_CODE
-extern rtx    function_arg                  (CUMULATIVE_ARGS *, Mmode, tree, int);
+extern int    v850_float_z_comparison_operator (rtx, Mmode);
+extern int    v850_float_nz_comparison_operator (rtx, Mmode);
+extern rtx    v850_gen_compare              (enum rtx_code, Mmode, rtx, rtx);
+extern Mmode  v850_gen_float_compare (enum rtx_code, Mmode, rtx, rtx);
+extern Mmode  v850_select_cc_mode (RTX_CODE, rtx, rtx);
 #endif
-#endif
-#endif /* TREE_CODE */
+#endif /* RTX_CODE */
 
 #ifdef TREE_CODE
 extern int    v850_interrupt_function_p     (tree);

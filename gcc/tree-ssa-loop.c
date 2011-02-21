@@ -1,5 +1,6 @@
 /* Loop optimizations over tree-ssa.
-   Copyright (C) 2003, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2005, 2006, 2007, 2008, 2009, 2010
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -33,7 +34,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "tree-inline.h"
 #include "tree-scalar-evolution.h"
-#include "toplev.h"
+#include "diagnostic-core.h"
 #include "tree-vectorizer.h"
 
 /* The loop superpass.  */
@@ -178,8 +179,7 @@ run_tree_predictive_commoning (void)
   if (!current_loops)
     return 0;
 
-  tree_predictive_commoning ();
-  return 0;
+  return tree_predictive_commoning ();
 }
 
 static bool
@@ -245,45 +245,6 @@ struct gimple_opt_pass pass_vectorize =
  }
 };
 
-/* Loop nest optimizations.  */
-
-static unsigned int
-tree_linear_transform (void)
-{
-  if (number_of_loops () <= 1)
-    return 0;
-
-  linear_transform_loops ();
-  return 0;
-}
-
-static bool
-gate_tree_linear_transform (void)
-{
-  return flag_tree_loop_linear != 0;
-}
-
-struct gimple_opt_pass pass_linear_transform =
-{
- {
-  GIMPLE_PASS,
-  "ltrans",				/* name */
-  gate_tree_linear_transform,		/* gate */
-  tree_linear_transform,       		/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_TREE_LINEAR_TRANSFORM,  		/* tv_id */
-  PROP_cfg | PROP_ssa,			/* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  TODO_dump_func
-    | TODO_update_ssa_only_virtuals
-    | TODO_ggc_collect			/* todo_flags_finish */
- }
-};
-
 /* GRAPHITE optimizations.  */
 
 static unsigned int
@@ -302,12 +263,35 @@ gate_graphite_transforms (void)
 {
   /* Enable -fgraphite pass if any one of the graphite optimization flags
      is turned on.  */
-  if (flag_loop_block || flag_loop_interchange || flag_loop_strip_mine
-      || flag_graphite_identity || flag_loop_parallelize_all)
+  if (flag_loop_block
+      || flag_loop_interchange
+      || flag_loop_strip_mine
+      || flag_graphite_identity
+      || flag_loop_parallelize_all
+      || flag_loop_flatten)
     flag_graphite = 1;
 
   return flag_graphite != 0;
 }
+
+struct gimple_opt_pass pass_graphite =
+{
+ {
+  GIMPLE_PASS,
+  "graphite0",				/* name */
+  gate_graphite_transforms,		/* gate */
+  NULL,					/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_GRAPHITE,				/* tv_id */
+  PROP_cfg | PROP_ssa,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  0					/* todo_flags_finish */
+ }
+};
 
 struct gimple_opt_pass pass_graphite_transforms =
 {
@@ -324,7 +308,7 @@ struct gimple_opt_pass pass_graphite_transforms =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0					/* todo_flags_finish */
+  TODO_dump_func			/* todo_flags_finish */
  }
 };
 
@@ -438,7 +422,7 @@ tree_ssa_loop_bounds (void)
   if (number_of_loops () <= 1)
     return 0;
 
-  estimate_numbers_of_iterations ();
+  estimate_numbers_of_iterations (true);
   scev_reset ();
   return 0;
 }
@@ -543,7 +527,8 @@ struct gimple_opt_pass pass_complete_unrolli =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func
+  TODO_verify_flow
+    | TODO_dump_func
     | TODO_ggc_collect 			/* todo_flags_finish */
  }
 };
@@ -685,6 +670,8 @@ struct gimple_opt_pass pass_tree_loop_done =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_cleanup_cfg | TODO_dump_func	/* todo_flags_finish */
+  TODO_cleanup_cfg
+    | TODO_verify_flow
+    | TODO_dump_func			/* todo_flags_finish */
  }
 };

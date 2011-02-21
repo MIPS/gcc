@@ -1,5 +1,5 @@
 /* Implementation of the DATE_AND_TIME intrinsic.
-   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2009, 2010
+   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2009, 2010, 2011
    Free Software Foundation, Inc.
    Contributed by Steven Bosscher.
 
@@ -29,21 +29,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #include <assert.h>
 #include <stdlib.h>
 
-#undef HAVE_NO_DATE_TIME
-#if TIME_WITH_SYS_TIME
-#  include <sys/time.h>
-#  include <time.h>
-#else
-#  if HAVE_SYS_TIME_H
-#    include <sys/time.h>
-#  else
-#    ifdef HAVE_TIME_H
-#      include <time.h>
-#    else
-#      define HAVE_NO_DATE_TIME
-#    endif  /* HAVE_TIME_H  */
-#  endif  /* HAVE_SYS_TIME_H  */
-#endif  /* TIME_WITH_SYS_TIME  */
+#include "time_1.h"
 
 #ifndef abs
 #define abs(x) ((x)>=0 ? (x) : -(x))
@@ -93,29 +79,25 @@ gmtime_r (const time_t * timep, struct tm * result)
 
    Arguments:
 
-   DATE (optional) shall be scalar and of type default character, and
-   shall be of length at least 8 in order to contain the complete
-   value. It is an INTENT(OUT) argument. Its leftmost 8 characters
-   are assigned a value of the form CCYYMMDD, where CC is the century,
-   YY the year within the century, MM the month within the year, and
-   DD the day within the month. If there is no date available, they
-   are assigned blanks.
+   DATE (optional) shall be scalar and of type default character.
+   It is an INTENT(OUT) argument.  It is assigned a value of the
+   form CCYYMMDD, where CC is the century, YY the year within the
+   century, MM the month within the year, and DD the day within the
+   month.  If there is no date available, they are assigned blanks.
 
-   TIME (optional) shall be scalar and of type default character, and
-   shall be of length at least 10 in order to contain the complete
-   value. It is an INTENT(OUT) argument. Its leftmost 10 characters
-   are assigned a value of the form hhmmss.sss, where hh is the hour
-   of the day, mm is the minutes of the hour, and ss.sss is the
-   seconds and milliseconds of the minute. If there is no clock
-   available, they are assigned blanks.
+   TIME (optional) shall be scalar and of type default character.
+   It is an INTENT(OUT) argument. It is assigned a value of the
+   form hhmmss.sss, where hh is the hour of the day, mm is the
+   minutes of the hour, and ss.sss is the seconds and milliseconds
+   of the minute.  If there is no clock available, they are assigned
+   blanks.
 
-   ZONE (optional) shall be scalar and of type default character, and
-   shall be of length at least 5 in order to contain the complete
-   value. It is an INTENT(OUT) argument. Its leftmost 5 characters
-   are assigned a value of the form [+-]hhmm, where hh and mm are the
-   time difference with respect to Coordinated Universal Time (UTC) in
-   hours and parts of an hour expressed in minutes, respectively. If
-   there is no clock available, they are assigned blanks.
+   ZONE (optional) shall be scalar and of type default character.
+   It is an INTENT(OUT) argument.  It is assigned a value of the
+   form [+-]hhmm, where hh and mm are the time difference with
+   respect to Coordinated Universal Time (UTC) in hours and parts
+   of an hour expressed in minutes, respectively.  If there is no
+   clock available, they are assigned blanks.
 
    VALUES (optional) shall be of type default integer and of rank
    one. It is an INTENT(OUT) argument. Its size shall be at least
@@ -180,28 +162,12 @@ date_and_time (char *__date, char *__time, char *__zone,
   struct tm local_time;
   struct tm UTC_time;
 
-#if HAVE_GETTIMEOFDAY
-  {
-    struct timeval tp;
+  long usecs;
 
-    if (!gettimeofday (&tp, NULL))
-      {
-         lt = tp.tv_sec;
-         values[7] = tp.tv_usec / 1000;
-      }
-    else
-      {
-         lt = time (NULL);
-         values[7] = 0;
-      }
-  }
-#else
-  lt = time (NULL);
-  values[7] = 0;
-#endif /* HAVE_GETTIMEOFDAY */
-
-  if (lt != (time_t) -1)
+  if (!gf_gettime (&lt, &usecs))
     {
+      values[7] = usecs / 1000;
+
       localtime_r (&lt, &local_time);
       gmtime_r (&lt, &UTC_time);
 
@@ -311,22 +277,13 @@ date_and_time (char *__date, char *__time, char *__zone,
     }
 
   if (__zone)
-    {
-      assert (__zone_len >= ZONE_LEN);
-      fstrcpy (__zone, ZONE_LEN, zone, ZONE_LEN);
-    }
+    fstrcpy (__zone, __zone_len, zone, ZONE_LEN);
 
   if (__time)
-    {
-      assert (__time_len >= TIME_LEN);
-      fstrcpy (__time, TIME_LEN, timec, TIME_LEN);
-    }
+    fstrcpy (__time, __time_len, timec, TIME_LEN);
 
   if (__date)
-    {
-      assert (__date_len >= DATE_LEN);
-      fstrcpy (__date, DATE_LEN, date, DATE_LEN);
-    }
+    fstrcpy (__date, __date_len, date, DATE_LEN);
 }
 
 
@@ -362,7 +319,7 @@ secnds (GFC_REAL_4 *x)
   /* Make the INTEGER*4 array for passing to date_and_time.  */
   gfc_array_i4 *avalues = internal_malloc_size (sizeof (gfc_array_i4));
   avalues->data = &values[0];
-  GFC_DESCRIPTOR_DTYPE (avalues) = ((GFC_DTYPE_REAL << GFC_DTYPE_TYPE_SHIFT)
+  GFC_DESCRIPTOR_DTYPE (avalues) = ((BT_REAL << GFC_DTYPE_TYPE_SHIFT)
 				        & GFC_DTYPE_TYPE_MASK) +
 				    (4 << GFC_DTYPE_SIZE_SHIFT);
 

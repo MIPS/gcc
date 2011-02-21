@@ -22,9 +22,9 @@
 // see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 // <http://www.gnu.org/licenses/>.
 
-/** @file move.h
+/** @file bits/move.h
  *  This is an internal header file, included by other library headers.
- *  You should not attempt to use it directly.
+ *  Do not attempt to use it directly. @headername{utility}
  */
 
 #ifndef _MOVE_H
@@ -33,7 +33,9 @@
 #include <bits/c++config.h>
 #include <bits/concept_check.h>
 
-_GLIBCXX_BEGIN_NAMESPACE(std)
+namespace std _GLIBCXX_VISIBILITY(default)
+{
+_GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   // Used, in C++03 mode too, by allocators, etc.
   template<typename _Tp>
@@ -44,43 +46,30 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	(&const_cast<char&>(reinterpret_cast<const volatile char&>(__r)));
     }
 
-_GLIBCXX_END_NAMESPACE
+_GLIBCXX_END_NAMESPACE_VERSION
+} // namespace
 
 #ifdef __GXX_EXPERIMENTAL_CXX0X__
 #include <type_traits> // Brings in std::declval too.
 
-_GLIBCXX_BEGIN_NAMESPACE(std)
-
-  /// identity
+namespace std _GLIBCXX_VISIBILITY(default)
+{
+_GLIBCXX_BEGIN_NAMESPACE_VERSION
+  
+  /// forward (as per N3143)
   template<typename _Tp>
-    struct identity
+    inline _Tp&&
+    forward(typename std::remove_reference<_Tp>::type& __t) 
+    { return static_cast<_Tp&&>(__t); }
+
+  template<typename _Tp>
+    inline _Tp&&
+    forward(typename std::remove_reference<_Tp>::type&& __t) 
     {
-      typedef _Tp type;
-    };
-
-  /// forward (as per N2835)
-  /// Forward lvalues as rvalues.
-  template<typename _Tp>
-    inline typename enable_if<!is_lvalue_reference<_Tp>::value, _Tp&&>::type
-    forward(typename std::identity<_Tp>::type& __t)
-    { return static_cast<_Tp&&>(__t); }
-
-  /// Forward rvalues as rvalues.
-  template<typename _Tp>
-    inline typename enable_if<!is_lvalue_reference<_Tp>::value, _Tp&&>::type
-    forward(typename std::identity<_Tp>::type&& __t)
-    { return static_cast<_Tp&&>(__t); }
-
-  // Forward lvalues as lvalues.
-  template<typename _Tp>
-    inline typename enable_if<is_lvalue_reference<_Tp>::value, _Tp>::type
-    forward(typename std::identity<_Tp>::type __t)
-    { return __t; }
-
-  // Prevent forwarding rvalues as const lvalues.
-  template<typename _Tp>
-    inline typename enable_if<is_lvalue_reference<_Tp>::value, _Tp>::type
-    forward(typename std::remove_reference<_Tp>::type&& __t) = delete;
+      static_assert(!std::is_lvalue_reference<_Tp>::value, "template argument"
+		    " substituting _Tp is an lvalue reference type");
+      return static_cast<_Tp&&>(__t);
+    }
 
   /**
    *  @brief Move a value.
@@ -93,7 +82,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     move(_Tp&& __t)
     { return static_cast<typename std::remove_reference<_Tp>::type&&>(__t); }
 
-  /// declval, defined in <type_traits>.
+  /// declval, from type_traits.
 
   /**
    *  @brief Returns the actual address of the object or function
@@ -107,16 +96,19 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     addressof(_Tp& __r)
     { return std::__addressof(__r); }
 
-_GLIBCXX_END_NAMESPACE
+_GLIBCXX_END_NAMESPACE_VERSION
+} // namespace
 
-#define _GLIBCXX_MOVE(_Tp) std::move(_Tp)
+#define _GLIBCXX_MOVE(__val) std::move(__val)
 #define _GLIBCXX_FORWARD(_Tp, __val) std::forward<_Tp>(__val)
 #else
-#define _GLIBCXX_MOVE(_Tp) (_Tp)
+#define _GLIBCXX_MOVE(__val) (__val)
 #define _GLIBCXX_FORWARD(_Tp, __val) (__val)
 #endif
 
-_GLIBCXX_BEGIN_NAMESPACE(std)
+namespace std _GLIBCXX_VISIBILITY(default)
+{
+_GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   /**
    *  @brief Swaps two values.
@@ -147,6 +139,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	swap(__a[__n], __b[__n]);
     }
 
-_GLIBCXX_END_NAMESPACE
+_GLIBCXX_END_NAMESPACE_VERSION
+} // namespace
 
 #endif /* _MOVE_H */

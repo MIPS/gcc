@@ -21,7 +21,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "toplev.h"
+#include "diagnostic-core.h"
 #include "rtl.h"
 #include "tm_p.h"
 #include "hard-reg-set.h"
@@ -466,7 +466,7 @@ dump_insn_vector (rtx_vec_t succs)
   int i;
   rtx succ;
 
-  for (i = 0; VEC_iterate (rtx, succs, i, succ); i++)
+  FOR_EACH_VEC_ELT (rtx, succs, i, succ)
     if (succ)
       dump_insn (succ);
     else
@@ -960,8 +960,8 @@ debug_mem_addr_value (rtx x)
   address_mode = targetm.addr_space.address_mode (MEM_ADDR_SPACE (x));
 
   t = shallow_copy_rtx (x);
-  if (cselib_lookup (XEXP (t, 0), address_mode, 0))
-    XEXP (t, 0) = cselib_subst_to_values (XEXP (t, 0));
+  if (cselib_lookup (XEXP (t, 0), address_mode, 0, GET_MODE (t)))
+    XEXP (t, 0) = cselib_subst_to_values (XEXP (t, 0), GET_MODE (t));
 
   t = canon_rtx (t);
   addr = get_addr (XEXP (t, 0));
