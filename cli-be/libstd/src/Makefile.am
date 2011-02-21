@@ -112,6 +112,7 @@ SRC = _Exit.c \
       system.c \
       systime.c \
       time.c \
+      times.c \
       tmpfile.c \
       tmpnam.c \
       ungetc.c \

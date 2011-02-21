@@ -99,7 +99,7 @@ am__objects_1 = libstd_la-_Exit.lo libstd_la-__io_device.lo \
 	libstd_la-strrchr.lo libstd_la-strspn.lo libstd_la-strstr.lo \
 	libstd_la-strtod.lo libstd_la-strtok.lo libstd_la-strtolul.lo \
 	libstd_la-strtollull.lo libstd_la-strxfrm.lo \
-	libstd_la-system.lo libstd_la-systime.lo libstd_la-time.lo \
+	libstd_la-system.lo libstd_la-systime.lo libstd_la-time.lo libstd_la-times.lo\
 	libstd_la-tmpfile.lo libstd_la-tmpnam.lo libstd_la-ungetc.lo \
 	libstd_la-unlink.lo libstd_la-vfprintf.lo libstd_la-vfscanf.lo \
 	libstd_la-vprintf.lo libstd_la-vsnprintf.lo \
@@ -172,7 +172,7 @@ am__objects_2 = libstd_dll-_Exit.$(OBJEXT) \
 	libstd_dll-strtok.$(OBJEXT) libstd_dll-strtolul.$(OBJEXT) \
 	libstd_dll-strtollull.$(OBJEXT) libstd_dll-strxfrm.$(OBJEXT) \
 	libstd_dll-system.$(OBJEXT) libstd_dll-systime.$(OBJEXT) \
-	libstd_dll-time.$(OBJEXT) libstd_dll-tmpfile.$(OBJEXT) \
+	libstd_dll-time.$(OBJEXT) libstd_dll-times.$(OBJEXT) libstd_dll-tmpfile.$(OBJEXT) \
 	libstd_dll-tmpnam.$(OBJEXT) libstd_dll-ungetc.$(OBJEXT) \
 	libstd_dll-unlink.$(OBJEXT) \
 	libstd_dll-vfprintf.$(OBJEXT) libstd_dll-vfscanf.$(OBJEXT) \
@@ -429,6 +429,7 @@ SRC = _Exit.c \
       system.c \
       systime.c \
       time.c \
+      times.c \
       tmpfile.c \
       tmpnam.c \
       ungetc.c \
@@ -649,6 +650,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-system.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-systime.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-time.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-times.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-tmpfile.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-tmpnam.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-ungetc.Po@am__quote@
@@ -776,6 +778,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-system.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-systime.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-time.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-times.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-tmpfile.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-tmpnam.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-ungetc.Plo@am__quote@
@@ -1602,6 +1605,13 @@ libstd_la-time.lo: time.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='time.c' object='libstd_la-time.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_la_CFLAGS) $(CFLAGS) -c -o libstd_la-time.lo `test -f 'time.c' || echo '$(srcdir)/'`time.c
+
+libstd_la-times.lo: times.c
+@am__fastdepCC_TRUE@	if $(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_la_CFLAGS) $(CFLAGS) -MT libstd_la-times.lo -MD -MP -MF "$(DEPDIR)/libstd_la-times.Tpo" -c -o libstd_la-times.lo `test -f 'times.c' || echo '$(srcdir)/'`times.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/libstd_la-times.Tpo" "$(DEPDIR)/libstd_la-times.Plo"; else rm -f "$(DEPDIR)/libstd_la-times.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='times.c' object='libstd_la-times.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_la_CFLAGS) $(CFLAGS) -c -o libstd_la-times.lo `test -f 'times.c' || echo '$(srcdir)/'`times.c
 
 libstd_la-tmpfile.lo: tmpfile.c
 @am__fastdepCC_TRUE@	if $(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_la_CFLAGS) $(CFLAGS) -MT libstd_la-tmpfile.lo -MD -MP -MF "$(DEPDIR)/libstd_la-tmpfile.Tpo" -c -o libstd_la-tmpfile.lo `test -f 'tmpfile.c' || echo '$(srcdir)/'`tmpfile.c; \
@@ -3282,6 +3292,20 @@ libstd_dll-time.obj: time.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='time.c' object='libstd_dll-time.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -c -o libstd_dll-time.obj `if test -f 'time.c'; then $(CYGPATH_W) 'time.c'; else $(CYGPATH_W) '$(srcdir)/time.c'; fi`
+
+libstd_dll-times.o: times.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -MT libstd_dll-times.o -MD -MP -MF "$(DEPDIR)/libstd_dll-times.Tpo" -c -o libstd_dll-times.o `test -f 'times.c' || echo '$(srcdir)/'`times.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/libstd_dll-times.Tpo" "$(DEPDIR)/libstd_dll-times.Po"; else rm -f "$(DEPDIR)/libstd_dll-times.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='times.c' object='libstd_dll-times.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -c -o libstd_dll-times.o `test -f 'times.c' || echo '$(srcdir)/'`times.c
+
+libstd_dll-times.obj: times.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -MT libstd_dll-times.obj -MD -MP -MF "$(DEPDIR)/libstd_dll-times.Tpo" -c -o libstd_dll-times.obj `if test -f 'times.c'; then $(CYGPATH_W) 'times.c'; else $(CYGPATH_W) '$(srcdir)/times.c'; fi`; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/libstd_dll-times.Tpo" "$(DEPDIR)/libstd_dll-times.Po"; else rm -f "$(DEPDIR)/libstd_dll-times.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='times.c' object='libstd_dll-times.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -c -o libstd_dll-times.obj `if test -f 'times.c'; then $(CYGPATH_W) 'times.c'; else $(CYGPATH_W) '$(srcdir)/times.c'; fi`
 
 libstd_dll-tmpfile.o: tmpfile.c
 @am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -MT libstd_dll-tmpfile.o -MD -MP -MF "$(DEPDIR)/libstd_dll-tmpfile.Tpo" -c -o libstd_dll-tmpfile.o `test -f 'tmpfile.c' || echo '$(srcdir)/'`tmpfile.c; \

@@ -85,7 +85,7 @@ LIBSTD_HPROTO(int, rename, char *oldname, char *newname);
 LIBSTD_HPROTO(int, remove, char *filename);
 
 /* Removes a directory entry.  */
-LIBSTD_HPROTO(int, unlink, char *path);
+LIBSTD_HPROTO(int, unlink, const char *path);
 
 /* Attempts to write bytes into stream.    */
 LIBSTD_HPROTO(int, write, int fildes, void *buf, int nbytes);
@@ -103,6 +103,9 @@ LIBSTD_HPROTO(void, gmtime, void *timer,
 
 LIBSTD_HPROTO(void, gettimeofday, void *tv_sec, void *tv_usec);
 
+/* Getting process time ifnormations */
+LIBSTD_HPROTO(int, gettimes, unsigned long * tms_utime, unsigned long *tms_stime, unsigned long *tms_cutime, unsigned long *tms_cstime);
+ 
 /* Floating point classification */
 LIBSTD_HPROTO(int, fpclassify, double p0);
 

@@ -27,6 +27,7 @@ using System.Security;
 using System.Security.Principal;
 using System.Security.AccessControl;
 using System.Runtime.InteropServices;
+using System.Diagnostics;
 
 public class MSCorelibWrapper
 {
@@ -420,7 +421,7 @@ public class MSCorelibWrapper
         String file_name = Marshal.PtrToStringAnsi(ptr_int_ptr);        
         int flags = 0;
 
-        Console.Write("Warning: some features of stat() are not supported\n");
+        Console.Error.Write("Warning: some features of stat() are not supported\n");
 
         /* File atributres */
         FileAttributes attr = File.GetAttributes (file_name);
@@ -466,7 +467,7 @@ public class MSCorelibWrapper
           if ((flags & __LIBSTD_S_IFDIR) == __LIBSTD_S_IFDIR)
             flags |= __LIBSTD_S_IEXEC;
 
-          Console.Write("Warning: Unable to get file mode (default: S_IREAD and S_IWRITE if not ReadOnly)\n  Exception: ");
+          Console.Error.Write("Warning: Unable to get file mode (default: S_IREAD and S_IWRITE if not ReadOnly)\n  Exception: ");
           Console.WriteLine(e.Message);
         }
         return flags;
@@ -661,6 +662,29 @@ public class MSCorelibWrapper
         *tv_usec = (int)((t % 10000000) / 10);
     }
 
+  
+    unsafe public static int gettimes (uint *tms_utime, uint *tms_stime, uint *tms_cutime, uint *tms_cstime)
+    {
+      Process tp = Process.GetCurrentProcess();
+
+      try {
+        *tms_utime = (uint)tp.UserProcessorTime.Ticks;
+        *tms_stime = (uint)tp.PrivilegedProcessorTime.Ticks;
+        /* Currently there is no way to get childs timings.
+         * In .NET it is possible to check parent ID by means of
+         * PeroformanceCounter : "Creating Process Id", but it
+         * is not implemented in Mono */
+        *tms_cutime = 0;
+        *tms_cstime = 0;
+        Console.Error.Write("Warning: gettimes() - tms_cutime and tms_cstime defaults to 0 ({0} {1})\n");
+      } catch (PlatformNotSupportedException) {
+        my_errno = __LIBSTD_ENOTSUP;
+        return -1;
+      }
+
+      return 0;
+      
+    }
 
     public static void exit(int status)
     {

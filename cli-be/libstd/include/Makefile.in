@@ -226,6 +226,7 @@ includebits_HEADERS = \
 
 includesys_HEADERS = \
 	sys/time.h \
+	sys/times.h \
 	sys/types.h \
 	sys/stat.h
 

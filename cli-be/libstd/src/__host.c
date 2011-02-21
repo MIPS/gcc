@@ -49,6 +49,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/time.h>
+#include <sys/times.h>
 
 
 
@@ -354,7 +355,7 @@ LIBSTD_HPROTO_IMPL(int, remove, char *filename)
 }
 
 /* Removes a directory entry.  */
-LIBSTD_HPROTO_IMPL(int, unlink, char *path)
+LIBSTD_HPROTO_IMPL(int, unlink, const char *path)
 {
     int result;
     result = unlink(path);
@@ -421,6 +422,20 @@ LIBSTD_HPROTO_IMPL(void, gettimeofday, void *_tv_sec, void *_tv_usec)
     *tv_sec  = (long)(tv.tv_sec);
     *tv_usec = (long)(tv.tv_usec);
     
+}
+
+/* Getting process time ifnormations */
+LIBSTD_HPROTO_IMPL(int, gettimes, unsigned long * tms_utime, unsigned long *tms_stime, unsigned long *tms_cutime, unsigned long *tms_cstime)
+{
+  struct tms t;
+
+  times (&t);
+  *tms_utime = t.tms_utime;
+  *tms_stime = t.tms_stime;
+  *tms_cutime = t.tms_cutime;
+  *tms_cstime = t.tms_cstime; 
+  
+  return 0;
 }
 
 LIBSTD_HPROTO_IMPL(int, fpclassify, double p0)
