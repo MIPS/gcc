@@ -663,13 +663,14 @@ public class MSCorelibWrapper
     }
 
   
-    unsafe public static int gettimes (uint *tms_utime, uint *tms_stime, uint *tms_cutime, uint *tms_cstime)
+    unsafe public static int gettimes (uint *clks, uint *tms_utime, uint *tms_stime, uint *tms_cutime, uint *tms_cstime)
     {
       Process tp = Process.GetCurrentProcess();
 
       try {
-        *tms_utime = (uint)tp.UserProcessorTime.Ticks;
-        *tms_stime = (uint)tp.PrivilegedProcessorTime.Ticks;
+        /* Posix times seems to return timings ins centiseconds */
+        *tms_utime = (uint)(tp.UserProcessorTime.TotalMilliseconds/10);
+        *tms_stime = (uint)(tp.PrivilegedProcessorTime.TotalMilliseconds/10);
         /* Currently there is no way to get childs timings.
          * In .NET it is possible to check parent ID by means of
          * PeroformanceCounter : "Creating Process Id", but it
@@ -681,6 +682,11 @@ public class MSCorelibWrapper
         my_errno = __LIBSTD_ENOTSUP;
         return -1;
       }
+
+      /* clks (as return value of times function) is an arbitrary
+       * time reference. only useful when making more than one call
+       * to times. Thus we can use the value returned by clock */
+      *clks = (uint) clock();
 
       return 0;
       

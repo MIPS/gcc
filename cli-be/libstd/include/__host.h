@@ -103,8 +103,8 @@ LIBSTD_HPROTO(void, gmtime, void *timer,
 
 LIBSTD_HPROTO(void, gettimeofday, void *tv_sec, void *tv_usec);
 
-/* Getting process time ifnormations */
-LIBSTD_HPROTO(int, gettimes, unsigned long * tms_utime, unsigned long *tms_stime, unsigned long *tms_cutime, unsigned long *tms_cstime);
+/* Getting process time informations */
+LIBSTD_HPROTO(int, gettimes, unsigned long *clks, unsigned long * tms_utime, unsigned long *tms_stime, unsigned long *tms_cutime, unsigned long *tms_cstime);
  
 /* Floating point classification */
 LIBSTD_HPROTO(int, fpclassify, double p0);

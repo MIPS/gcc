@@ -30,10 +30,9 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 LIBSTD_LPROTO_IMPL(clock_t, times, struct tms *buf)
 {
-  unsigned long tms_utime, tms_stime, tms_cutime, tms_cstime;
-  clock_t retval;
+  unsigned long clks, tms_utime, tms_stime, tms_cutime, tms_cstime;
 
-  if (LIBSTD_HNAME(gettimes) (&tms_utime, &tms_stime, &tms_cutime, &tms_cstime) == (clock_t)-1)
+  if (LIBSTD_HNAME(gettimes) (&clks, &tms_utime, &tms_stime, &tms_cutime, &tms_cstime) == (clock_t)-1)
     return (clock_t)-1;
   
   
@@ -42,8 +41,6 @@ LIBSTD_LPROTO_IMPL(clock_t, times, struct tms *buf)
   buf->tms_cutime = tms_cutime;
   buf->tms_cstime = tms_cstime;
   
-  retval = LIBSTD_HNAME(clock)();
-
-  return retval;
+  return clks;
 }
 

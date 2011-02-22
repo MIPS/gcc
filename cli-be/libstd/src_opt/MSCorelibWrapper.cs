@@ -77,7 +77,7 @@ public class MSCorelibWrapper
     unsafe public static extern void gettimeofday (void *_tv_sec, void *_tv_usec);
 
     [DllImport("MSCorelibWrapper_support.so", EntryPoint="__host__gettimes")]
-    unsafe public static int gettimes (uint *tms_utime, uint *tms_stime, uint *tms_cutime, uint *tms_cstime)
+    unsafe public static int gettimes (uint *clks,uint *tms_utime, uint *tms_stime, uint *tms_cutime, uint *tms_cstime)
 
     [DllImport("MSCorelibWrapper_support.so", EntryPoint="__host__exit")]
     unsafe public static extern void exit(int status);

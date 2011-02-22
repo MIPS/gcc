@@ -425,11 +425,11 @@ LIBSTD_HPROTO_IMPL(void, gettimeofday, void *_tv_sec, void *_tv_usec)
 }
 
 /* Getting process time ifnormations */
-LIBSTD_HPROTO_IMPL(int, gettimes, unsigned long * tms_utime, unsigned long *tms_stime, unsigned long *tms_cutime, unsigned long *tms_cstime)
+LIBSTD_HPROTO_IMPL(int, gettimes, unsigned long * clks, unsigned long * tms_utime, unsigned long *tms_stime, unsigned long *tms_cutime, unsigned long *tms_cstime)
 {
   struct tms t;
 
-  times (&t);
+  *clks = times (&t);
   *tms_utime = t.tms_utime;
   *tms_stime = t.tms_stime;
   *tms_cutime = t.tms_cutime;
