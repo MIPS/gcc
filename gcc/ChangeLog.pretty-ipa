@@ -1,0 +1,5 @@
+2011-02-22  Richard Guenther  <rguenther@suse.de>
+
+	* passes.c (init_optimization_passes): Add FRE pass after
+	early SRA.
+
