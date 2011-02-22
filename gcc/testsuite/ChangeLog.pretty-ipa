@@ -1,5 +1,13 @@
 2011-02-22  Richard Guenther  <rguenther@suse.de>
 
+	* gcc.dg/torture/pta-structcopy-1.c: Scan ealias dump, force
+	foo to be inlined even at -O1.
+	* gcc.dg/tree-ssa/ssa-dce-4.c: Disable FRE.
+	* gcc.dg/ipa/ipa-pta-14.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-fre-1.c: Adjust.
+
+2011-02-22  Richard Guenther  <rguenther@suse.de>
+
 	* g++.dg/tree-ssa/pr41186.C: Scan the appropriate FRE dump.
 	* g++.dg/tree-ssa/pr8781.C: Likewise.
 	* gcc.dg/ipa/ipa-pta-13.c: Likewise.
