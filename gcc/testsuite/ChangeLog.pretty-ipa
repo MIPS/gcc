@@ -1,0 +1,5 @@
+2011-02-22  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/47663
+	* gcc.dg/tree-ssa/inline-8.c: New testcase.
+
