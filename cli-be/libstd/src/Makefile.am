@@ -109,6 +109,7 @@ SRC = _Exit.c \
       strtolul.c \
       strtollull.c \
       strxfrm.c \
+      sysconf.c \
       system.c \
       systime.c \
       time.c \

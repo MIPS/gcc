@@ -79,6 +79,9 @@ public class MSCorelibWrapper
     [DllImport("MSCorelibWrapper_support.so", EntryPoint="__host__gettimes")]
     unsafe public static int gettimes (uint *clks,uint *tms_utime, uint *tms_stime, uint *tms_cutime, uint *tms_cstime)
 
+    [DllImport("MSCorelibWrapper_support.so", EntryPoint="__host__getsysconf")]
+    public static int getsysconf (int name);
+
     [DllImport("MSCorelibWrapper_support.so", EntryPoint="__host__exit")]
     unsafe public static extern void exit(int status);
 

@@ -98,7 +98,7 @@ am__objects_1 = libstd_la-_Exit.lo libstd_la-__io_device.lo \
 	libstd_la-strncmp.lo libstd_la-strncpy.lo libstd_la-strpbrk.lo \
 	libstd_la-strrchr.lo libstd_la-strspn.lo libstd_la-strstr.lo \
 	libstd_la-strtod.lo libstd_la-strtok.lo libstd_la-strtolul.lo \
-	libstd_la-strtollull.lo libstd_la-strxfrm.lo \
+	libstd_la-strtollull.lo libstd_la-strxfrm.lo libstd_la-sysconf.lo \
 	libstd_la-system.lo libstd_la-systime.lo libstd_la-time.lo libstd_la-times.lo\
 	libstd_la-tmpfile.lo libstd_la-tmpnam.lo libstd_la-ungetc.lo \
 	libstd_la-unlink.lo libstd_la-vfprintf.lo libstd_la-vfscanf.lo \
@@ -170,7 +170,7 @@ am__objects_2 = libstd_dll-_Exit.$(OBJEXT) \
 	libstd_dll-strrchr.$(OBJEXT) libstd_dll-strspn.$(OBJEXT) \
 	libstd_dll-strstr.$(OBJEXT) libstd_dll-strtod.$(OBJEXT) \
 	libstd_dll-strtok.$(OBJEXT) libstd_dll-strtolul.$(OBJEXT) \
-	libstd_dll-strtollull.$(OBJEXT) libstd_dll-strxfrm.$(OBJEXT) \
+	libstd_dll-strtollull.$(OBJEXT) libstd_dll-strxfrm.$(OBJEXT) libstd_dll-sysconf.$(OBJEXT) \
 	libstd_dll-system.$(OBJEXT) libstd_dll-systime.$(OBJEXT) \
 	libstd_dll-time.$(OBJEXT) libstd_dll-times.$(OBJEXT) libstd_dll-tmpfile.$(OBJEXT) \
 	libstd_dll-tmpnam.$(OBJEXT) libstd_dll-ungetc.$(OBJEXT) \
@@ -426,6 +426,7 @@ SRC = _Exit.c \
       strtolul.c \
       strtollull.c \
       strxfrm.c \
+      sysconf.c \
       system.c \
       systime.c \
       time.c \
@@ -647,6 +648,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-strtollull.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-strtolul.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-strxfrm.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-sysconf.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-system.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-systime.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-time.Po@am__quote@
@@ -775,6 +777,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-strtollull.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-strtolul.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-strxfrm.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-sysconf.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-system.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-systime.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-time.Plo@am__quote@
@@ -1584,6 +1587,13 @@ libstd_la-strxfrm.lo: strxfrm.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='strxfrm.c' object='libstd_la-strxfrm.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_la_CFLAGS) $(CFLAGS) -c -o libstd_la-strxfrm.lo `test -f 'strxfrm.c' || echo '$(srcdir)/'`strxfrm.c
+
+libstd_la-sysconf.lo: sysconf.c
+@am__fastdepCC_TRUE@	if $(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_la_CFLAGS) $(CFLAGS) -MT libstd_la-sysconf.lo -MD -MP -MF "$(DEPDIR)/libstd_la-sysconf.Tpo" -c -o libstd_la-sysconf.lo `test -f 'sysconf.c' || echo '$(srcdir)/'`sysconf.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/libstd_la-sysconf.Tpo" "$(DEPDIR)/libstd_la-sysconf.Plo"; else rm -f "$(DEPDIR)/libstd_la-sysconf.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='sysconf.c' object='libstd_la-sysconf.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_la_CFLAGS) $(CFLAGS) -c -o libstd_la-sysconf.lo `test -f 'sysconf.c' || echo '$(srcdir)/'`sysconf.c
 
 libstd_la-system.lo: system.c
 @am__fastdepCC_TRUE@	if $(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_la_CFLAGS) $(CFLAGS) -MT libstd_la-system.lo -MD -MP -MF "$(DEPDIR)/libstd_la-system.Tpo" -c -o libstd_la-system.lo `test -f 'system.c' || echo '$(srcdir)/'`system.c; \
@@ -3250,6 +3260,20 @@ libstd_dll-strxfrm.obj: strxfrm.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='strxfrm.c' object='libstd_dll-strxfrm.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -c -o libstd_dll-strxfrm.obj `if test -f 'strxfrm.c'; then $(CYGPATH_W) 'strxfrm.c'; else $(CYGPATH_W) '$(srcdir)/strxfrm.c'; fi`
+
+libstd_dll-sysconf.o: sysconf.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -MT libstd_dll-sysconf.o -MD -MP -MF "$(DEPDIR)/libstd_dll-sysconf.Tpo" -c -o libstd_dll-sysconf.o `test -f 'sysconf.c' || echo '$(srcdir)/'`sysconf.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/libstd_dll-sysconf.Tpo" "$(DEPDIR)/libstd_dll-sysconf.Po"; else rm -f "$(DEPDIR)/libstd_dll-sysconf.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='sysconf.c' object='libstd_dll-sysconf.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -c -o libstd_dll-sysconf.o `test -f 'sysconf.c' || echo '$(srcdir)/'`sysconf.c
+
+libstd_dll-sysconf.obj: sysconf.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -MT libstd_dll-sysconf.obj -MD -MP -MF "$(DEPDIR)/libstd_dll-sysconf.Tpo" -c -o libstd_dll-sysconf.obj `if test -f 'sysconf.c'; then $(CYGPATH_W) 'sysconf.c'; else $(CYGPATH_W) '$(srcdir)/sysconf.c'; fi`; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/libstd_dll-sysconf.Tpo" "$(DEPDIR)/libstd_dll-sysconf.Po"; else rm -f "$(DEPDIR)/libstd_dll-sysconf.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='sysconf.c' object='libstd_dll-sysconf.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -c -o libstd_dll-sysconf.obj `if test -f 'sysconf.c'; then $(CYGPATH_W) 'sysconf.c'; else $(CYGPATH_W) '$(srcdir)/sysconf.c'; fi`
 
 libstd_dll-system.o: system.c
 @am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -MT libstd_dll-system.o -MD -MP -MF "$(DEPDIR)/libstd_dll-system.Tpo" -c -o libstd_dll-system.o `test -f 'system.c' || echo '$(srcdir)/'`system.c; \

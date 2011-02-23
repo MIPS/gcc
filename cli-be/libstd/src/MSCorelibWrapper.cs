@@ -100,6 +100,13 @@ public class MSCorelibWrapper
     private const int __LIBSTD_S_IWRITE     = 0x0080;
     private const int __LIBSTD_S_IEXEC      = 0x0040;
 
+    /* sysconf variable names */
+    /* in sync with bits/confname.h */
+    private const int __LIBSTD_SC_CLK_TCK   = 2;
+    
+    /* Value of sysconf (SC_CLK_TCK), consistent with
+     * usual values in POSIX. (used by gettimes) */
+    private const int _SC_CLK_TCK_VALUE = 100;
 
     static MSCorelibWrapper()
     {
@@ -668,29 +675,45 @@ public class MSCorelibWrapper
       Process tp = Process.GetCurrentProcess();
 
       try {
-        /* Posix times seems to return timings ins centiseconds */
-        *tms_utime = (uint)(tp.UserProcessorTime.TotalMilliseconds/10);
-        *tms_stime = (uint)(tp.PrivilegedProcessorTime.TotalMilliseconds/10);
+        /* This is valid as long as _SC_CLK_TCK_VALUE is 100  */
+        *tms_utime = (uint)(tp.UserProcessorTime.TotalMilliseconds/(1000/_SC_CLK_TCK_VALUE));
+        *tms_stime = (uint)(tp.PrivilegedProcessorTime.TotalMilliseconds/(1000/_SC_CLK_TCK_VALUE));
         /* Currently there is no way to get childs timings.
-         * In .NET it is possible to check parent ID by means of
-         * PeroformanceCounter : "Creating Process Id", but it
-         * is not implemented in Mono */
+           In .NET it is possible to check parent ID by means of
+           PeroformanceCounter : "Creating Process Id", but it
+           is not implemented in Mono */
         *tms_cutime = 0;
         *tms_cstime = 0;
-        Console.Error.Write("Warning: gettimes() - tms_cutime and tms_cstime defaults to 0 ({0} {1})\n");
+        Console.Error.Write("Warning: gettimes() - tms_cutime and tms_cstime defaults to 0\n");
       } catch (PlatformNotSupportedException) {
         my_errno = __LIBSTD_ENOTSUP;
         return -1;
       }
 
       /* clks (as return value of times function) is an arbitrary
-       * time reference. only useful when making more than one call
-       * to times. Thus we can use the value returned by clock */
-      *clks = (uint) clock();
+         time reference. only useful when making more than one call
+         to times. */
+      *clks = (uint)((DateTime.UtcNow.Ticks - initial_ticks)/(10000000/_SC_CLK_TCK_VALUE));
 
       return 0;
       
     }
+
+    public static int getsysconf (int name)
+    {
+      switch (name) {
+        case __LIBSTD_SC_CLK_TCK:
+          /* this value is must be coherent with the clocks returned by 'gettimes'
+             In this implementation we use 100 ticks -> 1 s */
+          return _SC_CLK_TCK_VALUE;
+
+        default:
+          Console.Error.Write("Warning: getsysconf({0}) - Not implemented\n", name);
+          my_errno = __LIBSTD_ENOTSUP;
+          return -1;
+      }
+    }
+
 
     public static void exit(int status)
     {

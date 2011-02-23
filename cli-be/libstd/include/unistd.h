@@ -32,6 +32,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include <sys/types.h>
 
 #include <bits/libstd_stdio.h>
+#include <bits/confname.h>
 
 __BEGIN_EXTERN_C
 
@@ -40,6 +41,7 @@ LIBSTD_LPROTO(ssize_t, read, int, void *, size_t);
 LIBSTD_LPROTO(ssize_t, write, int, const void *, size_t);
 LIBSTD_LPROTO(off_t, lseek, int, off_t, int);
 LIBSTD_LPROTO(int, unlink, const char *);
+LIBSTD_LPROTO(long, sysconf, int);
 
 #define STDIN_FILENO  __LIBSTD_STDIN_FILENO
 #define STDOUT_FILENO __LIBSTD_STDOUT_FILENO

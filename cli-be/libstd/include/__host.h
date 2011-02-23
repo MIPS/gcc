@@ -90,6 +90,9 @@ LIBSTD_HPROTO(int, unlink, const char *path);
 /* Attempts to write bytes into stream.    */
 LIBSTD_HPROTO(int, write, int fildes, void *buf, int nbytes);
 
+/* get configuration information at runtime */
+LIBSTD_HPROTO(long, getsysconf, int);
+
 /* Getting clock */
 LIBSTD_HPROTO(int, clock, void);
 

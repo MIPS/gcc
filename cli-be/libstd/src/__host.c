@@ -438,6 +438,12 @@ LIBSTD_HPROTO_IMPL(int, gettimes, unsigned long * clks, unsigned long * tms_utim
   return 0;
 }
 
+/* get configuration information at runtime */
+LIBSTD_HPROTO_IMPL(long, getsysconf, int name)
+{
+  return sysconf(name);
+}
+
 LIBSTD_HPROTO_IMPL(int, fpclassify, double p0)
 {
     return fpclassify(p0);

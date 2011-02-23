@@ -34,6 +34,7 @@ include_HEADERS = \
 	wctype.h
 
 includebits_HEADERS = \
+	bits/confname.h \
 	bits/libstd_errno.h \
 	bits/libstd_fcntl.h \
 	bits/libstd_float.h \
