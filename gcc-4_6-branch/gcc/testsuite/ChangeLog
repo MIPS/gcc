@@ -1,3 +1,192 @@
+2011-02-23  Jie Zhang  <jie@codesourcery.com>
+
+	* gcc.dg/cpp/include7.c: New test.
+
+2011-02-22  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/47242
+	* g++.dg/cpp0x/lambda/lambda-ice4.C: New.
+
+2011-02-23  Jie Zhang  <jie@codesourcery.com>
+
+	PR rtl-optimization/47763
+	* gcc.dg/pr47763.c: New test.
+
+2011-02-22  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/45743
+	* gfortran.dg/whole_file_32.f90 : New test.
+
+2011-02-22  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/47666
+	* g++.dg/inherit/virtual7.C: New test.
+
+2011-02-22  Nicola Pero  <nicola.pero@meta-innovation.com>
+
+	PR objc/47832
+	* objc.dg/type-size-3.m: Updated error message.
+	* objc.dg/type-size-4.m: New test.
+	* objc.dg/type-size-5.m: New test.
+
+2011-02-22  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* lib/gnat.exp: Fix comments.
+	Don't load libgloss.exp.
+	(default_gnat_version): Call $compiler with --version.
+	Adapt regexp for gnatmake output, insert version.
+	(gnat_version): New proc.
+	(gnat_init): Remove gnat_libgcc_s_path.
+	(gnat_target_compile): Likewise.
+	Remove ld_library_path.
+	Log ADA_INCLUDE_PATH, ADA_OBJECTS_PATH.
+	(gnat_pass): Remove.
+	(gnat_pass): Remove.
+	(gnat_finish): Remove.
+	(gnat_exit): Remove.
+	(local_find_gnatmake): Reindent.
+	(runtest_file_p): Remove.
+	(prune_warnings): Remove.
+	(find_gnatclean): New proc.
+	* lib/gnat-dg.exp (lremove): New proc.
+	(gnat-dg-test): Reindent.
+	Remove additional output files.
+	(gnat-dg-runtest): Remove.
+
+	* gnat.dg/array7.adb: Use cleanup-tree-dump "optimized".
+	* gnat.dg/loop_optimization6.adb: Likewise.
+	* gnat.dg/atomic1.adb: Use cleanup-tree-dump "gimple".
+
+2011-02-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/47835
+	* gcc.dg/pr46909.c: Check optimized dump instead of ifcombine.
+
+2011-02-22  Tobias Burnus  <burnus@net-b.de>
+
+	* abstract_type_1.f90: Fix dg-do syntax.
+	* abstract_type_2.f03: Ditto.
+	* abstract_type_3.f03: Ditto.
+	* abstract_type_4.f03: Ditto.
+	* abstract_type_5.f03: Ditto.
+	* abstract_type_6.f03: Ditto.
+	* alloc_comp_constraint_6.f90: Ditto.
+	* alloc_comp_init_expr.f03: Ditto.
+	* allocatable_scalar_11.f90: Ditto.
+	* allocate_scalar_with_shape.f90: Ditto.
+	* array_function_5.f90: Ditto.
+	* asynchronous_3.f03: Ditto.
+	* char_expr_1.f90: Ditto.
+	* class_14.f03: Ditto.
+	* data_array_6.f: Ditto.
+	* data_invalid.f90: Ditto.
+	* dot_product_1.f03: Ditto.
+	* func_derived_5.f90: Ditto.
+	* func_result_4.f90: Ditto.
+	* implied_do_1.f90: Ditto.
+	* initialization_25.f90: Ditto.
+	* initialization_26.f90: Ditto.
+	* interface_34.f90: Ditto.
+	* iso_c_binding_init_expr.f03: Ditto.
+	* keyword_symbol_1.f90: Ditto.
+	* matmul_8.f03: Ditto.
+	* merge_init_expr.f90: Ditto.
+	* pack_assign_1.f90: Ditto.
+	* pack_vector_1.f90: Ditto.
+	* pointer_check_8.f90: Ditto.
+	* product_init_expr.f03: Ditto.
+	* reshape_order_5.f90: Ditto.
+	* reshape_shape_1.f90: Ditto.
+	* reshape_zerosize_2.f90: Ditto.
+	* same_name_2.f90: Ditto.
+	* selected_real_kind_1.f90: Ditto.
+	* spread_init_expr.f03: Ditto.
+	* stmt_func_1.f90: Ditto.
+	* sum_init_expr.f03: Ditto.
+	* transpose_3.f03: Ditto.
+	* unpack_init_expr.f03: Ditto.
+	* warn_conversion.f90: Ditto.
+	* warn_conversion_2.f90: Ditto.
+	* warn_intent_out_not_set.f90: Ditto.
+	* warn_unused_dummy_argument_1.f90: Ditto.
+	* warn_unused_dummy_argument_2.f90: Ditto.
+	* whole_file_16.f90: Ditto.
+	* whole_file_17.f90: Ditto.
+	* whole_file_18.f90: Ditto.
+	* whole_file_20.f03: Ditto.
+	* whole_file_5.f90: Ditto.
+	* whole_file_6.f90: Ditto.
+	* write_invalid_format.f90: Ditto.
+	* zero_sized_6.f90: Ditto.
+
+2011-02-21  Jeff Law <law@redhat.com>
+
+	PR rtl-optimization/46178
+	* gcc.target/i386/pr46178.c: New test.
+
+	PR rtl-optimization/46002
+	* gcc.c-torture/compile/pr46002.c: New test.
+
+2011-02-21  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* g++.dg/cpp0x/lambda/lambda-conv.C: Skip scan-assembler check on
+	*-*-hpux10*.
+
+2011-02-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/47106
+	* g++.dg/debug/pr47106.C: Require effective target lto.
+
+2011-02-21  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/constexpr-diag2.C: New.
+
+2011-02-20  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/constexpr-ctor7.C: New.
+
+	* g++.dg/cpp0x/fntmpdefarg2.C: New.
+
+	* g++.dg/overload/conv-op1.C: New.
+
+	* g++.dg/cpp0x/constexpr-synth1.C: New.
+
+2011-02-20  Nicola Pero  <nicola.pero@meta-innovation.com>
+
+	* objc.dg/layout-2.m: New.
+	* objc.dg/selector-3.m: Adjusted location of error message.
+	* objc.dg/type-size-3.m: Same.
+	* obj-c++.dg/selector-3.mm: Same.
+
+2011-02-20  Nicola Pero  <nicola.pero@meta-innovation.com>
+
+	PR objc/47784
+	* objc.dg/property/dotsyntax-22.m: New.
+	* obj-c++.dg/property/dotsyntax-22.mm: New.
+
+2011-02-20  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/46394
+	* g++.dg/template/typedef38.C: New test.
+
+2011-02-20  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/46818
+	* gfortran.dg/whole_file_30.f90 : New test.
+	* gfortran.dg/whole_file_31.f90 : New test.
+
+2011-02-20  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/45077
+	PR fortran/44945
+	* gfortran.dg/whole_file_28.f90 : New test.
+	* gfortran.dg/whole_file_29.f90 : New test.
+
+2011-02-20  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/44118
+	* g++.dg/template/crash105.C: New.
+
 2011-02-19  Jason Merrill  <jason@redhat.com>
 
 	* g++.dg/cpp0x/regress/no-elide1.C: New.
@@ -45,7 +234,7 @@
 2011-02-18  Iain Sandoe  <iains@gcc.gnu.org>
 
 	* objc/execute/exceptions/foward-1.x: New.
-	
+
 2011-02-18  Janus Weil  <janus@gcc.gnu.org>
 
 	PR fortran/47789

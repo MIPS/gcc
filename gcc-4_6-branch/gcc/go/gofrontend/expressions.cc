@@ -362,6 +362,8 @@ Expression::convert_type_to_interface(Translate_context* context,
       first_field_value = fold_convert_loc(location, const_ptr_type_node,
 					   method_table);
     }
+  if (first_field_value == error_mark_node)
+    return error_mark_node;
 
   // Start building a constructor for the value we will return.
 
@@ -2357,6 +2359,9 @@ class Const_expression : public Expression
   check_for_init_loop();
 
  protected:
+  int
+  do_traverse(Traverse*);
+
   Expression*
   do_lower(Gogo*, Named_object*, int);
 
@@ -2411,6 +2416,16 @@ class Const_expression : public Expression
   // refers to itself.
   mutable bool seen_;
 };
+
+// Traversal.
+
+int
+Const_expression::do_traverse(Traverse* traverse)
+{
+  if (this->type_ != NULL)
+    return Type::traverse(this->type_, traverse);
+  return TRAVERSE_CONTINUE;
+}
 
 // Lower a constant expression.  This is where we convert the
 // predeclared constant iota into an integer value.
@@ -4434,7 +4449,7 @@ Binary_expression::eval_integer(Operator op, Type* left_type, mpz_t left_val,
     case OPERATOR_LSHIFT:
       {
 	unsigned long shift = mpz_get_ui(right_val);
-	if (mpz_cmp_ui(right_val, shift) != 0)
+	if (mpz_cmp_ui(right_val, shift) != 0 || shift > 0x100000)
 	  {
 	    error_at(location, "shift count overflow");
 	    mpz_set_ui(val, 0);
@@ -6270,9 +6285,9 @@ Expression::comparison_tree(Translate_context* context, Operator op,
   else if (left_type->interface_type() != NULL
 	   && right_type->interface_type() != NULL)
     {
-      if (left_type->interface_type()->is_empty())
+      if (left_type->interface_type()->is_empty()
+	  && right_type->interface_type()->is_empty())
 	{
-	  gcc_assert(right_type->interface_type()->is_empty());
 	  static tree empty_interface_compare_decl;
 	  left_tree = Gogo::call_builtin(&empty_interface_compare_decl,
 					 location,
@@ -6288,9 +6303,9 @@ Expression::comparison_tree(Translate_context* context, Operator op,
 	  // This can panic if the type is uncomparable.
 	  TREE_NOTHROW(empty_interface_compare_decl) = 0;
 	}
-      else
+      else if (!left_type->interface_type()->is_empty()
+	       && !right_type->interface_type()->is_empty())
 	{
-	  gcc_assert(!right_type->interface_type()->is_empty());
 	  static tree interface_compare_decl;
 	  left_tree = Gogo::call_builtin(&interface_compare_decl,
 					 location,
@@ -6306,6 +6321,32 @@ Expression::comparison_tree(Translate_context* context, Operator op,
 	  // This can panic if the type is uncomparable.
 	  TREE_NOTHROW(interface_compare_decl) = 0;
 	}
+      else
+	{
+	  if (left_type->interface_type()->is_empty())
+	    {
+	      gcc_assert(op == OPERATOR_EQEQ || op == OPERATOR_NOTEQ);
+	      std::swap(left_type, right_type);
+	      std::swap(left_tree, right_tree);
+	    }
+	  gcc_assert(!left_type->interface_type()->is_empty());
+	  gcc_assert(right_type->interface_type()->is_empty());
+	  static tree interface_empty_compare_decl;
+	  left_tree = Gogo::call_builtin(&interface_empty_compare_decl,
+					 location,
+					 "__go_interface_empty_compare",
+					 2,
+					 integer_type_node,
+					 TREE_TYPE(left_tree),
+					 left_tree,
+					 TREE_TYPE(right_tree),
+					 right_tree);
+	  if (left_tree == error_mark_node)
+	    return error_mark_node;
+	  // This can panic if the type is uncomparable.
+	  TREE_NOTHROW(interface_empty_compare_decl) = 0;
+	}
+
       right_tree = build_int_cst_type(integer_type_node, 0);
     }
 
@@ -7939,7 +7980,11 @@ Builtin_call_expression::do_get_tree(Translate_context* context)
 	mpz_init(val);
 	Type* dummy;
 	bool b = this->integer_constant_value(true, val, &dummy);
-	gcc_assert(b);
+	if (!b)
+	  {
+	    gcc_assert(saw_errors());
+	    return error_mark_node;
+	  }
 	tree type = Type::lookup_integer_type("int")->get_tree(gogo);
 	tree ret = Expression::integer_constant_tree(val, type);
 	mpz_clear(val);
@@ -9008,6 +9053,11 @@ Index_expression::do_lower(Gogo*, Named_object*, int)
   Type* type = left->type();
   if (type->is_error_type())
     return Expression::make_error(location);
+  else if (left->is_type_expression())
+    {
+      error_at(location, "attempt to index type expression");
+      return Expression::make_error(location);
+    }
   else if (type->array_type() != NULL)
     return Expression::make_array_index(left, start, end, location);
   else if (type->points_to() != NULL
@@ -9536,10 +9586,9 @@ void
 String_index_expression::do_determine_type(const Type_context*)
 {
   this->string_->determine_type_no_context();
-  Type_context subcontext(NULL, true);
-  this->start_->determine_type(&subcontext);
+  this->start_->determine_type_no_context();
   if (this->end_ != NULL)
-    this->end_->determine_type(&subcontext);
+    this->end_->determine_type_no_context();
 }
 
 // Check types of a string index.

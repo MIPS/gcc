@@ -466,6 +466,8 @@ objc_write_global_declarations (void)
      and code if only checking syntax, or if generating a PCH file.  */
   if (!flag_syntax_only && !pch_file)
     {
+      location_t saved_location;
+
       /* If gen_declaration desired, open the output file.  */
       if (flag_gen_declaration)
 	{
@@ -475,8 +477,24 @@ objc_write_global_declarations (void)
 	    fatal_error ("can%'t open %s: %m", dumpname);
 	  free (dumpname);
 	}
+
+      /* Set the input location to BUILTINS_LOCATION.  This is good
+	 for error messages, in case any is generated while producing
+	 the metadata, but it also silences warnings that would be
+	 produced when compiling with -Wpadded in case when padding is
+	 automatically added to the built-in runtime data structure
+	 declarations.  We know about this padding, and it is fine; we
+	 don't want users to see any warnings about it if they use
+	 -Wpadded.  */
+      saved_location = input_location;
+      input_location = BUILTINS_LOCATION;
+
       /* Compute and emit the meta-data tables for this runtime.  */
       (*runtime.generate_metadata) ();
+
+      /* Restore the original location, just in case it mattered.  */
+      input_location = saved_location;
+
       /* ... and then close any declaration file we opened.  */
       if (gen_declaration_file)
 	fclose (gen_declaration_file);
@@ -1790,49 +1808,71 @@ objc_maybe_build_modify_expr (tree lhs, tree rhs)
       to get these to work with very little effort, we build a
       compound statement which does the setter call (to set the
       property to 'rhs'), but which can also be evaluated returning
-      the 'rhs'.  So, we want to create the following:
+      the 'rhs'.  If the 'rhs' has no side effects, we can simply
+      evaluate it twice, building
+
+      ([object setProperty: rhs]; rhs)
+
+      If it has side effects, we put it in a temporary variable first,
+      so we create the following:
 
       (temp = rhs; [object setProperty: temp]; temp)
+
+      setter_argument is rhs in the first case, and temp in the second
+      case.
       */
-      tree temp_variable_decl, bind;
+      tree setter_argument;
+
       /* s1, s2 and s3 are the tree statements that we need in the
 	 compound expression.  */
       tree s1, s2, s3, compound_expr;
-      
-      /* TODO: If 'rhs' is a constant, we could maybe do without the
-	 'temp' variable ? */
 
-      /* Declare __objc_property_temp in a local bind.  */
-      temp_variable_decl = objc_create_temporary_var (TREE_TYPE (rhs), "__objc_property_temp");
-      DECL_SOURCE_LOCATION (temp_variable_decl) = input_location;
-      bind = build3 (BIND_EXPR, void_type_node, temp_variable_decl, NULL, NULL);
-      SET_EXPR_LOCATION (bind, input_location);
-      TREE_SIDE_EFFECTS (bind) = 1;
-      add_stmt (bind);
+      if (TREE_SIDE_EFFECTS (rhs))
+	{
+	  tree bind;
+      
+	  /* Declare __objc_property_temp in a local bind.  */
+	  setter_argument = objc_create_temporary_var (TREE_TYPE (rhs), "__objc_property_temp");
+	  DECL_SOURCE_LOCATION (setter_argument) = input_location;
+	  bind = build3 (BIND_EXPR, void_type_node, setter_argument, NULL, NULL);
+	  SET_EXPR_LOCATION (bind, input_location);
+	  TREE_SIDE_EFFECTS (bind) = 1;
+	  add_stmt (bind);
+
+	  /* s1: x = rhs */
+	  s1 = build_modify_expr (input_location, setter_argument, NULL_TREE,
+				  NOP_EXPR,
+				  input_location, rhs, NULL_TREE);
+	  SET_EXPR_LOCATION (s1, input_location);
+	}
+      else
+	{
+	  /* No s1.  */
+	  setter_argument = rhs;
+	  s1 = NULL_TREE;
+	}
       
       /* Now build the compound statement.  */
-      
-      /* s1: __objc_property_temp = rhs */
-      s1 = build_modify_expr (input_location, temp_variable_decl, NULL_TREE,
-			      NOP_EXPR,
-			      input_location, rhs, NULL_TREE);
-      SET_EXPR_LOCATION (s1, input_location);
   
-      /* s2: [object setProperty: __objc_property_temp] */
-      s2 = objc_build_setter_call (lhs, temp_variable_decl);
-
-      /* This happens if building the setter failed because the property
-	 is readonly.  */
+      /* s2: [object setProperty: x] */
+      s2 = objc_build_setter_call (lhs, setter_argument);
+      
+      /* This happens if building the setter failed because the
+	 property is readonly.  */
       if (s2 == error_mark_node)
 	return error_mark_node;
 
       SET_EXPR_LOCATION (s2, input_location);
   
-      /* s3: __objc_property_temp */
-      s3 = convert (TREE_TYPE (lhs), temp_variable_decl);
+      /* s3: x */
+      s3 = convert (TREE_TYPE (lhs), setter_argument);
 
-      /* Now build the compound statement (s1, s2, s3) */
-      compound_expr = build_compound_expr (input_location, build_compound_expr (input_location, s1, s2), s3);
+      /* Now build the compound statement (s1, s2, s3) or (s2, s3) as
+	 appropriate.  */
+      if (s1)
+	compound_expr = build_compound_expr (input_location, build_compound_expr (input_location, s1, s2), s3);
+      else
+	compound_expr = build_compound_expr (input_location, s2, s3);	
 
       /* Without this, with -Wall you get a 'valued computed is not
 	 used' every time there is a "object.property = x" where the
@@ -5885,6 +5925,58 @@ add_category (tree klass, tree category)
     }
 }
 
+#ifndef OBJCPLUS
+/* A flexible array member is a C99 extension where you can use
+   "type[]" at the end of a struct to mean a variable-length array.
+
+   In Objective-C, instance variables are fundamentally members of a
+   struct, but the struct can always be extended by subclassing; hence
+   we need to detect and forbid all instance variables declared using
+   flexible array members.
+
+   No check for this is needed in Objective-C++, since C++ does not
+   have flexible array members.  */
+
+/* Determine whether TYPE is a structure with a flexible array member,
+   a union containing such a structure (possibly recursively) or an
+   array of such structures or unions.  These are all invalid as
+   instance variable.  */
+static bool
+flexible_array_type_p (tree type)
+{
+  tree x;
+  switch (TREE_CODE (type))
+    {
+    case RECORD_TYPE:
+      x = TYPE_FIELDS (type);
+      if (x == NULL_TREE)
+	return false;
+      while (DECL_CHAIN (x) != NULL_TREE)
+	x = DECL_CHAIN (x);
+      if (TREE_CODE (TREE_TYPE (x)) == ARRAY_TYPE
+	  && TYPE_SIZE (TREE_TYPE (x)) == NULL_TREE
+	  && TYPE_DOMAIN (TREE_TYPE (x)) != NULL_TREE
+	  && TYPE_MAX_VALUE (TYPE_DOMAIN (TREE_TYPE (x))) == NULL_TREE)
+	return true;
+      return false;
+    case UNION_TYPE:
+      for (x = TYPE_FIELDS (type); x != NULL_TREE; x = DECL_CHAIN (x))
+	{
+	  if (flexible_array_type_p (TREE_TYPE (x)))
+	    return true;
+	}
+      return false;
+    /* Note that we also check for arrays of something that uses a flexible array member.  */
+    case ARRAY_TYPE:
+      if (flexible_array_type_p (TREE_TYPE (type)))
+	return true;
+      return false;
+    default:
+    return false;
+  }
+}
+#endif
+
 /* Called after parsing each instance variable declaration. Necessary to
    preserve typedefs and implement public/private...
 
@@ -5917,6 +6009,27 @@ add_instance_variable (tree klass, objc_ivar_visibility_kind visibility,
       /* Return class as is without adding this ivar.  */
       return klass;
     }
+
+#ifndef OBJCPLUS
+  /* Also, in C reject a struct with a flexible array member.  Ie,
+
+       struct A { int x; int[] y; };
+
+       @interface X
+       {
+         struct A instance_variable;
+       }
+       @end
+
+       is not valid because if the class is subclassed, we wouldn't be able
+       to calculate the offset of the next instance variable.  */
+  if (flexible_array_type_p (field_type))
+    {
+      error ("instance variable %qs uses flexible array member", ivar_name);
+      /* Return class as is without adding this ivar.  */
+      return klass;      
+    }
+#endif
 
 #ifdef OBJCPLUS
   /* Check if the ivar being added has a non-POD C++ type.   If so, we will
@@ -9886,27 +9999,23 @@ encode_array (tree type, int curtype, int format)
   if (an_int_cst == NULL)
     {
       /* We are trying to encode an incomplete array.  An incomplete
-	 array is forbidden as part of an instance variable.  */
-      if (generating_instance_variables)
-	{
-	  /* TODO: Detect this error earlier.  */
-	  error ("instance variable has unknown size");
-	  return;
-	}
+	 array is forbidden as part of an instance variable; but it
+	 may occur if the instance variable is a pointer to such an
+	 array.  */
 
-      /* So the only case in which an incomplete array could occur is
-	 if we are encoding the arguments or return value of a method.
-	 In that case, an incomplete array argument or return value
-	 (eg, -(void)display: (char[])string) is treated like a
-	 pointer because that is how the compiler does the function
-	 call.  A special, more complicated case, is when the
-	 incomplete array is the last member of a struct (eg, if we
-	 are encoding "struct { unsigned long int a;double b[];}"),
-	 which is again part of a method argument/return value.  In
-	 that case, we really need to communicate to the runtime that
-	 there is an incomplete array (not a pointer!) there.  So, we
-	 detect that special case and encode it as a zero-length
-	 array.
+      /* So the only case in which an incomplete array could occur
+	 (without being pointed to) is if we are encoding the
+	 arguments or return value of a method.  In that case, an
+	 incomplete array argument or return value (eg,
+	 -(void)display: (char[])string) is treated like a pointer
+	 because that is how the compiler does the function call.  A
+	 special, more complicated case, is when the incomplete array
+	 is the last member of a struct (eg, if we are encoding
+	 "struct { unsigned long int a;double b[];}"), which is again
+	 part of a method argument/return value.  In that case, we
+	 really need to communicate to the runtime that there is an
+	 incomplete array (not a pointer!) there.  So, we detect that
+	 special case and encode it as a zero-length array.
 
 	 Try to detect that we are part of a struct.  We do this by
 	 searching for '=' in the type encoding for the current type.

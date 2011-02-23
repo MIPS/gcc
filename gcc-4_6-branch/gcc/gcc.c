@@ -2541,13 +2541,20 @@ execute (void)
 			}
 		      fputc ('"', stderr);
 		    }
+		  /* If it's empty, print "".  */
+		  else if (!**j)
+		    fprintf (stderr, " \"\"");
 		  else
 		    fprintf (stderr, " %s", *j);
 		}
 	    }
 	  else
 	    for (j = commands[i].argv; *j; j++)
-	      fprintf (stderr, " %s", *j);
+	      /* If it's empty, print "".  */
+	      if (!**j)
+		fprintf (stderr, " \"\"");
+	      else
+		fprintf (stderr, " %s", *j);
 
 	  /* Print a pipe symbol after all but the last command.  */
 	  if (i + 1 != n_commands)
@@ -4439,6 +4446,10 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
   int i;
   int value;
 
+  /* If it's an empty string argument to a switch, keep it as is.  */
+  if (inswitch && !*p)
+    arg_going = 1;
+
   while ((c = *p++))
     /* If substituting a switch, treat all chars like letters.
        Otherwise, NL, SPC, TAB and % are special.  */
@@ -5165,7 +5176,8 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 	  case '*':
 	    if (soft_matched_part)
 	      {
-		do_spec_1 (soft_matched_part, 1, NULL);
+		if (soft_matched_part[0])
+		  do_spec_1 (soft_matched_part, 1, NULL);
 		do_spec_1 (" ", 0, NULL);
 	      }
 	    else
