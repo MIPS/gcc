@@ -329,9 +329,9 @@ cgraph_mark_inline_edge (struct cgraph_edge *e, bool update_original,
     {
       to = e->caller;
       old_size = e->caller->global.size;
-      new_size = cgraph_estimate_size_after_inlining (to, e);
+      new_size = cgraph_estimate_size_after_inlining (to, curr);
       to->global.size = new_size;
-      to->global.time = cgraph_estimate_time_after_inlining (to, e);
+      to->global.time = cgraph_estimate_time_after_inlining (to, curr);
     }
   gcc_assert (curr->callee->global.inlined_to == to);
   if (new_size > old_size)

@@ -1,3 +1,7 @@
+2011-02-23  Richard Guenther  <rguenther@suse.de>
+
+	* ipa-inline.c (cgraph_mark_inline_edge): Fix thinko.
+
 2011-02-22  Richard Guenther  <rguenther@suse.de>
 
 	* ipa-inline.c (enum inlining_mode): Remove.
