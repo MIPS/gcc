@@ -1,4 +1,4 @@
-/* Copyright (C) 2007, 2008, 2009 Free Software Foundation, Inc.
+/* Copyright (C) 2007, 2008, 2009, 2011 Free Software Foundation, Inc.
    Contributed by Richard Henderson <rth@redhat.com>.
 
    This file is part of the GNU OpenMP Library (libgomp).
@@ -362,3 +362,11 @@ GOMP_taskwait (void)
 	}
     }
 }
+
+int
+omp_in_final (void)
+{
+  return false; /* FIXME */
+}
+
+ialias (omp_in_final)

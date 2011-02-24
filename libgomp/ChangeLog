@@ -1,3 +1,19 @@
+2011-02-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp.h.in (omp_in_final): New prototype.
+	* omp_lib.f90.in (omp_in_final): New interface.
+	* omp_lib.h.in (omp_sched_static, omp_sched_dynamic,
+	omp_sched_guided, omp_sched_auto): Use omp_sched_kind
+	kind for the parameters.
+	(omp_in_final): New external.
+	* task.c (omp_in_final): New function.
+	* fortran.c (omp_in_final_): Likewise.
+	* libgomp.map (OMP_3.1): Export omp_in_final and omp_in_final_.
+
+	PR fortran/42041
+	* omp_lib.f90.in (omp_integer_kind, omp_logical_kind): Remove
+	and replace all its uses in the module with 4.
+
 2011-02-23  Jakub Jelinek  <jakub@redhat.com>
 
 	PR libgomp/47854
