@@ -322,7 +322,23 @@ dump_decl_name (FILE *file, tree node)
 	fprintf (file, tname);
     }
   else if (DECL_NAME (node))
-    fprintf (file, IDENTIFIER_POINTER (DECL_NAME (node)));
+    {
+      fprintf (file, IDENTIFIER_POINTER (DECL_NAME (node)));
+
+      /* Normalize function-static variables out of context:
+         Functions resulting from "function specilization" may contain references to
+         function-static variables in the original function.
+         Since this variables are class-static in CIL, they are renamed -at some
+         point- by adding a suffix (to ensure that they are unique).
+         This renaming happens while processing the function in which they are declared.
+         In the case of specialized functions, references to these variables MAY BE found
+         before they are renamed. Only in these situations, we output the suffix. */
+      /* FIXME: The renaming process should be performed during IPA passes */
+      if (TREE_STATIC (node) && DECL_CONTEXT (node) 
+          && DECL_CONTEXT (node) != current_function_decl
+          && !strstr (IDENTIFIER_POINTER (DECL_NAME (node)), "?fs"))
+        fprintf (file, "?fs%d", DECL_UID (node));         
+    }
   else
     fprintf (file, "?UNNAMED%d", DECL_UID (node));
 
