@@ -74,6 +74,7 @@ public class MSCorelibWrapper
     // The following constants must be kept in sync with
     // definitions in bits/libstd_errno.h
     private const int __LIBSTD_ENOENT       = 2;
+    private const int __LIBSTD_EINTR        = 4;
     private const int __LIBSTD_EIO          = 5;
     private const int __LIBSTD_EBADF        = 9;
     private const int __LIBSTD_EAGAIN       = 11;

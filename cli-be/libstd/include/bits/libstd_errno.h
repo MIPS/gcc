@@ -33,6 +33,7 @@ __BEGIN_EXTERN_C
 
 enum {
     __LIBSTD_ENOENT       = 2,   /* No such file or directory */
+    __LIBSTD_EINTR        = 4,   /* Interrupted system call */
     __LIBSTD_EIO          = 5,   /* I/O error */
     __LIBSTD_EBADF        = 9,   /* Bad file number */
     __LIBSTD_EAGAIN       = 11,  /* Try again */

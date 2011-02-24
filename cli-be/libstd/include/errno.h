@@ -31,6 +31,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 __BEGIN_EXTERN_C
 
 #define ENOENT       __LIBSTD_ENOENT
+#define EINTR        __LIBSTD_EINTR
 #define EIO          __LIBSTD_EIO
 #define EBADF        __LIBSTD_EBADF
 #define EAGAIN       __LIBSTD_EAGAIN
