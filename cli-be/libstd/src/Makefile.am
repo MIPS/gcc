@@ -35,6 +35,7 @@ SRC = _Exit.c \
       fgetc.c \
       fgetpos.c \
       fgets.c \
+      fileno.c \
       float.c \
       fopen.c \
       fprintf.c \

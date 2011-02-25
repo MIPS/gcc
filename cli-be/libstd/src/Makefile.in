@@ -72,7 +72,7 @@ am__objects_1 = libstd_la-_Exit.lo libstd_la-__io_device.lo \
 	libstd_la-div.lo libstd_la-errno.lo libstd_la-exit.lo \
 	libstd_la-fclose.lo libstd_la-fenv.lo libstd_la-feof.lo \
 	libstd_la-ferror.lo libstd_la-fflush.lo libstd_la-fgetc.lo \
-	libstd_la-fgetpos.lo libstd_la-fgets.lo libstd_la-float.lo \
+	libstd_la-fgetpos.lo libstd_la-fgets.lo libstd_la-fileno.lo libstd_la-float.lo \
 	libstd_la-fopen.lo libstd_la-fprintf.lo libstd_la-fputc.lo \
 	libstd_la-fputs.lo libstd_la-fread.lo libstd_la-free.lo \
 	libstd_la-freopen.lo libstd_la-fscanf.lo libstd_la-fseek.lo \
@@ -132,7 +132,7 @@ am__objects_2 = libstd_dll-_Exit.$(OBJEXT) \
 	libstd_dll-fclose.$(OBJEXT) libstd_dll-fenv.$(OBJEXT) \
 	libstd_dll-feof.$(OBJEXT) libstd_dll-ferror.$(OBJEXT) \
 	libstd_dll-fflush.$(OBJEXT) libstd_dll-fgetc.$(OBJEXT) \
-	libstd_dll-fgetpos.$(OBJEXT) libstd_dll-fgets.$(OBJEXT) \
+	libstd_dll-fgetpos.$(OBJEXT) libstd_dll-fgets.$(OBJEXT) libstd_dll-fileno.$(OBJEXT) \
 	libstd_dll-float.$(OBJEXT) libstd_dll-fopen.$(OBJEXT) \
 	libstd_dll-fprintf.$(OBJEXT) libstd_dll-fputc.$(OBJEXT) \
 	libstd_dll-fputs.$(OBJEXT) libstd_dll-fread.$(OBJEXT) \
@@ -352,6 +352,7 @@ SRC = _Exit.c \
       fgetc.c \
       fgetpos.c \
       fgets.c \
+      fileno.c \
       float.c \
       fopen.c \
       fprintf.c \
@@ -575,6 +576,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-fgetc.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-fgetpos.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-fgets.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-fileno.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-float.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-fopen.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-fprintf.Po@am__quote@
@@ -705,6 +707,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-fgetc.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-fgetpos.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-fgets.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-fileno.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-float.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-fopen.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-fprintf.Plo@am__quote@
@@ -1072,6 +1075,13 @@ libstd_la-fgets.lo: fgets.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='fgets.c' object='libstd_la-fgets.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_la_CFLAGS) $(CFLAGS) -c -o libstd_la-fgets.lo `test -f 'fgets.c' || echo '$(srcdir)/'`fgets.c
+
+libstd_la-fileno.lo: fileno.c
+@am__fastdepCC_TRUE@	if $(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_la_CFLAGS) $(CFLAGS) -MT libstd_la-fileno.lo -MD -MP -MF "$(DEPDIR)/libstd_la-fileno.Tpo" -c -o libstd_la-fileno.lo `test -f 'fileno.c' || echo '$(srcdir)/'`fileno.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/libstd_la-fileno.Tpo" "$(DEPDIR)/libstd_la-fileno.Plo"; else rm -f "$(DEPDIR)/libstd_la-fileno.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='fileno.c' object='libstd_la-fileno.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_la_CFLAGS) $(CFLAGS) -c -o libstd_la-fileno.lo `test -f 'fileno.c' || echo '$(srcdir)/'`fileno.c
 
 libstd_la-float.lo: float.c
 @am__fastdepCC_TRUE@	if $(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_la_CFLAGS) $(CFLAGS) -MT libstd_la-float.lo -MD -MP -MF "$(DEPDIR)/libstd_la-float.Tpo" -c -o libstd_la-float.lo `test -f 'float.c' || echo '$(srcdir)/'`float.c; \
@@ -2234,6 +2244,20 @@ libstd_dll-fgets.obj: fgets.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='fgets.c' object='libstd_dll-fgets.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -c -o libstd_dll-fgets.obj `if test -f 'fgets.c'; then $(CYGPATH_W) 'fgets.c'; else $(CYGPATH_W) '$(srcdir)/fgets.c'; fi`
+
+libstd_dll-fileno.o: fileno.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -MT libstd_dll-fileno.o -MD -MP -MF "$(DEPDIR)/libstd_dll-fileno.Tpo" -c -o libstd_dll-fileno.o `test -f 'fileno.c' || echo '$(srcdir)/'`fileno.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/libstd_dll-fileno.Tpo" "$(DEPDIR)/libstd_dll-fileno.Po"; else rm -f "$(DEPDIR)/libstd_dll-fileno.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='fileno.c' object='libstd_dll-fileno.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -c -o libstd_dll-fileno.o `test -f 'fileno.c' || echo '$(srcdir)/'`fileno.c
+
+libstd_dll-fileno.obj: fileno.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -MT libstd_dll-fileno.obj -MD -MP -MF "$(DEPDIR)/libstd_dll-fileno.Tpo" -c -o libstd_dll-fileno.obj `if test -f 'fileno.c'; then $(CYGPATH_W) 'fileno.c'; else $(CYGPATH_W) '$(srcdir)/fileno.c'; fi`; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/libstd_dll-fileno.Tpo" "$(DEPDIR)/libstd_dll-fileno.Po"; else rm -f "$(DEPDIR)/libstd_dll-fileno.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='fileno.c' object='libstd_dll-fileno.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -c -o libstd_dll-fileno.obj `if test -f 'fileno.c'; then $(CYGPATH_W) 'fileno.c'; else $(CYGPATH_W) '$(srcdir)/fileno.c'; fi`
 
 libstd_dll-float.o: float.c
 @am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -MT libstd_dll-float.o -MD -MP -MF "$(DEPDIR)/libstd_dll-float.Tpo" -c -o libstd_dll-float.o `test -f 'float.c' || echo '$(srcdir)/'`float.c; \

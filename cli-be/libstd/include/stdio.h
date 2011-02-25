@@ -47,6 +47,7 @@ LIBSTD_LPROTO(FILE *, fopen, const char* restrict, const char *restrict);
 LIBSTD_LPROTO(int, fclose, FILE *restrict);
 LIBSTD_LPROTO(int, fflush, FILE *restrict);
 LIBSTD_LPROTO(FILE *, freopen, const char *restrict, const char *restrict, FILE *restrict);
+LIBSTD_LPROTO(int, fileno, FILE *restrict);
 
 
 #define BUFSIZ __LIBSTD_BUFSIZ
