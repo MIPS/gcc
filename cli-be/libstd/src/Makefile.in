@@ -64,7 +64,7 @@ am__objects_1 = libstd_la-_Exit.lo libstd_la-__io_device.lo \
 	libstd_la-__io_fopen.lo libstd_la-__io_fout.lo \
 	libstd_la-__io_fread.lo libstd_la-__io_ftable.lo \
 	libstd_la-__io_perm.lo libstd_la-__libinfo.lo \
-	libstd_la-__libstd_initfini.lo libstd_la-abort.lo \
+	libstd_la-__libstd_initfini.lo libstd_la-_users.lo libstd_la-abort.lo \
 	libstd_la-abs.lo libstd_la-asctime.lo libstd_la-assert.lo \
 	libstd_la-basename.lo libstd_la-bsearch.lo libstd_la-calloc.lo \
 	libstd_la-clearerr.lo libstd_la-close.lo libstd_la-creat.lo \
@@ -120,7 +120,7 @@ am__objects_2 = libstd_dll-_Exit.$(OBJEXT) \
 	libstd_dll-__io_fread.$(OBJEXT) \
 	libstd_dll-__io_ftable.$(OBJEXT) \
 	libstd_dll-__io_perm.$(OBJEXT) libstd_dll-__libinfo.$(OBJEXT) \
-	libstd_dll-__libstd_initfini.$(OBJEXT) \
+	libstd_dll-__libstd_initfini.$(OBJEXT) libstd_dll-_users.$(OBJEXT) \
 	libstd_dll-abort.$(OBJEXT) libstd_dll-abs.$(OBJEXT) \
 	libstd_dll-asctime.$(OBJEXT) libstd_dll-assert.$(OBJEXT) \
 	libstd_dll-basename.$(OBJEXT) libstd_dll-bsearch.$(OBJEXT) \
@@ -327,6 +327,7 @@ SRC = _Exit.c \
       __io_perm.c \
       __libinfo.c \
       __libstd_initfini.c \
+      _users.c \
       abort.c \
       abs.c \
       asctime.c \
@@ -549,6 +550,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-__io_perm.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-__libinfo.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-__libstd_initfini.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-_users.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-abort.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-abs.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-asctime.Po@am__quote@
@@ -678,6 +680,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-__io_perm.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-__libinfo.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-__libstd_initfini.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-_users.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-abort.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-abs.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-asctime.Plo@am__quote@
@@ -894,6 +897,13 @@ libstd_la-__libstd_initfini.lo: __libstd_initfini.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='__libstd_initfini.c' object='libstd_la-__libstd_initfini.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_la_CFLAGS) $(CFLAGS) -c -o libstd_la-__libstd_initfini.lo `test -f '__libstd_initfini.c' || echo '$(srcdir)/'`__libstd_initfini.c
+
+libstd_la-_users.lo: _users.c
+@am__fastdepCC_TRUE@	if $(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_la_CFLAGS) $(CFLAGS) -MT libstd_la-_users.lo -MD -MP -MF "$(DEPDIR)/libstd_la-_users.Tpo" -c -o libstd_la-_users.lo `test -f '_users.c' || echo '$(srcdir)/'`_users.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/libstd_la-_users.Tpo" "$(DEPDIR)/libstd_la-_users.Plo"; else rm -f "$(DEPDIR)/libstd_la-_users.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='_users.c' object='libstd_la-_users.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_la_CFLAGS) $(CFLAGS) -c -o libstd_la-_users.lo `test -f '_users.c' || echo '$(srcdir)/'`_users.c
 
 libstd_la-abort.lo: abort.c
 @am__fastdepCC_TRUE@	if $(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_la_CFLAGS) $(CFLAGS) -MT libstd_la-abort.lo -MD -MP -MF "$(DEPDIR)/libstd_la-abort.Tpo" -c -o libstd_la-abort.lo `test -f 'abort.c' || echo '$(srcdir)/'`abort.c; \
@@ -1874,6 +1884,20 @@ libstd_dll-__libstd_initfini.obj: __libstd_initfini.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='__libstd_initfini.c' object='libstd_dll-__libstd_initfini.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -c -o libstd_dll-__libstd_initfini.obj `if test -f '__libstd_initfini.c'; then $(CYGPATH_W) '__libstd_initfini.c'; else $(CYGPATH_W) '$(srcdir)/__libstd_initfini.c'; fi`
+
+libstd_dll-_users.o: _users.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -MT libstd_dll-_users.o -MD -MP -MF "$(DEPDIR)/libstd_dll-_users.Tpo" -c -o libstd_dll-_users.o `test -f '_users.c' || echo '$(srcdir)/'`_users.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/libstd_dll-_users.Tpo" "$(DEPDIR)/libstd_dll-_users.Po"; else rm -f "$(DEPDIR)/libstd_dll-_users.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='_users.c' object='libstd_dll-_users.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -c -o libstd_dll-_users.o `test -f '_users.c' || echo '$(srcdir)/'`_users.c
+
+libstd_dll-_users.obj: _users.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -MT libstd_dll-_users.obj -MD -MP -MF "$(DEPDIR)/libstd_dll-_users.Tpo" -c -o libstd_dll-_users.obj `if test -f '_users.c'; then $(CYGPATH_W) '_users.c'; else $(CYGPATH_W) '$(srcdir)/_users.c'; fi`; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/libstd_dll-_users.Tpo" "$(DEPDIR)/libstd_dll-_users.Po"; else rm -f "$(DEPDIR)/libstd_dll-_users.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='_users.c' object='libstd_dll-_users.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -c -o libstd_dll-_users.obj `if test -f '_users.c'; then $(CYGPATH_W) '_users.c'; else $(CYGPATH_W) '$(srcdir)/_users.c'; fi`
 
 libstd_dll-abort.o: abort.c
 @am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -MT libstd_dll-abort.o -MD -MP -MF "$(DEPDIR)/libstd_dll-abort.Tpo" -c -o libstd_dll-abort.o `test -f 'abort.c' || echo '$(srcdir)/'`abort.c; \

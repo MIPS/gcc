@@ -99,6 +99,20 @@ public class MSCorelibWrapper
 
     [DllImport("MSCorelibWrapper_support.so", EntryPoint="__host__errno")]
     unsafe public static extern int* errno();
+    
+    [DllImport("MSCorelibWrapper_support.so", EntryPoint="__host__getuid")]
+    public static uint getuid ();
+
+    [DllImport("MSCorelibWrapper_support.so", EntryPoint="__host__geteuid")]
+    public static uint geteuid ();
+
+    [DllImport("MSCorelibWrapper_support.so", EntryPoint="__host__getpwuid")]
+    unsafe public static int getpwuid (uint uid, sbyte** name, sbyte** passwd,
+                                        uint* gid, sbyte** gecos, sbyte** dir, sbyte** shell);
+
+    [DllImport("MSCorelibWrapper_support.so", EntryPoint="__host__getpwnam")]
+    unsafe public static int getpwnam (sbyte* name, sbyte** passwd, uint* uid,
+                                        uint* gid, sbyte** gecos, sbyte** dir, sbyte** shell);
 
     [DllImport("MSCorelibWrapper_support.so", EntryPoint="__host__dbl_epsilon")]
     unsafe public static extern double dbl_epsilon();

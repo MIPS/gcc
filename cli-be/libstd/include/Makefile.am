@@ -19,6 +19,7 @@ include_HEADERS = \
 	locale.h \
 	malloc.h \
 	math.h \
+	pwd.h \
 	setjmp.h \
 	signal.h \
 	stdbool.h \

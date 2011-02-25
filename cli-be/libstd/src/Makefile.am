@@ -10,6 +10,7 @@ SRC = _Exit.c \
       __io_perm.c \
       __libinfo.c \
       __libstd_initfini.c \
+      _users.c \
       abort.c \
       abs.c \
       asctime.c \

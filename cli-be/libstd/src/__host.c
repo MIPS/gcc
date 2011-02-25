@@ -50,8 +50,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/times.h>
-
-
+#include <pwd.h>
 
 static int my_errno = 0;
 
@@ -442,6 +441,53 @@ LIBSTD_HPROTO_IMPL(int, gettimes, unsigned long * clks, unsigned long * tms_utim
 LIBSTD_HPROTO_IMPL(long, getsysconf, int name)
 {
   return sysconf(name);
+}
+
+/* user information */
+LIBSTD_HPROTO_IMPL(unsigned int, getuid, void)
+{
+  return getuid ();
+}
+
+LIBSTD_HPROTO_IMPL(unsigned int, geteuid, void)
+{
+  return geteuid ();
+}
+
+LIBSTD_HPROTO_IMPL(int, getpwuid, unsigned int uid, char **name, char **passwd,
+  unsigned int *gid, char **gecos, char **dir, char **shell)
+{
+  struct passwd * pwd = getpwuid(uid);
+  
+  if (!pwd)
+    return -1;
+
+  *name   = pwd->pw_name;
+  *passwd = pwd->pw_passwd;
+  *gid    = pwd->pw_gid;
+  *gecos  = pwd->pw_gecos;
+  *dir    = pwd->pw_dir;
+  *shell  = pwd->pw_shell;
+
+  return 0;
+}
+
+LIBSTD_HPROTO_IMPL(int, getpwnam, char *name, char **passwd,
+  unsigned int *uid, unsigned int *gid, char **gecos, char **dir, char **shell)
+{
+  struct passwd * pwd = getpwnam(name);
+  
+  if (!pwd)
+    return -1;
+
+  *passwd = pwd->pw_passwd;
+  *uid    = pwd->pw_uid;
+  *gid    = pwd->pw_gid;
+  *gecos  = pwd->pw_gecos;
+  *dir    = pwd->pw_dir;
+  *shell  = pwd->pw_shell;
+
+  return 0;
 }
 
 LIBSTD_HPROTO_IMPL(int, fpclassify, double p0)

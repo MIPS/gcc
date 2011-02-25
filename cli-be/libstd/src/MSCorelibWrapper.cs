@@ -28,6 +28,7 @@ using System.Security.Principal;
 using System.Security.AccessControl;
 using System.Runtime.InteropServices;
 using System.Diagnostics;
+using System.Collections;
 
 public class MSCorelibWrapper
 {
@@ -120,6 +121,9 @@ public class MSCorelibWrapper
         initial_ticks = DateTime.UtcNow.Ticks;
         // Init the internal buffer array
         buffer = new byte[buffer_size];
+
+        /* Matching (pseudo)POSIX <--> .NET users */
+        InitUsers ();
     }
 
     private static int allocateHandle(Stream stream)
@@ -772,6 +776,134 @@ public class MSCorelibWrapper
         fixed (int* my_perrno = &my_errno) {
            return my_perrno;
         }
+    }
+
+    /*****************        User information         *******************/
+    /* This provides an abstraction of POSIX users. Values for uid are
+       coherent ONLY inside this library, and don't match the underlying
+       system ones -in case the that there is a POSIX system-. 
+       
+       UID are generated (in a random way) from user strings. Thus,
+       a call recieving an UID as argument will only accept the
+       user if it has been generated inside the library; via:
+        - getuid(), geteuid()
+        - getpwnam()
+        - stat() -users not yet implemented here-
+    */
+
+    class UserPair {
+      public UserPair (String name, uint uid) {
+        this.name = name;
+        this.uid  = uid;
+      }
+
+      public String  name;
+      public uint    uid;
+    };
+
+    private static ArrayList users_set;
+    private static uint      users_count;
+
+    private static void InitUsers ()
+    {
+      users_set = new ArrayList(8);
+      users_count = 0;
+    }
+
+    private static uint GetUidFromName (String name)
+    {
+      uint uid = 0;
+
+      foreach (UserPair user in users_set)
+        {
+          if (user.name == name)
+            uid = user.uid;
+        }
+
+      if (uid != 0)
+        return uid;
+
+      /* here is where users join users_set */
+      uid = ++users_count;
+      users_set.Add (new UserPair (name, uid));
+      return uid;
+    }
+
+    private static String GetNameFromUid (uint uid)
+    {
+      foreach (UserPair user in users_set)
+        {
+          if (user.uid == uid)
+            return user.name;
+        }
+
+      /* may be an UID external to this implementation, not supported */
+      throw new Exception("the specified UID does not exist");
+    }
+
+    /* POSIX user-related functions */
+    public static uint getuid ()
+    {
+      String name = WindowsIdentity.GetCurrent().Name;
+
+      return GetUidFromName (name);
+    }
+    
+    public static uint geteuid ()
+    {
+      /* Are there "effective users" in .NET? Is that impersonation? */
+      return getuid ();
+    }
+
+    unsafe public static int getpwuid (uint uid, sbyte** name, sbyte** passwd,
+                                        uint* gid, sbyte** gecos, sbyte** dir, sbyte** shell)
+    {
+      String str_name;
+
+      try {
+        str_name = GetNameFromUid (uid);
+      } catch (Exception) {
+        my_errno = __LIBSTD_ENOENT;
+        return -1;
+      }
+
+      *name = (sbyte*) Marshal.StringToHGlobalAnsi(str_name).ToPointer();
+
+      return getpw_base (str_name, passwd, gid, gecos, dir, shell);
+    }
+
+    unsafe public static int getpwnam (sbyte* name, sbyte** passwd, uint* uid,
+                                        uint* gid, sbyte** gecos, sbyte** dir, sbyte** shell)
+    {
+      String str_name = Marshal.PtrToStringAnsi(new IntPtr(name));
+
+      *uid = GetUidFromName (str_name);
+
+      return getpw_base (str_name, passwd, gid, gecos, dir, shell);
+    }
+
+    unsafe private static int getpw_base (String name, sbyte** passwd, uint* gid,
+                                          sbyte** gecos, sbyte** dir, sbyte** shell)
+    {
+      /*home_path = (Environment.OSVersion.Platform == PlatformID.Unix || 
+                   Environment.OSVersion.Platform == PlatformID.MacOSX)
+          ? Environment.GetEnvironmentVariable("HOME")
+          : Environment.ExpandEnvironmentVariables("%HOMEDRIVE%%HOMEPATH%");*/
+ 
+      *passwd = (sbyte*) new IntPtr(0);
+      *gid = 0;
+      /* TODO: may be we can find the actual name */
+      *gecos = (sbyte*)  Marshal.StringToHGlobalAnsi(name).ToPointer();
+      if (name == WindowsIdentity.GetCurrent().Name)
+        {
+          String home_path = Environment.GetFolderPath(Environment.SpecialFolder.Personal);
+          *dir = (sbyte*) Marshal.StringToHGlobalAnsi(home_path).ToPointer();
+        }
+      else
+        *dir = (sbyte*) new IntPtr(0);
+      *shell = (sbyte*) new IntPtr(0);
+
+      return 0;
     }
 
     public static double dbl_epsilon()

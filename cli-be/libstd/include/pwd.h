@@ -20,39 +20,34 @@ along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 02110-1301, USA.  */
 
-#ifndef __UNISTD_H
-#define __UNISTD_H
+#ifndef __PWD_H
+#define __PWD_H
 
 #include <__cdefs.h>
 
-/* Included for NULL, size_t */
-#include <stddef.h>
 
-/* Included for off_t, ssize_t */
 #include <sys/types.h>
-
-#include <bits/libstd_stdio.h>
-#include <bits/confname.h>
+#include <stddef.h>
 
 __BEGIN_EXTERN_C
 
-LIBSTD_LPROTO(int, close, int);
-LIBSTD_LPROTO(ssize_t, read, int, void *, size_t);
-LIBSTD_LPROTO(ssize_t, write, int, const void *, size_t);
-LIBSTD_LPROTO(off_t, lseek, int, off_t, int);
-LIBSTD_LPROTO(int, unlink, const char *);
-LIBSTD_LPROTO(long, sysconf, int);
-
-#define STDIN_FILENO  __LIBSTD_STDIN_FILENO
-#define STDOUT_FILENO __LIBSTD_STDOUT_FILENO
-#define STDERR_FILENO __LIBSTD_STDERR_FILENO
-
-LIBSTD_LPROTO(int, isatty, int);
+/* The passwd structure.  */
+struct passwd
+{
+  char *pw_name;      /* Username.  */
+  char *pw_passwd;    /* Password.  */
+  uid_t pw_uid;	      /* User ID.  */
+  gid_t pw_gid;       /* Group ID.  */
+  char *pw_gecos;     /* Real name.  */
+  char *pw_dir;       /* Home directory.  */
+  char *pw_shell;     /* Shell program.  */
+};
 
 /* Implemented in src/_users.c */
-LIBSTD_LPROTO(uid_t, getuid, void);
-LIBSTD_LPROTO(uid_t, geteuid, void);
+LIBSTD_LPROTO(struct passwd *, getpwuid, uid_t);
+LIBSTD_LPROTO(struct passwd *, getpwnam, char *);
 
 __END_EXTERN_C
 
-#endif /*__UNISTD_H__*/
+#endif /*__PWD_H*/
+

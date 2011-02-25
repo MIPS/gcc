@@ -108,6 +108,16 @@ LIBSTD_HPROTO(void, gettimeofday, void *tv_sec, void *tv_usec);
 
 /* Getting process time informations */
 LIBSTD_HPROTO(int, gettimes, unsigned long *clks, unsigned long * tms_utime, unsigned long *tms_stime, unsigned long *tms_cutime, unsigned long *tms_cstime);
+
+/* User information*/
+LIBSTD_HPROTO(unsigned int, getuid, void);
+LIBSTD_HPROTO(unsigned int, geteuid, void);
+
+LIBSTD_HPROTO(int, getpwuid, unsigned int uid, char **name, char **passwd,
+  unsigned int *gid, char **gecos, char **dir, char **shell);
+LIBSTD_HPROTO(int, getpwnam, char *name, char **passwd, unsigned int *uid, 
+  unsigned int *gid, char **gecos, char **dir, char **shell);
+
  
 /* Floating point classification */
 LIBSTD_HPROTO(int, fpclassify, double p0);
