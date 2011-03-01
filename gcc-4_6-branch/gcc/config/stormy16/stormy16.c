@@ -469,8 +469,11 @@ xstormy16_secondary_reload_class (enum reg_class rclass,
   return NO_REGS;
 }
 
-enum reg_class
-xstormy16_preferred_reload_class (rtx x, enum reg_class rclass)
+/* Worker function for TARGET_PREFERRED_RELOAD_CLASS
+   and TARGET_PREFERRED_OUTPUT_RELOAD_CLASS.  */
+
+static reg_class_t
+xstormy16_preferred_reload_class (rtx x, reg_class_t rclass)
 {
   if (rclass == GENERAL_REGS && MEM_P (x))
     return EIGHT_REGS;
@@ -1416,15 +1419,34 @@ xstormy16_trampoline_init (rtx m_tramp, tree fndecl, rtx static_chain)
   emit_move_insn (reg_addr_mem, reg_fnaddr);
 }
 
-/* Worker function for FUNCTION_VALUE.  */
+/* Worker function for TARGET_FUNCTION_VALUE.  */
 
-rtx
-xstormy16_function_value (const_tree valtype, const_tree func ATTRIBUTE_UNUSED)
+static rtx
+xstormy16_function_value (const_tree valtype,
+			  const_tree func ATTRIBUTE_UNUSED,
+			  bool outgoing ATTRIBUTE_UNUSED)
 {
   enum machine_mode mode;
   mode = TYPE_MODE (valtype);
   PROMOTE_MODE (mode, 0, valtype);
   return gen_rtx_REG (mode, RETURN_VALUE_REGNUM);
+}
+
+/* Worker function for TARGET_LIBCALL_VALUE.  */
+
+static rtx
+xstormy16_libcall_value (enum machine_mode mode,
+			 const_rtx fun ATTRIBUTE_UNUSED)
+{
+  return gen_rtx_REG (mode, RETURN_VALUE_REGNUM);
+}
+
+/* Worker function for TARGET_FUNCTION_VALUE_REGNO_P.  */
+
+static bool
+xstormy16_function_value_regno_p (const unsigned int regno)
+{
+  return (regno == RETURN_VALUE_REGNUM);
 }
 
 /* A C compound statement that outputs the assembler code for a thunk function,
@@ -2600,9 +2622,20 @@ static const struct default_options xstorym16_option_optimization_table[] =
 
 #undef  TARGET_RETURN_IN_MEMORY
 #define TARGET_RETURN_IN_MEMORY xstormy16_return_in_memory
+#undef TARGET_FUNCTION_VALUE
+#define TARGET_FUNCTION_VALUE xstormy16_function_value
+#undef TARGET_LIBCALL_VALUE
+#define TARGET_LIBCALL_VALUE xstormy16_libcall_value
+#undef TARGET_FUNCTION_VALUE_REGNO_P
+#define TARGET_FUNCTION_VALUE_REGNO_P xstormy16_function_value_regno_p
 
 #undef  TARGET_MACHINE_DEPENDENT_REORG
 #define TARGET_MACHINE_DEPENDENT_REORG xstormy16_reorg
+
+#undef  TARGET_PREFERRED_RELOAD_CLASS
+#define TARGET_PREFERRED_RELOAD_CLASS xstormy16_preferred_reload_class
+#undef  TARGET_PREFERRED_OUTPUT_RELOAD_CLASS
+#define TARGET_PREFERRED_OUTPUT_RELOAD_CLASS xstormy16_preferred_reload_class
 
 #undef TARGET_LEGITIMATE_ADDRESS_P
 #define TARGET_LEGITIMATE_ADDRESS_P	xstormy16_legitimate_address_p
