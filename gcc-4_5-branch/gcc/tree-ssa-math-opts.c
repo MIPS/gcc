@@ -1,5 +1,5 @@
 /* Global, SSA-based optimizations using mathematical identities.
-   Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010
+   Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010, 2011
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -1716,7 +1716,8 @@ execute_optimize_widening_mul (void)
 		default:;
 		}
 	    }
-	  else if (is_gimple_call (stmt))
+	  else if (is_gimple_call (stmt)
+                   && gimple_call_lhs (stmt))
 	    {
 	      tree fndecl = gimple_call_fndecl (stmt);
 	      if (fndecl
@@ -1733,6 +1734,7 @@ execute_optimize_widening_mul (void)
 						    gimple_call_arg (stmt, 0),
 						    gimple_call_arg (stmt, 0)))
 			  {
+			    unlink_stmt_vdef (stmt);
 			    gsi_remove (&gsi, true);
 			    release_defs (stmt);
 			    if (gimple_purge_dead_eh_edges (bb))

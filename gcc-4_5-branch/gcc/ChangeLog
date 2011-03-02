@@ -1,3 +1,12 @@
+2011-03-02  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport 2010-12-07 changes by Richard Guenther to fix LTC
+	bugzilla 70276.
+
+	* tree-ssa-math-opts.c (execute_optimize_widening_mul):  Only
+	process calls with LHS present; unlink virtual definitions when
+	converting pow (n, 2.0) to n*n.
+	
 2011-03-02  Alan Modra  <amodra@gmail.com>
 
 	PR target/47935
