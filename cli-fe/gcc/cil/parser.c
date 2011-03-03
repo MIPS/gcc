@@ -844,6 +844,7 @@ parser_emit_ldarga (guint16 arg)
 {
   tree arg_decl = cil_bindings_get_arg (arg);
   tree exp_addr = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (arg_decl)), arg_decl);
+  mark_addressable (arg_decl);
   cil_stack_push (cil_bindings_output_statements_and_create_temp (exp_addr), CIL_STYPE_MP);
 }
 
