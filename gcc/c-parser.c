@@ -8692,7 +8692,12 @@ c_parser_omp_clause_private (c_parser *parser, tree list)
    reduction ( reduction-operator : variable-list )
 
    reduction-operator:
-     One of: + * - & ^ | && || */
+     One of: + * - & ^ | && ||
+     
+   OpenMP 3.1:
+   
+   reduction-operator:
+     One of: + * - & ^ | && || max min  */
 
 static tree
 c_parser_omp_clause_reduction (c_parser *parser, tree list)
@@ -8728,10 +8733,26 @@ c_parser_omp_clause_reduction (c_parser *parser, tree list)
 	case CPP_OR_OR:
 	  code = TRUTH_ORIF_EXPR;
 	  break;
+        case CPP_NAME:
+	  {
+	    const char *p
+	      = IDENTIFIER_POINTER (c_parser_peek_token (parser)->value);
+	    if (strcmp (p, "min") == 0)
+	      {
+		code = MIN_EXPR;
+		break;
+	      }
+	    if (strcmp (p, "max") == 0)
+	      {
+		code = MAX_EXPR;
+		break;
+	      }
+	  }
+	  /* FALLTHRU */
 	default:
 	  c_parser_error (parser,
 			  "expected %<+%>, %<*%>, %<-%>, %<&%>, "
-			  "%<^%>, %<|%>, %<&&%>, or %<||%>");
+			  "%<^%>, %<|%>, %<&&%>, %<||%>, %<min%> or %<max%>");
 	  c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, 0);
 	  return list;
 	}

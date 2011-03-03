@@ -1,3 +1,8 @@
+2011-03-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.c/reduction-6.c: New test.
+	* testsuite/libgomp.c++/reduction-4.C: New test.
+
 2011-02-24  Jakub Jelinek  <jakub@redhat.com>
 
 	* omp.h.in (omp_in_final): New prototype.

@@ -23683,7 +23683,12 @@ cp_parser_omp_clause_ordered (cp_parser *parser ATTRIBUTE_UNUSED,
    reduction ( reduction-operator : variable-list )
 
    reduction-operator:
-     One of: + * - & ^ | && || */
+     One of: + * - & ^ | && ||
+
+   OpenMP 3.1:
+
+   reduction-operator:
+     One of: + * - & ^ | && || min max  */
 
 static tree
 cp_parser_omp_clause_reduction (cp_parser *parser, tree list)
@@ -23720,9 +23725,26 @@ cp_parser_omp_clause_reduction (cp_parser *parser, tree list)
     case CPP_OR_OR:
       code = TRUTH_ORIF_EXPR;
       break;
+    case CPP_NAME:
+      {
+	tree id = cp_lexer_peek_token (parser->lexer)->u.value;
+	const char *p = IDENTIFIER_POINTER (id);
+
+	if (strcmp (p, "min") == 0)
+	  {
+	    code = MIN_EXPR;
+	    break;
+	  }
+	if (strcmp (p, "max") == 0)
+	  {
+	    code = MAX_EXPR;
+	    break;
+	  }
+      }
+      /* FALLTHROUGH */
     default:
       cp_parser_error (parser, "expected %<+%>, %<*%>, %<-%>, %<&%>, %<^%>, "
-			       "%<|%>, %<&&%>, or %<||%>");
+			       "%<|%>, %<&&%>, %<||%>, %<min%> or %<max%>");
     resync_fail:
       cp_parser_skip_to_closing_parenthesis (parser, /*recovering=*/true,
 					     /*or_comma=*/false,

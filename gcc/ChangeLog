@@ -1,3 +1,8 @@
+2011-03-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-parser.c (c_parser_omp_clause_reduction): Handle min and max.
+	* c-typeck.c (c_finish_omp_clauses): Handle MIN_EXPR and MAX_EXPR.
+
 2011-02-24  Richard Guenther  <rguenther@suse.de>
 
 	* lto-streamer-in.c (input_bb): Do not find referenced vars

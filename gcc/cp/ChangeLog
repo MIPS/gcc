@@ -1,3 +1,8 @@
+2011-03-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* parser.c (cp_parser_omp_clause_reduction): Handle min and max.
+	* semantics.c (finish_omp_clauses): Handle MIN_EXPR and MAX_EXPR.
+
 2011-02-23  Jason Merrill  <jason@redhat.com>
 
 	* cp-tree.h (DECL_PARM_LEVEL): New.
