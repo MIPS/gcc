@@ -1,3 +1,42 @@
+2011-03-03  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/47974
+	* g++.dg/template/crash106.C: New.
+
+2011-03-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/47963
+	* gcc.dg/gomp/pr47963.c: New test.
+	* g++.dg/gomp/pr47963.C: New test.
+
+2011-03-02  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/regress/condition1.C: New.
+
+	* g++.dg/cpp0x/constexpr-ctor9.C: New.
+
+2011-03-01  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/lambda/lambda-98.C: New.
+
+	* g++.dg/cpp0x/constexpr-non-const-arg2.C: New.
+
+2011-03-02  Richard Sandiford  <richard.sandiford@linaro.org>
+
+	PR rtl-optimization/47925
+	* gcc.c-torture/execute/pr47925.c: New test.
+
+2011-03-01  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/decltype25.C: New.
+
+	* g++.dg/cpp0x/regress/bitfield-err1.C: New.
+
+2011-03-01  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/47890
+	* gcc.dg/torture/pr47890.c: New testcase.
+
 2011-03-01  Richard Guenther  <rguenther@suse.de>
 
 	PR lto/47924
@@ -33,7 +72,7 @@
 	* objc.dg/gnu-api-2-sel.m: Test that sel_getTypedSelector return
 	NULL in case of a selector with conflicting types.
 	* obj-c++.dg/gnu-api-2-sel.mm: Same change.
-	
+
 2011-02-28  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc.target/arm/vfp-ldmdbd.c, gcc.target/arm/vfp-ldmdbs.c,
@@ -305,12 +344,10 @@
 	* g++.dg/ext/is_empty.C: Ditto.
 	* g++.dg/ext/is_enum.C: Ditto.
 	* g++.dg/ext/has_nothrow_constructor_odr.C: Ditto.
-	* g++.dg/ext/.C: Ditto.
-	* g++.dg/ext/.C: Ditto.
 	* gnat.dg/opt11.adb: Ditto.
 	* obj-c++.dg/pr45735.mm: Ditto.
 	* obj-c++.dg/pr24393.mm: Ditto.
-	* obj-c++.dg/exceptions-2.cc: Ditto.
+	* obj-c++.dg/exceptions-2.mm: Ditto.
 	* objc.dg/pr45735.m: Ditto.
 	* objc.dg/pr24393.m: Ditto.
 

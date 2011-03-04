@@ -177,15 +177,19 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     struct ratio_add
     {
     private:
-      static const intmax_t __gcd =
+      static constexpr intmax_t __gcd =
         __static_gcd<_R1::den, _R2::den>::value;
+      static constexpr intmax_t __n = __safe_add<
+        __safe_multiply<_R1::num, (_R2::den / __gcd)>::value,
+        __safe_multiply<_R2::num, (_R1::den / __gcd)>::value>::value;
+
+      // The new numerator may have common factors with the denominator,
+      // but they have to also be factors of __gcd.
+      static constexpr intmax_t __gcd2 = __static_gcd<__n, __gcd>::value;
       
     public:
-      typedef ratio<
-        __safe_add<
-          __safe_multiply<_R1::num, (_R2::den / __gcd)>::value,
-          __safe_multiply<_R2::num, (_R1::den / __gcd)>::value>::value,
-        __safe_multiply<_R1::den, (_R2::den / __gcd)>::value> type;
+      typedef ratio<__n / __gcd2,
+        __safe_multiply<_R1::den / __gcd2, _R2::den / __gcd>::value> type;
 
       static constexpr intmax_t num = type::num;
       static constexpr intmax_t den = type::den;
@@ -275,10 +279,13 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     { };
 
   // 0 <= _Ri < 1
+  // If one is 0, conclude
+  // Otherwise, x < y iff 1/y < 1/x
   template<typename _R1, typename _R2>
     struct __ratio_less_impl_2;
 
   // _Ri > 0
+  // Compare the integral parts, and remove them if they are equal
   template<typename _R1, typename _R2, intmax_t __q1 = _R1::num / _R1::den,
            intmax_t __q2 = _R2::num / _R2::den, bool __eq = (__q1 == __q2)>
     struct __ratio_less_impl_1
@@ -334,6 +341,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     { };
 
   /// ratio_less
+  // using a continued fraction expansion
   template<typename _R1, typename _R2>
     struct ratio_less
     : __ratio_less_impl<_R1, _R2>::type

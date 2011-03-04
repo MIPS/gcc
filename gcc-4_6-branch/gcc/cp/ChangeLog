@@ -1,3 +1,42 @@
+2011-03-03  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/47974
+	* pt.c (tsubst_template_args): Check argument t for error_mark_node.
+
+2011-03-03  Jason Merrill  <jason@redhat.com>
+
+	PR c++/47950
+	* pt.c (tsubst_copy_and_build) [TARGET_EXPR]: Retain TREE_CONSTANT.
+
+2011-03-02  Jason Merrill  <jason@redhat.com>
+
+	PR c++/47950
+	* parser.c (cp_parser_condition): Don't fold_non_dependent_expr here.
+
+	PR c++/47774
+	* tree.c (build_vec_init_elt): Split out from...
+	(build_vec_init_expr): ...here.
+	(diagnose_non_constexpr_vec_init): New fn.
+	* semantics.c (potential_constant_expression_1): Use it.
+	* cp-tree.h: Declare it.
+
+2011-03-01  Jason Merrill  <jason@redhat.com>
+
+	PR c++/46159
+	* parser.c (cp_parser_primary_expression): Don't warn about a
+	failed tentative parse.
+
+	PR c++/47200
+	* semantics.c (cxx_bind_parameters_in_call): Don't call
+	adjust_temp_type on non-constant args.
+
+	PR c++/47851
+	* call.c (standard_conversion): Provide requested cv-quals on
+	class rvalue conversion.
+
+	PR c++/46282
+	* decl2.c (grokbitfield): Handle type-dependent width.
+
 2011-02-28  Jason Merrill  <jason@redhat.com>
 
 	PR c++/47873
