@@ -637,7 +637,7 @@
 	FreeBSD 6 and later.  Generally use cpu generic.
 
 2011-02-25  Gerald Pfeifer  <gerald@pfeifer.com>
- 
+
 	* doc/cpp.texi: Update copyright years.
 
 2011-02-25  Sebastien Bourdeauducq  <sebastien@milkymist.org>
@@ -652,8 +652,7 @@
 	* config/lm32/lm32.md (ashlsi3): Remove unused variable.
 	* config/lm32/lm32.c (TARGET_EXCEPT_UNWIND_INFO): New.
 	(lm32_block_move_inline): Add type cast to remove warning.
-	(lm32_expand_prologue): Generate fp in a way compatible with
-	dwarf2out.
+	(lm32_expand_prologue): Generate fp in a way compatible with dwarf2out.
 	(gen_int_relational): Move declarations to start of function.
 
 2011-02-25  Eric Botcazou  <ebotcazou@adacore.com>
@@ -1257,10 +1256,6 @@
 	Change new_cfa to long.  Remove regs_off, fpu_save_off, fpu_save.
 	Define nframes, mctx.  Use IS_SIGHANDLER, handler_args, mctx, walk
 	stack instead of hardcoded offsets.
-
-2011-02-14  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
-
-	* go/gccgo.texi (Top, Import and Export): Fix a typo and a markup nit.
 
 2011-02-14  Andriy Gapon  <avg@freebsd.org>
 
