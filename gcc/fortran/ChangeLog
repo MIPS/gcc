@@ -1,3 +1,9 @@
+2011-03-07  Tobias Burnus  <burnus@net-b.de>
+
+	* gfortran.texi (OpenMP): Update ref to OpenMP 3.1.
+	* intrinsic.texi (OpenMP Modules): Update ref to OpenMP 3.1;
+	remove deleted omp_integer_kind and omp_logical_kind constants.
+
 2011-02-24  Richard Guenther  <rguenther@suse.de>
 
 	PR fortran/47839
