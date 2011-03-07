@@ -1,3 +1,15 @@
+2011-03-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* libgomp.h (gomp_nthreads_var_list, gomp_nthreads_var_list_len): New
+	externs.
+	* env.c (gomp_nthreads_var_list, gomp_nthreads_var_list_len): New
+	variables.
+	(parse_unsigned_long_list): New function.
+	(initialize_env): Use it for OMP_NUM_THREADS.
+	* team.c (gomp_team_start): Override new task's nthreads_var icv
+	if list form OMP_NUM_THREADS has been used and it has value for
+	the new nesting level.
+
 2011-03-03  Jakub Jelinek  <jakub@redhat.com>
 
 	* testsuite/libgomp.c/reduction-6.c: New test.
