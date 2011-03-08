@@ -535,8 +535,6 @@ extern enum rs6000_cmodel cmodel;
 #undef DRAFT_V4_STRUCT_RET
 #define DRAFT_V4_STRUCT_RET (!TARGET_64BIT)
 
-#define TARGET_ASM_FILE_END rs6000_elf_end_indicate_exec_stack
-
 #define TARGET_POSIX_IO
 
 #define LINK_GCC_C_SEQUENCE_SPEC \

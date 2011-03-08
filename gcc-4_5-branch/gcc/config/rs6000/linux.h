@@ -111,8 +111,6 @@
 #define RELOCATABLE_NEEDS_FIXUP \
   (target_flags & target_flags_explicit & MASK_RELOCATABLE)
 
-#define TARGET_ASM_FILE_END file_end_indicate_exec_stack
-
 #define TARGET_POSIX_IO
 
 #define MD_UNWIND_SUPPORT "config/rs6000/linux-unwind.h"
