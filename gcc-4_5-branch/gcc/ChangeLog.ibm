@@ -1,3 +1,13 @@
+2011-03-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2011-03-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/47755
+	* config/rs6000/rs6000.c (easy_altivec_constant): Correctly handle
+	V2DI/V2DF constants.  Only all 0's or all 1's are easy.
+	(output_vec_const_move): Ditto.
+
 2011-03-09  Alan Modra  <amodra@gmail.com>
 
 	* config/rs6000/linux.h (TARGET_ASM_FILE_END): Don't define.
@@ -39,7 +49,7 @@
 	* tree-ssa-math-opts.c (execute_optimize_widening_mul):  Only
 	process calls with LHS present; unlink virtual definitions when
 	converting pow (n, 2.0) to n*n.
-	
+
 2011-03-02  Alan Modra  <amodra@gmail.com>
 
 	PR target/47935
