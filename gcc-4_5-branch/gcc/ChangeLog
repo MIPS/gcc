@@ -1,8 +1,160 @@
+2011-03-07  Mingjie Xing  <mingjie.xing@gmail.com>
+
+	* doc/cfg.texi: Remove "See" before @ref.
+	* doc/invoke.texi: Likewise.
+
 2011-03-05  Alan Modra  <amodra@gmail.com>
 
 	PR target/47986
 	* config/rs6000/rs6000.c (rs6000_delegitimize_address): Handle
 	full cmodel medium/large lo_sum + high addresses.
+
+2011-03-03  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/sse.md (*avx_pmaddubsw128): Fix mode of VEC_SELECT RTX.
+	(ssse3_pmaddubsw128): Ditto.
+	(ssse3_pmaddubsw): Ditto.
+
+2011-03-03  Denis Chertykov <chertykov@gmail.com>
+
+	Backport from mainline
+	2011-02-22  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/42240
+	* config/avr/avr.c (avr_cannot_modify_jumps_p): New function.
+	(TARGET_CANNOT_MODIFY_JUMPS_P): Define.
+
+2011-03-03  Richard Guenther  <rguenther@suse.de>
+
+	* tree-vect-stmt.c (vectorizable_operation): Remove unused vars.
+
+2011-03-02  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2011-02-07  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/47615
+	* tree-ssa-sccvn.h (run_scc_vn): Take a vn-walk mode argument.
+	* tree-ssa-sccvn.c (default_vn_walk_kind): New global.
+	(run_scc_vn): Initialize it.
+	(visit_reference_op_load): Use it.
+	* tree-ssa-pre.c (execute_pre): Use VN_WALK if in PRE.
+
+2011-03-01  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2011-02-08  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/47639
+	* tree-vect-generic.c (expand_vector_operations_1): Update
+	stmts here ...
+	(expand_vector_operations): ... not here.  Cleanup EH info
+	and the CFG if required.
+
+2011-03-01  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2011-03-01  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/47890
+	* tree-vect-loop.c (get_initial_def_for_induction): Set
+	related stmt properly.
+
+	2010-12-01  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/46723
+	* tree-vect-loop.c (get_initial_def_for_induction): Strip
+	conversions from the induction evolution and apply it to
+	the result instead.
+	* tree-vect-stmts.c (vect_get_vec_def_for_operand): Handle
+	assigns for induction defs.
+
+2011-02-28  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/45261
+	* config/avr/avr.c (avr_option_override): Use error on bad options.
+	(avr_help): New function.
+	(TARGET_HELP): Define.
+
+2011-02-26  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/invoke.texi (ARC Options): Use CPU instead of cpu.
+	(ARM Options): Ditto.
+	(i386 and x86-64 Options): Ditto.
+	(RX Options): Ditto.
+	(SPARC Options): Ditto.
+
+2011-02-26  Tijl Coosemans  <tijl@coosemans.org>
+
+	* config.gcc (i386-*-freebsd*): Make i486 the default arch on
+	FreeBSD 6 and later.  Generally use cpu generic.
+
+2011-02-25  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/cpp.texi (Obsolete Features): Add background on the
+	origin of assertions.
+	Update copyright years.
+
+2011-02-25  Andriy Gapon <avg@freebsd.org>
+
+	PR target/45808
+	* config/freebsd-spec.h (FBSD_LIB_SPEC): Handle the shared case.
+	Update copyright years.
+
+2011-02-21  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/47840
+	* config/i386/avxintrin.h (_mm256_insert_epi32): Use _mm_insert_epi32.
+	(_mm256_insert_epi64): Use _mm_insert_epi64.
+
+2011-02-18  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* config.gcc (hppa[12]*-*-hpux11*): Set extra_parts.
+	* config/pa/stublib.c (pthread_default_stacksize_np, pthread_mutex_lock,
+	pthread_mutex_unlock, pthread_once): Reinstate pthread stubs.
+	* config/pa/t-pa-hpux11: Add rules to build pthread stubs.
+	* config/pa/t-pa64: Likewise.
+	* config/pa/pa-hpux11.h (LINK_GCC_C_SEQUENCE_SPEC): Define.
+
+2011-02-17  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/43653
+	* config/i386/i386.c (ix86_secondary_reload): Handle SSE
+	input reload with PLUS RTX.
+
+2011-02-15  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR pch/14940
+	* config/alpha/host-osf.c: New file.
+	* config/alpha/x-osf: New file.
+	* config.host (alpha*-dec-osf*): Use it.
+
+2011-02-15  Tijl Coosemans  <tijl@coosemans.org>
+
+	* config/i386/freebsd.h (SUBTARGET32_DEFAULT_CPU): Add.
+	Update copyright years.
+
+2011-02-11  Bernd Schmidt  <bernds@codesourcery.com>
+
+	PR rtl-optimization/47166
+	* reload1.c (emit_reload_insns): Disable the spill_reg_store
+	mechanism for PRE_MODIFY and POST_MODIFY.
+	(inc_for_reload): For PRE_MODIFY, return the insn that sets the
+	reloadreg.
+
+2011-02-10  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	Backport from mainline:
+	2011-02-07  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* config.gcc (hppa[12]*-*-hpux11*): Don't set extra_parts.
+	* config/pa/stublib.c (pthread_default_stacksize_np, pthread_mutex_lock,
+	pthread_mutex_unlock): Remove.
+	* config/pa/t-pa-hpux11: Remove rules to build pthread stubs.
+	* config/pa/t-pa64: Likewise.
+	* config/pa/pa64-hpux.h (LIB_SPEC): In static links, link against
+	shared libc if not linking against libpthread.
+	* config/pa/pa-hpux11.h (LIB_SPEC): Likewise.
 
 2011-02-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
@@ -257,9 +409,9 @@
 	Backport from mainline:
 	2010-12-30  Nathan Froyd  <froydnj@codesourcery.com>
 
-        PR target/44606
-        * reload1.c (choose_reload_regs): Don't look for equivalences for
-        output reloads of constant loads.
+	PR target/44606
+	* reload1.c (choose_reload_regs): Don't look for equivalences for
+	output reloads of constant loads.
 
 2011-01-30  Gerald Pfeifer  <gerald@pfeifer.com>
 
@@ -285,7 +437,7 @@
 	Backport from mainline:
 	2010-08-22  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
 
-        PR boehm-gc/34544
+	PR boehm-gc/34544
 	* gthr-posix.h (__gthread_active_init): Delete.
 	(__gthread_active_p): Do activity check here.
 	Don't include errno.h on hppa-hpux.  Update comment.
@@ -384,8 +536,8 @@
 	(avx_maskstore<ssemodesuffix><avxmodesuffix>): Likewise.
 
 2011-01-17  Olivier Hainque  <hainque@adacore.com>
-            Michael Haubenwallner  <michael.haubenwallner@salomon.at>
-            Eric Botcazou  <ebotcazou@adacore.com>
+	    Michael Haubenwallner  <michael.haubenwallner@salomon.at>
+	    Eric Botcazou  <ebotcazou@adacore.com>
 
 	PR target/46655
 	* xcoffout.c (ASM_OUTPUT_LINE): Output line only if positive, and only
@@ -538,7 +690,7 @@
 
 	Backport from mainline
 	Fix PR45758: reset scevs before Graphite.
-        2010-09-24  Sebastian Pop  <sebastian.pop@amd.com>
+	2010-09-24  Sebastian Pop  <sebastian.pop@amd.com>
 
 	PR tree-optimization/45552
 	* graphite.c (graphite_initialize): Call scev_reset.
@@ -742,7 +894,7 @@
 
 	Backport from mainline:
 	2010-09-15  Olivier Hainque  <hainque@adacore.com>
-        	    Jose Ruiz  <ruiz@adacore.com>
+		    Jose Ruiz  <ruiz@adacore.com>
 
 	* config/alpha/osf.h (MD_UNWIND_SUPPORT): Define.
 	* config/alpha/osf-unwind.h: New file.

@@ -1,3 +1,98 @@
+2011-03-06  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	Backport from mainline
+	PR libgfortran/47778
+	* gfortran.dg/namelist_71.f90: New test.
+
+2011-03-04  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	Backport from mainline
+	PR libgfortran/47878
+	* gfortran.dg/pr47878.f90: New test.
+
+2011-03-01  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/lambda/lambda-98.C: New.
+
+2011-03-02  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2011-02-07  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/47615
+	* g++.dg/opt/pr47615.C: New testcase.
+
+2011-03-01  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2011-02-08  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/47639
+	* g++.dg/opt/pr47639.c: New testcase.
+
+2011-03-01  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2011-03-01  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/47890
+	* gcc.dg/torture/pr47890.c: New testcase.
+
+	2010-12-01  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/46723
+	* gcc.dg/torture/pr46723.c: New testcase.
+
+2011-02-26  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/template/this-targ1.C: New.
+
+2011-02-19  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR tree-optimization/46620
+	* gcc.dg/pr46620.c: New.
+
+2011-02-19  Tobias Burnus
+
+	PR fortran/47775
+	* gfortran.dg/func_result_6.f90: New.
+
+2011-02-17  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/43653
+	* gcc.target/i386/pr43653.c: New test.
+
+2011-02-14  Tobias Burnus  <burnus@net-b.de>
+
+	* gfortran.dg/argument_checking_13.f90: Update dg-error.
+	* gfortran.dg/argument_checking_17.f90: New.
+
+2011-02-10  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR target/46610
+	* gcc.target/mips/save-restore-1.c: Skip on mips-sgi-irix6*.
+	* gcc.target/mips/save-restore-3.c: Likewise.
+	* gcc.target/mips/save-restore-4.c: Likewise.
+	* gcc.target/mips/save-restore-5.c: Likewise.
+
+	PR target/47683
+	* g++.dg/tree-prof/partition1.C: Skip on mips-sgi-irix*.
+	* g++.dg/tree-prof/partition2.C: Likewise.
+
+2011-02-07  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2010-07-23  Uros Bizjak  <ubizjak@gmail.com>
+
+	* lib/target-supports.exp (check_avx_hw_available): New procedure.
+	(check_effective_target_avx_runtime): New procedure.
+
+	* gcc.dg/compat/vector-1b_main.c: Use avx_runtime effective target.
+	Remove cpuid.h include and __get_cpuid test.
+	* gcc.dg/compat/vector-2b_main.c: Ditto.
+
+	* gcc.target/i386/avx-check.h (main): Also check bit_OSXSAVE.
+
 2011-02-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Backport from mainline:
@@ -31,8 +126,8 @@
 	Backport from mainline:
 	2010-12-30  Nathan Froyd  <froydnj@codesourcery.com>
 
-        PR target/44606
-        * gcc.dg/pr44606.c: New test.
+	PR target/44606
+	* gcc.dg/pr44606.c: New test.
 
 2011-01-27  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
 
@@ -247,7 +342,7 @@
 
 	Backport from mainline
 	2010-12-06  Jakub Jelinek  <jakub@redhat.com>
- 
+
 	PR target/43897
 	* gcc.target/ia64/pr43897.c: New test.
 
@@ -266,7 +361,7 @@
 	* gcc.dg/pr46499-2.c: New test.
 
 	2010-11-20  Jakub Jelinek  <jakub@redhat.com>
- 
+
 	PR c++/46538
 	* g++.dg/other/error34.C: New test.
 
