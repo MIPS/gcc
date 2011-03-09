@@ -1,3 +1,29 @@
+2011-03-08  Jason Merrill  <jason@redhat.com>
+
+	PR c++/47289
+	* pt.c (coerce_template_parms): Fix error recovery.
+
+2011-03-08  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/47705
+	* pt.c (convert_nontype_argument): Only call decay_conversion on
+	arrays.
+
+2011-03-08  Dodji Seketeli  <dodji@redhat.com>
+
+	* name-lookup.c (binding_to_template_parms_of_scope_p): Only
+	consider scopes of primary template definitions.  Adjust comments.
+
+2011-03-08  Jason Merrill  <jason@redhat.com>
+
+	PR c++/47488
+	* mangle.c (write_template_arg_literal) [STRING_CST]: Sorry.
+
+2011-03-08  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/47278
+	* decl.c (finish_function): Use decl_replaceable_p.
+
 2011-03-01  Jason Merrill  <jason@redhat.com>
 
 	PR c++/46159
