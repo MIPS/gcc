@@ -1,3 +1,8 @@
+2011-03-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-omp.c (c_omp_predetermined_sharing): Don't return
+	OMP_CLAUSE_DEFAULT_SHARED for TREE_READONLY decls.
+
 2011-02-19  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c/47809

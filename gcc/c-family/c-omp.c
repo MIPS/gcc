@@ -519,12 +519,7 @@ c_split_parallel_clauses (location_t loc, tree clauses,
 /* True if OpenMP sharing attribute of DECL is predetermined.  */
 
 enum omp_clause_default_kind
-c_omp_predetermined_sharing (tree decl)
+c_omp_predetermined_sharing (tree decl ATTRIBUTE_UNUSED)
 {
-  /* Variables with const-qualified type having no mutable member
-     are predetermined shared.  */
-  if (TREE_READONLY (decl))
-    return OMP_CLAUSE_DEFAULT_SHARED;
-
   return OMP_CLAUSE_DEFAULT_UNSPECIFIED;
 }

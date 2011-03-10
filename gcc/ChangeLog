@@ -1,3 +1,9 @@
+2011-03-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-typeck.c (c_finish_omp_clauses): Complain about
+	TREE_READONLY decls in private, lastprivate and reduction
+	clauses.
+
 2011-03-03  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-parser.c (c_parser_omp_clause_reduction): Handle min and max.

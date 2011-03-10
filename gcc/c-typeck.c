@@ -10406,6 +10406,7 @@ c_finish_omp_clauses (tree clauses)
       bool remove = false;
       bool need_complete = false;
       bool need_implicitly_determined = false;
+      bool no_const = false;
 
       switch (OMP_CLAUSE_CODE (c))
 	{
@@ -10418,11 +10419,13 @@ c_finish_omp_clauses (tree clauses)
 	  name = "private";
 	  need_complete = true;
 	  need_implicitly_determined = true;
+	  no_const = true;
 	  goto check_dup_generic;
 
 	case OMP_CLAUSE_REDUCTION:
 	  name = "reduction";
 	  need_implicitly_determined = true;
+	  no_const = true;
 	  t = OMP_CLAUSE_DECL (c);
 	  if (AGGREGATE_TYPE_P (TREE_TYPE (t))
 	      || POINTER_TYPE_P (TREE_TYPE (t)))
@@ -10534,6 +10537,7 @@ c_finish_omp_clauses (tree clauses)
 	  t = OMP_CLAUSE_DECL (c);
 	  need_complete = true;
 	  need_implicitly_determined = true;
+	  no_const = true;
 	  if (TREE_CODE (t) != VAR_DECL && TREE_CODE (t) != PARM_DECL)
 	    {
 	      error_at (OMP_CLAUSE_LOCATION (c),
@@ -10601,6 +10605,13 @@ c_finish_omp_clauses (tree clauses)
 		  error_at (OMP_CLAUSE_LOCATION (c),
 			    "%qE is predetermined %qs for %qs",
 			    t, share_name, name);
+		  remove = true;
+		}
+	      else if (no_const && TREE_READONLY (t))
+		{
+		  error_at (OMP_CLAUSE_LOCATION (c),
+			    "const-qualified %qE cannot appear in %qs clause",
+			    t, name);
 		  remove = true;
 		}
 	    }
