@@ -1,10 +1,56 @@
+2011-03-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vector.md (UNSPEC_REDUC): New unspec for vector
+	reduction.
+	(VEC_reduc): New code iterator and splitters for vector reduction.
+	(VEC_reduc_name): Ditto.
+	(VEC_reduc_rtx): Ditto.
+	(reduc_<VEC_reduc_name>_v2df): Vector reduction expanders for VSX.
+	(reduc_<VEC_reduc_name>_v4sf): Ditto.
+
+	* config/rs6000/rs6000.c (rs6000_expand_vector_extract): Add
+	support for extracting SF on VSX.
+
+	* config/rs6000/vsx.md (vsx_xscvspdp_scalar2): New insn for
+	generating xscvspdp.
+	(vsx_extract_v4sf): New insn to extract SF from V4SF vector.
+	(vsx_reduc_<VEC_reduc_name>_v2df): New insns and splitters for
+	double add, minimum, maximum vector reduction.
+	(vsx_reduc_<VEC_reduc_name>_v4sf): Ditto.
+	(vsx_reduc_<VEC_reduc_name>_v2df2_scalar): New combiner insn to
+	optimize double vector reduction.
+	(vsx_reduc_<VEC_reduc_name>_v4sf_scalar): Ditto.
+
+2011-03-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vector.md (UNSPEC_REDUC_SPLUS): Define as enum.
+	(UNSPEC_REDUC_SMIN): Ditto.
+	(UNSPEC_REDUC_SMAX): Ditto.
+	(reduc_splus_v2df): Define VSX reduction expander for V2DF.
+	(reduc_smin_v2df): Ditto.
+	(reduc_smax_v2df): Ditto.
+
+	* config/rs6000/vsx.md (vsx_reduc_splus_v2df): VSX reduction insn
+	and splitter for V2DF.
+	(vsx_reduc_smin_v2df): Ditto.
+	(vsx_reduc_smax_v2df): Ditto.
+	(vsx_reduc_splus_v2df_scalar): Combiner pattern that eliminates
+	vector extract after V2DF reduction.
+	(vsx_reduc_smin_v2df_scalar): Ditto.
+	(vsx_reduc_smax_v2df_scalar): Ditto.
+
+	* config/rs6000/altivec.md (UNSPEC_REDUC_PLUS): Delete.
+	(reduc_splus_<mode>): Use UNSPEC_REDUC_SPLUS, not
+	UNSPEC_REDUC_PLUS.
+	(reduc_splut_v16qi): Ditto.
+
 2011-03-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.md (UNSPEC_*, UNSPECV_*): Redefine all
 	UNSPEC constants to be in the unspec enumeration, and redefine
 	all UNSPECV constants to be in the unspecv enumeration, so that
 	dumps print which unspec/unspec_volatile this is.
-	* config/rs6000/vector.md (UNSPEC_*): Ditto.
+
 	* config/rs6000/paired.md (UNSPEC_*): Ditto.
 	* config/rs6000/vsx.md (UNSPEC_*): Ditto.
 	* config/rs6000/altivec.md (UNSPEC_*, UNSPECV_*): Ditto.
