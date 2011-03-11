@@ -1,5 +1,18 @@
 2011-03-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/rs6000.c (vspltis_constant): Don't allow V2DI or
+	V2DF constants here.
+
+	* config/rs6000/predicates.md (easy_vector_constant_add_self):
+	Don't allow V2DI or V2DF constants.
+	(easy_vector_constant_msb): Ditto.
+
+2011-03-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 170856.
+	* REVISION: Update subversion id.
+
+2011-03-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
 	* config/rs6000/vector.md (UNSPEC_REDUC): New unspec for vector
 	reduction.
 	(VEC_reduc): New code iterator and splitters for vector reduction.
