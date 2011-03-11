@@ -4855,7 +4855,13 @@ num_insns_constant (rtx op, enum machine_mode mode)
 HOST_WIDE_INT
 const_vector_elt_as_int (rtx op, unsigned int elt)
 {
-  rtx tmp = CONST_VECTOR_ELT (op, elt);
+  rtx tmp;
+
+  /* We can't handle V2DImode and V2DFmode vector constants here yet.  */
+  gcc_assert (GET_MODE (op) != V2DImode
+	      && GET_MODE (op) != V2DFmode);
+
+  tmp = CONST_VECTOR_ELT (op, elt);
   if (GET_MODE (op) == V4SFmode
       || GET_MODE (op) == V2SFmode)
     tmp = gen_lowpart (SImode, tmp);
@@ -4873,7 +4879,7 @@ static bool
 vspltis_constant (rtx op, unsigned step, unsigned copies)
 {
   enum machine_mode mode = GET_MODE (op);
-  enum machine_mode inner;
+  enum machine_mode inner = GET_MODE_INNER (mode);
 
   unsigned i;
   unsigned nunits;
@@ -4887,7 +4893,6 @@ vspltis_constant (rtx op, unsigned step, unsigned copies)
   if (mode == V2DImode || mode == V2DFmode)
     return false;
 
-  inner = GET_MODE_INNER (mode);
   nunits = GET_MODE_NUNITS (mode);
   bitsize = GET_MODE_BITSIZE (inner);
   mask = GET_MODE_MASK (inner);
@@ -5326,12 +5331,18 @@ rs6000_expand_vector_init (rtx target, rtx vals)
 	}
       else
 	{
-	  rtx op0 = copy_to_reg (XVECEXP (vals, 0, 0));
-	  rtx op1 = copy_to_reg (XVECEXP (vals, 0, 1));
 	  if (mode == V2DFmode)
-	    emit_insn (gen_vsx_concat_v2df (target, op0, op1));
+	    {
+	      rtx op0 = copy_to_mode_reg (DFmode, XVECEXP (vals, 0, 0));
+	      rtx op1 = copy_to_mode_reg (DFmode, XVECEXP (vals, 0, 1));
+	      emit_insn (gen_vsx_concat_v2df (target, op0, op1));
+	    }
 	  else
-	    emit_insn (gen_vsx_concat_v2di (target, op0, op1));
+	    {
+	      rtx op0 = copy_to_mode_reg (DImode, XVECEXP (vals, 0, 0));
+	      rtx op1 = copy_to_mode_reg (DImode, XVECEXP (vals, 0, 1));
+	      emit_insn (gen_vsx_concat_v2di (target, op0, op1));
+	    }
 	}
       return;
     }

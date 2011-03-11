@@ -371,15 +371,12 @@
        (and (match_test "TARGET_ALTIVEC")
 	    (match_test "easy_altivec_constant (op, mode)")))
 {
+  HOST_WIDE_INT val;
   if (mode == V2DImode || mode == V2DFmode)
     return 0;
-  else
-    {
-      HOST_WIDE_INT val
-	= const_vector_elt_as_int (op, GET_MODE_NUNITS (mode) - 1);
-      val = ((val & 0xff) ^ 0x80) - 0x80;
-      return EASY_VECTOR_15_ADD_SELF (val);
-    }
+  val = const_vector_elt_as_int (op, GET_MODE_NUNITS (mode) - 1);
+  val = ((val & 0xff) ^ 0x80) - 0x80;
+  return EASY_VECTOR_15_ADD_SELF (val);
 })
 
 ;; Same as easy_vector_constant but only for EASY_VECTOR_MSB.
@@ -388,14 +385,11 @@
        (and (match_test "TARGET_ALTIVEC")
 	    (match_test "easy_altivec_constant (op, mode)")))
 {
+  HOST_WIDE_INT val;
   if (mode == V2DImode || mode == V2DFmode)
     return 0;
-  else
-    {
-      HOST_WIDE_INT val
-	= const_vector_elt_as_int (op, GET_MODE_NUNITS (mode) - 1);
-      return EASY_VECTOR_MSB (val, GET_MODE_INNER (mode));
-    }
+  val = const_vector_elt_as_int (op, GET_MODE_NUNITS (mode) - 1);
+  return EASY_VECTOR_MSB (val, GET_MODE_INNER (mode));
 })
 
 ;; Return 1 if operand is constant zero (scalars and vectors).
