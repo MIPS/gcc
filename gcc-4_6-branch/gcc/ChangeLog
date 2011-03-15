@@ -1,3 +1,380 @@
+2011-03-15  Alan Modra  <amodra@gmail.com>
+
+	PR target/48032
+	* config/rs6000/rs6000.c (offsettable_ok_by_alignment): Do not
+	presume symbol_refs without a symbol_ref_decl are suitably
+	aligned, nor other trees we may see here.  Handle anchor symbols.
+	(legitimate_constant_pool_address_p): Comment.  Add mode param.
+	Check cmodel=medium addresses.  Adjust all calls.
+	(rs6000_emit_move): Don't call offsettable_ok_by_alignment on
+	creating cmodel=medium optimized access to locals.
+	* config/rs6000/constraints.md (R): Pass QImode to
+	legitimate_constant_pool_address_p.
+	* config/rs6000/predicates.md (input_operand): Pass mode to
+	legitimate_constant_pool_address_p.
+	* config/rs6000/rs6000-protos.h (legitimate_constant_pool_address_p):
+	Update prototype.
+
+2011-03-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/48053
+	* config/rs6000/rs6000.md (movdi split for 32-bit): Don't split up
+	64-bit constants being loaded into registers other than GPRs such
+	as loading 0 into a VSX register.
+
+2011-03-14  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* config/sol2.c (solaris_assemble_visibility): Remove obsolete
+	URLs.
+
+2011-03-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* doc/invoke.texi, doc/standards.texi: Refer to
+	gcc-4.6/c99status.html.
+
+	* DEV-PHASE: Mark "prerelease".
+
+2011-03-14  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/48098
+	* tree.c (build_vector_from_val): Adjust assert to requirements
+	and reality.
+
+2011-03-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/48102
+	* graphite-cloog-compat.h (build_cloog_prog): Remove STATE
+	parameter.
+
+2011-03-14  Andreas Tobler  <andreast@fgznet.ch>
+
+	* config/rs6000/freebsd.h: (RELOCATABLE_NEEDS_FIXUP): Define in
+	terms of target_flags_explicit. Adjust copyright year.
+
+	* config.gcc: Add FreeBSD PowerPC soft-float libgcc bits.
+	* config/rs6000/t-freebsd: New file. Add override for
+	LIB2FUNCS_EXTRA.
+
+2011-03-13  Chris Demetriou  <cgd@google.com>
+
+	* doc/invoke.texi (-fdiagnostics-show-option): Replace with...
+	(-fno-diagnostics-show-option): this, to reflect current default.
+	(-Werror=): Update text about -fno-diagnostics-show-option.
+
+2011-03-12  Peter Bergner  <bergner@vnet.ibm.com>
+
+	PR target/48053
+	* config/rs6000/predicates.md (easy_vector_constant_add_self,
+	easy_vector_constant_msb): Do not handle V2DImode and V2DFmode.
+	* config/rs6000/rs6000.c (const_vector_elt_as_int): Add assert that
+	mode is not V2DImode or V2DFmode.
+	(vspltis_constant): Do not handle V2DImode and V2DFmode.
+	(rs6000_expand_vector_init): Replace copy_to_reg with copy_to_mode_reg.
+	* config/rs6000/rs6000.md (movdi_internal32): Allow setting VSX
+	registers to 0.
+	(movdi_internal64): Likewise.
+
+2011-03-12  Sebastian Pop  <sebastian.pop@amd.com>
+
+	PR tree-optimization/47127
+	* graphite-clast-to-gimple.c (build_cloog_prog): Removed state
+	parameter.
+	(set_cloog_options): Same.
+	(scop_to_clast): Same.
+	(print_clast_stmt): Do not call cloog_state_malloc and
+	cloog_state_free.
+	(print_generated_program): Same.
+	(gloog): Same.
+	* graphite-clast-to-gimple.h (cloog_state): Declared.
+	(scop_to_clast): Adjust declaration.
+	* graphite.c (cloog_state): Defined here.
+	(graphite_initialize): Call cloog_state_malloc.
+	(graphite_finalize): Call cloog_state_free.
+
+2011-03-11  Jason Merrill  <jason@redhat.com>
+
+	* attribs.c (lookup_attribute_spec): Take const_tree.
+	* tree.h: Adjust.
+
+2011-03-11  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/sparc/sparc.c (sparc_option_override): Use
+	PROCESSOR_NIAGARA2 not PROCESSOR_NIAGARA for "niagara2".
+
+2011-03-11  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/48067
+	* tree-ssa-math-opts.c (convert_mult_to_fma): Verify the
+	multiplication result will be only used once on the target
+	stmt.
+
+2011-03-11  Richard Guenther  <rguenther@suse.de>
+
+	* doc/invoke.texi (max-inline-insns-single): Adjust default value.
+
+2011-03-11  Richard Guenther  <rguenther@suse.de>
+
+	PR lto/48073
+	* tree.c (find_decls_types_r): Do not walk types only reachable
+	from IDENTIFIER_NODEs.
+
+2011-03-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/48044
+	* ipa.c (cgraph_remove_unreachable_nodes): Enqueue
+	all vnode->force_output nodes as needed.
+
+2011-03-11  Jason Merrill  <jason@redhat.com>
+
+	PR c++/48069
+	* tree.c (type_hash_eq): Use COMPLETE_TYPE_P, not
+	COMPLETE_OR_UNBOUND_ARRAY_TYPE_P.
+
+2011-03-11  Martin Jambor  <mjambor@suse.cz>
+
+	* cgraphunit.c (verify_cgraph_node): Call cgraph_get_node instead of
+	cgraph_node.
+
+2011-03-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/48063
+	* ipa-inline.c (cgraph_decide_inlining): Don't try to
+	inline functions called once if !tree_can_inline_p (node->callers).
+
+2011-03-11  Chen Liqin  <liqin.gcc@gmail.com>
+
+	* config.gcc (score-*-elf): Add extra_parts .., update tmake_file and
+	extra_objs.
+	* config/score/score3.c: Delete.
+	* config/score/score3.h: Delete.
+	* config/score/mul-div.S: Delete.
+	* config/score/sfp-machine.h: Add new file.
+	* config/score/constraints.md: Add new file.
+	* config/score/t-score-softfp: Add new file.
+	* config/score/t-score-elf: Remove score3.o, do not generate multilib.
+	* config/score/score7.c (score7_const_ok_for_letter_p): Delete.
+	(score7_extra_constraint): Delete.
+	(score7_option_override): Remove unused code.
+	* config/score/score.c: Remove score3 and score5 define and code.
+	* config/score/score.h: Remove score3 and score5 define and code.
+	* config/score/score.md: Remove score3 template and unusual insn.
+	* config/score/score.opt: Remove score3 and score5 options.
+
+2011-03-10  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* config/pa/pa-hpux10.h (TARGET_OS_CPP_BUILTINS): Define _REENTRANT
+	when _HPUX_SOURCE is defined.
+	(LIB_SPEC): Use -lc instead of -lc_r when -threads is specified.
+
+2011-03-10  Jason Merrill  <jason@redhat.com>
+
+	PR c++/48029
+	* stor-layout.c (layout_type): Don't set structural equality
+	on arrays of incomplete type.
+	* tree.c (type_hash_eq): Handle comparing them properly.
+
+2011-03-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/48043
+	* config/s390/s390.c (s390_delegitimize_address): Make sure the
+	result mode matches original rtl mode.
+
+2011-03-10  Nick Clifton  <nickc@redhat.com>
+
+	* config/rx/rx.md (bitset_in_memory, bitclr_in_memory: Fix timings.
+	(andsi3, andsi3_flags): Fix timings for three operand alternative.
+
+2011-03-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/47866
+	* expr.c (store_field): If MEM_SCALAR_P (target), don't use
+	MEM_SET_IN_STRUCT_P (to_rtx, 1), just set MEM_IN_STRUCT_P (to_rtx)
+	if target wasn't scalar.
+	* function.c (assign_stack_temp_for_type): Assert that neither
+	MEM_SCALAR_P nor MEM_IN_STRUCT_P is set previously, set either
+	MEM_IN_STRUCT_P or MEM_SCALAR_P instead of using MEM_SET_IN_STRUCT_P
+	macro.
+	* rtl.h (MEM_SET_IN_STRUCT_P): Removed.
+
+2011-03-09  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/s390-protos.h (s390_label_align): New prototype.
+	* config/s390/s390.c (s390_label_align): New function.
+	* config/s390/s390.h (LABEL_ALIGN): New target macro definition.
+
+2011-03-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/47755
+	* config/rs6000/rs6000.c (easy_altivec_constant): Correctly handle
+	V2DI/V2DF constants.  Only all 0's or all 1's are easy.
+	(output_vec_const_move): Ditto.
+
+2011-03-08  Anatoly Sokolov  <aesok@post.ru>
+
+	* config/mips/mips.h (PREFERRED_RELOAD_CLASS): Remove macro.
+	* config/mips/mips-protos.h (mips_preferred_reload_class): Remove.
+	* config/mips/mips.c (mips_preferred_reload_class): Make static.
+	Change 'rclass' argument and result type to reg_class_t.
+	(TARGET_PREFERRED_RELOAD_CLASS): Define.
+
+2011-03-08  Georg-Johann Lay  <avr@gjlay.de>
+
+       * config/avr/avr.h (REGISTER_MOVE_COST, MEMORY_MOVE_COST): Remove.
+       * config/avr/avr.c (TARGET_REGISTER_MOVE_COST,
+       TARGET_MEMORY_MOVE_COST): Define.
+       (avr_register_move_cost, avr_memory_move_cost): New Functions.
+
+2011-03-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/47881
+	* ira.c (ira): Call df_analyze again if delete_trivially_dead_insns
+	removed anything.
+
+	PR tree-optimization/48022
+	* fold-const.c (fold_comparison): Don't call fold_overflow_warning
+	for EQ/NE_EXPR.
+
+2011-03-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/47991
+	* var-tracking.c (find_use_val): Return NULL for
+	cui->sets && cui->store_p BLKmode MEMs.
+
+2011-03-07  Anatoly Sokolov  <aesok@post.ru>
+
+	* config/stormy16/stormy16.h (PRINT_OPERAND, PRINT_OPERAND_ADDRESS):
+	Remove.
+	* config/stormy16/stormy16-protos.h (xstormy16_print_operand,
+	xstormy16_print_operand_address): Remove.
+	* config/stormy16/stormy16.c (xstormy16_print_operand,
+	xstormy16_print_operand_address): Make static.
+	(TARGET_PRINT_OPERAND, TARGET_PRINT_OPERAND_ADDRESS): Define.
+
+2011-03-07  Pat Haugen  <pthaugen@us.ibm.com>
+
+	PR target/47862
+	* config/rs6000/rs6000.h (HARD_REGNO_CALLER_SAVE_MODE): Define.
+	* config/rs6000/e500.h (HARD_REGNO_CALLER_SAVE_MODE): Undefine
+	before definition.
+
+2011-03-07  Zdenek Dvorak  <ook@ucw.cz>
+
+	PR bootstrap/48000
+	* cfgloopmanip.c (fix_bb_placements): Return immediately
+	if FROM is BASE_LOOP's header.
+
+2011-03-07  Paul Wögerer  <paul_woegerer@mentor.com>
+
+	* gimplify.c (gimplify_function_tree): Fix building calls
+	to __builtin_return_address.
+
+2011-03-07  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/linux.h (TARGET_ASM_FILE_END): Don't define.
+	* config/rs6000/linux64.h (TARGET_ASM_FILE_END): Don't define.
+	* config/rs6000/sysv4.h (TARGET_ASM_FILE_END): Define.
+	* config/rs6000/rs6000-protos.h (init_cumulative_args): Add fndecl and
+	return_mode args.
+	* config/rs6000/rs6000.h (CUMULATIVE_ARGS): Add "escapes".
+	(INIT_CUMULATIVE_ARGS): Pass FNDECL, VOIDmode.
+	(INIT_CUMULATIVE_INCOMING_ARGS): Pass current_function_decl, VOIDmode.
+	(INIT_CUMULATIVE_LIBCALL_ARGS): Pass NULL_TREE, MODE.
+	* config/rs6000/rs6000.c
+	(rs6000_elf_end_indicate_exec_stack): Rename to..
+	(rs6000_elf_file_end): ..this.  Only call file_end_indicate_exec_stack
+	for POWERPC_LINUX.  Move code emitting .gnu_attribute to here, from..
+	(rs6000_file_start): ..here.
+	(rs6000_passes_float, rs6000_passes_vector, rs6000_returns_struct): New
+	file scope variables.
+	(call_ABI_of_interest): New function.
+	(init_cumulative_args): Set above vars when function return value
+	is a float, vector, or small struct.
+	(rs6000_function_arg_advance_1): Likewise for function args.
+	(rs6000_va_start): Set rs6000_passes_float if variable arg function
+	references float args.
+
+2011-03-07  Mingjie Xing  <mingjie.xing@gmail.com>
+
+	* doc/cfg.texi: Remove "See" before @ref.
+	* doc/invoke.texi: Likewise.
+
+2011-03-05  Jason Merrill  <jason@redhat.com>
+
+	* doc/invoke.texi (C++ Dialect Options): Document ABI v5.
+
+2011-03-05  Anthony Green  <green@moxielogic.com>
+
+	* config.gcc (moxie-*-elf): Add newlib-stdint.h to tmfile.
+
+2011-03-05  Zdenek Dvorak  <ook@ucw.cz>
+
+	PR rtl-optimization/47899
+	* cfgloopmanip.c (fix_bb_placements): Fix first argument
+	to flow_loop_nested_p when moving the loop upward.
+
+2011-03-05  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR target/47719
+	* arm.md (movhi_insn_arch4):  Accept any immediate constant.
+
+2011-03-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/47967
+	* ipa-cp.c (build_const_val): Return NULL instead of creating
+	VIEW_CONVERT_EXPR for mismatching sizes.
+	(ipcp_create_replace_map): Return NULL if build_const_val failed.
+	(ipcp_insert_stage): If ipcp_create_replace_map returns NULL,
+	give up on versioning.
+
+2011-03-05  Alan Modra  <amodra@gmail.com>
+
+	PR target/47986
+	* config/rs6000/rs6000.c (rs6000_delegitimize_address): Handle
+	full cmodel medium/large lo_sum + high addresses.
+
+2011-03-04  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/s390.c (s390_decompose_address): Reject non-literal
+	pool references in UNSPEC_LTREL_OFFSET.
+
+2011-03-04  Jan Hubicka  <jh@suse.cz>
+
+	PR lto/47497
+	* lto-symtab.c (lto_cgraph_replace_node): Do not set thunk.alias.
+	(lto_symtab_merge_cgraph_nodes_1): Update thunk.alias pointers here.
+	* cgraph.h (cgraph_same_body_alias, cgraph_add_thunk): Add node pointers.
+	* cgraph.c (cgraph_same_body_alias_1, cgraph_same_body_alias,
+	cgraph_add_thunk): Add node pointers.
+	* lto-cgraph.c (lto_output_node): Verify that thunks&aliases are
+	associated to right node.
+	(input_node): Update use of cgraph_same_body_alias
+	and cgraph_add_thunk.
+
+2011-03-04  Changpeng Fang  <changpeng.fang@amd.com>
+
+	* config/i386/i386.opt (mprefer-avx128): New flag.
+	* config/i386/i386.c (ix86_preferred_simd_mode): Prefer 128-bit mode
+	when the flag -mprefer-avx128 is on.
+
+2011-03-04  Richard Sandiford  <richard.sandiford@linaro.org>
+
+	* dwarf2out.c (compare_loc_operands): Fix address handling.
+
+2011-03-04  Alan Modra  <amodra@gmail.com>
+
+	* tree.h (TREE_ADDRESSABLE): Update FUNCTION_DECL comment.
+
+2011-03-04  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/47968
+	* expmed.c (extract_bit_field_1): Prefer vector modes that
+	vec_extract patterns can handle.
+
+2011-03-04  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/47975
+	* optabs.c (optab_for_tree_code): Do not use VECTOR_MODE_P.
+
 2011-03-04  Richard Henderson  <rth@redhat.com>
 
 	* explow.c (emit_stack_save): Remove 'after' parameter.
