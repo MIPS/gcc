@@ -1,3 +1,9 @@
+2011-03-15  Alan Modra  <amodra@gmail.com>
+
+	PR target/48032
+	* config/rs6000/rs6000.c (offsettable_ok_by_alignment): Return
+	false for BLKmode and VOIDmode.
+
 2011-03-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Backport from mainline:

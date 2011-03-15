@@ -5387,6 +5387,9 @@ offsettable_ok_by_alignment (rtx op, HOST_WIDE_INT offset,
   decl = SYMBOL_REF_DECL (op);
   if (!decl)
     {
+      if (GET_MODE_SIZE (mode) == 0)
+	return false;
+
       /* -fsection-anchors loses the original SYMBOL_REF_DECL when
 	 replacing memory addresses with an anchor plus offset.  We
 	 could find the decl by rummaging around in the block->objects
