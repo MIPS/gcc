@@ -1,3 +1,9 @@
+2011-03-15  Pat Haugen <pthaugen@us.ibm.com>
+
+	PR target/47862
+	* caller-save.c (insert_restore, insert_save): Use non-validate
+	form of adjust_address.
+
 2011-03-15  Alan Modra  <amodra@gmail.com>
 
 	PR target/48032
