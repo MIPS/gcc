@@ -1,3 +1,12 @@
+2011-03-16  Bill Schmidt  <wschmidt@vnet.ibm.com>
+
+	Backport from mainline:
+	2010-09-19  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/45714
+	* gfortran.dg/vect/pr45714-a.f: New test.
+	* gfortran.dg/vect/pr45714-b.f: New test.
+	
 2011-03-11  Peter Bergner  <bergner@vnet.ibm.com>
 
 	Backport proposed mainline patch.
