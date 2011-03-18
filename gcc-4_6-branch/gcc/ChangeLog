@@ -1,3 +1,53 @@
+2011-03-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/48176
+	* dwarf2out.c (dwarf2out_finish): Call output_aranges even when
+	arange_table_in_use is 0, but either text_section_used or
+	cold_text_section_used is true.  Don't call it if
+	!info_section_emitted.
+
+2011-03-18  Richard Guenther  <rguenther@suse.de>
+
+	* doc/install.texi (--enable-gold): Remove.
+	(--with-plugin-ld): Document.
+	* doc/invoke.texi (-fuse-linker-plugin): Clarify.
+
+2011-03-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2011-03-17  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/48171
+	* config/i386/i386.opt: Add Save to -mavx and -mfma.
+
+2011-03-18  Richard Henderson  <rth@redhat.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/48161
+	* expr.c (expand_expr_addr_expr_1): Use simplify_gen_binary
+	instead of gen_rtx_PLUS if EXPAND_SUM or EXPAND_INITIALIZER.
+
+2011-03-17  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/48165
+	* tree-object-size.c (compute_object_offset): Properly return
+	the offset operand of MEM_REFs as sizetype.
+
+2011-03-16  Dodji Seketeli  <dodji@redhat.com>
+
+	PR debug/47510
+	* dwarf2out.c (strip_naming_typedef): Factorize out of ...
+	(lookup_type_die_strip_naming_typedef): ... here.
+	(get_context_die): Use it.
+	(gen_typedef_die): Add a DW_AT_{,MIPS_}linkage_name attribute to
+	the anonymous struct named by the naming typedef.
+
+2011-03-15  Ramana Radhakrishnan  <ramana.radhakrishnan@linaro.org>
+
+	PR target/46778
+	* config/arm/arm.md (arm_movtas_ze): Use 'L' instead of 'c'
+	in the output template.
+
 2011-01-14  Tom Tromey  <tromey@redhat.com>
 
 	* unwind-dw2.c: Include sys/sdt.h if it exists.
