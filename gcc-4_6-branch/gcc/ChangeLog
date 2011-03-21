@@ -1,3 +1,46 @@
+2011-03-21  Andreas Tobler  <andreast@fgznet.ch>
+
+	* config/rs6000/t-freebsd: Remove duplication from file.
+
+2011-03-21  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR bootstrap/48135
+	* doc/install.texi (Prerequisites): Move jar etc. up.
+	Explain support library version requirements.
+
+2011-03-21  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR bootstrap/48135
+	* doc/install.texi (Prerequisites): Move Perl to build
+	requirements.  Always necessary on Solaris 2 with Sun ld.
+
+2011-03-21  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* doc/install.texi (Specific, alpha*-dec-osf5.1): Update for
+	binutils 2.21.
+	(Specific, i?86-*-solaris2.[89]): Likewise.
+	(Specific, i?86-*-solaris2.10): Likewise.
+	(Specific, mips-sgi-irix6): Likewise.
+	(Specific, *-*-solaris2*): Remove Sun Studio download URL.
+	Update for binutils 2.21.
+
+2011-03-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/48213
+	* config/s390/s390.c (s390_delegitimize_address): Don't call
+	lowpart_subreg if orig_x has BLKmode.
+
+2011-03-20  Joseph Myers  <joseph@codesourcery.com>
+
+	* c-decl.c (diagnose_mismatched_decls): Give an error for
+	redefining a typedef with variably modified type.
+
+2011-03-20  Joseph Myers  <joseph@codesourcery.com>
+
+	* c-decl.c (grokfield): Don't allow typedefs for structures or
+	unions with no tag by default.
+	* doc/extend.texi (Unnamed Fields): Update.
+
 2011-03-18  Jakub Jelinek  <jakub@redhat.com>
 
 	PR debug/48176
@@ -44,7 +87,7 @@
 
 2011-03-15  Ramana Radhakrishnan  <ramana.radhakrishnan@linaro.org>
 
-	PR target/46778
+	PR target/46788
 	* config/arm/arm.md (arm_movtas_ze): Use 'L' instead of 'c'
 	in the output template.
 
