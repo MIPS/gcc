@@ -1,3 +1,37 @@
+2011-03-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR preprocessor/48192
+	Backport from trunk
+	* gcc.target/powerpc/pr48192.c: New file.
+
+2011-03-18  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR middle-end/47405
+	* gcc.dg/torture/20090618-1.c: Skip on mips-sgi-irix*.
+
+2011-03-14  Richard Sandiford  <richard.sandiford@linaro.org>
+
+	PR rtl-optimization/47166
+	* gcc.c-torture/execute/postmod-1.c: New test.
+
+2011-03-13  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR libfortran/48066
+	Backport from trunk
+	* gfortran.dg/intrinsic_ifunction_2.f90:  Correct PR number.
+
+2011-03-13  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/47348
+	* gfortran.dg/array_constructor_36.f90 : New test.
+	* gfortran.dg/bounds_check_10.f90 : Change dg-output message to
+	allow for comparison between different elements of the array
+	constructor at different levels of optimization.
+
+2011-03-11  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/template/error45.C: New.
+
 2011-03-10  Jason Merrill  <jason@redhat.com>
 
 	* g++.dg/template/array22.C: New.
