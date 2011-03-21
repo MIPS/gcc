@@ -1106,8 +1106,7 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 
 /* In VAR_DECL, PARM_DECL and RESULT_DECL nodes, nonzero means address
    of this is needed.  So it cannot be in a register.
-   In a FUNCTION_DECL, nonzero means its address is needed.
-   So it must be compiled even if it is an inline function.
+   In a FUNCTION_DECL it has no meaning.
    In CONSTRUCTOR nodes, it means object constructed must be in memory.
    In LABEL_DECL nodes, it means a goto for this label has been seen
    from a place outside all binding contours that restore stack levels.
@@ -2773,7 +2772,8 @@ struct GTY(()) tree_decl_common {
      In TYPE_DECL, this is TYPE_DECL_SUPPRESS_DEBUG.  */
   unsigned decl_flag_1 : 1;
   /* In FIELD_DECL, this is DECL_NONADDRESSABLE_P
-     In VAR_DECL and PARM_DECL, this is DECL_HAS_VALUE_EXPR_P.  */
+     In VAR_DECL, PARM_DECL and RESULT_DECL, this is
+     DECL_HAS_VALUE_EXPR_P.  */
   unsigned decl_flag_2 : 1;
   /* Logically, these two would go in a theoretical base shared by var and
      parm decl. */
@@ -2818,7 +2818,8 @@ extern void decl_value_expr_insert (tree, tree);
    decl itself.  This should only be used for debugging; once this field has
    been set, the decl itself may not legitimately appear in the function.  */
 #define DECL_HAS_VALUE_EXPR_P(NODE) \
-  (TREE_CHECK2 (NODE, VAR_DECL, PARM_DECL)->decl_common.decl_flag_2)
+  (TREE_CHECK3 (NODE, VAR_DECL, PARM_DECL, RESULT_DECL) \
+   ->decl_common.decl_flag_2)
 #define DECL_VALUE_EXPR(NODE) \
   (decl_value_expr_lookup (DECL_WRTL_CHECK (NODE)))
 #define SET_DECL_VALUE_EXPR(NODE, VAL) \
@@ -5347,7 +5348,7 @@ extern bool must_pass_in_stack_var_size_or_pad (enum machine_mode, const_tree);
 
 /* In attribs.c.  */
 
-extern const struct attribute_spec *lookup_attribute_spec (tree);
+extern const struct attribute_spec *lookup_attribute_spec (const_tree);
 
 /* Process the attributes listed in ATTRIBUTES and install them in *NODE,
    which is either a DECL (including a TYPE_DECL) or a TYPE.  If a DECL,
@@ -5386,6 +5387,18 @@ extern void finish_aliases_2 (void);
 extern void remove_unreachable_alias_pairs (void);
 extern bool decl_replaceable_p (tree);
 extern bool decl_binds_to_current_def_p (tree);
+
+/* Derived type for use by compute_visible_aliases and callers.  A symbol
+   alias set is a pointer set into which we enter IDENTIFIER_NODES bearing
+   the canonicalised assembler-level symbol names corresponding to decls
+   and their aliases.  */
+typedef struct pointer_set_t symbol_alias_set_t;
+
+extern void symbol_alias_set_destroy (symbol_alias_set_t *);
+extern int symbol_alias_set_contains (const symbol_alias_set_t *, tree);
+extern symbol_alias_set_t * propagate_aliases_backward (bool (*)
+							 (tree, tree, void *),
+							void *);
 
 /* In stmt.c */
 extern void expand_computed_goto (tree);

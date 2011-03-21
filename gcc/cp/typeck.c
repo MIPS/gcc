@@ -1,6 +1,6 @@
 /* Build expressions with type checking for C++ compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011
    Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
@@ -443,6 +443,35 @@ type_after_usual_arithmetic_conversions (tree t1, tree t2)
   return cp_common_type (t1, t2);
 }
 
+static void
+composite_pointer_error (diagnostic_t kind, tree t1, tree t2,
+			 composite_pointer_operation operation)
+{
+  switch (operation)
+    {
+    case CPO_COMPARISON:
+      emit_diagnostic (kind, input_location, 0,
+		       "comparison between "
+		       "distinct pointer types %qT and %qT lacks a cast",
+		       t1, t2);
+      break;
+    case CPO_CONVERSION:
+      emit_diagnostic (kind, input_location, 0,
+		       "conversion between "
+		       "distinct pointer types %qT and %qT lacks a cast",
+		       t1, t2);
+      break;
+    case CPO_CONDITIONAL_EXPR:
+      emit_diagnostic (kind, input_location, 0,
+		       "conditional expression between "
+		       "distinct pointer types %qT and %qT lacks a cast",
+		       t1, t2);
+      break;
+    default:
+      gcc_unreachable ();
+    }
+}
+
 /* Subroutine of composite_pointer_type to implement the recursive
    case.  See that function for documentation of the parameters.  */
 
@@ -486,28 +515,8 @@ composite_pointer_type_r (tree t1, tree t2,
   else
     {
       if (complain & tf_error)
-        {
-          switch (operation)
-            {
-            case CPO_COMPARISON:
-              permerror (input_location, "comparison between "
-                         "distinct pointer types %qT and %qT lacks a cast",
-                         t1, t2);
-              break;
-            case CPO_CONVERSION:
-              permerror (input_location, "conversion between "
-                         "distinct pointer types %qT and %qT lacks a cast",
-                         t1, t2);
-              break;
-            case CPO_CONDITIONAL_EXPR:
-              permerror (input_location, "conditional expression between "
-                         "distinct pointer types %qT and %qT lacks a cast",
-                         t1, t2);
-              break;
-            default:
-              gcc_unreachable ();
-            }
-        }
+	composite_pointer_error (DK_PERMERROR, t1, t2, operation);
+
       result_type = void_type_node;
     }
   result_type = cp_build_qualified_type (result_type,
@@ -520,28 +529,7 @@ composite_pointer_type_r (tree t1, tree t2,
       if (!same_type_p (TYPE_PTRMEM_CLASS_TYPE (t1),
 			TYPE_PTRMEM_CLASS_TYPE (t2))
 	  && (complain & tf_error))
-        {
-          switch (operation)
-            {
-            case CPO_COMPARISON:
-              permerror (input_location, "comparison between "
-                         "distinct pointer types %qT and %qT lacks a cast", 
-                         t1, t2);
-              break;
-            case CPO_CONVERSION:
-              permerror (input_location, "conversion between "
-                         "distinct pointer types %qT and %qT lacks a cast",
-                         t1, t2);
-              break;
-            case CPO_CONDITIONAL_EXPR:
-              permerror (input_location, "conditional expression between "
-                         "distinct pointer types %qT and %qT lacks a cast",
-                         t1, t2);
-              break;
-            default:
-              gcc_unreachable ();
-            }
-        }
+	composite_pointer_error (DK_PERMERROR, t1, t2, operation);
       result_type = build_ptrmem_type (TYPE_PTRMEM_CLASS_TYPE (t1),
 				       result_type);
     }
@@ -662,23 +650,7 @@ composite_pointer_type (tree t1, tree t2, tree arg1, tree arg2,
       else
         {
           if (complain & tf_error)
-            switch (operation)
-              {
-              case CPO_COMPARISON:
-                error ("comparison between distinct "
-                       "pointer types %qT and %qT lacks a cast", t1, t2);
-                break;
-              case CPO_CONVERSION:
-                error ("conversion between distinct "
-                       "pointer types %qT and %qT lacks a cast", t1, t2);
-                break;
-              case CPO_CONDITIONAL_EXPR:
-                error ("conditional expression between distinct "
-                       "pointer types %qT and %qT lacks a cast", t1, t2);
-                break;
-              default:
-                gcc_unreachable ();
-              }
+	    composite_pointer_error (DK_ERROR, t1, t2, operation);
           return error_mark_node;
         }
     }
@@ -1796,10 +1768,13 @@ tree
 unlowered_expr_type (const_tree exp)
 {
   tree type;
+  tree etype = TREE_TYPE (exp);
 
   type = is_bitfield_expr_with_lowered_type (exp);
-  if (!type)
-    type = TREE_TYPE (exp);
+  if (type)
+    type = cp_build_qualified_type (type, cp_type_quals (etype));
+  else
+    type = etype;
 
   return type;
 }
@@ -2804,23 +2779,8 @@ cp_build_indirect_ref (tree ptr, ref_operator errorstring,
            gcc_unreachable ();
       }
   else if (pointer != error_mark_node)
-    switch (errorstring)
-      {
-         case RO_NULL:
-           error ("invalid type argument");
-           break;
-         case RO_ARRAY_INDEXING:
-           error ("invalid type argument of array indexing");
-           break;
-         case RO_UNARY_STAR:
-           error ("invalid type argument of unary %<*%>");
-           break;
-         case RO_IMPLICIT_CONVERSION:
-           error ("invalid type argument of implicit conversion");
-           break;
-         default:
-           gcc_unreachable ();
-      }
+    invalid_indirection_error (input_location, type, errorstring);
+
   return error_mark_node;
 }
 
@@ -4799,7 +4759,7 @@ cp_build_addr_expr_1 (tree arg, bool strict_lvalue, tsubst_flags_t complain)
       if (kind == clk_none)
 	{
 	  if (complain & tf_error)
-	    lvalue_error (lv_addressof);
+	    lvalue_error (input_location, lv_addressof);
 	  return error_mark_node;
 	}
       if (strict_lvalue && (kind & (clk_rvalueref|clk_class)))
@@ -5158,9 +5118,9 @@ cp_build_unary_op (enum tree_code code, tree xarg, int noconvert,
 	  || TREE_READONLY (arg)) 
         {
           if (complain & tf_error)
-            readonly_error (arg, ((code == PREINCREMENT_EXPR
-                                   || code == POSTINCREMENT_EXPR)
-                                  ? REK_INCREMENT : REK_DECREMENT));
+            cxx_readonly_error (arg, ((code == PREINCREMENT_EXPR
+				      || code == POSTINCREMENT_EXPR)
+				     ? lv_increment : lv_decrement));
           else
             return error_mark_node;
         }
@@ -6703,7 +6663,7 @@ cp_build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs,
 	      && C_TYPE_FIELDS_READONLY (lhstype))))
     {
       if (complain & tf_error)
-	readonly_error (lhs, REK_ASSIGNMENT);
+	cxx_readonly_error (lhs, lv_assign);
       else
 	return error_mark_node;
     }
@@ -7364,7 +7324,7 @@ convert_for_assignment (tree type, tree rhs,
 	      break;
 	    case ICR_CONVERTING:
 	      warning (OPT_Wmissing_format_attribute,
-		       "target of conversion might be might be a candidate "
+		       "target of conversion might be a candidate "
 		       "for a format attribute");
 	      break;
 	    case ICR_INIT:
@@ -7497,7 +7457,7 @@ convert_for_initialization (tree exp, tree type, tree rhs, int flags,
     return rhs;
 
   if (MAYBE_CLASS_TYPE_P (type))
-    return ocp_convert (type, rhs, CONV_IMPLICIT|CONV_FORCE_TEMP, flags);
+    return perform_implicit_conversion_flags (type, rhs, complain, flags);
 
   return convert_for_assignment (type, rhs, errtype, fndecl, parmnum,
 				 complain, flags);
@@ -7803,12 +7763,19 @@ check_return_expr (tree retval, bool *no_warning)
 
       /* Under C++0x [12.8/16 class.copy], a returned lvalue is sometimes
 	 treated as an rvalue for the purposes of overload resolution to
-	 favor move constructors over copy constructors.  */
-      if ((cxx_dialect != cxx98) 
-          && named_return_value_okay_p
-          /* The variable must not have the `volatile' qualifier.  */
-	  && !CP_TYPE_VOLATILE_P (TREE_TYPE (retval))
-	  /* The return type must be a class type.  */
+	 favor move constructors over copy constructors.
+
+         Note that these conditions are similar to, but not as strict as,
+	 the conditions for the named return value optimization.  */
+      if ((cxx_dialect != cxx98)
+          && (TREE_CODE (retval) == VAR_DECL
+	      || TREE_CODE (retval) == PARM_DECL)
+	  && DECL_CONTEXT (retval) == current_function_decl
+	  && !TREE_STATIC (retval)
+	  && same_type_p ((TYPE_MAIN_VARIANT (TREE_TYPE (retval))),
+			  (TYPE_MAIN_VARIANT
+			   (TREE_TYPE (TREE_TYPE (current_function_decl)))))
+	  /* This is only interesting for class type.  */
 	  && CLASS_TYPE_P (TREE_TYPE (TREE_TYPE (current_function_decl))))
 	flags = flags | LOOKUP_PREFER_RVALUE;
 
@@ -8262,7 +8229,7 @@ lvalue_or_else (tree ref, enum lvalue_use use, tsubst_flags_t complain)
   if (kind == clk_none)
     {
       if (complain & tf_error)
-	lvalue_error (use);
+	lvalue_error (input_location, use);
       return 0;
     }
   else if (kind & (clk_rvalueref|clk_class))

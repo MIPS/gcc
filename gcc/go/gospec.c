@@ -1,5 +1,5 @@
 /* gospec.c -- Specific flags and argument handling of the gcc Go front end.
-   Copyright (C) 2009, 2010 Free Software Foundation, Inc.
+   Copyright (C) 2009, 2010, 2011 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -106,6 +106,12 @@ lang_specific_driver (struct cl_decoded_option **in_decoded_options,
   /* The total number of arguments with the new stuff.  */
   int num_args = 1;
 
+  /* Whether the -o option was used.  */
+  bool saw_opt_o = false;
+
+  /* The first input file with an extension of .go.  */
+  const char *first_go_file = NULL;  
+
   argc = *in_decoded_options_count;
   decoded_options = *in_decoded_options;
   added_libraries = *in_added_libraries;
@@ -167,6 +173,10 @@ lang_specific_driver (struct cl_decoded_option **in_decoded_options,
 	  library = -1;
 	  break;
 
+	case OPT_o:
+	  saw_opt_o = true;
+	  break;
+
 	case OPT_static:
 	  static_link = 1;
 	  break;
@@ -183,6 +193,16 @@ lang_specific_driver (struct cl_decoded_option **in_decoded_options,
 	case OPT_SPECIAL_input_file:
 	  if (library == 0)
 	    library = 1;
+
+	  if (first_go_file == NULL)
+	    {
+	      int len;
+
+	      len = strlen (arg);
+	      if (len > 3 && strcmp (arg + len - 3, ".go") == 0)
+		first_go_file = arg;
+	    }
+
 	  break;
 	}
     }
@@ -245,6 +265,31 @@ lang_specific_driver (struct cl_decoded_option **in_decoded_options,
       j++;
     }
 
+  /* If we are not linking, add a -o option.  This is because we need
+     the driver to pass all .go files to go1.  Without a -o option the
+     driver will invoke go1 separately for each input file.  */
+  if (library < 0 && first_go_file != NULL && !saw_opt_o)
+    {
+      const char *base;
+      int baselen;
+      int alen;
+      char *out;
+
+      base = lbasename (first_go_file);
+      baselen = strlen (base) - 3;
+      alen = baselen + 3;
+      out = XNEWVEC (char, alen);
+      memcpy (out, base, baselen);
+      /* The driver will convert .o to some other suffix if
+	 appropriate.  */
+      out[baselen] = '.';
+      out[baselen + 1] = 'o';
+      out[baselen + 2] = '\0';
+      generate_option (OPT_o, out, 1, CL_DRIVER,
+		       &new_decoded_options[j]);
+      j++;
+    }
+
   /* Add `-lgo' if we haven't already done so.  */
   if (library > 0)
     {
@@ -256,7 +301,7 @@ lang_specific_driver (struct cl_decoded_option **in_decoded_options,
 #ifdef HAVE_LD_STATIC_DYNAMIC
       if (library > 1 && !static_link)
 	{
-	  generate_option (OPT_Wl_, "-Bstatic", 1, CL_DRIVER,
+	  generate_option (OPT_Wl_, LD_STATIC_OPTION, 1, CL_DRIVER,
 			   &new_decoded_options[j]);
 	  j++;
 	}
@@ -270,7 +315,7 @@ lang_specific_driver (struct cl_decoded_option **in_decoded_options,
 #ifdef HAVE_LD_STATIC_DYNAMIC
       if (library > 1 && !static_link)
 	{
-	  generate_option (OPT_Wl_, "-Bdynamic", 1, CL_DRIVER,
+	  generate_option (OPT_Wl_, LD_DYNAMIC_OPTION, 1, CL_DRIVER,
 			   &new_decoded_options[j]);
 	  j++;
 	}

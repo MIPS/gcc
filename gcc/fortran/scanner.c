@@ -997,7 +997,7 @@ gfc_skip_comments (void)
    context or not.  */
 
 gfc_char_t
-gfc_next_char_literal (int in_string)
+gfc_next_char_literal (gfc_instring in_string)
 {
   locus old_loc;
   int i, prev_openmp_flag;
@@ -1146,10 +1146,10 @@ restart:
 	{
 	  if (in_string)
 	    {
-	      if (gfc_option.warn_ampersand)
-		gfc_warning_now ("Missing '&' in continued character "
-				 "constant at %C");
 	      gfc_current_locus.nextc--;
+	      if (gfc_option.warn_ampersand && in_string == INSTRING_WARN)
+		gfc_warning ("Missing '&' in continued character "
+			     "constant at %C");
 	    }
 	  /* Both !$omp and !$ -fopenmp continuation lines have & on the
 	     continuation line only optionally.  */
@@ -1270,7 +1270,7 @@ gfc_next_char (void)
 
   do
     {
-      c = gfc_next_char_literal (0);
+      c = gfc_next_char_literal (NONSTRING);
     }
   while (gfc_current_form == FORM_FIXED && gfc_is_whitespace (c));
 
@@ -1371,7 +1371,7 @@ gfc_gobble_whitespace (void)
   do
     {
       old_loc = gfc_current_locus;
-      c = gfc_next_char_literal (0);
+      c = gfc_next_char_literal (NONSTRING);
       /* Issue a warning for nonconforming tabs.  We keep track of the line
 	 number because the Fortran matchers will often back up and the same
 	 line will be scanned multiple times.  */
@@ -1868,7 +1868,7 @@ include_line (gfc_char_t *line)
 
   filename = gfc_widechar_to_char (begin, -1);
   if (load_file (filename, NULL, false) == FAILURE)
-    exit (1);
+    exit (FATAL_EXIT_CODE);
 
   gfc_free (filename);
   return true;
@@ -2072,7 +2072,7 @@ gfc_new_file (void)
     printf ("%s:%3d %s\n", LOCATION_FILE (line_head->location),
 	    LOCATION_LINE (line_head->location), line_head->line);
 
-  exit (0);
+  exit (SUCCESS_EXIT_CODE);
 #endif
 
   return result;

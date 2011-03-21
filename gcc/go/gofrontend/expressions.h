@@ -873,8 +873,7 @@ class Parser_expression : public Expression
   do_lower(Gogo*, Named_object*, int) = 0;
 
   Type*
-  do_type()
-  { gcc_unreachable(); }
+  do_type();
 
   void
   do_determine_type(const Type_context*)
@@ -904,10 +903,6 @@ class Var_expression : public Expression
   named_object() const
   { return this->variable_; }
 
-  // Return the name of the variable.
-  const std::string&
-  name() const;
-
  protected:
   Expression*
   do_lower(Gogo*, Named_object*, int);
@@ -916,8 +911,7 @@ class Var_expression : public Expression
   do_type();
 
   void
-  do_determine_type(const Type_context*)
-  { }
+  do_determine_type(const Type_context*);
 
   Expression*
   do_copy()
@@ -1162,7 +1156,7 @@ class Call_expression : public Expression
 		  source_location location)
     : Expression(EXPRESSION_CALL, location),
       fn_(fn), args_(args), type_(NULL), tree_(NULL), is_varargs_(is_varargs),
-      is_value_discarded_(false), varargs_are_lowered_(false),
+      varargs_are_lowered_(false), types_are_determined_(false),
       is_deferred_(false)
   { }
 
@@ -1221,7 +1215,7 @@ class Call_expression : public Expression
 
   void
   do_discarding_value()
-  { this->is_value_discarded_ = true; }
+  { }
 
   virtual Type*
   do_type();
@@ -1235,7 +1229,10 @@ class Call_expression : public Expression
   Expression*
   do_copy()
   {
-    return Expression::make_call(this->fn_->copy(), this->args_->copy(),
+    return Expression::make_call(this->fn_->copy(),
+				 (this->args_ == NULL
+				  ? NULL
+				  : this->args_->copy()),
 				 this->is_varargs_, this->location());
   }
 
@@ -1261,10 +1258,12 @@ class Call_expression : public Expression
   lower_varargs(Gogo*, Named_object* function, Type* varargs_type,
 		size_t param_count);
 
- private:
+  // Let a builtin expression check whether types have been
+  // determined.
   bool
-  is_compatible_varargs_argument(Named_object*, Expression*, Type*, bool*);
+  determining_types();
 
+ private:
   bool
   check_argument_type(int, const Type*, const Type*, source_location, bool);
 
@@ -1287,10 +1286,10 @@ class Call_expression : public Expression
   tree tree_;
   // True if the last argument is a varargs argument (f(a...)).
   bool is_varargs_;
-  // True if the value is being discarded.
-  bool is_value_discarded_;
   // True if varargs have already been lowered.
   bool varargs_are_lowered_;
+  // True if types have been determined.
+  bool types_are_determined_;
   // True if the call is an argument to a defer statement.
   bool is_deferred_;
 };
@@ -1310,10 +1309,6 @@ class Func_expression : public Expression
   const Named_object*
   named_object() const
   { return this->function_; }
-
-  // Return the name of the function.
-  const std::string&
-  name() const;
 
   // Return the closure for this function.  This will return NULL if
   // the function has no closure, which is the normal case.
@@ -1343,7 +1338,9 @@ class Func_expression : public Expression
   do_copy()
   {
     return Expression::make_func_reference(this->function_,
-					   this->closure_->copy(),
+					   (this->closure_ == NULL
+					    ? NULL
+					    : this->closure_->copy()),
 					   this->location());
   }
 
@@ -1383,6 +1380,12 @@ class Unknown_expression : public Parser_expression
   void
   set_is_composite_literal_key()
   { this->is_composite_literal_key_ = true; }
+
+  // Note that this expression should no longer be treated as a
+  // composite literal key.
+  void
+  clear_is_composite_literal_key()
+  { this->is_composite_literal_key_ = false; }
 
  protected:
   Expression*

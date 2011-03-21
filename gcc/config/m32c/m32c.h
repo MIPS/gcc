@@ -1,5 +1,5 @@
 /* Target Definitions for R8C/M16C/M32C
-   Copyright (C) 2005, 2007, 2008, 2009, 2010
+   Copyright (C) 2005, 2007, 2008, 2009, 2010, 2011
    Free Software Foundation, Inc.
    Contributed by Red Hat.
 
@@ -27,6 +27,13 @@
 #undef  STARTFILE_SPEC
 #define STARTFILE_SPEC "crt0.o%s crtbegin.o%s"
 
+#undef  ENDFILE_SPEC
+#define ENDFILE_SPEC "crtend.o%s crtn.o%s"
+
+#undef  LINK_SPEC
+#define LINK_SPEC "%{h*} %{v:-V} \
+		   %{static:-Bstatic} %{shared:-shared} %{symbolic:-Bsymbolic}"
+
 /* There are four CPU series we support, but they basically break down
    into two families - the R8C/M16C families, with 16-bit address
    registers and one set of opcodes, and the M32CM/M32C group, with
@@ -47,13 +54,13 @@
    family.  Most of the logic here is making sure we do the right
    thing when no CPU is specified, which defaults to R8C.  */
 #undef  LIB_SPEC
-#define LIB_SPEC "-( -lc %{msim*:-lsim}%{!msim*:-lnosys} -) \
-%{msim*:%{!T*: %{mcpu=m32cm:%Tsim24.ld}%{mcpu=m32c:%Tsim24.ld} \
-	%{!mcpu=m32cm:%{!mcpu=m32c:%Tsim16.ld}}}} \
-%{!T*:%{!msim*: %{mcpu=m16c:%Tm16c.ld} \
-		%{mcpu=m32cm:%Tm32cm.ld} \
-		%{mcpu=m32c:%Tm32c.ld} \
-		%{!mcpu=m16c:%{!mcpu=m32cm:%{!mcpu=m32c:%Tr8c.ld}}}}} \
+#define LIB_SPEC "-( -lc %{msim:-lsim}%{!msim:-lnosys} -) \
+%{msim:%{!T*: %{mcpu=m32cm:%Tsim24.ld}%{mcpu=m32c:%Tsim24.ld} \
+       %{!mcpu=m32cm:%{!mcpu=m32c:%Tsim16.ld}}}} \
+%{!T*:%{!msim: %{mcpu=m16c:%Tm16c.ld} \
+	       %{mcpu=m32cm:%Tm32cm.ld} \
+	       %{mcpu=m32c:%Tm32c.ld} \
+	       %{!mcpu=m16c:%{!mcpu=m32cm:%{!mcpu=m32c:%Tr8c.ld}}}}} \
 "
 
 /* Run-time Target Specification */
@@ -189,6 +196,15 @@ machine_function;
 
 #undef UINTPTR_TYPE
 #define UINTPTR_TYPE (TARGET_A16 ? "unsigned int" : "long unsigned int")
+
+#undef  SIZE_TYPE
+#define SIZE_TYPE "unsigned int"
+
+#undef  WCHAR_TYPE
+#define WCHAR_TYPE "long int"
+
+#undef  WCHAR_TYPE_SIZE
+#define WCHAR_TYPE_SIZE BITS_PER_WORD
 
 /* REGISTER USAGE */
 

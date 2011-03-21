@@ -34,6 +34,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple.h"
 #include "diagnostic-core.h"
 #include "toplev.h"
+#include "lto-streamer.h"
 
 static tree handle_noreturn_attribute (tree *, tree, tree, int, bool *);
 static tree handle_leaf_attribute (tree *, tree, tree, int, bool *);
@@ -313,7 +314,7 @@ handle_nonnull_attribute (tree *node, tree ARG_UNUSED (name),
      will have the correct types when we actually check them later.  */
   if (!args)
     {
-      gcc_assert (TYPE_ARG_TYPES (type));
+      gcc_assert (prototype_p (type));
       return NULL_TREE;
     }
 

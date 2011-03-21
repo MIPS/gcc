@@ -2487,7 +2487,9 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo,
     {
       loop = LOOP_VINFO_LOOP (loop_vinfo);
       res = compute_data_dependences_for_loop
-	(loop, true, &LOOP_VINFO_DATAREFS (loop_vinfo),
+	(loop, true,
+	 &LOOP_VINFO_LOOP_NEST (loop_vinfo),
+	 &LOOP_VINFO_DATAREFS (loop_vinfo),
 	 &LOOP_VINFO_DDRS (loop_vinfo));
 
       if (!res)
@@ -2576,7 +2578,7 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo,
       offset = unshare_expr (DR_OFFSET (dr));
       init = unshare_expr (DR_INIT (dr));
 
-      if (stmt_could_throw_p (stmt))
+      if (stmt_can_throw_internal (stmt))
         {
           if (vect_print_dump_info (REPORT_UNVECTORIZED_LOCATIONS))
             {

@@ -1,6 +1,6 @@
 // shared_ptr and weak_ptr implementation details -*- C++ -*-
 
-// Copyright (C) 2007, 2008, 2009, 2010 Free Software Foundation, Inc.
+// Copyright (C) 2007, 2008, 2009, 2010, 2011 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -43,13 +43,15 @@
 
 /** @file bits/shared_ptr_base.h
  *  This is an internal header file, included by other library headers.
- *  You should not attempt to use it directly.
+ *  Do not attempt to use it directly. @headername{memory}
  */
 
 #ifndef _SHARED_PTR_BASE_H
 #define _SHARED_PTR_BASE_H 1
 
-_GLIBCXX_BEGIN_NAMESPACE(std)
+namespace std _GLIBCXX_VISIBILITY(default)
+{
+_GLIBCXX_BEGIN_NAMESPACE_VERSION
 
  /**
    *  @brief  Exception possibly thrown by @c shared_ptr.
@@ -59,8 +61,9 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   {
   public:
     virtual char const*
-    what() const throw()
-    { return "std::bad_weak_ptr"; }
+    what() const throw();
+
+    virtual ~bad_weak_ptr() throw();    
   };
 
   // Substitute for bad_weak_ptr object in the case of -fno-exceptions.
@@ -318,7 +321,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 
   // Support for custom deleter and/or allocator
   template<typename _Ptr, typename _Deleter, typename _Alloc, _Lock_policy _Lp>
-    class _Sp_counted_deleter : public _Sp_counted_ptr<_Ptr, _Lp>
+    class _Sp_counted_deleter : public _Sp_counted_base<_Lp>
     {
       typedef typename _Alloc::template
 	  rebind<_Sp_counted_deleter>::other _My_alloc_type;
@@ -334,21 +337,18 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	: _My_alloc_type(__a), _M_del(__d) { }
       };
 
-    protected:
-      typedef _Sp_counted_ptr<_Ptr, _Lp> _Base_type;
-
     public:
       // __d(__p) must not throw.
       _Sp_counted_deleter(_Ptr __p, _Deleter __d)
-      : _Base_type(__p), _M_del(__d, _Alloc()) { }
+      : _M_ptr(__p), _M_del(__d, _Alloc()) { }
 
       // __d(__p) must not throw.
       _Sp_counted_deleter(_Ptr __p, _Deleter __d, const _Alloc& __a)
-      : _Base_type(__p), _M_del(__d, __a) { }
+      : _M_ptr(__p), _M_del(__d, __a) { }
 
       virtual void
       _M_dispose() // nothrow
-      { _M_del._M_del(_Base_type::_M_ptr); }
+      { _M_del._M_del(_M_ptr); }
 
       virtual void
       _M_destroy() // nothrow
@@ -369,6 +369,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       }
 
     protected:
+      _Ptr             _M_ptr;  // copy constructor must not throw
       _My_Deleter      _M_del;  // copy constructor must not throw
     };
 
@@ -397,7 +398,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       {
 	void* __p = &_M_storage;
 	::new (__p) _Tp();  // might throw
-	_Base_type::_Base_type::_M_ptr = static_cast<_Tp*>(__p);
+	_Base_type::_M_ptr = static_cast<_Tp*>(__p);
       }
 
       template<typename... _Args>
@@ -407,7 +408,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	{
 	  void* __p = &_M_storage;
 	  ::new (__p) _Tp(std::forward<_Args>(__args)...);  // might throw
-	  _Base_type::_Base_type::_M_ptr = static_cast<_Tp*>(__p);
+	  _Base_type::_M_ptr = static_cast<_Tp*>(__p);
 	}
 
       // Override because the allocator needs to know the dynamic type
@@ -525,7 +526,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	    }
 	}
 
-#if _GLIBCXX_DEPRECATED
+#if _GLIBCXX_USE_DEPRECATED
       // Special case for auto_ptr<_Tp> to provide the strong guarantee.
       template<typename _Tp>
         explicit
@@ -844,7 +845,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	  __enable_shared_from_this_helper(_M_refcount, __tmp, __tmp);
 	}
 
-#if _GLIBCXX_DEPRECATED
+#if _GLIBCXX_USE_DEPRECATED
       // Postcondition: use_count() == 1 and __r.get() == 0
       template<typename _Tp1>
 	__shared_ptr(std::auto_ptr<_Tp1>&& __r)
@@ -872,7 +873,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	  return *this;
 	}
 
-#if _GLIBCXX_DEPRECATED
+#if _GLIBCXX_USE_DEPRECATED
       template<typename _Tp1>
 	__shared_ptr&
 	operator=(std::auto_ptr<_Tp1>&& __r)
@@ -1378,6 +1379,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       { return std::hash<_Tp*>()(__s.get()); }
     };
 
-_GLIBCXX_END_NAMESPACE
+_GLIBCXX_END_NAMESPACE_VERSION
+} // namespace
 
 #endif // _SHARED_PTR_BASE_H

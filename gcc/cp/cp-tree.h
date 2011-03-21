@@ -1,6 +1,6 @@
 /* Definitions for C++ parsing and type checking.
    Copyright (C) 1987, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
+   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011
    Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
@@ -115,6 +115,7 @@ c-common.h, not after.
    3: TYPE_FOR_JAVA.
    4: TYPE_HAS_NONTRIVIAL_DESTRUCTOR
    5: CLASS_TYPE_P (in RECORD_TYPE and UNION_TYPE)
+      ENUM_FIXED_UNDERLYING_TYPE_P (in ENUMERAL_TYPE)
    6: TYPE_DEPENDENT_P_VALID
 
    Usage of DECL_LANG_FLAG_?:
@@ -405,19 +406,6 @@ typedef enum composite_pointer_operation
   /* conditional expression */
   CPO_CONDITIONAL_EXPR
 } composite_pointer_operation;
-
-/* The various readonly error string used by readonly_error.  */
-typedef enum readonly_error_kind
-{
-  /* assignment */
-  REK_ASSIGNMENT,
-  /* assignment (via 'asm' output) */
-  REK_ASSIGNMENT_ASM,
-  /* increment */
-  REK_INCREMENT,
-  /* decrement */
-  REK_DECREMENT
-} readonly_error_kind;
 
 /* Possible cases of expression list used by build_x_compound_expr_from_list. */
 typedef enum expr_list_kind {
@@ -1234,9 +1222,9 @@ enum languages { lang_c, lang_cplusplus, lang_java };
 
 /* Gives the visibility specification for a class type.  */
 #define CLASSTYPE_VISIBILITY(TYPE)		\
-	DECL_VISIBILITY (TYPE_NAME (TYPE))
+	DECL_VISIBILITY (TYPE_MAIN_DECL (TYPE))
 #define CLASSTYPE_VISIBILITY_SPECIFIED(TYPE)	\
-	DECL_VISIBILITY_SPECIFIED (TYPE_NAME (TYPE))
+	DECL_VISIBILITY_SPECIFIED (TYPE_MAIN_DECL (TYPE))
 
 typedef struct GTY (()) tree_pair_s {
   tree purpose;
@@ -1926,6 +1914,7 @@ struct GTY(()) lang_decl_ns {
 
 struct GTY(()) lang_decl_parm {
   struct lang_decl_base base;
+  int level;
   int index;
 };
 
@@ -2119,6 +2108,13 @@ struct GTY((variable_size)) lang_decl {
    All artificial parameters will have index 0.  */
 #define DECL_PARM_INDEX(NODE) \
   (LANG_DECL_PARM_CHECK (NODE)->index)
+
+/* The level of a user-declared parameter in its function, starting at 1.
+   A parameter of the function will have level 1; a parameter of the first
+   nested function declarator (i.e. t in void f (void (*p)(T t))) will have
+   level 2.  */
+#define DECL_PARM_LEVEL(NODE) \
+  (LANG_DECL_PARM_CHECK (NODE)->level)
 
 /* Nonzero if the VTT parm has been added to NODE.  */
 #define DECL_HAS_VTT_PARM_P(NODE) \
@@ -3111,7 +3107,7 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
 
 /* Determines whether an ENUMERAL_TYPE has an explicit
    underlying type.  */
-#define ENUM_FIXED_UNDERLYING_TYPE_P(NODE) (TYPE_LANG_FLAG_3 (NODE))
+#define ENUM_FIXED_UNDERLYING_TYPE_P(NODE) (TYPE_LANG_FLAG_5 (NODE))
 
 /* Returns the underlying type of the given enumeration type. The
    underlying type is determined in different ways, depending on the
@@ -4227,9 +4223,12 @@ enum overload_flags { NO_SPECIAL = 0, DTOR_FLAG, TYPENAME_FLAG };
    another mechanism.  Exiting early also avoids problems with trying
    to perform argument conversions when the class isn't complete yet.  */
 #define LOOKUP_SPECULATIVE (LOOKUP_LIST_ONLY << 1)
+/* Used by calls from defaulted functions to limit the overload set to avoid
+   cycles trying to declare them (core issue 1092).  */
+#define LOOKUP_DEFAULTED (LOOKUP_SPECULATIVE << 1)
 /* Used in calls to store_init_value to suppress its usual call to
    digest_init.  */
-#define LOOKUP_ALREADY_DIGESTED (LOOKUP_SPECULATIVE << 1)
+#define LOOKUP_ALREADY_DIGESTED (LOOKUP_DEFAULTED << 1)
 
 #define LOOKUP_NAMESPACES_ONLY(F)  \
   (((F) & LOOKUP_PREFER_NAMESPACES) && !((F) & LOOKUP_PREFER_TYPES))
@@ -4639,6 +4638,8 @@ extern bool can_convert				(tree, tree);
 extern bool can_convert_arg			(tree, tree, tree, int);
 extern bool can_convert_arg_bad			(tree, tree, tree, int);
 extern bool enforce_access			(tree, tree, tree);
+extern void push_defarg_context			(tree);
+extern void pop_defarg_context			(void);
 extern tree convert_default_arg			(tree, tree, tree, int);
 extern tree convert_arg_to_ellipsis		(tree);
 extern tree build_x_va_arg			(tree, tree);
@@ -4908,6 +4909,8 @@ extern void maybe_warn_variadic_templates       (void);
 extern void maybe_warn_cpp0x			(cpp0x_warn_str str);
 extern bool pedwarn_cxx98                       (location_t, int, const char *, ...) ATTRIBUTE_GCC_DIAG(3,4);
 extern location_t location_of                   (tree);
+extern void qualified_name_lookup_error		(tree, tree, tree,
+						 location_t);
 
 /* in except.c */
 extern void init_exception_processing		(void);
@@ -5033,6 +5036,7 @@ extern bool is_auto				(const_tree);
 extern tree process_template_parm		(tree, location_t, tree, 
 						 bool, bool, unsigned);
 extern tree end_template_parm_list		(tree);
+void fixup_template_parms (void);
 extern void end_template_decl			(void);
 extern tree maybe_update_decl_type		(tree, tree);
 extern bool check_default_tmpl_args             (tree, tree, int, int, int);
@@ -5222,12 +5226,13 @@ extern tree begin_do_stmt			(void);
 extern void finish_do_body			(tree);
 extern void finish_do_stmt			(tree, tree);
 extern tree finish_return_stmt			(tree);
-extern tree begin_for_stmt			(void);
+extern tree begin_for_scope			(tree *);
+extern tree begin_for_stmt			(tree, tree);
 extern void finish_for_init_stmt		(tree);
 extern void finish_for_cond			(tree, tree);
 extern void finish_for_expr			(tree, tree);
 extern void finish_for_stmt			(tree);
-extern tree begin_range_for_stmt		(void);
+extern tree begin_range_for_stmt		(tree, tree);
 extern void finish_range_for_decl		(tree, tree, tree);
 extern void finish_range_for_stmt		(tree);
 extern tree finish_break_stmt			(void);
@@ -5252,7 +5257,10 @@ extern tree validate_constexpr_fundecl (tree);
 extern tree register_constexpr_fundef (tree, tree);
 extern bool check_constexpr_ctor_body (tree, tree);
 extern tree ensure_literal_type_for_constexpr_object (tree);
-extern bool potential_constant_expression (tree, tsubst_flags_t);
+extern bool potential_constant_expression (tree);
+extern bool potential_rvalue_constant_expression (tree);
+extern bool require_potential_constant_expression (tree);
+extern bool require_potential_rvalue_constant_expression (tree);
 extern tree cxx_constant_value (tree);
 extern tree maybe_constant_value (tree);
 extern tree maybe_constant_init (tree);
@@ -5296,8 +5304,6 @@ extern void finish_template_decl		(tree);
 extern tree finish_template_type		(tree, tree, int);
 extern tree finish_base_specifier		(tree, tree, bool);
 extern void finish_member_declaration		(tree);
-extern void qualified_name_lookup_error		(tree, tree, tree,
-						 location_t);
 extern tree finish_id_expression		(tree, tree, tree,
 						 cp_id_kind *,
 						 bool, bool, bool *,
@@ -5396,6 +5402,7 @@ extern tree build_cplus_array_type		(tree, tree);
 extern tree build_array_of_n_type		(tree, int);
 extern tree build_array_copy			(tree);
 extern tree build_vec_init_expr			(tree, tree);
+extern void diagnose_non_constexpr_vec_init	(tree);
 extern tree hash_tree_cons			(tree, tree, tree);
 extern tree hash_tree_chain			(tree, tree);
 extern tree build_qualified_name		(tree, tree, tree, bool);
@@ -5586,7 +5593,7 @@ extern void cxx_incomplete_type_error		(const_tree, const_tree);
   (cxx_incomplete_type_diagnostic ((V), (T), DK_ERROR))
 extern tree error_not_base_type			(tree, tree);
 extern tree binfo_or_else			(tree, tree);
-extern void readonly_error			(tree, readonly_error_kind);
+extern void cxx_readonly_error			(tree, enum lvalue_use);
 extern void complete_type_check_abstract	(tree);
 extern int abstract_virtuals_error		(tree, tree);
 
@@ -5641,7 +5648,7 @@ extern void cxx_omp_finish_clause		(tree);
 extern bool cxx_omp_privatize_by_reference	(const_tree);
 
 /* in name-lookup.c */
-extern void suggest_alternatives_for (tree);
+extern void suggest_alternatives_for (location_t, tree);
 
 /* -- end of C++ */
 

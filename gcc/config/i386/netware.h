@@ -1,6 +1,6 @@
 /* Core target definitions for GCC for Intel 80x86 running Netware.
    and using dwarf for the debugging format.
-   Copyright (C) 1993, 1994, 2004, 2007, 2008, 2009, 2010
+   Copyright (C) 1993, 1994, 2004, 2007, 2008, 2009, 2010, 2011
    Free Software Foundation, Inc.
 
    Written by David V. Henkel-Wallace (gumby@cygnus.com)
@@ -26,13 +26,15 @@ along with GCC; see the file COPYING3.  If not see
 #undef  CPP_SPEC
 #define CPP_SPEC "%{posix:-D_POSIX_SOURCE} %{pthread:-D_REENTRANT}"
 
+#undef  ASM_SPEC
+#define ASM_SPEC ""
+
 #undef	LIB_SPEC
 #define LIB_SPEC ""
 
 /* Kinda useless, but what the hell */
 #undef	LINK_SPEC
-#define LINK_SPEC "%{h*} %{v:-V} \
-		   %{Qy:} %{!Qn:-Qy}"
+#define LINK_SPEC "%{h*} %{v:-V}"
 
 #undef	STARTFILE_SPEC
 #define STARTFILE_SPEC ""
@@ -107,6 +109,12 @@ do {									\
 /* Default structure packing is 1-byte. */
 #define TARGET_DEFAULT_PACK_STRUCT 1
 
+#undef  SIZE_TYPE
+#define SIZE_TYPE "unsigned int"
+
+#undef  PTRDIFF_TYPE
+#define PTRDIFF_TYPE "int"
+
 #undef WCHAR_TYPE
 #define WCHAR_TYPE "short unsigned int"
 
@@ -165,3 +173,5 @@ const char *i386_nlm_strip_name_encoding (const char *);
 #define TARGET_MANGLE_DECL_ASSEMBLER_NAME i386_nlm_mangle_decl_assembler_name
 #undef  TARGET_STRIP_NAME_ENCODING
 #define TARGET_STRIP_NAME_ENCODING  i386_nlm_strip_name_encoding
+
+#define TARGET_POSIX_IO

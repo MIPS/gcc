@@ -12,7 +12,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <pthread.h>
+#include <semaphore.h>
 
 #ifdef HAVE_SYS_MMAN_H
 #include <sys/mman.h>
@@ -53,7 +57,8 @@ typedef	struct	Lock		Lock;
 
 struct	Lock
 {
-	pthread_mutex_t	mutex;
+	uint32 key;
+	sem_t sem;
 };
 
 /* A Note.  */
@@ -95,6 +100,8 @@ struct	M
 	int32	locks;
 	int32	nomemprof;
 	int32	gcing_for_prof;
+	int32	holds_finlock;
+	int32	gcing_for_finlock;
 	MCache	*mcache;
 
 	/* For the list of all threads.  */
@@ -119,6 +126,7 @@ struct	M
 
 void*	runtime_mal(uintptr);
 void	runtime_mallocinit(void);
+void	runtime_initfintab(void);
 void	siginit(void);
 bool	__go_sigsend(int32 sig);
 int64	runtime_nanotime(void);
@@ -138,12 +146,10 @@ void	__go_cachestats(void);
  * as fast as spin locks (just a few user-level instructions),
  * but on the contention path they sleep in the kernel.
  */
-#define	LOCK_INITIALIZER	{ PTHREAD_MUTEX_INITIALIZER }
 void	runtime_initlock(Lock*);
 void	runtime_lock(Lock*);
 void	runtime_unlock(Lock*);
 void	runtime_destroylock(Lock*);
-bool	runtime_trylock(Lock*);
 
 void semacquire (uint32 *) asm ("libgo_runtime.runtime.Semacquire");
 void semrelease (uint32 *) asm ("libgo_runtime.runtime.Semrelease");
@@ -178,7 +184,8 @@ void	runtime_addfinalizer(void*, void(*fn)(void*), const struct __go_func_type *
 void	runtime_walkfintab(void (*fn)(void*), void (*scan)(byte *, int64));
 #define runtime_mmap mmap
 #define runtime_munmap(p, s) munmap((p), (s))
-#define cas(pval, old, new) __sync_bool_compare_and_swap (pval, old, new)
+#define runtime_cas(pval, old, new) __sync_bool_compare_and_swap (pval, old, new)
+#define runtime_casp(pval, old, new) __sync_bool_compare_and_swap (pval, old, new)
 
 struct __go_func_type;
 void reflect_call(const struct __go_func_type *, const void *, _Bool, void **,

@@ -1,6 +1,6 @@
 /* Target definitions for GCC for Intel 80386 running Solaris 2
    Copyright (C) 1993, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003,
-   2004, 2007, 2008, 2009, 2010 Free Software Foundation, Inc.
+   2004, 2007, 2008, 2009, 2010, 2011 Free Software Foundation, Inc.
    Contributed by Fred Fish (fnf@cygnus.com).
 
 This file is part of GCC.
@@ -54,7 +54,7 @@ along with GCC; see the file COPYING3.  If not see
 /* FIXME: Removed -K PIC from generic Solaris 2 ASM_SPEC: the native assembler
    gives many warnings: R_386_32 relocation is used for symbol ".text".  */
 #undef ASM_SPEC
-#define ASM_SPEC "%{v:-V} %{Qy:} %{!Qn:-Qy} %{n} %{T} %{Ym,*} -s %(asm_cpu)"
+#define ASM_SPEC "%{v:-V} %{Qy:} %{!Qn:-Qy} %{Ym,*} -s %(asm_cpu)"
 
 #define ASM_CPU_SPEC ""
  
@@ -137,9 +137,6 @@ along with GCC; see the file COPYING3.  If not see
 /* Register the Solaris-specific #pragma directives.  */
 #define REGISTER_SUBTARGET_PRAGMAS() solaris_register_pragmas ()
 
-/* Undo i386/sysv4.h version.  */
-#undef SUBTARGET_RETURN_IN_MEMORY
-
 /* Augment i386/unix.h version to return 8-byte vectors in memory, matching
    Sun Studio compilers until version 12, the only ones supported on
    Solaris 8 and 9.  */
@@ -175,5 +172,11 @@ along with GCC; see the file COPYING3.  If not see
 #define LIBGCC2_HAS_TF_MODE 1
 #define LIBGCC2_TF_CEXT q
 #define TF_SIZE 113
+
+#undef  SIZE_TYPE
+#define SIZE_TYPE "unsigned int"
+
+#undef  PTRDIFF_TYPE
+#define PTRDIFF_TYPE "int"
 
 #define MD_UNWIND_SUPPORT "config/i386/sol2-unwind.h"

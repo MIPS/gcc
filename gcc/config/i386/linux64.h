@@ -1,5 +1,5 @@
 /* Definitions for AMD x86-64 running Linux-based GNU systems with ELF format.
-   Copyright (C) 2001, 2002, 2004, 2005, 2006, 2007, 2008, 2009, 2010
+   Copyright (C) 2001, 2002, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011
    Free Software Foundation, Inc.
    Contributed by Jan Hubicka <jh@suse.cz>, based on linux.h.
 
@@ -40,6 +40,9 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #undef CPP_SPEC
 #define CPP_SPEC "%{posix:-D_POSIX_SOURCE} %{pthread:-D_REENTRANT}"
 
+#undef CC1_SPEC
+#define CC1_SPEC "%(cc1_cpu) %{profile:-p}"
+
 /* The svr4 ABI for the i386 says that records and unions are returned
    in memory.  In the 64bit compilation we will turn this flag off in
    ix86_option_override_internal, as we never do pcc_struct_return
@@ -71,7 +74,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #endif
 
 #undef ASM_SPEC
-#define ASM_SPEC "%{v} %{" SPEC_32 ":--32} %{" SPEC_64 ":--64} \
+#define ASM_SPEC "%{" SPEC_32 ":--32} %{" SPEC_64 ":--64} \
  %{!mno-sse2avx:%{mavx:-msse2avx}} %{msse2avx:%{!mavx:-msse2avx}}"
 
 #undef	LINK_SPEC
@@ -80,8 +83,8 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
   %{!shared: \
     %{!static: \
       %{rdynamic:-export-dynamic} \
-      %{" SPEC_32 ":%{!dynamic-linker:-dynamic-linker " LINUX_DYNAMIC_LINKER32 "}} \
-      %{" SPEC_64 ":%{!dynamic-linker:-dynamic-linker " LINUX_DYNAMIC_LINKER64 "}}} \
+      %{" SPEC_32 ":-dynamic-linker " LINUX_DYNAMIC_LINKER32 "} \
+      %{" SPEC_64 ":-dynamic-linker " LINUX_DYNAMIC_LINKER64 "}} \
     %{static:-static}}"
 
 /* Similar to standard Linux, but adding -ffast-math support.  */

@@ -1635,6 +1635,22 @@ getdecls (void)
   return current_binding_level->names;
 }
 
+/* Return how many function prototypes we are currently nested inside.  */
+
+int
+function_parm_depth (void)
+{
+  int level = 0;
+  struct cp_binding_level *b;
+
+  for (b = current_binding_level;
+       b->kind == sk_function_parms;
+       b = b->level_chain)
+    ++level;
+
+  return level;
+}
+
 /* For debugging.  */
 static int no_print_functions = 0;
 static int no_print_builtins = 0;
@@ -3923,7 +3939,7 @@ remove_hidden_names (tree fns)
    possible candidates.  */
 
 void
-suggest_alternatives_for (tree name)
+suggest_alternatives_for (location_t location, tree name)
 {
   VEC(tree,heap) *candidates = NULL;
   VEC(tree,heap) *namespaces_to_search = NULL;
@@ -3931,7 +3947,6 @@ suggest_alternatives_for (tree name)
   int n_searched = 0;
   tree t;
   unsigned ix;
-  location_t name_location;
 
   VEC_safe_push (tree, heap, namespaces_to_search, global_namespace);
 
@@ -3955,15 +3970,13 @@ suggest_alternatives_for (tree name)
 	VEC_safe_push (tree, heap, namespaces_to_search, t);
     }
 
-  name_location = location_of (name);
-
   /* If we stopped before we could examine all namespaces, inform the
      user.  Do this even if we don't have any candidates, since there
      might be more candidates further down that we weren't able to
      find.  */
   if (n_searched >= max_to_search
       && !VEC_empty (tree, namespaces_to_search))
-    inform (name_location,
+    inform (location,
 	    "maximum limit of %d namespaces searched for %qE",
 	    max_to_search, name);
 
@@ -3973,7 +3986,7 @@ suggest_alternatives_for (tree name)
   if (VEC_empty (tree, candidates))
     return;
 
-  inform_n (name_location, VEC_length (tree, candidates),
+  inform_n (location, VEC_length (tree, candidates),
 	    "suggested alternative:",
 	    "suggested alternatives:");
 
@@ -4192,8 +4205,13 @@ qualified_lookup_using_namespace (tree name, tree scope,
 }
 
 /* Subroutine of outer_binding.
-   Returns TRUE if BINDING is a binding to a template parameter of SCOPE,
-   FALSE otherwise.  */
+
+   Returns TRUE if BINDING is a binding to a template parameter of
+   SCOPE.  In that case SCOPE is the scope of a primary template
+   parameter -- in the sense of G++, i.e, a template that has its own
+   template header.
+
+   Returns FALSE otherwise.  */
 
 static bool
 binding_to_template_parms_of_scope_p (cxx_binding *binding,
@@ -4209,6 +4227,8 @@ binding_to_template_parms_of_scope_p (cxx_binding *binding,
   return (scope
 	  && scope->this_entity
 	  && get_template_info (scope->this_entity)
+	  && PRIMARY_TEMPLATE_P (TI_TEMPLATE
+				 (get_template_info (scope->this_entity)))
 	  && parameter_of_template_p (binding_value,
 				      TI_TEMPLATE (get_template_info \
 						    (scope->this_entity))));
