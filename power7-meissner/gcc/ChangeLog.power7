@@ -1,4 +1,34 @@
 2011-03-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	PR target/48226
+	* config/rs6000/rs6000-c.c (rs6000_macro_to_expand): If we see a
+	vector when peeking at the next token for vector, don't expand the
+	keywords.
+
+2011-03-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vector.md (UNSPEC_REDUC): New unspec for vector
+	reduction.
+	(VEC_reduc): New code iterator and splitters for vector reduction.
+	(VEC_reduc_name): Ditto.
+	(VEC_reduc_rtx): Ditto.
+	(reduc_<VEC_reduc_name>_v2df): Vector reduction expanders for VSX.
+	(reduc_<VEC_reduc_name>_v4sf): Ditto.
+
+	* config/rs6000/rs6000.c (rs6000_expand_vector_extract): Add
+	support for extracting SF on VSX.
+
+	* config/rs6000/vsx.md (vsx_xscvspdp_scalar2): New insn for
+	generating xscvspdp.
+	(vsx_extract_v4sf): New insn to extract SF from V4SF vector.
+	(vsx_reduc_<VEC_reduc_name>_v2df): New insns and splitters for
+	double add, minimum, maximum vector reduction.
+	(vsx_reduc_<VEC_reduc_name>_v4sf): Ditto.
+	(vsx_reduc_<VEC_reduc_name>_v2df2_scalar): New combiner insn to
+	optimize double vector reduction.
+	(vsx_reduc_<VEC_reduc_name>_v4sf_scalar): Ditto.
+
+2011-03-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	Clone branch from 171306.
 	* REVISION: New file.

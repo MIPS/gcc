@@ -1,3 +1,11 @@
 2011-03-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* gcc.dg/torture/va-arg-25.c: Add -mabi=altivec and -maltivec for
+	PowerPC builds.
+
+	PR target/48226
+	* gcc.target/powerpc/pr48226.c: New file.
+
+2011-03-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	Clone branch from 171306.
