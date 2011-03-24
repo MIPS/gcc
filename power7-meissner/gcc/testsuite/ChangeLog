@@ -1,3 +1,45 @@
+2011-03-24  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/derived_type2.adb: New test.
+
+2011-03-24  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/48271
+	* g++.dg/torture/pr48271.C: New testcase.
+
+2011-03-24  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/array15.ad[sb]: New test.
+
+2011-03-24  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/48237
+	* gcc.target/i386/pr48237.c: New test.
+
+2011-03-24  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/48269
+	* gcc.dg/builtin-object-size-10.c: New testcase.
+
+2011-03-24  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/46562
+	* c-c++-common/pr46562-2.c: New testcase.
+	* c-c++-common/pr46562.c: Likewise.
+
+2011-03-24  Ira Rosen  <ira.rosen@linaro.org>
+
+	* gcc.dg/vect/vect-cselim-1.c: New test.
+	* gcc.dg/vect/vect-cselim-2.c: New test.
+
+2011-03-23  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* gcc.target/arm/pr46934.c: New.
+
+2011-03-23  Ian Lance Taylor  <iant@google.com>
+
+	* go.test/go-test.exp (errchk): Ignore lines containing ////.
+
 2011-03-23  Richard Guenther  <rguenther@suse.de>
 
 	* gcc.dg/struct: Remove directory and contents.
@@ -304,7 +346,7 @@
 
 2011-03-15  Rodrigo Rivas Costa  <rodrigorivascosta@gmail.com>
 
-       * g++.dg/cpp0x/constexpr-attribute.C: New.
+	* g++.dg/cpp0x/constexpr-attribute.C: New.
 
 2011-03-15  Manuel López-Ibáñez  <manu@gcc.gnu.org>
 
