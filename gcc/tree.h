@@ -5363,6 +5363,7 @@ extern tree decl_attributes (tree *, tree, int);
 /* Return true if the given identifier tree is the name of a lock attribute
    that takes arguments.  */
 extern bool is_lock_attribute_with_args (const_tree);
+
 /* Extract and return all lock attributes from the given attribute list.  */
 extern tree extract_lock_attributes (tree);
 
