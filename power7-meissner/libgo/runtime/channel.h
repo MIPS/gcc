@@ -50,9 +50,6 @@ struct __go_channel
   _Bool selected_for_receive;
   /* True if this channel has been closed.  */
   _Bool is_closed;
-  /* True if at least one null value has been read from a closed
-     channel.  */
-  _Bool saw_close;
   /* The list of select statements waiting to send on a synchronous
      channel.  */
   struct __go_channel_select *select_send_queue;
@@ -119,8 +116,12 @@ extern void __go_receive_release (struct __go_channel *);
 
 struct __go_receive_nonblocking_small
 {
+  /* Value read from channel, or 0.  */
   uint64_t __val;
+  /* True if value was read from channel.  */
   _Bool __success;
+  /* True if channel is closed.  */
+  _Bool __closed;
 };
 
 extern struct __go_receive_nonblocking_small
@@ -128,7 +129,8 @@ __go_receive_nonblocking_small (struct __go_channel *);
 
 extern _Bool __go_receive_big (struct __go_channel *, void *, _Bool);
 
-extern _Bool __go_receive_nonblocking_big (struct __go_channel *, void *);
+extern _Bool __go_receive_nonblocking_big (struct __go_channel *, void *,
+					   _Bool *);
 
 extern void __go_unlock_and_notify_selects (struct __go_channel *);
 

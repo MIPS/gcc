@@ -1,3 +1,236 @@
+2011-03-25  Richard Guenther  <rguenther@suse.de>
+
+	* tree-flow.h (verify_stmts): Rename to verify_gimple_in_cfg.
+	(verify_types_in_gimple_seq): Rename to verify_gimple_in_seq.
+	(verify_gimple): Remove.
+	* tree-cfg.c (verify_gimple_call): Merge verification
+	from verify_stmts.
+	(verify_gimple_phi): Merge verification from verify_stmts.
+	(verify_gimple_label): New function.
+	(verify_types_in_gimple_seq_2): Rename to verify_gimple_in_seq_2.
+	(verify_types_in_gimple_seq): Rename to verify_gimple_in_seq.
+	(verify_stmt): Merge into verify_gimple_in_cfg and callees.
+	(verify_stmts): Rename to verify_gimple_in_cfg.
+	(verify_gimple_in_cfg): New function.
+	* passes.c (execute_function_todo): Call verify_gimple_in_cfg.
+	* tree-ssa.c (verify_ssa): Likewise.
+	* gimplify.c (gimplify_body): Call verify_gimple_in_seq.
+
+2011-03-25  Richard Guenther  <rguenther@suse.de>
+
+	* passes.c (init_optimization_passes): Add FRE pass after
+	early SRA.
+
+2011-03-25  Bernd Schmidt  <bernds@codesourcery.com>
+	    Andrew Stubbs  <ams@codesourcery.com>
+
+	* config/arm/vfp.md (arm_movdi_vfp): Enable only when not tuning
+	for Cortex-A8.
+	(arm_movdi_vfp_cortexa8): New pattern.
+	* config/arm/neon.md (adddi3_neon, subdi3_neon, anddi3_neon,
+	iordi3_neon, xordi3_neon): Add alternatives to discourage Neon
+	instructions when tuning for Cortex-A8.  Set attribute "arch".
+	* config/arm/arm.md: Move include arm-tune.md up a bit.
+	(define_attr "arch"): Add "onlya8" and "nota8" values.
+	(define_attr "arch_enabled"): Handle "onlya8" and "nota8".
+
+2011-03-25  Nathan Froyd  <froydnj@codesourcery.com>
+
+	PR bootstrap/48282
+	Revert:
+	2011-03-24  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* function.c (instantiate_virtual_regs): Use FOR_EACH_BB and
+	FOR_BB_INSNS_SAFE to iterate through insns.  Re-indent.
+	(pass_instantiate_virtual_regs): Require PROP_cfglayout.
+	* passes.c (init_optimization_passes): Move
+	pass_instantiate_virtual_regs after pass_into_cfg_layout_mode.
+
+2011-03-25  Kai Tietz  <ktietz@redhat.com>
+
+	* c-typeck.c (comptypes_internal): Replace target
+	hook call of comp_type_attributes by version in tree.c file.
+	* gimple.c (gimple_types_compatible_p_1): Likewise.
+	* tree-ssa.c (useless_type_conversion_p): Likewise.
+	* tree.c (build_type_attribute_qual_variant): Likewise.
+	(attribute_value_equal): New static helper function.
+	(comp_type_attributes): New function.
+	(merge_attributes): Use attribute_value_equal for comparison.
+	(attribute_list_contained): Likewise.
+	* tree.h (comp_type_attributes): New prototype.
+
+2011-03-25  Richard Guenther  <rguenther@suse.de>
+
+	* tree-cfg.c (verify_gimple_assign_unary): Drop special casing
+	of complex types at -O0.
+	(verify_gimple_assign_binary): Likewise.
+	(verify_gimple_assign_ternary): Likewise.
+
+2011-03-24  Mark Wielaard  <mjw@redhat.com>
+
+	* dwarf2out.c (size_of_die): Modify comment to say DW_FORM_ref_sig8.
+	(value_format): Use DW_FORM_ref_sig8, not DW_FORM_sig8.
+
+2011-03-24  Mark Wielaard  <mjw@redhat.com>
+
+	PR debug/48041
+	* dwarf2out.c (output_abbrev_section): Only write table when
+	abbrev_die_table_in_use > 1.
+
+2011-02-24  Richard Henderson  <rth@redhat.com>
+
+	* config/alpha/alpha.c (alpha_expand_unaligned_load): Use extql.
+	(alpha_expand_unaligned_store): Use mskwl, mskll, mskql.
+	(alpha_expand_unaligned_load_words): Use extql.
+	(alpha_expand_unaligned_store_words): Use insqh, mskqh, mskql.
+	(emit_insxl): Handle all modes for consistency.
+
+2011-02-24  Richard Henderson  <rth@redhat.com>
+
+	* config/alpha/alpha.c (get_aligned_mem): Don't test WORDS_BIG_ENDIAN.
+	(alpha_expand_unaligned_load): Likewise.
+	(alpha_expand_unaligned_store): Likewise.
+	(alpha_expand_unaligned_load_words): Likewise.
+	(alpha_expand_unaligned_store_words): Likewise.
+	(emit_insxl, alpha_split_compare_and_swap_12): Likewise.
+	(alpha_split_lock_test_and_set_12): Likewise.
+	(print_operand, alpha_fold_builtin_extxx): Likewise.
+	(alpha_fold_builtin_insxx, alpha_fold_builtin_mskxx): Likewise.
+	* config/alpha/alpha.md (bswapsi2, insv, extv, extzv): Likewise.
+	(builtin_extwh, builtin_extlh, builtin_extql): Likewise.
+	(unaligned_extendqidi_be, unaligned_extendhidi_be, extxl_be): Remove.
+	(*extxl_1_be, *extql_2_be, extqh_be, extlh_be, extwh_be): Remove.
+	(insbl_be, inswl_be, insll_be, insql_be, mskxl_be): Remove.
+	(unaligned_loadqi_be, unaligned_loadhi_be): Remove.
+	(unaligned_storeqi_be, unaligned_storehi_be): Remove.
+	(extbl): Rename from builtin_extbl; don't test WORDS_BIG_ENDIAN.
+	(extwl, extll, extql): Similarly.
+	(inswh, inslh, insqh): Similarly.
+	(mskbl, mskwl, mskll, mskql): Similarly.
+	(mskwh, msklh, mskqh): Similarly.
+
+2011-02-24  Richard Henderson  <rth@redhat.com>
+
+	* config/alpha/alpha.md (attribute isa): Add er, ner.
+	(attribute enabled): Handle them.
+	(*movdi): Merge *movdi_{er_nofix,nofix,er_fix,fix}.
+
+2011-02-24  Richard Henderson  <rth@redhat.com>
+
+	* config/alpha/alpha.md (attribute isa): Add vms.
+	(attribute enabled): Handle it.
+	(*movsf): Merge *movsf_{nofix,fix,nofp}.
+	(*movdf): Merge *movdf_{nofix,fix,nofp}.
+	(*movtf): Rename from *movtf_internal for consistency.
+	(*movsi): Merge with *movsi_nt_vms.
+	(*movhi): Merge *movhi_nobwx, *movhi_bwx.
+	(*movqi): Merge *movqi_nobwx, *movqi_bwx.
+	(*mov<VEC>): Merge *mov<VEC>_fix, *mov<VEC>_nofix.
+	* config/alpha/constraint.md ("f"): Use NO_REGS when fpu is disabled.
+
+2011-02-24  Richard Henderson  <rth@redhat.com>
+
+	* config/alpha/alpha.md (extendqihi2): Implement for BWX only.
+	(extendqisi2, extendhisi2): Likewise.
+	(extendqidi2): Simplify BWX/non-BWX expansions.
+	(extendhidi2): Similarly.
+
+2011-02-24  Richard Henderson  <rth@redhat.com>
+
+	* config/alpha/alpha.md (attribute isa): New.
+	(attribute enabled): New.
+	(zero_extendqihi2): Merge from *zero_extendqihi2_{bwx,nobwx}.
+	(zero_extendqisi2, zero_extendqidi2): Similarly.
+	(zero_extendhisi2, zero_extendhidi2): Similarly.
+	* config/alpha/predicates.md (reg_or_bwx_memory_operand): New.
+
+2011-02-24  Richard Henderson  <rth@redhat.com>
+
+	* config/alpha/predicates.md (input_operand): Revert last change;
+	update comment to mention 32-bit VMS rather than Windows.
+
+2011-03-24  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* function.c (instantiate_virtual_regs): Use FOR_EACH_BB and
+	FOR_BB_INSNS_SAFE to iterate through insns.  Re-indent.
+	(pass_instantiate_virtual_regs): Require PROP_cfglayout.
+	* passes.c (init_optimization_passes): Move
+	pass_instantiate_virtual_regs after pass_into_cfg_layout_mode.
+
+2011-03-24  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* dojump.c (do_jump_by_parts_greater_rtx): Optimize in specific cases.
+
+2011-03-24  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (ix86_print_operand): Output DFmode const_double
+	correctly.
+
+2011-03-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/48204
+	* simplify-rtx.c (simplify_const_unary_operation): Call
+	real_convert when changing mode class with FLOAT_EXTEND.
+
+2011-03-24  Nick Clifton  <nickc@redhat.com>
+
+	* config/rx/rx.h (LABEL_ALIGN_FOR_BARRIER): Define.
+	(ASM_OUTPUT_MAX_SKIP_ALIGN): Define.
+	* config/rx/rx.c (rx_option_override): Set align_jumps,
+	align_loops and align_labels if not set by the user.
+	(rx_align_for_label): New function.
+	(rx_max_skip_for_label): New function.
+	(TARGET_ASM_JUMP_ALIGN_MAX_SKIP): Define.
+	(TARGET_ASM_LOOP_ALIGN_MAX_SKIP): Define.
+	(TARGET_ASM_LABEL_ALIGN_MAX_SKIP): Define.
+	(TARGET_ASM_LABEL_ALIGN_AFTER_BARRIER_MAX_SKIP): Define.
+	* config/rx/rx-protos.h (rx_align_for_label): Add prototype.
+
+2011-03-24  Richard Sandiford  <richard.sandiford@linaro.org>
+
+	PR rtl-optimization/48263
+	* optabs.c (expand_binop_directly): Reinstate convert_modes code
+	and original commutative_p handling.  Use maybe_gen_insn.
+
+2011-03-24  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* reload.c (find_reloads_subreg_address): Add address_reloaded
+	parameter and return true there if the full address has been
+	reloaded.
+	(find_reloads_toplev): Pass address_reloaded flag.
+	(find_reloads_address_1): Don't use address_reloaded parameter.
+
+2011-03-24  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-live.c (remove_unused_scope_block_p): Remove set but
+	unused variable "ann".
+	(remove_unused_locals): Likewise.
+
+	* tree-ssa-copy.c (propagate_tree_value_into_stmt): Remove useless
+	statement.
+
+	* cfglayout.c (fixup_reorder_chain): Do not dereference E_FALL
+	after it is freed.
+
+2011-03-24  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/s390.c (s390_preferred_reload_class): Return NO_REGS
+	for invalid symbolic addresses.
+	(s390_secondary_reload): Don't use s390_check_symref_alignment for
+	larl operands.
+
+2011-03-24  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* fold-const.c (fold_ternary_loc): Preserve the location (if any) of
+	the argument in calls to fold_truth_not_expr.
+
+2011-03-24  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* tree.c (record_node_allocation_statistics): New function.
+	(make_node_stat, copy_node_stat, build_string): Call it.
+	(make_tree_binfo_stat, make_tree_vec_stat, tree_cons_stat): Likewise.
+	(build1_stat, build_omp_clause): Likewise.
+
 2011-03-24  Richard Sandiford  <richard.sandiford@linaro.org>
 
 	* builtins.c (expand_movstr): Fix endp == 1 adjustment after
