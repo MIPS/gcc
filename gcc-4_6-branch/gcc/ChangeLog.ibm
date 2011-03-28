@@ -1,5 +1,34 @@
 2011-03-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Backport from mainline
+	2011-03-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.md (UNSPEC_*, UNSPECV_*): Redefine all
+	UNSPEC constants to be in the unspec enumeration, and redefine
+	all UNSPECV constants to be in the unspecv enumeration, so that
+	dumps print which unspec/unspec_volatile this is.
+	* config/rs6000/vector.md (UNSPEC_*): Ditto.
+	* config/rs6000/paired.md (UNSPEC_*): Ditto.
+	* config/rs6000/vsx.md (UNSPEC_*): Ditto.
+	* config/rs6000/altivec.md (UNSPEC_*, UNSPECV_*): Ditto.
+	* config/rs6000/dfp.md (UNSPEC_*): Ditto.
+
+	* config/rs6000/rs6000.md (UNSPECV_ISYNC, UNSPECV_LWSYNC): Rename
+	UNSPEC_ISYNC and UNSPEC_HWSYNC to UNSPECV_ISYNC and
+	UNSPECV_LWSYNC, since these are used as unspec_volatile.
+	* config/rs6000/sync.md (isync, lwsync): Ditto.
+
+	Backport from mainline
+	2011-03-16  Alan Modra  <amodra@gmail.com>
+
+	PR target/45844
+	* config/rs6000/rs6000.c (rs6000_legitimize_reload_address): Don't
+	create invalid offset address for vsx splat insn.
+	* config/rs6000/predicates.md (splat_input_operand): New.
+	* config/rs6000/vsx.md (vsx_splat_*): Use it.
+
+2011-03-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	Branch from gcc-4_6-branch, subversion id 171614.
 	* REVISION: New file.
 
