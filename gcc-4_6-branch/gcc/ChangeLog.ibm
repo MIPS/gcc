@@ -1,3 +1,8 @@
+2011-03-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 171684.
+	* REVISION: Update subersion id.
+
 2011-03-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Backport from mainline
