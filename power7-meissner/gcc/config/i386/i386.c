@@ -3130,6 +3130,8 @@ ix86_target_string (int isa, int flags, const char *arch, const char *tune,
     { "-mvect8-ret-in-mem",		MASK_VECT8_RETURNS },
     { "-m8bit-idiv",			MASK_USE_8BIT_IDIV },
     { "-mvzeroupper",			MASK_VZEROUPPER },
+    { "-mavx256-split-unaligned-load",	MASK_AVX256_SPLIT_UNALIGNED_LOAD},
+    { "-mavx256-split-unaligned-store",	MASK_AVX256_SPLIT_UNALIGNED_STORE},
   };
 
   const char *opts[ARRAY_SIZE (isa_opts) + ARRAY_SIZE (flag_opts) + 6][2];
@@ -4274,11 +4276,18 @@ ix86_option_override_internal (bool main_args_p)
   if (TARGET_AVX)
     {
       /* When not optimize for size, enable vzeroupper optimization for
-	 TARGET_AVX with -fexpensive-optimizations.  */
-      if (!optimize_size
-	  && flag_expensive_optimizations
-	  && !(target_flags_explicit & MASK_VZEROUPPER))
-	target_flags |= MASK_VZEROUPPER;
+	 TARGET_AVX with -fexpensive-optimizations and split 32-byte
+	 AVX unaligned load/store.  */
+      if (!optimize_size)
+	{
+	  if (flag_expensive_optimizations
+	      && !(target_flags_explicit & MASK_VZEROUPPER))
+	    target_flags |= MASK_VZEROUPPER;
+	  if (!(target_flags_explicit & MASK_AVX256_SPLIT_UNALIGNED_LOAD))
+	    target_flags |= MASK_AVX256_SPLIT_UNALIGNED_LOAD;
+	  if (!(target_flags_explicit & MASK_AVX256_SPLIT_UNALIGNED_STORE))
+	    target_flags |= MASK_AVX256_SPLIT_UNALIGNED_STORE;
+	}
     }
   else 
     {
@@ -4347,8 +4356,8 @@ ix86_conditional_register_usage (void)
   if (j != INVALID_REGNUM)
     fixed_regs[j] = call_used_regs[j] = 1;
 
-  /* The MS_ABI changes the set of call-used registers.  */
-  if (TARGET_64BIT && ix86_cfun_abi () == MS_ABI)
+  /* The 64-bit MS_ABI changes the set of call-used registers.  */
+  if (TARGET_64BIT_MS_ABI)
     {
       call_used_regs[SI_REG] = 0;
       call_used_regs[DI_REG] = 0;
@@ -5607,11 +5616,18 @@ ix86_keep_aggregate_return_pointer (tree fntype)
 {
   tree attr;
 
-  attr = lookup_attribute ("callee_pop_aggregate_return",
-			   TYPE_ATTRIBUTES (fntype));
-  if (attr)
-    return (TREE_INT_CST_LOW (TREE_VALUE (TREE_VALUE (attr))) == 0);
+  if (!TARGET_64BIT)
+    {
+      attr = lookup_attribute ("callee_pop_aggregate_return",
+			       TYPE_ATTRIBUTES (fntype));
+      if (attr)
+	return (TREE_INT_CST_LOW (TREE_VALUE (TREE_VALUE (attr))) == 0);
 
+      /* For 32-bit MS-ABI the default is to keep aggregate
+         return pointer.  */
+      if (ix86_function_type_abi (fntype) == MS_ABI)
+	return true;
+    }
   return KEEP_AGGREGATE_RETURN_POINTER != 0;
 }
 
@@ -5748,7 +5764,7 @@ ix86_reg_parm_stack_space (const_tree fndecl)
     call_abi = ix86_function_abi (fndecl);
   else
     call_abi = ix86_function_type_abi (fndecl);
-  if (call_abi == MS_ABI)
+  if (TARGET_64BIT && call_abi == MS_ABI)
     return 32;
   return 0;
 }
@@ -5758,7 +5774,7 @@ ix86_reg_parm_stack_space (const_tree fndecl)
 enum calling_abi
 ix86_function_type_abi (const_tree fntype)
 {
-  if (TARGET_64BIT && fntype != NULL)
+  if (fntype != NULL)
     {
       enum calling_abi abi = ix86_abi;
       if (abi == SYSV_ABI)
@@ -5800,7 +5816,7 @@ ix86_function_abi (const_tree fndecl)
 enum calling_abi
 ix86_cfun_abi (void)
 {
-  if (! cfun || ! TARGET_64BIT)
+  if (! cfun)
     return ix86_abi;
   return cfun->machine->call_abi;
 }
@@ -5863,9 +5879,9 @@ ix86_call_abi_override (const_tree fndecl)
     cfun->machine->call_abi = ix86_function_type_abi (TREE_TYPE (fndecl));
 }
 
-/* MS and SYSV ABI have different set of call used registers.  Avoid expensive
-   re-initialization of init_regs each time we switch function context since
-   this is needed only during RTL expansion.  */
+/* 64-bit MS and SYSV ABI have different set of call used registers.  Avoid
+   expensive re-initialization of init_regs each time we switch function context
+   since this is needed only during RTL expansion.  */
 static void
 ix86_maybe_switch_abi (void)
 {
@@ -5931,7 +5947,7 @@ init_cumulative_args (CUMULATIVE_ARGS *cum,  /* Argument info to initialize */
 
   /* Set up the number of registers to use for passing arguments.  */
 
-  if (cum->call_abi == MS_ABI && !ACCUMULATE_OUTGOING_ARGS)
+  if (TARGET_64BIT && cum->call_abi == MS_ABI && !ACCUMULATE_OUTGOING_ARGS)
     sorry ("ms_abi attribute requires -maccumulate-outgoing-args "
 	   "or subtarget optimization implying it");
   cum->nregs = ix86_regparm;
@@ -8179,7 +8195,7 @@ ix86_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
     case V4DFmode:
     case V4DImode:
       /* Unnamed 256bit vector mode parameters are passed on stack.  */
-      if (ix86_cfun_abi () == SYSV_ABI)
+      if (!TARGET_64BIT_MS_ABI)
 	{
 	  container = NULL;
 	  break;
@@ -9095,7 +9111,7 @@ ix86_nsaved_sseregs (void)
   int nregs = 0;
   int regno;
 
-  if (ix86_cfun_abi () != MS_ABI)
+  if (!TARGET_64BIT_MS_ABI)
     return 0;
   for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
     if (SSE_REGNO_P (regno) && ix86_save_reg (regno, true))
@@ -9207,9 +9223,9 @@ ix86_compute_frame_layout (struct ix86_frame *frame)
   stack_alignment_needed = crtl->stack_alignment_needed / BITS_PER_UNIT;
   preferred_alignment = crtl->preferred_stack_boundary / BITS_PER_UNIT;
 
-  /* MS ABI seem to require stack alignment to be always 16 except for function
-     prologues and leaf.  */
-  if ((ix86_cfun_abi () == MS_ABI && preferred_alignment < 16)
+  /* 64-bit MS ABI seem to require stack alignment to be always 16 except for
+     function prologues and leaf.  */
+  if ((TARGET_64BIT_MS_ABI && preferred_alignment < 16)
       && (!current_function_is_leaf || cfun->calls_alloca != 0
           || ix86_current_function_calls_tls_descriptor))
     {
@@ -15581,6 +15597,57 @@ ix86_expand_vector_move (enum machine_mode mode, rtx operands[])
   emit_insn (gen_rtx_SET (VOIDmode, op0, op1));
 }
 
+/* Split 32-byte AVX unaligned load and store if needed.  */
+
+static void
+ix86_avx256_split_vector_move_misalign (rtx op0, rtx op1)
+{
+  rtx m;
+  rtx (*extract) (rtx, rtx, rtx);
+  rtx (*move_unaligned) (rtx, rtx);
+  enum machine_mode mode;
+
+  switch (GET_MODE (op0))
+    {
+    default:
+      gcc_unreachable ();
+    case V32QImode:
+      extract = gen_avx_vextractf128v32qi;
+      move_unaligned = gen_avx_movdqu256;
+      mode = V16QImode;
+      break;
+    case V8SFmode:
+      extract = gen_avx_vextractf128v8sf;
+      move_unaligned = gen_avx_movups256;
+      mode = V4SFmode;
+      break;
+    case V4DFmode:
+      extract = gen_avx_vextractf128v4df;
+      move_unaligned = gen_avx_movupd256;
+      mode = V2DFmode;
+      break;
+    }
+
+  if (MEM_P (op1) && TARGET_AVX256_SPLIT_UNALIGNED_LOAD)
+    {
+      rtx r = gen_reg_rtx (mode);
+      m = adjust_address (op1, mode, 0);
+      emit_move_insn (r, m);
+      m = adjust_address (op1, mode, 16);
+      r = gen_rtx_VEC_CONCAT (GET_MODE (op0), r, m);
+      emit_move_insn (op0, r);
+    }
+  else if (MEM_P (op0) && TARGET_AVX256_SPLIT_UNALIGNED_STORE)
+    {
+      m = adjust_address (op0, mode, 0);
+      emit_insn (extract (m, op1, const0_rtx));
+      m = adjust_address (op0, mode, 16);
+      emit_insn (extract (m, op1, const1_rtx));
+    }
+  else
+    emit_insn (move_unaligned (op0, op1));
+}
+
 /* Implement the movmisalign patterns for SSE.  Non-SSE modes go
    straight to ix86_expand_vector_move.  */
 /* Code generation for scalar reg-reg moves of single and double precision data:
@@ -15665,7 +15732,7 @@ ix86_expand_vector_move_misalign (enum machine_mode mode, rtx operands[])
 	    case 32:
 	      op0 = gen_lowpart (V32QImode, op0);
 	      op1 = gen_lowpart (V32QImode, op1);
-	      emit_insn (gen_avx_movdqu256 (op0, op1));
+	      ix86_avx256_split_vector_move_misalign (op0, op1);
 	      break;
 	    default:
 	      gcc_unreachable ();
@@ -15681,7 +15748,7 @@ ix86_expand_vector_move_misalign (enum machine_mode mode, rtx operands[])
 	      emit_insn (gen_avx_movups (op0, op1));
 	      break;
 	    case V8SFmode:
-	      emit_insn (gen_avx_movups256 (op0, op1));
+	      ix86_avx256_split_vector_move_misalign (op0, op1);
 	      break;
 	    case V2DFmode:
 	      if (TARGET_SSE_PACKED_SINGLE_INSN_OPTIMAL)
@@ -15694,7 +15761,7 @@ ix86_expand_vector_move_misalign (enum machine_mode mode, rtx operands[])
 	      emit_insn (gen_avx_movupd (op0, op1));
 	      break;
 	    case V4DFmode:
-	      emit_insn (gen_avx_movupd256 (op0, op1));
+	      ix86_avx256_split_vector_move_misalign (op0, op1);
 	      break;
 	    default:
 	      gcc_unreachable ();
@@ -21877,8 +21944,7 @@ ix86_expand_call (rtx retval, rtx fnaddr, rtx callarg1,
       pop = gen_rtx_SET (VOIDmode, stack_pointer_rtx, pop);
       call = gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, call, pop));
     }
-  if (TARGET_64BIT
-      && ix86_cfun_abi () == MS_ABI
+  if (TARGET_64BIT_MS_ABI
       && (!callarg2 || INTVAL (callarg2) != -2))
     {
       /* We need to represent that SI and DI registers are clobbered
@@ -28366,22 +28432,6 @@ ix86_free_from_memory (enum machine_mode mode)
 			      gen_rtx_PLUS (Pmode, stack_pointer_rtx,
 					    GEN_INT (size))));
     }
-}
-
-/* Implement TARGET_IRA_COVER_CLASSES.  If -mfpmath=sse, we prefer
-   SSE_REGS to FLOAT_REGS if their costs for a pseudo are the
-   same.  */
-static const reg_class_t *
-i386_ira_cover_classes (void)
-{
-  static const reg_class_t sse_fpmath_classes[] = {
-    GENERAL_REGS, SSE_REGS, MMX_REGS, FLOAT_REGS, LIM_REG_CLASSES
-  };
-  static const reg_class_t no_sse_fpmath_classes[] = {
-    GENERAL_REGS, FLOAT_REGS, MMX_REGS, SSE_REGS, LIM_REG_CLASSES
-  };
-
- return TARGET_SSE_MATH ? sse_fpmath_classes : no_sse_fpmath_classes;
 }
 
 /* Implement TARGET_PREFERRED_RELOAD_CLASS.
@@ -35282,9 +35332,6 @@ ix86_autovectorize_vector_sizes (void)
 
 #undef TARGET_LEGITIMATE_ADDRESS_P
 #define TARGET_LEGITIMATE_ADDRESS_P ix86_legitimate_address_p
-
-#undef TARGET_IRA_COVER_CLASSES
-#define TARGET_IRA_COVER_CLASSES i386_ira_cover_classes
 
 #undef TARGET_FRAME_POINTER_REQUIRED
 #define TARGET_FRAME_POINTER_REQUIRED ix86_frame_pointer_required

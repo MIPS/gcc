@@ -656,6 +656,23 @@ Parse::channel_type()
 	  this->advance_token();
 	}
     }
+
+  // Better error messages for the common error of omitting the
+  // channel element type.
+  if (!this->type_may_start_here())
+    {
+      token = this->peek_token();
+      if (token->is_op(OPERATOR_RCURLY))
+	error_at(this->location(), "unexpected %<}%> in channel type");
+      else if (token->is_op(OPERATOR_RPAREN))
+	error_at(this->location(), "unexpected %<)%> in channel type");
+      else if (token->is_op(OPERATOR_COMMA))
+	error_at(this->location(), "unexpected comma in channel type");
+      else
+	error_at(this->location(), "expected channel element type");
+      return Type::make_error_type();
+    }
+
   Type* element_type = this->type();
   return Type::make_channel_type(send, receive, element_type);
 }
@@ -2705,6 +2722,12 @@ Parse::primary_expr(bool may_be_sink, bool may_be_composite_lit,
 	  this->advance_token();
 	  Expression* expr = this->expression(PRECEDENCE_NORMAL, false, true,
 					      NULL);
+	  if (this->peek_token()->is_op(OPERATOR_ELLIPSIS))
+	    {
+	      error_at(this->location(),
+		       "invalid use of %<...%> in type conversion");
+	      this->advance_token();
+	    }
 	  if (!this->peek_token()->is_op(OPERATOR_RPAREN))
 	    error_at(this->location(), "expected %<)%>");
 	  else
@@ -3112,7 +3135,7 @@ Parse::unary_expr(bool may_be_sink, bool may_be_composite_lit,
 // LABEL is the label of this statement if it has one.
 
 void
-Parse::statement(const Label* label)
+Parse::statement(Label* label)
 {
   const Token* token = this->peek_token();
   switch (token->classification())
@@ -3130,7 +3153,7 @@ Parse::statement(const Label* label)
 	  case KEYWORD_MAP:
 	  case KEYWORD_STRUCT:
 	  case KEYWORD_INTERFACE:
-	    this->simple_stat(true, false, NULL, NULL);
+	    this->simple_stat(true, NULL, NULL, NULL);
 	    break;
 	  case KEYWORD_GO:
 	  case KEYWORD_DEFER:
@@ -3183,7 +3206,7 @@ Parse::statement(const Label* label)
 	    this->unget_token(Token::make_identifier_token(identifier,
 							   is_exported,
 							   location));
-	    this->simple_stat(true, false, NULL, NULL);
+	    this->simple_stat(true, NULL, NULL, NULL);
 	  }
       }
       break;
@@ -3198,14 +3221,14 @@ Parse::statement(const Label* label)
 				 location);
 	}
       else if (!token->is_op(OPERATOR_SEMICOLON))
-	this->simple_stat(true, false, NULL, NULL);
+	this->simple_stat(true, NULL, NULL, NULL);
       break;
 
     case Token::TOKEN_STRING:
     case Token::TOKEN_INTEGER:
     case Token::TOKEN_FLOAT:
     case Token::TOKEN_IMAGINARY:
-      this->simple_stat(true, false, NULL, NULL);
+      this->simple_stat(true, NULL, NULL, NULL);
       break;
 
     default:
@@ -3288,6 +3311,10 @@ Parse::labeled_stmt(const std::string& label_name, source_location location)
 
   if (!this->statement_may_start_here())
     {
+      // Mark the label as used to avoid a useless error about an
+      // unused label.
+      label->set_is_used();
+
       error_at(location, "missing statement after label");
       this->unget_token(Token::make_operator_token(OPERATOR_SEMICOLON,
 						   location));
@@ -3303,10 +3330,12 @@ Parse::labeled_stmt(const std::string& label_name, source_location location)
 // EmptyStmt was handled in Parse::statement.
 
 // In order to make this work for if and switch statements, if
-// RETURN_EXP is true, and we see an ExpressionStat, we return the
+// RETURN_EXP is not NULL, and we see an ExpressionStat, we return the
 // expression rather than adding an expression statement to the
 // current block.  If we see something other than an ExpressionStat,
-// we add the statement and return NULL.
+// we add the statement, set *RETURN_EXP to true if we saw a send
+// statement, and return NULL.  The handling of send statements is for
+// better error messages.
 
 // If P_RANGE_CLAUSE is not NULL, then this will recognize a
 // RangeClause.
@@ -3315,7 +3344,7 @@ Parse::labeled_stmt(const std::string& label_name, source_location location)
 // guard (var := expr.("type") using the literal keyword "type").
 
 Expression*
-Parse::simple_stat(bool may_be_composite_lit, bool return_exp,
+Parse::simple_stat(bool may_be_composite_lit, bool* return_exp,
 		   Range_clause* p_range_clause, Type_switch* p_type_switch)
 {
   const Token* token = this->peek_token();
@@ -3358,7 +3387,11 @@ Parse::simple_stat(bool may_be_composite_lit, bool return_exp,
     }
   token = this->peek_token();
   if (token->is_op(OPERATOR_CHANOP))
-    this->send_stmt(this->verify_not_sink(exp));
+    {
+      this->send_stmt(this->verify_not_sink(exp));
+      if (return_exp != NULL)
+	*return_exp = true;
+    }
   else if (token->is_op(OPERATOR_PLUSPLUS)
 	   || token->is_op(OPERATOR_MINUSMINUS))
     this->inc_dec_stat(this->verify_not_sink(exp));
@@ -3377,7 +3410,7 @@ Parse::simple_stat(bool may_be_composite_lit, bool return_exp,
 	   || token->is_op(OPERATOR_ANDEQ)
 	   || token->is_op(OPERATOR_BITCLEAREQ))
     this->assignment(this->verify_not_sink(exp), p_range_clause);
-  else if (return_exp)
+  else if (return_exp != NULL)
     return this->verify_not_sink(exp);
   else
     this->expression_stat(this->verify_not_sink(exp));
@@ -3716,9 +3749,14 @@ Parse::if_stat()
 
   this->gogo_->start_block(location);
 
+  bool saw_simple_stat = false;
   Expression* cond = NULL;
+  bool saw_send_stmt;
   if (this->simple_stat_may_start_here())
-    cond = this->simple_stat(false, true, NULL, NULL);
+    {
+      cond = this->simple_stat(false, &saw_send_stmt, NULL, NULL);
+      saw_simple_stat = true;
+    }
   if (cond != NULL && this->peek_token()->is_op(OPERATOR_SEMICOLON))
     {
       // The SimpleStat is an expression statement.
@@ -3729,7 +3767,26 @@ Parse::if_stat()
     {
       if (this->peek_token()->is_op(OPERATOR_SEMICOLON))
 	this->advance_token();
-      cond = this->expression(PRECEDENCE_NORMAL, false, false, NULL);
+      else if (saw_simple_stat)
+	{
+	  if (saw_send_stmt)
+	    error_at(this->location(),
+		     ("send statement used as value; "
+		      "use select for non-blocking send"));
+	  else
+	    error_at(this->location(),
+		     "expected %<;%> after statement in if expression");
+	  if (!this->expression_may_start_here())
+	    cond = Expression::make_error(this->location());
+	}
+      if (cond == NULL && this->peek_token()->is_op(OPERATOR_LCURLY))
+	{
+	  error_at(this->location(),
+		   "missing condition in if statement");
+	  cond = Expression::make_error(this->location());
+	}
+      if (cond == NULL)
+	cond = this->expression(PRECEDENCE_NORMAL, false, false, NULL);
     }
 
   this->gogo_->start_block(this->location());
@@ -3774,7 +3831,7 @@ Parse::if_stat()
 // TypeSwitchGuard = [ identifier ":=" ] Expression "." "(" "type" ")" .
 
 void
-Parse::switch_stat(const Label* label)
+Parse::switch_stat(Label* label)
 {
   gcc_assert(this->peek_token()->is_keyword(KEYWORD_SWITCH));
   source_location location = this->location();
@@ -3782,10 +3839,16 @@ Parse::switch_stat(const Label* label)
 
   this->gogo_->start_block(location);
 
+  bool saw_simple_stat = false;
   Expression* switch_val = NULL;
+  bool saw_send_stmt;
   Type_switch type_switch;
   if (this->simple_stat_may_start_here())
-    switch_val = this->simple_stat(false, true, NULL, &type_switch);
+    {
+      switch_val = this->simple_stat(false, &saw_send_stmt, NULL,
+				     &type_switch);
+      saw_simple_stat = true;
+    }
   if (switch_val != NULL && this->peek_token()->is_op(OPERATOR_SEMICOLON))
     {
       // The SimpleStat is an expression statement.
@@ -3796,6 +3859,16 @@ Parse::switch_stat(const Label* label)
     {
       if (this->peek_token()->is_op(OPERATOR_SEMICOLON))
 	this->advance_token();
+      else if (saw_simple_stat)
+	{
+	  if (saw_send_stmt)
+	    error_at(this->location(),
+		     ("send statement used as value; "
+		      "use select for non-blocking send"));
+	  else
+	    error_at(this->location(),
+		     "expected %<;%> after statement in switch expression");
+	}
       if (!this->peek_token()->is_op(OPERATOR_LCURLY))
 	{
 	  if (this->peek_token()->is_identifier())
@@ -3813,7 +3886,7 @@ Parse::switch_stat(const Label* label)
 	      if (is_coloneq)
 		{
 		  // This must be a TypeSwitchGuard.
-		  switch_val = this->simple_stat(false, true, NULL,
+		  switch_val = this->simple_stat(false, &saw_send_stmt, NULL,
 						 &type_switch);
 		  if (!type_switch.found)
 		    {
@@ -3846,6 +3919,19 @@ Parse::switch_stat(const Label* label)
       if (this->peek_token()->is_op(OPERATOR_SEMICOLON)
 	  && this->advance_token()->is_op(OPERATOR_LCURLY))
 	error_at(token_loc, "unexpected semicolon or newline before %<{%>");
+      else if (this->peek_token()->is_op(OPERATOR_COLONEQ))
+	{
+	  error_at(token_loc, "invalid variable name");
+	  this->advance_token();
+	  this->expression(PRECEDENCE_NORMAL, false, false,
+			   &type_switch.found);
+	  if (this->peek_token()->is_op(OPERATOR_SEMICOLON))
+	    this->advance_token();
+	  if (!this->peek_token()->is_op(OPERATOR_LCURLY))
+	    return;
+	  if (type_switch.found)
+	    type_switch.expr = Expression::make_error(location);
+	}
       else
 	{
 	  error_at(this->location(), "expected %<{%>");
@@ -3873,7 +3959,7 @@ Parse::switch_stat(const Label* label)
 //   "{" { ExprCaseClause } "}"
 
 Statement*
-Parse::expr_switch_body(const Label* label, Expression* switch_val,
+Parse::expr_switch_body(Label* label, Expression* switch_val,
 			source_location location)
 {
   Switch_statement* statement = Statement::make_switch_statement(switch_val,
@@ -3983,7 +4069,7 @@ Parse::expr_switch_case(bool* is_default)
 //   "{" { TypeCaseClause } "}" .
 
 Statement*
-Parse::type_switch_body(const Label* label, const Type_switch& type_switch,
+Parse::type_switch_body(Label* label, const Type_switch& type_switch,
 			source_location location)
 {
   Named_object* switch_no = NULL;
@@ -4127,7 +4213,7 @@ Parse::type_switch_case(std::vector<Type*>* types, bool* is_default)
 // SelectStat = "select" "{" { CommClause } "}" .
 
 void
-Parse::select_stat(const Label* label)
+Parse::select_stat(Label* label)
 {
   gcc_assert(this->peek_token()->is_keyword(KEYWORD_SELECT));
   source_location location = this->location();
@@ -4371,16 +4457,24 @@ Parse::send_or_recv_stmt(bool* is_send, Expression** channel, Expression** val,
   // send or receive expression.  If SAW_COMMA is true, then *VAL is
   // set and we just read a comma.
 
-  if (!saw_comma && this->peek_token()->is_op(OPERATOR_CHANOP))
+  Expression* e;
+  if (saw_comma || !this->peek_token()->is_op(OPERATOR_CHANOP))
+    e = this->expression(PRECEDENCE_NORMAL, true, true, NULL);
+  else
     {
       // case <-c:
       *is_send = false;
       this->advance_token();
       *channel = this->expression(PRECEDENCE_NORMAL, false, true, NULL);
-      return true;
-    }
 
-  Expression* e = this->expression(PRECEDENCE_NORMAL, true, true, NULL);
+      // The next token should be ':'.  If it is '<-', then we have
+      // case <-c <- v:
+      // which is to say, send on a channel received from a channel.
+      if (!this->peek_token()->is_op(OPERATOR_CHANOP))
+	return true;
+
+      e = Expression::make_receive(*channel, (*channel)->location());
+    }
 
   if (this->peek_token()->is_op(OPERATOR_EQ))
     {
@@ -4435,7 +4529,7 @@ Parse::send_or_recv_stmt(bool* is_send, Expression** channel, Expression** val,
 // Condition = Expression .
 
 void
-Parse::for_stat(const Label* label)
+Parse::for_stat(Label* label)
 {
   gcc_assert(this->peek_token()->is_keyword(KEYWORD_FOR));
   source_location location = this->location();
@@ -4465,11 +4559,19 @@ Parse::for_stat(const Label* label)
 	{
 	  // We might be looking at a Condition, an InitStat, or a
 	  // RangeClause.
-	  cond = this->simple_stat(false, true, &range_clause, NULL);
+	  bool saw_send_stmt;
+	  cond = this->simple_stat(false, &saw_send_stmt, &range_clause, NULL);
 	  if (!this->peek_token()->is_op(OPERATOR_SEMICOLON))
 	    {
 	      if (cond == NULL && !range_clause.found)
-		error_at(this->location(), "parse error in for statement");
+		{
+		  if (saw_send_stmt)
+		    error_at(this->location(),
+			     ("send statement used as value; "
+			      "use select for non-blocking send"));
+		  else
+		    error_at(this->location(), "parse error in for statement");
+		}
 	    }
 	  else
 	    {
@@ -4573,7 +4675,7 @@ Parse::for_clause(Expression** cond, Block** post)
   else
     {
       this->gogo_->start_block(this->location());
-      this->simple_stat(false, false, NULL, NULL);
+      this->simple_stat(false, NULL, NULL, NULL);
       *post = this->gogo_->finish_block(this->location());
     }
 }
@@ -4654,7 +4756,7 @@ Parse::range_clause_expr(const Expression_list* vals,
 // Push a statement on the break stack.
 
 void
-Parse::push_break_statement(Statement* enclosing, const Label* label)
+Parse::push_break_statement(Statement* enclosing, Label* label)
 {
   if (this->break_stack_ == NULL)
     this->break_stack_ = new Bc_stack();
@@ -4664,7 +4766,7 @@ Parse::push_break_statement(Statement* enclosing, const Label* label)
 // Push a statement on the continue stack.
 
 void
-Parse::push_continue_statement(Statement* enclosing, const Label* label)
+Parse::push_continue_statement(Statement* enclosing, Label* label)
 {
   if (this->continue_stack_ == NULL)
     this->continue_stack_ = new Bc_stack();
@@ -4697,8 +4799,13 @@ Parse::find_bc_statement(const Bc_stack* bc_stack, const std::string& label)
   for (Bc_stack::const_reverse_iterator p = bc_stack->rbegin();
        p != bc_stack->rend();
        ++p)
-    if (p->second != NULL && p->second->name() == label)
-      return p->first;
+    {
+      if (p->second != NULL && p->second->name() == label)
+	{
+	  p->second->set_is_used();
+	  return p->first;
+	}
+    }
   return NULL;
 }
 
@@ -4728,9 +4835,11 @@ Parse::break_stat()
 					  token->identifier());
       if (enclosing == NULL)
 	{
-	  error_at(token->location(),
-		   ("break label %qs not associated with "
-		    "for or switch or select"),
+	  // If there is a label with this name, mark it as used to
+	  // avoid a useless error about an unused label.
+	  this->gogo_->add_label_reference(token->identifier());
+
+	  error_at(token->location(), "invalid break label %qs",
 		   Gogo::message_name(token->identifier()).c_str());
 	  this->advance_token();
 	  return;
@@ -4781,8 +4890,11 @@ Parse::continue_stat()
 					  token->identifier());
       if (enclosing == NULL)
 	{
-	  error_at(token->location(),
-		   "continue label %qs not associated with for",
+	  // If there is a label with this name, mark it as used to
+	  // avoid a useless error about an unused label.
+	  this->gogo_->add_label_reference(token->identifier());
+
+	  error_at(token->location(), "invalid continue label %qs",
 		   Gogo::message_name(token->identifier()).c_str());
 	  this->advance_token();
 	  return;
@@ -4947,8 +5059,13 @@ Parse::program()
 	token = this->advance_token();
       else if (!token->is_eof() || !saw_errors())
 	{
-	  error_at(this->location(),
-		   "expected %<;%> or newline after top level declaration");
+	  if (token->is_op(OPERATOR_CHANOP))
+	    error_at(this->location(),
+		     ("send statement used as value; "
+		      "use select for non-blocking send"));
+	  else
+	    error_at(this->location(),
+		     "expected %<;%> or newline after top level declaration");
 	  this->skip_past_error(OPERATOR_INVALID);
 	}
     }

@@ -1,3 +1,165 @@
+2011-03-29  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/constexpr-memfn1.C: New.
+
+	* g++.dg/cpp0x/constexpr-diag1.C: Adjust error locations.
+
+2011-03-29  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/48095
+	* gfortran.dg/module_md5_1.f90: Modified MD5 sum.
+	* gfortran.dg/proc_ptr_comp_32.f90: New.
+
+2011-03-29  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	* gfortran.dg/function_optimize_1.f90:  Add -Warray-temporaries,
+	check for corresponding warning.
+
+2011-03-28  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/rv-deduce2.C: New.
+
+2011-03-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/48203
+	* gcc.dg/pr48203.c: New test.
+
+2011-03-28  Jeff Law <law@redhat.com>
+
+	* gcc.dg/tree-ssa/ssa-dom-thread-3.c: New test.
+
+2011-03-28  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* gcc.dg/stack-usage-1.c (SIZE): Provide proper values for __PPC64__
+	and __PPC__ && __ALTIVEC__.
+
+2011-03-28  Dominique d'Humieres  <dominiq@lps.ens.fr>
+
+	PR testsuite/48238
+	* gcc.dg/debug/dwarf2/pr47939-1.c: Generalize scan-assembler regex.
+	* gcc.dg/debug/dwarf2/pr47939-2.c: Likewise.
+	* gcc.dg/debug/dwarf2/pr47939-3.c: Likewise.
+	* gcc.dg/debug/dwarf2/pr47939-4.c: Likewise.
+
+2011-03-28  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/initlist-array2.C: New.
+
+	* g++.dg/cpp0x/initlist-array1.C: New.
+
+	* g++.dg/cpp0x/constexpr-compound.C: New.
+
+	* g++.dg/cpp0x/constexpr-using.C: New.
+
+	* g++.dg/cpp0x/constexpr-noexcept.C: New.
+
+2011-03-28  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR testsuite/48276
+	* gcc.target/i386/pr47502-2.c: Add -fno-pic.
+
+2011-03-28  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/slp-1.c: New test.
+
+2011-03-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.target/i386/avx256-unaligned-load-1.c: New.
+	* gcc.target/i386/avx256-unaligned-load-2.c: Likewise.
+	* gcc.target/i386/avx256-unaligned-load-3.c: Likewise.
+	* gcc.target/i386/avx256-unaligned-load-4.c: Likewise.
+	* gcc.target/i386/avx256-unaligned-load-5.c: Likewise.
+	* gcc.target/i386/avx256-unaligned-load-6.c: Likewise.
+	* gcc.target/i386/avx256-unaligned-load-7.c: Likewise.
+	* gcc.target/i386/avx256-unaligned-store-1.c: Likewise.
+	* gcc.target/i386/avx256-unaligned-store-2.c: Likewise.
+	* gcc.target/i386/avx256-unaligned-store-3.c: Likewise.
+	* gcc.target/i386/avx256-unaligned-store-4.c: Likewise.
+	* gcc.target/i386/avx256-unaligned-store-5.c: Likewise.
+	* gcc.target/i386/avx256-unaligned-store-6.c: Likewise.
+	* gcc.target/i386/avx256-unaligned-store-7.c: Likewise.
+
+2011-03-27  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/47065
+	* gfortran.dg/trim_optimize_5.f90:  New test.
+	* gfortran.dg/trim_optimize_6.f90:  New test.
+
+2011-03-27  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	PR target/38598
+	* gcc.target/mips/madd-7.c: Remove -mlong32.
+	* gcc.target/mips/msub-7.c: Likewise.
+
+2011-03-27  Ira Rosen  <ira.rosen@linaro.org>
+
+	* gcc.dg/vect/vect-outer-5.c: Reduce the distance between data
+	accesses to preserve the meaning of the test for doubleword vectors.
+	* gcc.dg/vect/no-vfa-pr29145.c: Likewise.
+	* gcc.dg/vect/slp-3.c: Reduce the loop bound for the same reason.
+
+2011-03-26  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/48291
+	* gfortran.dg/class_42.f03: New.
+
+2011-03-26  Ira Rosen  <ira.rosen@linaro.org>
+
+	* gcc.dg/vect/vect-cselim-1.c: Fail on targets that don't support
+	strided accesses.
+
+2011-03-26  Andrey Belevantsev  <abel@ispras.ru>
+
+	PR rtl-optimization/48144
+	* gcc.dg/pr48144.c: New test.
+
+2011-03-26  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/discr27.ad[sb]: New test.
+
+2011-03-26  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/limited_with2.ad[sb]: New test.
+	* gnat.dg/limited_with2_pkg1.ads: New helper.
+	* gnat.dg/limited_with2_pkg2.ads: Likewise.
+
+2011-03-26  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/opt15.adb: New test.
+	* gnat.dg/opt15_pkg.ad[sb]: New helper.
+
+2011-03-25  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/48174
+	PR fortran/45304
+	* gfortran.dg/ishft_4.f90: Adapt scan-tree-dump-times.
+	* gfortran.dg/leadz_trailz_3.f90: Ditto
+
+2011-03-25  Martin Jambor  <mjambor@suse.cz>
+
+	* gcc.c-torture/compile/pr44686.c: Do not explicitely specify -O2.
+
+2011-03-25  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/defaulted22.C: New.
+	* g++.dg/cpp0x/defaulted23.C: New.
+	* g++.dg/cpp0x/defaulted15.C: Adjust.
+
+2011-03-25  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/move1.C: New.
+
+2011-03-25  Ira Rosen  <ira.rosen@linaro.org>
+
+	PR target/48287
+	* gcc.dg/vect/vect-cselim-1.c: Fail for vect_no_align.
+
+2011-03-25  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc.dg/torture/pr47917.c: Add -D_XOPEN_SOURCE=500 to dg-options
+	for mips-sgi-irix6.5.
+	Replace snprintf prototype by <stdio.h>.
+
 2011-03-25  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
 
 	PR testsuite/48283

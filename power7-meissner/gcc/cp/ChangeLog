@@ -1,3 +1,61 @@
+2011-03-29  Jason Merrill  <jason@redhat.com>
+
+	PR c++/48296
+	* decl.c (cp_finish_decl): Defer validation of constexpr member
+	functions.
+	* class.c (finalize_literal_type_property): Validate them here.
+	* semantics.c (is_valid_constexpr_fn): Don't check completeness.
+
+	* semantics.c (is_valid_constexpr_fn): Specify input location.
+
+2011-03-28  Jason Merrill  <jason@redhat.com>
+
+	PR c++/48313
+	* pt.c (maybe_adjust_types_for_deduction): Handle T&& deduction
+	from overloaded function.
+
+	Core 1232
+	* call.c (build_array_conv): New.
+	(implicit_conversion): Use it.
+
+	* call.c (reference_binding): Allow direct binding to an array
+	rvalue.
+
+	Core 898
+	* parser.c (cp_parser_compound_statement): Add function_body parm.
+	Complain about non-body compound-stmt in constexpr fn.
+	(cp_parser_primary_expression, cp_parser_statement): Adjust.
+	(cp_parser_implicitly_scoped_statement): Adjust.
+	(cp_parser_function_body, cp_parser_try_block): Adjust.
+	(cp_parser_handler, cp_parser_objc_synchronized_statement): Adjust.
+	(cp_parser_objc_try_catch_finally_statement): Adjust.
+
+	Core 898
+	* semantics.c (constexpr_fn_retval): New.  Allow using-declaration
+	and using-definition.
+	(register_constexpr_fundef): Call it.
+
+	* except.c (build_noexcept_spec): Call cxx_constant_value after
+	converting to bool.
+
+2011-03-25  Kai Tietz  <ktietz@redhat.com>
+
+	* lex.c (interface_strcmp): Handle dos-paths.
+	(handle_pragma_implementation): Use filename_cmp instead of
+	strcmp.
+	(in_main_input_context): Likewise.
+
+2011-03-25  Jason Merrill  <jason@redhat.com>
+
+	Core 1135
+	* method.c (defaulted_late_check): Check for exception spec mismatch.
+	(defaultable_fn_check): Allow exception spec and virtual.
+	* class.c (check_for_override): A virtual dtor is non-trivial.
+
+	PR c++/48289
+	* pt.c (build_non_dependent_expr): Keep dereferences outside the
+	NON_DEPENDENT_EXPR.
+
 2011-03-25  Kai Tietz  <ktietz@redhat.com>
 
 	* decl.c (decls_match): Replace target hook
