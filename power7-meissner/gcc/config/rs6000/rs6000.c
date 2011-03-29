@@ -2048,16 +2048,8 @@ rs6000_debug_reg_print (int first_regno, int last_regno, const char *reg_name)
 static void
 rs6000_debug_reg_global (void)
 {
-  static const char *const tf[2] = { "false", "true" };
   const char *nl = (const char *)0;
   int m;
-  char costly_num[20];
-  char nop_num[20];
-  const char *costly_str;
-  const char *nop_str;
-  const char *trace_str;
-  const char *abi_str;
-  const char *cmodel_str;
 
   /* Map enum rs6000_vector to string.  */
   static const char *rs6000_debug_vector_unit[] = {
@@ -2115,6 +2107,22 @@ rs6000_debug_reg_global (void)
 
   if (nl)
     fputs (nl, stderr);
+}
+
+/* Print various interesting information with -mdebug=info.  */
+static void
+rs6000_debug_info (void)
+{
+  static const char *const tf[2] = { "false", "true" };
+  const struct processor_costs *c = rs6000_cost;
+  char costly_num[20];
+  char nop_num[20];
+  const char *costly_str;
+  const char *nop_str;
+  const char *trace_str;
+  const char *abi_str;
+  const char *cmodel_str;
+  int m;
 
   if (rs6000_recip_control)
     {
@@ -2269,6 +2277,34 @@ rs6000_debug_reg_global (void)
 	   rs6000_long_double_type_size);
   fprintf (stderr, DEBUG_FMT_D, "sched_restricted_insns_priority",
 	   (int)rs6000_sched_restricted_insns_priority);
+  fprintf (stderr, DEBUG_FMT_D, "prefetch_latency",
+	   (int) PREFETCH_LATENCY);
+  fprintf (stderr, DEBUG_FMT_D, "simultaneous_prefetches",
+	   (int) SIMULTANEOUS_PREFETCHES);
+  fprintf (stderr, DEBUG_FMT_D, "l1_cache_size",
+	   (int) L1_CACHE_SIZE);
+  fprintf (stderr, DEBUG_FMT_D, "l1_cache_line_size",
+	   (int) L1_CACHE_LINE_SIZE);
+  fprintf (stderr, DEBUG_FMT_D, "l2_cache_size",
+	   (int) L2_CACHE_SIZE);
+  fprintf (stderr, DEBUG_FMT_D, "min_insn_to_prefetch_ratio",
+	   (int) MIN_INSN_TO_PREFETCH_RATIO);
+  fprintf (stderr, DEBUG_FMT_D, "prefetch_min_insn_to_mem_ratio",
+	   (int) PREFETCH_MIN_INSN_TO_MEM_RATIO);
+  fprintf (stderr, DEBUG_FMT_D, "max_stores_to_sink",
+	   (int) MAX_STORES_TO_SINK);
+  fprintf (stderr, DEBUG_FMT_D, "SImode variable mult cost", c->mulsi);
+  fprintf (stderr, DEBUG_FMT_D, "SImode constant mult cost", c->mulsi_const);
+  fprintf (stderr, DEBUG_FMT_D, "SImode short constant mult cost",
+	   c->mulsi_const9);
+  fprintf (stderr, DEBUG_FMT_D, "DImode variable mult cost", c->muldi);
+  fprintf (stderr, DEBUG_FMT_D, "SImode division cost", c->divsi);
+  fprintf (stderr, DEBUG_FMT_D, "DImode division cost", c->divdi);
+  fprintf (stderr, DEBUG_FMT_D, "Simple fp operation cost", c->fp);
+  fprintf (stderr, DEBUG_FMT_D, "DFmode multiplication cost", c->dmul);
+  fprintf (stderr, DEBUG_FMT_D, "SFmode division cost", c->sdiv);
+  fprintf (stderr, DEBUG_FMT_D, "DFmode division cost", c->ddiv);
+  fprintf (stderr, "\n");
 }
 
 /* Initialize the various global tables that are based on register size.  */
@@ -2571,37 +2607,8 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
       if (TARGET_DEBUG_REG)
 	rs6000_debug_reg_global ();
 
-      if (TARGET_DEBUG_COST || TARGET_DEBUG_REG)
-	fprintf (stderr,
-		 "SImode variable mult cost       = %d\n"
-		 "SImode constant mult cost       = %d\n"
-		 "SImode short constant mult cost = %d\n"
-		 "DImode multipliciation cost     = %d\n"
-		 "SImode division cost            = %d\n"
-		 "DImode division cost            = %d\n"
-		 "Simple fp operation cost        = %d\n"
-		 "DFmode multiplication cost      = %d\n"
-		 "SFmode division cost            = %d\n"
-		 "DFmode division cost            = %d\n"
-		 "cache line size                 = %d\n"
-		 "l1 cache size                   = %d\n"
-		 "l2 cache size                   = %d\n"
-		 "simultaneous prefetches         = %d\n"
-		 "\n",
-		 rs6000_cost->mulsi,
-		 rs6000_cost->mulsi_const,
-		 rs6000_cost->mulsi_const9,
-		 rs6000_cost->muldi,
-		 rs6000_cost->divsi,
-		 rs6000_cost->divdi,
-		 rs6000_cost->fp,
-		 rs6000_cost->dmul,
-		 rs6000_cost->sdiv,
-		 rs6000_cost->ddiv,
-		 rs6000_cost->cache_line_size,
-		 rs6000_cost->l1_cache_size,
-		 rs6000_cost->l2_cache_size,
-		 rs6000_cost->simultaneous_prefetches);
+      if (TARGET_DEBUG_COST || TARGET_DEBUG_REG || TARGET_DEBUG_INFO)
+	rs6000_debug_info ();
     }
 }
 
@@ -4394,6 +4401,8 @@ rs6000_handle_option (struct gcc_options *opts, struct gcc_options *opts_set,
 	    mask = MASK_DEBUG_COST;
 	  else if (! strcmp (q, "target"))
 	    mask = MASK_DEBUG_TARGET;
+	  else if (! strcmp (q, "info"))
+	    mask = MASK_DEBUG_INFO;
 	  else
 	    error ("unknown -mdebug-%s switch", q);
 

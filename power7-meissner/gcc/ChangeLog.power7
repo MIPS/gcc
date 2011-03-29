@@ -1,3 +1,19 @@
+2011-03-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.h (TARGET_DEBUG_INFO): New -mdebug=info
+	option.
+
+	* config/rs6000/rs6000.c (rs6000_debug_reg_global): Move the
+	non-register debug printfs to rs6000_debug_info.  Add support for
+	printing the prefetch parameters.
+	(rs6000_debug_info): Ditto.
+	(rs6000_handle_option): Add support for -mdebug=info.
+	(rs6000_init_hard_regno_mode_ok): Move printf into
+	rs6000_debug_info, and call it for -mdebug={cost,reg,info}.
+
+	Merge up to 171675.
+	* REVISION: Update subversion id.
+
 2011-03-25  Andrew Pinski  <pinskia@gmail.com>
 	    Michael Meissner  <meissner@linux.vnet.ibm.com>
 
