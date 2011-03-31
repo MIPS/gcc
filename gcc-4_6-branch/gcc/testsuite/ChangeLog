@@ -1,3 +1,52 @@
+2011-03-30  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/regress/error-recovery1.C: New.
+
+	* g++.dg/cpp0x/regress/isnan.C: New.
+
+	* g++.dg/cpp0x/initlist46.C: New.
+
+2011-03-29  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/regress/value-dep1.C: New.
+
+	* g++.dg/cpp0x/dependent1.C: New.
+
+2011-03-29  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/parse/memfnquals1.C: New.
+
+	* g++.dg/cpp0x/constexpr-memfn1.C: New.
+
+	* g++.dg/cpp0x/constexpr-diag1.C: Adjust error locations.
+
+	* g++.dg/cpp0x/initlist-array2.C: New.
+
+	* g++.dg/cpp0x/initlist-array1.C: New.
+
+	* g++.dg/cpp0x/move1.C: New.
+
+	* g++.dg/cpp0x/auto22.C: New.
+
+	* g++.dg/cpp0x/rv-deduce2.C: New.
+
+	* g++.dg/cpp0x/elision2.C: New.
+
+2011-03-29  Rodrigo Rivas Costa  <rodrigorivascosta@gmail.com>
+
+       * g++.dg/cpp0x/constexpr-attribute.C: New.
+
+2011-03-29  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/constexpr-recursion.C: New.
+
+	* g++.dg/cpp0x/constexpr-noexcept.C: New.
+
+	* g++.dg/cpp0x/constexpr-overflow2.C: New.
+	* g++.dg/cpp0x/constexpr-data2.C: Remove FIXME.
+
+	* g++.dg/cpp0x/constexpr-47570.C: New.
+
 2011-03-28  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
 
 	Backport from mainline:
