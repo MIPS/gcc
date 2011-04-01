@@ -1,3 +1,654 @@
+2011-04-01  Naveen H.S  <naveen.S@kpitcummins.com>
+
+	* config/h8300/h8300.c (print_operand_address): Rename to...
+	(h8300_print_operand_address): ...this. Make static. Adjust comments.
+	Call h8300_print_operand and h8300_print_operand_address instead of
+	print_operand and print_operand_address. Declare.
+	(print_operand): Renake to...
+	(h8300_print_operand): ...this. Make static. Adjust comments.
+	Call h8300_print_operand instead of print_operand. Declare.
+	(h8300_print_operand_punct_valid_p): Moved from h8300.h file.
+	(h8300_register_move_cost): Likewise.
+	(TARGET_PRINT_OPERAND_PUNCT_VALID_P, TARGET_PRINT_OPERAND
+	TARGET_PRINT_OPERAND_ADDRESS, TARGET_REGISTER_MOVE_COST): Define.
+	* config/h8300/h8300.h (PRINT_OPERAND_ADDRESS, PRINT_OPERAND
+	PRINT_OPERAND_PUNCT_VALID_P, REGISTER_MOVE_COST): Delete.
+	* config/h8300/h8300-protos.h (print_operand): Delete.
+	(print_operand_address): Delete.
+
+2011-04-01  Richard Henderson  <rth@redhat.com>
+
+	PR 48400
+	* dwarf2out.c (dwarf2out_source_line): Disable discriminators
+	in strict mode before dwarf4.  Re-order tests to early out
+	before switching sections.
+
+2011-04-01  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* config/h8300/constraints.md: New file.
+	* config/h8300/h8300.md: Include it.  Use satisfies_constraint_J,
+	satisfies_constraint_L, and satisfies_constraint_N for peephole2s.
+	(*tst_extzv_1_n, *tstsi_variable_bit_qi): Use satisfies_constraint_U.
+	* config/h8300/predicates.md (bit_operand): Likewise.
+	(incdec_operand): Use satisfies_constraint_M and
+	satisfies_constraint_O.  Don't use C code block.
+	* config/h8300/h8300-protos.h (h8300_reg_class_from_letter): Delete.
+	* config/h8300/h8300.c (h8300_reg_class_from_letter): Delete.
+	(compute_mov_length): Use satisfies_constraint_G.
+	(fix_bit_operand): Use satisfies_constraint_U.
+	* config/h8300/h8300.h (REG_CLASS_FROM_LETTER): Delete.
+	(CONST_OK_FOR_I, CONST_OK_FOR_J, CONST_OK_FOR_L): Delete.
+	(CONST_OK_FOR_M, CONST_OK_FOR_N, CONST_OK_FOR_O): Delete.
+	(CONST_OK_FOR_Ppositive, CONST_OK_FOR_Pnegative): Delete.
+	(CONST_OK_FOR_P, CONSTRAINT_LEN_FOR_P): Delete.
+	(CONST_OK_FOR_CONSTRAINT_P, CONST_OK_FOR_LETTER_P): Delete.
+	(CONST_DOUBLE_OK_FOR_LETTER_P): Delete.
+	(OK_FOR_Q, OK_FOR_R, OK_FOR_S, OK_FOR_T, OK_FOR_U, OK_FOR_WU): Delete.
+	(OK_FOR_W, CONSTRAINT_LEN_FOR_W, OK_FOR_Y2, OK_FOR_Y0): Delete.
+	(OK_FOR_Y, CONSTRAINT_LEN_FOR_Y, OK_FOR_Z): Delete.
+	(EXTRA_CONSTRAINT_STR, CONSTRAINT_LEN): Delete.
+	(EXTRA_MEMORY_CONSTRAINT): Delete.
+
+2011-04-01  Andrew Pinski  <pinskia@gmail.com>
+	    Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/48262
+	* config/rs6000/vector.md (movmisalign<mode>): Allow for memory
+	operands, as per the specifications.
+
+	* config/rs6000/altivec.md (vec_extract_evenv4si): Correct modes.
+	(vec_extract_evenv4sf): Ditto.
+	(vec_extract_evenv8hi): Ditto.
+	(vec_extract_evenv16qi): Ditto.
+	(vec_extract_oddv4si): Ditto.
+
+2011-03-31  Mark Wielaard  <mjw@redhat.com>
+
+	* dwarf2out.c (dwarf2out_finish): Don't add low_pc and/or
+	high_pc attribute if the CU has no associated code. Only output
+	DW_AT_entry_pc for CU if not generating strict dwarf and
+	dwarf_version < 4.
+
+2011-04-01  Bernd Schmidt  <bernds@codesourcery.com>
+
+	* dwarf2out.h (dwarf2out_frame_debug_init): Declare.
+	* dwarf2out.c (dwarf2out_frame_debug_init): New function, broken
+	out of ...
+	(dwarf2out_frame_debug): ... here. Don't handle a NULL argument.
+	* final.c (final_start_function): Call the new function rather
+	than using a NULL argument for dwarf2out_frame_debug.
+
+	* ifcvt.c (cond_exec_process_insns): Disallow converting a block
+	that contains the prologue.
+
+	* haifa-sched.c (queue_insn): New arg REASON.  All callers
+	changed.  Print it in debugging output.
+
+	* sched-ebb.c (schedule_ebbs): Honor the BB_DISABLE_SCHEDULE flag.
+
+	* sched-ebb.c (begin_schedule_ready): Remove second argument.
+	Split most of the code into...
+	(begin_move_insn): ... here.  New function.
+	(ebb_sched_info): Add a pointer to it.
+	* haifa-sched.c (scheduled_insns): New static variable.
+	(sched_extend_ready_list): Allocate it.
+	(schedule_block): Use it to record the order of scheduled insns.
+	Perform RTL changes to move insns only after all scheduling
+	decisions have been made.
+	* modulo-sched.c (sms_sched_haifa_sched_info): Add NULL entry for the
+	begin_move_insn field.
+	* sel-sched-ir.c (sched_sel_haifa_sched_info): Likewise.
+	* sched-int.h (struct haifa_sched_info): Remove second argument
+	from begin_schedule_ready hook.  Add new member begin_move_insn.
+	* sched-rgn.c (begin_schedule_ready): Remove second argument.
+	(rgn_const_sched_info): Add NULL entry for the begin_move_insn field.
+
+	* haifa-sched.c (prune_ready_list): New function, broken out of
+	schedule_block.
+	(schedule_block): Use it.
+
+2011-04-01  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/spu/t-spu-elf (dp-bit.c): Use > instead of >>.
+
+2011-04-01  Kai Tietz  <ktietz@redhat.com>
+
+	* config.gcc (*-*-mingw*): Allow as option the
+	posix threading model.
+	* config/i386/mingw32.h ( SPEC_PTHREAD1,  SPEC_PTHREAD2):
+	New macros defined dependent to TARGET_USE_PTHREAD_BY_DEFAULT
+	definition.
+	(CPP_SPEC): Add pthread/no-pthread handling.
+	(LIB_SPEC): Likewise.
+	* config/i386/mingw-w64.h (CPP_SPEC):Likewise.
+	(LIB_SPEC): Likewise.
+	* config/i386/t-cygming (SHLIB_PTHREAD_CFLAG): New
+	flag to pass -pthread option for shared libgcc build.
+	(SHLIB_PTHREAD_LDFLAG): New option to pass -lpthread
+	for shared libgcc build.
+	* config/i386/t-mingw-pthread: New file.
+	* config/i386/mingw-pthread.h (TARGET_USE_PTHREAD_BY_DEFAULT):
+	New define to enable use of library pthread by default.
+	* config/i386/mingw.opt (pthread): New driver option.
+	(no-pthread): New driver option.
+	* config/i386/cygming.opt: Make sure trailing empty line
+	is retained.
+	* config/i386/mingw-w64.opt: Likewise.
+
+2011-04-01  Gary Funck <gary@intrepid.com>
+
+	* c-decl.c (grokdeclarator): Fix formatting.
+
+2011-04-01  Richard Sandiford  <richard.sandiford@linaro.org>
+
+	* expr.c (emit_block_move_via_movmem): Use n_generator_args
+	instead of n_operands.
+	(set_storage_via_setmem): Likewise.
+	* optabs.c (maybe_gen_insn): Likewise.
+	* config/arm/arm.c (arm_init_neon_builtins): Likewise.
+	* config/mips/mips.c (mips_expand_builtin_compare_1): Likewise.
+	(mips_expand_builtin_direct): Likewise.
+	* config/spu/spu.c (expand_builtin_args): Likewise.
+
+2011-04-01  Richard Sandiford  <richard.sandiford@linaro.org>
+
+	* recog.h (insn_data_d): Add n_generator_args.
+	* genoutput.c (data): Likewise.
+	(output_insn_data): Print it.
+	(max_opno, num_dups): Delete.
+	(scan_operands): Just fill in "d->operand[...]".
+	(gen_insn, gen_peephole, gen_expand, gen_split): Use get_pattern_stats.
+
+2011-04-01  Richard Sandiford  <richard.sandiford@linaro.org>
+
+	* gensupport.h (pattern_stats): New structure.
+	* gensupport.c (get_pattern_stats_1, get_pattern_stats): New functions.
+	* genemit.c (max_opno, max_dupno, max_scratch_opno): Delete.
+	(max_operand_1, max_operand_vec): Delete.
+	(gen_insn, gen_expand, gen_split): Use get_pattern_stats.
+
+2011-03-31  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* emit-rtl.c (emit_pattern_after_setloc): New function.
+	(emit_insn_after_setloc, emit_jump_insn_after_setloc): Call it.
+	(emit_call_insn_after_setloc, emit_debug_insn_after_setloc): Likewise.
+	(emit_pattern_after): New function.
+	(emit_insn_after, emit_jump_insn_after): Call it.
+	(emit_call_insn_after, emit_debug_insn_after): Likewise.
+	(emit_pattern_before_setloc): New function.
+	(emit_insn_before_setloc, emit_jump_insn_before_setloc): Call it.
+	(emit_call_insn_before_setloc, emit_debug_insn_before_setloc):
+	Likewise.
+	(emit_pattern_before): New function.
+	(emit_insn_before, emit_jump_insn_before): Call it.
+	(emit_call_insn_before, emit_debug_insn_before): Likewise.
+
+2011-03-31  Richard Henderson  <rth@redhat.com>
+
+	* dwarf2out.c (dw_separate_line_info_ref): Remove.
+	(dw_separate_line_info_entry): Remove.
+	(enum dw_line_info_opcode): New.
+	(dw_line_info_entry): Use it.
+	(dw_line_info_table, dw_line_info_table_p): New.
+	(DWARF_LINE_OPCODE_BASE): Include dwarf3 opcodes.
+	(line_info_table, line_info_label_num): Remove.
+	(line_info_table_in_use): Remove.
+	(separate_line_info_table): Remove.
+	(separate_line_info_table_allocated): Remove.
+	(separate_line_info_table_in_use): Remove.
+	(LINE_INFO_TABLE_INCREMENT): Remove.
+	(line_info_label_num): New.
+	(cur_line_info_table): New.
+	(text_section_line_info, cold_text_section_line_info): New.
+	(separate_line_info): New.
+	(SEPARATE_LINE_CODE_LABEL): Remove.
+	(print_dwarf_line_table): Remove.
+	(debug_dwarf): Don't dump it.
+	(output_one_line_info_table): New.
+	(output_line_info): Use it.
+	(new_line_info_table): New.
+	(set_cur_line_info_table): New.
+	(dwarf2out_switch_text_section): Use it.
+	(dwarf2out_begin_function): Likewise.
+	(push_dw_line_info_entry): New.
+	(dwarf2out_source_line): Rewrite for new line info tables.
+	(dwarf2out_init): Remove dead initailizations.
+
+2011-03-31  Joseph Myers  <joseph@codesourcery.com>
+
+	* opts.h (cl_option): Add comments to fields.  Add bit-fields for
+	various flags.
+	(CL_SEPARATE_NARGS_SHIFT, CL_SEPARATE_NARGS_MASK,
+	CL_SEPARATE_ALIAS, CL_NO_DRIVER_ARG, CL_REJECT_DRIVER, CL_SAVE,
+	CL_DISABLED, CL_REPOR, CL_REJECT_NEGATIVE, CL_MISSING_OK,
+	CL_UINTEGER, CL_NEGATIVE_ALIAS): Remove.
+	(CL_JOINED, CL_SEPARATE, CL_UNDOCUMENTED): Update bit positions.
+	* opt-functions.awk (flag_init, switch_bit_fields): New.
+	(switch_flags): Don't handle flags moved to bit-fields.  Don't
+	generate CL_MISSING_OK or CL_SAVE.
+	* optc-gen.awk: Update to generate bit-field output as well as
+	flags field.
+	* gcc.c (driver_wrong_lang_callback): Use cl_reject_driver
+	bit-field instead of CL_REJECT_DRIVER flag.
+	* opts-common.c (generate_canonical_option,
+	decode_cmdline_option): Use bit-fields instead of CL_* flags.
+	* opts.c (maybe_default_option): Use cl_reject_negative bit-field
+	instead of CL_REJECT_NEGATIVE flag.
+	* toplev.c (print_switch_values): Use cl_report bit-field instead
+	of CL_REPORT flag.
+
+2011-03-31  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-ssa-pre.c (create_component_ref_by_pieces_1) <ARRAY_REF>: Drop
+	a zero minimum index only if it is redundant.
+
+2011-03-31  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/48381
+	* ira-color.c (assign_hard_reg): Use hard reg set intersection
+	instead of ira_class_hard_reg_index for calculating conflicting
+	hard registers.
+
+2011-03-31  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* cprop.c: Clean up hash table building.
+	(reg_avail_info): Remove.
+	(oprs_available_p): Remove.
+	(record_last_reg_set_info): Remove.
+	(record_last_set_info): Remove.
+	(reg_available_p): New function.
+	(gcse_constant_p): Do not treat unfolded conditions as constants.
+	(make_set_regs_unavailable): New function.
+	(hash_scan_set): Simplify with new reg_available_p.
+	(compute_hash_table_work): Traverse insns stream only once.
+	Do not compute reg_avail_info. Traverse insns in reverse order.
+	Record implicit sets after recording explicit sets from the block.
+
+2011-03-31  Michael Matz  <matz@suse.de>
+
+	* builtins.c (build_va_arg_indirect_ref): Use
+	build_simple_mem_ref_loc.
+
+2011-03-31  Anatoly Sokolov  <aesok@post.ru>
+
+	* config/h8300/h8300.h (GO_IF_MODE_DEPENDENT_ADDRESS): Remove macro.
+	* config/h8300/h8300-protos.h (h8300_get_index): Remove.
+	* config/h8300/h8300.c (TARGET_MODE_DEPENDENT_ADDRESS_P): Define.
+	(h8300_mode_dependent_address_p): New function.
+	(h8300_get_index): Make static.
+
+2011-03-31  Jeff Law  <law@redhat.com>
+
+	* reload1.c (elimination_effects): Fix typo in recent change.
+
+	* tree-ssa-forwprop.c (forward_propagate_into_cond): Avoid 
+	typo potentially leading to null pointer dereference.
+
+	* caller-save.c (new_saved_hard_reg): Eliminate return value.
+	(setup_save_areas): Corresponding changes to avoid useless
+	assignments.
+
+	* jump.c (reversed_comparison_code_parts): Avoid successive return
+	statements when REVERSE_CONDITION is defined.
+
+	* expr.c (expand_assignment): Avoid useless assignments.
+	(expand_expr_real_1): Likewise.
+	(expand_expr_real_2): Avoid useless statements.
+
+	* tree-ssa-phiopt.c (minmax_replacement): Avoid useless statement.
+
+	* cfgexpand.c (expand_gimple_basic_block): Avoid useless assignment.
+
+	* tree-ssa-dce.c (mark_stmt_if_obviously_necessary): Avoid useless
+	statements.
+
+	* stmt.c (expand_expr_stmt): Avoid useless assignment.
+
+2011-03-31  Joseph Myers  <joseph@codesourcery.com>
+
+	PR target/47109
+	* doc/tm.texi.in (TARGET_VERSION): Remove.
+	* doc/tm.texi: Regenerate.
+	* system.h (TARGET_VERSION, MACHINE_TYPE): Poison.
+	* collect2.c (main): Don't use TARGET_VERSION.
+	* mips-tdump.c (main): Don't use TARGET_VERSION.
+	* mips-tfile.c (main): Don't use TARGET_VERSION.
+	* config.gcc (powerpc-wrs-vxworksae): Don't use
+	rs6000/vxworksae.h.
+	* config/rs6000/vxworksae.h: Remove.
+	* config/alpha/alpha.h (TARGET_VERSION): Remove.
+	* config/alpha/freebsd.h (TARGET_VERSION): Remove.
+	* config/alpha/linux-elf.h (TARGET_VERSION): Remove.
+	* config/alpha/netbsd.h (TARGET_VERSION): Remove.
+	* config/alpha/vms.h (TARGET_NAME, TARGET_VERSION): Remove.
+	* config/arm/arm.h (TARGET_VERSION): Remove.
+	* config/arm/coff.h (TARGET_VERSION): Remove.
+	* config/arm/ecos-elf.h (TARGET_VERSION): Remove.
+	* config/arm/elf.h (TARGET_VERSION): Remove.
+	* config/arm/freebsd.h (TARGET_VERSION): Remove.
+	* config/arm/linux-elf.h (TARGET_VERSION): Remove.
+	* config/arm/netbsd-elf.h (TARGET_VERSION): Remove.
+	* config/arm/pe.h (TARGET_VERSION): Remove.
+	* config/arm/rtems-elf.h (TARGET_VERSION): Remove.
+	* config/arm/semi.h (TARGET_VERSION): Remove.
+	* config/arm/uclinux-elf.h (TARGET_VERSION): Remove.
+	* config/arm/unknown-elf.h (TARGET_VERSION): Remove.
+	* config/arm/vxworks.h (TARGET_VERSION): Remove.
+	* config/avr/avr.h (TARGET_VERSION): Remove.
+	* config/bfin/bfin.h (TARGET_VERSION): Remove.
+	* config/fr30/fr30.h (TARGET_VERSION): Remove.
+	* config/frv/frv.h (TARGET_VERSION): Remove.
+	* config/h8300/h8300.h (TARGET_VERSION): Remove.
+	* config/i386/cygwin.h (TARGET_VERSION): Remove.
+	* config/i386/darwin.h (TARGET_VERSION): Remove.
+	* config/i386/darwin64.h (TARGET_VERSION): Remove.
+	* config/i386/djgpp.h (TARGET_VERSION): Remove.
+	* config/i386/freebsd.h (TARGET_VERSION): Remove.
+	* config/i386/freebsd64.h (TARGET_VERSION): Remove.
+	* config/i386/gnu.h (TARGET_VERSION): Remove.
+	* config/i386/i386-interix.h (TARGET_VERSION): Remove.
+	* config/i386/i386elf.h (TARGET_VERSION): Remove.
+	* config/i386/linux.h (TARGET_VERSION): Remove.
+	* config/i386/linux64.h (TARGET_VERSION): Remove.
+	* config/i386/lynx.h (TARGET_VERSION): Remove.
+	* config/i386/mingw32.h (TARGET_VERSION): Remove.
+	* config/i386/netbsd-elf.h (TARGET_VERSION): Remove.
+	* config/i386/netbsd64.h (TARGET_VERSION): Remove.
+	* config/i386/netware.h (TARGET_VERSION): Remove.
+	* config/i386/nto.h (TARGET_VERSION): Remove.
+	* config/i386/openbsd.h (TARGET_VERSION): Remove.
+	* config/i386/vxworks.h (TARGET_VERSION): Remove.
+	* config/ia64/elf.h (TARGET_VERSION): Remove.
+	* config/ia64/freebsd.h (TARGET_VERSION): Remove.
+	* config/ia64/hpux.h (TARGET_VERSION): Remove.
+	* config/ia64/linux.h (TARGET_VERSION): Remove.
+	* config/ia64/vms.h (TARGET_NAME, TARGET_VERSION): Remove.
+	* config/iq2000/iq2000.h (IQ2000_VERSION, MACHINE_TYPE,
+	TARGET_VERSION_INTERNAL, TARGET_VERSION): Remove.
+	* config/lm32/lm32.h (TARGET_VERSION): Remove.
+	* config/lm32/uclinux-elf.h (TARGET_VERSION): Remove.
+	* config/m32c/m32c.h (TARGET_VERSION): Remove.
+	* config/m32r/linux.h (LINUX_DEFAULT_ELF, TARGET_VERSION): Remove.
+	* config/m32r/m32r.h (TARGET_VERSION): Remove.
+	* config/m68k/linux.h (TARGET_VERSION): Remove.
+	* config/m68k/m68k.h (TARGET_VERSION): Remove.
+	* config/m68k/netbsd-elf.h (TARGET_VERSION): Remove.
+	* config/m68k/uclinux.h (TARGET_VERSION): Remove.
+	* config/mcore/mcore-elf.h (TARGET_VERSION): Remove.
+	* config/mep/mep.h (TARGET_VERSION): Remove.
+	* config/microblaze/microblaze.h (MICROBLAZE_VERSION,
+	MACHINE_TYPE, TARGET_VERSION_INTERNAL, TARGET_VERSION): Remove.
+	* config/mips/iris6.h (MACHINE_TYPE): Remove.
+	* config/mips/linux.h (TARGET_VERSION): Remove.
+	* config/mips/netbsd.h (MACHINE_TYPE): Remove.
+	* config/mips/vxworks.h (TARGET_VERSION): Remove.
+	* config/mmix/mmix.h (TARGET_VERSION): Remove.
+	* config/mn10300/linux.h (TARGET_VERSION): Remove.
+	* config/mn10300/mn10300.h (TARGET_VERSION): Remove.
+	* config/pa/pa.h (TARGET_VERSION): Remove.
+	* config/pdp11/pdp11.h (TARGET_VERSION): Remove.
+	* config/picochip/picochip.h (TARGET_VERSION): Remove.
+	* config/rs6000/aix.h (TARGET_VERSION): Remove.
+	* config/rs6000/darwin.h (TARGET_VERSION): Remove.
+	* config/rs6000/darwin64.h (TARGET_VERSION): Remove.
+	* config/rs6000/eabi.h (TARGET_VERSION): Remove.
+	* config/rs6000/eabialtivec.h (TARGET_VERSION): Remove.
+	* config/rs6000/eabisim.h (TARGET_VERSION): Remove.
+	* config/rs6000/eabispe.h (TARGET_VERSION): Remove.
+	* config/rs6000/freebsd.h (TARGET_VERSION): Remove.
+	* config/rs6000/linux.h (TARGET_VERSION): Remove.
+	* config/rs6000/linux64.h (TARGET_VERSION): Remove.
+	* config/rs6000/linuxaltivec.h (TARGET_VERSION): Remove.
+	* config/rs6000/linuxspe.h (TARGET_VERSION): Remove.
+	* config/rs6000/lynx.h (TARGET_VERSION): Remove.
+	* config/rs6000/netbsd.h (TARGET_VERSION): Remove.
+	* config/rs6000/sysv4.h (TARGET_VERSION): Remove.
+	* config/rs6000/vxworks.h (TARGET_VERSION): Remove.
+	* config/s390/linux.h (TARGET_VERSION): Remove.
+	* config/s390/s390.h (TARGET_VERSION): Remove.
+	* config/s390/tpf.h (TARGET_VERSION): Remove.
+	* config/score/score.h (TARGET_VERSION): Remove.
+	* config/sh/linux.h (TARGET_VERSION): Remove.
+	* config/sh/netbsd-elf.h (TARGET_VERSION_ENDIAN,
+	TARGET_VERSION_CPU, TARGET_VERSION): Remove.
+	* config/sh/sh.h (TARGET_VERSION): Remove.
+	* config/sh/sh64.h (TARGET_VERSION): Remove.
+	* config/sh/superh.h (TARGET_VERSION): Remove.
+	* config/sh/vxworks.h (TARGET_VERSION): Remove.
+	* config/sparc/freebsd.h (TARGET_VERSION): Remove.
+	* config/sparc/linux.h (TARGET_VERSION): Remove.
+	* config/sparc/linux64.h (TARGET_VERSION): Remove.
+	* config/sparc/netbsd-elf.h (TARGET_VERSION, TARGET_NAME64,
+	TARGET_NAME32, TARGET_NAME): Remove.
+	* config/sparc/openbsd64.h (TARGET_VERSION): Remove.
+	* config/sparc/sp-elf.h (TARGET_VERSION): Remove.
+	* config/sparc/sp64-elf.h (TARGET_VERSION): Remove.
+	* config/sparc/sysv4.h (TARGET_VERSION): Remove.
+	* config/sparc/vxworks.h (TARGET_VERSION): Remove.
+	* config/spu/spu.h (TARGET_VERSION): Remove.
+	* config/stormy16/stormy16.h (TARGET_VERSION): Remove.
+	* config/v850/v850.h (TARGET_VERSION): Remove.
+	* config/vax/linux.h (TARGET_VERSION): Remove.
+	* config/vax/vax.h (TARGET_NAME, TARGET_VERSION): Remove.
+	* config/xtensa/elf.h (TARGET_VERSION): Remove.
+	* config/xtensa/linux.h (TARGET_VERSION): Remove.
+
+2011-03-31  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/48142
+	* config/i386/i386.c (ix86_adjust_stack_and_probe): Differentiate
+	frame-related from frame-unrelated adjustments to the stack pointer.
+
+2011-03-31  Jakub Jelinek  <jakub@redhat.com>
+
+	* common.opt (fdebug-types-section): Move earlier.
+	* doc/invoke.texi: Fix up -fno-debug-types-section documentation.
+
+2011-03-31  Andreas Tobler  <andreast@fgznet.ch>
+
+	* config/rs6000/rs6000.c (rs6000_handle_option): Remove unused isel
+	var.
+
+2011-03-30  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* tree.h (CASE_CHAIN): Define.
+	* tree-cfg.c (edge_to_cases_cleanup, get_cases_for_edge): Use it.
+	(gimple_redirect_edge_and_branch): Likewise.
+
+2011-03-30  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR middle-end/48367
+	* ira-costs.c (find_costs_and_classes): Fix a typo in i_mem_cost
+	calculation.
+
+2011-03-30  Jeff Law  <law@redhat.com>
+
+	* PR bootstrap/48371
+	* reload1.c (reload): Fix botch in last change.
+
+	* reload.h (struct reload): Fix typo introduced in last change.
+
+2011-03-30  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/arm/arm.opt (mhard-float, msoft-float): Mark
+	Undocumented.  Remove help text.
+	* doc/invoke.texi (ARM Options): Don't document -msoft-float and
+	-mhard-float.
+
+2011-03-30  Joseph Myers  <joseph@codesourcery.com>
+
+	* doc/options.texi (NegativeAlias): Document.
+	(Alias): Mention NegativeAlias.
+	* opt-functions.awk: Handle NegativeAlias.
+	* optc-gen.awk: Disallow NegativeAlias with multiple Alias
+	arguments.
+	* opts-common.c (decode_cmdline_option): Handle CL_NEGATIVE_ALIAS.
+	* opts.h (CL_NEGATIVE_ALIAS): Define.
+	* config/rs6000/rs6000.c (rs6000_parse_yes_no_option): Remove.
+	(rs6000_handle_option): Don't handle OPT_mvrsave_, OPT_misel_ and
+	OPT_mspe_.
+	* config/rs6000/rs6000.opt (mvrsave=, misel=, mspe=): Replace with
+	Alias entries.
+	* config/rs6000/t-spe (MULTILIB_OPTIONS, MULTILIB_EXCEPTIONS): Use
+	mno-spe and mno-isel instead of mspe=no and -misel=no.
+
+2011-03-29  Mark Wielaard  <mjw@redhat.com>
+
+	* common.opt (fdebug-types-section): New flag.
+	* doc/invoke.texi: Document new -fno-debug-types-section flag.
+	* dwarf2out.c (use_debug_types): New define.
+	(struct die_struct): Mark die_id with GTY desc use_debug_types.
+	(print_die): Guard output of type unit signatures using
+	use_debug_types.
+	(build_abbrev_table): Replace assert of dwarf_version >= 4
+	with assert on use_debug_types.
+	(size_of_die): Likewise.
+	(unmark_dies): Likewise.
+	(value_format): Decide AT_ref_external form on use_debug_types.
+	(output_die): Replace dwarf_version version check guard with
+	use_debug_types where appropriate.
+	(modified_type_die): Likewise.
+	(gen_reference_type_die): Likewise.
+	(dwarf2out_start_source_file): Likewise.
+	(dwarf2out_end_source_file): Likewise.
+	(prune_unused_types_walk_attribs): Likewise.
+	(dwarf2out_finish): Likewise.
+
+2011-03-30  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* ira-color.c (ira_assign_hard_reg): Use only one variable 'mode'.
+
+2011-03-30  Richard Sandiford  <richard.sandiford@linaro.org>
+
+	PR rtl-optimization/48332
+	* optabs.c (expand_binop_directly): Set xmodeN to the target-mandated
+	mode of input operand N and modeN to its actual mode.
+
+2011-03-30  Jeff Law  <law@redhat.com>
+
+	* reload.h (reg_equiv_constant): Move into new structure reg_equivs,
+	define accessor macro.
+	(reg_equiv_invariant, reg_equiv_memory_loc): Likewise.
+	(reg_equiv_address, reg_equiv_mem, reg_equiv_alt_mem_list): Likewise.
+	(reg_equiv_init): Likewise.
+	(reg_equivs_size): New variable.
+	(reg_equiv_init_size): Remove.
+	(allocate_initial_values): Move prototype to here from....
+	* integrate.h (allocate_initial_values): Remove prototype.
+	* integrate.c: Include reload.h.
+	(allocate_initial_values): Corresponding changes.
+	* ira.c (find_reg_equiv_invariant_cost): Corresponding changes.
+	(fix_reg_equiv_init, no_equiv): Corresponding changes.
+	(update_equiv_regs): Corresponding changes.
+	(ira): Corresponding changes.
+	* reload.c (push_reg_equiv_alt_mem): Corresponding changes.
+	(push_secondary_reload): Corresponding changes.
+	(push_reload, find_reloads, find_reloads_toplev): Corresponding changes.
+	(make_memloc, find_reloads_address): Corresponding changes.
+	(subst_reg_equivs, subst_indexed_address): Corresponding changes.
+	(find_reloads_address_1): Corresponding changes.
+	(find_reloads_subreg_address, subst_reloads): Corresponding changes.
+	(refers_to_regno_for_reload_p): Corresponding changes.
+	(reg_overlap_mentioned_for_reload_p): Corresponding changes.
+	(refers_to_mem_for_reload_p, find_equiv_reg): Corresponding changes.
+	* reload1.c: Include ggc.h.
+	(grow_reg_equivs): New function.
+	(replace_pseudos_in, reload): Corresponding changes.
+	(calculate_needs_all_insns, alter_regs): Corresponding changes.
+	(eliminate_regs_1, elimination_effects): Corresponding changes.
+	(emit_input_reload_insns, emit_output_reload_insns): Likewise.
+	(delete_output_reload): Likewise.
+	* caller-save.c (mark_referenced_regs): Corresponding changes.
+	* alpha/alpha.c (resolve_reload_operand): Corresponding changes.
+	* frv/predicates.md (frv_load_operand): Corresponding changes.
+	* microblaze/microblaze.c (double_memory_operand): Corresponding
+	changes.
+	* avr/avr.h (LEGITIMIZE_RELOAD_ADDRESS): Corresponding changes.
+	* xtensa/xtensa.c (fixup_subreg_mem): Corresponding changes.
+	* mn10300/mn10300.c (mn10300_secondary_reload): Corresponding
+	changes.
+	* m68k/m68k.c (emit_move_sequence): Corresponding changes.
+	* arm/arm.c (arm_reload_in_hi, arm_reload_out_hi): Corresponding
+	changes.
+	* pa/pa.c (emit_move_sequence): Corresponding changes.
+	* vax/vax.c (nonindexed_address_p): Corresponding changes.
+
+2011-03-30  Richard Sandiford  <richard.sandiford@linaro.org>
+
+	PR target/47551
+	* config/arm/arm.c (coproc_secondary_reload_class): Handle
+	structure modes.  Don't check neon_vector_mem_operand for
+	vector or structure modes.
+
+2011-03-30  Richard Sandiford  <richard.sandiford@linaro.org>
+	    Ramana Radhakrishnan  <ramana.radhakrishnan@linaro.org>
+
+	PR target/43590
+	* config/arm/neon.md (neon_vld3qa<mode>, neon_vld4qa<mode>): Remove
+	operand 1 and reshuffle the operands to match.
+	(neon_vld3<mode>, neon_vld4<mode>): Update accordingly.
+
+2011-03-30  Christian Schüler  <cschueler@gmx.de>
+
+	PR driver/48208
+	* config/c.opt (F): Added 'Driver' to -F option.
+	PR driver/48260
+	* config/darwin-driver.c (darwin_driver_init): Add '-arch' to
+	  handler function.
+	* config/darwin.opt: Added '-arch' option.
+
+2011-03-30  Nick Clifton  <nickc@redhat.com>
+
+	* config/rx/rx.md: Add peepholes and patterns to combine
+	extending loads and simple arithmetic instructions.
+	* config/rx/rx.h (ADJUST_INSN_LENGTH): Define.
+        * config/rx/rx-protos.h (rx_adjust_insn_length): Prototype.
+        * config/rx/rx.c (rx_is_legitimate_address): Allow QI and HI
+	modes to use pre-decrement and post-increment addressing.
+        (rx_is_restricted_memory_address): Add range checking of REG+INT
+	addresses.
+        (rx_print_operand): Add support for %Q.
+        Fix handling of %Q.
+        (rx_memory_move_cost): Adjust cost of stores.
+        (rx_adjust_insn_length): New function.
+
+2011-03-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/48305
+	* fold-const.c (fold_binary_loc) <case EQ_EXPR, NE_EXPR>: Make sure
+	arg10/arg11 in (X ^ Y) == (Z ^ W) are always fold converted to
+	matching arg00/arg01 types.
+
+2011-03-30  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* cfglayout.c (insn_locators_alloc): Initialize curr_location and
+	last_location to UNKNOWN_LOCATION.
+
+2011-03-30  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/48349
+	* config/i386/i386.h (REG_CLASS_CONTENTS): Fix a typo in
+	FLOAT_SSE_REGS.
+
+2011-03-30  Joseph Myers  <joseph@codesourcery.com>
+	    Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR bootstrap/48337
+	* config/sparc/sparc.opt (sparc_cpu_and_features): Add
+	Init(PROCESSOR_V7).
+	(sparc_cpu): Likewise.
+	* config/sparc/sparc.c (sparc_option_override): Replace 0 by
+	PROCESSOR_V7.
+
+2011-03-29  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR target/48336
+	PR middle-end/48342
+	PR rtl-optimization/48345
+	* ira-color.c (setup_conflict_profitable_regs): Exclude prohibited
+	hard regs for given mode from profitable regs when doing secondary
+	allocation.
+
 2011-03-29  Jeff Law  <law@redhat.com>
 
 	PR bootstrap/48327

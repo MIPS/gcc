@@ -302,6 +302,10 @@ static struct ready_list *readyp = &ready;
 /* Scheduling clock.  */
 static int clock_var;
 
+/* This records the actual schedule.  It is built up during the main phase
+   of schedule_block, and afterwards used to reorder the insns in the RTL.  */
+static VEC(rtx, heap) *scheduled_insns;
+
 static int may_trap_exp (const_rtx, int);
 
 /* Nonzero iff the address is comprised from at most 1 register.  */
@@ -489,7 +493,7 @@ haifa_classify_insn (const_rtx insn)
 static int priority (rtx);
 static int rank_for_schedule (const void *, const void *);
 static void swap_sort (rtx *, int);
-static void queue_insn (rtx, int);
+static void queue_insn (rtx, int, const char *);
 static int schedule_insn (rtx);
 static void adjust_priority (rtx);
 static void advance_one_cycle (void);
@@ -1313,10 +1317,11 @@ swap_sort (rtx *a, int n)
 
 /* Add INSN to the insn queue so that it can be executed at least
    N_CYCLES after the currently executing insn.  Preserve insns
-   chain for debugging purposes.  */
+   chain for debugging purposes.  REASON will be printed in debugging
+   output.  */
 
 HAIFA_INLINE static void
-queue_insn (rtx insn, int n_cycles)
+queue_insn (rtx insn, int n_cycles, const char *reason)
 {
   int next_q = NEXT_Q_AFTER (q_ptr, n_cycles);
   rtx link = alloc_INSN_LIST (insn, insn_queue[next_q]);
@@ -1332,7 +1337,7 @@ queue_insn (rtx insn, int n_cycles)
       fprintf (sched_dump, ";;\t\tReady-->Q: insn %s: ",
 	       (*current_sched_info->print_insn) (insn, 0));
 
-      fprintf (sched_dump, "queued for %d cycles.\n", n_cycles);
+      fprintf (sched_dump, "queued for %d cycles (%s).\n", n_cycles, reason);
     }
 
   QUEUE_INDEX (insn) = next_q;
@@ -2062,11 +2067,7 @@ queue_to_ready (struct ready_list *ready)
 	  && ready->n_ready - ready->n_debug > MAX_SCHED_READY_INSNS
 	  && !SCHED_GROUP_P (insn)
 	  && insn != skip_insn)
-	{
-	  if (sched_verbose >= 2)
-	    fprintf (sched_dump, "requeued because ready full\n");
-	  queue_insn (insn, 1);
-	}
+	queue_insn (insn, 1, "ready full");
       else
 	{
 	  ready_add (ready, insn, false);
@@ -2612,8 +2613,8 @@ max_issue (struct ready_list *ready, int privileged_n, state_t state,
 	    {
 	      if (state_dead_lock_p (state)
 		  || insn_finishes_cycle_p (insn))
- 		/* We won't issue any more instructions in the next
- 		   choice_state.  */
+		/* We won't issue any more instructions in the next
+		   choice_state.  */
 		top->rest = 0;
 	      else
 		top->rest--;
@@ -2816,6 +2817,97 @@ choose_ready (struct ready_list *ready, bool first_cycle_insn_p,
     }
 }
 
+/* This function is called when we have successfully scheduled a
+   block.  It uses the schedule stored in the scheduled_insns vector
+   to rearrange the RTL.  PREV_HEAD is used as the anchor to which we
+   append the scheduled insns; TAIL is the insn after the scheduled
+   block.  TARGET_BB is the argument passed to schedule_block.  */
+
+static void
+commit_schedule (rtx prev_head, rtx tail, basic_block *target_bb)
+{
+  int i;
+
+  last_scheduled_insn = prev_head;
+  for (i = 0; i < (int)VEC_length (rtx, scheduled_insns); i++)
+    {
+      rtx insn = VEC_index (rtx, scheduled_insns, i);
+
+      if (control_flow_insn_p (last_scheduled_insn)
+	  || current_sched_info->advance_target_bb (*target_bb, insn))
+	{
+	  *target_bb = current_sched_info->advance_target_bb (*target_bb, 0);
+
+	  if (sched_verbose)
+	    {
+	      rtx x;
+
+	      x = next_real_insn (last_scheduled_insn);
+	      gcc_assert (x);
+	      dump_new_block_header (1, *target_bb, x, tail);
+	    }
+
+	  last_scheduled_insn = bb_note (*target_bb);
+	}
+
+      if (current_sched_info->begin_move_insn)
+	(*current_sched_info->begin_move_insn) (insn, last_scheduled_insn);
+      move_insn (insn, last_scheduled_insn,
+		 current_sched_info->next_tail);
+      if (!DEBUG_INSN_P (insn))
+	reemit_notes (insn);
+      last_scheduled_insn = insn;
+    }
+
+  VEC_truncate (rtx, scheduled_insns, 0);
+}
+
+/* Examine all insns on the ready list and queue those which can't be
+   issued in this cycle.  TEMP_STATE is temporary scheduler state we
+   can use as scratch space.  If FIRST_CYCLE_INSN_P is true, no insns
+   have been issued for the current cycle, which means it is valid to
+   issue an asm statement.  */
+
+static void
+prune_ready_list (state_t temp_state, bool first_cycle_insn_p)
+{
+  int i;
+
+ restart:
+  for (i = 0; i < ready.n_ready; i++)
+    {
+      rtx insn = ready_element (&ready, i);
+      int cost = 0;
+      const char *reason = "resource conflict";
+
+      if (recog_memoized (insn) < 0)
+	{
+	  if (!first_cycle_insn_p
+	      && (GET_CODE (PATTERN (insn)) == ASM_INPUT
+		  || asm_noperands (PATTERN (insn)) >= 0))
+	    cost = 1;
+	  reason = "asm";
+	}
+      else if (flag_sched_pressure)
+	cost = 0;
+      else
+	{
+	  memcpy (temp_state, curr_state, dfa_state_size);
+	  cost = state_transition (temp_state, insn);
+	  if (cost < 0)
+	    cost = 0;
+	  else if (cost == 0)
+	    cost = 1;
+	}
+      if (cost >= 1)
+	{
+	  ready_remove (&ready, i);
+	  queue_insn (insn, cost, reason);
+	  goto restart;
+	}
+    }
+}
+
 /* Use forward list scheduling to rearrange insns of block pointed to by
    TARGET_BB, possibly bringing insns from subsequent blocks in the same
    region.  */
@@ -2925,7 +3017,7 @@ schedule_block (basic_block *target_bb)
 	    insn = ready_remove (&ready, i);
 
 	    if (insn != skip_insn)
-	      queue_insn (insn, 1);
+	      queue_insn (insn, 1, "list truncated");
 	  }
       }
     }
@@ -2937,6 +3029,7 @@ schedule_block (basic_block *target_bb)
 
   advance = 0;
 
+  gcc_assert (VEC_length (rtx, scheduled_insns) == 0);
   sort_p = TRUE;
   /* Loop until all the insns in BB are scheduled.  */
   while ((*current_sched_info->schedule_more_p) ())
@@ -2966,6 +3059,10 @@ schedule_block (basic_block *target_bb)
 	}
       while (advance > 0);
 
+      prune_ready_list (temp_state, true);
+      if (ready.n_ready == 0)
+        continue;
+
       if (sort_p)
 	{
 	  /* Sort the ready list based on priority.  */
@@ -2982,31 +3079,12 @@ schedule_block (basic_block *target_bb)
 	 them out right away.  */
       if (ready.n_ready && DEBUG_INSN_P (ready_element (&ready, 0)))
 	{
-	  if (control_flow_insn_p (last_scheduled_insn))
-	    {
-	      *target_bb = current_sched_info->advance_target_bb
-		(*target_bb, 0);
-
-	      if (sched_verbose)
-		{
-		  rtx x;
-
-		  x = next_real_insn (last_scheduled_insn);
-		  gcc_assert (x);
-		  dump_new_block_header (1, *target_bb, x, tail);
-		}
-
-	      last_scheduled_insn = bb_note (*target_bb);
-	    }
-
 	  while (ready.n_ready && DEBUG_INSN_P (ready_element (&ready, 0)))
 	    {
 	      rtx insn = ready_remove_first (&ready);
 	      gcc_assert (DEBUG_INSN_P (insn));
-	      (*current_sched_info->begin_schedule_ready) (insn,
-							   last_scheduled_insn);
-	      move_insn (insn, last_scheduled_insn,
-			 current_sched_info->next_tail);
+	      (*current_sched_info->begin_schedule_ready) (insn);
+	      VEC_safe_push (rtx, heap, scheduled_insns, insn);
 	      last_scheduled_insn = insn;
 	      advance = schedule_insn (insn);
 	      gcc_assert (advance == 0);
@@ -3115,44 +3193,6 @@ schedule_block (basic_block *target_bb)
 	    }
 
 	  sort_p = TRUE;
-	  memcpy (temp_state, curr_state, dfa_state_size);
-	  if (recog_memoized (insn) < 0)
-	    {
-	      asm_p = (GET_CODE (PATTERN (insn)) == ASM_INPUT
-		       || asm_noperands (PATTERN (insn)) >= 0);
-	      if (!first_cycle_insn_p && asm_p)
-		/* This is asm insn which is tried to be issued on the
-		   cycle not first.  Issue it on the next cycle.  */
-		cost = 1;
-	      else
-		/* A USE insn, or something else we don't need to
-		   understand.  We can't pass these directly to
-		   state_transition because it will trigger a
-		   fatal error for unrecognizable insns.  */
-		cost = 0;
-	    }
-	  else if (sched_pressure_p)
-	    cost = 0;
-	  else
-	    {
-	      cost = state_transition (temp_state, insn);
-	      if (cost < 0)
-		cost = 0;
-	      else if (cost == 0)
-		cost = 1;
-	    }
-
-	  if (cost >= 1)
-	    {
-	      queue_insn (insn, cost);
- 	      if (SCHED_GROUP_P (insn))
- 		{
- 		  advance = cost;
- 		  break;
- 		}
-
-	      continue;
-	    }
 
 	  if (current_sched_info->can_schedule_ready_p
 	      && ! (*current_sched_info->can_schedule_ready_p) (insn))
@@ -3168,46 +3208,25 @@ schedule_block (basic_block *target_bb)
           if (TODO_SPEC (insn) & SPECULATIVE)
             generate_recovery_code (insn);
 
-	  if (control_flow_insn_p (last_scheduled_insn)
-	      /* This is used to switch basic blocks by request
-		 from scheduler front-end (actually, sched-ebb.c only).
-		 This is used to process blocks with single fallthru
-		 edge.  If succeeding block has jump, it [jump] will try
-		 move at the end of current bb, thus corrupting CFG.  */
-	      || current_sched_info->advance_target_bb (*target_bb, insn))
-	    {
-	      *target_bb = current_sched_info->advance_target_bb
-		(*target_bb, 0);
-
-	      if (sched_verbose)
-		{
-		  rtx x;
-
-		  x = next_real_insn (last_scheduled_insn);
-		  gcc_assert (x);
-		  dump_new_block_header (1, *target_bb, x, tail);
-		}
-
-	      last_scheduled_insn = bb_note (*target_bb);
-	    }
-
-	  /* Update counters, etc in the scheduler's front end.  */
-	  (*current_sched_info->begin_schedule_ready) (insn,
-						       last_scheduled_insn);
-
-	  move_insn (insn, last_scheduled_insn, current_sched_info->next_tail);
-
 	  if (targetm.sched.dispatch (NULL_RTX, IS_DISPATCH_ON))
 	    targetm.sched.dispatch_do (insn, ADD_TO_DISPATCH_WINDOW);
 
-	  reemit_notes (insn);
+	  /* Update counters, etc in the scheduler's front end.  */
+	  (*current_sched_info->begin_schedule_ready) (insn);
+	  VEC_safe_push (rtx, heap, scheduled_insns, insn);
 	  last_scheduled_insn = insn;
 
-	  if (memcmp (curr_state, temp_state, dfa_state_size) != 0)
-            {
-              cycle_issued_insns++;
-              memcpy (curr_state, temp_state, dfa_state_size);
-            }
+	  if (recog_memoized (insn) >= 0)
+	    {
+	      cost = state_transition (curr_state, insn);
+	      if (!flag_sched_pressure)
+		gcc_assert (cost < 0);
+	      cycle_issued_insns++;
+	      asm_p = false;
+	    }
+	  else
+	    asm_p = (GET_CODE (PATTERN (insn)) == ASM_INPUT
+		     || asm_noperands (PATTERN (insn)) >= 0);
 
 	  if (targetm.sched.variable_issue)
 	    can_issue_more =
@@ -3228,6 +3247,9 @@ schedule_block (basic_block *target_bb)
 
 	  first_cycle_insn_p = false;
 
+	  if (ready.n_ready > 0)
+            prune_ready_list (temp_state, false);
+
 	  /* Sort the ready list based on priority.  This must be
 	     redone here, as schedule_insn may have readied additional
 	     insns that will not be sorted correctly.  */
@@ -3239,31 +3261,12 @@ schedule_block (basic_block *target_bb)
 	  if (ready.n_ready && DEBUG_INSN_P (ready_element (&ready, 0))
 	      && (*current_sched_info->schedule_more_p) ())
 	    {
-	      if (control_flow_insn_p (last_scheduled_insn))
-		{
-		  *target_bb = current_sched_info->advance_target_bb
-		    (*target_bb, 0);
-
-		  if (sched_verbose)
-		    {
-		      rtx x;
-
-		      x = next_real_insn (last_scheduled_insn);
-		      gcc_assert (x);
-		      dump_new_block_header (1, *target_bb, x, tail);
-		    }
-
-		  last_scheduled_insn = bb_note (*target_bb);
-		}
-
- 	      while (ready.n_ready && DEBUG_INSN_P (ready_element (&ready, 0)))
+	      while (ready.n_ready && DEBUG_INSN_P (ready_element (&ready, 0)))
 		{
 		  insn = ready_remove_first (&ready);
 		  gcc_assert (DEBUG_INSN_P (insn));
-		  (*current_sched_info->begin_schedule_ready)
-		    (insn, last_scheduled_insn);
-		  move_insn (insn, last_scheduled_insn,
-			     current_sched_info->next_tail);
+		  (*current_sched_info->begin_schedule_ready) (insn);
+		  VEC_safe_push (rtx, heap, scheduled_insns, insn);
 		  advance = schedule_insn (insn);
 		  last_scheduled_insn = insn;
 		  gcc_assert (advance == 0);
@@ -3324,6 +3327,7 @@ schedule_block (basic_block *target_bb)
 	  }
     }
 
+  commit_schedule (prev_head, tail, target_bb);
   if (sched_verbose)
     fprintf (sched_dump, ";;   total time = %d\n", clock_var);
 
@@ -3974,7 +3978,7 @@ change_queue_index (rtx next, int delay)
   if (delay == QUEUE_READY)
     ready_add (readyp, next, false);
   else if (delay >= 1)
-    queue_insn (next, delay);
+    queue_insn (next, delay, "change queue index");
 
   if (sched_verbose >= 2)
     {
@@ -4004,6 +4008,7 @@ sched_extend_ready_list (int new_sched_ready_n_insns)
     {
       i = 0;
       sched_ready_n_insns = 0;
+      scheduled_insns = VEC_alloc (rtx, heap, new_sched_ready_n_insns);
     }
   else
     i = sched_ready_n_insns + 1;

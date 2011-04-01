@@ -657,6 +657,7 @@ endif # !LIBGO_IS_LINUX
 endif # !LIBGO_IS_RTEMS
 
 go_net_files = \
+	go/net/cgo_stub.go \
 	go/net/dial.go \
 	go/net/dnsclient.go \
 	go/net/dnsconfig.go \
@@ -664,10 +665,12 @@ go_net_files = \
 	$(go_net_newpollserver_file) \
 	go/net/fd.go \
 	$(go_net_fd_os_file) \
+	go/net/file.go \
 	go/net/hosts.go \
 	go/net/ip.go \
 	go/net/iprawsock.go \
 	go/net/ipsock.go \
+	go/net/lookup.go \
 	go/net/net.go \
 	go/net/parse.go \
 	go/net/pipe.go \
@@ -686,7 +689,11 @@ if LIBGO_IS_SOLARIS
 if LIBGO_IS_386
 go_os_dir_file = go/os/dir_largefile.go
 else
+if LIBGO_IS_SPARC
+go_os_dir_file = go/os/dir_largefile.go
+else
 go_os_dir_file = go/os/dir_regfile.go
+endif
 endif
 else
 if LIBGO_IS_LINUX
@@ -702,10 +709,14 @@ else
 if LIBGO_IS_SOLARIS
 go_os_sys_file = go/os/sys_uname.go
 else
+if LIBGO_IS_IRIX
+go_os_sys_file = go/os/sys_uname.go
+else
 if LIBGO_IS_RTEMS
 go_os_sys_file = go/os/sys_uname.go
 else
 go_os_sys_file = go/os/sys_bsd.go
+endif
 endif
 endif
 endif
@@ -1095,6 +1106,7 @@ go_go_ast_files = \
 	go/go/ast/ast.go \
 	go/go/ast/filter.go \
 	go/go/ast/print.go \
+	go/go/ast/resolve.go \
 	go/go/ast/scope.go \
 	go/go/ast/walk.go
 go_go_doc_files = \
@@ -1215,16 +1227,21 @@ syscall_filesize_file = syscalls/sysfile_largefile.go
 syscall_stat_file = syscalls/sysfile_stat_largefile.go
 else # !LIBGO_IS_LINUX
 if LIBGO_IS_SOLARIS
-# FIXME: Same for sparc vs. sparc64.  Introduce new/additional conditional?
 if LIBGO_IS_386
-# Use lseek64 on 386 Solaris.
+# Use lseek64 on 32-bit Solaris/x86.
 syscall_filesize_file = syscalls/sysfile_largefile.go
 syscall_stat_file = syscalls/sysfile_stat_largefile.go
-else # !LIBGO_IS_LINUX && LIBGO_IS_SOLARIS && !LIBGO_IS_386
-# Use lseek on amd64 Solaris.
+else # !LIBGO_IS_386
+if LIBGO_IS_SPARC
+# Use lseek64 on 32-bit Solaris/SPARC.
+syscall_filesize_file = syscalls/sysfile_largefile.go
+syscall_stat_file = syscalls/sysfile_stat_largefile.go
+else # !LIBGO_IS_386 && !LIBGO_IS_SPARC
+# Use lseek on 64-bit Solaris.
 syscall_filesize_file = syscalls/sysfile_regfile.go
 syscall_stat_file = syscalls/sysfile_stat_regfile.go
-endif # !LIBGO_IS_386
+endif # !LIBGO_IS_386 && !LIBGO_IS_SPARC
+endif # !LIBGO_IS_SOLARIS
 else # !LIBGO_IS_LINUX && !LIBGO_IS_SOLARIS
 # Use lseek by default.
 syscall_filesize_file = syscalls/sysfile_regfile.go
@@ -1233,11 +1250,18 @@ endif # !LIBGO_IS_SOLARIS
 endif # !LIBGO_IS_LINUX
 
 
-# Define ForkExec, PtraceForkExec, Exec, and Wait4.
+# Define ForkExec, PtraceForkExec, and Exec.
 if LIBGO_IS_RTEMS
 syscall_exec_os_file = syscalls/exec_stubs.go
 else
 syscall_exec_os_file = syscalls/exec.go
+endif
+
+# Define Wait4.
+if HAVE_WAIT4
+syscall_wait_file = syscalls/wait4.go
+else
+syscall_wait_file = syscalls/waitpid.go
 endif
 
 # Define Sleep.
@@ -1251,7 +1275,11 @@ endif
 if LIBGO_IS_RTEMS
 syscall_errstr_file = syscalls/errstr_rtems.go
 else
+if HAVE_STRERROR_R
 syscall_errstr_file = syscalls/errstr.go
+else
+syscall_errstr_file = syscalls/errstr_nor.go
+endif
 endif
 
 # Declare libc_strerror_r which is the Go name for strerror_r.
@@ -1260,7 +1288,7 @@ if LIBGO_IS_RTEMS
 syscall_errstr_decl_file = syscalls/errstr_decl_rtems.go
 else
 if LIBGO_IS_LINUX
-# In Linux the POSIX strerror_r is called __xpg_strerror_r.
+# On GNU/Linux the POSIX strerror_r is called __xpg_strerror_r.
 syscall_errstr_decl_file = syscalls/errstr_decl_linux.go
 else
 # On other systems we hope strerror_r is just strerror_r.
@@ -1312,6 +1340,7 @@ go_syscall_files = \
 	$(syscall_errstr_decl_file) \
 	syscalls/exec_helpers.go \
 	$(syscall_exec_os_file) \
+	$(syscall_wait_file) \
 	$(syscall_filesize_file) \
 	$(syscall_stat_file) \
 	$(syscall_sleep_file) \
@@ -1482,6 +1511,8 @@ libgo_go_objs = \
 
 libgo_la_SOURCES = $(runtime_files)
 
+libgo_la_LDFLAGS = $(PTHREAD_CFLAGS)
+
 libgo_la_LIBADD = \
 	$(libgo_go_objs) $(LIBFFI) $(PTHREAD_LIBS) $(MATH_LIBS) $(NET_LIBS)
 
@@ -1522,40 +1553,51 @@ CHECK = \
 	export RUNTESTFLAGS; \
 	MAKE="$(MAKE)"; \
 	export MAKE; \
-	rm -f $@-log; \
+	rm -f $@-testlog; \
 	prefix=`if test "$(@D)" = "regexp"; then echo regexp-test; else dirname $(@D); fi`; \
 	test "$${prefix}" != "." || prefix="$(@D)"; \
 	if test "$(use_dejagnu)" = "yes"; then \
-	  $(SHELL) $(srcdir)/testsuite/gotest --dejagnu=yes --basedir=$(srcdir) --srcdir=$(srcdir)/go/$(@D) --prefix="libgo_$${prefix}" --pkgfiles="$(go_$(subst /,_,$(@D))_files)" $(GOTESTFLAGS); \
+	  $(SHELL) $(srcdir)/testsuite/gotest --dejagnu=yes --basedir=$(srcdir) --srcdir=$(srcdir)/go/$(@D) --prefix="libgo_$${prefix}" --pkgfiles="$(go_$(subst /,_,$(@D))_files)" --testname="$(@D)" $(GOTESTFLAGS); \
 	else \
-	  if $(SHELL) $(srcdir)/testsuite/gotest --basedir=$(srcdir) --srcdir=$(srcdir)/go/$(@D) --prefix="libgo_$${prefix}" --pkgfiles="$(go_$(subst /,_,$(@D))_files)" $(GOTESTFLAGS) >>$@-log 2>&1; then \
+	  if $(SHELL) $(srcdir)/testsuite/gotest --basedir=$(srcdir) --srcdir=$(srcdir)/go/$(@D) --prefix="libgo_$${prefix}" --pkgfiles="$(go_$(subst /,_,$(@D))_files)" $(GOTESTFLAGS) >>$@-testlog 2>&1; then \
 	    echo "PASS: $(@D)"; \
+	    echo "PASS: $(@D)" >> libgo.sum; \
+	    echo "PASS: $(@D)" >> $@-testlog; \
+	    cat $@-testlog >> libgo.log; \
 	  else \
-	    echo "FAIL: $(@D)"; \
-	    cat $@-log; \
+	    echo "FAIL: $(@D)" >> $@-testlog; \
+	    cat $@-testlog; \
+	    echo "FAIL: $(@D)" >> libgo.sum; \
+	    cat $@-testlog >> libgo.log; \
 	    exit 1; \
 	  fi; \
 	fi
 
 # Build all packages before checking any.
 CHECK_DEPS = libgo.la libgobegin.a \
-	$(toolexeclib_DATA) \
-	$(toolexeclibarchive_DATA) \
-	$(toolexeclibcompress_DATA) \
-	$(toolexeclibcontainer_DATA) \
-	$(toolexeclibcrypto_DATA) \
-	$(toolexeclibdebug_DATA) \
-	$(toolexeclibencoding_DATA) \
-	$(toolexeclibexp_DATA) \
 	$(toolexeclibgo_DATA) \
-	$(toolexeclibhash_DATA) \
-	$(toolexeclibhttp_DATA) \
-	$(toolexeclibimage_DATA) \
-	$(toolexeclibio_DATA) \
-	$(toolexeclibos_DATA) \
-	$(toolexeclibrpc_DATA) \
-	$(toolexeclibruntime_DATA) \
-	$(toolexeclibtesting_DATA)
+	$(toolexeclibgoarchive_DATA) \
+	$(toolexeclibgocompress_DATA) \
+	$(toolexeclibgocontainer_DATA) \
+	$(toolexeclibgocrypto_DATA) \
+	$(toolexeclibgocryptoopenpgp_DATA) \
+	$(toolexeclibgodebug_DATA) \
+	$(toolexeclibgoencoding_DATA) \
+	$(toolexeclibgoexp_DATA) \
+	$(toolexeclibgogo_DATA) \
+	$(toolexeclibgohash_DATA) \
+	$(toolexeclibgohttp_DATA) \
+	$(toolexeclibgoimage_DATA) \
+	$(toolexeclibgoindex_DATA) \
+	$(toolexeclibgoio_DATA) \
+	$(toolexeclibgomime_DATA) \
+	$(toolexeclibgonet_DATA) \
+	$(toolexeclibgoos_DATA) \
+	$(toolexeclibgopath_DATA) \
+	$(toolexeclibgorpc_DATA) \
+	$(toolexeclibgoruntime_DATA) \
+	$(toolexeclibgosync_DATA) \
+	$(toolexeclibgotesting_DATA)
 
 asn1/asn1.lo: $(go_asn1_files) bytes.gox fmt.gox io.gox os.gox reflect.gox \
 		strconv.gox strings.gox time.gox
@@ -1701,8 +1743,9 @@ mime/check: $(CHECK_DEPS)
 	$(CHECK)
 .PHONY: mime/check
 
-net/net.lo: $(go_net_files) bytes.gox fmt.gox io.gox os.gox reflect.gox \
-		strconv.gox strings.gox sync.gox syscall.gox
+net/net.lo: $(go_net_files) bytes.gox fmt.gox io.gox os.gox rand.gox \
+		reflect.gox strconv.gox strings.gox sync.gox syscall.gox \
+		time.gox
 	$(BUILDPACKAGE)
 net/check: $(CHECK_DEPS)
 	$(CHECK)
@@ -1989,7 +2032,7 @@ crypto/blowfish/check: $(CHECK_DEPS)
 
 crypto/cast5.lo: $(go_crypto_cast5_files) os.gox
 	$(BUILDPACKAGE)
-crypt/cast5/check: $(CHECK_DEPS)
+crypto/cast5/check: $(CHECK_DEPS)
 	@$(MKDIR_P) crypto/cast5
 	$(CHECK)
 .PHONY: crypto/cast5/check
@@ -2327,8 +2370,8 @@ exp/eval/check: $(CHECK_DEPS)
 	$(CHECK)
 .PHONY: exp/eval/check
 
-go/ast.lo: $(go_go_ast_files) bytes.gox fmt.gox go/token.gox io.gox os.gox \
-		reflect.gox unicode.gox utf8.gox
+go/ast.lo: $(go_go_ast_files) bytes.gox fmt.gox go/scanner.gox go/token.gox \
+		io.gox os.gox reflect.gox unicode.gox utf8.gox
 	$(BUILDPACKAGE)
 go/ast/check: $(CHECK_DEPS)
 	@$(MKDIR_P) go/ast
@@ -2574,7 +2617,7 @@ testing/script/check: $(CHECK_DEPS)
 
 sysinfo.go: s-sysinfo; @true
 s-sysinfo: $(srcdir)/mksysinfo.sh config.h
-	CC="$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS)" $(SHELL) $(srcdir)/mksysinfo.sh
+	CC="$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(OSCFLAGS)" $(SHELL) $(srcdir)/mksysinfo.sh
 	$(SHELL) $(srcdir)/../move-if-change tmp-sysinfo.go sysinfo.go
 	$(STAMP) $@
 
@@ -3014,14 +3057,49 @@ TEST_PACKAGES = \
 	testing/quick/check \
 	testing/script/check
 
-check-recursive: $(TEST_PACKAGES)
+check-am:
+	@rm -f libgo.sum libgo.log
+	@echo "Test Run By $${USER} on `date`" > libgo.sum
+	@echo "Native configuration is $(host_triplet)" >> libgo.sum
+	@echo >> libgo.sum
+	@echo "		=== libgo tests ===" >> libgo.sum
+	@echo >> libgo.sum
+	@echo "Schedule of variations:" >> libgo.sum
+	@echo "    unix" >> libgo.sum
+	@echo >> libgo.sum
+	@echo "Running target unix" >> libgo.sum
+	@echo "Running $(srcdir)/libgo.exp ..." >> libgo.sum
+	@cp libgo.sum libgo.log
+	@rm -f libgo.tail
+	@$(MAKE) -k $(TEST_PACKAGES); \
+	status=$$?; \
+	echo > libgo.tail; \
+	echo "		=== libgo summary ===" >> libgo.tail; \
+	echo >> libgo.tail; \
+	p=`grep -c PASS libgo.sum`; \
+	if test "$$p" != "0"; then \
+	  echo "# of expected passes		$$p" >> libgo.tail; \
+	fi; \
+	p=`grep -c FAIL libgo.sum`; \
+	if test "$$p" != "0"; then \
+	  echo "# of unexpected failures	$$p" >> libgo.tail; \
+	fi; \
+	cat libgo.tail >> libgo.sum; \
+	cat libgo.tail >> libgo.log; \
+	echo `echo $(GOC) | sed -e 's/ .*//'`  `$(GOC) -v 2>&1 | grep " version" | sed -n -e 's/.* \(version.*$$\)/\1/p'` >> libgo.sum; \
+	echo >> libgo.log; \
+	echo "runtest completed at `date`" >> libgo.log; \
+	exit $$status
+
+MOSTLYCLEAN_FILES = libgo.tail
 
 mostlyclean-local:
 	find . -name '*.lo' -print | xargs $(LIBTOOL) --mode=clean rm -f
 	find . -name '*.$(OBJEXT)' -print | xargs rm -f
+	find . -name '*-testlog' -print | xargs rm -f
+
+CLEANFILES = *.go *.gox goc2c *.c s-version libgo.sum libgo.log
 
 clean-local:
 	find . -name '*.la' -print | xargs $(LIBTOOL) --mode=clean rm -f
 	find . -name '*.a' -print | xargs rm -f
-
-CLEANFILES = *.go *.gox goc2c *.c s-version
