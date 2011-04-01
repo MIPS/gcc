@@ -28328,7 +28328,8 @@ rs6000_expand_casesi (rtx index, rtx minval, rtx maxval, rtx jump_table,
 }
 
 void
-rs6000_split_casesi (rtx index, rtx ncases, rtx table_label, rtx def_label)
+rs6000_split_casesi (rtx index, rtx ncases ATTRIBUTE_UNUSED, rtx table_label,
+		     rtx def_label ATTRIBUTE_UNUSED)
 {
   rtx temp, vector;
 
