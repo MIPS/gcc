@@ -1245,6 +1245,7 @@ static void rs6000_function_specific_print (FILE *, int,
 					    struct cl_target_option *);
 static bool rs6000_can_inline_p (tree, tree);
 static void rs6000_set_current_function (tree);
+static unsigned int rs6000_case_values_threshold (void);
 
 
 /* Default register names.  */
@@ -1669,6 +1670,9 @@ static const struct default_options rs6000_option_optimization_table[] =
 
 #undef TARGET_SET_CURRENT_FUNCTION
 #define TARGET_SET_CURRENT_FUNCTION rs6000_set_current_function
+
+#undef TARGET_CASE_VALUES_THRESHOLD
+#define TARGET_CASE_VALUES_THRESHOLD rs6000_case_values_threshold
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -28336,5 +28340,61 @@ rs6000_address_for_altivec (rtx x)
   return x;
 }
 
+
+/* Eventually use the move to CR instruction to optimize jump tables, for now,
+   just fall back to generating tablejumps.  */
+
+void
+rs6000_expand_casesi (rtx index, rtx minval, rtx maxval, rtx jump_table,
+		      rtx def_label)
+{
+  /* Make sure the value is within bounds.  */
+  if (INTVAL (minval) != 0)
+    {
+      emit_insn (gen_sub2_insn (index, minval));
+      maxval = GEN_INT (INTVAL (maxval) - INTVAL (minval));
+    }
+
+  emit_cmp_and_jump_insns (index, maxval, GTU, NULL_RTX, SImode, 1, def_label);
+
+  /* Generate the casesi that will be split later.  */
+  if (TARGET_32BIT)
+    emit_jump_insn (gen_casesi_internalsi (index, maxval, jump_table,
+					   def_label));
+  else
+    emit_jump_insn (gen_casesi_internaldi (index, maxval, jump_table,
+					   def_label));
+  return;
+}
+
+void
+rs6000_split_casesi (rtx index, rtx ncases, rtx table_label, rtx def_label)
+{
+  rtx temp, vector;
+
+  index = gen_rtx_PLUS (Pmode,
+			gen_rtx_MULT (Pmode, index,
+				      GEN_INT (GET_MODE_SIZE (CASE_VECTOR_MODE))),
+			gen_rtx_LABEL_REF (Pmode, table_label));
+  index = memory_address (CASE_VECTOR_MODE, index);
+  temp = gen_reg_rtx (CASE_VECTOR_MODE);
+  vector = gen_const_mem (CASE_VECTOR_MODE, index);
+  convert_move (temp, vector, 0);
+
+  emit_jump_insn (gen_tablejump (temp, table_label));
+}
+
+/* If the machine does not have a case insn that compares the bounds,
+   this means extra overhead for dispatch tables, which raises the
+   threshold for using them.  */
+
+static unsigned int
+rs6000_case_values_threshold (void)
+{
+  if (rs6000_case_values_threshold_num)
+    return rs6000_case_values_threshold_num;
+
+  return default_case_values_threshold ();
+}
 
 #include "gt-rs6000.h"

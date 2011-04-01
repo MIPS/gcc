@@ -1,3 +1,29 @@
+2011-04-01  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-protos.h (rs6000_expand_casesi): Add
+	declaration.
+	(rs6000_split_casesi): Ditto.
+
+	* config/rs6000/rs6000.opt (-mswitch-cr): Enable casesi test
+	code.
+	(-mcase-values-threshold): Override CASE_VALUES_THRESHOLD hook to
+	change when the compiler does jump tables vs. if statements.
+
+	* config/rs6000/rs6000.c (TARGET_CASE_VALUES_THRESHOLD): Add hook
+	to change the value of TARGET_CASE_VALUES_THRESHOLD.
+	(rs6000_case_values_threshold): Ditto.
+	(rs6000_expand_casesi): Test code for casesi support generation,
+	currently a stub, reverting back to tablejump support.
+	(rs6000_split_casesi): Ditto.
+
+	* config/rs6000/rs6000.md (UNSPEC_CASESI): New unspec enum.
+	(casesi_internal<mode>): Test code to add casesi support to
+	eventually do CR register trick Steve came up with.
+	(casesi): Ditto.
+
+	* doc/invoke.texi (IBM RS/6000 and PowerPC Options): Document
+	-mswitch-cr and -mcase-values-threshold.
+
 2011-03-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 171704.

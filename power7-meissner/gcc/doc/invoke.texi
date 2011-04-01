@@ -797,7 +797,8 @@ See RS/6000 and PowerPC Options.
 -msdata=@var{opt}  -mvxworks  -G @var{num}  -pthread @gol
 -mrecip -mrecip=@var{opt} -mno-recip -mrecip-precision @gol
 -mno-recip-precision @gol
--mveclibabi=@var{type} -mfriz -mno-friz}
+-mveclibabi=@var{type} -mfriz -mno-friz @gol
+-mswitch-cr -mcase-values-threshold=@var{n}}
 
 @emph{RX Options}
 @gccoptlist{-m64bit-doubles  -m32bit-doubles  -fpu  -nofpu@gol
@@ -16146,6 +16147,16 @@ Generate (do not generate) the @code{friz} instruction when the
 rounding a floating point value to 64-bit integer and back to floating
 point.  The @code{friz} instruction does not return the same value if
 the floating point number is too large to fit in an integer.
+
+@item -mswitch-cr
+@itemx -mno-switch-cr
+Generate (do not generate) code to load switch values into condition
+code registers to speed up switch statements.
+
+@item -mcase-values-threshold=@var{n}
+Specify the smallest number of different values for which it is best to
+use a jump-table instead of a tree of conditional branches.  The
+default for @option{-mcase-values-threshold} is 4.
 @end table
 
 @node RX Options

@@ -461,4 +461,11 @@ mxilinx-fpu
 Target Var(rs6000_xilinx_fpu) Save
 Specify Xilinx FPU.
 
+mswitch-cr
+Target Var(TARGET_SWITCH_CR) Save
+Use mtocr instructions to implement switch statements.
 
+mcase-values-threshold=
+Target Report Var(rs6000_case_values_threshold_num) Init(4) RejectNegative Joined UInteger Save
+Specify the smallest number of different values for which it is best to use a
+jump-table instead of a tree of conditional branches (default, 4).
