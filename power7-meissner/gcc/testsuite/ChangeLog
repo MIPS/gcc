@@ -1,3 +1,47 @@
+2011-04-04  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gfortran.dg/bessel_6.f90: Use dg-add-options ieee.
+	* gfortran.dg/bessel_7.f90: Likewise.
+
+2011-04-03  Tobias Burnus  <burnus@net-b.de>
+
+	* gfortran.dg/bessel_6.f90: Reduce mymax for Tru64.
+
+2011-04-03  Richard Guenther  <rguenther@suse.de>
+	    Ira Rosen  <ira.rosen@linaro.org>
+
+	* gcc.dg/vect/if-cvt-stores-vect-ifcvt-18.c: New test.
+	* gcc.dg/vect/vect.exp: Run if-cvt-stores-vect* tests with
+	-ftree-loop-if-convert-stores.
+
+2011-04-02  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/specs/aggr2.ads: New test.
+
+2011-04-02  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/debug2.ad[sb]: New test.
+	* gnat.dg/debug2_pkg.ads: New helper.
+	* gnat.dg/debug3.ad[sb]: New test.
+
+2011-04-01  Uros Bizjak  <ubizjak@gmail.com>
+
+	* go.test/go-test.exp (go-set-goarch): Recognize alpha*-*-*.
+
+2011-04-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/48335
+	* gcc.c-torture/compile/pr48335-1.c: New test.
+	* gcc.dg/pr48335-1.c: New test.
+	* gcc.dg/pr48335-2.c: New test.
+	* gcc.dg/pr48335-3.c: New test.
+	* gcc.dg/pr48335-4.c: New test.
+	* gcc.dg/pr48335-5.c: New test.
+	* gcc.dg/pr48335-6.c: New test.
+	* gcc.dg/pr48335-7.c: New test.
+	* gcc.dg/pr48335-8.c: New test.
+	* gcc.target/i386/pr48335-1.c: New test.
+
 2011-04-01  Vincent Lefevre  <vincent+gcc@vinc17.org>
 
 	PR c/36299
@@ -280,7 +324,7 @@
 	* gcc.dg/graphite/block-8.c: Likewise.
 
 2011-03-25  Richard Guenther  <rguenther@suse.de>
- 
+
 	* g++.dg/tree-ssa/pr41186.C: Scan the appropriate FRE dump.
 	* g++.dg/tree-ssa/pr8781.C: Likewise.
 	* gcc.dg/ipa/ipa-pta-13.c: Likewise.

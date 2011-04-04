@@ -1,3 +1,218 @@
+2011-04-04  Bernd Schmidt  <bernds@codesourcery.com>
+
+	PR bootstrap/48403
+	* haifa-sched.c (nonscheduled_insns_begin): New static variable.
+	(rank_for_schedule): Use scheduled_insns vector instead of
+	last_scheduled_insn.
+	(ok_for_early_queue_removal): Likewise.
+	(queue_to_ready): Search forward in nonscheduled_insns_begin if
+	we have a dbg_cnt.
+	(choose_ready): Likewise.
+	(commit_schedule): Use VEC_iterate.
+	(schedule_block): Initialize nonscheduled_insns_begin.  If we have
+	a dbg_cnt, use it and ensure the first insn is in the ready list.
+	(haifa_sched_init): Allocate scheduled_insns.
+	(sched_extend_ready_list): Don't allocate it; reserve space.
+	(haifa_sched_finish): Free it.
+
+2011-04-04  Joseph Myers  <joseph@codesourcery.com>
+
+	* optc-gen.awk: Always remove type from Variable entry before
+	recording in var_seen.
+
+2011-04-04  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* cfghooks.c (tidy_fallthru_edges): Add ??? comment.
+	* tree-inline.c (delete_unreachable_blocks_update_callgraph): Remove
+	call to tidy_fallthru_edges.
+
+2011-04-04  Joseph Myers  <joseph@codesourcery.com>
+
+	* doc/options.texi (ToLower): Document.
+	* opt-functions.awk (switch_bit_fields): Initialize cl_tolower
+	field.
+	* opts-common.c (decode_cmdline_option): Handle cl_tolower.
+	* opts.h (cl_option): Add cl_tolower field.
+	* config/rx/rx.c (rx_handle_option): Use strcmp of -mcpu=
+	arguments with lowercase strings.
+	* config/rx/rx.opt (mcpu=): Add ToLower.
+	* config/rx/t-rx (MULTILIB_MATCHES): Don't handle uppercase -mcpu=
+	argument.
+
+2011-04-04  Richard Sandiford  <richard.sandiford@linaro.org>
+
+	* config/pdp11/pdp11.h (IRA_COVER_CLASSES): Delete.
+
+2011-04-04  Richard Sandiford  <richard.sandiford@linaro.org>
+
+	* config/vax/vax.c: Include reload.h.
+
+2011-04-04  Anatoly Sokolov  <aesok@post.ru>
+
+	* config/sparc/sparc.h (PREFERRED_RELOAD_CLASS): Remove.
+	* config/sparc/sparc.c (TARGET_PREFERRED_RELOAD_CLASS): Define.
+	(sparc_preferred_reload_class): New function.
+
+2011-04-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/48401
+	* cfgexpand.c (expand_gimple_basic_block): Avoid useless assignment.
+	Use PAT_VAR_LOCATION_LOC instead of INSN_VAR_LOCATION_LOC.
+
+2011-04-03  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* tree.h (struct tree_const_decl): Inherit from tree_decl_common.
+	* tree.c (initialize_tree_contains_struct): Adjust accordingly.
+
+2011-04-03  Anatoly Sokolov  <aesok@post.ru>
+
+	* config/avr/avr.h (ASM_OUTPUT_BSS): Remove.
+	(ASM_OUTPUT_ALIGNED_BSS): Define.
+
+2011-04-03  Michael Matz  <matz@suse.de>
+
+	* lto-streamer.h (struct lto_streamer_cache_d): Remove offsets
+	and next_slot members.
+	(lto_streamer_cache_insert, lto_streamer_cache_insert_at,
+	lto_streamer_cache_lookup, lto_streamer_cache_get): Adjust prototypes.
+	(lto_streamer_cache_append): Declare.
+	* lto-streamer.c (lto_streamer_cache_add_to_node_array): Use
+	unsigned index, remove offset parameter, ensure that we append
+	or update existing entries.
+	(lto_streamer_cache_insert_1): Use unsigned index, remove offset_p
+	parameter, update next_slot for append.
+	(lto_streamer_cache_insert): Use unsigned index, remove offset_p
+	parameter.
+	(lto_streamer_cache_insert_at): Likewise.
+	(lto_streamer_cache_append): New function.
+	(lto_streamer_cache_lookup): Use unsigned index.
+	(lto_streamer_cache_get): Likewise.
+	(lto_record_common_node): Don't test tree_node_can_be_shared.
+	(preload_common_node): Adjust call to lto_streamer_cache_insert.
+	(lto_streamer_cache_delete): Don't free offsets member.
+	* lto-streamer-out.c (eq_string_slot_node): Use memcmp.
+	(lto_output_string_with_length): Use lto_output_data_stream.
+	(lto_output_tree_header): Remove ix parameter, don't write it.
+	(lto_output_builtin_tree): Likewise.
+	(lto_write_tree): Adjust callers to above, don't track and write
+	offset, write unsigned index.
+	(output_unreferenced_globals): Don't emit all global vars.
+	(write_global_references): Use unsigned indices.
+	(lto_output_decl_state_refs): Likewise.
+	(write_symbol): Likewise.
+	* lto-streamer-in.c (lto_input_chain): Move earlier.
+	(input_function): Use unsigned index.
+	(input_alias_pairs): Don't read and then ignore all global vars.
+	(lto_materialize_tree): Remove ix_p parameter, don't read index,
+	don't pass it back, use lto_streamer_cache_append.
+	(lto_register_var_decl_in_symtab): Use unsigned index.
+	(lto_register_function_decl_in_symtab): Likewise.
+	(lto_get_pickled_tree): Don't read in or handle offset, read unsigned
+	index.
+	(lto_get_builtin_tree): Don't read index, use
+	lto_streamer_cache_append.
+	(lto_read_tree): Adjust call to lto_materialize_tree.
+
+	* ipa-inline.c (cgraph_edge_badness): Move growth calculaton,
+	don't use function calls in arguments to MIN.
+
+	* varasm.c (decl_binds_to_current_def_p): Don't check TREE_PUBLIC
+	twice.
+
+	* gimple.c (gimple_type_leader_entry): Mark deletable.
+
+2011-04-03  Alan Modra  <amodra@gmail.com>
+
+	* dwarf2out.c (mem_loc_descriptor): Recurse on LO_SUM.
+
+2011-04-03  Michael Matz  <matz@suse.de>
+
+	* tree.c (free_lang_data_in_decl): Zero DECL_VINDEX if it's not
+	an integer.
+	* tree.h (tree_decl_non_common.vindex): Adjust comment.
+
+2011-04-03  Michael Matz  <matz@suse.de>
+
+	* cgraphbuild.c (record_reference): Canonicalize constructor values.
+	* gimple-fold.c (canonicalize_constructor_val): Accept being called
+	without function context.
+	* cgraphunit.c (cgraph_finalize_compilation_unit): Clear
+	current_function_decl and cfun.
+
+2011-04-03  Michael Matz  <matz@suse.de>
+
+	* tree.c (decl_init_priority_insert): Don't create entry for
+	default priority.
+	(decl_fini_priority_insert): Ditto.
+	(fields_compatible_p, find_compatible_field): Remove.
+	* tree.h (fields_compatible_p, find_compatible_field): Remove.
+	* gimple.c (gimple_compare_field_offset): Adjust block comment.
+
+2011-04-03  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* combine.c (try_combine): Remove useless local variable.
+
+2011-04-03  Richard Guenther  <rguenther@suse.de>
+	    Ira Rosen  <ira.rosen@linaro.org>
+
+	* tree-if-conv.c (memrefs_read_or_written_unconditionally): Strip all
+	non-variable offsets and compare the remaining bases of the two
+	accesses instead of looking for exact same data-ref.
+
+2011-04-02  Kai Tietz  <ktietz@redhat.com>
+
+	PR target/48416
+	* i386.c (ix86_function_arg_boundary): Fix printf formatter.
+
+	* i386.c (ix86_is_msabi_thiscall): New helper function.
+	(ix86_is_type_thiscall): New helper function.
+	(ix86_comp_type_attributes): Handle thiscall for method-functions
+	special.
+	(init_cumulative_args): Likewise.
+	(find_drap_reg): Likewise.
+	(ix86_static_chain): Likewise.
+	(x86_this_parameter): Likewise.
+	(x86_output_mi_thunk): Likewise.
+
+2011-04-01  Olivier Hainque  <hainque@adacore.com>
+	    Nicolas Setton  <setton@adacore.com>
+	    Eric Botcazou  <ebotcazou@adacore.com>
+
+	* dwarf2out.c (dwarf_attr_name): Map DW_AT_GNAT_descriptive_type.
+	(add_gnat_descriptive_type_attribute): New function.
+	(gen_array_type_die): Call it.
+	(gen_enumeration_type_die): Likewise.
+	(gen_struct_or_union_type_die): Likewise.
+	(modified_type_die): Likewise.
+	* langhooks.h (lang_hooks_for_types): New descriptive_type hook.
+	* langhooks-def.h (LANG_HOOKS_DESCRIPTIVE_TYPE): Default to NULL.
+	(LANG_HOOKS_FOR_TYPES_INITIALIZER): Add LANG_HOOKS_DESCRIPTIVE_TYPE.
+
+2011-04-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/48148
+	* dwarf2out.c (resolve_addr): Don't call force_decl_die
+	if DECL_EXTERNAL has non-NULL DECL_ABSTRACT_ORIGIN.
+
+	Revert:
+	2011-03-17  Richard Guenther  <rguenther@suse.de>
+
+	PR bootstrap/48148
+	* lto-cgraph.c (input_overwrite_node): Clear the abstract
+	origin for decls in other ltrans units.
+	(input_varpool_node): Likewise.
+
+2011-04-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/48335
+	* expr.c (expand_assignment): Handle all possibilities
+	if TO_RTX is CONCAT.
+	* expmed.c (store_bit_field_1): Avoid trying to create invalid SUBREGs.
+	(store_split_bit_field): If SUBREG_REG (op0) or
+	op0 itself has smaller mode than word, return it
+	for offset 0 and const0_rtx for out-of-bounds stores.
+	If word is const0_rtx, skip it.
+
 2011-04-01  Naveen H.S  <naveen.S@kpitcummins.com>
 
 	* config/h8300/h8300.c (print_operand_address): Rename to...
@@ -131,8 +346,7 @@
 	New define to enable use of library pthread by default.
 	* config/i386/mingw.opt (pthread): New driver option.
 	(no-pthread): New driver option.
-	* config/i386/cygming.opt: Make sure trailing empty line
-	is retained.
+	* config/i386/cygming.opt: Make sure trailing empty line is retained.
 	* config/i386/mingw-w64.opt: Likewise.
 
 2011-04-01  Gary Funck <gary@intrepid.com>
@@ -266,8 +480,7 @@
 
 2011-03-31  Michael Matz  <matz@suse.de>
 
-	* builtins.c (build_va_arg_indirect_ref): Use
-	build_simple_mem_ref_loc.
+	* builtins.c (build_va_arg_indirect_ref): Use build_simple_mem_ref_loc.
 
 2011-03-31  Anatoly Sokolov  <aesok@post.ru>
 
@@ -281,7 +494,7 @@
 
 	* reload1.c (elimination_effects): Fix typo in recent change.
 
-	* tree-ssa-forwprop.c (forward_propagate_into_cond): Avoid 
+	* tree-ssa-forwprop.c (forward_propagate_into_cond): Avoid
 	typo potentially leading to null pointer dereference.
 
 	* caller-save.c (new_saved_hard_reg): Eliminate return value.
@@ -313,8 +526,7 @@
 	* collect2.c (main): Don't use TARGET_VERSION.
 	* mips-tdump.c (main): Don't use TARGET_VERSION.
 	* mips-tfile.c (main): Don't use TARGET_VERSION.
-	* config.gcc (powerpc-wrs-vxworksae): Don't use
-	rs6000/vxworksae.h.
+	* config.gcc (powerpc-wrs-vxworksae): Don't use rs6000/vxworksae.h.
 	* config/rs6000/vxworksae.h: Remove.
 	* config/alpha/alpha.h (TARGET_VERSION): Remove.
 	* config/alpha/freebsd.h (TARGET_VERSION): Remove.
@@ -480,8 +692,7 @@
 	* doc/options.texi (NegativeAlias): Document.
 	(Alias): Mention NegativeAlias.
 	* opt-functions.awk: Handle NegativeAlias.
-	* optc-gen.awk: Disallow NegativeAlias with multiple Alias
-	arguments.
+	* optc-gen.awk: Disallow NegativeAlias with multiple Alias arguments.
 	* opts-common.c (decode_cmdline_option): Handle CL_NEGATIVE_ALIAS.
 	* opts.h (CL_NEGATIVE_ALIAS): Define.
 	* config/rs6000/rs6000.c (rs6000_parse_yes_no_option): Remove.
@@ -565,8 +776,7 @@
 	changes.
 	* avr/avr.h (LEGITIMIZE_RELOAD_ADDRESS): Corresponding changes.
 	* xtensa/xtensa.c (fixup_subreg_mem): Corresponding changes.
-	* mn10300/mn10300.c (mn10300_secondary_reload): Corresponding
-	changes.
+	* mn10300/mn10300.c (mn10300_secondary_reload): Corresponding changes.
 	* m68k/m68k.c (emit_move_sequence): Corresponding changes.
 	* arm/arm.c (arm_reload_in_hi, arm_reload_out_hi): Corresponding
 	changes.
@@ -592,6 +802,7 @@
 
 	PR driver/48208
 	* config/c.opt (F): Added 'Driver' to -F option.
+
 	PR driver/48260
 	* config/darwin-driver.c (darwin_driver_init): Add '-arch' to
 	  handler function.
@@ -602,15 +813,14 @@
 	* config/rx/rx.md: Add peepholes and patterns to combine
 	extending loads and simple arithmetic instructions.
 	* config/rx/rx.h (ADJUST_INSN_LENGTH): Define.
-        * config/rx/rx-protos.h (rx_adjust_insn_length): Prototype.
-        * config/rx/rx.c (rx_is_legitimate_address): Allow QI and HI
+	* config/rx/rx-protos.h (rx_adjust_insn_length): Prototype.
+	* config/rx/rx.c (rx_is_legitimate_address): Allow QI and HI
 	modes to use pre-decrement and post-increment addressing.
-        (rx_is_restricted_memory_address): Add range checking of REG+INT
+	(rx_is_restricted_memory_address): Add range checking of REG+INT
 	addresses.
-        (rx_print_operand): Add support for %Q.
-        Fix handling of %Q.
-        (rx_memory_move_cost): Adjust cost of stores.
-        (rx_adjust_insn_length): New function.
+	(rx_print_operand): Add support for %Q.  Fix handling of %Q.
+	(rx_memory_move_cost): Adjust cost of stores.
+	(rx_adjust_insn_length): New function.
 
 2011-03-30  Jakub Jelinek  <jakub@redhat.com>
 
