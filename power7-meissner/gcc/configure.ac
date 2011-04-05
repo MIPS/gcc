@@ -4786,6 +4786,9 @@ AC_SUBST(c_target_objs)
 AC_SUBST(cxx_target_objs)
 AC_SUBST(fortran_target_objs)
 AC_SUBST(target_cpu_default)
+AC_SUBST(extra_builtin_attrs)
+AC_SUBST(extra_builtin_types)
+AC_SUBST(extra_builtin_md)
 
 AC_SUBST_FILE(language_hooks)
 

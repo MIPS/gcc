@@ -111,6 +111,12 @@
 #  extra_headers	List of used header files from the directory
 #			config/${cpu_type}.
 #
+#  extra_builtin_attrs	List of extra builtin attributes include files.
+#
+#  extra_builtin_types	List of extra builtin types include files.
+#
+#  extra_builtin_md	List of extra machine dependent builtin include files.
+#
 #  user_headers_inc_next_pre
 #			List of header file names of internal gcc header
 #			files, which should be prefixed by an include_next.

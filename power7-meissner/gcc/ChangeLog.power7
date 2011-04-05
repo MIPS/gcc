@@ -1,5 +1,29 @@
 2011-04-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* tree.h (enum built_in_function): Add support for machine
+	dependent builtins to be generated along with normal builtins.
+	Create new include files that include the standard .def files as
+	well as any optional machine dependent files.
+	* builtins.c (built_in_names): Ditto.
+	* configure.ac (extra_builtin_attrs): Ditto.
+	(extra_builtin_types): Ditto.
+	(extra_builtin_md): Ditto.
+	* config.gcc (extra_builtin_attrs): Ditto.
+	(extra_builtin_types): Ditto.
+	(extra_builtin_md): Ditto.
+	* Makefile.in (builtin-types.h): Ditto.
+	(builtin-attrs.h): Ditto.
+	(builtin-md.h): Ditto.
+	(BUILTIN_MD_H): Rename from BUILTINS_DEF, and add machine
+	dependent includes.  Change all uses.
+	(BUILTIN_ATTRS_H): New variable for builtin attribute include
+	files.
+	(BUILTIN_TYPES_H): New variable for builtin types include files.
+
+	* configure: Regenerate.
+
+2011-04-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	Merge up to 171990.
 	* REVISION: Update subversion id.
 

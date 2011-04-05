@@ -484,6 +484,9 @@ host_xm_defines=@host_xm_defines@
 xm_file_list=@xm_file_list@
 xm_include_list=@xm_include_list@
 xm_defines=@xm_defines@
+extra_builtin_attrs=@extra_builtin_attrs@
+extra_builtin_types=@extra_builtin_types@
+extra_builtin_md=@extra_builtin_md@
 lang_checks=check-gcc
 lang_checks_parallelized=check-gcc
 # This lists a couple of test files that take most time during check-gcc.
@@ -887,9 +890,11 @@ RTL_H = $(RTL_BASE_H) genrtl.h vecir.h
 RTL_ERROR_H = $(RTL_H) $(DIAGNOSTIC_CORE_H)
 READ_MD_H = $(OBSTACK_H) $(HASHTAB_H) read-md.h
 PARAMS_H = params.h params.def
-BUILTINS_DEF = builtins.def sync-builtins.def omp-builtins.def
+BUILTIN_MD_H = builtin-md.h builtins.def sync-builtins.def omp-builtins.def $(extra_builtin_md)
+BUILTIN_TYPES_H = builtin-types.h builtin-types.def $(extra_builtin_types)
+BUILTIN_ATTRS_H = builtin-attrs.h builtin-attrs.def $(extra_builtin_attrs)
 TREE_H = tree.h all-tree.def tree.def c-family/c-common.def \
-	$(lang_tree_files) $(MACHMODE_H) tree-check.h $(BUILTINS_DEF) \
+	$(lang_tree_files) $(MACHMODE_H) tree-check.h $(BUILTIN_MD_H) \
 	$(INPUT_H) statistics.h $(VEC_H) treestruct.def $(HASHTAB_H) \
 	double-int.h alias.h $(SYMTAB_H) $(FLAGS_H) vecir.h \
 	$(REAL_H) $(FIXED_VALUE_H)
@@ -1667,6 +1672,9 @@ bconfig.h: cs-bconfig.h ; @true
 tconfig.h: cs-tconfig.h ; @true
 tm.h: cs-tm.h ; @true
 tm_p.h: cs-tm_p.h ; @true
+builtin-types.h: cs-builtin-types.h ; @true
+builtin-attrs.h: cs-builtin-attrs.h ; @true
+builtin-md.h: cs-builtin-md.h ; @true
 
 cs-config.h: Makefile
 	TARGET_CPU_DEFAULT="" \
@@ -1692,6 +1700,27 @@ cs-tm_p.h: Makefile
 	TARGET_CPU_DEFAULT="" \
 	HEADERS="$(tm_p_include_list)" DEFINES="" \
 	$(SHELL) $(srcdir)/mkconfig.sh tm_p.h
+
+cs-builtin-attrs.h: Makefile
+	for inc in builtin-attrs.def $(extra_builtin_attrs); do \
+		echo "#include \"$$inc\""; \
+	done > tmp-builtin-attrs.h \
+	&& $(srcdir)/../move-if-change tmp-builtin-attrs.h builtin-attrs.h
+	touch cs-builtins-attrs.h
+
+cs-builtin-md.h: Makefile
+	for inc in builtins.def $(extra_builtin_md); do \
+		echo "#include \"$$inc\""; \
+	done > tmp-builtin-md.h \
+	&& $(srcdir)/../move-if-change tmp-builtin-md.h builtin-md.h
+	touch cs-builtin-md.h
+
+cs-builtin-types.h: Makefile
+	for inc in builtin-types.def $(extra_builtin_types); do \
+		echo "#include \"$$inc\""; \
+	done > tmp-builtin-types.h \
+	&& $(srcdir)/../move-if-change tmp-builtin-types.h builtin-types.h
+	touch cs-builtin-types.h
 
 # Don't automatically run autoconf, since configure.ac might be accidentally
 # newer than configure.  Also, this writes into the source directory which
@@ -2090,11 +2119,11 @@ lto-wrapper.o: lto-wrapper.c $(CONFIG_H) $(SYSTEM_H) coretypes.h intl.h \
 c-family/c-common.o : c-family/c-common.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
 	$(TM_H) $(TREE_H) \
 	$(OBSTACK_H) $(C_COMMON_H) $(FLAGS_H) toplev.h output.h $(C_PRAGMA_H) \
-	$(GGC_H) builtin-types.def builtin-attrs.def \
+	$(GGC_H) $(BUILTIN_TYPES_H) $(BUILTIN_ATTRS_H) \
 	$(DIAGNOSTIC_H) langhooks.h c-family/c-objc.h \
 	$(TARGET_H) tree-iterator.h langhooks.h tree-mudflap.h \
 	intl.h $(OPTS_H) $(CPPLIB_H) $(TREE_INLINE_H) $(HASHTAB_H) \
-	$(BUILTINS_DEF) $(CGRAPH_H) $(BASIC_BLOCK_H) $(TARGET_DEF_H) \
+	$(BUILTIN_MD_H) $(CGRAPH_H) $(BASIC_BLOCK_H) $(TARGET_DEF_H) \
 	$(LIBFUNCS_H) \
 	gt-c-family-c-common.h
 
@@ -2898,7 +2927,7 @@ builtins.o : builtins.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    $(EXPR_H) $(OPTABS_H) insn-config.h $(RECOG_H) output.h typeclass.h \
    hard-reg-set.h $(DIAGNOSTIC_CORE_H) hard-reg-set.h $(EXCEPT_H) \
    $(TM_P_H) $(PREDICT_H) $(LIBFUNCS_H) langhooks.h $(BASIC_BLOCK_H) \
-   tree-mudflap.h realmpfr.h $(BUILTINS_DEF) $(MACHMODE_H) \
+   tree-mudflap.h realmpfr.h $(BUILTIN_MD_H) $(MACHMODE_H) \
    $(DIAGNOSTIC_CORE_H) $(TREE_FLOW_H) value-prof.h
 calls.o : calls.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    $(TREE_H) $(FLAGS_H) $(EXPR_H) $(OPTABS_H) langhooks.h $(TARGET_H) \
@@ -4411,6 +4440,7 @@ clean: mostlyclean lang.clean
 	-rm -f libgcc_s*
 	-rm -f libunwind*
 	-rm -f config.h tconfig.h bconfig.h tm_p.h tm.h
+	-rm -f builtin-types.h builtin-attrs.h builtin-md.h
 	-rm -f options.c options.h optionlist
 	-rm -f cs-*
 	-rm -f doc/*.dvi

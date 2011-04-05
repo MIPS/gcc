@@ -1,0 +1,11 @@
+2011-04-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* c-common.c (enum built_in_attribute): Add support for MD
+	builtins to be generated along with normal builtins.
+	(enum c_builtin_type): Ditto.
+	(c_define_builtins): Ditto.
+	(c_init_attributes): Ditto.
+
+2011-04-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 171990.
