@@ -30,11 +30,14 @@ extern "C"
 #endif
 
 #include "tree.h"
+#include "tree-iterator.h"
+#include "gimple.h"
 
 #ifndef ENABLE_BUILD_WITH_CXX
 }
 #endif
 
+#include "gogo.h"
 #include "backend.h"
 
 // A class wrapping a tree.
@@ -75,6 +78,22 @@ class Bstatement : public Gcc_tree
 {
  public:
   Bstatement(tree t)
+    : Gcc_tree(t)
+  { }
+};
+
+class Bfunction : public Gcc_tree
+{
+ public:
+  Bfunction(tree t)
+    : Gcc_tree(t)
+  { }
+};
+
+class Blabel : public Gcc_tree
+{
+ public:
+  Blabel(tree t)
     : Gcc_tree(t)
   { }
 };
@@ -147,28 +166,171 @@ class Gcc_backend : public Backend
 
   // Statements.
 
-  // Create an assignment statement.
   Bstatement*
-  assignment(Bexpression* lhs, Bexpression* rhs,
-	     source_location location);
+  assignment_statement(Bexpression* lhs, Bexpression* rhs, source_location);
+
+  Bstatement*
+  return_statement(Bfunction*, const std::vector<Bexpression*>&,
+		   source_location);
+
+  // Labels.
+
+  Blabel*
+  label(Bfunction*, const std::string& name, source_location);
+
+  Bstatement*
+  label_definition_statement(Blabel*);
+
+  Bstatement*
+  goto_statement(Blabel*, source_location);
+
+  Bexpression*
+  label_address(Blabel*, source_location);
 
  private:
+  // Make a Bexpression from a tree.
+  Bexpression*
+  make_expression(tree t)
+  { return new Bexpression(t); }
+
   // Make a Bstatement from a tree.
   Bstatement*
   make_statement(tree t)
   { return new Bstatement(t); }
 };
 
+// A helper function.
+
+static inline tree
+get_identifier_from_string(const std::string& str)
+{
+  return get_identifier_with_length(str.data(), str.length());
+}
 // Assignment.
 
 Bstatement*
-Gcc_backend::assignment(Bexpression* lhs, Bexpression* rhs,
-			source_location location)
+Gcc_backend::assignment_statement(Bexpression* lhs, Bexpression* rhs,
+				  source_location location)
 {
+  tree lhs_tree = lhs->get_tree();
+  tree rhs_tree = rhs->get_tree();
+  if (lhs_tree == error_mark_node || rhs_tree == error_mark_node)
+    return this->make_statement(error_mark_node);
   return this->make_statement(fold_build2_loc(location, MODIFY_EXPR,
 					      void_type_node,
-					      lhs->get_tree(),
-					      rhs->get_tree()));
+					      lhs_tree, rhs_tree));
+}
+
+// Return.
+
+Bstatement*
+Gcc_backend::return_statement(Bfunction* bfunction,
+			      const std::vector<Bexpression*>& vals,
+			      source_location location)
+{
+  tree fntree = bfunction->get_tree();
+  if (fntree == error_mark_node)
+    return this->make_statement(error_mark_node);
+  tree result = DECL_RESULT(fntree);
+  if (result == error_mark_node)
+    return this->make_statement(error_mark_node);
+  tree ret;
+  if (vals.empty())
+    ret = fold_build1_loc(location, RETURN_EXPR, void_type_node, NULL_TREE);
+  else if (vals.size() == 1)
+    {
+      tree val = vals.front()->get_tree();
+      if (val == error_mark_node)
+	return this->make_statement(error_mark_node);
+      tree set = fold_build2_loc(location, MODIFY_EXPR, void_type_node,
+				 result, vals.front()->get_tree());
+      ret = fold_build1_loc(location, RETURN_EXPR, void_type_node, set);
+    }
+  else
+    {
+      // To return multiple values, copy the values into a temporary
+      // variable of the right structure type, and then assign the
+      // temporary variable to the DECL_RESULT in the return
+      // statement.
+      tree stmt_list = NULL_TREE;
+      tree rettype = TREE_TYPE(result);
+      tree rettmp = create_tmp_var(rettype, "RESULT");
+      tree field = TYPE_FIELDS(rettype);
+      for (std::vector<Bexpression*>::const_iterator p = vals.begin();
+	   p != vals.end();
+	   p++, field = DECL_CHAIN(field))
+	{
+	  gcc_assert(field != NULL_TREE);
+	  tree ref = fold_build3_loc(location, COMPONENT_REF, TREE_TYPE(field),
+				     rettmp, field, NULL_TREE);
+	  tree val = (*p)->get_tree();
+	  if (val == error_mark_node)
+	    return this->make_statement(error_mark_node);
+	  tree set = fold_build2_loc(location, MODIFY_EXPR, void_type_node,
+				     ref, (*p)->get_tree());
+	  append_to_statement_list(set, &stmt_list);
+	}
+      gcc_assert(field == NULL_TREE);
+      tree set = fold_build2_loc(location, MODIFY_EXPR, void_type_node,
+				 result, rettmp);
+      tree ret_expr = fold_build1_loc(location, RETURN_EXPR, void_type_node,
+				      set);
+      append_to_statement_list(ret_expr, &stmt_list);
+      ret = stmt_list;
+    }
+  return this->make_statement(ret);
+}
+
+// Make a label.
+
+Blabel*
+Gcc_backend::label(Bfunction* function, const std::string& name,
+		   source_location location)
+{
+  tree decl;
+  if (name.empty())
+    decl = create_artificial_label(location);
+  else
+    {
+      tree id = get_identifier_from_string(name);
+      decl = build_decl(location, LABEL_DECL, id, void_type_node);
+      DECL_CONTEXT(decl) = function->get_tree();
+    }
+  return new Blabel(decl);
+}
+
+// Make a statement which defines a label.
+
+Bstatement*
+Gcc_backend::label_definition_statement(Blabel* label)
+{
+  tree lab = label->get_tree();
+  tree ret = fold_build1_loc(DECL_SOURCE_LOCATION(lab), LABEL_EXPR,
+			     void_type_node, lab);
+  return this->make_statement(ret);
+}
+
+// Make a goto statement.
+
+Bstatement*
+Gcc_backend::goto_statement(Blabel* label, source_location location)
+{
+  tree lab = label->get_tree();
+  tree ret = fold_build1_loc(location, GOTO_EXPR, void_type_node, lab);
+  return this->make_statement(ret);
+}
+
+// Get the address of a label.
+
+Bexpression*
+Gcc_backend::label_address(Blabel* label, source_location location)
+{
+  tree lab = label->get_tree();
+  TREE_USED(lab) = 1;
+  TREE_ADDRESSABLE(lab) = 1;
+  tree ret = fold_convert_loc(location, ptr_type_node,
+			      build_fold_addr_expr_loc(location, lab));
+  return this->make_expression(ret);
 }
 
 // The single backend.
@@ -190,6 +352,18 @@ Bexpression*
 tree_to_expr(tree t)
 {
   return new Bexpression(t);
+}
+
+Bfunction*
+tree_to_function(tree t)
+{
+  return new Bfunction(t);
+}
+
+tree
+expression_to_tree(Bexpression* be)
+{
+  return be->get_tree();
 }
 
 tree

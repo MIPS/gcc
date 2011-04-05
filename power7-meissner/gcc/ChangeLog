@@ -1,3 +1,139 @@
+2011-04-05  Tom de Vries  <tom@codesourcery.com>
+
+	PR middle-end/48461
+	* function.c (emit_use_return_register_into_block): Only define if
+	HAVE_return.
+
+2011-04-05  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* stor-layout.c (self_referential_size): Fix 2010-07-13 commit.
+
+2011-04-05  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/rx/rx-opts.h: New.
+	* config/rx/rx.c (rx_cpu_type): Remove.
+	(rx_handle_option): Don't assert that global structures are in
+	use.  Access variables via opts pointer.  Defer most handling of
+	OPT_mint_register_.  Use error_at.
+	(rx_option_override): Handle deferred OPT_mint_register_ here.
+	* config/rx/rx.h (enum rx_cpu_types): Move to rx-opts.h.
+	* config/rx/rx.opt (config/rx/rx-opts.h: New HeaderInclude.
+	(mcpu=): Use Enum and specifiy rx_cpu_type with Var.
+	(rx_cpu_types): New Enum and EnumValue entries.
+	(mint-register=): Use Defer and use Var accordingly.
+
+2011-04-05  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* debug.h (debug_flush_symbol_queue, debug_queue_symbol): Delete.
+	(debug_free_queue, debug_nesting, symbol_queue_index): Delete.
+	* final.c (debug_flush_symbol_queue, debug_queue_symbol):
+	Move these...
+	(debug_free_queue, debug_nesting, symbol_queue_index):
+	...and these...
+	* dbxout.c: ...to here.  Make static.
+
+2011-04-05  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* gcse.c (modify_pair): Define.  Define a VEC of it.
+	(canon_modify_mem_list): Convert to an array of VECs.
+	(free_insn_expr_list_list): Delete.
+	(clear_modify_mem_tables): Call VEC_free instead.
+	(record_last_mem_set_info): Don't modify canon_modify_mem_list.
+	(alloc_gcse_mem): Adjust for canon_modify_mem_list change.
+	(canon_list_insert, compute_transp): Likewise.
+
+2011-04-05  Tom de Vries  <tom@codesourcery.com>
+
+	PR target/43920
+	* config/arm/arm.h (BRANCH_COST): Set to 1 for Thumb-2 when optimizing
+	for size.
+
+2011-04-05  Tom de Vries  <tom@codesourcery.com>
+
+	PR target/43920
+	* function.c (emit_use_return_register_into_block): New function.
+	(thread_prologue_and_epilogue_insns): Use
+	emit_use_return_register_into_block.
+
+2011-04-05  Tom de Vries  <tom@codesourcery.com>
+
+	PR target/43920
+	* cfgcleanup.c (flow_find_cross_jump): Don't count USE or CLOBBER as
+	insn.
+
+2011-04-05  Tom de Vries  <tom@codesourcery.com>
+
+	* cfgcleanup.c (try_crossjump_bb): Remove 2 superfluous variables.
+
+2011-04-05  Yufeng Zhang  <yufeng.zhang@arm.com>
+
+        * config/arm/arm.md (define_constants for unspec): Replace with
+        define_c_enum.
+        (define_constants for unspecv): Replace with define_c_enum.
+        * config/arm/neon.md (define_constants for unspec): Replace with
+        define_c_enum.
+
+2011-04-04  Richard Henderson  <rth@redhat.com>
+
+	PR bootstrap/48400
+	* dwarf2out.c (output_line_info): Always emit line info from
+	at least one section.
+	(dwarf2out_init): Create text_section_line_info here ...
+	(set_cur_line_info_table): ... not here.
+
+2011-04-04  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR target/48380
+	* ira.c (ira): Call grow_reg_equivs when fix_reg_equiv_init is
+	not called.
+
+	* ira-emit.c (emit_move_list): Update reg_equiv_init insn list.
+
+2011-04-04  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* cprop.c (struct expr): Split 'expr' field in 'dest' and 'src'.
+	(expr_equiv_p): Remove.
+	(insert_set_in_table): Look at <dest, src> pair instead of expr.
+	(hash_scan_set): Update call to insert_set_in_table.
+	(dump_hash_table): Dump <dest, src> pair.
+	(lookup_set): Simplify.  Lookup <dest, src> pair.
+	(compute_transp): Remove, fold heavily simplified code into...
+	(compute_local_properties): ...here.  Expect COMP and TRANSP
+	unconditionally.
+	(find_avail_set): Take set directly from struct expr.
+	(find_bypass-set): Likewise.
+	(bypass_block): Likewise.
+	(cprop_insn): Likewise.  Remove redundant INSN_P test.
+
+	* cprop.c (implicit_set_cond_p): Assume nothing about COND, move
+	checks on form of COND from find_implicit_sets to here.
+	(find_implicit_sets): Cleanup control flow. Split critical edges
+	if it exposes implicit sets.  Allocate/resize implicit_sets as
+	necessary.
+	(one_cprop_pass): Only delete unreachable blocks if local_cprop_pass
+	changed something.  Run df_analyze after find_implicit_sets if any
+	edges were split.  Do not allocate implicit_sets here.
+
+	* cprop.c: s/gcse/cprop/ everywhere except for flag_gcse.
+	(gcse_obstack): Renamed to cprop_obstack.
+	(GNEW, GNEWVEC, GNEWVAR): Remove.
+	(gmalloc): Remove.
+	(alloc_hash_table): Use XNEWVAR instead of GNEWVAR.
+	(GOBNEW, GOBNEWVAR): Adjust for gcse_obstack renaming.
+	(gcse_alloc): Likewise, and rename to cprop_alloc.
+	(alloc_gcse_men, free_gcse_mem): Remove.
+	(gcse_constant_p): Rename to cprop_constant_p, and adjust all callers.
+	(compute_hash_table_work): Allocate and free reg_set_bitmap here.
+	(one_cprop_pass): Likewise. Adjust for gcse_obstack renaming.
+
+	* cprop.c (oprs_not_set_p): Remove.
+	(mark_set, mark_clobber): Remove.
+	(mark_oprs_set): Rewrite using DF_INSN_INFO_DEFS cache.
+	(reg_not_set_p): New function.
+	(find_avail_set): Use reg_not_set_p instead of oprs_not_set_p.
+	(cprop_insn): Likewise.
+	(cprop_jump): Use FOR_EACH_EDGE.
+
 2011-04-04  Bernd Schmidt  <bernds@codesourcery.com>
 
 	PR bootstrap/48403

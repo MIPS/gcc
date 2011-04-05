@@ -1,3 +1,37 @@
+2011-04-05  Tom de Vries  <tom@codesourcery.com>
+
+	PR target/43920
+	* gcc.target/arm/pr43920-1.c: New test.
+
+2011-04-04  Yufeng Zhang  <yufeng.zhang@arm.com>
+
+        * g++.dg/abi/arm_cxa_vec1.C (__ARM_EABI__): Fix typo.
+	(cctor): Actually return the value.
+	(main): Cast return values.
+
+2010-04-04  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	* gfortran.dg/character_comparison_8.f90:  New test.
+
+2010-04-04  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	* frontend-passes: (optimize_lexical_comparison): New function.
+	(optimize_expr): Call it.
+	(optimize_comparison): Also handle lexical comparison functions.
+	Return false instad of -2 for unequal comparison.
+
+2011-04-04  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/48412
+	* function_optimize_4.f90:  New test.
+
+2011-04-04  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/18918
+	* gfortran.dg/coarray_10.f90: Add coarray descriptor diagnostic check.
+	* gfortran.dg/coarray_13.f90: Add checks for run-time cobounds.
+	* gfortran.dg/coarray_15.f90: New.
+
 2011-04-04  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
 
 	* gfortran.dg/bessel_6.f90: Use dg-add-options ieee.

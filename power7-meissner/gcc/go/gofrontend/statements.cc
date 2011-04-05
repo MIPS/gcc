@@ -561,9 +561,10 @@ Assignment_statement::do_get_tree(Translate_context* context)
   if (rhs_tree == error_mark_node)
     return error_mark_node;
 
-  Bstatement* ret = context->backend()->assignment(tree_to_expr(lhs_tree),
-						   tree_to_expr(rhs_tree),
-						   this->location());
+  Bstatement* ret;
+  ret = context->backend()->assignment_statement(tree_to_expr(lhs_tree),
+						 tree_to_expr(rhs_tree),
+						 this->location());
   return statement_to_tree(ret);
 }
 
@@ -2289,10 +2290,7 @@ Thunk_statement::build_thunk(Gogo* gogo, const std::string& thunk_name,
 
       Expression_list* vals = new Expression_list();
       vals->push_back(Expression::make_boolean(false, location));
-      const Typed_identifier_list* results =
-	function->func_value()->type()->results();
-      gogo->add_statement(Statement::make_return_statement(results, vals,
-							  location));
+      gogo->add_statement(Statement::make_return_statement(vals, location));
     }
 
   // That is all the thunk has to do.
@@ -2442,69 +2440,76 @@ Return_statement::do_traverse_assignments(Traverse_assignments* tassign)
 // panic/recover work correctly.
 
 Statement*
-Return_statement::do_lower(Gogo*, Named_object*, Block* enclosing)
+Return_statement::do_lower(Gogo*, Named_object* function, Block* enclosing)
 {
-  if (this->vals_ == NULL)
+  if (this->is_lowered_)
     return this;
 
-  const Typed_identifier_list* results = this->results_;
-  if (results == NULL || results->empty())
-    return this;
+  Expression_list* vals = this->vals_;
+  this->vals_ = NULL;
+  this->is_lowered_ = true;
 
-  // If the current function has multiple return values, and we are
-  // returning a single call expression, split up the call expression.
-  size_t results_count = results->size();
-  if (results_count > 1
-      && this->vals_->size() == 1
-      && this->vals_->front()->call_expression() != NULL)
+  source_location loc = this->location();
+
+  size_t vals_count = vals == NULL ? 0 : vals->size();
+  Function::Results* results = function->func_value()->result_variables();
+  size_t results_count = results == NULL ? 0 : results->size();
+
+  if (vals_count == 0)
     {
-      Call_expression* call = this->vals_->front()->call_expression();
-      size_t count = results->size();
-      Expression_list* vals = new Expression_list;
-      for (size_t i = 0; i < count; ++i)
-	vals->push_back(Expression::make_call_result(call, i));
-      delete this->vals_;
-      this->vals_ = vals;
-    }
-
-  if (results->front().name().empty())
-    return this;
-
-  if (results_count != this->vals_->size())
-    {
-      // Presumably an error which will be reported in check_types.
+      if (results_count > 0 && !function->func_value()->results_are_named())
+	{
+	  this->report_error(_("not enough arguments to return"));
+	  return this;
+	}
       return this;
     }
 
-  // Assign to named return values and then return them.
+  if (results_count == 0)
+    {
+      this->report_error(_("return with value in function "
+			   "with no return type"));
+      return this;
+    }
 
-  source_location loc = this->location();
-  const Block* top = enclosing;
-  while (top->enclosing() != NULL)
-    top = top->enclosing();
+  // If the current function has multiple return values, and we are
+  // returning a single call expression, split up the call expression.
+  if (results_count > 1
+      && vals->size() == 1
+      && vals->front()->call_expression() != NULL)
+    {
+      Call_expression* call = vals->front()->call_expression();
+      delete vals;
+      vals = new Expression_list;
+      for (size_t i = 0; i < results_count; ++i)
+	vals->push_back(Expression::make_call_result(call, i));
+      vals_count = results_count;
+    }
 
-  const Bindings *bindings = top->bindings();
+  if (vals_count < results_count)
+    {
+      this->report_error(_("not enough arguments to return"));
+      return this;
+    }
+
+  if (vals_count > results_count)
+    {
+      this->report_error(_("too many values in return statement"));
+      return this;
+    }
+
   Block* b = new Block(enclosing, loc);
 
   Expression_list* lhs = new Expression_list();
   Expression_list* rhs = new Expression_list();
 
-  Expression_list::const_iterator pe = this->vals_->begin();
+  Expression_list::const_iterator pe = vals->begin();
   int i = 1;
-  for (Typed_identifier_list::const_iterator pr = results->begin();
+  for (Function::Results::const_iterator pr = results->begin();
        pr != results->end();
        ++pr, ++pe, ++i)
     {
-      Named_object* rv = bindings->lookup_local(pr->name());
-      if (rv == NULL || !rv->is_result_variable())
-	{
-	  // Presumably an error.
-	  delete b;
-	  delete lhs;
-	  delete rhs;
-	  return this;
-	}
-
+      Named_object* rv = *pr;
       Expression* e = *pe;
 
       // Check types now so that we give a good error message.  The
@@ -2546,187 +2551,48 @@ Return_statement::do_lower(Gogo*, Named_object*, Block* enclosing)
   else
     b->add_statement(Statement::make_tuple_assignment(lhs, rhs, loc));
 
-  b->add_statement(Statement::make_return_statement(this->results_, NULL,
-						    loc));
+  b->add_statement(this);
+
+  delete vals;
 
   return Statement::make_block_statement(b, loc);
 }
 
-// Determine types.
-
-void
-Return_statement::do_determine_types()
-{
-  if (this->vals_ == NULL)
-    return;
-  const Typed_identifier_list* results = this->results_;
-
-  Typed_identifier_list::const_iterator pt;
-  if (results != NULL)
-    pt = results->begin();
-  for (Expression_list::iterator pe = this->vals_->begin();
-       pe != this->vals_->end();
-       ++pe)
-    {
-      if (results == NULL || pt == results->end())
-	(*pe)->determine_type_no_context();
-      else
-	{
-	  Type_context context(pt->type(), false);
-	  (*pe)->determine_type(&context);
-	  ++pt;
-	}
-    }
-}
-
-// Check types.
-
-void
-Return_statement::do_check_types(Gogo*)
-{
-  const Typed_identifier_list* results = this->results_;
-  if (this->vals_ == NULL)
-    {
-      if (results != NULL
-	  && !results->empty()
-	  && results->front().name().empty())
-	{
-	  // The result parameters are not named, which means that we
-	  // need to supply values for them.
-	  this->report_error(_("not enough arguments to return"));
-	}
-      return;
-    }
-
-  if (results == NULL)
-    {
-      this->report_error(_("return with value in function "
-			   "with no return type"));
-      return;
-    }
-
-  int i = 1;
-  Typed_identifier_list::const_iterator pt = results->begin();
-  for (Expression_list::const_iterator pe = this->vals_->begin();
-       pe != this->vals_->end();
-       ++pe, ++pt, ++i)
-    {
-      if (pt == results->end())
-	{
-	  this->report_error(_("too many values in return statement"));
-	  return;
-	}
-      std::string reason;
-      if (!Type::are_assignable(pt->type(), (*pe)->type(), &reason))
-	{
-	  if (reason.empty())
-	    error_at(this->location(),
-		     "incompatible type for return value %d",
-		     i);
-	  else
-	    error_at(this->location(),
-		     "incompatible type for return value %d (%s)",
-		     i, reason.c_str());
-	  this->set_is_error();
-	}
-      else if (pt->type()->is_error() || (*pe)->type()->is_error())
-	this->set_is_error();
-    }
-
-  if (pt != results->end())
-    this->report_error(_("not enough arguments to return"));
-}
-
-// Build a RETURN_EXPR tree.
+// Convert a return statement to the backend representation.
 
 tree
 Return_statement::do_get_tree(Translate_context* context)
 {
   Function* function = context->function()->func_value();
   tree fndecl = function->get_decl();
-  if (fndecl == error_mark_node || DECL_RESULT(fndecl) == error_mark_node)
-    return error_mark_node;
 
-  const Typed_identifier_list* results = this->results_;
-
-  if (this->vals_ == NULL)
+  Function::Results* results = function->result_variables();
+  std::vector<Bexpression*> retvals;
+  if (results != NULL && !results->empty())
     {
-      tree stmt_list = NULL_TREE;
-      tree retval = function->return_value(context->gogo(),
-					   context->function(),
-					   this->location(),
-					   &stmt_list);
-      tree set;
-      if (retval == NULL_TREE)
-	set = NULL_TREE;
-      else if (retval == error_mark_node)
-	return error_mark_node;
-      else
-	set = fold_build2_loc(this->location(), MODIFY_EXPR, void_type_node,
-			      DECL_RESULT(fndecl), retval);
-      append_to_statement_list(this->build_stmt_1(RETURN_EXPR, set),
-			       &stmt_list);
-      return stmt_list;
-    }
-  else if (this->vals_->size() == 1)
-    {
-      gcc_assert(!VOID_TYPE_P(TREE_TYPE(TREE_TYPE(fndecl))));
-      tree val = (*this->vals_->begin())->get_tree(context);
-      gcc_assert(results != NULL && results->size() == 1);
-      val = Expression::convert_for_assignment(context,
-					       results->begin()->type(),
-					       (*this->vals_->begin())->type(),
-					       val, this->location());
-      if (val == error_mark_node)
-	return error_mark_node;
-      tree set = build2(MODIFY_EXPR, void_type_node,
-			DECL_RESULT(fndecl), val);
-      SET_EXPR_LOCATION(set, this->location());
-      return this->build_stmt_1(RETURN_EXPR, set);
-    }
-  else
-    {
-      gcc_assert(!VOID_TYPE_P(TREE_TYPE(TREE_TYPE(fndecl))));
-      tree stmt_list = NULL_TREE;
-      tree rettype = TREE_TYPE(DECL_RESULT(fndecl));
-      tree retvar = create_tmp_var(rettype, "RESULT");
-      gcc_assert(results != NULL && results->size() == this->vals_->size());
-      Expression_list::const_iterator pv = this->vals_->begin();
-      Typed_identifier_list::const_iterator pr = results->begin();
-      for (tree field = TYPE_FIELDS(rettype);
-	   field != NULL_TREE;
-	   ++pv, ++pr, field = DECL_CHAIN(field))
+      retvals.reserve(results->size());
+      for (Function::Results::const_iterator p = results->begin();
+	   p != results->end();
+	   p++)
 	{
-	  gcc_assert(pv != this->vals_->end());
-	  tree val = (*pv)->get_tree(context);
-	  val = Expression::convert_for_assignment(context, pr->type(),
-						   (*pv)->type(), val,
-						   this->location());
-	  if (val == error_mark_node)
-	    return error_mark_node;
-	  tree set = build2(MODIFY_EXPR, void_type_node,
-			    build3(COMPONENT_REF, TREE_TYPE(field),
-				   retvar, field, NULL_TREE),
-			    val);
-	  SET_EXPR_LOCATION(set, this->location());
-	  append_to_statement_list(set, &stmt_list);
+	  tree rv = (*p)->get_tree(context->gogo(), context->function());
+	  retvals.push_back(tree_to_expr(rv));
 	}
-      tree set = build2(MODIFY_EXPR, void_type_node, DECL_RESULT(fndecl),
-			retvar);
-      append_to_statement_list(this->build_stmt_1(RETURN_EXPR, set),
-			       &stmt_list);
-      return stmt_list;
     }
+
+  Bstatement* ret;
+  ret = context->backend()->return_statement(tree_to_function(fndecl),
+					     retvals, this->location());
+  return statement_to_tree(ret);
 }
 
 // Make a return statement.
 
 Statement*
-Statement::make_return_statement(const Typed_identifier_list* results,
-				 Expression_list* vals,
+Statement::make_return_statement(Expression_list* vals,
 				 source_location location)
 {
-  return new Return_statement(results, vals, location);
+  return new Return_statement(vals, location);
 }
 
 // A break or continue statement.
@@ -2753,8 +2619,11 @@ class Bc_statement : public Statement
   { return false; }
 
   tree
-  do_get_tree(Translate_context*)
-  { return this->label_->get_goto(this->location()); }
+  do_get_tree(Translate_context* context)
+  {
+    return statement_to_tree(this->label_->get_goto(context,
+						    this->location()));
+  }
 
  private:
   // The label that this branches to.
@@ -2826,9 +2695,12 @@ Goto_statement::do_check_types(Gogo*)
 // Return the tree for the goto statement.
 
 tree
-Goto_statement::do_get_tree(Translate_context*)
+Goto_statement::do_get_tree(Translate_context* context)
 {
-  return this->build_stmt_1(GOTO_EXPR, this->label_->get_decl());
+  Blabel* blabel = this->label_->get_backend_label(context);
+  Bstatement* statement = context->backend()->goto_statement(blabel,
+							     this->location());
+  return statement_to_tree(statement);
 }
 
 // Make a goto statement.
@@ -2859,8 +2731,11 @@ class Goto_unnamed_statement : public Statement
   { return false; }
 
   tree
-  do_get_tree(Translate_context*)
-  { return this->label_->get_goto(this->location()); }
+  do_get_tree(Translate_context* context)
+  {
+    return statement_to_tree(this->label_->get_goto(context,
+						    this->location()));
+  }
 
  private:
   Unnamed_label* label_;
@@ -2888,9 +2763,12 @@ Label_statement::do_traverse(Traverse*)
 // Return a tree defining this label.
 
 tree
-Label_statement::do_get_tree(Translate_context*)
+Label_statement::do_get_tree(Translate_context* context)
 {
-  return this->build_stmt_1(LABEL_EXPR, this->label_->get_decl());
+  Blabel* blabel = this->label_->get_backend_label(context);
+  Bstatement* statement;
+  statement = context->backend()->label_definition_statement(blabel);
+  return statement_to_tree(statement);
 }
 
 // Make a label statement.
@@ -2917,8 +2795,8 @@ class Unnamed_label_statement : public Statement
   { return TRAVERSE_CONTINUE; }
 
   tree
-  do_get_tree(Translate_context*)
-  { return this->label_->get_definition(); }
+  do_get_tree(Translate_context* context)
+  { return statement_to_tree(this->label_->get_definition(context)); }
 
  private:
   // The label.
@@ -3268,7 +3146,10 @@ Case_clauses::Case_clause::get_constant_tree(Translate_context* context,
     }
 
   if (!this->is_fallthrough_)
-    append_to_statement_list(break_label->get_goto(this->location_), stmt_list);
+    {
+      Bstatement* g = break_label->get_goto(context, this->location_);
+      append_to_statement_list(statement_to_tree(g), stmt_list);
+    }
 }
 
 // Class Case_clauses.
@@ -3521,7 +3402,8 @@ Constant_switch_statement::do_get_tree(Translate_context* context)
   SET_EXPR_LOCATION(s, this->location());
   append_to_statement_list(s, &stmt_list);
 
-  append_to_statement_list(break_label->get_definition(), &stmt_list);
+  Bstatement* ldef = break_label->get_definition(context);
+  append_to_statement_list(statement_to_tree(ldef), &stmt_list);
 
   return stmt_list;
 }
@@ -4379,7 +4261,8 @@ Select_clauses::get_tree(Translate_context* context,
       tree stmt_list = NULL_TREE;
       append_to_statement_list(default_clause->get_statements_tree(context),
 			       &stmt_list);
-      append_to_statement_list(break_label->get_definition(), &stmt_list);
+      Bstatement* ldef = break_label->get_definition(context);
+      append_to_statement_list(statement_to_tree(ldef), &stmt_list);
       return stmt_list;
     }
 
@@ -4470,7 +4353,8 @@ Select_clauses::get_tree(Translate_context* context,
 	}
     }
 
-  append_to_statement_list(break_label->get_definition(), &stmt_list);
+  Bstatement* ldef = break_label->get_definition(context);
+  append_to_statement_list(statement_to_tree(ldef), &stmt_list);
 
   tree switch_stmt = build3(SWITCH_EXPR, sizetype, call, stmt_list, NULL_TREE);
   SET_EXPR_LOCATION(switch_stmt, location);
@@ -4492,10 +4376,11 @@ Select_clauses::add_clause_tree(Translate_context* context, int case_index,
 				  NULL_TREE, label),
 			   stmt_list);
   append_to_statement_list(clause->get_statements_tree(context), stmt_list);
-  tree g = bottom_label->get_goto(clause->statements() == NULL
-				  ? clause->location()
-				  : clause->statements()->end_location());
-  append_to_statement_list(g, stmt_list);
+  source_location gloc = (clause->statements() == NULL
+			  ? clause->location()
+			  : clause->statements()->end_location());
+  Bstatement* g = bottom_label->get_goto(context, gloc);
+  append_to_statement_list(statement_to_tree(g), stmt_list);
 }
 
 // Class Select_statement.

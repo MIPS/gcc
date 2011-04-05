@@ -33,6 +33,7 @@ extern "C"
 #include "import.h"
 #include "statements.h"
 #include "lex.h"
+#include "backend.h"
 #include "expressions.h"
 
 // Class Expression.
@@ -10415,8 +10416,7 @@ Selector_expression::lower_method_expression(Gogo* gogo)
 	  for (size_t i = 0; i < count; ++i)
 	    retvals->push_back(Expression::make_call_result(call, i));
 	}
-      s = Statement::make_return_statement(no->func_value()->type()->results(),
-					   retvals, location);
+      s = Statement::make_return_statement(retvals, location);
     }
   gogo->add_statement(s);
 
@@ -12596,8 +12596,11 @@ class Label_addr_expression : public Expression
   { return new Label_addr_expression(this->label_, this->location()); }
 
   tree
-  do_get_tree(Translate_context*)
-  { return this->label_->get_addr(this->location()); }
+  do_get_tree(Translate_context* context)
+  {
+    return expression_to_tree(this->label_->get_addr(context,
+						     this->location()));
+  }
 
  private:
   // The label whose address we are taking.
