@@ -1,3 +1,40 @@
+2011-04-06  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcov-io.c: Use GCC Runtime Library Exception.
+
+2011-04-05  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* stor-layout.c (self_referential_size): Fix 2010-07-13 commit.
+
+2011-04-01  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/spu/t-spu-elf (dp-bit.c): Use > instead of >>.
+
+2011-04-01  Andrey Belevantsev  <abel@ispras.ru>
+	
+	Backport from mainline
+	2011-03-22  Andrey Belevantsev  <abel@ispras.ru>
+
+	PR rtl-optimization/48143
+	* config/i386/sse.md (*sse2_cvtpd2dq): Add athlon_decode attribute.
+	(*sse2_cvttpd2dq, sse2_cvtss2sd, *sse2_cvtpd2ps,
+	sse2_cvtps2pd): Likewise.
+
+2011-03-31  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/48142
+	* config/i386/i386.c (ix86_adjust_stack_and_probe): Differentiate
+	frame-related from frame-unrelated adjustments to the stack pointer.
+
+2011-03-30  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2011-03-30  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/48349
+	* config/i386/i386.h (REG_CLASS_CONTENTS): Fix a typo in
+	FLOAT_SSE_REGS.
+
 2011-03-29  Jakub Jelinek  <jakub@redhat.com>
 
 	PR debug/48253
