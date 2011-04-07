@@ -1,3 +1,56 @@
+2011-04-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/48117
+	* gfortran.dg/gomp/pr48117.f90: New test.
+
+	Backported from mainline
+	2011-03-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/48141
+	* gcc.dg/pr48141.c: New test.
+
+	2010-11-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/46491
+	* gcc.target/i386/pr46491.c: New test.
+
+2011-03-09  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/template/nontype22.C: New.
+
+2011-03-08  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/template/anon5.C: New.
+
+2011-03-08  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/variadic105.C: New.
+
+2011-03-08  Dodji Seketeli  <dodji@redhat.com>
+
+	* g++.dg/lookup/template3.C: New test.
+
+2011-03-06  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	Backport from mainline
+	PR libgfortran/47878
+	* gfortran.dg/pr47878.f90: New test.
+
+2011-02-19  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR tree-optimization/46620
+	* gcc.dg/pr46620.c: New.
+
+2011-02-19  Tobias Burnus
+
+	PR fortran/47775
+	* gfortran.dg/func_result_6.f90: New.
+
+2011-02-17  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/43653
+	* gcc.target/i386/pr43653.c: New test.
+
 2011-02-14  Tobias Burnus  <burnus@net-b.de>
 
 	* gfortran.dg/argument_checking_13.f90: Update dg-error.

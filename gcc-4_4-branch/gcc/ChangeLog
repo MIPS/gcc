@@ -1,3 +1,88 @@
+2011-04-07  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2011-04-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/48466
+	* dwarf2out.c (based_loc_descr): If drap_reg is INVALID_REGNUM, use
+	as base_reg whatever register reg has been eliminated to, instead
+	of hardcoding STACK_POINTER_REGNUM.
+
+	2011-03-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/48141
+	* dse.c (record_store): If no positions are needed in an insn
+	that cannot be deleted, at least unchain it from active_local_stores.
+
+2011-04-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/46491
+	Backported from mainline
+	2010-05-14  Jan Hubicka  <jh@suse.cz>
+
+	* ipa-pure-const.c (check_stmt): Do not use memory_identifier_string.
+
+2011-03-30  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2011-03-30  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/48349
+	* config/i386/i386.h (REG_CLASS_CONTENTS): Fix a typo in
+	FLOAT_SSE_REGS.
+
+2011-03-23  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	PR other/48254
+	* doc/invoke.texi (-fipa-struct-reorg): Fix typo.
+
+2011-03-23  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	PR other/48179
+	PR other/48234
+	* doc/extend.texi (Alignment): Move section to match order in TOC.
+	* doc/invoke.texi (i386 and x86-64 Windows Options): Likewise.
+
+2011-03-03  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/sse.md (*avx_pmaddubsw128): Fix mode of VEC_SELECT RTX.
+	(ssse3_pmaddubsw128): Ditto.
+	(ssse3_pmaddubsw): Ditto.
+
+2011-02-21  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/47840
+	* config/i386/avxintrin.h (_mm256_insert_epi32): Use _mm_insert_epi32.
+	(_mm256_insert_epi64): Use _mm_insert_epi64.
+
+2011-02-19  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR tree-optimization/46620
+	* tree-sra.c (try_instantiate_multiple_fields): Don't get stuck at
+	padding within accessed words.
+
+2011-02-18  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* config.gcc (hppa[12]*-*-hpux11*): Set extra_parts.
+	* config/pa/stublib.c (pthread_default_stacksize_np, pthread_mutex_lock,
+	pthread_mutex_unlock, pthread_once): Reinstate pthread stubs.
+	* config/pa/t-pa-hpux11: Add rules to build pthread stubs.
+	* config/pa/t-pa64: Likewise.
+	* config/pa/pa-hpux11.h (LINK_GCC_C_SEQUENCE_SPEC): Define.
+
+2011-02-17  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/43653
+	* config/i386/i386.c (ix86_secondary_reload): Handle SSE
+	input reload with PLUS RTX.
+
+2011-02-15  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR pch/14940
+	* config/alpha/host-osf.c: New file.
+	* config/alpha/x-osf: New file.
+	* config.host (alpha*-dec-osf*): Use it.
+
 2011-02-10  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
 
 	Backport from mainline:
@@ -9,7 +94,7 @@
 
 	2010-08-22  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
 
-        PR boehm-gc/34544
+	PR boehm-gc/34544
 	* gthr-posix.h (__gthread_active_init): Delete.
 	(__gthread_active_p): Do activity check here.
 	Don't include errno.h on hppa-hpux.  Update comment.
@@ -22,9 +107,9 @@
 	Backport from mainline:
 	2010-12-30  Nathan Froyd  <froydnj@codesourcery.com>
 
-        PR target/44606
-        * reload1.c (choose_reload_regs): Don't look for equivalences for
-        output reloads of constant loads.
+	PR target/44606
+	* reload1.c (choose_reload_regs): Don't look for equivalences for
+	output reloads of constant loads.
 
 2011-01-17  H.J. Lu  <hongjiu.lu@intel.com>
 
@@ -175,7 +260,7 @@
 
 	Backport from mainline:
 	2010-09-15  Olivier Hainque  <hainque@adacore.com>
-        	    Jose Ruiz  <ruiz@adacore.com>
+		    Jose Ruiz  <ruiz@adacore.com>
 
 	* config/alpha/osf.h (MD_UNWIND_SUPPORT): Define.
 	* config/alpha/osf-unwind.h: New file.
@@ -601,7 +686,7 @@
 
 	PR middle-end/44569
 	* lower-suberg.c (simplify_subreg_concatn): For VOIDmode elements,
-	determine the mode of a subreg by GET_MODE_INNER of CONCATN RTX.
+	determine the mode of a subreg by GET_MODE_INNER of a CONCATN RTX.
 
 2010-10-22  Uros Bizjak  <ubizjak@gmail.com>
 
