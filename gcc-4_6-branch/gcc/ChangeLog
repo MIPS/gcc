@@ -1,3 +1,90 @@
+2011-04-07  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/sse.md: Update copyright year.
+	(avx_cmp<ssescalarmodesuffix><mode>3): Add missing output
+	register constraint.
+	(*vec_concatv2sf_avx): Fix wrong register constraint in
+	alternative 3 of operand 1.
+	(*vec_set<mode>_0_avx): Avoid combining registers from different
+	units in a single alternative.
+	(*vec_set<mode>_0_sse4_1): Ditto.
+	(*vec_set<mode>_0_sse2): Ditto.
+	(vec_set<mode>_0): Ditto.
+	(sse2_storehpd): Ditto.
+	(sse2_loadhpd): Ditto.
+	(sse4_1_insertps): Use nonimmediate_operand for operand 2.
+	* config/i386/predicates.md (sse_comparison_operator): Do not
+	define as special predicate.
+
+2011-04-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/48343
+	* combine.c (combine_instructions): Add last_combined_insn,
+	update it if insn is after it, pass it to all try_combine calls.
+	(try_combine): Add last_combined_insn parameter, pass it instead of
+	i3 to propagate_for_debug.
+
+2011-04-07  Andrey Belevantsev  <abel@ispras.ru>
+
+	Backport from mainline
+	2011-03-26  Andrey Belevantsev  <abel@ispras.ru>
+
+	PR rtl-optimization/48144
+	* sel-sched-ir.c (merge_history_vect): Factor out from ...
+	(merge_expr_data): ... here.
+	(av_set_intersect): Rename to av_set_code_motion_filter.
+	Update all callers.  Call merge_history_vect when an
+	expression is found in both sets.
+	* sel-sched-ir.h (av_set_code_motion_filter): Add prototype.
+
+2011-04-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/48466
+	* dwarf2out.c (based_loc_descr): If drap_reg is INVALID_REGNUM, use
+	as base_reg whatever register reg has been eliminated to, instead
+	of hardcoding STACK_POINTER_REGNUM.
+
+	Backported from mainline
+	2011-04-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/48335
+	* expr.c (expand_assignment): Handle all possibilities
+	if TO_RTX is CONCAT.
+	* expmed.c (store_bit_field_1): Avoid trying to create
+	invalid SUBREGs.
+	(store_split_bit_field): If SUBREG_REG (op0) or
+	op0 itself has smaller mode than word, return it
+	for offset 0 and const0_rtx for out-of-bounds stores.
+	If word is const0_rtx, skip it.
+
+2011-04-06  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcov-io.c: Use GCC Runtime Library Exception.
+
+2011-04-05  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* stor-layout.c (self_referential_size): Fix 2010-07-13 commit.
+
+2011-04-01  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/spu/t-spu-elf (dp-bit.c): Use > instead of >>.
+
+2011-04-01  Andrey Belevantsev  <abel@ispras.ru>
+
+	Backport from mainline
+	2011-03-22  Andrey Belevantsev  <abel@ispras.ru>
+
+	PR rtl-optimization/48143
+	* config/i386/sse.md (*sse2_cvtpd2dq): Add athlon_decode attribute.
+	(*sse2_cvttpd2dq, sse2_cvtss2sd, *sse2_cvtpd2ps,
+	sse2_cvtps2pd): Likewise.
+
+2011-03-31  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/48142
+	* config/i386/i386.c (ix86_adjust_stack_and_probe): Differentiate
+	frame-related from frame-unrelated adjustments to the stack pointer.
+
 2011-03-29  Mark Wielaard  <mjw@redhat.com>
 
 	* common.opt (fdebug-types-section): New flag.
