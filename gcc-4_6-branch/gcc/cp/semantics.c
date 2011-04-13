@@ -4785,7 +4785,8 @@ describable_type (tree expr)
    a full expression.  */
 
 tree
-finish_decltype_type (tree expr, bool id_expression_or_member_access_p)
+finish_decltype_type (tree expr, bool id_expression_or_member_access_p,
+		      tsubst_flags_t complain)
 {
   tree orig_expr = expr;
   tree type = NULL_TREE;
@@ -4798,7 +4799,8 @@ finish_decltype_type (tree expr, bool id_expression_or_member_access_p)
       || (TREE_CODE (expr) == BIT_NOT_EXPR
 	  && TYPE_P (TREE_OPERAND (expr, 0))))
     {
-      error ("argument to decltype must be an expression");
+      if (complain & tf_error)
+	error ("argument to decltype must be an expression");
       return error_mark_node;
     }
 
@@ -4865,7 +4867,9 @@ finish_decltype_type (tree expr, bool id_expression_or_member_access_p)
           if (OVL_CHAIN (expr)
 	      || TREE_CODE (OVL_FUNCTION (expr)) == TEMPLATE_DECL)
             {
-              error ("%qE refers to a set of overloaded functions", orig_expr);
+	      if (complain & tf_error)
+		error ("%qE refers to a set of overloaded functions",
+		       orig_expr);
               return error_mark_node;
             }
           else
@@ -4917,7 +4921,8 @@ finish_decltype_type (tree expr, bool id_expression_or_member_access_p)
         default:
 	  gcc_assert (TYPE_P (expr) || DECL_P (expr)
 		      || TREE_CODE (expr) == SCOPE_REF);
-          error ("argument to decltype must be an expression");
+	  if (complain & tf_error)
+	    error ("argument to decltype must be an expression");
           return error_mark_node;
         }
     }
@@ -5012,7 +5017,8 @@ finish_decltype_type (tree expr, bool id_expression_or_member_access_p)
 
   if (!type || type == unknown_type_node)
     {
-      error ("type of %qE is unknown", expr);
+      if (complain & tf_error)
+	error ("type of %qE is unknown", expr);
       return error_mark_node;
     }
 
@@ -6273,7 +6279,7 @@ cxx_eval_array_reference (const constexpr_call *call, tree t,
 					   non_constant_p);
   tree index, oldidx;
   HOST_WIDE_INT i;
-  unsigned len;
+  unsigned len, elem_nchars = 1;
   if (*non_constant_p)
     return t;
   oldidx = TREE_OPERAND (t, 1);
@@ -6285,9 +6291,14 @@ cxx_eval_array_reference (const constexpr_call *call, tree t,
     return t;
   else if (addr)
     return build4 (ARRAY_REF, TREE_TYPE (t), ary, index, NULL, NULL);
-  len = (TREE_CODE (ary) == CONSTRUCTOR
-	 ? CONSTRUCTOR_NELTS (ary)
-	 : (unsigned)TREE_STRING_LENGTH (ary));
+  if (TREE_CODE (ary) == CONSTRUCTOR)
+    len = CONSTRUCTOR_NELTS (ary);
+  else
+    {
+      elem_nchars = (TYPE_PRECISION (TREE_TYPE (TREE_TYPE (ary)))
+		     / TYPE_PRECISION (char_type_node));
+      len = (unsigned) TREE_STRING_LENGTH (ary) / elem_nchars;
+    }
   if (compare_tree_int (index, len) >= 0)
     {
       if (!allow_non_constant)
@@ -6298,9 +6309,16 @@ cxx_eval_array_reference (const constexpr_call *call, tree t,
   i = tree_low_cst (index, 0);
   if (TREE_CODE (ary) == CONSTRUCTOR)
     return VEC_index (constructor_elt, CONSTRUCTOR_ELTS (ary), i)->value;
-  else
+  else if (elem_nchars == 1)
     return build_int_cst (cv_unqualified (TREE_TYPE (TREE_TYPE (ary))),
 			  TREE_STRING_POINTER (ary)[i]);
+  else
+    {
+      tree type = cv_unqualified (TREE_TYPE (TREE_TYPE (ary)));
+      return native_interpret_expr (type, (const unsigned char *)
+					  TREE_STRING_POINTER (ary)
+					  + i * elem_nchars, elem_nchars);
+    }
   /* Don't VERIFY_CONSTANT here.  */
 }
 
@@ -7368,6 +7386,8 @@ potential_constant_expression_1 (tree t, bool want_rval, tsubst_flags_t flags)
             class member access expression, including the result of the
             implicit transformation in the body of the non-static
             member function (9.3.1);  */
+      /* FIXME this restriction seems pointless since the standard dropped
+	 "potential constant expression".  */
       if (is_this_parameter (t))
         {
           if (flags & tf_error)
@@ -7383,51 +7403,63 @@ potential_constant_expression_1 (tree t, bool want_rval, tsubst_flags_t flags)
       {
         tree fun = get_function_named_in_call (t);
         const int nargs = call_expr_nargs (t);
-        if (TREE_CODE (fun) != FUNCTION_DECL)
+	i = 0;
+
+	if (is_overloaded_fn (fun))
+	  {
+	    if (TREE_CODE (fun) == FUNCTION_DECL)
+	      {
+		if (builtin_valid_in_constant_expr_p (fun))
+		  return true;
+		if (!DECL_DECLARED_CONSTEXPR_P (fun)
+		    && !morally_constexpr_builtin_function_p (fun))
+		  {
+		    if (flags & tf_error)
+		      error ("%qD is not %<constexpr%>", fun);
+		    return false;
+		  }
+		/* A call to a non-static member function takes the address
+		   of the object as the first argument.  But in a constant
+		   expression the address will be folded away, so look
+		   through it now.  */
+		if (DECL_NONSTATIC_MEMBER_FUNCTION_P (fun)
+		    && !DECL_CONSTRUCTOR_P (fun))
+		  {
+		    tree x = get_nth_callarg (t, 0);
+		    if (is_this_parameter (x))
+		      /* OK.  */;
+		    else if (!potential_constant_expression_1 (x, rval, flags))
+		      {
+			if (flags & tf_error)
+			  error ("object argument is not a potential "
+				 "constant expression");
+			return false;
+		      }
+		    i = 1;
+		  }
+	      }
+	    else
+	      fun = get_first_fn (fun);
+	    /* Skip initial arguments to base constructors.  */
+	    if (DECL_BASE_CONSTRUCTOR_P (fun))
+	      i = num_artificial_parms_for (fun);
+	    fun = DECL_ORIGIN (fun);
+	  }
+	else
           {
 	    if (potential_constant_expression_1 (fun, rval, flags))
-	      /* Might end up being a constant function pointer.  */
-	      return true;
-            if (flags & tf_error)
-              error ("%qE is not a function name", fun);
-            return false;
-          }
-	/* Skip initial arguments to base constructors.  */
-	if (DECL_BASE_CONSTRUCTOR_P (fun))
-	  i = num_artificial_parms_for (fun);
-	else
-	  i = 0;
-	fun = DECL_ORIGIN (fun);
-        if (builtin_valid_in_constant_expr_p (fun))
-          return true;
-        if (!DECL_DECLARED_CONSTEXPR_P (fun)
-            && !morally_constexpr_builtin_function_p (fun))
-          {
-            if (flags & tf_error)
-              error ("%qD is not %<constexpr%>", fun);
-            return false;
+	      /* Might end up being a constant function pointer.  */;
+	    else
+	      {
+		if (flags & tf_error)
+		  error ("%qE is not a function name", fun);
+		return false;
+	      }
           }
         for (; i < nargs; ++i)
           {
             tree x = get_nth_callarg (t, i);
-            /* A call to a non-static member function takes the
-               address of the object as the first argument.
-               But in a constant expression the address will be folded
-	       away, so look through it now.  */
-            if (i == 0 && DECL_NONSTATIC_MEMBER_P (fun)
-                && !DECL_CONSTRUCTOR_P (fun))
-	      {
-		if (is_this_parameter (x))
-		  /* OK.  */;
-                else if (!potential_constant_expression_1 (x, rval, flags))
-		  {
-		    if (flags & tf_error)
-		      error ("object argument is not a potential constant "
-			     "expression");
-		    return false;
-		  }
-              }
-	    else if (!potential_constant_expression_1 (x, rval, flags))
+	    if (!potential_constant_expression_1 (x, rval, flags))
 	      {
 		if (flags & tf_error)
 		  error ("argument in position %qP is not a "
