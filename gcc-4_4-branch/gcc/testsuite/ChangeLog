@@ -1,3 +1,7 @@
+2009-08-30  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/funcspec-5.c: Remove fused-add test.
+
 2011-04-06  Jakub Jelinek  <jakub@redhat.com>
 
 	PR debug/48466
