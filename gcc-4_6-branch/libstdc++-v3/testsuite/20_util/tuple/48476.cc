@@ -1,7 +1,6 @@
 // { dg-options "-std=gnu++0x" }
-// { dg-do compile }
 
-// Copyright (C) 2008, 2009, 2010, 2011 Free Software Foundation, Inc.
+// Copyright (C) 2011 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -18,16 +17,35 @@
 // with this library; see the file COPYING3.  If not see
 // <http://www.gnu.org/licenses/>.
 
-#include <atomic>
-#include <testsuite_common_types.h>
+#include <tuple>
+#include <type_traits>
+#include <memory>
+#include <testsuite_hooks.h>
+
+template<typename T>
+  typename std::decay<T>::type copy(T&& x)
+  { return std::forward<T>(x); }
+
+// libstdc++/48476
+void test01()
+{
+  bool test __attribute__((unused)) = true;
+
+  std::shared_ptr<int> p(new int()), q, r;
+  
+  std::tuple<std::shared_ptr<int>&, int>  t0(p, 23), t1(q, 0);
+  t1 = copy(t0);  // shall be equivalent to
+                  // q = p; std::get<1>(t1) = std::get<1>(t0);
+  VERIFY( q == p ); 
+
+  std::tuple<std::shared_ptr<int>&, char> t2(r, 0);
+  t2 = copy(t1);  // shall be equivalent to
+                  // r = q; std::get<1>(t2) = std::get<1>(t1);
+  VERIFY( r == q );
+}
 
 int main()
 {
-  __gnu_test::assignable test;
-  __gnu_cxx::typelist::apply_generator(test,
-				       __gnu_test::atomic_integrals::type());
+  test01();
   return 0;
 }
-
-// { dg-error "deleted" "" { target *-*-* } 572 }
-// { dg-prune-output "include" }
