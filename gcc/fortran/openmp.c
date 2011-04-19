@@ -1,5 +1,5 @@
 /* OpenMP directive matching and resolving.
-   Copyright (C) 2005, 2006, 2007, 2008, 2010
+   Copyright (C) 2005, 2006, 2007, 2008, 2010, 2011
    Free Software Foundation, Inc.
    Contributed by Jakub Jelinek
 
@@ -940,15 +940,20 @@ resolve_omp_clauses (gfc_code *code)
 			    n->sym->name, name, &code->loc);
 		if (list != OMP_LIST_PRIVATE)
 		  {
-		    if (n->sym->attr.pointer)
+		    if (n->sym->attr.pointer
+			&& list >= OMP_LIST_REDUCTION_FIRST
+			&& list <= OMP_LIST_REDUCTION_LAST)
 		      gfc_error ("POINTER object '%s' in %s clause at %L",
 				 n->sym->name, name, &code->loc);
 		    /* Variables in REDUCTION-clauses must be of intrinsic type (flagged below).  */
-		    if ((list < OMP_LIST_REDUCTION_FIRST || list > OMP_LIST_REDUCTION_LAST) &&
-		        n->sym->ts.type == BT_DERIVED && n->sym->ts.u.derived->attr.alloc_comp)
+		    if ((list < OMP_LIST_REDUCTION_FIRST || list > OMP_LIST_REDUCTION_LAST)
+			 && n->sym->ts.type == BT_DERIVED
+			 && n->sym->ts.u.derived->attr.alloc_comp)
 		      gfc_error ("%s clause object '%s' has ALLOCATABLE components at %L",
 				 name, n->sym->name, &code->loc);
-		    if (n->sym->attr.cray_pointer)
+		    if (n->sym->attr.cray_pointer
+			&& list >= OMP_LIST_REDUCTION_FIRST
+			&& list <= OMP_LIST_REDUCTION_LAST)
 		      gfc_error ("Cray pointer '%s' in %s clause at %L",
 				 n->sym->name, name, &code->loc);
 		  }

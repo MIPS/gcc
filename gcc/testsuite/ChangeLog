@@ -1,3 +1,9 @@
+2011-04-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/46752
+	* gfortran.dg/gomp/crayptr1.f90: Don't expect error
+	about Cray pointer in FIRSTPRIVATE/LASTPRIVATE.
+
 2011-03-10  Jakub Jelinek  <jakub@redhat.com>
 
 	* gcc.dg/gomp/appendix-a/a.24.1.c: Adjust for const-qualified

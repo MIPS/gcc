@@ -1,5 +1,5 @@
 /* OpenMP directive translation -- generate GCC trees from gfc_code.
-   Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010
+   Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010, 2011
    Free Software Foundation, Inc.
    Contributed by Jakub Jelinek <jakub@redhat.com>
 
@@ -88,9 +88,7 @@ gfc_omp_predetermined_sharing (tree decl)
   if (GFC_DECL_CRAY_POINTEE (decl))
     return OMP_CLAUSE_DEFAULT_PRIVATE;
 
-  /* Assumed-size arrays are predetermined to inherit sharing
-     attributes of the associated actual argument, which is shared
-     for all we care.  */
+  /* Assumed-size arrays are predetermined shared.  */
   if (TREE_CODE (decl) == PARM_DECL
       && GFC_ARRAY_TYPE_P (TREE_TYPE (decl))
       && GFC_TYPE_ARRAY_AKIND (TREE_TYPE (decl)) == GFC_ARRAY_UNKNOWN
@@ -214,7 +212,8 @@ tree
 gfc_omp_clause_copy_ctor (tree clause, tree dest, tree src)
 {
   tree type = TREE_TYPE (dest), ptr, size, esize, rank, call;
-  stmtblock_t block;
+  tree cond, then_b, else_b;
+  stmtblock_t block, cond_block;
 
   if (! GFC_DESCRIPTOR_TYPE_P (type)
       || GFC_TYPE_ARRAY_AKIND (type) != GFC_ARRAY_ALLOCATABLE)
@@ -226,7 +225,9 @@ gfc_omp_clause_copy_ctor (tree clause, tree dest, tree src)
      and copied from SRC.  */
   gfc_start_block (&block);
 
-  gfc_add_modify (&block, dest, src);
+  gfc_init_block (&cond_block);
+
+  gfc_add_modify (&cond_block, dest, src);
   rank = gfc_rank_cst[GFC_TYPE_ARRAY_RANK (type) - 1];
   size = gfc_conv_descriptor_ubound_get (dest, rank);
   size = fold_build2_loc (input_location, MINUS_EXPR, gfc_array_index_type,
@@ -240,17 +241,29 @@ gfc_omp_clause_copy_ctor (tree clause, tree dest, tree src)
 			TYPE_SIZE_UNIT (gfc_get_element_type (type)));
   size = fold_build2_loc (input_location, MULT_EXPR, gfc_array_index_type,
 			  size, esize);
-  size = gfc_evaluate_now (fold_convert (size_type_node, size), &block);
-  ptr = gfc_allocate_array_with_status (&block,
+  size = gfc_evaluate_now (fold_convert (size_type_node, size), &cond_block);
+  ptr = gfc_allocate_array_with_status (&cond_block,
 					build_int_cst (pvoid_type_node, 0),
 					size, NULL, NULL);
-  gfc_conv_descriptor_data_set (&block, dest, ptr);
+  gfc_conv_descriptor_data_set (&cond_block, dest, ptr);
   call = build_call_expr_loc (input_location,
 			  built_in_decls[BUILT_IN_MEMCPY], 3, ptr,
 			  fold_convert (pvoid_type_node,
 					gfc_conv_descriptor_data_get (src)),
 			  size);
-  gfc_add_expr_to_block (&block, fold_convert (void_type_node, call));
+  gfc_add_expr_to_block (&cond_block, fold_convert (void_type_node, call));
+  then_b = gfc_finish_block (&cond_block);
+
+  gfc_init_block (&cond_block);
+  gfc_conv_descriptor_data_set (&cond_block, dest, null_pointer_node);
+  else_b = gfc_finish_block (&cond_block);
+
+  cond = fold_build2_loc (input_location, NE_EXPR, boolean_type_node,
+			  fold_convert (pvoid_type_node,
+					gfc_conv_descriptor_data_get (src)),
+			  null_pointer_node);
+  gfc_add_expr_to_block (&block, build3_loc (input_location, COND_EXPR,
+			 void_type_node, cond, then_b, else_b));
 
   return gfc_finish_block (&block);
 }

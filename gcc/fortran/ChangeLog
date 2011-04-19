@@ -1,3 +1,14 @@
+2011-04-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/46752
+	* trans-openmp.c (gfc_omp_clause_copy_ctor): Handle
+	non-allocated allocatable.
+
+	* openmp.c (resolve_omp_clauses): Allow POINTERs and
+	Cray pointers in clauses other than REDUCTION.
+	* trans-openmp.c (gfc_omp_predetermined_sharing): Adjust
+	comment.
+
 2011-03-07  Tobias Burnus  <burnus@net-b.de>
 
 	* gfortran.texi (OpenMP): Update ref to OpenMP 3.1.
