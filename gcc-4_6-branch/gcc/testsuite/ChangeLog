@@ -1,3 +1,52 @@
+2011-04-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/48678
+	* gcc.target/i386/pr48678.c: New test.
+
+2011-04-18  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/union4.C: New.
+
+2011-04-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/48661
+	* g++.dg/torture/pr48661.C: New test.
+
+	PR c++/48632
+	* g++.dg/gomp/pr48632.C: New test.
+
+2011-04-18  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/46364
+	* g++.dg/torture/pr46364.C: New testcase.
+
+2011-04-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/48616
+	* gcc.dg/pr48616.c: New test.
+
+2011-04-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/48614
+	* gcc.target/i386/pr46084.c: Require avx_runtime instead of
+	just avx.
+
+	PR target/48605
+	* gcc.target/i386/sse4_1-insertps-3.c: New test.
+	* gcc.target/i386/sse4_1-insertps-4.c: New test.
+	* gcc.target/i386/avx-insertps-3.c: New test.
+	* gcc.target/i386/avx-insertps-4.c: New test.
+
+2011-04-13  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/template/operator11.C: New.
+
+2011-04-13  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/48360
+	PR fortran/48456
+	* gfortran.dg/realloc_on_assign_6.f03: New test.
+
 2011-04-13  Jakub Jelinek  <jakub@redhat.com>
 
 	PR middle-end/48591
