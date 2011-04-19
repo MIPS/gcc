@@ -1,3 +1,50 @@
+2011-04-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/48678
+	* config/i386/i386.md (movstrict<mode>): FAIL if operands[0]
+	is a SUBREG with non-MODE_INT mode inside of it.
+
+2011-04-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/48661
+	* gimple-fold.c (gimple_get_virt_method_for_binfo): Return NULL
+	if TREE_TYPE (v) is non-NULL.
+
+	* gimple-fold.c (gimple_get_virt_method_for_binfo): Renamed from
+	gimple_get_virt_mehtod_for_binfo.
+	* gimple.h (gimple_get_virt_method_for_binfo): Likewise.
+	* ipa-cp.c (ipcp_process_devirtualization_opportunities): Adjust
+	callers.
+	* ipa-prop.c (try_make_edge_direct_virtual_call): Likewise.
+
+2011-04-18  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* dwarf2out.c (is_redundant_typedef): Add 'inline' to prototype.
+
+2011-04-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/48616
+	* tree-vect-stmts.c (vectorizable_shift): If SLP, determine
+	whether the shift is by scalar or vector based on whether all SLP
+	scalar stmts have the same rhs.
+
+2011-04-17  Dennis, CHENG Renquan  <crquan@fedoraproject.org>
+
+	* doc/passes.texi: Fill crossref nodes.
+
+2011-04-17  Marius Strobl  <marius@FreeBSD.org>
+
+	* config/sparc/freebsd.h (CPP_CPU64_DEFAULT_SPEC): Replace with...
+	(FBSD_TARGET_CPU_CPP_BUILTINS): ...this.
+	(TARGET_GNU_TLS, TARGET_SUN_TLS): Define.
+
+2011-04-17  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR lto/48538
+	* lto-cgraph.c (merge_profile_summaries): Check that lto_file_data
+	is non-null before accessing it.
+	(input_cgraph): Remove trailing spaces.
+
 2011-04-15  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
 
 	* config/s390/s390.md (popcountdi2, popcountsi2, popcounthi2):
@@ -18,7 +65,7 @@
 
 	PR target/48366
 	* config/pa/pa.c (hppa_register_move_cost): Increase to 18 cost of
-	move from floating point to shift amount register .
+	move from floating point to shift amount register.
 	(emit_move_sequence): Remove secondary reload support for floating
 	point to shift amount amount register copies.
 	(pa_secondary_reload): Return GENERAL_REGS for floating point/shift

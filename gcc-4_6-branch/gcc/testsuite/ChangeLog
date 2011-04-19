@@ -1,3 +1,30 @@
+2011-04-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/48678
+	* gcc.target/i386/pr48678.c: New test.
+
+2011-04-18  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/union4.C: New.
+
+2011-04-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/48661
+	* g++.dg/torture/pr48661.C: New test.
+
+	PR c++/48632
+	* g++.dg/gomp/pr48632.C: New test.
+
+2011-04-18  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/46364
+	* g++.dg/torture/pr46364.C: New testcase.
+
+2011-04-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/48616
+	* gcc.dg/pr48616.c: New test.
+
 2011-04-15  Jakub Jelinek  <jakub@redhat.com>
 
 	PR target/48614
