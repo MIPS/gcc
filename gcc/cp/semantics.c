@@ -4607,7 +4607,8 @@ finish_omp_atomic (enum tree_code code, tree lhs, tree rhs)
     }
   if (!dependent_p)
     {
-      stmt = c_finish_omp_atomic (input_location, code, lhs, rhs);
+      stmt = c_finish_omp_atomic (input_location, OMP_ATOMIC, code, lhs, rhs,
+				  NULL_TREE, NULL_TREE);
       if (stmt == error_mark_node)
 	return;
     }

@@ -96,18 +96,24 @@ c_finish_omp_taskwait (location_t loc)
 }
 
 
-/* Complete a #pragma omp atomic construct.  The expression to be
-   implemented atomically is LHS code= RHS.  LOC is the location of
-   the atomic statement.  The value returned is either error_mark_node
-   (if the construct was erroneous) or an OMP_ATOMIC node which should
-   be added to the current statement tree with add_stmt.*/
+/* Complete a #pragma omp atomic construct.  For CODE OMP_ATOMIC
+   the expression to be implemented atomically is LHS opcode= RHS. 
+   For OMP_ATOMIC_READ V = LHS, for OMP_ATOMIC_CAPTURE_{NEW,OLD} LHS
+   opcode= RHS with the new or old content of LHS returned.
+   LOC is the location of the atomic statement.  The value returned
+   is either error_mark_node (if the construct was erroneous) or an
+   OMP_ATOMIC* node which should be added to the current statement
+   tree with add_stmt.  */
 
 tree
-c_finish_omp_atomic (location_t loc, enum tree_code code, tree lhs, tree rhs)
+c_finish_omp_atomic (location_t loc, enum tree_code code,
+		     enum tree_code opcode, tree lhs, tree rhs,
+		     tree v, tree lhs1)
 {
   tree x, type, addr;
 
-  if (lhs == error_mark_node || rhs == error_mark_node)
+  if (lhs == error_mark_node || rhs == error_mark_node
+      || v == error_mark_node || lhs1 == error_mark_node)
     return error_mark_node;
 
   /* ??? According to one reading of the OpenMP spec, complex type are
@@ -143,10 +149,19 @@ c_finish_omp_atomic (location_t loc, enum tree_code code, tree lhs, tree rhs)
     }
   lhs = build_indirect_ref (loc, addr, RO_NULL);
 
+  if (code == OMP_ATOMIC_READ)
+    {
+      x = build1 (OMP_ATOMIC_READ, type, addr);
+      SET_EXPR_LOCATION (x, loc);
+      return build_modify_expr (loc, v, NULL_TREE, NOP_EXPR,
+				loc, x, NULL_TREE);
+      return x;
+    }
+
   /* There are lots of warnings, errors, and conversions that need to happen
      in the course of interpreting a statement.  Use the normal mechanisms
      to do this, and then take it apart again.  */
-  x = build_modify_expr (input_location, lhs, NULL_TREE, code,
+  x = build_modify_expr (input_location, lhs, NULL_TREE, opcode,
       			 input_location, rhs, NULL_TREE);
   if (x == error_mark_node)
     return error_mark_node;
@@ -154,8 +169,40 @@ c_finish_omp_atomic (location_t loc, enum tree_code code, tree lhs, tree rhs)
   rhs = TREE_OPERAND (x, 1);
 
   /* Punt the actual generation of atomic operations to common code.  */
-  x = build2 (OMP_ATOMIC, void_type_node, addr, rhs);
+  if (code == OMP_ATOMIC)
+    type = void_type_node;
+  x = build2 (code, type, addr, rhs);
   SET_EXPR_LOCATION (x, loc);
+
+  if (code != OMP_ATOMIC)
+    {
+      /* Generally it is hard to prove lhs1 and lhs are the same memory
+	 location, just diagnose different variables.  */
+      if (lhs1 && TREE_CODE (lhs1) == VAR_DECL && TREE_CODE (lhs) == VAR_DECL)
+	{
+	  if (lhs1 != lhs)
+	    {
+	      error_at (loc, "%<#pragma omp atomic capture%> uses two different variables for memory");
+	      return error_mark_node;
+	    }
+	}
+      x = build_modify_expr (loc, v, NULL_TREE, NOP_EXPR,
+			     loc, x, NULL_TREE);
+      if (lhs1 && lhs1 != lhs)
+	{
+	  tree lhs1addr = build_unary_op (loc, ADDR_EXPR, lhs1, 0);
+	  if (lhs1addr == error_mark_node)
+	    return error_mark_node;
+	  if (code == OMP_ATOMIC_CAPTURE_OLD)
+	    x = omit_one_operand_loc (loc, type, x, lhs1addr);
+	  else
+	    {
+	      x = save_expr (x);
+	      x = omit_two_operands_loc (loc, type, x, lhs1addr, x);
+	    }
+	}
+    }
+
   return x;
 }
 
