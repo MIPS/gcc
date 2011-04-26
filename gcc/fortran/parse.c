@@ -1,6 +1,6 @@
 /* Main parser.
    Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008,
-   2009, 2010
+   2009, 2010, 2011
    Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
@@ -495,6 +495,9 @@ decode_omp_directive (void)
       return ST_NONE;
     }
 
+  if (gfc_implicit_pure (NULL))
+    gfc_current_ns->proc_name->attr.implicit_pure = 0;
+
   old_locus = gfc_current_locus;
 
   /* General OpenMP directive matching: Instead of testing every possible
@@ -745,7 +748,7 @@ next_fixed (void)
 
   for (i = 0; i < 5; i++)
     {
-      c = gfc_next_char_literal (0);
+      c = gfc_next_char_literal (NONSTRING);
 
       switch (c)
 	{
@@ -771,18 +774,18 @@ next_fixed (void)
 	     here, except for GCC attributes and OpenMP directives.  */
 
 	case '*':
-	  c = gfc_next_char_literal (0);
+	  c = gfc_next_char_literal (NONSTRING);
 	  
 	  if (TOLOWER (c) == 'g')
 	    {
-	      for (i = 0; i < 4; i++, c = gfc_next_char_literal (0))
+	      for (i = 0; i < 4; i++, c = gfc_next_char_literal (NONSTRING))
 		gcc_assert (TOLOWER (c) == "gcc$"[i]);
 
 	      return decode_gcc_attribute ();
 	    }
 	  else if (c == '$' && gfc_option.gfc_flag_openmp)
 	    {
-	      for (i = 0; i < 4; i++, c = gfc_next_char_literal (0))
+	      for (i = 0; i < 4; i++, c = gfc_next_char_literal (NONSTRING))
 		gcc_assert ((char) gfc_wide_tolower (c) == "$omp"[i]);
 
 	      if (c != ' ' && c != '0')
@@ -821,7 +824,7 @@ next_fixed (void)
      of a previous statement.  If we see something here besides a
      space or zero, it must be a bad continuation line.  */
 
-  c = gfc_next_char_literal (0);
+  c = gfc_next_char_literal (NONSTRING);
   if (c == '\n')
     goto blank_line;
 
@@ -839,7 +842,7 @@ next_fixed (void)
   do
     {
       loc = gfc_current_locus;
-      c = gfc_next_char_literal (0);
+      c = gfc_next_char_literal (NONSTRING);
     }
   while (gfc_is_whitespace (c));
 
@@ -2263,32 +2266,16 @@ loop:
     }
 
 
-  /* Make sure that a generic interface has only subroutines or
-     functions and that the generic name has the right attribute.  */
-  if (current_interface.type == INTERFACE_GENERIC)
+  /* Make sure that the generic name has the right attribute.  */
+  if (current_interface.type == INTERFACE_GENERIC
+      && current_state == COMP_NONE)
     {
-      if (current_state == COMP_NONE)
-	{
-	  if (new_state == COMP_FUNCTION && sym)
-	    gfc_add_function (&sym->attr, sym->name, NULL);
-	  else if (new_state == COMP_SUBROUTINE && sym)
-	    gfc_add_subroutine (&sym->attr, sym->name, NULL);
+      if (new_state == COMP_FUNCTION && sym)
+	gfc_add_function (&sym->attr, sym->name, NULL);
+      else if (new_state == COMP_SUBROUTINE && sym)
+	gfc_add_subroutine (&sym->attr, sym->name, NULL);
 
-	  current_state = new_state;
-	}
-      else
-	{
-	  if (new_state != current_state)
-	    {
-	      if (new_state == COMP_SUBROUTINE)
-		gfc_error ("SUBROUTINE at %C does not belong in a "
-			   "generic function interface");
-
-	      if (new_state == COMP_FUNCTION)
-		gfc_error ("FUNCTION at %C does not belong in a "
-			   "generic subroutine interface");
-	    }
-	}
+      current_state = new_state;
     }
 
   if (current_interface.type == INTERFACE_ABSTRACT)
@@ -2938,7 +2925,7 @@ select_type_pop (void)
 {
   gfc_select_type_stack *old = select_type_stack;
   select_type_stack = old->prev;
-  gfc_free (old);
+  free (old);
 }
 
 
@@ -3167,6 +3154,7 @@ gfc_build_block_ns (gfc_namespace *parent_ns)
       t = gfc_add_flavor (&my_ns->proc_name->attr, FL_LABEL,
 			  my_ns->proc_name->name, NULL);
       gcc_assert (t == SUCCESS);
+      gfc_commit_symbol (my_ns->proc_name);
     }
 
   if (parent_ns->proc_name)
@@ -3588,7 +3576,7 @@ parse_omp_structured_block (gfc_statement omp_st, bool workshare_stmts_only)
 	      && strcmp (cp->ext.omp_name, new_st.ext.omp_name) != 0))
 	gfc_error ("Name after !$omp critical and !$omp end critical does "
 		   "not match at %C");
-      gfc_free (CONST_CAST (char *, new_st.ext.omp_name));
+      free (CONST_CAST (char *, new_st.ext.omp_name));
       break;
     case EXEC_OMP_END_SINGLE:
       cp->ext.omp_clauses->lists[OMP_LIST_COPYPRIVATE]
@@ -3865,6 +3853,12 @@ parse_contained (int module)
 	     by other module functions.  */
 	  sym->attr.contained = 1;
 	  sym->attr.referenced = 1;
+
+	  /* Set implicit_pure so that it can be reset if any of the
+	     tests for purity fail.  This is used for some optimisation
+	     during translation.  */
+	  if (!sym->attr.pure)
+	    sym->attr.implicit_pure = 1;
 
 	  parse_progunit (ST_NONE);
 
@@ -4197,7 +4191,12 @@ resolve_all_program_units (gfc_namespace *gfc_global_ns_list)
   gfc_current_ns = gfc_global_ns_list;
   for (; gfc_current_ns; gfc_current_ns = gfc_current_ns->sibling)
     {
-      gfc_current_locus = gfc_current_ns->proc_name->declared_at;
+      if (gfc_current_ns->proc_name
+	  && gfc_current_ns->proc_name->attr.flavor == FL_MODULE)
+	continue; /* Already resolved.  */
+
+      if (gfc_current_ns->proc_name)
+	gfc_current_locus = gfc_current_ns->proc_name->declared_at;
       gfc_resolve (gfc_current_ns);
       gfc_current_ns->derived_types = gfc_derived_types;
       gfc_derived_types = NULL;
@@ -4236,8 +4235,28 @@ translate_all_program_units (gfc_namespace *gfc_global_ns_list)
   gfc_current_ns = gfc_global_ns_list;
   gfc_get_errors (NULL, &errors);
 
+  /* We first translate all modules to make sure that later parts
+     of the program can use the decl. Then we translate the nonmodules.  */
+
   for (; !errors && gfc_current_ns; gfc_current_ns = gfc_current_ns->sibling)
     {
+      if (!gfc_current_ns->proc_name
+	  || gfc_current_ns->proc_name->attr.flavor != FL_MODULE)
+	continue;
+
+      gfc_current_locus = gfc_current_ns->proc_name->declared_at;
+      gfc_derived_types = gfc_current_ns->derived_types;
+      gfc_generate_module_code (gfc_current_ns);
+      gfc_current_ns->translated = 1;
+    }
+
+  gfc_current_ns = gfc_global_ns_list;
+  for (; !errors && gfc_current_ns; gfc_current_ns = gfc_current_ns->sibling)
+    {
+      if (gfc_current_ns->proc_name
+	  && gfc_current_ns->proc_name->attr.flavor == FL_MODULE)
+	continue;
+
       gfc_current_locus = gfc_current_ns->proc_name->declared_at;
       gfc_derived_types = gfc_current_ns->derived_types;
       gfc_generate_code (gfc_current_ns);
@@ -4248,7 +4267,16 @@ translate_all_program_units (gfc_namespace *gfc_global_ns_list)
   gfc_current_ns = gfc_global_ns_list;
   for (;gfc_current_ns;)
     {
-      gfc_namespace *ns = gfc_current_ns->sibling;
+      gfc_namespace *ns;
+
+      if (gfc_current_ns->proc_name
+	  && gfc_current_ns->proc_name->attr.flavor == FL_MODULE)
+	{
+	  gfc_current_ns = gfc_current_ns->sibling;
+	  continue;
+	}
+
+      ns = gfc_current_ns->sibling;
       gfc_derived_types = gfc_current_ns->derived_types;
       gfc_done_2 ();
       gfc_current_ns = ns;
@@ -4380,16 +4408,18 @@ loop:
   if (s.state == COMP_MODULE)
     {
       gfc_dump_module (s.sym->name, errors_before == errors);
-      if (errors == 0)
-	gfc_generate_module_code (gfc_current_ns);
-      pop_state ();
       if (!gfc_option.flag_whole_file)
-	gfc_done_2 ();
+	{
+	  if (errors == 0)
+	    gfc_generate_module_code (gfc_current_ns);
+	  pop_state ();
+	  gfc_done_2 ();
+	}
       else
 	{
 	  gfc_current_ns->derived_types = gfc_derived_types;
 	  gfc_derived_types = NULL;
-	  gfc_current_ns = NULL;
+	  goto prog_units;
 	}
     }
   else
@@ -4434,10 +4464,12 @@ prog_units:
 	= gfc_option.dump_fortran_original ? gfc_global_ns_list : NULL;
 
   for (; gfc_current_ns; gfc_current_ns = gfc_current_ns->sibling)
-    {
-      gfc_dump_parse_tree (gfc_current_ns, stdout);
-      fputs ("------------------------------------------\n\n", stdout);
-    }
+    if (!gfc_current_ns->proc_name
+	|| gfc_current_ns->proc_name->attr.flavor != FL_MODULE)
+      {
+	gfc_dump_parse_tree (gfc_current_ns, stdout);
+	fputs ("------------------------------------------\n\n", stdout);
+      }
 
   /* Do the translation.  */
   translate_all_program_units (gfc_global_ns_list);

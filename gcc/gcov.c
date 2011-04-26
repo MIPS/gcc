@@ -1,7 +1,7 @@
 /* Gcov.c: prepend line execution counts and branch probabilities to a
    source file.
    Copyright (C) 1990, 1991, 1992, 1993, 1994, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
+   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011
    Free Software Foundation, Inc.
    Contributed by James E. Wilson of Cygnus Support.
    Mangled by Bob Manson of Cygnus Support.
@@ -440,7 +440,7 @@ static void
 print_version (void)
 {
   fnotice (stdout, "gcov %s%s\n", pkgversion_string, version_string);
-  fprintf (stdout, "Copyright %s 2010 Free Software Foundation, Inc.\n",
+  fprintf (stdout, "Copyright %s 2011 Free Software Foundation, Inc.\n",
 	   _("(C)"));
   fnotice (stdout,
 	   _("This is free software; see the source for copying conditions.\n"
@@ -661,10 +661,8 @@ create_file_names (const char *file_name)
   int base;
 
   /* Free previous file names.  */
-  if (bbg_file_name)
-    free (bbg_file_name);
-  if (da_file_name)
-    free (da_file_name);
+  free (bbg_file_name);
+  free (da_file_name);
   da_file_name = bbg_file_name = NULL;
   bbg_file_time = 0;
   bbg_stamp = 0;
@@ -728,7 +726,7 @@ find_source (const char *file_name)
     file_name = "<unknown>";
 
   for (src = sources; src; src = src->next)
-    if (!strcmp (file_name, src->name))
+    if (!filename_cmp (file_name, src->name))
       break;
 
   if (!src)
@@ -1527,7 +1525,7 @@ make_gcov_file_name (const char *input_name, const char *src_name)
 
   if (flag_preserve_paths)
     {
-      /* Convert '/' and '\' to '#', remove '/./', convert '/../' to '/^/',
+      /* Convert '/' and '\' to '#', remove '/./', convert '/../' to '#^#',
 	 convert ':' to '~' on DOS based file system.  */
       char *pnew = name, *pold = name;
 
@@ -1535,32 +1533,41 @@ make_gcov_file_name (const char *input_name, const char *src_name)
 
       while (*pold != '\0')
 	{
-	  if (*pold == '/' || *pold == '\\')
-	    {
-	      *pnew++ = '#';
-	      pold++;
-	    }
 #if defined (HAVE_DOS_BASED_FILE_SYSTEM)
-	  else if (*pold == ':')
+	  if (*pold == ':')
 	    {
 	      *pnew++ = '~';
 	      pold++;
 	    }
+	  else
 #endif
-	  else if ((*pold == '/' && strstr (pold, "/./") == pold)
-		   || (*pold == '\\' && strstr (pold, "\\.\\") == pold))
+	  if ((*pold == '/'
+		    && (strstr (pold, "/./") == pold
+		        || strstr (pold, "/.\\") == pold))
+		   || (*pold == '\\'
+		       && (strstr (pold, "\\.\\") == pold
+		           || strstr (pold, "\\./") == pold)))
 	      pold += 3;
-	  else if (*pold == '/' && strstr (pold, "/../") == pold)
+	  else if (*pold == '/'
+		   && (strstr (pold, "/../") == pold
+		       || strstr (pold, "/..\\") == pold))
 	    {
-	      strcpy (pnew, "/^/");
+	      strcpy (pnew, "#^#");
 	      pnew += 3;
 	      pold += 4;
 	    }
-	  else if (*pold == '\\' && strstr (pold, "\\..\\") == pold)
+	  else if (*pold == '\\'
+		   && (strstr (pold, "\\..\\") == pold
+		       || strstr (pold, "\\../") == pold))
 	    {
-	      strcpy (pnew, "\\^\\");
+	      strcpy (pnew, "#^#");
 	      pnew += 3;
 	      pold += 4;
+	    }
+	  else if (*pold == '/' || *pold == '\\')
+	    {
+	      *pnew++ = '#';
+	      pold++;
 	    }
 	  else
 	    *pnew++ = *pold++;

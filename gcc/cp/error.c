@@ -1,7 +1,8 @@
 /* Call-backs for C++ error reporting.
    This code is non-reentrant.
    Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2002, 2003,
-   2004, 2005, 2006, 2007, 2008, 2009, 2010 Free Software Foundation, Inc.
+   2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011
+   Free Software Foundation, Inc.
    This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
@@ -483,6 +484,14 @@ dump_type (tree t, int flags)
       pp_cxx_right_paren (cxx_pp);
       break;
 
+    case UNDERLYING_TYPE:
+      pp_cxx_ws_string (cxx_pp, "__underlying_type");
+      pp_cxx_whitespace (cxx_pp);
+      pp_cxx_left_paren (cxx_pp);
+      dump_expr (UNDERLYING_TYPE_TYPE (t), flags & ~TFF_EXPR_IN_PARENS);
+      pp_cxx_right_paren (cxx_pp);
+      break;
+
     case TYPE_PACK_EXPANSION:
       dump_type (PACK_EXPANSION_PATTERN (t), flags);
       pp_cxx_ws_string (cxx_pp, "...");
@@ -661,6 +670,8 @@ dump_type_prefix (tree t, int flags)
 	  {
 	    pp_cxx_whitespace (cxx_pp);
 	    pp_cxx_left_paren (cxx_pp);
+	    pp_c_attributes_display (pp_c_base (cxx_pp),
+				     TYPE_ATTRIBUTES (sub));
 	  }
 	if (TREE_CODE (t) == POINTER_TYPE)
 	  pp_character(cxx_pp, '*');
@@ -729,6 +740,7 @@ dump_type_prefix (tree t, int flags)
     case COMPLEX_TYPE:
     case VECTOR_TYPE:
     case TYPEOF_TYPE:
+    case UNDERLYING_TYPE:
     case DECLTYPE_TYPE:
     case TYPE_PACK_EXPANSION:
     case FIXED_POINT_TYPE:
@@ -832,6 +844,7 @@ dump_type_suffix (tree t, int flags)
     case COMPLEX_TYPE:
     case VECTOR_TYPE:
     case TYPEOF_TYPE:
+    case UNDERLYING_TYPE:
     case DECLTYPE_TYPE:
     case TYPE_PACK_EXPANSION:
     case FIXED_POINT_TYPE:
@@ -1027,7 +1040,7 @@ dump_decl (tree t, int flags)
 	      dump_type (DECL_CONTEXT (t), flags);
 	      pp_cxx_colon_colon (cxx_pp);
 	    }
-	  else if (DECL_CONTEXT (t))
+	  else if (!DECL_FILE_SCOPE_P (t))
 	    {
 	      dump_decl (DECL_CONTEXT (t), flags);
 	      pp_cxx_colon_colon (cxx_pp);
@@ -2493,7 +2506,11 @@ location_of (tree t)
   if (TREE_CODE (t) == PARM_DECL && DECL_CONTEXT (t))
     t = DECL_CONTEXT (t);
   else if (TYPE_P (t))
-    t = TYPE_MAIN_DECL (t);
+    {
+      t = TYPE_MAIN_DECL (t);
+      if (t == NULL_TREE)
+	return input_location;
+    }
   else if (TREE_CODE (t) == OVERLOAD)
     t = OVL_FUNCTION (t);
 
@@ -3166,4 +3183,40 @@ pedwarn_cxx98 (location_t location, int opt, const char *gmsgid, ...)
   diagnostic.option_index = opt;
   va_end (ap);
   return report_diagnostic (&diagnostic);
+}
+
+/* Issue a diagnostic that NAME cannot be found in SCOPE.  DECL is what
+   we found when we tried to do the lookup.  LOCATION is the location of
+   the NAME identifier.  */
+
+void
+qualified_name_lookup_error (tree scope, tree name,
+			     tree decl, location_t location)
+{
+  if (scope == error_mark_node)
+    ; /* We already complained.  */
+  else if (TYPE_P (scope))
+    {
+      if (!COMPLETE_TYPE_P (scope))
+	error_at (location, "incomplete type %qT used in nested name specifier",
+		  scope);
+      else if (TREE_CODE (decl) == TREE_LIST)
+	{
+	  error_at (location, "reference to %<%T::%D%> is ambiguous",
+		    scope, name);
+	  print_candidates (decl);
+	}
+      else
+	error_at (location, "%qD is not a member of %qT", name, scope);
+    }
+  else if (scope != global_namespace)
+    {
+      error_at (location, "%qD is not a member of %qD", name, scope);
+      suggest_alternatives_for (location, name);
+    }
+  else
+    {
+      error_at (location, "%<::%D%> has not been declared", name);
+      suggest_alternatives_for (location, name);
+    }
 }

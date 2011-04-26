@@ -72,9 +72,6 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "profile.h"
 
-/* Hooks for profiling.  */
-static struct profile_hooks* profile_hooks;
-
 struct bb_info {
   unsigned int count_valid : 1;
 
@@ -141,7 +138,7 @@ instrument_edges (struct edge_list *el)
 		fprintf (dump_file, "Edge %d to %d instrumented%s\n",
 			 e->src->index, e->dest->index,
 			 EDGE_CRITICAL_P (e) ? " (and split)" : "");
-	      (profile_hooks->gen_edge_profiler) (num_instr_edges++, e);
+	      gimple_gen_edge_profiler (num_instr_edges++, e);
 	    }
 	}
     }
@@ -202,31 +199,31 @@ instrument_values (histogram_values values)
       switch (hist->type)
 	{
 	case HIST_TYPE_INTERVAL:
-	  (profile_hooks->gen_interval_profiler) (hist, t, 0);
+	  gimple_gen_interval_profiler (hist, t, 0);
 	  break;
 
 	case HIST_TYPE_POW2:
-	  (profile_hooks->gen_pow2_profiler) (hist, t, 0);
+	  gimple_gen_pow2_profiler (hist, t, 0);
 	  break;
 
 	case HIST_TYPE_SINGLE_VALUE:
-	  (profile_hooks->gen_one_value_profiler) (hist, t, 0);
+	  gimple_gen_one_value_profiler (hist, t, 0);
 	  break;
 
 	case HIST_TYPE_CONST_DELTA:
-	  (profile_hooks->gen_const_delta_profiler) (hist, t, 0);
+	  gimple_gen_const_delta_profiler (hist, t, 0);
 	  break;
 
  	case HIST_TYPE_INDIR_CALL:
- 	  (profile_hooks->gen_ic_profiler) (hist, t, 0);
+ 	  gimple_gen_ic_profiler (hist, t, 0);
   	  break;
 
 	case HIST_TYPE_AVERAGE:
-	  (profile_hooks->gen_average_profiler) (hist, t, 0);
+	  gimple_gen_average_profiler (hist, t, 0);
 	  break;
 
 	case HIST_TYPE_IOR:
-	  (profile_hooks->gen_ior_profiler) (hist, t, 0);
+	  gimple_gen_ior_profiler (hist, t, 0);
 	  break;
 
 	default:
@@ -412,8 +409,17 @@ read_profile_edge_counts (gcov_type *exec_counts)
 		e->count = exec_counts[exec_counts_pos++];
 		if (e->count > profile_info->sum_max)
 		  {
-		    error ("corrupted profile info: edge from %i to %i exceeds maximal count",
-			   bb->index, e->dest->index);
+		    if (flag_profile_correction)
+		      {
+			static bool informed = 0;
+			if (!informed)
+		          inform (input_location,
+			          "corrupted profile info: edge count exceeds maximal count");
+			informed = 1;
+		      }
+		    else
+		      error ("corrupted profile info: edge from %i to %i exceeds maximal count",
+			     bb->index, e->dest->index);
 		  }
 	      }
 	    else
@@ -822,8 +828,7 @@ compute_value_histograms (histogram_values values)
     }
 
   for (t = 0; t < GCOV_N_VALUE_COUNTERS; t++)
-    if (histogram_counts[t])
-      free (histogram_counts[t]);
+    free (histogram_counts[t]);
 }
 
 /* The entry basic block will be moved around so that it has index=1,
@@ -847,7 +852,7 @@ output_location (char const *file_name, int line,
       return;
     }
 
-  name_differs = !prev_file_name || strcmp (file_name, prev_file_name);
+  name_differs = !prev_file_name || filename_cmp (file_name, prev_file_name);
   line_differs = prev_line != line;
 
   if (name_differs || line_differs)
@@ -1117,16 +1122,13 @@ branch_prob (void)
   /* Line numbers.  */
   if (coverage_begin_output ())
     {
-      gcov_position_t offset;
-
       /* Initialize the output.  */
       output_location (NULL, 0, NULL, NULL);
 
       FOR_EACH_BB (bb)
 	{
 	  gimple_stmt_iterator gsi;
-
-	  offset = 0;
+	  gcov_position_t offset = 0;
 
 	  if (bb == ENTRY_BLOCK_PTR->next_bb)
 	    {
@@ -1144,15 +1146,14 @@ branch_prob (void)
 				 &offset, bb);
 	    }
 
-	  /* Notice GOTO expressions we eliminated while constructing the
-	     CFG.  */
+	  /* Notice GOTO expressions eliminated while constructing the CFG.  */
 	  if (single_succ_p (bb)
 	      && single_succ_edge (bb)->goto_locus != UNKNOWN_LOCATION)
 	    {
-	      location_t curr_location = single_succ_edge (bb)->goto_locus;
-	      /* ??? The FILE/LINE API is inconsistent for these cases.  */
-	      output_location (LOCATION_FILE (curr_location),
-			       LOCATION_LINE (curr_location), &offset, bb);
+	      expanded_location curr_location
+		= expand_location (single_succ_edge (bb)->goto_locus);
+	      output_location (curr_location.file, curr_location.line,
+			       &offset, bb);
 	    }
 
 	  if (offset)
@@ -1170,7 +1171,7 @@ branch_prob (void)
 #undef BB_TO_GCOV_INDEX
 
   if (flag_profile_values)
-    find_values_to_profile (&values);
+    gimple_find_values_to_profile (&values);
 
   if (flag_branch_probabilities)
     {
@@ -1187,7 +1188,7 @@ branch_prob (void)
     {
       unsigned n_instrumented;
 
-      profile_hooks->init_edge_profiler ();
+      gimple_init_edge_profiler ();
 
       n_instrumented = instrument_edges (el);
 
@@ -1372,11 +1373,3 @@ end_branch_prob (void)
     }
 }
 
-/* Set up hooks to enable tree-based profiling.  */
-
-void
-tree_register_profile_hooks (void)
-{
-  gcc_assert (current_ir_type () == IR_GIMPLE);
-  profile_hooks = &tree_profile_hooks;
-}

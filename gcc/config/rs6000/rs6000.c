@@ -1,6 +1,6 @@
 /* Subroutines used for code generation on IBM RS/6000.
    Copyright (C) 1991, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
+   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011
    Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
@@ -58,6 +58,7 @@
 #include "intl.h"
 #include "params.h"
 #include "tm-constrs.h"
+#include "opts.h"
 #if TARGET_XCOFF
 #include "xcoffout.h"  /* get declarations of xcoff_*_section_name */
 #endif
@@ -184,6 +185,14 @@ unsigned rs6000_pmode;
 /* Width in bits of a pointer.  */
 unsigned rs6000_pointer_size;
 
+#ifdef HAVE_AS_GNU_ATTRIBUTE
+/* Flag whether floating point values have been passed/returned.  */
+static bool rs6000_passes_float;
+/* Flag whether vector values have been passed/returned.  */
+static bool rs6000_passes_vector;
+/* Flag whether small (<= 8 byte) structures have been returned.  */
+static bool rs6000_returns_struct;
+#endif
 
 /* Value is TRUE if register/mode pair is acceptable.  */
 bool rs6000_hard_regno_mode_ok_p[NUM_MACHINE_MODES][FIRST_PSEUDO_REGISTER];
@@ -938,9 +947,9 @@ static rtx rs6000_function_value (const_tree, const_tree, bool);
 static void rs6000_file_start (void);
 #if TARGET_ELF
 static int rs6000_elf_reloc_rw_mask (void);
-static void rs6000_elf_asm_out_constructor (rtx, int);
-static void rs6000_elf_asm_out_destructor (rtx, int);
-static void rs6000_elf_end_indicate_exec_stack (void) ATTRIBUTE_UNUSED;
+static void rs6000_elf_asm_out_constructor (rtx, int) ATTRIBUTE_UNUSED;
+static void rs6000_elf_asm_out_destructor (rtx, int) ATTRIBUTE_UNUSED;
+static void rs6000_elf_file_end (void) ATTRIBUTE_UNUSED;
 static void rs6000_elf_asm_init_sections (void);
 static section *rs6000_elf_select_rtx_section (enum machine_mode, rtx,
 					       unsigned HOST_WIDE_INT);
@@ -1069,9 +1078,10 @@ static int get_element_number (tree, tree);
 static void rs6000_option_override (void);
 static void rs6000_option_init_struct (struct gcc_options *);
 static void rs6000_option_default_params (void);
-static bool rs6000_handle_option (size_t, const char *, int);
+static bool rs6000_handle_option (struct gcc_options *, struct gcc_options *,
+				  const struct cl_decoded_option *,
+				  location_t);
 static int rs6000_loop_align_max_skip (rtx);
-static void rs6000_parse_yes_no_option (const char *, const char *, int *);
 static int first_altivec_reg_to_save (void);
 static unsigned int compute_vrsave_mask (void);
 static void compute_save_world_info (rs6000_stack_t *info_ptr);
@@ -1197,13 +1207,13 @@ static reg_class_t rs6000_secondary_reload (bool, rtx, reg_class_t,
 					    enum machine_mode,
 					    struct secondary_reload_info *);
 
-static const reg_class_t *rs6000_ira_cover_classes (void);
-
 const int INSN_NOT_AVAILABLE = -1;
 static enum machine_mode rs6000_eh_return_filter_mode (void);
 static bool rs6000_can_eliminate (const int, const int);
 static void rs6000_conditional_register_usage (void);
 static void rs6000_trampoline_init (rtx, tree, rtx);
+static bool rs6000_cannot_force_const_mem (enum machine_mode, rtx);
+static bool rs6000_legitimate_constant_p (enum machine_mode, rtx);
 
 /* Hash table stuff for keeping track of TOC entries.  */
 
@@ -1295,16 +1305,22 @@ static const char alt_reg_names[][8] =
 
 static const struct attribute_spec rs6000_attribute_table[] =
 {
-  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
-  { "altivec",   1, 1, false, true,  false, rs6000_handle_altivec_attribute },
-  { "longcall",  0, 0, false, true,  true,  rs6000_handle_longcall_attribute },
-  { "shortcall", 0, 0, false, true,  true,  rs6000_handle_longcall_attribute },
-  { "ms_struct", 0, 0, false, false, false, rs6000_handle_struct_attribute },
-  { "gcc_struct", 0, 0, false, false, false, rs6000_handle_struct_attribute },
+  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler,
+       affects_type_identity } */
+  { "altivec",   1, 1, false, true,  false, rs6000_handle_altivec_attribute,
+    false },
+  { "longcall",  0, 0, false, true,  true,  rs6000_handle_longcall_attribute,
+    false },
+  { "shortcall", 0, 0, false, true,  true,  rs6000_handle_longcall_attribute,
+    false },
+  { "ms_struct", 0, 0, false, false, false, rs6000_handle_struct_attribute,
+    false },
+  { "gcc_struct", 0, 0, false, false, false, rs6000_handle_struct_attribute,
+    false },
 #ifdef SUBTARGET_ATTRIBUTE_TABLE
   SUBTARGET_ATTRIBUTE_TABLE,
 #endif
-  { NULL,        0, 0, false, false, false, NULL }
+  { NULL,        0, 0, false, false, false, NULL, false }
 };
 
 /* Implement TARGET_OPTION_OPTIMIZATION_TABLE.  */
@@ -1374,7 +1390,7 @@ static const struct default_options rs6000_option_optimization_table[] =
 #define TARGET_HAVE_TLS HAVE_AS_TLS
 
 #undef TARGET_CANNOT_FORCE_CONST_MEM
-#define TARGET_CANNOT_FORCE_CONST_MEM rs6000_tls_referenced_p
+#define TARGET_CANNOT_FORCE_CONST_MEM rs6000_cannot_force_const_mem
 
 #undef TARGET_DELEGITIMIZE_ADDRESS
 #define TARGET_DELEGITIMIZE_ADDRESS rs6000_delegitimize_address
@@ -1619,9 +1635,6 @@ static const struct default_options rs6000_option_optimization_table[] =
 #undef TARGET_SECONDARY_RELOAD
 #define TARGET_SECONDARY_RELOAD rs6000_secondary_reload
 
-#undef TARGET_IRA_COVER_CLASSES
-#define TARGET_IRA_COVER_CLASSES rs6000_ira_cover_classes
-
 #undef TARGET_LEGITIMATE_ADDRESS_P
 #define TARGET_LEGITIMATE_ADDRESS_P rs6000_legitimate_address_p
 
@@ -1657,6 +1670,9 @@ static const struct default_options rs6000_option_optimization_table[] =
 
 #undef TARGET_SET_CURRENT_FUNCTION
 #define TARGET_SET_CURRENT_FUNCTION rs6000_set_current_function
+
+#undef TARGET_LEGITIMATE_CONSTANT_P
+#define TARGET_LEGITIMATE_CONSTANT_P rs6000_legitimate_constant_p
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -3316,9 +3332,12 @@ rs6000_option_override_internal (bool global_init_p)
   /* If not explicitly specified via option, decide whether to generate indexed
      load/store instructions.  */
   if (TARGET_AVOID_XFORM == -1)
-    /* Avoid indexed addressing when targeting Power6 in order to avoid
-     the DERAT mispredict penalty.  */
-    TARGET_AVOID_XFORM = (rs6000_cpu == PROCESSOR_POWER6 && TARGET_CMPB);
+    /* Avoid indexed addressing when targeting Power6 in order to avoid the
+     DERAT mispredict penalty.  However the LVE and STVE altivec instructions
+     need indexed accesses and the type used is the scalar type of the element
+     being loaded or stored.  */
+    TARGET_AVOID_XFORM = (rs6000_cpu == PROCESSOR_POWER6 && TARGET_CMPB
+			  && !TARGET_ALTIVEC);
 
   /* Set the -mrecip options.  */
   if (rs6000_recip_name)
@@ -3805,24 +3824,6 @@ rs6000_preferred_simd_mode (enum machine_mode mode)
   return word_mode;
 }
 
-/* Handle generic options of the form -mfoo=yes/no.
-   NAME is the option name.
-   VALUE is the option value.
-   FLAG is the pointer to the flag where to store a 1 or 0, depending on
-   whether the option value is 'yes' or 'no' respectively.  */
-static void
-rs6000_parse_yes_no_option (const char *name, const char *value, int *flag)
-{
-  if (value == 0)
-    return;
-  else if (!strcmp (value, "yes"))
-    *flag = 1;
-  else if (!strcmp (value, "no"))
-    *flag = 0;
-  else
-    error ("unknown -m%s= option specified: '%s'", name, value);
-}
-
 /* Implement TARGET_OPTION_INIT_STRUCT.  */
 
 static void
@@ -4191,11 +4192,18 @@ rs6000_builtin_vectorized_function (tree fndecl, tree type_out,
 /* Implement TARGET_HANDLE_OPTION.  */
 
 static bool
-rs6000_handle_option (size_t code, const char *arg, int value)
+rs6000_handle_option (struct gcc_options *opts, struct gcc_options *opts_set,
+		      const struct cl_decoded_option *decoded,
+		      location_t loc ATTRIBUTE_UNUSED)
 {
   enum fpu_type_t fpu_type = FPU_NONE;
-  int isel;
   char *p, *q;
+  size_t code = decoded->opt_index;
+  const char *arg = decoded->arg;
+  int value = decoded->value;
+
+  gcc_assert (opts == &global_options);
+  gcc_assert (opts_set == &global_options_set);
 
   switch (code)
     {
@@ -4314,29 +4322,9 @@ rs6000_handle_option (size_t code, const char *arg, int value)
       TARGET_ALTIVEC_VRSAVE = value;
       break;
 
-    case OPT_mvrsave_:
-      rs6000_explicit_options.vrsave = true;
-      rs6000_parse_yes_no_option ("vrsave", arg, &(TARGET_ALTIVEC_VRSAVE));
-      break;
-
-    case OPT_misel_:
-      target_flags_explicit |= MASK_ISEL;
-      isel = 0;
-      rs6000_parse_yes_no_option ("isel", arg, &isel);
-      if (isel)
-	target_flags |= MASK_ISEL;
-      else
-	target_flags &= ~MASK_ISEL;
-      break;
-
     case OPT_mspe:
       rs6000_explicit_options.spe = true;
       rs6000_spe = value;
-      break;
-
-    case OPT_mspe_:
-      rs6000_explicit_options.spe = true;
-      rs6000_parse_yes_no_option ("spe", arg, &(rs6000_spe));
       break;
 
     case OPT_mdebug_:
@@ -4692,23 +4680,6 @@ rs6000_file_start (void)
 	putc ('\n', file);
     }
 
-#ifdef HAVE_AS_GNU_ATTRIBUTE
-  if (TARGET_32BIT && DEFAULT_ABI == ABI_V4)
-    {
-      fprintf (file, "\t.gnu_attribute 4, %d\n",
-	       ((TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_DOUBLE_FLOAT) ? 1 
-	        : (TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_SINGLE_FLOAT) ? 3 
-	        : 2));
-      fprintf (file, "\t.gnu_attribute 8, %d\n",
-	       (TARGET_ALTIVEC_ABI ? 2
-		: TARGET_SPE_ABI ? 3
-		: 1));
-      fprintf (file, "\t.gnu_attribute 12, %d\n",
-	       aix_struct_return ? 2 : 1);
-
-    }
-#endif
-
   if (DEFAULT_ABI == ABI_AIX || (TARGET_ELF && flag_pic == 2))
     {
       switch_to_section (toc_section);
@@ -4861,7 +4832,13 @@ num_insns_constant (rtx op, enum machine_mode mode)
 HOST_WIDE_INT
 const_vector_elt_as_int (rtx op, unsigned int elt)
 {
-  rtx tmp = CONST_VECTOR_ELT (op, elt);
+  rtx tmp;
+
+  /* We can't handle V2DImode and V2DFmode vector constants here yet.  */
+  gcc_assert (GET_MODE (op) != V2DImode
+	      && GET_MODE (op) != V2DFmode);
+
+  tmp = CONST_VECTOR_ELT (op, elt);
   if (GET_MODE (op) == V4SFmode
       || GET_MODE (op) == V2SFmode)
     tmp = gen_lowpart (SImode, tmp);
@@ -4882,13 +4859,24 @@ vspltis_constant (rtx op, unsigned step, unsigned copies)
   enum machine_mode inner = GET_MODE_INNER (mode);
 
   unsigned i;
-  unsigned nunits = GET_MODE_NUNITS (mode);
-  unsigned bitsize = GET_MODE_BITSIZE (inner);
-  unsigned mask = GET_MODE_MASK (inner);
+  unsigned nunits;
+  unsigned bitsize;
+  unsigned mask;
 
-  HOST_WIDE_INT val = const_vector_elt_as_int (op, nunits - 1);
-  HOST_WIDE_INT splat_val = val;
-  HOST_WIDE_INT msb_val = val > 0 ? 0 : -1;
+  HOST_WIDE_INT val;
+  HOST_WIDE_INT splat_val;
+  HOST_WIDE_INT msb_val;
+
+  if (mode == V2DImode || mode == V2DFmode)
+    return false;
+
+  nunits = GET_MODE_NUNITS (mode);
+  bitsize = GET_MODE_BITSIZE (inner);
+  mask = GET_MODE_MASK (inner);
+
+  val = const_vector_elt_as_int (op, nunits - 1);
+  splat_val = val;
+  msb_val = val > 0 ? 0 : -1;
 
   /* Construct the value to be splatted, if possible.  If not, return 0.  */
   for (i = 2; i <= copies; i *= 2)
@@ -4951,6 +4939,29 @@ easy_altivec_constant (rtx op, enum machine_mode mode)
     mode = GET_MODE (op);
   else if (mode != GET_MODE (op))
     return false;
+
+  /* V2DI/V2DF was added with VSX.  Only allow 0 and all 1's as easy
+     constants.  */
+  if (mode == V2DFmode)
+    return zero_constant (op, mode);
+
+  if (mode == V2DImode)
+    {
+      /* In case the compiler is built 32-bit, CONST_DOUBLE constants are not
+	 easy.  */
+      if (GET_CODE (CONST_VECTOR_ELT (op, 0)) != CONST_INT
+	  || GET_CODE (CONST_VECTOR_ELT (op, 1)) != CONST_INT)
+	return false;
+
+      if (zero_constant (op, mode))
+	return true;
+
+      if (INTVAL (CONST_VECTOR_ELT (op, 0)) == -1
+	  && INTVAL (CONST_VECTOR_ELT (op, 1)) == -1)
+	return true;
+
+      return false;
+    }
 
   /* Start with a vspltisw.  */
   step = GET_MODE_NUNITS (mode) / 4;
@@ -5028,8 +5039,16 @@ output_vec_const_move (rtx *operands)
   vec = operands[1];
   mode = GET_MODE (dest);
 
-  if (TARGET_VSX && zero_constant (vec, mode))
-    return "xxlxor %x0,%x0,%x0";
+  if (TARGET_VSX)
+    {
+      if (zero_constant (vec, mode))
+	return "xxlxor %x0,%x0,%x0";
+
+      if (mode == V2DImode
+	  && INTVAL (CONST_VECTOR_ELT (vec, 0)) == -1
+	  && INTVAL (CONST_VECTOR_ELT (vec, 1)) == -1)
+	return "vspltisw %0,-1";
+    }
 
   if (TARGET_ALTIVEC)
     {
@@ -5289,12 +5308,18 @@ rs6000_expand_vector_init (rtx target, rtx vals)
 	}
       else
 	{
-	  rtx op0 = copy_to_reg (XVECEXP (vals, 0, 0));
-	  rtx op1 = copy_to_reg (XVECEXP (vals, 0, 1));
 	  if (mode == V2DFmode)
-	    emit_insn (gen_vsx_concat_v2df (target, op0, op1));
+	    {
+	      rtx op0 = copy_to_mode_reg (DFmode, XVECEXP (vals, 0, 0));
+	      rtx op1 = copy_to_mode_reg (DFmode, XVECEXP (vals, 0, 1));
+	      emit_insn (gen_vsx_concat_v2df (target, op0, op1));
+	    }
 	  else
-	    emit_insn (gen_vsx_concat_v2di (target, op0, op1));
+	    {
+	      rtx op0 = copy_to_mode_reg (DImode, XVECEXP (vals, 0, 0));
+	      rtx op1 = copy_to_mode_reg (DImode, XVECEXP (vals, 0, 1));
+	      emit_insn (gen_vsx_concat_v2di (target, op0, op1));
+	    }
 	}
       return;
     }
@@ -5436,7 +5461,7 @@ rs6000_expand_vector_extract (rtx target, rtx vec, int elt)
 {
   enum machine_mode mode = GET_MODE (vec);
   enum machine_mode inner_mode = GET_MODE_INNER (mode);
-  rtx mem, x;
+  rtx mem;
 
   if (VECTOR_MEM_VSX_P (mode) && (mode == V2DFmode || mode == V2DImode))
     {
@@ -5449,17 +5474,11 @@ rs6000_expand_vector_extract (rtx target, rtx vec, int elt)
   /* Allocate mode-sized buffer.  */
   mem = assign_stack_temp (mode, GET_MODE_SIZE (mode), 0);
 
-  /* Add offset to field within buffer matching vector element.  */
-  mem = adjust_address_nv (mem, mode, elt * GET_MODE_SIZE (inner_mode));
+  emit_move_insn (mem, vec);
 
-  /* Store single field into mode-sized buffer.  */
-  x = gen_rtx_UNSPEC (VOIDmode,
-		      gen_rtvec (1, const0_rtx), UNSPEC_STVE);
-  emit_insn (gen_rtx_PARALLEL (VOIDmode,
-			       gen_rtvec (2,
-					  gen_rtx_SET (VOIDmode,
-						       mem, vec),
-					  x)));
+  /* Add offset to field within buffer matching vector element.  */
+  mem = adjust_address_nv (mem, inner_mode, elt * GET_MODE_SIZE (inner_mode));
+
   emit_move_insn (target, adjust_address_nv (mem, inner_mode, 0));
 }
 
@@ -5749,6 +5768,94 @@ virtual_stack_registers_memory_p (rtx op)
 	  && regnum <= LAST_VIRTUAL_POINTER_REGISTER);
 }
 
+/* Return true if memory accesses to OP are known to never straddle
+   a 32k boundary.  */
+
+static bool
+offsettable_ok_by_alignment (rtx op, HOST_WIDE_INT offset,
+			     enum machine_mode mode)
+{
+  tree decl, type;
+  unsigned HOST_WIDE_INT dsize, dalign;
+
+  if (GET_CODE (op) != SYMBOL_REF)
+    return false;
+
+  decl = SYMBOL_REF_DECL (op);
+  if (!decl)
+    {
+      if (GET_MODE_SIZE (mode) == 0)
+	return false;
+
+      /* -fsection-anchors loses the original SYMBOL_REF_DECL when
+	 replacing memory addresses with an anchor plus offset.  We
+	 could find the decl by rummaging around in the block->objects
+	 VEC for the given offset but that seems like too much work.  */
+      dalign = 1;
+      if (SYMBOL_REF_HAS_BLOCK_INFO_P (op)
+	  && SYMBOL_REF_ANCHOR_P (op)
+	  && SYMBOL_REF_BLOCK (op) != NULL)
+	{
+	  struct object_block *block = SYMBOL_REF_BLOCK (op);
+	  HOST_WIDE_INT lsb, mask;
+
+	  /* Given the alignment of the block..  */
+	  dalign = block->alignment;
+	  mask = dalign / BITS_PER_UNIT - 1;
+
+	  /* ..and the combined offset of the anchor and any offset
+	     to this block object..  */
+	  offset += SYMBOL_REF_BLOCK_OFFSET (op);
+	  lsb = offset & -offset;
+
+	  /* ..find how many bits of the alignment we know for the
+	     object.  */
+	  mask &= lsb - 1;
+	  dalign = mask + 1;
+	}
+      return dalign >= GET_MODE_SIZE (mode);
+    }
+
+  if (DECL_P (decl))
+    {
+      if (TREE_CODE (decl) == FUNCTION_DECL)
+	return true;
+
+      if (!DECL_SIZE_UNIT (decl))
+	return false;
+
+      if (!host_integerp (DECL_SIZE_UNIT (decl), 1))
+	return false;
+
+      dsize = tree_low_cst (DECL_SIZE_UNIT (decl), 1);
+      if (dsize > 32768)
+	return false;
+
+      dalign = DECL_ALIGN_UNIT (decl);
+      return dalign >= dsize;
+    }
+
+  type = TREE_TYPE (decl);
+
+  if (TREE_CODE (decl) == STRING_CST)
+    dsize = TREE_STRING_LENGTH (decl);
+  else if (TYPE_SIZE_UNIT (type)
+	   && host_integerp (TYPE_SIZE_UNIT (type), 1))
+    dsize = tree_low_cst (TYPE_SIZE_UNIT (type), 1);
+  else
+    return false;
+  if (dsize > 32768)
+    return false;
+
+  dalign = TYPE_ALIGN (type);
+  if (CONSTANT_CLASS_P (decl))
+    dalign = CONSTANT_ALIGNMENT (decl, dalign);
+  else
+    dalign = DATA_ALIGNMENT (decl, dalign);
+  dalign /= BITS_PER_UNIT;
+  return dalign >= dsize;
+}
+
 static bool
 constant_pool_expr_p (rtx op)
 {
@@ -5773,8 +5880,12 @@ toc_relative_expr_p (rtx op)
 	  && XINT (tocrel_base, 1) == UNSPEC_TOCREL);
 }
 
+/* Return true if X is a constant pool address, and also for cmodel=medium
+   if X is a toc-relative address known to be offsettable within MODE.  */
+
 bool
-legitimate_constant_pool_address_p (const_rtx x, bool strict)
+legitimate_constant_pool_address_p (const_rtx x, enum machine_mode mode,
+				    bool strict)
 {
   return (TARGET_TOC
 	  && (GET_CODE (x) == PLUS || GET_CODE (x) == LO_SUM)
@@ -5783,7 +5894,12 @@ legitimate_constant_pool_address_p (const_rtx x, bool strict)
 	      || ((TARGET_MINIMAL_TOC
 		   || TARGET_CMODEL != CMODEL_SMALL)
 		  && INT_REG_OK_FOR_BASE_P (XEXP (x, 0), strict)))
-	  && toc_relative_expr_p (XEXP (x, 1)));
+	  && toc_relative_expr_p (XEXP (x, 1))
+	  && (TARGET_CMODEL != CMODEL_MEDIUM
+	      || constant_pool_expr_p (XVECEXP (tocrel_base, 0, 0))
+	      || mode == QImode
+	      || offsettable_ok_by_alignment (XVECEXP (tocrel_base, 0, 0),
+					      INTVAL (tocrel_offset), mode)));
 }
 
 static bool
@@ -5811,7 +5927,7 @@ rs6000_legitimate_offset_address_p (enum machine_mode mode, rtx x, int strict)
     return false;
   if (!reg_offset_addressing_ok_p (mode))
     return virtual_stack_registers_memory_p (x);
-  if (legitimate_constant_pool_address_p (x, strict))
+  if (legitimate_constant_pool_address_p (x, mode, strict))
     return true;
   if (GET_CODE (XEXP (x, 1)) != CONST_INT)
     return false;
@@ -6251,17 +6367,23 @@ rs6000_delegitimize_address (rtx orig_x)
   if (MEM_P (x))
     x = XEXP (x, 0);
 
-  if ((GET_CODE (x) == PLUS
-       || GET_CODE (x) == LO_SUM)
-      && GET_CODE (XEXP (x, 0)) == REG
-      && (REGNO (XEXP (x, 0)) == TOC_REGISTER
-	  || TARGET_MINIMAL_TOC
-	  || TARGET_CMODEL != CMODEL_SMALL)
+  if (GET_CODE (x) == (TARGET_CMODEL != CMODEL_SMALL ? LO_SUM : PLUS)
       && GET_CODE (XEXP (x, 1)) == CONST)
     {
       y = XEXP (XEXP (x, 1), 0);
       if (GET_CODE (y) == UNSPEC
-          && XINT (y, 1) == UNSPEC_TOCREL)
+          && XINT (y, 1) == UNSPEC_TOCREL
+	  && ((GET_CODE (XEXP (x, 0)) == REG
+	       && (REGNO (XEXP (x, 0)) == TOC_REGISTER
+		   || TARGET_MINIMAL_TOC
+		   || TARGET_CMODEL != CMODEL_SMALL))
+	      || (TARGET_CMODEL != CMODEL_SMALL
+		  && GET_CODE (XEXP (x, 0)) == PLUS
+		  && GET_CODE (XEXP (XEXP (x, 0), 0)) == REG
+		  && REGNO (XEXP (XEXP (x, 0), 0)) == TOC_REGISTER
+		  && GET_CODE (XEXP (XEXP (x, 0), 1)) == HIGH
+		  && rtx_equal_p (XEXP (x, 1),
+				  XEXP (XEXP (XEXP (x, 0), 1), 0)))))
 	{
 	  y = XVECEXP (y, 0, 0);
 	  if (!MEM_P (orig_x))
@@ -6502,6 +6624,14 @@ rs6000_tls_referenced_p (rtx x)
   return for_each_rtx (&x, &rs6000_tls_symbol_ref_1, 0);
 }
 
+/* Implement TARGET_CANNOT_FORCE_CONST_MEM.  */
+
+static bool
+rs6000_cannot_force_const_mem (enum machine_mode mode ATTRIBUTE_UNUSED, rtx x)
+{
+  return rs6000_tls_referenced_p (x);
+}
+
 /* Return 1 if *X is a thread-local symbol.  This is the same as
    rs6000_tls_symbol_ref except for the type of the unused argument.  */
 
@@ -6530,6 +6660,14 @@ rs6000_legitimize_reload_address (rtx x, enum machine_mode mode,
 				  int ind_levels ATTRIBUTE_UNUSED, int *win)
 {
   bool reg_offset_p = reg_offset_addressing_ok_p (mode);
+
+  /* Nasty hack for vsx_splat_V2DF/V2DI load from mem, which takes a
+     DFmode/DImode MEM.  */
+  if (reg_offset_p
+      && opnum == 1
+      && ((mode == DFmode && recog_data.operand_mode[0] == V2DFmode)
+	  || (mode == DImode && recog_data.operand_mode[0] == V2DImode)))
+    reg_offset_p = false;
 
   /* We must recognize output that we have already generated ourselves.  */
   if (GET_CODE (x) == PLUS
@@ -6805,7 +6943,8 @@ rs6000_legitimate_address_p (enum machine_mode mode, rtx x, bool reg_ok_strict)
     return 1;
   if (reg_offset_p && legitimate_small_data_p (mode, x))
     return 1;
-  if (reg_offset_p && legitimate_constant_pool_address_p (x, reg_ok_strict))
+  if (reg_offset_p
+      && legitimate_constant_pool_address_p (x, mode, reg_ok_strict))
     return 1;
   /* If not REG_OK_STRICT (before reload) let pass any stack offset.  */
   if (! reg_ok_strict
@@ -6915,7 +7054,7 @@ rs6000_mode_dependent_address (const_rtx addr)
     case LO_SUM:
       /* Anything in the constant pool is sufficiently aligned that
 	 all bytes have the same high part address.  */
-      return !legitimate_constant_pool_address_p (addr, false);
+      return !legitimate_constant_pool_address_p (addr, QImode, false);
 
     /* Auto-increment cases are now treated generically in recog.c.  */
     case PRE_MODIFY:
@@ -7279,51 +7418,19 @@ rs6000_eliminate_indexed_memrefs (rtx operands[2])
 
   if (GET_CODE (operands[0]) == MEM
       && GET_CODE (XEXP (operands[0], 0)) != REG
-      && ! legitimate_constant_pool_address_p (XEXP (operands[0], 0), false))
+      && ! legitimate_constant_pool_address_p (XEXP (operands[0], 0),
+					       GET_MODE (operands[0]), false))
     operands[0]
       = replace_equiv_address (operands[0],
 			       copy_addr_to_reg (XEXP (operands[0], 0)));
 
   if (GET_CODE (operands[1]) == MEM
       && GET_CODE (XEXP (operands[1], 0)) != REG
-      && ! legitimate_constant_pool_address_p (XEXP (operands[1], 0), false))
+      && ! legitimate_constant_pool_address_p (XEXP (operands[1], 0),
+					       GET_MODE (operands[1]), false))
     operands[1]
       = replace_equiv_address (operands[1],
 			       copy_addr_to_reg (XEXP (operands[1], 0)));
-}
-
-/* Return true if memory accesses to DECL are known to never straddle
-   a 32k boundary.  */
-
-static bool
-offsettable_ok_by_alignment (tree decl)
-{
-  unsigned HOST_WIDE_INT dsize, dalign;
-
-  /* Presume any compiler generated symbol_ref is suitably aligned.  */
-  if (!decl)
-    return true;
-
-  if (TREE_CODE (decl) != VAR_DECL
-      && TREE_CODE (decl) != PARM_DECL
-      && TREE_CODE (decl) != RESULT_DECL
-      && TREE_CODE (decl) != FIELD_DECL)
-    return true;
-
-  if (!DECL_SIZE_UNIT (decl))
-    return false;
-
-  if (!host_integerp (DECL_SIZE_UNIT (decl), 1))
-    return false;
-
-  dsize = tree_low_cst (DECL_SIZE_UNIT (decl), 1);
-  if (dsize <= 1)
-    return true;
-  if (dsize > 32768)
-    return false;
-
-  dalign = DECL_ALIGN_UNIT (decl);
-  return dalign >= dsize;
 }
 
 /* Emit a move from SOURCE to DEST in mode MODE.  */
@@ -7647,8 +7754,7 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
 	  || (TARGET_CMODEL == CMODEL_MEDIUM
 	      && GET_CODE (operands[1]) == SYMBOL_REF
 	      && !CONSTANT_POOL_ADDRESS_P (operands[1])
-	      && SYMBOL_REF_LOCAL_P (operands[1])
-	      && offsettable_ok_by_alignment (SYMBOL_REF_DECL (operands[1]))))
+	      && SYMBOL_REF_LOCAL_P (operands[1])))
 	{
 	  rtx reg = NULL_RTX;
 	  if (TARGET_CMODEL != CMODEL_SMALL)
@@ -7670,7 +7776,8 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
 		   || (GET_CODE (operands[0]) == REG
 		       && FP_REGNO_P (REGNO (operands[0]))))
 	       && GET_CODE (operands[1]) != HIGH
-	       && ! legitimate_constant_pool_address_p (operands[1], false)
+	       && ! legitimate_constant_pool_address_p (operands[1], mode,
+							false)
 	       && ! toc_relative_expr_p (operands[1])
 	       && (TARGET_CMODEL == CMODEL_SMALL
 		   || can_create_pseudo_p ()
@@ -7862,9 +7969,36 @@ rs6000_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
   return false;
 }
 
+#ifdef HAVE_AS_GNU_ATTRIBUTE
+/* Return TRUE if a call to function FNDECL may be one that
+   potentially affects the function calling ABI of the object file.  */
+
+static bool
+call_ABI_of_interest (tree fndecl)
+{
+  if (cgraph_state == CGRAPH_STATE_EXPANSION)
+    {
+      struct cgraph_node *c_node;
+
+      /* Libcalls are always interesting.  */
+      if (fndecl == NULL_TREE)
+	return true;
+
+      /* Any call to an external function is interesting.  */
+      if (DECL_EXTERNAL (fndecl))
+	return true;
+
+      /* Interesting functions that we are emitting in this object file.  */
+      c_node = cgraph_get_node (fndecl);
+      return !cgraph_only_called_directly_p (c_node);
+    }
+  return false;
+}
+#endif
+
 /* Initialize a variable CUM of type CUMULATIVE_ARGS
    for a call to a function whose data type is FNTYPE.
-   For a library call, FNTYPE is 0.
+   For a library call, FNTYPE is 0 and RETURN_MODE the return value mode.
 
    For incoming args we set the number of arguments in the prototype large
    so we never return a PARALLEL.  */
@@ -7872,7 +8006,9 @@ rs6000_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 void
 init_cumulative_args (CUMULATIVE_ARGS *cum, tree fntype,
 		      rtx libname ATTRIBUTE_UNUSED, int incoming,
-		      int libcall, int n_named_args)
+		      int libcall, int n_named_args,
+		      tree fndecl ATTRIBUTE_UNUSED,
+		      enum machine_mode return_mode ATTRIBUTE_UNUSED)
 {
   static CUMULATIVE_ARGS zero_cumulative;
 
@@ -7880,7 +8016,7 @@ init_cumulative_args (CUMULATIVE_ARGS *cum, tree fntype,
   cum->words = 0;
   cum->fregno = FP_ARG_MIN_REG;
   cum->vregno = ALTIVEC_ARG_MIN_REG;
-  cum->prototype = (fntype && TYPE_ARG_TYPES (fntype));
+  cum->prototype = (fntype && prototype_p (fntype));
   cum->call_cookie = ((DEFAULT_ABI == ABI_V4 && libcall)
 		      ? CALL_LIBCALL : CALL_NORMAL);
   cum->sysv_gregno = GP_ARG_MIN_REG;
@@ -7913,6 +8049,45 @@ init_cumulative_args (CUMULATIVE_ARGS *cum, tree fntype,
       fprintf (stderr, " proto = %d, nargs = %d\n",
 	       cum->prototype, cum->nargs_prototype);
     }
+
+#ifdef HAVE_AS_GNU_ATTRIBUTE
+  if (DEFAULT_ABI == ABI_V4)
+    {
+      cum->escapes = call_ABI_of_interest (fndecl);
+      if (cum->escapes)
+	{
+	  tree return_type;
+
+	  if (fntype)
+	    {
+	      return_type = TREE_TYPE (fntype);
+	      return_mode = TYPE_MODE (return_type);
+	    }
+	  else
+	    return_type = lang_hooks.types.type_for_mode (return_mode, 0);
+
+	  if (return_type != NULL)
+	    {
+	      if (TREE_CODE (return_type) == RECORD_TYPE
+		  && TYPE_TRANSPARENT_AGGR (return_type))
+		{
+		  return_type = TREE_TYPE (first_field (return_type));
+		  return_mode = TYPE_MODE (return_type);
+		}
+	      if (AGGREGATE_TYPE_P (return_type)
+		  && ((unsigned HOST_WIDE_INT) int_size_in_bytes (return_type)
+		      <= 8))
+		rs6000_returns_struct = true;
+	    }
+	  if (SCALAR_FLOAT_MODE_P (return_mode))
+	    rs6000_passes_float = true;
+	  else if (ALTIVEC_VECTOR_MODE (return_mode)
+		   || VSX_VECTOR_MODE (return_mode)
+		   || SPE_VECTOR_MODE (return_mode))
+	    rs6000_passes_vector = true;
+	}
+    }
+#endif
 
   if (fntype
       && !TARGET_ALTIVEC
@@ -8156,8 +8331,9 @@ rs6000_darwin64_record_arg_advance_recurse (CUMULATIVE_ARGS *cum,
 	  rs6000_darwin64_record_arg_advance_recurse (cum, ftype, bitpos);
 	else if (USE_FP_FOR_ARG_P (cum, mode, ftype))
 	  {
+	    unsigned n_fpregs = (GET_MODE_SIZE (mode) + 7) >> 3;
 	    rs6000_darwin64_record_arg_advance_flush (cum, bitpos, 0);
-	    cum->fregno += (GET_MODE_SIZE (mode) + 7) >> 3;
+	    cum->fregno += n_fpregs;
 	    /* Single-precision floats present a special problem for
 	       us, because they are smaller than an 8-byte GPR, and so
 	       the structure-packing rules combined with the standard
@@ -8192,7 +8368,7 @@ rs6000_darwin64_record_arg_advance_recurse (CUMULATIVE_ARGS *cum,
 		  }
 	      }
 	    else
-	      cum->words += (GET_MODE_SIZE (mode) + 7) >> 3;
+	      cum->words += n_fpregs;
 	  }
 	else if (USE_ALTIVEC_FOR_ARG_P (cum, mode, type, 1))
 	  {
@@ -8231,10 +8407,24 @@ static void
 rs6000_function_arg_advance_1 (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 			       const_tree type, bool named, int depth)
 {
-
   /* Only tick off an argument if we're not recursing.  */
   if (depth == 0)
     cum->nargs_prototype--;
+
+#ifdef HAVE_AS_GNU_ATTRIBUTE
+  if (DEFAULT_ABI == ABI_V4
+      && cum->escapes)
+    {
+      if (SCALAR_FLOAT_MODE_P (mode))
+	rs6000_passes_float = true;
+      else if (named && (ALTIVEC_VECTOR_MODE (mode) || VSX_VECTOR_MODE (mode)))
+	rs6000_passes_vector = true;
+      else if (SPE_VECTOR_MODE (mode)
+	       && !cum->stdarg
+	       && cum->sysv_gregno <= GP_ARG_MAX_REG)
+	rs6000_passes_vector = true;
+    }
+#endif
 
   if (TARGET_ALTIVEC_ABI
       && (ALTIVEC_VECTOR_MODE (mode)
@@ -8618,6 +8808,7 @@ rs6000_darwin64_record_arg_recurse (CUMULATIVE_ARGS *cum, const_tree type,
 	  rs6000_darwin64_record_arg_recurse (cum, ftype, bitpos, rvec, k);
 	else if (cum->named && USE_FP_FOR_ARG_P (cum, mode, ftype))
 	  {
+	    unsigned n_fpreg = (GET_MODE_SIZE (mode) + 7) >> 3;
 #if 0
 	    switch (mode)
 	      {
@@ -8628,6 +8819,14 @@ rs6000_darwin64_record_arg_recurse (CUMULATIVE_ARGS *cum, const_tree type,
 	      }
 #endif
 	    rs6000_darwin64_record_arg_flush (cum, bitpos, rvec, k);
+	    if (cum->fregno + n_fpreg > FP_ARG_MAX_REG + 1)
+	      {
+		gcc_assert (cum->fregno == FP_ARG_MAX_REG
+			    && (mode == TFmode || mode == TDmode));
+		/* Long double or _Decimal128 split over regs and memory.  */
+		mode = DECIMAL_FLOAT_MODE_P (mode) ? DDmode : DFmode;
+		cum->use_stack=1;
+	      }
 	    rvec[(*k)++]
 	      = gen_rtx_EXPR_LIST (VOIDmode,
 				   gen_rtx_REG (mode, cum->fregno++),
@@ -8685,7 +8884,7 @@ rs6000_darwin64_record_arg (CUMULATIVE_ARGS *orig_cum, const_tree type,
      for the chunks of memory that go in int regs.  Note we start at
      element 1; 0 is reserved for an indication of using memory, and
      may or may not be filled in below. */
-  rs6000_darwin64_record_arg_recurse (cum, type, 0, rvec, &k);
+  rs6000_darwin64_record_arg_recurse (cum, type, /* startbit pos= */ 0, rvec, &k);
   rs6000_darwin64_record_arg_flush (cum, typesize * BITS_PER_UNIT, rvec, &k);
 
   /* If any part of the struct went on the stack put all of it there.
@@ -8808,12 +9007,12 @@ rs6000_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 			       : CALL_V4_CLEAR_FP_ARGS));
 	}
 
-      return GEN_INT (cum->call_cookie);
+      return GEN_INT (cum->call_cookie & ~CALL_LIBCALL);
     }
 
   if (TARGET_MACHO && rs6000_darwin64_struct_check_p (mode, type))
     {
-      rtx rslt = rs6000_darwin64_record_arg (cum, type, named, false);
+      rtx rslt = rs6000_darwin64_record_arg (cum, type, named, /*retval= */false);
       if (rslt != NULL_RTX)
 	return rslt;
       /* Else fall through to usual handling.  */
@@ -9491,6 +9690,11 @@ rs6000_va_start (tree valist, rtx nextarg)
 		  build_int_cst (NULL_TREE, n_fpr));
       TREE_SIDE_EFFECTS (t) = 1;
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
+
+#ifdef HAVE_AS_GNU_ATTRIBUTE
+      if (call_ABI_of_interest (cfun->decl))
+	rs6000_passes_float = true;
+#endif
     }
 
   /* Find the overflow area.  */
@@ -11114,6 +11318,7 @@ altivec_expand_stv_builtin (enum insn_code icode, tree exp)
   rtx op2 = expand_normal (arg2);
   rtx pat, addr;
   enum machine_mode tmode = insn_data[icode].operand[0].mode;
+  enum machine_mode smode = insn_data[icode].operand[1].mode;
   enum machine_mode mode1 = Pmode;
   enum machine_mode mode2 = Pmode;
 
@@ -11123,8 +11328,8 @@ altivec_expand_stv_builtin (enum insn_code icode, tree exp)
       || arg2 == error_mark_node)
     return const0_rtx;
 
-  if (! (*insn_data[icode].operand[1].predicate) (op0, tmode))
-    op0 = copy_to_mode_reg (tmode, op0);
+  if (! (*insn_data[icode].operand[1].predicate) (op0, smode))
+    op0 = copy_to_mode_reg (smode, op0);
 
   op2 = copy_to_mode_reg (mode2, op2);
 
@@ -11258,16 +11463,22 @@ altivec_expand_ld_builtin (tree exp, rtx target, bool *expandedp)
   switch (fcode)
     {
     case ALTIVEC_BUILTIN_LD_INTERNAL_16qi:
-      icode = CODE_FOR_vector_load_v16qi;
+      icode = CODE_FOR_vector_altivec_load_v16qi;
       break;
     case ALTIVEC_BUILTIN_LD_INTERNAL_8hi:
-      icode = CODE_FOR_vector_load_v8hi;
+      icode = CODE_FOR_vector_altivec_load_v8hi;
       break;
     case ALTIVEC_BUILTIN_LD_INTERNAL_4si:
-      icode = CODE_FOR_vector_load_v4si;
+      icode = CODE_FOR_vector_altivec_load_v4si;
       break;
     case ALTIVEC_BUILTIN_LD_INTERNAL_4sf:
-      icode = CODE_FOR_vector_load_v4sf;
+      icode = CODE_FOR_vector_altivec_load_v4sf;
+      break;
+    case ALTIVEC_BUILTIN_LD_INTERNAL_2df:
+      icode = CODE_FOR_vector_altivec_load_v2df;
+      break;
+    case ALTIVEC_BUILTIN_LD_INTERNAL_2di:
+      icode = CODE_FOR_vector_altivec_load_v2di;
       break;
     default:
       *expandedp = false;
@@ -11311,16 +11522,22 @@ altivec_expand_st_builtin (tree exp, rtx target ATTRIBUTE_UNUSED,
   switch (fcode)
     {
     case ALTIVEC_BUILTIN_ST_INTERNAL_16qi:
-      icode = CODE_FOR_vector_store_v16qi;
+      icode = CODE_FOR_vector_altivec_store_v16qi;
       break;
     case ALTIVEC_BUILTIN_ST_INTERNAL_8hi:
-      icode = CODE_FOR_vector_store_v8hi;
+      icode = CODE_FOR_vector_altivec_store_v8hi;
       break;
     case ALTIVEC_BUILTIN_ST_INTERNAL_4si:
-      icode = CODE_FOR_vector_store_v4si;
+      icode = CODE_FOR_vector_altivec_store_v4si;
       break;
     case ALTIVEC_BUILTIN_ST_INTERNAL_4sf:
-      icode = CODE_FOR_vector_store_v4sf;
+      icode = CODE_FOR_vector_altivec_store_v4sf;
+      break;
+    case ALTIVEC_BUILTIN_ST_INTERNAL_2df:
+      icode = CODE_FOR_vector_altivec_store_v2df;
+      break;
+    case ALTIVEC_BUILTIN_ST_INTERNAL_2di:
+      icode = CODE_FOR_vector_altivec_store_v2di;
       break;
     default:
       *expandedp = false;
@@ -11552,7 +11769,7 @@ altivec_expand_builtin (tree exp, rtx target, bool *expandedp)
   switch (fcode)
     {
     case ALTIVEC_BUILTIN_STVX:
-      return altivec_expand_stv_builtin (CODE_FOR_altivec_stvx, exp);
+      return altivec_expand_stv_builtin (CODE_FOR_altivec_stvx_v4si, exp);
     case ALTIVEC_BUILTIN_STVEBX:
       return altivec_expand_stv_builtin (CODE_FOR_altivec_stvebx, exp);
     case ALTIVEC_BUILTIN_STVEHX:
@@ -11570,6 +11787,19 @@ altivec_expand_builtin (tree exp, rtx target, bool *expandedp)
       return altivec_expand_stv_builtin (CODE_FOR_altivec_stvrx, exp);
     case ALTIVEC_BUILTIN_STVRXL:
       return altivec_expand_stv_builtin (CODE_FOR_altivec_stvrxl, exp);
+
+    case VSX_BUILTIN_STXVD2X_V2DF:
+      return altivec_expand_stv_builtin (CODE_FOR_vsx_store_v2df, exp);
+    case VSX_BUILTIN_STXVD2X_V2DI:
+      return altivec_expand_stv_builtin (CODE_FOR_vsx_store_v2di, exp);
+    case VSX_BUILTIN_STXVW4X_V4SF:
+      return altivec_expand_stv_builtin (CODE_FOR_vsx_store_v4sf, exp);
+    case VSX_BUILTIN_STXVW4X_V4SI:
+      return altivec_expand_stv_builtin (CODE_FOR_vsx_store_v4si, exp);
+    case VSX_BUILTIN_STXVW4X_V8HI:
+      return altivec_expand_stv_builtin (CODE_FOR_vsx_store_v8hi, exp);
+    case VSX_BUILTIN_STXVW4X_V16QI:
+      return altivec_expand_stv_builtin (CODE_FOR_vsx_store_v16qi, exp);
 
     case ALTIVEC_BUILTIN_MFVSCR:
       icode = CODE_FOR_altivec_mfvscr;
@@ -11695,7 +11925,7 @@ altivec_expand_builtin (tree exp, rtx target, bool *expandedp)
       return altivec_expand_lv_builtin (CODE_FOR_altivec_lvxl,
 					exp, target, false);
     case ALTIVEC_BUILTIN_LVX:
-      return altivec_expand_lv_builtin (CODE_FOR_altivec_lvx,
+      return altivec_expand_lv_builtin (CODE_FOR_altivec_lvx_v4si,
 					exp, target, false);
     case ALTIVEC_BUILTIN_LVLX:
       return altivec_expand_lv_builtin (CODE_FOR_altivec_lvlx,
@@ -11709,6 +11939,25 @@ altivec_expand_builtin (tree exp, rtx target, bool *expandedp)
     case ALTIVEC_BUILTIN_LVRXL:
       return altivec_expand_lv_builtin (CODE_FOR_altivec_lvrxl,
 					exp, target, true);
+    case VSX_BUILTIN_LXVD2X_V2DF:
+      return altivec_expand_lv_builtin (CODE_FOR_vsx_load_v2df,
+					exp, target, false);
+    case VSX_BUILTIN_LXVD2X_V2DI:
+      return altivec_expand_lv_builtin (CODE_FOR_vsx_load_v2di,
+					exp, target, false);
+    case VSX_BUILTIN_LXVW4X_V4SF:
+      return altivec_expand_lv_builtin (CODE_FOR_vsx_load_v4sf,
+					exp, target, false);
+    case VSX_BUILTIN_LXVW4X_V4SI:
+      return altivec_expand_lv_builtin (CODE_FOR_vsx_load_v4si,
+					exp, target, false);
+    case VSX_BUILTIN_LXVW4X_V8HI:
+      return altivec_expand_lv_builtin (CODE_FOR_vsx_load_v8hi,
+					exp, target, false);
+    case VSX_BUILTIN_LXVW4X_V16QI:
+      return altivec_expand_lv_builtin (CODE_FOR_vsx_load_v16qi,
+					exp, target, false);
+      break;
     default:
       break;
       /* Fall through.  */
@@ -12326,6 +12575,8 @@ rs6000_init_builtins (void)
 
   long_integer_type_internal_node = long_integer_type_node;
   long_unsigned_type_internal_node = long_unsigned_type_node;
+  long_long_integer_type_internal_node = long_long_integer_type_node;
+  long_long_unsigned_type_internal_node = long_long_unsigned_type_node;
   intQI_type_internal_node = intQI_type_node;
   uintQI_type_internal_node = unsigned_intQI_type_node;
   intHI_type_internal_node = intHI_type_node;
@@ -12335,7 +12586,7 @@ rs6000_init_builtins (void)
   intDI_type_internal_node = intDI_type_node;
   uintDI_type_internal_node = unsigned_intDI_type_node;
   float_type_internal_node = float_type_node;
-  double_type_internal_node = float_type_node;
+  double_type_internal_node = double_type_node;
   void_type_internal_node = void_type_node;
 
   /* Initialize the modes for builtin_function_type, mapping a machine mode to
@@ -12867,19 +13118,11 @@ altivec_init_builtins (void)
   size_t i;
   tree ftype;
 
-  tree pfloat_type_node = build_pointer_type (float_type_node);
-  tree pint_type_node = build_pointer_type (integer_type_node);
-  tree pshort_type_node = build_pointer_type (short_integer_type_node);
-  tree pchar_type_node = build_pointer_type (char_type_node);
-
   tree pvoid_type_node = build_pointer_type (void_type_node);
 
-  tree pcfloat_type_node = build_pointer_type (build_qualified_type (float_type_node, TYPE_QUAL_CONST));
-  tree pcint_type_node = build_pointer_type (build_qualified_type (integer_type_node, TYPE_QUAL_CONST));
-  tree pcshort_type_node = build_pointer_type (build_qualified_type (short_integer_type_node, TYPE_QUAL_CONST));
-  tree pcchar_type_node = build_pointer_type (build_qualified_type (char_type_node, TYPE_QUAL_CONST));
-
-  tree pcvoid_type_node = build_pointer_type (build_qualified_type (void_type_node, TYPE_QUAL_CONST));
+  tree pcvoid_type_node
+    = build_pointer_type (build_qualified_type (void_type_node,
+						TYPE_QUAL_CONST));
 
   tree int_ftype_opaque
     = build_function_type_list (integer_type_node,
@@ -12902,26 +13145,6 @@ altivec_init_builtins (void)
     = build_function_type_list (integer_type_node,
 				integer_type_node, V4SI_type_node,
 				V4SI_type_node, NULL_TREE);
-  tree v4sf_ftype_pcfloat
-    = build_function_type_list (V4SF_type_node, pcfloat_type_node, NULL_TREE);
-  tree void_ftype_pfloat_v4sf
-    = build_function_type_list (void_type_node,
-				pfloat_type_node, V4SF_type_node, NULL_TREE);
-  tree v4si_ftype_pcint
-    = build_function_type_list (V4SI_type_node, pcint_type_node, NULL_TREE);
-  tree void_ftype_pint_v4si
-    = build_function_type_list (void_type_node,
-				pint_type_node, V4SI_type_node, NULL_TREE);
-  tree v8hi_ftype_pcshort
-    = build_function_type_list (V8HI_type_node, pcshort_type_node, NULL_TREE);
-  tree void_ftype_pshort_v8hi
-    = build_function_type_list (void_type_node,
-				pshort_type_node, V8HI_type_node, NULL_TREE);
-  tree v16qi_ftype_pcchar
-    = build_function_type_list (V16QI_type_node, pcchar_type_node, NULL_TREE);
-  tree void_ftype_pchar_v16qi
-    = build_function_type_list (void_type_node,
-				pchar_type_node, V16QI_type_node, NULL_TREE);
   tree void_ftype_v4si
     = build_function_type_list (void_type_node, V4SI_type_node, NULL_TREE);
   tree v8hi_ftype_void
@@ -12933,16 +13156,32 @@ altivec_init_builtins (void)
 
   tree opaque_ftype_long_pcvoid
     = build_function_type_list (opaque_V4SI_type_node,
-				long_integer_type_node, pcvoid_type_node, NULL_TREE);
+				long_integer_type_node, pcvoid_type_node,
+				NULL_TREE);
   tree v16qi_ftype_long_pcvoid
     = build_function_type_list (V16QI_type_node,
-				long_integer_type_node, pcvoid_type_node, NULL_TREE);
+				long_integer_type_node, pcvoid_type_node,
+				NULL_TREE);
   tree v8hi_ftype_long_pcvoid
     = build_function_type_list (V8HI_type_node,
-				long_integer_type_node, pcvoid_type_node, NULL_TREE);
+				long_integer_type_node, pcvoid_type_node,
+				NULL_TREE);
   tree v4si_ftype_long_pcvoid
     = build_function_type_list (V4SI_type_node,
-				long_integer_type_node, pcvoid_type_node, NULL_TREE);
+				long_integer_type_node, pcvoid_type_node,
+				NULL_TREE);
+  tree v4sf_ftype_long_pcvoid
+    = build_function_type_list (V4SF_type_node,
+				long_integer_type_node, pcvoid_type_node,
+				NULL_TREE);
+  tree v2df_ftype_long_pcvoid
+    = build_function_type_list (V2DF_type_node,
+				long_integer_type_node, pcvoid_type_node,
+				NULL_TREE);
+  tree v2di_ftype_long_pcvoid
+    = build_function_type_list (V2DI_type_node,
+				long_integer_type_node, pcvoid_type_node,
+				NULL_TREE);
 
   tree void_ftype_opaque_long_pvoid
     = build_function_type_list (void_type_node,
@@ -12959,6 +13198,18 @@ altivec_init_builtins (void)
   tree void_ftype_v8hi_long_pvoid
     = build_function_type_list (void_type_node,
 				V8HI_type_node, long_integer_type_node,
+				pvoid_type_node, NULL_TREE);
+  tree void_ftype_v4sf_long_pvoid
+    = build_function_type_list (void_type_node,
+				V4SF_type_node, long_integer_type_node,
+				pvoid_type_node, NULL_TREE);
+  tree void_ftype_v2df_long_pvoid
+    = build_function_type_list (void_type_node,
+				V2DF_type_node, long_integer_type_node,
+				pvoid_type_node, NULL_TREE);
+  tree void_ftype_v2di_long_pvoid
+    = build_function_type_list (void_type_node,
+				V2DI_type_node, long_integer_type_node,
 				pvoid_type_node, NULL_TREE);
   tree int_ftype_int_v8hi_v8hi
     = build_function_type_list (integer_type_node,
@@ -12991,22 +13242,6 @@ altivec_init_builtins (void)
 				pcvoid_type_node, integer_type_node,
 				integer_type_node, NULL_TREE);
 
-  def_builtin (MASK_ALTIVEC, "__builtin_altivec_ld_internal_4sf", v4sf_ftype_pcfloat,
-	       ALTIVEC_BUILTIN_LD_INTERNAL_4sf);
-  def_builtin (MASK_ALTIVEC, "__builtin_altivec_st_internal_4sf", void_ftype_pfloat_v4sf,
-	       ALTIVEC_BUILTIN_ST_INTERNAL_4sf);
-  def_builtin (MASK_ALTIVEC, "__builtin_altivec_ld_internal_4si", v4si_ftype_pcint,
-	       ALTIVEC_BUILTIN_LD_INTERNAL_4si);
-  def_builtin (MASK_ALTIVEC, "__builtin_altivec_st_internal_4si", void_ftype_pint_v4si,
-	       ALTIVEC_BUILTIN_ST_INTERNAL_4si);
-  def_builtin (MASK_ALTIVEC, "__builtin_altivec_ld_internal_8hi", v8hi_ftype_pcshort,
-	       ALTIVEC_BUILTIN_LD_INTERNAL_8hi);
-  def_builtin (MASK_ALTIVEC, "__builtin_altivec_st_internal_8hi", void_ftype_pshort_v8hi,
-	       ALTIVEC_BUILTIN_ST_INTERNAL_8hi);
-  def_builtin (MASK_ALTIVEC, "__builtin_altivec_ld_internal_16qi", v16qi_ftype_pcchar,
-	       ALTIVEC_BUILTIN_LD_INTERNAL_16qi);
-  def_builtin (MASK_ALTIVEC, "__builtin_altivec_st_internal_16qi", void_ftype_pchar_v16qi,
-	       ALTIVEC_BUILTIN_ST_INTERNAL_16qi);
   def_builtin (MASK_ALTIVEC, "__builtin_altivec_mtvscr", void_ftype_v4si, ALTIVEC_BUILTIN_MTVSCR);
   def_builtin (MASK_ALTIVEC, "__builtin_altivec_mfvscr", v8hi_ftype_void, ALTIVEC_BUILTIN_MFVSCR);
   def_builtin (MASK_ALTIVEC, "__builtin_altivec_dssall", void_ftype_void, ALTIVEC_BUILTIN_DSSALL);
@@ -13037,6 +13272,35 @@ altivec_init_builtins (void)
   def_builtin (MASK_ALTIVEC, "__builtin_vec_stvewx", void_ftype_opaque_long_pvoid, ALTIVEC_BUILTIN_VEC_STVEWX);
   def_builtin (MASK_ALTIVEC, "__builtin_vec_stvebx", void_ftype_opaque_long_pvoid, ALTIVEC_BUILTIN_VEC_STVEBX);
   def_builtin (MASK_ALTIVEC, "__builtin_vec_stvehx", void_ftype_opaque_long_pvoid, ALTIVEC_BUILTIN_VEC_STVEHX);
+
+  def_builtin (MASK_VSX, "__builtin_vsx_lxvd2x_v2df", v2df_ftype_long_pcvoid,
+	       VSX_BUILTIN_LXVD2X_V2DF);
+  def_builtin (MASK_VSX, "__builtin_vsx_lxvd2x_v2di", v2di_ftype_long_pcvoid,
+	       VSX_BUILTIN_LXVD2X_V2DI);
+  def_builtin (MASK_VSX, "__builtin_vsx_lxvw4x_v4sf", v4sf_ftype_long_pcvoid,
+	       VSX_BUILTIN_LXVW4X_V4SF);
+  def_builtin (MASK_VSX, "__builtin_vsx_lxvw4x_v4si", v4si_ftype_long_pcvoid,
+	       VSX_BUILTIN_LXVW4X_V4SI);
+  def_builtin (MASK_VSX, "__builtin_vsx_lxvw4x_v8hi",
+	       v8hi_ftype_long_pcvoid, VSX_BUILTIN_LXVW4X_V8HI);
+  def_builtin (MASK_VSX, "__builtin_vsx_lxvw4x_v16qi",
+	       v16qi_ftype_long_pcvoid, VSX_BUILTIN_LXVW4X_V16QI);
+  def_builtin (MASK_VSX, "__builtin_vsx_stxvd2x_v2df",
+	       void_ftype_v2df_long_pvoid, VSX_BUILTIN_STXVD2X_V2DF);
+  def_builtin (MASK_VSX, "__builtin_vsx_stxvd2x_v2di",
+	       void_ftype_v2di_long_pvoid, VSX_BUILTIN_STXVD2X_V2DI);
+  def_builtin (MASK_VSX, "__builtin_vsx_stxvw4x_v4sf",
+	       void_ftype_v4sf_long_pvoid, VSX_BUILTIN_STXVW4X_V4SF);
+  def_builtin (MASK_VSX, "__builtin_vsx_stxvw4x_v4si",
+	       void_ftype_v4si_long_pvoid, VSX_BUILTIN_STXVW4X_V4SI);
+  def_builtin (MASK_VSX, "__builtin_vsx_stxvw4x_v8hi",
+	       void_ftype_v8hi_long_pvoid, VSX_BUILTIN_STXVW4X_V8HI);
+  def_builtin (MASK_VSX, "__builtin_vsx_stxvw4x_v16qi",
+	       void_ftype_v16qi_long_pvoid, VSX_BUILTIN_STXVW4X_V16QI);
+  def_builtin (MASK_VSX, "__builtin_vec_vsx_ld", opaque_ftype_long_pcvoid,
+	       VSX_BUILTIN_VEC_LD);
+  def_builtin (MASK_VSX, "__builtin_vec_vsx_st", void_ftype_opaque_long_pvoid,
+	       VSX_BUILTIN_VEC_ST);
 
   if (rs6000_cpu == PROCESSOR_CELL)
     {
@@ -14520,7 +14784,10 @@ rs6000_reload_register_type (enum reg_class rclass)
    needed for the immediate register.
 
    For VSX and Altivec, we may need a register to convert sp+offset into
-   reg+sp.  */
+   reg+sp.
+
+   For misaligned 64-bit gpr loads and stores we need a register to
+   convert an offset address to indirect.  */
 
 static reg_class_t
 rs6000_secondary_reload (bool in_p,
@@ -14619,6 +14886,34 @@ rs6000_secondary_reload (bool in_p,
 	      else
 		ret = NO_REGS;
 	    }
+	}
+      else
+	default_p = true;
+    }
+  else if (TARGET_POWERPC64
+	   && rs6000_reload_register_type (rclass) == GPR_REGISTER_TYPE
+	   && MEM_P (x)
+	   && GET_MODE_SIZE (GET_MODE (x)) >= UNITS_PER_WORD)
+    {
+      rtx addr = XEXP (x, 0);
+
+      if (GET_CODE (addr) == PRE_MODIFY)
+	addr = XEXP (addr, 1);
+      else if (GET_CODE (addr) == LO_SUM
+	       && GET_CODE (XEXP (addr, 0)) == REG
+	       && GET_CODE (XEXP (addr, 1)) == CONST)
+	addr = XEXP (XEXP (addr, 1), 0);
+
+      if (GET_CODE (addr) == PLUS
+	  && GET_CODE (XEXP (addr, 1)) == CONST_INT
+	  && (INTVAL (XEXP (addr, 1)) & 3) != 0)
+	{
+	  if (in_p)
+	    sri->icode = CODE_FOR_reload_di_load;
+	  else
+	    sri->icode = CODE_FOR_reload_di_store;
+	  sri->extra_cost = 2;
+	  ret = NO_REGS;
 	}
       else
 	default_p = true;
@@ -14911,24 +15206,54 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
   return;
 }
 
-/* Target hook to return the cover classes for Integrated Register Allocator.
-   Cover classes is a set of non-intersected register classes covering all hard
-   registers used for register allocation purpose.  Any move between two
-   registers of a cover class should be cheaper than load or store of the
-   registers.  The value is array of register classes with LIM_REG_CLASSES used
-   as the end marker.
+/* Convert reloads involving 64-bit gprs and misaligned offset
+   addressing to use indirect addressing.  */
 
-   We need two IRA_COVER_CLASSES, one for pre-VSX, and the other for VSX to
-   account for the Altivec and Floating registers being subsets of the VSX
-   register set under VSX, but distinct register sets on pre-VSX machines.  */
-
-static const reg_class_t *
-rs6000_ira_cover_classes (void)
+void
+rs6000_secondary_reload_ppc64 (rtx reg, rtx mem, rtx scratch, bool store_p)
 {
-  static const reg_class_t cover_pre_vsx[] = IRA_COVER_CLASSES_PRE_VSX;
-  static const reg_class_t cover_vsx[]     = IRA_COVER_CLASSES_VSX;
+  int regno = true_regnum (reg);
+  enum reg_class rclass;
+  rtx addr;
+  rtx scratch_or_premodify = scratch;
 
-  return (TARGET_VSX) ? cover_vsx : cover_pre_vsx;
+  if (TARGET_DEBUG_ADDR)
+    {
+      fprintf (stderr, "\nrs6000_secondary_reload_ppc64, type = %s\n",
+	       store_p ? "store" : "load");
+      fprintf (stderr, "reg:\n");
+      debug_rtx (reg);
+      fprintf (stderr, "mem:\n");
+      debug_rtx (mem);
+      fprintf (stderr, "scratch:\n");
+      debug_rtx (scratch);
+    }
+
+  gcc_assert (regno >= 0 && regno < FIRST_PSEUDO_REGISTER);
+  gcc_assert (GET_CODE (mem) == MEM);
+  rclass = REGNO_REG_CLASS (regno);
+  gcc_assert (rclass == GENERAL_REGS || rclass == BASE_REGS);
+  addr = XEXP (mem, 0);
+
+  if (GET_CODE (addr) == PRE_MODIFY)
+    {
+      scratch_or_premodify = XEXP (addr, 0);
+      gcc_assert (REG_P (scratch_or_premodify));
+      addr = XEXP (addr, 1);
+    }
+  gcc_assert (GET_CODE (addr) == PLUS || GET_CODE (addr) == LO_SUM);
+
+  rs6000_emit_move (scratch_or_premodify, addr, Pmode);
+
+  mem = replace_equiv_address_nv (mem, scratch_or_premodify);
+
+  /* Now create the move.  */
+  if (store_p)
+    emit_insn (gen_rtx_SET (VOIDmode, mem, reg));
+  else
+    emit_insn (gen_rtx_SET (VOIDmode, reg, mem));
+
+  return;
 }
 
 /* Allocate a 64-bit stack slot to be used for copying SDmode
@@ -16177,7 +16502,18 @@ print_operand (FILE *file, rtx x, int code)
 	    output_address (XEXP (x, 0));
 	}
       else
-	output_addr_const (file, x);
+	{
+	  if (toc_relative_expr_p (x))
+	    /* This hack along with a corresponding hack in
+	       rs6000_output_addr_const_extra arranges to output addends
+	       where the assembler expects to find them.  eg.
+	       (const (plus (unspec [symbol_ref ("x") tocrel]) 4))
+	       without this hack would be output as "x@toc+4".  We
+	       want "x+4@toc".  */
+	    output_addr_const (file, tocrel_base);
+	  else
+	    output_addr_const (file, x);
+	}
       return;
 
     case '&':
@@ -16228,7 +16564,7 @@ print_operand_address (FILE *file, rtx x)
       fprintf (file, ")(%s)", reg_names[ REGNO (XEXP (x, 0)) ]);
     }
 #endif
-  else if (legitimate_constant_pool_address_p (x, true))
+  else if (legitimate_constant_pool_address_p (x, QImode, true))
     {
       /* This hack along with a corresponding hack in
 	 rs6000_output_addr_const_extra arranges to output addends
@@ -18451,9 +18787,6 @@ rs6000_savres_strategy (rs6000_stack_t *info,
 static rs6000_stack_t *
 rs6000_stack_info (void)
 {
-#ifdef ENABLE_CHECKING
-  static rs6000_stack_t info_save;
-#endif
   rs6000_stack_t *info_ptr = &stack_info;
   int reg_size = TARGET_32BIT ? 4 : 8;
   int ehrd_size;
@@ -18462,14 +18795,10 @@ rs6000_stack_info (void)
   HOST_WIDE_INT non_fixed_size;
   bool using_static_chain_p;
 
-#ifdef ENABLE_CHECKING
-  memcpy (&info_save, &stack_info, sizeof stack_info);
-#else
   if (reload_completed && info_ptr->reload_completed)
     return info_ptr;
-#endif
 
-  memset (&stack_info, 0, sizeof (stack_info));
+  memset (info_ptr, 0, sizeof (*info_ptr));
   info_ptr->reload_completed = reload_completed;
 
   if (TARGET_SPE)
@@ -18773,10 +19102,6 @@ rs6000_stack_info (void)
   if (! info_ptr->cr_save_p)
     info_ptr->cr_save_offset = 0;
 
-#ifdef ENABLE_CHECKING
-  gcc_assert (!(reload_completed && info_save.reload_completed)
-	      || memcmp (&info_save, &stack_info, sizeof stack_info) == 0);
-#endif
   return info_ptr;
 }
 
@@ -18982,39 +19307,70 @@ rs6000_return_addr (int count, rtx frame)
   return get_hard_reg_initial_val (Pmode, LR_REGNO);
 }
 
-/* Say whether a function is a candidate for sibcall handling or not.
-   We do not allow indirect calls to be optimized into sibling calls.
-   Also, we can't do it if there are any vector parameters; there's
-   nowhere to put the VRsave code so it works; note that functions with
-   vector parameters are required to have a prototype, so the argument
-   type info must be available here.  (The tail recursion case can work
-   with vector parameters, but there's no way to distinguish here.) */
-static bool
-rs6000_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
-{
-  tree type;
-  if (decl)
-    {
-      if (TARGET_ALTIVEC_VRSAVE)
-	{
-	  for (type = TYPE_ARG_TYPES (TREE_TYPE (decl));
-	       type; type = TREE_CHAIN (type))
-	    {
-	      if (TREE_CODE (TREE_VALUE (type)) == VECTOR_TYPE)
-		return false;
-	    }
-	}
-      if (DEFAULT_ABI == ABI_DARWIN
-	  || ((*targetm.binds_local_p) (decl)
-	      && (DEFAULT_ABI != ABI_AIX || !DECL_EXTERNAL (decl))))
-	{
-	  tree attr_list = TYPE_ATTRIBUTES (TREE_TYPE (decl));
+/* Say whether a function is a candidate for sibcall handling or not.  */
 
-	  if (!lookup_attribute ("longcall", attr_list)
-	      || lookup_attribute ("shortcall", attr_list))
-	    return true;
-	}
+static bool
+rs6000_function_ok_for_sibcall (tree decl, tree exp)
+{
+  tree fntype;
+
+  if (decl)
+    fntype = TREE_TYPE (decl);
+  else
+    fntype = TREE_TYPE (TREE_TYPE (CALL_EXPR_FN (exp)));
+
+  /* We can't do it if the called function has more vector parameters
+     than the current function; there's nowhere to put the VRsave code.  */
+  if (TARGET_ALTIVEC_ABI
+      && TARGET_ALTIVEC_VRSAVE
+      && !(decl && decl == current_function_decl))
+    {
+      function_args_iterator args_iter;
+      tree type;
+      int nvreg = 0;
+
+      /* Functions with vector parameters are required to have a
+	 prototype, so the argument type info must be available
+	 here.  */
+      FOREACH_FUNCTION_ARGS(fntype, type, args_iter)
+	if (TREE_CODE (type) == VECTOR_TYPE
+	    && (ALTIVEC_VECTOR_MODE (TYPE_MODE (type))
+		|| VSX_VECTOR_MODE (TYPE_MODE (type))))
+	  nvreg++;
+
+      FOREACH_FUNCTION_ARGS(TREE_TYPE (current_function_decl), type, args_iter)
+	if (TREE_CODE (type) == VECTOR_TYPE
+	    && (ALTIVEC_VECTOR_MODE (TYPE_MODE (type))
+		|| VSX_VECTOR_MODE (TYPE_MODE (type))))
+	  nvreg--;
+
+      if (nvreg > 0)
+	return false;
     }
+
+  /* Under the AIX ABI we can't allow calls to non-local functions,
+     because the callee may have a different TOC pointer to the
+     caller and there's no way to ensure we restore the TOC when we
+     return.  With the secure-plt SYSV ABI we can't make non-local
+     calls when -fpic/PIC because the plt call stubs use r30.  */
+  if (DEFAULT_ABI == ABI_DARWIN
+      || (DEFAULT_ABI == ABI_AIX
+	  && decl
+	  && !DECL_EXTERNAL (decl)
+	  && (*targetm.binds_local_p) (decl))
+      || (DEFAULT_ABI == ABI_V4
+	  && (!TARGET_SECURE_PLT
+	      || !flag_pic
+	      || (decl
+		  && (*targetm.binds_local_p) (decl)))))
+    {
+      tree attr_list = TYPE_ATTRIBUTES (fntype);
+
+      if (!lookup_attribute ("longcall", attr_list)
+	  || lookup_attribute ("shortcall", attr_list))
+	return true;
+    }
+
   return false;
 }
 
@@ -21754,10 +22110,11 @@ rs6000_output_function_epilogue (FILE *file,
 	 use language_string.
 	 C is 0.  Fortran is 1.  Pascal is 2.  Ada is 3.  C++ is 9.
 	 Java is 13.  Objective-C is 14.  Objective-C++ isn't assigned
-	 a number, so for now use 9.  LTO isn't assigned a number either,
-	 so for now use 0.  */
+	 a number, so for now use 9.  LTO and Go aren't assigned numbers
+	 either, so for now use 0.  */
       if (! strcmp (language_string, "GNU C")
-	  || ! strcmp (language_string, "GNU GIMPLE"))
+	  || ! strcmp (language_string, "GNU GIMPLE")
+	  || ! strcmp (language_string, "GNU Go"))
 	i = 0;
       else if (! strcmp (language_string, "GNU F77")
 	       || ! strcmp (language_string, "GNU Fortran"))
@@ -25702,10 +26059,30 @@ rs6000_elf_declare_function_name (FILE *file, const char *name, tree decl)
 }
 
 static void
-rs6000_elf_end_indicate_exec_stack (void)
+rs6000_elf_file_end (void)
 {
+#ifdef HAVE_AS_GNU_ATTRIBUTE
+  if (TARGET_32BIT && DEFAULT_ABI == ABI_V4)
+    {
+      if (rs6000_passes_float)
+	fprintf (asm_out_file, "\t.gnu_attribute 4, %d\n",
+		 ((TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_DOUBLE_FLOAT) ? 1 
+		  : (TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_SINGLE_FLOAT) ? 3 
+		  : 2));
+      if (rs6000_passes_vector)
+	fprintf (asm_out_file, "\t.gnu_attribute 8, %d\n",
+		 (TARGET_ALTIVEC_ABI ? 2
+		  : TARGET_SPE_ABI ? 3
+		  : 1));
+      if (rs6000_returns_struct)
+	fprintf (asm_out_file, "\t.gnu_attribute 12, %d\n",
+		 aix_struct_return ? 2 : 1);
+    }
+#endif
+#ifdef POWERPC_LINUX
   if (TARGET_32BIT)
     file_end_indicate_exec_stack ();
+#endif
 }
 #endif
 
@@ -26907,7 +27284,7 @@ rs6000_function_value (const_tree valtype,
       valcum.vregno = ALTIVEC_ARG_MIN_REG;
       /* Do a trial code generation as if this were going to be passed as
 	 an argument; if any part goes in memory, we return NULL.  */
-      valret = rs6000_darwin64_record_arg (&valcum, valtype, true, true);
+      valret = rs6000_darwin64_record_arg (&valcum, valtype, true, /* retval= */ true);
       if (valret)
 	return valret;
       /* Otherwise fall through to standard ABI rules.  */
@@ -27907,6 +28284,48 @@ rs6000_address_for_fpconvert (rtx x)
     }
 
   return x;
+}
+
+/* Given a memory reference, if it is not in the form for altivec memory
+   reference instructions (i.e. reg or reg+reg addressing with AND of -16),
+   convert to the altivec format.  */
+
+rtx
+rs6000_address_for_altivec (rtx x)
+{
+  gcc_assert (MEM_P (x));
+  if (!altivec_indexed_or_indirect_operand (x, GET_MODE (x)))
+    {
+      rtx addr = XEXP (x, 0);
+      int strict_p = (reload_in_progress || reload_completed);
+
+      if (!legitimate_indexed_address_p (addr, strict_p)
+	  && !legitimate_indirect_address_p (addr, strict_p))
+	addr = copy_to_mode_reg (Pmode, addr);
+
+      addr = gen_rtx_AND (Pmode, addr, GEN_INT (-16));
+      x = change_address (x, GET_MODE (x), addr);
+    }
+
+  return x;
+}
+
+/* Implement TARGET_LEGITIMATE_CONSTANT_P.
+
+   On the RS/6000, all integer constants are acceptable, most won't be valid
+   for particular insns, though.  Only easy FP constants are acceptable.  */
+
+static bool
+rs6000_legitimate_constant_p (enum machine_mode mode, rtx x)
+{
+  if (rs6000_tls_referenced_p (x))
+    return false;
+
+  return ((GET_CODE (x) != CONST_DOUBLE && GET_CODE (x) != CONST_VECTOR)
+	  || GET_MODE (x) == VOIDmode
+	  || (TARGET_POWERPC64 && mode == DImode)
+	  || easy_fp_constant (x, mode)
+	  || easy_vector_constant (x, mode));
 }
 
 #include "gt-rs6000.h"

@@ -73,7 +73,9 @@ lvalue_kind (const_tree ref)
       if (TYPE_REF_IS_RVALUE (TREE_TYPE (ref))
 	  && TREE_CODE (ref) != PARM_DECL
 	  && TREE_CODE (ref) != VAR_DECL
-	  && TREE_CODE (ref) != COMPONENT_REF)
+	  && TREE_CODE (ref) != COMPONENT_REF
+	  /* Functions are always lvalues.  */
+	  && TREE_CODE (TREE_TYPE (TREE_TYPE (ref))) != FUNCTION_TYPE)
 	return clk_rvalueref;
 
       /* lvalue references and named rvalue references are lvalues.  */
@@ -373,7 +375,7 @@ build_aggr_init_array (tree return_type, tree fn, tree slot, int nargs,
    callable.  */
 
 tree
-build_aggr_init_expr (tree type, tree init)
+build_aggr_init_expr (tree type, tree init, tsubst_flags_t complain)
 {
   tree fn;
   tree slot;
@@ -382,7 +384,8 @@ build_aggr_init_expr (tree type, tree init)
 
   /* Make sure that we're not trying to create an instance of an
      abstract class.  */
-  abstract_virtuals_error (NULL_TREE, type);
+  if (abstract_virtuals_error_sfinae (NULL_TREE, type, complain))
+    return error_mark_node;
 
   if (TREE_CODE (init) == CALL_EXPR)
     fn = CALL_EXPR_FN (init);
@@ -437,9 +440,9 @@ build_aggr_init_expr (tree type, tree init)
    and language-specific expression expanders.  */
 
 tree
-build_cplus_new (tree type, tree init)
+build_cplus_new (tree type, tree init, tsubst_flags_t complain)
 {
-  tree rval = build_aggr_init_expr (type, init);
+  tree rval = build_aggr_init_expr (type, init, complain);
   tree slot;
 
   if (TREE_CODE (rval) == AGGR_INIT_EXPR)
@@ -456,6 +459,47 @@ build_cplus_new (tree type, tree init)
   return rval;
 }
 
+/* Subroutine of build_vec_init_expr: Build up a single element
+   intialization as a proxy for the full array initialization to get things
+   marked as used and any appropriate diagnostics.
+
+   Since we're deferring building the actual constructor calls until
+   gimplification time, we need to build one now and throw it away so
+   that the relevant constructor gets mark_used before cgraph decides
+   what functions are needed.  Here we assume that init is either
+   NULL_TREE, void_type_node (indicating value-initialization), or
+   another array to copy.  */
+
+static tree
+build_vec_init_elt (tree type, tree init)
+{
+  tree inner_type = strip_array_types (type);
+  VEC(tree,gc) *argvec;
+
+  if (integer_zerop (array_type_nelts_total (type))
+      || !CLASS_TYPE_P (inner_type))
+    /* No interesting initialization to do.  */
+    return integer_zero_node;
+  else if (init == void_type_node)
+    return build_value_init (inner_type, tf_warning_or_error);
+
+  gcc_assert (init == NULL_TREE
+	      || (same_type_ignoring_top_level_qualifiers_p
+		  (type, TREE_TYPE (init))));
+
+  argvec = make_tree_vector ();
+  if (init)
+    {
+      tree dummy = build_dummy_object (inner_type);
+      if (!real_lvalue_p (init))
+	dummy = move (dummy);
+      VEC_quick_push (tree, argvec, dummy);
+    }
+  return build_special_member_call (NULL_TREE, complete_ctor_identifier,
+				    &argvec, inner_type, LOOKUP_NORMAL,
+				    tf_warning_or_error);
+}
+
 /* Return a TARGET_EXPR which expresses the initialization of an array to
    be named later, either default-initialization or copy-initialization
    from another array of the same type.  */
@@ -464,52 +508,21 @@ tree
 build_vec_init_expr (tree type, tree init)
 {
   tree slot;
-  tree inner_type = strip_array_types (type);
-  tree elt_init = integer_zero_node;
   bool value_init = false;
+  tree elt_init = build_vec_init_elt (type, init);
 
-  /* Since we're deferring building the actual constructor calls until
-     gimplification time, we need to build one now and throw it away so
-     that the relevant constructor gets mark_used before cgraph decides
-     what functions are needed.  Here we assume that init is either
-     NULL_TREE, void_type_node (indicating value-initialization), or
-     another array to copy.  */
   if (init == void_type_node)
     {
-      elt_init = build_value_init (inner_type, tf_warning_or_error);
       value_init = true;
       init = NULL_TREE;
-    }
-  else
-    {
-      gcc_assert (init == NULL_TREE
-		  || (same_type_ignoring_top_level_qualifiers_p
-		      (type, TREE_TYPE (init))));
-
-      if (CLASS_TYPE_P (inner_type))
-	{
-	  VEC(tree,gc) *argvec = make_tree_vector ();
-	  if (init)
-	    {
-	      tree dummy = build_dummy_object (inner_type);
-	      if (!real_lvalue_p (init))
-		dummy = move (dummy);
-	      VEC_quick_push (tree, argvec, dummy);
-	    }
-	  elt_init
-	    = build_special_member_call (NULL_TREE, complete_ctor_identifier,
-					 &argvec, inner_type, LOOKUP_NORMAL,
-					 tf_warning_or_error);
-	}
     }
 
   slot = build_local_temp (type);
   init = build2 (VEC_INIT_EXPR, type, slot, init);
   SET_EXPR_LOCATION (init, input_location);
 
-  if (current_function_decl
-      && DECL_DECLARED_CONSTEXPR_P (current_function_decl)
-      && potential_constant_expression (elt_init, tf_warning_or_error))
+  if (cxx_dialect >= cxx0x
+      && potential_constant_expression (elt_init))
     VEC_INIT_EXPR_IS_CONSTEXPR (init) = true;
   VEC_INIT_EXPR_VALUE_INIT (init) = value_init;
 
@@ -517,6 +530,23 @@ build_vec_init_expr (tree type, tree init)
   TARGET_EXPR_IMPLICIT_P (init) = 1;
 
   return init;
+}
+
+/* Give a helpful diagnostic for a non-constexpr VEC_INIT_EXPR in a context
+   that requires a constant expression.  */
+
+void
+diagnose_non_constexpr_vec_init (tree expr)
+{
+  tree type = TREE_TYPE (VEC_INIT_EXPR_SLOT (expr));
+  tree init, elt_init;
+  if (VEC_INIT_EXPR_VALUE_INIT (expr))
+    init = void_zero_node;
+  else
+    init = VEC_INIT_EXPR_INIT (expr);
+
+  elt_init = build_vec_init_elt (type, init);
+  require_potential_constant_expression (elt_init);
 }
 
 tree
@@ -575,6 +605,8 @@ get_target_expr (tree init)
 {
   if (TREE_CODE (init) == AGGR_INIT_EXPR)
     return build_target_expr (AGGR_INIT_EXPR_SLOT (init), init);
+  else if (TREE_CODE (init) == VEC_INIT_EXPR)
+    return build_target_expr (VEC_INIT_EXPR_SLOT (init), init);
   else
     return build_target_expr_with_type (init, TREE_TYPE (init));
 }
@@ -1433,8 +1465,6 @@ build_overload (tree decl, tree chain)
 {
   if (! chain && TREE_CODE (decl) != TEMPLATE_DECL)
     return decl;
-  if (chain && TREE_CODE (chain) != OVERLOAD)
-    chain = ovl_cons (chain, NULL_TREE);
   return ovl_cons (decl, chain);
 }
 
@@ -1479,8 +1509,7 @@ cxx_printable_name_internal (tree decl, int v, bool translate)
       gcc_assert (uid_ring[ring_counter] != DECL_UID (current_function_decl));
     }
 
-  if (print_ring[ring_counter])
-    free (print_ring[ring_counter]);
+  free (print_ring[ring_counter]);
 
   print_ring[ring_counter] = xstrdup (lang_decl_name (decl, v, translate));
   uid_ring[ring_counter] = DECL_UID (decl);
@@ -1778,7 +1807,8 @@ bot_manip (tree* tp, int* walk_subtrees, void* data)
       tree u;
 
       if (TREE_CODE (TREE_OPERAND (t, 1)) == AGGR_INIT_EXPR)
-	u = build_cplus_new (TREE_TYPE (t), TREE_OPERAND (t, 1));
+	u = build_cplus_new (TREE_TYPE (t), TREE_OPERAND (t, 1),
+			     tf_warning_or_error);
       else
 	u = build_target_expr_with_type (TREE_OPERAND (t, 1), TREE_TYPE (t));
 
@@ -2145,12 +2175,19 @@ cp_tree_equal (tree t1, tree t2)
 
     case PARM_DECL:
       /* For comparing uses of parameters in late-specified return types
-	 with an out-of-class definition of the function.  */
-      if (same_type_p (TREE_TYPE (t1), TREE_TYPE (t2))
-	  && DECL_PARM_INDEX (t1) == DECL_PARM_INDEX (t2))
-	return true;
-      else
-	return false;
+	 with an out-of-class definition of the function, but can also come
+	 up for expressions that involve 'this' in a member function
+	 template.  */
+      if (same_type_p (TREE_TYPE (t1), TREE_TYPE (t2)))
+	{
+	  if (DECL_ARTIFICIAL (t1) ^ DECL_ARTIFICIAL (t2))
+	    return false;
+	  if (DECL_ARTIFICIAL (t1)
+	      || (DECL_PARM_LEVEL (t1) == DECL_PARM_LEVEL (t2)
+		  && DECL_PARM_INDEX (t1) == DECL_PARM_INDEX (t2)))
+	    return true;
+	}
+      return false;
 
     case VAR_DECL:
     case CONST_DECL:
@@ -2167,6 +2204,9 @@ cp_tree_equal (tree t1, tree t2)
 				BASELINK_FUNCTIONS (t2)));
 
     case TEMPLATE_PARM_INDEX:
+      if (TEMPLATE_PARM_NUM_SIBLINGS (t1)
+	  != TEMPLATE_PARM_NUM_SIBLINGS (t2))
+	return false;
       return (TEMPLATE_PARM_IDX (t1) == TEMPLATE_PARM_IDX (t2)
 	      && TEMPLATE_PARM_LEVEL (t1) == TEMPLATE_PARM_LEVEL (t2)
 	      && (TEMPLATE_PARM_PARAMETER_PACK (t1)
@@ -2374,17 +2414,17 @@ maybe_dummy_object (tree type, tree* binfop)
   if (binfop)
     *binfop = binfo;
 
-  if (current_class_ref && context == current_class_type
-      /* Kludge: Make sure that current_class_type is actually
-	 correct.  It might not be if we're in the middle of
-	 tsubst_default_argument.  */
-      && same_type_p (TYPE_MAIN_VARIANT (TREE_TYPE (current_class_ref)),
-		      current_class_type))
+  if (current_class_ref
+      /* current_class_ref might not correspond to current_class_type if
+	 we're in tsubst_default_argument or a lambda-declarator; in either
+	 case, we want to use current_class_ref if it matches CONTEXT.  */
+      && (same_type_ignoring_top_level_qualifiers_p
+	  (TREE_TYPE (current_class_ref), context)))
     decl = current_class_ref;
   else if (current != current_class_type
 	   && context == nonlambda_method_basetype ())
     /* In a lambda, need to go through 'this' capture.  */
-    decl = (cp_build_indirect_ref
+    decl = (build_x_indirect_ref
 	    ((lambda_expr_this_capture
 	      (CLASSTYPE_LAMBDA_EXPR (current_class_type))),
 	     RO_NULL, tf_warning_or_error));
@@ -2574,11 +2614,15 @@ zero_init_p (const_tree t)
 /* Table of valid C++ attributes.  */
 const struct attribute_spec cxx_attribute_table[] =
 {
-  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
-  { "java_interface", 0, 0, false, false, false, handle_java_interface_attribute },
-  { "com_interface",  0, 0, false, false, false, handle_com_interface_attribute },
-  { "init_priority",  1, 1, true,  false, false, handle_init_priority_attribute },
-  { NULL,	      0, 0, false, false, false, NULL }
+  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler,
+       affects_type_identity } */
+  { "java_interface", 0, 0, false, false, false,
+    handle_java_interface_attribute, false },
+  { "com_interface",  0, 0, false, false, false,
+    handle_com_interface_attribute, false },
+  { "init_priority",  1, 1, true,  false, false,
+    handle_init_priority_attribute, false },
+  { NULL,	      0, 0, false, false, false, NULL, false }
 };
 
 /* Handle a "java_interface" attribute; arguments as in
@@ -2749,7 +2793,8 @@ cp_build_type_attribute_variant (tree type, tree attributes)
 bool
 cxx_type_hash_eq (const_tree typea, const_tree typeb)
 {
-  gcc_assert (TREE_CODE (typea) == FUNCTION_TYPE);
+  gcc_assert (TREE_CODE (typea) == FUNCTION_TYPE
+	      || TREE_CODE (typea) == METHOD_TYPE);
 
   return comp_except_specs (TYPE_RAISES_EXCEPTIONS (typea),
 			    TYPE_RAISES_EXCEPTIONS (typeb), ce_exact);
@@ -2786,6 +2831,7 @@ cp_walk_subtrees (tree *tp, int *walk_subtrees_p, walk_tree_fn func,
     case TEMPLATE_TYPE_PARM:
     case TYPENAME_TYPE:
     case TYPEOF_TYPE:
+    case UNDERLYING_TYPE:
       /* None of these have subtrees other than those already walked
 	 above.  */
       *walk_subtrees_p = 0;
@@ -3058,9 +3104,7 @@ stabilize_expr (tree exp, tree* initp)
 
   if (!TREE_SIDE_EFFECTS (exp))
     init_expr = NULL_TREE;
-  /* There are no expressions with REFERENCE_TYPE, but there can be call
-     arguments with such a type; just treat it as a pointer.  */
-  else if (TREE_CODE (TREE_TYPE (exp)) == REFERENCE_TYPE
+  else if (!TYPE_NEEDS_CONSTRUCTING (TREE_TYPE (exp))
 	   || !lvalue_or_rvalue_with_address_p (exp))
     {
       init_expr = get_target_expr (exp);

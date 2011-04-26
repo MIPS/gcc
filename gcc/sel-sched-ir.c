@@ -1,5 +1,6 @@
 /* Instruction scheduling pass.  Selective scheduler and pipeliner.
-   Copyright (C) 2006, 2007, 2008, 2009, 2010 Free Software Foundation, Inc.
+   Copyright (C) 2006, 2007, 2008, 2009, 2010, 2011
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -580,8 +581,7 @@ fence_clear (fence_t f)
   gcc_assert ((s != NULL && dc != NULL && tc != NULL)
 	      || (s == NULL && dc == NULL && tc == NULL));
 
-  if (s != NULL)
-    free (s);
+  free (s);
 
   if (dc != NULL)
     delete_deps_context (dc);
@@ -1564,6 +1564,20 @@ free_history_vect (VEC (expr_history_def, heap) **pvect)
   *pvect = NULL;
 }
 
+/* Merge vector FROM to PVECT.  */
+static void
+merge_history_vect (VEC (expr_history_def, heap) **pvect,
+		    VEC (expr_history_def, heap) *from)
+{
+  expr_history_def *phist;
+  int i;
+
+  /* We keep this vector sorted.  */
+  for (i = 0; VEC_iterate (expr_history_def, from, i, phist); i++)
+    insert_in_history_vect (pvect, phist->uid, phist->type,
+                            phist->old_expr_vinsn, phist->new_expr_vinsn,
+                            phist->spec_ds);
+}
 
 /* Compare two vinsns as rhses if possible and as vinsns otherwise.  */
 bool
@@ -1796,9 +1810,6 @@ update_speculative_bits (expr_t to, expr_t from, insn_t split_point)
 void
 merge_expr_data (expr_t to, expr_t from, insn_t split_point)
 {
-  int i;
-  expr_history_def *phist;
-
   /* For now, we just set the spec of resulting expr to be minimum of the specs
      of merged exprs.  */
   if (EXPR_SPEC (to) > EXPR_SPEC (from))
@@ -1822,20 +1833,12 @@ merge_expr_data (expr_t to, expr_t from, insn_t split_point)
   EXPR_ORIG_SCHED_CYCLE (to) = MIN (EXPR_ORIG_SCHED_CYCLE (to),
                                     EXPR_ORIG_SCHED_CYCLE (from));
 
-  /* We keep this vector sorted.  */
-  for (i = 0;
-       VEC_iterate (expr_history_def, EXPR_HISTORY_OF_CHANGES (from),
-                    i, phist);
-       i++)
-    insert_in_history_vect (&EXPR_HISTORY_OF_CHANGES (to),
-                            phist->uid, phist->type,
-                            phist->old_expr_vinsn, phist->new_expr_vinsn,
-                            phist->spec_ds);
-
   EXPR_WAS_SUBSTITUTED (to) |= EXPR_WAS_SUBSTITUTED (from);
   EXPR_WAS_RENAMED (to) |= EXPR_WAS_RENAMED (from);
   EXPR_CANT_MOVE (to) |= EXPR_CANT_MOVE (from);
 
+  merge_history_vect (&EXPR_HISTORY_OF_CHANGES (to),
+		      EXPR_HISTORY_OF_CHANGES (from));
   update_target_availability (to, from, split_point);
   update_speculative_bits (to, from, split_point);
 }
@@ -2328,16 +2331,24 @@ av_set_split_usefulness (av_set_t av, int prob, int all_prob)
 }
 
 /* Leave in AVP only those expressions, which are present in AV,
-   and return it.  */
+   and return it, merging history expressions.  */
 void
-av_set_intersect (av_set_t *avp, av_set_t av)
+av_set_code_motion_filter (av_set_t *avp, av_set_t av)
 {
   av_set_iterator i;
-  expr_t expr;
+  expr_t expr, expr2;
 
   FOR_EACH_EXPR_1 (expr, i, avp)
-    if (av_set_lookup (av, EXPR_VINSN (expr)) == NULL)
+    if ((expr2 = av_set_lookup (av, EXPR_VINSN (expr))) == NULL)
       av_set_iter_remove (&i);
+    else
+      /* When updating av sets in bookkeeping blocks, we can add more insns
+	 there which will be transformed but the upper av sets will not
+	 reflect those transformations.  We then fail to undo those
+	 when searching for such insns.  So merge the history saved
+	 in the av set of the block we are processing.  */
+      merge_history_vect (&EXPR_HISTORY_OF_CHANGES (expr),
+			  EXPR_HISTORY_OF_CHANGES (expr2));
 }
 
 
@@ -2893,6 +2904,7 @@ init_global_and_expr_for_insn (insn_t insn)
       if (CANT_MOVE (insn)
           || INSN_ASM_P (insn)
           || SCHED_GROUP_P (insn)
+	  || CALL_P (insn)
           /* Exception handling insns are always unique.  */
           || (cfun->can_throw_non_call_exceptions && can_throw_internal (insn))
           /* TRAP_IF though have an INSN code is control_flow_insn_p ().  */
@@ -3766,10 +3778,10 @@ tidy_control_flow (basic_block xbb, bool full_tidying)
 void
 purge_empty_blocks (void)
 {
-  /* Do not attempt to delete preheader.  */
-  int i = sel_is_loop_preheader_p (BASIC_BLOCK (BB_TO_BLOCK (0))) ? 1 : 0;
+  int i;
 
-  while (i < current_nr_blocks)
+  /* Do not attempt to delete the first basic block in the region.  */
+  for (i = 1; i < current_nr_blocks; )
     {
       basic_block b = BASIC_BLOCK (BB_TO_BLOCK (i));
 
@@ -4440,9 +4452,6 @@ fallthru_bb_of_jump (rtx jump)
 {
   if (!JUMP_P (jump))
     return NULL;
-
-  if (any_uncondjump_p (jump))
-    return single_succ (BLOCK_FOR_INSN (jump));
 
   if (!any_condjump_p (jump))
     return NULL;
@@ -5641,6 +5650,7 @@ static struct haifa_sched_info sched_sel_haifa_sched_info =
 
   NULL, /* add_remove_insn */
   NULL, /* begin_schedule_ready */
+  NULL, /* begin_move_insn */
   NULL, /* advance_target_bb */
   SEL_SCHED | NEW_BBS
 };
@@ -6083,11 +6093,11 @@ sel_find_rgns (void)
   bbs_in_loop_rgns = NULL;
 }
 
-/* Adds the preheader blocks from previous loop to current region taking
-   it from LOOP_PREHEADER_BLOCKS (current_loop_nest).
+/* Add the preheader blocks from previous loop to current region taking
+   it from LOOP_PREHEADER_BLOCKS (current_loop_nest) and record them in *BBS.
    This function is only used with -fsel-sched-pipelining-outer-loops.  */
 void
-sel_add_loop_preheaders (void)
+sel_add_loop_preheaders (bb_vec_t *bbs)
 {
   int i;
   basic_block bb;
@@ -6098,6 +6108,7 @@ sel_add_loop_preheaders (void)
        VEC_iterate (basic_block, preheader_blocks, i, bb);
        i++)
     {
+      VEC_safe_push (basic_block, heap, *bbs, bb);
       VEC_safe_push (basic_block, heap, last_added_blocks, bb);
       sel_add_bb (bb);
     }
@@ -6148,7 +6159,8 @@ sel_is_loop_preheader_p (basic_block bb)
 static bool
 bb_has_removable_jump_to_p (basic_block jump_bb, basic_block dest_bb)
 {
-  if (!onlyjump_p (BB_END (jump_bb)))
+  if (!onlyjump_p (BB_END (jump_bb))
+      || tablejump_p (BB_END (jump_bb), NULL, NULL))
     return false;
 
   /* Several outgoing edges, abnormal edge or destination of jump is

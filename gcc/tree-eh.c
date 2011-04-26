@@ -1,5 +1,5 @@
 /* Exception handling semantics and decomposition for trees.
-   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
+   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -849,6 +849,8 @@ note_eh_region_may_contain_throw (eh_region region)
 {
   while (bitmap_set_bit (eh_region_may_contain_throw_map, region->index))
     {
+      if (region->type == ERT_MUST_NOT_THROW)
+	break;
       region = region->outer;
       if (region == NULL)
 	break;
@@ -1617,8 +1619,7 @@ lower_try_finally (struct leh_state *state, gimple tp)
     }
 
   VEC_free (tree, heap, this_tf.dest_array);
-  if (this_tf.goto_queue)
-    free (this_tf.goto_queue);
+  free (this_tf.goto_queue);
   if (this_tf.goto_queue_map)
     pointer_map_destroy (this_tf.goto_queue_map);
 
@@ -2743,7 +2744,7 @@ same_handler_p (gimple_seq oneh, gimple_seq twoh)
       || gimple_call_lhs (twos)
       || gimple_call_chain (ones)
       || gimple_call_chain (twos)
-      || !operand_equal_p (gimple_call_fn (ones), gimple_call_fn (twos), 0)
+      || !gimple_call_same_target_p (ones, twos)
       || gimple_call_num_args (ones) != gimple_call_num_args (twos))
     return false;
 
@@ -3552,6 +3553,20 @@ cleanup_empty_eh_merge_phis (basic_block new_bb, basic_block old_bb,
       /* If we did find the corresponding PHI, copy those inputs.  */
       if (ophi)
 	{
+	  /* If NOP is used somewhere else beyond phis in new_bb, give up.  */
+	  if (!has_single_use (nop))
+	    {
+	      imm_use_iterator imm_iter;
+	      use_operand_p use_p;
+
+	      FOR_EACH_IMM_USE_FAST (use_p, imm_iter, nop)
+		{
+		  if (!gimple_debug_bind_p (USE_STMT (use_p))
+		      && (gimple_code (USE_STMT (use_p)) != GIMPLE_PHI
+			  || gimple_bb (USE_STMT (use_p)) != new_bb))
+		    goto fail;
+		}
+	    }
 	  bitmap_set_bit (ophi_handled, SSA_NAME_VERSION (nop));
 	  FOR_EACH_EDGE (e, ei, old_bb->preds)
 	    {
@@ -3724,6 +3739,42 @@ cleanup_empty_eh_unsplit (basic_block bb, edge e_out, eh_landing_pad lp)
   return false;
 }
 
+/* Return true if edge E_FIRST is part of an empty infinite loop
+   or leads to such a loop through a series of single successor
+   empty bbs.  */
+
+static bool
+infinite_empty_loop_p (edge e_first)
+{
+  bool inf_loop = false;
+  edge e;
+
+  if (e_first->dest == e_first->src)
+    return true;
+
+  e_first->src->aux = (void *) 1;
+  for (e = e_first; single_succ_p (e->dest); e = single_succ_edge (e->dest))
+    {
+      gimple_stmt_iterator gsi;
+      if (e->dest->aux)
+	{
+	  inf_loop = true;
+	  break;
+	}
+      e->dest->aux = (void *) 1;
+      gsi = gsi_after_labels (e->dest);
+      if (!gsi_end_p (gsi) && is_gimple_debug (gsi_stmt (gsi)))
+	gsi_next_nondebug (&gsi);
+      if (!gsi_end_p (gsi))
+	break;
+    }
+  e_first->src->aux = NULL;
+  for (e = e_first; e->dest->aux; e = single_succ_edge (e->dest))
+    e->dest->aux = NULL;
+
+  return inf_loop;
+}
+
 /* Examine the block associated with LP to determine if it's an empty
    handler for its EH region.  If so, attempt to redirect EH edges to
    an outer region.  Return true the CFG was updated in any way.  This
@@ -3763,7 +3814,7 @@ cleanup_empty_eh (eh_landing_pad lp)
   if (gsi_end_p (gsi))
     {
       /* For the degenerate case of an infinite loop bail out.  */
-      if (e_out->dest == bb)
+      if (infinite_empty_loop_p (e_out))
 	return false;
 
       return cleanup_empty_eh_unsplit (bb, e_out, lp);

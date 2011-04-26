@@ -72,12 +72,9 @@ static void redirect_exp_1 (rtx *, rtx, rtx, rtx);
 static int invert_exp_1 (rtx, rtx);
 static int returnjump_p_1 (rtx *, void *);
 
-/* This function rebuilds the JUMP_LABEL field and REG_LABEL_TARGET
-   notes in jumping insns and REG_LABEL_OPERAND notes in non-jumping
-   instructions and jumping insns that have labels as operands
-   (e.g. cbranchsi4).  */
-void
-rebuild_jump_labels (rtx f)
+/* Worker for rebuild_jump_labels and rebuild_jump_labels_chain.  */
+static void
+rebuild_jump_labels_1 (rtx f, bool count_forced)
 {
   rtx insn;
 
@@ -89,10 +86,30 @@ rebuild_jump_labels (rtx f)
      closely enough to delete them here, so make sure their reference
      count doesn't drop to zero.  */
 
-  for (insn = forced_labels; insn; insn = XEXP (insn, 1))
-    if (LABEL_P (XEXP (insn, 0)))
-      LABEL_NUSES (XEXP (insn, 0))++;
+  if (count_forced)
+    for (insn = forced_labels; insn; insn = XEXP (insn, 1))
+      if (LABEL_P (XEXP (insn, 0)))
+	LABEL_NUSES (XEXP (insn, 0))++;
   timevar_pop (TV_REBUILD_JUMP);
+}
+
+/* This function rebuilds the JUMP_LABEL field and REG_LABEL_TARGET
+   notes in jumping insns and REG_LABEL_OPERAND notes in non-jumping
+   instructions and jumping insns that have labels as operands
+   (e.g. cbranchsi4).  */
+void
+rebuild_jump_labels (rtx f)
+{
+  rebuild_jump_labels_1 (f, true);
+}
+
+/* This function is like rebuild_jump_labels, but doesn't run over
+   forced_labels.  It can be used on insn chains that aren't the 
+   main function chain.  */
+void
+rebuild_jump_labels_chain (rtx chain)
+{
+  rebuild_jump_labels_1 (chain, false);
 }
 
 /* Some old code expects exactly one BARRIER as the NEXT_INSN of a
@@ -193,7 +210,7 @@ mark_all_labels (rtx f)
   rtx prev_nonjump_insn = NULL;
 
   for (insn = f; insn; insn = NEXT_INSN (insn))
-    if (INSN_P (insn))
+    if (NONDEBUG_INSN_P (insn))
       {
 	mark_jump_label (PATTERN (insn), insn, 0);
 
@@ -308,8 +325,9 @@ reversed_comparison_code_parts (enum rtx_code code, const_rtx arg0,
     {
 #ifdef REVERSE_CONDITION
       return REVERSE_CONDITION (code, mode);
-#endif
+#else
       return reverse_condition (code);
+#endif
     }
 
   /* Try a few special cases based on the comparison code.  */
@@ -1727,7 +1745,13 @@ rtx_renumbered_equal_p (const_rtx x, const_rtx y)
 
 	case 'i':
 	  if (XINT (x, i) != XINT (y, i))
-	    return 0;
+	    {
+	      if (((code == ASM_OPERANDS && i == 6)
+		   || (code == ASM_INPUT && i == 1))
+		  && locator_eq (XINT (x, i), XINT (y, i)))
+		break;
+	      return 0;
+	    }
 	  break;
 
 	case 't':
