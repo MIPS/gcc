@@ -24108,8 +24108,11 @@ cp_parser_omp_atomic (cp_parser *parser, cp_token *pragma_tok)
 	goto saw_error;
       if (!cp_parser_require (parser, CPP_EQ, RT_EQ))
 	goto saw_error;
-      lhs = cp_parser_unary_expression (parser, /*address_p=*/false,
-					/*cast_p=*/false, NULL);
+      if (code == NOP_EXPR)
+	lhs = cp_parser_expression (parser, /*cast_p=*/false, NULL);
+      else
+	lhs = cp_parser_unary_expression (parser, /*address_p=*/false,
+					  /*cast_p=*/false, NULL);
       if (lhs == error_mark_node)
 	goto saw_error;
       if (code == NOP_EXPR)

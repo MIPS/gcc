@@ -9095,7 +9095,10 @@ c_parser_omp_atomic (location_t loc, c_parser *parser)
       loc = c_parser_peek_token (parser)->location;
       if (!c_parser_require (parser, CPP_EQ, "expected %<=%>"))
 	goto saw_error;
-      lhs = c_parser_unary_expression (parser).value;
+      if (code == NOP_EXPR)
+	lhs = c_parser_expression (parser).value;
+      else
+	lhs = c_parser_unary_expression (parser).value;
       lhs = c_fully_fold (lhs, false, NULL);
       if (lhs == error_mark_node)
 	goto saw_error;

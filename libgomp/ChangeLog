@@ -1,5 +1,9 @@
 2011-04-27  Jakub Jelinek  <jakub@redhat.com>
 
+	* testsuite/libgomp.c/atomic-13.c: New test.
+	* testsuite/libgomp.c++/atomic-6.C: New test.
+	* testsuite/libgomp.c++/atomic-7.C: New test.
+
 	* testsuite/libgomp.fortran/omp_atomic3.f90: New test.
 	* testsuite/libgomp.fortran/omp_atomic4.f90: New test.
 
