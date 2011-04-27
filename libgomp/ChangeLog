@@ -1,3 +1,10 @@
+2011-04-27  Tobias Burnus  <burnus@net-b.de>
+
+	* libgomp.texi: Update OpenMP spec references to 3.1.
+	(omp_in_final,OMP_PROC_BIND): New sections.
+	(OMP_NUM_THREADS): Document that the value can be now a list.
+	(GOMP_STACKSIZE,GOMP_CPU_AFFINITY): Update @ref.
+
 2011-04-27  Jakub Jelinek  <jakub@redhat.com>
 
 	* testsuite/libgomp.c/atomic-13.c: New test.
