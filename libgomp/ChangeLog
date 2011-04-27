@@ -1,3 +1,10 @@
+2011-04-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.c++/atomic-2.C: New test.
+	* testsuite/libgomp.c++/atomic-3.C: New test.
+	* testsuite/libgomp.c++/atomic-4.C: New test.
+	* testsuite/libgomp.c++/atomic-5.C: New test.
+
 2011-04-21  Jakub Jelinek  <jakub@redhat.com>
 
 	* testsuite/libgomp.c/atomic-11.c: New test.

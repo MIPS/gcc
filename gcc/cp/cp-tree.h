@@ -5333,7 +5333,8 @@ extern tree begin_omp_task			(void);
 extern tree finish_omp_task			(tree, tree);
 extern tree finish_omp_for			(location_t, tree, tree,
 						 tree, tree, tree, tree, tree);
-extern void finish_omp_atomic			(enum tree_code, tree, tree);
+extern void finish_omp_atomic			(enum tree_code, enum tree_code,
+						 tree, tree, tree, tree);
 extern void finish_omp_barrier			(void);
 extern void finish_omp_flush			(void);
 extern void finish_omp_taskwait			(void);

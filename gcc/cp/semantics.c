@@ -4581,15 +4581,20 @@ finish_omp_for (location_t locus, tree declv, tree initv, tree condv,
 }
 
 void
-finish_omp_atomic (enum tree_code code, tree lhs, tree rhs)
+finish_omp_atomic (enum tree_code code, enum tree_code opcode, tree lhs,
+		   tree rhs, tree v, tree lhs1)
 {
   tree orig_lhs;
   tree orig_rhs;
+  tree orig_v;
+  tree orig_lhs1;
   bool dependent_p;
   tree stmt;
 
   orig_lhs = lhs;
   orig_rhs = rhs;
+  orig_v = v;
+  orig_lhs1 = lhs1;
   dependent_p = false;
   stmt = NULL_TREE;
 
@@ -4598,23 +4603,48 @@ finish_omp_atomic (enum tree_code code, tree lhs, tree rhs)
   if (processing_template_decl)
     {
       dependent_p = (type_dependent_expression_p (lhs)
-		     || type_dependent_expression_p (rhs));
+		     || (rhs && type_dependent_expression_p (rhs))
+		     || (v && type_dependent_expression_p (v))
+		     || (lhs1 && type_dependent_expression_p (lhs1)));
       if (!dependent_p)
 	{
 	  lhs = build_non_dependent_expr (lhs);
-	  rhs = build_non_dependent_expr (rhs);
+	  if (rhs)
+	    rhs = build_non_dependent_expr (rhs);
+	  if (v)
+	    v = build_non_dependent_expr (v);
+	  if (lhs1)
+	    lhs1 = build_non_dependent_expr (lhs1);
 	}
     }
   if (!dependent_p)
     {
-      stmt = c_finish_omp_atomic (input_location, OMP_ATOMIC, code, lhs, rhs,
-				  NULL_TREE, NULL_TREE);
+      stmt = c_finish_omp_atomic (input_location, code, opcode, lhs, rhs,
+				  v, lhs1);
       if (stmt == error_mark_node)
 	return;
     }
   if (processing_template_decl)
-    stmt = build2 (OMP_ATOMIC, void_type_node, integer_zero_node,
-		   build2 (code, void_type_node, orig_lhs, orig_rhs));
+    {
+      if (code == OMP_ATOMIC_READ)
+	{
+	  stmt = build_min_nt (OMP_ATOMIC_READ, orig_lhs);
+	  stmt = build2 (MODIFY_EXPR, void_type_node, orig_v, stmt);
+	}
+      else
+	{
+	  if (opcode == NOP_EXPR)
+	    stmt = build2 (MODIFY_EXPR, void_type_node, orig_lhs, orig_rhs);
+	  else 
+	    stmt = build2 (opcode, void_type_node, orig_lhs, orig_rhs);
+	  if (code != OMP_ATOMIC)
+	    {
+	      stmt = build_min_nt (code, orig_lhs1, stmt);
+	      stmt = build2 (MODIFY_EXPR, void_type_node, orig_v, stmt);
+	    }
+	}
+      stmt = build2 (OMP_ATOMIC, void_type_node, integer_zero_node, stmt);
+    }
   add_stmt (stmt);
 }
 

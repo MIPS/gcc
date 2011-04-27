@@ -24041,34 +24041,132 @@ cp_parser_omp_structured_block (cp_parser *parser)
    binop:
      +, *, -, /, &, ^, |, <<, >>
 
-  where x is an lvalue expression with scalar type.  */
+  where x is an lvalue expression with scalar type.
+
+   OpenMP 3.1:
+   # pragma omp atomic read new-line
+     read-stmt
+
+   # pragma omp atomic write new-line
+     write-stmt
+
+   # pragma omp atomic update new-line
+     expression-stmt
+
+   # pragma omp atomic capture new-line
+     capture-stmt
+
+   # pragma omp atomic capture new-line
+     capture-block
+
+   read-stmt:
+     v = x
+   write-stmt:
+     x = expr
+   capture-stmt:
+     v = x binop= expr | v = x++ | v = ++x | v = x-- | v = --x
+   capture-block:
+     { v = x; x binop= expr; } | { x binop= expr; v = x; }
+
+  where x and v are lvalue expressions with scalar type.  */
 
 static void
 cp_parser_omp_atomic (cp_parser *parser, cp_token *pragma_tok)
 {
-  tree lhs, rhs;
-  enum tree_code code;
+  tree lhs = NULL_TREE, rhs = NULL_TREE, v = NULL_TREE, lhs1 = NULL_TREE;
+  tree orig_lhs;
+  enum tree_code code = OMP_ATOMIC, opcode = NOP_EXPR;
+  bool structured_block = false;
 
+  if (cp_lexer_next_token_is (parser->lexer, CPP_NAME))
+    {
+      tree id = cp_lexer_peek_token (parser->lexer)->u.value;
+      const char *p = IDENTIFIER_POINTER (id);
+
+      if (!strcmp (p, "read"))
+	code = OMP_ATOMIC_READ;
+      else if (!strcmp (p, "write"))
+	code = NOP_EXPR;
+      else if (!strcmp (p, "update"))
+	code = OMP_ATOMIC;
+      else if (!strcmp (p, "capture"))
+	code = OMP_ATOMIC_CAPTURE_NEW;
+      else
+	p = NULL;
+      if (p)
+	cp_lexer_consume_token (parser->lexer);
+    }
   cp_parser_require_pragma_eol (parser, pragma_tok);
 
+  switch (code)
+    {
+    case OMP_ATOMIC_READ:
+    case NOP_EXPR: /* atomic write */
+      v = cp_parser_unary_expression (parser, /*address_p=*/false,
+				      /*cast_p=*/false, NULL);
+      if (v == error_mark_node)
+	goto saw_error;
+      if (!cp_parser_require (parser, CPP_EQ, RT_EQ))
+	goto saw_error;
+      lhs = cp_parser_unary_expression (parser, /*address_p=*/false,
+					/*cast_p=*/false, NULL);
+      if (lhs == error_mark_node)
+	goto saw_error;
+      if (code == NOP_EXPR)
+	{
+	  /* atomic write is represented by OMP_ATOMIC with NOP_EXPR
+	     opcode.  */
+	  code = OMP_ATOMIC;
+	  rhs = lhs;
+	  lhs = v;
+	  v = NULL_TREE;
+	}
+      goto done;
+    case OMP_ATOMIC_CAPTURE_NEW:
+      if (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_BRACE))
+	{
+	  cp_lexer_consume_token (parser->lexer);
+	  structured_block = true;
+	}
+      else
+	{
+	  v = cp_parser_unary_expression (parser, /*address_p=*/false,
+					  /*cast_p=*/false, NULL);
+	  if (v == error_mark_node)
+	    goto saw_error;
+	  if (!cp_parser_require (parser, CPP_EQ, RT_EQ))
+	    goto saw_error;
+	}
+    default:
+      break;
+    }
+
+restart:
   lhs = cp_parser_unary_expression (parser, /*address_p=*/false,
 				    /*cast_p=*/false, NULL);
+  orig_lhs = lhs;
   switch (TREE_CODE (lhs))
     {
     case ERROR_MARK:
       goto saw_error;
 
-    case PREINCREMENT_EXPR:
     case POSTINCREMENT_EXPR:
+      if (code == OMP_ATOMIC_CAPTURE_NEW)
+	code = OMP_ATOMIC_CAPTURE_OLD;
+      /* FALLTHROUGH */
+    case PREINCREMENT_EXPR:
       lhs = TREE_OPERAND (lhs, 0);
-      code = PLUS_EXPR;
+      opcode = PLUS_EXPR;
       rhs = integer_one_node;
       break;
 
-    case PREDECREMENT_EXPR:
     case POSTDECREMENT_EXPR:
+      if (code == OMP_ATOMIC_CAPTURE_NEW)
+	code = OMP_ATOMIC_CAPTURE_OLD;
+      /* FALLTHROUGH */
+    case PREDECREMENT_EXPR:
       lhs = TREE_OPERAND (lhs, 0);
-      code = MINUS_EXPR;
+      opcode = MINUS_EXPR;
       rhs = integer_one_node;
       break;
 
@@ -24086,48 +24184,67 @@ cp_parser_omp_atomic (cp_parser *parser, cp_token *pragma_tok)
     case MODIFY_EXPR:
       if (TREE_CODE (lhs) == MODIFY_EXPR
 	 && TREE_CODE (TREE_TYPE (TREE_OPERAND (lhs, 0))) == BOOLEAN_TYPE)
-       {
-	 /* Undo effects of boolean_increment.  */
-	 if (integer_onep (TREE_OPERAND (lhs, 1)))
-	   {
-	     /* This is pre or post increment.  */
-	     rhs = TREE_OPERAND (lhs, 1);
-	     lhs = TREE_OPERAND (lhs, 0);
-	     code = NOP_EXPR;
-	     break;
-	   }
-       }
+	{
+	  /* Undo effects of boolean_increment.  */
+	  if (integer_onep (TREE_OPERAND (lhs, 1)))
+	    {
+	      /* This is pre or post increment.  */
+	      rhs = TREE_OPERAND (lhs, 1);
+	      lhs = TREE_OPERAND (lhs, 0);
+	      opcode = NOP_EXPR;
+	      if (code == OMP_ATOMIC_CAPTURE_NEW
+		  && TREE_CODE (orig_lhs) == COMPOUND_EXPR)
+		code = OMP_ATOMIC_CAPTURE_OLD;
+	      break;
+	    }
+	}
       /* FALLTHRU */
     default:
       switch (cp_lexer_peek_token (parser->lexer)->type)
 	{
 	case CPP_MULT_EQ:
-	  code = MULT_EXPR;
+	  opcode = MULT_EXPR;
 	  break;
 	case CPP_DIV_EQ:
-	  code = TRUNC_DIV_EXPR;
+	  opcode = TRUNC_DIV_EXPR;
 	  break;
 	case CPP_PLUS_EQ:
-	  code = PLUS_EXPR;
+	  opcode = PLUS_EXPR;
 	  break;
 	case CPP_MINUS_EQ:
-	  code = MINUS_EXPR;
+	  opcode = MINUS_EXPR;
 	  break;
 	case CPP_LSHIFT_EQ:
-	  code = LSHIFT_EXPR;
+	  opcode = LSHIFT_EXPR;
 	  break;
 	case CPP_RSHIFT_EQ:
-	  code = RSHIFT_EXPR;
+	  opcode = RSHIFT_EXPR;
 	  break;
 	case CPP_AND_EQ:
-	  code = BIT_AND_EXPR;
+	  opcode = BIT_AND_EXPR;
 	  break;
 	case CPP_OR_EQ:
-	  code = BIT_IOR_EXPR;
+	  opcode = BIT_IOR_EXPR;
 	  break;
 	case CPP_XOR_EQ:
-	  code = BIT_XOR_EXPR;
+	  opcode = BIT_XOR_EXPR;
 	  break;
+	case CPP_EQ:
+	  if (structured_block && code == OMP_ATOMIC_CAPTURE_NEW)
+	    {
+	      code = OMP_ATOMIC_CAPTURE_OLD;
+	      v = lhs;
+	      lhs = NULL_TREE;
+	      cp_lexer_consume_token (parser->lexer);
+	      lhs1 = cp_parser_unary_expression (parser, /*address_p=*/false,
+						 /*cast_p=*/false, NULL);
+	      if (lhs1 == error_mark_node)
+		goto saw_error;
+	      if (!cp_parser_require (parser, CPP_SEMICOLON, RT_SEMICOLON))
+		goto saw_error;
+	      goto restart;
+	    }
+	  /* FALLTHROUGH */
 	default:
 	  cp_parser_error (parser,
 			   "invalid operator for %<#pragma omp atomic%>");
@@ -24140,8 +24257,30 @@ cp_parser_omp_atomic (cp_parser *parser, cp_token *pragma_tok)
 	goto saw_error;
       break;
     }
-  finish_omp_atomic (code, lhs, rhs);
-  cp_parser_consume_semicolon_at_end_of_statement (parser);
+  if (structured_block && code == OMP_ATOMIC_CAPTURE_NEW)
+    {
+      if (!cp_parser_require (parser, CPP_SEMICOLON, RT_SEMICOLON))
+	goto saw_error;
+      v = cp_parser_unary_expression (parser, /*address_p=*/false,
+				      /*cast_p=*/false, NULL);
+      if (v == error_mark_node)
+	goto saw_error;
+      if (!cp_parser_require (parser, CPP_EQ, RT_EQ))
+	goto saw_error;
+      lhs1 = cp_parser_unary_expression (parser, /*address_p=*/false,
+					 /*cast_p=*/false, NULL);
+      if (lhs1 == error_mark_node)
+	goto saw_error;
+    }
+  if (structured_block)
+    {
+      cp_parser_consume_semicolon_at_end_of_statement (parser);
+      cp_parser_require (parser, CPP_CLOSE_BRACE, RT_CLOSE_BRACE);
+    }
+done:
+  finish_omp_atomic (code, opcode, lhs, rhs, v, lhs1);
+  if (!structured_block)
+    cp_parser_consume_semicolon_at_end_of_statement (parser);
   return;
 
  saw_error:

@@ -1,3 +1,12 @@
+2011-04-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* parser.c (cp_parser_omp_atomic): Handle parsing OpenMP 3.1 atomics.
+	Adjust finish_omp_atomic caller.
+	* cp-tree.h (finish_omp_atomic): Adjust prototype.
+	* semantics.c (finish_omp_atomic): Add OPCODE, V and LHS1 arguments.
+	Handle OpenMP 3.1 atomics.
+	* pt.c (tsubst_expr) <case OMP_ATOMIC>: Handle OpenMP 3.1 atomics.
+
 2011-04-21  Jakub Jelinek  <jakub@redhat.com>
 
 	* semantics.c (finish_omp_atomic): Adjust c_finish_omp_atomic

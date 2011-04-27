@@ -12397,12 +12397,43 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
 
     case OMP_ATOMIC:
       gcc_assert (OMP_ATOMIC_DEPENDENT_P (t));
-      {
-	tree op1 = TREE_OPERAND (t, 1);
-	tree lhs = RECUR (TREE_OPERAND (op1, 0));
-	tree rhs = RECUR (TREE_OPERAND (op1, 1));
-	finish_omp_atomic (TREE_CODE (op1), lhs, rhs);
-      }
+      if (TREE_CODE (TREE_OPERAND (t, 1)) != MODIFY_EXPR)
+	{
+	  tree op1 = TREE_OPERAND (t, 1);
+	  tree lhs = RECUR (TREE_OPERAND (op1, 0));
+	  tree rhs = RECUR (TREE_OPERAND (op1, 1));
+	  finish_omp_atomic (OMP_ATOMIC, TREE_CODE (op1), lhs, rhs,
+			     NULL_TREE, NULL_TREE);
+	}
+      else
+	{
+	  tree op1 = TREE_OPERAND (t, 1);
+	  tree v = NULL_TREE, lhs, rhs = NULL_TREE, lhs1 = NULL_TREE;
+	  enum tree_code code = TREE_CODE (TREE_OPERAND (op1, 1));
+	  enum tree_code opcode = NOP_EXPR;
+	  if (code == OMP_ATOMIC_READ)
+	    {
+	      v = RECUR (TREE_OPERAND (op1, 0));
+	      lhs = RECUR (TREE_OPERAND (TREE_OPERAND (op1, 1), 0));
+	    }
+	  else if (code == OMP_ATOMIC_CAPTURE_OLD
+		   || code == OMP_ATOMIC_CAPTURE_NEW)
+	    {
+	      tree op11 = TREE_OPERAND (TREE_OPERAND (op1, 1), 1);
+	      v = RECUR (TREE_OPERAND (op1, 0));
+	      lhs1 = RECUR (TREE_OPERAND (TREE_OPERAND (op1, 1), 0));
+	      lhs = RECUR (TREE_OPERAND (op11, 0));
+	      rhs = RECUR (TREE_OPERAND (op11, 1));
+	      opcode = TREE_CODE (op11);
+	    }
+	  else
+	    {
+	      code = OMP_ATOMIC;
+	      lhs = RECUR (TREE_OPERAND (op1, 0));
+	      rhs = RECUR (TREE_OPERAND (op1, 1));
+	    }
+	  finish_omp_atomic (code, opcode, lhs, rhs, v, lhs1);
+	}
       break;
 
     case EXPR_PACK_EXPANSION:
