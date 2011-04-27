@@ -1000,35 +1000,85 @@ static tree gfc_trans_omp_workshare (gfc_code *, gfc_omp_clauses *);
 static tree
 gfc_trans_omp_atomic (gfc_code *code)
 {
+  gfc_code *atomic_code = code;
   gfc_se lse;
   gfc_se rse;
+  gfc_se vse;
   gfc_expr *expr2, *e;
   gfc_symbol *var;
   stmtblock_t block;
   tree lhsaddr, type, rhs, x;
   enum tree_code op = ERROR_MARK;
+  enum tree_code aop = OMP_ATOMIC;
   bool var_on_left = false;
 
   code = code->block->next;
   gcc_assert (code->op == EXEC_ASSIGN);
-  gcc_assert (code->next == NULL);
   var = code->expr1->symtree->n.sym;
 
   gfc_init_se (&lse, NULL);
   gfc_init_se (&rse, NULL);
+  gfc_init_se (&vse, NULL);
   gfc_start_block (&block);
-
-  gfc_conv_expr (&lse, code->expr1);
-  gfc_add_block_to_block (&block, &lse.pre);
-  type = TREE_TYPE (lse.expr);
-  lhsaddr = gfc_build_addr_expr (NULL, lse.expr);
 
   expr2 = code->expr2;
   if (expr2->expr_type == EXPR_FUNCTION
       && expr2->value.function.isym->id == GFC_ISYM_CONVERSION)
     expr2 = expr2->value.function.actual->expr;
 
-  if (expr2->expr_type == EXPR_OP)
+  switch (atomic_code->ext.omp_atomic)
+    {
+    case GFC_OMP_ATOMIC_READ:
+      gfc_conv_expr (&vse, code->expr1);
+      gfc_add_block_to_block (&block, &vse.pre);
+
+      gfc_conv_expr (&lse, expr2);
+      gfc_add_block_to_block (&block, &lse.pre);
+      type = TREE_TYPE (lse.expr);
+      lhsaddr = gfc_build_addr_expr (NULL, lse.expr);
+
+      x = build1 (OMP_ATOMIC_READ, type, lhsaddr);
+      x = convert (TREE_TYPE (vse.expr), x);
+      gfc_add_modify (&block, vse.expr, x);
+
+      gfc_add_block_to_block (&block, &lse.pre);
+      gfc_add_block_to_block (&block, &rse.pre);
+
+      return gfc_finish_block (&block);
+    case GFC_OMP_ATOMIC_CAPTURE:
+      aop = OMP_ATOMIC_CAPTURE_NEW;
+      if (expr2->expr_type == EXPR_VARIABLE)
+	{
+	  aop = OMP_ATOMIC_CAPTURE_OLD;
+	  gfc_conv_expr (&vse, code->expr1);
+	  gfc_add_block_to_block (&block, &vse.pre);
+
+	  gfc_conv_expr (&lse, expr2);
+	  gfc_add_block_to_block (&block, &lse.pre);
+	  gfc_init_se (&lse, NULL);
+	  code = code->next;
+	  var = code->expr1->symtree->n.sym;
+	  expr2 = code->expr2;
+	  if (expr2->expr_type == EXPR_FUNCTION
+	      && expr2->value.function.isym->id == GFC_ISYM_CONVERSION)
+	    expr2 = expr2->value.function.actual->expr;
+	}
+      break;
+    default:
+      break;
+    }
+
+  gfc_conv_expr (&lse, code->expr1);
+  gfc_add_block_to_block (&block, &lse.pre);
+  type = TREE_TYPE (lse.expr);
+  lhsaddr = gfc_build_addr_expr (NULL, lse.expr);
+
+  if (atomic_code->ext.omp_atomic == GFC_OMP_ATOMIC_WRITE)
+    {
+      gfc_conv_expr (&rse, expr2);
+      gfc_add_block_to_block (&block, &rse.pre);
+    }
+  else if (expr2->expr_type == EXPR_OP)
     {
       gfc_expr *e;
       switch (expr2->value.op.op)
@@ -1144,24 +1194,54 @@ gfc_trans_omp_atomic (gfc_code *code)
 
   lhsaddr = save_expr (lhsaddr);
   rhs = gfc_evaluate_now (rse.expr, &block);
-  x = convert (TREE_TYPE (rhs), build_fold_indirect_ref_loc (input_location,
-							 lhsaddr));
 
-  if (var_on_left)
-    x = fold_build2_loc (input_location, op, TREE_TYPE (rhs), x, rhs);
+  if (atomic_code->ext.omp_atomic == GFC_OMP_ATOMIC_WRITE)
+    x = rhs;
   else
-    x = fold_build2_loc (input_location, op, TREE_TYPE (rhs), rhs, x);
+    {
+      x = convert (TREE_TYPE (rhs),
+		   build_fold_indirect_ref_loc (input_location, lhsaddr));
+      if (var_on_left)
+	x = fold_build2_loc (input_location, op, TREE_TYPE (rhs), x, rhs);
+      else
+	x = fold_build2_loc (input_location, op, TREE_TYPE (rhs), rhs, x);
+    }
 
   if (TREE_CODE (TREE_TYPE (rhs)) == COMPLEX_TYPE
       && TREE_CODE (type) != COMPLEX_TYPE)
     x = fold_build1_loc (input_location, REALPART_EXPR,
 			 TREE_TYPE (TREE_TYPE (rhs)), x);
 
-  x = build2_v (OMP_ATOMIC, lhsaddr, convert (type, x));
-  gfc_add_expr_to_block (&block, x);
-
   gfc_add_block_to_block (&block, &lse.pre);
   gfc_add_block_to_block (&block, &rse.pre);
+
+  if (aop == OMP_ATOMIC)
+    {
+      x = build2_v (OMP_ATOMIC, lhsaddr, convert (type, x));
+      gfc_add_expr_to_block (&block, x);
+    }
+  else
+    {
+      if (aop == OMP_ATOMIC_CAPTURE_NEW)
+	{
+	  code = code->next;
+	  expr2 = code->expr2;
+	  if (expr2->expr_type == EXPR_FUNCTION
+	      && expr2->value.function.isym->id == GFC_ISYM_CONVERSION)
+	    expr2 = expr2->value.function.actual->expr;
+
+	  gcc_assert (expr2->expr_type == EXPR_VARIABLE);
+	  gfc_conv_expr (&vse, code->expr1);
+	  gfc_add_block_to_block (&block, &vse.pre);
+
+	  gfc_init_se (&lse, NULL);
+	  gfc_conv_expr (&lse, expr2);
+	  gfc_add_block_to_block (&block, &lse.pre);
+	}
+      x = build2 (aop, type, lhsaddr, convert (type, x));
+      x = convert (TREE_TYPE (vse.expr), x);
+      gfc_add_modify (&block, vse.expr, x);
+    }
 
   return gfc_finish_block (&block);
 }
