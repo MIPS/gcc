@@ -1,3 +1,30 @@
+2011-04-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2011-04-01  Andrew Pinski  <pinskia@gmail.com>
+	    Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/48262
+	* config/rs6000/vector.md (movmisalign<mode>): Allow for memory
+	operands, as per the specifications.
+
+	* config/rs6000/altivec.md (vec_extract_evenv4si): Correct modes.
+	(vec_extract_evenv4sf): Ditto.
+	(vec_extract_evenv8hi): Ditto.
+	(vec_extract_evenv16qi): Ditto.
+	(vec_extract_oddv4si): Ditto.
+
+	Backport from mainline
+	2011-03-26  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/predicates.md (word_offset_memref_op): Handle
+	cmodel medium addresses.
+	* config/rs6000/rs6000.c (rs6000_secondary_reload): Handle misaligned
+	64-bit gpr loads and stores.
+	(rs6000_secondary_reload_ppc64): New function.
+	* config/rs6000/rs6000-protos.h: Declare it.
+	* config/rs6000/rs6000.md (reload_di_store, reload_di_load): New.
+
 2011-04-27  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 173048.
@@ -79,6 +106,14 @@
 	UNSPEC_ISYNC and UNSPEC_HWSYNC to UNSPECV_ISYNC and
 	UNSPECV_LWSYNC, since these are used as unspec_volatile.
 	* config/rs6000/sync.md (isync, lwsync): Ditto.
+
+	Backport from mainline
+	2011-03-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/48226
+	* config/rs6000/rs6000-c.c (rs6000_macro_to_expand): If we see a
+	vector when peeking at the next token for vector, don't expand the
+	keywords.
 
 	Backport from mainline
 	2011-03-16  Alan Modra  <amodra@gmail.com>
