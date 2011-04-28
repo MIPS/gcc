@@ -1,3 +1,18 @@
+2011-04-28  Jakub Jelinek  <jakub@redhat.com>
+
+	* libgomp_g.h (GOMP_taskyield): New prototype.
+	* libgomp.map (GOMP_taskyield): Export with GOMP_3.0 symver.
+	* libgomp.h (struct gomp_task): Add final_task field.
+	* task.c (gomp_init_task): Initialize final_task.
+	(GOMP_task): Remove unused attribute from flags.  Handle final
+	tasks.
+	(GOMP_taskyield): New function.
+	(omp_in_final): Return true if if (false) or final (true) task
+	or descendant of final (true).
+	* testsuite/libgomp.c/task-5.c: New test.
+	* testsuite/libgomp.c++/task-8.C: New test.
+	* testsuite/libgomp.fortran/task3.f90: New test.
+
 2011-04-27  Tobias Burnus  <burnus@net-b.de>
 
 	* libgomp.texi: Update OpenMP spec references to 3.1.

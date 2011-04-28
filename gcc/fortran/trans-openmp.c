@@ -866,6 +866,21 @@ gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses,
       omp_clauses = gfc_trans_add_clause (c, omp_clauses);
     }
 
+  if (clauses->final_expr)
+    {
+      tree final_var;
+
+      gfc_init_se (&se, NULL);
+      gfc_conv_expr (&se, clauses->final_expr);
+      gfc_add_block_to_block (block, &se.pre);
+      final_var = gfc_evaluate_now (se.expr, block);
+      gfc_add_block_to_block (block, &se.post);
+
+      c = build_omp_clause (where.lb->location, OMP_CLAUSE_FINAL);
+      OMP_CLAUSE_FINAL_EXPR (c) = final_var;
+      omp_clauses = gfc_trans_add_clause (c, omp_clauses);
+    }
+
   if (clauses->num_threads)
     {
       tree num_threads;
@@ -956,6 +971,12 @@ gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses,
   if (clauses->untied)
     {
       c = build_omp_clause (where.lb->location, OMP_CLAUSE_UNTIED);
+      omp_clauses = gfc_trans_add_clause (c, omp_clauses);
+    }
+
+  if (clauses->mergeable)
+    {
+      c = build_omp_clause (where.lb->location, OMP_CLAUSE_MERGEABLE);
       omp_clauses = gfc_trans_add_clause (c, omp_clauses);
     }
 
@@ -1719,6 +1740,13 @@ gfc_trans_omp_taskwait (void)
 }
 
 static tree
+gfc_trans_omp_taskyield (void)
+{
+  tree decl = built_in_decls [BUILT_IN_GOMP_TASKYIELD];
+  return build_call_expr_loc (input_location, decl, 0);
+}
+
+static tree
 gfc_trans_omp_workshare (gfc_code *code, gfc_omp_clauses *clauses)
 {
   tree res, tmp, stmt;
@@ -1911,6 +1939,8 @@ gfc_trans_omp_directive (gfc_code *code)
       return gfc_trans_omp_task (code);
     case EXEC_OMP_TASKWAIT:
       return gfc_trans_omp_taskwait ();
+    case EXEC_OMP_TASKYIELD:
+      return gfc_trans_omp_taskyield ();
     case EXEC_OMP_WORKSHARE:
       return gfc_trans_omp_workshare (code, code->ext.omp_clauses);
     default:

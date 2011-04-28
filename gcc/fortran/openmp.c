@@ -66,6 +66,7 @@ gfc_free_omp_clauses (gfc_omp_clauses *c)
     return;
 
   gfc_free_expr (c->if_expr);
+  gfc_free_expr (c->final_expr);
   gfc_free_expr (c->num_threads);
   gfc_free_expr (c->chunk_size);
   for (i = 0; i < OMP_LIST_NUM; i++)
@@ -182,6 +183,8 @@ cleanup:
 #define OMP_CLAUSE_ORDERED	(1 << 11)
 #define OMP_CLAUSE_COLLAPSE	(1 << 12)
 #define OMP_CLAUSE_UNTIED	(1 << 13)
+#define OMP_CLAUSE_FINAL	(1 << 14)
+#define OMP_CLAUSE_MERGEABLE	(1 << 15)
 
 /* Match OpenMP directive clauses. MASK is a bitmask of
    clauses that are allowed for a particular directive.  */
@@ -204,6 +207,9 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, int mask)
       gfc_gobble_whitespace ();
       if ((mask & OMP_CLAUSE_IF) && c->if_expr == NULL
 	  && gfc_match ("if ( %e )", &c->if_expr) == MATCH_YES)
+	continue;
+      if ((mask & OMP_CLAUSE_FINAL) && c->final_expr == NULL
+	  && gfc_match ("final ( %e )", &c->final_expr) == MATCH_YES)
 	continue;
       if ((mask & OMP_CLAUSE_NUM_THREADS) && c->num_threads == NULL
 	  && gfc_match ("num_threads ( %e )", &c->num_threads) == MATCH_YES)
@@ -383,6 +389,12 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, int mask)
 	  c->untied = needs_space = true;
 	  continue;
 	}
+      if ((mask & OMP_CLAUSE_MERGEABLE) && !c->mergeable
+	  && gfc_match ("mergeable") == MATCH_YES)
+	{
+	  c->mergeable = needs_space = true;
+	  continue;
+	}
       if ((mask & OMP_CLAUSE_COLLAPSE) && !c->collapse)
 	{
 	  gfc_expr *cexpr = NULL;
@@ -435,7 +447,8 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, int mask)
    | OMP_CLAUSE_LASTPRIVATE | OMP_CLAUSE_REDUCTION)
 #define OMP_TASK_CLAUSES \
   (OMP_CLAUSE_PRIVATE | OMP_CLAUSE_FIRSTPRIVATE | OMP_CLAUSE_SHARED	\
-   | OMP_CLAUSE_IF | OMP_CLAUSE_DEFAULT | OMP_CLAUSE_UNTIED)
+   | OMP_CLAUSE_IF | OMP_CLAUSE_DEFAULT | OMP_CLAUSE_UNTIED		\
+   | OMP_CLAUSE_FINAL | OMP_CLAUSE_MERGEABLE)
 
 match
 gfc_match_omp_parallel (void)
@@ -470,6 +483,20 @@ gfc_match_omp_taskwait (void)
       return MATCH_ERROR;
     }
   new_st.op = EXEC_OMP_TASKWAIT;
+  new_st.ext.omp_clauses = NULL;
+  return MATCH_YES;
+}
+
+
+match
+gfc_match_omp_taskyield (void)
+{
+  if (gfc_match_omp_eos () != MATCH_YES)
+    {
+      gfc_error ("Unexpected junk after TASKYIELD clause at %C");
+      return MATCH_ERROR;
+    }
+  new_st.op = EXEC_OMP_TASKYIELD;
   new_st.ext.omp_clauses = NULL;
   return MATCH_YES;
 }
@@ -790,6 +817,14 @@ resolve_omp_clauses (gfc_code *code)
       if (gfc_resolve_expr (expr) == FAILURE
 	  || expr->ts.type != BT_LOGICAL || expr->rank != 0)
 	gfc_error ("IF clause at %L requires a scalar LOGICAL expression",
+		   &expr->where);
+    }
+  if (omp_clauses->final_expr)
+    {
+      gfc_expr *expr = omp_clauses->final_expr;
+      if (gfc_resolve_expr (expr) == FAILURE
+	  || expr->ts.type != BT_LOGICAL || expr->rank != 0)
+	gfc_error ("FINAL clause at %L requires a scalar LOGICAL expression",
 		   &expr->where);
     }
   if (omp_clauses->num_threads)

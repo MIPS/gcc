@@ -1,3 +1,20 @@
+2011-04-28  Jakub Jelinek  <jakub@redhat.com>
+
+	* pt.c (tsubst_omp_clauses): Handle OMP_CLAUSE_FINAL and
+	OMP_CLAUSE_MERGEABLE.
+	* semantics.c (finish_omp_clauses): Likewise.
+	(finish_omp_taskyield): New function.
+	* parser.c (cp_parser_omp_clause_name): Handle final and
+	mergeable clauses.
+	(cp_parser_omp_clause_final, cp_parser_omp_clause_mergeable): New
+	functions.
+	(cp_parser_omp_all_clauses): Handle PRAGMA_OMP_CLAUSE_FINAL
+	and PRAGMA_OMP_CLAUSE_MERGEABLE.
+	(OMP_TASK_CLAUSE_MASK): Allow final and mergeable clauses.
+	(cp_parser_omp_taskyield): New function.
+	(cp_parser_pragma): Handle PRAGMA_OMP_TASKYIELD.
+	* cp-tree.h (finish_omp_taskyield): New prototype.
+
 2011-04-27  Jakub Jelinek  <jakub@redhat.com>
 
 	* parser.c (cp_parser_omp_atomic): Parse #pragma omp write

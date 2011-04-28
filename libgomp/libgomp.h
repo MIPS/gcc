@@ -253,6 +253,7 @@ struct gomp_task
   enum gomp_task_kind kind;
   bool in_taskwait;
   bool in_tied_task;
+  bool final_task;
   gomp_sem_t taskwait_sem;
 };
 

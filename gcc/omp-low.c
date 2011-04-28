@@ -1444,6 +1444,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	  ctx->default_kind = OMP_CLAUSE_DEFAULT_KIND (c);
 	  break;
 
+	case OMP_CLAUSE_FINAL:
 	case OMP_CLAUSE_IF:
 	case OMP_CLAUSE_NUM_THREADS:
 	case OMP_CLAUSE_SCHEDULE:
@@ -1455,6 +1456,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	case OMP_CLAUSE_ORDERED:
 	case OMP_CLAUSE_COLLAPSE:
 	case OMP_CLAUSE_UNTIED:
+	case OMP_CLAUSE_MERGEABLE:
 	  break;
 
 	default:
@@ -1505,6 +1507,8 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	case OMP_CLAUSE_ORDERED:
 	case OMP_CLAUSE_COLLAPSE:
 	case OMP_CLAUSE_UNTIED:
+	case OMP_CLAUSE_FINAL:
+	case OMP_CLAUSE_MERGEABLE:
 	  break;
 
 	default:
@@ -3082,7 +3086,7 @@ expand_parallel_call (struct omp_region *region, basic_block bb,
 static void
 expand_task_call (basic_block bb, gimple entry_stmt)
 {
-  tree t, t1, t2, t3, flags, cond, c, clauses;
+  tree t, t1, t2, t3, flags, cond, c, c2, clauses;
   gimple_stmt_iterator gsi;
   location_t loc = gimple_location (entry_stmt);
 
@@ -3095,7 +3099,19 @@ expand_task_call (basic_block bb, gimple entry_stmt)
     cond = boolean_true_node;
 
   c = find_omp_clause (clauses, OMP_CLAUSE_UNTIED);
-  flags = build_int_cst (unsigned_type_node, (c ? 1 : 0));
+  c2 = find_omp_clause (clauses, OMP_CLAUSE_MERGEABLE);
+  flags = build_int_cst (unsigned_type_node,
+			 (c ? 1 : 0) + (c2 ? 4 : 0));
+
+  c = find_omp_clause (clauses, OMP_CLAUSE_FINAL);
+  if (c)
+    {
+      c = gimple_boolify (OMP_CLAUSE_FINAL_EXPR (c));
+      c = fold_build3_loc (loc, COND_EXPR, unsigned_type_node, c,
+			   build_int_cst (unsigned_type_node, 2),
+			   build_int_cst (unsigned_type_node, 0));
+      flags = fold_build2_loc (loc, PLUS_EXPR, unsigned_type_node, flags, c);
+    }
 
   gsi = gsi_last_bb (bb);
   t = gimple_omp_task_data_arg (entry_stmt);

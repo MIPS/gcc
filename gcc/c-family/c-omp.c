@@ -96,6 +96,20 @@ c_finish_omp_taskwait (location_t loc)
 }
 
 
+/* Complete a #pragma omp taskyield construct.  LOC is the location of the
+   pragma.  */
+
+void
+c_finish_omp_taskyield (location_t loc)
+{
+  tree x;
+
+  x = built_in_decls[BUILT_IN_GOMP_TASKYIELD];
+  x = build_call_expr_loc (loc, x, 0);
+  add_stmt (x);
+}
+
+
 /* Complete a #pragma omp atomic construct.  For CODE OMP_ATOMIC
    the expression to be implemented atomically is LHS opcode= RHS. 
    For OMP_ATOMIC_READ V = LHS, for OMP_ATOMIC_CAPTURE_{NEW,OLD} LHS

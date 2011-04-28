@@ -417,6 +417,17 @@ dump_omp_clause (pretty_printer *buffer, tree clause, int spc, int flags)
       pp_character (buffer, ')');
       break;
 
+    case OMP_CLAUSE_FINAL:
+      pp_string (buffer, "final(");
+      dump_generic_node (buffer, OMP_CLAUSE_FINAL_EXPR (clause),
+	  spc, flags, false);
+      pp_character (buffer, ')');
+      break;
+
+    case OMP_CLAUSE_MERGEABLE:
+      pp_string (buffer, "mergeable");
+      break;
+
     default:
       /* Should never happen.  */
       dump_generic_node (buffer, clause, spc, flags, false);

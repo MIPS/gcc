@@ -563,6 +563,7 @@ decode_omp_directive (void)
     case 't':
       match ("task", gfc_match_omp_task, ST_OMP_TASK);
       match ("taskwait", gfc_match_omp_taskwait, ST_OMP_TASKWAIT);
+      match ("taskyield", gfc_match_omp_taskyield, ST_OMP_TASKYIELD);
       match ("threadprivate", gfc_match_omp_threadprivate,
 	     ST_OMP_THREADPRIVATE);
     case 'w':
@@ -953,8 +954,9 @@ next_statement (void)
   case ST_POINTER_ASSIGNMENT: case ST_EXIT: case ST_CYCLE: \
   case ST_ASSIGNMENT: case ST_ARITHMETIC_IF: case ST_WHERE: case ST_FORALL: \
   case ST_LABEL_ASSIGNMENT: case ST_FLUSH: case ST_OMP_FLUSH: \
-  case ST_OMP_BARRIER: case ST_OMP_TASKWAIT: case ST_ERROR_STOP: \
-  case ST_SYNC_ALL: case ST_SYNC_IMAGES: case ST_SYNC_MEMORY
+  case ST_OMP_BARRIER: case ST_OMP_TASKWAIT: case ST_OMP_TASKYIELD: \
+  case ST_ERROR_STOP: case ST_SYNC_ALL: case ST_SYNC_IMAGES: \
+  case ST_SYNC_MEMORY
 
 /* Statements that mark other executable statements.  */
 
@@ -1533,6 +1535,9 @@ gfc_ascii_statement (gfc_statement st)
       break;
     case ST_OMP_TASKWAIT:
       p = "!$OMP TASKWAIT";
+      break;
+    case ST_OMP_TASKYIELD:
+      p = "!$OMP TASKYIELD";
       break;
     case ST_OMP_THREADPRIVATE:
       p = "!$OMP THREADPRIVATE";

@@ -1156,6 +1156,7 @@ static void c_parser_omp_threadprivate (c_parser *);
 static void c_parser_omp_barrier (c_parser *);
 static void c_parser_omp_flush (c_parser *);
 static void c_parser_omp_taskwait (c_parser *);
+static void c_parser_omp_taskyield (c_parser *);
 
 enum pragma_context { pragma_external, pragma_stmt, pragma_compound };
 static bool c_parser_pragma (c_parser *, enum pragma_context);
@@ -8205,6 +8206,17 @@ c_parser_pragma (c_parser *parser, enum pragma_context context)
       c_parser_omp_taskwait (parser);
       return false;
 
+    case PRAGMA_OMP_TASKYIELD:
+      if (context != pragma_compound)
+	{
+	  if (context == pragma_stmt)
+	    c_parser_error (parser, "%<#pragma omp taskyield%> may only be "
+			    "used in compound statements");
+	  goto bad_stmt;
+	}
+      c_parser_omp_taskyield (parser);
+      return false;
+
     case PRAGMA_OMP_THREADPRIVATE:
       c_parser_omp_threadprivate (parser);
       return false;
@@ -8320,12 +8332,18 @@ c_parser_omp_clause_name (c_parser *parser)
 	    result = PRAGMA_OMP_CLAUSE_COPYPRIVATE;
 	  break;
 	case 'f':
-	  if (!strcmp ("firstprivate", p))
+	  if (!strcmp ("final", p))
+	    result = PRAGMA_OMP_CLAUSE_FINAL;
+	  else if (!strcmp ("firstprivate", p))
 	    result = PRAGMA_OMP_CLAUSE_FIRSTPRIVATE;
 	  break;
 	case 'l':
 	  if (!strcmp ("lastprivate", p))
 	    result = PRAGMA_OMP_CLAUSE_LASTPRIVATE;
+	  break;
+	case 'm':
+	  if (!strcmp ("mergeable", p))
+	    result = PRAGMA_OMP_CLAUSE_MERGEABLE;
 	  break;
 	case 'n':
 	  if (!strcmp ("nowait", p))
@@ -8568,6 +8586,31 @@ c_parser_omp_clause_firstprivate (c_parser *parser, tree list)
   return c_parser_omp_var_list_parens (parser, OMP_CLAUSE_FIRSTPRIVATE, list);
 }
 
+/* OpenMP 3.1:
+   final ( expression ) */
+
+static tree
+c_parser_omp_clause_final (c_parser *parser, tree list)
+{
+  location_t loc = c_parser_peek_token (parser)->location;
+  if (c_parser_next_token_is (parser, CPP_OPEN_PAREN))
+    {
+      tree t = c_parser_paren_condition (parser);
+      tree c;
+
+      check_no_duplicate_clause (list, OMP_CLAUSE_FINAL, "final");
+
+      c = build_omp_clause (loc, OMP_CLAUSE_FINAL);
+      OMP_CLAUSE_FINAL_EXPR (c) = t;
+      OMP_CLAUSE_CHAIN (c) = list;
+      list = c;
+    }
+  else
+    c_parser_error (parser, "expected %<(%>");
+
+  return list;
+}
+
 /* OpenMP 2.5:
    if ( expression ) */
 
@@ -8600,6 +8643,24 @@ static tree
 c_parser_omp_clause_lastprivate (c_parser *parser, tree list)
 {
   return c_parser_omp_var_list_parens (parser, OMP_CLAUSE_LASTPRIVATE, list);
+}
+
+/* OpenMP 3.1:
+   mergeable */
+
+static tree
+c_parser_omp_clause_mergeable (c_parser *parser ATTRIBUTE_UNUSED, tree list)
+{
+  tree c;
+
+  /* FIXME: Should we allow duplicates?  */
+  check_no_duplicate_clause (list, OMP_CLAUSE_MERGEABLE, "mergeable");
+
+  c = build_omp_clause (c_parser_peek_token (parser)->location,
+			OMP_CLAUSE_MERGEABLE);
+  OMP_CLAUSE_CHAIN (c) = list;
+
+  return c;
 }
 
 /* OpenMP 2.5:
@@ -8940,6 +9001,10 @@ c_parser_omp_all_clauses (c_parser *parser, unsigned int mask,
 	  clauses = c_parser_omp_clause_firstprivate (parser, clauses);
 	  c_name = "firstprivate";
 	  break;
+	case PRAGMA_OMP_CLAUSE_FINAL:
+	  clauses = c_parser_omp_clause_final (parser, clauses);
+	  c_name = "final";
+	  break;
 	case PRAGMA_OMP_CLAUSE_IF:
 	  clauses = c_parser_omp_clause_if (parser, clauses);
 	  c_name = "if";
@@ -8947,6 +9012,10 @@ c_parser_omp_all_clauses (c_parser *parser, unsigned int mask,
 	case PRAGMA_OMP_CLAUSE_LASTPRIVATE:
 	  clauses = c_parser_omp_clause_lastprivate (parser, clauses);
 	  c_name = "lastprivate";
+	  break;
+	case PRAGMA_OMP_CLAUSE_MERGEABLE:
+	  clauses = c_parser_omp_clause_mergeable (parser, clauses);
+	  c_name = "mergeable";
 	  break;
 	case PRAGMA_OMP_CLAUSE_NOWAIT:
 	  clauses = c_parser_omp_clause_nowait (parser, clauses);
@@ -9958,7 +10027,9 @@ c_parser_omp_single (location_t loc, c_parser *parser)
 	| (1u << PRAGMA_OMP_CLAUSE_DEFAULT)		\
 	| (1u << PRAGMA_OMP_CLAUSE_PRIVATE)		\
 	| (1u << PRAGMA_OMP_CLAUSE_FIRSTPRIVATE)	\
-	| (1u << PRAGMA_OMP_CLAUSE_SHARED))
+	| (1u << PRAGMA_OMP_CLAUSE_SHARED)		\
+	| (1u << PRAGMA_OMP_CLAUSE_FINAL)		\
+	| (1u << PRAGMA_OMP_CLAUSE_MERGEABLE))
 
 static tree
 c_parser_omp_task (location_t loc, c_parser *parser)
@@ -9985,6 +10056,20 @@ c_parser_omp_taskwait (c_parser *parser)
   c_parser_skip_to_pragma_eol (parser);
 
   c_finish_omp_taskwait (loc);
+}
+
+/* OpenMP 3.1:
+   # pragma omp taskyield new-line
+*/
+
+static void
+c_parser_omp_taskyield (c_parser *parser)
+{
+  location_t loc = c_parser_peek_token (parser)->location;
+  c_parser_consume_pragma (parser);
+  c_parser_skip_to_pragma_eol (parser);
+
+  c_finish_omp_taskyield (loc);
 }
 
 /* Main entry point to parsing most OpenMP pragmas.  */

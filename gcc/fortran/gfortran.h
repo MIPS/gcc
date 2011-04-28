@@ -208,8 +208,8 @@ typedef enum
   ST_OMP_PARALLEL, ST_OMP_PARALLEL_DO, ST_OMP_PARALLEL_SECTIONS,
   ST_OMP_PARALLEL_WORKSHARE, ST_OMP_SECTIONS, ST_OMP_SECTION, ST_OMP_SINGLE,
   ST_OMP_THREADPRIVATE, ST_OMP_WORKSHARE, ST_OMP_TASK, ST_OMP_END_TASK,
-  ST_OMP_TASKWAIT, ST_PROCEDURE, ST_GENERIC, ST_CRITICAL, ST_END_CRITICAL,
-  ST_GET_FCN_CHARACTERISTICS, ST_NONE
+  ST_OMP_TASKWAIT, ST_OMP_TASKYIELD, ST_PROCEDURE, ST_GENERIC, ST_CRITICAL,
+  ST_END_CRITICAL, ST_GET_FCN_CHARACTERISTICS, ST_NONE
 }
 gfc_statement;
 
@@ -1045,13 +1045,14 @@ enum gfc_omp_default_sharing
 typedef struct gfc_omp_clauses
 {
   struct gfc_expr *if_expr;
+  struct gfc_expr *final_expr;
   struct gfc_expr *num_threads;
   gfc_namelist *lists[OMP_LIST_NUM];
   enum gfc_omp_sched_kind sched_kind;
   struct gfc_expr *chunk_size;
   enum gfc_omp_default_sharing default_sharing;
   int collapse;
-  bool nowait, ordered, untied;
+  bool nowait, ordered, untied, mergeable;
 }
 gfc_omp_clauses;
 
@@ -2060,7 +2061,8 @@ typedef enum
   EXEC_OMP_PARALLEL_SECTIONS, EXEC_OMP_PARALLEL_WORKSHARE,
   EXEC_OMP_SECTIONS, EXEC_OMP_SINGLE, EXEC_OMP_WORKSHARE,
   EXEC_OMP_ATOMIC, EXEC_OMP_BARRIER, EXEC_OMP_END_NOWAIT,
-  EXEC_OMP_END_SINGLE, EXEC_OMP_TASK, EXEC_OMP_TASKWAIT
+  EXEC_OMP_END_SINGLE, EXEC_OMP_TASK, EXEC_OMP_TASKWAIT,
+  EXEC_OMP_TASKYIELD
 }
 gfc_exec_op;
 

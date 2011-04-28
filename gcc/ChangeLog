@@ -1,3 +1,34 @@
+2011-04-28  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-pretty-print.c (dump_omp_clause): Handle OMP_CLAUSE_FINAL
+	and OMP_CLAUSE_MERGEABLE.
+	* tree.c (omp_clause_num_ops): Add OMP_CLAUSE_FINAL and
+	OMP_CLAUSE_MERGEABLE.
+	(omp_clause_code_name): Likewise.
+	(walk_tree_1): Handle OMP_CLAUSE_FINAL and OMP_CLAUSE_MERGEABLE.
+	* tree.h (enum omp_clause_code): Add OMP_CLAUSE_FINAL
+	and OMP_CLAUSE_MERGEABLE.
+	(OMP_CLAUSE_FINAL_EXPR): Define.
+	* omp-low.c (scan_sharing_clauses): Handle OMP_CLAUSE_FINAL and
+	OMP_CLAUSE_MERGEABLE.
+	(expand_task_call): Likewise.
+	* c-typeck.c (c_finish_omp_clauses): Likewise.
+	* gimplify.c (gimplify_scan_omp_clauses,
+	gimplify_adjust_omp_clauses): Likewise.
+	* tree-nested.c (convert_nonlocal_omp_clauses,
+	convert_local_omp_clauses): Likewise.
+	* omp-builtins.def (BUILT_IN_GOMP_TASKYIELD): New builtin.
+	* c-parser.c (c_parser_omp_taskyield): New function.
+	(c_parser_pragma): Handle PRAGMA_OMP_TASKYIELD.
+	(c_parser_omp_clause_name): Handle final and mergeable clauses.
+	(c_parser_omp_clause_final, c_parser_omp_clause_mergeable): New
+	functions.
+	(c_parser_omp_all_clauses): Handle PRAGMA_OMP_CLAUSE_FINAL
+	and PRAGMA_OMP_CLAUSE_MERGEABLE.
+	(OMP_TASK_CLAUSE_MASK): Allow final and mergeable clauses.
+	* doc/generic.texi: Mention OMP_CLAUSE_COLLAPSE,
+	OMP_CLAUSE_UNTIED, OMP_CLAUSE_FINAL and OMP_CLAUSE_MERGEABLE.
+
 2011-04-27  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-parser.c (c_parser_omp_atomic): Parse #pragma omp write

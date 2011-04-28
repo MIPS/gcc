@@ -23352,12 +23352,18 @@ cp_parser_omp_clause_name (cp_parser *parser)
 	    result = PRAGMA_OMP_CLAUSE_COPYPRIVATE;
 	  break;
 	case 'f':
-	  if (!strcmp ("firstprivate", p))
+	  if (!strcmp ("final", p))
+	    result = PRAGMA_OMP_CLAUSE_FINAL;
+	  else if (!strcmp ("firstprivate", p))
 	    result = PRAGMA_OMP_CLAUSE_FIRSTPRIVATE;
 	  break;
 	case 'l':
 	  if (!strcmp ("lastprivate", p))
 	    result = PRAGMA_OMP_CLAUSE_LASTPRIVATE;
+	  break;
+	case 'm':
+	  if (!strcmp ("mergeable", p))
+	    result = PRAGMA_OMP_CLAUSE_MERGEABLE;
 	  break;
 	case 'n':
 	  if (!strcmp ("nowait", p))
@@ -23588,6 +23594,34 @@ cp_parser_omp_clause_default (cp_parser *parser, tree list, location_t location)
   return c;
 }
 
+/* OpenMP 3.1:
+   final ( expression ) */
+
+static tree
+cp_parser_omp_clause_final (cp_parser *parser, tree list, location_t location)
+{
+  tree t, c;
+
+  if (!cp_parser_require (parser, CPP_OPEN_PAREN, RT_OPEN_PAREN))
+    return list;
+
+  t = cp_parser_condition (parser);
+
+  if (t == error_mark_node
+      || !cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN))
+    cp_parser_skip_to_closing_parenthesis (parser, /*recovering=*/true,
+					   /*or_comma=*/false,
+					   /*consume_paren=*/true);
+
+  check_no_duplicate_clause (list, OMP_CLAUSE_FINAL, "final", location);
+
+  c = build_omp_clause (location, OMP_CLAUSE_FINAL);
+  OMP_CLAUSE_FINAL_EXPR (c) = t;
+  OMP_CLAUSE_CHAIN (c) = list;
+
+  return c;
+}
+
 /* OpenMP 2.5:
    if ( expression ) */
 
@@ -23613,6 +23647,23 @@ cp_parser_omp_clause_if (cp_parser *parser, tree list, location_t location)
   OMP_CLAUSE_IF_EXPR (c) = t;
   OMP_CLAUSE_CHAIN (c) = list;
 
+  return c;
+}
+
+/* OpenMP 3.1:
+   mergeable */
+
+static tree
+cp_parser_omp_clause_mergeable (cp_parser *parser ATTRIBUTE_UNUSED,
+				tree list, location_t location)
+{
+  tree c;
+
+  check_no_duplicate_clause (list, OMP_CLAUSE_MERGEABLE, "mergeable",
+			     location);
+
+  c = build_omp_clause (location, OMP_CLAUSE_MERGEABLE);
+  OMP_CLAUSE_CHAIN (c) = list;
   return c;
 }
 
@@ -23917,6 +23968,10 @@ cp_parser_omp_all_clauses (cp_parser *parser, unsigned int mask,
 						  token->location);
 	  c_name = "default";
 	  break;
+	case PRAGMA_OMP_CLAUSE_FINAL:
+	  clauses = cp_parser_omp_clause_final (parser, clauses, token->location);
+	  c_name = "final";
+	  break;
 	case PRAGMA_OMP_CLAUSE_FIRSTPRIVATE:
 	  clauses = cp_parser_omp_var_list (parser, OMP_CLAUSE_FIRSTPRIVATE,
 					    clauses);
@@ -23930,6 +23985,11 @@ cp_parser_omp_all_clauses (cp_parser *parser, unsigned int mask,
 	  clauses = cp_parser_omp_var_list (parser, OMP_CLAUSE_LASTPRIVATE,
 					    clauses);
 	  c_name = "lastprivate";
+	  break;
+	case PRAGMA_OMP_CLAUSE_MERGEABLE:
+	  clauses = cp_parser_omp_clause_mergeable (parser, clauses,
+						    token->location);
+	  c_name = "mergeable";
 	  break;
 	case PRAGMA_OMP_CLAUSE_NOWAIT:
 	  clauses = cp_parser_omp_clause_nowait (parser, clauses, token->location);
@@ -25150,7 +25210,9 @@ cp_parser_omp_single (cp_parser *parser, cp_token *pragma_tok)
 	| (1u << PRAGMA_OMP_CLAUSE_DEFAULT)		\
 	| (1u << PRAGMA_OMP_CLAUSE_PRIVATE)		\
 	| (1u << PRAGMA_OMP_CLAUSE_FIRSTPRIVATE)	\
-	| (1u << PRAGMA_OMP_CLAUSE_SHARED))
+	| (1u << PRAGMA_OMP_CLAUSE_SHARED)		\
+	| (1u << PRAGMA_OMP_CLAUSE_FINAL)		\
+	| (1u << PRAGMA_OMP_CLAUSE_MERGEABLE))
 
 static tree
 cp_parser_omp_task (cp_parser *parser, cp_token *pragma_tok)
@@ -25175,6 +25237,16 @@ cp_parser_omp_taskwait (cp_parser *parser, cp_token *pragma_tok)
 {
   cp_parser_require_pragma_eol (parser, pragma_tok);
   finish_omp_taskwait ();
+}
+
+/* OpenMP 3.1:
+   # pragma omp taskyield new-line  */
+
+static void
+cp_parser_omp_taskyield (cp_parser *parser, cp_token *pragma_tok)
+{
+  cp_parser_require_pragma_eol (parser, pragma_tok);
+  finish_omp_taskyield ();
 }
 
 /* OpenMP 2.5:
@@ -25345,6 +25417,22 @@ cp_parser_pragma (cp_parser *parser, enum pragma_context context)
 	case pragma_stmt:
 	  error_at (pragma_tok->location,
 		    "%<#pragma omp taskwait%> may only be "
+		    "used in compound statements");
+	  break;
+	default:
+	  goto bad_stmt;
+	}
+      break;
+
+    case PRAGMA_OMP_TASKYIELD:
+      switch (context)
+	{
+	case pragma_compound:
+	  cp_parser_omp_taskyield (parser, pragma_tok);
+	  return false;
+	case pragma_stmt:
+	  error_at (pragma_tok->location,
+		    "%<#pragma omp taskyield%> may only be "
 		    "used in compound statements");
 	  break;
 	default:

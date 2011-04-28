@@ -1,3 +1,32 @@
+2011-04-28  Jakub Jelinek  <jakub@redhat.com>
+
+	* openmp.c (gfc_free_omp_clauses): Free also final_expr.
+	(OMP_CLAUSE_FINAL, OMP_CLAUSE_MERGEABLE): Define.
+	(gfc_match_omp_clauses): Handle parsing final and mergeable
+	clauses.
+	(OMP_TASK_CLAUSES): Allow final and mergeable clauses.
+	(gfc_match_omp_taskyield): New function.
+	(resolve_omp_clauses): Resolve final clause.
+	* dump-parse-tree.c (show_omp_node): Handle EXEC_OMP_TASKYIELD,
+	print final and mergeable clauses.
+	(show_code_node): Handle EXEC_OMP_TASKYIELD.
+	* trans-openmp.c (gfc_trans_omp_clauses): Handle final and
+	mergeable clauses.
+	(gfc_trans_omp_taskyield): New function.
+	(gfc_trans_omp_directive): Handle EXEC_OMP_TASKYIELD.
+	* gfortran.h (gfc_statement): Add ST_OMP_TASKYIELD.
+	(gfc_omp_clauses): Add final_expr and mergeable fields.
+	(gfc_exec_op): Add EXEC_OMP_TASKYIELD.
+	* trans.c (trans_code): Handle EXEC_OMP_TASKYIELD.
+	* frontend-passes.c (gfc_code_walker): Also walk final_expr.
+	* resolve.c (gfc_resolve_blocks, resolve_code): Handle
+	EXEC_OMP_TASKYIELD.
+	* st.c (gfc_free_statement): Likewise.
+	* match.h (gfc_match_omp_taskyield): New prototype.
+	* parse.c (decode_omp_directive): Handle taskyield directive.
+	(case_executable): Add ST_OMP_TASKYIELD case.
+	(gfc_ascii_statement): Handle ST_OMP_TASKYIELD.
+
 2011-04-27  Jakub Jelinek  <jakub@redhat.com>
 
 	* gfortran.h (gfc_statement): Add ST_OMP_END_ATOMIC.
