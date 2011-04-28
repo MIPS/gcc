@@ -2187,7 +2187,7 @@ resolve_global_procedure (gfc_symbol *sym, locus *where,
 
 	  /* F2003, 12.3.1.1 (3c); F2008, 12.4.2.2 (3c)  */
 	  if (sym->ts.type == BT_CHARACTER && sym->attr.if_source != IFSRC_IFBODY
-	      && def_sym->ts.u.cl->length != NULL)
+	      && def_sym->ts.type == BT_CHARACTER && def_sym->ts.u.cl->length != NULL)
 	    {
 	      gfc_charlen *cl = sym->ts.u.cl;
 
@@ -9858,6 +9858,11 @@ apply_default_init_local (gfc_symbol *sym)
 static gfc_try
 resolve_fl_var_and_proc (gfc_symbol *sym, int mp_flag)
 {
+  /* Avoid double diagnostics for function result symbols.  */
+  if ((sym->result || sym->attr.result) && !sym->attr.dummy
+      && (sym->ns != gfc_current_ns))
+    return SUCCESS;
+
   /* Constraints on deferred shape variable.  */
   if (sym->as == NULL || sym->as->type != AS_DEFERRED)
     {
@@ -11946,11 +11951,6 @@ resolve_symbol (gfc_symbol *sym)
   gfc_namespace *ns;
   gfc_component *c;
 
-  /* Avoid double resolution of function result symbols.  */
-  if ((sym->result || sym->attr.result) && !sym->attr.dummy
-      && (sym->ns != gfc_current_ns))
-    return;
-  
   if (sym->attr.flavor == FL_UNKNOWN)
     {
 
