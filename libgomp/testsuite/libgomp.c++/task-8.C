@@ -16,11 +16,11 @@ main ()
 	err = 1;
     #pragma omp task if (0) shared(err)
       {
-	if (!omp_in_final ())
+	if (omp_in_final ())
 	  #pragma omp atomic write
 	    err = 1;
 	#pragma omp task if (0) shared(err)
-	  if (!omp_in_final ())
+	  if (omp_in_final ())
 	    #pragma omp atomic write
 	      err = 1;
       }

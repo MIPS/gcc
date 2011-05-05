@@ -9,12 +9,12 @@
     err = 1
   endif
 !$omp task if (.false.) shared(err)
-  if (.not.omp_in_final ()) then
+  if (omp_in_final ()) then
 !$omp atomic write
     err = 1
   endif
 !$omp task if (.false.) shared(err)
-  if (.not.omp_in_final ()) then
+  if (omp_in_final ()) then
 !$omp atomic write
     err = 1
   endif

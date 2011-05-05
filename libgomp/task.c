@@ -378,8 +378,7 @@ int
 omp_in_final (void)
 {
   struct gomp_thread *thr = gomp_thread ();
-  return thr->task && (thr->task->kind == GOMP_TASK_IFFALSE
-		       || thr->task->final_task);
+  return thr->task && thr->task->final_task;
 }
 
 ialias (omp_in_final)

@@ -1,3 +1,11 @@
+2011-05-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* task.c (omp_in_final): Don't return true if not final_task.
+
+	* testsuite/libgomp.c/task-5.c: Adjust.
+	* testsuite/libgomp.c++/task-8.C: Likewise.
+	* testsuite/libgomp/fortran/task3.f90: Likewise.
+
 2011-04-28  Jakub Jelinek  <jakub@redhat.com>
 
 	* libgomp_g.h (GOMP_taskyield): New prototype.
