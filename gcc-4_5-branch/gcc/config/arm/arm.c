@@ -1114,6 +1114,7 @@ arm_build_builtin_va_list (void)
 			     va_list_type);
   DECL_ARTIFICIAL (va_list_name) = 1;
   TYPE_NAME (va_list_type) = va_list_name;
+  TYPE_STUB_DECL (va_list_type) = va_list_name;
   /* Create the __ap field.  */
   ap_field = build_decl (BUILTINS_LOCATION,
 			 FIELD_DECL, 
@@ -18236,7 +18237,7 @@ neon_emit_pair_result_insn (enum machine_mode mode,
   rtx tmp1 = gen_reg_rtx (mode);
   rtx tmp2 = gen_reg_rtx (mode);
 
-  emit_insn (intfn (tmp1, op1, tmp2, op2));
+  emit_insn (intfn (tmp1, op1, op2, tmp2));
 
   emit_move_insn (mem, tmp1);
   mem = adjust_address (mem, mode, GET_MODE_SIZE (mode));

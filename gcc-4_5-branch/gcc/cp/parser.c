@@ -2333,6 +2333,7 @@ cp_parser_diagnose_invalid_type_name (cp_parser *parser,
 				      location_t location)
 {
   tree decl, old_scope;
+  cp_parser_commit_to_tentative_parse (parser);
   /* Try to lookup the identifier.  */
   old_scope = parser->scope;
   parser->scope = scope;
@@ -2423,7 +2424,6 @@ cp_parser_diagnose_invalid_type_name (cp_parser *parser,
       else
 	gcc_unreachable ();
     }
-  cp_parser_commit_to_tentative_parse (parser);
 }
 
 /* Check for a common situation where a type-name should be present,
@@ -3325,6 +3325,12 @@ cp_parser_primary_expression (cp_parser *parser,
 	       `&A::B' might be a pointer-to-member, but `&(A::B)' is
 	       not.  */
 	    finish_parenthesized_expr (expr);
+	    /* DR 705: Wrapping an unqualified name in parentheses
+	       suppresses arg-dependent lookup.  We want to pass back
+	       CP_ID_KIND_QUALIFIED for suppressing vtable lookup
+	       (c++/37862), but none of the others.  */
+	    if (*idk != CP_ID_KIND_QUALIFIED)
+	      *idk = CP_ID_KIND_NONE;
 	  }
 	/* The `>' token might be the end of a template-id or
 	   template-parameter-list now.  */
@@ -3341,8 +3347,14 @@ cp_parser_primary_expression (cp_parser *parser,
       if (c_dialect_objc ())
         /* We have an Objective-C++ message. */
         return cp_parser_objc_expression (parser);
-      maybe_warn_cpp0x (CPP0X_LAMBDA_EXPR);
-      return cp_parser_lambda_expression (parser);
+      {
+	tree lam = cp_parser_lambda_expression (parser);
+	/* Don't warn about a failed tentative parse.  */
+	if (cp_parser_error_occurred (parser))
+	  return error_mark_node;
+	maybe_warn_cpp0x (CPP0X_LAMBDA_EXPR);
+	return lam;
+      }
 
     case CPP_OBJC_STRING:
       if (c_dialect_objc ())
