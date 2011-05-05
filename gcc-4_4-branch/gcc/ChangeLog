@@ -1,3 +1,55 @@
+2011-05-04  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2011-05-03  Uros Bizjak  <ubizjak@gmail.com>
+		    Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/48774
+	* config/i386/i386.c (ix86_match_ccmode): For CC{A,C,O,S}mode
+	only succeed if req_mode is the same as set_mode.
+
+	2011-04-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/48809
+	* tree-switch-conversion.c (build_arrays): Compute tidx in unsigned
+	type.
+	(gen_inbound_check): Don't compute index_expr - range_min in utype
+	again, instead reuse SSA_NAME initialized in build_arrays.
+	Remove two useless gsi_for_stmt calls.
+
+	2011-04-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/48597
+	* final.c (final_scan_insn): Call dwarf2out_frame_debug even for
+	inline asm.
+
+2011-04-24  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/48288
+	* config/pa/predicates.md (ior_operand): Delete predicate.
+	(cint_ior_operand, reg_or_cint_ior_operand): New predicates.
+	* config/pa/pa.md (iordi3): Use reg_or_cint_ior_operand predicate in
+	expander.  Use cint_ior_operand in unnamed insn.
+	(iorsi3): Likewise.
+	* config/pa/pa-protos.h (ior_operand): Delete declarations.
+
+2011-04-19  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* config/pa/pa.h (REGISTER_MOVE_COST): Increase to 18 cost of
+	move from floating point to shift amount register.
+
+	Backport from mainline:
+	2011-04-08  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/48366
+	* config/pa/pa.c (emit_move_sequence): Remove secondary reload
+	support for floating point to shift amount amount register copies.
+	(pa_secondary_reload): Return GENERAL_REGS for floating point/shift
+	amount register copies.
+	* config/pa/pa32-regs.h (HARD_REGNO_MODE_OK): For shift amount
+	register, return false if mode isn't a scalar integer mode.
+	* config/pa/pa64-regs.h (HARD_REGNO_MODE_OK): Likewise.
+
 2011-01-06  Changpeng Fang <changpeng.fang@amd.com>
 
 	Bobcat Enablement
