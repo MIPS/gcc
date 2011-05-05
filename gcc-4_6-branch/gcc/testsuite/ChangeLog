@@ -1,3 +1,53 @@
+2011-05-05  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/init/new30.C: New.
+
+2011-05-05  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/discr29.ad[sb]: New test.
+	* gnat.dg/discr30.adb: Likewise.
+
+2011-05-05  Julian Brown  <julian@codesourcery.com>
+
+	* gcc.target/arm/neon-vset_lanes8.c: New test.
+
+2011-05-05  Ira Rosen  <ira.rosen@linaro.org>
+
+	Backport from mainline:
+	2011-04-18  Ulrich Weigand  <ulrich.weigand@linaro.org>
+		    Ira Rosen  <ira.rosen@linaro.org>
+
+	PR target/48252
+	* gcc.target/arm/pr48252.c: New test.
+
+2011-05-04  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/conversion/base1.C: New.
+
+2011-05-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/48774
+	* gcc.dg/pr48774.c: New test.
+
+2011-04-30  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/48462
+	PR fortran/48746
+	* gfortran.dg/realloc_on_assign_7.f03: New test.
+
+2011-04-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/48809
+	* gcc.c-torture/execute/pr48809.c: New test.
+
+2011-04-29  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/48810
+	* gfortran.dg/typebound_proc_22.f90: New.
+
+	PR fortran/48800
+	* gfortran.dg/interface_36.f90: New.
+
 2011-04-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Backport from mainline
