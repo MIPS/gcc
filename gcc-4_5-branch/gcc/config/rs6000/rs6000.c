@@ -6124,10 +6124,11 @@ rs6000_legitimize_tls_address (rtx addr, enum tls_model model)
 
       if (model == TLS_MODEL_GLOBAL_DYNAMIC)
 	{
-	  r3 = gen_rtx_REG (Pmode, 3);
 	  tga = rs6000_tls_get_addr ();
-	  emit_library_call_value (tga, dest, LCT_CONST, Pmode, 1, r3, Pmode);
+	  emit_library_call_value (tga, dest, LCT_CONST, Pmode,
+				   1, const0_rtx, Pmode);
 
+	  r3 = gen_rtx_REG (Pmode, 3);
 	  if (DEFAULT_ABI == ABI_AIX && TARGET_64BIT)
 	    insn = gen_tls_gd_aix64 (r3, got, addr, tga, const0_rtx);
 	  else if (DEFAULT_ABI == ABI_AIX && !TARGET_64BIT)
@@ -6144,11 +6145,12 @@ rs6000_legitimize_tls_address (rtx addr, enum tls_model model)
 	}
       else if (model == TLS_MODEL_LOCAL_DYNAMIC)
 	{
-	  r3 = gen_rtx_REG (Pmode, 3);
 	  tga = rs6000_tls_get_addr ();
 	  tmp1 = gen_reg_rtx (Pmode);
-	  emit_library_call_value (tga, tmp1, LCT_CONST, Pmode, 1, r3, Pmode);
+	  emit_library_call_value (tga, tmp1, LCT_CONST, Pmode,
+				   1, const0_rtx, Pmode);
 
+	  r3 = gen_rtx_REG (Pmode, 3);
 	  if (DEFAULT_ABI == ABI_AIX && TARGET_64BIT)
 	    insn = gen_tls_ld_aix64 (r3, got, tga, const0_rtx);
 	  else if (DEFAULT_ABI == ABI_AIX && !TARGET_64BIT)
@@ -14639,7 +14641,7 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
   /* Adjust the address if it changed.  */
   if (addr != XEXP (mem, 0))
     {
-      mem = change_address (mem, mode, addr);
+      mem = replace_equiv_address_nv (mem, addr);
       if (TARGET_DEBUG_ADDR)
 	fprintf (stderr, "\nrs6000_secondary_reload_inner, mem adjusted.\n");
     }
