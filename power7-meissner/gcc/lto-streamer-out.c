@@ -401,7 +401,7 @@ pack_ts_decl_common_value_fields (struct bitpack_d *bp, tree expr)
     {
       bp_pack_value (bp, DECL_PACKED (expr), 1);
       bp_pack_value (bp, DECL_NONADDRESSABLE_P (expr), 1);
-      bp_pack_value (bp, DECL_OFFSET_ALIGN (expr), 8);
+      bp_pack_value (bp, expr->decl_common.off_align, 8);
     }
 
   if (TREE_CODE (expr) == RESULT_DECL
@@ -1156,7 +1156,7 @@ lto_output_tree_pointers (struct output_block *ob, tree expr, bool ref_p)
 
   code = TREE_CODE (expr);
 
-  if (CODE_CONTAINS_STRUCT (code, TS_COMMON))
+  if (CODE_CONTAINS_STRUCT (code, TS_TYPED))
     lto_output_ts_common_tree_pointers (ob, expr, ref_p);
 
   if (CODE_CONTAINS_STRUCT (code, TS_VECTOR))
@@ -1759,6 +1759,13 @@ output_gimple_stmt (struct output_block *ob, gimple stmt)
 	    }
 	  lto_output_tree_ref (ob, op);
 	}
+      if (is_gimple_call (stmt))
+	{
+	  if (gimple_call_internal_p (stmt))
+	    output_sleb128 (ob, (int) gimple_call_internal_fn (stmt));
+	  else
+	    lto_output_tree_ref (ob, gimple_call_fntype (stmt));
+	}
       break;
 
     case GIMPLE_NOP:
@@ -1922,7 +1929,6 @@ output_function (struct cgraph_node *node)
   bp_pack_value (&bp, fn->can_throw_non_call_exceptions, 1);
   bp_pack_value (&bp, fn->always_inline_functions_inlined, 1);
   bp_pack_value (&bp, fn->after_inlining, 1);
-  bp_pack_value (&bp, fn->dont_save_pending_sizes_p, 1);
   bp_pack_value (&bp, fn->stdarg, 1);
   bp_pack_value (&bp, fn->has_nonlocal_label, 1);
   bp_pack_value (&bp, fn->calls_alloca, 1);

@@ -41,6 +41,13 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #include <errno.h>
 
 
+/* min macro that evaluates its arguments only once.  */
+#define min(a,b)		\
+  ({ typeof (a) _a = (a);	\
+    typeof (b) _b = (b);	\
+    _a < _b ? _a : _b; })
+
+
 /* For mingw, we don't identify files by their inode number, but by a
    64-bit identifier created from a BY_HANDLE_FILE_INFORMATION. */
 #ifdef __MINGW32__
@@ -850,8 +857,7 @@ mem_flush (unix_stream * s __attribute__ ((unused)))
 static int
 mem_close (unix_stream * s)
 {
-  if (s != NULL)
-    free (s);
+  free (s);
 
   return 0;
 }
@@ -997,10 +1003,10 @@ int
 unpack_filename (char *cstring, const char *fstring, int len)
 {
   if (fstring == NULL)
-    return 1;
+    return EFAULT;
   len = fstrlen (fstring, len);
   if (len >= PATH_MAX)
-    return 1;
+    return ENAMETOOLONG;
 
   memmove (cstring, fstring, len);
   cstring[len] = '\0';
@@ -1068,7 +1074,8 @@ tempfile (st_parameter_open *opp)
   template = get_mem (tempdirlen + 23);
 
 #ifdef HAVE_MKSTEMP
-  sprintf (template, "%s%sgfortrantmpXXXXXX", tempdir, slash);
+  snprintf (template, tempdirlen + 23, "%s%sgfortrantmpXXXXXX", 
+	    tempdir, slash);
 
   fd = mkstemp (template);
 
@@ -1078,7 +1085,8 @@ tempfile (st_parameter_open *opp)
   slashlen = strlen (slash);
   do
     {
-      sprintf (template, "%s%sgfortrantmpaaaXXXXXX", tempdir, slash);
+      snprintf (template, tempdirlen + 23, "%s%sgfortrantmpaaaXXXXXX", 
+		tempdir, slash);
       if (count > 0)
 	{
 	  int c = count;
@@ -1123,15 +1131,17 @@ tempfile (st_parameter_open *opp)
 static int
 regular_file (st_parameter_open *opp, unit_flags *flags)
 {
-  char path[PATH_MAX + 1];
+  char path[min(PATH_MAX, opp->file_len + 1)];
   int mode;
   int rwflag;
   int crflag;
   int fd;
+  int err;
 
-  if (unpack_filename (path, opp->file, opp->file_len))
+  err = unpack_filename (path, opp->file, opp->file_len);
+  if (err)
     {
-      errno = ENOENT;		/* Fake an OS error */
+      errno = err;		/* Fake an OS error */
       return -1;
     }
 
@@ -1405,7 +1415,7 @@ st_printf (const char *format, ...)
 int
 compare_file_filename (gfc_unit *u, const char *name, int len)
 {
-  char path[PATH_MAX + 1];
+  char path[min(PATH_MAX, len + 1)];
   struct stat st;
 #ifdef HAVE_WORKING_STAT
   unix_stream *s;
@@ -1505,7 +1515,7 @@ find_file0 (gfc_unit *u, FIND_FILE0_DECL)
 gfc_unit *
 find_file (const char *file, gfc_charlen_type file_len)
 {
-  char path[PATH_MAX + 1];
+  char path[min(PATH_MAX, file_len + 1)];
   struct stat st[1];
   gfc_unit *u;
 #if defined(__MINGW32__) && !HAVE_WORKING_STAT
@@ -1624,11 +1634,12 @@ flush_all_units (void)
 int
 delete_file (gfc_unit * u)
 {
-  char path[PATH_MAX + 1];
+  char path[min(PATH_MAX, u->file_len + 1)];
+  int err = unpack_filename (path, u->file, u->file_len);
 
-  if (unpack_filename (path, u->file, u->file_len))
+  if (err)
     {				/* Shouldn't be possible */
-      errno = ENOENT;
+      errno = err;
       return 1;
     }
 
@@ -1642,7 +1653,7 @@ delete_file (gfc_unit * u)
 int
 file_exists (const char *file, gfc_charlen_type file_len)
 {
-  char path[PATH_MAX + 1];
+  char path[min(PATH_MAX, file_len + 1)];
 
   if (unpack_filename (path, file, file_len))
     return 0;
@@ -1656,7 +1667,7 @@ file_exists (const char *file, gfc_charlen_type file_len)
 GFC_IO_INT
 file_size (const char *file, gfc_charlen_type file_len)
 {
-  char path[PATH_MAX + 1];
+  char path[min(PATH_MAX, file_len + 1)];
   struct stat statbuf;
 
   if (unpack_filename (path, file, file_len))
@@ -1677,7 +1688,7 @@ static const char yes[] = "YES", no[] = "NO", unknown[] = "UNKNOWN";
 const char *
 inquire_sequential (const char *string, int len)
 {
-  char path[PATH_MAX + 1];
+  char path[min(PATH_MAX, len + 1)];
   struct stat statbuf;
 
   if (string == NULL ||
@@ -1701,7 +1712,7 @@ inquire_sequential (const char *string, int len)
 const char *
 inquire_direct (const char *string, int len)
 {
-  char path[PATH_MAX + 1];
+  char path[min(PATH_MAX, len + 1)];
   struct stat statbuf;
 
   if (string == NULL ||
@@ -1725,7 +1736,7 @@ inquire_direct (const char *string, int len)
 const char *
 inquire_formatted (const char *string, int len)
 {
-  char path[PATH_MAX + 1];
+  char path[min(PATH_MAX, len + 1)];
   struct stat statbuf;
 
   if (string == NULL ||
@@ -1760,7 +1771,7 @@ inquire_unformatted (const char *string, int len)
 static const char *
 inquire_access (const char *string, int len, int mode)
 {
-  char path[PATH_MAX + 1];
+  char path[min(PATH_MAX, len + 1)];
 
   if (string == NULL || unpack_filename (path, string, len) ||
       access (path, mode) < 0)

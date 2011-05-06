@@ -182,13 +182,6 @@ enum mips_address_type {
   ADDRESS_SYMBOLIC
 };
 
-/* Enumerates the setting of the -mr10k-cache-barrier option.  */
-enum mips_r10k_cache_barrier_setting {
-  R10K_CACHE_BARRIER_NONE,
-  R10K_CACHE_BARRIER_STORE,
-  R10K_CACHE_BARRIER_LOAD_STORE
-};
-
 /* Macros to create an enumeration identifier for a function prototype.  */
 #define MIPS_FTYPE_NAME1(A, B) MIPS_##A##_FTYPE_##B
 #define MIPS_FTYPE_NAME2(A, B, C) MIPS_##A##_FTYPE_##B##_##C
@@ -531,9 +524,6 @@ int mips_isa;
 /* The architecture selected by -mipsN, or null if -mipsN wasn't used.  */
 static const struct mips_cpu_info *mips_isa_option_info;
 
-/* Which ABI to use.  */
-int mips_abi = MIPS_ABI_DEFAULT;
-
 /* Which cost information to use.  */
 static const struct mips_rtx_cost_data *mips_cost;
 
@@ -550,12 +540,6 @@ static int mips_base_move_loop_invariants; /* flag_move_loop_invariants */
 static int mips_base_align_loops; /* align_loops */
 static int mips_base_align_jumps; /* align_jumps */
 static int mips_base_align_functions; /* align_functions */
-
-/* The -mcode-readable setting.  */
-enum mips_code_readable_setting mips_code_readable = CODE_READABLE_YES;
-
-/* The -mr10k-cache-barrier setting.  */
-static enum mips_r10k_cache_barrier_setting mips_r10k_cache_barrier;
 
 /* Index [M][R] is true if register R is allowed to hold a value of mode M.  */
 bool mips_hard_regno_mode_ok[(int) MAX_MACHINE_MODE][FIRST_PSEUDO_REGISTER];
@@ -1535,6 +1519,14 @@ mips_build_integer (struct mips_integer_op *codes,
     }
 }
 
+/* Implement TARGET_LEGITIMATE_CONSTANT_P.  */
+
+static bool
+mips_legitimate_constant_p (enum machine_mode mode ATTRIBUTE_UNUSED, rtx x)
+{
+  return mips_const_insns (x) > 0;
+}
+
 /* Return true if symbols of type TYPE require a GOT access.  */
 
 static bool
@@ -1997,7 +1989,7 @@ mips_tls_symbol_ref_1 (rtx *x, void *data ATTRIBUTE_UNUSED)
 /* Implement TARGET_CANNOT_FORCE_CONST_MEM.  */
 
 static bool
-mips_cannot_force_const_mem (rtx x)
+mips_cannot_force_const_mem (enum machine_mode mode, rtx x)
 {
   enum mips_symbol_type type;
   rtx base, offset;
@@ -2016,7 +2008,7 @@ mips_cannot_force_const_mem (rtx x)
      references, reload will consider forcing C into memory and using
      one of the instruction's memory alternatives.  Returning false
      here will force it to use an input reload instead.  */
-  if (CONST_INT_P (x) && LEGITIMATE_CONSTANT_P (x))
+  if (CONST_INT_P (x) && mips_legitimate_constant_p (mode, x))
     return true;
 
   split_const (x, &base, &offset);
@@ -2387,7 +2379,7 @@ mips_const_insns (rtx x)
 	    {
 	      if (SMALL_INT (offset))
 		return n + 1;
-	      else if (!targetm.cannot_force_const_mem (x))
+	      else if (!targetm.cannot_force_const_mem (GET_MODE (x), x))
 		return n + 1 + mips_build_integer (codes, INTVAL (offset));
 	    }
 	}
@@ -3090,7 +3082,7 @@ mips_legitimize_const_move (enum machine_mode mode, rtx dest, rtx src)
      forced into memory, as it usually produces better code.  */
   split_const (src, &base, &offset);
   if (offset != const0_rtx
-      && (targetm.cannot_force_const_mem (src)
+      && (targetm.cannot_force_const_mem (mode, src)
 	  || (!TARGET_MIPS16 && can_create_pseudo_p ())))
     {
       base = mips_force_temporary (dest, base);
@@ -6075,7 +6067,7 @@ mips16_build_function_stub (void)
   /* Build a decl for the stub.  */
   stubdecl = build_decl (BUILTINS_LOCATION,
 			 FUNCTION_DECL, get_identifier (stubname),
-			 build_function_type (void_type_node, NULL_TREE));
+			 build_function_type_list (void_type_node, NULL_TREE));
   DECL_SECTION_NAME (stubdecl) = build_string (strlen (secname), secname);
   DECL_RESULT (stubdecl) = build_decl (BUILTINS_LOCATION,
 				       RESULT_DECL, NULL_TREE, void_type_node);
@@ -6321,7 +6313,8 @@ mips16_build_call_stub (rtx retval, rtx *fn_ptr, rtx args_size, int fp_code)
       stubid = get_identifier (stubname);
       stubdecl = build_decl (BUILTINS_LOCATION,
 			     FUNCTION_DECL, stubid,
-			     build_function_type (void_type_node, NULL_TREE));
+			     build_function_type_list (void_type_node,
+						       NULL_TREE));
       DECL_SECTION_NAME (stubdecl) = build_string (strlen (secname), secname);
       DECL_RESULT (stubdecl) = build_decl (BUILTINS_LOCATION,
 					   RESULT_DECL, NULL_TREE,
@@ -9097,6 +9090,11 @@ mips_interrupt_extra_call_saved_reg_p (unsigned int regno)
 static bool
 mips_cfun_call_saved_reg_p (unsigned int regno)
 {
+  /* If the user makes an ordinarily-call-saved register global,
+     that register is no longer call-saved.  */
+  if (global_regs[regno])
+    return false;
+
   /* Interrupt handlers need to save extra registers.  */
   if (cfun->machine->interrupt_handler_p
       && mips_interrupt_extra_call_saved_reg_p (regno))
@@ -10783,25 +10781,26 @@ mips_cannot_change_mode_class (enum machine_mode from ATTRIBUTE_UNUSED,
 			       enum machine_mode to ATTRIBUTE_UNUSED,
 			       enum reg_class rclass)
 {
-  /* There are several problems with changing the modes of values
-     in floating-point registers:
+  /* There are several problems with changing the modes of values in
+     floating-point registers:
 
      - When a multi-word value is stored in paired floating-point
-       registers, the first register always holds the low word.
-       We therefore can't allow FPRs to change between single-word
-       and multi-word modes on big-endian targets.
+       registers, the first register always holds the low word.  We
+       therefore can't allow FPRs to change between single-word and
+       multi-word modes on big-endian targets.
 
-     - GCC assumes that each word of a multiword register can be accessed
-       individually using SUBREGs.  This is not true for floating-point
-       registers if they are bigger than a word.
+     - GCC assumes that each word of a multiword register can be
+       accessed individually using SUBREGs.  This is not true for
+       floating-point registers if they are bigger than a word.
 
      - Loading a 32-bit value into a 64-bit floating-point register
-       will not sign-extend the value, despite what LOAD_EXTEND_OP says.
-       We can't allow FPRs to change from SImode to to a wider mode on
-       64-bit targets.
+       will not sign-extend the value, despite what LOAD_EXTEND_OP
+       says.  We can't allow FPRs to change from SImode to a wider
+       mode on 64-bit targets.
 
-     - If the FPU has already interpreted a value in one format, we must
-       not ask it to treat the value as having a different format.
+     - If the FPU has already interpreted a value in one format, we
+       must not ask it to treat the value as having a different
+       format.
 
      We therefore disallow all mode changes involving FPRs.  */
   return reg_classes_intersect_p (FP_REGS, rclass);
@@ -11080,7 +11079,7 @@ mips_secondary_reload_class (enum reg_class rclass,
 	/* In this case we can use mtc1, mfc1, dmtc1 or dmfc1.  */
 	return NO_REGS;
 
-      if (CONSTANT_P (x) && !targetm.cannot_force_const_mem (x))
+      if (CONSTANT_P (x) && !targetm.cannot_force_const_mem (mode, x))
 	/* We can force the constant to memory and use lwc1
 	   and ldc1.  As above, we will use pairs of lwc1s if
 	   ldc1 is not supported.  */
@@ -14880,9 +14879,9 @@ mips_reorg_process_insns (void)
   if (crtl->profile)
     cfun->machine->all_noreorder_p = false;
 
-  /* Code compiled with -mfix-vr4120 can't be all noreorder because
-     we rely on the assembler to work around some errata.  */
-  if (TARGET_FIX_VR4120)
+  /* Code compiled with -mfix-vr4120 or -mfix-24k can't be all noreorder
+     because we rely on the assembler to work around some errata.  */
+  if (TARGET_FIX_VR4120 || TARGET_FIX_24K)
     cfun->machine->all_noreorder_p = false;
 
   /* The same is true for -mfix-vr4130 if we might generate MFLO or
@@ -15449,21 +15448,6 @@ mips_handle_option (struct gcc_options *opts, struct gcc_options *opts_set,
 
   switch (code)
     {
-    case OPT_mabi_:
-      if (strcmp (arg, "32") == 0)
-	mips_abi = ABI_32;
-      else if (strcmp (arg, "o64") == 0)
-	mips_abi = ABI_O64;
-      else if (strcmp (arg, "n32") == 0)
-	mips_abi = ABI_N32;
-      else if (strcmp (arg, "64") == 0)
-	mips_abi = ABI_64;
-      else if (strcmp (arg, "eabi") == 0)
-	mips_abi = ABI_EABI;
-      else
-	return false;
-      return true;
-
     case OPT_march_:
     case OPT_mtune_:
       return mips_parse_cpu (arg) != 0;
@@ -15473,29 +15457,7 @@ mips_handle_option (struct gcc_options *opts, struct gcc_options *opts_set,
       return mips_isa_option_info != 0;
 
     case OPT_mno_flush_func:
-      mips_cache_flush_func = NULL;
-      return true;
-
-    case OPT_mcode_readable_:
-      if (strcmp (arg, "yes") == 0)
-	mips_code_readable = CODE_READABLE_YES;
-      else if (strcmp (arg, "pcrel") == 0)
-	mips_code_readable = CODE_READABLE_PCREL;
-      else if (strcmp (arg, "no") == 0)
-	mips_code_readable = CODE_READABLE_NO;
-      else
-	return false;
-      return true;
-
-    case OPT_mr10k_cache_barrier_:
-      if (strcmp (arg, "load-store") == 0)
-	mips_r10k_cache_barrier = R10K_CACHE_BARRIER_LOAD_STORE;
-      else if (strcmp (arg, "store") == 0)
-	mips_r10k_cache_barrier = R10K_CACHE_BARRIER_STORE;
-      else if (strcmp (arg, "none") == 0)
-	mips_r10k_cache_barrier = R10K_CACHE_BARRIER_NONE;
-      else
-	return false;
+      opts->x_mips_cache_flush_func = NULL;
       return true;
 
     default:
@@ -16564,6 +16526,9 @@ mips_shift_truncation_mask (enum machine_mode mode)
 
 #undef TARGET_CANNOT_FORCE_CONST_MEM
 #define TARGET_CANNOT_FORCE_CONST_MEM mips_cannot_force_const_mem
+
+#undef TARGET_LEGITIMATE_CONSTANT_P
+#define TARGET_LEGITIMATE_CONSTANT_P mips_legitimate_constant_p
 
 #undef TARGET_ENCODE_SECTION_INFO
 #define TARGET_ENCODE_SECTION_INFO mips_encode_section_info

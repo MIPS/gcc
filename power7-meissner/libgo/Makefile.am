@@ -177,10 +177,10 @@ toolexeclibgocryptodir = $(toolexeclibgodir)/crypto
 
 toolexeclibgocrypto_DATA = \
 	crypto/aes.gox \
-	crypto/block.gox \
 	crypto/blowfish.gox \
 	crypto/cast5.gox \
 	crypto/cipher.gox \
+	crypto/des.gox \
 	crypto/dsa.gox \
 	crypto/ecdsa.gox \
 	crypto/elliptic.gox \
@@ -727,9 +727,12 @@ go_os_files = \
 	go/os/env.go \
 	go/os/env_unix.go \
 	go/os/error.go \
+	go/os/error_posix.go \
 	go/os/exec.go \
+	go/os/exec_posix.go \
 	go/os/exec_unix.go \
 	go/os/file.go \
+	go/os/file_posix.go \
 	go/os/file_unix.go \
 	go/os/getwd.go \
 	go/os/path.go \
@@ -822,9 +825,13 @@ go_sync_files = \
 	go/sync/waitgroup.go
 
 if LIBGO_IS_SOLARIS
-go_syslog_file = go/syslog/syslog_solaris.go
+go_syslog_file = go/syslog/syslog_libc.go
+else
+if LIBGO_IS_IRIX
+go_syslog_file = go/syslog/syslog_libc.go
 else
 go_syslog_file = go/syslog/syslog_unix.go
+endif
 endif
 
 go_syslog_files = \
@@ -932,16 +939,6 @@ go_crypto_aes_files = \
 	go/crypto/aes/block.go \
 	go/crypto/aes/cipher.go \
 	go/crypto/aes/const.go
-go_crypto_block_files = \
-	go/crypto/block/cbc.go \
-	go/crypto/block/cfb.go \
-	go/crypto/block/cmac.go \
-	go/crypto/block/cipher.go \
-	go/crypto/block/ctr.go \
-	go/crypto/block/eax.go \
-	go/crypto/block/ecb.go \
-	go/crypto/block/ofb.go \
-	go/crypto/block/xor.go
 go_crypto_blowfish_files = \
 	go/crypto/blowfish/block.go \
 	go/crypto/blowfish/const.go \
@@ -956,6 +953,10 @@ go_crypto_cipher_files = \
 	go/crypto/cipher/io.go \
 	go/crypto/cipher/ocfb.go \
 	go/crypto/cipher/ofb.go
+go_crypto_des_files = \
+	go/crypto/des/block.go \
+	go/crypto/des/cipher.go \
+	go/crypto/des/const.go
 go_crypto_dsa_files = \
 	go/crypto/dsa/dsa.go
 go_crypto_ecdsa_files = \
@@ -1303,7 +1304,11 @@ else
 if LIBGO_IS_SOLARIS
 syscall_socket_os_file = syscalls/socket_solaris.go
 else
+if LIBGO_IS_IRIX
+syscall_socket_os_file = syscalls/socket_irix.go
+else
 syscall_socket_os_file = syscalls/socket_bsd.go
+endif
 endif
 endif
 
@@ -1428,10 +1433,10 @@ libgo_go_objs = \
 	container/ring.lo \
 	container/vector.lo \
 	crypto/aes.lo \
-	crypto/block.lo \
 	crypto/blowfish.lo \
 	crypto/cast5.lo \
 	crypto/cipher.lo \
+	crypto/des.lo \
 	crypto/dsa.lo \
 	crypto/ecdsa.lo \
 	crypto/elliptic.lo \
@@ -1511,7 +1516,7 @@ libgo_go_objs = \
 
 libgo_la_SOURCES = $(runtime_files)
 
-libgo_la_LDFLAGS = $(PTHREAD_CFLAGS)
+libgo_la_LDFLAGS = $(PTHREAD_CFLAGS) $(AM_LDFLAGS)
 
 libgo_la_LIBADD = \
 	$(libgo_go_objs) $(LIBFFI) $(PTHREAD_LIBS) $(MATH_LIBS) $(NET_LIBS)
@@ -1547,12 +1552,16 @@ GOTESTFLAGS =
 
 # Check a package.
 CHECK = \
-	GC="$(GOC) -L `${PWD_COMMAND}` -L `${PWD_COMMAND}`/.libs -Wl,-R,`${PWD_COMMAND}`/.libs"; \
+	GC="$(GOC) -L `${PWD_COMMAND}` -L `${PWD_COMMAND}`/.libs"; \
 	export GC; \
 	RUNTESTFLAGS="$(RUNTESTFLAGS)"; \
 	export RUNTESTFLAGS; \
 	MAKE="$(MAKE)"; \
 	export MAKE; \
+	libgccdir=`${GOC} -print-libgcc-file-name | sed -e 's|/[^/]*$$||'`; \
+	LD_LIBRARY_PATH="`${PWD_COMMAND}`/.libs:$${libgccdir}:${LD_LIBRARY_PATH}"; \
+	LD_LIBRARY_PATH=`echo $${LD_LIBRARY_PATH} | sed 's,::*,:,g;s,^:*,,;s,:*$$,,'`; \
+	export LD_LIBRARY_PATH; \
 	rm -f $@-testsum $@-testlog; \
 	prefix=`if test "$(@D)" = "regexp"; then echo regexp-test; else dirname $(@D); fi`; \
 	test "$${prefix}" != "." || prefix="$(@D)"; \
@@ -2026,13 +2035,6 @@ crypto/aes/check: $(CHECK_DEPS)
 	@$(CHECK)
 .PHONY: crypto/aes/check
 
-crypto/block.lo: $(go_crypto_block_files) fmt.gox io.gox os.gox strconv.gox
-	$(BUILDPACKAGE)
-crypto/block/check: $(CHECK_DEPS)
-	@$(MKDIR_P) crypto/block
-	@$(CHECK)
-.PHONY: crypto/block/check
-
 crypto/blowfish.lo: $(go_crypto_blowfish_files) os.gox strconv.gox
 	$(BUILDPACKAGE)
 crypto/blowfish/check: $(CHECK_DEPS)
@@ -2053,6 +2055,13 @@ crypto/cipher/check: $(CHECK_DEPS)
 	@$(MKDIR_P) crypto/cipher
 	@$(CHECK)
 .PHONY: crypto/cipher/check
+
+crypto/des.lo: $(go_crypto_des_files) encoding/binary.gox os.gox strconv.gox
+	$(BUILDPACKAGE)
+crypto/des/check: $(CHECK_DEPS)
+	@$(MKDIR_P) crypto/des
+	@$(CHECK)
+.PHONY: crypto/des/check
 
 crypto/dsa.lo: $(go_crypto_dsa_files) big.gox io.gox os.gox
 	$(BUILDPACKAGE)
@@ -2139,7 +2148,8 @@ crypto/ripemd160/check: $(CHECK_DEPS)
 .PHONY: crypto/ripemd160/check
 
 crypto/rsa.lo: $(go_crypto_rsa_files) big.gox crypto.gox crypto/sha1.gox \
-		crypto/subtle.gox encoding/hex.gox hash.gox io.gox os.gox
+		crypto/subtle.gox encoding/hex.gox hash.gox io.gox os.gox \
+		sync.gox
 	$(BUILDPACKAGE)
 crypto/rsa/check: $(CHECK_DEPS)
 	@$(MKDIR_P) crypto/rsa
@@ -2475,8 +2485,8 @@ http/cgi/check: $(CHECK_DEPS)
 	@$(CHECK)
 .PHONY: http/cgi/check
 
-http/httptest.lo: $(go_http_httptest_files) bytes.gox fmt.gox http.gox \
-		net.gox os.gox
+http/httptest.lo: $(go_http_httptest_files) bytes.gox crypto/rand.gox \
+		crypto/tls.gox fmt.gox http.gox net.gox os.gox time.gox
 	$(BUILDPACKAGE)
 http/httptest/check: $(CHECK_DEPS)
 	@$(MKDIR_P) http/httptest
@@ -2767,13 +2777,13 @@ container/vector.gox: container/vector.lo
 
 crypto/aes.gox: crypto/aes.lo
 	$(BUILDGOX)
-crypto/block.gox: crypto/block.lo
-	$(BUILDGOX)
 crypto/blowfish.gox: crypto/blowfish.lo
 	$(BUILDGOX)
 crypto/cast5.gox: crypto/cast5.lo
 	$(BUILDGOX)
 crypto/cipher.gox: crypto/cipher.lo
+	$(BUILDGOX)
+crypto/des.gox: crypto/des.lo
 	$(BUILDGOX)
 crypto/dsa.gox: crypto/dsa.lo
 	$(BUILDGOX)
@@ -3002,10 +3012,10 @@ TEST_PACKAGES = \
 	container/ring/check \
 	container/vector/check \
 	crypto/aes/check \
-	crypto/block/check \
 	crypto/blowfish/check \
 	crypto/cast5/check \
 	crypto/cipher/check \
+	crypto/des/check \
 	crypto/dsa/check \
 	crypto/ecdsa/check \
 	crypto/elliptic/check \
@@ -3067,55 +3077,103 @@ TEST_PACKAGES = \
 	testing/quick/check \
 	testing/script/check
 
+check: check-tail
+check-recursive: check-head
+
+check-head:
+	@echo "Test Run By $${USER} on `date`" > libgo.head
+	@echo "Native configuration is $(host_triplet)" >> libgo.head
+	@echo >> libgo.head
+	@echo "		=== libgo tests ===" >> libgo.head
+	@echo >> libgo.head
+
+check-tail: check-recursive check-multi
+	@lib=`${PWD_COMMAND} | sed -e 's,^.*/\([^/][^/]*\)$$,\1,'`; \
+	for dir in . $(MULTIDIRS); do \
+	  mv ../$${dir}/$${lib}/libgo.sum ../$${dir}/$${lib}/libgo.sum.sep; \
+	  mv ../$${dir}/$${lib}/libgo.log ../$${dir}/$${lib}/libgo.log.sep; \
+	done; \
+	mv libgo.head libgo.sum; \
+	cp libgo.sum libgo.log; \
+	echo "Schedule of variations:" >> libgo.sum; \
+	for dir in . $(MULTIDIRS); do \
+	  multidir=../$${dir}/$${lib}; \
+	  multivar=`cat $${multidir}/libgo.var`; \
+	  echo "    $${multivar}" >> libgo.sum; \
+	done; \
+	echo >> libgo.sum; \
+	pass=0; fail=0; untested=0; \
+	for dir in . $(MULTIDIRS); do \
+	  multidir=../$${dir}/$${lib}; \
+	  multivar=`cat $${multidir}/libgo.var`; \
+	  echo "Running target $${multivar}" >> libgo.sum; \
+	  echo "Running $(srcdir)/libgo.exp ..." >> libgo.sum; \
+	  cat $${multidir}/libgo.sum.sep >> libgo.sum; \
+	  cat $${multidir}/libgo.log.sep >> libgo.log; \
+	  if test -n "${MULTIDIRS}"; then \
+	    echo "		=== libgo Summary for $${multivar} ===" >> libgo.sum; \
+	    echo >> libgo.sum; \
+	  fi; \
+	  p=`grep -c PASS $${multidir}/libgo.sum.sep`; \
+	  pass=`expr $$pass + $$p`; \
+	  if test "$$p" -ne "0" && test -n "${MULTIDIRS}"; then \
+	    echo "# of expected passes		$$p" >> libgo.sum; \
+	  fi; \
+	  p=`grep -c FAIL $${multidir}/libgo.sum.sep`; \
+	  fail=`expr $$fail + $$p`; \
+	  if test "$$p" -ne "0" && test -n "${MULTIDIRS}"; then \
+	    echo "# of unexpected failures	$$p" >> libgo.sum; \
+	  fi; \
+	  p=`grep -c UNTESTED $${multidir}/libgo.sum.sep`; \
+	  untested=`expr $$untested + $$p`; \
+	  if test "$$p" -ne "0" && test -n "${MULTIDIRS}"; then \
+	    echo "# of untested testcases		$$p" >> libgo.sum; \
+	  fi; \
+	done; \
+	echo >> libgo.sum; \
+	echo "		=== libgo Summary ===" >> libgo.sum; \
+	echo >> libgo.sum; \
+	if test "$$pass" -ne "0"; then \
+	  echo "# of expected passes		$$pass" >> libgo.sum; \
+	fi; \
+	if test "$$fail" -ne "0"; then \
+	  echo "# of unexpected failures	$$fail" >> libgo.sum; \
+	fi; \
+	if test "$$untested" -ne "0"; then \
+	  echo "# of untested testcases		$$untested" >> libgo.sum; \
+	fi; \
+	echo `echo $(GOC) | sed -e 's/ .*//'`  `$(GOC) -v 2>&1 | grep " version" | sed -n -e 's/.* \(version.*$$\)/\1/p'` >> libgo.sum; \
+	echo >> libgo.log; \
+	echo "runtest completed at `date`" >> libgo.log; \
+	if test "$$fail" -ne "0"; then \
+	  status=1; \
+	else \
+	  status=0; \
+	fi; \
+	exit $$status
+
 check-am:
 	@rm -f libgo.sum libgo.log libgo.tail
-	@echo "Test Run By $${USER} on `date`" > libgo.sum
-	@echo "Native configuration is $(host_triplet)" >> libgo.sum
-	@echo >> libgo.sum
-	@echo "		=== libgo tests ===" >> libgo.sum
-	@echo >> libgo.sum
-	@echo "Schedule of variations:" >> libgo.sum
-	@echo "    unix" >> libgo.sum
-	@echo >> libgo.sum
-	@echo "Running target unix" >> libgo.sum
-	@echo "Running $(srcdir)/libgo.exp ..." >> libgo.sum
-	@cp libgo.sum libgo.log
-	@echo > libgo.tail
-	@echo "		=== libgo summary ===" >> libgo.tail
-	@echo >> libgo.tail
+	@multivar="unix"; \
+	[ -z "$(MULTIFLAGS)" ] || multivar="$${multivar}/$(MULTIFLAGS)"; \
+	echo "$${multivar}" > libgo.var
 	@for f in $(TEST_PACKAGES); do \
 	   rm -f $$f-testsum $$f-testlog; \
 	 done
-	@$(MAKE) -k $(TEST_PACKAGES); \
-	status=$$?; \
-	for f in $(TEST_PACKAGES); do \
+	-@$(MAKE) -k $(TEST_PACKAGES)
+	@for f in $(TEST_PACKAGES); do \
 	  if test -f $$f-testsum; then \
 	    cat $$f-testsum >> libgo.sum; \
 	  fi; \
 	  if test -f $$f-testlog; then \
 	    cat $$f-testlog >> libgo.log; \
 	  fi; \
-	done; \
-	p=`grep -c PASS libgo.sum`; \
-	if test "$$p" != "0"; then \
-	  echo "# of expected passes		$$p" >> libgo.tail; \
-	fi; \
-	p=`grep -c FAIL libgo.sum`; \
-	if test "$$p" != "0"; then \
-	  echo "# of unexpected failures	$$p" >> libgo.tail; \
-	fi; \
-	p=`grep -c UNTESTED libgo.sum`; \
-	if test "$$p" != "0"; then \
-	  echo "# of untested testcases		$$p" >> libgo.tail; \
-	fi; \
-	cat libgo.tail >> libgo.sum; \
-	cat libgo.tail >> libgo.log; \
-	echo `echo $(GOC) | sed -e 's/ .*//'`  `$(GOC) -v 2>&1 | grep " version" | sed -n -e 's/.* \(version.*$$\)/\1/p'` >> libgo.sum; \
-	echo >> libgo.log; \
-	echo "runtest completed at `date`" >> libgo.log; \
-	exit $$status
+	done
 
-MOSTLYCLEAN_FILES = libgo.tail
+check-multi:
+	$(MULTIDO) $(AM_MAKEFLAGS) DO=check-am multi-do # $(MAKE)
+
+MOSTLYCLEAN_FILES = libgo.head libgo.sum.sep libgo.log.sep
 
 mostlyclean-local:
 	find . -name '*.lo' -print | xargs $(LIBTOOL) --mode=clean rm -f

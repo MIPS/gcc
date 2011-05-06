@@ -1328,22 +1328,6 @@ enum reg_class
 #define SSE_FLOAT_MODE_P(MODE) \
   ((TARGET_SSE && (MODE) == SFmode) || (TARGET_SSE2 && (MODE) == DFmode))
 
-#define SSE_VEC_FLOAT_MODE_P(MODE) \
-  ((TARGET_SSE && (MODE) == V4SFmode) || (TARGET_SSE2 && (MODE) == V2DFmode))
-
-#define AVX_FLOAT_MODE_P(MODE) \
-  (TARGET_AVX && ((MODE) == SFmode || (MODE) == DFmode))
-
-#define AVX128_VEC_FLOAT_MODE_P(MODE) \
-  (TARGET_AVX && ((MODE) == V4SFmode || (MODE) == V2DFmode))
-
-#define AVX256_VEC_FLOAT_MODE_P(MODE) \
-  (TARGET_AVX && ((MODE) == V8SFmode || (MODE) == V4DFmode))
-
-#define AVX_VEC_FLOAT_MODE_P(MODE) \
-  (TARGET_AVX && ((MODE) == V4SFmode || (MODE) == V2DFmode \
-		  || (MODE) == V8SFmode || (MODE) == V4DFmode))
-
 #define FMA4_VEC_FLOAT_MODE_P(MODE) \
   (TARGET_FMA4 && ((MODE) == V4SFmode || (MODE) == V2DFmode \
 		  || (MODE) == V8SFmode || (MODE) == V4DFmode))
@@ -1659,11 +1643,6 @@ typedef struct ix86_args {
 #define MAX_REGS_PER_ADDRESS 2
 
 #define CONSTANT_ADDRESS_P(X)  constant_address_p (X)
-
-/* Nonzero if the constant value X is a legitimate general operand.
-   It is given that X satisfies CONSTANT_P or is a CONST_DOUBLE.  */
-
-#define LEGITIMATE_CONSTANT_P(X)  legitimate_constant_p (X)
 
 /* If defined, a C expression to determine the base term of address X.
    This macro is used in only one place: `find_base_term' in alias.c.
@@ -2367,6 +2346,18 @@ extern void debug_dispatch_window (int);
 #define CLZ_DEFINED_VALUE_AT_ZERO(MODE, VALUE) \
 	((VALUE) = GET_MODE_BITSIZE (MODE), TARGET_BMI)
 
+
+/* Flags returned by ix86_get_callcvt ().  */
+#define IX86_CALLCVT_CDECL	0x1
+#define IX86_CALLCVT_STDCALL	0x2
+#define IX86_CALLCVT_FASTCALL	0x4
+#define IX86_CALLCVT_THISCALL	0x8
+#define IX86_CALLCVT_REGPARM	0x10
+#define IX86_CALLCVT_SSEREGPARM	0x20
+
+#define IX86_BASE_CALLCVT(FLAGS) \
+	((FLAGS) & (IX86_CALLCVT_CDECL | IX86_CALLCVT_STDCALL \
+		    | IX86_CALLCVT_FASTCALL | IX86_CALLCVT_THISCALL))
 
 /*
 Local variables:

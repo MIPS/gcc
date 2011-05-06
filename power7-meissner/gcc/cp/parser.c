@@ -1,6 +1,6 @@
 /* C++ Parser.
    Copyright (C) 2000, 2001, 2002, 2003, 2004,
-   2005, 2007, 2008, 2009, 2010  Free Software Foundation, Inc.
+   2005, 2007, 2008, 2009, 2010, 2011  Free Software Foundation, Inc.
    Written by Mark Mitchell <mark@codesourcery.com>.
 
    This file is part of GCC.
@@ -23,6 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "timevar.h"
 #include "cpplib.h"
 #include "tree.h"
 #include "cp-tree.h"
@@ -654,6 +655,7 @@ cp_lexer_next_token_is_decl_specifier_keyword (cp_lexer *lexer)
     case RID_TYPEOF:
       /* C++0x extensions.  */
     case RID_DECLTYPE:
+    case RID_UNDERLYING_TYPE:
       return true;
 
     default:
@@ -1607,6 +1609,10 @@ static tree cp_parser_c_for
   (cp_parser *, tree, tree);
 static tree cp_parser_range_for
   (cp_parser *, tree, tree, tree);
+static tree cp_parser_perform_range_for_lookup
+  (tree, tree *, tree *);
+static tree cp_parser_range_for_member_function
+  (tree, tree);
 static tree cp_parser_jump_statement
   (cp_parser *);
 static void cp_parser_declaration_statement
@@ -2435,6 +2441,7 @@ cp_parser_diagnose_invalid_type_name (cp_parser *parser,
 				      location_t location)
 {
   tree decl, old_scope;
+  cp_parser_commit_to_tentative_parse (parser);
   /* Try to lookup the identifier.  */
   old_scope = parser->scope;
   parser->scope = scope;
@@ -2528,7 +2535,6 @@ cp_parser_diagnose_invalid_type_name (cp_parser *parser,
       else
 	gcc_unreachable ();
     }
-  cp_parser_commit_to_tentative_parse (parser);
 }
 
 /* Check for a common situation where a type-name should be present,
@@ -3432,6 +3438,12 @@ cp_parser_primary_expression (cp_parser *parser,
 	       `&A::B' might be a pointer-to-member, but `&(A::B)' is
 	       not.  */
 	    finish_parenthesized_expr (expr);
+	    /* DR 705: Wrapping an unqualified name in parentheses
+	       suppresses arg-dependent lookup.  We want to pass back
+	       CP_ID_KIND_QUALIFIED for suppressing vtable lookup
+	       (c++/37862), but none of the others.  */
+	    if (*idk != CP_ID_KIND_QUALIFIED)
+	      *idk = CP_ID_KIND_NONE;
 	  }
 	/* The `>' token might be the end of a template-id or
 	   template-parameter-list now.  */
@@ -4897,7 +4909,8 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 		postfix_expression
 		  = (finish_compound_literal
 		     (type, build_constructor (init_list_type_node,
-					       initializer_list)));
+					       initializer_list),
+		      tf_warning_or_error));
 		break;
 	      }
 	  }
@@ -5053,7 +5066,8 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 		    = (build_new_method_call
 		       (instance, fn, &args, NULL_TREE,
 			(idk == CP_ID_KIND_QUALIFIED
-			 ? LOOKUP_NONVIRTUAL : LOOKUP_NORMAL),
+			 ? LOOKUP_NORMAL|LOOKUP_NONVIRTUAL
+			 : LOOKUP_NORMAL),
 			/*fn_p=*/NULL,
 			tf_warning_or_error));
 		  }
@@ -6288,7 +6302,8 @@ cp_parser_delete_expression (cp_parser* parser)
   if (cp_parser_non_integral_constant_expression (parser, NIC_DEL))
     return error_mark_node;
 
-  return delete_sanity (expression, NULL_TREE, array_p, global_scope_p);
+  return delete_sanity (expression, NULL_TREE, array_p, global_scope_p,
+			tf_warning_or_error);
 }
 
 /* Returns true if TOKEN may start a cast-expression and false
@@ -7123,7 +7138,10 @@ cp_parser_builtin_offsetof (cp_parser *parser)
   return expr;
 }
 
-/* Parse a trait expression.  */
+/* Parse a trait expression.
+
+   Returns a representation of the expression, the underlying type
+   of the type at issue when KEYWORD is RID_UNDERLYING_TYPE.  */
 
 static tree
 cp_parser_trait_expr (cp_parser* parser, enum rid keyword)
@@ -7179,6 +7197,9 @@ cp_parser_trait_expr (cp_parser* parser, enum rid keyword)
     case RID_IS_ENUM:
       kind = CPTK_IS_ENUM;
       break;
+    case RID_IS_LITERAL_TYPE:
+      kind = CPTK_IS_LITERAL_TYPE;
+      break;
     case RID_IS_POD:
       kind = CPTK_IS_POD;
       break;
@@ -7194,8 +7215,8 @@ cp_parser_trait_expr (cp_parser* parser, enum rid keyword)
     case RID_IS_UNION:
       kind = CPTK_IS_UNION;
       break;
-    case RID_IS_LITERAL_TYPE:
-      kind = CPTK_IS_LITERAL_TYPE;
+    case RID_UNDERLYING_TYPE:
+      kind = CPTK_UNDERLYING_TYPE;
       break;
     default:
       gcc_unreachable ();
@@ -7241,7 +7262,9 @@ cp_parser_trait_expr (cp_parser* parser, enum rid keyword)
 
   /* Complete the trait expression, which may mean either processing
      the trait expr now or saving it for template instantiation.  */
-  return finish_trait_expr (kind, type1, type2);
+  return kind != CPTK_UNDERLYING_TYPE
+    ? finish_trait_expr (kind, type1, type2)
+    : finish_underlying_type (type1);
 }
 
 /* Lambdas that appear in variable initializer or default argument scope
@@ -8555,14 +8578,20 @@ cp_parser_range_for (cp_parser *parser, tree scope, tree init, tree range_decl)
       }
 
    If RANGE_EXPR is an array:
-       BEGIN_EXPR = __range
-       END_EXPR = __range + ARRAY_SIZE(__range)
+	BEGIN_EXPR = __range
+	END_EXPR = __range + ARRAY_SIZE(__range)
+   Else if RANGE_EXPR has a member 'begin' or 'end':
+	BEGIN_EXPR = __range.begin()
+	END_EXPR = __range.end()
    Else:
 	BEGIN_EXPR = begin(__range)
 	END_EXPR = end(__range);
 
-   When calling begin()/end() we must use argument dependent
-   lookup, but always considering 'std' as an associated namespace.  */
+   If __range has a member 'begin' but not 'end', or vice versa, we must
+   still use the second alternative (it will surely fail, however).
+   When calling begin()/end() in the third alternative we must use
+   argument dependent lookup, but always considering 'std' as an associated
+   namespace.  */
 
 tree
 cp_convert_range_for (tree statement, tree range_decl, tree range_expr)
@@ -8579,12 +8608,12 @@ cp_convert_range_for (tree statement, tree range_decl, tree range_expr)
   else
     {
       /* Find out the type deduced by the declaration
-       * `auto &&__range = range_expr' */
+         `auto &&__range = range_expr'.  */
       range_type = cp_build_reference_type (make_auto (), true);
       range_type = do_auto_deduction (range_type, range_expr,
 				      type_uses_auto (range_type));
 
-      /* Create the __range variable */
+      /* Create the __range variable.  */
       range_temp = build_decl (input_location, VAR_DECL,
 			       get_identifier ("__for_range"), range_type);
       TREE_USED (range_temp) = 1;
@@ -8595,51 +8624,11 @@ cp_convert_range_for (tree statement, tree range_decl, tree range_expr)
 		      LOOKUP_ONLYCONVERTING);
 
       range_temp = convert_from_reference (range_temp);
-
-      if (TREE_CODE (TREE_TYPE (range_temp)) == ARRAY_TYPE)
-	{
-	  /* If RANGE_TEMP is an array we will use pointer arithmetic */
-	  iter_type = build_pointer_type (TREE_TYPE (TREE_TYPE (range_temp)));
-	  begin_expr = range_temp;
-	  end_expr
-	      = build_binary_op (input_location, PLUS_EXPR,
-				 range_temp,
-				 array_type_nelts_top (TREE_TYPE (range_temp)),
-				 0);
-	}
-      else
-	{
-	  /* If it is not an array, we must call begin(__range)/end__range() */
-	  VEC(tree,gc) *vec;
-
-	  begin_expr = get_identifier ("begin");
-	  vec = make_tree_vector ();
-	  VEC_safe_push (tree, gc, vec, range_temp);
-	  begin_expr = perform_koenig_lookup (begin_expr, vec,
-					      /*include_std=*/true);
-	  begin_expr = finish_call_expr (begin_expr, &vec, false, true,
-					 tf_warning_or_error);
-	  release_tree_vector (vec);
-
-	  end_expr = get_identifier ("end");
-	  vec = make_tree_vector ();
-	  VEC_safe_push (tree, gc, vec, range_temp);
-	  end_expr = perform_koenig_lookup (end_expr, vec,
-					    /*include_std=*/true);
-	  end_expr = finish_call_expr (end_expr, &vec, false, true,
-				       tf_warning_or_error);
-	  release_tree_vector (vec);
-
-	  /* The unqualified type of the __begin and __end temporaries should
-	   * be the same as required by the multiple auto declaration */
-	  iter_type = cv_unqualified (TREE_TYPE (begin_expr));
-	  if (!same_type_p (iter_type, cv_unqualified (TREE_TYPE (end_expr))))
-	    error ("inconsistent begin/end types in range-based for: %qT and %qT",
-		   TREE_TYPE (begin_expr), TREE_TYPE (end_expr));
-	}
+      iter_type = cp_parser_perform_range_for_lookup (range_temp,
+						      &begin_expr, &end_expr);
     }
 
-  /* The new for initialization statement */
+  /* The new for initialization statement.  */
   begin = build_decl (input_location, VAR_DECL,
 		      get_identifier ("__for_begin"), iter_type);
   TREE_USED (begin) = 1;
@@ -8660,18 +8649,18 @@ cp_convert_range_for (tree statement, tree range_decl, tree range_expr)
 
   finish_for_init_stmt (statement);
 
-/* The new for condition */
+  /* The new for condition.  */
   condition = build_x_binary_op (NE_EXPR,
 				 begin, ERROR_MARK,
 				 end, ERROR_MARK,
 				 NULL, tf_warning_or_error);
   finish_for_cond (condition, statement);
 
-  /* The new increment expression */
+  /* The new increment expression.  */
   expression = finish_unary_op_expr (PREINCREMENT_EXPR, begin);
   finish_for_expr (expression, statement);
 
-  /* The declaration is initialized with *__begin inside the loop body */
+  /* The declaration is initialized with *__begin inside the loop body.  */
   cp_finish_decl (range_decl,
 		  build_x_indirect_ref (begin, RO_NULL, tf_warning_or_error),
 		  /*is_constant_init*/false, NULL_TREE,
@@ -8680,6 +8669,124 @@ cp_convert_range_for (tree statement, tree range_decl, tree range_expr)
   return statement;
 }
 
+/* Solves BEGIN_EXPR and END_EXPR as described in cp_convert_range_for.
+   We need to solve both at the same time because the method used
+   depends on the existence of members begin or end.
+   Returns the type deduced for the iterator expression.  */
+
+static tree
+cp_parser_perform_range_for_lookup (tree range, tree *begin, tree *end)
+{
+  if (!COMPLETE_TYPE_P (TREE_TYPE (range)))
+    {
+      error ("range-based %<for%> expression of type %qT "
+	     "has incomplete type", TREE_TYPE (range));
+      *begin = *end = error_mark_node;
+      return error_mark_node;
+    }
+  if (TREE_CODE (TREE_TYPE (range)) == ARRAY_TYPE)
+    {
+      /* If RANGE is an array, we will use pointer arithmetic.  */
+      *begin = range;
+      *end = build_binary_op (input_location, PLUS_EXPR,
+			      range,
+			      array_type_nelts_top (TREE_TYPE (range)),
+			      0);
+      return build_pointer_type (TREE_TYPE (TREE_TYPE (range)));
+    }
+  else
+    {
+      /* If it is not an array, we must do a bit of magic.  */
+      tree id_begin, id_end;
+      tree member_begin, member_end;
+
+      *begin = *end = error_mark_node;
+
+      id_begin = get_identifier ("begin");
+      id_end = get_identifier ("end");
+      member_begin = lookup_member (TREE_TYPE (range), id_begin,
+				    /*protect=*/2, /*want_type=*/false);
+      member_end = lookup_member (TREE_TYPE (range), id_end,
+				  /*protect=*/2, /*want_type=*/false);
+
+      if (member_begin != NULL_TREE || member_end != NULL_TREE)
+	{
+	  /* Use the member functions.  */
+	  if (member_begin != NULL_TREE)
+	    *begin = cp_parser_range_for_member_function (range, id_begin);
+	  else
+	    error ("range-based %<for%> expression of type %qT has an "
+		   "%<end%> member but not a %<begin%>", TREE_TYPE (range));
+
+	  if (member_end != NULL_TREE)
+	    *end = cp_parser_range_for_member_function (range, id_end);
+	  else
+	    error ("range-based %<for%> expression of type %qT has a "
+		   "%<begin%> member but not an %<end%>", TREE_TYPE (range));
+	}
+      else
+	{
+	  /* Use global functions with ADL.  */
+	  VEC(tree,gc) *vec;
+	  vec = make_tree_vector ();
+
+	  VEC_safe_push (tree, gc, vec, range);
+
+	  member_begin = perform_koenig_lookup (id_begin, vec,
+						/*include_std=*/true);
+	  *begin = finish_call_expr (member_begin, &vec, false, true,
+				     tf_warning_or_error);
+	  member_end = perform_koenig_lookup (id_end, vec,
+					      /*include_std=*/true);
+	  *end = finish_call_expr (member_end, &vec, false, true,
+				   tf_warning_or_error);
+
+	  release_tree_vector (vec);
+	}
+
+      /* Last common checks.  */
+      if (*begin == error_mark_node || *end == error_mark_node)
+	{
+	  /* If one of the expressions is an error do no more checks.  */
+	  *begin = *end = error_mark_node;
+	  return error_mark_node;
+	}
+      else
+	{
+	  tree iter_type = cv_unqualified (TREE_TYPE (*begin));
+	  /* The unqualified type of the __begin and __end temporaries should
+	     be the same, as required by the multiple auto declaration.  */
+	  if (!same_type_p (iter_type, cv_unqualified (TREE_TYPE (*end))))
+	    error ("inconsistent begin/end types in range-based %<for%> "
+		   "statement: %qT and %qT",
+		   TREE_TYPE (*begin), TREE_TYPE (*end));
+	  return iter_type;
+	}
+    }
+}
+
+/* Helper function for cp_parser_perform_range_for_lookup.
+   Builds a tree for RANGE.IDENTIFIER().  */
+
+static tree
+cp_parser_range_for_member_function (tree range, tree identifier)
+{
+  tree member, res;
+  VEC(tree,gc) *vec;
+
+  member = finish_class_member_access_expr (range, identifier,
+					    false, tf_warning_or_error);
+  if (member == error_mark_node)
+    return error_mark_node;
+
+  vec = make_tree_vector ();
+  res = finish_call_expr (member, &vec,
+			  /*disallow_virtual=*/false,
+			  /*koenig_p=*/false,
+			  tf_warning_or_error);
+  release_tree_vector (vec);
+  return res;
+}
 
 /* Parse an iteration-statement.
 
@@ -8828,7 +8935,7 @@ cp_parser_for_init_statement (cp_parser* parser, tree *decl)
 	  if (cxx_dialect < cxx0x)
 	    {
 	      error_at (cp_lexer_peek_token (parser->lexer)->location,
-			"range-based-for loops are not allowed "
+			"range-based %<for%> loops are not allowed "
 			"in C++98 mode");
 	      *decl = error_mark_node;
 	    }
@@ -10197,7 +10304,8 @@ cp_parser_decltype (cp_parser *parser)
       return error_mark_node;
     }
 
-  return finish_decltype_type (expr, id_expression_or_member_access_p);
+  return finish_decltype_type (expr, id_expression_or_member_access_p,
+			       tf_warning_or_error);
 }
 
 /* Special member functions [gram.special] */
@@ -12045,6 +12153,8 @@ cp_parser_explicit_instantiation (cp_parser* parser)
   cp_decl_specifier_seq decl_specifiers;
   tree extension_specifier = NULL_TREE;
 
+  timevar_push (TV_TEMPLATE_INST);
+
   /* Look for an (optional) storage-class-specifier or
      function-specifier.  */
   if (cp_parser_allow_gnu_extensions_p (parser))
@@ -12128,6 +12238,8 @@ cp_parser_explicit_instantiation (cp_parser* parser)
   end_explicit_instantiation ();
 
   cp_parser_consume_semicolon_at_end_of_statement (parser);
+
+  timevar_pop (TV_TEMPLATE_INST);
 }
 
 /* Parse an explicit-specialization.
@@ -12414,6 +12526,7 @@ cp_parser_type_specifier (cp_parser* parser,
      decltype ( expression )   
      char16_t
      char32_t
+     __underlying_type ( type-id )
 
    GNU Extension:
 
@@ -12522,6 +12635,16 @@ cp_parser_simple_type_specifier (cp_parser* parser,
       /* If it is not already a TYPE, take its type.  */
       if (!TYPE_P (type))
 	type = finish_typeof (type);
+
+      if (decl_specs)
+	cp_parser_set_decl_spec_type (decl_specs, type,
+				      token->location,
+				      /*user_defined_p=*/true);
+
+      return type;
+
+    case RID_UNDERLYING_TYPE:
+      type = cp_parser_trait_expr (parser, RID_UNDERLYING_TYPE);
 
       if (decl_specs)
 	cp_parser_set_decl_spec_type (decl_specs, type,
@@ -13328,6 +13451,7 @@ cp_parser_enum_specifier (cp_parser* parser)
      elaborated-type-specifier.  */
   if (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_BRACE))
     {
+      timevar_push (TV_PARSE_ENUM);
       if (nested_name_specifier)
 	{
 	  /* The following catches invalid code such as:
@@ -13389,6 +13513,7 @@ cp_parser_enum_specifier (cp_parser* parser)
 
       if (scoped_enum_p)
 	finish_scope ();
+      timevar_pop (TV_PARSE_ENUM);
     }
   else
     {
@@ -14184,7 +14309,7 @@ cp_parser_init_declarator (cp_parser* parser,
   bool is_non_constant_init;
   int ctor_dtor_or_conv_p;
   bool friend_p;
-  tree pushed_scope = NULL;
+  tree pushed_scope = NULL_TREE;
   bool range_for_decl_p = false;
 
   /* Gather the attributes that were provided with the
@@ -14491,7 +14616,7 @@ cp_parser_init_declarator (cp_parser* parser,
       if (pushed_scope)
 	{
 	  pop_scope (pushed_scope);
-	  pushed_scope = false;
+	  pushed_scope = NULL_TREE;
 	}
       decl = grokfield (declarator, decl_specifiers,
 			initializer, !is_non_constant_init,
@@ -16624,7 +16749,7 @@ cp_parser_class_name (cp_parser *parser,
    Returns the TREE_TYPE representing the class.  */
 
 static tree
-cp_parser_class_specifier (cp_parser* parser)
+cp_parser_class_specifier_1 (cp_parser* parser)
 {
   tree type;
   tree attributes = NULL_TREE;
@@ -16885,6 +17010,16 @@ cp_parser_class_specifier (cp_parser* parser)
     = saved_in_unbraced_linkage_specification_p;
 
   return type;
+}
+
+static tree
+cp_parser_class_specifier (cp_parser* parser)
+{
+  tree ret;
+  timevar_push (TV_PARSE_STRUCT);
+  ret = cp_parser_class_specifier_1 (parser);
+  timevar_pop (TV_PARSE_STRUCT);
+  return ret;
 }
 
 /* Parse a class-head.
@@ -19532,8 +19667,17 @@ cp_parser_function_definition_from_specifiers_and_declarator
 	pop_nested_class ();
     }
   else
-    fn = cp_parser_function_definition_after_declarator (parser,
+    {
+      timevar_id_t tv;
+      if (DECL_DECLARED_INLINE_P (current_function_decl))
+        tv = TV_PARSE_INLINE;
+      else
+        tv = TV_PARSE_FUNC;
+      timevar_push (tv);
+      fn = cp_parser_function_definition_after_declarator (parser,
 							 /*inline_p=*/false);
+      timevar_pop (tv);
+    }
 
   return fn;
 }
@@ -19935,7 +20079,8 @@ cp_parser_functional_cast (cp_parser* parser, tree type)
       CONSTRUCTOR_IS_DIRECT_INIT (expression_list) = 1;
       if (TREE_CODE (type) == TYPE_DECL)
 	type = TREE_TYPE (type);
-      return finish_compound_literal (type, expression_list);
+      return finish_compound_literal (type, expression_list,
+				      tf_warning_or_error);
     }
 
 
@@ -20149,6 +20294,7 @@ cp_parser_enclosed_template_argument_list (cp_parser* parser)
 static void
 cp_parser_late_parsing_for_member (cp_parser* parser, tree member_function)
 {
+  timevar_push (TV_PARSE_INMETH);
   /* If this member is a template, get the underlying
      FUNCTION_DECL.  */
   if (DECL_FUNCTION_TEMPLATE_P (member_function))
@@ -20215,6 +20361,7 @@ cp_parser_late_parsing_for_member (cp_parser* parser, tree member_function)
 
   /* Restore the queue.  */
   pop_unparsed_function_queues (parser);
+  timevar_pop (TV_PARSE_INMETH);
 }
 
 /* If DECL contains any default args, remember it on the unparsed
@@ -21286,7 +21433,7 @@ cp_parser_objc_message_expression (cp_parser* parser)
   messageargs = cp_parser_objc_message_args (parser);
   cp_parser_require (parser, CPP_CLOSE_SQUARE, RT_CLOSE_SQUARE);
 
-  return objc_build_message_expr (build_tree_list (receiver, messageargs));
+  return objc_build_message_expr (receiver, messageargs);
 }
 
 /* Parse an objc-message-receiver.
@@ -21612,7 +21759,21 @@ static void
 cp_parser_objc_class_declaration (cp_parser* parser)
 {
   cp_lexer_consume_token (parser->lexer);  /* Eat '@class'.  */
-  objc_declare_class (cp_parser_objc_identifier_list (parser));
+  while (true)
+    {
+      tree id;
+      
+      id = cp_parser_identifier (parser);
+      if (id == error_mark_node)
+	break;
+      
+      objc_declare_class (id);
+
+      if (cp_lexer_next_token_is (parser->lexer, CPP_COMMA))
+	cp_lexer_consume_token (parser->lexer);
+      else
+	break;
+    }
   cp_parser_consume_semicolon_at_end_of_statement (parser);
 }
 
@@ -22095,7 +22256,8 @@ cp_parser_objc_method_definition_list (cp_parser* parser)
 	      token = cp_lexer_peek_token (parser->lexer);
 	      continue;
 	    }
-	  objc_start_method_definition (is_class_method, sig, attribute);
+	  objc_start_method_definition (is_class_method, sig, attribute,
+					NULL_TREE);
 
 	  /* For historical reasons, we accept an optional semicolon.  */
 	  if (cp_lexer_next_token_is (parser->lexer, CPP_SEMICOLON))
@@ -22301,7 +22463,8 @@ cp_parser_objc_protocol_declaration (cp_parser* parser, tree attributes)
     {
       tok = cp_lexer_peek_token (parser->lexer);
       error_at (tok->location, "identifier expected after %<@protocol%>");
-      goto finish;
+      cp_parser_consume_semicolon_at_end_of_statement (parser);
+      return;
     }
 
   /* See if we have a forward declaration or a definition.  */
@@ -22310,9 +22473,21 @@ cp_parser_objc_protocol_declaration (cp_parser* parser, tree attributes)
   /* Try a forward declaration first.  */
   if (tok->type == CPP_COMMA || tok->type == CPP_SEMICOLON)
     {
-      objc_declare_protocols (cp_parser_objc_identifier_list (parser), 
-			      attributes);
-     finish:
+      while (true)
+	{
+	  tree id;
+	  
+	  id = cp_parser_identifier (parser);
+	  if (id == error_mark_node)
+	    break;
+	  
+	  objc_declare_protocol (id, attributes);
+	  
+	  if(cp_lexer_next_token_is (parser->lexer, CPP_COMMA))
+	    cp_lexer_consume_token (parser->lexer);
+	  else
+	    break;
+	}
       cp_parser_consume_semicolon_at_end_of_statement (parser);
     }
 
@@ -24377,7 +24552,8 @@ cp_parser_omp_for_loop (cp_parser *parser, tree clauses, tree *par_clauses)
 	  /* If decl is an iterator, preserve the operator on decl
 	     until finish_omp_for.  */
 	  if (decl
-	      && (type_dependent_expression_p (decl)
+	      && ((type_dependent_expression_p (decl)
+		   && !POINTER_TYPE_P (TREE_TYPE (decl)))
 		  || CLASS_TYPE_P (TREE_TYPE (decl))))
 	    incr = cp_parser_omp_for_incr (parser, decl);
 	  else

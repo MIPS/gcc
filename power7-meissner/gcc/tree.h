@@ -50,6 +50,54 @@ MAX_TREE_CODES
 extern unsigned char tree_contains_struct[MAX_TREE_CODES][64];
 #define CODE_CONTAINS_STRUCT(CODE, STRUCT) (tree_contains_struct[(CODE)][(STRUCT)])
 
+/* Macros for initializing `tree_contains_struct'.  */
+#define MARK_TS_BASE(C)					\
+  do {							\
+    tree_contains_struct[C][TS_BASE] = 1;		\
+  } while (0)
+
+#define MARK_TS_TYPED(C)				\
+  do {							\
+    MARK_TS_BASE (C);					\
+    tree_contains_struct[C][TS_TYPED] = 1;		\
+  } while (0)
+
+#define MARK_TS_COMMON(C)				\
+  do {							\
+    MARK_TS_TYPED (C);					\
+    tree_contains_struct[C][TS_COMMON] = 1;		\
+  } while (0)
+
+#define MARK_TS_DECL_MINIMAL(C)				\
+  do {							\
+    MARK_TS_COMMON (C);					\
+    tree_contains_struct[C][TS_DECL_MINIMAL] = 1;	\
+  } while (0)
+
+#define MARK_TS_DECL_COMMON(C)				\
+  do {							\
+    MARK_TS_DECL_MINIMAL (C);				\
+    tree_contains_struct[C][TS_DECL_COMMON] = 1;	\
+  } while (0)
+
+#define MARK_TS_DECL_WRTL(C)				\
+  do {							\
+    MARK_TS_DECL_COMMON (C);				\
+    tree_contains_struct[C][TS_DECL_WRTL] = 1;		\
+  } while (0)
+
+#define MARK_TS_DECL_WITH_VIS(C)			\
+  do {							\
+    MARK_TS_DECL_WRTL (C);				\
+    tree_contains_struct[C][TS_DECL_WITH_VIS] = 1;	\
+  } while (0)
+
+#define MARK_TS_DECL_NON_COMMON(C)			\
+  do {							\
+    MARK_TS_DECL_WITH_VIS (C);				\
+    tree_contains_struct[C][TS_DECL_NON_COMMON] = 1;	\
+  } while (0)
+
 /* Number of language-independent tree codes.  */
 #define NUM_TREE_CODES ((int) LAST_AND_UNUSED_TREE_CODE)
 
@@ -407,10 +455,14 @@ struct GTY(()) tree_base {
   unsigned address_space : 8;
 };
 
-struct GTY(()) tree_common {
+struct GTY(()) tree_typed {
   struct tree_base base;
-  tree chain;
   tree type;
+};
+
+struct GTY(()) tree_common {
+  struct tree_typed typed;
+  tree chain;
 };
 
 /* The following table lists the uses of each of the above flags and
@@ -522,7 +574,7 @@ struct GTY(()) tree_common {
            all decls
 
        CALL_FROM_THUNK_P and
-       ALLOCA_FOR_VAR_P in
+       CALL_ALLOCA_FOR_VAR_P in
            CALL_EXPR
 
    side_effects_flag:
@@ -860,7 +912,7 @@ enum tree_node_structure_enum {
    are chained together.  */
 
 #define TREE_CHAIN(NODE) __extension__ \
-(*({__typeof (NODE) const __t = (NODE);				\
+(*({__typeof (NODE) const __t = CONTAINS_STRUCT_CHECK (NODE, TS_COMMON);\
     &__t->common.chain; }))
 
 /* In all nodes that are expressions, this is the data type of the expression.
@@ -868,8 +920,8 @@ enum tree_node_structure_enum {
    In ARRAY_TYPE nodes, this is the type of the elements.
    In VECTOR_TYPE nodes, this is the type of the elements.  */
 #define TREE_TYPE(NODE) __extension__ \
-(*({__typeof (NODE) const __t = (NODE);					\
-    &__t->common.type; }))
+(*({__typeof (NODE) const __t = CONTAINS_STRUCT_CHECK (NODE, TS_TYPED); \
+    &__t->typed.type; }))
 
 extern void tree_contains_struct_check_failed (const_tree,
 					       const enum tree_node_structure_enum,
@@ -936,7 +988,7 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 #define OMP_CLAUSE_SUBCODE_CHECK(T, CODE)	(T)
 
 #define TREE_CHAIN(NODE) ((NODE)->common.chain)
-#define TREE_TYPE(NODE) ((NODE)->common.type)
+#define TREE_TYPE(NODE) ((NODE)->typed.type)
 
 #endif
 
@@ -1336,7 +1388,8 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 
 /* In a CALL_EXPR, if the function being called is BUILT_IN_ALLOCA, means that
    it has been built for the declaration of a variable-sized object.  */
-#define ALLOCA_FOR_VAR_P(NODE) (CALL_EXPR_CHECK (NODE)->base.protected_flag)
+#define CALL_ALLOCA_FOR_VAR_P(NODE) \
+  (CALL_EXPR_CHECK (NODE)->base.protected_flag)
 
 /* In a type, nonzero means that all objects of the type are guaranteed by the
    language or front-end to be properly aligned, so we can indicate that a MEM
@@ -1403,7 +1456,7 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
        && TREE_INT_CST_LOW (A) < TREE_INT_CST_LOW (B)))
 
 struct GTY(()) tree_int_cst {
-  struct tree_common common;
+  struct tree_typed typed;
   double_int int_cst;
 };
 
@@ -1416,7 +1469,7 @@ struct real_value;
 #define TREE_REAL_CST(NODE) (*TREE_REAL_CST_PTR (NODE))
 
 struct GTY(()) tree_real_cst {
-  struct tree_common common;
+  struct tree_typed typed;
   struct real_value * real_cst_ptr;
 };
 
@@ -1428,7 +1481,7 @@ struct fixed_value;
 #define TREE_FIXED_CST(NODE) (*TREE_FIXED_CST_PTR (NODE))
 
 struct GTY(()) tree_fixed_cst {
-  struct tree_common common;
+  struct tree_typed typed;
   struct fixed_value * fixed_cst_ptr;
 };
 
@@ -1438,7 +1491,7 @@ struct GTY(()) tree_fixed_cst {
   ((const char *)(STRING_CST_CHECK (NODE)->string.str))
 
 struct GTY(()) tree_string {
-  struct tree_common common;
+  struct tree_typed typed;
   int length;
   char str[1];
 };
@@ -1448,7 +1501,7 @@ struct GTY(()) tree_string {
 #define TREE_IMAGPART(NODE) (COMPLEX_CST_CHECK (NODE)->complex.imag)
 
 struct GTY(()) tree_complex {
-  struct tree_common common;
+  struct tree_typed typed;
   tree real;
   tree imag;
 };
@@ -1457,7 +1510,7 @@ struct GTY(()) tree_complex {
 #define TREE_VECTOR_CST_ELTS(NODE) (VECTOR_CST_CHECK (NODE)->vector.elements)
 
 struct GTY(()) tree_vector {
-  struct tree_common common;
+  struct tree_typed typed;
   tree elements;
 };
 
@@ -1561,7 +1614,7 @@ DEF_VEC_O(constructor_elt);
 DEF_VEC_ALLOC_O(constructor_elt,gc);
 
 struct GTY(()) tree_constructor {
-  struct tree_common common;
+  struct tree_typed typed;
   VEC(constructor_elt,gc) *elts;
 };
 
@@ -1918,7 +1971,7 @@ typedef struct GTY(()) ssa_use_operand_d {
 #define SSA_NAME_IMM_USE_NODE(NODE) SSA_NAME_CHECK (NODE)->ssa_name.imm_uses
 
 struct GTY(()) tree_ssa_name {
-  struct tree_common common;
+  struct tree_typed typed;
 
   /* _DECL wrapped by this SSA name.  */
   tree var;
@@ -2151,7 +2204,7 @@ extern enum machine_mode vector_type_mode (const_tree);
 
 /* 1 if the alignment for this type was requested by "aligned" attribute,
    0 if it is the default for this type.  */
-#define TYPE_USER_ALIGN(NODE) (TYPE_CHECK (NODE)->common.base.user_align)
+#define TYPE_USER_ALIGN(NODE) (TYPE_CHECK (NODE)->base.user_align)
 
 /* The alignment for NODE, in bytes.  */
 #define TYPE_ALIGN_UNIT(NODE) (TYPE_ALIGN (NODE) / BITS_PER_UNIT)
@@ -2289,7 +2342,7 @@ extern enum machine_mode vector_type_mode (const_tree);
 
 /* Indicated that objects of this type should be laid out in as
    compact a way as possible.  */
-#define TYPE_PACKED(NODE) (TYPE_CHECK (NODE)->common.base.packed_flag)
+#define TYPE_PACKED(NODE) (TYPE_CHECK (NODE)->base.packed_flag)
 
 /* Used by type_contains_placeholder_p to avoid recomputation.
    Values are: 0 (unknown), 1 (false), 2 (true).  Never access
@@ -2632,7 +2685,7 @@ struct GTY(()) tree_decl_minimal {
 /* Set if the alignment of this DECL has been set by the user, for
    example with an 'aligned' attribute.  */
 #define DECL_USER_ALIGN(NODE) \
-  (DECL_COMMON_CHECK (NODE)->common.base.user_align)
+  (DECL_COMMON_CHECK (NODE)->base.user_align)
 /* Holds the machine mode corresponding to the declaration of a variable or
    field.  Always equal to TYPE_MODE (TREE_TYPE (decl)) except for a
    FIELD_DECL.  */
@@ -2900,7 +2953,7 @@ struct GTY(()) tree_decl_with_rtl {
 #define DECL_FCONTEXT(NODE) (FIELD_DECL_CHECK (NODE)->field_decl.fcontext)
 
 /* In a FIELD_DECL, indicates this field should be bit-packed.  */
-#define DECL_PACKED(NODE) (FIELD_DECL_CHECK (NODE)->common.base.packed_flag)
+#define DECL_PACKED(NODE) (FIELD_DECL_CHECK (NODE)->base.packed_flag)
 
 /* Nonzero in a FIELD_DECL means it is a bit field, and must be accessed
    specially.  */
@@ -3505,6 +3558,7 @@ extern tree build_target_option_node (void);
 union GTY ((ptr_alias (union lang_tree_node),
 	    desc ("tree_node_structure (&%h)"), variable_size)) tree_node {
   struct tree_base GTY ((tag ("TS_BASE"))) base;
+  struct tree_typed GTY ((tag ("TS_TYPED"))) typed;
   struct tree_common GTY ((tag ("TS_COMMON"))) common;
   struct tree_int_cst GTY ((tag ("TS_INT_CST"))) int_cst;
   struct tree_real_cst GTY ((tag ("TS_REAL_CST"))) real_cst;
@@ -3963,6 +4017,9 @@ extern size_t tree_size (const_tree);
    length.  */
 extern size_t tree_code_size (enum tree_code);
 
+/* Allocate and return a new UID from the DECL_UID namespace.  */
+extern int allocate_decl_uid (void);
+
 /* Lowest level primitive for allocating a node.
    The TREE_CODE is the only argument.  Contents are initialized
    to zero except for a few of the common fields.  */
@@ -3978,6 +4035,10 @@ extern tree copy_node_stat (tree MEM_STAT_DECL);
 /* Make a copy of a chain of TREE_LIST nodes.  */
 
 extern tree copy_list (tree);
+
+/* Make a CASE_LABEL_EXPR.  */
+
+extern tree build_case_label (tree, tree, tree);
 
 /* Make a BINFO.  */
 extern tree make_tree_binfo_stat (unsigned MEM_STAT_DECL);
@@ -4193,11 +4254,19 @@ extern tree build_type_no_quals (tree);
 extern tree build_index_type (tree);
 extern tree build_array_type (tree, tree);
 extern tree build_nonshared_array_type (tree, tree);
+extern tree build_array_type_nelts (tree, unsigned HOST_WIDE_INT);
 extern tree build_function_type (tree, tree);
 extern tree build_function_type_list (tree, ...);
 extern tree build_function_type_skip_args (tree, bitmap);
 extern tree build_function_decl_skip_args (tree, bitmap);
 extern tree build_varargs_function_type_list (tree, ...);
+extern tree build_function_type_array (tree, int, tree *);
+extern tree build_varargs_function_type_array (tree, int, tree *);
+#define build_function_type_vec(RET, V) \
+  build_function_type_array (RET, VEC_length (tree, V), VEC_address (tree, V))
+#define build_varargs_function_type_vec(RET, V) \
+  build_varargs_function_type_array (RET, VEC_length (tree, V), \
+				     VEC_address (tree, V))
 extern tree build_method_type_directly (tree, tree, tree);
 extern tree build_method_type (tree, tree);
 extern tree build_offset_type (tree, tree);
@@ -4573,9 +4642,6 @@ extern tree size_diffop_loc (location_t, tree, tree);
 extern tree round_up_loc (location_t, tree, int);
 #define round_down(T,N) round_down_loc (UNKNOWN_LOCATION, T, N)
 extern tree round_down_loc (location_t, tree, int);
-extern VEC(tree,gc) *get_pending_sizes (void);
-extern void put_pending_size (tree);
-extern void put_pending_sizes (VEC(tree,gc) *);
 extern void finalize_size_functions (void);
 
 /* Type for sizes of data-type.  */
@@ -4944,6 +5010,7 @@ inlined_function_outer_scope_p (const_tree block)
 
 /* In tree.c */
 extern unsigned crc32_string (unsigned, const char *);
+extern unsigned crc32_byte (unsigned, char);
 extern void clean_symbol_name (char *);
 extern tree get_file_function_name (const char *);
 extern tree get_callee_fndecl (const_tree);
@@ -5064,7 +5131,8 @@ extern tree fold_fma (location_t, tree, tree, tree, tree);
 enum operand_equal_flag
 {
   OEP_ONLY_CONST = 1,
-  OEP_PURE_SAME = 2
+  OEP_PURE_SAME = 2,
+  OEP_CONSTANT_ADDRESS_OF = 4
 };
 
 extern int operand_equal_p (const_tree, const_tree, unsigned int);
@@ -5082,7 +5150,7 @@ extern tree fold_truth_not_expr (location_t, tree);
 extern tree fold_unary_to_constant (enum tree_code, tree, tree);
 extern tree fold_binary_to_constant (enum tree_code, tree, tree, tree);
 extern tree fold_read_from_constant_string (tree);
-extern tree int_const_binop (enum tree_code, const_tree, const_tree, int);
+extern tree int_const_binop (enum tree_code, const_tree, const_tree);
 #define build_fold_addr_expr(T)\
         build_fold_addr_expr_loc (UNKNOWN_LOCATION, (T))
 extern tree build_fold_addr_expr_loc (location_t, tree);
@@ -5171,6 +5239,7 @@ extern bool can_trust_pointer_alignment (void);
 extern unsigned int get_pointer_alignment (tree, unsigned int);
 extern bool is_builtin_name (const char *);
 extern bool is_builtin_fn (tree);
+extern unsigned int get_object_alignment_1 (tree, unsigned HOST_WIDE_INT *);
 extern unsigned int get_object_alignment (tree, unsigned int);
 extern tree fold_call_stmt (gimple, bool);
 extern tree gimple_fold_builtin_snprintf_chk (gimple, tree, enum built_in_function);

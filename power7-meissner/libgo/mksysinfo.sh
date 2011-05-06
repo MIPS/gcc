@@ -29,12 +29,6 @@ cat > sysinfo.c <<EOF
 #define _LARGEFILE_SOURCE
 #define _FILE_OFFSET_BITS 64
 
-#ifdef __sgi__
-/* IRIX 6 needs _XOPEN_SOURCE=500 for the XPG5 version of struct msghdr in
-   <sys/socket.h>.  */
-#define _XOPEN_SOURCE 500
-#endif
-
 #include <sys/types.h>
 #include <dirent.h>
 #include <errno.h>
@@ -56,6 +50,9 @@ cat > sysinfo.c <<EOF
 #endif
 #if defined(HAVE_SYS_EPOLL_H)
 #include <sys/epoll.h>
+#endif
+#if defined(HAVE_SYS_MMAN_H)
+#include <sys/mman.h>
 #endif
 #if defined(HAVE_SYS_PTRACE_H)
 #include <sys/ptrace.h>
@@ -90,13 +87,15 @@ echo 'package syscall' > ${OUT}
 grep -v '^// ' gen-sysinfo.go | \
   grep -v '^func' | \
   grep -v '^type _timeval ' | \
-  grep -v '^type _timespec\(_t\)\? ' | \
+  grep -v '^type _timespec_t ' | \
+  grep -v '^type _timespec ' | \
   grep -v '^type _timestruc_t ' | \
   grep -v '^type _epoll_' | \
   grep -v 'in6_addr' | \
   grep -v 'sockaddr_in6' | \
   sed -e 's/\([^a-zA-Z0-9_]\)_timeval\([^a-zA-Z0-9_]\)/\1Timeval\2/g' \
-      -e 's/\([^a-zA-Z0-9_]\)_timespec\(_t\)\?\([^a-zA-Z0-9_]\)/\1Timespec\3/g' \
+      -e 's/\([^a-zA-Z0-9_]\)_timespec_t\([^a-zA-Z0-9_]\)/\1Timespec\2/g' \
+      -e 's/\([^a-zA-Z0-9_]\)_timespec\([^a-zA-Z0-9_]\)/\1Timespec\2/g' \
       -e 's/\([^a-zA-Z0-9_]\)_timestruc_t\([^a-zA-Z0-9_]\)/\1Timestruc\2/g' \
     >> ${OUT}
 
@@ -130,6 +129,12 @@ grep '^const _SYS_' gen-sysinfo.go | \
 # Stat constants.
 grep '^const _S_' gen-sysinfo.go | \
   sed -e 's/^\(const \)_\(S_[^= ]*\)\(.*\)$/\1\2 = _\2/' >> ${OUT}
+
+# Mmap constants.
+grep '^const _PROT_' gen-sysinfo.go | \
+  sed -e 's/^\(const \)_\(PROT_[^= ]*\)\(.*\)$/\1\2 = _\2/' >> ${OUT}
+grep '^const _MAP_' gen-sysinfo.go | \
+  sed -e 's/^\(const \)_\(MAP_[^= ]*\)\(.*\)$/\1\2 = _\2/' >> ${OUT}
 
 # Process status constants.
 grep '^const _W' gen-sysinfo.go |
@@ -308,7 +313,8 @@ timespec_nsec=`echo $timespec | sed -n -e 's/^.*tv_nsec \([^ ]*\);.*$/\1/p'`
 echo "type Timespec_sec_t $timespec_sec" >> ${OUT}
 echo "type Timespec_nsec_t $timespec_nsec" >> ${OUT}
 echo $timespec | \
-  sed -e 's/^type \(__\)\?_timespec /type Timespec /' \
+  sed -e 's/^type ___timespec /type Timespec /' \
+      -e 's/^type _timespec /type Timespec /' \
       -e 's/tv_sec *[a-zA-Z0-9_]*/Sec Timespec_sec_t/' \
       -e 's/tv_nsec *[a-zA-Z0-9_]*/Nsec Timespec_nsec_t/' >> ${OUT}
 
@@ -347,7 +353,8 @@ fi | sed -e 's/type _stat64/type Stat_t/' \
          -e 's/st_mtim/Mtime/' \
          -e 's/st_ctim/Ctime/' \
          -e 's/\([^a-zA-Z0-9_]\)_timeval\([^a-zA-Z0-9_]\)/\1Timeval\2/g' \
-         -e 's/\([^a-zA-Z0-9_]\)_timespec\(_t\)\?\([^a-zA-Z0-9_]\)/\1Timespec\3/g' \
+         -e 's/\([^a-zA-Z0-9_]\)_timespec_t\([^a-zA-Z0-9_]\)/\1Timespec\2/g' \
+         -e 's/\([^a-zA-Z0-9_]\)_timespec\([^a-zA-Z0-9_]\)/\1Timespec\2/g' \
          -e 's/\([^a-zA-Z0-9_]\)_timestruc_t\([^a-zA-Z0-9_]\)/\1Timestruc\2/g' \
        >> ${OUT}
 

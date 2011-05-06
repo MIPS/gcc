@@ -97,7 +97,7 @@
                         ; generate correct unwind information.
   UNSPEC_PIC_OFFSET     ; A symbolic 12-bit OFFSET that has been treated
                         ; correctly for PIC usage.
-  UNSPEC_GOTSYM_OFF     ; The offset of the start of the the GOT from a
+  UNSPEC_GOTSYM_OFF     ; The offset of the start of the GOT from a
                         ; a given symbolic address.
   UNSPEC_THUMB1_CASESI  ; A Thumb1 compressed dispatch-table call.
   UNSPEC_RBIT           ; rbit operation.
@@ -3696,7 +3696,7 @@
 ;; The constraints here are to prevent a *partial* overlap (where %Q0 == %R1).
 ;; The first alternative allows the common case of a *full* overlap.
 (define_insn "*arm_negdi2"
-  [(set (match_operand:DI         0 "s_register_operand" "=&r,r")
+  [(set (match_operand:DI         0 "s_register_operand" "=r,&r")
 	(neg:DI (match_operand:DI 1 "s_register_operand"  "0,r")))
    (clobber (reg:CC CC_REGNUM))]
   "TARGET_ARM"
@@ -5946,8 +5946,8 @@
 
 
 (define_insn "*arm_movqi_insn"
-  [(set (match_operand:QI 0 "nonimmediate_operand" "=r,r,r,m")
-	(match_operand:QI 1 "general_operand" "rI,K,m,r"))]
+  [(set (match_operand:QI 0 "nonimmediate_operand" "=r,r,l,Uu,r,m")
+	(match_operand:QI 1 "general_operand" "rI,K,Uu,l,m,r"))]
   "TARGET_32BIT
    && (   register_operand (operands[0], QImode)
        || register_operand (operands[1], QImode))"
@@ -5955,10 +5955,14 @@
    mov%?\\t%0, %1
    mvn%?\\t%0, #%B1
    ldr%(b%)\\t%0, %1
+   str%(b%)\\t%1, %0
+   ldr%(b%)\\t%0, %1
    str%(b%)\\t%1, %0"
-  [(set_attr "type" "*,*,load1,store1")
-   (set_attr "insn" "mov,mvn,*,*")
-   (set_attr "predicable" "yes")]
+  [(set_attr "type" "*,*,load1,store1,load1,store1")
+   (set_attr "insn" "mov,mvn,*,*,*,*")
+   (set_attr "predicable" "yes")
+   (set_attr "arch" "any,any,t2,t2,any,any")
+   (set_attr "length" "4,4,2,2,4,4")]
 )
 
 (define_insn "*thumb1_movqi_insn"
@@ -6188,7 +6192,7 @@
   [(match_operand:DF 0 "arm_reload_memory_operand" "=o")
    (match_operand:DF 1 "s_register_operand" "r")
    (match_operand:SI 2 "s_register_operand" "=&r")]
-  "TARGET_32BIT"
+  "TARGET_THUMB2"
   "
   {
     enum rtx_code code = GET_CODE (XEXP (operands[0], 0));
@@ -7115,13 +7119,17 @@
 
 (define_insn "*arm_cmpsi_insn"
   [(set (reg:CC CC_REGNUM)
-	(compare:CC (match_operand:SI 0 "s_register_operand" "r,r")
-		    (match_operand:SI 1 "arm_add_operand"    "rI,L")))]
+	(compare:CC (match_operand:SI 0 "s_register_operand" "l,r,r,r")
+		    (match_operand:SI 1 "arm_add_operand"    "Py,r,rI,L")))]
   "TARGET_32BIT"
   "@
    cmp%?\\t%0, %1
+   cmp%?\\t%0, %1
+   cmp%?\\t%0, %1
    cmn%?\\t%0, #%n1"
-  [(set_attr "conds" "set")]
+  [(set_attr "conds" "set")
+   (set_attr "arch" "t2,t2,any,any")
+   (set_attr "length" "2,2,4,4")]
 )
 
 (define_insn "*cmpsi_shiftsi"
@@ -7292,7 +7300,14 @@
   return \"b%d1\\t%l0\";
   "
   [(set_attr "conds" "use")
-   (set_attr "type" "branch")]
+   (set_attr "type" "branch")
+   (set (attr "length")
+	(if_then_else
+	   (and (ne (symbol_ref "TARGET_THUMB2") (const_int 0))
+		(and (ge (minus (match_dup 0) (pc)) (const_int -250))
+		     (le (minus (match_dup 0) (pc)) (const_int 256))))
+	   (const_int 2)
+	   (const_int 4)))]
 )
 
 (define_insn "*arm_cond_branch_reversed"
@@ -7311,7 +7326,14 @@
   return \"b%D1\\t%l0\";
   "
   [(set_attr "conds" "use")
-   (set_attr "type" "branch")]
+   (set_attr "type" "branch")
+   (set (attr "length")
+	(if_then_else
+	   (and (ne (symbol_ref "TARGET_THUMB2") (const_int 0))
+		(and (ge (minus (match_dup 0) (pc)) (const_int -250))
+		     (le (minus (match_dup 0) (pc)) (const_int 256))))
+	   (const_int 2)
+	   (const_int 4)))]
 )
 
 
@@ -7763,7 +7785,14 @@
     return \"b%?\\t%l0\";
   }
   "
-  [(set_attr "predicable" "yes")]
+  [(set_attr "predicable" "yes")
+   (set (attr "length")
+	(if_then_else
+	   (and (ne (symbol_ref "TARGET_THUMB2") (const_int 0))
+		(and (ge (minus (match_dup 0) (pc)) (const_int -2044))
+		     (le (minus (match_dup 0) (pc)) (const_int 2048))))
+	   (const_int 2)
+	   (const_int 4)))]
 )
 
 (define_insn "*thumb_jump"
@@ -9977,9 +10006,7 @@
       DONE;
     }
   emit_jump_insn (gen_rtx_UNSPEC_VOLATILE (VOIDmode,
-	gen_rtvec (1,
-		gen_rtx_RETURN (VOIDmode)),
-	VUNSPEC_EPILOGUE));
+	gen_rtvec (1, ret_rtx), VUNSPEC_EPILOGUE));
   DONE;
   "
 )
@@ -10224,6 +10251,8 @@
 ;; Push multiple registers to the stack.  Registers are in parallel (use ...)
 ;; expressions.  For simplicity, the first register is also in the unspec
 ;; part.
+;; To avoid the usage of GNU extension, the length attribute is computed
+;; in a C function arm_attr_length_push_multi.
 (define_insn "*push_multi"
   [(match_parallel 2 "multi_register_push"
     [(set (match_operand:BLK 0 "memory_operand" "=m")
@@ -10263,7 +10292,9 @@
 
     return \"\";
   }"
-  [(set_attr "type" "store4")]
+  [(set_attr "type" "store4")
+   (set (attr "length")
+	(symbol_ref "arm_attr_length_push_multi (operands[2], operands[1])"))]
 )
 
 (define_insn "stack_tie"

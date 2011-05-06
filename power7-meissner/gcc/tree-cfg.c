@@ -1,6 +1,6 @@
 /* Control flow functions for trees.
    Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,
-   2010  Free Software Foundation, Inc.
+   2010, 2011  Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -1358,13 +1358,14 @@ group_case_labels_stmt (gimple stmt)
 	{
 	  tree merge_case = gimple_switch_label (stmt, i);
 	  tree merge_label = CASE_LABEL (merge_case);
-	  tree t = int_const_binop (PLUS_EXPR, base_high,
-				    integer_one_node, 1);
+	  double_int bhp1 = double_int_add (tree_to_double_int (base_high),
+					    double_int_one);
 
 	  /* Merge the cases if they jump to the same place,
 	     and their ranges are consecutive.  */
 	  if (merge_label == base_label
-	      && tree_int_cst_equal (CASE_LOW (merge_case), t))
+	      && double_int_equal_p (tree_to_double_int (CASE_LOW (merge_case)),
+				     bhp1))
 	    {
 	      base_high = CASE_HIGH (merge_case) ?
 		  CASE_HIGH (merge_case) : CASE_LOW (merge_case);
@@ -2989,7 +2990,7 @@ verify_types_in_gimple_reference (tree expr, bool require_lvalue)
       if (!TMR_BASE (expr)
 	  || !is_gimple_mem_ref_addr (TMR_BASE (expr)))
 	{
-	  error ("invalid address operand in in TARGET_MEM_REF");
+	  error ("invalid address operand in TARGET_MEM_REF");
 	  return true;
 	}
       if (!TMR_OFFSET (expr)
@@ -3046,16 +3047,35 @@ verify_gimple_call (gimple stmt)
   tree fntype, fndecl;
   unsigned i;
 
-  if (!is_gimple_call_addr (fn))
+  if (gimple_call_internal_p (stmt))
+    {
+      if (fn)
+	{
+	  error ("gimple call has two targets");
+	  debug_generic_stmt (fn);
+	  return true;
+	}
+    }
+  else
+    {
+      if (!fn)
+	{
+	  error ("gimple call has no target");
+	  return true;
+	}
+    }
+
+  if (fn && !is_gimple_call_addr (fn))
     {
       error ("invalid function in gimple call");
       debug_generic_stmt (fn);
       return true;
     }
 
-  if (!POINTER_TYPE_P (TREE_TYPE  (fn))
-      || (TREE_CODE (TREE_TYPE (TREE_TYPE (fn))) != FUNCTION_TYPE
-	  && TREE_CODE (TREE_TYPE (TREE_TYPE (fn))) != METHOD_TYPE))
+  if (fn
+      && (!POINTER_TYPE_P (TREE_TYPE (fn))
+	  || (TREE_CODE (TREE_TYPE (TREE_TYPE (fn))) != FUNCTION_TYPE
+	      && TREE_CODE (TREE_TYPE (TREE_TYPE (fn))) != METHOD_TYPE)))
     {
       error ("non-function in gimple call");
       return true;
@@ -3086,8 +3106,9 @@ verify_gimple_call (gimple stmt)
       return true;
     }
 
-  fntype = TREE_TYPE (TREE_TYPE (fn));
-  if (gimple_call_lhs (stmt)
+  fntype = gimple_call_fntype (stmt);
+  if (fntype
+      && gimple_call_lhs (stmt)
       && !useless_type_conversion_p (TREE_TYPE (gimple_call_lhs (stmt)),
 				     TREE_TYPE (fntype))
       /* ???  At least C++ misses conversions at assignments from
@@ -5736,7 +5757,7 @@ move_stmt_eh_region_tree_nr (tree old_t_nr, struct move_stmt_d *p)
   old_nr = tree_low_cst (old_t_nr, 0);
   new_nr = move_stmt_eh_region_nr (old_nr, p);
 
-  return build_int_cst (NULL, new_nr);
+  return build_int_cst (integer_type_node, new_nr);
 }
 
 /* Like move_stmt_op, but for gimple statements.
@@ -7135,6 +7156,7 @@ struct cfg_hooks gimple_cfg_hooks = {
   gimple_split_edge,		/* split_edge  */
   gimple_make_forwarder_block,	/* make_forward_block  */
   NULL,				/* tidy_fallthru_edge  */
+  NULL,				/* force_nonfallthru */
   gimple_block_ends_with_call_p,/* block_ends_with_call_p */
   gimple_block_ends_with_condjump_p, /* block_ends_with_condjump_p */
   gimple_flow_call_edges_add,   /* flow_call_edges_add */
@@ -7435,12 +7457,14 @@ do_warn_unused_result (gimple_seq seq)
 	case GIMPLE_CALL:
 	  if (gimple_call_lhs (g))
 	    break;
+	  if (gimple_call_internal_p (g))
+	    break;
 
 	  /* This is a naked call, as opposed to a GIMPLE_CALL with an
 	     LHS.  All calls whose value is ignored should be
 	     represented like this.  Look for the attribute.  */
 	  fdecl = gimple_call_fndecl (g);
-	  ftype = TREE_TYPE (TREE_TYPE (gimple_call_fn (g)));
+	  ftype = gimple_call_fntype (g);
 
 	  if (lookup_attribute ("warn_unused_result", TYPE_ATTRIBUTES (ftype)))
 	    {

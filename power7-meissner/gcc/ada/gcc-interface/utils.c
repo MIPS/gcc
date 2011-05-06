@@ -459,8 +459,8 @@ gnat_poplevel (void)
   else if (BLOCK_VARS (block) == NULL_TREE)
     {
       BLOCK_SUBBLOCKS (level->chain->block)
-	= chainon (BLOCK_SUBBLOCKS (block),
-		   BLOCK_SUBBLOCKS (level->chain->block));
+	= block_chainon (BLOCK_SUBBLOCKS (block),
+			 BLOCK_SUBBLOCKS (level->chain->block));
       BLOCK_CHAIN (block) = free_block_chain;
       free_block_chain = block;
     }
@@ -1795,7 +1795,7 @@ value_factor_p (tree value, HOST_WIDE_INT factor)
   return false;
 }
 
-/* Given 2 consecutive field decls PREV_FIELD and CURR_FIELD, return true
+/* Given two consecutive field decls PREV_FIELD and CURR_FIELD, return true
    unless we can prove these 2 fields are laid out in such a way that no gap
    exist between the end of PREV_FIELD and the beginning of CURR_FIELD.  OFFSET
    is the distance in bits between the end of PREV_FIELD and the starting
@@ -1841,7 +1841,7 @@ potential_alignment_gap (tree prev_field, tree curr_field, tree offset)
   return true;
 }
 
-/* Returns a LABEL_DECL node for LABEL_NAME.  */
+/* Return a LABEL_DECL node for LABEL_NAME.  */
 
 tree
 create_label_decl (tree label_name)
@@ -1856,24 +1856,26 @@ create_label_decl (tree label_name)
   return label_decl;
 }
 
-/* Returns a FUNCTION_DECL node.  SUBPROG_NAME is the name of the subprogram,
+/* Return a FUNCTION_DECL node.  SUBPROG_NAME is the name of the subprogram,
    ASM_NAME is its assembler name, SUBPROG_TYPE is its type (a FUNCTION_TYPE
    node), PARAM_DECL_LIST is the list of the subprogram arguments (a list of
    PARM_DECL nodes chained through the TREE_CHAIN field).
 
-   INLINE_FLAG, PUBLIC_FLAG, EXTERN_FLAG, and ATTR_LIST are used to set the
-   appropriate fields in the FUNCTION_DECL.  GNAT_NODE gives the location.  */
+   INLINE_FLAG, PUBLIC_FLAG, EXTERN_FLAG, ARTIFICIAL_FLAG and ATTR_LIST are
+   used to set the appropriate fields in the FUNCTION_DECL.  GNAT_NODE is
+   used for the position of the decl.  */
 
 tree
-create_subprog_decl (tree subprog_name, tree asm_name,
-                     tree subprog_type, tree param_decl_list, bool inline_flag,
-		     bool public_flag, bool extern_flag,
-                     struct attrib *attr_list, Node_Id gnat_node)
+create_subprog_decl (tree subprog_name, tree asm_name, tree subprog_type,
+		     tree param_decl_list, bool inline_flag, bool public_flag,
+		     bool extern_flag, bool artificial_flag,
+		     struct attrib *attr_list, Node_Id gnat_node)
 {
   tree subprog_decl = build_decl (input_location, FUNCTION_DECL, subprog_name,
 				  subprog_type);
   tree result_decl = build_decl (input_location, RESULT_DECL, NULL_TREE,
 				 TREE_TYPE (subprog_type));
+  DECL_ARGUMENTS (subprog_decl) = param_decl_list;
 
   /* If this is a non-inline function nested inside an inlined external
      function, we cannot honor both requests without cloning the nested
@@ -1887,13 +1889,15 @@ create_subprog_decl (tree subprog_name, tree asm_name,
       && DECL_EXTERNAL (current_function_decl))
     DECL_DECLARED_INLINE_P (current_function_decl) = 0;
 
-  DECL_EXTERNAL (subprog_decl)  = extern_flag;
-  TREE_PUBLIC (subprog_decl)    = public_flag;
-  TREE_READONLY (subprog_decl)  = TYPE_READONLY (subprog_type);
+  DECL_ARTIFICIAL (subprog_decl) = artificial_flag;
+  DECL_EXTERNAL (subprog_decl) = extern_flag;
+  DECL_DECLARED_INLINE_P (subprog_decl) = inline_flag;
+  DECL_NO_INLINE_WARNING_P (subprog_decl) = inline_flag && artificial_flag;
+
+  TREE_PUBLIC (subprog_decl) = public_flag;
+  TREE_READONLY (subprog_decl) = TYPE_READONLY (subprog_type);
   TREE_THIS_VOLATILE (subprog_decl) = TYPE_VOLATILE (subprog_type);
   TREE_SIDE_EFFECTS (subprog_decl) = TYPE_VOLATILE (subprog_type);
-  DECL_DECLARED_INLINE_P (subprog_decl) = inline_flag;
-  DECL_ARGUMENTS (subprog_decl) = param_decl_list;
 
   DECL_ARTIFICIAL (result_decl) = 1;
   DECL_IGNORED_P (result_decl) = 1;
@@ -1950,11 +1954,6 @@ begin_subprog_body (tree subprog_decl)
     DECL_CONTEXT (param_decl) = subprog_decl;
 
   make_decl_rtl (subprog_decl);
-
-  /* We handle pending sizes via the elaboration of types, so we don't need to
-     save them.  This causes them to be marked as part of the outer function
-     and then discarded.  */
-  get_pending_sizes ();
 }
 
 /* Finish the definition of the current subprogram BODY and finalize it.  */
@@ -1968,10 +1967,6 @@ end_subprog_body (tree body)
   BLOCK_SUPERCONTEXT (current_binding_level->block) = fndecl;
   DECL_INITIAL (fndecl) = current_binding_level->block;
   gnat_poplevel ();
-
-  /* We handle pending sizes via the elaboration of types, so we don't
-     need to save them.  */
-  get_pending_sizes ();
 
   /* Mark the RESULT_DECL as being in this subprogram. */
   DECL_CONTEXT (DECL_RESULT (fndecl)) = fndecl;
@@ -2003,7 +1998,7 @@ end_subprog_body (tree body)
   else
     /* Register this function with cgraph just far enough to get it
        added to our parent's nested function list.  */
-    (void) cgraph_node (fndecl);
+    (void) cgraph_get_create_node (fndecl);
 }
 
 tree
@@ -5215,7 +5210,6 @@ handle_nonnull_attribute (tree *node, tree ARG_UNUSED (name),
      a pointer argument.  */
   for (attr_arg_num = 1; args; args = TREE_CHAIN (args))
     {
-      tree argument;
       unsigned HOST_WIDE_INT arg_num = 0, ck_num;
 
       if (!get_nonnull_operand (TREE_VALUE (args), &arg_num))
@@ -5226,18 +5220,21 @@ handle_nonnull_attribute (tree *node, tree ARG_UNUSED (name),
 	  return NULL_TREE;
 	}
 
-      argument = TYPE_ARG_TYPES (type);
-      if (argument)
+      if (prototype_p (type))
 	{
-	  for (ck_num = 1; ; ck_num++)
+	  function_args_iterator iter;
+	  tree argument;
+
+	  function_args_iter_init (&iter, type);
+	  for (ck_num = 1; ; ck_num++, function_args_iter_next (&iter))
 	    {
+	      argument = function_args_iter_cond (&iter);
 	      if (!argument || ck_num == arg_num)
 		break;
-	      argument = TREE_CHAIN (argument);
 	    }
 
 	  if (!argument
-	      || TREE_CODE (TREE_VALUE (argument)) == VOID_TYPE)
+	      || TREE_CODE (argument) == VOID_TYPE)
 	    {
 	      error ("nonnull argument with out-of-range operand number "
 		     "(argument %lu, operand %lu)",
@@ -5246,7 +5243,7 @@ handle_nonnull_attribute (tree *node, tree ARG_UNUSED (name),
 	      return NULL_TREE;
 	    }
 
-	  if (TREE_CODE (TREE_VALUE (argument)) != POINTER_TYPE)
+	  if (TREE_CODE (argument) != POINTER_TYPE)
 	    {
 	      error ("nonnull argument references non-pointer operand "
 		     "(argument %lu, operand %lu)",
@@ -5266,8 +5263,6 @@ static tree
 handle_sentinel_attribute (tree *node, tree name, tree args,
 			   int ARG_UNUSED (flags), bool *no_add_attrs)
 {
-  tree params = TYPE_ARG_TYPES (*node);
-
   if (!prototype_p (*node))
     {
       warning (OPT_Wattributes,
@@ -5277,10 +5272,7 @@ handle_sentinel_attribute (tree *node, tree name, tree args,
     }
   else
     {
-      while (TREE_CHAIN (params))
-	params = TREE_CHAIN (params);
-
-      if (VOID_TYPE_P (TREE_VALUE (params)))
+      if (!stdarg_p (*node))
         {
 	  warning (OPT_Wattributes,
 		   "%qs attribute only applies to variadic functions",
@@ -5400,17 +5392,11 @@ handle_type_generic_attribute (tree *node, tree ARG_UNUSED (name),
 			       tree ARG_UNUSED (args), int ARG_UNUSED (flags),
 			       bool * ARG_UNUSED (no_add_attrs))
 {
-  tree params;
-
   /* Ensure we have a function type.  */
   gcc_assert (TREE_CODE (*node) == FUNCTION_TYPE);
 
-  params = TYPE_ARG_TYPES (*node);
-  while (params && ! VOID_TYPE_P (TREE_VALUE (params)))
-    params = TREE_CHAIN (params);
-
   /* Ensure we have a variadic function.  */
-  gcc_assert (!params);
+  gcc_assert (!prototype_p (*node) || stdarg_p (*node));
 
   return NULL_TREE;
 }
