@@ -52,6 +52,7 @@ Erven Rohou             <erven.rohou@inria.fr>
 #include "cil-stack.h"
 #include "emit-cil.h"
 #include "source-location.h"
+#include "missing-protos.h"
 
 /******************************************************************************
  * Globals                                                                    *
@@ -2336,7 +2337,7 @@ gen_call_expr (cil_stmt_iterator *csi, tree node)
 {
   tree fdecl;
   tree ftype;
-  tree arg_types;
+  tree arg_types, arg_type;
   VEC(tree, heap) *arglist;
   tree static_chain;
   bool direct = true;
@@ -2371,6 +2372,15 @@ gen_call_expr (cil_stmt_iterator *csi, tree node)
     }
 
   arg_types = TYPE_ARG_TYPES (ftype);
+
+  /* Before guessing the prototype, try to fix it */
+  if (arg_types == NULL && fdecl)
+    {
+      fix_missing_prototype (fdecl);
+      /* fix_missing_prototype may update function type */
+      ftype = TREE_TYPE (fdecl);
+      arg_types = TYPE_ARG_TYPES (ftype);
+    }
 
   if (arg_types == NULL)
     {
@@ -2430,8 +2440,23 @@ gen_call_expr (cil_stmt_iterator *csi, tree node)
   if (static_chain)
     gimple_to_cil_node (csi, static_chain, sloc);
 
+  /* Arguments used in functions with automatically generated prototypes
+     may lack the casting (since the type was unknown during gimplification)
+     We provide it just before emiting the argument */
+  arg_type = arg_types;
   for (i = 0; i < nargs_base; i++)
-    gimple_to_cil_node (csi, CALL_EXPR_ARG (node, i), sloc);
+    {
+      tree arg = CALL_EXPR_ARG (node, i);
+      
+      if (arg_type)
+        {
+          /* FIXME: This is not gimple! Anyway, we are about to remove the gimple tree */
+          if (!useless_type_conversion_p (TREE_VALUE (arg_type), TREE_TYPE (arg)))
+            arg = CALL_EXPR_ARG (node, i) = fold_convert (TREE_VALUE (arg_type), CALL_EXPR_ARG (node, i));
+          arg_type =  TREE_CHAIN (arg_type);
+        }
+    gimple_to_cil_node (csi, arg, sloc);
+  }
 
   /* Vararg parameters, this will be added only if they are present.  */
   for (; i < nargs; i++)
@@ -4416,6 +4441,11 @@ gimple_to_cil (void)
   tree node = NULL_TREE;
   gimple gimple_node = NULL;
   source_location gimple_loc = UNKNOWN_LOCATION;
+
+
+  /* First try to fix this function prototype (if missing) */
+  if (!TYPE_ARG_TYPES (TREE_TYPE (current_function_decl)))
+    fix_missing_prototype (current_function_decl);
 
   /* Initialization */
   refs_init ();

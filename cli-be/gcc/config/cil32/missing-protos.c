@@ -48,6 +48,56 @@ Erven Rohou             <erven.rohou@inria.fr>
 #include "emit-cil.h"
 #include "source-location.h"
 
+/* Some times there is no explicit prototype, but DECL_ARGUMENTS still holds
+   the actual list of arguments. This is the case of the following declaration:
+    
+       void foo (arg)
+         double arg;
+       { }
+
+   In this situations, we restore the prototype from the declaration.
+   Note that this syntax doesn't allow to express var args. */
+void
+fix_missing_prototype (tree fdecl)
+{
+  tree arg_types;
+  
+  /* if there is already a prototype, we don't need to provide it */
+  arg_types = TYPE_ARG_TYPES (TREE_TYPE (fdecl));
+  if (arg_types != NULL_TREE)
+    return;
+
+  if (DECL_ARGUMENTS (fdecl))
+    {
+      tree arg, last_arg = NULL_TREE;
+
+      /* chain each argument */
+      for (arg = DECL_ARGUMENTS (fdecl); arg; arg = TREE_CHAIN (arg))
+        {
+          tree tmp = tree_cons (NULL_TREE, TREE_TYPE (arg), NULL_TREE);
+          if (!arg_types)
+            arg_types = tmp;
+          if (last_arg)
+            TREE_CHAIN (last_arg) = tmp;
+          last_arg = tmp;
+        }
+
+      /* end the chain */
+      if (!arg_types)
+        arg_types = tree_cons (NULL_TREE, void_type_node, NULL_TREE);
+      else
+        TREE_CHAIN (last_arg) = tree_cons (NULL_TREE, void_type_node, NULL_TREE);
+
+      /* ensure to unshare the new function type */
+      TREE_TYPE (fdecl) = build_function_type (TREE_TYPE (TREE_TYPE (fdecl)), arg_types);
+#if 0
+      fprintf (stderr, "Fixed prototype for '");
+      print_generic_decl (stderr, fdecl, 0);
+      fprintf (stderr, "'\n");
+#endif      
+    }
+}
+
 /******************************************************************************
  * Globals                                                                    *
  ******************************************************************************/

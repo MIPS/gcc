@@ -58,6 +58,7 @@ Erven Rohou             <erven.rohou@inria.fr>
 #include "emit-hints.h"
 #include "emit-cil.h"
 #include "source-location.h"
+#include "missing-protos.h"
 
 /******************************************************************************
  * Type declarations                                                          *
@@ -466,6 +467,15 @@ dump_fun_type (FILE *file, tree fun_type, tree fun, const char *name, bool ref)
     mark_referenced_type (fun_type);
 
   args_type = TYPE_ARG_TYPES (fun_type);
+
+  /* Before guessing the prototype, try to fix it */
+  if (args_type == NULL && fun)
+    {
+      fix_missing_prototype (fun);
+      /* fix_missing_prototype may update function type */
+      fun_type = TREE_TYPE (fun);
+      args_type = TYPE_ARG_TYPES (fun_type);
+    }
 
   if (args_type == NULL)
     {
