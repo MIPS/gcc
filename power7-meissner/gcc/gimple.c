@@ -3208,6 +3208,8 @@ gimple_call_copy_skip_args (gimple stmt, bitmap args_to_skip)
 }
 
 
+enum gtc_mode { GTC_MERGE = 0, GTC_DIAG = 1 };
+
 static hashval_t gimple_type_hash_1 (const void *, enum gtc_mode);
 
 /* Structure used to maintain a cache of some type pairs compared by
@@ -3240,8 +3242,7 @@ type_pair_hash (const void *p)
   const struct type_pair_d *pair = (const struct type_pair_d *) p;
   hashval_t val1 = pair->uid1;
   hashval_t val2 = pair->uid2;
-  return (iterative_hash_hashval_t (val2, val1)
-	  ^ iterative_hash_hashval_t (val1, val2));
+  return iterative_hash_hashval_t (val1, val2);
 }
 
 /* Compare two type pairs pointed-to by P1 and P2.  */
@@ -3251,8 +3252,7 @@ type_pair_eq (const void *p1, const void *p2)
 {
   const struct type_pair_d *pair1 = (const struct type_pair_d *) p1;
   const struct type_pair_d *pair2 = (const struct type_pair_d *) p2;
-  return ((pair1->uid1 == pair2->uid1 && pair1->uid2 == pair2->uid2)
-	  || (pair1->uid1 == pair2->uid2 && pair1->uid2 == pair2->uid1));
+  return (pair1->uid1 == pair2->uid1 && pair1->uid2 == pair2->uid2);
 }
 
 /* Lookup the pair of types T1 and T2 in *VISITED_P.  Insert a new
@@ -3271,8 +3271,16 @@ lookup_type_pair (tree t1, tree t2, htab_t *visited_p, struct obstack *ob_p)
       gcc_obstack_init (ob_p);
     }
 
-  pair.uid1 = TYPE_UID (t1);
-  pair.uid2 = TYPE_UID (t2);
+  if (TYPE_UID (t1) < TYPE_UID (t2))
+    {
+      pair.uid1 = TYPE_UID (t1);
+      pair.uid2 = TYPE_UID (t2);
+    }
+  else
+    {
+      pair.uid1 = TYPE_UID (t2);
+      pair.uid2 = TYPE_UID (t1);
+    }
   slot = htab_find_slot (*visited_p, &pair, INSERT);
 
   if (*slot)
@@ -3280,8 +3288,8 @@ lookup_type_pair (tree t1, tree t2, htab_t *visited_p, struct obstack *ob_p)
   else
     {
       p = XOBNEW (ob_p, struct type_pair_d);
-      p->uid1 = TYPE_UID (t1);
-      p->uid2 = TYPE_UID (t2);
+      p->uid1 = pair.uid1;
+      p->uid2 = pair.uid2;
       p->same_p[0] = -2;
       p->same_p[1] = -2;
       *slot = (void *) p;
@@ -3324,7 +3332,7 @@ static GTY((deletable, length("GIMPLE_TYPE_LEADER_SIZE")))
 /* Lookup an existing leader for T and return it or NULL_TREE, if
    there is none in the cache.  */
 
-static tree
+static inline tree
 gimple_lookup_type_leader (tree t)
 {
   gimple_type_leader_entry *leader;
@@ -3902,7 +3910,7 @@ pop:
    FOR_MERGING_P is true the an incomplete type and a complete type
    are considered different, otherwise they are considered compatible.  */
 
-bool
+static bool
 gimple_types_compatible_p (tree t1, tree t2, enum gtc_mode mode)
 {
   VEC(type_pair_t, heap) *sccstack = NULL;

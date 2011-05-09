@@ -1,3 +1,226 @@
+2011-05-09  Richard Guenther  <rguenther@suse.de>
+
+	* lto-symtab.c (lto_cgraph_replace_node): Use types_compatible_p
+	for diagnostics.
+	(lto_symtab_merge): Likewise.  Do not register types here.
+	(lto_symtab_merge_decls_2): Likewise.
+	(lto_symtab_merge_decls_1): Likewise.
+	* gimple.h (enum gtc_mode, gimple_types_compatible_p): Do not declare.
+	* gimple.c (enum gtc_mode): Declare.
+	(gimple_types_compatible_p): Make static.
+
+2011-05-09  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/s390.md (TD/TF mem to reg move splitter): Make the
+	temporary register to match Pmode.
+
+2011-05-09  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/sse.md (*vec_concatv4si): Merge from *vec_concatv4si_1
+	and *vec_concatv4si_1_avx.
+
+2011-05-09  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR rtl-optimization/48927
+	* ira-conflicts.c (commutative_constraint_p): Use
+	recog_data.alternative_enabled_p to disable alternatives where
+	"enabled" attribute is false.
+	(get_dup_num): Ditto.
+	* ira-lives.c (single_reg_class): Ditto.
+	(ira_implicitly_set_insn_hard_regs): Ditto.
+
+2011-05-09  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* var-tracking.c (find_mem_expr_in_1pdv): Fix thinko.
+	(dataflow_set_preserve_mem_locs): Likewise.
+
+2011-05-09  Philipp Thomas  <pth@suse.de>
+
+	* config/mep/mep.c (mep_validate_vliw): Syntax description
+	should not be translated.
+
+2011-05-09  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/mips/genopt.sh, config/mips/mips-cpus.def: New files.
+	* config/mips/mips-tables.opt: New file (generated).
+	* config.gcc (mips*-*-*): Add mips/mips-tables.opt to extra_options.
+	* config/mips/mips-opts.h (MIPS_ARCH_OPTION_FROM_ABI,
+	MIPS_ARCH_OPTION_NATIVE): Define.
+	* config/mips/mips.c (mips_cpu_info_table): Move contents to
+	mips-cpus.def.
+	(mips_strict_matching_cpu_name_p, mips_matching_cpu_name_p,
+	mips_parse_cpu): Remove.
+	(mips_cpu_info_from_opt, mips_default_arch): New.
+	(mips_handle_option): Don't assert that global structures are in
+	use.  Don't handle OPT_march_, OPT_mtune_ and OPT_mips here.
+	(mips_option_override): Use new variables and functions to set
+	state of these options.  Use strcmp to check for individual CPU names.
+	* config/mips/mips.h (MIPS_CPU_STRING_DEFAULT): Remove default
+	definition.
+	* config/mips/mips.opt (march=): Use ToLower and Enum.
+	(mips): Use ToLower, Enum and Var.
+	(mtune=): Use ToLower and Enum.
+	* config/mips/t-mips ($(srcdir)/config/mips/mips-tables.opt): New.
+
+2011-05-08  Jan Hubicka  <jh@suse.cz>
+
+	* gimple.c (type_pair_hash, type_pair_eq, lookup_type_pair):
+	Arrange type pairs to be UID ordered.
+	(gimple_lookup_type_leader): Make inline.
+
+2011-05-09  Nick Clifton  <nickc@redhat.com>
+
+	PR target/48899
+	* config/iq2000/iq2000.opt (iq2000_tune): Initialise to
+	PROCESSOR_DEFAULT.
+
+	PR target/48897
+	* config/mn10300/mn10300.c (extract_bundle): Remove spurious local
+	variable 's'.
+
+2011-05-08  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* combine.c (simplify_comparison): Abstract out parts into...
+	(simplify_compare_const): ... new function.
+	(try_combine): Generalize parallel arithmetic/compare combining
+	to call simplify_compare_const() and CANONICALIZE_COMPARE().
+
+2011-05-08  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.c (cgraph_clone_node): Add call_duplication_hook parameter.
+	(cgraph_create_virtual_clone): Call hooks once virtual clone
+	is finished.
+	* cgraph.h (cgraph_clone_node): Update prototype.
+	* ipa-cp.c (ipcp_estimate_growth): Use
+	estimate_ipcp_clone_size_and_time.
+	* ipa-inline-transform.c (clone_inlined_nodes): Update.
+	* lto-cgraph.c (input_node): Update.
+	* ipa-inline.c (recursive_inlining): Update.
+	* ipa-inline.h (estimate_ipcp_clone_size_and_time): New function.
+	(evaluate_conditions_for_known_args): Break out from ...
+	(evaluate_conditions_for_edge): ... here.
+	(evaluate_conditions_for_ipcp_clone): New function.
+	(inline_node_duplication_hook): Update clone summary based
+	on parameter map.
+	(estimate_callee_size_and_time): Rename to ...
+	(estimate_node_size_and_time): take NODE instead of EDGE;
+	take POSSIBLE_TRUTHS as argument.
+	(estimate_callee_size_and_time): Update.
+	(estimate_ipcp_clone_size_and_time): New function.
+	(do_estimate_edge_time): Update.
+
+2011-05-08  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/48908
+	PR middle-end/48905
+	* expmed.c (expand_shift_1): Compute adjusted constant shift
+	amount manually.
+
+2011-05-08  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/avr/avr.c (print_operand_address): Fix invalid RTL access.
+
+2011-05-08  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/rs6000/rs6000.c (output_profile_hook): Fix thinko.
+
+2011-05-08  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* doc/invoke.texi (-fuse-linker-plugin): Improve grammar.
+
+2011-05-07  Jan Hubicka  <jh@suse.cz>
+
+	* ipa-inline-transform.c (inline_call): Account when program size
+	decreases.
+	* ipa-inline.c (relative_time_benefit): New function.
+	(edge_badness): Reorganize to be power 2 based; fix thinko when
+	computing badness for negative growth; update comments to match
+	reality; better dumps.
+
+2011-05-07  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* langhooks.h (lang_hooks_for_types): Change global_bindings_p's return
+	type to bool and adjust comment.
+	* fold-const.c (fold_range_test): Adjust call to global_bindings_p.
+	(fold_mathfn_compare): Remove calls to global_bindings_p.
+	(fold_inf_compare): Likewise.
+	* stor-layout.c (variable_size): Adjust call to global_bindings_p.
+	* c-tree.h (global_bindings_p): Adjust prototype.
+	* c-decl.c (global_bindings_p): Return bool and simplify.
+
+2011-05-07  Zdenek Dvorak  <ook@ucw.cz>
+
+	PR tree-optimization/48837
+	* tree-tailcall.c (tree_optimize_tail_calls_1): Do not mark tailcalls
+	when accumulator transformation is performed.
+
+2011-05-06  Jan Hubicka  <jh@suse.cz>
+
+	* i386.h (ix86_tune_indices): Add
+	X86_TUNE_SOFTWARE_PREFETCHING_BENEFICIAL.
+	(TARGET_SOFTWARE_PREFETCHING_BENEFICIAL): New macro.
+	* i386.c (initial_ix86_tune_features): Add
+	X86_SOFTARE_PREFETCHING_BENEFICIAL.
+	(software_prefetching_beneficial_p): Remove predicate.
+	(ix86_option_override_internal): Use new macro.
+
+2011-05-06  Jan Hubicka  <jh@suse.cz>
+
+	* ipa-inline.c (update_callee_keys): Don't reset node growth cache.
+
+2011-05-06  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.c (cgraph_add_thunk): Create real function node instead
+	of alias node; finalize it and mark needed/reachale; arrange visibility
+	to be right and add it into the corresponding same comdat group list.
+	(dump_cgraph_node): Dump thunks.
+	* cgraph.h (cgraph_first_defined_function, cgraph_next_defined_function,
+	cgraph_function_with_gimple_body_p,
+	cgraph_first_function_with_gimple_body,
+	cgraph_next_function_with_gimple_body): New functions.
+	(FOR_EACH_FUNCTION_WITH_GIMPLE_BODY, FOR_EACH_DEFINED_FUNCTION):
+	New macros.
+	* ipa-cp.c (ipcp_need_redirect_p): Thunks can't be redirected.
+	(ipcp_generate_summary): Use FOR_EACH_FUNCTION_WITH_GIMPLE_BODY.
+	* cgraphunit.c (cgraph_finalize_function): Only look into possible
+	devirtualization when optimizing.
+	(verify_cgraph_node): Verify thunks.
+	(cgraph_analyze_function): Analyze thunks.
+	(cgraph_mark_functions_to_output): Output thunks only in combination
+	with function they are assigned to.
+	(assemble_thunk): Turn thunk into non-thunk; don't try to turn
+	alias into normal node.
+	(assemble_thunks): New functoin.
+	(cgraph_expand_function): Use it.
+	* lto-cgraph.c (lto_output_node): Stream thunks.
+	(input_overwrite_node): Stream in thunks.
+	* ipa-pure-const.c (analyze_function): Thunks do nothing interesting.
+	* lto-streamer-out.c (lto_output): Do not try to output thunk's body.
+	* ipa-inline.c (inline_small_functions): Use FOR_EACH_DEFINED_FUNCTION.
+	* ipa-inline-analysis.c (compute_inline_parameters): "Analyze" thunks.
+	(inline_analyze_function): Do not care about thunk jump functions.
+	(inline_generate_summary):Use FOR_EACH_DEFINED_FUNCTION.
+	* ipa-prop.c (ipa_prop_write_jump_functions): Use
+	cgraph_function_with_gimple_body_p.
+	* passes.c (do_per_function_toporder): Use
+	cgraph_function_with_gimple_body_p.
+	(execute_one_pass);Use FOR_EACH_FUNCTION_WITH_GIMPLE_BODY.
+	(ipa_write_summaries): Use cgraph_function_with_gimple_body_p.
+	(function_called_by_processed_nodes_p): Likewise.
+
+2011-05-06  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/rs6000/rs6000.opt (rs6000_ieeequad, rs6000_altivec_abi,
+	rs6000_spe_abi, rs6000_darwin64_abi): Remove TargetVariable
+	entries.
+	(mabi=): Replace with separate entries for mabi=altivec,
+	mabi=no-altivec, mabi=spe, mabi=no-spe, mabi=d64, mabi=d32,
+	mabi=ieeelongdouble and mabi=ibmlongdouble.
+	* config/rs6000/rs6000.c (rs6000_option_override_internal): Move
+	check for -mabi=spe without SPE ABI support here.
+	(rs6000_handle_option): Replace OPT_mabi_ handling with
+	OPT_mabi_altivec and OPT_mabi_spe handling.
+
 2011-05-06  Cary Coutant  <ccoutant@google.com>
 
 	* dwarf2out.c (contains_subprogram_definition): New function.
@@ -35,9 +258,9 @@
 
 2011-05-06  Ramana Radhakrishnan  <ramana.radhakrishnan@linaro.org>
 
-      PR target/47930
-      * config/arm/arm.opt (marm): Document it.
-      (mthumb): Reject negative variant.
+	PR target/47930
+	* config/arm/arm.opt (marm): Document it.
+	(mthumb): Reject negative variant.
 
 2011-05-06  Uros Bizjak  <ubizjak@gmail.com>
 

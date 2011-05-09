@@ -1,3 +1,34 @@
+2011-05-09  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/48574
+	* class.c (fixed_type_or_null): Use type_dependent_p_push to test
+	if the instance has a dependent initializer.
+
+2011-05-08  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/48816
+	* cxx-pretty-print.c (pp_cxx_template_declaration): Remove
+	effectively unused variable.
+
+2011-05-07  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* name-lookup.h (global_bindings_p): Adjust prototype.
+	* name-lookup.c (global_bindings_p): Return bool.
+
+2011-05-06  Jason Merrill  <jason@redhat.com>
+
+	* decl.c (stabilize_save_expr_r): Set *walk_subtrees as
+	appropriate.
+
+	PR c++/48909
+	* semantics.c (cxx_eval_conditional_expression): Check
+	integer_zerop instead.
+	(potential_constant_expression_1): Likewise.
+
+	PR c++/48911
+	* semantics.c (cxx_eval_array_reference): Handle implicit
+	initializers.
+
 2011-05-06  Nathan Froyd  <froydnj@codesourcery.com>
 
 	* cp-tree.h (type_of_this_parm, class_of_this_parm): New functions.
