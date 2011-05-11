@@ -1,3 +1,69 @@
+2011-05-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2011-05-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/48857, 48495
+	* config/rs6000/rs6000.h (VSX_SCALAR_MODE): Delete.
+	(VSX_MODE): Ditto.
+	(VSX_MOVE_MODE): Ditto.
+	(ALTIVEC_OR_VSX_VECTOR_MODE): New macro, combine all Altivec and
+	VSX vector types.  Add V2DImode.
+	(HARD_REGNO_CALLER_SAVE_MODE): Use it instead of
+	ALTIVEC_VECTOR_MODE and VSX_VECTOR_MODE calls.
+	(MODES_TIEABLE_P): Ditto.
+
+	* config/rs6000/rs6000.c (rs6000_emit_move): Use
+	ALTIVEC_OR_VSX_MODE instead of ALTIVEC_VECTOR_MODE and
+	VSX_VECTOR_MODE.
+	(init_cumulative_args): Ditto.
+	(rs6000_function_arg_boundary): Ditto.
+	(rs6000_function_arg_advance_1): Ditto.
+	(rs6000_function_arg): Ditto.
+	(rs6000_function_ok_for_sibcall): Ditto.
+	(emit_frame_save): Ditto.
+	(rs6000_function_value): Ditto.
+	(rs6000_libcall_value): Ditto.
+
+	Backport from mainline
+	2011-04-01  Andrew Pinski  <pinskia@gmail.com>
+		    Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/48262
+	* config/rs6000/vector.md (movmisalign<mode>): Allow for memory
+	operands, as per the specifications.
+
+	* config/rs6000/altivec.md (vec_extract_evenv4si): Correct modes.
+	(vec_extract_evenv4sf): Ditto.
+	(vec_extract_evenv8hi): Ditto.
+	(vec_extract_evenv16qi): Ditto.
+	(vec_extract_oddv4si): Ditto.
+
+	Backport from mainline
+	2011-04-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/48258
+	* config/rs6000/vector.md (UNSPEC_REDUC): New unspec for vector
+	reduction.
+	(VEC_reduc): New code iterator and splitters for vector reduction.
+	(VEC_reduc_name): Ditto.
+	(VEC_reduc_rtx): Ditto.
+	(reduc_<VEC_reduc_name>_v2df): Vector reduction expanders for VSX.
+	(reduc_<VEC_reduc_name>_v4sf): Ditto.
+
+	* config/rs6000/rs6000.c (rs6000_expand_vector_extract): Add
+	support for extracting SF on VSX.
+
+	* config/rs6000/vsx.md (vsx_xscvspdp_scalar2): New insn for
+	generating xscvspdp.
+	(vsx_extract_v4sf): New insn to extract SF from V4SF vector.
+	(vsx_reduc_<VEC_reduc_name>_v2df): New insns and splitters for
+	double add, minimum, maximum vector reduction.
+	(vsx_reduc_<VEC_reduc_name>_v4sf): Ditto.
+	(vsx_reduc_<VEC_reduc_name>_v2df2_scalar): New combiner insn to
+	optimize double vector reduction.
+	(vsx_reduc_<VEC_reduc_name>_v4sf_scalar): Ditto.
+
 2011-05-07  Alan Modra  <amodra@gmail.com>
 
 	PR target/48900
