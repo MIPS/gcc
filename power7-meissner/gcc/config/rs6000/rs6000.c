@@ -2028,16 +2028,8 @@ rs6000_debug_reg_print (int first_regno, int last_regno, const char *reg_name)
 static void
 rs6000_debug_reg_global (void)
 {
-  static const char *const tf[2] = { "false", "true" };
   const char *nl = (const char *)0;
   int m;
-  char costly_num[20];
-  char nop_num[20];
-  const char *costly_str;
-  const char *nop_str;
-  const char *trace_str;
-  const char *abi_str;
-  const char *cmodel_str;
 
   /* Map enum rs6000_vector to string.  */
   static const char *rs6000_debug_vector_unit[] = {
@@ -2095,6 +2087,143 @@ rs6000_debug_reg_global (void)
 
   if (nl)
     fputs (nl, stderr);
+}
+
+
+/* Print the various register and memory move costs.  Rather than print out the
+   whole table, just print some selected costs.  */
+static void
+rs6000_debug_cost (void)
+{
+  size_t i;
+  unsigned save_debug = rs6000_debug;
+
+  static struct {
+    enum  machine_mode mode;
+    reg_class_t to;
+    reg_class_t from;
+  } reg_cost[] = {
+    { QImode,	GENERAL_REGS,	GENERAL_REGS },
+    { HImode,	GENERAL_REGS,	GENERAL_REGS },
+    { SImode,	GENERAL_REGS,	GENERAL_REGS },
+    { DImode,	GENERAL_REGS,	GENERAL_REGS },
+    { TImode,	GENERAL_REGS,	GENERAL_REGS },
+    { SFmode,	GENERAL_REGS,	GENERAL_REGS },
+    { DFmode,	GENERAL_REGS,	GENERAL_REGS },
+
+    /* VOIDmode will be replaced by the pointer mode.  */
+    { VOIDmode,	GENERAL_REGS,	LINK_REGS },
+    { VOIDmode,	LINK_REGS,	GENERAL_REGS },
+
+    { CCmode,	GENERAL_REGS,	CR_REGS },
+    { CCmode,	GENERAL_REGS,	CR0_REGS },
+    { CCmode,	CR_REGS,	GENERAL_REGS },
+    { CCmode,	CR0_REGS,	GENERAL_REGS },
+
+    { SImode,	GENERAL_REGS,	FLOAT_REGS },
+    { DImode,	GENERAL_REGS,	FLOAT_REGS },
+    { SFmode,	GENERAL_REGS,	FLOAT_REGS },
+    { DFmode,	GENERAL_REGS,	FLOAT_REGS },
+
+    { SImode,	FLOAT_REGS,	GENERAL_REGS },
+    { DImode,	FLOAT_REGS,	GENERAL_REGS },
+    { SFmode,	FLOAT_REGS,	GENERAL_REGS },
+    { DFmode,	FLOAT_REGS,	GENERAL_REGS },
+
+    { SImode,	FLOAT_REGS,	FLOAT_REGS },
+    { DImode,	FLOAT_REGS,	FLOAT_REGS },
+    { SFmode,	FLOAT_REGS,	FLOAT_REGS },
+    { DFmode,	FLOAT_REGS,	FLOAT_REGS },
+
+    { V4SFmode,	GENERAL_REGS,	GENERAL_REGS },
+    { V4SFmode,	GENERAL_REGS,	ALTIVEC_REGS },
+    { V4SFmode,	GENERAL_REGS,	VSX_REGS },
+
+    { V4SFmode,	ALTIVEC_REGS,	GENERAL_REGS },
+    { V4SFmode,	ALTIVEC_REGS,	ALTIVEC_REGS },
+    { V4SFmode,	ALTIVEC_REGS,	VSX_REGS },
+
+    { V4SFmode,	VSX_REGS,	GENERAL_REGS },
+    { V4SFmode,	VSX_REGS,	ALTIVEC_REGS },
+    { V4SFmode,	VSX_REGS,	VSX_REGS },
+  };
+
+  static struct {
+    enum  machine_mode mode;
+    reg_class_t to;
+  } mem_cost[] = {
+    { QImode,	GENERAL_REGS },
+    { HImode,	GENERAL_REGS },
+    { SImode,	GENERAL_REGS },
+    { DImode,	GENERAL_REGS },
+    { TImode,	GENERAL_REGS },
+    { SFmode,	GENERAL_REGS },
+    { DFmode,	GENERAL_REGS },
+
+    { SImode,	FLOAT_REGS },
+    { DImode,	FLOAT_REGS },
+    { SFmode,	FLOAT_REGS },
+    { DFmode,	FLOAT_REGS },
+
+    { V4SFmode,	GENERAL_REGS },
+    { V4SFmode,	ALTIVEC_REGS },
+    { V4SFmode,	VSX_REGS },
+  };
+
+  /* Turn off -mdebug=cost debugging in this code.  */
+  rs6000_debug = 0;
+
+  fprintf (stderr, "\nRegister move costs (VSX %d, Altivec %d):\n",
+	   TARGET_VSX, TARGET_ALTIVEC);
+
+  for (i = 0; i < ARRAY_SIZE (reg_cost); i++)
+    {
+      enum  machine_mode mode = reg_cost[i].mode;
+      reg_class_t to = reg_cost[i].to;
+      reg_class_t from = reg_cost[i].from;
+
+      if (mode == VOIDmode)
+	mode = Pmode;
+
+      fprintf (stderr,
+	       "    %-16s from %-16s mode %-16s cost = %3d\n",
+	       reg_class_names[(int)to],
+	       reg_class_names[(int)from],
+	       GET_MODE_NAME ((int)mode),
+	       rs6000_register_move_cost (mode, from, to));
+    }
+
+  fprintf (stderr, "\nMemory move costs:\n");
+
+  for (i = 0; i < ARRAY_SIZE (mem_cost); i++)
+    {
+      enum  machine_mode mode = mem_cost[i].mode;
+      reg_class_t to = mem_cost[i].to;
+
+      fprintf (stderr,
+	       "    %-16s mode %-16s cost = %3d\n",
+	       reg_class_names[(int)to],
+	       GET_MODE_NAME ((int)mode),
+	       rs6000_memory_move_cost (mode, to, false));
+    }
+
+  rs6000_debug = save_debug;
+}
+
+/* Print various interesting information with -mdebug=info.  */
+static void
+rs6000_debug_info (void)
+{
+  static const char *const tf[2] = { "false", "true" };
+  const struct processor_costs *c = rs6000_cost;
+  char costly_num[20];
+  char nop_num[20];
+  const char *costly_str;
+  const char *nop_str;
+  const char *trace_str;
+  const char *abi_str;
+  const char *cmodel_str;
+  int m;
 
   if (rs6000_recip_control)
     {
@@ -2249,6 +2378,34 @@ rs6000_debug_reg_global (void)
 	   rs6000_long_double_type_size);
   fprintf (stderr, DEBUG_FMT_D, "sched_restricted_insns_priority",
 	   (int)rs6000_sched_restricted_insns_priority);
+  fprintf (stderr, DEBUG_FMT_D, "prefetch_latency",
+	   (int) PREFETCH_LATENCY);
+  fprintf (stderr, DEBUG_FMT_D, "simultaneous_prefetches",
+	   (int) SIMULTANEOUS_PREFETCHES);
+  fprintf (stderr, DEBUG_FMT_D, "l1_cache_size",
+	   (int) L1_CACHE_SIZE);
+  fprintf (stderr, DEBUG_FMT_D, "l1_cache_line_size",
+	   (int) L1_CACHE_LINE_SIZE);
+  fprintf (stderr, DEBUG_FMT_D, "l2_cache_size",
+	   (int) L2_CACHE_SIZE);
+  fprintf (stderr, DEBUG_FMT_D, "min_insn_to_prefetch_ratio",
+	   (int) MIN_INSN_TO_PREFETCH_RATIO);
+  fprintf (stderr, DEBUG_FMT_D, "prefetch_min_insn_to_mem_ratio",
+	   (int) PREFETCH_MIN_INSN_TO_MEM_RATIO);
+  fprintf (stderr, DEBUG_FMT_D, "max_stores_to_sink",
+	   (int) MAX_STORES_TO_SINK);
+  fprintf (stderr, DEBUG_FMT_D, "SImode variable mult cost", c->mulsi);
+  fprintf (stderr, DEBUG_FMT_D, "SImode constant mult cost", c->mulsi_const);
+  fprintf (stderr, DEBUG_FMT_D, "SImode short constant mult cost",
+	   c->mulsi_const9);
+  fprintf (stderr, DEBUG_FMT_D, "DImode variable mult cost", c->muldi);
+  fprintf (stderr, DEBUG_FMT_D, "SImode division cost", c->divsi);
+  fprintf (stderr, DEBUG_FMT_D, "DImode division cost", c->divdi);
+  fprintf (stderr, DEBUG_FMT_D, "Simple fp operation cost", c->fp);
+  fprintf (stderr, DEBUG_FMT_D, "DFmode multiplication cost", c->dmul);
+  fprintf (stderr, DEBUG_FMT_D, "SFmode division cost", c->sdiv);
+  fprintf (stderr, DEBUG_FMT_D, "DFmode division cost", c->ddiv);
+  fprintf (stderr, "\n");
 }
 
 /* Initialize the various global tables that are based on register size.  */
@@ -2546,42 +2703,20 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	}
     }
 
+  /* Power6 has slower LR/CTR moves so make them more expensive than
+     memory in order to bias spills to memory .*/
+  if (global_init_p && rs6000_lrctr_cost < 0)
+    rs6000_lrctr_cost = ((rs6000_cpu == PROCESSOR_POWER6)
+			 ? (rs6000_reg_cost + rs6000_mem_cost)
+			 : -rs6000_lrctr_cost);
+
   if (global_init_p || TARGET_DEBUG_TARGET)
     {
       if (TARGET_DEBUG_REG)
 	rs6000_debug_reg_global ();
 
-      if (TARGET_DEBUG_COST || TARGET_DEBUG_REG)
-	fprintf (stderr,
-		 "SImode variable mult cost       = %d\n"
-		 "SImode constant mult cost       = %d\n"
-		 "SImode short constant mult cost = %d\n"
-		 "DImode multipliciation cost     = %d\n"
-		 "SImode division cost            = %d\n"
-		 "DImode division cost            = %d\n"
-		 "Simple fp operation cost        = %d\n"
-		 "DFmode multiplication cost      = %d\n"
-		 "SFmode division cost            = %d\n"
-		 "DFmode division cost            = %d\n"
-		 "cache line size                 = %d\n"
-		 "l1 cache size                   = %d\n"
-		 "l2 cache size                   = %d\n"
-		 "simultaneous prefetches         = %d\n"
-		 "\n",
-		 rs6000_cost->mulsi,
-		 rs6000_cost->mulsi_const,
-		 rs6000_cost->mulsi_const9,
-		 rs6000_cost->muldi,
-		 rs6000_cost->divsi,
-		 rs6000_cost->divdi,
-		 rs6000_cost->fp,
-		 rs6000_cost->dmul,
-		 rs6000_cost->sdiv,
-		 rs6000_cost->ddiv,
-		 rs6000_cost->cache_line_size,
-		 rs6000_cost->l1_cache_size,
-		 rs6000_cost->l2_cache_size,
-		 rs6000_cost->simultaneous_prefetches);
+      if (TARGET_DEBUG_COST || TARGET_DEBUG_REG || TARGET_DEBUG_INFO)
+	rs6000_debug_info ();
     }
 }
 
@@ -4303,8 +4438,12 @@ rs6000_handle_option (struct gcc_options *opts, struct gcc_options *opts_set,
 	    mask = MASK_DEBUG_ADDR;
 	  else if (! strcmp (q, "cost"))
 	    mask = MASK_DEBUG_COST;
+	  else if (! strcmp (q, "cost2"))
+	    mask = MASK_DEBUG_COST2;
 	  else if (! strcmp (q, "target"))
 	    mask = MASK_DEBUG_TARGET;
+	  else if (! strcmp (q, "info"))
+	    mask = MASK_DEBUG_INFO;
 	  else
 	    error_at (loc, "unknown -mdebug-%s switch", q);
 
@@ -26550,10 +26689,13 @@ rs6000_debug_address_cost (rtx x, bool speed)
 /* A C expression returning the cost of moving data from a register of class
    CLASS1 to one of CLASS2.  */
 
+/* #define ORIG_CODE 1 */
+
 static int
 rs6000_register_move_cost (enum machine_mode mode,
 			   reg_class_t from, reg_class_t to)
 {
+#ifdef ORIG_CODE
   int ret;
 
   /*  Moves from/to GENERAL_REGS.  */
@@ -26598,13 +26740,89 @@ rs6000_register_move_cost (enum machine_mode mode,
     ret = (rs6000_register_move_cost (mode, GENERAL_REGS, to)
 	   + rs6000_register_move_cost (mode, from, GENERAL_REGS));
 
-  if (TARGET_DEBUG_COST)
+  if (TARGET_DEBUG_COST2)
+    {
+      rs6000_debug &= ~MASK_DEBUG_COST2;
+      rs6000_debug_cost ();
+    }
+
+  else if (TARGET_DEBUG_COST)
     fprintf (stderr,
 	     "rs6000_register_move_cost:, ret=%d, mode=%s, from=%s, to=%s\n",
 	     ret, GET_MODE_NAME (mode), reg_class_names[from],
 	     reg_class_names[to]);
 
   return ret;
+
+#else
+  int ret;
+  int nregs = rs6000_class_max_nregs[(int)mode][(int)to];
+
+  /*  Moves from/to GENERAL_REGS.  */
+  if (reg_classes_intersect_p (to, GENERAL_REGS)
+      && reg_classes_intersect_p (from, GENERAL_REGS))
+    ret = rs6000_reg_cost * nregs;
+
+  else if (reg_classes_intersect_p (to, GENERAL_REGS)
+	   || reg_classes_intersect_p (from, GENERAL_REGS))
+    {
+      if (! reg_classes_intersect_p (to, GENERAL_REGS))
+	from = to;
+
+      if (from == FLOAT_REGS || from == ALTIVEC_REGS || from == VSX_REGS)
+	ret = rs6000_mem_rw_cost * nregs;
+
+      else
+	{
+	  /* We shouldn't see multiple register moves for any other
+	     register class, so make them expensive.  */
+	  if (nregs > 1)
+	    ret = 100 * rs6000_reg_cost;
+
+	  /* It's more expensive to move CR_REGS than CR0_REGS because of the
+	     shift.  */
+	  else if (reg_classes_intersect_p (from, CR_REGS))
+	    ret = ((from == CR0_REGS) ? 0 : rs6000_reg_cost) + rs6000_cr_cost;
+
+	  /* Power6 has slower LR/CTR moves so make them more expensive than
+	     memory in order to bias spills to memory .*/
+	  else if (reg_classes_intersect_p (from, LINK_OR_CTR_REGS))
+	    ret = rs6000_lrctr_cost;
+
+	  else
+	    ret = rs6000_special_cost;
+	}
+    }
+
+  /* If we have VSX, we can easily move between FPR or Altivec registers.  If
+     no VSX, deal with Altivec and normal FPU registers.  */
+  else if ((TARGET_VSX
+	    && reg_classes_intersect_p (to, VSX_REGS)
+	    && reg_classes_intersect_p (from, VSX_REGS))
+	   || (TARGET_ALTIVEC && to == ALTIVEC_REGS && from == ALTIVEC_REGS)
+	   || (TARGET_HARD_FLOAT && to == FLOAT_REGS && from == FLOAT_REGS))
+    ret = rs6000_reg_cost * nregs;
+
+  /* Make moving to the LR or CTR more expensive, so the compiler doesn't
+     try to spill a value in a floating point register and load it up
+     to the LR/CTR registers.  */
+  else if (reg_classes_intersect_p (to, LINK_OR_CTR_REGS)
+	   || reg_classes_intersect_p (from, LINK_OR_CTR_REGS))
+    ret = 100 * rs6000_reg_cost;
+
+  /* Everything else has to go through GENERAL_REGS.  */
+  else
+    ret = (rs6000_register_move_cost (mode, GENERAL_REGS, to)
+	   + rs6000_register_move_cost (mode, from, GENERAL_REGS));
+
+  if (TARGET_DEBUG_COST2)
+    {
+      rs6000_debug &= ~MASK_DEBUG_COST2;
+      rs6000_debug_cost ();
+    }
+
+  return ret;
+#endif
 }
 
 /* A C expressions returning the cost of moving data of MODE from a register to
@@ -26614,6 +26832,7 @@ static int
 rs6000_memory_move_cost (enum machine_mode mode, reg_class_t rclass,
 			 bool in ATTRIBUTE_UNUSED)
 {
+#ifdef ORIG_CODE
   int ret;
 
   if (reg_classes_intersect_p (rclass, GENERAL_REGS))
@@ -26631,6 +26850,25 @@ rs6000_memory_move_cost (enum machine_mode mode, reg_class_t rclass,
 	     ret, GET_MODE_NAME (mode), reg_class_names[rclass], in);
 
   return ret;
+
+#else
+  int ret;
+
+  if (reg_classes_intersect_p (rclass, GENERAL_REGS)
+      || reg_classes_intersect_p (rclass, FLOAT_REGS)
+      || reg_classes_intersect_p (rclass, ALTIVEC_REGS))
+    ret = rs6000_mem_cost * rs6000_class_max_nregs[(int)mode][(int)rclass];
+  else
+    ret = (rs6000_register_move_cost (mode, rclass, GENERAL_REGS)
+	   + rs6000_class_max_nregs[(int)mode][(int)GENERAL_REGS]);
+
+  if (TARGET_DEBUG_COST)
+    fprintf (stderr,
+	     "rs6000_memory_move_cost: ret=%d, mode=%s, rclass=%s, in=%d\n",
+	     ret, GET_MODE_NAME (mode), reg_class_names[rclass], in);
+
+  return ret;
+#endif
 }
 
 /* Returns a code for a target-specific builtin that implements

@@ -529,4 +529,28 @@ mxilinx-fpu
 Target Var(rs6000_xilinx_fpu) Save
 Specify Xilinx FPU.
 
+mreg-cost=
+Target Undocumented Var(rs6000_reg_cost) Init(2) RejectNegative Joined UInteger Save
+; Adjust cost of moving registers
 
+mcr-cost=
+Target Undocumented Var(rs6000_cr_cost) Init(2) RejectNegative Joined UInteger Save
+; Adjust cost of moving to/from CR registers
+
+mlrctr-cost=
+Target Undocumented Var(rs6000_lrctr_cost) Init(-4) RejectNegative Joined UInteger Save
+; Adjust cost of moving to/from LR/CTR registers
+
+mspecial-cost=
+Target Undocumented Var(rs6000_special_cost) Init(2) RejectNegative Joined UInteger Save
+; Adjust cost of moving to/from special registers
+
+mmem-cost=
+Target Undocumented Var(rs6000_mem_cost) Init(4) RejectNegative Joined UInteger Save
+; Adjust cost of moving to/from memory
+
+mmem-rw-cost=
+Target Undocumented Var(rs6000_mem_rw_cost) Init(8) RejectNegative Joined UInteger Save
+; Adjust cost of storing from one register set and loading to another
+; This might be much more expensive than just the read and write costs,
+; if the compiler can't put enough insns between the store and the read.

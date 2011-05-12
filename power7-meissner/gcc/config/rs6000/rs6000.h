@@ -376,12 +376,16 @@ extern struct rs6000_cpu_select rs6000_select[];
 #define MASK_DEBUG_ADDR		0x08	/* debug memory addressing */
 #define MASK_DEBUG_COST		0x10	/* debug rtx codes */
 #define MASK_DEBUG_TARGET	0x20	/* debug target attribute/pragma */
+#define MASK_DEBUG_INFO		0x40	/* print some basic information */
+#define MASK_DEBUG_COST2	0x80	/* print out cost summary */
 #define MASK_DEBUG_ALL		(MASK_DEBUG_STACK \
 				 | MASK_DEBUG_ARG \
 				 | MASK_DEBUG_REG \
 				 | MASK_DEBUG_ADDR \
 				 | MASK_DEBUG_COST \
-				 | MASK_DEBUG_TARGET)
+				 | MASK_DEBUG_TARGET \
+				 | MASK_DEBUG_INFO \
+				 | MASK_DEBUG_COST2)
 
 #define	TARGET_DEBUG_STACK	(rs6000_debug & MASK_DEBUG_STACK)
 #define	TARGET_DEBUG_ARG	(rs6000_debug & MASK_DEBUG_ARG)
@@ -389,6 +393,8 @@ extern struct rs6000_cpu_select rs6000_select[];
 #define TARGET_DEBUG_ADDR	(rs6000_debug & MASK_DEBUG_ADDR)
 #define TARGET_DEBUG_COST	(rs6000_debug & MASK_DEBUG_COST)
 #define TARGET_DEBUG_TARGET	(rs6000_debug & MASK_DEBUG_TARGET)
+#define TARGET_DEBUG_INFO	(rs6000_debug & MASK_DEBUG_INFO)
+#define TARGET_DEBUG_COST2	(rs6000_debug & MASK_DEBUG_COST2)
 
 extern enum rs6000_vector rs6000_vector_unit[];
 
