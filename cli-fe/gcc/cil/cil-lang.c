@@ -473,6 +473,56 @@ cil_get_alias_set (tree t)
   return -1;
 }
 
+/* Nonzero if the type T promotes to int.  This is (nearly) the
+   integral promotions defined in ISO C99 6.3.1.1/2.  */
+
+static bool
+cil_promoting_integer_type_p (const_tree t)
+{
+  switch (TREE_CODE (t))
+    {
+    case INTEGER_TYPE:
+      return (TYPE_MAIN_VARIANT (t) == char_type_node
+	      || TYPE_MAIN_VARIANT (t) == signed_char_type_node
+	      || TYPE_MAIN_VARIANT (t) == unsigned_char_type_node
+	      || TYPE_MAIN_VARIANT (t) == short_integer_type_node
+	      || TYPE_MAIN_VARIANT (t) == short_unsigned_type_node
+	      || TYPE_PRECISION (t) < TYPE_PRECISION (integer_type_node));
+
+    case ENUMERAL_TYPE:
+      /* ??? Technically all enumerations not larger than an int
+	 promote to an int.  But this is used along code paths
+	 that only want to notice a size change.  */
+      return TYPE_PRECISION (t) < TYPE_PRECISION (integer_type_node);
+
+    case BOOLEAN_TYPE:
+      return 1;
+
+    default:
+      return 0;
+    }
+}
+
+/* Given a type, apply default promotions wrt unnamed function
+   arguments and return the new type.  */
+
+tree
+cil_type_promotes_to (tree type)
+{
+  if (TYPE_MAIN_VARIANT (type) == float_type_node)
+    return double_type_node;
+
+  if (cil_promoting_integer_type_p (type))
+    {
+      /* Preserve unsignedness if not really getting any wider.  */
+      if (TYPE_UNSIGNED (type)
+	  && (TYPE_PRECISION (type) == TYPE_PRECISION (integer_type_node)))
+	return unsigned_type_node;
+      return integer_type_node;
+    }
+
+  return type;
+}
 #define LANG_HOOKS_MARK_ADDRESSABLE cil_mark_addressable
 #define LANG_HOOKS_TYPE_FOR_MODE cil_type_for_mode
 #define LANG_HOOKS_TYPE_FOR_SIZE cil_type_for_size
@@ -500,6 +550,9 @@ cil_get_alias_set (tree t)
 
 #undef LANG_HOOKS_REGISTER_BUILTIN_TYPE
 #define LANG_HOOKS_REGISTER_BUILTIN_TYPE cil_register_builtin_type
+
+#undef LANG_HOOKS_TYPE_PROMOTES_TO
+#define LANG_HOOKS_TYPE_PROMOTES_TO cil_type_promotes_to
 
 /* Hooks unique to CIL.  */
 
@@ -661,6 +714,7 @@ convert (tree type, tree expr)
   error ("conversion not supported");
   return error_mark_node;
 }
+
 
 #include "debug.h" /* for debug_hooks, needed by gt-cil-treetree.h */
 #include "gt-cil-cil-lang.h"

@@ -1258,6 +1258,87 @@ parser_emit_genvec_call (MonoMethod *caller, guint32 token)
 }
 
 static void
+parser_emit_va_start (void)
+{
+  tree st_value, exp, last_arg;
+
+  /* the cil 'arglist' should be in the top of the stack,
+    and it should have been pushed as a null pointer */
+  st_value = cil_stack_pop (NULL);
+
+  /* pointer to the local va list */
+  st_value = cil_stack_pop (NULL);
+  while (TREE_CODE (st_value) == CONVERT_EXPR
+         || TREE_CODE (st_value) == NOP_EXPR)  
+    st_value = TREE_OPERAND (st_value, 0);
+
+  last_arg = DECL_ARGUMENTS (current_function_decl);
+  while (TREE_CHAIN (last_arg))
+    last_arg = TREE_CHAIN (last_arg);
+
+  exp = build_call_expr (built_in_decls[BUILT_IN_VA_START], 2, 
+      convert_to_pointer (build_reference_type (va_list_type_node), st_value),
+      last_arg);
+  cil_bindings_output_statements (exp);
+}
+
+/* Emits the following code. Note that CIL returns arguments as references,
+   while stdarg returns arguments as values. We must build a reference to
+   a temporaty holding the value in order to be compatible with any
+   possible code. After this call, a pointer to the argumetn will be in
+   the top of the stack.
+   
+   arg_value = ('nextarg_type') VA_EXPR<*va_list_ptr>;
+   arg_ptr = &arg_value;
+   // arg_ptr is in the stack   */
+
+static void
+parser_emit_va_next (tree nextarg_type)
+{
+  tree st_value, exp, arg_var, arg_ptr;
+  /* remove some wrong castings */
+  st_value = cil_stack_pop (NULL);
+  while (TREE_CODE (st_value) == CONVERT_EXPR
+         || TREE_CODE (st_value) == NOP_EXPR)
+    st_value = TREE_OPERAND (st_value, 0);
+ 
+  /* access to the argument */
+  exp = build1 (VA_ARG_EXPR, nextarg_type, 
+                build1 (INDIRECT_REF, va_list_type_node, st_value));
+  arg_var = build_decl (UNKNOWN_LOCATION, VAR_DECL,
+      create_tmp_var_name ("arg_value"), nextarg_type);
+  mark_addressable (arg_var);
+  cil_bindings_push_decl (arg_var);
+  exp = build2 (MODIFY_EXPR, nextarg_type, arg_var, exp);
+  cil_bindings_output_statements (exp);
+
+  /* CIL's va_arg returns a pointer */
+  arg_ptr = build_decl (UNKNOWN_LOCATION, VAR_DECL,
+      create_tmp_var_name ("arg_ptr"), build_pointer_type (nextarg_type));
+  exp = build2 (MODIFY_EXPR, TREE_TYPE (arg_ptr), arg_ptr,
+      build1 (ADDR_EXPR, TREE_TYPE (arg_ptr), arg_var));
+  cil_bindings_output_statements (exp);
+
+  cil_stack_push_infer_type (arg_ptr);
+}
+
+static void
+parser_emit_va_end (void)
+{
+  tree st_value, exp;
+  
+  /* pointer to the local va list */
+  st_value = cil_stack_pop (NULL);
+  while (TREE_CODE (st_value) == CONVERT_EXPR
+         || TREE_CODE (st_value) == NOP_EXPR)
+    st_value = TREE_OPERAND (st_value, 0);
+
+  exp = build_call_expr (built_in_decls[BUILT_IN_VA_END], 1, 
+       convert_to_pointer (build_reference_type (va_list_type_node), st_value));
+  cil_bindings_output_statements (exp);
+}
+
+static void
 parser_emit_call (MonoMethod *caller, guint32 token)
 {
   MonoImage *image = mono_class_get_image (mono_method_get_class (caller));
@@ -1280,9 +1361,27 @@ parser_emit_call (MonoMethod *caller, guint32 token)
     } else if (   strncmp ("__max", called_name, 5) == 0 || strncmp ("__umax", called_name, 6) == 0) {
       return parser_emit_max();
     }
-    }else if(strcmp ("Mono.Simd", called_namespace_name) == 0){
+    }
+  else if(strcmp ("Mono.Simd", called_namespace_name) == 0){
       return parser_emit_mono_simd_call (caller, token);
     }
+  else if (strcmp ("System", called_namespace_name) == 0
+           && strcmp ("ArgIterator", called_klass_name) == 0)
+    {
+      const char *called_name = mono_method_get_name (called);
+      if (strncmp (".ctor", called_name, 5) == 0) {
+        return parser_emit_va_start();
+      }
+      else if (strncmp ("End", called_name, 3) == 0) {
+        return parser_emit_va_end();
+      }
+      /* GetNextArg is handled directly in parse_method(), since it
+           needs information about the next instruction */
+       /* else if (strncmp ("GetNextArg", called_name, 10) == 0) {
+        return parser_emit_va_next(); 
+      }*/
+    }
+
   /*
     else if(strcmp ("genvec_support", called_namespace_name) == 0){
       const char *called_name = mono_method_get_name (called);
@@ -2324,6 +2423,8 @@ parse_method_code (MonoMethod *method)
 #define read_arg32(a) a = (typeof (a))le32toh(*((const typeof (a) *) ip)); ip += sizeof (a);
 #define read_arg64(a) a = (typeof (a))le64toh(*((const typeof (a) *) ip)); ip += sizeof (a);
       switch (opcode) {
+      case MONO_CEE_NOP:
+        break;
       case MONO_CEE_UNALIGNED_:
         read_arg8 (arg_uint8);
         parser_current_prefix.unaligned = true;
@@ -2458,10 +2559,50 @@ parse_method_code (MonoMethod *method)
         read_arg32 (arg_token);
         parser_emit_ldftn (method, arg_token);
         break;
-      case MONO_CEE_CALL:
+      case MONO_CEE_CALL: {
+        MonoImage *image;
+        MonoMethod *called;
+        const char *called_class_name, *called_name, *called_namespace_name;
+         
         read_arg32 (arg_token);
-        parser_emit_call (method, arg_token);
+
+        /* some calls need to check for the next instruction to be expanded */
+        image =  mono_class_get_image (mono_method_get_class (method));
+        called = mono_get_method (image, arg_token, NULL);
+        called_class_name = mono_class_get_name (mono_method_get_class (called));
+        called_name = mono_method_get_name (called);
+        called_namespace_name = mono_class_get_namespace (mono_method_get_class (called));
+
+        if (strcmp ("System", called_namespace_name) == 0
+            && strcmp ("ArgIterator", called_class_name) == 0
+            && strncmp ("GetNextArg", called_name, 10) == 0)
+          {
+            tree nextarg_type;
+            MonoOpcodeEnum next_opcode;
+            MonoClass * ref_class;
+            MonoType * ref_type;
+
+            /* expected next instruction: refanyval <typesref> */
+            next_opcode = mono_opcode_value (&ip, code_end);
+            ++ip;
+
+            gcc_assert (next_opcode == MONO_CEE_REFANYVAL);
+            read_arg32 (arg_token);
+
+            /* get 'next arg' type from metadata */
+            gcc_assert (arg_token & MONO_TOKEN_TYPE_REF);
+            ref_class = mono_class_from_typeref (image, arg_token);
+            gcc_assert (ref_class);
+            ref_type = mono_class_get_type (ref_class);
+            gcc_assert (ref_type);
+            nextarg_type = parser_get_type_tree (ref_type);
+           
+            parser_emit_va_next (nextarg_type);
+          }
+        else
+          parser_emit_call (method, arg_token);
         break;
+      }
       case MONO_CEE_CALLI:
         read_arg32 (arg_token);
         parser_emit_calli (method, arg_token);
@@ -2795,6 +2936,13 @@ parse_method_code (MonoMethod *method)
         parser_emit_switch (ip, n_offsets, offsets, labels);
       }
         break;
+      case MONO_CEE_INITOBJ:
+        cil_stack_pop (NULL);
+        read_arg32 (arg_uint32);
+        break;
+      case MONO_CEE_ARGLIST:
+        cil_stack_push (null_pointer_node, CIL_STYPE_NINT);
+        break;
       default:
         gcc_unreachable ();
       }
@@ -3071,6 +3219,9 @@ parser_preparse_method (MonoMethod *method, GSList **called_methods, GSList **re
       case MONO_CEE_NEG:
       case MONO_CEE_NOT:
       case MONO_CEE_SWITCH:
+      case MONO_CEE_INITOBJ:
+      case MONO_CEE_ARGLIST:
+      case MONO_CEE_REFANYVAL:
         break;
       case MONO_CEE_CALLI: {
         MonoMethodSignature *signature = mono_metadata_parse_signature (image, arg_token);
@@ -3857,6 +4008,17 @@ parse_class_instance_fields (MonoClass *klass)
   if (g_hash_table_lookup (parsed_classes_records, klass) != NULL)
     {
       return;
+    }
+
+  /* Before create the tree, look for builtin types */
+  if (strcmp (mono_class_get_namespace (klass), "System") == 0)
+    {
+      if (strcmp (mono_class_get_name (klass), "ArgIterator") == 0)
+        {
+          gcc_assert (va_list_type_node);
+          g_hash_table_insert (parsed_classes_records, klass, va_list_type_node);
+          return;
+        }
     }
 
   MonoClass *parent = mono_class_get_parent (klass);
