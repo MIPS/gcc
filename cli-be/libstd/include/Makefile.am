@@ -46,6 +46,7 @@ includebits_HEADERS = \
 	bits/libstd_types.h
 
 includesys_HEADERS = \
+	sys/param.h \
 	sys/time.h \
 	sys/times.h \
 	sys/types.h \

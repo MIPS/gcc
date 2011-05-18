@@ -1,6 +1,6 @@
 /*
 
-   Copyright (C) 2007-2008 Free Software Foundation, Inc.
+   Copyright (C) 2008-2009 Free Software Foundation, Inc.
    Contributed by STMicroelectronics
 
 This file is part of GCC.
@@ -20,38 +20,16 @@ along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 02110-1301, USA.  */
 
-#ifndef __SYS_TYPES_H__
-#define __SYS_TYPES_H__
+#ifndef _SYS_PARAM_H
+#define _SYS_PARAM_H
 
 #include <__cdefs.h>
 
-/* Included for definition of size_t */
-#include <stddef.h>
-
 __BEGIN_EXTERN_C
 
-typedef long off_t;
-
-typedef long ssize_t;
-
-typedef unsigned long dev_t;
-
-typedef unsigned long ino_t;
-
-typedef int mode_t;
-
-typedef unsigned int nlink_t;
-
-typedef unsigned int uid_t;
-
-typedef unsigned int gid_t;
-
-typedef int pid_t;
-
-typedef long blksize_t;
-
-typedef long blkcnt_t;
+#define HZ 100
 
 __END_EXTERN_C
 
-#endif /*__SYS_TYPES_H__*/
+#endif
+

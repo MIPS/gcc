@@ -46,7 +46,7 @@ LIBSTD_LPROTO_IMPL(uid_t, geteuid, void)
 
 LIBSTD_LPROTO_IMPL(struct passwd *, getpwuid, uid_t uid)
 {
-  if (LIBSTD_HNAME(getpwuid)(uid, 
+  if (LIBSTD_HNAME(getpwuid_)(uid, 
     &(pwdbf.pw_name),
     &(pwdbf.pw_passwd),
     &(pwdbf.pw_gid),
@@ -62,7 +62,7 @@ LIBSTD_LPROTO_IMPL(struct passwd *, getpwuid, uid_t uid)
 
 LIBSTD_LPROTO_IMPL(struct passwd *, getpwnam, char * uname)
 {
-  if (LIBSTD_HNAME(getpwnam)(uname, 
+  if (LIBSTD_HNAME(getpwnam_)(uname, 
     &(pwdbf.pw_passwd),
     &(pwdbf.pw_uid),
     &(pwdbf.pw_gid),

@@ -76,7 +76,7 @@ am__objects_1 = libstd_la-_Exit.lo libstd_la-__io_device.lo \
 	libstd_la-fopen.lo libstd_la-fprintf.lo libstd_la-fputc.lo \
 	libstd_la-fputs.lo libstd_la-fread.lo libstd_la-free.lo \
 	libstd_la-freopen.lo libstd_la-fscanf.lo libstd_la-fseek.lo \
-	libstd_la-fsetpos.lo libstd_la-ftell.lo libstd_la-fwrite.lo \
+	libstd_la-fsetpos.lo libstd_la-ftell.lo libstd_la-fwrite.lo libstd_la-getcwd.lo \
 	libstd_la-getenv.lo libstd_la-imaxabs.lo libstd_la-imaxdiv.lo \
 	libstd_la-isatty.lo libstd_la-labs.lo libstd_la-ldiv.lo \
 	libstd_la-llabs.lo libstd_la-lldiv.lo libstd_la-localeconv.lo \
@@ -138,7 +138,7 @@ am__objects_2 = libstd_dll-_Exit.$(OBJEXT) \
 	libstd_dll-fputs.$(OBJEXT) libstd_dll-fread.$(OBJEXT) \
 	libstd_dll-free.$(OBJEXT) libstd_dll-freopen.$(OBJEXT) \
 	libstd_dll-fscanf.$(OBJEXT) libstd_dll-fseek.$(OBJEXT) \
-	libstd_dll-fsetpos.$(OBJEXT) libstd_dll-ftell.$(OBJEXT) \
+	libstd_dll-fsetpos.$(OBJEXT) libstd_dll-ftell.$(OBJEXT) libstd_dll-getcwd.$(OBJEXT) \
 	libstd_dll-fwrite.$(OBJEXT) libstd_dll-getenv.$(OBJEXT) \
 	libstd_dll-imaxabs.$(OBJEXT) libstd_dll-imaxdiv.$(OBJEXT) \
 	libstd_dll-isatty.$(OBJEXT) libstd_dll-labs.$(OBJEXT) \
@@ -366,6 +366,7 @@ SRC = _Exit.c \
       fsetpos.c \
       ftell.c \
       fwrite.c \
+      getcwd.c \
       getenv.c \
       imaxabs.c \
       imaxdiv.c \
@@ -590,6 +591,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-fsetpos.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-ftell.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-fwrite.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-getcwd.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-getenv.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-imaxabs.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-imaxdiv.Po@am__quote@
@@ -721,6 +723,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-fsetpos.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-ftell.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-fwrite.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-getcwd.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-getenv.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-imaxabs.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-imaxdiv.Plo@am__quote@
@@ -1173,6 +1176,13 @@ libstd_la-fwrite.lo: fwrite.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='fwrite.c' object='libstd_la-fwrite.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_la_CFLAGS) $(CFLAGS) -c -o libstd_la-fwrite.lo `test -f 'fwrite.c' || echo '$(srcdir)/'`fwrite.c
+
+libstd_la-getcwd.lo: getcwd.c
+@am__fastdepCC_TRUE@	if $(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_la_CFLAGS) $(CFLAGS) -MT libstd_la-getcwd.lo -MD -MP -MF "$(DEPDIR)/libstd_la-getcwd.Tpo" -c -o libstd_la-getcwd.lo `test -f 'getcwd.c' || echo '$(srcdir)/'`getcwd.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/libstd_la-getcwd.Tpo" "$(DEPDIR)/libstd_la-getcwd.Plo"; else rm -f "$(DEPDIR)/libstd_la-getcwd.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='getcwd.c' object='libstd_la-getcwd.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_la_CFLAGS) $(CFLAGS) -c -o libstd_la-getcwd.lo `test -f 'getcwd.c' || echo '$(srcdir)/'`getcwd.c
 
 libstd_la-getenv.lo: getenv.c
 @am__fastdepCC_TRUE@	if $(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_la_CFLAGS) $(CFLAGS) -MT libstd_la-getenv.lo -MD -MP -MF "$(DEPDIR)/libstd_la-getenv.Tpo" -c -o libstd_la-getenv.lo `test -f 'getenv.c' || echo '$(srcdir)/'`getenv.c; \
@@ -2440,6 +2450,20 @@ libstd_dll-fwrite.obj: fwrite.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='fwrite.c' object='libstd_dll-fwrite.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -c -o libstd_dll-fwrite.obj `if test -f 'fwrite.c'; then $(CYGPATH_W) 'fwrite.c'; else $(CYGPATH_W) '$(srcdir)/fwrite.c'; fi`
+
+libstd_dll-getcwd.o: getcwd.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -MT libstd_dll-getcwd.o -MD -MP -MF "$(DEPDIR)/libstd_dll-getcwd.Tpo" -c -o libstd_dll-getcwd.o `test -f 'getcwd.c' || echo '$(srcdir)/'`getcwd.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/libstd_dll-getcwd.Tpo" "$(DEPDIR)/libstd_dll-getcwd.Po"; else rm -f "$(DEPDIR)/libstd_dll-getcwd.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='getcwd.c' object='libstd_dll-getcwd.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -c -o libstd_dll-getcwd.o `test -f 'getcwd.c' || echo '$(srcdir)/'`getcwd.c
+
+libstd_dll-getcwd.obj: getcwd.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -MT libstd_dll-getcwd.obj -MD -MP -MF "$(DEPDIR)/libstd_dll-getcwd.Tpo" -c -o libstd_dll-getcwd.obj `if test -f 'getcwd.c'; then $(CYGPATH_W) 'getcwd.c'; else $(CYGPATH_W) '$(srcdir)/getcwd.c'; fi`; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/libstd_dll-getcwd.Tpo" "$(DEPDIR)/libstd_dll-getcwd.Po"; else rm -f "$(DEPDIR)/libstd_dll-getcwd.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='getcwd.c' object='libstd_dll-getcwd.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -c -o libstd_dll-getcwd.obj `if test -f 'getcwd.c'; then $(CYGPATH_W) 'getcwd.c'; else $(CYGPATH_W) '$(srcdir)/getcwd.c'; fi`
 
 libstd_dll-getenv.o: getenv.c
 @am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -MT libstd_dll-getenv.o -MD -MP -MF "$(DEPDIR)/libstd_dll-getenv.Tpo" -c -o libstd_dll-getenv.o `test -f 'getenv.c' || echo '$(srcdir)/'`getenv.c; \

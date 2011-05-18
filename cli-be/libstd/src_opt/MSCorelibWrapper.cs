@@ -67,8 +67,8 @@ public class MSCorelibWrapper
     [DllImport("MSCorelibWrapper_support.so", EntryPoint="__host__time")]
     unsafe public static extern uint time(void* timer);
 
-    [DllImport("MSCorelibWrapper_support.so", EntryPoint="__host__gmtime")]
-    unsafe public static extern void gmtime(void* timer,
+    [DllImport("MSCorelibWrapper_support.so", EntryPoint="__host__gmtime_")]
+    unsafe public static extern void gmtime_(void* timer,
                                      int* tm_sec,  int* tm_min,  int* tm_hour,
                                      int* tm_mday, int* tm_mon,  int* tm_year,
                                      int* tm_wday, int* tm_yday, int* tm_isdst);
@@ -106,13 +106,25 @@ public class MSCorelibWrapper
     [DllImport("MSCorelibWrapper_support.so", EntryPoint="__host__geteuid")]
     public static uint geteuid ();
 
-    [DllImport("MSCorelibWrapper_support.so", EntryPoint="__host__getpwuid")]
-    unsafe public static int getpwuid (uint uid, sbyte** name, sbyte** passwd,
+    [DllImport("MSCorelibWrapper_support.so", EntryPoint="__host__getpwuid_")]
+    unsafe public static int getpwuid_ (uint uid, sbyte** name, sbyte** passwd,
                                         uint* gid, sbyte** gecos, sbyte** dir, sbyte** shell);
 
-    [DllImport("MSCorelibWrapper_support.so", EntryPoint="__host__getpwnam")]
-    unsafe public static int getpwnam (sbyte* name, sbyte** passwd, uint* uid,
+    [DllImport("MSCorelibWrapper_support.so", EntryPoint="__host__getpwnam_")]
+    unsafe public static int getpwnam_ (sbyte* name, sbyte** passwd, uint* uid,
                                         uint* gid, sbyte** gecos, sbyte** dir, sbyte** shell);
+
+    [DllImport("MSCorelibWrapper_support.so", EntryPoint="__host__signal")]
+    unsafe public static extern void * signal (int, void *);
+ 
+    [DllImport("MSCorelibWrapper_support.so", EntryPoint="__host__raise")]
+    unsafe public static extern int raise (int);
+  
+    [DllImport("MSCorelibWrapper_support.so", EntryPoint="__host__kill")]
+    unsafe public static extern int kill (int, int);
+
+    [DllImport("MSCorelibWrapper_support.so", EntryPoint="__host__getcwd")]
+        unsafe public static extern long getcwd(sbyte* name, ulong size);
 
     [DllImport("MSCorelibWrapper_support.so", EntryPoint="__host__dbl_epsilon")]
     unsafe public static extern double dbl_epsilon();
@@ -143,6 +155,7 @@ public class MSCorelibWrapper
 
     [DllImport("MSCorelibWrapper_support.so", EntryPoint="__host__flt_infinity")]
     unsafe public static extern float flt_infinity();
+
 
     ///////////////////////////////////////////////////////////////////////////////////////
     ///  MATH SECTION /////////////////////////////////////////////////////////////////////

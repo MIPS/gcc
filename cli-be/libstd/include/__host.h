@@ -99,7 +99,7 @@ LIBSTD_HPROTO(int, clock, void);
 /* Getting the host time */
 LIBSTD_HPROTO(unsigned long, time, void *tptr);
 
-LIBSTD_HPROTO(void, gmtime, void *timer,
+LIBSTD_HPROTO(void, gmtime_, void *timer,
                          int *tm_sec,  int *tm_min,  int *tm_hour,
                          int *tm_mday, int *tm_mon,  int *tm_year,
                          int *tm_wday, int *tm_yday, int *tm_isdst);
@@ -113,10 +113,15 @@ LIBSTD_HPROTO(int, gettimes, unsigned long *clks, unsigned long * tms_utime, uns
 LIBSTD_HPROTO(unsigned int, getuid, void);
 LIBSTD_HPROTO(unsigned int, geteuid, void);
 
-LIBSTD_HPROTO(int, getpwuid, unsigned int uid, char **name, char **passwd,
+LIBSTD_HPROTO(int, getpwuid_, unsigned int uid, char **name, char **passwd,
   unsigned int *gid, char **gecos, char **dir, char **shell);
-LIBSTD_HPROTO(int, getpwnam, char *name, char **passwd, unsigned int *uid, 
+LIBSTD_HPROTO(int, getpwnam_, char *name, char **passwd, unsigned int *uid, 
   unsigned int *gid, char **gecos, char **dir, char **shell);
+LIBSTD_HPROTO(long, getcwd, char * buf, unsigned long size);
+
+LIBSTD_HPROTO(void *, signal, int sig, void * func);
+LIBSTD_HPROTO(int, raise, int sig);
+LIBSTD_HPROTO(int, kill, int pid, int sig);
 
  
 /* Floating point classification */

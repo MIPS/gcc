@@ -391,7 +391,7 @@ LIBSTD_HPROTO_IMPL(unsigned long, time, void *tptr)
     return time(l_tptr);
 }
 
-LIBSTD_HPROTO_IMPL(void, gmtime, void *timer,
+LIBSTD_HPROTO_IMPL(void, gmtime_, void *timer,
                          int *tm_sec,  int *tm_min,  int *tm_hour,
                          int *tm_mday, int *tm_mon,  int *tm_year,
                          int *tm_wday, int *tm_yday, int *tm_isdst)
@@ -454,7 +454,7 @@ LIBSTD_HPROTO_IMPL(unsigned int, geteuid, void)
   return geteuid ();
 }
 
-LIBSTD_HPROTO_IMPL(int, getpwuid, unsigned int uid, char **name, char **passwd,
+LIBSTD_HPROTO_IMPL(int, getpwuid_, unsigned int uid, char **name, char **passwd,
   unsigned int *gid, char **gecos, char **dir, char **shell)
 {
   struct passwd * pwd = getpwuid(uid);
@@ -472,7 +472,7 @@ LIBSTD_HPROTO_IMPL(int, getpwuid, unsigned int uid, char **name, char **passwd,
   return 0;
 }
 
-LIBSTD_HPROTO_IMPL(int, getpwnam, char *name, char **passwd,
+LIBSTD_HPROTO_IMPL(int, getpwnam_, char *name, char **passwd,
   unsigned int *uid, unsigned int *gid, char **gecos, char **dir, char **shell)
 {
   struct passwd * pwd = getpwnam(name);
@@ -489,6 +489,27 @@ LIBSTD_HPROTO_IMPL(int, getpwnam, char *name, char **passwd,
 
   return 0;
 }
+
+LIBSTD_HPROTO_IMPL(long, getcwd, char * buf, unsigned long size)
+{
+      return getcwd(buf, size);
+}
+
+LIBSTD_HPROTO_IMPL(void *, signal, int sig, void * func)
+{
+  return signal (sig, func);
+}
+
+LIBSTD_HPROTO_IMPL(int, raise, int sig)
+{
+  return raise (sig);
+}
+
+LIBSTD_HPROTO_IMPL(int, kill, int pid, int sig)
+{
+  return kill (pid, sig);
+}
+
 
 LIBSTD_HPROTO_IMPL(int, fpclassify, double p0)
 {

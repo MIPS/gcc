@@ -54,7 +54,7 @@ static struct tm _gmtime;
 
 LIBSTD_LPROTO_IMPL(struct tm *, gmtime, const time_t *tptr)
 {
-    LIBSTD_HNAME(gmtime)((int *)tptr,
+    LIBSTD_HNAME(gmtime_)((int *)tptr,
                                &_gmtime.tm_sec,
                                &_gmtime.tm_min,
                                &_gmtime.tm_hour,

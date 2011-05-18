@@ -640,7 +640,7 @@ public class MSCorelibWrapper
         return (uint)result;
     }
 
-    unsafe public static void gmtime(void* timer,
+    unsafe public static void gmtime_(void* timer,
                                      int* tm_sec,  int* tm_min,  int* tm_hour,
                                      int* tm_mday, int* tm_mon,  int* tm_year,
                                      int* tm_wday, int* tm_yday, int* tm_isdst)
@@ -855,7 +855,7 @@ public class MSCorelibWrapper
       return getuid ();
     }
 
-    unsafe public static int getpwuid (uint uid, sbyte** name, sbyte** passwd,
+    unsafe public static int getpwuid_ (uint uid, sbyte** name, sbyte** passwd,
                                         uint* gid, sbyte** gecos, sbyte** dir, sbyte** shell)
     {
       String str_name;
@@ -872,7 +872,7 @@ public class MSCorelibWrapper
       return getpw_base (str_name, passwd, gid, gecos, dir, shell);
     }
 
-    unsafe public static int getpwnam (sbyte* name, sbyte** passwd, uint* uid,
+    unsafe public static int getpwnam_ (sbyte* name, sbyte** passwd, uint* uid,
                                         uint* gid, sbyte** gecos, sbyte** dir, sbyte** shell)
     {
       String str_name = Marshal.PtrToStringAnsi(new IntPtr(name));
@@ -905,6 +905,42 @@ public class MSCorelibWrapper
 
       return 0;
     }
+
+    unsafe public static long getcwd(sbyte* name, ulong size )
+    {
+        String cwd = Environment.CurrentDirectory;
+        int i = 0;
+
+        if ((int)size < cwd.Length)
+          return -1;
+
+        for (i = 0; i < cwd.Length; i++)
+          name[i] = Convert.ToSByte(cwd[i]);
+
+        name[i] = 0;
+
+        return 0;
+    }
+
+    unsafe public static void * signal (int signal, void * handler)
+    {
+        Console.Error.Write("Warning: signal() not implemented\n");
+        return (void *)-1;
+    }
+
+    unsafe public static int raise (int signal)
+    {
+        Console.Error.Write("Warning: raise() not implemented\n");
+        return -1;
+    }
+
+
+    unsafe public static int kill (int pid, int signal)
+    {
+        Console.Error.Write("Warning: kill() not implemented\n");
+        return -1;
+    }
+
 
     public static double dbl_epsilon()
     {

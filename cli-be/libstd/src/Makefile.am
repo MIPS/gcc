@@ -49,6 +49,7 @@ SRC = _Exit.c \
       fsetpos.c \
       ftell.c \
       fwrite.c \
+      getcwd.c \
       getenv.c \
       imaxabs.c \
       imaxdiv.c \
