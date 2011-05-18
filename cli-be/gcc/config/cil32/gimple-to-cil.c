@@ -44,6 +44,7 @@ Erven Rohou             <erven.rohou@inria.fr>
 #include "tree-pass.h"
 #include "pointer-set.h"
 #include "c-common.h"
+#include "toplev.h"
 
 #include "cil-builtins.h"
 #include "cil-refs.h"
@@ -2343,6 +2344,7 @@ gen_call_expr (cil_stmt_iterator *csi, tree node)
   bool direct = true;
   bool varargs = false;
   bool missing = false;
+  bool fixed = false;
   size_t nargs_base;
   size_t nargs;
   size_t max_nargs;
@@ -2377,9 +2379,11 @@ gen_call_expr (cil_stmt_iterator *csi, tree node)
   if (arg_types == NULL && fdecl)
     {
       fix_missing_prototype (fdecl);
+
       /* fix_missing_prototype may update function type */
       ftype = TREE_TYPE (fdecl);
       arg_types = TYPE_ARG_TYPES (ftype);
+      fixed = arg_types != NULL;
     }
 
   if (arg_types == NULL)
@@ -2430,6 +2434,29 @@ gen_call_expr (cil_stmt_iterator *csi, tree node)
 	varargs = true;
       else
 	nargs_base--;
+    }
+
+  /* Check for syntax errors in the source program.
+     We search for calls with argument lists not matching the prototype,
+     such errors couldn't be verified before, because there was no prototype
+     It only applies to fixed arguments (when DECL_ARGUMENT is defined) */
+  if (!varargs && fdecl && DECL_ARGUMENTS (fdecl))
+    {
+      unsigned int call_args;
+      tree arg_list;
+
+      /* Count effective arguments */
+      for (arg_list = CALL_EXPR_ARGS (node), call_args = 0;
+           arg_list;
+           arg_list = TREE_CHAIN (arg_list), call_args++) ;
+
+      if (call_args != nargs_base) {
+        error_at (EXPR_LOCATION (node),
+                  "number of arguments in call to %qE (#%d args) "
+                  "doesn%'t match function definition", fdecl, call_args);
+        error_at (DECL_SOURCE_LOCATION (fdecl), "%q+D (#%d args) was defined here",
+                  fdecl, nargs_base);
+      }
     }
 
   arglist = VEC_alloc (tree, heap, max_nargs - nargs_base);

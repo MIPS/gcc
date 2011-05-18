@@ -74,7 +74,7 @@ fix_missing_prototype (tree fdecl)
       /* chain each argument */
       for (arg = DECL_ARGUMENTS (fdecl); arg; arg = TREE_CHAIN (arg))
         {
-          tree tmp = tree_cons (NULL_TREE, TREE_TYPE (arg), NULL_TREE);
+          tree tmp = tree_cons (NULL_TREE, DECL_ARG_TYPE (arg), NULL_TREE);
           if (!arg_types)
             arg_types = tmp;
           if (last_arg)
@@ -90,11 +90,11 @@ fix_missing_prototype (tree fdecl)
 
       /* ensure to unshare the new function type */
       TREE_TYPE (fdecl) = build_function_type (TREE_TYPE (TREE_TYPE (fdecl)), arg_types);
-#if 0
+//#if 0
       fprintf (stderr, "Fixed prototype for '");
       print_generic_decl (stderr, fdecl, 0);
       fprintf (stderr, "'\n");
-#endif      
+//#endif      
     }
 }
 
