@@ -1,6 +1,7 @@
 /* Definitions of target machine for GNU compiler, for IBM RS/6000.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
+   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,
+   2010, 2011
    Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
@@ -1035,6 +1036,15 @@ extern unsigned rs6000_pointer_size;
 
 #define HARD_REGNO_NREGS(REGNO, MODE) rs6000_hard_regno_nregs[(MODE)][(REGNO)]
 
+/* When setting up caller-save slots (MODE == VOIDmode) ensure we allocate
+   enough space to account for vectors in FP regs. */
+#define HARD_REGNO_CALLER_SAVE_MODE(REGNO, NREGS, MODE)			\
+  (TARGET_VSX								\
+   && ((MODE) == VOIDmode || ALTIVEC_OR_VSX_VECTOR_MODE (MODE))		\
+   && FP_REGNO_P (REGNO)				\
+   ? V2DFmode						\
+   : choose_hard_reg_mode ((REGNO), (NREGS), false))
+
 #define HARD_REGNO_CALL_PART_CLOBBERED(REGNO, MODE)			\
   (((TARGET_32BIT && TARGET_POWERPC64					\
      && (GET_MODE_SIZE (MODE) > 4)					\
@@ -1046,24 +1056,15 @@ extern unsigned rs6000_pointer_size;
 	 ((MODE) == V4SFmode		\
 	  || (MODE) == V2DFmode)	\
 
-#define VSX_SCALAR_MODE(MODE)		\
-	((MODE) == DFmode)
-
-#define VSX_MODE(MODE)			\
-	(VSX_VECTOR_MODE (MODE)		\
-	 || VSX_SCALAR_MODE (MODE))
-
-#define VSX_MOVE_MODE(MODE)		\
-	(VSX_VECTOR_MODE (MODE)		\
-	 || VSX_SCALAR_MODE (MODE)	\
-	 || ALTIVEC_VECTOR_MODE (MODE)	\
-	 || (MODE) == TImode)
-
 #define ALTIVEC_VECTOR_MODE(MODE)	\
 	 ((MODE) == V16QImode		\
 	  || (MODE) == V8HImode		\
 	  || (MODE) == V4SFmode		\
 	  || (MODE) == V4SImode)
+
+#define ALTIVEC_OR_VSX_VECTOR_MODE(MODE)				\
+  (ALTIVEC_VECTOR_MODE (MODE) || VSX_VECTOR_MODE (MODE)			\
+   || (MODE) == V2DImode)
 
 #define SPE_VECTOR_MODE(MODE)		\
 	((MODE) == V4HImode          	\
@@ -1107,10 +1108,10 @@ extern unsigned rs6000_pointer_size;
    ? ALTIVEC_VECTOR_MODE (MODE2)		\
    : ALTIVEC_VECTOR_MODE (MODE2)		\
    ? ALTIVEC_VECTOR_MODE (MODE1)		\
-   : VSX_VECTOR_MODE (MODE1)			\
-   ? VSX_VECTOR_MODE (MODE2)			\
-   : VSX_VECTOR_MODE (MODE2)			\
-   ? VSX_VECTOR_MODE (MODE1)			\
+   : ALTIVEC_OR_VSX_VECTOR_MODE (MODE1)		\
+   ? ALTIVEC_OR_VSX_VECTOR_MODE (MODE2)		\
+   : ALTIVEC_OR_VSX_VECTOR_MODE (MODE2)		\
+   ? ALTIVEC_OR_VSX_VECTOR_MODE (MODE1)		\
    : 1)
 
 /* Post-reload, we can't use any new AltiVec registers, as we already
@@ -2489,6 +2490,8 @@ enum rs6000_builtin_type_index
   RS6000_BTI_pixel_V8HI,         /* __vector __pixel */
   RS6000_BTI_long,	         /* long_integer_type_node */
   RS6000_BTI_unsigned_long,      /* long_unsigned_type_node */
+  RS6000_BTI_long_long,	         /* long_long_integer_type_node */
+  RS6000_BTI_unsigned_long_long, /* long_long_unsigned_type_node */
   RS6000_BTI_INTQI,	         /* intQI_type_node */
   RS6000_BTI_UINTQI,		 /* unsigned_intQI_type_node */
   RS6000_BTI_INTHI,	         /* intHI_type_node */
@@ -2532,6 +2535,8 @@ enum rs6000_builtin_type_index
 #define bool_V2DI_type_node	      (rs6000_builtin_types[RS6000_BTI_bool_V2DI])
 #define pixel_V8HI_type_node	      (rs6000_builtin_types[RS6000_BTI_pixel_V8HI])
 
+#define long_long_integer_type_internal_node  (rs6000_builtin_types[RS6000_BTI_long_long])
+#define long_long_unsigned_type_internal_node (rs6000_builtin_types[RS6000_BTI_unsigned_long_long])
 #define long_integer_type_internal_node  (rs6000_builtin_types[RS6000_BTI_long])
 #define long_unsigned_type_internal_node (rs6000_builtin_types[RS6000_BTI_unsigned_long])
 #define intQI_type_internal_node	 (rs6000_builtin_types[RS6000_BTI_INTQI])
