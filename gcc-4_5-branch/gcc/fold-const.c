@@ -2784,8 +2784,6 @@ fold_convert_loc (location_t loc, tree type, tree arg)
 
     case VOID_TYPE:
       tem = fold_ignored_result (arg);
-      if (TREE_CODE (tem) == MODIFY_EXPR)
-	goto fold_convert_exit;
       return fold_build1_loc (loc, NOP_EXPR, type, tem);
 
     default:
@@ -16101,12 +16099,17 @@ fold_indirect_ref_1 (location_t loc, tree type, tree op0)
 	}
       /* *(foo *)&fooarray => fooarray[0] */
       else if (TREE_CODE (optype) == ARRAY_TYPE
-	       && type == TREE_TYPE (optype))
+	       && type == TREE_TYPE (optype)
+	       && (!in_gimple_form
+		   || TREE_CODE (TYPE_SIZE (type)) == INTEGER_CST))
 	{
 	  tree type_domain = TYPE_DOMAIN (optype);
 	  tree min_val = size_zero_node;
 	  if (type_domain && TYPE_MIN_VALUE (type_domain))
 	    min_val = TYPE_MIN_VALUE (type_domain);
+	  if (in_gimple_form
+	      && TREE_CODE (min_val) != INTEGER_CST)
+	    return NULL_TREE;
 	  op0 = build4 (ARRAY_REF, type, op, min_val, NULL_TREE, NULL_TREE);
 	  SET_EXPR_LOCATION (op0, loc);
 	  return op0;
@@ -16177,7 +16180,9 @@ fold_indirect_ref_1 (location_t loc, tree type, tree op0)
 
   /* *(foo *)fooarrptr => (*fooarrptr)[0] */
   if (TREE_CODE (TREE_TYPE (subtype)) == ARRAY_TYPE
-      && type == TREE_TYPE (TREE_TYPE (subtype)))
+      && type == TREE_TYPE (TREE_TYPE (subtype))
+      && (!in_gimple_form
+	  || TREE_CODE (TYPE_SIZE (type)) == INTEGER_CST))
     {
       tree type_domain;
       tree min_val = size_zero_node;
@@ -16185,6 +16190,9 @@ fold_indirect_ref_1 (location_t loc, tree type, tree op0)
       type_domain = TYPE_DOMAIN (TREE_TYPE (sub));
       if (type_domain && TYPE_MIN_VALUE (type_domain))
 	min_val = TYPE_MIN_VALUE (type_domain);
+      if (in_gimple_form
+	  && TREE_CODE (min_val) != INTEGER_CST)
+	return NULL_TREE;
       op0 = build4 (ARRAY_REF, type, sub, min_val, NULL_TREE, NULL_TREE);
       SET_EXPR_LOCATION (op0, loc);
       return op0;

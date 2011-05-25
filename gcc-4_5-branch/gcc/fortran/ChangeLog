@@ -1,3 +1,12 @@
+2011-04-28  Release Manager
+
+	* GCC 4.5.3 released.
+
+2011-04-05  Duncan Sands  <baldrick@free.fr>
+
+	* f95-lang.c (build_builtin_fntypes): Swap frexp and scalbn parameter
+	types.
+
 2011-03-13  Paul Thomas  <pault@gcc.gnu.org>
 
 	PR fortran/47348
