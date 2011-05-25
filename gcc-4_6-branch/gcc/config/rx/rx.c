@@ -2451,8 +2451,7 @@ rx_is_legitimate_constant (rtx x)
 
 	default:
 	  /* FIXME: Can this ever happen ?  */
-	  abort ();
-	  return false;
+	  gcc_unreachable ();
 	}
       break;
       
@@ -2593,9 +2592,11 @@ rx_trampoline_init (rtx tramp, tree fndecl, rtx chain)
 }
 
 static int
-rx_memory_move_cost (enum machine_mode mode, reg_class_t regclass, bool in)
+rx_memory_move_cost (enum machine_mode mode ATTRIBUTE_UNUSED,
+		     reg_class_t regclass ATTRIBUTE_UNUSED,
+		     bool in)
 {
-  return 2 + memory_move_secondary_cost (mode, regclass, in);
+  return (in ? 2 : 0) + REGISTER_MOVE_COST (mode, regclass, regclass);
 }
 
 /* Convert a CC_MODE to the set of flags that it represents.  */
@@ -2752,8 +2753,15 @@ rx_match_ccmode (rtx insn, enum machine_mode cc_mode)
 
 
 int
-rx_align_for_label (void)
+rx_align_for_label (rtx lab, int uses_threshold)
 {
+  /* This is a simple heuristic to guess when an alignment would not be useful
+     because the delay due to the inserted NOPs would be greater than the delay
+     due to the misaligned branch.  If uses_threshold is zero then the alignment
+     is always useful.  */
+  if (LABEL_P (lab) && LABEL_NUSES (lab) < uses_threshold)
+    return 0;
+
   return optimize_size ? 1 : 3;
 }
 
@@ -2768,7 +2776,7 @@ rx_max_skip_for_label (rtx lab)
   op = lab;
   do
     {
-      op = next_nonnote_insn (op);
+      op = next_nonnote_nondebug_insn (op);
     }
   while (op && (LABEL_P (op)
 		|| (INSN_P (op) && GET_CODE (PATTERN (op)) == USE)));

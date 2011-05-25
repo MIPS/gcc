@@ -13221,7 +13221,8 @@ tsubst_copy_and_build (tree t,
                 ce->value = tsubst_pack_expansion (ce->value, args, complain,
                                                   in_decl);
 
-		if (ce->value == error_mark_node)
+		if (ce->value == error_mark_node
+		    || PACK_EXPANSION_P (ce->value))
 		  ;
 		else if (TREE_VEC_LENGTH (ce->value) == 1)
                   /* Just move the argument into place.  */
@@ -13742,7 +13743,9 @@ fn_type_unification (tree fn,
         incomplete = NUM_TMPL_ARGS (explicit_targs) != NUM_TMPL_ARGS (targs);
 
       processing_template_decl += incomplete;
+      push_deferring_access_checks (dk_no_check);
       fntype = tsubst (fntype, converted_args, tf_none, NULL_TREE);
+      pop_deferring_access_checks ();
       processing_template_decl -= incomplete;
 
       if (fntype == error_mark_node)
@@ -13829,7 +13832,10 @@ fn_type_unification (tree fn,
        substitution results in an invalid type, as described above,
        type deduction fails.  */
     {
-      tree substed = tsubst (TREE_TYPE (fn), targs, tf_none, NULL_TREE);
+      tree substed;
+      push_deferring_access_checks (dk_no_check);
+      substed = tsubst (TREE_TYPE (fn), targs, tf_none, NULL_TREE);
+      pop_deferring_access_checks ();
       if (substed == error_mark_node)
 	return 1;
 
@@ -17209,7 +17215,8 @@ instantiate_decl (tree d, int defer_ok,
     args = gen_args;
 
   if (TREE_CODE (d) == FUNCTION_DECL)
-    pattern_defined = (DECL_SAVED_TREE (code_pattern) != NULL_TREE);
+    pattern_defined = (DECL_SAVED_TREE (code_pattern) != NULL_TREE
+		       || DECL_DEFAULTED_OUTSIDE_CLASS_P (code_pattern));
   else
     pattern_defined = ! DECL_IN_AGGR_P (code_pattern);
 
@@ -17404,6 +17411,8 @@ instantiate_decl (tree d, int defer_ok,
       cp_finish_decl (d, init, const_init, NULL_TREE, 0);
       pop_nested_class ();
     }
+  else if (TREE_CODE (d) == FUNCTION_DECL && DECL_DEFAULTED_FN (code_pattern))
+    synthesize_method (d);
   else if (TREE_CODE (d) == FUNCTION_DECL)
     {
       htab_t saved_local_specializations;
@@ -17791,7 +17800,7 @@ get_mostly_instantiated_function_type (tree decl)
     ;
   else
     {
-      int i, save_access_control;
+      int i;
       tree partial_args;
 
       /* Replace the innermost level of the TARGS with NULL_TREEs to
@@ -17806,8 +17815,7 @@ get_mostly_instantiated_function_type (tree decl)
 
       /* Disable access control as this function is used only during
 	 name-mangling.  */
-      save_access_control = flag_access_control;
-      flag_access_control = 0;
+      push_deferring_access_checks (dk_no_check);
 
       ++processing_template_decl;
       /* Now, do the (partial) substitution to figure out the
@@ -17822,7 +17830,7 @@ get_mostly_instantiated_function_type (tree decl)
       TREE_VEC_LENGTH (partial_args)--;
       tparms = tsubst_template_parms (tparms, partial_args, tf_error);
 
-      flag_access_control = save_access_control;
+      pop_deferring_access_checks ();
     }
 
   return fn_type;
@@ -17865,6 +17873,8 @@ invalid_nontype_parm_type_p (tree type, tsubst_flags_t complain)
   else if (TREE_CODE (type) == TEMPLATE_TYPE_PARM)
     return 0;
   else if (TREE_CODE (type) == TYPENAME_TYPE)
+    return 0;
+  else if (TREE_CODE (type) == DECLTYPE_TYPE)
     return 0;
 
   if (complain & tf_error)
@@ -18229,6 +18239,16 @@ value_dependent_expression_p (tree expression)
       /* If a TEMPLATE_ID_EXPR involves a dependent name, it will be
 	 type-dependent.  */
       return type_dependent_expression_p (expression);
+
+    case CONSTRUCTOR:
+      {
+	unsigned ix;
+	tree val;
+	FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (expression), ix, val)
+	  if (value_dependent_expression_p (val))
+	    return true;
+	return false;
+      }
 
     default:
       /* A constant expression is value-dependent if any subexpression is
@@ -18810,10 +18830,6 @@ build_non_dependent_expr (tree expr)
 {
   tree inner_expr;
 
-  /* Preserve null pointer constants so that the type of things like
-     "p == 0" where "p" is a pointer can be determined.  */
-  if (null_ptr_cst_p (expr))
-    return expr;
   /* Preserve OVERLOADs; the functions must be available to resolve
      types.  */
   inner_expr = expr;
