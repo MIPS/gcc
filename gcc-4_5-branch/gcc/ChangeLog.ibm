@@ -1,3 +1,11 @@
+2011-05-26  Pat Haugen <pthaugen@us.ibm.com>
+
+	Backport from mainline
+	2011-05-26  Pat Haugen <pthaugen@us.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_register_move_cost): Make LR/CTR
+	moves expensive on Power7 also.
+
 2011-05-25  Peter Bergner  <bergner@vnet.ibm.com>
 
 	Merge up to gcc-4_5-branch, subversion id 174146.
