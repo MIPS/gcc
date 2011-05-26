@@ -110,6 +110,13 @@ public class MSCorelibWrapper
      * usual values in POSIX. (used by gettimes) */
     private const int _SC_CLK_TCK_VALUE = 100;
 
+    /* Warn only once */
+    static bool warned_file_mode_flags;
+    static bool warned_signal; 
+    static bool warned_raise; 
+    static bool warned_kill; 
+    static bool warned_gettimes;
+
     static MSCorelibWrapper()
     {
         streams_table = new Stream[FopenMax];
@@ -124,6 +131,12 @@ public class MSCorelibWrapper
 
         /* Matching (pseudo)POSIX <--> .NET users */
         InitUsers ();
+
+        warned_file_mode_flags = false;
+        warned_signal = false;
+        warned_raise = false;
+        warned_kill = false;
+        warned_gettimes = false;
     }
 
     private static int allocateHandle(Stream stream)
@@ -433,7 +446,10 @@ public class MSCorelibWrapper
         String file_name = Marshal.PtrToStringAnsi(ptr_int_ptr);        
         int flags = 0;
 
-        Console.Error.Write("Warning: some features of stat() are not supported\n");
+        if (!warned_file_mode_flags) {
+          Console.Error.Write("Warning: some features of stat() are not supported\n");
+          warned_file_mode_flags = true;
+        }
 
         /* File atributres */
         FileAttributes attr = File.GetAttributes (file_name);
@@ -689,7 +705,10 @@ public class MSCorelibWrapper
            is not implemented in Mono */
         *tms_cutime = 0;
         *tms_cstime = 0;
-        Console.Error.Write("Warning: gettimes() - tms_cutime and tms_cstime defaults to 0\n");
+        if (!warned_gettimes) {
+          Console.Error.Write("Warning: gettimes() - tms_cutime and tms_cstime defaults to 0\n");
+          warned_gettimes = true;
+        }
       } catch (PlatformNotSupportedException) {
         my_errno = __LIBSTD_ENOTSUP;
         return -1;
@@ -924,20 +943,29 @@ public class MSCorelibWrapper
 
     unsafe public static void * signal (int signal, void * handler)
     {
-        Console.Error.Write("Warning: signal() not implemented\n");
+        if (!warned_signal) {
+          Console.Error.Write("Warning: signal() not implemented\n");
+          warned_signal = true;
+        }
         return (void *)-1;
     }
 
     unsafe public static int raise (int signal)
     {
-        Console.Error.Write("Warning: raise() not implemented\n");
+        if (!warned_raise) {
+          Console.Error.Write("Warning: raise() not implemented\n");
+          warned_raise = true;
+        }
         return -1;
     }
 
 
     unsafe public static int kill (int pid, int signal)
     {
-        Console.Error.Write("Warning: kill() not implemented\n");
+        if (!warned_kill) {
+          Console.Error.Write("Warning: kill() not implemented\n");
+          warned_kill = true;
+        }
         return -1;
     }
 
