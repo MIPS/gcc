@@ -1686,6 +1686,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	  error ("deleted definition of %qD", newdecl);
 	  error ("after previous declaration %q+D", olddecl);
 	}
+      DECL_DELETED_FN (newdecl) |= DECL_DELETED_FN (olddecl);
     }
 
   /* Deal with C++: must preserve virtual function table size.  */
@@ -2807,6 +2808,8 @@ check_omp_return (void)
 	error ("invalid exit from OpenMP structured block");
 	return false;
       }
+    else if (b->kind == sk_function_parms)
+      break;
   return true;
 }
 
@@ -2917,6 +2920,28 @@ pop_switch (void)
   free (cs);
 }
 
+/* Convert a case constant VALUE in a switch to the type TYPE of the switch
+   condition.  Note that if TYPE and VALUE are already integral we don't
+   really do the conversion because the language-independent
+   warning/optimization code will work better that way.  */
+
+static tree
+case_conversion (tree type, tree value)
+{
+  if (value == NULL_TREE)
+    return value;
+
+  if (cxx_dialect >= cxx0x
+      && (SCOPED_ENUM_P (type)
+	  || !INTEGRAL_OR_UNSCOPED_ENUMERATION_TYPE_P (TREE_TYPE (value))))
+    {
+      if (INTEGRAL_OR_UNSCOPED_ENUMERATION_TYPE_P (type))
+	type = type_promotes_to (type);
+      value = perform_implicit_conversion (type, value, tf_warning_or_error);
+    }
+  return cxx_constant_value (value);
+}
+
 /* Note that we've seen a definition of a case label, and complain if this
    is a bad place for one.  */
 
@@ -2925,6 +2950,7 @@ finish_case_label (location_t loc, tree low_value, tree high_value)
 {
   tree cond, r;
   struct cp_binding_level *p;
+  tree type;
 
   if (processing_template_decl)
     {
@@ -2944,13 +2970,12 @@ finish_case_label (location_t loc, tree low_value, tree high_value)
   if (!check_switch_goto (switch_stack->level))
     return error_mark_node;
 
-  if (low_value)
-    low_value = cxx_constant_value (low_value);
-  if (high_value)
-    high_value = cxx_constant_value (high_value);
+  type = SWITCH_STMT_TYPE (switch_stack->switch_stmt);
 
-  r = c_add_case_label (loc, switch_stack->cases, cond,
-			SWITCH_STMT_TYPE (switch_stack->switch_stmt),
+  low_value = case_conversion (type, low_value);
+  high_value = case_conversion (type, high_value);
+
+  r = c_add_case_label (loc, switch_stack->cases, cond, type,
 			low_value, high_value);
 
   /* After labels, make any new cleanups in the function go into their
@@ -5795,13 +5820,7 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 	}
     }
 
-  if (TREE_CODE (decl) == FUNCTION_DECL
-      /* For members, defer until finalize_literal_type_property.  */
-      && (!DECL_CLASS_SCOPE_P (decl)
-	  || !TYPE_BEING_DEFINED (DECL_CONTEXT (decl))))
-    validate_constexpr_fundecl (decl);
-
-  else if (!ensure_literal_type_for_constexpr_object (decl))
+  if (!ensure_literal_type_for_constexpr_object (decl))
     DECL_DECLARED_CONSTEXPR_P (decl) = 0;
 
   if (init && TREE_CODE (decl) == FUNCTION_DECL)
@@ -8562,12 +8581,6 @@ grokdeclarator (const cp_declarator *declarator,
 	       || thread_p)
 	error ("storage class specifiers invalid in parameter declarations");
 
-      if (type_uses_auto (type))
-	{
-	  error ("parameter declared %<auto%>");
-	  type = error_mark_node;
-	}
-
       /* Function parameters cannot be constexpr.  If we saw one, moan
          and pretend it wasn't there.  */
       if (constexpr_p)
@@ -9004,13 +9017,18 @@ grokdeclarator (const cp_declarator *declarator,
 		 to create the type "rvalue reference to cv TD' creates the
 		 type TD."
               */
-	      if (!VOID_TYPE_P (type))
+	      if (VOID_TYPE_P (type))
+		/* We already gave an error.  */;
+	      else if (TREE_CODE (type) == REFERENCE_TYPE)
+		{
+		  if (declarator->u.reference.rvalue_ref)
+		    /* Leave type alone.  */;
+		  else
+		    type = cp_build_reference_type (TREE_TYPE (type), false);
+		}
+	      else
 		type = cp_build_reference_type
-		       ((TREE_CODE (type) == REFERENCE_TYPE
-			 ? TREE_TYPE (type) : type),
-			(declarator->u.reference.rvalue_ref
-			 && (TREE_CODE(type) != REFERENCE_TYPE
-			     || TYPE_REF_IS_RVALUE (type))));
+		  (type, declarator->u.reference.rvalue_ref);
 
 	      /* In C++0x, we need this check for direct reference to
 		 reference declarations, which are forbidden by
@@ -9313,6 +9331,12 @@ grokdeclarator (const cp_declarator *declarator,
           memfn_quals = TYPE_UNQUALIFIED;
         }
 
+      if (type_uses_auto (type))
+	{
+	  error ("typedef declared %<auto%>");
+	  type = error_mark_node;
+	}
+
       if (decl_context == FIELD)
 	decl = build_lang_decl (TYPE_DECL, unqualified_id, type);
       else
@@ -9552,6 +9576,12 @@ grokdeclarator (const cp_declarator *declarator,
     {
       if (ctype || in_namespace)
 	error ("cannot use %<::%> in parameter declaration");
+
+      if (type_uses_auto (type))
+	{
+	  error ("parameter declared %<auto%>");
+	  type = error_mark_node;
+	}
 
       /* A parameter declared as an array of T is really a pointer to T.
 	 One declared as a function is really a pointer to a function.
@@ -10327,12 +10357,6 @@ grokparms (tree parmlist, tree *parms)
 	  else if (init && !processing_template_decl)
 	    init = check_default_argument (decl, init);
 	}
-
-      if (TREE_CODE (decl) == PARM_DECL
-          && FUNCTION_PARAMETER_PACK_P (decl)
-          && TREE_CHAIN (parm)
-          && TREE_CHAIN (parm) != void_list_node)
-        error ("parameter packs must be at the end of the parameter list");
 
       DECL_CHAIN (decl) = decls;
       decls = decl;
@@ -12573,7 +12597,7 @@ use_eh_spec_block (tree fn)
 	     not creating the EH_SPEC_BLOCK we save a little memory,
 	     and we avoid spurious warnings about unreachable
 	     code.  */
-	  && !DECL_ARTIFICIAL (fn));
+	  && !DECL_DEFAULTED_FN (fn));
 }
 
 /* Store the parameter declarations into the current function declaration.
@@ -13397,10 +13421,15 @@ void
 revert_static_member_fn (tree decl)
 {
   tree stype = static_fn_type (decl);
+  cp_cv_quals quals = type_memfn_quals (stype);
 
-  if (type_memfn_quals (stype) != TYPE_UNQUALIFIED)
+  if (quals != TYPE_UNQUALIFIED)
     {
-      error ("static member function %q#D declared with type qualifiers", decl);
+      if (quals == TYPE_QUAL_CONST && DECL_DECLARED_CONSTEXPR_P (decl))
+	/* The const was implicit, don't complain.  */;
+      else
+	error ("static member function %q#D declared with type qualifiers",
+	       decl);
       stype = apply_memfn_quals (stype, TYPE_UNQUALIFIED);
     }
   TREE_TYPE (decl) = stype;

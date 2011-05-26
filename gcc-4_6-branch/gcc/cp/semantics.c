@@ -3667,7 +3667,7 @@ cxx_omp_create_clause_info (tree c, tree type, bool need_default_ctor,
       if (need_default_ctor)
 	t = get_default_ctor (type);
       else
-	t = get_copy_ctor (type);
+	t = get_copy_ctor (type, tf_warning_or_error);
 
       if (t && !trivial_fn_p (t))
 	TREE_VEC_ELT (info, 0) = t;
@@ -3675,7 +3675,7 @@ cxx_omp_create_clause_info (tree c, tree type, bool need_default_ctor,
 
   if ((need_default_ctor || need_copy_ctor)
       && TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type))
-    TREE_VEC_ELT (info, 1) = get_dtor (type);
+    TREE_VEC_ELT (info, 1) = get_dtor (type, tf_warning_or_error);
 
   if (need_copy_assignment)
     {
@@ -5327,7 +5327,7 @@ literal_type_p (tree t)
   if (SCALAR_TYPE_P (t))
     return true;
   if (CLASS_TYPE_P (t))
-    return CLASSTYPE_LITERAL_P (t);
+    return CLASSTYPE_LITERAL_P (complete_type (t));
   if (TREE_CODE (t) == ARRAY_TYPE)
     return literal_type_p (strip_array_types (t));
   return false;
@@ -5439,6 +5439,7 @@ is_valid_constexpr_fn (tree fun, bool complain)
 		   rettype, fun);
 	}
 
+      /* Check this again here for cxx_eval_call_expression.  */
       if (DECL_NONSTATIC_MEMBER_FUNCTION_P (fun)
 	  && !CLASSTYPE_LITERAL_P (DECL_CONTEXT (fun)))
 	{
@@ -5459,36 +5460,18 @@ is_valid_constexpr_fn (tree fun, bool complain)
 tree
 validate_constexpr_fundecl (tree fun)
 {
-  constexpr_fundef entry;
-  constexpr_fundef **slot;
-
   if (processing_template_decl || !DECL_DECLARED_CONSTEXPR_P (fun))
     return NULL;
   else if (DECL_CLONED_FUNCTION_P (fun))
     /* We already checked the original function.  */
     return fun;
 
-  if (!is_valid_constexpr_fn (fun, !DECL_TEMPLATE_INSTANTIATION (fun)))
+  if (!is_valid_constexpr_fn (fun, !DECL_TEMPLATE_INFO (fun)))
     {
       DECL_DECLARED_CONSTEXPR_P (fun) = false;
       return NULL;
     }
 
-  /* Create the constexpr function table if necessary.  */
-  if (constexpr_fundef_table == NULL)
-    constexpr_fundef_table = htab_create_ggc (101,
-                                              constexpr_fundef_hash,
-                                              constexpr_fundef_equal,
-                                              ggc_free);
-  entry.decl = fun;
-  entry.body = NULL;
-  slot = (constexpr_fundef **)
-    htab_find_slot (constexpr_fundef_table, &entry, INSERT);
-  if (*slot == NULL)
-    {
-      *slot = ggc_alloc_constexpr_fundef ();
-      **slot = entry;
-    }
   return fun;
 }
 
@@ -5679,8 +5662,8 @@ build_constexpr_constructor_member_initializers (tree type, tree body)
 tree
 register_constexpr_fundef (tree fun, tree body)
 {
-  constexpr_fundef *fundef = retrieve_constexpr_fundef (fun);
-  gcc_assert (fundef != NULL && fundef->body == NULL);
+  constexpr_fundef entry;
+  constexpr_fundef **slot;
 
   if (DECL_CONSTRUCTOR_P (fun))
     body = build_constexpr_constructor_member_initializers
@@ -5707,11 +5690,26 @@ register_constexpr_fundef (tree fun, tree body)
   if (!potential_rvalue_constant_expression (body))
     {
       DECL_DECLARED_CONSTEXPR_P (fun) = false;
-      if (!DECL_TEMPLATE_INSTANTIATION (fun))
+      if (!DECL_TEMPLATE_INFO (fun))
 	require_potential_rvalue_constant_expression (body);
       return NULL;
     }
-  fundef->body = body;
+
+  /* Create the constexpr function table if necessary.  */
+  if (constexpr_fundef_table == NULL)
+    constexpr_fundef_table = htab_create_ggc (101,
+                                              constexpr_fundef_hash,
+                                              constexpr_fundef_equal,
+                                              ggc_free);
+  entry.decl = fun;
+  entry.body = body;
+  slot = (constexpr_fundef **)
+    htab_find_slot (constexpr_fundef_table, &entry, INSERT);
+
+  gcc_assert (*slot == NULL);
+  *slot = ggc_alloc_constexpr_fundef ();
+  **slot = entry;
+
   return fun;
 }
 
@@ -6036,7 +6034,7 @@ cxx_eval_call_expression (const constexpr_call *old_call, tree t,
       if (!allow_non_constant)
 	{
 	  error_at (loc, "%qD is not a constexpr function", fun);
-	  if (DECL_TEMPLATE_INSTANTIATION (fun)
+	  if (DECL_TEMPLATE_INFO (fun)
 	      && DECL_DECLARED_CONSTEXPR_P (DECL_TEMPLATE_RESULT
 					    (DECL_TI_TEMPLATE (fun))))
 	    is_valid_constexpr_fn (fun, true);
@@ -6393,6 +6391,9 @@ cxx_eval_bit_field_ref (const constexpr_call *call, tree t,
 			bool *non_constant_p)
 {
   tree orig_whole = TREE_OPERAND (t, 0);
+  tree retval, fldval, utype, mask;
+  bool fld_seen = false;
+  HOST_WIDE_INT istart, isize;
   tree whole = cxx_eval_constant_expression (call, orig_whole,
 					     allow_non_constant, addr,
 					     non_constant_p);
@@ -6413,12 +6414,47 @@ cxx_eval_bit_field_ref (const constexpr_call *call, tree t,
     return t;
 
   start = TREE_OPERAND (t, 2);
+  istart = tree_low_cst (start, 0);
+  isize = tree_low_cst (TREE_OPERAND (t, 1), 0);
+  utype = TREE_TYPE (t);
+  if (!TYPE_UNSIGNED (utype))
+    utype = build_nonstandard_integer_type (TYPE_PRECISION (utype), 1);
+  retval = build_int_cst (utype, 0);
   FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (whole), i, field, value)
     {
-      if (bit_position (field) == start)
+      tree bitpos = bit_position (field);
+      if (bitpos == start && DECL_SIZE (field) == TREE_OPERAND (t, 1))
 	return value;
+      if (TREE_CODE (TREE_TYPE (field)) == INTEGER_TYPE
+	  && TREE_CODE (value) == INTEGER_CST
+	  && host_integerp (bitpos, 0)
+	  && host_integerp (DECL_SIZE (field), 0))
+	{
+	  HOST_WIDE_INT bit = tree_low_cst (bitpos, 0);
+	  HOST_WIDE_INT sz = tree_low_cst (DECL_SIZE (field), 0);
+	  HOST_WIDE_INT shift;
+	  if (bit >= istart && bit + sz <= istart + isize)
+	    {
+	      fldval = fold_convert (utype, value);
+	      mask = build_int_cst_type (utype, -1);
+	      mask = fold_build2 (LSHIFT_EXPR, utype, mask,
+				  size_int (TYPE_PRECISION (utype) - sz));
+	      mask = fold_build2 (RSHIFT_EXPR, utype, mask,
+				  size_int (TYPE_PRECISION (utype) - sz));
+	      fldval = fold_build2 (BIT_AND_EXPR, utype, fldval, mask);
+	      shift = bit - istart;
+	      if (BYTES_BIG_ENDIAN)
+		shift = TYPE_PRECISION (utype) - shift - sz;
+	      fldval = fold_build2 (LSHIFT_EXPR, utype, fldval,
+				    size_int (shift));
+	      retval = fold_build2 (BIT_IOR_EXPR, utype, retval, fldval);
+	      fld_seen = true;
+	    }
+	}
     }
-  gcc_unreachable();
+  if (fld_seen)
+    return fold_convert (TREE_TYPE (t), retval);
+  gcc_unreachable ();
   return error_mark_node;
 }
 
@@ -8050,7 +8086,8 @@ lambda_function (tree lambda)
     type = lambda;
   gcc_assert (LAMBDA_TYPE_P (type));
   /* Don't let debug_tree cause instantiation.  */
-  if (CLASSTYPE_TEMPLATE_INSTANTIATION (type) && !COMPLETE_TYPE_P (type))
+  if (CLASSTYPE_TEMPLATE_INSTANTIATION (type)
+      && !COMPLETE_OR_OPEN_TYPE_P (type))
     return NULL_TREE;
   lambda = lookup_member (type, ansi_opname (CALL_EXPR),
 			  /*protect=*/0, /*want_type=*/false);

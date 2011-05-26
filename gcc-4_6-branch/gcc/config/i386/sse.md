@@ -4950,24 +4950,22 @@
 ;; Avoid combining registers from different units in a single alternative,
 ;; see comment above inline_secondary_memory_needed function in i386.c
 (define_insn "sse2_loadhpd"
-  [(set (match_operand:V2DF 0 "nonimmediate_operand"     "=x,x,x,o,o,o")
+  [(set (match_operand:V2DF 0 "nonimmediate_operand"     "=x,x,o,o,o")
 	(vec_concat:V2DF
 	  (vec_select:DF
-	    (match_operand:V2DF 1 "nonimmediate_operand" " 0,0,x,0,0,0")
+	    (match_operand:V2DF 1 "nonimmediate_operand" " 0,0,0,0,0")
 	    (parallel [(const_int 0)]))
-	  (match_operand:DF 2 "nonimmediate_operand"     " m,x,0,x,*f,r")))]
+	  (match_operand:DF 2 "nonimmediate_operand"     " m,x,x,*f,r")))]
   "TARGET_SSE2 && !(MEM_P (operands[1]) && MEM_P (operands[2]))"
   "@
    movhpd\t{%2, %0|%0, %2}
    unpcklpd\t{%2, %0|%0, %2}
-   shufpd\t{$1, %1, %0|%0, %1, 1}
    #
    #
    #"
-  [(set_attr "type" "ssemov,sselog,sselog,ssemov,fmov,imov")
-   (set_attr "prefix_data16" "1,*,*,*,*,*")
-   (set_attr "length_immediate" "*,*,1,*,*,*")
-   (set_attr "mode" "V1DF,V2DF,V2DF,DF,DF,DF")])
+  [(set_attr "type" "ssemov,sselog,ssemov,fmov,imov")
+   (set_attr "prefix_data16" "1,*,*,*,*")
+   (set_attr "mode" "V1DF,V2DF,DF,DF,DF")])
 
 (define_split
   [(set (match_operand:V2DF 0 "memory_operand" "")
@@ -12017,12 +12015,13 @@
   "&& reload_completed"
   [(const_int 0)]
 {
+  rtx op0 = operands[0];
   rtx op1 = operands[1];
-  if (REG_P (op1))
+  if (REG_P (op0))
+    op0 = gen_rtx_REG (<avxhalfvecmode>mode, REGNO (op0));
+  else 
     op1 = gen_rtx_REG (<MODE>mode, REGNO (op1));
-  else
-    op1 = gen_lowpart (<MODE>mode, op1);
-  emit_move_insn (operands[0], op1);
+  emit_move_insn (op0, op1);
   DONE;
 })
 

@@ -1,3 +1,180 @@
+2011-05-26  Jason Merrill  <jason@redhat.com>
+
+	PR c++/48424
+	* decl.c (grokparms): Function parameter packs don't need to
+	go at the end.
+	* pt.c (type_unification_real): But they aren't deduced otherwise.
+
+2011-05-25  Jason Merrill  <jason@redhat.com>
+
+	PR c++/44994
+	PR c++/49156
+	* error.c (dump_template_bindings): Set processing_template_decl
+	for a partial instantiation.
+
+	PR c++/45401
+	* decl.c (grokdeclarator): Don't change type when adding rvalue ref
+	to another reference type.
+
+2011-05-26  Fabien Chêne  <fabien@gcc.gnu.org>
+	* init.c (diagnose_uninitialized_cst_or_ref_member_1): Use
+	permerror instead of error, adjust the error count.
+
+2011-05-25  Jason Merrill  <jason@redhat.com>
+
+	PR c++/44311
+	* decl.c (case_conversion): New.
+	(finish_case_label): Use it.
+
+	PR c++/45698
+	* pt.c (dependent_template_arg_p): See through ARGUMENT_PACK_SELECT.
+
+	PR c++/46005
+	* decl.c (grokdeclarator): Complain about auto typedef.
+
+	PR c++/46245
+	* decl.c (grokdeclarator): Complain later for auto parameter.
+	* pt.c (splice_late_return_type): Handle use in a template
+	type-parameter.
+
+	PR c++/46696
+	* typeck.c (cp_build_modify_expr): Check DECL_DEFAULTED_FN.
+
+	PR c++/47184
+	* parser.c (cp_parser_parameter_declaration): Recognize
+	list-initialization.
+	(cp_parser_direct_declarator): Check for the closing
+	paren before parsing definitely.
+
+	PR c++/48935
+	* parser.c (cp_parser_constructor_declarator_p): Don't check
+	constructor_name_p for enums.
+	(cp_parser_diagnose_invalid_type_name): Correct error message.
+
+2011-05-25  Jason Merrill  <jason@redhat.com>
+
+	PR c++/45418
+	* init.c (perform_member_init): Handle list-initialization
+	of array of non-trivial class type.
+
+	PR c++/45080
+	* pt.c (instantiate_class_template_1): Call maybe_add_lambda_conv_op.
+	* semantics.c (lambda_function): Check COMPLETE_OR_OPEN_TYPE_P.
+
+	PR c++/48292
+	* pt.c (tsubst_decl) [PARM_DECL]: Handle partial instantiation of
+	function parameter pack.
+	(tsubst_pack_expansion): Likewise.
+
+2011-05-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/49136
+	* semantics.c (cxx_eval_bit_field_ref): Handle the
+	case when BIT_FIELD_REF doesn't cover only a single field.
+
+2011-05-24  Jason Merrill  <jason@redhat.com>
+
+	PR c++/49042
+	* pt.c (get_mostly_instantiated_function_type): Use
+	push_deferring_access_checks rather than set flag_access_control.
+
+	PR c++/48884
+	* pt.c (fn_type_unification): Disable access control during
+	substitution.
+
+	PR c++/49105
+	* typeck.c (build_const_cast_1): Handle rvalue references.
+
+	PR c++/47263
+	* decl.c (use_eh_spec_block): Do use an EH spec block for a
+	lambda op().
+
+	PR c++/47336
+	* error.c (dump_template_bindings): Suppress access control.
+
+	PR c++/47544
+	* pt.c (instantiate_decl): Handle =default.
+
+	PR c++/48617
+	* pt.c (invalid_nontype_parm_type_p): Allow DECLTYPE_TYPE.
+
+2011-05-22  Jason Merrill  <jason@redhat.com>
+
+	PR c++/48647
+	* typeck.c (composite_pointer_type_r): Return error_mark_node
+	on error in SFINAE context.
+
+2011-05-20  Jason Merrill  <jason@redhat.com>
+
+	PR c++/48945
+	* decl.c (revert_static_member_fn): Ignore const on constexpr fn.
+
+	PR c++/48780
+	* cvt.c (type_promotes_to): Warn about promoting scoped enums.
+
+	PR c++/49066
+	* decl.c (duplicate_decls): Preserve DECL_DELETED_FN.
+
+	DR 1073
+	PR c++/49082
+	* typeck.c (comp_except_specs): noexcept(false) is not compatible
+	with throw(type-list).
+	* typeck2.c (merge_exception_specifiers): noexcept(false)
+	beats any more limited specification.
+
+	PR c++/48948
+	* class.c (finalize_literal_type_property): Only check
+	for constexpr member functions of non-literal class.
+	* decl.c (cp_finish_decl): Don't call validate_constexpr_fundecl.
+	* semantics.c (literal_type_p): Call complete_type.
+
+	* semantics.c (validate_constexpr_fundecl): Check DECL_TEMPLATE_INFO
+	rather than DECL_TEMPLATE_INSTANTIATION.
+	(cxx_eval_call_expression): Likewise.
+
+	* semantics.c (register_constexpr_fundef): Add to hash table here.
+	(validate_constexpr_fundecl): Not here.
+
+	PR c++/48745
+	* pt.c (value_dependent_expr_p): Handle CONSTRUCTOR.
+
+	PR c++/48736
+	* pt.c (tsubst_copy_and_build): Handle substitution of a pack
+	expansion producing another expansion.
+
+	PR c++/48873
+	* tree.c (stabilize_expr): Don't make gratuitous copies of classes.
+
+2011-05-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/49043
+	* decl.c (check_omp_return): Stop searching on sk_function_parms.
+
+	PR c++/48869
+	* method.c (get_dtor, get_copy_ctor): Add COMPLAIN argument,
+	pass it down to locate_fn_flags.
+	* cp-tree.h (get_dtor, get_copy_ctor): Adjust prototypes.
+	* semantics.c (cxx_omp_create_clause_info): Adjust callers.
+	* cp-gimplify.c: Include splay-tree.h.
+	(splay_tree_compare_decl_uid, omp_var_to_track,
+	omp_cxx_notice_variable): New functions.
+	(struct cp_genericize_omp_taskreg): New type.
+	(struct cp_genericize_data): Add omp_ctx field.
+	(cp_genericize_r): Attempt to determine implicitly determined
+	firstprivate class type variables.
+	(cp_genericize): Clear omp_ctx.
+	* Make-lang.in (cp/cp-gimplify.o): Depend on $(SPLAY_TREE_H).
+
+2011-05-11  Jason Merrill  <jason@redhat.com>
+
+	* pt.c (build_non_dependent_expr): Don't check null_ptr_cst_p.
+
+2011-05-11  Fabien Chêne  <fabien@gcc.gnu.org>
+
+	PR c++/48859
+	* init.c (diagnose_uninitialized_cst_or_ref_member_1): stop the
+	recursion if there is user defined constructor.
+
 2011-05-09  Dodji Seketeli  <dodji@redhat.com>
 
 	PR c++/48574
