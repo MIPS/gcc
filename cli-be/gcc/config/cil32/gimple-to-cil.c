@@ -3933,7 +3933,7 @@ gimple_to_cil_node (cil_stmt_iterator *csi, tree node, source_location parent_sl
 	unsigned HOST_WIDE_INT size = tree_low_cst (TYPE_SIZE (type), 1);
 	enum cil32_builtin builtin;
 
-	if (INTEGRAL_TYPE_P (type))
+	if (INTEGRAL_TYPE_P (type) || POINTER_TYPE_P (type))
 	  {
 	    if (size <= 32)
 	      builtin = CIL32_SELECTSI4;
