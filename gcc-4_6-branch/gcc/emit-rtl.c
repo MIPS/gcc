@@ -1,7 +1,7 @@
 /* Emit RTL for the GCC expander.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
    1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,
-   2010
+   2010, 2011
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -3466,21 +3466,39 @@ try_split (rtx pat, rtx trial, int last)
     }
 
   /* If we are splitting a CALL_INSN, look for the CALL_INSN
-     in SEQ and copy our CALL_INSN_FUNCTION_USAGE to it.  */
+     in SEQ and copy any additional information across.  */
   if (CALL_P (trial))
     {
       for (insn = insn_last; insn ; insn = PREV_INSN (insn))
 	if (CALL_P (insn))
 	  {
-	    rtx *p = &CALL_INSN_FUNCTION_USAGE (insn);
+	    rtx next, *p;
+
+	    /* Add the old CALL_INSN_FUNCTION_USAGE to whatever the
+	       target may have explicitly specified.  */
+	    p = &CALL_INSN_FUNCTION_USAGE (insn);
 	    while (*p)
 	      p = &XEXP (*p, 1);
 	    *p = CALL_INSN_FUNCTION_USAGE (trial);
+
+	    /* If the old call was a sibling call, the new one must
+	       be too.  */
 	    SIBLING_CALL_P (insn) = SIBLING_CALL_P (trial);
 
-	    /* Update the debug information for the CALL_INSN.  */
-	    if (flag_enable_icf_debug)
-	      (*debug_hooks->copy_call_info) (trial, insn);
+	    /* If the new call is the last instruction in the sequence,
+	       it will effectively replace the old call in-situ.  Otherwise
+	       we must move any following NOTE_INSN_CALL_ARG_LOCATION note
+	       so that it comes immediately after the new call.  */
+	    if (NEXT_INSN (insn))
+	      for (next = NEXT_INSN (trial);
+		   next && NOTE_P (next);
+		   next = NEXT_INSN (next))
+		if (NOTE_KIND (next) == NOTE_INSN_CALL_ARG_LOCATION)
+		  {
+		    remove_insn (next);
+		    add_insn_after (next, insn, NULL);
+		    break;
+		  }
 	  }
     }
 

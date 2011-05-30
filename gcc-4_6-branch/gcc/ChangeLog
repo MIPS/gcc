@@ -1,3 +1,295 @@
+2011-05-29  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* emit-rtl.c (try_split): Use a loop to search for
+	NOTE_INSN_CALL_ARG_LOCATIONs.
+
+2011-05-24  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* var-tracking.c (compute_cfa_pointer): Adjust head comment.
+	(vt_initialize): Set PROLOGUE_BB unconditionally.
+	Add block comment about CFA_BASE_RTX machinery.
+	Reset FP_CFA_OFFSET to -1 on all invalid paths.
+	Call vt_init_cfa_base only if FP_CFA_OFFSET isn't equal to -1.
+
+2011-05-23  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	PR rtl-optimization/48826
+	* emit-rtl.c (try_split): When splitting a call that is followed
+	by a NOTE_INSN_CALL_ARG_LOCATION, move the note after the new call.
+
+2011-05-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* cfgexpand.c (expand_debug_expr): For unused non-addressable
+	parameters passed in memory prefer using DECL_INCOMING_RTL over
+	the pseudos it will be copied into.
+
+2011-05-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/48902
+	* var-tracking.c (prepare_call_arguments): Move else before #endif.
+
+2011-04-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/48148
+	* dwarf2out.c (resolve_addr): Don't call force_decl_die
+	if DECL_EXTERNAL has non-NULL DECL_ABSTRACT_ORIGIN.
+
+	Revert:
+	2011-03-17  Richard Guenther  <rguenther@suse.de>
+
+	PR bootstrap/48148
+	* lto-cgraph.c (input_overwrite_node): Clear the abstract
+	origin for decls in other ltrans units.
+	(input_varpool_node): Likewise.
+
+2011-03-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/48203
+	* cfgexpand.c (expand_debug_expr) <case SSA_NAME>: Only
+	create ENTRY_VALUE if incoming or address of incoming's MEM
+	is a hard REG.
+	* dwarf2out.c (mem_loc_descriptor): Don't emit
+	DW_OP_GNU_entry_value of DW_OP_fbreg.
+	* var-tracking.c (vt_add_function_parameter): Ensure cselib_lookup
+	on ENTRY_VALUE is able to find the canonical parameter VALUE.
+	* cselib.c (rtx_equal_for_cselib_1) <case ENTRY_VALUE>: Use
+	rtx_equal_p instead of rtx_equal_for_cselib_1 to compare
+	ENTRY_VALUE_EXPs.
+	(cselib_hash_rtx) <case ENTRY_VALUE>: If ENTRY_VALUE_EXP
+	is a REG_P or MEM_P with REG_P address, compute hash directly
+	instead of calling cselib_hash_rtx on ENTRY_VALUE_EXP.
+	(preserve_only_constants): Don't clear VALUES forwaring
+	ENTRY_VALUE to some other VALUE.
+
+2011-03-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (mem_loc_descriptor) <case ZERO_EXTRACT>: Compare
+	mode size instead of bitsize with DWARF2_ADDR_SIZE.
+	(hash_loc_operands, compare_loc_operands): Handle
+	DW_OP_GNU_entry_value.
+
+2011-03-22  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/s390.c (s390_delegitimize_address): Fix offset
+	handling for PLTOFF/GOTOFF.
+
+2011-03-22  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/s390.c (s390_delegitimize_address): Handle PLTOFF
+	and PLT unspecs.
+
+2011-03-21  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/alpha/alpha.c (alpha_pad_noreturn): Do not emit an unop
+	between a call and its CALL_ARG_LOCATION note.
+
+2011-03-20  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR bootstrap/48168
+	* config/sparc/sparc.c (sparc_delegitimize_address): Add new pattern.
+
+2011-03-20  Ramana Radhakrishnan  <ramana.radhakrishnan@linaro.org>
+
+	PR debug/48023
+	* config/arm/arm.c (create_fix_barrier): Do not emit a minipool
+	between a call and its CALL_ARG_LOCATION note.
+
+2011-03-19  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR debug/48178
+	* config/sh/sh.c (find_barrier): Don't emit a constant pool
+	between a call and its corresponding CALL_ARG_LOCATION note.
+
+2011-03-18  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/s390.c (s390_delegitimize_address): Handle GOTOFF
+	unspecs.
+
+2011-03-18  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/s390.c (s390_chunkify_start): Prevent literal pool
+	splitting between a call and its corresponding CALL_ARG_LOCATION note.
+
+2011-03-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/48163
+	* var-tracking.c (prepare_call_arguments): If CALL target
+	is a non-SYMBOL_REF CONSTANT_P, just add that into the list as
+	pc instead of looking it up using cselib_lookup and use
+	Pmode for it if x has VOIDmode.
+	* dwarf2out.c (gen_subprogram_die): If also both first and
+	second CONCAT arguments are VOIDmode, use mode of CONCAT itself.
+
+	PR debug/48163
+	* function.c (assign_parms): For data.passed_pointer parms
+	use MEM of data.entry_parm instead of data.entry_parm itself
+	as DECL_INCOMING_RTL.
+	* dwarf2out.c (rtl_for_decl_location): Use DECL_INCOMING_RTL
+	also when passed and declared mode is the same, DECL_RTL
+	is a MEM with pseudo as address and DECL_INCOMING_RTL is
+	a MEM too.
+
+2011-03-17  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR debug/48160
+	* var-tracking.c (prepare_call_arguments): Check SUBREG.
+
+2011-03-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/48153
+	* dwarf2out.c (mem_loc_descriptor) <case ENTRY_VALUE>: Return NULL
+	if dwarf_strict.
+	(gen_subprogram_die): Don't add call_site DIEs if dwarf_strict.
+	Clear call_arg_locations and call_arg_loc_last always.
+
+	PR middle-end/48152
+	* var-tracking.c (prepare_call_arguments): If argument needs to be
+	passed by reference, adjust argtype and mode.
+
+2011-03-17  Richard Guenther  <rguenther@suse.de>
+
+	PR bootstrap/48148
+	* lto-cgraph.c (input_overwrite_node): Clear the abstract
+	origin for decls in other ltrans units.
+	(input_varpool_node): Likewise.
+
+2011-03-16  Jakub Jelinek  <jakub@redhat.com>
+
+	* var-tracking.c (prepare_call_arguments): Add ATTRIBUTE_UNUSED
+	to nargs.
+
+2011-03-16  Jakub Jelinek  <jakub@redhat.com>
+
+	* emit-rtl.c (try_split): Don't call copy_call_info debug hook.
+	* calls.c: Remove debug.h include.
+	(emit_call_1): Don't call virtual_call_token debug hook.
+	* dwarf2out.c (debug_dcall_section, debug_vcall_section,
+	dcall_entry, vcall_entry, dcall_table, vcall_table, vcall_insn,
+	vcall_insn_table, DEBUG_DCALL_SECTION, DEBUG_VCALL_SECTION,
+	size_of_dcall_table, output_dcall_table, size_of_vcall_table,
+	output_vcall_table, dwarf2out_direct_call, vcall_insn_table_hash,
+	vcall_insn_table_eq, store_vcall_insn, lookup_vcall_insn,
+	dwarf2out_virtual_call_token, dwarf2out_copy_call_info,
+	dwarf2out_virtual_call): Remove.
+	(dwarf2_debug_hooks): Remove direct_call, virtual_call_token,
+	copy_call_info and virtual_call hooks.
+	(dwarf2out_init): Don't initialize vcall_insn_table,
+	debug_dcall_section and debug_vcall_section.
+	(prune_unused_types): Don't mark nodes from dcall_table.
+	(dwarf2out_finish): Don't output dcall or vcall tables.
+	* final.c (final_scan_insn): Don't call direct_call or
+	virtual_call debug hooks.
+	* debug.h (struct gcc_debug_hooks): Remove direct_call,
+	virtual_call_token, copy_call_info and virtual_call hooks.
+	(debug_nothing_uid): Remove prototype.
+	* sdbout.c (sdb_debug_hooks): Remove direct_call, virtual_call_token,
+	copy_call_info and virtual_call hooks.
+	* vmsdbgout.c (vmsdbg_debug_hooks): Likewise.
+	* dbxout.c (dbx_debug_hooks, xcoff_debug_hooks): Likewise.
+	* debug.c (do_nothing_debug_hooks): Likewise.
+	(debug_nothing_uid): Remove.
+	* doc/invoke.texi (-fenable-icf-debug): Remove.
+	* common.opt (-fenable-icf-debug): Likewise.
+
+	* calls.c (emit_call_1): Set MEM_EXPR on call's MEM.
+	* var-tracking.c (prepare_call_arguments): Use MEM_EXPR on
+	call's MEM.  Handle functions returning aggregate through a hidden
+	first pointer.  For virtual calls add clobbered pc to call arguments
+	chain.
+	* dwarf2out.c (gen_subprogram_die): Emit
+	DW_AT_GNU_call_site_target_clobbered if DW_AT_GNU_call_site_target
+	can't be emitted.
+
+	PR debug/45882
+	* rtl.def (ENTRY_VALUE): Change format from "e" to "0".
+	* rtl.h (ENTRY_VALUE_EXP): Define.
+	* rtl.c (rtx_equal_p_cb, rtx_equal_p): Handle ENTRY_VALUE.
+	* cselib.c (rtx_equal_for_cselib_p, cselib_hash_rtx): Likewise.
+	* print-rtl.c (print_rtx): Likewise.
+	* gengtype.c (adjust_field_rtx_def): Likewise.
+	* var-tracking.c (vt_add_function_parameter): Adjust
+	gen_rtx_ENTRY_VALUE uses, use ENTRY_VALUE_EXP macro.
+	* dwarf2out.c (mem_loc_descriptor): Use ENTRY_VALUE_EXP macro.
+	* cfgexpand.c (expand_debug_expr): If a SSA_NAME without
+	partition is a default definition of a PARM_DECL, use ENTRY_VALUE
+	of its DECL_INCOMING_RTL if possible, or its DECL_RTL if set.
+
+	* final.c (final_scan_insn): Handle NOTE_INSN_CALL_ARG_LOCATION.
+	Call var_location debug hook even on CALL_INSNs.
+	(rest_of_clean_state): Don't print NOTE_INSN_CALL_ARG_LOCATION.
+	* rtl.def (ENTRY_VALUE): New.
+	* dwarf2out.c: Include cfglayout.h.
+	(dwarf_stack_op_name, size_of_loc_descr, output_loc_operands,
+	output_loc_operands_raw): Handle DW_OP_GNU_entry_value.
+	(struct call_arg_loc_node): New type.
+	(call_arg_locations, call_arg_loc_last, block_map, call_site_count,
+	tail_call_site_count): New variables.
+	(dwarf_tag_name): Handle DW_TAG_GNU_call_site and
+	DW_TAG_GNU_call_site_parameter.
+	(dwarf_attr_name): Handle DW_AT_GNU_call_site_value,
+	DW_AT_GNU_call_site_data_value, DW_AT_GNU_call_site_target,
+	DW_AT_GNU_call_site_target_clobbered, DW_AT_GNU_tail_call,
+	DW_AT_GNU_all_tail_call_sites, DW_AT_GNU_all_call_sites
+	and DW_AT_GNU_all_source_call_sites.
+	(mem_loc_descriptor): Handle ENTRY_VALUE.
+	(add_src_coords_attributes): Don't add enything if
+	DECL_SOURCE_LOCATION is UNKNOWN_LOCATION.
+	(dwarf2out_abstract_function): Save and clear call_arg_location,
+	call_site_count and tail_call_site_count around dwarf2out_decl call.
+	(gen_call_site_die): New function.
+	(gen_subprogram_die): Emit DW_TAG_GNU_call_site DIEs for call sites.
+	(gen_lexical_block_die, gen_inlined_subroutine_die): Update block_map.
+	(dwarf2out_function_decl): Clear call_arg_locations,
+	call_arg_loc_last, set call_site_count and tail_call_site_count
+	to -1 and free block_map.
+	(dwarf2out_var_location): Handle NOTE_INSN_CALL_ARG_LOCATION and
+	CALL_INSNs.  Add NOTE_DURING_CALL_P var location notes even when not
+	followed by any real instructions.
+	(dwarf2out_begin_function): Set call_site_count and
+	tail_call_site_count to 0.
+	(resolve_addr): If DW_AT_abstract_origin of DW_TAG_GNU_call_site
+	is dw_val_class_addr, attempt to look it up again, for DECL_EXTERNAL
+	attempt to force a DIE for it and worst case remove the attribute.
+	(resolve_one_addr): For TREE_CONSTANT_POOL_ADDRESS_P SYMBOL_REFs
+	check TREE_ASM_WRITTEN of DECL_INITIAL of the decl instead of
+	the decl itself.
+	* var-tracking.c: Include tm_p.h.
+	(vt_stack_adjustments): For calls call note_register_arguments.
+	(argument_reg_set): New variable.
+	(add_stores): For MO_VAL_SET of non-tracked regs from argument_reg_set
+	ensure the VALUE is resolved.
+	(call_arguments): New variable.
+	(prepare_call_arguments): New function.
+	(add_with_sets): For MO_CALL set u.loc from call_arguments and clear it.
+	(struct expand_loc_callback_data): Add ignore_cur_loc field.
+	(vt_expand_loc_callback): If ignore_cur_loc, don't look at cur_loc and
+	always use the best expression.
+	(vt_expand_loc): Add ignore_cur_loc argument.
+	(vt_expand_loc_dummy): Clear ignore_cur_loc field.
+	(emit_note_insn_var_location): Adjust vt_expand_loc callers.
+	(emit_notes_in_bb) <case MO_CALL>: Add NOTE_INSN_CALL_ARG_LOCATION
+	note for all calls.
+	(vt_add_function_parameter): Use cselib_lookup_from_insn.
+	If dv is a VALUE, enter into hash table also ENTRY_VALUE for the
+	argument.  Don't call cselib_preserve_only_values and
+	cselib_reset_table.
+	(note_register_arguments): New function.
+	(vt_initialize): Compute argument_reg_set.  Call
+	vt_add_function_parameters before processing basic blocks instead of
+	afterwards.  For calls call prepare_call_arguments before calling
+	cselib_process_insn.
+	* print-rtl.c (print_rtx): Handle NOTE_INSN_CALL_ARG_LOCATION.
+	* Makefile.in (dwarf2out.o): Depend on $(CFGLAYOUT_H).
+	(var-tracking.o): Depend on $(TM_P_H).
+	* cfglayout.h (insn_scope): New prototype.
+	* gengtype.c (adjust_field_rtx_def): Handle NOTE_INSN_CALL_ARG_LOCATION.
+	* cfglayout.c (insn_scope): No longer static.
+	* insn-notes.def (CALL_ARG_LOCATION): New.
+	* calls.c (expand_call, emit_library_call_value_1): Put USEs for
+	MEM arguments into CALL_INSN_FUNCTION_USAGE unconditionally.
+	* integrate.c (set_block_origin_self, set_block_abstract_flags): Do
+	nothing for DECL_EXTERNAL BLOCK_VARS.
+
 2011-05-30  Richard Guenther  <rguenther@suse.de>
 
 	PR tree-optimization/49218

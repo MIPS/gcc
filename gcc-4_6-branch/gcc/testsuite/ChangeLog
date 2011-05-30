@@ -1,3 +1,20 @@
+2011-05-29  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	From Ryan Mansfield
+	* gcc.dg/pr48826.c: New test.
+
+2011-03-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/48203
+	* gcc.dg/pr48203.c: New test.
+
+2011-03-16  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/debug/dwarf2/icf.C: Adjust for -fenable-icf-debug removal.
+
+	PR debug/45882
+	* gcc.dg/guality/pr45882.c: New test.
+
 2011-05-30  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/49223
