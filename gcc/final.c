@@ -2906,16 +2906,19 @@ alter_subreg (rtx *xp)
             offset += difference % UNITS_PER_WORD;
         }
 
-      *xp = adjust_address (y, GET_MODE (x), offset);
+      if (! lra_in_progress)
+	*xp = adjust_address (y, GET_MODE (x), offset);
+      else
+	*xp = adjust_address_nv (y, GET_MODE (x), offset);
     }
   else
     {
       rtx new_rtx = simplify_subreg (GET_MODE (x), y, GET_MODE (y),
-				 SUBREG_BYTE (x));
+				     SUBREG_BYTE (x));
 
       if (new_rtx != 0)
 	*xp = new_rtx;
-      else if (REG_P (y))
+      else if (! lra_in_progress && REG_P (y))
 	{
 	  /* Simplify_subreg can't handle some REG cases, but we have to.  */
 	  unsigned int regno;

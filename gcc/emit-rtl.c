@@ -726,7 +726,13 @@ validate_subreg (enum machine_mode omode, enum machine_mode imode,
      (subreg:SI (reg:DF) 0) isn't.  */
   else if (FLOAT_MODE_P (imode) || FLOAT_MODE_P (omode))
     {
-      if (isize != osize)
+      if (! (isize == osize
+	     /* LRA can use subreg to store a floating point value in an
+		integer mode.  Although the floating point and the
+		integer modes need the same number of hard registers, the
+		size of floating point mode can be less than the integer
+		mode.  */
+	     || (lra_in_progress && isize < osize)))
 	return false;
     }
 

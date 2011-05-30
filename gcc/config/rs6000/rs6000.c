@@ -58,6 +58,7 @@
 #include "intl.h"
 #include "params.h"
 #include "tm-constrs.h"
+#include "ira.h"
 #include "opts.h"
 #if TARGET_XCOFF
 #include "xcoffout.h"  /* get declarations of xcoff_*_section_name */
@@ -7295,6 +7296,80 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
   if (reload_in_progress && cfun->machine->sdmode_stack_slot != NULL_RTX)
     cfun->machine->sdmode_stack_slot =
       eliminate_regs (cfun->machine->sdmode_stack_slot, VOIDmode, NULL_RTX);
+
+
+  if (lra_in_progress
+      && mode == SDmode
+      && MEM_P (operands[0])
+      && rtx_equal_p (operands[0], cfun->machine->sdmode_stack_slot)
+      && (REG_P (operands[1])
+	  || (GET_CODE (operands[1]) == SUBREG
+	      && REG_P (SUBREG_REG (operands[1])))))
+    {
+      int regno = REGNO (GET_CODE (operands[1]) == SUBREG
+			 ? SUBREG_REG (operands[1]) : operands[1]);
+      enum reg_class cl;
+
+      if (regno >= FIRST_PSEUDO_REGISTER)
+	{
+	  cl = reg_preferred_class (regno);
+	  gcc_assert (cl != NO_REGS);
+	  regno = ira_class_hard_regs[cl][0];
+	}
+      if (FP_REGNO_P (regno))
+	{
+	  rtx mem = adjust_address_nv (operands[0], DDmode, 0);
+
+	  mem = eliminate_regs (mem, VOIDmode, NULL_RTX);
+	  emit_insn (gen_movsd_store (mem, operands[1]));
+	}
+      else if (INT_REGNO_P (regno))
+	{
+	  rtx mem = adjust_address_nv (operands[0], mode, 4);
+
+	  mem = eliminate_regs (mem, VOIDmode, NULL_RTX);
+	  emit_insn (gen_movsd_hardfloat (mem, operands[1]));
+	}
+      else
+	gcc_unreachable();
+      return;
+    }
+  if (lra_in_progress
+      && mode == SDmode
+      && (REG_P (operands[0])
+	  || (GET_CODE (operands[0]) == SUBREG
+	      && REG_P (SUBREG_REG (operands[0]))))
+      && MEM_P (operands[1])
+      && rtx_equal_p (operands[1], cfun->machine->sdmode_stack_slot))
+    {
+      int regno = REGNO (GET_CODE (operands[0]) == SUBREG
+			 ? SUBREG_REG (operands[0]) : operands[0]);
+      enum reg_class cl;
+
+      if (regno >= FIRST_PSEUDO_REGISTER)
+	{
+	  cl = reg_preferred_class (regno);
+	  gcc_assert (cl != NO_REGS);
+	  regno = ira_class_hard_regs[cl][0];
+	}
+      if (FP_REGNO_P (regno))
+	{
+	  rtx mem = adjust_address_nv (operands[1], DDmode, 0);
+
+	  mem = eliminate_regs (mem, VOIDmode, NULL_RTX);
+	  emit_insn (gen_movsd_load (operands[0], mem));
+	}
+      else if (INT_REGNO_P (regno))
+	{
+	  rtx mem = adjust_address_nv (operands[1], mode, 4);
+
+	  mem = eliminate_regs (mem, VOIDmode, NULL_RTX);
+	  emit_insn (gen_movsd_hardfloat (operands[0], mem));
+	}
+      else
+	gcc_unreachable();
+      return;
+    }
 
   if (reload_in_progress
       && mode == SDmode
@@ -15200,7 +15275,7 @@ rs6000_secondary_reload_class (enum reg_class rclass, enum machine_mode mode,
   /* Constants, memory, and FP registers can go into FP registers.  */
   if ((regno == -1 || FP_REGNO_P (regno))
       && (rclass == FLOAT_REGS || rclass == NON_SPECIAL_REGS))
-    return (mode != SDmode) ? NO_REGS : GENERAL_REGS;
+    return (mode != SDmode || lra_in_progress) ? NO_REGS : GENERAL_REGS;
 
   /* Memory, and FP/altivec registers can go into fp/altivec registers under
      VSX.  */

@@ -59,7 +59,7 @@
 (define_register_constraint "d"
   "(!flag_omit_frame_pointer && !reload_completed
     ? NO_REGS
-    : (frame_pointer_needed && reload_in_progress
+    : (frame_pointer_needed && (reload_in_progress || lra_in_progress)
        ? NO_REGS
        : DESTINATION_REGS))"
   "@internal")

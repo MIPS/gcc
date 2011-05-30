@@ -2019,14 +2019,18 @@ s390_decompose_address (rtx addr, struct s390_address *out)
 	 Thus we don't check the displacement for validity here.  If after
 	 elimination the displacement turns out to be invalid after all,
 	 this is fixed up by reload in any case.  */
-      if (base != arg_pointer_rtx
-	  && indx != arg_pointer_rtx
-	  && base != return_address_pointer_rtx
-	  && indx != return_address_pointer_rtx
-	  && base != frame_pointer_rtx
-	  && indx != frame_pointer_rtx
-	  && base != virtual_stack_vars_rtx
-	  && indx != virtual_stack_vars_rtx)
+      /* LRA maintains always displacements up to date and we need to
+	 know the displacement is right during all LRA not only at the
+	 final elimination.  */
+      if (lra_in_progress
+	  || (base != arg_pointer_rtx
+	      && indx != arg_pointer_rtx
+	      && base != return_address_pointer_rtx
+	      && indx != return_address_pointer_rtx
+	      && base != frame_pointer_rtx
+	      && indx != frame_pointer_rtx
+	      && base != virtual_stack_vars_rtx
+	      && indx != virtual_stack_vars_rtx))
 	if (!DISP_IN_RANGE (offset))
 	  return false;
     }
@@ -3159,7 +3163,9 @@ s390_secondary_reload (bool in_p, rtx x, reg_class_t rclass_i,
 
   /* We need a scratch register when loading a PLUS expression which
      is not a legitimate operand of the LOAD ADDRESS instruction.  */
-  if (in_p && s390_plus_operand (x, mode))
+  /* LRA can deal with transformation of plus op very well -- so we
+     don't need to prompt LRA in this case.  */
+  if (! lra_in_progress && in_p && s390_plus_operand (x, mode))
     sri->icode = (TARGET_64BIT ?
 		  CODE_FOR_reloaddi_plus : CODE_FOR_reloadsi_plus);
 
@@ -3235,7 +3241,7 @@ s390_expand_plus_operand (rtx target, rtx src,
       || (ad.indx && !REGNO_OK_FOR_INDEX_P (REGNO (ad.indx))))
     {
       /* Otherwise, one of the operands cannot be an address register;
-         we reload its value into the scratch register.  */
+	 we reload its value into the scratch register.  */
       if (true_regnum (sum1) < 1 || true_regnum (sum1) > 15)
 	{
 	  emit_move_insn (scratch, sum1);
@@ -3246,19 +3252,18 @@ s390_expand_plus_operand (rtx target, rtx src,
 	  emit_move_insn (scratch, sum2);
 	  sum2 = scratch;
 	}
-
+      
       /* According to the way these invalid addresses are generated
-         in reload.c, it should never happen (at least on s390) that
-         *neither* of the PLUS components, after find_replacements
-         was applied, is an address register.  */
+	 in reload.c, it should never happen (at least on s390) that
+	 *neither* of the PLUS components, after find_replacements
+	 was applied, is an address register.  */
       if (sum1 == scratch && sum2 == scratch)
 	{
 	  debug_rtx (src);
-	  gcc_unreachable ();
+	      gcc_unreachable ();
 	}
-
-      src = gen_rtx_PLUS (Pmode, sum1, sum2);
     }
+  src = gen_rtx_PLUS (Pmode, sum1, sum2);
 
   /* Emit the LOAD ADDRESS pattern.  Note that reload of PLUS
      is only ever performed on addresses, so we can mark the

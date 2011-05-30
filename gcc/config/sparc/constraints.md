@@ -133,7 +133,7 @@
  (and (match_test "TARGET_ARCH32")
       (match_code "reg")
       (ior (match_test "REGNO (op) < FIRST_PSEUDO_REGISTER")
-	   (not (match_test "reload_in_progress && reg_renumber [REGNO (op)] < 0")))
+	   (not (match_test "(reload_in_progress || lra_in_progress) && reg_renumber [REGNO (op)] < 0")))
       (match_test "register_ok_for_ldd (op)")))
 
 ;; Equivalent to 'T' but available in 64-bit mode

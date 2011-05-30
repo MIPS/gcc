@@ -28476,6 +28476,16 @@ ix86_free_from_memory (enum machine_mode mode)
     }
 }
 
+static int
+ix86_register_bank (int hard_regno)
+{
+  if (FIRST_REX_INT_REG <= hard_regno && hard_regno <= LAST_REX_INT_REG)
+    return 1;
+  if (FIRST_REX_SSE_REG <= hard_regno && hard_regno <= LAST_REX_SSE_REG)
+    return 1;
+  return 0;
+}
+
 /* Implement TARGET_PREFERRED_RELOAD_CLASS.
 
    Put float CONST_DOUBLE in the constant pool instead of fp regs.
@@ -28593,6 +28603,9 @@ ix86_secondary_reload (bool in_p, rtx x, reg_class_t rclass,
       && !in_p && mode == QImode
       && (rclass == GENERAL_REGS
 	  || rclass == LEGACY_REGS
+	  || rclass == NON_Q_REGS
+	  || rclass == SIREG
+	  || rclass == DIREG
 	  || rclass == INDEX_REGS))
     {
       int regno;
@@ -35480,6 +35493,9 @@ ix86_autovectorize_vector_sizes (void)
 
 #undef TARGET_LEGITIMATE_ADDRESS_P
 #define TARGET_LEGITIMATE_ADDRESS_P ix86_legitimate_address_p
+
+#undef TARGET_REGISTER_BANK
+#define TARGET_REGISTER_BANK ix86_register_bank
 
 #undef TARGET_LEGITIMATE_CONSTANT_P
 #define TARGET_LEGITIMATE_CONSTANT_P ix86_legitimate_constant_p

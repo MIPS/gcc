@@ -1,3 +1,159 @@
+2011-05-30  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra.h: New file.
+
+	* lra-int.h: Ditto.
+
+	* lra.c: Ditto.
+
+	* lra-assigns.c: Ditto.
+
+	* lra-coalesce.c: Ditto.
+
+	* lra-constraints.c: Ditto.
+
+	* lra-eliminatios.c: Ditto.
+
+	* lra-equivs.c: Ditto.
+
+	* lra-lives.c: Ditto.
+
+	* lra-saves.c: Ditto.
+
+	* lra-spills.c: Ditto.
+
+	* Makefile.in (lra.o, lra-assigns.o, lra-coalesce.o): New entries.
+	(lra-constraints.o, lra-eliminatios.o, lra-equivs.o): Ditto.
+	(lra-lives.o, lra-saves.o, lra-spills.o): Ditto.
+	(dwarf2out.o): Add lra.h.
+	(ira.o): Ditto.
+
+	* common.opt (flra): New flag.
+
+	* ira.h (x_ira_class_subset_p): Move from
+	ira-int.h.
+	(ira_class_subset_p): Ditto, modify it.
+	(struct target_ira): New member x_ira_reg_class_subset.
+	(ira_reg_class_subset): New macro.
+	(struct ira_reg_equiv): New.
+	(ira_reg_equiv_len): Move from ira-int.h.
+	(ira_reg_equiv): New definitions.
+	(ira_expand_reg_equiv, ira_update_equiv_info_by_shuffle_insn): New
+	prototypes.
+
+	* ira-int.h (x_ira_class_subset_p): Move to ira.h.
+	(ira_class_subset_p): Ditto.
+	(ira_reg_equiv_len): Move to ira.h.
+	(ira_reg_equiv_invariant_p, ira_reg_equiv_const): Remove.
+	(ira_equiv_no_lvalue_p): New function.
+
+	* ira.c: Include lra.h.
+	(setup_reg_class_relations): Calculate ira_reg_class_subset.
+	(ira_init, ira_init_once): Initialize LRA.
+	(ira_finish_once): Finish LRA.
+	(ira_setup_eliminable_regset): Set frame_pointer_needed.  Call
+	lra_init_elimination.
+	(ira_reg_equiv_len): Move below.
+	(ira_reg_equiv_invariant_p): Remove.
+	(ira_reg_equiv_invariant_p, find_reg_equiv_invariant_const):
+	Remove.
+	(find_reg_equiv_invariant_const): Modify assertion.
+	(setup_reg_equiv_init, ira_update_equiv_info_by_shuffle_insn): New
+	functions.
+	(ira_reg_equiv): New variable.
+	(ira_expand_reg_equiv, init_reg_equiv, finish_reg_equiv): New
+	functions.
+	(no_equiv): Set up ira_reg_equiv instead of reg_rquiv_init.
+	(setup_reg_equiv): New function.
+	(ira): Call init_reg_equiv, setup_reg_equiv, setup_reg_equiv_init,
+	finish_reg_equiv.  Add code for LRA.
+
+	* ira-build.c (ira_flattening): Modify comments.
+
+	* ira-emit.c (create_new_reg): Call ira_expand_equiv.
+	(change_loop): Use ira_equiv_no_lvalue_p instead of
+	ira_reg_equiv_variant_p and ira_reg_equiv_const.
+	(emit_move_list): Call grow_reg_equivs and
+	ira_update_equiv_info_by_shuffle_insn.  Use ira_reg_equiv instead
+	of ira_reg_equiv_variant_p and ira_reg_equiv_const.
+
+	* ira-color.c (color_pass, move_spill_restore, coalesce_allocnos):
+	Use ira_equiv_no_lvalue_p instead of ira_reg_equiv_variant_p and
+	ira_reg_equiv_const.
+	(coalesce_spill_slots, ira_sort_regnos_for_alter_reg):  Ditto.
+
+	* dwarf2out.c (based_loc_descr): Call lra_eliminate_regs.
+	(compute_frame_pointer_to_fb_displacement): Ditto.
+
+	* emit-rtl.c (validate_subreg): Add code for LRA.
+
+	* expr.c (emit_move_insn_1): Add code for LRA.
+
+	* final.c (alter_subreg): Add code for LRA.
+
+	* jump.c (true_regnum): Add code for LRA.
+
+	* recog.c (general_operand, register_operand, scratch_operand):
+	Add code for LRA.
+
+	* reginfo.c (max_regno_since_last_resize): New variable.
+	(reg_preferred_class, reg_alternate_class, reg_allocno_class): Add
+	new assertion.
+	(allocate_reg_info): Add more elements than necessary, initialize
+	new elements.
+	(resize_reg_info): Ditto.
+	(reginfo_init): Initialize lengths of the arrays.
+	(setup_reg_classes): Change assertion.
+
+	* rtl.h (lra_in_progress): New definition.
+	(print_value_slim): New prototype.
+
+	* rtlanal.c (simplify_subreg_regno): Add code for LRA.
+
+	* sched-vis.c (print_value_slim): New function.
+
+	* target.def (register_bank): New hook.
+
+	* targhook.h (default_register_bank): New prototype.
+
+	* targhooks.c (default_register_bank): New function.
+
+	* doc/invoke.texi (-fno-lra): New option.
+
+	* doc/passes.texi: Describe LRA.
+
+	* doc/tm.texi.in (TARGET_REGISTER_BANK): New hook.
+
+	* doc/tm.texi (TARGET_REGISTER_BANK): Regenerate.
+
+	* config/h8300/constraints.md: Add lra_in_progress for constraint
+	"d".
+
+	* config/i386/i386.c (ix86_register_bank): New function.
+	(ix86_secondary_reload): Add code for LRA.
+	(TARGET_REGISTER_BANK): New macro.
+
+	* config/i386/i386.md (*anddi_1, *andsi_1, *andhi_1): Fix
+	constraints.
+
+	* config/rs6000/rs6000.c: Include ira.h.
+	(rs6000_emit_move): Add code for LRA.
+	(rs6000_secondary_reload_class): Ditto.
+
+	* config/s390/s390.md (*movmem_short, *clrmem_short): Fix value
+	for cpu_facility.
+	(*cpmem_short): Ditto.
+
+	* config/s390/s390.c (s390_decompose_address): Add code for LRA.
+	(s390_secondary_reload): Ditto.
+	(s390_expand_plus_operand): Move plus generation.
+
+	* config/sparc/constraints.md: Add lra_in_progress for
+	constraint "U".
+
+	* config/xtensa/constraints.md: Add lra_in_progress for
+	constraints "R" and "T".
+
 2011-05-30  Jakub Jelinek  <jakub@redhat.com>
 	    Eric Botcazou  <ebotcazou@adacore.com>
 

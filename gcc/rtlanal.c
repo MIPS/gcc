@@ -3423,7 +3423,8 @@ simplify_subreg_regno (unsigned int xregno, enum machine_mode xmode,
   /* Give the backend a chance to disallow the mode change.  */
   if (GET_MODE_CLASS (xmode) != MODE_COMPLEX_INT
       && GET_MODE_CLASS (xmode) != MODE_COMPLEX_FLOAT
-      && REG_CANNOT_CHANGE_MODE_P (xregno, xmode, ymode))
+      && REG_CANNOT_CHANGE_MODE_P (xregno, xmode, ymode)
+      && ! lra_in_progress)
     return -1;
 #endif
 
@@ -3436,7 +3437,10 @@ simplify_subreg_regno (unsigned int xregno, enum machine_mode xmode,
       && xregno == ARG_POINTER_REGNUM)
     return -1;
 
-  if (xregno == STACK_POINTER_REGNUM)
+  if (xregno == STACK_POINTER_REGNUM
+      /* We should convert hard stack register in LRA if it is
+	 possible.  */
+      && ! lra_in_progress)
     return -1;
 
   /* Try to get the register offset.  */

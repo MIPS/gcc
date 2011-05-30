@@ -1171,6 +1171,10 @@ floop-flatten
 Common Report Var(flag_loop_flatten) Optimization
 Enable Loop Flattening transformation
 
+flra
+Common Report Var(flag_lra) Init(1)
+Use local RA pass instead of reload.
+
 fstrict-volatile-bitfields
 Common Report Var(flag_strict_volatile_bitfields) Init(-1)
 Force bitfield accesses to match their type width

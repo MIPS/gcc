@@ -841,6 +841,12 @@ default_branch_target_register_class (void)
   return NO_REGS;
 }
 
+int
+default_register_bank (int hard_regno ATTRIBUTE_UNUSED)
+{
+  return 0;
+}
+
 reg_class_t
 default_secondary_reload (bool in_p ATTRIBUTE_UNUSED, rtx x ATTRIBUTE_UNUSED,
 			  reg_class_t reload_class_i ATTRIBUTE_UNUSED,

@@ -537,6 +537,19 @@ print_value (char *buf, const_rtx x, int verbose)
     }
 }				/* print_value */
 
+/* Prints rtxes, I customarily classified as values.  They're
+   constants, registers, labels, symbols and memory accesses.  Print
+   them to file F.  */
+
+void
+print_value_slim (FILE *f, const_rtx x, int verbose)
+{
+  char buf[BUF_LEN];
+
+  print_value (buf, x, verbose);
+  fprintf (f, "%s", buf);
+}
+
 /* The next step in insn detalization, its pattern recognition.  */
 
 void

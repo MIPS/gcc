@@ -2228,6 +2228,13 @@ DEFHOOK
  tree, (tree type, tree expr),
  hook_tree_tree_tree_null)
 
+/* Return register bank of given hard regno for the current target.  */
+DEFHOOK
+(register_bank,
+ "",
+ int, (int),
+ default_register_bank)
+
 /* Return the class for a secondary reload, and fill in extra information.  */
 DEFHOOK
 (secondary_reload,

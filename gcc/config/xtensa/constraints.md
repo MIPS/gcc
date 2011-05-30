@@ -122,7 +122,7 @@
  (ior (and (match_code "mem")
 	   (match_test "smalloffset_mem_p (op)"))
       (and (match_code "reg")
-	   (match_test "reload_in_progress
+	   (match_test "(reload_in_progress || lra_in_progress)
 			&& REGNO (op) >= FIRST_PSEUDO_REGISTER"))))
 
 (define_constraint "T"
@@ -135,5 +135,5 @@
  (ior (and (match_code "mem")
 	   (match_test "! constantpool_mem_p (op)"))
       (and (match_code "reg")
-	   (match_test "reload_in_progress
+	   (match_test "(reload_in_progress || lra_in_progress)
 			&& REGNO (op) >= FIRST_PSEUDO_REGISTER"))))
