@@ -2792,7 +2792,7 @@ expand_debug_expr (tree exp)
       return gen_rtx_NOT (mode, op0);
 
     case FLOAT_EXPR:
-      if (unsignedp)
+      if (TYPE_UNSIGNED (TREE_TYPE (TREE_OPERAND (exp, 0))))
 	return gen_rtx_UNSIGNED_FLOAT (mode, op0);
       else
 	return gen_rtx_FLOAT (mode, op0);

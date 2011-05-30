@@ -1,3 +1,8 @@
+2011-04-30  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2.h (DW_OP_GNU_const_type, DW_OP_GNU_regval_type,
+	DW_OP_GNU_deref_type, DW_OP_GNU_convert, DW_OP_GNU_reinterpret): New.
+
 2011-03-16  Jakub Jelinek  <jakub@redhat.com>
 
 	* dwarf2.h (DW_TAG_GNU_call_site, DW_TAG_GNU_call_site_parameter,
