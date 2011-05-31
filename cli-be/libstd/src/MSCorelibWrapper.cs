@@ -44,7 +44,7 @@ public class MSCorelibWrapper
 
     // The following constant must be kept in sync with
     // definitions in stdio.h
-    private const int FopenMax = 8;
+    private const int FopenMax = 32;
 
     // The following constants must be kept in sync with
     // definitions in bits/libstd_fcntl.h
@@ -969,6 +969,12 @@ public class MSCorelibWrapper
         return -1;
     }
 
+    public static int getpid ()
+    {
+      Process current = Process.GetCurrentProcess();
+
+      return current.Id;
+    }
 
     public static double dbl_epsilon()
     {

@@ -510,6 +510,10 @@ LIBSTD_HPROTO_IMPL(int, kill, int pid, int sig)
   return kill (pid, sig);
 }
 
+LIBSTD_HPROTO_IMPL(int, getpid, void)
+{
+  return getpid();
+}
 
 LIBSTD_HPROTO_IMPL(int, fpclassify, double p0)
 {

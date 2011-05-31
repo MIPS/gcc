@@ -91,7 +91,6 @@ LIBSTD_LPROTO_IMPL(FILE *, __io_fopen, FILE *fp, const char *name, const char *m
                 lowflags_ |= O_BINARY;
             }
 	    fp->fd = LIBSTD_LNAME(__device_open)(name, lowflags_);
-
 	    if (fp->fd < 0 ) {
 		LIBSTD_LNAME(__io_ftable_release_file)(fp);
 		fp = NULL;

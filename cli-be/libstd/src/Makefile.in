@@ -77,7 +77,7 @@ am__objects_1 = libstd_la-_Exit.lo libstd_la-__io_device.lo \
 	libstd_la-fputs.lo libstd_la-fread.lo libstd_la-free.lo \
 	libstd_la-freopen.lo libstd_la-fscanf.lo libstd_la-fseek.lo \
 	libstd_la-fsetpos.lo libstd_la-ftell.lo libstd_la-fwrite.lo libstd_la-getcwd.lo \
-	libstd_la-getenv.lo libstd_la-imaxabs.lo libstd_la-imaxdiv.lo \
+	libstd_la-getenv.lo libstd_la-getpid.lo libstd_la-imaxabs.lo libstd_la-imaxdiv.lo \
 	libstd_la-isatty.lo libstd_la-labs.lo libstd_la-ldiv.lo \
 	libstd_la-llabs.lo libstd_la-lldiv.lo libstd_la-localeconv.lo \
 	libstd_la-lseek.lo libstd_la-malloc.lo libstd_la-math.lo \
@@ -139,7 +139,7 @@ am__objects_2 = libstd_dll-_Exit.$(OBJEXT) \
 	libstd_dll-free.$(OBJEXT) libstd_dll-freopen.$(OBJEXT) \
 	libstd_dll-fscanf.$(OBJEXT) libstd_dll-fseek.$(OBJEXT) \
 	libstd_dll-fsetpos.$(OBJEXT) libstd_dll-ftell.$(OBJEXT) libstd_dll-getcwd.$(OBJEXT) \
-	libstd_dll-fwrite.$(OBJEXT) libstd_dll-getenv.$(OBJEXT) \
+	libstd_dll-fwrite.$(OBJEXT) libstd_dll-getenv.$(OBJEXT) libstd_dll-getpid.$(OBJEXT) \
 	libstd_dll-imaxabs.$(OBJEXT) libstd_dll-imaxdiv.$(OBJEXT) \
 	libstd_dll-isatty.$(OBJEXT) libstd_dll-labs.$(OBJEXT) \
 	libstd_dll-ldiv.$(OBJEXT) libstd_dll-llabs.$(OBJEXT) \
@@ -368,6 +368,7 @@ SRC = _Exit.c \
       fwrite.c \
       getcwd.c \
       getenv.c \
+      getpid.c \
       imaxabs.c \
       imaxdiv.c \
       isatty.c \
@@ -593,6 +594,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-fwrite.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-getcwd.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-getenv.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-getpid.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-imaxabs.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-imaxdiv.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-isatty.Po@am__quote@
@@ -725,6 +727,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-fwrite.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-getcwd.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-getenv.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-getpid.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-imaxabs.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-imaxdiv.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-isatty.Plo@am__quote@
@@ -1190,6 +1193,13 @@ libstd_la-getenv.lo: getenv.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='getenv.c' object='libstd_la-getenv.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_la_CFLAGS) $(CFLAGS) -c -o libstd_la-getenv.lo `test -f 'getenv.c' || echo '$(srcdir)/'`getenv.c
+
+libstd_la-getpid.lo: getpid.c
+@am__fastdepCC_TRUE@	if $(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_la_CFLAGS) $(CFLAGS) -MT libstd_la-getpid.lo -MD -MP -MF "$(DEPDIR)/libstd_la-getpid.Tpo" -c -o libstd_la-getpid.lo `test -f 'getpid.c' || echo '$(srcdir)/'`getpid.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/libstd_la-getpid.Tpo" "$(DEPDIR)/libstd_la-getpid.Plo"; else rm -f "$(DEPDIR)/libstd_la-getpid.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='getpid.c' object='libstd_la-getpid.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_la_CFLAGS) $(CFLAGS) -c -o libstd_la-getpid.lo `test -f 'getpid.c' || echo '$(srcdir)/'`getpid.c
 
 libstd_la-imaxabs.lo: imaxabs.c
 @am__fastdepCC_TRUE@	if $(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_la_CFLAGS) $(CFLAGS) -MT libstd_la-imaxabs.lo -MD -MP -MF "$(DEPDIR)/libstd_la-imaxabs.Tpo" -c -o libstd_la-imaxabs.lo `test -f 'imaxabs.c' || echo '$(srcdir)/'`imaxabs.c; \
@@ -2478,6 +2488,20 @@ libstd_dll-getenv.obj: getenv.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='getenv.c' object='libstd_dll-getenv.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -c -o libstd_dll-getenv.obj `if test -f 'getenv.c'; then $(CYGPATH_W) 'getenv.c'; else $(CYGPATH_W) '$(srcdir)/getenv.c'; fi`
+
+libstd_dll-getpid.o: getpid.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -MT libstd_dll-getpid.o -MD -MP -MF "$(DEPDIR)/libstd_dll-getpid.Tpo" -c -o libstd_dll-getpid.o `test -f 'getpid.c' || echo '$(srcdir)/'`getpid.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/libstd_dll-getpid.Tpo" "$(DEPDIR)/libstd_dll-getpid.Po"; else rm -f "$(DEPDIR)/libstd_dll-getpid.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='getpid.c' object='libstd_dll-getpid.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -c -o libstd_dll-getpid.o `test -f 'getpid.c' || echo '$(srcdir)/'`getpid.c
+
+libstd_dll-getpid.obj: getpid.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -MT libstd_dll-getpid.obj -MD -MP -MF "$(DEPDIR)/libstd_dll-getpid.Tpo" -c -o libstd_dll-getpid.obj `if test -f 'getpid.c'; then $(CYGPATH_W) 'getpid.c'; else $(CYGPATH_W) '$(srcdir)/getpid.c'; fi`; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/libstd_dll-getpid.Tpo" "$(DEPDIR)/libstd_dll-getpid.Po"; else rm -f "$(DEPDIR)/libstd_dll-getpid.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='getpid.c' object='libstd_dll-getpid.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -c -o libstd_dll-getpid.obj `if test -f 'getpid.c'; then $(CYGPATH_W) 'getpid.c'; else $(CYGPATH_W) '$(srcdir)/getpid.c'; fi`
 
 libstd_dll-imaxabs.o: imaxabs.c
 @am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -MT libstd_dll-imaxabs.o -MD -MP -MF "$(DEPDIR)/libstd_dll-imaxabs.Tpo" -c -o libstd_dll-imaxabs.o `test -f 'imaxabs.c' || echo '$(srcdir)/'`imaxabs.c; \

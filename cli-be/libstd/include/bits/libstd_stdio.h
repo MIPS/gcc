@@ -32,7 +32,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 __BEGIN_EXTERN_C
 
 enum {
-    __LIBSTD_FOPEN_MAX = 8
+    __LIBSTD_FOPEN_MAX = 32
 };
 
 enum {

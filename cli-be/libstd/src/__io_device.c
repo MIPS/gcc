@@ -53,7 +53,6 @@ LIBSTD_LPROTO_IMPL(int, __device_open, const char *path, int mode)
         if (!__host_stream_map[i].in_use) {
             fileno = i;
         }
-
     if (fileno != -1) {
         int dopen = LIBSTD_HNAME(open)((signed char *)path, mode);
         if (dopen != -1) {

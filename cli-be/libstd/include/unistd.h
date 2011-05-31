@@ -45,6 +45,8 @@ LIBSTD_LPROTO(long, sysconf, int);
 
 LIBSTD_LPROTO(long, getcwd, char *, unsigned long);
 
+LIBSTD_LPROTO(pid_t, getpid, void);
+
 #define STDIN_FILENO  __LIBSTD_STDIN_FILENO
 #define STDOUT_FILENO __LIBSTD_STDOUT_FILENO
 #define STDERR_FILENO __LIBSTD_STDERR_FILENO

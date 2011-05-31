@@ -124,7 +124,10 @@ public class MSCorelibWrapper
     unsafe public static extern int kill (int, int);
 
     [DllImport("MSCorelibWrapper_support.so", EntryPoint="__host__getcwd")]
-        unsafe public static extern long getcwd(sbyte* name, ulong size);
+    unsafe public static extern long getcwd(sbyte* name, ulong size);
+
+    [DllImport("MSCorelibWrapper_support.so", EntryPoint="__host__getpid")]
+    public static extern int getpid();
 
     [DllImport("MSCorelibWrapper_support.so", EntryPoint="__host__dbl_epsilon")]
     unsafe public static extern double dbl_epsilon();

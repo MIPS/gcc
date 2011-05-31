@@ -33,11 +33,10 @@ static FILE __ftable[FOPEN_MAX] = {
     /* stdin  */ {  0, __iob_mask_r | _IOLBF | __iob_mask_tty },
     /* stdout */ {  1, __iob_mask_w | _IONBF | __iob_mask_tty },
     /* stderr */ {  2, __iob_mask_w | _IONBF | __iob_mask_tty },
-    /* Free   */ { -1 },
-    /* Free   */ { -1 },
-    /* Free   */ { -1 },
-    /* Free   */ { -1 },
-    /* Free   */ { -1 }
+    /* Free   */ { -1 }, { -1 }, { -1 }, { -1 }, { -1 },
+    /* Free   */ { -1 }, { -1 }, { -1 }, { -1 }, { -1 }, { -1 }, { -1 }, { -1 },
+    /* Free   */ { -1 }, { -1 }, { -1 }, { -1 }, { -1 }, { -1 }, { -1 }, { -1 },
+    /* Free   */ { -1 }, { -1 }, { -1 }, { -1 }, { -1 }, { -1 }, { -1 }, { -1 }
 };
 
 static const FILE pattern_new_     = { -1, _IOFBF };

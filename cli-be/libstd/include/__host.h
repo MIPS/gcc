@@ -122,7 +122,7 @@ LIBSTD_HPROTO(long, getcwd, char * buf, unsigned long size);
 LIBSTD_HPROTO(void *, signal, int sig, void * func);
 LIBSTD_HPROTO(int, raise, int sig);
 LIBSTD_HPROTO(int, kill, int pid, int sig);
-
+LIBSTD_HPROTO(int, getpid, void);
  
 /* Floating point classification */
 LIBSTD_HPROTO(int, fpclassify, double p0);
