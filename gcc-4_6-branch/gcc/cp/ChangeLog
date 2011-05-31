@@ -1,3 +1,20 @@
+2011-04-07  Jason Merrill  <jason@redhat.com>
+
+	PR c++/48481
+	* tree.c (build_overload): Allow an unwrapped FUNCTION_DECL
+	at the end of the chain.
+	* pt.c (dependent_template_p): Use OVL_CURRENT/NEXT.
+	(iterative_hash_template_arg): Likewise.
+
+	PR c++/48481
+	* cp-tree.h (OVL_ARG_DEPENDENT): New.
+	* name-lookup.c (add_function): Set it.
+	* semantics.c (finish_call_expr): Free OVERLOADs if it's set.
+
+	PR c++/48481
+	* call.c (build_user_type_conversion_1): Use lookup_fnfields_slot.
+	Release unused vector.
+
 2011-03-16  Jakub Jelinek  <jakub@redhat.com>
 
 	* cp-objcp-common.c (cp_function_decl_explicit_p): Don't crash if

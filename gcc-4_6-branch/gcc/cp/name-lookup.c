@@ -4725,7 +4725,11 @@ add_function (struct arg_lookup *k, tree fn)
   else if (fn == k->functions)
     ;
   else
-    k->functions = build_overload (fn, k->functions);
+    {
+      k->functions = build_overload (fn, k->functions);
+      if (TREE_CODE (k->functions) == OVERLOAD)
+	OVL_ARG_DEPENDENT (k->functions) = true;
+    }
 
   return false;
 }
@@ -5135,8 +5139,8 @@ arg_assoc (struct arg_lookup *k, tree n)
     }
   else if (TREE_CODE (n) == OVERLOAD)
     {
-      for (; n; n = OVL_CHAIN (n))
-	if (arg_assoc_type (k, TREE_TYPE (OVL_FUNCTION (n))))
+      for (; n; n = OVL_NEXT (n))
+	if (arg_assoc_type (k, TREE_TYPE (OVL_CURRENT (n))))
 	  return true;
     }
 
