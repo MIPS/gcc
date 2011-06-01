@@ -1,3 +1,14 @@
+2011-06-01  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-eliminations.c (lra_eliminate_reg_if_possible): Fix a typo.
+	(process_insn_for_elimination): Invalidate insn data if the insn
+	code was changed.
+
+	* lra-constraints.c (check_and_process_move): Set up temporarily
+	reg_renumber for secondary_reload hook.
+	(process_addr_reg): Use class of elimation.
+	(curr_insn_transform): Remove subreg before address processing.
+
 2011-05-30  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra.h: New file.

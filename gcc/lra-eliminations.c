@@ -1266,7 +1266,7 @@ lra_eliminate_reg_if_possible (rtx *loc)
   struct elim_table *ep;
 
   gcc_assert (REG_P (*loc));
-  if ((regno = REG_P (*loc)) >= FIRST_PSEUDO_REGISTER
+  if ((regno = REGNO (*loc)) >= FIRST_PSEUDO_REGISTER
       /* Virtual registers are not allocatable. ??? */
       || ! TEST_HARD_REG_BIT (lra_no_alloc_regs, regno))
     return;
@@ -1282,6 +1282,16 @@ process_insn_for_elimination (rtx insn, bool final_p)
   eliminate_regs_in_insn (insn, final_p);
   if (! final_p)
     {
+      /* Check that insn changed its code.  This is a case when a move
+	 insn becomes an add insn and we do not want to process the
+	 insn as a move anymore.  */
+      int icode = recog (PATTERN (insn), insn, 0);
+
+      if (icode >= 0 && icode != INSN_CODE (insn))
+	{
+	  INSN_CODE (insn) = icode;
+	  lra_update_insn_recog_data (insn);
+	}
       lra_update_insn_regno_info (insn);
       lra_push_insn (insn);
       lra_set_used_insn_alternative (insn, -1);

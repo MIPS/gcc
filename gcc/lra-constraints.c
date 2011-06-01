@@ -902,10 +902,11 @@ reg_class_from_constraints (const char *p)
 static bool
 check_and_process_move (bool *change_p)
 {
+  int regno;
   rtx set, dest, src, dreg, sr, dr, sreg, new_reg, before, x, scratch_reg;
-  enum reg_class dclass, sclass, rclass, secondary_class;
+  enum reg_class dclass, sclass, xclass, rclass, secondary_class;
   secondary_reload_info sri;
-  bool in_p;
+  bool in_p, temp_assign_p;
 
   *change_p = false;
   if ((set = single_set (curr_insn)) == NULL || side_effects_p (set))
@@ -981,18 +982,34 @@ check_and_process_move (bool *change_p)
       in_p = true;
       rclass = dclass;
       x = sreg;
+      xclass = sclass;
     }
   else if (sclass != NO_REGS)
     {
       in_p = false;
       rclass = sclass;
       x = dreg;
+      xclass = dclass;
     }
   else
     return false;
+  temp_assign_p = false;
+  /* Set up hard register for a reload pseudo for hook
+     secondary_reload because some targets just ignore pseudos in the
+     hook.  */
+  if (xclass != NO_REGS
+      && REG_P (x) && (regno = REGNO (x)) >= new_regno_start
+      && ! bitmap_bit_p (&lra_inheritance_pseudos, regno)
+      && lra_get_regno_hard_regno (regno) < 0)
+    {
+      reg_renumber[regno] = ira_class_hard_regs[xclass][0];
+      temp_assign_p = true;
+    }
   secondary_class
     = (enum reg_class) targetm.secondary_reload (in_p, x, (reg_class_t) rclass,
 						 GET_MODE (src), &sri);
+  if (temp_assign_p)
+    reg_renumber [REGNO (x)] = -1;
   if (secondary_class == NO_REGS && sri.icode == CODE_FOR_nothing)
     return false;
   *change_p = true;
@@ -1090,7 +1107,7 @@ static int curr_swapped;
 static bool
 process_addr_reg (rtx *loc, rtx *before, rtx *after, enum reg_class cl)
 {
-  int regno;
+  int regno, final_regno;
   enum reg_class rclass, new_class;
   rtx reg = *loc;
   rtx new_reg;
@@ -1098,8 +1115,19 @@ process_addr_reg (rtx *loc, rtx *before, rtx *after, enum reg_class cl)
   bool change_p = false;
 
   gcc_assert (REG_P (reg));
-  regno = REGNO (reg);
-  rclass = get_reg_class (regno);
+  final_regno = regno = REGNO (reg);
+  if (regno < FIRST_PSEUDO_REGISTER)
+    {
+      rtx final_reg = reg;
+      rtx *final_loc = &final_reg;
+
+      lra_eliminate_reg_if_possible (final_loc);
+      final_regno = REGNO (*final_loc);
+    }
+  /* Use class of hard register after elimination because some targets
+     do not recognize virtual hard registers as valid address
+     registers.  */
+  rclass = get_reg_class (final_regno);
   if ((*loc = get_equiv_substitution (reg)) != reg)
     {
       if (lra_dump_file != NULL)
@@ -1113,7 +1141,7 @@ process_addr_reg (rtx *loc, rtx *before, rtx *after, enum reg_class cl)
       *loc = copy_rtx (*loc);
       change_p = true;
     }
-  if (*loc != reg || ! in_class_p (regno, cl, &new_class))
+  if (*loc != reg || ! in_class_p (final_regno, cl, &new_class))
     {
       mode = GET_MODE (reg);
       reg = *loc;
@@ -2629,16 +2657,9 @@ curr_insn_transform (void)
   curr_swapped = false;
   goal_alternative_swapped = false;
 
-  /* Reload address registers and displacements.  We do it before
-     finding an alternative because of memory constraints.  */
-  before = after = NULL_RTX;
-  for (i = 0; i < n_operands; i++)
-    if (process_address (i, &before, &after))
-      {
-	change_p = true;
-	lra_update_dups (curr_id, i, -1);
-      }
-  
+  /* Make equivalence substitution and memory subreg elimination
+     before address processing because an address legitimacy can
+     depend on memory mode.  */
   for (i = 0; i < n_operands; i++)
     {
       rtx op = *curr_id->operand_loc[i];
@@ -2665,15 +2686,6 @@ curr_insn_transform (void)
 	      fprintf (lra_dump_file, "\n");
 	    }
 	  op_change_p = change_p = true;
-	  if (GET_CODE (subst) == MEM)
-	    {
-	      if (GET_CODE (op) == SUBREG)
-		/* Do memory subreg simplification before processing
-		   address because it might change the address
-		   displacement and make the address illegitimate.  */
-		simplify_operand_subreg (i, GET_MODE (old));
-	      process_address (i, &before, &after);
-	    }
 	}
       if (simplify_operand_subreg (i, GET_MODE (old)) || op_change_p)
 	{
@@ -2682,6 +2694,16 @@ curr_insn_transform (void)
 	}
     }
 
+  /* Reload address registers and displacements.  We do it before
+     finding an alternative because of memory constraints.  */
+  before = after = NULL_RTX;
+  for (i = 0; i < n_operands; i++)
+    if (process_address (i, &before, &after))
+      {
+	change_p = true;
+	lra_update_dups (curr_id, i, -1);
+      }
+  
  try_swapped:
 
   reused_alternative_num = curr_id->used_insn_alternative;
