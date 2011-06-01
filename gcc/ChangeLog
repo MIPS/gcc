@@ -6,7 +6,7 @@
 
 	* lra-constraints.c (check_and_process_move): Set up temporarily
 	reg_renumber for secondary_reload hook.
-	(process_addr_reg): Use class of elimation.
+	(process_addr_reg): Use class of elimination.
 	(curr_insn_transform): Remove subreg before address processing.
 
 2011-05-30  Vladimir Makarov  <vmakarov@redhat.com>
