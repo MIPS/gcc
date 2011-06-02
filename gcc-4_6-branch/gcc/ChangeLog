@@ -1,3 +1,50 @@
+2011-06-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/49250
+	* var-tracking.c (add_uses, add_stores): Don't call
+	cselib_subst_to_values on ENTRY_VALUE.
+
+2011-06-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (compare_loc_descriptor, scompare_loc_descriptor,
+	ucompare_loc_descriptor, minmax_loc_descriptor, clz_loc_descriptor,
+	popcount_loc_descriptor, bswap_loc_descriptor, rotate_loc_descriptor):
+	New functions.
+	(mem_loc_descriptor): Use them.
+
+	* var-tracking.c (create_entry_value): New function.
+	(vt_add_function_parameter): Use it.
+
+2011-06-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (mem_loc_descriptor) <do_ucompare>: Call
+	base_type_for_mode with op_mode instead of mode.
+
+2011-05-31  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (resolve_addr_in_expr): Optimize away redundant
+	DW_OP_GNU_convert ops.
+
+	* cselib.c (promote_debug_loc): Allow l->next non-NULL for
+	cselib_preserve_constants.
+	(cselib_lookup_1): If cselib_preserve_constants,
+	a new VALUE is being created for REG and there is a VALUE for the
+	same register in wider mode, add another loc with lowpart SUBREG of
+	the wider VALUE.
+	(cselib_subst_to_values): Handle ENTRY_VALUE.
+	* var-tracking.c  (replace_expr_with_values): Return NULL for
+	ENTRY_VALUE too.
+	* dwarf2out.c (convert_descriptor_to_signed): New function.
+	(mem_loc_descriptor) <case ZERO_EXTEND>: Optimize using DW_OP_and
+	instead of two shifts.
+	(mem_loc_descriptor) <do_shift>: ZERO_EXTEND second argument to
+	the right mode if needed.
+	(mem_loc_descriptor) <case MOD>: For typed ops just use DW_OP_mod.
+	(mem_loc_descriptor) <case UNSIGNED_FIX>: Use
+	convert_descriptor_to_signed.
+	(mem_loc_descriptor) <case UDIV, CLZ, CTZ, FFS, POPCOUNT, PARITY,
+	BSWAP, ROTATE, ROTATERT>: Handle these rtls.
+
 2011-05-31  Alexandre Oliva  <aoliva@redhat.com>
 
 	* params.def (PARAM_MAX_VARTRACK_EXPR_DEPTH): New.
