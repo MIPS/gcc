@@ -1,3 +1,16 @@
+2011-05-31  Alexandre Oliva  <aoliva@redhat.com>
+
+	* params.def (PARAM_MAX_VARTRACK_EXPR_DEPTH): New.
+	* doc/invoke.texi: Document max-vartrack-expr-depth.
+	* var-tracking.c (EXPR_DEPTH): New.
+	(reverse_op, vt_expand_loc, vt_expand_loc_dummy): Use it.
+
+2011-05-04  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/47994
+	PR debug/47919
+	* combine.c (try_combine): Skip debug insns at m_split tests.
+
 2011-05-30  Jakub Jelinek  <jakub@redhat.com>
 
 	* dwarf2out.c (modified_type_die, gen_reference_type_die): Use
