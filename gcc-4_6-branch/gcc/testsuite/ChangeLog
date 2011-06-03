@@ -1,3 +1,36 @@
+2011-06-02  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/49265
+	* gfortran.dg/module_procedure_double_colon_1.f90: New test.
+	* gfortran.dg/module_procedure_double_colon_2.f90: New test.
+
+2011-06-02  Ira Rosen  <ira.rosen@linaro.org>
+
+	PR tree-optimization/49093
+	* gcc.dg/vect/pr49093.c: New test.
+
+2011-05-31  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/45786
+	* gfortran.dg/operator_7.f90:  New test case.
+
+2011-05-31  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2011-05-19  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/48985
+	* gcc.dg/builtin-object-size-11.c: New testcase.
+
+2011-05-31  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2011-05-11  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/48953
+	* gcc.dg/torture/pr48953.c: New testcase.
+
 2011-05-31  Jakub Jelinek  <jakub@redhat.com>
 
 	* gcc.dg/guality/bswaptest.c: New test.
