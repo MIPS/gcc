@@ -1,3 +1,8 @@
+2011-06-02  Alexandre Oliva  <aoliva@redhat.com>
+
+	* params.def (PARAM_MAX_VARTRACK_EXPR_DEPTH): Bump default to 10.
+	* var-tracking.c (reverse_op): Limite recurse depth to 5.
+
 2011-06-01  Jakub Jelinek  <jakub@redhat.com>
 
 	PR debug/49250
