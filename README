@@ -26,7 +26,6 @@ mkdir <...>/image
 
 * Check out components:
 svn co https://clibinutils.svn.sourceforge.net/svnroot/clibinutils/mono-based-binutils/trunk <...>/gcc-src/binutils
-svn co svn://anonsvn.mono-project.com/source/trunk/mcs/class/Mono.Cecil@147644 <...>/gcc-src/binutils/tools/Mono.Cecil
 svn co svn://gcc.gnu.org/svn/gcc/branches/st/cli-be <...>/gcc-src/gcc
 
 
