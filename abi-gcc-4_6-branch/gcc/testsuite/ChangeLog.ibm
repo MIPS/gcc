@@ -1,0 +1,17 @@
+2011-04-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 173137.
+
+2011-04-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2011-03-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/48258
+	* gcc.target/powerpc/pr48258-1.c: New file.
+	* gcc.target/powerpc/pr48258-2.c: Ditto.
+
+2011-03-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Branch from gcc-4_6-branch, subversion id 171614.
+
