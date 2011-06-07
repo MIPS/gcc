@@ -25079,9 +25079,14 @@ rs6000_trampoline_init (rtx m_tramp, tree fndecl, rtx cxt)
     /* Under AIX, just build the 3 word function descriptor */
     case ABI_AIX:
       {
-	rtx fnmem = gen_const_mem (Pmode, force_reg (Pmode, fnaddr));
-	rtx fn_reg = gen_reg_rtx (Pmode);
-	rtx toc_reg = gen_reg_rtx (Pmode);
+	rtx fnmem, fn_reg, toc_reg;
+
+	if (!TARGET_R11)
+	  error ("-mno-r11 must not be used if you have trampolines");
+
+	fnmem = gen_const_mem (Pmode, force_reg (Pmode, fnaddr));
+	fn_reg = gen_reg_rtx (Pmode);
+	toc_reg = gen_reg_rtx (Pmode);
 
   /* Macro to shorten the code expansions below.  */
 # define MEM_PLUS(MEM, OFFSET) adjust_address (MEM, Pmode, OFFSET)
@@ -28332,6 +28337,89 @@ rs6000_address_for_altivec (rtx x)
     }
 
   return x;
+}
+
+
+/* A function pointer under AIX is a pointer to a data area whose first word
+   contains the actual address of the function, whose second word contains a
+   pointer to its TOC, and whose third word contains a value to place in the
+   static chain register (r11).  Note that if we load the static chain, our
+   "trampoline" need not have any executable code.  */
+
+void
+rs6000_call_indirect_aix (rtx value, rtx func_desc, rtx flag)
+{
+  rtx func_addr;
+  rtx toc_reg;
+  rtx static_chain;
+  rtx stack_ptr;
+  rtx stack_toc_offset;
+  rtx stack_toc_mem;
+  rtx func_toc_offset;
+  rtx func_toc_mem;
+  rtx func_sc_offset;
+  rtx (*call_func) (rtx, rtx, rtx, rtx, rtx);
+  rtx (*call_value_func) (rtx, rtx, rtx, rtx, rtx, rtx);
+
+  stack_ptr = gen_rtx_REG (Pmode, STACK_REGNO);
+  toc_reg = gen_rtx_REG (Pmode, TOC_REGNO);
+
+  /* Load up address of the actual function.  */
+  func_desc = force_reg (Pmode, func_desc);
+  func_addr = gen_reg_rtx (Pmode);
+  emit_move_insn (func_addr, gen_rtx_MEM (Pmode, func_desc));
+
+  if (TARGET_32BIT)
+    {
+      stack_toc_offset = GEN_INT (20);
+      func_toc_offset = GEN_INT (4);
+      func_sc_offset = GEN_INT (8);
+      call_func = gen_call_indirect_aix32bit;
+      call_value_func = gen_call_value_indirect_aix32bit;
+    }
+  else
+    {
+      stack_toc_offset = GEN_INT (40);
+      func_toc_offset = GEN_INT (8);
+      func_sc_offset = GEN_INT (16);
+      call_func = gen_call_indirect_aix64bit;
+      call_value_func = gen_call_value_indirect_aix64bit;
+    }
+
+  /* Location to store TOC in the reserved stack location.  */
+  stack_toc_mem = gen_rtx_MEM (Pmode,
+			       gen_rtx_PLUS (Pmode,
+					     stack_ptr,
+					     stack_toc_offset));
+
+  /* TOC of the called function.  */
+  func_toc_mem = gen_rtx_MEM (Pmode,
+			      gen_rtx_PLUS (Pmode,
+					    func_desc,
+					    func_toc_offset));
+
+  /* If we have a static chain, load it up now.  */
+  if (TARGET_R11)
+    {
+      static_chain = gen_rtx_REG (Pmode, STATIC_CHAIN_REGNO);
+      emit_move_insn (static_chain,
+		      gen_rtx_MEM (Pmode,
+				   gen_rtx_PLUS (Pmode,
+						 func_desc,
+						 func_sc_offset)));
+    }
+  else
+    static_chain = const0_rtx;
+
+  /* Call the function, deal with return value.  */
+  if (value)
+    emit_call_insn (call_value_func (value, func_addr, flag, func_toc_mem,
+				     static_chain, stack_toc_mem));
+  else
+    emit_call_insn (call_func (func_addr, flag, func_toc_mem, static_chain,
+			       stack_toc_mem));
+
+  return;
 }
 
 #include "gt-rs6000.h"

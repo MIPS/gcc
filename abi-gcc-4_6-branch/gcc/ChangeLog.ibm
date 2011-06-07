@@ -1,3 +1,44 @@
+2011-06-07  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/predicates.md (optional_static_chain_operand):
+	Recognize either r11 or integer constant 0.
+
+	* config/rs6000/rs6000-protos.h (rs6000_call_indirect_aix): Add
+	declaration.
+
+	* config/rs6000/rs6000.opt (-mr11): New switch to control whether
+	r11 is loaded with the static chain or not.
+
+	* config/rs6000/rs6000.c (rs6000_trampoline_init): If -mno-r11,
+	give an error message for AIX style calls.
+	(rs6000_call_indirect_aix): New common code for generating AIX
+	calls.  Add support for -mno-r11.
+
+	* config/rs6000/rs6000.md (STACK_REGNO): Add declarations of
+	static registers.
+	(TOC_REGNO): Ditto.
+	(STATIC_CHAIN_REGNO): Ditto.
+	(call_indirect_aix32): Delete in favor of AIX call rewrite to
+	support -mno-r11.
+	(call_indirect_aix64): Ditto.
+	(call_value_indirect_aix32): Ditto.
+	(call_value_indirect_aix64): Ditto.
+	(call_indirect_nonlocal_aix32_internal): Ditto.
+	(call_indirect_nonlocal_aix32): Ditto.
+	(call_indirect_nonlocal_aix64_internal): Ditto.
+	(call_indirect_nonlocal_aix64): Ditto.
+	(call): Update to use rs6000_call_indirect_aix for AIX style
+	calls.
+	(call_value): Ditto.
+	(call_indirect_aix<ptrsize>): New insns for AIX style indirect
+	function calls, that support -mno-r11.
+	(call_indirect_aix<ptrsize>_interal): Ditto.
+	(call_value_indirect_aix<ptrsize>): Ditto.
+	(call_value_indirect_aix<ptrsize>_internal): Ditto.
+
+	* doc/invoke.tm (-mr11): Document.
+
+=============================== Start of ABI changes ===========
 2011-06-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 174573.

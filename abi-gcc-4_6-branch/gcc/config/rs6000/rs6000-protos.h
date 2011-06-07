@@ -172,6 +172,7 @@ extern void rs6000_emit_epilogue (int);
 extern void rs6000_emit_eh_reg_restore (rtx, rtx);
 extern const char * output_isel (rtx *);
 extern bool rs6000_tls_referenced_p (rtx);
+extern void rs6000_call_indirect_aix (rtx, rtx, rtx);
 
 extern void rs6000_aix_asm_output_dwarf_table_ref (char *);
 

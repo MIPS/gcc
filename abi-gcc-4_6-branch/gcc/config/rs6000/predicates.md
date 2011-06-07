@@ -1441,3 +1441,14 @@
 
   return 1;
 })
+
+;; Return true if the argument is either (reg 11) or (const_int 0) to allow -mno-r11 to
+;; avoid loading up the static chain for aix calling sequences
+(define_predicate "optional_static_chain_operand"
+  (match_code "reg,const_int")
+{
+  if (GET_CODE (op) == REG)
+    return (REGNO (op) == STATIC_CHAIN_REGNO);
+  else
+    return (op == const0_rtx);
+})
