@@ -128,6 +128,8 @@ typedef struct GTY(()) machine_function
   int ra_need_lr;
   /* Cache lr_save_p after expansion of builtin_eh_return.  */
   int lr_save_state;
+  /* Alias set for the TOC save area.  */
+  alias_set_type toc_alias_set;
   /* Offset from virtual_stack_vars_rtx to the start of the ABI_V4
      varargs save area.  */
   HOST_WIDE_INT varargs_save_offset;
@@ -315,6 +317,17 @@ static struct
 
 /* 2 argument gen function typedef.  */
 typedef rtx (*gen_2arg_fn_t) (rtx, rtx, rtx);
+
+/* ABI defined stack offsets for storing the TOC pointer.  */
+#define TOC_SAVE_OFFSET_32BIT	20
+#define TOC_SAVE_OFFSET_64BIT	40
+
+/* Offset of the words in the AIX function descriptor.  */
+#define AIX_FUNC_DESC_TOC_32BIT	4	/* TOC to be loaded in r2 */
+#define AIX_FUNC_DESC_SC_32BIT	8	/* static chain to be loaded in r11 */
+
+#define AIX_FUNC_DESC_TOC_64BIT	8	/* TOC to be loaded in r2 */
+#define AIX_FUNC_DESC_SC_64BIT	16	/* static chain to be loaded in r11 */
 
 
 /* Target cpu costs.  */
@@ -21127,6 +21140,22 @@ rs6000_emit_prologue (void)
 	emit_move_insn (lr, gen_rtx_REG (Pmode, 0));
     }
 #endif
+
+  /* If we have AIX style calls, and we had an indirect call, and we didn't
+     call alloca, save the TOC pointer in the reserved location.  */
+  if (cfun->machine->toc_alias_set != 0)
+    {
+      HOST_WIDE_INT offset
+	= ((TARGET_32BIT) ? TOC_SAVE_OFFSET_32BIT : TOC_SAVE_OFFSET_64BIT);
+      rtx toc_mem = gen_rtx_MEM (Pmode,
+				 gen_rtx_PLUS (Pmode,
+					       gen_rtx_REG (Pmode, STACK_REGNO),
+					       GEN_INT (offset)));
+
+      set_mem_alias_set (toc_mem, cfun->machine->toc_alias_set);
+      MEM_KEEP_ALIAS_SET_P (toc_mem) = 1;
+      emit_move_insn (toc_mem, gen_rtx_REG (Pmode, TOC_REGNO));
+    }
 }
 
 /* Write function prologue.  */
@@ -28371,28 +28400,49 @@ rs6000_call_indirect_aix (rtx value, rtx func_desc, rtx flag)
 
   if (TARGET_32BIT)
     {
-      stack_toc_offset = GEN_INT (20);
-      func_toc_offset = GEN_INT (4);
-      func_sc_offset = GEN_INT (8);
+
+      stack_toc_offset = GEN_INT (TOC_SAVE_OFFSET_32BIT);
+      func_toc_offset = GEN_INT (AIX_FUNC_DESC_TOC_32BIT);
+      func_sc_offset = GEN_INT (AIX_FUNC_DESC_SC_32BIT);
       call_func = gen_call_indirect_aix32bit;
       call_value_func = gen_call_value_indirect_aix32bit;
     }
   else
     {
-      stack_toc_offset = GEN_INT (40);
-      func_toc_offset = GEN_INT (8);
-      func_sc_offset = GEN_INT (16);
+      stack_toc_offset = GEN_INT (TOC_SAVE_OFFSET_64BIT);
+      func_toc_offset = GEN_INT (AIX_FUNC_DESC_TOC_64BIT);
+      func_sc_offset = GEN_INT (AIX_FUNC_DESC_SC_64BIT);
       call_func = gen_call_indirect_aix64bit;
       call_value_func = gen_call_value_indirect_aix64bit;
     }
 
-  /* Location to store TOC in the reserved stack location.  */
+  /* Store TOC in the reserved stack location, which we mark with its own
+     unique alias set.  If we don't call alloca, move the store of the TOC to
+     the prologue.  */
   stack_toc_mem = gen_rtx_MEM (Pmode,
 			       gen_rtx_PLUS (Pmode,
 					     stack_ptr,
 					     stack_toc_offset));
 
-  /* TOC of the called function.  */
+  gcc_assert (cfun);
+  gcc_assert (cfun->machine);
+
+  if (! cfun->calls_alloca)
+    {
+      if (cfun->machine->toc_alias_set == 0)
+	cfun->machine->toc_alias_set = new_alias_set ();
+
+      set_mem_alias_set (stack_toc_mem, cfun->machine->toc_alias_set);
+      MEM_KEEP_ALIAS_SET_P (stack_toc_mem) = 1;
+    }
+  else
+    {
+      MEM_VOLATILE_P (stack_toc_mem) = 1;
+      emit_move_insn (stack_toc_mem, toc_reg);
+    }
+
+  /* Calculate the address to load the TOC of the called function.  We don't
+     actually load this until the split after reload.  */
   func_toc_mem = gen_rtx_MEM (Pmode,
 			      gen_rtx_PLUS (Pmode,
 					    func_desc,
@@ -28413,10 +28463,10 @@ rs6000_call_indirect_aix (rtx value, rtx func_desc, rtx flag)
 
   /* Call the function, deal with return value.  */
   if (value)
-    emit_call_insn (call_value_func (value, func_addr, flag, func_toc_mem,
-				     static_chain, stack_toc_mem));
+    emit_call_insn (call_value_func (value, func_addr, flag, static_chain,
+				     func_toc_mem, stack_toc_mem));
   else
-    emit_call_insn (call_func (func_addr, flag, func_toc_mem, static_chain,
+    emit_call_insn (call_func (func_addr, flag, static_chain, func_toc_mem,
 			       stack_toc_mem));
 
   return;
