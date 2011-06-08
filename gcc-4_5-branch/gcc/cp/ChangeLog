@@ -1,3 +1,16 @@
+2011-05-31  Duncan Sands  <baldrick@free.fr>
+
+	Backported from 4.6 branch
+	2011-03-09  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/47714
+	* method.c (use_thunk): Clear addressable flag of thunk arguments.
+
+2011-05-20  Jason Merrill  <jason@redhat.com>
+
+	PR c++/48873
+	* tree.c (stabilize_expr): Don't make gratuitous copies of classes.
+
 2011-05-09  Jason Merrill  <jason@redhat.com>
 
 	PR c++/48936
