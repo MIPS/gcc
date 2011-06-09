@@ -37,7 +37,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "basic-block.h"
 #include "except.h"
-#include "toplev.h"
 #include "tree-pass.h"
 #include "timevar.h"
 #include "target.h"
@@ -2037,7 +2036,7 @@ void
 lra (FILE *f)
 {
   int i;
-  bool first_p, scratch_p, inserted_p;
+  bool first_p, scratch_p, inserted_p, coalesce_skip_p;
   
   lra_dump_file = f;
 
@@ -2099,11 +2098,13 @@ lra (FILE *f)
   lra_constraint_new_insn_uid_start = get_max_uid ();
   bitmap_initialize (&lra_inheritance_pseudos, &reg_obstack);
   bitmap_clear (&lra_dont_inherit_pseudos);
+  coalesce_skip_p = false;
   for (;;)
     {
       for (;;)
 	{
-	  lra_coalesce ();
+	  if (! coalesce_skip_p)
+	    lra_coalesce ();
 	  /* We should try to assign hard registers to scratches even
 	     if there were no RTL transformations in
 	     lra_constraints.  */
@@ -2112,16 +2113,20 @@ lra (FILE *f)
 	  lra_inheritance ();
 	  /* We need live ranges for lra_assign -- so build them.  */
 	  lra_create_live_ranges (true);
-	  lra_assign ();
+	  /* If we don't spill non-reload and non-inheritance pseudos,
+	     there is no sense to run memory-memory move coalescing.
+	     If inheritance pseudos were spilled, the memory-memory
+	     moves involving them will be removed by pass undoing
+	     inheritance.  */
+	  coalesce_skip_p = lra_assign ();
 	  if (lra_undo_inheritance ())
 	    lra_create_live_ranges (false);
 	  first_p = false;
 	}
-      /* We need live ranges for lra_assign -- so build them.  */
       first_p = false;
-      lra_create_live_ranges (false);
       if (! lra_spill ())
 	break;
+      coalesce_skip_p = true;
       lra_eliminate (false);
       lra_constraint_new_regno_start = max_reg_num ();
       lra_constraint_new_insn_uid_start = get_max_uid ();

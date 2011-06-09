@@ -1,3 +1,45 @@
+2011-06-09  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-spills.c: Don't include toplev.h.
+
+	* lra-eliminations.c: Ditto.
+
+	* lra-lives.c: Ditto.
+
+	* lra-saves.c: Ditto.
+
+	* lra-coalesce.c: Ditto.
+
+	* lra-equivs.c: Ditto.
+
+	* lra.c: Ditto.
+	(lra): Skip coalescing after spills and some assignments.  Remove
+	live range creation before spills.
+
+	* lra-constraints.c: Don't include toplev.h.
+	(inherit_reload_reg): Invalidate used
+	alternative for changed insn.
+
+	* lra-assigns.c: Don't include toplev.h.
+	(assign_by_spills): Remove parameter. Clear all_spilled_pseudos if
+	necessary.  Fix typo in setting changed_pseudo_bitmap.  Don't set
+	up changed_pseudo_bitmap for reload pseudos.
+	(lra_assign): Return flag of spilling non-reload and
+	non-inheritance pseudos.
+
+	* Makefile.in (lra.o, lra-assigns.o, lra-coalesce.o): Remove
+	dependence on toplev.h.
+	(lra-constraints.o, lra-eliminations.o, lra-lives.o, lra-saves.o): Ditto.
+	(lra-spills.o): Ditto.
+
+	* lra-int.h (lra_assign): Don't include toplev.h.
+	Change return type.
+	* target.def (register_bank): Move description from tm.texi.in.
+
+	* doc/tm.texi.in (TARGET_REGISTER_BANK): Move description to target.def.
+
+	* doc/tm.texi: Update.
+
 2011-06-01  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra-eliminations.c (lra_eliminate_reg_if_possible): Fix a typo.

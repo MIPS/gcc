@@ -44,7 +44,6 @@
 #include "basic-block.h"
 #include "except.h"
 #include "optabs.h"
-#include "toplev.h"
 #include "df.h"
 #include "ira.h"
 #include "rtl-error.h"
@@ -3331,6 +3330,8 @@ inherit_reload_reg (rtx reload_reg, int original_regno,
 	      && (int) REGNO (dst) >= lra_constraint_new_regno_start);
   SET_SRC (set) = new_reg;
   lra_push_insn (last_reload_insn);
+  /* Invalidate alternatives for insn should be processed.  */
+  lra_set_used_insn_alternative_by_uid (INSN_UID (last_reload_insn), -1);
   if (lra_dump_file != NULL)
     {
       fprintf (lra_dump_file, "    Inheritance reuse change:\n");

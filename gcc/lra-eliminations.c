@@ -38,7 +38,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "except.h"
 #include "optabs.h"
-#include "toplev.h"
 #include "df.h"
 #include "ira.h"
 #include "rtl-error.h"

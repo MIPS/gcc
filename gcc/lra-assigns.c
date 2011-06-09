@@ -35,7 +35,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "basic-block.h"
 #include "except.h"
-#include "toplev.h"
 #include "df.h"
 #include "ira.h"
 #include "sparseset.h"
@@ -889,11 +888,9 @@ static bitmap_head all_spilled_pseudos;
 /* All pseudos whose allocation was changed.  */
 static bitmap_head changed_pseudo_bitmap;
 
-/* Assign hard registers to reload pseudos and other pseudos.  Setup
-   insns should be processed on the next constraint pass in
-   TO_PROCESS.  */
+/* Assign hard registers to reload pseudos and other pseudos.  */
 static void
-assign_by_spills (bitmap to_process)
+assign_by_spills (void)
 {
   int i, n, nfails, iter, regno, hard_regno, cost;
   rtx insn, set;
@@ -943,7 +940,9 @@ assign_by_spills (bitmap to_process)
 	    }
 	  else
 	    {
-	      bitmap_set_bit (&changed_pseudo_bitmap, regno);
+	      /* Remember that reload pseudos can be spilled on the
+		 1st pass.  */
+	      bitmap_clear_bit (&all_spilled_pseudos, regno);
 	      assign_hard_regno (hard_regno, regno);
 	    }
 	}
@@ -991,12 +990,10 @@ assign_by_spills (bitmap to_process)
 			     lra_reg_info[regno].freq);
 		  update_lives (regno, true);
 		  lra_setup_reg_renumber (regno, -1, false);
-		  bitmap_set_bit (&changed_pseudo_bitmap, regno);
 		}
 	    }
       n = nfails;
     }
-  bitmap_ior_into (to_process, &changed_insns);
   bitmap_clear (&changed_insns);
   for (n = 0, i = FIRST_PSEUDO_REGISTER; i < max_reg_num (); i++)
     if ((i < lra_constraint_new_regno_start
@@ -1024,7 +1021,7 @@ assign_by_spills (bitmap to_process)
 	  for (curr_regno = lra_reg_info[regno].first;
 	       curr_regno >= 0;
 	       curr_regno = lra_reg_info[curr_regno].next)
-	    bitmap_set_bit (&all_spilled_pseudos, curr_regno);
+	    bitmap_set_bit (&changed_pseudo_bitmap, curr_regno);
 	}
     }
   free (assigned_pseudos);
@@ -1040,14 +1037,19 @@ assign_by_spills (bitmap to_process)
 /* Entry function to assign hard registers to new reload pseudos
    starting with LRA_CONSTRAINT_NEW_REGNO_START (by possible spilling
    of old pseudos) and possibly to the old pseudos.  The function adds
-   what insns to process to TO_PROCESS.  That is all insns who
-   contains pseudos with changed allocation.  */
-void
+   what insns to process for the next constraint pass.  Those are all
+   insns who contains non-reload and non-inheritance pseudos with
+   changed allocation.
+
+   Return true if we did not spill any non-reload and non-inheritance
+   pseudos.  */
+bool
 lra_assign (void)
 {
   unsigned int u;
   bitmap_iterator bi;
   bitmap_head insns_to_process;
+  bool no_spills_p;
 
   init_lives ();
   sorted_pseudos = (int *) xmalloc (sizeof (int) * max_reg_num ());
@@ -1055,13 +1057,15 @@ lra_assign (void)
   bitmap_initialize (&all_spilled_pseudos, &reg_obstack);
   setup_live_pseudos_and_spill_after_equiv_moves (&all_spilled_pseudos);
   /* Setup insns to process.  */
-  bitmap_initialize (&insns_to_process, &reg_obstack);
   bitmap_initialize (&changed_pseudo_bitmap, &reg_obstack);
   init_live_reload_pseudos ();
-  assign_by_spills (&insns_to_process);
+  assign_by_spills ();
   finish_live_reload_pseudos ();
   bitmap_ior_into (&changed_pseudo_bitmap, &all_spilled_pseudos);
+  bitmap_and_compl_into (&all_spilled_pseudos, &lra_inheritance_pseudos);
+  no_spills_p = bitmap_empty_p (&all_spilled_pseudos);
   bitmap_clear (&all_spilled_pseudos);
+  bitmap_initialize (&insns_to_process, &reg_obstack);
   EXECUTE_IF_SET_IN_BITMAP (&changed_pseudo_bitmap, 0, u, bi)
     bitmap_ior_into (&insns_to_process, &lra_reg_info[u].insn_bitmap);
   bitmap_clear (&changed_pseudo_bitmap);
@@ -1075,4 +1079,5 @@ lra_assign (void)
   free (sorted_pseudos);
   free (sorted_reload_pseudos);
   finish_lives ();
+  return no_spills_p;
 }

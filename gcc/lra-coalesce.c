@@ -39,7 +39,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "basic-block.h"
 #include "except.h"
-#include "toplev.h"
 #include "timevar.h"
 #include "ira.h"
 #include "lra-int.h"

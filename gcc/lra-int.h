@@ -333,7 +333,7 @@ extern void lra_setup_reload_pseudo_preferenced_hard_reg (int, int, int);
 /* lra-assigns.c: */
 
 extern void lra_setup_reg_renumber (int, int, bool);
-extern void lra_assign (void);
+extern bool lra_assign (void);
 
 
 /* lra-coalesce.c: */
