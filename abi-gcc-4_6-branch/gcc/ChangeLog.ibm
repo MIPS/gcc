@@ -1,3 +1,16 @@
+2011-06-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (machine_function): Don't create alias
+	sets, just use a boolean whether to save the TOC in the reserved
+	location.
+	(rs6000_emit_prologue): Ditto.
+	(rs6000_call_indirect_aix): Ditto.
+
+	* config/rs6000/rs6000.md (call_indrect_aix<ptrsize>): Add USE of
+	the current function's saved TOC address so the store does not get
+	eliminated.
+	(call_value_indirect_aix<ptrsize>): Ditto.
+
 2011-06-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.c (struct machine_function): Add TOC alias

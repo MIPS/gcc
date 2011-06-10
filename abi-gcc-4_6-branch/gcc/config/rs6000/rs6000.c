@@ -128,8 +128,9 @@ typedef struct GTY(()) machine_function
   int ra_need_lr;
   /* Cache lr_save_p after expansion of builtin_eh_return.  */
   int lr_save_state;
-  /* Alias set for the TOC save area.  */
-  alias_set_type toc_alias_set;
+  /* Whether we do AIX style indirect calls and need to save the TOC pointer in
+     the reserved stack location.  */
+  int aix_indirect_call;
   /* Offset from virtual_stack_vars_rtx to the start of the ABI_V4
      varargs save area.  */
   HOST_WIDE_INT varargs_save_offset;
@@ -21141,9 +21142,9 @@ rs6000_emit_prologue (void)
     }
 #endif
 
-  /* If we have AIX style calls, and we had an indirect call, and we didn't
-     call alloca, save the TOC pointer in the reserved location.  */
-  if (cfun->machine->toc_alias_set != 0)
+  /* If we have AIX style calls, and we had an indirect call, save the TOC
+     pointer in the reserved location.  */
+  if (cfun->machine->aix_indirect_call != 0)
     {
       HOST_WIDE_INT offset
 	= ((TARGET_32BIT) ? TOC_SAVE_OFFSET_32BIT : TOC_SAVE_OFFSET_64BIT);
@@ -21152,9 +21153,11 @@ rs6000_emit_prologue (void)
 					       gen_rtx_REG (Pmode, STACK_REGNO),
 					       GEN_INT (offset)));
 
-      set_mem_alias_set (toc_mem, cfun->machine->toc_alias_set);
-      MEM_KEEP_ALIAS_SET_P (toc_mem) = 1;
-      emit_move_insn (toc_mem, gen_rtx_REG (Pmode, TOC_REGNO));
+      MEM_VOLATILE_P (toc_mem) = 1;
+      insn = emit_move_insn (toc_mem, gen_rtx_REG (Pmode, TOC_REGNO));
+      rs6000_frame_related (insn, frame_ptr_rtx, info->total_size,
+			    NULL_RTX, NULL_RTX);
+
     }
 }
 
@@ -28427,15 +28430,8 @@ rs6000_call_indirect_aix (rtx value, rtx func_desc, rtx flag)
   gcc_assert (cfun);
   gcc_assert (cfun->machine);
 
-  if (! cfun->calls_alloca)
-    {
-      if (cfun->machine->toc_alias_set == 0)
-	cfun->machine->toc_alias_set = new_alias_set ();
-
-      set_mem_alias_set (stack_toc_mem, cfun->machine->toc_alias_set);
-      MEM_KEEP_ALIAS_SET_P (stack_toc_mem) = 1;
-    }
-  else
+  cfun->machine->aix_indirect_call = 1;
+  if (cfun->calls_alloca)
     {
       MEM_VOLATILE_P (stack_toc_mem) = 1;
       emit_move_insn (stack_toc_mem, toc_reg);
