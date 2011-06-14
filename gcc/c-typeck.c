@@ -10231,6 +10231,7 @@ c_finish_omp_clauses (tree clauses)
 	case OMP_CLAUSE_FIRSTPRIVATE:
 	  name = "firstprivate";
 	  t = OMP_CLAUSE_DECL (c);
+	  OMP_CLAUSE_VIEW_VAR_KIND (c) = OMP_CLAUSE_VIEW_VAR_UNSPECIFIED;
 	  need_complete = true;
 	  need_implicitly_determined = true;
 	  if (TREE_CODE (t) != VAR_DECL && TREE_CODE (t) != PARM_DECL)

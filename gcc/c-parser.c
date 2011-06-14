@@ -7364,7 +7364,6 @@ c_parser_omp_stream_clause (c_parser *parser,
       OMP_CLAUSE_STREAM_ID (omp_clause) = stream_id;
       OMP_CLAUSE_STREAM_SUB (omp_clause) = stream_idx;
 
-
       if (c_parser_next_token_is (parser, CPP_LSHIFT)
 	  || c_parser_next_token_is (parser, CPP_RSHIFT))
 	{
@@ -8768,7 +8767,8 @@ c_parser_omp_single (location_t loc, c_parser *parser)
 	| (1u << PRAGMA_OMP_CLAUSE_FIRSTPRIVATE)	\
  	| (1u << PRAGMA_OMP_CLAUSE_SHARED))		\
  	| (1u << PRAGMA_OMP_CLAUSE_INPUT)		\
- 	| (1u << PRAGMA_OMP_CLAUSE_OUTPUT)
+ 	| (1u << PRAGMA_OMP_CLAUSE_OUTPUT)		\
+	| (1u << PRAGMA_OMP_CLAUSE_NUM_THREADS)
 
 static tree
 c_parser_omp_task (location_t loc, c_parser *parser)

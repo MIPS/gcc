@@ -1783,6 +1783,13 @@ extern void protected_set_expr_location (tree, location_t);
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_RANGE_CHECK (OMP_CLAUSE_CHECK (NODE),	\
 					      OMP_CLAUSE_INPUT,		\
 	                                      OMP_CLAUSE_OUTPUT), 3)
+#define OMP_CLAUSE_VIEW_SIZE(NODE)					\
+  OMP_CLAUSE_OPERAND (OMP_CLAUSE_RANGE_CHECK (OMP_CLAUSE_CHECK (NODE),	\
+					      OMP_CLAUSE_INPUT,		\
+	                                      OMP_CLAUSE_OUTPUT), 4)
+#define OMP_CLAUSE_FIRSTPRIVATE_INPUT(NODE)				\
+  OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE,			\
+						OMP_CLAUSE_INPUT), 5)
 
 #define OMP_CLAUSE_HAS_LOCATION(NODE) \
   ((OMP_CLAUSE_CHECK (NODE))->omp_clause.locus != UNKNOWN_LOCATION)
@@ -1870,6 +1877,16 @@ enum omp_clause_default_kind
 
 #define OMP_CLAUSE_DEFAULT_KIND(NODE) \
   (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_DEFAULT)->omp_clause.subcode.default_kind)
+
+enum omp_clause_view_var_kind
+{
+  OMP_CLAUSE_VIEW_VAR_UNSPECIFIED,
+  OMP_CLAUSE_VIEW_VAR_DISCARD,
+  OMP_CLAUSE_VIEW_VAR_KEEP
+};
+
+#define OMP_CLAUSE_VIEW_VAR_KIND(NODE) \
+  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_FIRSTPRIVATE)->omp_clause.subcode.view_var_kind)
 
 struct GTY(()) tree_exp {
   struct tree_common common;
@@ -1987,6 +2004,7 @@ struct GTY(()) tree_omp_clause {
   union omp_clause_subcode {
     enum omp_clause_default_kind  default_kind;
     enum omp_clause_schedule_kind schedule_kind;
+    enum omp_clause_view_var_kind  view_var_kind;
     enum tree_code                reduction_code;
   } GTY ((skip)) subcode;
 

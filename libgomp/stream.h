@@ -73,6 +73,12 @@ typedef struct gomp_stream_view
      to be first.  */
   struct gomp_stream *stream;
 
+  /* Size in bytes of the burst associated to this view.  Later this
+     may become a stream.  */
+  size_t view_size;
+  size_t burst_size;
+  size_t pxxk_size;
+
   /* The alignment directives are needed to ensure these
      high-potential false-sharing fields are on their own cache
      lines.  */
@@ -109,6 +115,10 @@ typedef struct gomp_stream_view_list
   gomp_stream_view_p *views;
   int nr_views;
   int size;
+
+  /* Enforce atomic connection of the views in this list.  */
+  gomp_mutex_t connect_view_mutex;
+
 } gomp_stream_view_list_t, *gomp_stream_view_list_p;
 
 
@@ -133,9 +143,6 @@ typedef struct gomp_stream_view_handle
   int nr_registered_views;
   int nr_unregistered_views;
 
-  /* Enforce atomic connection of the views to the stream.  */
-  gomp_mutex_t connect_view_mutex;
-
 } gomp_stream_view_handle_t, *gomp_stream_view_handle_p;
 
 
@@ -158,9 +165,9 @@ typedef struct gomp_stream
      for the wrap-around.  The size is expressed in basic elements for
      this stream.  The size in bytes of the buffer is
      BUFFER_SIZE * ELEMENT_SIZE.  */
-  unsigned long long buffer_mask;
   unsigned long long buffer_size;
-  unsigned long long element_size;
+  unsigned long long buffer_mask;
+  unsigned long long pre_shift;
 
   /* True once all the tasks that should be expected to connect to
      this stream been declared.  */
@@ -205,6 +212,58 @@ typedef struct gomp_stream_task
   gomp_stream_view_list_t read_view_list;
   gomp_stream_view_list_t write_view_list;
 
+  /* The following are used directly in the generated code and should
+     only be read here.  A memory fence is guaranteed before the
+     termination flag is set to true.  */
+
+  /* Number of activations allowed for the task.  */
+  volatile unsigned long long activation_counter;
+  volatile unsigned long long first_unassigned_activation_counter;
+
+  int num_instances;
+
+  /* True only when the activation counter has reached the maximum
+     number of activations allowed for this task.  */
+  volatile bool termination_flag;
+
 } gomp_stream_task_t, *gomp_stream_task_p;
+
+
+#if 0
+/* GOMP_STREAM_CONTROL_STREAM data structure.  Implements a simple
+   if-conversion analog that allows a non data-driven task to conform
+   to its original control dependences.  */
+
+typedef struct gomp_stream_control_stream
+{
+  /* In all cases where the streams bypass control (i.e., for
+     sequential control flow only), an activation counter is
+     sufficient to carry the control flow.  */
+
+  /* Local counter of the number of times a task has been activated.  */
+  unsigned long long activation_counter __attribute__((aligned (64)));
+  unsigned long long local_enabled_activations;
+
+  /* Number of times this task is allowed to activate.  */
+  unsigned long long enabled_activations __attribute__((aligned (64)));
+
+  /* When a task's inputs or outputs cross a parallel control flow
+     boundary (i.e., worksharing construct), their activation pattern
+     can be sparse wrt. the actual stream of data that they share with
+     their sibling tasks.  We use activation ranges as an optimization
+     to streaming the activation indexes themselves, but the two
+     options are equivalent.  These streams are inherently 1-to-1, so
+     a simpler implementation of the synchronization should be used in
+     this case.*/
+  /* gomp_stream_p activation_range_stream; */
+
+  /* End of stream: true when all producers have finished committing
+     all the data and are terminating.  */
+  bool eos_p;
+
+} gomp_stream_control_stream_t, *gomp_stream_control_stream_p;
+
+#endif
+
 
 #endif /* GOMP_STREAM_H */

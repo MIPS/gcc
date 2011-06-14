@@ -5724,6 +5724,9 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 	  goto do_add;
 	case OMP_CLAUSE_FIRSTPRIVATE:
 	  flags = GOVD_FIRSTPRIVATE | GOVD_EXPLICIT;
+	  if (OMP_CLAUSE_VIEW_VAR_KIND (c) != OMP_CLAUSE_VIEW_VAR_UNSPECIFIED)
+	    flags |= GOVD_SEEN;
+
 	  check_non_private = "firstprivate";
 	  goto do_add;
 	case OMP_CLAUSE_LASTPRIVATE:
@@ -5737,9 +5740,38 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 	case OMP_CLAUSE_INPUT:
 	case OMP_CLAUSE_OUTPUT:
           {
+#if 0
             tree view = OMP_CLAUSE_VIEW_ID (c);
             if(view != NULL_TREE)
-	      omp_add_variable (ctx, view, GOVD_LOCAL | GOVD_SEEN);
+	      {
+		//omp_add_variable (ctx, view, GOVD_LOCAL | GOVD_SEEN);
+		if (DECL_HAS_VALUE_EXPR_P (view))
+		  {
+		    tree new_decl = DECL_VALUE_EXPR (view);
+		    gcc_assert (TREE_CODE (new_decl) == INDIRECT_REF);
+		    /* if (TREE_CODE (new_decl) == INDIRECT_REF)*/
+		    new_decl = TREE_OPERAND (new_decl, 0);
+		    OMP_CLAUSE_VIEW_ID (c) = new_decl;
+		  }
+	      }
+	    tree burst = OMP_CLAUSE_BURST_SIZE (c);
+	    if (burst != NULL_TREE && DECL_P (burst))
+	      {
+		omp_add_variable (ctx, burst, GOVD_FIRSTPRIVATE | GOVD_EXPLICIT | GOVD_SEEN);
+		if (outer_ctx)
+		  omp_notice_variable (outer_ctx, decl, true);
+
+		gcc_assert (!DECL_HAS_VALUE_EXPR_P (burst));
+		if (0) 
+		  {
+		    tree new_decl = DECL_VALUE_EXPR (burst);
+		    gcc_assert (TREE_CODE (new_decl) == INDIRECT_REF);
+		    /* if (TREE_CODE (new_decl) == INDIRECT_REF)*/
+		    new_decl = TREE_OPERAND (new_decl, 0);
+		    OMP_CLAUSE_BURST_SIZE (c) = new_decl;
+		  }		
+	      }
+#endif
           }
 	  flags = GOVD_PRIVATE | GOVD_EXPLICIT;
 	  goto do_add;
@@ -6046,9 +6078,112 @@ static void
 gimplify_omp_task (tree *expr_p, gimple_seq *pre_p)
 {
   tree expr = *expr_p;
+  tree clauses = OMP_TASK_CLAUSES (expr);
   gimple g;
   gimple_seq body = NULL;
   struct gimplify_ctx gctx;
+  bool is_streaming = false;
+
+  for (; clauses ; clauses = OMP_CLAUSE_CHAIN (clauses))
+    if (OMP_CLAUSE_CODE (clauses) == OMP_CLAUSE_INPUT ||
+	OMP_CLAUSE_CODE (clauses) == OMP_CLAUSE_OUTPUT)
+      {
+	is_streaming = true;
+	break;
+      }
+
+  /* We promote firstprivate clauses on streaming tasks to streams
+     from the enclosing context.  */
+  if (is_streaming)
+    {
+      tree *clauses_p = &OMP_TASK_CLAUSES (expr);
+      for (; *clauses_p ; clauses_p = &OMP_CLAUSE_CHAIN (*clauses_p))
+	if (OMP_CLAUSE_CODE (*clauses_p) == OMP_CLAUSE_FIRSTPRIVATE)
+	  {
+	    tree c = build_omp_clause (input_location, OMP_CLAUSE_INPUT);
+	    OMP_CLAUSE_DECL (c) = OMP_CLAUSE_DECL (*clauses_p);
+	    /* Store the original decl, but this will be replaced by
+	       the firstprivate view's decl.  */
+	    OMP_CLAUSE_FIRSTPRIVATE_INPUT (c) = OMP_CLAUSE_DECL (*clauses_p);
+	    OMP_CLAUSE_CHAIN (c) = OMP_CLAUSE_CHAIN (*clauses_p);
+	    *clauses_p = c;
+	    lang_hooks.decls.omp_finish_clause (c);
+	  }
+	else if (OMP_CLAUSE_CODE (*clauses_p) == OMP_CLAUSE_INPUT
+		 || OMP_CLAUSE_CODE (*clauses_p) == OMP_CLAUSE_OUTPUT)
+	  {
+	    tree view = OMP_CLAUSE_VIEW_ID (*clauses_p);
+	    tree burst = OMP_CLAUSE_BURST_SIZE (*clauses_p);
+	    tree *size = &OMP_CLAUSE_VIEW_SIZE (*clauses_p);
+
+	    /* We need to add firstprivate clauses for the burst
+	       variables used in these clauses to ensure we don't
+	       loose track of them.  */
+	    if (view != NULL_TREE)
+	      {
+		tree c = build_omp_clause (input_location, OMP_CLAUSE_FIRSTPRIVATE);
+
+		OMP_CLAUSE_DECL (c) = view;
+		OMP_CLAUSE_CHAIN (c) = OMP_CLAUSE_CHAIN (*clauses_p);
+		OMP_CLAUSE_CHAIN (*clauses_p) = c;
+
+		/* Store the replacement pointer's decl, if there is
+		   one, instead of the original view id.  */
+		if (DECL_HAS_VALUE_EXPR_P (view))
+		  {
+		    tree new_decl = DECL_VALUE_EXPR (view);
+		    gcc_assert (TREE_CODE (new_decl) == INDIRECT_REF);
+		    new_decl = TREE_OPERAND (new_decl, 0);
+		    OMP_CLAUSE_VIEW_ID (*clauses_p) = new_decl;
+		  }
+
+		clauses_p = &OMP_CLAUSE_CHAIN (*clauses_p);
+		OMP_CLAUSE_VIEW_VAR_KIND (c) = OMP_CLAUSE_VIEW_VAR_DISCARD;
+		lang_hooks.decls.omp_finish_clause (c);
+
+		*size = TYPE_SIZE_UNIT (TREE_TYPE (view));
+	      }
+	    else
+	      continue;
+
+	    if (burst != NULL_TREE && DECL_P (burst))
+	      {
+		/* Check if there already is a clause for this burst.  */
+		tree c_iter = OMP_TASK_CLAUSES (expr);
+		bool add_firstprivate = true;
+
+		for (; c_iter; c_iter = OMP_CLAUSE_CHAIN (c_iter))
+		  if (OMP_CLAUSE_DECL (c_iter) == burst)
+		    {
+		      /* FIXME: check clause type, upgrade private to firstprivate.  */
+		      add_firstprivate = false;
+		      break;
+		    }
+
+		if (add_firstprivate)
+		  {
+		    tree c = build_omp_clause (input_location, OMP_CLAUSE_FIRSTPRIVATE);
+		    OMP_CLAUSE_DECL (c) = burst;
+		    OMP_CLAUSE_CHAIN (c) = OMP_CLAUSE_CHAIN (*clauses_p);
+		    OMP_CLAUSE_CHAIN (*clauses_p) = c;
+		    clauses_p = &OMP_CLAUSE_CHAIN (*clauses_p);
+		    OMP_CLAUSE_VIEW_VAR_KIND (c) = OMP_CLAUSE_VIEW_VAR_KEEP;
+		    lang_hooks.decls.omp_finish_clause (c);
+		  }
+	      }
+#if 0
+	    if (*size && DECL_P (*size))
+	      {
+		tree c = build_omp_clause (input_location, OMP_CLAUSE_FIRSTPRIVATE);
+		OMP_CLAUSE_DECL (c) = *size;
+		OMP_CLAUSE_CHAIN (c) = OMP_CLAUSE_CHAIN (*clauses_p);
+		OMP_CLAUSE_CHAIN (*clauses_p) = c;
+		clauses_p = &OMP_CLAUSE_CHAIN (*clauses_p);
+		lang_hooks.decls.omp_finish_clause (c);
+	      }
+#endif
+	  }
+    }
 
   gimplify_scan_omp_clauses (&OMP_TASK_CLAUSES (expr), pre_p, ORT_TASK);
 

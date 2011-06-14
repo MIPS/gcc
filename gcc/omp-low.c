@@ -78,8 +78,870 @@ Supported types are currently:
 #include "optabs.h"
 #include "cfgloop.h"
 
+/* Return the entry edge of a conditional block (true branch).  */
+
+static edge
+get_true_entry_from_cond (basic_block bb)
+{
+  edge e;
+  edge_iterator ei;
+
+  FOR_EACH_EDGE (e, ei, bb->succs)
+    if (e->flags & EDGE_TRUE_VALUE)
+      return e;
+
+  gcc_unreachable ();
+  return NULL;
+}
+
+/* Return the exit edge of a conditional block (true branch) where the
+   false branch is empty.  */
+
+static edge
+get_true_exit_from_cond (basic_block bb)
+{
+  basic_block join_bb;
+  edge e;
+  edge_iterator ei;
+
+  FOR_EACH_EDGE (e, ei, bb->succs)
+    if (!(e->flags & EDGE_TRUE_VALUE))
+      break;
+  join_bb = e->dest;
+
+  FOR_EACH_EDGE (e, ei, join_bb->preds)
+    if (e->src != bb)
+      return e;
+
+  gcc_unreachable ();
+  return NULL;
+}
+
+#define HORIZON 1 << 23
+#define AGGREGATION_FACTOR 32
+
+/* Reduce verbosity.  */
+typedef struct omp_region *omp_region_p;
+
+typedef struct view *view_p;
+DEF_VEC_P(view_p);
+DEF_VEC_ALLOC_P(view_p,heap);
+
+typedef struct stream *stream_p;
+DEF_VEC_P(stream_p);
+DEF_VEC_ALLOC_P(stream_p,heap);
+
+typedef struct streamization_info *task_p;
+DEF_VEC_P(task_p);
+DEF_VEC_ALLOC_P(task_p,heap);
+
+/* During OMP lowering, we have to add some firstprivate clauses to
+   pass pointers to generated shared data between the enclosing
+   context to the tasks.  This hashtab keeps the mapping between the
+   OMP directive and the decls of the variables.  */
+htab_t htab_omp_stmt;
+
+typedef struct omp_stmt
+{
+  /* The OMP directive stmt.  */
+  gimple stmt;
+
+  /* For a GIMPLE_OMP_TASK.  */
+#if 0 /*zzzz*/
+  tree activation_counter_p;
+  tree termination_flag_p;
+#endif
+  /* For a GIMPLE_OMP_PARALLEL.  */
+  tree task_decl;
+
+  /* Pointer map for keeping track, at this directive's level, of the
+     mapping between any decl and the local variable.  */
+  struct pointer_map_t *var_map;
+  struct pointer_map_t *reverse_var_map;
+  struct pointer_map_t *firstprivate_view_var_pmap;
+
+} omp_stmt_t, *omp_stmt_p;
+
+/* Compute a hash function for stream.  */
+static hashval_t
+hash_omp_stmt (const void *elt)
+{
+  return htab_hash_pointer (((const omp_stmt_t *) elt)->stmt);
+}
+
+/* Compares stream elements E1 and E2.  */
+static int
+eq_omp_stmt (const void *e1, const void *e2)
+{
+  const omp_stmt_t *elt1 = (const omp_stmt_t *) e1;
+  const omp_stmt_t *elt2 = (const omp_stmt_t *) e2;
+
+  return elt1->stmt == elt2->stmt;
+}
+
+/* Find a STREAM mapping for VAR or create one if missing in the
+   HTAB_STREAM of the outermost enclosing parallel region.  */
+
+static omp_stmt_p
+lookup_omp_stmt (gimple stmt)
+{
+  omp_stmt_t **slot, tmp;
+
+  if (!htab_omp_stmt)
+    htab_omp_stmt = htab_create_ggc (10, hash_omp_stmt,
+				     eq_omp_stmt, NULL);
+  tmp.stmt = stmt;
+  slot = (omp_stmt_p *) htab_find_slot (htab_omp_stmt, &tmp, INSERT);
+
+  if (!*slot)
+    {
+      (*slot) = GGC_CNEW (omp_stmt_t);
+      (*slot)->stmt = stmt;
+      (*slot)->task_decl = NULL_TREE;
+
+      (*slot)->var_map = pointer_map_create ();
+      (*slot)->reverse_var_map = pointer_map_create ();
+      (*slot)->firstprivate_view_var_pmap = pointer_map_create ();
+    }
+
+  return (*slot);
+}
+
+static inline tree
+lookup_var (tree var, gimple stmt)
+{
+  omp_stmt_p omp_stmt = lookup_omp_stmt (stmt);
+  tree *n;
+  n = (tree *) pointer_map_contains (omp_stmt->var_map, var);
+  return *n;
+}
+
+static inline tree
+reverse_lookup_var (tree var, gimple stmt)
+{
+  omp_stmt_p omp_stmt = lookup_omp_stmt (stmt);
+  tree *n;
+  n = (tree *) pointer_map_contains (omp_stmt->reverse_var_map, var);
+  return n ? *n : NULL_TREE;
+}
+
+static inline tree
+lookup_fp_view_var (tree view, gimple stmt)
+{
+  omp_stmt_p omp_stmt = lookup_omp_stmt (stmt);
+  tree *n;
+  n = (tree *) pointer_map_contains (omp_stmt->firstprivate_view_var_pmap, view);
+  return n ? *n : NULL_TREE;
+}
+
+/* Structure holding pointers to all relevant basic blocks for
+   streamization within a omp_region. */
+typedef struct streamization_info
+{
+  /* The task pragma statement.  */
+  omp_region_p region;
+
+  /* R/W or input and output views linking this task to streams in
+     which this task is either a producer or a consumer.  */
+  VEC (view_p,heap) *rviews;
+  VEC (view_p,heap) *wviews;
+
+  VEC (view_p,heap) *fpviews;
+
+  /* For an enclosing parallel region, streams and tasks being used in
+     its taskgraph.  */
+  VEC (stream_p,heap) *streams;
+  VEC (stream_p,heap) *fp_streams;
+  VEC (task_p,heap) *tasks;
+
+  /* omp pragma statement */
+  gimple stmt;
+
+/* Each task is controlled by an activation counter that determines
+   how many times it should be executed.  The access to the activation
+   counter needs to be atomic when the task appears in a concurrent
+   environment (E.g., a parallel for section).  The termination flag
+   should only be set to true after a full memory fence.  */
+
+  /* Entry and exit points to the ORIGINAL body of the region, not to
+     be mistaken with the .->region->entry/exit blocks.  */
+  edge sese_body_entry;
+  edge sese_body_exit;
+
+  /* Initialization and finalization blocks.  These are used in all
+     regions and are generally single-thread execution blocks at the
+     beginning and end of the region.  */
+  basic_block pre_initialization_bb;
+  basic_block initialization_bb;
+  basic_block post_initialization_bb;
+  basic_block finalization_bb;
+
+  /* Local initialization and finalization blocks.  These are used in
+     task regions to issue statements that initialize or finalize one
+     iteration of the aggregated task.  These blocks are part of the
+     task's body.  */
+  basic_block local_initialization_bb;
+  basic_block local_finalization_bb;
+
+  /* Number of activations allowed for the task.  */
+#if 0 /*zzzz*/
+  tree activation_counter;
+  tree activation_counter_p;
+#endif
+  tree local_activation_counter;
+  tree local_act_ctr_p;
+  tree local_activation_index;
+  tree local_activation_index_next;
+
+  /* True only when the activation counter has reached the maximum
+     number of activations allowed for this task.  */
+#if 0 /*zzzz*/
+  tree termination_flag;
+  tree termination_flag_p;
+#endif
+
+  /* VAR_DECL to be used to define the runtime task.  Should exist a
+     single one per region, and thats why it is defined in this data
+     structure. */
+  tree task_decl;
+
+  tree num_instances;
+  tree can_replicate;
+
+  tree avl_work, act_idx_start;
+
+  basic_block original_location_bb;
+
+  bool is_pre_task;
+
+} streamization_info_t, *streamization_info_p;
+
+  /* Map all streamized variables in this region to their respective
+     streams.  For now, only keep this up at the outermost enclosing
+     parallel region.  */
+  htab_t htab_stream;
+
+
+/* Build the streamization info data structures for this OMP_REGION
+   and all enclosing regions.  */
+
+static void
+build_streamization_info (omp_region_p region)
+{
+  if(!region->streamization_info)
+  {
+    streamization_info_p sinfo = GGC_CNEW (streamization_info_t);
+    region->streamization_info = sinfo;
+
+    sinfo->region = region;
+    sinfo->stmt = last_stmt (region->entry);
+
+    sinfo->task_decl = NULL_TREE;
+
+    if (region->outer)
+      build_streamization_info (region->outer);
+  }
+}
+
+/* Return the streamization info linked to an OpenMP region.  */
+
+static inline streamization_info_p
+get_streamization_info (omp_region_p region)
+{
+  gcc_assert (region->streamization_info);
+
+  return (streamization_info_p) region->streamization_info;
+}
+
+/* Return the streamization info linked to the enclosing OpenMP
+   region.  */
+
+static inline streamization_info_p
+get_outer_streamization_info (omp_region_p region)
+{
+  gcc_assert (region->outer);
+  region = region->outer;
+
+  return get_streamization_info (region);
+}
+
+/* Return the streamization info linked to the outermost enclosing
+   OpenMP parallel region.  */
+
+static inline streamization_info_p
+get_outermost_parallel_streamization_info (omp_region_p region) 
+{
+  omp_region_p outer_parallel_region = NULL;
+
+  while(region)
+  {
+    if(region->type == GIMPLE_OMP_PARALLEL)
+      outer_parallel_region = region;
+    region = region->outer;
+  }
+
+  gcc_assert (outer_parallel_region);
+  gcc_assert (outer_parallel_region->streamization_info);
+
+  return (streamization_info_p) outer_parallel_region->streamization_info;
+}
+
+/* Returns true if REGION contains streaming tasks.  */
+
+static inline bool
+is_streaming_region (omp_region_p region) 
+{
+  return (region->streamization_info != NULL);
+}
+
+/* Enum to identify type of variable in clause */
+
+enum stream_access_type {
+  STREAM_ACCESS_TYPE_DIRECT = 0,  /* sinple type variable */
+  STREAM_ACCESS_TYPE_REFERENCE,   /* unsized variable, is passed as a pointer */
+  STREAM_ACCESS_TYPE_ARRAY        /* sized array, will be copied to the buffer */
+};
+
+
+/* This structure maps a stream to the variable it privatizes.  */
+typedef struct stream
+{
+  /* The variable this stream privatizes.  Can be NULL if this is a
+     control stream.  */
+  tree var;
+
+  /* The parallel region this stream depends on.  */
+  streamization_info_p *outermost_parallel_sinfo;
+
+  /* R/W or input and output views linked to this stream for producer
+     and consumer tasks.  */
+  VEC (view_p,heap) *rviews;
+  VEC (view_p,heap) *wviews;
+  VEC (view_p,heap) *fpviews;
+
+  /* The stream decl */
+  tree stream;
+
+  /* Buffer related tree nodes. */
+  tree buffer_type;
+
+  /* Set to access var by ref */
+  enum stream_access_type access_type;
+
+  tree element_type;
+  tree base_type;
+
+  /* Used for traversals */
+  bool visit;
+
+} stream_t;
+
+#define TYPE_SIZE_HAS_INT(TYPE) \
+   TREE_INT_CST_LOW (TYPE_SIZE_UNIT (TYPE))
+
+
+/* Compute a hash function for stream.  */
+static hashval_t
+hash_stream (const void *elt)
+{
+  return htab_hash_pointer (((const stream_t *) elt)->var);
+}
+
+/* Compares stream elements E1 and E2.  */
+static int
+eq_stream (const void *e1, const void *e2)
+{
+  const stream_t *elt1 = (const stream_t *) e1;
+  const stream_t *elt2 = (const stream_t *) e2;
+
+  return elt1->var == elt2->var;
+}
+
+/* TODO: Remove prototype by moving code */
+struct omp_context;
+static bool
+use_pointer_for_field (tree, struct omp_context *);
+
+/* Find a STREAM mapping for VAR or create one if missing in the
+   HTAB_STREAM of the outermost enclosing parallel region.  */
+
+static stream_p
+lookup_stream (tree var/*, omp_region_p region*/)
+{
+  stream_t **slot, tmp;
+  /*streamization_info_p sinfo =
+    get_outermost_parallel_streamization_info (region);*/
+
+  if (!htab_stream)
+    htab_stream = htab_create_ggc (10, hash_stream,
+				   eq_stream, NULL);
+  tmp.var = var;
+  slot = (stream_p *) htab_find_slot (htab_stream, &tmp, INSERT);
+
+  if (!*slot)
+    {
+      (*slot) = GGC_CNEW (stream_t);
+      (*slot)->var = var;
+      (*slot)->stream = create_tmp_var_raw (ptr_type_node, "gomp_stream");
+
+      (*slot)->element_type = TREE_TYPE (var);
+      if (TREE_CODE (TREE_TYPE (var)) == ARRAY_TYPE)
+	(*slot)->base_type = TREE_TYPE (TREE_TYPE (var));
+      else
+	(*slot)->base_type = TREE_TYPE (var);
+      (*slot)->buffer_type = build_pointer_type ((*slot)->element_type);
+    }
+
+  return (*slot);
+}
+
+/* Enum to identify type of a view.  */
+
+enum view_type {
+  READ_VIEW = 0,
+  WRITE_VIEW,
+  FIRSTPRIVATE_VIEW
+};
+
+/* Structure representing a VIEW */
+
+typedef struct view
+{
+  /* Region using this view to connect to a stream.  */
+  streamization_info_p sinfo;
+
+  /* Stream to which this view connects to */
+  stream_p stream;
+
+  /* Type of this view.  */
+  enum view_type type;
+
+  /* VAR_DECL that this view is associated to. */
+  tree var_decl;
+  /* Clause that it represents */
+  tree clause;
+
+  /* VAR_DECLS created for code generation */
+  tree view;
+
+  tree buffer_pointer;
+
+  /* Decl that defines the view var. 
+   * In case old syntax view_var is equal to stream->var */
+  tree view_var;
+  tree view_size;
+  tree burst_size;
+  tree element_size;
+
+  bool is_parametric_burst_size;
+  bool is_firstprivate_view;
+
+} view_t/*, *view_p*/;
+
+/* Build a view on STREAM for CLAUSE.  */
+
+static view_p
+build_view (stream_p stream, tree clause)
+{
+  view_p view = GGC_CNEW (view_t);
+  tree type;
+
+  view->stream = stream;
+  view->view = create_tmp_var (ptr_type_node, "view");
+  view->buffer_pointer = create_tmp_var (view->stream->buffer_type,
+					 "buffer_access_pointer");
+  view->clause = clause;
+  view->var_decl = stream->var;
+  view->is_parametric_burst_size = false;
+  view->is_firstprivate_view = false;
+
+  if (clause == NULL_TREE)
+    {
+      /* If this view is not built from an INPUT/OUTPUT clause, then
+	 it is the enclosing context's view for a FIRSTPRIVATE clause,
+	 so the VIEW and the STREAM are the same (no view/burst
+	 syntax).  */
+      view->view_var = stream->var;
+      type = TREE_TYPE (view->view_var);
+      view->element_size = TYPE_SIZE_UNIT (type);
+      view->is_firstprivate_view = true;
+      view->type = WRITE_VIEW;
+      view->burst_size = view->element_size;
+      view->view_size = view->element_size;
+      return view;
+    }
+
+  view->view_var = OMP_CLAUSE_VIEW_ID (clause) ?
+    OMP_CLAUSE_VIEW_ID (clause) : stream->var;
+  view->view_size = OMP_CLAUSE_VIEW_SIZE (clause);
+  view->burst_size = OMP_CLAUSE_BURST_SIZE (clause);
+  gcc_assert (view->view_var);
+
+  type = TREE_TYPE (view->view_var);
+  if (TREE_CODE (type) == ARRAY_TYPE)
+    {
+      view->element_size = TYPE_SIZE_UNIT (TREE_TYPE (type));
+      if (view->view_size == NULL_TREE)
+	view->view_size = TYPE_SIZE_UNIT (type);
+    }
+  else if (TREE_CODE (type) == POINTER_TYPE)
+    {
+      view->element_size = TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (type)));
+      if (view->view_size == NULL_TREE)
+	view->view_size = TYPE_SIZE_UNIT (TREE_TYPE (type));
+    }
+  else
+    {
+      view->element_size = TYPE_SIZE_UNIT (type);
+      if (view->view_size == NULL_TREE)
+	view->view_size = TYPE_SIZE_UNIT (type);
+    }
+
+  if (view->burst_size != NULL_TREE)
+    {
+      if (DECL_P (view->burst_size))
+	{
+	  /* We will have to issue the multiplication before view
+	     creation.  */
+	  view->is_parametric_burst_size = true;
+	}
+      else
+	{
+	  HOST_WIDE_INT burst_size_bytes =
+	    TREE_INT_CST_LOW (view->element_size) *
+	    TREE_INT_CST_LOW (view->burst_size);
+
+	  view->burst_size = size_int (burst_size_bytes);
+	}
+    }
+  else
+    {
+      view->burst_size = view->view_size;
+    }
+
+  return view;
+}
+
+/* Return the burst size for a view and insert at GSI any computation
+   statement required in case it is parametric.  */
+static tree
+get_view_burst_size (view_p view, gimple_stmt_iterator *gsi)
+{
+  if (view->is_parametric_burst_size)
+    {
+      tree burst_size = create_tmp_var (size_type_node, "burst_size");
+      gimple stmt;
+      tree tmp;
+
+      tmp = fold_convert (size_type_node, view->burst_size);
+      stmt = gimple_build_assign (burst_size, tmp);
+      gsi_insert_after (gsi, stmt, GSI_CONTINUE_LINKING);
+      stmt = gimple_build_assign_with_ops (MULT_EXPR, burst_size,
+					   view->element_size, burst_size);
+      gsi_insert_after (gsi, stmt, GSI_CONTINUE_LINKING);
+      view->burst_size = burst_size;
+      return burst_size;
+    }
+  else
+    {
+      return view->burst_size;
+    }
+}
+
+
+struct replace_var_in_stmt_info
+{
+  view_p view;
+  tree array_idx;
+  tree idx;
+  tree elt;
+  tree access;
+  tree base_ptr;
+  tree reg_addr;
+  tree deref;
+  tree addr;
+
+  bool is_pointer_type;
+};
+
+static tree
+replace_var_in_stmt (tree *tp, int *walk_subtrees, void *data)
+{
+  struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
+  struct replace_var_in_stmt_info *info =
+    (struct replace_var_in_stmt_info *) wi->info;
+  view_p view = info->view;
+  tree t = *tp;
+  gimple stmt;
+
+  tree base_type = view->stream->base_type;
+  tree base_ptr_type = build_pointer_type (base_type);
+
+  tree element_type = view->stream->element_type;
+  tree element_ptr_type = build_pointer_type (element_type);
+
+
+  /* We're only interested in ARRAY_REFs and COMPONENT_REFs.  */
+  switch (TREE_CODE (t))
+    {
+      /* (view): just replace the view by a cast and dereferenced
+	 pointer to the buffer.  */
+    case VAR_DECL:
+      if (DECL_PT_UID (t) == DECL_PT_UID (view->view_var))
+	{
+	  wi->changed = true;
+	  if (info->is_pointer_type)
+	    *tp = view->buffer_pointer;
+	  else
+	    *tp = build_fold_indirect_ref (view->buffer_pointer);
+	}
+      break;
+
+      /* (*view): should only be possible if the stream carries
+	 pointers.  Other cases would not be possible (they would
+	 require temporaries).  Two cases: *view or *view[i].  */
+    case INDIRECT_REF:
+      {
+	t = TREE_OPERAND (t, 0);
+	wi->changed = false;
+	replace_var_in_stmt (&t, walk_subtrees, data);
+
+	if  (wi->changed && !info->is_pointer_type)
+	  {
+	    /* We require that t be dereferenceable.  */
+	    gcc_assert (POINTER_TYPE_P (TREE_TYPE (t)));
+	    info->deref = create_tmp_var (element_ptr_type, "deref");
+	    stmt = gimple_build_assign (info->deref, t);
+	    gsi_insert_before (&wi->gsi, stmt, GSI_SAME_STMT);
+	    *tp = build_fold_indirect_ref (info->deref);
+	  }
+	if (info->is_pointer_type)
+	  *tp = build_fold_indirect_ref (t);
+      }
+      break;
+
+      /* Not handled in our case.  */
+    case COMPONENT_REF:
+      {
+	t = TREE_OPERAND (t, 0);
+	wi->changed = false;
+	replace_var_in_stmt (&t, walk_subtrees, data);
+
+	if (wi->changed)
+	  TREE_OPERAND (*tp, 0) = t;
+      }
+      break;
+
+      /* (&view): for example (&view[i])  */
+    case ADDR_EXPR:
+      {
+	t = TREE_OPERAND (t, 0);
+	wi->changed = false;
+	replace_var_in_stmt (&t, walk_subtrees, data);
+
+	if  (wi->changed)
+	  {
+	    /* &*view is pointless for us.  Given the transformations
+	       of the subtree this can happen from &view[i] too.  */
+	    switch (TREE_CODE (t))
+	      {
+	      case INDIRECT_REF:
+		*tp = TREE_OPERAND (t, 0);
+		break;
+	      case ARRAY_REF:
+		/* This case can also be simplified, with caution on
+		   the array ref index.  */
+		{
+		  tree base_size = build_int_cst (size_type_node,
+						  TYPE_SIZE_HAS_INT (view->stream->base_type));
+		  tree array_index = TREE_OPERAND (t, 1);
+		  tree index;
+		  tree cast = view->buffer_pointer;
+		  tree tmp;
+
+		  /* A special common case: &view[0]. */
+		  if (TREE_CODE (array_index) == INTEGER_CST
+		      && TREE_INT_CST_LOW (array_index) == 0)
+		    {
+		      cast = create_tmp_var (base_ptr_type, NULL);
+		      tmp = fold_convert (base_ptr_type, view->buffer_pointer);
+		      stmt = gimple_build_assign (cast, tmp);
+		      gsi_insert_before (&wi->gsi, stmt, GSI_SAME_STMT);
+		      *tp = cast;
+		      return NULL_TREE;
+		    }
+
+		  if (!is_gimple_constant (array_index))
+		    {
+		      index = create_tmp_var (size_type_node, NULL);
+		      tmp = fold_convert (size_type_node, array_index);
+		      stmt = gimple_build_assign (index, tmp);
+		      gsi_insert_before (&wi->gsi, stmt, GSI_SAME_STMT);
+		      array_index = index;
+		    }
+		  index = create_tmp_var (size_type_node, NULL);
+		  tmp = fold_convert (size_type_node, array_index);
+		  stmt = gimple_build_assign_with_ops (MULT_EXPR, index, tmp, base_size);
+		  gsi_insert_before (&wi->gsi, stmt, GSI_SAME_STMT);
+		  cast = create_tmp_var (base_ptr_type, NULL);
+		  stmt = gimple_build_assign (cast, fold_convert (base_ptr_type, view->buffer_pointer));
+		  gsi_insert_before (&wi->gsi, stmt, GSI_SAME_STMT);
+		  stmt = gimple_build_assign_with_ops (POINTER_PLUS_EXPR, cast, cast, index);
+		  gsi_insert_before (&wi->gsi, stmt, GSI_SAME_STMT);
+		  *tp = cast;
+		}
+		break;
+
+	      case COMPONENT_REF:
+		break;
+
+	      default:
+		info->reg_addr = create_tmp_var (base_type, "reg_addr");
+		info->addr = create_tmp_var (base_type, "addr");
+		TREE_ADDRESSABLE (info->addr) = 1;
+		stmt = gimple_build_assign (info->reg_addr, t);
+		gsi_insert_before (&wi->gsi, stmt, GSI_SAME_STMT);
+		stmt = gimple_build_assign (info->addr, info->reg_addr);
+		gsi_insert_before (&wi->gsi, stmt, GSI_SAME_STMT);
+
+		*tp = build_fold_addr_expr (info->addr);
+	      }
+	  }
+      }
+      break;
+
+    case ARRAY_REF:
+      {
+	t = TREE_OPERAND (t, 0);
+	wi->changed = false;
+	replace_var_in_stmt (&t, walk_subtrees, data);
+
+	if  (wi->changed)
+	  {
+	    tree base = TREE_OPERAND (*tp, 0);
+
+	    /* Ensure that if we only have a pointer type available
+	       (e.g., if the view is parametric sized), we compute the
+	       pointer position rather keep the array access.  */
+	    if (TREE_TYPE (t) == TREE_TYPE (base))
+	      TREE_OPERAND (*tp, 0) = t;
+	    else
+	      {
+		tree pointer_to_array_type = build_pointer_type (TREE_TYPE (TREE_OPERAND (*tp, 0)));
+		tree tmp = create_tmp_var (pointer_to_array_type, NULL);
+
+		gcc_assert (TREE_CODE (t) == INDIRECT_REF);
+
+		stmt = gimple_build_assign (tmp, fold_convert (pointer_to_array_type, TREE_OPERAND (t, 0)));
+		gsi_insert_before (&wi->gsi, stmt, GSI_SAME_STMT);
+		TREE_OPERAND (*tp, 0) = build_fold_indirect_ref (tmp);
+
+		/*
+		tree array_index = TREE_OPERAND (*tp, 1);
+		tree shift;
+		tree base_size = TYPE_SIZE_UNIT (TREE_TYPE (t));
+		tree base_pointer = TREE_OPERAND (t, 0);
+
+		gcc_assert (TREE_CODE (t) == INDIRECT_REF);
+
+		if (!is_gimple_constant (array_index))
+		  {
+		    tree index = create_tmp_var (size_type_node, NULL);
+		    stmt = gimple_build_assign (index, fold_convert (size_type_node, array_index));
+		    gsi_insert_before (&wi->gsi, stmt, GSI_SAME_STMT);
+		    array_index = index;
+		  }
+
+
+		shift = create_tmp_var (size_type_node, NULL);
+		stmt = gimple_build_assign_with_ops (MULT_EXPR, shift, array_index, base_size);
+		gsi_insert_before (&wi->gsi, stmt, GSI_SAME_STMT);
+
+		stmt = gimple_build_assign_with_ops (POINTER_PLUS_EXPR, base_pointer, base_pointer, shift);
+		gsi_insert_before (&wi->gsi, stmt, GSI_SAME_STMT);
+		*tp = build_fold_indirect_ref (base_pointer);
+		*/
+	      }
+	  }
+      }
+      break;
+    default:
+      break;
+    }
+
+
+  return NULL_TREE;
+}
+
+static void
+convert_view_to_var (view_p view, basic_block entry_bb, basic_block exit_bb)
+{
+  gimple_stmt_iterator gsi;
+  gimple stmt;
+  tree view_type = TREE_TYPE (view->view_var);
+
+  /* If the type cannot fit a register, we won't duplicate, so we need
+     to replace in the body of the task all occurrences.  Otherwise,
+     just load to a register the value (there is no penalty in doing
+     so) at the beginning of the body or store back at the end.  */
+  if (AGGREGATE_TYPE_P (view_type) || POINTER_TYPE_P (view_type))
+    {
+      VEC (basic_block, heap) *bbs = NULL;
+      struct walk_stmt_info wi;
+      basic_block bb;
+      int i;
+
+      VEC_safe_push (basic_block, heap, bbs, entry_bb);
+      gather_blocks_in_sese_region (entry_bb, exit_bb, &bbs);
+
+      for (i = 0; VEC_iterate (basic_block, bbs, i, bb); ++i)
+	{
+	  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+	    {
+	      struct replace_var_in_stmt_info info;
+	      info.view = view;
+	      info.is_pointer_type = POINTER_TYPE_P (view_type);
+	      memset (&wi, 0, sizeof (wi));
+	      wi.gsi = gsi;
+	      wi.info = &info;;
+
+	      walk_gimple_op (gsi_stmt (gsi), replace_var_in_stmt, &wi);
+	    }
+	}
+    }
+  else
+    {
+      tree var = (is_gimple_reg (view->view_var)) ? view->view_var :
+	create_tmp_var (TREE_TYPE (view->view_var), "reg_load");
+
+      if (view->type == READ_VIEW)
+	{
+	  gsi = gsi_last_bb (entry_bb);
+	  stmt = gimple_build_assign (var, build_fold_indirect_ref (view->buffer_pointer));
+	  gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+	  if (!is_gimple_reg (view->view_var))
+	    {
+	      stmt = gimple_build_assign (view->view_var, var);
+	      gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+	    }
+	}
+      else
+	{
+	  gsi = gsi_last_bb (exit_bb);
+
+	  if (!is_gimple_reg (view->view_var))
+	    {
+	      stmt = gimple_build_assign (var, view->view_var);
+	      gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+	    }
+	  stmt = gimple_build_assign (build_fold_indirect_ref (view->buffer_pointer), var);
+	  gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+	}
+    }
+}
+
 /* Map a clause to the related VAR_DECL */
-typedef struct clause_to_var_struct 
+typedef struct clause_to_var_struct
 {
   tree clause;
 
@@ -128,352 +990,6 @@ lookup_var_for_clause (tree clause)
   return &((*slot)->var);
 }
 
-/* Structure holding pointers to all relevant basic blocks for
-   streamization within a omp_region. */
-typedef struct regions_streamization_info_struct
-{
-  /* The task pragma statement.  */
-  struct omp_region *task_region;
-
-  /* omp pragma statement */
-  gimple stmt;
-
-  /* Same as OMP region */
-  basic_block entry_bb;
-  basic_block exit_bb;
-
-  /* Init, Clean and Final BBS.
-   * init_bb = init vars, views allocate and connect
-   * TODO clean_bb = currently not in use. 
-   * final_bb = GOMP_stream_task_exit */
-  basic_block init_bb;
-  basic_block clean_bb;
-  basic_block final_bb;
-
-  /* To insert GOMP_wait_until_connected */
-  basic_block init_latch_bb;
-
-  /* BBS for synchronization loop */
-  basic_block outer_head;
-  basic_block outer_check;
-  basic_block outer_first;
-  basic_block outer_latch;
-  basic_block outer_last;
-  basic_block outer_exit;
-
-  /* BBS representing the non generated task body. */
-  basic_block sese_entry;
-  basic_block sese_exit;
-
-  /* VAR_DECLs to be used for condition */
-  tree outer_loop_cond;
-  tree inner_loop_cond;
-
-  /* VAR_DECL to be used to define the runtime task. 
-   * Should exist a single one per region, and thats why it is defined in this
-   * data structure. */
-  tree task_decl;
-
-} *regions_streamization_info;
-
-/* Helper function to return regions_streamization_info_struct for a
- * region 
- * Allocates and initializes it if called for the first time for a specific
- * region. */
-static regions_streamization_info
-get_streamisation_info_for_region (struct omp_region *region)
-{
-  if(!region->streamization_info)
-  {
-    regions_streamization_info task = GGC_CNEW (struct regions_streamization_info_struct);
-    region->streamization_info = task;
-    
-    task->task_region = region;
-    task->entry_bb = region->entry;
-    task->exit_bb = region->exit;
-    task->stmt = last_stmt (region->entry);
-
-    task->task_decl = NULL_TREE;
-  }
-
-  return (regions_streamization_info) region->streamization_info;
-}
-
-/* Enum to identify type of variable in clause */
-enum stream_access_type {
-  STREAM_ACCESS_TYPE_DIRECT = 0,  /* sinple type variable */
-  STREAM_ACCESS_TYPE_REFERENCE,   /* unsized variable, is passed as a pointer */
-  STREAM_ACCESS_TYPE_ARRAY        /* sized array, will be copied to the buffer */
-};
-
-/* This structure maps a stream to the variable it privatizes.  */
-typedef struct stream_struct
-{
-  /* The variable this stream privatizes.  */
-  tree var;
-
-  /* Store the actual read/write variables.  */
-  htab_t *views;
-
-  /* Counters for number of views and type */
-  int nr_consumers;
-  int nr_producers;
-
-  /* The stream decl */
-  tree stream;
-
-  /* Buffer related tree nodes. */
-  tree buffer_type;
-  tree buffer_mask;
-
-  /* Set to access var by ref */
-  enum stream_access_type access_type;
-
-  tree element_type;
-
-  /* Used for traversals */
-  bool visit;
-
-} *stream;
-
-#define TYPE_SIZE_HAS_INT(TYPE) \
-   TREE_INT_CST_LOW (TYPE_SIZE_UNIT (TYPE))
-
-/* Map all streamized variables to their respective streams.  */
-htab_t htab_stream;
-
-/* Compute a hash function for stream.  */
-static hashval_t
-hash_stream (const void *elt)
-{
-  return htab_hash_pointer (((const struct stream_struct *) elt)->var);
-}
-
-/* Compares stream elements E1 and E2.  */
-static int
-eq_stream (const void *e1, const void *e2)
-{
-  const struct stream_struct *elt1 = (const struct stream_struct *) e1;
-  const struct stream_struct *elt2 = (const struct stream_struct *) e2;
-
-  return elt1->var == elt2->var;
-}
-
-/* TODO: Remove prototype by moving code */
-struct omp_context;
-static bool
-use_pointer_for_field (tree, struct omp_context *);
-
-/* Find a STREAM mapping for VAR or create one if missing in
-   HTAB_VAR_STREAM.  */
-#define lookup_stream(VAR) \
-    _lookup_stream(VAR, true);
-static stream
-_lookup_stream (tree var, bool insert)
-{
-  struct stream_struct **slot, tmp;
-  tmp.var = var;
-
-  if (!htab_stream)
-    htab_stream = htab_create_ggc (10, hash_stream,
-				       eq_stream, NULL);
-
-  if(insert)
-    slot = (stream *) htab_find_slot (htab_stream, &tmp, INSERT);
-  else
-  {
-    slot = (stream *) htab_find_slot (htab_stream, &tmp, NO_INSERT);
-    if(slot != NULL)
-      return (*slot);
-    else
-      return NULL;
-  }
-
-  if (!*slot)
-    {
-      (*slot) = GGC_CNEW (struct stream_struct);
-      (*slot)->var = var;
-      (*slot)->stream = create_tmp_var_raw (ptr_type_node, "gomp_stream");
-
-      (*slot)->element_type = TREE_TYPE (var);
-      (*slot)->buffer_type = build_pointer_type ((*slot)->element_type);
-
-      (*slot)->nr_producers = 0;
-      (*slot)->nr_consumers = 0;
-      (*slot)->views = (htab_t *) xmalloc (sizeof(htab_t));
-      *(*slot)->views = NULL;
-
-      /* We need to ensure the type we use is consistent.  */
-#define HORIZON 4096
-      (*slot)->buffer_mask = build_int_cst (long_long_unsigned_type_node, HORIZON - 1);
-    }
-
-  return (*slot);
-}
-
-/* Structure representing a VIEW */
-typedef struct view_struct
-{
-  /* Pointer to associate view to any type of object. 
-   * Currently only associated with omp_region. */
-  void *pointer;
-
-  /* Stream to which this view connects to */
-  struct stream_struct *stream;
-
-  /* VAR_DECL that this view is associated to. */
-  tree var_decl;
-  /* Clause that it represents */
-  tree clause;
-
-  /* VAR_DECLS created for code generation */
-  tree view;
-  tree index;
-  tree sync_index;
-
-  tree data;
-  tree buffer_pointer;
-
-  /* Decl that defines the view var. 
-   * In case old syntax view_var is equal to stream->var */
-  tree view_var;
-  tree burst;
-  tree view_horizon;
-
-  /* Flag type of view (read / write) */
-  bool is_producer;
-
-  /* Traversal flag */
-  bool visit;
-
-  /* TODO: Remove this after PLDI deadline. I mean solve associated bug. ;-) */
-  bool expanded_push_pop;
-
-  /* Pointer used for traversals */
-  void *info;
-} *view;
-
-/* Hash fnction for VIEW */
-static hashval_t
-hash_view (const void *elt)
-{
-  return htab_hash_pointer (((const struct view_struct *) elt)->pointer);
-}
-
-/* Compares VIEW elements E1 and E2.  */
-static int
-eq_view (const void *e1, const void *e2)
-{
-  const struct view_struct *elt1 = (const struct view_struct *) e1;
-  const struct view_struct *elt2 = (const struct view_struct *) e2;
-
-  return elt1->pointer == elt2->pointer;
-}
-
-/* Helper function to allocate view */
-static view
-alloc_view (void *pointer)
-{
-  view ret = GGC_CNEW (struct view_struct);
-
-  ret->pointer = pointer;
-  return ret;
-}
-
-#define GET_VIEW_FOR_STREAM_WITH_POINTER(STREAM, POINTER) \
-  lookup_view(POINTER, &(STREAM->views), false)
-  
-#define lookup_view(POINTER, HASH) \
-  _lookup_view (POINTER, HASH, true)
-
-#define maybe_lookup_view(POINTER, HASH) \
-  _lookup_view (POINTER, HASH, false)
-
-/* Find a VIEW mapping for a POINTER object. */
-static view
-_lookup_view (void *pointer, htab_t *hash, bool insert)
-{
-  struct view_struct **slot, tmp;
-
-  if (!*hash)
-    *hash = htab_create_ggc (10, hash_view,
-			        eq_view, NULL);
-
-  tmp.pointer = pointer;
-  if(insert == true)
-    slot = (view *) htab_find_slot (*hash, &tmp, INSERT);
-  else
-    slot = (view *) htab_find_slot (*hash, &tmp, NO_INSERT);
-
-  if(insert == false && slot == NULL)
-    return NULL;
-
-  if (!*slot)
-    (*slot) = alloc_view(pointer);
-
-  return (*slot);
-}
-
-/* Macro to traverse VIEW structures related to REGION. */
-#define TRAVERSE_VIEWS_IN_REGION(REGION, CALLBACK, DATA) \
-  if (REGION->view_pointers != NULL) \
-    htab_traverse (REGION->view_pointers, CALLBACK, (void *) DATA);
-
-/* Helper function to clear visit boolean in all stream and view structures. */
-static int
-clear_visit_on_views_and_streams (void **slot, void *data ATTRIBUTE_UNUSED)
-{
-  view v = (view) *slot;
-
-  v->visit = false;
-  v->stream->visit = false;
-  return 1;
-}
-
-/* Traversal function to visit VIEW structures related to REGION and child
- * regions. */
-static void 
-traverse_views_in_region_and_subs (struct omp_region *region, htab_trav cb, void *data, bool visit_neighbour)
-{
-  if(region->inner != NULL)
-    traverse_views_in_region_and_subs (region->inner, cb, data, true);
-
-  if(visit_neighbour == true && region->next != NULL)
-  {
-    traverse_views_in_region_and_subs (region->next, cb, data, true);
-  }
-
-  if(region->view_pointers != NULL)
-    htab_traverse (region->view_pointers, cb, data);
-}
-
-/* Macro clear visit and traverse VIEW structures related to REGION and child
- * regions. */
-#define TRAVERSE_VIEWS_IN_REGION_AND_SUBS(REGION, CALLBACK, DATA) \
-  traverse_views_in_region_and_subs (REGION, clear_visit_on_views_and_streams, NULL, false); \
-  traverse_views_in_region_and_subs (REGION, CALLBACK, (void *) DATA, false);
-
-/* Find VIEW if view relates to a REGION */
-static view
-lookup_view_in_region (struct omp_region *region, view v)
-{
-  void **slot;
-  void *ptr = (void *) v;
-
-  if (!region->view_pointers)
-    region->view_pointers = htab_create_ggc (10, htab_hash_pointer, htab_eq_pointer, NULL);
-  
-  slot = (void **) htab_find_slot (region->view_pointers, &v, INSERT);
-  gcc_assert (slot);
-
-  if(!*slot)
-  {
-    (*slot) = GGC_CNEW (void *);
-    (*slot) = ptr;
-  }
-
-  return (view) (*slot);
-}
 
 /* Location types for statement re-ordering when generating code for
    streamization during OMP expansion.  */
@@ -587,863 +1103,6 @@ set_stmt_loc_if_none (gimple stmt, enum stmt_location loc)
     sl->loc = loc;
 }
 
-/* This function will ensure that the outer context of the task is
-   ready for streamization (in particular that all the placeholder
-   blocks are in place for the code to be generated).
-
-   We need to ensure that we get, for stream creation and
-   initialization, a BB that is in a OMP SINGLE region.  The original
-   pattern is:
-   
-   <OMP SINGLE ENTRY_BB>:
-     ...
-     #pragma omp single
-   
-   <START_BB>:
-     if (__builtin_GOMP_single_start () == 1)
-       goto <DO_SINGLE>;
-     else
-       goto <OMP SINGLE EXIT_BB>;
-   
-   <DO_SINGLE>:
-     ...
-   
-   <OMP SINGLE EXIT_BB>:
-     ...
-     #pragma omp return
-*/
-
-static void
-prepare_outer_context_for_streaming (regions_streamization_info task)
-{
-  gimple_stmt_iterator src, dst;
-  struct omp_region *outer = task->task_region->outer;
-  regions_streamization_info outer_task;
-
-  /* Restrict streamization to tasks within a OMP_SINGLE
-     region.  For now ...  */
-  gcc_assert 
-    (outer && (gimple_code (last_stmt (outer->entry)) == GIMPLE_OMP_SINGLE));
-
-  outer_task = get_streamisation_info_for_region (outer);
-
-  if (!outer_task->init_bb)
-    {
-      /* FIXME-stream: check this and adjust w/o MN.  */
-      edge e = EDGE_SUCC (single_succ (outer->entry), 0);
-      outer_task->init_bb = split_edge (e);
-    }
-
-  /* As the tasks will only be created once, we need to hoist
-     the task creation calls as well as all the necessary
-     sender-side copy-in statements before the start of the
-     SINGLE body.  This obviously means that it is
-     unacceptable to have sharing clauses on streamized tasks
-     that bear on variables with reaching definitions within
-     the OMP SINGLE region.  */
-  src = gsi_start_bb (task->entry_bb);
-  dst = gsi_last_bb (outer_task->init_bb);
-  while (!gsi_end_p (src))
-    if (get_stmt_loc (gsi_stmt (src)) == SL_COPY_IN)
-      gsi_move_after (&src, &dst);
-    else
-      gsi_next (&src);
-}
-
-/* This function organizes the code and placeholders within the task's
-   body in preparation for the expansion.  */
-static void
-prepare_inner_context_for_streaming (regions_streamization_info task)
-{
-  gimple_stmt_iterator gsi, src, dst;
-  gimple stmt;
-  edge e;
-
-  /* 
-     This code regorganizes the CFG to the extreme case of streamization expansion.
-     Further passes and GCC optimizations will reduce its complexity 
-     if it was too extreme for the expansion needed.
-
-     From the original structure:
-
-       <ENTRY_BB>:
-         ...
-	 #pragma omp task ...
-
-       <TASK_BODY_BBS>:
-         ...
-
-       <EXIT_BB>:
-         ...
-	 #pragma omp return
-
-     We re-arrange the CFG to look and support the following code:
-
-       <ENTRY_BB>:
-         ...
-	 #pragma omp task ...
-
-       <INIT_BB>:
-         // copy-in of stream pointers and FIRSTPRIVATE/SHARED variables
-         // Initialize all the views
-         index = 0;
-
-       <OUTER_HEAD_BB>:
-         sync_index = index + burst_size;
-         update_index = update (sync_index);
-         stall(sync_index);
-         
-       <INNER_HEAD_BB> // OUTER_CHECK_LOOP
-         if (update_index != sync_index)
-           goto OUTER_LAST_BB;
-
-       <INNER_FIRST_BB>
-         // Setup data from input clauses
-
-       <TASK_ENTRY_BB>
-
-       <TASK_BODY_BBS>
-
-       <TASK_EXIT_BB>
-
-       <INNER_LAST_BB>
-         // Setup data from output clauses
-
-       <INNER_LATCH_BB>
-         index += 1; // += burst;
-         goto INNER_HEAD_BB; // REMOVE
-
-       <OUTER_LAST_BB>
-         commit (index)
-         release (index)
-
-       <OUTER_LATCH_BB>
-         goto OUTER_HEAD_BB;
-         // if (update_index == sync_index)
-         //   goto OUTER_HEAD_BB;
-
-       <FINAL_BB>:
-         // Call task exit
-
-       <EXIT_BB>:
-         #pragma omp return
-  */
-  /* Collect info of the processing region and disconnect from CFG */
-  basic_block body_enter_bb = single_succ (task->entry_bb);
-  basic_block body_exit_bb;
-
-  gsi = gsi_last_bb (task->exit_bb);
-  gcc_assert (!gsi_end_p (gsi) && gimple_code (gsi_stmt (gsi)) == GIMPLE_OMP_RETURN);
-
-  gsi_prev(&gsi);
-  stmt = (gsi_end_p (gsi)) ? NULL : gsi_stmt (gsi);
-
-  e = split_block (task->exit_bb, stmt);
-  body_exit_bb = e->src;
-  task->exit_bb = e->dest;
-  remove_edge (e);
-  
-  /* Create all the BB need for CFG change */
-  task->init_bb = split_edge (single_succ_edge (task->entry_bb));
-
-  task->outer_head = split_edge (single_succ_edge (task->init_bb));
-
-  task->outer_check = split_edge (single_succ_edge (task->outer_head));
-  task->outer_first = split_edge (single_succ_edge (task->outer_check));
-
-  task->sese_entry = split_edge (single_succ_edge (task->outer_first)); 
-  task->sese_exit = split_edge (single_succ_edge (task->sese_entry)); 
-
-  task->outer_last = split_edge (single_succ_edge (task->sese_exit)); 
-  task->outer_latch = split_edge (single_succ_edge (task->outer_last)); 
-
-  task->outer_exit = split_edge (single_succ_edge (task->outer_latch)); 
-
-  /* Separate the return call from any other statements in the
-     EXIT_BB as well as from labels.  */
-  gsi = gsi_last_bb (task->exit_bb);
-  gcc_assert (gimple_code (gsi_stmt (gsi)) == GIMPLE_OMP_RETURN);
-  gsi_prev (&gsi);
-  stmt = (gsi_end_p (gsi)) ? NULL : gsi_stmt (gsi);
-  e = split_block (task->exit_bb, stmt);
-  task->exit_bb = e->dest;
-  task->final_bb = e->src;
-
-  /* Loopify both regions */
-  redirect_edge_and_branch (single_succ_edge(task->outer_latch), task->outer_head);
-  redirect_edge_and_branch (single_succ_edge(task->outer_exit), task->final_bb);
-
-  /* Create condition for both loop headers */
-  task->outer_loop_cond = create_tmp_var (boolean_type_node, "outer_loop_cond");
-  task->inner_loop_cond = create_tmp_var (boolean_type_node, "inner_loop_cond");
-
-  gsi = gsi_start_bb (task->init_bb);
-  stmt = gimple_build_assign (task->outer_loop_cond, boolean_false_node);
-  gsi_insert_before (&gsi, stmt, GSI_CONTINUE_LINKING);
-
-  /* Update edges for outer loop check and add condition */
-  remove_edge (single_succ_edge (task->outer_check));
-  make_edge (task->outer_check, task->outer_first,
-             EDGE_TRUE_VALUE);
-  make_edge (task->outer_check, task->outer_exit, EDGE_FALSE_VALUE);
-   
-  stmt = gimple_build_cond (EQ_EXPR, task->outer_loop_cond, boolean_true_node,
-                            NULL_TREE, NULL_TREE);
-  gsi = gsi_last_bb (task->outer_check);
-  gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
-
-  set_immediate_dominator (CDI_DOMINATORS,
-                           task->outer_exit, task->outer_check);
-
-  /* Move stream initialization to init BB */
-  src = gsi_start_bb (body_enter_bb);
-  dst = gsi_last_bb (task->init_bb);
-  while (!gsi_end_p (src))
-    if (get_stmt_loc (gsi_stmt (src)) == SL_COPY_IN)
-      gsi_move_after (&src, &dst);
-    else
-      gsi_next (&src);
-
-  /* Correct edges to body part */
-  remove_edge (single_succ_edge (task->sese_entry));
-  make_edge (task->sese_entry, body_enter_bb, EDGE_FALLTHRU);
-  make_edge (body_exit_bb, task->sese_exit, EDGE_FALLTHRU);
-}
-
-static void
-compute_data_position (tree assign_node, tree data_decl, tree index, tree elem_type, tree horizon_mask, gimple_seq *ilist)
-{
-  gimple stmt;
-  tree bounded_index, final_index;
-
-  if (index != NULL_TREE)
-    index = fold_convert (long_long_unsigned_type_node, index);
-
-  /* Find absolute index */
-  if(horizon_mask != NULL_TREE)
-  {
-    bounded_index = create_tmp_var (long_long_unsigned_type_node, "bounded_index");
-    stmt = gimple_build_assign_with_ops (BIT_AND_EXPR, bounded_index, index, horizon_mask);
-    gimple_seq_add_stmt (ilist, stmt);
-  }
-  else
-    bounded_index = index;
-
-  if(index != NULL_TREE)
-  {
-    /* Compute shift with element_size*/
-    final_index = create_tmp_var (long_long_unsigned_type_node, "final_index");
-    stmt = gimple_build_assign_with_ops (MULT_EXPR, final_index, bounded_index, 
-            build_int_cst (long_long_unsigned_type_node, TYPE_SIZE_HAS_INT (elem_type)));
-    gimple_seq_add_stmt (ilist, stmt);
-  }
-  else
-    final_index = build_int_cst (long_long_unsigned_type_node, 0);
-
-  /* Create VAR_DECL and compute right address for it. */
-  stmt = gimple_build_assign_with_ops (POINTER_PLUS_EXPR, assign_node, data_decl, final_index);
-  gimple_seq_add_stmt (ilist, stmt);
-}
-
-static bool
-is_same_expression (tree node_a, tree node_b)
-{
-  if(node_a == node_b)
-    return true;
-  else if(TREE_CODE(node_a) == TREE_CODE(node_b) && TREE_OPERAND_LENGTH (node_a) > 0)
-  {
-    bool result = true;
-    int i;
-
-    if(TREE_TYPE (node_a) != TREE_TYPE (node_b))
-      return false;
-
-    for(i = 0; i < TREE_OPERAND_LENGTH (node_a); i++) 
-    {
-      result = is_same_expression (TREE_OPERAND (node_a, i), TREE_OPERAND (node_b, i));
-
-      if(result == false)
-        return false;
-    }
-    return true;
-  }
-  return false;
-}
-
-struct convert_view_var_array_struct {
-  gimple_seq ilist;
-  gimple_seq olist;
-  bool remove_stmt;
-  bool assign_to_var_if_has_parent;
-};
-
-static tree
-convert_view_var_array (tree *tp, int *walk_subtrees,
-    			void *data)
-{
-  tree t = *tp;
-  struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
-
-  view v = (view) wi->info;
-  struct convert_view_var_array_struct *info = (struct convert_view_var_array_struct *) v->info;
-
-  tree index;
-  bool convert = false;
-  bool to_remove = false;
-  tree buffer_pointer;
-  gimple stmt;
-
-  /* If current_element matches the view_var */
-  if(is_same_expression (t, v->view_var))
-    {
-      index = build_int_cst (long_long_unsigned_type_node, 0);
-      convert = true;
-    }
-  /* In case a view_var is inside a ARRAY_REF */
-  else if(TREE_CODE(t) == ARRAY_REF)
-    {
-      t = TREE_OPERAND (t, 0);
-
-      wi->changed = false;
-      convert_view_var_array (&t, walk_subtrees, data);
-      if(wi->changed)
-        {
-          if(TREE_CODE (TREE_TYPE (t)) == ARRAY_TYPE)
-            TREE_OPERAND (*tp, 0) = t;
-          else
-          {
-            tree local_index = TREE_OPERAND (*tp, 1);
-
-            tree tmp = create_tmp_var (build_pointer_type (TREE_TYPE (t)), "tmp_element1");
-            compute_data_position (tmp, build_fold_addr_expr (t), local_index, TREE_TYPE (t), NULL_TREE, &info->ilist);
-
-            *tp = build_fold_indirect_ref (tmp);
-          }
-
-          info->assign_to_var_if_has_parent = true;
-        }
-    }
-  /* In case view_var is inside a ADDR_EXPR */
-  else if(TREE_CODE (t) == ADDR_EXPR)
-    {
-      t = TREE_OPERAND (t, 0);
-
-      wi->changed = false;
-      convert_view_var_array (&t, walk_subtrees, data);
-
-      if(wi->changed)
-        {
-          if(TREE_CODE (t) == ARRAY_REF)
-            {
-              tree tmp;
-              tree local_index = TREE_OPERAND (t, 1);
-              tree array = TREE_OPERAND (t, 0);
-              tree array_pointer = build_fold_addr_expr (array);
-
-              tree array_pointer_cast = create_tmp_var (TREE_TYPE (*tp), "cast_array");
-              stmt = gimple_build_assign_with_ops (NOP_EXPR, array_pointer_cast, array_pointer, NULL_TREE);
-              gimple_seq_add_stmt (&info->ilist, stmt);
-
-              tmp = create_tmp_var (TREE_TYPE (*tp), "tmp_element");
-              compute_data_position (tmp, array_pointer_cast, local_index, TREE_TYPE (TREE_TYPE (array)), NULL_TREE, &info->ilist);
-              t = tmp;
-            }
-          else
-            t = build_fold_addr_expr (t);
-
-          *tp = t;
-        }
-    }
-  /* In case view_var is inside a INDIRECT_REF */
-  else if(TREE_CODE(t) == INDIRECT_REF)
-    {
-      t = TREE_OPERAND (t, 0);
-
-      wi->changed = false;
-      convert_view_var_array (&t, walk_subtrees, data);
-
-      if(wi->changed)
-        {
-          if(info->assign_to_var_if_has_parent == true)
-            {
-              tree tmp;
-              t = build_fold_indirect_ref (t);
-
-              tmp = create_tmp_var (TREE_TYPE (t), "var_copy");
-              stmt = gimple_build_assign (tmp, t);
-              gimple_seq_add_stmt (&info->ilist, stmt);
-
-              t = tmp;
-              info->assign_to_var_if_has_parent = false;
-            }
-
-          *tp = t;
-        }
-    }
-  /* In case view_var is inside a (->) */
-  else if(TREE_CODE(t) == COMPONENT_REF)
-    {
-      t = TREE_OPERAND (*tp, 0);
-
-      wi->changed = false;
-      convert_view_var_array (&t, walk_subtrees, data);
-
-      if(wi->changed)
-        {
-          if(info->assign_to_var_if_has_parent == true)
-            {
-              tree tmp = create_tmp_var (TREE_TYPE (t), "var_copy");
-              stmt = gimple_build_assign (tmp, t);
-              gimple_seq_add_stmt (&info->ilist, stmt);
-
-              t = tmp;
-              info->assign_to_var_if_has_parent = false;
-            }
-
-          TREE_OPERAND (*tp, 0) = t;
-        }
-    }
-
-  if(convert == true)
-  {
-    /* Compute right buffer position for index */
-    buffer_pointer = create_tmp_var (v->stream->buffer_type, "data_pointer_elem");
-    compute_data_position (buffer_pointer, v->buffer_pointer, index, v->stream->element_type, NULL_TREE, &info->ilist);
-
-    /* Perform memcpy 
-       TODO: Understand why the assignements between the buffers of type ARRAY
-       does not implicitly create a memcpy. A real memcpy in code, between
-       ARRAYs  is parsed to it. */
-    if(TREE_CODE (TREE_TYPE (*tp)) == ARRAY_TYPE && wi->is_lhs == true)
-      {
-        tree fn;
-        tree rhs = gimple_assign_rhs_to_tree (gsi_stmt (wi->gsi));
-
-        if(TREE_CODE (TREE_TYPE (rhs)) == ARRAY_TYPE)
-          rhs = build_fold_addr_expr (rhs);
-
-        fn = build_fold_addr_expr (implicit_built_in_decls [BUILT_IN_MEMCPY]);
-        stmt = gimple_build_call (fn, 3, buffer_pointer, rhs, 
-        			  build_int_cst (size_type_node, TREE_INT_CST_LOW (TYPE_SIZE_UNIT (TREE_TYPE (t)))));
-
-        gimple_seq_add_stmt (&info->olist, stmt);
-
-        info->remove_stmt = true;
-        to_remove = true;
-      }
-    else
-      {
-        /* Do a direct substitution betwen the view_var and the buffer element.
-         * If view_var is a simple variable this code is not executed. */
-        *tp = build_fold_indirect_ref (buffer_pointer);
-      }
-
-    *walk_subtrees = false;
-    wi->changed = true;
-  }
-
-  return NULL_TREE;
-}
-
-typedef struct pointer_list {
-  void *pointer;
-  struct pointer_list *next;
-} pointer_list_t, *pointer_list_p;
-
-
-static void list_bbs_in_sese (edge a, edge b, pointer_list_p *list)
-{
-  pointer_list_p tmp;
-  basic_block bb_a = a->dest;
-  edge_iterator eit;
-  edge e;
-  pointer_list_p new_p;
-
-  if(a == b)
-    return;
-
-  new_p = (pointer_list_p) xmalloc(sizeof(pointer_list_t));
-  new_p->pointer = (void *) bb_a;
-  new_p->next = NULL;
-
-  if(*list == NULL)
-    *list = new_p;
-  else
-  {
-    tmp = *list;
-    while (tmp->next != NULL)
-    {
-      if(tmp->pointer == bb_a)
-        return;
-
-      tmp = tmp->next;
-    }
-
-    tmp->next = new_p;
-  }
-
-  FOR_EACH_EDGE (e, eit, bb_a->succs)
-    list_bbs_in_sese (e, b, list);
-}
-
-/* TODO: Redefine this to something better */
-#define FOR_ALL_BB_IN_SESE(LIST, EDGE_A, EDGE_B) \
-     list_bbs_in_sese(EDGE_A, EDGE_B, &LIST); \
-     for(; LIST != NULL; LIST = LIST->next) 
-
-static int
-convert_view_var_array_traverser (view v)
-{
-  basic_block bb;
-  struct omp_region *region = (struct omp_region *) v->pointer;
-  regions_streamization_info task;
-  pointer_list_p list = NULL;
-
-  if(v->view_var == NULL_TREE)
-    return 1;
-
-  task = get_streamisation_info_for_region (region);
-
-  FOR_ALL_BB_IN_SESE (list, single_succ_edge (task->entry_bb), single_succ_edge (task->exit_bb))
-  {
-    gimple_stmt_iterator gsi;
-    struct walk_stmt_info wi;
-
-    bb = (basic_block) list->pointer;
-
-    memset (&wi, 0, sizeof (wi));
-    wi.info = v;
-
-    for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
-    {
-      struct convert_view_var_array_struct info = { NULL, NULL, false, false};
-
-      v->info = &info;
-
-      if(gimple_code (gsi_stmt (gsi)) == GIMPLE_CALL && 
-          (TREE_OPERAND (gimple_call_fn (gsi_stmt (gsi)), 0) == built_in_decls[BUILT_IN_GOMP_STREAM_PUSH_STUB] ||
-           TREE_OPERAND (gimple_call_fn (gsi_stmt (gsi)), 0) == built_in_decls[BUILT_IN_GOMP_STREAM_PUSH_STUB]))
-        continue;
-
-      walk_gimple_stmt (&gsi, NULL, convert_view_var_array, &wi);
-      gsi_insert_seq_before (&gsi, info.ilist, GSI_SAME_STMT);
-      gsi_insert_seq_after (&gsi, info.olist, GSI_SAME_STMT);
-
-      if(info.remove_stmt == true)
-        gsi_remove(&gsi, true);
-
-    }
-  }
-  return 1;
-}
-
-/* Structure to be passed in second parameter of 
- * expand_view_traverser_callback. */
-struct expand_view_traverser_callback_data { 
-  /* Synchorinization stmt_lists */
-  gimple_seq stall_stmts;
-  gimple_seq update_stmts;
-  gimple_seq commit_stmts;
-  gimple_seq release_stmts;
-  /* Data access stmt_lists */
-  gimple_seq read_stmts;
-  gimple_seq write_stmts;
-  /* Condition stmt_lists */
-  gimple_seq inner_cond_stmt;
-  gimple_seq outer_cond_stmt;
-  /* VAR_DECLs already define for conditions in persistent task. */
-  tree outer_loop_cond;
-  tree inner_loop_cond;
-};
-
-#define CREATE_SYNC_DEFAULT_DATA \
-    {  NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL_TREE, NULL_TREE };
-
-/* Create all the necessary callbacks and data accesses for the view.
- * It adds the buitins to several clean stmt_list passed in second parameter.
- * The caller might decide to use or discard to add these stmt lists to the code
- * or even where to add it. */
-static int 
-expand_view_traverser_callback (void **slot, void *data)
-{
-  tree update_result, fn;
-  view v = (view) *slot;
-  struct expand_view_traverser_callback_data *sdata = (struct expand_view_traverser_callback_data *) data;
-  gimple stmt;
-  gimple_seq *current_list;
-  tree var = v->var_decl;
-
-  current_list = (v->is_producer) ? &sdata->stall_stmts : &sdata->update_stmts;
-
-  /* Creation of UPDATE or STALL call depending type of view */
-  fn = (v->is_producer) ? built_in_decls[BUILT_IN_GOMP_STREAM_STALL] : built_in_decls[BUILT_IN_GOMP_STREAM_UPDATE];
-  stmt = gimple_build_call (fn, 2, v->view, v->sync_index);
-
-  if(!v->is_producer)
-    {
-      update_result  = create_tmp_var (long_long_unsigned_type_node, "update_index");
-      gimple_call_set_lhs (stmt, update_result);
-    }
-  gimple_seq_add_stmt (current_list, stmt);
-
-  v->buffer_pointer = create_tmp_var (v->stream->buffer_type, "data_pointer_mask");
-  compute_data_position (v->buffer_pointer, v->data, v->index, v->stream->element_type, v->stream->buffer_mask, current_list);
-
-  if(v->clause != NULL_TREE)
-    var = *lookup_var_for_clause (v->clause);
-
-  /* Create condition for both the burst and cycle loops */
-  if(!v->is_producer)
-    {
-      if(sdata->outer_loop_cond != NULL_TREE)
-        {
-          tree tmp_var = create_tmp_var (boolean_type_node, "cond");
-
-          stmt = gimple_build_assign_with_ops (EQ_EXPR, 
-              tmp_var, update_result, v->sync_index); 
-          gimple_seq_add_stmt (&sdata->outer_cond_stmt, stmt);
-
-          stmt = gimple_build_assign_with_ops (TRUTH_AND_EXPR, 
-              sdata->outer_loop_cond, sdata->outer_loop_cond, tmp_var); 
-          gimple_seq_add_stmt (&sdata->outer_cond_stmt, stmt);
-        }
-    }
-
-  /* Convert all the view variable by the buffer.
-   * Kind of OCC expansion. */
-  if(TREE_CODE (TREE_TYPE (v->view_var)) == ARRAY_TYPE)
-    {
-      convert_view_var_array_traverser(v);
-    }
-  else
-    {
-      tree buffer_pointer = create_tmp_var (v->stream->buffer_type, "data_pointer_elem");
-      tree view_var = (is_gimple_reg (v->view_var)) ?
-	v->view_var : create_tmp_var (TREE_TYPE (v->view_var), "reg_var");
-
-      current_list = (v->is_producer) ? &sdata->write_stmts : &sdata->read_stmts;
-      compute_data_position (buffer_pointer, v->buffer_pointer, NULL_TREE, v->stream->element_type, NULL_TREE, current_list);
-
-      gcc_assert(v->view_var);
-
-      if(v->is_producer)
-	{
-	  if (!is_gimple_reg (v->view_var))
-	    {
-	      stmt = gimple_build_assign (view_var, v->view_var);
-	      gimple_seq_add_stmt (current_list, stmt);
-	    }
-	  stmt = gimple_build_assign (build_fold_indirect_ref (buffer_pointer), view_var);
-	  gimple_seq_add_stmt (current_list, stmt);
-	}
-      else
-	{
-	  stmt = gimple_build_assign (view_var, build_fold_indirect_ref (buffer_pointer));
-	  gimple_seq_add_stmt (current_list, stmt);
-	  if (!is_gimple_reg (v->view_var))
-	    {
-	      stmt = gimple_build_assign (v->view_var, view_var);
-	      gimple_seq_add_stmt (current_list, stmt);
-	    }
-	}
-    }
-
-  current_list = (v->is_producer) ? &sdata->commit_stmts : &sdata->release_stmts;
-
-  /* Inclement view index */
-  stmt = gimple_build_assign_with_ops (PLUS_EXPR, v->index, v->index, v->burst);
-  gimple_seq_add_stmt (current_list, stmt);
-  set_stmt_loc (stmt, SL_DEREF);
-
-  /* Perform either commit of release dependig on type of view */
-  fn = (v->is_producer) ? built_in_decls[BUILT_IN_GOMP_STREAM_COMMIT] : built_in_decls[BUILT_IN_GOMP_STREAM_RELEASE];
-  stmt = gimple_build_call (fn, 2, v->view, v->index);
-  gimple_seq_add_stmt (current_list, stmt);
-
-  stmt = gimple_build_assign_with_ops (PLUS_EXPR, v->sync_index, v->sync_index, v->burst);
-  gimple_seq_add_stmt (current_list, stmt);
-
-  return 1;
-}
-
-/* Traverser callback to perform:
- *  1st - view creation
- *  2nd - task creation (in case still not declared)
- *  3rd - view connection 
- *  4th - dereference buffer pointer from the stream
- *  */
-static int
-register_views_traverser_callback (void **slot, void *data ATTRIBUTE_UNUSED)
-{
-  view v = (view) *slot;
-  struct omp_region *region = (struct omp_region *) v->pointer;
-  tree fn, type, tmp_var;
-  gimple stmt;
-  gimple_stmt_iterator gsi_entry, gsi_init, gsi_final;
-  edge e;
-  regions_streamization_info task = get_streamisation_info_for_region (region);
-
-  /* Create stremization BB if it doesn"t exist */
-  if (!task->init_bb)
-    {
-      e = EDGE_SUCC (single_succ (region->entry), 0);
-      task->init_bb = split_edge (e);
-    }
-
-  gsi_entry = gsi_start_bb (task->init_bb);
-  gsi_init  = gsi_last_bb (task->init_bb);
-  gsi_final = gsi_start_bb (task->final_bb);
-  
-  /* Create GOMP_stream_create_(write/read)_view call */
-  if(v->is_producer)
-    fn = built_in_decls[BUILT_IN_GOMP_STREAM_CREATE_WRITE_VIEW];
-  else
-    fn = built_in_decls[BUILT_IN_GOMP_STREAM_CREATE_READ_VIEW];
-
-  stmt = gimple_build_call (fn, 0);
-  gimple_call_set_lhs (stmt, v->view);
-  gsi_insert_after (&gsi_init, stmt, GSI_NEW_STMT);
-
-  /* If still not created, create task decl for the present OMP region */
-  if(task->task_decl == NULL_TREE)
-  {
-    task->task_decl = create_tmp_var (build_pointer_type (void_type_node), "task");
-
-    fn = built_in_decls[BUILT_IN_GOMP_STREAM_CREATE_TASK];
-    stmt = gimple_build_call (fn, 0);
-    gimple_call_set_lhs (stmt, task->task_decl);
-    gsi_insert_after (&gsi_init, stmt, GSI_NEW_STMT);
-
-    fn = built_in_decls[BUILT_IN_GOMP_STREAM_TASK_EXIT];
-    stmt = gimple_build_call (fn, 1, task->task_decl);
-    gsi_insert_after (&gsi_final, stmt, GSI_NEW_STMT);
-  }
-
-  /* Create connect view */ 
-  fn = built_in_decls[BUILT_IN_GOMP_STREAM_CONNECT_VIEW];
-  stmt = gimple_build_call (fn, 3, task->task_decl, v->stream->stream, v->view);
-  gsi_insert_after (&gsi_init, stmt, GSI_NEW_STMT);
-
-  /* Initialize index and sync_index vars */
-  stmt = gimple_build_assign (v->index, build_int_cst (long_long_unsigned_type_node, 0));
-  gsi_insert_before (&gsi_entry, stmt, GSI_SAME_STMT);
-
-  stmt = gimple_build_assign_with_ops (NOP_EXPR, v->sync_index, v->view_horizon, NULL_TREE);
-  gsi_insert_before (&gsi_entry, stmt, GSI_SAME_STMT);
-
-  /* Dereference the buffer from the stream decl and store it in v->data */
-  type = build_pointer_type (v->stream->buffer_type);
-  tmp_var = create_tmp_var (type, "cast_stream");
-
-  stmt = gimple_build_assign (tmp_var, fold_convert (type, v->stream->stream));
-  gsi_insert_after (&gsi_init, stmt, GSI_CONTINUE_LINKING);
-
-  stmt = gimple_build_assign (v->data, build_fold_indirect_ref (tmp_var));
-  gsi_insert_after (&gsi_init, stmt, GSI_CONTINUE_LINKING);
-  
-  return 1;
-}
-
-/* Create call to GOMP_wait_until_connected for a specific omp_region.
- * It creates a new BB to add this call to avoid having the task creation
- * happening afterwards, which ends in deadlock. */
-static void
-create_wait_until_connected_call (struct omp_region *region)
-{
-  gimple stmt;
-  tree fn;
-  gimple_stmt_iterator gsi_init;
-  edge e;
-  regions_streamization_info task = get_streamisation_info_for_region (region);
-  
-  if(!task->init_latch_bb)
-  {
-    e = single_succ_edge (task->init_bb);
-    task->init_latch_bb = split_edge (e);
-  }
-
-  gsi_init = gsi_last_bb (task->init_latch_bb);
-
-  fn = built_in_decls[BUILT_IN_GOMP_STREAM_WAIT_UNTIL_CONNECTED];
-  stmt = gimple_build_call (fn, 1, task->task_decl);
-  gsi_insert_after (&gsi_init, stmt, GSI_NEW_STMT);
-}
-
-
-/* If this is a streamized task, move the task creation call to the
-   beginning of the enclosing OMP region, generate the stream creation
-   call and add a loop on end_of_stream around the body of the task
-   function.  
-   Return whether this task was streamized.
-*/
-static bool
-expand_task_streaming_extensions (struct omp_region *region)
-{
-  gimple_stmt_iterator gsi;
-  bool result = false;
-  regions_streamization_info task;
-  tree clauses;
-  gimple stmt;
-
-  if (region->type != GIMPLE_OMP_TASK)
-    return false;
-
-  clauses = gimple_omp_task_clauses (last_stmt (region->entry));
-
-  /* Case this is a streamization task */
-  if (find_omp_clause (clauses, OMP_CLAUSE_INPUT)
-      || find_omp_clause (clauses, OMP_CLAUSE_OUTPUT))
-    {
-      /* Initialize expand_view_traverser_callback_data with empty stmt_lists. */
-      struct expand_view_traverser_callback_data win_data = CREATE_SYNC_DEFAULT_DATA;
-
-      task = get_streamisation_info_for_region (region);
-
-      prepare_outer_context_for_streaming (task);
-      prepare_inner_context_for_streaming (task);
-
-      /* Traverse all the views for the regions and for each perform runtime 
-       * view and task creation calls. */
-  
-      TRAVERSE_VIEWS_IN_REGION (region, register_views_traverser_callback, task);
-      create_wait_until_connected_call (region);
-
-      /* Setup parameters for view expansion.
-       * Traverse all the views for the region and for each perform its
-       * calls to synchronizations builtins, termination conditions and data
-       * access. */ 
-      win_data.outer_loop_cond = task->outer_loop_cond;
-      win_data.inner_loop_cond = task->inner_loop_cond;
-      TRAVERSE_VIEWS_IN_REGION (region, expand_view_traverser_callback, &win_data);
-
-      /* Insert stmt lists, returned from expand_view_traverser_callback
-       * view traversals, in the right basic blocks. */
-
-      /* - Sychronizations calls */
-      gsi = gsi_last_bb (task->outer_last);
-      gsi_insert_seq_after (&gsi, win_data.write_stmts, GSI_CONTINUE_LINKING);
-      gsi_insert_seq_after (&gsi, win_data.commit_stmts, GSI_CONTINUE_LINKING);
-      gsi_insert_seq_after (&gsi, win_data.release_stmts, GSI_CONTINUE_LINKING);
-      gsi = gsi_start_bb (task->outer_head);
-      gsi_insert_seq_after (&gsi, win_data.stall_stmts, GSI_CONTINUE_LINKING);
-      gsi = gsi_last_bb (task->outer_head);
-      gsi_insert_seq_after (&gsi, win_data.update_stmts, GSI_CONTINUE_LINKING);
-      gsi_insert_seq_after (&gsi, win_data.read_stmts, GSI_CONTINUE_LINKING);
-
-      /* - Condition stmts lists */
-      gsi = gsi_last_bb (task->outer_head);
-
-      stmt = gimple_build_assign (win_data.outer_loop_cond, boolean_true_node);
-      gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
-      gsi_insert_seq_after (&gsi, win_data.outer_cond_stmt, GSI_CONTINUE_LINKING);
-      
-      region->entry = task->entry_bb;
-      region->exit = task->exit_bb;
-      result = true;
-    }
-
-  return result;
-}
 
 /* Lowering of OpenMP parallel and workshare constructs proceeds in two
    phases.  The first phase scans the function looking for OMP statements
@@ -1501,6 +1160,11 @@ typedef struct omp_context
 
   /* True if this parallel directive is nested within another.  */
   bool is_nested;
+
+  /* True only when the activation counter has reached the maximum
+     number of activations allowed for this task.  */
+  /*tree termination_flag_p;*/
+
 } omp_context;
 
 
@@ -1527,7 +1191,7 @@ struct omp_for_data
 
 static splay_tree all_contexts;
 static int taskreg_nesting_level;
-struct omp_region *root_omp_region;
+omp_region_p root_omp_region;
 static bitmap task_shared_vars;
 
 static void scan_omp (gimple_seq, omp_context *);
@@ -1603,7 +1267,7 @@ is_taskreg_ctx (omp_context *ctx)
 /* Return true if REGION is a combined parallel+workshare region.  */
 
 static inline bool
-is_combined_parallel (struct omp_region *region)
+is_combined_parallel (omp_region_p region)
 {
   return region->is_combined_parallel;
 }
@@ -2002,7 +1666,7 @@ get_ws_args_for (gimple ws_stmt)
 /* Discover whether REGION is a combined parallel+workshare region.  */
 
 static void
-determine_parallel_type (struct omp_region *region)
+determine_parallel_type (omp_region_p region)
 {
   basic_block par_entry_bb, par_exit_bb;
   basic_block ws_entry_bb, ws_exit_bb;
@@ -2479,14 +2143,14 @@ omp_copy_decl (tree var, copy_body_data *cb)
 /* Return the parallel region associated with STMT.  */
 
 /* Debugging dumps for parallel regions.  */
-void dump_omp_region (FILE *, struct omp_region *, int);
-void debug_omp_region (struct omp_region *);
+void dump_omp_region (FILE *, omp_region_p , int);
+void debug_omp_region (omp_region_p );
 void debug_all_omp_regions (void);
 
 /* Dump the parallel region tree rooted at REGION.  */
 
 void
-dump_omp_region (FILE *file, struct omp_region *region, int indent)
+dump_omp_region (FILE *file, omp_region_p region, int indent)
 {
   fprintf (file, "%*sbb %d: %s\n", indent, "", region->entry->index,
 	   gimple_code_name[region->type]);
@@ -2511,7 +2175,7 @@ dump_omp_region (FILE *file, struct omp_region *region, int indent)
 }
 
 void
-debug_omp_region (struct omp_region *region)
+debug_omp_region (omp_region_p region)
 {
   dump_omp_region (stderr, region, 0);
 }
@@ -2525,11 +2189,11 @@ debug_all_omp_regions (void)
 
 /* Create a new parallel region starting at STMT inside region PARENT.  */
 
-struct omp_region *
+omp_region_p 
 new_omp_region (basic_block bb, enum gimple_code type,
-		struct omp_region *parent)
+		omp_region_p parent)
 {
-  struct omp_region *region = XCNEW (struct omp_region);
+  omp_region_p region = XCNEW (struct omp_region);
 
   region->outer = parent;
   region->entry = bb;
@@ -2556,9 +2220,9 @@ new_omp_region (basic_block bb, enum gimple_code type,
 /* Release the memory associated with the region tree rooted at REGION.  */
 
 static void
-free_omp_region_1 (struct omp_region *region)
+free_omp_region_1 (omp_region_p region)
 {
-  struct omp_region *i, *n;
+  omp_region_p i, n;
 
   for (i = region->inner; i ; i = n)
     {
@@ -2574,7 +2238,7 @@ free_omp_region_1 (struct omp_region *region)
 void
 free_omp_regions (void)
 {
-  struct omp_region *r, *n;
+  omp_region_p r, n;
   for (r = root_omp_region; r ; r = n)
     {
       n = r->next;
@@ -2759,6 +2423,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 
   for (c = clauses; c; c = OMP_CLAUSE_CHAIN (c))
     {
+      bool install_firstprivate_field = true;
       bool by_ref;
 
       switch (OMP_CLAUSE_CODE (c))
@@ -2800,9 +2465,8 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
             /* The variable itself should be made private in the task's
                context.  FIXME_stream: add varible-sized or ptr
                cases.  */
-            
             tree *new_var;
-            stream vs;
+            stream_p vs;
             decl = OMP_CLAUSE_DECL (c);
 
             vs = lookup_stream (decl);
@@ -2814,13 +2478,6 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
             new_var = lookup_var_for_clause (c);
             *new_var = lookup_decl (decl, ctx);
 
-            if(OMP_CLAUSE_VIEW_ID (c) != NULL)
-            {
-              install_var_local (OMP_CLAUSE_VIEW_ID (c), ctx);
-              OMP_CLAUSE_VIEW_ID (c) = lookup_decl (OMP_CLAUSE_VIEW_ID (c), ctx);
-            }
-            else
-              OMP_CLAUSE_VIEW_ID (c) = *new_var;
           }
 	  break;
 
@@ -2832,16 +2489,18 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	  /* FALLTHRU */
 
 	case OMP_CLAUSE_FIRSTPRIVATE:
+	  install_firstprivate_field =
+	    (OMP_CLAUSE_VIEW_VAR_KIND (c) != OMP_CLAUSE_VIEW_VAR_DISCARD);
 	case OMP_CLAUSE_REDUCTION:
 	  decl = OMP_CLAUSE_DECL (c);
 	do_private:
 	  if (is_variable_sized (decl))
 	    {
-	      if (is_task_ctx (ctx))
+	      if (is_task_ctx (ctx) && install_firstprivate_field)
 		install_var_field (decl, false, 1, ctx);
 	      break;
 	    }
-	  else if (is_taskreg_ctx (ctx))
+	  else if (is_taskreg_ctx (ctx) && install_firstprivate_field)
 	    {
 	      bool global
 		= is_global_var (maybe_lookup_decl_in_outer_ctx (decl, ctx));
@@ -2924,6 +2583,25 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 
 	case OMP_CLAUSE_INPUT:
 	case OMP_CLAUSE_OUTPUT:
+	  {
+	    tree view = OMP_CLAUSE_VIEW_ID (c);
+	    tree burst = OMP_CLAUSE_BURST_SIZE (c);
+	    tree size = OMP_CLAUSE_VIEW_SIZE (c);
+	    /* The update of the view must happen in the second pass
+	       as the view variable may be updated by later
+	       firstprivate clauses.  */
+	    if (view != NULL)
+	      OMP_CLAUSE_VIEW_ID (c) = lookup_decl (view, ctx);
+	    else
+	      {
+		decl = OMP_CLAUSE_DECL (c);
+		OMP_CLAUSE_VIEW_ID (c) = lookup_decl (lookup_stream (decl)->var, ctx);
+	      }
+	    if (burst != NULL_TREE && DECL_P (burst))
+	      OMP_CLAUSE_BURST_SIZE (c) = lookup_decl (burst, ctx);
+	    if (size != NULL_TREE && DECL_P (size))
+	      OMP_CLAUSE_VIEW_SIZE (c) = lookup_decl (size, ctx);
+	  }
 	  break;
 
 	case OMP_CLAUSE_COPYPRIVATE:
@@ -3052,6 +2730,82 @@ create_omp_child_function (omp_context *ctx, bool task_copy)
   pop_cfun ();
 }
 
+static void
+install_firstprivate_in_enclosing_contexts (omp_context *ctx, tree var)
+{
+  if (ctx)
+    {
+      tree clause, decl;
+      omp_stmt_p omp_stmt;
+      gimple stmt;
+
+      install_firstprivate_in_enclosing_contexts (ctx->outer, var);
+
+      stmt = ctx->stmt;
+      clause = build_omp_clause (input_location, OMP_CLAUSE_FIRSTPRIVATE);
+      OMP_CLAUSE_DECL (clause) = var;
+
+      switch (gimple_code (stmt))
+	{
+	case GIMPLE_OMP_PARALLEL:
+	case GIMPLE_OMP_TASK:
+	  OMP_CLAUSE_CHAIN (clause) = gimple_omp_taskreg_clauses (stmt);
+	  gimple_omp_taskreg_set_clauses (stmt, clause);
+	  break;
+	case GIMPLE_OMP_SINGLE:
+	  OMP_CLAUSE_CHAIN (clause) = gimple_omp_single_clauses (stmt);
+	  gimple_omp_single_set_clauses (stmt, clause);
+	  break;
+	case GIMPLE_OMP_SECTIONS:
+	  OMP_CLAUSE_CHAIN (clause) = gimple_omp_sections_clauses (stmt);
+	  gimple_omp_sections_set_clauses (stmt, clause);
+	  break;
+	case GIMPLE_OMP_FOR:
+	  OMP_CLAUSE_CHAIN (clause) = gimple_omp_for_clauses (stmt);
+	  gimple_omp_for_set_clauses (stmt, clause);
+	  break;
+	default:
+	  gcc_unreachable ();
+	}
+
+      /* Perform the required part of scan_sharing_clauses from the
+	 outermost directive in.  */
+
+      decl = var;
+      if (is_variable_sized (decl))
+	{
+	  if (is_task_ctx (ctx))
+	    install_var_field (decl, false, 1, ctx);
+	}
+      else if (is_taskreg_ctx (ctx))
+	{
+	  bool global
+	    = is_global_var (maybe_lookup_decl_in_outer_ctx (decl, ctx));
+	  bool by_ref = use_pointer_for_field (decl, NULL);
+
+	  if (is_task_ctx (ctx)
+	      && (global || by_ref || is_reference (decl)))
+	    {
+	      install_var_field (decl, false, 1, ctx);
+	      if (!global)
+		install_var_field (decl, by_ref, 2, ctx);
+	    }
+	  else if (!global)
+	    install_var_field (decl, by_ref, 3, ctx);
+	}
+      install_var_local (decl, ctx);
+
+      if (is_variable_sized (decl))
+	install_var_local (decl, ctx);
+      fixup_remapped_decl (decl, ctx, false);
+
+      /* Insert mappings to local variables for each context.  */
+      omp_stmt = lookup_omp_stmt (stmt);
+      decl = lookup_decl (var, ctx);
+      *pointer_map_insert (omp_stmt->var_map, var) = decl;
+      *pointer_map_insert (omp_stmt->reverse_var_map, decl) = var;
+    }
+}
 
 /* Scan an OpenMP parallel directive.  */
 
@@ -3059,8 +2813,9 @@ static void
 scan_omp_parallel (gimple_stmt_iterator *gsi, omp_context *outer_ctx)
 {
   omp_context *ctx;
-  tree name;
+  tree name, task_decl;
   gimple stmt = gsi_stmt (*gsi);
+  omp_stmt_p omp_stmt = lookup_omp_stmt (stmt);
 
   /* Ignore parallel directives with empty bodies, unless there
      are copyin clauses.  */
@@ -3087,6 +2842,27 @@ scan_omp_parallel (gimple_stmt_iterator *gsi, omp_context *outer_ctx)
   gimple_omp_parallel_set_child_fn (stmt, ctx->cb.dst_fn);
 
   scan_sharing_clauses (gimple_omp_parallel_clauses (stmt), ctx);
+
+  /* We only need one single task structure for the generation of
+     control flow, though there will be more instances.  And we can
+     skip them from nested parallel regions.  We will only add it for
+     the outermost for now.  */
+  {
+    omp_context *ictx = ctx, *outermost_parallel_ctx = NULL;
+    while (ictx)
+      {
+	if (gimple_code (ictx->stmt) == GIMPLE_OMP_PARALLEL)
+	  outermost_parallel_ctx = ictx;
+	ictx = ictx->outer;
+      }
+    gcc_assert (outermost_parallel_ctx);
+    if (ctx == outermost_parallel_ctx)
+      {
+	omp_stmt->task_decl = create_tmp_var (ptr_type_node, "parallel_region_task");
+	install_firstprivate_in_enclosing_contexts (ctx, omp_stmt->task_decl);
+      }
+  }
+
   scan_omp (gimple_omp_body (stmt), ctx);
 
   if (TYPE_FIELDS (ctx->record_type) == NULL)
@@ -3097,6 +2873,7 @@ scan_omp_parallel (gimple_stmt_iterator *gsi, omp_context *outer_ctx)
       fixup_child_record_type (ctx);
     }
 }
+
 
 /* Scan an OpenMP task directive.  */
 
@@ -3130,6 +2907,50 @@ scan_omp_task (gimple_stmt_iterator *gsi, omp_context *outer_ctx)
   gimple_omp_task_set_child_fn (stmt, ctx->cb.dst_fn);
 
   scan_sharing_clauses (gimple_omp_task_clauses (stmt), ctx);
+
+  {
+    tree clause = gimple_omp_task_clauses (stmt);
+    bool is_streaming = false;
+
+    for (; clause ; clause = OMP_CLAUSE_CHAIN (clause))
+      if (OMP_CLAUSE_CODE (clause) == OMP_CLAUSE_INPUT
+	  || OMP_CLAUSE_CODE (clause) == OMP_CLAUSE_OUTPUT)
+	{
+	  is_streaming = true;
+	  break;
+	}
+
+    if (is_streaming)
+      {
+	omp_stmt_p omp_stmt = lookup_omp_stmt (stmt);
+
+#if 0 /*zzzz*/
+	omp_stmt->termination_flag_p = create_tmp_var (build_pointer_type (boolean_type_node),
+						       "gomp_termination_flag_p");
+	install_firstprivate_in_enclosing_contexts (ctx, omp_stmt->termination_flag_p);
+
+	omp_stmt->activation_counter_p = create_tmp_var (build_pointer_type (long_long_unsigned_type_node),
+							 "gomp_activation_counter_p");
+	install_firstprivate_in_enclosing_contexts (ctx, omp_stmt->activation_counter_p);
+#endif
+
+	omp_stmt->task_decl = create_tmp_var (ptr_type_node, "task");
+	install_firstprivate_in_enclosing_contexts (ctx, omp_stmt->task_decl);
+
+	/* Add a view pointer for each firstprivate clause that was
+	   promoted to an input clause.  */
+	clause = gimple_omp_task_clauses (stmt);
+	for (; clause ; clause = OMP_CLAUSE_CHAIN (clause))
+	  if (OMP_CLAUSE_CODE (clause) == OMP_CLAUSE_INPUT
+	      && OMP_CLAUSE_FIRSTPRIVATE_INPUT (clause) != NULL_TREE)
+	    {
+	      tree fp_view = create_tmp_var (ptr_type_node,
+					     "gomp_firstprivate_view_p");
+	      OMP_CLAUSE_FIRSTPRIVATE_INPUT (clause) = fp_view;
+	      install_firstprivate_in_enclosing_contexts (ctx, fp_view);
+	    }
+      }
+  }
 
   if (ctx->srecord_type)
     {
@@ -3473,7 +3294,7 @@ scan_omp (gimple_seq body, omp_context *ctx)
   walk_gimple_seq (body, scan_omp_1_stmt, scan_omp_1_op, &wi);
   input_location = saved_location;
 }
-
+
 /* Re-gimplification and code generation routines.  */
 
 /* Build a call to GOMP_barrier.  */
@@ -3759,7 +3580,8 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 		continue;
 
 	      x = TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (new_var)));
-	      if (c_kind == OMP_CLAUSE_FIRSTPRIVATE && is_task_ctx (ctx))
+	      if (c_kind == OMP_CLAUSE_FIRSTPRIVATE && is_task_ctx (ctx)
+		  && OMP_CLAUSE_VIEW_VAR_KIND (c) != OMP_CLAUSE_VIEW_VAR_DISCARD)
 		{
 		  x = build_receiver_ref (var, false, ctx);
 		  x = build_fold_addr_expr_loc (clause_loc, x);
@@ -3854,6 +3676,8 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 	      break;
 
 	    case OMP_CLAUSE_FIRSTPRIVATE:
+	      if (OMP_CLAUSE_VIEW_VAR_KIND (c) == OMP_CLAUSE_VIEW_VAR_DISCARD)
+		break;
 	      if (is_task_ctx (ctx))
 		{
 		  if (is_reference (var) || is_variable_sized (var))
@@ -3877,11 +3701,28 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
             case OMP_CLAUSE_INPUT:
             case OMP_CLAUSE_OUTPUT:
               {
-                stream vs = lookup_stream (var);
+                stream_p vs = lookup_stream (var);
 
 	        x = build_outer_var_ref (vs->stream, ctx);
 	        x = lang_hooks.decls.omp_clause_copy_ctor (c, vs->stream, x);
 	        gimplify_and_add (x, ilist);
+
+#if 0
+		tree view = OMP_CLAUSE_VIEW_ID (c);
+		tree burst = OMP_CLAUSE_BURST_SIZE (c);
+		if (view != NULL_TREE)
+		  {
+		    x = build_outer_var_ref (view, ctx);
+		    x = lang_hooks.decls.omp_clause_copy_ctor (c, view, x);
+		    gimplify_and_add (x, ilist);
+		  }
+		if (burst != NULL_TREE && DECL_P (burst))
+		  {
+		    x = build_outer_var_ref (burst, ctx);
+		    x = lang_hooks.decls.omp_clause_copy_ctor (c, burst, x);
+		    gimplify_and_add (x, ilist);
+		  }
+#endif
               }
               break;
 
@@ -4226,8 +4067,11 @@ lower_send_clauses (tree clauses, gimple_seq *ilist, gimple_seq *olist,
 
       switch (OMP_CLAUSE_CODE (c))
 	{
-	case OMP_CLAUSE_PRIVATE:
 	case OMP_CLAUSE_FIRSTPRIVATE:
+	  do_in = (OMP_CLAUSE_VIEW_VAR_KIND (c) != OMP_CLAUSE_VIEW_VAR_DISCARD);
+	  break;
+
+	case OMP_CLAUSE_PRIVATE:
 	case OMP_CLAUSE_COPYIN:
 	  do_in = true;
 	  break;
@@ -4235,9 +4079,10 @@ lower_send_clauses (tree clauses, gimple_seq *ilist, gimple_seq *olist,
 	case OMP_CLAUSE_INPUT:
 	case OMP_CLAUSE_OUTPUT:
 	  {
+	    omp_stmt_p omp_stmt = lookup_omp_stmt (ctx->stmt);
+	    stream_p vs = lookup_stream (val);
             gimple stmt;
             tree fn;
-	    stream vs = lookup_stream (val);
 
             var = lookup_decl_in_outer_ctx (var, ctx);
             if(DECL_HAS_VALUE_EXPR_P (var))
@@ -4247,19 +4092,33 @@ lower_send_clauses (tree clauses, gimple_seq *ilist, gimple_seq *olist,
               if(TREE_CODE(var) == INDIRECT_REF)
                 var = TREE_OPERAND (var, 0);
             }
+	    /* Handle views.  */
+	    if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_INPUT
+		&& OMP_CLAUSE_FIRSTPRIVATE_INPUT (c) != NULL_TREE)
+	      {
+		tree fp_view = OMP_CLAUSE_FIRSTPRIVATE_INPUT (c);
+		*pointer_map_insert (omp_stmt->firstprivate_view_var_pmap, fp_view) = var;
+	      }
 
-            fn = (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_INPUT) ?
-                    built_in_decls [BUILT_IN_GOMP_STREAM_PUSH_STUB] :
-                    built_in_decls [BUILT_IN_GOMP_STREAM_POP_STUB];
-            stmt = gimple_build_call (fn, 2, vs->var, var);
-
-            if(OMP_CLAUSE_CODE (c) == OMP_CLAUSE_INPUT)
-              gimple_seq_add_stmt (ilist, stmt);
-            else
-              gimple_seq_add_stmt (olist, stmt);
-
-            set_stmt_loc (stmt, SL_DONT_MOVE);
-            
+#if 0
+	    tree view = OMP_CLAUSE_VIEW_ID (c);
+	    tree burst = OMP_CLAUSE_BURST_SIZE (c);
+	    if (burst != NULL_TREE && DECL_P (burst))
+	      {
+		ref = build_sender_ref (burst, ctx);
+		x = lookup_decl (burst, ctx);
+		gimplify_assign (ref, x, ilist);
+		if (is_task_ctx (ctx))
+		  DECL_ABSTRACT_ORIGIN (TREE_OPERAND (ref, 1)) = NULL;
+	      }
+	    if (OMP_CLAUSE_VIEW_ID (c) != NULL_TREE)
+	      {
+		tree view_var = OMP_CLAUSE_VIEW_ID (c);
+		tree local_view_var = lookup_decl (view_var, ctx);
+		*pointer_map_insert (omp_stmt->var_map, view_var) = local_view_var;
+		*pointer_map_insert (omp_stmt->reverse_var_map, local_view_var) = view_var;
+	      }
+#endif
 	    val = vs->stream;
 	    var = vs->stream;
 	    by_ref = false;
@@ -4384,7 +4243,7 @@ gimple_build_cond_empty (tree cond)
    the workshare construct.  */
 
 static void
-expand_parallel_call (struct omp_region *region, basic_block bb,
+expand_parallel_call (omp_region_p region, basic_block bb,
 		      gimple entry_stmt, tree ws_args)
 {
   tree t, t1, t2, val, cond, c, clauses;
@@ -4557,11 +4416,19 @@ expand_parallel_call (struct omp_region *region, basic_block bb,
    generate the task operation.  BB is the block where to insert the code.  */
 
 static void
-expand_task_call (basic_block bb, gimple entry_stmt)
+expand_task_call (omp_region_p region, basic_block bb, gimple entry_stmt)
 {
   tree t, t1, t2, t3, flags, cond, c, clauses;
   gimple_stmt_iterator gsi;
   location_t loc = gimple_location (entry_stmt);
+
+  if (is_streaming_region (region))
+    {
+      streamization_info_p out_para_sinfo =
+	get_outermost_parallel_streamization_info (region);
+
+      bb = out_para_sinfo->initialization_bb;
+    }
 
   clauses = gimple_omp_task_clauses (entry_stmt);
 
@@ -4587,9 +4454,20 @@ expand_task_call (basic_block bb, gimple entry_stmt)
   else
     t3 = build_fold_addr_expr_loc (loc, t);
 
-  t = build_call_expr (built_in_decls[BUILT_IN_GOMP_TASK], 7, t1, t2, t3,
-		       gimple_omp_task_arg_size (entry_stmt),
-		       gimple_omp_task_arg_align (entry_stmt), cond, flags);
+  if (is_streaming_region (region)
+      && !get_streamization_info (region)->is_pre_task)
+    {
+      streamization_info_p task = get_streamization_info (region);
+
+      t = build_call_expr (built_in_decls[BUILT_IN_GOMP_STREAM_TASK], 7, t1,
+			   t2, t3, gimple_omp_task_arg_size (entry_stmt),
+			   gimple_omp_task_arg_align (entry_stmt), task->num_instances,
+			   task->can_replicate);
+    }
+  else
+    t = build_call_expr (built_in_decls[BUILT_IN_GOMP_TASK], 7, t1, t2, t3,
+			 gimple_omp_task_arg_size (entry_stmt),
+			 gimple_omp_task_arg_align (entry_stmt), cond, flags);
 
   force_gimple_operand_gsi (&gsi, t, true, NULL_TREE,
 			    false, GSI_CONTINUE_LINKING);
@@ -4648,7 +4526,7 @@ list2chain (tree list)
    removed.  */
 
 static void
-remove_exit_barrier (struct omp_region *region)
+remove_exit_barrier (omp_region_p region)
 {
   gimple_stmt_iterator gsi;
   basic_block exit_bb;
@@ -4731,7 +4609,7 @@ remove_exit_barrier (struct omp_region *region)
 }
 
 static void
-remove_exit_barriers (struct omp_region *region)
+remove_exit_barriers (omp_region_p region)
 {
   if (region->type == GIMPLE_OMP_PARALLEL)
     remove_exit_barrier (region);
@@ -4813,10 +4691,416 @@ optimize_omp_library_calls (gimple entry_stmt)
       }
 }
 
+/* Verifies if REGION appears in a concurrent context (i.e., will
+   there be multiple threads executing the enclosing context).
+   Conservatively returns TRUE when impossible to determine.  */
+
+static bool
+is_concurrent_context (omp_region_p region)
+{
+  while ((region = region->outer))
+    {
+      switch (region->type)
+	{
+	case GIMPLE_OMP_PARALLEL:
+	case GIMPLE_OMP_FOR:
+	  return true;
+	  break;
+	case GIMPLE_OMP_SINGLE:
+	case GIMPLE_OMP_SECTION:
+	  return false;
+	  break;
+	case GIMPLE_OMP_TASK:
+	  /* This should not be allowed yet.  Nesting in tasks
+	     (streaming or not) requires much more analysis.  */
+	  gcc_assert (0);
+	default:
+	  gcc_unreachable ();
+	}
+    }
+  return true;
+}
+
+/* After the outlining of the task has occurred, this function
+   generates the proper code in the enclosing context at the position
+   where the task code used to be.  */
+/* xxxx   */
+static void
+expand_steaming_taskreg_in_outer_context (omp_region_p region,
+					  basic_block original_bb)
+{
+  streamization_info_p sinfo = get_streamization_info (region);
+  streamization_info_p outermost_parallel_sinfo =
+    get_outermost_parallel_streamization_info (region);
+  gimple_stmt_iterator gsi;
+  gimple stmt;
+  tree fn;
+  view_p view;
+  int i;
+  tree fp_var;
+
+  if (sinfo == outermost_parallel_sinfo)
+    {
+      task_p task;
+
+      /* Build and initialize an activation counter and a termination
+	 flag per task.  Take their addresses and pass them as
+	 firstprivate in the tasks and all enclosing contexts.  */
+      gsi = gsi_start_bb (region->entry);
+      for (i = 0; VEC_iterate (task_p, sinfo->tasks, i, task); ++i)
+	{
+#if 0 /*zzzz*/
+	  task->activation_counter = create_tmp_var (long_long_unsigned_type_node,
+						     "activation_counter");
+	  TREE_ADDRESSABLE (task->activation_counter) = 1;
+	  task->termination_flag = create_tmp_var (boolean_type_node,
+						   "termination_flag");
+	  TREE_ADDRESSABLE (task->termination_flag) = 1;
+
+	  stmt = gimple_build_assign (task->activation_counter,
+				      build_int_cst (long_long_unsigned_type_node, 0));
+	  gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
+	  stmt = gimple_build_assign (task->activation_counter_p,
+				      build_fold_addr_expr (task->activation_counter));
+	  gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
+
+	  stmt = gimple_build_assign (task->termination_flag, boolean_false_node);
+	  gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
+	  stmt = gimple_build_assign (task->termination_flag_p,
+				      build_fold_addr_expr (task->termination_flag));
+	  gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
+#endif
+
+	  /* Create one instance of the task data structure.  */
+	  fn = built_in_decls[BUILT_IN_GOMP_STREAM_CREATE_TASK];
+	  //stmt = gimple_build_call (fn, 2, task->activation_counter_p, task->termination_flag_p);
+	  stmt = gimple_build_call (fn, 0);
+	  gimple_call_set_lhs (stmt, task->task_decl);
+	  gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
+
+	}
+
+      /* Create a fake task for the parallel region (only used
+	 for initialization and finalization
+	 synchronization).  */
+      fn = built_in_decls[BUILT_IN_GOMP_STREAM_CREATE_TASK];
+      //stmt = gimple_build_call (fn, 2, null_pointer_node, null_pointer_node);
+      stmt = gimple_build_call (fn, 0);
+      gimple_call_set_lhs (stmt, sinfo->task_decl);
+      gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
+
+      /* Create firstprivate views and pass the pointers as well.  */
+      for (i = 0; VEC_iterate (view_p, sinfo->fpviews, i, view); ++i)
+	{
+	  fn = built_in_decls[BUILT_IN_GOMP_STREAM_CREATE_WRITE_VIEW];
+	  stmt = gimple_build_call (fn, 2, view->view_size, get_view_burst_size (view, &gsi));
+	  gimple_call_set_lhs (stmt, view->view);
+	  gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+	}
+    }
+  else if (region->type == GIMPLE_OMP_PARALLEL)
+    {
+      //gcc_assert (0);
+    }
+  else if (!sinfo->is_pre_task)
+    {
+      streamization_info_p outer_sinfo = get_outer_streamization_info (region);
+      tree agg_fact = build_int_cst (long_long_unsigned_type_node, AGGREGATION_FACTOR);
+      basic_block init_bb, outer_entry_bb, outer_exit_bb, join_bb, cond_bb, commit_bb;
+      edge e;
+
+      streamization_info_p task = sinfo;
+
+      /* We disallow injecting back streams (lastprivate) in the outer
+	 context.  */
+      gcc_assert (VEC_length (view_p, outermost_parallel_sinfo->rviews) == 0);
+
+      /* Prepare blocks for code generation.  */
+      e = split_block_after_labels (original_bb);
+      init_bb = e->src;
+      original_bb = split_edge (e);
+
+      /*
+	e = single_succ_edge (outer_sinfo->region->entry);
+	outer_entry_bb = split_edge (e);
+	e = split_block_after_labels (outer_sinfo->region->exit);
+	outer_exit_bb = split_edge (e);
+      */
+
+      task->local_activation_counter = create_tmp_var (long_long_unsigned_type_node, "local_activation_counter");
+      task->local_activation_index = create_tmp_var (long_long_unsigned_type_node, "local_activation_index");
+      task->local_activation_index_next = create_tmp_var (long_long_unsigned_type_node, "local_activation_index_next");
+      task->local_act_ctr_p = create_tmp_var (build_pointer_type (long_long_unsigned_type_node), "activation_counter_p");
+#if 0 /*zzzz*/
+      local_act_ctr_p = lookup_var (task->activation_counter_p, outer_sinfo->stmt);
+#endif
+      /* Some code will be generated by the enclosing directive, so we
+	 will pass the info on each task requiring further handling up
+	 until the enclosing directive is expanded itself.  */
+      /* Initialization and finalization, as well as activation index
+	 selection for concurrent firstprivate clauses can only be
+	 generated in the enclosing.  */
+      /* Add this task to the tasks to be handled at the enclosing
+	 region level (for handling activation counters and
+	 termination flags).  */
+      VEC_safe_push (task_p, heap, outer_sinfo->tasks, task);
+
+      /* Handle control-flow (activation counters).  */
+
+      /* Increment counter.  */
+      gsi = gsi_last_bb (init_bb);
+      stmt = gimple_build_assign_with_ops (PLUS_EXPR, task->local_activation_counter,
+					   task->local_activation_counter,
+					   build_int_cst (long_long_unsigned_type_node, 1));
+      gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+
+      /* Handle the periodic update of the global counter.  */
+      e = single_succ_edge (original_bb);
+      join_bb = e->dest;
+      cond_bb = split_edge (e);
+      e = single_succ_edge (cond_bb);
+      commit_bb = split_edge (e);
+      remove_edge (find_edge (cond_bb, commit_bb));
+      make_edge (cond_bb, commit_bb, EDGE_TRUE_VALUE);
+      make_edge (cond_bb, join_bb, EDGE_FALSE_VALUE);
+      gsi = gsi_last_bb (cond_bb);
+      stmt = gimple_build_cond (EQ_EXPR, task->local_activation_counter, agg_fact,
+				NULL_TREE, NULL_TREE);
+      gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+      /* Commit the activation counter either atomically or just by
+	 adding.  */
+      gsi = gsi_last_bb (commit_bb);
+      if (is_concurrent_context (region))
+	{
+	  HOST_WIDE_INT sync_builtin_idx;
+	  tree sync_builtin;
+	  sync_builtin_idx = tree_low_cst (TYPE_SIZE_UNIT (long_long_unsigned_type_node), 1);
+	  sync_builtin_idx = exact_log2 (sync_builtin_idx);
+	  gcc_assert (sync_builtin_idx < 5);
+	  sync_builtin = built_in_decls[BUILT_IN_FETCH_AND_ADD_N + sync_builtin_idx + 1];
+	  stmt = gimple_build_call (sync_builtin, 2, task->local_act_ctr_p, agg_fact);
+	  gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+	}
+      else
+	{
+	  tree temp = create_tmp_var (long_long_unsigned_type_node, NULL);
+	  stmt = gimple_build_assign (temp, build_fold_indirect_ref (task->local_act_ctr_p));
+	  gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+	  stmt = gimple_build_assign_with_ops (PLUS_EXPR, temp, temp, agg_fact);
+	  gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+	  stmt = gimple_build_assign (build_fold_indirect_ref (task->local_act_ctr_p), temp);
+	  gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+	}
+      /* Reset the local counter.  */
+      stmt = gimple_build_assign (task->local_activation_counter,
+				  build_int_cst (long_long_unsigned_type_node, 0));
+      gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+
+      /* Handle data-flow (firstprivate clauses).  */
+      if (!is_concurrent_context (region))
+	{
+	  /* Compute a local activation index for stall/commit calls.  */
+	  /* If there are firstprivate views.  */
+	  if (!VEC_empty (view_p, task->fpviews))
+	    {
+	      /* Update the local counters for this task.  */
+	      /* Increment local_activation_index for commits and
+		 local_activation_index_next for stalls.  */
+	      gsi = gsi_last_bb (commit_bb);
+	      stmt = gimple_build_assign_with_ops (PLUS_EXPR, task->local_activation_index,
+						   task->local_activation_index, agg_fact);
+	      gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+	      stmt = gimple_build_assign_with_ops (PLUS_EXPR, task->local_activation_index_next,
+						   task->local_activation_index, agg_fact);
+	      gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+	    }
+
+	  /* Issue STALL/COMMIT calls for firstprivate write views for
+	     first and last blocks in this region.  */
+	  for (i = 0; VEC_iterate (view_p, task->fpviews, i, view); ++i)
+	    {
+	      /* We need to use the proper view pointer, in the nesting
+		 context of the task.  */
+	      tree view_decl = lookup_var (view->view, outer_sinfo->stmt);
+	      stream_p stream = view->stream;
+
+	      /* COMMIT  */
+	      gsi = gsi_last_bb (commit_bb);
+	      fn = built_in_decls[BUILT_IN_GOMP_STREAM_COMMIT];
+	      stmt = gimple_build_call (fn, 2, view_decl, task->local_activation_index);
+	      gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+
+	      /* STALL  */
+	      fn = built_in_decls[BUILT_IN_GOMP_STREAM_STALL];
+	      stmt = gimple_build_call (fn, 3, view_decl, task->local_activation_index,
+					task->local_activation_index_next);
+	      gimple_call_set_lhs (stmt, view->buffer_pointer);
+	      gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+
+
+	      /* Copy the FIRSTPRIVATE data to the stream buffer.  */
+
+	      /* If the variable is non-register, we need to add in a
+		 temporary assignment in a register.  */
+	      gsi = gsi_last_bb (original_bb);
+	      fp_var = lookup_fp_view_var (view->view, task->stmt);
+	      if (AGGREGATE_TYPE_P (TREE_TYPE (fp_var)))
+		{
+		  /* If the type is not assign-copyable, use memcpy.  */
+		  fn = build_fold_addr_expr (implicit_built_in_decls [BUILT_IN_MEMCPY]);
+		  stmt = gimple_build_call (fn, 3, view->buffer_pointer, build_fold_addr_expr (fp_var), view->burst_size);
+		  gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+		}
+	      else
+		{
+		  if (!is_gimple_reg (stream->var))
+		    {
+		      fp_var = create_tmp_var (TREE_TYPE (stream->var), "fp_var_reg");
+		      stmt = gimple_build_assign (fp_var, stream->var);
+		      gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+		    }
+		  stmt = gimple_build_assign (build_fold_indirect_ref (view->buffer_pointer), fp_var);
+		  gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+		}
+
+	      /* Increment the buffer pointer for next time.  */
+	      stmt = gimple_build_assign_with_ops (POINTER_PLUS_EXPR,
+						   view->buffer_pointer,
+						   view->buffer_pointer,
+						   view->burst_size);
+	      gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+	    }
+	}
+      else
+	{
+	  /* Firstprivate clauses in concurrent contexts are only
+	     allowed within parallel loops for now.  */
+	  gcc_assert (VEC_length (view_p, task->fpviews) == 0
+		      /*|| region->outer->type == GIMPLE_OMP_FOR*/);
+	}
+    }
+  else
+    {
+
+    }
+}
+
+static void
+handle_nested_streaming_tasks (omp_region_p region,
+			       basic_block initialization_bb,
+			       basic_block finalization_bb)
+{
+  tree agg_fact = build_int_cst (long_long_unsigned_type_node, AGGREGATION_FACTOR);
+  streamization_info_p sinfo = get_streamization_info (region);
+  gimple_stmt_iterator gsi;
+  gimple stmt;
+  task_p task;
+  view_p view;
+  tree fn;
+  int i, j;
+
+  for (i = 0; VEC_iterate (task_p, sinfo->tasks, i, task); ++i)
+    {
+#if 0 /*zzzz*/
+      tree local_act_ctr_p =
+	lookup_var (task->activation_counter_p, sinfo->stmt);
+#endif
+      /* Initialize a local activation counter for each task.  */
+      gsi = gsi_last_bb (initialization_bb);
+      stmt = gimple_build_assign (task->local_activation_counter,
+				  build_int_cst (long_long_unsigned_type_node, 0));
+      gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+
+      fn = built_in_decls[BUILT_IN_GOMP_STREAM_GET_TASK_ACTIVATION_COUNTER];
+      stmt = gimple_build_call (fn, 1, lookup_var (task->task_decl, sinfo->stmt));
+      gimple_call_set_lhs (stmt, task->local_act_ctr_p);
+      gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+
+
+      /* If there are firstprivate views.  */
+      if (!VEC_empty (view_p, task->fpviews))
+	{
+	  if (!is_concurrent_context (task->region))
+	    {
+	      /* Initialize the local activation index.  */
+	      gsi = gsi_last_bb (initialization_bb);
+	      stmt = gimple_build_assign (task->local_activation_index,
+					  build_fold_indirect_ref (task->local_act_ctr_p));
+	      gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+
+	      /* Update the local counters for this task.  */
+	      /* For initial STALL.  */
+	      gsi = gsi_last_bb (initialization_bb);
+	      stmt = gimple_build_assign_with_ops (PLUS_EXPR, task->local_activation_index_next,
+						   task->local_activation_index, agg_fact);
+	      gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+	      /* For final COMMIT.  */
+	      gsi = gsi_last_bb (finalization_bb);
+	      stmt = gimple_build_assign_with_ops (PLUS_EXPR, task->local_activation_index,
+						   task->local_activation_index, task->local_activation_counter);
+	      gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+
+	    }
+	  else
+	    {
+	      gcc_assert (0);
+	    }
+	}
+
+      /* Issue STALL/COMMIT calls for firstprivate write views for
+	 first and last blocks in this region.  */
+      for (j = 0; VEC_iterate (view_p, task->fpviews, j, view); ++j)
+	{
+	  /* We need to use the proper view pointer, in the nesting
+	     context of the task.  */
+	  tree view_decl = lookup_var (view->view, sinfo->stmt);
+
+	  /* STALL  */
+	  gsi = gsi_last_bb (initialization_bb);	   
+	  fn = built_in_decls[BUILT_IN_GOMP_STREAM_STALL];
+	  stmt = gimple_build_call (fn, 3, view_decl, task->local_activation_index,
+				    task->local_activation_index_next);
+	  gimple_call_set_lhs (stmt, view->buffer_pointer);
+	  gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+
+	  /* COMMIT  */
+	  gsi = gsi_last_bb (finalization_bb);
+	  fn = built_in_decls[BUILT_IN_GOMP_STREAM_COMMIT];
+	  stmt = gimple_build_call (fn, 2, view_decl, task->local_activation_index);
+	  gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+	}
+
+      /* Commit the local activation counter's value either atomically
+	 or just by adding.  */
+      gsi = gsi_last_bb (finalization_bb);
+      if (is_concurrent_context (task->region))
+	{
+	  HOST_WIDE_INT sync_builtin_idx;
+	  tree sync_builtin;
+	  sync_builtin_idx = tree_low_cst (TYPE_SIZE_UNIT (long_long_unsigned_type_node), 1);
+	  sync_builtin_idx = exact_log2 (sync_builtin_idx);
+	  gcc_assert (sync_builtin_idx < 5);
+	  sync_builtin = built_in_decls[BUILT_IN_FETCH_AND_ADD_N + sync_builtin_idx + 1];
+	  stmt = gimple_build_call (sync_builtin, 2, task->local_act_ctr_p, task->local_activation_counter);
+	  gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+	}
+      else
+	{
+	  tree temp = create_tmp_var (long_long_unsigned_type_node, NULL);
+	  stmt = gimple_build_assign (temp, build_fold_indirect_ref (task->local_act_ctr_p));
+	  gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+	  stmt = gimple_build_assign_with_ops (PLUS_EXPR, temp, temp, task->local_activation_counter);
+	  gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+	  stmt = gimple_build_assign (build_fold_indirect_ref (task->local_act_ctr_p), temp);
+	  gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+	}
+    }
+}
+
 /* Expand the OpenMP parallel or task directive starting at REGION.  */
 
 static void
-expand_omp_taskreg (struct omp_region *region)
+expand_omp_taskreg (omp_region_p region)
 {
   basic_block entry_bb, exit_bb, new_bb;
   struct function *child_cfun;
@@ -4825,7 +5109,6 @@ expand_omp_taskreg (struct omp_region *region)
   gimple_stmt_iterator gsi;
   gimple entry_stmt, stmt;
   edge e;
-  bool streaming_flag = false;
 
   entry_stmt = last_stmt (region->entry);
   child_fn = gimple_omp_taskreg_child_fn (entry_stmt);
@@ -4841,6 +5124,7 @@ expand_omp_taskreg (struct omp_region *region)
     ws_args = region->ws_args;
   else
     ws_args = NULL_TREE;
+
 
   if (child_cfun->cfg)
     {
@@ -4886,6 +5170,13 @@ expand_omp_taskreg (struct omp_region *region)
 	  gimple_stmt_iterator gsi;
 	  tree arg, narg;
 	  gimple parcopy_stmt = NULL;
+
+	  if (is_streaming_region (region))
+	    {
+	      streamization_info_p sinfo = get_streamization_info (region);
+	      if (region->type == GIMPLE_OMP_TASK)
+		entry_succ_bb = sinfo->initialization_bb;
+	    }
 
 	  for (gsi = gsi_start_bb (entry_succ_bb); ; gsi_next (&gsi))
 	    {
@@ -4941,8 +5232,6 @@ expand_omp_taskreg (struct omp_region *region)
 	      update_stmt (parcopy_stmt);
 	    }
 	}
-
-      streaming_flag = expand_task_streaming_extensions (region);
 
       /* We need to update those as the streamization might have moved
 	 them around.  */
@@ -5049,25 +5338,18 @@ expand_omp_taskreg (struct omp_region *region)
       pop_cfun ();
     }
 
-  /* This allows to hoist the GOMP_task calls at the beginning of the
-     outer region for tasks that have been streamized (they live
-     through all the iterations).  */
-  if (streaming_flag && region->outer->streamization_info)
-  {
-    regions_streamization_info task = (regions_streamization_info) region->outer->streamization_info;
-    if(!task->init_latch_bb)
-    {
-      e = single_succ_edge (task->init_bb);
-      task->init_latch_bb = split_edge (e);
-    }
-    new_bb = task->init_latch_bb;
-  }
+  /* If this task is streaming, we need to handle the activation
+     counter incrementation at the place where the outlined task used
+     to be.  */
+  if (is_streaming_region (region))
+    expand_steaming_taskreg_in_outer_context (region, new_bb);
 
   /* Emit a library call to launch the children threads.  */
   if (gimple_code (entry_stmt) == GIMPLE_OMP_PARALLEL)
     expand_parallel_call (region, new_bb, entry_stmt, ws_args);
   else
-    expand_task_call (new_bb, entry_stmt);
+    expand_task_call (region, new_bb, entry_stmt);
+
   update_ssa (TODO_update_ssa_only_virtuals);
 }
 
@@ -5153,7 +5435,7 @@ expand_omp_taskreg (struct omp_region *region)
       */
 
 static void
-expand_omp_for_generic (struct omp_region *region,
+expand_omp_for_generic (omp_region_p region,
 			struct omp_for_data *fd,
 			enum built_in_function start_fn,
 			enum built_in_function next_fn)
@@ -5578,6 +5860,16 @@ expand_omp_for_generic (struct omp_region *region,
       set_immediate_dominator (CDI_DOMINATORS, l1_bb,
 			       recompute_dominator (CDI_DOMINATORS, l1_bb));
     }
+
+  if (is_streaming_region (region))
+    {
+      basic_block init_bb, fin_bb;
+
+      init_bb = split_edge (single_succ_edge (l0_bb));
+      fin_bb = split_edge (split_block_after_labels (l2_bb));
+
+      handle_nested_streaming_tasks (region, init_bb, fin_bb);
+    }
 }
 
 
@@ -5613,7 +5905,7 @@ expand_omp_for_generic (struct omp_region *region,
 */
 
 static void
-expand_omp_for_static_nochunk (struct omp_region *region,
+expand_omp_for_static_nochunk (omp_region_p region,
 			       struct omp_for_data *fd)
 {
   tree n, q, s0, e0, e, t, nthreads, threadid;
@@ -5805,7 +6097,7 @@ expand_omp_for_static_nochunk (struct omp_region *region,
 */
 
 static void
-expand_omp_for_static_chunk (struct omp_region *region, struct omp_for_data *fd)
+expand_omp_for_static_chunk (omp_region_p region, struct omp_for_data *fd)
 {
   tree n, s0, e0, e, t;
   tree trip_var, trip_init, trip_main, trip_back, nthreads, threadid;
@@ -6071,7 +6363,7 @@ expand_omp_for_static_chunk (struct omp_region *region, struct omp_for_data *fd)
 /* Expand the OpenMP loop defined by REGION.  */
 
 static void
-expand_omp_for (struct omp_region *region)
+expand_omp_for (omp_region_p region)
 {
   struct omp_for_data fd;
   struct omp_for_data_loop *loops;
@@ -6082,6 +6374,10 @@ expand_omp_for (struct omp_region *region)
 	      * sizeof (struct omp_for_data_loop));
   extract_omp_for_data (last_stmt (region->entry), &fd, loops);
   region->sched_kind = fd.sched_kind;
+
+  /* FIXME: for now we force schedule to dynamic.  */
+  if (is_streaming_region (region))
+    region->sched_kind = fd.sched_kind = OMP_CLAUSE_SCHEDULE_RUNTIME;
 
   gcc_assert (EDGE_COUNT (region->entry->succs) == 2);
   BRANCH_EDGE (region->entry)->flags &= ~EDGE_ABNORMAL;
@@ -6156,7 +6452,7 @@ expand_omp_for (struct omp_region *region)
     GOMP_sections_start with call to GOMP_sections_next.  */
 
 static void
-expand_omp_sections (struct omp_region *region)
+expand_omp_sections (omp_region_p region)
 {
   tree t, u, vin = NULL, vmain, vnext, l2;
   VEC (tree,heap) *label_vec;
@@ -6166,7 +6462,7 @@ expand_omp_sections (struct omp_region *region)
   gimple sections_stmt, stmt, cont;
   edge_iterator ei;
   edge e;
-  struct omp_region *inner;
+  omp_region_p inner;
   unsigned i, casei;
   bool exit_reachable = region->cont != NULL;
 
@@ -6350,189 +6646,37 @@ expand_omp_sections (struct omp_region *region)
   set_immediate_dominator (CDI_DOMINATORS, default_bb, l0_bb);
 }
 
-/* Callback for htab_traverse.  Issues stream creation calls and
-   destruction/set_eos for outer region streams.  For now, we tie
-   streaming tasks to an OMP SINGLE region.  */
-
-static int
-stream_create_calls (void **slot, void *data)
-{
-  gimple_stmt_iterator gsi;
-  gimple stmt;
-  tree fn, type_size, horizon_size, num_readers, num_writers;
-  regions_streamization_info task;
-  edge e;
-  view v = (view) *slot;
-  stream vs = v->stream;
-  struct omp_region *region = (struct omp_region *) data;
-
-
-  if (vs->visit == true)
-    return 1;
-
-  vs->visit = true;
-
-  type_size = build_int_cst (long_long_unsigned_type_node, TYPE_SIZE_HAS_INT (vs->element_type));
-  horizon_size = build_int_cst (long_long_unsigned_type_node, HORIZON);
-  num_readers = build_int_cst (unsigned_type_node, vs->nr_consumers);
-  num_writers = build_int_cst (unsigned_type_node, vs->nr_producers);
-
-  task = get_streamisation_info_for_region (region);
-
-  if (!task->init_bb)
-    {
-      e = EDGE_SUCC (single_succ (task->entry_bb), 0);
-      task->init_bb = split_edge (e);
-    }
-
-  /* Generate stream creation/initialization call.  */
-  fn = built_in_decls[BUILT_IN_GOMP_STREAM_CREATE_STREAM];
-  stmt = gimple_build_call (fn, 3, type_size, horizon_size, 
-          build_int_cst(build_pointer_type (void_type_node), 0));
-  gimple_call_set_lhs (stmt, vs->stream);
-  gsi = gsi_start_bb (task->init_bb);
-  gsi_insert_before (&gsi, stmt, GSI_CONTINUE_LINKING);
-
-  fn = built_in_decls[BUILT_IN_GOMP_STREAM_ADD_EXPECTED_VIEWS];
-  stmt = gimple_build_call (fn, 4, vs->stream, num_readers, num_writers, boolean_true_node);
-
-  gsi_insert_after (&gsi, stmt, GSI_NEW_STMT);
-
-  if (!task->final_bb)
-    {
-      if (EDGE_COUNT (task->exit_bb->preds) >= 2)
-	{
-	  /* We need to ensure that we cover all exit paths from the
-	     single section with the code from the
-	     streamization_exit_bb.  The exit from the single section
-	     switch must not execute that code.  */
-	  edge skip_single_sec_edge;
-
-	  e = split_block_after_labels (task->exit_bb);
-	  task->final_bb = split_edge (e);
-	  task->clean_bb = 
-	    split_edge (single_succ_edge (task->final_bb));
-
-	  task->exit_bb = single_succ (task->clean_bb);
-	  skip_single_sec_edge = find_edge (single_succ (task->entry_bb),
-					    e->src);
-	  gcc_assert (redirect_edge_and_branch (skip_single_sec_edge,
-						task->exit_bb));
-	}
-      else 
-	{
-	  /* If the streamization body (of the OpenMP single
-	     construct) does not have an exit (e.g., infinite loop),
-	     then we may end up discarding the finalzation statements.
-	     Do not link their BB.  */
-	  task->final_bb = alloc_block ();
-	  task->final_bb->il.gimple = GGC_CNEW (struct gimple_bb_info);
-	  set_bb_seq (task->final_bb, gimple_seq_alloc ());
-	}
-    }
-
-  gsi = gsi_last_bb (task->final_bb);
-
-  return 1;
-}
-
-static void
-expand_push_and_pop_stubs (struct omp_region *region)
-{
-  int i;
-  const int builtin[2] = {BUILT_IN_GOMP_STREAM_PUSH_STUB, BUILT_IN_GOMP_STREAM_POP_STUB};
-
-  for (i = 0; i < 2; i++)
-  {
-    struct cgraph_node *node = cgraph_node (built_in_decls[builtin[i]]);
-    struct cgraph_edge *e;
-
-    if(node)
-      for (e = node->callers; e; e = e->next_caller)
-      {
-        struct cgraph_node *caller = e->caller;
-
-        if(caller->decl == current_function_decl)
-        {
-          gimple_stmt_iterator gsi, gsi1;
-          gimple stmt = e->call_stmt;
-
-          /* TODO: This is wrong! We agreed to perform the proper expansion
-             after the deadline of PLDI. For now it is good enough to perform
-             this since we will assume streamed variable never changes between
-             task pragmas inside of a master task. */
-          tree stream_var;
-          stream s;
-          view v;
-
-          stream_var = gimple_call_arg (stmt, 0);
-          s = lookup_stream (stream_var);
-          v = maybe_lookup_view (region, s->views);
-
-          if(v != NULL && v->expanded_push_pop == false)
-          {
-            regions_streamization_info task;
-            struct expand_view_traverser_callback_data data = CREATE_SYNC_DEFAULT_DATA;
-
-            gsi = gsi_for_stmt (e->call_stmt);
-            task = get_streamisation_info_for_region (region);
-
-            v->view_var = gimple_call_arg (stmt, 1);
-
-            expand_view_traverser_callback ((void **) &v, &data);
-
-            if(v->is_producer)
-            {
-              gimple_seq copy = copy_gimple_seq_and_replace_locals (data.stall_stmts);
-              gimple_seq copy1 = copy_gimple_seq_and_replace_locals (data.write_stmts);
-
-              gsi = gsi_for_stmt (stmt);
-              gsi_insert_seq_after (&gsi, data.write_stmts, GSI_CONTINUE_LINKING);
-              gsi_insert_seq_after (&gsi, data.commit_stmts, GSI_CONTINUE_LINKING);
-              gsi_insert_seq_after (&gsi, data.stall_stmts, GSI_CONTINUE_LINKING);
-
-              /* TODO: TINO CHECK THIS might not be a single succ node. */
-              gsi1 = gsi_start_bb (task->sese_entry);
-              gsi_insert_seq_after (&gsi1, copy, GSI_CONTINUE_LINKING);
-              gsi_insert_seq_after (&gsi1, copy1, GSI_CONTINUE_LINKING);
-            }
-            else
-            {
-              gimple_seq copy = copy_gimple_seq_and_replace_locals (data.release_stmts);
-              
-              gsi_insert_seq_before (&gsi, data.release_stmts, GSI_SAME_STMT);
-              gsi_insert_seq_before (&gsi, data.update_stmts, GSI_CONTINUE_LINKING);
-              gsi = gsi_for_stmt (stmt);
-              gsi_insert_seq_after (&gsi, data.read_stmts, GSI_CONTINUE_LINKING);
-
-              gsi1 = gsi_start_bb (task->sese_exit);
-              gsi_insert_seq_after (&gsi1, copy, GSI_CONTINUE_LINKING);
-            }
-
-            v->expanded_push_pop = true;
-            
-          }
-          gsi = gsi_for_stmt (e->call_stmt);
-          gsi_remove (&gsi, true);
-        }
-      }
-  }
-}
-
 /* Expand code for an OpenMP single directive.  We've already expanded
    much of the code, here we simply place the GOMP_barrier call.  */
 
 static void
-expand_omp_single (struct omp_region *region)
+expand_omp_single (omp_region_p region)
 {
   basic_block entry_bb, exit_bb;
   gimple_stmt_iterator si;
-  regions_streamization_info task;
-  edge e;
   bool need_barrier = false;
 
   entry_bb = region->entry;
   exit_bb = region->exit;
+
+  if (is_streaming_region (region))
+    {
+      basic_block cond_bb, init_bb, fin_bb;
+      edge e;
+
+      /* By construction the successor BB of entry is the
+	 conditional.  */
+      cond_bb = single_succ (entry_bb);
+      e = get_true_entry_from_cond (cond_bb);
+      init_bb = split_edge (e);
+      //e = get_true_exit_from_cond (cond_bb);
+      //fin_bb = split_edge (e);
+      e = split_block_after_labels (exit_bb);
+      region->exit = exit_bb = e->dest;
+      redirect_edge_and_branch_force (find_edge (cond_bb, e->src), e->dest);
+      fin_bb = split_edge (e);
+      handle_nested_streaming_tasks (region, init_bb, fin_bb);
+    }
 
   si = gsi_last_bb (entry_bb);
   /* The terminal barrier at the end of a GOMP_single_copy sequence cannot
@@ -6541,33 +6685,9 @@ expand_omp_single (struct omp_region *region)
   if (find_omp_clause (gimple_omp_single_clauses (gsi_stmt (si)),
 		       OMP_CLAUSE_COPYPRIVATE))
     need_barrier = true;
-
   gcc_assert (gimple_code (gsi_stmt (si)) == GIMPLE_OMP_SINGLE);
   gsi_remove (&si, true);
   single_succ_edge (entry_bb)->flags = EDGE_FALLTHRU;
-
-  /* Issue any necessary stream creation calls.  */
-  TRAVERSE_VIEWS_IN_REGION_AND_SUBS (region, stream_create_calls, (void *) region);
-
-  if(region->view_pointers != NULL)
-  {
-    TRAVERSE_VIEWS_IN_REGION (region, register_views_traverser_callback, (void *) region);
-    create_wait_until_connected_call (region);
-  }
-
-  task = get_streamisation_info_for_region (region);
-
-  task->sese_entry = split_edge (single_succ_edge (task->init_latch_bb));
-  e = split_block_after_labels (task->final_bb);
-  task->sese_exit = e->src;
-  task->final_bb = e->dest;
-
-  expand_push_and_pop_stubs (region);
-
-  region->entry = task->entry_bb;
-  region->exit = task->exit_bb;
-
-  exit_bb = region->exit;
 
   si = gsi_last_bb (exit_bb);
   if (!gimple_omp_return_nowait_p (gsi_stmt (si)) || need_barrier)
@@ -6583,7 +6703,7 @@ expand_omp_single (struct omp_region *region)
    and exit markers for REGION.  */
 
 static void
-expand_omp_synch (struct omp_region *region)
+expand_omp_synch (omp_region_p region)
 {
   basic_block entry_bb, exit_bb;
   gimple_stmt_iterator si;
@@ -6954,7 +7074,7 @@ expand_omp_atomic_mutex (basic_block load_bb, basic_block store_bb,
    by build_omp_regions_1().  */
 
 static void
-expand_omp_atomic (struct omp_region *region)
+expand_omp_atomic (omp_region_p region)
 {
   basic_block load_bb = region->entry, store_bb = region->exit;
   gimple load = last_stmt (load_bb), store = last_stmt (store_bb);
@@ -7003,7 +7123,7 @@ expand_omp_atomic (struct omp_region *region)
    internal dependencies in their body.  */
 
 static void
-expand_omp (struct omp_region *region)
+expand_omp (omp_region_p region)
 {
   while (region)
     {
@@ -7071,7 +7191,7 @@ expand_omp (struct omp_region *region)
    forest of OMP constructs may be built).  */
 
 static void
-build_omp_regions_1 (basic_block bb, struct omp_region *parent,
+build_omp_regions_1 (basic_block bb, omp_region_p parent,
 		     bool single_tree)
 {
   gimple_stmt_iterator gsi;
@@ -7081,7 +7201,7 @@ build_omp_regions_1 (basic_block bb, struct omp_region *parent,
   gsi = gsi_last_bb (bb);
   if (!gsi_end_p (gsi) && is_gimple_omp (gsi_stmt (gsi)))
     {
-      struct omp_region *region;
+      omp_region_p region;
       enum gimple_code code;
 
       stmt = gsi_stmt (gsi);
@@ -7178,148 +7298,1060 @@ build_omp_regions (void)
   build_omp_regions_1 (ENTRY_BLOCK_PTR, NULL, false);
 }
 
-struct stream_list {
-  struct stream_struct *stream;
-  struct stream_list *prev;
-};
 static void
-retrieve_streams_info (struct omp_region *region)
+retrieve_streaming_info (omp_region_p region)
 {
+  streamization_info_p task, outermost_parallel_sinfo;
   gimple task_stmt;
   tree c;
 
-  static struct stream_list *list = NULL;
-  
   while (region)
     {
-      location_t saved_location;
-
       if (region->inner)
-	retrieve_streams_info (region->inner);
-
-      saved_location = input_location;
-      if (gimple_has_location (last_stmt (region->entry)))
-	input_location = gimple_location (last_stmt (region->entry));
+	retrieve_streaming_info (region->inner);
 
       switch (region->type)
 	{
 	case GIMPLE_OMP_TASK:
           task_stmt = gsi_stmt (gsi_last_bb (region->entry));
+
+	  /* Build streamization info data structures for all nesting
+	     regions of a streaming task up to the outermost enclosing
+	     parallel region.  */
+	  if (find_omp_clause (gimple_omp_task_clauses (task_stmt),
+			       OMP_CLAUSE_INPUT)
+	      || find_omp_clause (gimple_omp_task_clauses (task_stmt),
+				  OMP_CLAUSE_OUTPUT))
+	    {
+	      build_streamization_info (region);
+	    }
+
+	  if (is_streaming_region (region))
+	    {
+	      omp_stmt_p omp_stmt;
+
+	      task = get_streamization_info (region);
+	      outermost_parallel_sinfo = get_outermost_parallel_streamization_info (region);
+	      VEC_safe_push (task_p, heap, outermost_parallel_sinfo->tasks, task);
+
+	      omp_stmt = lookup_omp_stmt (task->stmt);
+#if 0 /*zzzz*/
+	      task->activation_counter_p = omp_stmt->activation_counter_p;
+	      task->termination_flag_p = omp_stmt->termination_flag_p;
+#endif
+	      task->task_decl = omp_stmt->task_decl;
+	    }
+
           for (c = gimple_omp_task_clauses (task_stmt); c; c = OMP_CLAUSE_CHAIN (c))
             {
-              stream str;
-
               enum omp_clause_code code = OMP_CLAUSE_CODE (c);
               switch (code)
                 {
                   case OMP_CLAUSE_INPUT:
+		    if (OMP_CLAUSE_FIRSTPRIVATE_INPUT (c) != NULL_TREE)
+		      {
+			stream_p stream = lookup_stream (OMP_CLAUSE_STREAM_ID (c));
+			view_p view = build_view (stream, NULL_TREE);
+
+			gcc_assert (task && outermost_parallel_sinfo);
+			/* FIXME: Limit to one consumer for now.  We
+			   will either split the stream or decide we
+			   can have a single stream depending on
+			   dominators later.  */
+
+			/* This is a promoted FIRSTPRIVATE clause.  */
+
+			  VEC_safe_push (view_p, heap, stream->fpviews, view);
+			  VEC_safe_push (view_p, heap, outermost_parallel_sinfo->fpviews, view);
+			  VEC_safe_push (view_p, heap, task->fpviews, view);
+			  view->sinfo = outermost_parallel_sinfo;
+
+			  view->view = OMP_CLAUSE_FIRSTPRIVATE_INPUT (c);
+		      }
+		    /* Fallthru  */
+
                   case OMP_CLAUSE_OUTPUT:
                     {
-                      struct stream_list *new_elem;
-                      view v;
-                      str = lookup_stream (OMP_CLAUSE_STREAM_ID (c));
-                      v = lookup_view (region, str->views);
+		      /* Build the taskgraph.  */
+		      stream_p stream = lookup_stream (OMP_CLAUSE_STREAM_ID (c));
+                      view_p view = build_view (stream, c);
 
-                      v->stream = str;
-                      v->view = create_tmp_var (build_pointer_type (void_type_node), "view");
-                      v->index = create_tmp_var (long_long_unsigned_type_node, "index");
-                      v->sync_index = create_tmp_var (long_long_unsigned_type_node, "sync_index");
-                      v->data = create_tmp_var (v->stream->buffer_type, "data");
-                      v->clause = c;
+		      /* Ensure streams only belong to one region.  */
+		      if (stream->outermost_parallel_sinfo)
+			gcc_assert (stream->outermost_parallel_sinfo
+				    == outermost_parallel_sinfo);
+		      else
+			{
+			  stream->outermost_parallel_sinfo = outermost_parallel_sinfo;
+			  VEC_safe_push (stream_p, heap, outermost_parallel_sinfo->streams, stream);
+			}
 
-                      v->view_var = OMP_CLAUSE_VIEW_ID (c);
+		      view->sinfo = task;
 
-                      if(TREE_CODE (TREE_TYPE (v->view_var)) == ARRAY_TYPE)
-                        v->view_horizon = build_int_cst (long_long_unsigned_type_node, TYPE_SIZE_HAS_INT (TREE_TYPE (v->view_var)) / 
-                                                            TYPE_SIZE_HAS_INT (TREE_TYPE (TREE_TYPE (v->view_var))));
-                      else
-                        v->view_horizon = build_int_cst (long_long_unsigned_type_node, 1);
-
-                      v->burst = OMP_CLAUSE_BURST_SIZE (c);
-                      if(v->burst == NULL_TREE)
-                        v->burst = v->view_horizon;
-
-                      v->var_decl = str->var;
-
-                      if(code == OMP_CLAUSE_INPUT)
+                      if (code == OMP_CLAUSE_INPUT)
                         {
-                          str->nr_consumers++;
-                          v->is_producer = false;
-                        } 
-                      else 
-                        {
-                          str->nr_producers++;
-                          v->is_producer = true;
+                          view->type = READ_VIEW;
+			  VEC_safe_push (view_p, heap, stream->rviews, view);
+			  VEC_safe_push (view_p, heap, task->rviews, view);
                         }
-                      lookup_view_in_region (region, v);
-
-                      new_elem = (struct stream_list *) xmalloc(sizeof(struct stream_list));
-                      new_elem->stream = str;
-                      new_elem->prev = list;
-                      list = new_elem;
+                      else
+                        {
+                          view->type = WRITE_VIEW;
+			  VEC_safe_push (view_p, heap, stream->wviews, view);
+			  VEC_safe_push (view_p, heap, task->wviews, view);
+                        }
                     }
-                    break; 
+                    break;
+
                   default:
                     break;
                 }
             }
+
+	  /* Decide on the number of instances this task should be
+	     using and whether it can be allowed to
+	     self-replicate.  */
+	  if (is_streaming_region (region))
+	    {
+	      omp_region_p outer = region->outer;
+	      tree num_thr_c = find_omp_clause (gimple_omp_task_clauses (task_stmt),
+						OMP_CLAUSE_NUM_THREADS);
+
+	      task = get_streamization_info (region);
+	      task->num_instances = NULL_TREE;
+	      task->can_replicate = boolean_false_node;
+
+	      if (num_thr_c)
+		task->num_instances = OMP_CLAUSE_NUM_THREADS_EXPR (num_thr_c);
+
+	      while (outer && task->num_instances == NULL_TREE)
+		{
+		  switch (outer->type)
+		    {
+		    case GIMPLE_OMP_PARALLEL:
+		      {
+			streamization_info_p outer_sinfo = get_streamization_info (outer);
+			tree clauses = gimple_omp_parallel_clauses (outer_sinfo->stmt);
+			tree c = find_omp_clause (clauses, OMP_CLAUSE_NUM_THREADS);
+
+			if (c)
+			  task->num_instances = OMP_CLAUSE_NUM_THREADS_EXPR (c);
+			else
+			  {
+			    tree fn = built_in_decls[BUILT_IN_OMP_GET_NUM_THREADS];
+			    gimple stmt;
+
+			    /* Not supported now.  This call should be
+			       issued in the proper context (outermost
+			       parallel), but that may just give the
+			       wrong number.  We only support the case
+			       where num_threads is set for now.  */
+			    gcc_assert (0);
+			    /*
+			      num_threads = create_tmp_var (integer_type_node, "gomp_num_threads");
+			      stmt = gimple_build_call (fn, 0);
+			      gimple_call_set_lhs (stmt, num_threads);
+			      gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+			    */
+			  }
+		      }
+		      break;
+
+		    case GIMPLE_OMP_SINGLE:
+		    case GIMPLE_OMP_TASK:
+		    case GIMPLE_OMP_SECTION:
+		      task->num_instances = integer_one_node;
+		      break;
+
+		    default:
+		      break;
+		    }
+
+		  outer = outer->outer;
+		}
+	      gcc_assert (task->num_instances);
+	    }
+
 	  break;
 
+	case GIMPLE_OMP_PARALLEL:
+	  {
+	    if (is_streaming_region (region))
+	      {
+		omp_stmt_p omp_stmt;
+		streamization_info_p parallel_region = get_streamization_info (region);
+		outermost_parallel_sinfo = get_outermost_parallel_streamization_info (region);
+
+		if (parallel_region == outermost_parallel_sinfo)
+		  {
+		    omp_stmt = lookup_omp_stmt (parallel_region->stmt);
+		    parallel_region->task_decl = omp_stmt->task_decl;
+		  }
+	      }
+
+	  }
+	  break;
 	case GIMPLE_OMP_SINGLE:
-          while(list != NULL)
-          {
-            struct stream_list *to_remove;
-            stream str = list->stream;
-            if(str->nr_producers == 0 || str->nr_consumers == 0)
-              {
-                view v = lookup_view (region, str->views);
-                v->stream = str;
-                v->view = create_tmp_var (build_pointer_type (void_type_node), "view");
-                v->index = create_tmp_var (long_long_unsigned_type_node, "index");
-                v->sync_index = create_tmp_var (long_long_unsigned_type_node, "sync_index");
-                v->data = create_tmp_var (v->stream->buffer_type, "data");
-                v->clause = NULL_TREE;
-                v->expanded_push_pop = false;
+	case GIMPLE_OMP_FOR:
 
-                v->view_var = v->stream->var;
-
-                if(TREE_CODE (TREE_TYPE (v->view_var)) == ARRAY_TYPE)
-                  v->view_horizon = build_int_cst (long_long_unsigned_type_node, TYPE_SIZE_HAS_INT (TREE_TYPE (v->view_var)) / 
-                                                      TYPE_SIZE_HAS_INT (TREE_TYPE (TREE_TYPE (v->view_var))));
-                else
-                  v->view_horizon = build_int_cst (long_long_unsigned_type_node, 1);
-
-                v->burst = v->view_horizon;
-
-                v->view_var = NULL_TREE;
-
-                if(str->nr_producers == 0)
-                {
-                  v->is_producer = true;
-                  str->nr_producers++;
-                }
-                if(str->nr_consumers == 0)
-                {
-                  v->is_producer = false;
-                  str->nr_consumers++;
-                }
-
-                lookup_view_in_region (region, v);
-              }
-
-            to_remove = list;
-            list = list->prev;
-            free(to_remove);
-          }
 	  break;
 
 	default:
           break;
 	}
 
-      input_location = saved_location;
       region = region->next;
     }
+}
+
+static void
+build_task_chunk_loop (basic_block entry_bb, basic_block exit_bb,
+		       tree avl_work, streamization_info_p task)
+{
+  basic_block loop_init_bb, loop_header_bb, loop_iv_bb, body_entry_bb;
+  gimple_stmt_iterator gsi;
+  edge latch_edge, e;
+  gimple stmt;
+  view_p view;
+  int i;
+  tree fn, tmp;
+  tree act_iv = create_tmp_var (size_type_node, "act_iv");
+
+  latch_edge = single_succ_edge (exit_bb);
+
+  body_entry_bb = entry_bb;
+  loop_header_bb = split_edge (single_pred_edge (entry_bb));
+  e = single_pred_edge (loop_header_bb);
+  loop_init_bb = split_edge (e);
+
+  stmt = gimple_build_assign (act_iv, build_int_cst (size_type_node, 0));
+  gsi = gsi_last_bb (loop_init_bb);
+  gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+
+  remove_edge (single_succ_edge (loop_header_bb));
+  make_edge (loop_header_bb, body_entry_bb, EDGE_TRUE_VALUE);
+  make_edge (loop_header_bb, single_succ (exit_bb), EDGE_FALSE_VALUE);
+
+  gsi = gsi_last_bb (loop_header_bb);
+  if (!avl_work)
+    avl_work = build_int_cst (size_type_node, AGGREGATION_FACTOR);
+  stmt = gimple_build_cond (LT_EXPR, act_iv, avl_work, NULL_TREE, NULL_TREE);
+  gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+
+  loop_iv_bb = split_edge (latch_edge);
+  latch_edge = single_succ_edge (loop_iv_bb);
+
+  gsi = gsi_last_bb (loop_iv_bb);
+  stmt = gimple_build_assign_with_ops (PLUS_EXPR, act_iv, act_iv,
+				       build_int_cst (size_type_node, 1));
+  gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+
+  for (i = 0; VEC_iterate (view_p, task->rviews, i, view); ++i)
+    {
+      stmt = gimple_build_assign_with_ops (POINTER_PLUS_EXPR,
+					   view->buffer_pointer,
+					   view->buffer_pointer,
+					   view->burst_size);
+      gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+    }
+  for (i = 0; VEC_iterate (view_p, task->wviews, i, view); ++i)
+    {
+      stmt = gimple_build_assign_with_ops (POINTER_PLUS_EXPR,
+					   view->buffer_pointer,
+					   view->buffer_pointer,
+					   view->burst_size);
+      gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+    }
+  redirect_edge_and_branch (latch_edge, loop_header_bb);
+}
+
+static void
+build_task_control_loop (streamization_info_p task)
+{
+  basic_block loop_init_bb, loop_header_bb;
+  basic_block loop_acquire_bb, loop_release_bb;
+  gimple_stmt_iterator gsi;
+  edge latch_edge;
+  gimple stmt;
+  view_p view;
+  int i;
+  tree fn, act_idx_end_reg, act_idx_start_reg;
+
+  task->act_idx_start = create_tmp_var (long_long_unsigned_type_node,
+				       "act_idx_start");
+  TREE_ADDRESSABLE (task->act_idx_start) = 1;
+  if (gimple_in_ssa_p (cfun))
+    add_referenced_var (task->act_idx_start);
+  task->avl_work = create_tmp_var (long_long_unsigned_type_node,
+				   "avl_work");
+
+  latch_edge = task->sese_body_exit;
+
+  loop_acquire_bb = split_edge (task->sese_body_entry);
+  task->sese_body_entry = single_pred_edge (loop_acquire_bb);
+  loop_header_bb = split_edge (task->sese_body_entry);
+  task->sese_body_entry = single_pred_edge (loop_header_bb);
+  loop_init_bb = split_edge (task->sese_body_entry);
+  task->sese_body_entry = single_pred_edge (loop_init_bb);
+
+  //stmt = gimple_build_assign (act_iv, build_int_cst (size_type_node, 0));
+  //gsi = gsi_last_bb (loop_init_bb);
+  //gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+
+  gsi = gsi_last_bb (loop_header_bb);
+  fn = built_in_decls[BUILT_IN_GOMP_STREAM_GET_AVAILABLE_WORK];
+  stmt = gimple_build_call (fn, 2, lookup_var (task->task_decl, task->stmt),
+			    build_fold_addr_expr (task->act_idx_start));
+  gimple_call_set_lhs (stmt, task->avl_work);
+  gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+
+
+  remove_edge (single_succ_edge (loop_header_bb));
+  make_edge (loop_header_bb, loop_acquire_bb, EDGE_TRUE_VALUE);
+  task->sese_body_exit =
+    make_edge (loop_header_bb, task->sese_body_exit->dest, EDGE_FALSE_VALUE);
+
+  stmt = gimple_build_cond (GT_EXPR, task->avl_work,
+			    build_int_cst (size_type_node, 0),
+			    NULL_TREE, NULL_TREE);
+  gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+
+  loop_release_bb = split_edge (latch_edge);
+  latch_edge = single_succ_edge (loop_release_bb);
+
+  gsi = gsi_last_bb (loop_acquire_bb);
+  act_idx_start_reg = create_tmp_var (long_long_unsigned_type_node, "act_idx_start_reg");
+  stmt = gimple_build_assign (act_idx_start_reg, task->act_idx_start);
+  gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+
+  act_idx_end_reg = create_tmp_var (long_long_unsigned_type_node, "act_idx_end_reg");
+  stmt = gimple_build_assign_with_ops (PLUS_EXPR, act_idx_end_reg,
+				       act_idx_start_reg,
+				       task->avl_work);
+  gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+
+  for (i = 0; VEC_iterate (view_p, task->rviews, i, view); ++i)
+    {
+      gsi = gsi_last_bb (loop_acquire_bb);
+      fn = built_in_decls[BUILT_IN_GOMP_STREAM_UPDATE];
+      stmt = gimple_build_call (fn, 3, view->view, act_idx_start_reg, act_idx_end_reg);
+      gimple_call_set_lhs (stmt, view->buffer_pointer);
+      gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+
+      gsi = gsi_last_bb (loop_release_bb);
+      fn = built_in_decls[BUILT_IN_GOMP_STREAM_RELEASE];
+      stmt = gimple_build_call (fn, 2, view->view, act_idx_end_reg);
+      gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+    }
+  for (i = 0; VEC_iterate (view_p, task->wviews, i, view); ++i)
+    {
+      gsi = gsi_last_bb (loop_acquire_bb);
+      fn = built_in_decls[BUILT_IN_GOMP_STREAM_STALL];
+      stmt = gimple_build_call (fn, 3, view->view, act_idx_start_reg, act_idx_end_reg);
+      gimple_call_set_lhs (stmt, view->buffer_pointer);
+      gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+
+      gsi = gsi_last_bb (loop_release_bb);
+      fn = built_in_decls[BUILT_IN_GOMP_STREAM_COMMIT];
+      stmt = gimple_build_call (fn, 2, view->view, act_idx_end_reg);
+      gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+    }
+  redirect_edge_and_branch (latch_edge, loop_header_bb);
+}
+
+static void
+select_task_chunk_loop (streamization_info_p task,
+			basic_block entry1, basic_block exit1,
+			basic_block entry2, basic_block exit2)
+{
+  basic_block join_bb = single_succ (exit2);
+  basic_block cond_bb = split_edge (single_pred_edge (entry1));
+  gimple_stmt_iterator gsi = gsi_last_bb (cond_bb);
+  gimple stmt;
+
+  gcc_assert (single_succ (exit1) == entry2);
+
+  remove_edge (single_pred_edge (entry1));
+  remove_edge (single_pred_edge (entry2));
+  make_edge (cond_bb, entry1, EDGE_TRUE_VALUE);
+  make_edge (cond_bb, entry2, EDGE_FALSE_VALUE);
+  make_edge (exit1, join_bb, EDGE_FALLTHRU);
+
+  stmt = gimple_build_cond (EQ_EXPR, task->avl_work,
+			    build_int_cst (size_type_node, AGGREGATION_FACTOR),
+			    NULL_TREE, NULL_TREE);
+  gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+}
+
+static void
+prepare_streaming_context (omp_region_p region)
+{
+  while (region)
+    {
+      if (is_streaming_region (region))
+	switch (region->type)
+	  {
+	  case GIMPLE_OMP_PARALLEL:
+	    if (get_streamization_info (region) == get_outermost_parallel_streamization_info (region))
+	    {
+	      /* Build a SINGLE region for initialization at the
+		 beginning and another one at the end for
+		 finalization.  */
+	      basic_block condition_bb, body_entry_bb, body_exit_bb;
+	      basic_block initialization_bb, finalization_bb, join_bb;
+	      basic_block copy_in_bb;
+	      edge entry_edge, exit_edge, tmp_edge;
+	      tree tmp, fn;
+	      streamization_info_p sinfo = get_streamization_info (region);
+	      gimple_stmt_iterator gsi, src, dest;
+	      gimple stmt;
+	      int i, j;
+	      stream_p stream;
+	      tree task_decl = lookup_var (sinfo->task_decl, sinfo->stmt);
+	      view_p view;
+
+	      entry_edge = single_succ_edge (region->entry);
+	      exit_edge = split_block_after_labels (region->exit);
+	      region->exit = exit_edge->dest;
+
+	      body_entry_bb = entry_edge->dest;
+	      body_exit_bb = exit_edge->src;
+
+	      /* Move all copy-in statements to the right place.  */
+	      copy_in_bb = split_edge (entry_edge);
+	      entry_edge = single_succ_edge (copy_in_bb);
+
+	      dest = gsi_last_bb (copy_in_bb);
+	      src = gsi_start_bb (entry_edge->dest);
+
+	      while (!gsi_end_p (src))
+		if (get_stmt_loc (gsi_stmt (src)) == SL_COPY_IN)
+		  gsi_move_after (&src, &dest);
+		else
+		  gsi_next (&src);
+
+	      /* Add this task instance to the task node.  */
+	      gsi = gsi_last_bb (copy_in_bb);
+	      fn = built_in_decls[BUILT_IN_GOMP_STREAM_TASK_ADD_INSTANCE];
+	      stmt = gimple_build_call (fn, 1, task_decl);
+	      gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+
+
+	      /* Build initialization region.  */
+	      condition_bb = split_edge (entry_edge);
+	      entry_edge = single_succ_edge (condition_bb);
+	      initialization_bb = split_edge (entry_edge);
+	      entry_edge = single_succ_edge (initialization_bb);
+	      join_bb = split_edge (entry_edge);
+	      remove_edge (find_edge (condition_bb, initialization_bb));
+	      make_edge (condition_bb, initialization_bb,
+			 EDGE_TRUE_VALUE);
+	      make_edge (condition_bb, join_bb, EDGE_FALSE_VALUE);
+	      gsi = gsi_last_bb (condition_bb);
+	      tmp = create_tmp_var (boolean_type_node, "initialization_region");
+	      stmt = gimple_build_call (built_in_decls[BUILT_IN_GOMP_SINGLE_START], 0);
+	      gimple_call_set_lhs (stmt, tmp);
+	      gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+	      stmt = gimple_build_cond (EQ_EXPR, tmp, boolean_true_node,
+					NULL_TREE, NULL_TREE);
+	      gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+	      sinfo->initialization_bb = initialization_bb;
+	      sinfo->sese_body_entry = single_succ_edge (join_bb);
+	      sinfo->post_initialization_bb = split_edge (single_succ_edge (sinfo->initialization_bb));
+
+	      /* Build finalization region.  */
+	      condition_bb = split_edge (exit_edge);
+	      exit_edge = single_succ_edge (condition_bb);
+	      finalization_bb = split_edge (exit_edge);
+	      remove_edge (find_edge (condition_bb, finalization_bb));
+	      make_edge (condition_bb, finalization_bb,
+			 EDGE_TRUE_VALUE);
+	      make_edge (condition_bb, region->exit, EDGE_FALSE_VALUE);
+	      gsi = gsi_last_bb (condition_bb);
+	      tmp = create_tmp_var (boolean_type_node, "finalization_region");
+	      stmt = gimple_build_call (built_in_decls[BUILT_IN_GOMP_SINGLE_START], 0);
+	      gimple_call_set_lhs (stmt, tmp);
+	      gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+	      stmt = gimple_build_cond (EQ_EXPR, tmp, boolean_true_node,
+					NULL_TREE, NULL_TREE);
+	      gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+	      sinfo->finalization_bb = finalization_bb;
+	      sinfo->sese_body_exit = single_pred_edge (condition_bb);
+
+	      /* FIXME-perf: Force a barrier just before finalizing ...  */
+	      gsi = gsi_start_bb (condition_bb);
+	      fn = built_in_decls[BUILT_IN_GOMP_BARRIER];
+	      stmt = gimple_build_call (fn, 0);
+	      gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
+
+	      /* Issue stream creation and connection calls for all
+		 streams being used within the taskgraph bound to this
+		 parallel region.  */
+	      for (i = 0; VEC_iterate (stream_p, sinfo->streams, i, stream); ++i)
+		{
+		  tree type_size = TYPE_SIZE_UNIT (stream->element_type);
+		  tree horizon_size = build_int_cst (size_type_node,
+						     HORIZON);
+
+		  gsi = gsi_last_bb (sinfo->initialization_bb);
+		  fn = built_in_decls[BUILT_IN_GOMP_STREAM_CREATE_STREAM];
+		  stmt = gimple_build_call (fn, 2, type_size, horizon_size);
+		  gimple_call_set_lhs (stmt, stream->stream);
+		  gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+
+		  /* FIXME: this needs to take into account
+		     replication as well ... we may want to move this
+		     in the task call itself if we want dynamic values
+		     as well.  */
+		  for (j = 0; VEC_iterate (view_p, stream->rviews, j, view); ++j)
+		    {
+		      fn = built_in_decls[BUILT_IN_GOMP_STREAM_ADD_EXPECTED_VIEWS];
+		      stmt = gimple_build_call (fn, 4, stream->stream,
+						view->sinfo->num_instances,
+						integer_zero_node,
+						boolean_false_node);
+		      gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+		    }
+		  for (j = 0; VEC_iterate (view_p, stream->wviews, j, view); ++j)
+		    {
+		      fn = built_in_decls[BUILT_IN_GOMP_STREAM_ADD_EXPECTED_VIEWS];
+		      stmt = gimple_build_call (fn, 4, stream->stream,
+						integer_zero_node,
+						view->sinfo->num_instances,
+						boolean_false_node);
+		      gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+		    }
+
+		  /* Connect any firstprivate write views on this
+		     stream.  As these are the master views, they only
+		     get one instance.  */
+		  for (j = 0; VEC_iterate (view_p, stream->fpviews, j, view); ++j)
+		    {
+		      tree view_decl = lookup_var (view->view, sinfo->stmt);
+
+		      /* Only one firstprivate view per stream possible.  */
+		      gcc_assert (j == 0);
+		      /* If there are firstprivate views, there should be no write views.  */
+		      gcc_assert (VEC_empty (view_p, stream->wviews));
+
+		      fn = built_in_decls[BUILT_IN_GOMP_STREAM_ADD_EXPECTED_VIEWS];
+		      stmt = gimple_build_call (fn, 4, stream->stream,
+						integer_zero_node,
+						integer_one_node,
+						boolean_false_node);
+		      gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+
+		      fn = built_in_decls[BUILT_IN_GOMP_STREAM_CONNECT_VIEW];
+		      stmt = gimple_build_call (fn, 3, task_decl, stream->stream, view_decl);
+		      gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+		    }
+
+		  /* Set the final count flag for the number of
+		     expected views.  */
+		  gsi = gsi_last_bb (sinfo->post_initialization_bb);
+		  fn = built_in_decls[BUILT_IN_GOMP_STREAM_ADD_EXPECTED_VIEWS];
+		  stmt = gimple_build_call (fn, 4, stream->stream,
+					    integer_zero_node,
+					    integer_zero_node,
+					    boolean_true_node);
+		  gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+		}
+
+	      /* Issue wait until connected call in the parallel
+		 region.  We add a separate BB after the
+		 initialization one to ensure tasks are created before
+		 this call.  */
+	      gsi = gsi_last_bb (sinfo->post_initialization_bb);
+	      fn = built_in_decls[BUILT_IN_GOMP_STREAM_WAIT_UNTIL_CONNECTED];
+	      stmt = gimple_build_call (fn, 1, task_decl);
+	      gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+
+	      gsi = gsi_start_bb (single_succ (sinfo->post_initialization_bb));
+	      fn = built_in_decls[BUILT_IN_GOMP_BARRIER];
+	      stmt = gimple_build_call (fn, 0);
+	      gsi_insert_before (&gsi, stmt, GSI_CONTINUE_LINKING);
+
+	      /* Issue GOMP_stream_init call.  */
+	      gsi = gsi_last_bb (split_edge (single_pred_edge (sinfo->initialization_bb)));
+	      fn = built_in_decls[BUILT_IN_GOMP_STREAM_INIT];
+	      stmt = gimple_build_call (fn, 0);
+	      gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+
+	      /* Issue termination call to task exit.  */
+	      gsi = gsi_last_bb (sinfo->finalization_bb);
+	      fn = built_in_decls[BUILT_IN_GOMP_STREAM_TASK_EXIT];
+	      stmt = gimple_build_call (fn, 1, task_decl);
+	      gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+
+	      fn = built_in_decls[BUILT_IN_GOMP_STREAM_EXIT];
+	      stmt = gimple_build_call (fn, 0);
+	      gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+
+	      gsi = gsi_start_bb (region->exit);
+	      fn = built_in_decls[BUILT_IN_GOMP_BARRIER];
+	      stmt = gimple_build_call (fn, 0);
+	      gsi_insert_before (&gsi, stmt, GSI_CONTINUE_LINKING);
+	    }
+	    break;
+
+	  case GIMPLE_OMP_TASK:
+	    {
+	      streamization_info_p init_sinfo =
+		get_outermost_parallel_streamization_info (region);
+	      streamization_info_p task = get_streamization_info (region);
+	      gimple_stmt_iterator src, dest;
+	      gimple_stmt_iterator gsi;
+	      gimple stmt;
+	      view_p view;
+	      int i;
+	      tree fn, tmp;
+	      tree task_decl = lookup_var (task->task_decl, task->stmt);
+
+	      if (task->is_pre_task)
+		{
+		  gcc_assert (VEC_length (view_p, task->wviews) == 1);
+		  gcc_assert (VEC_length (view_p, task->rviews) == 0);
+		  view = VEC_index (view_p, task->wviews, 0);
+
+		  dest = gsi_last_bb (init_sinfo->initialization_bb);
+		  src = gsi_start_bb (task->region->entry);
+
+		  while (!gsi_end_p (src))
+		    if (get_stmt_loc (gsi_stmt (src)) == SL_COPY_IN)
+		      {
+			gimple src_stmt = gsi_stmt (src);
+			tree rhs, base_var, parallel_var;
+			gimple copy_region_stmt = get_streamization_info (region->outer)->stmt;
+
+			/* FIXME ...  */
+			if (!gimple_assign_single_p (src_stmt))
+			  continue;
+
+			rhs = gimple_assign_rhs1 (src_stmt);
+			base_var = reverse_lookup_var (rhs, copy_region_stmt);
+			if (base_var)
+			  {
+			    parallel_var = lookup_var (base_var, init_sinfo->stmt);
+			    gimple_assign_set_rhs1 (src_stmt, parallel_var);
+			  }
+			gsi_move_after (&src, &dest);
+			gimple_set_block (src_stmt, NULL_TREE);
+		      }
+		    else
+		      gsi_next (&src);
+
+		  /* Find entry and exit edges for the task's body.  */
+		  task->sese_body_entry = single_succ_edge (task->region->entry);
+		  gsi = gsi_last_bb (task->region->exit);
+		  gcc_assert (gimple_code (gsi_stmt (gsi)) == GIMPLE_OMP_RETURN);
+		  gsi_prev (&gsi);
+		  stmt = (gsi_end_p (gsi)) ? NULL : gsi_stmt (gsi);
+		  task->sese_body_exit = split_block (task->region->exit, stmt);
+		  task->region->exit = task->sese_body_exit->dest;
+
+		  /* Build initialization block.  */
+		  task->initialization_bb = split_edge (task->sese_body_entry);
+		  task->sese_body_entry = single_succ_edge (task->initialization_bb);
+
+		  /* Before we can afford to loopify the task body, we
+		     bring all COPY_IN statements to the initialization
+		     block.  */
+		  src = gsi_start_bb (task->sese_body_entry->dest);
+		  dest = gsi_start_bb (task->initialization_bb);
+		  while (!gsi_end_p (src))
+		    if (get_stmt_loc (gsi_stmt (src)) == SL_COPY_IN)
+		      gsi_move_before (&src, &dest);
+		  //gsi_remove (&src, true);
+		    else
+		      gsi_next (&src);
+
+
+		  /* Get an access pointer in the stream (we assume enough
+		     space is available) and convert the view_access.  We
+		     don't synchronize for now as this should happen in
+		     single threaded code before the other producer or any
+		     consumer can start.  */
+		  gsi = gsi_last_bb (task->initialization_bb);
+		  fn = built_in_decls[BUILT_IN_GOMP_STREAM_PRE];
+		  stmt = gimple_build_call (fn, 2, view->stream->stream, get_view_burst_size (view, &gsi));
+		  gimple_call_set_lhs (stmt, view->buffer_pointer);
+		  gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+
+		  /* Replace all accesses to the view's variable with
+		     accesses to the stream buffer.  */
+		  convert_view_to_var (view, task->sese_body_entry->dest, task->sese_body_exit->src);
+
+		  break;
+		}
+
+	      /* Issue runtime calls in the initialization and
+		 finalization areas of the outermost enclosing
+		 parallel region.  */
+	      gsi = gsi_last_bb (init_sinfo->initialization_bb);
+
+	      /* yyyy  */
+#if 0
+	      /* Create one instance of the task data structure.  */
+	      fn = built_in_decls[BUILT_IN_GOMP_STREAM_CREATE_TASK];
+	      stmt = gimple_build_call (fn, 2, lookup_var (task->activation_counter_p, init_sinfo->stmt),
+					lookup_var (task->termination_flag_p, init_sinfo->stmt));
+	      gimple_call_set_lhs (stmt, lookup_var (task->task_decl, init_sinfo->stmt));
+	      gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+#endif
+
+	      /* As the tasks will only be created once, we need to
+		 hoist the task creation calls as well as all the
+		 necessary sender-side copy-in statements in the
+		 outermost enclosing parallel region's initialization
+		 BB.  We also need to remap the variables according to
+		 the new context (for activation counters, termination
+		 flags or any other artificial firstprivate clauses
+		 that we introduced).  */
+	      dest = gsi_last_bb (init_sinfo->initialization_bb);
+	      src = gsi_start_bb (task->region->entry);
+
+	      while (!gsi_end_p (src))
+		if (get_stmt_loc (gsi_stmt (src)) == SL_COPY_IN)
+		  {
+		    gimple src_stmt = gsi_stmt (src);
+		    tree rhs, base_var, parallel_var;
+		    gimple copy_region_stmt = get_streamization_info (region->outer)->stmt;
+
+		    /* FIXME ...  */
+		    if (!gimple_assign_single_p (src_stmt))
+		      continue;
+
+		    rhs = gimple_assign_rhs1 (src_stmt);
+		    base_var = reverse_lookup_var (rhs, copy_region_stmt);
+		    if (base_var)
+		      {
+			parallel_var = lookup_var (base_var, init_sinfo->stmt);
+			gimple_assign_set_rhs1 (src_stmt, parallel_var);
+		      }
+		    gsi_move_after (&src, &dest);
+		    gimple_set_block (src_stmt, NULL_TREE);
+		  }
+		else
+		  gsi_next (&src);
+
+	      /* Set termination flag in finalization_bb.  */
+	      gsi = gsi_start_bb (init_sinfo->finalization_bb);
+	      fn = built_in_decls[BUILT_IN_GOMP_STREAM_SET_TASK_TERMINATION_FLAG];
+	      stmt = gimple_build_call (fn, 1, lookup_var (task->task_decl, init_sinfo->stmt));
+	      gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
+
+
+	      /* Find entry and exit edges for the task's body.  */
+	      task->sese_body_entry = single_succ_edge (task->region->entry);
+	      gsi = gsi_last_bb (task->region->exit);
+	      gcc_assert (gimple_code (gsi_stmt (gsi)) == GIMPLE_OMP_RETURN);
+	      gsi_prev (&gsi);
+	      stmt = (gsi_end_p (gsi)) ? NULL : gsi_stmt (gsi);
+	      task->sese_body_exit = split_block (task->region->exit, stmt);
+	      task->region->exit = task->sese_body_exit->dest;
+
+	      /* Build initialization and finalization blocks.  */
+	      task->initialization_bb = split_edge (task->sese_body_entry);
+	      task->sese_body_entry = single_succ_edge (task->initialization_bb);
+	      task->finalization_bb = split_edge (task->sese_body_exit);
+	      task->sese_body_exit = single_pred_edge (task->finalization_bb);
+
+	      /* Before we can afford to loopify the task body, we
+		 bring all COPY_IN statements to the initialization
+		 block.  */
+	      src = gsi_start_bb (task->sese_body_entry->dest);
+	      dest = gsi_start_bb (task->initialization_bb);
+	      while (!gsi_end_p (src))
+		if (get_stmt_loc (gsi_stmt (src)) == SL_COPY_IN)
+		  gsi_move_before (&src, &dest);
+		else
+		  gsi_next (&src);
+
+	      /* Add this task instance to the task node.  */
+	      gsi = gsi_last_bb (task->initialization_bb);
+	      fn = built_in_decls[BUILT_IN_GOMP_STREAM_TASK_ADD_INSTANCE];
+	      stmt = gimple_build_call (fn, 1, task_decl);
+	      gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+
+	      /* Issue the proper initialization and finalization
+		 calls for the task and its views.  */
+	      gsi = gsi_last_bb (task->initialization_bb);
+	      for (i = 0; VEC_iterate (view_p, task->rviews, i, view); ++i)
+		{
+		  fn = built_in_decls[BUILT_IN_GOMP_STREAM_CREATE_READ_VIEW];
+		  stmt = gimple_build_call (fn, 2, view->view_size, get_view_burst_size (view, &gsi));
+		  gimple_call_set_lhs (stmt, view->view);
+		  gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+
+		  fn = built_in_decls[BUILT_IN_GOMP_STREAM_CONNECT_VIEW];
+		  stmt = gimple_build_call (fn, 3, task_decl, view->stream->stream, view->view);
+		  gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+
+		}
+
+	      for (i = 0; VEC_iterate (view_p, task->wviews, i, view); ++i)
+		{
+		  fn = built_in_decls[BUILT_IN_GOMP_STREAM_CREATE_WRITE_VIEW];
+		  stmt = gimple_build_call (fn, 2, view->view_size, get_view_burst_size (view, &gsi));
+		  gimple_call_set_lhs (stmt, view->view);
+		  gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+
+		  fn = built_in_decls[BUILT_IN_GOMP_STREAM_CONNECT_VIEW];
+		  stmt = gimple_build_call (fn, 3, task_decl, view->stream->stream, view->view);
+		  gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+		}
+
+	      /* Must be last in the initialization_bb.  */
+	      fn = built_in_decls[BUILT_IN_GOMP_STREAM_WAIT_UNTIL_CONNECTED];
+	      stmt = gimple_build_call (fn, 1, task_decl);
+	      gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+
+	      gsi = gsi_last_bb (task->finalization_bb);
+	      fn = built_in_decls[BUILT_IN_GOMP_STREAM_TASK_EXIT];
+	      stmt = gimple_build_call (fn, 1, task_decl);
+	      gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+
+
+	      /* Build local (to an aggregated iteration)
+		 initialization and finalization blocks.  These are
+		 part of the task body.  */
+	      task->local_initialization_bb = split_edge (task->sese_body_entry);
+	      task->sese_body_entry = single_pred_edge (task->local_initialization_bb);
+	      task->local_finalization_bb = split_edge (task->sese_body_exit);
+	      task->sese_body_exit = single_succ_edge (task->local_finalization_bb);
+
+	      /* Issue register load instructions for input views.  */
+	      gsi = gsi_last_bb (task->local_initialization_bb);
+	      for (i = 0; VEC_iterate (view_p, task->rviews, i, view); ++i)
+		convert_view_to_var (view, task->local_initialization_bb, task->local_finalization_bb);
+
+	      /* Issue register store instructions for output views.  */
+	      gsi = gsi_last_bb (task->local_finalization_bb);
+	      for (i = 0; VEC_iterate (view_p, task->wviews, i, view); ++i)
+		convert_view_to_var (view, task->local_initialization_bb, task->local_finalization_bb);
+
+	      /* Duplicate the task's body, then loopify each version,
+		 one as a static loop, the other dynamic.  We start
+		 from and entry and an exit edge.  */
+	      {
+		basic_block body_entry_1, body_exit_1;
+		basic_block body_entry_2, body_exit_2;
+		edge entry, exit;
+
+		VEC (basic_block, heap) *bbs = NULL;
+		basic_block bb, after, new_bb, dom_bb, tmp_bb;
+		int i;
+		edge e;
+
+		body_entry_1 = task->sese_body_entry->dest;
+		body_exit_1 = task->sese_body_exit->src;
+
+		/* Keep track of this block as we will redirect the
+		   edge.  */
+		tmp_bb = task->sese_body_exit->dest;
+
+		initialize_original_copy_tables ();
+
+		/* Find all blocks we wish to duplicate, then
+		   duplicate them all.  */
+		VEC_safe_push (basic_block, heap, bbs, body_entry_1);
+		gather_blocks_in_sese_region (body_entry_1, body_exit_1, &bbs);
+
+		after = body_exit_1;
+		for (i = 0; VEC_iterate (basic_block, bbs, i, bb); ++i)
+		  {
+		    after = duplicate_block (bb, NULL, after);
+		    bb->flags |= BB_DUPLICATED;
+		  }
+
+		/* Set dominators.  */
+		for (i = 0; VEC_iterate (basic_block, bbs, i, bb); ++i)
+		  {
+		    new_bb = get_bb_copy (bb);
+
+		    dom_bb = get_immediate_dominator (CDI_DOMINATORS, bb);
+		    if (dom_bb->flags & BB_DUPLICATED)
+		      {
+			dom_bb = get_bb_copy (dom_bb);
+			set_immediate_dominator (CDI_DOMINATORS, new_bb, dom_bb);
+		      }
+		  }
+
+		/* Redirect edges.  */
+		for (i = 0; VEC_iterate (basic_block, bbs, i, bb); ++i)
+		  {
+		    edge_iterator ei;
+		    new_bb = get_bb_copy (bb);
+
+		    FOR_EACH_EDGE (e, ei, new_bb->succs)
+		      {
+			if (!(e->dest->flags & BB_DUPLICATED))
+			  continue;
+			redirect_edge_and_branch_force (e, get_bb_copy (e->dest));
+		      }
+		  }
+
+		body_entry_2 = get_bb_copy (body_entry_1);
+		body_exit_2 = get_bb_copy (body_exit_1);
+
+		redirect_edge_and_branch_force (task->sese_body_exit,
+						body_entry_2);
+		set_immediate_dominator (CDI_DOMINATORS, body_entry_2,
+					 body_exit_1);
+		set_immediate_dominator (CDI_DOMINATORS, tmp_bb,
+					 body_exit_2);
+
+		task->sese_body_exit = single_succ_edge (body_exit_2);
+
+		/* Clear information about duplicates.  */
+		for (i = 0; VEC_iterate (basic_block, bbs, i, bb); ++i)
+		  bb->flags &= ~BB_DUPLICATED;
+		free_original_copy_tables ();
+
+
+		/* Get available work, build stall/update and
+		   commit/release calls and choose execution loop.  */
+		build_task_control_loop (task);
+
+		select_task_chunk_loop (task, body_entry_1, body_exit_1,
+					body_entry_2, body_exit_2);
+
+		/* Build loops.  */
+		build_task_chunk_loop (body_entry_1, body_exit_1, NULL_TREE, task);
+		build_task_chunk_loop (body_entry_2, body_exit_2, task->avl_work, task);
+	      }
+
+	    }
+	    break;
+
+	  default:
+	    break;
+	  }
+
+      prepare_streaming_context (region->inner);
+      region = region->next;
+    }
+}
+
+static void
+delete_omp_region (omp_region_p region)
+{
+  omp_region_p outer = region->outer;
+  omp_region_p siblings, prev;
+
+  /* We assume outer exists.  */
+  gcc_assert (outer);
+
+  if (region == outer->inner)
+    {
+      outer->inner = region->next;
+      free_omp_region_1 (region);
+      return;
+    }
+
+  siblings = outer->inner;
+  prev = siblings;
+  while (siblings)
+    {
+      if (region == siblings)
+	prev->next = region->next;
+      prev = siblings;
+      siblings = siblings->next;
+    }  
+}
+
+static void
+expand_pre_operators (omp_region_p region)
+{
+  while (region)
+    {
+      if (is_streaming_region (region))
+	{
+	  streamization_info_p sinfo = get_streamization_info (region);
+	  task_p task;
+	  stream_p stream;
+	  view_p view;
+	  int i, j;
+	  VEC (stream_p,heap) *pre_streams = NULL;
+	  VEC (task_p,heap) *pre_tasks = NULL;
+
+	  gcc_assert (sinfo == get_outermost_parallel_streamization_info (region));
+
+	  /* Find streams with "pre" operators.  */
+	  for (i = 0; VEC_iterate (stream_p, sinfo->streams, i, stream); ++i)
+	    {
+	      /* If more than one distinct write view is present, this
+		 stream has a "pre" operator (FIXME: for now).  */
+	      gcc_assert (VEC_length (view_p, stream->wviews) <= 2);
+	      if (VEC_length (view_p, stream->wviews) == 2)
+		{
+		  VEC_safe_push (stream_p, heap, pre_streams, stream);
+		}
+	    }
+
+	  /* Determine which producer task is "pre"-initializing data
+	     in the stream.  */
+	  for (i = 0; VEC_iterate (stream_p, pre_streams, i, stream); ++i)
+	    {
+	      for (j = 0; VEC_iterate (view_p, stream->wviews, j, view); ++j)
+		{
+		  task_p producer = view->sinfo;
+
+		  /* We assume that the pre_task is not part of a
+		     pipeline: there should be no "input" clauses (for
+		     now not even promted firstprivate clauses), but
+		     we assume the "other" task will have at least
+		     one.  */
+		  if (!find_omp_clause (gimple_omp_task_clauses (producer->stmt), OMP_CLAUSE_INPUT))
+		    {
+		      VEC_safe_push (task_p, heap, pre_tasks, producer);
+		      VEC_unordered_remove (view_p, stream->wviews, j);
+		      break;
+		    }
+		}
+	    }
+
+	  /* Inline the pre_task's body (don't expand) and issue
+	     proper runtime calls.  */
+	  for (i = 0; VEC_iterate (task_p, pre_tasks, i, task); ++i)
+	    {
+	      task_p r_task;
+	      /* Remove the task and its write view from all data
+		 structures.  */
+	      for (j = 0; VEC_iterate (task_p, sinfo->tasks, j, r_task);)
+		{
+		  if (r_task == task)
+		    VEC_ordered_remove (task_p, sinfo->tasks, j);
+		  else
+		    j++;
+		}
+	      /* Remove the task directive, the corresponding
+		 omp_return and the task omp_region.  */
+	      //gsi = gsi_last_bb (task->region->entry);
+	      //gsi_remove (&gsi, true);
+	      //gsi = gsi_last_bb (task->region->exit);
+	      //gsi_remove (&gsi, true);
+	      //delete_omp_region (task->region);
+	      //task->region->streamization_info = NULL;
+	      task->is_pre_task = true;
+	    }	  
+	}
+      /* Only traverse up to the outermost enclosing parallel
+	 regions.  */
+      if (!is_streaming_region (region) && region->inner)
+	expand_pre_operators (region->inner);
+      region = region->next;
+    }
+}
+
+static void
+prepare_stream_expansion (omp_region_p region)
+{
+  retrieve_streaming_info (region);
+
+  expand_pre_operators (region);
+
+  prepare_streaming_context (region);
 }
 
 /* Main entry point for expanding OMP-GIMPLE into runtime calls.  */
@@ -7338,15 +8370,12 @@ execute_expand_omp (void)
       dump_omp_region (dump_file, root_omp_region, 0);
       fprintf (dump_file, "\n");
     }
-
   remove_exit_barriers (root_omp_region);
 
-  retrieve_streams_info (root_omp_region);
-
+  prepare_stream_expansion (root_omp_region);
   expand_omp (root_omp_region);
 
   cleanup_tree_cfg ();
-
   free_omp_regions ();
 
   return 0;
@@ -7378,7 +8407,7 @@ struct gimple_opt_pass pass_expand_omp =
   TODO_dump_func			/* todo_flags_finish */
  }
 };
-
+
 /* Routines to lower OpenMP directives into OMP-GIMPLE.  */
 
 /* Lower the OpenMP sections directive in the current statement in GSI_P.
@@ -8115,7 +9144,8 @@ create_task_copyfn (gimple task_stmt, omp_context *ctx)
      sizes and field offsets.  */
   if (tcctx.cb.decl_map)
     for (c = gimple_omp_task_clauses (task_stmt); c; c = OMP_CLAUSE_CHAIN (c))
-      if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_FIRSTPRIVATE)
+      if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_FIRSTPRIVATE
+	  && OMP_CLAUSE_VIEW_VAR_KIND (c) != OMP_CLAUSE_VIEW_VAR_DISCARD)
 	{
 	  tree *p;
 
@@ -8157,6 +9187,8 @@ create_task_copyfn (gimple task_stmt, omp_context *ctx)
 	append_to_statement_list (t, &list);
 	break;
       case OMP_CLAUSE_FIRSTPRIVATE:
+	if (OMP_CLAUSE_VIEW_VAR_KIND (c) == OMP_CLAUSE_VIEW_VAR_DISCARD)
+	  break;
 	decl = OMP_CLAUSE_DECL (c);
 	if (is_variable_sized (decl))
 	  break;
@@ -8188,7 +9220,8 @@ create_task_copyfn (gimple task_stmt, omp_context *ctx)
       case OMP_CLAUSE_INPUT:
       case OMP_CLAUSE_OUTPUT:
 	{
-	  stream str = lookup_stream (OMP_CLAUSE_DECL (c));
+	  /* FIXME: add copy-constructor for view/burst.  */
+	  stream_p str = lookup_stream (OMP_CLAUSE_DECL (c));
 	  n = splay_tree_lookup (ctx->field_map, (splay_tree_key) str->stream);
 	  f = (tree) n->value;
 	  if (tcctx.cb.decl_map)
@@ -8252,7 +9285,8 @@ create_task_copyfn (gimple task_stmt, omp_context *ctx)
 	  tree ind, ptr, df;
 
 	  decl = OMP_CLAUSE_DECL (c);
-	  if (!is_variable_sized (decl))
+	  if (!is_variable_sized (decl)
+	      || OMP_CLAUSE_VIEW_VAR_KIND (c) == OMP_CLAUSE_VIEW_VAR_DISCARD)
 	    continue;
 	  n = splay_tree_lookup (ctx->field_map, (splay_tree_key) decl);
 	  if (n == NULL)
@@ -8337,15 +9371,12 @@ lower_omp_taskreg (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   par_ilist = NULL;
   lower_rec_input_clauses (clauses, &par_ilist, &par_olist, ctx);
 
-  if (gimple_code (stmt) == GIMPLE_OMP_TASK)
-    {
-      if (par_ilist)
-	for (gsi = gsi_start (par_ilist); !gsi_end_p (gsi); gsi_next (&gsi))
-	  set_stmt_loc_if_none (gsi_stmt (gsi), SL_COPY_IN);
-      if (par_olist)
-	for (gsi = gsi_start (par_olist); !gsi_end_p (gsi); gsi_next (&gsi))
-	  set_stmt_loc_if_none (gsi_stmt (gsi), SL_COPY_OUT);
-    }
+  if (par_ilist)
+    for (gsi = gsi_start (par_ilist); !gsi_end_p (gsi); gsi_next (&gsi))
+      set_stmt_loc_if_none (gsi_stmt (gsi), SL_COPY_IN);
+  if (par_olist)
+    for (gsi = gsi_start (par_olist); !gsi_end_p (gsi); gsi_next (&gsi))
+      set_stmt_loc_if_none (gsi_stmt (gsi), SL_COPY_OUT);
 
   lower_omp (par_body, ctx);
   if (gimple_code (stmt) == GIMPLE_OMP_PARALLEL)
@@ -8370,15 +9401,12 @@ lower_omp_taskreg (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   lower_send_clauses (clauses, &ilist, &olist, ctx);
   lower_send_shared_vars (&ilist, &olist, ctx);
 
-  if (gimple_code (stmt) == GIMPLE_OMP_TASK)
-    {
-      if (ilist)
-	for (gsi = gsi_start (ilist); !gsi_end_p (gsi); gsi_next (&gsi))
-	  set_stmt_loc_if_none (gsi_stmt (gsi), SL_COPY_IN);
-      if (olist)
-	for (gsi = gsi_start (olist); !gsi_end_p (gsi); gsi_next (&gsi))
-	  set_stmt_loc_if_none (gsi_stmt (gsi), SL_COPY_OUT);
-    }
+  if (ilist)
+    for (gsi = gsi_start (ilist); !gsi_end_p (gsi); gsi_next (&gsi))
+      set_stmt_loc_if_none (gsi_stmt (gsi), SL_COPY_IN);
+  if (olist)
+    for (gsi = gsi_start (olist); !gsi_end_p (gsi); gsi_next (&gsi))
+      set_stmt_loc_if_none (gsi_stmt (gsi), SL_COPY_OUT);
 
   /* Once all the expansions are done, sequence all the different
      fragments inside gimple_omp_body.  */
@@ -8548,7 +9576,7 @@ lower_omp (gimple_seq body, omp_context *ctx)
     lower_omp_1 (&gsi, ctx);
   input_location = saved_location;
 }
-
+
 /* Main entry point.  */
 
 static unsigned int
@@ -8610,7 +9638,7 @@ struct gimple_opt_pass pass_lower_omp =
   TODO_dump_func			/* todo_flags_finish */
  }
 };
-
+
 /* The following is a utility to diagnose OpenMP structured block violations.
    It is not part of the "omplower" pass, as that's invoked too late.  It
    should be invoked by the respective front ends after gimplification.  */
