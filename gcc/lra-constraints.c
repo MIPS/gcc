@@ -1986,8 +1986,8 @@ base_plus_disp_to_reg (enum machine_mode mode, struct address *ad)
    and ADDR_LOC if it is necessary.  Return true if a substitution was
    made.  */
 static bool
-address_substitution (struct address *ad, rtx *addr_loc,
-		      enum machine_mode mode, enum rtx_code code)
+equiv_address_substitution (struct address *ad, rtx *addr_loc,
+			    enum machine_mode mode, enum rtx_code code)
 {
   rtx base_reg, new_base_reg, index_reg, new_index_reg;
   HOST_WIDE_INT disp, scale;
@@ -2128,7 +2128,7 @@ process_address (int nop, rtx *before, rtx *after)
     addr_loc = &XEXP (*addr_loc, 0);
   extract_address_regs (mode, addr_loc, code, &ad);
   saved_base_reg = saved_base_reg2 = saved_index_reg = NULL_RTX;
-  change_p = address_substitution (&ad, addr_loc, mode, code);
+  change_p = equiv_address_substitution (&ad, addr_loc, mode, code);
   if (ad.base_reg_loc != NULL)
     {
       if (process_addr_reg (ad.base_reg_loc, before,

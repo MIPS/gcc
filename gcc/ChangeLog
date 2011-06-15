@@ -1,3 +1,16 @@
+2011-06-15  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-assigns.c (live_pseudos_reg_renumber): New array.
+	(init_lives): Initialize the array.
+	(finish_lives): Free the array.
+	(update_lives): Update live_pseudos_reg_renumber.
+	(find_hard_regno_for): Use more bitmap_set_bit or bitmap_ior_into.
+	(spill_for): Ditto.
+	(setup_live_pseudos_and_spill_after_equiv): Ditto.
+
+	* lra-constraints.c (address_substitution): Rename to
+	equiv_address_substitution.
+
 2011-06-09  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra-spills.c: Don't include toplev.h.
